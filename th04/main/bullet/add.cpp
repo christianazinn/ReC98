@@ -417,10 +417,6 @@ void near bullet_template_speedtune_for_playperf(void)
 		speed = to_sp8(0.5f);
 	}
 	bullet_template.speed.v = speed;
-	_asm {
-		nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;
-		nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;
-	}
 }
 
 unsigned char pascal near bullet_patnum_for_angle(unsigned char angle)
@@ -435,6 +431,17 @@ unsigned char pascal near bullet_patnum_for_angle(unsigned char angle)
 
 bool near bullet_template_clip(void)
 {
+	// Mod: Guard against the possible division by 0 for these group types by
+	// turning 0-way rings into "1-rings", i.e., single bullets. This works
+	// around the crash during Kurumi when playing on Easy and with minimum
+	// rank.
+	if((bullet_template.count == 0) && (
+		(bullet_template.group == BG_RING) ||
+		(bullet_template.group == BG_RING_AIMED)
+	)) {
+		bullet_template.count++;
+	}
+
 	if(
 		(bullet_clear_time > 0) &&
 		// If a newly spawned bullet wouldn't fully decay during the remaining
