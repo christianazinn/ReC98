@@ -25171,7 +25171,7 @@ loc_1AB7B:
 		call	egc_off
 		mov	bx, [bp+var_A]
 		mov	al, [bx+0Eh]
-		add	al, 0F8h
+		add	al, -8
 		sub	al, [bx+1]
 		mov	[bp+var_7], al
 		cmp	[bp+var_7], 10h
@@ -25335,7 +25335,7 @@ loc_1ACCF:
 		mov	_sprite16_put_h, 8
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	[bp+var_2], ax
 		mov	bx, [bp+var_A]
 		mov	ax, [bp+var_6]
@@ -25351,7 +25351,7 @@ loc_1AD1A:
 		push	di
 		push	si
 		mov	ax, [bp+var_2]
-		add	ax, 502h
+		add	ax, ((16 * ROW_SIZE) + (16 / BYTE_DOTS))
 		push	ax
 
 loc_1AD23:
@@ -25374,7 +25374,7 @@ loc_1AD23:
 		push	di
 		push	ax
 		mov	ax, [bp+var_2]
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		jmp	short loc_1AD5F
 ; ---------------------------------------------------------------------------
 
@@ -25382,7 +25382,7 @@ loc_1AD57:
 		push	di
 		push	si
 		mov	ax, [bp+var_2]
-		add	ax, 502h
+		add	ax, ((16 * ROW_SIZE) + (16 / BYTE_DOTS))
 
 loc_1AD5F:
 		push	ax
@@ -25408,7 +25408,7 @@ loc_1AD93:
 		push	[bp+var_4]
 		push	[bp+var_6]
 		mov	ax, [bp+var_2]
-		add	ax, 500h
+		add	ax, (16 * ROW_SIZE)
 		push	ax
 
 loc_1ADA0:
@@ -25431,7 +25431,7 @@ loc_1ADC5:
 		push	[bp+var_4]
 		push	[bp+var_6]
 		mov	ax, [bp+var_2]
-		add	ax, 500h
+		add	ax, (16 * ROW_SIZE)
 
 loc_1ADD1:
 		push	ax
@@ -25494,7 +25494,7 @@ public @exatt_update_yumemi$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -25636,7 +25636,7 @@ public @exatt_render_yumemi$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	word_2028A, ax
 		xor	si, si
 		jmp	short loc_1AF9A
@@ -25678,7 +25678,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1AFFB
@@ -25690,10 +25690,10 @@ loc_1AFB8:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	100h
+		push	(16 shl 4)
 		push	[bp+arg_0]
 		push	64h ; 'd'
 		call	sub_1A1ED
@@ -25740,7 +25740,7 @@ arg_4		= word ptr  0Ah
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	dx, dx
 		jmp	short loc_1B050
@@ -25824,11 +25824,11 @@ loc_1B0AD:
 		jnz	short loc_1B0E2
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 780h
+		add	ax, (24 * ROW_SIZE)
 		mov	di, ax
 		test	byte ptr [bp+var_5], 1
 		jz	short loc_1B0CC
-		add	di, 780h
+		add	di, (24 * ROW_SIZE)
 
 loc_1B0CC:
 		mov	ax, [bp+@@screen_x]
@@ -25884,7 +25884,7 @@ var_6		= byte ptr -6
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -26020,7 +26020,7 @@ public @exatt_render_rikako$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1B257
@@ -26062,7 +26062,7 @@ sub_1B260	proc far
 		push	bp
 		mov	bp, sp
 		push	si
-		mov	si, 1F5Ah
+		mov	si, offset chiyuri_chargeshot_nodes
 		xor	ax, ax
 		jmp	short loc_1B26F
 ; ---------------------------------------------------------------------------
@@ -26095,7 +26095,7 @@ chargeshot_add_chiyuri	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		imul	ax, 30h
-		add	ax, 1F5Ah
+		add	ax, offset chiyuri_chargeshot_nodes
 		mov	si, ax
 		mov	byte ptr [si+1], 0
 		mov	ax, [bp+@@center_x]
@@ -26140,7 +26140,7 @@ chargeshot_update_chiyuri	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 30h
-		add	ax, 1F84h
+		add	ax, (offset chiyuri_chargeshot_nodes + (7 * 6))
 		mov	si, ax
 		cmp	byte ptr [si], 0
 		jz	loc_1B35B
@@ -26178,7 +26178,7 @@ loc_1B2EF:
 ; ---------------------------------------------------------------------------
 
 loc_1B32B:
-		sub	word ptr [si+4], 0E0h
+		sub	word ptr [si+4], (14 shl 4)
 		cmp	word ptr [si+4], 0FD00h
 		jge	short loc_1B34F
 		or	di, di
@@ -26226,7 +26226,7 @@ chiyuri_chargeshot_1B35F	proc near
 		push	si
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	si, ax
 		mov	bx, word_1F51A
 		test	byte ptr [bx+1], 1
@@ -26268,7 +26268,7 @@ var_1		= byte ptr -1
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		imul	ax, 30h
-		add	ax, 1F84h
+		add	ax, (offset chiyuri_chargeshot_nodes + (7 * 6))
 		mov	si, ax
 		xor	di, di
 		mov	[bp+var_1], 0
@@ -26332,7 +26332,7 @@ chargeshot_render_chiyuri	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 30h
-		add	ax, 1F84h
+		add	ax, (offset chiyuri_chargeshot_nodes + (7 * 6))
 		mov	word_1F51A, ax
 		mov	_sprite16_put_w, (32 / 16)
 		mov	_sprite16_put_h, 24
@@ -29669,7 +29669,9 @@ byte_1F3A5	db ?
 		db 10 dup(?)
 word_1F3B0	dw ?
 include th02/math/randring[bss].asm
-		db 102 dup(?)
+		db 6 dup(?)
+chiyuri_chargeshot_nodes label byte
+		db 96 dup(?)
 word_1F51A	dw ?
 
 public _enemy_formation_type, _enemy_formation_i, _enedat_2, _enemy_speed
