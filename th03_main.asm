@@ -26403,7 +26403,7 @@ loc_1B4A3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+1F58h], 0
+		mov	byte ptr chiyuri_gauge_pattern_frames[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -26422,12 +26422,12 @@ loc_1B4A3:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+1F54h], 0FE80h
+		mov	word ptr chiyuri_gauge_pattern_x[bx], 0FE80h
 		jmp	loc_1B61E
 ; ---------------------------------------------------------------------------
 
@@ -26446,14 +26446,14 @@ loc_1B502:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	si, [bx+1F54h]
+		mov	si, chiyuri_gauge_pattern_x[bx]
 		mov	al, 1
 		sub	al, _pid_current
 		mov	[bp+@@pid_other], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+1F58h]
+		mov	al, chiyuri_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	bx, 10h
 		cwd
@@ -26464,7 +26464,7 @@ loc_1B502:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		add	word ptr [bx+1F54h], 180h
+		add	word ptr chiyuri_gauge_pattern_x[bx], (24 shl 4)
 		add	si, (24 shl 4)
 		push	si
 		push	0
@@ -26472,7 +26472,7 @@ loc_1B502:
 		mov	ah, 0
 		push	ax
 		call	sub_CE0C
-		mov	ax, 1200h
+		mov	ax, (PLAYFIELD_W shl 4)
 		sub	ax, si
 		push	ax
 		push	0
@@ -26485,7 +26485,7 @@ loc_1B57C:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		test	byte ptr [bx+1F58h], 1
+		test	byte ptr chiyuri_gauge_pattern_frames[bx], 1
 		jz	short loc_1B5E3
 		mov	al, [bp+@@type]
 		mov	_bullet_template.BT_type, al
@@ -26494,7 +26494,7 @@ loc_1B57C:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+1F58h]
+		mov	al, chiyuri_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	bx, 10h
 		cwd
@@ -26518,16 +26518,16 @@ loc_1B5E3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+1F58h]
+		inc	byte ptr chiyuri_gauge_pattern_frames[bx]
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+1F58h]
+		mov	al, chiyuri_gauge_pattern_frames[bx]
 		mov	dl, _pid_current
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		cmp	al, [bx+2D58h]
+		cmp	al, byte_202B8[bx]
 		jb	short loc_1B61E
 		mov	al, _pid_current
 		mov	ah, 0
@@ -26599,7 +26599,7 @@ main_08_TEXT	segment	byte public 'CODE' use16
 sub_1B653	proc far
 		push	bp
 		mov	bp, sp
-		mov	word_1F868, 2008h
+		mov	word_1F868, offset ellen_chargeshot_nodes
 		xor	ax, ax
 		jmp	short loc_1B66D
 ; ---------------------------------------------------------------------------
@@ -26631,8 +26631,8 @@ var_2		= word ptr -2
 		enter	2, 0
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		mov	[bp+var_2], 0
 		jmp	short loc_1B6C0
@@ -26676,8 +26676,8 @@ arg_2		= word ptr  8
 		push	si
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		xor	si, si
 		jmp	short loc_1B719
@@ -26732,8 +26732,8 @@ var_2		= word ptr -2
 		push	si
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		xor	si, si
 		jmp	short loc_1B74A
@@ -26755,8 +26755,8 @@ loc_1B74A:
 loc_1B752:
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		push	word ptr _pid_current
 		call	sub_16983
@@ -26948,8 +26948,8 @@ var_1		= byte ptr -1
 		mov	[bp+var_1], 0
 		mov	al, _hitbox_pid
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		xor	si, si
 		jmp	short loc_1B96E
@@ -27006,8 +27006,8 @@ chargeshot_render_ellen	proc far
 		push	si
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2008h
+		imul	ax, (32 * 12)
+		add	ax, offset ellen_chargeshot_nodes
 		mov	word_1F868, ax
 		mov	_sprite16_put_w, (16 / 16)
 		mov	_sprite16_put_h, 8
@@ -29667,7 +29667,8 @@ byte_1F3A5	db ?
 		db 10 dup(?)
 word_1F3B0	dw ?
 include th02/math/randring[bss].asm
-		db 6 dup(?)
+chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
+chiyuri_gauge_pattern_frames db PLAYER_COUNT dup(?)
 chiyuri_chargeshot_nodes label byte
 		db 96 dup(?)
 word_1F51A	dw ?
@@ -29692,7 +29693,9 @@ _formation_pos_type_ring	dw ?
 _formation_p            	db PLAYER_COUNT dup(?)
 _formation_count        	db ?
 
-		db 779 dup(?)
+		db 11 dup(?)
+ellen_chargeshot_nodes label byte
+		db (PLAYER_COUNT * 32 * 12) dup(?)
 word_1F868	dw ?
 ellen_exatt_refs label byte
 		db 720 dup(?)
