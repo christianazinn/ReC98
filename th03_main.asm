@@ -19083,7 +19083,7 @@ chargeshot_add_yumemi	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		imul	ax, 6
-		add	ax, 4B80h
+		add	ax, offset yumemi_chargeshots
 		mov	si, ax
 		mov	byte ptr [si], 1
 		mov	byte ptr [si+1], 0
@@ -19110,7 +19110,7 @@ var_1		= byte ptr -1
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 6
-		add	ax, 4B80h
+		add	ax, offset yumemi_chargeshots
 		mov	si, ax
 		cmp	byte ptr [si], 0
 		jz	short loc_16B09
@@ -19175,7 +19175,7 @@ public @chargeshot_hittest_yumemi$qv
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		imul	ax, 6
-		add	ax, 4B80h
+		add	ax, offset yumemi_chargeshots
 		mov	si, ax
 		cmp	byte ptr [si], 0
 		jz	loc_16BB0
@@ -19262,7 +19262,7 @@ arg_0		= byte ptr  4
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 6
-		add	ax, 4B80h
+		add	ax, offset yumemi_chargeshots
 		mov	si, ax
 		mov	al, [si+1]
 		mov	[bp+var_9], al
@@ -19334,7 +19334,7 @@ var_5		= byte ptr -5
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 6
-		add	ax, 4B80h
+		add	ax, offset yumemi_chargeshots
 		mov	di, ax
 		cmp	byte ptr [di], 0
 		jz	loc_16DC4
@@ -19354,7 +19354,7 @@ loc_16C9F:
 loc_16CAB:
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 0C80h
+		add	ax, (40 * ROW_SIZE)
 		mov	si, ax
 		mov	al, [di+1]
 		mov	[bp+var_5], al
@@ -19380,7 +19380,7 @@ loc_16CC4:
 ; ---------------------------------------------------------------------------
 
 loc_16CF3:
-		add	si, 500h
+		add	si, (16 * ROW_SIZE)
 		cmp	[bp+var_5], 8
 		jnb	short loc_16D06
 		push	si
@@ -19449,7 +19449,7 @@ loc_16D6C:
 		shl	ax, 3
 		shl	ax, 4
 		push	ax
-		push	0E0h
+		push	224
 		jmp	short loc_16DC1
 ; ---------------------------------------------------------------------------
 
@@ -19474,7 +19474,7 @@ loc_16D78:
 		shl	ax, 3
 		shl	ax, 4
 		push	ax
-		push	0E0h
+		push	224
 		call	yumemi_chargeshot_16BB5
 
 loc_16DAF:
@@ -19531,7 +19531,7 @@ loc_16DE0:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B7Eh], 0
+		mov	byte ptr byte_220DE[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -19545,7 +19545,7 @@ loc_16DE0:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -19555,7 +19555,7 @@ loc_16DE0:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		jmp	loc_16F9A
 ; ---------------------------------------------------------------------------
 
@@ -19576,7 +19576,7 @@ loc_16E42:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+4B7Eh]
+		mov	al, byte_220DE[bx]
 		mov	ah, 0
 		mov	bx, 8
 		cwd
@@ -19589,7 +19589,7 @@ loc_16E42:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D59h]
+		mov	al, byte_202B9[bx]
 		mov	_bullet_template.BT_speed, al
 		mov	al, [bp+@@pid_other]
 		mov	_bullet_template.BT_pid, al
@@ -19599,12 +19599,12 @@ loc_16E42:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+4B7Eh]
+		mov	al, byte_220DE[bx]
 		mov	ah, 0
 		mov	[bp+var_4], ax
 		mov	cx, 8		; switch 8 cases
@@ -19623,35 +19623,35 @@ loc_16EDB:
 		jmp	word ptr cs:[bx+10h] ; switch jump
 
 loc_16EDF:
-		mov	si, 900h	; jumptable 00016EDB case 0
-		mov	di, 200h
+		mov	si, (144 shl 4)	; jumptable 00016EDB case 0
+		mov	di, (32 shl 4)
 		jmp	short loc_16F61	; default
 ; ---------------------------------------------------------------------------
 
 loc_16EE7:
-		mov	si, 600h	; jumptable 00016EDB case 8
-		mov	di, 500h
+		mov	si, (96 shl 4)	; jumptable 00016EDB case 8
+		mov	di, (80 shl 4)
 		jmp	short loc_16F61	; default
 ; ---------------------------------------------------------------------------
 
 loc_16EEF:
-		mov	si, 0C00h	; jumptable 00016EDB case 16
-		mov	di, 500h
+		mov	si, (192 shl 4)	; jumptable 00016EDB case 16
+		mov	di, (80 shl 4)
 		mov	_bullet_template.BT_center.x, (144 shl 4)
 		mov	_bullet_template.BT_center.y, (32 shl 4)
 		jmp	short loc_16F61	; default
 ; ---------------------------------------------------------------------------
 
 loc_16F03:
-		mov	si, 600h	; jumptable 00016EDB case 24
-		mov	di, 380h
+		mov	si, (96 shl 4)	; jumptable 00016EDB case 24
+		mov	di, (56 shl 4)
 		mov	_bullet_template.BT_center.x, (96 shl 4)
 		jmp	short loc_16F1D
 ; ---------------------------------------------------------------------------
 
 loc_16F11:
-		mov	si, 0C00h	; jumptable 00016EDB case 32
-		mov	di, 380h
+		mov	si, (192 shl 4)	; jumptable 00016EDB case 32
+		mov	di, (56 shl 4)
 		mov	_bullet_template.BT_center.x, (192 shl 4)
 
 loc_16F1D:
@@ -19660,8 +19660,8 @@ loc_16F1D:
 ; ---------------------------------------------------------------------------
 
 loc_16F25:
-		mov	si, 900h	; jumptable 00016EDB case 40
-		mov	di, 680h
+		mov	si, (144 shl 4)	; jumptable 00016EDB case 40
+		mov	di, (104 shl 4)
 		mov	_bullet_template.BT_center.x, (96 shl 4)
 
 loc_16F31:
@@ -19688,7 +19688,7 @@ loc_16F61:
 		mov	al, _pid_current	; default
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B7Eh], 28h ; '('
+		cmp	byte ptr byte_220DE[bx], 28h ; '('
 		ja	short loc_16F7C
 		push	si
 		push	di
@@ -19701,7 +19701,7 @@ loc_16F7C:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B7Eh], 10h
+		cmp	byte ptr byte_220DE[bx], 10h
 		jb	short loc_16F8F
 		nopcall	@bullets_add$qv
 
@@ -19709,7 +19709,7 @@ loc_16F8F:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+4B7Eh]
+		inc	byte ptr byte_220DE[bx]
 
 loc_16F9A:
 		pop	di
@@ -29990,7 +29990,9 @@ EXTENDS_DISABLE = 255
 
 public _extends_gained
 _extends_gained	db ?
-		db 3 dup(?)
+		db ?
+byte_220DE	db PLAYER_COUNT dup(?)
+yumemi_chargeshots label byte
 byte_220E0	db ?
 		db 5 dup(?)
 byte_220E6	db ?
