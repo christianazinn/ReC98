@@ -22201,7 +22201,7 @@ loc_1956B:
 		mov	_sprite16_put_h, 16
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 28Ch
+		add	ax, ((8 * ROW_SIZE) + (96 / BYTE_DOTS))
 		mov	di, ax
 		mov	si, 6
 		jmp	short loc_195E9
@@ -22286,8 +22286,8 @@ var_2		= word ptr -2
 		push	di
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 168h
-		add	ax, 230Ah
+		imul	ax, (12 * 30)
+		add	ax, offset ellen_exatt_refs
 		mov	di, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -22487,8 +22487,8 @@ public @exatt_render_ellen$qv
 		push	di
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 168h
-		add	ax, 230Ah
+		imul	ax, (12 * 30)
+		add	ax, offset ellen_exatt_refs
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1981C
@@ -22529,13 +22529,13 @@ arg_4		= word ptr  0Ah
 		enter	2, 0
 		push	si
 		push	di
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		mov	[bp+var_2], ax
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1988B
@@ -22548,7 +22548,7 @@ loc_19847:
 		push	[bp+arg_4]
 		push	[bp+arg_2]
 		push	[bp+var_2]
-		push	800h
+		push	(128 shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
 		push	[bp+arg_0]
@@ -22558,7 +22558,7 @@ loc_19847:
 		call	@randring_far_next16_and$qui
 		sub	al, 0Fh
 		mov	[si+12h], al
-		cmp	[bp+var_2], 900h
+		cmp	[bp+var_2], (144 shl 4)
 		jl	short loc_19890
 		mov	al, [si+12h]
 		add	al, 80h
@@ -22598,7 +22598,7 @@ arg_4		= word ptr  0Ah
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	dx, dx
 		jmp	short loc_198D3
@@ -22681,7 +22681,7 @@ loc_1992A:
 		mov	_sprite16_put_h, 16
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 284h
+		add	ax, ((8 * ROW_SIZE) + (32 / BYTE_DOTS))
 		mov	di, ax
 		mov	al, byte ptr [bp+var_5]
 		mov	ah, 0
@@ -22744,7 +22744,7 @@ public @exatt_update_kana$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -22857,7 +22857,7 @@ public @exatt_render_kana$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_19AB3
@@ -22900,7 +22900,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_19AFB
@@ -22912,10 +22912,10 @@ loc_19AD2:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	1700h
+		push	(368 shl 4)
 		push	[bp+arg_0]
 		push	6Eh ; 'n'
 		call	sub_1A1ED
@@ -22956,7 +22956,7 @@ arg_4		= word ptr  0Ah
 		mov	dx, 1
 		sub	dx, ax
 		shl	dx, 9
-		add	dx, 292Ah
+		add	dx, offset exatt_buffers
 		mov	si, dx
 		xor	cx, cx
 		jmp	short loc_19B45
@@ -23126,7 +23126,7 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		mov	[bp+var_2], 0
 		jmp	loc_19D25
@@ -23139,7 +23139,7 @@ loc_19C57:
 		jnz	short loc_19CD8
 		cmp	byte ptr [si+1], 30h ; '0'
 		jnb	short loc_19C80
-		sub	word ptr [si+4], 100h
+		sub	word ptr [si+4], (16 shl 4)
 		cmp	word ptr [si+4], 0FF00h
 		jge	short loc_19C8C
 		mov	byte ptr [si+1], 30h ; '0'
@@ -23163,7 +23163,7 @@ loc_19C8C:
 		xor	di, di
 
 loc_19C9B:
-		mov	ax, 1700h
+		mov	ax, (368 shl 4)
 		sub	ax, di
 		mov	[bp+var_4], ax
 		cmp	byte ptr [si+1], 64h ; 'd'
@@ -23195,7 +23195,7 @@ loc_19CD8:
 		call	sub_1A1A7
 		or	al, al
 		jz	short loc_19D1C
-		mov	word ptr [si+4], 1700h
+		mov	word ptr [si+4], (368 shl 4)
 		jmp	short loc_19D1F
 ; ---------------------------------------------------------------------------
 
@@ -23206,7 +23206,7 @@ loc_19CEF:
 		cmp	byte ptr [si], 0Ch
 		jnz	short loc_19D1C
 		push	word ptr [si+2]
-		push	1820h
+		push	(386 shl 4)
 		mov	al, [si+10h]
 		mov	ah, 0
 		push	ax
@@ -23248,7 +23248,7 @@ public @exatt_render_marisa$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_19D57
@@ -23291,7 +23291,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_19DC8
@@ -23303,18 +23303,18 @@ loc_19D76:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	400h
+		push	(64 shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
 		push	[bp+arg_0]
 		push	5Ah ; 'Z'
 		call	sub_1A1ED
-		push	0FFFh
+		push	4095
 		call	@randring_far_next16_and$qui
-		add	ax, 600h
+		add	ax, (96 shl 4)
 		mov	[si+0Eh], ax
 		push	1Fh
 		call	@randring_far_next16_and$qui
@@ -23362,7 +23362,7 @@ arg_2		= word ptr  8
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 2A2Ah
+		add	ax, (offset exatt_buffers + 256)
 		mov	si, ax
 		cmp	byte ptr [si], 0
 		jz	short loc_19DFA
@@ -23419,11 +23419,11 @@ var_5		= word ptr -5
 		jnz	short loc_19ED6
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	di, ax
 		mov	ax, [si+0Eh]
 		sub	ax, [si+4]
-		cmp	ax, 600h
+		cmp	ax, (96 shl 4)
 		jg	short loc_19E91
 		mov	al, byte ptr [bp+var_5]
 		mov	ah, 0
@@ -23432,12 +23432,12 @@ var_5		= word ptr -5
 		idiv	bx
 		cmp	dx, 2
 		jge	short loc_19E91
-		add	di, 0A00h
+		add	di, (32 * ROW_SIZE)
 
 loc_19E91:
 		cmp	byte ptr [si+11h], 0
 		jnz	short loc_19EBC
-		add	di, 282h
+		add	di, ((8 * ROW_SIZE) + (16 / BYTE_DOTS))
 		mov	_sprite16_put_w, (32 / 16)
 		mov	_sprite16_put_h, 16
 		mov	ax, [bp+@@x]
