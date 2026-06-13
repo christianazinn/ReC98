@@ -27329,8 +27329,8 @@ main_09_TEXT	segment	byte public 'CODE' use16
 sub_1BC4D	proc far
 		push	bp
 		mov	bp, sp
-		mov	byte_1FD8E, 0
-		mov	byte_1FD8F, 0
+		mov	kana_chargeshot_state[0], 0
+		mov	kana_chargeshot_state[1], 0
 		pop	bp
 		retf
 sub_1BC4D	endp
@@ -27351,15 +27351,15 @@ chargeshot_add_kana	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+282Eh], 1
+		mov	byte ptr kana_chargeshot_state[bx], 1
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+2830h], 0
+		mov	byte ptr kana_chargeshot_frames[bx], 0
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 0D8h
-		add	ax, 267Ch
+		imul	ax, (4 * 54)
+		add	ax, offset kana_chargeshot_nodes
 		mov	si, ax
 		xor	cx, cx
 		jmp	short loc_1BCAF
@@ -27422,7 +27422,7 @@ var_6		= word ptr -6
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+282Eh], 0
+		cmp	byte ptr kana_chargeshot_state[bx], 0
 		jz	loc_1BDF4
 		mov	al, _pid_current
 		mov	ah, 0
@@ -27432,12 +27432,12 @@ var_6		= word ptr -6
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+282Eh]
+		mov	al, kana_chargeshot_state[bx]
 		mov	[bp+var_7], al
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 0D8h
-		add	ax, 267Ch
+		imul	ax, (4 * 54)
+		add	ax, offset kana_chargeshot_nodes
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1BD7B
@@ -27498,21 +27498,21 @@ loc_1BD7B:
 		jnz	short loc_1BDC8
 		sub	si, 36h	; '6'
 		mov	al, [si+34h]
-		add	al, 0FEh
+		add	al, -2
 		mov	[si+34h], al
-		sub	si, 0A2h
+		sub	si, (3 * 54)
 		mov	al, [si+34h]
 		add	al, 2
 		mov	[si+34h], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+2830h], 28h ; '('
+		cmp	byte ptr kana_chargeshot_frames[bx], 28h ; '('
 		jbe	short loc_1BDC8
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+282Eh], 2
+		mov	byte ptr kana_chargeshot_state[bx], 2
 		xor	di, di
 		jmp	short loc_1BDC3
 ; ---------------------------------------------------------------------------
@@ -27529,21 +27529,21 @@ loc_1BDC3:
 loc_1BDC8:
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 0D8h
-		add	ax, 267Ch
+		imul	ax, (4 * 54)
+		add	ax, offset kana_chargeshot_nodes
 		mov	si, ax
 		cmp	word ptr [si+32h], 0FF00h
 		jg	short loc_1BDE9
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+282Eh], 0
+		mov	byte ptr kana_chargeshot_state[bx], 0
 
 loc_1BDE9:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+2830h]
+		inc	byte ptr kana_chargeshot_frames[bx]
 
 loc_1BDF4:
 		pop	di
@@ -27567,7 +27567,7 @@ kana_chargeshot_1BDF8	proc near
 		push	di
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 1180h
+		add	ax, (56 * ROW_SIZE)
 		mov	di, ax
 		mov	si, 0Ch
 		jmp	short loc_1BE4A
@@ -27592,7 +27592,7 @@ loc_1BE0D:
 		mov	[bp+@@top], ax
 		call	sprite16_put pascal, [bp+@@left], ax, di
 		sub	si, 4
-		sub	di, 500h
+		sub	di, (16 * ROW_SIZE)
 
 loc_1BE4A:
 		or	si, si
@@ -27618,12 +27618,12 @@ var_2		= word ptr -2
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+282Eh], 0
+		cmp	byte ptr kana_chargeshot_state[bx], 0
 		jz	loc_1BEED
 		mov	al, _hitbox_pid
 		mov	ah, 0
-		imul	ax, 0D8h
-		add	ax, 267Ch
+		imul	ax, (4 * 54)
+		add	ax, offset kana_chargeshot_nodes
 		mov	di, ax
 		mov	[bp+var_2], 0
 		jmp	short loc_1BEE7
@@ -27708,12 +27708,12 @@ chargeshot_render_kana	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+282Eh], 0
+		cmp	byte ptr kana_chargeshot_state[bx], 0
 		jz	short loc_1BF5F
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 0D8h
-		add	ax, 267Ch
+		imul	ax, (4 * 54)
+		add	ax, offset kana_chargeshot_nodes
 		mov	word_1FD8C, ax
 		mov	_sprite16_put_w, (32 / 16)
 		mov	_sprite16_put_h, 16
@@ -29721,11 +29721,12 @@ word_1FBCE	dw ?
 word_1FBD0	dw ?
 word_1FBD2	dw ?
 angle_1FBD4	db ?
-		db 439 dup(?)
+		db 7 dup(?)
+kana_chargeshot_nodes label byte
+		db (PLAYER_COUNT * 4 * 54) dup(?)
 word_1FD8C	dw ?
-byte_1FD8E	db ?
-byte_1FD8F	db ?
-		db 2 dup(?)
+kana_chargeshot_state db PLAYER_COUNT dup(?)
+kana_chargeshot_frames db PLAYER_COUNT dup(?)
 
 hitcircle_t struct
 	HITCIRCLE_age    	db ?
