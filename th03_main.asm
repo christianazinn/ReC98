@@ -5563,7 +5563,7 @@ loc_D24B:
 		mov	[bp+var_3], 0
 
 loc_D24F:
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D254:
@@ -5595,7 +5595,7 @@ loc_D276:
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
 		mov	ax, 0A800h
 		mov	es, ax
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D2AB:
@@ -5638,7 +5638,7 @@ sub_D2E8	proc far
 		push	si
 		push	di
 		mov	angle_2142C, 40h
-		mov	si, 39CCh
+		mov	si, offset byte_20F2C
 		xor	di, di
 		jmp	short loc_D337
 ; ---------------------------------------------------------------------------
@@ -5697,7 +5697,7 @@ sub_D340	proc far
 		mov	ax, 0A800h
 		mov	es, ax
 		mov	angle_2142C, 40h
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D376:
@@ -5813,7 +5813,7 @@ loc_D45D:
 		mov	[bp+var_3], 0
 
 loc_D461:
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D466:
@@ -5845,7 +5845,7 @@ loc_D488:
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
 		mov	ax, 0A800h
 		mov	es, ax
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D4BD:
@@ -5904,7 +5904,7 @@ sub_D50E	proc near
 		add	si, ax
 		mov	ax, cx
 		sar	ax, 3
-		add	ax, 1E0h
+		add	ax, (6 * ROW_SIZE)
 		mov	di, ax
 
 loc_D524:
@@ -5927,7 +5927,7 @@ sub_D52E	proc near
 		mov	ax, 0A82Dh
 		mov	es, ax
 		assume es:nothing
-		mov	cx, 220h
+		mov	cx, 544
 		mov	bx, offset _score
 		add	bx, (PLAYER_COUNT * SCORE_DIGITS) - 1
 		mov	dh, (PLAYER_COUNT * SCORE_DIGITS)
@@ -5950,7 +5950,7 @@ loc_D554:
 		jnz	short loc_D54B
 		xor	ax, ax
 		call	sub_D50E
-		mov	cx, 0E0h
+		mov	cx, 224
 		jmp	short loc_D549
 ; ---------------------------------------------------------------------------
 
@@ -5983,7 +5983,7 @@ sub_D52E	endp
 
 sub_D5A2	proc far
 		xor	ax, ax
-		mov	bx, 3E2Eh
+		mov	bx, offset byte_2138E
 		mov	cx, 0Eh
 
 loc_D5AA:
@@ -6617,7 +6617,7 @@ loc_DB3C:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B9Ch], 4
+		mov	byte ptr byte_220FC[bx], 4
 		mov	di, 20h	; ' '
 
 loc_DB5D:
@@ -6641,14 +6641,14 @@ loc_DB77:
 		shr	dx, 4
 		cmp	ax, dx
 		jb	short loc_DB94
-		cmp	word ptr [si+1Ah], 0FF0h
+		cmp	word ptr [si+player_stuff_t.gauge_avail], GAUGE_MAX
 		jnz	short loc_DBDF
 
 loc_DB94:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B9Ch], 0
+		mov	byte ptr byte_220FC[bx], 0
 		mov	di, 20h	; ' '
 		mov	ax, [si+18h]
 		cmp	ax, [si+1Ah]
@@ -6656,7 +6656,7 @@ loc_DB94:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B9Ch], 4
+		mov	byte ptr byte_220FC[bx], 4
 		xor	di, di
 		inc	byte ptr [si+1Ch]
 		cmp	byte ptr [si+1Ch], 40h
@@ -6670,7 +6670,7 @@ loc_DBC8:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B9Ch], 4
+		mov	byte ptr byte_220FC[bx], 4
 		xor	di, di
 		jmp	short loc_DBDF
 ; ---------------------------------------------------------------------------
@@ -6694,7 +6694,7 @@ loc_DBFE:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B9Ch], 2
+		cmp	byte ptr byte_220FC[bx], 2
 		ja	short loc_DC54
 		cmp	byte ptr [si+1Eh], 0
 		jnz	short loc_DC54
@@ -6729,24 +6729,24 @@ loc_DC54:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B9Ch], 4
+		cmp	byte ptr byte_220FC[bx], 4
 		ja	loc_DD3C
 
 loc_DC64:
 		mov	ax, [si+18h]
 		mov	[bp+var_2], ax
-		cmp	[bp+var_2], 400h
+		cmp	[bp+var_2], (64 shl 4)
 		jl	loc_DD37
 		push	word ptr [si]
 		push	word ptr [si+2]
 		call	dword ptr [si+68h]
-		cmp	[bp+var_2], 800h
+		cmp	[bp+var_2], (128 shl 4)
 		jl	loc_DD2B
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
 		mov	_warning_flag[bx], WF_PORTRAIT
-		cmp	[bp+var_2], 0FF0h
+		cmp	[bp+var_2], GAUGE_MAX
 		jl	short loc_DCD3
 		mov	al, _gba_boss_launched_by
 		cmp	al, _pid_PID_current
@@ -6755,7 +6755,7 @@ loc_DC64:
 		mov	ah, 0
 		mov	bx, ax
 		mov	_gba_flag_next[bx], GBAF_BOSS
-		mov	word ptr [si+1Ah], 400h
+		mov	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
 		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
 		jnb	short loc_DCBC
 		inc	_gba_boss_level
@@ -6774,7 +6774,7 @@ loc_DCCE:
 ; ---------------------------------------------------------------------------
 
 loc_DCD3:
-		cmp	[bp+var_2], 0C00h
+		cmp	[bp+var_2], (192 shl 4)
 		jl	short loc_DCFE
 
 loc_DCDA:
@@ -6783,7 +6783,7 @@ loc_DCDA:
 		mov	ah, 0
 		mov	bx, ax
 		mov	_gba_flag_next[bx], GBAF_GAUGE_BULLET_INIT
-		sub	word ptr [si+1Ah], 800h
+		sub	word ptr [si+player_stuff_t.gauge_avail], (128 shl 4)
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
@@ -6798,7 +6798,7 @@ loc_DCFE:
 		mov	ah, 0
 		mov	bx, ax
 		mov	_gba_flag_next[bx], GBAF_GAUGE_PELLET_INIT
-		sub	word ptr [si+1Ah], 400h
+		sub	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
@@ -6839,13 +6839,13 @@ loc_DD5C:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B9Ch], 2
+		cmp	byte ptr byte_220FC[bx], 2
 		jbe	short loc_DD7B
 		call	sub_E737
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+4B9Ch], 0
+		mov	byte ptr byte_220FC[bx], 0
 		jmp	short loc_DD9A
 ; ---------------------------------------------------------------------------
 
@@ -6855,12 +6855,12 @@ loc_DD7B:
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+4B9Ch], 8
+		cmp	byte ptr byte_220FC[bx], 8
 		jnb	short loc_DD9A
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+4B9Ch]
+		inc	byte ptr byte_220FC[bx]
 
 loc_DD9A:
 		test	di, 10h
@@ -6875,7 +6875,7 @@ loc_DDA4:
 loc_DDAE:
 		cmp	byte ptr [si+1Eh], 0
 		jz	short loc_DDCE
-		cmp	word ptr [si+1Ah], 400h
+		cmp	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
 		jbe	short loc_DDC1
 		sub	word ptr [si+1Ah], 6
 		jmp	short loc_DDCA
@@ -6883,7 +6883,7 @@ loc_DDAE:
 
 loc_DDC1:
 		mov	byte ptr [si+1Eh], 0
-		mov	word ptr [si+1Ah], 400h
+		mov	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
 
 loc_DDCA:
 		mov	[bp+var_5], 1
@@ -7032,11 +7032,11 @@ loc_DEB2:
 		mov	al, [si+player_stuff_t.patnum_movement]
 		mov	ah, 0
 		shl	ax, 2
-		add	ax, 2844h
+		add	ax, ((128 * ROW_SIZE) + (544 / BYTE_DOTS))
 		mov	di, ax
 		cmp	_pid_PID_current, 0
 		jz	short loc_DF06
-		add	di, 0A00h
+		add	di, (32 * ROW_SIZE)
 
 loc_DF06:
 		call	sprite16_put pascal, [bp+@@left], [bp+@@top], di
@@ -7100,21 +7100,21 @@ loc_DF61:
 loc_DF7D:
 		cmp	word ptr [si+18h], 100h
 		jb	short loc_DFE3
-		cmp	word ptr [si+18h], 400h
+		cmp	word ptr [si+player_stuff_t.gauge_charged], (64 shl 4)
 		jnb	short loc_DF90
 		mov	di, 2Ch	; ','
 		jmp	short loc_DFAB
 ; ---------------------------------------------------------------------------
 
 loc_DF90:
-		cmp	word ptr [si+18h], 800h
+		cmp	word ptr [si+player_stuff_t.gauge_charged], (128 shl 4)
 		jnb	short loc_DF9C
 		mov	di, 30h	; '0'
 		jmp	short loc_DFAB
 ; ---------------------------------------------------------------------------
 
 loc_DF9C:
-		cmp	word ptr [si+18h], 0FF0h
+		cmp	word ptr [si+player_stuff_t.gauge_charged], GAUGE_MAX
 		jnb	short loc_DFA8
 		mov	di, 34h	; '4'
 		jmp	short loc_DFAB
@@ -7171,17 +7171,17 @@ arg_0		= word ptr  4
 		push	3Fh ; '?'
 		call	@randring1_next16_and$qui
 		mov	[si+12h], al
-		cmp	word ptr [si], 900h
+		cmp	word ptr [si+player_stuff_t.center.x], (144 shl 4)
 		jge	short loc_E01C
-		cmp	word ptr [si+2], 0B80h
+		cmp	word ptr [si+player_stuff_t.center.y], (184 shl 4)
 		jle	short loc_E032
 		mov	al, [si+12h]
-		add	al, 0C0h
+		add	al, 192
 		jmp	short loc_E02F
 ; ---------------------------------------------------------------------------
 
 loc_E01C:
-		cmp	word ptr [si+2], 0B80h
+		cmp	word ptr [si+player_stuff_t.center.y], (184 shl 4)
 		jge	short loc_E02A
 		mov	al, [si+12h]
 		add	al, 40h
@@ -29927,7 +29927,10 @@ byte_20F1E	db ?
 farfp_20F20	dd ?
 farfp_20F24	dd ?
 farfp_20F28	dd ?
-byte_20F2C	db 1280 dup(?)
+byte_20F2C label byte
+		db 1122 dup(?)
+byte_2138E	db 15 dup(?)
+		db 143 dup(?)
 angle_2142C	db ?
 		db ?
 word_2142E	dw ?
@@ -30032,7 +30035,9 @@ _collmap_stripe_tile_w	dw ?
 _collmap_tile_h	dw ?
 _collmap_bottomright	Point <?>
 _collmap_pid	db ?
-		db 5 dup(?)
+		db ?
+byte_220FC	db PLAYER_COUNT dup(?)
+		db 2 dup(?)
 _collmap	db (PLAYER_COUNT * COLLMAP_SIZE) dup(?)
 
 BOMB_FRAMES = 180
