@@ -7200,7 +7200,7 @@ loc_E036:
 		cmp	byte ptr [si+10h], 20h ; ' '
 		jbe	short loc_E06E
 		mov	al, [si+13h]
-		add	al, 0FEh
+		add	al, -2
 		mov	[si+13h], al
 		push	ss
 		lea	ax, [bp+@@vector_x]
@@ -7606,7 +7606,7 @@ loc_E5AC:
 		push	ax
 		call	sub_E35B
 		push	si
-		push	0A0h
+		push	160
 		mov	al, _defeat_boss_panics_fired
 		mov	ah, 0
 		push	ax
@@ -7615,7 +7615,7 @@ loc_E5AC:
 		cmp	es:[bx+resident_t.story_stage], 8
 		jnz	short loc_E602
 		push	si
-		push	0C0h
+		push	192
 		mov	al, byte_23DF9
 		mov	ah, 0
 		push	ax
@@ -7692,9 +7692,9 @@ loc_E6A7:
 loc_E6D6:
 		push	0Ch ; col
 		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+0B8h]
+		lea	ax, [si+184]
 		push	ax
-		push	0A0h
+		push	160
 		push	word_23DEE
 		push	0Ch
 		nopcall	sub_D668
@@ -7974,7 +7974,7 @@ loc_F26E:
 		call	@polar$qiii c, [bp+arg_2], [bp+@@length], _SinTable8[bx]
 		add	ax, -24
 		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, 1930h
+		call	sprite16_put pascal, [bp+@@left], ax, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
 		inc	si
 		mov	al, [bp+@@angle]
 		add	al, 10h
@@ -8017,7 +8017,7 @@ loc_F2D4:
 		add	sp, 6
 		add	ax, -24
 		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, 1930h
+		call	sprite16_put pascal, [bp+@@left], ax, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
 		inc	si
 		mov	al, [bp+@@angle]
 		add	al, 20h
@@ -8026,7 +8026,7 @@ loc_F2D4:
 loc_F32F:
 		cmp	si, 8
 		jl	short loc_F2D4
-		cmp	[bp+@@length], 0C8h
+		cmp	[bp+@@length], 200
 		jl	short loc_F34E
 		push	2560
 		mov	al, 1
@@ -8066,7 +8066,7 @@ sub_F356	proc near
 		mov	bx, ax
 		call	@polar$qiii c, large (16 shl 16) or 0, _SinTable8[bx]
 		mov	word_1F348, ax
-		cmp	word_1F33E, 300h
+		cmp	word_1F33E, (48 shl 4)
 		jg	short loc_F399
 		mov	word_1F346, 20h	; ' '
 		pop	bp
@@ -8074,7 +8074,7 @@ sub_F356	proc near
 ; ---------------------------------------------------------------------------
 
 loc_F399:
-		cmp	word_1F33E, 0F00h
+		cmp	word_1F33E, (240 shl 4)
 		jl	short loc_F3A7
 		mov	word_1F346, 0FFE0h
 
@@ -8094,14 +8094,14 @@ sub_F3A9	proc near
 		mov	ax, word_1F346
 		add	word_1F33E, ax
 		add	word_1F340, 20h	; ' '
-		cmp	word_1F33E, 300h
+		cmp	word_1F33E, (48 shl 4)
 		jg	short loc_F3C8
 		mov	word_1F346, 20h	; ' '
 		jmp	short loc_F3D6
 ; ---------------------------------------------------------------------------
 
 loc_F3C8:
-		cmp	word_1F33E, 0F00h
+		cmp	word_1F33E, (240 shl 4)
 		jl	short loc_F3D6
 		mov	word_1F346, 0FFE0h
 
@@ -8111,8 +8111,8 @@ loc_F3D6:
 		mov	bx, 1
 		sub	bx, ax
 		add	bx, bx
-		mov	word ptr [bx+1DCAh], 0
-		cmp	word_1F340, 1A00h
+		mov	word_1F32A[bx], 0
+		cmp	word_1F340, (416 shl 4)
 		jl	short loc_F400
 		mov	byte_1F34F, 0
 		mov	_gba_boss_launched_by, PID_NONE
@@ -8140,13 +8140,13 @@ sub_F402	proc near
 		jnz	loc_F4AE
 		cmp	_gba_boss_launched_by, PID_NONE
 		jnz	short loc_F481
-		mov	si, 1DFEh
+		mov	si, offset byte_1F35E
 		cmp	_pid_current, 1
 		jnz	short loc_F42B
 		add	si, 20h	; ' '
 
 loc_F42B:
-		mov	di, 1DDEh
+		mov	di, offset word_1F33E
 		mov	ax, ds
 		mov	es, ax
 		assume es:_DATA
@@ -8172,7 +8172,7 @@ loc_F42B:
 		mov	bx, 1
 		sub	bx, ax
 		add	bx, bx
-		mov	word ptr [bx+1DCAh], 1
+		mov	word_1F32A[bx], 1
 		mov	al, 1
 		jmp	short loc_F4B0
 ; ---------------------------------------------------------------------------
@@ -8190,7 +8190,7 @@ loc_F481:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+1DCAh], 0
+		mov	word_1F32A[bx], 0
 
 loc_F4AE:
 		mov	al, 0
@@ -8235,7 +8235,7 @@ loc_F4F6:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+1DCAh], 0
+		mov	word_1F32A[bx], 0
 		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
 		jnb	short locret_F510
 		inc	_gba_boss_level
@@ -8258,7 +8258,7 @@ sub_F512	proc near
 		mov	ax, word_1F33E
 		mov	word_1F326, ax
 		mov	ax, word_1F340
-		add	ax, 800h
+		add	ax, (128 shl 4)
 		mov	word_1F328, ax
 
 loc_F52B:
@@ -8353,10 +8353,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -8452,43 +8452,43 @@ marisa_F685	proc near
 		jb	locret_F72B
 		cmp	word_1F3B0, 40h
 		jnz	short loc_F6BA
-		push	801700h
+		push	large (((8 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	1180h
+		push	(280 shl 4)
 		jmp	short loc_F706
 ; ---------------------------------------------------------------------------
 
 loc_F6BA:
 		cmp	word_1F3B0, 50h	; 'P'
 		jnz	short loc_F6D4
-		push	3801700h
+		push	large (((56 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	0E80h
+		push	(232 shl 4)
 		jmp	short loc_F706
 ; ---------------------------------------------------------------------------
 
 loc_F6D4:
 		cmp	word_1F3B0, 60h
 		jnz	short loc_F6EE
-		push	6801700h
+		push	large (((104 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	0B80h
+		push	(184 shl 4)
 		jmp	short loc_F706
 ; ---------------------------------------------------------------------------
 
 loc_F6EE:
 		cmp	word_1F3B0, 70h	; 'p'
 		jnz	short loc_F713
-		push	9801700h
+		push	large (((152 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	880h
+		push	(136 shl 4)
 
 loc_F706:
-		push	1700h
+		push	(368 shl 4)
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
 		leave
@@ -8588,33 +8588,33 @@ marisa_F7BD	proc near
 		jb	short locret_F846
 		cmp	word_1F3B0, 40h
 		jnz	short loc_F7F0
-		push	2001700h
+		push	large (((32 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	1000h
+		push	(256 shl 4)
 		jmp	short loc_F822
 ; ---------------------------------------------------------------------------
 
 loc_F7F0:
 		cmp	word_1F3B0, 50h	; 'P'
 		jnz	short loc_F80A
-		push	5001700h
+		push	large (((80 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	0D00h
+		push	(208 shl 4)
 		jmp	short loc_F822
 ; ---------------------------------------------------------------------------
 
 loc_F80A:
 		cmp	word_1F3B0, 60h
 		jnz	short loc_F82F
-		push	8001700h
+		push	large (((128 shl 4) shl 16) or (368 shl 4))
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
-		push	0A00h
+		push	(160 shl 4)
 
 loc_F822:
-		push	1700h
+		push	(368 shl 4)
 		push	word ptr [bp+@@pid_other]
 		call	marisa_19B06
 		leave
@@ -29698,7 +29698,8 @@ byte_1F354	db ?
 byte_1F355	db ?
 word_1F356	dw ?
 byte_1F358	db ?
-		db 69 dup(?)
+		db 5 dup(?)
+byte_1F35E	db 64 dup(?)
 public _gba_boss_level
 _gba_boss_level	db ?
 byte_1F39F	db ?
