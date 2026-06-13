@@ -2492,7 +2492,7 @@ sub_B60A	proc near
 		mov	word_1FBC8, 303
 		mov	word_1FBCA, 382
 		mov	word_1FBCC, 10h
-		mov	word_1FBCE, 17Eh
+		mov	word_1FBCE, 382
 		mov	word_1FBD0, 10h
 		mov	word_1FBD2, 10h
 
@@ -2568,10 +2568,10 @@ loc_B67A:
 		sar	ax, 1
 		push	ax
 		call	grcg_triangle
-		add	si, 140h
+		add	si, 320
 
 loc_B706:
-		cmp	si, 140h
+		cmp	si, 320
 		jle	loc_B67A
 		inc	byte_1FBC2
 		cmp	byte_1FBC2, 10h
@@ -2621,7 +2621,7 @@ var_2		= word ptr -2
 		cmp	_hud_start_flag, HSF_INIT
 		jnz	short loc_BB86
 		mov	word_20CE8, 0
-		mov	word_20CE4, 3284h
+		mov	word_20CE4, offset byte_207E4
 		mov	di, 0FEE0h
 		mov	[bp+var_2], 54h	; 'T'
 		xor	si, si
@@ -2661,7 +2661,7 @@ loc_BB7B:
 loc_BB86:
 		cmp	byte_20CE6, 0
 		jnz	short loc_BBEC
-		mov	word_20CE4, 3284h
+		mov	word_20CE4, offset byte_207E4
 		xor	si, si
 		jmp	short loc_BBE4
 ; ---------------------------------------------------------------------------
@@ -2720,8 +2720,8 @@ loc_BBEC:
 loc_BC07:
 		cmp	byte_20CE6, 2
 		jnz	loc_BCDD
-		mov	word_20CE4, 3284h
-		mov	di, 600h
+		mov	word_20CE4, offset byte_207E4
+		mov	di, (96 shl 4)
 		xor	si, si
 		jmp	short loc_BC6E
 ; ---------------------------------------------------------------------------
@@ -2729,9 +2729,9 @@ loc_BC07:
 loc_BC1D:
 		mov	bx, word_20CE4
 		mov	[bx], di
-		push	1FFh
+		push	511
 		call	@randring1_next16_and$qui
-		add	ax, 0A80h
+		add	ax, (168 shl 4)
 		mov	bx, word_20CE4
 		mov	[bx+2],	ax
 		call	@randring1_next16$qv
@@ -2757,7 +2757,7 @@ loc_BC1D:
 loc_BC6E:
 		cmp	si, 40h
 		jl	short loc_BC1D
-		mov	di, 1A00h
+		mov	di, (416 shl 4)
 		xor	si, si
 		jmp	short loc_BCCB
 ; ---------------------------------------------------------------------------
@@ -2765,9 +2765,9 @@ loc_BC6E:
 loc_BC7A:
 		mov	bx, word_20CE4
 		mov	[bx], di
-		push	1FFh
+		push	511
 		call	@randring1_next16_and$qui
-		add	ax, 0A80h
+		add	ax, (168 shl 4)
 		mov	bx, word_20CE4
 		mov	[bx+2],	ax
 		call	@randring1_next16$qv
@@ -2807,7 +2807,7 @@ loc_BCDD:
 		inc	byte_20CE6
 
 loc_BCF5:
-		mov	word_20CE4, 3284h
+		mov	word_20CE4, offset byte_207E4
 		xor	si, si
 		jmp	loc_BDAF
 ; ---------------------------------------------------------------------------
@@ -2835,11 +2835,11 @@ loc_BD00:
 		add	[bx+2],	ax
 		cmp	word ptr [bx], 0
 		jl	short loc_BD70
-		cmp	word ptr [bx], 2700h
+		cmp	word ptr [bx], (624 shl 4)
 		jge	short loc_BD70
 		cmp	word ptr [bx+2], 0
 		jl	short loc_BD70
-		cmp	word ptr [bx+2], 1800h
+		cmp	word ptr [bx+2], (384 shl 4)
 		jl	short loc_BD7A
 
 loc_BD70:
@@ -2926,7 +2926,7 @@ arg_6		= word ptr  0Ah
 		mov	di, ax
 		mov	bx, [bp+arg_2]
 		shl	bx, 1
-		add	bx, 11FCh
+		add	bx, offset super_patdata
 		mov	ax, [bx]
 		mov	ds, ax
 		mov	ax, [bp+arg_0]
@@ -2938,7 +2938,7 @@ arg_6		= word ptr  0Ah
 loc_BE04:
 		cmp	[bp+arg_6], 0
 		jl	short loc_BE1A
-		cmp	[bp+arg_6], 270h
+		cmp	[bp+arg_6], 624
 		jge	short loc_BE23
 		xor	ah, ah
 		mov	al, [si]
@@ -2989,7 +2989,7 @@ arg_2		= word ptr  6
 		db 0e1h
 		db 007h
 		db 000h
-		mov	bx, 0C0h
+		mov	bx, 11000000b
 		ror	bx, cl
 		mov	es:[di], bx
 		pop	di
@@ -3011,7 +3011,7 @@ sub_BE5D	proc near
 		cmp	byte_20CE6, 0
 		jnz	loc_BF51
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	word_20CE4, 3284h
+		mov	word_20CE4, offset byte_207E4
 		xor	si, si
 		jmp	loc_BF41
 ; ---------------------------------------------------------------------------
@@ -3054,7 +3054,7 @@ loc_BE89:
 		push	si
 		call	sub_BDC2
 		mov	bx, word_20CE4
-		mov	ax, 220h
+		mov	ax, 544
 		sub	ax, [bx]
 		push	ax
 		push	word ptr [bx+2]
@@ -3064,7 +3064,7 @@ loc_BE89:
 		push	si
 		call	sub_BDC2
 		mov	bx, word_20CE4
-		mov	ax, 200h
+		mov	ax, 512
 		sub	ax, [bx]
 		push	ax
 		push	word ptr [bx+2]
@@ -3074,7 +3074,7 @@ loc_BE89:
 		push	si
 		call	sub_BDC2
 		mov	bx, word_20CE4
-		mov	ax, 1E0h
+		mov	ax, 480
 		sub	ax, [bx]
 		push	ax
 		push	word ptr [bx+2]
@@ -3084,7 +3084,7 @@ loc_BE89:
 		push	si
 		call	sub_BDC2
 		mov	bx, word_20CE4
-		mov	ax, 1C0h
+		mov	ax, 448
 		sub	ax, [bx]
 		push	ax
 		push	word ptr [bx+2]
@@ -3225,7 +3225,7 @@ loc_C08D:
 		mov	ax, 0A800h
 		mov	es, ax
 		assume es:nothing
-		mov	word_20CE4, 3284h
+		mov	word_20CE4, offset byte_207E4
 		xor	si, si
 		jmp	short loc_C0CA
 ; ---------------------------------------------------------------------------
@@ -3396,7 +3396,7 @@ arg_2		= byte ptr  6
 		mov	bx, ax
 		call	@polar$qiii c, word_20E40, word_20E42, _SinTable8[bx]
 		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, 34B4h
+		call	sprite16_put pascal, [bp+@@left], ax, ((168 * ROW_SIZE) + (416 / BYTE_DOTS))
 		leave
 		retn	4
 sub_C1E6	endp
@@ -3463,7 +3463,7 @@ loc_C299:
 loc_C2B5:
 		push	word ptr [bp+var_1]
 		mov	al, [bp+var_1]
-		add	al, 0E0h
+		add	al, 224
 		push	ax
 		call	sub_C1E6
 		inc	di
@@ -3571,9 +3571,9 @@ arg_4		= word ptr  8
 		mov	si, [bp+arg_0]
 		cmp	di, 0FF00h
 		jge	short loc_C3C0
-		cmp	cx, 0F00h
+		cmp	cx, (240 shl 4)
 		jl	short loc_C39D
-		cmp	si, 800h
+		cmp	si, (128 shl 4)
 		jl	short loc_C398
 		mov	bx, word_20E4A
 		mov	dx, [bx]
@@ -3586,7 +3586,7 @@ loc_C398:
 ; ---------------------------------------------------------------------------
 
 loc_C39D:
-		cmp	cx, 100h
+		cmp	cx, (16 shl 4)
 		jl	short loc_C3AC
 		mov	bx, word_20E4A
 		mov	dx, [bx+2]
@@ -3594,7 +3594,7 @@ loc_C39D:
 ; ---------------------------------------------------------------------------
 
 loc_C3AC:
-		cmp	si, 800h
+		cmp	si, (128 shl 4)
 		jl	short loc_C3BB
 		mov	bx, word_20E4A
 		mov	dx, [bx+4]
@@ -29855,6 +29855,7 @@ public _hud_start_flag, _round_id
 _hud_start_flag	db ?
 _round_id	db ?
 
+byte_207E4 label byte
 		db 150 dup(?)
 word_2087A	dw ?
 		db 1128 dup(?)
