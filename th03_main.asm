@@ -21056,7 +21056,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_18C04
 		add	bx, 28h	; '('
@@ -21099,7 +21099,7 @@ loc_18C04:
 		mov	al, [bp+@@frame]
 		mov	ah, 0
 		imul	ax, 48h
-		mov	dx, 11B8h
+		mov	dx, ((PLAYFIELD_W shl 4) - 72)
 		sub	dx, ax
 		mov	si, dx
 		mov	al, [bp+@@frame]
@@ -21174,13 +21174,13 @@ loc_18D13:
 		mov	ah, 0
 		push	ax
 		call	sub_CDBD
-		add	si, 600h
+		add	si, (96 shl 4)
 		inc	di
 
 loc_18D28:
-		cmp	si, 1200h
+		cmp	si, (PLAYFIELD_W shl 4)
 		jle	short loc_18D13
-		sub	word_1FE56, 2E0h
+		sub	word_1FE56, (46 shl 4)
 
 loc_18D34:
 		mov	si, PLAYFIELD_LEFT
@@ -21277,7 +21277,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_18E11
 		add	bx, 28h	; '('
@@ -21377,7 +21377,7 @@ loc_18E7C:
 		mov	si, ax
 		call	grcg_vline pascal, ax, (8 shl 16) or 192
 		add	word_220EC, 41h	; 'A'
-		cmp	word_220EC, 480h
+		cmp	word_220EC, (72 shl 4)
 		jl	short loc_18F38
 		mov	word_220EC, 0
 
@@ -21390,7 +21390,7 @@ loc_18F38:
 		idiv	bx
 		or	dx, dx
 		jnz	short loc_18F71
-		push	3FFh
+		push	1023
 		call	@randring_far_next16_and$qui
 		mov	si, ax
 		jmp	short loc_18F6B
@@ -21398,15 +21398,15 @@ loc_18F38:
 
 loc_18F58:
 		push	si
-		push	1700h
+		push	(368 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
 		call	sub_CDBD
-		add	si, 600h
+		add	si, (96 shl 4)
 
 loc_18F6B:
-		cmp	si, 1200h
+		cmp	si, (PLAYFIELD_W shl 4)
 		jle	short loc_18F58
 
 loc_18F71:
@@ -21490,7 +21490,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1904F
@@ -21502,7 +21502,7 @@ loc_19000:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1140h
+		push	((PLAYFIELD_W - 12) shl 4)
 		call	@randring_far_next16_mod$qui
 		add	ax, 60h
 		push	ax
@@ -21513,11 +21513,11 @@ loc_19000:
 		add	word_2028A, 20h	; ' '
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1140h
+		push	((PLAYFIELD_W - 12) shl 4)
 		call	@randring_far_next16_mod$qui
 		add	ax, 60h
 		push	ax
-		push	1780h
+		push	(376 shl 4)
 		push	[bp+arg_0]
 		push	50h ; 'P'
 		call	sub_1A1ED
@@ -21772,7 +21772,7 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	word_2028A, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -21801,7 +21801,7 @@ loc_1928B:
 		call	sub_CE0C
 		add	si, 20h	; ' '
 		push	word ptr [si+2]
-		push	1700h
+		push	(368 shl 4)
 		mov	al, [si+10h]
 		mov	ah, 0
 		push	ax
@@ -21873,7 +21873,7 @@ loc_1933D:
 		call	sub_1A1A7
 		or	al, al
 		jz	short loc_19374
-		mov	word ptr [si+4], 1700h
+		mov	word ptr [si+4], (368 shl 4)
 		jmp	short loc_19374
 ; ---------------------------------------------------------------------------
 
@@ -21919,7 +21919,7 @@ public @exatt_render_chiyuri$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	word_2028A, ax
 		xor	si, si
 		jmp	short loc_193B4
@@ -21953,8 +21953,8 @@ sub_193BC	proc far
 		mov	bp, sp
 		push	si
 		push	di
-		mov	si, 230Ah
-		mov	di, 2472h
+		mov	si, offset ellen_exatt_refs
+		mov	di, (offset ellen_exatt_refs + (12 * 30))
 		xor	dx, dx
 		jmp	short loc_193E6
 ; ---------------------------------------------------------------------------
@@ -21962,11 +21962,11 @@ sub_193BC	proc far
 loc_193CB:
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	[si], ax
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 2B2Ah
+		add	ax, (offset exatt_buffers + 512)
 		mov	[di], ax
 		inc	dx
 		add	si, 1Eh
@@ -22000,13 +22000,13 @@ arg_4		= word ptr  0Ah
 		enter	8, 0
 		push	si
 		mov	[bp+var_5], 0
-		push	0C80h
+		push	(200 shl 4)
 		call	@randring_far_next16_mod$qui
-		add	ax, 2C0h
+		add	ax, (44 shl 4)
 		mov	[bp+var_2], ax
-		push	0C80h
+		push	(200 shl 4)
 		call	@randring_far_next16_mod$qui
-		add	ax, 500h
+		add	ax, (80 shl 4)
 		mov	[bp+var_4], ax
 		push	1
 		call	@randring_far_next16_and$qui
@@ -22025,8 +22025,8 @@ loc_19425:
 		mov	[bp+var_7], al
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
-		imul	ax, 168h
-		add	ax, 230Ah
+		imul	ax, (12 * 30)
+		add	ax, offset ellen_exatt_refs
 		mov	word_1FB3A, ax
 		xor	si, si
 		jmp	short loc_1949F
@@ -22098,8 +22098,8 @@ arg_6		= word ptr  0Ch
 		push	si
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 168h
-		add	ax, 230Ah
+		imul	ax, (12 * 30)
+		add	ax, offset ellen_exatt_refs
 		mov	word_1FB3A, ax
 		xor	dx, dx
 		jmp	short loc_19506
@@ -29694,6 +29694,7 @@ _formation_count        	db ?
 
 		db 779 dup(?)
 word_1F868	dw ?
+ellen_exatt_refs label byte
 		db 720 dup(?)
 word_1FB3A	dw ?
 word_1FB3C	dw ?
@@ -29766,6 +29767,7 @@ exatt_render_p2	dd ?
 public _pid_current
 _pid_current	db ?
 	evendata
+exatt_buffers label byte
 byte_1FE8A	db 512 dup(?)
 byte_2008A	db 512 dup(?)
 word_2028A	dw ?
