@@ -11533,7 +11533,7 @@ loc_112E5:
 loc_112F1:
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	si, ax
 		mov	ax, word_1F3B0
 		shr	ax, 2
@@ -11553,7 +11553,7 @@ loc_11313:
 		mov	ah, 0
 		and	ax, 1
 		imul	ax, 6
-		add	ax, 780h
+		add	ax, (24 * ROW_SIZE)
 		add	si, ax
 
 loc_11329:
@@ -11618,7 +11618,7 @@ gba_boss_render_reimu proc far
 		push	word_1F3B0
 		mov	ax, word_1F3B0
 		shl	ax, 5
-		mov	dx, 0C80h
+		mov	dx, (200 shl 4)
 		sub	dx, ax
 		push	dx
 		call	reimu_112A6
@@ -11657,10 +11657,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -11882,7 +11882,7 @@ loc_115E2:
 		push	word_1F33E
 		push	word_1F340
 		push	word ptr [bp+var_2]
-		push	0FEh
+		push	254
 		call	ellen_194A9
 		inc	si
 		mov	al, byte_1F3A0
@@ -12142,7 +12142,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx+8B2h]
+		mov	ax, word_1DE12[bx]
 		imul	ax, 28h
 		add	ax, sprite_1F34C
 		add	ax, 0FB10h
@@ -12150,7 +12150,7 @@ arg_0		= word ptr  4
 		mov	_sprite16_put_w, (96 / 16)
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx+8C4h]
+		mov	ax, word_1DE24[bx]
 		cwd
 		sub	ax, dx
 		sar	ax, 1
@@ -12168,7 +12168,7 @@ arg_0		= word ptr  4
 		sar	ax, 4
 		mov	bx, si
 		add	bx, bx
-		add	ax, [bx+8B2h]
+		add	ax, word_1DE12[bx]
 		add	ax, -40
 		mov	[bp+@@top], ax
 		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
@@ -12303,7 +12303,7 @@ loc_11956:
 		mov	_sprite16_put_h, 16
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 28Ch
+		add	ax, ((8 * ROW_SIZE) + (96 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		xor	si, si
 		jmp	loc_119F4
@@ -12391,7 +12391,7 @@ loc_11A37:
 		jnz	short loc_11A5C
 		mov	ax, word_1F3B0
 		add	ax, ax
-		mov	dx, 0C8h
+		mov	dx, 200
 		sub	dx, ax
 		shl	dx, 4
 		push	dx
@@ -12435,10 +12435,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -12541,7 +12541,7 @@ loc_11B6B:
 		mov	al, byte_1F355
 		add	al, 4
 		mov	byte_1F355, al
-		cmp	word_1F356, 400h
+		cmp	word_1F356, (64 shl 4)
 		jle	short loc_11BBC
 		mov	byte_1F353, 2
 		mov	al, byte_1F355
@@ -12589,9 +12589,9 @@ kotohime_11BC6	proc near
 
 loc_11BE5:
 		mov	al, byte_1F355
-		add	al, 0FEh
+		add	al, -2
 		mov	byte_1F355, al
-		cmp	word_1F356, 400h
+		cmp	word_1F356, (64 shl 4)
 		jle	short loc_11C55
 		mov	byte_1F353, 2
 		add	word_1F356, 8
@@ -12722,14 +12722,14 @@ var_2		= word ptr -2
 
 loc_11D37:
 		mov	al, byte_1F355
-		add	al, 0FCh
+		add	al, -4
 		mov	byte_1F355, al
-		cmp	word_1F356, 400h
+		cmp	word_1F356, (64 shl 4)
 		jle	loc_11E3C
 		mov	byte_1F353, 2
 		add	word_1F356, 8
 		mov	al, byte_1F355
-		add	al, 0FEh
+		add	al, -2
 		mov	byte_1F355, al
 		inc	byte_1F354
 		cmp	byte_1F354, 40h
@@ -13032,7 +13032,7 @@ arg_0		= word ptr  4
 		mov	[bp+var_6], ax
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 502h
+		add	ax, ((16 * ROW_SIZE) + (16 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		cmp	byte_1F353, 2
 		jnz	short loc_12012
@@ -13040,7 +13040,7 @@ arg_0		= word ptr  4
 		and	ax, 3
 		cmp	ax, 2
 		jnb	short loc_12012
-		add	[bp+@@sprite_offset], 0A00h
+		add	[bp+@@sprite_offset], (32 * ROW_SIZE)
 
 loc_12012:
 		mov	_sprite16_put_w, (32 / 16)
@@ -13202,7 +13202,7 @@ loc_12172:
 		jnz	short loc_1218C
 		mov	ax, word_1F3B0
 		add	ax, ax
-		mov	dx, 0C8h
+		mov	dx, 200
 		sub	dx, ax
 		shl	dx, 4
 		push	dx
@@ -13242,10 +13242,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -13288,7 +13288,7 @@ chiyuri_121F5	proc near
 		jnz	locret_12353
 		cmp	word_1F3B0, 1
 		jnz	short loc_12282
-		mov	byte_23DE4, 0E0h
+		mov	byte_23DE4, 224
 		mov	byte_23DE5, 0
 		mov	al, 1
 		sub	al, _pid_current
@@ -13302,7 +13302,7 @@ chiyuri_121F5	proc near
 		push	ax
 		call	sub_CE5B
 		mov	ax, word_1F33E
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		push	word_1F340
 		mov	al, [bp+@@pid_other]
@@ -13319,7 +13319,7 @@ chiyuri_121F5	proc near
 		call	sub_CE5B
 		push	word_1F33E
 		mov	ax, word_1F340
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
@@ -13354,12 +13354,12 @@ loc_1229A:
 
 loc_122CC:
 		mov	al, byte_23DE4
-		add	al, 0F8h
+		add	al, -8
 		mov	byte_23DE4, al
-		cmp	byte_23DE4, 0E4h
+		cmp	byte_23DE4, 228
 		jnz	short loc_122E5
 		mov	byte_23DE5, 0
-		mov	byte_23DE4, 0E0h
+		mov	byte_23DE4, 224
 
 loc_122E5:
 		mov	ax, word_1F33E
@@ -13550,7 +13550,7 @@ chiyuri_12498	proc near
 		push	ax
 		call	sub_CE5B
 		mov	ax, word_1F33E
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		push	word_1F340
 		mov	al, [bp+@@pid_other]
@@ -13665,7 +13665,7 @@ loc_125B0:
 		call	sub_CE5B
 		push	word_1F33E
 		mov	ax, word_1F340
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
@@ -13865,7 +13865,7 @@ loc_12772:
 		push	ax
 		call	sub_CE0C
 		mov	ax, word_1F33E
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		push	word_1F340
 		mov	al, [bp+@@pid_other]
@@ -13882,7 +13882,7 @@ loc_12772:
 		call	sub_CE0C
 		push	word_1F33E
 		mov	ax, word_1F340
-		add	ax, 380h
+		add	ax, (56 shl 4)
 		push	ax
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
@@ -13901,13 +13901,13 @@ loc_127D6:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+8D6h]
+		mov	ax, word_1DE36[bx]
 		mov	word_1F33E, ax
 		mov	al, [bp+var_2]
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+8D8h]
+		mov	ax, word_1DE38[bx]
 		mov	word_1F340, ax
 		mov	byte_1F355, 10h
 
@@ -29565,62 +29565,16 @@ _chain_ring_p	db	PLAYER_COUNT dup(0)
 
 include th03/sprites/score.asp
 include th03/main/5_powers_of_10[data].asm
-		db  6Ch	; l
-		db    0
-		db  60h
-		db    0
-		db  50h	; P
-		db    0
-		db  40h
-		db    0
-		db  30h	; 0
-		db    0
-		db  20h
-		db    0
-		db  10h
-		db    0
-		db    8
-		db    0
-		db    4
-		db    0
-		db    2
-		db    0
-		db    8
-		db    0
-		db  10h
-		db    0
-		db  10h
-		db    0
-		db  10h
-		db    0
-		db  10h
-		db    0
-		db  10h
-		db    0
-		db    8
-		db    0
-		db    2
-		db    0
-		db    0
-		db    3
-		db    0
-		db    7
-		db    0
-		db    6
-		db    0
-		db    6
-		db    0
-		db    9
-		db    0
-		db    5
-		db    0
-		db  0Ch
-		db    0
-		db    6
-		db    0
-		db  0Fh
-		db    0
-		db    7
+word_1DE12 label word
+	dw 108, 96, 80, 64, 48, 32, 16, 8, 4
+word_1DE24 label word
+	dw 2, 8, 16, 16, 16, 16, 16, 8, 2
+word_1DE36 dw (48 shl 4)
+word_1DE38 dw (112 shl 4)
+	dw (96 shl 4), (96 shl 4)
+	dw (144 shl 4), (80 shl 4)
+	dw (192 shl 4), (96 shl 4)
+	dw (240 shl 4), (112 shl 4)
 aMAX_COMBO	db 'ＭＡＸ　Ｃｏｍｂｏ　　　×',0
 aGAUGE_ATTACK_TIMES	db 'ゲージアタック回数　　　×',0
 aBOSS_ATTACK_TIMES	db 'ボスアタック回数　　　　×',0
