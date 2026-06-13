@@ -448,10 +448,10 @@ loc_9A25:
 		mov	_page_front, al
 		xor	_page_back, 1
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		mov	bx, 3932h
+		mov	bx, ((183 * ROW_SIZE) + ( 16 / BYTE_DOTS))
 		call	sub_B37C
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		mov	bx, 395Ah
+		mov	bx, ((183 * ROW_SIZE) + (336 / BYTE_DOTS))
 		call	sub_B37C
 		call	grcg_off
 
@@ -574,12 +574,12 @@ var_2		= word ptr -2
 		les	bx, _resident
 		cmp	es:[bx+resident_t.story_stage], 8
 		jnb	short loc_9B68
-		mov	word_1E6E8, 140h
+		mov	word_1E6E8, 320
 		jmp	short loc_9B6E
 ; ---------------------------------------------------------------------------
 
 loc_9B68:
-		mov	word_1E6E8, 1CCh
+		mov	word_1E6E8, 460
 
 loc_9B6E:
 		les	bx, _resident
@@ -671,17 +671,17 @@ loc_9C13:
 		jmp	cs:off_9EAB[bx]
 
 @@easy:
-		mov	[bp+var_6], 3E8h
+		mov	[bp+var_6], 1000
 		jmp	short loc_9C51
 ; ---------------------------------------------------------------------------
 
 @@normal:
-		mov	[bp+var_6], 76Ch
+		mov	[bp+var_6], 1900
 		jmp	short loc_9C51
 ; ---------------------------------------------------------------------------
 
 @@hard:
-		mov	[bp+var_6], 0FA0h
+		mov	[bp+var_6], 4000
 		jmp	short loc_9C51
 ; ---------------------------------------------------------------------------
 
@@ -976,10 +976,10 @@ loc_9EFF:
 loc_9F08:
 		mov	bx, di
 		shl	bx, 5
-		mov	byte ptr [bx+292Ah], 0
+		mov	byte ptr byte_1FE8A[bx], 0
 		mov	bx, di
 		shl	bx, 5
-		mov	byte ptr [bx+2B2Ah], 0
+		mov	byte ptr byte_2008A[bx], 0
 		inc	di
 
 loc_9F1D:
@@ -1026,7 +1026,7 @@ loc_9F76:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		movzx	eax, word ptr [bx+90h]
+		movzx	eax, word ptr story_cpu_safety_frames[bx]
 		mov	[bp+var_6], eax
 		mov	bx, word ptr _resident
 		mov	al, es:[bx+resident_t.rank]
@@ -1540,7 +1540,7 @@ arg_2		= word ptr  6
 ; ---------------------------------------------------------------------------
 
 loc_A4D0:
-		mov	al, [si+640h]
+		mov	al, a00ch_bf2[si]
 		mov	[bp+si+var_C], al
 		inc	si
 
@@ -2221,8 +2221,8 @@ sub_B3A2	proc near
 		push	si
 		EGC_SETUP_COPY
 		mov	dx, ds
-		mov	di, 232h
-		mov	si, 40D8h
+		mov	di, ((7 * ROW_SIZE) + (16 / BYTE_DOTS))
+		mov	si, ((207 * ROW_SIZE) + (320 / BYTE_DOTS))
 		mov	ax, 0ABC0h
 		mov	es, ax
 		assume es:nothing
@@ -2256,7 +2256,7 @@ sub_B3A2	endp
 sub_B3F6	proc near
 		push	di
 		push	si
-		mov	di, 0F0h
+		mov	di, (3 * ROW_SIZE)
 		mov	ax, 0ABCAh
 		mov	es, ax
 		assume es:nothing
@@ -2291,10 +2291,10 @@ sub_B3F6	proc near
 		rep stosw
 		or	bx, bx
 		jz	short loc_B450
-		add	di, 0F0h
+		add	di, (3 * ROW_SIZE)
 
 loc_B446:
-		mov	ax, [bx+64Ch]
+		mov	ax, wordmask_1DB0C[bx]
 
 loc_B44A:
 		stosw
@@ -2352,19 +2352,21 @@ sub_B4A3	endp
 
 ; Attributes: bp-based frame
 
+TRAPEZOID_HMASK_ODD = 05555h
+
 sub_B4A8	proc near
 		push	bp
 		mov	bp, sp
 		push	si
 		cmp	byte_1FBC2, 0
 		jnz	short loc_B4E3
-		mov	word_1FBC4, 12Fh
-		mov	word_1FBC6, 17Eh
+		mov	word_1FBC4, 303
+		mov	word_1FBC6, 382
 		mov	word_1FBC8, 10h
-		mov	word_1FBCA, 17Eh
+		mov	word_1FBCA, 382
 		mov	word_1FBCC, 10h
 		mov	word_1FBCE, 10h
-		mov	word_1FBD0, 12Fh
+		mov	word_1FBD0, 303
 		mov	word_1FBD2, 10h
 
 loc_B4E3:
@@ -2374,7 +2376,7 @@ loc_B4E3:
 		add	word_1FBCC, 12h
 		add	word_1FBD2, 17h
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 2
-		mov	trapezoid_hmask, 5555h
+		mov	trapezoid_hmask, TRAPEZOID_HMASK_ODD
 		xor	si, si
 		jmp	short loc_B565
 ; ---------------------------------------------------------------------------
@@ -2410,10 +2412,10 @@ loc_B51D:
 		sar	ax, 1
 		push	ax
 		call	grcg_triangle
-		add	si, 140h
+		add	si, 320
 
 loc_B565:
-		cmp	si, 140h
+		cmp	si, 320
 		jle	short loc_B51D
 		mov	trapezoid_hmask, 0AAAAh
 		xor	si, si
@@ -2451,17 +2453,17 @@ loc_B575:
 		sar	ax, 1
 		push	ax
 		call	grcg_triangle
-		add	si, 140h
+		add	si, 320
 
 loc_B5BD:
-		cmp	si, 140h
+		cmp	si, 320
 		jle	short loc_B575
 		inc	byte_1FBC2
 		cmp	byte_1FBC2, 10h
 		jb	short loc_B5EE
-		mov	bx, 3932h
+		mov	bx, ((183 * ROW_SIZE) + ( 16 / BYTE_DOTS))
 		nopcall	sub_B39E
-		mov	bx, 395Ah
+		mov	bx, ((183 * ROW_SIZE) + (336 / BYTE_DOTS))
 		nopcall	sub_B39E
 		mov	byte_1FBC3, 1
 		mov	byte_1FBC2, 0
@@ -2487,10 +2489,10 @@ sub_B60A	proc near
 		push	si
 		cmp	byte_1FBC2, 0
 		jnz	short loc_B645
-		mov	word_1FBC4, 12Fh
+		mov	word_1FBC4, 303
 		mov	word_1FBC6, 10h
-		mov	word_1FBC8, 12Fh
-		mov	word_1FBCA, 17Eh
+		mov	word_1FBC8, 303
+		mov	word_1FBCA, 382
 		mov	word_1FBCC, 10h
 		mov	word_1FBCE, 17Eh
 		mov	word_1FBD0, 10h
@@ -29019,6 +29021,7 @@ main_11_TEXT	ends
 
 PID_NONE = -1
 
+story_cpu_safety_frames label word
 		db  64h	; d
 		db    0
 		db  32h	; 2
@@ -29185,6 +29188,7 @@ a00ch_bf2	db '00ch.bf2',0
 		db 0
 		db    0
 		db    0
+wordmask_1DB0C label word
 		db 0FFh
 		db 0FFh
 		db  80h
@@ -29801,7 +29805,8 @@ exatt_render_p2	dd ?
 public _pid_current
 _pid_current	db ?
 	evendata
-		db 1024 dup(?)
+byte_1FE8A	db 512 dup(?)
+byte_2008A	db 512 dup(?)
 word_2028A	dw ?
 
 public _chargeshot_update, _chargeshot_render, _chargeshot_hittest
