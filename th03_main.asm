@@ -8852,7 +8852,7 @@ loc_FA0A:
 		sub	si, 32
 		add	di, 32
 		mov	ax, sprite_1F34C
-		add	ax, 0F00h
+		add	ax, (48 * ROW_SIZE)
 		jmp	short loc_FA55
 ; ---------------------------------------------------------------------------
 
@@ -8860,7 +8860,7 @@ loc_FA49:
 		add	si, 20h	; ' '
 		add	di, 30h	; '0'
 		mov	ax, sprite_1F34C
-		add	ax, 1180h
+		add	ax, (56 * ROW_SIZE)
 
 loc_FA55:
 		mov	[bp+var_2], ax
@@ -8917,7 +8917,7 @@ arg_0		= word ptr  4
 		sub	ax, si
 		call	sprite16_put pascal, ax, [bp+@@top], sprite_1F34C
 		mov	ah, SPRITE16_SET_MASK
-		mov	dx, 5555h
+		mov	dx, TRAPEZOID_HMASK_ODD
 		int	SPRITE16
 		mov	ax, di
 		add	ax, si
@@ -8963,7 +8963,7 @@ loc_FB1E:
 		jnz	short loc_FB35
 		mov	ax, word_1F3B0
 		add	ax, ax
-		mov	dx, 0C8h
+		mov	dx, 200
 		sub	dx, ax
 		push	dx
 		call	marisa_FA71
@@ -9002,10 +9002,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -9038,7 +9038,7 @@ mima_FB95	proc near
 		mov	byte_1F353, 2
 		mov	byte_1F354, 0
 		mov	byte_20E28, 0
-		mov	byte_20E29, 0C0h
+		mov	byte_20E29, 192
 		pop	bp
 		retn
 ; ---------------------------------------------------------------------------
@@ -9279,7 +9279,7 @@ loc_FDD0:
 		mov	_bullet_template.BT_is_animated, 1
 
 loc_FE11:
-		cmp	word_1F3B0, 96h
+		cmp	word_1F3B0, 150
 		jb	short locret_FE29
 		mov	byte_1F353, 0
 		mov	byte_1F34F, 1
@@ -9310,7 +9310,7 @@ mima_FE2B	proc near
 ; ---------------------------------------------------------------------------
 
 loc_FE47:
-		mov	al, 0F9h
+		mov	al, -7
 
 loc_FE49:
 		mov	byte_20E2A, al
@@ -9587,7 +9587,7 @@ loc_100BF:
 		mov	_sprite16_put_h, 16
 		add	si, 80
 		mov	ax, sprite_1F34C
-		add	ax, 0EF4h
+		add	ax, ((47 * ROW_SIZE) + (544 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		cmp	byte_1F354, 10h
 		jb	short loc_10111
@@ -9612,7 +9612,7 @@ loc_10121:
 		lea	ax, [di+10h]
 		push	ax
 		mov	ax, sprite_1F34C
-		add	ax, 0C92h
+		add	ax, ((40 * ROW_SIZE) + (144 / BYTE_DOTS))
 		jmp	loc_100B4
 ; ---------------------------------------------------------------------------
 
@@ -9699,7 +9699,7 @@ arg_2		= word ptr  6
 		mov	[bp+@@top], ax
 		call	sprite16_put pascal, di, ax, sprite_1F34C
 		mov	ah, SPRITE16_SET_MASK
-		mov	dx, 5555h
+		mov	dx, TRAPEZOID_HMASK_ODD
 		int	SPRITE16
 		mov	al, [bp+@@angle]
 		add	al, 80h
@@ -9757,7 +9757,7 @@ loc_10299:
 		jnz	short loc_102B7
 		mov	ax, word_1F3B0
 		add	ax, ax
-		mov	dx, 0C8h
+		mov	dx, 200
 		sub	dx, ax
 		push	dx
 		mov	ax, word_1F3B0
@@ -9799,10 +9799,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -9839,7 +9839,7 @@ yumemi_10324	proc near
 		call	@randring_far_next16$qv
 		mov	byte_20E4E, al
 		mov	byte_20E4C, 0
-		mov	word_1F356, 100h
+		mov	word_1F356, 256
 		push	1
 		call	@randring_far_next16_and$qui
 		or	ax, ax
@@ -9849,7 +9849,7 @@ yumemi_10324	proc near
 ; ---------------------------------------------------------------------------
 
 loc_10355:
-		mov	al, 0FDh
+		mov	al, -3
 
 loc_10357:
 		mov	byte_20E4D, al
@@ -9946,7 +9946,7 @@ yumemi_10405	proc near
 		push	ax
 		call	iatan2
 		mov	byte_20E4E, al
-		mov	word_1F356, 100h
+		mov	word_1F356, 256
 		mov	byte_1F354, 20h	; ' '
 
 loc_10456:
@@ -10089,9 +10089,9 @@ yumemi_105B5	proc near
 		mov	bp, sp
 		cmp	byte_1F355, 0
 		jnz	short loc_105E1
-		cmp	word_1F33E, 380h
+		cmp	word_1F33E, (56 shl 4)
 		jle	short loc_105D4
-		cmp	word_1F33E, 0E80h
+		cmp	word_1F33E, (232 shl 4)
 		jge	short loc_105D4
 		call	sub_F356
 		pop	bp
@@ -10283,7 +10283,7 @@ loc_10761:
 		call	sub_F512
 		inc	word_1F3B0
 		mov	ax, word_1F33E
-		add	ax, 90h
+		add	ax, (9 shl 4)
 		mov	word_20E50, ax
 		mov	ax, word_1F340
 		add	ax, 0FE80h
@@ -10464,7 +10464,7 @@ var_2		= word ptr -2
 		mov	[bp+var_2], ax
 		cmp	byte_1F353, 2
 		jnz	short loc_10932
-		add	[bp+var_2], 0A00h
+		add	[bp+var_2], (32 * ROW_SIZE)
 
 loc_10932:
 		lea	ax, [si+32]
@@ -10499,16 +10499,16 @@ loc_1096F:
 		cmp	_pid_current, 0
 		jz	short loc_10981
 		push	100008h
-		push	12Fh
+		push	303
 		jmp	short loc_1098A
 ; ---------------------------------------------------------------------------
 
 loc_10981:
 		push	1500008h
-		push	26Fh
+		push	623
 
 loc_1098A:
-		push	0BFh
+		push	191
 		call	grc_setclip
 		call	egc_off
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
@@ -10799,10 +10799,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -10837,7 +10837,7 @@ reimu_10C4D	proc near
 		mov	ax, word_1F33E
 		mov	point_1F342.x, ax
 		mov	ax, word_1F340
-		add	ax, 300h
+		add	ax, (48 shl 4)
 		mov	point_1F342.y, ax
 		push	1
 		call	@randring_far_next16_and$qui
@@ -11035,7 +11035,7 @@ loc_10E3F:
 		add	sp, 6
 		mov	bx, si
 		add	bx, bx
-		mov	[bx+686Ah], ax
+		mov	word_23DCA[bx], ax
 		mov	al, [bp+@@angle]
 		mov	ah, 0
 		add	ax, ax
@@ -11050,7 +11050,7 @@ loc_10E3F:
 		add	sp, 6
 		mov	bx, si
 		add	bx, bx
-		mov	[bx+6876h], ax
+		mov	word_23DD6[bx], ax
 		inc	si
 
 loc_10EA8:
@@ -11088,7 +11088,7 @@ loc_10EC9:
 		call	@polar$qiii c, word_1F33E, (48 shl 4), _CosTable8[bx]
 		mov	bx, si
 		add	bx, bx
-		mov	[bx+686Ah], ax
+		mov	word_23DCA[bx], ax
 		mov	al, [bp+@@angle]
 		mov	ah, 0
 		add	ax, ax
@@ -11096,7 +11096,7 @@ loc_10EC9:
 		call	@polar$qiii c, word_1F340, (48 shl 4), _SinTable8[bx]
 		mov	bx, si
 		add	bx, bx
-		mov	[bx+6876h], ax
+		mov	word_23DD6[bx], ax
 		inc	si
 
 loc_10F26:
@@ -11148,10 +11148,10 @@ loc_10F85:
 		mov	[bp+@@angle], al
 		mov	bx, si
 		add	bx, bx
-		push	word ptr [bx+686Ah]
+		push	word_23DCA[bx]
 		mov	bx, si
 		add	bx, bx
-		push	word ptr [bx+6876h]
+		push	word_23DD6[bx]
 		push	word ptr [bp+@@angle]
 		call	reimu_1A2CE
 		inc	si
@@ -11451,7 +11451,7 @@ loc_1124A:
 		mov	ah, 0
 		and	ax, 1
 		imul	ax, 6
-		add	ax, 780h
+		add	ax, (24 * ROW_SIZE)
 		add	si, ax
 
 loc_11260:
@@ -11462,7 +11462,7 @@ loc_11260:
 loc_11264:
 		mov	bx, di
 		add	bx, bx
-		push	word ptr [bx+686Ah]	; x
+		push	word_23DCA[bx]	; x
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax	; pid
@@ -11471,7 +11471,7 @@ loc_11264:
 		mov	[bp+@@left], ax
 		mov	bx, di
 		add	bx, bx
-		mov	ax, [bx+6876h]
+		mov	ax, word_23DD6[bx]
 		sar	ax, 4
 		add	ax, -8
 		mov	[bp+@@top], ax
@@ -30079,7 +30079,9 @@ include th03/main/player/shots[bss].asm
 byte_23DC6	db ?
 byte_23DC7	db ?
 byte_23DC8	db ?
-		db 25 dup(?)
+		db ?
+word_23DCA	dw 6 dup(?)
+word_23DD6	dw 6 dup(?)
 byte_23DE2	db ?
 byte_23DE3	db ?
 byte_23DE4	db ?
