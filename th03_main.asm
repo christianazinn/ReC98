@@ -4895,21 +4895,21 @@ loc_CD15:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3938h]
+		mov	al, byte_20E98[bx]
 		add	al, 4
 		mov	dl, byte ptr [bp+arg_0]
 		mov	dh, 0
 		mov	bx, dx
-		mov	[bx+3938h], al
+		mov	byte_20E98[bx], al
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3938h], 90h
+		cmp	byte_20E98[bx], 144
 		jb	short loc_CD99
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+393Ah], 1
+		mov	byte_20E9A[bx], 1
 		jmp	short loc_CD99
 ; ---------------------------------------------------------------------------
 
@@ -4917,27 +4917,27 @@ loc_CD67:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3938h]
+		mov	al, byte_20E98[bx]
 		add	al, -4
 		mov	dl, byte ptr [bp+arg_0]
 		mov	dh, 0
 		mov	bx, dx
-		mov	[bx+3938h], al
+		mov	byte_20E98[bx], al
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3938h], 0
+		cmp	byte_20E98[bx], 0
 		ja	short loc_CD99
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+393Ah], 0
+		mov	byte_20E9A[bx], 0
 
 loc_CD99:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3938h]
+		mov	al, byte_20E98[bx]
 		mov	dl, byte ptr [bp+var_3]
 		mov	dh, 0
 		imul	dx, 3
@@ -4975,7 +4975,7 @@ loc_CDD1:
 		mov	al, byte_20F1E
 		mov	ah, 0
 		imul	ax, 0Ah
-		add	ax, 3946h
+		add	ax, offset byte_20EA6
 		mov	si, ax
 		mov	byte ptr [si], 1
 		mov	byte ptr [si+1], 0
@@ -5017,7 +5017,7 @@ loc_CE20:
 		mov	al, byte_20F1E
 		mov	ah, 0
 		imul	ax, 0Ah
-		add	ax, 3946h
+		add	ax, offset byte_20EA6
 		mov	si, ax
 		mov	byte ptr [si], 1
 		mov	byte ptr [si+1], 0
@@ -5030,7 +5030,7 @@ loc_CE20:
 		add	ax, 10h
 		mov	[si+4],	ax
 		mov	byte ptr [si+6], 88h
-		mov	byte ptr [si+7], 0F8h
+		mov	byte ptr [si+7], -8
 		pop	si
 		pop	bp
 		retf	6
@@ -5059,7 +5059,7 @@ loc_CE6F:
 		mov	al, byte_20F1E
 		mov	ah, 0
 		imul	ax, 0Ah
-		add	ax, 3946h
+		add	ax, offset byte_20EA6
 		mov	si, ax
 		mov	byte ptr [si], 2
 		mov	byte ptr [si+1], 0
@@ -5071,8 +5071,8 @@ loc_CE6F:
 		sar	ax, 4
 		add	ax, 10h
 		mov	[si+4],	ax
-		mov	byte ptr [si+6], 0A2h
-		mov	byte ptr [si+7], 0F6h
+		mov	byte ptr [si+6], 162
+		mov	byte ptr [si+7], -10
 		call	@randring_far_next16$qv
 		mov	[si+8],	al
 		pop	si
@@ -5089,7 +5089,7 @@ sub_CEB2	proc far
 		push	bp
 		mov	bp, sp
 		push	si
-		mov	si, 3946h
+		mov	si, offset byte_20EA6
 		xor	dx, dx
 		jmp	short loc_CED8
 ; ---------------------------------------------------------------------------
@@ -5139,7 +5139,7 @@ var_2		= word ptr -2
 		enter	14h, 0
 		push	si
 		push	di
-		mov	si, 3946h
+		mov	si, offset byte_20EA6
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
 		mov	[bp+var_2], 0
 		jmp	loc_D013
@@ -5148,7 +5148,7 @@ var_2		= word ptr -2
 loc_CEFC:
 		cmp	byte ptr [si], 0
 		jz	loc_D00D
-		cmp	word ptr [si+2], 140h
+		cmp	word ptr [si+2], (RES_X / 2)
 		jge	short loc_CF15
 		push	(16 shl 16) or 8
 		push	303
@@ -5187,7 +5187,7 @@ loc_CF42:
 ; ---------------------------------------------------------------------------
 
 loc_CF53:
-		mov	al, 0F8h
+		mov	al, -8
 
 loc_CF55:
 		add	al, [si+8]
@@ -5285,7 +5285,7 @@ sub_D031	proc near
 		shr	bx, 2
 		add	bx, ax
 		and	cl, 7
-		mov	ax, 0C0h
+		mov	ax, 11000000b
 		ror	ax, cl
 		mov	es:[bx], ax
 		pop	di
@@ -5304,7 +5304,7 @@ sub_D05D	proc far
 		push	si
 		push	di
 		mov	angle_2142C, 40h
-		mov	si, 39CCh
+		mov	si, offset byte_20F2C
 		xor	di, di
 		jmp	short loc_D089
 ; ---------------------------------------------------------------------------
@@ -5344,7 +5344,7 @@ sub_D092	proc far
 		push	si
 		push	di
 		mov	angle_2142C, 40h
-		mov	si, 39CCh
+		mov	si, offset byte_20F2C
 		xor	di, di
 		jmp	short loc_D0F1
 ; ---------------------------------------------------------------------------
@@ -5398,31 +5398,31 @@ sub_D0FA	proc near
 		push	di
 		mov	ax, [di]
 		add	ax, [di+4]
-		cmp	ax, 80h
+		cmp	ax, (8 shl 4)
 		jnb	short loc_D10D
-		add	ax, 2700h
+		add	ax, (624 shl 4)
 		jmp	short loc_D115
 ; ---------------------------------------------------------------------------
 
 loc_D10D:
-		cmp	ax, 2780h
+		cmp	ax, (632 shl 4)
 		jbe	short loc_D115
-		sub	ax, 2700h
+		sub	ax, (624 shl 4)
 
 loc_D115:
 		mov	[di], ax
 		mov	ax, [di+2]
 		add	ax, [di+6]
-		cmp	ax, 0E0h
+		cmp	ax, (14 shl 4)
 		jnb	short loc_D127
-		add	ax, 1720h
+		add	ax, (370 shl 4)
 		jmp	short loc_D12F
 ; ---------------------------------------------------------------------------
 
 loc_D127:
-		cmp	ax, 1800h
+		cmp	ax, (384 shl 4)
 		jbe	short loc_D12F
-		sub	ax, 1720h
+		sub	ax, (370 shl 4)
 
 loc_D12F:
 		mov	[di+2],	ax
@@ -5450,7 +5450,7 @@ sub_D135	proc far
 		mov	es, ax
 		assume es:nothing
 		mov	angle_2142C, 40h
-		mov	di, 39CCh
+		mov	di, offset byte_20F2C
 		xor	si, si
 
 loc_D16B:
@@ -29919,13 +29919,13 @@ byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
 _gba_flag_next	db PLAYER_COUNT dup(?)
 include th03/main/player/combo[bss].asm
-		db 120 dup(?)
+byte_20EA6	db 120 dup(?)
 byte_20F1E	db ?
 		db ?
 farfp_20F20	dd ?
 farfp_20F24	dd ?
 farfp_20F28	dd ?
-		db 1280 dup(?)
+byte_20F2C	db 1280 dup(?)
 angle_2142C	db ?
 		db ?
 word_2142E	dw ?
