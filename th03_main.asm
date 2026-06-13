@@ -16013,7 +16013,7 @@ chargeshot_add_marisa	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		imul	ax, 32h
-		add	ax, 288Ah
+		add	ax, offset byte_1FDEA
 		mov	word_1FE4E, ax
 		mov	bx, word_1FE4E
 		mov	byte ptr [bx], 1
@@ -16062,7 +16062,7 @@ marisa_hyper_14340	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		imul	ax, 32h
-		add	ax, 288Ah
+		add	ax, offset byte_1FDEA
 		mov	word_1FE4E, ax
 		mov	bx, word_1FE4E
 		cmp	byte ptr [bx], 0
@@ -16123,7 +16123,7 @@ chargeshot_update_marisa	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 32h
-		add	ax, 288Ah
+		add	ax, offset byte_1FDEA
 		mov	word_1FE4E, ax
 		mov	bx, word_1FE4E
 		cmp	byte ptr [bx], 0
@@ -16217,7 +16217,7 @@ var_1		= byte ptr -1
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		imul	ax, 32h
-		add	ax, 288Ah
+		add	ax, offset byte_1FDEA
 		mov	word_1FE4E, ax
 		mov	bx, word_1FE4E
 		cmp	byte ptr [bx], 0
@@ -16297,13 +16297,13 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 32h
-		add	ax, 288Ah
+		add	ax, offset byte_1FDEA
 		mov	word_1FE4E, ax
 		mov	bx, word_1FE4E
 		cmp	byte ptr [bx], 0
 		jz	loc_146AB
 		call	egc_off
-		call	grcg_settile_1line pascal, GC_RMW, 0AA0055AAh
+		call	grcg_settile_1line pascal, GC_RMW, ((43520 shl 16) + 21930)
 		mov	[bp+var_4], 0
 		mov	si, 0Bh
 		jmp	short loc_14594
@@ -16488,11 +16488,11 @@ loc_146C6:
 		mov	dh, 0
 		add	dx, dx
 		mov	bx, dx
-		mov	[bx+2884h], ax
+		mov	word_1FDE4[bx], ax
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+2888h], 0
+		mov	byte ptr byte_1FDE8[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -16506,7 +16506,7 @@ loc_146C6:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	[bx+2D58h], dl
+		mov	byte_202B8[bx], dl
 		jmp	loc_14880
 ; ---------------------------------------------------------------------------
 
@@ -16527,7 +16527,7 @@ loc_14723:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+2884h]
+		mov	ax, word_1FDE4[bx]
 		mov	_bullet_template.BT_center.y, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -16538,7 +16538,7 @@ loc_14723:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2888h]
+		mov	al, byte_1FDE8[bx]
 		mov	ah, 0
 		mov	bx, 18h
 		cwd
@@ -16553,21 +16553,21 @@ loc_14784:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2888h]
+		mov	al, byte_1FDE8[bx]
 		mov	ah, 0
 		mov	bx, 18h
 		cwd
 		idiv	bx
 		cmp	dx, 14h
 		jnz	short loc_147BA
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 
 loc_1479F:
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+2884h]
+		push	word ptr word_1FDE4[bx]
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax
@@ -16579,7 +16579,7 @@ loc_147BA:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2888h]
+		mov	al, byte_1FDE8[bx]
 		mov	ah, 0
 		mov	bx, 18h
 		cwd
@@ -16609,7 +16609,7 @@ loc_147F5:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2888h]
+		mov	al, byte_1FDE8[bx]
 		mov	ah, 0
 		mov	bx, 18h
 		cwd
@@ -16638,21 +16638,21 @@ loc_1482F:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	ah, 0
 		shl	ax, 4
 		mov	dl, _pid_current
 		mov	dh, 0
 		add	dx, dx
 		mov	bx, dx
-		add	[bx+2884h], ax
+		add	word_1FDE4[bx], ax
 
 loc_14850:
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		cmp	word ptr [bx+2884h], 1700h
+		cmp	word ptr word_1FDE4[bx], (PLAYFIELD_H shl 4)
 		jl	short loc_14875
 		mov	al, _pid_current
 		mov	ah, 0
@@ -16665,7 +16665,7 @@ loc_14875:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+2888h]
+		inc	byte ptr byte_1FDE8[bx]
 
 loc_14880:
 		pop	si
@@ -29732,7 +29732,9 @@ public _hitcircles_enemy_add_do_not_rand
 _hitcircles	hitcircle_t HITCIRCLE_COUNT dup (<?>)
 _hitcircles_enemy_last_id	db ?
 _hitcircles_enemy_add_do_not_rand	db ?
-		db 8 dup(?)
+		db 2 dup(?)
+word_1FDE4	dw PLAYER_COUNT dup(?)
+byte_1FDE8	db PLAYER_COUNT dup(?)
 byte_1FDEA	db ?
 		db 49 dup(?)
 byte_1FE1C	db ?
@@ -29793,7 +29795,8 @@ gba_gauge_pattern_bullet_p1	dd ?
 gba_gauge_pattern_bullet_p2	dd ?
 _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
-		db 786 dup(?)
+byte_202B8	db (PLAYER_COUNT * 4) dup(?)
+		db 778 dup(?)
 word_205CA	dw ?
 byte_205CC	db ?
 		db ?
