@@ -27079,7 +27079,7 @@ loc_1B9F6:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+2006h], 0
+		mov	byte ptr ellen_gauge_pattern_frames[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27088,12 +27088,12 @@ loc_1B9F6:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+1FFEh], 900h
+		mov	word ptr ellen_gauge_pattern_x[bx], (144 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+2002h], 0
+		mov	word ptr ellen_gauge_pattern_y[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27103,7 +27103,7 @@ loc_1B9F6:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27113,7 +27113,7 @@ loc_1B9F6:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -27132,7 +27132,7 @@ loc_1BA77:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2006h]
+		mov	al, ellen_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	bx, 8
 		cwd
@@ -27150,7 +27150,7 @@ loc_1BA77:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		cmp	word ptr [bx+1FFEh], 0
+		cmp	word ptr ellen_gauge_pattern_x[bx], 0
 		jle	loc_1BB55
 		mov	_bullet_template.BT_angle, 0
 		mov	_bullet_template.BT_speed, ((3 shl 4) + 8)
@@ -27159,14 +27159,14 @@ loc_1BA77:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	_bullet_template.BT_center.y, 0
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+1FFEh]
+		mov	ax, ellen_gauge_pattern_x[bx]
 		mov	_bullet_template.BT_center.x, ax
 		push	ax
 		push	0
@@ -27178,9 +27178,9 @@ loc_1BA77:
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
-		mov	dx, 1200h
+		mov	dx, (PLAYFIELD_W shl 4)
 		mov	bx, ax
-		sub	dx, [bx+1FFEh]
+		sub	dx, ellen_gauge_pattern_x[bx]
 		mov	_bullet_template.BT_center.x, dx
 		push	dx
 		push	0
@@ -27193,7 +27193,7 @@ loc_1BA77:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		sub	word ptr [bx+1FFEh], 180h
+		sub	word ptr ellen_gauge_pattern_x[bx], (24 shl 4)
 		jmp	loc_1BC0E
 ; ---------------------------------------------------------------------------
 
@@ -27202,7 +27202,7 @@ loc_1BB55:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		cmp	word ptr [bx+2002h], 900h
+		cmp	word ptr ellen_gauge_pattern_y[bx], (144 shl 4)
 		jge	loc_1BBFA
 		call	@randring_far_next16$qv
 		mov	_bullet_template.BT_angle, al
@@ -27210,14 +27210,14 @@ loc_1BB55:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D59h]
+		mov	al, byte_202B9[bx]
 		mov	_bullet_template.BT_speed, al
 		mov	_bullet_template.BT_group, BG_16_RING
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+2002h]
+		mov	ax, ellen_gauge_pattern_y[bx]
 		mov	_bullet_template.BT_center.y, ax
 		mov	_bullet_template.BT_center.x, 0
 		push	0
@@ -27225,19 +27225,19 @@ loc_1BB55:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+2002h]
+		push	word ptr ellen_gauge_pattern_y[bx]
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax
 		call	sub_CE0C
 		call	@bullets_add$qv
 		mov	_bullet_template.BT_center.x, (PLAYFIELD_W shl 4)
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+2002h]
+		push	word ptr ellen_gauge_pattern_y[bx]
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax
@@ -27249,7 +27249,7 @@ loc_1BB55:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		add	word ptr [bx+2002h], 180h
+		add	word ptr ellen_gauge_pattern_y[bx], (24 shl 4)
 		jmp	short loc_1BC0E
 ; ---------------------------------------------------------------------------
 
@@ -27265,7 +27265,7 @@ loc_1BC0E:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+2006h]
+		inc	byte ptr ellen_gauge_pattern_frames[bx]
 
 locret_1BC19:
 		leave
@@ -29695,7 +29695,10 @@ _formation_pos_type_ring	dw ?
 _formation_p            	db PLAYER_COUNT dup(?)
 _formation_count        	db ?
 
-		db 11 dup(?)
+		db ?
+ellen_gauge_pattern_x dw PLAYER_COUNT dup(?)
+ellen_gauge_pattern_y dw PLAYER_COUNT dup(?)
+ellen_gauge_pattern_frames db PLAYER_COUNT dup(?)
 ellen_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 32 * 12) dup(?)
 word_1F868	dw ?
