@@ -16742,7 +16742,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_148FF
 		add	bx, 28h	; '('
@@ -16809,10 +16809,10 @@ loc_14967:
 		idiv	bx
 		or	dx, dx
 		jnz	loc_14A1C
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring2_next16_mod$qui
 		mov	point_1FE52.x, ax
-		push	1700h
+		push	(PLAYFIELD_H shl 4)
 		call	@randring2_next16_mod$qui
 		mov	point_1FE52.y, ax
 		push	point_1FE52.x
@@ -16876,7 +16876,7 @@ loc_14A1C:
 		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 0F16h
+		add	ax, ((48 * ROW_SIZE) + (176 / BYTE_DOTS))
 		mov	di, ax
 		mov	al, [bp+@@frame]
 		mov	ah, 0
@@ -16910,7 +16910,7 @@ marisa_bomb	endp
 sub_14A76	proc far
 		push	bp
 		mov	bp, sp
-		mov	word_205CA, 2D6Ah
+		mov	word_205CA, offset byte_202CA
 		xor	ax, ax
 		jmp	short loc_14A90
 ; ---------------------------------------------------------------------------
@@ -16942,10 +16942,10 @@ var_1		= byte ptr -1
 		enter	2, 0
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2D6Ah
+		imul	ax, 384
+		add	ax, offset byte_202CA
 		mov	word_205CA, ax
-		mov	[bp+var_1], 90h
+		mov	[bp+var_1], 144
 		xor	cx, cx
 		jmp	short loc_14AFC
 ; ---------------------------------------------------------------------------
@@ -17005,8 +17005,8 @@ arg_2		= word ptr  8
 		mov	bp, sp
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2D6Ah
+		imul	ax, 384
+		add	ax, offset byte_202CA
 		mov	word_205CA, ax
 		xor	cx, cx
 		jmp	short loc_14B6E
@@ -17074,8 +17074,8 @@ chargeshot_update_reimu	proc far
 		push	di
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2D6Ah
+		imul	ax, 384
+		add	ax, offset byte_202CA
 		mov	word_205CA, ax
 		mov	_playfield_clip_negative_radius.x, (-24 shl 4)
 		mov	_playfield_clip_negative_radius.y, (-24 shl 4)
@@ -17140,7 +17140,7 @@ loc_14BF1:
 		cmp	byte ptr [bx+1Fh], 0
 		jbe	short loc_14C36
 		mov	al, [bx+1Fh]
-		add	al, 0FCh
+		add	al, -4
 		mov	[bx+1Fh], al
 		jmp	short loc_14C5E
 ; ---------------------------------------------------------------------------
@@ -17212,7 +17212,7 @@ arg_4		= word ptr  8
 		mov	dl, _pid_PID_so_attack
 		mov	dh, 0
 		add	ax, dx
-		add	ax, 1180h
+		add	ax, (56 * ROW_SIZE)
 		mov	[bp+@@sprite_offset], ax
 		push	di	; x
 		mov	al, _pid_current
@@ -17249,8 +17249,8 @@ public @chargeshot_hittest_reimu$qv
 loc_14CF7:
 		mov	al, _hitbox_pid
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2D6Ah
+		imul	ax, 384
+		add	ax, offset byte_202CA
 		mov	word_205CA, ax
 		xor	si, si
 		jmp	short loc_14D79
@@ -17322,8 +17322,8 @@ chargeshot_render_reimu	proc far
 		push	si
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 180h
-		add	ax, 2D6Ah
+		imul	ax, 384
+		add	ax, offset byte_202CA
 		mov	word_205CA, ax
 		cmp	_pid_current, 0
 		jnz	short loc_14DAB
@@ -17424,7 +17424,7 @@ loc_14E51:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+2D68h], 0
+		mov	byte ptr byte_202C8[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -17438,7 +17438,7 @@ loc_14E51:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	dl, 20h	; ' '
@@ -17448,7 +17448,7 @@ loc_14E51:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	[bx+2D59h], dl
+		mov	byte_202B9[bx], dl
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -17476,13 +17476,13 @@ loc_14EB3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2D68h]
+		mov	al, byte_202C8[bx]
 		mov	ah, 0
 		mov	dl, _pid_current
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	dl, [bx+2D59h]
+		mov	dl, byte_202B9[bx]
 		mov	dh, 0
 		push	dx
 		cwd
@@ -17510,7 +17510,7 @@ loc_14F52:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+2D68h]
+		mov	al, byte_202C8[bx]
 		mov	ah, 0
 		mov	bx, 20h	; ' '
 		cwd
@@ -17522,7 +17522,7 @@ loc_14F52:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	_bullet_template.BT_speed, ((3 shl 4) + 2)
 		mov	_bullet_template.BT_center.x, (64 shl 4)
@@ -17544,7 +17544,7 @@ loc_14FBD:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+2D68h], 40h
+		cmp	byte ptr byte_202C8[bx], 40h
 		jbe	short loc_14FDF
 		mov	al, _pid_current
 		mov	ah, 0
@@ -17557,7 +17557,7 @@ loc_14FDF:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+2D68h]
+		inc	byte ptr byte_202C8[bx]
 
 locret_14FEA:
 		leave
@@ -29793,8 +29793,12 @@ gba_gauge_pattern_bullet_p1	dd ?
 gba_gauge_pattern_bullet_p2	dd ?
 _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
-byte_202B8	db (PLAYER_COUNT * 4) dup(?)
-		db 778 dup(?)
+byte_202B8	db ?
+byte_202B9	db ?
+		db 6 dup(?)
+		db 8 dup(?)
+byte_202C8	db PLAYER_COUNT dup(?)
+byte_202CA	db (PLAYER_COUNT * 384) dup(?)
 word_205CA	dw ?
 byte_205CC	db ?
 		db ?
@@ -29871,7 +29875,9 @@ word_20E52	dw ?
 word_20E86	dw ?
 byte_20E88	db ?
 byte_20E89	db ?
-		db 14 dup(?)
+		db 8 dup(?)
+byte_20E92 label byte
+		db 6 dup(?)
 byte_20E98	db PLAYER_COUNT dup(?)
 byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
