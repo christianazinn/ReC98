@@ -17693,7 +17693,7 @@ loc_150CA:
 		shl	dx, 3
 		add	ax, dx
 		mov	bx, ax
-		mov	byte ptr [bx+3080h], 0
+		mov	byte ptr byte_205E0[bx], 0
 		inc	si
 
 loc_150E1:
@@ -17709,7 +17709,7 @@ loc_150ED:
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 8
-		add	ax, 3080h
+		add	ax, offset byte_205E0
 		mov	word_207E0, ax
 		xor	si, si
 		jmp	short loc_15132
@@ -17724,7 +17724,7 @@ loc_1510A:
 		add	[bx+4],	ax
 		cmp	word ptr [bx+4], 0FF80h
 		jg	short loc_1512C
-		mov	word ptr [bx+4], 1800h
+		mov	word ptr [bx+4], (384 shl 4)
 		add	word ptr [bx+6], 8
 
 loc_1512C:
@@ -17768,7 +17768,7 @@ reimu_bomb_1515D	proc near
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 8
-		add	ax, 3080h
+		add	ax, offset byte_205E0
 		mov	word_207E0, ax
 		mov	_sprite16_put_w, (16 / 16)
 		mov	_sprite16_put_h, 8
@@ -17842,7 +17842,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_1522B
 		add	bx, 28h	; '('
@@ -17859,7 +17859,7 @@ loc_1522B:
 		mov	dh, 0
 		shl	dx, 3
 		add	ax, dx
-		add	ax, 3080h
+		add	ax, offset byte_205E0
 		mov	word_207E0, ax
 		mov	bx, word_207E0
 		mov	byte ptr [bx], 1
@@ -17869,11 +17869,11 @@ loc_1522B:
 		sub	dx, ax
 		mov	bx, word_207E0
 		mov	[bx+6],	dx
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring2_next16_mod$qui
 		mov	bx, word_207E0
 		mov	[bx+2],	ax
-		mov	word ptr [bx+4], 1800h
+		mov	word ptr [bx+4], (384 shl 4)
 
 loc_1527D:
 		mov	al, _pid_current
@@ -18018,7 +18018,7 @@ reimu_bomb	endp
 sub_153BB	proc far
 		push	bp
 		mov	bp, sp
-		mov	word_20E22, 3796h
+		mov	word_20E22, offset byte_20CF6
 		xor	ax, ax
 		jmp	short loc_153D5
 ; ---------------------------------------------------------------------------
@@ -18051,17 +18051,17 @@ chargeshot_add_mima	proc far
 		push	si
 		mov	al, _pid_PID_current
 		mov	ah, 0
-		imul	ax, 96h
-		add	ax, 3796h
+		imul	ax, 150
+		add	ax, offset byte_20CF6
 		mov	word_20E22, ax
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+38C4h], 1
+		mov	byte ptr byte_20E24[bx], 1
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+38C6h], 0
+		mov	byte ptr byte_20E26[bx], 0
 		mov	bx, word_20E22
 		mov	byte ptr [bx], 1
 		xor	si, si
@@ -18124,12 +18124,12 @@ arg_2		= byte ptr  6
 		mov	bp, sp
 		mov	al, [bp+arg_2]
 		mov	ah, 0
-		imul	ax, 96h
+		imul	ax, 150
 		mov	dl, [bp+arg_0]
 		mov	dh, 0
 		imul	dx, 0Ah
 		add	ax, dx
-		add	ax, 3796h
+		add	ax, offset byte_20CF6
 		mov	word_20E22, ax
 		mov	bx, word_20E22
 		mov	byte ptr [bx], 1
@@ -18166,24 +18166,24 @@ var_1		= byte ptr -1
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+38C4h], 0
+		cmp	byte ptr byte_20E24[bx], 0
 		jz	loc_15594
 		mov	_playfield_clip_negative_radius.x, (-16 shl 4)
 		mov	_playfield_clip_negative_radius.y, (-16 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 96h
-		add	ax, 3796h
+		imul	ax, 150
+		add	ax, offset byte_20CF6
 		mov	word_20E22, ax
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+38C6h]
+		mov	al, byte_20E26[bx]
 		inc	al
 		mov	dl, _pid_current
 		mov	dh, 0
 		mov	bx, dx
-		mov	[bx+38C6h], al
+		mov	byte_20E26[bx], al
 		mov	[bp+var_1], al
 		xor	si, si
 		jmp	short loc_1555A
@@ -18208,7 +18208,7 @@ loc_15514:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+38C4h], 0
+		mov	byte ptr byte_20E24[bx], 0
 
 loc_15554:
 		inc	si
@@ -18261,7 +18261,7 @@ var_1		= byte ptr -1
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+38C4h], 0
+		cmp	byte ptr byte_20E24[bx], 0
 		jnz	short loc_155AE
 		mov	al, 0
 		jmp	short loc_15619
@@ -18271,8 +18271,8 @@ loc_155AE:
 		mov	[bp+var_1], 0
 		mov	al, _hitbox_pid
 		mov	ah, 0
-		imul	ax, 96h
-		add	ax, 3796h
+		imul	ax, 150
+		add	ax, offset byte_20CF6
 		mov	word_20E22, ax
 		xor	si, si
 		jmp	short loc_15611
@@ -18368,12 +18368,12 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+38C4h], 0
+		cmp	byte ptr byte_20E24[bx], 0
 		jz	short loc_156DF
 		mov	al, _pid_current
 		mov	ah, 0
-		imul	ax, 96h
-		add	ax, 3796h
+		imul	ax, 150
+		add	ax, offset byte_20CF6
 		mov	word_20E22, ax
 		cmp	_pid_current, 0
 		jnz	short loc_15689
@@ -29808,7 +29808,7 @@ bomb_p1	dd ?
 bomb_p2	dd ?
 public _bomb_frame
 _bomb_frame	db PLAYER_COUNT dup(?)
-		db 512 dup(?)
+byte_205E0	db (PLAYER_COUNT * 256) dup(?)
 word_207E0	dw ?
 
 HSF_DONE = 0
@@ -29829,9 +29829,11 @@ byte_20CE6	db ?
 word_20CE8	dw ?
 word_20CEA	dw ?
 x_20CEC	dw ?
-		db 308 dup(?)
+		db 8 dup(?)
+byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
 word_20E22	dw ?
-		db 4 dup(?)
+byte_20E24	db PLAYER_COUNT dup(?)
+byte_20E26	db PLAYER_COUNT dup(?)
 byte_20E28	db ?
 byte_20E29	db ?
 byte_20E2A	db ?
