@@ -23522,21 +23522,21 @@ var_1		= byte ptr -1
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D5Ah]
+		mov	al, byte_202BA[bx]
 		mov	_bullet_template.BT_type, al
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		cmp	byte ptr [bx+2D59h], 0
+		cmp	byte_202B9[bx], 0
 		jz	short loc_19F5D
-		mov	[bp+var_1], 0F4h
+		mov	[bp+var_1], -12
 		jmp	short loc_19F61
 ; ---------------------------------------------------------------------------
 
@@ -23581,27 +23581,27 @@ var_1		= byte ptr -1
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D5Ah]
+		mov	al, byte_202BA[bx]
 		mov	_bullet_template.BT_type, al
 		mov	_bullet_template.BT_speed, (1 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		cmp	byte ptr [bx+2D59h], 0
+		cmp	byte_202B9[bx], 0
 		jz	short loc_19FCA
 		mov	[bp+var_1], 7
 		jmp	short loc_19FCE
 ; ---------------------------------------------------------------------------
 
 loc_19FCA:
-		mov	[bp+var_1], 0F9h
+		mov	[bp+var_1], -7
 
 loc_19FCE:
 		xor	si, si
@@ -23640,7 +23640,7 @@ public @exatt_update_kotohime$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	word_2028A, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -23793,7 +23793,7 @@ public @exatt_render_kotohime$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	word_2028A, ax
 		xor	si, si
 		jmp	short loc_1A176
@@ -23959,7 +23959,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A2C3
@@ -23971,10 +23971,10 @@ loc_1A294:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	7FFh
+		push	2047
 		call	@randring_far_next16_and$qui
 		push	ax
 		push	[bp+arg_0]
@@ -24016,7 +24016,7 @@ arg_4		= word ptr  0Ah
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A31F
@@ -24077,7 +24077,7 @@ arg_0		= byte ptr  4
 		push	si
 		test	[bp+arg_0], 1
 		jnz	short loc_1A372
-		mov	si, 1928h
+		mov	si, ((80 * ROW_SIZE) + (320 / BYTE_DOTS))
 		mov	al, [bp+arg_0]
 		mov	ah, 0
 		and	ax, 7
@@ -24123,7 +24123,7 @@ arg_0		= byte ptr  4
 		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
 		mov	_sprite16_put_w, (48 / 16)
 		mov	_sprite16_put_h, 24
-		mov	si, 1930h
+		mov	si, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
 		mov	al, [bp+arg_0]
 		mov	ah, 0
 		mov	bx, 4
@@ -24190,7 +24190,7 @@ loc_1A417:
 		jnz	short loc_1A46F
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	di, ax
 		mov	al, [si+1]
 		mov	ah, 0
@@ -24213,7 +24213,7 @@ loc_1A443:
 		mov	ah, 0
 		and	ax, 1
 		imul	ax, 6
-		add	ax, 780h
+		add	ax, (24 * ROW_SIZE)
 		add	di, ax
 
 loc_1A459:
@@ -24304,7 +24304,7 @@ public @exatt_update_reimu$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	loc_1A5E9
@@ -24319,7 +24319,7 @@ loc_1A512:
 		add	[si+2],	ax
 		cmp	word ptr [si+2], 0
 		jle	short loc_1A531
-		cmp	word ptr [si+2], 1200h
+		cmp	word ptr [si+2], (PLAYFIELD_W shl 4)
 		jl	short loc_1A542
 
 loc_1A531:
@@ -24342,7 +24342,7 @@ loc_1A542:
 		mov	word ptr [si+4], 0FE80h
 
 loc_1A55F:
-		cmp	word ptr [si+4], 1700h
+		cmp	word ptr [si+4], (368 shl 4)
 		jl	short loc_1A56B
 		mov	byte ptr [si], 0
 		jmp	short loc_1A5E5
@@ -24432,7 +24432,7 @@ public @exatt_render_reimu$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A622
@@ -24476,7 +24476,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A679
@@ -24488,10 +24488,10 @@ loc_1A641:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
 		push	[bp+arg_0]
@@ -24562,18 +24562,18 @@ loc_1A6D7:
 		jnz	short loc_1A723
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	di, ax
 		cmp	byte ptr [si+1], 0
 		jnz	short loc_1A6F8
-		add	di, 786h
+		add	di, ((24 * ROW_SIZE) + (48 / BYTE_DOTS))
 		jmp	short loc_1A70D
 ; ---------------------------------------------------------------------------
 
 loc_1A6F8:
 		cmp	byte ptr [si+1], 1
 		jnz	short loc_1A704
-		add	di, 780h
+		add	di, (24 * ROW_SIZE)
 		jmp	short loc_1A70D
 ; ---------------------------------------------------------------------------
 
@@ -24635,7 +24635,7 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		mov	al, 1
 		sub	al, _pid_current
@@ -24819,7 +24819,7 @@ public @exatt_render_mima$qv
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A8F9
@@ -24862,7 +24862,7 @@ arg_4		= word ptr  0Ah
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 292Ah
+		add	ax, offset exatt_buffers
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1A954
@@ -24874,12 +24874,12 @@ loc_1A918:
 		mov	word_2028A, si
 		push	[bp+arg_4]
 		push	[bp+arg_2]
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring_far_next16_mod$qui
 		push	ax
-		push	1000h
+		push	(256 shl 4)
 		call	@randring_far_next16_mod$qui
-		add	ax, 600h
+		add	ax, (96 shl 4)
 		push	ax
 		push	[bp+arg_0]
 		push	46h ; 'F'
@@ -24920,7 +24920,7 @@ arg_2		= word ptr  8
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 9
-		add	ax, 2A2Ah
+		add	ax, (offset exatt_buffers + 256)
 		mov	si, ax
 		mov	dx, 8
 		jmp	short loc_1A9A6
@@ -29799,7 +29799,8 @@ _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
 byte_202B8	db ?
 byte_202B9	db ?
-		db 6 dup(?)
+byte_202BA	db ?
+		db 5 dup(?)
 		db 8 dup(?)
 byte_202C8	db PLAYER_COUNT dup(?)
 byte_202CA	db (PLAYER_COUNT * 384) dup(?)
