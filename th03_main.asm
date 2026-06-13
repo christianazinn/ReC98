@@ -19812,7 +19812,7 @@ loc_17081:
 		shl	dx, 2
 		add	ax, dx
 		mov	bx, ax
-		mov	word ptr [bx+689Ch], 0
+		mov	word ptr mima_bomb_columns[bx+2], 0
 		inc	si
 
 loc_17099:
@@ -19847,7 +19847,7 @@ loc_170A5:
 		idiv	bx
 		or	dx, dx
 		jnz	short loc_17129
-		push	1200h
+		push	(PLAYFIELD_W shl 4)
 		call	@randring2_next16_mod$qui
 		mov	dl, _pid_current
 		mov	dh, 0
@@ -19856,7 +19856,7 @@ loc_170A5:
 		shl	bx, 2
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx+689Ah], ax
+		mov	word ptr mima_bomb_columns[bx], ax
 		mov	ax, si
 		mov	bx, 3
 		cwd
@@ -19873,7 +19873,7 @@ loc_170A5:
 		shl	bx, 2
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx+689Ch], ax
+		mov	word ptr mima_bomb_columns[bx+2], ax
 
 loc_17129:
 		mov	al, _pid_current
@@ -19908,7 +19908,7 @@ mima_bomb_1714F	proc near
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 5
-		add	ax, 689Ah
+		add	ax, offset mima_bomb_columns
 		mov	word_23E3A, ax
 		mov	_sprite16_put_w, (16 / 16)
 		mov	_sprite16_put_h, 8
@@ -19977,7 +19977,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_17202
 		add	bx, 28h	; '('
@@ -20053,7 +20053,7 @@ loc_1728A:
 		mov	[bp+var_2], dl
 		cmp	[bp+var_2], 0
 		jnz	short loc_172D2
-		push	9000B80h
+		push	large (((144 shl 4) shl 16) or (184 shl 4))
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
@@ -20222,7 +20222,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_1840A
 		add	bx, 28h	; '('
@@ -20247,7 +20247,7 @@ loc_1840A:
 		idiv	bx
 		or	dx, dx
 		jnz	loc_185A3
-		push	9000B80h
+		push	large (((144 shl 4) shl 16) or (184 shl 4))
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
@@ -20298,31 +20298,31 @@ loc_184A5:
 		add	ax, ax
 		shl	ax, 4
 		mov	si, ax
-		mov	ax, 900h
+		mov	ax, (144 shl 4)
 		sub	ax, si
 		push	ax
-		push	0B80h
+		push	(184 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
 		call	sub_CE5B
-		lea	ax, [si+900h]
+		lea	ax, [si+(144 shl 4)]
 		push	ax
-		push	0B80h
+		push	(184 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
 		call	sub_CE5B
-		push	900h
-		mov	ax, 0B80h
+		push	(144 shl 4)
+		mov	ax, (184 shl 4)
 		sub	ax, si
 		push	ax
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
 		call	sub_CE5B
-		push	900h
-		lea	ax, [si+0B80h]
+		push	(144 shl 4)
+		lea	ax, [si+(184 shl 4)]
 		push	ax
 		mov	al, _pid_current
 		mov	ah, 0
@@ -20432,7 +20432,7 @@ loc_185E9:
 		shl	dx, 3
 		add	ax, dx
 		mov	bx, ax
-		mov	word ptr [bx+25DEh], 4E1Fh
+		mov	word ptr ellen_bomb_vectors[bx], 19999
 		inc	si
 
 loc_18601:
@@ -20450,7 +20450,7 @@ loc_1860D:
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 6
-		add	ax, 25DEh
+		add	ax, offset ellen_bomb_vectors
 		mov	word_1FBBE, ax
 		xor	si, si
 		jmp	short loc_18698
@@ -20458,10 +20458,10 @@ loc_1860D:
 
 loc_18636:
 		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 270Fh
+		cmp	word ptr [bx], 9999
 		jz	short loc_18667
 		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 4E1Fh
+		cmp	word ptr [bx], 19999
 		jz	short loc_18692
 		mov	bx, word_1FBBE
 		mov	ax, [bx+4]
@@ -20474,8 +20474,8 @@ loc_18636:
 
 loc_18667:
 		mov	bx, word_1FBBE
-		mov	word ptr [bx], 900h
-		mov	word ptr [bx+2], 0B80h
+		mov	word ptr [bx], (144 shl 4)
+		mov	word ptr [bx+2], (184 shl 4)
 		push	ds
 		mov	ax, word_1FBBE
 		add	ax, 4
@@ -20530,7 +20530,7 @@ ellen_bomb_186C3	proc near
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 6
-		add	ax, 25DEh
+		add	ax, offset ellen_bomb_vectors
 		mov	word_1FBBE, ax
 		mov	_sprite16_put_w, (64 / 16)
 		mov	_sprite16_put_h, 32
@@ -20548,7 +20548,7 @@ loc_186F6:
 loc_18702:
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 29Ch
+		add	ax, ((8 * ROW_SIZE) + (224 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		xor	si, si
 		jmp	short loc_1875E
@@ -20556,10 +20556,10 @@ loc_18702:
 
 loc_18711:
 		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 4E1Fh
+		cmp	word ptr [bx], 19999
 		jz	short loc_18758
 		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 270Fh
+		cmp	word ptr [bx], 9999
 		jz	short loc_18758
 		mov	bx, word_1FBBE
 		push	word ptr [bx]	; x
@@ -20619,7 +20619,7 @@ var_2		= word ptr -2
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	bx, 3932h
+		mov	bx, offset byte_20E92
 		cmp	_pid_current, 0
 		jz	short loc_187AF
 		add	bx, 28h	; '('
@@ -20740,7 +20740,7 @@ loc_188B2:
 		idiv	bx
 		or	dx, dx
 		jnz	loc_18964
-		push	9000B80h
+		push	large (((144 shl 4) shl 16) or (184 shl 4))
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
@@ -20754,7 +20754,7 @@ loc_188B2:
 		shl	dx, 3
 		add	ax, dx
 		mov	bx, ax
-		mov	word ptr [bx+25DEh], 270Fh
+		mov	word ptr ellen_bomb_vectors[bx], 9999
 		inc	word_1FB3C
 		jmp	short loc_18964
 ; ---------------------------------------------------------------------------
@@ -20860,7 +20860,7 @@ var_2		= byte ptr -2
 		idiv	bx
 		or	dx, dx
 		jnz	short loc_18A08
-		push	9000B80h
+		push	large (((144 shl 4) shl 16) or (184 shl 4))
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
@@ -29697,6 +29697,7 @@ word_1F868	dw ?
 		db 720 dup(?)
 word_1FB3A	dw ?
 word_1FB3C	dw ?
+ellen_bomb_vectors label byte
 		db 128 dup(?)
 word_1FBBE	dw ?
 fp_1FBC0	dw ?
@@ -30078,6 +30079,7 @@ _defeat_boss_attacks_reversed	db ?
 _defeat_boss_panics_fired    	db ?
 
 byte_23DF9	db ?
+mima_bomb_columns label byte
 		db 64 dup(?)
 word_23E3A	dw ?
 
