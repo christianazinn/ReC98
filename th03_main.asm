@@ -18457,7 +18457,7 @@ loc_156F8:
 		nopcall	@randring_far_next16_and$qui
 		or	ax, ax
 		jnz	short loc_15717
-		mov	al, 0F9h
+		mov	al, -7
 		jmp	short loc_15719
 ; ---------------------------------------------------------------------------
 
@@ -18468,15 +18468,15 @@ loc_15719:
 		mov	dl, _pid_current
 		mov	dh, 0
 		mov	bx, dx
-		mov	[bx+3792h], al
+		mov	byte_20CF2[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3790h], 40h
+		mov	byte ptr byte_20CF0[bx], 40h
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3794h], 0
+		mov	byte ptr byte_20CF4[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -18490,7 +18490,7 @@ loc_15719:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -18501,7 +18501,7 @@ loc_15719:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -18523,7 +18523,7 @@ loc_15786:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3794h]
+		mov	al, byte_20CF4[bx]
 		mov	ah, 0
 		mov	bx, 8
 		cwd
@@ -18535,7 +18535,7 @@ loc_15786:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3792h], 7
+		cmp	byte ptr byte_20CF2[bx], 7
 		jbe	short loc_157DD
 		mov	_bullet_template.BT_center.x, (32 shl 4)
 		jmp	short loc_157E3
@@ -18550,19 +18550,19 @@ loc_157E3:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D59h]
+		mov	al, byte_202B9[bx]
 		mov	_bullet_template.BT_speed, al
 		mov	al, [bp+@@pid_other]
 		mov	_bullet_template.BT_pid, al
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3790h]
+		mov	al, byte_20CF0[bx]
 		mov	_bullet_template.BT_angle, al
 		mov	_bullet_template.BT_is_animated, 0
 		mov	_bullet_template.BT_group, BG_5_SPREAD_NARROW
 		push	_bullet_template.BT_center.x
-		push	100h
+		push	(16 shl 4)
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax
@@ -18571,7 +18571,7 @@ loc_157E3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3794h]
+		mov	al, byte_20CF4[bx]
 		mov	ah, 0
 		mov	bx, 10h
 		cwd
@@ -18583,11 +18583,11 @@ loc_157E3:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D58h]
+		mov	al, byte_202B8[bx]
 		mov	_bullet_template.BT_count, al
 		mov	_bullet_template.BT_speed, ((3 shl 4) + 6)
 		push	_bullet_template.BT_center.x
-		push	100h
+		push	(16 shl 4)
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		push	ax
@@ -18598,18 +18598,18 @@ loc_15878:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3792h]
+		mov	al, byte_20CF2[bx]
 		mov	dl, _pid_current
 		mov	dh, 0
 		mov	bx, dx
-		add	[bx+3790h], al
+		add	byte_20CF0[bx], al
 		mov	_bullet_template.BT_is_animated, 1
 
 loc_15894:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3794h], 40h
+		cmp	byte ptr byte_20CF4[bx], 40h
 		jbe	short loc_158B6
 		mov	al, _pid_current
 		mov	ah, 0
@@ -18622,7 +18622,7 @@ loc_158B6:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+3794h]
+		inc	byte ptr byte_20CF4[bx]
 
 locret_158C1:
 		leave
@@ -18712,7 +18712,7 @@ var_2		= word ptr -2
 		jnb	short loc_15A4A
 		mov	ah, 0
 		imul	ax, 3
-		mov	dx, 0E0h
+		mov	dx, 224
 		sub	dx, ax
 		mov	di, dx
 		push	(GC_RMW shl 16) + 8
@@ -18734,7 +18734,7 @@ loc_15A53:
 
 loc_15A77:
 		call	grc_setclip pascal, (336 shl 16) or 8, (623 shl 16) or 191
-		mov	[bp+var_2], 150h
+		mov	[bp+var_2], (PLAYFIELD_LEFT + PLAYFIELD_W_BORDERED)
 
 loc_15A8D:
 		xor	si, si
@@ -18742,7 +18742,7 @@ loc_15A8D:
 ; ---------------------------------------------------------------------------
 
 loc_15A91:
-		mov	al, [si+78Ch]
+		mov	al, angles_1DCEC[si]
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
@@ -18753,7 +18753,7 @@ loc_15A91:
 		lea	dx, [bp+var_8]
 		add	bx, dx
 		mov	ss:[bx], ax
-		mov	al, [si+78Ch]
+		mov	al, angles_1DCEC[si]
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
@@ -18786,7 +18786,7 @@ loc_15AE6:
 ; ---------------------------------------------------------------------------
 
 loc_15B29:
-		mov	al, [si+78Ch]
+		mov	al, angles_1DCEC[si]
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
@@ -18797,7 +18797,7 @@ loc_15B29:
 		lea	dx, [bp+var_E]
 		add	bx, dx
 		mov	ss:[bx], ax
-		mov	al, [si+78Ch]
+		mov	al, angles_1DCEC[si]
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
@@ -18834,7 +18834,7 @@ loc_15BB9:
 		call	snd_se_play pascal, 5
 		mov	PaletteTone, 140
 		call	far ptr	palette_show
-		push	9000B80h
+		push	large (((144 shl 4) shl 16) or (184 shl 4))
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
@@ -18969,7 +18969,7 @@ sub_16983	proc far
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		cmp	word ptr [bx+1DCAh], 0
+		cmp	word ptr word_1F32A[bx], 0
 		jz	short loc_169AD
 		mov	byte_20E48, -2
 		mov	ax, word_1F326
@@ -19017,8 +19017,8 @@ loc_169EF:
 loc_169F4:
 		cmp	dl, -1
 		jnz	short loc_16A0C
-		mov	word_2142E, 900h
-		mov	word_21430, 12C0h
+		mov	word_2142E, (144 shl 4)
+		mov	word_21430, (300 shl 4)
 		mov	byte_20E48, -1
 		jmp	short loc_16A50
 ; ---------------------------------------------------------------------------
@@ -19034,16 +19034,16 @@ loc_16A0C:
 		mov	byte_20E48, dl
 		cmp	word_2142E, 0
 		jle	short loc_16A44
-		cmp	word_2142E, 1200h
+		cmp	word_2142E, (PLAYFIELD_W shl 4)
 		jge	short loc_16A44
 		cmp	word_21430, 0
 		jle	short loc_16A44
-		cmp	word_21430, 1800h
+		cmp	word_21430, ((PLAYFIELD_H + PLAYFIELD_BORDER) shl 4)
 		jl	short loc_16A50
 
 loc_16A44:
-		mov	word_2142E, 900h
-		mov	word_21430, 12C0h
+		mov	word_2142E, (144 shl 4)
+		mov	word_21430, (300 shl 4)
 
 loc_16A50:
 		pop	si
@@ -29495,6 +29495,7 @@ word_1DCB6 label word
 		db    0
 		db    1
 		db    0
+angles_1DCEC	label byte
 		db 0C0h
 		db  15h
 		db  6Bh	; k
@@ -29829,7 +29830,10 @@ byte_20CE6	db ?
 word_20CE8	dw ?
 word_20CEA	dw ?
 x_20CEC	dw ?
-		db 8 dup(?)
+		db 2 dup(?)
+byte_20CF0	db PLAYER_COUNT dup(?)
+byte_20CF2	db PLAYER_COUNT dup(?)
+byte_20CF4	db PLAYER_COUNT dup(?)
 byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
 word_20E22	dw ?
 byte_20E24	db PLAYER_COUNT dup(?)
