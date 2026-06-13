@@ -28370,8 +28370,8 @@ main_11_TEXT	segment	byte public 'CODE' use16
 sub_1C40A	proc far
 		push	bp
 		mov	bp, sp
-		mov	byte_20E88, 0
-		mov	byte_20E89, 0
+		mov	rikako_chargeshot_state[0], 0
+		mov	rikako_chargeshot_state[1], 0
 		pop	bp
 		retf
 sub_1C40A	endp
@@ -28394,20 +28394,20 @@ chargeshot_add_rikako	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3928h], 1
+		mov	byte ptr rikako_chargeshot_state[bx], 1
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+392Ah], 0
+		mov	byte ptr rikako_chargeshot_frames[bx], 0
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+392Ch], 80h
+		mov	word ptr rikako_chargeshot_radius[bx], 80h
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		imul	ax, 18h
-		add	ax, 38F6h
+		add	ax, offset rikako_chargeshot_nodes
 		mov	si, ax
 		xor	cx, cx
 		jmp	short loc_1C46F
@@ -28431,13 +28431,13 @@ loc_1C46F:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	[bx+3930h], di
+		mov	rikako_chargeshot_origin_x[bx], di
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		add	ax, ax
 		mov	dx, [bp+@@center_y]
 		mov	bx, ax
-		mov	[bx+3934h], dx
+		mov	rikako_chargeshot_origin_y[bx], dx
 		pop	di
 		pop	si
 		pop	bp
@@ -28460,7 +28460,7 @@ rikako_1C497	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3928h], 2
+		mov	byte ptr rikako_chargeshot_state[bx], 2
 		pop	bp
 		retf	4
 rikako_1C497	endp
@@ -28476,7 +28476,7 @@ rikako_hyper_1C4B4	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3928h], 0
+		mov	byte ptr rikako_chargeshot_state[bx], 0
 		pop	bp
 		retf
 rikako_hyper_1C4B4	endp
@@ -28498,7 +28498,7 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3928h], 0
+		cmp	byte ptr rikako_chargeshot_state[bx], 0
 		jz	loc_1C626
 		mov	al, _pid_current
 		mov	ah, 0
@@ -28510,28 +28510,28 @@ var_2		= word ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+392Ah]
+		mov	al, rikako_chargeshot_frames[bx]
 		mov	[bp+var_5], al
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	di, [bx+392Ch]
+		mov	di, rikako_chargeshot_radius[bx]
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 18h
-		add	ax, 38F6h
+		add	ax, offset rikako_chargeshot_nodes
 		mov	si, ax
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3928h], 1
+		cmp	byte ptr rikako_chargeshot_state[bx], 1
 		jnz	short loc_1C537
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		sub	word ptr [bx+3934h], 20h ; ' '
+		sub	word ptr rikako_chargeshot_origin_y[bx], 20h ; ' '
 		jmp	short loc_1C55C
 ; ---------------------------------------------------------------------------
 
@@ -28542,14 +28542,14 @@ loc_1C537:
 		mov	bx, [bp+@@player]
 		mov	dx, [bx+player_stuff_t.center.x]
 		mov	bx, ax
-		mov	[bx+3930h], dx
+		mov	rikako_chargeshot_origin_x[bx], dx
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, [bp+@@player]
 		mov	dx, [bx+player_stuff_t.center.y]
 		mov	bx, ax
-		mov	[bx+3934h], dx
+		mov	rikako_chargeshot_origin_y[bx], dx
 
 loc_1C55C:
 		mov	[bp+var_2], 0
@@ -28567,7 +28567,7 @@ loc_1C563:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+3930h]
+		push	word ptr rikako_chargeshot_origin_x[bx]
 		call	@polar$qiii
 		add	sp, 6
 		mov	[si], ax
@@ -28581,7 +28581,7 @@ loc_1C563:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+3934h]
+		push	word ptr rikako_chargeshot_origin_y[bx]
 		call	@polar$qiii
 		add	sp, 6
 		mov	[si+2],	ax
@@ -28592,7 +28592,7 @@ loc_1C563:
 ; ---------------------------------------------------------------------------
 
 loc_1C5B8:
-		mov	al, 0F8h
+		mov	al, -8
 
 loc_1C5BA:
 		add	al, [si+4]
@@ -28613,17 +28613,17 @@ loc_1C5D7:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3928h], 1
+		cmp	byte ptr rikako_chargeshot_state[bx], 1
 		jnz	short loc_1C602
 		cmp	[bp+var_5], 80h
 		jbe	short loc_1C60E
 		add	di, 60h
-		cmp	[bp+var_5], 90h
+		cmp	[bp+var_5], 144
 		jbe	short loc_1C60E
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3928h], 0
+		mov	byte ptr rikako_chargeshot_state[bx], 0
 		jmp	short loc_1C60E
 ; ---------------------------------------------------------------------------
 
@@ -28631,18 +28631,18 @@ loc_1C602:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+392Ah], 20h ; ' '
+		mov	byte ptr rikako_chargeshot_frames[bx], 20h ; ' '
 
 loc_1C60E:
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	[bx+392Ch], di
+		mov	rikako_chargeshot_radius[bx], di
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+392Ah]
+		inc	byte ptr rikako_chargeshot_frames[bx]
 
 loc_1C626:
 		pop	di
@@ -28665,7 +28665,7 @@ rikako_chargeshot_1C62A	proc near
 		enter	6, 0
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 280h
+		add	ax, (8 * ROW_SIZE)
 		mov	[bp+@@sprite_offset], ax
 		mov	bx, word_20E86
 		push	word ptr [bx]	; x
@@ -28699,7 +28699,7 @@ var_2		= word ptr -2
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3928h], 0
+		cmp	byte ptr rikako_chargeshot_state[bx], 0
 		jnz	short loc_1C683
 		mov	al, 0
 		jmp	short loc_1C6E4
@@ -28710,7 +28710,7 @@ loc_1C683:
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		imul	ax, 18h
-		add	ax, 38F6h
+		add	ax, offset rikako_chargeshot_nodes
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_1C6DC
@@ -28769,12 +28769,12 @@ chargeshot_render_rikako	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+3928h], 0
+		cmp	byte ptr rikako_chargeshot_state[bx], 0
 		jz	short loc_1C746
 		mov	al, _pid_current
 		mov	ah, 0
 		imul	ax, 18h
-		add	ax, 38F6h
+		add	ax, offset rikako_chargeshot_nodes
 		mov	word_20E86, ax
 		mov	_sprite16_put_w, (32 / 16)
 		mov	_sprite16_put_h, 16
@@ -28838,7 +28838,7 @@ loc_1C75F:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+38F4h], 0
+		mov	byte ptr rikako_gauge_pattern_frames[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -28857,7 +28857,7 @@ loc_1C75F:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	[bx+2D58h], dl
+		mov	byte_202B8[bx], dl
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -28867,7 +28867,7 @@ loc_1C75F:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -28886,13 +28886,13 @@ loc_1C7CA:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+38F4h]
+		mov	al, rikako_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	dl, _pid_current
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	dl, [bx+2D58h]
+		mov	dl, byte_202B8[bx]
 		mov	dh, 0
 		push	dx
 		cwd
@@ -28912,7 +28912,7 @@ loc_1C7CA:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+38F4h]
+		mov	al, rikako_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	bx, 4
 		cwd
@@ -28924,7 +28924,7 @@ loc_1C7CA:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D59h]
+		mov	al, byte_202B9[bx]
 		mov	_bullet_template.BT_speed, al
 		mov	_bullet_template.BT_center.x, 0
 		call	@bullets_add$qv
@@ -28951,7 +28951,7 @@ loc_1C8A5:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+38F4h], 80h
+		cmp	byte ptr rikako_gauge_pattern_frames[bx], 80h
 		jb	short loc_1C8CB
 		mov	al, _pid_current
 		mov	ah, 0
@@ -28966,7 +28966,7 @@ loc_1C8CB:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+38F4h]
+		inc	byte ptr rikako_gauge_pattern_frames[bx]
 
 locret_1C8D6:
 		leave
@@ -29890,13 +29890,17 @@ byte_20E4E	db ?
 		db ?
 word_20E50	dw ?
 word_20E52	dw ?
-		db 50 dup(?)
+rikako_gauge_pattern_frames db PLAYER_COUNT dup(?)
+rikako_chargeshot_nodes label byte
+		db (PLAYER_COUNT * 4 * 6) dup(?)
 word_20E86	dw ?
-byte_20E88	db ?
-byte_20E89	db ?
-		db 8 dup(?)
+rikako_chargeshot_state db PLAYER_COUNT dup(?)
+rikako_chargeshot_frames db PLAYER_COUNT dup(?)
+rikako_chargeshot_radius dw PLAYER_COUNT dup(?)
+rikako_chargeshot_origin_x dw ?
 byte_20E92 label byte
-		db 6 dup(?)
+		dw ?
+rikako_chargeshot_origin_y dw PLAYER_COUNT dup(?)
 byte_20E98	db PLAYER_COUNT dup(?)
 byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
