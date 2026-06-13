@@ -14077,7 +14077,7 @@ var_8		= word ptr -8
 		mov	_sprite16_put_w, (32 / 16)
 		mov	_sprite16_put_h, 16
 		mov	ax, sprite_1F34C
-		add	ax, 790h
+		add	ax, ((24 * ROW_SIZE) + (128 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		mov	al, byte_1F354
 		mov	ah, 0
@@ -14159,7 +14159,7 @@ chiyuri_12A10	proc near
 		jz	short loc_12A7A
 		mov	_sprite16_put_w, (48 / 16)
 		mov	_sprite16_put_h, 40
-		add	si, 778h
+		add	si, ((23 * ROW_SIZE) + (576 / BYTE_DOTS))
 		jmp	short loc_12A99
 ; ---------------------------------------------------------------------------
 
@@ -14241,7 +14241,7 @@ loc_12AEF:
 		jge	short loc_12B02
 		mov	ax, si
 		shl	ax, 3
-		mov	dx, 100h
+		mov	dx, 256
 		jmp	short loc_12B24
 ; ---------------------------------------------------------------------------
 
@@ -14250,18 +14250,18 @@ loc_12B02:
 		jge	short loc_12B1C
 		mov	ax, si
 		shl	ax, 3
-		mov	dx, 200h
+		mov	dx, 512
 		sub	dx, ax
 		mov	word_1F356, dx
 		mov	al, byte_1F355
-		add	al, 0FCh
+		add	al, -4
 		jmp	short loc_12B2F
 ; ---------------------------------------------------------------------------
 
 loc_12B1C:
 		mov	ax, si
 		shl	ax, 3
-		mov	dx, 300h
+		mov	dx, 768
 
 loc_12B24:
 		sub	dx, ax
@@ -14393,10 +14393,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -14462,7 +14462,7 @@ loc_12C8B:
 		call	sub_CDBD
 		push	word_1F33E
 		push	word_1F340
-		push	0E0h
+		push	224
 		call	kana_19896
 		push	word_1F33E
 		push	word_1F340
@@ -14474,7 +14474,7 @@ loc_12C8B:
 		call	kana_19896
 		push	word_1F33E
 		push	word_1F340
-		push	0A0h
+		push	160
 		call	kana_19896
 		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT_WITH_ACCEL
 		mov	_bullet_template.BT_group, BG_RING
@@ -15016,7 +15016,7 @@ loc_131B8:
 		push	di
 		push	[bp+@@top]
 		mov	ax, sprite_1F34C
-		add	ax, 0C80h
+		add	ax, (40 * ROW_SIZE)
 		push	ax
 		jmp	short loc_1321A
 ; ---------------------------------------------------------------------------
@@ -15025,7 +15025,7 @@ loc_131E4:
 		cmp	byte_1F353, 2
 		jnz	short loc_1321F
 		mov	ax, sprite_1F34C
-		add	ax, 0C80h
+		add	ax, (40 * ROW_SIZE)
 		mov	si, ax
 		cmp	byte_1F354, 8
 		jb	short loc_13215
@@ -15078,7 +15078,7 @@ var_6		= word ptr -6
 		mov	ax, word_1F3B0
 		add	ax, ax
 		shl	ax, 4
-		mov	dx, 0C80h
+		mov	dx, (200 shl 4)
 		sub	dx, ax
 		mov	[bp+var_6], dx
 		mov	_sprite16_put_w, (32 / 16)
@@ -15091,7 +15091,7 @@ var_6		= word ptr -6
 loc_13254:
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 284h
+		add	ax, ((8 * ROW_SIZE) + (32 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		mov	ax, word_1F3B0
 		shr	ax, 2
@@ -15215,10 +15215,10 @@ arg_0		= word ptr  6
 		mov	dx, [bp+arg_0]
 		mov	ax, dx
 		shl	ax, 5
-		add	ax, 1DFEh
+		add	ax, offset byte_1F35E
 		mov	si, ax
-		mov	word ptr [si], 900h
-		mov	word ptr [si+2], 500h
+		mov	word ptr [si], (144 shl 4)
+		mov	word ptr [si+2], (80 shl 4)
 		mov	word ptr [si+8], 0FFE0h
 		mov	word ptr [si+0Ah], 0
 		mov	byte ptr [si+12h], 0
@@ -15784,13 +15784,13 @@ loc_1383D:
 		mov	ax, di
 		and	ax, 3
 		add	ax, ax
-		add	ax, 167Eh
+		add	ax, ((72 * ROW_SIZE) - (16 / BYTE_DOTS))
 		mov	si, ax
 		jmp	short loc_1388E
 ; ---------------------------------------------------------------------------
 
 loc_1388B:
-		mov	si, 284h
+		mov	si, ((8 * ROW_SIZE) + (32 / BYTE_DOTS))
 
 loc_1388E:
 		push	[bp+var_6]
@@ -15832,7 +15832,7 @@ var_6		= word ptr -6
 		mov	ax, word_1F3B0
 		add	ax, ax
 		shl	ax, 4
-		mov	dx, 0C80h
+		mov	dx, (200 shl 4)
 		sub	dx, ax
 		mov	[bp+var_6], dx
 		mov	_sprite16_put_w, (48 / 16)
@@ -15845,11 +15845,11 @@ var_6		= word ptr -6
 loc_138E4:
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 780h
+		add	ax, (24 * ROW_SIZE)
 		mov	[bp+@@sprite_offset], ax
 		test	byte ptr word_1F3B0, 1
 		jz	short loc_138FB
-		add	[bp+@@sprite_offset], 780h
+		add	[bp+@@sprite_offset], (24 * ROW_SIZE)
 
 loc_138FB:
 		mov	al, byte ptr word_1F3B0
