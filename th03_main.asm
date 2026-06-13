@@ -3609,9 +3609,9 @@ loc_C3BB:
 ; ---------------------------------------------------------------------------
 
 loc_C3C0:
-		cmp	di, 200h
+		cmp	di, (32 shl 4)
 		jge	short loc_C3ED
-		cmp	cx, 0F00h
+		cmp	cx, (240 shl 4)
 		jl	short loc_C3D5
 		mov	bx, word_20E4A
 		mov	dx, [bx+6]
@@ -3619,7 +3619,7 @@ loc_C3C0:
 ; ---------------------------------------------------------------------------
 
 loc_C3D5:
-		cmp	cx, 100h
+		cmp	cx, (16 shl 4)
 		jl	short loc_C3E4
 		mov	bx, word_20E4A
 		mov	dx, [bx+8]
@@ -3633,7 +3633,7 @@ loc_C3E4:
 ; ---------------------------------------------------------------------------
 
 loc_C3ED:
-		cmp	cx, 0F00h
+		cmp	cx, (240 shl 4)
 		jl	short loc_C3FC
 		mov	bx, word_20E4A
 		mov	dx, [bx+0Ch]
@@ -3641,7 +3641,7 @@ loc_C3ED:
 ; ---------------------------------------------------------------------------
 
 loc_C3FC:
-		cmp	cx, 100h
+		cmp	cx, (16 shl 4)
 		jl	short loc_C40B
 		mov	bx, word_20E4A
 		mov	dx, [bx+0Eh]
@@ -3653,11 +3653,11 @@ loc_C40B:
 		mov	dx, [bx+10h]
 
 loc_C412:
-		cmp	si, 1300h
+		cmp	si, (304 shl 4)
 		jl	short loc_C42B
 		cmp	dx, 2
 		jnz	short loc_C42B
-		cmp	cx, 800h
+		cmp	cx, (128 shl 4)
 		jl	short loc_C428
 		mov	dx, 4
 		jmp	short loc_C42B
@@ -3701,7 +3701,7 @@ arg_0		= word ptr  4
 		push	word ptr _pid_PID_current
 		call	sub_16983
 		mov	ax, word_2142E
-		add	ax, 100h
+		add	ax, (16 shl 4)
 		cmp	ax, [bp+var_2]
 		jge	short loc_C464
 		mov	ax, 1
@@ -3728,7 +3728,7 @@ loc_C47B:
 		add	al, al
 		or	[bp+var_7], al
 		mov	ax, word_21430
-		add	ax, 500h
+		add	ax, (80 shl 4)
 		cmp	ax, [bp+var_4]
 		jge	short loc_C490
 		mov	ax, 1
@@ -3937,7 +3937,7 @@ loc_C5AA:
 		push	word ptr _pid_PID_current
 		call	sub_16983
 		mov	ax, word_2142E
-		add	ax, 100h
+		add	ax, (16 shl 4)
 		cmp	ax, [bp+var_6]
 		jge	short loc_C5CD
 		mov	ax, 1
@@ -3964,7 +3964,7 @@ loc_C5E4:
 		add	al, al
 		or	[bp+var_9], al
 		mov	ax, word_21430
-		add	ax, 500h
+		add	ax, (80 shl 4)
 		cmp	ax, [bp+var_8]
 		jge	short loc_C5F9
 		mov	ax, 1
@@ -4054,7 +4054,7 @@ loc_C658:
 ; ---------------------------------------------------------------------------
 
 loc_C67B:
-		cmp	[bp+var_2], 100h
+		cmp	[bp+var_2], (16 shl 4)
 		jg	short loc_C688
 		mov	[bp+var_9], 1
 		jmp	short loc_C68C
@@ -4078,7 +4078,7 @@ loc_C6A3:
 		mov	al, [bp+var_9]
 		mov	ah, 0
 		imul	ax, 12h
-		add	ax, 67Eh
+		add	ax, offset byte_1DBDE
 		mov	word_20E4A, ax
 		push	[bp+var_4]
 		push	[bp+var_6]
@@ -4143,7 +4143,7 @@ loc_C71C:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	di, [bx+756h]
+		mov	di, word_1DCB6[bx]
 		jmp	short loc_C6C7
 ; ---------------------------------------------------------------------------
 
@@ -4176,7 +4176,7 @@ loc_C75E:
 		add	ax, ax
 		pop	bx
 		add	bx, ax
-		mov	di, [bx+756h]
+		mov	di, word_1DCB6[bx]
 		inc	[bp+var_B]
 		jmp	loc_C6C7
 ; ---------------------------------------------------------------------------
@@ -4307,7 +4307,7 @@ loc_C86B:
 
 loc_C86E:
 		call	grcg_setcolor pascal, GC_RMW, si
-		mov	bx, 232h
+		mov	bx, ((7 * ROW_SIZE) + (16 / BYTE_DOTS))
 		call	sub_B398
 		GRCG_OFF_VIA_XOR ax
 
@@ -4337,7 +4337,7 @@ loc_C8AB:
 
 loc_C8AE:
 		call	grcg_setcolor pascal, GC_RMW, si
-		mov	bx, 25Ah
+		mov	bx, ((7 * ROW_SIZE) + (336 / BYTE_DOTS))
 		call	sub_B398
 		GRCG_OFF_VIA_XOR ax
 
@@ -4417,7 +4417,7 @@ loc_C93E:
 loc_C944:
 		call	grcg_setcolor
 		mov	ax, [bp+var_6]
-		add	ax, 160h
+		add	ax, (PLAYFIELD_W_BORDERED + 32)
 		mov	dx, ax
 		mov	bx, di
 		call	sub_B3F6
@@ -4506,7 +4506,7 @@ loc_C9E0:
 		mov	ah, 0
 		push	ax
 		call	grcg_setcolor
-		mov	dx, 160h
+		mov	dx, (PLAYFIELD_W_BORDERED + 32)
 		mov	bx, cx
 		call	sub_B3F6
 
@@ -4591,7 +4591,7 @@ loc_CA4E:
 		jnz	short loc_CA81
 		mov	warning_flag_p1, WF_FLASH_RED
 		push	0
-		push	0E1h
+		push	TX_WHITE
 		call	sub_CACB
 
 loc_CA81:
@@ -4599,7 +4599,7 @@ loc_CA81:
 		jnz	short loc_CA95
 		mov	warning_flag_p2, WF_FLASH_RED
 		push	1
-		push	0E1h
+		push	TX_WHITE
 		call	sub_CACB
 
 loc_CA95:
@@ -4726,7 +4726,7 @@ arg_0		= word ptr  6
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3938h], 0
+		mov	byte_20E98[bx], 0
 
 loc_CBB9:
 		mov	al, byte ptr [bp+arg_0]
@@ -4742,7 +4742,7 @@ loc_CBB9:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3938h]
+		mov	al, byte_20E98[bx]
 		add	al, 0Dh
 		jmp	short loc_CBF3
 ; ---------------------------------------------------------------------------
@@ -4751,14 +4751,14 @@ loc_CBE6:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+3938h]
-		add	al, 0F3h
+		mov	al, byte_20E98[bx]
+		add	al, -13
 
 loc_CBF3:
 		mov	dl, byte ptr [bp+arg_0]
 		mov	dh, 0
 		mov	bx, dx
-		mov	[bx+3938h], al
+		mov	byte_20E98[bx], al
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
@@ -4774,7 +4774,7 @@ loc_CBF3:
 		mov	bx, ax
 		cmp	_gba_flag_next[bx], GBAF_GAUGE_PELLET_INIT
 		jnz	short loc_CC2D
-		mov	si, 0A1h
+		mov	si, TX_CYAN
 		jmp	short loc_CC43
 ; ---------------------------------------------------------------------------
 
@@ -4784,12 +4784,12 @@ loc_CC2D:
 		mov	bx, ax
 		cmp	_gba_flag_next[bx], GBAF_GAUGE_BULLET_INIT
 		jnz	short loc_CC40
-		mov	si, 61h	; 'a'
+		mov	si, TX_MAGENTA
 		jmp	short loc_CC43
 ; ---------------------------------------------------------------------------
 
 loc_CC40:
-		mov	si, 41h	; 'A'
+		mov	si, TX_RED
 
 loc_CC43:
 		push	[bp+var_3]
@@ -4877,11 +4877,11 @@ loc_CCCE:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+3938h], 0
+		mov	byte_20E98[bx], 0
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+393Ah], 0
+		mov	byte_20E9A[bx], 0
 
 loc_CD15:
 		mov	al, byte ptr [bp+arg_0]
@@ -4892,7 +4892,7 @@ loc_CD15:
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+393Ah], 0
+		cmp	byte_20E9A[bx], 0
 		jnz	short loc_CD67
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
@@ -29225,6 +29225,7 @@ public _ENEDAT_DAT
 _ENEDAT_DAT	db 'ENEDAT.DAT',0
 	evendata
 angles_1DBD8	db 192, 182, 202, 192, 176, 208
+byte_1DBDE label byte
 		db    0
 		db    4
 		db    8
@@ -29441,6 +29442,7 @@ angles_1DBD8	db 192, 182, 202, 192, 176, 208
 		db    0
 		db    1
 		db    0
+word_1DCB6 label word
 		db    8
 		db    0
 		db    0
@@ -29913,7 +29915,9 @@ word_20E52	dw ?
 word_20E86	dw ?
 byte_20E88	db ?
 byte_20E89	db ?
-		db 18 dup(?)
+		db 14 dup(?)
+byte_20E98	db PLAYER_COUNT dup(?)
+byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
 _gba_flag_next	db PLAYER_COUNT dup(?)
 include th03/main/player/combo[bss].asm
