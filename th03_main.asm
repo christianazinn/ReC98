@@ -27781,7 +27781,7 @@ loc_1BF78:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+267Ah], 0
+		mov	byte ptr kana_gauge_pattern_frames[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27790,7 +27790,7 @@ loc_1BF78:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	word ptr [bx+2676h], 0
+		mov	word ptr kana_gauge_pattern_x[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27805,7 +27805,7 @@ loc_1BF78:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	[bx+2D58h], dl
+		mov	byte_202B8[bx], dl
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -27815,7 +27815,7 @@ loc_1BF78:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -27834,13 +27834,13 @@ loc_1BFF3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+267Ah]
+		mov	al, kana_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	dl, _pid_current
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	dl, [bx+2D58h]
+		mov	dl, byte_202B8[bx]
 		mov	dh, 0
 		push	dx
 		cwd
@@ -27860,7 +27860,7 @@ loc_1BFF3:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		mov	ax, [bx+2676h]
+		mov	ax, kana_gauge_pattern_x[bx]
 		mov	_bullet_template.BT_center.x, ax
 		mov	_bullet_template.BT_group, BG_1
 		mov	_bullet_template.BT_angle, 40h
@@ -27868,7 +27868,7 @@ loc_1BFF3:
 		mov	ah, 0
 		shl	ax, 2
 		mov	bx, ax
-		mov	al, [bx+2D59h]
+		mov	al, byte_202B9[bx]
 		mov	_bullet_template.BT_speed, al
 		call	@bullets_add$qv
 		push	_bullet_template.BT_center.x
@@ -27880,9 +27880,9 @@ loc_1BFF3:
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
-		mov	dx, 1200h
+		mov	dx, (PLAYFIELD_W shl 4)
 		mov	bx, ax
-		sub	dx, [bx+2676h]
+		sub	dx, kana_gauge_pattern_x[bx]
 		mov	_bullet_template.BT_center.x, dx
 		call	@bullets_add$qv
 		push	_bullet_template.BT_center.x
@@ -27896,7 +27896,7 @@ loc_1C0BB:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+267Ah]
+		mov	al, kana_gauge_pattern_frames[bx]
 		mov	ah, 0
 		mov	bx, 40h
 		cwd
@@ -27907,7 +27907,7 @@ loc_1C0BB:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		add	word ptr [bx+2676h], 80h
+		add	word ptr kana_gauge_pattern_x[bx], 80h
 		jmp	short loc_1C0F3
 ; ---------------------------------------------------------------------------
 
@@ -27916,13 +27916,13 @@ loc_1C0E4:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		sub	word ptr [bx+2676h], 80h
+		sub	word ptr kana_gauge_pattern_x[bx], 80h
 
 loc_1C0F3:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+267Ah], 80h
+		cmp	byte ptr kana_gauge_pattern_frames[bx], 80h
 		jb	short loc_1C119
 		mov	al, _pid_current
 		mov	ah, 0
@@ -27937,7 +27937,7 @@ loc_1C119:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+267Ah]
+		inc	byte ptr kana_gauge_pattern_frames[bx]
 
 locret_1C124:
 		leave
@@ -28001,8 +28001,8 @@ main_10_TEXT	segment	byte public 'CODE' use16
 sub_1C158	proc far
 		push	bp
 		mov	bp, sp
-		mov	byte_1FE5A, 0
-		mov	byte_1FE62, 0
+		mov	byte ptr kotohime_chargeshot[0], 0
+		mov	byte ptr kotohime_chargeshot[8], 0
 		pop	bp
 		retf
 sub_1C158	endp
@@ -28022,7 +28022,7 @@ chargeshot_add_kotohime	proc far
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		shl	ax, 3
-		add	ax, 28FAh
+		add	ax, offset kotohime_chargeshot
 		mov	word_1FE6A, ax
 		mov	bx, word_1FE6A
 		mov	byte ptr [bx], 1
@@ -28048,7 +28048,7 @@ chargeshot_update_kotohime	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 3
-		add	ax, 28FAh
+		add	ax, offset kotohime_chargeshot
 		mov	word_1FE6A, ax
 		mov	bx, word_1FE6A
 		cmp	byte ptr [bx], 0
@@ -28091,7 +28091,7 @@ kotohime_chargeshot_1C1E9	proc near
 		enter	6, 0
 		mov	al, _pid_PID_so_attack
 		mov	ah, 0
-		add	ax, 1188h
+		add	ax, ((56 * ROW_SIZE) + (64 / BYTE_DOTS))
 		mov	[bp+@@sprite_offset], ax
 		mov	bx, word_1FE6A
 		push	word ptr [bx+2]	; x
@@ -28122,7 +28122,7 @@ public @chargeshot_hittest_kotohime$qv
 		mov	al, _hitbox_pid
 		mov	ah, 0
 		shl	ax, 3
-		add	ax, 28FAh
+		add	ax, offset kotohime_chargeshot
 		mov	word_1FE6A, ax
 		mov	bx, word_1FE6A
 		cmp	byte ptr [bx], 0
@@ -28172,7 +28172,7 @@ chargeshot_render_kotohime	proc far
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 3
-		add	ax, 28FAh
+		add	ax, offset kotohime_chargeshot
 		mov	word_1FE6A, ax
 		mov	bx, word_1FE6A
 		cmp	byte ptr [bx], 0
@@ -28226,7 +28226,7 @@ loc_1C2F6:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		mov	byte ptr [bx+28F8h], 0
+		mov	byte ptr kotohime_gauge_pattern_frames[bx], 0
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
@@ -28244,20 +28244,20 @@ loc_1C2F6:
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D58h], al
+		mov	byte_202B8[bx], al
 		push	1
 		call	@randring_far_next16_and$qui
 		mov	dl, _pid_current
 		mov	dh, 0
 		shl	dx, 2
 		mov	bx, dx
-		mov	[bx+2D59h], al
+		mov	byte_202B9[bx], al
 		mov	al, _pid_current
 		mov	ah, 0
 		shl	ax, 2
 		mov	dl, [bp+@@type]
 		mov	bx, ax
-		mov	[bx+2D5Ah], dl
+		mov	byte_202BA[bx], dl
 		leave
 		retn	2
 ; ---------------------------------------------------------------------------
@@ -28276,11 +28276,11 @@ loc_1C36B:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+28F8h], 0
+		cmp	byte ptr kotohime_gauge_pattern_frames[bx], 0
 		jnz	short loc_1C3A5
-		push	0A00h
+		push	(160 shl 4)
 		call	@randring_far_next16_mod$qui
-		add	ax, 400h
+		add	ax, (64 shl 4)
 		push	ax
 		push	0
 		call	kotohime_19DD3
@@ -28291,7 +28291,7 @@ loc_1C3A5:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		cmp	byte ptr [bx+28F8h], 80h
+		cmp	byte ptr kotohime_gauge_pattern_frames[bx], 80h
 		jb	short loc_1C3CB
 		mov	al, _pid_current
 		mov	ah, 0
@@ -28306,7 +28306,7 @@ loc_1C3CB:
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, ax
-		inc	byte ptr [bx+28F8h]
+		inc	byte ptr kotohime_gauge_pattern_frames[bx]
 
 locret_1C3D6:
 		leave
@@ -29719,7 +29719,9 @@ word_1FBCE	dw ?
 word_1FBD0	dw ?
 word_1FBD2	dw ?
 angle_1FBD4	db ?
-		db 7 dup(?)
+		db ?
+kana_gauge_pattern_x dw PLAYER_COUNT dup(?)
+kana_gauge_pattern_frames db PLAYER_COUNT dup(?)
 kana_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 54) dup(?)
 word_1FD8C	dw ?
@@ -29754,11 +29756,9 @@ byte_1FE50	db ?
 		db ?
 point_1FE52	Point <?>
 word_1FE56	dw ?
-		db 2 dup(?)
-byte_1FE5A	db ?
-		db 7 dup(?)
-byte_1FE62	db ?
-		db 7 dup(?)
+kotohime_gauge_pattern_frames db PLAYER_COUNT dup(?)
+kotohime_chargeshot label byte
+		db (PLAYER_COUNT * 8) dup(?)
 word_1FE6A	dw ?
 
 public _exatt_funcs
