@@ -12,6 +12,7 @@ extern int staffroll_cdg_speed;
 extern int staffroll_cdg_frames;
 extern screen_y_t staffroll_cdg_y_stop;
 extern screen_y_t staffroll_cdg_y_start_off;
+extern screen_y_t staffroll_cdg_overlay_y;
 extern unsigned char staffroll_cdg_aux_slot;
 extern page_t page_back;
 extern screen_y_t stf_center_y_on_page[PAGE_COUNT];
@@ -166,6 +167,96 @@ void pascal near staffroll_cdg_slide_cycle(
 	grcg_off();
 	staffroll_flakes_tick();
 
+	#undef slot
+}
+
+void pascal near staffroll_cdg_overlay(
+	int slot_arg, int frame_threshold_in, int frame_threshold_out
+)
+{
+	#define slot    	_SI
+	#define strength	_DI
+
+	slot = slot_arg;
+	if(staffroll_cdg_speed == 2) {
+		stf_center_y_on_page[page_back] = 264;
+		stf_center_y_on_page[page_back ^ 1] = 263;
+	} else {
+		_AX = (280 - staffroll_cdg_y_start_off);
+		stf_center_y_on_page[0] = _AX;
+		stf_center_y_on_page[1] = _AX;
+	}
+
+	staffroll_frame = 0;
+	do {
+		staffroll_cdg_slide_up(slot);
+		staffroll_cdg_alpha = true;
+		asm {
+			push	320;
+			push	staffroll_cdg_overlay_y;
+			lea 	ax, [si - 1];
+			push	ax;
+			push	0;
+			call	near ptr cdg_put_dissolve_e_8;
+		}
+		staffroll_cdg_alpha = false;
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_in, 0x100));
+
+	staffroll_frame = 0;
+	do {
+		if(staffroll_frame <= 0xA1) {
+			asm {
+				push	320;
+				push	staffroll_cdg_overlay_y;
+				lea 	ax, [si - 1];
+				push	ax;
+				call	near ptr cdg_unput_for_upwards_motion_e_8;
+			}
+		}
+		staffroll_cdg_slide_out(slot);
+		if(staffroll_frame <= 0xA1) {
+			strength = ((staffroll_frame - 1) / 20);
+			if(static_cast<int16_t>(strength) > 7) {
+				strength = 7;
+			}
+			if(page_back == 0) {
+				staffroll_cdg_overlay_y--;
+			}
+			staffroll_cdg_alpha = true;
+			if(staffroll_frame < 0xA0) {
+				asm {
+					push	320;
+					push	staffroll_cdg_overlay_y;
+					lea 	ax, [si - 1];
+					push	ax;
+					push	di;
+					call	near ptr cdg_put_dissolve_e_8;
+				}
+			} else {
+				grcg_setcolor(GC_RMW, 0);
+				grcg_byteboxfill_x(
+					(8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8)
+				);
+				grcg_off();
+			}
+			staffroll_cdg_alpha = false;
+		}
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_out, 0x100));
+
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x((8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8));
+	grcg_off();
+	staffroll_flakes_tick();
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x((8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8));
+	grcg_off();
+	staffroll_flakes_tick();
+
+	#undef strength
 	#undef slot
 }
 

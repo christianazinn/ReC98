@@ -514,133 +514,8 @@ sub_BFB2 equ <@STAFFROLL_CDG_SLIDE_CYCLE$QIII>
 
 ; Attributes: bp-based frame
 
-sub_C097	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, [bp+arg_4]
-		cmp	word_10BBC, 2
-		jnz	short loc_C0C9
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 264
-		mov	al, _page_back
-		mov	ah, 0
-		xor	ax, 1
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 263
-		jmp	short loc_C0D6
-; ---------------------------------------------------------------------------
-
-loc_C0C9:
-		mov	ax, 280
-		sub	ax, word_10BC4
-		mov	_stf_center_y_on_page[0 * word], ax
-		mov	_stf_center_y_on_page[1 * word], ax
-
-loc_C0D6:
-		mov	word_10BB2, 0
-
-loc_C0DC:
-		push	si
-		call	sub_BDF4
-		mov	byte_10BC7, 1
-		push	320
-		push	word_10BC2
-		lea	ax, [si-1]
-		push	ax
-		push	0
-		call	near ptr CDG_PUT_DISSOLVE_E_8
-		mov	byte_10BC7, 0
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_2]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C0DC
-		mov	word_10BB2, 0
-
-loc_C114:
-		cmp	word_10BB2, 0A1h
-		jg	short loc_C12A
-		push	320
-		push	word_10BC2
-		lea	ax, [si-1]
-		push	ax
-		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
-
-loc_C12A:
-		push	si
-		call	sub_BEC7
-		cmp	word_10BB2, 0A1h
-		jg	short loc_C199
-		mov	ax, word_10BB2
-		dec	ax
-		mov	bx, 20
-		cwd
-		idiv	bx
-		mov	di, ax
-		cmp	di, 7
-		jle	short loc_C14A
-		mov	di, 7
-
-loc_C14A:
-		cmp	_page_back, 0
-		jnz	short loc_C155
-		dec	word_10BC2
-
-loc_C155:
-		mov	byte_10BC7, 1
-		cmp	word_10BB2, 0A0h
-		jge	short loc_C173
-		push	320
-		push	word_10BC2
-		lea	ax, [si-1]
-		push	ax
-		push	di
-		call	near ptr CDG_PUT_DISSOLVE_E_8
-		jmp	short loc_C194
-; ---------------------------------------------------------------------------
-
-loc_C173:
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-
-loc_C194:
-		mov	byte_10BC7, 0
-
-loc_C199:
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_0]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	loc_C114
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-		call	sub_BCD5
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-		call	sub_BCD5
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-sub_C097	endp
+sub_C097 equ <@STAFFROLL_CDG_OVERLAY$QIII>
+	@STAFFROLL_CDG_OVERLAY$QIII procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1504,7 +1379,7 @@ public _flakes, _page_back, _stf_center_y_on_page, _score
 public _staffroll_flake_count, _staffroll_frame
 public _staffroll_cdg_put_alpha, _staffroll_flake_reset_pending
 public _staffroll_cdg_speed, _staffroll_cdg_frames, _staffroll_cdg_y_stop
-public _staffroll_cdg_y_start_off
+public _staffroll_cdg_y_start_off, _staffroll_cdg_overlay_y
 public _staffroll_cdg_aux_slot, _staffroll_cdg_alpha
 _flakes	flake_t FLAKE_COUNT dup(<?>)
 
@@ -1522,6 +1397,7 @@ _staffroll_cdg_frames label word
 word_10BBE	dw ?
 _staffroll_cdg_y_stop label word
 word_10BC0	dw ?
+_staffroll_cdg_overlay_y label word
 word_10BC2	dw ?
 _staffroll_cdg_y_start_off label word
 word_10BC4	dw ?
