@@ -443,28 +443,7 @@ FLAKE_CELS = 4
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @flakes_reset$qv
-@flakes_reset$qv proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset _flakes
-		xor	ax, ax
-		jmp	short loc_BB78
-; ---------------------------------------------------------------------------
-
-loc_BB71:
-		mov	[si+flake_t.FLAKE_alive], 0
-		inc	ax
-		add	si, size flake_t
-
-loc_BB78:
-		cmp	ax, FLAKE_COUNT
-		jl	short loc_BB71
-		pop	si
-		pop	bp
-		retn
-@flakes_reset$qv endp
+	@flakes_reset$qv procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
