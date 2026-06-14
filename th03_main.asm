@@ -1306,45 +1306,8 @@ sub_A21F	endp
 
 ; Attributes: bp-based frame
 
-sub_A289	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		xor	cx, cx
-		jmp	short loc_A2C6
-; ---------------------------------------------------------------------------
-
-loc_A294:
-		mov	bx, si
-		shl	bx, 3
-		add	bx, cx
-		mov	al, _score_p1[bx]
-		mov	dx, si
-		shl	dx, 3
-		les	bx, _resident
-		add	bx, dx
-		add	bx, cx
-		mov	es:[bx+resident_t.score_last], al
-		mov	ax, 1
-		sub	ax, si
-		shl	ax, 3
-		mov	bx, word ptr _resident
-		add	bx, ax
-		add	bx, cx
-		mov	es:[bx+resident_t.score_last], 0
-		inc	cx
-
-loc_A2C6:
-		cmp	cx, SCORE_DIGITS
-		jl	short loc_A294
-		pop	si
-		pop	bp
-		retn	2
-sub_A289	endp
+sub_A289 equ <@RESIDENT_SCORE_LAST_UPDATE$QI>
+	@RESIDENT_SCORE_LAST_UPDATE$QI procdesc near
 
 	extern @PLAYFIELD_FG_X_TO_SCREEN$QII:proc
 	extern @SCREEN_X_TO_PLAYFIELD$QII:proc
