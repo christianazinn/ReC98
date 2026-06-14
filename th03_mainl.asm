@@ -149,6 +149,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 	@win_animate_and_wait$qv procdesc near
 	@sub_9887$qv procdesc near
 	@stage_splash_load$qv procdesc near
+	@stage_splash_show_and_wait$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -171,222 +172,7 @@ sub_990C equ <@stage_splash_load$qv>
 
 ; Attributes: bp-based frame
 
-sub_9A2C	proc near
-
-var_4		= word ptr -4
-@@dec_bgm_fn	= word ptr -2
-
-		enter	4, 0
-		push	si
-		mov	si, offset _PLAYCHAR_BGM_FN
-		mov	[bp+@@dec_bgm_fn], offset aDec_m
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@pi_palette_apply$qi pascal, 0
-		call	graph_copy_page pascal, 0
-		freePISlotLarge	0
-		call	cdg_put_8 pascal, large (96 shl 16) or 96, 0
-		call	cdg_put_hflip_8 pascal, large (352 shl 16) or 96, 1
-		cmp	_do_not_show_stage_number, 0
-		jnz	short loc_9A8E
-		call	cdg_put_8 pascal, large (384 shl 16) or 46, 2
-
-loc_9A8E:
-		call	cdg_free pascal, 0
-		call	cdg_free pascal, 1
-		call	cdg_free pascal, 2
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][0]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, ax
-		mov	[bp+var_4], ax
-		push	(80 shl 16) or 292
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, [bp+var_4]
-		shl	bx, 2
-		pushd	CHAR_TITLE[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		push	(128 shl 16) or 308
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, [bp+var_4]
-		shl	bx, 2
-		pushd	CHAR_NAME[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, ax
-		mov	[bp+var_4], ax
-		push	(336 shl 16) or 292
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, [bp+var_4]
-		shl	bx, 2
-		pushd	CHAR_TITLE[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		push	(384 shl 16) or 308
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, [bp+var_4]
-		shl	bx, 2
-		pushd	CHAR_NAME[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		push	1
-		call	palette_black_in
-		mov	vsync_Count1, 0
-		graph_accesspage 1
-		call	graph_clear
-		push	0
-		call	sub_9D20
-		push	1
-		call	sub_9D20
-		call	@pi_load$qinxc pascal, 0, ds, offset aEn2_pi
-		call	@pi_put_interlace_8$qiii pascal, large 280, 0
-		freePISlotLarge	0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_4], ax
-		mov	bx, [bp+var_4]
-		cmp	bx, 8
-		ja	short loc_9BC2
-		add	bx, bx
-		jmp	cs:off_9C9F[bx]
-
-loc_9B97:
-		push	0
-		push	ds
-		push	offset aEnemy00_pi ; "ENEMY00.pi"
-		jmp	short loc_9BBD
-; ---------------------------------------------------------------------------
-
-loc_9B9F:
-		push	0
-		push	ds
-		push	offset aEnemy01_pi ; "ENEMY01.pi"
-		jmp	short loc_9BBD
-; ---------------------------------------------------------------------------
-
-loc_9BA7:
-		push	0
-		push	ds
-		push	offset aEnemy02_pi ; "ENEMY02.pi"
-		jmp	short loc_9BBD
-; ---------------------------------------------------------------------------
-
-loc_9BAF:
-		push	0
-		push	ds
-		push	offset aEnemy03_pi ; "ENEMY03.pi"
-		jmp	short loc_9BBD
-; ---------------------------------------------------------------------------
-
-loc_9BB7:
-		push	0
-		push	ds
-		push	offset aEnemy04_pi ; "ENEMY04.pi"
-
-loc_9BBD:
-		call	@pi_load$qinxc
-
-loc_9BC2:
-		call	@pi_put_interlace_8$qiii pascal, large 304, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_4], ax
-		cmp	[bp+var_4], 0Ah
-		jl	short loc_9BFB
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	al, [si]
-		mov	[si], al
-		mov	ax, [bp+var_4]
-		cwd
-		idiv	bx
-		mov	[bp+var_4], dx
-
-loc_9BFB:
-		mov	al, [si+1]
-		add	al, byte ptr [bp+var_4]
-		mov	[si+1],	al
-		kajacall	KAJA_SONG_STOP
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 6
-		jz	short loc_9C1E
-		push	SND_LOAD_SONG
-		push	ds
-		push	si
-		jmp	short loc_9C25
-; ---------------------------------------------------------------------------
-
-loc_9C1E:
-		push	SND_LOAD_SONG
-		push	ds
-		push	[bp+@@dec_bgm_fn]
-
-loc_9C25:
-		call	_snd_load
-		add	sp, 6
-		call	_snd_load c, offset aYume_efc, ds, SND_LOAD_SE
-		mov	_input_sp, INPUT_NONE
-
-loc_9C42:
-		cmp	vsync_Count1, 20h ; ' '
-		jbe	short loc_9C42
-		jmp	short loc_9C50
-; ---------------------------------------------------------------------------
-
-loc_9C4B:
-		call	@input_mode_interface$qv
-
-loc_9C50:
-		cmp	vsync_Count1, 60h
-		ja	short loc_9C5E
-		cmp	_input_sp, INPUT_NONE
-		jz	short loc_9C4B
-
-loc_9C5E:
-		push	1
-		call	palette_white_out
-		graph_accesspage 0
-		call	graph_clear
-		push	1
-		call	palette_white_in
-		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		call	@pi_palette_apply$qi pascal, 0
-		freePISlotLarge	0
-		call	respal_set_palettes
-		pop	si
-		leave
-		retn
-sub_9A2C	endp
-
-; ---------------------------------------------------------------------------
-off_9C9F	dw offset loc_9B97
-		dw offset loc_9B97
-		dw offset loc_9B9F
-		dw offset loc_9BA7
-		dw offset loc_9B9F
-		dw offset loc_9BA7
-		dw offset loc_9B97
-		dw offset loc_9BAF
-		dw offset loc_9BB7
+sub_9A2C equ <@stage_splash_show_and_wait$qv>
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -424,7 +210,8 @@ sub_9CB1	endp
 
 ; Attributes: bp-based frame
 
-sub_9D20	proc near
+public SUB_9D20
+SUB_9D20	proc near
 
 @@fn	= byte ptr -(2 + SHOT_FN_SIZE)
 var_2		= word ptr -2
@@ -477,7 +264,7 @@ loc_9D65:
 		pop	si
 		leave
 		retn	2
-sub_9D20	endp
+SUB_9D20	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -2229,7 +2016,10 @@ _WIN_MESSAGE_FN label word
 
 off_E4B6	dd a@00dm0_txt
 					; "@00DM0.TXT"
+public _CHAR_TITLE, _CHAR_NAME
+_CHAR_TITLE label dword
 CHAR_TITLE		dd TITLE_REIMU		; "   ñ≤Ç∆ì`ìùÇï€éÁÇ∑ÇÈõﬁèó   "
+_CHAR_NAME label dword
 CHAR_NAME		dd NAME_REIMU		; "   îéóÌÅ@ËÀñ≤"
 		dd TITLE_MIMA		; " ãvâìÇÃñ≤Ç…â^ñΩÇîCÇπÇÈê∏ê_ "
 		dd NAME_MIMA		; "	ñ£ ñÇ"
@@ -2301,14 +2091,26 @@ _stage_number_cdg_fn_s	db 'st.cd2',0
 _stage_splash_bg_pi_fn	db 'stnx1.pi',0
 _stage_splash_base_pi_fn	db 'stnx0.pi',0
 public _PLAYCHAR_BGM_FN
+public _stage_splash_dec_bgm_fn, _stage_splash_enemy_center_pi_fn
+public _stage_splash_enemy00_pi_fn, _stage_splash_enemy01_pi_fn
+public _stage_splash_enemy02_pi_fn, _stage_splash_enemy03_pi_fn
+public _stage_splash_enemy04_pi_fn, _stage_splash_yume_efc_fn
 _PLAYCHAR_BGM_FN	db '00mm.m',0
+_stage_splash_dec_bgm_fn label byte
 aDec_m		db 'dec.m',0
+_stage_splash_enemy_center_pi_fn label byte
 aEn2_pi		db 'EN2.pi',0
+_stage_splash_enemy00_pi_fn label byte
 aEnemy00_pi	db 'ENEMY00.pi',0
+_stage_splash_enemy01_pi_fn label byte
 aEnemy01_pi	db 'ENEMY01.pi',0
+_stage_splash_enemy02_pi_fn label byte
 aEnemy02_pi	db 'ENEMY02.pi',0
+_stage_splash_enemy03_pi_fn label byte
 aEnemy03_pi	db 'ENEMY03.pi',0
+_stage_splash_enemy04_pi_fn label byte
 aEnemy04_pi	db 'ENEMY04.pi',0
+_stage_splash_yume_efc_fn label byte
 aYume_efc	db 'YUME.EFC',0
 aCOul		db 'ñ≤éûãÛ1.dat',0
 aMikoft_bft	db 'MIKOFT.bft',0
