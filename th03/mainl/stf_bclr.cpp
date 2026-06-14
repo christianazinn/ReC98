@@ -24,6 +24,8 @@ extern flake_t near flakes[FLAKE_COUNT];
 extern unsigned char staffroll_flake_count;
 extern int staffroll_frame;
 
+void pascal near flake_put(screen_x_t left, screen_y_t top, int cel);
+
 void near staffroll_blue_plane_clear(void)
 {
 	asm {
@@ -84,6 +86,18 @@ void near flakes_update(void)
 			if(flake->top.v >= FLAKE_TOP_MAX) {
 				flake->top.v -= FLAKE_TOP_MAX;
 			}
+		}
+	}
+}
+
+void near flakes_render(void)
+{
+	register flake_t near *flake = flakes;
+	for(register int i = 0; staffroll_flake_count > i; i++, flake++) {
+		if(flake->alive) {
+			flake_put(
+				TO_PIXEL(flake->left.v), TO_PIXEL(flake->top.v), flake->cel
+			);
 		}
 	}
 }

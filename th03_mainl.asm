@@ -456,42 +456,8 @@ sub_BC29 equ <@flakes_update$qv>
 
 ; Attributes: bp-based frame
 
-sub_BC6F	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset _flakes
-		xor	di, di
-		jmp	short loc_BC98
-; ---------------------------------------------------------------------------
-
-loc_BC7B:
-		cmp	[si+flake_t.FLAKE_alive], 0
-		jz	short loc_BC94
-		mov	ax, [si+flake_t.FLAKE_left]
-		sar	ax, 4
-		push	ax	; left
-		mov	ax, [si+flake_t.FLAKE_top]
-		sar	ax, 4
-		push	ax	; top
-		push	[si+flake_t.FLAKE_cel]	; cel
-		call	@flake_put$qiii
-
-loc_BC94:
-		inc	di
-		add	si, size flake_t
-
-loc_BC98:
-		mov	al, byte_106B0
-		mov	ah, 0
-		cmp	ax, di
-		jg	short loc_BC7B
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_BC6F	endp
+sub_BC6F equ <@flakes_render$qv>
+	@flakes_render$qv procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
