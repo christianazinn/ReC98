@@ -638,6 +638,7 @@ obj += {
 	"th03/scoredat.cpp",
 	"th03/op_sel.cpp",
 	"th03/mainl_sc.cpp",
+	"th03/mainl/ending.cpp",
 	"th03/cutscene/continue.cpp",
 	"th03/cutscene.cpp",
 	"th03/regist.cpp",

@@ -416,112 +416,11 @@ REGIST_TEXT ends
 
 STAFF_TEXT segment byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+sub_B92E equ <@gameover_bgm_play_and_fade$qv>
+sub_B972 equ <@ending_staff_and_regist$qv>
 
-; Attributes: bp-based frame
-
-sub_B92E	proc near
-		push	bp
-		mov	bp, sp
-		kajacall	KAJA_SONG_STOP
-		call	_snd_load c, offset aOver_m, ds, SND_LOAD_SONG
-		kajacall	KAJA_SONG_PLAY
-		push	1
-		call	palette_black_in
-		call	snd_delay_until_measure pascal, (3 shl 16) or 64
-		push	1
-		call	palette_black_out
-		kajacall	KAJA_SONG_STOP
-		pop	bp
-		retn
-sub_B92E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B972	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		call	cdg_free pascal, 0
-		call	cdg_free pascal, 1
-		call	cdg_free pascal, 2
-		freePISlotLarge	0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][0]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 10
-		jl	short loc_B9DD
-		les	bx, off_EE4E
-		mov	al, es:[bx+1]
-		push	ax
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		pop	dx
-		add	dl, al
-		mov	bx, word ptr off_EE4E
-		mov	es:[bx+1], dl
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-
-loc_B9DD:
-		les	bx, off_EE4E
-		mov	al, [bp+var_1]
-		add	es:[bx+2], al
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@frame_delay$qi pascal, 96
-		graph_accesspage 0
-		graph_showpage al
-		call	graph_clear
-		call	graph_show
-		call	@cutscene_script_load$qnxc pascal, [off_EE4E]
-		call	@cutscene_animate$qv
-		call	@cutscene_script_free$qv
-		call	sub_C40D
-		les	bx, _resident
-		mov	es:[bx+resident_t.story_stage], STAGE_ALL
-		call	@regist_menu$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_credits], 3
-		jnz	short loc_BA66
-		cmp	es:[bx+resident_t.RESIDENT_playchar_paletted], (1 + (PLAYCHAR_CHIYURI * 2))
-		jnb	short loc_BA66
-		graph_accesspage 1
-		call	graph_clear
-		graph_accesspage 0
-		call	graph_clear
-		graph_showpage 0
-		push	ds
-		push	offset a@99ed_txt ; "@99ED.TXT"
-		call	@cutscene_script_load$qnxc
-		call	@cutscene_animate$qv
-		call	@cutscene_script_free$qv
-
-loc_BA66:
-		call	text_clear
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	@entrypoint_exec$q12entrypoint_t c, EP_OP
-		leave
-		retn
-sub_B972	endp
-
+	@gameover_bgm_play_and_fade$qv procdesc near
+	@ending_staff_and_regist$qv procdesc near
 	@FLAKE_PUT$QIII procdesc pascal near \
 		left:word, top:word, cel:word
 STAFF_TEXT ends
@@ -1493,6 +1392,8 @@ sub_C288	endp
 
 ; Attributes: bp-based frame
 
+public _sub_C40D
+_sub_C40D label near
 sub_C40D	proc near
 		push	bp
 		mov	bp, sp
@@ -1957,7 +1858,8 @@ aB@CF		db ' Å@ ñ≤î¸Å@  ',0
 aYume_nem	db 'YUME.NEM',0
 aRft0_cdg	db 'rft0.cdg',0
 public _regib_pi, _regi2_bft, _regi1_bft, _score_m, _conti_pi, _conti_cd2
-public _GAMEOVER_BG_FN
+public _GAMEOVER_BG_FN, _gameover_bgm_fn, _ending_script_fn
+public _extra_ending_script_fn
 _regib_pi 	db 'regib.pi',0
 _regi2_bft	db 'regi2.bft',0
 _regi1_bft	db 'regi1.bft',0
@@ -1965,8 +1867,10 @@ _score_m	db 'score.m',0
 _conti_pi	db 'conti.pi',0
 _conti_cd2	db 'conti.cd2',0
 _GAMEOVER_BG_FN	db 'over.pi',0
+_gameover_bgm_fn label byte
 aOver_m		db 'over.m',0
 		db 0
+_ending_script_fn label dword
 off_EE4E	dd a@00ed_txt
 					; "@00ED.TXT"
 include th03/sprites/flake.asp
@@ -1999,7 +1903,9 @@ aVERDICT_NUMBERS label dword
 		dd aVw			; "ÇW"
 		dd aVx			; "ÇX"
 a@00ed_txt	db '@00ED.TXT',0
+_extra_ending_script_fn label byte
 a@99ed_txt	db '@99ED.TXT',0
+
 aFocab@sC_0	db '   îéóÌÅ@ËÀñ≤',0
 aCgCv_0		db '     ñ£ ñÇ',0
 aCIjb@cvcan_0	db '  ñ∂âJÅ@ñÇóùçπ ',0
