@@ -150,6 +150,8 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 	@sub_9887$qv procdesc near
 	@stage_splash_load$qv procdesc near
 	@stage_splash_show_and_wait$qv procdesc near
+	@STAGE_SPLASH_SIDE_SHOT_PUT$QINC procdesc near
+	@STAGE_SPLASH_SIDE_SHOTS_PUT$QI procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -178,93 +180,14 @@ sub_9A2C equ <@stage_splash_show_and_wait$qv>
 
 ; Attributes: bp-based frame
 
-sub_9CB1	proc near
-
-arg_0		= dword	ptr  4
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_4]
-		call	@pi_load$qinxc pascal, 0, large [bp+arg_0]
-		mov	ax, si
-		imul	ax, 320
-		call	@pi_put_interlace_8$qiii pascal, ax, (200 shl 16)
-		freePISlotLarge	0
-		les	bx, [bp+arg_0]
-		mov	byte ptr es:[bx+2], 'e'
-		mov	byte ptr es:[bx+3], 'x'
-		call	@pi_load$qinxc pascal, 0, word ptr [bp+arg_0+2], bx
-		mov	ax, si
-		imul	ax, 320
-		call	@pi_put_interlace_8$qiii pascal, ax, (208 shl 16)
-		freePISlotLarge	0
-		pop	si
-		pop	bp
-		retn	6
-sub_9CB1	endp
+sub_9CB1 equ <@STAGE_SPLASH_SIDE_SHOT_PUT$QINC>
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-public SUB_9D20
-SUB_9D20	proc near
-
-@@fn	= byte ptr -(2 + SHOT_FN_SIZE)
-var_2		= word ptr -2
-arg_0		= word ptr  4
-
-		enter	(2 + SHOT_FN_SIZE), 0
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		xor	si, si
-		jmp	short loc_9D35
-; ---------------------------------------------------------------------------
-
-loc_9D2D:
-		mov	al, _SHOT_FN[si]
-		mov	[bp+si+@@fn], al
-		inc	si
-
-loc_9D35:
-		cmp	si, SHOT_FN_SIZE
-		jl	short loc_9D2D
-		les	bx, _resident
-		add	bx, di
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted]
-		mov	ah, 0
-		dec	ax
-		mov	[bp+var_2], ax
-		cmp	[bp+var_2], 10
-		jl	short loc_9D65
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	al, [bp+@@fn]
-		mov	[bp+@@fn], al
-		mov	ax, [bp+var_2]
-		cwd
-		idiv	bx
-		mov	[bp+var_2], dx
-
-loc_9D65:
-		mov	al, [bp+@@fn + 1]
-		add	al, byte ptr [bp+var_2]
-		mov	[bp+@@fn + 1], al
-		push	di
-		push	ss
-		lea	ax, [bp+@@fn]
-		push	ax
-		call	sub_9CB1
-		pop	di
-		pop	si
-		leave
-		retn	2
-SUB_9D20	endp
+SUB_9D20 equ <@STAGE_SPLASH_SIDE_SHOTS_PUT$QI>
 
 
 ; =============== S U B	R O U T	I N E =======================================
