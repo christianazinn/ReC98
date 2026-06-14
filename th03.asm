@@ -533,69 +533,8 @@ sub_C097 equ <@STAFFROLL_CDG_OVERLAY$QIII>
 
 ; Attributes: bp-based frame
 
-sub_C1FD	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		cmp	word_10BBC, 2
-		jnz	short loc_C22A
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 264
-		mov	al, _page_back
-		mov	ah, 0
-		xor	ax, 1
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 263
-		jmp	short loc_C237
-; ---------------------------------------------------------------------------
-
-loc_C22A:
-		mov	ax, 280
-		sub	ax, word_10BC4
-		mov	_stf_center_y_on_page[0 * word], ax
-		mov	_stf_center_y_on_page[1 * word], ax
-
-loc_C237:
-		mov	word_10BB2, 0
-
-loc_C23D:
-		push	[bp+arg_4]
-		call	sub_BDF4
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_2]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C23D
-		mov	word_10BB2, 0
-
-loc_C25D:
-		call	sub_BB51
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_0]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C25D
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _stf_center_y_on_page[bx]
-		mov	word_10BC2, ax
-		pop	bp
-		retn	6
-sub_C1FD	endp
+sub_C1FD equ <@STAFFROLL_CDG_SETUP_Y$QIII>
+	@STAFFROLL_CDG_SETUP_Y$QIII procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================

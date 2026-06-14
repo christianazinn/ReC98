@@ -260,4 +260,34 @@ void pascal near staffroll_cdg_overlay(
 	#undef slot
 }
 
+void pascal near staffroll_cdg_setup_y(
+	int slot_arg, int frame_threshold_in, int frame_threshold_out
+)
+{
+	if(staffroll_cdg_speed == 2) {
+		stf_center_y_on_page[page_back] = 264;
+		stf_center_y_on_page[page_back ^ 1] = 263;
+	} else {
+		_AX = (280 - staffroll_cdg_y_start_off);
+		stf_center_y_on_page[0] = _AX;
+		stf_center_y_on_page[1] = _AX;
+	}
+
+	staffroll_frame = 0;
+	do {
+		staffroll_cdg_slide_up(slot_arg);
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_in, 0x100));
+
+	staffroll_frame = 0;
+	do {
+		staffroll_blue_plane_clear();
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_out, 0x100));
+
+	staffroll_cdg_overlay_y = stf_center_y_on_page[page_back];
+}
+
 #pragma codeseg
