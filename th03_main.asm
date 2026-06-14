@@ -699,7 +699,7 @@ loc_9C51:
 		push	3
 
 loc_9C70:
-		nopcall	sub_D6C0
+		nopcall	score_continues_used_digit_update
 		mov	di, offset _players
 		xor	si, si
 		jmp	short loc_9C93
@@ -5918,7 +5918,9 @@ loc_D554:
 ; ---------------------------------------------------------------------------
 
 loc_D56B:
-		mov	al, 80h
+		db	0B0h ; MOV AL, imm8
+score_continues_used_digit label byte
+		db	80h
 		call	sub_D50E
 		call	grcg_off
 		mov	al, _score_p1[6]
@@ -6082,19 +6084,19 @@ sub_D668	endp
 
 ; Attributes: bp-based frame
 
-sub_D6C0	proc far
+score_continues_used_digit_update	proc far
 
-arg_0		= byte ptr  6
+credits_left_arg	= byte ptr  6
 
 		push	bp
 		mov	bp, sp
-		mov	al, [bp+arg_0]
+		mov	al, [bp+credits_left_arg]
 		mov	ah, 3
 		sub	ah, al
-		mov	byte ptr cs:loc_D56B+1,	ah
+		mov	byte ptr cs:score_continues_used_digit,	ah
 		pop	bp
 		retf	2
-sub_D6C0	endp
+score_continues_used_digit_update	endp
 
 ; ---------------------------------------------------------------------------
 		nop
