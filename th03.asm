@@ -541,151 +541,8 @@ sub_C1FD equ <@STAFFROLL_CDG_SETUP_Y$QIII>
 
 ; Attributes: bp-based frame
 
-sub_C288	proc near
-
-var_4		= word ptr -4
-@@digits	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		push	(352 shl 16) or 174
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	al, playchar_10BD7
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		pushd	aVERDICT_PLAYCHARS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		push	(360 shl 16) or 199
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	al, _rank
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		pushd	aVERDICT_RANKS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		mov	si, 408
-		mov	[bp+var_4], 0
-		mov	[bp+@@digits], SCORE_DIGITS
-		jmp	short loc_C319
-; ---------------------------------------------------------------------------
-
-loc_C2D5:
-		mov	bx, [bp+@@digits]
-		mov	al, _score[bx]
-		mov	ah, 0
-		mov	di, ax
-		cmp	[bp+var_4], 0
-		jnz	short loc_C2F7
-		or	di, di
-		jz	short loc_C2F7
-		mov	ax, [bp+@@digits]
-		shl	ax, 3
-		sub	si, ax
-		mov	[bp+var_4], 1
-
-loc_C2F7:
-		cmp	[bp+var_4], 0
-		jz	short loc_C316
-		push	si
-		push	(224 shl 16) or (V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		add	si, 16
-
-loc_C316:
-		dec	[bp+@@digits]
-
-loc_C319:
-		cmp	[bp+@@digits], 0
-		jg	short loc_C2D5
-		mov	al, continues_used
-		mov	ah, 0
-		mov	di, ax
-		push	si
-		push	(224 shl 16) or (V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		push	(408 shl 16) or 248
-		push	(V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		mov	al, _skill
-		mov	ah, 0
-		mov	bx, 100
-		cwd
-		idiv	bx
-		mov	di, ax
-		mov	si, 408
-		mov	[bp+var_4], 0
-		or	di, di
-		jz	short loc_C38D
-		sub	si, 16
-		mov	[bp+var_4], 1
-		push	si
-		push	(291 shl 16) or (V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		add	si, 16
-
-loc_C38D:
-		mov	al, _skill
-		mov	ah, 0
-		mov	bx, 100
-		cwd
-		idiv	bx
-		mov	bx, 10
-		mov	ax, dx
-		cwd
-		idiv	bx
-		mov	di, ax
-		or	di, di
-		jz	short loc_C3B4
-		cmp	[bp+var_4], 0
-		jnz	short loc_C3B4
-		mov	[bp+var_4], 1
-		sub	si, 8
-
-loc_C3B4:
-		cmp	[bp+var_4], 0
-		jz	short loc_C3D3
-		push	si
-		push	(291 shl 16) or (V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		add	si, 16
-
-loc_C3D3:
-		mov	al, _skill
-		mov	ah, 0
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	di, dx
-		push	si
-		push	(291 shl 16) or (V_WHITE or FX_WEIGHT_BOLD)
-		mov	bx, di
-		shl	bx, 2
-		pushd	aVERDICT_NUMBERS[bx]
-		call	@graph_putsa_fx$qiiinxuc
-		lea	ax, [si+16]
-		call	@graph_putsa_fx$qiiinxuc pascal, ax, (291 shl 16) or (V_WHITE or FX_WEIGHT_BOLD), ds, offset aU_	; "ì_"
-		pop	di
-		pop	si
-		leave
-		retn
-sub_C288	endp
+sub_C288 equ <@staffroll_verdict_overlay_put$qv>
+	@staffroll_verdict_overlay_put$qv procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1176,6 +1033,8 @@ off_EE4E	dd a@00ed_txt
 include th03/sprites/flake.asp
 include th03/formats/cdg_put_dissolve[data].asm
 
+public _VERDICT_PLAYCHARS, _VERDICT_RANKS, _VERDICT_NUMBERS, _VERDICT_POINT
+_VERDICT_PLAYCHARS label dword
 aVERDICT_PLAYCHARS label dword
 		dd aFocab@sC_0		; "   îéóÌÅ@ËÀñ≤"
 		dd aCgCv_0		; "	ñ£ ñÇ"
@@ -1186,11 +1045,13 @@ aVERDICT_PLAYCHARS label dword
 		dd aB@tisqb@canb_0	; "Å@í©ëqÅ@óùçÅéq"
 		dd aCkftiB@vVfvs_0	; " ñkîíâÕÅ@ÇøÇ‰ÇË"
 		dd aB@iknsb@cF_0	; " Å@â™çËÅ@ñ≤î¸"
+_VERDICT_RANKS label dword
 aVERDICT_RANKS label dword
 		dd aVdvbvuvs		; "   ÇdÇÅÇìÇô"
 		dd aVmvpvtvnvbvm	; " ÇmÇèÇíÇçÇÅÇå"
 		dd aVgvbvtvd		; "   ÇgÇÅÇíÇÑ"
 		dd aVkvxvovbvfvivg	; "ÇkÇïÇéÇÅÇîÇâÇÉ"
+_VERDICT_NUMBERS label dword
 aVERDICT_NUMBERS label dword
 		dd aVo			; "ÇO"
 		dd aVp			; "ÇP"
@@ -1229,6 +1090,7 @@ aVu		db 'ÇU',0
 aVv		db 'ÇV',0
 aVw		db 'ÇW',0
 aVx		db 'ÇX',0
+_VERDICT_POINT label byte
 aU_		db 'ì_',0
 aEd_m		db 'ed.m',0
 aEdbk1_rgb	db 'edbk1.rgb',0
@@ -1288,6 +1150,7 @@ flake_t ends
 FLAKE_COUNT = 80
 
 public _flakes, _page_back, _stf_center_y_on_page, _score
+public _continues_used, _rank, _skill, _staffroll_verdict_playchar
 public _staffroll_flake_count, _staffroll_frame
 public _staffroll_cdg_put_alpha, _staffroll_flake_reset_pending
 public _staffroll_cdg_speed, _staffroll_cdg_frames, _staffroll_cdg_y_stop
@@ -1318,10 +1181,12 @@ byte_10BC6	db ?
 _staffroll_cdg_alpha label byte
 byte_10BC7	db ?
 _stf_center_y_on_page dw 2 dup(?)
+_continues_used label byte
 continues_used label byte
 _score db (1 + SCORE_DIGITS) dup(?)
 	evendata
 _rank	db ?
+_staffroll_verdict_playchar label byte
 playchar_10BD7	db ?
 _skill	db ?
 		db    ?	;
