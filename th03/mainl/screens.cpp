@@ -163,6 +163,37 @@ void near win_animate_and_wait(void)
 	palette_black_out(1);
 }
 
+int near sub_9887(void)
+{
+	int opponent;
+
+	if(resident->game_mode != GM_STORY) {
+		return 1;
+	}
+	if(resident->pid_winner != 0) {
+		return 1;
+	}
+
+	resident->playchar_paletted[1] = resident->story_opponents[
+		resident->story_stage
+	];
+	if(resident->story_stage == STAGE_CHIYURI) {
+		return 3;
+	}
+	if(resident->story_stage == STAGE_YUMEMI) {
+		return 4;
+	}
+	if(resident->story_stage == STAGE_COUNT) {
+		return 5;
+	}
+
+	opponent = resident->playchar_paletted[1].char_id_16();
+	if(opponent >= PLAYCHAR_CHIYURI) {
+		resident->playchar_paletted[1].set(PLAYCHAR_REIMU);
+	}
+	return 0;
+}
+
 #pragma codeseg
 // ----------
 
