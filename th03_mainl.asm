@@ -490,80 +490,8 @@ sub_BDF4 equ <@STAFFROLL_CDG_SLIDE_UP$QI>
 
 ; Attributes: bp-based frame
 
-sub_BEC7	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		call	sub_BB51
-		cmp	word_10BB2, 0A1h
-		jg	loc_BF78
-		cmp	word_10BB2, 0A0h
-		jge	short loc_BF57
-		push	(RES_X / 2)
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_stf_center_y_on_page[bx]
-		push	di
-		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		dec	_stf_center_y_on_page[bx]
-		mov	ax, word_10BB2
-		mov	bx, 20
-		cwd
-		idiv	bx
-		mov	si, ax
-		cmp	si, 7
-		jle	short loc_BF18
-		mov	si, 7
-
-loc_BF18:
-		cmp	byte_10BB5, 0
-		jz	short loc_BF3B
-		cmp	byte_10BC6, 0
-		jz	short loc_BF3B
-		push	(504 shl 16) or 200
-		mov	al, byte_10BC6
-		mov	ah, 0
-		push	ax
-		push	si
-		call	near ptr CDG_PUT_DISSOLVE_E_8
-		mov	byte_10BC7, 1
-
-loc_BF3B:
-		push	(RES_X / 2)
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_stf_center_y_on_page[bx]
-		push	di
-		push	si
-		call	near ptr CDG_PUT_DISSOLVE_E_8
-		mov	byte_10BC7, 0
-		jmp	short loc_BF78
-; ---------------------------------------------------------------------------
-
-loc_BF57:
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-
-loc_BF78:
-		pop	di
-		pop	si
-		pop	bp
-		retn	2
-sub_BEC7	endp
+sub_BEC7 equ <@STAFFROLL_CDG_SLIDE_OUT$QI>
+	@STAFFROLL_CDG_SLIDE_OUT$QI procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
