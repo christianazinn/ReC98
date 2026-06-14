@@ -1,4 +1,5 @@
-public _sprite16_clip, _sprite16_put_size
+public _sprite16_clip, _sprite16_clip_left, _sprite16_clip_right
+public _sprite16_put_size, _sprite16_put_h, _sprite16_put_w
 label _sprite16_clip byte
 _sprite16_clip_left 	dw ?
 _sprite16_clip_right	dw ?

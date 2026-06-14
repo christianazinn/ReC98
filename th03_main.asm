@@ -1360,6 +1360,7 @@ sub_A38E	endp
 
 ; Attributes: bp-based frame
 
+public sub_A3A8
 sub_A3A8	proc far
 
 arg_0		= byte ptr  6
@@ -6336,370 +6337,17 @@ main_03_TEXT	segment	byte public 'CODE' use16
 		;org 0Ah
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F1FA	proc near
-
-@@angle		= byte ptr -5
-@@top		= word ptr -4
-@@left		= word ptr -2
-@@length		= word ptr  4
-arg_2		= word ptr  6
-@@x		= word ptr  8
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	di, [bp+@@x]
-		cmp	[bp+@@length], 1
-		jnz	short loc_F210
-		call	snd_se_play pascal, 16
-
-loc_F210:
-		push	di	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	di, ax
-		mov	ax, [bp+arg_2]
-		sar	ax, 4
-		add	ax, 10h
-		mov	[bp+arg_2], ax
-		mov	ax, 8
-		imul	[bp+@@length]
-		mov	[bp+@@length], ax
-		mov	al, byte ptr [bp+@@length]
-		mov	[bp+@@angle], al
-		cmp	_pid_current, 1
-		jnz	short loc_F253
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_F25F
-; ---------------------------------------------------------------------------
-
-loc_F253:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_F25F:
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		xor	si, si
-		jmp	short loc_F2C3
-; ---------------------------------------------------------------------------
-
-loc_F26E:
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, di, [bp+@@length], _CosTable8[bx]
-		add	ax, -24
-		mov	[bp+@@left], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, [bp+arg_2], [bp+@@length], _SinTable8[bx]
-		add	ax, -24
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
-		inc	si
-		mov	al, [bp+@@angle]
-		add	al, 10h
-		mov	[bp+@@angle], al
-
-loc_F2C3:
-		cmp	si, 10h
-		jl	short loc_F26E
-		mov	al, 0
-		sub	al, byte ptr [bp+@@length]
-		mov	[bp+@@angle], al
-		xor	si, si
-		jmp	short loc_F32F
-; ---------------------------------------------------------------------------
-
-loc_F2D4:
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		mov	ax, [bp+@@length]
-		add	ax, ax
-		push	ax
-		push	di
-		call	@polar$qiii
-		add	sp, 6
-		add	ax, -24
-		mov	[bp+@@left], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		mov	ax, [bp+@@length]
-		add	ax, ax
-		push	ax
-		push	[bp+arg_2]
-		call	@polar$qiii
-		add	sp, 6
-		add	ax, -24
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
-		inc	si
-		mov	al, [bp+@@angle]
-		add	al, 20h
-		mov	[bp+@@angle], al
-
-loc_F32F:
-		cmp	si, 8
-		jl	short loc_F2D4
-		cmp	[bp+@@length], 200
-		jl	short loc_F34E
-		push	2560
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	@score_add$quiuc
-		mov	al, 0
-		jmp	short loc_F350
-; ---------------------------------------------------------------------------
-
-loc_F34E:
-		mov	al, -1
-
-loc_F350:
-		pop	di
-		pop	si
-		leave
-		retn	6
-sub_F1FA	endp
-
+	sub_F1FA procdesc near
+	sub_F356 procdesc near
+	sub_F3A9 procdesc near
+	sub_F402 procdesc near
+	sub_F4B4 procdesc far
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_F356	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, word_1F346
-		add	word_1F33E, ax
-		mov	ax, word_1F348
-		add	word_1F340, ax
-		inc	angle_1F350
-		mov	al, angle_1F350
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, large (16 shl 16) or 0, _SinTable8[bx]
-		mov	word_1F348, ax
-		cmp	word_1F33E, (48 shl 4)
-		jg	short loc_F399
-		mov	word_1F346, 20h	; ' '
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_F399:
-		cmp	word_1F33E, (240 shl 4)
-		jl	short loc_F3A7
-		mov	word_1F346, 0FFE0h
-
-loc_F3A7:
-		pop	bp
-		retn
-sub_F356	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F3A9	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, word_1F346
-		add	word_1F33E, ax
-		add	word_1F340, 20h	; ' '
-		cmp	word_1F33E, (48 shl 4)
-		jg	short loc_F3C8
-		mov	word_1F346, 20h	; ' '
-		jmp	short loc_F3D6
-; ---------------------------------------------------------------------------
-
-loc_F3C8:
-		cmp	word_1F33E, (240 shl 4)
-		jl	short loc_F3D6
-		mov	word_1F346, 0FFE0h
-
-loc_F3D6:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, 1
-		sub	bx, ax
-		add	bx, bx
-		mov	word_1F32A[bx], 0
-		cmp	word_1F340, (416 shl 4)
-		jl	short loc_F400
-		mov	byte_1F34F, 0
-		mov	_gba_boss_launched_by, PID_NONE
-		mov	_combo_points_for_boss_attack, 5120
-
-loc_F400:
-		pop	bp
-		retn
-sub_F3A9	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F402	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_BOSS
-		jnz	loc_F4AE
-		cmp	_gba_boss_launched_by, PID_NONE
-		jnz	short loc_F481
-		mov	si, offset byte_1F35E
-		cmp	_pid_current, 1
-		jnz	short loc_F42B
-		add	si, 20h	; ' '
-
-loc_F42B:
-		mov	di, offset word_1F33E
-		mov	ax, ds
-		mov	es, ax
-		assume es:_DATA
-		mov	cx, 10h
-		rep movsw
-		push	7
-		call	@randring_far_next16_and$qui
-		inc	al
-		mov	byte_1F352, al
-		mov	word_1F3B0, 0
-		mov	al, _pid_current
-		mov	_gba_boss_launched_by, al
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		call	snd_se_play pascal, 18
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, 1
-		sub	bx, ax
-		add	bx, bx
-		mov	word_1F32A[bx], 1
-		mov	al, 1
-		jmp	short loc_F4B0
-; ---------------------------------------------------------------------------
-
-loc_F481:
-		cmp	byte_1F34F, -1
-		jz	short loc_F4AE
-		mov	byte_1F34F, -1
-		mov	word_1F3B0, 0
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word_1F32A[bx], 0
-
-loc_F4AE:
-		mov	al, 0
-
-loc_F4B0:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_F402	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F4B4	proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	word_1F34A, 0
-		jg	short locret_F510
-		cmp	byte_1F34F, -1
-		jz	short locret_F510
-		mov	byte_1F34F, -1
-		mov	word_1F3B0, 0
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_BOSS
-		jz	short loc_F4F6
-		mov	_combo_points_for_boss_attack, 5120
-
-loc_F4F6:
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word_1F32A[bx], 0
-		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
-		jnb	short locret_F510
-		inc	_gba_boss_level
-
-locret_F510:
-		leave
-		retf
-sub_F4B4	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F512	proc near
-		push	bp
-		mov	bp, sp
-		cmp	byte_1F34F, 80h
-		jz	short loc_F52B
-		mov	ax, word_1F33E
-		mov	word_1F326, ax
-		mov	ax, word_1F340
-		add	ax, (128 shl 4)
-		mov	word_1F328, ax
-
-loc_F52B:
-		pop	bp
-		retn
-sub_F512	endp
-
+	SUB_F512 procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -28085,7 +27733,10 @@ _resident	dd ?
 palette_1F2F4	palette_t <?>
 byte_1F324	db ?
 		db ?
+public _word_1F326, _word_1F328, word_1F32A
+_word_1F326 label word
 word_1F326	dw ?
+_word_1F328 label word
 word_1F328	dw ?
 word_1F32A	dw ?
 word_1F32C	dw ?
@@ -28098,7 +27749,11 @@ _gba_boss_render label
 gba_boss_render_p1	dd ?
 gba_boss_render_p2	dd ?
 
+public _word_1F33E, _word_1F340, word_1F33E, word_1F340
+public word_1F346, word_1F348, word_1F34A
+_word_1F33E label word
 word_1F33E	dw ?
+_word_1F340 label word
 word_1F340	dw ?
 point_1F342	Point <?>
 word_1F346	dw ?
@@ -28106,6 +27761,8 @@ word_1F348	dw ?
 word_1F34A	dw ?
 sprite_1F34C	dw ?
 byte_1F34E	db ?
+public _byte_1F34F, byte_1F34F, angle_1F350, byte_1F352
+_byte_1F34F label byte
 byte_1F34F	db ?
 angle_1F350	db ?
 byte_1F351	db ?
@@ -28116,6 +27773,7 @@ byte_1F355	db ?
 word_1F356	dw ?
 byte_1F358	db ?
 		db 5 dup(?)
+public byte_1F35E
 byte_1F35E	db 64 dup(?)
 public _gba_boss_level
 _gba_boss_level	db ?
@@ -28127,6 +27785,7 @@ byte_1F3A3	db ?
 byte_1F3A4	db ?
 byte_1F3A5	db ?
 		db 10 dup(?)
+public word_1F3B0
 word_1F3B0	dw ?
 include th02/math/randring[bss].asm
 chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
