@@ -6,6 +6,7 @@
 #include "th03/hardware/input.h"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
+#include "th03/formats/pi.hpp"
 #include "th03/formats/win.hpp"
 #include "th03/sprites/playchar.hpp"
 #include "th02/hardware/frmdelay.h"
@@ -110,7 +111,7 @@ void near win_text_put(void)
 #pragma codeseg CUTSCENE_TEXT group_01
 
 int near sub_9887(void);
-void near sub_990C(void);
+void near stage_splash_load(void);
 
 void near win_animate_and_wait(void)
 {
@@ -150,7 +151,7 @@ void near win_animate_and_wait(void)
 	// Turbo C++ mis-relocates this near call from CUTSCENE_TEXT.
 	_asm { db	0E8h, 0E0h, 0FEh; }
 	if(sub_9887() == 0) {
-		sub_990C();
+		stage_splash_load();
 	}
 	while(1) {
 		input_mode_interface();
@@ -201,4 +202,43 @@ int near sub_9887(void)
 // -------------------
 
 bool do_not_show_stage_number;
+
+extern const char near* stage_number_cdg_fn;
+extern char near* stage_splash_bg_fn;
+extern const char stage_splash_base_pi_fn[];
+
+void near stage_splash_load(void)
+{
+	playchar_paletted_t paletted;
+
+	graph_showpage(0);
+	graph_accesspage(1);
+
+	paletted = playchar[0].v;
+	cdg_load_single(0, PIC_FN[paletted / 2], (paletted & 1));
+
+	paletted = (resident->playchar_paletted[1].v - 1);
+	cdg_load_single(1, PIC_FN[paletted / 2], (paletted & 1));
+
+	paletted = (paletted / 2);
+	do_not_show_stage_number = true;
+	if(resident->game_mode != GM_STORY) {
+		stage_splash_bg_fn[4] = (stage_splash_bg_fn[4] + 4);
+	} else if(paletted == PLAYCHAR_CHIYURI) {
+		stage_splash_bg_fn[4] = (stage_splash_bg_fn[4] + 2);
+	} else if(paletted == PLAYCHAR_YUMEMI) {
+		stage_splash_bg_fn[4]++;
+	} else if(resident->story_stage == STAGE_DECISIVE) {
+		stage_splash_bg_fn[4] = (stage_splash_bg_fn[4] + 3);
+	} else {
+		cdg_load_single(2, stage_number_cdg_fn, (resident->story_stage + 1));
+		do_not_show_stage_number = false;
+	}
+
+	pi_load(0, stage_splash_base_pi_fn);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
+	pi_load(0, stage_splash_bg_fn);
+	pi_put_8(0, 0, 0);
+}
 // -------------------
