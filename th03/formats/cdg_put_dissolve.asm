@@ -71,7 +71,7 @@ cdg_put_dissolve_e_8 proc near
 	mov	dx, [bp+@@center_y]
 
 @@dissolve_next_row:
-	mov	si, dx
+	db	089h, 0D6h	; mov si, dx
 	; Hack (and si, 3)
 	db 081h
 	db 0e6h

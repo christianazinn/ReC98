@@ -632,6 +632,9 @@ obj += tup.glob("th03/pc98/*.cpp")
 obj += {
 	"th03/cfg_lres.cpp",
 	"th03/op_01.cpp",
+	"th03/mainl/mainl_03_anchor.asm",
+	"th03/mainl/cdg_unput.asm",
+	"th03/mainl/stf_bclr.cpp",
 	{ "th03.asm", extra_inputs = th03_sprites["flake"] },
 	"th03/op_music.cpp",
 	"th03/op_main.cpp",
