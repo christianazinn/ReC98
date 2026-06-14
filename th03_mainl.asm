@@ -146,81 +146,21 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 	CDG_FREE_ALL procdesc near
+	@win_animate_and_wait$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_978D	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		graph_accesspage 1
-		call	graph_clear
-		graph_accesspage 0
-		call	graph_clear
-		graph_showpage 0
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	graph_show
-		call	cdg_put_noalpha_8 pascal, large (352 shl 16) or 300, 0
-		kajacall	KAJA_SONG_PLAY
-		push	2
-		call	palette_black_in
-		call	snd_delay_until_measure pascal, (6 shl 16) or 16
-		mov	si, 1
-		jmp	short loc_97FC
-; ---------------------------------------------------------------------------
-
-loc_97E8:
-		call	cdg_put_noalpha_8 pascal, large (352 shl 16) or 300, si
-		call	@frame_delay$qi pascal, 6
-		inc	si
-
-loc_97FC:
-		cmp	si, 5
-		jl	short loc_97E8
-		call	snd_delay_until_measure pascal, (10 shl 16) or 64
-		mov	PaletteTone, 200
-		call	far ptr	palette_show
-		call	cdg_put_noalpha_8 pascal, large (224 shl 16) or 64, 6
-		call	cdg_put_noalpha_8 pascal, large (352 shl 16) or 300, 5
-		push	ds
-		push	offset aLogo1_rgb ; "logo1.rgb"
-		call	palette_entry_rgb
-		call	far ptr	palette_show
-		call	cdg_free_all
-		call	snd_delay_until_measure pascal, (11 shl 16) or 4
-		push	1
-		call	palette_white_in
-		call	@frame_delay$qi pascal, 8
-		call	@win_text_put$qv
-		call	sub_9887
-		or	ax, ax
-		jnz	short loc_9868
-		call	sub_990C
-
-loc_9868:
-		call	@input_mode_interface$qv
-		cmp	_input_sp, INPUT_NONE
-		jnz	short loc_987D
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_9868
-; ---------------------------------------------------------------------------
-
-loc_987D:
-		push	1
-		call	palette_black_out
-		pop	si
-		pop	bp
-		retn
-sub_978D	endp
+sub_978D equ <@win_animate_and_wait$qv>
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+public @sub_9887$qv
+@sub_9887$qv label near
 sub_9887	proc near
 
 var_2		= word ptr -2
@@ -296,6 +236,8 @@ sub_9887	endp
 
 ; Attributes: bp-based frame
 
+public @sub_990C$qv
+@sub_990C$qv label near
 sub_990C	proc near
 
 var_1		= byte ptr -1
@@ -2530,11 +2472,11 @@ NAME_CHIYURI	db ' 北白河　ちゆり',0
 TITLE_YUMEMI	db '　  　　　夢幻伝説　　　    ',0
 NAME_YUMEMI	db ' 　岡崎　夢美',0
 include th03/formats/cfg_lres[data].asm
-public _logo0_rgb, _logo_cd2, _logo5_cdg
+public _logo0_rgb, _logo_cd2, _logo5_cdg, _logo1_rgb
 _logo0_rgb	db 'logo0.rgb',0
 _logo_cd2 	db 'logo.cd2',0
 _logo5_cdg	db 'logo5.cdg',0
-aLogo1_rgb	db 'logo1.rgb',0
+_logo1_rgb	db 'logo1.rgb',0
 aSt_cd2		db 'st.cd2',0
 aStnx1_pi	db 'stnx1.pi',0
 aStnx0_pi	db 'stnx0.pi',0
