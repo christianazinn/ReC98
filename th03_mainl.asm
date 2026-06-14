@@ -416,6 +416,7 @@ STAFF_TEXT ends
 
 mainl_03_TEXT segment byte public 'CODE' use16
 	extern CDG_UNPUT_FOR_UPWARDS_MOTION_E_8:proc
+	extern CDG_PUT_DISSOLVE_E_8:proc
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -475,108 +476,14 @@ sub_BCA5 equ <@STAFFROLL_PHASE_DONE$QUII>
 sub_BCD5 equ <@staffroll_flakes_tick$qv>
 	@staffroll_flakes_tick$qv procdesc near
 
-include th03/formats/cdg_put_dissolve.asm
+; cdg_put_dissolve_e_8 is linked from th03/mainl/cdg_put_dissolve.asm
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_BDF4	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		call	sub_BB51
-		mov	ax, word_10BB2
-		cmp	ax, word_10BBE
-		jg	loc_BEC1
-		push	(RES_X / 2)
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_stf_center_y_on_page[bx]
-		push	di
-		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _stf_center_y_on_page[bx]
-		cmp	ax, word_10BC0
-		jle	short loc_BE66
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, word_10BBC
-		mov	bx, ax
-		sub	_stf_center_y_on_page[bx], dx
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _stf_center_y_on_page[bx]
-		cmp	ax, word_10BC0
-		jge	short loc_BE66
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, word_10BC0
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], dx
-
-loc_BE66:
-		mov	ax, word_10BBE
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, word_10BB2
-		cwd
-		pop	bx
-		idiv	bx
-		mov	dx, 7
-		sub	dx, ax
-		mov	si, dx
-		or	si, si
-		jge	short loc_BE84
-		xor	si, si
-
-loc_BE84:
-		cmp	byte_10BB5, 0
-		jz	short loc_BEA7
-		cmp	byte_10BC6, 0
-		jz	short loc_BEA7
-		push	(504 shl 16) or 200
-		mov	al, byte_10BC6
-		mov	ah, 0
-		push	ax
-		push	si
-		call	cdg_put_dissolve_e_8
-		mov	byte_10BC7, 1
-
-loc_BEA7:
-		push	(RES_X / 2)
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_stf_center_y_on_page[bx]
-		push	di
-		push	si
-		call	cdg_put_dissolve_e_8
-		mov	byte_10BC7, 0
-
-loc_BEC1:
-		pop	di
-		pop	si
-		pop	bp
-		retn	2
-sub_BDF4	endp
+sub_BDF4 equ <@STAFFROLL_CDG_SLIDE_UP$QI>
+	@STAFFROLL_CDG_SLIDE_UP$QI procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -629,7 +536,7 @@ loc_BF18:
 		mov	ah, 0
 		push	ax
 		push	si
-		call	cdg_put_dissolve_e_8
+		call	near ptr CDG_PUT_DISSOLVE_E_8
 		mov	byte_10BC7, 1
 
 loc_BF3B:
@@ -641,7 +548,7 @@ loc_BF3B:
 		push	_stf_center_y_on_page[bx]
 		push	di
 		push	si
-		call	cdg_put_dissolve_e_8
+		call	near ptr CDG_PUT_DISSOLVE_E_8
 		mov	byte_10BC7, 0
 		jmp	short loc_BF78
 ; ---------------------------------------------------------------------------
@@ -686,7 +593,11 @@ sub_BF7E	proc near
 		xor	si, si
 
 loc_BFA0:
-		call	cdg_put_dissolve_e_8 pascal, [bp+@@x_center], [bp+@@y_center], [bp+@@slot], si
+		push	[bp+@@x_center]
+		push	[bp+@@y_center]
+		push	[bp+@@slot]
+		push	si
+		call	near ptr CDG_PUT_DISSOLVE_E_8
 
 loc_BFAD:
 		pop	si
@@ -830,7 +741,7 @@ loc_C0DC:
 		lea	ax, [si-1]
 		push	ax
 		push	0
-		call	cdg_put_dissolve_e_8
+		call	near ptr CDG_PUT_DISSOLVE_E_8
 		mov	byte_10BC7, 0
 		call	sub_BCD5
 		inc	word_10BB2
@@ -879,7 +790,7 @@ loc_C155:
 		lea	ax, [si-1]
 		push	ax
 		push	di
-		call	cdg_put_dissolve_e_8
+		call	near ptr CDG_PUT_DISSOLVE_E_8
 		jmp	short loc_C194
 ; ---------------------------------------------------------------------------
 
@@ -1774,6 +1685,8 @@ FLAKE_COUNT = 80
 public _flakes, _page_back, _stf_center_y_on_page, _score
 public _staffroll_flake_count, _staffroll_frame
 public _staffroll_cdg_put_alpha, _staffroll_flake_reset_pending
+public _staffroll_cdg_speed, _staffroll_cdg_frames, _staffroll_cdg_y_stop
+public _staffroll_cdg_aux_slot, _staffroll_cdg_alpha
 _flakes	flake_t FLAKE_COUNT dup(<?>)
 
 _staffroll_frame label word
@@ -1784,12 +1697,17 @@ byte_10BB5	db ?
 _staffroll_flake_reset_pending label byte
 byte_10BB6	db ?
 		db 5 dup(?)
+_staffroll_cdg_speed label word
 word_10BBC	dw ?
+_staffroll_cdg_frames label word
 word_10BBE	dw ?
+_staffroll_cdg_y_stop label word
 word_10BC0	dw ?
 word_10BC2	dw ?
 word_10BC4	dw ?
+_staffroll_cdg_aux_slot label byte
 byte_10BC6	db ?
+_staffroll_cdg_alpha label byte
 byte_10BC7	db ?
 _stf_center_y_on_page dw 2 dup(?)
 continues_used label byte
