@@ -6,6 +6,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/hud/static.hpp"
 #include "th03/main/round.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 #include "th02/snd/snd.h"
@@ -13,11 +14,45 @@
 #include "x86real.h"
 
 void near story_skill_decrement(void);
+extern "C" void pascal near sub_C248(player_stuff_t near *player);
 extern "C" void pascal far sub_CDBD(void);
 extern "C" unsigned char pid_PID_current;
 extern SPPoint8 player_velocity;
 
 void pascal near player_pos_update_and_clamp(PlayfieldPoint near& center);
+
+extern "C" void pascal near player_render(player_stuff_t near *player)
+{
+	int left;
+	int top;
+	register player_stuff_t near *p = player;
+	register sprite16_offset_t sprite_offset;
+
+	if(p->lose_anim_time != 0) {
+		if(p->lose_anim_time != 0xFF) {
+			sub_C248(p);
+		}
+		return;
+	}
+	if(p->patnum_glow != 0) {
+		return;
+	}
+
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 32;
+	left = (playfield_fg_x_to_screen(p->center.x, pid.current) - 16);
+	top = ((p->center.y.v >> 4) - 16);
+
+	sprite_offset = (
+		(p->patnum_movement << 2) + ((128 * ROW_SIZE) + (544 / BYTE_DOTS))
+	);
+	if(pid.current != 0) {
+		sprite_offset += (32 * ROW_SIZE);
+	}
+	sprite16_put(left, top, sprite_offset);
+}
 
 extern "C" void pascal near player_overlay_render(player_stuff_t near *player)
 {
