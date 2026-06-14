@@ -6360,22 +6360,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_F58C	proc near
-		push	bp
-		mov	bp, sp
-		push	word_1F33E
-		push	word_1F340
-		push	word_1F3B0
-		call	sub_F1FA
-		mov	byte_1F34F, al
-		cmp	byte_1F34F, 0
-		jnz	short loc_F5AD
-		mov	_gba_boss_launched_by, PID_NONE
-
-loc_F5AD:
-		pop	bp
-		retn
-sub_F58C	endp
+	SUB_F58C procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
