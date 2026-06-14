@@ -3,10 +3,13 @@
 #include "th01/hardware/grppsafx.h"
 #include "th02/v_colors.hpp"
 #include "th03/common.h"
+#include "th03/hardware/input.h"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/formats/win.hpp"
 #include "th03/sprites/playchar.hpp"
+#include "th02/hardware/frmdelay.h"
+#include "th03/snd/snd.h"
 
 extern const char near* PIC_FN[PLAYCHAR_COUNT];
 shiftjis_t win_text[WIN_LINES][WIN_LINE_SIZE + 1];
@@ -103,6 +106,64 @@ void near win_text_put(void)
 	graph_putsa_fx(LEFT, (TOP + (1 * GLYPH_H)), COL_AND_FX, win_text[1]);
 	graph_putsa_fx(LEFT, (TOP + (2 * GLYPH_H)), COL_AND_FX, win_text[2]);
 }
+
+#pragma codeseg CUTSCENE_TEXT group_01
+
+int near sub_9887(void);
+void near sub_990C(void);
+
+void near win_animate_and_wait(void)
+{
+	register int cel;
+
+	graph_accesspage(1);
+	graph_clear();
+	graph_accesspage(0);
+	graph_clear();
+	graph_showpage(0);
+	PaletteTone = 0;
+	palette_show();
+	graph_show();
+	cdg_put_noalpha_8(352, 300, CDG_LOGO_FADE);
+	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	palette_black_in(2);
+	snd_delay_until_measure(6, 16);
+
+	for(cel = 1; cel < LOGO_FADE_CELS; cel++) {
+		cdg_put_noalpha_8(352, 300, cel);
+		frame_delay(6);
+	}
+
+	snd_delay_until_measure(10, 64);
+	PaletteTone = 200;
+	palette_show();
+	cdg_put_noalpha_8(224, 64, CDG_PIC_WINNER);
+	cdg_put_noalpha_8(352, 300, CDG_LOGO);
+
+	extern const char logo1_rgb[];
+	palette_entry_rgb(logo1_rgb);
+	palette_show();
+	cdg_free_all();
+	snd_delay_until_measure(11, 4);
+	palette_white_in(1);
+	frame_delay(8);
+	// Turbo C++ mis-relocates this near call from CUTSCENE_TEXT.
+	_asm { db	0E8h, 0E0h, 0FEh; }
+	if(sub_9887() == 0) {
+		sub_990C();
+	}
+	while(1) {
+		input_mode_interface();
+		if(input_sp != INPUT_NONE) {
+			break;
+		}
+		frame_delay(1);
+	}
+
+	palette_black_out(1);
+}
+
+#pragma codeseg
 // ----------
 
 // Stage splash screen
