@@ -483,32 +483,8 @@ sub_BCA5 equ <@STAFFROLL_PHASE_DONE$QUII>
 
 ; Attributes: bp-based frame
 
-sub_BCD5	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_BB80
-		call	sub_BC29
-		call	sub_BC6F
-		cmp	byte_10BB6, 0
-		jz	short loc_BCFE
-		cmp	vsync_Count1, 1
-		jbe	short loc_BCFE
-		mov	byte_10BB5, 0
-		mov	byte_106B0, 32h	; '2'
-		mov	byte_10BB6, 0
-
-loc_BCFE:
-		cmp	vsync_Count1, 0
-		jz	short loc_BCFE
-		mov	vsync_Count1, 0
-		graph_showpage _page_back
-		mov	al, 1
-		sub	al, _page_back
-		mov	_page_back, al
-		graph_accesspage al
-		pop	bp
-		retn
-sub_BCD5	endp
+sub_BCD5 equ <@staffroll_flakes_tick$qv>
+	@staffroll_flakes_tick$qv procdesc near
 
 include th03/formats/cdg_put_dissolve.asm
 
@@ -1770,12 +1746,15 @@ FLAKE_COUNT = 80
 
 public _flakes, _page_back, _stf_center_y_on_page, _score
 public _staffroll_flake_count, _staffroll_frame
+public _staffroll_cdg_put_alpha, _staffroll_flake_reset_pending
 _flakes	flake_t FLAKE_COUNT dup(<?>)
 
 _staffroll_frame label word
 word_10BB2	dw ?
 _page_back	db ?
+_staffroll_cdg_put_alpha label byte
 byte_10BB5	db ?
+_staffroll_flake_reset_pending label byte
 byte_10BB6	db ?
 		db 5 dup(?)
 word_10BBC	dw ?
