@@ -168,7 +168,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 		;org 3
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-include th03/formats/cdg_free_all.asm
+	CDG_FREE_ALL procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
