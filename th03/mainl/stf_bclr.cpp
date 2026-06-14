@@ -1,6 +1,7 @@
 #pragma codeseg mainl_03_TEXT group_01
 
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "pc98.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/math/vector.hpp"
@@ -24,7 +25,10 @@ struct flake_t {
 
 extern flake_t near flakes[FLAKE_COUNT];
 extern unsigned char staffroll_flake_count;
+extern bool staffroll_cdg_put_alpha;
 extern int staffroll_frame;
+extern bool staffroll_flake_reset_pending;
+extern page_t page_back;
 
 void pascal near flake_put(screen_x_t left, screen_y_t top, int cel);
 
@@ -129,6 +133,28 @@ phase_not_done:
 	_AX = false;
 phase_return:
 	return _AX;
+}
+
+void near staffroll_flakes_tick(void)
+{
+	flakes_spawn();
+	flakes_update();
+	flakes_render();
+	if(staffroll_flake_reset_pending) {
+		if(vsync_Count1 > 1) {
+			staffroll_cdg_put_alpha = false;
+			staffroll_flake_count = 0x32;
+			staffroll_flake_reset_pending = false;
+		}
+	}
+	while(vsync_Count1 == 0) {
+	}
+	vsync_Count1 = 0;
+	graph_showpage(page_back);
+	_AL = 1;
+	_AL -= page_back;
+	page_back = _AL;
+	graph_accesspage(_AL);
 }
 
 #pragma codeseg
