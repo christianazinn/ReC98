@@ -104,4 +104,21 @@ void pascal near staffroll_cdg_slide_out(int slot_arg)
 	#undef slot
 }
 
+void pascal near staffroll_cdg_dissolve_in(
+	int slot, screen_y_t center_y, screen_x_t center_x
+)
+{
+	#define strength _SI
+
+	if(staffroll_frame <= 0xA0) {
+		strength = (7 - (staffroll_frame / 20));
+		if(static_cast<int16_t>(strength) < 0) {
+			strength = 0;
+		}
+		cdg_put_dissolve_e_8(slot, center_y, center_x, strength);
+	}
+
+	#undef strength
+}
+
 #pragma codeseg

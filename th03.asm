@@ -509,40 +509,8 @@ sub_BEC7 equ <@STAFFROLL_CDG_SLIDE_OUT$QI>
 
 ; Attributes: bp-based frame
 
-sub_BF7E	proc near
-
-@@slot    	= word ptr  4
-@@y_center	= word ptr  6
-@@x_center	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	word_10BB2, 0A0h
-		jg	short loc_BFAD
-		mov	ax, word_10BB2
-		mov	bx, 20
-		cwd
-		idiv	bx
-		mov	dx, 7
-		sub	dx, ax
-		mov	si, dx
-		or	si, si
-		jge	short loc_BFA0
-		xor	si, si
-
-loc_BFA0:
-		push	[bp+@@x_center]
-		push	[bp+@@y_center]
-		push	[bp+@@slot]
-		push	si
-		call	near ptr CDG_PUT_DISSOLVE_E_8
-
-loc_BFAD:
-		pop	si
-		pop	bp
-		retn	6
-sub_BF7E	endp
+sub_BF7E equ <@STAFFROLL_CDG_DISSOLVE_IN$QIII>
+	@STAFFROLL_CDG_DISSOLVE_IN$QIII procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
