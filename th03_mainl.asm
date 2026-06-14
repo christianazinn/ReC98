@@ -152,6 +152,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 	@stage_splash_show_and_wait$qv procdesc near
 	@STAGE_SPLASH_SIDE_SHOT_PUT$QINC procdesc near
 	@STAGE_SPLASH_SIDE_SHOTS_PUT$QI procdesc near
+	@continue_menu$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -387,142 +388,7 @@ loc_9F85:
 _main		endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_9F8D	proc near
-
-var_6		= dword	ptr -6
-var_2		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, 1
-		mov	[bp+var_2], 0
-		mov	word ptr [bp+var_6+2], ds
-		mov	word ptr [bp+var_6], offset a0
-		xor	di, di
-		jmp	short loc_9FB3
-; ---------------------------------------------------------------------------
-
-loc_9FA7:
-		les	bx, _resident
-		add	bx, di
-		mov	es:[bx+resident_t.score_last], 0
-		inc	di
-
-loc_9FB3:
-		cmp	di, (PLAYER_COUNT * SCORE_DIGITS)
-		jl	short loc_9FA7
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_credits], 0
-		jnz	short loc_9FC8
-		xor	ax, ax
-		jmp	loc_A12A
-; ---------------------------------------------------------------------------
-
-loc_9FC8:
-		call	cdg_put_noalpha_8 pascal, large (192 shl 16) or 272, 0
-		call	cdg_put_noalpha_8 pascal, large (352 shl 16) or 272, 3
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_credits]
-		les	bx, [bp+var_6]
-		add	al, es:[bx]
-		mov	es:[bx], al
-		call	@graph_putsa_fx$qiiinxuc pascal, (576 shl 16) or 371, 2Fh, word ptr [bp+var_6+2], bx
-		push	1
-		call	palette_black_in
-
-loc_A00B:
-		call	@input_mode_interface$qv
-		test	_input_sp.lo, low INPUT_LEFT
-		jnz	short loc_A01E
-		test	_input_sp.lo, low INPUT_RIGHT
-		jz	short loc_A056
-
-loc_A01E:
-		cmp	[bp+var_2], 0
-		jnz	short loc_A05B
-		mov	ax, 1
-		sub	ax, si
-		mov	si, ax
-		push	(192 shl 16) or 272
-		add	ax, ax
-		mov	dx, 2
-		sub	dx, ax
-		push	dx
-		call	cdg_put_noalpha_8
-		push	(352 shl 16) or 272
-		mov	ax, si
-		add	ax, ax
-		inc	ax
-		push	ax
-		call	cdg_put_noalpha_8
-		mov	[bp+var_2], 1
-		jmp	short loc_A05B
-; ---------------------------------------------------------------------------
-
-loc_A056:
-		mov	[bp+var_2], 0
-
-loc_A05B:
-		test	_input_sp.hi, high INPUT_OK
-		jnz	short loc_A069
-		test	_input_sp.lo, low INPUT_SHOT
-		jz	short loc_A0B0
-
-loc_A069:
-		cmp	si, 1
-		jnz	short loc_A0C5
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_boxfill pascal, (576 shl 16) or 371, (592 shl 16) or 387
-		call	grcg_off
-		les	bx, _resident
-		dec	es:[bx+resident_t.rem_credits]
-		les	bx, [bp+var_6]
-		dec	byte ptr es:[bx]
-		call	@graph_putsa_fx$qiiinxuc pascal, (576 shl 16) or 371, 2Fh, word ptr [bp+var_6+2], bx
-		jmp	short loc_A0C5
-; ---------------------------------------------------------------------------
-
-loc_A0B0:
-		test	_input_sp.hi, high INPUT_CANCEL
-		jz	short loc_A0BB
-		xor	si, si
-		jmp	short loc_A0C5
-; ---------------------------------------------------------------------------
-
-loc_A0BB:
-		call	@frame_delay$qi pascal, 1
-		jmp	loc_A00B
-; ---------------------------------------------------------------------------
-
-loc_A0C5:
-		kajacall	KAJA_SONG_FADE, 3
-		push	1
-		call	palette_black_out
-		graph_accesspage 0
-		graph_showpage al
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@pi_load$qinxc pascal, 0, ds, offset aOver_pi
-		call	@pi_palette_apply$qi pascal, 0
-		call	@pi_put_8$qiii pascal, large 0, 0
-		freePISlotLarge	0
-		kajacall	KAJA_SONG_STOP
-		les	bx, _resident
-		dec	es:[bx+resident_t.story_stage]
-		mov	es:[bx+resident_t.story_lives], CREDIT_LIVES
-		mov	ax, si
-
-loc_A12A:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_9F8D	endp
+sub_9F8D equ <@continue_menu$qv>
 
 	@CUTSCENE_SCRIPT_LOAD$QNXC procdesc pascal near \
 		fn:dword
@@ -2070,7 +1936,10 @@ include th03/snd/se_state[data].asm
 include th02/formats/pfopen[data].asm
 include th03/formats/cdg[data].asm
 include th03/snd/se_priority[data].asm
+public _continue_count_str, _continue_gameover_bg_pi_fn
+_continue_count_str label byte
 a0		db  '0',0
+_continue_gameover_bg_pi_fn label byte
 aOver_pi	db 'over.pi',0
 include th03/formats/pi_put_masked[data].asm
 public _CUTSCENE_KANJI
