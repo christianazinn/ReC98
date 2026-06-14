@@ -113,6 +113,8 @@ void near win_text_put(void)
 int near sub_9887(void);
 void near stage_splash_load(void);
 void near stage_splash_show_and_wait(void);
+void pascal near stage_splash_side_shot_put(int pid, char far *fn);
+void pascal near stage_splash_side_shots_put(int pid);
 
 void near win_animate_and_wait(void)
 {
@@ -207,6 +209,7 @@ bool do_not_show_stage_number;
 extern const char near* stage_number_cdg_fn;
 extern char near* stage_splash_bg_fn;
 extern const char stage_splash_base_pi_fn[];
+extern const char SHOT_FN[12];
 extern const shiftjis_t* CHAR_TITLE[];
 extern const shiftjis_t* CHAR_NAME[];
 extern char PLAYCHAR_BGM_FN[];
@@ -218,7 +221,6 @@ extern const char stage_splash_enemy02_pi_fn[];
 extern const char stage_splash_enemy03_pi_fn[];
 extern const char stage_splash_enemy04_pi_fn[];
 extern const char stage_splash_yume_efc_fn[];
-extern "C" void pascal near sub_9D20(int pid);
 
 void near stage_splash_load(void)
 {
@@ -289,8 +291,8 @@ void near stage_splash_show_and_wait(void)
 	vsync_Count1 = 0;
 	graph_accesspage(1);
 	graph_clear();
-	sub_9D20(0);
-	sub_9D20(1);
+	stage_splash_side_shots_put(0);
+	stage_splash_side_shots_put(1);
 
 	pi_load_lineskip(0, stage_splash_enemy_center_pi_fn);
 	pi_put_8(0, 280, 0);
@@ -347,5 +349,42 @@ void near stage_splash_show_and_wait(void)
 	pi_palette_apply(0);
 	pi_free(0);
 	respal_set_palettes();
+}
+
+void pascal near stage_splash_side_shot_put(int pid, char far *fn)
+{
+	register int left = pid;
+
+	pi_load_lineskip(0, fn);
+	pi_put_8((left * 320), 200, 0);
+	pi_free(0);
+
+	fn[2] = 'e';
+	fn[3] = 'x';
+	pi_load_lineskip(0, fn);
+	pi_put_8((left * 320), 208, 0);
+	pi_free(0);
+}
+
+void pascal near stage_splash_side_shots_put(int pid)
+{
+	char fn[sizeof(SHOT_FN)];
+	int paletted;
+	register int i;
+	register int pid_;
+
+	pid_ = pid;
+	i = 0;
+	while(i < sizeof(SHOT_FN)) {
+		fn[i] = SHOT_FN[i];
+		i++;
+	}
+	paletted = (resident->playchar_paletted[pid_].v - 1);
+	if(paletted >= 10) {
+		fn[0] = ((paletted / 10) + fn[0]);
+		paletted = (paletted % 10);
+	}
+	fn[1] += paletted;
+	stage_splash_side_shot_put(pid_, fn);
 }
 // -------------------
