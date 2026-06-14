@@ -45,7 +45,7 @@ PID_NONE = 0FFh
 	extrn byte_1F35E:byte
 	extrn word_1F3B0:word
 
-	public sub_F1FA, sub_F356, sub_F3A9, sub_F402, sub_F4B4
+	public sub_F1FA, _sub_F356, sub_F356, sub_F3A9, sub_F402, sub_F4B4
 
 _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
@@ -232,6 +232,7 @@ sub_F1FA	endp
 
 ; Attributes: bp-based frame
 
+_sub_F356 label near
 sub_F356	proc near
 		push	bp
 		mov	bp, sp
