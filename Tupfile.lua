@@ -681,6 +681,8 @@ obj += {
 th03:branch(MODEL_LARGE):link("debloat", obj)
 
 obj = {
+	"th03/main/main_03_prefix.asm",
+	"th03/main_03.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
