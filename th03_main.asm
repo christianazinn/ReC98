@@ -6649,8 +6649,7 @@ loc_DBDF:
 		mov	[bp+var_5], 0
 		cmp	byte ptr [si+14h], 0
 		jz	short loc_DBFE
-		push	si
-		call	sub_DFE9
+		call	player_knockback_update pascal, si
 		mov	word ptr [si+18h], 0
 		mov	word ptr [si+74h], 0
 		mov	[bp+var_5], 1
@@ -7121,86 +7120,8 @@ sub_DF18	endp
 
 ; Attributes: bp-based frame
 
-sub_DFE9	proc near
-
-@@vector_y		= byte ptr -4
-@@vector_x		= byte ptr -2
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		mov	si, [bp+arg_0]
-		cmp	byte ptr [si+10h], 40h
-		jnz	short loc_E036
-		call	snd_se_play pascal, 2
-		push	3Fh ; '?'
-		call	@randring1_next16_and$qui
-		mov	[si+12h], al
-		cmp	word ptr [si+player_stuff_t.center.x], (144 shl 4)
-		jge	short loc_E01C
-		cmp	word ptr [si+player_stuff_t.center.y], (184 shl 4)
-		jle	short loc_E032
-		mov	al, [si+12h]
-		add	al, 192
-		jmp	short loc_E02F
-; ---------------------------------------------------------------------------
-
-loc_E01C:
-		cmp	word ptr [si+player_stuff_t.center.y], (184 shl 4)
-		jge	short loc_E02A
-		mov	al, [si+12h]
-		add	al, 40h
-		jmp	short loc_E02F
-; ---------------------------------------------------------------------------
-
-loc_E02A:
-		mov	al, [si+12h]
-		add	al, 80h
-
-loc_E02F:
-		mov	[si+12h], al
-
-loc_E032:
-		mov	byte ptr [si+13h], 40h
-
-loc_E036:
-		cmp	byte ptr [si+10h], 20h ; ' '
-		jbe	short loc_E06E
-		mov	al, [si+13h]
-		add	al, -2
-		mov	[si+13h], al
-		push	ss
-		lea	ax, [bp+@@vector_x]
-		push	ax
-		push	ss
-		lea	ax, [bp+@@vector_y]
-		push	ax
-		push	word ptr [si+12h]
-		mov	al, [si+13h]
-		mov	ah, 0
-		push	ax
-		call	vector2
-		mov	al, [bp+@@vector_x]
-		mov	_player_velocity.x8, al
-		mov	al, [bp+@@vector_y]
-		mov	_player_velocity.y8, al
-		call	@player_pos_update_and_clamp$qr7SPPoint pascal, si
-		jmp	short loc_E078
-; ---------------------------------------------------------------------------
-
-loc_E06E:
-		cmp	byte ptr [si+10h], 0
-		jnz	short loc_E078
-		mov	byte ptr [si+14h], 0
-
-loc_E078:
-		dec	byte ptr [si+10h]
-		pop	si
-		leave
-		retn	2
-sub_DFE9	endp
+	PLAYER_KNOCKBACK_UPDATE procdesc pascal near \
+		player:word
 
 
 	PLAYER_BOMB procdesc pascal near \
