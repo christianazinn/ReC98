@@ -676,6 +676,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/mainl/stf_bclr.cpp",
 	"th03/mainl/cdg_put_dissolve.asm",
 	"th03/mainl/stf_cdg.cpp",
+	"th03/mainl/stf_vrd.cpp",
 	{ "th03_mainl.asm", extra_inputs = th03_sprites["flake"] },
 	"th03/mainl/ending.cpp",
 	"th03/cutscene/continue.cpp",
