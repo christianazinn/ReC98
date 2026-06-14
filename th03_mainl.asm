@@ -415,27 +415,15 @@ sub_B972 equ <@ending_staff_and_regist$qv>
 STAFF_TEXT ends
 
 mainl_03_TEXT segment byte public 'CODE' use16
-include th03/formats/cdg_unput_upwards.asm
+	extern CDG_UNPUT_FOR_UPWARDS_MOTION_E_8:proc
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_BB51	proc near
-		push	bp
-		mov	bp, sp
-		push	di
-		mov	ax, 0A800h
-		mov	es, ax
-		assume es:nothing
-		xor	ax, ax
-		mov	di, ax
-		mov	cx, 3E80h
-		rep stosw
-		pop	di
-		pop	bp
-		retn
-sub_BB51	endp
+sub_BB51 equ <@staffroll_blue_plane_clear$qv>
+
+	@staffroll_blue_plane_clear$qv procdesc near
 
 FLAKE_W = 8
 FLAKE_H = 8
@@ -744,7 +732,7 @@ arg_0		= word ptr  4
 		mov	bx, ax
 		push	_stf_center_y_on_page[bx]
 		push	di
-		call	cdg_unput_for_upwards_motion_e_8
+		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
 		mov	al, _page_back
 		mov	ah, 0
 		add	ax, ax
@@ -847,7 +835,7 @@ arg_0		= word ptr  4
 		mov	bx, ax
 		push	_stf_center_y_on_page[bx]
 		push	di
-		call	cdg_unput_for_upwards_motion_e_8
+		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
 		mov	al, _page_back
 		mov	ah, 0
 		add	ax, ax
@@ -1091,7 +1079,7 @@ loc_C114:
 		push	word_10BC2
 		lea	ax, [si-1]
 		push	ax
-		call	cdg_unput_for_upwards_motion_e_8
+		call	near ptr CDG_UNPUT_FOR_UPWARDS_MOTION_E_8
 
 loc_C12A:
 		push	si

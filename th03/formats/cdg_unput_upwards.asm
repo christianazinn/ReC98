@@ -44,16 +44,16 @@ cdg_unput_for_upwards_motion_e_8 proc near
 	mov	dx, [bp+@@w]
 	shr	dx, 4
 	mov	si, (640 / 8)
-	sub	si, dx
-	sub	si, dx
-	xor	ax, ax
-	mov	cx, dx
+	db	029h, 0D6h	; sub si, dx
+	db	029h, 0D6h	; sub si, dx
+	db	031h, 0C0h	; xor ax, ax
+	db	089h, 0D1h	; mov cx, dx
 	rep stosw
-	add	di, si
-	mov	cx, dx
+	db	001h, 0F7h	; add di, si
+	db	089h, 0D1h	; mov cx, dx
 	rep stosw
-	add	di, si
-	mov	cx, dx
+	db	001h, 0F7h	; add di, si
+	db	089h, 0D1h	; mov cx, dx
 	rep stosw
 	pop	di
 	pop	si
