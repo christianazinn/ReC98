@@ -5,6 +5,8 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/math/vector.hpp"
 #include "th03/sprites/flake.h"
+#include "th03/snd/snd.h"
+#include "x86real.h"
 
 static const unsigned int FLAKE_COUNT = 80;
 static const subpixel_t FLAKE_LEFT_MAX = TO_SP(RES_X - FLAKE_W);
@@ -100,6 +102,33 @@ void near flakes_render(void)
 			);
 		}
 	}
+}
+
+bool16 pascal near staffroll_phase_done(
+	uint16_t measure_threshold, int frame_threshold
+)
+{
+	if(!snd_active) {
+		if(staffroll_frame > frame_threshold) {
+			goto phase_done;
+		}
+		goto phase_not_done;
+	}
+	_AH = KAJA_GET_SONG_MEASURE;
+	asm { int 60h; }
+	if(_AX < measure_threshold) {
+		goto phase_not_done;
+	}
+	if(staffroll_frame <= 0xC0) {
+		goto phase_not_done;
+	}
+phase_done:
+	_AX = true;
+	goto phase_return;
+phase_not_done:
+	_AX = false;
+phase_return:
+	return _AX;
 }
 
 #pragma codeseg

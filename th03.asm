@@ -475,44 +475,8 @@ sub_BC6F equ <@flakes_render$qv>
 
 ; Attributes: bp-based frame
 
-sub_BCA5	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		cmp	_snd_active, 0
-		jnz	short loc_BCB9
-		mov	ax, word_10BB2
-		cmp	ax, [bp+arg_0]
-		jle	short loc_BCCF
-		jmp	short loc_BCCA
-; ---------------------------------------------------------------------------
-
-loc_BCB9:
-		mov	ah, KAJA_GET_SONG_MEASURE
-		int	60h		; - FTP	Packet Driver -	BASIC FUNC - TERMINATE DRIVER FOR HANDLE
-					; BX = handle
-					; Return: CF set on error, DH =	error code
-					; CF clear if successful
-		cmp	ax, [bp+arg_2]
-		jb	short loc_BCCF
-		cmp	word_10BB2, 0C0h
-		jle	short loc_BCCF
-
-loc_BCCA:
-		mov	ax, 1
-		jmp	short loc_BCD1
-; ---------------------------------------------------------------------------
-
-loc_BCCF:
-		xor	ax, ax
-
-loc_BCD1:
-		pop	bp
-		retn	4
-sub_BCA5	endp
+sub_BCA5 equ <@STAFFROLL_PHASE_DONE$QUII>
+	@STAFFROLL_PHASE_DONE$QUII procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
