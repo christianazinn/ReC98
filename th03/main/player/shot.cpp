@@ -6,13 +6,11 @@
 #include "th03/main/v_colors.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/resident.hpp"
+#include "th03/gaiji/gaiji.h"
 #include "th02/snd/snd.h"
 #include "libs/master.lib/pc98_gfx.hpp"
 
 extern "C" void pascal far sub_14B0A(subpixel_t left, subpixel_t top);
-extern "C" void pascal near sub_E35B(
-	tram_x_t left, vram_y_t top, uint16_t value
-);
 extern "C" void pascal far HUD5_PUT(
 	screen_x_t left, vram_y_t top, uint16_t points, vc_t col
 );
@@ -84,6 +82,38 @@ extern "C" const char near aPLAYER_REM[];
 #define score_add_nopcall(score) { \
 	_asm { push word ptr score; push word ptr [bp - 2]; } \
 	_asm { nop; push cs; call near ptr score_add; } \
+}
+
+extern "C" void pascal near sub_E35B(
+	tram_x_t left, vram_y_t top, uint16_t value
+)
+{
+	register int value_rem;
+	register tram_x_t left_reg;
+
+	left_reg = left;
+	value_rem = value;
+	if(value_rem >= 10) {
+		if(value_rem >= 100) {
+			gaiji_putca(
+				(left_reg + 18),
+				((top + 96) / GLYPH_H),
+				(gb_0 + (value_rem / 100)),
+				TX_WHITE
+			);
+			value_rem %= 100;
+		}
+		gaiji_putca(
+			(left_reg + 20),
+			((top + 96) / GLYPH_H),
+			(gb_0 + (value_rem / 10)),
+			TX_WHITE
+		);
+		value_rem %= 10;
+	}
+	gaiji_putca(
+		(left_reg + 22), ((top + 96) / GLYPH_H), (gb_0 + value_rem), TX_WHITE
+	);
 }
 
 extern "C" void pascal near sub_E3F2(void)
