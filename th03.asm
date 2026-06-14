@@ -170,6 +170,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 
 	CDG_FREE_ALL procdesc near
 	@win_animate_and_wait$qv procdesc near
+	@sub_9887$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -178,81 +179,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 sub_978D equ <@win_animate_and_wait$qv>
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @sub_9887$qv
-@sub_9887$qv label near
-sub_9887	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		les	bx, _resident
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jnz	short loc_98A1
-		les	bx, _resident
-		cmp	es:[bx+resident_t.pid_winner], 0
-		jz	short loc_98A6
-
-loc_98A1:
-		mov	ax, 1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_98A6:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	ah, 0
-		add	bx, ax
-		mov	al, es:[bx+resident_t.story_opponents]
-		mov	bx, word ptr _resident
-		mov	es:[bx+resident_t.RESIDENT_playchar_paletted][1], al
-		cmp	es:[bx+resident_t.story_stage], 7
-		jnz	short loc_98CA
-		mov	ax, 3
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_98CA:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 8
-		jnz	short loc_98DA
-		mov	ax, 4
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_98DA:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 9
-		jnz	short loc_98EA
-		mov	ax, 5
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_98EA:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_2], ax
-		cmp	[bp+var_2], 7
-		jl	short loc_9908
-		mov	es:[bx+resident_t.RESIDENT_playchar_paletted][1], (1 + (PLAYCHAR_REIMU * 2))
-
-loc_9908:
-		xor	ax, ax
-		leave
-		retn
-sub_9887	endp
+sub_9887 equ <@sub_9887$qv>
 
 
 ; =============== S U B	R O U T	I N E =======================================
