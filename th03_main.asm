@@ -6353,50 +6353,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_F52D	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		call	sub_F356
-		cmp	word_1F3B0, 50h	; 'P'
-		jb	short locret_F58A
-
-loc_F53B:
-		push	0Fh
-		call	@randring_far_next16_and$qui
-		mov	[bp+var_1], al
-		mov	al, byte_1F324
-		mov	ah, 0
-		add	ax, 2
-		mov	dl, [bp+var_1]
-		mov	dh, 0
-		cmp	ax, dx
-		jl	short loc_F567
-		mov	al, byte_1F324
-		mov	ah, 0
-		add	ax, 0FFFEh
-		mov	dl, [bp+var_1]
-		mov	dh, 0
-		cmp	ax, dx
-		jle	short loc_F53B
-
-loc_F567:
-		mov	al, [bp+var_1]
-		mov	byte_1F324, al
-		mov	word_1F3B0, 0
-		add	al, 2
-		mov	byte_1F34F, al
-		inc	byte_1F351
-		mov	al, byte_1F351
-		cmp	al, byte_1F352
-		jbe	short locret_F58A
-		mov	byte_1F34F, 80h
-
-locret_F58A:
-		leave
-		retn
-sub_F52D	endp
+	SUB_F52D procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -27731,6 +27688,8 @@ _playfield_clip_negative_radius	Point <?>
 public _resident
 _resident	dd ?
 palette_1F2F4	palette_t <?>
+public _byte_1F324
+_byte_1F324 label byte
 byte_1F324	db ?
 		db ?
 public _word_1F326, _word_1F328, word_1F32A
@@ -27761,11 +27720,13 @@ word_1F348	dw ?
 word_1F34A	dw ?
 sprite_1F34C	dw ?
 byte_1F34E	db ?
-public _byte_1F34F, byte_1F34F, angle_1F350, byte_1F352
+public _byte_1F34F, byte_1F34F, angle_1F350, _byte_1F351, _byte_1F352, byte_1F352
 _byte_1F34F label byte
 byte_1F34F	db ?
 angle_1F350	db ?
+_byte_1F351 label byte
 byte_1F351	db ?
+_byte_1F352 label byte
 byte_1F352	db ?
 byte_1F353	db ?
 byte_1F354	db ?
@@ -27785,7 +27746,8 @@ byte_1F3A3	db ?
 byte_1F3A4	db ?
 byte_1F3A5	db ?
 		db 10 dup(?)
-public word_1F3B0
+public _word_1F3B0, word_1F3B0
+_word_1F3B0 label word
 word_1F3B0	dw ?
 include th02/math/randring[bss].asm
 chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
