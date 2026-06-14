@@ -640,6 +640,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/hitcirc.cpp",
 	"th03/hud_stat.cpp",
 	"th03/player_m.cpp",
+	"th03/main/player/bomb.cpp",
 	"th03/main_010.cpp",
 	"th03/p_shot.cpp",
 	"th01/vplanset.cpp",
