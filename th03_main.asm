@@ -5967,6 +5967,8 @@ include th03/main/player/score_add.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
+public HUD5_PUT
+HUD5_PUT label far
 public @HUD_DYNAMIC_5_DIGIT_POINTS_PUT$QIIUIUC
 @hud_dynamic_5_digit_points_put$qiiuiuc proc far
 
@@ -6027,6 +6029,8 @@ loc_D645:
 
 ; Attributes: bp-based frame
 
+public SUB_D668
+SUB_D668 label far
 sub_D668	proc far
 
 arg_0		= byte ptr  6
@@ -6270,6 +6274,8 @@ sub_E313	endp
 
 ; Attributes: bp-based frame
 
+public SUB_E35B
+SUB_E35B label near
 sub_E35B	proc near
 
 arg_0		= word ptr  4
@@ -6355,267 +6361,7 @@ sub_E35B	endp
 
 ; Attributes: bp-based frame
 
-sub_E3F2	proc near
-
-var_6		= dword	ptr -6
-@@pid		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	al, byte_20E3D
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		mov	[bp+@@pid], dx
-		mov	si, 4
-		cmp	[bp+@@pid], 0
-		jz	short loc_E411
-		add	si, 28h	; '('
-
-loc_E411:
-		mov	ax, _round_or_result_frame
-		and	ax, 7
-		cmp	ax, 1
-		jnz	loc_E602
-		call	text_putsa pascal, si, 8, ds, offset aMAX_COMBO, TX_WHITE
-		call	text_putsa pascal, si, 10, ds, offset aGAUGE_ATTACK_TIMES, TX_WHITE
-		call	text_putsa pascal, si, 12, ds, offset aBOSS_ATTACK_TIMES, TX_WHITE
-		call	text_putsa pascal, si, 14, ds, offset aBOSS_REVERSAL_TIMES, TX_WHITE
-		call	text_putsa pascal, si, 16, ds, offset aBOSS_PANIC_TIMES, TX_WHITE
-		call	text_putsa pascal, si, 20, ds, offset aTOTAL, TX_WHITE
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 8
-		jnb	short loc_E48C
-		push	si
-		push	6
-		push	ds
-		push	offset aWINNER_BONUS
-		jmp	short loc_E4A2
-; ---------------------------------------------------------------------------
-
-loc_E48C:
-		call	text_putsa pascal, si, 6, ds, offset aALL_CLEAR, TX_WHITE
-		push	si
-		push	18
-		push	ds
-		push	offset aPLAYER_REM
-
-loc_E4A2:
-		push	TX_WHITE
-		call	text_putsa
-		mov	ax, [bp+@@pid]
-		shl	ax, 7
-		add	ax, offset _players
-		mov	di, ax
-		cmp	_round_or_result_frame, 1
-		jnz	loc_E5AC
-		mov	al, [di+player_stuff_t.combo_hits_max]
-		mov	_defeat_combo_hits_max, al
-		mov	al, [di+player_stuff_t.gauge_attacks_fired]
-		mov	_defeat_gauge_attacks_fired, al
-		mov	al, [di+player_stuff_t.boss_attacks_fired]
-		mov	_defeat_boss_attacks_fired, al
-		mov	al, [di+player_stuff_t.boss_attacks_reversed]
-		mov	_defeat_boss_attacks_reversed, al
-		mov	al, [di+player_stuff_t.boss_panics_fired]
-		mov	_defeat_boss_panics_fired, al
-		movzx	eax, _defeat_combo_hits_max
-		imul	eax, 1000
-		mov	score_23DF0, eax
-		movzx	eax, _defeat_gauge_attacks_fired
-		imul	eax, 10000
-		add	score_23DF0, eax
-		movzx	eax, _defeat_boss_attacks_fired
-		imul	eax, 15000
-		add	score_23DF0, eax
-		movzx	eax, _defeat_boss_attacks_reversed
-		imul	eax, 20000
-		add	score_23DF0, eax
-		movzx	eax, _defeat_boss_panics_fired
-		imul	eax, 30000
-		add	score_23DF0, eax
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 8
-		jnz	short loc_E55E
-		mov	al, es:[bx+resident_t.story_lives]
-		mov	byte_23DF9, al
-		movzx	eax, byte_23DF9
-		imul	eax, 100000
-		add	score_23DF0, eax
-		mov	_extends_gained, EXTENDS_DISABLE
-
-loc_E55E:
-		mov	eax, score_23DF0
-		mov	ebx, 192
-		cdq
-		idiv	ebx
-		mov	[bp+var_6], eax
-		cmp	[bp+var_6], 0FFFFh
-		jbe	short loc_E583
-		mov	score_23DEA, -1
-		jmp	short loc_E589
-; ---------------------------------------------------------------------------
-
-loc_E583:
-		mov	ax, word ptr [bp+var_6]
-		mov	score_23DEA, ax
-
-loc_E589:
-		mov	eax, score_23DF0
-		mov	[bp+var_6], eax
-		mov	ebx, 10000
-		cdq
-		idiv	ebx
-		mov	word_23DEC, dx
-		mov	eax, [bp+var_6]
-		cdq
-		idiv	ebx
-		mov	word_23DEE, ax
-
-loc_E5AC:
-		push	si
-		push	20h ; ' '
-		mov	al, _defeat_combo_hits_max
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-		push	si
-		push	40h
-		mov	al, _defeat_gauge_attacks_fired
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-		push	si
-		push	60h
-		mov	al, _defeat_boss_attacks_fired
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-		push	si
-		push	80h
-		mov	al, _defeat_boss_attacks_reversed
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-		push	si
-		push	160
-		mov	al, _defeat_boss_panics_fired
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 8
-		jnz	short loc_E602
-		push	si
-		push	192
-		mov	al, byte_23DF9
-		mov	ah, 0
-		push	ax
-		call	sub_E35B
-
-loc_E602:
-		mov	ax, 8
-		imul	si
-		mov	si, ax
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(64 shl 16) or 1000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(80 shl 16) or 10000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(96 shl 16) or 15000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(112 shl 16) or 20000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(128 shl 16) or 30000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 8
-		jnz	short loc_E692
-		lea	ax, [si+208]
-		push	ax	; left
-		push	(144 shl 16) or 10000	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(144 shl 16) or 0	; ((top shl 16) or points)
-		push	0Fh ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-
-loc_E692:
-		cmp	word_23DEC, 0
-		jz	short loc_E6A7
-		lea	ax, [si+216]
-		push	ax	; left
-		push	160	; top
-		push	word_23DEC
-		jmp	short loc_E6D6
-; ---------------------------------------------------------------------------
-
-loc_E6A7:
-		lea	ax, [si+216]
-		push	ax	; left
-		push	(160 shl 16) or 0	; ((top shl 16) or points)
-		push	0Ch ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+200]
-		push	ax	; left
-		push	(160 shl 16) or 0	; ((top shl 16) or points)
-		push	0Ch ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+192]
-		push	ax	; left
-		push	(160 shl 16) or 0	; ((top shl 16) or points)
-
-loc_E6D6:
-		push	0Ch ; col
-		nopcall	@hud_dynamic_5_digit_points_put$qiiuiuc
-		lea	ax, [si+184]
-		push	ax
-		push	160
-		push	word_23DEE
-		push	0Ch
-		nopcall	sub_D668
-		movzx	eax, score_23DEA
-		cmp	eax, score_23DF0
-		jge	short loc_E716
-		push	score_23DEA
-		push	[bp+@@pid]
-		nopcall	@score_add$quiuc
-		movzx	eax, score_23DEA
-		sub	score_23DF0, eax
-		jmp	short loc_E733
-; ---------------------------------------------------------------------------
-
-loc_E716:
-		cmp	score_23DF0, 0
-		jle	short loc_E733
-		push	word ptr score_23DF0
-		push	[bp+@@pid]
-		nopcall	@score_add$quiuc
-		mov	score_23DF0, 0
-
-loc_E733:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E3F2	endp
+	SUB_E3F2 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -28356,14 +28102,32 @@ word_1DE38 dw (112 shl 4)
 	dw (144 shl 4), (80 shl 4)
 	dw (192 shl 4), (96 shl 4)
 	dw (240 shl 4), (112 shl 4)
+public _aMAX_COMBO
+_aMAX_COMBO label byte
 aMAX_COMBO	db 'ＭＡＸ　Ｃｏｍｂｏ　　　×',0
+public _aGAUGE_ATTACK_TIMES
+_aGAUGE_ATTACK_TIMES label byte
 aGAUGE_ATTACK_TIMES	db 'ゲージアタック回数　　　×',0
+public _aBOSS_ATTACK_TIMES
+_aBOSS_ATTACK_TIMES label byte
 aBOSS_ATTACK_TIMES	db 'ボスアタック回数　　　　×',0
+public _aBOSS_REVERSAL_TIMES
+_aBOSS_REVERSAL_TIMES label byte
 aBOSS_REVERSAL_TIMES	db 'ボスリバーサル回数　　　×',0
+public _aBOSS_PANIC_TIMES
+_aBOSS_PANIC_TIMES label byte
 aBOSS_PANIC_TIMES	db 'ボスパニック回数　　　　×',0
+public _aTOTAL
+_aTOTAL label byte
 aTOTAL	db '　　　ＴＯＴＡＬ　　　　　',0
+public _aWINNER_BONUS
+_aWINNER_BONUS label byte
 aWINNER_BONUS	db '　　ＷＩＮＮＥＲ　ＢＯＮＵＳ　　',0
+public _aALL_CLEAR
+_aALL_CLEAR label byte
 aALL_CLEAR	db '　　　ＡＬＬ　ＣＬＥＡＲ！！　　',0
+public _aPLAYER_REM
+_aPLAYER_REM label byte
 aPLAYER_REM	db '残り人数　　　　　　　　×',0
 	evendata
 include th03/sprites/pellet.asp
@@ -28864,9 +28628,14 @@ byte_23DE6	db ?
 byte_23DE7	db ?
 byte_23DE8	db ?
 bullet_type_23DE9	db ?
+public _score_23DEA, _word_23DEC, _word_23DEE, _score_23DF0, _byte_23DF9
+_score_23DEA label word
 score_23DEA	dw ?
+_word_23DEC label word
 word_23DEC	dw ?
+_word_23DEE label word
 word_23DEE	dw ?
+_score_23DF0 label dword
 score_23DF0	dd ?
 
 public _defeat_combo_hits_max
@@ -28878,6 +28647,7 @@ _defeat_boss_attacks_fired   	db ?
 _defeat_boss_attacks_reversed	db ?
 _defeat_boss_panics_fired    	db ?
 
+_byte_23DF9 label byte
 byte_23DF9	db ?
 mima_bomb_columns label byte
 		db 64 dup(?)
