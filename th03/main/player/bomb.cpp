@@ -5,9 +5,11 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/hud/static.hpp"
+#include "th03/main/round.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 #include "th02/snd/snd.h"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "x86real.h"
 
 void near story_skill_decrement(void);
@@ -16,6 +18,48 @@ extern "C" unsigned char pid_PID_current;
 extern SPPoint8 player_velocity;
 
 void pascal near player_pos_update_and_clamp(PlayfieldPoint near& center);
+
+extern "C" void pascal near player_overlay_render(player_stuff_t near *player)
+{
+	int left;
+	int top;
+	register player_stuff_t near *p = player;
+	register int patnum;
+
+	if(p->lose_anim_time != 0) {
+		return;
+	}
+	if(p->patnum_glow != 0) {
+		left = (playfield_fg_x_to_screen(p->center.x, pid.current) - 16);
+		top = ((p->center.y.v >> 5) - 8);
+
+		patnum = p->patnum_glow;
+		if(pid.current != 0) {
+			patnum += 9;
+		}
+		patnum += (p->patnum_movement * 2);
+		patnum += p->patnum_movement;
+		super_put(left, top, patnum);
+	}
+
+	if(p->gauge_charged < 0x100) {
+		return;
+	}
+	if(p->gauge_charged < TO_SP(64)) {
+		patnum = 0x2C;
+	} else if(p->gauge_charged < TO_SP(128)) {
+		patnum = 0x30;
+	} else if(p->gauge_charged < GAUGE_MAX) {
+		patnum = 0x34;
+	} else {
+		patnum = 0x38;
+	}
+
+	left = (playfield_fg_x_to_screen(p->center.x, pid.current) - 16);
+	top = ((p->center.y.v >> 5) - 15);
+	patnum += ((round_or_result_frame >> 2) & 3);
+	super_put(left, top, patnum);
+}
 
 extern "C" void pascal near player_knockback_update(
 	player_stuff_t near *player

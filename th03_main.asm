@@ -324,11 +324,9 @@ loc_986C:
 		call	_player_render
 		call	egc_off
 		mov	_pid_PID_current, 0
-		push	offset _p1
-		call	sub_DF18
+		call	player_overlay_render pascal, offset _p1
 		mov	_pid_PID_current, 1
-		push	offset _p2
-		call	sub_DF18
+		call	player_overlay_render pascal, offset _p2
 		nopcall	sub_CEE0
 		call	@bullets_render$qv
 		cmp	_defeat_flag, DF_BANNER
@@ -7017,101 +7015,8 @@ _player_render	endp
 
 ; Attributes: bp-based frame
 
-sub_DF18	proc near
-
-@@y		= word ptr -4
-@@x		= word ptr -2
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	si, [bp+arg_0]
-		cmp	byte ptr [si+1Fh], 0
-		jnz	loc_DFE3
-		cmp	byte ptr [si+0Fh], 0
-		jz	short loc_DF7D
-		push	word ptr [si]	; x
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		push	ax	; pid
-		nopcall	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@x], ax
-		mov	ax, [si+2]
-		sar	ax, 5
-		add	ax, -8
-		mov	[bp+@@y], ax
-		mov	al, [si+0Fh]
-		mov	ah, 0
-		mov	di, ax
-		cmp	_pid_PID_current, 0
-		jz	short loc_DF61
-		add	di, 9
-
-loc_DF61:
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		add	ax, ax
-		add	di, ax
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		add	di, ax
-		call	super_put pascal, [bp+@@x], [bp+@@y], di
-
-loc_DF7D:
-		cmp	word ptr [si+18h], 100h
-		jb	short loc_DFE3
-		cmp	word ptr [si+player_stuff_t.gauge_charged], (64 shl 4)
-		jnb	short loc_DF90
-		mov	di, 2Ch	; ','
-		jmp	short loc_DFAB
-; ---------------------------------------------------------------------------
-
-loc_DF90:
-		cmp	word ptr [si+player_stuff_t.gauge_charged], (128 shl 4)
-		jnb	short loc_DF9C
-		mov	di, 30h	; '0'
-		jmp	short loc_DFAB
-; ---------------------------------------------------------------------------
-
-loc_DF9C:
-		cmp	word ptr [si+player_stuff_t.gauge_charged], GAUGE_MAX
-		jnb	short loc_DFA8
-		mov	di, 34h	; '4'
-		jmp	short loc_DFAB
-; ---------------------------------------------------------------------------
-
-loc_DFA8:
-		mov	di, 38h	; '8'
-
-loc_DFAB:
-		push	word ptr [si]	; x
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		push	ax	; pid
-		nopcall	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@x], ax
-		mov	ax, [si+2]
-		sar	ax, 5
-		add	ax, -15
-		mov	[bp+@@y], ax
-		mov	ax, _round_or_result_frame
-		shr	ax, 2
-		and	ax, 3
-		add	ax, di
-		mov	di, ax
-		call	super_put pascal, [bp+@@x], [bp+@@y], ax
-
-loc_DFE3:
-		pop	di
-		pop	si
-		leave
-		retn	2
-sub_DF18	endp
+	PLAYER_OVERLAY_RENDER procdesc pascal near \
+		player:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
