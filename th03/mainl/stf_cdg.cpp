@@ -11,11 +11,16 @@ extern bool staffroll_cdg_alpha;
 extern int staffroll_cdg_speed;
 extern int staffroll_cdg_frames;
 extern screen_y_t staffroll_cdg_y_stop;
+extern screen_y_t staffroll_cdg_y_start_off;
 extern unsigned char staffroll_cdg_aux_slot;
 extern page_t page_back;
 extern screen_y_t stf_center_y_on_page[PAGE_COUNT];
 
 void near staffroll_blue_plane_clear(void);
+void near staffroll_flakes_tick(void);
+bool16 pascal near staffroll_phase_done(
+	uint16_t measure_threshold, int frame_threshold
+);
 
 extern "C" {
 void pascal near cdg_unput_for_upwards_motion_e_8(
@@ -119,6 +124,49 @@ void pascal near staffroll_cdg_dissolve_in(
 	}
 
 	#undef strength
+}
+
+void pascal near staffroll_cdg_slide_cycle(
+	int slot_arg, int frame_threshold_in, int frame_threshold_out
+)
+{
+	#define slot _SI
+
+	slot = slot_arg;
+	if(staffroll_cdg_speed == 2) {
+		stf_center_y_on_page[page_back] = 264;
+		stf_center_y_on_page[page_back ^ 1] = 263;
+	} else {
+		stf_center_y_on_page[page_back] = (280 - staffroll_cdg_y_start_off);
+		stf_center_y_on_page[page_back ^ 1] = (
+			280 - staffroll_cdg_y_start_off
+		);
+	}
+
+	staffroll_frame = 0;
+	do {
+		staffroll_cdg_slide_up(slot);
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_in, 0x100));
+
+	staffroll_frame = 0;
+	do {
+		staffroll_cdg_slide_out(slot);
+		staffroll_flakes_tick();
+		staffroll_frame++;
+	} while(!staffroll_phase_done(frame_threshold_out, 0x100));
+
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x((8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8));
+	grcg_off();
+	staffroll_flakes_tick();
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x((8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8));
+	grcg_off();
+	staffroll_flakes_tick();
+
+	#undef slot
 }
 
 #pragma codeseg
