@@ -634,6 +634,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
 	} },
+	"th03/main/resscore.cpp",
 	"th03/playfld.cpp",
 	"th03/cfg_lres.cpp",
 	"th03/hitcirc.cpp",
