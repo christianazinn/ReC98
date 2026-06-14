@@ -549,264 +549,8 @@ sub_C288 equ <@staffroll_verdict_overlay_put$qv>
 
 ; Attributes: bp-based frame
 
-public _sub_C40D
-_sub_C40D label near
-sub_C40D	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		kajacall	KAJA_SONG_FADE, 16
-		push	4
-		call	palette_black_out
-		call	_snd_delay_until_volume stdcall, 255
-		pop	cx
-		kajacall	KAJA_SONG_STOP
-		mov	byte_106B0, 50h	; 'P'
-		mov	si, 1
-		jmp	short loc_C44B
-; ---------------------------------------------------------------------------
-
-loc_C43C:
-		les	bx, _resident
-		assume es:nothing
-		add	bx, si
-		mov	al, es:[bx+resident_t.pid_winner]
-		mov	_score[si], al
-		inc	si
-
-loc_C44B:
-		cmp	si, 9
-		jl	short loc_C43C
-		les	bx, _resident
-		mov	al, 3
-		sub	al, es:[bx+resident_t.rem_credits]
-		mov	continues_used, al
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][0]
-		mov	ah, 0
-		dec	ax
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	playchar_10BD7, al
-		mov	al, es:[bx+resident_t.rank]
-		mov	_rank, al
-		mov	al, es:[bx+resident_t.skill]
-		mov	_skill, al
-		mov	al, _score[7]
-		mov	ah, 0
-		cmp	ax, 3
-		jz	short loc_C48B
-		cmp	ax, 4
-		jz	short loc_C49E
-		jmp	short loc_C4B1
-; ---------------------------------------------------------------------------
-
-loc_C48B:
-		mov	al, _score[6]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, _skill
-		add	al, 2
-		mov	_skill, al
-
-loc_C49E:
-		mov	al, _score[6]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, _skill
-		add	al, 7
-		mov	_skill, al
-
-loc_C4B1:
-		cmp	_score[7], 5
-		jb	short loc_C4C0
-		mov	al, _skill
-		add	al, 15
-		mov	_skill, al
-
-loc_C4C0:
-		cmp	_score[8], 0
-		jz	short loc_C4CC
-		mov	_skill, 100
-
-loc_C4CC:
-		cmp	_skill, 100
-		jbe	short loc_C4D8
-		mov	_skill, 100
-
-loc_C4D8:
-		call	_snd_load c, offset aEd_m, ds, SND_LOAD_SONG
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		push	ds
-		push	offset aEdbk1_rgb ; "edbk1.rgb"
-		call	palette_entry_rgb
-		call	far ptr	palette_show
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 8
-		graph_accesspage 1
-		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
-		graph_accesspage 0
-		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		graph_accesspage 1
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		graph_accesspage 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-		graph_showpage 1
-		call	cdg_load_single_noalpha pascal, 0, ds, offset aStf1_cdg, 0
-		call	cdg_load_single_noalpha pascal, 1, ds, offset aStf11_cdg, 0
-		call	cdg_load_single pascal, 2, ds, offset aStf3_cdg, 0
-		call	cdg_load_single pascal, 3, ds, offset aStf4_cdg, 0
-		call	cdg_load_single_noalpha pascal, 4, ds, offset aStf5_cdg, 0
-		call	cdg_load_single_noalpha pascal, 5, ds, offset aStf6_cdg, 0
-		call	cdg_load_single_noalpha pascal, 6, ds, offset aStf7_cdg, 0
-		call	cdg_load_single_noalpha pascal, 7, ds, offset aStf8_cdg, 0
-		call	cdg_load_single_noalpha pascal, 8, ds, offset aStf9_cdg, 0
-		call	cdg_load_single_noalpha pascal, 9, ds, offset aStf10_cdg, 0
-		call	cdg_load_single_noalpha pascal, 10, ds, offset aStf2_cdg, 0
-		call	cdg_load_single_noalpha pascal, 11, ds, offset aStf12_cdg, 0
-		call	@flakes_reset$qv
-		mov	word_10BB2, 0
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.rand]
-		mov	random_seed, eax
-		mov	_page_back, 0
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		kajacall	KAJA_SONG_PLAY
-		mov	byte_10BB6, 1
-		mov	byte_10BB5, 1
-		call	@frame_delay$qi pascal, 1
-		mov	vsync_Count1, 0
-
-loc_C657:
-		call	sub_BB51
-		call	sub_BCD5
-		inc	word_10BB2
-		push	40100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C657
-		mov	byte_10BC7, 0
-		mov	word_10BC4, 0
-		mov	word_10BC0, 0C8h
-		mov	word_10BBC, 2
-		mov	word_10BBE, 41h	; 'A'
-		mov	byte_10BC6, 0
-		pushd	8
-		push	0Ah
-		call	sub_BFB2
-		mov	word_10BBC, 1
-		mov	word_10BBE, 0A1h
-		mov	byte_10BB6, 0
-		push	10010h
-		push	14h
-		call	sub_BFB2
-		mov	word_10BC4, 20h	; ' '
-		mov	word_10BC0, 0A8h ; '¨'
-		push	20016h
-		push	18h
-		call	sub_C1FD
-		mov	byte_10BC6, 7
-		mov	word_10BC0, 0D8h
-		mov	word_10BC4, 0FFF0h
-		push	30020h
-		push	22h ; '"'
-		call	sub_C097
-		mov	byte_10BC6, 0
-		mov	word_10BC0, 0C8h
-		mov	word_10BC4, 0
-		push	40024h
-		push	26h ; '&'
-		call	sub_BFB2
-		push	0B002Ah
-		push	2Ch ; ','
-		call	sub_BFB2
-		push	50030h
-		push	32h ; '2'
-		call	sub_BFB2
-		push	60036h
-		push	38h ; '8'
-		call	sub_BFB2
-		push	0A003Ch
-		push	3Eh ; '>'
-		call	sub_BFB2
-		mov	word_10BB2, 0
-
-loc_C735:
-		call	sub_BB51
-		push	1400080h
-		push	8
-		call	sub_BF7E
-		push	0C000F0h
-		push	9
-		call	sub_BF7E
-		call	sub_BCD5
-		inc	word_10BB2
-		push	420100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C735
-		mov	al, 1
-		sub	al, _page_back
-		graph_accesspage al
-		call	sub_C288
-		graph_accesspage _page_back
-		call	sub_C288
-		mov	word_10BB2, 0
-		xor	di, di
-
-loc_C781:
-		call	@input_mode_interface$qv
-		call	sub_BB51
-		call	sub_BCD5
-		inc	word_10BB2
-		or	di, di
-		jz	short loc_C7AB
-		mov	PaletteTone, di
-		call	far ptr	palette_show
-		test	byte ptr word_10BB2, 1
-		jz	short loc_C781
-		dec	di
-		or	di, di
-		jnz	short loc_C781
-		jmp	short loc_C7CD
-; ---------------------------------------------------------------------------
-
-loc_C7AB:
-		cmp	_input_sp, INPUT_NONE
-		jz	short loc_C781
-		cmp	word_10BB2, 100h
-		jle	short loc_C781
-		kajacall	KAJA_SONG_FADE, 8
-		mov	di, 100
-		mov	word_10BB2, 0
-		jmp	short loc_C781
-; ---------------------------------------------------------------------------
-
-loc_C7CD:
-		xor	si, si
-		jmp	short loc_C7D8
-; ---------------------------------------------------------------------------
-
-loc_C7D1:
-		call	cdg_free pascal, si
-		inc	si
-
-loc_C7D8:
-		cmp	si, CDG_SLOT_COUNT
-		jl	short loc_C7D1
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_C40D	endp
+sub_C40D equ <@staffroll_and_verdict_animate$qv>
+	@staffroll_and_verdict_animate$qv procdesc near
 mainl_03_TEXT	ends
 
 ; ===========================================================================
@@ -1092,19 +836,38 @@ aVw		db '‚W',0
 aVx		db '‚X',0
 _VERDICT_POINT label byte
 aU_		db '“_',0
+public _staffroll_bgm_fn, _staffroll_bg_palette_fn
+public _staffroll_cdg_fn_0, _staffroll_cdg_fn_1, _staffroll_cdg_fn_2
+public _staffroll_cdg_fn_3, _staffroll_cdg_fn_4, _staffroll_cdg_fn_5
+public _staffroll_cdg_fn_6, _staffroll_cdg_fn_7, _staffroll_cdg_fn_8
+public _staffroll_cdg_fn_9, _staffroll_cdg_fn_10, _staffroll_cdg_fn_11
+_staffroll_bgm_fn label byte
 aEd_m		db 'ed.m',0
+_staffroll_bg_palette_fn label byte
 aEdbk1_rgb	db 'edbk1.rgb',0
+_staffroll_cdg_fn_0 label byte
 aStf1_cdg	db 'stf1.cdg',0
+_staffroll_cdg_fn_1 label byte
 aStf11_cdg	db 'stf11.cdg',0
+_staffroll_cdg_fn_2 label byte
 aStf3_cdg	db 'stf3.cdg',0
+_staffroll_cdg_fn_3 label byte
 aStf4_cdg	db 'stf4.cdg',0
+_staffroll_cdg_fn_4 label byte
 aStf5_cdg	db 'stf5.cdg',0
+_staffroll_cdg_fn_5 label byte
 aStf6_cdg	db 'stf6.cdg',0
+_staffroll_cdg_fn_6 label byte
 aStf7_cdg	db 'stf7.cdg',0
+_staffroll_cdg_fn_7 label byte
 aStf8_cdg	db 'stf8.cdg',0
+_staffroll_cdg_fn_8 label byte
 aStf9_cdg	db 'stf9.cdg',0
+_staffroll_cdg_fn_9 label byte
 aStf10_cdg	db 'stf10.cdg',0
+_staffroll_cdg_fn_10 label byte
 aStf2_cdg	db 'stf2.cdg',0
+_staffroll_cdg_fn_11 label byte
 aStf12_cdg	db 'stf12.cdg',0
 
 	.data?

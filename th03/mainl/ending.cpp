@@ -18,7 +18,7 @@ extern const char gameover_bgm_fn[];
 extern char far *ending_script_fn;
 extern const char extra_ending_script_fn[];
 
-extern "C" void near sub_C40D(void);
+void near staffroll_and_verdict_animate(void);
 
 void near gameover_bgm_play_and_fade(void)
 {
@@ -79,7 +79,7 @@ void near ending_staff_and_regist(void)
 	cutscene_script_load(ending_script_fn);
 	cutscene_animate();
 	cutscene_script_free();
-	sub_C40D();
+	staffroll_and_verdict_animate();
 	resident->story_stage = STAGE_ALL;
 	regist_menu();
 
