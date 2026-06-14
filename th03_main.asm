@@ -4922,6 +4922,8 @@ sub_CB81	endp
 
 ; Attributes: bp-based frame
 
+public SUB_CDBD
+SUB_CDBD label far
 sub_CDBD	proc far
 
 @@pid		= word ptr  6
@@ -7201,63 +7203,8 @@ loc_E078:
 sub_DFE9	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public PLAYER_BOMB
-player_bomb	proc near
-
-@@player		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@player]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jnz	short @@ret
-		cmp	[si+player_stuff_t.hyper_active], 0
-		jnz	short @@ret
-		cmp	[si+player_stuff_t.bombs], 0
-		jz	short loc_E0BF
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_PREPARING
-		dec	[si+player_stuff_t.bombs]
-		mov	[si+player_stuff_t.invincibility_time], BOMB_FRAMES
-		push	word ptr _pid_PID_current
-		nopcall	@hud_static_bombs_put$quc
-		jmp	short loc_E0EF
-; ---------------------------------------------------------------------------
-
-loc_E0BF:
-		cmp	[si+player_stuff_t.gauge_avail], GAUGE_MAX
-		jb	short @@ret
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_damage_all_on[bx], 1
-		call	snd_se_play pascal, 7
-		mov	al, [si+player_stuff_t.playchar_paletted]
-		mov	[si+player_stuff_t.hyper_active], al
-		push	[si+player_stuff_t.center.x]
-		push	[si+player_stuff_t.center.y]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		push	ax
-		nopcall	sub_CDBD
-
-loc_E0EF:
-		call	@story_skill_decrement$qv
-
-@@ret:
-		pop	si
-		pop	bp
-		retn	2
-player_bomb	endp
+	PLAYER_BOMB procdesc pascal near \
+		player:word
 
 	@PLAYER_HITTEST$QI procdesc pascal near \
 		hitbox_size:word
@@ -30010,7 +29957,7 @@ _cpu_hit_damage_additional	db ?
 _damage_all_on	db PLAYFIELD_COUNT dup(?)
 		db ?
 include th02/hardware/pages[bss].asm
-public _pid
+public _pid, _pid_PID_current
 _pid_PID_current  	label byte
 _pid_PID_so_attack	label byte
 _pid	db ?
