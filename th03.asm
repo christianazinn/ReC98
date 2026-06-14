@@ -517,86 +517,8 @@ sub_BF7E equ <@STAFFROLL_CDG_DISSOLVE_IN$QIII>
 
 ; Attributes: bp-based frame
 
-sub_BFB2	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_4]
-		cmp	word_10BBC, 2
-		jnz	short loc_BFE3
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 264
-		mov	al, _page_back
-		mov	ah, 0
-		xor	ax, 1
-		add	ax, ax
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], 263
-		jmp	short loc_C00E
-; ---------------------------------------------------------------------------
-
-loc_BFE3:
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, 280
-		sub	dx, word_10BC4
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], dx
-		mov	al, _page_back
-		mov	ah, 0
-		xor	ax, 1
-		add	ax, ax
-		mov	dx, 280
-		sub	dx, word_10BC4
-		mov	bx, ax
-		mov	_stf_center_y_on_page[bx], dx
-
-loc_C00E:
-		mov	word_10BB2, 0
-
-loc_C014:
-		push	si
-		call	sub_BDF4
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_2]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C014
-		mov	word_10BB2, 0
-
-loc_C032:
-		push	si
-		call	sub_BEC7
-		call	sub_BCD5
-		inc	word_10BB2
-		push	[bp+arg_0]
-		push	100h
-		call	sub_BCA5
-		or	ax, ax
-		jz	short loc_C032
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-		call	sub_BCD5
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, ((8 / 8) shl 16) or 8, (((RES_X - 1 - 8) / 8) shl 16) or (RES_Y - 1 - 8)
-		call	grcg_off
-		call	sub_BCD5
-		pop	si
-		pop	bp
-		retn	6
-sub_BFB2	endp
+sub_BFB2 equ <@STAFFROLL_CDG_SLIDE_CYCLE$QIII>
+	@STAFFROLL_CDG_SLIDE_CYCLE$QIII procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1555,6 +1477,7 @@ public _flakes, _page_back, _stf_center_y_on_page, _score
 public _staffroll_flake_count, _staffroll_frame
 public _staffroll_cdg_put_alpha, _staffroll_flake_reset_pending
 public _staffroll_cdg_speed, _staffroll_cdg_frames, _staffroll_cdg_y_stop
+public _staffroll_cdg_y_start_off
 public _staffroll_cdg_aux_slot, _staffroll_cdg_alpha
 _flakes	flake_t FLAKE_COUNT dup(<?>)
 
@@ -1573,6 +1496,7 @@ word_10BBE	dw ?
 _staffroll_cdg_y_stop label word
 word_10BC0	dw ?
 word_10BC2	dw ?
+_staffroll_cdg_y_start_off label word
 word_10BC4	dw ?
 _staffroll_cdg_aux_slot label byte
 byte_10BC6	db ?
