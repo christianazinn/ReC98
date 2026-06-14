@@ -64,4 +64,44 @@ void pascal near staffroll_cdg_slide_up(int slot_arg)
 	#undef slot
 }
 
+void pascal near staffroll_cdg_slide_out(int slot_arg)
+{
+	#define slot    	_DI
+	#define strength	_SI
+
+	slot = slot_arg;
+	staffroll_blue_plane_clear();
+	if(staffroll_frame <= 0xA1) {
+		if(staffroll_frame < 0xA0) {
+			cdg_unput_for_upwards_motion_e_8(
+				(RES_X / 2), stf_center_y_on_page[page_back], slot
+			);
+			stf_center_y_on_page[page_back]--;
+			strength = (staffroll_frame / 20);
+			if(static_cast<int16_t>(strength) > 7) {
+				strength = 7;
+			}
+			if(staffroll_cdg_put_alpha) {
+				if(staffroll_cdg_aux_slot != 0) {
+					cdg_put_dissolve_e_8(504, 200, staffroll_cdg_aux_slot, strength);
+					staffroll_cdg_alpha = true;
+				}
+			}
+			cdg_put_dissolve_e_8(
+				(RES_X / 2), stf_center_y_on_page[page_back], slot, strength
+			);
+			staffroll_cdg_alpha = false;
+		} else {
+			grcg_setcolor(GC_RMW, 0);
+			grcg_byteboxfill_x(
+				(8 / 8), 8, ((RES_X - 1 - 8) / 8), (RES_Y - 1 - 8)
+			);
+			grcg_off();
+		}
+	}
+
+	#undef strength
+	#undef slot
+}
+
 #pragma codeseg
