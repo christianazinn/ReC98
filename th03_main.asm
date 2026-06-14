@@ -268,11 +268,11 @@ loc_977E:
 		mov	_pid_PID_current, 0
 		push	_input_mp_p1
 		push	offset _p1
-		call	sub_DA43
+		call	PLAYER_UPDATE
 		mov	_pid_PID_current, 1
 		push	_input_mp_p2
 		push	offset _p2
-		call	sub_DA43
+		call	PLAYER_UPDATE
 		call	_snd_se_update
 		test	_input_sp.hi, high INPUT_CANCEL
 		jz	short loc_9845
@@ -3220,6 +3220,8 @@ sub_BE5D	endp
 
 ; Attributes: bp-based frame
 
+public SUB_C0D8
+SUB_C0D8 label near
 sub_C0D8	proc near
 
 arg_0		= word ptr  4
@@ -3814,6 +3816,8 @@ off_C536	dw offset loc_C4C2
 
 ; Attributes: bp-based frame
 
+public SUB_C54A
+SUB_C54A label near
 sub_C54A	proc near
 
 arg_0		= word ptr  4
@@ -6452,500 +6456,14 @@ hyper_rikako	endp
 
 ; Attributes: bp-based frame
 
-sub_DA43	proc near
 
-var_6		= byte ptr -6
-var_5		= byte ptr -5
-@@input		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
 
-		push	bp
-		mov	bp, sp
-		sub	sp, 6
-		push	si
-		push	di
-		mov	di, [bp+arg_2]
-		mov	si, [bp+arg_0]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		add	ax, offset _players
-		mov	_player_cur, ax
-		cmp	byte ptr [si+6], 0
-		jz	short loc_DA68
-		dec	byte ptr [si+6]
+; =============== S U B	R O U T	I N E =======================================
 
-loc_DA68:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_damage_all_on[bx], 0
-		jz	short loc_DA81
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		dec	_damage_all_on[bx]
+; Attributes: bp-based frame
 
-loc_DA81:
-		cmp	_defeat_flag, DF_BANNER
-		jz	loc_DE4F
-		cmp	byte ptr [si+1Fh], 0
-		jnz	loc_DE45
-		mov	al, [si+player_stuff_t.speed_base.aligned.x8]
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, [si+player_stuff_t.speed_base.aligned.y8]
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, [si+player_stuff_t.speed_base.diagonal.x8]
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, [si+player_stuff_t.speed_base.diagonal.y8]
-		mov	_player_speed_base.diagonal.y8, al
-		call	word ptr [si+64h]
-		cmp	byte ptr [si+11h], 0
-		jnz	loc_DBDC
-		cmp	byte ptr [si+15h], 0
-		jnz	short loc_DB0A
-		mov	ax, di
-		and	ax, INPUT_MOVEMENT
-		mov	[bp+@@input], ax
-		mov	[bp+var_6], 1
-
-loc_DAC7:
-		call	@player_move$qui pascal, [bp+@@input]
-		mov	[bp+var_5], al
-		cmp	[bp+var_5], MOVE_INVALID
-		jnz	short loc_DAEF
-		cmp	[bp+var_6], 0
-		jz	short loc_DAEF
-		mov	ax, [si+20h]
-		cmp	ax, [bp+@@input]
-		jz	short loc_DAF9
-		not	ax
-		and	[bp+@@input], ax
-		mov	[bp+var_6], 0
-		jmp	short loc_DAC7
-; ---------------------------------------------------------------------------
-
-loc_DAEF:
-		cmp	[bp+var_5], MOVE_VALID
-		jnz	short loc_DAF9
-		call	@player_pos_update_and_clamp$qr7SPPoint pascal, si
-
-loc_DAF9:
-		cmp	[bp+var_6], 0
-		jz	loc_DBDF
-		mov	ax, [bp+@@input]
-		mov	[si+20h], ax
-		jmp	loc_DBDF
-; ---------------------------------------------------------------------------
-
-loc_DB0A:
-		inc	word ptr [si+74h]
-		push	si
-		call	sub_C54A
-		cmp	byte_20E48, 0
-		jnz	short loc_DB1E
-		mov	[bp+var_5], 6
-		jmp	short loc_DB3C
-; ---------------------------------------------------------------------------
-
-loc_DB1E:
-		cmp	byte_20E48, -1
-		jnz	short loc_DB2B
-		mov	[bp+var_5], 20h	; ' '
-		jmp	short loc_DB3C
-; ---------------------------------------------------------------------------
-
-loc_DB2B:
-		cmp	byte_20E48, -2
-		jnz	short loc_DB38
-		mov	[bp+var_5], 7
-		jmp	short loc_DB3C
-; ---------------------------------------------------------------------------
-
-loc_DB38:
-		mov	[bp+var_5], 0Ah
-
-loc_DB3C:
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		push	ax
-		mov	ax, _round_or_result_frame
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	short loc_DB5D
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_220FC[bx], 4
-		mov	di, 20h	; ' '
-
-loc_DB5D:
-		mov	byte_20E48, 0
-		cmp	byte ptr [si+4], 0
-		jnz	short loc_DBC8
-		cmp	byte ptr [si+1Dh], 0
-		jnz	short loc_DB77
-		mov	al, [si+7]
-		cbw
-		cmp	ax, 3
-		jle	short loc_DBDF
-
-loc_DB77:
-		mov	al, [si+1Ch]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, [bx+si+24h]
-		mov	ah, 0
-		mov	dx, [si+1Ah]
-		shr	dx, 4
-		cmp	ax, dx
-		jb	short loc_DB94
-		cmp	word ptr [si+player_stuff_t.gauge_avail], GAUGE_MAX
-		jnz	short loc_DBDF
-
-loc_DB94:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_220FC[bx], 0
-		mov	di, 20h	; ' '
-		mov	ax, [si+18h]
-		cmp	ax, [si+1Ah]
-		jb	short loc_DBDF
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_220FC[bx], 4
-		xor	di, di
-		inc	byte ptr [si+1Ch]
-		cmp	byte ptr [si+1Ch], 40h
-		jb	short loc_DBDF
-		mov	byte ptr [si+1Ch], 0
-		jmp	short loc_DBDF
-; ---------------------------------------------------------------------------
-
-loc_DBC8:
-		mov	byte ptr [si+4], 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_220FC[bx], 4
-		xor	di, di
-		jmp	short loc_DBDF
-; ---------------------------------------------------------------------------
-
-loc_DBDC:
-		dec	byte ptr [si+11h]
-
-loc_DBDF:
-		mov	[bp+var_5], 0
-		cmp	byte ptr [si+14h], 0
-		jz	short loc_DBFE
-		call	player_knockback_update pascal, si
-		mov	word ptr [si+18h], 0
-		mov	word ptr [si+74h], 0
-		mov	[bp+var_5], 1
-		jmp	loc_DD3C
-; ---------------------------------------------------------------------------
-
-loc_DBFE:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_220FC[bx], 2
-		ja	short loc_DC54
-		cmp	byte ptr [si+1Eh], 0
-		jnz	short loc_DC54
-		mov	ax, [si+18h]
-		cmp	ax, [si+1Ah]
-		jnb	short loc_DC47
-		mov	al, [si+17h]
-		mov	ah, 0
-		add	[si+18h], ax
-		mov	ax, [si+18h]
-		cmp	ax, [si+1Ah]
-		jbe	short loc_DC34
-		mov	ax, [si+1Ah]
-		mov	[si+18h], ax
-		mov	byte ptr [si+23h], 0
-
-loc_DC34:
-		cmp	word ptr [si+18h], 180h
-		jnz	loc_DD3C
-		call	snd_se_play pascal, 9
-		jmp	loc_DD3C
-; ---------------------------------------------------------------------------
-
-loc_DC47:
-		inc	byte ptr [si+23h]
-		cmp	byte ptr [si+23h], 80h
-		jb	loc_DD3C
-		jmp	short loc_DC64
-; ---------------------------------------------------------------------------
-
-loc_DC54:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_220FC[bx], 4
-		ja	loc_DD3C
-
-loc_DC64:
-		mov	ax, [si+18h]
-		mov	[bp+var_2], ax
-		cmp	[bp+var_2], (64 shl 4)
-		jl	loc_DD37
-		push	word ptr [si]
-		push	word ptr [si+2]
-		call	dword ptr [si+68h]
-		cmp	[bp+var_2], (128 shl 4)
-		jl	loc_DD2B
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_warning_flag[bx], WF_PORTRAIT
-		cmp	[bp+var_2], GAUGE_MAX
-		jl	short loc_DCD3
-		mov	al, _gba_boss_launched_by
-		cmp	al, _pid_PID_current
-		jz	short loc_DCDA
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_next[bx], GBAF_BOSS
-		mov	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
-		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
-		jnb	short loc_DCBC
-		inc	_gba_boss_level
-
-loc_DCBC:
-		add	_combo_points_for_boss_attack, 10240
-		cmp	_gba_boss_launched_by, PID_NONE
-		jnz	short loc_DCCE
-		inc	byte ptr [si+77h]
-		jmp	short loc_DD2B
-; ---------------------------------------------------------------------------
-
-loc_DCCE:
-		inc	byte ptr [si+78h]
-		jmp	short loc_DD2B
-; ---------------------------------------------------------------------------
-
-loc_DCD3:
-		cmp	[bp+var_2], (192 shl 4)
-		jl	short loc_DCFE
-
-loc_DCDA:
-		inc	byte ptr [si+76h]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_next[bx], GBAF_GAUGE_BULLET_INIT
-		sub	word ptr [si+player_stuff_t.gauge_avail], (128 shl 4)
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_gauge_level[bx], GBA_GAUGE_LEVEL_MAX
-		jnb	short loc_DD2B
-		jmp	short loc_DD20
-; ---------------------------------------------------------------------------
-
-loc_DCFE:
-		inc	byte ptr [si+76h]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_next[bx], GBAF_GAUGE_PELLET_INIT
-		sub	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_gauge_level[bx], GBA_GAUGE_LEVEL_MAX
-		jnb	short loc_DD2B
-
-loc_DD20:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_gauge_level[bx]
-
-loc_DD2B:
-		mov	al, [si+6]
-		add	al, 6
-		mov	[si+6],	al
-		mov	[bp+var_5], 1
-
-loc_DD37:
-		mov	word ptr [si+18h], 0
-
-loc_DD3C:
-		cmp	byte ptr [si+22h], 2
-		jnz	short loc_DD44
-		xor	di, di
-
-loc_DD44:
-		cmp	byte ptr [si+11h], 0
-		jnz	short loc_DDAE
-		cmp	byte ptr [si+22h], 0
-		jz	short loc_DDAE
-		test	di, 20h
-		jnz	short loc_DD5C
-		cmp	byte ptr [si+22h], 2
-		jnz	short loc_DD7B
-
-loc_DD5C:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_220FC[bx], 2
-		jbe	short loc_DD7B
-		call	@shots_add$qv
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_220FC[bx], 0
-		jmp	short loc_DD9A
-; ---------------------------------------------------------------------------
-
-loc_DD7B:
-		test	di, 20h
-		jnz	short loc_DD9A
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_220FC[bx], 8
-		jnb	short loc_DD9A
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr byte_220FC[bx]
-
-loc_DD9A:
-		test	di, 10h
-		jz	short loc_DDA4
-		call	player_bomb pascal, si
-
-loc_DDA4:
-		cmp	byte ptr [si+22h], 2
-		jnz	short loc_DDAE
-		mov	byte ptr [si+22h], 1
-
-loc_DDAE:
-		cmp	byte ptr [si+1Eh], 0
-		jz	short loc_DDCE
-		cmp	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
-		jbe	short loc_DDC1
-		sub	word ptr [si+1Ah], 6
-		jmp	short loc_DDCA
-; ---------------------------------------------------------------------------
-
-loc_DDC1:
-		mov	byte ptr [si+1Eh], 0
-		mov	word ptr [si+player_stuff_t.gauge_avail], (64 shl 4)
-
-loc_DDCA:
-		mov	[bp+var_5], 1
-
-loc_DDCE:
-		cmp	_defeat_flag, DF_NONE
-		jnz	short loc_DE4F
-		cmp	[bp+var_5], 0
-		jnz	short loc_DE4F
-		call	@player_hittest$qi pascal, (8 / 2)
-		cmp	byte ptr [si+4], 0
-		jz	short loc_DE4F
-		cmp	byte ptr [si+7], 0
-		jz	short loc_DE3F
-		push	word ptr [si]	; center_x
-		push	word ptr [si+2]	; center_y
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		push	ax	; pid
-		nopcall	@hitcircles_player_add$qiii
-		call	@players_hit_damage_update$qr14player_stuff_t pascal, si
-		mov	dl, [si+7]
-		sub	dl, al
-		mov	[si+7],	dl
-		mov	al, [si+7]
-		cbw
-		or	ax, ax
-		jge	short loc_DE14
-		mov	byte ptr [si+7], 0
-
-loc_DE14:
-		cmp	byte ptr [si+7], 0
-		jnz	short loc_DE26
-		mov	byte ptr [si+1Fh], 30h ; '0'
-		mov	al, _pid_PID_current
-		mov	byte_20E3D, al
-		jmp	short loc_DE36
-; ---------------------------------------------------------------------------
-
-loc_DE26:
-		mov	byte ptr [si+14h], 1
-		mov	byte ptr [si+10h], 40h
-		mov	byte ptr [si+6], 6Eh ; 'n'
-		mov	byte ptr [si+11h], 40h
-
-loc_DE36:
-		push	word ptr _pid_PID_current
-		nopcall	@hud_static_halfhearts_put$quc
-
-loc_DE3F:
-		mov	byte ptr [si+4], 0
-		jmp	short loc_DE4F
-; ---------------------------------------------------------------------------
-
-loc_DE45:
-		cmp	byte ptr [si+1Fh], -1
-		jz	short loc_DE4F
-		push	si
-		call	sub_C0D8
-
-loc_DE4F:
-		cmp	_player_velocity.x8, 0
-		jnz	short loc_DE5C
-		mov	byte ptr [si+0Eh], 0
-		jmp	short loc_DE6E
-; ---------------------------------------------------------------------------
-
-loc_DE5C:
-		mov	al, _player_velocity.x8
-		cbw
-		or	ax, ax
-		jge	short loc_DE6A
-		mov	byte ptr [si+0Eh], 1
-		jmp	short loc_DE6E
-; ---------------------------------------------------------------------------
-
-loc_DE6A:
-		mov	byte ptr [si+0Eh], 2
-
-loc_DE6E:
-		mov	byte ptr [si+0Fh], 0
-		cmp	_page_back, 0
-		jz	short loc_DE8F
-		cmp	byte ptr [si+1Eh], 0
-		jz	short loc_DE85
-		mov	byte ptr [si+0Fh], 2
-		jmp	short loc_DE8F
-; ---------------------------------------------------------------------------
-
-loc_DE85:
-		cmp	byte ptr [si+6], 0
-		jz	short loc_DE8F
-		mov	byte ptr [si+0Fh], 1
-
-loc_DE8F:
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_DA43	endp
+	PLAYER_UPDATE procdesc pascal near \
+		input:word, player:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -29437,12 +28955,16 @@ DF_BANNER = 2
 
 public _defeat_flag
 _defeat_flag	db ?
+public _byte_20E3D
+_byte_20E3D label byte
 byte_20E3D	db ?
 word_20E3E	dw ?
 word_20E40	dw ?
 word_20E42	dw ?
 public _player_hittest_collision_top
 _player_hittest_collision_top	Point <?>
+public _byte_20E48
+_byte_20E48 label byte
 byte_20E48	db ?
 		db ?
 word_20E4A	dw ?
@@ -29585,6 +29107,8 @@ _collmap_tile_h	dw ?
 _collmap_bottomright	Point <?>
 _collmap_pid	db ?
 		db ?
+public _byte_220FC
+_byte_220FC label byte
 byte_220FC	db PLAYER_COUNT dup(?)
 		db 2 dup(?)
 _collmap	db (PLAYER_COUNT * COLLMAP_SIZE) dup(?)
