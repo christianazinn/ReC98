@@ -450,88 +450,9 @@ FLAKE_CELS = 4
 
 ; Attributes: bp-based frame
 
-sub_BB80	proc near
+sub_BB80 equ <@flakes_spawn$qv>
 
-@@length		= byte ptr -2
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, offset _flakes
-		xor	di, di
-		jmp	loc_BC1A
-; ---------------------------------------------------------------------------
-
-loc_BB8E:
-		cmp	[si+flake_t.FLAKE_alive], 0
-		jnz	loc_BC16
-		mov	ax, di
-		shl	ax, 3
-		cmp	ax, word_10BB2
-		jg	short loc_BC16
-		mov	[si+flake_t.FLAKE_alive], 1
-		test	di, 3
-		jz	short loc_BBBE
-		call	IRand
-		mov	bx, ((RES_X - FLAKE_W) shl 4)
-		cwd
-		idiv	bx
-		mov	[si+flake_t.FLAKE_left], dx
-		mov	[si+flake_t.FLAKE_top], 0
-		jmp	short loc_BBD1
-; ---------------------------------------------------------------------------
-
-loc_BBBE:
-		mov	[si+flake_t.FLAKE_left], ((RES_X - FLAKE_W) shl 4)
-		call	IRand
-		mov	bx, ((RES_Y - FLAKE_H) shl 4)
-		cwd
-		idiv	bx
-		mov	[si+flake_t.FLAKE_top],	dx
-
-loc_BBD1:
-		call	IRand
-		mov	bx, 20h
-		cwd
-		idiv	bx
-		add	dl, 50h
-		mov	[bp+@@angle], dl
-		call	IRand
-		mov	bx, (4 shl 4)
-		cwd
-		idiv	bx
-		add	dl, (3 shl 4)
-		mov	[bp+@@length], dl
-		call	IRand
-		and	ax, (FLAKE_CELS - 1)
-		mov	[si+flake_t.FLAKE_cel], ax
-		push	ds
-		lea	ax, [si+flake_t.FLAKE_velocity.x]
-		push	ax
-		push	ds
-		lea	ax, [si+flake_t.FLAKE_velocity.y]
-		push	ax
-		push	word ptr [bp+@@angle]
-		mov	al, [bp+@@length]
-		mov	ah, 0
-		push	ax
-		call	vector2
-
-loc_BC16:
-		inc	di
-		add	si, size flake_t
-
-loc_BC1A:
-		mov	al, byte_106B0
-		mov	ah, 0
-		cmp	ax, di
-		jg	loc_BB8E
-		pop	di
-		pop	si
-		leave
-		retn
-sub_BB80	endp
+	@flakes_spawn$qv procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1938,6 +1859,7 @@ public _hi
 _hi	scoredat_section_t <?>
 include th03/hiscore/regist[bss].asm
 		db 2 dup(?)
+_staffroll_flake_count label byte
 byte_106B0	db ?
 	evendata
 
@@ -1954,8 +1876,10 @@ flake_t ends
 FLAKE_COUNT = 80
 
 public _flakes, _page_back, _stf_center_y_on_page, _score
+public _staffroll_flake_count, _staffroll_frame
 _flakes	flake_t FLAKE_COUNT dup(<?>)
 
+_staffroll_frame label word
 word_10BB2	dw ?
 _page_back	db ?
 byte_10BB5	db ?
