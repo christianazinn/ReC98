@@ -112,6 +112,7 @@ void near win_text_put(void)
 
 int near sub_9887(void);
 void near stage_splash_load(void);
+void near stage_splash_show_and_wait(void);
 
 void near win_animate_and_wait(void)
 {
@@ -206,6 +207,18 @@ bool do_not_show_stage_number;
 extern const char near* stage_number_cdg_fn;
 extern char near* stage_splash_bg_fn;
 extern const char stage_splash_base_pi_fn[];
+extern const shiftjis_t* CHAR_TITLE[];
+extern const shiftjis_t* CHAR_NAME[];
+extern char PLAYCHAR_BGM_FN[];
+extern const char stage_splash_dec_bgm_fn[];
+extern const char stage_splash_enemy_center_pi_fn[];
+extern const char stage_splash_enemy00_pi_fn[];
+extern const char stage_splash_enemy01_pi_fn[];
+extern const char stage_splash_enemy02_pi_fn[];
+extern const char stage_splash_enemy03_pi_fn[];
+extern const char stage_splash_enemy04_pi_fn[];
+extern const char stage_splash_yume_efc_fn[];
+extern "C" void pascal near sub_9D20(int pid);
 
 void near stage_splash_load(void)
 {
@@ -240,5 +253,99 @@ void near stage_splash_load(void)
 	pi_free(0);
 	pi_load(0, stage_splash_bg_fn);
 	pi_put_8(0, 0, 0);
+}
+
+void near stage_splash_show_and_wait(void)
+{
+	register char near* bgm_fn;
+	const char near* dec_bgm_fn;
+	int char_id;
+
+	bgm_fn = PLAYCHAR_BGM_FN;
+	dec_bgm_fn = stage_splash_dec_bgm_fn;
+	PaletteTone = 0;
+	palette_show();
+	pi_palette_apply(0);
+	graph_copy_page(0);
+	pi_free(0);
+	cdg_put_8(96, 96, 0);
+	cdg_put_hflip_8(352, 96, 1);
+	if(!do_not_show_stage_number) {
+		cdg_put_8(384, 46, 2);
+	}
+	cdg_free(0);
+	cdg_free(1);
+	cdg_free(2);
+
+	char_id = (resident->playchar_paletted[0].char_id_16() * 2);
+	graph_putsa_fx(80, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+	graph_putsa_fx(128, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+
+	char_id = (resident->playchar_paletted[1].char_id_16() * 2);
+	graph_putsa_fx(336, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+	graph_putsa_fx(384, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+
+	palette_black_in(1);
+	vsync_Count1 = 0;
+	graph_accesspage(1);
+	graph_clear();
+	sub_9D20(0);
+	sub_9D20(1);
+
+	pi_load_lineskip(0, stage_splash_enemy_center_pi_fn);
+	pi_put_8(0, 280, 0);
+	pi_free(0);
+
+	char_id = resident->playchar_paletted[1].char_id_16();
+	switch(char_id) {
+	case PLAYCHAR_REIMU:
+	case PLAYCHAR_MIMA:
+	case PLAYCHAR_RIKAKO:
+		pi_load_lineskip(0, stage_splash_enemy00_pi_fn);
+		break;
+	case PLAYCHAR_MARISA:
+	case PLAYCHAR_KOTOHIME:
+		pi_load_lineskip(0, stage_splash_enemy01_pi_fn);
+		break;
+	case PLAYCHAR_ELLEN:
+	case PLAYCHAR_KANA:
+		pi_load_lineskip(0, stage_splash_enemy02_pi_fn);
+		break;
+	case PLAYCHAR_CHIYURI:
+		pi_load_lineskip(0, stage_splash_enemy03_pi_fn);
+		break;
+	case PLAYCHAR_YUMEMI:
+		pi_load_lineskip(0, stage_splash_enemy04_pi_fn);
+		break;
+	}
+	pi_put_8(0, 304, 0);
+
+	char_id = resident->playchar_paletted[1].char_id_16();
+	if(char_id >= 10) {
+		bgm_fn[0] += (char_id / 10);
+		char_id = (char_id % 10);
+	}
+	bgm_fn[1] += char_id;
+	snd_kaja_func(KAJA_SONG_STOP, 0);
+	if(resident->story_stage != STAGE_DECISIVE) {
+		snd_load(bgm_fn, SND_LOAD_SONG);
+	} else {
+		snd_load(dec_bgm_fn, SND_LOAD_SONG);
+	}
+	snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
+	input_sp = INPUT_NONE;
+	while(vsync_Count1 <= 32) {
+	}
+	while((vsync_Count1 <= 96) && (input_sp == INPUT_NONE)) {
+		input_mode_interface();
+	}
+	palette_white_out(1);
+	graph_accesspage(0);
+	graph_clear();
+	palette_white_in(1);
+	text_fillca(' ', (TX_BLACK | TX_REVERSE));
+	pi_palette_apply(0);
+	pi_free(0);
+	respal_set_palettes();
 }
 // -------------------
