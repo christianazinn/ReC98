@@ -25,6 +25,10 @@ extern "C" void pascal near sub_C248(player_stuff_t near *player);
 extern "C" void pascal near sub_C0D8(player_stuff_t near *player);
 extern "C" void pascal near sub_C54A(player_stuff_t near *player);
 extern "C" void pascal far sub_CDBD(void);
+extern "C" void pascal far marisa_hyper_14340(void);
+extern "C" void pascal far ellen_hyper_1B6CA(subpixel_t x, subpixel_t y);
+extern "C" void pascal far rikako_1C497(subpixel_t x, subpixel_t y);
+extern "C" void pascal far rikako_hyper_1C4B4(void);
 extern "C" unsigned char byte_20E3D;
 extern "C" signed char byte_20E48;
 extern "C" unsigned char byte_220FC[PLAYER_COUNT];
@@ -40,6 +44,135 @@ enum move_ret_t {
 
 void pascal near player_pos_update_and_clamp(PlayfieldPoint near& center);
 move_ret_t pascal near player_move(input_t input);
+
+extern "C" void pascal near hyper_standby(void)
+{
+	player_cur->shot_mode = SM_1_PAIR;
+	if(player_cur->hyper_active != 0) {
+		player_cur->hyper = player_cur->hyper_func;
+	}
+}
+
+extern "C" void pascal near hyper_reimu(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_REIMU_HYPER;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_mima(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_2_PAIRS;
+	player_cur->shot_active = SA_BLOCKED_FOR_THIS_FRAME;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_marisa(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_NONE;
+	marisa_hyper_14340();
+	player_speed_base.aligned.x.v += TO_SP(-1);
+	player_speed_base.aligned.y.v += TO_SP(-1);
+	player_speed_base.diagonal.x.v += -0x0C;
+	player_speed_base.diagonal.y.v += -0x0C;
+}
+
+extern "C" void pascal near hyper_ellen(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_1_PAIR;
+	if((round_frame & 3) == 0) {
+		ellen_hyper_1B6CA(player_cur->center.x, player_cur->center.y);
+	}
+}
+
+extern "C" void pascal near hyper_kotohime(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_4_PAIRS;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_chiyuri(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_4_PAIRS;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_yumemi(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_4_PAIRS;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_kana(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		return;
+	}
+	player_cur->shot_mode = SM_4_PAIRS;
+	player_speed_base.aligned.x.v += TO_SP(2);
+	player_speed_base.aligned.y.v += TO_SP(2);
+	player_speed_base.diagonal.x.v += (TO_SP(1) + 8);
+	player_speed_base.diagonal.y.v += (TO_SP(1) + 8);
+}
+
+extern "C" void pascal near hyper_rikako(void)
+{
+	if(player_cur->hyper_active == 0) {
+		player_cur->hyper = hyper_standby;
+		rikako_hyper_1C4B4();
+		return;
+	}
+	if(player_cur->gauge_avail > TO_SP(250)) {
+		rikako_1C497(player_cur->center.x, player_cur->center.y);
+	}
+	player_speed_base.aligned.x.v += TO_SP(-1);
+	player_speed_base.aligned.y.v += TO_SP(-1);
+	player_speed_base.diagonal.x.v += -8;
+	player_speed_base.diagonal.y.v += -8;
+}
 
 extern "C" void pascal near player_update(
 	input_t input, player_stuff_t near *player

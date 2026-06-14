@@ -6120,339 +6120,29 @@ main_010_TEXT	segment	word public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public HYPER_STANDBY
-hyper_standby	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_1_PAIR
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jz	short loc_D807
-		mov	ax, [bx+player_stuff_t.hyper_func]
-		mov	[bx+player_stuff_t.hyper], ax
-
-loc_D807:
-		pop	bp
-		retn
-hyper_standby	endp
+	HYPER_STANDBY procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public HYPER_REIMU
-hyper_reimu	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D81D
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
+	HYPER_REIMU procdesc pascal near
 
-loc_D81D:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_REIMU_HYPER
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_reimu	endp
+	HYPER_MIMA procdesc pascal near
 
+	HYPER_MARISA procdesc pascal near
 
-; =============== S U B	R O U T	I N E =======================================
+	HYPER_ELLEN procdesc pascal near
 
-; Attributes: bp-based frame
-public HYPER_MIMA
-hyper_mima	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D85B
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
+	HYPER_KOTOHIME procdesc pascal near
 
-loc_D85B:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_2_PAIRS
-		mov	[bx+player_stuff_t.shot_active], SA_BLOCKED_FOR_THIS_FRAME
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_mima	endp
+	HYPER_CHIYURI procdesc pascal near
 
+	HYPER_YUMEMI procdesc pascal near
 
-; =============== S U B	R O U T	I N E =======================================
+	HYPER_KANA procdesc pascal near
 
-; Attributes: bp-based frame
-public HYPER_MARISA
-hyper_marisa	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D89D
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D89D:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SA_DISABLED
-		call	marisa_hyper_14340
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (-1 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (-1 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, -0Ch
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, -0Ch
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_marisa	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_ELLEN
-hyper_ellen	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D8E0
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D8E0:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_1_PAIR
-		test	byte ptr _round_frame, 3
-		jnz	short loc_D8F9
-		push	[bx+player_stuff_t.center.x]
-		push	[bx+player_stuff_t.center.y]
-		call	ellen_hyper_1B6CA
-
-loc_D8F9:
-		pop	bp
-		retn
-hyper_ellen	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_KOTOHIME
-hyper_kotohime	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D90F
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D90F:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_4_PAIRS
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_kotohime	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_CHIYURI
-hyper_chiyuri	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D94D
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D94D:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_4_PAIRS
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_chiyuri	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_YUMEMI
-hyper_yumemi	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D98B
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D98B:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_4_PAIRS
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_yumemi	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_KANA
-hyper_kana	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_D9C9
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_D9C9:
-		mov	bx, _player_cur
-		mov	[bx+player_stuff_t.shot_mode], SM_4_PAIRS
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (2 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, (1 shl 4) + 8
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_kana	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HYPER_RIKAKO
-hyper_rikako	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.hyper_active], 0
-		jnz	short loc_DA0C
-		mov	[bx+player_stuff_t.hyper], offset hyper_standby
-		call	rikako_hyper_1C4B4
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_DA0C:
-		mov	bx, _player_cur
-		cmp	[bx+player_stuff_t.gauge_avail], (250 shl 4)
-		jbe	short loc_DA21
-		call	rikako_1C497 pascal, word ptr [bx], word ptr [bx+2]
-
-loc_DA21:
-		mov	al, _player_speed_base.aligned.x8
-		add	al, (-1 shl 4)
-		mov	_player_speed_base.aligned.x8, al
-		mov	al, _player_speed_base.aligned.y8
-		add	al, (-1 shl 4)
-		mov	_player_speed_base.aligned.y8, al
-		mov	al, _player_speed_base.diagonal.x8
-		add	al, -08h
-		mov	_player_speed_base.diagonal.x8, al
-		mov	al, _player_speed_base.diagonal.y8
-		add	al, -08h
-		mov	_player_speed_base.diagonal.y8, al
-		pop	bp
-		retn
-hyper_rikako	endp
-
+	HYPER_RIKAKO procdesc pascal near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -15133,6 +14823,8 @@ chargeshot_add_marisa	endp
 
 ; Attributes: bp-based frame
 
+public MARISA_HYPER_14340
+MARISA_HYPER_14340 label far
 marisa_hyper_14340	proc far
 		push	bp
 		mov	bp, sp
@@ -25748,6 +25440,8 @@ chargeshot_add_ellen	endp
 
 ; Attributes: bp-based frame
 
+public ELLEN_HYPER_1B6CA
+ELLEN_HYPER_1B6CA label far
 ellen_hyper_1B6CA	proc far
 
 arg_0		= word ptr  6
@@ -27531,6 +27225,8 @@ chargeshot_add_rikako	endp
 
 ; Attributes: bp-based frame
 
+public RIKAKO_1C497
+RIKAKO_1C497 label far
 rikako_1C497	proc far
 
 @@center_y	= word ptr  6
@@ -27552,6 +27248,8 @@ rikako_1C497	endp
 
 ; Attributes: bp-based frame
 
+public RIKAKO_HYPER_1C4B4
+RIKAKO_HYPER_1C4B4 label far
 rikako_hyper_1C4B4	proc far
 		push	bp
 		mov	bp, sp
