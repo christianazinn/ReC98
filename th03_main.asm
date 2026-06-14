@@ -6808,7 +6808,7 @@ loc_DD5C:
 		mov	bx, ax
 		cmp	byte ptr byte_220FC[bx], 2
 		jbe	short loc_DD7B
-		call	sub_E737
+		call	@shots_add$qv
 		mov	al, _pid_PID_current
 		mov	ah, 0
 		mov	bx, ax
@@ -7643,130 +7643,7 @@ sub_E3F2	endp
 
 ; Attributes: bp-based frame
 
-sub_E737	proc near
-
-var_8		= word ptr -8
-@@top		= word ptr -6
-@@left		= word ptr -4
-@@i		= word ptr -2
-
-		enter	8, 0
-		push	si
-		push	di
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		add	ax, offset _players
-		mov	si, ax
-		mov	ax, [si+player_stuff_t.center.y]
-		mov	[bp+@@top], ax
-		cmp	[si+player_stuff_t.shot_mode], SM_NONE
-		jz	loc_E83B
-		cmp	[si+player_stuff_t.shot_mode], SM_4_PAIRS
-		jnz	short loc_E76D
-		mov	ax, [si+player_stuff_t.center.x]
-		add	ax, (-64 shl 4)
-		mov	[bp+@@left], ax
-		mov	[bp+var_8], 0
-		jmp	short loc_E7C0
-; ---------------------------------------------------------------------------
-
-loc_E76D:
-		cmp	[si+player_stuff_t.shot_mode], SM_2_PAIRS
-		jnz	short loc_E782
-		mov	ax, [si+player_stuff_t.center.x]
-		add	ax, (-32 shl 4)
-		mov	[bp+@@left], ax
-		mov	[bp+var_8], 2
-		jmp	short loc_E7C0
-; ---------------------------------------------------------------------------
-
-loc_E782:
-		cmp	[si+player_stuff_t.shot_mode], SM_1_PAIR
-		jz	short loc_E7B3
-		cmp	[si+player_stuff_t.shot_mode], SM_REIMU_HYPER
-		jnz	short loc_E7C0
-		mov	ax, [si+player_stuff_t.center.x]
-		add	ax, (-24 shl 4)
-		mov	[bp+@@left], ax
-		sub	[bp+@@top], (1 shl 4)
-		push	ax
-		push	[bp+@@top]
-		call	sub_14B0A
-		add	[bp+@@left], (48 shl 4)
-		push	[bp+@@left]
-		push	[bp+@@top]
-		call	sub_14B0A
-
-loc_E7B3:
-		mov	ax, [si+player_stuff_t.center.x]
-		add	ax, (-16 shl 4)
-		mov	[bp+@@left], ax
-		mov	[bp+var_8], 3
-
-loc_E7C0:
-		mov	di, offset _shotpairs
-		call	snd_se_play pascal, 1
-		jmp	short loc_E7D4
-; ---------------------------------------------------------------------------
-
-loc_E7CC:
-		add	[bp+@@left], (32 shl 4)
-		inc	[bp+var_8]
-
-loc_E7D4:
-		cmp	[bp+@@left], (-32 shl 4)
-		jle	short loc_E7CC
-		mov	[bp+@@i], 0
-		jmp	short loc_E835
-; ---------------------------------------------------------------------------
-
-loc_E7E2:
-		cmp	[di+shotpair_t.SP_alive], 0
-		jnz	short loc_E82F
-		mov	[di+shotpair_t.SP_alive], 1
-		mov	[di+shotpair_t.unused_1], 0
-		mov	ax, [bp+@@left]
-		mov	[di+shotpair_t.topleft.x], ax
-		mov	ax, [bp+@@top]
-		mov	[di+shotpair_t.topleft.y], ax
-		mov	[di+shotpair_t.velocity_y], SHOT_VELOCITY
-		cmp	_pid_PID_current, 0
-		jnz	short loc_E80A
-		xor	ax, ax
-		jmp	short loc_E80D
-; ---------------------------------------------------------------------------
-
-loc_E80A:
-		mov	ax, SHOT_SO_PID
-
-loc_E80D:
-		mov	[di+shotpair_t.so_pid],	ax
-		mov	[di+shotpair_t.so_anim], 0
-		mov	al, _pid_PID_current
-		mov	[di+shotpair_t.pid], al
-		inc	[bp+var_8]
-		cmp	[bp+var_8], 4
-		jge	short loc_E83B
-		add	[bp+@@left], (32 shl 4)
-		cmp	[bp+@@left], (PLAYFIELD_W shl 4)
-		jge	short loc_E83B
-
-loc_E82F:
-		inc	[bp+@@i]
-		add	di, size shotpair_t
-
-loc_E835:
-		cmp	[bp+@@i], SHOTPAIR_COUNT
-		jl	short loc_E7E2
-
-loc_E83B:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E737	endp
-
+	@shots_add$qv procdesc near
 	@shots_update$qv procdesc near
 	@shots_render$qv procdesc near
 P_SHOT_TEXT ends
@@ -16910,6 +16787,8 @@ chargeshot_add_reimu	endp
 
 ; Attributes: bp-based frame
 
+public SUB_14B0A
+SUB_14B0A label far
 sub_14B0A	proc far
 
 arg_0		= word ptr  6
