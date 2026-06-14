@@ -317,11 +317,9 @@ loc_986C:
 		call	exatt_render_p2
 		call	_chargeshot_render_p2
 		mov	_pid_PID_current, 0
-		push	offset _p1
-		call	_player_render
+		call	player_render pascal, offset _p1
 		mov	_pid_PID_current, 1
-		push	offset _p2
-		call	_player_render
+		call	player_render pascal, offset _p2
 		call	egc_off
 		mov	_pid_PID_current, 0
 		call	player_overlay_render pascal, offset _p1
@@ -3369,6 +3367,8 @@ sub_C1E6	endp
 
 ; Attributes: bp-based frame
 
+public SUB_C248
+SUB_C248 label near
 sub_C248	proc near
 
 var_1		= byte ptr -1
@@ -6954,63 +6954,8 @@ sub_DA43	endp
 
 ; Attributes: bp-based frame
 
-_player_render	proc near
-
-@@top		= word ptr -4
-@@left		= word ptr -2
-@@player		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	si, [bp+@@player]
-		cmp	[si+player_stuff_t.lose_anim_time], 0
-		jz	short loc_DEB2
-		cmp	[si+player_stuff_t.lose_anim_time], -1
-		jz	short loc_DF12
-		push	si
-		call	sub_C248
-		jmp	short loc_DF12
-; ---------------------------------------------------------------------------
-
-loc_DEB2:
-		cmp	[si+player_stuff_t.patnum_glow], 0
-		jnz	short loc_DF12
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 32
-		push	[si+player_stuff_t.center.x]	; x
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		push	ax	; pid
-		nopcall	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@left], ax
-		mov	ax, [si+player_stuff_t.center.y]
-		sar	ax, 4
-		add	ax, -16
-		mov	[bp+@@top], ax
-		mov	al, [si+player_stuff_t.patnum_movement]
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, ((128 * ROW_SIZE) + (544 / BYTE_DOTS))
-		mov	di, ax
-		cmp	_pid_PID_current, 0
-		jz	short loc_DF06
-		add	di, (32 * ROW_SIZE)
-
-loc_DF06:
-		call	sprite16_put pascal, [bp+@@left], [bp+@@top], di
-
-loc_DF12:
-		pop	di
-		pop	si
-		leave
-		retn	2
-_player_render	endp
+	PLAYER_RENDER procdesc pascal near \
+		player:word
 
 
 ; =============== S U B	R O U T	I N E =======================================

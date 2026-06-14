@@ -18,6 +18,7 @@ extern bool damage_all_on[PLAYFIELD_COUNT];
 #ifdef __cplusplus
 extern "C" {
 #endif
+void pascal near player_render(player_stuff_t near *player);
 void pascal near player_overlay_render(player_stuff_t near *player);
 void pascal near player_knockback_update(player_stuff_t near *player);
 void pascal near player_bomb(player_stuff_t near *player);
