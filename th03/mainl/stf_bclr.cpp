@@ -70,4 +70,22 @@ void near flakes_spawn(void)
 	}
 }
 
+void near flakes_update(void)
+{
+	register flake_t near *flake = flakes;
+	for(register int i = 0; staffroll_flake_count > i; i++, flake++) {
+		if(flake->alive) {
+			flake->alive = true;
+			flake->left.v += flake->velocity.x.v;
+			flake->top.v += flake->velocity.y.v;
+			if(flake->left.v <= 0) {
+				flake->left.v += FLAKE_LEFT_MAX;
+			}
+			if(flake->top.v >= FLAKE_TOP_MAX) {
+				flake->top.v -= FLAKE_TOP_MAX;
+			}
+		}
+	}
+}
+
 #pragma codeseg
