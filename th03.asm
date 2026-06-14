@@ -171,6 +171,7 @@ CUTSCENE_TEXT segment byte public 'CODE' use16
 	CDG_FREE_ALL procdesc near
 	@win_animate_and_wait$qv procdesc near
 	@sub_9887$qv procdesc near
+	@stage_splash_load$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -186,117 +187,7 @@ sub_9887 equ <@sub_9887$qv>
 
 ; Attributes: bp-based frame
 
-public @sub_990C$qv
-@sub_990C$qv label near
-sub_990C	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		graph_showpage 0
-		graph_accesspage 1
-		mov	al, _playchar[0]
-		mov	[bp+var_1], al
-		push	0
-		push	ds
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		mov	bx, ax
-		sar	bx, 1
-		add	bx, bx
-		push	_PIC_FN[bx]
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		and	ax, 1
-		push	ax
-		call	cdg_load_single
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		add	al, -1
-		mov	[bp+var_1], al
-		push	1
-		push	ds
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		mov	bx, ax
-		sar	bx, 1
-		add	bx, bx
-		push	_PIC_FN[bx]
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		and	ax, 1
-		push	ax
-		call	cdg_load_single
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_1], al
-		mov	_do_not_show_stage_number, 1
-		les	bx, _resident
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_9997
-		mov	bx, word_E504
-		mov	al, [bx+4]
-		add	al, 4
-		jmp	short loc_99CB
-; ---------------------------------------------------------------------------
-
-loc_9997:
-		cmp	[bp+var_1], 7
-		jnz	short loc_99A8
-		mov	bx, word_E504
-		mov	al, [bx+4]
-		add	al, 2
-		jmp	short loc_99CB
-; ---------------------------------------------------------------------------
-
-loc_99A8:
-		cmp	[bp+var_1], 8
-		jnz	short loc_99B7
-		mov	bx, word_E504
-		inc	byte ptr [bx+4]
-		jmp	short loc_99F1
-; ---------------------------------------------------------------------------
-
-loc_99B7:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_stage], 6
-		jnz	short loc_99D4
-		mov	bx, word_E504
-		mov	al, [bx+4]
-		add	al, 3
-
-loc_99CB:
-		mov	bx, word_E504
-		mov	[bx+4],	al
-		jmp	short loc_99F1
-; ---------------------------------------------------------------------------
-
-loc_99D4:
-		push	2
-		push	ds
-		push	word_E502
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	cdg_load_single
-		mov	_do_not_show_stage_number, 0
-
-loc_99F1:
-		call	@pi_load$qinxc pascal, 0, ds, offset aStnx0_pi
-		call	@pi_put_8$qiii pascal, large 0, 0
-		freePISlotLarge	0
-		call	@pi_load$qinxc pascal, 0, ds, word_E504
-		call	@pi_put_8$qiii pascal, large 0, 0
-		leave
-		retn
-sub_990C	endp
+sub_990C equ <@stage_splash_load$qv>
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -2332,8 +2223,9 @@ CHAR_NAME		dd NAME_REIMU		; "   博麗　靈夢"
 		dd NAME_CHIYURI	; " 北白河　ちゆり"
 		dd TITLE_YUMEMI	; "　  　　　夢幻伝説　　　    "
 		dd NAME_YUMEMI		; " 　岡崎　夢美"
-word_E502	dw offset aSt_cd2
-word_E504	dw offset aStnx1_pi
+public _stage_number_cdg_fn, _stage_splash_bg_fn
+_stage_number_cdg_fn	dw offset _stage_number_cdg_fn_s
+_stage_splash_bg_fn	dw offset _stage_splash_bg_pi_fn
 public _SHOT_FN
 _SHOT_FN db '0016.pi', 0, 0, 0, 0, 0
 SHOT_FN_SIZE = ($ - _SHOT_FN)
@@ -2380,9 +2272,10 @@ _logo0_rgb	db 'logo0.rgb',0
 _logo_cd2 	db 'logo.cd2',0
 _logo5_cdg	db 'logo5.cdg',0
 _logo1_rgb	db 'logo1.rgb',0
-aSt_cd2		db 'st.cd2',0
-aStnx1_pi	db 'stnx1.pi',0
-aStnx0_pi	db 'stnx0.pi',0
+public _stage_splash_base_pi_fn
+_stage_number_cdg_fn_s	db 'st.cd2',0
+_stage_splash_bg_pi_fn	db 'stnx1.pi',0
+_stage_splash_base_pi_fn	db 'stnx0.pi',0
 public _PLAYCHAR_BGM_FN
 _PLAYCHAR_BGM_FN	db '00mm.m',0
 aDec_m		db 'dec.m',0
