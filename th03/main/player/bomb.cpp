@@ -1,16 +1,58 @@
-#pragma option -zCMAIN_010_TEXT -zPmain_01
+#pragma option -zCMAIN_010_TEXT -zPmain_01 -G
 
 #include "th03/main/player/bomb.hpp"
 #include "codegen.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/hud/static.hpp"
+#include "th03/math/randring.hpp"
+#include "th03/math/vector.hpp"
 #include "th02/snd/snd.h"
 #include "x86real.h"
 
 void near story_skill_decrement(void);
 extern "C" void pascal far sub_CDBD(void);
 extern "C" unsigned char pid_PID_current;
+extern SPPoint8 player_velocity;
+
+void pascal near player_pos_update_and_clamp(PlayfieldPoint near& center);
+
+extern "C" void pascal near player_knockback_update(
+	player_stuff_t near *player
+)
+{
+	int vector_x;
+	int vector_y;
+	register player_stuff_t near *p = player;
+
+	if(p->knockback_time == KNOCKBACK_FRAMES) {
+		snd_se_play(2);
+		p->knockback_angle = randring1_next16_and(0x3F);
+		if(p->center.x.v < TO_SP(144)) {
+			if(p->center.y.v > TO_SP(184)) {
+				p->knockback_angle = (p->knockback_angle + 192);
+			}
+		} else {
+			if(p->center.y.v < TO_SP(184)) {
+				p->knockback_angle = (p->knockback_angle + 0x40);
+			} else {
+				p->knockback_angle = (p->knockback_angle + 0x80);
+			}
+		}
+		p->knockback_length = 0x40;
+	}
+
+	if(p->knockback_time > 0x20) {
+		p->knockback_length -= 2;
+		vector2(vector_x, vector_y, p->knockback_angle, p->knockback_length);
+		player_velocity.x.v = vector_x;
+		player_velocity.y.v = vector_y;
+		player_pos_update_and_clamp(p->center);
+	} else if(p->knockback_time == 0) {
+		p->knockback_active = false;
+	}
+	p->knockback_time--;
+}
 
 extern "C" void pascal near player_bomb(player_stuff_t near *player)
 {
