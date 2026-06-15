@@ -9,7 +9,9 @@
 #include "th03/sprites/main_s16.hpp"
 
 extern nearfunc_t_near fp_1FBC0;
+extern "C" int trapezoid_hmask;
 extern "C" uint8_t byte_1FBC2;
+extern "C" uint8_t byte_1FBC3;
 extern "C" int word_1FBC4;
 extern "C" int word_1FBC6;
 extern "C" int word_1FBC8;
@@ -20,6 +22,87 @@ extern "C" int word_1FBD0;
 extern "C" int word_1FBD2;
 
 extern "C" void pascal near sub_B4A3(void);
+extern "C" void far sub_B39E(void);
+
+extern "C" void pascal near sub_B60A(void);
+
+extern "C" void pascal near sub_B4A8(void)
+{
+	register int si;
+
+	if(byte_1FBC2 == 0) {
+		word_1FBC4 = 303;
+		word_1FBC6 = 382;
+		word_1FBC8 = 0x10;
+		word_1FBCA = 382;
+		word_1FBCC = 0x10;
+		word_1FBCE = 0x10;
+		word_1FBD0 = 303;
+		word_1FBD2 = 0x10;
+	}
+
+	grc_setclip(8, 0, 623, 191);
+	word_1FBC4 -= 0x12;
+	word_1FBCA -= 0x17;
+	word_1FBCC += 0x12;
+	word_1FBD2 += 0x17;
+	grcg_setcolor(GC_RMW, 2);
+	trapezoid_hmask = 0x5555;
+
+	si = 0;
+	goto first_loop_test;
+first_loop:
+		grcg_triangle(
+			(si + 303), 8,
+			(si + 303), 191,
+			(word_1FBC4 + si), (word_1FBC6 / 2)
+		);
+		grcg_triangle(
+			(si + 16), 8,
+			(si + 16), 191,
+			(word_1FBCC + si), (word_1FBCE / 2)
+		);
+		si += 320;
+first_loop_test:
+	if(si <= 320) {
+		goto first_loop;
+	}
+
+	trapezoid_hmask = 0xAAAA;
+	si = 0;
+	goto second_loop_test;
+second_loop:
+		grcg_triangle(
+			(si + 16), 191,
+			(si + 303), 191,
+			(word_1FBC8 + si), (word_1FBCA / 2)
+		);
+		grcg_triangle(
+			(si + 16), 8,
+			(si + 303), 8,
+			(word_1FBD0 + si), (word_1FBD2 / 2)
+		);
+		si += 320;
+second_loop_test:
+	if(si <= 320) {
+		goto second_loop;
+	}
+
+	byte_1FBC2++;
+	if(byte_1FBC2 >= 0x10) {
+		_BX = ((183 * ROW_SIZE) + (16 / BYTE_DOTS));
+		_asm { nop; push cs; call near ptr sub_B39E; }
+		_BX = ((183 * ROW_SIZE) + (336 / BYTE_DOTS));
+		_asm { nop; push cs; call near ptr sub_B39E; }
+		byte_1FBC3 = 1;
+		byte_1FBC2 = 0;
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1F2A);
+	}
+
+	trapezoid_hmask = 0xFFFF;
+	grcg_off();
+	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+}
 
 extern "C" void pascal near sub_B60A(void)
 {
