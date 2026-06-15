@@ -941,6 +941,8 @@ sub_9B14	endp
 
 ; Attributes: bp-based frame
 
+public SUB_9EBF
+SUB_9EBF label near
 sub_9EBF	proc near
 
 var_6		= dword	ptr -6
@@ -1279,29 +1281,7 @@ sub_9EBF	endp
 
 ; Attributes: bp-based frame
 
-sub_A21F	proc near
-		push	bp
-		mov	bp, sp
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 2
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (SPRITE16_RES_Y - 1)
-		graph_accesspage 1
-		call	grcg_fill
-		graph_accesspage 0
-		call	grcg_fill
-		graph_showpage 1
-		call	grcg_off
-		inc	_round_id
-		call	sub_9EBF
-		call	farfp_20F28
-		mov	_p1.hyper, offset hyper_standby
-		mov	_p2.hyper, offset hyper_standby
-		call	_snd_se_reset
-		nopcall	@hud_wipe$qv
-		nopcall	sub_A38E
-		nopcall	@hud_static_put$qv
-		pop	bp
-		retn
-sub_A21F	endp
+	SUB_A21F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1342,6 +1322,9 @@ sub_A378	endp
 
 ; ---------------------------------------------------------------------------
 		nop
+
+public SUB_A38E, sub_A38E
+SUB_A38E label far
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -17371,6 +17354,8 @@ byte_20F1E	db ?
 		db ?
 farfp_20F20	dd ?
 farfp_20F24	dd ?
+public _farfp_20F28
+_farfp_20F28 label dword
 farfp_20F28	dd ?
 byte_20F2C label byte
 		db 1122 dup(?)
