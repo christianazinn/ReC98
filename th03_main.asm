@@ -6918,64 +6918,7 @@ HITBOX_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public MARISA_HYPER_14340
-MARISA_HYPER_14340 label far
-marisa_hyper_14340	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 32h
-		add	ax, offset byte_1FDEA
-		mov	word_1FE4E, ax
-		mov	bx, word_1FE4E
-		cmp	byte ptr [bx], 0
-		jnz	short loc_143A4
-		mov	byte ptr [bx], 1
-		xor	si, si
-		jmp	short loc_14398
-; ---------------------------------------------------------------------------
-
-loc_14362:
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.x
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FE4E
-		mov	[bx+2],	ax
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.y
-		add	ax, (-16 shl 4)
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FE4E
-		mov	[bx+1Ah], ax
-		inc	si
-
-loc_14398:
-		cmp	si, 0Ch
-		jl	short loc_14362
-		call	snd_se_play pascal, 6
-
-loc_143A4:
-		mov	bx, word_1FE4E
-		mov	byte ptr [bx+1], 10h
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	_players[bx].shot_active, SA_DISABLED
-		pop	si
-		pop	bp
-		retf
-marisa_hyper_14340	endp
+	MARISA_HYPER_14340 procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
