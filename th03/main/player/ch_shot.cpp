@@ -481,3 +481,50 @@ group_loop_check:
 
 	byte_205CC = 1;
 }
+
+extern "C" void pascal far sub_14B0A(Subpixel center_x, Subpixel center_y)
+{
+	word_205CA = (byte_202CA + (pid_PID_current * 384));
+	_CX = 0;
+	goto group_loop_check;
+
+group_loop:
+	{
+		if(word_205CA[0] == 0) {
+			_asm {
+				mov	bx, word_205CA
+				mov	byte ptr [bx], 2
+				mov	byte ptr [bx+1], 0
+			}
+			_DX = 0;
+
+			goto node_loop_check;
+		node_loop:
+			{
+				reinterpret_cast<Subpixel near *>(word_205CA + 2)[_DX] = (
+					center_x
+				);
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[_DX] = (
+					center_y
+				);
+				_DX++;
+			}
+		node_loop_check:
+			asm { cmp dx, 7; }
+			asm { jl node_loop; }
+
+			word_205CA[0x1E] = 0xC0;
+			word_205CA[0x1F] = 0xC0;
+			goto done;
+		}
+		_CX++;
+		word_205CA += 0x20;
+	}
+
+group_loop_check:
+	asm { cmp cx, 0Ch; }
+	asm { jl group_loop; }
+
+done:
+	byte_205CC = 0;
+}
