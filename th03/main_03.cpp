@@ -9,6 +9,7 @@ extern "C" uint8_t byte_1F324;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F351;
 extern "C" uint8_t byte_1F352;
+extern "C" uint8_t byte_1F35E[];
 extern "C" uint16_t word_1F3B0;
 extern "C" subpixel_t word_1F326;
 extern "C" subpixel_t word_1F328;
@@ -65,6 +66,26 @@ extern "C" void pascal near sub_F58C(void)
 	if(byte_1F34F == 0) {
 		gba_boss_launched_by = PID_NONE;
 	}
+}
+
+extern "C" void pascal far marisa_F5AF(uint16_t slot)
+{
+	register uint8_t near *record = &byte_1F35E[slot * 32];
+
+	*reinterpret_cast<subpixel_t near *>(record + 0x00) = TO_SP(144);
+	*reinterpret_cast<subpixel_t near *>(record + 0x02) = TO_SP(80);
+	*reinterpret_cast<uint16_t near *>(record + 0x08) = 0xFFE0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0A) = 0;
+	record[0x12] = 0;
+	record[0x10] = 0;
+	record[0x11] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0C) = 0x006E;
+	record[0x13] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0E) = 0x0280;
+	if(slot != 0) {
+		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
+	}
+	record[0x15] = 0;
 }
 
 #pragma codeseg
