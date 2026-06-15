@@ -29,6 +29,8 @@ extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
 
@@ -225,6 +227,47 @@ extern "C" void pascal near kotohime_11B51(void)
 			bullet_template.group = BG_16_RING;
 			bullet_template.speed.v = byte_1F39F;
 			kotohime_11AC1(1);
+			snd_se_play(3);
+			byte_1F353 = 0;
+			byte_1F34F = 1;
+			word_1F3B0 = 0;
+			return;
+		}
+		return;
+	}
+
+	sub_F356();
+	word_1F356 += 0x20;
+}
+
+extern "C" void pascal near kotohime_11BC6(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		word_1F356 = 0;
+		byte_1F354 = 0;
+		byte_1F355 = 0;
+	}
+
+	_AL = byte_1F355;
+	_AL += -2;
+	byte_1F355 = _AL;
+	if(word_1F356 > TO_SP(64)) {
+		byte_1F353 = 2;
+		word_1F356 += 8;
+		_AL = byte_1F355;
+		_AL += 2;
+		byte_1F355 = _AL;
+		byte_1F354++;
+		if(byte_1F354 > 0x40) {
+			bullet_template.group = BG_2_SPREAD_NARROW_AIMED;
+			bullet_template.angle = 0;
+			bullet_template.speed.v = byte_1F3A2;
+			kotohime_11AC1(0);
+			bullet_template.group = BG_5_SPREAD_MEDIUM_AIMED;
+			bullet_template.angle = 0;
+			bullet_template.speed.v = byte_1F3A1;
+			kotohime_11AC1(0);
 			snd_se_play(3);
 			byte_1F353 = 0;
 			byte_1F34F = 1;
