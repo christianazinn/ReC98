@@ -1402,6 +1402,7 @@ sub_A3A8	endp
 
 ; Attributes: bp-based frame
 
+public sub_A3D2
 sub_A3D2	proc far
 
 arg_0		= byte ptr  6
@@ -6722,289 +6723,7 @@ KOTOHIME_11D1A procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_update_chiyuri
-gba_boss_update_chiyuri proc far
-
-var_4		= word ptr -4
-var_2		= byte ptr -2
-@@pid_other		= byte ptr -1
-
-		enter	4, 0
-		call	sub_F402
-		or	al, al
-		jz	short loc_12700
-		mov	al, _gba_boss_level
-		add	al, 30h	; '0'
-		mov	byte_1F39F, al
-		mov	al, _gba_boss_level
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	dl, 6
-		sub	dl, al
-		mov	byte_1F3A0, dl
-		mov	al, _gba_boss_level
-		add	al, 34h	; '4'
-		mov	byte_1F3A1, al
-		mov	al, 20h	; ' '
-		sub	al, _gba_boss_level
-		mov	byte_1F3A2, al
-		mov	al, _gba_boss_level
-		add	al, al
-		add	al, 38h	; '8'
-		mov	byte_1F3A3, al
-		mov	al, _gba_boss_level
-		add	al, 10h
-		mov	byte_1F3A4, al
-		mov	al, _gba_boss_level
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, 0Ch
-		mov	byte_1F3A5, al
-
-loc_12700:
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	locret_1290B
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		call	sub_F512
-		mov	_bullet_template.BT_is_animated, 0
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		inc	word_1F3B0
-		mov	al, byte_1F34F
-		mov	ah, 0
-		mov	[bp+var_4], ax
-		mov	cx, 14h		; switch 20 cases
-		mov	bx, offset word_1290E
-
-loc_12734:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_4]
-		jz	short loc_12744
-		add	bx, 2
-		loop	loc_12734
-		jmp	loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12744:
-		jmp	word ptr cs:[bx+28h] ; switch jump
-
-loc_12748:
-		cmp	word_1F3B0, 60h ; jumptable 00012744 case 0
-		jnz	short loc_12772
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-		push	(-1 and 255)
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3D2
-		mov	byte_1F355, 10h
-		mov	byte_1F353, 10h
-		jmp	loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12772:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnz	loc_12859	; jumptable 00012744 case 255
-		mov	ax, word_1F33E
-		add	ax, 0FC80h
-		push	ax
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		mov	ax, word_1F33E
-		add	ax, (56 shl 4)
-		push	ax
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		push	word_1F33E
-		mov	ax, word_1F340
-		add	ax, 0FC80h
-		push	ax
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		push	word_1F33E
-		mov	ax, word_1F340
-		add	ax, (56 shl 4)
-		push	ax
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		jmp	loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_127D6:
-		cmp	byte_1F353, 10h	; jumptable 00012744 case 1
-		jnz	short loc_1280B
-		push	5
-		call	@randring_far_next16_mod$qui
-		add	al, al
-		mov	[bp+var_2], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, word_1DE36[bx]
-		mov	word_1F33E, ax
-		mov	al, [bp+var_2]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, word_1DE38[bx]
-		mov	word_1F340, ax
-		mov	byte_1F355, 10h
-
-loc_1280B:
-		cmp	word_1F3B0, 30h	; '0'
-		jb	short loc_12860	; default
-		mov	word_1F3B0, 0
-		push	0Fh
-		call	@randring_far_next16_and$qui
-		add	al, 2
-		mov	byte_1F34F, al
-		inc	byte_1F351
-		mov	al, byte_1F351
-		cmp	al, byte_1F352
-		jbe	short loc_12860	; default
-		mov	byte_1F34F, 80h
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12838:
-		call	chiyuri_121F5	; jumptable 00012744 cases 2-5
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_1283D:
-		call	chiyuri_12355	; jumptable 00012744 cases 6-9
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12842:
-		call	chiyuri_12425	; jumptable 00012744 cases 10-13
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12847:
-		call	chiyuri_12498	; jumptable 00012744 cases 14-17
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_1284C:
-		call	sub_F3A9	; jumptable 00012744 case 128
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-		jmp	short loc_12860	; default
-; ---------------------------------------------------------------------------
-
-loc_12859:
-		mov	_bullet_template.BT_is_animated, 1	; jumptable 00012744 case 255
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_12860:
-		mov	_bullet_template.BT_is_animated, 1	; default
-		test	byte ptr _round_or_result_frame, 3
-		jnz	short loc_12871
-		mov	ax, 1
-		jmp	short loc_12873
-; ---------------------------------------------------------------------------
-
-loc_12871:
-		xor	ax, ax
-
-loc_12873:
-		add	al, byte_1F354
-		mov	byte_1F354, al
-		and	byte_1F354, 3
-		cmp	byte_1F355, 0
-		jz	short loc_128A2
-		dec	byte_1F355
-		cmp	byte_1F355, 0
-		jz	short loc_128A2
-		mov	al, byte_1F355
-		mov	ah, 0
-		shl	ax, 4
-		push	ax
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3D2
-
-loc_128A2:
-		cmp	byte_1F353, 0
-		jz	short loc_128AD
-		dec	byte_1F353
-
-loc_128AD:
-		mov	ax, word_1F33E
-		mov	_collmap_center.x, ax
-		mov	ax, word_1F340
-		mov	_collmap_center.y, ax
-		mov	_collmap_stripe_tile_w, (64 / COLLMAP_TILE_W)
-		mov	_collmap_tile_h, (48 / COLLMAP_TILE_H)
-		mov	al, [bp+@@pid_other]
-		mov	_collmap_pid, al
-		call	@collmap_set_rect_striped$qv
-		mov	_hitbox_hittest_skip_explosions, 1
-		mov	_hitbox_radius.x, (32 shl 4)
-		mov	_hitbox_radius.y, (32 shl 4)
-		mov	al, [bp+@@pid_other]
-		mov	_hitbox_pid, al
-		mov	ax, word_1F33E
-		mov	_hitbox_origin_center.x, ax
-		mov	ax, word_1F340
-		mov	_hitbox_origin_center.y, ax
-		call	@hitbox_hittest$qv
-		mov	byte_1F34E, al
-		mov	ah, 0
-		sub	word_1F34A, ax
-		mov	_hitbox_hittest_skip_explosions, 0
-		nopcall	sub_F4B4
-
-locret_1290B:
-		leave
-		retf
-gba_boss_update_chiyuri endp
-
-; ---------------------------------------------------------------------------
-		db 0
-word_1290E	dw	0,     1,     2,     3
-		dw	4,     5,     6,     7 ; value table for switch	statement
-		dw	8,     9,   0Ah,   0Bh
-		dw    0Ch,   0Dh,   0Eh,   0Fh
-		dw    10h,   11h,   80h,  0FFh
-		dw offset loc_12748	; jump table for switch	statement
-		dw offset loc_127D6
-		dw offset loc_12838
-		dw offset loc_12838
-		dw offset loc_12838
-		dw offset loc_12838
-		dw offset loc_1283D
-		dw offset loc_1283D
-		dw offset loc_1283D
-		dw offset loc_1283D
-		dw offset loc_12842
-		dw offset loc_12842
-		dw offset loc_12842
-		dw offset loc_12842
-		dw offset loc_12847
-		dw offset loc_12847
-		dw offset loc_12847
-		dw offset loc_12847
-		dw offset loc_1284C
-		dw offset loc_12859
+	GBA_BOSS_UPDATE_CHIYURI procdesc far
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -22550,6 +22269,7 @@ word_1DE12 label word
 _word_1DE24 label word
 word_1DE24 label word
 	dw 2, 8, 16, 16, 16, 16, 16, 8, 2
+public word_1DE36, word_1DE38
 word_1DE36 dw (48 shl 4)
 word_1DE38 dw (112 shl 4)
 	dw (96 shl 4), (96 shl 4)
@@ -22656,7 +22376,7 @@ _sprite_1F34C label word
 sprite_1F34C	dw ?
 _byte_1F34E label byte
 byte_1F34E	db ?
-public _byte_1F34F, byte_1F34F, angle_1F350, _byte_1F351, _byte_1F352, byte_1F352
+public _byte_1F34F, byte_1F34F, angle_1F350, _byte_1F351, byte_1F351, _byte_1F352, byte_1F352
 _byte_1F34F label byte
 byte_1F34F	db ?
 angle_1F350	db ?
