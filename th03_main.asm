@@ -6836,120 +6836,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-rikako_134AA	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		cmp	byte_1F358, -8
-		jl	short loc_134C1
-		test	byte ptr word_1F3B0, 7
-		jnz	short loc_134C1
-		dec	byte_1F358
-
-loc_134C1:
-		cmp	word_1F3B0, 10h
-		jnz	short loc_134E3
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CE5B
-		jmp	loc_135A1
-; ---------------------------------------------------------------------------
-
-loc_134E3:
-		cmp	word_1F3B0, 28h	; '('
-		jnz	short loc_1353F
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CDBD
-		call	@randring_far_next16$qv
-		mov	[bp+var_1], al
-		xor	si, si
-		jmp	short loc_13532
-; ---------------------------------------------------------------------------
-
-loc_1350E:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F3A0
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		mov	[bp+var_1], al
-		push	word_1F33E
-		push	word_1F340
-		push	word ptr [bp+var_1]
-		call	rikako_1B006
-		inc	si
-
-loc_13532:
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_1350E
-		push	5
-		jmp	short loc_13588
-; ---------------------------------------------------------------------------
-
-loc_1353F:
-		cmp	word_1F3B0, 40h
-		jnz	short loc_1358F
-		mov	_bullet_template.BT_type, BT_PELLET
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, byte_1F3A1
-		mov	_bullet_template.BT_count, al
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	_bullet_template.BT_speed, (2 shl 4)
-		xor	si, si
-		jmp	short loc_13581
-; ---------------------------------------------------------------------------
-
-loc_1356B:
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	al, _bullet_template.BT_speed
-		add	al, 8
-		mov	_bullet_template.BT_speed, al
-		call	@bullets_add$qv
-		inc	si
-
-loc_13581:
-		cmp	si, 4
-		jl	short loc_1356B
-		push	10
-
-loc_13588:
-		call	snd_se_play
-		jmp	short loc_135A1
-; ---------------------------------------------------------------------------
-
-loc_1358F:
-		cmp	word_1F3B0, 50h	; 'P'
-		jbe	short loc_135A1
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-
-loc_135A1:
-		pop	si
-		leave
-		retn
-rikako_134AA	endp
+	RIKAKO_134AA procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -17222,6 +17109,8 @@ loc_1B000:
 
 ; Attributes: bp-based frame
 
+public RIKAKO_1B006
+RIKAKO_1B006 label far
 rikako_1B006	proc far
 
 arg_0		= byte ptr  6
