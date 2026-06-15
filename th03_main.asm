@@ -7939,21 +7939,7 @@ word_16FA0	dw	0,     8,   10h,   18h
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_yumemi
-gba_gauge_pattern_pellet_yumemi	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_16FD6
-		call	@GAUGE_PATTERN_YUMEMI$QUC pascal, BT_PELLET
-
-loc_16FD6:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_yumemi endp
+GBA_GAUGE_PATTERN_PELLET_YUMEMI procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
