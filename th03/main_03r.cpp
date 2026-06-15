@@ -372,3 +372,27 @@ extern "C" void pascal near reimu_10E16(void)
 		byte_1F353 = 0;
 	}
 }
+
+extern "C" void pascal near reimu_10FD1(void)
+{
+	sub_F356();
+	if(word_1F3B0 < 0x80) {
+		if((static_cast<uint8_t>(word_1F3B0) & 0x0F) != 0) {
+			return;
+		}
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.speed.v = byte_1F3A1;
+		bullet_template.pid = (1 - pid_current);
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.angle = static_cast<uint8_t>(word_1F3B0);
+		bullet_template.group = BG_4_SPREAD_NARROW;
+		bullets_add();
+		bullet_template.angle = (0x78 - static_cast<uint8_t>(word_1F3B0));
+		bullets_add();
+		return;
+	}
+
+	byte_1F34F = 1;
+	word_1F3B0 = 0;
+}

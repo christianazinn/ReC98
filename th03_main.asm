@@ -6523,48 +6523,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	REIMU_10E16 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-reimu_10FD1	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		cmp	word_1F3B0, 80h
-		jnb	short loc_11026
-		test	byte ptr word_1F3B0, 0Fh
-		jnz	short loc_11031
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	al, byte_1F3A1
-		mov	_bullet_template.BT_speed, al
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte ptr word_1F3B0
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_4_SPREAD_NARROW
-		call	@bullets_add$qv
-		mov	al, 78h
-		sub	al, byte ptr word_1F3B0
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_11026:
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_11031:
-		pop	bp
-		retn
-reimu_10FD1	endp
+	REIMU_10FD1 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
