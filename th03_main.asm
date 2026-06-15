@@ -6437,79 +6437,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-mima_FB95	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 2
-		jnb	short loc_FBB5
-		mov	byte_1F353, 2
-		mov	byte_1F354, 0
-		mov	byte_20E28, 0
-		mov	byte_20E29, 192
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_FBB5:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	loc_FC69
-		test	byte ptr word_1F3B0, 1
-		jnz	loc_FC51
-		call	snd_se_play pascal, 3
-		mov	al, byte_20E28
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_is_animated, 0
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_is_animated, 1
-		mov	al, byte_20E28
-		add	al, 9
-		mov	byte_20E28, al
-		mov	al, byte_1F3A4
-		mov	ah, 0
-		cmp	ax, word_1F3B0
-		jbe	short loc_FC49
-		mov	ax, word_1F3B0
-		mov	bx, 6
-		xor	dx, dx
-		div	bx
-		or	dx, dx
-		jnz	short loc_FC49
-		mov	_bullet_template.BT_type, BT_PELLET
-		mov	_bullet_template.BT_group, BG_4_SPREAD_MEDIUM
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_speed, al
-		mov	al, byte_20E29
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	al, 80h
-		sub	al, byte_20E29
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-
-loc_FC49:
-		mov	al, byte_20E29
-		add	al, 3
-		mov	byte_20E29, al
-
-loc_FC51:
-		cmp	word_1F3B0, 82h
-		jbe	short loc_FC69
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_FC69:
-		pop	bp
-		retn
-mima_FB95	endp
+	MIMA_FB95 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -27103,9 +27031,10 @@ _byte_1F351 label byte
 byte_1F351	db ?
 _byte_1F352 label byte
 byte_1F352	db ?
-public _byte_1F353, byte_1F353
+public _byte_1F353, byte_1F353, _byte_1F354, byte_1F354
 _byte_1F353 label byte
 byte_1F353	db ?
+_byte_1F354 label byte
 byte_1F354	db ?
 byte_1F355	db ?
 word_1F356	dw ?
@@ -27324,7 +27253,10 @@ byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
 word_20E22	dw ?
 byte_20E24	db PLAYER_COUNT dup(?)
 byte_20E26	db PLAYER_COUNT dup(?)
+public _byte_20E28, byte_20E28, _byte_20E29, byte_20E29
+_byte_20E28 label byte
 byte_20E28	db ?
+_byte_20E29 label byte
 byte_20E29	db ?
 byte_20E2A	db ?
 angle_20E2B	db ?
