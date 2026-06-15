@@ -1001,7 +1001,7 @@ loc_9F31:
 		cmp	di, SHOTPAIR_COUNT
 		jl	short loc_9F26
 		call	_sub_14A76
-		call	sub_153BB
+		call	_sub_153BB
 		call	_sub_142D0
 		call	sub_1B653
 		call	sub_193BC
@@ -7068,26 +7068,7 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-sub_153BB	proc far
-		push	bp
-		mov	bp, sp
-		mov	word_20E22, offset byte_20CF6
-		xor	ax, ax
-		jmp	short loc_153D5
-; ---------------------------------------------------------------------------
-
-loc_153C8:
-		mov	bx, word_20E22
-		mov	byte ptr [bx], 0
-		inc	ax
-		add	word_20E22, 0Ah
-
-loc_153D5:
-		cmp	ax, 1Eh
-		jl	short loc_153C8
-		pop	bp
-		retf
-sub_153BB	endp
+	_sub_153BB procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19011,7 +18992,10 @@ x_20CEC	dw ?
 byte_20CF0	db PLAYER_COUNT dup(?)
 byte_20CF2	db PLAYER_COUNT dup(?)
 byte_20CF4	db PLAYER_COUNT dup(?)
+public _byte_20CF6, byte_20CF6, _word_20E22, word_20E22
+_byte_20CF6 label byte
 byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
+_word_20E22 label word
 word_20E22	dw ?
 byte_20E24	db PLAYER_COUNT dup(?)
 byte_20E26	db PLAYER_COUNT dup(?)
