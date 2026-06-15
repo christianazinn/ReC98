@@ -6548,41 +6548,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_reimu
-gba_boss_render_reimu proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short loc_113E0
-		cmp	byte_1F34F, 0
-		jnz	short loc_113D1
-		push	word_1F3B0
-		mov	ax, word_1F3B0
-		shl	ax, 5
-		mov	dx, (200 shl 4)
-		sub	dx, ax
-		push	dx
-		call	reimu_112A6
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_113D1:
-		cmp	byte_1F34F, -1
-		jz	short loc_113DD
-		call	reimu_111A3
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_113DD:
-		call	sub_F58C
-
-loc_113E0:
-		pop	bp
-		retf
-gba_boss_render_reimu endp
+	GBA_BOSS_RENDER_REIMU procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
