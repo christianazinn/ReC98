@@ -22,11 +22,15 @@ extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_1F3A4;
 extern "C" uint8_t byte_20E28;
 extern "C" uint8_t byte_20E29;
 
+extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near marisa_F9A6(void)
@@ -195,6 +199,66 @@ extern "C" void pascal near mima_FB95(void)
 			byte_20E29 += 3;
 		}
 		if(word_1F3B0 > 0x82) {
+			byte_1F353 = 0;
+			byte_1F34F = 1;
+			word_1F3B0 = 0;
+		}
+	}
+}
+
+extern "C" void pascal near mima_FC6B(void)
+{
+	pid_t pid_other = (1 - pid_current);
+	register subpixel_t x;
+	register subpixel_t y;
+
+	if(word_1F3B0 == 0x10) {
+		byte_1F353 = 5;
+	} else if(word_1F3B0 < 0x20) {
+		return;
+	}
+
+	x = (word_1F33E + TO_SP(24));
+	y = (word_1F340 + TO_SP(-32));
+
+	if((word_1F3B0 == 0x20) || (word_1F3B0 == 0x24) || (word_1F3B0 == 0x28)) {
+		SUB_CE0C(x, y, static_cast<uint16_t>(pid_other));
+		return;
+	}
+
+	if(word_1F3B0 > 0x30) {
+		if((word_1F3B0 & 3) == 0) {
+			bullet_template.angle = 0;
+			bullet_template.group = BG_RANDOM_ANGLE_AND_SPEED;
+			bullet_template.center.x.v = x;
+			bullet_template.center.y.v = y;
+			bullet_template.count = byte_1F3A0;
+			bullet_template.speed.v = byte_1F3A1;
+			bullet_template.type = BT_BULLET16_DEFAULT;
+			bullet_template.is_animated = false;
+			bullets_add();
+			bullet_template.type = BT_PELLET;
+			bullets_add();
+			bullet_template.is_animated = true;
+		}
+
+		if(word_1F3B0 == 0x40) {
+			bullet_template.angle = randring_far_next16_raw();
+			bullet_template.group = BG_32_RING;
+			bullet_template.center.x.v = x;
+			bullet_template.center.y.v = y;
+			bullet_template.speed.v = (2 << 4);
+			bullet_template.type = BT_BULLET16_DEFAULT;
+			bullet_template.is_animated = false;
+			bullets_add();
+			bullet_template.is_animated = true;
+		}
+
+		if((word_1F3B0 & 1) == 0) {
+			snd_se_play(3);
+		}
+
+		if(word_1F3B0 >= 0x80) {
 			byte_1F353 = 0;
 			byte_1F34F = 1;
 			word_1F3B0 = 0;
