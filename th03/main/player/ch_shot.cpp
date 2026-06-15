@@ -957,4 +957,87 @@ extern "C" void pascal near reimu_bomb_1515D(void)
 	}
 }
 
+extern "C" void pascal far reimu_bomb(void)
+{
+	uint8_t frame;
+	uint8_t col;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	egc_off();
+	frame = bomb_frame[pid_current];
+	if(frame < 64) {
+		grcg_setcolor(GC_RMW, pid_current);
+		_BX = FP_OFF(byte_20E92);
+		if(pid_current != 0) {
+			_BX += 0x28;
+		}
+		sub_B39E();
+		grcg_off();
+		if(frame < 32) {
+			word_207E0 = (
+				byte_205E0 + (pid_current << 8) + (frame << 3)
+			);
+			word_207E0[0] = 1;
+			_AX = randring2_next16_and(0x7F);
+			_asm {
+				mov	dx, 0FFA0h
+				db	02Bh, 0D0h
+				mov	bx, word_207E0
+				mov	[bx+6], dx
+			}
+			_AX = randring2_next16_mod(PLAYFIELD_W << 4);
+			_asm {
+				mov	bx, word_207E0
+				mov	[bx+2], ax
+				mov	word ptr [bx+4], (384 shl 4)
+			}
+		}
+		Palettes[pid_current].c.r = (frame << 2);
+		Palettes[pid_current].c.g = (frame * 3);
+		Palettes[pid_current].c.b = (frame * 3);
+		palette_changed = true;
+	} else if(frame < 112) {
+		if((frame & 1) != 0) {
+			snd_se_play(16);
+		}
+		if(frame <= 96) {
+			PaletteTone = (100 + ((frame & 1) * 80));
+			palette_changed = true;
+			mrs_put_noalpha_8(
+				((pid_current * PLAYFIELD_W_BORDERED) + PLAYFIELD_LEFT),
+				PLAYFIELD_TOP,
+				(pid_current + 2),
+				(_AX = pid_current)
+			);
+		} else {
+			PaletteTone = 100;
+			palette_changed = true;
+		}
+		col = (frame % 8);
+		if((col & 3) < 2) {
+			playfield_fg_shift_x[pid_current] = 4;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+		}
+	} else {
+		playfield_fg_shift_x[pid_current] = 0;
+		_AL = frame;
+		_AL <<= 3;
+		_DL = 255;
+		_DL -= _AL;
+		col = _DL;
+		Palettes[pid_current].c.r = _DL;
+		Palettes[pid_current].c.g = _DL;
+		Palettes[pid_current].c.b = _DL;
+		palette_changed = true;
+	}
+
+	egc_on();
+	if(frame < 96) {
+		reimu_bomb_1515D();
+	}
+}
+
 #undef bullets_add_nopcall
