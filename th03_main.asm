@@ -6945,260 +6945,19 @@ HITBOX_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_marisa$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type		= byte ptr  4
-
-		enter	2, 0
-		push	si
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_146C6
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_146C6:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_14723
-		push	1Fh
-		call	@randring2_next16_and$qui
-		neg	ax
-		shl	ax, 4
-		mov	dl, _pid_current
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		mov	word_1FDE4[bx], ax
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_1FDE8[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dl, 30h	; '0'
-		mov	bx, ax
-		sub	dl, _gba_gauge_level[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	byte_202B8[bx], dl
-		jmp	loc_14880
-; ---------------------------------------------------------------------------
-
-loc_14723:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	loc_14880
-		mov	al, [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, word_1FDE4[bx]
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_bullet_template.BT_pid, al
-		mov	_bullet_template.BT_speed, ((3 shl 4) + 8)
-		mov	_bullet_template.BT_group, BG_1
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1FDE8[bx]
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		cmp	dx, 8
-		jnz	short loc_14784
-		push	0
-		jmp	short loc_1479F
-; ---------------------------------------------------------------------------
-
-loc_14784:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1FDE8[bx]
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		cmp	dx, 14h
-		jnz	short loc_147BA
-		push	(PLAYFIELD_W shl 4)
-
-loc_1479F:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	word ptr word_1FDE4[bx]
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		jmp	loc_14850
-; ---------------------------------------------------------------------------
-
-loc_147BA:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1FDE8[bx]
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_147F5
-		mov	_bullet_template.BT_angle, 20h
-		mov	_bullet_template.BT_center.x, 0
-		xor	si, si
-		jmp	short loc_147EE
-; ---------------------------------------------------------------------------
-
-loc_147E0:
-		nopcall	@bullets_add$qv
-		mov	al, _bullet_template.BT_speed
-		add	al, -6
-		mov	_bullet_template.BT_speed, al
-		inc	si
-
-loc_147EE:
-		cmp	si, 5
-		jl	short loc_147E0
-		jmp	short loc_1482F
-; ---------------------------------------------------------------------------
-
-loc_147F5:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1FDE8[bx]
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		cmp	dx, 0Ch
-		jnz	short loc_14850
-		mov	_bullet_template.BT_angle, 60h
-		mov	_bullet_template.BT_center.x, (PLAYFIELD_W shl 4)
-		xor	si, si
-		jmp	short loc_1482A
-; ---------------------------------------------------------------------------
-
-loc_1481C:
-		nopcall	@bullets_add$qv
-		mov	al, _bullet_template.BT_speed
-		add	al, -6
-		mov	_bullet_template.BT_speed, al
-		inc	si
-
-loc_1482A:
-		cmp	si, 5
-		jl	short loc_1481C
-
-loc_1482F:
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B8[bx]
-		mov	ah, 0
-		shl	ax, 4
-		mov	dl, _pid_current
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		add	word_1FDE4[bx], ax
-
-loc_14850:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	word ptr word_1FDE4[bx], (PLAYFIELD_H shl 4)
-		jl	short loc_14875
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-
-loc_14875:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr byte_1FDE8[bx]
-
-loc_14880:
-		pop	si
-		leave
-		retn	2
-@gauge_pattern_marisa$quc endp
+	@gauge_pattern_marisa$quc procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_marisa
-gba_gauge_pattern_pellet_marisa	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1489B
-		call	@gauge_pattern_marisa$quc pascal, BT_PELLET
-
-loc_1489B:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_marisa endp
+	GBA_GAUGE_PATTERN_PELLET_MARISA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_marisa
-gba_gauge_pattern_bullet_marisa	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_148B3
-		call	@gauge_pattern_marisa$quc pascal, BT_BULLET16_DEFAULT
-
-loc_148B3:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_marisa endp
+	GBA_GAUGE_PATTERN_BULLET_MARISA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20320,7 +20079,10 @@ _hitcircles	hitcircle_t HITCIRCLE_COUNT dup (<?>)
 _hitcircles_enemy_last_id	db ?
 _hitcircles_enemy_add_do_not_rand	db ?
 		db 2 dup(?)
+public _word_1FDE4, word_1FDE4, _byte_1FDE8, byte_1FDE8
+_word_1FDE4 label word
 word_1FDE4	dw PLAYER_COUNT dup(?)
+_byte_1FDE8 label byte
 byte_1FDE8	db PLAYER_COUNT dup(?)
 public _byte_1FDEA, byte_1FDEA, _byte_1FE1C, byte_1FE1C
 _byte_1FDEA label byte
@@ -20388,6 +20150,8 @@ gba_gauge_pattern_bullet_p1	dd ?
 gba_gauge_pattern_bullet_p2	dd ?
 _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
+public _byte_202B8, byte_202B8
+_byte_202B8 label byte
 byte_202B8	db ?
 byte_202B9	db ?
 byte_202BA	db ?
