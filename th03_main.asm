@@ -6693,136 +6693,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-chiyuri_121F5	proc near
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		cmp	dx, 1
-		jnz	locret_12353
-		cmp	word_1F3B0, 1
-		jnz	short loc_12282
-		mov	byte_23DE4, 224
-		mov	byte_23DE5, 0
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	ax, word_1F33E
-		add	ax, 0FC80h
-		push	ax
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		mov	ax, word_1F33E
-		add	ax, (56 shl 4)
-		push	ax
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		push	word_1F33E
-		mov	ax, word_1F340
-		add	ax, 0FC80h
-		push	ax
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		push	word_1F33E
-		mov	ax, word_1F340
-		add	ax, (56 shl 4)
-		push	ax
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		jmp	short loc_1229A
-; ---------------------------------------------------------------------------
-
-loc_12282:
-		cmp	word_1F3B0, 80h
-		jb	short loc_1229A
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-		mov	byte_1F353, 20h	; ' '
-
-loc_1229A:
-		mov	_bullet_template.BT_type, BT_PELLET
-		mov	_bullet_template.BT_group, BG_1
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_speed, al
-		cmp	byte_23DE5, 0
-		jnz	short loc_122CC
-		mov	al, byte_23DE4
-		add	al, 8
-		mov	byte_23DE4, al
-		cmp	byte_23DE4, 20h	; ' '
-		jnz	short loc_122E5
-		mov	byte_23DE5, 1
-		mov	byte_23DE4, 24h	; '$'
-		jmp	short loc_122E5
-; ---------------------------------------------------------------------------
-
-loc_122CC:
-		mov	al, byte_23DE4
-		add	al, -8
-		mov	byte_23DE4, al
-		cmp	byte_23DE4, 228
-		jnz	short loc_122E5
-		mov	byte_23DE5, 0
-		mov	byte_23DE4, 224
-
-loc_122E5:
-		mov	ax, word_1F33E
-		add	ax, (56 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_23DE4
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (56 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, _bullet_template.BT_angle
-		add	al, 40h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		add	ax, (-56 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, _bullet_template.BT_angle
-		add	al, 40h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (-56 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, _bullet_template.BT_angle
-		add	al, 40h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-
-locret_12353:
-		leave
-		retn
-chiyuri_121F5	endp
+	CHIYURI_121F5 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -23604,11 +23475,14 @@ word_23DCA	dw 6 dup(?)
 _word_23DD6 label word
 word_23DD6	dw 6 dup(?)
 public _byte_23DE2, byte_23DE2, _byte_23DE3, byte_23DE3
+public _byte_23DE4, byte_23DE4, _byte_23DE5, byte_23DE5
 _byte_23DE2 label byte
 byte_23DE2	db ?
 _byte_23DE3 label byte
 byte_23DE3	db ?
+_byte_23DE4 label byte
 byte_23DE4	db ?
+_byte_23DE5 label byte
 byte_23DE5	db ?
 byte_23DE6	db ?
 byte_23DE7	db ?
