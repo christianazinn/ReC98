@@ -4,6 +4,8 @@
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th02/snd/snd.h"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
@@ -20,10 +22,13 @@ extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F35E[];
+extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A2;
 extern "C" subpixel_t word_23DCA[];
 extern "C" subpixel_t word_23DD6[];
+extern "C" uint8_t byte_23DE2;
 
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near reimu_111A3(void)
@@ -156,4 +161,74 @@ extern "C" void pascal far ellen_113E2(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near ellen_11439(void)
+{
+	pid_t pid_other;
+	register int i;
+
+	pid_other = (1 - pid_current);
+	if((word_1F3B0 == 0x10) || (word_1F3B0 == 0x14)) {
+		SUB_CE0C(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+		return;
+	}
+
+	if(word_1F3B0 == 0x18) {
+		SUB_CE0C(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+		byte_23DE2 = 0x40;
+		return;
+	}
+
+	if(word_1F3B0 < 0x1C) {
+		return;
+	}
+
+	bullet_template.angle = byte_23DE2;
+	bullet_template.group = BG_2_SPREAD_HORIZONTALLY_SYMMETRIC;
+	bullet_template.center.x.v = word_1F33E;
+	bullet_template.center.y.v = word_1F340;
+	bullet_template.speed.v = byte_1F39F;
+	bullet_template.type = BT_BULLET16_DEFAULT;
+	bullet_template.pid = pid_other;
+	bullet_template.sprite_offset = (64 / BYTE_DOTS);
+	if(pid_current != 0) {
+		bullet_template.sprite_offset += (8 * ROW_SIZE);
+	}
+
+	if(word_1F3B0 < 0x24) {
+		_asm {
+			test byte ptr word_1F3B0, 1
+			jnz end_check
+			jmp single_shot
+		}
+	}
+	if(word_1F3B0 == 0x24) {
+		snd_se_play(3);
+		for(i = 0; i < 8; i++) {
+			bullets_add();
+			byte_23DE2 += 8;
+			bullet_template.angle = byte_23DE2;
+		}
+		goto end_check;
+	} else {
+		if(word_1F3B0 > 0x2C) {
+			goto end_check;
+		}
+		if((word_1F3B0 & 1) != 0) {
+			goto end_check;
+		}
+	}
+
+single_shot:
+	snd_se_play(3);
+	bullets_add();
+	byte_23DE2 += 8;
+
+end_check:
+	if(word_1F3B0 >= 0x2C) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
 }
