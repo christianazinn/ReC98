@@ -6383,73 +6383,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F685	proc near
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	byte_1F353, 1
-		cmp	word_1F3B0, 38h	; '8'
-		jb	locret_F72B
-		cmp	word_1F3B0, 40h
-		jnz	short loc_F6BA
-		push	large (((8 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(280 shl 4)
-		jmp	short loc_F706
-; ---------------------------------------------------------------------------
-
-loc_F6BA:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnz	short loc_F6D4
-		push	large (((56 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(232 shl 4)
-		jmp	short loc_F706
-; ---------------------------------------------------------------------------
-
-loc_F6D4:
-		cmp	word_1F3B0, 60h
-		jnz	short loc_F6EE
-		push	large (((104 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(184 shl 4)
-		jmp	short loc_F706
-; ---------------------------------------------------------------------------
-
-loc_F6EE:
-		cmp	word_1F3B0, 70h	; 'p'
-		jnz	short loc_F713
-		push	large (((152 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(136 shl 4)
-
-loc_F706:
-		push	(368 shl 4)
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_F713:
-		cmp	word_1F3B0, 84h
-		jnz	short locret_F72B
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-locret_F72B:
-		leave
-		retn
-marisa_F685	endp
+	MARISA_F685 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20888,6 +20822,8 @@ loc_19B00:
 
 ; Attributes: bp-based frame
 
+public MARISA_19B06, marisa_19B06
+MARISA_19B06 label far
 marisa_19B06	proc far
 
 arg_0		= byte ptr  6
