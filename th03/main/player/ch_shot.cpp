@@ -35,6 +35,8 @@ extern "C" uint8_t near *word_205CA;
 extern "C" uint8_t byte_205CC;
 extern "C" uint8_t byte_205E0[];
 extern "C" uint8_t near *word_207E0;
+extern "C" uint8_t byte_20CF6[];
+extern "C" uint8_t near *word_20E22;
 extern "C" uint8_t byte_20E92[];
 extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_current;
@@ -1038,6 +1040,24 @@ extern "C" void pascal far reimu_bomb(void)
 	if(frame < 96) {
 		reimu_bomb_1515D();
 	}
+}
+
+extern "C" void far sub_153BB(void)
+{
+	word_20E22 = byte_20CF6;
+	_AX = 0;
+	goto clear_loop_check;
+
+clear_loop:
+	{
+		word_20E22[0] = 0;
+		_AX++;
+		word_20E22 += 0x0A;
+	}
+
+clear_loop_check:
+	asm { cmp ax, 1Eh; }
+	asm { jl clear_loop; }
 }
 
 #undef bullets_add_nopcall
