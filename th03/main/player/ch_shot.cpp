@@ -35,6 +35,9 @@ extern "C" uint8_t near *word_205CA;
 extern "C" uint8_t byte_205CC;
 extern "C" uint8_t byte_205E0[];
 extern "C" uint8_t near *word_207E0;
+extern "C" uint8_t byte_20CF0[];
+extern "C" uint8_t byte_20CF2[];
+extern "C" uint8_t byte_20CF4[];
 extern "C" uint8_t byte_20CF6[];
 extern "C" uint8_t near *word_20E22;
 extern "C" uint8_t byte_20E24[];
@@ -1292,6 +1295,102 @@ loop:
 loop_check:
 	asm { cmp si, 0Fh; }
 	asm { jl loop; }
+}
+
+void pascal near gauge_pattern_mima(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(*reinterpret_cast<uint16_t *>(&type) == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		if(randring_far_next16_and(1) == 0) {
+			_AL = -7;
+		} else {
+			_AL = 7;
+		}
+		_asm {
+			mov	dl, pid_current
+			mov	dh, 0
+			db	08Bh, 0DAh
+			mov	byte_20CF2[bx], al
+		}
+		byte_20CF0[pid_current] = 0x40;
+		byte_20CF4[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (gba_gauge_level[pid_current] + 0x26);
+		byte_202B9[pid_current * 4] = (
+			(gba_gauge_level[pid_current] * 2) + 0x18
+		);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	if((byte_20CF4[pid_current] % 8) == 0) {
+		bullet_template.type = static_cast<bullet_type_t>(type);
+		if(byte_20CF2[pid_current] > 7) {
+			bullet_template.center.x.v = (32 << 4);
+		} else {
+			bullet_template.center.x.v = (256 << 4);
+		}
+		bullet_template.center.y.v = (16 << 4);
+		bullet_template.speed.v = byte_202B9[pid_current * 4];
+		bullet_template.pid = pid_other;
+		bullet_template.angle = byte_20CF0[pid_current];
+		bullet_template.is_animated = false;
+		bullet_template.group = BG_5_SPREAD_NARROW;
+		SUB_CE0C(
+			bullet_template.center.x.v,
+			(16 << 4),
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add_nopcall();
+
+		if((byte_20CF4[pid_current] % 0x10) != 0) {
+			bullet_template.group = BG_RING;
+			bullet_template.count = byte_202B8[pid_current * 4];
+			bullet_template.speed.v = ((3 << 4) + 6);
+			SUB_CE0C(
+				bullet_template.center.x.v,
+				(16 << 4),
+				static_cast<uint16_t>(pid_other)
+			);
+			bullets_add_nopcall();
+		}
+
+		byte_20CF0[pid_current] += byte_20CF2[pid_current];
+		bullet_template.is_animated = true;
+	}
+
+	if(byte_20CF4[pid_current] > 0x40) {
+		gba_flag_active[pid_current] = GBAF_NONE;
+		sub_A3A8(pid_other);
+	}
+	byte_20CF4[pid_current]++;
+}
+
+extern "C" void pascal far gba_gauge_pattern_pellet_mima(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_mima(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_mima(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_mima(BT_BULLET16_DEFAULT);
+	}
 }
 
 #undef bullets_add_nopcall

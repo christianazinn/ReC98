@@ -7114,243 +7114,19 @@ MIMA_CHARGESHOT_1561C procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_mima$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type		= word ptr  4
-
-		enter	2, 0
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_156F8
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_156F8:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_15786
-		push	1
-		nopcall	@randring_far_next16_and$qui
-		or	ax, ax
-		jnz	short loc_15717
-		mov	al, -7
-		jmp	short loc_15719
-; ---------------------------------------------------------------------------
-
-loc_15717:
-		mov	al, 7
-
-loc_15719:
-		mov	dl, _pid_current
-		mov	dh, 0
-		mov	bx, dx
-		mov	byte_20CF2[bx], al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_20CF0[bx], 40h
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_20CF4[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		add	al, 26h	; '&'
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B8[bx], al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		add	al, al
-		add	al, 18h
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B9[bx], al
-		leave
-		retn	2
-; ---------------------------------------------------------------------------
-
-loc_15786:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	locret_158C1
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20CF4[bx]
-		mov	ah, 0
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_15894
-		mov	al, byte ptr [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_20CF2[bx], 7
-		jbe	short loc_157DD
-		mov	_bullet_template.BT_center.x, (32 shl 4)
-		jmp	short loc_157E3
-; ---------------------------------------------------------------------------
-
-loc_157DD:
-		mov	_bullet_template.BT_center.x, (256 shl 4)
-
-loc_157E3:
-		mov	_bullet_template.BT_center.y, (16 shl 4)
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B9[bx]
-		mov	_bullet_template.BT_speed, al
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20CF0[bx]
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_is_animated, 0
-		mov	_bullet_template.BT_group, BG_5_SPREAD_NARROW
-		push	_bullet_template.BT_center.x
-		push	(16 shl 4)
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20CF4[bx]
-		mov	ah, 0
-		mov	bx, 10h
-		cwd
-		idiv	bx
-		or	dx, dx
-		jz	short loc_15878
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B8[bx]
-		mov	_bullet_template.BT_count, al
-		mov	_bullet_template.BT_speed, ((3 shl 4) + 6)
-		push	_bullet_template.BT_center.x
-		push	(16 shl 4)
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-
-loc_15878:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20CF2[bx]
-		mov	dl, _pid_current
-		mov	dh, 0
-		mov	bx, dx
-		add	byte_20CF0[bx], al
-		mov	_bullet_template.BT_is_animated, 1
-
-loc_15894:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_20CF4[bx], 40h
-		jbe	short loc_158B6
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-
-loc_158B6:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr byte_20CF4[bx]
-
-locret_158C1:
-		leave
-		retn	2
-@gauge_pattern_mima$quc endp
+@gauge_pattern_mima$quc procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_mima
-gba_gauge_pattern_pellet_mima proc far
-
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_158DB
-		call	@gauge_pattern_mima$quc pascal, BT_PELLET
-
-loc_158DB:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_mima endp
+	GBA_GAUGE_PATTERN_PELLET_MIMA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_mima
-gba_gauge_pattern_bullet_mima proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_158F3
-		call	@gauge_pattern_mima$quc pascal, BT_BULLET16_DEFAULT
-
-loc_158F3:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_mima endp
+	GBA_GAUGE_PATTERN_BULLET_MIMA procdesc pascal far
 
 	extern @hitbox_hittest$qv:proc
 HITBOX_TEXT ends
@@ -18639,8 +18415,12 @@ word_20CE8	dw ?
 word_20CEA	dw ?
 x_20CEC	dw ?
 		db 2 dup(?)
+public _byte_20CF0, byte_20CF0, _byte_20CF2, byte_20CF2, _byte_20CF4, byte_20CF4
+_byte_20CF0 label byte
 byte_20CF0	db PLAYER_COUNT dup(?)
+_byte_20CF2 label byte
 byte_20CF2	db PLAYER_COUNT dup(?)
+_byte_20CF4 label byte
 byte_20CF4	db PLAYER_COUNT dup(?)
 public _byte_20CF6, byte_20CF6, _word_20E22, word_20E22
 _byte_20CF6 label byte
