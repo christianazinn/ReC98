@@ -22,6 +22,7 @@ extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
+extern "C" uint8_t byte_1F35E[];
 
 extern "C" void pascal near chiyuri_12B38(int col);
 extern "C" void pascal near sub_F58C(void);
@@ -177,4 +178,25 @@ extern "C" void pascal far gba_boss_render_chiyuri(void)
 	if(gba_boss_launched_by == PID_NONE) {
 		sub_A3A8(1 - pid_current);
 	}
+}
+
+extern "C" void pascal far kana_12BFB(uint16_t slot)
+{
+	register uint8_t near *record = &byte_1F35E[slot * 32];
+
+	*reinterpret_cast<subpixel_t near *>(record + 0x00) = TO_SP(144);
+	*reinterpret_cast<subpixel_t near *>(record + 0x02) = TO_SP(80);
+	*reinterpret_cast<uint16_t near *>(record + 0x08) = 0xFFE0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0A) = 0;
+	record[0x12] = 0;
+	record[0x10] = 0;
+	record[0x11] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0C) = 0x0064;
+	record[0x13] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x18) = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0E) = 0x0288;
+	if(slot != 0) {
+		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
+	}
+	record[0x15] = 0;
 }
