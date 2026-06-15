@@ -7370,77 +7370,7 @@ chargeshot_update_yumemi	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_yumemi$qv
-@chargeshot_hittest_yumemi$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset yumemi_chargeshots
-		mov	si, ax
-		cmp	byte ptr [si], 0
-		jz	loc_16BB0
-		cmp	byte ptr [si], 1
-		jnz	short loc_16B69
-		mov	ax, [si+2]
-		add	ax, (-8 shl 4)
-		cmp	ax, _hitbox_right
-		jg	short loc_16BB0
-		mov	ax, [si+2]
-		add	ax, (8 shl 4)
-		cmp	ax, _hitbox_origin_topleft.x
-		jl	short loc_16BB0
-		mov	ax, [si+4]
-		add	ax, (-8 shl 4)
-		cmp	ax, _hitbox_bottom
-		jg	short loc_16BB0
-		mov	ax, [si+4]
-		add	ax, (8 shl 4)
-		cmp	ax, _hitbox_origin_topleft.y
-		jl	short loc_16BB0
-		mov	byte ptr [si], 2
-		mov	byte ptr [si+1], 0
-		call	snd_se_play pascal, 7
-		jmp	short loc_16BB0
-; ---------------------------------------------------------------------------
-
-loc_16B69:
-		mov	ax, [si+2]
-		add	ax, (-56 shl 4)
-		cmp	ax, _hitbox_right
-		jg	short loc_16BB0
-		mov	ax, [si+2]
-		add	ax, (56 shl 4)
-		cmp	ax, _hitbox_origin_topleft.x
-		jl	short loc_16BB0
-		mov	ax, [si+4]
-		add	ax, (-56 shl 4)
-		cmp	ax, _hitbox_bottom
-		jg	short loc_16BB0
-		mov	ax, [si+4]
-		add	ax, (56 shl 4)
-		cmp	ax, _hitbox_origin_topleft.y
-		jl	short loc_16BB0
-		push	_hitbox_origin_topleft.x	; center_x
-		push	_hitbox_origin_topleft.y	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		mov	al, 1
-		jmp	short loc_16BB2
-; ---------------------------------------------------------------------------
-
-loc_16BB0:
-		mov	al, 0
-
-loc_16BB2:
-		pop	si
-		pop	bp
-		retf
-@chargeshot_hittest_yumemi$qv endp
+@chargeshot_hittest_yumemi$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
