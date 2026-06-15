@@ -4,6 +4,8 @@
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th02/snd/snd.h"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
@@ -23,10 +25,16 @@ extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
+extern "C" uint8_t byte_1F39F;
 
 extern "C" void pascal near chiyuri_12B38(int col);
 extern "C" void pascal near sub_F58C(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far KANA_19896(
+	subpixel_t x, subpixel_t y, uint8_t angle
+);
 
 extern "C" void pascal near chiyuri_1295E(void)
 {
@@ -199,4 +207,40 @@ extern "C" void pascal far kana_12BFB(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near kana_12C4F(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		return;
+	}
+	if(word_1F3B0 == 0x10) {
+		byte_1F354 = 0;
+		byte_1F353 = 2;
+		SUB_CE0C(word_1F33E, word_1F340, (1 - pid_current));
+		return;
+	}
+	if(word_1F3B0 == 0x28) {
+		SUB_CDBD(word_1F33E, word_1F340, (1 - pid_current));
+		KANA_19896(word_1F33E, word_1F340, 224);
+		KANA_19896(word_1F33E, word_1F340, 8);
+		KANA_19896(word_1F33E, word_1F340, 0x78);
+		KANA_19896(word_1F33E, word_1F340, 160);
+		bullet_template.type = BT_BULLET16_DEFAULT_WITH_ACCEL;
+		bullet_template.group = BG_RING;
+		bullet_template.count = byte_1F39F;
+		bullet_template.accel_type = BAT_Y;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.speed.v = (3 << 4);
+		bullets_add();
+		snd_se_play(10);
+		return;
+	}
+	if(word_1F3B0 > 0x50) {
+		byte_1F353 = 0;
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
 }

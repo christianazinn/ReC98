@@ -6769,87 +6769,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-kana_12C4F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 1
-		jnz	short loc_12C60
-		mov	byte_1F353, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12C60:
-		cmp	word_1F3B0, 10h
-		jnz	short loc_12C8B
-		mov	byte_1F354, 0
-		mov	byte_1F353, 2
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CE0C
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12C8B:
-		cmp	word_1F3B0, 28h	; '('
-		jnz	loc_12D1E
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CDBD
-		push	word_1F33E
-		push	word_1F340
-		push	224
-		call	kana_19896
-		push	word_1F33E
-		push	word_1F340
-		push	8
-		call	kana_19896
-		push	word_1F33E
-		push	word_1F340
-		push	78h ; 'x'
-		call	kana_19896
-		push	word_1F33E
-		push	word_1F340
-		push	160
-		call	kana_19896
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT_WITH_ACCEL
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_count, al
-		mov	_bullet_template.BT_accel_type, BAT_Y
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	_bullet_template.BT_speed, (3 shl 4)
-		call	@bullets_add$qv
-		call	snd_se_play pascal, 10
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12D1E:
-		cmp	word_1F3B0, 50h	; 'P'
-		jbe	short loc_12D35
-		mov	byte_1F353, 0
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-
-loc_12D35:
-		pop	bp
-		retn
-kana_12C4F	endp
+	KANA_12C4F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -14939,6 +14859,8 @@ loc_19890:
 
 ; Attributes: bp-based frame
 
+public KANA_19896
+KANA_19896 label far
 kana_19896	proc far
 
 arg_0		= byte ptr  6
