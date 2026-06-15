@@ -1,15 +1,19 @@
 #pragma codeseg main_03_TEXT
 
+#include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th02/snd/snd.h"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
@@ -22,7 +26,11 @@ extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
+extern "C" uint8_t byte_1F358;
+extern "C" uint8_t byte_1F39F;
 
+extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near kana_13174(void)
@@ -142,4 +150,59 @@ extern "C" void pascal far rikako_1334D(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near rikako_133A5(void)
+{
+	uint8_t angle;
+	uint8_t angle_delta;
+	register int i;
+
+	_asm {
+		cmp	byte ptr byte_1F358, 8
+		jg	short rikako_133A5_ramp_done
+		test	byte ptr word_1F3B0, 7
+		jnz	short rikako_133A5_ramp_done
+		inc	byte ptr byte_1F358
+rikako_133A5_ramp_done:
+	}
+
+	if(word_1F3B0 == 0x10) {
+		SUB_CE0C(word_1F33E, word_1F340, (1 - pid_current));
+		return;
+	}
+
+	if(word_1F3B0 == 0x28) {
+		SUB_CDBD(word_1F33E, word_1F340, (1 - pid_current));
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.group = BG_5_SPREAD_WIDE;
+		bullet_template.speed.v = ((1 << 4) + 12);
+		if(randring_far_next16_and(1) != 0) {
+			_AL = 0x30;
+		} else {
+			_AL = -0x30;
+		}
+		angle_delta = _AL;
+
+		i = 0;
+		while(static_cast<int>(byte_1F39F) > i) {
+			angle = ((i << 8) / static_cast<int>(byte_1F39F));
+			bullet_template.center.x.v = polar(
+				word_1F33E, TO_SP(48), CosTable8[angle]
+			);
+			bullet_template.center.y.v = polar(
+				word_1F340, TO_SP(48), SinTable8[angle]
+			);
+			bullet_template.angle = (angle + angle_delta);
+			bullets_add();
+			i++;
+		}
+		snd_se_play(5);
+		return;
+	}
+
+	if(word_1F3B0 > 0x50) {
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
 }
