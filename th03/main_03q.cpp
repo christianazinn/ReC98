@@ -25,10 +25,12 @@ extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
+extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_20E4C;
 extern "C" uint8_t byte_20E4D;
 extern "C" uint8_t byte_20E4E;
@@ -40,6 +42,7 @@ extern const bullet_group_t near yumemi_group_1DCF2[];
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far yumemi_1A95F(subpixel_t x, subpixel_t y);
 extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
@@ -335,5 +338,42 @@ extern "C" void pascal near yumemi_1050F(void)
 	if(word_1F3B0 >= 0x60) {
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
+	}
+}
+
+extern "C" void pascal near yumemi_105B5(void)
+{
+	if(byte_1F355 == 0) {
+		if((word_1F33E > TO_SP(56)) && (word_1F33E < TO_SP(232))) {
+			sub_F356();
+			return;
+		}
+		byte_1F355 = 1;
+		word_1F3B0 = 0;
+		return;
+	}
+
+	byte_1F354 = 2;
+	point_1F342.x.v = players[bullet_template.pid].center.x.v;
+	point_1F342.y.v = players[bullet_template.pid].center.y.v;
+	if(word_1F3B0 >= 0x20) {
+		sub_F356();
+		sub_F356();
+		if((word_1F3B0 & 0x0F) == 0x0F) {
+			byte_1F353 = 1;
+			SUB_CE5B(
+				point_1F342.x.v,
+				point_1F342.y.v,
+				bullet_template.pid
+			);
+			yumemi_1A95F(point_1F342.x.v, point_1F342.y.v);
+			return;
+		}
+		if(static_cast<uint16_t>(byte_1F3A3) < word_1F3B0) {
+			byte_1F353 = 0;
+			byte_1F34F = 1;
+			word_1F3B0 = 0;
+			byte_1F355 = 0;
+		}
 	}
 }

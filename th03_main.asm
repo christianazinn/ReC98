@@ -6495,81 +6495,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_1050F procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_105B5	proc near
-		push	bp
-		mov	bp, sp
-		cmp	byte_1F355, 0
-		jnz	short loc_105E1
-		cmp	word_1F33E, (56 shl 4)
-		jle	short loc_105D4
-		cmp	word_1F33E, (232 shl 4)
-		jge	short loc_105D4
-		call	sub_F356
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_105D4:
-		mov	byte_1F355, 1
-		mov	word_1F3B0, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_105E1:
-		mov	byte_1F354, 2
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.x
-		mov	point_1F342.x, ax
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.y
-		mov	point_1F342.y, ax
-		cmp	word_1F3B0, 20h	; ' '
-		jb	short loc_10667
-		call	sub_F356
-		call	sub_F356
-		mov	ax, word_1F3B0
-		and	ax, 0Fh
-		cmp	ax, 0Fh
-		jnz	short loc_10647
-		mov	byte_1F353, 1
-		push	point_1F342.x
-		push	point_1F342.y
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		push	point_1F342.x
-		push	point_1F342.y
-		call	yumemi_1A95F
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_10647:
-		mov	al, byte_1F3A3
-		mov	ah, 0
-		cmp	ax, word_1F3B0
-		jnb	short loc_10667
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-		mov	byte_1F355, 0
-
-loc_10667:
-		pop	bp
-		retn
-yumemi_105B5	endp
+	YUMEMI_105B5 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -21332,6 +21258,8 @@ loc_1A959:
 
 ; Attributes: bp-based frame
 
+public YUMEMI_1A95F
+YUMEMI_1A95F label far
 yumemi_1A95F	proc far
 
 arg_0		= word ptr  6
@@ -26116,10 +26044,12 @@ byte_1F351	db ?
 _byte_1F352 label byte
 byte_1F352	db ?
 public _byte_1F353, byte_1F353, _byte_1F354, byte_1F354
+public _byte_1F355, byte_1F355
 _byte_1F353 label byte
 byte_1F353	db ?
 _byte_1F354 label byte
 byte_1F354	db ?
+_byte_1F355 label byte
 byte_1F355	db ?
 public _word_1F356, word_1F356
 _word_1F356 label word
