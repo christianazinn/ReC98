@@ -1,5 +1,3 @@
-#pragma option -zPmain_04
-
 #include "th03/main/player/chain.hpp"
 #include "th03/main/player/combo.hpp"
 #include "th03/main/player/gba.hpp"
