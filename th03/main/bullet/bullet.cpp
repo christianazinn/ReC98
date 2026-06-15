@@ -8,6 +8,7 @@
 #include "th03/main/enemy/expl.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/hitbox.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 #include "th03/sprites/pellet.h"
@@ -133,7 +134,12 @@ uint8_t bullet_trail_ring_i;
 extern "C" uint8_t byte_202B8[];
 extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_220DE[];
+extern "C" uint8_t yumemi_chargeshots[];
+extern "C" uint8_t pid_PID_so_attack;
 
+extern "C" void pascal near yumemi_chargeshot_16BB5(
+	sprite16_offset_t sprite_offset, int length, uint8_t angle
+);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 
@@ -144,6 +150,170 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -k.
 #pragma option -a1
 #pragma option -G-
+#pragma warn -aus
+extern "C" void pascal far chargeshot_render_yumemi(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	if(shot[0] == 0) {
+		return;
+	}
+
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	_SI = (pid_PID_so_attack + (40 * ROW_SIZE));
+	frame = shot[1];
+	if((frame & 1) != 0) {
+		_SI += 4;
+	}
+
+	if(shot[0] == 1) {
+		left = (
+			playfield_fg_x_to_screen(
+				reinterpret_cast<Subpixel near *>(shot + 2)[0].v,
+				pid_current
+			) - 16
+		);
+		_AX = reinterpret_cast<Subpixel near *>(shot + 4)[0].v;
+		asm { sar ax, SUBPIXEL_BITS; }
+		top = _AX;
+		sprite16_put(left, _AX, _SI);
+		return;
+	}
+
+	_SI += (16 * ROW_SIZE);
+	if(frame < 8) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+		}
+		goto call_with_angle_0;
+	}
+	if(frame < 0x10) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFF9h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+		}
+		goto call_helper;
+	}
+	if(frame < 0x18) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFF1h
+		}
+		goto call_with_angle_224;
+	}
+	if(frame < 0x20) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFE8h
+		}
+		goto call_with_angle_0;
+	}
+	if(frame < 0x28) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFE1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+		}
+		goto call_helper;
+	}
+	if(frame >= 0x30) {
+		goto ge_30;
+	}
+	_asm {
+		push	si
+		mov	al, [bp-5]
+		mov	ah, 0
+		add	ax, 0FFD9h
+	}
+
+call_with_angle_224:
+	_asm {
+		shl	ax, 3
+		shl	ax, 4
+		push	ax
+		push	224
+	}
+	goto call_helper;
+
+ge_30:
+	if(frame >= 0x40) {
+		return;
+	}
+	if(frame < 0x38) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFD1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+			call	near ptr yumemi_chargeshot_16BB5
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFD1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	224
+			call	near ptr yumemi_chargeshot_16BB5
+		}
+	}
+	_asm {
+		push	si
+		mov	al, [bp-5]
+		mov	ah, 0
+		add	ax, 0FFD0h
+	}
+
+call_with_angle_0:
+	_asm {
+		shl	ax, 3
+		shl	ax, 4
+		push	ax
+		push	0
+	}
+	goto call_helper;
+
+call_helper:
+	_asm {
+		call	near ptr yumemi_chargeshot_16BB5
+	}
+}
+#pragma warn .aus
+
 void pascal near gauge_pattern_yumemi(uint8_t type)
 {
 	uint8_t pid_other;

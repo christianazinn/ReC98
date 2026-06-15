@@ -7446,6 +7446,7 @@ loc_16BB2:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
+public YUMEMI_CHARGESHOT_16BB5
 
 yumemi_chargeshot_16BB5	proc near
 
@@ -7524,183 +7525,7 @@ yumemi_chargeshot_16BB5	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_YUMEMI
-chargeshot_render_yumemi	proc far
-
-var_5		= byte ptr -5
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset yumemi_chargeshots
-		mov	di, ax
-		cmp	byte ptr [di], 0
-		jz	loc_16DC4
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		cmp	_pid_current, 0
-		jnz	short loc_16C9F
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_16CAB
-; ---------------------------------------------------------------------------
-
-loc_16C9F:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_16CAB:
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (40 * ROW_SIZE)
-		mov	si, ax
-		mov	al, [di+1]
-		mov	[bp+var_5], al
-		test	[bp+var_5], 1
-		jz	short loc_16CC4
-		add	si, 4
-
-loc_16CC4:
-		cmp	byte ptr [di], 1
-		jnz	short loc_16CF3
-		push	word ptr [di+2]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@left], ax
-		mov	ax, [di+4]
-		sar	ax, 4
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, si
-		jmp	loc_16DC4
-; ---------------------------------------------------------------------------
-
-loc_16CF3:
-		add	si, (16 * ROW_SIZE)
-		cmp	[bp+var_5], 8
-		jnb	short loc_16D06
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		jmp	loc_16DB8
-; ---------------------------------------------------------------------------
-
-loc_16D06:
-		cmp	[bp+var_5], 10h
-		jnb	short loc_16D21
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFF9h
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	20h ; ' '
-		jmp	loc_16DC1
-; ---------------------------------------------------------------------------
-
-loc_16D21:
-		cmp	[bp+var_5], 18h
-		jnb	short loc_16D32
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFF1h
-		jmp	short loc_16D6C
-; ---------------------------------------------------------------------------
-
-loc_16D32:
-		cmp	[bp+var_5], 20h	; ' '
-		jnb	short loc_16D43
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFE8h
-		jmp	short loc_16DB8
-; ---------------------------------------------------------------------------
-
-loc_16D43:
-		cmp	[bp+var_5], 28h	; '('
-		jnb	short loc_16D5D
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFE1h
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	20h ; ' '
-		jmp	short loc_16DC1
-; ---------------------------------------------------------------------------
-
-loc_16D5D:
-		cmp	[bp+var_5], 30h	; '0'
-		jnb	short loc_16D78
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFD9h
-
-loc_16D6C:
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	224
-		jmp	short loc_16DC1
-; ---------------------------------------------------------------------------
-
-loc_16D78:
-		cmp	[bp+var_5], 40h
-		jnb	short loc_16DC4
-		cmp	[bp+var_5], 38h	; '8'
-		jnb	short loc_16DAF
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFD1h
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	20h ; ' '
-		call	yumemi_chargeshot_16BB5
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFD1h
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	224
-		call	yumemi_chargeshot_16BB5
-
-loc_16DAF:
-		push	si
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		add	ax, 0FFD0h
-
-loc_16DB8:
-		shl	ax, 3
-		shl	ax, 4
-		push	ax
-		push	0
-
-loc_16DC1:
-		call	yumemi_chargeshot_16BB5
-
-loc_16DC4:
-		pop	di
-		pop	si
-		leave
-		retf
-chargeshot_render_yumemi	endp
+CHARGESHOT_RENDER_YUMEMI procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -18102,9 +17927,10 @@ EXTENDS_DISABLE = 255
 public _extends_gained
 _extends_gained	db ?
 		db ?
-public _byte_220DE, byte_220DE
+public _byte_220DE, byte_220DE, _yumemi_chargeshots, yumemi_chargeshots
 _byte_220DE label byte
 byte_220DE	db PLAYER_COUNT dup(?)
+_yumemi_chargeshots label byte
 yumemi_chargeshots label byte
 byte_220E0	db ?
 		db 5 dup(?)
