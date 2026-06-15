@@ -29,6 +29,42 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far exatt_add_marisa(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			randring_far_next16_mod(PLAYFIELD_W << 4),
+			(368 << 4),
+			pid,
+			0x6E
+		);
+		return;
+	}
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 0x0E) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far marisa_19B06(
 	subpixel_t x, subpixel_t y, pid_t pid
 )

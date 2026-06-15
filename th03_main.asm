@@ -1680,7 +1680,7 @@ arg_0		= word ptr  4
 		call	sub_A4C3
 		or	si, si
 		jnz	loc_A912
-		setfarfp	exatt_add_p1, @exatt_add_marisa$qiiuc
+		setfarfp	exatt_add_p1, EXATT_ADD_MARISA
 		setfarfp	exatt_update_p1, @exatt_update_marisa$qv
 		setfarfp	exatt_render_p1, @exatt_render_marisa$qv
 		setfarfp	_p1.chargeshot_add, CHARGESHOT_ADD_MARISA
@@ -1699,7 +1699,7 @@ arg_0		= word ptr  4
 ; ---------------------------------------------------------------------------
 
 loc_A912:
-		setfarfp	exatt_add_p2, @exatt_add_marisa$qiiuc
+		setfarfp	exatt_add_p2, EXATT_ADD_MARISA
 		setfarfp	exatt_update_p2, @exatt_update_marisa$qv
 		setfarfp	exatt_render_p2, @exatt_render_marisa$qv
 		setfarfp	_p2.chargeshot_add, CHARGESHOT_ADD_MARISA
@@ -9852,56 +9852,7 @@ loc_19AB3:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @EXATT_ADD_MARISA$QIIUC
-@exatt_add_marisa$qiiuc proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_19AFB
-; ---------------------------------------------------------------------------
-
-loc_19AD2:
-		cmp	byte ptr [si], 0
-		jnz	short loc_19AF7
-		mov	word_2028A, si
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	(PLAYFIELD_W shl 4)
-		call	@randring_far_next16_mod$qui
-		push	ax
-		push	(368 shl 4)
-		push	[bp+arg_0]
-		push	6Eh ; 'n'
-		call	sub_1A1ED
-		jmp	short loc_19B00
-; ---------------------------------------------------------------------------
-
-loc_19AF7:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_19AFB:
-		cmp	di, 0Eh
-		jl	short loc_19AD2
-
-loc_19B00:
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-@exatt_add_marisa$qiiuc endp
+EXATT_ADD_MARISA procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
