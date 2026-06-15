@@ -1114,4 +1114,67 @@ extern "C" void pascal near mima_chargeshot_1546C(
 	snd_se_play(13);
 }
 
+extern "C" void pascal far chargeshot_update_mima(void)
+{
+	uint8_t frames;
+	register int i;
+
+	if(byte_20E24[pid_current] == 0) {
+		return;
+	}
+
+	playfield_clip_negative_radius.x.v = TO_SP(-16);
+	playfield_clip_negative_radius.y.v = TO_SP(-16);
+	word_20E22 = (byte_20CF6 + (pid_current * 150));
+	asm {
+		mov	al, pid_current
+		mov	ah, 0
+		db	08Bh, 0D8h
+		mov	al, byte_20E26[bx]
+		inc	al
+		mov	dl, pid_current
+		mov	dh, 0
+		db	08Bh, 0DAh
+		mov	byte ptr byte_20E26[bx], al
+		mov	[bp-1], al
+	}
+	i = 0;
+	goto loop_check;
+
+loop:
+	if(word_20E22[0] != 0) {
+		_BX = reinterpret_cast<uint16_t>(word_20E22);
+		reinterpret_cast<Subpixel near *>(_BX + 2)[0].v += (
+			reinterpret_cast<Subpixel near *>(_BX + 6)[0].v
+		);
+		reinterpret_cast<Subpixel near *>(_BX + 4)[0].v += (
+			reinterpret_cast<Subpixel near *>(_BX + 8)[0].v
+		);
+		if(playfield_clip(
+			reinterpret_cast<Subpixel near *>(_BX + 2)[0],
+			reinterpret_cast<Subpixel near *>(_BX + 4)[0]
+		)) {
+			word_20E22[0] = 0;
+			if(i == 0x0E) {
+				byte_20E24[pid_current] = 0;
+			}
+		}
+	}
+	i++;
+	word_20E22 += 0x0A;
+
+loop_check:
+	if(i < 0x0F) {
+		goto loop;
+	}
+
+	if(frames < 0x3C) {
+		if((frames % 4) == 0) {
+			mima_chargeshot_1546C(pid_current, (frames / 4));
+		}
+	}
+
+	players[pid_current].gauge_charged = 0;
+}
+
 #undef bullets_add_nopcall
