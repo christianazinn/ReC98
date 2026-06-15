@@ -6520,189 +6520,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	REIMU_10DA0 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-reimu_10E16	proc near
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		call	sub_F356
-		cmp	word_1F3B0, 0
-		jnz	short loc_10E32
-		mov	byte_1F353, 1
-		call	@randring_far_next16$qv
-		mov	byte_23DC8, al
-
-loc_10E32:
-		cmp	word_1F3B0, 18h
-		jnb	loc_10EBC
-		xor	si, si
-		jmp	short loc_10EA8
-; ---------------------------------------------------------------------------
-
-loc_10E3F:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F3A2
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, byte_23DC8
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		mov	ax, word_1F3B0
-		shl	ax, 4
-		add	ax, ax
-		push	ax
-		push	word_1F33E
-		call	@polar$qiii
-		add	sp, 6
-		mov	bx, si
-		add	bx, bx
-		mov	word_23DCA[bx], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		mov	ax, word_1F3B0
-		shl	ax, 4
-		add	ax, ax
-		push	ax
-		push	word_1F340
-		call	@polar$qiii
-		add	sp, 6
-		mov	bx, si
-		add	bx, bx
-		mov	word_23DD6[bx], ax
-		inc	si
-
-loc_10EA8:
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_10E3F
-		mov	al, byte_23DC8
-		add	al, 8
-		mov	byte_23DC8, al
-		jmp	loc_10FCE
-; ---------------------------------------------------------------------------
-
-loc_10EBC:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnb	loc_10F7A
-		xor	si, si
-		jmp	short loc_10F26
-; ---------------------------------------------------------------------------
-
-loc_10EC9:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F3A2
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, byte_23DC8
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, (48 shl 4), _CosTable8[bx]
-		mov	bx, si
-		add	bx, bx
-		mov	word_23DCA[bx], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, (48 shl 4), _SinTable8[bx]
-		mov	bx, si
-		add	bx, bx
-		mov	word_23DD6[bx], ax
-		inc	si
-
-loc_10F26:
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_10EC9
-		mov	al, byte_23DC8
-		add	al, 8
-		mov	byte_23DC8, al
-		cmp	_round_frame_mod16, 0
-		jnz	loc_10FCE
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_speed, al
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, byte_1F3A4
-		mov	_bullet_template.BT_count, al
-		call	@bullets_add$qv
-		jmp	short loc_10FCE
-; ---------------------------------------------------------------------------
-
-loc_10F7A:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnz	short loc_10FCE
-		xor	si, si
-		jmp	short loc_10FB5
-; ---------------------------------------------------------------------------
-
-loc_10F85:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F3A2
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, byte_23DC8
-		mov	[bp+@@angle], al
-		mov	bx, si
-		add	bx, bx
-		push	word_23DCA[bx]
-		mov	bx, si
-		add	bx, bx
-		push	word_23DD6[bx]
-		push	word ptr [bp+@@angle]
-		call	reimu_1A2CE
-		inc	si
-
-loc_10FB5:
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_10F85
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-		mov	byte_1F353, 0
-
-loc_10FCE:
-		pop	si
-		leave
-		retn
-reimu_10E16	endp
+	REIMU_10E16 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19544,6 +19362,8 @@ loc_1A2C8:
 
 ; Attributes: bp-based frame
 
+public REIMU_1A2CE
+REIMU_1A2CE label far
 reimu_1A2CE	proc far
 
 @@angle		= word ptr  6
@@ -25695,13 +25515,18 @@ include th03/main/frame_mod[bss].asm
 include th03/main/player/players[bss].asm
 include th03/main/player/shots[bss].asm
 public _byte_23DC6, byte_23DC6, _byte_23DC7, byte_23DC7
+public _byte_23DC8, byte_23DC8, _word_23DCA, word_23DCA
+public _word_23DD6, word_23DD6
 _byte_23DC6 label byte
 byte_23DC6	db ?
 _byte_23DC7 label byte
 byte_23DC7	db ?
+_byte_23DC8 label byte
 byte_23DC8	db ?
 		db ?
+_word_23DCA label word
 word_23DCA	dw 6 dup(?)
+_word_23DD6 label word
 word_23DD6	dw 6 dup(?)
 byte_23DE2	db ?
 byte_23DE3	db ?
