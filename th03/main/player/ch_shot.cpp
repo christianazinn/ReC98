@@ -33,6 +33,8 @@ extern "C" uint8_t byte_202C8[];
 extern "C" uint8_t byte_202CA[];
 extern "C" uint8_t near *word_205CA;
 extern "C" uint8_t byte_205CC;
+extern "C" uint8_t byte_205E0[];
+extern "C" uint8_t near *word_207E0;
 extern "C" uint8_t byte_20E92[];
 extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_current;
@@ -869,6 +871,51 @@ extern "C" void pascal far sub_1501E(void)
 	}
 
 	bomb_frame[pid_current]++;
+	if(bomb_frame[pid_current] < BOMB_FRAMES) {
+		return;
+	}
+	bomb_flag[pid_current] = BF_INACTIVE;
+	sub_A3A8(pid_current);
+}
+
+extern "C" void pascal far reimu_1508C(void)
+{
+	register int i;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	if(bomb_flag[pid_current] == BF_PREPARING) {
+		bomb_flag[pid_current] = BF_ACTIVE;
+		bomb_frame[pid_current] = 0;
+		i = 0;
+		while(i < 0x20) {
+			byte_205E0[(pid_current << 8) + (i << 3)] = 0;
+			i++;
+		}
+		snd_se_play(18);
+	}
+
+	bomb_frame[pid_current]++;
+	word_207E0 = (byte_205E0 + (pid_current << 8));
+	i = 0;
+	while(i < 0x20) {
+		if(word_207E0[0] != 0) {
+			_asm {
+				mov	bx, word_207E0
+				mov	ax, [bx+6]
+				add	[bx+4], ax
+				cmp	word ptr [bx+4], -128
+				jg	short record_update_done
+				mov	word ptr [bx+4], (384 shl 4)
+				add	word ptr [bx+6], 8
+			}
+record_update_done:
+		}
+		i++;
+		word_207E0 += 8;
+	}
+
 	if(bomb_frame[pid_current] < BOMB_FRAMES) {
 		return;
 	}
