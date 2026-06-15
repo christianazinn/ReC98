@@ -6679,56 +6679,7 @@ KOTOHIME_11D1A procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_kotohime
-gba_boss_render_kotohime proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short loc_1219B
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		jnz	short loc_12166
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_12172
-; ---------------------------------------------------------------------------
-
-loc_12166:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_12172:
-		cmp	byte_1F34F, 0
-		jnz	short loc_1218C
-		mov	ax, word_1F3B0
-		add	ax, ax
-		mov	dx, 200
-		sub	dx, ax
-		shl	dx, 4
-		push	dx
-		call	kotohime_12103
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_1218C:
-		cmp	byte_1F34F, -1
-		jz	short loc_12198
-		call	kotohime_120A0
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_12198:
-		call	sub_F58C
-
-loc_1219B:
-		pop	bp
-		retf
-gba_boss_render_kotohime endp
+	GBA_BOSS_RENDER_KOTOHIME procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
