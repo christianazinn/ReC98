@@ -2,6 +2,8 @@
 
 #include "platform.h"
 #include "th02/snd/snd.h"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 
@@ -94,4 +96,35 @@ extern "C" void pascal far chargeshot_update_marisa(void)
 			word_1FE4E[0] = 0;
 		}
 	}
+}
+
+uint8_t far chargeshot_hittest_marisa(void)
+{
+	uint8_t ret;
+	register int i;
+
+	word_1FE4E = (&byte_1FDEA + (hitbox.pid * 0x32));
+	if(word_1FE4E[0] == 0) {
+		return 0;
+	}
+
+	ret = 0;
+	i = 0;
+	while(i < 12) {
+		if(
+			(reinterpret_cast<Subpixel near *>(word_1FE4E + 2)[i].v >= hitbox.origin.topleft.x.v) &&
+			(reinterpret_cast<Subpixel near *>(word_1FE4E + 2)[i].v <= hitbox.right.v) &&
+			(reinterpret_cast<Subpixel near *>(word_1FE4E + 0x1A)[i].v >= hitbox.origin.topleft.y.v)
+		) {
+			hitcircles_enemy_add(
+				reinterpret_cast<Subpixel near *>(word_1FE4E + 2)[i].v,
+				(hitbox.origin.topleft.y.v + hitbox.radius.y.v),
+				hitbox.pid
+			);
+			ret = 1;
+			break;
+		}
+		i += 4;
+	}
+	return ret;
 }
