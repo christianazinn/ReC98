@@ -7102,35 +7102,8 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-mima_chargeshot_1561C	proc near
-
-@@sprite_offset		= word ptr  4
-arg_2		= word ptr  6
-@@x		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, [bp+@@x]
-		mov	di, [bp+arg_2]
-		push	si	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	si, ax
-		mov	ax, di
-		sar	ax, 4
-		add	ax, 8
-		mov	di, ax
-		call	sprite16_put pascal, si, ax, [bp+@@sprite_offset]
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-mima_chargeshot_1561C	endp
+MIMA_CHARGESHOT_1561C procdesc pascal near \
+	center_x:word, center_y:word, sprite_offset:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7189,7 +7162,7 @@ loc_156AF:
 		shl	dx, 2
 		add	dx, [bp+var_2]
 		push	dx
-		call	mima_chargeshot_1561C
+		call	MIMA_CHARGESHOT_1561C
 
 loc_156D4:
 		inc	si
