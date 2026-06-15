@@ -4,25 +4,31 @@
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F356;
 extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F354;
+extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
+extern "C" uint8_t byte_1F3A0;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
 
+extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near ellen_11814(int frame)
@@ -172,4 +178,25 @@ extern "C" void pascal far kotohime_11A6D(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near kotohime_11AC1(int randomize_angle)
+{
+	subpixel_t center_x;
+	subpixel_t center_y;
+	uint8_t angle;
+	register int i;
+
+	bullet_template.type = BT_BULLET16_DEFAULT;
+	for(i = 0; i < static_cast<int>(byte_1F3A0); i++) {
+		if(randomize_angle != 0) {
+			bullet_template.angle = randring_far_next16_raw();
+		}
+		angle = (((i << 8) / static_cast<int>(byte_1F3A0)) + byte_1F355);
+		center_x = polar(word_1F33E, word_1F356, CosTable8[angle]);
+		center_y = polar(word_1F340, word_1F356, SinTable8[angle]);
+		bullet_template.center.x.v = center_x;
+		bullet_template.center.y.v = center_y;
+		bullets_add();
+	}
 }
