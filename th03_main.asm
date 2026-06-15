@@ -2121,6 +2121,8 @@ set_callbacks_yumemi	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _sub_B37C, sub_B37C
+_sub_B37C label near
 sub_B37C	proc near
 		mov	ax, 0A828h
 
@@ -2158,12 +2160,8 @@ sub_B398	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-public _sub_B39E, sub_B39E
-_sub_B39E label far
-sub_B39E	proc far
-		call	sub_B37C
-		retf
-sub_B39E	endp
+	_sub_B39E procdesc far
+
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7192,7 +7190,7 @@ var_2		= byte ptr -2
 		add	bx, 28h	; '('
 
 loc_1840A:
-		call	sub_B39E
+		call	_sub_B39E
 		call	grcg_off
 		mov	al, [bp+@@frame]
 		shl	al, 2
@@ -7589,7 +7587,7 @@ var_2		= word ptr -2
 		add	bx, 28h	; '('
 
 loc_187AF:
-		call	sub_B39E
+		call	_sub_B39E
 		call	grcg_off
 		mov	al, [bp+@@frame]
 		add	al, al
@@ -8026,7 +8024,7 @@ var_2		= byte ptr -2
 		add	bx, 28h	; '('
 
 loc_18C04:
-		call	sub_B39E
+		call	_sub_B39E
 		call	grcg_off
 		mov	al, [bp+@@frame]
 		mov	ah, 0
@@ -8247,7 +8245,7 @@ var_2		= byte ptr -2
 		add	bx, 28h	; '('
 
 loc_18E11:
-		call	sub_B39E
+		call	_sub_B39E
 		call	grcg_off
 		mov	al, [bp+@@frame]
 		shl	al, 2
