@@ -30,6 +30,51 @@ extern "C" uint16_t wordmask_1DB0C[];
 extern "C" void far sub_B39E(void);
 
 #pragma option -k-
+extern "C" void pascal near sub_B3A2(void)
+{
+	__emit__(0x57);                   // push di
+	__emit__(0x56);                   // push si
+	__emit__(0xB8, 0xF0, 0xFF);       // mov ax, 0FFF0h
+	__emit__(0xBA, 0xA0, 0x04);       // mov dx, EGC_ACTIVEPLANEREG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0xB8, 0xFF, 0x00);       // mov ax, 00FFh
+	__emit__(0xBA, 0xA2, 0x04);       // mov dx, EGC_READPLANEREG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0xB8, 0x00, 0x31);       // mov ax, EGC copy mode
+	__emit__(0xBA, 0xA4, 0x04);       // mov dx, EGC_MODE_ROP_REG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0xB8, 0xFF, 0xFF);       // mov ax, 0FFFFh
+	__emit__(0xBA, 0xA8, 0x04);       // mov dx, EGC_MASKREG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0xB8, 0x00, 0x00);       // mov ax, 0
+	__emit__(0xBA, 0xAC, 0x04);       // mov dx, EGC_ADDRRESSREG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0xB8, 0x0F, 0x00);       // mov ax, 0Fh
+	__emit__(0xBA, 0xAE, 0x04);       // mov dx, EGC_BITLENGTHREG
+	__emit__(0xEF);                   // out dx, ax
+	__emit__(0x8C, 0xDA);             // mov dx, ds
+	__emit__(0xBF, 0x32, 0x02);       // mov di, ((7 * ROW_SIZE) + (16 / BYTE_DOTS))
+	__emit__(0xBE, 0xD8, 0x40);       // mov si, ((207 * ROW_SIZE) + (320 / BYTE_DOTS))
+	__emit__(0xB8, 0xC0, 0xAB);       // mov ax, 0ABC0h
+	__emit__(0x8E, 0xC0);             // mov es, ax
+	__emit__(0x8E, 0xD8);             // mov ds, ax
+	__emit__(0x90);                   // nop
+	__emit__(0xB9, 0x12, 0x00);       // mov cx, 12h
+	__emit__(0xA5);                   // movsw
+	__emit__(0x26, 0x89, 0x45, 0x26); // mov es:[di+26h], ax
+	__emit__(0xE2, 0xF9);             // loop -7
+	__emit__(0x83, 0xEE, 0x74);       // sub si, 74h
+	__emit__(0x83, 0xEF, 0x74);       // sub di, 74h
+	__emit__(0x7D, 0xEE);             // jge -18
+	__emit__(0x8E, 0xDA);             // mov ds, dx
+	__emit__(0x5E);                   // pop si
+	__emit__(0x5F);                   // pop di
+}
+#pragma option -k.
+
+#pragma codestring "\x90"
+
+#pragma option -k-
 extern "C" void pascal near sub_B3F6(void)
 {
 	__emit__(0x57);             // push di
