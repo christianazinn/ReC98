@@ -216,7 +216,7 @@ loc_9764:
 		push	offset arg0	; "mainl"
 
 loc_9770:
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 
 @@ret:
 		pop	si
@@ -2266,27 +2266,9 @@ sub_B3F6	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @GameExecl$qnxc
-@GameExecl$qnxc	proc far
+	@GAMEEXECL$QNXC procdesc pascal far \
+		binary_fn:dword
 
-@@binary_fn		= dword	ptr  6
-
-		push	bp
-		mov	bp, sp
-		freePISlotLarge	0
-		call	super_free
-		call	graph_hide
-		call	text_clear
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	_execl c, offset _MERGED_FN, cs, offset _MERGED_FN, cs, large [bp+@@binary_fn], large 0
-		pop	bp
-		retf	4
-@GameExecl$qnxc	endp
-
-_MERGED_FN	db 'debloat',0
-	nop
-	nop
 
 
 ; =============== S U B	R O U T	I N E =======================================
