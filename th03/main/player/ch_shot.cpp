@@ -1249,4 +1249,49 @@ extern "C" void pascal near mima_chargeshot_1561C(
 	sprite16_put(left, _AX, sprite_offset);
 }
 
+extern "C" void pascal far chargeshot_render_mima(void)
+{
+	sprite16_offset_t sprite_offset;
+
+	if(byte_20E24[pid_current] == 0) {
+		return;
+	}
+	word_20E22 = (byte_20CF6 + (pid_current * 150));
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	sprite_offset = (pid_PID_so_attack + 0x10);
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 8;
+	__emit__(0x33, 0xF6); // XOR SI, SI
+	goto loop_check;
+
+loop:
+	if(word_20E22[0] != 0) {
+		_asm {
+			mov	bx, word_20E22
+			push	word ptr [bx+2]
+			push	word ptr [bx+4]
+			db	08Bh, 0C6h
+			mov	bx, 3
+			cwd
+			idiv	bx
+			shl	dx, 2
+			add	dx, [bp-2]
+			push	dx
+			call	near ptr mima_chargeshot_1561C
+		}
+	}
+	asm { inc si; }
+	word_20E22 += 0x0A;
+
+loop_check:
+	asm { cmp si, 0Fh; }
+	asm { jl loop; }
+}
+
 #undef bullets_add_nopcall
