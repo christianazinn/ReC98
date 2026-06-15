@@ -10312,47 +10312,7 @@ loc_19DCD:
 
 ; Attributes: bp-based frame
 
-kotohime_19DD3	proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 7
-		add	ax, offset _players
-		mov	di, ax
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, (offset exatt_buffers + 256)
-		mov	si, ax
-		cmp	byte ptr [si], 0
-		jz	short loc_19DFA
-		add	si, 20h	; ' '
-
-loc_19DFA:
-		mov	word_2028A, si
-		push	[di+player_stuff_t.center.x]
-		push	[di+player_stuff_t.center.y]
-		push	[bp+arg_2]
-		push	[bp+arg_0]
-		push	word ptr _pid_current
-		push	78h ; 'x'
-		call	sub_1A1ED
-		mov	word ptr [si+0Eh], 0C00h
-		mov	word ptr [si+14h], 20h ; ' '
-		mov	byte ptr [si+12h], 0
-		mov	byte ptr [si+11h], 1
-		pop	di
-		pop	si
-		pop	bp
-		retf	4
-kotohime_19DD3	endp
+KOTOHIME_19DD3 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10445,6 +10405,8 @@ sub_1A1A7	endp
 
 ; Attributes: bp-based frame
 
+public SUB_1A1ED
+SUB_1A1ED label near
 sub_1A1ED	proc near
 
 arg_0		= word ptr  4
