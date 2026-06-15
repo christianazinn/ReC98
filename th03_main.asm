@@ -6514,115 +6514,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	REIMU_10BFE procdesc far
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-reimu_10C4D	proc near
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		cmp	word_1F3B0, 0
-		jnz	short loc_10C76
-		mov	ax, word_1F33E
-		mov	point_1F342.x, ax
-		mov	ax, word_1F340
-		add	ax, (48 shl 4)
-		mov	point_1F342.y, ax
-		push	1
-		call	@randring_far_next16_and$qui
-		mov	byte_23DC6, al
-		mov	byte_23DC7, 10h
-
-loc_10C76:
-		mov	al, byte ptr word_1F3B0
-		add	al, al
-		mov	[bp+@@angle], al
-		cmp	byte_23DC6, 0
-		jz	short loc_10C8D
-		mov	al, 0
-		sub	al, [bp+@@angle]
-		mov	[bp+@@angle], al
-
-loc_10C8D:
-		mov	al, byte_1F39F
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	loc_10D57
-		mov	_bullet_template.BT_type, BT_PELLET_CLOUD
-		mov	_bullet_template.BT_group, BG_1
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		mov	al, [bp+@@angle]
-		add	al, al
-		mov	_bullet_template.BT_angle, al
-		mov	al, byte_23DC7
-		mov	_bullet_template.BT_speed, al
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, (32 shl 4), _CosTable8[bx]
-		mov	_bullet_template.BT_center.x, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, (32 shl 4), _SinTable8[bx]
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		mov	al, [bp+@@angle]
-		add	al, al
-		add	al, 80h
-		mov	_bullet_template.BT_angle, al
-		mov	al, [bp+@@angle]
-		add	al, 80h
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, (32 shl 4), _CosTable8[bx]
-		mov	_bullet_template.BT_center.x, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, (32 shl 4), _SinTable8[bx]
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-
-loc_10D57:
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_10D62
-		inc	byte_23DC7
-
-loc_10D62:
-		mov	al, byte ptr word_1F3B0
-		add	al, al
-		mov	[bp+@@angle], al
-		add	al, -40h
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, point_1F342.y, (48 shl 4), _SinTable8[bx]
-		mov	word_1F340, ax
-		cmp	word_1F3B0, 80h
-		jb	short locret_10D9E
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-locret_10D9E:
-		leave
-		retn
-reimu_10C4D	endp
+	REIMU_10C4D procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -25852,7 +25744,10 @@ include th03/hardware/palette_changed[bss].asm
 include th03/main/frame_mod[bss].asm
 include th03/main/player/players[bss].asm
 include th03/main/player/shots[bss].asm
+public _byte_23DC6, byte_23DC6, _byte_23DC7, byte_23DC7
+_byte_23DC6 label byte
 byte_23DC6	db ?
+_byte_23DC7 label byte
 byte_23DC7	db ?
 byte_23DC8	db ?
 		db ?

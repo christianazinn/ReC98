@@ -5,10 +5,13 @@
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
@@ -23,6 +26,9 @@ extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
+extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_23DC6;
+extern "C" uint8_t byte_23DC7;
 
 extern "C" void pascal near sub_F58C(void);
 
@@ -200,5 +206,61 @@ extern "C" void pascal far reimu_10BFE(uint16_t slot)
 	*reinterpret_cast<uint16_t near *>(record + 0x0E) = 0x028C;
 	if(slot != 0) {
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
+	}
+}
+
+extern "C" void pascal near reimu_10C4D(void)
+{
+	uint8_t angle;
+
+	if(word_1F3B0 == 0) {
+		point_1F342.x.v = word_1F33E;
+		point_1F342.y.v = (word_1F340 + TO_SP(48));
+		byte_23DC6 = randring_far_next16_and(1);
+		byte_23DC7 = 0x10;
+	}
+
+	_AL = static_cast<uint8_t>(word_1F3B0);
+	_AL += _AL;
+	angle = _AL;
+	if(byte_23DC6 != 0) {
+		angle = (0 - angle);
+	}
+
+	if((word_1F3B0 % static_cast<uint16_t>(byte_1F39F)) == 0) {
+		bullet_template.type = BT_PELLET_CLOUD;
+		bullet_template.group = BG_1;
+		bullet_template.pid = (1 - pid_current);
+		_AL = angle;
+		_AL += _AL;
+		bullet_template.angle = _AL;
+		bullet_template.speed.v = byte_23DC7;
+		bullet_template.center.x.v = polar(word_1F33E, TO_SP(32), CosTable8[angle]);
+		bullet_template.center.y.v = polar(word_1F340, TO_SP(32), SinTable8[angle]);
+		bullets_add();
+
+		_AL = angle;
+		_AL += _AL;
+		_AL += 0x80;
+		bullet_template.angle = _AL;
+		angle += 0x80;
+		bullet_template.center.x.v = polar(word_1F33E, TO_SP(32), CosTable8[angle]);
+		bullet_template.center.y.v = polar(word_1F340, TO_SP(32), SinTable8[angle]);
+		bullets_add();
+	}
+
+	if((static_cast<uint8_t>(word_1F3B0) & 1) == 0) {
+		byte_23DC7++;
+	}
+	_AL = static_cast<uint8_t>(word_1F3B0);
+	_AL += _AL;
+	angle = _AL;
+	_AL += -0x40;
+	angle = _AL;
+	word_1F340 = polar(point_1F342.y.v, TO_SP(48), SinTable8[_AL]);
+
+	if(word_1F3B0 >= 0x80) {
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
 	}
 }
