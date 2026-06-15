@@ -23,12 +23,18 @@ extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F354;
 extern "C" subpixel_t word_23DCA[];
 extern "C" subpixel_t word_23DD6[];
 extern "C" uint8_t byte_23DE2;
 
+extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far ellen_194A9(
+	subpixel_t x, subpixel_t y, uint8_t angle, uint8_t delta
+);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near reimu_111A3(void)
@@ -228,6 +234,47 @@ single_shot:
 end_check:
 	if(word_1F3B0 >= 0x2C) {
 		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+
+extern "C" void pascal near ellen_11547(void)
+{
+	pid_t pid_other;
+	uint8_t angle;
+	register int i;
+
+	pid_other = (1 - pid_current);
+	byte_1F354 += 3;
+	if(word_1F3B0 < 0x20) {
+		return;
+	}
+
+	if((word_1F3B0 == 0x20) || (word_1F3B0 == 0x24) || (word_1F3B0 == 0x28)) {
+		SUB_CE0C(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+		return;
+	}
+
+	if(word_1F3B0 == 0x30) {
+		i = 0;
+		angle = randring_far_next16_raw();
+		while(static_cast<int>(byte_1F3A0) > i) {
+			ellen_194A9(word_1F33E, word_1F340, angle, 2);
+			i++;
+			angle += (256 / static_cast<int>(byte_1F3A0));
+		}
+		return;
+	}
+
+	if(word_1F3B0 == 0x60) {
+		i = 0;
+		angle = randring_far_next16_raw();
+		while(static_cast<int>(byte_1F3A0) > i) {
+			ellen_194A9(word_1F33E, word_1F340, angle, 254);
+			i++;
+			angle += (256 / static_cast<int>(byte_1F3A0));
+		}
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 	}

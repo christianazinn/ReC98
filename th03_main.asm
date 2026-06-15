@@ -6569,109 +6569,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-ellen_11547	proc near
-
-var_2		= byte ptr -2
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	al, byte_1F354
-		add	al, 3
-		mov	byte_1F354, al
-		cmp	word_1F3B0, 20h	; ' '
-		jb	loc_1161D
-		cmp	word_1F3B0, 20h	; ' '
-		jz	short loc_1157B
-		cmp	word_1F3B0, 24h	; '$'
-		jz	short loc_1157B
-		cmp	word_1F3B0, 28h	; '('
-		jnz	short loc_11591
-
-loc_1157B:
-		push	word_1F33E
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		jmp	loc_1161D
-; ---------------------------------------------------------------------------
-
-loc_11591:
-		cmp	word_1F3B0, 30h	; '0'
-		jnz	short loc_115D2
-		xor	si, si
-		call	@randring_far_next16$qv
-		jmp	short loc_115C4
-; ---------------------------------------------------------------------------
-
-loc_115A1:
-		push	word_1F33E
-		push	word_1F340
-		push	word ptr [bp+var_2]
-		push	2
-		call	ellen_194A9
-		inc	si
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		push	ax
-		mov	ax, 256
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, [bp+var_2]
-
-loc_115C4:
-		mov	[bp+var_2], al
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_115A1
-		jmp	short loc_1161D
-; ---------------------------------------------------------------------------
-
-loc_115D2:
-		cmp	word_1F3B0, 60h
-		jnz	short loc_1161D
-		xor	si, si
-		call	@randring_far_next16$qv
-		jmp	short loc_11606
-; ---------------------------------------------------------------------------
-
-loc_115E2:
-		push	word_1F33E
-		push	word_1F340
-		push	word ptr [bp+var_2]
-		push	254
-		call	ellen_194A9
-		inc	si
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		push	ax
-		mov	ax, 256
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, [bp+var_2]
-
-loc_11606:
-		mov	[bp+var_2], al
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_115E2
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_1161D:
-		pop	si
-		leave
-		retn
-ellen_11547	endp
+	ELLEN_11547 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -16854,6 +16752,8 @@ loc_194A4:
 
 ; Attributes: bp-based frame
 
+public ELLEN_194A9
+ELLEN_194A9 label far
 ellen_194A9	proc far
 
 arg_0		= byte ptr  6
