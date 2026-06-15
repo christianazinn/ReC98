@@ -26,9 +26,12 @@ extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_23DE4;
 extern "C" uint8_t byte_23DE5;
 
+extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal near sub_F58C(void);
 
@@ -204,5 +207,43 @@ extern "C" void pascal near chiyuri_121F5(void)
 	bullet_template.center.x.v = word_1F33E;
 	bullet_template.center.y.v = (word_1F340 + TO_SP(-56));
 	bullet_template.angle += 0x40;
+	bullets_add();
+}
+
+extern "C" void pascal near chiyuri_12355(void)
+{
+	if((word_1F3B0 % static_cast<uint16_t>(byte_1F3A2)) != 1) {
+		return;
+	}
+
+	SUB_CE5B(word_1F33E, word_1F340, (1 - pid_current));
+	if(word_1F3B0 >= 0x80) {
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+		byte_1F353 = 0x20;
+	}
+
+	bullet_template.center.x.v = word_1F33E;
+	bullet_template.center.y.v = word_1F340;
+	bullet_template.angle = randring_far_next16_raw();
+	bullet_template.type = BT_BULLET16_DEFAULT;
+	bullet_template.group = BG_32_RING;
+	bullet_template.speed.v = byte_1F3A1;
+	bullets_add();
+	if(gba_boss_level < 8) {
+		return;
+	}
+
+	bullet_template.type = BT_PELLET;
+	bullet_template.group = BG_8_RING;
+	bullet_template.speed.v = (static_cast<int16_t>(byte_1F3A1) / 4);
+	bullet_template.center.x.v = (word_1F33E + TO_SP(56));
+	bullets_add();
+	bullet_template.center.x.v = (word_1F33E + TO_SP(-56));
+	bullets_add();
+	bullet_template.center.x.v = word_1F33E;
+	bullet_template.center.y.v = (word_1F340 + TO_SP(56));
+	bullets_add();
+	bullet_template.center.y.v = (word_1F340 + TO_SP(-56));
 	bullets_add();
 }
