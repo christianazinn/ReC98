@@ -1,11 +1,13 @@
 #pragma codeseg main_03_TEXT
 
+#include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
@@ -80,5 +82,45 @@ state_2:
 	if(byte_1F353 == 5) {
 		byte_1F354 = 0;
 		goto state_2;
+	}
+}
+
+extern "C" void pascal near mima_10184(screen_x_t radius, uint8_t angle)
+{
+	register screen_x_t radius_reg = radius;
+	screen_x_t center_left;
+	screen_y_t center_top;
+	screen_y_t top;
+	pid_t pid_other = (1 - pid_current);
+	register screen_x_t left;
+
+	sprite16_put_size.w.v = (144 / 16);
+	sprite16_put_size.h = 56;
+	center_left = (playfield_fg_x_to_screen(word_1F33E, pid_other) - 72);
+	center_top = ((word_1F340 >> 4) - 40);
+
+	_asm {
+		mov ah, SPRITE16_SET_MASK
+		mov dx, 0AAAAh
+		int SPRITE16
+	}
+	left = polar(center_left, radius_reg, CosTable8[angle]);
+	top = polar(center_top, radius_reg, SinTable8[angle]);
+	sprite16_put(left, top, sprite_1F34C);
+
+	_asm {
+		mov ah, SPRITE16_SET_MASK
+		mov dx, 05555h
+		int SPRITE16
+	}
+	angle += 0x80;
+	left = polar(center_left, radius_reg, CosTable8[angle]);
+	top = polar(center_top, radius_reg, SinTable8[angle]);
+	sprite16_put(left, top, sprite_1F34C);
+
+	_asm {
+		mov ah, SPRITE16_SET_MASK
+		mov dx, 0FFFFh
+		int SPRITE16
 	}
 }
