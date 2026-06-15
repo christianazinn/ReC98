@@ -29,9 +29,17 @@ extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_1F3A4;
 extern "C" uint8_t byte_23DC6;
 extern "C" uint8_t byte_23DC7;
+extern "C" uint8_t byte_23DC8;
+extern "C" subpixel_t word_23DCA[];
+extern "C" subpixel_t word_23DD6[];
 
+extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far reimu_1A2CE(subpixel_t x, subpixel_t y, uint8_t angle);
 extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
@@ -301,4 +309,66 @@ extern "C" void pascal near reimu_10DA0(void)
 
 	byte_1F34F = 1;
 	word_1F3B0 = 0;
+}
+
+extern "C" void pascal near reimu_10E16(void)
+{
+	uint8_t angle;
+	register int i;
+
+	sub_F356();
+	if(word_1F3B0 == 0) {
+		byte_1F353 = 1;
+		byte_23DC8 = randring_far_next16_raw();
+	}
+
+	if(word_1F3B0 < 0x18) {
+		for(i = 0; i < static_cast<int>(byte_1F3A2); i++) {
+			angle = (((i << 8) / static_cast<int>(byte_1F3A2)) + byte_23DC8);
+			word_23DCA[i] = polar(
+				word_1F33E,
+				((word_1F3B0 << SUBPIXEL_BITS) << 1),
+				CosTable8[angle]
+			);
+			word_23DD6[i] = polar(
+				word_1F340,
+				((word_1F3B0 << SUBPIXEL_BITS) << 1),
+				SinTable8[angle]
+			);
+		}
+		byte_23DC8 += 8;
+		return;
+	}
+
+	if(word_1F3B0 < 0x50) {
+		for(i = 0; i < static_cast<int>(byte_1F3A2); i++) {
+			angle = (((i << 8) / static_cast<int>(byte_1F3A2)) + byte_23DC8);
+			word_23DCA[i] = polar(word_1F33E, TO_SP(48), CosTable8[angle]);
+			word_23DD6[i] = polar(word_1F340, TO_SP(48), SinTable8[angle]);
+		}
+		byte_23DC8 += 8;
+		if(round_frame_mod16 != 0) {
+			return;
+		}
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.speed.v = byte_1F3A3;
+		bullet_template.pid = (1 - pid_current);
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.group = BG_RING;
+		bullet_template.count = byte_1F3A4;
+		bullets_add();
+		return;
+	}
+
+	if(word_1F3B0 == 0x50) {
+		for(i = 0; i < static_cast<int>(byte_1F3A2); i++) {
+			angle = (((i << 8) / static_cast<int>(byte_1F3A2)) + byte_23DC8);
+			reimu_1A2CE(word_23DCA[i], word_23DD6[i], angle);
+		}
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+		byte_1F353 = 0;
+	}
 }
