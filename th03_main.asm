@@ -6423,57 +6423,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_marisa
-gba_boss_render_marisa proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short locret_FB44
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	[bp+@@pid_other], 0
-		jnz	short loc_FB12
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_FB1E
-; ---------------------------------------------------------------------------
-
-loc_FB12:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_FB1E:
-		cmp	byte_1F34F, 0
-		jnz	short loc_FB35
-		mov	ax, word_1F3B0
-		add	ax, ax
-		mov	dx, 200
-		sub	dx, ax
-		push	dx
-		call	marisa_FA71
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_FB35:
-		cmp	byte_1F34F, -1
-		jz	short loc_FB41
-		call	marisa_F9A6
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_FB41:
-		call	sub_F58C
-
-locret_FB44:
-		leave
-		retf
-gba_boss_render_marisa endp
+	GBA_BOSS_RENDER_MARISA procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
