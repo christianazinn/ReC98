@@ -1,9 +1,11 @@
 #pragma codeseg main_03_TEXT
 
+#include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
@@ -15,20 +17,23 @@
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
-extern "C" uint16_t word_1F356;
+extern "C" subpixel_t word_1F356;
 extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
+extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
+extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
 
 extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near ellen_11814(int frame)
@@ -199,4 +204,36 @@ extern "C" void pascal near kotohime_11AC1(int randomize_angle)
 		bullet_template.center.y.v = center_y;
 		bullets_add();
 	}
+}
+
+extern "C" void pascal near kotohime_11B51(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		word_1F356 = 0;
+		byte_1F354 = 0;
+	}
+
+	byte_1F355 += 4;
+	if(word_1F356 > TO_SP(64)) {
+		byte_1F353 = 2;
+		_AL = byte_1F355;
+		_AL += 2;
+		byte_1F355 = _AL;
+		byte_1F354++;
+		if(byte_1F354 > 0x40) {
+			bullet_template.group = BG_16_RING;
+			bullet_template.speed.v = byte_1F39F;
+			kotohime_11AC1(1);
+			snd_se_play(3);
+			byte_1F353 = 0;
+			byte_1F34F = 1;
+			word_1F3B0 = 0;
+			return;
+		}
+		return;
+	}
+
+	sub_F356();
+	word_1F356 += 0x20;
 }

@@ -6628,49 +6628,7 @@ KOTOHIME_11AC1 procdesc near
 
 ; Attributes: bp-based frame
 
-kotohime_11B51	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 1
-		jnz	short loc_11B6B
-		mov	byte_1F353, 1
-		mov	word_1F356, 0
-		mov	byte_1F354, 0
-
-loc_11B6B:
-		mov	al, byte_1F355
-		add	al, 4
-		mov	byte_1F355, al
-		cmp	word_1F356, (64 shl 4)
-		jle	short loc_11BBC
-		mov	byte_1F353, 2
-		mov	al, byte_1F355
-		add	al, 2
-		mov	byte_1F355, al
-		inc	byte_1F354
-		cmp	byte_1F354, 40h
-		jbe	short loc_11BC4
-		mov	_bullet_template.BT_group, BG_16_RING
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_speed, al
-		push	1
-		call	kotohime_11AC1
-		call	snd_se_play pascal, 3
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_11BBC:
-		call	sub_F356
-		add	word_1F356, 20h	; ' '
-
-loc_11BC4:
-		pop	bp
-		retn
-kotohime_11B51	endp
+KOTOHIME_11B51 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
