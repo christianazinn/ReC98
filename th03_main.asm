@@ -6562,118 +6562,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-ellen_11439	proc near
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	word_1F3B0, 10h
-		jz	short loc_11455
-		cmp	word_1F3B0, 14h
-		jnz	short loc_1146B
-
-loc_11455:
-		push	word_1F33E
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		jmp	loc_11544
-; ---------------------------------------------------------------------------
-
-loc_1146B:
-		cmp	word_1F3B0, 18h
-		jnz	short loc_1148D
-		push	word_1F33E
-		push	word_1F340
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		mov	byte_23DE2, 40h
-		jmp	loc_11544
-; ---------------------------------------------------------------------------
-
-loc_1148D:
-		cmp	word_1F3B0, 1Ch
-		jb	loc_11544
-		mov	al, byte_23DE2
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	_bullet_template.BT_sprite_offset, (64 / BYTE_DOTS)
-		cmp	_pid_current, 0
-		jz	short loc_114D1
-		add	_bullet_template.BT_sprite_offset, (8 * ROW_SIZE)
-
-loc_114D1:
-		cmp	word_1F3B0, 24h	; '$'
-		jnb	short loc_114E1
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_1152D
-		jmp	short loc_11519
-; ---------------------------------------------------------------------------
-
-loc_114E1:
-		cmp	word_1F3B0, 24h	; '$'
-		jnz	short loc_1150B
-		call	snd_se_play pascal, 3
-		xor	si, si
-		jmp	short loc_11504
-; ---------------------------------------------------------------------------
-
-loc_114F3:
-		call	@bullets_add$qv
-		mov	al, byte_23DE2
-		add	al, 8
-		mov	byte_23DE2, al
-		mov	_bullet_template.BT_angle, al
-		inc	si
-
-loc_11504:
-		cmp	si, 8
-		jl	short loc_114F3
-		jmp	short loc_1152D
-; ---------------------------------------------------------------------------
-
-loc_1150B:
-		cmp	word_1F3B0, 2Ch	; ','
-		ja	short loc_1152D
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_1152D
-
-loc_11519:
-		call	snd_se_play pascal, 3
-		call	@bullets_add$qv
-		mov	al, byte_23DE2
-		add	al, 8
-		mov	byte_23DE2, al
-
-loc_1152D:
-		cmp	word_1F3B0, 2Ch	; ','
-		jb	short loc_11544
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_11544:
-		pop	si
-		leave
-		retn
-ellen_11439	endp
+	ELLEN_11439 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -25052,6 +24941,8 @@ _word_23DCA label word
 word_23DCA	dw 6 dup(?)
 _word_23DD6 label word
 word_23DD6	dw 6 dup(?)
+public _byte_23DE2, byte_23DE2
+_byte_23DE2 label byte
 byte_23DE2	db ?
 byte_23DE3	db ?
 byte_23DE4	db ?
