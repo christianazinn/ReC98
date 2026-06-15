@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
@@ -16,10 +17,13 @@ extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
+extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F3A2;
 extern "C" subpixel_t word_23DCA[];
 extern "C" subpixel_t word_23DD6[];
+
+extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near reimu_111A3(void)
 {
@@ -112,4 +116,21 @@ extern "C" void pascal near reimu_112A6(uint8_t angle, subpixel_t radius)
 		i++;
 		angle += 0x20;
 	}
+}
+
+extern "C" void pascal far gba_boss_render_reimu(void)
+{
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	if(byte_1F34F == 0) {
+		reimu_112A6(word_1F3B0, (TO_SP(200) - (word_1F3B0 << 5)));
+		return;
+	}
+	if(byte_1F34F != 0xFF) {
+		reimu_111A3();
+		return;
+	}
+	sub_F58C();
 }
