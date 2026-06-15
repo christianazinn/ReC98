@@ -9550,54 +9550,7 @@ loc_19890:
 
 ; Attributes: bp-based frame
 
-public KANA_19896
-KANA_19896 label far
-kana_19896	proc far
-
-arg_0		= byte ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	dx, dx
-		jmp	short loc_198D3
-; ---------------------------------------------------------------------------
-
-loc_198AB:
-		cmp	byte ptr [si], 0
-		jnz	short loc_198CF
-		mov	byte ptr [si], 1
-		mov	ax, [bp+arg_4]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		mov	[si+4],	ax
-		mov	al, [bp+arg_0]
-		mov	[si+12h], al
-		mov	byte ptr [si+13h], 8
-		mov	byte ptr [si+1], 0
-		jmp	short loc_198D8
-; ---------------------------------------------------------------------------
-
-loc_198CF:
-		inc	dx
-		add	si, 20h	; ' '
-
-loc_198D3:
-		cmp	dx, 8
-		jl	short loc_198AB
-
-loc_198D8:
-		pop	si
-		pop	bp
-		retf	6
-kana_19896	endp
+	KANA_19896 procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
