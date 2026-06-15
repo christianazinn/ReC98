@@ -6868,50 +6868,7 @@ KOTOHIME_11D1A procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_rikako
-gba_boss_render_rikako proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short loc_139D8
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		jnz	short loc_139B1
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_139BD
-; ---------------------------------------------------------------------------
-
-loc_139B1:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_139BD:
-		cmp	byte_1F34F, 0
-		jnz	short loc_139C9
-		call	rikako_138B3
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_139C9:
-		cmp	byte_1F34F, -1
-		jz	short loc_139D5
-		call	rikako_137CF
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_139D5:
-		call	sub_F58C
-
-loc_139D8:
-		pop	bp
-		retf
-gba_boss_render_rikako endp
+	GBA_BOSS_RENDER_RIKAKO procdesc far
 
 main_03_TEXT	ends
 
