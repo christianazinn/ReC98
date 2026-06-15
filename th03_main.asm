@@ -1002,7 +1002,7 @@ loc_9F31:
 		jl	short loc_9F26
 		call	sub_14A76
 		call	sub_153BB
-		call	sub_142D0
+		call	_sub_142D0
 		call	sub_1B653
 		call	sub_193BC
 		les	bx, _resident
@@ -6904,14 +6904,7 @@ HITBOX_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_142D0	proc far
-		push	bp
-		mov	bp, sp
-		mov	byte_1FDEA, 0
-		mov	byte_1FE1C, 0
-		pop	bp
-		retf
-sub_142D0	endp
+	_sub_142D0 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20753,8 +20746,11 @@ _hitcircles_enemy_add_do_not_rand	db ?
 		db 2 dup(?)
 word_1FDE4	dw PLAYER_COUNT dup(?)
 byte_1FDE8	db PLAYER_COUNT dup(?)
+public _byte_1FDEA, byte_1FDEA, _byte_1FE1C, byte_1FE1C
+_byte_1FDEA label byte
 byte_1FDEA	db ?
 		db 49 dup(?)
+_byte_1FE1C label byte
 byte_1FE1C	db ?
 		db 49 dup(?)
 word_1FE4E	dw ?
