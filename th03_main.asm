@@ -6985,70 +6985,8 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-public SUB_14B0A
-SUB_14B0A label far
-sub_14B0A	proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 384
-		add	ax, offset byte_202CA
-		mov	word_205CA, ax
-		xor	cx, cx
-		jmp	short loc_14B6E
-; ---------------------------------------------------------------------------
-
-loc_14B20:
-		mov	bx, word_205CA
-		cmp	byte ptr [bx], 0
-		jnz	short loc_14B68
-		mov	bx, word_205CA
-		mov	byte ptr [bx], 2
-		mov	byte ptr [bx+1], 0
-		xor	dx, dx
-		jmp	short loc_14B55
-; ---------------------------------------------------------------------------
-
-loc_14B38:
-		mov	bx, dx
-		add	bx, bx
-		add	bx, word_205CA
-		mov	ax, [bp+arg_2]
-		mov	[bx+2],	ax
-		mov	bx, dx
-		add	bx, bx
-		add	bx, word_205CA
-		mov	ax, [bp+arg_0]
-		mov	[bx+10h], ax
-		inc	dx
-
-loc_14B55:
-		cmp	dx, 7
-		jl	short loc_14B38
-		mov	bx, word_205CA
-		mov	byte ptr [bx+1Eh], 0C0h
-		mov	byte ptr [bx+1Fh], 0C0h
-		jmp	short loc_14B73
-; ---------------------------------------------------------------------------
-
-loc_14B68:
-		inc	cx
-		add	word_205CA, 20h	; ' '
-
-loc_14B6E:
-		cmp	cx, 0Ch
-		jl	short loc_14B20
-
-loc_14B73:
-		mov	byte_205CC, 0
-		pop	bp
-		retf	4
-sub_14B0A	endp
+	SUB_14B0A procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
