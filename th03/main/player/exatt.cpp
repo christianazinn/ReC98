@@ -5,13 +5,38 @@
 #include "th03/main/player/cur.hpp"
 
 extern "C" uint8_t exatt_buffers[];
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
+extern "C" uint8_t byte_202BA[];
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void near sub_1A1A7(void);
 extern "C" void near kotohime_19E2A(void);
 extern "C" void near kotohime_19EF9(void);
 extern "C" void near kotohime_19F1F(void);
-extern "C" void near kotohime_19F87(void);
+
+extern "C" void near kotohime_19F87(void)
+{
+	uint8_t angle_delta;
+	register int i;
+
+	bullet_template.type = static_cast<bullet_type_t>(
+		byte_202BA[pid_current * 4]
+	);
+	bullet_template.speed.v = (1 << 4);
+	bullet_template.count = byte_202B8[pid_current * 4];
+	if(byte_202B9[pid_current * 4] != 0) {
+		angle_delta = 7;
+	} else {
+		angle_delta = -7;
+	}
+
+	for(i = 0; i < 10; i++) {
+		bullets_add();
+		bullet_template.speed.v += 2;
+		bullet_template.angle += angle_delta;
+	}
+}
 
 void far exatt_update_kotohime(void)
 {

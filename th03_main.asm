@@ -10546,62 +10546,7 @@ kotohime_19F1F	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
-public _kotohime_19F87, kotohime_19F87
-_kotohime_19F87 label near
-kotohime_19F87	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202BA[bx]
-		mov	_bullet_template.BT_type, al
-		mov	_bullet_template.BT_speed, (1 shl 4)
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B8[bx]
-		mov	_bullet_template.BT_count, al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		cmp	byte_202B9[bx], 0
-		jz	short loc_19FCA
-		mov	[bp+var_1], 7
-		jmp	short loc_19FCE
-; ---------------------------------------------------------------------------
-
-loc_19FCA:
-		mov	[bp+var_1], -7
-
-loc_19FCE:
-		xor	si, si
-		jmp	short loc_19FE7
-; ---------------------------------------------------------------------------
-
-loc_19FD2:
-		call	@bullets_add$qv
-		mov	al, _bullet_template.BT_speed
-		add	al, 2
-		mov	_bullet_template.BT_speed, al
-		mov	al, [bp+var_1]
-		add	_bullet_template.BT_angle, al
-		inc	si
-
-loc_19FE7:
-		cmp	si, 0Ah
-		jl	short loc_19FD2
-		pop	si
-		leave
-		retn
-kotohime_19F87	endp
+	_kotohime_19F87 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -16723,11 +16668,12 @@ gba_gauge_pattern_bullet_p1	dd ?
 gba_gauge_pattern_bullet_p2	dd ?
 _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
-public _byte_202B8, byte_202B8, _byte_202B9, byte_202B9
+public _byte_202B8, byte_202B8, _byte_202B9, byte_202B9, _byte_202BA, byte_202BA
 _byte_202B8 label byte
 byte_202B8	db ?
 _byte_202B9 label byte
 byte_202B9	db ?
+_byte_202BA label byte
 byte_202BA	db ?
 		db 5 dup(?)
 		db 8 dup(?)
