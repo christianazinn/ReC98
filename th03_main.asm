@@ -6736,99 +6736,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-chiyuri_12A10	proc near
-
-@@top		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_1F353, 0
-		jnz	loc_12AA5
-		mov	_sprite16_put_w, (128 / 16)
-		mov	_sprite16_put_h, 64
-		push	word_1F33E	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -64
-		mov	di, ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -48
-		mov	[bp+@@top], ax
-		mov	si, sprite_1F34C
-		call	sprite16_put pascal, di, ax, si
-		add	di, 48
-		add	[bp+@@top], 32
-		cmp	byte_1F34E, 0
-		jz	short loc_12A7A
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 40
-		add	si, ((23 * ROW_SIZE) + (576 / BYTE_DOTS))
-		jmp	short loc_12A99
-; ---------------------------------------------------------------------------
-
-loc_12A7A:
-		cmp	byte_1F354, 0
-		jz	short loc_12AD9
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 24
-		mov	al, byte_1F354
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, 0Ch
-		add	si, ax
-
-loc_12A99:
-		call	sprite16_put pascal, di, [bp+@@top], si
-		jmp	short loc_12AD9
-; ---------------------------------------------------------------------------
-
-loc_12AA5:
-		cmp	byte_1F353, 18h
-		jnb	short loc_12AD0
-		cmp	byte_1F353, 14h
-		jnb	short loc_12AC5
-		cmp	byte_1F353, 0Ch
-		jb	short loc_12ABE
-		push	2
-		jmp	short loc_12AD6
-; ---------------------------------------------------------------------------
-
-loc_12ABE:
-		cmp	byte_1F353, 8
-		jb	short loc_12AC9
-
-loc_12AC5:
-		push	5
-		jmp	short loc_12AD6
-; ---------------------------------------------------------------------------
-
-loc_12AC9:
-		cmp	byte_1F353, 4
-		jb	short loc_12AD4
-
-loc_12AD0:
-		push	6
-		jmp	short loc_12AD6
-; ---------------------------------------------------------------------------
-
-loc_12AD4:
-		push	V_WHITE
-
-loc_12AD6:
-		call	chiyuri_12B38
-
-loc_12AD9:
-		pop	di
-		pop	si
-		leave
-		retn
-chiyuri_12A10	endp
+	CHIYURI_12A10 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6893,6 +6801,8 @@ chiyuri_12ADD	endp
 
 ; Attributes: bp-based frame
 
+public CHIYURI_12B38
+CHIYURI_12B38 label near
 chiyuri_12B38	proc near
 
 @@sprite_offset		= word ptr -6

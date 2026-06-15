@@ -8,14 +8,19 @@
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/main/v_colors.hpp"
 #include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
 extern "C" uint16_t word_1F356;
 extern "C" sprite16_offset_t sprite_1F34C;
+extern "C" uint8_t byte_1F34E;
+extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
+
+extern "C" void pascal near CHIYURI_12B38(vc_t col);
 
 extern "C" void pascal near chiyuri_1295E(void)
 {
@@ -44,4 +49,58 @@ extern "C" void pascal near chiyuri_1295E(void)
 		i++;
 		angle += 0x10;
 	}
+}
+
+extern "C" void pascal near chiyuri_12A10(void)
+{
+	screen_y_t top;
+	register sprite16_offset_t sprite_offset;
+	register screen_x_t left;
+
+	if(byte_1F353 == 0) {
+		sprite16_put_size.w.v = (128 / 16);
+		sprite16_put_size.h = 64;
+		left = (playfield_fg_x_to_screen(word_1F33E, (1 - pid_current)) - 64);
+		top = ((word_1F340 >> 4) - 48);
+		sprite_offset = sprite_1F34C;
+		sprite16_put(left, top, sprite_offset);
+		left += 48;
+		top += 32;
+		if(byte_1F34E != 0) {
+			sprite16_put_size.w.v = (48 / 16);
+			sprite16_put_size.h = 40;
+			sprite_offset += ((23 * ROW_SIZE) + (576 / BYTE_DOTS));
+		} else {
+			if(byte_1F354 == 0) {
+				return;
+			}
+			sprite16_put_size.w.v = (32 / 16);
+			sprite16_put_size.h = 24;
+			sprite_offset += ((static_cast<uint16_t>(byte_1F354) << 2) + 0x0C);
+		}
+		sprite16_put(left, top, sprite_offset);
+		return;
+	}
+
+	if(byte_1F353 >= 0x18) {
+		CHIYURI_12B38(6);
+		return;
+	}
+	if(byte_1F353 >= 0x14) {
+		CHIYURI_12B38(5);
+		return;
+	}
+	if(byte_1F353 >= 0x0C) {
+		CHIYURI_12B38(2);
+		return;
+	}
+	if(byte_1F353 >= 8) {
+		CHIYURI_12B38(5);
+		return;
+	}
+	if(byte_1F353 >= 4) {
+		CHIYURI_12B38(6);
+		return;
+	}
+	CHIYURI_12B38(V_WHITE);
 }
