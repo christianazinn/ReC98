@@ -637,6 +637,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/main_03_mima_update.asm",
 	"th03/main_03q.cpp",
 	"th03/main/main_03_yumemi_update.asm",
+	"th03/main_03r.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
