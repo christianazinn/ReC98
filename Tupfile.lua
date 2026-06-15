@@ -686,6 +686,7 @@ obj = {
 	"th03/main/main_03_dispatch.asm",
 	"th03/main_03p.cpp",
 	"th03/main/main_03_mima_update.asm",
+	"th03/main_03q.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
