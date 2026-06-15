@@ -4,16 +4,65 @@
 #include "th03/main/collmap.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/sprite16.hpp"
 
 extern "C" uint8_t exatt_buffers[];
 extern "C" uint8_t byte_202B8[];
 extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_202BA[];
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
 extern "C" void near sub_1A1A7(void);
-extern "C" void near kotohime_19E2A(void);
+extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
+extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+extern "C" void near kotohime_19E2A(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 0x10);
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	frame = slot[1];
+	if(slot[0] == 1) {
+		so = (pid_PID_so_attack + (8 * ROW_SIZE));
+		if(
+			(
+				*reinterpret_cast<subpixel_t near *>(slot + 0x0E) -
+				*reinterpret_cast<subpixel_t near *>(slot + 4)
+			) <= (96 << 4)
+		) {
+			if((static_cast<int>(frame) % 4) < 2) {
+				so += (32 * ROW_SIZE);
+			}
+		}
+		if(slot[0x11] == 0) {
+			so += ((8 * ROW_SIZE) + (16 / BYTE_DOTS));
+			sprite16_put_size.w.v = (32 / 16);
+			sprite16_put_size.h = 16;
+			sprite16_put((left - 16), (top - 16), so);
+		} else {
+			sprite16_put_size.w.v = (64 / 16);
+			sprite16_put_size.h = 32;
+			sprite16_put((left - 32), (top - 32), so);
+		}
+	} else if(slot[0] == 2) {
+		sub_1A32A(left, top, frame);
+	} else {
+		sub_1A377(left, top, frame);
+	}
+}
 
 extern "C" void near kotohime_19EF9(void)
 {

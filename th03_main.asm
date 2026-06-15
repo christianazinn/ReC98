@@ -10360,102 +10360,7 @@ kotohime_19DD3	endp
 
 ; Attributes: bp-based frame
 
-public _kotohime_19E2A, kotohime_19E2A
-_kotohime_19E2A label near
-kotohime_19E2A	proc near
-
-var_5		= word ptr -5
-@@x		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, word_2028A
-		push	word ptr [si+2]	; x
-		mov	al, [si+10h]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@x], ax
-		mov	ax, [si+4]
-		sar	ax, 4
-		add	ax, 10h
-		mov	[bp+var_4], ax
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	al, [si+1]
-		mov	byte ptr [bp+var_5], al
-		cmp	byte ptr [si], 1
-		jnz	short loc_19ED6
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	di, ax
-		mov	ax, [si+0Eh]
-		sub	ax, [si+4]
-		cmp	ax, (96 shl 4)
-		jg	short loc_19E91
-		mov	al, byte ptr [bp+var_5]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		cmp	dx, 2
-		jge	short loc_19E91
-		add	di, (32 * ROW_SIZE)
-
-loc_19E91:
-		cmp	byte ptr [si+11h], 0
-		jnz	short loc_19EBC
-		add	di, ((8 * ROW_SIZE) + (16 / BYTE_DOTS))
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		mov	ax, [bp+@@x]
-		add	ax, -16
-		push	ax
-		mov	ax, [bp+var_4]
-		add	ax, -16
-
-loc_19EB3:
-		push	ax
-		push	di
-		call	sprite16_put
-		jmp	short loc_19EF5
-; ---------------------------------------------------------------------------
-
-loc_19EBC:
-		mov	_sprite16_put_w, (64 / 16)
-		mov	_sprite16_put_h, 32
-		mov	ax, [bp+@@x]
-		add	ax, -32
-		push	ax
-		mov	ax, [bp+var_4]
-		add	ax, -32
-		jmp	short loc_19EB3
-; ---------------------------------------------------------------------------
-
-loc_19ED6:
-		cmp	byte ptr [si], 2
-		jnz	short loc_19EE9
-		push	[bp+@@x]
-		push	[bp+var_4]
-		push	[bp+var_5]
-		call	sub_1A32A
-		jmp	short loc_19EF5
-; ---------------------------------------------------------------------------
-
-loc_19EE9:
-		push	[bp+@@x]
-		push	[bp+var_4]
-		push	[bp+var_5]
-		call	sub_1A377
-
-loc_19EF5:
-		pop	di
-		pop	si
-		leave
-		retn
-kotohime_19E2A	endp
+	_kotohime_19E2A procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10740,6 +10645,8 @@ reimu_1A2CE	endp
 
 ; Attributes: bp-based frame
 
+public SUB_1A32A
+SUB_1A32A label near
 sub_1A32A	proc near
 
 arg_0		= byte ptr  4
@@ -10784,6 +10691,8 @@ sub_1A32A	endp
 
 ; Attributes: bp-based frame
 
+public SUB_1A377
+SUB_1A377 label near
 sub_1A377	proc near
 
 arg_0		= byte ptr  4
