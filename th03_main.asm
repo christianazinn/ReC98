@@ -7263,14 +7263,7 @@ sub_16983	endp
 
 ; Attributes: bp-based frame
 
-sub_16A55	proc far
-		push	bp
-		mov	bp, sp
-		mov	byte_220E0, 0
-		mov	byte_220E6, 0
-		pop	bp
-		retf
-sub_16A55	endp
+	_sub_16A55 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -17705,12 +17698,15 @@ public _extends_gained
 _extends_gained	db ?
 		db ?
 public _byte_220DE, byte_220DE, _yumemi_chargeshots, yumemi_chargeshots
+public _byte_220E0, byte_220E0, _byte_220E6, byte_220E6
 _byte_220DE label byte
 byte_220DE	db PLAYER_COUNT dup(?)
 _yumemi_chargeshots label byte
 yumemi_chargeshots label byte
+_byte_220E0 label byte
 byte_220E0	db ?
 		db 5 dup(?)
+_byte_220E6 label byte
 byte_220E6	db ?
 		db 5 dup(?)
 word_220EC	dw ?

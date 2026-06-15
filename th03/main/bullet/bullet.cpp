@@ -138,6 +138,8 @@ uint8_t bullet_trail_ring_i;
 extern "C" uint8_t byte_202B8[];
 extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_220DE[];
+extern "C" uint8_t byte_220E0;
+extern "C" uint8_t byte_220E6;
 extern "C" uint8_t yumemi_chargeshots[];
 extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_current;
@@ -154,6 +156,12 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+extern "C" void far sub_16A55(void)
+{
+	byte_220E0 = 0;
+	byte_220E6 = 0;
+}
+
 extern "C" void pascal far chargeshot_add_yumemi(
 	Subpixel center_x, Subpixel center_y
 )
