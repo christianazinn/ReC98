@@ -10462,6 +10462,8 @@ kotohime_19E2A	endp
 
 ; Attributes: bp-based frame
 
+public _kotohime_19EF9, kotohime_19EF9
+_kotohime_19EF9 label near
 kotohime_19EF9	proc near
 		push	bp
 		mov	bp, sp
@@ -10484,6 +10486,8 @@ kotohime_19EF9	endp
 
 ; Attributes: bp-based frame
 
+public _kotohime_19F1F, kotohime_19F1F
+_kotohime_19F1F label near
 kotohime_19F1F	proc near
 
 var_1		= byte ptr -1
@@ -10543,6 +10547,8 @@ kotohime_19F1F	endp
 
 ; Attributes: bp-based frame
 
+public _kotohime_19F87, kotohime_19F87
+_kotohime_19F87 label near
 kotohime_19F87	proc near
 
 var_1		= byte ptr -1
@@ -10601,157 +10607,7 @@ kotohime_19F87	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_update_kotohime$qv
-@exatt_update_kotohime$qv proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	word_2028A, ax
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_collmap_stripe_tile_w, (12 / COLLMAP_TILE_W)
-		mov	_collmap_tile_h, (12 / COLLMAP_TILE_H)
-		mov	_collmap_pid, al
-		xor	di, di
-		jmp	loc_1A143
-; ---------------------------------------------------------------------------
-
-loc_1A020:
-		mov	bx, word_2028A
-		cmp	byte ptr [bx], 0
-		jz	loc_1A13D
-		mov	si, word_2028A
-		cmp	byte ptr [si], 1
-		jnz	loc_1A120
-		mov	ax, [si+4]
-		cmp	ax, [si+0Eh]
-		jl	loc_1A0DA
-		cmp	byte ptr [si+12h], 4
-		jnz	short loc_1A07A
-		call	kotohime_19EF9
-		cmp	byte ptr [si+11h], 0
-		jz	loc_1A0D5
-		mov	_bullet_template.BT_speed, ((1 shl 4) + 12)
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	ax, [si+2]
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, [si+4]
-		mov	_bullet_template.BT_center.y, ax
-		call	kotohime_19F1F
-		jmp	short loc_1A0D5
-; ---------------------------------------------------------------------------
-
-loc_1A07A:
-		cmp	byte ptr [si+12h], 8
-		jz	short loc_1A086
-		cmp	byte ptr [si+12h], 0Ch
-		jnz	short loc_1A08B
-
-loc_1A086:
-		call	kotohime_19EF9
-		jmp	short loc_1A0D5
-; ---------------------------------------------------------------------------
-
-loc_1A08B:
-		cmp	byte ptr [si+12h], 10h
-		jnz	short loc_1A0D5
-		call	kotohime_19EF9
-		mov	_bullet_template.BT_speed, ((1 shl 4) + 8)
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	ax, [si+2]
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, [si+4]
-		mov	_bullet_template.BT_center.y, ax
-		cmp	byte ptr [si+11h], 0
-		jnz	short loc_1A0CF
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_count, 10
-		call	@bullets_add$qv
-		jmp	short loc_1A0D2
-; ---------------------------------------------------------------------------
-
-loc_1A0CF:
-		call	kotohime_19F87
-
-loc_1A0D2:
-		mov	byte ptr [si], 0
-
-loc_1A0D5:
-		inc	byte ptr [si+12h]
-		jmp	short loc_1A13A
-; ---------------------------------------------------------------------------
-
-loc_1A0DA:
-		mov	ax, [si+14h]
-		add	[si+4],	ax
-		mov	_hitbox_hittest_skip_explosions, 1
-		mov	_hitbox_radius.x, (16 shl 4)
-		mov	_hitbox_radius.y, (16 shl 4)
-		mov	al, [bp+@@pid_other]
-		mov	_hitbox_pid, al
-		mov	ax, [si+2]
-		mov	_hitbox_origin_center.x, ax
-		mov	ax, [si+4]
-		mov	_hitbox_origin_center.y, ax
-		call	@hitbox_hittest$qv
-		mov	_hitbox_hittest_skip_explosions, 0
-		mov	ax, [si+2]
-		mov	_collmap_center.x, ax
-		mov	ax, [si+4]
-		mov	_collmap_center.y, ax
-		call	@collmap_set_rect_striped$qv
-		jmp	short loc_1A13A
-; ---------------------------------------------------------------------------
-
-loc_1A120:
-		cmp	byte ptr [si], 2
-		jnz	short loc_1A12A
-		call	sub_1A1A7
-		jmp	short loc_1A13A
-; ---------------------------------------------------------------------------
-
-loc_1A12A:
-		cmp	byte ptr [si], 1Ch
-		ja	short loc_1A133
-		inc	byte ptr [si]
-		jmp	short loc_1A13A
-; ---------------------------------------------------------------------------
-
-loc_1A133:
-		mov	byte ptr [si+1], 0
-		mov	byte ptr [si], 1
-
-loc_1A13A:
-		inc	byte ptr [si+1]
-
-loc_1A13D:
-		inc	di
-		add	word_2028A, 20h	; ' '
-
-loc_1A143:
-		cmp	di, 0Ah
-		jl	loc_1A020
-		pop	di
-		pop	si
-		leave
-		retf
-@exatt_update_kotohime$qv endp
+	@exatt_update_kotohime$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10766,6 +10622,8 @@ main_06_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public _sub_1A1A7, sub_1A1A7
+_sub_1A1A7 label near
 sub_1A1A7	proc near
 		push	bp
 		mov	bp, sp
