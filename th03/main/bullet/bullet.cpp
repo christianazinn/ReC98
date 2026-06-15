@@ -140,6 +140,7 @@ extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_220DE[];
 extern "C" uint8_t yumemi_chargeshots[];
 extern "C" uint8_t hitbox_pid;
+extern "C" uint8_t pid_PID_current;
 extern "C" uint8_t pid_PID_so_attack;
 
 extern "C" void pascal far sub_A3A8(uint8_t pid);
@@ -153,6 +154,19 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+extern "C" void pascal far chargeshot_add_yumemi(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_PID_current * 6));
+	shot[0] = 1;
+	shot[1] = 0;
+	reinterpret_cast<Subpixel near *>(shot + 2)[0] = center_x;
+	reinterpret_cast<Subpixel near *>(shot + 4)[0] = center_y;
+}
+
 extern "C" void pascal far chargeshot_update_yumemi(void)
 {
 	uint8_t frame;

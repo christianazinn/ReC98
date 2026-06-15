@@ -7276,30 +7276,8 @@ sub_16A55	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_YUMEMI
-chargeshot_add_yumemi	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset yumemi_chargeshots
-		mov	si, ax
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+@@center_x]
-		mov	[si+2],	ax
-		mov	ax, [bp+@@center_y]
-		mov	[si+4],	ax
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_yumemi	endp
+	CHARGESHOT_ADD_YUMEMI procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
