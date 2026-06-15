@@ -10461,25 +10461,7 @@ kotohime_19E2A	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
-public _kotohime_19EF9, kotohime_19EF9
-_kotohime_19EF9 label near
-kotohime_19EF9	proc near
-		push	bp
-		mov	bp, sp
-		call	snd_se_play pascal, 3
-		mov	bx, word_2028A
-		push	word ptr [bx+2]
-		push	word ptr [bx+4]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CDBD
-		pop	bp
-		retn
-kotohime_19EF9	endp
+	_kotohime_19EF9 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
