@@ -6388,63 +6388,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F72D	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		test	byte ptr word_1F3B0, 1Fh
-		jnz	short loc_F7A8
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		cmp	_gba_boss_level, 8
-		jnb	short loc_F768
-		mov	al, byte_1F3A0
-		jmp	short loc_F795
-; ---------------------------------------------------------------------------
-
-loc_F768:
-		mov	al, byte_1F3A2
-		mov	_bullet_template.BT_speed, al
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_count, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		call	@bullets_add$qv
-		mov	al, byte_1F3A3
-		mov	ah, 0
-		push	ax
-		mov	ax, 256
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, _bullet_template.BT_angle
-		mov	_bullet_template.BT_angle, al
-		mov	al, byte_1F3A4
-
-loc_F795:
-		mov	_bullet_template.BT_count, al
-		mov	al, byte_1F3A1
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_PELLET_CLOUD
-		call	@bullets_add$qv
-
-loc_F7A8:
-		cmp	word_1F3B0, 82h
-		jb	short loc_F7BB
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_F7BB:
-		pop	bp
-		retn
-marisa_F72D	endp
+	MARISA_F72D procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -13841,6 +13785,8 @@ main_04_TEXT	segment	byte public 'CODE' use16
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 RANDRING_NEXT_DEF 2, near
+public _randring_far_next16_raw
+_randring_far_next16_raw label far
 RANDRING_NEXT_DEF _FAR, far
 main_04_TEXT	ends
 
@@ -27583,10 +27529,18 @@ _gba_boss_level	db ?
 public _byte_1F39F, byte_1F39F
 _byte_1F39F label byte
 byte_1F39F	db ?
+public _byte_1F3A0, byte_1F3A0, _byte_1F3A1, byte_1F3A1
+public _byte_1F3A2, byte_1F3A2, _byte_1F3A3, byte_1F3A3
+public _byte_1F3A4, byte_1F3A4
+_byte_1F3A0 label byte
 byte_1F3A0	db ?
+_byte_1F3A1 label byte
 byte_1F3A1	db ?
+_byte_1F3A2 label byte
 byte_1F3A2	db ?
+_byte_1F3A3 label byte
 byte_1F3A3	db ?
+_byte_1F3A4 label byte
 byte_1F3A4	db ?
 byte_1F3A5	db ?
 		db 10 dup(?)
