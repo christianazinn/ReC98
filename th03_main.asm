@@ -2309,129 +2309,7 @@ sub_B4A3	endp
 
 TRAPEZOID_HMASK_ODD = 05555h
 
-sub_B4A8	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	byte_1FBC2, 0
-		jnz	short loc_B4E3
-		mov	word_1FBC4, 303
-		mov	word_1FBC6, 382
-		mov	word_1FBC8, 10h
-		mov	word_1FBCA, 382
-		mov	word_1FBCC, 10h
-		mov	word_1FBCE, 10h
-		mov	word_1FBD0, 303
-		mov	word_1FBD2, 10h
-
-loc_B4E3:
-		call	grc_setclip pascal, (8 shl 16) or 0, (623 shl 16) or 191
-		sub	word_1FBC4, 12h
-		sub	word_1FBCA, 17h
-		add	word_1FBCC, 12h
-		add	word_1FBD2, 17h
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 2
-		mov	trapezoid_hmask, TRAPEZOID_HMASK_ODD
-		xor	si, si
-		jmp	short loc_B565
-; ---------------------------------------------------------------------------
-
-loc_B51D:
-		lea	ax, [si+303]
-		push	ax
-		push	8
-		lea	ax, [si+303]
-		push	ax
-		push	191
-		mov	ax, word_1FBC4
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBC6
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		lea	ax, [si+16]
-		push	ax
-		push	8
-		lea	ax, [si+16]
-		push	ax
-		push	191
-		mov	ax, word_1FBCC
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBCE
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		add	si, 320
-
-loc_B565:
-		cmp	si, 320
-		jle	short loc_B51D
-		mov	trapezoid_hmask, 0AAAAh
-		xor	si, si
-		jmp	short loc_B5BD
-; ---------------------------------------------------------------------------
-
-loc_B575:
-		lea	ax, [si+16]
-		push	ax
-		push	191
-		lea	ax, [si+303]
-		push	ax
-		push	191
-		mov	ax, word_1FBC8
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBCA
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		lea	ax, [si+16]
-		push	ax
-		push	8
-		lea	ax, [si+303]
-		push	ax
-		push	8
-		mov	ax, word_1FBD0
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBD2
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		add	si, 320
-
-loc_B5BD:
-		cmp	si, 320
-		jle	short loc_B575
-		inc	byte_1FBC2
-		cmp	byte_1FBC2, 10h
-		jb	short loc_B5EE
-		mov	bx, ((183 * ROW_SIZE) + ( 16 / BYTE_DOTS))
-		nopcall	sub_B39E
-		mov	bx, ((183 * ROW_SIZE) + (336 / BYTE_DOTS))
-		nopcall	sub_B39E
-		mov	byte_1FBC3, 1
-		mov	byte_1FBC2, 0
-		mov	fp_1FBC0, offset sub_B60A
-
-loc_B5EE:
-		mov	trapezoid_hmask, 0FFFFh
-		call	grcg_off
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (SPRITE16_RES_Y - 1)
-		pop	si
-		pop	bp
-		retn
-sub_B4A8	endp
+	SUB_B4A8 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -16388,6 +16266,8 @@ public _snd_active
 _snd_active	db 0
 		db 0
 include libs/master.lib/respal_exist[data].asm
+public _trapezoid_hmask
+_trapezoid_hmask label word
 include libs/master.lib/draw_trapezoid[data].asm
 include th03/snd/se_state[data].asm
 include th02/formats/pfopen[data].asm
@@ -16998,6 +16878,8 @@ fp_1FBC0	dw ?
 public _byte_1FBC2
 _byte_1FBC2 label byte
 byte_1FBC2	db ?
+public _byte_1FBC3
+_byte_1FBC3 label byte
 byte_1FBC3	db ?
 public _word_1FBC4, _word_1FBC6, _word_1FBC8, _word_1FBCA
 _word_1FBC4 label word
