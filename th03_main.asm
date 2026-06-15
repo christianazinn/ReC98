@@ -7305,68 +7305,7 @@ chargeshot_add_yumemi	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_UPDATE_YUMEMI
-chargeshot_update_yumemi	proc far
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset yumemi_chargeshots
-		mov	si, ax
-		cmp	byte ptr [si], 0
-		jz	short loc_16B09
-		mov	al, [si+1]
-		inc	al
-		mov	[si+1],	al
-		mov	[bp+var_1], al
-		cmp	byte ptr [si], 1
-		jnz	short loc_16AD4
-		sub	word ptr [si+4], 40h
-		cmp	[bp+var_1], 40h
-		jnb	short loc_16AC4
-		cmp	word ptr [si+4], 0
-		jg	short loc_16AF9
-
-loc_16AC4:
-		mov	byte ptr [si], 2
-		mov	byte ptr [si+1], 0
-		call	snd_se_play pascal, 7
-		jmp	short loc_16AF9
-; ---------------------------------------------------------------------------
-
-loc_16AD4:
-		cmp	[bp+var_1], 18h
-		jb	short loc_16AF0
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_16AF0
-		call	snd_se_play pascal, 15
-
-loc_16AF0:
-		cmp	[bp+var_1], 40h
-		jb	short loc_16AF9
-		mov	byte ptr [si], 0
-
-loc_16AF9:
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	_players[bx].gauge_charged, 0
-
-loc_16B09:
-		pop	si
-		leave
-		retf
-chargeshot_update_yumemi	endp
+CHARGESHOT_UPDATE_YUMEMI procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================

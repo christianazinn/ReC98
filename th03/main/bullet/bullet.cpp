@@ -153,6 +153,41 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+extern "C" void pascal far chargeshot_update_yumemi(void)
+{
+	uint8_t frame;
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	if(shot[0] != 0) {
+		_AL = shot[1];
+		_AL++;
+		shot[1] = _AL;
+		frame = _AL;
+		if(shot[0] == 1) {
+			reinterpret_cast<Subpixel near *>(shot + 4)[0].v -= 0x40;
+			if(
+				(frame >= 0x40) ||
+				(reinterpret_cast<Subpixel near *>(shot + 4)[0].v <= 0)
+			) {
+				shot[0] = 2;
+				shot[1] = 0;
+				snd_se_play(7);
+			}
+		} else {
+			if(frame >= 0x18) {
+				if((frame % 2) == 0) {
+					snd_se_play(15);
+				}
+			}
+			if(frame >= 0x40) {
+				shot[0] = 0;
+			}
+		}
+		players[pid_current].gauge_charged = 0;
+	}
+}
+
 uint8_t far chargeshot_hittest_yumemi(void)
 {
 	register uint8_t near *shot;
