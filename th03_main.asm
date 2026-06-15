@@ -7074,75 +7074,8 @@ MARISA_BOMB procdesc pascal far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_MIMA
-chargeshot_add_mima	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 150
-		add	ax, offset byte_20CF6
-		mov	word_20E22, ax
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_20E24[bx], 1
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_20E26[bx], 0
-		mov	bx, word_20E22
-		mov	byte ptr [bx], 1
-		xor	si, si
-		jmp	short loc_15462
-; ---------------------------------------------------------------------------
-
-loc_15412:
-		or	si, si
-		jz	short loc_1541D
-		mov	bx, word_20E22
-		mov	byte ptr [bx], 0
-
-loc_1541D:
-		mov	bx, word_20E22
-		mov	ax, [bp+@@center_x]
-		mov	[bx+2],	ax
-		mov	ax, [bp+@@center_y]
-		mov	[bx+4],	ax
-		push	ds
-		mov	ax, word_20E22
-		add	ax, 6
-		push	ax
-		push	ds
-		mov	ax, word_20E22
-		add	ax, 8
-		push	ax
-		mov	ax, si
-		mov	bx, 6
-		cwd
-		idiv	bx
-		mov	bx, dx
-		mov	al, angles_1DBD8[bx]
-		push	ax
-		push	176
-		call	vector2
-		mov	bx, word_20E22
-		mov	byte ptr [bx+1], 0
-		inc	si
-		add	word_20E22, 0Ah
-
-loc_15462:
-		cmp	si, 0Fh
-		jl	short loc_15412
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_mima	endp
+	CHARGESHOT_ADD_MIMA procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -18274,6 +18207,8 @@ wordmask_1DB0C label word
 public _ENEDAT_DAT
 _ENEDAT_DAT	db 'ENEDAT.DAT',0
 	evendata
+public _angles_1DBD8, angles_1DBD8
+_angles_1DBD8 label byte
 angles_1DBD8	db 192, 182, 202, 192, 176, 208
 byte_1DBDE label byte
 		db    0
@@ -18997,7 +18932,10 @@ _byte_20CF6 label byte
 byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
 _word_20E22 label word
 word_20E22	dw ?
+public _byte_20E24, byte_20E24, _byte_20E26, byte_20E26
+_byte_20E24 label byte
 byte_20E24	db PLAYER_COUNT dup(?)
+_byte_20E26 label byte
 byte_20E26	db PLAYER_COUNT dup(?)
 public _byte_20E28, byte_20E28, _byte_20E29, byte_20E29, _byte_20E2A, byte_20E2A, _angle_20E2B, angle_20E2B
 _byte_20E28 label byte

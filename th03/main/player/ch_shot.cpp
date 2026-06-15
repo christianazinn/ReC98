@@ -37,10 +37,13 @@ extern "C" uint8_t byte_205E0[];
 extern "C" uint8_t near *word_207E0;
 extern "C" uint8_t byte_20CF6[];
 extern "C" uint8_t near *word_20E22;
+extern "C" uint8_t byte_20E24[];
+extern "C" uint8_t byte_20E26[];
 extern "C" uint8_t byte_20E92[];
 extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_current;
 extern "C" uint8_t pid_PID_so_attack;
+extern "C" uint8_t angles_1DBD8[];
 
 extern "C" void far sub_B39E(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
@@ -1058,6 +1061,42 @@ clear_loop:
 clear_loop_check:
 	asm { cmp ax, 1Eh; }
 	asm { jl clear_loop; }
+}
+
+extern "C" void pascal far chargeshot_add_mima(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	register int i;
+
+	word_20E22 = (byte_20CF6 + (pid_PID_current * 150));
+	byte_20E24[pid_PID_current] = 1;
+	byte_20E26[pid_PID_current] = 0;
+	word_20E22[0] = 1;
+
+	i = 0;
+	goto record_loop_check;
+
+record_loop:
+	if(i != 0) {
+		word_20E22[0] = 0;
+	}
+	reinterpret_cast<Subpixel near *>(word_20E22 + 2)[0] = center_x;
+	reinterpret_cast<Subpixel near *>(word_20E22 + 4)[0] = center_y;
+	vector2(
+		reinterpret_cast<Subpixel near *>(word_20E22 + 6)[0].v,
+		reinterpret_cast<Subpixel near *>(word_20E22 + 8)[0].v,
+		angles_1DBD8[i % 6],
+		176
+	);
+	word_20E22[1] = 0;
+	i++;
+	word_20E22 += 0x0A;
+
+record_loop_check:
+	if(i < 0x0F) {
+		goto record_loop;
+	}
 }
 
 #undef bullets_add_nopcall
