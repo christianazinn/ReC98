@@ -6487,103 +6487,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_10324 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_10405	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 1
-		jnz	short loc_10456
-		mov	byte_1F353, 1
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.x
-		mov	point_1F342.x, ax
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.y
-		mov	point_1F342.y, ax
-		sub	ax, word_20E52
-		push	ax
-		mov	ax, point_1F342.x
-		sub	ax, word_20E50
-		push	ax
-		call	iatan2
-		mov	byte_20E4E, al
-		mov	word_1F356, 256
-		mov	byte_1F354, 20h	; ' '
-
-loc_10456:
-		cmp	word_1F3B0, 10h
-		jnb	short loc_1047F
-		mov	ax, word_1F3B0
-		and	ax, 3
-		cmp	ax, 1
-		jnz	loc_1050D
-		push	point_1F342.x
-		push	point_1F342.y
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1047F:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	loc_1050D
-		cmp	word_1F3B0, 20h	; ' '
-		jnz	short loc_104A7
-		push	word_20E50
-		push	word_20E52
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		push	ax
-		call	sub_CDBD
-		mov	byte_1F353, 2
-
-loc_104A7:
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_104F6
-		call	snd_se_play pascal, 3
-		mov	ax, word_20E50
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_20E52
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_20E4E
-		mov	_bullet_template.BT_angle, al
-		push	1Fh
-		call	@randring_far_next16_and$qui
-		add	al, byte_1F3A1
-		mov	_bullet_template.BT_speed, al
-		push	1
-		call	@randring_far_next16_and$qui
-		inc	al
-		mov	_bullet_template.BT_type, al
-		call	@randring_far_next16_mod$qui pascal, 5
-		mov	bx, ax
-		mov	al, yumemi_group_1DCF2[bx]
-		mov	_bullet_template.BT_group, al
-		call	@bullets_add$qv
-
-loc_104F6:
-		cmp	word_1F3B0, 60h
-		jbe	short loc_1050D
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_1050D:
-		pop	bp
-		retn
-yumemi_10405	endp
+	YUMEMI_10405 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -26086,6 +25990,8 @@ angles_1DCEC	label byte
 		db  40h
 		db 0EBh
 		db  95h
+public _yumemi_group_1DCF2, yumemi_group_1DCF2
+_yumemi_group_1DCF2 label byte
 yumemi_group_1DCF2 label byte
 	db BG_3_SPREAD_NARROW
 	db BG_4_SPREAD_NARROW
@@ -26250,6 +26156,8 @@ _word_1F33E label word
 word_1F33E	dw ?
 _word_1F340 label word
 word_1F340	dw ?
+public _point_1F342, point_1F342
+_point_1F342 label Point
 point_1F342	Point <?>
 word_1F346	dw ?
 word_1F348	dw ?
