@@ -29,6 +29,8 @@ extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_1F3A4;
+extern "C" uint8_t byte_1F3A5;
 extern "C" uint8_t byte_23DE4;
 extern "C" uint8_t byte_23DE5;
 
@@ -266,6 +268,108 @@ extern "C" void pascal near chiyuri_12425(void)
 		bullet_template.has_trail = true;
 		bullets_add();
 		bullet_template.has_trail = false;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+		byte_1F353 = 0x20;
+	}
+}
+
+extern "C" void pascal near chiyuri_12498(void)
+{
+	uint8_t pid_other;
+	register int i;
+
+	pid_other = (1 - pid_current);
+	if(word_1F3B0 == 0x20) {
+		SUB_CE5B(
+			(word_1F33E + TO_SP(-56)), word_1F340, static_cast<uint16_t>(pid_other)
+		);
+		SUB_CE5B(
+			(word_1F33E + TO_SP(56)), word_1F340, static_cast<uint16_t>(pid_other)
+		);
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.group = BG_1;
+		bullet_template.type = BT_PELLET;
+		bullet_template.speed.v = byte_1F3A4;
+
+		i = 0;
+		while(static_cast<int>(byte_1F3A5) > i) {
+			bullet_template.center.x.v = (
+				(((i * 0x70) / static_cast<int>(byte_1F3A5)) << SUBPIXEL_BITS) +
+				word_1F33E +
+				TO_SP(-56)
+			);
+			bullet_template.angle = (
+				0x60 - ((i << 6) / static_cast<int>(byte_1F3A5))
+			);
+			bullets_add();
+			bullet_template.angle = (0 - bullet_template.angle);
+			bullets_add();
+			bullet_template.speed.v += 2;
+			i++;
+		}
+
+		i = 0;
+		while(static_cast<int>(byte_1F3A5) > i) {
+			bullet_template.center.x.v = (
+				(((i * 0x70) / static_cast<int>(byte_1F3A5)) << SUBPIXEL_BITS) +
+				word_1F33E +
+				TO_SP(-56)
+			);
+			bullet_template.angle = (
+				0x60 - ((i << 6) / static_cast<int>(byte_1F3A5))
+			);
+			bullets_add();
+			bullet_template.angle = (0 - bullet_template.angle);
+			bullets_add();
+			bullet_template.speed.v -= 2;
+			i++;
+		}
+		return;
+	}
+
+	if(word_1F3B0 == 0x40) {
+		SUB_CE5B(
+			word_1F33E, (word_1F340 + TO_SP(-56)), static_cast<uint16_t>(pid_other)
+		);
+		SUB_CE5B(
+			word_1F33E, (word_1F340 + TO_SP(56)), static_cast<uint16_t>(pid_other)
+		);
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.type = BT_PELLET;
+		bullet_template.group = BG_2_SPREAD_HORIZONTALLY_SYMMETRIC;
+		bullet_template.speed.v = byte_1F3A4;
+
+		i = 0;
+		while(static_cast<int>(byte_1F3A5) > i) {
+			bullet_template.center.y.v = (
+				(((i * 0x70) / static_cast<int>(byte_1F3A5)) << SUBPIXEL_BITS) +
+				word_1F340 +
+				TO_SP(-56)
+			);
+			bullet_template.angle = (
+				((i << 6) / static_cast<int>(byte_1F3A5)) - 0x20
+			);
+			bullets_add();
+			bullet_template.speed.v += 2;
+			i++;
+		}
+
+		i = 0;
+		while(static_cast<int>(byte_1F3A5) > i) {
+			bullet_template.center.y.v = (
+				(((i * 0x70) / static_cast<int>(byte_1F3A5)) << SUBPIXEL_BITS) +
+				word_1F340 +
+				TO_SP(-56)
+			);
+			bullet_template.angle = (
+				((i << 6) / static_cast<int>(byte_1F3A5)) - 0x20
+			);
+			bullets_add();
+			bullet_template.speed.v -= 2;
+			i++;
+		}
+
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 		byte_1F353 = 0x20;
