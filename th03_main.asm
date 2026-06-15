@@ -7052,61 +7052,7 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-reimu_bomb_1515D	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 8
-		add	ax, offset byte_205E0
-		mov	word_207E0, ax
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 8
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, 18h
-		mov	[bp+@@sprite_offset], ax
-		xor	si, si
-		jmp	short loc_151D9
-; ---------------------------------------------------------------------------
-
-loc_15196:
-		mov	bx, word_207E0
-		cmp	byte ptr [bx], 0
-		jz	short loc_151D3
-		mov	bx, word_207E0
-		push	word ptr [bx+2]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -8
-		mov	[bp+@@left], ax
-		mov	bx, word_207E0
-		mov	ax, [bx+4]
-		sar	ax, 4
-		add	ax, 8
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
-
-loc_151D3:
-		inc	si
-		add	word_207E0, 8
-
-loc_151D9:
-		cmp	si, 20h	; ' '
-		jl	short loc_15196
-		pop	si
-		leave
-		retn
-reimu_bomb_1515D	endp
+	REIMU_BOMB_1515D procdesc pascal near
 
 
 ; =============== S U B	R O U T	I N E =======================================

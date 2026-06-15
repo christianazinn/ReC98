@@ -923,4 +923,38 @@ record_update_done:
 	sub_A3A8(pid_current);
 }
 
+extern "C" void pascal near reimu_bomb_1515D(void)
+{
+	register int i;
+	screen_x_t left;
+	screen_y_t top;
+	sprite16_offset_t sprite_offset;
+
+	word_207E0 = (byte_205E0 + (pid_current << 8));
+	sprite16_put_size.w.v = (16 / 16);
+	sprite16_put_size.h = 8;
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	sprite_offset = (pid_PID_so_attack + 0x18);
+
+	i = 0;
+	while(i < 0x20) {
+		if(word_207E0[0] != 0) {
+			_BX = reinterpret_cast<uint16_t>(word_207E0);
+			left = (playfield_fg_x_to_screen(
+				reinterpret_cast<Subpixel near *>(_BX + 2)[0].v,
+				pid_current
+			) - 8);
+
+			_AX = reinterpret_cast<Subpixel near *>(word_207E0 + 4)[0].v;
+			asm { sar ax, SUBPIXEL_BITS; }
+			_AX += 8;
+			top = _AX;
+			sprite16_put(left, _AX, sprite_offset);
+		}
+		i++;
+		word_207E0 += 8;
+	}
+}
+
 #undef bullets_add_nopcall
