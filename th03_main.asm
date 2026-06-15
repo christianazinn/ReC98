@@ -6750,46 +6750,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-public CHIYURI_12B38
-CHIYURI_12B38 label near
-chiyuri_12B38	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-@@col		= word ptr  4
-
-		enter	6, 0
-		mov	_sprite16_put_w, (128 / 16)
-		mov	_sprite16_put_h, 64
-		push	word_1F33E	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -64
-		mov	[bp+@@left], ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -48
-		mov	[bp+@@top], ax
-		mov	ax, sprite_1F34C
-		mov	[bp+@@sprite_offset], ax
-		mov	ah, SPRITE16_SET_MONO
-		mov	dx, 1
-		int	SPRITE16
-		mov	ah, SPRITE16_SET_COLOR
-		mov	dx, [bp+@@col]
-		int	SPRITE16
-		call	sprite16_put pascal, [bp+@@left], [bp+@@top], [bp+@@sprite_offset]
-		mov	ah, SPRITE16_SET_MONO
-		xor	dx, dx
-		int	SPRITE16
-		leave
-		retn	2
-chiyuri_12B38	endp
+	CHIYURI_12B38 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
