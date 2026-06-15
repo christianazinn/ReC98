@@ -26,6 +26,9 @@ extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
 
 extern "C" void pascal near chiyuri_12B38(int col);
 extern "C" void pascal near sub_F58C(void);
@@ -239,6 +242,72 @@ extern "C" void pascal near kana_12C4F(void)
 		return;
 	}
 	if(word_1F3B0 > 0x50) {
+		byte_1F353 = 0;
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
+}
+
+extern "C" void pascal near kana_12D37(void)
+{
+	uint8_t pid_other;
+	register int i;
+
+	pid_other = (1 - pid_current);
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		return;
+	}
+	if(word_1F3B0 == 0x10) {
+		byte_1F354 = 0;
+		byte_1F353 = 2;
+		SUB_CE0C(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+		return;
+	}
+	if((word_1F3B0 >= 0x28) && (word_1F3B0 < 0x50)) {
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.group = BG_RING;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		if(word_1F3B0 == 0x28) {
+			SUB_CDBD(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+			bullet_template.speed.v = (1 << 4);
+			_AL = byte_1F3A0;
+			goto add_default_ring;
+		}
+		if(word_1F3B0 == 0x40) {
+			SUB_CDBD(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+			bullet_template.speed.v = ((2 << 4) + 8);
+			bullet_template.count = byte_1F3A1;
+			bullets_add();
+			snd_se_play(10);
+			bullet_template.type = BT_PELLET;
+			bullet_template.angle = 0x20;
+			bullet_template.speed.v = (1 << 4);
+			bullet_template.group = BG_2_SPREAD_HORIZONTALLY_SYMMETRIC;
+			i = 0;
+			while(i < 0x10) {
+				bullets_add();
+				bullet_template.angle += 6;
+				bullet_template.speed.v += 3;
+				i++;
+			}
+			return;
+		}
+		if(word_1F3B0 == 0x48) {
+			SUB_CDBD(word_1F33E, word_1F340, static_cast<uint16_t>(pid_other));
+			bullet_template.speed.v = ((3 << 4) + 8);
+			_AL = byte_1F3A2;
+
+add_default_ring:
+			bullet_template.count = _AL;
+			bullets_add();
+			snd_se_play(10);
+			return;
+		}
+		return;
+	}
+	if(word_1F3B0 > 0x60) {
 		byte_1F353 = 0;
 		word_1F3B0 = 0;
 		byte_1F34F = 1;
