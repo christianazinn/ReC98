@@ -1,6 +1,7 @@
 #pragma codeseg main_03_TEXT
 
 #include "codegen.hpp"
+#include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
@@ -11,6 +12,8 @@
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
@@ -27,8 +30,11 @@ extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_1F3A4;
+extern "C" uint8_t byte_1F3A5;
 extern "C" uint8_t byte_20E28;
 extern "C" uint8_t byte_20E29;
+extern "C" int8_t byte_20E2A;
+extern "C" uint8_t angle_20E2B;
 
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
@@ -298,6 +304,37 @@ extern "C" void pascal near mima_FD71(void)
 
 	if(word_1F3B0 >= 150) {
 		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+
+extern "C" void pascal near mima_FE2B(void)
+{
+	sub_F356();
+	if(word_1F3B0 == 1) {
+		if(randring_far_next16_and(1) != 0) {
+			_AL = 7;
+		} else {
+			_AL = -7;
+		}
+		byte_20E2A = _AL;
+		angle_20E2B = randring_far_next16_raw();
+	}
+
+	if((word_1F3B0 & 1) == 0) {
+		bullet_template.center.x.v = polar_x(word_1F33E, TO_SP(48), angle_20E2B);
+		bullet_template.center.y.v = polar_y(word_1F340, TO_SP(48), angle_20E2B);
+		bullet_template.angle = (angle_20E2B + 0x40);
+		bullet_template.type = BT_PELLET_CLOUD;
+		bullet_template.group = BG_2_RING;
+		bullet_template.speed.v = byte_1F3A5;
+		bullets_add();
+		snd_se_play(10);
+		angle_20E2B += byte_20E2A;
+	}
+
+	if(word_1F3B0 >= 0x48) {
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 	}
