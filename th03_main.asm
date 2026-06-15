@@ -7442,56 +7442,7 @@ mima_17043	endp
 
 ; Attributes: bp-based frame
 
-public MIMA_BOMB_1714F
-MIMA_BOMB_1714F label near
-mima_bomb_1714F	proc near
-
-@@x		= word ptr -2
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 5
-		add	ax, offset mima_bomb_columns
-		mov	word_23E3A, ax
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 8
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		xor	si, si
-		jmp	short loc_171B2
-; ---------------------------------------------------------------------------
-
-loc_1717D:
-		mov	bx, word_23E3A
-		cmp	word ptr [bx+2], 0
-		jz	short loc_171B7
-		mov	bx, word_23E3A
-		push	word ptr [bx]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@x], ax
-		push	ax
-		push	PLAYFIELD_TOP
-		mov	bx, word_23E3A
-		push	word ptr [bx+2]
-		push	SPF_DOWNWARDS_COLUMN
-		call	sprite16_putx
-		inc	si
-		add	word_23E3A, 4
-
-loc_171B2:
-		cmp	si, 8
-		jl	short loc_1717D
-
-loc_171B7:
-		pop	si
-		leave
-		retn
-mima_bomb_1714F	endp
+MIMA_BOMB_1714F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -17634,8 +17585,11 @@ _defeat_boss_panics_fired    	db ?
 
 _byte_23DF9 label byte
 byte_23DF9	db ?
+public _mima_bomb_columns, mima_bomb_columns, _word_23E3A, word_23E3A
+_mima_bomb_columns label byte
 mima_bomb_columns label byte
 		db 64 dup(?)
+_word_23E3A label word
 word_23E3A	dw ?
 
 bullet_template_t struc
