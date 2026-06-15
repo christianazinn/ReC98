@@ -130,6 +130,17 @@ uint8_t bullet_trail_ring_i;
 #pragma option -k-
 #pragma warn -rch
 
+void pascal near gauge_pattern_yumemi(uint8_t type);
+
+#pragma option -k.
+extern "C" void pascal far gba_gauge_pattern_bullet_yumemi(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_yumemi(BT_BULLET16_DEFAULT);
+	}
+}
+#pragma option -k-
+
 void __fastcall near grcg_pellet_put(
 	screen_x_t /* _AX */, size_t cel_offset, vram_y_t top
 )
