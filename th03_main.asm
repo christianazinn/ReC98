@@ -6790,103 +6790,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-kana_12F06	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 1
-		jnz	short loc_12F17
-		mov	byte_1F353, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12F17:
-		cmp	word_1F3B0, 10h
-		jnz	short loc_12F77
-		mov	byte_1F354, 0
-		mov	byte_1F353, 2
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CE0C
-		mov	byte_23DE6, -40h
-		push	3
-		call	@randring_far_next16_and$qui
-		mov	byte_23DE7, al
-		cmp	byte_23DE7, 0
-		jnz	short loc_12F5A
-		mov	al, -3
-		jmp	short loc_12F72
-; ---------------------------------------------------------------------------
-
-loc_12F5A:
-		cmp	byte_23DE7, 1
-		jnz	short loc_12F65
-		mov	al, -1
-		jmp	short loc_12F72
-; ---------------------------------------------------------------------------
-
-loc_12F65:
-		cmp	byte_23DE7, 2
-		jnz	short loc_12F70
-		mov	al, 1
-		jmp	short loc_12F72
-; ---------------------------------------------------------------------------
-
-loc_12F70:
-		mov	al, 3
-
-loc_12F72:
-		mov	byte_23DE7, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12F77:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	short loc_12FCF
-		cmp	word_1F3B0, 6Ch	; 'l'
-		jnb	short loc_12FCF
-		test	byte ptr word_1F3B0, 3
-		jnz	short loc_12FBF
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_count, 5
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_1F3A5
-		mov	_bullet_template.BT_speed, al
-		mov	al, byte_23DE6
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		call	snd_se_play pascal, 10
-
-loc_12FBF:
-		cmp	word_1F3B0, 40h
-		jbe	short loc_12FE6
-		mov	al, byte_23DE7
-		add	byte_23DE6, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12FCF:
-		cmp	word_1F3B0, 70h	; 'p'
-		jbe	short loc_12FE6
-		mov	byte_1F353, 0
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-
-loc_12FE6:
-		pop	bp
-		retn
-kana_12F06	endp
+	KANA_12F06 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -22279,6 +22183,7 @@ _word_23DD6 label word
 word_23DD6	dw 6 dup(?)
 public _byte_23DE2, byte_23DE2, _byte_23DE3, byte_23DE3
 public _byte_23DE4, byte_23DE4, _byte_23DE5, byte_23DE5
+public _byte_23DE6, byte_23DE6, _byte_23DE7, byte_23DE7
 _byte_23DE2 label byte
 byte_23DE2	db ?
 _byte_23DE3 label byte
@@ -22287,7 +22192,9 @@ _byte_23DE4 label byte
 byte_23DE4	db ?
 _byte_23DE5 label byte
 byte_23DE5	db ?
+_byte_23DE6 label byte
 byte_23DE6	db ?
+_byte_23DE7 label byte
 byte_23DE7	db ?
 byte_23DE8	db ?
 bullet_type_23DE9	db ?

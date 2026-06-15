@@ -32,6 +32,9 @@ extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_1F3A4;
+extern "C" uint8_t byte_1F3A5;
+extern "C" uint8_t byte_23DE6;
+extern "C" uint8_t byte_23DE7;
 
 extern "C" void pascal near chiyuri_12B38(int col);
 extern "C" void near sub_F356(void);
@@ -339,6 +342,53 @@ extern "C" void pascal near kana_12E78(void)
 		snd_se_play(10);
 	}
 	if(word_1F3B0 > 0x64) {
+		byte_1F353 = 0;
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
+}
+
+extern "C" void pascal near kana_12F06(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		return;
+	}
+	if(word_1F3B0 == 0x10) {
+		byte_1F354 = 0;
+		byte_1F353 = 2;
+		SUB_CE0C(word_1F33E, word_1F340, (1 - pid_current));
+		byte_23DE6 = -0x40;
+		byte_23DE7 = randring_far_next16_and(3);
+		if(byte_23DE7 == 0) {
+			_AL = -3;
+		} else if(byte_23DE7 == 1) {
+			_AL = -1;
+		} else if(byte_23DE7 == 2) {
+			_AL = 1;
+		} else {
+			_AL = 3;
+		}
+		byte_23DE7 = _AL;
+		return;
+	}
+	if((word_1F3B0 >= 0x20) && (word_1F3B0 < 0x6C)) {
+		if((word_1F3B0 & 3) == 0) {
+			bullet_template.type = BT_BULLET16_DEFAULT;
+			bullet_template.group = BG_RING;
+			bullet_template.count = 5;
+			bullet_template.center.x.v = word_1F33E;
+			bullet_template.center.y.v = word_1F340;
+			bullet_template.speed.v = byte_1F3A5;
+			bullet_template.angle = byte_23DE6;
+			bullets_add();
+			snd_se_play(10);
+		}
+		if(word_1F3B0 > 0x40) {
+			byte_23DE6 += byte_23DE7;
+			return;
+		}
+	} else if(word_1F3B0 > 0x70) {
 		byte_1F353 = 0;
 		word_1F3B0 = 0;
 		byte_1F34F = 1;
