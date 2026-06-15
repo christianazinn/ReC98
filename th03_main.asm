@@ -7109,74 +7109,7 @@ MIMA_CHARGESHOT_1561C procdesc pascal near \
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_MIMA
-chargeshot_render_mima	proc far
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_20E24[bx], 0
-		jz	short loc_156DF
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 150
-		add	ax, offset byte_20CF6
-		mov	word_20E22, ax
-		cmp	_pid_current, 0
-		jnz	short loc_15689
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_15695
-; ---------------------------------------------------------------------------
-
-loc_15689:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_15695:
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, 10h
-		mov	[bp+var_2], ax
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 8
-		xor	si, si
-		jmp	short loc_156DA
-; ---------------------------------------------------------------------------
-
-loc_156AF:
-		mov	bx, word_20E22
-		cmp	byte ptr [bx], 0
-		jz	short loc_156D4
-		mov	bx, word_20E22
-		push	word ptr [bx+2]
-		push	word ptr [bx+4]
-		mov	ax, si
-		mov	bx, 3
-		cwd
-		idiv	bx
-		shl	dx, 2
-		add	dx, [bp+var_2]
-		push	dx
-		call	MIMA_CHARGESHOT_1561C
-
-loc_156D4:
-		inc	si
-		add	word_20E22, 0Ah
-
-loc_156DA:
-		cmp	si, 0Fh
-		jl	short loc_156AF
-
-loc_156DF:
-		pop	si
-		leave
-		retf
-chargeshot_render_mima	endp
+	CHARGESHOT_RENDER_MIMA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
