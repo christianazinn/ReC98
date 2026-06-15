@@ -6576,62 +6576,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-ellen_11620	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		cmp	dx, 1
-		jnz	short loc_116A2
-		call	snd_se_play pascal, 10
-		mov	_bullet_template.BT_group, BG_4_SPREAD_NARROW
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_23DE3
-		mov	_bullet_template.BT_angle, al
-		mov	al, byte_1F3A1
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_PELLET
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		call	@bullets_add$qv
-		mov	al, byte_23DE3
-		add	al, 80h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	al, byte_1F3A1
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_bullet_template.BT_speed, al
-		call	@bullets_add$qv
-		mov	al, byte_23DE3
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	al, byte_23DE3
-		add	al, 10h
-		mov	byte_23DE3, al
-
-loc_116A2:
-		cmp	word_1F3B0, 60h
-		jb	short loc_116B4
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_116B4:
-		pop	bp
-		retn
-ellen_11620	endp
+	ELLEN_11620 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -24841,9 +24786,10 @@ _word_23DCA label word
 word_23DCA	dw 6 dup(?)
 _word_23DD6 label word
 word_23DD6	dw 6 dup(?)
-public _byte_23DE2, byte_23DE2
+public _byte_23DE2, byte_23DE2, _byte_23DE3, byte_23DE3
 _byte_23DE2 label byte
 byte_23DE2	db ?
+_byte_23DE3 label byte
 byte_23DE3	db ?
 byte_23DE4	db ?
 byte_23DE5	db ?
