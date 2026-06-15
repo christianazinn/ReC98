@@ -6369,38 +6369,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F5AF	proc far
-
-arg_0		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	dx, [bp+arg_0]
-		mov	ax, dx
-		shl	ax, 5
-		add	ax, offset byte_1F35E
-		mov	si, ax
-		mov	word ptr [si], (144 shl 4)
-		mov	word ptr [si+2], (80 shl 4)
-		mov	word ptr [si+8], 0FFE0h
-		mov	word ptr [si+0Ah], 0
-		mov	byte ptr [si+12h], 0
-		mov	byte ptr [si+10h], 0
-		mov	byte ptr [si+11h], 0
-		mov	word ptr [si+0Ch], 6Eh ; 'n'
-		mov	byte ptr [si+13h], 0
-		mov	word ptr [si+0Eh], 280h
-		or	dx, dx
-		jz	short loc_F5F5
-		add	word ptr [si+0Eh], 28h ; '('
-
-loc_F5F5:
-		mov	byte ptr [si+15h], 0
-		pop	si
-		pop	bp
-		retf	2
-marisa_F5AF	endp
+	MARISA_F5AF procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -27721,7 +27690,8 @@ byte_1F355	db ?
 word_1F356	dw ?
 byte_1F358	db ?
 		db 5 dup(?)
-public byte_1F35E
+public _byte_1F35E, byte_1F35E
+_byte_1F35E label byte
 byte_1F35E	db 64 dup(?)
 public _gba_boss_level
 _gba_boss_level	db ?
