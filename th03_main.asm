@@ -1700,7 +1700,7 @@ arg_0		= word ptr  4
 		setfarfp	exatt_add_p1, @exatt_add_marisa$qiiuc
 		setfarfp	exatt_update_p1, @exatt_update_marisa$qv
 		setfarfp	exatt_render_p1, @exatt_render_marisa$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_marisa
+		setfarfp	_p1.chargeshot_add, CHARGESHOT_ADD_MARISA
 		setfarfp	_chargeshot_update_p1, chargeshot_update_marisa
 		setfarfp	_chargeshot_render_p1, chargeshot_render_marisa
 		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_marisa$qv
@@ -1719,7 +1719,7 @@ loc_A912:
 		setfarfp	exatt_add_p2, @exatt_add_marisa$qiiuc
 		setfarfp	exatt_update_p2, @exatt_update_marisa$qv
 		setfarfp	exatt_render_p2, @exatt_render_marisa$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_marisa
+		setfarfp	_p2.chargeshot_add, CHARGESHOT_ADD_MARISA
 		setfarfp	_chargeshot_update_p2, chargeshot_update_marisa
 		setfarfp	_chargeshot_render_p2, chargeshot_render_marisa
 		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_marisa$qv
@@ -6910,54 +6910,8 @@ HITBOX_TEXT segment byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_MARISA
-chargeshot_add_marisa	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 32h
-		add	ax, offset byte_1FDEA
-		mov	word_1FE4E, ax
-		mov	bx, word_1FE4E
-		mov	byte ptr [bx], 1
-		mov	byte ptr [bx+1], 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	_players[bx].shot_active, SA_DISABLED
-		xor	si, si
-		jmp	short loc_1432F
-; ---------------------------------------------------------------------------
-
-loc_1430F:
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FE4E
-		mov	ax, [bp+@@center_x]
-		mov	[bx+2],	ax
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FE4E
-		mov	ax, [bp+@@center_y]
-		add	ax, 0FF00h
-		mov	[bx+1Ah], ax
-		inc	si
-
-loc_1432F:
-		cmp	si, 0Ch
-		jl	short loc_1430F
-		call	snd_se_play pascal, 6
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_marisa	endp
+	CHARGESHOT_ADD_MARISA procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20753,6 +20707,8 @@ byte_1FDEA	db ?
 _byte_1FE1C label byte
 byte_1FE1C	db ?
 		db 49 dup(?)
+public _word_1FE4E, word_1FE4E
+_word_1FE4E label word
 word_1FE4E	dw ?
 public _byte_1FE50, byte_1FE50
 _byte_1FE50 label byte
