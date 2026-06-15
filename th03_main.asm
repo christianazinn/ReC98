@@ -6510,55 +6510,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_10A17 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public gba_boss_render_yumemi
-gba_boss_render_yumemi proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short locret_10BFC
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	[bp+@@pid_other], 0
-		jnz	short loc_10BD5
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_10BE1
-; ---------------------------------------------------------------------------
-
-loc_10BD5:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_10BE1:
-		cmp	byte_1F34F, 0
-		jnz	short loc_10BED
-		call	yumemi_10A17
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_10BED:
-		cmp	byte_1F34F, -1
-		jz	short loc_10BF9
-		call	yumemi_108CA
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_10BF9:
-		call	sub_F58C
-
-locret_10BFC:
-		leave
-		retf
-gba_boss_render_yumemi endp
+	GBA_BOSS_RENDER_YUMEMI procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
