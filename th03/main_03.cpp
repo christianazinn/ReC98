@@ -239,4 +239,66 @@ extern "C" void pascal near marisa_F72D(void)
 	}
 }
 
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal near marisa_F7BD(void)
+{
+	pid_t pid_other = (1 - pid_current);
+
+	byte_1F353 = 1;
+	if(word_1F3B0 < 0x38) {
+		return;
+	}
+	if(word_1F3B0 != 0x40) {
+		goto check_50;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x00, 0x02);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	1000h
+	}
+	goto spawn_second;
+
+check_50:
+	if(word_1F3B0 != 0x50) {
+		goto check_60;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x00, 0x05);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	0D00h
+	}
+	goto spawn_second;
+
+check_60:
+	if(word_1F3B0 != 0x60) {
+		goto check_done;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x00, 0x08);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	0A00h
+	}
+
+spawn_second:
+	_asm {
+		push	1700h
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+	}
+	return;
+
+check_done:
+	if(word_1F3B0 == 0x70) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+#pragma option -G
+#pragma warn .aus
+
 #pragma codeseg
