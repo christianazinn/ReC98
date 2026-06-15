@@ -1,6 +1,7 @@
 #pragma codeseg HITBOX_TEXT
 
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th03/formats/mrs.hpp"
@@ -715,4 +716,57 @@ loop_check:
 
 miss:
 	return 0;
+}
+
+extern "C" void pascal far chargeshot_render_reimu(void)
+{
+	register int i;
+
+	word_205CA = (byte_202CA + (pid_current * 384));
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+
+	i = 0;
+	while(i < 0x0C) {
+		if(word_205CA[0] != 0) {
+			sprite16_mono_(true);
+			sprite16_mono_color_(2);
+			_asm {
+				mov	bx, word_205CA
+				push	word ptr [bx+0Eh]
+				push	word ptr [bx+1Ch]
+				push	3
+				call	near ptr reimu_chargeshot_14C8C
+			}
+			sprite16_mono_color_(5);
+			reimu_chargeshot_14C8C(
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x02)[4],
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[4],
+				2
+			);
+			sprite16_mono_color_(6);
+			reimu_chargeshot_14C8C(
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x02)[2],
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[2],
+				1
+			);
+			__emit__(0x31, 0xD2); // XOR DX, DX
+			_AH = SPRITE16_SET_MONO;
+			geninterrupt(SPRITE16);
+			reimu_chargeshot_14C8C(
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x02)[0],
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[0],
+				0
+			);
+		}
+		i++;
+		word_205CA += 0x20;
+	}
 }
