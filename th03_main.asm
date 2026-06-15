@@ -6727,72 +6727,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-chiyuri_1295E	proc near
-
-@@angle		= byte ptr -9
-var_8		= word ptr -8
-@@pid_other		= word ptr -6
-@@sprite_offset		= word ptr -4
-@@top		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		mov	[bp+@@pid_other], dx
-		mov	ax, word_1F356
-		shl	ax, 4
-		mov	[bp+var_8], ax
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		mov	ax, sprite_1F34C
-		add	ax, ((24 * ROW_SIZE) + (128 / BYTE_DOTS))
-		mov	[bp+@@sprite_offset], ax
-		mov	al, byte_1F354
-		mov	ah, 0
-		shl	ax, 2
-		add	[bp+@@sprite_offset], ax
-		xor	si, si
-		mov	al, byte_1F355
-		jmp	short loc_12A04
-; ---------------------------------------------------------------------------
-
-loc_129A0:
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, [bp+var_8], _CosTable8[bx]
-		mov	di, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, [bp+var_8], _SinTable8[bx]
-		mov	[bp+@@top], ax
-		call	@playfield_fg_x_to_screen$qii pascal, di, [bp+@@pid_other]
-		add	ax, -16
-		mov	di, ax
-		mov	ax, [bp+@@top]
-		sar	ax, 4
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, di, ax, [bp+@@sprite_offset]
-		inc	si
-		mov	al, [bp+@@angle]
-		add	al, 10h
-
-loc_12A04:
-		mov	[bp+@@angle], al
-		cmp	si, 10h
-		jl	short loc_129A0
-		pop	di
-		pop	si
-		leave
-		retn
-chiyuri_1295E	endp
+	CHIYURI_1295E procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
