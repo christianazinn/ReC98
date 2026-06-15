@@ -700,6 +700,7 @@ obj = {
 	"th03/main/main_03_kana_update.asm",
 	"th03/main_03w.cpp",
 	"th03/main/main_03_rikako_update.asm",
+	"th03/main_03x.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
