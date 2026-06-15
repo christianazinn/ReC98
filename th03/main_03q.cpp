@@ -9,6 +9,7 @@
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
+#include "th03/main/player/stuff.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
@@ -26,11 +27,14 @@ extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_20E4C;
 extern "C" uint8_t byte_20E4D;
 extern "C" uint8_t byte_20E4E;
 extern "C" subpixel_t word_20E50;
 extern "C" subpixel_t word_20E52;
+extern PlayfieldPoint point_1F342;
+extern const bullet_group_t near yumemi_group_1DCF2[];
 
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
@@ -238,6 +242,61 @@ extern "C" void pascal near yumemi_10324(void)
 		byte_20E4C += 8;
 	}
 	if(word_1F3B0 > 0x3C) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+
+extern "C" void pascal near yumemi_10405(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		point_1F342.x.v = players[bullet_template.pid].center.x.v;
+		point_1F342.y.v = players[bullet_template.pid].center.y.v;
+		byte_20E4E = iatan2(
+			(point_1F342.y.v - word_20E52),
+			(point_1F342.x.v - word_20E50)
+		);
+		word_1F356 = 256;
+		byte_1F354 = 0x20;
+	}
+
+	if(word_1F3B0 < 0x10) {
+		if((word_1F3B0 & 3) == 1) {
+			SUB_CE5B(
+				point_1F342.x.v,
+				point_1F342.y.v,
+				bullet_template.pid
+			);
+		}
+		return;
+	}
+
+	if(word_1F3B0 < 0x20) {
+		return;
+	}
+	if(word_1F3B0 == 0x20) {
+		SUB_CDBD(word_20E50, word_20E52, bullet_template.pid);
+		byte_1F353 = 2;
+	}
+	if((static_cast<uint8_t>(word_1F3B0) & 1) == 0) {
+		snd_se_play(3);
+		bullet_template.center.x.v = word_20E50;
+		bullet_template.center.y.v = word_20E52;
+		bullet_template.angle = byte_20E4E;
+		bullet_template.speed.v = (
+			randring_far_next16_and(0x1F) + byte_1F3A1
+		);
+		bullet_template.type = static_cast<bullet_type_t>(
+			randring_far_next16_and(1) + 1
+		);
+		bullet_template.group = yumemi_group_1DCF2[
+			randring_far_next16_mod(5)
+		];
+		bullets_add();
+	}
+	if(word_1F3B0 > 0x60) {
 		byte_1F353 = 0;
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
