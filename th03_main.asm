@@ -6594,69 +6594,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-ellen_11885	proc near
-
-@@pid_other		= byte ptr -5
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_sprite16_put_w, (64 / 16)
-		mov	_sprite16_put_h, 48
-		push	word_1F33E	; x
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -32
-		mov	[bp+@@left], ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -32
-		mov	[bp+@@top], ax
-		mov	di, sprite_1F34C
-		cmp	byte_1F34E, 0
-		jz	short loc_118CB
-		add	di, 8
-
-loc_118CB:
-		call	sprite16_put pascal, [bp+@@left], [bp+@@top], di
-		mov	al, byte_1F354
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	bx, 9
-		cwd
-		idiv	bx
-		mov	si, dx
-		push	dx
-		call	ellen_11814
-		dec	si
-		or	si, si
-		jge	short loc_118F6
-		mov	si, 8
-
-loc_118F6:
-		push	si
-		call	ellen_11814
-		dec	si
-		or	si, si
-		jge	short loc_11902
-		mov	si, 8
-
-loc_11902:
-		push	si
-		call	ellen_11814
-		pop	di
-		pop	si
-		leave
-		retn
-ellen_11885	endp
+	ELLEN_11885 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
