@@ -42,6 +42,96 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void near ellen_19510(void)
+{
+	screen_x_t x;
+	screen_y_t top;
+	screen_y_t trail_top;
+	screen_x_t trail_left;
+	uint8_t frame;
+	register int i;
+	register sprite16_offset_t so;
+
+	x = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(word_1FB3A)
+			) + 2
+		),
+		reinterpret_cast<uint8_t near *>(
+			*reinterpret_cast<uint16_t near *>(word_1FB3A)
+		)[0x10]
+	);
+	top = (
+		(*reinterpret_cast<subpixel_t near *>(
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(word_1FB3A)
+			) + 4
+		) >> 4) + 16
+	);
+	if(reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	)[0x10] == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	frame = reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	)[1];
+	if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	) == 1) {
+		sprite16_put_size.w.v = (32 / 16);
+		sprite16_put_size.h = 16;
+		_AL = pid_PID_so_attack;
+		_AH = 0;
+		_AX += ((8 * ROW_SIZE) + (96 / BYTE_DOTS));
+		so = _AX;
+		i = 6;
+		goto trail_test;
+trail:
+		trail_left = playfield_fg_x_to_screen(
+			reinterpret_cast<subpixel_t near *>(
+				reinterpret_cast<uint8_t near *>(word_1FB3A) + 2
+			)[i],
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(word_1FB3A)
+			)[0x10]
+		);
+		trail_top = (
+			(
+				reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(word_1FB3A) + 0x10
+				)[i] >> 4
+			) + 16
+		);
+		sprite16_put((trail_left - 16), (trail_top - 16), so);
+		so -= 4;
+		i -= 2;
+trail_test:
+		__emit__(0x0B, 0xF6);
+		asm { jge trail; }
+		goto ret;
+	} else if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	) == 2) {
+		sub_1A32A(x, top, frame);
+	} else {
+		sub_1A377(
+			x,
+			top,
+			*reinterpret_cast<uint16_t near *>(
+				*reinterpret_cast<uint16_t near *>(word_1FB3A)
+			)
+		);
+	}
+ret:
+}
+
 void far exatt_update_ellen(void)
 {
 	int i;
