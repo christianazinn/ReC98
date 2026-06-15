@@ -1,25 +1,40 @@
 #pragma codeseg main_03_TEXT
 
+#include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th02/snd/snd.h"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
 extern "C" uint16_t word_1F3B0;
+extern "C" uint16_t word_1F356;
 extern "C" uint8_t byte_1F35E[];
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
+extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_20E4C;
+extern "C" uint8_t byte_20E4D;
+extern "C" uint8_t byte_20E4E;
+extern "C" subpixel_t word_20E50;
+extern "C" subpixel_t word_20E52;
 
+extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near mima_10053(void)
@@ -180,4 +195,51 @@ extern "C" void pascal far yumemi_102C8(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near yumemi_10324(void)
+{
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		byte_20E4E = randring_far_next16_raw();
+		byte_20E4C = 0;
+		word_1F356 = 256;
+		if(randring_far_next16_and(1) == 0) {
+			_AL = 3;
+		} else {
+			_AL = -3;
+		}
+		byte_20E4D = _AL;
+	}
+
+	if(word_1F3B0 < 4) {
+		SUB_CE5B(word_20E50, word_20E52, bullet_template.pid);
+		return;
+	}
+
+	if(word_1F3B0 < 0x20) {
+		return;
+	}
+	if(word_1F3B0 == 0x20) {
+		SUB_CDBD(word_20E50, word_20E52, bullet_template.pid);
+		byte_1F353 = 2;
+		snd_se_play(5);
+	}
+	if((static_cast<uint8_t>(word_1F3B0) & 3) == 0) {
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.angle = byte_20E4E;
+		bullet_template.group = BG_RING;
+		bullet_template.center.x.v = word_20E50;
+		bullet_template.center.y.v = word_20E52;
+		bullet_template.speed.v = (byte_1F39F + byte_20E4C);
+		bullet_template.count = byte_1F3A0;
+		bullets_add();
+		byte_20E4E += byte_20E4D;
+		byte_20E4C += 8;
+	}
+	if(word_1F3B0 > 0x3C) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
 }
