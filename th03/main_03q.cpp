@@ -28,6 +28,7 @@ extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_20E4C;
 extern "C" uint8_t byte_20E4D;
 extern "C" uint8_t byte_20E4E;
@@ -39,6 +40,7 @@ extern const bullet_group_t near yumemi_group_1DCF2[];
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near mima_10053(void)
@@ -298,6 +300,39 @@ extern "C" void pascal near yumemi_10405(void)
 	}
 	if(word_1F3B0 > 0x60) {
 		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+
+extern "C" void pascal near yumemi_1050F(void)
+{
+	sub_F356();
+	if((word_1F3B0 % static_cast<uint16_t>(byte_1F3A2)) == 0) {
+		bullet_template.group = BG_4_RING;
+		bullet_template.speed.v = (2 << 4);
+		bullet_template.type = static_cast<bullet_type_t>(
+			randring_far_next16_and(1) + 1
+		);
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = (word_1F340 + TO_SP(-32));
+		bullets_add();
+
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.center.y.v = (word_1F340 + TO_SP(32));
+		bullets_add();
+
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.center.x.v = (word_1F33E + TO_SP(-32));
+		bullet_template.center.y.v = word_1F340;
+		bullets_add();
+
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.center.x.v = (word_1F33E + TO_SP(32));
+		bullets_add();
+	}
+	if(word_1F3B0 >= 0x60) {
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 	}
