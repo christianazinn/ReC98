@@ -9,6 +9,7 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
@@ -27,9 +28,11 @@ extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_23DC6;
 extern "C" uint8_t byte_23DC7;
 
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near yumemi_108CA(void)
@@ -263,4 +266,39 @@ extern "C" void pascal near reimu_10C4D(void)
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 	}
+}
+
+extern "C" void pascal near reimu_10DA0(void)
+{
+	sub_F356();
+	bullet_template.type = BT_BULLET16_DEFAULT;
+	bullet_template.speed.v = byte_1F3A1;
+	bullet_template.pid = (1 - pid_current);
+	bullet_template.center.x.v = word_1F33E;
+	bullet_template.center.y.v = word_1F340;
+
+	if(word_1F3B0 < 0x40) {
+		if(round_frame_mod16 != 0) {
+			return;
+		}
+		bullet_template.angle = 0x20;
+		bullet_template.group = BG_3_SPREAD_NARROW;
+		bullets_add();
+		bullet_template.angle = 0x60;
+		bullets_add();
+		return;
+	}
+
+	if(word_1F3B0 < 0x64) {
+		if(round_frame_mod16 != 0) {
+			return;
+		}
+		bullet_template.group = BG_5_SPREAD_MEDIUM;
+		bullet_template.angle = 0x40;
+		bullets_add();
+		return;
+	}
+
+	byte_1F34F = 1;
+	word_1F3B0 = 0;
 }
