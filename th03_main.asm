@@ -6999,46 +6999,8 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-reimu_chargeshot_14C8C	proc near
-
-@@sprite_offset		= word ptr -2
-arg_0		= word ptr  4
-@@top		= word ptr  6
-arg_4		= word ptr  8
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_4]
-		mov	si, [bp+arg_0]
-		mov	ax, si
-		add	ax, _round_or_result_frame
-		mov	si, ax
-		and	si, 3
-		mov	ax, si
-		imul	ax, 6
-		mov	dl, _pid_PID_so_attack
-		mov	dh, 0
-		add	ax, dx
-		add	ax, (56 * ROW_SIZE)
-		mov	[bp+@@sprite_offset], ax
-		push	di	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -24
-		mov	di, ax
-		mov	ax, [bp+@@top]
-		sar	ax, 4
-		add	ax, -8
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, di, ax, [bp+@@sprite_offset]
-		pop	di
-		pop	si
-		leave
-		retn	6
-reimu_chargeshot_14C8C	endp
+	REIMU_CHARGESHOT_14C8C procdesc pascal near \
+		center_x:word, top:word, phase:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7165,7 +7127,7 @@ loc_14DC6:
 		push	word ptr [bx+0Eh]
 		push	word ptr [bx+1Ch]
 		push	3
-		call	reimu_chargeshot_14C8C
+		call	REIMU_CHARGESHOT_14C8C
 		mov	dx, 5
 		mov	ah, SPRITE16_SET_COLOR
 		int	SPRITE16
@@ -7173,7 +7135,7 @@ loc_14DC6:
 		push	word ptr [bx+0Ah]
 		push	word ptr [bx+18h]
 		push	2
-		call	reimu_chargeshot_14C8C
+		call	REIMU_CHARGESHOT_14C8C
 		mov	dx, 6
 		mov	ah, SPRITE16_SET_COLOR
 		int	SPRITE16
@@ -7181,7 +7143,7 @@ loc_14DC6:
 		push	word ptr [bx+6]
 		push	word ptr [bx+14h]
 		push	1
-		call	reimu_chargeshot_14C8C
+		call	REIMU_CHARGESHOT_14C8C
 		xor	dx, dx
 		mov	ah, SPRITE16_SET_MONO
 		int	SPRITE16
@@ -7189,7 +7151,7 @@ loc_14DC6:
 		push	word ptr [bx+2]
 		push	word ptr [bx+10h]
 		push	0
-		call	reimu_chargeshot_14C8C
+		call	REIMU_CHARGESHOT_14C8C
 
 loc_14E2D:
 		inc	si

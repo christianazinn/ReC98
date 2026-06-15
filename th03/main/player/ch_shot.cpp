@@ -13,6 +13,7 @@
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/math/vector.hpp"
@@ -617,4 +618,25 @@ reimu_update_group_loop_check:
 	if(static_cast<int>(_DI) < 0x0C) {
 		goto reimu_update_group_loop;
 	}
+}
+
+extern "C" void pascal near reimu_chargeshot_14C8C(
+	Subpixel center_x, Subpixel top, int phase
+)
+{
+	sprite16_offset_t sprite_offset;
+	register int phase_reg;
+	register subpixel_t left;
+
+	left = center_x.v;
+	phase_reg = phase;
+	phase_reg += round_or_result_frame;
+	phase_reg &= 3;
+	sprite_offset = ((phase_reg * 6) + pid_PID_so_attack + (56 * ROW_SIZE));
+	left = (playfield_fg_x_to_screen(left, pid_current) - 24);
+	_AX = top.v;
+	asm { sar ax, SUBPIXEL_BITS; }
+	_AX += -8;
+	top.v = _AX;
+	sprite16_put(left, _AX, sprite_offset);
 }
