@@ -28,6 +28,8 @@ extern "C" uint8_t byte_1FDE8[];
 extern "C" uint8_t near *word_1FE4E;
 extern "C" PlayfieldPoint point_1FE52;
 extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
+extern "C" uint8_t byte_202C8[];
 extern "C" uint8_t byte_202CA[];
 extern "C" uint8_t near *word_205CA;
 extern "C" uint8_t byte_205CC;
@@ -770,3 +772,89 @@ extern "C" void pascal far chargeshot_render_reimu(void)
 		word_205CA += 0x20;
 	}
 }
+
+#define bullets_add_nopcall() { \
+	_asm { nop; push cs; call near ptr bullets_add; } \
+}
+
+void pascal near gauge_pattern_reimu(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(type == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		byte_202C8[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (gba_gauge_level[pid_current] + 0x20);
+		byte_202B9[pid_current * 4] = (0x20 - gba_gauge_level[pid_current]);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	bullet_template.type = static_cast<bullet_type_t>(type);
+	bullet_template.center.y.v = (8 << 4);
+	pid_other = (1 - pid_current);
+	bullet_template.pid = pid_other;
+	bullet_template.speed.v = (2 << 4);
+	bullet_template.angle = 0;
+
+	if((byte_202C8[pid_current] % byte_202B9[pid_current * 4]) == 0) {
+		bullet_template.group = BG_5_SPREAD_MEDIUM_AIMED;
+		bullet_template.center.x.v = (32 << 4);
+		SUB_CE0C((32 << 4), (8 << 4), static_cast<uint16_t>(pid_other));
+		bullets_add_nopcall();
+
+		bullet_template.center.x.v = (256 << 4);
+		SUB_CE0C((256 << 4), (8 << 4), static_cast<uint16_t>(pid_other));
+		bullets_add_nopcall();
+	}
+
+	if((byte_202C8[pid_current] % 0x20) == 0x10) {
+		bullet_template.group = BG_RING;
+		bullet_template.count = byte_202B8[pid_current * 4];
+		bullet_template.speed.v = ((3 << 4) + 2);
+		bullet_template.center.x.v = (64 << 4);
+		SUB_CE0C((64 << 4), (8 << 4), static_cast<uint16_t>(pid_other));
+		bullets_add_nopcall();
+
+		bullet_template.center.x.v = ((PLAYFIELD_W - 64) << 4);
+		SUB_CE0C(
+			((PLAYFIELD_W - 64) << 4),
+			(8 << 4),
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add_nopcall();
+	}
+
+	if(byte_202C8[pid_current] > 0x40) {
+		gba_flag_active[pid_current] = GBAF_NONE;
+		sub_A3A8(pid_other);
+	}
+	byte_202C8[pid_current]++;
+}
+
+extern "C" void pascal far gba_gauge_pattern_pellet_reimu(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_reimu(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_reimu(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_reimu(BT_BULLET16_DEFAULT);
+	}
+}
+
+#undef bullets_add_nopcall

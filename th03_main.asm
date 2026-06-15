@@ -7019,209 +7019,19 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_reimu$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type	= byte ptr  4
-
-		enter	2, 0
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_14E51
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_14E51:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_14EB3
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr byte_202C8[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		add	al, 20h	; ' '
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B8[bx], al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dl, 20h	; ' '
-		mov	bx, ax
-		sub	dl, _gba_gauge_level[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	byte_202B9[bx], dl
-		leave
-		retn	2
-; ---------------------------------------------------------------------------
-
-loc_14EB3:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	locret_14FEA
-		mov	al, [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	_bullet_template.BT_center.y, (8 shl 4)
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_bullet_template.BT_pid, al
-		mov	_bullet_template.BT_speed, (2 shl 4)
-		mov	_bullet_template.BT_angle, 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_202C8[bx]
-		mov	ah, 0
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	dl, byte_202B9[bx]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14F52
-		mov	_bullet_template.BT_group, BG_5_SPREAD_MEDIUM_AIMED
-		mov	_bullet_template.BT_center.x, (32 shl 4)
-		push	2000080h
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-		mov	_bullet_template.BT_center.x, (256 shl 4)
-		push	10000080h
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-
-loc_14F52:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_202C8[bx]
-		mov	ah, 0
-		mov	bx, 20h	; ' '
-		cwd
-		idiv	bx
-		cmp	dx, 10h
-		jnz	short loc_14FBD
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B8[bx]
-		mov	_bullet_template.BT_count, al
-		mov	_bullet_template.BT_speed, ((3 shl 4) + 2)
-		mov	_bullet_template.BT_center.x, (64 shl 4)
-		push	4000080h
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-		mov	_bullet_template.BT_center.x, ((PLAYFIELD_W - 64) shl 4)
-		push	0E000080h
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		nopcall	@bullets_add$qv
-
-loc_14FBD:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_202C8[bx], 40h
-		jbe	short loc_14FDF
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-
-loc_14FDF:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr byte_202C8[bx]
-
-locret_14FEA:
-		leave
-		retn	2
-@gauge_pattern_reimu$quc endp
+@gauge_pattern_reimu$quc procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_reimu
-gba_gauge_pattern_pellet_reimu proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_15004
-		call	@gauge_pattern_reimu$quc pascal, BT_PELLET
-
-loc_15004:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_reimu endp
+	GBA_GAUGE_PATTERN_PELLET_REIMU procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_reimu
-gba_gauge_pattern_bullet_reimu proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1501C
-		call	@gauge_pattern_reimu$quc pascal, BT_BULLET16_DEFAULT
-
-loc_1501C:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_reimu endp
+	GBA_GAUGE_PATTERN_BULLET_REIMU procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19521,13 +19331,16 @@ gba_gauge_pattern_bullet_p1	dd ?
 gba_gauge_pattern_bullet_p2	dd ?
 _gba_flag_active db PLAYER_COUNT dup(?)
 _gba_gauge_level	db PLAYER_COUNT dup(?)
-public _byte_202B8, byte_202B8
+public _byte_202B8, byte_202B8, _byte_202B9, byte_202B9
 _byte_202B8 label byte
 byte_202B8	db ?
+_byte_202B9 label byte
 byte_202B9	db ?
 byte_202BA	db ?
 		db 5 dup(?)
 		db 8 dup(?)
+public _byte_202C8, byte_202C8
+_byte_202C8 label byte
 byte_202C8	db PLAYER_COUNT dup(?)
 public _byte_202CA, byte_202CA
 _byte_202CA label byte
