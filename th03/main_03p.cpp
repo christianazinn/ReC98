@@ -24,6 +24,7 @@ extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_1F3A4;
 extern "C" uint8_t byte_20E28;
@@ -31,6 +32,7 @@ extern "C" uint8_t byte_20E29;
 
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near marisa_F9A6(void)
@@ -263,5 +265,40 @@ extern "C" void pascal near mima_FC6B(void)
 			byte_1F34F = 1;
 			word_1F3B0 = 0;
 		}
+	}
+}
+
+extern "C" void pascal near mima_FD71(void)
+{
+	uint8_t phase_mod = (word_1F3B0 % static_cast<uint16_t>(byte_1F3A2));
+
+	sub_F356();
+	byte_1F353 = 5;
+	if(
+		(phase_mod == 1) ||
+		(static_cast<uint16_t>(phase_mod) == (static_cast<int16_t>(byte_1F3A2) / 2))
+	) {
+		if(static_cast<uint16_t>(phase_mod) == (static_cast<int16_t>(byte_1F3A2) / 2)) {
+			bullet_template.group = BG_4_SPREAD_MEDIUM_AIMED;
+		} else {
+			bullet_template.group = BG_5_SPREAD_MEDIUM_AIMED;
+		}
+		snd_se_play(10);
+		bullet_template.angle = 0;
+		bullet_template.center.x.v = (word_1F33E + TO_SP(24));
+		bullet_template.center.y.v = (word_1F340 + TO_SP(-32));
+		bullet_template.speed.v = ((5 << 4) + 8);
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.is_animated = false;
+		bullet_template.has_trail = true;
+		bullets_add();
+		bullet_template.has_trail = false;
+		bullet_template.is_animated = true;
+	}
+
+	if(word_1F3B0 >= 150) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
 	}
 }
