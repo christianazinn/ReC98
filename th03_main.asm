@@ -9962,6 +9962,8 @@ marisa_19B06	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_19B4F, marisa_19B4F
+_marisa_19B4F label near
 marisa_19B4F	proc near
 
 var_5		= byte ptr -5
@@ -10206,39 +10208,7 @@ loc_19D25:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_marisa$qv
-@exatt_render_marisa$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_19D57
-; ---------------------------------------------------------------------------
-
-loc_19D47:
-		cmp	byte ptr [si], 0
-		jz	short loc_19D53
-		mov	word_2028A, si
-		call	marisa_19B4F
-
-loc_19D53:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_19D57:
-		cmp	di, 0Eh
-		jl	short loc_19D47
-		pop	di
-		pop	si
-		pop	bp
-		retf
-@exatt_render_marisa$qv endp
+@exatt_render_marisa$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
