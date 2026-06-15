@@ -5,6 +5,7 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" uint8_t exatt_buffers[];
 extern "C" uint8_t byte_202B8[];
@@ -16,8 +17,8 @@ extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
 extern "C" void near sub_1A1A7(void);
 extern "C" void pascal near sub_1A1ED(
-	Subpixel x,
-	Subpixel y1,
+	subpixel_t x,
+	subpixel_t y1,
 	subpixel_t target_x,
 	subpixel_t target_y,
 	pid_t pid,
@@ -25,6 +26,50 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+extern "C" void pascal far exatt_add_kotohime(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			randring_far_next16_mod(PLAYFIELD_W << 4),
+			randring_far_next16_mod(64 << 4),
+			pid,
+			0x5A
+		);
+		*reinterpret_cast<subpixel_t near *>(slot + 0x0E) = (
+			randring_far_next16_and(4095) + (96 << 4)
+		);
+		*reinterpret_cast<subpixel_t near *>(slot + 0x14) = (
+			randring_far_next16_and(0x1F) + 0x10
+		);
+		slot[0x12] = 0;
+		slot[0x11] = 0;
+		return;
+	}
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
+}
 
 extern "C" void pascal far kotohime_19DD3(
 	subpixel_t target_x, subpixel_t target_y
@@ -48,8 +93,8 @@ extern "C" void pascal far kotohime_19DD3(
 	}
 	word_2028A = reinterpret_cast<uint16_t>(slot);
 	sub_1A1ED(
-		player->center.x,
-		player->center.y,
+		player->center.x.v,
+		player->center.y.v,
 		target_x,
 		target_y,
 		pid_current,
