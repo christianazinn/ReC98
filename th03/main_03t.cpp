@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
@@ -16,9 +17,12 @@ extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
+extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F354;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
+
+extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near ellen_11814(int frame)
 {
@@ -114,4 +118,36 @@ extern "C" void pascal near ellen_1190A(
 		angle += 3;
 		so -= 4;
 	}
+}
+
+extern "C" void pascal far gba_boss_render_ellen(void)
+{
+	uint8_t pid_other;
+
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	if(pid_other == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	if(byte_1F34F == 0) {
+		ellen_1190A(
+			((200 - (word_1F3B0 * 2)) << 4),
+			word_1F3B0,
+			(word_1F3B0 * 3)
+		);
+		return;
+	}
+	if(byte_1F34F != 0xFF) {
+		ellen_11885();
+		return;
+	}
+	sub_F58C();
 }

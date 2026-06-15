@@ -6609,62 +6609,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_ellen
-gba_boss_render_ellen proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short locret_11A6B
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	[bp+@@pid_other], 0
-		jnz	short loc_11A2B
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_11A37
-; ---------------------------------------------------------------------------
-
-loc_11A2B:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_11A37:
-		cmp	byte_1F34F, 0
-		jnz	short loc_11A5C
-		mov	ax, word_1F3B0
-		add	ax, ax
-		mov	dx, 200
-		sub	dx, ax
-		shl	dx, 4
-		push	dx
-		push	word_1F3B0
-		mov	ax, word_1F3B0
-		imul	ax, 3
-		push	ax
-		call	ellen_1190A
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_11A5C:
-		cmp	byte_1F34F, -1
-		jz	short loc_11A68
-		call	ellen_11885
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_11A68:
-		call	sub_F58C
-
-locret_11A6B:
-		leave
-		retf
-gba_boss_render_ellen endp
+	GBA_BOSS_RENDER_ELLEN procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
