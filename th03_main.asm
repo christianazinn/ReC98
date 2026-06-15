@@ -4970,6 +4970,8 @@ sub_CDBD	endp
 
 ; Attributes: bp-based frame
 
+public SUB_CE0C, sub_CE0C
+SUB_CE0C label far
 sub_CE0C	proc far
 
 @@pid		= word ptr  6
@@ -6444,102 +6446,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-mima_FC6B	proc near
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	word_1F3B0, 10h
-		jnz	short loc_FC88
-		mov	byte_1F353, 5
-		jmp	short loc_FC91
-; ---------------------------------------------------------------------------
-
-loc_FC88:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	loc_FD6D
-
-loc_FC91:
-		mov	ax, word_1F33E
-		add	ax, (24 shl 4)
-		mov	si, ax
-		mov	ax, word_1F340
-		add	ax, (-32 shl 4)
-		mov	di, ax
-		cmp	word_1F3B0, 20h	; ' '
-		jz	short loc_FCB6
-		cmp	word_1F3B0, 24h	; '$'
-		jz	short loc_FCB6
-		cmp	word_1F3B0, 28h	; '('
-		jnz	short loc_FCC6
-
-loc_FCB6:
-		push	si
-		push	di
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		jmp	loc_FD6D
-; ---------------------------------------------------------------------------
-
-loc_FCC6:
-		cmp	word_1F3B0, 30h	; '0'
-		jbe	loc_FD6D
-		test	byte ptr word_1F3B0, 3
-		jnz	short loc_FD12
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.BT_group, BG_RANDOM_ANGLE_AND_SPEED
-		mov	_bullet_template.BT_center.x, si
-		mov	_bullet_template.BT_center.y, di
-		mov	al, byte_1F3A0
-		mov	_bullet_template.BT_count, al
-		mov	al, byte_1F3A1
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_is_animated, 0
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_type, BT_PELLET
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_is_animated, 1
-
-loc_FD12:
-		cmp	word_1F3B0, 40h
-		jnz	short loc_FD47
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_32_RING
-		mov	_bullet_template.BT_center.x, si
-		mov	_bullet_template.BT_center.y, di
-		mov	_bullet_template.BT_speed, (2 shl 4)
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_is_animated, 0
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_is_animated, 1
-
-loc_FD47:
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_FD55
-		call	snd_se_play pascal, 3
-
-loc_FD55:
-		cmp	word_1F3B0, 80h
-		jb	short loc_FD6D
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_FD6D:
-		pop	di
-		pop	si
-		leave
-		retn
-mima_FC6B	endp
+	MIMA_FC6B procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
