@@ -6644,70 +6644,7 @@ KOTOHIME_11BC6 procdesc near
 
 ; Attributes: bp-based frame
 
-kotohime_11C5F	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		mov	al, byte_1F3A4
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		cmp	dx, 1
-		jnz	loc_11D06
-		call	snd_se_play pascal, 3
-		mov	_bullet_template.BT_type, BT_PELLET
-		mov	al, byte ptr word_1F3B0
-		mov	_bullet_template.BT_angle, al
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_count, 4
-		mov	ax, word_1F33E
-		add	ax, (-48 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		add	ax, (-24 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (12 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (24 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		add	ax, (24 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (12 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		mov	ax, word_1F33E
-		add	ax, (48 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-
-loc_11D06:
-		cmp	word_1F3B0, 60h
-		jb	short loc_11D18
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_11D18:
-		pop	bp
-		retn
-kotohime_11C5F	endp
+KOTOHIME_11C5F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
