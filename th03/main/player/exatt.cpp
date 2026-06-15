@@ -29,6 +29,38 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far marisa_19B06(
+	subpixel_t x, subpixel_t y, pid_t pid
+)
+{
+	register uint8_t near *slot;
+
+	_AL = pid;
+	_AH = 0;
+	_DX = 1;
+	_DX -= _AX;
+	_DX <<= 9;
+	_DX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_DX);
+
+	_CX = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		slot[0] = 3;
+		slot[1] = 0;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = y;
+		slot[0x10] = pid;
+		return;
+	}
+	_CX++;
+	slot += 0x20;
+loop_test:
+	_asm { cmp cx, 0x0E; }
+	_asm { jl loop; }
+}
+
 extern "C" void near marisa_19B4F(void)
 {
 	screen_x_t left;

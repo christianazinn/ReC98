@@ -9907,55 +9907,7 @@ loc_19B00:
 
 ; Attributes: bp-based frame
 
-public MARISA_19B06, marisa_19B06
-MARISA_19B06 label far
-marisa_19B06	proc far
-
-arg_0		= byte ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		shl	dx, 9
-		add	dx, offset exatt_buffers
-		mov	si, dx
-		xor	cx, cx
-		jmp	short loc_19B45
-; ---------------------------------------------------------------------------
-
-loc_19B21:
-		cmp	byte ptr [si], 0
-		jnz	short loc_19B41
-		mov	byte ptr [si], 3
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+arg_4]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		mov	[si+4],	ax
-		mov	al, [bp+arg_0]
-		mov	[si+10h], al
-		jmp	short loc_19B4A
-; ---------------------------------------------------------------------------
-
-loc_19B41:
-		inc	cx
-		add	si, 20h	; ' '
-
-loc_19B45:
-		cmp	cx, 0Eh
-		jl	short loc_19B21
-
-loc_19B4A:
-		pop	si
-		pop	bp
-		retf	6
-marisa_19B06	endp
+MARISA_19B06 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
