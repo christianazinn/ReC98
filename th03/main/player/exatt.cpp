@@ -37,6 +37,50 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far exatt_add_kana(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	subpixel_t target_x;
+	register uint8_t near *slot;
+	register int i;
+
+	target_x = randring_far_next16_mod(PLAYFIELD_W << 4);
+	_AL = pid;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			target_x,
+			randring_far_next16_mod(128 << 4),
+			pid,
+			0x5A
+		);
+		slot[0x12] = (randring_far_next16_and(0x1F) - 0x0F);
+		if(target_x >= (144 << 4)) {
+			_AL = slot[0x12];
+			_AL += 0x80;
+			slot[0x12] = _AL;
+		}
+		return;
+	}
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far KANA_19896(subpixel_t x, subpixel_t y, uint8_t angle)
 {
 	register uint8_t near *slot;
