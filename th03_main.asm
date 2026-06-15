@@ -6540,111 +6540,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-reimu_112A6	proc near
-
-@@pid_other		= byte ptr -6
-var_5		= byte ptr -5
-var_4		= word ptr -4
-@@top		= word ptr -2
-arg_0		= word ptr  4
-@@angle		= byte ptr  6
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	_round_frame_mod2, 0
-		jz	short loc_112C5
-		cmp	word_1F3B0, 40h
-		jb	loc_113A3
-
-loc_112C5:
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		cmp	_pid_current, 0
-		jz	short loc_112E5
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_112F1
-; ---------------------------------------------------------------------------
-
-loc_112E5:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_112F1:
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	si, ax
-		mov	ax, word_1F3B0
-		shr	ax, 2
-		mov	[bp+var_5], al
-		mov	ah, 0
-		and	ax, 3
-		cmp	ax, 1
-		jnz	short loc_11313
-		add	si, 6
-		jmp	short loc_11329
-; ---------------------------------------------------------------------------
-
-loc_11313:
-		test	[bp+var_5], 3
-		jz	short loc_11329
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		and	ax, 1
-		imul	ax, 6
-		add	ax, (24 * ROW_SIZE)
-		add	si, ax
-
-loc_11329:
-		mov	[bp+var_4], 0
-		jmp	short loc_1139D
-; ---------------------------------------------------------------------------
-
-loc_11330:
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, [bp+arg_0], _CosTable8[bx]
-		mov	di, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, [bp+arg_0], _SinTable8[bx]
-		mov	[bp+@@top], ax
-		push	di	; x
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -24
-		mov	di, ax
-		mov	ax, [bp+@@top]
-		sar	ax, 4
-		add	ax, -8
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, di, ax, si
-		inc	[bp+var_4]
-		mov	al, [bp+@@angle]
-		add	al, 20h
-		mov	[bp+@@angle], al
-
-loc_1139D:
-		cmp	[bp+var_4], 8
-		jl	short loc_11330
-
-loc_113A3:
-		pop	di
-		pop	si
-		leave
-		retn	4
-reimu_112A6	endp
+	REIMU_112A6 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -25186,7 +25082,7 @@ _cpu_hit_damage_additional	db ?
 _damage_all_on	db PLAYFIELD_COUNT dup(?)
 		db ?
 include th02/hardware/pages[bss].asm
-public _pid, _pid_PID_current
+public _pid, _pid_PID_current, _pid_PID_so_attack
 _pid_PID_current  	label byte
 _pid_PID_so_attack	label byte
 _pid	db ?
