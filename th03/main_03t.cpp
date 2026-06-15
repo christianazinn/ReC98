@@ -31,6 +31,8 @@ extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_1F3A4;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
 
@@ -279,4 +281,42 @@ extern "C" void pascal near kotohime_11BC6(void)
 
 	sub_F356();
 	word_1F356 += 0x20;
+}
+
+extern "C" void pascal near kotohime_11C5F(void)
+{
+	sub_F356();
+	if((word_1F3B0 % static_cast<uint16_t>(byte_1F3A4)) == 1) {
+		snd_se_play(3);
+		bullet_template.type = BT_PELLET;
+		bullet_template.angle = static_cast<uint8_t>(word_1F3B0);
+		bullet_template.speed.v = byte_1F3A3;
+		bullet_template.group = BG_RING;
+		bullet_template.count = 4;
+
+		bullet_template.center.x.v = (word_1F33E + TO_SP(-48));
+		bullet_template.center.y.v = word_1F340;
+		bullets_add();
+
+		bullet_template.center.x.v = (word_1F33E + TO_SP(-24));
+		bullet_template.center.y.v = (word_1F340 + TO_SP(12));
+		bullets_add();
+
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = (word_1F340 + TO_SP(24));
+		bullets_add();
+
+		bullet_template.center.x.v = (word_1F33E + TO_SP(24));
+		bullet_template.center.y.v = (word_1F340 + TO_SP(12));
+		bullets_add();
+
+		bullet_template.center.x.v = (word_1F33E + TO_SP(48));
+		bullet_template.center.y.v = word_1F340;
+		bullets_add();
+	}
+
+	if(word_1F3B0 >= 0x60) {
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
 }
