@@ -6707,45 +6707,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-chiyuri_12425	proc near
-		push	bp
-		mov	bp, sp
-		test	byte ptr word_1F3B0, 7
-		jnz	short loc_12447
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CE5B
-
-loc_12447:
-		cmp	word_1F3B0, 30h	; '0'
-		jnz	short loc_12496
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_count, 48
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_has_trail, 1
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_has_trail, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-		mov	byte_1F353, 20h	; ' '
-
-loc_12496:
-		pop	bp
-		retn
-chiyuri_12425	endp
+	CHIYURI_12425 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================

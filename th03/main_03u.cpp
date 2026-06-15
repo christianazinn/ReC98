@@ -28,6 +28,7 @@ extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_23DE4;
 extern "C" uint8_t byte_23DE5;
 
@@ -246,4 +247,27 @@ extern "C" void pascal near chiyuri_12355(void)
 	bullets_add();
 	bullet_template.center.y.v = (word_1F340 + TO_SP(-56));
 	bullets_add();
+}
+
+extern "C" void pascal near chiyuri_12425(void)
+{
+	if((word_1F3B0 & 7) == 0) {
+		SUB_CE5B(word_1F33E, word_1F340, (1 - pid_current));
+	}
+
+	if(word_1F3B0 == 0x30) {
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.group = BG_RING;
+		bullet_template.count = 48;
+		bullet_template.speed.v = byte_1F3A3;
+		bullet_template.has_trail = true;
+		bullets_add();
+		bullet_template.has_trail = false;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+		byte_1F353 = 0x20;
+	}
 }
