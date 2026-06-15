@@ -61,7 +61,7 @@ bullet_template_t ends
 	extrn @RANDRING_FAR_NEXT16_AND$QUI:proc
 	extrn @RANDRING_FAR_NEXT16_MOD$QUI:proc
 
-	sub_A3A8 procdesc far
+	SUB_A3A8 procdesc far
 	sub_A3D2 procdesc far
 	SUB_CE0C procdesc far
 	sub_F3A9 procdesc near
@@ -266,7 +266,7 @@ loc_12847:
 loc_1284C:
 		call	sub_F3A9	; jumptable 00012744 case 128
 		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
+		call	SUB_A3A8
 		jmp	short loc_12860	; default
 ; ---------------------------------------------------------------------------
 

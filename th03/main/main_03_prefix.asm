@@ -20,7 +20,7 @@ PID_NONE = 0FFh
 	extrn @polar$qiii:proc
 	extrn @SCORE_ADD$QUIUC:proc
 	extrn @RANDRING_FAR_NEXT16_AND$QUI:proc
-	extrn sub_A3A8:proc
+	extrn SUB_A3A8:proc
 	SPRITE16_PUT procdesc pascal far \
 		left:word, screen_top:word, sprite_offset:word
 
@@ -348,7 +348,7 @@ loc_F42B:
 		mov	al, 1
 		sub	al, _pid_current
 		push	ax
-		call	sub_A3A8
+		call	SUB_A3A8
 		mov	al, _pid_current
 		mov	ah, 0
 		mov	bx, 1
@@ -367,7 +367,7 @@ loc_F481:
 		mov	al, 1
 		sub	al, _pid_current
 		push	ax
-		call	sub_A3A8
+		call	SUB_A3A8
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
@@ -404,7 +404,7 @@ sub_F4B4	proc far
 		mov	byte_1F34F, -1
 		mov	word_1F3B0, 0
 		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
+		call	SUB_A3A8
 		mov	al, [bp+@@pid_other]
 		mov	ah, 0
 		mov	bx, ax

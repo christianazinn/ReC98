@@ -1366,7 +1366,8 @@ sub_A38E	endp
 
 ; Attributes: bp-based frame
 
-public sub_A3A8
+public SUB_A3A8, sub_A3A8
+SUB_A3A8 label far
 sub_A3A8	proc far
 
 arg_0		= byte ptr  6
@@ -6756,56 +6757,7 @@ KOTOHIME_11D1A procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_render_chiyuri
-gba_boss_render_chiyuri proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short loc_12BF9
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		jnz	short loc_12BBF
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_12BCB
-; ---------------------------------------------------------------------------
-
-loc_12BBF:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_12BCB:
-		cmp	byte_1F34F, 0
-		jnz	short loc_12BD7
-		call	chiyuri_12ADD
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_12BD7:
-		cmp	byte_1F34F, -1
-		jz	short loc_12BE3
-		call	chiyuri_12A10
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_12BE3:
-		call	sub_F58C
-		cmp	_gba_boss_launched_by, PID_NONE
-		jnz	short loc_12BF9
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-
-loc_12BF9:
-		pop	bp
-		retf
-gba_boss_render_chiyuri endp
+	GBA_BOSS_RENDER_CHIYURI procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
