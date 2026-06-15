@@ -6513,42 +6513,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	GBA_BOSS_RENDER_YUMEMI procdesc far
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-reimu_10BFE	proc far
-
-arg_0		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	dx, [bp+arg_0]
-		mov	ax, dx
-		shl	ax, 5
-		add	ax, offset byte_1F35E
-		mov	si, ax
-		mov	word ptr [si], (144 shl 4)
-		mov	word ptr [si+2], (80 shl 4)
-		mov	word ptr [si+8], 0FFE0h
-		mov	word ptr [si+0Ah], 0
-		mov	byte ptr [si+12h], 0
-		mov	byte ptr [si+10h], 0
-		mov	byte ptr [si+11h], 0
-		mov	word ptr [si+0Ch], 6Eh ; 'n'
-		mov	byte ptr [si+13h], 0
-		mov	byte ptr [si+15h], 0
-		mov	word ptr [si+0Eh], 28Ch
-		or	dx, dx
-		jz	short loc_10C48
-		add	word ptr [si+0Eh], 28h ; '('
-
-loc_10C48:
-		pop	si
-		pop	bp
-		retf	2
-reimu_10BFE	endp
+	REIMU_10BFE procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
