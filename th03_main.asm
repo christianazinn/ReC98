@@ -2291,14 +2291,7 @@ public @GameExecl$qnxc
 
 ; Attributes: bp-based frame
 
-public SUB_B4A3
-SUB_B4A3 label near
-sub_B4A3	proc near
-		push	bp
-		mov	bp, sp
-		pop	bp
-		retn
-sub_B4A3	endp
+	SUB_B4A3 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
