@@ -1,5 +1,6 @@
 #pragma codeseg main_03_TEXT
 
+#include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
@@ -7,6 +8,7 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 
@@ -67,5 +69,20 @@ extern "C" void pascal near kotohime_120A0(void)
 	sprite16_put(left, top, sprite_offset);
 	if(byte_1F353 != 0) {
 		kotohime_11FE4(byte_1F3A0);
+	}
+}
+
+extern "C" void pascal near kotohime_12103(subpixel_t radius)
+{
+	if((round_frame_mod2 == 0) || (word_1F3B0 >= 0x40)) {
+		sprite16_put_size.w.v = (32 / 16);
+		sprite16_put_size.h = 16;
+		byte_1F353 = 1;
+		_AL = byte_1F355;
+		_AL += 2;
+		byte_1F355 = _AL;
+		word_1F356 = radius;
+		kotohime_11FE4(8);
+		byte_1F353 = 0;
 	}
 }

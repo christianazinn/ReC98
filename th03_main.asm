@@ -6675,34 +6675,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-kotohime_12103	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		cmp	_round_frame_mod2, 0
-		jz	short loc_12114
-		cmp	word_1F3B0, 40h
-		jb	short loc_1213C
-
-loc_12114:
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		mov	byte_1F353, 1
-		mov	al, byte_1F355
-		add	al, 2
-		mov	byte_1F355, al
-		mov	ax, [bp+arg_0]
-		mov	word_1F356, ax
-		push	8
-		call	kotohime_11FE4
-		mov	byte_1F353, 0
-
-loc_1213C:
-		pop	bp
-		retn	2
-kotohime_12103	endp
+	KOTOHIME_12103 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
