@@ -133,6 +133,13 @@ uint8_t bullet_trail_ring_i;
 void pascal near gauge_pattern_yumemi(uint8_t type);
 
 #pragma option -k.
+extern "C" void pascal far gba_gauge_pattern_pellet_yumemi(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_yumemi(BT_PELLET);
+	}
+}
+
 extern "C" void pascal far gba_gauge_pattern_bullet_yumemi(void)
 {
 	if(gba_flag_active[pid_current] != GBAF_NONE) {
