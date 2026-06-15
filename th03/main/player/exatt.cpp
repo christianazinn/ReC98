@@ -1,11 +1,13 @@
 #include "th03/main/player/exatt.hpp"
 #include "codegen.hpp"
+#include "libs/master.lib/master.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 
 extern "C" uint8_t exatt_buffers[];
@@ -39,6 +41,229 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+void far exatt_update_ellen(void)
+{
+	int i;
+	int j;
+	uint8_t pid_other;
+	register uint8_t near *ref;
+
+	_AL = pid_current;
+	_AH = 0;
+	_asm { imul ax, ax, (12 * 30); }
+	_AX += reinterpret_cast<uint16_t>(ellen_exatt_refs);
+	ref = reinterpret_cast<uint8_t near *>(_AX);
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	playfield_clip_negative_radius.x.v = TO_SP(-24);
+	playfield_clip_negative_radius.y.v = TO_SP(-24);
+	collmap_stripe_tile_w.v = (12 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (12 / COLLMAP_TILE_H);
+	collmap_pid = _AL;
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(ref)
+	) != 0) {
+		_BX = *reinterpret_cast<uint16_t near *>(ref);
+		if(*reinterpret_cast<uint8_t near *>(_BX) == 1) {
+			j = 6;
+			goto shift_test;
+shift:
+			reinterpret_cast<subpixel_t near *>(ref + 2)[j] = (
+				reinterpret_cast<subpixel_t near *>(ref + 2)[j - 1]
+			);
+			reinterpret_cast<subpixel_t near *>(ref + 0x10)[j] = (
+				reinterpret_cast<subpixel_t near *>(ref + 0x10)[j - 1]
+			);
+			j--;
+shift_test:
+			if(j > 0) {
+				goto shift;
+			}
+
+			if(
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 0x14
+				) <= 0x0D00
+			) {
+				_AL = reinterpret_cast<uint8_t near *>(
+					*reinterpret_cast<uint16_t near *>(ref)
+				)[0x12];
+				_AH = 0;
+				_AX += _AX;
+				_BX = _AX;
+				*reinterpret_cast<subpixel_t near *>(ref + 2) = polar(
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(
+							*reinterpret_cast<uint16_t near *>(ref)
+						) + 2
+					),
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(
+							*reinterpret_cast<uint16_t near *>(ref)
+						) + 0x14
+					),
+					*reinterpret_cast<const short near *>(
+						reinterpret_cast<const uint8_t near *>(CosTable8) + _BX
+					)
+				);
+				_AL = reinterpret_cast<uint8_t near *>(
+					*reinterpret_cast<uint16_t near *>(ref)
+				)[0x12];
+				_AH = 0;
+				_AX += _AX;
+				_BX = _AX;
+				*reinterpret_cast<subpixel_t near *>(ref + 0x10) = polar(
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(
+							*reinterpret_cast<uint16_t near *>(ref)
+						) + 4
+					),
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(
+							*reinterpret_cast<uint16_t near *>(ref)
+						) + 0x14
+					),
+					*reinterpret_cast<const short near *>(
+						reinterpret_cast<const uint8_t near *>(SinTable8) + _BX
+					)
+				);
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 6
+				) = (
+					*reinterpret_cast<subpixel_t near *>(ref + 2) -
+					*reinterpret_cast<subpixel_t near *>(ref + 4)
+				);
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 8
+				) = (
+					*reinterpret_cast<subpixel_t near *>(ref + 0x10) -
+					*reinterpret_cast<subpixel_t near *>(ref + 0x12)
+				);
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 0x14
+				) += 0x18;
+				reinterpret_cast<uint8_t near *>(
+					*reinterpret_cast<uint16_t near *>(ref)
+				)[0x12] += reinterpret_cast<uint8_t near *>(
+					*reinterpret_cast<uint16_t near *>(ref)
+				)[0x11];
+				goto hittest;
+			}
+			if(
+				playfield_clip(
+					reinterpret_cast<PlayfieldSubpixel near *>(ref + 2)[0],
+					reinterpret_cast<PlayfieldSubpixel near *>(ref + 0x10)[0]
+				) &&
+				playfield_clip(
+					reinterpret_cast<PlayfieldSubpixel near *>(ref + 0x0E)[0],
+					reinterpret_cast<PlayfieldSubpixel near *>(ref + 0x1C)[0]
+				)
+			) {
+				reinterpret_cast<uint8_t near *>(
+					*reinterpret_cast<uint16_t near *>(ref)
+				)[0] = 0;
+				goto next;
+			}
+			*reinterpret_cast<subpixel_t near *>(ref + 2) += (
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 6
+				)
+			);
+			*reinterpret_cast<subpixel_t near *>(ref + 0x10) += (
+				*reinterpret_cast<subpixel_t near *>(
+					reinterpret_cast<uint8_t near *>(
+						*reinterpret_cast<uint16_t near *>(ref)
+					) + 8
+				)
+			);
+hittest:
+			hitbox_hittest_skip_explosions = true;
+			hitbox.radius.x.v = (16 << 4);
+			hitbox.radius.y.v = (16 << 4);
+			hitbox.pid = pid_other;
+			hitbox.origin.center.x.v = (
+				*reinterpret_cast<subpixel_t near *>(ref + 2)
+			);
+			hitbox.origin.center.y.v = (
+				*reinterpret_cast<subpixel_t near *>(ref + 0x10)
+			);
+			hitbox_hittest();
+			hitbox_hittest_skip_explosions = false;
+			collmap_center.x.v = (
+				*reinterpret_cast<subpixel_t near *>(ref + 2)
+			);
+			collmap_center.y.v = (
+				*reinterpret_cast<subpixel_t near *>(ref + 0x10)
+			);
+			collmap_set_rect_striped();
+		} else if(*reinterpret_cast<uint8_t near *>(
+			*reinterpret_cast<uint16_t near *>(ref)
+		) == 2) {
+			word_2028A = *reinterpret_cast<uint16_t near *>(ref);
+			if(sub_1A1A7() != 0) {
+				j = 0;
+				goto copy_test;
+copy:
+				reinterpret_cast<subpixel_t near *>(ref + 2)[j] = (
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(word_2028A) + 2
+					)
+				);
+				reinterpret_cast<subpixel_t near *>(ref + 0x10)[j] = (
+					*reinterpret_cast<subpixel_t near *>(
+						reinterpret_cast<uint8_t near *>(word_2028A) + 4
+					)
+				);
+				j++;
+copy_test:
+				_asm { cmp word ptr [bp-4], 7; }
+				asm { jl copy; }
+				goto state_done;
+			}
+		} else if(*reinterpret_cast<uint8_t near *>(
+			*reinterpret_cast<uint16_t near *>(ref)
+		) <= 0x1C) {
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(ref)
+			)[0]++;
+		} else {
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(ref)
+			)[1] = 0;
+			reinterpret_cast<uint8_t near *>(
+				*reinterpret_cast<uint16_t near *>(ref)
+			)[0] = 1;
+			snd_se_play(10);
+		}
+state_done:
+		reinterpret_cast<uint8_t near *>(
+			*reinterpret_cast<uint16_t near *>(ref)
+		)[1]++;
+	}
+next:
+	i++;
+	ref += 30;
+loop_test:
+	if(i < 12) {
+		goto loop;
+	}
+}
 
 void far exatt_render_ellen(void)
 {
