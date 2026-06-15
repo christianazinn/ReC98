@@ -1099,4 +1099,19 @@ record_loop_check:
 	}
 }
 
+extern "C" void pascal near mima_chargeshot_1546C(
+	uint8_t pid, uint8_t record_id
+)
+{
+	word_20E22 = (byte_20CF6 + (pid * 150) + (record_id * 10));
+	word_20E22[0] = 1;
+	reinterpret_cast<Subpixel near *>(word_20E22 + 2)[0] = (
+		players[pid].center.x
+	);
+	reinterpret_cast<Subpixel near *>(word_20E22 + 4)[0] = (
+		players[pid].center.y
+	);
+	snd_se_play(13);
+}
+
 #undef bullets_add_nopcall
