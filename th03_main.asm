@@ -6415,51 +6415,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_FA71	proc near
-
-@@pid_other		= byte ptr -3
-@@top		= word ptr -2
-arg_0		= word ptr  4
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_0]
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_sprite16_put_w, (176 / 16)
-		mov	_sprite16_put_h, 48
-		push	word_1F33E	; x
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -88
-		mov	di, ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -32
-		mov	[bp+@@top], ax
-		mov	ah, SPRITE16_SET_MASK
-		mov	dx, 0AAAAh
-		int	SPRITE16
-		mov	ax, di
-		sub	ax, si
-		call	sprite16_put pascal, ax, [bp+@@top], sprite_1F34C
-		mov	ah, SPRITE16_SET_MASK
-		mov	dx, TRAPEZOID_HMASK_ODD
-		int	SPRITE16
-		mov	ax, di
-		add	ax, si
-		call	sprite16_put pascal, ax, [bp+@@top], sprite_1F34C
-		mov	ah, SPRITE16_SET_MASK
-		mov	dx, 0FFFFh
-		int	SPRITE16
-		pop	di
-		pop	si
-		leave
-		retn	2
-marisa_FA71	endp
+	MARISA_FA71 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
