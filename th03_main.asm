@@ -5015,6 +5015,8 @@ sub_CE0C	endp
 
 ; Attributes: bp-based frame
 
+public SUB_CE5B
+SUB_CE5B label far
 sub_CE5B	proc far
 
 @@pid		= word ptr  6
@@ -6484,95 +6486,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_102C8 procdesc far
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_10324	proc near
-		push	bp
-		mov	bp, sp
-		cmp	word_1F3B0, 1
-		jnz	short loc_1035A
-		mov	byte_1F353, 1
-		call	@randring_far_next16$qv
-		mov	byte_20E4E, al
-		mov	byte_20E4C, 0
-		mov	word_1F356, 256
-		push	1
-		call	@randring_far_next16_and$qui
-		or	ax, ax
-		jnz	short loc_10355
-		mov	al, 3
-		jmp	short loc_10357
-; ---------------------------------------------------------------------------
-
-loc_10355:
-		mov	al, -3
-
-loc_10357:
-		mov	byte_20E4D, al
-
-loc_1035A:
-		cmp	word_1F3B0, 4
-		jnb	short loc_10376
-		push	word_20E50
-		push	word_20E52
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		push	ax
-		call	sub_CE5B
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_10376:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	loc_10403
-		cmp	word_1F3B0, 20h	; ' '
-		jnz	short loc_103A5
-		push	word_20E50
-		push	word_20E52
-		mov	al, _bullet_template.BT_pid
-		mov	ah, 0
-		push	ax
-		call	sub_CDBD
-		mov	byte_1F353, 2
-		call	snd_se_play pascal, 5
-
-loc_103A5:
-		test	byte ptr word_1F3B0, 3
-		jnz	short loc_103EC
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	al, byte_20E4E
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	ax, word_20E50
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_20E52
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_1F39F
-		add	al, byte_20E4C
-		mov	_bullet_template.BT_speed, al
-		mov	al, byte_1F3A0
-		mov	_bullet_template.BT_count, al
-		call	@bullets_add$qv
-		mov	al, byte_20E4D
-		add	byte_20E4E, al
-		mov	al, byte_20E4C
-		add	al, 8
-		mov	byte_20E4C, al
-
-loc_103EC:
-		cmp	word_1F3B0, 3Ch	; '<'
-		jbe	short loc_10403
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_10403:
-		pop	bp
-		retn
-yumemi_10324	endp
+	YUMEMI_10324 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -26360,6 +26274,8 @@ byte_1F353	db ?
 _byte_1F354 label byte
 byte_1F354	db ?
 byte_1F355	db ?
+public _word_1F356, word_1F356
+_word_1F356 label word
 word_1F356	dw ?
 byte_1F358	db ?
 		db 5 dup(?)
@@ -26620,11 +26536,18 @@ _byte_20E48 label byte
 byte_20E48	db ?
 		db ?
 word_20E4A	dw ?
+public _byte_20E4C, byte_20E4C, _byte_20E4D, byte_20E4D, _byte_20E4E, byte_20E4E
+_byte_20E4C label byte
 byte_20E4C	db ?
+_byte_20E4D label byte
 byte_20E4D	db ?
+_byte_20E4E label byte
 byte_20E4E	db ?
 		db ?
+public _word_20E50, word_20E50, _word_20E52, word_20E52
+_word_20E50 label word
 word_20E50	dw ?
+_word_20E52 label word
 word_20E52	dw ?
 rikako_gauge_pattern_frames db PLAYER_COUNT dup(?)
 rikako_chargeshot_nodes label byte
