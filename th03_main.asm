@@ -10485,62 +10485,7 @@ kotohime_19EF9	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
-public _kotohime_19F1F, kotohime_19F1F
-_kotohime_19F1F label near
-kotohime_19F1F	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202BA[bx]
-		mov	_bullet_template.BT_type, al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B8[bx]
-		mov	_bullet_template.BT_count, al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		cmp	byte_202B9[bx], 0
-		jz	short loc_19F5D
-		mov	[bp+var_1], -12
-		jmp	short loc_19F61
-; ---------------------------------------------------------------------------
-
-loc_19F5D:
-		mov	[bp+var_1], 0Ch
-
-loc_19F61:
-		mov	_bullet_template.BT_speed, (1 shl 4)
-		xor	si, si
-		jmp	short loc_19F7F
-; ---------------------------------------------------------------------------
-
-loc_19F6A:
-		call	@bullets_add$qv
-		mov	al, _bullet_template.BT_speed
-		add	al, 2
-		mov	_bullet_template.BT_speed, al
-		mov	al, [bp+var_1]
-		add	_bullet_template.BT_angle, al
-		inc	si
-
-loc_19F7F:
-		cmp	si, 4
-		jl	short loc_19F6A
-		pop	si
-		leave
-		retn
-kotohime_19F1F	endp
+	_kotohime_19F1F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
