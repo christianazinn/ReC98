@@ -25,7 +25,11 @@ extern "C" uint8_t byte_1FDE8[];
 extern "C" uint8_t near *word_1FE4E;
 extern "C" PlayfieldPoint point_1FE52;
 extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202CA[];
+extern "C" uint8_t near *word_205CA;
+extern "C" uint8_t byte_205CC;
 extern "C" uint8_t byte_20E92[];
+extern "C" uint8_t pid_PID_current;
 extern "C" uint8_t pid_PID_so_attack;
 
 extern "C" void far sub_B39E(void);
@@ -415,3 +419,65 @@ palette_fade:
 	sprite16_put((point_1FE52.x.v - 24), (point_1FE52.y.v - 24), so);
 }
 #pragma warn .aus
+
+extern "C" void far sub_14A76(void)
+{
+	word_205CA = byte_202CA;
+	_AX = 0;
+	goto clear_loop_check;
+
+clear_loop:
+	{
+		word_205CA[0] = 0;
+		_AX++;
+		word_205CA += 0x20;
+	}
+
+clear_loop_check:
+	asm { cmp ax, 18h; }
+	asm { jl clear_loop; }
+}
+
+extern "C" void pascal far chargeshot_add_reimu(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	uint8_t angle;
+
+	word_205CA = (byte_202CA + (pid_PID_current * 384));
+	angle = 0x90;
+	_CX = 0;
+	goto group_loop_check;
+
+group_loop:
+	{
+		word_205CA[0] = 1;
+		word_205CA[1] = 0;
+		_DX = 0;
+
+		goto node_loop_check;
+	node_loop:
+		{
+			reinterpret_cast<Subpixel near *>(word_205CA + 2)[_DX] = center_x;
+			reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[_DX] = (
+				center_y
+			);
+			_DX++;
+		}
+	node_loop_check:
+		asm { cmp dx, 7; }
+		asm { jl node_loop; }
+
+		word_205CA[0x1E] = angle;
+		angle += 0x20;
+		word_205CA[0x1F] = 0x60;
+		_CX++;
+		word_205CA += 0x20;
+	}
+
+group_loop_check:
+	asm { cmp cx, 4; }
+	asm { jl group_loop; }
+
+	byte_205CC = 1;
+}

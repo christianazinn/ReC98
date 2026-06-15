@@ -1000,7 +1000,7 @@ loc_9F26:
 loc_9F31:
 		cmp	di, SHOTPAIR_COUNT
 		jl	short loc_9F26
-		call	sub_14A76
+		call	_sub_14A76
 		call	sub_153BB
 		call	_sub_142D0
 		call	sub_1B653
@@ -6971,89 +6971,14 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-sub_14A76	proc far
-		push	bp
-		mov	bp, sp
-		mov	word_205CA, offset byte_202CA
-		xor	ax, ax
-		jmp	short loc_14A90
-; ---------------------------------------------------------------------------
-
-loc_14A83:
-		mov	bx, word_205CA
-		mov	byte ptr [bx], 0
-		inc	ax
-		add	word_205CA, 20h	; ' '
-
-loc_14A90:
-		cmp	ax, 18h
-		jl	short loc_14A83
-		pop	bp
-		retf
-sub_14A76	endp
+	_sub_14A76 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_REIMU
-chargeshot_add_reimu	proc far
-
-var_1		= byte ptr -1
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		enter	2, 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 384
-		add	ax, offset byte_202CA
-		mov	word_205CA, ax
-		mov	[bp+var_1], 144
-		xor	cx, cx
-		jmp	short loc_14AFC
-; ---------------------------------------------------------------------------
-
-loc_14AB2:
-		mov	bx, word_205CA
-		mov	byte ptr [bx], 1
-		mov	byte ptr [bx+1], 0
-		xor	dx, dx
-		jmp	short loc_14ADE
-; ---------------------------------------------------------------------------
-
-loc_14AC1:
-		mov	bx, dx
-		add	bx, bx
-		add	bx, word_205CA
-		mov	ax, [bp+@@center_x]
-		mov	[bx+2],	ax
-		mov	bx, dx
-		add	bx, bx
-		add	bx, word_205CA
-		mov	ax, [bp+@@center_y]
-		mov	[bx+10h], ax
-		inc	dx
-
-loc_14ADE:
-		cmp	dx, 7
-		jl	short loc_14AC1
-		mov	bx, word_205CA
-		mov	al, [bp+var_1]
-		mov	[bx+1Eh], al
-		add	al, 20h	; ' '
-		mov	[bp+var_1], al
-		mov	byte ptr [bx+1Fh], 60h
-		inc	cx
-		add	word_205CA, 20h	; ' '
-
-loc_14AFC:
-		cmp	cx, 4
-		jl	short loc_14AB2
-		mov	byte_205CC, 1
-		leave
-		retf	4
-chargeshot_add_reimu	endp
+	CHARGESHOT_ADD_REIMU procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19976,8 +19901,14 @@ byte_202BA	db ?
 		db 5 dup(?)
 		db 8 dup(?)
 byte_202C8	db PLAYER_COUNT dup(?)
+public _byte_202CA, byte_202CA
+_byte_202CA label byte
 byte_202CA	db (PLAYER_COUNT * 384) dup(?)
+public _word_205CA, word_205CA
+_word_205CA label word
 word_205CA	dw ?
+public _byte_205CC, byte_205CC
+_byte_205CC label byte
 byte_205CC	db ?
 		db ?
 p1_205CE	dd ?
