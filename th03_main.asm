@@ -7709,7 +7709,8 @@ chargeshot_render_yumemi	endp
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_yumemi$quc proc near
+public @GAUGE_PATTERN_YUMEMI$QUC
+@GAUGE_PATTERN_YUMEMI$QUC proc near
 
 var_4		= word ptr -4
 @@flag_expected	= byte ptr -2
@@ -7921,7 +7922,7 @@ loc_16F9A:
 		pop	si
 		leave
 		retn	2
-@gauge_pattern_yumemi$quc endp
+@GAUGE_PATTERN_YUMEMI$QUC endp
 
 ; ---------------------------------------------------------------------------
 word_16FA0	dw	0,     8,   10h,   18h
@@ -7947,7 +7948,7 @@ gba_gauge_pattern_pellet_yumemi	proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_16FD6
-		call	@gauge_pattern_yumemi$quc pascal, BT_PELLET
+		call	@GAUGE_PATTERN_YUMEMI$QUC pascal, BT_PELLET
 
 loc_16FD6:
 		pop	bp
@@ -7958,21 +7959,7 @@ gba_gauge_pattern_pellet_yumemi endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_yumemi
-gba_gauge_pattern_bullet_yumemi	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_16FEE
-		call	@gauge_pattern_yumemi$quc pascal, BT_BULLET16_DEFAULT
-
-loc_16FEE:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_yumemi endp
+GBA_GAUGE_PATTERN_BULLET_YUMEMI procdesc pascal far
 
 	@grcg_pellet_put$qiuii procdesc near
 PELLET_PUT ends
