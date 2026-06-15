@@ -10360,6 +10360,8 @@ kotohime_19DD3	endp
 
 ; Attributes: bp-based frame
 
+public _kotohime_19E2A, kotohime_19E2A
+_kotohime_19E2A label near
 kotohime_19E2A	proc near
 
 var_5		= word ptr -5
@@ -10755,37 +10757,7 @@ loc_1A143:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_kotohime$qv
-@exatt_render_kotohime$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	word_2028A, ax
-		xor	si, si
-		jmp	short loc_1A176
-; ---------------------------------------------------------------------------
-
-loc_1A164:
-		mov	bx, word_2028A
-		cmp	byte ptr [bx], 0
-		jz	short loc_1A170
-		call	kotohime_19E2A
-
-loc_1A170:
-		inc	si
-		add	word_2028A, 20h	; ' '
-
-loc_1A176:
-		cmp	si, 0Ah
-		jl	short loc_1A164
-		pop	si
-		pop	bp
-		retf
-@exatt_render_kotohime$qv endp
+	@exatt_render_kotohime$qv procdesc far
 P_EXATT_TEXT ends
 
 main_06_TEXT segment byte public 'CODE' use16
@@ -16858,9 +16830,12 @@ exatt_render_p2	dd ?
 public _pid_current
 _pid_current	db ?
 	evendata
+public _exatt_buffers, _word_2028A
+_exatt_buffers label byte
 exatt_buffers label byte
 byte_1FE8A	db 512 dup(?)
 byte_2008A	db 512 dup(?)
+_word_2028A label word
 word_2028A	dw ?
 
 public _chargeshot_update, _chargeshot_render, _chargeshot_hittest
