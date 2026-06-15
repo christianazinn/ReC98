@@ -2293,6 +2293,8 @@ _MERGED_FN	db 'debloat',0
 
 ; Attributes: bp-based frame
 
+public SUB_B4A3
+SUB_B4A3 label near
 sub_B4A3	proc near
 		push	bp
 		mov	bp, sp
@@ -2436,111 +2438,7 @@ sub_B4A8	endp
 
 ; Attributes: bp-based frame
 
-sub_B60A	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	byte_1FBC2, 0
-		jnz	short loc_B645
-		mov	word_1FBC4, 303
-		mov	word_1FBC6, 10h
-		mov	word_1FBC8, 303
-		mov	word_1FBCA, 382
-		mov	word_1FBCC, 10h
-		mov	word_1FBCE, 382
-		mov	word_1FBD0, 10h
-		mov	word_1FBD2, 10h
-
-loc_B645:
-		call	grc_setclip pascal, (16 shl 16) or 0, (623 shl 16) or 191
-		add	word_1FBC6, 17h
-		sub	word_1FBC8, 12h
-		sub	word_1FBCE, 17h
-		add	word_1FBD0, 12h
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 2
-		xor	si, si
-		jmp	loc_B706
-; ---------------------------------------------------------------------------
-
-loc_B67A:
-		lea	ax, [si+16]
-		push	ax
-		push	191
-		lea	ax, [si+303]
-		push	ax
-		push	191
-		mov	ax, word_1FBC4
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBC6
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		lea	ax, [si+16]
-		push	ax
-		push	8
-		lea	ax, [si+16]
-		push	ax
-		push	191
-		mov	ax, word_1FBC8
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBCA
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		lea	ax, [si+16]
-		push	ax
-		push	8
-		lea	ax, [si+303]
-		push	ax
-		push	8
-		mov	ax, word_1FBCC
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBCE
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		lea	ax, [si+303]
-		push	ax
-		push	8
-		lea	ax, [si+303]
-		push	ax
-		push	191
-		mov	ax, word_1FBD0
-		add	ax, si
-		push	ax
-		mov	ax, word_1FBD2
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_triangle
-		add	si, 320
-
-loc_B706:
-		cmp	si, 320
-		jle	loc_B67A
-		inc	byte_1FBC2
-		cmp	byte_1FBC2, 10h
-		jb	short loc_B724
-		mov	byte_1FBC2, 0
-		mov	fp_1FBC0, offset sub_B4A3
-
-loc_B724:
-		call	grcg_off
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (SPRITE16_RES_Y - 1)
-		pop	si
-		pop	bp
-		retn
-sub_B60A	endp
+	SUB_B60A procdesc near
 
 	extern @HITCIRCLES_ENEMY_ADD$QIII:proc
 	extern @HITCIRCLES_PLAYER_ADD$QIII:proc
@@ -17094,16 +16992,30 @@ word_1FB3C	dw ?
 ellen_bomb_vectors label byte
 		db 128 dup(?)
 word_1FBBE	dw ?
+public _fp_1FBC0
+_fp_1FBC0 label word
 fp_1FBC0	dw ?
+public _byte_1FBC2
+_byte_1FBC2 label byte
 byte_1FBC2	db ?
 byte_1FBC3	db ?
+public _word_1FBC4, _word_1FBC6, _word_1FBC8, _word_1FBCA
+_word_1FBC4 label word
 word_1FBC4	dw ?
+_word_1FBC6 label word
 word_1FBC6	dw ?
+_word_1FBC8 label word
 word_1FBC8	dw ?
+_word_1FBCA label word
 word_1FBCA	dw ?
+public _word_1FBCC, _word_1FBCE, _word_1FBD0, _word_1FBD2
+_word_1FBCC label word
 word_1FBCC	dw ?
+_word_1FBCE label word
 word_1FBCE	dw ?
+_word_1FBD0 label word
 word_1FBD0	dw ?
+_word_1FBD2 label word
 word_1FBD2	dw ?
 angle_1FBD4	db ?
 		db ?

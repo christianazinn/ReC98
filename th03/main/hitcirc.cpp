@@ -1,10 +1,86 @@
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
+#include "platform.h"
 #include "th03/math/randring.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/sprites/main_s16.hpp"
+
+extern nearfunc_t_near fp_1FBC0;
+extern "C" uint8_t byte_1FBC2;
+extern "C" int word_1FBC4;
+extern "C" int word_1FBC6;
+extern "C" int word_1FBC8;
+extern "C" int word_1FBCA;
+extern "C" int word_1FBCC;
+extern "C" int word_1FBCE;
+extern "C" int word_1FBD0;
+extern "C" int word_1FBD2;
+
+extern "C" void pascal near sub_B4A3(void);
+
+extern "C" void pascal near sub_B60A(void)
+{
+	register int si;
+
+	if(byte_1FBC2 == 0) {
+		word_1FBC4 = 303;
+		word_1FBC6 = 0x10;
+		word_1FBC8 = 303;
+		word_1FBCA = 382;
+		word_1FBCC = 0x10;
+		word_1FBCE = 382;
+		word_1FBD0 = 0x10;
+		word_1FBD2 = 0x10;
+	}
+
+	grc_setclip(16, 0, 623, 191);
+	word_1FBC6 += 0x17;
+	word_1FBC8 -= 0x12;
+	word_1FBCE -= 0x17;
+	word_1FBD0 += 0x12;
+	grcg_setcolor(GC_RMW, 2);
+
+	si = 0;
+	goto triangle_loop_test;
+triangle_loop:
+		grcg_triangle(
+			(si + 16), 191,
+			(si + 303), 191,
+			(word_1FBC4 + si), (word_1FBC6 / 2)
+		);
+		grcg_triangle(
+			(si + 16), 8,
+			(si + 16), 191,
+			(word_1FBC8 + si), (word_1FBCA / 2)
+		);
+		grcg_triangle(
+			(si + 16), 8,
+			(si + 303), 8,
+			(word_1FBCC + si), (word_1FBCE / 2)
+		);
+		grcg_triangle(
+			(si + 303), 8,
+			(si + 303), 191,
+			(word_1FBD0 + si), (word_1FBD2 / 2)
+		);
+		si += 320;
+triangle_loop_test:
+	if(si <= 320) {
+		goto triangle_loop;
+	}
+
+	byte_1FBC2++;
+	if(byte_1FBC2 >= 0x10) {
+		byte_1FBC2 = 0;
+		fp_1FBC0 = sub_B4A3;
+	}
+
+	grcg_off();
+	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+}
 
 static const pixel_t HITCIRCLE_W = 48;
 static const pixel_t HITCIRCLE_H = 48;
