@@ -6476,63 +6476,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	MIMA_10184 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public gba_boss_render_mima
-gba_boss_render_mima proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, _pid_current
-		cmp	al, _gba_boss_launched_by
-		jnz	short locret_102C6
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	[bp+@@pid_other], 0
-		jnz	short loc_1028D
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_10299
-; ---------------------------------------------------------------------------
-
-loc_1028D:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_10299:
-		cmp	byte_1F34F, 0
-		jnz	short loc_102B7
-		mov	ax, word_1F3B0
-		add	ax, ax
-		mov	dx, 200
-		sub	dx, ax
-		push	dx
-		mov	ax, word_1F3B0
-		imul	ax, 3
-		push	ax
-		call	mima_10184
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_102B7:
-		cmp	byte_1F34F, -1
-		jz	short loc_102C3
-		call	mima_10053
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_102C3:
-		call	sub_F58C
-
-locret_102C6:
-		leave
-		retf
-gba_boss_render_mima endp
+	GBA_BOSS_RENDER_MIMA procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
