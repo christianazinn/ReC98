@@ -6504,133 +6504,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; dispatcher/table extracted to th03/main/main_03_yumemi_update.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_108CA	proc near
-
-@@pid_other		= byte ptr -7
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	8, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_sprite16_put_w, (112 / 16)
-		mov	_sprite16_put_h, 56
-		push	word_1F33E	; x
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -56
-		mov	si, ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -40
-		mov	di, ax
-		call	sprite16_put pascal, si, ax, sprite_1F34C
-		cmp	byte_1F353, 0
-		jz	short loc_1093C
-		mov	_sprite16_put_w, (64 / 16)
-		mov	_sprite16_put_h, 32
-		mov	ax, sprite_1F34C
-		add	ax, 0Eh
-		mov	[bp+var_2], ax
-		cmp	byte_1F353, 2
-		jnz	short loc_10932
-		add	[bp+var_2], (32 * ROW_SIZE)
-
-loc_10932:
-		lea	ax, [si+32]
-		push	ax
-		push	di
-		push	[bp+var_2]
-		jmp	short loc_1095A
-; ---------------------------------------------------------------------------
-
-loc_1093C:
-		cmp	byte_1F34E, 0
-		jz	short loc_1095F
-		mov	_sprite16_put_w, (80 / 16)
-		mov	_sprite16_put_h, 48
-		add	si, 16
-		push	si
-		push	di
-		mov	ax, sprite_1F34C
-		add	ax, 16h
-		push	ax
-
-loc_1095A:
-		call	sprite16_put
-
-loc_1095F:
-		cmp	word_1F356, 0
-		jnz	short loc_1096F
-		cmp	byte_1F354, 0
-		jz	loc_10A13
-
-loc_1096F:
-		cmp	_pid_current, 0
-		jz	short loc_10981
-		push	100008h
-		push	303
-		jmp	short loc_1098A
-; ---------------------------------------------------------------------------
-
-loc_10981:
-		push	1500008h
-		push	623
-
-loc_1098A:
-		push	191
-		call	grc_setclip
-		call	egc_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
-		push	word_20E50	; x
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	si, ax
-		mov	ax, word_20E52
-		sar	ax, 5
-		add	ax, 8
-		mov	di, ax
-		cmp	byte_1F354, 0
-		jnz	short loc_109D2
-		call	grcg_circle pascal, si, ax, word_1F356
-		jmp	short loc_109FB
-; ---------------------------------------------------------------------------
-
-loc_109D2:
-		push	point_1F342.x	; x
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+var_4], ax
-		mov	ax, point_1F342.y
-		sar	ax, 5
-		add	ax, 8
-		mov	[bp+var_6], ax
-		call	grcg_line pascal, si, di, [bp+var_4], ax
-
-loc_109FB:
-		call	grcg_off
-		call	egc_on
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (SPRITE16_RES_Y - 1)
-
-loc_10A13:
-		pop	di
-		pop	si
-		leave
-		retn
-yumemi_108CA	endp
+	YUMEMI_108CA procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6649,7 +6523,7 @@ var_4		= byte ptr -4
 		mov	al, 1
 		sub	al, _pid_current
 		mov	[bp+@@pid_other], al
-		xor	dx, dx
+		db	31h, 0D2h	; xor dx, dx
 		mov	ah, SPRITE16_SET_OVERLAP
 		int	SPRITE16
 		mov	_sprite16_put_w, (112 / 16)
