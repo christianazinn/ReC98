@@ -2206,62 +2206,8 @@ sub_B3A2	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_B3F6	proc near
-		push	di
-		push	si
-		mov	di, (3 * ROW_SIZE)
-		mov	ax, 0ABCAh
-		mov	es, ax
-		assume es:nothing
-		mov	si, 50h	; 'P'
-		mov	ax, dx
-		and	ax, 0Fh
-		add	bx, ax
-		shr	dx, 4
-		shl	dx, 1
-		add	di, dx
-		mov	ax, bx
-		and	bx, 0Fh
-		shl	bx, 1
-		shr	ax, 4
-		jz	short loc_B446
-		mov	dx, ax
-		shl	ax, 1
-		add	si, ax
-		xor	ax, ax
-		not	ax
-		nop
-		mov	cx, dx
-		rep stosw
-		sub	di, si
-		mov	cx, dx
-		rep stosw
-		sub	di, si
-		mov	cx, dx
-		rep stosw
-		sub	di, si
-		mov	cx, dx
-		rep stosw
-		or	bx, bx
-		jz	short loc_B450
-		add	di, (3 * ROW_SIZE)
+	SUB_B3F6 procdesc near
 
-loc_B446:
-		mov	ax, wordmask_1DB0C[bx]
-
-loc_B44A:
-		stosw
-		sub	di, 52h	; 'R'
-		jge	short loc_B44A
-
-loc_B450:
-		pop	si
-		pop	di
-		retn
-sub_B3F6	endp
-
-; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4104,7 +4050,7 @@ loc_C90F:
 		add	ax, 20h	; ' '
 		mov	dx, ax
 		mov	bx, si
-		call	sub_B3F6
+		call	SUB_B3F6
 
 loc_C921:
 		sub	di, [bp+var_6]
@@ -4129,7 +4075,7 @@ loc_C944:
 		add	ax, (PLAYFIELD_W_BORDERED + 32)
 		mov	dx, ax
 		mov	bx, di
-		call	sub_B3F6
+		call	SUB_B3F6
 
 loc_C956:
 		mov	cx, [bp+var_4]
@@ -4173,7 +4119,7 @@ loc_C990:
 		call	grcg_setcolor
 		mov	dx, 20h	; ' '
 		mov	bx, cx
-		call	sub_B3F6
+		call	SUB_B3F6
 
 loc_C9A6:
 		mov	cx, [bp+var_6]
@@ -4217,7 +4163,7 @@ loc_C9E0:
 		call	grcg_setcolor
 		mov	dx, (PLAYFIELD_W_BORDERED + 32)
 		mov	bx, cx
-		call	sub_B3F6
+		call	SUB_B3F6
 
 loc_C9F6:
 		GRCG_OFF_VIA_XOR ax
@@ -16255,6 +16201,8 @@ a00ch_bf2	db '00ch.bf2',0
 		db 0
 		db    0
 		db    0
+public _wordmask_1DB0C, wordmask_1DB0C
+_wordmask_1DB0C label word
 wordmask_1DB0C label word
 		db 0FFh
 		db 0FFh
