@@ -857,4 +857,23 @@ extern "C" void pascal far gba_gauge_pattern_bullet_reimu(void)
 	}
 }
 
+extern "C" void pascal far sub_1501E(void)
+{
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	if(bomb_flag[pid_current] == BF_PREPARING) {
+		bomb_flag[pid_current] = BF_ACTIVE;
+		bomb_frame[pid_current] = 0;
+		snd_se_play(18);
+	}
+
+	bomb_frame[pid_current]++;
+	if(bomb_frame[pid_current] < BOMB_FRAMES) {
+		return;
+	}
+	bomb_flag[pid_current] = BF_INACTIVE;
+	sub_A3A8(pid_current);
+}
+
 #undef bullets_add_nopcall
