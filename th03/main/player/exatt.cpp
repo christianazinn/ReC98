@@ -1,4 +1,5 @@
 #include "th03/main/player/exatt.hpp"
+#include "codegen.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
@@ -35,6 +36,59 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+extern "C" void near kana_198DD(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 0x10);
+	_AL = pid_current;
+	_AH = 0;
+	_DX = 1;
+	_DX -= _AX;
+	_asm { jnz clip_p2; }
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	goto clip_done;
+clip_p2:
+	sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+clip_done:
+
+	frame = slot[1];
+	if(slot[0] == 1) {
+		sprite16_put_size.w.v = (32 / 16);
+		sprite16_put_size.h = 16;
+		_AL = pid_PID_so_attack;
+		_AH = 0;
+		_AX += ((8 * ROW_SIZE) + (32 / BYTE_DOTS));
+		so = _AX;
+		_AL = frame;
+		_AH = 0;
+		_BX = 4;
+		_asm { cwd; }
+		_asm { idiv bx; }
+		_asm { cwd; }
+		_asm { idiv bx; }
+		_DX <<= 5;
+		imul_reg_to_reg(_DX, _DX, 0x28);
+		so += _DX;
+		sprite16_put((left - 16), (top - 16), so);
+	} else if(slot[0] == 2) {
+		sub_1A32A(left, top, frame);
+	} else {
+		sub_1A377(left, top, frame);
+	}
+}
 
 void far exatt_update_kana(void)
 {
