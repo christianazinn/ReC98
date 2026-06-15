@@ -218,185 +218,11 @@ SUB_9D20 equ <@STAGE_SPLASH_SIDE_SHOTS_PUT$QI>
 
 ; Attributes: bp-based frame
 
-public @main_cutscene$qinnxc
-@main_cutscene$qinnxc proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		enter	2, 0
-		call	@cfg_load_resident_ptr$qv
-		or	ax, ax
-		jz	@@ret
-		call	@game_init_main$qnxuc pascal, ds, offset aCOul
-		call	respal_exist
-		mov	_snd_midi_active, 0
-		les	bx, _resident
-		cmp	es:[bx+resident_t.bgm_mode], SND_BGM_OFF
-		jz	short loc_9DAD
-		call	_snd_determine_mode
-
-loc_9DAD:
-		call	gaiji_backup
-		push	ds
-		push	offset aMikoft_bft ; "MIKOFT.bft"
-		call	gaiji_entry_bfnt
-		call	_snd_load c, offset aYume_efc, ds, SND_LOAD_SE
-		call	_snd_se_reset
-		call	_hflip_lut_generate
-		les	bx, _resident
-		cmp	es:[bx+resident_t.show_score_menu], 0
-		jz	short loc_9E04
-		call	@regist_menu$qv
-		call	text_clear
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	@entrypoint_exec$q12entrypoint_t c, EP_OP
-
-loc_9E04:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][0]
-		add	al, -1
-		mov	_playchar[0], al
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted][1]
-		add	al, -1
-		mov	_playchar[1], al
-		cmp	es:[bx+resident_t.story_stage], 0
-		jz	loc_9F85
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jnz	short loc_9E3F
-		call	sub_9887
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 4
-		jz	short loc_9E89
-		cmp	[bp+var_1], 5
-		jnz	short loc_9E3F
-		call	sub_B972
-
-loc_9E3F:
-		call	_snd_load c,  offset aWin_m, ds, SND_LOAD_SONG
-		call	@win_load$qv
-		call	sub_978D
-		kajacall	KAJA_SONG_STOP
-		les	bx, _resident
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jnz	loc_9F58
-		call	sub_9887
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jnz	short loc_9E7B
-
-loc_9E75:
-		call	sub_9A2C
-		jmp	loc_9F1E
-; ---------------------------------------------------------------------------
-
-loc_9E7B:
-		cmp	[bp+var_1], 3
-		jz	short loc_9E89
-		cmp	[bp+var_1], 4
-		jnz	loc_9F38
-
-loc_9E89:
-		call	cdg_free_all
-		freePISlotLarge	0
-		mov	al, _playchar[0]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_2], al
-		cmp	[bp+var_2], 10
-		jb	short loc_9EDC
-		les	bx, off_E4B6
-		mov	al, es:[bx+1]
-		mov	dl, [bp+var_2]
-		mov	dh, 0
-		mov	bx, 10
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dl, al
-		mov	bx, word ptr off_E4B6
-		mov	es:[bx+1], dl
-		mov	al, [bp+var_2]
-		mov	ah, 0
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_2], dl
-
-loc_9EDC:
-		les	bx, off_E4B6
-		mov	al, [bp+var_2]
-		add	es:[bx+2], al
-		cmp	[bp+var_1], 4
-		jnz	short loc_9EF1
-		inc	byte ptr es:[bx+5]
-
-loc_9EF1:
-		graph_accesspage 0
-		graph_showpage al
-		call	graph_clear
-		call	graph_show
-		call	@cutscene_script_load$qnxc pascal, [off_E4B6]
-		call	@cutscene_animate$qv
-		call	@cutscene_script_free$qv
-		call	sub_990C
-		call	sub_9A2C
-		call	gaiji_restore
-
-loc_9F1E:
-		call	@game_exit_from_mainl_to_main$qv
-		pushd	0
-		push	ds
-		push	offset aMain
-		push	ds
-		push	offset aMain
-		call	_execl
-		add	sp, 0Ch
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_9F38:
-		call	cdg_free_all
-		freePISlotLarge	0
-		call	@regist_menu$qv
-		call	sub_9F8D
-		or	ax, ax
-		jnz	short loc_9F85
-		call	sub_B92E
-		jmp	short loc_9F69
-; ---------------------------------------------------------------------------
-
-loc_9F58:
-		call	cdg_free_all
-		freePISlotLarge	0
-
-loc_9F69:
-		call	text_clear
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	@entrypoint_exec$q12entrypoint_t c, EP_OP
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_9F85:
-		call	sub_990C
-		jmp	loc_9E75
-; ---------------------------------------------------------------------------
-
-@@ret:
-		leave
-		retf
-@main_cutscene$qinnxc endp
+; int __cdecl main(int argc, const char **argv, const char **envp)
+; C++ body lives in th03/mainl/entry.cpp.
+extrn _mainl_entry:far
+alias <_main> = <_mainl_entry>
+alias <_execl_raw> = <_execl>
 
 
 sub_9F8D equ <@continue_menu$qv>
@@ -581,6 +407,8 @@ _WIN_MESSAGE_FN label word
 		dd a@07tx_txt		; "@07TX.TXT"
 		dd a@08tx_txt		; "@08TX.TXT"
 
+public _win_cutscene_script_fn
+_win_cutscene_script_fn label dword
 off_E4B6	dd a@00dm0_txt
 					; "@00DM0.TXT"
 public _CHAR_TITLE, _CHAR_NAME
@@ -679,9 +507,17 @@ _stage_splash_enemy04_pi_fn label byte
 aEnemy04_pi	db 'ENEMY04.pi',0
 _stage_splash_yume_efc_fn label byte
 aYume_efc	db 'YUME.EFC',0
+public _mainl_pf_fn, _mainl_gaiji_fn, _mainl_binary_op_fn
+public _mainl_win_bgm_fn, _mainl_binary_main_fn
+_mainl_pf_fn label byte
 aCOul		db '–²Žž‹ó1.dat',0
+_mainl_gaiji_fn label byte
 aMikoft_bft	db 'MIKOFT.bft',0
+_mainl_binary_op_fn label byte
+path		db 'op',0
+_mainl_win_bgm_fn label byte
 aWin_m		db 'win.m',0
+_mainl_binary_main_fn label byte
 aMain		db 'debloatm',0
 include libs/master.lib/atan8[data].asm
 include libs/master.lib/bfnt_id[data].asm

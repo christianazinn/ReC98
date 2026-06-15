@@ -639,6 +639,7 @@ obj += {
 	"th03/mainl/stf_cdg.cpp",
 	"th03/mainl/stf_vrd.cpp",
 	"th03/mainl/stf_drv.cpp",
+	{ "th03/mainl/entry.cpp", o = "mainl_entry.obj" },
 	{ "th03.asm", extra_inputs = th03_sprites["flake"] },
 	"th03/op_music.cpp",
 	"th03/op_main.cpp",
