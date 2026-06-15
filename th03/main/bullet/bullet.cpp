@@ -157,7 +157,6 @@ extern "C" void pascal far SUB_CDBD(
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far GRCG_OFF(void);
 extern "C" void far sub_B39E(void);
-extern "C" void pascal near mima_bomb_1714F(void);
 
 #define bullets_add_nopcall() { \
 	_asm { nop; push cs; call near ptr bullets_add; } \
@@ -664,6 +663,8 @@ narrow:
 #pragma option -k.
 #pragma warn +rch
 #pragma codeseg
+
+extern "C" void pascal near mima_bomb_1714F(void);
 
 #pragma option -G-
 extern "C" void pascal far mima_bomb(void)
