@@ -7047,98 +7047,7 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-reimu_1508C	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jz	@@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_PREPARING
-		jnz	short loc_150ED
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_ACTIVE
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_frame[bx], 0
-		xor	si, si
-		jmp	short loc_150E1
-; ---------------------------------------------------------------------------
-
-loc_150CA:
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 8
-		mov	dx, si
-		shl	dx, 3
-		add	ax, dx
-		mov	bx, ax
-		mov	byte ptr byte_205E0[bx], 0
-		inc	si
-
-loc_150E1:
-		cmp	si, 20h	; ' '
-		jl	short loc_150CA
-		call	snd_se_play pascal, 18
-
-loc_150ED:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_bomb_frame[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 8
-		add	ax, offset byte_205E0
-		mov	word_207E0, ax
-		xor	si, si
-		jmp	short loc_15132
-; ---------------------------------------------------------------------------
-
-loc_1510A:
-		mov	bx, word_207E0
-		cmp	byte ptr [bx], 0
-		jz	short loc_1512C
-		mov	bx, word_207E0
-		mov	ax, [bx+6]
-		add	[bx+4],	ax
-		cmp	word ptr [bx+4], 0FF80h
-		jg	short loc_1512C
-		mov	word ptr [bx+4], (384 shl 4)
-		add	word ptr [bx+6], 8
-
-loc_1512C:
-		inc	si
-		add	word_207E0, 8
-
-loc_15132:
-		cmp	si, 20h	; ' '
-		jl	short loc_1510A
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_frame[bx], BOMB_FRAMES
-		jb	short @@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_INACTIVE
-		push	word ptr _pid_current
-		call	sub_A3A8
-
-@@ret:
-		pop	si
-		pop	bp
-		retf
-reimu_1508C	endp
+	REIMU_1508C procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19317,7 +19226,11 @@ bomb_p1	dd ?
 bomb_p2	dd ?
 public _bomb_frame
 _bomb_frame	db PLAYER_COUNT dup(?)
+public _byte_205E0, byte_205E0
+_byte_205E0 label byte
 byte_205E0	db (PLAYER_COUNT * 256) dup(?)
+public _word_207E0, word_207E0
+_word_207E0 label word
 word_207E0	dw ?
 
 HSF_DONE = 0
