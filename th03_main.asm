@@ -6498,73 +6498,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_105B5 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_10669	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	sub_F356
-		mov	al, byte_1F3A4
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	short loc_106F5
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		cmp	word_1F3B0, 40h
-		jnb	short loc_106B8
-		mov	ax, word_20E50
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_20E52
-		mov	_bullet_template.BT_center.y, ax
-		mov	_bullet_template.BT_angle, -40h
-		mov	_bullet_template.BT_speed, (6 shl 4)
-		mov	_bullet_template.BT_group, BG_5_SPREAD_WIDE
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_group, BG_4_SPREAD_WIDE
-		call	@bullets_add$qv
-
-loc_106B8:
-		cmp	word_1F3B0, 20h	; ' '
-		jb	short loc_106F5
-		mov	_bullet_template.BT_group, BG_1
-		mov	_bullet_template.BT_speed, ((2 shl 4) + 4)
-		mov	_bullet_template.BT_center.y, 0
-		xor	si, si
-		jmp	short loc_106F0
-; ---------------------------------------------------------------------------
-
-loc_106D3:
-		call	@randring_far_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		push	3Fh ; '?'
-		call	@randring_far_next16_and$qui
-		add	al, 20h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		inc	si
-
-loc_106F0:
-		cmp	si, 0Ch
-		jl	short loc_106D3
-
-loc_106F5:
-		cmp	word_1F3B0, 60h
-		jb	short loc_10707
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_10707:
-		pop	si
-		pop	bp
-		retn
-yumemi_10669	endp
+	YUMEMI_10669 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
