@@ -21,10 +21,13 @@ extern "C" int word_1FBCE;
 extern "C" int word_1FBD0;
 extern "C" int word_1FBD2;
 
-extern "C" void pascal near sub_B4A3(void);
 extern "C" void far sub_B39E(void);
 
 extern "C" void pascal near sub_B60A(void);
+
+extern "C" void pascal near sub_B4A3(void)
+{
+}
 
 extern "C" void pascal near sub_B4A8(void)
 {
@@ -158,7 +161,7 @@ triangle_loop_test:
 	byte_1FBC2++;
 	if(byte_1FBC2 >= 0x10) {
 		byte_1FBC2 = 0;
-		fp_1FBC0 = sub_B4A3;
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1DC3);
 	}
 
 	grcg_off();
