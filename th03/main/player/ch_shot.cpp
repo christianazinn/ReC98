@@ -1177,4 +1177,59 @@ loop_check:
 	players[pid_current].gauge_charged = 0;
 }
 
+uint8_t far chargeshot_hittest_mima(void)
+{
+	uint8_t ret;
+	register int i;
+
+	if(byte_20E24[hitbox.pid] == 0) {
+		return 0;
+	}
+	ret = 0;
+	word_20E22 = (byte_20CF6 + (hitbox.pid * 150));
+	i = 0;
+	goto loop_check;
+
+loop:
+	if(word_20E22[0] != 0) {
+		_BX = reinterpret_cast<uint16_t>(word_20E22);
+		if(
+			(
+				(reinterpret_cast<Subpixel near *>(_BX + 2)[0].v +
+					TO_SP(-16)) <= hitbox.right.v
+			) &&
+			(
+				(reinterpret_cast<Subpixel near *>(_BX + 2)[0].v +
+					TO_SP(16)) >= hitbox.origin.topleft.x.v
+			) &&
+			(
+				reinterpret_cast<Subpixel near *>(_BX + 4)[0].v >=
+				hitbox.origin.topleft.y.v
+			) &&
+			(
+				reinterpret_cast<Subpixel near *>(_BX + 4)[0].v <=
+				hitbox.bottom.v
+			)
+		) {
+			_asm {
+				push	word ptr [bx+2]
+				push	ax
+				mov	al, hitbox_pid
+				mov	ah, 0
+				push	ax
+				call	far ptr hitcircles_enemy_add
+				inc	byte ptr [bp-1]
+			}
+		}
+	}
+	i++;
+	word_20E22 += 0x0A;
+
+loop_check:
+	if(i < 0x0F) {
+		goto loop;
+	}
+	return ret;
+}
+
 #undef bullets_add_nopcall
