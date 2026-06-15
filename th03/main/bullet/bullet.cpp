@@ -8,6 +8,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/enemy/expl.hpp"
 #include "th03/main/difficul.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
@@ -15,6 +16,7 @@
 #include "th03/math/vector.hpp"
 #include "th03/sprites/pellet.h"
 #include "th02/main/bullet/impl.hpp"
+#include "th02/snd/snd.h"
 #include "th02/sprites/bullet16.h"
 #include "th02/v_colors.hpp"
 #include "th01/hardware/grcg.hpp"
@@ -137,6 +139,7 @@ extern "C" uint8_t byte_202B8[];
 extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_220DE[];
 extern "C" uint8_t yumemi_chargeshots[];
+extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_so_attack;
 
 extern "C" void pascal far sub_A3A8(uint8_t pid);
@@ -150,6 +153,53 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+uint8_t far chargeshot_hittest_yumemi(void)
+{
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (hitbox_pid * 6));
+	if(shot[0] == 0) {
+		goto miss;
+	}
+
+	if(shot[0] == 1) {
+		if(
+			(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(-8) > hitbox.right.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(8) < hitbox.origin.topleft.x.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(-8) > hitbox.bottom.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(8) < hitbox.origin.topleft.y.v)
+		) {
+			goto miss;
+		}
+		shot[0] = 2;
+		shot[1] = 0;
+		snd_se_play(7);
+		goto miss;
+	}
+
+	if(
+		(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(-56) > hitbox.right.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(56) < hitbox.origin.topleft.x.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(-56) > hitbox.bottom.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(56) < hitbox.origin.topleft.y.v)
+	) {
+		goto miss;
+	}
+	hitcircles_enemy_add(
+		hitbox.origin.topleft.x.v,
+		hitbox.origin.topleft.y.v,
+		hitbox_pid
+	);
+	_AL = 1;
+	goto done;
+
+miss:
+	_AL = 0;
+
+done:
+	return _AL;
+}
+
 extern "C" void pascal near yumemi_chargeshot_16BB5(
 	sprite16_offset_t sprite_offset, int length, uint8_t angle
 )
