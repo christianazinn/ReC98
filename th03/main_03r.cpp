@@ -15,6 +15,7 @@ extern "C" subpixel_t word_20E50;
 extern "C" subpixel_t word_20E52;
 extern PlayfieldPoint point_1F342;
 extern "C" uint16_t word_1F356;
+extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F353;
@@ -72,5 +73,79 @@ extern "C" void pascal near yumemi_108CA(void)
 		grcg_off();
 		egc_on();
 		grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+	}
+}
+
+extern "C" void pascal near yumemi_10A17(void)
+{
+	screen_y_t top;
+	pid_t pid_other;
+	uint8_t wipe_frame;
+	register screen_x_t left;
+	register screen_x_t edge;
+
+	pid_other = (1 - pid_current);
+	_asm {
+		db 31h, 0D2h
+		mov ah, SPRITE16_SET_OVERLAP
+		int SPRITE16
+	}
+	sprite16_put_size.w.v = (112 / 16);
+	sprite16_put_size.h = 56;
+	top = ((word_1F340 >> 4) - 40);
+
+	if(word_1F3B0 < 0x18) {
+		left = playfield_fg_x_to_screen(TO_SP(-104), pid_other);
+		edge = playfield_fg_x_to_screen(
+			(((word_1F3B0 << 3) << SUBPIXEL_BITS) - TO_SP(104)),
+			pid_other
+		);
+		while(left <= edge) {
+			sprite16_put(left, top, sprite_1F34C);
+			left += 8;
+		}
+	} else if(word_1F3B0 < 0x30) {
+		left = playfield_fg_x_to_screen(
+			((static_cast<uint16_t>(
+				wipe_frame = (static_cast<uint8_t>(word_1F3B0) - 0x18u)
+			) << 3) << SUBPIXEL_BITS) + TO_SP(-104),
+			pid_other
+		);
+		edge = playfield_fg_x_to_screen(TO_SP(88), pid_other);
+		while(left <= edge) {
+			sprite16_put(left, top, sprite_1F34C);
+			left += 8;
+		}
+	} else if(word_1F3B0 < 0x48) {
+		wipe_frame = (static_cast<uint8_t>(word_1F3B0) - 0x30u);
+		left = playfield_fg_x_to_screen(TO_SP(272), pid_other);
+		edge = playfield_fg_x_to_screen(
+			(TO_SP(272) - ((static_cast<uint16_t>(wipe_frame) << 3) << SUBPIXEL_BITS)),
+			pid_other
+		);
+		while(left >= edge) {
+			sprite16_put(left, top, sprite_1F34C);
+			left -= 8;
+		}
+		left = playfield_fg_x_to_screen(TO_SP(88), pid_other);
+		sprite16_put(left, top, sprite_1F34C);
+	} else if(word_1F3B0 < 0x60) {
+		left = playfield_fg_x_to_screen(
+			(TO_SP(272) - ((static_cast<uint16_t>(
+				wipe_frame = (static_cast<uint8_t>(word_1F3B0) - 0x48u)
+			) << 3) << SUBPIXEL_BITS)),
+			pid_other
+		);
+		edge = playfield_fg_x_to_screen(TO_SP(88), pid_other);
+		while(left >= edge) {
+			sprite16_put(left, top, sprite_1F34C);
+			left -= 8;
+		}
+	}
+
+	_asm {
+		mov dx, OVERLAP_CLEAR
+		mov ah, SPRITE16_SET_OVERLAP
+		int SPRITE16
 	}
 }
