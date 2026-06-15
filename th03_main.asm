@@ -7038,50 +7038,7 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-sub_1501E	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jz	short @@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_PREPARING
-		jnz	short loc_1505C
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_ACTIVE
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_frame[bx], 0
-		call	snd_se_play pascal, 18
-
-loc_1505C:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_bomb_frame[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_frame[bx], BOMB_FRAMES
-		jb	short @@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_INACTIVE
-		push	word ptr _pid_current
-		call	sub_A3A8
-
-@@ret:
-		pop	bp
-		retf
-sub_1501E	endp
+	SUB_1501E procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
