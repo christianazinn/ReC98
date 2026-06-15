@@ -15,8 +15,9 @@ extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void near marisa_19B4F(void);
-extern "C" void near sub_1A1A7(void);
+extern "C" uint8_t near sub_1A1A7(void);
 extern "C" void pascal near sub_1A1ED(
 	subpixel_t x,
 	subpixel_t y1,
@@ -27,6 +28,83 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+void far exatt_update_marisa(void)
+{
+	int i;
+	subpixel_t collmap_h;
+	subpixel_t slot_x;
+	register uint8_t near *slot;
+	register subpixel_t top;
+
+	collmap_stripe_tile_w.v = (4 / COLLMAP_TILE_W);
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] != 0) {
+		if(slot[0] == 1) {
+			if(slot[1] < 0x30) {
+				*reinterpret_cast<subpixel_t near *>(slot + 4) -= (16 << 4);
+				if(*reinterpret_cast<subpixel_t near *>(slot + 4) < TO_SP(-16)) {
+					slot[1] = 0x30;
+					*reinterpret_cast<subpixel_t near *>(slot + 4) = TO_SP(-16);
+				}
+			} else if(slot[1] >= 0x78) {
+				slot[0] = 0;
+				goto next;
+			}
+
+			slot_x = *reinterpret_cast<subpixel_t near *>(slot + 2);
+			top = *reinterpret_cast<subpixel_t near *>(slot + 4);
+			if(top < 0) {
+				top = 0;
+			}
+			collmap_h = ((368 << 4) - top);
+			if(slot[1] < 0x64) {
+				collmap_center.x.v = slot_x;
+				collmap_center.y.v = ((collmap_h / 2) + top);
+				collmap_tile_h.v = (collmap_h / (64 / COLLMAP_TILE_H));
+				_AL = 1;
+				_AL -= pid_current;
+				collmap_pid = _AL;
+				collmap_set_rect_striped();
+			}
+		} else if(slot[0] == 2) {
+			word_2028A = reinterpret_cast<uint16_t>(slot);
+			if(sub_1A1A7() != 0) {
+				*reinterpret_cast<subpixel_t near *>(slot + 4) = (368 << 4);
+				goto next;
+			}
+		} else if(slot[0] <= 0x1C) {
+			slot[0]++;
+			if(slot[0] == 0x0C) {
+				SUB_CE0C(
+					*reinterpret_cast<subpixel_t near *>(slot + 2),
+					(386 << 4),
+					slot[0x10]
+				);
+			}
+		} else {
+			slot[1] = 0;
+			slot[0] = 1;
+			snd_se_play(20);
+		}
+		slot[1]++;
+	}
+next:
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 0x0E) {
+		goto loop;
+	}
+}
 
 void far exatt_render_marisa(void)
 {
