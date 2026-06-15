@@ -6668,47 +6668,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-kotohime_120A0	proc near
-
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	4, 0
-		push	si
-		mov	_sprite16_put_w, (128 / 16)
-		mov	_sprite16_put_h, 48
-		push	word_1F33E	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -64
-		mov	[bp+@@left], ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -32
-		mov	[bp+@@top], ax
-		mov	si, sprite_1F34C
-		cmp	byte_1F34E, 0
-		jz	short loc_120E4
-		add	si, 10h
-
-loc_120E4:
-		call	sprite16_put pascal, [bp+@@left], [bp+@@top], si
-		cmp	byte_1F353, 0
-		jz	short loc_12100
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		push	ax
-		call	kotohime_11FE4
-
-loc_12100:
-		pop	si
-		leave
-		retn
-kotohime_120A0	endp
+	KOTOHIME_120A0 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
