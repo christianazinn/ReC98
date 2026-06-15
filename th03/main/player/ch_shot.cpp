@@ -15,6 +15,7 @@
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/main/v_colors.hpp"
+#include "th03/math/vector.hpp"
 #include "th03/math/randring.hpp"
 #include "x86real.h"
 
@@ -527,4 +528,93 @@ group_loop_check:
 
 done:
 	byte_205CC = 0;
+}
+
+extern "C" void pascal far chargeshot_update_reimu(void)
+{
+	int vector_x;
+	int vector_y;
+
+	word_205CA = (byte_202CA + (pid_current * 384));
+	playfield_clip_negative_radius.x.v = TO_SP(-24);
+	playfield_clip_negative_radius.y.v = TO_SP(-24);
+	_DI = 0;
+	goto reimu_update_group_loop_check;
+
+reimu_update_group_loop:
+	{
+		if(word_205CA[0] != 0) {
+			players[pid_current].gauge_charged = 0;
+			_SI = 6;
+
+			goto reimu_update_shift_loop_check;
+		reimu_update_shift_loop:
+			{
+				asm {
+					lea	bx, [si-1]
+					db	03h, 0DBh
+					add	bx, word_205CA
+					mov	ax, [bx+2]
+					db	08Bh, 0DEh
+					db	03h, 0DBh
+					add	bx, word_205CA
+					mov	[bx+2], ax
+					lea	bx, [si-1]
+					db	03h, 0DBh
+					add	bx, word_205CA
+					mov	ax, [bx+10h]
+					db	08Bh, 0DEh
+					db	03h, 0DBh
+					add	bx, word_205CA
+					mov	[bx+10h], ax
+					dec	si
+				}
+			}
+		reimu_update_shift_loop_check:
+			__emit__(0x0B, 0xF6);
+			asm { jg reimu_update_shift_loop; }
+
+			vector2(vector_x, vector_y, word_205CA[0x1E], word_205CA[0x1F]);
+			reinterpret_cast<Subpixel near *>(word_205CA + 2)[0].v += vector_x;
+			reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[0].v += (
+				vector_y
+			);
+
+			if(word_205CA[0] == 1) {
+				if(word_205CA[0x1F] > 0) {
+					_AL = word_205CA[0x1F];
+					_AL += -4;
+					word_205CA[0x1F] = _AL;
+					goto state_done;
+				}
+				if(word_205CA[1] >= 0x40) {
+					word_205CA[0] = 2;
+					asm { cmp di, 2; }
+					asm { jge release_right; }
+					_asm { mov byte ptr [bx+1Eh], 0B0h; }
+					goto release_speed;
+				release_right:
+					word_205CA[0x1E] = 0xD0;
+				release_speed:
+					word_205CA[0x1F] = 0xE0;
+				}
+			}
+
+		state_done:
+			word_205CA[1]++;
+			if(playfield_clip(
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x0E)[0],
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x1C)[0]
+			)) {
+				word_205CA[0] = 0;
+			}
+		}
+		_DI++;
+		word_205CA += 0x20;
+	}
+
+reimu_update_group_loop_check:
+	if(static_cast<int>(_DI) < 0x0C) {
+		goto reimu_update_group_loop;
+	}
 }
