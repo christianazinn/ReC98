@@ -1232,4 +1232,21 @@ loop_check:
 	return ret;
 }
 
+extern "C" void pascal near mima_chargeshot_1561C(
+	Subpixel center_x, Subpixel center_y, sprite16_offset_t sprite_offset
+)
+{
+	register screen_x_t left;
+	register screen_y_t top;
+
+	left = center_x.v;
+	top = center_y.v;
+	left = (playfield_fg_x_to_screen(left, pid_current) - 16);
+	_AX = top;
+	asm { sar ax, SUBPIXEL_BITS; }
+	_AX += 8;
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
+}
+
 #undef bullets_add_nopcall
