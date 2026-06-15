@@ -15,6 +15,11 @@ extern "C" uint8_t byte_1F352;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_1F3A4;
 extern "C" uint8_t byte_1FE50;
 extern "C" uint16_t word_1F3B0;
 extern "C" subpixel_t word_1F326;
@@ -25,6 +30,7 @@ extern "C" subpixel_t word_1F340;
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void near sub_F356(void);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
+extern "C" uint16_t far randring_far_next16_raw(void);
 
 extern "C" void pascal near sub_F512(void)
 {
@@ -200,5 +206,37 @@ check_done:
 }
 #pragma option -G
 #pragma warn .aus
+
+extern "C" void pascal near marisa_F72D(void)
+{
+	sub_F356();
+	if((word_1F3B0 & 0x1F) == 0) {
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.group = BG_RING;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.pid = (1 - pid_current);
+		if(gba_boss_level < 8) {
+			_AL = byte_1F3A0;
+		} else {
+			bullet_template.speed.v = byte_1F3A2;
+			bullet_template.count = byte_1F3A3;
+			bullet_template.type = BT_BULLET16_DEFAULT;
+			bullets_add();
+			bullet_template.angle += (
+				256 / static_cast<int16_t>(byte_1F3A3)
+			);
+			_AL = byte_1F3A4;
+		}
+		bullet_template.count = _AL;
+		bullet_template.speed.v = byte_1F3A1;
+		bullet_template.type = BT_PELLET_CLOUD;
+		bullets_add();
+	}
+	if(word_1F3B0 >= 0x82) {
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
 
 #pragma codeseg
