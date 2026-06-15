@@ -25,8 +25,63 @@ extern "C" int word_1FBCC;
 extern "C" int word_1FBCE;
 extern "C" int word_1FBD0;
 extern "C" int word_1FBD2;
+extern "C" uint16_t wordmask_1DB0C[];
 
 extern "C" void far sub_B39E(void);
+
+#pragma option -k-
+extern "C" void pascal near sub_B3F6(void)
+{
+	__emit__(0x57);             // push di
+	__emit__(0x56);             // push si
+	__emit__(0xBF, 0xF0, 0x00); // mov di, (3 * ROW_SIZE)
+	__emit__(0xB8, 0xCA, 0xAB); // mov ax, 0ABCAh
+	__emit__(0x8E, 0xC0);       // mov es, ax
+	__emit__(0xBE, 0x50, 0x00); // mov si, 50h
+	__emit__(0x8B, 0xC2);       // mov ax, dx
+	__emit__(0x25, 0x0F, 0x00); // and ax, 0Fh
+	__emit__(0x03, 0xD8);       // add bx, ax
+	__emit__(0xC1, 0xEA, 0x04); // shr dx, 4
+	__emit__(0xD1, 0xE2);       // shl dx, 1
+	__emit__(0x03, 0xFA);       // add di, dx
+	__emit__(0x8B, 0xC3);       // mov ax, bx
+	__emit__(0x83, 0xE3, 0x0F); // and bx, 0Fh
+	__emit__(0xD1, 0xE3);       // shl bx, 1
+	__emit__(0xC1, 0xE8, 0x04); // shr ax, 4
+	asm { jz short gauge_bar_partial_word; }
+	__emit__(0x8B, 0xD0);       // mov dx, ax
+	__emit__(0xD1, 0xE0);       // shl ax, 1
+	__emit__(0x03, 0xF0);       // add si, ax
+	__emit__(0x33, 0xC0);       // xor ax, ax
+	__emit__(0xF7, 0xD0);       // not ax
+	__emit__(0x90);             // nop
+	__emit__(0x8B, 0xCA);       // mov cx, dx
+	__emit__(0xF3, 0xAB);       // rep stosw
+	__emit__(0x2B, 0xFE);       // sub di, si
+	__emit__(0x8B, 0xCA);       // mov cx, dx
+	__emit__(0xF3, 0xAB);       // rep stosw
+	__emit__(0x2B, 0xFE);       // sub di, si
+	__emit__(0x8B, 0xCA);       // mov cx, dx
+	__emit__(0xF3, 0xAB);       // rep stosw
+	__emit__(0x2B, 0xFE);       // sub di, si
+	__emit__(0x8B, 0xCA);       // mov cx, dx
+	__emit__(0xF3, 0xAB);       // rep stosw
+	__emit__(0x0B, 0xDB);       // or bx, bx
+	asm { jz short gauge_bar_done; }
+	__emit__(0x81, 0xC7, 0xF0, 0x00); // add di, (3 * ROW_SIZE)
+gauge_bar_partial_word:
+	_asm { mov ax, wordmask_1DB0C[bx]; }
+gauge_bar_partial_loop:
+	__emit__(0xAB);             // stosw
+	__emit__(0x83, 0xEF, 0x52); // sub di, 52h
+	asm { jge short gauge_bar_partial_loop; }
+gauge_bar_done:
+	__emit__(0x5E);             // pop si
+	__emit__(0x5F);             // pop di
+}
+#pragma option -k.
+
+#pragma codestring "\x90"
 
 extern "C" void pascal near sub_B60A(void);
 
