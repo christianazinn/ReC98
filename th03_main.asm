@@ -6395,63 +6395,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F7BD	proc near
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	byte_1F353, 1
-		cmp	word_1F3B0, 38h	; '8'
-		jb	short locret_F846
-		cmp	word_1F3B0, 40h
-		jnz	short loc_F7F0
-		push	large (((32 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(256 shl 4)
-		jmp	short loc_F822
-; ---------------------------------------------------------------------------
-
-loc_F7F0:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnz	short loc_F80A
-		push	large (((80 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(208 shl 4)
-		jmp	short loc_F822
-; ---------------------------------------------------------------------------
-
-loc_F80A:
-		cmp	word_1F3B0, 60h
-		jnz	short loc_F82F
-		push	large (((128 shl 4) shl 16) or (368 shl 4))
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		push	(160 shl 4)
-
-loc_F822:
-		push	(368 shl 4)
-		push	word ptr [bp+@@pid_other]
-		call	marisa_19B06
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_F82F:
-		cmp	word_1F3B0, 70h	; 'p'
-		jnz	short locret_F846
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-locret_F846:
-		leave
-		retn
-marisa_F7BD	endp
+	MARISA_F7BD procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
