@@ -19,6 +19,12 @@ extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void near kana_198DD(void);
 extern "C" void near marisa_19B4F(void);
 extern "C" uint8_t near sub_1A1A7(void);
+extern "C" void pascal vector2(
+	int &ret_x,
+	int &ret_y,
+	int length,
+	int angle
+);
 extern "C" void pascal near sub_1A1ED(
 	subpixel_t x,
 	subpixel_t y1,
@@ -29,6 +35,89 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+void far exatt_update_kana(void)
+{
+	int vector_x;
+	int vector_y;
+	uint8_t pid_other;
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	playfield_clip_negative_radius.x.v = TO_SP(-24);
+	playfield_clip_negative_radius.y.v = TO_SP(-24);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] != 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		if(slot[0] == 1) {
+			vector2(
+				vector_x,
+				vector_y,
+				*reinterpret_cast<int near *>(slot + 0x12),
+				(_AL = slot[0x13], _AH = 0, _AX)
+			);
+			slot[0x13]++;
+			*reinterpret_cast<subpixel_t near *>(slot + 2) += vector_x;
+			*reinterpret_cast<subpixel_t near *>(slot + 4) += vector_y;
+			_AL = slot[1];
+			_AH = 0;
+			_BX = 0x10;
+			_asm { cwd; }
+			_asm { idiv bx; }
+			if(_DX == 0) {
+				bullet_template.type = BT_BULLET16_CUSTOM_WITH_ACCEL;
+				bullet_template.angle = 0x40;
+				bullet_template.group = BG_1;
+				bullet_template.accel_type = BAT_Y;
+				_AL = pid_PID_so_attack;
+				_AH = 0;
+				_AX += (72 * ROW_SIZE);
+				bullet_template.sprite_offset = _AX;
+				bullet_template.speed.v = (1 << 4);
+				bullet_template.center.x.v = *reinterpret_cast<subpixel_t near *>(slot + 2);
+				bullet_template.center.y.v = *reinterpret_cast<subpixel_t near *>(slot + 4);
+				bullet_template.pid = pid_other;
+				bullets_add();
+			}
+			if(playfield_clip(
+				reinterpret_cast<PlayfieldSubpixel near *>(slot + 2)[0],
+				reinterpret_cast<PlayfieldSubpixel near *>(slot + 4)[0]
+			)) {
+				slot[0] = 0;
+				goto next;
+			}
+		} else if(slot[0] == 2) {
+			sub_1A1A7();
+		} else {
+			if(slot[0] <= 0x1C) {
+				slot[0]++;
+			} else {
+				slot[1] = 0;
+				slot[0] = 1;
+				slot[0x13] = 8;
+			}
+		}
+		slot[1]++;
+	}
+next:
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
+}
 
 void far exatt_render_kana(void)
 {
