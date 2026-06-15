@@ -6,12 +6,15 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
 extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F3A2;
@@ -64,5 +67,49 @@ extern "C" void pascal near reimu_111A3(void)
 		left = (playfield_fg_x_to_screen(word_23DCA[i], pid_other) - 24);
 		top = ((word_23DD6[i] >> 4) - 8);
 		sprite16_put(left, top, so);
+	}
+}
+
+extern "C" void pascal near reimu_112A6(uint8_t angle, subpixel_t radius)
+{
+	screen_y_t top;
+	int i;
+	uint8_t frame_quarter;
+	pid_t pid_other;
+	register sprite16_offset_t so;
+	register screen_x_t left;
+
+	pid_other = (1 - pid_current);
+	if((round_frame_mod2 != 0) && (word_1F3B0 < 0x40)) {
+		return;
+	}
+
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	if(pid_current != 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	so = (pid_PID_so_attack + (8 * ROW_SIZE));
+	frame_quarter = (word_1F3B0 >> 2);
+	if((frame_quarter & 3) == 1) {
+		so += 6;
+	} else if((frame_quarter & 3) != 0) {
+		so += (((frame_quarter & 1) * 6) + (24 * ROW_SIZE));
+	}
+
+	i = 0;
+	while(i < 8) {
+		left = polar(word_1F33E, radius, CosTable8[angle]);
+		top = polar(word_1F340, radius, SinTable8[angle]);
+		left = (playfield_fg_x_to_screen(left, pid_other) - 24);
+		top = ((top >> 4) - 8);
+		sprite16_put(left, top, so);
+		i++;
+		angle += 0x20;
 	}
 }
