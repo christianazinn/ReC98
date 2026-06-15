@@ -19,6 +19,7 @@ extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
+extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F3A2;
 extern "C" subpixel_t word_23DCA[];
 extern "C" subpixel_t word_23DD6[];
@@ -133,4 +134,26 @@ extern "C" void pascal far gba_boss_render_reimu(void)
 		return;
 	}
 	sub_F58C();
+}
+
+extern "C" void pascal far ellen_113E2(uint16_t slot)
+{
+	register uint8_t near *record = &byte_1F35E[slot * 32];
+
+	*reinterpret_cast<subpixel_t near *>(record + 0x00) = TO_SP(144);
+	*reinterpret_cast<subpixel_t near *>(record + 0x02) = TO_SP(80);
+	*reinterpret_cast<uint16_t near *>(record + 0x08) = 0xFFE0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0A) = 0;
+	record[0x12] = 0;
+	record[0x10] = 0;
+	record[0x11] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0C) = 0x0064;
+	record[0x13] = 0;
+	record[0x16] = 0;
+	record[0x17] = 0;
+	*reinterpret_cast<uint16_t near *>(record + 0x0E) = 0x0780;
+	if(slot != 0) {
+		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
+	}
+	record[0x15] = 0;
 }
