@@ -6376,58 +6376,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F5FE	proc near
-		push	bp
-		mov	bp, sp
-		mov	byte_1F353, 1
-		cmp	word_1F3B0, 20h	; ' '
-		jb	short loc_F683
-		cmp	word_1F3B0, 20h	; ' '
-		jnz	short loc_F619
-		mov	byte_1FE50, 0
-
-loc_F619:
-		cmp	word_1F3B0, 50h	; 'P'
-		jnb	short loc_F673
-		test	byte ptr word_1F3B0, 3
-		jnz	short loc_F683
-		mov	al, byte_1FE50
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_1F39F
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_bullet_template.BT_pid, al
-		call	@bullets_add$qv
-		mov	al, byte_1F39F
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_bullet_template.BT_speed, al
-		call	@bullets_add$qv
-		mov	al, byte_1FE50
-		add	al, 7
-		mov	byte_1FE50, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_F673:
-		mov	byte_1F353, 0
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_F683:
-		pop	bp
-		retn
-marisa_F5FE	endp
+	MARISA_F5FE procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -27684,6 +27633,8 @@ _byte_1F351 label byte
 byte_1F351	db ?
 _byte_1F352 label byte
 byte_1F352	db ?
+public _byte_1F353, byte_1F353
+_byte_1F353 label byte
 byte_1F353	db ?
 byte_1F354	db ?
 byte_1F355	db ?
@@ -27695,6 +27646,8 @@ _byte_1F35E label byte
 byte_1F35E	db 64 dup(?)
 public _gba_boss_level
 _gba_boss_level	db ?
+public _byte_1F39F, byte_1F39F
+_byte_1F39F label byte
 byte_1F39F	db ?
 byte_1F3A0	db ?
 byte_1F3A1	db ?
@@ -27792,6 +27745,8 @@ byte_1FDEA	db ?
 byte_1FE1C	db ?
 		db 49 dup(?)
 word_1FE4E	dw ?
+public _byte_1FE50, byte_1FE50
+_byte_1FE50 label byte
 byte_1FE50	db ?
 		db ?
 point_1FE52	Point <?>
