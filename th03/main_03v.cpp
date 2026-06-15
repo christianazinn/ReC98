@@ -22,7 +22,7 @@ extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 
-extern "C" void pascal near CHIYURI_12B38(vc_t col);
+extern "C" void pascal near chiyuri_12B38(int col);
 
 extern "C" void pascal near chiyuri_1295E(void)
 {
@@ -85,26 +85,26 @@ extern "C" void pascal near chiyuri_12A10(void)
 	}
 
 	if(byte_1F353 >= 0x18) {
-		CHIYURI_12B38(6);
+		chiyuri_12B38(6);
 		return;
 	}
 	if(byte_1F353 >= 0x14) {
-		CHIYURI_12B38(5);
+		chiyuri_12B38(5);
 		return;
 	}
 	if(byte_1F353 >= 0x0C) {
-		CHIYURI_12B38(2);
+		chiyuri_12B38(2);
 		return;
 	}
 	if(byte_1F353 >= 8) {
-		CHIYURI_12B38(5);
+		chiyuri_12B38(5);
 		return;
 	}
 	if(byte_1F353 >= 4) {
-		CHIYURI_12B38(6);
+		chiyuri_12B38(6);
 		return;
 	}
-	CHIYURI_12B38(V_WHITE);
+	chiyuri_12B38(V_WHITE);
 }
 
 extern "C" void pascal near chiyuri_12ADD(void)
@@ -127,4 +127,23 @@ extern "C" void pascal near chiyuri_12ADD(void)
 		byte_1F355 += 4;
 	}
 	chiyuri_1295E();
+}
+
+extern "C" void pascal near chiyuri_12B38(int col)
+{
+	screen_x_t left;
+	screen_y_t top;
+	sprite16_offset_t sprite_offset;
+
+	sprite16_put_size.w.v = (128 / 16);
+	sprite16_put_size.h = 64;
+	left = (playfield_fg_x_to_screen(word_1F33E, (1 - pid_current)) - 64);
+	top = ((word_1F340 >> 4) - 48);
+	sprite_offset = sprite_1F34C;
+	sprite16_mono(true);
+	sprite16_mono_color(col);
+	sprite16_put(left, top, sprite_offset);
+	_AH = SPRITE16_SET_MONO;
+	__emit__(0x31, 0xD2); // XOR DX, DX
+	geninterrupt(SPRITE16);
 }
