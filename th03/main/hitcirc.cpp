@@ -1,12 +1,18 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
+#include "th02/main/execl.hpp"
+#include "th03/core/initexit.h"
+#include "th03/formats/mrs.hpp"
+#include "th03/formats/pi.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/sprites/main_s16.hpp"
+#include <process.h>
+#include <stddef.h>
 
 extern nearfunc_t_near fp_1FBC0;
 extern "C" int trapezoid_hmask;
@@ -24,6 +30,23 @@ extern "C" int word_1FBD2;
 extern "C" void far sub_B39E(void);
 
 extern "C" void pascal near sub_B60A(void);
+
+int pascal GameExecl(const char *binary_fn)
+{
+	pi_free(0);
+	super_free();
+	graph_hide();
+	text_clear();
+	gaiji_restore();
+	mrs_free(0);
+	mrs_free(1);
+	game_exit();
+	return execl(
+		const_cast<char *>(binary_fn),
+		const_cast<char *>(binary_fn),
+		nullptr
+	);
+}
 
 extern "C" void pascal near sub_B4A3(void)
 {
