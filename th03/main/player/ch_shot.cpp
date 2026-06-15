@@ -31,6 +31,7 @@ extern "C" uint8_t byte_202CA[];
 extern "C" uint8_t near *word_205CA;
 extern "C" uint8_t byte_205CC;
 extern "C" uint8_t byte_20E92[];
+extern "C" uint8_t hitbox_pid;
 extern "C" uint8_t pid_PID_current;
 extern "C" uint8_t pid_PID_so_attack;
 
@@ -639,4 +640,79 @@ extern "C" void pascal near reimu_chargeshot_14C8C(
 	_AX += -8;
 	top.v = _AX;
 	sprite16_put(left, _AX, sprite_offset);
+}
+
+uint8_t far chargeshot_hittest_reimu(void)
+{
+	register int i;
+
+	if(byte_205CC != 0) {
+		if(round_or_result_frame & 1) {
+			goto miss;
+		}
+	}
+	word_205CA = (byte_202CA + (hitbox.pid * 384));
+	i = 0;
+	goto loop_check;
+
+loop:
+	if(word_205CA[0] == 0) {
+		goto next;
+	}
+	if(
+		(reinterpret_cast<Subpixel near *>(word_205CA + 2)[0].v <= TO_SP(-16)) ||
+		(
+			reinterpret_cast<Subpixel near *>(word_205CA + 2)[0].v >=
+			TO_SP(PLAYFIELD_W)
+		) ||
+		(
+			reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[0].v <=
+			TO_SP(-16)
+		)
+	) {
+		goto next;
+	}
+	if(
+		(
+			(reinterpret_cast<Subpixel near *>(word_205CA + 2)[0].v -
+				hitbox.right.v) > TO_SP(20)
+		) ||
+		(
+			(hitbox.origin.topleft.x.v -
+				reinterpret_cast<Subpixel near *>(word_205CA + 2)[0].v) >
+			TO_SP(20)
+		) ||
+		(
+			(reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[0].v -
+				hitbox.bottom.v) > TO_SP(20)
+		) ||
+		(
+			(hitbox.origin.topleft.y.v -
+				reinterpret_cast<Subpixel near *>(word_205CA + 0x10)[0].v) >
+			TO_SP(20)
+		)
+	) {
+		goto next;
+	}
+	_asm {
+		push	word ptr [bx+2]
+		push	word ptr [bx+10h]
+		mov	al, hitbox_pid
+		mov	ah, 0
+		push	ax
+		call	far ptr hitcircles_enemy_add
+	}
+	return 1;
+
+next:
+	i++;
+	word_205CA += 0x20;
+
+loop_check:
+	if(i < 6) {
+		goto loop;
+	}
+
+miss:
+	return 0;
 }
