@@ -1,9 +1,9 @@
 #include "th03/main/player/exatt.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
-#include "th03/main/collmap.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/stuff.hpp"
 #include "th03/main/sprite16.hpp"
 
 extern "C" uint8_t exatt_buffers[];
@@ -15,8 +15,51 @@ extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
 extern "C" void near sub_1A1A7(void);
+extern "C" void pascal near sub_1A1ED(
+	Subpixel x,
+	Subpixel y1,
+	subpixel_t target_x,
+	subpixel_t target_y,
+	pid_t pid,
+	int velocity_base
+);
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+extern "C" void pascal far kotohime_19DD3(
+	subpixel_t target_x, subpixel_t target_y
+)
+{
+	register uint8_t near *slot;
+	register player_stuff_t near *player;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 7;
+	_AX += reinterpret_cast<uint16_t>(players);
+	player = reinterpret_cast<player_stuff_t near *>(_AX);
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_asm { add ax, (offset exatt_buffers + 256); }
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+	if(slot[0] != 0) {
+		slot += 0x20;
+	}
+	word_2028A = reinterpret_cast<uint16_t>(slot);
+	sub_1A1ED(
+		player->center.x,
+		player->center.y,
+		target_x,
+		target_y,
+		pid_current,
+		0x78
+	);
+	*reinterpret_cast<subpixel_t near *>(slot + 0x0E) = 0x0C00;
+	*reinterpret_cast<subpixel_t near *>(slot + 0x14) = 0x20;
+	slot[0x12] = 0;
+	slot[0x11] = 1;
+}
 
 extern "C" void near kotohime_19E2A(void)
 {
