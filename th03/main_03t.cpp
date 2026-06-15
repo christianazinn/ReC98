@@ -6,11 +6,15 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F354;
 extern "C" int16_t word_1DE12[];
@@ -65,4 +69,49 @@ extern "C" void pascal near ellen_11885(void)
 		i = 8;
 	}
 	ellen_11814(i);
+}
+
+extern "C" void pascal near ellen_1190A(
+	subpixel_t radius, uint8_t frame, uint8_t angle
+)
+{
+	screen_y_t top;
+	int pid_other;
+	sprite16_offset_t so;
+	int j;
+	register int i;
+	register screen_x_t left;
+
+	pid_other = (1 - pid_current);
+	i = (frame % 9);
+	ellen_11814(i);
+	i--;
+	if(i < 0) {
+		i = 8;
+	}
+	ellen_11814(i);
+	i--;
+	if(i < 0) {
+		i = 8;
+	}
+	ellen_11814(i);
+	if((round_frame_mod2 != 0) && (word_1F3B0 < 0x40)) {
+		return;
+	}
+
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	so = (pid_PID_so_attack + ((8 * ROW_SIZE) + (96 / BYTE_DOTS)));
+	for(i = 0; i < 4; i++) {
+		for(j = 0; j < 8; j++) {
+			left = polar(word_1F33E, radius, CosTable8[angle]);
+			top = polar(word_1F340, radius, SinTable8[angle]);
+			left = (playfield_fg_x_to_screen(left, pid_other) - 16);
+			top = (top >> 4);
+			sprite16_put(left, top, so);
+			angle += 0x20;
+		}
+		angle += 3;
+		so -= 4;
+	}
 }
