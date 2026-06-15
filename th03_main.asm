@@ -6589,52 +6589,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-ellen_11814	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-arg_0		= word ptr  4
-
-		enter	6, 0
-		push	si
-		mov	si, [bp+arg_0]
-		mov	bx, si
-		add	bx, bx
-		mov	ax, word_1DE12[bx]
-		imul	ax, 28h
-		add	ax, sprite_1F34C
-		add	ax, 0FB10h
-		mov	[bp+@@sprite_offset], ax
-		mov	_sprite16_put_w, (96 / 16)
-		mov	bx, si
-		add	bx, bx
-		mov	ax, word_1DE24[bx]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_sprite16_put_h, ax
-		push	word_1F33E	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -48
-		mov	[bp+@@left], ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		mov	bx, si
-		add	bx, bx
-		add	ax, word_1DE12[bx]
-		add	ax, -40
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
-		pop	si
-		leave
-		retn	2
-ellen_11814	endp
+	ELLEN_11814 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -24047,8 +24002,11 @@ _chain_ring_p	db	PLAYER_COUNT dup(0)
 
 include th03/sprites/score.asp
 include th03/main/5_powers_of_10[data].asm
+public _word_1DE12, word_1DE12, _word_1DE24, word_1DE24
+_word_1DE12 label word
 word_1DE12 label word
 	dw 108, 96, 80, 64, 48, 32, 16, 8, 4
+_word_1DE24 label word
 word_1DE24 label word
 	dw 2, 8, 16, 16, 16, 16, 16, 8, 2
 word_1DE36 dw (48 shl 4)
