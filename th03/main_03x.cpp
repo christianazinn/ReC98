@@ -7,11 +7,13 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
@@ -58,5 +60,42 @@ extern "C" void pascal near rikako_137CF(void)
 		);
 		i++;
 		angle += 0x20;
+	}
+}
+
+extern "C" void pascal near rikako_138B3(void)
+{
+	screen_y_t top;
+	sprite16_offset_t sprite_offset;
+	subpixel_t radius;
+	uint8_t angle;
+	register int i;
+	register screen_x_t left;
+
+	radius = ((200 << SUBPIXEL_BITS) - ((word_1F3B0 << 1) << 4));
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	if((word_1F3B0 < 0x40) && ((round_or_result_frame & 1) != 0)) {
+		return;
+	}
+
+	sprite_offset = (pid_PID_so_attack + (24 * ROW_SIZE));
+	if((word_1F3B0 & 1) != 0) {
+		sprite_offset += (24 * ROW_SIZE);
+	}
+	_AL = word_1F3B0;
+	_AL <<= 2;
+	angle = _AL;
+	angle = (0 - angle);
+
+	i = 0;
+	while(i < 0x10) {
+		left = polar(word_1F33E, radius, CosTable8[angle]);
+		top = polar(word_1F340, radius, SinTable8[angle]);
+		left = (playfield_fg_x_to_screen(left, (1 - pid_current)) - 24);
+		top = ((top >> 4) - 8);
+		sprite16_put(left, top, sprite_offset);
+		i++;
+		angle += 0x10;
 	}
 }
