@@ -7,12 +7,14 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/math/polar.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F3B0;
 extern "C" uint16_t word_1F356;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t byte_1F34E;
@@ -103,4 +105,26 @@ extern "C" void pascal near chiyuri_12A10(void)
 		return;
 	}
 	CHIYURI_12B38(V_WHITE);
+}
+
+extern "C" void pascal near chiyuri_12ADD(void)
+{
+	register int frame;
+
+	if((round_frame_mod2 != 0) && (word_1F3B0 < 0x40)) {
+		return;
+	}
+
+	frame = word_1F3B0;
+	if(frame < 0x20) {
+		word_1F356 = (256 - (frame << 3));
+		byte_1F355 += 4;
+	} else if(frame < 0x40) {
+		word_1F356 = (512 - (frame << 3));
+		byte_1F355 -= 4;
+	} else {
+		word_1F356 = (768 - (frame << 3));
+		byte_1F355 += 4;
+	}
+	chiyuri_1295E();
 }

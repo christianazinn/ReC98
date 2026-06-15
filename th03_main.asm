@@ -6741,58 +6741,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-chiyuri_12ADD	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_round_frame_mod2, 0
-		jz	short loc_12AEF
-		cmp	word_1F3B0, 40h
-		jb	short loc_12B35
-
-loc_12AEF:
-		mov	si, word_1F3B0
-		cmp	si, 20h	; ' '
-		jge	short loc_12B02
-		mov	ax, si
-		shl	ax, 3
-		mov	dx, 256
-		jmp	short loc_12B24
-; ---------------------------------------------------------------------------
-
-loc_12B02:
-		cmp	si, 40h
-		jge	short loc_12B1C
-		mov	ax, si
-		shl	ax, 3
-		mov	dx, 512
-		sub	dx, ax
-		mov	word_1F356, dx
-		mov	al, byte_1F355
-		add	al, -4
-		jmp	short loc_12B2F
-; ---------------------------------------------------------------------------
-
-loc_12B1C:
-		mov	ax, si
-		shl	ax, 3
-		mov	dx, 768
-
-loc_12B24:
-		sub	dx, ax
-		mov	word_1F356, dx
-		mov	al, byte_1F355
-		add	al, 4
-
-loc_12B2F:
-		mov	byte_1F355, al
-		call	chiyuri_1295E
-
-loc_12B35:
-		pop	si
-		pop	bp
-		retn
-chiyuri_12ADD	endp
+	CHIYURI_12ADD procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
