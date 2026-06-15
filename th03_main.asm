@@ -9112,6 +9112,8 @@ ellen_194A9	endp
 
 ; Attributes: bp-based frame
 
+public _ellen_19510
+_ellen_19510 label near
 ellen_19510	proc near
 
 var_9		= word ptr -9
@@ -9443,40 +9445,7 @@ loc_197E7:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_ellen$qv
-@exatt_render_ellen$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (12 * 30)
-		add	ax, offset ellen_exatt_refs
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1981C
-; ---------------------------------------------------------------------------
-
-loc_1980A:
-		mov	bx, [si]
-		cmp	byte ptr [bx], 0
-		jz	short loc_19818
-		mov	word_1FB3A, si
-		call	ellen_19510
-
-loc_19818:
-		inc	di
-		add	si, 1Eh
-
-loc_1981C:
-		cmp	di, 0Ch
-		jl	short loc_1980A
-		pop	di
-		pop	si
-		pop	bp
-		retf
-@exatt_render_ellen$qv endp
+@exatt_render_ellen$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -15569,8 +15538,12 @@ ellen_gauge_pattern_frames db PLAYER_COUNT dup(?)
 ellen_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 32 * 12) dup(?)
 word_1F868	dw ?
+public _ellen_exatt_refs
+_ellen_exatt_refs label byte
 ellen_exatt_refs label byte
 		db 720 dup(?)
+public _word_1FB3A
+_word_1FB3A label word
 word_1FB3A	dw ?
 word_1FB3C	dw ?
 ellen_bomb_vectors label byte
