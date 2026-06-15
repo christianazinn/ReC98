@@ -6490,68 +6490,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 	YUMEMI_10405 procdesc near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yumemi_1050F	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	short loc_105A1
-		mov	_bullet_template.BT_group, BG_4_RING
-		mov	_bullet_template.BT_speed, (2 shl 4)
-		push	1
-		call	@randring_far_next16_and$qui
-		inc	al
-		mov	_bullet_template.BT_type, al
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		add	ax, (-32 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	ax, word_1F340
-		add	ax, (32 shl 4)
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	ax, word_1F33E
-		add	ax, (-32 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	ax, word_1F33E
-		add	ax, (32 shl 4)
-		mov	_bullet_template.BT_center.x, ax
-		call	@bullets_add$qv
-
-loc_105A1:
-		cmp	word_1F3B0, 60h
-		jb	short loc_105B3
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_105B3:
-		pop	bp
-		retn
-yumemi_1050F	endp
+	YUMEMI_1050F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
