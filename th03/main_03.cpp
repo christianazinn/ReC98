@@ -1,5 +1,6 @@
 #pragma codeseg main_03_TEXT
 
+#include "codegen.hpp"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/bullet/bullet.hpp"
@@ -23,6 +24,7 @@ extern "C" subpixel_t word_1F340;
 
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void near sub_F356(void);
+extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 
 extern "C" void pascal near sub_F512(void)
 {
@@ -124,5 +126,79 @@ extern "C" void pascal near marisa_F5FE(void)
 	byte_1F34F = 1;
 	word_1F3B0 = 0;
 }
+
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal near marisa_F685(void)
+{
+	pid_t pid_other = (1 - pid_current);
+
+	byte_1F353 = 1;
+	if(word_1F3B0 < 0x38) {
+		return;
+	}
+	if(word_1F3B0 != 0x40) {
+		goto check_50;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x80, 0x00);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	1180h
+	}
+	goto spawn_second;
+
+check_50:
+	if(word_1F3B0 != 0x50) {
+		goto check_60;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x80, 0x03);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	0E80h
+	}
+	goto spawn_second;
+
+check_60:
+	if(word_1F3B0 != 0x60) {
+		goto check_70;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x80, 0x06);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	0B80h
+	}
+	goto spawn_second;
+
+check_70:
+	if(word_1F3B0 != 0x70) {
+		goto check_done;
+	}
+	__emit__(0x66, 0x68, 0x00, 0x17, 0x80, 0x09);
+	_asm {
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+		push	0880h
+	}
+
+spawn_second:
+	_asm {
+		push	1700h
+		push	word ptr [bp-1]
+		call	far ptr marisa_19B06
+	}
+	return;
+
+check_done:
+	if(word_1F3B0 == 0x84) {
+		byte_1F353 = 0;
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
+	}
+}
+#pragma option -G
+#pragma warn .aus
 
 #pragma codeseg
