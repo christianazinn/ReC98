@@ -2,6 +2,8 @@
 
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
+#include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/math/randring.hpp"
 
@@ -9,7 +11,10 @@ extern "C" uint8_t byte_1F324;
 extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F351;
 extern "C" uint8_t byte_1F352;
+extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F35E[];
+extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1FE50;
 extern "C" uint16_t word_1F3B0;
 extern "C" subpixel_t word_1F326;
 extern "C" subpixel_t word_1F328;
@@ -86,6 +91,38 @@ extern "C" void pascal far marisa_F5AF(uint16_t slot)
 		*reinterpret_cast<uint16_t near *>(record + 0x0E) += 0x28;
 	}
 	record[0x15] = 0;
+}
+
+extern "C" void pascal near marisa_F5FE(void)
+{
+	byte_1F353 = 1;
+	if(word_1F3B0 < 0x20) {
+		return;
+	}
+	if(word_1F3B0 == 0x20) {
+		byte_1FE50 = 0;
+	}
+	if(word_1F3B0 < 0x50) {
+		if((word_1F3B0 & 0x03) != 0) {
+			return;
+		}
+		bullet_template.angle = byte_1FE50;
+		bullet_template.group = BG_2_SPREAD_HORIZONTALLY_SYMMETRIC;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.speed.v = byte_1F39F;
+		bullet_template.type = BT_BULLET16_DEFAULT;
+		bullet_template.pid = (1 - pid_current);
+		bullets_add();
+
+		bullet_template.speed.v = (static_cast<int16_t>(byte_1F39F) / 2);
+		bullets_add();
+		byte_1FE50 += 7;
+		return;
+	}
+	byte_1F353 = 0;
+	byte_1F34F = 1;
+	word_1F3B0 = 0;
 }
 
 #pragma codeseg
