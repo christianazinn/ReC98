@@ -6621,64 +6621,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-kotohime_11AC1	proc near
-
-@@angle		= byte ptr -5
-var_4		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  4
-
-		enter	6, 0
-		push	si
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		xor	si, si
-		jmp	short loc_11B43
-; ---------------------------------------------------------------------------
-
-loc_11ACF:
-		cmp	[bp+arg_0], 0
-		jz	short loc_11ADD
-		call	@randring_far_next16$qv
-		mov	_bullet_template.BT_angle, al
-
-loc_11ADD:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F3A0
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		add	al, byte_1F355
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, word_1F356, _CosTable8[bx]
-		mov	[bp+var_2], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, word_1F356, _SinTable8[bx]
-		mov	[bp+var_4], ax
-		mov	ax, [bp+var_2]
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, [bp+var_4]
-		mov	_bullet_template.BT_center.y, ax
-		call	@bullets_add$qv
-		inc	si
-
-loc_11B43:
-		mov	al, byte_1F3A0
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_11ACF
-		pop	si
-		leave
-		retn	2
-kotohime_11AC1	endp
+KOTOHIME_11AC1 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
