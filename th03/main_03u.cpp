@@ -19,9 +19,12 @@ extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
+extern "C" uint8_t byte_1F34F;
 extern "C" uint8_t byte_1F353;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F3A0;
+
+extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near kotohime_11FE4(int count)
 {
@@ -85,4 +88,29 @@ extern "C" void pascal near kotohime_12103(subpixel_t radius)
 		kotohime_11FE4(8);
 		byte_1F353 = 0;
 	}
+}
+
+extern "C" void pascal far gba_boss_render_kotohime(void)
+{
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	if((1 - pid_current) == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	if(byte_1F34F == 0) {
+		kotohime_12103((200 - (word_1F3B0 * 2)) << SUBPIXEL_BITS);
+		return;
+	}
+	if(byte_1F34F != 0xFF) {
+		kotohime_120A0();
+		return;
+	}
+	sub_F58C();
 }
