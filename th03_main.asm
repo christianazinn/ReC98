@@ -6845,86 +6845,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-rikako_135A4	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		call	sub_F356
-		cmp	byte_1F358, 2
-		jz	short loc_135CD
-		test	byte ptr word_1F3B0, 7
-		jnz	short loc_135CD
-		cmp	byte_1F358, 2
-		jle	short loc_135C4
-		mov	al, -1
-		jmp	short loc_135C6
-; ---------------------------------------------------------------------------
-
-loc_135C4:
-		mov	al, 1
-
-loc_135C6:
-		add	al, byte_1F358
-		mov	byte_1F358, al
-
-loc_135CD:
-		mov	al, byte_1F3A2
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		mov	[bp+var_1], dl
-		cmp	[bp+var_1], 1
-		jnz	short loc_135F8
-		call	@randring_far_next16$qv
-		mov	byte_23DE8, al
-		push	1
-		call	@randring_far_next16_and$qui
-		inc	al
-		mov	bullet_type_23DE9, al
-
-loc_135F8:
-		mov	al, bullet_type_23DE9
-		mov	_bullet_template.BT_type, al
-		mov	_bullet_template.BT_group, BG_4_SPREAD_NARROW
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, byte_23DE8
-		mov	_bullet_template.BT_angle, al
-		mov	al, byte_1F3A3
-		mov	_bullet_template.BT_speed, al
-		cmp	[bp+var_1], 1
-		jz	short loc_13633
-		cmp	[bp+var_1], 5
-		jz	short loc_13633
-		cmp	[bp+var_1], 9
-		jz	short loc_13633
-		cmp	[bp+var_1], 0Dh
-		jnz	short loc_1364C
-
-loc_13633:
-		call	snd_se_play pascal, 10
-		call	@bullets_add$qv
-		mov	al, byte_23DE8
-		add	al, 80h
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-
-loc_1364C:
-		cmp	word_1F3B0, 80h
-		jb	short locret_1365F
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-locret_1365F:
-		leave
-		retn
-rikako_135A4	endp
+	RIKAKO_135A4 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -21573,7 +21494,10 @@ _byte_23DE6 label byte
 byte_23DE6	db ?
 _byte_23DE7 label byte
 byte_23DE7	db ?
+public _byte_23DE8, byte_23DE8, _bullet_type_23DE9, bullet_type_23DE9
+_byte_23DE8 label byte
 byte_23DE8	db ?
+_bullet_type_23DE9 label byte
 bullet_type_23DE9	db ?
 public _score_23DEA, _word_23DEC, _word_23DEE, _score_23DF0, _byte_23DF9
 _score_23DEA label word

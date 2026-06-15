@@ -30,6 +30,10 @@ extern "C" uint8_t byte_1F358;
 extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
+extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_23DE8;
+extern "C" uint8_t bullet_type_23DE9;
 
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
@@ -38,6 +42,7 @@ extern "C" void pascal far RIKAKO_1B006(
 	subpixel_t x, subpixel_t y, uint8_t angle
 );
 extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near kana_13174(void)
@@ -269,5 +274,58 @@ rikako_134AA_ramp_done:
 	if(word_1F3B0 > 0x50) {
 		word_1F3B0 = 0;
 		byte_1F34F = 1;
+	}
+}
+
+extern "C" void pascal near rikako_135A4(void)
+{
+	uint8_t phase_mod;
+
+	sub_F356();
+	_asm {
+		cmp	byte ptr byte_1F358, 2
+		jz	short rikako_135A4_ramp_done
+		test	byte ptr word_1F3B0, 7
+		jnz	short rikako_135A4_ramp_done
+		cmp	byte ptr byte_1F358, 2
+		jle	short rikako_135A4_ramp_inc
+		mov	al, -1
+		jmp	short rikako_135A4_ramp_apply
+rikako_135A4_ramp_inc:
+		mov	al, 1
+rikako_135A4_ramp_apply:
+		add	al, byte ptr byte_1F358
+		mov	byte ptr byte_1F358, al
+rikako_135A4_ramp_done:
+	}
+
+	phase_mod = (word_1F3B0 % static_cast<uint16_t>(byte_1F3A2));
+	if(phase_mod == 1) {
+		byte_23DE8 = randring_far_next16_raw();
+		randring_far_next16_and(1);
+		_AL++;
+		bullet_type_23DE9 = _AL;
+	}
+
+	bullet_template.type = static_cast<bullet_type_t>(bullet_type_23DE9);
+	bullet_template.group = BG_4_SPREAD_NARROW;
+	bullet_template.center.x.v = word_1F33E;
+	bullet_template.center.y.v = word_1F340;
+	bullet_template.angle = byte_23DE8;
+	bullet_template.speed.v = byte_1F3A3;
+
+	if(
+		(phase_mod == 1) || (phase_mod == 5) ||
+		(phase_mod == 9) || (phase_mod == 0x0D)
+	) {
+		snd_se_play(10);
+		bullets_add();
+		bullet_template.angle = (byte_23DE8 + 0x80);
+		bullets_add();
+	}
+
+	if(word_1F3B0 >= 0x80) {
+		byte_1F34F = 1;
+		word_1F3B0 = 0;
 	}
 }
