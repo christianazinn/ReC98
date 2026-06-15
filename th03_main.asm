@@ -2175,6 +2175,8 @@ sub_B398	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _sub_B39E, sub_B39E
+_sub_B39E label far
 sub_B39E	proc far
 		call	sub_B37C
 		retf
@@ -6962,191 +6964,7 @@ HITBOX_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_bomb	proc far
-
-var_2		= byte ptr -2
-@@frame		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jz	@@ret
-		call	egc_off
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _bomb_frame[bx]
-		mov	[bp+@@frame], al
-		cmp	[bp+@@frame], 64
-		jnb	short loc_14914
-		push	GC_RMW
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		mov	bx, offset byte_20E92
-		cmp	_pid_current, 0
-		jz	short loc_148FF
-		add	bx, 28h	; '('
-
-loc_148FF:
-		call	sub_B39E
-		call	grcg_off
-		mov	al, [bp+@@frame]
-		shl	al, 2
-		mov	dl, 0
-		jmp	loc_149E8
-; ---------------------------------------------------------------------------
-
-loc_14914:
-		cmp	[bp+@@frame], 128
-		jnb	loc_149D1
-		test	[bp+@@frame], 1
-		jz	short loc_14929
-		call	snd_se_play pascal, 16
-
-loc_14929:
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		and	ax, 3
-		cmp	ax, 2
-		jge	short loc_1494A
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], 4
-		mov	si, 10h
-		jmp	short loc_1495C
-; ---------------------------------------------------------------------------
-
-loc_1494A:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], -4
-		mov	si, 8
-
-loc_1495C:
-		cmp	_pid_current, 0
-		jz	short loc_14967
-		add	si, PLAYFIELD_W_BORDERED
-
-loc_14967:
-		push	si	; left
-		push	PLAYFIELD_TOP	; top
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, 2
-		push	ax	; slot
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; altered_colors
-		call	@mrs_put_noalpha_8$qiuiiuc
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_14A1C
-		push	(PLAYFIELD_W shl 4)
-		call	@randring2_next16_mod$qui
-		mov	point_1FE52.x, ax
-		push	(PLAYFIELD_H shl 4)
-		call	@randring2_next16_mod$qui
-		mov	point_1FE52.y, ax
-		push	point_1FE52.x
-		push	ax
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax
-		call	sub_CDBD
-		push	point_1FE52.x	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	point_1FE52.x, ax
-		mov	ax, point_1FE52.y
-		sar	ax, 4
-		add	ax, 16
-		mov	point_1FE52.y, ax
-		jmp	short loc_14A1C
-; ---------------------------------------------------------------------------
-
-loc_149D1:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], 0
-		mov	al, [bp+@@frame]
-		shl	al, 3
-		mov	dl, 255
-
-loc_149E8:
-		sub	dl, al
-		mov	[bp+var_2], dl
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].r, dl
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].g, dl
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].b, dl
-		mov	_palette_changed, 1
-
-loc_14A1C:
-		call	egc_on
-		cmp	[bp+@@frame], 64
-		jb	short @@ret
-		cmp	[bp+@@frame], 128
-		jnb	short @@ret
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, ((48 * ROW_SIZE) + (176 / BYTE_DOTS))
-		mov	di, ax
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		and	ax, 3
-		cmp	ax, 2
-		jge	short loc_14A5E
-		add	di, 6
-
-loc_14A5E:
-		mov	ax, point_1FE52.x
-		add	ax, -24
-		push	ax
-		mov	ax, point_1FE52.y
-		add	ax, -24
-		push	ax
-		push	di
-		call	sprite16_put
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retf
-marisa_bomb	endp
+MARISA_BOMB procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20096,6 +19914,8 @@ public _byte_1FE50, byte_1FE50
 _byte_1FE50 label byte
 byte_1FE50	db ?
 		db ?
+public _point_1FE52, point_1FE52
+_point_1FE52 label Point
 point_1FE52	Point <?>
 word_1FE56	dw ?
 kotohime_gauge_pattern_frames db PLAYER_COUNT dup(?)
@@ -20259,6 +20079,8 @@ rikako_chargeshot_state db PLAYER_COUNT dup(?)
 rikako_chargeshot_frames db PLAYER_COUNT dup(?)
 rikako_chargeshot_radius dw PLAYER_COUNT dup(?)
 rikako_chargeshot_origin_x dw ?
+public _byte_20E92, byte_20E92
+_byte_20E92 label byte
 byte_20E92 label byte
 		dw ?
 rikako_chargeshot_origin_y dw PLAYER_COUNT dup(?)
