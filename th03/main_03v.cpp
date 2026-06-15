@@ -13,6 +13,7 @@
 #include "th03/main/sprite16.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
@@ -29,8 +30,11 @@ extern "C" uint8_t byte_1F39F;
 extern "C" uint8_t byte_1F3A0;
 extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
+extern "C" uint8_t byte_1F3A3;
+extern "C" uint8_t byte_1F3A4;
 
 extern "C" void pascal near chiyuri_12B38(int col);
+extern "C" void near sub_F356(void);
 extern "C" void pascal near sub_F58C(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
@@ -308,6 +312,33 @@ add_default_ring:
 		return;
 	}
 	if(word_1F3B0 > 0x60) {
+		byte_1F353 = 0;
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
+}
+
+extern "C" void pascal near kana_12E78(void)
+{
+	uint8_t angle;
+
+	sub_F356();
+	if((word_1F3B0 % static_cast<uint16_t>(byte_1F3A3)) == 0) {
+		angle = (randring_far_next16_and(0x1F) - 0x10);
+		if(randring_far_next16_and(1) != 0) {
+			angle = (0x80 - angle);
+		}
+		KANA_19896(word_1F33E, word_1F340, angle);
+		bullet_template.type = BT_PELLET_CLOUD;
+		bullet_template.group = BG_RING;
+		bullet_template.count = byte_1F3A4;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.speed.v = (3 << 4);
+		bullets_add();
+		snd_se_play(10);
+	}
+	if(word_1F3B0 > 0x64) {
 		byte_1F353 = 0;
 		word_1F3B0 = 0;
 		byte_1F34F = 1;

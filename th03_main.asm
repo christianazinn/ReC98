@@ -6785,61 +6785,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-kana_12E78	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		call	sub_F356
-		mov	al, byte_1F3A3
-		mov	ah, 0
-		push	ax
-		mov	ax, word_1F3B0
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	short loc_12EED
-		push	1Fh
-		call	@randring_far_next16_and$qui
-		sub	al, 10h
-		mov	[bp+var_1], al
-		push	1
-		call	@randring_far_next16_and$qui
-		or	ax, ax
-		jz	short loc_12EB0
-		mov	al, 80h
-		sub	al, [bp+var_1]
-		mov	[bp+var_1], al
-
-loc_12EB0:
-		push	word_1F33E
-		push	word_1F340
-		push	word ptr [bp+var_1]
-		call	kana_19896
-		mov	_bullet_template.BT_type, BT_PELLET_CLOUD
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, byte_1F3A4
-		mov	_bullet_template.BT_count, al
-		mov	ax, word_1F33E
-		mov	_bullet_template.BT_center.x, ax
-		mov	ax, word_1F340
-		mov	_bullet_template.BT_center.y, ax
-		mov	_bullet_template.BT_speed, (3 shl 4)
-		call	@bullets_add$qv
-		call	snd_se_play pascal, 10
-
-loc_12EED:
-		cmp	word_1F3B0, 64h	; 'd'
-		jbe	short locret_12F04
-		mov	byte_1F353, 0
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-
-locret_12F04:
-		leave
-		retn
-kana_12E78	endp
+	KANA_12E78 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
