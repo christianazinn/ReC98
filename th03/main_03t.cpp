@@ -33,6 +33,7 @@ extern "C" uint8_t byte_1F3A1;
 extern "C" uint8_t byte_1F3A2;
 extern "C" uint8_t byte_1F3A3;
 extern "C" uint8_t byte_1F3A4;
+extern "C" uint8_t byte_1F3A5;
 extern "C" int16_t word_1DE12[];
 extern "C" int16_t word_1DE24[];
 
@@ -319,4 +320,64 @@ extern "C" void pascal near kotohime_11C5F(void)
 		byte_1F34F = 1;
 		word_1F3B0 = 0;
 	}
+}
+
+extern "C" void pascal near kotohime_11D1A(void)
+{
+	subpixel_t center_x;
+	subpixel_t center_y;
+	uint8_t angle;
+	register int inner;
+	register int outer;
+
+	if(word_1F3B0 == 1) {
+		byte_1F353 = 1;
+		word_1F356 = 0;
+		byte_1F354 = 0;
+	}
+
+	_AL = byte_1F355;
+	_AL += -4;
+	byte_1F355 = _AL;
+	if(word_1F356 > TO_SP(64)) {
+		byte_1F353 = 2;
+		word_1F356 += 8;
+		_AL = byte_1F355;
+		_AL += -2;
+		byte_1F355 = _AL;
+		byte_1F354++;
+		if(byte_1F354 > 0x40) {
+			bullet_template.group = BG_1;
+			bullet_template.type = BT_BULLET16_DEFAULT;
+			for(outer = 0; outer < static_cast<int>(byte_1F3A0); outer++) {
+				angle = (
+					((outer << 8) / static_cast<int>(byte_1F3A0)) + byte_1F355
+				);
+				center_x = polar(word_1F33E, word_1F356, CosTable8[angle]);
+				center_y = polar(word_1F340, word_1F356, SinTable8[angle]);
+				bullet_template.center.x.v = center_x;
+				bullet_template.center.y.v = center_y;
+				for(inner = 0; inner < static_cast<int>(byte_1F3A5); inner++) {
+					bullet_template.angle = (
+						((inner << 7) / static_cast<int>(byte_1F3A5)) +
+						angle +
+						0x40
+					);
+					bullet_template.speed.v = (
+						((inner * 0x30) / static_cast<int>(byte_1F3A5)) +
+						0x10
+					);
+					bullets_add();
+				}
+			}
+			snd_se_play(3);
+			byte_1F353 = 0;
+			byte_1F34F = 1;
+			word_1F3B0 = 0;
+		}
+		return;
+	}
+
+	sub_F356();
+	word_1F356 += 0x20;
 }
