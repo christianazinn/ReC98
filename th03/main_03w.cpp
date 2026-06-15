@@ -28,9 +28,16 @@ extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F358;
 extern "C" uint8_t byte_1F39F;
+extern "C" uint8_t byte_1F3A0;
+extern "C" uint8_t byte_1F3A1;
 
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far RIKAKO_1B006(
+	subpixel_t x, subpixel_t y, uint8_t angle
+);
+extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near kana_13174(void)
@@ -198,6 +205,64 @@ rikako_133A5_ramp_done:
 			i++;
 		}
 		snd_se_play(5);
+		return;
+	}
+
+	if(word_1F3B0 > 0x50) {
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+	}
+}
+
+extern "C" void pascal near rikako_134AA(void)
+{
+	uint8_t angle;
+	register int i;
+
+	_asm {
+		cmp	byte ptr byte_1F358, -8
+		jl	short rikako_134AA_ramp_done
+		test	byte ptr word_1F3B0, 7
+		jnz	short rikako_134AA_ramp_done
+		dec	byte ptr byte_1F358
+rikako_134AA_ramp_done:
+	}
+
+	if(word_1F3B0 == 0x10) {
+		SUB_CE5B(word_1F33E, word_1F340, (1 - pid_current));
+		return;
+	}
+
+	if(word_1F3B0 == 0x28) {
+		SUB_CDBD(word_1F33E, word_1F340, (1 - pid_current));
+		angle = randring_far_next16_raw();
+
+		i = 0;
+		while(static_cast<int>(byte_1F3A0) > i) {
+			angle = ((i << 8) / static_cast<int>(byte_1F3A0));
+			RIKAKO_1B006(word_1F33E, word_1F340, angle);
+			i++;
+		}
+		snd_se_play(5);
+		return;
+	}
+
+	if(word_1F3B0 == 0x40) {
+		bullet_template.type = BT_PELLET;
+		bullet_template.group = BG_RING;
+		bullet_template.count = byte_1F3A1;
+		bullet_template.center.x.v = word_1F33E;
+		bullet_template.center.y.v = word_1F340;
+		bullet_template.speed.v = (2 << 4);
+
+		i = 0;
+		while(i < 4) {
+			bullet_template.angle = randring_far_next16_raw();
+			bullet_template.speed.v += 8;
+			bullets_add();
+			i++;
+		}
+		snd_se_play(10);
 		return;
 	}
 
