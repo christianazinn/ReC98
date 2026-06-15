@@ -28,7 +28,14 @@ extern "C" int word_1FBD0;
 extern "C" int word_1FBD2;
 extern "C" uint16_t wordmask_1DB0C[];
 
-extern "C" void far sub_B39E(void);
+extern "C" void near sub_B37C(void);
+
+#pragma option -k-
+extern "C" void far sub_B39E(void)
+{
+	sub_B37C();
+}
+#pragma option -k.
 
 #pragma option -k-
 extern "C" void pascal near sub_B3A2(void)
