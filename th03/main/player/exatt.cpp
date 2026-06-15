@@ -12,11 +12,14 @@ extern "C" uint8_t exatt_buffers[];
 extern "C" uint8_t byte_202B8[];
 extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_202BA[];
+extern "C" uint8_t ellen_exatt_refs[];
 extern "C" uint8_t pid_PID_so_attack;
+extern "C" uint16_t word_1FB3A;
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void near ellen_19510(void);
 extern "C" void near kana_198DD(void);
 extern "C" void near marisa_19B4F(void);
 extern "C" uint8_t near sub_1A1A7(void);
@@ -36,6 +39,34 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+void far exatt_render_ellen(void)
+{
+	register uint8_t near *ref;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_asm { imul ax, ax, (12 * 30); }
+	_AX += reinterpret_cast<uint16_t>(ellen_exatt_refs);
+	ref = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(ref)
+	) != 0) {
+		word_1FB3A = reinterpret_cast<uint16_t>(ref);
+		ellen_19510();
+	}
+	i++;
+	ref += 30;
+loop_test:
+	if(i < 12) {
+		goto loop;
+	}
+}
 
 extern "C" void pascal far exatt_add_kana(
 	subpixel_t center_x, subpixel_t center_y, pid_t pid
