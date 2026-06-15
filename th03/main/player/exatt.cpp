@@ -29,6 +29,59 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void near marisa_19B4F(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 16);
+	if(pid_current == 1) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	if(slot[0] == 1) {
+		sprite16_put_size.w.v = (16 / 16);
+		sprite16_put_size.h = 8;
+		so = (pid_PID_so_attack + 0x1A);
+		left -= 8;
+		top -= 8;
+		frame = slot[1];
+		if(frame < 0x30) {
+			sprite16_put(left, top, so);
+			so += 2;
+		} else if(frame < 0x60) {
+			so += 2;
+		} else if(frame < 0x66) {
+			so += 4;
+		} else if(frame < 0x6C) {
+			so += 6;
+		} else if(frame < 0x72) {
+			so += 8;
+		} else {
+			so += 0x0A;
+		}
+		sprite16_putx(left, (top + 16), so, SPF_DOWNWARDS_COLUMN);
+	} else if(slot[0] == 2) {
+		sub_1A32A(
+			left, top, *reinterpret_cast<uint16_t near *>(slot + 1)
+		);
+	} else {
+		sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot));
+	}
+}
+
 void far exatt_update_marisa(void)
 {
 	int i;
