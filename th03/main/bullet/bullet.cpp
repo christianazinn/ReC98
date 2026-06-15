@@ -1,5 +1,6 @@
 #pragma option -zPmain_04 -G
 
+#include "libs/master.lib/master.hpp"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cur.hpp"
@@ -9,6 +10,7 @@
 #include "th03/main/difficul.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 #include "th03/sprites/pellet.h"
@@ -137,9 +139,6 @@ extern "C" uint8_t byte_220DE[];
 extern "C" uint8_t yumemi_chargeshots[];
 extern "C" uint8_t pid_PID_so_attack;
 
-extern "C" void pascal near yumemi_chargeshot_16BB5(
-	sprite16_offset_t sprite_offset, int length, uint8_t angle
-);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 
@@ -151,6 +150,54 @@ extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+extern "C" void pascal near yumemi_chargeshot_16BB5(
+	sprite16_offset_t sprite_offset, int length, uint8_t angle
+)
+{
+	screen_y_t top;
+	int i;
+	subpixel_t center_x;
+	subpixel_t center_y;
+	uint8_t frame;
+	uint8_t angle_cur;
+	register uint8_t near *shot;
+	register screen_x_t left;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	frame = shot[1];
+	center_x = (reinterpret_cast<Subpixel near *>(shot + 2)[0].v - TO_SP(16));
+	center_y = (reinterpret_cast<Subpixel near *>(shot + 4)[0].v - TO_SP(16));
+	i = 0;
+	_AL = frame;
+	_AL += _AL;
+	goto angle_store;
+
+loop:
+	left = polar(center_x, length, CosTable8[angle_cur]);
+	top = polar(
+		center_y,
+		length,
+		SinTable8[static_cast<uint8_t>(angle_cur + angle)]
+	);
+	left = playfield_fg_x_to_screen(left, pid_current);
+	_AX = top;
+	asm { sar ax, SUBPIXEL_BITS; }
+	_AX += 16;
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
+	i++;
+	_AL = angle_cur;
+	_AL += 0x10;
+
+angle_store:
+	angle_cur = _AL;
+
+loop_check:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far chargeshot_render_yumemi(void)
 {
 	screen_x_t left;

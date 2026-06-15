@@ -7448,80 +7448,8 @@ loc_16BB2:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public YUMEMI_CHARGESHOT_16BB5
-
-yumemi_chargeshot_16BB5	proc near
-
-var_A		= byte ptr -0Ah
-var_9		= byte ptr -9
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-@@top		= word ptr -2
-arg_0		= byte ptr  4
-@@length		= word ptr  6
-@@sprite_offset		= word ptr  8
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset yumemi_chargeshots
-		mov	si, ax
-		mov	al, [si+1]
-		mov	[bp+var_9], al
-		mov	ax, [si+2]
-		add	ax, 0FF00h
-		mov	[bp+var_6], ax
-		mov	ax, [si+4]
-		add	ax, 0FF00h
-		mov	[bp+var_8], ax
-		mov	[bp+var_4], 0
-		mov	al, [bp+var_9]
-		add	al, al
-		jmp	short loc_16C56
-; ---------------------------------------------------------------------------
-
-loc_16BEC:
-		mov	al, [bp+var_A]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, [bp+var_6], [bp+@@length], _CosTable8[bx]
-		mov	di, ax
-		mov	al, [bp+var_A]
-		add	al, [bp+arg_0]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, [bp+var_8], [bp+@@length], _SinTable8[bx]
-		mov	[bp+@@top], ax
-		push	di	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	di, ax
-		mov	ax, [bp+@@top]
-		sar	ax, 4
-		add	ax, 16
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, di, ax, [bp+@@sprite_offset]
-		inc	[bp+var_4]
-		mov	al, [bp+var_A]
-		add	al, 10h
-
-loc_16C56:
-		mov	[bp+var_A], al
-		cmp	[bp+var_4], 10h
-		jl	short loc_16BEC
-		pop	di
-		pop	si
-		leave
-		retn	6
-yumemi_chargeshot_16BB5	endp
+YUMEMI_CHARGESHOT_16BB5 procdesc pascal near \
+	sprite_offset:word, length:word, angle:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
