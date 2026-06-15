@@ -7080,42 +7080,8 @@ MARISA_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-mima_chargeshot_1546C	proc near
-
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		imul	ax, 150
-		mov	dl, [bp+arg_0]
-		mov	dh, 0
-		imul	dx, 0Ah
-		add	ax, dx
-		add	ax, offset byte_20CF6
-		mov	word_20E22, ax
-		mov	bx, word_20E22
-		mov	byte ptr [bx], 1
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.x
-		mov	bx, word_20E22
-		mov	[bx+2],	ax
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.y
-		mov	bx, word_20E22
-		mov	[bx+4],	ax
-		call	snd_se_play pascal, 13
-		pop	bp
-		retn	4
-mima_chargeshot_1546C	endp
+	MIMA_CHARGESHOT_1546C procdesc pascal near \
+		pid:word, record_id:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
