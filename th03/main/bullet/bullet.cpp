@@ -130,9 +130,113 @@ uint8_t bullet_trail_ring_i;
 #pragma option -k-
 #pragma warn -rch
 
-void pascal near gauge_pattern_yumemi(uint8_t type);
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
+extern "C" uint8_t byte_220DE[];
+
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+
+#define bullets_add_nopcall() { \
+	_asm { nop; push cs; call near ptr bullets_add; } \
+}
 
 #pragma option -k.
+#pragma option -a1
+#pragma option -G-
+void pascal near gauge_pattern_yumemi(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+	register subpixel_t center_x;
+	register subpixel_t center_y;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(*reinterpret_cast<uint16_t *>(&type) == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		byte_220DE[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (gba_gauge_level[pid_current] + 0x18);
+		byte_202B9[pid_current * 4] = (gba_gauge_level[pid_current] + 0x20);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	if((byte_220DE[pid_current] % 8) == 0) {
+		bullet_template.type = static_cast<bullet_type_t>(type);
+		bullet_template.speed.v = byte_202B9[pid_current * 4];
+		bullet_template.pid = pid_other;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = byte_202B8[pid_current * 4];
+
+		switch(byte_220DE[pid_current]) {
+		case 0:
+			center_x = (144 << 4);
+			center_y = (32 << 4);
+			break;
+		case 8:
+			center_x = (96 << 4);
+			center_y = (80 << 4);
+			break;
+		case 0x10:
+			center_x = (192 << 4);
+			center_y = (80 << 4);
+			bullet_template.center.x.v = (144 << 4);
+			bullet_template.center.y.v = (32 << 4);
+			break;
+		case 0x18:
+			center_x = (96 << 4);
+			center_y = (56 << 4);
+			bullet_template.center.x.v = (96 << 4);
+			bullet_template.center.y.v = (80 << 4);
+			break;
+		case 0x20:
+			center_x = (192 << 4);
+			center_y = (56 << 4);
+			bullet_template.center.x.v = (192 << 4);
+			bullet_template.center.y.v = (80 << 4);
+			break;
+		case 0x28:
+			center_x = (144 << 4);
+			center_y = (104 << 4);
+			bullet_template.center.x.v = (96 << 4);
+			bullet_template.center.y.v = (56 << 4);
+			break;
+		case 0x30:
+			bullet_template.center.x.v = (192 << 4);
+			bullet_template.center.y.v = (56 << 4);
+			break;
+		case 0x38:
+			bullet_template.center.x.v = (144 << 4);
+			bullet_template.center.y.v = (104 << 4);
+			gba_flag_active[pid_current] = GBAF_NONE;
+			sub_A3A8(pid_other);
+			break;
+		}
+
+		if(byte_220DE[pid_current] <= 0x28) {
+			SUB_CE5B(center_x, center_y, static_cast<uint16_t>(pid_other));
+		}
+		if(byte_220DE[pid_current] >= 0x10) {
+			bullets_add_nopcall();
+		}
+	}
+
+	byte_220DE[pid_current]++;
+}
+#pragma option -G
+#pragma option -a2
+
 extern "C" void pascal far gba_gauge_pattern_pellet_yumemi(void)
 {
 	if(gba_flag_active[pid_current] != GBAF_NONE) {
@@ -147,6 +251,7 @@ extern "C" void pascal far gba_gauge_pattern_bullet_yumemi(void)
 	}
 }
 #pragma option -k-
+#undef bullets_add_nopcall
 
 void __fastcall near grcg_pellet_put(
 	screen_x_t /* _AX */, size_t cel_offset, vram_y_t top
