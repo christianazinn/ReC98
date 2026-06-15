@@ -9604,6 +9604,8 @@ kana_19896	endp
 
 ; Attributes: bp-based frame
 
+public _kana_198DD, kana_198DD
+_kana_198DD label near
 kana_198DD	proc near
 
 var_5		= word ptr -5
@@ -9814,39 +9816,7 @@ loc_19A82:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_kana$qv
-@exatt_render_kana$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_19AB3
-; ---------------------------------------------------------------------------
-
-loc_19AA3:
-		cmp	byte ptr [si], 0
-		jz	short loc_19AAF
-		mov	word_2028A, si
-		call	kana_198DD
-
-loc_19AAF:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_19AB3:
-		cmp	di, 8
-		jl	short loc_19AA3
-		pop	di
-		pop	si
-		pop	bp
-		retf
-@exatt_render_kana$qv endp
+@exatt_render_kana$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
