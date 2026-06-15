@@ -35,3 +35,26 @@ extern "C" void pascal far chargeshot_add_marisa(
 	}
 	snd_se_play(6);
 }
+
+extern "C" void pascal far marisa_hyper_14340(void)
+{
+	register int i;
+
+	word_1FE4E = (&byte_1FDEA + (pid.current * 0x32));
+	if(word_1FE4E[0] == 0) {
+		word_1FE4E[0] = 1;
+		i = 0;
+		while(i < 12) {
+			reinterpret_cast<Subpixel near *>(word_1FE4E + 2)[i] = (
+				players[pid.current].center.x
+			);
+			reinterpret_cast<Subpixel near *>(word_1FE4E + 0x1A)[i].v = (
+				players[pid.current].center.y.v - 0x100
+			);
+			i++;
+		}
+		snd_se_play(6);
+	}
+	word_1FE4E[1] = 0x10;
+	players[pid.current].shot_active = SA_DISABLED;
+}
