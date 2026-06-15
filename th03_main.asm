@@ -6410,91 +6410,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-marisa_F9A6	proc near
-
-@@pid_other		= byte ptr -3
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	_sprite16_put_w, (176 / 16)
-		mov	_sprite16_put_h, 48
-		push	word_1F33E	; x
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -88
-		mov	si, ax
-		mov	ax, word_1F340
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		call	sprite16_put pascal, si, ax, sprite_1F34C
-		cmp	byte_1F34E, 0
-		jz	short loc_FA0A
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 40
-		add	si, 40h
-		add	di, 10h
-		push	si
-		push	di
-		mov	ax, sprite_1F34C
-		add	ax, 16h
-		push	ax
-		jmp	short loc_FA68
-; ---------------------------------------------------------------------------
-
-loc_FA0A:
-		cmp	byte_1F353, 1
-		jnz	short loc_FA6D
-		mov	ax, _round_or_result_frame
-		and	ax, 3
-		cmp	ax, 2
-		jnb	short loc_FA49
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 40
-		add	si, 64
-		add	di, 16
-		push	si
-		push	di
-		mov	ax, sprite_1F34C
-		add	ax, 1Ch
-		push	ax
-		call	sprite16_put
-		sub	si, 32
-		add	di, 32
-		mov	ax, sprite_1F34C
-		add	ax, (48 * ROW_SIZE)
-		jmp	short loc_FA55
-; ---------------------------------------------------------------------------
-
-loc_FA49:
-		add	si, 20h	; ' '
-		add	di, 30h	; '0'
-		mov	ax, sprite_1F34C
-		add	ax, (56 * ROW_SIZE)
-
-loc_FA55:
-		mov	[bp+var_2], ax
-		mov	_sprite16_put_w, (112 / 16)
-		mov	_sprite16_put_h, 8
-		push	si
-		push	di
-		push	[bp+var_2]
-
-loc_FA68:
-		call	sprite16_put
-
-loc_FA6D:
-		pop	di
-		pop	si
-		leave
-		retn
-marisa_F9A6	endp
+	MARISA_F9A6 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -27290,7 +27206,8 @@ gba_boss_render_p1	dd ?
 gba_boss_render_p2	dd ?
 
 public _word_1F33E, _word_1F340, word_1F33E, word_1F340
-public word_1F346, word_1F348, word_1F34A, byte_1F34E
+public word_1F346, word_1F348, word_1F34A, _sprite_1F34C, sprite_1F34C
+public _byte_1F34E, byte_1F34E
 _word_1F33E label word
 word_1F33E	dw ?
 _word_1F340 label word
@@ -27299,7 +27216,9 @@ point_1F342	Point <?>
 word_1F346	dw ?
 word_1F348	dw ?
 word_1F34A	dw ?
+_sprite_1F34C label word
 sprite_1F34C	dw ?
+_byte_1F34E label byte
 byte_1F34E	db ?
 public _byte_1F34F, byte_1F34F, angle_1F350, _byte_1F351, _byte_1F352, byte_1F352
 _byte_1F34F label byte
