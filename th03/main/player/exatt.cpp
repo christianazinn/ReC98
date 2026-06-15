@@ -1,4 +1,5 @@
 #include "th03/main/player/exatt.hpp"
+#include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/collmap.hpp"
 #include "th03/main/hitbox.hpp"
@@ -10,9 +11,27 @@ extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t byte_202BA[];
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far SUB_CDBD(void);
 extern "C" void near sub_1A1A7(void);
 extern "C" void near kotohime_19E2A(void);
-extern "C" void near kotohime_19EF9(void);
+
+extern "C" void near kotohime_19EF9(void)
+{
+	snd_se_play(3);
+	_BX = word_2028A;
+	_asm {
+		push word ptr [bx+2]
+		push word ptr [bx+4]
+	}
+	_AL = pid_current;
+	_AH = 0;
+	_DX = 1;
+	_DX -= _AX;
+	_asm {
+		push dx
+		call far ptr SUB_CDBD
+	}
+}
 
 extern "C" void near kotohime_19F1F(void)
 {
