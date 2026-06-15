@@ -7093,73 +7093,7 @@ MARISA_BOMB procdesc pascal far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_mima$qv
-@chargeshot_hittest_mima$qv proc far
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr byte_20E24[bx], 0
-		jnz	short loc_155AE
-		mov	al, 0
-		jmp	short loc_15619
-; ---------------------------------------------------------------------------
-
-loc_155AE:
-		mov	[bp+var_1], 0
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		imul	ax, 150
-		add	ax, offset byte_20CF6
-		mov	word_20E22, ax
-		xor	si, si
-		jmp	short loc_15611
-; ---------------------------------------------------------------------------
-
-loc_155C5:
-		mov	bx, word_20E22
-		cmp	byte ptr [bx], 0
-		jz	short loc_1560B
-		mov	bx, word_20E22
-		mov	ax, [bx+2]
-		add	ax, (-16 shl 4)
-		cmp	ax, _hitbox_right
-		jg	short loc_1560B
-		mov	ax, [bx+2]
-		add	ax, (16 shl 4)
-		cmp	ax, _hitbox_origin_topleft.x
-		jl	short loc_1560B
-		mov	ax, [bx+4]
-		cmp	ax, _hitbox_origin_topleft.y
-		jl	short loc_1560B
-		cmp	ax, _hitbox_bottom
-		jg	short loc_1560B
-		push	word ptr [bx+2]	; center_x
-		push	ax	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		inc	[bp+var_1]
-
-loc_1560B:
-		inc	si
-		add	word_20E22, 0Ah
-
-loc_15611:
-		cmp	si, 0Fh
-		jl	short loc_155C5
-		mov	al, [bp+var_1]
-
-loc_15619:
-		pop	si
-		leave
-		retf
-@chargeshot_hittest_mima$qv endp
+	@chargeshot_hittest_mima$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
