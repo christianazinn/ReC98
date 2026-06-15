@@ -2169,39 +2169,9 @@ sub_B39E	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_B3A2	proc near
-		push	di
-		push	si
-		EGC_SETUP_COPY
-		mov	dx, ds
-		mov	di, ((7 * ROW_SIZE) + (16 / BYTE_DOTS))
-		mov	si, ((207 * ROW_SIZE) + (320 / BYTE_DOTS))
-		mov	ax, 0ABC0h
-		mov	es, ax
-		assume es:nothing
-		mov	ds, ax
-		assume ds:nothing
-		nop
-
-loc_B3DE:
-		mov	cx, 12h
-
-loc_B3E1:
-		movsw
-		mov	es:[di+26h], ax
-		loop	loc_B3E1
-		sub	si, 74h	; 't'
-		sub	di, 74h	; 't'
-		jge	short loc_B3DE
-		mov	ds, dx
-		assume ds:_DATA
-		pop	si
-		pop	di
-		retn
-sub_B3A2	endp
+	SUB_B3A2 procdesc near
 
 ; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
 
