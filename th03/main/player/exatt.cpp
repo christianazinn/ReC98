@@ -37,6 +37,36 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far KANA_19896(subpixel_t x, subpixel_t y, uint8_t angle)
+{
+	register uint8_t near *slot;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	_DX = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		slot[0] = 1;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = y;
+		slot[0x12] = angle;
+		slot[0x13] = 8;
+		slot[1] = 0;
+		return;
+	}
+	_DX++;
+	slot += 0x20;
+loop_test:
+	if(static_cast<int>(_DX) < 8) {
+		goto loop;
+	}
+}
+
 extern "C" void near kana_198DD(void)
 {
 	screen_x_t left;
