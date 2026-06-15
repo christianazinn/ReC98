@@ -6460,65 +6460,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-mima_FE2B	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_F356
-		cmp	word_1F3B0, 1
-		jnz	short loc_FE54
-		push	1
-		call	@randring_far_next16_and$qui
-		or	ax, ax
-		jz	short loc_FE47
-		mov	al, 7
-		jmp	short loc_FE49
-; ---------------------------------------------------------------------------
-
-loc_FE47:
-		mov	al, -7
-
-loc_FE49:
-		mov	byte_20E2A, al
-		call	@randring_far_next16$qv
-		mov	angle_20E2B, al
-
-loc_FE54:
-		test	byte ptr word_1F3B0, 1
-		jnz	short loc_FEC4
-		mov	al, angle_20E2B
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, (48 shl 4), _CosTable8[bx]
-		mov	_bullet_template.BT_center.x, ax
-		mov	al, angle_20E2B
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, (48 shl 4), _SinTable8[bx]
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, angle_20E2B
-		add	al, 40h
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_type, BT_PELLET_CLOUD
-		mov	_bullet_template.BT_group, BG_2_RING
-		mov	al, byte_1F3A5
-		mov	_bullet_template.BT_speed, al
-		call	@bullets_add$qv
-		call	snd_se_play pascal, 10
-		mov	al, byte_20E2A
-		add	angle_20E2B, al
-
-loc_FEC4:
-		cmp	word_1F3B0, 48h	; 'H'
-		jb	short loc_FED6
-		mov	byte_1F34F, 1
-		mov	word_1F3B0, 0
-
-loc_FED6:
-		pop	bp
-		retn
-mima_FE2B	endp
+	MIMA_FE2B procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -26880,7 +26822,7 @@ _byte_1F39F label byte
 byte_1F39F	db ?
 public _byte_1F3A0, byte_1F3A0, _byte_1F3A1, byte_1F3A1
 public _byte_1F3A2, byte_1F3A2, _byte_1F3A3, byte_1F3A3
-public _byte_1F3A4, byte_1F3A4
+public _byte_1F3A4, byte_1F3A4, _byte_1F3A5, byte_1F3A5
 _byte_1F3A0 label byte
 byte_1F3A0	db ?
 _byte_1F3A1 label byte
@@ -26891,6 +26833,7 @@ _byte_1F3A3 label byte
 byte_1F3A3	db ?
 _byte_1F3A4 label byte
 byte_1F3A4	db ?
+_byte_1F3A5 label byte
 byte_1F3A5	db ?
 		db 10 dup(?)
 public _word_1F3B0, word_1F3B0
@@ -27083,12 +27026,14 @@ byte_20CF6	db (PLAYER_COUNT * 150) dup(?)
 word_20E22	dw ?
 byte_20E24	db PLAYER_COUNT dup(?)
 byte_20E26	db PLAYER_COUNT dup(?)
-public _byte_20E28, byte_20E28, _byte_20E29, byte_20E29
+public _byte_20E28, byte_20E28, _byte_20E29, byte_20E29, _byte_20E2A, byte_20E2A, _angle_20E2B, angle_20E2B
 _byte_20E28 label byte
 byte_20E28	db ?
 _byte_20E29 label byte
 byte_20E29	db ?
+_byte_20E2A label byte
 byte_20E2A	db ?
+_angle_20E2B label byte
 angle_20E2B	db ?
 
 public _hitbox_hittest_skip_explosions, _hitbox
