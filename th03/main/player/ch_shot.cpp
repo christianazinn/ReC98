@@ -3,24 +3,36 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "platform.h"
 #include "th02/snd/snd.h"
+#include "th03/formats/mrs.hpp"
+#include "th03/hardware/palette.hpp"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
+#include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/math/randring.hpp"
+#include "x86real.h"
 
 extern "C" uint8_t byte_1FDEA;
 extern "C" uint8_t byte_1FE1C;
 extern "C" subpixel_t word_1FDE4[];
 extern "C" uint8_t byte_1FDE8[];
 extern "C" uint8_t near *word_1FE4E;
+extern "C" PlayfieldPoint point_1FE52;
 extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_20E92[];
+extern "C" uint8_t pid_PID_so_attack;
 
+extern "C" void far sub_B39E(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CDBD(
+	subpixel_t x, subpixel_t y, uint16_t pid
+);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 
 extern "C" void far sub_142D0(void)
@@ -308,3 +320,98 @@ extern "C" void pascal far gba_gauge_pattern_bullet_marisa(void)
 }
 
 #undef bullets_add_nopcall
+
+#pragma warn -aus
+extern "C" void pascal far marisa_bomb(void)
+{
+	uint8_t frame;
+	uint8_t col;
+	register screen_x_t left;
+	register sprite16_offset_t so;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	egc_off();
+	frame = bomb_frame[pid_current];
+	if(frame < 64) {
+		grcg_setcolor(GC_RMW, pid_current);
+		_BX = FP_OFF(byte_20E92);
+		if(pid_current != 0) {
+			_BX += 0x28;
+		}
+		sub_B39E();
+		grcg_off();
+		_AL = frame;
+		_AL <<= 2;
+		_DL = 0;
+		goto palette_fade;
+	}
+
+	if(frame < 128) {
+		if((frame & 1) != 0) {
+			snd_se_play(16);
+		}
+		if((frame & 3) < 2) {
+			playfield_fg_shift_x[pid_current] = 4;
+			left = 0x10;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+			left = 8;
+		}
+		if(pid_current != 0) {
+			left += PLAYFIELD_W_BORDERED;
+		}
+		mrs_put_noalpha_8(
+			left, PLAYFIELD_TOP, (pid_current + 2), (_AX = pid_current)
+		);
+		if((frame % 8) == 0) {
+			point_1FE52.x.v = randring2_next16_mod(PLAYFIELD_W << 4);
+			point_1FE52.y.v = randring2_next16_mod(PLAYFIELD_H << 4);
+			_asm {
+				push	word ptr point_1FE52
+				push	ax
+				mov	al, pid_current
+				mov	ah, 0
+				push	ax
+				call	far ptr SUB_CDBD
+			}
+			point_1FE52.x.v = playfield_fg_x_to_screen(
+				point_1FE52.x.v, pid_current
+			);
+			point_1FE52.y.v = ((point_1FE52.y.v >> 4) + 16);
+		}
+	} else {
+		playfield_fg_shift_x[pid_current] = 0;
+		_AL = frame;
+		_AL <<= 3;
+		_DL = 255;
+
+palette_fade:
+		_DL -= _AL;
+		col = _DL;
+		Palettes[pid_current].c.r = _DL;
+		Palettes[pid_current].c.g = _DL;
+		Palettes[pid_current].c.b = _DL;
+		palette_changed = true;
+	}
+
+	egc_on();
+	if(frame < 64) {
+		return;
+	}
+	if(frame >= 128) {
+		return;
+	}
+
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	so = (pid_PID_so_attack + ((48 * ROW_SIZE) + (176 / BYTE_DOTS)));
+	if((frame & 3) < 2) {
+		so += 6;
+	}
+	sprite16_put((point_1FE52.x.v - 24), (point_1FE52.y.v - 24), so);
+}
+#pragma warn .aus
