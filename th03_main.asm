@@ -6829,111 +6829,7 @@ KOTOHIME_11D1A procdesc near
 
 ; Attributes: bp-based frame
 
-rikako_133A5	proc near
-
-var_2		= byte ptr -2
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		cmp	byte_1F358, 8
-		jg	short loc_133BC
-		test	byte ptr word_1F3B0, 7
-		jnz	short loc_133BC
-		inc	byte_1F358
-
-loc_133BC:
-		cmp	word_1F3B0, 10h
-		jnz	short loc_133DE
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CE0C
-		jmp	loc_134A7
-; ---------------------------------------------------------------------------
-
-loc_133DE:
-		cmp	word_1F3B0, 28h	; '('
-		jnz	loc_13495
-		push	word_1F33E
-		push	word_1F340
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx
-		call	sub_CDBD
-		mov	_bullet_template.BT_type, BT_BULLET16_DEFAULT
-		mov	_bullet_template.BT_group, BG_5_SPREAD_WIDE
-		mov	_bullet_template.BT_speed, ((1 shl 4) + 12)
-		push	1
-		call	@randring_far_next16_and$qui
-		or	ax, ax
-		jz	short loc_1341D
-		mov	al, 30h
-		jmp	short loc_1341F
-; ---------------------------------------------------------------------------
-
-loc_1341D:
-		mov	al, -30h
-
-loc_1341F:
-		mov	[bp+var_2], al
-		xor	si, si
-		jmp	short loc_13483
-; ---------------------------------------------------------------------------
-
-loc_13426:
-		mov	ax, si
-		shl	ax, 8
-		mov	dl, byte_1F39F
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F33E, (48 shl 4), _CosTable8[bx]
-		mov	_bullet_template.BT_center.x, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_1F340, (48 shl 4), _SinTable8[bx]
-		mov	_bullet_template.BT_center.y, ax
-		mov	al, [bp+@@angle]
-		add	al, [bp+var_2]
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		inc	si
-
-loc_13483:
-		mov	al, byte_1F39F
-		mov	ah, 0
-		cmp	ax, si
-		jg	short loc_13426
-		call	snd_se_play pascal, 5
-		jmp	short loc_134A7
-; ---------------------------------------------------------------------------
-
-loc_13495:
-		cmp	word_1F3B0, 50h	; 'P'
-		jbe	short loc_134A7
-		mov	word_1F3B0, 0
-		mov	byte_1F34F, 1
-
-loc_134A7:
-		pop	si
-		leave
-		retn
-rikako_133A5	endp
+	RIKAKO_133A5 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -21307,6 +21203,8 @@ byte_1F355	db ?
 public _word_1F356, word_1F356
 _word_1F356 label word
 word_1F356	dw ?
+public _byte_1F358, byte_1F358
+_byte_1F358 label byte
 byte_1F358	db ?
 		db 5 dup(?)
 public _byte_1F35E, byte_1F35E
