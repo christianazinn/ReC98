@@ -21,6 +21,7 @@ extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CDBD(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void near chiyuri_1905A(void);
 extern "C" void near ellen_19510(void);
 extern "C" void near kana_198DD(void);
 extern "C" void near marisa_19B4F(void);
@@ -41,6 +42,30 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+void far exatt_render_chiyuri(void)
+{
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	word_2028A = _AX;
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(word_2028A) != 0) {
+		chiyuri_1905A();
+	}
+	i += 2;
+	word_2028A += 0x40;
+loop_test:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
 
 extern "C" void far sub_193BC(void)
 {

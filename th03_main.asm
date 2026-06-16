@@ -8506,6 +8506,8 @@ loc_19054:
 
 ; Attributes: bp-based frame
 
+public _chiyuri_1905A, chiyuri_1905A
+_chiyuri_1905A label near
 chiyuri_1905A	proc near
 
 var_A		= word ptr -0Ah
@@ -8873,37 +8875,7 @@ loc_1937F:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_chiyuri$qv
-@exatt_render_chiyuri$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	word_2028A, ax
-		xor	si, si
-		jmp	short loc_193B4
-; ---------------------------------------------------------------------------
-
-loc_193A0:
-		mov	bx, word_2028A
-		cmp	byte ptr [bx], 0
-		jz	short loc_193AC
-		call	chiyuri_1905A
-
-loc_193AC:
-		add	si, 2
-		add	word_2028A, 40h
-
-loc_193B4:
-		cmp	si, 10h
-		jl	short loc_193A0
-		pop	si
-		pop	bp
-		retf
-@exatt_render_chiyuri$qv endp
+	@exatt_render_chiyuri$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
