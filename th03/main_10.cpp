@@ -4,6 +4,9 @@
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/enemy/efe.hpp"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/sprite16.hpp"
@@ -89,4 +92,45 @@ extern "C" void near kotohime_chargeshot_1C1E9(void)
 	_AX += 8;
 	top = _AX;
 	sprite16_put(left, _AX, sprite_offset);
+}
+
+uint8_t far chargeshot_hittest_kotohime(void)
+{
+	word_1FE6A = reinterpret_cast<uint16_t>(
+		kotohime_chargeshot + (hitbox.pid * 8)
+	);
+	_BX = word_1FE6A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] == 0) {
+		goto not_hit;
+	}
+	_BX = word_1FE6A;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 2);
+	_AX -= hitbox.right.v;
+	if(static_cast<int>(_AX) > TO_SP(40)) {
+		goto not_hit;
+	}
+	_AX = hitbox.origin.topleft.x.v;
+	_AX -= *reinterpret_cast<subpixel_t near *>(_BX + 2);
+	if(static_cast<int>(_AX) > TO_SP(40)) {
+		goto not_hit;
+	}
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 4);
+	if(static_cast<int>(_AX) < hitbox.origin.topleft.y.v) {
+		goto not_hit;
+	}
+	if(static_cast<int>(_AX) > hitbox.bottom.v) {
+		goto not_hit;
+	}
+	ef_onehit = true;
+	_AX = hitbox.origin.topleft.x.v;
+	_AX += hitbox.radius.x.v;
+	hitcircles_enemy_add(
+		_AX,
+		*reinterpret_cast<subpixel_t near *>(_BX + 4),
+		hitbox.pid
+	);
+	return 3;
+
+not_hit:
+	return 0;
 }
