@@ -9042,38 +9042,7 @@ _sub_1C158 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_KOTOHIME
-chargeshot_render_kotohime	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 3
-		add	ax, offset kotohime_chargeshot
-		mov	word_1FE6A, ax
-		mov	bx, word_1FE6A
-		cmp	byte ptr [bx], 0
-		jz	short loc_1C2DE
-		mov	_sprite16_put_w, (96 / 16)
-		mov	_sprite16_put_h, 16
-		cmp	_pid_current, 0
-		jnz	short loc_1C2CF
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1C2DB
-; ---------------------------------------------------------------------------
-
-loc_1C2CF:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1C2DB:
-		call	_kotohime_chargeshot_1C1E9
-
-loc_1C2DE:
-		pop	bp
-		retf
-chargeshot_render_kotohime	endp
+	CHARGESHOT_RENDER_KOTOHIME procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
