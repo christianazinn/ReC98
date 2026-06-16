@@ -3,6 +3,8 @@
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
@@ -171,4 +173,69 @@ extern "C" void near rikako_chargeshot_1C62A(void)
 	asm { sar ax, 4; }
 	top = _AX;
 	sprite16_put(left, _AX, sprite_offset);
+}
+
+uint8_t far chargeshot_hittest_rikako(void)
+{
+	int hits;
+	register uint8_t near *node;
+	register int i;
+
+	if(rikako_chargeshot_state[hitbox.pid] == 0) {
+		return 0;
+	}
+	hits = 0;
+	node = (rikako_chargeshot_nodes + (hitbox.pid * (4 * 6)));
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	if(
+		(
+			*reinterpret_cast<subpixel_t near *>(node) -
+			hitbox.right.v
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.x.v -
+			*reinterpret_cast<subpixel_t near *>(node)
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			*reinterpret_cast<subpixel_t near *>(node + 2) -
+			hitbox.bottom.v
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.y.v -
+			*reinterpret_cast<subpixel_t near *>(node + 2)
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	hitcircles_enemy_add(
+		*reinterpret_cast<subpixel_t near *>(node),
+		*reinterpret_cast<subpixel_t near *>(node + 2),
+		hitbox.pid
+	);
+	hits++;
+
+next:
+	i++;
+	node += 6;
+
+node_loop_test:
+	if(i < 4) {
+		goto node_loop;
+	}
+	return hits;
 }
