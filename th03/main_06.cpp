@@ -2,6 +2,7 @@
 
 #include "codegen.hpp"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/collmap.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
@@ -282,4 +283,26 @@ generic:
 	sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot));
 
 ret:
+}
+
+extern "C" void pascal near sub_1A491(
+	subpixel_t center_x, subpixel_t center_y
+)
+{
+	collmap_center.x.v = center_x;
+	collmap_center.y.v = center_y;
+	collmap_stripe_tile_w.v = (16 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (32 / COLLMAP_TILE_H);
+	_AL = 1;
+	_AL -= pid_current;
+	collmap_pid = _AL;
+	collmap_set_rect_striped();
+
+	collmap_center.x.v -= TO_SP(12);
+	collmap_stripe_tile_w.v = (8 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (16 / COLLMAP_TILE_H);
+	collmap_set_rect_striped();
+
+	collmap_center.x.v += TO_SP(24);
+	collmap_set_rect_striped();
 }
