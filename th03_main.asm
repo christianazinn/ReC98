@@ -5433,13 +5433,12 @@ loc_D5AA:
 		retf
 sub_D5A2	endp
 
-include th03/main/player/score_add.asm
+	@SCORE_ADD$QUIUC procdesc pascal far \
+		score:word, pid:byte
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public HUD5_PUT
-HUD5_PUT label far
 	@HUD_DYNAMIC_5_DIGIT_POINTS_PUT$QIIUIUC procdesc pascal far \
 		left:word, top:word, points:word, col:byte
 
