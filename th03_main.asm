@@ -1458,6 +1458,7 @@ sub_A44C	endp
 
 ; Attributes: bp-based frame
 
+public SUB_A4A1, sub_A4A1
 sub_A4A1	proc near
 
 		push	bp
@@ -1476,6 +1477,7 @@ sub_A4A1	endp
 
 ; Attributes: bp-based frame
 
+public SUB_A4C3, sub_A4C3
 sub_A4C3	proc near
 
 var_C		= byte ptr -0Ch
@@ -1928,235 +1930,34 @@ set_callbacks_kana	endp
 
 ; Attributes: bp-based frame
 
-set_callbacks_rikako	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	0Dh
-		call	sub_A4C3
-		or	si, si
-		jnz	loc_AF72
-		setfarfp	exatt_add_p1, EXATT_ADD_RIKAKO
-		setfarfp	exatt_update_p1, @exatt_update_rikako$qv
-		setfarfp	exatt_render_p1, @exatt_render_rikako$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_rikako
-		setfarfp	_chargeshot_update_p1, chargeshot_update_rikako
-		setfarfp	_chargeshot_render_p1, chargeshot_render_rikako
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_rikako$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_RIKAKO
-		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_RIKAKO
-		setfarfp	gba_boss_update_p1, gba_boss_update_rikako
-		setfarfp	gba_boss_render_p1, gba_boss_render_rikako
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, RIKAKO_BOMB
-		mov	_p1.hyper_func, offset hyper_rikako
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_B01D
-; ---------------------------------------------------------------------------
-
-loc_AF72:
-		setfarfp	exatt_add_p2, EXATT_ADD_RIKAKO
-		setfarfp	exatt_update_p2, @exatt_update_rikako$qv
-		setfarfp	exatt_render_p2, @exatt_render_rikako$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_rikako
-		setfarfp	_chargeshot_update_p2, chargeshot_update_rikako
-		setfarfp	_chargeshot_render_p2, chargeshot_render_rikako
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_rikako$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_RIKAKO
-		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_RIKAKO
-		setfarfp	gba_boss_update_p2, gba_boss_update_rikako
-		setfarfp	gba_boss_render_p2, gba_boss_render_rikako
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, RIKAKO_BOMB
-		mov	_p2.hyper_func, offset hyper_rikako
-		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
-
-loc_B01D:
-		setfarfp	farfp_20F20, sub_D092
-		setfarfp	farfp_20F24, sub_D135
-		setfarfp	farfp_20F28, sub_D05D
-		push	si
-		call	rikako_1334D
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_rikako	endp
+SET_CALLBACKS_RIKAKO procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_chiyuri	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	0Fh
-		call	sub_A4C3
-		or	si, si
-		jnz	loc_B10A
-		setfarfp	exatt_add_p1, EXATT_ADD_CHIYURI
-		setfarfp	exatt_update_p1, @exatt_update_chiyuri$qv
-		setfarfp	exatt_render_p1, @exatt_render_chiyuri$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_chiyuri
-		setfarfp	_chargeshot_update_p1, chargeshot_update_chiyuri
-		setfarfp	_chargeshot_render_p1, chargeshot_render_chiyuri
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_chiyuri$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_CHIYURI
-		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_CHIYURI
-		setfarfp	gba_boss_update_p1, gba_boss_update_chiyuri
-		setfarfp	gba_boss_render_p1, gba_boss_render_chiyuri
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, chiyuri_bomb
-		mov	_p1.hyper_func, offset hyper_chiyuri
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_B1B5
-; ---------------------------------------------------------------------------
-
-loc_B10A:
-		setfarfp	exatt_add_p2, EXATT_ADD_CHIYURI
-		setfarfp	exatt_update_p2, @exatt_update_chiyuri$qv
-		setfarfp	exatt_render_p2, @exatt_render_chiyuri$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_chiyuri
-		setfarfp	_chargeshot_update_p2, chargeshot_update_chiyuri
-		setfarfp	_chargeshot_render_p2, chargeshot_render_chiyuri
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_chiyuri$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_CHIYURI
-		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_CHIYURI
-		setfarfp	gba_boss_update_p2, gba_boss_update_chiyuri
-		setfarfp	gba_boss_render_p2, gba_boss_render_chiyuri
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, chiyuri_bomb
-		mov	_p2.hyper_func, offset hyper_chiyuri
-		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
-
-loc_B1B5:
-		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
-		setfarfp	farfp_20F28, sub_D05D
-		push	si
-		call	chiyuri_1219D
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_chiyuri	endp
+SET_CALLBACKS_CHIYURI procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_yumemi	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	11h
-		call	sub_A4C3
-		or	si, si
-		jnz	loc_B2A2
-		setfarfp	exatt_add_p1, @EXATT_ADD_YUMEMI$QIIUC
-		setfarfp	exatt_update_p1, @exatt_update_yumemi$qv
-		setfarfp	exatt_render_p1, @exatt_render_yumemi$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_yumemi
-		setfarfp	_chargeshot_update_p1, chargeshot_update_yumemi
-		setfarfp	_chargeshot_render_p1, chargeshot_render_yumemi
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_yumemi$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_yumemi
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_yumemi
-		setfarfp	gba_boss_update_p1, gba_boss_update_yumemi
-		setfarfp	gba_boss_render_p1, gba_boss_render_yumemi
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, yumemi_bomb
-		mov	_p1.hyper_func, offset hyper_yumemi
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_B34D
-; ---------------------------------------------------------------------------
-
-loc_B2A2:
-		setfarfp	exatt_add_p2, @EXATT_ADD_YUMEMI$QIIUC
-		setfarfp	exatt_update_p2, @exatt_update_yumemi$qv
-		setfarfp	exatt_render_p2, @exatt_render_yumemi$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_yumemi
-		setfarfp	_chargeshot_update_p2, chargeshot_update_yumemi
-		setfarfp	_chargeshot_render_p2, chargeshot_render_yumemi
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_yumemi$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_yumemi
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_yumemi
-		setfarfp	gba_boss_update_p2, gba_boss_update_yumemi
-		setfarfp	gba_boss_render_p2, gba_boss_render_yumemi
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, yumemi_bomb
-		mov	_p2.hyper_func, offset hyper_yumemi
-		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
-
-loc_B34D:
-		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
-		setfarfp	farfp_20F28, sub_D05D
-		push	si
-		call	yumemi_102C8
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_yumemi	endp
+SET_CALLBACKS_YUMEMI procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
-
-public _sub_B37C, sub_B37C
-_sub_B37C label near
-sub_B37C	proc near
-		mov	ax, 0A828h
-
-loc_B37F:
-		push	di
-		mov	di, bx
-		mov	es, ax
-		assume es:nothing
-		xor	eax, eax
-		not	eax
-
-loc_B38A:
-		mov	cx, 9
-		rep stosd
-		sub	di, 74h	; 't'
-		jge	short loc_B38A
-		pop	di
-		retn
-sub_B37C	endp
-
-; ---------------------------------------------------------------------------
-		nop
+	SUB_B37C procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
+	SUB_B398 procdesc near
 
-sub_B398	proc near
-		mov	ax, 0ABC0h
-		jmp	short loc_B37F
-sub_B398	endp
-
-; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4930,6 +4731,8 @@ sub_D031	endp
 
 ; Attributes: bp-based frame
 
+public SUB_D05D, sub_D05D, SUB_D092, sub_D092, SUB_D135, sub_D135
+public SUB_D2E8, sub_D2E8, SUB_D340, sub_D340
 sub_D05D	proc far
 		push	bp
 		mov	bp, sp
@@ -7161,6 +6964,7 @@ main_05_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public CHIYURI_BOMB, chiyuri_bomb
 chiyuri_bomb	proc far
 
 var_2		= byte ptr -2
@@ -9894,8 +9698,12 @@ public _byte_205CC, byte_205CC
 _byte_205CC label byte
 byte_205CC	db ?
 		db ?
+public _callback_205CE
+_callback_205CE label dword
 p1_205CE	dd ?
 p2_205D2	dd ?
+public _bomb_func
+_bomb_func label dword
 bomb_p1	dd ?
 bomb_p2	dd ?
 public _bomb_frame
@@ -10036,7 +9844,10 @@ include th03/main/player/combo[bss].asm
 byte_20EA6	db 120 dup(?)
 byte_20F1E	db ?
 		db ?
+public _farfp_20F20, _farfp_20F24
+_farfp_20F20 label dword
 farfp_20F20	dd ?
+_farfp_20F24 label dword
 farfp_20F24	dd ?
 public _farfp_20F28
 _farfp_20F28 label dword
