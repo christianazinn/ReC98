@@ -2012,8 +2012,8 @@ arg_0		= word ptr  4
 		setfarfp	_chargeshot_update_p1, chargeshot_update_chiyuri
 		setfarfp	_chargeshot_render_p1, chargeshot_render_chiyuri
 		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_chiyuri$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_chiyuri
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_chiyuri
+		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_CHIYURI
+		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_CHIYURI
 		setfarfp	gba_boss_update_p1, gba_boss_update_chiyuri
 		setfarfp	gba_boss_render_p1, gba_boss_render_chiyuri
 		setfarfp	p1_205CE, sub_1501E
@@ -2031,8 +2031,8 @@ loc_B10A:
 		setfarfp	_chargeshot_update_p2, chargeshot_update_chiyuri
 		setfarfp	_chargeshot_render_p2, chargeshot_render_chiyuri
 		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_chiyuri$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_chiyuri
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_chiyuri
+		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_CHIYURI
+		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_CHIYURI
 		setfarfp	gba_boss_update_p2, gba_boss_update_chiyuri
 		setfarfp	gba_boss_render_p2, gba_boss_render_chiyuri
 		setfarfp	p2_205D2, sub_1501E
@@ -8842,41 +8842,13 @@ main_07_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_chiyuri
-gba_gauge_pattern_pellet_chiyuri proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1B639
-		call	@GAUGE_PATTERN_CHIYURI$QUC pascal, BT_PELLET
-
-loc_1B639:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_chiyuri endp
+GBA_GAUGE_PATTERN_PELLET_CHIYURI procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_chiyuri
-gba_gauge_pattern_bullet_chiyuri proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1B651
-		call	@GAUGE_PATTERN_CHIYURI$QUC pascal, BT_BULLET16_DEFAULT
-
-loc_1B651:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_chiyuri endp
+GBA_GAUGE_PATTERN_BULLET_CHIYURI procdesc pascal far
 
 main_07_TEXT	ends
 
