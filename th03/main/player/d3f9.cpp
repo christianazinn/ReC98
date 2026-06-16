@@ -24,10 +24,39 @@ extern "C" d3f9_rec_t near byte_20F2C[];
 extern "C" uint8_t near angle_2142C;
 
 extern "C" void near sub_D031(void);
-extern "C" void near sub_D0FA(void);
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void near sub_D0FA(void)
+{
+	_asm {
+		mov 	ax, [di]
+		add 	ax, [di+4]
+		cmp 	ax, 0080h
+		jnb 	d0fa_x_above_min
+		add 	ax, 2700h
+		jmp 	d0fa_x_done
+d0fa_x_above_min:
+		cmp 	ax, 2780h
+		jbe 	d0fa_x_done
+		sub 	ax, 2700h
+d0fa_x_done:
+		mov 	[di], ax
+		mov 	ax, [di+2]
+		add 	ax, [di+6]
+		cmp 	ax, 00E0h
+		jnb 	d0fa_y_above_min
+		add 	ax, 1720h
+		jmp 	d0fa_y_done
+d0fa_y_above_min:
+		cmp 	ax, 1800h
+		jbe 	d0fa_y_done
+		sub 	ax, 1720h
+d0fa_y_done:
+		mov 	[di+2], ax
+	}
+}
 
 extern "C" void pascal far sub_D135(void)
 {
