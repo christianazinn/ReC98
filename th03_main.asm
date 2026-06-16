@@ -1591,7 +1591,7 @@ loc_A5E2:
 
 loc_A68D:
 		setfarfp	farfp_20F20, sub_D092
-		setfarfp	farfp_20F24, sub_D135
+		setfarfp	farfp_20F24, SUB_D135
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	reimu_10BFE
@@ -1656,7 +1656,7 @@ loc_A77A:
 
 loc_A825:
 		setfarfp	farfp_20F20, sub_D092
-		setfarfp	farfp_20F24, sub_D135
+		setfarfp	farfp_20F24, SUB_D135
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	mima_FB46
@@ -4734,7 +4734,7 @@ sub_D031	endp
 
 ; Attributes: bp-based frame
 
-public SUB_D05D, sub_D05D, SUB_D092, sub_D092, SUB_D135, sub_D135
+public SUB_D05D, sub_D05D, SUB_D092, sub_D092
 sub_D05D	proc far
 		push	bp
 		mov	bp, sp
@@ -4875,70 +4875,7 @@ sub_D0FA	endp
 
 ; Attributes: bp-based frame
 
-sub_D135	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 3
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
-		mov	ax, 0A800h
-		mov	es, ax
-		assume es:nothing
-		mov	angle_2142C, 40h
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D16B:
-		call	IRand
-		and	ax, 1
-		add	ax, [di+6]
-		mov	[di+6],	ax
-		mov	[di+8],	al
-		call	sub_D0FA
-		call	sub_D031
-		add	di, 10h
-		inc	si
-		cmp	si, 18h
-		jb	short loc_D16B
-		call	grcg_off
-		call	egc_on
-
-loc_D195:
-		call	IRand
-		and	ax, 1
-		add	ax, [di+6]
-		mov	[di+6],	ax
-		mov	[di+8],	al
-		call	sub_D0FA
-		mov	ax, [di]
-		sar	ax, 4
-		push	ax
-		mov	ax, [di+2]
-		sar	ax, 4
-		push	ax
-		push	word ptr [di+0Ah]
-		call	sprite16_put
-		add	di, 10h
-		inc	si
-		cmp	si, 30h	; '0'
-		jb	short loc_D195
-		cmp	_round_frame, 128
-		jbe	short loc_D1DE
-		setfarfp	farfp_20F24, SUB_D1E7
-
-loc_D1DE:
-		call	egc_off
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_D135	endp
-
-
+	SUB_D135 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
