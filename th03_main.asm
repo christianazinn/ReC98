@@ -1940,7 +1940,7 @@ arg_0		= word ptr  4
 		call	sub_A4C3
 		or	si, si
 		jnz	loc_AF72
-		setfarfp	exatt_add_p1, @exatt_add_rikako$qiiuc
+		setfarfp	exatt_add_p1, EXATT_ADD_RIKAKO
 		setfarfp	exatt_update_p1, @exatt_update_rikako$qv
 		setfarfp	exatt_render_p1, @exatt_render_rikako$qv
 		setfarfp	_p1.chargeshot_add, chargeshot_add_rikako
@@ -1959,7 +1959,7 @@ arg_0		= word ptr  4
 ; ---------------------------------------------------------------------------
 
 loc_AF72:
-		setfarfp	exatt_add_p2, @exatt_add_rikako$qiiuc
+		setfarfp	exatt_add_p2, EXATT_ADD_RIKAKO
 		setfarfp	exatt_update_p2, @exatt_update_rikako$qv
 		setfarfp	exatt_render_p2, @exatt_render_rikako$qv
 		setfarfp	_p2.chargeshot_add, chargeshot_add_rikako
@@ -8756,64 +8756,7 @@ _yumemi_1A9B0 procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @EXATT_ADD_RIKAKO$QIIUC
-@exatt_add_rikako$qiiuc proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1AFFB
-; ---------------------------------------------------------------------------
-
-loc_1AFB8:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1AFF7
-		mov	word_2028A, si
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	(PLAYFIELD_W shl 4)
-		call	@randring_far_next16_mod$qui
-		push	ax
-		push	(16 shl 4)
-		push	[bp+arg_0]
-		push	64h ; 'd'
-		call	SUB_1A1ED
-		push	1
-		call	@randring_far_next16_and$qui
-		mov	[si+17h], al
-		mov	byte ptr [si+12h], 40h
-		push	0Fh
-		call	@randring_far_next16_and$qui
-		add	al, 20h	; ' '
-		mov	[si+13h], al
-		jmp	short loc_1B000
-; ---------------------------------------------------------------------------
-
-loc_1AFF7:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1AFFB:
-		cmp	di, 8
-		jl	short loc_1AFB8
-
-loc_1B000:
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-@exatt_add_rikako$qiiuc endp
+EXATT_ADD_RIKAKO procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
