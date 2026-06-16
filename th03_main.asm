@@ -4699,6 +4699,8 @@ sub_CEE0	endp
 
 ; Attributes: bp-based frame
 
+public _sub_D031, sub_D031
+_sub_D031 label near
 sub_D031	proc near
 		push	bp
 		mov	bp, sp
@@ -4827,6 +4829,8 @@ sub_D092	endp
 
 ; Attributes: bp-based frame
 
+public _sub_D0FA, sub_D0FA
+_sub_D0FA label near
 sub_D0FA	proc near
 		push	bp
 		mov	bp, sp
@@ -5174,7 +5178,7 @@ loc_D3AF:
 		jb	short loc_D3A0
 		cmp	_round_frame, 144
 		jbe	short loc_D3F0
-		setfarfp	farfp_20F24, sub_D3F9
+		setfarfp	farfp_20F24, SUB_D3F9
 
 loc_D3F0:
 		call	egc_off
@@ -5187,142 +5191,7 @@ sub_D340	endp
 
 ; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-sub_D3F9	proc far
-
-var_3		= byte ptr -3
-@@frame_mod_4096	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _round_or_result_frame
-		and	ax, 4095
-		mov	[bp+@@frame_mod_4096], ax
-		cmp	[bp+@@frame_mod_4096], 1024
-		jl	short loc_D45D
-		cmp	[bp+@@frame_mod_4096], 1280
-		jge	short loc_D41E
-		test	byte ptr [bp+@@frame_mod_4096], 7
-		jnz	short loc_D461
-		jmp	short loc_D44D
-; ---------------------------------------------------------------------------
-
-loc_D41E:
-		cmp	[bp+@@frame_mod_4096], 2048
-		jl	short loc_D45D
-		cmp	[bp+@@frame_mod_4096], 2304
-		jge	short loc_D434
-		test	byte ptr [bp+@@frame_mod_4096], 3
-		jnz	short loc_D461
-		jmp	short loc_D453
-; ---------------------------------------------------------------------------
-
-loc_D434:
-		cmp	[bp+@@frame_mod_4096], 3072
-		jl	short loc_D45D
-		cmp	[bp+@@frame_mod_4096], 4064
-		jge	short loc_D45D
-		mov	ax, [bp+@@frame_mod_4096]
-		and	ax, 127
-		cmp	ax, 64
-		jge	short loc_D453
-
-loc_D44D:
-		inc	angle_2142C
-		jmp	short loc_D457
-; ---------------------------------------------------------------------------
-
-loc_D453:
-		dec	angle_2142C
-
-loc_D457:
-		mov	[bp+var_3], 1
-		jmp	short loc_D461
-; ---------------------------------------------------------------------------
-
-loc_D45D:
-		mov	[bp+var_3], 0
-
-loc_D461:
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D466:
-		call	sub_D0FA
-		cmp	[bp+var_3], 0
-		jz	short loc_D488
-		lea	bx, [di+4]
-		push	ds
-		push	bx
-		lea	bx, [di+6]
-		push	ds
-		push	bx
-		mov	al, angle_2142C
-		mov	ah, 0
-		push	ax
-		mov	al, [di+8]
-		push	ax
-		call	vector2
-
-loc_D488:
-		add	di, 10h
-		inc	si
-		cmp	si, 32h	; '2'
-		jb	short loc_D466
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 8
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-		mov	ax, 0A800h
-		mov	es, ax
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D4BD:
-		call	sub_D031
-		add	di, 10h
-		inc	si
-		cmp	si, 18h
-		jb	short loc_D4BD
-		call	grcg_off
-		call	egc_on
-
-loc_D4D3:
-		xor	dx, dx
-		cmp	si, 28h	; '('
-		jb	short loc_D4E6
-		mov	dx, [bp+@@frame_mod_4096]
-		; Hack (and dx, 1Fh)
-		db 081h
-		db 0e2h
-		db 01fh
-		db 000h
-		shr	dx, 3
-		shl	dx, 1
-
-loc_D4E6:
-		mov	ax, [di]
-		sar	ax, 4
-		push	ax
-		mov	ax, [di+2]
-		sar	ax, 4
-		push	ax
-		add	dx, [di+0Ah]
-		push	dx
-		call	sprite16_put_noclip
-		add	di, 10h
-		inc	si
-		cmp	si, 32h	; '2'
-		jb	short loc_D4D3
-		call	egc_off
-		pop	di
-		pop	si
-		leave
-		retf
-sub_D3F9	endp
+	SUB_D3F9 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9583,12 +9452,15 @@ farfp_20F24	dd ?
 public _farfp_20F28
 _farfp_20F28 label dword
 farfp_20F28	dd ?
+public _byte_20F2C, byte_20F2C, _angle_2142C, angle_2142C
+_byte_20F2C label byte
 byte_20F2C label byte
 		db 1122 dup(?)
 public _byte_2138E, byte_2138E
 _byte_2138E label byte
 byte_2138E	db 15 dup(?)
 		db 143 dup(?)
+_angle_2142C label byte
 angle_2142C	db ?
 		db ?
 public _word_2142E, word_2142E, _word_21430, word_21430
