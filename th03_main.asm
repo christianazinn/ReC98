@@ -8619,47 +8619,8 @@ main_06_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public _sub_1A1A7, sub_1A1A7
-_sub_1A1A7 label near
-sub_1A1A7	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, word_2028A
-		mov	dx, [si+2]
-		add	dx, [si+6]
-		mov	bx, word_2028A
-		cmp	byte ptr [bx+10h], 0
-		jnz	short loc_1A1DA
-		cmp	[si+0Ch], dx
-		jg	short loc_1A1DF
-
-loc_1A1C4:
-		mov	ax, [si+0Ah]
-		mov	[si+2],	ax
-		mov	byte ptr [si], 3
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[si+10h], al
-		mov	al, 1
-		jmp	short loc_1A1EA
-; ---------------------------------------------------------------------------
-
-loc_1A1DA:
-		cmp	[si+0Ch], dx
-		jge	short loc_1A1C4
-
-loc_1A1DF:
-		mov	[si+2],	dx
-		mov	ax, [si+8]
-		add	[si+4],	ax
-		mov	al, 0
-
-loc_1A1EA:
-		pop	si
-		pop	bp
-		retn
-sub_1A1A7	endp
+	_sub_1A1A7 procdesc near
+	sub_1A1A7 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
