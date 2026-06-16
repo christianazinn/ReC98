@@ -9035,51 +9035,7 @@ _sub_1C158 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_kotohime$qv
-@chargeshot_hittest_kotohime$qv proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		shl	ax, 3
-		add	ax, offset kotohime_chargeshot
-		mov	word_1FE6A, ax
-		mov	bx, word_1FE6A
-		cmp	byte ptr [bx], 0
-		jz	short loc_1C291
-		mov	bx, word_1FE6A
-		mov	ax, [bx+2]
-		sub	ax, _hitbox_right
-		cmp	ax, (40 shl 4)
-		jg	short loc_1C291
-		mov	ax, _hitbox_origin_topleft.x
-		sub	ax, [bx+2]
-		cmp	ax, (40 shl 4)
-		jg	short loc_1C291
-		mov	ax, [bx+4]
-		cmp	ax, _hitbox_origin_topleft.y
-		jl	short loc_1C291
-		cmp	ax, _hitbox_bottom
-		jg	short loc_1C291
-		mov	_ef_onehit, 1
-		mov	ax, _hitbox_origin_topleft.x
-		add	ax, _hitbox_radius.x
-		push	ax	; center_x
-		push	word ptr [bx+4]	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		mov	al, 3
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_1C291:
-		mov	al, 0
-		pop	bp
-		retf
-@chargeshot_hittest_kotohime$qv endp
+	@chargeshot_hittest_kotohime$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
