@@ -3,10 +3,23 @@
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "libs/sprite16/sprite16.h"
 #include "th03/common.h"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/math/vector.hpp"
+
+struct cee0_rec_t {
+	uint8_t type;
+	uint8_t age;
+	screen_x_t x;
+	vram_y_t y;
+	uint8_t radius;
+	int8_t radius_delta;
+	uint8_t angle;
+	uint8_t unused_9;
+};
 
 struct d3f9_rec_t {
 	Subpixel x;
@@ -20,12 +33,86 @@ struct d3f9_rec_t {
 	uint16_t unused_E;
 };
 
+extern "C" cee0_rec_t near byte_20EA6[];
 extern "C" d3f9_rec_t near byte_20F2C[];
 extern "C" uint8_t near angle_2142C;
 
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void pascal far sub_CEE0(void)
+{
+	uint8_t frame[0x14];
+	register cee0_rec_t near *slot;
+	register int j;
+
+#define cee0_angle  frame[1]
+#define cee0_y(i)   (*reinterpret_cast<vram_y_t *>(&frame[2 + ((i) * 2)]))
+#define cee0_x(i)   (*reinterpret_cast<screen_x_t *>(&frame[10 + ((i) * 2)]))
+#define cee0_i      (*reinterpret_cast<int *>(&frame[18]))
+
+	slot = byte_20EA6;
+	grcg_setcolor(GC_RMW, 13);
+	cee0_i = 0;
+	goto cee0_loop_test;
+cee0_loop:
+	if(slot->type == 0) {
+		goto cee0_next;
+	}
+	if(slot->x < (RES_X / 2)) {
+		grc_setclip(16, 8, 303, 191);
+	} else {
+		grc_setclip(336, 8, 623, 191);
+	}
+	if(slot->type == 1) {
+		grcg_circle(slot->x, (slot->y >> 1), slot->radius);
+		goto cee0_next;
+	}
+	if((cee0_i % 2) == 0) {
+		_AL = 8;
+	} else {
+		_AL = -8;
+	}
+	_AL += slot->angle;
+	slot->angle = _AL;
+	j = 0;
+	_AL = slot->angle;
+	goto cee0_vertex_test;
+cee0_vertex_loop:
+	cee0_x(j) = polar(slot->x, slot->radius, CosTable8[cee0_angle]);
+	cee0_y(j) = (polar(slot->y, slot->radius, SinTable8[cee0_angle]) / 2);
+	j++;
+	_AL = cee0_angle;
+	_AL += 0x40;
+cee0_vertex_test:
+	cee0_angle = _AL;
+	if(j < 4) {
+		goto cee0_vertex_loop;
+	}
+	grcg_line(cee0_x(0), cee0_y(0), cee0_x(1), cee0_y(1));
+	grcg_line(cee0_x(1), cee0_y(1), cee0_x(2), cee0_y(2));
+	grcg_line(cee0_x(2), cee0_y(2), cee0_x(3), cee0_y(3));
+	grcg_line(cee0_x(3), cee0_y(3), cee0_x(0), cee0_y(0));
+
+cee0_next:
+	cee0_i++;
+	slot++;
+cee0_loop_test:
+	if(cee0_i < 12) {
+		goto cee0_loop;
+	}
+	asm {
+		db 	0x31, 0xC0; // XOR AX, AX
+		out	0x7C, ax;
+	}
+	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+
+#undef cee0_i
+#undef cee0_x
+#undef cee0_y
+#undef cee0_angle
+}
 
 extern "C" void near sub_D031(void)
 {
