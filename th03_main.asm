@@ -287,9 +287,9 @@ loc_977E:
 loc_9845:
 		nopcall	sub_CA3C
 		push	0
-		nopcall	sub_CB81
+		nopcall	SUB_CB81
 		push	1
-		nopcall	sub_CB81
+		nopcall	SUB_CB81
 		call	farfp_20F24
 		cmp	byte_23AFA, 0
 		jz	short loc_986C
@@ -4063,6 +4063,8 @@ sub_CA3C	endp
 
 ; Attributes: bp-based frame
 
+public SUB_CACB, sub_CACB
+SUB_CACB label near
 sub_CACB	proc near
 
 arg_0		= word ptr  4
@@ -4127,257 +4129,7 @@ sub_CACB	endp
 
 ; Attributes: bp-based frame
 
-sub_CB81	proc far
-
-var_3		= word ptr -3
-arg_0		= word ptr  6
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	al, 1
-		sub	al, byte ptr [bp+arg_0]
-		mov	byte ptr [bp+var_3], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_warning_flag[bx], WF_FLASH_RED
-		jb	loc_CD15
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_warning_flag[bx], WF_FLASH_RED
-		jnz	short loc_CBB9
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_20E98[bx], 0
-
-loc_CBB9:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_warning_flag[bx], WF_FLASH_RED_END
-		jnb	loc_CCA6
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_warning_flag[bx], (WF_FLASH_RED + (WARNING_FLASH_RED_FRAMES / 2))
-		jnb	short loc_CBE6
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20E98[bx]
-		add	al, 0Dh
-		jmp	short loc_CBF3
-; ---------------------------------------------------------------------------
-
-loc_CBE6:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20E98[bx]
-		add	al, -13
-
-loc_CBF3:
-		mov	dl, byte ptr [bp+arg_0]
-		mov	dh, 0
-		mov	bx, dx
-		mov	byte_20E98[bx], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		inc	_warning_flag[bx]
-		mov	si, 1
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		test	_warning_flag[bx], WF_PORTRAIT
-		jz	short loc_CC4D
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_next[bx], GBAF_GAUGE_PELLET_INIT
-		jnz	short loc_CC2D
-		mov	si, TX_CYAN
-		jmp	short loc_CC43
-; ---------------------------------------------------------------------------
-
-loc_CC2D:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_next[bx], GBAF_GAUGE_BULLET_INIT
-		jnz	short loc_CC40
-		mov	si, TX_MAGENTA
-		jmp	short loc_CC43
-; ---------------------------------------------------------------------------
-
-loc_CC40:
-		mov	si, TX_RED
-
-loc_CC43:
-		push	[bp+var_3]
-		nopcall	sub_A3A8
-		jmp	short loc_CC9D
-; ---------------------------------------------------------------------------
-
-loc_CC4D:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_next[bx], GBAF_GAUGE_PELLET_INIT
-		jz	short loc_CC78
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_next[bx], GBAF_GAUGE_BULLET_INIT
-		jnz	short loc_CC89
-		mov	al, byte ptr [bp+var_3]
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].r, 120
-
-loc_CC78:
-		mov	al, byte ptr [bp+var_3]
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].b, 120
-		jmp	short loc_CC98
-; ---------------------------------------------------------------------------
-
-loc_CC89:
-		mov	al, byte ptr [bp+var_3]
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].r, 120
-
-loc_CC98:
-		mov	_palette_changed, 1
-
-loc_CC9D:
-		push	[bp+arg_0]
-		push	si
-		call	sub_CACB
-		jmp	short loc_CD15
-; ---------------------------------------------------------------------------
-
-loc_CCA6:
-		mov	[bp+var_3+1], 4
-		cmp	byte ptr [bp+var_3], 1
-		jnz	short loc_CCB5
-		add	[bp+var_3+1], 28h ; '('
-
-loc_CCB5:
-		xor	di, di
-		mov	si, 0Bh
-		jmp	short loc_CCCE
-; ---------------------------------------------------------------------------
-
-loc_CCBC:
-		call	text_putsa pascal, [bp+var_3+1], si, ds, offset asc_1DD5A, TX_WHITE
-		inc	di
-		inc	si
-
-loc_CCCE:
-		cmp	di, 6
-		jb	short loc_CCBC
-		push	[bp+var_3]
-		nopcall	sub_A3A8
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	_warning_flag[bx], WF_NONE
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_next[bx]
-		mov	dl, byte ptr [bp+arg_0]
-		mov	dh, 0
-		mov	bx, dx
-		mov	_gba_flag_active[bx], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_20E98[bx], 0
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_20E9A[bx], 0
-
-loc_CD15:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	loc_CDB7
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte_20E9A[bx], 0
-		jnz	short loc_CD67
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20E98[bx]
-		add	al, 4
-		mov	dl, byte ptr [bp+arg_0]
-		mov	dh, 0
-		mov	bx, dx
-		mov	byte_20E98[bx], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte_20E98[bx], 144
-		jb	short loc_CD99
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_20E9A[bx], 1
-		jmp	short loc_CD99
-; ---------------------------------------------------------------------------
-
-loc_CD67:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20E98[bx]
-		add	al, -4
-		mov	dl, byte ptr [bp+arg_0]
-		mov	dh, 0
-		mov	bx, dx
-		mov	byte_20E98[bx], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte_20E98[bx], 0
-		ja	short loc_CD99
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_20E9A[bx], 0
-
-loc_CD99:
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_20E98[bx]
-		mov	dl, byte ptr [bp+var_3]
-		mov	dh, 0
-		imul	dx, 3
-		mov	bx, dx
-		mov	Palettes[bx].r, al
-		mov	_palette_changed, 1
-
-loc_CDB7:
-		pop	di
-		pop	si
-		leave
-		retf	2
-sub_CB81	endp
+SUB_CB81 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -8140,6 +7892,8 @@ gpGAUGE_ATTACK_LEVEL db 0C7h, 0C8h, 0C9h, 0CAh, 0CBh, 0CCh, 0CDh, 0CEh,	0
 gpBOSS_ATTACK_LEVEL db 0D0h, 0D1h, 0D2h, 0CAh, 0CBh, 0CCh, 0CDh, 0CEh, 0
 gpYOUR_LIFE_IS_IN_PERIL_BE_CAREFUL db 8Dh, 8Eh, 8Fh, 92h, 93h, 94h, 95h
 		db 96h, 97h, 98h, 99h, 9Ah, 9Bh, 9Ch, 0
+public _asc_1DD5A, asc_1DD5A
+_asc_1DD5A label byte
 asc_1DD5A	db '                                ',0
 		db 0
 include th03/main/player/combo[data].asm
@@ -8712,7 +8466,10 @@ byte_20E92 label byte
 public _rikako_chargeshot_origin_y, rikako_chargeshot_origin_y
 _rikako_chargeshot_origin_y label word
 rikako_chargeshot_origin_y dw PLAYER_COUNT dup(?)
+public _byte_20E98, byte_20E98, _byte_20E9A, byte_20E9A
+_byte_20E98 label byte
 byte_20E98	db PLAYER_COUNT dup(?)
+_byte_20E9A label byte
 byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
 _gba_flag_next	db PLAYER_COUNT dup(?)
