@@ -4927,7 +4927,7 @@ loc_D195:
 		jb	short loc_D195
 		cmp	_round_frame, 128
 		jbe	short loc_D1DE
-		setfarfp	farfp_20F24, sub_D1E7
+		setfarfp	farfp_20F24, SUB_D1E7
 
 loc_D1DE:
 		call	egc_off
@@ -4942,128 +4942,7 @@ sub_D135	endp
 
 ; Attributes: bp-based frame
 
-sub_D1E7	proc far
-
-var_3		= byte ptr -3
-@@frame_mod_4096	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _round_or_result_frame
-		and	ax, 4095
-		mov	[bp+@@frame_mod_4096], ax
-		cmp	[bp+@@frame_mod_4096], 1024
-		jl	short loc_D24B
-		cmp	[bp+@@frame_mod_4096], 1280
-		jge	short loc_D20C
-		test	byte ptr [bp+@@frame_mod_4096], 7
-		jnz	short loc_D24F
-		jmp	short loc_D23B
-; ---------------------------------------------------------------------------
-
-loc_D20C:
-		cmp	[bp+@@frame_mod_4096], 2048
-		jl	short loc_D24B
-		cmp	[bp+@@frame_mod_4096], 2304
-		jge	short loc_D222
-		test	byte ptr [bp+@@frame_mod_4096], 3
-		jnz	short loc_D24F
-		jmp	short loc_D241
-; ---------------------------------------------------------------------------
-
-loc_D222:
-		cmp	[bp+@@frame_mod_4096], 3072
-		jl	short loc_D24B
-		cmp	[bp+@@frame_mod_4096], 4064
-		jge	short loc_D24B
-		mov	ax, [bp+@@frame_mod_4096]
-		and	ax, 127
-		cmp	ax, 64
-		jge	short loc_D241
-
-loc_D23B:
-		inc	angle_2142C
-		jmp	short loc_D245
-; ---------------------------------------------------------------------------
-
-loc_D241:
-		dec	angle_2142C
-
-loc_D245:
-		mov	[bp+var_3], 1
-		jmp	short loc_D24F
-; ---------------------------------------------------------------------------
-
-loc_D24B:
-		mov	[bp+var_3], 0
-
-loc_D24F:
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D254:
-		call	sub_D0FA
-		cmp	[bp+var_3], 0
-		jz	short loc_D276
-		lea	bx, [di+4]
-		push	ds
-		push	bx
-		lea	bx, [di+6]
-		push	ds
-		push	bx
-		mov	al, angle_2142C
-		mov	ah, 0
-		push	ax
-		mov	al, [di+8]
-		push	ax
-		call	vector2
-
-loc_D276:
-		add	di, 10h
-		inc	si
-		cmp	si, 30h	; '0'
-		jb	short loc_D254
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 3
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
-		mov	ax, 0A800h
-		mov	es, ax
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D2AB:
-		call	sub_D031
-		add	di, 10h
-		inc	si
-		cmp	si, 18h
-		jb	short loc_D2AB
-		call	grcg_off
-		call	egc_on
-
-loc_D2C1:
-		mov	ax, [di]
-		sar	ax, 4
-		push	ax
-		mov	ax, [di+2]
-		sar	ax, 4
-		push	ax
-		push	word ptr [di+0Ah]
-		call	sprite16_put_noclip
-		add	di, 10h
-		inc	si
-		cmp	si, 30h	; '0'
-		jb	short loc_D2C1
-		call	egc_off
-		pop	di
-		pop	si
-		leave
-		retf
-sub_D1E7	endp
-
-
+	SUB_D1E7 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
