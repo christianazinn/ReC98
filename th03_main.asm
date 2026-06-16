@@ -269,7 +269,7 @@ loc_977E:
 		mov	_pid_PID_so_attack, SO_ATTACK_P2
 		call	gba_gauge_pattern_pellet_p2
 		call	gba_gauge_pattern_bullet_p2
-		nopcall	sub_CEB2
+		nopcall	SUB_CEB2
 		call	_input_mode
 		mov	_pid_PID_current, 0
 		push	_input_mp_p1
@@ -4518,38 +4518,7 @@ sub_CE5B	endp
 
 ; Attributes: bp-based frame
 
-sub_CEB2	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset byte_20EA6
-		xor	dx, dx
-		jmp	short loc_CED8
-; ---------------------------------------------------------------------------
-
-loc_CEBD:
-		cmp	byte ptr [si], 0
-		jz	short loc_CED4
-		inc	byte ptr [si+1]
-		cmp	byte ptr [si+1], 10h
-		jbe	short loc_CECE
-		mov	byte ptr [si], 0
-
-loc_CECE:
-		mov	al, [si+7]
-		add	[si+6],	al
-
-loc_CED4:
-		inc	dx
-		add	si, 0Ah
-
-loc_CED8:
-		cmp	dx, 0Ch
-		jl	short loc_CEBD
-		pop	si
-		pop	bp
-		retf
-sub_CEB2	endp
+SUB_CEB2 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

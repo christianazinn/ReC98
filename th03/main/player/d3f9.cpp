@@ -41,6 +41,30 @@ extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
 
+extern "C" void pascal far sub_CEB2(void)
+{
+	register cee0_rec_t near *slot;
+
+	slot = byte_20EA6;
+	_DX = 0;
+	goto loop_test;
+loop:
+	if(slot->type != 0) {
+		slot->age++;
+		if(slot->age > 0x10) {
+			slot->type = 0;
+		}
+		_AL = slot->radius_delta;
+		slot->radius += _AL;
+	}
+	_DX++;
+	slot++;
+loop_test:
+	if(static_cast<int>(_DX) < 12) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far sub_CEE0(void)
 {
 	uint8_t frame[0x14];
