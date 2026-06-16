@@ -1179,3 +1179,28 @@ loop_test:
 		goto loop;
 	}
 }
+
+void far exatt_render_yumemi(void)
+{
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	word_2028A = _AX;
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(word_2028A) != 0) {
+		yumemi_1A9B0();
+	}
+	i++;
+	word_2028A += 0x20;
+
+loop_test:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
