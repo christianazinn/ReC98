@@ -2070,7 +2070,7 @@ arg_0		= word ptr  4
 		call	sub_A4C3
 		or	si, si
 		jnz	loc_B2A2
-		setfarfp	exatt_add_p1, @exatt_add_yumemi$qiiuc
+		setfarfp	exatt_add_p1, @EXATT_ADD_YUMEMI$QIIUC
 		setfarfp	exatt_update_p1, @exatt_update_yumemi$qv
 		setfarfp	exatt_render_p1, @exatt_render_yumemi$qv
 		setfarfp	_p1.chargeshot_add, chargeshot_add_yumemi
@@ -2089,7 +2089,7 @@ arg_0		= word ptr  4
 ; ---------------------------------------------------------------------------
 
 loc_B2A2:
-		setfarfp	exatt_add_p2, @exatt_add_yumemi$qiiuc
+		setfarfp	exatt_add_p2, @EXATT_ADD_YUMEMI$QIIUC
 		setfarfp	exatt_update_p2, @exatt_update_yumemi$qv
 		setfarfp	exatt_render_p2, @exatt_render_yumemi$qv
 		setfarfp	_p2.chargeshot_add, chargeshot_add_yumemi
@@ -8723,61 +8723,7 @@ sub_1A491 procdesc pascal near \
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @EXATT_ADD_YUMEMI$QIIUC
-@exatt_add_yumemi$qiiuc proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1A954
-; ---------------------------------------------------------------------------
-
-loc_1A918:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1A950
-		mov	word_2028A, si
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	(PLAYFIELD_W shl 4)
-		call	@randring_far_next16_mod$qui
-		push	ax
-		push	(256 shl 4)
-		call	@randring_far_next16_mod$qui
-		add	ax, (96 shl 4)
-		push	ax
-		push	[bp+arg_0]
-		push	46h ; 'F'
-		call	SUB_1A1ED
-		mov	word ptr [si+14h], 0
-		mov	word ptr [si+0Eh], 60h
-		jmp	short loc_1A959
-; ---------------------------------------------------------------------------
-
-loc_1A950:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1A954:
-		cmp	di, 8
-		jl	short loc_1A918
-
-loc_1A959:
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-@exatt_add_yumemi$qiiuc endp
+@EXATT_ADD_YUMEMI$QIIUC procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
