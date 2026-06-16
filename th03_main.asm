@@ -9077,14 +9077,7 @@ main_11_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_1C40A	proc far
-		push	bp
-		mov	bp, sp
-		mov	rikako_chargeshot_state[0], 0
-		mov	rikako_chargeshot_state[1], 0
-		pop	bp
-		retf
-sub_1C40A	endp
+_sub_1C40A procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10793,6 +10786,8 @@ rikako_gauge_pattern_frames db PLAYER_COUNT dup(?)
 rikako_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 6) dup(?)
 word_20E86	dw ?
+public _rikako_chargeshot_state, rikako_chargeshot_state
+_rikako_chargeshot_state label byte
 rikako_chargeshot_state db PLAYER_COUNT dup(?)
 rikako_chargeshot_frames db PLAYER_COUNT dup(?)
 rikako_chargeshot_radius dw PLAYER_COUNT dup(?)
