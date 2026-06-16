@@ -8907,54 +8907,7 @@ _sub_1B653 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_ELLEN
-chargeshot_render_ellen	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 8
-		cmp	_pid_current, 0
-		jnz	short loc_1B9AC
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1B9B8
-; ---------------------------------------------------------------------------
-
-loc_1B9AC:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1B9B8:
-		xor	si, si
-		jmp	short loc_1B9D8
-; ---------------------------------------------------------------------------
-
-loc_1B9BC:
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 1
-		jnz	short loc_1B9D2
-		mov	bx, word_1F868
-		push	word ptr [bx+4]
-		push	word ptr [bx+6]
-		call	ellen_chargeshot_1B8A6
-
-loc_1B9D2:
-		inc	si
-		add	word_1F868, 0Ch
-
-loc_1B9D8:
-		cmp	si, 20h	; ' '
-		jl	short loc_1B9BC
-		pop	si
-		pop	bp
-		retf
-chargeshot_render_ellen	endp
+	CHARGESHOT_RENDER_ELLEN procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
