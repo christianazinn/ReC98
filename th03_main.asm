@@ -6811,6 +6811,8 @@ PELLET_PUT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public SUB_16983, sub_16983
+SUB_16983 label far
 sub_16983	proc far
 
 @@pid		= byte ptr  6
@@ -8885,172 +8887,7 @@ _sub_1B653 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_UPDATE_ELLEN
-chargeshot_update_ellen	proc far
-
-@@length		= byte ptr -9
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		xor	si, si
-		jmp	short loc_1B74A
-; ---------------------------------------------------------------------------
-
-loc_1B73B:
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 0
-		jnz	short loc_1B752
-		inc	si
-		add	word_1F868, 0Ch
-
-loc_1B74A:
-		cmp	si, 20h	; ' '
-		jl	short loc_1B73B
-		jmp	loc_1B8A3
-; ---------------------------------------------------------------------------
-
-loc_1B752:
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		push	word ptr _pid_current
-		call	sub_16983
-		mov	ax, word_2142E
-		mov	[bp+var_2], ax
-		mov	ax, word_21430
-		add	ax, 0F920h
-		mov	[bp+var_4], ax
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	_players[bx].gauge_charged, 0
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.x
-		mov	[bp+var_6], ax
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	ax, _players[bx].center.y
-		mov	[bp+var_8], ax
-		mov	_playfield_clip_negative_radius.x, (-8 shl 4)
-		mov	_playfield_clip_negative_radius.y, (-8 shl 4)
-		xor	si, si
-		jmp	loc_1B89C
-; ---------------------------------------------------------------------------
-
-loc_1B7BC:
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 0
-		jz	loc_1B896
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 1
-		jnz	loc_1B871
-		mov	ax, [bx+8]
-		add	[bx+4],	ax
-		mov	ax, [bx+0Ah]
-		add	[bx+6],	ax
-		cmp	byte ptr [bx+1], 0
-		jnz	short loc_1B855
-		mov	al, [bx+3]
-		add	al, -2
-		mov	[bp+@@length], al
-		push	ds
-		mov	ax, word_1F868
-		add	ax, 8
-		push	ax
-		push	ds
-		mov	ax, word_1F868
-		add	ax, 10
-		push	ax
-		push	word ptr [bx+2]
-		mov	al, [bp+@@length]
-		mov	ah, 0
-		push	ax
-		call	vector2
-		mov	bx, word_1F868
-		mov	al, [bp+@@length]
-		mov	[bx+3],	al
-		cmp	[bp+@@length], 0
-		jnz	short loc_1B896
-		mov	byte ptr [bx+1], 1
-		mov	ax, [bp+var_4]
-		sub	ax, [bx+6]
-		push	ax
-		mov	ax, [bp+var_2]
-		sub	ax, [bx+4]
-		push	ax
-		call	iatan2
-		mov	bx, word_1F868
-		mov	[bx+2],	al
-		push	ds
-		mov	ax, word_1F868
-		add	ax, 8
-		push	ax
-		push	ds
-		mov	ax, word_1F868
-		add	ax, 10
-		push	ax
-		push	word ptr [bx+2]
-		push	160
-		call	vector2
-		jmp	short loc_1B896
-; ---------------------------------------------------------------------------
-
-loc_1B855:
-		mov	bx, word_1F868
-		call	@PLAYFIELD_CLIP$Q20%SUBPIXELBASE$TI$TI%T1 pascal, word ptr [bx+4], word ptr [bx+6]
-		or	al, al
-		jz	short loc_1B896
-		mov	bx, word_1F868
-		mov	byte ptr [bx], 0
-		jmp	short loc_1B896
-; ---------------------------------------------------------------------------
-
-loc_1B871:
-		mov	bx, word_1F868
-		mov	al, [bx]
-		add	al, -1
-		mov	[bx], al
-		cmp	al, 1
-		jnz	short loc_1B886
-		call	snd_se_play pascal, 1
-
-loc_1B886:
-		mov	bx, word_1F868
-		mov	ax, [bp+var_6]
-		mov	[bx+4],	ax
-		mov	ax, [bp+var_8]
-		mov	[bx+6],	ax
-
-loc_1B896:
-		inc	si
-		add	word_1F868, 0Ch
-
-loc_1B89C:
-		cmp	si, 20h	; ' '
-		jl	loc_1B7BC
-
-loc_1B8A3:
-		pop	si
-		leave
-		retf
-chargeshot_update_ellen	endp
+	CHARGESHOT_UPDATE_ELLEN procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -12256,7 +12093,10 @@ byte_2138E	db 15 dup(?)
 		db 143 dup(?)
 angle_2142C	db ?
 		db ?
+public _word_2142E, word_2142E, _word_21430, word_21430
+_word_2142E label word
 word_2142E	dw ?
+_word_21430 label word
 word_21430	dw ?
 		db 2 dup(?)
 public _combo_points_for_boss_attack
