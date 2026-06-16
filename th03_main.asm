@@ -1615,7 +1615,7 @@ arg_0		= word ptr  4
 		call	sub_A4C3
 		or	si, si
 		jnz	loc_A77A
-		setfarfp	exatt_add_p1, @exatt_add_mima$qiiuc
+		setfarfp	exatt_add_p1, EXATT_ADD_MIMA
 		setfarfp	exatt_update_p1, @exatt_update_mima$qv
 		setfarfp	exatt_render_p1, @exatt_render_mima$qv
 		setfarfp	_p1.chargeshot_add, chargeshot_add_mima
@@ -1634,7 +1634,7 @@ arg_0		= word ptr  4
 ; ---------------------------------------------------------------------------
 
 loc_A77A:
-		setfarfp	exatt_add_p2, @exatt_add_mima$qiiuc
+		setfarfp	exatt_add_p2, EXATT_ADD_MIMA
 		setfarfp	exatt_update_p2, @exatt_update_mima$qv
 		setfarfp	exatt_render_p2, @exatt_render_mima$qv
 		setfarfp	_p2.chargeshot_add, chargeshot_add_mima
@@ -8698,60 +8698,8 @@ sub_1A491 procdesc pascal near \
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @EXATT_ADD_MIMA$QIIUC
-@exatt_add_mima$qiiuc proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1A679
-; ---------------------------------------------------------------------------
-
-loc_1A641:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1A675
-		mov	word_2028A, si
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	(PLAYFIELD_W shl 4)
-		call	@randring_far_next16_mod$qui
-		push	ax
-		push	(PLAYFIELD_W shl 4)
-		call	@randring_far_next16_mod$qui
-		push	ax
-		push	[bp+arg_0]
-		push	5Ah ; 'Z'
-		call	SUB_1A1ED
-		mov	word ptr [si+0Eh], 0
-		mov	byte ptr [si+1], 3
-		jmp	short loc_1A67E
-; ---------------------------------------------------------------------------
-
-loc_1A675:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1A679:
-		cmp	di, 6
-		jl	short loc_1A641
-
-loc_1A67E:
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-@exatt_add_mima$qiiuc endp
+	EXATT_ADD_MIMA procdesc pascal far \
+		center_x:word, center_y:word, pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
