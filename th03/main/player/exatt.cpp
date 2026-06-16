@@ -43,6 +43,109 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+void far exatt_update_chiyuri(void)
+{
+	int pair_done;
+	uint8_t pid_other;
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	word_2028A = _AX;
+
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	collmap_stripe_tile_w.v = (4 / COLLMAP_TILE_W);
+	collmap_pid = _AL;
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(word_2028A) != 0) {
+		slot = reinterpret_cast<uint8_t near *>(word_2028A);
+		if(slot[0] != 1) {
+			goto not_state_1;
+		}
+		slot[1]++;
+		if(slot[1] == 4) {
+			SUB_CE0C(
+				*reinterpret_cast<subpixel_t near *>(slot + 2),
+				0,
+				slot[0x10]
+			);
+			slot += 0x20;
+			SUB_CE0C(
+				*reinterpret_cast<subpixel_t near *>(slot + 2),
+				(368 << 4),
+				slot[0x10]
+			);
+			goto pair_advance;
+		} else if(slot[1] == 0x10) {
+			snd_se_play(20);
+			goto pair_advance;
+		} else if((slot[1] > 0x28) && (slot[1] < 0x70)) {
+			collmap_topleft.x.v = (
+				*reinterpret_cast<subpixel_t near *>(slot + 2)
+			);
+			slot += 0x20;
+			collmap_bottomright.x.v = (
+				*reinterpret_cast<subpixel_t near *>(slot + 2)
+			);
+			collmap_set_slope_striped();
+			goto pair_advance;
+		} else if(slot[1] > 0x88) {
+			slot[0] = 0;
+			slot += 0x20;
+			slot[0] = 0;
+		}
+	}
+pair_advance:
+	word_2028A += 0x20;
+	goto next;
+
+not_state_1:
+	pair_done = 0;
+	if(slot[0] == 2) {
+		if(sub_1A1A7() != 0) {
+			*reinterpret_cast<subpixel_t near *>(slot + 4) = 0;
+		}
+	} else if(slot[0] <= 0x1C) {
+		slot[0]++;
+	} else {
+		slot[1] = 0;
+		pair_done = 1;
+	}
+	slot[1]++;
+
+	slot += 0x20;
+	word_2028A += 0x20;
+	if(slot[0] == 2) {
+		if(sub_1A1A7() != 0) {
+			*reinterpret_cast<subpixel_t near *>(slot + 4) = (368 << 4);
+		}
+	} else if(slot[0] <= 0x1C) {
+		slot[0]++;
+	} else {
+		slot[1] = 0;
+		if(pair_done != 0) {
+			slot -= 0x20;
+			slot[0] = 1;
+		}
+	}
+	slot[1]++;
+next:
+	i += 2;
+	word_2028A += 0x20;
+loop_test:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
+
 void far exatt_render_chiyuri(void)
 {
 	register int i;
