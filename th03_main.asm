@@ -4429,44 +4429,7 @@ sub_CDBD	endp
 
 ; Attributes: bp-based frame
 
-public SUB_CE0C, sub_CE0C
-SUB_CE0C label far
-sub_CE0C	proc far
-
-@@pid		= word ptr  6
-arg_2		= word ptr  8
-@@x		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		inc	byte_20F1E
-		cmp	byte_20F1E, 0Ch
-		jb	short loc_CE20
-		mov	byte_20F1E, 0
-
-loc_CE20:
-		mov	al, byte_20F1E
-		mov	ah, 0
-		imul	ax, 0Ah
-		add	ax, offset byte_20EA6
-		mov	si, ax
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 0
-		push	[bp+@@x]	; x
-		push	[bp+@@pid]	; pid
-		nopcall	@playfield_fg_x_to_screen$qii
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		sar	ax, 4
-		add	ax, 10h
-		mov	[si+4],	ax
-		mov	byte ptr [si+6], 88h
-		mov	byte ptr [si+7], -8
-		pop	si
-		pop	bp
-		retf	6
-sub_CE0C	endp
+SUB_CE0C procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -5970,7 +5933,7 @@ loc_1840A:
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE0C
+		call	SUB_CE0C
 		jmp	loc_185A3
 ; ---------------------------------------------------------------------------
 
@@ -6583,7 +6546,7 @@ var_2		= byte ptr -2
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE0C
+		call	SUB_CE0C
 
 loc_18A08:
 		mov	angle_1FBD4, 0
