@@ -9047,64 +9047,7 @@ loc_194A4:
 
 ; Attributes: bp-based frame
 
-public ELLEN_194A9
-ELLEN_194A9 label far
-ellen_194A9	proc far
-
-arg_0		= byte ptr  6
-arg_2		= byte ptr  8
-arg_4		= word ptr  0Ah
-arg_6		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (12 * 30)
-		add	ax, offset ellen_exatt_refs
-		mov	word_1FB3A, ax
-		xor	dx, dx
-		jmp	short loc_19506
-; ---------------------------------------------------------------------------
-
-loc_194C0:
-		mov	bx, word_1FB3A
-		mov	bx, [bx]
-		cmp	byte ptr [bx], 0
-		jnz	short loc_19500
-		mov	bx, word_1FB3A
-		mov	si, [bx]
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+arg_6]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_4]
-		mov	[si+4],	ax
-		mov	word ptr [si+14h], 0
-		mov	al, [bp+arg_0]
-		mov	[si+11h], al
-		mov	al, [bp+arg_2]
-		mov	[si+12h], al
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[si+10h], al
-		jmp	short loc_1950B
-; ---------------------------------------------------------------------------
-
-loc_19500:
-		inc	dx
-		add	word_1FB3A, 1Eh
-
-loc_19506:
-		cmp	dx, 0Ch
-		jl	short loc_194C0
-
-loc_1950B:
-		pop	si
-		pop	bp
-		retf	8
-ellen_194A9	endp
+	ELLEN_194A9 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
