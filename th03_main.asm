@@ -9084,69 +9084,8 @@ _sub_1C40A procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_RIKAKO
-chargeshot_add_rikako	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+@@center_x]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr rikako_chargeshot_state[bx], 1
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr rikako_chargeshot_frames[bx], 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word ptr rikako_chargeshot_radius[bx], 80h
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 18h
-		add	ax, offset rikako_chargeshot_nodes
-		mov	si, ax
-		xor	cx, cx
-		jmp	short loc_1C46F
-; ---------------------------------------------------------------------------
-
-loc_1C459:
-		mov	[si], di
-		mov	ax, [bp+@@center_y]
-		mov	[si+2],	ax
-		mov	al, cl
-		shl	al, 6
-		add	al, 20h	; ' '
-		mov	[si+4],	al
-		inc	cx
-		add	si, 6
-
-loc_1C46F:
-		cmp	cx, 4
-		jl	short loc_1C459
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	rikako_chargeshot_origin_x[bx], di
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, [bp+@@center_y]
-		mov	bx, ax
-		mov	rikako_chargeshot_origin_y[bx], dx
-		pop	di
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_rikako	endp
+	CHARGESHOT_ADD_RIKAKO procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10784,19 +10723,29 @@ word_20E50	dw ?
 _word_20E52 label word
 word_20E52	dw ?
 rikako_gauge_pattern_frames db PLAYER_COUNT dup(?)
+public _rikako_chargeshot_nodes, rikako_chargeshot_nodes
+_rikako_chargeshot_nodes label byte
 rikako_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 6) dup(?)
 word_20E86	dw ?
 public _rikako_chargeshot_state, rikako_chargeshot_state
 _rikako_chargeshot_state label byte
 rikako_chargeshot_state db PLAYER_COUNT dup(?)
+public _rikako_chargeshot_frames, rikako_chargeshot_frames
+_rikako_chargeshot_frames label byte
 rikako_chargeshot_frames db PLAYER_COUNT dup(?)
+public _rikako_chargeshot_radius, rikako_chargeshot_radius
+_rikako_chargeshot_radius label word
 rikako_chargeshot_radius dw PLAYER_COUNT dup(?)
+public _rikako_chargeshot_origin_x, rikako_chargeshot_origin_x
+_rikako_chargeshot_origin_x label word
 rikako_chargeshot_origin_x dw ?
 public _byte_20E92, byte_20E92
 _byte_20E92 label byte
 byte_20E92 label byte
 		dw ?
+public _rikako_chargeshot_origin_y, rikako_chargeshot_origin_y
+_rikako_chargeshot_origin_y label word
 rikako_chargeshot_origin_y dw PLAYER_COUNT dup(?)
 byte_20E98	db PLAYER_COUNT dup(?)
 byte_20E9A	db PLAYER_COUNT dup(?)
