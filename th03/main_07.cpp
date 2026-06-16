@@ -341,3 +341,17 @@ void pascal near gauge_pattern_chiyuri(uint8_t type)
 		sub_A3A8(pid_other);
 	}
 }
+
+extern "C" void pascal far gba_gauge_pattern_pellet_chiyuri(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_chiyuri(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_chiyuri(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_chiyuri(BT_BULLET16_DEFAULT);
+	}
+}
