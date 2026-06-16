@@ -8922,41 +8922,13 @@ _sub_1B653 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_ellen
-gba_gauge_pattern_pellet_ellen proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1BC33
-		call	@gauge_pattern_ellen$quc pascal, BT_PELLET
-
-loc_1BC33:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_ellen endp
+	GBA_GAUGE_PATTERN_PELLET_ELLEN procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_ellen
-gba_gauge_pattern_bullet_ellen proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1BC4B
-		call	@gauge_pattern_ellen$quc pascal, BT_BULLET16_DEFAULT
-
-loc_1BC4B:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_ellen endp
+	GBA_GAUGE_PATTERN_BULLET_ELLEN procdesc pascal far
 
 main_08_TEXT	ends
 

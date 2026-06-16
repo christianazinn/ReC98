@@ -467,3 +467,17 @@ void pascal near gauge_pattern_ellen(uint8_t type)
 frame_next:
 	ellen_gauge_pattern_frames[pid_current]++;
 }
+
+extern "C" void pascal far gba_gauge_pattern_pellet_ellen(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_ellen(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_ellen(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_ellen(BT_BULLET16_DEFAULT);
+	}
+}
