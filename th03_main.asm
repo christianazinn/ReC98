@@ -8650,46 +8650,10 @@ main_06_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public SUB_1A32A
-SUB_1A32A label near
-sub_1A32A	proc near
-
-arg_0		= byte ptr  4
-@@top		= word ptr  6
-@@left		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		test	[bp+arg_0], 1
-		jnz	short loc_1A372
-		mov	si, ((80 * ROW_SIZE) + (320 / BYTE_DOTS))
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		and	ax, 7
-		cmp	ax, 3
-		jg	short loc_1A347
-		add	si, 4
-
-loc_1A347:
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	ax, [bp+@@left]
-		add	ax, -16
-		push	ax
-		mov	ax, [bp+@@top]
-		add	ax, -16
-		push	ax
-		push	si
-		call	sprite16_put
-
-loc_1A372:
-		pop	si
-		pop	bp
-		retn	6
-sub_1A32A	endp
+SUB_1A32A procdesc pascal near \
+	left:word, top:word, frame:word
+sub_1A32A procdesc pascal near \
+	left:word, top:word, frame:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
