@@ -8,6 +8,14 @@
 extern "C" uint8_t kotohime_chargeshot[];
 extern "C" uint16_t word_1FE6A;
 
+struct player_stuff_t {
+	uint8_t unused_0[0x18];
+	uint16_t gauge_charged;
+	uint8_t unused_1[0x66];
+};
+
+extern player_stuff_t players[PLAYER_COUNT];
+
 extern "C" void far sub_1C158(void)
 {
 	kotohime_chargeshot[0] = 0;
@@ -28,4 +36,30 @@ extern "C" void pascal far chargeshot_add_kotohime(
 	*reinterpret_cast<Subpixel near *>(_BX + 4) = center_y;
 	*reinterpret_cast<subpixel_t near *>(_BX + 6) = -0x10;
 	snd_se_play(6);
+}
+
+extern "C" void pascal far chargeshot_update_kotohime(void)
+{
+	word_1FE6A = reinterpret_cast<uint16_t>(
+		kotohime_chargeshot + (pid_current * 8)
+	);
+	_BX = word_1FE6A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] == 0) {
+		goto ret;
+	}
+	players[pid_current].gauge_charged = 0;
+	_BX = word_1FE6A;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 6);
+	asm { add [bx+4], ax; }
+	if(*reinterpret_cast<subpixel_t near *>(_BX + 4) > -0x100) {
+		goto accelerate;
+	}
+	reinterpret_cast<uint8_t near *>(_BX)[0] = 0;
+	return;
+
+accelerate:
+	_BX = word_1FE6A;
+	*reinterpret_cast<subpixel_t near *>(_BX + 6) -= 2;
+
+ret:
 }
