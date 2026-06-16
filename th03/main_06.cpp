@@ -427,3 +427,31 @@ loop_test:
 	}
 	hitbox_hittest_skip_explosions = false;
 }
+
+void far exatt_render_reimu(void)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] != 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		reimu_1A3C4();
+		slot[1]++;
+	}
+	i++;
+	slot += 0x20;
+
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
+}

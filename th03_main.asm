@@ -8691,40 +8691,7 @@ sub_1A491 procdesc pascal near \
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_reimu$qv
-@exatt_render_reimu$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1A622
-; ---------------------------------------------------------------------------
-
-loc_1A60F:
-		cmp	byte ptr [si], 0
-		jz	short loc_1A61E
-		mov	word_2028A, si
-		call	_reimu_1A3C4
-		inc	byte ptr [si+1]
-
-loc_1A61E:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1A622:
-		cmp	di, 8
-		jl	short loc_1A60F
-		pop	di
-		pop	si
-		pop	bp
-		retf
-@exatt_render_reimu$qv endp
+@exatt_render_reimu$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
