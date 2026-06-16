@@ -24,7 +24,7 @@ void near story_skill_decrement(void);
 extern "C" void pascal near sub_C248(player_stuff_t near *player);
 extern "C" void pascal near sub_C0D8(player_stuff_t near *player);
 extern "C" void pascal near sub_C54A(player_stuff_t near *player);
-extern "C" void pascal far sub_CDBD(void);
+extern "C" void pascal far SUB_CDBD(void);
 extern "C" void pascal far marisa_hyper_14340(void);
 extern "C" void pascal far ellen_hyper_1B6CA(subpixel_t x, subpixel_t y);
 extern "C" void pascal far rikako_1C497(subpixel_t x, subpixel_t y);
@@ -631,7 +631,7 @@ extern "C" void pascal near player_bomb(player_stuff_t near *player)
 			push	ax
 			nop
 			push	cs
-			call	near ptr sub_CDBD
+			call	near ptr SUB_CDBD
 		}
 	}
 	story_skill_decrement();

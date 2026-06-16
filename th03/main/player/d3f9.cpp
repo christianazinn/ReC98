@@ -44,6 +44,25 @@ extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
 
+extern "C" void pascal far SUB_CDBD(
+	subpixel_t x, subpixel_t y, uint16_t pid
+)
+{
+	register cee0_rec_t near *slot;
+
+	byte_20F1E++;
+	if(byte_20F1E >= 12) {
+		byte_20F1E = 0;
+	}
+	slot = &byte_20EA6[byte_20F1E];
+	slot->type = 1;
+	slot->age = 0;
+	slot->x = playfield_fg_x_to_screen(x, pid);
+	slot->y = ((y >> 4) + 16);
+	slot->radius = 8;
+	slot->radius_delta = 8;
+}
+
 extern "C" void pascal far SUB_CE0C(
 	subpixel_t x, subpixel_t y, uint16_t pid
 )
