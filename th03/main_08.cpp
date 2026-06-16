@@ -324,3 +324,44 @@ node_loop_test:
 	}
 	return ret;
 }
+
+extern "C" void pascal far chargeshot_render_ellen(void)
+{
+	register int i;
+
+	word_1F868 = reinterpret_cast<uint16_t>(
+		ellen_chargeshot_nodes + (pid_current * (32 * 12))
+	);
+	sprite16_put_size.w.v = (16 / 16);
+	sprite16_put_size.h = 8;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	_BX = word_1F868;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] != 1) {
+		goto next;
+	}
+	_BX = word_1F868;
+	ellen_chargeshot_1B8A6(
+		reinterpret_cast<Subpixel near *>(_BX + 4)[0],
+		reinterpret_cast<Subpixel near *>(_BX + 6)[0]
+	);
+
+next:
+	i++;
+	word_1F868 += 0x0C;
+
+node_loop_test:
+	if(i < 0x20) {
+		goto node_loop;
+	}
+}
