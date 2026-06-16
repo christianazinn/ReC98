@@ -5,6 +5,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "th03/common.h"
+#include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
@@ -34,12 +35,34 @@ struct d3f9_rec_t {
 };
 
 extern "C" cee0_rec_t near byte_20EA6[];
+extern "C" uint8_t near byte_20F1E;
 extern "C" d3f9_rec_t near byte_20F2C[];
 extern "C" uint8_t near angle_2142C;
+extern "C" uint16_t far randring_far_next16_raw(void);
 
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void pascal far SUB_CE5B(
+	subpixel_t x, subpixel_t y, uint16_t pid
+)
+{
+	register cee0_rec_t near *slot;
+
+	byte_20F1E++;
+	if(byte_20F1E >= 12) {
+		byte_20F1E = 0;
+	}
+	slot = &byte_20EA6[byte_20F1E];
+	slot->type = 2;
+	slot->age = 0;
+	slot->x = playfield_fg_x_to_screen(x, pid);
+	slot->y = ((y >> 4) + 16);
+	slot->radius = 162;
+	slot->radius_delta = -10;
+	slot->angle = randring_far_next16_raw();
+}
 
 extern "C" void pascal far sub_CEB2(void)
 {
