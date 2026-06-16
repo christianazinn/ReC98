@@ -6,9 +6,11 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/vector.hpp"
 
 extern "C" uint8_t ellen_chargeshot_nodes[];
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_1F868;
 extern "C" subpixel_t word_2142E;
 extern "C" subpixel_t word_21430;
@@ -240,4 +242,29 @@ update_loop_test:
 	}
 
 ret:
+}
+
+extern "C" void pascal near ellen_chargeshot_1B8A6(Subpixel x, Subpixel y)
+{
+	sprite16_offset_t sprite_offset;
+	uint8_t phase;
+	register subpixel_t x_reg;
+	register subpixel_t y_reg;
+
+	x_reg = x.v;
+	y_reg = y.v;
+	sprite_offset = (pid_PID_so_attack + 0x10);
+	_BX = word_1F868;
+	_AL = reinterpret_cast<uint8_t near *>(_BX)[2];
+	_AL += 0x10;
+	phase = _AL;
+	phase >>= 5;
+	phase <<= 1;
+	sprite_offset += phase;
+	x_reg = (playfield_fg_x_to_screen(x_reg, pid_current) - 8);
+	_AX = y_reg;
+	asm { sar ax, 4; }
+	_AX += 8;
+	y_reg = _AX;
+	sprite16_put(x_reg, _AX, sprite_offset);
 }

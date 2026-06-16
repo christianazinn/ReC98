@@ -8894,48 +8894,8 @@ _sub_1B653 procdesc far
 
 ; Attributes: bp-based frame
 
-ellen_chargeshot_1B8A6	proc near
-
-var_3		= byte ptr -3
-@@sprite_offset		= word ptr -2
-arg_0		= word ptr  4
-@@x		= word ptr  6
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	si, [bp+@@x]
-		mov	di, [bp+arg_0]
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, 10h
-		mov	[bp+@@sprite_offset], ax
-		mov	bx, word_1F868
-		mov	al, [bx+2]
-		add	al, 10h
-		mov	[bp+var_3], al
-		shr	[bp+var_3], 5
-		shl	[bp+var_3], 1
-		mov	al, [bp+var_3]
-		mov	ah, 0
-		add	[bp+@@sprite_offset], ax
-		push	si	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -8
-		mov	si, ax
-		mov	ax, di
-		sar	ax, 4
-		add	ax, 8
-		mov	di, ax
-		call	sprite16_put pascal, si, ax, [bp+@@sprite_offset]
-		pop	di
-		pop	si
-		leave
-		retn	4
-ellen_chargeshot_1B8A6	endp
+	ELLEN_CHARGESHOT_1B8A6 procdesc pascal near \
+		x:word, y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
