@@ -8963,51 +8963,7 @@ _sub_1BC4D procdesc far
 
 ; Attributes: bp-based frame
 
-kana_chargeshot_1BDF8	proc near
-
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (56 * ROW_SIZE)
-		mov	di, ax
-		mov	si, 0Ch
-		jmp	short loc_1BE4A
-; ---------------------------------------------------------------------------
-
-loc_1BE0D:
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FD8C
-		push	word ptr [bx]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@left], ax
-		mov	bx, si
-		add	bx, bx
-		add	bx, word_1FD8C
-		mov	ax, [bx+1Ah]
-		sar	ax, 4
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, di
-		sub	si, 4
-		sub	di, (16 * ROW_SIZE)
-
-loc_1BE4A:
-		or	si, si
-		jge	short loc_1BE0D
-		pop	di
-		pop	si
-		leave
-		retn
-kana_chargeshot_1BDF8	endp
+	_kana_chargeshot_1BDF8 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9143,7 +9099,7 @@ loc_1BF40:
 ; ---------------------------------------------------------------------------
 
 loc_1BF4A:
-		call	kana_chargeshot_1BDF8
+		call	_kana_chargeshot_1BDF8
 		inc	si
 		add	word_1FD8C, 36h	; '6'
 
@@ -11248,6 +11204,8 @@ public _kana_chargeshot_nodes, kana_chargeshot_nodes
 _kana_chargeshot_nodes label byte
 kana_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 54) dup(?)
+public _word_1FD8C
+_word_1FD8C label word
 word_1FD8C	dw ?
 public _kana_chargeshot_state, kana_chargeshot_state, _kana_chargeshot_frames, kana_chargeshot_frames
 _kana_chargeshot_state label byte
