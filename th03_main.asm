@@ -8902,62 +8902,7 @@ _sub_1B653 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_ellen$qv
-@chargeshot_hittest_ellen$qv proc far
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	[bp+var_1], 0
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		xor	si, si
-		jmp	short loc_1B96E
-; ---------------------------------------------------------------------------
-
-loc_1B91F:
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 1
-		jnz	short loc_1B968
-		mov	bx, word_1F868
-		mov	ax, [bx+4]
-		cmp	ax, _hitbox_origin_topleft.x
-		jl	short loc_1B968
-		cmp	ax, _hitbox_right
-		jg	short loc_1B968
-		mov	ax, [bx+6]
-		cmp	ax, _hitbox_origin_topleft.y
-		jl	short loc_1B968
-		cmp	ax, _hitbox_bottom
-		jg	short loc_1B968
-		push	word ptr [bx+4]	; center_x
-		push	ax	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		mov	bx, word_1F868
-		mov	byte ptr [bx], 0
-		mov	al, [bp+var_1]
-		add	al, 2
-		mov	[bp+var_1], al
-
-loc_1B968:
-		inc	si
-		add	word_1F868, 0Ch
-
-loc_1B96E:
-		cmp	si, 20h	; ' '
-		jl	short loc_1B91F
-		mov	al, [bp+var_1]
-		pop	si
-		leave
-		retf
-@chargeshot_hittest_ellen$qv endp
+	@chargeshot_hittest_ellen$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
