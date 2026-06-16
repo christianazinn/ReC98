@@ -1006,7 +1006,7 @@ loc_9F31:
 		call	_sub_153BB
 		call	_sub_142D0
 		call	sub_1B653
-		call	sub_193BC
+		call	_sub_193BC
 		les	bx, _resident
 		cmp	es:[bx+resident_t.game_mode], GM_STORY
 		jnz	loc_9FFA
@@ -8910,38 +8910,7 @@ loc_193B4:
 
 ; Attributes: bp-based frame
 
-sub_193BC	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset ellen_exatt_refs
-		mov	di, (offset ellen_exatt_refs + (12 * 30))
-		xor	dx, dx
-		jmp	short loc_193E6
-; ---------------------------------------------------------------------------
-
-loc_193CB:
-		mov	ax, dx
-		shl	ax, 5
-		add	ax, offset exatt_buffers
-		mov	[si], ax
-		mov	ax, dx
-		shl	ax, 5
-		add	ax, (offset exatt_buffers + 512)
-		mov	[di], ax
-		inc	dx
-		add	si, 1Eh
-		add	di, 1Eh
-
-loc_193E6:
-		cmp	dx, 0Ch
-		jl	short loc_193CB
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_193BC	endp
+	_sub_193BC procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

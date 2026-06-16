@@ -42,6 +42,35 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void far sub_193BC(void)
+{
+	register uint8_t near *refs_p1;
+	register uint8_t near *refs_p2;
+
+	refs_p1 = ellen_exatt_refs;
+	refs_p2 = (ellen_exatt_refs + (12 * 30));
+	_DX = 0;
+	goto loop_test;
+loop:
+	_AX = _DX;
+	_AX <<= 5;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	*reinterpret_cast<uint16_t near *>(refs_p1) = _AX;
+
+	_AX = _DX;
+	_AX <<= 5;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers + 512);
+	*reinterpret_cast<uint16_t near *>(refs_p2) = _AX;
+
+	_DX++;
+	refs_p1 += 30;
+	refs_p2 += 30;
+loop_test:
+	if(static_cast<int>(_DX) < 12) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far exatt_add_ellen(
 	subpixel_t center_x, subpixel_t center_y, pid_t pid
 )
