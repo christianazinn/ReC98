@@ -28,6 +28,103 @@ extern "C" void near sub_D0FA(void);
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D3F9(void);
 
+extern "C" void pascal far sub_D1E7(void)
+{
+	int frame_mod_4096;
+	char should_vector;
+
+	frame_mod_4096 = (round_or_result_frame & 4095);
+	if(frame_mod_4096 < 1024) {
+		should_vector = false;
+	} else if(frame_mod_4096 < 1280) {
+		if((frame_mod_4096 & 7) == 0) {
+			goto d1e7_vector_inc;
+		}
+		goto d1e7_vector_flag_ready;
+	} else if(frame_mod_4096 < 2048) {
+		should_vector = false;
+	} else if(frame_mod_4096 < 2304) {
+		if((frame_mod_4096 & 3) == 0) {
+			goto d1e7_vector_dec;
+		}
+		goto d1e7_vector_flag_ready;
+	} else if((frame_mod_4096 >= 3072) && (frame_mod_4096 < 4064)) {
+		if((frame_mod_4096 & 127) >= 64) {
+			goto d1e7_vector_dec;
+		}
+d1e7_vector_inc:
+		angle_2142C++;
+		goto d1e7_vector_set_flag;
+d1e7_vector_dec:
+		angle_2142C--;
+d1e7_vector_set_flag:
+		should_vector = true;
+	} else {
+		should_vector = false;
+	}
+
+d1e7_vector_flag_ready:
+	_DI = FP_OFF(byte_20F2C);
+	_SI = 0;
+d1e7_vector_loop:
+		sub_D0FA();
+		if(should_vector) {
+			_asm {
+				lea 	bx, [di+4]
+				push 	ds
+				push 	bx
+				lea 	bx, [di+6]
+				push 	ds
+				push 	bx
+				mov 	al, angle_2142C
+				mov 	ah, 0
+				push 	ax
+				mov 	al, [di+8]
+				push 	ax
+				call 	far ptr vector2
+			}
+		}
+		_DI += sizeof(d3f9_rec_t);
+		_SI++;
+	if(static_cast<uint16_t>(_SI) < 0x30) {
+		goto d1e7_vector_loop;
+	}
+	sprite16_put_size.w.v = (16 / 16);
+	sprite16_put_size.h = 3;
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	grcg_setcolor(GC_RMW, 10);
+	_ES = SEG_PLANE_B;
+	_DI = FP_OFF(byte_20F2C);
+	_SI = 0;
+d1e7_grcg_loop:
+		sub_D031();
+		_DI += sizeof(d3f9_rec_t);
+		_SI++;
+	if(static_cast<uint16_t>(_SI) < 0x18) {
+		goto d1e7_grcg_loop;
+	}
+	grcg_off();
+	egc_on();
+d1e7_sprite_loop:
+		_asm {
+			mov 	ax, [di]
+			sar 	ax, 4
+			push 	ax
+			mov 	ax, [di+2]
+			sar 	ax, 4
+			push 	ax
+			push 	word ptr [di+0Ah]
+			call 	far ptr sprite16_put_noclip
+		}
+		_DI += sizeof(d3f9_rec_t);
+		_SI++;
+	if(static_cast<uint16_t>(_SI) < 0x30) {
+		goto d1e7_sprite_loop;
+	}
+	egc_off();
+}
+
 extern "C" void pascal far sub_D2E8(void)
 {
 	angle_2142C = 0x40;
