@@ -722,6 +722,7 @@ obj = {
 	"th03/cfg_lres.cpp",
 	"th03/hitcirc.cpp",
 	"th03/hud_stat.cpp",
+	"th03/main/player/gaugeovl.cpp",
 	"th03/main/player/warning.cpp",
 	"th03/main/player/warning_cacb.asm",
 	"th03/main/player/d3f9.cpp",
