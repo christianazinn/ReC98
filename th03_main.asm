@@ -8669,104 +8669,7 @@ sub_1A377 procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-reimu_1A3C4	proc near
-
-var_5		= byte ptr -5
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, word_2028A
-		push	word ptr [si+2]	; x
-		mov	al, [si+10h]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@left], ax
-		mov	ax, [si+4]
-		sar	ax, 4
-		add	ax, 16
-		mov	[bp+@@top], ax
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		cmp	_pid_current, 1
-		jnz	short loc_1A40B
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1A417
-; ---------------------------------------------------------------------------
-
-loc_1A40B:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1A417:
-		cmp	byte ptr [si], 1
-		jnz	short loc_1A46F
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	di, ax
-		mov	al, [si+1]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+var_5], al
-		mov	ah, 0
-		and	ax, 3
-		cmp	ax, 1
-		jnz	short loc_1A443
-		add	di, 6
-		jmp	short loc_1A459
-; ---------------------------------------------------------------------------
-
-loc_1A443:
-		test	[bp+var_5], 3
-		jz	short loc_1A459
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		and	ax, 1
-		imul	ax, 6
-		add	ax, (24 * ROW_SIZE)
-		add	di, ax
-
-loc_1A459:
-		mov	ax, [bp+@@left]
-		add	ax, -24
-		push	ax
-		mov	ax, [bp+@@top]
-		add	ax, -24
-		push	ax
-		push	di
-		call	sprite16_put
-		jmp	short loc_1A48D
-; ---------------------------------------------------------------------------
-
-loc_1A46F:
-		cmp	byte ptr [si], 2
-		jnz	short loc_1A482
-		push	[bp+@@left]
-		push	[bp+@@top]
-		push	word ptr [si+1]
-		call	sub_1A32A
-		jmp	short loc_1A48D
-; ---------------------------------------------------------------------------
-
-loc_1A482:
-		push	[bp+@@left]
-		push	[bp+@@top]
-		push	word ptr [si]
-		call	sub_1A377
-
-loc_1A48D:
-		pop	di
-		pop	si
-		leave
-		retn
-reimu_1A3C4	endp
+	_reimu_1A3C4 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -8959,7 +8862,7 @@ loc_1A60F:
 		cmp	byte ptr [si], 0
 		jz	short loc_1A61E
 		mov	word_2028A, si
-		call	reimu_1A3C4
+		call	_reimu_1A3C4
 		inc	byte ptr [si+1]
 
 loc_1A61E:
