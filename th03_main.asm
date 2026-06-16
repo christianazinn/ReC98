@@ -8976,59 +8976,7 @@ _sub_1BC4D procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_KANA
-chargeshot_render_kana	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr kana_chargeshot_state[bx], 0
-		jz	short loc_1BF5F
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, (4 * 54)
-		add	ax, offset kana_chargeshot_nodes
-		mov	word_1FD8C, ax
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		cmp	_pid_current, 0
-		jnz	short loc_1BF34
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1BF40
-; ---------------------------------------------------------------------------
-
-loc_1BF34:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1BF40:
-		xor	dx, dx
-		mov	ah, SPRITE16_SET_OVERLAP
-		int	SPRITE16
-		xor	si, si
-		jmp	short loc_1BF53
-; ---------------------------------------------------------------------------
-
-loc_1BF4A:
-		call	_kana_chargeshot_1BDF8
-		inc	si
-		add	word_1FD8C, 36h	; '6'
-
-loc_1BF53:
-		cmp	si, 4
-		jl	short loc_1BF4A
-		mov	dx, OVERLAP_CLEAR
-		mov	ah, SPRITE16_SET_OVERLAP
-		int	SPRITE16
-
-loc_1BF5F:
-		pop	si
-		pop	bp
-		retf
-chargeshot_render_kana	endp
+	CHARGESHOT_RENDER_KANA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
