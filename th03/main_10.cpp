@@ -134,3 +134,26 @@ uint8_t far chargeshot_hittest_kotohime(void)
 not_hit:
 	return 0;
 }
+
+extern "C" void pascal far chargeshot_render_kotohime(void)
+{
+	word_1FE6A = reinterpret_cast<uint16_t>(
+		kotohime_chargeshot + (pid_current * 8)
+	);
+	_BX = word_1FE6A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] == 0) {
+		goto ret;
+	}
+	sprite16_put_size.w.v = (96 / 16);
+	sprite16_put_size.h = 16;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	kotohime_chargeshot_1C1E9();
+
+ret:
+}
