@@ -8983,192 +8983,8 @@ _sub_1BC4D procdesc far
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_kana$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type		= byte ptr  4
-
-		enter	2, 0
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_1BF78
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_1BF78:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_1BFF3
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr kana_gauge_pattern_frames[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word ptr kana_gauge_pattern_x[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	dl, 8
-		sub	dl, al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	byte_202B8[bx], dl
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		add	al, 30h	; '0'
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B9[bx], al
-		leave
-		retn	2
-; ---------------------------------------------------------------------------
-
-loc_1BFF3:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	locret_1C124
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, kana_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	dl, byte_202B8[bx]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1C0BB
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	al, [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	_bullet_template.BT_center.y, 0
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, kana_gauge_pattern_x[bx]
-		mov	_bullet_template.BT_center.x, ax
-		mov	_bullet_template.BT_group, BG_1
-		mov	_bullet_template.BT_angle, 40h
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B9[bx]
-		mov	_bullet_template.BT_speed, al
-		call	@bullets_add$qv
-		push	_bullet_template.BT_center.x
-		push	0
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, (PLAYFIELD_W shl 4)
-		mov	bx, ax
-		sub	dx, kana_gauge_pattern_x[bx]
-		mov	_bullet_template.BT_center.x, dx
-		call	@bullets_add$qv
-		push	_bullet_template.BT_center.x
-		push	0
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-
-loc_1C0BB:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, kana_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	bx, 40h
-		cwd
-		idiv	bx
-		cmp	dx, 20h	; ' '
-		jge	short loc_1C0E4
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		add	word ptr kana_gauge_pattern_x[bx], 80h
-		jmp	short loc_1C0F3
-; ---------------------------------------------------------------------------
-
-loc_1C0E4:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		sub	word ptr kana_gauge_pattern_x[bx], 80h
-
-loc_1C0F3:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr kana_gauge_pattern_frames[bx], 80h
-		jb	short loc_1C119
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-
-loc_1C119:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr kana_gauge_pattern_frames[bx]
-
-locret_1C124:
-		leave
-		retn	2
-@gauge_pattern_kana$quc endp
+@GAUGE_PATTERN_KANA$QUC procdesc pascal near \
+		 type:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9183,7 +8999,7 @@ gba_gauge_pattern_pellet_kana proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C13E
-		call	@gauge_pattern_kana$quc pascal, BT_PELLET
+		call	@GAUGE_PATTERN_KANA$QUC pascal, BT_PELLET
 
 loc_1C13E:
 		pop	bp
@@ -9203,7 +9019,7 @@ gba_gauge_pattern_bullet_kana proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C156
-		call	@gauge_pattern_kana$quc pascal, BT_BULLET16_DEFAULT
+		call	@GAUGE_PATTERN_KANA$QUC pascal, BT_BULLET16_DEFAULT
 
 loc_1C156:
 		pop	bp
@@ -11060,7 +10876,11 @@ _word_1FBD2 label word
 word_1FBD2	dw ?
 angle_1FBD4	db ?
 		db ?
+public _kana_gauge_pattern_x, kana_gauge_pattern_x
+_kana_gauge_pattern_x label word
 kana_gauge_pattern_x dw PLAYER_COUNT dup(?)
+public _kana_gauge_pattern_frames, kana_gauge_pattern_frames
+_kana_gauge_pattern_frames label byte
 kana_gauge_pattern_frames db PLAYER_COUNT dup(?)
 public _kana_chargeshot_nodes, kana_chargeshot_nodes
 _kana_chargeshot_nodes label byte
