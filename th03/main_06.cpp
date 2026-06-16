@@ -1,6 +1,8 @@
 #pragma option -zCmain_06_TEXT -zPmain_06
 
 #include "codegen.hpp"
+#include "libs/master.lib/master.hpp"
+#include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/collmap.hpp"
 #include "th03/main/difficul.hpp"
@@ -14,6 +16,7 @@
 extern "C" uint8_t exatt_buffers[];
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_2028A;
+extern "C" uint16_t far randring_far_next16_raw(void);
 
 extern "C" uint8_t near sub_1A1A7(void)
 {
@@ -560,4 +563,177 @@ generic:
 	sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot));
 
 ret:
+}
+
+void far exatt_update_mima(void)
+{
+	int i;
+	subpixel_t center_y;
+	int timer;
+	uint8_t pid_other;
+	register uint8_t near *slot;
+	register subpixel_t center_x;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	collmap_stripe_tile_w.v = (16 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (16 / COLLMAP_TILE_H);
+	collmap_pid = _AL;
+	i = 0;
+	goto loop_test;
+
+loop:
+	if(slot[0] == 0) {
+		goto next;
+	}
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	center_x = (
+		*reinterpret_cast<subpixel_t near *>(slot + 2) +
+		*reinterpret_cast<subpixel_t near *>(slot + 6)
+	);
+	center_y = (
+		*reinterpret_cast<subpixel_t near *>(slot + 4) +
+		*reinterpret_cast<subpixel_t near *>(slot + 8)
+	);
+	if(center_x <= 0) {
+		goto bounce_x;
+	}
+	if(center_x < TO_SP(PLAYFIELD_W)) {
+		goto check_y;
+	}
+
+bounce_x:
+	if(slot[1] == 0) {
+		goto deactivate;
+	}
+	slot[1]--;
+	*reinterpret_cast<subpixel_t near *>(slot + 6) = (
+		-*reinterpret_cast<subpixel_t near *>(slot + 6)
+	);
+	goto update_angle;
+
+check_y:
+	if(center_y <= 0) {
+		goto bounce_y;
+	}
+	if(center_y < TO_SP(PLAYFIELD_H)) {
+		goto in_bounds;
+	}
+
+bounce_y:
+	if(slot[1] == 0) {
+		goto deactivate;
+	}
+	slot[1]--;
+	*reinterpret_cast<subpixel_t near *>(slot + 8) = (
+		-*reinterpret_cast<subpixel_t near *>(slot + 8)
+	);
+
+update_angle:
+	slot[0x12] = iatan2(
+		*reinterpret_cast<int near *>(slot + 8),
+		*reinterpret_cast<int near *>(slot + 6)
+	);
+	goto active_state_1;
+
+deactivate:
+	slot[0] = 0;
+	goto next;
+
+in_bounds:
+	*reinterpret_cast<subpixel_t near *>(slot + 2) = center_x;
+	*reinterpret_cast<subpixel_t near *>(slot + 4) = center_y;
+
+active_state_1:
+	timer = *reinterpret_cast<uint16_t near *>(slot + 0x0E);
+	if(timer < 0x10) {
+		goto speed_done;
+	}
+	if(timer >= 0x20) {
+		goto speed_high;
+	}
+	_AL = slot[0x13];
+	_DL = static_cast<uint8_t>(timer);
+	_DL &= 1;
+	_AL += _DL;
+	slot[0x13] = _AL;
+	goto speed_done;
+
+speed_high:
+	if(timer < 0x50) {
+		slot[0x13]++;
+	}
+
+speed_done:
+	if(timer >= 0x50) {
+		goto hittest;
+	}
+	vector2(
+		*reinterpret_cast<int near *>(slot + 6),
+		*reinterpret_cast<int near *>(slot + 8),
+		slot[0x12],
+		slot[0x13]
+	);
+
+hittest:
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(16);
+	hitbox.radius.y.v = TO_SP(16);
+	hitbox.pid = pid_other;
+	hitbox.origin.center.x.v = center_x;
+	hitbox.origin.center.y.v = center_y;
+	if(hitbox_hittest() != 0) {
+		*reinterpret_cast<subpixel_t near *>(slot + 8) -= 8;
+	}
+	hitbox_hittest_skip_explosions = false;
+	collmap_center.x.v = center_x;
+	collmap_center.y.v = center_y;
+	collmap_set_rect_striped();
+	goto inc_timer;
+
+not_state_1:
+	if(slot[0] != 2) {
+		goto not_state_2;
+	}
+	word_2028A = reinterpret_cast<uint16_t>(slot);
+	if(sub_1A1A7() == 0) {
+		goto inc_timer;
+	}
+	slot[0x12] = randring_far_next16_raw();
+	slot[0x13] = 0;
+	*reinterpret_cast<subpixel_t near *>(slot + 6) = 0;
+	*reinterpret_cast<subpixel_t near *>(slot + 8) = 0;
+	goto next;
+
+not_state_2:
+	if(slot[0] > 0x1C) {
+		goto start_state_1;
+	}
+	slot[0]++;
+	goto inc_timer;
+
+start_state_1:
+	*reinterpret_cast<uint16_t near *>(slot + 0x0E) = 0;
+	slot[0] = 1;
+	snd_se_play(10);
+
+inc_timer:
+	(*reinterpret_cast<uint16_t near *>(slot + 0x0E))++;
+
+next:
+	i++;
+	slot += 0x20;
+
+loop_test:
+	if(i < 6) {
+		goto loop;
+	}
 }
