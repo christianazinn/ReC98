@@ -1,5 +1,3 @@
-#pragma option -zPmain_01 -G
-
 #include "th01/math/clamp.hpp"
 #include "th03/main/player/move.hpp"
 

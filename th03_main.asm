@@ -5329,6 +5329,8 @@ sub_D3F9	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public SUB_D50E
+SUB_D50E label near
 sub_D50E	proc near
 		push	si
 		push	di
@@ -5498,64 +5500,9 @@ loc_D645:
 
 ; Attributes: bp-based frame
 
-public SUB_D668
-SUB_D668 label far
-sub_D668	proc far
+	SUB_D668 procdesc pascal far \
+		left:word, top:word, points:word, col:byte
 
-arg_0		= byte ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-arg_6		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		push	GC_RMW
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		mov	ax, [bp+arg_4]
-		mov	dx, ax
-		shl	ax, 2
-		add	ax, dx
-		add	ax, 0A805h
-		mov	es, ax
-		mov	cx, [bp+arg_6]
-		mov	si, offset _FIVE_DIGIT_POWERS_OF_10
-		mov	di, [bp+arg_2]
-		mov	bl, 0
-		nop
-
-loc_D696:
-		mov	ax, di
-		xor	dx, dx
-		div	word ptr [si]
-		mov	di, dx
-		or	bl, al
-		jz	short loc_D6A5
-		call	sub_D50E
-
-loc_D6A5:
-		add	cx, 8
-		add	si, 2
-		cmp	word ptr [si], 1
-		ja	short loc_D696
-		mov	ax, di
-		or	bl, al
-		jz	short loc_D6B9
-		call	sub_D50E
-
-loc_D6B9:
-		pop	di
-		pop	si
-		pop	bp
-		retf	8
-sub_D668	endp
-
-; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
 
