@@ -8870,45 +8870,8 @@ _sub_1B653 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_ELLEN
-chargeshot_add_ellen	proc far
-
-var_2		= word ptr -2
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		enter	2, 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		mov	[bp+var_2], 0
-		jmp	short loc_1B6C0
-; ---------------------------------------------------------------------------
-
-loc_1B68E:
-		mov	bx, word_1F868
-		mov	al, byte ptr [bp+var_2]
-		mov	[bx], al
-		mov	byte ptr [bx+1], 0
-		mov	ax, [bp+@@center_x]
-		mov	[bx+4],	ax
-		mov	ax, [bp+@@center_y]
-		mov	[bx+6],	ax
-		call	@randring_far_next16$qv
-		mov	bx, word_1F868
-		mov	[bx+2],	al
-		mov	byte ptr [bx+3], 50h ; 'P'
-		add	[bp+var_2], 2
-		add	word_1F868, 0Ch
-
-loc_1B6C0:
-		cmp	[bp+var_2], 40h
-		jl	short loc_1B68E
-		leave
-		retf	4
-chargeshot_add_ellen	endp
+	CHARGESHOT_ADD_ELLEN procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
