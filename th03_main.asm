@@ -8782,39 +8782,7 @@ _rikako_1B05A procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_rikako$qv
-@exatt_render_rikako$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1B257
-; ---------------------------------------------------------------------------
-
-loc_1B247:
-		cmp	byte ptr [si], 0
-		jz	short loc_1B253
-		mov	word_2028A, si
-		call	_rikako_1B05A
-
-loc_1B253:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1B257:
-		cmp	di, 0Eh
-		jl	short loc_1B247
-		pop	di
-		pop	si
-		pop	bp
-		retf
-@exatt_render_rikako$qv endp
+@exatt_render_rikako$qv procdesc far
 
 main_06_TEXT	ends
 
