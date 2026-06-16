@@ -8943,14 +8943,7 @@ main_09_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_1BC4D	proc far
-		push	bp
-		mov	bp, sp
-		mov	kana_chargeshot_state[0], 0
-		mov	kana_chargeshot_state[1], 0
-		pop	bp
-		retf
-sub_1BC4D	endp
+_sub_1BC4D procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -11458,6 +11451,8 @@ kana_gauge_pattern_frames db PLAYER_COUNT dup(?)
 kana_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 54) dup(?)
 word_1FD8C	dw ?
+public _kana_chargeshot_state, kana_chargeshot_state
+_kana_chargeshot_state label byte
 kana_chargeshot_state db PLAYER_COUNT dup(?)
 kana_chargeshot_frames db PLAYER_COUNT dup(?)
 
