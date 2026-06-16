@@ -1386,7 +1386,8 @@ sub_A3A8	endp
 
 ; Attributes: bp-based frame
 
-public sub_A3D2
+public _sub_A3D2, sub_A3D2
+_sub_A3D2 label far
 sub_A3D2	proc far
 
 arg_0		= byte ptr  6
@@ -1952,7 +1953,7 @@ arg_0		= word ptr  4
 		setfarfp	gba_boss_update_p1, gba_boss_update_rikako
 		setfarfp	gba_boss_render_p1, gba_boss_render_rikako
 		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, rikako_bomb
+		setfarfp	bomb_p1, RIKAKO_BOMB
 		mov	_p1.hyper_func, offset hyper_rikako
 		mov	_p1.hyper, offset hyper_standby
 		jmp	loc_B01D
@@ -1971,7 +1972,7 @@ loc_AF72:
 		setfarfp	gba_boss_update_p2, gba_boss_update_rikako
 		setfarfp	gba_boss_render_p2, gba_boss_render_rikako
 		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, rikako_bomb
+		setfarfp	bomb_p2, RIKAKO_BOMB
 		mov	_p2.hyper_func, offset hyper_rikako
 		mov	_p2.hyper, offset hyper_standby
 		call	sub_A4A1
@@ -8216,217 +8217,7 @@ kotohime_bomb	endp
 
 ; Attributes: bp-based frame
 
-rikako_bomb	proc far
-
-var_2		= byte ptr -2
-@@frame		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jz	@@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _bomb_frame[bx]
-		mov	[bp+@@frame], al
-		call	egc_off
-		cmp	[bp+@@frame], 64
-		jnb	short loc_18E39
-		push	GC_RMW
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		mov	bx, offset byte_20E92
-		cmp	_pid_current, 0
-		jz	short loc_18E11
-		add	bx, 28h	; '('
-
-loc_18E11:
-		call	_sub_B39E
-		call	grcg_off
-		mov	al, [bp+@@frame]
-		shl	al, 2
-		mov	[bp+var_2], al
-		mov	ah, 0
-		push	ax
-		push	word ptr _pid_current
-		call	sub_A3D2
-		mov	word_220EC, 0
-		jmp	loc_18FE2
-; ---------------------------------------------------------------------------
-
-loc_18E39:
-		cmp	[bp+@@frame], 128
-		jnb	loc_18F89
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		and	ax, 3
-		cmp	ax, 2
-		jge	short loc_18E5F
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], 4
-		jmp	short loc_18E6E
-; ---------------------------------------------------------------------------
-
-loc_18E5F:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], -4
-
-loc_18E6E:
-		mov	si, PLAYFIELD_LEFT
-		cmp	_pid_current, 0
-		jz	short loc_18E7C
-		add	si, PLAYFIELD_W_BORDERED
-
-loc_18E7C:
-		push	si	; left
-		push	PLAYFIELD_TOP	; top
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, 2
-		push	ax	; slot
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; altered_colors
-		call	@mrs_put_noalpha_8$qiuiiuc
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, (144 shl 4)
-		sub	ax, word_220EC
-		push	ax	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	si, ax
-		call	grcg_vline pascal, ax, (8 shl 16) or 192
-		mov	ax, word_220EC
-		add	ax, (144 shl 4)
-		push	ax	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	si, ax
-		call	grcg_vline pascal, ax, (8 shl 16) or 192
-		mov	ax, word_220EC
-		add	ax, ax
-		mov	dx, (144 shl 4)
-		sub	dx, ax
-		push	dx	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	si, ax
-		call	grcg_vline pascal, ax, (8 shl 16) or 192
-		mov	ax, word_220EC
-		add	ax, ax
-		add	ax, (144 shl 4)
-		push	ax	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	si, ax
-		call	grcg_vline pascal, ax, (8 shl 16) or 192
-		add	word_220EC, 41h	; 'A'
-		cmp	word_220EC, (72 shl 4)
-		jl	short loc_18F38
-		mov	word_220EC, 0
-
-loc_18F38:
-		call	grcg_off
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_18F71
-		push	1023
-		call	@randring_far_next16_and$qui
-		mov	si, ax
-		jmp	short loc_18F6B
-; ---------------------------------------------------------------------------
-
-loc_18F58:
-		push	si
-		push	(368 shl 4)
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax
-		call	sub_CDBD
-		add	si, (96 shl 4)
-
-loc_18F6B:
-		cmp	si, (PLAYFIELD_W shl 4)
-		jle	short loc_18F58
-
-loc_18F71:
-		mov	al, [bp+@@frame]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_18FE2
-		call	snd_se_play pascal, 5
-		jmp	short loc_18FE2
-; ---------------------------------------------------------------------------
-
-loc_18F89:
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	_playfield_fg_shift_x[bx], 0
-		mov	al, [bp+@@frame]
-		shl	al, 3
-		mov	dl, 255
-		sub	dl, al
-		mov	[bp+@@frame], dl
-		mov	al, [bp+@@frame]
-		add	al, al
-		mov	[bp+var_2], al
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	dl, [bp+var_2]
-		mov	bx, ax
-		mov	Palettes[bx].r, dl
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	bx, ax
-		mov	Palettes[bx].g, dl
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, size rgb_t
-		mov	dl, [bp+@@frame]
-		mov	bx, ax
-		mov	Palettes[bx].b, dl
-		mov	_palette_changed, 1
-
-loc_18FE2:
-		call	egc_on
-
-@@ret:
-		pop	si
-		leave
-		retf
-rikako_bomb	endp
-
+RIKAKO_BOMB procdesc pascal far
 main_05_TEXT	ends
 
 ; ===========================================================================
@@ -10360,6 +10151,8 @@ byte_220E0	db ?
 _byte_220E6 label byte
 byte_220E6	db ?
 		db 5 dup(?)
+public _word_220EC, word_220EC
+_word_220EC label word
 word_220EC	dw ?
 public _collmap_topleft, _collmap_center, _collmap_stripe_tile_w
 public _collmap_tile_h, _collmap_bottomright, _collmap_pid, _collmap
