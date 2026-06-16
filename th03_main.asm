@@ -8706,100 +8706,7 @@ sub_1A491 procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-mima_1A684	proc near
-
-var_5		= word ptr -5
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, word_2028A
-		push	word ptr [si+2]	; x
-		mov	al, [si+10h]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@left], ax
-		mov	ax, [si+4]
-		sar	ax, 4
-		add	ax, 16
-		mov	[bp+@@top], ax
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		cmp	_pid_current, 1
-		jnz	short loc_1A6CB
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1A6D7
-; ---------------------------------------------------------------------------
-
-loc_1A6CB:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1A6D7:
-		mov	al, [si+0Eh]
-		mov	byte ptr [bp+var_5], al
-		cmp	byte ptr [si], 1
-		jnz	short loc_1A723
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	di, ax
-		cmp	byte ptr [si+1], 0
-		jnz	short loc_1A6F8
-		add	di, ((24 * ROW_SIZE) + (48 / BYTE_DOTS))
-		jmp	short loc_1A70D
-; ---------------------------------------------------------------------------
-
-loc_1A6F8:
-		cmp	byte ptr [si+1], 1
-		jnz	short loc_1A704
-		add	di, (24 * ROW_SIZE)
-		jmp	short loc_1A70D
-; ---------------------------------------------------------------------------
-
-loc_1A704:
-		cmp	byte ptr [si+1], 2
-		jnz	short loc_1A70D
-		add	di, 6
-
-loc_1A70D:
-		mov	ax, [bp+@@left]
-		add	ax, -24
-		push	ax
-		mov	ax, [bp+@@top]
-		add	ax, -24
-		push	ax
-		push	di
-		call	sprite16_put
-		jmp	short loc_1A741
-; ---------------------------------------------------------------------------
-
-loc_1A723:
-		cmp	byte ptr [si], 2
-		jnz	short loc_1A736
-		push	[bp+@@left]
-		push	[bp+@@top]
-		push	[bp+var_5]
-		call	sub_1A32A
-		jmp	short loc_1A741
-; ---------------------------------------------------------------------------
-
-loc_1A736:
-		push	[bp+@@left]
-		push	[bp+@@top]
-		push	word ptr [si]
-		call	sub_1A377
-
-loc_1A741:
-		pop	di
-		pop	si
-		leave
-		retn
-mima_1A684	endp
+	_mima_1A684 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9013,7 +8920,7 @@ loc_1A8E9:
 		cmp	byte ptr [si], 0
 		jz	short loc_1A8F5
 		mov	word_2028A, si
-		call	mima_1A684
+		call	_mima_1A684
 
 loc_1A8F5:
 		inc	di

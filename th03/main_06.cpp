@@ -494,3 +494,70 @@ loop_test:
 		goto loop;
 	}
 }
+
+extern "C" void near mima_1A684(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 16);
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	if(pid_current == 1) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	frame = slot[0x0E];
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	_AL = pid_PID_so_attack;
+	_AH = 0;
+	_AX += (8 * ROW_SIZE);
+	so = _AX;
+	if(slot[1] != 0) {
+		goto not_frame_0;
+	}
+	so += ((24 * ROW_SIZE) + (48 / BYTE_DOTS));
+	goto put;
+
+not_frame_0:
+	if(slot[1] != 1) {
+		goto not_frame_1;
+	}
+	so += (24 * ROW_SIZE);
+	goto put;
+
+not_frame_1:
+	if(slot[1] == 2) {
+		so += 6;
+	}
+
+put:
+	sprite16_put((left - 24), (top - 24), so);
+	goto ret;
+
+not_state_1:
+	if(slot[0] != 2) {
+		goto generic;
+	}
+	sub_1A32A(left, top, frame);
+	goto ret;
+
+generic:
+	sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot));
+
+ret:
+}
