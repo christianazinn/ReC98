@@ -10,6 +10,7 @@
 #include "th03/math/vector.hpp"
 
 extern "C" uint8_t exatt_buffers[];
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_2028A;
 
 extern "C" uint8_t near sub_1A1A7(void)
@@ -216,4 +217,69 @@ extern "C" void pascal near sub_1A377(
 	imul_reg_to_reg(_DX, _DX, 6);
 	so += _DX;
 	sprite16_put((left - 24), (top - 24), so);
+}
+
+extern "C" void near reimu_1A3C4(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame_div4;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 16);
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	if(pid_current == 1) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	if(slot[0] != 1) {
+		goto generic;
+	}
+	_AL = pid_PID_so_attack;
+	_AH = 0;
+	_AX += (8 * ROW_SIZE);
+	so = _AX;
+	_AL = slot[1];
+	_AH = 0;
+	_BX = 4;
+	asm { cwd; idiv bx; }
+	frame_div4 = _AL;
+	_AH = 0;
+	_AX &= 3;
+	if(static_cast<int>(_AX) == 1) {
+		so += 6;
+		goto put;
+	}
+	if((frame_div4 & 3) != 0) {
+		_AL = frame_div4;
+		_AH = 0;
+		_AX &= 1;
+		imul_reg_to_reg(_AX, _AX, 6);
+		_AX += (24 * ROW_SIZE);
+		so += _AX;
+	}
+
+put:
+	sprite16_put((left - 24), (top - 24), so);
+	goto ret;
+
+generic:
+	if(slot[0] == 2) {
+		sub_1A32A(left, top, *reinterpret_cast<uint16_t near *>(slot + 1));
+		goto ret;
+	}
+	sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot));
+
+ret:
 }
