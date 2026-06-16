@@ -1053,3 +1053,129 @@ not_state_1:
 
 ret:
 }
+
+void far exatt_update_yumemi(void)
+{
+	uint8_t pid_other;
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	collmap_pid = _AL;
+	i = 0;
+	goto loop_test;
+
+loop:
+	if(slot[0] == 0) {
+		goto next;
+	}
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	if(slot[1] > 8) {
+		goto collapse_check;
+	}
+	*reinterpret_cast<uint16_t near *>(slot + 0x14) += 6;
+	goto active_state_1;
+
+collapse_check:
+	_AX = slot[1];
+	if(static_cast<int>(_AX) < *reinterpret_cast<int near *>(slot + 0x0E)) {
+		goto deactivate_check;
+	}
+	_AX = slot[1];
+	_DX = *reinterpret_cast<uint16_t near *>(slot + 0x0E);
+	_DX += 8;
+	if(static_cast<int>(_AX) >= static_cast<int>(_DX)) {
+		goto deactivate_check;
+	}
+	*reinterpret_cast<uint16_t near *>(slot + 0x14) -= 6;
+	goto active_state_1;
+
+deactivate_check:
+	_AX = slot[1];
+	_DX = *reinterpret_cast<uint16_t near *>(slot + 0x0E);
+	_DX += 8;
+	if(static_cast<int>(_AX) < static_cast<int>(_DX)) {
+		goto active_state_1;
+	}
+	slot[0] = 0;
+
+active_state_1:
+	hitbox_hittest_skip_explosions = true;
+	hitbox.pid = pid_other;
+	hitbox.radius.x.v = (*reinterpret_cast<uint16_t near *>(slot + 0x14) << 3);
+	hitbox.radius.y.v = TO_SP(4);
+	hitbox.origin.center.x.v = *reinterpret_cast<subpixel_t near *>(slot + 2);
+	hitbox.origin.center.y.v = *reinterpret_cast<subpixel_t near *>(slot + 4);
+	hitbox_hittest();
+
+	hitbox.radius.x.v = TO_SP(4);
+	hitbox.radius.y.v = (*reinterpret_cast<uint16_t near *>(slot + 0x14) << 3);
+	hitbox.origin.center.x.v = *reinterpret_cast<subpixel_t near *>(slot + 2);
+	hitbox.origin.center.y.v = *reinterpret_cast<subpixel_t near *>(slot + 4);
+	hitbox_hittest();
+	hitbox_hittest_skip_explosions = false;
+
+	collmap_stripe_tile_w.v = *reinterpret_cast<uint16_t near *>(slot + 0x14);
+	collmap_tile_h.v = (16 / COLLMAP_TILE_H);
+	collmap_center.x.v = *reinterpret_cast<subpixel_t near *>(slot + 2);
+	collmap_center.y.v = *reinterpret_cast<subpixel_t near *>(slot + 4);
+	collmap_set_rect_striped();
+
+	collmap_center.y.v = (
+		(*reinterpret_cast<uint16_t near *>(slot + 0x14) << 2) +
+		*reinterpret_cast<subpixel_t near *>(slot + 4)
+	);
+	collmap_stripe_tile_w.v = (16 / COLLMAP_TILE_W);
+	_AX = *reinterpret_cast<uint16_t near *>(slot + 0x14);
+	_BX = 4;
+	asm { cwd; }
+	asm { idiv bx; }
+	_AX += *reinterpret_cast<uint16_t near *>(slot + 0x14);
+	collmap_tile_h.v = _AX;
+	collmap_set_rect_striped();
+	goto inc_frame;
+
+not_state_1:
+	if(slot[0] != 2) {
+		goto not_state_2;
+	}
+	word_2028A = reinterpret_cast<uint16_t>(slot);
+	if(sub_1A1A7() != 0) {
+		goto next;
+	}
+	goto inc_frame;
+
+not_state_2:
+	if(slot[0] > 0x28) {
+		goto start_state_1;
+	}
+	slot[0]++;
+	goto inc_frame;
+
+start_state_1:
+	*reinterpret_cast<uint16_t near *>(slot + 0x14) = 0x10;
+	slot[1] = 0;
+	slot[0] = 1;
+	snd_se_play(7);
+
+inc_frame:
+	slot[1]++;
+
+next:
+	i++;
+	slot += 0x20;
+
+loop_test:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
