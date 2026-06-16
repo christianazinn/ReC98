@@ -896,7 +896,7 @@ loc_9E24:
 		call	super_entry_bfnt pascal, ds, offset aLose_bf2 ; "lose.bf2"
 		call	super_entry_bfnt pascal, ds, offset aRound_bf2 ; "round.bf2"
 		call	super_entry_bfnt pascal, ds, offset aZikicw_bf2 ; "zikicw.bf2"
-		call	sub_E266
+		call	_sub_E266
 		nopcall	sub_A38E
 		call	graph_200line pascal, 0
 		call	sprite16_sprites_commit
@@ -957,7 +957,7 @@ var_6		= dword	ptr -6
 		mov	byte_1FBC2, 0
 		mov	byte_1FBC3, 0
 		mov	_enemy_speed, 0
-		call	sub_E313
+		call	_sub_E313
 		call	@randring_fill$qv
 		call	@bullets_reset$qv
 		xor	di, di
@@ -5657,73 +5657,14 @@ P_SHOT_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_E266	proc near
-		push	bp
-		mov	bp, sp
-		graph_accesspage 1
-		call	super_put pascal, (544 shl 16) or 328, 0
-		call	super_put pascal, (576 shl 16) or 328, 3
-		call	super_put pascal, (608 shl 16) or 328, 6
-		call	super_put pascal, (544 shl 16) or 360, 9
-		call	super_put pascal, (576 shl 16) or 360, 12
-		call	super_put pascal, (608 shl 16) or 360, 15
-		graph_accesspage 0
-		call	super_put pascal, (544 shl 16) or 328, 0
-		call	super_put pascal, (576 shl 16) or 328, 3
-		call	super_put pascal, (608 shl 16) or 328, 6
-		call	super_put pascal, (544 shl 16) or 360, 9
-		call	super_put pascal, (576 shl 16) or 360, 12
-		call	super_put pascal, (608 shl 16) or 360, 15
-		pop	bp
-		retn
-sub_E266	endp
+	_sub_E266 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_E313	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset _shotpairs
-		xor	ax, ax
-		jmp	short loc_E326
-; ---------------------------------------------------------------------------
-
-loc_E31F:
-		mov	[si+shotpair_t.SP_alive], 0
-		inc	ax
-		add	si, size shotpair_t
-
-loc_E326:
-		cmp	ax, SHOTPAIR_COUNT
-		jl	short loc_E31F
-		mov	di, offset _efes
-		xor	ax, ax
-		jmp	short loc_E339
-; ---------------------------------------------------------------------------
-
-loc_E332:
-		mov	[di+efe_t.EFE_flag], EFF_FREE
-		inc	ax
-		add	di, size efe_t
-
-loc_E339:
-		cmp	ax, EFE_COUNT
-		jl	short loc_E332
-		mov	_round_frame, 0
-		mov	_round_or_result_frame, 0
-		mov	byte_23AF9, 1
-		mov	byte_23B00, 0
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_E313	endp
-
+	_sub_E313 procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -9994,13 +9935,16 @@ _pid	db ?
 ROUND_SPEED_MAX = ((8 shl 4) - 1)
 
 public _round_frame, _round_or_result_frame, _round_speed
+public _byte_23AF9, byte_23AF9, _byte_23B00, byte_23B00
 _round_frame	dd ?
 _round_or_result_frame	dw ?
 _round_speed	db ?
+_byte_23AF9 label byte
 byte_23AF9	db ?
 byte_23AFA	db ?
 		db ?
 include th03/main/playfield_fg_x[bss].asm
+_byte_23B00 label byte
 byte_23B00	db ?
 include th03/hardware/palette_changed[bss].asm
 include th03/main/frame_mod[bss].asm
