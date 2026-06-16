@@ -340,3 +340,17 @@ clear_test:
 	}
 	rikako_gauge_pattern_frames[pid_current]++;
 }
+
+extern "C" void pascal far gba_gauge_pattern_pellet_rikako(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_rikako(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_rikako(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_rikako(BT_BULLET16_DEFAULT);
+	}
+}
