@@ -2,6 +2,8 @@
 
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/sprite16.hpp"
@@ -193,4 +195,84 @@ point_loop_test:
 	if(i >= 0) {
 		goto point_loop;
 	}
+}
+
+uint8_t far chargeshot_hittest_kana(void)
+{
+	int group_i;
+	register int point_i;
+	register uint8_t near *node;
+
+	if(kana_chargeshot_state[hitbox.pid] == 0) {
+		goto not_hit;
+	}
+	node = (kana_chargeshot_nodes + (hitbox.pid * (4 * 54)));
+	group_i = 0;
+	goto group_loop_test;
+
+group_loop:
+	point_i = 0;
+	goto point_loop_test;
+
+point_loop:
+	if(
+		(
+			reinterpret_cast<subpixel_t near *>(node)[point_i] -
+			hitbox.right.v
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.x.v -
+			reinterpret_cast<subpixel_t near *>(node)[point_i]
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			reinterpret_cast<subpixel_t near *>(node + 0x1A)[point_i] -
+			hitbox.bottom.v
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.y.v -
+			reinterpret_cast<subpixel_t near *>(node + 0x1A)[point_i]
+		) > TO_SP(12)
+	) {
+		goto next;
+	}
+	hitcircles_enemy_add(
+		reinterpret_cast<subpixel_t near *>(node)[point_i],
+		reinterpret_cast<subpixel_t near *>(node + 0x1A)[point_i],
+		hitbox.pid
+	);
+	_AL = 1;
+	goto ret;
+
+next:
+	point_i += 4;
+
+point_loop_test:
+	if(point_i <= 0x0C) {
+		goto point_loop;
+	}
+	group_i++;
+	node += 0x36;
+
+group_loop_test:
+	if(group_i < 4) {
+		goto group_loop;
+	}
+
+not_hit:
+	_AL = 0;
+
+ret:
+	return _AL;
 }
