@@ -8828,56 +8828,7 @@ main_07_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_CHIYURI
-chargeshot_render_chiyuri	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 30h
-		add	ax, (offset chiyuri_chargeshot_nodes + (7 * 6))
-		mov	word_1F51A, ax
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 24
-		cmp	_pid_current, 0
-		jnz	short loc_1B459
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1B465
-; ---------------------------------------------------------------------------
-
-loc_1B459:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1B465:
-		xor	si, si
-		jmp	short loc_1B484
-; ---------------------------------------------------------------------------
-
-loc_1B469:
-		mov	bx, word_1F51A
-		cmp	byte ptr [bx], 0
-		jz	short loc_1B489
-		mov	bx, word_1F51A
-		cmp	byte ptr [bx], 1
-		jnz	short loc_1B47E
-		call	_chiyuri_chargeshot_1B35F
-
-loc_1B47E:
-		inc	si
-		sub	word_1F51A, 6
-
-loc_1B484:
-		cmp	si, 8
-		jl	short loc_1B469
-
-loc_1B489:
-		pop	si
-		pop	bp
-		retf
-chargeshot_render_chiyuri	endp
+	CHARGESHOT_RENDER_CHIYURI procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================

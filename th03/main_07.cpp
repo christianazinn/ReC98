@@ -229,3 +229,46 @@ node_loop_test:
 done:
 	return ret;
 }
+
+extern "C" void pascal far chargeshot_render_chiyuri(void)
+{
+	register int i;
+
+	word_1F51A = reinterpret_cast<uint16_t>(
+		chiyuri_chargeshot_nodes + (pid_current * 0x30) + (7 * 6)
+	);
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 24;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	_BX = word_1F51A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] == 0) {
+		goto ret;
+	}
+	_BX = word_1F51A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] != 1) {
+		goto next;
+	}
+	chiyuri_chargeshot_1B35F();
+
+next:
+	i++;
+	word_1F51A -= 6;
+
+node_loop_test:
+	if(i < 8) {
+		goto node_loop;
+	}
+
+ret:
+}
