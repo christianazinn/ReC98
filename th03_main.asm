@@ -5421,17 +5421,7 @@ sub_D52E	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_D5A2	proc far
-		xor	ax, ax
-		mov	bx, offset byte_2138E
-		mov	cx, 0Eh
-
-loc_D5AA:
-		mov	[bx], ax
-		inc	bx
-		loop	loc_D5AA
-		retf
-sub_D5A2	endp
+	SUB_D5A2 procdesc far
 
 	@SCORE_ADD$QUIUC procdesc pascal far \
 		score:word, pid:byte
@@ -9677,6 +9667,8 @@ _farfp_20F28 label dword
 farfp_20F28	dd ?
 byte_20F2C label byte
 		db 1122 dup(?)
+public _byte_2138E, byte_2138E
+_byte_2138E label byte
 byte_2138E	db 15 dup(?)
 		db 143 dup(?)
 angle_2142C	db ?
