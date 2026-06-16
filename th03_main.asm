@@ -285,7 +285,7 @@ loc_977E:
 		call	sub_C7A5
 
 loc_9845:
-		nopcall	sub_CA3C
+		nopcall	SUB_CA3C
 		push	0
 		nopcall	SUB_CB81
 		push	1
@@ -406,9 +406,9 @@ loc_99B1:
 		call	sub_C8C4
 		call	_sub_D52E
 		push	0
-		nopcall	sub_C9FE
+		nopcall	SUB_C9FE
 		push	1
-		nopcall	sub_C9FE
+		nopcall	SUB_C9FE
 		call	sub_BE5D
 		call	@combos_update_and_render$qv
 		call	fp_1FBC0
@@ -3640,6 +3640,8 @@ off_C791	dw offset loc_C62D
 
 ; Attributes: bp-based frame
 
+public _sub_C7A5, sub_C7A5
+_sub_C7A5 label near
 sub_C7A5	proc near
 		push	bp
 		mov	bp, sp
@@ -3956,174 +3958,21 @@ WF_FLASH_RED_END = (WF_FLASH_RED + WARNING_FLASH_RED_FRAMES)
 
 ; Attributes: bp-based frame
 
-sub_C9FE	proc far
-
-@@mrs_slot		= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, [bp+@@mrs_slot]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_warning_flag[bx], WF_PORTRAIT
-		jnz	short loc_CA37
-		mov	si, PLAYFIELD_LEFT
-		cmp	[bp+@@mrs_slot], 0
-		jz	short loc_CA1D
-		add	si, PLAYFIELD_W_BORDERED
-
-loc_CA1D:
-		push	si	; left
-		push	PLAYFIELD_TOP	; top
-		mov	al, [bp+@@mrs_slot]
-		mov	ah, 0
-		push	ax	; slot
-		call	@mrs_put_8$qiuii
-		mov	al, [bp+@@mrs_slot]
-		mov	ah, 0
-		mov	bx, ax
-		mov	_warning_flag[bx], WF_FLASH_WHITE
-
-loc_CA37:
-		pop	si
-		pop	bp
-		retf	2
-sub_C9FE	endp
+SUB_C9FE procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_CA3C	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	warning_flag_p1, WF_FLASH_WHITE
-		jz	short loc_CA4E
-		cmp	warning_flag_p2, WF_FLASH_WHITE
-		jnz	short loc_CAC8
-
-loc_CA4E:
-		call	_snd_se_reset
-		call	snd_se_play pascal, 19
-		call	_snd_se_update
-		push	0
-		nopcall	@hud_static_gauge_levels_put$qi
-		push	1
-		nopcall	@hud_static_gauge_levels_put$qi
-		cmp	warning_flag_p1, WF_FLASH_WHITE
-		jnz	short loc_CA81
-		mov	warning_flag_p1, WF_FLASH_RED
-		push	0
-		push	TX_WHITE
-		call	sub_CACB
-
-loc_CA81:
-		cmp	warning_flag_p2, WF_FLASH_WHITE
-		jnz	short loc_CA95
-		mov	warning_flag_p2, WF_FLASH_RED
-		push	1
-		push	TX_WHITE
-		call	sub_CACB
-
-loc_CA95:
-		xor	si, si
-		jmp	short loc_CAC3
-; ---------------------------------------------------------------------------
-
-loc_CA99:
-		call	@input_reset_sense_key_held$qv
-		test	_input_sp.hi, high INPUT_CANCEL
-		jz	short loc_CAA8
-		call	sub_C7A5
-
-loc_CAA8:
-		call	@frame_delay$qi pascal, 1
-		mov	ax, si
-		and	ax, 1
-		imul	ax, 50
-		add	ax, 100
-		mov	PaletteTone, ax
-		call	far ptr	palette_show
-		inc	si
-
-loc_CAC3:
-		cmp	si, 27
-		jl	short loc_CA99
-
-loc_CAC8:
-		pop	si
-		pop	bp
-		retf
-sub_CA3C	endp
+SUB_CA3C procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-public SUB_CACB, sub_CACB
-SUB_CACB label near
-sub_CACB	proc near
 
-arg_0		= word ptr  4
-arg_2		= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		mov	si, 4
-		cmp	[bp+arg_2], 0
-		jnz	short loc_CADF
-		add	si, 28h	; '('
-
-loc_CADF:
-		call	gaiji_putsa pascal, si, 11, ds, offset gbWARNING_1, di
-		call	gaiji_putsa pascal, si, 12, ds, offset gbWARNING_2, di
-		call	gaiji_putsa pascal, si, 13, ds, offset gbWARNING_3, di
-		add	si, 4
-		call	gaiji_putsa pascal, si, 14, ds, offset gpYOU_ARE_FORCED_TO_EVADE_FROM, di
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_next[bx], GBAF_BOSS
-		jz	short loc_CB47
-		lea	ax, [si+2]
-		call	gaiji_putsa pascal, ax, 15, ds, offset gpGAUGE_ATTACK_LEVEL, di
-		lea	ax, [si+13h]
-		push	ax
-		push	0Fh
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		jmp	short loc_CB60
-; ---------------------------------------------------------------------------
-
-loc_CB47:
-		lea	ax, [si+2]
-		call	gaiji_putsa pascal, ax, 15, ds, offset gpBOSS_ATTACK_LEVEL, di
-		lea	ax, [si+13h]
-		push	ax
-		push	0Fh
-		mov	al, _gba_boss_level
-
-loc_CB60:
-		mov	ah, 0
-		add	ax, 1Fh
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-		call	gaiji_putsa pascal, si, 16, ds, offset gpYOUR_LIFE_IS_IN_PERIL_BE_CAREFUL, di
-		pop	di
-		pop	si
-		pop	bp
-		retn	4
-sub_CACB	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7881,6 +7730,9 @@ public _warning_flag
 _warning_flag label byte
 warning_flag_p1	db WF_NONE
 warning_flag_p2	db WF_NONE
+public gbWARNING_1, gbWARNING_2, gbWARNING_3
+public gpYOU_ARE_FORCED_TO_EVADE_FROM, gpGAUGE_ATTACK_LEVEL, gpBOSS_ATTACK_LEVEL
+public gpYOUR_LIFE_IS_IN_PERIL_BE_CAREFUL
 gbWARNING_1	db 50h,	51h, 52h, 53h, 54h, 55h, 56h, 57h, 58h, 59h, 5Ah
 		db 5Bh,	5Ch, 5Dh, 5Eh, 5Fh, 0
 gbWARNING_2	db 60h,	61h, 62h, 63h, 64h, 65h, 66h, 67h, 68h, 69h, 6Ah
