@@ -4,15 +4,19 @@
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 
 extern "C" uint8_t pid_PID_current;
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t rikako_chargeshot_frames[];
 extern "C" uint8_t rikako_chargeshot_nodes[];
 extern "C" Subpixel rikako_chargeshot_origin_x[];
 extern "C" Subpixel rikako_chargeshot_origin_y[];
 extern "C" uint16_t rikako_chargeshot_radius[];
 extern "C" uint8_t rikako_chargeshot_state[];
+extern "C" uint16_t word_20E86;
 
 struct player_stuff_t {
 	Subpixel center_x;
@@ -149,4 +153,22 @@ store:
 	rikako_chargeshot_frames[pid_current]++;
 
 ret:
+}
+
+extern "C" void near rikako_chargeshot_1C62A(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	sprite16_offset_t sprite_offset;
+
+	sprite_offset = (pid_PID_so_attack + (8 * ROW_SIZE));
+	left = (playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(word_20E86),
+		pid_current
+	) - 16);
+	_BX = word_20E86;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 2);
+	asm { sar ax, 4; }
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
 }
