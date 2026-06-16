@@ -8770,86 +8770,7 @@ RIKAKO_1B006 procdesc far
 
 ; Attributes: bp-based frame
 
-rikako_1B05A	proc near
-
-var_5		= word ptr -5
-var_4		= word ptr -4
-@@screen_x		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, word_2028A
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		push	word ptr [si+2]	; x
-		mov	al, [si+10h]
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@screen_x], ax
-		mov	ax, [si+4]
-		sar	ax, 4
-		add	ax, 10h
-		mov	[bp+var_4], ax
-		cmp	_pid_current, 0
-		jz	short loc_1B0A1
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1B0AD
-; ---------------------------------------------------------------------------
-
-loc_1B0A1:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1B0AD:
-		mov	al, [si+1]
-		mov	byte ptr [bp+var_5], al
-		cmp	byte ptr [si], 1
-		jnz	short loc_1B0E2
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (24 * ROW_SIZE)
-		mov	di, ax
-		test	byte ptr [bp+var_5], 1
-		jz	short loc_1B0CC
-		add	di, (24 * ROW_SIZE)
-
-loc_1B0CC:
-		mov	ax, [bp+@@screen_x]
-		add	ax, -24
-		push	ax
-		mov	ax, [bp+var_4]
-		add	ax, -24
-		push	ax
-		push	di
-		call	sprite16_put
-		jmp	short loc_1B101
-; ---------------------------------------------------------------------------
-
-loc_1B0E2:
-		cmp	byte ptr [si], 2
-		jnz	short loc_1B0F5
-		push	[bp+@@screen_x]
-		push	[bp+var_4]
-		push	[bp+var_5]
-		call	sub_1A32A
-		jmp	short loc_1B101
-; ---------------------------------------------------------------------------
-
-loc_1B0F5:
-		push	[bp+@@screen_x]
-		push	[bp+var_4]
-		push	[bp+var_5]
-		call	sub_1A377
-
-loc_1B101:
-		pop	di
-		pop	si
-		leave
-		retn
-rikako_1B05A	endp
+_rikako_1B05A procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9016,7 +8937,7 @@ loc_1B247:
 		cmp	byte ptr [si], 0
 		jz	short loc_1B253
 		mov	word_2028A, si
-		call	rikako_1B05A
+		call	_rikako_1B05A
 
 loc_1B253:
 		inc	di

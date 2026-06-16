@@ -1280,3 +1280,53 @@ loop_test:
 	_asm { cmp dx, 0x0E; }
 	_asm { jl loop; }
 }
+
+extern "C" void near rikako_1B05A(void)
+{
+	screen_x_t screen_x;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *slot;
+	register sprite16_offset_t so;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	screen_x = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 16);
+	if(pid_current != 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	frame = slot[1];
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	_AL = pid_PID_so_attack;
+	_AH = 0;
+	_AX += (24 * ROW_SIZE);
+	so = _AX;
+	if((frame & 1) != 0) {
+		so += (24 * ROW_SIZE);
+	}
+	sprite16_put((screen_x - 24), (top - 24), so);
+	goto ret;
+
+not_state_1:
+	if(slot[0] != 2) {
+		goto generic;
+	}
+	sub_1A32A(screen_x, top, frame);
+	goto ret;
+
+generic:
+	sub_1A377(screen_x, top, frame);
+
+ret:
+}
