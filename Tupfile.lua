@@ -707,6 +707,7 @@ obj = {
 	"th03/main_06.cpp",
 	"th03/main_07.cpp",
 	"th03/main_08.cpp",
+	"th03/main_09.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
