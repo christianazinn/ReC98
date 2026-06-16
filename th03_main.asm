@@ -9016,31 +9016,8 @@ _sub_1C158 procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_KOTOHIME
-chargeshot_add_kotohime	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 3
-		add	ax, offset kotohime_chargeshot
-		mov	word_1FE6A, ax
-		mov	bx, word_1FE6A
-		mov	byte ptr [bx], 1
-		mov	byte ptr [bx+1], 0
-		mov	ax, [bp+@@center_x]
-		mov	[bx+2],	ax
-		mov	ax, [bp+@@center_y]
-		mov	[bx+4],	ax
-		mov	word ptr [bx+6], 0FFF0h
-		call	snd_se_play pascal, 6
-		pop	bp
-		retf	4
-chargeshot_add_kotohime	endp
+	CHARGESHOT_ADD_KOTOHIME procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10903,6 +10880,8 @@ public _kotohime_chargeshot, kotohime_chargeshot
 _kotohime_chargeshot label byte
 kotohime_chargeshot label byte
 		db (PLAYER_COUNT * 8) dup(?)
+public _word_1FE6A, word_1FE6A
+_word_1FE6A label word
 word_1FE6A	dw ?
 
 public _exatt_funcs
