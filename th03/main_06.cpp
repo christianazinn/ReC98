@@ -2,6 +2,8 @@
 
 #include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "libs/sprite16/sprite16.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/collmap.hpp"
@@ -837,4 +839,217 @@ loop:
 loop_test:
 	_asm { cmp dx, 0x10; }
 	_asm { jl loop; }
+}
+
+extern "C" void near yumemi_1A9B0(void)
+{
+	sprite16_offset_t so;
+	screen_x_t strip_left;
+	screen_y_t top;
+	int8_t frame;
+	int8_t half_frame;
+	uint8_t near *slot;
+	register int y;
+	register screen_x_t left;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	left = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 16);
+	if(pid_current == 1) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	if(pid_current == 1) {
+		grc_setclip(16, 8, 303, 191);
+	} else {
+		grc_setclip(336, 8, 623, 191);
+	}
+	if(slot[1] > 0x10) {
+		goto collapse;
+	}
+
+	egc_off();
+	grcg_setcolor(GC_RMW, 6);
+	frame = slot[1];
+	y = (top / 2);
+	half_frame = (frame / 2);
+	grcg_hline(
+		(left + frame - 32),
+		((left + 32) - frame),
+		(y + half_frame - 40)
+	);
+	grcg_hline(
+		(left + frame - 32),
+		((left + 32) - frame),
+		((y + 52) - half_frame)
+	);
+	grcg_vline(
+		(left + frame - 32),
+		(y + half_frame - 40),
+		((y + 52) - half_frame)
+	);
+	grcg_vline(
+		((left + 32) - frame),
+		(y + half_frame - 40),
+		((y + 52) - half_frame)
+	);
+	grcg_hline(
+		(left + frame - 80),
+		((left + 80) - frame),
+		(y + half_frame - 16)
+	);
+	grcg_hline(
+		(left + frame - 80),
+		((left + 80) - frame),
+		((y + 16) - half_frame)
+	);
+	grcg_vline(
+		(left + frame - 80),
+		(y + half_frame - 16),
+		((y + 16) - half_frame)
+	);
+	grcg_vline(
+		((left + 80) - frame),
+		(y + half_frame - 16),
+		((y + 16) - half_frame)
+	);
+	goto grcg_done;
+
+collapse:
+	egc_off();
+	frame = (slot[0x0E] - 8 - slot[1]);
+	asm {
+		cmp	byte ptr [bp - 7], 10h
+		jle	short collapse_color_6
+	}
+	grcg_setcolor(GC_RMW, 5);
+	goto collapse_color_done;
+collapse_color_6:
+	grcg_setcolor(GC_RMW, 6);
+collapse_color_done:
+	y = (top / 2);
+	half_frame = (frame / 2);
+	grcg_hline(
+		(left + frame - 16),
+		((left + 16) - frame),
+		(y + half_frame - 32)
+	);
+	grcg_hline(
+		(left + frame - 16),
+		((left + 16) - frame),
+		((y + 44) - half_frame)
+	);
+	grcg_vline(
+		(left + frame - 16),
+		(y + half_frame - 32),
+		((y + 44) - half_frame)
+	);
+	grcg_vline(
+		((left + 16) - frame),
+		(y + half_frame - 32),
+		((y + 44) - half_frame)
+	);
+	grcg_hline(
+		(left + frame - 64),
+		((left + 64) - frame),
+		(y + half_frame - 8)
+	);
+	grcg_hline(
+		(left + frame - 64),
+		((left + 64) - frame),
+		((y + 8) - half_frame)
+	);
+	grcg_vline(
+		(left + frame - 64),
+		(y + half_frame - 8),
+		((y + 8) - half_frame)
+	);
+	grcg_vline(
+		((left + 64) - frame),
+		(y + half_frame - 8),
+		((y + 8) - half_frame)
+	);
+
+grcg_done:
+	grcg_off();
+	egc_on();
+	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+	left -= 16;
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 8;
+	_AL = pid_PID_so_attack;
+	_AH = 0;
+	_AX += (8 * ROW_SIZE);
+	so = _AX;
+	y = (top - *reinterpret_cast<subpixel_t near *>(slot + 0x14));
+	sprite16_put(left, y, so);
+	y += 16;
+	while((top - 16) > y) {
+		sprite16_put(
+			left, y, (so + ((16 * ROW_SIZE) + (16 / BYTE_DOTS)))
+		);
+		y += 16;
+	}
+	_AX = (*reinterpret_cast<subpixel_t near *>(slot + 0x14) / 2);
+	_DX = *reinterpret_cast<subpixel_t near *>(slot + 0x14);
+	_DX += top;
+	_AX += _DX;
+	_AX += 0xFFF0;
+	y = _AX;
+	sprite16_put(left, _AX, (so + (8 * ROW_SIZE)));
+	y -= 16;
+	while(y > top) {
+		sprite16_put(
+			left, y, (so + ((16 * ROW_SIZE) + (16 / BYTE_DOTS)))
+		);
+		y -= 16;
+	}
+	sprite16_put_size.w.v = (16 / 16);
+	sprite16_put_size.h = 16;
+	top -= 16;
+	strip_left = (
+		left - *reinterpret_cast<subpixel_t near *>(slot + 0x14) + 16
+	);
+	sprite16_put(strip_left, top, so);
+	strip_left += 16;
+	while(strip_left < left) {
+		sprite16_put(strip_left, top, (so + (16 * ROW_SIZE)));
+		strip_left += 16;
+	}
+	strip_left = (
+		*reinterpret_cast<subpixel_t near *>(slot + 0x14) + left
+	);
+	sprite16_put(strip_left, top, (so + 2));
+	strip_left -= 16;
+	while((left + 16) < strip_left) {
+		sprite16_put(strip_left, top, (so + (16 * ROW_SIZE)));
+		strip_left -= 16;
+	}
+	if(*reinterpret_cast<subpixel_t near *>(slot + 0x14) > 0x18) {
+		sprite16_put_size.w.v = (32 / 16);
+		sprite16_put_size.h = 16;
+		sprite16_put(left, top, (so + 4));
+	}
+	goto ret;
+
+not_state_1:
+	if(slot[0] == 2) {
+		sub_1A32A(
+			left, top, *reinterpret_cast<uint16_t near *>(slot + 1)
+		);
+		goto ret;
+	}
+	sub_1A377(left, top, *reinterpret_cast<uint16_t near *>(slot + 1));
+
+ret:
 }
