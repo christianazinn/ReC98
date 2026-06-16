@@ -9125,53 +9125,7 @@ RIKAKO_HYPER_1C4B4 procdesc pascal far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_RENDER_RIKAKO
-chargeshot_render_rikako	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr rikako_chargeshot_state[bx], 0
-		jz	short loc_1C746
-		mov	al, _pid_current
-		mov	ah, 0
-		imul	ax, 18h
-		add	ax, offset rikako_chargeshot_nodes
-		mov	word_20E86, ax
-		mov	_sprite16_put_w, (32 / 16)
-		mov	_sprite16_put_h, 16
-		cmp	_pid_current, 0
-		jnz	short loc_1C728
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_1C734
-; ---------------------------------------------------------------------------
-
-loc_1C728:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_1C734:
-		xor	si, si
-		jmp	short loc_1C741
-; ---------------------------------------------------------------------------
-
-loc_1C738:
-		call	_rikako_chargeshot_1C62A
-		inc	si
-		add	word_20E86, 6
-
-loc_1C741:
-		cmp	si, 4
-		jl	short loc_1C738
-
-loc_1C746:
-		pop	si
-		pop	bp
-		retf
-chargeshot_render_rikako	endp
+	CHARGESHOT_RENDER_RIKAKO procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================

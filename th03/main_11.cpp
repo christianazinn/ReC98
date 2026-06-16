@@ -239,3 +239,38 @@ node_loop_test:
 	}
 	return hits;
 }
+
+extern "C" void pascal far chargeshot_render_rikako(void)
+{
+	register int i;
+
+	if(rikako_chargeshot_state[pid_current] == 0) {
+		goto ret;
+	}
+	word_20E86 = reinterpret_cast<uint16_t>(
+		rikako_chargeshot_nodes + (pid_current * (4 * 6))
+	);
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	rikako_chargeshot_1C62A();
+	i++;
+	word_20E86 += 6;
+
+node_loop_test:
+	if(i < 4) {
+		goto node_loop;
+	}
+
+ret:
+}
