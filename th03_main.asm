@@ -8950,70 +8950,8 @@ _sub_1BC4D procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_KANA
-chargeshot_add_kana	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr kana_chargeshot_state[bx], 1
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr kana_chargeshot_frames[bx], 0
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, (4 * 54)
-		add	ax, offset kana_chargeshot_nodes
-		mov	si, ax
-		xor	cx, cx
-		jmp	short loc_1BCAF
-; ---------------------------------------------------------------------------
-
-loc_1BC8A:
-		xor	dx, dx
-		jmp	short loc_1BCA2
-; ---------------------------------------------------------------------------
-
-loc_1BC8E:
-		mov	bx, dx
-		add	bx, bx
-		mov	ax, [bp+@@center_x]
-		mov	[bx+si], ax
-		mov	bx, dx
-		add	bx, bx
-		mov	ax, [bp+@@center_y]
-		mov	[bx+si+1Ah], ax
-		inc	dx
-
-loc_1BCA2:
-		cmp	dx, 0Ch
-		jle	short loc_1BC8E
-		mov	byte ptr [si+35h], 30h ; '0'
-		inc	cx
-		add	si, 36h	; '6'
-
-loc_1BCAF:
-		cmp	cx, 4
-		jl	short loc_1BC8A
-		sub	si, 36h	; '6'
-		mov	byte ptr [si+34h], 0F0h
-		sub	si, 36h	; '6'
-		mov	byte ptr [si+34h], 0C8h
-		sub	si, 36h	; '6'
-		mov	byte ptr [si+34h], 0B8h
-		sub	si, 36h	; '6'
-		mov	byte ptr [si+34h], 90h
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_kana	endp
+	CHARGESHOT_ADD_KANA procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -11449,12 +11387,15 @@ angle_1FBD4	db ?
 		db ?
 kana_gauge_pattern_x dw PLAYER_COUNT dup(?)
 kana_gauge_pattern_frames db PLAYER_COUNT dup(?)
+public _kana_chargeshot_nodes, kana_chargeshot_nodes
+_kana_chargeshot_nodes label byte
 kana_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 54) dup(?)
 word_1FD8C	dw ?
-public _kana_chargeshot_state, kana_chargeshot_state
+public _kana_chargeshot_state, kana_chargeshot_state, _kana_chargeshot_frames, kana_chargeshot_frames
 _kana_chargeshot_state label byte
 kana_chargeshot_state db PLAYER_COUNT dup(?)
+_kana_chargeshot_frames label byte
 kana_chargeshot_frames db PLAYER_COUNT dup(?)
 
 hitcircle_t struct
