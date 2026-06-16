@@ -5,9 +5,12 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "th03/common.h"
+#include "th03/hardware/palette.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
+#include "codegen.hpp"
 #include "th03/math/polar.hpp"
 #include "th03/math/vector.hpp"
 
@@ -34,15 +37,204 @@ struct d3f9_rec_t {
 	uint16_t unused_E;
 };
 
+static const int WARNING_FLASH_RED_FRAMES = 30;
+enum {
+	WF_NONE = 0,
+	WF_PORTRAIT = 1,
+	WF_FLASH_RED = 3,
+	WF_FLASH_RED_END = (WF_FLASH_RED + WARNING_FLASH_RED_FRAMES),
+};
+
 extern "C" cee0_rec_t near byte_20EA6[];
+extern "C" uint8_t near byte_20E98[];
+extern "C" uint8_t near byte_20E9A[];
 extern "C" uint8_t near byte_20F1E;
 extern "C" d3f9_rec_t near byte_20F2C[];
+extern "C" uint8_t near warning_flag[];
 extern "C" uint8_t near angle_2142C;
+extern "C" char asc_1DD5A[];
 extern "C" uint16_t far randring_far_next16_raw(void);
 
 extern farfunc_t_near farfp_20F24;
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_A3A8(uint8_t pid);
+extern "C" void pascal near SUB_CACB(uint8_t pid, int color);
+extern "C" void pascal far TEXT_PUTSA(
+	unsigned x, unsigned y, const char far *str, unsigned atrb
+);
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void pascal far SUB_CB81(uint8_t pid)
+{
+	uint8_t frame[4];
+
+#define cb81_pid_other frame[1]
+#define cb81_left      (*reinterpret_cast<uint16_t *>(&frame[2]))
+#define cb81_byte_20E98_store_AL() { \
+	_asm { \
+		mov	dl, byte ptr [bp+6]; \
+		mov	dh, 0; \
+		db	0x8B, 0xDA; \
+		mov	byte ptr byte_20E98[bx], al; \
+	} \
+}
+#define cb81_gba_active_store_AL() { \
+	_asm { \
+		mov	dl, byte ptr [bp+6]; \
+		mov	dh, 0; \
+		db	0x8B, 0xDA; \
+		mov	gba_flag_active[bx], al; \
+	} \
+}
+#define cb81_palette_other_r_store_AL() { \
+	_asm { \
+		mov	dl, byte ptr [bp-3]; \
+		mov	dh, 0; \
+	} \
+	imul_reg_to_reg(_DX, _DX, sizeof(RGB8)); \
+	_asm { \
+		db	0x8B, 0xDA; \
+		mov	byte ptr Palettes[bx], al; \
+	} \
+}
+#define cb81_call_sub_A3A8() { \
+	_asm { \
+		push	word ptr [bp-3]; \
+		nop; \
+		push	cs; \
+		call	near ptr SUB_A3A8; \
+	} \
+}
+#define cb81_call_sub_CACB() { \
+	_asm { \
+		push	word ptr [bp+6]; \
+		push	si; \
+		call	near ptr SUB_CACB; \
+	} \
+}
+#define cb81_text_putsa_clear() { \
+	_asm { \
+		push	word ptr [bp-2]; \
+		push	si; \
+		push	ds; \
+		push	offset asc_1DD5A; \
+		push	TX_WHITE; \
+		call	far ptr TEXT_PUTSA; \
+	} \
+}
+
+	_AL = 1;
+	_AL -= pid;
+	cb81_pid_other = _AL;
+	if(warning_flag[pid] < WF_FLASH_RED) {
+		goto gba_palette_ramp;
+	}
+	if(warning_flag[pid] == WF_FLASH_RED) {
+		byte_20E98[pid] = 0;
+	}
+	if(warning_flag[pid] >= WF_FLASH_RED_END) {
+		goto warning_end;
+	}
+	if(warning_flag[pid] < (WF_FLASH_RED + (WARNING_FLASH_RED_FRAMES / 2))) {
+		_AL = byte_20E98[pid];
+		_AL += 13;
+	} else {
+		_AL = byte_20E98[pid];
+		_AL += -13;
+	}
+	cb81_byte_20E98_store_AL();
+	warning_flag[pid]++;
+	_SI = 1;
+	if(warning_flag[pid] & WF_PORTRAIT) {
+		if(gba_flag_next[pid] == GBAF_GAUGE_PELLET_INIT) {
+			_SI = TX_CYAN;
+			goto warning_portrait_reset;
+		}
+		if(gba_flag_next[pid] == GBAF_GAUGE_BULLET_INIT) {
+			_SI = TX_MAGENTA;
+			goto warning_portrait_reset;
+		}
+		_SI = TX_RED;
+warning_portrait_reset:
+		cb81_call_sub_A3A8();
+		goto warning_put;
+	}
+	if(gba_flag_next[pid] == GBAF_GAUGE_PELLET_INIT) {
+		goto palette_blue;
+	}
+	if(gba_flag_next[pid] == GBAF_GAUGE_BULLET_INIT) {
+		Palettes[cb81_pid_other].c.r = 120;
+palette_blue:
+		Palettes[cb81_pid_other].c.b = 120;
+		goto palette_done;
+	}
+	Palettes[cb81_pid_other].c.r = 120;
+palette_done:
+	palette_changed = true;
+
+warning_put:
+	cb81_call_sub_CACB();
+	goto gba_palette_ramp;
+
+warning_end:
+	cb81_left = 4;
+	if(cb81_pid_other == 1) {
+		cb81_left += 0x28;
+	}
+	_DI = 0;
+	_SI = 0x0B;
+	goto clear_loop_test;
+clear_loop:
+	cb81_text_putsa_clear();
+	_DI++;
+	_SI++;
+clear_loop_test:
+	if(static_cast<uint16_t>(_DI) < 6) {
+		goto clear_loop;
+	}
+	cb81_call_sub_A3A8();
+	warning_flag[pid] = WF_NONE;
+	_AL = gba_flag_next[pid];
+	cb81_gba_active_store_AL();
+	byte_20E98[pid] = 0;
+	byte_20E9A[pid] = 0;
+
+gba_palette_ramp:
+	if(gba_flag_active[pid] == GBAF_NONE) {
+		goto end;
+	}
+	if(byte_20E9A[pid] == 0) {
+		_AL = byte_20E98[pid];
+		_AL += 4;
+		cb81_byte_20E98_store_AL();
+		if(byte_20E98[pid] >= 144) {
+			byte_20E9A[pid] = 1;
+		}
+		goto palette_ramp_color_set;
+	}
+	_AL = byte_20E98[pid];
+	_AL += -4;
+	cb81_byte_20E98_store_AL();
+	if(byte_20E98[pid] <= 0) {
+		byte_20E9A[pid] = 0;
+	}
+
+palette_ramp_color_set:
+	_AL = byte_20E98[pid];
+	cb81_palette_other_r_store_AL();
+	palette_changed = true;
+
+end:
+#undef cb81_text_putsa_clear
+#undef cb81_call_sub_CACB
+#undef cb81_call_sub_A3A8
+#undef cb81_palette_other_r_store_AL
+#undef cb81_gba_active_store_AL
+#undef cb81_byte_20E98_store_AL
+#undef cb81_left
+#undef cb81_pid_other
+}
 
 extern "C" void pascal far SUB_CDBD(
 	subpixel_t x, subpixel_t y, uint16_t pid
