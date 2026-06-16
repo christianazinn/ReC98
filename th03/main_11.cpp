@@ -48,3 +48,16 @@ node_loop_check:
 	rikako_chargeshot_origin_x[pid_PID_current].v = _DI;
 	rikako_chargeshot_origin_y[pid_PID_current] = center_y;
 }
+
+extern "C" void pascal far rikako_1C497(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	chargeshot_add_rikako(center_x, center_y);
+	rikako_chargeshot_state[pid_PID_current] = 2;
+}
+
+extern "C" void pascal far rikako_hyper_1C4B4(void)
+{
+	rikako_chargeshot_state[pid_PID_current] = 0;
+}

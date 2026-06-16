@@ -9092,41 +9092,15 @@ _sub_1C40A procdesc far
 
 ; Attributes: bp-based frame
 
-public RIKAKO_1C497
-RIKAKO_1C497 label far
-rikako_1C497	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		call	chargeshot_add_rikako pascal, [bp+@@center_x], [bp+@@center_y]
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr rikako_chargeshot_state[bx], 2
-		pop	bp
-		retf	4
-rikako_1C497	endp
+RIKAKO_1C497 procdesc pascal far \
+	center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-public RIKAKO_HYPER_1C4B4
-RIKAKO_HYPER_1C4B4 label far
-rikako_hyper_1C4B4	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr rikako_chargeshot_state[bx], 0
-		pop	bp
-		retf
-rikako_hyper_1C4B4	endp
+RIKAKO_HYPER_1C4B4 procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
