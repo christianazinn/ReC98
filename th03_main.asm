@@ -282,7 +282,7 @@ loc_977E:
 		call	_snd_se_update
 		test	_input_sp.hi, high INPUT_CANCEL
 		jz	short loc_9845
-		call	sub_C7A5
+		call	_sub_C7A5
 
 loc_9845:
 		nopcall	SUB_CA3C
@@ -3640,63 +3640,7 @@ off_C791	dw offset loc_C62D
 
 ; Attributes: bp-based frame
 
-public _sub_C7A5, sub_C7A5
-_sub_C7A5 label near
-sub_C7A5	proc near
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		cmp	es:[bx+resident_t.RESIDENT_is_cpu][0], 0
-		jz	short loc_C7C8
-		cmp	es:[bx+resident_t.RESIDENT_is_cpu][1], 0
-		jz	short loc_C7C8
-		push	1
-		call	palette_black_out
-
-loc_C7C1:
-		mov	byte_23B00, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C7C8:
-		call	_snd_se_reset
-		call	snd_se_play pascal, 21
-		call	_snd_se_update
-		jmp	short loc_C7E7
-; ---------------------------------------------------------------------------
-
-loc_C7DB:
-		call	@input_reset_sense_key_held$qv
-		call	@frame_delay$qi pascal, 1
-
-loc_C7E7:
-		cmp	_input_sp, INPUT_NONE
-		jnz	short loc_C7DB
-
-loc_C7EE:
-		call	@input_reset_sense_key_held$qv
-		test	_input_sp.hi, high INPUT_Q
-		jnz	short loc_C7C1
-		test	_input_sp.hi, high INPUT_CANCEL
-		jnz	short loc_C816
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_C7EE
-; ---------------------------------------------------------------------------
-
-loc_C80A:
-		call	@input_reset_sense_key_held$qv
-		call	@frame_delay$qi pascal, 1
-
-loc_C816:
-		cmp	_input_sp, INPUT_NONE
-		jnz	short loc_C80A
-		call	_snd_se_reset
-		call	snd_se_play pascal, 21
-		call	_snd_se_update
-		pop	bp
-		retn
-sub_C7A5	endp
+	_sub_C7A5 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
