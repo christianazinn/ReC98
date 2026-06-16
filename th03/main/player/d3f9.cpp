@@ -1,7 +1,9 @@
 #pragma option -zCPLAYER_M_TEXT -zPmain_01 -G-
 
 #include "pc98.h"
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th03/common.h"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/vector.hpp"
@@ -23,6 +25,67 @@ extern "C" uint8_t near angle_2142C;
 
 extern "C" void near sub_D031(void);
 extern "C" void near sub_D0FA(void);
+extern farfunc_t_near farfp_20F24;
+extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void pascal far sub_D340(void)
+{
+	sprite16_put_size.w.v = (16 / 16);
+	sprite16_put_size.h = 8;
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	grcg_setcolor(GC_RMW, 13);
+	_ES = SEG_PLANE_B;
+	angle_2142C = 0x40;
+	_DI = FP_OFF(byte_20F2C);
+	_SI = 0;
+grcg_loop:
+	_AX = (irand() & 1);
+	_asm {
+		add 	ax, [di+6]
+		mov 	[di+6], ax
+		mov 	[di+8], al
+	}
+	sub_D0FA();
+	sub_D031();
+	_DI += sizeof(d3f9_rec_t);
+	_SI++;
+	if(static_cast<uint16_t>(_SI) < 0x18) {
+		goto grcg_loop;
+	}
+	grcg_off();
+	egc_on();
+sprite_loop:
+	_AX = 0;
+	if(static_cast<uint16_t>(_SI) < 0x28) {
+		_AX = (irand() & 1);
+	}
+	_asm {
+		add 	ax, [di+6]
+		mov 	[di+6], ax
+		mov 	[di+8], al
+	}
+	sub_D0FA();
+	_asm {
+		mov 	ax, [di]
+		sar 	ax, 4
+		push 	ax
+		mov 	ax, [di+2]
+		sar 	ax, 4
+		push 	ax
+		push 	word ptr [di+0Ah]
+		call 	far ptr sprite16_put_noclip
+	}
+	_DI += sizeof(d3f9_rec_t);
+	_SI++;
+	if(static_cast<uint16_t>(_SI) < 0x32) {
+		goto sprite_loop;
+	}
+	if(round_frame > 144) {
+		farfp_20F24 = sub_D3F9;
+	}
+	egc_off();
+}
 
 extern "C" void pascal far sub_D3F9(void)
 {
