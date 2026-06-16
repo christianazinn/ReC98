@@ -402,3 +402,17 @@ clear_test:
 	}
 	kana_gauge_pattern_frames[pid_current]++;
 }
+
+extern "C" void pascal far gba_gauge_pattern_pellet_kana(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_kana(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_kana(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_kana(BT_BULLET16_DEFAULT);
+	}
+}
