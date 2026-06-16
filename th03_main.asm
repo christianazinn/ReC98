@@ -8749,37 +8749,7 @@ _yumemi_1A9B0 procdesc near
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @exatt_render_yumemi$qv
-@exatt_render_yumemi$qv proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	word_2028A, ax
-		xor	si, si
-		jmp	short loc_1AF9A
-; ---------------------------------------------------------------------------
-
-loc_1AF88:
-		mov	bx, word_2028A
-		cmp	byte ptr [bx], 0
-		jz	short loc_1AF94
-		call	_yumemi_1A9B0
-
-loc_1AF94:
-		inc	si
-		add	word_2028A, 20h	; ' '
-
-loc_1AF9A:
-		cmp	si, 10h
-		jl	short loc_1AF88
-		pop	si
-		pop	bp
-		retf
-@exatt_render_yumemi$qv endp
+@exatt_render_yumemi$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
