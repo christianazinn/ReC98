@@ -8836,169 +8836,8 @@ main_07_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_chiyuri$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type		= byte ptr  4
-
-		enter	2, 0
-		push	si
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_1B4A3
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_1B4A3:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_1B502
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr chiyuri_gauge_pattern_frames[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		shl	al, 4
-		add	al, 20h	; ' '
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B8[bx], al
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word ptr chiyuri_gauge_pattern_x[bx], 0FE80h
-		jmp	loc_1B61E
-; ---------------------------------------------------------------------------
-
-loc_1B502:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	loc_1B61E
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	si, chiyuri_gauge_pattern_x[bx]
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, chiyuri_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	bx, 10h
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B57C
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		add	word ptr chiyuri_gauge_pattern_x[bx], (24 shl 4)
-		add	si, (24 shl 4)
-		push	si
-		push	0
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		mov	ax, (PLAYFIELD_W shl 4)
-		sub	ax, si
-		push	ax
-		push	0
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-
-loc_1B57C:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		test	byte ptr chiyuri_gauge_pattern_frames[bx], 1
-		jz	short loc_1B5E3
-		mov	al, [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, chiyuri_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	bx, 10h
-		cwd
-		idiv	bx
-		shl	dl, 2
-		add	dl, ((1 shl 4) + 8)
-		mov	_bullet_template.BT_speed, dl
-		mov	_bullet_template.BT_group, BG_1_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.BT_center.y, 0
-		mov	_bullet_template.BT_center.x, si
-		mov	_bullet_template.BT_is_animated, 0
-		call	@bullets_add$qv
-		mov	ax, (PLAYFIELD_W shl 4)
-		sub	ax, si
-		mov	_bullet_template.BT_center.x, ax
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_is_animated, 1
-
-loc_1B5E3:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr chiyuri_gauge_pattern_frames[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, chiyuri_gauge_pattern_frames[bx]
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		cmp	al, byte_202B8[bx]
-		jb	short loc_1B61E
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		push	word ptr [bp+@@pid_other]
-		call	sub_A3A8
-
-loc_1B61E:
-		pop	si
-		leave
-		retn	2
-@gauge_pattern_chiyuri$quc endp
+@GAUGE_PATTERN_CHIYURI$QUC procdesc pascal near \
+		type:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9013,7 +8852,7 @@ gba_gauge_pattern_pellet_chiyuri proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1B639
-		call	@gauge_pattern_chiyuri$quc pascal, BT_PELLET
+		call	@GAUGE_PATTERN_CHIYURI$QUC pascal, BT_PELLET
 
 loc_1B639:
 		pop	bp
@@ -9033,7 +8872,7 @@ gba_gauge_pattern_bullet_chiyuri proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1B651
-		call	@gauge_pattern_chiyuri$quc pascal, BT_BULLET16_DEFAULT
+		call	@GAUGE_PATTERN_CHIYURI$QUC pascal, BT_BULLET16_DEFAULT
 
 loc_1B651:
 		pop	bp
@@ -12205,7 +12044,11 @@ public _word_1F3B0, word_1F3B0
 _word_1F3B0 label word
 word_1F3B0	dw ?
 include th02/math/randring[bss].asm
+public _chiyuri_gauge_pattern_x, chiyuri_gauge_pattern_x
+_chiyuri_gauge_pattern_x label word
 chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
+public _chiyuri_gauge_pattern_frames, chiyuri_gauge_pattern_frames
+_chiyuri_gauge_pattern_frames label byte
 chiyuri_gauge_pattern_frames db PLAYER_COUNT dup(?)
 public _chiyuri_chargeshot_nodes, chiyuri_chargeshot_nodes
 _chiyuri_chargeshot_nodes label byte
