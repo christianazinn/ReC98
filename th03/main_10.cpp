@@ -215,3 +215,17 @@ void pascal near gauge_pattern_kotohime(uint8_t type)
 frame_next:
 	kotohime_gauge_pattern_frames[pid_current]++;
 }
+
+extern "C" void pascal far gba_gauge_pattern_pellet_kotohime(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_kotohime(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_kotohime(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_kotohime(BT_BULLET16_DEFAULT);
+	}
+}
