@@ -4472,46 +4472,7 @@ sub_CE0C	endp
 
 ; Attributes: bp-based frame
 
-public SUB_CE5B
-SUB_CE5B label far
-sub_CE5B	proc far
-
-@@pid		= word ptr  6
-arg_2		= word ptr  8
-@@x		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		inc	byte_20F1E
-		cmp	byte_20F1E, 0Ch
-		jb	short loc_CE6F
-		mov	byte_20F1E, 0
-
-loc_CE6F:
-		mov	al, byte_20F1E
-		mov	ah, 0
-		imul	ax, 0Ah
-		add	ax, offset byte_20EA6
-		mov	si, ax
-		mov	byte ptr [si], 2
-		mov	byte ptr [si+1], 0
-		push	[bp+@@x]	; x
-		push	[bp+@@pid]	; pid
-		nopcall	@playfield_fg_x_to_screen$qii
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		sar	ax, 4
-		add	ax, 10h
-		mov	[si+4],	ax
-		mov	byte ptr [si+6], 162
-		mov	byte ptr [si+7], -10
-		call	@randring_far_next16$qv
-		mov	[si+8],	al
-		pop	si
-		pop	bp
-		retf	6
-sub_CE5B	endp
+SUB_CE5B procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6062,14 +6023,14 @@ loc_184A5:
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE5B
+		call	SUB_CE5B
 		lea	ax, [si+(144 shl 4)]
 		push	ax
 		push	(184 shl 4)
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE5B
+		call	SUB_CE5B
 		push	(144 shl 4)
 		mov	ax, (184 shl 4)
 		sub	ax, si
@@ -6077,14 +6038,14 @@ loc_184A5:
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE5B
+		call	SUB_CE5B
 		push	(144 shl 4)
 		lea	ax, [si+(184 shl 4)]
 		push	ax
 		mov	al, _pid_current
 		mov	ah, 0
 		push	ax
-		call	sub_CE5B
+		call	SUB_CE5B
 
 loc_18518:
 		mov	si, PLAYFIELD_LEFT
@@ -8833,6 +8794,8 @@ include th03/main/player/combo[bss].asm
 public _byte_20EA6, byte_20EA6
 _byte_20EA6 label byte
 byte_20EA6	db 120 dup(?)
+public _byte_20F1E, byte_20F1E
+_byte_20F1E label byte
 byte_20F1E	db ?
 		db ?
 public _farfp_20F20, _farfp_20F24
