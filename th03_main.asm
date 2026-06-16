@@ -8802,49 +8802,8 @@ main_07_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public CHARGESHOT_ADD_CHIYURI
-chargeshot_add_chiyuri	proc far
-
-@@center_y	= word ptr  6
-@@center_x	= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, 30h
-		add	ax, offset chiyuri_chargeshot_nodes
-		mov	si, ax
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+@@center_x]
-		mov	[si+2],	ax
-		mov	ax, [bp+@@center_y]
-		mov	[si+4],	ax
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		shl	ax, 7
-		mov	bx, ax
-		mov	_players[bx].shot_active, SA_DISABLED
-		xor	dx, dx
-		jmp	short loc_1B2B8
-; ---------------------------------------------------------------------------
-
-loc_1B2AB:
-		mov	al, dl
-		shl	al, 2
-		add	al, 2
-		mov	[si], al
-		inc	dx
-		add	si, 6
-
-loc_1B2B8:
-		cmp	dx, 8
-		jl	short loc_1B2AB
-		pop	si
-		pop	bp
-		retf	4
-chargeshot_add_chiyuri	endp
+	CHARGESHOT_ADD_CHIYURI procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
