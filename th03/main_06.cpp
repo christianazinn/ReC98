@@ -20,6 +20,12 @@ extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_2028A;
 extern "C" uint16_t far randring_far_next16_raw(void);
 
+struct player_stuff_t {
+	PlayfieldPoint center;
+	uint8_t unused[0x7C];
+};
+extern player_stuff_t players[PLAYER_COUNT];
+
 extern "C" uint8_t near sub_1A1A7(void)
 {
 	register uint8_t near *slot;
@@ -1329,4 +1335,109 @@ generic:
 	sub_1A377(screen_x, top, frame);
 
 ret:
+}
+
+void far exatt_update_rikako(void)
+{
+	int vector_x;
+	int vector_y;
+	uint8_t pid_other;
+	uint8_t target_angle;
+	int8_t angle_delta;
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+	_AL = 1;
+	_AL -= pid_current;
+	pid_other = _AL;
+	playfield_clip_negative_radius.x.v = TO_SP(-32);
+	playfield_clip_negative_radius.y.v = TO_SP(-32);
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(16);
+	hitbox.radius.y.v = TO_SP(16);
+	hitbox.pid = _AL;
+	i = 0;
+	goto loop_test;
+
+loop:
+	if(slot[0] == 0) {
+		goto next;
+	}
+	if(slot[0] != 1) {
+		goto not_state_1;
+	}
+	vector2(vector_x, vector_y, slot[0x12], slot[0x13]);
+	*reinterpret_cast<subpixel_t near *>(slot + 2) += vector_x;
+	*reinterpret_cast<subpixel_t near *>(slot + 4) += vector_y;
+	if(slot[0x17] != 0) {
+		goto clip;
+	}
+	if(slot[1] < 0x40) {
+		goto clip;
+	}
+	if(slot[1] > 0x50) {
+		goto clip;
+	}
+	target_angle = iatan2(
+		(players[pid_other].center.y.v - *reinterpret_cast<subpixel_t near *>(slot + 4)),
+		(players[pid_other].center.x.v - *reinterpret_cast<subpixel_t near *>(slot + 2))
+	);
+	slot[0x13]++;
+	angle_delta = (target_angle - slot[0x12]);
+	angle_delta = (static_cast<int>(angle_delta) / 8);
+	slot[0x12] += angle_delta;
+
+clip:
+	if(playfield_clip(
+		reinterpret_cast<PlayfieldSubpixel near *>(slot + 2)[0],
+		reinterpret_cast<PlayfieldSubpixel near *>(slot + 4)[0]
+	) != false) {
+		slot[0] = 0;
+		goto next;
+	}
+	hitbox.origin.center.x.v = *reinterpret_cast<subpixel_t near *>(slot + 2);
+	hitbox.origin.center.y.v = *reinterpret_cast<subpixel_t near *>(slot + 4);
+	hitbox_hittest();
+	sub_1A491(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		*reinterpret_cast<subpixel_t near *>(slot + 4)
+	);
+	goto inc_frame;
+
+not_state_1:
+	if(slot[0] != 2) {
+		goto not_state_2;
+	}
+	word_2028A = reinterpret_cast<uint16_t>(slot);
+	sub_1A1A7();
+	goto inc_frame;
+
+not_state_2:
+	if(slot[0] > 0x1C) {
+		goto start_state_1;
+	}
+	slot[0]++;
+	goto inc_frame;
+
+start_state_1:
+	slot[1] = 0;
+	slot[0] = 1;
+
+inc_frame:
+	slot[1]++;
+
+next:
+	i++;
+	slot += 0x20;
+
+loop_test:
+	if(i < 0x0E) {
+		goto loop;
+	}
+	hitbox_hittest_skip_explosions = false;
 }
