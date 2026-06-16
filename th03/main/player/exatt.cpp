@@ -42,6 +42,47 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far ellen_194A9(
+	subpixel_t x, subpixel_t y, uint8_t angle, uint8_t delta
+)
+{
+	register uint8_t near *slot;
+
+	_AL = pid_current;
+	_AH = 0;
+	_asm { imul ax, ax, (12 * 30); }
+	_AX += reinterpret_cast<uint16_t>(ellen_exatt_refs);
+	word_1FB3A = _AX;
+
+	_DX = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	) == 0) {
+		slot = reinterpret_cast<uint8_t near *>(
+			*reinterpret_cast<uint16_t near *>(word_1FB3A)
+		);
+		slot[0] = 1;
+		slot[1] = 0;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = y;
+		*reinterpret_cast<uint16_t near *>(slot + 0x14) = 0;
+		slot[0x11] = delta;
+		slot[0x12] = angle;
+		_AL = 1;
+		_AL -= pid_current;
+		slot[0x10] = _AL;
+		return;
+	}
+	_DX++;
+	word_1FB3A += 30;
+loop_test:
+	if(static_cast<int>(_DX) < 12) {
+		goto loop;
+	}
+}
+
 extern "C" void near ellen_19510(void)
 {
 	screen_x_t x;
