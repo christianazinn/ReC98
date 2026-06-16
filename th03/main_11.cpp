@@ -3,13 +3,17 @@
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t pid_PID_current;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t rikako_chargeshot_frames[];
@@ -18,7 +22,11 @@ extern "C" Subpixel rikako_chargeshot_origin_x[];
 extern "C" Subpixel rikako_chargeshot_origin_y[];
 extern "C" uint16_t rikako_chargeshot_radius[];
 extern "C" uint8_t rikako_chargeshot_state[];
+extern "C" uint8_t rikako_gauge_pattern_frames[];
 extern "C" uint16_t word_20E86;
+
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 
 struct player_stuff_t {
 	Subpixel center_x;
@@ -273,4 +281,62 @@ node_loop_test:
 	}
 
 ret:
+}
+
+void pascal near gauge_pattern_rikako(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(type == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		rikako_gauge_pattern_frames[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (
+			0x10 - (static_cast<int>(gba_gauge_level[pid_current]) / 2)
+		);
+		byte_202B9[pid_current * 4] = (gba_gauge_level[pid_current] + 0x30);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	if((rikako_gauge_pattern_frames[pid_current] % byte_202B8[pid_current * 4]) != 0) {
+		goto clear_test;
+	}
+
+	pid_other = (1 - pid_current);
+	bullet_template.type = static_cast<bullet_type_t>(type);
+	bullet_template.pid = pid_other;
+	bullet_template.center.y.v = 0;
+	bullet_template.group = BG_1_AIMED;
+	bullet_template.angle = (
+		0x20 - (rikako_gauge_pattern_frames[pid_current] / 4)
+	);
+	bullet_template.speed.v = byte_202B9[pid_current * 4];
+	bullet_template.center.x.v = 0;
+	bullets_add();
+	bullet_template.center.x.v = (PLAYFIELD_W << 4);
+	bullets_add();
+	bullet_template.angle = -bullet_template.angle;
+	bullets_add();
+	bullet_template.center.x.v = 0;
+	bullets_add();
+	SUB_CE0C(0, 0, static_cast<uint16_t>(pid_other));
+	SUB_CE0C((PLAYFIELD_W << 4), 0, static_cast<uint16_t>(pid_other));
+
+clear_test:
+	if(rikako_gauge_pattern_frames[pid_current] >= 0x80) {
+		gba_flag_active[pid_current] = GBAF_NONE;
+		sub_A3A8(1 - pid_current);
+	}
+	rikako_gauge_pattern_frames[pid_current]++;
 }
