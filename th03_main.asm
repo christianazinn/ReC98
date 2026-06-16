@@ -8731,55 +8731,7 @@ sub_1A491 procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-public YUMEMI_1A95F
-YUMEMI_1A95F label far
-yumemi_1A95F	proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, (offset exatt_buffers + 256)
-		mov	si, ax
-		mov	dx, 8
-		jmp	short loc_1A9A6
-; ---------------------------------------------------------------------------
-
-loc_1A975:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1A9A2
-		mov	byte ptr [si], 3
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+arg_2]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_0]
-		mov	[si+4],	ax
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[si+10h], al
-		mov	word ptr [si+14h], 0
-		mov	word ptr [si+0Eh], 20h ; ' '
-		jmp	short loc_1A9AB
-; ---------------------------------------------------------------------------
-
-loc_1A9A2:
-		inc	dx
-		add	si, 20h	; ' '
-
-loc_1A9A6:
-		cmp	dx, 10h
-		jl	short loc_1A975
-
-loc_1A9AB:
-		pop	si
-		pop	bp
-		retf	4
-yumemi_1A95F	endp
+YUMEMI_1A95F procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

@@ -803,3 +803,38 @@ loop_test:
 		goto loop;
 	}
 }
+
+extern "C" void pascal far yumemi_1A95F(
+	subpixel_t target_x, subpixel_t target_y
+)
+{
+	register uint8_t near *slot;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_asm { add ax, (offset exatt_buffers + 256); }
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	_DX = 8;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		slot[0] = 3;
+		slot[1] = 0;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = target_x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = target_y;
+		_AL = 1;
+		_AL -= pid_current;
+		slot[0x10] = _AL;
+		*reinterpret_cast<subpixel_t near *>(slot + 0x14) = 0;
+		*reinterpret_cast<subpixel_t near *>(slot + 0x0E) = 0x20;
+		return;
+	}
+	_DX++;
+	slot += 0x20;
+
+loop_test:
+	_asm { cmp dx, 0x10; }
+	_asm { jl loop; }
+}
