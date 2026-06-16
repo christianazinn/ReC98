@@ -4,6 +4,7 @@
 #include "th03/main/difficul.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 
@@ -169,4 +170,27 @@ loop_test:
 	if(i < 8) {
 		goto loop;
 	}
+}
+
+extern "C" void pascal near sub_1A32A(
+	screen_x_t left, screen_y_t top, uint8_t frame
+)
+{
+	register sprite16_offset_t so;
+
+	if(frame & 1) {
+		return;
+	}
+	so = ((80 * ROW_SIZE) + (320 / BYTE_DOTS));
+	_AL = frame;
+	_AH = 0;
+	_AX &= 7;
+	if(static_cast<int>(_AX) <= 3) {
+		so += 4;
+	}
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	sprite16_put((left - 16), (top - 16), so);
 }
