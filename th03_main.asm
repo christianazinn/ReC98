@@ -9131,164 +9131,8 @@ RIKAKO_HYPER_1C4B4 procdesc pascal far
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_rikako$quc proc near
-
-@@flag_expected	= byte ptr -2
-@@pid_other		= byte ptr -1
-@@type		= byte ptr  4
-
-		enter	2, 0
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_1C75F
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_1C75F:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_1C7CA
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr rikako_gauge_pattern_frames[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dl, 10h
-		sub	dl, al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	byte_202B8[bx], dl
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		add	al, 30h	; '0'
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B9[bx], al
-		leave
-		retn	2
-; ---------------------------------------------------------------------------
-
-loc_1C7CA:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+@@flag_expected]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	locret_1C8D6
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, rikako_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	dl, byte_202B8[bx]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1C8A5
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		mov	al, [bp+@@type]
-		mov	_bullet_template.BT_type, al
-		mov	al, [bp+@@pid_other]
-		mov	_bullet_template.BT_pid, al
-		mov	_bullet_template.BT_center.y, 0
-		mov	_bullet_template.BT_group, BG_1_AIMED
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, rikako_gauge_pattern_frames[bx]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	dl, 20h	; ' '
-		sub	dl, al
-		mov	_bullet_template.BT_angle, dl
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	al, byte_202B9[bx]
-		mov	_bullet_template.BT_speed, al
-		mov	_bullet_template.BT_center.x, 0
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_center.x, (PLAYFIELD_W shl 4)
-		call	@bullets_add$qv
-		mov	al, _bullet_template.BT_angle
-		neg	al
-		mov	_bullet_template.BT_angle, al
-		call	@bullets_add$qv
-		mov	_bullet_template.BT_center.x, 0
-		call	@bullets_add$qv
-		pushd	0
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-		push	12000000h
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		push	ax
-		call	sub_CE0C
-
-loc_1C8A5:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr rikako_gauge_pattern_frames[bx], 80h
-		jb	short loc_1C8CB
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-
-loc_1C8CB:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr rikako_gauge_pattern_frames[bx]
-
-locret_1C8D6:
-		leave
-		retn	2
-@gauge_pattern_rikako$quc endp
+@GAUGE_PATTERN_RIKAKO$QUC procdesc pascal near \
+		type:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9303,7 +9147,7 @@ gba_gauge_pattern_pellet_rikako	proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C8F0
-		call	@gauge_pattern_rikako$quc pascal, BT_PELLET
+		call	@GAUGE_PATTERN_RIKAKO$QUC pascal, BT_PELLET
 
 loc_1C8F0:
 		pop	bp
@@ -9323,7 +9167,7 @@ gba_gauge_pattern_bullet_rikako	proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C908
-		call	@gauge_pattern_rikako$quc pascal, BT_BULLET16_DEFAULT
+		call	@GAUGE_PATTERN_RIKAKO$QUC pascal, BT_BULLET16_DEFAULT
 
 loc_1C908:
 		pop	bp
@@ -10392,6 +10236,8 @@ _word_20E50 label word
 word_20E50	dw ?
 _word_20E52 label word
 word_20E52	dw ?
+public _rikako_gauge_pattern_frames, rikako_gauge_pattern_frames
+_rikako_gauge_pattern_frames label byte
 rikako_gauge_pattern_frames db PLAYER_COUNT dup(?)
 public _rikako_chargeshot_nodes, rikako_chargeshot_nodes
 _rikako_chargeshot_nodes label byte
