@@ -9010,16 +9010,7 @@ main_10_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-sub_1C158	proc far
-		push	bp
-		mov	bp, sp
-		mov	byte ptr kotohime_chargeshot[0], 0
-		mov	byte ptr kotohime_chargeshot[8], 0
-		pop	bp
-		retf
-sub_1C158	endp
+_sub_1C158 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10908,6 +10899,8 @@ _point_1FE52 label Point
 point_1FE52	Point <?>
 word_1FE56	dw ?
 kotohime_gauge_pattern_frames db PLAYER_COUNT dup(?)
+public _kotohime_chargeshot, kotohime_chargeshot
+_kotohime_chargeshot label byte
 kotohime_chargeshot label byte
 		db (PLAYER_COUNT * 8) dup(?)
 word_1FE6A	dw ?
