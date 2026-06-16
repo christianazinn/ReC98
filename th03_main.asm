@@ -1005,7 +1005,7 @@ loc_9F31:
 		call	_sub_14A76
 		call	_sub_153BB
 		call	_sub_142D0
-		call	sub_1B653
+		call	_sub_1B653
 		call	_sub_193BC
 		les	bx, _resident
 		cmp	es:[bx+resident_t.game_mode], GM_STORY
@@ -8864,26 +8864,7 @@ main_08_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_1B653	proc far
-		push	bp
-		mov	bp, sp
-		mov	word_1F868, offset ellen_chargeshot_nodes
-		xor	ax, ax
-		jmp	short loc_1B66D
-; ---------------------------------------------------------------------------
-
-loc_1B660:
-		mov	bx, word_1F868
-		mov	byte ptr [bx], 0
-		inc	ax
-		add	word_1F868, 0Ch
-
-loc_1B66D:
-		cmp	ax, 40h
-		jl	short loc_1B660
-		pop	bp
-		retf
-sub_1B653	endp
+_sub_1B653 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -12053,8 +12034,12 @@ _formation_count        	db ?
 ellen_gauge_pattern_x dw PLAYER_COUNT dup(?)
 ellen_gauge_pattern_y dw PLAYER_COUNT dup(?)
 ellen_gauge_pattern_frames db PLAYER_COUNT dup(?)
+public _ellen_chargeshot_nodes, ellen_chargeshot_nodes
+_ellen_chargeshot_nodes label byte
 ellen_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 32 * 12) dup(?)
+public _word_1F868, word_1F868
+_word_1F868 label word
 word_1F868	dw ?
 public _ellen_exatt_refs
 _ellen_exatt_refs label byte
