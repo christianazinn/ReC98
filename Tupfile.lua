@@ -714,6 +714,8 @@ obj = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
 	} },
+	"th03/hitcb.cpp",
+	"th03/main/hitc_sfx.asm",
 	"th03/main_05.cpp",
 	"th03/main/resscore.cpp",
 	"th03/playfld.cpp",
