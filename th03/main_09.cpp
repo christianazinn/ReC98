@@ -2,12 +2,16 @@
 
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/playfld.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/vector.hpp"
 
 extern "C" uint8_t kana_chargeshot_frames[];
 extern "C" uint8_t kana_chargeshot_nodes[];
 extern "C" uint8_t kana_chargeshot_state[];
+extern "C" uint8_t pid_PID_so_attack;
+extern "C" uint16_t word_1FD8C;
 
 struct player_stuff_t {
 	uint8_t unused_0[0x18];
@@ -153,4 +157,40 @@ clear_test:
 	kana_chargeshot_frames[pid_current]++;
 
 ret:
+}
+
+#pragma warn -aus
+extern "C" void near kana_chargeshot_1BDF8(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	register int i;
+	register sprite16_offset_t so;
+
+	so = (pid_PID_so_attack + (56 * ROW_SIZE));
+	i = 0x0C;
+	goto point_loop_test;
+
+point_loop:
+	_BX = i;
+	_BX += _BX;
+	_BX += word_1FD8C;
+	left = (playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(_BX),
+		pid_current
+	) - 16);
+	_BX = i;
+	_BX += _BX;
+	_BX += word_1FD8C;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 0x1A);
+	asm { sar ax, 4; }
+	top = _AX;
+	sprite16_put(left, _AX, so);
+	i -= 4;
+	so -= (16 * ROW_SIZE);
+
+point_loop_test:
+	if(i >= 0) {
+		goto point_loop;
+	}
 }
