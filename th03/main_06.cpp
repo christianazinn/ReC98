@@ -455,3 +455,42 @@ loop_test:
 		goto loop;
 	}
 }
+
+extern "C" void pascal far exatt_add_mima(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			randring_far_next16_mod(PLAYFIELD_W << 4),
+			randring_far_next16_mod(PLAYFIELD_W << 4),
+			pid,
+			0x5A
+		);
+		*reinterpret_cast<uint16_t near *>(slot + 0x0E) = 0;
+		slot[1] = 3;
+		return;
+	}
+	i++;
+	slot += 0x20;
+
+loop_test:
+	if(i < 6) {
+		goto loop;
+	}
+}
