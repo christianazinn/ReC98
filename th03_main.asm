@@ -1882,8 +1882,8 @@ arg_0		= word ptr  4
 		setfarfp	_chargeshot_update_p1, chargeshot_update_kana
 		setfarfp	_chargeshot_render_p1, chargeshot_render_kana
 		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_kana$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_kana
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_kana
+		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_KANA
+		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_KANA
 		setfarfp	gba_boss_update_p1, gba_boss_update_kana
 		setfarfp	gba_boss_render_p1, gba_boss_render_kana
 		setfarfp	p1_205CE, sub_1501E
@@ -1901,8 +1901,8 @@ loc_ADDA:
 		setfarfp	_chargeshot_update_p2, chargeshot_update_kana
 		setfarfp	_chargeshot_render_p2, chargeshot_render_kana
 		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_kana$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_kana
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_kana
+		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_KANA
+		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_KANA
 		setfarfp	gba_boss_update_p2, gba_boss_update_kana
 		setfarfp	gba_boss_render_p2, gba_boss_render_kana
 		setfarfp	p2_205D2, sub_1501E
@@ -8990,41 +8990,13 @@ _sub_1BC4D procdesc far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_pellet_kana
-gba_gauge_pattern_pellet_kana proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1C13E
-		call	@GAUGE_PATTERN_KANA$QUC pascal, BT_PELLET
-
-loc_1C13E:
-		pop	bp
-		retf
-gba_gauge_pattern_pellet_kana endp
+GBA_GAUGE_PATTERN_PELLET_KANA procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_gauge_pattern_bullet_kana
-gba_gauge_pattern_bullet_kana proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_NONE
-		jz	short loc_1C156
-		call	@GAUGE_PATTERN_KANA$QUC pascal, BT_BULLET16_DEFAULT
-
-loc_1C156:
-		pop	bp
-		retf
-gba_gauge_pattern_bullet_kana endp
+GBA_GAUGE_PATTERN_BULLET_KANA procdesc pascal far
 
 main_09_TEXT	ends
 
