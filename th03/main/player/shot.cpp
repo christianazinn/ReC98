@@ -4,6 +4,7 @@
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/main/v_colors.hpp"
+#include "th03/main/enemy/efe.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/resident.hpp"
 #include "th03/gaiji/gaiji.h"
@@ -30,6 +31,8 @@ extern "C" uint8_t defeat_gauge_attacks_fired;
 extern "C" uint8_t defeat_boss_attacks_fired;
 extern "C" uint8_t defeat_boss_attacks_reversed;
 extern "C" uint8_t defeat_boss_panics_fired;
+extern "C" uint8_t byte_23AF9;
+extern "C" uint8_t byte_23B00;
 
 extern "C" const char near aMAX_COMBO[];
 extern "C" const char near aGAUGE_ATTACK_TIMES[];
@@ -82,6 +85,42 @@ extern "C" const char near aPLAYER_REM[];
 #define score_add_nopcall(score) { \
 	_asm { push word ptr score; push word ptr [bp - 2]; } \
 	_asm { nop; push cs; call near ptr score_add; } \
+}
+
+extern "C" void near sub_E266(void)
+{
+	graph_accesspage(1);
+	super_put(544, 328,  0);
+	super_put(576, 328,  3);
+	super_put(608, 328,  6);
+	super_put(544, 360,  9);
+	super_put(576, 360, 12);
+	super_put(608, 360, 15);
+	graph_accesspage(0);
+	super_put(544, 328,  0);
+	super_put(576, 328,  3);
+	super_put(608, 328,  6);
+	super_put(544, 360,  9);
+	super_put(576, 360, 12);
+	super_put(608, 360, 15);
+}
+
+extern "C" void near sub_E313(void)
+{
+	int i;
+	register shotpair_t near *shotpair = shotpairs;
+
+	for(i = 0; i < SHOTPAIR_COUNT; i++, shotpair++) {
+		shotpair->alive = false;
+	}
+	register efe_t near *efe = efes;
+	for(i = 0; i < EFE_COUNT; i++, efe++) {
+		efe->flag = EFF_FREE;
+	}
+	round_frame = 0;
+	round_or_result_frame = 0;
+	byte_23AF9 = 1;
+	byte_23B00 = 0;
 }
 
 extern "C" void pascal near sub_E35B(
