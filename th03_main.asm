@@ -8817,41 +8817,7 @@ main_07_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-chiyuri_chargeshot_1B35F	proc near
-
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	4, 0
-		push	si
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	si, ax
-		mov	bx, word_1F51A
-		test	byte ptr [bx+1], 1
-		jz	short loc_1B37B
-		add	si, 4
-
-loc_1B37B:
-		mov	bx, word_1F51A
-		push	word ptr [bx+2]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@left], ax
-		mov	bx, word_1F51A
-		mov	ax, [bx+4]
-		sar	ax, 4
-		add	ax, -8
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, si
-		pop	si
-		leave
-		retn
-chiyuri_chargeshot_1B35F	endp
+	_chiyuri_chargeshot_1B35F procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -8959,7 +8925,7 @@ loc_1B469:
 		mov	bx, word_1F51A
 		cmp	byte ptr [bx], 1
 		jnz	short loc_1B47E
-		call	chiyuri_chargeshot_1B35F
+		call	_chiyuri_chargeshot_1B35F
 
 loc_1B47E:
 		inc	si
@@ -12355,6 +12321,8 @@ public _chiyuri_chargeshot_nodes, chiyuri_chargeshot_nodes
 _chiyuri_chargeshot_nodes label byte
 chiyuri_chargeshot_nodes label byte
 		db 96 dup(?)
+public _word_1F51A
+_word_1F51A label word
 word_1F51A	dw ?
 
 public _enemy_formation_type, _enemy_formation_i, _enedat_2, _enemy_speed

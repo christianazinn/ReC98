@@ -5,8 +5,12 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/shot.hpp"
+#include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 
 extern "C" uint8_t chiyuri_chargeshot_nodes[];
+extern "C" uint8_t pid_PID_so_attack;
+extern "C" uint16_t word_1F51A;
 
 struct player_stuff_t {
 	Subpixel center_x;
@@ -126,4 +130,30 @@ node_loop_test:
 	}
 
 ret:
+}
+
+#pragma warn -aus
+extern "C" void near chiyuri_chargeshot_1B35F(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	register sprite16_offset_t so;
+
+	so = (pid_PID_so_attack + (8 * ROW_SIZE));
+	_BX = word_1F51A;
+	if(reinterpret_cast<uint8_t near *>(_BX)[1] & 1) {
+		so += 4;
+	}
+
+	_BX = word_1F51A;
+	left = (playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(_BX + 2),
+		pid_current
+	) - 16);
+	_BX = word_1F51A;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 4);
+	asm { sar ax, 4; }
+	_AX += -8;
+	top = _AX;
+	sprite16_put(left, _AX, so);
 }
