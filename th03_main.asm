@@ -5439,61 +5439,8 @@ include th03/main/player/score_add.asm
 ; Attributes: bp-based frame
 public HUD5_PUT
 HUD5_PUT label far
-public @HUD_DYNAMIC_5_DIGIT_POINTS_PUT$QIIUIUC
-@hud_dynamic_5_digit_points_put$qiiuiuc proc far
-
-@@col   	= byte ptr  6
-@@points	= word ptr  8
-@@top   	= word ptr  0Ah
-@@left  	= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		push	GC_RMW
-		mov	al, [bp+@@col]
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		mov	ax, [bp+@@top] ; _AX = (top * (ROW_SIZE / 16))
-		mov	dx, ax
-		shl	ax, 2
-		add	ax, dx
-		add	ax, (SEG_PLANE_B + ((1 * ROW_SIZE) / 16))
-		mov	es, ax
-		mov	cx, [bp+@@left]
-		mov	si, offset _FIVE_DIGIT_POWERS_OF_10
-		mov	di, [bp+@@points]
-		mov	bl, 0
-		nop
-
-loc_D636:
-		mov	ax, di
-		xor	dx, dx
-		div	word ptr [si]
-		mov	di, dx
-		or	bl, al
-		jz	short loc_D645
-		call	sub_D50E
-
-loc_D645:
-		add	cx, 8
-		add	si, 2
-		cmp	word ptr [si], 1
-		ja	short loc_D636
-		mov	ax, di
-		call	sub_D50E
-		add	cx, 8
-		xor	ax, ax
-		call	sub_D50E
-		call	grcg_off
-		pop	di
-		pop	si
-		pop	bp
-		retf	8
-@hud_dynamic_5_digit_points_put$qiiuiuc endp
-
+	@HUD_DYNAMIC_5_DIGIT_POINTS_PUT$QIIUIUC procdesc pascal far \
+		left:word, top:word, points:word, col:byte
 
 ; =============== S U B	R O U T	I N E =======================================
 
