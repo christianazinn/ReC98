@@ -9119,74 +9119,7 @@ RIKAKO_HYPER_1C4B4 procdesc pascal far
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_rikako$qv
-@chargeshot_hittest_rikako$qv proc far
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr rikako_chargeshot_state[bx], 0
-		jnz	short loc_1C683
-		mov	al, 0
-		jmp	short loc_1C6E4
-; ---------------------------------------------------------------------------
-
-loc_1C683:
-		mov	[bp+var_2], 0
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		imul	ax, 18h
-		add	ax, offset rikako_chargeshot_nodes
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1C6DC
-; ---------------------------------------------------------------------------
-
-loc_1C699:
-		mov	ax, [si]
-		sub	ax, _hitbox_right
-		cmp	ax, (12 shl 4)
-		jg	short loc_1C6D8
-		mov	ax, _hitbox_origin_topleft.x
-		sub	ax, [si]
-		cmp	ax, (12 shl 4)
-		jg	short loc_1C6D8
-		mov	ax, [si+2]
-		sub	ax, _hitbox_bottom
-		cmp	ax, (12 shl 4)
-		jg	short loc_1C6D8
-		mov	ax, _hitbox_origin_topleft.y
-		sub	ax, [si+2]
-		cmp	ax, (12 shl 4)
-		jg	short loc_1C6D8
-		push	word ptr [si]	; center_x
-		push	word ptr [si+2]	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		inc	[bp+var_2]
-
-loc_1C6D8:
-		inc	di
-		add	si, 6
-
-loc_1C6DC:
-		cmp	di, 4
-		jl	short loc_1C699
-		mov	al, byte ptr [bp+var_2]
-
-loc_1C6E4:
-		pop	di
-		pop	si
-		leave
-		retf
-@chargeshot_hittest_rikako$qv endp
+	@chargeshot_hittest_rikako$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
