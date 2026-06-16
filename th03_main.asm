@@ -331,7 +331,7 @@ loc_986C:
 		call	player_overlay_render pascal, offset _p1
 		mov	_pid_PID_current, 1
 		call	player_overlay_render pascal, offset _p2
-		nopcall	sub_CEE0
+		nopcall	SUB_CEE0
 		call	@bullets_render$qv
 		cmp	_defeat_flag, DF_BANNER
 		jnz	loc_99B1
@@ -4557,143 +4557,7 @@ sub_CEB2	endp
 
 ; Attributes: bp-based frame
 
-sub_CEE0	proc far
-
-@@angle		= byte ptr -13h
-var_12		= word ptr -12h
-var_10		= word ptr -10h
-var_E		= word ptr -0Eh
-var_C		= word ptr -0Ch
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	14h, 0
-		push	si
-		push	di
-		mov	si, offset byte_20EA6
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-		mov	[bp+var_2], 0
-		jmp	loc_D013
-; ---------------------------------------------------------------------------
-
-loc_CEFC:
-		cmp	byte ptr [si], 0
-		jz	loc_D00D
-		cmp	word ptr [si+2], (RES_X / 2)
-		jge	short loc_CF15
-		push	(16 shl 16) or 8
-		push	303
-		jmp	short loc_CF1E
-; ---------------------------------------------------------------------------
-
-loc_CF15:
-		push	(336 shl 16) or 8
-		push	623
-
-loc_CF1E:
-		push	191
-		call	grc_setclip
-		cmp	byte ptr [si], 1
-		jnz	short loc_CF42
-		push	word ptr [si+2]
-		mov	ax, [si+4]
-		sar	ax, 1
-		push	ax
-		mov	al, [si+6]
-		mov	ah, 0
-		push	ax
-		call	grcg_circle
-		jmp	loc_D00D
-; ---------------------------------------------------------------------------
-
-loc_CF42:
-		mov	ax, [bp+var_2]
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_CF53
-		mov	al, 8
-		jmp	short loc_CF55
-; ---------------------------------------------------------------------------
-
-loc_CF53:
-		mov	al, -8
-
-loc_CF55:
-		add	al, [si+8]
-		mov	[si+8],	al
-		xor	di, di
-		mov	al, [si+8]
-		jmp	short loc_CFC1
-; ---------------------------------------------------------------------------
-
-loc_CF62:
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		mov	al, [si+6]
-		mov	ah, 0
-		push	ax
-		push	word ptr [si+2]
-		call	@polar$qiii
-		add	sp, 6
-		mov	bx, di
-		add	bx, bx
-		lea	dx, [bp+var_A]
-		add	bx, dx
-		mov	ss:[bx], ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		mov	al, [si+6]
-		mov	ah, 0
-		push	ax
-		push	word ptr [si+4]
-		call	@polar$qiii
-		add	sp, 6
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	bx, di
-		add	bx, bx
-		lea	dx, [bp+var_12]
-		add	bx, dx
-		mov	ss:[bx], ax
-		inc	di
-		mov	al, [bp+@@angle]
-		add	al, 40h
-
-loc_CFC1:
-		mov	[bp+@@angle], al
-		cmp	di, 4
-		jl	short loc_CF62
-		call	grcg_line pascal, [bp+var_A], [bp+var_12], [bp+var_8], [bp+var_10]
-		call	grcg_line pascal, [bp+var_8], [bp+var_10], [bp+var_6], [bp+var_E]
-		call	grcg_line pascal, [bp+var_6], [bp+var_E], [bp+var_4], [bp+var_C]
-		call	grcg_line pascal, [bp+var_4], [bp+var_C], [bp+var_A], [bp+var_12]
-
-loc_D00D:
-		inc	[bp+var_2]
-		add	si, 0Ah
-
-loc_D013:
-		cmp	[bp+var_2], 0Ch
-		jl	loc_CEFC
-		GRCG_OFF_VIA_XOR ax
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (SPRITE16_RES_Y - 1)
-		pop	di
-		pop	si
-		leave
-		retf
-sub_CEE0	endp
+SUB_CEE0 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -8998,6 +8862,8 @@ byte_20E9A	db PLAYER_COUNT dup(?)
 public _gba_flag_next
 _gba_flag_next	db PLAYER_COUNT dup(?)
 include th03/main/player/combo[bss].asm
+public _byte_20EA6, byte_20EA6
+_byte_20EA6 label byte
 byte_20EA6	db 120 dup(?)
 byte_20F1E	db ?
 		db ?
