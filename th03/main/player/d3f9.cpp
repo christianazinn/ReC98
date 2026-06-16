@@ -23,10 +23,35 @@ struct d3f9_rec_t {
 extern "C" d3f9_rec_t near byte_20F2C[];
 extern "C" uint8_t near angle_2142C;
 
-extern "C" void near sub_D031(void);
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+
+extern "C" void near sub_D031(void)
+{
+	_asm {
+		mov 	ax, [di]
+		mov 	bx, [di+2]
+		sar 	ax, 4
+		db 	089h
+		db 	0C1h
+		sar 	ax, 3
+		db 	081h
+		db 	0E3h
+		db 	0E0h
+		db 	0FFh
+		shl 	bx, 1
+		db 	001h
+		db 	0D8h
+		shr 	bx, 2
+		db 	001h
+		db 	0C3h
+		and 	cl, 7
+		mov 	ax, 11000000b
+		ror 	ax, cl
+		mov 	es:[bx], ax
+	}
+}
 
 extern "C" void pascal far sub_D05D(void)
 {

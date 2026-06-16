@@ -4699,34 +4699,7 @@ sub_CEE0	endp
 
 ; Attributes: bp-based frame
 
-public _sub_D031, sub_D031
-_sub_D031 label near
-sub_D031	proc near
-		push	bp
-		mov	bp, sp
-		push	di
-		mov	ax, [di]
-		mov	bx, [di+2]
-		sar	ax, 4
-		mov	cx, ax
-		sar	ax, 3
-		; Hack (and bx, 0FFE0h)
-		db 081h
-		db 0e3h
-		db 0e0h
-		db 0ffh
-		shl	bx, 1
-		add	ax, bx
-		shr	bx, 2
-		add	bx, ax
-		and	cl, 7
-		mov	ax, 11000000b
-		ror	ax, cl
-		mov	es:[bx], ax
-		pop	di
-		pop	bp
-		retn
-sub_D031	endp
+	_sub_D031 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
