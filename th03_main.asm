@@ -1720,7 +1720,7 @@ loc_A912:
 		call	sub_A4A1
 
 loc_A9BD:
-		setfarfp	farfp_20F20, sub_D2E8
+		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
@@ -1785,7 +1785,7 @@ loc_AAAA:
 		call	sub_A4A1
 
 loc_AB55:
-		setfarfp	farfp_20F20, sub_D2E8
+		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
@@ -1850,7 +1850,7 @@ loc_AC42:
 		call	sub_A4A1
 
 loc_ACED:
-		setfarfp	farfp_20F20, sub_D2E8
+		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
@@ -1915,7 +1915,7 @@ loc_ADDA:
 		call	sub_A4A1
 
 loc_AE85:
-		setfarfp	farfp_20F20, sub_D2E8
+		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
@@ -4734,7 +4734,6 @@ sub_D031	endp
 ; Attributes: bp-based frame
 
 public SUB_D05D, sub_D05D, SUB_D092, sub_D092, SUB_D135, sub_D135
-public SUB_D2E8, sub_D2E8
 sub_D05D	proc far
 		push	bp
 		mov	bp, sp
@@ -5069,53 +5068,7 @@ sub_D1E7	endp
 
 ; Attributes: bp-based frame
 
-sub_D2E8	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	angle_2142C, 40h
-		mov	si, offset byte_20F2C
-		xor	di, di
-		jmp	short loc_D337
-; ---------------------------------------------------------------------------
-
-loc_D2F9:
-		call	IRand
-		mov	bx, (640 shl 4)
-		cwd
-		idiv	bx
-		mov	[si], dx
-		call	IRand
-		mov	bx, (400 shl 4)
-		cwd
-		idiv	bx
-		mov	[si+2],	dx
-		mov	word ptr [si+4], 0
-		mov	word ptr [si+6], 10h
-		mov	byte ptr [si+8], 10h
-		cmp	di, 28h	; '('
-		jge	short loc_D32E
-		mov	word ptr [si+0Ah], 233Eh
-		jmp	short loc_D333
-; ---------------------------------------------------------------------------
-
-loc_D32E:
-		mov	word ptr [si+0Ah], 20BEh
-
-loc_D333:
-		inc	di
-		add	si, 10h
-
-loc_D337:
-		cmp	di, 32h	; '2'
-		jl	short loc_D2F9
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_D2E8	endp
-
+	SUB_D2E8 procdesc far
 
 ; =============== S U B	R O U T	I N E =======================================
 

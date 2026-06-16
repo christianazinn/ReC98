@@ -28,6 +28,43 @@ extern "C" void near sub_D0FA(void);
 extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D3F9(void);
 
+extern "C" void pascal far sub_D2E8(void)
+{
+	angle_2142C = 0x40;
+	_SI = FP_OFF(byte_20F2C);
+	_DI = 0;
+	goto loop_test;
+loop:
+	_AX = irand();
+	_BX = (640 * 16);
+	_asm {
+		cwd
+		idiv 	bx
+		mov 	[si], dx
+	}
+	_AX = irand();
+	_BX = (400 * 16);
+	_asm {
+		cwd
+		idiv 	bx
+		mov 	[si+2], dx
+		mov 	word ptr [si+4], 0
+		mov 	word ptr [si+6], 10h
+		mov 	byte ptr [si+8], 10h
+	}
+	if(static_cast<int16_t>(_DI) < 0x28) {
+		_asm { mov word ptr [si+0Ah], 233Eh }
+	} else {
+		_asm { mov word ptr [si+0Ah], 20BEh }
+	}
+	_DI++;
+	_SI += sizeof(d3f9_rec_t);
+loop_test:
+	if(static_cast<int16_t>(_DI) < 0x32) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far sub_D340(void)
 {
 	sprite16_put_size.w.v = (16 / 16);
