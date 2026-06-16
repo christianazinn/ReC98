@@ -1721,7 +1721,7 @@ loc_A912:
 
 loc_A9BD:
 		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
+		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	marisa_F5AF
@@ -1786,7 +1786,7 @@ loc_AAAA:
 
 loc_AB55:
 		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
+		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	ellen_113E2
@@ -1851,7 +1851,7 @@ loc_AC42:
 
 loc_ACED:
 		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
+		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	kotohime_11A6D
@@ -1916,7 +1916,7 @@ loc_ADDA:
 
 loc_AE85:
 		setfarfp	farfp_20F20, sub_D2E8
-		setfarfp	farfp_20F24, sub_D340
+		setfarfp	farfp_20F24, SUB_D340
 		setfarfp	farfp_20F28, sub_D05D
 		push	si
 		call	kana_12BFB
@@ -4735,7 +4735,7 @@ sub_D031	endp
 ; Attributes: bp-based frame
 
 public SUB_D05D, sub_D05D, SUB_D092, sub_D092, SUB_D135, sub_D135
-public SUB_D2E8, sub_D2E8, SUB_D340, sub_D340
+public SUB_D2E8, sub_D2E8
 sub_D05D	proc far
 		push	bp
 		mov	bp, sp
@@ -5122,73 +5122,7 @@ sub_D2E8	endp
 
 ; Attributes: bp-based frame
 
-sub_D340	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	_sprite16_put_w, (16 / 16)
-		mov	_sprite16_put_h, 8
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-		mov	ax, 0A800h
-		mov	es, ax
-		mov	angle_2142C, 40h
-		mov	di, offset byte_20F2C
-		xor	si, si
-
-loc_D376:
-		call	IRand
-		and	ax, 1
-		add	ax, [di+6]
-		mov	[di+6],	ax
-		mov	[di+8],	al
-		call	sub_D0FA
-		call	sub_D031
-		add	di, 10h
-		inc	si
-		cmp	si, 18h
-		jb	short loc_D376
-		call	grcg_off
-		call	egc_on
-
-loc_D3A0:
-		xor	ax, ax
-		cmp	si, 28h	; '('
-		jnb	short loc_D3AF
-		call	IRand
-		and	ax, 1
-
-loc_D3AF:
-		add	ax, [di+6]
-		mov	[di+6],	ax
-		mov	[di+8],	al
-		call	sub_D0FA
-		mov	ax, [di]
-		sar	ax, 4
-		push	ax
-		mov	ax, [di+2]
-		sar	ax, 4
-		push	ax
-		push	word ptr [di+0Ah]
-		call	sprite16_put_noclip
-		add	di, 10h
-		inc	si
-		cmp	si, 32h	; '2'
-		jb	short loc_D3A0
-		cmp	_round_frame, 144
-		jbe	short loc_D3F0
-		setfarfp	farfp_20F24, SUB_D3F9
-
-loc_D3F0:
-		call	egc_off
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_D340	endp
-
+	SUB_D340 procdesc far
 
 ; =============== S U B	R O U T	I N E =======================================
 
