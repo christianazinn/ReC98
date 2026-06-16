@@ -9113,33 +9113,7 @@ RIKAKO_HYPER_1C4B4 procdesc pascal far
 
 ; Attributes: bp-based frame
 
-rikako_chargeshot_1C62A	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, (8 * ROW_SIZE)
-		mov	[bp+@@sprite_offset], ax
-		mov	bx, word_20E86
-		push	word ptr [bx]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -16
-		mov	[bp+@@left], ax
-		mov	bx, word_20E86
-		mov	ax, [bx+2]
-		sar	ax, 4
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
-		leave
-		retn
-rikako_chargeshot_1C62A	endp
+	_rikako_chargeshot_1C62A procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9252,7 +9226,7 @@ loc_1C734:
 ; ---------------------------------------------------------------------------
 
 loc_1C738:
-		call	rikako_chargeshot_1C62A
+		call	_rikako_chargeshot_1C62A
 		inc	si
 		add	word_20E86, 6
 
@@ -10537,6 +10511,8 @@ public _rikako_chargeshot_nodes, rikako_chargeshot_nodes
 _rikako_chargeshot_nodes label byte
 rikako_chargeshot_nodes label byte
 		db (PLAYER_COUNT * 4 * 6) dup(?)
+public _word_20E86, word_20E86
+_word_20E86 label word
 word_20E86	dw ?
 public _rikako_chargeshot_state, rikako_chargeshot_state
 _rikako_chargeshot_state label byte
