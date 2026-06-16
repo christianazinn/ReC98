@@ -404,7 +404,7 @@ loc_99A8:
 loc_99B1:
 		call	sub_C830
 		call	sub_C8C4
-		call	sub_D52E
+		call	_sub_D52E
 		push	0
 		nopcall	sub_C9FE
 		push	1
@@ -5328,97 +5328,16 @@ sub_D3F9	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-public SUB_D50E
-SUB_D50E label near
-sub_D50E	proc near
-		push	si
-		push	di
-		mov	ah, 0
-		mov	si, offset _sSCORE_FONT
-		shl	ax, 3
-		add	si, ax
-		mov	ax, cx
-		sar	ax, 3
-		add	ax, (6 * ROW_SIZE)
-		mov	di, ax
+	SUB_D50E procdesc near
 
-loc_D524:
-		movsb
-		sub	di, 51h	; 'Q'
-		jnb	short loc_D524
-		pop	di
-		pop	si
-		retn
-sub_D50E	endp
-
-; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
 
-
-sub_D52E	proc near
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, 0A82Dh
-		mov	es, ax
-		assume es:nothing
-		mov	cx, 544
-		mov	bx, offset _score
-		add	bx, (PLAYER_COUNT * SCORE_DIGITS) - 1
-		mov	dh, (PLAYER_COUNT * SCORE_DIGITS)
-
-loc_D549:
-		xor	dl, dl
-
-loc_D54B:
-		mov	al, [bx]
-		or	dl, al
-		jz	short loc_D554
-		call	sub_D50E
-
-loc_D554:
-		dec	bx
-		add	cx, 8
-		dec	dh
-		jz	short loc_D56B
-		cmp	dh, (1 * SCORE_DIGITS)
-		jnz	short loc_D54B
-		xor	ax, ax
-		call	sub_D50E
-		mov	cx, 224
-		jmp	short loc_D549
-; ---------------------------------------------------------------------------
-
-loc_D56B:
-		db	0B0h ; MOV AL, imm8
-public _score_continues_used_digit, score_continues_used_digit
-_score_continues_used_digit label byte
-score_continues_used_digit label byte
-		db	80h
-		call	sub_D50E
-		call	grcg_off
-		mov	al, _score_p1[6]
-		cmp	_extends_gained, al
-		jnb	short locret_D5A0
-		call	snd_se_play pascal, 8
-		les	bx, _resident
-		assume es:nothing
-		inc	es:[bx+resident_t.story_lives]
-		call	@hud_static_story_lives_put$qv
-		inc	_extends_gained
-		cmp	_extends_gained, EXTENDS_MAX
-		jnz	short locret_D5A0
-		mov	_extends_gained, EXTENDS_DISABLE
-
-locret_D5A0:
-		retn
-sub_D52E	endp
+	_sub_D52E procdesc near
 
 ; ---------------------------------------------------------------------------
-		nop
 
 ; =============== S U B	R O U T	I N E =======================================
-
 
 	SUB_D5A2 procdesc far
 
