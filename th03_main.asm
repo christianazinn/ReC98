@@ -9048,115 +9048,8 @@ _sub_1C158 procdesc far
 
 ; Attributes: bp-based frame
 
-@gauge_pattern_kotohime$quc proc near
-
-@@flag_expected	= byte ptr -1
-@@type		= byte ptr  4
-
-		enter	2, 0
-		mov	[bp+@@flag_expected], GBAF_GAUGE_PELLET_INIT
-		cmp	[bp+@@type], BT_BULLET16_DEFAULT
-		jnz	short loc_1C2F6
-		mov	al, [bp+@@flag_expected]
-		add	al, GBAF_PELLET_TO_BULLET
-		mov	[bp+@@flag_expected], al
-
-loc_1C2F6:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		cmp	al, [bp+@@flag_expected]
-		jnz	short loc_1C36B
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte ptr kotohime_gauge_pattern_frames[bx], 0
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_gba_flag_active[bx]
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_gauge_level[bx]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, 4
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B8[bx], al
-		push	1
-		call	@randring_far_next16_and$qui
-		mov	dl, _pid_current
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	byte_202B9[bx], al
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 2
-		mov	dl, [bp+@@type]
-		mov	bx, ax
-		mov	byte_202BA[bx], dl
-		leave
-		retn	2
-; ---------------------------------------------------------------------------
-
-loc_1C36B:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, _gba_flag_active[bx]
-		mov	ah, 0
-		mov	dl, [bp+var_1]
-		mov	dh, 0
-		inc	dx
-		cmp	ax, dx
-		jnz	short locret_1C3D6
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr kotohime_gauge_pattern_frames[bx], 0
-		jnz	short loc_1C3A5
-		push	(160 shl 4)
-		call	@randring_far_next16_mod$qui
-		add	ax, (64 shl 4)
-		push	ax
-		push	0
-		call	kotohime_19DD3
-		jmp	short loc_1C3CB
-; ---------------------------------------------------------------------------
-
-loc_1C3A5:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	byte ptr kotohime_gauge_pattern_frames[bx], 80h
-		jb	short loc_1C3CB
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	sub_A3A8
-
-loc_1C3CB:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	byte ptr kotohime_gauge_pattern_frames[bx]
-
-locret_1C3D6:
-		leave
-		retn	2
-@gauge_pattern_kotohime$quc endp
+	@GAUGE_PATTERN_KOTOHIME$QUC procdesc pascal near \
+		type:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9171,7 +9064,7 @@ gba_gauge_pattern_pellet_kotohime proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C3F0
-		call	@gauge_pattern_kotohime$quc pascal, BT_PELLET
+		call	@GAUGE_PATTERN_KOTOHIME$QUC pascal, BT_PELLET
 
 loc_1C3F0:
 		pop	bp
@@ -9191,7 +9084,7 @@ gba_gauge_pattern_bullet_kotohime proc far
 		mov	bx, ax
 		cmp	_gba_flag_active[bx], GBAF_NONE
 		jz	short loc_1C408
-		call	@gauge_pattern_kotohime$quc pascal, BT_BULLET16_DEFAULT
+		call	@GAUGE_PATTERN_KOTOHIME$QUC pascal, BT_BULLET16_DEFAULT
 
 loc_1C408:
 		pop	bp
@@ -10738,6 +10631,8 @@ public _point_1FE52, point_1FE52
 _point_1FE52 label Point
 point_1FE52	Point <?>
 word_1FE56	dw ?
+public _kotohime_gauge_pattern_frames, kotohime_gauge_pattern_frames
+_kotohime_gauge_pattern_frames label byte
 kotohime_gauge_pattern_frames db PLAYER_COUNT dup(?)
 public _kotohime_chargeshot, kotohime_chargeshot
 _kotohime_chargeshot label byte

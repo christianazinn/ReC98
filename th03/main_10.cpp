@@ -4,16 +4,28 @@
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/enemy/efe.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/randring.hpp"
 
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
+extern "C" uint8_t byte_202BA[];
 extern "C" uint8_t kotohime_chargeshot[];
+extern "C" uint8_t kotohime_gauge_pattern_frames[];
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_1FE6A;
+
+extern "C" void pascal far kotohime_19DD3(
+	subpixel_t target_x, subpixel_t target_y
+);
+extern "C" void pascal far sub_A3A8(uint8_t pid);
 
 struct player_stuff_t {
 	uint8_t unused_0[0x18];
@@ -156,4 +168,50 @@ extern "C" void pascal far chargeshot_render_kotohime(void)
 	kotohime_chargeshot_1C1E9();
 
 ret:
+}
+
+void pascal near gauge_pattern_kotohime(uint8_t type)
+{
+	uint8_t flag_expected;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(type == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		kotohime_gauge_pattern_frames[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (
+			(static_cast<int>(gba_gauge_level[pid_current]) / 2) + 4
+		);
+		byte_202B9[pid_current * 4] = randring_far_next16_and(1);
+		byte_202BA[pid_current * 4] = type;
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	if(kotohime_gauge_pattern_frames[pid_current] == 0) {
+		_AX = randring_far_next16_mod(160 << 4);
+		_AX += (64 << 4);
+		asm {
+			push ax;
+			push 0;
+			call far ptr kotohime_19DD3;
+		}
+		goto frame_next;
+	}
+
+	if(kotohime_gauge_pattern_frames[pid_current] >= 0x80) {
+		gba_flag_active[pid_current] = GBAF_NONE;
+		sub_A3A8(1 - pid_current);
+	}
+
+frame_next:
+	kotohime_gauge_pattern_frames[pid_current]++;
 }
