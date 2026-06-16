@@ -3,9 +3,26 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 
 extern "C" uint16_t near FIVE_DIGIT_POWERS_OF_10[];
+extern "C" unsigned char byte_2138E[];
 extern "C" unsigned char score[];
 extern "C" unsigned char temp_lebcd[];
 extern "C" void pascal near SUB_D50E(void);
+
+#pragma option -k-
+extern "C" void pascal far sub_D5A2(void)
+{
+	asm {
+		db  	033h, 0C0h
+		mov 	bx, offset byte_2138E
+		mov 	cx, 0Eh
+
+	clear_next:
+		mov 	[bx], ax
+		inc 	bx
+		loop	clear_next
+	}
+}
+#pragma option -k.
 
 void pascal far score_add(uint16_t score_delta, bool pid)
 {
