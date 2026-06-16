@@ -1590,9 +1590,9 @@ loc_A5E2:
 		call	sub_A4A1
 
 loc_A68D:
-		setfarfp	farfp_20F20, sub_D092
+		setfarfp	farfp_20F20, SUB_D092
 		setfarfp	farfp_20F24, SUB_D135
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	reimu_10BFE
 		pop	si
@@ -1655,9 +1655,9 @@ loc_A77A:
 		call	sub_A4A1
 
 loc_A825:
-		setfarfp	farfp_20F20, sub_D092
+		setfarfp	farfp_20F20, SUB_D092
 		setfarfp	farfp_20F24, SUB_D135
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	mima_FB46
 		pop	si
@@ -1722,7 +1722,7 @@ loc_A912:
 loc_A9BD:
 		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	marisa_F5AF
 		pop	si
@@ -1787,7 +1787,7 @@ loc_AAAA:
 loc_AB55:
 		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	ellen_113E2
 		pop	si
@@ -1852,7 +1852,7 @@ loc_AC42:
 loc_ACED:
 		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	kotohime_11A6D
 		pop	si
@@ -1917,7 +1917,7 @@ loc_ADDA:
 loc_AE85:
 		setfarfp	farfp_20F20, SUB_D2E8
 		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, sub_D05D
+		setfarfp	farfp_20F28, SUB_D05D
 		push	si
 		call	kana_12BFB
 		pop	si
@@ -4734,95 +4734,14 @@ sub_D031	endp
 
 ; Attributes: bp-based frame
 
-public SUB_D05D, sub_D05D, SUB_D092, sub_D092
-sub_D05D	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	angle_2142C, 40h
-		mov	si, offset byte_20F2C
-		xor	di, di
-		jmp	short loc_D089
-; ---------------------------------------------------------------------------
-
-loc_D06E:
-		push	ds
-		lea	ax, [si+4]
-		push	ax
-		push	ds
-		lea	ax, [si+6]
-		push	ax
-		push	64
-		mov	al, [si+8]
-		mov	ah, 0
-		push	ax
-		call	vector2
-		inc	di
-		add	si, 10h
-
-loc_D089:
-		cmp	di, 50h	; 'P'
-		jl	short loc_D06E
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_D05D	endp
+	SUB_D05D procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_D092	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	angle_2142C, 40h
-		mov	si, offset byte_20F2C
-		xor	di, di
-		jmp	short loc_D0F1
-; ---------------------------------------------------------------------------
-
-loc_D0A3:
-		call	IRand
-		mov	bx, (640 shl 4)
-		cwd
-		idiv	bx
-		mov	[si], dx
-		call	IRand
-		mov	bx, (400 shl 4)
-		cwd
-		idiv	bx
-		mov	[si+2],	dx
-		mov	word ptr [si+4], 0
-		mov	word ptr [si+6], 10h
-		mov	byte ptr [si+8], 20h ; ' '
-		mov	word ptr [si+0Ah], 210Eh
-		call	IRand
-		test	al, 1
-		jz	short loc_D0DF
-		add	word ptr [si+0Ah], 280h
-
-loc_D0DF:
-		call	IRand
-		mov	bx, 4000
-		cwd
-		idiv	bx
-		mov	[si+0Ch], dx
-		inc	di
-		add	si, 10h
-
-loc_D0F1:
-		cmp	di, 30h	; '0'
-		jl	short loc_D0A3
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_D092	endp
+	SUB_D092 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

@@ -28,6 +28,81 @@ extern farfunc_t_near farfp_20F24;
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
 
+extern "C" void pascal far sub_D05D(void)
+{
+	angle_2142C = 0x40;
+	_SI = FP_OFF(byte_20F2C);
+	_DI = 0;
+	goto d05d_loop_test;
+d05d_loop:
+	_asm {
+		push 	ds
+		lea 	ax, [si+4]
+		push 	ax
+		push 	ds
+		lea 	ax, [si+6]
+		push 	ax
+		push 	64
+		mov 	al, [si+8]
+		mov 	ah, 0
+		push 	ax
+		call 	far ptr vector2
+	}
+	_DI++;
+	_SI += sizeof(d3f9_rec_t);
+d05d_loop_test:
+	if(static_cast<int16_t>(_DI) < 0x50) {
+		goto d05d_loop;
+	}
+}
+
+extern "C" void pascal far sub_D092(void)
+{
+	angle_2142C = 0x40;
+	_SI = FP_OFF(byte_20F2C);
+	_DI = 0;
+	goto d092_loop_test;
+d092_loop:
+	_AX = irand();
+	_BX = (640 * 16);
+	_asm {
+		cwd
+		idiv 	bx
+		mov 	[si], dx
+	}
+	_AX = irand();
+	_BX = (400 * 16);
+	_asm {
+		cwd
+		idiv 	bx
+		mov 	[si+2], dx
+		mov 	word ptr [si+4], 0
+		mov 	word ptr [si+6], 10h
+		mov 	byte ptr [si+8], 20h
+		mov 	word ptr [si+0Ah], 210Eh
+	}
+	_AX = irand();
+	_asm {
+		test 	al, 1
+		jz   	d092_sprite_offset_set
+		add 	word ptr [si+0Ah], 280h
+d092_sprite_offset_set:
+	}
+	_AX = irand();
+	_BX = 4000;
+	_asm {
+		cwd
+		idiv 	bx
+		mov 	[si+0Ch], dx
+	}
+	_DI++;
+	_SI += sizeof(d3f9_rec_t);
+d092_loop_test:
+	if(static_cast<int16_t>(_DI) < 0x30) {
+		goto d092_loop;
+	}
+}
+
 extern "C" void near sub_D0FA(void)
 {
 	_asm {
