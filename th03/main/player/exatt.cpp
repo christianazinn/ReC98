@@ -42,6 +42,70 @@ extern "C" void pascal near sub_1A1ED(
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
 
+extern "C" void pascal far exatt_add_ellen(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	subpixel_t target_x;
+	subpixel_t target_y;
+	uint8_t spawned;
+	int8_t delta;
+	uint8_t angle;
+	register int i;
+
+	spawned = 0;
+	target_x = randring_far_next16_mod(200 << 4) + (44 << 4);
+	target_y = randring_far_next16_mod(200 << 4) + (80 << 4);
+	if(randring_far_next16_and(1) == 0) {
+		_AL = -1;
+	} else {
+		_AL = 1;
+	}
+	delta = _AL;
+	angle = randring_far_next16_raw();
+
+	_AL = pid;
+	_AH = 0;
+	_asm { imul ax, ax, (12 * 30); }
+	_AX += reinterpret_cast<uint16_t>(ellen_exatt_refs);
+	word_1FB3A = _AX;
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(*reinterpret_cast<uint8_t near *>(
+		*reinterpret_cast<uint16_t near *>(word_1FB3A)
+	) == 0) {
+		word_2028A = *reinterpret_cast<uint16_t near *>(word_1FB3A);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			target_x,
+			target_y,
+			pid,
+			0x46
+		);
+		*reinterpret_cast<uint16_t near *>(word_2028A + 0x14) = 0;
+		reinterpret_cast<uint8_t near *>(word_2028A)[0x11] = delta;
+		if(spawned == 0) {
+			reinterpret_cast<uint8_t near *>(word_2028A)[0x12] = angle;
+			spawned++;
+			goto next;
+		}
+		_AL = angle;
+		_AL += 0x80;
+		reinterpret_cast<uint8_t near *>(word_2028A)[0x12] = _AL;
+		return;
+	}
+next:
+	i++;
+	word_1FB3A += 30;
+loop_test:
+	if(i < 12) {
+		goto loop;
+	}
+}
+
 extern "C" void pascal far ellen_194A9(
 	subpixel_t x, subpixel_t y, uint8_t angle, uint8_t delta
 )

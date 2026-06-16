@@ -1745,7 +1745,7 @@ arg_0		= word ptr  4
 		call	sub_A4C3
 		or	si, si
 		jnz	loc_AAAA
-		setfarfp	exatt_add_p1, @exatt_add_ellen$qiiuc
+		setfarfp	exatt_add_p1, EXATT_ADD_ELLEN
 		setfarfp	exatt_update_p1, @exatt_update_ellen$qv
 		setfarfp	exatt_render_p1, @exatt_render_ellen$qv
 		setfarfp	_p1.chargeshot_add, chargeshot_add_ellen
@@ -1764,7 +1764,7 @@ arg_0		= word ptr  4
 ; ---------------------------------------------------------------------------
 
 loc_AAAA:
-		setfarfp	exatt_add_p2, @exatt_add_ellen$qiiuc
+		setfarfp	exatt_add_p2, EXATT_ADD_ELLEN
 		setfarfp	exatt_update_p2, @exatt_update_ellen$qv
 		setfarfp	exatt_render_p2, @exatt_render_ellen$qv
 		setfarfp	_p2.chargeshot_add, chargeshot_add_ellen
@@ -8947,101 +8947,7 @@ sub_193BC	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @EXATT_ADD_ELLEN$QIIUC
-@exatt_add_ellen$qiiuc proc far
-
-var_7		= byte ptr -7
-var_6		= byte ptr -6
-var_5		= byte ptr -5
-var_4		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		enter	8, 0
-		push	si
-		mov	[bp+var_5], 0
-		push	(200 shl 4)
-		call	@randring_far_next16_mod$qui
-		add	ax, (44 shl 4)
-		mov	[bp+var_2], ax
-		push	(200 shl 4)
-		call	@randring_far_next16_mod$qui
-		add	ax, (80 shl 4)
-		mov	[bp+var_4], ax
-		push	1
-		call	@randring_far_next16_and$qui
-		or	ax, ax
-		jnz	short loc_19423
-		mov	al, -1
-		jmp	short loc_19425
-; ---------------------------------------------------------------------------
-
-loc_19423:
-		mov	al, 1
-
-loc_19425:
-		mov	[bp+var_6], al
-		call	@randring_far_next16$qv
-		mov	[bp+var_7], al
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		imul	ax, (12 * 30)
-		add	ax, offset ellen_exatt_refs
-		mov	word_1FB3A, ax
-		xor	si, si
-		jmp	short loc_1949F
-; ---------------------------------------------------------------------------
-
-loc_19443:
-		mov	bx, word_1FB3A
-		mov	bx, [bx]
-		cmp	byte ptr [bx], 0
-		jnz	short loc_19499
-		mov	bx, word_1FB3A
-		mov	ax, [bx]
-		mov	word_2028A, ax
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	[bp+var_2]
-		push	[bp+var_4]
-		push	[bp+arg_0]
-		push	46h ; 'F'
-		call	sub_1A1ED
-		mov	bx, word_2028A
-		mov	word ptr [bx+14h], 0
-		mov	al, [bp+var_6]
-		mov	[bx+11h], al
-		cmp	[bp+var_5], 0
-		jnz	short loc_1948B
-		mov	al, [bp+var_7]
-		mov	[bx+12h], al
-		inc	[bp+var_5]
-		jmp	short loc_19499
-; ---------------------------------------------------------------------------
-
-loc_1948B:
-		mov	al, [bp+var_7]
-		add	al, 80h
-		mov	bx, word_2028A
-		mov	[bx+12h], al
-		jmp	short loc_194A4
-; ---------------------------------------------------------------------------
-
-loc_19499:
-		inc	si
-		add	word_1FB3A, 1Eh
-
-loc_1949F:
-		cmp	si, 0Ch
-		jl	short loc_19443
-
-loc_194A4:
-		pop	si
-		leave
-		retf	6
-@exatt_add_ellen$qiiuc endp
+	EXATT_ADD_ELLEN procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
