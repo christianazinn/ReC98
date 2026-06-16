@@ -12,9 +12,6 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 
 extern "C" void pascal far sub_14B0A(subpixel_t left, subpixel_t top);
-extern "C" void pascal far HUD5_PUT(
-	screen_x_t left, vram_y_t top, uint16_t points, vc_t col
-);
 extern "C" void pascal far sub_D668(
 	screen_x_t left, vram_y_t top, uint16_t points, vc_t col
 );
@@ -58,7 +55,7 @@ extern "C" const char near aPLAYER_REM[];
 
 #define h5_call_nop(col) { \
 	__emit__(0x6A, col); \
-	_asm { nop; push cs; call near ptr HUD5_PUT; } \
+	_asm { nop; push cs; call near ptr hud_dynamic_5_digit_points_put; } \
 }
 
 #define h5_const_nop(left_offset, b0, b1, b2, b3, col) { \
