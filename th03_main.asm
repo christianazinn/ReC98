@@ -8677,32 +8677,10 @@ sub_1A377 procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-sub_1A491	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		mov	ax, [bp+arg_2]
-		mov	_collmap_center.x, ax
-		mov	ax, [bp+arg_0]
-		mov	_collmap_center.y, ax
-		mov	_collmap_stripe_tile_w, (16 / COLLMAP_TILE_W)
-		mov	_collmap_tile_h, (32 / COLLMAP_TILE_H)
-		mov	al, 1
-		sub	al, _pid_current
-		mov	_collmap_pid, al
-		call	@collmap_set_rect_striped$qv
-		sub	_collmap_center.x, (12 shl 4)
-		mov	_collmap_stripe_tile_w, (8 / COLLMAP_TILE_W)
-		mov	_collmap_tile_h, (16 / COLLMAP_TILE_H)
-		call	@collmap_set_rect_striped$qv
-		add	_collmap_center.x, (24 shl 4)
-		call	@collmap_set_rect_striped$qv
-		pop	bp
-		retn	4
-sub_1A491	endp
+SUB_1A491 procdesc pascal near \
+	center_x:word, center_y:word
+sub_1A491 procdesc pascal near \
+	center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
