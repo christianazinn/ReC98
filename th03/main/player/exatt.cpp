@@ -1,12 +1,14 @@
 #include "th03/main/player/exatt.hpp"
 #include "codegen.hpp"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/main/v_colors.hpp"
 #include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 
@@ -42,6 +44,126 @@ extern "C" void pascal near sub_1A1ED(
 );
 extern "C" void pascal near sub_1A32A(screen_x_t left, screen_y_t top, uint8_t frame);
 extern "C" void pascal near sub_1A377(screen_x_t left, screen_y_t top, uint8_t frame);
+
+extern "C" void near chiyuri_1905A(void)
+{
+	uint8_t frame;
+	screen_x_t left_first;
+	screen_y_t top_first;
+	screen_x_t left_second;
+	screen_y_t top_second;
+	register uint8_t near *slot;
+	register int radius;
+
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	frame = slot[1];
+	left_first = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top_first = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 0x10);
+	slot += 0x20;
+	left_second = playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(slot + 2),
+		slot[0x10]
+	);
+	top_second = ((*reinterpret_cast<subpixel_t near *>(slot + 4) >> 4) + 0x10);
+	slot -= 0x20;
+
+	if(slot[0] != 1) {
+		goto render_pair;
+	}
+	egc_off();
+	if(frame < 0x10) {
+		goto white_line;
+	}
+	if(frame >= 0x28) {
+		goto after_grow;
+	}
+	_AL = frame;
+	_AH = 0;
+	_AX += 0xFFF0;
+	goto variable_beam;
+
+after_grow:
+	if(frame >= 0x70) {
+		goto shrink;
+	}
+	grcg_setcolor(GC_RMW, 9);
+	grcg_trapezoid(
+		8, (left_first - 6), (left_first + 6),
+		192, (left_second - 6), (left_second + 6)
+	);
+	grcg_setcolor(GC_RMW, 10);
+	grcg_trapezoid(
+		8, (left_first - 3), (left_first + 3),
+		192, (left_second - 3), (left_second + 3)
+	);
+	grcg_setcolor(GC_RMW, V_WHITE);
+	grcg_trapezoid(
+		8, (left_first - 1), (left_first + 1),
+		192, (left_second - 1), (left_second + 1)
+	);
+	goto beam_done;
+
+shrink:
+	if(frame >= 0x88) {
+		goto beam_done;
+	}
+	_AL = frame;
+	_AH = 0;
+	_asm { push ax; }
+	_AX = 0x88;
+	_asm { pop dx; }
+	_AX -= _DX;
+
+variable_beam:
+	_BX = 4;
+	_asm { cwd; }
+	_asm { idiv bx; }
+	radius = _AX;
+	grcg_setcolor(GC_RMW, 9);
+	grcg_trapezoid(
+		8, (left_first - radius), (left_first + radius),
+		192, (left_second - radius), (left_second + radius)
+	);
+	radius /= 2;
+	grcg_setcolor(GC_RMW, 10);
+	grcg_trapezoid(
+		8, (left_first - radius), (left_first + radius),
+		192, (left_second - radius), (left_second + radius)
+	);
+
+white_line:
+	grcg_setcolor(GC_RMW, V_WHITE);
+	grcg_line(left_first, 8, left_second, 192);
+
+beam_done:
+	grcg_off();
+	egc_on();
+	goto ret;
+
+render_pair:
+	if(slot[0] == 2) {
+		sub_1A32A(left_first, top_first, frame);
+		goto render_second;
+	}
+	sub_1A377(left_first, top_first, frame);
+
+render_second:
+	word_2028A += 0x20;
+	slot += 0x20;
+	frame = slot[1];
+	if(slot[0] == 2) {
+		sub_1A32A(left_second, top_second, frame);
+		goto restore;
+	}
+	sub_1A377(left_second, top_second, frame);
+
+restore:
+	word_2028A -= 0x20;
+ret:
+}
 
 void far exatt_update_chiyuri(void)
 {
