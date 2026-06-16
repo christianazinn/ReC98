@@ -4828,46 +4828,7 @@ sub_D092	endp
 
 ; Attributes: bp-based frame
 
-public _sub_D0FA, sub_D0FA
-_sub_D0FA label near
-sub_D0FA	proc near
-		push	bp
-		mov	bp, sp
-		push	di
-		mov	ax, [di]
-		add	ax, [di+4]
-		cmp	ax, (8 shl 4)
-		jnb	short loc_D10D
-		add	ax, (624 shl 4)
-		jmp	short loc_D115
-; ---------------------------------------------------------------------------
-
-loc_D10D:
-		cmp	ax, (632 shl 4)
-		jbe	short loc_D115
-		sub	ax, (624 shl 4)
-
-loc_D115:
-		mov	[di], ax
-		mov	ax, [di+2]
-		add	ax, [di+6]
-		cmp	ax, (14 shl 4)
-		jnb	short loc_D127
-		add	ax, (370 shl 4)
-		jmp	short loc_D12F
-; ---------------------------------------------------------------------------
-
-loc_D127:
-		cmp	ax, (384 shl 4)
-		jbe	short loc_D12F
-		sub	ax, (370 shl 4)
-
-loc_D12F:
-		mov	[di+2],	ax
-		pop	di
-		pop	bp
-		retn
-sub_D0FA	endp
+	_sub_D0FA procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
