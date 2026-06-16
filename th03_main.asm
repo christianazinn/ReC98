@@ -6513,7 +6513,8 @@ _ENEDAT_DAT	db 'ENEDAT.DAT',0
 public _angles_1DBD8, angles_1DBD8
 _angles_1DBD8 label byte
 angles_1DBD8	db 192, 182, 202, 192, 176, 208
-public byte_1DBDE
+public _byte_1DBDE, byte_1DBDE
+_byte_1DBDE label byte
 byte_1DBDE label byte
 		db    0
 		db    4
@@ -6731,7 +6732,8 @@ byte_1DBDE label byte
 		db    0
 		db    1
 		db    0
-public word_1DCB6
+public _word_1DCB6, word_1DCB6
+_word_1DCB6 label word
 word_1DCB6 label word
 		db    8
 		db    0
