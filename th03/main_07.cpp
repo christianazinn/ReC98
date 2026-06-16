@@ -3,16 +3,24 @@
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/player/shot.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 
+extern "C" uint8_t byte_202B8[];
+extern "C" subpixel_t chiyuri_gauge_pattern_x[];
+extern "C" uint8_t chiyuri_gauge_pattern_frames[];
 extern "C" uint8_t chiyuri_chargeshot_nodes[];
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_1F51A;
+
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 
 struct player_stuff_t {
 	Subpixel center_x;
@@ -271,4 +279,65 @@ node_loop_test:
 	}
 
 ret:
+}
+
+void pascal near gauge_pattern_chiyuri(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+	register subpixel_t x;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(type == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		chiyuri_gauge_pattern_frames[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (
+			((static_cast<int>(gba_gauge_level[pid_current]) / 2) << 4) + 0x20
+		);
+		chiyuri_gauge_pattern_x[pid_current] = TO_SP(-24);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	x = chiyuri_gauge_pattern_x[pid_current];
+	pid_other = (1 - pid_current);
+	if((chiyuri_gauge_pattern_frames[pid_current] % 0x10) == 0) {
+		chiyuri_gauge_pattern_x[pid_current] += TO_SP(24);
+		x += TO_SP(24);
+		SUB_CE0C(x, 0, static_cast<uint16_t>(pid_other));
+		SUB_CE0C(((PLAYFIELD_W << 4) - x), 0, static_cast<uint16_t>(pid_other));
+	}
+
+	if(chiyuri_gauge_pattern_frames[pid_current] & 1) {
+		bullet_template.type = static_cast<bullet_type_t>(type);
+		bullet_template.pid = pid_other;
+		bullet_template.speed.v = (
+			((chiyuri_gauge_pattern_frames[pid_current] % 0x10) << 2) +
+			((1 << 4) + 8)
+		);
+		bullet_template.group = BG_1_AIMED;
+		bullet_template.angle = 0;
+		bullet_template.center.y.v = 0;
+		bullet_template.center.x.v = x;
+		bullet_template.is_animated = false;
+		bullets_add();
+		bullet_template.center.x.v = ((PLAYFIELD_W << 4) - x);
+		bullets_add();
+		bullet_template.is_animated = true;
+	}
+
+	chiyuri_gauge_pattern_frames[pid_current]++;
+	if(chiyuri_gauge_pattern_frames[pid_current] >= byte_202B8[pid_current * 4]) {
+		gba_flag_active[pid_current] = GBAF_NONE;
+		sub_A3A8(pid_other);
+	}
 }
