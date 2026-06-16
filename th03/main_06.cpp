@@ -1,7 +1,10 @@
 #pragma option -zCmain_06_TEXT -zPmain_06
 
 #include "th01/math/subpixel.hpp"
+#include "th03/main/difficul.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/playfld.hpp"
+#include "th03/math/vector.hpp"
 
 extern "C" uint16_t word_2028A;
 
@@ -51,4 +54,41 @@ move:
 
 ret:
 	return _AL;
+}
+
+extern "C" void pascal near sub_1A1ED(
+	subpixel_t x,
+	subpixel_t y1,
+	subpixel_t target_x,
+	subpixel_t target_y,
+	pid_t pid,
+	int velocity_base
+)
+{
+	register uint8_t near *slot;
+	register screen_x_t target_x_screen;
+
+	target_x_screen = target_x;
+	slot = reinterpret_cast<uint8_t near *>(word_2028A);
+	slot[0] = 2;
+	slot[1] = 0;
+	*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+	*reinterpret_cast<subpixel_t near *>(slot + 4) = y1;
+	slot[0x10] = pid;
+	x = playfield_fg_x_to_screen(x, pid);
+	*reinterpret_cast<subpixel_t near *>(slot + 0x0A) = target_x_screen;
+	target_x_screen = playfield_fg_x_to_screen(target_x_screen, (1 - pid));
+	vector2_between_plus(
+		(x << 4),
+		y1,
+		(target_x_screen << 4),
+		target_y,
+		0,
+		*reinterpret_cast<int near *>(slot + 6),
+		*reinterpret_cast<int near *>(slot + 8),
+		(velocity_base + (static_cast<int>(round_speed) / 4))
+	);
+	*reinterpret_cast<subpixel_t near *>(slot + 0x0C) = screen_x_to_playfield(
+		target_x_screen, pid
+	);
 }

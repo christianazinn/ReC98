@@ -8627,79 +8627,8 @@ main_06_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public SUB_1A1ED
-SUB_1A1ED label near
-sub_1A1ED	proc near
-
-arg_0		= word ptr  4
-@@pid		= byte ptr  6
-@@y2		= word ptr  8
-arg_6		= word ptr  0Ah
-@@y1		= word ptr  0Ch
-@@x		= word ptr  0Eh
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+arg_6]
-		mov	si, word_2028A
-		mov	byte ptr [si], 2
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+@@x]
-		mov	[si+2],	ax
-		mov	ax, [bp+@@y1]
-		mov	[si+4],	ax
-		mov	al, [bp+@@pid]
-		mov	[si+10h], al
-		push	[bp+@@x]	; x
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	[bp+@@x], ax
-		mov	[si+0Ah], di
-		push	di	; x
-		mov	al, [bp+@@pid]
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		push	dx	; pid
-		call	@playfield_fg_x_to_screen$qii
-		mov	di, ax
-		mov	ax, [bp+@@x]
-		shl	ax, 4
-		push	ax
-		push	[bp+@@y1]
-		mov	ax, di
-		shl	ax, 4
-		push	ax
-		push	[bp+@@y2]
-		push	0
-		push	ds
-		lea	ax, [si+6]
-		push	ax
-		push	ds
-		lea	ax, [si+8]
-		push	ax
-		mov	al, _round_speed
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, [bp+arg_0]
-		push	ax
-		call	vector2_between_plus
-		push	di	; x
-		mov	al, [bp+@@pid]
-		mov	ah, 0
-		push	ax	; pid
-		call	@screen_x_to_playfield$qii
-		mov	[si+0Ch], ax
-		pop	di
-		pop	si
-		pop	bp
-		retn	0Ch
-sub_1A1ED	endp
+	SUB_1A1ED procdesc pascal near \
+		x:word, y1:word, target_x:word, target_y:word, pid:word, velocity_base:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -8739,7 +8668,7 @@ loc_1A294:
 		push	ax
 		push	[bp+arg_0]
 		push	5Ah ; 'Z'
-		call	sub_1A1ED
+		call	SUB_1A1ED
 		jmp	short loc_1A2C8
 ; ---------------------------------------------------------------------------
 
@@ -9262,7 +9191,7 @@ loc_1A641:
 		push	ax
 		push	[bp+arg_0]
 		push	5Ah ; 'Z'
-		call	sub_1A1ED
+		call	SUB_1A1ED
 		mov	word ptr [si+0Eh], 0
 		mov	byte ptr [si+1], 3
 		jmp	short loc_1A67E
@@ -9649,7 +9578,7 @@ loc_1A918:
 		push	ax
 		push	[bp+arg_0]
 		push	46h ; 'F'
-		call	sub_1A1ED
+		call	SUB_1A1ED
 		mov	word ptr [si+14h], 0
 		mov	word ptr [si+0Eh], 60h
 		jmp	short loc_1A959
@@ -10462,7 +10391,7 @@ loc_1AFB8:
 		push	(16 shl 4)
 		push	[bp+arg_0]
 		push	64h ; 'd'
-		call	sub_1A1ED
+		call	SUB_1A1ED
 		push	1
 		call	@randring_far_next16_and$qui
 		mov	[si+17h], al
