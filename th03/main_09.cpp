@@ -1,5 +1,6 @@
 #pragma option -zCmain_09_TEXT -zPmain_09
 
+#include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/hitbox.hpp"
@@ -275,4 +276,47 @@ not_hit:
 
 ret:
 	return _AL;
+}
+
+extern "C" void pascal far chargeshot_render_kana(void)
+{
+	register int i;
+
+	if(kana_chargeshot_state[pid_current] == 0) {
+		goto ret;
+	}
+	word_1FD8C = reinterpret_cast<uint16_t>(
+		kana_chargeshot_nodes + (pid_current * (4 * 54))
+	);
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	__emit__(0x31, 0xD2); // XOR DX, DX
+	_AH = SPRITE16_SET_OVERLAP;
+	geninterrupt(SPRITE16);
+	i = 0;
+	goto group_loop_test;
+
+group_loop:
+	kana_chargeshot_1BDF8();
+	i++;
+	word_1FD8C += 0x36;
+
+group_loop_test:
+	if(i < 4) {
+		goto group_loop;
+	}
+	_asm {
+		mov	dx, OVERLAP_CLEAR
+		mov	ah, SPRITE16_SET_OVERLAP
+		int	SPRITE16
+	}
+
+ret:
 }
