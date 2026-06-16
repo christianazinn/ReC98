@@ -4,6 +4,8 @@
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
@@ -267,4 +269,58 @@ extern "C" void pascal near ellen_chargeshot_1B8A6(Subpixel x, Subpixel y)
 	_AX += 8;
 	y_reg = _AX;
 	sprite16_put(x_reg, _AX, sprite_offset);
+}
+
+uint8_t far chargeshot_hittest_ellen(void)
+{
+	uint8_t ret;
+	register int i;
+
+	ret = 0;
+	word_1F868 = reinterpret_cast<uint16_t>(
+		ellen_chargeshot_nodes + (hitbox.pid * (32 * 12))
+	);
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	_BX = word_1F868;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] != 1) {
+		goto next;
+	}
+	_BX = word_1F868;
+	_AX = reinterpret_cast<Subpixel near *>(_BX + 4)[0].v;
+	if(static_cast<int>(_AX) < hitbox.origin.topleft.x.v) {
+		goto next;
+	}
+	if(static_cast<int>(_AX) > hitbox.right.v) {
+		goto next;
+	}
+	_AX = reinterpret_cast<Subpixel near *>(_BX + 6)[0].v;
+	if(static_cast<int>(_AX) < hitbox.origin.topleft.y.v) {
+		goto next;
+	}
+	if(static_cast<int>(_AX) > hitbox.bottom.v) {
+		goto next;
+	}
+	hitcircles_enemy_add(
+		reinterpret_cast<Subpixel near *>(_BX + 4)[0].v,
+		_AX,
+		hitbox.pid
+	);
+	_BX = word_1F868;
+	reinterpret_cast<uint8_t near *>(_BX)[0] = 0;
+	_AL = ret;
+	_AL += 2;
+	ret = _AL;
+
+next:
+	i++;
+	word_1F868 += 0x0C;
+
+node_loop_test:
+	if(i < 0x20) {
+		goto node_loop;
+	}
+	return ret;
 }
