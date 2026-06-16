@@ -8878,56 +8878,8 @@ _sub_1B653 procdesc far
 
 ; Attributes: bp-based frame
 
-public ELLEN_HYPER_1B6CA
-ELLEN_HYPER_1B6CA label far
-ellen_hyper_1B6CA	proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_PID_current
-		mov	ah, 0
-		imul	ax, (32 * 12)
-		add	ax, offset ellen_chargeshot_nodes
-		mov	word_1F868, ax
-		xor	si, si
-		jmp	short loc_1B719
-; ---------------------------------------------------------------------------
-
-loc_1B6E1:
-		mov	bx, word_1F868
-		cmp	byte ptr [bx], 0
-		jnz	short loc_1B713
-		mov	bx, word_1F868
-		mov	byte ptr [bx], 1
-		mov	byte ptr [bx+1], 0
-		mov	ax, [bp+arg_2]
-		mov	[bx+4],	ax
-		mov	ax, [bp+arg_0]
-		mov	[bx+6],	ax
-		call	@randring_far_next16$qv
-		mov	bx, word_1F868
-		mov	[bx+2],	al
-		mov	byte ptr [bx+3], 50h ; 'P'
-		jmp	short loc_1B71E
-; ---------------------------------------------------------------------------
-
-loc_1B713:
-		inc	si
-		add	word_1F868, 0Ch
-
-loc_1B719:
-		cmp	si, 20h	; ' '
-		jl	short loc_1B6E1
-
-loc_1B71E:
-		pop	si
-		pop	bp
-		retf	4
-ellen_hyper_1B6CA	endp
+	ELLEN_HYPER_1B6CA procdesc pascal far \
+		center_x:word, center_y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
