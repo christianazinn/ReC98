@@ -8823,68 +8823,7 @@ main_07_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @chargeshot_hittest_chiyuri$qv
-@chargeshot_hittest_chiyuri$qv proc far
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		imul	ax, 30h
-		add	ax, (offset chiyuri_chargeshot_nodes + (7 * 6))
-		mov	si, ax
-		xor	di, di
-		mov	[bp+var_1], 0
-		jmp	short loc_1B41B
-; ---------------------------------------------------------------------------
-
-loc_1B3CB:
-		cmp	byte ptr [si], 0
-		jz	short loc_1B420
-		cmp	byte ptr [si], 1
-		jnz	short loc_1B417
-		mov	ax, [si+2]
-		sub	ax, _hitbox_right
-		cmp	ax, (14 shl 4)
-		jg	short loc_1B417
-		mov	ax, _hitbox_origin_topleft.x
-		sub	ax, [si+2]
-		cmp	ax, (14 shl 4)
-		jg	short loc_1B417
-		mov	ax, [si+4]
-		sub	ax, _hitbox_bottom
-		cmp	ax, (32 shl 4)
-		jg	short loc_1B417
-		mov	ax, _hitbox_origin_topleft.y
-		sub	ax, [si+4]
-		cmp	ax, (-16 shl 4)
-		jg	short loc_1B417
-		push	word ptr [si+2]	; center_x
-		push	word ptr [si+4]	; center_y
-		mov	al, _hitbox_pid
-		mov	ah, 0
-		push	ax	; pid
-		call	@hitcircles_enemy_add$qiii
-		inc	[bp+var_1]
-
-loc_1B417:
-		inc	di
-		sub	si, 6
-
-loc_1B41B:
-		cmp	di, 8
-		jl	short loc_1B3CB
-
-loc_1B420:
-		mov	al, [bp+var_1]
-		pop	di
-		pop	si
-		leave
-		retf
-@chargeshot_hittest_chiyuri$qv endp
+	@chargeshot_hittest_chiyuri$qv procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

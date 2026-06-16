@@ -5,6 +5,8 @@
 #include "th01/math/subpixel.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/shot.hpp"
+#include "th03/main/hitbox.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
 
@@ -156,4 +158,74 @@ extern "C" void near chiyuri_chargeshot_1B35F(void)
 	_AX += -8;
 	top = _AX;
 	sprite16_put(left, _AX, so);
+}
+
+uint8_t far chargeshot_hittest_chiyuri(void)
+{
+	uint8_t ret;
+	register uint8_t near *node;
+	register int i;
+
+	node = (chiyuri_chargeshot_nodes + (hitbox.pid * 0x30) + (7 * 6));
+	i = 0;
+	ret = 0;
+	goto node_loop_test;
+
+node_loop:
+	if(node[0] == 0) {
+		goto done;
+	}
+	if(node[0] != 1) {
+		goto next;
+	}
+	if(
+		(
+			*reinterpret_cast<subpixel_t near *>(node + 2) -
+			hitbox.right.v
+		) > TO_SP(14)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.x.v -
+			*reinterpret_cast<subpixel_t near *>(node + 2)
+		) > TO_SP(14)
+	) {
+		goto next;
+	}
+	if(
+		(
+			*reinterpret_cast<subpixel_t near *>(node + 4) -
+			hitbox.bottom.v
+		) > TO_SP(32)
+	) {
+		goto next;
+	}
+	if(
+		(
+			hitbox.origin.topleft.y.v -
+			*reinterpret_cast<subpixel_t near *>(node + 4)
+		) > TO_SP(-16)
+	) {
+		goto next;
+	}
+	hitcircles_enemy_add(
+		*reinterpret_cast<subpixel_t near *>(node + 2),
+		*reinterpret_cast<subpixel_t near *>(node + 4),
+		hitbox.pid
+	);
+	ret++;
+
+next:
+	i++;
+	node -= 6;
+
+node_loop_test:
+	if(i < 8) {
+		goto node_loop;
+	}
+
+done:
+	return ret;
 }
