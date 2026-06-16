@@ -1,5 +1,6 @@
 #pragma option -zCmain_06_TEXT -zPmain_06
 
+#include "codegen.hpp"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/player/cur.hpp"
@@ -193,4 +194,26 @@ extern "C" void pascal near sub_1A32A(
 	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
 	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
 	sprite16_put((left - 16), (top - 16), so);
+}
+
+extern "C" void pascal near sub_1A377(
+	screen_x_t left, screen_y_t top, uint8_t frame
+)
+{
+	register sprite16_offset_t so;
+
+	sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+	sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+	so = ((80 * ROW_SIZE) + (384 / BYTE_DOTS));
+	_AL = frame;
+	_AH = 0;
+	_BX = 4;
+	asm { cwd; idiv bx; }
+	_BX = 3;
+	asm { cwd; idiv bx; }
+	imul_reg_to_reg(_DX, _DX, 6);
+	so += _DX;
+	sprite16_put((left - 24), (top - 24), so);
 }

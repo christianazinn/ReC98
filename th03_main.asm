@@ -8660,44 +8660,10 @@ sub_1A32A procdesc pascal near \
 
 ; Attributes: bp-based frame
 
-public SUB_1A377
-SUB_1A377 label near
-sub_1A377	proc near
-
-arg_0		= byte ptr  4
-@@top		= word ptr  6
-@@left		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		mov	si, ((80 * ROW_SIZE) + (384 / BYTE_DOTS))
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	bx, 3
-		cwd
-		idiv	bx
-		imul	dx, 6
-		add	si, dx
-		mov	ax, [bp+@@left]
-		add	ax, -24
-		push	ax
-		mov	ax, [bp+@@top]
-		add	ax, -24
-		push	ax
-		push	si
-		call	sprite16_put
-		pop	si
-		pop	bp
-		retn	6
-sub_1A377	endp
+SUB_1A377 procdesc pascal near \
+	left:word, top:word, frame:word
+sub_1A377 procdesc pascal near \
+	left:word, top:word, frame:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
