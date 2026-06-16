@@ -58,3 +58,43 @@ node_loop_test:
 		goto node_loop;
 	}
 }
+
+extern "C" void pascal far ellen_hyper_1B6CA(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	register int i;
+
+	word_1F868 = reinterpret_cast<uint16_t>(
+		ellen_chargeshot_nodes + (pid.current * (32 * 12))
+	);
+	i = 0;
+	goto node_loop_test;
+
+node_loop:
+	_BX = word_1F868;
+	if(reinterpret_cast<uint8_t near *>(_BX)[0] != 0) {
+		goto next;
+	}
+	_BX = word_1F868;
+	reinterpret_cast<uint8_t near *>(_BX)[0] = 1;
+	reinterpret_cast<uint8_t near *>(_BX)[1] = 0;
+	*reinterpret_cast<Subpixel near *>(_BX + 4) = center_x;
+	*reinterpret_cast<Subpixel near *>(_BX + 6) = center_y;
+	_AX = randring_far_next16_raw();
+	_BX = word_1F868;
+	reinterpret_cast<uint8_t near *>(_BX)[2] = _AL;
+	reinterpret_cast<uint8_t near *>(_BX)[3] = 0x50;
+	goto ret;
+
+next:
+	i++;
+	word_1F868 += 0x0C;
+
+node_loop_test:
+	if(i < 0x20) {
+		goto node_loop;
+	}
+
+ret:
+}
