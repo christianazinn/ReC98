@@ -8642,65 +8642,8 @@ main_06_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public REIMU_1A2CE
-REIMU_1A2CE label far
-reimu_1A2CE	proc far
-
-@@angle		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_1A31F
-; ---------------------------------------------------------------------------
-
-loc_1A2E4:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1A31B
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 0
-		mov	ax, [bp+arg_4]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		mov	[si+4],	ax
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[si+10h], al
-		push	ds
-		lea	ax, [si+6]
-		push	ax
-		push	ds
-		lea	ax, [si+8]
-		push	ax
-		push	[bp+@@angle]
-		push	50h ; 'P'
-		call	vector2
-		jmp	short loc_1A324
-; ---------------------------------------------------------------------------
-
-loc_1A31B:
-		inc	di
-		add	si, 20h	; ' '
-
-loc_1A31F:
-		cmp	di, 8
-		jl	short loc_1A2E4
-
-loc_1A324:
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-reimu_1A2CE	endp
+	REIMU_1A2CE procdesc pascal far \
+		x:word, y:word, angle:word
 
 
 ; =============== S U B	R O U T	I N E =======================================

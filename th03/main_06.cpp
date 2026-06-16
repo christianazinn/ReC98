@@ -130,3 +130,43 @@ loop_test:
 		goto loop;
 	}
 }
+
+extern "C" void pascal far reimu_1A2CE(
+	subpixel_t x, subpixel_t y, uint8_t angle
+)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		slot[0] = 1;
+		slot[1] = 0;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = y;
+		_AL = 1;
+		_AL -= pid_current;
+		slot[0x10] = _AL;
+		vector2(
+			*reinterpret_cast<int near *>(slot + 6),
+			*reinterpret_cast<int near *>(slot + 8),
+			angle,
+			0x50
+		);
+		return;
+	}
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
+}
