@@ -8797,26 +8797,7 @@ main_07_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_1B260	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset chiyuri_chargeshot_nodes
-		xor	ax, ax
-		jmp	short loc_1B26F
-; ---------------------------------------------------------------------------
-
-loc_1B26B:
-		mov	byte ptr [si], 0
-		inc	ax
-
-loc_1B26F:
-		cmp	ax, 10h
-		jl	short loc_1B26B
-		pop	si
-		pop	bp
-		retf
-sub_1B260	endp
+		_sub_1B260 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -12490,6 +12471,8 @@ word_1F3B0	dw ?
 include th02/math/randring[bss].asm
 chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
 chiyuri_gauge_pattern_frames db PLAYER_COUNT dup(?)
+public _chiyuri_chargeshot_nodes, chiyuri_chargeshot_nodes
+_chiyuri_chargeshot_nodes label byte
 chiyuri_chargeshot_nodes label byte
 		db 96 dup(?)
 word_1F51A	dw ?
