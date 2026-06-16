@@ -724,7 +724,7 @@ obj = {
 	"th03/hud_stat.cpp",
 	"th03/main/player/c433.cpp",
 	"th03/main/player/c54a.cpp",
-	"th03/main/player/c568.asm",
+	"th03/main/player/c568.cpp",
 	"th03/main/player/c7a5.cpp",
 	"th03/main/player/gaugeovl.cpp",
 	"th03/main/player/warning.cpp",
