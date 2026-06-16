@@ -3,6 +3,22 @@
 #include "th01/math/clamp.hpp"
 #include "th03/main/player/move.hpp"
 
+extern "C" void near score_continues_used_digit(void);
+
+extern "C" void pascal far score_continues_used_digit_update(
+	uint8_t credits_left
+)
+{
+	_asm {
+		mov	al, credits_left;
+		mov	ah, 3;
+		db	02Ah, 0E0h;
+		mov	byte ptr cs:score_continues_used_digit, ah;
+	}
+}
+
+#pragma codestring "\x90"
+
 void pascal near player_pos_update_and_clamp(PlayfieldPoint near& center)
 {
 	subpixel_t x = center.x;

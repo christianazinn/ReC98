@@ -701,7 +701,7 @@ loc_9C51:
 		push	3
 
 loc_9C70:
-		nopcall	score_continues_used_digit_update
+		nopcall	SCORE_CONTINUES_USED_DIGIT_UPDAT
 		mov	di, offset _players
 		xor	si, si
 		jmp	short loc_9C93
@@ -5389,6 +5389,8 @@ loc_D554:
 
 loc_D56B:
 		db	0B0h ; MOV AL, imm8
+public _score_continues_used_digit, score_continues_used_digit
+_score_continues_used_digit label byte
 score_continues_used_digit label byte
 		db	80h
 		call	sub_D50E
@@ -5558,22 +5560,8 @@ sub_D668	endp
 
 ; Attributes: bp-based frame
 
-score_continues_used_digit_update	proc far
-
-credits_left_arg	= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		mov	al, [bp+credits_left_arg]
-		mov	ah, 3
-		sub	ah, al
-		mov	byte ptr cs:score_continues_used_digit,	ah
-		pop	bp
-		retf	2
-score_continues_used_digit_update	endp
-
-; ---------------------------------------------------------------------------
-		nop
+	SCORE_CONTINUES_USED_DIGIT_UPDAT procdesc pascal far \
+		credits_left_arg:byte
 
 MOVE_INVALID = 0
 MOVE_VALID = 1
