@@ -8763,58 +8763,7 @@ EXATT_ADD_RIKAKO procdesc far
 
 ; Attributes: bp-based frame
 
-public RIKAKO_1B006
-RIKAKO_1B006 label far
-rikako_1B006	proc far
-
-arg_0		= byte ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 9
-		add	ax, offset exatt_buffers
-		mov	si, ax
-		xor	dx, dx
-		jmp	short loc_1B050
-; ---------------------------------------------------------------------------
-
-loc_1B01B:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1B04C
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+17h], 1
-		mov	byte ptr [si+1], 40h
-		mov	ax, [bp+arg_4]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_2]
-		mov	[si+4],	ax
-		mov	al, [bp+arg_0]
-		mov	[si+12h], al
-		mov	byte ptr [si+13h], 20h ; ' '
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[si+10h], al
-		jmp	short loc_1B055
-; ---------------------------------------------------------------------------
-
-loc_1B04C:
-		inc	dx
-		add	si, 20h	; ' '
-
-loc_1B050:
-		cmp	dx, 0Eh
-		jl	short loc_1B01B
-
-loc_1B055:
-		pop	si
-		pop	bp
-		retf	6
-rikako_1B006	endp
+RIKAKO_1B006 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================

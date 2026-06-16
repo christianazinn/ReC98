@@ -1244,3 +1244,39 @@ loop_test:
 		goto loop;
 	}
 }
+
+extern "C" void pascal far RIKAKO_1B006(
+	subpixel_t x, subpixel_t y, uint8_t angle
+)
+{
+	register uint8_t near *slot;
+
+	_AL = pid_current;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	_DX = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		slot[0] = 1;
+		slot[0x17] = 1;
+		slot[1] = 0x40;
+		*reinterpret_cast<subpixel_t near *>(slot + 2) = x;
+		*reinterpret_cast<subpixel_t near *>(slot + 4) = y;
+		slot[0x12] = angle;
+		slot[0x13] = 0x20;
+		_AL = 1;
+		_AL -= pid_current;
+		slot[0x10] = _AL;
+		return;
+	}
+	_DX++;
+	slot += 0x20;
+
+loop_test:
+	_asm { cmp dx, 0x0E; }
+	_asm { jl loop; }
+}
