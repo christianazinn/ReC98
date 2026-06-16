@@ -1,11 +1,15 @@
 #pragma option -zCmain_10_TEXT -zPmain_10
 
+#include "libs/sprite16/sprite16.h"
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/playfld.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/sprite16.hpp"
 
 extern "C" uint8_t kotohime_chargeshot[];
+extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_1FE6A;
 
 struct player_stuff_t {
@@ -62,4 +66,27 @@ accelerate:
 	*reinterpret_cast<subpixel_t near *>(_BX + 6) -= 2;
 
 ret:
+}
+
+#pragma warn -aus
+extern "C" void near kotohime_chargeshot_1C1E9(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	sprite16_offset_t sprite_offset;
+
+	sprite_offset = (
+		pid_PID_so_attack + ((56 * ROW_SIZE) + (64 / BYTE_DOTS))
+	);
+	_BX = word_1FE6A;
+	left = (playfield_fg_x_to_screen(
+		*reinterpret_cast<subpixel_t near *>(_BX + 2),
+		pid_current
+	) - 48);
+	_BX = word_1FE6A;
+	_AX = *reinterpret_cast<subpixel_t near *>(_BX + 4);
+	asm { sar ax, 4; }
+	_AX += 8;
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
 }

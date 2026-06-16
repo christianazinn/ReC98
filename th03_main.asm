@@ -9029,34 +9029,7 @@ _sub_1C158 procdesc far
 
 ; Attributes: bp-based frame
 
-kotohime_chargeshot_1C1E9	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, ((56 * ROW_SIZE) + (64 / BYTE_DOTS))
-		mov	[bp+@@sprite_offset], ax
-		mov	bx, word_1FE6A
-		push	word ptr [bx+2]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -48
-		mov	[bp+@@left], ax
-		mov	bx, word_1FE6A
-		mov	ax, [bx+4]
-		sar	ax, 4
-		add	ax, 8
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
-		leave
-		retn
-kotohime_chargeshot_1C1E9	endp
+	_kotohime_chargeshot_1C1E9 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -9138,7 +9111,7 @@ loc_1C2CF:
 		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
 
 loc_1C2DB:
-		call	kotohime_chargeshot_1C1E9
+		call	_kotohime_chargeshot_1C1E9
 
 loc_1C2DE:
 		pop	bp
