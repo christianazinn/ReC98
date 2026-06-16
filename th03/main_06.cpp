@@ -4,8 +4,10 @@
 #include "th03/main/difficul.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 
+extern "C" uint8_t exatt_buffers[];
 extern "C" uint16_t word_2028A;
 
 extern "C" uint8_t near sub_1A1A7(void)
@@ -91,4 +93,40 @@ extern "C" void pascal near sub_1A1ED(
 	*reinterpret_cast<subpixel_t near *>(slot + 0x0C) = screen_x_to_playfield(
 		target_x_screen, pid
 	);
+}
+
+extern "C" void pascal far exatt_add_reimu(
+	subpixel_t center_x, subpixel_t center_y, pid_t pid
+)
+{
+	register uint8_t near *slot;
+	register int i;
+
+	_AL = pid;
+	_AH = 0;
+	_AX <<= 9;
+	_AX += reinterpret_cast<uint16_t>(exatt_buffers);
+	slot = reinterpret_cast<uint8_t near *>(_AX);
+
+	i = 0;
+	goto loop_test;
+loop:
+	if(slot[0] == 0) {
+		word_2028A = reinterpret_cast<uint16_t>(slot);
+		sub_1A1ED(
+			center_x,
+			center_y,
+			randring_far_next16_mod(PLAYFIELD_W << 4),
+			randring_far_next16_and(2047),
+			pid,
+			0x5A
+		);
+		return;
+	}
+	i++;
+	slot += 0x20;
+loop_test:
+	if(i < 8) {
+		goto loop;
+	}
 }
