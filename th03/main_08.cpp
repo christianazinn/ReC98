@@ -4,14 +4,22 @@
 #include "platform.h"
 #include "th02/snd/snd.h"
 #include "th01/math/subpixel.hpp"
+#include "th03/main/bullet/bullet.hpp"
 #include "th03/main/hitbox.hpp"
 #include "th03/main/hitcirc.hpp"
 #include "th03/main/player/cur.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/sprite16.hpp"
+#include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
 extern "C" uint8_t ellen_chargeshot_nodes[];
+extern "C" subpixel_t ellen_gauge_pattern_x[];
+extern "C" subpixel_t ellen_gauge_pattern_y[];
+extern "C" uint8_t ellen_gauge_pattern_frames[];
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint16_t word_1F868;
 extern "C" subpixel_t word_2142E;
@@ -19,6 +27,8 @@ extern "C" subpixel_t word_21430;
 
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far sub_16983(uint8_t pid);
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 
 struct player_stuff_t {
 	Subpixel center_x;
@@ -364,4 +374,96 @@ node_loop_test:
 	if(i < 0x20) {
 		goto node_loop;
 	}
+}
+
+void pascal near gauge_pattern_ellen(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(type == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		ellen_gauge_pattern_frames[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		ellen_gauge_pattern_x[pid_current] = TO_SP(144);
+		ellen_gauge_pattern_y[pid_current] = 0;
+		byte_202B8[pid_current * 4] = (gba_gauge_level[pid_current] + 0x0E);
+		byte_202B9[pid_current * 4] = (gba_gauge_level[pid_current] + 0x1C);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	if((ellen_gauge_pattern_frames[pid_current] % 8) != 0) {
+		goto frame_next;
+	}
+
+	bullet_template.type = static_cast<bullet_type_t>(type);
+	bullet_template.center.y.v = TO_SP(8);
+	pid_other = (1 - pid_current);
+	bullet_template.pid = pid_other;
+
+	if(ellen_gauge_pattern_x[pid_current] > 0) {
+		bullet_template.angle = 0;
+		bullet_template.speed.v = ((3 << 4) + 8);
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = byte_202B8[pid_current * 4];
+		bullet_template.center.y.v = 0;
+		bullet_template.center.x.v = ellen_gauge_pattern_x[pid_current];
+		SUB_CE0C(
+			bullet_template.center.x.v,
+			0,
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add();
+		bullet_template.center.x.v = (
+			TO_SP(PLAYFIELD_W) - ellen_gauge_pattern_x[pid_current]
+		);
+		SUB_CE0C(
+			bullet_template.center.x.v,
+			0,
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add();
+		ellen_gauge_pattern_x[pid_current] -= TO_SP(24);
+		goto frame_next;
+	}
+
+	if(ellen_gauge_pattern_y[pid_current] < TO_SP(144)) {
+		bullet_template.angle = randring_far_next16_raw();
+		bullet_template.speed.v = byte_202B9[pid_current * 4];
+		bullet_template.group = BG_16_RING;
+		bullet_template.center.y.v = ellen_gauge_pattern_y[pid_current];
+		bullet_template.center.x.v = 0;
+		SUB_CE0C(
+			0,
+			ellen_gauge_pattern_y[pid_current],
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add();
+		bullet_template.center.x.v = TO_SP(PLAYFIELD_W);
+		SUB_CE0C(
+			TO_SP(PLAYFIELD_W),
+			ellen_gauge_pattern_y[pid_current],
+			static_cast<uint16_t>(pid_other)
+		);
+		bullets_add();
+		bullet_template.angle = randring_far_next16_raw();
+		ellen_gauge_pattern_y[pid_current] += TO_SP(24);
+		goto frame_next;
+	}
+
+	gba_flag_active[pid_current] = GBAF_NONE;
+	sub_A3A8(pid_other);
+
+frame_next:
+	ellen_gauge_pattern_frames[pid_current]++;
 }
