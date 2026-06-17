@@ -1309,121 +1309,6 @@ HITCIRC_TEXT	segment	word public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_A44C	proc near
-
-arg_0		= dword	ptr  4
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_4]
-		call	super_entry_bfnt pascal, large [bp+arg_0]
-		les	bx, [bp+arg_0]
-		assume es:nothing
-		mov	byte ptr es:[bx+2], 'e'
-		mov	byte ptr es:[bx+3], 'x'
-		mov	byte ptr es:[bx+5], 'm'
-		mov	byte ptr es:[bx+6], 'r'
-		mov	byte ptr es:[bx+7], 's'
-		call	@mrs_load$qinxc pascal, si, word ptr [bp+arg_0+2], bx
-		les	bx, [bp+arg_0]
-		mov	byte ptr es:[bx+2], 'b'
-		mov	byte ptr es:[bx+3], 'm'
-		lea	ax, [si+2]
-		call	@mrs_load$qinxc pascal, ax, word ptr [bp+arg_0+2], bx
-		pop	si
-		pop	bp
-		retn	6
-sub_A44C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_A4A1, sub_A4A1
-sub_A4A1	proc near
-
-		push	bp
-		mov	bp, sp
-		call	@mrs_hflip$qi pascal, 1
-		call	@mrs_hflip$qi pascal, 3
-		call	respal_get_palettes
-		call	far ptr	palette_show
-		nopcall	SUB_A378
-		pop	bp
-		retn
-sub_A4A1	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_A4C3, sub_A4C3
-sub_A4C3	proc near
-
-var_C		= byte ptr -0Ch
-var_B		= byte ptr -0Bh
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		enter	0Ch, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_2]
-		xor	si, si
-		jmp	short loc_A4D8
-; ---------------------------------------------------------------------------
-
-loc_A4D0:
-		mov	al, a00ch_bf2[si]
-		mov	[bp+si+var_C], al
-		inc	si
-
-loc_A4D8:
-		cmp	si, 0Ch
-		jl	short loc_A4D0
-		mov	bx, di
-		shl	bx, 7
-		mov	al, _players[bx].playchar_paletted
-		mov	ah, 0
-		and	ax, 1
-		sub	[bp+arg_0], ax
-		cmp	[bp+arg_0], 0Ah
-		jl	short loc_A50C
-		mov	ax, [bp+arg_0]
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	al, [bp+var_C]
-		mov	[bp+var_C], al
-		mov	ax, [bp+arg_0]
-		cwd
-		idiv	bx
-		mov	[bp+arg_0], dx
-
-loc_A50C:
-		mov	al, [bp+var_B]
-		add	al, byte ptr [bp+arg_0]
-		mov	[bp+var_B], al
-		push	di
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	sub_A44C
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_A4C3	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
 set_callbacks_reimu	proc near
 
 arg_0		= word ptr  4
@@ -1434,7 +1319,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	1
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_A5E2
 		setfarfp	exatt_add_p1, EXATT_ADD_REIMU
@@ -1471,7 +1356,7 @@ loc_A5E2:
 		setfarfp	bomb_p2, reimu_bomb
 		mov	_p2.hyper_func, offset hyper_reimu
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_A68D:
 		setfarfp	farfp_20F20, SUB_D092
@@ -1499,7 +1384,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	3
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_A77A
 		setfarfp	exatt_add_p1, EXATT_ADD_MIMA
@@ -1536,7 +1421,7 @@ loc_A77A:
 		setfarfp	bomb_p2, mima_bomb
 		mov	_p2.hyper_func, offset hyper_mima
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_A825:
 		setfarfp	farfp_20F20, SUB_D092
@@ -1564,7 +1449,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	5
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_A912
 		setfarfp	exatt_add_p1, EXATT_ADD_MARISA
@@ -1601,7 +1486,7 @@ loc_A912:
 		setfarfp	bomb_p2, marisa_bomb
 		mov	_p2.hyper_func, offset hyper_marisa
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_A9BD:
 		setfarfp	farfp_20F20, SUB_D2E8
@@ -1629,7 +1514,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	7
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_AAAA
 		setfarfp	exatt_add_p1, EXATT_ADD_ELLEN
@@ -1666,7 +1551,7 @@ loc_AAAA:
 		setfarfp	bomb_p2, ellen_bomb
 		mov	_p2.hyper_func, offset hyper_ellen
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_AB55:
 		setfarfp	farfp_20F20, SUB_D2E8
@@ -1694,7 +1579,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	9
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_AC42
 		setfarfp	exatt_add_p1, EXATT_ADD_KOTOHIME
@@ -1731,7 +1616,7 @@ loc_AC42:
 		setfarfp	bomb_p2, kotohime_bomb
 		mov	_p2.hyper_func, offset hyper_kotohime
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_ACED:
 		setfarfp	farfp_20F20, SUB_D2E8
@@ -1759,7 +1644,7 @@ arg_0		= word ptr  4
 		mov	si, [bp+arg_0]
 		push	si
 		push	0Bh
-		call	sub_A4C3
+		call	SUB_A4C3
 		or	si, si
 		jnz	loc_ADDA
 		setfarfp	exatt_add_p1, EXATT_ADD_KANA
@@ -1796,7 +1681,7 @@ loc_ADDA:
 		setfarfp	bomb_p2, kana_bomb
 		mov	_p2.hyper_func, offset hyper_kana
 		mov	_p2.hyper, offset hyper_standby
-		call	sub_A4A1
+		call	SUB_A4A1
 
 loc_AE85:
 		setfarfp	farfp_20F20, SUB_D2E8
@@ -1837,6 +1722,8 @@ SET_CALLBACKS_YUMEMI procdesc pascal near \
 	SUB_A38E procdesc far
 	SUB_A3A8 procdesc far
 	_SUB_A3D2 procdesc far
+	SUB_A4A1 procdesc near
+	SUB_A4C3 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -5466,6 +5353,8 @@ include th03/formats/cfg_lres[data].asm
 public _gba_boss_launched_by
 _gba_boss_launched_by	db PID_NONE
 	evendata
+public _a00ch_bf2
+_a00ch_bf2 label byte
 a00ch_bf2	db '00ch.bf2',0
 		db 0
 		db    0
