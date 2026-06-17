@@ -70,7 +70,8 @@ main_03_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public gba_boss_update_mima
+public GBA_BOSS_UPDATE_MIMA, gba_boss_update_mima
+GBA_BOSS_UPDATE_MIMA label far
 gba_boss_update_mima proc far
 
 var_4		= word ptr -4

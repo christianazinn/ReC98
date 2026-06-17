@@ -1309,396 +1309,53 @@ HITCIRC_TEXT	segment	word public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-set_callbacks_reimu	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	1
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_A5E2
-		setfarfp	exatt_add_p1, EXATT_ADD_REIMU
-		setfarfp	exatt_update_p1, @exatt_update_reimu$qv
-		setfarfp	exatt_render_p1, @exatt_render_reimu$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_reimu
-		setfarfp	_chargeshot_update_p1, chargeshot_update_reimu
-		setfarfp	_chargeshot_render_p1, chargeshot_render_reimu
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_reimu$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_reimu
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_reimu
-		setfarfp	gba_boss_update_p1, gba_boss_update_reimu
-		setfarfp	gba_boss_render_p1, gba_boss_render_reimu
-		setfarfp	p1_205CE, reimu_1508C
-		setfarfp	bomb_p1, reimu_bomb
-		mov	_p1.hyper_func, offset hyper_reimu
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_A68D
-; ---------------------------------------------------------------------------
-
-loc_A5E2:
-		setfarfp	exatt_add_p2, EXATT_ADD_REIMU
-		setfarfp	exatt_update_p2, @exatt_update_reimu$qv
-		setfarfp	exatt_render_p2, @exatt_render_reimu$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_reimu
-		setfarfp	_chargeshot_update_p2, chargeshot_update_reimu
-		setfarfp	_chargeshot_render_p2, chargeshot_render_reimu
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_reimu$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_reimu
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_reimu
-		setfarfp	gba_boss_update_p2, gba_boss_update_reimu
-		setfarfp	gba_boss_render_p2, gba_boss_render_reimu
-		setfarfp	p2_205D2, reimu_1508C
-		setfarfp	bomb_p2, reimu_bomb
-		mov	_p2.hyper_func, offset hyper_reimu
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_A68D:
-		setfarfp	farfp_20F20, SUB_D092
-		setfarfp	farfp_20F24, SUB_D135
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	reimu_10BFE
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_reimu	endp
+SET_CALLBACKS_REIMU procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_mima	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	3
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_A77A
-		setfarfp	exatt_add_p1, EXATT_ADD_MIMA
-		setfarfp	exatt_update_p1, @exatt_update_mima$qv
-		setfarfp	exatt_render_p1, @exatt_render_mima$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_mima
-		setfarfp	_chargeshot_update_p1, chargeshot_update_mima
-		setfarfp	_chargeshot_render_p1, chargeshot_render_mima
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_mima$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_mima
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_mima
-		setfarfp	gba_boss_update_p1, gba_boss_update_mima
-		setfarfp	gba_boss_render_p1, gba_boss_render_mima
-		setfarfp	p1_205CE, mima_17043
-		setfarfp	bomb_p1, mima_bomb
-		mov	_p1.hyper_func, offset hyper_mima
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_A825
-; ---------------------------------------------------------------------------
-
-loc_A77A:
-		setfarfp	exatt_add_p2, EXATT_ADD_MIMA
-		setfarfp	exatt_update_p2, @exatt_update_mima$qv
-		setfarfp	exatt_render_p2, @exatt_render_mima$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_mima
-		setfarfp	_chargeshot_update_p2, chargeshot_update_mima
-		setfarfp	_chargeshot_render_p2, chargeshot_render_mima
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_mima$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_mima
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_mima
-		setfarfp	gba_boss_update_p2, gba_boss_update_mima
-		setfarfp	gba_boss_render_p2, gba_boss_render_mima
-		setfarfp	p2_205D2, mima_17043
-		setfarfp	bomb_p2, mima_bomb
-		mov	_p2.hyper_func, offset hyper_mima
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_A825:
-		setfarfp	farfp_20F20, SUB_D092
-		setfarfp	farfp_20F24, SUB_D135
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	mima_FB46
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_mima	endp
+SET_CALLBACKS_MIMA procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_marisa	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	5
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_A912
-		setfarfp	exatt_add_p1, EXATT_ADD_MARISA
-		setfarfp	exatt_update_p1, @exatt_update_marisa$qv
-		setfarfp	exatt_render_p1, @exatt_render_marisa$qv
-		setfarfp	_p1.chargeshot_add, CHARGESHOT_ADD_MARISA
-		setfarfp	_chargeshot_update_p1, chargeshot_update_marisa
-		setfarfp	_chargeshot_render_p1, chargeshot_render_marisa
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_marisa$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_marisa
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_marisa
-		setfarfp	gba_boss_update_p1, gba_boss_update_marisa
-		setfarfp	gba_boss_render_p1, gba_boss_render_marisa
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, marisa_bomb
-		mov	_p1.hyper_func, offset hyper_marisa
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_A9BD
-; ---------------------------------------------------------------------------
-
-loc_A912:
-		setfarfp	exatt_add_p2, EXATT_ADD_MARISA
-		setfarfp	exatt_update_p2, @exatt_update_marisa$qv
-		setfarfp	exatt_render_p2, @exatt_render_marisa$qv
-		setfarfp	_p2.chargeshot_add, CHARGESHOT_ADD_MARISA
-		setfarfp	_chargeshot_update_p2, chargeshot_update_marisa
-		setfarfp	_chargeshot_render_p2, chargeshot_render_marisa
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_marisa$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_marisa
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_marisa
-		setfarfp	gba_boss_update_p2, gba_boss_update_marisa
-		setfarfp	gba_boss_render_p2, gba_boss_render_marisa
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, marisa_bomb
-		mov	_p2.hyper_func, offset hyper_marisa
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_A9BD:
-		setfarfp	farfp_20F20, SUB_D2E8
-		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	marisa_F5AF
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_marisa	endp
+SET_CALLBACKS_MARISA procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_ellen	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	7
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_AAAA
-		setfarfp	exatt_add_p1, EXATT_ADD_ELLEN
-		setfarfp	exatt_update_p1, @exatt_update_ellen$qv
-		setfarfp	exatt_render_p1, @exatt_render_ellen$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_ellen
-		setfarfp	_chargeshot_update_p1, chargeshot_update_ellen
-		setfarfp	_chargeshot_render_p1, chargeshot_render_ellen
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_ellen$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, gba_gauge_pattern_pellet_ellen
-		setfarfp	gba_gauge_pattern_bullet_p1, gba_gauge_pattern_bullet_ellen
-		setfarfp	gba_boss_update_p1, gba_boss_update_ellen
-		setfarfp	gba_boss_render_p1, gba_boss_render_ellen
-		setfarfp	p1_205CE, ellen_185AB
-		setfarfp	bomb_p1, ellen_bomb
-		mov	_p1.hyper_func, offset hyper_ellen
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_AB55
-; ---------------------------------------------------------------------------
-
-loc_AAAA:
-		setfarfp	exatt_add_p2, EXATT_ADD_ELLEN
-		setfarfp	exatt_update_p2, @exatt_update_ellen$qv
-		setfarfp	exatt_render_p2, @exatt_render_ellen$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_ellen
-		setfarfp	_chargeshot_update_p2, chargeshot_update_ellen
-		setfarfp	_chargeshot_render_p2, chargeshot_render_ellen
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_ellen$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, gba_gauge_pattern_pellet_ellen
-		setfarfp	gba_gauge_pattern_bullet_p2, gba_gauge_pattern_bullet_ellen
-		setfarfp	gba_boss_update_p2, gba_boss_update_ellen
-		setfarfp	gba_boss_render_p2, gba_boss_render_ellen
-		setfarfp	p2_205D2, ellen_185AB
-		setfarfp	bomb_p2, ellen_bomb
-		mov	_p2.hyper_func, offset hyper_ellen
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_AB55:
-		setfarfp	farfp_20F20, SUB_D2E8
-		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	ellen_113E2
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_ellen	endp
+SET_CALLBACKS_ELLEN procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_kotohime	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	9
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_AC42
-		setfarfp	exatt_add_p1, EXATT_ADD_KOTOHIME
-		setfarfp	exatt_update_p1, @exatt_update_kotohime$qv
-		setfarfp	exatt_render_p1, @exatt_render_kotohime$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_kotohime
-		setfarfp	_chargeshot_update_p1, chargeshot_update_kotohime
-		setfarfp	_chargeshot_render_p1, chargeshot_render_kotohime
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_kotohime$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_KOTOHIM
-		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_KOTOHIM
-		setfarfp	gba_boss_update_p1, gba_boss_update_kotohime
-		setfarfp	gba_boss_render_p1, gba_boss_render_kotohime
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, kotohime_bomb
-		mov	_p1.hyper_func, offset hyper_kotohime
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_ACED
-; ---------------------------------------------------------------------------
-
-loc_AC42:
-		setfarfp	exatt_add_p2, EXATT_ADD_KOTOHIME
-		setfarfp	exatt_update_p2, @exatt_update_kotohime$qv
-		setfarfp	exatt_render_p2, @exatt_render_kotohime$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_kotohime
-		setfarfp	_chargeshot_update_p2, chargeshot_update_kotohime
-		setfarfp	_chargeshot_render_p2, chargeshot_render_kotohime
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_kotohime$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_KOTOHIM
-		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_KOTOHIM
-		setfarfp	gba_boss_update_p2, gba_boss_update_kotohime
-		setfarfp	gba_boss_render_p2, gba_boss_render_kotohime
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, kotohime_bomb
-		mov	_p2.hyper_func, offset hyper_kotohime
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_ACED:
-		setfarfp	farfp_20F20, SUB_D2E8
-		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	kotohime_11A6D
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_kotohime	endp
+SET_CALLBACKS_KOTOHIME procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-set_callbacks_kana	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		push	si
-		push	0Bh
-		call	SUB_A4C3
-		or	si, si
-		jnz	loc_ADDA
-		setfarfp	exatt_add_p1, EXATT_ADD_KANA
-		setfarfp	exatt_update_p1, @exatt_update_kana$qv
-		setfarfp	exatt_render_p1, @exatt_render_kana$qv
-		setfarfp	_p1.chargeshot_add, chargeshot_add_kana
-		setfarfp	_chargeshot_update_p1, chargeshot_update_kana
-		setfarfp	_chargeshot_render_p1, chargeshot_render_kana
-		setfarfp	chargeshot_hittest_p1, @chargeshot_hittest_kana$qv
-		setfarfp	gba_gauge_pattern_pellet_p1, GBA_GAUGE_PATTERN_PELLET_KANA
-		setfarfp	gba_gauge_pattern_bullet_p1, GBA_GAUGE_PATTERN_BULLET_KANA
-		setfarfp	gba_boss_update_p1, gba_boss_update_kana
-		setfarfp	gba_boss_render_p1, gba_boss_render_kana
-		setfarfp	p1_205CE, sub_1501E
-		setfarfp	bomb_p1, kana_bomb
-		mov	_p1.hyper_func, offset hyper_kana
-		mov	_p1.hyper, offset hyper_standby
-		jmp	loc_AE85
-; ---------------------------------------------------------------------------
-
-loc_ADDA:
-		setfarfp	exatt_add_p2, EXATT_ADD_KANA
-		setfarfp	exatt_update_p2, @exatt_update_kana$qv
-		setfarfp	exatt_render_p2, @exatt_render_kana$qv
-		setfarfp	_p2.chargeshot_add, chargeshot_add_kana
-		setfarfp	_chargeshot_update_p2, chargeshot_update_kana
-		setfarfp	_chargeshot_render_p2, chargeshot_render_kana
-		setfarfp	chargeshot_hittest_p2, @chargeshot_hittest_kana$qv
-		setfarfp	gba_gauge_pattern_pellet_p2, GBA_GAUGE_PATTERN_PELLET_KANA
-		setfarfp	gba_gauge_pattern_bullet_p2, GBA_GAUGE_PATTERN_BULLET_KANA
-		setfarfp	gba_boss_update_p2, gba_boss_update_kana
-		setfarfp	gba_boss_render_p2, gba_boss_render_kana
-		setfarfp	p2_205D2, sub_1501E
-		setfarfp	bomb_p2, kana_bomb
-		mov	_p2.hyper_func, offset hyper_kana
-		mov	_p2.hyper, offset hyper_standby
-		call	SUB_A4A1
-
-loc_AE85:
-		setfarfp	farfp_20F20, SUB_D2E8
-		setfarfp	farfp_20F24, SUB_D340
-		setfarfp	farfp_20F28, SUB_D05D
-		push	si
-		call	kana_12BFB
-		pop	si
-		pop	bp
-		retn	2
-set_callbacks_kana	endp
+SET_CALLBACKS_KANA procdesc pascal near \
+		pid:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
 SET_CALLBACKS_RIKAKO procdesc pascal near \
 		pid:word
 
@@ -3216,6 +2873,8 @@ BULLET_TEXT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public MIMA_17043
+MIMA_17043 label far
 mima_17043	proc far
 		push	bp
 		mov	bp, sp
@@ -3606,6 +3265,8 @@ chiyuri_bomb	endp
 
 ; Attributes: bp-based frame
 
+public ELLEN_185AB
+ELLEN_185AB label far
 ellen_185AB	proc far
 		push	bp
 		mov	bp, sp
@@ -3801,6 +3462,8 @@ ellen_bomb_186C3	endp
 
 ; Attributes: bp-based frame
 
+public ELLEN_BOMB
+ELLEN_BOMB label far
 ellen_bomb	proc far
 
 var_4		= byte ptr -4
@@ -4034,6 +3697,8 @@ ellen_bomb	endp
 
 ; Attributes: bp-based frame
 
+public KANA_BOMB
+KANA_BOMB label far
 kana_bomb	proc far
 
 var_2		= byte ptr -2
@@ -4238,6 +3903,8 @@ kana_bomb	endp
 
 ; Attributes: bp-based frame
 
+public KOTOHIME_BOMB
+KOTOHIME_BOMB label far
 kotohime_bomb	proc far
 
 var_2		= byte ptr -2
