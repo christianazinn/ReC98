@@ -2389,39 +2389,8 @@ sub_BDC2	endp
 
 ; Attributes: bp-based frame
 
-public SUB_BE2A, sub_BE2A
-SUB_BE2A label near
-sub_BE2A	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	di
-		mov	ax, [bp+arg_2]
-		mov	bx, [bp+arg_0]
-		sar	ax, 7
-		shr	bx, 5
-		shl	bx, 6
-		add	ax, bx
-		shr	bx, 2
-		add	ax, bx
-		mov	di, ax
-		mov	cx, [bp+arg_2]
-		shr	cx, 4
-		; Hack (and cx, 7)
-		db 081h
-		db 0e1h
-		db 007h
-		db 000h
-		mov	bx, 11000000b
-		ror	bx, cl
-		mov	es:[di], bx
-		pop	di
-		pop	bp
-		retn	4
-sub_BE2A	endp
+SUB_BE2A procdesc pascal near \
+	 x:word, y:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
