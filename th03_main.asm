@@ -335,7 +335,7 @@ loc_986C:
 		call	@bullets_render$qv
 		cmp	_defeat_flag, DF_BANNER
 		jnz	loc_99B1
-		call	sub_C2F9
+		call	_sub_C2F9
 		les	bx, _resident
 		cmp	es:[bx+resident_t.game_mode], GM_STORY
 		jz	short loc_9973
@@ -2931,51 +2931,7 @@ sub_C248	endp
 
 ; Attributes: bp-based frame
 
-sub_C2F9	proc near
-
-@@frame_mod_32	= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, byte_20E3D
-		mov	ah, 0
-		imul	ax, PLAYFIELD_W_BORDERED
-		add	ax, 96
-		mov	si, ax
-		call	super_put pascal, ax, large (40 shl 16) or 18
-		lea	ax, [si+64]
-		call	super_put pascal, ax, large (40 shl 16) or 19
-		mov	al, byte_20E3D
-		mov	ah, 0
-		mov	dx, 1
-		sub	dx, ax
-		imul	dx, PLAYFIELD_W_BORDERED
-		add	dx, 96
-		mov	si, dx
-		mov	ax, _round_or_result_frame
-		and	ax, 31
-		mov	[bp+@@frame_mod_32], ax
-		cmp	[bp+@@frame_mod_32], 16
-		jge	short loc_C34F
-		add	ax, 32
-		jmp	short loc_C355
-; ---------------------------------------------------------------------------
-
-loc_C34F:
-		mov	ax, 64
-		sub	ax, [bp+@@frame_mod_32]
-
-loc_C355:
-		mov	di, ax
-		call	super_put pascal, si, di, 20
-		lea	ax, [si+64]
-		call	super_put pascal, ax, di, 21
-		pop	di
-		pop	si
-		leave
-		retn
-sub_C2F9	endp
+	_sub_C2F9 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
