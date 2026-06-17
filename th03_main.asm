@@ -33,6 +33,8 @@ GBA_GAUGE_LEVEL_MAX = 16
 GBA_BOSS_LEVEL_MAX = 16
 
 	extern _execl:proc
+	_collmap_reset procdesc near
+	@randring_fill$qv procdesc near
 	extern gba_boss_update_reimu:proc
 	extern gba_boss_update_marisa:proc
 	extern gba_boss_update_mima:proc
@@ -1302,10 +1304,6 @@ CFG_LRES_TEXT	ends
 
 HITCIRC_TEXT	segment	word public 'CODE' use16
 
-
-include th03/math/randring_fill.asm
-RANDRING_NEXT_DEF_NOMOD 1, near
-include th03/main/collmap_reset.asm
 
 ; =============== S U B	R O U T	I N E =======================================
 
