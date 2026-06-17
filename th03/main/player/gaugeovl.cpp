@@ -12,7 +12,7 @@ extern player_stuff_t p1;
 extern player_stuff_t p2;
 
 extern "C" void pascal near SUB_B3A2(void);
-extern "C" void pascal near SUB_B398(void);
+extern "C" void pascal near PLAYFIELD_BOTTOM_ROWS_FILL_288(void);
 extern "C" void pascal near SUB_B3F6(void);
 
 #define grcg_off_inline() { \
@@ -39,7 +39,7 @@ extern "C" void near sub_C830(void)
 		}
 		grcg_setcolor(GC_RMW, col);
 		_BX = ((7 * ROW_SIZE) + (16 / BYTE_DOTS));
-		SUB_B398();
+		PLAYFIELD_BOTTOM_ROWS_FILL_288();
 		grcg_off_inline();
 	}
 	if((p2.hyper_active != 0) && (round_or_result_frame & 1)) {
@@ -55,7 +55,7 @@ extern "C" void near sub_C830(void)
 		}
 		grcg_setcolor(GC_RMW, col);
 		_BX = ((7 * ROW_SIZE) + (336 / BYTE_DOTS));
-		SUB_B398();
+		PLAYFIELD_BOTTOM_ROWS_FILL_288();
 		grcg_off_inline();
 	}
 }

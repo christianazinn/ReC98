@@ -27,12 +27,12 @@ extern "C" int word_1FBD0;
 extern "C" int word_1FBD2;
 extern "C" uint16_t wordmask_1DB0C[];
 
-extern "C" void near sub_B37C(void);
+extern "C" void near playfield_rows_fill_288(void);
 
 #pragma option -k-
 extern "C" void far sub_B39E(void)
 {
-	sub_B37C();
+	playfield_rows_fill_288();
 }
 #pragma option -k.
 

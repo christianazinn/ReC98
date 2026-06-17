@@ -453,10 +453,10 @@ loc_9A25:
 		xor	_page_back, 1
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
 		mov	bx, ((183 * ROW_SIZE) + ( 16 / BYTE_DOTS))
-		call	sub_B37C
+		call	PLAYFIELD_ROWS_FILL_288
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
 		mov	bx, ((183 * ROW_SIZE) + (336 / BYTE_DOTS))
-		call	sub_B37C
+		call	PLAYFIELD_ROWS_FILL_288
 		call	grcg_off
 
 loc_9A62:
@@ -1385,11 +1385,11 @@ SET_CALLBACKS_YUMEMI procdesc pascal near \
 
 ; =============== S U B	R O U T	I N E =======================================
 
-	SUB_B37C procdesc near
+	PLAYFIELD_ROWS_FILL_288 procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
-	SUB_B398 procdesc near
+	PLAYFIELD_BOTTOM_ROWS_FILL_288 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
