@@ -2793,137 +2793,15 @@ sub_C0D8	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
-sub_C1E6	proc near
-
-@@top		= word ptr -4
-@@left		= word ptr -2
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-
-		enter	4, 0
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_20E3E, word_20E42, _CosTable8[bx]
-		mov	dl, _pid_PID_current
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		add	ax, _playfield_fg_shift_x[bx]
-		mov	[bp+@@left], ax
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, word_20E40, word_20E42, _SinTable8[bx]
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, ((168 * ROW_SIZE) + (416 / BYTE_DOTS))
-		leave
-		retn	4
-sub_C1E6	endp
+	SUB_C1E6 procdesc pascal near \
+		angle_for_cos:word, angle_for_sin:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
-public SUB_C248
-SUB_C248 label near
-sub_C248	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_pid_PID_current, 0
-		jnz	short loc_C263
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_C26F
-; ---------------------------------------------------------------------------
-
-loc_C263:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_C26F:
-		mov	_sprite16_put_w, (48 / 16)
-		mov	_sprite16_put_h, 24
-		xor	di, di
-		mov	ax, word_20E42
-		mov	bx, 4
-		cwd
-		idiv	bx
-		jmp	short loc_C299
-; ---------------------------------------------------------------------------
-
-loc_C287:
-		push	word ptr [bp-1]
-		mov	al, [bp+var_1]
-		add	al, 20h	; ' '
-		push	ax
-		call	sub_C1E6
-		inc	di
-		mov	al, [bp+var_1]
-		add	al, 10h
-
-loc_C299:
-		mov	[bp+var_1], al
-		cmp	di, 10h
-		jl	short loc_C287
-		xor	di, di
-		mov	ax, word_20E42
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	dl, 0
-		sub	dl, al
-		mov	[bp+var_1], dl
-		jmp	short loc_C2CA
-; ---------------------------------------------------------------------------
-
-loc_C2B5:
-		push	word ptr [bp+var_1]
-		mov	al, [bp+var_1]
-		add	al, 224
-		push	ax
-		call	sub_C1E6
-		inc	di
-		mov	al, [bp+var_1]
-		add	al, 10h
-		mov	[bp+var_1], al
-
-loc_C2CA:
-		cmp	di, 10h
-		jl	short loc_C2B5
-		xor	di, di
-		mov	ax, word_20E42
-		mov	bx, 4
-		cwd
-		idiv	bx
-		jmp	short loc_C2EB
-; ---------------------------------------------------------------------------
-
-loc_C2DC:
-		push	word ptr [bp+var_1]
-		push	word ptr [bp+var_1]
-		call	sub_C1E6
-		inc	di
-		mov	al, [bp+var_1]
-		add	al, 10h
-
-loc_C2EB:
-		mov	[bp+var_1], al
-		cmp	di, 10h
-		jl	short loc_C2DC
-		pop	di
-		pop	si
-		leave
-		retn	2
-sub_C248	endp
+	SUB_C248 procdesc pascal near \
+		player:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7305,8 +7183,12 @@ _defeat_flag	db ?
 public _byte_20E3D
 _byte_20E3D label byte
 byte_20E3D	db ?
+public _word_20E3E, _word_20E40, _word_20E42
+_word_20E3E label word
 word_20E3E	dw ?
+_word_20E40 label word
 word_20E40	dw ?
+_word_20E42 label word
 word_20E42	dw ?
 public _player_hittest_collision_top
 _player_hittest_collision_top	Point <?>
