@@ -1302,77 +1302,6 @@ CFG_LRES_TEXT	ends
 
 HITCIRC_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_A3A8, sub_A3A8
-SUB_A3A8 label far
-sub_A3A8	proc far
-
-arg_0		= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, ds
-		mov	es, ax
-		xor	bx, bx
-		mov	al, [bp+arg_0]
-		or	al, al
-		jz	short loc_A3BC
-		mov	bl, 1 * size rgb_t
-
-loc_A3BC:
-		lea	di, Palettes[bx]
-		lea	si, palette_1F2F4[bx]
-		movsw
-		movsb
-		mov	_palette_changed, 1
-		pop	di
-		pop	si
-		pop	bp
-		retf	2
-sub_A3A8	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_A3D2, sub_A3D2
-_sub_A3D2 label far
-sub_A3D2	proc far
-
-arg_0		= byte ptr  6
-arg_2		= byte ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	di
-		mov	cx, size rgb_t
-		xor	bx, bx
-		mov	al, [bp+arg_0]
-		or	al, al
-		jz	short loc_A3E4
-		mov	bl, 1 * size rgb_t
-
-loc_A3E4:
-		lea	di, Palettes[bx]
-		mov	al, [bp+arg_2]
-
-loc_A3EB:
-		mov	[di], al
-		inc	di
-		loop	loc_A3EB
-		mov	_palette_changed, 1
-		pop	di
-		pop	bp
-		retf	4
-sub_A3D2	endp
 
 include th03/math/randring_fill.asm
 RANDRING_NEXT_DEF_NOMOD 1, near
@@ -1908,6 +1837,8 @@ SET_CALLBACKS_YUMEMI procdesc pascal near \
 
 	SUB_A378 procdesc far
 	SUB_A38E procdesc far
+	SUB_A3A8 procdesc far
+	_SUB_A3D2 procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -3632,7 +3563,7 @@ loc_1840A:
 		mov	ah, 0
 		push	ax
 		push	word ptr _pid_current
-		call	sub_A3D2
+		call	_SUB_A3D2
 		mov	al, [bp+@@frame]
 		mov	ah, 0
 		mov	bx, 8
@@ -4245,7 +4176,7 @@ var_2		= byte ptr -2
 		mov	ah, 0
 		push	ax
 		push	word ptr _pid_current
-		call	sub_A3D2
+		call	_SUB_A3D2
 		mov	al, [bp+@@frame]
 		mov	ah, 0
 		mov	bx, 8
@@ -4276,7 +4207,7 @@ loc_18A10:
 		call	snd_se_play pascal, 10
 		push	160
 		push	word ptr _pid_current
-		call	sub_A3D2
+		call	_SUB_A3D2
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax
@@ -4293,7 +4224,7 @@ loc_18A4E:
 		mov	_playfield_fg_shift_x[bx], -4
 		push	0
 		push	word ptr _pid_current
-		call	sub_A3D2
+		call	_SUB_A3D2
 
 loc_18A68:
 		mov	al, [bp+@@frame]
@@ -6014,7 +5945,8 @@ public _playfield_clip_negative_radius
 _playfield_clip_negative_radius	Point <?>
 public _resident
 _resident	dd ?
-public palette_1F2F4
+public palette_1F2F4, _palette_1F2F4
+_palette_1F2F4 label byte
 palette_1F2F4	palette_t <?>
 public _byte_1F324
 _byte_1F324 label byte
