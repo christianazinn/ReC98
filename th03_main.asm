@@ -409,7 +409,7 @@ loc_99B1:
 		nopcall	SUB_C9FE
 		push	1
 		nopcall	SUB_C9FE
-		call	sub_BE5D
+		call	_sub_BE5D
 		call	@combos_update_and_render$qv
 		call	fp_1FBC0
 		call	fp_1E6EA
@@ -2316,6 +2316,8 @@ sub_BB12	endp
 
 ; Attributes: bp-based frame
 
+public SUB_BDC2, sub_BDC2
+SUB_BDC2 label near
 sub_BDC2	proc near
 
 arg_0		= word ptr  4
@@ -2386,6 +2388,8 @@ sub_BDC2	endp
 
 ; Attributes: bp-based frame
 
+public SUB_BE2A, sub_BE2A
+SUB_BE2A label near
 sub_BE2A	proc near
 
 arg_0		= word ptr  4
@@ -2423,259 +2427,7 @@ sub_BE2A	endp
 
 ; Attributes: bp-based frame
 
-sub_BE5D	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_hud_start_flag, HSF_DONE
-		jz	loc_C0D5
-		cmp	byte_20CE6, 0
-		jnz	loc_BF51
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	word_20CE4, offset byte_207E4
-		xor	si, si
-		jmp	loc_BF41
-; ---------------------------------------------------------------------------
-
-loc_BE89:
-		mov	bx, word_20CE4
-		push	word ptr [bx]
-		push	word ptr [bx+2]
-		push	word_20CEA
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, [bx]
-		add	ax, 20h	; ' '
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		inc	ax
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, [bx]
-		add	ax, 40h
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		add	ax, 2
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, [bx]
-		add	ax, 60h
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		add	ax, 3
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, 544
-		sub	ax, [bx]
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		add	ax, 3
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, 512
-		sub	ax, [bx]
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		add	ax, 2
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, 480
-		sub	ax, [bx]
-		push	ax
-		push	word ptr [bx+2]
-		mov	ax, word_20CEA
-		inc	ax
-		push	ax
-		push	si
-		call	sub_BDC2
-		mov	bx, word_20CE4
-		mov	ax, 448
-		sub	ax, [bx]
-		push	ax
-		push	word ptr [bx+2]
-		push	word_20CEA
-		push	si
-		call	sub_BDC2
-		inc	si
-		add	word_20CE4, 0Ah
-
-loc_BF41:
-		cmp	si, 10h
-		jl	loc_BE89
-		mov	ax, word_2087A
-		mov	x_20CEC, ax
-		jmp	loc_C0D0
-; ---------------------------------------------------------------------------
-
-loc_BF51:
-		cmp	byte_20CE6, 1
-		jnz	loc_C08D
-		les	bx, _resident
-		assume es:nothing
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_BF9B
-		cmp	word_20CE8, 18h
-		jl	short loc_BF92
-		cmp	word_20CE8, 40h
-		jge	short loc_BF92
-		push	(208 shl 16) or 84
-		mov	al, _round_id
-		mov	ah, 0
-		add	ax, 34
-		push	ax
-		call	super_put
-		push	(544 shl 16) or 84
-		mov	al, _round_id
-		jmp	short loc_BFD0
-; ---------------------------------------------------------------------------
-
-loc_BF92:
-		cmp	word_20CE8, 40h
-		jnz	short loc_BFF0
-		jmp	short loc_BFE4
-; ---------------------------------------------------------------------------
-
-loc_BF9B:
-		cmp	word_20CE8, 18h
-		jl	short loc_BFDD
-		cmp	word_20CE8, 38h	; '8'
-		jge	short loc_BFDD
-		push	(208 shl 16) or 84
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	ah, 0
-		add	ax, 34
-		push	ax
-		call	super_put
-		push	(544 shl 16) or 84
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-
-loc_BFD0:
-		mov	ah, 0
-		add	ax, 34
-		push	ax
-		call	super_put
-		jmp	short loc_BFF0
-; ---------------------------------------------------------------------------
-
-loc_BFDD:
-		cmp	word_20CE8, 38h	; '8'
-		jnz	short loc_BFF0
-
-loc_BFE4:
-		mov	x_20CEC, 96
-		mov	word_20CEA, 30
-
-loc_BFF0:
-		call	super_put pascal, x_20CEC, 84, word_20CEA
-		mov	ax, x_20CEC
-		add	ax, 32
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		inc	ax
-		push	ax
-		call	super_put
-		mov	ax, x_20CEC
-		add	ax, 64
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		add	ax, 2
-		push	ax
-		call	super_put
-		mov	ax, x_20CEC
-		add	ax, 96
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		add	ax, 3
-		push	ax
-		call	super_put
-		mov	ax, x_20CEC
-		add	ax, 320
-		call	super_put pascal, ax, 84, word_20CEA
-		mov	ax, x_20CEC
-		add	ax, 352
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		inc	ax
-		push	ax
-		call	super_put
-		mov	ax, x_20CEC
-		add	ax, 384
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		add	ax, 2
-		push	ax
-		call	super_put
-		mov	ax, x_20CEC
-		add	ax, 416
-		push	ax
-		push	84
-		mov	ax, word_20CEA
-		add	ax, 3
-		push	ax
-		call	super_put
-		jmp	short loc_C0D5
-; ---------------------------------------------------------------------------
-
-loc_C08D:
-		cmp	byte_20CE6, 3
-		jnz	short loc_C0D5
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, 0A800h
-		mov	es, ax
-		assume es:nothing
-		mov	word_20CE4, offset byte_207E4
-		xor	si, si
-		jmp	short loc_C0CA
-; ---------------------------------------------------------------------------
-
-loc_C0AE:
-		mov	bx, word_20CE4
-		cmp	byte ptr [bx+7], 0
-		jz	short loc_C0C4
-		mov	bx, word_20CE4
-		push	word ptr [bx]
-		push	word ptr [bx+2]
-		call	sub_BE2A
-
-loc_C0C4:
-		inc	si
-		add	word_20CE4, 0Ah
-
-loc_C0CA:
-		cmp	si, 80h
-		jl	short loc_C0AE
-
-loc_C0D0:
-		call	grcg_off
-
-loc_C0D5:
-		pop	si
-		pop	bp
-		retn
-sub_BE5D	endp
+	_sub_BE5D procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7014,18 +6766,29 @@ HSF_INIT = 1
 HSF_ACTIVE = 2
 
 public _hud_start_flag, _round_id
+public _byte_207E4, byte_207E4, _word_2087A, word_2087A
+public _word_20CE4, word_20CE4, _byte_20CE6, byte_20CE6
+public _word_20CE8, word_20CE8, _word_20CEA, word_20CEA
+public _x_20CEC, x_20CEC
 _hud_start_flag	db ?
 _round_id	db ?
 
+_byte_207E4 label byte
 byte_207E4 label byte
 		db 150 dup(?)
+_word_2087A label word
 word_2087A	dw ?
 		db 1128 dup(?)
+_word_20CE4 label word
 word_20CE4	dw ?
+_byte_20CE6 label byte
 byte_20CE6	db ?
 		db ?
+_word_20CE8 label word
 word_20CE8	dw ?
+_word_20CEA label word
 word_20CEA	dw ?
+_x_20CEC label word
 x_20CEC	dw ?
 		db 2 dup(?)
 public _byte_20CF0, byte_20CF0, _byte_20CF2, byte_20CF2, _byte_20CF4, byte_20CF4
