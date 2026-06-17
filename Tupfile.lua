@@ -712,6 +712,7 @@ obj = {
 	"th03/main_11.cpp",
 	"th03/main/hitc_prf.asm",
 	"th03/main/hitc_pal.cpp",
+	"th03/main/hitc_mid.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
