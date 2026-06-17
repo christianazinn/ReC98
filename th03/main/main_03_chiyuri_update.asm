@@ -62,7 +62,7 @@ bullet_template_t ends
 	extrn @RANDRING_FAR_NEXT16_MOD$QUI:proc
 
 	SUB_A3A8 procdesc far
-	sub_A3D2 procdesc far
+	_SUB_A3D2 procdesc far
 	SUB_CE0C procdesc far
 	sub_F3A9 procdesc near
 	sub_F402 procdesc near
@@ -163,7 +163,7 @@ loc_12748:
 		mov	byte_1F34F, 1
 		push	(-1 and 255)
 		push	word ptr [bp+@@pid_other]
-		call	sub_A3D2
+		call	_SUB_A3D2
 		mov	byte_1F355, 10h
 		mov	byte_1F353, 10h
 		jmp	loc_12860	; default
@@ -301,7 +301,7 @@ loc_12873:
 		shl	ax, 4
 		push	ax
 		push	word ptr [bp+@@pid_other]
-		call	sub_A3D2
+		call	_SUB_A3D2
 
 loc_128A2:
 		cmp	byte_1F353, 0

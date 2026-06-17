@@ -17,7 +17,7 @@ extern "C" uint8_t byte_20E92[];
 extern "C" subpixel_t word_220EC;
 
 extern "C" void far sub_B39E(void);
-extern "C" void far sub_A3D2(void);
+extern "C" void far SUB_A3D2(void);
 extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 
 extern "C" void pascal far rikako_bomb(void)
@@ -46,7 +46,7 @@ extern "C" void pascal far rikako_bomb(void)
 		_asm {
 			push	ax
 			push	word ptr pid_current
-			call	far ptr sub_A3D2
+			call	far ptr SUB_A3D2
 		}
 		word_220EC = 0;
 	} else if(frame < 128) {
