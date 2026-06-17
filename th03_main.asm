@@ -897,7 +897,7 @@ loc_9E24:
 		call	super_entry_bfnt pascal, ds, offset aRound_bf2 ; "round.bf2"
 		call	super_entry_bfnt pascal, ds, offset aZikicw_bf2 ; "zikicw.bf2"
 		call	_sub_E266
-		nopcall	sub_A38E
+		nopcall	SUB_A38E
 		call	graph_200line pascal, 0
 		call	sprite16_sprites_commit
 		mov	_page_back, 0
@@ -1304,49 +1304,6 @@ HITCIRC_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
-
-sub_A378	proc far
-		push	si
-		push	di
-		mov	ax, ds
-		mov	es, ax
-		assume es:_DATA
-		mov	di, offset palette_1F2F4
-		mov	si, offset Palettes
-		mov	cx, size palette_t / 4
-		rep movsd
-		pop	di
-		pop	si
-		retf
-sub_A378	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-public SUB_A38E, sub_A38E
-SUB_A38E label far
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-sub_A38E	proc far
-		push	si
-		push	di
-		mov	ax, ds
-		mov	es, ax
-		mov	di, offset Palettes
-		mov	si, offset palette_1F2F4
-		mov	cx, size palette_t / 4
-		rep movsd
-		call	far ptr	palette_show
-		pop	di
-		pop	si
-		retf
-sub_A38E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
 ; Attributes: bp-based frame
 
 public SUB_A3A8, sub_A3A8
@@ -1467,7 +1424,7 @@ sub_A4A1	proc near
 		call	@mrs_hflip$qi pascal, 3
 		call	respal_get_palettes
 		call	far ptr	palette_show
-		nopcall	sub_A378
+		nopcall	SUB_A378
 		pop	bp
 		retn
 sub_A4A1	endp
@@ -1948,6 +1905,9 @@ SET_CALLBACKS_CHIYURI procdesc pascal near \
 
 SET_CALLBACKS_YUMEMI procdesc pascal near \
 		pid:word
+
+	SUB_A378 procdesc far
+	SUB_A38E procdesc far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6053,6 +6013,7 @@ public _playfield_clip_negative_radius
 _playfield_clip_negative_radius	Point <?>
 public _resident
 _resident	dd ?
+public palette_1F2F4
 palette_1F2F4	palette_t <?>
 public _byte_1F324
 _byte_1F324 label byte
