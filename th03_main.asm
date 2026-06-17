@@ -2316,72 +2316,8 @@ sub_BB12	endp
 
 ; Attributes: bp-based frame
 
-public SUB_BDC2, sub_BDC2
-SUB_BDC2 label near
-sub_BDC2	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		push	ds
-		mov	ax, 0A800h
-		mov	es, ax
-		assume es:nothing
-		mov	cx, [bp+arg_6]
-		; Hack (and cx, 7)
-		db 081h
-		db 0e1h
-		db 007h
-		db 000h
-		mov	ax, [bp+arg_6]
-		mov	bx, [bp+arg_4]
-		sar	ax, 3
-		shl	bx, 6
-		add	ax, bx
-		shr	bx, 2
-		add	ax, bx
-		mov	di, ax
-		mov	bx, [bp+arg_2]
-		shl	bx, 1
-		add	bx, offset super_patdata
-		mov	ax, [bx]
-		mov	ds, ax
-		mov	ax, [bp+arg_0]
-		shl	ax, 2
-		add	ax, 80h
-		mov	si, ax
-		mov	bx, 4
-
-loc_BE04:
-		cmp	[bp+arg_6], 0
-		jl	short loc_BE1A
-		cmp	[bp+arg_6], 624
-		jge	short loc_BE23
-		xor	ah, ah
-		mov	al, [si]
-		ror	ax, cl
-		mov	es:[di], ax
-
-loc_BE1A:
-		inc	si
-		inc	di
-		add	[bp+arg_6], 8
-		dec	bx
-		jnz	short loc_BE04
-
-loc_BE23:
-		pop	ds
-		pop	di
-		pop	si
-		pop	bp
-		retn	8
-sub_BDC2	endp
+SUB_BDC2 procdesc pascal near \
+	 slot:word, patnum:word, y:word, x:word
 
 
 ; =============== S U B	R O U T	I N E =======================================

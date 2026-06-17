@@ -671,6 +671,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/cfg_lres.cpp",
 	"th03/hitcirc.cpp",
 	"th03/hud_stat.cpp",
+	"th03/main/player/bdc2.cpp",
 	"th03/main/player/be2a.cpp",
 	"th03/main/player/hudstart.cpp",
 	"th03/main/player/defeat.cpp",
