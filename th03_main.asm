@@ -2587,53 +2587,7 @@ PID_NONE = -1
 
 ; Story CPU safety, play-character speed, and startup filename data moved to th03/main/story_startup[data].asm.
 ; Support/format data moved to th03/main/support_format[data].asm.
-public _gba_boss_launched_by
-_gba_boss_launched_by	db PID_NONE
-	evendata
-public _a00ch_bf2
-_a00ch_bf2 label byte
-a00ch_bf2	db '00ch.bf2',0
-		db 0
-		db    0
-		db    0
-public _wordmask_1DB0C, wordmask_1DB0C
-_wordmask_1DB0C label word
-wordmask_1DB0C label word
-		db 0FFh
-		db 0FFh
-		db  80h
-		db    0
-		db 0C0h
-		db    0
-		db 0E0h
-		db    0
-		db 0F0h
-		db    0
-		db 0F8h
-		db    0
-		db 0FCh
-		db    0
-		db 0FEh
-		db    0
-		db 0FFh
-		db    0
-		db 0FFh
-		db  80h
-		db 0FFh
-		db 0C0h
-		db 0FFh
-		db 0E0h
-		db 0FFh
-		db 0F0h
-		db 0FFh
-		db 0F8h
-		db 0FFh
-		db 0FCh
-		db 0FFh
-		db 0FEh
-public _ENEDAT_DAT
-_ENEDAT_DAT	db 'ENEDAT.DAT',0
-	evendata
+; GBA launch, hit-circle mask, and enemy filename data moved to th03/main/gba_hitc_enemy[data].asm.
 public _angles_1DBD8, angles_1DBD8
 _angles_1DBD8 label byte
 angles_1DBD8	db 192, 182, 202, 192, 176, 208
