@@ -2590,7 +2590,7 @@ PID_NONE = -1
 ; GBA launch, hit-circle mask, and enemy filename data moved to th03/main/gba_hitc_enemy[data].asm.
 ; Player/boss pattern-table data moved to th03/main/pbpat[data].asm.
 ; Warning flag and text data moved to th03/main/warn[data].asm.
-include th03/main/player/combo[data].asm
+; Combo glyph data moved to th03/main/player/combo[data].asm via th03/main/cmb_data.asm.
 	evendata
 
 EXPLOSION_CELS = 4
