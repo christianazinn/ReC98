@@ -2962,74 +2962,7 @@ ELLEN_185AB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-ellen_bomb_186C3	proc near
-
-@@sprite_offset		= word ptr -6
-@@top		= word ptr -4
-@@left		= word ptr -2
-
-		enter	6, 0
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 6
-		add	ax, offset ellen_bomb_vectors
-		mov	word_1FBBE, ax
-		mov	_sprite16_put_w, (64 / 16)
-		mov	_sprite16_put_h, 32
-		cmp	_pid_current, 0
-		jnz	short loc_186F6
-		mov	_sprite16_clip_left, PLAYFIELD1_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD1_CLIP_RIGHT
-		jmp	short loc_18702
-; ---------------------------------------------------------------------------
-
-loc_186F6:
-		mov	_sprite16_clip_left, PLAYFIELD2_CLIP_LEFT
-		mov	_sprite16_clip_right, PLAYFIELD2_CLIP_RIGHT
-
-loc_18702:
-		mov	al, _pid_PID_so_attack
-		mov	ah, 0
-		add	ax, ((8 * ROW_SIZE) + (224 / BYTE_DOTS))
-		mov	[bp+@@sprite_offset], ax
-		xor	si, si
-		jmp	short loc_1875E
-; ---------------------------------------------------------------------------
-
-loc_18711:
-		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 19999
-		jz	short loc_18758
-		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 9999
-		jz	short loc_18758
-		mov	bx, word_1FBBE
-		push	word ptr [bx]	; x
-		mov	al, _pid_current
-		mov	ah, 0
-		push	ax	; pid
-		call	@playfield_fg_x_to_screen$qii
-		add	ax, -32
-		mov	[bp+@@left], ax
-		mov	bx, word_1FBBE
-		mov	ax, [bx+2]
-		sar	ax, 4
-		add	ax, -16
-		mov	[bp+@@top], ax
-		call	sprite16_put pascal, [bp+@@left], ax, [bp+@@sprite_offset]
-
-loc_18758:
-		inc	si
-		add	word_1FBBE, 8
-
-loc_1875E:
-		cmp	si, 8
-		jl	short loc_18711
-		pop	si
-		leave
-		retn
-ellen_bomb_186C3	endp
+ELLEN_BOMB_186C3 procdesc pascal near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -3252,7 +3185,7 @@ loc_18964:
 		add	ax, ax
 		mov	bx, ax
 		mov	_playfield_fg_shift_x[bx], 0
-		call	ellen_bomb_186C3
+		call	ELLEN_BOMB_186C3
 		mov	al, _pid_current
 		mov	ah, 0
 		add	ax, ax

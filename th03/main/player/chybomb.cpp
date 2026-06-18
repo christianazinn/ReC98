@@ -9,10 +9,12 @@
 #include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/vector.hpp"
 #include "x86real.h"
 
 extern "C" uint8_t byte_20E92[];
+extern "C" uint8_t pid_PID_so_attack;
 
 struct ellen_bomb_vector_t {
 	subpixel_t x;
@@ -201,3 +203,55 @@ update_loop_test:
 		sub_A3A8(pid_current);
 	}
 }
+
+#pragma warn -aus
+extern "C" void pascal near ellen_bomb_186C3(void)
+{
+	volatile screen_x_t left;
+	volatile screen_y_t top;
+	volatile sprite16_offset_t sprite_offset;
+	register int i;
+
+	word_1FBBE = &ellen_bomb_vectors[pid_current][0];
+	sprite16_put_size.w.v = (64 / 16);
+	sprite16_put_size.h = 32;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	_AL = pid_PID_so_attack;
+	_AH = 0;
+	_AX += ((8 * ROW_SIZE) + (224 / BYTE_DOTS));
+	sprite_offset = _AX;
+
+	i = 0;
+	goto loop_test;
+
+loop:
+	if(word_1FBBE->x == ELLEN_BOMB_VECTOR_INACTIVE) {
+		goto next;
+	}
+	if(word_1FBBE->x == ELLEN_BOMB_VECTOR_FREE) {
+		goto next;
+	}
+	left = (playfield_fg_x_to_screen(word_1FBBE->x, pid_current) + -32);
+	_AX = word_1FBBE->y;
+	asm { sar ax, 4; }
+	_AX += -16;
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
+
+next:
+	i++;
+	word_1FBBE++;
+
+loop_test:
+	if(i < ELLEN_BOMB_VECTOR_COUNT) {
+		goto loop;
+	}
+}
+#pragma warn .aus
