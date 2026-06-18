@@ -193,341 +193,7 @@ alias <_main> = <_main_entry>
 
 ; Attributes: bp-based frame
 
-public SUB_9EBF
-SUB_9EBF label near
-sub_9EBF	proc near
-
-var_6		= dword	ptr -6
-@@i		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	word_1F32A, 0
-		mov	word_1F32C, 0
-		mov	_ef_onehit, 0
-		mov	byte_1FBC2, 0
-		mov	byte_1FBC3, 0
-		mov	_enemy_speed, 0
-		call	_sub_E313
-		call	@randring_fill$qv
-		call	@bullets_reset$qv
-		xor	di, di
-		jmp	short loc_9EFF
-; ---------------------------------------------------------------------------
-
-loc_9EF4:
-		mov	bx, di
-		imul	bx, size efe_t
-		mov	_efes[bx+efe_t.EFE_flag], EFF_FREE
-		inc	di
-
-loc_9EFF:
-		cmp	di, EFE_COUNT
-		jl	short loc_9EF4
-		xor	di, di
-		jmp	short loc_9F1D
-; ---------------------------------------------------------------------------
-
-loc_9F08:
-		mov	bx, di
-		shl	bx, 5
-		mov	byte ptr byte_1FE8A[bx], 0
-		mov	bx, di
-		shl	bx, 5
-		mov	byte ptr byte_2008A[bx], 0
-		inc	di
-
-loc_9F1D:
-		cmp	di, 10h
-		jl	short loc_9F08
-		xor	di, di
-		jmp	short loc_9F31
-; ---------------------------------------------------------------------------
-
-loc_9F26:
-		mov	bx, di
-		imul	bx, size shotpair_t
-		mov	_shotpairs[bx].SP_alive, 0
-		inc	di
-
-loc_9F31:
-		cmp	di, SHOTPAIR_COUNT
-		jl	short loc_9F26
-		call	_sub_14A76
-		call	_sub_153BB
-		call	_sub_142D0
-		call	_sub_1B653
-		call	_sub_193BC
-		les	bx, _resident
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jnz	loc_9FFA
-		mov	al, _round_id
-		mov	ah, 0
-		mov	dl, es:[bx+resident_t.rem_credits]
-		mov	dh, 0
-		sub	ax, dx
-		add	ax, 3
-		mov	di, ax
-		cmp	di, 5
-		jle	short loc_9F76
-		mov	di, 5
-
-loc_9F76:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	ah, 0
-		imul	ax, 0Ch
-		mov	dx, di
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		movzx	eax, word ptr story_cpu_safety_frames[bx]
-		mov	[bp+var_6], eax
-		mov	bx, word ptr _resident
-		mov	al, es:[bx+resident_t.rank]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_9FAF
-		cmp	ax, RANK_HARD
-		jz	short loc_9FC4
-		cmp	ax, RANK_LUNATIC
-		jz	short loc_9FCE
-		jmp	short loc_9FE2
-; ---------------------------------------------------------------------------
-
-loc_9FAF:
-		mov	ebx, 3
-		mov	eax, [bp+var_6]
-		cdq
-		idiv	ebx
-
-loc_9FBE:
-		mov	[bp+var_6], eax
-		jmp	short loc_9FE2
-; ---------------------------------------------------------------------------
-
-loc_9FC4:
-		mov	eax, [bp+var_6]
-		imul	eax, 2
-		jmp	short loc_9FBE
-; ---------------------------------------------------------------------------
-
-loc_9FCE:
-		mov	eax, [bp+var_6]
-		imul	eax, 3
-		mov	[bp+var_6], eax
-		add	[bp+var_6], 500
-
-loc_9FE2:
-		cmp	[bp+var_6], 0FFFFh
-		jle	short loc_9FF4
-		mov	[bp+var_6], 0FFFFh
-
-loc_9FF4:
-		mov	ax, word ptr [bp+var_6]
-		mov	_p2.cpu_safety_frames, ax
-
-loc_9FFA:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rank]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, RANK_LUNATIC
-		ja	loc_A0E7
-		add	bx, bx
-		jmp	cs:off_A217[bx]
-
-@@easy:
-		mov	al, _round_id
-		shl	al, 4
-		mov	_round_speed, al
-		mov	_bullet_base_speed, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, _round_id
-		mov	_gba_boss_level, al
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	loc_A0E7
-		inc	_gba_gauge_level[0]
-		inc	_gba_gauge_level[1]
-		jmp	loc_A0E7
-; ---------------------------------------------------------------------------
-
-@@normal:
-		mov	al, _round_id
-		shl	al, 5
-		mov	_round_speed, al
-		mov	_bullet_base_speed, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	dl, _round_id
-		add	dl, dl
-		add	al, dl
-		mov	_gba_boss_level, al
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_A0E7
-		jmp	short loc_A0A2
-; ---------------------------------------------------------------------------
-
-@@hard:
-		mov	al, _round_id
-		shl	al, 5
-		add	al, (2 shl 4)
-		mov	_round_speed, al
-		mov	_bullet_base_speed, 8
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	dl, _round_id
-		add	dl, dl
-		add	al, dl
-		add	al, 2
-		mov	_gba_boss_level, al
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_A0E7
-
-loc_A0A2:
-		mov	al, _gba_gauge_level[0]
-		add	al, 2
-		mov	_gba_gauge_level[0], al
-		mov	al, _gba_gauge_level[1]
-		add	al, 2
-		jmp	short loc_A0E4
-; ---------------------------------------------------------------------------
-
-@@lunatic:
-		mov	_round_speed, (6 shl 4)
-		mov	_bullet_base_speed, ((1 shl 4) + 8)
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.story_stage]
-		mov	dl, _round_id
-		add	dl, dl
-		add	al, dl
-		add	al, 8
-		mov	_gba_boss_level, al
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_A0E7
-		mov	al, _gba_gauge_level[0]
-		add	al, 4
-		mov	_gba_gauge_level[0], al
-		mov	al, _gba_gauge_level[1]
-		add	al, 4
-
-loc_A0E4:
-		mov	_gba_gauge_level[1], al
-
-loc_A0E7:
-		cmp	_round_speed, (ROUND_SPEED_MAX + 1)
-		jb	short loc_A0F3
-		mov	_round_speed, ROUND_SPEED_MAX
-
-loc_A0F3:
-		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
-		jbe	short loc_A0FF
-		mov	_gba_boss_level, GBA_BOSS_LEVEL_MAX
-
-loc_A0FF:
-		cmp	_gba_gauge_level[0], GBA_GAUGE_LEVEL_MAX
-		jbe	short loc_A10B
-		mov	_gba_gauge_level[0], GBA_GAUGE_LEVEL_MAX
-
-loc_A10B:
-		cmp	_gba_gauge_level[1], GBA_GAUGE_LEVEL_MAX
-		jbe	short loc_A117
-		mov	_gba_gauge_level[1], GBA_GAUGE_LEVEL_MAX
-
-loc_A117:
-		mov	_gba_boss_launched_by, PID_NONE
-		mov	_defeat_flag, DF_NONE
-		mov	_hud_start_flag, HSF_INIT
-		mov	_combo_points_for_boss_attack, 5120
-		mov	_round_frame_mod16, 0
-		mov	_round_frame_mod8, 0
-		mov	_round_frame_mod4, 0
-		mov	_round_frame_mod2, 0
-		mov	si, offset _players
-		xor	di, di
-		jmp	loc_A206
-; ---------------------------------------------------------------------------
-
-loc_A148:
-		mov	_enemies_alive[di], 0
-		les	bx, _resident
-		add	bx, di
-		mov	al, es:[bx+resident_t.RESIDENT_playchar_paletted]
-		mov	[si+player_stuff_t.playchar_paletted], al
-		mov	bx, word ptr _resident
-		add	bx, di
-		mov	al, es:[bx+resident_t.RESIDENT_is_cpu]
-		mov	[si+player_stuff_t.is_cpu], al
-		mov	[si+player_stuff_t.is_hit], 0
-		mov	[si+player_stuff_t.PLAYER_unused_1], 0
-		mov	[si+player_stuff_t.invincibility_time], ROUND_START_INVINCIBILITY_FRAMES
-		mov	[si+player_stuff_t.is_hit], 0
-		mov	[si+player_stuff_t.shot_mode], SM_1_PAIR
-		mov	[si+player_stuff_t.halfhearts], HALFHEARTS_MAX
-		mov	[si+player_stuff_t.knockback_time], 0
-		mov	[si+player_stuff_t.move_lock_time], 0
-		mov	[si+player_stuff_t.knockback_active], 0
-		mov	[si+player_stuff_t.center.x], ((PLAYFIELD_W / 2) shl 4)
-		mov	[si+player_stuff_t.center.y], ((PLAYFIELD_H - 32) shl 4)
-		mov	[si+player_stuff_t.gauge_charged], 0
-		mov	[si+player_stuff_t.shot_active], SA_ENABLED
-		mov	[si+player_stuff_t.hit_damage_next], 1
-		mov	[bp+@@i], 0
-		jmp	short loc_A1BD
-; ---------------------------------------------------------------------------
-
-loc_A1A8:
-		call	IRand
-		and	al, 3
-		shl	al, 6
-		add	al, 3Fh	; '?'
-		mov	bx, [bp+@@i]
-		mov	[bx+si+player_stuff_t.cpu_charge_at_avail_ring], al
-		inc	[bp+@@i]
-
-loc_A1BD:
-		cmp	[bp+@@i], CHARGE_AT_AVAIL_RING_SIZE
-		jl	short loc_A1A8
-		mov	[si+player_stuff_t.cpu_charge_at_avail_ring_p], 0
-		mov	[si+player_stuff_t.bombs], 2
-		mov	byte ptr [si+player_stuff_t.lose_anim_time], 0
-		mov	byte ptr [si+player_stuff_t.hyper_active], 0
-		mov	word ptr [si+player_stuff_t.cpu_frame], 0
-		mov	byte ptr [si+player_stuff_t.gauge_attacks_fired], 0
-		mov	byte ptr [si+player_stuff_t.boss_attacks_fired], 0
-		mov	byte ptr [si+player_stuff_t.boss_attacks_reversed], 0
-		mov	byte ptr [si+player_stuff_t.boss_panics_fired], 0
-		mov	_gba_flag_active[di], GBAF_NONE
-		mov	bx, di
-		add	bx, bx
-		mov	_playfield_fg_shift_x[bx], 0
-		mov	_damage_all_on[di], 0
-		mov	_warning_flag[di], WF_NONE
-		inc	di
-		add	si, size player_stuff_t
-
-loc_A206:
-		cmp	di, PLAYER_COUNT
-		jl	loc_A148
-		call	@enemy_formations_randomize$qv
-		pop	di
-		pop	si
-		leave
-		retn
-
-; ---------------------------------------------------------------------------
-		db 0
-off_A217	dw offset @@easy
-		dw offset @@normal
-		dw offset @@hard
-		dw offset @@lunatic
-sub_9EBF	endp
+	SUB_9EBF procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2869,6 +2535,8 @@ main_11_TEXT	ends
 
 PID_NONE = -1
 
+public _story_cpu_safety_frames, story_cpu_safety_frames
+_story_cpu_safety_frames label word
 story_cpu_safety_frames label word
 		db  64h	; d
 		db    0
@@ -3531,13 +3199,14 @@ public _byte_1F324
 _byte_1F324 label byte
 byte_1F324	db ?
 		db ?
-public _word_1F326, _word_1F328, _word_1F32A, word_1F32A
+public _word_1F326, _word_1F328, _word_1F32A, word_1F32A, _word_1F32C, word_1F32C
 _word_1F326 label word
 word_1F326	dw ?
 _word_1F328 label word
 word_1F328	dw ?
 _word_1F32A label word
 word_1F32A	dw ?
+_word_1F32C label word
 word_1F32C	dw ?
 
 public _gba_boss_update, _gba_boss_render
@@ -3798,10 +3467,12 @@ exatt_render_p2	dd ?
 public _pid_current
 _pid_current	db ?
 	evendata
-public _exatt_buffers, _word_2028A
+public _exatt_buffers, _byte_1FE8A, byte_1FE8A, _byte_2008A, byte_2008A, _word_2028A
 _exatt_buffers label byte
 exatt_buffers label byte
+_byte_1FE8A label byte
 byte_1FE8A	db 512 dup(?)
+_byte_2008A label byte
 byte_2008A	db 512 dup(?)
 _word_2028A label word
 word_2028A	dw ?
