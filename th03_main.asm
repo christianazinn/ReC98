@@ -2595,22 +2595,7 @@ PID_NONE = -1
 ; Sprite offset tables and chain-ring cursor moved to th03/main/soch_data.asm.
 
 ; Score sprite and powers-of-10 data moved to th03/main/sfntdat.asm.
-public _word_1DE12, word_1DE12, _word_1DE24, word_1DE24
-_word_1DE12 label word
-word_1DE12 label word
-	dw 108, 96, 80, 64, 48, 32, 16, 8, 4
-_word_1DE24 label word
-word_1DE24 label word
-	dw 2, 8, 16, 16, 16, 16, 16, 8, 2
-public _word_1DE36, word_1DE36, _word_1DE38, word_1DE38
-_word_1DE36 label word
-word_1DE36 dw (48 shl 4)
-_word_1DE38 label word
-word_1DE38 dw (112 shl 4)
-	dw (96 shl 4), (96 shl 4)
-	dw (144 shl 4), (80 shl 4)
-	dw (192 shl 4), (96 shl 4)
-	dw (240 shl 4), (112 shl 4)
+; Character coordinate data moved to th03/main/ccorddat.asm.
 public _aMAX_COMBO
 _aMAX_COMBO label byte
 aMAX_COMBO	db 'ÇlÇ`ÇwÅ@ÇbÇèÇçÇÇÇèÅ@Å@Å@Å~',0
