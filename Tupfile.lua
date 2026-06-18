@@ -693,6 +693,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/yumemi_rikako_small_bss.asm",
 	"th03/main/collmap_bss.asm",
 	"th03/main/bomb_player_pid_bss.asm",
+	"th03/main/round_frame_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
