@@ -2433,10 +2433,6 @@ main_04_TEXT	segment	byte public 'CODE' use16
 		;org 0Ah
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-RANDRING_NEXT_DEF 2, near
-public _randring_far_next16_raw
-_randring_far_next16_raw label far
-RANDRING_NEXT_DEF _FAR, far
 main_04_TEXT	ends
 
 COLLMAP_TEXT	segment byte public 'CODE' use16
