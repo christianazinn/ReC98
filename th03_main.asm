@@ -3098,33 +3098,7 @@ include th03/sprites/pellet.asp
 
 ; External attack BSS moved to th03/main/exatt_bss.asm.
 
-public _chargeshot_update, _chargeshot_render, _chargeshot_hittest
-_chargeshot_update label dword
-_chargeshot_update_p1	dd ?
-_chargeshot_update_p2	dd ?
-_chargeshot_render label dword
-_chargeshot_render_p1	dd ?
-_chargeshot_render_p2	dd ?
-_chargeshot_hittest label dword
-chargeshot_hittest_p1	dd ?
-chargeshot_hittest_p2	dd ?
-
-GBAF_NONE = 0
-GBAF_GAUGE_PELLET_INIT = 1
-GBAF_GAUGE_BULLET_INIT = 3
-GBAF_BOSS = 5
-GBAF_PELLET_TO_BULLET = (GBAF_GAUGE_BULLET_INIT - GBAF_GAUGE_PELLET_INIT)
-
-public _gba_gauge_pattern_pellet, _gba_gauge_pattern_bullet
-public _gba_flag_active, _gba_gauge_level
-_gba_gauge_pattern_pellet label dword
-gba_gauge_pattern_pellet_p1	dd ?
-gba_gauge_pattern_pellet_p2	dd ?
-_gba_gauge_pattern_bullet label dword
-gba_gauge_pattern_bullet_p1	dd ?
-gba_gauge_pattern_bullet_p2	dd ?
-_gba_flag_active db PLAYER_COUNT dup(?)
-_gba_gauge_level	db PLAYER_COUNT dup(?)
+; Charge-shot/GBA callback BSS moved to th03/main/chargeshot_gba_bss.asm.
 public _byte_202B8, byte_202B8, _byte_202B9, byte_202B9, _byte_202BA, byte_202BA
 _byte_202B8 label byte
 byte_202B8	db ?
