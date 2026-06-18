@@ -729,6 +729,7 @@ obj = {
 	"th03/main/support_resident_bss.asm",
 	"th03/main/palette_gba_bss.asm",
 	"th03/main/gba_boss_bss.asm",
+	"th03/main/randring_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],

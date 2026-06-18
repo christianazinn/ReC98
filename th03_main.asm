@@ -3087,7 +3087,7 @@ include th03/sprites/pellet.asp
 ; Support/resident BSS prefix moved to th03/main/support_resident_bss.asm.
 ; Palette/GBA BSS prefix moved to th03/main/palette_gba_bss.asm.
 ; Generic Boss Attack core/tuning BSS prefix moved to th03/main/gba_boss_bss.asm.
-include th02/math/randring[bss].asm
+; Shared random-ring BSS prefix moved to th03/main/randring_bss.asm.
 public _chiyuri_gauge_pattern_x, chiyuri_gauge_pattern_x
 _chiyuri_gauge_pattern_x label word
 chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
