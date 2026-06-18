@@ -637,6 +637,7 @@ obj += {
 	"th03/mainl/ccutdat.asm",
 	"th03/mainl/rsedat.asm",
 	{ "th03/mainl/fldsdat.asm", extra_inputs = th03_sprites["flake"] },
+	"th03/mainl/vstfdat.asm",
 	"th03/mainl/mainl_03_anchor.asm",
 	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
