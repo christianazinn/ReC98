@@ -3159,39 +3159,7 @@ enemy_t ends
 EFE_COUNT = 64
 ENEMY_COUNT = 40
 
-public _efes, _enemies_alive, _boss_panic_fired_in_current_comb
-public _explosion_hittest_against, _explosion_collision_in_last_hitt, _efe_p
-label enemies enemy_t
-_efes	efe_t EFE_COUNT dup(<?>)
-_enemies_alive	db PLAYER_COUNT dup(?)
-_boss_panic_fired_in_current_comb db PLAYER_COUNT dup(?)
-_explosion_hittest_against	db ?
-_explosion_collision_in_last_hitt	db ?
-_efe_p	dw ?
-
-CHAIN_RING_SIZE = 16
-
-chains_t struc
-	CHAIN_hits                    	db PLAYER_COUNT dup (CHAIN_RING_SIZE dup(?))
-	CHAIN_pellet_or_fireball_value	db PLAYER_COUNT dup (CHAIN_RING_SIZE dup(?))
-	CHAIN_charge_fireball         	db PLAYER_COUNT dup (CHAIN_RING_SIZE dup(?))
-	CHAIN_charge_exatt            	db PLAYER_COUNT dup (CHAIN_RING_SIZE dup(?))
-chains_t ends
-
-public _chains, _explosion_collision_chain_slot
-public _enemy_killed_in_previous_hittest
-_chains	chains_t <?>
-		dd ?
-_explosion_collision_chain_slot	db ?
-_enemy_killed_in_previous_hittest	db ?
-include th03/main/player/score[bss].asm
-
-EXTENDS_MAX = 2
-EXTENDS_DISABLE = 255
-
-public _extends_gained
-_extends_gained	db ?
-		db ?
+; Enemy/explosion/score/extend BSS moved to th03/main/enemy_explosion_score_bss.asm.
 public _byte_220DE, byte_220DE, _yumemi_chargeshots, yumemi_chargeshots
 public _byte_220E0, byte_220E0, _byte_220E6, byte_220E6
 _byte_220DE label byte
