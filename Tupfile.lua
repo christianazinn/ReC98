@@ -702,6 +702,7 @@ obj = {
 	"th03/main_03w.cpp",
 	"th03/main/main_03_rikako_update.asm",
 	"th03/main_03x.cpp",
+	"th03/main/rand2.cpp",
 	"th03/main/main_04_randring.asm",
 	"th03/main/main_04_hitbox_prefix.asm",
 	"th03/main/player/ch_shot.cpp",
