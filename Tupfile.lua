@@ -663,6 +663,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main_11.cpp",
 	"th03/main/hitc_prf.asm",
 	"th03/main/hitc_pal.cpp",
+	"th03/main/randfill.cpp",
 	"th03/main/hitc_mid.asm",
 	"th03/main/hitc_mrs.cpp",
 	"th03/main/entry.cpp",
