@@ -1,6 +1,7 @@
 #pragma codeseg main_03_TEXT
 
 #include "codegen.hpp"
+#include "libs/master.lib/master.hpp"
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/bullet/bullet.hpp"
@@ -8,6 +9,7 @@
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 #include "th02/snd/snd.h"
 
@@ -32,14 +34,30 @@ extern "C" subpixel_t word_1F328;
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
 extern "C" subpixel_t word_1F346;
+extern "C" subpixel_t word_1F348;
+extern "C" uint8_t angle_1F350;
 extern "C" uint8_t byte_1F34E;
 extern uint16_t combo_points_for_boss_attack;
 
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
-extern "C" void near sub_F356(void);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 extern "C" uint16_t far randring_far_next16_raw(void);
+
+extern "C" void near sub_F356(void)
+{
+	word_1F33E += word_1F346;
+	word_1F340 += word_1F348;
+	angle_1F350++;
+	word_1F348 = polar(0, 16, SinTable8[angle_1F350]);
+	if(word_1F33E <= TO_SP(48)) {
+		word_1F346 = TO_SP(2);
+		return;
+	}
+	if(word_1F33E >= TO_SP(240)) {
+		word_1F346 = TO_SP(-2);
+	}
+}
 
 extern "C" void near sub_F3A9(void)
 {
