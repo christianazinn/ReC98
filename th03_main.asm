@@ -3093,23 +3093,7 @@ include th03/sprites/pellet.asp
 ; Ellen BSS moved to th03/main/ellen_bss.asm.
 ; Kana BSS moved to th03/main/kana_bss.asm.
 
-hitcircle_t struct
-	HITCIRCLE_age    	db ?
-	HITCIRCLE_pid    	db ?
-	HITCIRCLE_topleft	Point <?>
-hitcircle_t ends
-
-HITCIRCLE_FRAMES = 16
-HITCIRCLE_ENEMY_COUNT = 12
-HITCIRCLE_PLAYER_COUNT = 1
-HITCIRCLE_COUNT = (HITCIRCLE_ENEMY_COUNT + HITCIRCLE_PLAYER_COUNT)
-
-public _hitcircles, _hitcircles_enemy_last_id
-public _hitcircles_enemy_add_do_not_rand
-_hitcircles	hitcircle_t HITCIRCLE_COUNT dup (<?>)
-_hitcircles_enemy_last_id	db ?
-_hitcircles_enemy_add_do_not_rand	db ?
-		db 2 dup(?)
+; Hitcircle BSS moved to th03/main/hitcircle_bss.asm.
 public _word_1FDE4, word_1FDE4, _byte_1FDE8, byte_1FDE8
 _word_1FDE4 label word
 word_1FDE4	dw PLAYER_COUNT dup(?)
