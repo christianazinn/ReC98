@@ -52,7 +52,7 @@ bullet_template_t ends
 	extrn @hitbox_hittest$qv:proc
 
 	sub_F3A9 procdesc near
-	sub_F402 procdesc near
+	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	SUB_F52D procdesc near
@@ -78,7 +78,7 @@ var_4		= word ptr -4
 @@pid_other		= byte ptr -1
 
 		enter	4, 0
-		call	sub_F402
+		call	_sub_F402
 		or	al, al
 		jz	short loc_FF2B
 		mov	al, _gba_boss_level

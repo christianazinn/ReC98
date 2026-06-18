@@ -9,6 +9,7 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/math/randring.hpp"
+#include "th02/snd/snd.h"
 
 extern "C" uint8_t byte_1F324;
 extern "C" uint8_t byte_1F34F;
@@ -34,12 +35,53 @@ extern "C" uint8_t byte_1F34E;
 extern uint16_t combo_points_for_boss_attack;
 
 extern "C" void near sub_F3A9(void);
-extern "C" uint8_t near sub_F402(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void near sub_F356(void);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 extern "C" uint16_t far randring_far_next16_raw(void);
+
+extern "C" uint8_t near sub_F402(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_BOSS) {
+		goto ret_false;
+	}
+	if(gba_boss_launched_by != PID_NONE) {
+		goto already_launched;
+	}
+
+	_asm {
+		mov	si, offset byte_1F35E
+		cmp	byte ptr pid_current, 1
+		jnz	short copy_params
+		add	si, 20h
+copy_params:
+		mov	di, offset word_1F33E
+		mov	ax, ds
+		mov	es, ax
+		mov	cx, 10h
+		rep	movsw
+	}
+	byte_1F352 = (randring_far_next16_and(7) + 1);
+	word_1F3B0 = 0;
+	gba_boss_launched_by = pid_current;
+	gba_flag_active[pid_current] = GBAF_NONE;
+	snd_se_play(18);
+	sub_A3A8(1 - pid_current);
+	word_1F32A[1 - pid_current] = 1;
+	return 1;
+
+already_launched:
+	if(byte_1F34F != 0xFF) {
+		byte_1F34F = 0xFF;
+		word_1F3B0 = 0;
+		sub_A3A8(1 - pid_current);
+		word_1F32A[pid_current] = 0;
+	}
+
+ret_false:
+	return 0;
+}
 
 extern "C" void far sub_F4B4(void)
 {

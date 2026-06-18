@@ -46,7 +46,7 @@ PID_NONE = 0FFh
 	extrn word_1F3B0:word
 
 	public SUB_F1FA, sub_F1FA, _sub_F356, sub_F356
-	public _sub_F3A9, sub_F3A9, _sub_F402, sub_F402
+	public _sub_F3A9, sub_F3A9
 
 _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
@@ -306,86 +306,6 @@ loc_F400:
 		pop	bp
 		retn
 sub_F3A9	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-_sub_F402	label near
-sub_F402	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_BOSS
-		jnz	loc_F4AE
-		cmp	_gba_boss_launched_by, PID_NONE
-		jnz	short loc_F481
-		mov	si, offset byte_1F35E
-		cmp	_pid_current, 1
-		jnz	short loc_F42B
-		add	si, 20h	; ' '
-
-loc_F42B:
-		mov	di, offset word_1F33E
-		mov	ax, ds
-		mov	es, ax
-		assume es:_DATA
-		mov	cx, 10h
-		rep movsw
-		push	7
-		call	@randring_far_next16_and$qui
-		inc	al
-		mov	byte_1F352, al
-		mov	word_1F3B0, 0
-		mov	al, _pid_current
-		mov	_gba_boss_launched_by, al
-		mov	ah, 0
-		mov	bx, ax
-		mov	_gba_flag_active[bx], GBAF_NONE
-		call	snd_se_play pascal, 18
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	SUB_A3A8
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, 1
-		sub	bx, ax
-		add	bx, bx
-		mov	word_1F32A[bx], 1
-		mov	al, 1
-		jmp	short loc_F4B0
-; ---------------------------------------------------------------------------
-
-loc_F481:
-		cmp	byte_1F34F, -1
-		jz	short loc_F4AE
-		mov	byte_1F34F, -1
-		mov	word_1F3B0, 0
-		mov	al, 1
-		sub	al, _pid_current
-		push	ax
-		call	SUB_A3A8
-		mov	al, _pid_current
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word_1F32A[bx], 0
-
-loc_F4AE:
-		mov	al, 0
-
-loc_F4B0:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_F402	endp
 
 main_03_TEXT	ends
 
