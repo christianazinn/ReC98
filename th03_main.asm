@@ -27,6 +27,7 @@ include th03/main/collmap.inc
 include th03/sprites/main_s16.inc
 include th03/sprite16.inc
 include libs/sprite16/sprite16.inc
+include th03/main/support_format[decl].inc
 
 GBA_GAUGE_LEVEL_MIN = 1
 GBA_GAUGE_LEVEL_MAX = 16
@@ -2586,38 +2587,7 @@ main_11_TEXT	ends
 PID_NONE = -1
 
 ; Story CPU safety, play-character speed, and startup filename data moved to th03/main/story_startup[data].asm.
-include libs/master.lib/atan8[data].asm
-include libs/master.lib/bfnt_id[data].asm
-include libs/master.lib/clip[data].asm
-include libs/master.lib/edges[data].asm
-include libs/master.lib/fil[data].asm
-include libs/master.lib/dos_ropen[data].asm
-include libs/master.lib/gaiji_backup[data].asm
-include libs/master.lib/gaiji_entry_bfnt[data].asm
-include libs/master.lib/grp[data].asm
-include libs/master.lib/js[data].asm
-include libs/master.lib/pal[data].asm
-include libs/master.lib/pf[data].asm
-include libs/master.lib/rand[data].asm
-include libs/master.lib/sin8[data].asm
-include libs/master.lib/tx[data].asm
-include libs/master.lib/vs[data].asm
-include libs/master.lib/wordmask[data].asm
-include libs/master.lib/mem[data].asm
-include libs/master.lib/super_entry_bfnt[data].asm
-include libs/master.lib/superpa[data].asm
-public _snd_active
-_snd_active	db 0
-		db 0
-include libs/master.lib/respal_exist[data].asm
-public _trapezoid_hmask
-_trapezoid_hmask label word
-include libs/master.lib/draw_trapezoid[data].asm
-include th03/snd/se_state[data].asm
-include th02/formats/pfopen[data].asm
-include th03/snd/se_priority[data].asm
-include th03/formats/cfg_lres[data].asm
-	evendata
+; Support/format data moved to th03/main/support_format[data].asm.
 public _gba_boss_launched_by
 _gba_boss_launched_by	db PID_NONE
 	evendata
