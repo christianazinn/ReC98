@@ -632,6 +632,7 @@ obj += tup.glob("th03/pc98/*.cpp")
 obj += {
 	"th03/cfg_lres.cpp",
 	"th03/op_01.cpp",
+	"th03/mainl/screens_data.asm",
 	"th03/mainl/mainl_03_anchor.asm",
 	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
