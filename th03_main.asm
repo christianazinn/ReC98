@@ -166,280 +166,7 @@ alias <_main> = <_main_entry>
 
 ; Attributes: bp-based frame
 
-public SUB_9778
-SUB_9778 label near
-sub_9778	proc near
-		push	bp
-		mov	bp, sp
-		jmp	loc_9AC9
-; ---------------------------------------------------------------------------
-
-loc_977E:
-		call	_collmap_reset
-		call	@bullet_template_reset_stuff$qv
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	exatt_update_p1
-		call	gba_boss_update_p1
-		call	p1_205CE
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	exatt_update_p2
-		call	gba_boss_update_p2
-		call	p2_205D2
-		call	@hitcircles_update$qv
-		call	@shots_update$qv
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	_chargeshot_update_p1
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	_chargeshot_update_p2
-		call	_sub_BB12
-		call	@enemy_formations_update$qv
-		call	@bullets_update$qv
-		call	@enemies_update$qv
-		call	@fireballs_update$qv
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	gba_gauge_pattern_pellet_p1
-		call	gba_gauge_pattern_bullet_p1
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	gba_gauge_pattern_pellet_p2
-		call	gba_gauge_pattern_bullet_p2
-		nopcall	SUB_CEB2
-		call	_input_mode
-		mov	_pid_PID_current, 0
-		push	_input_mp_p1
-		push	offset _p1
-		call	PLAYER_UPDATE
-		mov	_pid_PID_current, 1
-		push	_input_mp_p2
-		push	offset _p2
-		call	PLAYER_UPDATE
-		call	_snd_se_update
-		test	_input_sp.hi, high INPUT_CANCEL
-		jz	short loc_9845
-		call	_sub_C7A5
-
-loc_9845:
-		nopcall	SUB_CA3C
-		push	0
-		nopcall	SUB_CB81
-		push	1
-		nopcall	SUB_CB81
-		call	farfp_20F24
-		cmp	byte_23AFA, 0
-		jz	short loc_986C
-		test	byte ptr _round_or_result_frame, 1
-		jz	loc_9A62
-
-loc_986C:
-		call	egc_on
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	bomb_p1
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	bomb_p2
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	gba_boss_render_p1
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	gba_boss_render_p2
-		call	@shots_render$qv
-		call	@enemies_render$qv
-		call	@fireballs_hittest_and_render$qv
-		call	@hitcircles_render$qv
-		mov	_pid_current, 0
-		mov	_pid_PID_so_attack, SO_ATTACK_P1
-		call	exatt_render_p1
-		call	_chargeshot_render_p1
-		mov	_pid_current, 1
-		mov	_pid_PID_so_attack, SO_ATTACK_P2
-		call	exatt_render_p2
-		call	_chargeshot_render_p2
-		mov	_pid_PID_current, 0
-		call	player_render pascal, offset _p1
-		mov	_pid_PID_current, 1
-		call	player_render pascal, offset _p2
-		call	egc_off
-		mov	_pid_PID_current, 0
-		call	player_overlay_render pascal, offset _p1
-		mov	_pid_PID_current, 1
-		call	player_overlay_render pascal, offset _p2
-		nopcall	SUB_CEE0
-		call	@bullets_render$qv
-		cmp	_defeat_flag, DF_BANNER
-		jnz	loc_99B1
-		call	_sub_C2F9
-		les	bx, _resident
-		cmp	es:[bx+resident_t.game_mode], GM_STORY
-		jz	short loc_9973
-		cmp	_p1.rounds_won, 2
-		jnb	short loc_994E
-		cmp	_p2.rounds_won, 2
-		jnb	short loc_994E
-		cmp	_round_or_result_frame, 160
-		jz	short loc_9986
-		cmp	byte_1FBC3, 0
-		jz	short loc_99B1
-		jmp	short loc_99A4
-; ---------------------------------------------------------------------------
-
-loc_994E:
-		call	sub_E3F2
-		mov	ax, _round_or_result_frame
-		cmp	ax, word_1E6E8
-		jz	short loc_9986
-		cmp	byte_1FBC3, 0
-		jz	short loc_99B1
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.pid_winner]
-		mov	ah, 0
-		push	ax
-		call	sub_A289
-		mov	al, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_9973:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.pid_winner], 0
-		jz	short loc_994E
-		cmp	_round_or_result_frame, 160
-		jnz	short loc_998E
-
-loc_9986:
-		mov	fp_1FBC0, offset sub_B4A8
-		jmp	short loc_99B1
-; ---------------------------------------------------------------------------
-
-loc_998E:
-		cmp	byte_1FBC3, 0
-		jz	short loc_99B1
-		les	bx, _resident
-		cmp	es:[bx+resident_t.story_lives], 0
-		jz	short loc_99A8
-		dec	es:[bx+resident_t.story_lives]
-
-loc_99A4:
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_99A8:
-		push	0
-		call	sub_A289
-		mov	al, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_99B1:
-		call	_sub_C830
-		call	_sub_C8C4
-		call	_sub_D52E
-		push	0
-		nopcall	SUB_C9FE
-		push	1
-		nopcall	SUB_C9FE
-		call	_sub_BE5D
-		call	@combos_update_and_render$qv
-		call	fp_1FBC0
-		call	fp_1E6EA
-		cmp	byte_23AFA, 0
-		jnz	short loc_99F7
-
-loc_99DF:
-		mov	al, byte_23AF9
-		mov	ah, 0
-		cmp	ax, vsync_Count1
-		ja	short loc_99DF
-		mov	vsync_Count1, 0
-		mov	byte_23AF9, 1
-		jmp	short loc_9A14
-; ---------------------------------------------------------------------------
-
-loc_99F7:
-		test	byte ptr _round_or_result_frame, 1
-		jnz	short loc_9A14
-		mov	vsync_Count1, 0
-
-loc_9A04:
-		mov	al, byte_23AF9
-		mov	ah, 0
-		cmp	ax, vsync_Count1
-		ja	short loc_9A04
-		mov	byte_23AF9, 2
-
-loc_9A14:
-		cmp	_palette_changed, 0
-		jz	short loc_9A25
-		call	far ptr	palette_show
-		mov	_palette_changed, 0
-
-loc_9A25:
-		graph_accesspage _page_front
-		graph_showpage _page_back
-		mov	_page_front, al
-		xor	_page_back, 1
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		mov	bx, ((183 * ROW_SIZE) + ( 16 / BYTE_DOTS))
-		call	PLAYFIELD_ROWS_FILL_288
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		mov	bx, ((183 * ROW_SIZE) + (336 / BYTE_DOTS))
-		call	PLAYFIELD_ROWS_FILL_288
-		call	grcg_off
-
-loc_9A62:
-		inc	_round_frame
-		inc	_round_or_result_frame
-		mov	al, byte ptr _round_frame
-		and	al, 0Fh
-		mov	_round_frame_mod16, al
-		and	al, 7
-		mov	_round_frame_mod8, al
-		and	al, 3
-		mov	_round_frame_mod4, al
-		and	al, 1
-		mov	_round_frame_mod2, al
-		test	byte ptr _round_or_result_frame, 63
-		jnz	short loc_9AC9
-		cmp	_round_speed, ROUND_SPEED_MAX
-		jnb	short loc_9A94
-		inc	_round_speed
-
-loc_9A94:
-		test	_round_or_result_frame, 1023
-		jnz	short loc_9AB5
-		call	@randring_fill$qv
-		cmp	_p1.hit_damage_next, HIT_DAMAGE_MAX
-		jnb	short loc_9AAA
-		inc	_p1.hit_damage_next
-
-loc_9AAA:
-		cmp	_p2.hit_damage_next, HIT_DAMAGE_MAX
-		jnb	short loc_9AB5
-		inc	_p2.hit_damage_next
-
-loc_9AB5:
-		cmp	_round_or_result_frame, 2000
-		jnb	short loc_9AC9
-		mov	_p1.cpu_frame, 0
-		mov	_p2.cpu_frame, 0
-
-loc_9AC9:
-		cmp	byte_23B00, 0
-		jz	loc_977E
-		mov	al, 0
-		pop	bp
-		retn
-sub_9778	endp
+	SUB_9778 procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4275,7 +4002,10 @@ include th03/sprites/pellet.asp
 
 include th03/hardware/input_modes[bss].asm
 include th03/main/demo[bss].asm
+public _word_1E6E8, _fp_1E6EA
+_word_1E6E8 label word
 word_1E6E8	dw ?
+_fp_1E6EA label word
 fp_1E6EA	dw ?
 include libs/master.lib/clip[bss].asm
 include libs/master.lib/fil[bss].asm
@@ -4967,12 +4697,14 @@ _pid	db ?
 ROUND_SPEED_MAX = ((8 shl 4) - 1)
 
 public _round_frame, _round_or_result_frame, _round_speed
-public _byte_23AF9, byte_23AF9, _byte_23B00, byte_23B00
+public _byte_23AF9, byte_23AF9, _byte_23AFA, byte_23AFA
+public _byte_23B00, byte_23B00
 _round_frame	dd ?
 _round_or_result_frame	dw ?
 _round_speed	db ?
 _byte_23AF9 label byte
 byte_23AF9	db ?
+_byte_23AFA label byte
 byte_23AFA	db ?
 		db ?
 include th03/main/playfield_fg_x[bss].asm
