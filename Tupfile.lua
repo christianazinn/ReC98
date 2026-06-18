@@ -729,6 +729,7 @@ obj = {
 	"th03/main/gba_hitc_enemy_data.asm",
 	"th03/main/pbpat_data.asm",
 	"th03/main/warn_data.asm",
+	"th03/main/cmb_data.asm",
 	"th03/main/round_gate_bss.asm",
 	"th03/main/support_resident_bss.asm",
 	"th03/main/palette_gba_bss.asm",
