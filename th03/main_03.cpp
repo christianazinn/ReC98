@@ -9,6 +9,9 @@
 #include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
+#include "th03/main/playfld.hpp"
+#include "th03/main/score.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 #include "th02/snd/snd.h"
@@ -40,9 +43,68 @@ extern "C" uint8_t byte_1F34E;
 extern uint16_t combo_points_for_boss_attack;
 
 extern "C" void pascal far sub_A3A8(uint8_t pid);
-extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 extern "C" uint16_t far randring_far_next16_raw(void);
+
+extern "C" uint8_t pascal near sub_F1FA(
+	subpixel_t x, subpixel_t y, uint16_t length
+)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t angle;
+	register int i;
+	register screen_x_t center_left = x;
+
+	if(length == 1) {
+		snd_se_play(16);
+	}
+	center_left = playfield_fg_x_to_screen(center_left, (1 - pid_current));
+	y = ((y >> 4) + 0x10);
+	length *= 8;
+	angle = static_cast<uint8_t>(length);
+	if(pid_current == 1) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+	sprite16_put_size.w.v = (48 / 16);
+	sprite16_put_size.h = 24;
+
+	i = 0;
+	goto outer_check;
+outer_loop:
+	left = (polar(center_left, length, CosTable8[angle]) - 24);
+	top = (polar(y, length, SinTable8[angle]) - 24);
+	sprite16_put(left, top, ((80 * ROW_SIZE) + (384 / BYTE_DOTS)));
+	i++;
+	angle += 0x10;
+outer_check:
+	if(i < 0x10) {
+		goto outer_loop;
+	}
+
+	angle = (0 - static_cast<uint8_t>(length));
+	i = 0;
+	goto inner_check;
+inner_loop:
+	left = (polar(center_left, (length * 2), CosTable8[angle]) - 24);
+	top = (polar(y, (length * 2), SinTable8[angle]) - 24);
+	sprite16_put(left, top, ((80 * ROW_SIZE) + (384 / BYTE_DOTS)));
+	i++;
+	angle += 0x20;
+inner_check:
+	if(i < 8) {
+		goto inner_loop;
+	}
+	if(static_cast<int16_t>(length) >= 200) {
+		score_add(2560, (1 - pid_current));
+		return 0;
+	}
+	return 0xFF;
+}
 
 extern "C" void near sub_F356(void)
 {
