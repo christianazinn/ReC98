@@ -24,6 +24,7 @@ include th01/hardware/grppsafx.inc
 include th03/sprites/regi.inc
 include th03/formats/scoredat.inc
 include th03/mainl/support_format[decl].inc
+include th03/mainl/continue_cutscene[decl].inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
@@ -392,15 +393,7 @@ SHARED	ends
 
 ; Screen/win/stage and startup filename data moved to th03/mainl/screens[data].asm.
 ; Support/format data moved to th03/mainl/support_format[data].asm.
-public _continue_count_str, _continue_gameover_bg_pi_fn
-_continue_count_str label byte
-a0		db  '0',0
-_continue_gameover_bg_pi_fn label byte
-aOver_pi	db 'over.pi',0
-include th03/formats/pi_put_masked[data].asm
-public _CUTSCENE_KANJI
-_CUTSCENE_KANJI	db  '  ', 0
-	even
+; Continue/cutscene data moved to th03/mainl/continue_cutscene[data].asm.
 public _REGIST_PLAYCHARS
 _REGIST_PLAYCHARS label dword
 		dd aNoEntry		; "  No	Entry! "
