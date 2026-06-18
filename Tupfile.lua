@@ -633,7 +633,7 @@ obj += {
 	"th03/cfg_lres.cpp",
 	"th03/op_01.cpp",
 	"th03/mainl/mainl_03_anchor.asm",
-	"th03/mainl/cdg_unput.asm",
+	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
 	"th03/mainl/cdg_put_dissolve.asm",
 	"th03/mainl/stf_cdg.cpp",
