@@ -2593,8 +2593,7 @@ PID_NONE = -1
 ; Combo glyph data moved to th03/main/player/combo[data].asm via th03/main/cmb_data.asm.
 ; Sprite offset tables and chain-ring cursor moved to th03/main/soch_data.asm.
 
-include th03/sprites/score.asp
-include th03/main/5_powers_of_10[data].asm
+; Score sprite and powers-of-10 data moved to th03/main/sfntdat.asm.
 public _word_1DE12, word_1DE12, _word_1DE24, word_1DE24
 _word_1DE12 label word
 word_1DE12 label word

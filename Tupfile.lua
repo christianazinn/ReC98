@@ -678,6 +678,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/warn_data.asm",
 	"th03/main/cmb_data.asm",
 	"th03/main/soch_data.asm",
+	{ "th03/main/sfntdat.asm", extra_inputs = th03_sprites["score"] },
 	"th03/main/round_gate_bss.asm",
 	"th03/main/support_resident_bss.asm",
 	"th03/main/palette_gba_bss.asm",
@@ -703,7 +704,6 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/player_shot_result_tail_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
-		th03_sprites["score"],
 	} },
 	"th03/hitcb.cpp",
 	"th03/main/hitc_sfx.asm",
