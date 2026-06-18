@@ -734,6 +734,7 @@ obj = {
 	{ "th03/main/sfntdat.asm", extra_inputs = th03_sprites["score"] },
 	"th03/main/ccorddat.asm",
 	"th03/main/rtextdat.asm",
+	{ "th03/main/peldat.asm", extra_inputs = th03_sprites["pellet"] },
 	"th03/main/round_gate_bss.asm",
 	"th03/main/support_resident_bss.asm",
 	"th03/main/palette_gba_bss.asm",
@@ -757,9 +758,7 @@ obj = {
 	"th03/main/bomb_player_pid_bss.asm",
 	"th03/main/round_frame_bss.asm",
 	"th03/main/player_shot_result_tail_bss.asm",
-	{ "th03_main.asm", extra_inputs = {
-		th03_sprites["pellet"],
-	} },
+	"th03_main.asm",
 	"th03/hitcb.cpp",
 	"th03/main/hitc_sfx.asm",
 	"th03/main_05.cpp",
