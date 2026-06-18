@@ -7,9 +7,6 @@ include th03/th03.inc
 include th03/main/playfld.inc
 include th03/main/collmap.inc
 
-RANDRING_SIZE = 256
-
-	extrn IRAND:proc
 	extrn _randring:byte
 	extrn _randring_p:byte
 	extrn _collmap:byte:(PLAYER_COUNT * COLLMAP_SIZE)
@@ -37,20 +34,6 @@ P_SHOT_TEXT ends
 HITCIRC_TEXT segment word public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-public @randring_fill$qv
-@randring_fill$qv proc near
-	push	si
-	mov	si, RANDRING_SIZE - 1
-
-@@loop:
-	call	IRAND
-	mov	_randring[si], al
-	dec	si
-	jge	short @@loop
-	pop	si
-	ret
-@randring_fill$qv endp
 
 RANDRING_NEXT_DEF_NOMOD 1, near
 

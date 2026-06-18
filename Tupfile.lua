@@ -715,6 +715,7 @@ obj = {
 	"th03/main_11.cpp",
 	"th03/main/hitc_prf.asm",
 	"th03/main/hitc_pal.cpp",
+	"th03/main/randfill.cpp",
 	"th03/main/hitc_mid.asm",
 	"th03/main/hitc_mrs.cpp",
 	{ "th03/main/entry.cpp", o = "main_entry.obj" },
