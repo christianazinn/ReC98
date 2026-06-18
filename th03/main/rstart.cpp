@@ -35,7 +35,7 @@ extern "C" void pascal near sub_B4A3(void);
 extern "C" void pascal far sub_D5A2(void);
 extern "C" void hflip_lut_generate(void);
 extern "C" void near sub_E266(void);
-extern "C" void pascal far sub_A38E(void);
+extern "C" void pascal far SUB_A38E(void);
 
 extern "C" void pascal near set_callbacks_reimu(int pid);
 extern "C" void pascal near set_callbacks_mima(int pid);
@@ -231,7 +231,7 @@ extern "C" void pascal near round_startup(void)
 	super_entry_bfnt(aRound_bf2);
 	super_entry_bfnt(aZikicw_bf2);
 	sub_E266();
-	nopcall_noarg(sub_A38E);
+	nopcall_noarg(SUB_A38E);
 	graph_200line(0);
 	sprite16_sprites_commit();
 	page_back = 0;

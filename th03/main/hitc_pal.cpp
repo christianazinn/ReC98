@@ -6,6 +6,45 @@
 
 extern "C" Palette8 palette_1F2F4;
 
+#pragma option -k-
+extern "C" void pascal far SUB_A378(void)
+{
+	__emit__(0x56);       // push si
+	__emit__(0x57);       // push di
+	__emit__(0x8C, 0xD8); // mov ax, ds
+	__emit__(0x8E, 0xC0); // mov es, ax
+	__emit__(0xBF);       // mov di, offset palette_1F2F4
+	asm { dw offset palette_1F2F4; }
+	__emit__(0xBE);       // mov si, offset Palettes
+	asm { dw offset Palettes; }
+	__emit__(0xB9, 0x0C, 0x00); // mov cx, (sizeof(Palette8) / 4)
+	__emit__(0xF3, 0x66, 0xA5); // rep movsd
+	__emit__(0x5F);       // pop di
+	__emit__(0x5E);       // pop si
+}
+#pragma option -k.
+
+#pragma codestring "\x90"
+
+#pragma option -k-
+extern "C" void pascal far SUB_A38E(void)
+{
+	__emit__(0x56);       // push si
+	__emit__(0x57);       // push di
+	__emit__(0x8C, 0xD8); // mov ax, ds
+	__emit__(0x8E, 0xC0); // mov es, ax
+	__emit__(0xBF);       // mov di, offset Palettes
+	asm { dw offset Palettes; }
+	__emit__(0xBE);       // mov si, offset palette_1F2F4
+	asm { dw offset palette_1F2F4; }
+	__emit__(0xB9, 0x0C, 0x00); // mov cx, (sizeof(Palette8) / 4)
+	__emit__(0xF3, 0x66, 0xA5); // rep movsd
+	_asm { call far ptr palette_show; }
+	__emit__(0x5F);       // pop di
+	__emit__(0x5E);       // pop si
+}
+#pragma option -k.
+
 extern "C" void pascal far SUB_A3A8(uint8_t pid)
 {
 	_asm {

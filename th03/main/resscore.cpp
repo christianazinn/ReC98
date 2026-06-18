@@ -42,7 +42,7 @@ extern "C" void far sub_193BC(void);
 extern "C" void far sub_1B653(void);
 void near randring_fill(void);
 extern "C" void pascal near hyper_standby(void);
-extern "C" void pascal far sub_A38E(void);
+extern "C" void pascal far SUB_A38E(void);
 
 extern "C" void pascal near sub_9EBF(void)
 {
@@ -282,7 +282,7 @@ extern "C" void pascal near sub_A21F(void)
 	players[1].hyper = hyper_standby;
 	snd_se_reset();
 	_asm { nop; push cs; call near ptr hud_wipe; }
-	_asm { nop; push cs; call near ptr sub_A38E; }
+	_asm { nop; push cs; call near ptr SUB_A38E; }
 	_asm { nop; push cs; call near ptr hud_static_put; }
 }
 
