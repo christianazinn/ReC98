@@ -3089,27 +3089,7 @@ include th03/sprites/pellet.asp
 ; Generic Boss Attack core/tuning BSS prefix moved to th03/main/gba_boss_bss.asm.
 ; Shared random-ring BSS prefix moved to th03/main/randring_bss.asm.
 ; Chiyuri gauge/charge-shot BSS moved to th03/main/chiyuri_bss.asm.
-public _enemy_formation_type, _enemy_formation_i, _enedat_2, _enemy_speed
-public _enedat
-_enemy_formation_type	db ?
-_enemy_formation_i	db ?
-_enedat_2	dw ?
-_enemy_speed	db ?
-	evendata
-_enedat	dw ?
-
-FORMATIONS_MAX = 24
-
-public _formation_enemy_count, _formation_scripts, _formation_type_ring
-public _formation_pos_type_ring, _formation_p, _formation_count
-_formation_enemy_count  	db (FORMATIONS_MAX * 2) dup(?)
-_formation_scripts      	dw ?
-_formation_type_ring    	dw ?
-_formation_pos_type_ring	dw ?
-_formation_p            	db PLAYER_COUNT dup(?)
-_formation_count        	db ?
-
-		db ?
+; Enemy formation/ENEDAT BSS moved to th03/main/enemy_formation_bss.asm.
 public _ellen_gauge_pattern_x, ellen_gauge_pattern_x, _ellen_gauge_pattern_y, ellen_gauge_pattern_y, _ellen_gauge_pattern_frames, ellen_gauge_pattern_frames
 _ellen_gauge_pattern_x label word
 ellen_gauge_pattern_x dw PLAYER_COUNT dup(?)
