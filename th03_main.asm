@@ -3090,24 +3090,7 @@ include th03/sprites/pellet.asp
 ; Chiyuri gauge/charge-shot BSS moved to th03/main/chiyuri_bss.asm.
 ; Enemy formation/ENEDAT BSS moved to th03/main/enemy_formation_bss.asm.
 ; Ellen BSS moved to th03/main/ellen_bss.asm.
-public _kana_gauge_pattern_x, kana_gauge_pattern_x
-_kana_gauge_pattern_x label word
-kana_gauge_pattern_x dw PLAYER_COUNT dup(?)
-public _kana_gauge_pattern_frames, kana_gauge_pattern_frames
-_kana_gauge_pattern_frames label byte
-kana_gauge_pattern_frames db PLAYER_COUNT dup(?)
-public _kana_chargeshot_nodes, kana_chargeshot_nodes
-_kana_chargeshot_nodes label byte
-kana_chargeshot_nodes label byte
-		db (PLAYER_COUNT * 4 * 54) dup(?)
-public _word_1FD8C
-_word_1FD8C label word
-word_1FD8C	dw ?
-public _kana_chargeshot_state, kana_chargeshot_state, _kana_chargeshot_frames, kana_chargeshot_frames
-_kana_chargeshot_state label byte
-kana_chargeshot_state db PLAYER_COUNT dup(?)
-_kana_chargeshot_frames label byte
-kana_chargeshot_frames db PLAYER_COUNT dup(?)
+; Kana BSS moved to th03/main/kana_bss.asm.
 
 hitcircle_t struct
 	HITCIRCLE_age    	db ?
