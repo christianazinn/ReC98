@@ -3161,22 +3161,7 @@ ENEMY_COUNT = 40
 
 ; Enemy/explosion/score/extend BSS moved to th03/main/enemy_explosion_score_bss.asm.
 ; Yumemi/Rikako small-state BSS moved to th03/main/yumemi_rikako_small_bss.asm.
-public _collmap_topleft, _collmap_center, _collmap_stripe_tile_w
-public _collmap_tile_h, _collmap_bottomright, _collmap_pid, _collmap
-_collmap_topleft label Point
-_collmap_center label Point
-	Point <?>
-_collmap_stripe_tile_w	dw ?
-_collmap_tile_h	dw ?
-_collmap_bottomright	Point <?>
-_collmap_pid	db ?
-		db ?
-public _byte_220FC
-_byte_220FC label byte
-byte_220FC	db PLAYER_COUNT dup(?)
-		db 2 dup(?)
-_collmap	db (PLAYER_COUNT * COLLMAP_SIZE) dup(?)
-
+; Collision-map BSS moved to th03/main/collmap_bss.asm.
 BOMB_FRAMES = 180
 
 BF_INACTIVE = 0
