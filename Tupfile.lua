@@ -671,6 +671,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/rndloop.cpp",
 	"th03/main/roundcb.cpp",
 	"th03/main/rstart.cpp",
+	"th03/main/story_startup_data.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
