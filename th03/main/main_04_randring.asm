@@ -5,8 +5,8 @@
 include ReC98.inc
 include th03/th03.inc
 
-	extrn _randring:byte
-	extrn _randring_p:byte
+	extrn @randring_far_next16$qv:far
+alias <_randring_far_next16_raw> = <@randring_far_next16$qv>
 
 main_04_TEXT	segment	byte public 'CODE' use16
 main_04_TEXT	ends
@@ -18,9 +18,6 @@ main_04_TEXT	segment	byte public 'CODE' use16
 		;org 0Ah
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-public _randring_far_next16_raw
-_randring_far_next16_raw label far
-RANDRING_NEXT_DEF _FAR, far
 main_04_TEXT	ends
 
 	end
