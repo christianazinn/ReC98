@@ -3120,8 +3120,10 @@ word_1DE12 label word
 _word_1DE24 label word
 word_1DE24 label word
 	dw 2, 8, 16, 16, 16, 16, 16, 8, 2
-public word_1DE36, word_1DE38
+public _word_1DE36, word_1DE36, _word_1DE38, word_1DE38
+_word_1DE36 label word
 word_1DE36 dw (48 shl 4)
+_word_1DE38 label word
 word_1DE38 dw (112 shl 4)
 	dw (96 shl 4), (96 shl 4)
 	dw (144 shl 4), (80 shl 4)

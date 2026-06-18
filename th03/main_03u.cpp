@@ -6,22 +6,31 @@
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 #include "th03/main/bullet/bullet.hpp"
+#include "th03/main/collmap.hpp"
+#include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/polar.hpp"
+#include "th03/math/randring.hpp"
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F34A;
 extern "C" subpixel_t word_1F356;
 extern "C" uint16_t word_1F3B0;
+extern "C" subpixel_t word_1DE36[];
+extern "C" subpixel_t word_1DE38[];
 extern "C" sprite16_offset_t sprite_1F34C;
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t byte_1F34E;
 extern "C" uint8_t byte_1F34F;
+extern "C" uint8_t byte_1F351;
+extern "C" uint8_t byte_1F352;
 extern "C" uint8_t byte_1F353;
+extern "C" uint8_t byte_1F354;
 extern "C" uint8_t byte_1F355;
 extern "C" uint8_t byte_1F35E[];
 extern "C" uint8_t byte_1F39F;
@@ -35,7 +44,14 @@ extern "C" uint8_t byte_23DE4;
 extern "C" uint8_t byte_23DE5;
 
 extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far _sub_A3D2(uint16_t value, uint8_t pid);
+extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void near sub_F3A9(void);
+extern "C" uint8_t near sub_F402(void);
+extern "C" void far sub_F4B4(void);
+extern "C" void pascal near sub_F512(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near kotohime_11FE4(int count)
@@ -375,3 +391,112 @@ extern "C" void pascal near chiyuri_12498(void)
 		byte_1F353 = 0x20;
 	}
 }
+
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal far gba_boss_update_chiyuri(void)
+{
+	pid_t pid_other;
+	uint8_t random_point;
+	uint16_t state;
+
+	if(sub_F402()) {
+		byte_1F39F = (gba_boss_level + 0x30);
+		byte_1F3A0 = (6 - (gba_boss_level / 4));
+		byte_1F3A1 = (gba_boss_level + 0x34);
+		byte_1F3A2 = (0x20 - gba_boss_level);
+		byte_1F3A3 = ((gba_boss_level * 2) + 0x38);
+		byte_1F3A4 = (gba_boss_level + 0x10);
+		byte_1F3A5 = ((gba_boss_level / 2) + 0x0C);
+	}
+
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	sub_F512();
+	bullet_template.is_animated = false;
+	bullet_template.pid = pid_other;
+	word_1F3B0++;
+	state = byte_1F34F;
+
+	// TCC places the generated switch table before any post-function
+	// codestring, so keep this dispatch table as a raw byte island.
+	__emit__(0xB9, 0x14, 0x00, 0xBB, 0x1E, 0x37, 0x2E, 0x8B, 0x07, 0x3B, 0x46, 0xFC);
+	__emit__(0x74, 0x08, 0x83, 0xC3, 0x02, 0xE2, 0xF3, 0xE9, 0x1C, 0x01, 0x2E, 0xFF);
+	__emit__(0x67, 0x28, 0x83, 0x3E, 0x50, 0x1E, 0x60, 0x75, 0x23, 0xC7, 0x06, 0x50);
+	__emit__(0x1E, 0x00, 0x00, 0xC6, 0x06, 0xEF, 0x1D, 0x01, 0x68, 0xFF, 0x00, 0xFF);
+	__emit__(0x76, 0xFF);
+	_asm { call	far ptr _sub_A3D2 }
+	__emit__(0xC6, 0x06, 0xF5, 0x1D, 0x10, 0xC6, 0x06, 0xF3, 0x1D, 0x10, 0xE9, 0xEE);
+	__emit__(0x00, 0x83, 0x3E, 0x50, 0x1E, 0x50, 0x0F, 0x85, 0xDE, 0x00, 0xA1, 0xDE);
+	__emit__(0x1D, 0x05, 0x80, 0xFC, 0x50, 0xFF, 0x36, 0xE0, 0x1D, 0x8A, 0x46, 0xFF);
+	__emit__(0xB4, 0x00, 0x50);
+	_asm { call	far ptr SUB_CE0C }
+	__emit__(0xA1, 0xDE, 0x1D, 0x05, 0x80, 0x03, 0x50, 0xFF, 0x36, 0xE0, 0x1D, 0x8A);
+	__emit__(0x46, 0xFF, 0xB4, 0x00, 0x50);
+	_asm { call	far ptr SUB_CE0C }
+	__emit__(0xFF, 0x36, 0xDE, 0x1D, 0xA1, 0xE0, 0x1D, 0x05, 0x80, 0xFC, 0x50, 0x8A);
+	__emit__(0x46, 0xFF, 0xB4, 0x00, 0x50);
+	_asm { call	far ptr SUB_CE0C }
+	__emit__(0xFF, 0x36, 0xDE, 0x1D, 0xA1, 0xE0, 0x1D, 0x05, 0x80, 0x03, 0x50, 0x8A);
+	__emit__(0x46, 0xFF, 0xB4, 0x00, 0x50);
+	_asm { call	far ptr SUB_CE0C }
+	__emit__(0xE9, 0x8A, 0x00, 0x80, 0x3E, 0xF3, 0x1D, 0x10, 0x75, 0x2E, 0x6A, 0x05);
+	_asm { call	far ptr randring_far_next16_mod }
+	__emit__(0x02, 0xC0, 0x88, 0x46, 0xFE, 0xB4, 0x00, 0x03, 0xC0, 0x8B, 0xD8, 0x8B);
+	__emit__(0x87, 0xD6, 0x08, 0xA3, 0xDE, 0x1D, 0x8A, 0x46, 0xFE, 0xB4);
+	__emit__(0x00, 0x03, 0xC0, 0x8B, 0xD8, 0x8B, 0x87, 0xD8, 0x08, 0xA3, 0xE0, 0x1D);
+	__emit__(0xC6, 0x06, 0xF5, 0x1D, 0x10, 0x83, 0x3E, 0x50, 0x1E, 0x30, 0x72, 0x4E);
+	__emit__(0xC7, 0x06, 0x50, 0x1E, 0x00, 0x00, 0x6A, 0x0F);
+	_asm { call	far ptr randring_far_next16_and }
+	__emit__(0x04, 0x02, 0xA2, 0xEF, 0x1D, 0xFE, 0x06, 0xF1, 0x1D, 0xA0, 0xF1, 0x1D);
+	__emit__(0x3A, 0x06, 0xF2, 0x1D, 0x76, 0x2F, 0xC6, 0x06, 0xEF, 0x1D, 0x80, 0xEB);
+	__emit__(0x28, 0xE8, 0xBA, 0xF9, 0xEB, 0x23, 0xE8, 0x15, 0xFB, 0xEB, 0x1E);
+	__emit__(0xE8, 0xE0, 0xFB, 0xEB, 0x19, 0xE8, 0x4E, 0xFC, 0xEB, 0x14, 0xE8, 0x5A);
+	__emit__(0xCB, 0xFF, 0x76, 0xFF);
+	_asm { call	far ptr sub_A3A8 }
+	__emit__(0xEB, 0x07, 0xC6, 0x06, 0xF0, 0x68, 0x01, 0xC9, 0xCB);
+
+	bullet_template.is_animated = true;
+	byte_1F354 = (((round_or_result_frame & 3) == 0) + byte_1F354);
+	byte_1F354 &= 3;
+	if(byte_1F355 != 0) {
+		byte_1F355--;
+		if(byte_1F355 != 0) {
+			_sub_A3D2((static_cast<uint16_t>(byte_1F355) << 4), pid_other);
+		}
+	}
+	if(byte_1F353 != 0) {
+		byte_1F353--;
+	}
+
+	collmap_center.x.v = word_1F33E;
+	collmap_center.y.v = word_1F340;
+	collmap_stripe_tile_w.v = (64 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (48 / COLLMAP_TILE_H);
+	collmap_pid = pid_other;
+	collmap_set_rect_striped();
+
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(32);
+	hitbox.radius.y.v = TO_SP(32);
+	hitbox.pid = pid_other;
+	hitbox.origin.center.x.v = word_1F33E;
+	hitbox.origin.center.y.v = word_1F340;
+	_AL = hitbox_hittest();
+	byte_1F34E = _AL;
+	_AH = 0;
+	word_1F34A -= _AX;
+	hitbox_hittest_skip_explosions = false;
+
+	_asm {
+		nop
+		push	cs
+		call	near ptr sub_F4B4
+	}
+}
+#pragma codestring "\x00\x00\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x06\x00\x07\x00\x08\x00\x09\x00\x0A\x00\x0B\x00\x0C\x00\x0D\x00\x0E\x00\x0F\x00\x10\x00\x11\x00\x80\x00\xFF\x00\x58\x35\xE6\x35\x48\x36\x48\x36\x48\x36\x48\x36\x4D\x36\x4D\x36\x4D\x36\x4D\x36\x52\x36\x52\x36\x52\x36\x52\x36\x57\x36\x57\x36\x57\x36\x57\x36\x5C\x36\x69\x36"
+#pragma option -G
+#pragma warn .aus
