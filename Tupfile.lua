@@ -689,6 +689,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/hud_player_gba_bss.asm",
 	"th03/main/hitbox_defeat_rikako_bss.asm",
 	"th03/main/gba_combo_playerm_bss.asm",
+	"th03/main/enemy_explosion_score_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
