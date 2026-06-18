@@ -8,6 +8,24 @@
 extern "C" char a00ch_bf2[];
 extern "C" void pascal far SUB_A378(void);
 
+#pragma option -k-
+extern "C" void near collmap_reset(void)
+{
+	__emit__(0x57);       // push di
+	__emit__(0x8C, 0xD8); // mov ax, ds
+	__emit__(0x8E, 0xC0); // mov es, ax
+	__emit__(0xBF);       // mov di, offset collmap
+	asm { dw offset collmap; }
+	__emit__(0xB9);       // mov cx, ((COLLMAP_SIZE * PLAYER_COUNT) / 4)
+	asm { dw ((COLLMAP_SIZE * PLAYER_COUNT) / 4); }
+	__emit__(0x66, 0x33, 0xC0); // xor eax, eax
+	__emit__(0xF3, 0x66, 0xAB); // rep stosd
+	__emit__(0x5F);       // pop di
+}
+#pragma option -k.
+
+#pragma codestring "\x90"
+
 static void pascal near sub_A44C(int slot, char *fn)
 {
 	register int si = slot;

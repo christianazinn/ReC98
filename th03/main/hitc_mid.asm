@@ -53,7 +53,6 @@ public @randring_fill$qv
 @randring_fill$qv endp
 
 RANDRING_NEXT_DEF_NOMOD 1, near
-include th03/main/collmap_reset.asm
 
 HITCIRC_TEXT ends
 
