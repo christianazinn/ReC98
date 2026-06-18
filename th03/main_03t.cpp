@@ -7,6 +7,8 @@
 #include "th01/math/subpixel.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
+#include "th03/main/collmap.hpp"
+#include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
@@ -17,6 +19,7 @@
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F34A;
 extern "C" subpixel_t word_1F356;
 extern "C" uint16_t word_1F3B0;
 extern "C" sprite16_offset_t sprite_1F34C;
@@ -39,6 +42,11 @@ extern "C" int16_t word_1DE24[];
 
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void near sub_F356(void);
+extern "C" void near sub_F3A9(void);
+extern "C" uint8_t near sub_F402(void);
+extern "C" void far sub_F4B4(void);
+extern "C" void pascal near sub_F512(void);
+extern "C" void pascal near sub_F52D(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near ellen_11814(int frame)
@@ -381,3 +389,100 @@ extern "C" void pascal near kotohime_11D1A(void)
 	sub_F356();
 	word_1F356 += 0x20;
 }
+
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal far gba_boss_update_kotohime(void)
+{
+	pid_t pid_other;
+
+	if(sub_F402()) {
+		byte_1F39F = ((gba_boss_level / 2) + 0x10);
+		byte_1F3A0 = ((gba_boss_level / 3) + 6);
+		byte_1F3A1 = ((gba_boss_level / 2) + 0x10);
+		byte_1F3A2 = ((gba_boss_level / 2) + 0x20);
+		byte_1F3A3 = ((gba_boss_level / 2) + 0x18);
+		byte_1F3A4 = (0x20 - (gba_boss_level / 2));
+		byte_1F3A5 = ((gba_boss_level / 2) + 8);
+	}
+
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	sub_F512();
+	bullet_template.pid = pid_other;
+	word_1F3B0++;
+
+	switch(byte_1F34F) {
+	case 0:
+		if(word_1F3B0 != 0x64) {
+			return;
+		}
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+		break;
+	case 1:
+		sub_F52D();
+		break;
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+		kotohime_11B51();
+		break;
+	case 7:
+	case 8:
+	case 9:
+		kotohime_11BC6();
+		break;
+	case 12:
+	case 13:
+	case 14:
+		kotohime_11C5F();
+		break;
+	case 10:
+	case 11:
+	case 15:
+	case 16:
+	case 17:
+		kotohime_11D1A();
+		break;
+	case 0x80:
+		sub_F3A9();
+		break;
+	case 0xFF:
+		return;
+	default:
+		break;
+	}
+
+	collmap_center.x.v = word_1F33E;
+	collmap_center.y.v = word_1F340;
+	collmap_stripe_tile_w.v = (64 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (48 / COLLMAP_TILE_H);
+	collmap_pid = pid_other;
+	collmap_set_rect_striped();
+
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(32);
+	hitbox.radius.y.v = TO_SP(32);
+	hitbox.pid = pid_other;
+	hitbox.origin.center.x.v = word_1F33E;
+	hitbox.origin.center.y.v = word_1F340;
+	_AL = hitbox_hittest();
+	byte_1F34E = _AL;
+	_AH = 0;
+	word_1F34A -= _AX;
+	hitbox_hittest_skip_explosions = false;
+
+	_asm {
+		nop
+		push	cs
+		call	near ptr sub_F4B4
+	}
+}
+#pragma option -G
+#pragma warn .aus
