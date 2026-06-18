@@ -8,6 +8,7 @@
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
+#include "th03/main/enemy/efe.hpp"
 #include "th03/main/enemy/expl.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/hitcirc.hpp"
@@ -163,9 +164,133 @@ extern "C" void far sub_B39E(void);
 }
 
 #pragma option -k.
+#pragma option -a2
+
+struct target_enemy_t {
+	efe_flag_t flag;
+	uint8_t frame;
+	PlayfieldPoint center;
+	uint8_t explosion_max_enemy_hits_half;
+	uint8_t hp;
+	pid_t pid;
+	pixel_length_8_t size_pixels;
+	uint16_t script_ip;
+	uint16_t script_op_frame;
+	uint8_t near *script_base;
+	SPPoint velocity;
+	int8_t unused_1[4];
+	uint16_t angle;
+	int8_t angle_speed;
+	int8_t unused_2;
+	uint8_t chain_slot;
+	uint8_t formation_type;
+	uint8_t formation_i;
+	subpixel_length_8_t speed;
+	uint8_t loop_i;
+	uint8_t pos_type;
+	int8_t padding[14];
+};
+
+inline void target_enemy_t_verify(void) {
+	efe_subclass_verify(reinterpret_cast<target_enemy_t *>(nullptr));
+}
+
+static const int TARGET_ENEMY_COUNT = 40;
+static const efe_flag_t EF_RUNNING_SPAWNED_TARGET = 1;
+
+#define target_enemies reinterpret_cast<target_enemy_t *>(&efes[0])
+
 #pragma option -a1
 #pragma option -G-
 #pragma warn -aus
+
+extern "C" subpixel_t word_1F326;
+extern "C" subpixel_t word_1F328;
+extern "C" uint16_t word_1F32A[];
+extern "C" signed char byte_20E48;
+extern "C" subpixel_t word_2142E;
+extern "C" subpixel_t word_21430;
+
+extern "C" void pascal far sub_16983(uint8_t pid)
+{
+	register target_enemy_t near *p;
+
+	_DL = -1;
+	if(word_1F32A[pid] != 0) {
+		byte_20E48 = -2;
+		word_2142E = word_1F326;
+		word_21430 = word_1F328;
+		return;
+	}
+
+	p = target_enemies;
+	_CX = 0;
+	goto scan_test;
+
+scan_next:
+	if(p->flag != EF_RUNNING_SPAWNED_TARGET) {
+		goto scan_advance;
+	}
+	if(p->pid != pid) {
+		goto scan_advance;
+	}
+	if(p->center.x.v < 0) {
+		goto scan_advance;
+	}
+	if(p->center.x.v > TO_SP(PLAYFIELD_W)) {
+		goto scan_advance;
+	}
+	if(p->center.y.v < 0) {
+		goto scan_advance;
+	}
+	if(p->center.y.v > TO_SP(PLAYFIELD_H + PLAYFIELD_BORDER)) {
+		goto scan_advance;
+	}
+	if(p->formation_i >= _DL) {
+		goto scan_advance;
+	}
+	_DL = p->formation_i;
+	efe_p.efe = reinterpret_cast<efe_t near *>(p);
+	if(_DL == 0) {
+		goto scan_done;
+	}
+
+scan_advance:
+	_CX++;
+	p++;
+
+scan_test:
+	if(static_cast<int16_t>(_CX) < TARGET_ENEMY_COUNT) {
+		goto scan_next;
+	}
+
+scan_done:
+	if(static_cast<signed char>(_DL) == -1) {
+		word_2142E = TO_SP(144);
+		word_21430 = TO_SP(300);
+		byte_20E48 = -1;
+		return;
+	}
+
+	_BX = reinterpret_cast<uint16_t>(efe_p.efe);
+	_AX = reinterpret_cast<target_enemy_t near *>(_BX)->center.x.v;
+	_AX += TO_SP(-16);
+	word_2142E = _AX;
+	_AX = reinterpret_cast<target_enemy_t near *>(_BX)->center.y.v;
+	_AX += TO_SP(110);
+	word_21430 = _AX;
+	byte_20E48 = _DL;
+	if(
+		(word_2142E <= 0) ||
+		(word_2142E >= TO_SP(PLAYFIELD_W)) ||
+		(word_21430 <= 0) ||
+		(word_21430 >= TO_SP(PLAYFIELD_H + PLAYFIELD_BORDER))
+	) {
+		word_2142E = TO_SP(144);
+		word_21430 = TO_SP(300);
+	}
+}
+
 extern "C" void far sub_16A55(void)
 {
 	byte_220E0 = 0;

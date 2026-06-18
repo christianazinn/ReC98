@@ -1958,101 +1958,7 @@ PELLET_PUT segment byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public SUB_16983, sub_16983
-SUB_16983 label far
-sub_16983	proc far
-
-@@pid		= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	dl, -1
-		mov	al, [bp+@@pid]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	word ptr word_1F32A[bx], 0
-		jz	short loc_169AD
-		mov	byte_20E48, -2
-		mov	ax, word_1F326
-		mov	word_2142E, ax
-		mov	ax, word_1F328
-		mov	word_21430, ax
-		jmp	loc_16A50
-; ---------------------------------------------------------------------------
-
-loc_169AD:
-		mov	si, offset enemies
-		xor	cx, cx
-		jmp	short loc_169EF
-; ---------------------------------------------------------------------------
-
-loc_169B4:
-		cmp	[si+enemy_t.ENEMY_flag], EF_RUNNING_SPAWNED
-		jnz	short loc_169EB
-		mov	al, [si+enemy_t.ENEMY_pid]
-		cmp	al, [bp+@@pid]
-		jnz	short loc_169EB
-		cmp	[si+enemy_t.ENEMY_center.x], 0
-		jl	short loc_169EB
-		cmp	[si+enemy_t.ENEMY_center.x], (PLAYFIELD_W shl 4)
-		jg	short loc_169EB
-		cmp	[si+enemy_t.ENEMY_center.y], 0
-		jl	short loc_169EB
-		cmp	[si+enemy_t.ENEMY_center.y], ((PLAYFIELD_H + PLAYFIELD_BORDER) shl 4)
-		jg	short loc_169EB
-		cmp	[si+enemy_t.ENEMY_formation_i], dl
-		jnb	short loc_169EB
-		mov	dl, [si+enemy_t.ENEMY_formation_i]
-		mov	_efe_p, si
-		or	dl, dl
-		jz	short loc_169F4
-
-loc_169EB:
-		inc	cx
-		add	si, size efe_t
-
-loc_169EF:
-		cmp	cx, ENEMY_COUNT
-		jl	short loc_169B4
-
-loc_169F4:
-		cmp	dl, -1
-		jnz	short loc_16A0C
-		mov	word_2142E, (144 shl 4)
-		mov	word_21430, (300 shl 4)
-		mov	byte_20E48, -1
-		jmp	short loc_16A50
-; ---------------------------------------------------------------------------
-
-loc_16A0C:
-		mov	bx, _efe_p
-		mov	ax, [bx+enemy_t.ENEMY_center.x]
-		add	ax, (-16 shl 4)
-		mov	word_2142E, ax
-		mov	ax, [bx+enemy_t.ENEMY_center.y]
-		add	ax, (110 shl 4)
-		mov	word_21430, ax
-		mov	byte_20E48, dl
-		cmp	word_2142E, 0
-		jle	short loc_16A44
-		cmp	word_2142E, (PLAYFIELD_W shl 4)
-		jge	short loc_16A44
-		cmp	word_21430, 0
-		jle	short loc_16A44
-		cmp	word_21430, ((PLAYFIELD_H + PLAYFIELD_BORDER) shl 4)
-		jl	short loc_16A50
-
-loc_16A44:
-		mov	word_2142E, (144 shl 4)
-		mov	word_21430, (300 shl 4)
-
-loc_16A50:
-		pop	si
-		pop	bp
-		retf	2
-sub_16983	endp
+	extrn SUB_16983:proc
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -3624,11 +3530,12 @@ public _byte_1F324
 _byte_1F324 label byte
 byte_1F324	db ?
 		db ?
-public _word_1F326, _word_1F328, word_1F32A
+public _word_1F326, _word_1F328, _word_1F32A, word_1F32A
 _word_1F326 label word
 word_1F326	dw ?
 _word_1F328 label word
 word_1F328	dw ?
+_word_1F32A label word
 word_1F32A	dw ?
 word_1F32C	dw ?
 
