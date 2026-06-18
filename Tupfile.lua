@@ -736,6 +736,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/cfg_lres.cpp",
 	"th03/mainl_sc.cpp",
+	"th03/mainl/screens_data.asm",
 	"th03/mainl/mainl_03_anchor.asm",
 	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
