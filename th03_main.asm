@@ -3217,7 +3217,7 @@ gba_boss_render_p1	dd ?
 gba_boss_render_p2	dd ?
 
 public _word_1F33E, _word_1F340, word_1F33E, word_1F340
-public word_1F346, word_1F348, _word_1F34A, word_1F34A, _sprite_1F34C, sprite_1F34C
+public _word_1F346, word_1F346, word_1F348, _word_1F34A, word_1F34A, _sprite_1F34C, sprite_1F34C
 public _byte_1F34E, byte_1F34E
 _word_1F33E label word
 word_1F33E	dw ?
@@ -3226,6 +3226,7 @@ word_1F340	dw ?
 public _point_1F342, point_1F342
 _point_1F342 label Point
 point_1F342	Point <?>
+_word_1F346 label word
 word_1F346	dw ?
 word_1F348	dw ?
 _word_1F34A label word

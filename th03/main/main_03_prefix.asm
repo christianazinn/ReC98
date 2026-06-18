@@ -46,7 +46,6 @@ PID_NONE = 0FFh
 	extrn word_1F3B0:word
 
 	public SUB_F1FA, sub_F1FA, _sub_F356, sub_F356
-	public _sub_F3A9, sub_F3A9
 
 _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
@@ -265,47 +264,6 @@ loc_F3A7:
 		pop	bp
 		retn
 sub_F356	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-_sub_F3A9	label near
-sub_F3A9	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, word_1F346
-		add	word_1F33E, ax
-		add	word_1F340, 20h	; ' '
-		cmp	word_1F33E, (48 shl 4)
-		jg	short loc_F3C8
-		mov	word_1F346, 20h	; ' '
-		jmp	short loc_F3D6
-; ---------------------------------------------------------------------------
-
-loc_F3C8:
-		cmp	word_1F33E, (240 shl 4)
-		jl	short loc_F3D6
-		mov	word_1F346, 0FFE0h
-
-loc_F3D6:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, 1
-		sub	bx, ax
-		add	bx, bx
-		mov	word_1F32A[bx], 0
-		cmp	word_1F340, (416 shl 4)
-		jl	short loc_F400
-		mov	byte_1F34F, 0
-		mov	_gba_boss_launched_by, PID_NONE
-		mov	_combo_points_for_boss_attack, 5120
-
-loc_F400:
-		pop	bp
-		retn
-sub_F3A9	endp
 
 main_03_TEXT	ends
 
