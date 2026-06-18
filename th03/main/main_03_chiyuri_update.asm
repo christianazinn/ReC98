@@ -65,7 +65,7 @@ bullet_template_t ends
 	_SUB_A3D2 procdesc far
 	SUB_CE0C procdesc far
 	sub_F3A9 procdesc near
-	sub_F402 procdesc near
+	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	CHIYURI_121F5 procdesc near
@@ -91,7 +91,7 @@ var_2		= byte ptr -2
 @@pid_other		= byte ptr -1
 
 		enter	4, 0
-		call	sub_F402
+		call	_sub_F402
 		or	al, al
 		jz	short loc_12700
 		mov	al, _gba_boss_level
