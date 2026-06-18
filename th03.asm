@@ -389,8 +389,7 @@ mainl_03_TEXT	ends
 ; Support/format data moved to th03/mainl/support_format[data].asm.
 ; Continue/cutscene data moved to th03/mainl/continue_cutscene[data].asm.
 ; Registration/scoredat/ending pointer data moved to th03/mainl/rsedat[data].asm.
-include th03/sprites/flake.asp
-include th03/formats/cdg_put_dissolve[data].asm
+; Staffroll flake/dissolve data moved to th03/mainl/flds[data].asm.
 
 public _VERDICT_PLAYCHARS, _VERDICT_RANKS, _VERDICT_NUMBERS, _VERDICT_POINT
 _VERDICT_PLAYCHARS label dword
