@@ -735,6 +735,7 @@ obj = {
 	"th03/main/ellen_bss.asm",
 	"th03/main/kana_bss.asm",
 	"th03/main/hitcircle_bss.asm",
+	"th03/main/shot_kotohime_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
