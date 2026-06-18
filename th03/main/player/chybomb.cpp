@@ -17,6 +17,7 @@
 extern "C" uint8_t byte_20E92[];
 extern "C" uint8_t pid_PID_so_attack;
 extern "C" uint8_t angle_1FBD4;
+extern "C" subpixel_t word_1FE56;
 
 struct ellen_bomb_vector_t {
 	subpixel_t x;
@@ -475,4 +476,105 @@ extern "C" void pascal far kana_bomb(void)
 	Palettes[pid_current].c.g = _DL;
 	Palettes[pid_current].c.b = frame;
 	palette_changed = true;
+}
+
+extern "C" void pascal far kotohime_bomb(void)
+{
+	uint8_t frame;
+	uint8_t col;
+	register subpixel_t x;
+	register int i;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	egc_off();
+	frame = bomb_frame[pid_current];
+	if(frame < 64) {
+		grcg_setcolor(GC_RMW, pid_current);
+		_BX = FP_OFF(byte_20E92);
+		if(pid_current != 0) {
+			_BX += 0x28;
+		}
+		sub_B39E();
+		grcg_off();
+		_AL = frame;
+		_AH = 0;
+		_asm { imul ax, ax, 3; }
+		col = _AL;
+		Palettes[pid_current].c.r = (col + 64);
+		Palettes[pid_current].c.g = (col + 32);
+		Palettes[pid_current].c.b = col;
+		palette_changed = true;
+		if((frame % 8) == 0) {
+			_AL = frame;
+			_AH = 0;
+			_asm { imul ax, ax, 48h; }
+			_DX = (TO_SP(PLAYFIELD_W) - 72);
+			_DX -= _AX;
+			x = _DX;
+			_AL = frame;
+			_AH = 0;
+			_asm { imul ax, ax, 5Ch; }
+			_AX += 0x5C;
+			word_1FE56 = _AX;
+			_asm {
+				push	dx
+				push	ax
+				mov	al, pid_current
+				mov	ah, 0
+				push	ax
+				call	far ptr SUB_CDBD
+			}
+		}
+	} else if(frame < 128) {
+		palette_changed = true;
+		if((frame & 3) < 2) {
+			snd_se_play(10);
+			PaletteTone = 170;
+			palette_changed = true;
+			playfield_fg_shift_x[pid_current] = 4;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+			PaletteTone = 100;
+			palette_changed = true;
+		}
+
+		if((frame % 8) == 0) {
+			x = 0;
+			i = ((frame % 0x10) / 2);
+			while(x <= TO_SP(PLAYFIELD_W)) {
+				SUB_CDBD(x, word_1FE56, pid_current);
+				x += TO_SP(96);
+				i++;
+			}
+			word_1FE56 -= TO_SP(46);
+		}
+
+		x = PLAYFIELD_LEFT;
+		if(pid_current != 0) {
+			x += PLAYFIELD_W_BORDERED;
+		}
+		mrs_put_noalpha_8(
+			x, PLAYFIELD_TOP, (pid_current + 2), (_AX = pid_current)
+		);
+	} else {
+		PaletteTone = 100;
+		palette_changed = true;
+		playfield_fg_shift_x[pid_current] = 0;
+		_AL = frame;
+		_AL <<= 3;
+		_DL = 255;
+		_DL -= _AL;
+		frame = _DL;
+		_AL = col;
+		_AL += _AL;
+		col = _AL;
+		Palettes[pid_current].c.r = col;
+		Palettes[pid_current].c.g = _DL;
+		Palettes[pid_current].c.b = frame;
+		palette_changed = true;
+	}
+
+	egc_on();
 }
