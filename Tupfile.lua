@@ -704,6 +704,7 @@ obj = {
 	"th03/main/main_04_hitbox_prefix.asm",
 	"th03/main/player/ch_shot.cpp",
 	"th03/main/main_06_anchor.asm",
+	"th03/main/player/chybomb.cpp",
 	"th03/main_06.cpp",
 	"th03/main_07.cpp",
 	"th03/main_08.cpp",
