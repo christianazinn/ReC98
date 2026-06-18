@@ -3084,31 +3084,7 @@ include th03/sprites/pellet.asp
 
 ; Input/demo/round gate BSS prefix moved to th03/main/round_gate_bss.asm.
 ; Support/resident BSS prefix moved to th03/main/support_resident_bss.asm.
-public palette_1F2F4, _palette_1F2F4
-_palette_1F2F4 label byte
-palette_1F2F4	palette_t <?>
-public _byte_1F324
-_byte_1F324 label byte
-byte_1F324	db ?
-		db ?
-public _word_1F326, _word_1F328, _word_1F32A, word_1F32A, _word_1F32C, word_1F32C
-_word_1F326 label word
-word_1F326	dw ?
-_word_1F328 label word
-word_1F328	dw ?
-_word_1F32A label word
-word_1F32A	dw ?
-_word_1F32C label word
-word_1F32C	dw ?
-
-public _gba_boss_update, _gba_boss_render
-_gba_boss_update label
-gba_boss_update_p1	dd ?
-gba_boss_update_p2	dd ?
-_gba_boss_render label
-gba_boss_render_p1	dd ?
-gba_boss_render_p2	dd ?
-
+; Palette/GBA BSS prefix moved to th03/main/palette_gba_bss.asm.
 public _word_1F33E, _word_1F340, word_1F33E, word_1F340
 public _word_1F346, word_1F346, _word_1F348, word_1F348, _word_1F34A, word_1F34A, _sprite_1F34C, sprite_1F34C
 public _byte_1F34E, byte_1F34E
