@@ -7,6 +7,8 @@
 #include "th01/math/subpixel.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
+#include "th03/main/collmap.hpp"
+#include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
@@ -17,6 +19,7 @@
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F34A;
 extern "C" uint16_t word_1F3B0;
 extern "C" uint8_t byte_1F35E[];
 extern "C" sprite16_offset_t sprite_1F34C;
@@ -39,6 +42,11 @@ extern "C" uint8_t angle_20E2B;
 extern "C" uint16_t far randring_far_next16_raw(void);
 extern "C" void pascal far SUB_CE0C(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void near sub_F356(void);
+extern "C" void near sub_F3A9(void);
+extern "C" uint8_t near sub_F402(void);
+extern "C" void far sub_F4B4(void);
+extern "C" void pascal near sub_F512(void);
+extern "C" void pascal near sub_F52D(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near marisa_F9A6(void)
@@ -339,3 +347,75 @@ extern "C" void pascal near mima_FE2B(void)
 		word_1F3B0 = 0;
 	}
 }
+
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal far gba_boss_update_mima(void)
+{
+	pid_t pid_other;
+	uint16_t state;
+
+	if(sub_F402()) {
+		byte_1F39F = (gba_boss_level + 0x20);
+		byte_1F3A0 = ((gba_boss_level / 4) + 2);
+		byte_1F3A1 = (gba_boss_level + 0x20);
+		byte_1F3A2 = (0x40 - (gba_boss_level * 2));
+		byte_1F3A3 = (gba_boss_level + 0x28);
+		byte_1F3A4 = ((gba_boss_level * 4) + 0x40);
+		byte_1F3A5 = (gba_boss_level + 0x36);
+	}
+
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	sub_F512();
+	bullet_template.pid = (1 - pid_current);
+	word_1F3B0++;
+	state = byte_1F34F;
+
+	// TCC places the generated switch table before any post-function
+	// codestring, so keep this dispatch table as a raw byte island.
+	__emit__(0xB9, 0x14, 0x00, 0xBB, 0x13, 0x0E);
+	__emit__(0x2E, 0x8B, 0x07, 0x3B, 0x46, 0xFC, 0x74, 0x07);
+	__emit__(0x83, 0xC3, 0x02, 0xE2, 0xF3, 0xEB, 0x36);
+	__emit__(0x2E, 0xFF, 0x67, 0x28);
+	__emit__(0x83, 0x3E, 0x50, 0x1E, 0x64, 0x0F, 0x85, 0x87, 0x00);
+	__emit__(0xC7, 0x06, 0x50, 0x1E, 0x00, 0x00);
+	__emit__(0xC6, 0x06, 0xEF, 0x1D, 0x01, 0xEB, 0x1C);
+	__emit__(0xE8, 0xA4, 0xF5, 0xEB, 0x17);
+	__emit__(0xE8, 0x07, 0xFC, 0xEB, 0x12);
+	__emit__(0xE8, 0xD8, 0xFC, 0xEB, 0x0D);
+	__emit__(0xE8, 0xD9, 0xFD, 0xEB, 0x08);
+	__emit__(0xE8, 0x8E, 0xFE, 0xEB, 0x03);
+	__emit__(0xE8, 0x07, 0xF4);
+
+	collmap_center.x.v = word_1F33E;
+	collmap_center.y.v = word_1F340;
+	collmap_stripe_tile_w.v = (56 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (56 / COLLMAP_TILE_H);
+	collmap_pid = pid_other;
+	collmap_set_rect_striped();
+
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(32);
+	hitbox.radius.y.v = TO_SP(32);
+	hitbox.pid = pid_other;
+	hitbox.origin.center.x.v = word_1F33E;
+	hitbox.origin.center.y.v = word_1F340;
+	_AL = hitbox_hittest();
+	byte_1F34E = _AL;
+	_AH = 0;
+	word_1F34A -= _AX;
+	hitbox_hittest_skip_explosions = false;
+
+	_asm {
+		nop
+		push	cs
+		call	near ptr sub_F4B4
+	}
+}
+#pragma codestring "\x00\x00\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x06\x00\x07\x00\x08\x00\x09\x00\x0A\x00\x0B\x00\x0C\x00\x0D\x00\x0E\x00\x0F\x00\x10\x00\x11\x00\x80\x00\xFF\x00\x80\x0D\x96\x0D\x9B\x0D\x9B\x0D\x9B\x0D\x9B\x0D\xA0\x0D\xA0\x0D\xA0\x0D\xA0\x0D\xA0\x0D\xA5\x0D\xA5\x0D\xA5\x0D\xAA\x0D\xAA\x0D\xAA\x0D\xAA\x0D\xAF\x0D\x10\x0E"
+#pragma option -G
+#pragma warn .aus
