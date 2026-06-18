@@ -626,7 +626,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th03/pi_load.cpp",
 	"th03/inp_m_w.cpp",
 	"th03/cdg_p_na.asm",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th02/frmdely2.cpp",
 })
 th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
@@ -729,7 +729,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/e_expl.cpp",
 	"th03/e_fireb.cpp",
 	"th03/p_exatt.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th03/mrs.cpp",
 	"th03/sprite16.cpp",
 })
@@ -776,7 +776,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/pi_put_q.cpp",
 	"th03/inp_m_w.cpp",
 	"th03/cdg_p_na.asm",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 })
 -- ----
 
@@ -805,7 +805,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/frmdely1.cpp",
 	"th03/pi_put.cpp",
 	"th03/pi_load.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/input_w.cpp",
 	"th04/vector.cpp",
 	"th04/snd_pmdr.c",
@@ -871,7 +871,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th01/vplanset.cpp",
 	"th03/vector.cpp",
 	"th02/frmdely1.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/mpn_free.cpp",
 	"th04/input_w.cpp",
 	"th04/mpn_l_i.cpp",
@@ -918,7 +918,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th03/pi_put.cpp",
 	"th03/pi_load.cpp",
 	"th03/pi_put_q.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/input_w.cpp",
 	"th04/vector.cpp",
 	"th04/snd_pmdr.c",
@@ -968,7 +968,7 @@ th05:comcstm("zun.com", "th05/zun.txt", th05_zuncom, 628731748)
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th05/op_main.cpp",
 	"th05_op.asm",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/snd_pmdr.c",
 	"th04/snd_mmdr.c",
 	"th04/snd_mode.cpp",
@@ -1054,7 +1054,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/bullet.asm",
 	"th05/bullet_t.cpp",
 	"th03/vector.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/snd_pmdr.c",
 	"th04/snd_mmdr.c",
 	"th04/snd_mode.cpp",
@@ -1097,7 +1097,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/score_d.cpp",
 	"th05/score_e.cpp",
 	"th05/hi_end.cpp",
-	"th03/hfliplut.asm",
+	"th03/hfliplut.cpp",
 	"th04/snd_pmdr.c",
 	"th04/snd_mmdr.c",
 	"th04/snd_mode.cpp",
