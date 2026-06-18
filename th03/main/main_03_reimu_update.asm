@@ -35,7 +35,7 @@ include th03/main/collmap.inc
 
 	sub_F3A9 procdesc near
 	sub_F402 procdesc near
-	sub_F4B4 procdesc far
+	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	SUB_F52D procdesc near
 	REIMU_10C4D procdesc near
@@ -181,7 +181,7 @@ loc_110FB:
 		mov	_hitbox_hittest_skip_explosions, 0
 		nop
 		push	cs
-		call	near ptr sub_F4B4
+		call	near ptr _sub_F4B4
 
 locret_11159:
 		leave			; jumptable 000110E0 case 255
