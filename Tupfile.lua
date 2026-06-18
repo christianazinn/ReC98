@@ -634,6 +634,7 @@ obj += {
 	"th03/op_01.cpp",
 	"th03/mainl/screens_data.asm",
 	"th03/mainl/mlsfmdat.asm",
+	"th03/mainl/ccutdat.asm",
 	"th03/mainl/mainl_03_anchor.asm",
 	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
