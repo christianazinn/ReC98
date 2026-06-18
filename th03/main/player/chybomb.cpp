@@ -30,18 +30,24 @@ static const subpixel_t ELLEN_BOMB_VECTOR_INACTIVE = 19999;
 extern "C" ellen_bomb_vector_t ellen_bomb_vectors[
 	PLAYER_COUNT
 ][ELLEN_BOMB_VECTOR_COUNT];
+extern "C" int word_1FB3C;
 extern "C" ellen_bomb_vector_t near *word_1FBBE;
 
 extern "C" void far sub_B39E(void);
 extern "C" void far SUB_A3D2(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" uint16_t far randring_far_next16_raw(void);
+extern "C" void pascal far SUB_CDBD(
+	subpixel_t x, subpixel_t y, uint16_t pid
+);
 extern "C" void pascal far SUB_CE0C(
 	subpixel_t x, subpixel_t y, uint16_t pid
 );
 extern "C" void pascal far SUB_CE5B(
 	subpixel_t x, subpixel_t y, uint16_t pid
 );
+
+extern "C" void pascal near ellen_bomb_186C3(void);
 
 extern "C" void pascal far chiyuri_bomb(void)
 {
@@ -253,5 +259,133 @@ loop_test:
 	if(i < ELLEN_BOMB_VECTOR_COUNT) {
 		goto loop;
 	}
+}
+#pragma warn .aus
+
+#pragma warn -aus
+extern "C" void pascal far ellen_bomb(void)
+{
+	volatile screen_x_t shift_x_backup;
+	uint8_t frame;
+	uint8_t col;
+	register screen_x_t left;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	egc_off();
+	frame = bomb_frame[pid_current];
+	if(frame < 64) {
+		grcg_setcolor(GC_RMW, pid_current);
+		_BX = FP_OFF(byte_20E92);
+		if(pid_current != 0) {
+			_BX += 0x28;
+		}
+		sub_B39E();
+		grcg_off();
+		_AL = frame;
+		_AL += _AL;
+		col = _AL;
+		_asm {
+			mov	al, pid_current
+			mov	ah, 0
+			imul	ax, ax, 3
+			mov	dl, byte ptr [bp-4]
+			db	02h, 0D2h
+			db	08Bh, 0D8h
+			mov	byte ptr Palettes[bx], dl
+			mov	al, pid_current
+			mov	ah, 0
+			imul	ax, ax, 3
+			mov	dl, byte ptr [bp-4]
+			db	08Bh, 0D8h
+			mov	byte ptr Palettes[bx+1], dl
+			mov	al, pid_current
+			mov	ah, 0
+			imul	ax, ax, 3
+			db	08Bh, 0D8h
+			mov	byte ptr Palettes[bx+2], dl
+		}
+		palette_changed = true;
+		word_1FB3C = 0;
+		goto active_done;
+	}
+
+	if(frame < 128) {
+		if((frame & 1) != 0) {
+			snd_se_play(10);
+			Palettes[pid_current].c.r = 255;
+			Palettes[pid_current].c.g = 128;
+			Palettes[pid_current].c.b = 128;
+		} else {
+			Palettes[pid_current].c.r = 0;
+			Palettes[pid_current].c.g = 0;
+			Palettes[pid_current].c.b = 32;
+		}
+		palette_changed = true;
+		if((frame & 3) < 2) {
+			playfield_fg_shift_x[pid_current] = 4;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+		}
+		left = PLAYFIELD_LEFT;
+		if(pid_current != 0) {
+			left += PLAYFIELD_W_BORDERED;
+		}
+		mrs_put_noalpha_8(
+			left, PLAYFIELD_TOP, (pid_current + 2), (_AX = pid_current)
+		);
+		if((frame % 4) == 0) {
+			SUB_CDBD(TO_SP(144), TO_SP(184), pid_current);
+			if(word_1FB3C < ELLEN_BOMB_VECTOR_COUNT) {
+				ellen_bomb_vectors[pid_current][word_1FB3C].x = (
+					ELLEN_BOMB_VECTOR_FREE
+				);
+				word_1FB3C++;
+			}
+		}
+		goto active_done;
+	}
+
+	playfield_fg_shift_x[pid_current] = 0;
+	_AL = frame;
+	_AL <<= 3;
+	_DL = 255;
+	_DL -= _AL;
+	col = _DL;
+	_asm {
+		mov	al, pid_current
+		mov	ah, 0
+		imul	ax, ax, 3
+		db	02h, 0D2h
+		and	dl, 255
+		db	08Bh, 0D8h
+		mov	byte ptr Palettes[bx], dl
+		mov	al, pid_current
+		mov	ah, 0
+		imul	ax, ax, 3
+		mov	dl, byte ptr [bp-4]
+		db	08Bh, 0D8h
+		mov	byte ptr Palettes[bx+1], dl
+		mov	al, pid_current
+		mov	ah, 0
+		imul	ax, ax, 3
+		db	08Bh, 0D8h
+		mov	byte ptr Palettes[bx+2], dl
+	}
+	palette_changed = true;
+
+active_done:
+	egc_on();
+	if(frame < 64) {
+		return;
+	}
+	if(frame >= 128) {
+		return;
+	}
+	shift_x_backup = playfield_fg_shift_x[pid_current];
+	playfield_fg_shift_x[pid_current] = 0;
+	ellen_bomb_186C3();
+	playfield_fg_shift_x[pid_current] = shift_x_backup;
 }
 #pragma warn .aus
