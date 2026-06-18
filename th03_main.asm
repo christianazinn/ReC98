@@ -2954,123 +2954,7 @@ CHIYURI_BOMB procdesc pascal far
 
 ; Attributes: bp-based frame
 
-public ELLEN_185AB
-ELLEN_185AB label far
-ellen_185AB	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_INACTIVE
-		jz	@@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_flag[bx], BF_PREPARING
-		jnz	short loc_1860D
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_ACTIVE
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_frame[bx], 0
-		xor	si, si
-		jmp	short loc_18601
-; ---------------------------------------------------------------------------
-
-loc_185E9:
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 6
-		mov	dx, si
-		shl	dx, 3
-		add	ax, dx
-		mov	bx, ax
-		mov	word ptr ellen_bomb_vectors[bx], 19999
-		inc	si
-
-loc_18601:
-		cmp	si, 8
-		jl	short loc_185E9
-		call	snd_se_play pascal, 17
-
-loc_1860D:
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		inc	_bomb_frame[bx]
-		mov	_playfield_clip_negative_radius.x, (-32 shl 4)
-		mov	_playfield_clip_negative_radius.y, (-32 shl 4)
-		mov	al, _pid_current
-		mov	ah, 0
-		shl	ax, 6
-		add	ax, offset ellen_bomb_vectors
-		mov	word_1FBBE, ax
-		xor	si, si
-		jmp	short loc_18698
-; ---------------------------------------------------------------------------
-
-loc_18636:
-		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 9999
-		jz	short loc_18667
-		mov	bx, word_1FBBE
-		cmp	word ptr [bx], 19999
-		jz	short loc_18692
-		mov	bx, word_1FBBE
-		mov	ax, [bx+4]
-		add	[bx], ax
-		mov	ax, [bx+6]
-		add	[bx+2],	ax
-		call	@PLAYFIELD_CLIP$Q20%SUBPIXELBASE$TI$TI%T1 pascal, word ptr [bx], word ptr [bx+2]
-		or	al, al
-		jz	short loc_18692
-
-loc_18667:
-		mov	bx, word_1FBBE
-		mov	word ptr [bx], (144 shl 4)
-		mov	word ptr [bx+2], (184 shl 4)
-		push	ds
-		mov	ax, word_1FBBE
-		add	ax, 4
-		push	ax
-		push	ds
-		mov	ax, word_1FBBE
-		add	ax, 6
-		push	ax
-		call	@randring_far_next16$qv
-		push	ax
-		push	224
-		call	vector2
-
-loc_18692:
-		inc	si
-		add	word_1FBBE, 8
-
-loc_18698:
-		cmp	si, 8
-		jl	short loc_18636
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_bomb_frame[bx], BOMB_FRAMES
-		jb	short @@ret
-		mov	al, _pid_current
-		mov	ah, 0
-		mov	bx, ax
-		mov	_bomb_flag[bx], BF_INACTIVE
-		push	word ptr _pid_current
-		call	sub_A3A8
-
-@@ret:
-		pop	si
-		pop	bp
-		retf
-ellen_185AB	endp
+ELLEN_185AB procdesc pascal far
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -5335,8 +5219,12 @@ public _word_1FB3A
 _word_1FB3A label word
 word_1FB3A	dw ?
 word_1FB3C	dw ?
+public _ellen_bomb_vectors, ellen_bomb_vectors
+_ellen_bomb_vectors label byte
 ellen_bomb_vectors label byte
 		db 128 dup(?)
+public _word_1FBBE, word_1FBBE
+_word_1FBBE label word
 word_1FBBE	dw ?
 public _fp_1FBC0
 _fp_1FBC0 label word
