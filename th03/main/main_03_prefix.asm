@@ -46,7 +46,7 @@ PID_NONE = 0FFh
 	extrn word_1F3B0:word
 
 	public SUB_F1FA, sub_F1FA, _sub_F356, sub_F356
-	public _sub_F3A9, sub_F3A9, _sub_F402, sub_F402, _sub_F4B4, sub_F4B4
+	public _sub_F3A9, sub_F3A9, _sub_F402, sub_F402
 
 _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
@@ -386,50 +386,6 @@ loc_F4B0:
 		pop	bp
 		retn
 sub_F402	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-_sub_F4B4	label far
-sub_F4B4	proc far
-
-@@pid_other		= byte ptr -1
-
-		enter	2, 0
-		mov	al, 1
-		sub	al, _pid_current
-		mov	[bp+@@pid_other], al
-		cmp	word_1F34A, 0
-		jg	short locret_F510
-		cmp	byte_1F34F, -1
-		jz	short locret_F510
-		mov	byte_1F34F, -1
-		mov	word_1F3B0, 0
-		push	word ptr [bp+@@pid_other]
-		call	SUB_A3A8
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	_gba_flag_active[bx], GBAF_BOSS
-		jz	short loc_F4F6
-		mov	_combo_points_for_boss_attack, 5120
-
-loc_F4F6:
-		mov	al, [bp+@@pid_other]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	word_1F32A[bx], 0
-		cmp	_gba_boss_level, GBA_BOSS_LEVEL_MAX
-		jnb	short locret_F510
-		inc	_gba_boss_level
-
-locret_F510:
-		leave
-		retf
-sub_F4B4	endp
 
 main_03_TEXT	ends
 

@@ -34,7 +34,7 @@ include th03/main/collmap.inc
 
 	sub_F3A9 procdesc near
 	sub_F402 procdesc near
-	sub_F4B4 procdesc far
+	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	SUB_F52D procdesc near
 	ELLEN_11439 procdesc near
@@ -169,7 +169,7 @@ loc_11763:
 		mov	_hitbox_hittest_skip_explosions, 0
 		nop
 		push	cs
-		call	near ptr sub_F4B4
+		call	near ptr _sub_F4B4
 
 locret_117C1:
 		leave			; jumptable 00011732 case 255

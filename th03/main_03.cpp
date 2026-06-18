@@ -25,19 +25,43 @@ extern "C" uint8_t byte_1F3A4;
 extern "C" uint8_t byte_1FE50;
 extern "C" uint16_t word_1F34A;
 extern "C" uint16_t word_1F3B0;
+extern "C" uint16_t word_1F32A[];
 extern "C" subpixel_t word_1F326;
 extern "C" subpixel_t word_1F328;
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
 extern "C" uint8_t byte_1F34E;
+extern uint16_t combo_points_for_boss_attack;
 
 extern "C" void near sub_F3A9(void);
 extern "C" uint8_t near sub_F402(void);
-extern "C" void far sub_F4B4(void);
+extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void near sub_F356(void);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 extern "C" uint16_t far randring_far_next16_raw(void);
+
+extern "C" void far sub_F4B4(void)
+{
+	uint8_t pid_other = (1 - pid_current);
+
+	if(static_cast<int16_t>(word_1F34A) > 0) {
+		return;
+	}
+	if(byte_1F34F == 0xFF) {
+		return;
+	}
+	byte_1F34F = 0xFF;
+	word_1F3B0 = 0;
+	sub_A3A8(pid_other);
+	if(gba_flag_active[pid_other] != GBAF_BOSS) {
+		combo_points_for_boss_attack = 5120;
+	}
+	word_1F32A[pid_other] = 0;
+	if(gba_boss_level < GBA_BOSS_LEVEL_MAX) {
+		gba_boss_level++;
+	}
+}
 
 extern "C" void pascal near sub_F512(void)
 {

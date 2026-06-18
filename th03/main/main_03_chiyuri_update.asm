@@ -66,7 +66,7 @@ bullet_template_t ends
 	SUB_CE0C procdesc far
 	sub_F3A9 procdesc near
 	sub_F402 procdesc near
-	sub_F4B4 procdesc far
+	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	CHIYURI_121F5 procdesc near
 	CHIYURI_12355 procdesc near
@@ -334,7 +334,7 @@ loc_128AD:
 		mov	_hitbox_hittest_skip_explosions, 0
 		nop
 		push	cs
-		call	near ptr sub_F4B4
+		call	near ptr _sub_F4B4
 
 locret_1290B:
 		leave

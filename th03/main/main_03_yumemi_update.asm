@@ -58,7 +58,7 @@ bullet_template_t ends
 
 	sub_F3A9 procdesc near
 	sub_F402 procdesc near
-	sub_F4B4 procdesc far
+	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
 	SUB_F52D procdesc near
 	YUMEMI_10324 procdesc near
@@ -241,7 +241,7 @@ loc_1081A:
 		mov	_hitbox_hittest_skip_explosions, 0
 		nop
 		push	cs
-		call	near ptr sub_F4B4
+		call	near ptr _sub_F4B4
 
 locret_10878:
 		leave			; jumptable 000107AE case 255
