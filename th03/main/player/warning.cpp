@@ -9,6 +9,7 @@
 #include "th03/formats/mrs.hpp"
 #include "th03/hardware/input.h"
 #include "th03/main/hud/static.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/snd/snd.h"
 
@@ -19,6 +20,13 @@ enum {
 };
 
 extern "C" uint8_t near warning_flag[];
+extern "C" char gbWARNING_1[];
+extern "C" char gbWARNING_2[];
+extern "C" char gbWARNING_3[];
+extern "C" char gpYOU_ARE_FORCED_TO_EVADE_FROM[];
+extern "C" char gpGAUGE_ATTACK_LEVEL[];
+extern "C" char gpBOSS_ATTACK_LEVEL[];
+extern "C" char gpYOUR_LIFE_IS_IN_PERIL_BE_CAREFUL[];
 
 extern "C" void near sub_C7A5(void);
 extern "C" void pascal near SUB_CACB(uint8_t pid, int color);
@@ -78,6 +86,36 @@ loop_test:
 	if(static_cast<int16_t>(_SI) < 27) {
 		goto loop;
 	}
+}
+
+extern "C" void pascal near SUB_CACB(uint8_t pid, int color)
+{
+	register int left;
+	register int atrb;
+
+	atrb = color;
+	left = 4;
+	if(pid == 0) {
+		left += 0x28;
+	}
+	gaiji_putsa(left, 11, gbWARNING_1, atrb);
+	gaiji_putsa(left, 12, gbWARNING_2, atrb);
+	gaiji_putsa(left, 13, gbWARNING_3, atrb);
+	left += 4;
+	gaiji_putsa(left, 14, gpYOU_ARE_FORCED_TO_EVADE_FROM, atrb);
+	if(gba_flag_next[pid] == GBAF_BOSS) {
+		goto boss_attack;
+	}
+	gaiji_putsa((left + 2), 15, gpGAUGE_ATTACK_LEVEL, atrb);
+	gaiji_putca((left + 0x13), 15, (gba_gauge_level[pid] + 0x1F), TX_WHITE);
+	goto end;
+
+boss_attack:
+	gaiji_putsa((left + 2), 15, gpBOSS_ATTACK_LEVEL, atrb);
+	gaiji_putca((left + 0x13), 15, (gba_boss_level + 0x1F), TX_WHITE);
+
+end:
+	gaiji_putsa(left, 16, gpYOUR_LIFE_IS_IN_PERIL_BE_CAREFUL, atrb);
 }
 
 #undef hud_static_gauge_levels_put_nop
