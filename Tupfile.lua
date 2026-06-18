@@ -681,6 +681,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/enemy_formation_bss.asm",
 	"th03/main/ellen_bss.asm",
 	"th03/main/kana_bss.asm",
+	"th03/main/hitcircle_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],
