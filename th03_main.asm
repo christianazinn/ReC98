@@ -2596,9 +2596,7 @@ PID_NONE = -1
 ; Score sprite and powers-of-10 data moved to th03/main/sfntdat.asm.
 ; Character coordinate data moved to th03/main/ccorddat.asm.
 ; Result/stat text data moved to th03/main/rtextdat.asm.
-include th03/sprites/pellet.asp
-		db    1
-		db    0
+; Pellet sprite data moved to th03/main/peldat.asm.
 
 	.data?
 
