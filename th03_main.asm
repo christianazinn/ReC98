@@ -3088,20 +3088,7 @@ include th03/sprites/pellet.asp
 ; Palette/GBA BSS prefix moved to th03/main/palette_gba_bss.asm.
 ; Generic Boss Attack core/tuning BSS prefix moved to th03/main/gba_boss_bss.asm.
 ; Shared random-ring BSS prefix moved to th03/main/randring_bss.asm.
-public _chiyuri_gauge_pattern_x, chiyuri_gauge_pattern_x
-_chiyuri_gauge_pattern_x label word
-chiyuri_gauge_pattern_x dw PLAYER_COUNT dup(?)
-public _chiyuri_gauge_pattern_frames, chiyuri_gauge_pattern_frames
-_chiyuri_gauge_pattern_frames label byte
-chiyuri_gauge_pattern_frames db PLAYER_COUNT dup(?)
-public _chiyuri_chargeshot_nodes, chiyuri_chargeshot_nodes
-_chiyuri_chargeshot_nodes label byte
-chiyuri_chargeshot_nodes label byte
-		db 96 dup(?)
-public _word_1F51A
-_word_1F51A label word
-word_1F51A	dw ?
-
+; Chiyuri gauge/charge-shot BSS moved to th03/main/chiyuri_bss.asm.
 public _enemy_formation_type, _enemy_formation_i, _enedat_2, _enemy_speed
 public _enedat
 _enemy_formation_type	db ?
