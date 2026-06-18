@@ -3032,13 +3032,7 @@ include th03/sprites/pellet.asp
 
 	.data?
 
-include th03/hardware/input_modes[bss].asm
-include th03/main/demo[bss].asm
-public _word_1E6E8, _fp_1E6EA
-_word_1E6E8 label word
-word_1E6E8	dw ?
-_fp_1E6EA label word
-fp_1E6EA	dw ?
+; Input/demo/round gate BSS prefix moved to th03/main/round_gate_bss.asm.
 include libs/master.lib/clip[bss].asm
 include libs/master.lib/fil[bss].asm
 include libs/master.lib/grcg_circle[bss].asm
