@@ -9,12 +9,14 @@
 #include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/main/sprite16.hpp"
 #include "th03/math/vector.hpp"
 #include "x86real.h"
 
 extern "C" uint8_t byte_20E92[];
 extern "C" uint8_t pid_PID_so_attack;
+extern "C" uint8_t angle_1FBD4;
 
 struct ellen_bomb_vector_t {
 	subpixel_t x;
@@ -389,3 +391,88 @@ active_done:
 	playfield_fg_shift_x[pid_current] = shift_x_backup;
 }
 #pragma warn .aus
+
+extern "C" void pascal far kana_bomb(void)
+{
+	uint8_t frame;
+	uint8_t col;
+	register screen_x_t left;
+	register screen_y_t top;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	frame = bomb_frame[pid_current];
+	if(frame < 64) {
+		_AL = 64;
+		_AL -= frame;
+		col = _AL;
+		_AH = 0;
+		_asm {
+			push	ax
+			push	word ptr pid_current
+			call	far ptr SUB_A3D2
+		}
+		if((frame % 8) == 0) {
+			SUB_CE0C(TO_SP(144), TO_SP(184), pid_current);
+		}
+		angle_1FBD4 = 0;
+		return;
+	}
+
+	if(frame < 128) {
+		egc_off();
+		if((frame & 3) < 2) {
+			snd_se_play(10);
+			_asm {
+				push	160
+				push	word ptr pid_current
+				call	far ptr SUB_A3D2
+			}
+			playfield_fg_shift_x[pid_current] = 4;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+			_asm {
+				push	0
+				push	word ptr pid_current
+				call	far ptr SUB_A3D2
+			}
+		}
+
+		if((frame % 4) == 0) {
+			left = polar(144, 144, CosTable8[angle_1FBD4]);
+			top = polar(184, 144, SinTable8[angle_1FBD4]);
+			SUB_CDBD(TO_SP(left), TO_SP(top), pid_current);
+			angle_1FBD4 = (0x80 - angle_1FBD4);
+			left = polar(144, 144, CosTable8[angle_1FBD4]);
+			top = polar(184, 144, SinTable8[angle_1FBD4]);
+			SUB_CDBD(TO_SP(left), TO_SP(top), pid_current);
+			angle_1FBD4 = (0x80 - angle_1FBD4);
+			angle_1FBD4 += 0x10;
+		}
+
+		left = PLAYFIELD_LEFT;
+		if(pid_current != 0) {
+			left += PLAYFIELD_W_BORDERED;
+		}
+		mrs_put_noalpha_8(
+			left, PLAYFIELD_TOP, (pid_current + 2), (_AX = pid_current)
+		);
+		egc_on();
+		return;
+	}
+
+	playfield_fg_shift_x[pid_current] = 0;
+	_AL = frame;
+	_AL <<= 3;
+	_DL = 255;
+	_DL -= _AL;
+	frame = _DL;
+	_AL = frame;
+	_AL += _AL;
+	col = _AL;
+	Palettes[pid_current].c.r = col;
+	Palettes[pid_current].c.g = _DL;
+	Palettes[pid_current].c.b = frame;
+	palette_changed = true;
+}
