@@ -3160,21 +3160,7 @@ EFE_COUNT = 64
 ENEMY_COUNT = 40
 
 ; Enemy/explosion/score/extend BSS moved to th03/main/enemy_explosion_score_bss.asm.
-public _byte_220DE, byte_220DE, _yumemi_chargeshots, yumemi_chargeshots
-public _byte_220E0, byte_220E0, _byte_220E6, byte_220E6
-_byte_220DE label byte
-byte_220DE	db PLAYER_COUNT dup(?)
-_yumemi_chargeshots label byte
-yumemi_chargeshots label byte
-_byte_220E0 label byte
-byte_220E0	db ?
-		db 5 dup(?)
-_byte_220E6 label byte
-byte_220E6	db ?
-		db 5 dup(?)
-public _word_220EC, word_220EC
-_word_220EC label word
-word_220EC	dw ?
+; Yumemi/Rikako small-state BSS moved to th03/main/yumemi_rikako_small_bss.asm.
 public _collmap_topleft, _collmap_center, _collmap_stripe_tile_w
 public _collmap_tile_h, _collmap_bottomright, _collmap_pid, _collmap
 _collmap_topleft label Point
