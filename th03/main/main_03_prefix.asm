@@ -45,7 +45,7 @@ PID_NONE = 0FFh
 	extrn byte_1F35E:byte
 	extrn word_1F3B0:word
 
-	public SUB_F1FA, sub_F1FA, _sub_F356, sub_F356
+	public SUB_F1FA, sub_F1FA
 
 _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
@@ -227,43 +227,6 @@ loc_F350:
 		leave
 		retn	6
 sub_F1FA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-_sub_F356 label near
-sub_F356	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, word_1F346
-		add	word_1F33E, ax
-		mov	ax, word_1F348
-		add	word_1F340, ax
-		inc	angle_1F350
-		mov	al, angle_1F350
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		call	@polar$qiii c, large (16 shl 16) or 0, _SinTable8[bx]
-		mov	word_1F348, ax
-		cmp	word_1F33E, (48 shl 4)
-		jg	short loc_F399
-		mov	word_1F346, 20h	; ' '
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_F399:
-		cmp	word_1F33E, (240 shl 4)
-		jl	short loc_F3A7
-		mov	word_1F346, 0FFE0h
-
-loc_F3A7:
-		pop	bp
-		retn
-sub_F356	endp
 
 main_03_TEXT	ends
 
