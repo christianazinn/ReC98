@@ -64,7 +64,7 @@ bullet_template_t ends
 	SUB_A3A8 procdesc far
 	_SUB_A3D2 procdesc far
 	SUB_CE0C procdesc far
-	sub_F3A9 procdesc near
+	_sub_F3A9 procdesc near
 	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
@@ -264,7 +264,7 @@ loc_12847:
 ; ---------------------------------------------------------------------------
 
 loc_1284C:
-		call	sub_F3A9	; jumptable 00012744 case 128
+		call	_sub_F3A9	; jumptable 00012744 case 128
 		push	word ptr [bp+@@pid_other]
 		call	SUB_A3A8
 		jmp	short loc_12860	; default

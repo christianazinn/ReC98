@@ -33,7 +33,7 @@ include th03/main/collmap.inc
 	extrn @collmap_set_rect_striped$qv:proc
 	extrn @hitbox_hittest$qv:proc
 
-	sub_F3A9 procdesc near
+	_sub_F3A9 procdesc near
 	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
@@ -153,7 +153,7 @@ loc_110F3:
 ; ---------------------------------------------------------------------------
 
 loc_110F8:
-		call	sub_F3A9	; jumptable 000110E0 case 128
+		call	_sub_F3A9	; jumptable 000110E0 case 128
 
 loc_110FB:
 		mov	ax, word_1F33E	; default

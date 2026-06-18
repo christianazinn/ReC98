@@ -53,7 +53,7 @@ bullet_template_t ends
 	extrn @collmap_set_rect_striped$qv:proc
 	extrn @hitbox_hittest$qv:proc
 
-	sub_F3A9 procdesc near
+	_sub_F3A9 procdesc near
 	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
@@ -187,7 +187,7 @@ loc_130B8:
 ; ---------------------------------------------------------------------------
 
 loc_130BD:
-		call	sub_F3A9	; jumptable 0001308A case 128
+		call	_sub_F3A9	; jumptable 0001308A case 128
 
 loc_130C0:
 		inc	byte_1F354	; default

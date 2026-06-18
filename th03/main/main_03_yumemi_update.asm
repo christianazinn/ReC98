@@ -56,7 +56,7 @@ bullet_template_t ends
 	extrn _snd_se_reset:proc
 	extrn SND_SE_PLAY:proc
 
-	sub_F3A9 procdesc near
+	_sub_F3A9 procdesc near
 	_sub_F402 procdesc near
 	_sub_F4B4 procdesc far
 	SUB_F512 procdesc near
@@ -203,7 +203,7 @@ loc_107FB:
 ; ---------------------------------------------------------------------------
 
 loc_10800:
-		call	sub_F3A9	; jumptable 000107AE case 128
+		call	_sub_F3A9	; jumptable 000107AE case 128
 
 loc_10803:
 		cmp	word_1F356, 0	; default

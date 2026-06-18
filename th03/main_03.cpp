@@ -31,15 +31,32 @@ extern "C" subpixel_t word_1F326;
 extern "C" subpixel_t word_1F328;
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" subpixel_t word_1F346;
 extern "C" uint8_t byte_1F34E;
 extern uint16_t combo_points_for_boss_attack;
 
-extern "C" void near sub_F3A9(void);
 extern "C" void pascal far sub_A3A8(uint8_t pid);
 extern "C" void pascal near sub_F1FA(uint16_t length, subpixel_t y, subpixel_t x);
 extern "C" void near sub_F356(void);
 extern "C" void pascal far marisa_19B06(pid_t pid, subpixel_t x, subpixel_t y);
 extern "C" uint16_t far randring_far_next16_raw(void);
+
+extern "C" void near sub_F3A9(void)
+{
+	word_1F33E += word_1F346;
+	word_1F340 += TO_SP(2);
+	if(word_1F33E <= TO_SP(48)) {
+		word_1F346 = TO_SP(2);
+	} else if(word_1F33E >= TO_SP(240)) {
+		word_1F346 = TO_SP(-2);
+	}
+	word_1F32A[1 - pid_current] = 0;
+	if(word_1F340 >= TO_SP(416)) {
+		byte_1F34F = 0;
+		gba_boss_launched_by = PID_NONE;
+		combo_points_for_boss_attack = 5120;
+	}
+}
 
 extern "C" uint8_t near sub_F402(void)
 {
