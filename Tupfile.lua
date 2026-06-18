@@ -650,6 +650,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main_03w.cpp",
 	"th03/main/main_03_rikako_update.asm",
 	"th03/main_03x.cpp",
+	"th03/main/main_04_randring.asm",
 	"th03/main/main_04_hitbox_prefix.asm",
 	"th03/main/player/ch_shot.cpp",
 	"th03/main/main_06_anchor.asm",
