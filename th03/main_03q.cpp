@@ -7,6 +7,7 @@
 #include "th01/math/subpixel.hpp"
 #include "th02/snd/snd.h"
 #include "th03/main/bullet/bullet.hpp"
+#include "th03/main/hitbox.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
@@ -17,6 +18,7 @@
 
 extern "C" subpixel_t word_1F33E;
 extern "C" subpixel_t word_1F340;
+extern "C" uint16_t word_1F34A;
 extern "C" uint16_t word_1F3B0;
 extern "C" uint16_t word_1F356;
 extern "C" uint8_t byte_1F35E[];
@@ -45,6 +47,11 @@ extern "C" void pascal far SUB_CDBD(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
 extern "C" void pascal far yumemi_1A95F(subpixel_t x, subpixel_t y);
 extern "C" void near sub_F356(void);
+extern "C" void near sub_F3A9(void);
+extern "C" uint8_t near sub_F402(void);
+extern "C" void far sub_F4B4(void);
+extern "C" void pascal near sub_F512(void);
+extern "C" void pascal near sub_F52D(void);
 extern "C" void pascal near sub_F58C(void);
 
 extern "C" void pascal near mima_10053(void)
@@ -416,3 +423,114 @@ extern "C" void pascal near yumemi_10669(void)
 		word_1F3B0 = 0;
 	}
 }
+
+#pragma warn -aus
+#pragma option -G-
+extern "C" void pascal far gba_boss_update_yumemi(void)
+{
+	pid_t pid_other;
+
+	if(sub_F402()) {
+		byte_1F39F = ((gba_boss_level / 2) + 0x10);
+		byte_1F3A0 = ((gba_boss_level / 2) + 0x10);
+		byte_1F3A1 = (gba_boss_level + 0x40);
+		byte_1F3A2 = (0x12 - gba_boss_level);
+		byte_1F3A3 = ((gba_boss_level * 4) + 0x50);
+		byte_1F3A4 = (0x10 - (gba_boss_level / 2));
+	}
+
+	if(pid_current != gba_boss_launched_by) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	bullet_template.pid = pid_other;
+	sub_F512();
+	word_1F3B0++;
+	word_20E50 = (word_1F33E + TO_SP(9));
+	word_20E52 = (word_1F340 + TO_SP(-24));
+
+	switch(byte_1F34F) {
+	case 0:
+		if((word_1F3B0 == 0x18) || (word_1F3B0 == 0x48)) {
+			snd_se_reset();
+			snd_se_play(5);
+		}
+		if(word_1F3B0 != 0x60) {
+			return;
+		}
+		word_1F3B0 = 0;
+		byte_1F34F = 1;
+		break;
+	case 1:
+		sub_F52D();
+		break;
+	case 2:
+	case 3:
+	case 4:
+		yumemi_10324();
+		break;
+	case 7:
+	case 8:
+	case 9:
+		yumemi_10405();
+		break;
+	case 11:
+	case 12:
+	case 13:
+	case 14:
+		yumemi_1050F();
+		break;
+	case 15:
+	case 16:
+	case 17:
+		yumemi_105B5();
+		break;
+	case 5:
+	case 6:
+	case 10:
+		yumemi_10669();
+		break;
+	case 0x80:
+		sub_F3A9();
+		break;
+	case 0xFF:
+		return;
+	default:
+		break;
+	}
+
+	if(word_1F356 != 0) {
+		word_1F356 -= 8;
+	}
+	if(byte_1F354 != 0) {
+		byte_1F354--;
+	}
+
+	collmap_center.x.v = word_1F33E;
+	collmap_center.y.v = word_1F340;
+	collmap_stripe_tile_w.v = (56 / COLLMAP_TILE_W);
+	collmap_tile_h.v = (56 / COLLMAP_TILE_H);
+	collmap_pid = pid_other;
+	collmap_set_rect_striped();
+
+	hitbox_hittest_skip_explosions = true;
+	hitbox.radius.x.v = TO_SP(32);
+	hitbox.radius.y.v = TO_SP(32);
+	hitbox.pid = pid_other;
+	hitbox.origin.center.x.v = word_1F33E;
+	hitbox.origin.center.y.v = word_1F340;
+	_AL = hitbox_hittest();
+	byte_1F34E = _AL;
+	_AH = 0;
+	word_1F34A -= _AX;
+	hitbox_hittest_skip_explosions = false;
+
+	_asm {
+		nop
+		push	cs
+		call	near ptr sub_F4B4
+	}
+}
+#pragma option -G
+#pragma warn .aus
