@@ -719,6 +719,7 @@ obj = {
 	{ "th03/main/entry.cpp", o = "main_entry.obj" },
 	"th03/main/rndloop.cpp",
 	"th03/main/roundcb.cpp",
+	"th03/main/rstart.cpp",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],

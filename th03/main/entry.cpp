@@ -17,7 +17,7 @@ extern "C" const char arg0[];
 extern farfunc_t_near farfp_20F20;
 
 extern "C" uint8_t pascal near sub_9778(void);
-extern "C" void pascal near sub_9B14(void);
+extern "C" void pascal near round_startup(void);
 extern "C" void pascal near sub_A21F(void);
 
 int pascal GameExecl(const char *binary_fn);
@@ -38,7 +38,7 @@ extern "C" void far main_entry(void)
 
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
-	sub_9B14();
+	round_startup();
 	farfp_20F20();
 
 round_loop:
