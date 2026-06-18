@@ -173,46 +173,14 @@ alias <_main> = <_main_entry>
 
 ; Attributes: bp-based frame
 
-sub_9AD6	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_demo_frame, DEMO_N
-		jnb	short loc_9AE7
-		inc	_demo_frame
-		jmp	short loc_9AF5
-; ---------------------------------------------------------------------------
-
-loc_9AE7:
-		cmp	_demo_frame, DEMO_N
-		jnz	short loc_9AF5
-		mov	fp_1FBC0, offset sub_B4A8
-
-loc_9AF5:
-		cmp	byte_1FBC3, 0
-		jz	short loc_9B01
-		mov	byte_23B00, 1
-
-loc_9B01:
-		cmp	_input_sp, INPUT_NONE
-		jz	short loc_9B0D
-		mov	byte_23B00, 1
-
-loc_9B0D:
-		pop	bp
-		retn
-sub_9AD6	endp
+	_demo_round_update procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_9B0F	proc near
-		push	bp
-		mov	bp, sp
-		pop	bp
-		retn
-sub_9B0F	endp
+	_round_mode_update_none procdesc near
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -389,13 +357,13 @@ loc_9C93:
 		les	bx, _resident
 		cmp	es:[bx+resident_t.demo_num], 0
 		jnz	short loc_9CAB
-		mov	fp_1E6EA, offset sub_9B0F
+		mov	fp_1E6EA, offset _round_mode_update_none
 		jmp	short loc_9CD0
 ; ---------------------------------------------------------------------------
 
 loc_9CAB:
 		mov	_demo_frame, 0
-		mov	fp_1E6EA, offset sub_9AD6
+		mov	fp_1E6EA, offset _demo_round_update
 		mov	_round_speed, (4 shl 4)
 		mov	_bullet_base_speed, 0
 		mov	_gba_boss_level, 8
