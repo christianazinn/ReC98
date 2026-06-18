@@ -745,6 +745,7 @@ obj = {
 	"th03/main/enemy_explosion_score_bss.asm",
 	"th03/main/yumemi_rikako_small_bss.asm",
 	"th03/main/collmap_bss.asm",
+	"th03/main/bomb_player_pid_bss.asm",
 	{ "th03_main.asm", extra_inputs = {
 		th03_sprites["pellet"],
 		th03_sprites["score"],

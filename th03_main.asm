@@ -3170,22 +3170,7 @@ BF_ACTIVE = 2
 
 include th03/main/chars/speeds.inc
 
-public _bomb_flag, _player_speed_base, _player_velocity
-_bomb_flag	db PLAYER_COUNT dup(?)
-_player_speed_base	speed_t <?>
-_player_velocity  	SPPoint8 <?>
-public _player_cur, _cpu_hit_damage_additional, _damage_all_on
-_player_cur	dw ?
-_cpu_hit_damage_additional	db ?
-_damage_all_on	db PLAYFIELD_COUNT dup(?)
-		db ?
-include th02/hardware/pages[bss].asm
-public _pid, _pid_PID_current, _pid_PID_so_attack
-_pid_PID_current  	label byte
-_pid_PID_so_attack	label byte
-_pid	db ?
-	evendata
-
+; Bomb/player/PID BSS moved to th03/main/bomb_player_pid_bss.asm.
 ROUND_SPEED_MAX = ((8 shl 4) - 1)
 
 public _round_frame, _round_or_result_frame, _round_speed
