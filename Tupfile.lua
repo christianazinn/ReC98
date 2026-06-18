@@ -635,7 +635,7 @@ obj += {
 	"th03/mainl/mainl_03_anchor.asm",
 	"th03/mainl/cdgunput.cpp",
 	"th03/mainl/stf_bclr.cpp",
-	"th03/mainl/cdg_put_dissolve.asm",
+	"th03/mainl/cdgdislv.cpp",
 	"th03/mainl/stf_cdg.cpp",
 	"th03/mainl/stf_vrd.cpp",
 	"th03/mainl/stf_drv.cpp",
