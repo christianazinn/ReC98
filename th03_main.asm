@@ -158,79 +158,16 @@ PLAYFLD_TEXT segment word public 'CODE' use16
 ; Attributes: bp-based frame
 
 ; int __cdecl main(int argc, const char	**argv,	const char **envp)
-public _main
-_main		proc far
-
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		call	@game_init_main$qnxuc pascal, ds, offset aCOul
-		call	@cfg_load_resident_ptr$qv
-		or	ax, ax
-		jz	short @@ret
-		mov	_snd_midi_active, 0
-		les	bx, _resident
-		cmp	es:[bx+resident_t.bgm_mode], SND_BGM_OFF
-		jz	short loc_970F
-		call	_snd_determine_mode
-
-loc_970F:
-		call	gaiji_backup
-		push	ds
-		push	offset aGameft_bft ; "GAMEFT.bft"
-		call	gaiji_entry_bfnt
-		call	sub_9B14
-		call	farfp_20F20
-
-loc_9724:
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		call	sub_9778
-		mov	ah, 0
-		mov	si, ax
-		les	bx, _resident
-		mov	eax, _round_frame
-		mov	es:[bx+resident_t.rand], eax
-		cmp	si, 1
-		jnz	short loc_974D
-		call	sub_A21F
-		jmp	short loc_9724
-; ---------------------------------------------------------------------------
-
-loc_974D:
-		call	@enemy_formations_free$qv
-		kajacall	KAJA_SONG_STOP
-		or	si, si
-		jnz	short loc_9764
-		push	ds
-		push	offset aOp	; "op"
-		jmp	short loc_9770
-; ---------------------------------------------------------------------------
-
-loc_9764:
-		les	bx, _resident
-		inc	es:[bx+resident_t.story_stage]
-		push	ds
-		push	offset arg0	; "mainl"
-
-loc_9770:
-		nopcall	@GAMEEXECL$QNXC
-
-@@ret:
-		pop	si
-		pop	bp
-		retf
-_main		endp
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+public SUB_9778
+SUB_9778 label near
 sub_9778	proc near
 		push	bp
 		mov	bp, sp
@@ -555,6 +492,8 @@ sub_9B0F	endp
 
 ; Attributes: bp-based frame
 
+public SUB_9B14
+SUB_9B14 label near
 sub_9B14	proc near
 
 var_8		= word ptr -8
@@ -3835,10 +3774,15 @@ story_cpu_safety_frames label word
 		db 0BCh
 		db    2
 include th03/main/chars/speeds[data].asm
+public _aCOul, _aGameft_bft, _aOp, _arg0
+_aCOul		label byte
 aCOul		db '–²Žž‹ó2.dat',0
+_aGameft_bft	label byte
 aGameft_bft	db 'GAMEFT.bft',0
+_aOp		label byte
 aOp		db 'op',0
 ; char arg0[]
+_arg0		label byte
 arg0		db 'mainl',0
 aLose_bf2	db 'lose.bf2',0
 aRound_bf2	db 'round.bf2',0
