@@ -1,6 +1,8 @@
 	.386
 	.model use16 large _TEXT
 
+BINARY = 'M'
+
 include ReC98.inc
 include th02/gaiji/boldfont.inc
 include th03/arg_bx.inc
@@ -61,6 +63,8 @@ include th03/main/support_format[decl].inc
 	extern _sprite16_put_w:byte
 	extern _playfield_clip_negative_radius:word:2
 	extern _resident:dword
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
 _TEXT		segment	word public 'CODE' use16
 		assume cs:_TEXT
