@@ -767,7 +767,6 @@ obj = {
 	"th03/main/round_frame_bss.asm",
 	"th03/main/player_shot_result_tail_bss.asm",
 	"th03/maintext.asm",
-	"th03_main.asm",
 	"th03/hitcb.cpp",
 	"th03/main/hitc_sfx.asm",
 	"th03/main_05.cpp",
