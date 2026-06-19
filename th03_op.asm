@@ -18,6 +18,7 @@
 
 include ReC98.inc
 include th03/opsf[decl].inc
+include th03/opb[decl].inc
 
 _TEXT	segment	word public 'CODE' use16
 	assume cs:_TEXT
@@ -123,21 +124,6 @@ _TEXT	ends
 
 	.data?
 
-include libs/master.lib/clip[bss].asm
-include libs/master.lib/fil[bss].asm
-include libs/master.lib/js[bss].asm
-include libs/master.lib/pal[bss].asm
-include libs/master.lib/vs[bss].asm
-include libs/master.lib/vsync[bss].asm
-include libs/master.lib/mem[bss].asm
-include libs/master.lib/superpa[bss].asm
-include th01/hardware/vram_planes[bss].asm
-include th02/snd/snd[bss].asm
-include th02/snd/load[bss].asm
-include libs/master.lib/pfint21[bss].asm
-include th03/hardware/input[bss].asm
-include th03/formats/cdg[bss].asm
-include th02/formats/pi_slots[bss].asm
-include th03/formats/hfliplut[bss].asm
+; BSS moved to th03/op[bss].asm.
 
 	end
