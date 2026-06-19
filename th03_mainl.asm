@@ -25,6 +25,7 @@ include th03/sprites/regi.inc
 include th03/formats/scoredat.inc
 include th03/mainl/support_format[decl].inc
 include th03/mainl/continue_cutscene[decl].inc
+include th03/mainl/mlsb[decl].inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
@@ -404,23 +405,7 @@ SHARED	ends
 	extern _playchar:byte:PLAYCHAR_COUNT
 	extern _do_not_show_stage_number:byte
 
-include libs/master.lib/clip[bss].asm
-include libs/master.lib/fil[bss].asm
-include libs/master.lib/js[bss].asm
-include libs/master.lib/pal[bss].asm
-include libs/master.lib/vs[bss].asm
-include libs/master.lib/vsync[bss].asm
-include libs/master.lib/mem[bss].asm
-include libs/master.lib/superpa[bss].asm
-include th01/hardware/vram_planes[bss].asm
-include th02/snd/snd[bss].asm
-include th02/snd/load[bss].asm
-include libs/master.lib/pfint21[bss].asm
-include th03/hardware/input[bss].asm
-include th03/formats/cdg[bss].asm
-include th02/formats/pi_slots[bss].asm
-include th03/formats/hfliplut[bss].asm
-include th03/cutscene/cutscene[bss].asm
+; Support/cutscene BSS moved to th03/mainl/mlsb[bss].asm.
 public _resident
 _resident	dd ?
 public _hi

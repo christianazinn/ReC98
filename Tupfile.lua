@@ -781,6 +781,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/mainl/stf_vrd.cpp",
 	"th03/mainl/stf_drv.cpp",
 	"th03/mainl/mlentry.cpp",
+	"th03/mainl/mlsbss.asm",
 	"th03_mainl.asm",
 	"th03/mainl/ending.cpp",
 	"th03/cutscene/continue.cpp",
