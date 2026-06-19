@@ -1,6 +1,4 @@
-; No-byte declarations for data moved to th03/mainl/support_format[data].asm.
-extern AtanTable8:byte
-extern _AtanTable8:byte
+; No-byte declarations for data moved to th03/opsf[data].asm.
 extern BFNT_ID:byte
 extern _BFNT_ID:byte
 extern ClipXL:word
@@ -103,10 +101,6 @@ extern ResPalID:byte
 IDLEN EQU 10
 extern trapezoid_hmask:word
 extern _trapezoid_hmask:word
-extern _snd_se_playing:byte
-extern _snd_se_frame:byte
 extern ext_exe:byte
 extern pf_limit:byte
 extern _cdg_noalpha:byte
-extern _snd_se_priorities:byte
-extern _snd_se_priority_frames:byte
