@@ -12,6 +12,9 @@ include th03/mainl/mlsb[decl].inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
+extrn _mainl_entry:far
+alias <_main> = <_mainl_entry>
+alias <_execl_raw> = <_execl>
 
 _TEXT		segment	word public 'CODE' use16
 		assume cs:_TEXT
