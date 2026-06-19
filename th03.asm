@@ -401,10 +401,7 @@ mainl_03_TEXT	ends
 	extern _do_not_show_stage_number:byte
 
 ; Support/cutscene BSS moved to th03/mainl/mlsb[bss].asm.
-public _hi
-_hi	scoredat_section_t <?>
-include th03/hiscore/regist[bss].asm
-		db 2 dup(?)
+; Resident/high-score BSS moved to th03/mainl/mlrh[bss].asm.
 _staffroll_flake_count label byte
 byte_106B0	db ?
 	evendata
