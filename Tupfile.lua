@@ -604,6 +604,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th03/op_01.cpp",
 	"th03/opsfmdat.asm",
 	"th03/opbss.asm",
+	"th03/optext.asm",
 	"th03_op.asm",
 	"th03/op_music.cpp",
 	"th03/op_main.cpp",
