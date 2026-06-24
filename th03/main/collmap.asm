@@ -90,7 +90,7 @@ public @collmap_set_rect_striped$qv
 	mov	@@column_stride, ax	;
 
 @@set_left:
-	mov	@@left, _collmap_center.x
+	mov	@@left, word ptr _collmap_center
 	sar	@@left, (SUBPIXEL_BITS + COLLMAP_TILE_W_BITS)
 
 	mov	@@tile_w_remaining_wide, _collmap_stripe_tile_w
