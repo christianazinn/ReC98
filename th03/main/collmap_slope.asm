@@ -63,11 +63,11 @@ SLOPE_STRIPES = (COLLMAP_H / COLLMAP_SLOPE_VSTRIPE_DISTANCE)
 	xor	ah, ah
 	mov	@@pattern, ax
 
-	mov	ax, _collmap_bottomright.x
-	sub	ax, _collmap_topleft.x
+	mov	ax, word ptr _collmap_bottomright
+	sub	ax, word ptr _collmap_topleft
 	mov	@@slope_subpixel_w, ax
 	jmp	short $+2
-	mov	@@left, _collmap_bottomright.x
+	mov	@@left, word ptr _collmap_bottomright
 	mov	@@y_double, (SLOPE_STRIPES - 1)
 	even
 
@@ -108,7 +108,7 @@ SLOPE_STRIPES = (COLLMAP_H / COLLMAP_SLOPE_VSTRIPE_DISTANCE)
 	imul	@@y_double
 	mov	cx, SLOPE_STRIPES
 	idiv	cx	; 32-bit division of DX:AX by CX!
-	mov	@@left, _collmap_topleft.x
+	mov	@@left, word ptr _collmap_topleft
 	add	@@left, ax
 
 	sub	@@collmap_p_base_player_and_row, COLLMAP_SLOPE_VSTRIPE_DISTANCE
