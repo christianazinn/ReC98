@@ -187,4 +187,10 @@ stage_splash_load_and_show:
 	}
 }
 
+int main_cutscene(int argc, const char *argv[])
+{
+	mainl_entry(argc, argv, nullptr);
+	return 0;
+}
+
 #pragma codeseg
