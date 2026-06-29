@@ -13,8 +13,8 @@
 #include "th03/snd/snd.h"
 
 extern const char near* PIC_FN[PLAYCHAR_COUNT];
-shiftjis_t win_text[WIN_LINES][WIN_LINE_SIZE + 1];
-PlaycharPaletted playchar[PLAYER_COUNT];
+extern shiftjis_t win_text[WIN_LINES][WIN_LINE_SIZE + 1];
+extern PlaycharPaletted playchar[PLAYER_COUNT];
 
 // Win screen
 // ----------
@@ -204,7 +204,7 @@ int near sub_9887(void)
 // Stage splash screen
 // -------------------
 
-bool do_not_show_stage_number;
+extern bool do_not_show_stage_number;
 
 extern const char near* stage_number_cdg_fn;
 extern char near* stage_splash_bg_fn;
