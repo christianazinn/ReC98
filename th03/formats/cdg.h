@@ -100,7 +100,7 @@ void pascal cdg_put_hflip_8(screen_x_t left, vram_y_t top, int slot);
 // Displays the CDG image in the given [slot] centered at
 // (⌊center_x/8⌋*8, center_y), then applies a dissolve effect with the given
 // [strength] (mod 8, 0 = none, 7 = full) on the E bitplane.
-void pascal cdg_put_dissolve_e_8(
+void pascal near cdg_put_dissolve_e_8(
 	screen_x_t center_x, vram_y_t center_y, int slot, int strength
 );
 
@@ -108,7 +108,7 @@ void pascal cdg_put_dissolve_e_8(
 // centered at (⌊center_x/8⌋*8, center_y), this function clears the two lines
 // at the bottom of that image, as well as the one line immediately below, from
 // the VRAM's E plane.
-void cdg_unput_for_upwards_motion_e_8(
+void pascal near cdg_unput_for_upwards_motion_e_8(
 	screen_x_t center_x, vram_y_t center_y, int slot
 );
 #endif

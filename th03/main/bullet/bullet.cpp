@@ -1,23 +1,33 @@
 #pragma option -zPmain_04 -G
 
+#include "libs/master.lib/master.hpp"
+#include "th03/formats/mrs.hpp"
+#include "th03/hardware/palette.hpp"
 #include "th03/main/bullet/bullet.hpp"
 #include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
+#include "th03/main/enemy/efe.hpp"
 #include "th03/main/enemy/expl.hpp"
 #include "th03/main/difficul.hpp"
+#include "th03/main/hitcirc.hpp"
 #include "th03/main/hitbox.hpp"
+#include "th03/main/playfld.hpp"
+#include "th03/main/sprite16.hpp"
+#include "th03/math/polar.hpp"
 #include "th03/math/randring.hpp"
 #include "th03/math/vector.hpp"
 #include "th03/sprites/pellet.h"
 #include "th02/main/bullet/impl.hpp"
+#include "th02/snd/snd.h"
 #include "th02/sprites/bullet16.h"
 #include "th02/v_colors.hpp"
 #include "th01/hardware/grcg.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform/x86real/flags.hpp"
+#include "codegen.hpp"
 #include "decomp.hpp"
 #include <stddef.h>
 
@@ -130,6 +140,578 @@ uint8_t bullet_trail_ring_i;
 #pragma option -k-
 #pragma warn -rch
 
+extern "C" uint8_t byte_202B8[];
+extern "C" uint8_t byte_202B9[];
+extern "C" uint8_t byte_20E92[];
+extern "C" uint8_t byte_220DE[];
+extern "C" uint8_t byte_220E0;
+extern "C" uint8_t byte_220E6;
+extern "C" uint8_t yumemi_chargeshots[];
+extern "C" uint8_t hitbox_pid;
+extern "C" uint8_t pid_PID_current;
+extern "C" uint8_t pid_PID_so_attack;
+
+extern "C" void pascal far sub_A3A8(uint8_t pid);
+extern "C" void pascal far SUB_CDBD(
+	subpixel_t x, subpixel_t y, uint16_t pid
+);
+extern "C" void pascal far SUB_CE5B(subpixel_t x, subpixel_t y, uint16_t pid);
+extern "C" void pascal far GRCG_OFF(void);
+extern "C" void far sub_B39E(void);
+
+#define bullets_add_nopcall() { \
+	_asm { nop; push cs; call near ptr bullets_add; } \
+}
+
+#pragma option -k.
+#pragma option -a2
+
+struct target_enemy_t {
+	efe_flag_t flag;
+	uint8_t frame;
+	PlayfieldPoint center;
+	uint8_t explosion_max_enemy_hits_half;
+	uint8_t hp;
+	pid_t pid;
+	pixel_length_8_t size_pixels;
+	uint16_t script_ip;
+	uint16_t script_op_frame;
+	uint8_t near *script_base;
+	SPPoint velocity;
+	int8_t unused_1[4];
+	uint16_t angle;
+	int8_t angle_speed;
+	int8_t unused_2;
+	uint8_t chain_slot;
+	uint8_t formation_type;
+	uint8_t formation_i;
+	subpixel_length_8_t speed;
+	uint8_t loop_i;
+	uint8_t pos_type;
+	int8_t padding[14];
+};
+
+inline void target_enemy_t_verify(void) {
+	efe_subclass_verify(reinterpret_cast<target_enemy_t *>(nullptr));
+}
+
+static const int TARGET_ENEMY_COUNT = 40;
+static const efe_flag_t EF_RUNNING_SPAWNED_TARGET = 1;
+
+#define target_enemies reinterpret_cast<target_enemy_t *>(&efes[0])
+
+#pragma option -a1
+#pragma option -G-
+#pragma warn -aus
+
+extern "C" subpixel_t word_1F326;
+extern "C" subpixel_t word_1F328;
+extern "C" uint16_t word_1F32A[];
+extern "C" signed char byte_20E48;
+extern "C" subpixel_t word_2142E;
+extern "C" subpixel_t word_21430;
+
+extern "C" void pascal far sub_16983(uint8_t pid)
+{
+	register target_enemy_t near *p;
+
+	_DL = -1;
+	if(word_1F32A[pid] != 0) {
+		byte_20E48 = -2;
+		word_2142E = word_1F326;
+		word_21430 = word_1F328;
+		return;
+	}
+
+	p = target_enemies;
+	_CX = 0;
+	goto scan_test;
+
+scan_next:
+	if(p->flag != EF_RUNNING_SPAWNED_TARGET) {
+		goto scan_advance;
+	}
+	if(p->pid != pid) {
+		goto scan_advance;
+	}
+	if(p->center.x.v < 0) {
+		goto scan_advance;
+	}
+	if(p->center.x.v > TO_SP(PLAYFIELD_W)) {
+		goto scan_advance;
+	}
+	if(p->center.y.v < 0) {
+		goto scan_advance;
+	}
+	if(p->center.y.v > TO_SP(PLAYFIELD_H + PLAYFIELD_BORDER)) {
+		goto scan_advance;
+	}
+	if(p->formation_i >= _DL) {
+		goto scan_advance;
+	}
+	_DL = p->formation_i;
+	efe_p.efe = reinterpret_cast<efe_t near *>(p);
+	if(_DL == 0) {
+		goto scan_done;
+	}
+
+scan_advance:
+	_CX++;
+	p++;
+
+scan_test:
+	if(static_cast<int16_t>(_CX) < TARGET_ENEMY_COUNT) {
+		goto scan_next;
+	}
+
+scan_done:
+	if(static_cast<signed char>(_DL) == -1) {
+		word_2142E = TO_SP(144);
+		word_21430 = TO_SP(300);
+		byte_20E48 = -1;
+		return;
+	}
+
+	_BX = reinterpret_cast<uint16_t>(efe_p.efe);
+	_AX = reinterpret_cast<target_enemy_t near *>(_BX)->center.x.v;
+	_AX += TO_SP(-16);
+	word_2142E = _AX;
+	_AX = reinterpret_cast<target_enemy_t near *>(_BX)->center.y.v;
+	_AX += TO_SP(110);
+	word_21430 = _AX;
+	byte_20E48 = _DL;
+	if(
+		(word_2142E <= 0) ||
+		(word_2142E >= TO_SP(PLAYFIELD_W)) ||
+		(word_21430 <= 0) ||
+		(word_21430 >= TO_SP(PLAYFIELD_H + PLAYFIELD_BORDER))
+	) {
+		word_2142E = TO_SP(144);
+		word_21430 = TO_SP(300);
+	}
+}
+
+extern "C" void far sub_16A55(void)
+{
+	byte_220E0 = 0;
+	byte_220E6 = 0;
+}
+
+extern "C" void pascal far chargeshot_add_yumemi(
+	Subpixel center_x, Subpixel center_y
+)
+{
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_PID_current * 6));
+	shot[0] = 1;
+	shot[1] = 0;
+	reinterpret_cast<Subpixel near *>(shot + 2)[0] = center_x;
+	reinterpret_cast<Subpixel near *>(shot + 4)[0] = center_y;
+}
+
+extern "C" void pascal far chargeshot_update_yumemi(void)
+{
+	uint8_t frame;
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	if(shot[0] != 0) {
+		_AL = shot[1];
+		_AL++;
+		shot[1] = _AL;
+		frame = _AL;
+		if(shot[0] == 1) {
+			reinterpret_cast<Subpixel near *>(shot + 4)[0].v -= 0x40;
+			if(
+				(frame >= 0x40) ||
+				(reinterpret_cast<Subpixel near *>(shot + 4)[0].v <= 0)
+			) {
+				shot[0] = 2;
+				shot[1] = 0;
+				snd_se_play(7);
+			}
+		} else {
+			if(frame >= 0x18) {
+				if((frame % 2) == 0) {
+					snd_se_play(15);
+				}
+			}
+			if(frame >= 0x40) {
+				shot[0] = 0;
+			}
+		}
+		players[pid_current].gauge_charged = 0;
+	}
+}
+
+uint8_t far chargeshot_hittest_yumemi(void)
+{
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (hitbox_pid * 6));
+	if(shot[0] == 0) {
+		goto miss;
+	}
+
+	if(shot[0] == 1) {
+		if(
+			(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(-8) > hitbox.right.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(8) < hitbox.origin.topleft.x.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(-8) > hitbox.bottom.v) ||
+			(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(8) < hitbox.origin.topleft.y.v)
+		) {
+			goto miss;
+		}
+		shot[0] = 2;
+		shot[1] = 0;
+		snd_se_play(7);
+		goto miss;
+	}
+
+	if(
+		(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(-56) > hitbox.right.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 2)[0].v + TO_SP(56) < hitbox.origin.topleft.x.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(-56) > hitbox.bottom.v) ||
+		(reinterpret_cast<Subpixel near *>(shot + 4)[0].v + TO_SP(56) < hitbox.origin.topleft.y.v)
+	) {
+		goto miss;
+	}
+	hitcircles_enemy_add(
+		hitbox.origin.topleft.x.v,
+		hitbox.origin.topleft.y.v,
+		hitbox_pid
+	);
+	_AL = 1;
+	goto done;
+
+miss:
+	_AL = 0;
+
+done:
+	return _AL;
+}
+
+extern "C" void pascal near yumemi_chargeshot_16BB5(
+	sprite16_offset_t sprite_offset, int length, uint8_t angle
+)
+{
+	screen_y_t top;
+	int i;
+	subpixel_t center_x;
+	subpixel_t center_y;
+	uint8_t frame;
+	uint8_t angle_cur;
+	register uint8_t near *shot;
+	register screen_x_t left;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	frame = shot[1];
+	center_x = (reinterpret_cast<Subpixel near *>(shot + 2)[0].v - TO_SP(16));
+	center_y = (reinterpret_cast<Subpixel near *>(shot + 4)[0].v - TO_SP(16));
+	i = 0;
+	_AL = frame;
+	_AL += _AL;
+	goto angle_store;
+
+loop:
+	left = polar(center_x, length, CosTable8[angle_cur]);
+	top = polar(
+		center_y,
+		length,
+		SinTable8[static_cast<uint8_t>(angle_cur + angle)]
+	);
+	left = playfield_fg_x_to_screen(left, pid_current);
+	_AX = top;
+	asm { sar ax, SUBPIXEL_BITS; }
+	_AX += 16;
+	top = _AX;
+	sprite16_put(left, _AX, sprite_offset);
+	i++;
+	_AL = angle_cur;
+	_AL += 0x10;
+
+angle_store:
+	angle_cur = _AL;
+
+loop_check:
+	if(i < 0x10) {
+		goto loop;
+	}
+}
+
+extern "C" void pascal far chargeshot_render_yumemi(void)
+{
+	screen_x_t left;
+	screen_y_t top;
+	uint8_t frame;
+	register uint8_t near *shot;
+
+	shot = (yumemi_chargeshots + (pid_current * 6));
+	if(shot[0] == 0) {
+		return;
+	}
+
+	sprite16_put_size.w.v = (32 / 16);
+	sprite16_put_size.h = 16;
+	if(pid_current == 0) {
+		sprite16_clip.left = PLAYFIELD1_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD1_CLIP_RIGHT;
+	} else {
+		sprite16_clip.left = PLAYFIELD2_CLIP_LEFT;
+		sprite16_clip.right = PLAYFIELD2_CLIP_RIGHT;
+	}
+
+	_SI = (pid_PID_so_attack + (40 * ROW_SIZE));
+	frame = shot[1];
+	if((frame & 1) != 0) {
+		_SI += 4;
+	}
+
+	if(shot[0] == 1) {
+		left = (
+			playfield_fg_x_to_screen(
+				reinterpret_cast<Subpixel near *>(shot + 2)[0].v,
+				pid_current
+			) - 16
+		);
+		_AX = reinterpret_cast<Subpixel near *>(shot + 4)[0].v;
+		asm { sar ax, SUBPIXEL_BITS; }
+		top = _AX;
+		sprite16_put(left, _AX, _SI);
+		return;
+	}
+
+	_SI += (16 * ROW_SIZE);
+	if(frame < 8) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+		}
+		goto call_with_angle_0;
+	}
+	if(frame < 0x10) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFF9h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+		}
+		goto call_helper;
+	}
+	if(frame < 0x18) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFF1h
+		}
+		goto call_with_angle_224;
+	}
+	if(frame < 0x20) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFE8h
+		}
+		goto call_with_angle_0;
+	}
+	if(frame < 0x28) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFE1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+		}
+		goto call_helper;
+	}
+	if(frame >= 0x30) {
+		goto ge_30;
+	}
+	_asm {
+		push	si
+		mov	al, [bp-5]
+		mov	ah, 0
+		add	ax, 0FFD9h
+	}
+
+call_with_angle_224:
+	_asm {
+		shl	ax, 3
+		shl	ax, 4
+		push	ax
+		push	224
+	}
+	goto call_helper;
+
+ge_30:
+	if(frame >= 0x40) {
+		return;
+	}
+	if(frame < 0x38) {
+		_asm {
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFD1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	20h
+			call	near ptr yumemi_chargeshot_16BB5
+			push	si
+			mov	al, [bp-5]
+			mov	ah, 0
+			add	ax, 0FFD1h
+			shl	ax, 3
+			shl	ax, 4
+			push	ax
+			push	224
+			call	near ptr yumemi_chargeshot_16BB5
+		}
+	}
+	_asm {
+		push	si
+		mov	al, [bp-5]
+		mov	ah, 0
+		add	ax, 0FFD0h
+	}
+
+call_with_angle_0:
+	_asm {
+		shl	ax, 3
+		shl	ax, 4
+		push	ax
+		push	0
+	}
+	goto call_helper;
+
+call_helper:
+	_asm {
+		call	near ptr yumemi_chargeshot_16BB5
+	}
+}
+#pragma warn .aus
+
+void pascal near gauge_pattern_yumemi(uint8_t type)
+{
+	uint8_t pid_other;
+	uint8_t flag_expected;
+	register subpixel_t center_x;
+	register subpixel_t center_y;
+
+	flag_expected = GBAF_GAUGE_PELLET_INIT;
+	if(*reinterpret_cast<uint16_t *>(&type) == BT_BULLET16_DEFAULT) {
+		_AL = flag_expected;
+		_AL += GBAF_PELLET_TO_BULLET;
+		flag_expected = _AL;
+	}
+
+	if(gba_flag_active[pid_current] == flag_expected) {
+		byte_220DE[pid_current] = 0;
+		gba_flag_active[pid_current]++;
+		byte_202B8[pid_current * 4] = (gba_gauge_level[pid_current] + 0x18);
+		byte_202B9[pid_current * 4] = (gba_gauge_level[pid_current] + 0x20);
+		return;
+	}
+
+	if(gba_flag_active[pid_current] != (flag_expected + 1)) {
+		return;
+	}
+
+	pid_other = (1 - pid_current);
+	if((byte_220DE[pid_current] % 8) == 0) {
+		bullet_template.type = static_cast<bullet_type_t>(type);
+		bullet_template.speed.v = byte_202B9[pid_current * 4];
+		bullet_template.pid = pid_other;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = byte_202B8[pid_current * 4];
+
+		switch(byte_220DE[pid_current]) {
+		case 0:
+			center_x = (144 << 4);
+			center_y = (32 << 4);
+			break;
+		case 8:
+			center_x = (96 << 4);
+			center_y = (80 << 4);
+			break;
+		case 0x10:
+			center_x = (192 << 4);
+			center_y = (80 << 4);
+			bullet_template.center.x.v = (144 << 4);
+			bullet_template.center.y.v = (32 << 4);
+			break;
+		case 0x18:
+			center_x = (96 << 4);
+			center_y = (56 << 4);
+			bullet_template.center.x.v = (96 << 4);
+			bullet_template.center.y.v = (80 << 4);
+			break;
+		case 0x20:
+			center_x = (192 << 4);
+			center_y = (56 << 4);
+			bullet_template.center.x.v = (192 << 4);
+			bullet_template.center.y.v = (80 << 4);
+			break;
+		case 0x28:
+			center_x = (144 << 4);
+			center_y = (104 << 4);
+			bullet_template.center.x.v = (96 << 4);
+			bullet_template.center.y.v = (56 << 4);
+			break;
+		case 0x30:
+			bullet_template.center.x.v = (192 << 4);
+			bullet_template.center.y.v = (56 << 4);
+			break;
+		case 0x38:
+			bullet_template.center.x.v = (144 << 4);
+			bullet_template.center.y.v = (104 << 4);
+			gba_flag_active[pid_current] = GBAF_NONE;
+			sub_A3A8(pid_other);
+			break;
+		}
+
+		if(byte_220DE[pid_current] <= 0x28) {
+			SUB_CE5B(center_x, center_y, static_cast<uint16_t>(pid_other));
+		}
+		if(byte_220DE[pid_current] >= 0x10) {
+			bullets_add_nopcall();
+		}
+	}
+
+	byte_220DE[pid_current]++;
+}
+#pragma option -G
+#pragma option -a2
+
+extern "C" void pascal far gba_gauge_pattern_pellet_yumemi(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_yumemi(BT_PELLET);
+	}
+}
+
+extern "C" void pascal far gba_gauge_pattern_bullet_yumemi(void)
+{
+	if(gba_flag_active[pid_current] != GBAF_NONE) {
+		gauge_pattern_yumemi(BT_BULLET16_DEFAULT);
+	}
+}
+#pragma option -k-
+#undef bullets_add_nopcall
+
 void __fastcall near grcg_pellet_put(
 	screen_x_t /* _AX */, size_t cel_offset, vram_y_t top
 )
@@ -206,6 +788,88 @@ narrow:
 #pragma option -k.
 #pragma warn +rch
 #pragma codeseg
+
+extern "C" void pascal near mima_bomb_1714F(void);
+
+#pragma option -G-
+extern "C" void pascal far mima_bomb(void)
+{
+	uint8_t frame;
+	uint8_t col;
+
+	if(bomb_flag[pid_current] == BF_INACTIVE) {
+		return;
+	}
+	egc_off();
+	frame = bomb_frame[pid_current];
+	if(frame <= 80) {
+		grcg_setcolor(GC_RMW, pid_current);
+		_BX = FP_OFF(byte_20E92);
+		if(pid_current != 0) {
+			_BX += 0x28;
+		}
+		sub_B39E();
+		GRCG_OFF();
+		_AL = frame;
+		_AH = 0;
+		imul_reg_to_reg(_AX, _AX, 3);
+		_DL = 0;
+		_DL -= _AL;
+		col = _DL;
+		Palettes[pid_current].c.r = _DL;
+		Palettes[pid_current].c.g = _DL;
+		Palettes[pid_current].c.b = _DL;
+		palette_changed = true;
+		egc_on();
+		mima_bomb_1714F();
+		goto egc_on_and_ret;
+	} else if(frame < 144) {
+		if((frame & 1) == 0) {
+			snd_se_play(16);
+			Palettes[pid_current].c.r = 100;
+		} else {
+			Palettes[pid_current].c.r = 0;
+		}
+		Palettes[pid_current].c.g = 0;
+		Palettes[pid_current].c.b = 0;
+		palette_changed = true;
+
+		col = (frame % 8);
+		if(col == 0) {
+			SUB_CDBD(TO_SP(144), TO_SP(184), pid_current);
+		}
+		if((col & 3) < 2) {
+			playfield_fg_shift_x[pid_current] = 4;
+		} else {
+			playfield_fg_shift_x[pid_current] = -4;
+		}
+		mrs_put_noalpha_8(
+			(
+				(pid_current * PLAYFIELD_W_BORDERED) +
+				playfield_fg_shift_x[pid_current] +
+				PLAYFIELD_LEFT
+			),
+			PLAYFIELD_TOP,
+			(pid_current + 2),
+			(_AX = pid_current)
+		);
+	} else {
+		playfield_fg_shift_x[pid_current] = 0;
+		_AL = frame;
+		_AL <<= 3;
+		_DL = 255;
+		_DL -= _AL;
+		col = _DL;
+		Palettes[pid_current].c.r = _DL;
+		Palettes[pid_current].c.g = _DL;
+		Palettes[pid_current].c.b = _DL;
+		palette_changed = true;
+	}
+
+egc_on_and_ret:
+	egc_on();
+}
+#pragma option -G
 
 void bullets_reset(void)
 {

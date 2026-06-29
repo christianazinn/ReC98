@@ -108,21 +108,84 @@ echo -c -s -t c0t.obj obj\th03\res_yume.obj, bin\th03\res_yume.com, obj\th03\res
 tlink @obj\th03\res_yume.@l
 echo 5 -1 -2 -3 -4 -5 libs/kaja/ongchk.com bin/th02/zuninit.com bin/th01/zunsoft.com bin/th03/zunsp.com bin/th03/res_yume.com>obj\th03\zun.@z
 bin\Pipeline\zungen.com obj/Pipeline/zun_stub.bin obj\th03\zun.@z bin/th03/zun.com
-echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=3  -ml  -nobj/th03/  th03/pc98/\entry.cpp  th03/pc98/\game_bat.cpp  th03/cfg_lres.cpp  th03/op_01.cpp  th03/op_music.cpp  th03/op_main.cpp  th03/scoredat.cpp  th03/op_sel.cpp  th03/mainl_sc.cpp  th03/cutscene.cpp  th03/regist.cpp  th03/staff.cpp  th03/cdg_load.cpp  th03/exit.cpp  th03/exitmain.cpp  th03/initmain.cpp  th03/initop.cpp  th03/inp_m_w.cpp  th03/inp_wait.cpp  th03/input_s.cpp  th03/snd_dlym.cpp  th03/snd_kaja.cpp  th03/snd_se.cpp>obj\batch008.@c
-echo th03/sprites/pi_mask.cpp  th03/vector.cpp>>obj\batch008.@c
+echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=3  -ml  -nobj/th03/  th03/pc98/\entry.cpp  th03/pc98/\game_bat.cpp  th03/cfg_lres.cpp  th03/op_01.cpp  th03/mainl_sc.cpp  th03/mainl/cdgunput.cpp  th03/mainl/stf_bclr.cpp  th03/mainl/cdgdislv.cpp  th03/mainl/stf_cdg.cpp  th03/mainl/stf_vrd.cpp  th03/mainl/stf_drv.cpp  th03/mainl/mlentry.cpp  th03/cutscene/continue.cpp  th03/op_music.cpp  th03/op_main.cpp  th03/scoredat.cpp  th03/op_sel.cpp  th03/mainl/ending.cpp  th03/cutscene.cpp>obj\batch008.@c
+echo th03/regist.cpp  th03/staff.cpp  th03/cdg_load.cpp  th03/exit.cpp  th03/exitmain.cpp  th03/hfliplut.cpp  th03/initmain.cpp  th03/initop.cpp  th03/inp_m_w.cpp  th03/inp_wait.cpp  th03/input_s.cpp  th03/snd_dlym.cpp  th03/snd_kaja.cpp  th03/snd_se.cpp  th03/sprites/pi_mask.cpp  th03/vector.cpp>>obj\batch008.@c
 tcc @obj/batch008.@c
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\mainl\screens_data.asm obj\th03\screens_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\mainl\mainl_03_anchor.asm obj\th03\mainl_03_anchor.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\mainl\mlsbss.asm obj\th03\mlsbss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\mainl\mlrhbss.asm obj\th03\mlrhbss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\mainl\mlsvbss.asm obj\th03\mlsvbss.obj
 tasm32 /m /mx /kh32768 /t /dGAME=3 th03.asm obj\th03\th03.obj
 tasm32 /m /mx /kh32768 /t /dGAME=3 th03\cdg_p_na.asm obj\th03\cdg_p_na.obj
 tasm32 /m /mx /kh32768 /t /dGAME=3 th03\cdg_put.asm obj\th03\cdg_put.obj
-tasm32 /m /mx /kh32768 /t /dGAME=3 th03\hfliplut.asm obj\th03\hfliplut.obj
-echo -c -s -E c0l.obj obj\platform\cutscene.obj obj\platform\font.obj obj\platform\grcg.obj obj\platform\forkbann.obj obj\platform\noexcept.obj obj\platform\novbuf.obj obj\platform\pi_surf.obj obj\platform\doserror.obj obj\platform\spawn.obj obj\piloadm.obj obj\platform\bgimage.obj obj\platform\blitter.obj obj\platform\grp_clip.obj obj\platform\grp_surf.obj obj\platform\vblank.obj obj\th03\entry.obj obj\th03\game_bat.obj obj\th03\cfg_lres.obj obj\th03\op_01.obj obj\th03\th03.obj obj\th03\op_music.obj obj\th03\op_main.obj obj\th03\scoredat.obj obj\th03\op_sel.obj obj\th03\mainl_sc.obj obj\th03\cutscene.obj obj\th03\regist.obj obj\th03\staff.obj obj\th01\grppsafx.obj obj\th02\exit_dos.obj obj\th02\frmdelay.obj obj\th02\snd_dlyv.obj obj\th02\snd_load.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th02\snd_se_r.obj obj\th02\vplanset.obj obj\th03\cdg_load.obj obj\th03\cdg_p_na.obj obj\th03\cdg_put.obj obj\th03\exit.obj obj\th03\exitmain.obj obj\th03\hfliplut.obj obj\th03\initmain.obj+>obj\th03\anniv.@l
-echo obj\th03\initop.obj obj\th03\inp_m_w.obj obj\th03\inp_wait.obj obj\th03\input_s.obj obj\th03\snd_dlym.obj obj\th03\snd_kaja.obj obj\th03\snd_se.obj obj\th03\pi_mask.obj obj\th03\vector.obj, bin\th03\anniv.exe, obj\th03\anniv.map, emu.lib mathl.lib cl.lib>>obj\th03\anniv.@l
+echo -c -s -E c0l.obj obj\platform\cutscene.obj obj\platform\font.obj obj\platform\grcg.obj obj\platform\forkbann.obj obj\platform\noexcept.obj obj\platform\novbuf.obj obj\platform\pi_surf.obj obj\platform\doserror.obj obj\platform\spawn.obj obj\piloadm.obj obj\platform\bgimage.obj obj\platform\blitter.obj obj\platform\grp_clip.obj obj\platform\grp_surf.obj obj\platform\vblank.obj obj\th03\entry.obj obj\th03\game_bat.obj obj\th03\cfg_lres.obj obj\th03\op_01.obj obj\th03\screens_data.obj obj\th03\mainl_03_anchor.obj obj\th03\mainl_sc.obj obj\th03\cdgunput.obj obj\th03\stf_bclr.obj obj\th03\cdgdislv.obj obj\th03\stf_cdg.obj obj\th03\stf_vrd.obj obj\th03\stf_drv.obj obj\th03\mlentry.obj obj\th03\continue.obj obj\th03\mlsbss.obj obj\th03\mlrhbss.obj obj\th03\mlsvbss.obj obj\th03\th03.obj obj\th03\op_music.obj obj\th03\op_main.obj obj\th03\scoredat.obj obj\th03\op_sel.obj obj\th03\ending.obj obj\th03\cutscene.obj obj\th03\regist.obj obj\th03\staff.obj obj\th01\grppsafx.obj obj\th02\exit_dos.obj+>obj\th03\anniv.@l
+echo obj\th02\frmdelay.obj obj\th02\snd_dlyv.obj obj\th02\snd_load.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th02\snd_se_r.obj obj\th02\vplanset.obj obj\th03\cdg_load.obj obj\th03\cdg_p_na.obj obj\th03\cdg_put.obj obj\th03\exit.obj obj\th03\exitmain.obj obj\th03\hfliplut.obj obj\th03\initmain.obj obj\th03\initop.obj obj\th03\inp_m_w.obj obj\th03\inp_wait.obj obj\th03\input_s.obj obj\th03\snd_dlym.obj obj\th03\snd_kaja.obj obj\th03\snd_se.obj obj\th03\pi_mask.obj obj\th03\vector.obj, bin\th03\anniv.exe, obj\th03\anniv.map, emu.lib mathl.lib cl.lib>>obj\th03\anniv.@l
 tlink @obj\th03\anniv.@l
-tasm32 /m /mx /kh32768 /t /dGAME=3 th03_main.asm obj\th03\main.obj
-echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=3  -ml  -DBINARY='M'  -nobj/th03/  th03/playfld.cpp  th03/hitcirc.cpp  th03/hud_stat.cpp  th03/player_m.cpp  th03/main_010.cpp  th03/p_shot.cpp  th03/polar.cpp  th03/pi_load.cpp  th03/bullet.cpp  th03/e_enemy.cpp  th03/hitbox.cpp  th03/p_combo.cpp  th03/p_gauge.cpp  th03/e_expl.cpp  th03/e_fireb.cpp  th03/p_exatt.cpp  th03/mrs.cpp  th03/sprite16.cpp>obj\batch009.@c
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_prefix.asm obj\th03\main_03_prefix.obj
+echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=3  -ml  -DBINARY='M'  -nobj/th03/  th03/main_03.cpp  th03/main_03p.cpp  th03/main_03q.cpp  th03/main_03r.cpp  th03/main_03s.cpp  th03/main_03t.cpp  th03/main_03u.cpp  th03/main_03v.cpp  th03/main_03w.cpp  th03/main_03x.cpp  th03/main/rand2.cpp  th03/main/player/ch_shot.cpp  th03/main/player/chybomb.cpp  th03/main_06.cpp  th03/main_07.cpp  th03/main_08.cpp  th03/main_09.cpp  th03/main_10.cpp  th03/main_11.cpp  th03/main/hitc_pal.cpp>obj\batch009.@c
+echo th03/main/randfill.cpp  th03/main/hitc_mrs.cpp  th03/main/mentry.cpp  th03/main/rndloop.cpp  th03/main/roundcb.cpp  th03/main/rstart.cpp  th03/hitcb.cpp  th03/main_05.cpp  th03/main/resscore.cpp  th03/playfld.cpp  th03/hitcirc.cpp  th03/hud_stat.cpp  th03/main/player/bb12.cpp  th03/main/player/bdc2.cpp  th03/main/player/be2a.cpp  th03/main/player/hudstart.cpp  th03/main/player/defeat.cpp  th03/main/player/c2f9.cpp  th03/main/player/c433.cpp>>obj\batch009.@c
+echo th03/main/player/c54a.cpp  th03/main/player/c568.cpp  th03/main/player/c7a5.cpp  th03/main/player/gaugeovl.cpp  th03/main/player/warning.cpp  th03/main/player/d3f9.cpp  th03/main/player/scoreblt.cpp  th03/player_m.cpp  th03/main/player/bomb.cpp  th03/main_010.cpp  th03/p_shot.cpp  th03/polar.cpp  th03/pi_load.cpp  th03/main/colvline.cpp  th03/mbomb.cpp  th03/bullet.cpp  th03/e_enemy.cpp  th03/hitbox.cpp  th03/p_combo.cpp  th03/p_gauge.cpp  th03/e_expl.cpp  th03/e_fireb.cpp>>obj\batch009.@c
+echo th03/p_exatt.cpp  th03/mrs.cpp  th03/sprite16.cpp>>obj\batch009.@c
 tcc @obj/batch009.@c
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_dispatch.asm obj\th03\main_03_dispatch.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_mima_update.asm obj\th03\main_03_mima_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_yumemi_update.asm obj\th03\main_03_yumemi_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_reimu_update.asm obj\th03\main_03_reimu_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_ellen_update.asm obj\th03\main_03_ellen_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_kotohime_update.asm obj\th03\main_03_kotohime_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_chiyuri_update.asm obj\th03\main_03_chiyuri_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_kana_update.asm obj\th03\main_03_kana_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_03_rikako_update.asm obj\th03\main_03_rikako_update.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_04_randring.asm obj\th03\main_04_randring.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_04_hitbox_prefix.asm obj\th03\main_04_hitbox_prefix.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\main_06_anchor.asm obj\th03\main_06_anchor.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hitc_prf.asm obj\th03\hitc_prf.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hitc_mid.asm obj\th03\hitc_mid.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\story_startup_data.asm obj\th03\story_startup_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\support_format_data.asm obj\th03\support_format_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\gba_hitc_enemy_data.asm obj\th03\gba_hitc_enemy_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\pbpat_data.asm obj\th03\pbpat_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\warn_data.asm obj\th03\warn_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\cmb_data.asm obj\th03\cmb_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\soch_data.asm obj\th03\soch_data.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\sfntdat.asm obj\th03\sfntdat.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\ccorddat.asm obj\th03\ccorddat.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\rtextdat.asm obj\th03\rtextdat.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\peldat.asm obj\th03\peldat.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\round_gate_bss.asm obj\th03\round_gate_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\support_resident_bss.asm obj\th03\support_resident_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\palette_gba_bss.asm obj\th03\palette_gba_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\gba_boss_bss.asm obj\th03\gba_boss_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\randring_bss.asm obj\th03\randring_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\chiyuri_bss.asm obj\th03\chiyuri_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\enemy_formation_bss.asm obj\th03\enemy_formation_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\ellen_bss.asm obj\th03\ellen_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\kana_bss.asm obj\th03\kana_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hitcircle_bss.asm obj\th03\hitcircle_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\shot_kotohime_bss.asm obj\th03\shot_kotohime_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\exatt_bss.asm obj\th03\exatt_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\chargeshot_gba_bss.asm obj\th03\chargeshot_gba_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\gba_exatt_bomb_bss.asm obj\th03\gba_exatt_bomb_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hud_player_gba_bss.asm obj\th03\hud_player_gba_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hitbox_defeat_rikako_bss.asm obj\th03\hitbox_defeat_rikako_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\gba_combo_playerm_bss.asm obj\th03\gba_combo_playerm_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\enemy_explosion_score_bss.asm obj\th03\enemy_explosion_score_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\yumemi_rikako_small_bss.asm obj\th03\yumemi_rikako_small_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\collmap_bss.asm obj\th03\collmap_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\bomb_player_pid_bss.asm obj\th03\bomb_player_pid_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\round_frame_bss.asm obj\th03\round_frame_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\player_shot_result_tail_bss.asm obj\th03\player_shot_result_tail_bss.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\maintext.asm obj\th03\maintext.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\hitc_sfx.asm obj\th03\hitc_sfx.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\player\warning_cacb.asm obj\th03\warning_cacb.obj
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\main\player\score_rn.asm obj\th03\score_rn.obj
 tasm32 /m /mx /kh32768 /t /dGAME=3 th03\collmap.asm obj\th03\collmap.obj
-echo -c -s -E c0l.obj obj\th03\main.obj obj\th03\playfld.obj obj\th03\cfg_lres.obj obj\th03\hitcirc.obj obj\th03\hud_stat.obj obj\th03\player_m.obj obj\th03\main_010.obj obj\th03\p_shot.obj obj\th02\vplanset.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th03\vector.obj obj\th03\exit.obj obj\th03\polar.obj obj\th02\frmdelay.obj obj\th03\input_s.obj obj\th02\snd_se_r.obj obj\th03\snd_se.obj obj\th03\snd_kaja.obj obj\th03\initmain.obj obj\th03\pi_load.obj obj\th03\inp_m_w.obj obj\th03\collmap.obj obj\th03\bullet.obj obj\th03\e_enemy.obj obj\th03\hitbox.obj obj\th03\p_combo.obj obj\th03\p_gauge.obj obj\th03\e_expl.obj obj\th03\e_fireb.obj obj\th03\p_exatt.obj obj\th03\hfliplut.obj obj\th03\mrs.obj obj\th03\sprite16.obj, bin\th03\annivm.exe, obj\th03\annivm.map, emu.lib mathl.lib cl.lib>obj\th03\annivm.@l
+tasm32 /m /mx /kh32768 /t /dGAME=3 th03\collmap_slope.asm obj\th03\collmap_slope.obj
+echo -c -s -E c0l.obj obj\th03\main_03_prefix.obj obj\th03\main_03.obj obj\th03\main_03_dispatch.obj obj\th03\main_03p.obj obj\th03\main_03_mima_update.obj obj\th03\main_03q.obj obj\th03\main_03_yumemi_update.obj obj\th03\main_03r.obj obj\th03\main_03_reimu_update.obj obj\th03\main_03s.obj obj\th03\main_03_ellen_update.obj obj\th03\main_03t.obj obj\th03\main_03_kotohime_update.obj obj\th03\main_03u.obj obj\th03\main_03_chiyuri_update.obj obj\th03\main_03v.obj obj\th03\main_03_kana_update.obj obj\th03\main_03w.obj obj\th03\main_03_rikako_update.obj obj\th03\main_03x.obj obj\th03\rand2.obj obj\th03\main_04_randring.obj obj\th03\main_04_hitbox_prefix.obj obj\th03\ch_shot.obj obj\th03\main_06_anchor.obj obj\th03\chybomb.obj obj\th03\main_06.obj obj\th03\main_07.obj obj\th03\main_08.obj obj\th03\main_09.obj obj\th03\main_10.obj obj\th03\main_11.obj obj\th03\hitc_prf.obj obj\th03\hitc_pal.obj obj\th03\randfill.obj obj\th03\hitc_mid.obj obj\th03\hitc_mrs.obj obj\th03\mentry.obj+>obj\th03\annivm.@l
+echo obj\th03\rndloop.obj obj\th03\roundcb.obj obj\th03\rstart.obj obj\th03\story_startup_data.obj obj\th03\support_format_data.obj obj\th03\gba_hitc_enemy_data.obj obj\th03\pbpat_data.obj obj\th03\warn_data.obj obj\th03\cmb_data.obj obj\th03\soch_data.obj obj\th03\sfntdat.obj obj\th03\ccorddat.obj obj\th03\rtextdat.obj obj\th03\peldat.obj obj\th03\round_gate_bss.obj obj\th03\support_resident_bss.obj obj\th03\palette_gba_bss.obj obj\th03\gba_boss_bss.obj obj\th03\randring_bss.obj obj\th03\chiyuri_bss.obj obj\th03\enemy_formation_bss.obj obj\th03\ellen_bss.obj obj\th03\kana_bss.obj obj\th03\hitcircle_bss.obj obj\th03\shot_kotohime_bss.obj obj\th03\exatt_bss.obj obj\th03\chargeshot_gba_bss.obj obj\th03\gba_exatt_bomb_bss.obj obj\th03\hud_player_gba_bss.obj obj\th03\hitbox_defeat_rikako_bss.obj obj\th03\gba_combo_playerm_bss.obj obj\th03\enemy_explosion_score_bss.obj obj\th03\yumemi_rikako_small_bss.obj obj\th03\collmap_bss.obj obj\th03\bomb_player_pid_bss.obj obj\th03\round_frame_bss.obj+>>obj\th03\annivm.@l
+echo obj\th03\player_shot_result_tail_bss.obj obj\th03\maintext.obj obj\th03\hitcb.obj obj\th03\hitc_sfx.obj obj\th03\main_05.obj obj\th03\resscore.obj obj\th03\playfld.obj obj\th03\cfg_lres.obj obj\th03\hitcirc.obj obj\th03\hud_stat.obj obj\th03\bb12.obj obj\th03\bdc2.obj obj\th03\be2a.obj obj\th03\hudstart.obj obj\th03\defeat.obj obj\th03\c2f9.obj obj\th03\c433.obj obj\th03\c54a.obj obj\th03\c568.obj obj\th03\c7a5.obj obj\th03\gaugeovl.obj obj\th03\warning.obj obj\th03\warning_cacb.obj obj\th03\d3f9.obj obj\th03\scoreblt.obj obj\th03\score_rn.obj obj\th03\player_m.obj obj\th03\bomb.obj obj\th03\main_010.obj obj\th03\p_shot.obj obj\th02\vplanset.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th03\vector.obj obj\th03\exit.obj obj\th03\polar.obj obj\th02\frmdelay.obj obj\th03\input_s.obj obj\th02\snd_se_r.obj obj\th03\snd_se.obj obj\th03\snd_kaja.obj obj\th03\initmain.obj obj\th03\pi_load.obj obj\th03\inp_m_w.obj obj\th03\collmap.obj obj\th03\colvline.obj obj\th03\collmap_slope.obj+>>obj\th03\annivm.@l
+echo obj\th03\mbomb.obj obj\th03\bullet.obj obj\th03\e_enemy.obj obj\th03\hitbox.obj obj\th03\p_combo.obj obj\th03\p_gauge.obj obj\th03\e_expl.obj obj\th03\e_fireb.obj obj\th03\p_exatt.obj obj\th03\hfliplut.obj obj\th03\mrs.obj obj\th03\sprite16.obj, bin\th03\annivm.exe, obj\th03\annivm.map, emu.lib mathl.lib cl.lib>>obj\th03\annivm.@l
 tlink @obj\th03\annivm.@l
 bin\Pipeline\bmp2arr.com -q -i th04/sprites/pelletbt.bmp -o th04/sprites/pelletbt.asp -sym _sPELLET_BOTTOM -of asm -sw 8 -sh 4 -pshf outer
 bin\Pipeline\bmp2arr.com -q -i th04/sprites/pointnum.bmp -o th04/sprites/pointnum.asp -sym _sPOINTNUMS -of asm -sw 8 -sh 8 -pshf inner

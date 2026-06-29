@@ -1,0 +1,21 @@
+; No-byte declarations for data moved to th03/mainl/vstf[data].asm.
+extern _VERDICT_PLAYCHARS:dword
+extern _VERDICT_RANKS:dword
+extern _VERDICT_NUMBERS:word
+extern a00ed_txt:byte
+extern _extra_ending_script_fn:byte
+extern _VERDICT_POINT:byte
+extern _staffroll_bgm_fn:byte
+extern _staffroll_bg_palette_fn:byte
+extern _staffroll_cdg_fn_0:byte
+extern _staffroll_cdg_fn_1:byte
+extern _staffroll_cdg_fn_2:byte
+extern _staffroll_cdg_fn_3:byte
+extern _staffroll_cdg_fn_4:byte
+extern _staffroll_cdg_fn_5:byte
+extern _staffroll_cdg_fn_6:byte
+extern _staffroll_cdg_fn_7:byte
+extern _staffroll_cdg_fn_8:byte
+extern _staffroll_cdg_fn_9:byte
+extern _staffroll_cdg_fn_10:byte
+extern _staffroll_cdg_fn_11:byte
