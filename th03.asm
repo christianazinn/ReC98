@@ -221,10 +221,11 @@ SUB_9D20 equ <@STAGE_SPLASH_SIDE_SHOTS_PUT$QI>
 
 ; Attributes: bp-based frame
 
-; int __cdecl main(int argc, const char **argv, const char **envp)
-; C++ body lives in th03/mainl/entry.cpp.
-extrn _mainl_entry:far
-alias <_main> = <_mainl_entry>
+; int main_cutscene(int argc, const char **argv)
+; C++ body lives in th03/mainl/mlentry.cpp.
+extrn @main_cutscene$qinnxc:far
+alias <_main> = <@main_cutscene$qinnxc>
+alias <_entrypoint_exec_raw> = <@entrypoint_exec$q12entrypoint_t>
 alias <_execl_raw> = <_execl>
 
 

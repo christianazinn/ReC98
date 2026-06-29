@@ -28,14 +28,11 @@ aVERDICT_NUMBERS label dword
 		dd aVv			; "ÇV"
 		dd aVw			; "ÇW"
 		dd aVx			; "ÇX"
-public a00ed_txt, _extra_ending_script_fn, _binary_op_fn
+public a00ed_txt, _extra_ending_script_fn
 a00ed_txt label byte
 a@00ed_txt	db '@00ED.TXT',0
 _extra_ending_script_fn label byte
 a@99ed_txt	db '@99ED.TXT',0
-; char aOp_0[]
-_binary_op_fn label byte
-aOp_0		db 'op',0
 aFocab@sC_0	db '   îéóÌÅ@ËÀñ≤',0
 aCgCv_0		db '     ñ£ ñÇ',0
 aCIjb@cvcan_0	db '  ñ∂âJÅ@ñÇóùçπ ',0

@@ -122,15 +122,12 @@ _stage_splash_enemy04_pi_fn label byte
 aEnemy04_pi	db 'ENEMY04.pi',0
 _stage_splash_yume_efc_fn label byte
 aYume_efc	db 'YUME.EFC',0
-public _mainl_pf_fn, _mainl_gaiji_fn, _mainl_binary_op_fn
+public _mainl_pf_fn, _mainl_gaiji_fn
 public _mainl_win_bgm_fn, _mainl_binary_main_fn
 _mainl_pf_fn label byte
 aCOul		db '–²Žž‹ó1.dat',0
 _mainl_gaiji_fn label byte
 aMikoft_bft	db 'MIKOFT.bft',0
-; char path[]
-_mainl_binary_op_fn label byte
-path		db 'op',0
 _mainl_win_bgm_fn label byte
 aWin_m		db 'win.m',0
 ; char aMain[]

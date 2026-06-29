@@ -22,14 +22,20 @@ extern const char mainl_pf_fn[];
 extern const char mainl_gaiji_fn[];
 extern const char stage_splash_yume_efc_fn[];
 extern const char mainl_win_bgm_fn[];
-extern char mainl_binary_op_fn[];
 extern char mainl_binary_main_fn[];
 extern char far *win_cutscene_script_fn;
 extern PlaycharPaletted playchar[PLAYER_COUNT];
 
 extern "C" void far hflip_lut_generate(void);
 extern "C" void near pascal cdg_free_all(void);
+extern "C" void far entrypoint_exec_raw(void);
 extern "C" void far execl_raw(void);
+
+#define entrypoint_exec_op() { \
+	asm { push	0; } \
+	asm { call	far ptr entrypoint_exec_raw; } \
+	asm { add	sp, 2; } \
+}
 
 void near win_load(void);
 void near win_animate_and_wait(void);
@@ -40,21 +46,13 @@ int near continue_menu(void);
 void near gameover_bgm_play_and_fade(void);
 void near ending_staff_and_regist(void);
 
-inline void mainl_exit_to_op(void)
-{
-	text_clear();
-	gaiji_restore();
-	game_exit();
-	entrypoint_exec(EP_OP);
-}
-
 inline void mainl_exit_to_main(void)
 {
 	game_exit_from_mainl_to_main();
 	execl(mainl_binary_main_fn, mainl_binary_main_fn, nullptr);
 }
 
-extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
+int main_cutscene(int argc, const char *argv[])
 {
 	unsigned char result;
 	unsigned char script_id;
@@ -74,7 +72,10 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 
 		if(resident->show_score_menu) {
 			regist_menu();
-			mainl_exit_to_op();
+			text_clear();
+			gaiji_restore();
+			game_exit();
+			entrypoint_exec_op();
 		}
 
 		playchar[0].v = (resident->playchar_paletted[0].v - 1);
@@ -158,7 +159,7 @@ exit_to_main:
 execl_and_return:
 		execl_raw();
 		asm { add sp, 0Ch; }
-		return;
+		goto ret;
 
 continue_menu_or_gameover:
 		cdg_free_all();
@@ -178,19 +179,16 @@ exit_to_op:
 		text_clear();
 		gaiji_restore();
 		game_exit();
-		entrypoint_exec(EP_OP);
-		return;
+		entrypoint_exec_op();
+		goto ret;
 
 stage_splash_load_and_show:
 		stage_splash_load();
 		goto stage_splash_show;
 	}
-}
 
-int main_cutscene(int argc, const char *argv[])
-{
-	mainl_entry(argc, argv, nullptr);
-	return 0;
+ret:
+	;
 }
 
 #pragma codeseg

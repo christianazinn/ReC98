@@ -28,6 +28,7 @@ extern "C" int word_1FBD2;
 extern "C" uint16_t wordmask_1DB0C[];
 
 extern "C" void near playfield_rows_fill_288(void);
+extern "C" void pascal near sub_B4A3(void);
 
 #pragma option -k-
 extern "C" void far sub_B39E(void)
@@ -139,23 +140,33 @@ extern "C" void pascal near sub_B60A(void);
 
 int pascal GameExecl(const char *binary_fn)
 {
-	static const char merged_fn[] = "debloat";
-
 	pi_free(0);
 	super_free();
 	graph_hide();
 	text_clear();
 	gaiji_restore();
 	game_exit();
-	return execl(
-		const_cast<char *>(merged_fn),
-		const_cast<char *>(merged_fn),
-		const_cast<char *>(binary_fn),
-		nullptr
-	);
+	__emit__(0x66, 0x6A, 0x00); // pushd 0
+	__emit__(0x66, 0xFF, 0x76, 0x06); // pushd dword ptr [bp+binary_fn]
+	_asm {
+		push	cs;
+	}
+	__emit__(0x68); // push offset _MERGED_FN
+	__emit__(0xB9, 0x1D);
+	_asm {
+		push	cs;
+	}
+	__emit__(0x68); // push offset _MERGED_FN
+	__emit__(0xB9, 0x1D);
+	_asm {
+		call	far ptr execl;
+		add	sp, 16;
+	}
 }
 
-extern "C" void pascal near sub_B4A3(void)
+#pragma codestring "debloat\x00\x90\x90"
+
+void pascal near sub_B4A3(void)
 {
 }
 

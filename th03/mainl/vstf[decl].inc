@@ -4,7 +4,6 @@ extern _VERDICT_RANKS:dword
 extern _VERDICT_NUMBERS:word
 extern a00ed_txt:byte
 extern _extra_ending_script_fn:byte
-extern _binary_op_fn:byte
 extern _VERDICT_POINT:byte
 extern _staffroll_bgm_fn:byte
 extern _staffroll_bg_palette_fn:byte

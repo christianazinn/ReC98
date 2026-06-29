@@ -18,7 +18,14 @@ extern const char gameover_bgm_fn[];
 extern char far *ending_script_fn;
 extern const char extra_ending_script_fn[];
 
+extern "C" void far entrypoint_exec_raw(void);
 void near staffroll_and_verdict_animate(void);
+
+#define entrypoint_exec_op() { \
+	asm { push	0; } \
+	asm { call	far ptr entrypoint_exec_raw; } \
+	asm { add	sp, 2; } \
+}
 
 void near gameover_bgm_play_and_fade(void)
 {
@@ -100,7 +107,7 @@ void near ending_staff_and_regist(void)
 	text_clear();
 	gaiji_restore();
 	game_exit();
-	entrypoint_exec(EP_OP);
+	entrypoint_exec_op();
 }
 
 #pragma codeseg
