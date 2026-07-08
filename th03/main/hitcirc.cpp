@@ -30,6 +30,13 @@ extern "C" uint16_t wordmask_1DB0C[];
 
 extern "C" void near playfield_rows_fill_288(void);
 
+// Replay-mod note: This callback slot is called from PLAYFLD_TEXT as a
+// group-relative near offset. Assigning SUB_B4A3/SUB_B60A symbols from this
+// HITCIRC_TEXT translation unit makes Turbo C++ store segment-relative
+// offsets instead, so keep these group offsets in sync with the current map.
+#define FP_1FBC0_SUB_B4A3 0x1DE5
+#define FP_1FBC0_SUB_B60A 0x1F4C
+
 #pragma option -k-
 extern "C" void far sub_B39E(void)
 {
@@ -229,7 +236,7 @@ second_loop_test:
 		_asm { nop; push cs; call near ptr sub_B39E; }
 		byte_1FBC3 = 1;
 		byte_1FBC2 = 0;
-		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1F2A);
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(FP_1FBC0_SUB_B60A);
 	}
 
 	trapezoid_hmask = 0xFFFF;
@@ -291,12 +298,15 @@ triangle_loop_test:
 	byte_1FBC2++;
 	if(byte_1FBC2 >= 0x10) {
 		byte_1FBC2 = 0;
-		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1DC3);
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(FP_1FBC0_SUB_B4A3);
 	}
 
 	grcg_off();
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
 }
+
+#undef FP_1FBC0_SUB_B60A
+#undef FP_1FBC0_SUB_B4A3
 
 static const pixel_t HITCIRCLE_W = 48;
 static const pixel_t HITCIRCLE_H = 48;

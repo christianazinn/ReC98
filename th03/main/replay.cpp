@@ -1,4 +1,4 @@
-#pragma option -zCPLAYFLD_TEXT -zPmain_01
+#pragma option -zCREPLAY_TEXT
 
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
@@ -1088,7 +1088,7 @@ static void replay_resident_handoff_clear(void)
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
 }
 
-void near replay_session_start(void)
+void far replay_session_start(void)
 {
 	replay_mode = replay_resident_mode();
 	if(replay_mode == REPLAY_DISABLED) {
@@ -1141,12 +1141,12 @@ void near replay_session_start(void)
 	replay_split_row("start", 0);
 }
 
-void near replay_round_start(void)
+void far replay_round_start(void)
 {
 	replay_split_row("round_start", replay_last_route);
 }
 
-void near replay_frame_io(void)
+void far replay_frame_io(void)
 {
 	bool ok = true;
 
@@ -1198,13 +1198,13 @@ void near replay_frame_io(void)
 	replay_global_frame++;
 }
 
-void near replay_route(uint8_t route)
+void far replay_route(uint8_t route)
 {
 	replay_last_route = route;
 	replay_split_row("route", route);
 }
 
-void near replay_finish(uint8_t route)
+void far replay_finish(uint8_t route)
 {
 	replay_split_row("finish", route);
 	if(replay_mode == REPLAY_RECORD) {
