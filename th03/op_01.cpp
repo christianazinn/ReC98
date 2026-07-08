@@ -19,6 +19,8 @@
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/core/initexit.h"
 #include "th03/gaiji/gaiji.h"
+#include "th03/replay_format.hpp"
+#include "th03/replay_handoff.hpp"
 #include "th03/snd/snd.h"
 #include "th03/shiftjis/fns.hpp"
 #include "th03/shiftjis/main.hpp"
@@ -34,6 +36,7 @@ enum main_choice_t {
 	MC_MUSICROOM,
 	MC_REGIST_VIEW,
 	MC_OPTION,
+	MC_REPLAY,
 	MC_QUIT,
 	MC_COUNT,
 };
@@ -109,6 +112,16 @@ enum gaiji_th03_mikoft_t {
 // --------------------------
 
 bool snd_sel_disabled = false; // Yes, it's just (!snd_fm_possible).
+static char REPLAY_BINARY_MAINL[] = "mainl";
+static char REPLAY_BINARY_MAIN[] = "main";
+static const char REPLAY_DIR[] = "REPLAY";
+static const char REPLAY_INDEX_FN[] = "REPLAY\\TH3R.IDX";
+static char REPLAY_SLOT_FN[] = "REPLAY\\TH3R00.RPY";
+static const char REPLAY_FALLBACK_FN[] = "TH3LAST.RPY";
+
+static replay_user_header_t replay_user_menu_header;
+static replay_user_snapshot_t replay_user_menu_snapshot;
+static replay_user_index_header_t replay_user_menu_index_header;
 
 /// YUME.CFG loading and saving
 /// ---------------------------
@@ -157,6 +170,253 @@ void near cfg_save_exit(void)
 	cfg_save_bytes(cfg, sizeof(cfg));
 }
 /// ---------------------------
+
+static char replay_cfg_mode(void)
+{
+	static const char fn[] = "T3REPLAY.CFG";
+	char cfg[64];
+	unsigned read_len;
+
+	for(unsigned i = 0; i < sizeof(cfg); i++) {
+		cfg[i] = '\0';
+	}
+	if(!file_ropen(fn)) {
+		return 0;
+	}
+	read_len = file_read(cfg, (sizeof(cfg) - 1));
+	file_close();
+	(void)read_len;
+	if((cfg[0] == 'r') || (cfg[0] == 'R')) {
+		return T3_REPLAY_RES_MODE_RECORD;
+	}
+	if((cfg[0] == 'p') || (cfg[0] == 'P')) {
+		return T3_REPLAY_RES_MODE_PLAYBACK;
+	}
+	if((cfg[0] == 'v') || (cfg[0] == 'V')) {
+		return T3_REPLAY_RES_MODE_USER_PLAYBACK;
+	}
+	return 0;
+}
+
+static void replay_cfg_load_resident_only(void)
+{
+	cfg_t cfg;
+
+	cfg_load_and_set_resident(cfg, CFG_FN_CAPS);
+	resident->bgm_mode = cfg.opts.bgm_mode;
+	resident->key_mode = cfg.opts.key_mode;
+	resident->rank = cfg.opts.rank;
+}
+
+static void replay_resident_handoff_set(char mode)
+{
+	resident->unused_3[0] = T3_REPLAY_RES_MAGIC_0;
+	resident->unused_3[1] = T3_REPLAY_RES_MAGIC_1;
+	resident->unused_3[2] = T3_REPLAY_RES_MAGIC_2;
+	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
+	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
+	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+}
+
+static void replay_resident_handoff_slot_set(uint8_t slot)
+{
+	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = slot;
+}
+
+static void replay_resident_handoff_clear(void)
+{
+	resident->unused_3[0] = 0;
+	resident->unused_3[1] = 0;
+	resident->unused_3[2] = 0;
+	resident->unused_3[3] = 0;
+	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = 0;
+	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+}
+
+static void replay_dir_create(void)
+{
+	dos_axdx(0x3900, REPLAY_DIR);
+}
+
+static void replay_user_slot_fn_set(uint8_t slot)
+{
+	REPLAY_SLOT_FN[11] = static_cast<char>('0' + (slot / 10));
+	REPLAY_SLOT_FN[12] = static_cast<char>('0' + (slot % 10));
+}
+
+static bool replay_user_header_valid(const replay_user_header_t near& header)
+{
+	return (
+		(header.magic[0] == 'T') &&
+		(header.magic[1] == '3') &&
+		(header.magic[2] == 'R') &&
+		(header.magic[3] == 'P') &&
+		(header.magic[4] == 'L') &&
+		(header.magic[5] == 'Y') &&
+		(header.magic[6] == '2') &&
+		(header.version == T3_REPLAY_USER_VERSION) &&
+		(header.header_size == sizeof(replay_user_header_t)) &&
+		(header.sample_size == sizeof(replay_user_sample_t)) &&
+		(header.snapshot_offset == sizeof(replay_user_header_t)) &&
+		(header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
+		(header.input_offset == (
+			static_cast<uint32_t>(sizeof(replay_user_header_t)) +
+			static_cast<uint32_t>(sizeof(replay_user_snapshot_t))
+		)) &&
+		(header.sample_count != 0)
+	);
+}
+
+static bool replay_user_index_header_valid(
+	const replay_user_index_header_t near& header
+)
+{
+	return (
+		(header.magic[0] == 'T') &&
+		(header.magic[1] == '3') &&
+		(header.magic[2] == 'R') &&
+		(header.magic[3] == 'I') &&
+		(header.magic[4] == 'D') &&
+		(header.magic[5] == 'X') &&
+		(header.magic[6] == '2') &&
+		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
+		(header.header_size == sizeof(replay_user_index_header_t)) &&
+		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
+		(header.slot_count == T3_REPLAY_USER_SLOT_COUNT) &&
+		(header.next_slot < T3_REPLAY_USER_SLOT_COUNT)
+	);
+}
+
+static uint8_t replay_user_index_next_slot(void)
+{
+	if(!file_ropen(REPLAY_INDEX_FN)) {
+		return 0;
+	}
+	if(
+		file_read(
+			&replay_user_menu_index_header,
+			sizeof(replay_user_menu_index_header)
+		) != sizeof(replay_user_menu_index_header)
+	) {
+		file_close();
+		return 0;
+	}
+	file_close();
+	if(!replay_user_index_header_valid(replay_user_menu_index_header)) {
+		return 0;
+	}
+	return replay_user_menu_index_header.next_slot;
+}
+
+static bool replay_user_read_for_menu(const char *fn)
+{
+	if(!file_ropen(fn)) {
+		return false;
+	}
+	if(
+		file_read(&replay_user_menu_header, sizeof(replay_user_menu_header)) !=
+		sizeof(replay_user_menu_header)
+	) {
+		file_close();
+		return false;
+	}
+	if(!replay_user_header_valid(replay_user_menu_header)) {
+		file_close();
+		return false;
+	}
+	if(
+		file_read(
+			&replay_user_menu_snapshot,
+			sizeof(replay_user_menu_snapshot)
+		) != sizeof(replay_user_menu_snapshot)
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return true;
+}
+
+static bool replay_user_read_slot_for_menu(uint8_t slot)
+{
+	if(slot >= T3_REPLAY_USER_SLOT_COUNT) {
+		return false;
+	}
+	replay_user_slot_fn_set(slot);
+	return replay_user_read_for_menu(REPLAY_SLOT_FN);
+}
+
+static bool replay_user_read_for_menu(void)
+{
+	if(replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
+		return true;
+	}
+	return replay_user_read_slot_for_menu(0);
+}
+
+static uint8_t replay_user_first_used_slot(void)
+{
+	uint8_t slot;
+
+	for(slot = 0; slot < T3_REPLAY_USER_SLOT_COUNT; slot++) {
+		if(replay_user_read_slot_for_menu(slot)) {
+			return slot;
+		}
+	}
+	return 0;
+}
+
+static uint8_t replay_user_record_slot_alloc(void)
+{
+	uint8_t start = replay_user_index_next_slot();
+	uint8_t slot;
+	uint8_t offset;
+
+	replay_dir_create();
+	for(offset = 0; offset < T3_REPLAY_USER_SLOT_COUNT; offset++) {
+		slot = ((start + offset) % T3_REPLAY_USER_SLOT_COUNT);
+		if(!replay_user_read_slot_for_menu(slot)) {
+			return slot;
+		}
+	}
+	return start;
+}
+
+static void replay_user_restore_resident_from_menu(void)
+{
+	int i;
+	int digit;
+
+	resident->rand = replay_user_menu_snapshot.resident_rand;
+	resident->rank = replay_user_menu_snapshot.rank;
+	resident->key_mode = replay_user_menu_snapshot.key_mode;
+	resident->game_mode = replay_user_menu_snapshot.game_mode;
+	resident->story_stage = replay_user_menu_snapshot.story_stage;
+	resident->story_lives = replay_user_menu_snapshot.story_lives;
+	resident->rem_credits = replay_user_menu_snapshot.rem_credits;
+	resident->skill = replay_user_menu_snapshot.skill;
+	resident->demo_num = replay_user_menu_snapshot.demo_num;
+	resident->pid_winner = replay_user_menu_snapshot.pid_winner;
+	resident->show_score_menu = replay_user_menu_snapshot.show_score_menu;
+	resident->op_animation_fast = replay_user_menu_snapshot.op_animation_fast;
+
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		resident->is_cpu[i] = replay_user_menu_snapshot.is_cpu[i];
+		resident->playchar_paletted[i].v = (
+			replay_user_menu_snapshot.playchar_paletted[i]
+		);
+		for(digit = 0; digit < SCORE_DIGITS; digit++) {
+			resident->score_last[i].digits[digit] = (
+				replay_user_menu_snapshot.score_last[i][digit]
+			);
+		}
+	}
+	for(i = 0; i < STAGE_COUNT; i++) {
+		resident->story_opponents[i].v = (
+			replay_user_menu_snapshot.story_opponents[i]
+		);
+	}
+}
 
 #define resident_reset_scores(i) { \
 	/* ZUN bloat: Very unsafe. */ \
@@ -288,6 +548,8 @@ retry_opponent_selection:
 	resident->rem_credits = 3;
 	resident->op_animation_fast = false;
 	resident->skill = (70 + (resident->rank * 25));
+	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
+	replay_resident_handoff_slot_set(replay_user_record_slot_alloc());
 	return switch_to_mainl(false);
 }
 
@@ -382,10 +644,12 @@ bool near vs_menu(void)
 	}
 
 	resident_reset_scores(sel);
+	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
+	replay_resident_handoff_slot_set(replay_user_record_slot_alloc());
 	return switch_to_mainl(false);
 }
 
-void near start_demo(void)
+static void replay_demo_resident_set(void)
 {
 	static const int8_t PAIRINGS[DEMO_COUNT * PLAYER_COUNT] = {
 		TO_OPTIONAL_PALETTED(PLAYCHAR_MIMA),
@@ -425,6 +689,28 @@ void near start_demo(void)
 	resident->rand = RAND[resident->demo_num - 1];
 	int i;
 	resident_reset_scores(i);
+}
+
+static void replay_start_demo_headless(char mode)
+{
+	replay_cfg_load_resident_only();
+	replay_resident_handoff_set(mode);
+	if(mode == T3_REPLAY_RES_MODE_USER_PLAYBACK) {
+		if(!replay_user_read_for_menu()) {
+			return;
+		}
+		replay_user_restore_resident_from_menu();
+		execl(REPLAY_BINARY_MAINL, REPLAY_BINARY_MAINL, nullptr);
+		return;
+	} else {
+		replay_demo_resident_set();
+	}
+	execl(REPLAY_BINARY_MAIN, REPLAY_BINARY_MAIN, nullptr);
+}
+
+void near start_demo(void)
+{
+	replay_demo_resident_set();
 	palette_black_out(1);
 
 	switch_to_mainl(false);
@@ -470,6 +756,165 @@ bool near score_menu(void)
 	return switch_to_mainl(true);
 }
 
+enum {
+	REPLAY_MENU_LEFT = ((BOX_LEFT / GLYPH_HALF_W) + 2),
+	REPLAY_MENU_VISIBLE = 5,
+};
+
+static char replay_menu_line[32];
+
+static char *replay_line_append_cstr(char *p, const char *str)
+{
+	while(*str != '\0') {
+		*p++ = *str++;
+	}
+	return p;
+}
+
+static char *replay_line_append_u32(char *p, uint32_t value)
+{
+	char digits[10];
+	int i = 0;
+
+	do {
+		digits[i] = static_cast<char>('0' + (value % 10));
+		value /= 10;
+		i++;
+	} while(value != 0);
+
+	while(i != 0) {
+		i--;
+		*p++ = digits[i];
+	}
+	return p;
+}
+
+static char replay_user_status_char(uint8_t status)
+{
+	switch(status) {
+	case RUS_FINALIZED:
+		return 'F';
+	case RUS_PARTIAL:
+		return 'P';
+	case RUS_RECORDING:
+		return 'R';
+	case RUS_ERROR:
+		return 'E';
+	default:
+		return '?';
+	}
+}
+
+static void replay_menu_line_clear(unsigned int line)
+{
+	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(line), "                            ", TX_BLACK);
+}
+
+static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int line)
+{
+	char *p = replay_menu_line;
+	tram_atrb2 atrb = ((slot == sel) ? TX_WHITE : TX_BLACK);
+
+	*p++ = ((slot == sel) ? '>' : ' ');
+	*p++ = static_cast<char>('0' + (slot / 10));
+	*p++ = static_cast<char>('0' + (slot % 10));
+	*p++ = ' ';
+	if(replay_user_read_slot_for_menu(slot)) {
+		*p++ = replay_user_status_char(replay_user_menu_header.status);
+		*p++ = ' ';
+		p = replay_line_append_u32(p, replay_user_menu_header.sample_count);
+		*p++ = 'f';
+		*p++ = ' ';
+		if(replay_user_menu_header.game_mode == GM_STORY) {
+			*p++ = 'S';
+			p = replay_line_append_u32(p, replay_user_menu_header.story_stage);
+		} else {
+			*p++ = 'V';
+			p = replay_line_append_u32(
+				p, (replay_user_menu_header.game_mode - GM_VS)
+			);
+		}
+		*p++ = ' ';
+		*p++ = 'R';
+		p = replay_line_append_u32(p, replay_user_menu_header.rank);
+	} else {
+		p = replay_line_append_cstr(p, "empty");
+	}
+	*p = '\0';
+	replay_menu_line_clear(line);
+	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(line), replay_menu_line, atrb);
+}
+
+static void replay_menu_render(uint8_t sel, uint8_t top)
+{
+	uint8_t slot;
+	unsigned int line;
+
+	replay_menu_line_clear(0);
+	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(0), "Replay Slots", TX_GREEN);
+	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
+		slot = (top + line);
+		replay_menu_slot_line_put(slot, sel, (line + 1));
+	}
+	replay_menu_line_clear(6);
+	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(6), "Cancel: Back", TX_BLACK);
+}
+
+static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
+{
+	if(sel < top) {
+		top = sel;
+	} else if(sel >= (top + REPLAY_MENU_VISIBLE)) {
+		top = (sel - (REPLAY_MENU_VISIBLE - 1));
+	}
+}
+
+bool near replay_menu(void)
+{
+	uint8_t sel = replay_user_first_used_slot();
+	uint8_t top = sel;
+	input_t input_prev = INPUT_NONE;
+
+	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
+		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
+	}
+
+	text_clear();
+	box_main_to_submenu_animate();
+	replay_menu_render(sel, top);
+
+	while(1) {
+		input_mode_interface();
+		if(input_prev == INPUT_NONE) {
+			if(input_sp & INPUT_UP) {
+				ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+				replay_menu_top_clamp(sel, top);
+				replay_menu_render(sel, top);
+			}
+			if(input_sp & INPUT_DOWN) {
+				ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+				replay_menu_top_clamp(sel, top);
+				replay_menu_render(sel, top);
+			}
+			if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
+				if(replay_user_read_slot_for_menu(sel)) {
+					replay_user_restore_resident_from_menu();
+					replay_resident_handoff_set(
+						T3_REPLAY_RES_MODE_USER_PLAYBACK
+					);
+					replay_resident_handoff_slot_set(sel);
+					return switch_to_mainl(false);
+				}
+			}
+			if(input_sp & INPUT_CANCEL) {
+				return true;
+			}
+		}
+		input_prev = input_sp;
+		frame_delay(1);
+	}
+}
+
 /// The menu
 /// --------
 
@@ -484,6 +929,7 @@ char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
 char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
 char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
 char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
+char COMMAND_REPLAY[] = "Replay";
 char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
@@ -570,8 +1016,15 @@ void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 		);
 	} else if(sel == MC_OPTION) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 4, -1, COMMAND_OPTION, atrb);
+	} else if(sel == MC_REPLAY) {
+		text_putsa(
+			((BOX_MAIN_CENTER_X - (6 * GLYPH_HALF_W / 2)) / GLYPH_HALF_W),
+			choice_tram_y(5),
+			COMMAND_REPLAY,
+			atrb
+		);
 	} else if(sel == MC_QUIT) {
-		choice_put_centered(BOX_MAIN_CENTER_X, 5, -1, COMMAND_QUIT, atrb);
+		choice_put_centered(BOX_MAIN_CENTER_X, 6, -1, COMMAND_QUIT, atrb);
 	}
 }
 
@@ -728,6 +1181,12 @@ void near main_update_and_render(void)
 			in_option = true;
 			menu_sel = OC_RANK;
 			break;
+		case MC_REPLAY:
+			replay_menu();
+			in_this_menu = false;
+			menu_sel = MC_REPLAY;
+			input_allowed = false;
+			return;
 		case MC_QUIT:
 			in_this_menu = false; // We're quitting anyway...
 			quit = true;
@@ -833,6 +1292,14 @@ void near option_update_and_render(void)
 
 void main(void)
 {
+	{
+		char replay_mode = replay_cfg_mode();
+		if(replay_mode != 0) {
+			replay_start_demo_headless(replay_mode);
+			return;
+		}
+	}
+
 	graph_400line();
 	text_clear();
 	respal_create();
@@ -856,6 +1323,7 @@ void main(void)
 	gaiji_backup();
 	gaiji_entry_bfnt(GAIJI_FN);
 	cfg_load();
+	replay_resident_handoff_clear();
 	if((resident->game_mode >= GM_VS) && (resident->demo_num == 0)) {
 		select_cdg_load_part1_of_4();
 		select_cdg_load_part3_of_4();

@@ -3,6 +3,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th03/hardware/input.h"
+#include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -10,6 +11,19 @@ extern "C" uint8_t byte_23B00;
 
 extern "C" void near sub_C7A5(void)
 {
+	if(
+		(resident->unused_3[0] == T3_REPLAY_RES_MAGIC_0) &&
+		(resident->unused_3[1] == T3_REPLAY_RES_MAGIC_1) &&
+		(resident->unused_3[2] == T3_REPLAY_RES_MAGIC_2) &&
+		(resident->unused_3[3] == T3_REPLAY_RES_MAGIC_3) &&
+		(
+			resident->unused_3[T3_REPLAY_RES_MODE_INDEX] ==
+			T3_REPLAY_RES_MODE_USER_PLAYBACK
+		)
+	) {
+		byte_23B00 = 1;
+		return;
+	}
 	if((resident->is_cpu[0] != 0) && (resident->is_cpu[1] != 0)) {
 		palette_black_out(1);
 

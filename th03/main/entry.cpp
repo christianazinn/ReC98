@@ -6,6 +6,7 @@
 #include "th03/core/initexit.h"
 #include "th03/formats/cfg.hpp"
 #include "th03/main/enemy/enemy.hpp"
+#include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
 
@@ -40,18 +41,23 @@ extern "C" void far main_entry(void)
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
 	farfp_20F20();
+	replay_session_start();
+	replay_round_start();
 
 round_loop:
 	PaletteTone = 100;
 	palette_show();
 	route = sub_9778();
+	replay_route(route);
 	resident->rand = round_frame;
 
 	if(route == 1) {
 		sub_A21F();
+		replay_round_start();
 		goto round_loop;
 	}
 
+	replay_finish(route);
 	enemy_formations_free();
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 

@@ -12,12 +12,17 @@ include libs/master.lib/bread.asm
 include libs/master.lib/bseek.asm
 include libs/master.lib/bseek_.asm
 include libs/master.lib/cutline.asm
+include libs/master.lib/dos_axdx.asm
 include libs/master.lib/dos_keyclear.asm
 include libs/master.lib/dos_setvect.asm
 include libs/master.lib/egc.asm
+include libs/master.lib/file_append.asm
 include libs/master.lib/file_close.asm
+include libs/master.lib/file_create.asm
 include libs/master.lib/file_read.asm
 include libs/master.lib/file_ropen.asm
+include libs/master.lib/file_seek.asm
+include libs/master.lib/file_write.asm
 include libs/master.lib/dos_close.asm
 include libs/master.lib/dos_ropen.asm
 include libs/master.lib/grcg_boxfill.asm

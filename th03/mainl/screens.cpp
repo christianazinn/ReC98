@@ -4,6 +4,7 @@
 #include "th02/v_colors.hpp"
 #include "th03/common.h"
 #include "th03/hardware/input.h"
+#include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
@@ -113,6 +114,20 @@ void near win_text_put(void)
 int near sub_9887(void);
 void near stage_splash_load(void);
 void near stage_splash_show_and_wait(void);
+
+inline bool stage_splash_replay_user_playback_requested(void)
+{
+	return (
+		(resident->unused_3[0] == T3_REPLAY_RES_MAGIC_0) &&
+		(resident->unused_3[1] == T3_REPLAY_RES_MAGIC_1) &&
+		(resident->unused_3[2] == T3_REPLAY_RES_MAGIC_2) &&
+		(resident->unused_3[3] == T3_REPLAY_RES_MAGIC_3) &&
+		(
+			resident->unused_3[T3_REPLAY_RES_MODE_INDEX] ==
+			T3_REPLAY_RES_MODE_USER_PLAYBACK
+		)
+	);
+}
 void pascal near stage_splash_side_shot_put(int pid, char far *fn);
 void pascal near stage_splash_side_shots_put(int pid);
 
@@ -338,8 +353,10 @@ void near stage_splash_show_and_wait(void)
 	input_sp = INPUT_NONE;
 	while(vsync_Count1 <= 32) {
 	}
-	while((vsync_Count1 <= 96) && (input_sp == INPUT_NONE)) {
-		input_mode_interface();
+	if(!stage_splash_replay_user_playback_requested()) {
+		while((vsync_Count1 <= 96) && (input_sp == INPUT_NONE)) {
+			input_mode_interface();
+		}
 	}
 	palette_white_out(1);
 	graph_accesspage(0);

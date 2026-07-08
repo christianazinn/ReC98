@@ -18,6 +18,7 @@
 #include "th03/main/player/exatt.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
+#include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
@@ -115,6 +116,7 @@ frame:
 	gba_gauge_pattern_bullet[1]();
 	nopcall_noarg(SUB_CEB2);
 	input_mode();
+	replay_frame_io();
 	pid.current = 0;
 	player_update(input_mp_p1, &p1);
 	pid.current = 1;
