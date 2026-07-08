@@ -671,7 +671,6 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/hitc_mrs.cpp",
 	"th03/main/entry.cpp",
 	"th03/main/rndloop.cpp",
-	"th03/main/replay.cpp",
 	"th03/main/roundcb.cpp",
 	"th03/main/rstart.cpp",
 	"th03/main/story_startup_data.asm",
@@ -766,6 +765,7 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/hfliplut.cpp",
 	"th03/mrs.cpp",
 	"th03/sprite16.cpp",
+	"th03/main/replay.cpp",
 })
 th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/cfg_lres.cpp",

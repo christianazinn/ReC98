@@ -90,6 +90,17 @@ struct replay_user_snapshot_t {
 	uint8_t cpu_charge_at_avail_ring[
 		T3_REPLAY_USER_PLAYER_COUNT
 	][T3_REPLAY_USER_CPU_CHARGE_RING_SIZE];
+	uint16_t player_center_x[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_center_y[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_halfhearts[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_invincibility_time[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_gauge_charge_speed[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_gauge_charged[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_gauge_avail[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_bombs[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_shot_active[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_cpu_frame[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t reserved_player[1];
 };
 
 struct replay_user_sample_t {

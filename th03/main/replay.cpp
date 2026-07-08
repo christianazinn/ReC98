@@ -588,6 +588,22 @@ static void replay_user_snapshot_fill(void)
 				players[i].cpu_charge_at_avail_ring[digit]
 			);
 		}
+		replay_user_snapshot.player_center_x[i] = players[i].center.x.v;
+		replay_user_snapshot.player_center_y[i] = players[i].center.y.v;
+		replay_user_snapshot.player_halfhearts[i] = players[i].halfhearts;
+		replay_user_snapshot.player_invincibility_time[i] = (
+			players[i].invincibility_time
+		);
+		replay_user_snapshot.player_gauge_charge_speed[i] = (
+			players[i].gauge_charge_speed
+		);
+		replay_user_snapshot.player_gauge_charged[i] = (
+			players[i].gauge_charged
+		);
+		replay_user_snapshot.player_gauge_avail[i] = players[i].gauge_avail;
+		replay_user_snapshot.player_bombs[i] = players[i].bombs;
+		replay_user_snapshot.player_shot_active[i] = players[i].shot_active;
+		replay_user_snapshot.player_cpu_frame[i] = players[i].cpu_frame;
 	}
 }
 
@@ -797,6 +813,22 @@ static void replay_user_snapshot_restore_runtime(void)
 				replay_user_snapshot.cpu_charge_at_avail_ring[i][digit]
 			);
 		}
+		players[i].center.x.v = replay_user_snapshot.player_center_x[i];
+		players[i].center.y.v = replay_user_snapshot.player_center_y[i];
+		players[i].halfhearts = replay_user_snapshot.player_halfhearts[i];
+		players[i].invincibility_time = (
+			replay_user_snapshot.player_invincibility_time[i]
+		);
+		players[i].gauge_charge_speed = (
+			replay_user_snapshot.player_gauge_charge_speed[i]
+		);
+		players[i].gauge_charged = replay_user_snapshot.player_gauge_charged[i];
+		players[i].gauge_avail = replay_user_snapshot.player_gauge_avail[i];
+		players[i].bombs = replay_user_snapshot.player_bombs[i];
+		players[i].shot_active = static_cast<shot_active_t>(
+			replay_user_snapshot.player_shot_active[i]
+		);
+		players[i].cpu_frame = replay_user_snapshot.player_cpu_frame[i];
 	}
 }
 
