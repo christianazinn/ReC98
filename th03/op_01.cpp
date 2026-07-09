@@ -795,17 +795,33 @@ bool near score_menu(void)
 }
 
 enum {
-	REPLAY_MENU_LEFT = ((BOX_LEFT / GLYPH_HALF_W) + 2),
-	REPLAY_MENU_VISIBLE = 5,
+	REPLAY_MENU_LIST_LEFT = 2,
+	REPLAY_MENU_DETAIL_LEFT = 44,
+	REPLAY_MENU_TITLE_Y = 1,
+	REPLAY_MENU_HELP_Y = 2,
+	REPLAY_MENU_HEAD_Y = 4,
+	REPLAY_MENU_LIST_Y = 5,
+	REPLAY_MENU_DETAIL_Y = 4,
+	REPLAY_MENU_FOOT_Y = 23,
+	REPLAY_MENU_VISIBLE = 10,
 };
 
-static char replay_menu_line[32];
+static char replay_menu_line[80];
+static char REPLAY_MENU_BLANK[] =
+	"                                                                                ";
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
 	while(*str != '\0') {
 		*p++ = *str++;
 	}
+	return p;
+}
+
+static char *replay_line_append_u8_2(char *p, uint8_t value)
+{
+	*p++ = static_cast<char>('0' + (value / 10));
+	*p++ = static_cast<char>('0' + (value % 10));
 	return p;
 }
 
@@ -827,6 +843,29 @@ static char *replay_line_append_u32(char *p, uint32_t value)
 	return p;
 }
 
+static char *replay_line_append_hex_nibble(char *p, uint8_t value)
+{
+	value &= 0x0F;
+	if(value < 10) {
+		*p++ = static_cast<char>('0' + value);
+	} else {
+		*p++ = static_cast<char>('A' + (value - 10));
+	}
+	return p;
+}
+
+static char *replay_line_append_hex32(char *p, uint32_t value)
+{
+	int shift;
+
+	for(shift = 28; shift >= 0; shift -= 4) {
+		p = replay_line_append_hex_nibble(
+			p, static_cast<uint8_t>(value >> shift)
+		);
+	}
+	return p;
+}
+
 static char replay_user_status_char(uint8_t status)
 {
 	switch(status) {
@@ -843,44 +882,362 @@ static char replay_user_status_char(uint8_t status)
 	}
 }
 
-static void replay_menu_line_clear(unsigned int line)
+static const char *replay_user_status_name(uint8_t status)
 {
-	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(line), "                            ", TX_BLACK);
+	switch(status) {
+	case RUS_FINALIZED:
+		return "Finalized";
+	case RUS_PARTIAL:
+		return "Partial";
+	case RUS_RECORDING:
+		return "Recording";
+	case RUS_ERROR:
+		return "Error";
+	default:
+		return "Unknown";
+	}
 }
 
-static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int line)
+static const char *replay_user_end_reason_name(uint8_t end_reason)
+{
+	switch(end_reason) {
+	case RUER_COMPLETE:
+		return "Complete";
+	case RUER_MENU_RETURN:
+		return "Menu Return";
+	case RUER_INPUT_END:
+		return "Input End";
+	case RUER_PARTIAL:
+		return "Partial";
+	case RUER_ERROR:
+		return "Error";
+	default:
+		return "None";
+	}
+}
+
+static const char *replay_user_end_reason_short(uint8_t end_reason)
+{
+	switch(end_reason) {
+	case RUER_COMPLETE:
+		return "Clr";
+	case RUER_MENU_RETURN:
+		return "Ret";
+	case RUER_INPUT_END:
+		return "EOF";
+	case RUER_PARTIAL:
+		return "Par";
+	case RUER_ERROR:
+		return "Err";
+	default:
+		return "---";
+	}
+}
+
+static const char *replay_rank_name(uint8_t rank)
+{
+	switch(rank) {
+	case RANK_EASY:
+		return "Easy";
+	case RANK_NORMAL:
+		return "Normal";
+	case RANK_HARD:
+		return "Hard";
+	case RANK_LUNATIC:
+		return "Lunatic";
+	default:
+		return "?";
+	}
+}
+
+static const char *replay_rank_short(uint8_t rank)
+{
+	switch(rank) {
+	case RANK_EASY:
+		return "Eas";
+	case RANK_NORMAL:
+		return "Nor";
+	case RANK_HARD:
+		return "Hrd";
+	case RANK_LUNATIC:
+		return "Lun";
+	default:
+		return "???";
+	}
+}
+
+static const char *replay_game_mode_name(uint8_t game_mode)
+{
+	switch(game_mode) {
+	case GM_STORY:
+		return "Story";
+	case GM_VS_1P_CPU:
+		return "VS 1P-CPU";
+	case GM_VS_1P_2P:
+		return "VS 1P-2P";
+	case GM_VS_CPU_CPU:
+		return "VS CPU-CPU";
+	default:
+		return "Unknown";
+	}
+}
+
+static const char *replay_game_mode_short(uint8_t game_mode)
+{
+	switch(game_mode) {
+	case GM_STORY:
+		return "Story";
+	case GM_VS_1P_CPU:
+		return "V1CPU";
+	case GM_VS_1P_2P:
+		return "V1P2P";
+	case GM_VS_CPU_CPU:
+		return "VCCPU";
+	default:
+		return "?????";
+	}
+}
+
+static uint8_t replay_playchar_id(uint8_t paletted)
+{
+	if(paletted == 0) {
+		return 0xFF;
+	}
+	return ((paletted - 1) / 2);
+}
+
+static const char *replay_playchar_name(uint8_t paletted)
+{
+	switch(replay_playchar_id(paletted)) {
+	case PLAYCHAR_REIMU:
+		return "Reimu";
+	case PLAYCHAR_MIMA:
+		return "Mima";
+	case PLAYCHAR_MARISA:
+		return "Marisa";
+	case PLAYCHAR_ELLEN:
+		return "Ellen";
+	case PLAYCHAR_KOTOHIME:
+		return "Kotohime";
+	case PLAYCHAR_KANA:
+		return "Kana";
+	case PLAYCHAR_RIKAKO:
+		return "Rikako";
+	case PLAYCHAR_CHIYURI:
+		return "Chiyuri";
+	case PLAYCHAR_YUMEMI:
+		return "Yumemi";
+	default:
+		return "?";
+	}
+}
+
+static const char *replay_playchar_short(uint8_t paletted)
+{
+	switch(replay_playchar_id(paletted)) {
+	case PLAYCHAR_REIMU:
+		return "Rei";
+	case PLAYCHAR_MIMA:
+		return "Mim";
+	case PLAYCHAR_MARISA:
+		return "Mar";
+	case PLAYCHAR_ELLEN:
+		return "Ell";
+	case PLAYCHAR_KOTOHIME:
+		return "Kot";
+	case PLAYCHAR_KANA:
+		return "Kan";
+	case PLAYCHAR_RIKAKO:
+		return "Rik";
+	case PLAYCHAR_CHIYURI:
+		return "Chi";
+	case PLAYCHAR_YUMEMI:
+		return "Yum";
+	default:
+		return "???";
+	}
+}
+
+static char *replay_line_append_stage(char *p, uint8_t stage)
+{
+	if(stage == STAGE_ALL) {
+		return replay_line_append_cstr(p, "All");
+	}
+	if(stage == STAGE_NONE) {
+		return replay_line_append_cstr(p, "--");
+	}
+	return replay_line_append_u32(p, (stage + 1));
+}
+
+static void replay_menu_line_clear(unsigned int y)
+{
+	text_putsa(0, y, REPLAY_MENU_BLANK, TX_BLACK);
+}
+
+static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb)
+{
+	text_putsa(x, y, replay_menu_line, atrb);
+}
+
+static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 {
 	char *p = replay_menu_line;
 	tram_atrb2 atrb = ((slot == sel) ? TX_WHITE : TX_BLACK);
 
 	*p++ = ((slot == sel) ? '>' : ' ');
-	*p++ = static_cast<char>('0' + (slot / 10));
-	*p++ = static_cast<char>('0' + (slot % 10));
+	p = replay_line_append_u8_2(p, slot);
 	*p++ = ' ';
 	if(replay_user_read_slot_for_menu(slot)) {
 		*p++ = replay_user_status_char(replay_user_menu_header.status);
 		*p++ = ' ';
-		p = replay_line_append_u32(p, replay_user_menu_header.sample_count);
-		*p++ = 'f';
+		p = replay_line_append_cstr(
+			p, replay_user_end_reason_short(replay_user_menu_header.end_reason)
+		);
 		*p++ = ' ';
-		if(replay_user_menu_header.game_mode == GM_STORY) {
-			*p++ = 'S';
-			p = replay_line_append_u32(p, replay_user_menu_header.story_stage);
-		} else {
-			*p++ = 'V';
-			p = replay_line_append_u32(
-				p, (replay_user_menu_header.game_mode - GM_VS)
-			);
-		}
+		p = replay_line_append_cstr(
+			p, replay_game_mode_short(replay_user_menu_header.game_mode)
+		);
 		*p++ = ' ';
-		*p++ = 'R';
-		p = replay_line_append_u32(p, replay_user_menu_header.rank);
+		*p++ = 'S';
+		p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
+		*p++ = ' ';
+		p = replay_line_append_cstr(p, replay_rank_short(replay_user_menu_header.rank));
+		*p++ = ' ';
+		p = replay_line_append_cstr(
+			p, replay_playchar_short(replay_user_menu_header.playchar_p1)
+		);
+		*p++ = '/';
+		p = replay_line_append_cstr(
+			p, replay_playchar_short(replay_user_menu_header.playchar_p2)
+		);
 	} else {
 		p = replay_line_append_cstr(p, "empty");
 	}
 	*p = '\0';
-	replay_menu_line_clear(line);
-	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(line), replay_menu_line, atrb);
+	replay_menu_line_clear(y);
+	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, y, atrb);
+}
+
+static void replay_menu_detail_line_put(unsigned int y, char *p)
+{
+	*p = '\0';
+	replay_menu_line_clear(y);
+	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_BLACK);
+}
+
+static void replay_menu_detail_put_empty(uint8_t slot)
+{
+	char *p;
+
+	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
+		replay_menu_line_clear(y);
+	}
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Slot ");
+	p = replay_line_append_u8_2(p, slot);
+	p = replay_line_append_cstr(p, ": empty");
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "No replay header found.");
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 2, p);
+}
+
+static void replay_menu_detail_put(uint8_t slot)
+{
+	char *p;
+
+	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
+		replay_menu_line_clear(y);
+	}
+
+	if(!replay_user_read_slot_for_menu(slot)) {
+		replay_menu_detail_put_empty(slot);
+		return;
+	}
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Slot ");
+	p = replay_line_append_u8_2(p, slot);
+	p = replay_line_append_cstr(p, "  ");
+	p = replay_line_append_cstr(
+		p, replay_user_status_name(replay_user_menu_header.status)
+	);
+	p = replay_line_append_cstr(p, " / ");
+	p = replay_line_append_cstr(
+		p, replay_user_end_reason_name(replay_user_menu_header.end_reason)
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Mode: ");
+	p = replay_line_append_cstr(
+		p, replay_game_mode_name(replay_user_menu_header.game_mode)
+	);
+	p = replay_line_append_cstr(p, "  Rank: ");
+	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 2, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Start: Stage ");
+	p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
+	p = replay_line_append_cstr(p, "  Key: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.key_mode);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "P1: ");
+	p = replay_line_append_cstr(
+		p, replay_playchar_name(replay_user_menu_header.playchar_p1)
+	);
+	if(replay_user_menu_header.is_cpu_p1) {
+		p = replay_line_append_cstr(p, " CPU");
+	}
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 5, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "P2: ");
+	p = replay_line_append_cstr(
+		p, replay_playchar_name(replay_user_menu_header.playchar_p2)
+	);
+	if(replay_user_menu_header.is_cpu_p2) {
+		p = replay_line_append_cstr(p, " CPU");
+	}
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 6, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Samples: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.sample_count);
+	p = replay_line_append_cstr(p, "  Frames: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.final_frame_count);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 8, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Input bytes: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.input_size);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 9, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "RNG: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.resident_rand);
+	p = replay_line_append_cstr(p, "  Seed: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.random_seed_snapshot);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 11, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Input CRC: ");
+	p = replay_line_append_hex32(p, replay_user_menu_header.input_crc32);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 13, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "State CRC: ");
+	p = replay_line_append_hex32(p, replay_user_menu_header.snapshot_crc32);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 14, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Final scores and splits pending.");
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 16, p);
 }
 
 static void replay_menu_render(uint8_t sel, uint8_t top)
@@ -888,14 +1245,28 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	uint8_t slot;
 	unsigned int line;
 
-	replay_menu_line_clear(0);
-	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(0), "Replay Slots", TX_GREEN);
+	text_putsa(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_TITLE_Y, "Replay Browser", TX_GREEN);
+	text_putsa(
+		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HELP_Y,
+		"Up/Down: slot  Left/Right: page  OK/Shot: play  Esc: back",
+		TX_BLACK
+	);
+	text_putsa(
+		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y,
+		"Sl  St End Mode  St Rank Chars", TX_CYAN
+	);
+	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
-		replay_menu_slot_line_put(slot, sel, (line + 1));
+		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
 	}
-	replay_menu_line_clear(6);
-	text_putsa(REPLAY_MENU_LEFT, choice_tram_y(6), "Cancel: Back", TX_BLACK);
+	replay_menu_detail_put(sel);
+	replay_menu_line_clear(REPLAY_MENU_FOOT_Y);
+	text_putsa(
+		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y,
+		"Replay summaries will gain score/split fields in a later format pass.",
+		TX_BLACK
+	);
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
@@ -905,6 +1276,15 @@ static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
 	} else if(sel >= (top + REPLAY_MENU_VISIBLE)) {
 		top = (sel - (REPLAY_MENU_VISIBLE - 1));
 	}
+}
+
+static void replay_menu_screen_init(void)
+{
+	text_clear();
+	graph_accesspage(0);	graph_clear();
+	graph_accesspage(1);	graph_clear();
+	graph_showpage(0);
+	graph_accesspage(0);
 }
 
 bool near replay_menu(void)
@@ -917,8 +1297,7 @@ bool near replay_menu(void)
 		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
 	}
 
-	text_clear();
-	box_main_to_submenu_animate();
+	replay_menu_screen_init();
 	replay_menu_render(sel, top);
 
 	while(1) {
@@ -931,6 +1310,24 @@ bool near replay_menu(void)
 			}
 			if(input_sp & INPUT_DOWN) {
 				ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+				replay_menu_top_clamp(sel, top);
+				replay_menu_render(sel, top);
+			}
+			if(input_sp & INPUT_LEFT) {
+				if(sel < REPLAY_MENU_VISIBLE) {
+					sel = 0;
+				} else {
+					sel -= REPLAY_MENU_VISIBLE;
+				}
+				replay_menu_top_clamp(sel, top);
+				replay_menu_render(sel, top);
+			}
+			if(input_sp & INPUT_RIGHT) {
+				if(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
+					sel = (T3_REPLAY_USER_SLOT_COUNT - 1);
+				} else {
+					sel += REPLAY_MENU_VISIBLE;
+				}
 				replay_menu_top_clamp(sel, top);
 				replay_menu_render(sel, top);
 			}
@@ -1221,9 +1618,7 @@ void near main_update_and_render(void)
 			break;
 		case MC_REPLAY:
 			replay_menu();
-			in_this_menu = false;
-			menu_sel = MC_REPLAY;
-			input_allowed = false;
+			return_from_other_screen_to_main(in_this_menu, input_allowed);
 			return;
 		case MC_QUIT:
 			in_this_menu = false; // We're quitting anyway...
