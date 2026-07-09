@@ -7,6 +7,7 @@
 #include "th02/math/randring.hpp"
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
+#include "th03/main/playfld.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
@@ -2016,6 +2017,7 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_H 7
 #define REPLAY_PAUSE_TEXT_LEFT (REPLAY_PAUSE_LEFT + 6)
 #define REPLAY_PAUSE_CHOICE_MARK_LEFT (REPLAY_PAUSE_LEFT + 3)
+#define REPLAY_PAUSE_BG_ATRB (TX_BLACK | TX_REVERSE)
 
 static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 {
@@ -2024,6 +2026,23 @@ static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 	str[0] = static_cast<char>(ch);
 	str[1] = '\0';
 	text_putsa(x, y, str, atrb);
+}
+
+static unsigned replay_pause_clear_atrb(unsigned x)
+{
+	if(
+		(
+			(x >= playfield_tram_x(0, 0)) &&
+			(x < playfield_tram_x(0, PLAYFIELD_W))
+		) ||
+		(
+			(x >= playfield_tram_x(1, 0)) &&
+			(x < playfield_tram_x(1, PLAYFIELD_W))
+		)
+	) {
+		return TX_WHITE;
+	}
+	return REPLAY_PAUSE_BG_ATRB;
 }
 
 static void replay_pause_put_frame(void)
@@ -2035,7 +2054,7 @@ static void replay_pause_put_frame(void)
 		for(x = 0; x < REPLAY_PAUSE_W; x++) {
 			replay_text_putca(
 				(REPLAY_PAUSE_LEFT + x), (REPLAY_PAUSE_TOP + y),
-				' ', TX_WHITE
+				' ', REPLAY_PAUSE_BG_ATRB
 			);
 		}
 	}
@@ -2150,7 +2169,7 @@ static void replay_pause_clear(void)
 		for(x = 0; x < REPLAY_PAUSE_W; x++) {
 			replay_text_putca(
 				(REPLAY_PAUSE_LEFT + x), (REPLAY_PAUSE_TOP + y),
-				' ', TX_WHITE
+				' ', replay_pause_clear_atrb(REPLAY_PAUSE_LEFT + x)
 			);
 		}
 	}
@@ -2237,6 +2256,7 @@ input_wait:
 #undef REPLAY_PAUSE_H
 #undef REPLAY_PAUSE_TEXT_LEFT
 #undef REPLAY_PAUSE_CHOICE_MARK_LEFT
+#undef REPLAY_PAUSE_BG_ATRB
 
 bool far replay_prompt_skip(void)
 {
