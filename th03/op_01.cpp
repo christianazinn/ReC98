@@ -220,7 +220,7 @@ static void replay_resident_handoff_set(char mode)
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
 	for(
 		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
-		i < (T3_REPLAY_RES_GLOBAL_FRAME_INDEX + 4);
+		i < T3_REPLAY_RES_CURSOR_END_INDEX;
 		i++
 	) {
 		resident->unused_3[i] = 0;
@@ -244,7 +244,7 @@ static void replay_resident_handoff_clear(void)
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
 	for(
 		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
-		i < (T3_REPLAY_RES_GLOBAL_FRAME_INDEX + 4);
+		i < T3_REPLAY_RES_CURSOR_END_INDEX;
 		i++
 	) {
 		resident->unused_3[i] = 0;
@@ -264,6 +264,18 @@ static void replay_user_slot_fn_set(uint8_t slot)
 
 static bool replay_user_header_valid(const replay_user_header_t near& header)
 {
+	bool v2 = (
+		(header.magic[6] == '2') &&
+		(header.version == T3_REPLAY_USER_VERSION_V2) &&
+		(header.sample_size == sizeof(replay_user_sample_t))
+	);
+	bool v3 = (
+		(header.magic[6] == '3') &&
+		(header.version == T3_REPLAY_USER_VERSION) &&
+		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
+	);
+
 	return (
 		(header.magic[0] == 'T') &&
 		(header.magic[1] == '3') &&
@@ -271,10 +283,8 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(header.magic[6] == '2') &&
-		(header.version == T3_REPLAY_USER_VERSION) &&
+		(v2 || v3) &&
 		(header.header_size == sizeof(replay_user_header_t)) &&
-		(header.sample_size == sizeof(replay_user_sample_t)) &&
 		(header.snapshot_offset == sizeof(replay_user_header_t)) &&
 		(header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
 		(header.input_offset == (
@@ -289,6 +299,17 @@ static bool replay_user_index_header_valid(
 	const replay_user_index_header_t near& header
 )
 {
+	bool version_valid = (
+		(
+			(header.magic[6] == '2') &&
+			(header.version == T3_REPLAY_USER_INDEX_VERSION_V2)
+		) ||
+		(
+			(header.magic[6] == '3') &&
+			(header.version == T3_REPLAY_USER_INDEX_VERSION)
+		)
+	);
+
 	return (
 		(header.magic[0] == 'T') &&
 		(header.magic[1] == '3') &&
@@ -296,8 +317,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '2') &&
-		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
+		version_valid &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
 		(header.slot_count == T3_REPLAY_USER_SLOT_COUNT) &&

@@ -3,7 +3,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th03/hardware/input.h"
-#include "th03/replay_handoff.hpp"
+#include "th03/main/replay.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -11,16 +11,7 @@ extern "C" uint8_t byte_23B00;
 
 extern "C" void near sub_C7A5(void)
 {
-	if(
-		(resident->unused_3[0] == T3_REPLAY_RES_MAGIC_0) &&
-		(resident->unused_3[1] == T3_REPLAY_RES_MAGIC_1) &&
-		(resident->unused_3[2] == T3_REPLAY_RES_MAGIC_2) &&
-		(resident->unused_3[3] == T3_REPLAY_RES_MAGIC_3) &&
-		(
-			resident->unused_3[T3_REPLAY_RES_MODE_INDEX] ==
-			T3_REPLAY_RES_MODE_USER_PLAYBACK
-		)
-	) {
+	if(replay_prompt_skip()) {
 		byte_23B00 = 1;
 		return;
 	}
@@ -37,7 +28,7 @@ quit:
 	goto release_test;
 
 release_wait:
-	input_reset_sense_key_held();
+	replay_input_sense_held();
 	frame_delay(1);
 
 release_test:
@@ -46,7 +37,7 @@ release_test:
 	}
 
 input_wait:
-	input_reset_sense_key_held();
+	replay_input_sense_held();
 	if(input_sp & INPUT_Q) {
 		goto quit;
 	}
@@ -57,7 +48,7 @@ input_wait:
 	goto input_wait;
 
 cancel_release_wait:
-	input_reset_sense_key_held();
+	replay_input_sense_held();
 	frame_delay(1);
 
 cancel_release_test:

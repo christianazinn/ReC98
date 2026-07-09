@@ -6,6 +6,8 @@
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);
+void far replay_input_sense_held(void);
+bool far replay_prompt_skip(void);
 void far replay_route(uint8_t route);
 void far replay_finish(uint8_t route);
 
