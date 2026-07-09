@@ -10,6 +10,7 @@
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_SCORE_DIGITS 8
+#define T3_REPLAY_USER_PACKED_SCORE_SIZE 4
 #define T3_REPLAY_USER_RANDRING_SIZE 256
 #define T3_REPLAY_USER_CPU_CHARGE_RING_SIZE 64
 #define T3_REPLAY_USER_FORMATION_RING_SIZE 256
@@ -27,6 +28,8 @@
 #define T3_REPLAY_PACKET_CHANGE_P1 0x01
 #define T3_REPLAY_PACKET_CHANGE_P2 0x02
 #define T3_REPLAY_PACKET_CHANGE_SP 0x04
+#define T3_REPLAY_USER_SUMMARY_VALID 0x0001
+#define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 
 enum replay_user_status_t {
 	RUS_EMPTY = 0,
@@ -71,7 +74,21 @@ struct replay_user_header_t {
 	uint32_t snapshot_size;
 	uint32_t input_crc32;
 	uint32_t snapshot_crc32;
-	uint8_t reserved[62];
+	uint16_t summary_flags;
+	uint8_t final_route;
+	uint8_t final_game_mode;
+	uint8_t final_story_stage;
+	uint8_t final_round_id;
+	uint8_t final_winner;
+	uint8_t final_story_lives;
+	uint8_t final_misses;
+	uint8_t stage_reached_count;
+	uint8_t stage_opponents[T3_REPLAY_USER_STAGE_COUNT];
+	uint8_t stage_scores[
+		T3_REPLAY_USER_STAGE_COUNT
+	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t reserved_summary[3];
 };
 
 struct replay_user_snapshot_t {
@@ -155,7 +172,14 @@ struct replay_user_index_entry_t {
 	uint32_t random_seed_snapshot;
 	uint32_t input_crc32;
 	uint32_t snapshot_crc32;
-	uint8_t reserved[20];
+	uint16_t summary_flags;
+	uint8_t final_route;
+	uint8_t final_story_stage;
+	uint8_t final_story_lives;
+	uint8_t final_misses;
+	uint8_t stage_reached_count;
+	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t stage_opponents[T3_REPLAY_USER_STAGE_COUNT];
 };
 
 #endif /* TH03_REPLAY_FORMAT_HPP */

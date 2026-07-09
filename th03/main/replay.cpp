@@ -130,6 +130,19 @@ static bool replay_paths_initialized;
 static bool replay_prompt_skip_queued;
 static bool replay_rle_packet_open;
 static bool replay_user_discard_requested;
+static uint16_t replay_sum_flags;
+static uint8_t replay_sum_route;
+static uint8_t replay_sum_mode;
+static uint8_t replay_sum_stage;
+static uint8_t replay_sum_round;
+static uint8_t replay_sum_winner;
+static uint8_t replay_sum_lives;
+static uint8_t replay_sum_misses;
+static uint8_t replay_sum_stage_count;
+static uint8_t replay_sum_stage_opps[T3_REPLAY_USER_STAGE_COUNT];
+static uint8_t replay_sum_stage_scores[
+	T3_REPLAY_USER_STAGE_COUNT
+][T3_REPLAY_USER_PACKED_SCORE_SIZE];
 
 extern "C" unsigned char score[];
 extern uint8_t byte_23B00;
@@ -538,6 +551,133 @@ static void replay_write_score(const unsigned char near *digits)
 	}
 }
 
+static void replay_score_pack(
+	uint8_t near *packed, const unsigned char near *digits
+)
+{
+	int i;
+
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		packed[i] = static_cast<uint8_t>(
+			(digits[(i * 2) + 0] % 10) |
+			((digits[(i * 2) + 1] % 10) << 4)
+		);
+	}
+}
+
+static void replay_user_summary_init_from_snapshot(void)
+{
+	int i;
+	int j;
+
+	replay_sum_flags = T3_REPLAY_USER_SUMMARY_VALID;
+	replay_sum_route = T3_REPLAY_USER_SUMMARY_UNKNOWN;
+	replay_sum_mode = replay_user_snapshot.game_mode;
+	replay_sum_stage = replay_user_snapshot.story_stage;
+	replay_sum_round = T3_REPLAY_USER_SUMMARY_UNKNOWN;
+	replay_sum_winner = T3_REPLAY_USER_SUMMARY_UNKNOWN;
+	replay_sum_lives = replay_user_snapshot.story_lives;
+	replay_sum_misses = T3_REPLAY_USER_SUMMARY_UNKNOWN;
+	replay_sum_stage_count = 0;
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_sum_stage_opps[i] = (
+			replay_user_snapshot.story_opponents[i]
+		);
+		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+			replay_sum_stage_scores[i][j] = 0;
+		}
+	}
+}
+
+static void replay_user_summary_load_from_header(void)
+{
+	int i;
+	int j;
+
+	replay_user_summary_init_from_snapshot();
+	if(
+		(replay_user_header.summary_flags & T3_REPLAY_USER_SUMMARY_VALID) == 0
+	) {
+		return;
+	}
+	replay_sum_flags = replay_user_header.summary_flags;
+	replay_sum_route = replay_user_header.final_route;
+	replay_sum_mode = replay_user_header.final_game_mode;
+	replay_sum_stage = replay_user_header.final_story_stage;
+	replay_sum_round = replay_user_header.final_round_id;
+	replay_sum_winner = replay_user_header.final_winner;
+	replay_sum_lives = replay_user_header.final_story_lives;
+	replay_sum_misses = replay_user_header.final_misses;
+	replay_sum_stage_count = (
+		replay_user_header.stage_reached_count
+	);
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_sum_stage_opps[i] = (
+			replay_user_header.stage_opponents[i]
+		);
+		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+			replay_sum_stage_scores[i][j] = (
+				replay_user_header.stage_scores[i][j]
+			);
+		}
+	}
+}
+
+static void replay_user_summary_capture(uint8_t route)
+{
+	uint8_t stage = resident->story_stage;
+
+	if(replay_mode != REPLAY_USER_RECORD) {
+		return;
+	}
+
+	replay_sum_flags = T3_REPLAY_USER_SUMMARY_VALID;
+	replay_sum_route = route;
+	replay_sum_mode = resident->game_mode;
+	replay_sum_stage = resident->story_stage;
+	replay_sum_round = round_id;
+	replay_sum_winner = static_cast<uint8_t>(resident->pid_winner);
+	replay_sum_lives = resident->story_lives;
+	replay_sum_misses = T3_REPLAY_USER_SUMMARY_UNKNOWN;
+
+	if((resident->game_mode == GM_STORY) && (stage < T3_REPLAY_USER_STAGE_COUNT)) {
+		replay_sum_stage_opps[stage] = (
+			resident->story_opponents[stage].v
+		);
+		replay_score_pack(replay_sum_stage_scores[stage], score);
+		if(replay_sum_stage_count <= stage) {
+			replay_sum_stage_count = (stage + 1);
+		}
+	}
+}
+
+static void replay_user_summary_copy_to_header(void)
+{
+	int i;
+	int j;
+
+	replay_user_header.summary_flags = replay_sum_flags;
+	replay_user_header.final_route = replay_sum_route;
+	replay_user_header.final_game_mode = replay_sum_mode;
+	replay_user_header.final_story_stage = replay_sum_stage;
+	replay_user_header.final_round_id = replay_sum_round;
+	replay_user_header.final_winner = replay_sum_winner;
+	replay_user_header.final_story_lives = replay_sum_lives;
+	replay_user_header.final_misses = replay_sum_misses;
+	replay_user_header.stage_reached_count = replay_sum_stage_count;
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_user_header.stage_opponents[i] = (
+			replay_sum_stage_opps[i]
+		);
+		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+			replay_user_header.stage_scores[i][j] = (
+				replay_sum_stage_scores[i][j]
+			);
+		}
+	}
+	replay_score_pack(replay_user_header.final_score, score);
+}
+
 static void replay_dir_create(void)
 {
 	dos_axdx(0x3900, T3_USER_REPLAY_DIR);
@@ -589,6 +729,8 @@ static void replay_user_index_entry_fill(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
+	int i;
+
 	replay_memclear(&replay_user_index_entry, sizeof(replay_user_index_entry));
 	replay_user_index_entry.used = true;
 	replay_user_index_entry.slot_id = replay_user_slot;
@@ -612,6 +754,26 @@ static void replay_user_index_entry_fill(
 	);
 	replay_user_index_entry.input_crc32 = replay_user_header.input_crc32;
 	replay_user_index_entry.snapshot_crc32 = replay_user_header.snapshot_crc32;
+	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
+	replay_user_index_entry.final_route = replay_user_header.final_route;
+	replay_user_index_entry.final_story_stage = (
+		replay_user_header.final_story_stage
+	);
+	replay_user_index_entry.final_story_lives = (
+		replay_user_header.final_story_lives
+	);
+	replay_user_index_entry.final_misses = replay_user_header.final_misses;
+	replay_user_index_entry.stage_reached_count = (
+		replay_user_header.stage_reached_count
+	);
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		replay_user_index_entry.final_score[i] = replay_user_header.final_score[i];
+	}
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_user_index_entry.stage_opponents[i] = (
+			replay_user_header.stage_opponents[i]
+		);
+	}
 }
 
 static bool replay_user_index_create(void)
@@ -953,6 +1115,7 @@ static void replay_user_snapshot_fill(void)
 		replay_user_snapshot.player_shot_active[i] = players[i].shot_active;
 		replay_user_snapshot.player_cpu_frame[i] = players[i].cpu_frame;
 	}
+	replay_user_summary_init_from_snapshot();
 }
 
 static void replay_user_header_fill(
@@ -998,6 +1161,7 @@ static void replay_user_header_fill(
 	replay_user_header.snapshot_crc32 = replay_hash_bytes(
 		5381, &replay_user_snapshot, sizeof(replay_user_snapshot)
 	);
+	replay_user_summary_copy_to_header();
 }
 
 static bool replay_header_write(void)
@@ -1016,6 +1180,7 @@ static bool replay_user_header_write(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
+	replay_user_summary_capture(replay_last_route);
 	replay_user_header_fill(status, end_reason);
 	if(!file_append(replay_user_fn)) {
 		return false;
@@ -1095,6 +1260,7 @@ static bool replay_user_read_from(const char *fn)
 		return false;
 	}
 	file_close();
+	replay_user_summary_load_from_header();
 	return true;
 }
 
@@ -2038,6 +2204,10 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_TEXT_LEFT (REPLAY_PAUSE_LEFT + 6)
 #define REPLAY_PAUSE_CHOICE_MARK_LEFT (REPLAY_PAUSE_LEFT + 3)
 #define REPLAY_PAUSE_BG_ATRB (TX_BLACK | TX_REVERSE)
+#define REPLAY_PAUSE_FRAME_ATRB (TX_CYAN | TX_REVERSE)
+#define REPLAY_PAUSE_TITLE_ATRB (TX_YELLOW | TX_REVERSE)
+#define REPLAY_PAUSE_CHOICE_ATRB (TX_CYAN | TX_REVERSE)
+#define REPLAY_PAUSE_SELECTED_ATRB (TX_WHITE | TX_REVERSE)
 
 static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 {
@@ -2079,35 +2249,41 @@ static void replay_pause_put_frame(void)
 		}
 	}
 
-	replay_text_putca(REPLAY_PAUSE_LEFT, REPLAY_PAUSE_TOP, '+', TX_CYAN);
+	replay_text_putca(
+		REPLAY_PAUSE_LEFT, REPLAY_PAUSE_TOP, '+', REPLAY_PAUSE_FRAME_ATRB
+	);
 	replay_text_putca(
 		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)), REPLAY_PAUSE_TOP,
-		'+', TX_CYAN
+		'+', REPLAY_PAUSE_FRAME_ATRB
 	);
 	replay_text_putca(
 		REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
-		'+', TX_CYAN
+		'+', REPLAY_PAUSE_FRAME_ATRB
 	);
 	replay_text_putca(
 		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
-		(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)), '+', TX_CYAN
+		(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
+		'+', REPLAY_PAUSE_FRAME_ATRB
 	);
 	for(x = 1; x < (REPLAY_PAUSE_W - 1); x++) {
 		replay_text_putca(
-			(REPLAY_PAUSE_LEFT + x), REPLAY_PAUSE_TOP, '-', TX_CYAN
+			(REPLAY_PAUSE_LEFT + x), REPLAY_PAUSE_TOP,
+			'-', REPLAY_PAUSE_FRAME_ATRB
 		);
 		replay_text_putca(
 			(REPLAY_PAUSE_LEFT + x),
-			(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)), '-', TX_CYAN
+			(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
+			'-', REPLAY_PAUSE_FRAME_ATRB
 		);
 	}
 	for(y = 1; y < (REPLAY_PAUSE_H - 1); y++) {
 		replay_text_putca(
-			REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + y), '|', TX_CYAN
+			REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + y),
+			'|', REPLAY_PAUSE_FRAME_ATRB
 		);
 		replay_text_putca(
 			(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
-			(REPLAY_PAUSE_TOP + y), '|', TX_CYAN
+			(REPLAY_PAUSE_TOP + y), '|', REPLAY_PAUSE_FRAME_ATRB
 		);
 	}
 }
@@ -2117,7 +2293,7 @@ static void replay_pause_put_title(void)
 	unsigned x = (REPLAY_PAUSE_LEFT + 13);
 	unsigned y = (REPLAY_PAUSE_TOP + 1);
 
-#define P(c) replay_text_putca(x++, y, c, TX_YELLOW)
+#define P(c) replay_text_putca(x++, y, c, REPLAY_PAUSE_TITLE_ATRB)
 	P('P'); P('A'); P('U'); P('S'); P('E'); P('D');
 #undef P
 }
@@ -2159,21 +2335,33 @@ static void replay_pause_put_choices(uint8_t sel)
 	unsigned atrb;
 
 	y = (REPLAY_PAUSE_TOP + 2);
-	atrb = (sel == REPLAY_PAUSE_RESUME) ? TX_WHITE : TX_CYAN;
+	atrb = (
+		(sel == REPLAY_PAUSE_RESUME) ?
+		REPLAY_PAUSE_SELECTED_ATRB :
+		REPLAY_PAUSE_CHOICE_ATRB
+	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_RESUME) ? '>' : ' '
 	), atrb);
 	replay_pause_put_resume(y, atrb);
 
 	y++;
-	atrb = (sel == REPLAY_PAUSE_SAVE_EXIT) ? TX_WHITE : TX_CYAN;
+	atrb = (
+		(sel == REPLAY_PAUSE_SAVE_EXIT) ?
+		REPLAY_PAUSE_SELECTED_ATRB :
+		REPLAY_PAUSE_CHOICE_ATRB
+	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_SAVE_EXIT) ? '>' : ' '
 	), atrb);
 	replay_pause_put_save_exit(y, atrb);
 
 	y++;
-	atrb = (sel == REPLAY_PAUSE_DISCARD_EXIT) ? TX_WHITE : TX_CYAN;
+	atrb = (
+		(sel == REPLAY_PAUSE_DISCARD_EXIT) ?
+		REPLAY_PAUSE_SELECTED_ATRB :
+		REPLAY_PAUSE_CHOICE_ATRB
+	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_DISCARD_EXIT) ? '>' : ' '
 	), atrb);
@@ -2277,6 +2465,10 @@ input_wait:
 #undef REPLAY_PAUSE_TEXT_LEFT
 #undef REPLAY_PAUSE_CHOICE_MARK_LEFT
 #undef REPLAY_PAUSE_BG_ATRB
+#undef REPLAY_PAUSE_FRAME_ATRB
+#undef REPLAY_PAUSE_TITLE_ATRB
+#undef REPLAY_PAUSE_CHOICE_ATRB
+#undef REPLAY_PAUSE_SELECTED_ATRB
 
 bool far replay_prompt_skip(void)
 {

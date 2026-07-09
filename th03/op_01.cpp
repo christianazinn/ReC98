@@ -810,6 +810,8 @@ enum {
 static char replay_menu_line[80];
 static char REPLAY_MENU_BLANK[] =
 	"                                                                                ";
+// Keeps OP DGROUP offsets stable across replay-browser text rewrites.
+static char REPLAY_MENU_DATA_PAD[46] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -864,6 +866,68 @@ static char *replay_line_append_hex32(char *p, uint32_t value)
 			p, static_cast<uint8_t>(value >> shift)
 		);
 	}
+	return p;
+}
+
+static char *replay_line_append_unknown_score(char *p)
+{
+	for(int i = 0; i < T3_REPLAY_USER_SCORE_DIGITS; i++) {
+		*p++ = '-';
+	}
+	return p;
+}
+
+static char *replay_line_append_packed_score(
+	char *p, const uint8_t near *score
+)
+{
+	uint8_t value;
+	int digit;
+
+	for(digit = (T3_REPLAY_USER_SCORE_DIGITS - 1); digit >= 0; digit--) {
+		value = score[digit / 2];
+		if(digit & 1) {
+			value >>= 4;
+		}
+		value &= 0x0F;
+		if(value < 10) {
+			*p++ = static_cast<char>('0' + value);
+		} else {
+			*p++ = '?';
+		}
+	}
+	return p;
+}
+
+static bool replay_menu_summary_valid(void)
+{
+	return (
+		(replay_user_menu_header.summary_flags & T3_REPLAY_USER_SUMMARY_VALID) !=
+		0
+	);
+}
+
+static uint8_t replay_menu_stage_opponent(uint8_t stage)
+{
+	if(
+		replay_menu_summary_valid() &&
+		(replay_user_menu_header.stage_opponents[stage] != 0)
+	) {
+		return replay_user_menu_header.stage_opponents[stage];
+	}
+	return replay_user_menu_snapshot.story_opponents[stage];
+}
+
+static char *replay_line_append_story_lives(char *p)
+{
+	if(
+		replay_menu_summary_valid() &&
+		(replay_user_menu_header.final_story_lives != T3_REPLAY_USER_SUMMARY_UNKNOWN)
+	) {
+		return replay_line_append_u32(p, replay_user_menu_header.final_story_lives);
+	}
+	*p++ = '-';
+	*p++ = '-';
 	return p;
 }
 
@@ -1099,18 +1163,19 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 			p, replay_game_mode_short(replay_user_menu_header.game_mode)
 		);
 		*p++ = ' ';
-		*p++ = 'S';
-		p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
-		*p++ = ' ';
 		p = replay_line_append_cstr(p, replay_rank_short(replay_user_menu_header.rank));
 		*p++ = ' ';
 		p = replay_line_append_cstr(
 			p, replay_playchar_short(replay_user_menu_header.playchar_p1)
 		);
-		*p++ = '/';
-		p = replay_line_append_cstr(
-			p, replay_playchar_short(replay_user_menu_header.playchar_p2)
-		);
+		*p++ = ' ';
+		if(replay_menu_summary_valid()) {
+			p = replay_line_append_packed_score(
+				p, replay_user_menu_header.final_score
+			);
+		} else {
+			p = replay_line_append_unknown_score(p);
+		}
 	} else {
 		p = replay_line_append_cstr(p, "empty");
 	}
@@ -1148,6 +1213,7 @@ static void replay_menu_detail_put_empty(uint8_t slot)
 static void replay_menu_detail_put(uint8_t slot)
 {
 	char *p;
+	uint8_t stage;
 
 	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
 		replay_menu_line_clear(y);
@@ -1172,23 +1238,34 @@ static void replay_menu_detail_put(uint8_t slot)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Mode: ");
-	p = replay_line_append_cstr(
-		p, replay_game_mode_name(replay_user_menu_header.game_mode)
-	);
-	p = replay_line_append_cstr(p, "  Rank: ");
-	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
+	p = replay_line_append_cstr(p, "Final: ");
+	if(replay_menu_summary_valid()) {
+		p = replay_line_append_packed_score(p, replay_user_menu_header.final_score);
+	} else {
+		p = replay_line_append_unknown_score(p);
+	}
+	p = replay_line_append_cstr(p, "  Lives: ");
+	p = replay_line_append_story_lives(p);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 2, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Start: Stage ");
-	p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
-	p = replay_line_append_cstr(p, "  Key: ");
-	p = replay_line_append_u32(p, replay_user_menu_header.key_mode);
+	p = replay_line_append_cstr(p, "Mode: ");
+	p = replay_line_append_cstr(p, replay_game_mode_name(
+		replay_user_menu_header.game_mode
+	));
+	p = replay_line_append_cstr(p, "  Rank: ");
+	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "P1: ");
+	p = replay_line_append_cstr(p, "Start: S");
+	p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
+	p = replay_line_append_cstr(p, "  Key: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.key_mode);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Player: ");
 	p = replay_line_append_cstr(
 		p, replay_playchar_name(replay_user_menu_header.playchar_p1)
 	);
@@ -1198,47 +1275,43 @@ static void replay_menu_detail_put(uint8_t slot)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 5, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "P2: ");
-	p = replay_line_append_cstr(
-		p, replay_playchar_name(replay_user_menu_header.playchar_p2)
-	);
-	if(replay_user_menu_header.is_cpu_p2) {
-		p = replay_line_append_cstr(p, " CPU");
+	p = replay_line_append_cstr(p, "Stage Opp Score");
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 7, p);
+
+	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
+		p = replay_menu_line;
+		*p++ = static_cast<char>('1' + stage);
+		*p++ = ' ';
+		p = replay_line_append_cstr(
+			p, replay_playchar_short(replay_menu_stage_opponent(stage))
+		);
+		*p++ = ' ';
+		if(
+			replay_menu_summary_valid() &&
+			(stage < replay_user_menu_header.stage_reached_count)
+		) {
+			p = replay_line_append_packed_score(
+				p, replay_user_menu_header.stage_scores[stage]
+			);
+		} else {
+			p = replay_line_append_unknown_score(p);
+		}
+		replay_menu_detail_line_put((REPLAY_MENU_DETAIL_Y + 8 + stage), p);
 	}
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 6, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Samples: ");
+	p = replay_line_append_cstr(p, "Smpl: ");
 	p = replay_line_append_u32(p, replay_user_menu_header.sample_count);
-	p = replay_line_append_cstr(p, "  Frames: ");
+	p = replay_line_append_cstr(p, " Frm: ");
 	p = replay_line_append_u32(p, replay_user_menu_header.final_frame_count);
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 8, p);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 17, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Input bytes: ");
+	p = replay_line_append_cstr(p, "Bytes: ");
 	p = replay_line_append_u32(p, replay_user_menu_header.input_size);
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 9, p);
-
-	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "RNG: ");
+	p = replay_line_append_cstr(p, "  RNG: ");
 	p = replay_line_append_u32(p, replay_user_menu_header.resident_rand);
-	p = replay_line_append_cstr(p, "  Seed: ");
-	p = replay_line_append_u32(p, replay_user_menu_header.random_seed_snapshot);
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 11, p);
-
-	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Input CRC: ");
-	p = replay_line_append_hex32(p, replay_user_menu_header.input_crc32);
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 13, p);
-
-	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "State CRC: ");
-	p = replay_line_append_hex32(p, replay_user_menu_header.snapshot_crc32);
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 14, p);
-
-	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Final scores and splits pending.");
-	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 16, p);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 18, p);
 }
 
 static void replay_menu_render(uint8_t sel, uint8_t top)
@@ -1254,7 +1327,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	);
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y,
-		"Sl  St End Mode  St Rank Chars", TX_CYAN
+		"Sl  St End Mode  Rank Player Score", TX_CYAN
 	);
 	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
@@ -1265,7 +1338,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	replay_menu_line_clear(REPLAY_MENU_FOOT_Y);
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y,
-		"Replay summaries will gain score/split fields in a later format pass.",
+		"New replays store packed score splits in the fixed-size .RPY header.",
 		TX_WHITE
 	);
 }
@@ -1347,6 +1420,7 @@ bool near replay_menu(void)
 				}
 			}
 			if(input_sp & INPUT_CANCEL) {
+				text_clear();
 				return true;
 			}
 		}

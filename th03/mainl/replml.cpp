@@ -273,6 +273,7 @@ static bool mainl_replay_user_index_write(
 )
 {
 	uint32_t offset;
+	int i;
 
 	if(replay_user_slot >= T3_REPLAY_USER_SLOT_COUNT) {
 		return false;
@@ -304,6 +305,26 @@ static bool mainl_replay_user_index_write(
 	);
 	replay_user_index_entry.input_crc32 = replay_user_header.input_crc32;
 	replay_user_index_entry.snapshot_crc32 = replay_user_header.snapshot_crc32;
+	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
+	replay_user_index_entry.final_route = replay_user_header.final_route;
+	replay_user_index_entry.final_story_stage = (
+		replay_user_header.final_story_stage
+	);
+	replay_user_index_entry.final_story_lives = (
+		replay_user_header.final_story_lives
+	);
+	replay_user_index_entry.final_misses = replay_user_header.final_misses;
+	replay_user_index_entry.stage_reached_count = (
+		replay_user_header.stage_reached_count
+	);
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		replay_user_index_entry.final_score[i] = replay_user_header.final_score[i];
+	}
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_user_index_entry.stage_opponents[i] = (
+			replay_user_header.stage_opponents[i]
+		);
+	}
 
 	offset = (
 		static_cast<uint32_t>(sizeof(replay_user_index_header_t)) +
