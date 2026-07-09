@@ -17,6 +17,7 @@
 #include "th03/resident.hpp"
 #include "th03/hardware/input.h"
 #include "th03/formats/cfg_impl.hpp"
+#include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
 #include "th03/gaiji/gaiji.h"
 #include "th03/replay_format.hpp"
@@ -1082,7 +1083,7 @@ static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb
 static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 {
 	char *p = replay_menu_line;
-	tram_atrb2 atrb = ((slot == sel) ? TX_WHITE : TX_BLACK);
+	tram_atrb2 atrb = ((slot == sel) ? TX_YELLOW : TX_WHITE);
 
 	*p++ = ((slot == sel) ? '>' : ' ');
 	p = replay_line_append_u8_2(p, slot);
@@ -1122,7 +1123,7 @@ static void replay_menu_detail_line_put(unsigned int y, char *p)
 {
 	*p = '\0';
 	replay_menu_line_clear(y);
-	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_BLACK);
+	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_WHITE);
 }
 
 static void replay_menu_detail_put_empty(uint8_t slot)
@@ -1249,7 +1250,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HELP_Y,
 		"Up/Down: slot  Left/Right: page  OK/Shot: play  Esc: back",
-		TX_BLACK
+		TX_WHITE
 	);
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y,
@@ -1265,7 +1266,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y,
 		"Replay summaries will gain score/split fields in a later format pass.",
-		TX_BLACK
+		TX_WHITE
 	);
 }
 
@@ -1280,6 +1281,10 @@ static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
 
 static void replay_menu_screen_init(void)
 {
+	for(int i = 0; i < CDG_SLOT_COUNT; i++) {
+		cdg_free(i);
+	}
+	super_free();
 	text_clear();
 	graph_accesspage(0);	graph_clear();
 	graph_accesspage(1);	graph_clear();
