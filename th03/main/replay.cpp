@@ -1,7 +1,9 @@
 #pragma option -zCREPLAY_TEXT
 
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "platform.h"
+#include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
@@ -12,6 +14,7 @@
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/snd.h"
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -54,6 +57,7 @@ enum replay_text_id_t {
 	RTX_OK_INPUT_END,
 	RTX_ERROR_FRAME_IO,
 	RTX_OK_MENU_RETURN,
+	RTX_OK_MENU_RETURN_NOSAVE,
 	RTX_OK_PARTIAL,
 	RTX_OK_USER_PLAYBACK,
 	RTX_OK,
@@ -124,6 +128,7 @@ static bool replay_done_written;
 static bool replay_paths_initialized;
 static bool replay_prompt_skip_queued;
 static bool replay_rle_packet_open;
+static bool replay_user_discard_requested;
 
 extern "C" unsigned char score[];
 extern uint8_t byte_23B00;
@@ -457,6 +462,10 @@ static void replay_write_text(replay_text_id_t text)
 		W(':'); W('m'); W('e'); W('n'); W('u'); W('-'); W('r'); W('e');
 		W('t'); W('u'); W('r'); W('n');
 		break;
+	case RTX_OK_MENU_RETURN_NOSAVE:
+		replay_write_text(RTX_OK_MENU_RETURN);
+		W('-'); W('n'); W('o'); W('s'); W('a'); W('v'); W('e');
+		break;
 	case RTX_OK_PARTIAL:
 		replay_write_text(RTX_OK);
 		W(':'); W('p'); W('a'); W('r'); W('t'); W('i'); W('a'); W('l');
@@ -656,6 +665,36 @@ static bool replay_user_index_slot_write(
 	}
 
 	replay_user_index_entry_fill(status, end_reason);
+	offset = (
+		static_cast<uint32_t>(sizeof(replay_user_index_header)) +
+		(
+			static_cast<uint32_t>(replay_user_slot) *
+			static_cast<uint32_t>(sizeof(replay_user_index_entry))
+		)
+	);
+	file_seek(offset, SEEK_SET);
+	ret = replay_write_bytes_checked(
+		&replay_user_index_entry, sizeof(replay_user_index_entry)
+	);
+	file_close();
+	return ret;
+}
+
+static bool replay_user_index_slot_clear(void)
+{
+	uint32_t offset;
+	bool ret;
+
+	if(replay_user_slot >= T3_REPLAY_USER_SLOT_COUNT) {
+		return false;
+	}
+
+	replay_dir_create();
+	if(!file_append(T3_USER_REPLAY_INDEX_FN)) {
+		return false;
+	}
+
+	replay_memclear(&replay_user_index_entry, sizeof(replay_user_index_entry));
 	offset = (
 		static_cast<uint32_t>(sizeof(replay_user_index_header)) +
 		(
@@ -1817,6 +1856,7 @@ void far replay_session_start(void)
 	replay_user_slot_fn_set(T3_REPLAY_USER_SLOT_NONE);
 	replay_prompt_skip_queued = false;
 	replay_rle_packet_open = false;
+	replay_user_discard_requested = false;
 
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
@@ -1970,9 +2010,244 @@ void far replay_input_sense_held(void)
 	}
 }
 
+#define REPLAY_PAUSE_LEFT 24
+#define REPLAY_PAUSE_TOP 8
+#define REPLAY_PAUSE_W 32
+#define REPLAY_PAUSE_H 7
+#define REPLAY_PAUSE_TEXT_LEFT (REPLAY_PAUSE_LEFT + 6)
+#define REPLAY_PAUSE_CHOICE_MARK_LEFT (REPLAY_PAUSE_LEFT + 3)
+
+static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
+{
+	char str[2];
+
+	str[0] = static_cast<char>(ch);
+	str[1] = '\0';
+	text_putsa(x, y, str, atrb);
+}
+
+static void replay_pause_put_frame(void)
+{
+	int x;
+	int y;
+
+	for(y = 0; y < REPLAY_PAUSE_H; y++) {
+		for(x = 0; x < REPLAY_PAUSE_W; x++) {
+			replay_text_putca(
+				(REPLAY_PAUSE_LEFT + x), (REPLAY_PAUSE_TOP + y),
+				' ', TX_WHITE
+			);
+		}
+	}
+
+	replay_text_putca(REPLAY_PAUSE_LEFT, REPLAY_PAUSE_TOP, '+', TX_CYAN);
+	replay_text_putca(
+		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)), REPLAY_PAUSE_TOP,
+		'+', TX_CYAN
+	);
+	replay_text_putca(
+		REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
+		'+', TX_CYAN
+	);
+	replay_text_putca(
+		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
+		(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)), '+', TX_CYAN
+	);
+	for(x = 1; x < (REPLAY_PAUSE_W - 1); x++) {
+		replay_text_putca(
+			(REPLAY_PAUSE_LEFT + x), REPLAY_PAUSE_TOP, '-', TX_CYAN
+		);
+		replay_text_putca(
+			(REPLAY_PAUSE_LEFT + x),
+			(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)), '-', TX_CYAN
+		);
+	}
+	for(y = 1; y < (REPLAY_PAUSE_H - 1); y++) {
+		replay_text_putca(
+			REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + y), '|', TX_CYAN
+		);
+		replay_text_putca(
+			(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
+			(REPLAY_PAUSE_TOP + y), '|', TX_CYAN
+		);
+	}
+}
+
+static void replay_pause_put_title(void)
+{
+	unsigned x = (REPLAY_PAUSE_LEFT + 13);
+	unsigned y = (REPLAY_PAUSE_TOP + 1);
+
+#define P(c) replay_text_putca(x++, y, c, TX_YELLOW)
+	P('P'); P('A'); P('U'); P('S'); P('E'); P('D');
+#undef P
+}
+
+static void replay_pause_put_resume(unsigned y, unsigned atrb)
+{
+	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
+
+#define P(c) replay_text_putca(x++, y, c, atrb)
+	P('R'); P('e'); P('s'); P('u'); P('m'); P('e');
+#undef P
+}
+
+static void replay_pause_put_save_exit(unsigned y, unsigned atrb)
+{
+	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
+
+#define P(c) replay_text_putca(x++, y, c, atrb)
+	P('S'); P('a'); P('v'); P('e'); P(' '); P('R'); P('e'); P('p');
+	P('l'); P('a'); P('y'); P(' '); P('a'); P('n'); P('d'); P(' ');
+	P('E'); P('x'); P('i'); P('t');
+#undef P
+}
+
+static void replay_pause_put_discard_exit(unsigned y, unsigned atrb)
+{
+	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
+
+#define P(c) replay_text_putca(x++, y, c, atrb)
+	P('E'); P('x'); P('i'); P('t'); P(' '); P('w'); P('i'); P('t');
+	P('h'); P('o'); P('u'); P('t'); P(' '); P('S'); P('a'); P('v');
+	P('i'); P('n'); P('g');
+#undef P
+}
+
+static void replay_pause_put_choices(uint8_t sel)
+{
+	unsigned y;
+	unsigned atrb;
+
+	y = (REPLAY_PAUSE_TOP + 2);
+	atrb = (sel == REPLAY_PAUSE_RESUME) ? TX_WHITE : TX_CYAN;
+	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
+		(sel == REPLAY_PAUSE_RESUME) ? '>' : ' '
+	), atrb);
+	replay_pause_put_resume(y, atrb);
+
+	y++;
+	atrb = (sel == REPLAY_PAUSE_SAVE_EXIT) ? TX_WHITE : TX_CYAN;
+	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
+		(sel == REPLAY_PAUSE_SAVE_EXIT) ? '>' : ' '
+	), atrb);
+	replay_pause_put_save_exit(y, atrb);
+
+	y++;
+	atrb = (sel == REPLAY_PAUSE_DISCARD_EXIT) ? TX_WHITE : TX_CYAN;
+	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
+		(sel == REPLAY_PAUSE_DISCARD_EXIT) ? '>' : ' '
+	), atrb);
+	replay_pause_put_discard_exit(y, atrb);
+}
+
+static void replay_pause_clear(void)
+{
+	int x;
+	int y;
+
+	for(y = 0; y < REPLAY_PAUSE_H; y++) {
+		for(x = 0; x < REPLAY_PAUSE_W; x++) {
+			replay_text_putca(
+				(REPLAY_PAUSE_LEFT + x), (REPLAY_PAUSE_TOP + y),
+				' ', TX_WHITE
+			);
+		}
+	}
+}
+
+static void replay_pause_wait_release(void)
+{
+	goto release_test;
+
+release_wait:
+	replay_input_sense_held();
+	frame_delay(1);
+
+release_test:
+	if(input_sp != INPUT_NONE) {
+		goto release_wait;
+	}
+}
+
+static void replay_pause_beep(void)
+{
+	snd_se_reset();
+	snd_se_play(21);
+	snd_se_update();
+}
+
+uint8_t far replay_pause_menu(void)
+{
+	uint8_t sel = REPLAY_PAUSE_RESUME;
+
+	replay_pause_beep();
+	replay_pause_wait_release();
+	replay_pause_put_frame();
+	replay_pause_put_title();
+	replay_pause_put_choices(sel);
+
+input_wait:
+	replay_input_sense_held();
+	if(input_sp & INPUT_Q) {
+		return REPLAY_PAUSE_SAVE_EXIT;
+	}
+	if(input_sp & INPUT_CANCEL) {
+		replay_pause_wait_release();
+		replay_pause_clear();
+		replay_pause_beep();
+		return REPLAY_PAUSE_RESUME;
+	}
+	if(input_sp & INPUT_UP) {
+		if(sel == REPLAY_PAUSE_RESUME) {
+			sel = REPLAY_PAUSE_DISCARD_EXIT;
+		} else {
+			sel--;
+		}
+		replay_pause_put_choices(sel);
+		replay_pause_beep();
+		replay_pause_wait_release();
+		goto input_wait;
+	}
+	if(input_sp & INPUT_DOWN) {
+		sel++;
+		if(sel > REPLAY_PAUSE_DISCARD_EXIT) {
+			sel = REPLAY_PAUSE_RESUME;
+		}
+		replay_pause_put_choices(sel);
+		replay_pause_beep();
+		replay_pause_wait_release();
+		goto input_wait;
+	}
+	if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+		if(sel == REPLAY_PAUSE_RESUME) {
+			replay_pause_wait_release();
+			replay_pause_clear();
+			replay_pause_beep();
+		}
+		return sel;
+	}
+	frame_delay(1);
+	goto input_wait;
+}
+
+#undef REPLAY_PAUSE_LEFT
+#undef REPLAY_PAUSE_TOP
+#undef REPLAY_PAUSE_W
+#undef REPLAY_PAUSE_H
+#undef REPLAY_PAUSE_TEXT_LEFT
+#undef REPLAY_PAUSE_CHOICE_MARK_LEFT
+
 bool far replay_prompt_skip(void)
 {
 	return replay_prompt_skip_queued;
+}
+
+void far replay_user_record_discard_on_exit(void)
+{
+	if(replay_mode == REPLAY_USER_RECORD) {
+		replay_user_discard_requested = true;
+	}
 }
 
 void far replay_route(uint8_t route)
@@ -2002,19 +2277,28 @@ void far replay_finish(uint8_t route)
 	if(replay_mode == REPLAY_RECORD) {
 		replay_header_write();
 	} else if(replay_mode == REPLAY_USER_RECORD) {
-		replay_user_header_write(
-			((route == 0) ? RUS_FINALIZED : RUS_PARTIAL),
-			((route == 0) ? RUER_MENU_RETURN : RUER_PARTIAL)
-		);
+		if((route == 0) && replay_user_discard_requested) {
+			dos_axdx(0x4100, replay_user_fn);
+			replay_user_index_slot_clear();
+		} else {
+			replay_user_header_write(
+				((route == 0) ? RUS_FINALIZED : RUS_PARTIAL),
+				((route == 0) ? RUER_MENU_RETURN : RUER_PARTIAL)
+			);
+		}
 		replay_resident_handoff_clear();
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		replay_resident_handoff_clear();
 	}
 	if(replay_mode != REPLAY_DISABLED) {
 		if(replay_mode == REPLAY_USER_RECORD) {
-			replay_done_write(
-				(route == 0) ? RTX_OK_MENU_RETURN : RTX_OK_PARTIAL
-			);
+			if((route == 0) && replay_user_discard_requested) {
+				replay_done_write(RTX_OK_MENU_RETURN_NOSAVE);
+			} else {
+				replay_done_write(
+					(route == 0) ? RTX_OK_MENU_RETURN : RTX_OK_PARTIAL
+				);
+			}
 		} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 			replay_done_write(RTX_OK_USER_PLAYBACK);
 		} else {

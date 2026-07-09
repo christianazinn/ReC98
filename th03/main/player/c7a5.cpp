@@ -1,16 +1,15 @@
 #pragma option -zCPLAYER_M_TEXT -zPmain_01 -G-
 
 #include "libs/master.lib/pc98_gfx.hpp"
-#include "th02/hardware/frmdelay.h"
-#include "th03/hardware/input.h"
 #include "th03/main/replay.hpp"
 #include "th03/resident.hpp"
-#include "th03/snd/snd.h"
 
 extern "C" uint8_t byte_23B00;
 
 extern "C" void near sub_C7A5(void)
 {
+	uint8_t pause_action;
+
 	if(replay_prompt_skip()) {
 		byte_23B00 = 1;
 		return;
@@ -22,40 +21,12 @@ quit:
 		byte_23B00 = 1;
 		return;
 	}
-	snd_se_reset();
-	snd_se_play(21);
-	snd_se_update();
-	goto release_test;
-
-release_wait:
-	replay_input_sense_held();
-	frame_delay(1);
-
-release_test:
-	if(input_sp != INPUT_NONE) {
-		goto release_wait;
-	}
-
-input_wait:
-	replay_input_sense_held();
-	if(input_sp & INPUT_Q) {
+	pause_action = replay_pause_menu();
+	if(pause_action == REPLAY_PAUSE_SAVE_EXIT) {
 		goto quit;
 	}
-	if(input_sp & INPUT_CANCEL) {
-		goto cancel_release_test;
+	if(pause_action == REPLAY_PAUSE_DISCARD_EXIT) {
+		replay_user_record_discard_on_exit();
+		goto quit;
 	}
-	frame_delay(1);
-	goto input_wait;
-
-cancel_release_wait:
-	replay_input_sense_held();
-	frame_delay(1);
-
-cancel_release_test:
-	if(input_sp != INPUT_NONE) {
-		goto cancel_release_wait;
-	}
-	snd_se_reset();
-	snd_se_play(21);
-	snd_se_update();
 }
