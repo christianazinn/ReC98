@@ -1296,7 +1296,7 @@ bool near replay_menu(void)
 {
 	uint8_t sel = replay_user_first_used_slot();
 	uint8_t top = sel;
-	input_t input_prev = INPUT_NONE;
+	input_t input_prev = input_sp;
 
 	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
 		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);

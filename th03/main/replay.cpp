@@ -1594,6 +1594,17 @@ static bool replay_user_play_logical_sample(uint8_t phase)
 	return replay_user_play_sample();
 }
 
+static bool replay_user_playback_cancel(void)
+{
+	if(input_sp & INPUT_CANCEL) {
+		input_sp = INPUT_NONE;
+		byte_23B00 = 1;
+		replay_prompt_skip_queued = true;
+		return true;
+	}
+	return false;
+}
+
 static bool replay_user_play_interstitial_sample(void)
 {
 	replay_user_sample_t sample;
@@ -1940,6 +1951,9 @@ void far replay_frame_io(void)
 	} else if(replay_mode == REPLAY_USER_RECORD) {
 		ok = replay_user_record_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
+		if(replay_user_playback_cancel()) {
+			return;
+		}
 		if(replay_sample_count >= replay_user_header.sample_count) {
 			replay_split_row(RTX_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
@@ -1986,7 +2000,13 @@ void far replay_input_sense_held(void)
 	bool ok = true;
 
 	if(replay_mode == REPLAY_USER_PLAYBACK) {
-		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_INTERSTITIAL);
+		input_reset_sense_key_held();
+		if(replay_user_playback_cancel()) {
+			return;
+		}
+		ok = replay_user_play_logical_sample(
+			T3_REPLAY_PACKET_PHASE_INTERSTITIAL
+		);
 	} else {
 		input_reset_sense_key_held();
 		if(replay_mode == REPLAY_USER_RECORD) {
