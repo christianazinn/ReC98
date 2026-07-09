@@ -77,7 +77,9 @@ main_01 group PLAYFLD_TEXT, CFG_LRES_TEXT, HITCIRC_TEXT, HUD_STAT_TEXT, PLAYER_M
 ; Segment type:	Pure code
 main_03_TEXT	segment	byte public 'CODE' use16
 		assume cs:main_03_TEXT
-		;org 0Ah
+		; Replay branch layout pin: MAIN_03 raw dispatch tables still use
+		; the original 000Ah-based offsets.
+		db 8 dup (0)
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 main_03_TEXT	ends
