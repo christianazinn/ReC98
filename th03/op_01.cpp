@@ -210,12 +210,21 @@ static void replay_cfg_load_resident_only(void)
 
 static void replay_resident_handoff_set(char mode)
 {
+	int i;
+
 	resident->unused_3[0] = T3_REPLAY_RES_MAGIC_0;
 	resident->unused_3[1] = T3_REPLAY_RES_MAGIC_1;
 	resident->unused_3[2] = T3_REPLAY_RES_MAGIC_2;
 	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+	for(
+		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
+		i < (T3_REPLAY_RES_GLOBAL_FRAME_INDEX + 4);
+		i++
+	) {
+		resident->unused_3[i] = 0;
+	}
 }
 
 static void replay_resident_handoff_slot_set(uint8_t slot)
@@ -225,12 +234,21 @@ static void replay_resident_handoff_slot_set(uint8_t slot)
 
 static void replay_resident_handoff_clear(void)
 {
+	int i;
+
 	resident->unused_3[0] = 0;
 	resident->unused_3[1] = 0;
 	resident->unused_3[2] = 0;
 	resident->unused_3[3] = 0;
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = 0;
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+	for(
+		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
+		i < (T3_REPLAY_RES_GLOBAL_FRAME_INDEX + 4);
+		i++
+	) {
+		resident->unused_3[i] = 0;
+	}
 }
 
 static void replay_dir_create(void)

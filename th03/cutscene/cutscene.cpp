@@ -27,7 +27,9 @@
 #include "th04/hardware/input.h"
 #else
 #include "th03/hardware/input.h"
+#include "th03/mainl/replay.hpp"
 #include "th03/formats/pi.hpp"
+#include "x86real.h"
 
 // Let's rather not have this one global, since it might be wrong in an in-game
 // context?
@@ -155,9 +157,15 @@ extern uint8_t text_fx; // TH04 and TH05 directly set [graph_putsa_fx_func].
 // way.
 void pascal near box_wait_animate(int frames_to_wait = 0);
 #else
+#if (GAME == 3)
+#define box_wait_animate(frames_to_wait) { \
+	cutscene_input_wait_for_change(frames_to_wait); \
+}
+#else
 #define box_wait_animate(frames_to_wait) { \
 	input_wait_for_change(frames_to_wait); \
 }
+#endif
 
 void near box_bg_allocate_and_snap(void);
 void near box_bg_free(void);
@@ -192,9 +200,80 @@ inline void cutscene_input_sense(void) {
 #elif (GAME == 4)
 	input_reset_sense();
 #elif (GAME == 3)
-	input_mode_interface();
+	mainl_replay_input_mode_interface();
 #endif
 }
+
+#if (GAME == 3)
+static inline uint16_t cutscene_snd_get_song_measure(void) {
+	_AH = KAJA_GET_SONG_MEASURE;
+	if(snd_bgm_is_fm()) {
+		geninterrupt(PMD);
+	} else {
+		_DX = (MMD_TICKS_PER_QUARTER_NOTE * 4);
+		geninterrupt(MMD);
+	}
+	return _AX;
+}
+
+void near cutscene_input_wait_for_change(int frames_to_wait)
+{
+	int frames_waited = 0;
+
+	while(1) {
+		cutscene_input_sense();
+		if(key_det == INPUT_NONE) {
+			break;
+		}
+		frame_delay(1);
+	}
+
+	if(!frames_to_wait) {
+		frames_to_wait = 9999;
+	}
+
+	while(frames_waited < frames_to_wait) {
+		cutscene_input_sense();
+		if(key_det != INPUT_NONE) {
+			break;
+		}
+		frames_waited++;
+		frame_delay(1);
+		if(frames_to_wait == 9999) {
+			frames_waited = 0;
+		}
+	}
+}
+
+bool16 near cutscene_input_wait_for_ok(unsigned int frames)
+{
+	vsync_Count1 = 0;
+	do {
+		cutscene_input_sense();
+		if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+			return true;
+		}
+	} while(vsync_Count1 < frames);
+	return false;
+}
+
+bool16 near cutscene_input_wait_for_ok_or_measure(
+	int measure, unsigned int frames
+)
+{
+	if(!snd_active) {
+		return cutscene_input_wait_for_ok(frames);
+	}
+	do {
+		_AX = cutscene_snd_get_song_measure();
+		cutscene_input_sense();
+		if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+			return true;
+		}
+	} while(_AX < measure);
+	return false;
+}
+#endif
 
 bool16 pascal near cutscene_script_load(const char* fn)
 {
@@ -670,7 +749,11 @@ script_ret_t pascal near script_op(unsigned char c)
 					if(c != 'k')  {
 						frame_delay(p1);
 					} else {
+#if (GAME == 3)
+						cutscene_input_wait_for_ok(p1);
+#else
 						input_wait_for_ok(p1);
+#endif
 					}
 #endif
 #if (GAME == 5) // ZUN bloat
@@ -694,7 +777,11 @@ script_ret_t pascal near script_op(unsigned char c)
 					if(c != 'k')  {
 						snd_delay_until_measure(p1, p2);
 					} else {
+#if (GAME == 3)
+						cutscene_input_wait_for_ok_or_measure(p1, p2);
+#else
 						input_wait_for_ok_or_measure(p1, p2);
+#endif
 					}
 #endif
 				}

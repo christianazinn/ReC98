@@ -12,6 +12,7 @@
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
 #include "th03/cutscene/cutscene.hpp"
+#include "th03/mainl/replay.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -41,6 +42,7 @@ void near ending_staff_and_regist(void);
 
 inline void mainl_exit_to_op(void)
 {
+	mainl_replay_finish(RUER_COMPLETE);
 	text_clear();
 	gaiji_restore();
 	game_exit();
@@ -70,6 +72,7 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 		snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 		snd_se_reset();
 		hflip_lut_generate();
+		mainl_replay_session_start();
 
 		if(resident->show_score_menu) {
 			regist_menu();
@@ -174,6 +177,7 @@ gameover:
 		pi_free(0);
 
 exit_to_op:
+		mainl_replay_finish(RUER_COMPLETE);
 		text_clear();
 		gaiji_restore();
 		game_exit();

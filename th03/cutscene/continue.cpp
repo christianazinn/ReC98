@@ -7,6 +7,7 @@
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
 #include "th03/hardware/input.h"
+#include "th03/mainl/replay.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -40,7 +41,7 @@ int near continue_menu(void)
 	palette_black_in(1);
 
 	while(1) {
-		input_mode_interface();
+		mainl_replay_input_mode_interface();
 
 		if((input_sp & INPUT_LEFT) || (input_sp & INPUT_RIGHT)) {
 			if(input_locked == 0) {

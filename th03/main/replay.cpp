@@ -127,6 +127,7 @@ static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
 static void replay_paths_init(void);
 static void replay_write_text(replay_text_id_t text);
+static void replay_handoff_cursor_store(void);
 
 static void replay_memclear(void far *buf, unsigned size)
 {
@@ -1230,6 +1231,11 @@ static bool replay_user_play_sample(void)
 
 	if(
 		(sample.frame_index != replay_global_frame) ||
+		(sample.round_frame == T3_REPLAY_INTERSTITIAL_ROUND_FRAME) ||
+		(
+			sample.round_or_result_frame ==
+			T3_REPLAY_INTERSTITIAL_ROUND_OR_RESULT_FRAME
+		) ||
 		(sample.round_frame != round_frame) ||
 		(sample.round_or_result_frame != round_or_result_frame)
 	) {
@@ -1378,14 +1384,62 @@ static replay_mode_t replay_resident_mode(void)
 	return REPLAY_DISABLED;
 }
 
+static uint8_t replay_handoff_u8(unsigned index)
+{
+	return static_cast<uint8_t>(resident->unused_3[index]);
+}
+
+static uint32_t replay_handoff_u32_read(unsigned index)
+{
+	return (
+		static_cast<uint32_t>(replay_handoff_u8(index)) |
+		(static_cast<uint32_t>(replay_handoff_u8(index + 1)) << 8) |
+		(static_cast<uint32_t>(replay_handoff_u8(index + 2)) << 16) |
+		(static_cast<uint32_t>(replay_handoff_u8(index + 3)) << 24)
+	);
+}
+
+static void replay_handoff_u32_write(unsigned index, uint32_t value)
+{
+	resident->unused_3[index + 0] = static_cast<uint8_t>(value);
+	resident->unused_3[index + 1] = static_cast<uint8_t>(value >> 8);
+	resident->unused_3[index + 2] = static_cast<uint8_t>(value >> 16);
+	resident->unused_3[index + 3] = static_cast<uint8_t>(value >> 24);
+}
+
+static void replay_handoff_cursor_store(void)
+{
+	if(
+		(replay_mode != REPLAY_USER_RECORD) &&
+		(replay_mode != REPLAY_USER_PLAYBACK)
+	) {
+		return;
+	}
+	replay_handoff_u32_write(
+		T3_REPLAY_RES_SAMPLE_COUNT_INDEX, replay_sample_count
+	);
+	replay_handoff_u32_write(
+		T3_REPLAY_RES_GLOBAL_FRAME_INDEX, replay_global_frame
+	);
+}
+
 static void replay_resident_handoff_clear(void)
 {
+	int i;
+
 	resident->unused_3[0] = 0;
 	resident->unused_3[1] = 0;
 	resident->unused_3[2] = 0;
 	resident->unused_3[3] = 0;
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = 0;
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+	for(
+		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
+		i < (T3_REPLAY_RES_GLOBAL_FRAME_INDEX + 4);
+		i++
+	) {
+		resident->unused_3[i] = 0;
+	}
 }
 
 void far replay_session_start(void)
@@ -1405,6 +1459,17 @@ void far replay_session_start(void)
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
 	}
+	if(
+		(replay_mode == REPLAY_USER_RECORD) ||
+		(replay_mode == REPLAY_USER_PLAYBACK)
+	) {
+		replay_sample_count = replay_handoff_u32_read(
+			T3_REPLAY_RES_SAMPLE_COUNT_INDEX
+		);
+		replay_global_frame = replay_handoff_u32_read(
+			T3_REPLAY_RES_GLOBAL_FRAME_INDEX
+		);
+	}
 
 	file_create(T3_DONE_FN);
 	file_close();
@@ -1421,7 +1486,13 @@ void far replay_session_start(void)
 			return;
 		}
 	} else if(replay_mode == REPLAY_USER_RECORD) {
-		if(!replay_user_create()) {
+		if(replay_sample_count == 0) {
+			if(!replay_user_create()) {
+				replay_mode = REPLAY_ERROR;
+				replay_done_write(RTX_ERROR_USER_CREATE);
+				return;
+			}
+		} else if(!replay_user_read()) {
 			replay_mode = REPLAY_ERROR;
 			replay_done_write(RTX_ERROR_USER_CREATE);
 			return;
@@ -1432,8 +1503,10 @@ void far replay_session_start(void)
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;
 		}
-		replay_user_snapshot_restore_resident();
-		replay_user_snapshot_restore_runtime();
+		if(replay_sample_count == 0) {
+			replay_user_snapshot_restore_resident();
+			replay_user_snapshot_restore_runtime();
+		}
 	} else if(!replay_header_read()) {
 		replay_mode = REPLAY_ERROR;
 		replay_done_write(RTX_ERROR_INPUT_HEADER);
@@ -1495,9 +1568,11 @@ void far replay_frame_io(void)
 			replay_header_write();
 		} else if(replay_mode == REPLAY_USER_RECORD) {
 			replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+			replay_handoff_cursor_store();
 		}
 	}
 	replay_global_frame++;
+	replay_handoff_cursor_store();
 }
 
 void far replay_route(uint8_t route)
@@ -1509,6 +1584,21 @@ void far replay_route(uint8_t route)
 void far replay_finish(uint8_t route)
 {
 	replay_split_row(RTX_FINISH, route);
+	if(
+		(route != 0) &&
+		(
+			(replay_mode == REPLAY_USER_RECORD) ||
+			(replay_mode == REPLAY_USER_PLAYBACK)
+		)
+	) {
+		if(replay_mode == REPLAY_USER_RECORD) {
+			replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+		}
+		replay_handoff_cursor_store();
+		replay_mode = REPLAY_DISABLED;
+		return;
+	}
+
 	if(replay_mode == REPLAY_RECORD) {
 		replay_header_write();
 	} else if(replay_mode == REPLAY_USER_RECORD) {
