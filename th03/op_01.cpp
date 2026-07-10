@@ -797,7 +797,9 @@ bool near score_menu(void)
 
 enum {
 	REPLAY_MENU_LIST_LEFT = 2,
-	REPLAY_MENU_DETAIL_LEFT = 34,
+	REPLAY_MENU_LIST_W = 26,
+	REPLAY_MENU_DETAIL_LEFT = 30,
+	REPLAY_MENU_DETAIL_W = 50,
 	REPLAY_MENU_TITLE_Y = 1,
 	REPLAY_MENU_HELP_Y = 2,
 	REPLAY_MENU_HEAD_Y = 4,
@@ -807,11 +809,9 @@ enum {
 	REPLAY_MENU_VISIBLE = 10,
 };
 
-static char replay_menu_line[80];
-static char REPLAY_MENU_BLANK[] =
-	"                                                                                ";
+static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
-static char REPLAY_MENU_DATA_PAD[192] = { 1 };
+static char REPLAY_MENU_DATA_PAD[272] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1114,9 +1114,16 @@ static char *replay_line_append_final_stage_mark(char *p)
 	return p;
 }
 
-static void replay_menu_line_clear(unsigned int y)
+static void replay_menu_span_clear(unsigned int x, unsigned int y, unsigned int w)
 {
-	text_putsa(0, y, REPLAY_MENU_BLANK, TX_BLACK);
+	char *p = replay_menu_line;
+
+	while(w != 0) {
+		*p++ = ' ';
+		w--;
+	}
+	*p = '\0';
+	text_putsa(x, y, replay_menu_line, TX_BLACK);
 }
 
 static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb)
@@ -1150,14 +1157,14 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		p = replay_line_append_cstr(p, "empty");
 	}
 	*p = '\0';
-	replay_menu_line_clear(y);
+	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, y, atrb);
 }
 
 static void replay_menu_detail_line_put(unsigned int y, char *p)
 {
 	*p = '\0';
-	replay_menu_line_clear(y);
+	replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
 	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_WHITE);
 }
 
@@ -1166,7 +1173,7 @@ static void replay_menu_detail_put_empty(uint8_t slot)
 	char *p;
 
 	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
-		replay_menu_line_clear(y);
+		replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
 	}
 
 	p = replay_menu_line;
@@ -1186,7 +1193,7 @@ static void replay_menu_detail_put(uint8_t slot)
 	uint8_t stage;
 
 	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
-		replay_menu_line_clear(y);
+		replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
 	}
 
 	if(!replay_user_read_slot_for_menu(slot)) {
@@ -1306,7 +1313,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
 	}
 	replay_menu_detail_put(sel);
-	replay_menu_line_clear(REPLAY_MENU_FOOT_Y);
+	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)

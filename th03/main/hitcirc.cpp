@@ -34,8 +34,8 @@ extern "C" void near playfield_rows_fill_288(void);
 // group-relative near offset. Assigning SUB_B4A3/SUB_B60A symbols from this
 // HITCIRC_TEXT translation unit makes Turbo C++ store segment-relative
 // offsets instead, so keep these group offsets in sync with the current map.
-#define FP_1FBC0_SUB_B4A3 0x1DE5
-#define FP_1FBC0_SUB_B60A 0x1F4C
+#define FP_1FBC0_SUB_B4A3 0x1E0D
+#define FP_1FBC0_SUB_B60A 0x1F74
 
 #pragma option -k-
 extern "C" void far sub_B39E(void)

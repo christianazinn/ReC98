@@ -51,6 +51,18 @@ round_loop:
 	replay_route(route);
 	resident->rand = round_frame;
 
+	if(replay_restart_requested()) {
+		replay_finish(route);
+		enemy_formations_free();
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		replay_restart_prepare();
+		_asm {
+			push	ds;
+			push	offset arg0;
+			jmp 	short game_execl;
+		}
+	}
+
 	if(route == 1) {
 		sub_A21F();
 		replay_round_start();
