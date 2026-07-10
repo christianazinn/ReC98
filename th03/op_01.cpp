@@ -797,7 +797,7 @@ bool near score_menu(void)
 
 enum {
 	REPLAY_MENU_LIST_LEFT = 2,
-	REPLAY_MENU_DETAIL_LEFT = 44,
+	REPLAY_MENU_DETAIL_LEFT = 34,
 	REPLAY_MENU_TITLE_Y = 1,
 	REPLAY_MENU_HELP_Y = 2,
 	REPLAY_MENU_HEAD_Y = 4,
@@ -811,7 +811,7 @@ static char replay_menu_line[80];
 static char REPLAY_MENU_BLANK[] =
 	"                                                                                ";
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
-static char REPLAY_MENU_DATA_PAD[46] = { 1 };
+static char REPLAY_MENU_DATA_PAD[192] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -846,32 +846,9 @@ static char *replay_line_append_u32(char *p, uint32_t value)
 	return p;
 }
 
-static char *replay_line_append_hex_nibble(char *p, uint8_t value)
-{
-	value &= 0x0F;
-	if(value < 10) {
-		*p++ = static_cast<char>('0' + value);
-	} else {
-		*p++ = static_cast<char>('A' + (value - 10));
-	}
-	return p;
-}
-
-static char *replay_line_append_hex32(char *p, uint32_t value)
-{
-	int shift;
-
-	for(shift = 28; shift >= 0; shift -= 4) {
-		p = replay_line_append_hex_nibble(
-			p, static_cast<uint8_t>(value >> shift)
-		);
-	}
-	return p;
-}
-
 static char *replay_line_append_unknown_score(char *p)
 {
-	for(int i = 0; i < T3_REPLAY_USER_SCORE_DIGITS; i++) {
+	for(int i = 0; i < T3_REPLAY_USER_SCORE_DISPLAY_DIGITS; i++) {
 		*p++ = '-';
 	}
 	return p;
@@ -896,6 +873,7 @@ static char *replay_line_append_packed_score(
 			*p++ = '?';
 		}
 	}
+	*p++ = '0';
 	return p;
 }
 
@@ -929,22 +907,6 @@ static char *replay_line_append_story_lives(char *p)
 	*p++ = '-';
 	*p++ = '-';
 	return p;
-}
-
-static char replay_user_status_char(uint8_t status)
-{
-	switch(status) {
-	case RUS_FINALIZED:
-		return 'F';
-	case RUS_PARTIAL:
-		return 'P';
-	case RUS_RECORDING:
-		return 'R';
-	case RUS_ERROR:
-		return 'E';
-	default:
-		return '?';
-	}
 }
 
 static const char *replay_user_status_name(uint8_t status)
@@ -981,24 +943,6 @@ static const char *replay_user_end_reason_name(uint8_t end_reason)
 	}
 }
 
-static const char *replay_user_end_reason_short(uint8_t end_reason)
-{
-	switch(end_reason) {
-	case RUER_COMPLETE:
-		return "Clr";
-	case RUER_MENU_RETURN:
-		return "Ret";
-	case RUER_INPUT_END:
-		return "EOF";
-	case RUER_PARTIAL:
-		return "Par";
-	case RUER_ERROR:
-		return "Err";
-	default:
-		return "---";
-	}
-}
-
 static const char *replay_rank_name(uint8_t rank)
 {
 	switch(rank) {
@@ -1015,19 +959,19 @@ static const char *replay_rank_name(uint8_t rank)
 	}
 }
 
-static const char *replay_rank_short(uint8_t rank)
+static char replay_rank_initial(uint8_t rank)
 {
 	switch(rank) {
 	case RANK_EASY:
-		return "Eas";
+		return 'E';
 	case RANK_NORMAL:
-		return "Nor";
+		return 'N';
 	case RANK_HARD:
-		return "Hrd";
+		return 'H';
 	case RANK_LUNATIC:
-		return "Lun";
+		return 'L';
 	default:
-		return "???";
+		return '?';
 	}
 }
 
@@ -1044,22 +988,6 @@ static const char *replay_game_mode_name(uint8_t game_mode)
 		return "VS CPU-CPU";
 	default:
 		return "Unknown";
-	}
-}
-
-static const char *replay_game_mode_short(uint8_t game_mode)
-{
-	switch(game_mode) {
-	case GM_STORY:
-		return "Story";
-	case GM_VS_1P_CPU:
-		return "V1CPU";
-	case GM_VS_1P_2P:
-		return "V1P2P";
-	case GM_VS_CPU_CPU:
-		return "VCCPU";
-	default:
-		return "?????";
 	}
 }
 
@@ -1123,6 +1051,32 @@ static const char *replay_playchar_short(uint8_t paletted)
 	}
 }
 
+static char replay_playchar_initial(uint8_t paletted)
+{
+	switch(replay_playchar_id(paletted)) {
+	case PLAYCHAR_REIMU:
+		return 'R';
+	case PLAYCHAR_MIMA:
+		return 'M';
+	case PLAYCHAR_MARISA:
+		return 'M';
+	case PLAYCHAR_ELLEN:
+		return 'E';
+	case PLAYCHAR_KOTOHIME:
+		return 'K';
+	case PLAYCHAR_KANA:
+		return 'K';
+	case PLAYCHAR_RIKAKO:
+		return 'R';
+	case PLAYCHAR_CHIYURI:
+		return 'C';
+	case PLAYCHAR_YUMEMI:
+		return 'Y';
+	default:
+		return '?';
+	}
+}
+
 static char *replay_line_append_stage(char *p, uint8_t stage)
 {
 	if(stage == STAGE_ALL) {
@@ -1132,6 +1086,32 @@ static char *replay_line_append_stage(char *p, uint8_t stage)
 		return replay_line_append_cstr(p, "--");
 	}
 	return replay_line_append_u32(p, (stage + 1));
+}
+
+static char *replay_line_append_final_stage_mark(char *p)
+{
+	uint8_t stage;
+
+	*p++ = '(';
+	if(
+		(replay_user_menu_header.end_reason == RUER_COMPLETE) ||
+		(replay_user_menu_header.final_story_stage == STAGE_ALL)
+	) {
+		*p++ = 'C';
+	} else if(
+		replay_menu_summary_valid() &&
+		(replay_user_menu_header.stage_reached_count != 0)
+	) {
+		stage = replay_user_menu_header.stage_reached_count;
+		if(stage > T3_REPLAY_USER_STAGE_COUNT) {
+			stage = T3_REPLAY_USER_STAGE_COUNT;
+		}
+		*p++ = static_cast<char>('0' + stage);
+	} else {
+		*p++ = '-';
+	}
+	*p++ = ')';
+	return p;
 }
 
 static void replay_menu_line_clear(unsigned int y)
@@ -1153,21 +1133,9 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 	p = replay_line_append_u8_2(p, slot);
 	*p++ = ' ';
 	if(replay_user_read_slot_for_menu(slot)) {
-		*p++ = replay_user_status_char(replay_user_menu_header.status);
+		*p++ = replay_playchar_initial(replay_user_menu_header.playchar_p1);
 		*p++ = ' ';
-		p = replay_line_append_cstr(
-			p, replay_user_end_reason_short(replay_user_menu_header.end_reason)
-		);
-		*p++ = ' ';
-		p = replay_line_append_cstr(
-			p, replay_game_mode_short(replay_user_menu_header.game_mode)
-		);
-		*p++ = ' ';
-		p = replay_line_append_cstr(p, replay_rank_short(replay_user_menu_header.rank));
-		*p++ = ' ';
-		p = replay_line_append_cstr(
-			p, replay_playchar_short(replay_user_menu_header.playchar_p1)
-		);
+		*p++ = replay_rank_initial(replay_user_menu_header.rank);
 		*p++ = ' ';
 		if(replay_menu_summary_valid()) {
 			p = replay_line_append_packed_score(
@@ -1176,6 +1144,8 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		} else {
 			p = replay_line_append_unknown_score(p);
 		}
+		*p++ = ' ';
+		p = replay_line_append_final_stage_mark(p);
 	} else {
 		p = replay_line_append_cstr(p, "empty");
 	}
@@ -1275,11 +1245,12 @@ static void replay_menu_detail_put(uint8_t slot)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 5, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "Stage Opp Score");
+	p = replay_line_append_cstr(p, "St Opp Score");
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 7, p);
 
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
 		p = replay_menu_line;
+		*p++ = ' ';
 		*p++ = static_cast<char>('1' + stage);
 		*p++ = ' ';
 		p = replay_line_append_cstr(
@@ -1327,7 +1298,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	);
 	text_putsa(
 		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y,
-		"Sl  St End Mode  Rank Player Score", TX_CYAN
+		" Sl C R Score     Stg", TX_CYAN
 	);
 	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
@@ -1336,11 +1307,6 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	}
 	replay_menu_detail_put(sel);
 	replay_menu_line_clear(REPLAY_MENU_FOOT_Y);
-	text_putsa(
-		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y,
-		"New replays store packed score splits in the fixed-size .RPY header.",
-		TX_WHITE
-	);
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
