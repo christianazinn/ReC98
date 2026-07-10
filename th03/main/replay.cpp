@@ -132,7 +132,6 @@ static bool replay_paths_initialized;
 static bool replay_prompt_skip_queued;
 static bool replay_rle_packet_open;
 static bool replay_user_discard_requested;
-static bool replay_restart_requested_flag;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
 static uint8_t replay_sum_mode;
@@ -1983,30 +1982,6 @@ static void replay_handoff_cursor_store(void)
 	);
 }
 
-static void replay_resident_handoff_set(uint8_t mode)
-{
-	int i;
-
-	resident->unused_3[0] = T3_REPLAY_RES_MAGIC_0;
-	resident->unused_3[1] = T3_REPLAY_RES_MAGIC_1;
-	resident->unused_3[2] = T3_REPLAY_RES_MAGIC_2;
-	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
-	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
-	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
-	for(
-		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
-		i < T3_REPLAY_RES_CURSOR_END_INDEX;
-		i++
-	) {
-		resident->unused_3[i] = 0;
-	}
-}
-
-static void replay_resident_handoff_slot_set(uint8_t slot)
-{
-	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = slot;
-}
-
 static void replay_user_sample_commit(void)
 {
 	if((replay_global_frame & 63) == 0) {
@@ -2062,7 +2037,6 @@ void far replay_session_start(void)
 	replay_prompt_skip_queued = false;
 	replay_rle_packet_open = false;
 	replay_user_discard_requested = false;
-	replay_restart_requested_flag = false;
 
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
@@ -2228,19 +2202,18 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_LEFT 24
 #define REPLAY_PAUSE_TOP 8
 #define REPLAY_PAUSE_W 32
-#define REPLAY_PAUSE_H 8
+#define REPLAY_PAUSE_H 7
 #define REPLAY_PAUSE_PIXEL_LEFT (REPLAY_PAUSE_LEFT * GLYPH_HALF_W)
-#define REPLAY_PAUSE_PIXEL_TOP (REPLAY_PAUSE_TOP * GLYPH_H)
+#define REPLAY_PAUSE_PIXEL_TOP (REPLAY_PAUSE_TOP * GLYPH_HALF_H)
 #define REPLAY_PAUSE_PIXEL_RIGHT ( \
 	REPLAY_PAUSE_PIXEL_LEFT + (REPLAY_PAUSE_W * GLYPH_HALF_W) - 1 \
 )
 #define REPLAY_PAUSE_PIXEL_BOTTOM ( \
-	REPLAY_PAUSE_PIXEL_TOP + (REPLAY_PAUSE_H * GLYPH_H) - 1 \
+	REPLAY_PAUSE_PIXEL_TOP + (REPLAY_PAUSE_H * GLYPH_HALF_H) - 1 \
 )
 #define REPLAY_PAUSE_TEXT_LEFT (REPLAY_PAUSE_LEFT + 6)
 #define REPLAY_PAUSE_CHOICE_MARK_LEFT (REPLAY_PAUSE_LEFT + 3)
-#define REPLAY_PAUSE_RESTART_INPUT INPUT_UP_LEFT
-#define REPLAY_PAUSE_BG_ATRB (TX_BLACK | TX_REVERSE)
+#define REPLAY_PAUSE_BG_ATRB TX_BLACK
 #define REPLAY_PAUSE_FRAME_ATRB TX_WHITE
 #define REPLAY_PAUSE_TITLE_ATRB TX_CYAN
 #define REPLAY_PAUSE_CHOICE_ATRB TX_WHITE
@@ -2269,7 +2242,7 @@ static unsigned replay_pause_clear_atrb(unsigned x)
 	) {
 		return TX_WHITE;
 	}
-	return REPLAY_PAUSE_BG_ATRB;
+	return (TX_BLACK | TX_REVERSE);
 }
 
 static void replay_pause_put_graph_backing(void)
@@ -2362,15 +2335,6 @@ static void replay_pause_put_resume(unsigned y, unsigned atrb)
 #undef P
 }
 
-static void replay_pause_put_restart(unsigned y, unsigned atrb)
-{
-	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
-
-#define P(c) replay_text_putca(x++, y, c, atrb)
-	P('R'); P('e'); P('s'); P('t'); P('a'); P('r'); P('t');
-#undef P
-}
-
 static void replay_pause_put_save_exit(unsigned y, unsigned atrb)
 {
 	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
@@ -2408,17 +2372,6 @@ static void replay_pause_put_choices(uint8_t sel)
 		(sel == REPLAY_PAUSE_RESUME) ? '>' : ' '
 	), atrb);
 	replay_pause_put_resume(y, atrb);
-
-	y++;
-	atrb = (
-		(sel == REPLAY_PAUSE_RESTART) ?
-		REPLAY_PAUSE_SELECTED_ATRB :
-		REPLAY_PAUSE_CHOICE_ATRB
-	);
-	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
-		(sel == REPLAY_PAUSE_RESTART) ? '>' : ' '
-	), atrb);
-	replay_pause_put_restart(y, atrb);
 
 	y++;
 	atrb = (
@@ -2495,9 +2448,6 @@ input_wait:
 	if(input_sp & INPUT_Q) {
 		return REPLAY_PAUSE_SAVE_EXIT;
 	}
-	if(input_mp_p1 & REPLAY_PAUSE_RESTART_INPUT) {
-		return REPLAY_PAUSE_RESTART;
-	}
 	if(input_sp & INPUT_CANCEL) {
 		replay_pause_wait_release();
 		replay_pause_clear();
@@ -2547,7 +2497,6 @@ input_wait:
 #undef REPLAY_PAUSE_PIXEL_BOTTOM
 #undef REPLAY_PAUSE_TEXT_LEFT
 #undef REPLAY_PAUSE_CHOICE_MARK_LEFT
-#undef REPLAY_PAUSE_RESTART_INPUT
 #undef REPLAY_PAUSE_BG_ATRB
 #undef REPLAY_PAUSE_FRAME_ATRB
 #undef REPLAY_PAUSE_TITLE_ATRB
@@ -2564,129 +2513,6 @@ void far replay_user_record_discard_on_exit(void)
 	if(replay_mode == REPLAY_USER_RECORD) {
 		replay_user_discard_requested = true;
 	}
-}
-
-void far replay_restart_request(void)
-{
-	replay_restart_requested_flag = true;
-	replay_user_record_discard_on_exit();
-}
-
-bool far replay_restart_requested(void)
-{
-	return replay_restart_requested_flag;
-}
-
-static void replay_restart_scores_clear(void)
-{
-	int i;
-
-	for(i = 0; i < (PLAYER_COUNT * SCORE_DIGITS); i++) {
-		resident->score_last[0].digits[i] = 0;
-	}
-}
-
-static void replay_restart_story_opponents_set(void)
-{
-	enum {
-		RANDOM_OPPONENT_MIN = PLAYCHAR_REIMU,
-		RANDOM_OPPONENT_MAX = PLAYCHAR_RIKAKO,
-		RANDOM_OPPONENT_COUNT = (
-			(RANDOM_OPPONENT_MAX - RANDOM_OPPONENT_MIN) + 1
-		),
-	};
-
-	bool opponent_seen[RANDOM_OPPONENT_COUNT];
-	int stage;
-	int candidate;
-	int stage7_opponent;
-
-	switch(resident->playchar_paletted[0].char_id_16()) {
-	case PLAYCHAR_REIMU:
-		stage7_opponent = PLAYCHAR_MIMA;
-		break;
-	case PLAYCHAR_ELLEN:
-		stage7_opponent = PLAYCHAR_MARISA;
-		break;
-	case PLAYCHAR_KANA:
-		stage7_opponent = PLAYCHAR_ELLEN;
-		break;
-	case PLAYCHAR_RIKAKO:
-		stage7_opponent = PLAYCHAR_KANA;
-		break;
-	case PLAYCHAR_CHIYURI:
-		stage7_opponent = PLAYCHAR_KOTOHIME;
-		break;
-	case PLAYCHAR_YUMEMI:
-		stage7_opponent = PLAYCHAR_RIKAKO;
-		break;
-	default:
-		stage7_opponent = PLAYCHAR_REIMU;
-		break;
-	}
-
-	for(stage = 0; stage < RANDOM_OPPONENT_COUNT; stage++) {
-		opponent_seen[stage] = false;
-	}
-
-	irand_init(resident->rand);
-	for(stage = 0; stage < 6; stage++) {
-		do {
-			candidate = (
-				RANDOM_OPPONENT_MIN + (irand() % RANDOM_OPPONENT_COUNT)
-			);
-		} while(opponent_seen[candidate] || (stage7_opponent == candidate));
-		opponent_seen[candidate] = true;
-
-		candidate = TO_OPTIONAL_PALETTED(candidate);
-		resident->story_opponents[stage].v = candidate;
-		if(candidate == resident->playchar_paletted[0].v) {
-			resident->story_opponents[stage].v = (candidate + 1);
-		}
-	}
-
-	resident->playchar_paletted[1] = resident->story_opponents[0];
-	resident->story_opponents[6].v = TO_OPTIONAL_PALETTED(stage7_opponent);
-
-	resident->story_opponents[7].set(PLAYCHAR_CHIYURI);
-	if(
-		resident->playchar_paletted[0].v ==
-		TO_OPTIONAL_PALETTED(PLAYCHAR_CHIYURI)
-	) {
-		resident->story_opponents[7].v++;
-	}
-	resident->story_opponents[8].set(PLAYCHAR_YUMEMI);
-	if(
-		resident->playchar_paletted[0].v ==
-		TO_OPTIONAL_PALETTED(PLAYCHAR_YUMEMI)
-	) {
-		resident->story_opponents[8].v++;
-	}
-}
-
-void far replay_restart_prepare(void)
-{
-	uint8_t slot = replay_user_slot;
-
-	replay_restart_requested_flag = false;
-	resident->demo_num = 0;
-	resident->pid_winner = 0;
-	resident->story_stage = 0;
-	resident->show_score_menu = false;
-	resident->op_animation_fast = false;
-	replay_restart_scores_clear();
-
-	if(resident->game_mode == GM_STORY) {
-		resident->is_cpu[0] = false;
-		resident->is_cpu[1] = true;
-		resident->story_lives = CREDIT_LIVES;
-		resident->rem_credits = 3;
-		resident->skill = (70 + (resident->rank * 25));
-		replay_restart_story_opponents_set();
-	}
-
-	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
-	replay_resident_handoff_slot_set(slot);
 }
 
 void far replay_route(uint8_t route)
