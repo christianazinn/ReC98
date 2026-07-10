@@ -79,7 +79,7 @@ main_03_TEXT	segment	byte public 'CODE' use16
 		assume cs:main_03_TEXT
 		; Replay branch layout pin: MAIN_03 raw dispatch tables still use
 		; the original 000Ah-based offsets.
-		db 8 dup (0)
+		db 4 dup (0)
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 main_03_TEXT	ends
