@@ -1133,9 +1133,11 @@ static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb
 
 static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 {
-	char *p = replay_menu_line;
+	char *p;
 	tram_atrb2 atrb = ((slot == sel) ? TX_YELLOW : TX_WHITE);
 
+	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
+	p = replay_menu_line;
 	*p++ = ((slot == sel) ? '>' : ' ');
 	p = replay_line_append_u8_2(p, slot);
 	*p++ = ' ';
@@ -1157,14 +1159,12 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		p = replay_line_append_cstr(p, "empty");
 	}
 	*p = '\0';
-	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, y, atrb);
 }
 
 static void replay_menu_detail_line_put(unsigned int y, char *p)
 {
 	*p = '\0';
-	replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
 	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_WHITE);
 }
 

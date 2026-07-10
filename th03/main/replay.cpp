@@ -2446,7 +2446,7 @@ uint8_t far replay_pause_menu(void)
 input_wait:
 	replay_input_sense_held();
 	if(input_sp & INPUT_Q) {
-		return REPLAY_PAUSE_SAVE_EXIT;
+		return REPLAY_PAUSE_DISCARD_EXIT;
 	}
 	if(input_sp & INPUT_CANCEL) {
 		replay_pause_wait_release();
