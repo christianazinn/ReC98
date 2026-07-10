@@ -112,6 +112,7 @@ struct replay_input_sample_t {
 static replay_mode_t replay_mode;
 static replay_input_header_t replay_header;
 static replay_user_header_t replay_user_header;
+static replay_user_summary_ext_t replay_user_summary_ext;
 static replay_user_snapshot_t replay_user_snapshot;
 static replay_user_index_header_t replay_user_index_header;
 static replay_user_index_entry_t replay_user_index_entry;
@@ -160,6 +161,7 @@ static void replay_write_text(replay_text_id_t text);
 static void replay_handoff_cursor_store(void);
 static void replay_user_sample_commit(void);
 static bool replay_user_header_is_v3(void);
+static bool replay_user_header_is_rle(void);
 static bool replay_user_play_sample(void);
 static bool replay_user_play_interstitial_sample(void);
 
@@ -565,6 +567,65 @@ static void replay_score_pack(
 			((digits[(i * 2) + 1] % 10) << 4)
 		);
 	}
+}
+
+static void replay_user_summary_ext_init(void)
+{
+	replay_memclear(&replay_user_summary_ext, sizeof(replay_user_summary_ext));
+	replay_user_summary_ext.flags = T3_REPLAY_USER_SUMMARY_VALID;
+}
+
+static uint8_t replay_user_summary_stage_round_pack(void)
+{
+	uint8_t stage;
+
+	if(resident->game_mode == GM_STORY) {
+		stage = resident->story_stage;
+		if(stage < T3_REPLAY_USER_STAGE_COUNT) {
+			return static_cast<uint8_t>(
+				((round_id & 0x0F) << 4) | stage
+			);
+		}
+	}
+	return static_cast<uint8_t>(
+		((round_id & 0x0F) << 4) | T3_REPLAY_USER_ROUND_STAGE_VS
+	);
+}
+
+static uint8_t replay_user_summary_route_winner_pack(uint8_t route)
+{
+	uint8_t winner = T3_REPLAY_USER_ROUND_VALUE_UNKNOWN;
+
+	if(resident->pid_winner == 0) {
+		winner = 0;
+	} else if(resident->pid_winner == 1) {
+		winner = 1;
+	}
+	return static_cast<uint8_t>(((route & 0x0F) << 4) | winner);
+}
+
+static void replay_user_round_split_capture(uint8_t route)
+{
+	replay_user_round_split_t near *split;
+
+	if(
+		(replay_mode != REPLAY_USER_RECORD) ||
+		(
+			replay_user_summary_ext.round_reached_count >=
+			T3_REPLAY_USER_ROUND_SPLIT_COUNT
+		)
+	) {
+		return;
+	}
+
+	split = &replay_user_summary_ext.round_splits[
+		replay_user_summary_ext.round_reached_count
+	];
+	split->stage_round = replay_user_summary_stage_round_pack();
+	split->route_winner = replay_user_summary_route_winner_pack(route);
+	replay_score_pack(split->score_p1, score);
+	replay_score_pack(split->score_p2, (score + SCORE_DIGITS));
+	replay_user_summary_ext.round_reached_count++;
 }
 
 static void replay_user_summary_init_from_snapshot(void)
@@ -1118,6 +1179,7 @@ static void replay_user_snapshot_fill(void)
 		replay_user_snapshot.player_cpu_frame[i] = players[i].cpu_frame;
 	}
 	replay_user_summary_init_from_snapshot();
+	replay_user_summary_ext_init();
 }
 
 static void replay_user_header_fill(
@@ -1131,10 +1193,12 @@ static void replay_user_header_fill(
 	replay_user_header.magic[3] = 'P';
 	replay_user_header.magic[4] = 'L';
 	replay_user_header.magic[5] = 'Y';
-	replay_user_header.magic[6] = '3';
+	replay_user_header.magic[6] = '4';
 	replay_user_header.magic[7] = '\0';
 	replay_user_header.version = T3_REPLAY_USER_VERSION;
-	replay_user_header.header_size = sizeof(replay_user_header);
+	replay_user_header.header_size = (
+		sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
+	);
 	replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
 	replay_user_header.flags = T3_REPLAY_USER_FLAG_RLE_INPUT;
 	replay_user_header.status = status;
@@ -1153,10 +1217,10 @@ static void replay_user_header_fill(
 	replay_user_header.random_seed_snapshot = (
 		replay_user_snapshot.random_seed_snapshot
 	);
-	replay_user_header.snapshot_offset = sizeof(replay_user_header);
+	replay_user_header.snapshot_offset = replay_user_header.header_size;
 	replay_user_header.snapshot_size = sizeof(replay_user_snapshot);
 	replay_user_header.input_offset = (
-		static_cast<uint32_t>(sizeof(replay_user_header)) +
+		static_cast<uint32_t>(replay_user_header.header_size) +
 		static_cast<uint32_t>(sizeof(replay_user_snapshot))
 	);
 	replay_user_header.input_size = replay_input_byte_count;
@@ -1192,6 +1256,12 @@ static bool replay_user_header_write(
 		file_close();
 		return false;
 	}
+	if(!replay_write_bytes_checked(
+		&replay_user_summary_ext, sizeof(replay_user_summary_ext)
+	)) {
+		file_close();
+		return false;
+	}
 	file_close();
 	replay_user_index_slot_write(status, end_reason);
 	return true;
@@ -1210,10 +1280,25 @@ static bool replay_user_header_is_v3(void)
 {
 	return (
 		(replay_user_header.magic[6] == '3') &&
+		(replay_user_header.version == T3_REPLAY_USER_VERSION_V3) &&
+		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
+	);
+}
+
+static bool replay_user_header_is_v4(void)
+{
+	return (
+		(replay_user_header.magic[6] == '4') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
 	);
+}
+
+static bool replay_user_header_is_rle(void)
+{
+	return (replay_user_header_is_v3() || replay_user_header_is_v4());
 }
 
 static bool replay_user_header_valid(void)
@@ -1225,12 +1310,24 @@ static bool replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header_is_v2() || replay_user_header_is_v3()) &&
-		(replay_user_header.header_size == sizeof(replay_user_header)) &&
-		(replay_user_header.snapshot_offset == sizeof(replay_user_header)) &&
+		(replay_user_header_is_v2() || replay_user_header_is_rle()) &&
+		(
+			(
+				(replay_user_header_is_v2() || replay_user_header_is_v3()) &&
+				(replay_user_header.header_size == sizeof(replay_user_header))
+			) ||
+			(
+				replay_user_header_is_v4() &&
+				(replay_user_header.header_size == (
+					sizeof(replay_user_header) +
+					sizeof(replay_user_summary_ext)
+				))
+			)
+		) &&
+		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
 		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot)) &&
 		(replay_user_header.input_offset == (
-			static_cast<uint32_t>(sizeof(replay_user_header)) +
+			static_cast<uint32_t>(replay_user_header.header_size) +
 			static_cast<uint32_t>(sizeof(replay_user_snapshot))
 		)) &&
 		(replay_user_header.sample_count != 0)
@@ -1250,10 +1347,29 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
+	replay_user_summary_ext_init();
 	if(!replay_user_header_valid()) {
 		file_close();
 		return false;
 	}
+	if(replay_user_header_is_v4()) {
+		if(
+			file_read(
+				&replay_user_summary_ext, sizeof(replay_user_summary_ext)
+			) != sizeof(replay_user_summary_ext)
+		) {
+			file_close();
+			return false;
+		}
+		if(
+			replay_user_summary_ext.round_reached_count >
+			T3_REPLAY_USER_ROUND_SPLIT_COUNT
+		) {
+			file_close();
+			return false;
+		}
+	}
+	file_seek(replay_user_header.snapshot_offset, SEEK_SET);
 	if(
 		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
 		sizeof(replay_user_snapshot)
@@ -1381,6 +1497,12 @@ static bool replay_user_create(void)
 		}
 	}
 	if(!replay_write_bytes_checked(&replay_user_header, sizeof(replay_user_header))) {
+		file_close();
+		return false;
+	}
+	if(!replay_write_bytes_checked(
+		&replay_user_summary_ext, sizeof(replay_user_summary_ext)
+	)) {
 		file_close();
 		return false;
 	}
@@ -1576,7 +1698,7 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 
 static bool replay_user_record_logical_sample(uint8_t phase)
 {
-	if(replay_user_header_is_v3()) {
+	if(replay_user_header_is_rle()) {
 		return replay_user_record_rle_sample(phase);
 	}
 	if(phase == T3_REPLAY_PACKET_PHASE_INTERSTITIAL) {
@@ -1753,7 +1875,7 @@ static bool replay_user_play_rle_sample(uint8_t phase)
 
 static bool replay_user_play_logical_sample(uint8_t phase)
 {
-	if(replay_user_header_is_v3()) {
+	if(replay_user_header_is_rle()) {
 		return replay_user_play_rle_sample(phase);
 	}
 	if(phase == T3_REPLAY_PACKET_PHASE_INTERSTITIAL) {
@@ -2518,6 +2640,8 @@ void far replay_user_record_discard_on_exit(void)
 void far replay_route(uint8_t route)
 {
 	replay_last_route = route;
+	replay_user_round_split_capture(route);
+	replay_user_summary_capture(route);
 	replay_split_row(RTX_ROUTE, route);
 }
 

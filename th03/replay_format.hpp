@@ -4,11 +4,13 @@
 #include "platform.h"
 
 #define T3_REPLAY_USER_VERSION_V2 2
-#define T3_REPLAY_USER_VERSION 3
+#define T3_REPLAY_USER_VERSION_V3 3
+#define T3_REPLAY_USER_VERSION 4
 #define T3_REPLAY_USER_INDEX_VERSION_V2 2
 #define T3_REPLAY_USER_INDEX_VERSION 3
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
+#define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
 #define T3_REPLAY_USER_SCORE_DIGITS 8
 #define T3_REPLAY_USER_SCORE_DISPLAY_DIGITS 9
 #define T3_REPLAY_USER_PACKED_SCORE_SIZE 4
@@ -31,6 +33,8 @@
 #define T3_REPLAY_PACKET_CHANGE_SP 0x04
 #define T3_REPLAY_USER_SUMMARY_VALID 0x0001
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
+#define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
+#define T3_REPLAY_USER_ROUND_VALUE_UNKNOWN 0x0F
 
 enum replay_user_status_t {
 	RUS_EMPTY = 0,
@@ -90,6 +94,19 @@ struct replay_user_header_t {
 	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t reserved_summary[3];
+};
+
+struct replay_user_round_split_t {
+	uint8_t stage_round;
+	uint8_t route_winner;
+	uint8_t score_p1[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t score_p2[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+};
+
+struct replay_user_summary_ext_t {
+	uint8_t flags;
+	uint8_t round_reached_count;
+	replay_user_round_split_t round_splits[T3_REPLAY_USER_ROUND_SPLIT_COUNT];
 };
 
 struct replay_user_snapshot_t {

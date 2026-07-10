@@ -227,6 +227,12 @@ static bool mainl_replay_user_header_valid(void)
 	);
 	bool v3 = (
 		(replay_user_header.magic[6] == '3') &&
+		(replay_user_header.version == T3_REPLAY_USER_VERSION_V3) &&
+		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
+	);
+	bool v4 = (
+		(replay_user_header.magic[6] == '4') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
@@ -239,10 +245,24 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(v2 || v3) &&
-		(replay_user_header.header_size == sizeof(replay_user_header)) &&
+		(v2 || v3 || v4) &&
+		(
+			(
+				(v2 || v3) &&
+				(replay_user_header.header_size == sizeof(replay_user_header))
+			) ||
+			(
+				v4 &&
+				(replay_user_header.header_size == (
+					sizeof(replay_user_header) +
+					sizeof(replay_user_summary_ext_t)
+				))
+			)
+		) &&
+		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
+		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
 		(replay_user_header.input_offset == (
-			static_cast<uint32_t>(sizeof(replay_user_header)) +
+			static_cast<uint32_t>(replay_user_header.header_size) +
 			static_cast<uint32_t>(sizeof(replay_user_snapshot_t))
 		))
 	);
@@ -349,7 +369,7 @@ static bool mainl_replay_user_header_write(
 	replay_user_header.end_reason = end_reason;
 	replay_user_header.sample_count = replay_sample_count;
 	replay_user_header.final_frame_count = replay_global_frame;
-	if(replay_user_header.version == T3_REPLAY_USER_VERSION) {
+	if(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) {
 		replay_user_header.input_size = replay_input_byte_count;
 	} else {
 		replay_user_header.input_size = (
@@ -662,13 +682,13 @@ static void mainl_replay_frame_io(void)
 	}
 
 	if(mainl_replay_mode == MR_USER_RECORD) {
-		if(replay_user_header.version == T3_REPLAY_USER_VERSION) {
+		if(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) {
 			ok = mainl_replay_record_rle_sample();
 		} else {
 			ok = mainl_replay_record_sample();
 		}
 	} else {
-		if(replay_user_header.version == T3_REPLAY_USER_VERSION) {
+		if(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) {
 			ok = mainl_replay_play_rle_sample();
 		} else {
 			ok = mainl_replay_play_sample();
