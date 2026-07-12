@@ -17,7 +17,7 @@ extern "C" int __cdecl file_Handle;
 #define RP_SECTOR_BUFFER_SIZE 512
 
 struct replay_protect_ctx_t {
-	uint8_t sector[RP_SECTOR_BUFFER_SIZE];
+	uint8_t far *sector;
 	uint16_t bytes_per_sector;
 	uint16_t root_entry_count;
 	uint32_t root_start;
@@ -138,6 +138,44 @@ static uint32_t replay_protect_committed_size(void)
 
 static void replay_protect_local_reset(void)
 {
+	replay_protect_handoff_u16_write(T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX, 0);
+}
+
+static bool replay_protect_ctx_alloc(replay_protect_ctx_t _ss *ctx)
+{
+	uint16_t seg = replay_protect_handoff_u16_read(
+		T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX
+	);
+
+	ctx->sector = nullptr;
+	if(seg == 0) {
+		seg = reinterpret_cast<uint16_t>(hmem_allocbyte(RP_SECTOR_BUFFER_SIZE));
+		if(seg == 0) {
+			return false;
+		}
+		replay_protect_handoff_u16_write(
+			T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX, seg
+		);
+	}
+	ctx->sector = reinterpret_cast<uint8_t far *>(MK_FP(seg, 0));
+	return (ctx->sector != nullptr);
+}
+
+static void replay_protect_ctx_free(replay_protect_ctx_t _ss *ctx)
+{
+	(void)ctx;
+}
+
+static void replay_protect_local_free(void)
+{
+	uint16_t seg = replay_protect_handoff_u16_read(
+		T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX
+	);
+
+	if(seg != 0) {
+		hmem_free(reinterpret_cast<void __seg *>(seg));
+		replay_protect_handoff_u16_write(T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX, 0);
+	}
 }
 
 static uint8_t replay_protect_current_drive(void)
@@ -186,8 +224,13 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 	uint16_t sectors_per_fat;
 	uint32_t root_bytes;
 
+	if(!replay_protect_ctx_alloc(ctx)) {
+		return false;
+	}
+
 	ctx->drive = replay_protect_current_drive();
 	if(!replay_protect_abs_read_small(ctx->drive, 0, 1, ctx->sector)) {
+		replay_protect_ctx_free(ctx);
 		return false;
 	}
 
@@ -204,6 +247,7 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 		(ctx->root_entry_count == 0) ||
 		(sectors_per_fat == 0)
 	) {
+		replay_protect_ctx_free(ctx);
 		return false;
 	}
 
@@ -219,6 +263,7 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 		(ctx->root_sectors == 0) ||
 		((ctx->root_start + ctx->root_sectors) > 0x10000UL)
 	) {
+		replay_protect_ctx_free(ctx);
 		return false;
 	}
 	return true;
@@ -318,16 +363,19 @@ static bool replay_protect_root_size_read(
 	}
 	base = replay_protect_basename(fn);
 	if(!replay_protect_short_name_component(short_name, base)) {
+		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 
 	for(sector = 0; sector < ctx.root_sectors; sector++) {
 		if(!replay_protect_sector_read(&ctx, ctx.root_start + sector)) {
+			replay_protect_ctx_free(&ctx);
 			return false;
 		}
 		for(offset = 0; offset < RP_SECTOR_BUFFER_SIZE; offset += 32) {
 			first = ctx.sector[offset];
 			if(first == RP_FAT_ENTRY_FREE) {
+				replay_protect_ctx_free(&ctx);
 				return false;
 			}
 			if(first == RP_FAT_ENTRY_DELETED) {
@@ -340,10 +388,12 @@ static bool replay_protect_root_size_read(
 			if(replay_protect_name_match(ctx.sector + offset, short_name)) {
 				*size = replay_protect_u32(ctx.sector + offset + 0x1C);
 				replay_protect_location_set(ctx.root_start + sector, offset);
+				replay_protect_ctx_free(&ctx);
 				return true;
 			}
 		}
 	}
+	replay_protect_ctx_free(&ctx);
 	return false;
 }
 
@@ -376,22 +426,30 @@ static bool replay_protect_located_size_read(
 		return false;
 	}
 
+	if(!replay_protect_ctx_alloc(&ctx)) {
+		return false;
+	}
 	ctx.drive = replay_protect_current_drive();
 	if(!replay_protect_sector_read(&ctx, sector)) {
+		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	first = ctx.sector[offset];
 	if((first == RP_FAT_ENTRY_FREE) || (first == RP_FAT_ENTRY_DELETED)) {
+		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	attr = ctx.sector[offset + 0x0B];
 	if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
+		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	if(!replay_protect_name_match(ctx.sector + offset, short_name)) {
+		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	*size = replay_protect_u32(ctx.sector + offset + 0x1C);
+	replay_protect_ctx_free(&ctx);
 	return true;
 }
 

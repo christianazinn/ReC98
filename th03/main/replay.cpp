@@ -2811,6 +2811,7 @@ void far replay_finish(uint8_t route)
 			replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
 		}
 		replay_handoff_cursor_store();
+		replay_protect_local_free();
 		replay_mode = REPLAY_DISABLED;
 		return;
 	}
@@ -2839,8 +2840,10 @@ void far replay_finish(uint8_t route)
 				replay_user_guard_delete();
 			}
 		}
+		replay_protect_local_free();
 		replay_resident_handoff_clear();
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
+		replay_protect_local_free();
 		replay_resident_handoff_clear();
 	}
 	if(replay_mode != REPLAY_DISABLED) {

@@ -896,6 +896,7 @@ void far mainl_replay_finish(replay_user_end_reason_t end_reason)
 		(mainl_replay_mode == MR_USER_RECORD) ||
 		(mainl_replay_mode == MR_USER_PLAYBACK)
 	) {
+		replay_protect_local_free();
 		mainl_replay_handoff_clear();
 	}
 	mainl_replay_mode = MR_DISABLED;
