@@ -2667,6 +2667,14 @@ static uint8_t replay_pause_prev_choice(uint8_t sel)
 	return sel;
 }
 
+static uint8_t replay_pause_validate_choice(uint8_t sel)
+{
+	if((sel == REPLAY_PAUSE_SAVE_EXIT) && replay_pause_save_disabled()) {
+		return REPLAY_PAUSE_DISCARD_EXIT;
+	}
+	return sel;
+}
+
 static void replay_pause_put_choices(uint8_t sel)
 {
 	unsigned y;
@@ -2755,6 +2763,7 @@ uint8_t far replay_pause_menu(void)
 	replay_pause_put_graph_backing();
 	replay_pause_put_frame();
 	replay_pause_put_title();
+	sel = replay_pause_validate_choice(sel);
 	replay_pause_put_choices(sel);
 
 input_wait:
@@ -2783,6 +2792,13 @@ input_wait:
 		goto input_wait;
 	}
 	if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+		if((sel == REPLAY_PAUSE_SAVE_EXIT) && replay_pause_save_disabled()) {
+			sel = REPLAY_PAUSE_DISCARD_EXIT;
+			replay_pause_put_choices(sel);
+			replay_pause_beep();
+			replay_pause_wait_release();
+			goto input_wait;
+		}
 		if(sel == REPLAY_PAUSE_RESUME) {
 			replay_pause_wait_release();
 			replay_pause_clear();

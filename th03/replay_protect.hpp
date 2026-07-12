@@ -68,6 +68,14 @@ static uint32_t replay_protect_u32(const uint8_t far *p)
 	);
 }
 
+static void replay_protect_u32_write(uint8_t far *p, uint32_t value)
+{
+	p[0] = static_cast<uint8_t>(value);
+	p[1] = static_cast<uint8_t>(value >> 8);
+	p[2] = static_cast<uint8_t>(value >> 16);
+	p[3] = static_cast<uint8_t>(value >> 24);
+}
+
 static uint32_t replay_protect_mul_u16(uint16_t a, uint16_t b)
 {
 	uint32_t ret = 0;
@@ -317,6 +325,48 @@ static bool replay_protect_abs_read_small(
 		push	ds
 		lds	bx, buffer
 		int	25h
+		pushf
+		push	ax
+		pop	cx
+		pop	ax
+		pop	dx
+		pop	ds
+		pop	es
+		pop	di
+		pop	si
+		pop	bp
+		mov	dos_ax, cx
+		mov	dos_flags, ax
+		mov	dos_stack_flags, dx
+	}
+	replay_protect_diag_int25_flags_set(dos_flags, dos_stack_flags);
+	if(dos_flags & 1) {
+		replay_protect_diag_dos_ax_set(dos_ax);
+		return false;
+	}
+	replay_protect_diag_dos_ax_set(0);
+	return true;
+}
+
+static bool replay_protect_abs_write_small(
+	uint8_t drive, uint16_t sector, uint16_t count, void far *buffer
+)
+{
+	uint16_t dos_ax = 0;
+	uint16_t dos_flags = 1;
+	uint16_t dos_stack_flags = 0;
+
+	_AL = drive;
+	_CX = count;
+	_DX = sector;
+	asm {
+		push	bp
+		push	si
+		push	di
+		push	es
+		push	ds
+		lds	bx, buffer
+		int	26h
 		pushf
 		push	ax
 		pop	cx
@@ -648,6 +698,69 @@ static bool replay_protect_located_size_read(
 	return true;
 }
 
+static bool replay_protect_located_size_mark(
+	const char far *fn, uint32_t size
+)
+{
+	replay_protect_ctx_t ctx;
+	char short_name[11];
+	const char far *base;
+	uint32_t sector = replay_protect_handoff_u32_read(
+		T3_REPLAY_RES_GUARD_SECTOR_INDEX
+	);
+	uint16_t offset = replay_protect_handoff_u16_read(
+		T3_REPLAY_RES_GUARD_OFFSET_INDEX
+	);
+	uint8_t attr;
+	uint8_t first;
+
+	if(
+		!replay_protect_located() ||
+		(sector == 0) ||
+		(sector > 0xFFFFUL) ||
+		(offset > (RP_SECTOR_BUFFER_SIZE_MAX - 32)) ||
+		((offset & 0x1F) != 0)
+	) {
+		return false;
+	}
+	base = replay_protect_basename(fn);
+	if(!replay_protect_short_name_component(short_name, base)) {
+		return false;
+	}
+
+	if(!replay_protect_ctx_alloc(&ctx)) {
+		return false;
+	}
+	ctx.drive = replay_protect_current_drive();
+	if(!replay_protect_sector_read(&ctx, sector)) {
+		replay_protect_ctx_free(&ctx);
+		return false;
+	}
+	first = ctx.sector[offset];
+	if((first == RP_FAT_ENTRY_FREE) || (first == RP_FAT_ENTRY_DELETED)) {
+		replay_protect_ctx_free(&ctx);
+		return false;
+	}
+	attr = ctx.sector[offset + 0x0B];
+	if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
+		replay_protect_ctx_free(&ctx);
+		return false;
+	}
+	if(!replay_protect_name_match(ctx.sector + offset, short_name)) {
+		replay_protect_ctx_free(&ctx);
+		return false;
+	}
+	replay_protect_u32_write(ctx.sector + offset + 0x1C, size);
+	if(!replay_protect_abs_write_small(
+		ctx.drive, static_cast<uint16_t>(sector), 1, ctx.sector
+	)) {
+		replay_protect_ctx_free(&ctx);
+		return false;
+	}
+	replay_protect_ctx_free(&ctx);
+	return true;
+}
+
 static bool replay_protect_size_read(const char far *guard_fn, uint32_t far *size)
 {
 	if(replay_protect_located_size_read(guard_fn, size)) {
@@ -673,6 +786,9 @@ static bool replay_protect_verify(const char far *guard_fn)
 		replay_protect_diag_sizes_set(committed_size, disk_size);
 		replay_protect_diag_code_set(RPD_VERIFY_MISMATCH);
 		replay_protect_invalidate();
+		if(disk_size != 0xFFFFFFFFUL) {
+			replay_protect_located_size_mark(guard_fn, disk_size + 1);
+		}
 		return false;
 	}
 	if(disk_size < committed_size) {
