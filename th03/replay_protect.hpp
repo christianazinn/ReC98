@@ -272,22 +272,36 @@ static bool replay_protect_abs_read_small(
 )
 {
 	uint16_t dos_ax = 0;
+	uint16_t dos_flags = 1;
 
 	_AL = drive;
 	_CX = count;
 	_DX = sector;
 	asm {
+		push	bp
+		push	si
+		push	di
+		push	es
 		push	ds
 		lds	bx, buffer
 		int	25h
-		mov	dos_ax, ax
+		push	ax
+		pop	cx
+		pop	ax
+		push	ax
 		popf
 		pop	ds
-		jnc	short rp_abs_small_ok
+		pop	es
+		pop	di
+		pop	si
+		pop	bp
+		mov	dos_ax, cx
+		mov	dos_flags, ax
 	}
-	replay_protect_diag_dos_ax_set(dos_ax);
-	return false;
-rp_abs_small_ok:
+	if(dos_flags & 1) {
+		replay_protect_diag_dos_ax_set(dos_ax);
+		return false;
+	}
 	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
