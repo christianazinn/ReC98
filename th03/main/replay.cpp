@@ -834,35 +834,93 @@ static void replay_user_guard_fn_set(char far *fn)
 	}
 }
 
+static void replay_user_latch_fn_set(char far *fn)
+{
+	fn[0] = '\\';
+	if(replay_user_slot < T3_REPLAY_USER_SLOT_COUNT) {
+		fn[1] = 'T';
+		fn[2] = 'H';
+		fn[3] = '3';
+		fn[4] = 'S';
+		fn[5] = static_cast<char>('0' + (replay_user_slot / 10));
+		fn[6] = static_cast<char>('0' + (replay_user_slot % 10));
+		fn[7] = '.';
+		fn[8] = 'T';
+		fn[9] = 'M';
+		fn[10] = 'P';
+		fn[11] = '\0';
+	} else {
+		fn[1] = 'T';
+		fn[2] = 'H';
+		fn[3] = '3';
+		fn[4] = 'L';
+		fn[5] = 'A';
+		fn[6] = 'S';
+		fn[7] = 'T';
+		fn[8] = '.';
+		fn[9] = 'L';
+		fn[10] = 'C';
+		fn[11] = 'H';
+		fn[12] = '\0';
+	}
+}
+
 static bool replay_user_guard_create(void)
 {
 	char guard_fn[13];
+	char latch_fn[13];
 
 	replay_user_guard_fn_set(guard_fn);
-	return replay_protect_guard_create(guard_fn);
+	replay_user_latch_fn_set(latch_fn);
+	return (
+		replay_protect_guard_create(guard_fn) &&
+		replay_protect_latch_create(latch_fn)
+	);
 }
 
 static bool replay_user_guard_verify(void)
 {
 	char guard_fn[13];
+	char latch_fn[13];
 
 	replay_user_guard_fn_set(guard_fn);
-	return replay_protect_verify(guard_fn);
+	replay_user_latch_fn_set(latch_fn);
+	if(!replay_protect_latch_verify(latch_fn)) {
+		return false;
+	}
+	if(!replay_protect_verify(guard_fn)) {
+		if(replay_protect_invalid()) {
+			replay_protect_latch_set(latch_fn);
+		}
+		return false;
+	}
+	return true;
 }
 
 static bool replay_user_guard_checkpoint(void)
 {
 	char guard_fn[13];
+	char latch_fn[13];
 
 	replay_user_guard_fn_set(guard_fn);
-	return replay_protect_checkpoint(guard_fn);
+	replay_user_latch_fn_set(latch_fn);
+	if(!replay_protect_checkpoint(guard_fn)) {
+		if(replay_protect_invalid()) {
+			replay_protect_latch_set(latch_fn);
+		}
+		return false;
+	}
+	return true;
 }
 
 static void replay_user_guard_delete(void)
 {
 	char guard_fn[13];
+	char latch_fn[13];
 
 	replay_user_guard_fn_set(guard_fn);
+	replay_user_latch_fn_set(latch_fn);
+	dos_axdx(0x4100, latch_fn);
 	dos_axdx(0x4100, guard_fn);
 }
 

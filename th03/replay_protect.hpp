@@ -16,6 +16,8 @@ extern "C" int __cdecl file_ErrorStat;
 #define RP_SECTOR_BUFFER_SIZE_MAX 4096
 #define RP_DOS_PARAMETER_LIST_WORDS 11
 #define RP_DOS_PARAMETER_LIST_PROCESS_ID 10
+#define RP_LATCH_BASE_SIZE 1UL
+#define RP_LATCH_SET_SIZE 2UL
 
 enum replay_protect_diag_t {
 	RPD_NONE = 0,
@@ -42,6 +44,13 @@ enum replay_protect_diag_t {
 	RPD_CHECKPOINT_SIZE_READ = 21,
 	RPD_CHECKPOINT_MISMATCH = 22,
 	RPD_SECTOR_TOO_LARGE = 23,
+	RPD_LATCH_CREATE = 24,
+	RPD_LATCH_CREATE_SIZE_READ = 25,
+	RPD_LATCH_CREATE_MISMATCH = 26,
+	RPD_LATCH_SIZE_READ = 27,
+	RPD_LATCH_SET = 28,
+	RPD_LATCH_WRITE = 29,
+	RPD_LATCH_MISMATCH = 30,
 };
 
 struct replay_protect_ctx_t {
@@ -569,8 +578,8 @@ static const char far *replay_protect_basename(const char far *fn)
 	return base;
 }
 
-static bool replay_protect_root_size_read(
-	const char far *fn, uint32_t far *size
+static bool replay_protect_root_size_read_impl(
+	const char far *fn, uint32_t far *size, bool cache_location
 )
 {
 	replay_protect_ctx_t ctx;
@@ -620,7 +629,9 @@ static bool replay_protect_root_size_read(
 				replay_protect_diag_location_set(
 					ctx.root_start + sector, offset
 				);
-				replay_protect_location_set(ctx.root_start + sector, offset);
+				if(cache_location) {
+					replay_protect_location_set(ctx.root_start + sector, offset);
+				}
 				replay_protect_ctx_free(&ctx);
 				return true;
 			}
@@ -629,6 +640,20 @@ static bool replay_protect_root_size_read(
 	replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
 	replay_protect_ctx_free(&ctx);
 	return false;
+}
+
+static bool replay_protect_root_size_read(
+	const char far *fn, uint32_t far *size
+)
+{
+	return replay_protect_root_size_read_impl(fn, size, true);
+}
+
+static bool replay_protect_root_size_read_uncached(
+	const char far *fn, uint32_t far *size
+)
+{
+	return replay_protect_root_size_read_impl(fn, size, false);
 }
 
 static bool replay_protect_located_size_read(
@@ -694,6 +719,7 @@ static bool replay_protect_located_size_read(
 		return false;
 	}
 	*size = replay_protect_u32(ctx.sector + offset + 0x1C);
+	replay_protect_diag_location_set(sector, offset);
 	replay_protect_ctx_free(&ctx);
 	return true;
 }
@@ -800,6 +826,33 @@ static bool replay_protect_verify(const char far *guard_fn)
 	return true;
 }
 
+static bool replay_protect_latch_verify(const char far *latch_fn)
+{
+	uint32_t disk_size;
+
+	if(replay_protect_blocked()) {
+		return false;
+	}
+	if(!replay_protect_root_size_read_uncached(latch_fn, &disk_size)) {
+		replay_protect_diag_code_set(RPD_LATCH_SIZE_READ);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(disk_size > RP_LATCH_BASE_SIZE) {
+		replay_protect_diag_sizes_set(RP_LATCH_BASE_SIZE, disk_size);
+		replay_protect_diag_code_set(RPD_LATCH_SET);
+		replay_protect_invalidate();
+		return false;
+	}
+	if(disk_size != RP_LATCH_BASE_SIZE) {
+		replay_protect_diag_sizes_set(RP_LATCH_BASE_SIZE, disk_size);
+		replay_protect_diag_code_set(RPD_LATCH_MISMATCH);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	return true;
+}
+
 static uint16_t replay_protect_current_psp(void)
 {
 	uint16_t psp = 0;
@@ -884,6 +937,79 @@ static bool replay_protect_close_current_file(uint8_t diag_code)
 	if(file_ErrorStat != 0) {
 		replay_protect_diag_code_set(diag_code);
 		replay_protect_detector_error_set();
+		return false;
+	}
+	return true;
+}
+
+static bool replay_protect_latch_create(const char far *latch_fn)
+{
+	uint32_t disk_size;
+	uint8_t byte = 0;
+
+	if(!file_create(latch_fn)) {
+		replay_protect_diag_code_set(RPD_LATCH_CREATE);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(file_write(&byte, sizeof(byte)) == 0) {
+		file_close();
+		replay_protect_diag_code_set(RPD_LATCH_WRITE);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(!replay_protect_flush_current_file(RPD_COMMIT_FLUSH)) {
+		file_close();
+		return false;
+	}
+	(void)replay_protect_commit_process();
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
+		return false;
+	}
+	if(!replay_protect_root_size_read_uncached(latch_fn, &disk_size)) {
+		replay_protect_diag_code_set(RPD_LATCH_CREATE_SIZE_READ);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(disk_size != RP_LATCH_BASE_SIZE) {
+		replay_protect_diag_sizes_set(RP_LATCH_BASE_SIZE, disk_size);
+		replay_protect_diag_code_set(RPD_LATCH_CREATE_MISMATCH);
+		replay_protect_detector_error_set();
+		return false;
+	}
+	return true;
+}
+
+static bool replay_protect_latch_set(const char far *latch_fn)
+{
+	uint32_t disk_size;
+	uint8_t byte = 0;
+
+	if(!file_append(latch_fn)) {
+		replay_protect_diag_code_set(RPD_LATCH_WRITE);
+		return false;
+	}
+	file_seek(RP_LATCH_BASE_SIZE, SEEK_SET);
+	if(file_write(&byte, sizeof(byte)) == 0) {
+		file_close();
+		replay_protect_diag_code_set(RPD_LATCH_WRITE);
+		return false;
+	}
+	if(!replay_protect_flush_current_file(RPD_LATCH_WRITE)) {
+		file_close();
+		return false;
+	}
+	(void)replay_protect_commit_process();
+	if(!replay_protect_close_current_file(RPD_LATCH_WRITE)) {
+		return false;
+	}
+	if(!replay_protect_root_size_read_uncached(latch_fn, &disk_size)) {
+		replay_protect_diag_code_set(RPD_LATCH_SIZE_READ);
+		return false;
+	}
+	if(disk_size < RP_LATCH_SET_SIZE) {
+		replay_protect_diag_sizes_set(RP_LATCH_SET_SIZE, disk_size);
+		replay_protect_diag_code_set(RPD_LATCH_MISMATCH);
 		return false;
 	}
 	return true;
@@ -985,5 +1111,7 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 #undef RP_SECTOR_BUFFER_SIZE_MAX
 #undef RP_DOS_PARAMETER_LIST_WORDS
 #undef RP_DOS_PARAMETER_LIST_PROCESS_ID
+#undef RP_LATCH_BASE_SIZE
+#undef RP_LATCH_SET_SIZE
 
 #endif /* TH03_REPLAY_PROTECT_HPP */
