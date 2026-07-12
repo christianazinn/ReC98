@@ -51,6 +51,7 @@ enum replay_protect_diag_t {
 	RPD_LATCH_SET = 28,
 	RPD_LATCH_WRITE = 29,
 	RPD_LATCH_MISMATCH = 30,
+	RPD_CLOSE_COMMIT = 31,
 };
 
 struct replay_protect_ctx_t {
@@ -263,6 +264,19 @@ static uint32_t replay_protect_committed_size(void)
 	);
 }
 
+static void replay_protect_state_reset(void)
+{
+	int i;
+
+	replay_protect_committed_size_set(0);
+	resident->unused_3[T3_REPLAY_RES_PROTECT_FLAGS_INDEX] = 0;
+	replay_protect_handoff_u32_write(T3_REPLAY_RES_GUARD_SECTOR_INDEX, 0);
+	replay_protect_handoff_u16_write(T3_REPLAY_RES_GUARD_OFFSET_INDEX, 0);
+	for(i = T3R_DIAG_CODE_INDEX; i < T3R_DIAG_END_INDEX; i++) {
+		resident->unused_3[i] = 0;
+	}
+}
+
 static void replay_protect_local_reset(void)
 {
 	replay_protect_handoff_u16_write(T3_REPLAY_RES_PROTECT_BUF_SEG_INDEX, 0);
@@ -334,48 +348,6 @@ static bool replay_protect_abs_read_small(
 		push	ds
 		lds	bx, buffer
 		int	25h
-		pushf
-		push	ax
-		pop	cx
-		pop	ax
-		pop	dx
-		pop	ds
-		pop	es
-		pop	di
-		pop	si
-		pop	bp
-		mov	dos_ax, cx
-		mov	dos_flags, ax
-		mov	dos_stack_flags, dx
-	}
-	replay_protect_diag_int25_flags_set(dos_flags, dos_stack_flags);
-	if(dos_flags & 1) {
-		replay_protect_diag_dos_ax_set(dos_ax);
-		return false;
-	}
-	replay_protect_diag_dos_ax_set(0);
-	return true;
-}
-
-static bool replay_protect_abs_write_small(
-	uint8_t drive, uint16_t sector, uint16_t count, void far *buffer
-)
-{
-	uint16_t dos_ax = 0;
-	uint16_t dos_flags = 1;
-	uint16_t dos_stack_flags = 0;
-
-	_AL = drive;
-	_CX = count;
-	_DX = sector;
-	asm {
-		push	bp
-		push	si
-		push	di
-		push	es
-		push	ds
-		lds	bx, buffer
-		int	26h
 		pushf
 		push	ax
 		pop	cx
@@ -724,69 +696,6 @@ static bool replay_protect_located_size_read(
 	return true;
 }
 
-static bool replay_protect_located_size_mark(
-	const char far *fn, uint32_t size
-)
-{
-	replay_protect_ctx_t ctx;
-	char short_name[11];
-	const char far *base;
-	uint32_t sector = replay_protect_handoff_u32_read(
-		T3_REPLAY_RES_GUARD_SECTOR_INDEX
-	);
-	uint16_t offset = replay_protect_handoff_u16_read(
-		T3_REPLAY_RES_GUARD_OFFSET_INDEX
-	);
-	uint8_t attr;
-	uint8_t first;
-
-	if(
-		!replay_protect_located() ||
-		(sector == 0) ||
-		(sector > 0xFFFFUL) ||
-		(offset > (RP_SECTOR_BUFFER_SIZE_MAX - 32)) ||
-		((offset & 0x1F) != 0)
-	) {
-		return false;
-	}
-	base = replay_protect_basename(fn);
-	if(!replay_protect_short_name_component(short_name, base)) {
-		return false;
-	}
-
-	if(!replay_protect_ctx_alloc(&ctx)) {
-		return false;
-	}
-	ctx.drive = replay_protect_current_drive();
-	if(!replay_protect_sector_read(&ctx, sector)) {
-		replay_protect_ctx_free(&ctx);
-		return false;
-	}
-	first = ctx.sector[offset];
-	if((first == RP_FAT_ENTRY_FREE) || (first == RP_FAT_ENTRY_DELETED)) {
-		replay_protect_ctx_free(&ctx);
-		return false;
-	}
-	attr = ctx.sector[offset + 0x0B];
-	if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
-		replay_protect_ctx_free(&ctx);
-		return false;
-	}
-	if(!replay_protect_name_match(ctx.sector + offset, short_name)) {
-		replay_protect_ctx_free(&ctx);
-		return false;
-	}
-	replay_protect_u32_write(ctx.sector + offset + 0x1C, size);
-	if(!replay_protect_abs_write_small(
-		ctx.drive, static_cast<uint16_t>(sector), 1, ctx.sector
-	)) {
-		replay_protect_ctx_free(&ctx);
-		return false;
-	}
-	replay_protect_ctx_free(&ctx);
-	return true;
-}
-
 static bool replay_protect_size_read(const char far *guard_fn, uint32_t far *size)
 {
 	if(replay_protect_located_size_read(guard_fn, size)) {
@@ -812,9 +721,6 @@ static bool replay_protect_verify(const char far *guard_fn)
 		replay_protect_diag_sizes_set(committed_size, disk_size);
 		replay_protect_diag_code_set(RPD_VERIFY_MISMATCH);
 		replay_protect_invalidate();
-		if(disk_size != 0xFFFFFFFFUL) {
-			replay_protect_located_size_mark(guard_fn, disk_size + 1);
-		}
 		return false;
 	}
 	if(disk_size < committed_size) {
@@ -939,7 +845,18 @@ static bool replay_protect_close_current_file(uint8_t diag_code)
 		replay_protect_detector_error_set();
 		return false;
 	}
+	if(!replay_protect_commit_process()) {
+		replay_protect_diag_code_set(RPD_CLOSE_COMMIT);
+		replay_protect_detector_error_set();
+		return false;
+	}
 	return true;
+}
+
+static void replay_protect_file_delete_commit(const char far *fn)
+{
+	dos_axdx(0x4100, fn);
+	(void)replay_protect_commit_process();
 }
 
 static bool replay_protect_latch_create(const char far *latch_fn)
@@ -987,12 +904,14 @@ static bool replay_protect_latch_set(const char far *latch_fn)
 
 	if(!file_append(latch_fn)) {
 		replay_protect_diag_code_set(RPD_LATCH_WRITE);
+		replay_protect_detector_error_set();
 		return false;
 	}
 	file_seek(RP_LATCH_BASE_SIZE, SEEK_SET);
 	if(file_write(&byte, sizeof(byte)) == 0) {
 		file_close();
 		replay_protect_diag_code_set(RPD_LATCH_WRITE);
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(!replay_protect_flush_current_file(RPD_LATCH_WRITE)) {
@@ -1005,13 +924,17 @@ static bool replay_protect_latch_set(const char far *latch_fn)
 	}
 	if(!replay_protect_root_size_read_uncached(latch_fn, &disk_size)) {
 		replay_protect_diag_code_set(RPD_LATCH_SIZE_READ);
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(disk_size < RP_LATCH_SET_SIZE) {
 		replay_protect_diag_sizes_set(RP_LATCH_SET_SIZE, disk_size);
 		replay_protect_diag_code_set(RPD_LATCH_MISMATCH);
+		replay_protect_detector_error_set();
 		return false;
 	}
+	replay_protect_diag_sizes_set(RP_LATCH_BASE_SIZE, disk_size);
+	replay_protect_diag_code_set(RPD_LATCH_SET);
 	return true;
 }
 
@@ -1019,6 +942,7 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 {
 	uint32_t disk_size;
 
+	replay_protect_state_reset();
 	replay_protect_committed_size_set(0);
 	if(!file_create(guard_fn)) {
 		replay_protect_diag_code_set(RPD_GUARD_CREATE);

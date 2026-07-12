@@ -307,6 +307,12 @@ static bool mainl_replay_guard_checkpoint(void)
 
 	mainl_replay_guard_fn_set(guard_fn);
 	mainl_replay_latch_fn_set(latch_fn);
+	if(!replay_protect_latch_verify(latch_fn)) {
+		if(replay_protect_invalid()) {
+			replay_protect_latch_set(latch_fn);
+		}
+		return false;
+	}
 	if(!replay_protect_checkpoint(guard_fn)) {
 		if(replay_protect_invalid()) {
 			replay_protect_latch_set(latch_fn);
@@ -323,8 +329,8 @@ static void mainl_replay_guard_delete(void)
 
 	mainl_replay_guard_fn_set(guard_fn);
 	mainl_replay_latch_fn_set(latch_fn);
-	dos_axdx(0x4100, latch_fn);
-	dos_axdx(0x4100, guard_fn);
+	replay_protect_file_delete_commit(latch_fn);
+	replay_protect_file_delete_commit(guard_fn);
 }
 
 static bool mainl_replay_user_header_valid(void)
@@ -936,7 +942,7 @@ void far mainl_replay_finish(replay_user_end_reason_t end_reason)
 {
 	if(mainl_replay_mode == MR_USER_RECORD) {
 		if(replay_protect_invalid()) {
-			dos_axdx(0x4100, replay_user_fn);
+			replay_protect_file_delete_commit(replay_user_fn);
 			mainl_replay_user_index_clear();
 		} else {
 			mainl_replay_user_header_write(RUS_FINALIZED, end_reason);

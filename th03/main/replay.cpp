@@ -872,6 +872,8 @@ static bool replay_user_guard_create(void)
 
 	replay_user_guard_fn_set(guard_fn);
 	replay_user_latch_fn_set(latch_fn);
+	replay_protect_file_delete_commit(latch_fn);
+	replay_protect_file_delete_commit(guard_fn);
 	return (
 		replay_protect_guard_create(guard_fn) &&
 		replay_protect_latch_create(latch_fn)
@@ -904,6 +906,12 @@ static bool replay_user_guard_checkpoint(void)
 
 	replay_user_guard_fn_set(guard_fn);
 	replay_user_latch_fn_set(latch_fn);
+	if(!replay_protect_latch_verify(latch_fn)) {
+		if(replay_protect_invalid()) {
+			replay_protect_latch_set(latch_fn);
+		}
+		return false;
+	}
 	if(!replay_protect_checkpoint(guard_fn)) {
 		if(replay_protect_invalid()) {
 			replay_protect_latch_set(latch_fn);
@@ -920,8 +928,8 @@ static void replay_user_guard_delete(void)
 
 	replay_user_guard_fn_set(guard_fn);
 	replay_user_latch_fn_set(latch_fn);
-	dos_axdx(0x4100, latch_fn);
-	dos_axdx(0x4100, guard_fn);
+	replay_protect_file_delete_commit(latch_fn);
+	replay_protect_file_delete_commit(guard_fn);
 }
 
 static void replay_user_index_header_fill(uint8_t next_slot)
@@ -2938,7 +2946,7 @@ void far replay_finish(uint8_t route)
 			if(replay_protect_invalid()) {
 				replay_guard_diag_write();
 			}
-			dos_axdx(0x4100, replay_user_fn);
+			replay_protect_file_delete_commit(replay_user_fn);
 			replay_user_index_slot_clear();
 			replay_user_guard_delete();
 		} else {
