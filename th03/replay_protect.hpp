@@ -14,7 +14,34 @@ extern "C" int __cdecl file_Handle;
 #define RP_FAT_ENTRY_DELETED 0xE5
 #define RP_FAT_ATTR_VOLUME 0x08
 #define RP_FAT_ATTR_DIR 0x10
-#define RP_SECTOR_BUFFER_SIZE 512
+#define RP_SECTOR_BUFFER_SIZE_MAX 4096
+
+enum replay_protect_diag_t {
+	RPD_NONE = 0,
+	RPD_CTX_ALLOC = 1,
+	RPD_BPB_READ = 2,
+	RPD_BPB_UNSUPPORTED = 3,
+	RPD_ROOT_RANGE = 4,
+	RPD_SHORT_NAME = 5,
+	RPD_ROOT_SECTOR_READ = 6,
+	RPD_ROOT_NOT_FOUND = 7,
+	RPD_LOCATED_RANGE = 8,
+	RPD_LOCATED_SECTOR_READ = 9,
+	RPD_LOCATED_ENTRY_BAD = 10,
+	RPD_LOCATED_NAME = 11,
+	RPD_VERIFY_SIZE_READ = 12,
+	RPD_VERIFY_MISMATCH = 13,
+	RPD_COMMIT_FLUSH = 14,
+	RPD_COMMIT_DOS = 15,
+	RPD_GUARD_CREATE = 16,
+	RPD_GUARD_CREATE_SIZE_READ = 17,
+	RPD_GUARD_CREATE_NONZERO = 18,
+	RPD_CHECKPOINT_APPEND = 19,
+	RPD_CHECKPOINT_WRITE = 20,
+	RPD_CHECKPOINT_SIZE_READ = 21,
+	RPD_CHECKPOINT_MISMATCH = 22,
+	RPD_SECTOR_TOO_LARGE = 23,
+};
 
 struct replay_protect_ctx_t {
 	uint8_t far *sector;
@@ -92,6 +119,58 @@ static void replay_protect_handoff_u16_write(unsigned index, uint16_t value)
 	resident->unused_3[index + 1] = static_cast<uint8_t>(value >> 8);
 }
 
+static void replay_protect_diag_code_set(uint8_t code)
+{
+	resident->unused_3[T3R_DIAG_CODE_INDEX] = code;
+}
+
+static void replay_protect_diag_dos_ax_set(uint16_t value)
+{
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_DOS_AX_INDEX, value
+	);
+}
+
+static void replay_protect_diag_geometry_set(
+	uint8_t drive, uint16_t bytes_per_sector, uint16_t root_entry_count,
+	uint32_t root_start, uint16_t root_sectors
+)
+{
+	resident->unused_3[T3R_DIAG_DRIVE_INDEX] = drive;
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_BYTES_SECTOR_INDEX, bytes_per_sector
+	);
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_ROOT_ENTRIES_INDEX, root_entry_count
+	);
+	replay_protect_handoff_u32_write(
+		T3R_DIAG_ROOT_START_INDEX, root_start
+	);
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_ROOT_SECTORS_INDEX, root_sectors
+	);
+}
+
+static void replay_protect_diag_location_set(uint32_t sector, uint16_t offset)
+{
+	replay_protect_handoff_u32_write(
+		T3R_DIAG_SECTOR_INDEX, sector
+	);
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_OFFSET_INDEX, offset
+	);
+}
+
+static void replay_protect_diag_sizes_set(uint32_t expected, uint32_t actual)
+{
+	replay_protect_handoff_u32_write(
+		T3R_DIAG_EXPECTED_INDEX, expected
+	);
+	replay_protect_handoff_u32_write(
+		T3R_DIAG_ACTUAL_INDEX, actual
+	);
+}
+
 static bool replay_protect_invalid(void)
 {
 	return (
@@ -149,8 +228,11 @@ static bool replay_protect_ctx_alloc(replay_protect_ctx_t _ss *ctx)
 
 	ctx->sector = nullptr;
 	if(seg == 0) {
-		seg = reinterpret_cast<uint16_t>(hmem_allocbyte(RP_SECTOR_BUFFER_SIZE));
+		seg = reinterpret_cast<uint16_t>(
+			hmem_allocbyte(RP_SECTOR_BUFFER_SIZE_MAX)
+		);
 		if(seg == 0) {
+			replay_protect_diag_code_set(RPD_CTX_ALLOC);
 			return false;
 		}
 		replay_protect_handoff_u16_write(
@@ -189,6 +271,8 @@ static bool replay_protect_abs_read_small(
 	uint8_t drive, uint16_t sector, uint16_t count, void far *buffer
 )
 {
+	uint16_t dos_ax = 0;
+
 	_AL = drive;
 	_CX = count;
 	_DX = sector;
@@ -196,12 +280,15 @@ static bool replay_protect_abs_read_small(
 		push	ds
 		lds	bx, buffer
 		int	25h
+		mov	dos_ax, ax
 		popf
 		pop	ds
 		jnc	short rp_abs_small_ok
 	}
+	replay_protect_diag_dos_ax_set(dos_ax);
 	return false;
 rp_abs_small_ok:
+	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
 
@@ -210,11 +297,39 @@ static bool replay_protect_sector_read(
 )
 {
 	if(sector > 0xFFFFUL) {
+		replay_protect_diag_location_set(sector, 0);
+		replay_protect_diag_code_set(RPD_SECTOR_TOO_LARGE);
 		return false;
 	}
 	return replay_protect_abs_read_small(
 		ctx->drive, static_cast<uint16_t>(sector), 1, ctx->sector
 	);
+}
+
+static bool replay_protect_sector_size_supported(uint16_t bytes_per_sector)
+{
+	return (
+		(bytes_per_sector == 512) ||
+		(bytes_per_sector == 1024) ||
+		(bytes_per_sector == 2048) ||
+		(bytes_per_sector == 4096)
+	);
+}
+
+static uint16_t replay_protect_root_sector_count(
+	uint32_t root_bytes, uint16_t bytes_per_sector
+)
+{
+	if(bytes_per_sector == 512) {
+		return static_cast<uint16_t>((root_bytes + 511) >> 9);
+	}
+	if(bytes_per_sector == 1024) {
+		return static_cast<uint16_t>((root_bytes + 1023) >> 10);
+	}
+	if(bytes_per_sector == 2048) {
+		return static_cast<uint16_t>((root_bytes + 2047) >> 11);
+	}
+	return static_cast<uint16_t>((root_bytes + 4095) >> 12);
 }
 
 static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
@@ -230,6 +345,7 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 
 	ctx->drive = replay_protect_current_drive();
 	if(!replay_protect_abs_read_small(ctx->drive, 0, 1, ctx->sector)) {
+		replay_protect_diag_code_set(RPD_BPB_READ);
 		replay_protect_ctx_free(ctx);
 		return false;
 	}
@@ -241,12 +357,16 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 	sectors_per_fat = replay_protect_u16(ctx->sector + 0x16);
 
 	if(
-		(ctx->bytes_per_sector != RP_SECTOR_BUFFER_SIZE) ||
+		!replay_protect_sector_size_supported(ctx->bytes_per_sector) ||
 		(reserved == 0) ||
 		(fat_count == 0) ||
 		(ctx->root_entry_count == 0) ||
 		(sectors_per_fat == 0)
 	) {
+		replay_protect_diag_geometry_set(
+			ctx->drive, ctx->bytes_per_sector, ctx->root_entry_count, 0, 0
+		);
+		replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
 		replay_protect_ctx_free(ctx);
 		return false;
 	}
@@ -256,13 +376,18 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 		replay_protect_mul_u16(fat_count, sectors_per_fat)
 	);
 	root_bytes = (static_cast<uint32_t>(ctx->root_entry_count) << 5);
-	ctx->root_sectors = static_cast<uint16_t>(
-		(root_bytes + (RP_SECTOR_BUFFER_SIZE - 1)) >> 9
+	ctx->root_sectors = replay_protect_root_sector_count(
+		root_bytes, ctx->bytes_per_sector
+	);
+	replay_protect_diag_geometry_set(
+		ctx->drive, ctx->bytes_per_sector, ctx->root_entry_count,
+		ctx->root_start, ctx->root_sectors
 	);
 	if(
 		(ctx->root_sectors == 0) ||
 		((ctx->root_start + ctx->root_sectors) > 0x10000UL)
 	) {
+		replay_protect_diag_code_set(RPD_ROOT_RANGE);
 		replay_protect_ctx_free(ctx);
 		return false;
 	}
@@ -363,18 +488,25 @@ static bool replay_protect_root_size_read(
 	}
 	base = replay_protect_basename(fn);
 	if(!replay_protect_short_name_component(short_name, base)) {
+		replay_protect_diag_code_set(RPD_SHORT_NAME);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 
 	for(sector = 0; sector < ctx.root_sectors; sector++) {
 		if(!replay_protect_sector_read(&ctx, ctx.root_start + sector)) {
+			replay_protect_diag_location_set(ctx.root_start + sector, 0);
+			replay_protect_diag_code_set(RPD_ROOT_SECTOR_READ);
 			replay_protect_ctx_free(&ctx);
 			return false;
 		}
-		for(offset = 0; offset < RP_SECTOR_BUFFER_SIZE; offset += 32) {
+		for(offset = 0; offset < ctx.bytes_per_sector; offset += 32) {
 			first = ctx.sector[offset];
 			if(first == RP_FAT_ENTRY_FREE) {
+				replay_protect_diag_location_set(
+					ctx.root_start + sector, offset
+				);
+				replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
 				replay_protect_ctx_free(&ctx);
 				return false;
 			}
@@ -387,12 +519,16 @@ static bool replay_protect_root_size_read(
 			}
 			if(replay_protect_name_match(ctx.sector + offset, short_name)) {
 				*size = replay_protect_u32(ctx.sector + offset + 0x1C);
+				replay_protect_diag_location_set(
+					ctx.root_start + sector, offset
+				);
 				replay_protect_location_set(ctx.root_start + sector, offset);
 				replay_protect_ctx_free(&ctx);
 				return true;
 			}
 		}
 	}
+	replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
 	replay_protect_ctx_free(&ctx);
 	return false;
 }
@@ -416,13 +552,16 @@ static bool replay_protect_located_size_read(
 	if(
 		!replay_protect_located() ||
 		(sector == 0) ||
-		(offset > (RP_SECTOR_BUFFER_SIZE - 32)) ||
+		(offset > (RP_SECTOR_BUFFER_SIZE_MAX - 32)) ||
 		((offset & 0x1F) != 0)
 	) {
+		replay_protect_diag_location_set(sector, offset);
+		replay_protect_diag_code_set(RPD_LOCATED_RANGE);
 		return false;
 	}
 	base = replay_protect_basename(fn);
 	if(!replay_protect_short_name_component(short_name, base)) {
+		replay_protect_diag_code_set(RPD_SHORT_NAME);
 		return false;
 	}
 
@@ -431,20 +570,28 @@ static bool replay_protect_located_size_read(
 	}
 	ctx.drive = replay_protect_current_drive();
 	if(!replay_protect_sector_read(&ctx, sector)) {
+		replay_protect_diag_location_set(sector, offset);
+		replay_protect_diag_code_set(RPD_LOCATED_SECTOR_READ);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	first = ctx.sector[offset];
 	if((first == RP_FAT_ENTRY_FREE) || (first == RP_FAT_ENTRY_DELETED)) {
+		replay_protect_diag_location_set(sector, offset);
+		replay_protect_diag_code_set(RPD_LOCATED_ENTRY_BAD);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	attr = ctx.sector[offset + 0x0B];
 	if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
+		replay_protect_diag_location_set(sector, offset);
+		replay_protect_diag_code_set(RPD_LOCATED_ENTRY_BAD);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
 	if(!replay_protect_name_match(ctx.sector + offset, short_name)) {
+		replay_protect_diag_location_set(sector, offset);
+		replay_protect_diag_code_set(RPD_LOCATED_NAME);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
@@ -473,6 +620,10 @@ static bool replay_protect_verify(const char far *guard_fn)
 		return false;
 	}
 	if(disk_size != replay_protect_committed_size()) {
+		replay_protect_diag_sizes_set(
+			replay_protect_committed_size(), disk_size
+		);
+		replay_protect_diag_code_set(RPD_VERIFY_MISMATCH);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -481,14 +632,19 @@ static bool replay_protect_verify(const char far *guard_fn)
 
 static bool replay_protect_commit_handle(void)
 {
+	uint16_t dos_ax = 0;
+
 	_BX = static_cast<uint16_t>(file_Handle);
 	_AH = 0x68;
 	asm {
 		int	21h
+		mov	dos_ax, ax
 		jnc	short rp_commit_ok
 	}
+	replay_protect_diag_dos_ax_set(dos_ax);
 	return false;
 rp_commit_ok:
+	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
 
@@ -496,10 +652,12 @@ static bool replay_protect_commit_current_file(void)
 {
 	file_flush();
 	if(file_ErrorStat != 0) {
+		replay_protect_diag_code_set(RPD_COMMIT_FLUSH);
 		replay_protect_invalidate();
 		return false;
 	}
 	if(!replay_protect_commit_handle()) {
+		replay_protect_diag_code_set(RPD_COMMIT_DOS);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -512,6 +670,7 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 
 	replay_protect_committed_size_set(0);
 	if(!file_create(guard_fn)) {
+		replay_protect_diag_code_set(RPD_GUARD_CREATE);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -525,6 +684,8 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 		return false;
 	}
 	if(disk_size != 0) {
+		replay_protect_diag_sizes_set(0, disk_size);
+		replay_protect_diag_code_set(RPD_GUARD_CREATE_NONZERO);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -542,12 +703,14 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 	}
 	expected_size = replay_protect_committed_size() + 1;
 	if(!file_append(guard_fn)) {
+		replay_protect_diag_code_set(RPD_CHECKPOINT_APPEND);
 		replay_protect_invalidate();
 		return false;
 	}
 	file_seek(replay_protect_committed_size(), SEEK_SET);
 	if(file_write(&byte, sizeof(byte)) == 0) {
 		file_close();
+		replay_protect_diag_code_set(RPD_CHECKPOINT_WRITE);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -562,6 +725,8 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 		return false;
 	}
 	if(disk_size != expected_size) {
+		replay_protect_diag_sizes_set(expected_size, disk_size);
+		replay_protect_diag_code_set(RPD_CHECKPOINT_MISMATCH);
 		replay_protect_invalidate();
 		return false;
 	}
@@ -573,6 +738,6 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 #undef RP_FAT_ENTRY_DELETED
 #undef RP_FAT_ATTR_VOLUME
 #undef RP_FAT_ATTR_DIR
-#undef RP_SECTOR_BUFFER_SIZE
+#undef RP_SECTOR_BUFFER_SIZE_MAX
 
 #endif /* TH03_REPLAY_PROTECT_HPP */

@@ -24,6 +24,7 @@ static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
 static char T3_SPLIT_FN[12];
 static char T3_DONE_FN[11];
+static char T3_GUARD_DIAG_FN[12];
 static char T3_USER_REPLAY_DIR[7];
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
@@ -134,6 +135,7 @@ static bool replay_paths_initialized;
 static bool replay_prompt_skip_queued;
 static bool replay_rle_packet_open;
 static bool replay_user_discard_requested;
+static bool replay_guard_diag_written;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
 static uint8_t replay_sum_mode;
@@ -264,6 +266,19 @@ static void replay_paths_init(void)
 	T3_DONE_FN[9] = 'T';
 	T3_DONE_FN[10] = '\0';
 
+	T3_GUARD_DIAG_FN[0] = 'T';
+	T3_GUARD_DIAG_FN[1] = '3';
+	T3_GUARD_DIAG_FN[2] = 'G';
+	T3_GUARD_DIAG_FN[3] = 'D';
+	T3_GUARD_DIAG_FN[4] = 'I';
+	T3_GUARD_DIAG_FN[5] = 'A';
+	T3_GUARD_DIAG_FN[6] = 'G';
+	T3_GUARD_DIAG_FN[7] = '.';
+	T3_GUARD_DIAG_FN[8] = 'B';
+	T3_GUARD_DIAG_FN[9] = 'I';
+	T3_GUARD_DIAG_FN[10] = 'N';
+	T3_GUARD_DIAG_FN[11] = '\0';
+
 	T3_USER_REPLAY_DIR[0] = 'R';
 	T3_USER_REPLAY_DIR[1] = 'E';
 	T3_USER_REPLAY_DIR[2] = 'P';
@@ -324,6 +339,23 @@ static void replay_paths_init(void)
 	replay_user_fn = T3_USER_REPLAY_FALLBACK_FN;
 	replay_user_slot = T3_REPLAY_USER_SLOT_NONE;
 	replay_paths_initialized = true;
+}
+
+static void replay_guard_diag_write(void)
+{
+	if(replay_guard_diag_written) {
+		return;
+	}
+	replay_guard_diag_written = true;
+	if(!file_create(T3_GUARD_DIAG_FN)) {
+		return;
+	}
+	file_write(T3_GUARD_DIAG_FN, 4);
+	file_write(
+		&resident->unused_3[T3R_DIAG_CODE_INDEX],
+		(T3R_DIAG_END_INDEX - T3R_DIAG_CODE_INDEX)
+	);
+	file_close();
 }
 
 static void replay_write_text(replay_text_id_t text)
@@ -1593,6 +1625,7 @@ static bool replay_user_create(void)
 	protect_ok = replay_protect_commit_current_file();
 	file_close();
 	if(!protect_ok || !replay_user_guard_create()) {
+		replay_guard_diag_write();
 		replay_user_index_slot_clear();
 		return true;
 	}
@@ -2275,6 +2308,7 @@ void far replay_session_start(void)
 	replay_prompt_skip_queued = false;
 	replay_rle_packet_open = false;
 	replay_user_discard_requested = false;
+	replay_guard_diag_written = false;
 
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
@@ -2606,6 +2640,9 @@ static bool replay_pause_save_disabled(void)
 	if(!replay_protect_invalid()) {
 		replay_user_guard_verify();
 	}
+	if(replay_protect_invalid()) {
+		replay_guard_diag_write();
+	}
 	return replay_protect_invalid();
 }
 
@@ -2824,6 +2861,9 @@ void far replay_finish(uint8_t route)
 			(route == 0) &&
 			(replay_user_discard_requested || replay_protect_invalid())
 		) {
+			if(replay_protect_invalid()) {
+				replay_guard_diag_write();
+			}
 			dos_axdx(0x4100, replay_user_fn);
 			replay_user_index_slot_clear();
 			replay_user_guard_delete();
