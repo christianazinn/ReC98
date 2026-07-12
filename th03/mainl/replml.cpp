@@ -446,8 +446,6 @@ static bool mainl_replay_user_header_write(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
-	bool ret;
-
 	if(replay_protect_blocked()) {
 		return false;
 	}
@@ -472,10 +470,14 @@ static bool mainl_replay_user_header_write(
 		return false;
 	}
 	file_seek(0, SEEK_SET);
-	file_write(&replay_user_header, sizeof(replay_user_header));
-	ret = replay_protect_commit_current_file();
-	file_close();
-	if(!ret) {
+	if(!mainl_replay_write_bytes_checked(
+		&replay_user_header, sizeof(replay_user_header)
+	)) {
+		file_close();
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
 		return false;
 	}
 	mainl_replay_user_index_write(status, end_reason);

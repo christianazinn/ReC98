@@ -1342,8 +1342,6 @@ static bool replay_user_header_write(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
-	bool ret;
-
 	if(replay_protect_blocked()) {
 		return false;
 	}
@@ -1369,9 +1367,7 @@ static bool replay_user_header_write(
 		replay_protect_detector_error_set();
 		return false;
 	}
-	ret = replay_protect_commit_current_file();
-	file_close();
-	if(!ret) {
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
 		return false;
 	}
 	replay_user_index_slot_write(status, end_reason);
@@ -1594,7 +1590,6 @@ static void replay_user_snapshot_restore_runtime(void)
 static bool replay_user_create(void)
 {
 	uint8_t slot = replay_resident_slot();
-	bool protect_ok;
 
 	replay_user_snapshot_fill();
 	replay_user_header_fill(RUS_RECORDING, RUER_PARTIAL);
@@ -1622,9 +1617,10 @@ static bool replay_user_create(void)
 		file_close();
 		return false;
 	}
-	protect_ok = replay_protect_commit_current_file();
-	file_close();
-	if(!protect_ok || !replay_user_guard_create()) {
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
+		return false;
+	}
+	if(!replay_user_guard_create()) {
 		replay_guard_diag_write();
 		replay_user_index_slot_clear();
 		return true;

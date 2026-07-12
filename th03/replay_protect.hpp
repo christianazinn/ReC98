@@ -738,16 +738,22 @@ static bool replay_protect_commit_process(void)
 	return true;
 }
 
-static bool replay_protect_commit_current_file(void)
+static bool replay_protect_flush_current_file(uint8_t diag_code)
 {
 	file_flush();
 	if(file_ErrorStat != 0) {
-		replay_protect_diag_code_set(RPD_COMMIT_FLUSH);
+		replay_protect_diag_code_set(diag_code);
 		replay_protect_detector_error_set();
 		return false;
 	}
-	if(!replay_protect_commit_process()) {
-		replay_protect_diag_code_set(RPD_COMMIT_DOS);
+	return true;
+}
+
+static bool replay_protect_close_current_file(uint8_t diag_code)
+{
+	file_close();
+	if(file_ErrorStat != 0) {
+		replay_protect_diag_code_set(diag_code);
 		replay_protect_detector_error_set();
 		return false;
 	}
@@ -764,11 +770,14 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 		replay_protect_detector_error_set();
 		return false;
 	}
-	if(!replay_protect_commit_current_file()) {
+	if(!replay_protect_flush_current_file(RPD_COMMIT_FLUSH)) {
 		file_close();
 		return false;
 	}
-	file_close();
+	(void)replay_protect_commit_process();
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
+		return false;
+	}
 	if(!replay_protect_size_read(guard_fn, &disk_size)) {
 		replay_protect_detector_error_set();
 		return false;
@@ -779,6 +788,7 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 		replay_protect_detector_error_set();
 		return false;
 	}
+	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
 
@@ -787,6 +797,7 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 	uint32_t expected_size;
 	uint32_t disk_size;
 	uint8_t byte = 0;
+	bool committed_open;
 
 	if(!replay_protect_verify(guard_fn)) {
 		return false;
@@ -804,23 +815,37 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 		replay_protect_detector_error_set();
 		return false;
 	}
-	if(!replay_protect_commit_current_file()) {
+	if(!replay_protect_flush_current_file(RPD_CHECKPOINT_WRITE)) {
 		file_close();
 		return false;
 	}
-	file_close();
-
-	if(!replay_protect_size_read(guard_fn, &disk_size)) {
-		replay_protect_detector_error_set();
-		return false;
+	committed_open = false;
+	if(replay_protect_commit_process()) {
+		if(replay_protect_size_read(guard_fn, &disk_size)) {
+			committed_open = (disk_size == expected_size);
+		}
 	}
-	if(disk_size != expected_size) {
-		replay_protect_diag_sizes_set(expected_size, disk_size);
-		replay_protect_diag_code_set(RPD_CHECKPOINT_MISMATCH);
-		replay_protect_detector_error_set();
-		return false;
+	if(!committed_open) {
+		if(!replay_protect_close_current_file(RPD_CHECKPOINT_WRITE)) {
+			return false;
+		}
+		if(!replay_protect_size_read(guard_fn, &disk_size)) {
+			replay_protect_detector_error_set();
+			return false;
+		}
+		if(disk_size != expected_size) {
+			replay_protect_diag_sizes_set(expected_size, disk_size);
+			replay_protect_diag_code_set(RPD_CHECKPOINT_MISMATCH);
+			replay_protect_detector_error_set();
+			return false;
+		}
+	} else {
+		if(!replay_protect_close_current_file(RPD_CHECKPOINT_WRITE)) {
+			return false;
+		}
 	}
 	replay_protect_committed_size_set(expected_size);
+	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
 
