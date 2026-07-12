@@ -221,37 +221,38 @@ static void mainl_replay_user_slot_fn_set(uint8_t slot)
 
 static void mainl_replay_guard_fn_set(char far *fn)
 {
+	fn[0] = '\\';
 	if(replay_user_slot < T3_REPLAY_USER_SLOT_COUNT) {
-		fn[0] = 'T';
-		fn[1] = 'H';
-		fn[2] = '3';
-		fn[3] = 'G';
-		fn[4] = static_cast<char>('0' + (replay_user_slot / 10));
-		fn[5] = static_cast<char>('0' + (replay_user_slot % 10));
-		fn[6] = '.';
-		fn[7] = 'T';
-		fn[8] = 'M';
-		fn[9] = 'P';
-		fn[10] = '\0';
-	} else {
-		fn[0] = 'T';
-		fn[1] = 'H';
-		fn[2] = '3';
-		fn[3] = 'L';
-		fn[4] = 'A';
-		fn[5] = 'S';
-		fn[6] = 'T';
+		fn[1] = 'T';
+		fn[2] = 'H';
+		fn[3] = '3';
+		fn[4] = 'G';
+		fn[5] = static_cast<char>('0' + (replay_user_slot / 10));
+		fn[6] = static_cast<char>('0' + (replay_user_slot % 10));
 		fn[7] = '.';
-		fn[8] = 'G';
-		fn[9] = 'R';
-		fn[10] = 'D';
+		fn[8] = 'T';
+		fn[9] = 'M';
+		fn[10] = 'P';
 		fn[11] = '\0';
+	} else {
+		fn[1] = 'T';
+		fn[2] = 'H';
+		fn[3] = '3';
+		fn[4] = 'L';
+		fn[5] = 'A';
+		fn[6] = 'S';
+		fn[7] = 'T';
+		fn[8] = '.';
+		fn[9] = 'G';
+		fn[10] = 'R';
+		fn[11] = 'D';
+		fn[12] = '\0';
 	}
 }
 
 static bool mainl_replay_guard_verify(void)
 {
-	char guard_fn[12];
+	char guard_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
 	return replay_protect_verify(guard_fn);
@@ -259,7 +260,7 @@ static bool mainl_replay_guard_verify(void)
 
 static bool mainl_replay_guard_checkpoint(void)
 {
-	char guard_fn[12];
+	char guard_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
 	return replay_protect_checkpoint(guard_fn);
@@ -267,7 +268,7 @@ static bool mainl_replay_guard_checkpoint(void)
 
 static void mainl_replay_guard_delete(void)
 {
-	char guard_fn[12];
+	char guard_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
 	dos_axdx(0x4100, guard_fn);
