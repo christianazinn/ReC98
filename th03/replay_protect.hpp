@@ -132,6 +132,16 @@ static void replay_protect_diag_dos_ax_set(uint16_t value)
 	);
 }
 
+static void replay_protect_diag_int25_flags_set(
+	uint16_t flags, uint16_t stack_flags
+)
+{
+	replay_protect_handoff_u16_write(T3R_DIAG_INT25_FLAGS_INDEX, flags);
+	replay_protect_handoff_u16_write(
+		T3R_DIAG_INT25_STACK_FLAGS_INDEX, stack_flags
+	);
+}
+
 static void replay_protect_diag_geometry_set(
 	uint8_t drive, uint16_t bytes_per_sector, uint16_t root_entry_count,
 	uint32_t root_start, uint16_t root_sectors
@@ -294,6 +304,7 @@ static bool replay_protect_abs_read_small(
 {
 	uint16_t dos_ax = 0;
 	uint16_t dos_flags = 1;
+	uint16_t dos_stack_flags = 0;
 
 	_AL = drive;
 	_CX = count;
@@ -306,11 +317,11 @@ static bool replay_protect_abs_read_small(
 		push	ds
 		lds	bx, buffer
 		int	25h
+		pushf
 		push	ax
 		pop	cx
 		pop	ax
-		push	ax
-		popf
+		pop	dx
 		pop	ds
 		pop	es
 		pop	di
@@ -318,7 +329,9 @@ static bool replay_protect_abs_read_small(
 		pop	bp
 		mov	dos_ax, cx
 		mov	dos_flags, ax
+		mov	dos_stack_flags, dx
 	}
+	replay_protect_diag_int25_flags_set(dos_flags, dos_stack_flags);
 	if(dos_flags & 1) {
 		replay_protect_diag_dos_ax_set(dos_ax);
 		return false;
