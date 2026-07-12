@@ -1344,7 +1344,7 @@ static bool replay_user_header_write(
 {
 	bool ret;
 
-	if(replay_protect_invalid()) {
+	if(replay_protect_blocked()) {
 		return false;
 	}
 	if(!replay_user_guard_verify()) {
@@ -1353,20 +1353,20 @@ static bool replay_user_header_write(
 	replay_user_summary_capture(replay_last_route);
 	replay_user_header_fill(status, end_reason);
 	if(!file_append(replay_user_fn)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	file_seek(0, SEEK_SET);
 	if(!replay_write_bytes_checked(&replay_user_header, sizeof(replay_user_header))) {
 		file_close();
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(!replay_write_bytes_checked(
 		&replay_user_summary_ext, sizeof(replay_user_summary_ext)
 	)) {
 		file_close();
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	ret = replay_protect_commit_current_file();
@@ -1679,13 +1679,13 @@ static bool replay_user_record_sample(void)
 		return true;
 	}
 	if(!file_append(replay_user_fn)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	file_seek(offset, SEEK_SET);
 	if(!replay_write_bytes_checked(&sample, sizeof(sample))) {
 		file_close();
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	file_close();
@@ -1713,13 +1713,13 @@ static bool replay_user_record_interstitial_sample(void)
 		return true;
 	}
 	if(!file_append(replay_user_fn)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	file_seek(offset, SEEK_SET);
 	if(!replay_write_bytes_checked(&sample, sizeof(sample))) {
 		file_close();
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	file_close();
@@ -1744,7 +1744,7 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 	uint32_t offset;
 	uint32_t new_input_byte_count;
 
-	if(replay_protect_invalid()) {
+	if(replay_protect_blocked()) {
 		return true;
 	}
 
@@ -1762,13 +1762,13 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 		}
 		replay_rle_run++;
 		if(!file_append(replay_user_fn)) {
-			replay_protect_invalidate();
+			replay_protect_detector_error_set();
 			return true;
 		}
 		file_seek(replay_packet_tag_offset, SEEK_SET);
 		if(!replay_write_bytes_checked(&tag, sizeof(tag))) {
 			file_close();
-			replay_protect_invalidate();
+			replay_protect_detector_error_set();
 			return true;
 		}
 		file_close();
@@ -1793,7 +1793,7 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 		return true;
 	}
 	if(!file_append(replay_user_fn)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	file_seek(offset, SEEK_SET);
@@ -1802,14 +1802,14 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 		!replay_write_bytes_checked(&change, sizeof(change))
 	) {
 		file_close();
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return true;
 	}
 	new_input_byte_count += 2;
 	if(change & T3_REPLAY_PACKET_CHANGE_P1) {
 		if(!replay_write_u16_checked(input_p1)) {
 			file_close();
-			replay_protect_invalidate();
+			replay_protect_detector_error_set();
 			return true;
 		}
 		new_input_byte_count += sizeof(input_p1);
@@ -1817,7 +1817,7 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 	if(change & T3_REPLAY_PACKET_CHANGE_P2) {
 		if(!replay_write_u16_checked(input_p2)) {
 			file_close();
-			replay_protect_invalidate();
+			replay_protect_detector_error_set();
 			return true;
 		}
 		new_input_byte_count += sizeof(input_p2);
@@ -1825,7 +1825,7 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 	if(change & T3_REPLAY_PACKET_CHANGE_SP) {
 		if(!replay_write_u16_checked(input_single)) {
 			file_close();
-			replay_protect_invalidate();
+			replay_protect_detector_error_set();
 			return true;
 		}
 		new_input_byte_count += sizeof(input_single);
@@ -2637,13 +2637,13 @@ static bool replay_pause_save_disabled(void)
 	if(replay_mode != REPLAY_USER_RECORD) {
 		return false;
 	}
-	if(!replay_protect_invalid()) {
+	if(!replay_protect_blocked()) {
 		replay_user_guard_verify();
 	}
-	if(replay_protect_invalid()) {
+	if(replay_protect_blocked()) {
 		replay_guard_diag_write();
 	}
-	return replay_protect_invalid();
+	return replay_protect_blocked();
 }
 
 static uint8_t replay_pause_next_choice(uint8_t sel)
@@ -2837,6 +2837,8 @@ void far replay_route(uint8_t route)
 
 void far replay_finish(uint8_t route)
 {
+	bool finish_error = false;
+
 	replay_split_row(RTX_FINISH, route);
 	if(
 		(route != 0) &&
@@ -2846,7 +2848,9 @@ void far replay_finish(uint8_t route)
 		)
 	) {
 		if(replay_mode == REPLAY_USER_RECORD) {
-			replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+			if(!replay_user_header_write(RUS_RECORDING, RUER_PARTIAL)) {
+				replay_guard_diag_write();
+			}
 		}
 		replay_handoff_cursor_store();
 		replay_protect_local_free();
@@ -2872,12 +2876,9 @@ void far replay_finish(uint8_t route)
 				((route == 0) ? RUS_FINALIZED : RUS_PARTIAL),
 				((route == 0) ? RUER_MENU_RETURN : RUER_PARTIAL)
 			)) {
-				if(route == 0) {
-					dos_axdx(0x4100, replay_user_fn);
-					replay_user_index_slot_clear();
-				}
-			}
-			if(route == 0) {
+				finish_error = true;
+				replay_guard_diag_write();
+			} else if(route == 0) {
 				replay_user_guard_delete();
 			}
 		}
@@ -2889,7 +2890,9 @@ void far replay_finish(uint8_t route)
 	}
 	if(replay_mode != REPLAY_DISABLED) {
 		if(replay_mode == REPLAY_USER_RECORD) {
-			if(
+			if(finish_error) {
+				replay_done_write(RTX_ERROR_USER_HEADER);
+			} else if(
 				(route == 0) &&
 				(replay_user_discard_requested || replay_protect_invalid())
 			) {

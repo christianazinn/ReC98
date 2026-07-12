@@ -8,13 +8,14 @@
 
 extern "C" void MASTER_RET file_flush(void);
 extern "C" int __cdecl file_ErrorStat;
-extern "C" int __cdecl file_Handle;
 
 #define RP_FAT_ENTRY_FREE 0x00
 #define RP_FAT_ENTRY_DELETED 0xE5
 #define RP_FAT_ATTR_VOLUME 0x08
 #define RP_FAT_ATTR_DIR 0x10
 #define RP_SECTOR_BUFFER_SIZE_MAX 4096
+#define RP_DOS_PARAMETER_LIST_WORDS 11
+#define RP_DOS_PARAMETER_LIST_PROCESS_ID 10
 
 enum replay_protect_diag_t {
 	RPD_NONE = 0,
@@ -187,10 +188,30 @@ static bool replay_protect_located(void)
 	);
 }
 
+static bool replay_protect_detector_error(void)
+{
+	return (
+		(replay_protect_handoff_u8(T3_REPLAY_RES_PROTECT_FLAGS_INDEX) &
+		 T3_REPLAY_RES_PROTECT_ERROR) != 0
+	);
+}
+
+static bool replay_protect_blocked(void)
+{
+	return (replay_protect_invalid() || replay_protect_detector_error());
+}
+
 static void replay_protect_invalidate(void)
 {
 	resident->unused_3[T3_REPLAY_RES_PROTECT_FLAGS_INDEX] |= (
 		T3_REPLAY_RES_PROTECT_INVALID
+	);
+}
+
+static void replay_protect_detector_error_set(void)
+{
+	resident->unused_3[T3_REPLAY_RES_PROTECT_FLAGS_INDEX] |= (
+		T3_REPLAY_RES_PROTECT_ERROR
 	);
 }
 
@@ -625,39 +646,94 @@ static bool replay_protect_size_read(const char far *guard_fn, uint32_t far *siz
 static bool replay_protect_verify(const char far *guard_fn)
 {
 	uint32_t disk_size;
+	uint32_t committed_size;
 
-	if(replay_protect_invalid()) {
+	if(replay_protect_blocked()) {
 		return false;
 	}
 	if(!replay_protect_size_read(guard_fn, &disk_size)) {
+		replay_protect_detector_error_set();
+		return false;
+	}
+	committed_size = replay_protect_committed_size();
+	if(disk_size > committed_size) {
+		replay_protect_diag_sizes_set(committed_size, disk_size);
+		replay_protect_diag_code_set(RPD_VERIFY_MISMATCH);
 		replay_protect_invalidate();
 		return false;
 	}
-	if(disk_size != replay_protect_committed_size()) {
-		replay_protect_diag_sizes_set(
-			replay_protect_committed_size(), disk_size
-		);
+	if(disk_size < committed_size) {
+		replay_protect_diag_sizes_set(committed_size, disk_size);
 		replay_protect_diag_code_set(RPD_VERIFY_MISMATCH);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	return true;
 }
 
-static bool replay_protect_commit_handle(void)
+static uint16_t replay_protect_current_psp(void)
 {
-	uint16_t dos_ax = 0;
+	uint16_t psp = 0;
 
-	_BX = static_cast<uint16_t>(file_Handle);
-	_AH = 0x68;
 	asm {
+		push	bp
+		push	si
+		push	di
+		push	ds
+		push	es
+		mov	ah, 51h
 		int	21h
-		mov	dos_ax, ax
-		jnc	short rp_commit_ok
+		push	bx
+		pop	cx
+		pop	es
+		pop	ds
+		pop	di
+		pop	si
+		pop	bp
+		mov	psp, cx
 	}
-	replay_protect_diag_dos_ax_set(dos_ax);
-	return false;
-rp_commit_ok:
+	return psp;
+}
+
+static bool replay_protect_commit_process(void)
+{
+	uint16_t dpl[RP_DOS_PARAMETER_LIST_WORDS];
+	uint16_t dos_ax = 0;
+	uint16_t dos_flags = 1;
+	int i;
+
+	for(i = 0; i < RP_DOS_PARAMETER_LIST_WORDS; i++) {
+		dpl[i] = 0;
+	}
+	dpl[RP_DOS_PARAMETER_LIST_PROCESS_ID] = replay_protect_current_psp();
+
+	asm {
+		push	bp
+		push	si
+		push	di
+		push	es
+		push	ds
+		push	ss
+		pop	ds
+		lea	dx, dpl
+		mov	ax, 5D01h
+		int	21h
+		pushf
+		push	ax
+		pop	cx
+		pop	ax
+		pop	ds
+		pop	es
+		pop	di
+		pop	si
+		pop	bp
+		mov	dos_ax, cx
+		mov	dos_flags, ax
+	}
+	if(dos_flags & 1) {
+		replay_protect_diag_dos_ax_set(dos_ax);
+		return false;
+	}
 	replay_protect_diag_dos_ax_set(0);
 	return true;
 }
@@ -667,12 +743,12 @@ static bool replay_protect_commit_current_file(void)
 	file_flush();
 	if(file_ErrorStat != 0) {
 		replay_protect_diag_code_set(RPD_COMMIT_FLUSH);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
-	if(!replay_protect_commit_handle()) {
+	if(!replay_protect_commit_process()) {
 		replay_protect_diag_code_set(RPD_COMMIT_DOS);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	return true;
@@ -685,7 +761,7 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 	replay_protect_committed_size_set(0);
 	if(!file_create(guard_fn)) {
 		replay_protect_diag_code_set(RPD_GUARD_CREATE);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(!replay_protect_commit_current_file()) {
@@ -694,13 +770,13 @@ static bool replay_protect_guard_create(const char far *guard_fn)
 	}
 	file_close();
 	if(!replay_protect_size_read(guard_fn, &disk_size)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(disk_size != 0) {
 		replay_protect_diag_sizes_set(0, disk_size);
 		replay_protect_diag_code_set(RPD_GUARD_CREATE_NONZERO);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	return true;
@@ -718,14 +794,14 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 	expected_size = replay_protect_committed_size() + 1;
 	if(!file_append(guard_fn)) {
 		replay_protect_diag_code_set(RPD_CHECKPOINT_APPEND);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	file_seek(replay_protect_committed_size(), SEEK_SET);
 	if(file_write(&byte, sizeof(byte)) == 0) {
 		file_close();
 		replay_protect_diag_code_set(RPD_CHECKPOINT_WRITE);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(!replay_protect_commit_current_file()) {
@@ -735,13 +811,13 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 	file_close();
 
 	if(!replay_protect_size_read(guard_fn, &disk_size)) {
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	if(disk_size != expected_size) {
 		replay_protect_diag_sizes_set(expected_size, disk_size);
 		replay_protect_diag_code_set(RPD_CHECKPOINT_MISMATCH);
-		replay_protect_invalidate();
+		replay_protect_detector_error_set();
 		return false;
 	}
 	replay_protect_committed_size_set(expected_size);
@@ -753,5 +829,7 @@ static bool replay_protect_checkpoint(const char far *guard_fn)
 #undef RP_FAT_ATTR_VOLUME
 #undef RP_FAT_ATTR_DIR
 #undef RP_SECTOR_BUFFER_SIZE_MAX
+#undef RP_DOS_PARAMETER_LIST_WORDS
+#undef RP_DOS_PARAMETER_LIST_PROCESS_ID
 
 #endif /* TH03_REPLAY_PROTECT_HPP */
