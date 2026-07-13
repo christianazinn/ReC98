@@ -234,6 +234,17 @@ static void replay_resident_handoff_slot_set(uint8_t slot)
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = slot;
 }
 
+static bool replay_resident_handoff_is(char mode)
+{
+	return (
+		(resident->unused_3[0] == T3_REPLAY_RES_MAGIC_0) &&
+		(resident->unused_3[1] == T3_REPLAY_RES_MAGIC_1) &&
+		(resident->unused_3[2] == T3_REPLAY_RES_MAGIC_2) &&
+		(resident->unused_3[3] == T3_REPLAY_RES_MAGIC_3) &&
+		(resident->unused_3[T3_REPLAY_RES_MODE_INDEX] == mode)
+	);
+}
+
 static void replay_resident_handoff_clear(void)
 {
 	int i;
@@ -541,7 +552,7 @@ inline bool switch_to_mainl(bool opwin_free) {
 	return false;
 }
 
-bool near story_menu(void)
+static bool near story_start(bool select_character)
 {
 	enum {
 		RANDOM_OPPONENT_MIN = PLAYCHAR_REIMU,
@@ -579,7 +590,7 @@ bool near story_menu(void)
 	resident->show_score_menu = false;
 	resident->playchar_paletted[1].v = -1;
 
-	if(select_story_menu()) {
+	if(select_character && select_story_menu()) {
 		return true;
 	}
 
@@ -648,6 +659,11 @@ retry_opponent_selection:
 	return switch_to_mainl(false);
 }
 
+bool near story_menu(void)
+{
+	return story_start(true);
+}
+
 inline tram_y_t choice_tram_y(unsigned int line) {
 	return ((BOX_TOP / GLYPH_H) + 1 + line);
 }
@@ -670,7 +686,7 @@ void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 	}
 }
 
-bool near vs_menu(void)
+static bool near vs_start(bool select_characters)
 {
 	int sel;
 
@@ -726,15 +742,17 @@ bool near vs_menu(void)
 	resident->show_score_menu = false;
 
 	// ZUN bloat: Could be compressed into a single branch.
-	if(sel == VS_1P_2P) {
-		if(select_1p_vs_2p_menu()) {
-			resident->game_mode = GM_NONE;
-			return true;
-		}
-	} else {
-		if(select_vs_cpu_menu()) {
-			resident->game_mode = GM_NONE;
-			return true;
+	if(select_characters) {
+		if(sel == VS_1P_2P) {
+			if(select_1p_vs_2p_menu()) {
+				resident->game_mode = GM_NONE;
+				return true;
+			}
+		} else {
+			if(select_vs_cpu_menu()) {
+				resident->game_mode = GM_NONE;
+				return true;
+			}
 		}
 	}
 
@@ -742,6 +760,11 @@ bool near vs_menu(void)
 	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
 	replay_resident_handoff_slot_set(replay_user_record_slot_alloc());
 	return switch_to_mainl(false);
+}
+
+bool near vs_menu(void)
+{
+	return vs_start(true);
 }
 
 static void replay_demo_resident_set(void)
@@ -2015,6 +2038,8 @@ void near option_update_and_render(void)
 
 void main(void)
 {
+	bool replay_restart_requested;
+
 	{
 		char replay_mode = replay_cfg_mode();
 		if(replay_mode != 0) {
@@ -2046,7 +2071,20 @@ void main(void)
 	gaiji_backup();
 	gaiji_entry_bfnt(GAIJI_FN);
 	cfg_load();
+	replay_restart_requested = replay_resident_handoff_is(
+		T3_REPLAY_RES_MODE_RESTART
+	);
 	replay_resident_handoff_clear();
+	if(replay_restart_requested) {
+		if(resident->game_mode == GM_STORY) {
+			story_start(false);
+			return;
+		}
+		if(resident->game_mode >= GM_VS) {
+			vs_start(false);
+			return;
+		}
+	}
 	if((resident->game_mode >= GM_VS) && (resident->demo_num == 0)) {
 		select_cdg_load_part1_of_4();
 		select_cdg_load_part3_of_4();

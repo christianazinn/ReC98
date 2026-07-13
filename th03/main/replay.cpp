@@ -136,6 +136,7 @@ static bool replay_prompt_skip_queued;
 static bool replay_rle_packet_open;
 static bool replay_user_discard_requested;
 static bool replay_guard_diag_written;
+static bool replay_restart_requested_flag;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
 static uint8_t replay_sum_mode;
@@ -2346,6 +2347,16 @@ static void replay_resident_handoff_clear(void)
 	}
 }
 
+static void replay_resident_restart_handoff_set(void)
+{
+	replay_resident_handoff_clear();
+	resident->unused_3[0] = T3_REPLAY_RES_MAGIC_0;
+	resident->unused_3[1] = T3_REPLAY_RES_MAGIC_1;
+	resident->unused_3[2] = T3_REPLAY_RES_MAGIC_2;
+	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
+	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = T3_REPLAY_RES_MODE_RESTART;
+}
+
 void far replay_session_start(void)
 {
 	replay_paths_init();
@@ -2371,6 +2382,7 @@ void far replay_session_start(void)
 	replay_rle_packet_open = false;
 	replay_user_discard_requested = false;
 	replay_guard_diag_written = false;
+	replay_restart_requested_flag = false;
 
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
@@ -2538,7 +2550,7 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_LEFT 24
 #define REPLAY_PAUSE_TOP 8
 #define REPLAY_PAUSE_W 32
-#define REPLAY_PAUSE_H 7
+#define REPLAY_PAUSE_H 8
 #define REPLAY_PAUSE_PIXEL_LEFT (REPLAY_PAUSE_LEFT * GLYPH_HALF_W)
 #define REPLAY_PAUSE_PIXEL_TOP (REPLAY_PAUSE_TOP * GLYPH_HALF_H)
 #define REPLAY_PAUSE_PIXEL_RIGHT ( \
@@ -2672,6 +2684,15 @@ static void replay_pause_put_resume(unsigned y, unsigned atrb)
 #undef P
 }
 
+static void replay_pause_put_restart(unsigned y, unsigned atrb)
+{
+	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
+
+#define P(c) replay_text_putca(x++, y, c, atrb)
+	P('R'); P('e'); P('s'); P('t'); P('a'); P('r'); P('t');
+#undef P
+}
+
 static void replay_pause_put_save_exit(unsigned y, unsigned atrb)
 {
 	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
@@ -2728,7 +2749,7 @@ static uint8_t replay_pause_prev_choice(uint8_t sel)
 		sel--;
 	}
 	if((sel == REPLAY_PAUSE_SAVE_EXIT) && replay_pause_save_disabled()) {
-		sel = REPLAY_PAUSE_RESUME;
+		sel = REPLAY_PAUSE_RESTART;
 	}
 	return sel;
 }
@@ -2756,6 +2777,17 @@ static void replay_pause_put_choices(uint8_t sel)
 		(sel == REPLAY_PAUSE_RESUME) ? '>' : ' '
 	), atrb);
 	replay_pause_put_resume(y, atrb);
+
+	y++;
+	atrb = (
+		(sel == REPLAY_PAUSE_RESTART) ?
+		REPLAY_PAUSE_SELECTED_ATRB :
+		REPLAY_PAUSE_CHOICE_ATRB
+	);
+	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
+		(sel == REPLAY_PAUSE_RESTART) ? '>' : ' '
+	), atrb);
+	replay_pause_put_restart(y, atrb);
 
 	y++;
 	if(replay_pause_save_disabled()) {
@@ -2808,7 +2840,11 @@ release_wait:
 	frame_delay(1);
 
 release_test:
-	if(input_sp != INPUT_NONE) {
+	if(
+		(input_sp != INPUT_NONE) ||
+		(input_mp_p1 != INPUT_NONE) ||
+		(input_mp_p2 != INPUT_NONE)
+	) {
 		goto release_wait;
 	}
 }
@@ -2836,6 +2872,9 @@ input_wait:
 	replay_input_sense_held();
 	if(input_sp & INPUT_Q) {
 		return REPLAY_PAUSE_DISCARD_EXIT;
+	}
+	if(input_mp_p1 & INPUT_UP_LEFT) {
+		return REPLAY_PAUSE_RESTART;
 	}
 	if(input_sp & INPUT_CANCEL) {
 		replay_pause_wait_release();
@@ -2903,6 +2942,12 @@ void far replay_user_record_discard_on_exit(void)
 	if(replay_mode == REPLAY_USER_RECORD) {
 		replay_user_discard_requested = true;
 	}
+}
+
+void far replay_restart_request(void)
+{
+	replay_restart_requested_flag = true;
+	replay_user_record_discard_on_exit();
 }
 
 void far replay_route(uint8_t route)
@@ -2986,5 +3031,11 @@ void far replay_finish(uint8_t route)
 			replay_done_write(RTX_OK);
 		}
 	}
+	if(replay_restart_requested_flag && (route == 0)) {
+		replay_resident_restart_handoff_set();
+	}
 	replay_mode = REPLAY_DISABLED;
 }
+
+// Keep the following C runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

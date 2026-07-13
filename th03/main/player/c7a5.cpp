@@ -29,6 +29,10 @@ quit:
 		replay_user_record_discard_on_exit();
 		goto quit;
 	}
+	if(pause_action == REPLAY_PAUSE_RESTART) {
+		replay_restart_request();
+		goto quit;
+	}
 }
 
 // Replay-mod layout pin: Keep later PLAYER_M_TEXT code at the replay-v3
@@ -40,6 +44,4 @@ quit:
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
