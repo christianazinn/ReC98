@@ -196,6 +196,11 @@ static void mainl_replay_handoff_clear(void)
 	}
 }
 
+static void mainl_replay_handoff_mode_set(uint8_t mode)
+{
+	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
+}
+
 static uint8_t mainl_replay_resident_slot(void)
 {
 	uint8_t slot = mainl_replay_handoff_u8(T3_REPLAY_RES_SLOT_INDEX);
@@ -335,24 +340,6 @@ static void mainl_replay_guard_delete(void)
 
 static bool mainl_replay_user_header_valid(void)
 {
-	bool v2 = (
-		(replay_user_header.magic[6] == '2') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION_V2) &&
-		(replay_user_header.sample_size == sizeof(replay_user_sample_t))
-	);
-	bool v3 = (
-		(replay_user_header.magic[6] == '3') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION_V3) &&
-		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
-	);
-	bool v4 = (
-		(replay_user_header.magic[6] == '4') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
-		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
-	);
-
 	return (
 		(replay_user_header.magic[0] == 'T') &&
 		(replay_user_header.magic[1] == '3') &&
@@ -360,20 +347,13 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(v2 || v3 || v4) &&
-		(
-			(
-				(v2 || v3) &&
-				(replay_user_header.header_size == sizeof(replay_user_header))
-			) ||
-			(
-				v4 &&
-				(replay_user_header.header_size == (
-					sizeof(replay_user_header) +
-					sizeof(replay_user_summary_ext_t)
-				))
-			)
-		) &&
+		(replay_user_header.magic[6] == '5') &&
+		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
+		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
+		(replay_user_header.header_size == (
+			sizeof(replay_user_header) + sizeof(replay_user_summary_ext_t)
+		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
 		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
 		(replay_user_header.input_offset == (
@@ -434,12 +414,10 @@ static bool mainl_replay_user_index_write(
 	replay_user_index_entry.final_frame_count = (
 		replay_user_header.final_frame_count
 	);
-	replay_user_index_entry.resident_rand = replay_user_header.resident_rand;
-	replay_user_index_entry.random_seed_snapshot = (
-		replay_user_header.random_seed_snapshot
-	);
-	replay_user_index_entry.input_crc32 = replay_user_header.input_crc32;
-	replay_user_index_entry.snapshot_crc32 = replay_user_header.snapshot_crc32;
+	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		replay_user_index_entry.name[i] = replay_user_header.name[i];
+	}
+	replay_user_index_entry.dos_date = replay_user_header.dos_date;
 	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
 	replay_user_index_entry.final_route = replay_user_header.final_route;
 	replay_user_index_entry.final_story_stage = (
@@ -824,7 +802,26 @@ static bool mainl_replay_read_rle_packet(void)
 		}
 		replay_input_byte_count += sizeof(replay_rle_input_sp);
 	}
-	if(change & ~(T3_REPLAY_PACKET_CHANGE_P1 | T3_REPLAY_PACKET_CHANGE_P2 | T3_REPLAY_PACKET_CHANGE_SP)) {
+	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
+		if(
+			(replay_input_byte_count + sizeof(tag)) >
+			replay_user_header.input_size
+		) {
+			file_close();
+			return false;
+		}
+		if(file_read(&tag, sizeof(tag)) != sizeof(tag)) {
+			file_close();
+			return false;
+		}
+		replay_input_byte_count += sizeof(tag);
+	}
+	if(change & ~(
+		T3_REPLAY_PACKET_CHANGE_P1 |
+		T3_REPLAY_PACKET_CHANGE_P2 |
+		T3_REPLAY_PACKET_CHANGE_SP |
+		T3_REPLAY_PACKET_CHANGE_SHIFT
+	)) {
 		file_close();
 		return false;
 	}
@@ -940,12 +937,14 @@ bool far mainl_replay_initial_stage_splash_skip(void)
 
 void far mainl_replay_finish(replay_user_end_reason_t end_reason)
 {
+	bool save_pending = false;
+
 	if(mainl_replay_mode == MR_USER_RECORD) {
 		if(replay_protect_invalid()) {
 			replay_protect_file_delete_commit(replay_user_fn);
 			mainl_replay_user_index_clear();
-		} else {
-			mainl_replay_user_header_write(RUS_FINALIZED, end_reason);
+		} else if(mainl_replay_user_header_write(RUS_FINALIZED, end_reason)) {
+			save_pending = true;
 		}
 		mainl_replay_guard_delete();
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
@@ -956,7 +955,15 @@ void far mainl_replay_finish(replay_user_end_reason_t end_reason)
 		(mainl_replay_mode == MR_USER_PLAYBACK)
 	) {
 		replay_protect_local_free();
-		mainl_replay_handoff_clear();
+		if(save_pending) {
+			mainl_replay_handoff_mode_set(T3_REPLAY_RES_MODE_SAVE_PROMPT);
+		} else {
+			mainl_replay_handoff_clear();
+		}
 	}
 	mainl_replay_mode = MR_DISABLED;
 }
+
+// Keep the following shared runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"

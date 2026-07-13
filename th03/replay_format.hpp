@@ -3,14 +3,12 @@
 
 #include "platform.h"
 
-#define T3_REPLAY_USER_VERSION_V2 2
-#define T3_REPLAY_USER_VERSION_V3 3
-#define T3_REPLAY_USER_VERSION 4
-#define T3_REPLAY_USER_INDEX_VERSION_V2 2
-#define T3_REPLAY_USER_INDEX_VERSION 3
+#define T3_REPLAY_USER_VERSION 5
+#define T3_REPLAY_USER_INDEX_VERSION 4
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
+#define T3_REPLAY_USER_NAME_LEN 8
 #define T3_REPLAY_USER_SCORE_DIGITS 8
 #define T3_REPLAY_USER_SCORE_DISPLAY_DIGITS 9
 #define T3_REPLAY_USER_PACKED_SCORE_SIZE 4
@@ -23,6 +21,7 @@
 #define T3_REPLAY_INTERSTITIAL_ROUND_FRAME 0xFFFFFFFFUL
 #define T3_REPLAY_USER_SAMPLE_SIZE_RLE 0
 #define T3_REPLAY_USER_FLAG_RLE_INPUT 0x0001
+#define T3_REPLAY_USER_FLAG_SHIFT_INPUT 0x0002
 #define T3_REPLAY_PACKET_PHASE_GAMEPLAY 0
 #define T3_REPLAY_PACKET_PHASE_INTERSTITIAL 1
 #define T3_REPLAY_PACKET_RUN_MAX 64
@@ -31,6 +30,7 @@
 #define T3_REPLAY_PACKET_CHANGE_P1 0x01
 #define T3_REPLAY_PACKET_CHANGE_P2 0x02
 #define T3_REPLAY_PACKET_CHANGE_SP 0x04
+#define T3_REPLAY_PACKET_CHANGE_SHIFT 0x08
 #define T3_REPLAY_USER_SUMMARY_VALID 0x0001
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
@@ -77,8 +77,6 @@ struct replay_user_header_t {
 	uint32_t input_size;
 	uint32_t snapshot_offset;
 	uint32_t snapshot_size;
-	uint32_t input_crc32;
-	uint32_t snapshot_crc32;
 	uint16_t summary_flags;
 	uint8_t final_route;
 	uint8_t final_game_mode;
@@ -93,7 +91,9 @@ struct replay_user_header_t {
 		T3_REPLAY_USER_STAGE_COUNT
 	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
-	uint8_t reserved_summary[3];
+	uint8_t reserved_metadata;
+	uint16_t dos_date;
+	char name[T3_REPLAY_USER_NAME_LEN];
 };
 
 struct replay_user_round_split_t {
@@ -186,10 +186,9 @@ struct replay_user_index_entry_t {
 	uint8_t is_cpu_p2;
 	uint32_t sample_count;
 	uint32_t final_frame_count;
-	uint32_t resident_rand;
-	uint32_t random_seed_snapshot;
-	uint32_t input_crc32;
-	uint32_t snapshot_crc32;
+	char name[T3_REPLAY_USER_NAME_LEN];
+	uint16_t dos_date;
+	uint8_t reserved_metadata[6];
 	uint16_t summary_flags;
 	uint8_t final_route;
 	uint8_t final_story_stage;

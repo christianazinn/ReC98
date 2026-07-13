@@ -9,6 +9,7 @@
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
+#include "th03/mainl/replay.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -83,6 +84,7 @@ void near ending_staff_and_regist(void)
 	staffroll_and_verdict_animate();
 	resident->story_stage = STAGE_ALL;
 	regist_menu();
+	mainl_replay_finish(RUER_COMPLETE);
 
 	if(
 		(resident->rem_credits == 3) &&

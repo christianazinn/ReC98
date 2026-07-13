@@ -27,6 +27,8 @@
 #include "th03/shiftjis/main.hpp"
 #include "th03/op/m_main.hpp"
 #include "th03/op/m_select.hpp"
+#include "th03/sprites/regi.h"
+#include "platform/x86real/flags.hpp"
 #include <conio.h>
 #include <stddef.h>
 #include <process.h>
@@ -292,26 +294,106 @@ static void replay_user_summary_ext_init(void)
 	}
 }
 
+static void replay_memclear(void far *buf, unsigned size)
+{
+	uint8_t far *p = reinterpret_cast<uint8_t far *>(buf);
+
+	while(size != 0) {
+		*p++ = 0;
+		size--;
+	}
+}
+
+static uint16_t replay_file_current_psp(void)
+{
+	uint16_t psp = 0;
+
+	asm {
+		push	bp
+		push	si
+		push	di
+		push	ds
+		push	es
+		mov 	ah, 51h
+		int 	21h
+		push	bx
+		pop 	cx
+		pop 	es
+		pop 	ds
+		pop 	di
+		pop 	si
+		pop 	bp
+		mov 	psp, cx
+	}
+	return psp;
+}
+
+static bool replay_file_commit_process(void)
+{
+	uint16_t dpl[11];
+	uint16_t dos_flags = 1;
+	int i;
+
+	for(i = 0; i < 11; i++) {
+		dpl[i] = 0;
+	}
+	dpl[10] = replay_file_current_psp();
+	asm {
+		push	bp
+		push	si
+		push	di
+		push	es
+		push	ds
+		push	ss
+		pop 	ds
+		lea 	dx, dpl
+		mov 	ax, 5D01h
+		int 	21h
+		pushf
+		pop 	ax
+		pop 	ds
+		pop 	es
+		pop 	di
+		pop 	si
+		pop 	bp
+		mov 	dos_flags, ax
+	}
+	return ((dos_flags & 1) == 0);
+}
+
+static void replay_file_delete_commit(const char far *fn)
+{
+	asm {
+		push	ds
+		lds 	dx, fn
+		mov 	ah, 41h
+		int 	21h
+		pop 	ds
+	}
+	(void)replay_file_commit_process();
+}
+
+static bool replay_file_rename(
+	const char far *old_fn, const char far *new_fn
+)
+{
+	asm {
+		push	ds
+		push	es
+		push	di
+		lds 	dx, old_fn
+		les 	di, new_fn
+		mov 	ax, 5600h
+		int 	21h
+		pop 	di
+		pop 	es
+		pop 	ds
+	}
+	return !FLAGS_CARRY;
+}
+
 static bool replay_user_header_valid(const replay_user_header_t near& header)
 {
-	bool v2 = (
-		(header.magic[6] == '2') &&
-		(header.version == T3_REPLAY_USER_VERSION_V2) &&
-		(header.sample_size == sizeof(replay_user_sample_t))
-	);
-	bool v3 = (
-		(header.magic[6] == '3') &&
-		(header.version == T3_REPLAY_USER_VERSION_V3) &&
-		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
-	);
-	bool v4 = (
-		(header.magic[6] == '4') &&
-		(header.version == T3_REPLAY_USER_VERSION) &&
-		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
-	);
-
 	return (
 		(header.magic[0] == 'T') &&
 		(header.magic[1] == '3') &&
@@ -319,20 +401,13 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(v2 || v3 || v4) &&
-		(
-			(
-				(v2 || v3) &&
-				(header.header_size == sizeof(replay_user_header_t))
-			) ||
-			(
-				v4 &&
-				(header.header_size == (
-					sizeof(replay_user_header_t) +
-					sizeof(replay_user_summary_ext_t)
-				))
-			)
-		) &&
+		(header.magic[6] == '5') &&
+		(header.version == T3_REPLAY_USER_VERSION) &&
+		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
+		(header.header_size == (
+			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
+		)) &&
 		(header.snapshot_offset == header.header_size) &&
 		(header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
 		(header.input_offset == (
@@ -347,17 +422,6 @@ static bool replay_user_index_header_valid(
 	const replay_user_index_header_t near& header
 )
 {
-	bool version_valid = (
-		(
-			(header.magic[6] == '2') &&
-			(header.version == T3_REPLAY_USER_INDEX_VERSION_V2)
-		) ||
-		(
-			(header.magic[6] == '3') &&
-			(header.version == T3_REPLAY_USER_INDEX_VERSION)
-		)
-	);
-
 	return (
 		(header.magic[0] == 'T') &&
 		(header.magic[1] == '3') &&
@@ -365,7 +429,8 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		version_valid &&
+		(header.magic[6] == '4') &&
+		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
 		(header.slot_count == T3_REPLAY_USER_SLOT_COUNT) &&
@@ -411,23 +476,21 @@ static bool replay_user_read_for_menu(const char *fn)
 		return false;
 	}
 	replay_user_summary_ext_init();
-	if(replay_user_menu_header.version == T3_REPLAY_USER_VERSION) {
-		if(
-			file_read(
-				&replay_user_menu_summary_ext,
-				sizeof(replay_user_menu_summary_ext)
-			) != sizeof(replay_user_menu_summary_ext)
-		) {
-			file_close();
-			return false;
-		}
-		if(
-			replay_user_menu_summary_ext.round_reached_count >
-			T3_REPLAY_USER_ROUND_SPLIT_COUNT
-		) {
-			file_close();
-			return false;
-		}
+	if(
+		file_read(
+			&replay_user_menu_summary_ext,
+			sizeof(replay_user_menu_summary_ext)
+		) != sizeof(replay_user_menu_summary_ext)
+	) {
+		file_close();
+		return false;
+	}
+	if(
+		replay_user_menu_summary_ext.round_reached_count >
+		T3_REPLAY_USER_ROUND_SPLIT_COUNT
+	) {
+		file_close();
+		return false;
 	}
 	file_seek(replay_user_menu_header.snapshot_offset, SEEK_SET);
 	if(
@@ -486,6 +549,156 @@ static uint8_t replay_user_record_slot_alloc(void)
 		}
 	}
 	return start;
+}
+
+static void replay_user_index_header_fill(uint8_t next_slot)
+{
+	replay_memclear(
+		&replay_user_menu_index_header, sizeof(replay_user_menu_index_header)
+	);
+	replay_user_menu_index_header.magic[0] = 'T';
+	replay_user_menu_index_header.magic[1] = '3';
+	replay_user_menu_index_header.magic[2] = 'R';
+	replay_user_menu_index_header.magic[3] = 'I';
+	replay_user_menu_index_header.magic[4] = 'D';
+	replay_user_menu_index_header.magic[5] = 'X';
+	replay_user_menu_index_header.magic[6] = '4';
+	replay_user_menu_index_header.magic[7] = '\0';
+	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
+	replay_user_menu_index_header.header_size = (
+		sizeof(replay_user_menu_index_header)
+	);
+	replay_user_menu_index_header.entry_size = sizeof(replay_user_index_entry_t);
+	replay_user_menu_index_header.slot_count = T3_REPLAY_USER_SLOT_COUNT;
+	replay_user_menu_index_header.next_slot = next_slot;
+}
+
+static bool replay_user_index_create(uint8_t next_slot)
+{
+	replay_user_index_entry_t entry;
+	int slot;
+
+	replay_user_index_header_fill(next_slot);
+	replay_memclear(&entry, sizeof(entry));
+	if(!file_create(REPLAY_INDEX_FN)) {
+		return false;
+	}
+	if(
+		file_write(
+			&replay_user_menu_index_header,
+			sizeof(replay_user_menu_index_header)
+		) == 0
+	) {
+		file_close();
+		return false;
+	}
+	for(slot = 0; slot < T3_REPLAY_USER_SLOT_COUNT; slot++) {
+		if(file_write(&entry, sizeof(entry)) == 0) {
+			file_close();
+			return false;
+		}
+	}
+	file_close();
+	return replay_file_commit_process();
+}
+
+static void replay_user_index_entry_fill(
+	replay_user_index_entry_t far& entry, uint8_t slot
+)
+{
+	int i;
+
+	replay_memclear(&entry, sizeof(entry));
+	entry.used = true;
+	entry.slot_id = slot;
+	entry.status = replay_user_menu_header.status;
+	entry.end_reason = replay_user_menu_header.end_reason;
+	entry.game_mode = replay_user_menu_header.game_mode;
+	entry.rank = replay_user_menu_header.rank;
+	entry.key_mode = replay_user_menu_header.key_mode;
+	entry.playchar_p1 = replay_user_menu_header.playchar_p1;
+	entry.playchar_p2 = replay_user_menu_header.playchar_p2;
+	entry.story_stage = replay_user_menu_header.story_stage;
+	entry.is_cpu_p1 = replay_user_menu_header.is_cpu_p1;
+	entry.is_cpu_p2 = replay_user_menu_header.is_cpu_p2;
+	entry.sample_count = replay_user_menu_header.sample_count;
+	entry.final_frame_count = replay_user_menu_header.final_frame_count;
+	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		entry.name[i] = replay_user_menu_header.name[i];
+	}
+	entry.dos_date = replay_user_menu_header.dos_date;
+	entry.summary_flags = replay_user_menu_header.summary_flags;
+	entry.final_route = replay_user_menu_header.final_route;
+	entry.final_story_stage = replay_user_menu_header.final_story_stage;
+	entry.final_story_lives = replay_user_menu_header.final_story_lives;
+	entry.final_misses = replay_user_menu_header.final_misses;
+	entry.stage_reached_count = replay_user_menu_header.stage_reached_count;
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		entry.final_score[i] = replay_user_menu_header.final_score[i];
+	}
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		entry.stage_opponents[i] = replay_user_menu_header.stage_opponents[i];
+	}
+}
+
+static bool replay_user_index_slot_write(uint8_t slot)
+{
+	replay_user_index_entry_t entry;
+	uint32_t offset;
+	bool valid = false;
+
+	if(file_ropen(REPLAY_INDEX_FN)) {
+		valid = (
+			file_read(
+				&replay_user_menu_index_header,
+				sizeof(replay_user_menu_index_header)
+			) == sizeof(replay_user_menu_index_header)
+		);
+		file_close();
+		if(valid) {
+			valid = replay_user_index_header_valid(
+				replay_user_menu_index_header
+			);
+		}
+	}
+	if(!valid) {
+		if(!replay_user_index_create(
+			((slot + 1) % T3_REPLAY_USER_SLOT_COUNT)
+		)) {
+			return false;
+		}
+	}
+	if(!file_append(REPLAY_INDEX_FN)) {
+		return false;
+	}
+	replay_user_menu_index_header.next_slot = (
+		(slot + 1) % T3_REPLAY_USER_SLOT_COUNT
+	);
+	file_seek(0, SEEK_SET);
+	if(
+		file_write(
+			&replay_user_menu_index_header,
+			sizeof(replay_user_menu_index_header)
+		) == 0
+	) {
+		file_close();
+		return false;
+	}
+	replay_user_index_entry_fill(entry, slot);
+	offset = (
+		static_cast<uint32_t>(sizeof(replay_user_menu_index_header)) +
+		(
+			static_cast<uint32_t>(slot) *
+			static_cast<uint32_t>(sizeof(entry))
+		)
+	);
+	file_seek(offset, SEEK_SET);
+	if(file_write(&entry, sizeof(entry)) == 0) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return replay_file_commit_process();
 }
 
 static void replay_user_restore_resident_from_menu(void)
@@ -655,7 +868,7 @@ retry_opponent_selection:
 	resident->op_animation_fast = false;
 	resident->skill = (70 + (resident->rank * 25));
 	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
-	replay_resident_handoff_slot_set(replay_user_record_slot_alloc());
+	replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
 	return switch_to_mainl(false);
 }
 
@@ -758,7 +971,7 @@ static bool near vs_start(bool select_characters)
 
 	resident_reset_scores(sel);
 	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
-	replay_resident_handoff_slot_set(replay_user_record_slot_alloc());
+	replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
 	return switch_to_mainl(false);
 }
 
@@ -876,9 +1089,9 @@ bool near score_menu(void)
 
 enum {
 	REPLAY_MENU_LIST_LEFT = 2,
-	REPLAY_MENU_LIST_W = 26,
-	REPLAY_MENU_DETAIL_LEFT = 30,
-	REPLAY_MENU_DETAIL_W = 50,
+	REPLAY_MENU_LIST_W = 33,
+	REPLAY_MENU_DETAIL_LEFT = 36,
+	REPLAY_MENU_DETAIL_W = 44,
 	REPLAY_MENU_TITLE_Y = 1,
 	REPLAY_MENU_HELP_Y = 2,
 	REPLAY_MENU_HEAD_Y = 4,
@@ -890,7 +1103,7 @@ enum {
 
 static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
-static char REPLAY_MENU_DATA_PAD[6] = { 1 };
+static char REPLAY_MENU_DATA_PAD[29] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -923,6 +1136,39 @@ static char *replay_line_append_u32(char *p, uint32_t value)
 		*p++ = digits[i];
 	}
 	return p;
+}
+
+static char *replay_line_append_name(
+	char *p, const char near *name, bool underscores
+)
+{
+	char c;
+
+	for(int i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		c = name[i];
+		if((c == '\0') || (c == ' ')) {
+			c = (underscores ? '_' : ' ');
+		}
+		*p++ = c;
+	}
+	return p;
+}
+
+static char *replay_line_append_date(char *p, uint16_t dos_date)
+{
+	uint16_t year = static_cast<uint16_t>(1980 + (dos_date >> 9));
+	uint8_t month = static_cast<uint8_t>((dos_date >> 5) & 0x0F);
+	uint8_t day = static_cast<uint8_t>(dos_date & 0x1F);
+
+	if(dos_date == 0) {
+		*p++ = '-';
+		return p;
+	}
+	p = replay_line_append_u32(p, month);
+	*p++ = '/';
+	p = replay_line_append_u32(p, day);
+	*p++ = '/';
+	return replay_line_append_u32(p, year);
 }
 
 static char *replay_line_append_unknown_score(char *p)
@@ -1313,6 +1559,8 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		*p++ = ' ';
 		*p++ = replay_rank_initial(replay_user_menu_header.rank);
 		*p++ = ' ';
+		p = replay_line_append_name(p, replay_user_menu_header.name, false);
+		*p++ = ' ';
 		if(replay_menu_summary_valid()) {
 			p = replay_line_append_packed_score(p, replay_menu_list_score());
 		} else {
@@ -1546,11 +1794,34 @@ static void replay_menu_detail_put(uint8_t slot)
 	);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
 
+	p = replay_menu_line;
+	*p++ = 'N'; *p++ = 'a'; *p++ = 'm'; *p++ = 'e'; *p++ = ':'; *p++ = ' ';
+	p = replay_line_append_name(p, replay_user_menu_header.name, false);
+	*p++ = ' '; *p++ = ' '; *p++ = 'D'; *p++ = 'a'; *p++ = 't'; *p++ = 'e';
+	*p++ = ':'; *p++ = ' ';
+	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 1, p);
+
 	if(replay_menu_vs()) {
 		replay_menu_detail_put_vs();
 	} else {
 		replay_menu_detail_put_story();
 	}
+}
+
+static void replay_menu_columns_put(void)
+{
+	char *p = replay_menu_line;
+
+	*p++ = ' '; *p++ = 'S'; *p++ = 'l'; *p++ = ' ';
+	*p++ = 'C'; *p++ = 'h'; *p++ = ' '; *p++ = 'R'; *p++ = ' ';
+	*p++ = 'N'; *p++ = 'a'; *p++ = 'm'; *p++ = 'e';
+	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
+	*p++ = 'S'; *p++ = 'c'; *p++ = 'o'; *p++ = 'r'; *p++ = 'e';
+	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
+	*p++ = 'S'; *p++ = 't'; *p++ = 'g'; *p = '\0';
+	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y, TX_CYAN);
+	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
 }
 
 static void replay_menu_render(uint8_t sel, uint8_t top)
@@ -1564,11 +1835,7 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 		"Up/Down: slot  Left/Right: page  OK/Shot: play  Esc: back",
 		TX_WHITE
 	);
-	text_putsa(
-		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y,
-		" Sl Ch R Score     Stg", TX_CYAN
-	);
-	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
+	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
 		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
@@ -1597,6 +1864,452 @@ static void replay_menu_screen_init(void)
 	graph_accesspage(1);	graph_clear();
 	graph_showpage(0);
 	graph_accesspage(0);
+}
+
+static void replay_save_input_release(void)
+{
+	do {
+		input_mode_interface();
+		frame_delay(1);
+	} while(input_sp != INPUT_NONE);
+}
+
+static void replay_save_date_set(void)
+{
+	_AH = 0x2A;
+	geninterrupt(0x21);
+	if(_CX < 1980) {
+		replay_user_menu_header.dos_date = 0;
+		return;
+	}
+	replay_user_menu_header.dos_date = static_cast<uint16_t>(
+		((_CX - 1980) << 9) |
+		(static_cast<uint16_t>(_DH) << 5) |
+		static_cast<uint16_t>(_DL)
+	);
+}
+
+static bool replay_pending_header_write(void)
+{
+	if(!file_append(REPLAY_FALLBACK_FN)) {
+		return false;
+	}
+	file_seek(0, SEEK_SET);
+	if(
+		file_write(
+			&replay_user_menu_header, sizeof(replay_user_menu_header)
+		) == 0
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return replay_file_commit_process();
+}
+
+static void replay_backup_fn_set(char far *fn)
+{
+	fn[0] = 'R'; fn[1] = 'E'; fn[2] = 'P'; fn[3] = 'L'; fn[4] = 'A';
+	fn[5] = 'Y'; fn[6] = '\\'; fn[7] = 'T'; fn[8] = 'H'; fn[9] = '3';
+	fn[10] = 'O'; fn[11] = 'L'; fn[12] = 'D'; fn[13] = '.';
+	fn[14] = 'R'; fn[15] = 'P'; fn[16] = 'Y'; fn[17] = '\0';
+}
+
+static bool replay_save_to_slot(uint8_t slot, bool occupied)
+{
+	char backup_fn[18];
+
+	if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
+		return false;
+	}
+	replay_user_slot_fn_set(slot);
+	replay_backup_fn_set(backup_fn);
+	if(occupied) {
+		replay_file_delete_commit(backup_fn);
+		if(!replay_file_rename(REPLAY_SLOT_FN, backup_fn)) {
+			return false;
+		}
+		if(!replay_file_commit_process()) {
+			replay_file_rename(backup_fn, REPLAY_SLOT_FN);
+			(void)replay_file_commit_process();
+			return false;
+		}
+	}
+	if(!replay_file_rename(REPLAY_FALLBACK_FN, REPLAY_SLOT_FN)) {
+		if(occupied) {
+			replay_file_rename(backup_fn, REPLAY_SLOT_FN);
+			(void)replay_file_commit_process();
+		}
+		return false;
+	}
+	if(!replay_file_commit_process()) {
+		replay_file_rename(REPLAY_SLOT_FN, REPLAY_FALLBACK_FN);
+		if(occupied) {
+			replay_file_rename(backup_fn, REPLAY_SLOT_FN);
+		}
+		(void)replay_file_commit_process();
+		return false;
+	}
+	if(occupied) {
+		replay_file_delete_commit(backup_fn);
+	}
+	(void)replay_user_index_slot_write(slot);
+	return true;
+}
+
+static void replay_save_yes_no_put(bool yes)
+{
+	char *p = replay_menu_line;
+
+	*p++ = 'Y'; *p++ = 'e'; *p++ = 's'; *p = '\0';
+	replay_menu_line_put(36, 13, (yes ? TX_YELLOW : TX_WHITE));
+	p = replay_menu_line;
+	*p++ = 'N'; *p++ = 'o'; *p = '\0';
+	replay_menu_line_put(36, 15, (yes ? TX_WHITE : TX_YELLOW));
+}
+
+static bool replay_save_yes_no(bool overwrite, uint8_t slot, bool default_yes)
+{
+	bool yes = default_yes;
+	input_t input_prev;
+	char *p;
+
+	replay_menu_screen_init();
+	p = replay_menu_line;
+	if(overwrite) {
+		*p++ = 'O'; *p++ = 'v'; *p++ = 'e'; *p++ = 'r'; *p++ = 'w';
+		*p++ = 'r'; *p++ = 'i'; *p++ = 't'; *p++ = 'e'; *p++ = ' ';
+		*p++ = 'S'; *p++ = 'l'; *p++ = 'o'; *p++ = 't'; *p++ = ' ';
+		p = replay_line_append_u8_2(p, slot);
+	} else {
+		*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
+		*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
+		*p++ = 'y';
+	}
+	*p++ = '?'; *p = '\0';
+	replay_menu_line_put(30, 9, TX_CYAN);
+	replay_save_yes_no_put(yes);
+	replay_save_input_release();
+	input_prev = INPUT_NONE;
+	while(1) {
+		input_mode_interface();
+		if(input_prev == INPUT_NONE) {
+			if(input_sp & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT)) {
+				yes = !yes;
+				replay_save_yes_no_put(yes);
+			}
+			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+				return yes;
+			}
+			if(input_sp & INPUT_CANCEL) {
+				return false;
+			}
+		}
+		input_prev = input_sp;
+		frame_delay(1);
+	}
+}
+
+static char replay_name_ascii(int regi)
+{
+	if((regi >= REGI_A) && (regi <= REGI_M)) {
+		return static_cast<char>('A' + (regi - REGI_A));
+	}
+	if((regi >= REGI_N) && (regi <= REGI_Z)) {
+		return static_cast<char>('N' + (regi - REGI_N));
+	}
+	if((regi >= REGI_0) && (regi <= REGI_9)) {
+		return static_cast<char>('0' + (regi - REGI_0));
+	}
+	switch(regi) {
+	case REGI_PERIOD:      return '.';
+	case REGI_COMMA:       return ',';
+	case REGI_EXCLAMATION: return '!';
+	case REGI_QUESTION:    return '?';
+	case REGI_SP:          return ' ';
+	default:               return '\0';
+	}
+}
+
+static void replay_name_summary_put(void)
+{
+	char *p;
+
+	replay_menu_span_clear(0, 3, text_width());
+	p = replay_menu_line;
+	*p++ = replay_rank_initial(replay_user_menu_header.rank);
+	*p++ = ' ';
+	p = replay_line_append_playchar_pair(
+		p, replay_user_menu_header.playchar_p1
+	);
+	*p++ = ' ';
+	p = replay_line_append_name(p, replay_user_menu_header.name, true);
+	*p++ = ' ';
+	if(replay_menu_summary_valid()) {
+		p = replay_line_append_packed_score(p, replay_menu_list_score());
+	} else {
+		p = replay_line_append_unknown_score(p);
+	}
+	*p++ = ' ';
+	p = replay_line_append_final_stage_mark(p);
+	*p++ = ' ';
+	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
+	*p = '\0';
+	replay_menu_line_put(15, 3, TX_WHITE);
+}
+
+static void replay_name_item_put(int regi, bool selected)
+{
+	unsigned int x = (8 + ((regi % 16) * 4));
+	unsigned int y = (8 + ((regi / 16) * 3));
+	unsigned int w = 4;
+	char *p = replay_menu_line;
+	char c;
+
+	if((regi == REGI_SP) || (regi == REGI_BS) || (regi == REGI_END)) {
+		w = 8;
+	}
+	for(unsigned int i = 0; i < w; i++) {
+		*p++ = ' ';
+	}
+	replay_menu_line[w] = '\0';
+	if(regi == REGI_SP) {
+		replay_menu_line[2] = 'S'; replay_menu_line[3] = 'P';
+	} else if(regi == REGI_BS) {
+		replay_menu_line[2] = 'B'; replay_menu_line[3] = 'S';
+	} else if(regi == REGI_END) {
+		replay_menu_line[2] = 'E'; replay_menu_line[3] = 'N';
+		replay_menu_line[4] = 'D';
+	} else {
+		c = replay_name_ascii(regi);
+		replay_menu_line[1] = c;
+	}
+	replay_menu_line_put(x, y, (selected ? TX_YELLOW : TX_WHITE));
+}
+
+static void replay_name_grid_put(int selected)
+{
+	int regi;
+
+	for(regi = 0; regi < REGI_ALL; regi++) {
+		if(
+			(regi == REGI_BLANK_1) || (regi == REGI_SP_last) ||
+			(regi == REGI_BLANK_2) || (regi == REGI_BS_last) ||
+			(regi == REGI_END_last)
+		) {
+			continue;
+		}
+		replay_name_item_put(regi, (regi == selected));
+	}
+}
+
+static void replay_name_screen_put(int selected)
+{
+	char *p;
+
+	replay_menu_screen_init();
+	p = replay_menu_line;
+	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
+	*p++ = 'y'; *p++ = ' '; *p++ = 'N'; *p++ = 'a'; *p++ = 'm';
+	*p++ = 'e'; *p = '\0';
+	replay_menu_line_put(34, 1, TX_GREEN);
+	replay_name_summary_put();
+	replay_name_grid_put(selected);
+}
+
+static void replay_name_backspace(uint8_t& name_len)
+{
+	if(name_len != 0) {
+		name_len--;
+		replay_user_menu_header.name[name_len] = ' ';
+	}
+}
+
+static void replay_name_menu(uint8_t& name_len)
+{
+	int regi = REGI_A;
+	int previous;
+	char c;
+	input_t input_prev;
+
+	replay_name_screen_put(regi);
+	replay_save_input_release();
+	input_prev = INPUT_NONE;
+	while(1) {
+		input_mode_interface();
+		if(input_prev == INPUT_NONE) {
+			previous = regi;
+			if((input_sp & INPUT_UP) && (regi != REGI_QUESTION)) {
+				regi -= 16;
+				if(regi < 0) {
+					regi += REGI_ALL;
+				}
+			}
+			if((input_sp & INPUT_DOWN) && (regi != REGI_QUESTION)) {
+				regi += 16;
+				if(regi >= REGI_ALL) {
+					regi -= REGI_ALL;
+				}
+			}
+			if(input_sp & INPUT_LEFT) {
+				if((regi % 16) == 0) {
+					regi += REGI_SP;
+				} else if((regi == REGI_BS) || (regi == REGI_SP)) {
+					regi -= 2;
+				} else {
+					regi--;
+				}
+			}
+			if(input_sp & INPUT_RIGHT) {
+				if((regi % 16) == REGI_SP) {
+					regi -= REGI_SP;
+				} else if((regi == REGI_M) || (regi == REGI_Z)) {
+					regi += 2;
+				} else {
+					regi++;
+				}
+			}
+			if(previous != regi) {
+				replay_name_item_put(previous, false);
+				replay_name_item_put(regi, true);
+			}
+			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+				if(regi == REGI_END) {
+					return;
+				}
+				if(regi == REGI_BS) {
+					replay_name_backspace(name_len);
+				} else if(name_len < T3_REPLAY_USER_NAME_LEN) {
+					c = replay_name_ascii(regi);
+					if(c != '\0') {
+						replay_user_menu_header.name[name_len] = c;
+						name_len++;
+					}
+				}
+				replay_name_summary_put();
+			}
+			if(input_sp & INPUT_BOMB) {
+				replay_name_backspace(name_len);
+				replay_name_summary_put();
+			}
+		}
+		input_prev = input_sp;
+		frame_delay(1);
+	}
+}
+
+static void replay_save_slot_render(uint8_t sel, uint8_t top)
+{
+	uint8_t slot;
+	unsigned int line;
+	char *p = replay_menu_line;
+
+	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
+	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
+	*p++ = 'y'; *p = '\0';
+	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_TITLE_Y, TX_GREEN);
+	replay_menu_columns_put();
+	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
+		slot = (top + line);
+		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
+	}
+	replay_menu_detail_put(sel);
+	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+}
+
+static bool replay_save_slot_menu(void)
+{
+	uint8_t sel = replay_user_record_slot_alloc();
+	uint8_t top = sel;
+	bool occupied;
+	input_t input_prev;
+
+	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
+		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
+	}
+	replay_menu_screen_init();
+	replay_save_slot_render(sel, top);
+	replay_save_input_release();
+	input_prev = INPUT_NONE;
+	while(1) {
+		input_mode_interface();
+		if(input_prev == INPUT_NONE) {
+			if(input_sp & INPUT_UP) {
+				ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+				replay_menu_top_clamp(sel, top);
+				replay_save_slot_render(sel, top);
+			}
+			if(input_sp & INPUT_DOWN) {
+				ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+				replay_menu_top_clamp(sel, top);
+				replay_save_slot_render(sel, top);
+			}
+			if(input_sp & INPUT_LEFT) {
+				sel = ((sel < REPLAY_MENU_VISIBLE) ? 0 : (sel - REPLAY_MENU_VISIBLE));
+				replay_menu_top_clamp(sel, top);
+				replay_save_slot_render(sel, top);
+			}
+			if(input_sp & INPUT_RIGHT) {
+				sel = (
+					(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) ?
+					(T3_REPLAY_USER_SLOT_COUNT - 1) : (sel + REPLAY_MENU_VISIBLE)
+				);
+				replay_menu_top_clamp(sel, top);
+				replay_save_slot_render(sel, top);
+			}
+			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+				replay_user_slot_fn_set(sel);
+				occupied = (file_exist(REPLAY_SLOT_FN) != 0);
+				if(
+					(!occupied || replay_save_yes_no(true, sel, false)) &&
+					replay_save_to_slot(sel, occupied)
+				) {
+					return true;
+				}
+				replay_menu_screen_init();
+				replay_save_slot_render(sel, top);
+				replay_save_input_release();
+				input_prev = INPUT_NONE;
+				continue;
+			}
+			if(input_sp & INPUT_CANCEL) {
+				replay_user_read_for_menu(REPLAY_FALLBACK_FN);
+				return false;
+			}
+		}
+		input_prev = input_sp;
+		frame_delay(1);
+	}
+}
+
+static void replay_save_pending(bool prompt)
+{
+	uint8_t name_len = 0;
+	int i;
+
+	if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
+		return;
+	}
+	if(prompt && !replay_save_yes_no(false, 0, true)) {
+		replay_file_delete_commit(REPLAY_FALLBACK_FN);
+		return;
+	}
+	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		replay_user_menu_header.name[i] = ' ';
+	}
+	replay_save_date_set();
+	while(1) {
+		replay_name_menu(name_len);
+		if(!replay_pending_header_write()) {
+			return;
+		}
+		if(replay_save_slot_menu()) {
+			return;
+		}
+		if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
+			return;
+		}
+	}
 }
 
 bool near replay_menu(void)
@@ -2039,6 +2752,8 @@ void near option_update_and_render(void)
 void main(void)
 {
 	bool replay_restart_requested;
+	bool replay_save_prompt;
+	bool replay_save_direct;
 
 	{
 		char replay_mode = replay_cfg_mode();
@@ -2074,7 +2789,16 @@ void main(void)
 	replay_restart_requested = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_RESTART
 	);
+	replay_save_prompt = replay_resident_handoff_is(
+		T3_REPLAY_RES_MODE_SAVE_PROMPT
+	);
+	replay_save_direct = replay_resident_handoff_is(
+		T3_REPLAY_RES_MODE_SAVE_DIRECT
+	);
 	replay_resident_handoff_clear();
+	if(replay_save_prompt || replay_save_direct) {
+		replay_save_pending(replay_save_prompt);
+	}
 	if(replay_restart_requested) {
 		if(resident->game_mode == GM_STORY) {
 			story_start(false);
@@ -2146,3 +2870,8 @@ void main(void)
 	respal_free();
 }
 /// --------
+
+// Keep the following shared runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

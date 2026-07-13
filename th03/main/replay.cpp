@@ -164,7 +164,6 @@ static void replay_paths_init(void);
 static void replay_write_text(replay_text_id_t text);
 static void replay_handoff_cursor_store(void);
 static void replay_user_sample_commit(void);
-static bool replay_user_header_is_v3(void);
 static bool replay_user_header_is_rle(void);
 static bool replay_user_play_sample(void);
 static bool replay_user_play_interstitial_sample(void);
@@ -942,7 +941,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_index_header.magic[3] = 'I';
 	replay_user_index_header.magic[4] = 'D';
 	replay_user_index_header.magic[5] = 'X';
-	replay_user_index_header.magic[6] = '3';
+	replay_user_index_header.magic[6] = '4';
 	replay_user_index_header.magic[7] = '\0';
 	replay_user_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_index_header.header_size = sizeof(replay_user_index_header);
@@ -974,12 +973,10 @@ static void replay_user_index_entry_fill(
 	replay_user_index_entry.final_frame_count = (
 		replay_user_header.final_frame_count
 	);
-	replay_user_index_entry.resident_rand = replay_user_header.resident_rand;
-	replay_user_index_entry.random_seed_snapshot = (
-		replay_user_header.random_seed_snapshot
-	);
-	replay_user_index_entry.input_crc32 = replay_user_header.input_crc32;
-	replay_user_index_entry.snapshot_crc32 = replay_user_header.snapshot_crc32;
+	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		replay_user_index_entry.name[i] = replay_user_header.name[i];
+	}
+	replay_user_index_entry.dos_date = replay_user_header.dos_date;
 	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
 	replay_user_index_entry.final_route = replay_user_header.final_route;
 	replay_user_index_entry.final_story_stage = (
@@ -1356,14 +1353,17 @@ static void replay_user_header_fill(
 	replay_user_header.magic[3] = 'P';
 	replay_user_header.magic[4] = 'L';
 	replay_user_header.magic[5] = 'Y';
-	replay_user_header.magic[6] = '4';
+	replay_user_header.magic[6] = '5';
 	replay_user_header.magic[7] = '\0';
 	replay_user_header.version = T3_REPLAY_USER_VERSION;
 	replay_user_header.header_size = (
 		sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
 	);
 	replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
-	replay_user_header.flags = T3_REPLAY_USER_FLAG_RLE_INPUT;
+	replay_user_header.flags = (
+		T3_REPLAY_USER_FLAG_RLE_INPUT |
+		T3_REPLAY_USER_FLAG_SHIFT_INPUT
+	);
 	replay_user_header.status = status;
 	replay_user_header.end_reason = end_reason;
 	replay_user_header.game_mode = replay_user_snapshot.game_mode;
@@ -1387,9 +1387,6 @@ static void replay_user_header_fill(
 		static_cast<uint32_t>(sizeof(replay_user_snapshot))
 	);
 	replay_user_header.input_size = replay_input_byte_count;
-	replay_user_header.snapshot_crc32 = replay_hash_bytes(
-		5381, &replay_user_snapshot, sizeof(replay_user_snapshot)
-	);
 	replay_user_summary_copy_to_header();
 }
 
@@ -1441,38 +1438,14 @@ static bool replay_user_header_write(
 	return true;
 }
 
-static bool replay_user_header_is_v2(void)
+static bool replay_user_header_is_rle(void)
 {
 	return (
-		(replay_user_header.magic[6] == '2') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION_V2) &&
-		(replay_user_header.sample_size == sizeof(replay_user_sample_t))
-	);
-}
-
-static bool replay_user_header_is_v3(void)
-{
-	return (
-		(replay_user_header.magic[6] == '3') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION_V3) &&
-		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
-	);
-}
-
-static bool replay_user_header_is_v4(void)
-{
-	return (
-		(replay_user_header.magic[6] == '4') &&
+		(replay_user_header.magic[6] == '5') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
 	);
-}
-
-static bool replay_user_header_is_rle(void)
-{
-	return (replay_user_header_is_v3() || replay_user_header_is_v4());
 }
 
 static bool replay_user_header_valid(void)
@@ -1484,20 +1457,10 @@ static bool replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header_is_v2() || replay_user_header_is_rle()) &&
-		(
-			(
-				(replay_user_header_is_v2() || replay_user_header_is_v3()) &&
-				(replay_user_header.header_size == sizeof(replay_user_header))
-			) ||
-			(
-				replay_user_header_is_v4() &&
-				(replay_user_header.header_size == (
-					sizeof(replay_user_header) +
-					sizeof(replay_user_summary_ext)
-				))
-			)
-		) &&
+		replay_user_header_is_rle() &&
+		(replay_user_header.header_size == (
+			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
+		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
 		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot)) &&
 		(replay_user_header.input_offset == (
@@ -1526,22 +1489,20 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
-	if(replay_user_header_is_v4()) {
-		if(
-			file_read(
-				&replay_user_summary_ext, sizeof(replay_user_summary_ext)
-			) != sizeof(replay_user_summary_ext)
-		) {
-			file_close();
-			return false;
-		}
-		if(
-			replay_user_summary_ext.round_reached_count >
-			T3_REPLAY_USER_ROUND_SPLIT_COUNT
-		) {
-			file_close();
-			return false;
-		}
+	if(
+		file_read(
+			&replay_user_summary_ext, sizeof(replay_user_summary_ext)
+		) != sizeof(replay_user_summary_ext)
+	) {
+		file_close();
+		return false;
+	}
+	if(
+		replay_user_summary_ext.round_reached_count >
+		T3_REPLAY_USER_ROUND_SPLIT_COUNT
+	) {
+		file_close();
+		return false;
 	}
 	file_seek(replay_user_header.snapshot_offset, SEEK_SET);
 	if(
@@ -1975,6 +1936,7 @@ static bool replay_user_read_rle_packet(void)
 {
 	uint8_t tag;
 	uint8_t change;
+	uint8_t shift_input;
 	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
 
 	if((replay_input_byte_count + 2) > replay_user_header.input_size) {
@@ -2055,7 +2017,26 @@ static bool replay_user_read_rle_packet(void)
 		}
 		replay_input_byte_count += sizeof(replay_rle_input_sp);
 	}
-	if(change & ~(T3_REPLAY_PACKET_CHANGE_P1 | T3_REPLAY_PACKET_CHANGE_P2 | T3_REPLAY_PACKET_CHANGE_SP)) {
+	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
+		if(
+			(replay_input_byte_count + sizeof(shift_input)) >
+			replay_user_header.input_size
+		) {
+			file_close();
+			return false;
+		}
+		if(file_read(&shift_input, sizeof(shift_input)) != sizeof(shift_input)) {
+			file_close();
+			return false;
+		}
+		replay_input_byte_count += sizeof(shift_input);
+	}
+	if(change & ~(
+		T3_REPLAY_PACKET_CHANGE_P1 |
+		T3_REPLAY_PACKET_CHANGE_P2 |
+		T3_REPLAY_PACKET_CHANGE_SP |
+		T3_REPLAY_PACKET_CHANGE_SHIFT
+	)) {
 		file_close();
 		return false;
 	}
@@ -2347,14 +2328,14 @@ static void replay_resident_handoff_clear(void)
 	}
 }
 
-static void replay_resident_restart_handoff_set(void)
+static void replay_resident_handoff_mode_set(uint8_t mode)
 {
 	replay_resident_handoff_clear();
 	resident->unused_3[0] = T3_REPLAY_RES_MAGIC_0;
 	resident->unused_3[1] = T3_REPLAY_RES_MAGIC_1;
 	resident->unused_3[2] = T3_REPLAY_RES_MAGIC_2;
 	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
-	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = T3_REPLAY_RES_MODE_RESTART;
+	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
 }
 
 void far replay_session_start(void)
@@ -2961,6 +2942,7 @@ void far replay_route(uint8_t route)
 void far replay_finish(uint8_t route)
 {
 	bool finish_error = false;
+	bool save_pending = false;
 
 	replay_split_row(RTX_FINISH, route);
 	if(
@@ -3003,6 +2985,7 @@ void far replay_finish(uint8_t route)
 				replay_guard_diag_write();
 			} else if(route == 0) {
 				replay_user_guard_delete();
+				save_pending = true;
 			}
 		}
 		replay_protect_local_free();
@@ -3032,10 +3015,13 @@ void far replay_finish(uint8_t route)
 		}
 	}
 	if(replay_restart_requested_flag && (route == 0)) {
-		replay_resident_restart_handoff_set();
+		replay_resident_handoff_mode_set(T3_REPLAY_RES_MODE_RESTART);
+	} else if(save_pending) {
+		replay_resident_handoff_mode_set(T3_REPLAY_RES_MODE_SAVE_DIRECT);
 	}
 	replay_mode = REPLAY_DISABLED;
 }
 
 // Keep the following C runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
