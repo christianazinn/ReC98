@@ -1112,7 +1112,7 @@ static char replay_menu_line[81];
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
 static const char REPLAY_REGIB_PI[] = "regib.pi";
-static char REPLAY_MENU_DATA_PAD[4] = { 1 };
+static char REPLAY_MENU_DATA_PAD[3] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -2493,7 +2493,7 @@ char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
 char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
 char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
 char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
-char COMMAND_REPLAY[] = { g_str_4(gp_Replay), '\0' };
+char COMMAND_REPLAY[] = { g_str_4(gp_Replay), gp_Easy_last, '\0' };
 char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
