@@ -1103,7 +1103,9 @@ enum {
 
 static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
-static char REPLAY_MENU_DATA_PAD[29] = { 1 };
+static const char REPLAY_REGI2_BFT[] = "regi2.bft";
+static const char REPLAY_REGI1_BFT[] = "regi1.bft";
+static char REPLAY_MENU_DATA_PAD[11] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1569,7 +1571,7 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		*p++ = ' ';
 		p = replay_line_append_final_stage_mark(p);
 	} else {
-		p = replay_line_append_cstr(p, "empty");
+		p = replay_line_append_cstr(p, "none");
 	}
 	*p = '\0';
 	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, y, atrb);
@@ -1608,7 +1610,7 @@ static void replay_menu_detail_put_empty(uint8_t slot)
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Slot ");
 	p = replay_line_append_u8_2(p, slot);
-	p = replay_line_append_cstr(p, ": empty");
+	p = replay_line_append_cstr(p, ": none");
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
 
 	p = replay_menu_line;
@@ -1876,16 +1878,29 @@ static void replay_save_input_release(void)
 
 static void replay_save_date_set(void)
 {
-	_AH = 0x2A;
-	geninterrupt(0x21);
-	if(_CX < 1980) {
+	uint16_t year;
+	uint8_t month;
+	uint8_t day;
+
+	_asm {
+		mov ah, 2Ah
+		int 21h
+		mov year, cx
+		mov month, dh
+		mov day, dl
+	}
+	if(
+		(year < 1980) ||
+		(month < 1) || (month > 12) ||
+		(day < 1) || (day > 31)
+	) {
 		replay_user_menu_header.dos_date = 0;
 		return;
 	}
 	replay_user_menu_header.dos_date = static_cast<uint16_t>(
-		((_CX - 1980) << 9) |
-		(static_cast<uint16_t>(_DH) << 5) |
-		static_cast<uint16_t>(_DL)
+		((year - 1980) << 9) |
+		(static_cast<uint16_t>(month) << 5) |
+		static_cast<uint16_t>(day)
 	);
 }
 
@@ -1968,7 +1983,21 @@ static void replay_save_yes_no_put(bool yes)
 	replay_menu_line_put(36, 15, (yes ? TX_WHITE : TX_YELLOW));
 }
 
-static bool replay_save_yes_no(bool overwrite, uint8_t slot, bool default_yes)
+enum replay_save_question_t {
+	RSQ_SAVE,
+	RSQ_OVERWRITE,
+	RSQ_QUIT,
+};
+
+enum replay_save_answer_t {
+	RSA_NO,
+	RSA_YES,
+	RSA_CANCEL,
+};
+
+static replay_save_answer_t replay_save_yes_no(
+	replay_save_question_t question, uint8_t slot, bool default_yes
+)
 {
 	bool yes = default_yes;
 	input_t input_prev;
@@ -1976,15 +2005,20 @@ static bool replay_save_yes_no(bool overwrite, uint8_t slot, bool default_yes)
 
 	replay_menu_screen_init();
 	p = replay_menu_line;
-	if(overwrite) {
+	if(question == RSQ_OVERWRITE) {
 		*p++ = 'O'; *p++ = 'v'; *p++ = 'e'; *p++ = 'r'; *p++ = 'w';
 		*p++ = 'r'; *p++ = 'i'; *p++ = 't'; *p++ = 'e'; *p++ = ' ';
 		*p++ = 'S'; *p++ = 'l'; *p++ = 'o'; *p++ = 't'; *p++ = ' ';
 		p = replay_line_append_u8_2(p, slot);
-	} else {
+	} else if(question == RSQ_SAVE) {
 		*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
 		*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
 		*p++ = 'y';
+	} else {
+		*p++ = 'Q'; *p++ = 'u'; *p++ = 'i'; *p++ = 't'; *p++ = ' ';
+		*p++ = 's'; *p++ = 'a'; *p++ = 'v'; *p++ = 'i'; *p++ = 'n';
+		*p++ = 'g'; *p++ = ' '; *p++ = 'r'; *p++ = 'e'; *p++ = 'p';
+		*p++ = 'l'; *p++ = 'a'; *p++ = 'y';
 	}
 	*p++ = '?'; *p = '\0';
 	replay_menu_line_put(30, 9, TX_CYAN);
@@ -1999,15 +2033,22 @@ static bool replay_save_yes_no(bool overwrite, uint8_t slot, bool default_yes)
 				replay_save_yes_no_put(yes);
 			}
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
-				return yes;
+				return (yes ? RSA_YES : RSA_NO);
 			}
 			if(input_sp & INPUT_CANCEL) {
-				return false;
+				return RSA_CANCEL;
 			}
 		}
 		input_prev = input_sp;
 		frame_delay(1);
 	}
+}
+
+static bool replay_save_quit_confirm(void)
+{
+	return (
+		replay_save_yes_no(RSQ_QUIT, 0, false) == RSA_YES
+	);
 }
 
 static char replay_name_ascii(int regi)
@@ -2060,31 +2101,25 @@ static void replay_name_summary_put(void)
 
 static void replay_name_item_put(int regi, bool selected)
 {
-	unsigned int x = (8 + ((regi % 16) * 4));
-	unsigned int y = (8 + ((regi / 16) * 3));
-	unsigned int w = 4;
-	char *p = replay_menu_line;
-	char c;
+	enum {
+		REGI_GLYPH_W = 32,
+		REGI_ROW_SPACING = 24,
+		REGI_GLYPHS_PER_ROW = 16,
+		REGI_GRID_LEFT = 64,
+		REGI_GRID_TOP = 320,
+	};
+	int patnum = (selected ? (regi + REGI_COUNT) : regi);
+	screen_x_t left = static_cast<screen_x_t>(
+		REGI_GRID_LEFT + ((regi % REGI_GLYPHS_PER_ROW) * REGI_GLYPH_W)
+	);
+	screen_y_t top = static_cast<screen_y_t>(
+		REGI_GRID_TOP + ((regi / REGI_GLYPHS_PER_ROW) * REGI_ROW_SPACING)
+	);
 
-	if((regi == REGI_SP) || (regi == REGI_BS) || (regi == REGI_END)) {
-		w = 8;
+	super_put(left, top, patnum);
+	if((regi % REGI_GLYPHS_PER_ROW) == REGI_SP) {
+		super_put((left + REGI_GLYPH_W), top, (patnum + 1));
 	}
-	for(unsigned int i = 0; i < w; i++) {
-		*p++ = ' ';
-	}
-	replay_menu_line[w] = '\0';
-	if(regi == REGI_SP) {
-		replay_menu_line[2] = 'S'; replay_menu_line[3] = 'P';
-	} else if(regi == REGI_BS) {
-		replay_menu_line[2] = 'B'; replay_menu_line[3] = 'S';
-	} else if(regi == REGI_END) {
-		replay_menu_line[2] = 'E'; replay_menu_line[3] = 'N';
-		replay_menu_line[4] = 'D';
-	} else {
-		c = replay_name_ascii(regi);
-		replay_menu_line[1] = c;
-	}
-	replay_menu_line_put(x, y, (selected ? TX_YELLOW : TX_WHITE));
 }
 
 static void replay_name_grid_put(int selected)
@@ -2108,6 +2143,8 @@ static void replay_name_screen_put(int selected)
 	char *p;
 
 	replay_menu_screen_init();
+	super_entry_bfnt(REPLAY_REGI2_BFT);
+	super_entry_bfnt(REPLAY_REGI1_BFT);
 	p = replay_menu_line;
 	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
 	*p++ = 'y'; *p++ = ' '; *p++ = 'N'; *p++ = 'a'; *p++ = 'm';
@@ -2125,7 +2162,7 @@ static void replay_name_backspace(uint8_t& name_len)
 	}
 }
 
-static void replay_name_menu(uint8_t& name_len)
+static bool replay_name_menu(uint8_t& name_len)
 {
 	int regi = REGI_A;
 	int previous;
@@ -2175,7 +2212,7 @@ static void replay_name_menu(uint8_t& name_len)
 			}
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				if(regi == REGI_END) {
-					return;
+					return true;
 				}
 				if(regi == REGI_BS) {
 					replay_name_backspace(name_len);
@@ -2191,6 +2228,15 @@ static void replay_name_menu(uint8_t& name_len)
 			if(input_sp & INPUT_BOMB) {
 				replay_name_backspace(name_len);
 				replay_name_summary_put();
+			}
+			if(input_sp & INPUT_CANCEL) {
+				if(replay_save_quit_confirm()) {
+					return false;
+				}
+				replay_name_screen_put(regi);
+				replay_save_input_release();
+				input_prev = INPUT_NONE;
+				continue;
 			}
 		}
 		input_prev = input_sp;
@@ -2217,12 +2263,26 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 }
 
+static void replay_save_complete_wait(void)
+{
+	char *p = replay_menu_line;
+
+	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = 'd';
+	*p++ = '.'; *p++ = ' '; *p++ = 'P'; *p++ = 'r'; *p++ = 'e';
+	*p++ = 's'; *p++ = 's'; *p++ = ' '; *p++ = 'a'; *p++ = ' ';
+	*p++ = 'k'; *p++ = 'e'; *p++ = 'y'; *p++ = '.'; *p = '\0';
+	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y, TX_CYAN);
+	input_wait_for_change(0);
+	replay_menu_screen_init();
+}
+
 static bool replay_save_slot_menu(void)
 {
 	uint8_t sel = replay_user_record_slot_alloc();
 	uint8_t top = sel;
 	bool occupied;
 	input_t input_prev;
+	replay_save_answer_t answer;
 
 	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
 		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
@@ -2260,10 +2320,26 @@ static bool replay_save_slot_menu(void)
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				replay_user_slot_fn_set(sel);
 				occupied = (file_exist(REPLAY_SLOT_FN) != 0);
-				if(
-					(!occupied || replay_save_yes_no(true, sel, false)) &&
-					replay_save_to_slot(sel, occupied)
-				) {
+				if(occupied) {
+					answer = replay_save_yes_no(RSQ_OVERWRITE, sel, false);
+					if(answer == RSA_CANCEL) {
+						if(replay_save_quit_confirm()) {
+							return false;
+						}
+						answer = RSA_NO;
+					}
+					if(answer != RSA_YES) {
+						replay_menu_screen_init();
+						replay_save_slot_render(sel, top);
+						replay_save_input_release();
+						input_prev = INPUT_NONE;
+						continue;
+					}
+				}
+				if(replay_save_to_slot(sel, occupied)) {
+					replay_menu_screen_init();
+					replay_save_slot_render(sel, top);
+					replay_save_complete_wait();
 					return true;
 				}
 				replay_menu_screen_init();
@@ -2273,8 +2349,14 @@ static bool replay_save_slot_menu(void)
 				continue;
 			}
 			if(input_sp & INPUT_CANCEL) {
-				replay_user_read_for_menu(REPLAY_FALLBACK_FN);
-				return false;
+				if(replay_save_quit_confirm()) {
+					return false;
+				}
+				replay_menu_screen_init();
+				replay_save_slot_render(sel, top);
+				replay_save_input_release();
+				input_prev = INPUT_NONE;
+				continue;
 			}
 		}
 		input_prev = input_sp;
@@ -2286,29 +2368,43 @@ static void replay_save_pending(bool prompt)
 {
 	uint8_t name_len = 0;
 	int i;
+	replay_save_answer_t answer;
 
 	if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
 		return;
 	}
-	if(prompt && !replay_save_yes_no(false, 0, true)) {
-		replay_file_delete_commit(REPLAY_FALLBACK_FN);
-		return;
+	if(prompt) {
+		while(1) {
+			answer = replay_save_yes_no(RSQ_SAVE, 0, true);
+			if(answer == RSA_YES) {
+				break;
+			}
+			if(
+				(answer == RSA_NO) ||
+				((answer == RSA_CANCEL) && replay_save_quit_confirm())
+			) {
+				replay_file_delete_commit(REPLAY_FALLBACK_FN);
+				replay_menu_screen_init();
+				return;
+			}
+		}
 	}
 	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
 		replay_user_menu_header.name[i] = ' ';
 	}
 	replay_save_date_set();
-	while(1) {
-		replay_name_menu(name_len);
-		if(!replay_pending_header_write()) {
-			return;
-		}
-		if(replay_save_slot_menu()) {
-			return;
-		}
-		if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
-			return;
-		}
+	if(!replay_name_menu(name_len)) {
+		replay_file_delete_commit(REPLAY_FALLBACK_FN);
+		replay_menu_screen_init();
+		return;
+	}
+	if(!replay_pending_header_write()) {
+		replay_menu_screen_init();
+		return;
+	}
+	if(!replay_save_slot_menu()) {
+		replay_file_delete_commit(REPLAY_FALLBACK_FN);
+		replay_menu_screen_init();
 	}
 }
 

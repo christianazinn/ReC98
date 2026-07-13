@@ -35,6 +35,9 @@
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
 #define T3_REPLAY_USER_ROUND_VALUE_UNKNOWN 0x0F
+#define T3_REPLAY_SPLIT_VERSION 1
+#define T3_REPLAY_SPLIT_HEADER_SIZE 16
+#define T3_REPLAY_SPLIT_ROW_SIZE 34
 
 enum replay_user_status_t {
 	RUS_EMPTY = 0,
@@ -52,6 +55,49 @@ enum replay_user_end_reason_t {
 	RUER_PARTIAL = 4,
 	RUER_ERROR = 5,
 };
+
+enum replay_split_event_t {
+	RSE_START = 1,
+	RSE_ROUND_START = 2,
+	RSE_INPUT_END = 3,
+	RSE_ERROR = 4,
+	RSE_CHECKPOINT = 5,
+	RSE_FINISH = 6,
+	RSE_ROUTE = 7,
+};
+
+struct replay_split_header_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t row_size;
+	uint16_t flags;
+};
+
+struct replay_split_row_t {
+	uint8_t event;
+	uint8_t route;
+	uint8_t game_mode;
+	uint8_t story_stage;
+	uint8_t round_id;
+	int8_t winner;
+	uint8_t round_speed;
+	uint8_t reserved;
+	uint32_t global_frame;
+	uint32_t round_frame;
+	uint16_t round_or_result_frame;
+	uint8_t score_p1[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t score_p2[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	int32_t resident_rand;
+	uint32_t state_hash;
+};
+
+typedef char replay_split_header_size_check[
+	(sizeof(replay_split_header_t) == T3_REPLAY_SPLIT_HEADER_SIZE) ? 1 : -1
+];
+typedef char replay_split_row_size_check[
+	(sizeof(replay_split_row_t) == T3_REPLAY_SPLIT_ROW_SIZE) ? 1 : -1
+];
 
 struct replay_user_header_t {
 	char magic[8];

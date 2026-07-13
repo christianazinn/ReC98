@@ -31,28 +31,8 @@ static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
 
 enum replay_text_id_t {
-	RTX_SPLIT_HEADER,
 	RTX_CRLF,
-	RTX_EVENT,
-	RTX_GLOBAL_FRAME,
-	RTX_ROUND_FRAME,
-	RTX_ROUND_OR_RESULT_FRAME,
-	RTX_ROUTE,
-	RTX_GAME_MODE,
-	RTX_STORY_STAGE,
-	RTX_ROUND_ID,
-	RTX_WINNER,
-	RTX_P1_SCORE,
-	RTX_P2_SCORE,
-	RTX_RESIDENT_RAND,
-	RTX_ROUND_SPEED,
-	RTX_STATE_HASH,
-	RTX_START,
-	RTX_ROUND_START,
-	RTX_INPUT_END,
 	RTX_ERROR,
-	RTX_CHECKPOINT,
-	RTX_FINISH,
 	RTX_ERROR_SPLIT_OPEN,
 	RTX_ERROR_INPUT_CREATE,
 	RTX_ERROR_USER_CREATE,
@@ -249,9 +229,9 @@ static void replay_paths_init(void)
 	T3_SPLIT_FN[5] = 'I';
 	T3_SPLIT_FN[6] = 'T';
 	T3_SPLIT_FN[7] = '.';
-	T3_SPLIT_FN[8] = 'T';
-	T3_SPLIT_FN[9] = 'S';
-	T3_SPLIT_FN[10] = 'V';
+	T3_SPLIT_FN[8] = 'B';
+	T3_SPLIT_FN[9] = 'I';
+	T3_SPLIT_FN[10] = 'N';
 	T3_SPLIT_FN[11] = '\0';
 
 	T3_DONE_FN[0] = 'T';
@@ -362,111 +342,12 @@ static void replay_write_text(replay_text_id_t text)
 {
 #define W(c) replay_write_char(c)
 	switch(text) {
-	case RTX_SPLIT_HEADER:
-		replay_write_text(RTX_EVENT);
-		W('\t');
-		replay_write_text(RTX_GLOBAL_FRAME);
-		W('\t');
-		replay_write_text(RTX_ROUND_FRAME);
-		W('\t');
-		replay_write_text(RTX_ROUND_OR_RESULT_FRAME);
-		W('\t');
-		replay_write_text(RTX_ROUTE);
-		W('\t');
-		replay_write_text(RTX_GAME_MODE);
-		W('\t');
-		replay_write_text(RTX_STORY_STAGE);
-		W('\t');
-		replay_write_text(RTX_ROUND_ID);
-		W('\t');
-		replay_write_text(RTX_WINNER);
-		W('\t');
-		replay_write_text(RTX_P1_SCORE);
-		W('\t');
-		replay_write_text(RTX_P2_SCORE);
-		W('\t');
-		replay_write_text(RTX_RESIDENT_RAND);
-		W('\t');
-		replay_write_text(RTX_ROUND_SPEED);
-		W('\t');
-		replay_write_text(RTX_STATE_HASH);
-		replay_write_text(RTX_CRLF);
-		break;
 	case RTX_CRLF:
 		W('\r');
 		W('\n');
 		break;
-	case RTX_EVENT:
-		W('e'); W('v'); W('e'); W('n'); W('t');
-		break;
-	case RTX_GLOBAL_FRAME:
-		W('g'); W('l'); W('o'); W('b'); W('a'); W('l'); W('_');
-		W('f'); W('r'); W('a'); W('m'); W('e');
-		break;
-	case RTX_ROUND_FRAME:
-		W('r'); W('o'); W('u'); W('n'); W('d'); W('_');
-		W('f'); W('r'); W('a'); W('m'); W('e');
-		break;
-	case RTX_ROUND_OR_RESULT_FRAME:
-		W('r'); W('o'); W('u'); W('n'); W('d'); W('_'); W('o'); W('r');
-		W('_'); W('r'); W('e'); W('s'); W('u'); W('l'); W('t'); W('_');
-		W('f'); W('r'); W('a'); W('m'); W('e');
-		break;
-	case RTX_ROUTE:
-		W('r'); W('o'); W('u'); W('t'); W('e');
-		break;
-	case RTX_GAME_MODE:
-		W('g'); W('a'); W('m'); W('e'); W('_'); W('m'); W('o'); W('d');
-		W('e');
-		break;
-	case RTX_STORY_STAGE:
-		W('s'); W('t'); W('o'); W('r'); W('y'); W('_'); W('s'); W('t');
-		W('a'); W('g'); W('e');
-		break;
-	case RTX_ROUND_ID:
-		W('r'); W('o'); W('u'); W('n'); W('d'); W('_'); W('i'); W('d');
-		break;
-	case RTX_WINNER:
-		W('w'); W('i'); W('n'); W('n'); W('e'); W('r');
-		break;
-	case RTX_P1_SCORE:
-		W('p'); W('1'); W('_'); W('s'); W('c'); W('o'); W('r'); W('e');
-		break;
-	case RTX_P2_SCORE:
-		W('p'); W('2'); W('_'); W('s'); W('c'); W('o'); W('r'); W('e');
-		break;
-	case RTX_RESIDENT_RAND:
-		W('r'); W('e'); W('s'); W('i'); W('d'); W('e'); W('n'); W('t');
-		W('_'); W('r'); W('a'); W('n'); W('d');
-		break;
-	case RTX_ROUND_SPEED:
-		W('r'); W('o'); W('u'); W('n'); W('d'); W('_'); W('s'); W('p');
-		W('e'); W('e'); W('d');
-		break;
-	case RTX_STATE_HASH:
-		W('s'); W('t'); W('a'); W('t'); W('e'); W('_'); W('h'); W('a');
-		W('s'); W('h');
-		break;
-	case RTX_START:
-		W('s'); W('t'); W('a'); W('r'); W('t');
-		break;
-	case RTX_ROUND_START:
-		W('r'); W('o'); W('u'); W('n'); W('d'); W('_');
-		replay_write_text(RTX_START);
-		break;
-	case RTX_INPUT_END:
-		W('i'); W('n'); W('p'); W('u'); W('t'); W('_'); W('e'); W('n');
-		W('d');
-		break;
 	case RTX_ERROR:
 		W('e'); W('r'); W('r'); W('o'); W('r');
-		break;
-	case RTX_CHECKPOINT:
-		W('c'); W('h'); W('e'); W('c'); W('k'); W('p'); W('o'); W('i');
-		W('n'); W('t');
-		break;
-	case RTX_FINISH:
-		W('f'); W('i'); W('n'); W('i'); W('s'); W('h');
 		break;
 	case RTX_ERROR_SPLIT_OPEN:
 		replay_write_text(RTX_ERROR);
@@ -531,61 +412,6 @@ static void replay_write_text(replay_text_id_t text)
 		break;
 	}
 #undef W
-}
-
-static void replay_write_u32(uint32_t value)
-{
-	char digits[10];
-	int i = 0;
-
-	do {
-		digits[i] = static_cast<char>('0' + (value % 10));
-		value /= 10;
-		i++;
-	} while(value != 0);
-
-	while(i != 0) {
-		i--;
-		replay_write_char(digits[i]);
-	}
-}
-
-static void replay_write_i32(int32_t value)
-{
-	if(value < 0) {
-		replay_write_char('-');
-		replay_write_u32(static_cast<uint32_t>(-value));
-	} else {
-		replay_write_u32(static_cast<uint32_t>(value));
-	}
-}
-
-static void replay_write_hex_nibble(uint8_t value)
-{
-	value &= 0x0F;
-	if(value < 10) {
-		replay_write_char(static_cast<char>('0' + value));
-	} else {
-		replay_write_char(static_cast<char>('A' + (value - 10)));
-	}
-}
-
-static void replay_write_hex32(uint32_t value)
-{
-	int shift;
-
-	for(shift = 28; shift >= 0; shift -= 4) {
-		replay_write_hex_nibble(static_cast<uint8_t>(value >> shift));
-	}
-}
-
-static void replay_write_score(const unsigned char near *digits)
-{
-	int digit;
-
-	for(digit = (SCORE_DIGITS - 1); digit >= 0; digit--) {
-		replay_write_char(static_cast<char>('0' + (digits[digit] % 10)));
-	}
 }
 
 static void replay_score_pack(
@@ -1185,8 +1011,23 @@ static uint32_t replay_state_hash(void)
 
 static void replay_split_write_header(void)
 {
-	file_create(T3_SPLIT_FN);
-	replay_write_text(RTX_SPLIT_HEADER);
+	replay_split_header_t header;
+
+	replay_memclear(&header, sizeof(header));
+	header.magic[0] = 'T';
+	header.magic[1] = '3';
+	header.magic[2] = 'S';
+	header.magic[3] = 'P';
+	header.magic[4] = 'L';
+	header.magic[5] = 'T';
+	header.magic[6] = '1';
+	header.version = T3_REPLAY_SPLIT_VERSION;
+	header.header_size = sizeof(header);
+	header.row_size = sizeof(replay_split_row_t);
+	if(!file_create(T3_SPLIT_FN)) {
+		return;
+	}
+	file_write(&header, sizeof(header));
 	file_close();
 }
 
@@ -1203,8 +1044,11 @@ static void replay_done_write(replay_text_id_t status)
 	replay_done_written = true;
 }
 
-static void replay_split_row(replay_text_id_t event, uint8_t route)
+static void replay_split_row(replay_split_event_t event, uint8_t route)
 {
+	replay_split_row_t row;
+	int i;
+
 	if((replay_mode == REPLAY_DISABLED) || (replay_mode == REPLAY_ERROR)) {
 		return;
 	}
@@ -1213,35 +1057,32 @@ static void replay_split_row(replay_text_id_t event, uint8_t route)
 		replay_done_write(RTX_ERROR_SPLIT_OPEN);
 		return;
 	}
-
-	replay_write_text(event);
-	replay_write_char('\t');
-	replay_write_u32(replay_global_frame);
-	replay_write_char('\t');
-	replay_write_u32(round_frame);
-	replay_write_char('\t');
-	replay_write_u32(round_or_result_frame);
-	replay_write_char('\t');
-	replay_write_u32(route);
-	replay_write_char('\t');
-	replay_write_u32(resident->game_mode);
-	replay_write_char('\t');
-	replay_write_u32(resident->story_stage);
-	replay_write_char('\t');
-	replay_write_u32(round_id);
-	replay_write_char('\t');
-	replay_write_i32(resident->pid_winner);
-	replay_write_char('\t');
-	replay_write_score(score);
-	replay_write_char('\t');
-	replay_write_score(score + SCORE_DIGITS);
-	replay_write_char('\t');
-	replay_write_i32(resident->rand);
-	replay_write_char('\t');
-	replay_write_u32(round_speed);
-	replay_write_char('\t');
-	replay_write_hex32(replay_state_hash());
-	replay_write_text(RTX_CRLF);
+	replay_memclear(&row, sizeof(row));
+	row.event = event;
+	row.route = route;
+	row.game_mode = resident->game_mode;
+	row.story_stage = resident->story_stage;
+	row.round_id = round_id;
+	row.winner = resident->pid_winner;
+	row.round_speed = round_speed;
+	row.global_frame = replay_global_frame;
+	row.round_frame = round_frame;
+	row.round_or_result_frame = round_or_result_frame;
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		row.score_p1[i] = static_cast<uint8_t>(
+			(score[(i * 2) + 0] % 10) |
+			((score[(i * 2) + 1] % 10) << 4)
+		);
+		row.score_p2[i] = static_cast<uint8_t>(
+			(score[SCORE_DIGITS + (i * 2) + 0] % 10) |
+			((score[SCORE_DIGITS + (i * 2) + 1] % 10) << 4)
+		);
+	}
+	row.resident_rand = resident->rand;
+	row.state_hash = replay_state_hash();
+	if(file_write(&row, sizeof(row)) == 0) {
+		replay_mode = REPLAY_ERROR;
+	}
 	file_close();
 }
 
@@ -2299,7 +2140,7 @@ static void replay_handoff_cursor_store(void)
 static void replay_user_sample_commit(void)
 {
 	if((replay_global_frame & 63) == 0) {
-		replay_split_row(RTX_CHECKPOINT, replay_last_route);
+		replay_split_row(RSE_CHECKPOINT, replay_last_route);
 		if(replay_mode == REPLAY_USER_RECORD) {
 			replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
 			replay_handoff_cursor_store();
@@ -2427,12 +2268,12 @@ void far replay_session_start(void)
 		return;
 	}
 
-	replay_split_row(RTX_START, 0);
+	replay_split_row(RSE_START, 0);
 }
 
 void far replay_round_start(void)
 {
-	replay_split_row(RTX_ROUND_START, replay_last_route);
+	replay_split_row(RSE_ROUND_START, replay_last_route);
 }
 
 void far replay_frame_io(void)
@@ -2452,7 +2293,7 @@ void far replay_frame_io(void)
 			return;
 		}
 		if(replay_sample_count >= replay_user_header.sample_count) {
-			replay_split_row(RTX_INPUT_END, replay_last_route);
+	replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
 			replay_done_write(RTX_OK_USER_INPUT_END);
 			replay_resident_handoff_clear();
@@ -2462,7 +2303,7 @@ void far replay_frame_io(void)
 		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
 	} else if(replay_mode == REPLAY_PLAYBACK) {
 		if(replay_sample_count >= replay_header.sample_count) {
-			replay_split_row(RTX_INPUT_END, replay_last_route);
+			replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
 			replay_done_write(RTX_OK_INPUT_END);
 			replay_mode = REPLAY_DISABLED;
@@ -2472,7 +2313,7 @@ void far replay_frame_io(void)
 	}
 
 	if(!ok) {
-		replay_split_row(RTX_ERROR, replay_last_route);
+	replay_split_row(RSE_ERROR, replay_last_route);
 		replay_mode = REPLAY_ERROR;
 		input_sp |= INPUT_CANCEL;
 		replay_done_write(RTX_ERROR_FRAME_IO);
@@ -2480,7 +2321,7 @@ void far replay_frame_io(void)
 	}
 
 	if((replay_global_frame & 63) == 0) {
-		replay_split_row(RTX_CHECKPOINT, replay_last_route);
+		replay_split_row(RSE_CHECKPOINT, replay_last_route);
 		if(replay_mode == REPLAY_RECORD) {
 			replay_header_write();
 		} else if(replay_mode == REPLAY_USER_RECORD) {
@@ -2514,7 +2355,7 @@ void far replay_input_sense_held(void)
 	}
 
 	if(!ok) {
-		replay_split_row(RTX_ERROR, replay_last_route);
+		replay_split_row(RSE_ERROR, replay_last_route);
 		replay_mode = REPLAY_ERROR;
 		input_sp |= INPUT_CANCEL;
 		replay_done_write(RTX_ERROR_FRAME_IO);
@@ -2936,7 +2777,7 @@ void far replay_route(uint8_t route)
 	replay_last_route = route;
 	replay_user_round_split_capture(route);
 	replay_user_summary_capture(route);
-	replay_split_row(RTX_ROUTE, route);
+	replay_split_row(RSE_ROUTE, route);
 }
 
 void far replay_finish(uint8_t route)
@@ -2944,7 +2785,7 @@ void far replay_finish(uint8_t route)
 	bool finish_error = false;
 	bool save_pending = false;
 
-	replay_split_row(RTX_FINISH, route);
+	replay_split_row(RSE_FINISH, route);
 	if(
 		(route != 0) &&
 		(
