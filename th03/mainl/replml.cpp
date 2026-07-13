@@ -899,6 +899,9 @@ static void mainl_replay_frame_io(void)
 	}
 
 	if(!ok) {
+		if(mainl_replay_mode == MR_USER_PLAYBACK) {
+			resident->game_mode = GM_NONE;
+		}
 		mainl_replay_mode = MR_ERROR;
 		input_sp = INPUT_OK;
 		return;
@@ -974,6 +977,7 @@ bool far mainl_replay_finish(
 		mainl_replay_guard_delete();
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		(void)end_reason;
+		resident->game_mode = GM_NONE;
 	}
 	if(
 		(mainl_replay_mode == MR_USER_RECORD) ||
@@ -992,4 +996,3 @@ bool far mainl_replay_finish(
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"

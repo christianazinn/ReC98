@@ -2293,10 +2293,11 @@ void far replay_frame_io(void)
 			return;
 		}
 		if(replay_sample_count >= replay_user_header.sample_count) {
-	replay_split_row(RSE_INPUT_END, replay_last_route);
+			replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
 			replay_done_write(RTX_OK_USER_INPUT_END);
 			replay_resident_handoff_clear();
+			resident->game_mode = GM_NONE;
 			replay_mode = REPLAY_DISABLED;
 			return;
 		}
@@ -2313,7 +2314,10 @@ void far replay_frame_io(void)
 	}
 
 	if(!ok) {
-	replay_split_row(RSE_ERROR, replay_last_route);
+		replay_split_row(RSE_ERROR, replay_last_route);
+		if(replay_mode == REPLAY_USER_PLAYBACK) {
+			resident->game_mode = GM_NONE;
+		}
 		replay_mode = REPLAY_ERROR;
 		input_sp |= INPUT_CANCEL;
 		replay_done_write(RTX_ERROR_FRAME_IO);
@@ -2356,6 +2360,9 @@ void far replay_input_sense_held(void)
 
 	if(!ok) {
 		replay_split_row(RSE_ERROR, replay_last_route);
+		if(replay_mode == REPLAY_USER_PLAYBACK) {
+			resident->game_mode = GM_NONE;
+		}
 		replay_mode = REPLAY_ERROR;
 		input_sp |= INPUT_CANCEL;
 		replay_done_write(RTX_ERROR_FRAME_IO);
@@ -2539,8 +2546,11 @@ static void replay_pause_put_discard_exit(unsigned y, unsigned atrb)
 
 static bool replay_pause_save_disabled(void)
 {
-	if(replay_mode != REPLAY_USER_RECORD) {
+	if(replay_mode == REPLAY_USER_PLAYBACK) {
 		return false;
+	}
+	if(replay_mode != REPLAY_USER_RECORD) {
+		return true;
 	}
 	if(!replay_protect_blocked()) {
 		replay_user_guard_verify();
@@ -2832,6 +2842,7 @@ void far replay_finish(uint8_t route)
 		replay_protect_local_free();
 		replay_resident_handoff_clear();
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
+		resident->game_mode = GM_NONE;
 		replay_protect_local_free();
 		replay_resident_handoff_clear();
 	}
@@ -2866,3 +2877,4 @@ void far replay_finish(uint8_t route)
 // Keep the following C runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"

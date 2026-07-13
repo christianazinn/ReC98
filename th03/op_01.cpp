@@ -970,8 +970,12 @@ static bool near vs_start(bool select_characters)
 	}
 
 	resident_reset_scores(sel);
-	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
-	replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
+	if(sel == VS_CPU_CPU) {
+		replay_resident_handoff_clear();
+	} else {
+		replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
+		replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
+	}
 	return switch_to_mainl(false);
 }
 
@@ -1093,7 +1097,6 @@ enum {
 	REPLAY_MENU_DETAIL_LEFT = 36,
 	REPLAY_MENU_DETAIL_W = 44,
 	REPLAY_MENU_TITLE_Y = 1,
-	REPLAY_MENU_HELP_Y = 2,
 	REPLAY_MENU_HEAD_Y = 4,
 	REPLAY_MENU_LIST_Y = 5,
 	REPLAY_MENU_DETAIL_Y = 4,
@@ -1285,6 +1288,17 @@ static const uint8_t near *replay_menu_list_score(void)
 		for(round = 2; round != 0xFF; round--) {
 			split = replay_menu_round_split(round);
 			if(split != NULL) {
+				if(replay_user_menu_header.game_mode == GM_VS_1P_CPU) {
+					return split->score_p1;
+				}
+				if(replay_user_menu_header.game_mode == GM_VS_1P_2P) {
+					if(replay_user_menu_header.final_winner == 0) {
+						return split->score_p1;
+					}
+					if(replay_user_menu_header.final_winner == 1) {
+						return split->score_p2;
+					}
+				}
 				if(replay_packed_score_cmp(split->score_p2, split->score_p1) > 0) {
 					return split->score_p2;
 				}
@@ -1321,6 +1335,9 @@ static char *replay_line_append_story_lives(char *p)
 
 static const char *replay_user_end_reason_name(uint8_t end_reason)
 {
+	if(replay_menu_vs()) {
+		return "Vs Mode";
+	}
 	switch(end_reason) {
 	case RUER_COMPLETE:
 		return "Clear";
@@ -1608,7 +1625,9 @@ static void replay_menu_detail_put_vs(void)
 	replay_user_round_split_t near *split;
 
 	p = replay_menu_line;
-	p = replay_line_append_cstr(p, "High: ");
+	p = replay_line_append_cstr(p, (
+		(replay_user_menu_header.game_mode == GM_VS_1P_CPU) ? "P1: " : "Win: "
+	));
 	if(replay_menu_summary_valid()) {
 		p = replay_line_append_packed_score(p, replay_menu_list_score());
 	} else {
@@ -1812,11 +1831,6 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	unsigned int line;
 
 	text_putsa(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_TITLE_Y, "Replay Browser", TX_GREEN);
-	text_putsa(
-		REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HELP_Y,
-		"Up/Down: slot  Left/Right: page  OK/Shot: play  Esc: back",
-		TX_WHITE
-	);
 	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
@@ -2519,7 +2533,7 @@ menu_put_func_t menu_put;
 
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
-uint8_t replay_resident_offset_padding[12];
+uint8_t replay_resident_offset_padding[64];
 // -------
 
 // These menus want to display centered strings. However, the underlying gaiji
@@ -2967,5 +2981,4 @@ void main(void)
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
