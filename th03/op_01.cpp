@@ -10,6 +10,7 @@
 #include "th01/math/clamp.hpp"
 #include "th01/core/initexit.hpp"
 #include "th02/hardware/frmdelay.h"
+#include "th02/formats/pi.h"
 #include "th02/gaiji/str.hpp"
 #include "th02/op/menu.hpp"
 #include "th02/op/m_music.hpp"
@@ -60,6 +61,8 @@ enum gaiji_th03_mikoft_t {
 	gp_Start_last = ((gp_Start + 3) - 1),
 	gp_VS_Start,
 	gp_VS_Start_last = ((gp_VS_Start + 6) - 1),
+	gp_Replay,
+	gp_Replay_last = ((gp_Replay + 4) - 1),
 	gp_Option = 0x3D,
 	gp_Option_last = ((gp_Option + 4) - 1),
 	gp_Music_room,
@@ -1108,7 +1111,8 @@ static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
-static char REPLAY_MENU_DATA_PAD[11] = { 1 };
+static const char REPLAY_REGIB_PI[] = "regib.pi";
+static char REPLAY_MENU_DATA_PAD[4] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -2139,6 +2143,10 @@ static void replay_name_screen_put(int selected)
 	replay_menu_screen_init();
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
+	pi_load(0, REPLAY_REGIB_PI);
+	PaletteTone = 100;
+	pi_palette_apply(0);
+	pi_free(0);
 	p = replay_menu_line;
 	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
 	*p++ = 'y'; *p++ = ' '; *p++ = 'N'; *p++ = 'a'; *p++ = 'm';
@@ -2215,6 +2223,11 @@ static bool replay_name_menu(uint8_t& name_len)
 					if(c != '\0') {
 						replay_user_menu_header.name[name_len] = c;
 						name_len++;
+						if(name_len == T3_REPLAY_USER_NAME_LEN) {
+							replay_name_item_put(regi, false);
+							regi = REGI_END;
+							replay_name_item_put(regi, true);
+						}
 					}
 				}
 				replay_name_summary_put();
@@ -2480,7 +2493,7 @@ char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
 char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
 char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
 char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
-char COMMAND_REPLAY[] = "Replay";
+char COMMAND_REPLAY[] = { g_str_4(gp_Replay), '\0' };
 char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
@@ -2572,12 +2585,7 @@ void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 	} else if(sel == MC_OPTION) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 4, -1, COMMAND_OPTION, atrb);
 	} else if(sel == MC_REPLAY) {
-		text_putsa(
-			((BOX_MAIN_CENTER_X - (6 * GLYPH_HALF_W / 2)) / GLYPH_HALF_W),
-			choice_tram_y(5),
-			COMMAND_REPLAY,
-			atrb
-		);
+		choice_put_centered(BOX_MAIN_CENTER_X, 5, 0, COMMAND_REPLAY, atrb);
 	} else if(sel == MC_QUIT) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 6, -1, COMMAND_QUIT, atrb);
 	}
@@ -2981,4 +2989,5 @@ void main(void)
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"

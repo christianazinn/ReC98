@@ -8,7 +8,7 @@ static const pixel_t MAIN_W = 136;
 static const pixel_t SUBMENU_W = 240;
 
 static const screen_x_t BOX_LEFT = 160;
-static const screen_y_t BOX_TOP = 256;
+static const screen_y_t BOX_TOP = 252;
 
 static const screen_y_t BOX_BOTTOM = (BOX_TOP + BOX_H);
 static const screen_x_t BOX_MAIN_RIGHT = (BOX_LEFT + MAIN_W);
