@@ -7,6 +7,9 @@
 void far mainl_replay_session_start(void);
 void far mainl_replay_input_mode_interface(void);
 bool far mainl_replay_initial_stage_splash_skip(void);
-void far mainl_replay_finish(replay_user_end_reason_t end_reason);
+uint8_t far mainl_replay_resume_take(void);
+bool far mainl_replay_finish(
+	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
+);
 
 #endif /* TH03_MAINL_REPLAY_HPP */

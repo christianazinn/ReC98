@@ -6,3 +6,10 @@
 // Leaves with [PaletteTone] at 0 and both VRAM and RAM prepared for showing
 // either the Continue or Game Over screen.
 void near regist_menu(void);
+
+// Reloads the Continue or Game Over assets that regist_menu() normally leaves
+// prepared for its caller.
+void near regist_next_screen_assets_load(void);
+
+// Restores the transient state lost while OP.EXE displays a pending replay.
+void near regist_next_screen_resume(void);

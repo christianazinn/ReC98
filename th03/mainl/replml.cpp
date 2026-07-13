@@ -201,6 +201,29 @@ static void mainl_replay_handoff_mode_set(uint8_t mode)
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
 }
 
+uint8_t far mainl_replay_resume_take(void)
+{
+	uint8_t mode;
+
+	if(
+		(resident->unused_3[0] != T3_REPLAY_RES_MAGIC_0) ||
+		(resident->unused_3[1] != T3_REPLAY_RES_MAGIC_1) ||
+		(resident->unused_3[2] != T3_REPLAY_RES_MAGIC_2) ||
+		(resident->unused_3[3] != T3_REPLAY_RES_MAGIC_3)
+	) {
+		return 0;
+	}
+	mode = mainl_replay_handoff_u8(T3_REPLAY_RES_MODE_INDEX);
+	if(
+		(mode != T3_REPLAY_RES_MODE_RESUME_GAME_OVER) &&
+		(mode != T3_REPLAY_RES_MODE_RESUME_CLEAR)
+	) {
+		return 0;
+	}
+	mainl_replay_handoff_clear();
+	return mode;
+}
+
 static uint8_t mainl_replay_resident_slot(void)
 {
 	uint8_t slot = mainl_replay_handoff_u8(T3_REPLAY_RES_SLOT_INDEX);
@@ -935,7 +958,9 @@ bool far mainl_replay_initial_stage_splash_skip(void)
 	);
 }
 
-void far mainl_replay_finish(replay_user_end_reason_t end_reason)
+bool far mainl_replay_finish(
+	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
+)
 {
 	bool save_pending = false;
 
@@ -956,12 +981,13 @@ void far mainl_replay_finish(replay_user_end_reason_t end_reason)
 	) {
 		replay_protect_local_free();
 		if(save_pending) {
-			mainl_replay_handoff_mode_set(T3_REPLAY_RES_MODE_SAVE_PROMPT);
+			mainl_replay_handoff_mode_set(save_prompt_mode);
 		} else {
 			mainl_replay_handoff_clear();
 		}
 	}
 	mainl_replay_mode = MR_DISABLED;
+	return save_pending;
 }
 
 // Keep the following shared runtime segment at its accepted paragraph phase.

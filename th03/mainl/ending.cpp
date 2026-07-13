@@ -10,6 +10,7 @@
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
 #include "th03/mainl/replay.hpp"
+#include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -22,6 +23,14 @@ extern char binary_op_fn[];
 
 void near staffroll_and_verdict_animate(void);
 
+static void near ending_exit_to_op(void)
+{
+	text_clear();
+	gaiji_restore();
+	game_exit();
+	execl(binary_op_fn, binary_op_fn, nullptr);
+}
+
 void near gameover_bgm_play_and_fade(void)
 {
 	snd_kaja_func(KAJA_SONG_STOP, 0);
@@ -31,6 +40,25 @@ void near gameover_bgm_play_and_fade(void)
 	snd_delay_until_measure(3, 64);
 	palette_black_out(1);
 	snd_kaja_func(KAJA_SONG_STOP, 0);
+}
+
+void near ending_after_regist(void)
+{
+	if(
+		(resident->rem_credits == 3) &&
+		(resident->playchar_paletted[0].v < TO_OPTIONAL_PALETTED(PLAYCHAR_CHIYURI))
+	) {
+		graph_accesspage(1);
+		graph_clear();
+		graph_accesspage(0);
+		graph_clear();
+		graph_showpage(0);
+		cutscene_script_load(extra_ending_script_fn);
+		cutscene_animate();
+		cutscene_script_free();
+	}
+
+	ending_exit_to_op();
 }
 
 void near ending_staff_and_regist(void)
@@ -84,26 +112,11 @@ void near ending_staff_and_regist(void)
 	staffroll_and_verdict_animate();
 	resident->story_stage = STAGE_ALL;
 	regist_menu();
-	mainl_replay_finish(RUER_COMPLETE);
-
-	if(
-		(resident->rem_credits == 3) &&
-		(resident->playchar_paletted[0].v < TO_OPTIONAL_PALETTED(PLAYCHAR_CHIYURI))
-	) {
-		graph_accesspage(1);
-		graph_clear();
-		graph_accesspage(0);
-		graph_clear();
-		graph_showpage(0);
-		cutscene_script_load(extra_ending_script_fn);
-		cutscene_animate();
-		cutscene_script_free();
+	if(mainl_replay_finish(RUER_COMPLETE, T3_REPLAY_RES_MODE_SAVE_PROMPT_CLEAR)) {
+		ending_exit_to_op();
+		return;
 	}
-
-	text_clear();
-	gaiji_restore();
-	game_exit();
-	execl(binary_op_fn, binary_op_fn, nullptr);
+	ending_after_regist();
 }
 
 #pragma codeseg

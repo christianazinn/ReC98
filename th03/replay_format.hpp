@@ -54,6 +54,7 @@ enum replay_user_end_reason_t {
 	RUER_INPUT_END = 3,
 	RUER_PARTIAL = 4,
 	RUER_ERROR = 5,
+	RUER_GAME_OVER = 6,
 };
 
 enum replay_split_event_t {

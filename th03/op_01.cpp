@@ -1319,27 +1319,13 @@ static char *replay_line_append_story_lives(char *p)
 	return p;
 }
 
-static const char *replay_user_status_name(uint8_t status)
-{
-	switch(status) {
-	case RUS_FINALIZED:
-		return "Finalized";
-	case RUS_PARTIAL:
-		return "Partial";
-	case RUS_RECORDING:
-		return "Recording";
-	case RUS_ERROR:
-		return "Error";
-	default:
-		return "Unknown";
-	}
-}
-
 static const char *replay_user_end_reason_name(uint8_t end_reason)
 {
 	switch(end_reason) {
 	case RUER_COMPLETE:
-		return "Complete";
+		return "Clear";
+	case RUER_GAME_OVER:
+		return "Game Over";
 	case RUER_MENU_RETURN:
 		return "Menu Return";
 	case RUER_INPUT_END:
@@ -1506,10 +1492,7 @@ static char *replay_line_append_final_stage_mark(char *p)
 		*p++ = ')';
 		return p;
 	}
-	if(
-		(replay_user_menu_header.end_reason == RUER_COMPLETE) ||
-		(replay_user_menu_header.final_story_stage == STAGE_ALL)
-	) {
+	if(replay_user_menu_header.end_reason == RUER_COMPLETE) {
 		*p++ = 'C';
 	} else if(
 		replay_menu_summary_valid() &&
@@ -1638,7 +1621,7 @@ static void replay_menu_detail_put_vs(void)
 	p = replay_line_append_cstr(p, replay_game_mode_name(
 		replay_user_menu_header.game_mode
 	));
-	p = replay_line_append_cstr(p, "  Rank: ");
+	p = replay_line_append_cstr(p, "       Rank: ");
 	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
@@ -1710,7 +1693,7 @@ static void replay_menu_detail_put_story(void)
 	p = replay_line_append_cstr(p, replay_game_mode_name(
 		replay_user_menu_header.game_mode
 	));
-	p = replay_line_append_cstr(p, "  Rank: ");
+	p = replay_line_append_cstr(p, "       Rank: ");
 	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
@@ -1788,10 +1771,6 @@ static void replay_menu_detail_put(uint8_t slot)
 	p = replay_line_append_u8_2(p, slot);
 	p = replay_line_append_cstr(p, "  ");
 	p = replay_line_append_cstr(
-		p, replay_user_status_name(replay_user_menu_header.status)
-	);
-	p = replay_line_append_cstr(p, " / ");
-	p = replay_line_append_cstr(
 		p, replay_user_end_reason_name(replay_user_menu_header.end_reason)
 	);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
@@ -1799,7 +1778,8 @@ static void replay_menu_detail_put(uint8_t slot)
 	p = replay_menu_line;
 	*p++ = 'N'; *p++ = 'a'; *p++ = 'm'; *p++ = 'e'; *p++ = ':'; *p++ = ' ';
 	p = replay_line_append_name(p, replay_user_menu_header.name, false);
-	*p++ = ' '; *p++ = ' '; *p++ = 'D'; *p++ = 'a'; *p++ = 't'; *p++ = 'e';
+	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
+	*p++ = 'D'; *p++ = 'a'; *p++ = 't'; *p++ = 'e';
 	*p++ = ':'; *p++ = ' ';
 	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 1, p);
@@ -2536,6 +2516,10 @@ bool option_input_allowed;
 int8_t in_option; // ACTUAL TYPE: bool
 static int8_t padding; // ZUN bloat
 menu_put_func_t menu_put;
+
+// Keeps the resident pointer and all following OP globals at their accepted
+// offsets after replacing the longer replay status strings.
+uint8_t replay_resident_offset_padding[12];
 // -------
 
 // These menus want to display centered strings. However, the underlying gaiji
@@ -2850,6 +2834,7 @@ void main(void)
 	bool replay_restart_requested;
 	bool replay_save_prompt;
 	bool replay_save_direct;
+	char replay_save_resume_mode;
 
 	{
 		char replay_mode = replay_cfg_mode();
@@ -2891,9 +2876,22 @@ void main(void)
 	replay_save_direct = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_SAVE_DIRECT
 	);
+	replay_save_resume_mode = 0;
+	if(replay_resident_handoff_is(T3_REPLAY_RES_MODE_SAVE_PROMPT_GAME_OVER)) {
+		replay_save_prompt = true;
+		replay_save_resume_mode = T3_REPLAY_RES_MODE_RESUME_GAME_OVER;
+	} else if(replay_resident_handoff_is(T3_REPLAY_RES_MODE_SAVE_PROMPT_CLEAR)) {
+		replay_save_prompt = true;
+		replay_save_resume_mode = T3_REPLAY_RES_MODE_RESUME_CLEAR;
+	}
 	replay_resident_handoff_clear();
 	if(replay_save_prompt || replay_save_direct) {
 		replay_save_pending(replay_save_prompt);
+	}
+	if(replay_save_resume_mode != 0) {
+		replay_resident_handoff_set(replay_save_resume_mode);
+		switch_to_mainl(false);
+		return;
 	}
 	if(replay_restart_requested) {
 		if(resident->game_mode == GM_STORY) {

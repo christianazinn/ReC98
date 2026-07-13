@@ -13,6 +13,7 @@
 #include "th03/hiscore/regist.hpp"
 #include "th03/cutscene/cutscene.hpp"
 #include "th03/mainl/replay.hpp"
+#include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -39,10 +40,11 @@ void near stage_splash_show_and_wait(void);
 int near continue_menu(void);
 void near gameover_bgm_play_and_fade(void);
 void near ending_staff_and_regist(void);
+void near ending_after_regist(void);
 
 inline void mainl_exit_to_op(void)
 {
-	mainl_replay_finish(RUER_COMPLETE);
+	mainl_replay_finish(RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT);
 	text_clear();
 	gaiji_restore();
 	game_exit();
@@ -72,6 +74,7 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 		snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 		snd_se_reset();
 		hflip_lut_generate();
+		result = mainl_replay_resume_take();
 		mainl_replay_session_start();
 
 		if(resident->show_score_menu) {
@@ -81,6 +84,13 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 
 		playchar[0].v = (resident->playchar_paletted[0].v - 1);
 		playchar[1].v = (resident->playchar_paletted[1].v - 1);
+		if(result == T3_REPLAY_RES_MODE_RESUME_GAME_OVER) {
+			goto continue_menu_resume;
+		}
+		if(result == T3_REPLAY_RES_MODE_RESUME_CLEAR) {
+			ending_after_regist();
+			return;
+		}
 
 		if(resident->story_stage) {
 			if(resident->game_mode == GM_STORY) {
@@ -166,6 +176,17 @@ continue_menu_or_gameover:
 		cdg_free_all();
 		pi_free(0);
 		regist_menu();
+		if(mainl_replay_finish(
+			RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT_GAME_OVER
+		)) {
+			goto exit_to_op;
+		}
+		goto continue_menu_ready;
+
+continue_menu_resume:
+		regist_next_screen_resume();
+
+continue_menu_ready:
 		if(continue_menu() != 0) {
 			goto stage_splash_load_and_show;
 		}
@@ -177,7 +198,7 @@ gameover:
 		pi_free(0);
 
 exit_to_op:
-		mainl_replay_finish(RUER_COMPLETE);
+		mainl_replay_finish(RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT);
 		text_clear();
 		gaiji_restore();
 		game_exit();

@@ -494,13 +494,40 @@ name_is_not_just_spaces:
 	goto write_default_name_for_playchar;
 }
 
-void near regist_menu(void)
+void near regist_next_screen_assets_load(void)
 {
-	extern const char score_m[];
 	extern const char conti_pi[];
 	extern const char conti_cd2[];
 	#undef GAMEOVER_BG_FN
 	extern const char GAMEOVER_BG_FN[];
+
+	graph_accesspage(0);
+	graph_showpage(0);
+	palette_settone(0);
+	if(resident->rem_credits && (resident->story_stage != STAGE_ALL)) {
+		pi_fullres_load_palette_apply_put_free(0, conti_pi);
+		cdg_load_all(0, conti_cd2);
+	} else {
+		pi_fullres_load_palette_apply_put_free(0, GAMEOVER_BG_FN);
+		snd_delay_until_volume(-1);
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+	}
+}
+
+void near regist_next_screen_resume(void)
+{
+	extern const char score_m[];
+
+	if(resident->rem_credits && (resident->story_stage != STAGE_ALL)) {
+		snd_load(score_m, SND_LOAD_SONG);
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+	}
+	regist_next_screen_assets_load();
+}
+
+void near regist_menu(void)
+{
+	extern const char score_m[];
 
 	random_seed = resident->rand; // YUME.NEM key generation uses this RNG!
 
@@ -555,10 +582,6 @@ void near regist_menu(void)
 	scoredat_encode_and_save(static_cast<rank_t>(resident->rank));
 	super_free();
 
-	graph_accesspage(0);
-	graph_showpage(0);
-	palette_settone(0); // ZUN bloat: We've just blacked out.
-
 	// These load calls look like they belong to the respective call site
 	// rather than here. However, loading and blitting that image while the BGM
 	// is fading out is actually a *good* idea because it can completely hide
@@ -572,12 +595,5 @@ void near regist_menu(void)
 	// Inverting the logic here would also avoid needlessly loading the Game
 	// Over image when we're in view-only mode and are about to quit back to
 	// the main menu anyway.
-	if(resident->rem_credits && (resident->story_stage != STAGE_ALL)) {
-		pi_fullres_load_palette_apply_put_free(0, conti_pi);
-		cdg_load_all(0, conti_cd2);
-	} else {
-		pi_fullres_load_palette_apply_put_free(0, GAMEOVER_BG_FN);
-		snd_delay_until_volume(-1);
-		snd_kaja_func(KAJA_SONG_STOP, 0);
-	}
+	regist_next_screen_assets_load();
 }
