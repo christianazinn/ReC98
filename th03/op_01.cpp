@@ -884,6 +884,12 @@ inline tram_y_t choice_tram_y(unsigned int line) {
 	return ((BOX_TOP / GLYPH_H) + 1 + line);
 }
 
+enum {
+	// Move TRAM row 17 from y=272 to y=260 while this menu is visible.
+	TITLE_TEXT_SCROLL_PORT = 0x76,
+	TITLE_TEXT_SCROLL = 12,
+};
+
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
 	enum {
@@ -2701,6 +2707,7 @@ void near main_update_and_render(void)
 	static bool in_this_menu = false;
 
 	if(!in_this_menu) {
+		_outportb_(TITLE_TEXT_SCROLL_PORT, TITLE_TEXT_SCROLL);
 		text_clear();
 		if(!in_main) {
 			box_submenu_to_main_animate();
@@ -2717,6 +2724,9 @@ void near main_update_and_render(void)
 	}
 	menu_update_vertical(input_sp, MC_COUNT);
 	if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
+		if(menu_sel != MC_OPTION) {
+			_outportb_(TITLE_TEXT_SCROLL_PORT, 0);
+		}
 		switch(menu_sel) {
 		case MC_STORY:
 			story_menu();
@@ -2966,6 +2976,7 @@ void main(void)
 		resident->rand++;
 		frame_delay(1);
 	}
+	_outportb_(TITLE_TEXT_SCROLL_PORT, 0);
 	cfg_save_exit();
 
 	// ZUN landmine: The system's previous gaiji should be restored *after*
@@ -2986,8 +2997,3 @@ void main(void)
 	respal_free();
 }
 /// --------
-
-// Keep the following shared runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
