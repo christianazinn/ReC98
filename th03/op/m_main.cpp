@@ -12,7 +12,7 @@
 #include "planar.h"
 
 inline void title_load_opwin_and_bgm(void) {
-	super_entry_bfnt("opwi2.bft");
+	super_entry_bfnt("opwin.bft");
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 	snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
 }
