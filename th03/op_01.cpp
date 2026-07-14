@@ -885,9 +885,9 @@ inline tram_y_t choice_tram_y(unsigned int line) {
 }
 
 enum {
-	// Move TRAM row 17 from y=272 to y=260 while this menu is visible.
+	// Move TRAM row 17 from y=272 to y=264 while this menu is visible.
 	TITLE_TEXT_SCROLL_PORT = 0x76,
-	TITLE_TEXT_SCROLL = 12,
+	TITLE_TEXT_SCROLL = 8,
 };
 
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
@@ -2499,7 +2499,9 @@ char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
 char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
 char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
 char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
-char COMMAND_REPLAY[] = { g_str_4(gp_Replay), gp_Easy_last, '\0' };
+char COMMAND_REPLAY[] = { g_str_4(gp_Replay), '\0' };
+// Keeps COMMAND_QUIT and following OP data at their accepted offsets.
+static char COMMAND_REPLAY_DATA_PAD = 1;
 char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
