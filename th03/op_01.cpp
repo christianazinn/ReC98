@@ -1112,8 +1112,8 @@ static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
-static const char REPLAY_REGIB_PI[] = "regib.pi";
-static char REPLAY_MENU_DATA_PAD[3] = { 1 };
+static const char REPLAY_BG_PI[] = "slb1.pi";
+static char REPLAY_MENU_DATA_PAD[4] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1854,17 +1854,33 @@ static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
 	}
 }
 
-static void replay_menu_screen_init(void)
+static void replay_menu_resources_clear(void)
 {
 	for(int i = 0; i < CDG_SLOT_COUNT; i++) {
 		cdg_free(i);
 	}
 	super_free();
 	text_clear();
-	graph_accesspage(0);	graph_clear();
-	graph_accesspage(1);	graph_clear();
+}
+
+static void replay_menu_background_put(void)
+{
+	pi_load(0, REPLAY_BG_PI);
+	PaletteTone = 100;
+	pi_palette_apply(0);
+	graph_accesspage(0);
+	pi_put_8(0, 0, 0);
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	graph_showpage(0);
 	graph_accesspage(0);
+}
+
+static void replay_menu_screen_init(void)
+{
+	replay_menu_resources_clear();
+	replay_menu_background_put();
 }
 
 static void replay_save_input_release(void)
@@ -2141,13 +2157,10 @@ static void replay_name_screen_put(int selected)
 {
 	char *p;
 
-	replay_menu_screen_init();
+	replay_menu_resources_clear();
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
-	pi_load(0, REPLAY_REGIB_PI);
-	PaletteTone = 100;
-	pi_palette_apply(0);
-	pi_free(0);
+	replay_menu_background_put();
 	p = replay_menu_line;
 	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
 	*p++ = 'y'; *p++ = ' '; *p++ = 'N'; *p++ = 'a'; *p++ = 'm';
