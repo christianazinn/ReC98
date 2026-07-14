@@ -63,6 +63,7 @@ enum gaiji_th03_mikoft_t {
 	gp_VS_Start_last = ((gp_VS_Start + 6) - 1),
 	gp_Replay,
 	gp_Replay_last = ((gp_Replay + 4) - 1),
+	gp_Replay_y_right = 0x7F,
 	gp_Option = 0x3D,
 	gp_Option_last = ((gp_Option + 4) - 1),
 	gp_Music_room,
@@ -883,12 +884,6 @@ bool near story_menu(void)
 inline tram_y_t choice_tram_y(unsigned int line) {
 	return ((BOX_TOP / GLYPH_H) + 1 + line);
 }
-
-enum {
-	// Move TRAM row 17 from y=272 to y=264 while this menu is visible.
-	TITLE_TEXT_SCROLL_PORT = 0x76,
-	TITLE_TEXT_SCROLL = 8,
-};
 
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
@@ -2499,9 +2494,9 @@ char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
 char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
 char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
 char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
-char COMMAND_REPLAY[] = { g_str_4(gp_Replay), '\0' };
-// Keeps COMMAND_QUIT and following OP data at their accepted offsets.
-static char COMMAND_REPLAY_DATA_PAD = 1;
+char COMMAND_REPLAY[] = {
+	g_str_4(gp_Replay), gp_Replay_y_right, '\0'
+};
 char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
@@ -2593,7 +2588,7 @@ void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 	} else if(sel == MC_OPTION) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 4, -1, COMMAND_OPTION, atrb);
 	} else if(sel == MC_REPLAY) {
-		choice_put_centered(BOX_MAIN_CENTER_X, 5, 0, COMMAND_REPLAY, atrb);
+		choice_put_centered(BOX_MAIN_CENTER_X, 5, -1, COMMAND_REPLAY, atrb);
 	} else if(sel == MC_QUIT) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 6, -1, COMMAND_QUIT, atrb);
 	}
@@ -2709,7 +2704,8 @@ void near main_update_and_render(void)
 	static bool in_this_menu = false;
 
 	if(!in_this_menu) {
-		_outportb_(TITLE_TEXT_SCROLL_PORT, TITLE_TEXT_SCROLL);
+		// Preserve the accepted code phase after removing the title text scroll.
+		__emit__(0x90, 0x90, 0x90, 0x90);
 		text_clear();
 		if(!in_main) {
 			box_submenu_to_main_animate();
@@ -2726,8 +2722,9 @@ void near main_update_and_render(void)
 	}
 	menu_update_vertical(input_sp, MC_COUNT);
 	if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
+		// Preserve the accepted control flow after removing its conditional reset.
 		if(menu_sel != MC_OPTION) {
-			_outportb_(TITLE_TEXT_SCROLL_PORT, 0);
+			__emit__(0x90, 0x90, 0x90, 0x90);
 		}
 		switch(menu_sel) {
 		case MC_STORY:
@@ -2978,7 +2975,8 @@ void main(void)
 		resident->rand++;
 		frame_delay(1);
 	}
-	_outportb_(TITLE_TEXT_SCROLL_PORT, 0);
+	// Preserve the accepted code phase after removing the final scroll reset.
+	__emit__(0x90, 0x90, 0x90, 0x90);
 	cfg_save_exit();
 
 	// ZUN landmine: The system's previous gaiji should be restored *after*
