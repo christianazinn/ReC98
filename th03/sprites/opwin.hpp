@@ -1,7 +1,7 @@
 #include "pc98.h"
 
 static const pixel_t OPWIN_W = 16;
-static const pixel_t OPWIN_H = 128;
+static const pixel_t OPWIN_H = 144;
 
 // The right half of [OPWIN_LEFT] is assumed to be identical to the left half
 // of [OPWIN_RIGHT].

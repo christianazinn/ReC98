@@ -882,7 +882,7 @@ bool near story_menu(void)
 }
 
 inline tram_y_t choice_tram_y(unsigned int line) {
-	return ((BOX_TOP / GLYPH_H) + 1 + line);
+	return ((BOX_CONTENT_TOP / GLYPH_H) + 1 + line);
 }
 
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
