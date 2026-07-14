@@ -1202,9 +1202,9 @@ static char *replay_line_append_date(char *p, uint16_t dos_date)
 		*p++ = '-';
 		return p;
 	}
-	p = replay_line_append_u32(p, month);
+	p = replay_line_append_u8_2(p, month);
 	*p++ = '-';
-	p = replay_line_append_u32(p, day);
+	p = replay_line_append_u8_2(p, day);
 	*p++ = '-';
 	return replay_line_append_u32(p, year);
 }
@@ -3076,7 +3076,9 @@ void main(void)
 	// Preserve the accepted SHARED code phase after replay UI growth.
 	__emit__(
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90
 	);
 	cfg_save_exit();
 
