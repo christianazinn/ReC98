@@ -2040,14 +2040,14 @@ static void replay_save_dialog_frame_put(void)
 	graph_accesspage(0);
 	grcg_boxfill(
 		(REPLAY_SAVE_DIALOG_LEFT * GLYPH_HALF_W),
-		(REPLAY_SAVE_DIALOG_TOP * GLYPH_HALF_H),
+		(REPLAY_SAVE_DIALOG_TOP * GLYPH_H),
 		(
 			((REPLAY_SAVE_DIALOG_LEFT + REPLAY_SAVE_DIALOG_W) *
 			 GLYPH_HALF_W) - 1
 		),
 		(
 			((REPLAY_SAVE_DIALOG_TOP + REPLAY_SAVE_DIALOG_H) *
-			 GLYPH_HALF_H) - 1
+			 GLYPH_H) - 1
 		)
 	);
 	grcg_off();
@@ -2123,6 +2123,7 @@ static replay_save_answer_t replay_save_yes_no(
 	unsigned int question_w;
 	char *p;
 
+	replay_save_dialog_frame_put();
 	p = replay_menu_line;
 	if(question == RSQ_OVERWRITE) {
 		*p++ = 'O'; *p++ = 'v'; *p++ = 'e'; *p++ = 'r'; *p++ = 'w';
@@ -2142,7 +2143,6 @@ static replay_save_answer_t replay_save_yes_no(
 	*p++ = '?';
 	question_w = static_cast<unsigned int>(p - replay_menu_line);
 	*p = '\0';
-	replay_save_dialog_frame_put();
 	replay_menu_line_put(
 		(
 			REPLAY_SAVE_DIALOG_LEFT +
