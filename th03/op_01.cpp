@@ -30,6 +30,7 @@
 #include "th03/op/m_select.hpp"
 #include "th03/sprites/regi.h"
 #include "platform/x86real/flags.hpp"
+#include "planar.h"
 #include <conio.h>
 #include <stddef.h>
 #include <process.h>
@@ -1096,16 +1097,45 @@ bool near score_menu(void)
 }
 
 enum {
-	REPLAY_MENU_LIST_LEFT = 2,
-	REPLAY_MENU_LIST_W = 33,
-	REPLAY_MENU_DETAIL_LEFT = 36,
-	REPLAY_MENU_DETAIL_W = 44,
+	REPLAY_MENU_LIST_LEFT = 6,
+	REPLAY_MENU_LIST_W = 31,
+	REPLAY_MENU_DETAIL_LEFT = 40,
+	REPLAY_MENU_DETAIL_W = 40,
 	REPLAY_MENU_TITLE_Y = 1,
 	REPLAY_MENU_HEAD_Y = 4,
 	REPLAY_MENU_LIST_Y = 5,
 	REPLAY_MENU_DETAIL_Y = 4,
 	REPLAY_MENU_FOOT_Y = 23,
 	REPLAY_MENU_VISIBLE = 10,
+
+	REPLAY_SAVE_TITLE_LEFT = 10,
+	REPLAY_SAVE_TITLE_Y = 3,
+
+	REPLAY_REGI_GLYPH_W = 32,
+	REPLAY_REGI_GLYPH_H = 32,
+	REPLAY_REGI_ROW_SPACING = 24,
+	REPLAY_REGI_GLYPHS_PER_ROW = 16,
+	REPLAY_REGI_GRID_LEFT = 64,
+	REPLAY_REGI_GRID_TOP = 288,
+
+	REPLAY_NAME_SUMMARY_LEFT = 15,
+	REPLAY_NAME_SUMMARY_Y = 4,
+	REPLAY_NAME_PREFIX_CELLS = 5,
+	REPLAY_NAME_GLYPH_SPACING = 24,
+	REPLAY_NAME_GLYPH_LEFT = (
+		(REPLAY_NAME_SUMMARY_LEFT + REPLAY_NAME_PREFIX_CELLS) * GLYPH_HALF_W
+	),
+	REPLAY_NAME_GLYPH_TOP = (
+		(REPLAY_NAME_SUMMARY_Y * GLYPH_H) -
+		((REPLAY_REGI_GLYPH_H - GLYPH_H) / 2)
+	),
+	REPLAY_NAME_GLYPH_W = (
+		((T3_REPLAY_USER_NAME_LEN - 1) * REPLAY_NAME_GLYPH_SPACING) +
+		REPLAY_REGI_GLYPH_W
+	),
+	REPLAY_NAME_GLYPH_CLEAR_W = (
+		((REPLAY_NAME_GLYPH_W + 15) / 16) * 16
+	),
 };
 
 static char replay_menu_line[81];
@@ -1148,16 +1178,14 @@ static char *replay_line_append_u32(char *p, uint32_t value)
 	return p;
 }
 
-static char *replay_line_append_name(
-	char *p, const char near *name, bool underscores
-)
+static char *replay_line_append_name(char *p, const char near *name)
 {
 	char c;
 
 	for(int i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
 		c = name[i];
 		if((c == '\0') || (c == ' ')) {
-			c = (underscores ? '_' : ' ');
+			c = ' ';
 		}
 		*p++ = c;
 	}
@@ -1175,9 +1203,9 @@ static char *replay_line_append_date(char *p, uint16_t dos_date)
 		return p;
 	}
 	p = replay_line_append_u32(p, month);
-	*p++ = '/';
+	*p++ = '-';
 	p = replay_line_append_u32(p, day);
-	*p++ = '/';
+	*p++ = '-';
 	return replay_line_append_u32(p, year);
 }
 
@@ -1508,10 +1536,8 @@ static char *replay_line_append_final_stage_mark(char *p)
 {
 	uint8_t stage;
 
-	*p++ = '(';
 	if(replay_menu_vs()) {
 		*p++ = 'V';
-		*p++ = ')';
 		return p;
 	}
 	if(replay_user_menu_header.end_reason == RUER_COMPLETE) {
@@ -1528,7 +1554,6 @@ static char *replay_line_append_final_stage_mark(char *p)
 	} else {
 		*p++ = '-';
 	}
-	*p++ = ')';
 	return p;
 }
 
@@ -1566,7 +1591,7 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 		*p++ = ' ';
 		*p++ = replay_rank_initial(replay_user_menu_header.rank);
 		*p++ = ' ';
-		p = replay_line_append_name(p, replay_user_menu_header.name, false);
+		p = replay_line_append_name(p, replay_user_menu_header.name);
 		*p++ = ' ';
 		if(replay_menu_summary_valid()) {
 			p = replay_line_append_packed_score(p, replay_menu_list_score());
@@ -1801,7 +1826,7 @@ static void replay_menu_detail_put(uint8_t slot)
 
 	p = replay_menu_line;
 	*p++ = 'N'; *p++ = 'a'; *p++ = 'm'; *p++ = 'e'; *p++ = ':'; *p++ = ' ';
-	p = replay_line_append_name(p, replay_user_menu_header.name, false);
+	p = replay_line_append_name(p, replay_user_menu_header.name);
 	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
 	*p++ = 'D'; *p++ = 'a'; *p++ = 't'; *p++ = 'e';
 	*p++ = ':'; *p++ = ' ';
@@ -2087,11 +2112,69 @@ static char replay_name_ascii(int regi)
 	}
 }
 
+static int replay_name_regi(char c)
+{
+	if((c >= 'A') && (c <= 'M')) {
+		return (REGI_A + (c - 'A'));
+	}
+	if((c >= 'N') && (c <= 'Z')) {
+		return (REGI_N + (c - 'N'));
+	}
+	if((c >= '0') && (c <= '9')) {
+		return (REGI_0 + (c - '0'));
+	}
+	switch(c) {
+	case '.': return REGI_PERIOD;
+	case ',': return REGI_COMMA;
+	case '!': return REGI_EXCLAMATION;
+	case '?': return REGI_QUESTION;
+	default:  return -1;
+	}
+}
+
+static void replay_name_glyphs_unput(void)
+{
+	vram_offset_t row_p = vram_offset_shift(
+		REPLAY_NAME_GLYPH_LEFT, REPLAY_NAME_GLYPH_TOP
+	);
+	pixel_t row;
+
+	for(row = 0; row < REPLAY_REGI_GLYPH_H; row++) {
+		vram_word_amount_t col;
+		int p;
+		for(
+			col = 0, p = row_p;
+			col < (REPLAY_NAME_GLYPH_CLEAR_W >> 4);
+			col++, p += 2
+		) {
+			Planar<dots16_t> p16;
+			graph_accesspage(1); VRAM_SNAP_PLANAR(p16, p, 16);
+			graph_accesspage(0); VRAM_PUT_PLANAR(p, p16, 16);
+		}
+		row_p += ROW_SIZE;
+	}
+}
+
+static void replay_name_glyphs_put(void)
+{
+	screen_x_t left = REPLAY_NAME_GLYPH_LEFT;
+	int regi;
+
+	for(int i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
+		regi = replay_name_regi(replay_user_menu_header.name[i]);
+		if(regi >= 0) {
+			super_put(left, REPLAY_NAME_GLYPH_TOP, regi);
+		}
+		left += REPLAY_NAME_GLYPH_SPACING;
+	}
+}
+
 static void replay_name_summary_put(void)
 {
 	char *p;
 
-	replay_menu_span_clear(0, 3, text_width());
+	replay_name_glyphs_unput();
+	replay_menu_span_clear(0, REPLAY_NAME_SUMMARY_Y, text_width());
 	p = replay_menu_line;
 	*p++ = replay_rank_initial(replay_user_menu_header.rank);
 	*p++ = ' ';
@@ -2099,7 +2182,9 @@ static void replay_name_summary_put(void)
 		p, replay_user_menu_header.playchar_p1
 	);
 	*p++ = ' ';
-	p = replay_line_append_name(p, replay_user_menu_header.name, true);
+	for(int i = 0; i < (REPLAY_NAME_GLYPH_W / GLYPH_HALF_W); i++) {
+		*p++ = ' ';
+	}
 	*p++ = ' ';
 	if(replay_menu_summary_valid()) {
 		p = replay_line_append_packed_score(p, replay_menu_list_score());
@@ -2111,29 +2196,27 @@ static void replay_name_summary_put(void)
 	*p++ = ' ';
 	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
 	*p = '\0';
-	replay_menu_line_put(15, 3, TX_WHITE);
+	replay_menu_line_put(
+		REPLAY_NAME_SUMMARY_LEFT, REPLAY_NAME_SUMMARY_Y, TX_WHITE
+	);
+	replay_name_glyphs_put();
 }
 
 static void replay_name_item_put(int regi, bool selected)
 {
-	enum {
-		REGI_GLYPH_W = 32,
-		REGI_ROW_SPACING = 24,
-		REGI_GLYPHS_PER_ROW = 16,
-		REGI_GRID_LEFT = 64,
-		REGI_GRID_TOP = 320,
-	};
 	int patnum = (selected ? (regi + REGI_COUNT) : regi);
 	screen_x_t left = static_cast<screen_x_t>(
-		REGI_GRID_LEFT + ((regi % REGI_GLYPHS_PER_ROW) * REGI_GLYPH_W)
+		REPLAY_REGI_GRID_LEFT +
+		((regi % REPLAY_REGI_GLYPHS_PER_ROW) * REPLAY_REGI_GLYPH_W)
 	);
 	screen_y_t top = static_cast<screen_y_t>(
-		REGI_GRID_TOP + ((regi / REGI_GLYPHS_PER_ROW) * REGI_ROW_SPACING)
+		REPLAY_REGI_GRID_TOP +
+		((regi / REPLAY_REGI_GLYPHS_PER_ROW) * REPLAY_REGI_ROW_SPACING)
 	);
 
 	super_put(left, top, patnum);
-	if((regi % REGI_GLYPHS_PER_ROW) == REGI_SP) {
-		super_put((left + REGI_GLYPH_W), top, (patnum + 1));
+	if((regi % REPLAY_REGI_GLYPHS_PER_ROW) == REGI_SP) {
+		super_put((left + REPLAY_REGI_GLYPH_W), top, (patnum + 1));
 	}
 }
 
@@ -2274,7 +2357,7 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
 	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
 	*p++ = 'y'; *p = '\0';
-	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_TITLE_Y, TX_GREEN);
+	replay_menu_line_put(REPLAY_SAVE_TITLE_LEFT, REPLAY_SAVE_TITLE_Y, TX_GREEN);
 	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
@@ -2990,6 +3073,11 @@ void main(void)
 	}
 	// Preserve the accepted code phase after removing the final scroll reset.
 	__emit__(0x90, 0x90, 0x90, 0x90);
+	// Preserve the accepted SHARED code phase after replay UI growth.
+	__emit__(
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+	);
 	cfg_save_exit();
 
 	// ZUN landmine: The system's previous gaiji should be restored *after*
