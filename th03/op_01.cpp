@@ -1136,6 +1136,15 @@ enum {
 	REPLAY_NAME_GLYPH_CLEAR_W = (
 		((REPLAY_NAME_GLYPH_W + 15) / 16) * 16
 	),
+
+	REPLAY_SAVE_DIALOG_LEFT = 26,
+	REPLAY_SAVE_DIALOG_TOP = 10,
+	REPLAY_SAVE_DIALOG_W = 28,
+	REPLAY_SAVE_DIALOG_H = 5,
+	REPLAY_SAVE_DIALOG_QUESTION_Y = (REPLAY_SAVE_DIALOG_TOP + 1),
+	REPLAY_SAVE_DIALOG_CHOICE_Y = (REPLAY_SAVE_DIALOG_TOP + 3),
+	REPLAY_SAVE_DIALOG_YES_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 7),
+	REPLAY_SAVE_DIALOG_NO_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 19),
 };
 
 static char replay_menu_line[81];
@@ -2012,15 +2021,85 @@ static bool replay_save_to_slot(uint8_t slot, bool occupied)
 	return true;
 }
 
+static void replay_save_dialog_char_put(
+	unsigned int x, unsigned int y, char c, tram_atrb2 atrb
+)
+{
+	replay_menu_line[0] = c;
+	replay_menu_line[1] = '\0';
+	replay_menu_line_put(x, y, atrb);
+}
+
+static void replay_save_dialog_frame_put(void)
+{
+	char *p;
+	int x;
+	int y;
+
+	grcg_setcolor(GC_RMW, 0);
+	graph_accesspage(0);
+	grcg_boxfill(
+		(REPLAY_SAVE_DIALOG_LEFT * GLYPH_HALF_W),
+		(REPLAY_SAVE_DIALOG_TOP * GLYPH_HALF_H),
+		(
+			((REPLAY_SAVE_DIALOG_LEFT + REPLAY_SAVE_DIALOG_W) *
+			 GLYPH_HALF_W) - 1
+		),
+		(
+			((REPLAY_SAVE_DIALOG_TOP + REPLAY_SAVE_DIALOG_H) *
+			 GLYPH_HALF_H) - 1
+		)
+	);
+	grcg_off();
+
+	for(y = 0; y < REPLAY_SAVE_DIALOG_H; y++) {
+		replay_menu_span_clear(
+			REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
+			REPLAY_SAVE_DIALOG_W
+		);
+	}
+
+	p = replay_menu_line;
+	*p++ = '+';
+	for(x = 1; x < (REPLAY_SAVE_DIALOG_W - 1); x++) {
+		*p++ = '-';
+	}
+	*p++ = '+';
+	*p = '\0';
+	replay_menu_line_put(
+		REPLAY_SAVE_DIALOG_LEFT, REPLAY_SAVE_DIALOG_TOP, TX_WHITE
+	);
+	replay_menu_line_put(
+		REPLAY_SAVE_DIALOG_LEFT,
+		(REPLAY_SAVE_DIALOG_TOP + (REPLAY_SAVE_DIALOG_H - 1)), TX_WHITE
+	);
+	for(y = 1; y < (REPLAY_SAVE_DIALOG_H - 1); y++) {
+		replay_save_dialog_char_put(
+			REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
+			'|', TX_WHITE
+		);
+		replay_save_dialog_char_put(
+			(REPLAY_SAVE_DIALOG_LEFT + (REPLAY_SAVE_DIALOG_W - 1)),
+			(REPLAY_SAVE_DIALOG_TOP + y), '|', TX_WHITE
+		);
+	}
+}
+
 static void replay_save_yes_no_put(bool yes)
 {
 	char *p = replay_menu_line;
 
 	*p++ = 'Y'; *p++ = 'e'; *p++ = 's'; *p = '\0';
-	replay_menu_line_put(36, 13, (yes ? TX_YELLOW : TX_WHITE));
+	replay_menu_line_put(
+		REPLAY_SAVE_DIALOG_YES_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
+		(yes ? TX_YELLOW : TX_WHITE)
+	);
 	p = replay_menu_line;
 	*p++ = 'N'; *p++ = 'o'; *p = '\0';
-	replay_menu_line_put(36, 15, (yes ? TX_WHITE : TX_YELLOW));
+	replay_menu_line_put(
+		REPLAY_SAVE_DIALOG_NO_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
+		(yes ? TX_WHITE : TX_YELLOW)
+	);
 }
 
 enum replay_save_question_t {
@@ -2041,9 +2120,9 @@ static replay_save_answer_t replay_save_yes_no(
 {
 	bool yes = default_yes;
 	input_t input_prev;
+	unsigned int question_w;
 	char *p;
 
-	replay_menu_screen_init();
 	p = replay_menu_line;
 	if(question == RSQ_OVERWRITE) {
 		*p++ = 'O'; *p++ = 'v'; *p++ = 'e'; *p++ = 'r'; *p++ = 'w';
@@ -2060,8 +2139,17 @@ static replay_save_answer_t replay_save_yes_no(
 		*p++ = 'g'; *p++ = ' '; *p++ = 'r'; *p++ = 'e'; *p++ = 'p';
 		*p++ = 'l'; *p++ = 'a'; *p++ = 'y';
 	}
-	*p++ = '?'; *p = '\0';
-	replay_menu_line_put(30, 9, TX_CYAN);
+	*p++ = '?';
+	question_w = static_cast<unsigned int>(p - replay_menu_line);
+	*p = '\0';
+	replay_save_dialog_frame_put();
+	replay_menu_line_put(
+		(
+			REPLAY_SAVE_DIALOG_LEFT +
+			((REPLAY_SAVE_DIALOG_W - question_w) / 2)
+		),
+		REPLAY_SAVE_DIALOG_QUESTION_Y, TX_CYAN
+	);
 	replay_save_yes_no_put(yes);
 	replay_save_input_release();
 	input_prev = INPUT_NONE;
@@ -2478,6 +2566,7 @@ static void replay_save_pending(bool prompt)
 		return;
 	}
 	if(prompt) {
+		replay_menu_screen_init();
 		while(1) {
 			answer = replay_save_yes_no(RSQ_SAVE, 0, true);
 			if(answer == RSA_YES) {
@@ -3075,7 +3164,6 @@ void main(void)
 	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
 	__emit__(
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90
