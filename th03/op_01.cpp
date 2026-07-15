@@ -415,7 +415,7 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(header.magic[6] == '5') &&
+		(header.magic[6] == '6') &&
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -3067,7 +3067,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
 	TITLE_CREDIT_PAIR( 8, '1', '.');
-	TITLE_CREDIT_PAIR( 9, '0', ' ');
+	TITLE_CREDIT_PAIR( 9, '1', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');

@@ -12,6 +12,9 @@
 // Keep previous Shift state in the otherwise unused high bit of the RLE phase.
 #define REPLAY_RLE_PHASE_MASK 0x7F
 #define REPLAY_RLE_SHIFT_MASK 0x80
+#define mainl_replay_input_vsync (*reinterpret_cast<uint16_t far *>( \
+	&resident->unused_3[T3_REPLAY_RES_MAINL_VSYNC_INDEX] \
+))
 
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
@@ -382,7 +385,7 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header.magic[6] == '5') &&
+		(replay_user_header.magic[6] == '6') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -696,17 +699,26 @@ static bool mainl_replay_record_rle_sample(void)
 		return true;
 	}
 
-	if(input_p1 != replay_rle_input_mp_p1) {
-		change |= T3_REPLAY_PACKET_CHANGE_P1;
-	}
-	if(input_p2 != replay_rle_input_mp_p2) {
-		change |= T3_REPLAY_PACKET_CHANGE_P2;
-	}
-	if(input_single != replay_rle_input_sp) {
-		change |= T3_REPLAY_PACKET_CHANGE_SP;
-	}
-	if(input_shift != previous_shift) {
-		change |= T3_REPLAY_PACKET_CHANGE_SHIFT;
+	if(!replay_rle_packet_open) {
+		change = (
+			T3_REPLAY_PACKET_CHANGE_P1 |
+			T3_REPLAY_PACKET_CHANGE_P2 |
+			T3_REPLAY_PACKET_CHANGE_SP |
+			T3_REPLAY_PACKET_CHANGE_SHIFT
+		);
+	} else {
+		if(input_p1 != replay_rle_input_mp_p1) {
+			change |= T3_REPLAY_PACKET_CHANGE_P1;
+		}
+		if(input_p2 != replay_rle_input_mp_p2) {
+			change |= T3_REPLAY_PACKET_CHANGE_P2;
+		}
+		if(input_single != replay_rle_input_sp) {
+			change |= T3_REPLAY_PACKET_CHANGE_SP;
+		}
+		if(input_shift != previous_shift) {
+			change |= T3_REPLAY_PACKET_CHANGE_SHIFT;
+		}
 	}
 
 	offset = (replay_user_header.input_offset + replay_input_byte_count);
@@ -990,6 +1002,7 @@ void far mainl_replay_session_start(void)
 	replay_rle_input_mp_p1 = 0;
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
+	mainl_replay_input_vsync = (vsync_Count2 - 1);
 	resident->input_shift = false;
 	replay_rle_packet_open = false;
 
@@ -1013,6 +1026,17 @@ void far mainl_replay_session_start(void)
 
 void far mainl_replay_input_mode_interface(void)
 {
+	if(
+		(
+			(mainl_replay_mode == MR_USER_RECORD) ||
+			(mainl_replay_mode == MR_USER_PLAYBACK)
+		) &&
+		(mainl_replay_input_vsync == vsync_Count2)
+	) {
+		return;
+	}
+
+	mainl_replay_input_vsync = vsync_Count2;
 	input_mode_interface();
 	if(mainl_replay_mode != MR_USER_PLAYBACK) {
 		mainl_replay_input_shift_sense();
@@ -1060,7 +1084,3 @@ bool far mainl_replay_finish(
 	mainl_replay_mode = MR_DISABLED;
 	return save_pending;
 }
-
-// Keep the following shared runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90"
