@@ -1142,8 +1142,14 @@ static char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
-static const char REPLAY_BG_PI[] = "slb1.pi";
-static char REPLAY_MENU_DATA_PAD[16] = { 1 };
+static const unsigned char REPLAY_ASSET_PF_FN[] = "azinn.dat";
+static char REPLAY_BG_PI[10] = "slb1.pi";
+static char REPLAY_MENU_DATA_PAD[4] = { 1 };
+
+enum replay_background_t {
+	REPLAY_BG_LIST,
+	REPLAY_BG_NAME,
+};
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1886,9 +1892,25 @@ static void replay_menu_resources_clear(void)
 	text_clear();
 }
 
-static void replay_menu_background_put(void)
+static void replay_menu_background_put(replay_background_t bg)
 {
+	if(bg == REPLAY_BG_NAME) {
+		REPLAY_BG_PI[4] = 'b';
+		REPLAY_BG_PI[5] = '.';
+		REPLAY_BG_PI[6] = 'p';
+		REPLAY_BG_PI[7] = 'i';
+		REPLAY_BG_PI[8] = '\0';
+	} else {
+		REPLAY_BG_PI[4] = '.';
+		REPLAY_BG_PI[5] = 'p';
+		REPLAY_BG_PI[6] = 'i';
+		REPLAY_BG_PI[7] = '\0';
+	}
+	pfend();
+	pfstart(REPLAY_ASSET_PF_FN);
 	pi_load(0, REPLAY_BG_PI);
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(OP_AND_END_PF_FN));
 	PaletteTone = 100;
 	pi_palette_apply(0);
 	graph_accesspage(0);
@@ -1903,7 +1925,13 @@ static void replay_menu_background_put(void)
 static void replay_menu_screen_init(void)
 {
 	replay_menu_resources_clear();
-	replay_menu_background_put();
+	replay_menu_background_put(REPLAY_BG_LIST);
+}
+
+static void replay_name_background_init(void)
+{
+	replay_menu_resources_clear();
+	replay_menu_background_put(REPLAY_BG_NAME);
 }
 
 static void replay_save_input_release(void)
@@ -2532,7 +2560,7 @@ static void replay_name_screen_put(int selected)
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
 	replay_name_regi_patterns_patch();
-	replay_menu_background_put();
+	replay_menu_background_put(REPLAY_BG_NAME);
 	replay_name_summary_put();
 	replay_name_grid_put(selected);
 }
@@ -2754,7 +2782,7 @@ static void replay_save_pending(bool prompt)
 		return;
 	}
 	if(prompt) {
-		replay_menu_screen_init();
+		replay_name_background_init();
 		while(1) {
 			answer = replay_save_yes_no(RSQ_SAVE, 0, true);
 			if(answer == RSA_YES) {
@@ -3358,7 +3386,9 @@ void main(void)
 	__emit__(
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90
 	);
 	cfg_save_exit();
 
