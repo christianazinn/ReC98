@@ -90,3 +90,4 @@ include libs/master.lib/js_sense.asm
 include libs/master.lib/draw_trapezoid.asm
 include th03/formats/pfopen.asm
 include libs/master.lib/pf_str_ieq.asm
+include libs/master.lib/palette_black_in.asm

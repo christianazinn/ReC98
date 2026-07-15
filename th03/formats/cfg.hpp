@@ -7,7 +7,9 @@ struct cfg_options_t {
 	uint8_t bgm_mode;
 	uint8_t key_mode;
 	uint8_t rank;
-	int16_t unused;
+	// Replay mod: Reuses the low byte of the original unused word.
+	bool autofire;
+	int8_t unused;
 };
 #endif
 

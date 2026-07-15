@@ -45,7 +45,7 @@ struct resident_t {
 	PlaycharPalettedOptional playchar_paletted[PLAYER_COUNT];
 	bool is_cpu[PLAYER_COUNT];
 	long rand;
-	int8_t unused_1;
+	bool autofire;
 	unsigned char bgm_mode;
 	unsigned char key_mode;
 	pid_t pid_winner;

@@ -51,6 +51,7 @@ enum main_choice_t {
 enum option_choice_t {
 	OC_RANK,
 	OC_BGM,
+	OC_AUTOFIRE,
 	OC_KEY_MODE,
 	OC_QUIT,
 	OC_COUNT,
@@ -69,6 +70,8 @@ enum gaiji_th03_mikoft_t {
 	gp_Replay_y_right = 0x7F,
 	gp_Option = 0x3D,
 	gp_Option_last = ((gp_Option + 4) - 1),
+	gp_on = 0x3F,
+	gp_on_last = ((gp_on + 2) - 1),
 	gp_Music_room,
 	gp_Music_room_last = ((gp_Music_room + 7) - 1),
 	gp_Quit,
@@ -77,8 +80,8 @@ enum gaiji_th03_mikoft_t {
 	gp_Music_last = ((gp_Music + 4) - 1),
 	gp_FM_86_,
 	gp_FM_86__last = ((gp_FM_86_ + 4) - 1),
-	gp_MIDI__SC_88_,
-	gp_MIDI__SC_88__last = ((gp_MIDI__SC_88_ + 7) - 1),
+	gp_Autofire,
+	gp_Autofire_last = ((gp_Autofire + 7) - 1),
 	gp_off,
 	gp_off_last = ((gp_off + 2) - 1),
 	gp_KeyConfig,
@@ -155,6 +158,7 @@ void near cfg_load(void)
 
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
+	resident->autofire = (cfg.opts.autofire == true);
 }
 
 inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
@@ -164,6 +168,7 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 	cfg.opts.bgm_mode = resident->bgm_mode;
 	cfg.opts.key_mode = resident->key_mode;
 	cfg.opts.rank = resident->rank;
+	cfg.opts.autofire = resident->autofire;
 
 	file_write(&cfg.opts, bytes);
 	file_close();
@@ -217,6 +222,7 @@ static void replay_cfg_load_resident_only(void)
 	resident->bgm_mode = cfg.opts.bgm_mode;
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
+	resident->autofire = (cfg.opts.autofire == true);
 }
 
 static void replay_resident_handoff_set(char mode)
@@ -1066,10 +1072,10 @@ enum {
 	REPLAY_MENU_LIST_W = 31,
 	REPLAY_MENU_DETAIL_LEFT = 40,
 	REPLAY_MENU_DETAIL_W = 40,
-	REPLAY_MENU_HEAD_Y = 4,
-	REPLAY_MENU_LIST_Y = 5,
-	REPLAY_MENU_DETAIL_Y = 4,
-	REPLAY_MENU_FOOT_Y = 23,
+	REPLAY_MENU_HEAD_Y = 5,
+	REPLAY_MENU_LIST_Y = 6,
+	REPLAY_MENU_DETAIL_Y = 5,
+	REPLAY_MENU_FOOT_Y = 24,
 	REPLAY_SAVE_COMPLETE_Y = 22,
 	REPLAY_MENU_VISIBLE = 10,
 
@@ -1892,7 +1898,9 @@ static void replay_menu_resources_clear(void)
 	text_clear();
 }
 
-static void replay_menu_background_put(replay_background_t bg)
+static void replay_menu_background_put(
+	replay_background_t bg, bool start_black
+)
 {
 	if(bg == REPLAY_BG_NAME) {
 		REPLAY_BG_PI[4] = 'b';
@@ -1911,7 +1919,7 @@ static void replay_menu_background_put(replay_background_t bg)
 	pi_load(0, REPLAY_BG_PI);
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char *>(OP_AND_END_PF_FN));
-	PaletteTone = 100;
+	PaletteTone = (start_black ? 0 : 100);
 	pi_palette_apply(0);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
@@ -1922,16 +1930,19 @@ static void replay_menu_background_put(replay_background_t bg)
 	graph_accesspage(0);
 }
 
-static void replay_menu_screen_init(void)
+static void replay_menu_screen_init(bool start_black)
 {
 	replay_menu_resources_clear();
-	replay_menu_background_put(REPLAY_BG_LIST);
+	replay_menu_background_put(REPLAY_BG_LIST, start_black);
 }
 
-static void replay_name_background_init(void)
+static void replay_name_background_init(bool fade_in)
 {
 	replay_menu_resources_clear();
-	replay_menu_background_put(REPLAY_BG_NAME);
+	replay_menu_background_put(REPLAY_BG_NAME, fade_in);
+	if(fade_in) {
+		palette_black_in(1);
+	}
 }
 
 static void replay_save_input_release(void)
@@ -2554,15 +2565,18 @@ static void replay_name_grid_put(int selected)
 	}
 }
 
-static void replay_name_screen_put(int selected)
+static void replay_name_screen_put(int selected, bool fade_in)
 {
 	replay_menu_resources_clear();
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
 	replay_name_regi_patterns_patch();
-	replay_menu_background_put(REPLAY_BG_NAME);
+	replay_menu_background_put(REPLAY_BG_NAME, fade_in);
 	replay_name_summary_put();
 	replay_name_grid_put(selected);
+	if(fade_in) {
+		palette_black_in(1);
+	}
 }
 
 static void replay_name_backspace(uint8_t& name_len)
@@ -2573,14 +2587,14 @@ static void replay_name_backspace(uint8_t& name_len)
 	}
 }
 
-static bool replay_name_menu(uint8_t& name_len)
+static bool replay_name_menu(uint8_t& name_len, bool fade_in)
 {
 	int regi = REGI_A;
 	int previous;
 	char c;
 	input_t input_prev;
 
-	replay_name_screen_put(regi);
+	replay_name_screen_put(regi, fade_in);
 	replay_save_input_release();
 	input_prev = INPUT_NONE;
 	while(1) {
@@ -2649,7 +2663,7 @@ static bool replay_name_menu(uint8_t& name_len)
 				if(replay_save_quit_confirm()) {
 					return false;
 				}
-				replay_name_screen_put(regi);
+				replay_name_screen_put(regi, false);
 				replay_save_input_release();
 				input_prev = INPUT_NONE;
 				continue;
@@ -2684,7 +2698,7 @@ static void replay_save_complete_wait(void)
 	*p++ = 'k'; *p++ = 'e'; *p++ = 'y'; *p++ = '.'; *p = '\0';
 	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_SAVE_COMPLETE_Y, TX_CYAN);
 	input_wait_for_change(0);
-	replay_menu_screen_init();
+	replay_menu_screen_init(false);
 }
 
 static bool replay_save_slot_menu(void)
@@ -2695,7 +2709,7 @@ static bool replay_save_slot_menu(void)
 	input_t input_prev;
 	replay_save_answer_t answer;
 
-	replay_menu_screen_init();
+	replay_menu_screen_init(false);
 	replay_save_slot_render(sel, top);
 	replay_save_input_release();
 	input_prev = INPUT_NONE;
@@ -2737,7 +2751,7 @@ static bool replay_save_slot_menu(void)
 						answer = RSA_NO;
 					}
 					if(answer != RSA_YES) {
-						replay_menu_screen_init();
+						replay_menu_screen_init(false);
 						replay_save_slot_render(sel, top);
 						replay_save_input_release();
 						input_prev = INPUT_NONE;
@@ -2745,12 +2759,12 @@ static bool replay_save_slot_menu(void)
 					}
 				}
 				if(replay_save_to_slot(sel, occupied)) {
-					replay_menu_screen_init();
+					replay_menu_screen_init(false);
 					replay_save_slot_render(sel, top);
 					replay_save_complete_wait();
 					return true;
 				}
-				replay_menu_screen_init();
+				replay_menu_screen_init(false);
 				replay_save_slot_render(sel, top);
 				replay_save_input_release();
 				input_prev = INPUT_NONE;
@@ -2760,7 +2774,7 @@ static bool replay_save_slot_menu(void)
 				if(replay_save_quit_confirm()) {
 					return false;
 				}
-				replay_menu_screen_init();
+				replay_menu_screen_init(false);
 				replay_save_slot_render(sel, top);
 				replay_save_input_release();
 				input_prev = INPUT_NONE;
@@ -2782,7 +2796,7 @@ static void replay_save_pending(bool prompt)
 		return;
 	}
 	if(prompt) {
-		replay_name_background_init();
+		replay_name_background_init(true);
 		while(1) {
 			answer = replay_save_yes_no(RSQ_SAVE, 0, true);
 			if(answer == RSA_YES) {
@@ -2793,7 +2807,7 @@ static void replay_save_pending(bool prompt)
 				((answer == RSA_CANCEL) && replay_save_quit_confirm())
 			) {
 				replay_file_delete_commit(REPLAY_FALLBACK_FN);
-				replay_menu_screen_init();
+				replay_menu_screen_init(false);
 				return;
 			}
 		}
@@ -2802,18 +2816,18 @@ static void replay_save_pending(bool prompt)
 		replay_user_menu_header.name[i] = ' ';
 	}
 	replay_save_date_set();
-	if(!replay_name_menu(name_len)) {
+	if(!replay_name_menu(name_len, !prompt)) {
 		replay_file_delete_commit(REPLAY_FALLBACK_FN);
-		replay_menu_screen_init();
+		replay_menu_screen_init(false);
 		return;
 	}
 	if(!replay_pending_header_write()) {
-		replay_menu_screen_init();
+		replay_menu_screen_init(false);
 		return;
 	}
 	if(!replay_save_slot_menu()) {
 		replay_file_delete_commit(REPLAY_FALLBACK_FN);
-		replay_menu_screen_init();
+		replay_menu_screen_init(false);
 	}
 }
 
@@ -2827,7 +2841,8 @@ bool near replay_menu(void)
 		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
 	}
 
-	replay_menu_screen_init();
+	replay_menu_screen_init(true);
+	palette_black_in(1);
 	replay_menu_render(sel, top);
 
 	while(1) {
@@ -2902,6 +2917,7 @@ char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
 
 char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
 char LABEL_MUSIC[] = { g_str_4(gp_Music), '\0' };
+char LABEL_AUTOFIRE[] = { g_str_7(gp_Autofire), '\0' };
 char LABEL_KEYCONFIG[] = { g_str_6(gp_KeyConfig), '\0' };
 
 // ZUN bloat: Unused, but looks like a gaiji version of the space string below.
@@ -2916,7 +2932,6 @@ char VALUE_LUNATIC[] = { g_str_4(gp_Lunatic), '\0' };
 
 char VALUE_OFF[8] = { g_SP, g_SP, g_str_2(gp_off), g_SP, g_SP, g_SP };
 char VALUE_FM[8] = { g_SP, g_str_4(gp_FM_86_), g_SP, g_SP };
-char VALUE_MIDI[8] = { g_str_7(gp_MIDI__SC_88_) };
 
 // The initial names for the three input modes? Unused in the final game.
 char VALUE_TYPE_1[] = { g_str_3(gp_Type), gp_1, '\0' };
@@ -3038,11 +3053,24 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_OFF, atrb);
 			break;
 		case SND_BGM_FM:
+		case SND_BGM_MIDI:
 			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_FM, atrb);
 			break;
-		case SND_BGM_MIDI:
-			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_MIDI, atrb);
-			break;
+		}
+	} else if(sel == OC_AUTOFIRE) {
+		choice_put_centered(
+			LABEL_CENTER_X, 3, 0, LABEL_AUTOFIRE, atrb
+		);
+		if(resident->autofire) {
+			gaiji_putsa(
+				((VALUE_CENTER_X - GAIJI_W) / GLYPH_HALF_W),
+				choice_tram_y(3), &COMMAND_OPTION[2], atrb
+			);
+		} else {
+			gaiji_putsa(
+				((VALUE_CENTER_X - GAIJI_W) / GLYPH_HALF_W),
+				choice_tram_y(3), &VALUE_OFF[2], atrb
+			);
 		}
 	} else if(sel == OC_KEY_MODE) {
 		choice_put_centered(LABEL_CENTER_X, 4, -1, LABEL_KEYCONFIG, atrb);
@@ -3229,6 +3257,9 @@ void near option_update_and_render(void)
 		case OC_BGM:
 			snd_flip();
 			break;
+		case OC_AUTOFIRE:
+			resident->autofire = !resident->autofire;
+			break;
 		case OC_KEY_MODE:
 			ring_inc_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
@@ -3242,6 +3273,9 @@ void near option_update_and_render(void)
 			break;
 		case OC_BGM:
 			snd_flip();
+			break;
+		case OC_AUTOFIRE:
+			resident->autofire = !resident->autofire;
 			break;
 		case OC_KEY_MODE:
 			ring_dec_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
@@ -3384,6 +3418,10 @@ void main(void)
 	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
 	__emit__(
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
