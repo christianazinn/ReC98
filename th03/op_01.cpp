@@ -68,6 +68,7 @@ enum gaiji_th03_mikoft_t {
 	gp_Replay,
 	gp_Replay_last = ((gp_Replay + 4) - 1),
 	gp_Replay_y_right = 0x7F,
+	gp_on_clean_left = 0x87,
 	gp_Option = 0x3D,
 	gp_Option_last = ((gp_Option + 4) - 1),
 	gp_on = 0x3F,
@@ -2934,7 +2935,9 @@ char VALUE_OFF[8] = { g_SP, g_SP, g_str_2(gp_off), g_SP, g_SP, g_SP };
 char VALUE_FM[8] = { g_SP, g_str_4(gp_FM_86_), g_SP, g_SP };
 
 // The initial names for the three input modes? Unused in the final game.
-char VALUE_TYPE_1[] = { g_str_3(gp_Type), gp_1, '\0' };
+// Replay mod: Reuses the five-byte VALUE_TYPE_1 slot to keep the original
+// data layout. Cell 87h is cell 3Fh without Option's stray i column.
+char VALUE_ON[5] = { gp_on_clean_left, gp_on_last, '\0' };
 char VALUE_TYPE_2[] = { g_str_3(gp_Type), gp_2, '\0' };
 char VALUE_TYPE_3[] = { g_str_3(gp_Type), gp_3, '\0' };
 
@@ -3025,25 +3028,25 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 	};
 
 	if(sel == OC_RANK) {
-		choice_put_centered(LABEL_CENTER_X, 0, 0, LABEL_RANK, atrb);
+		choice_put_centered(LABEL_CENTER_X, 1, 0, LABEL_RANK, atrb);
 		text_putsa(
 			(VALUE_TRAM_LEFT + 2), // This is bloat anyway, who cares
-			choice_tram_y(0),
+			choice_tram_y(1),
 			"        ",
 			TX_WHITE
 		);
 		switch(resident->rank) {
 		case RANK_EASY:
-			choice_put_centered(VALUE_CENTER_X, 0, 1, VALUE_EASY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 1, 1, VALUE_EASY, atrb);
 			break;
 		case RANK_NORMAL:
-			choice_put_centered(VALUE_CENTER_X, 0, 1, VALUE_NORMAL, atrb);
+			choice_put_centered(VALUE_CENTER_X, 1, 1, VALUE_NORMAL, atrb);
 			break;
 		case RANK_HARD:
-			choice_put_centered(VALUE_CENTER_X, 0, 1, VALUE_HARD, atrb);
+			choice_put_centered(VALUE_CENTER_X, 1, 1, VALUE_HARD, atrb);
 			break;
 		case RANK_LUNATIC:
-			choice_put_centered(VALUE_CENTER_X, 0, 1, VALUE_LUNATIC, atrb);
+			choice_put_centered(VALUE_CENTER_X, 1, 1, VALUE_LUNATIC, atrb);
 			break;
 		}
 	} else if(sel == OC_BGM) {
@@ -3064,7 +3067,7 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 		if(resident->autofire) {
 			gaiji_putsa(
 				((VALUE_CENTER_X - GAIJI_W) / GLYPH_HALF_W),
-				choice_tram_y(3), &COMMAND_OPTION[2], atrb
+				choice_tram_y(3), VALUE_ON, atrb
 			);
 		} else {
 			gaiji_putsa(
