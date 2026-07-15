@@ -181,7 +181,7 @@ static void replay_autofire_apply_player(
 		*input |= INPUT_SHOT;
 		return;
 	}
-	if((*input & INPUT_SHOT) && (byte_220FC[pid] <= 2)) {
+	if((*input & INPUT_SHOT) && (byte_220FC[pid] <= 3)) {
 		*input &= ~INPUT_SHOT;
 	}
 }
@@ -2409,9 +2409,6 @@ void far replay_frame_io(void)
 			return;
 		}
 		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
-		if(ok) {
-			replay_autofire_apply();
-		}
 	} else if(replay_mode == REPLAY_PLAYBACK) {
 		if(replay_sample_count >= replay_header.sample_count) {
 			replay_split_row(RSE_INPUT_END, replay_last_route);
@@ -2989,3 +2986,5 @@ void far replay_finish(uint8_t route)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
