@@ -138,7 +138,7 @@ struct replay_user_header_t {
 		T3_REPLAY_USER_STAGE_COUNT
 	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
-	uint8_t reserved_metadata;
+	uint8_t autofire;
 	uint16_t dos_date;
 	char name[T3_REPLAY_USER_NAME_LEN];
 };
@@ -179,7 +179,8 @@ struct replay_user_snapshot_t {
 	uint8_t randring_p;
 	uint8_t formation_p[T3_REPLAY_USER_PLAYER_COUNT];
 	uint8_t cpu_charge_at_avail_ring_p[T3_REPLAY_USER_PLAYER_COUNT];
-	uint8_t reserved[2];
+	uint8_t autofire;
+	uint8_t reserved[1];
 	uint8_t randring[T3_REPLAY_USER_RANDRING_SIZE];
 	uint8_t formation_type_ring[T3_REPLAY_USER_FORMATION_RING_SIZE];
 	uint8_t formation_pos_type_ring[T3_REPLAY_USER_FORMATION_RING_SIZE];
@@ -235,7 +236,8 @@ struct replay_user_index_entry_t {
 	uint32_t final_frame_count;
 	char name[T3_REPLAY_USER_NAME_LEN];
 	uint16_t dos_date;
-	uint8_t reserved_metadata[6];
+	uint8_t autofire;
+	uint8_t reserved_metadata[5];
 	uint16_t summary_flags;
 	uint8_t final_route;
 	uint8_t final_story_stage;

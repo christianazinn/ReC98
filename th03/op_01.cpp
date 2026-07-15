@@ -419,6 +419,8 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
+		((header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0) &&
+		(header.autofire <= true) &&
 		(header.header_size == (
 			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
 		)) &&
@@ -492,6 +494,10 @@ static bool replay_user_read_for_menu(const char *fn)
 			sizeof(replay_user_menu_snapshot)
 		) != sizeof(replay_user_menu_snapshot)
 	) {
+		file_close();
+		return false;
+	}
+	if(replay_user_menu_snapshot.autofire != replay_user_menu_header.autofire) {
 		file_close();
 		return false;
 	}
@@ -604,6 +610,7 @@ static void replay_user_index_entry_fill(
 		entry.name[i] = replay_user_menu_header.name[i];
 	}
 	entry.dos_date = replay_user_menu_header.dos_date;
+	entry.autofire = replay_user_menu_header.autofire;
 	entry.summary_flags = replay_user_menu_header.summary_flags;
 	entry.final_route = replay_user_menu_header.final_route;
 	entry.final_story_stage = replay_user_menu_header.final_story_stage;
@@ -1450,6 +1457,29 @@ static const char *replay_game_mode_name(uint8_t game_mode)
 	}
 }
 
+static char *replay_line_append_autofire(char *p)
+{
+	*p++ = 'A';
+	*p++ = 'u';
+	*p++ = 't';
+	*p++ = 'o';
+	*p++ = 'f';
+	*p++ = 'i';
+	*p++ = 'r';
+	*p++ = 'e';
+	*p++ = ':';
+	*p++ = ' ';
+	if(replay_user_menu_header.autofire) {
+		*p++ = 'O';
+		*p++ = 'n';
+	} else {
+		*p++ = 'O';
+		*p++ = 'f';
+		*p++ = 'f';
+	}
+	return p;
+}
+
 static uint8_t replay_playchar_id(uint8_t paletted)
 {
 	if(paletted == 0) {
@@ -1687,6 +1717,10 @@ static void replay_menu_detail_put_vs(void)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
 	p = replay_menu_line;
+	p = replay_line_append_autofire(p);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
+
+	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "P1: ");
 	p = replay_line_append_cstr(
 		p, replay_playchar_name(replay_user_menu_header.playchar_p1)
@@ -1761,6 +1795,10 @@ static void replay_menu_detail_put_story(void)
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Start: S");
 	p = replay_line_append_stage(p, replay_user_menu_header.story_stage);
+	*p++ = ' ';
+	*p++ = ' ';
+	*p++ = ' ';
+	p = replay_line_append_autofire(p);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
 
 	p = replay_menu_line;
@@ -3421,6 +3459,8 @@ void main(void)
 	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
 	__emit__(
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,

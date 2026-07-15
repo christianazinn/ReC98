@@ -4,6 +4,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
@@ -19,6 +20,10 @@
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
 #include "th03/snd/snd.h"
+
+// Keep previous Shift state in the otherwise unused high bit of the RLE phase.
+#define REPLAY_RLE_PHASE_MASK 0x7F
+#define REPLAY_RLE_SHIFT_MASK 0x80
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -132,6 +137,7 @@ static uint8_t replay_sum_stage_scores[
 ][T3_REPLAY_USER_PACKED_SCORE_SIZE];
 
 extern "C" unsigned char score[];
+extern "C" unsigned char byte_220FC[PLAYER_COUNT];
 extern uint8_t byte_23B00;
 extern uint8_t randring_p;
 extern uint8_t formation_p[PLAYER_COUNT];
@@ -155,6 +161,54 @@ static void replay_memclear(void far *buf, unsigned size)
 		*p++ = 0;
 		size--;
 	}
+}
+
+static void replay_input_shift_sense(void)
+{
+	resident->input_shift = (
+		(peekb(0, KEYGROUP_14) & K14_SHIFT) != 0
+	);
+}
+
+static void replay_autofire_apply_player(
+	input_t near *input, uint8_t pid, bool charge
+)
+{
+	if(resident->is_cpu[pid]) {
+		return;
+	}
+	if(charge) {
+		*input |= INPUT_SHOT;
+		return;
+	}
+	if((*input & INPUT_SHOT) && (byte_220FC[pid] <= 2)) {
+		*input &= ~INPUT_SHOT;
+	}
+}
+
+static void replay_autofire_apply(void)
+{
+	bool charge_p1 = false;
+	bool charge_p2 = false;
+
+	if(!resident->autofire) {
+		return;
+	}
+	if(resident->input_shift) {
+		if(
+			resident->is_cpu[0] ||
+			(
+				!resident->is_cpu[1] &&
+				(resident->key_mode == KM_JOY_KEY)
+			)
+		) {
+			charge_p2 = true;
+		} else {
+			charge_p1 = true;
+		}
+	}
+	replay_autofire_apply_player(&input_mp_p1, 0, charge_p1);
+	replay_autofire_apply_player(&input_mp_p2, 1, charge_p2);
 }
 
 static bool replay_char_ieq(char a, char b)
@@ -803,6 +857,7 @@ static void replay_user_index_entry_fill(
 		replay_user_index_entry.name[i] = replay_user_header.name[i];
 	}
 	replay_user_index_entry.dos_date = replay_user_header.dos_date;
+	replay_user_index_entry.autofire = replay_user_header.autofire;
 	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
 	replay_user_index_entry.final_route = replay_user_header.final_route;
 	replay_user_index_entry.final_story_stage = (
@@ -1129,6 +1184,7 @@ static void replay_user_snapshot_fill(void)
 	replay_user_snapshot.pid_winner = resident->pid_winner;
 	replay_user_snapshot.show_score_menu = resident->show_score_menu;
 	replay_user_snapshot.op_animation_fast = resident->op_animation_fast;
+	replay_user_snapshot.autofire = resident->autofire;
 
 	for(i = 0; i < PLAYER_COUNT; i++) {
 		replay_user_snapshot.is_cpu[i] = resident->is_cpu[i];
@@ -1228,6 +1284,7 @@ static void replay_user_header_fill(
 		static_cast<uint32_t>(sizeof(replay_user_snapshot))
 	);
 	replay_user_header.input_size = replay_input_byte_count;
+	replay_user_header.autofire = replay_user_snapshot.autofire;
 	replay_user_summary_copy_to_header();
 }
 
@@ -1285,7 +1342,8 @@ static bool replay_user_header_is_rle(void)
 		(replay_user_header.magic[6] == '5') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0)
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0)
 	);
 }
 
@@ -1304,6 +1362,7 @@ static bool replay_user_header_valid(void)
 		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
 		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot)) &&
+		(replay_user_header.autofire <= true) &&
 		(replay_user_header.input_offset == (
 			static_cast<uint32_t>(replay_user_header.header_size) +
 			static_cast<uint32_t>(sizeof(replay_user_snapshot))
@@ -1353,6 +1412,10 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
+	if(replay_user_snapshot.autofire != replay_user_header.autofire) {
+		file_close();
+		return false;
+	}
 	file_close();
 	replay_user_summary_load_from_header();
 	return true;
@@ -1394,6 +1457,7 @@ static void replay_user_snapshot_restore_resident(void)
 	resident->pid_winner = replay_user_snapshot.pid_winner;
 	resident->show_score_menu = replay_user_snapshot.show_score_menu;
 	resident->op_animation_fast = replay_user_snapshot.op_animation_fast;
+	resident->autofire = replay_user_snapshot.autofire;
 
 	for(i = 0; i < PLAYER_COUNT; i++) {
 		resident->is_cpu[i] = replay_user_snapshot.is_cpu[i];
@@ -1604,6 +1668,10 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 	uint16_t input_p1 = input_mp_p1;
 	uint16_t input_p2 = input_mp_p2;
 	uint16_t input_single = input_sp;
+	uint8_t input_shift = resident->input_shift;
+	uint8_t previous_shift = (
+		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	);
 	uint8_t change = 0;
 	uint8_t tag;
 	uint32_t offset;
@@ -1615,10 +1683,11 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 
 	if(
 		replay_rle_packet_open &&
-		(replay_rle_phase == phase) &&
+		((replay_rle_phase & REPLAY_RLE_PHASE_MASK) == phase) &&
 		(replay_rle_input_mp_p1 == input_p1) &&
 		(replay_rle_input_mp_p2 == input_p2) &&
 		(replay_rle_input_sp == input_single) &&
+		(previous_shift == input_shift) &&
 		(replay_rle_run < T3_REPLAY_PACKET_RUN_MAX)
 	) {
 		tag = replay_user_rle_tag(phase, replay_rle_run + 1);
@@ -1649,6 +1718,9 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 	}
 	if(input_single != replay_rle_input_sp) {
 		change |= T3_REPLAY_PACKET_CHANGE_SP;
+	}
+	if(input_shift != previous_shift) {
+		change |= T3_REPLAY_PACKET_CHANGE_SHIFT;
 	}
 
 	offset = (replay_user_header.input_offset + replay_input_byte_count);
@@ -1695,11 +1767,21 @@ static bool replay_user_record_rle_sample(uint8_t phase)
 		}
 		new_input_byte_count += sizeof(input_single);
 	}
+	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
+		if(!replay_write_bytes_checked(&input_shift, sizeof(input_shift))) {
+			file_close();
+			replay_protect_detector_error_set();
+			return true;
+		}
+		new_input_byte_count += sizeof(input_shift);
+	}
 	file_close();
 
 	replay_input_byte_count = new_input_byte_count;
 	replay_packet_tag_offset = offset;
-	replay_rle_phase = phase;
+	replay_rle_phase = static_cast<uint8_t>(
+		phase | (input_shift ? REPLAY_RLE_SHIFT_MASK : 0)
+	);
 	replay_rle_run = 1;
 	replay_rle_input_mp_p1 = input_p1;
 	replay_rle_input_mp_p2 = input_p2;
@@ -1777,7 +1859,10 @@ static bool replay_user_read_rle_packet(void)
 {
 	uint8_t tag;
 	uint8_t change;
-	uint8_t shift_input;
+	uint8_t phase;
+	uint8_t shift_input = (
+		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	);
 	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
 
 	if((replay_input_byte_count + 2) > replay_user_header.input_size) {
@@ -1795,13 +1880,14 @@ static bool replay_user_read_rle_packet(void)
 		return false;
 	}
 	replay_input_byte_count += 2;
+	phase = static_cast<uint8_t>(tag >> T3_REPLAY_PACKET_PHASE_SHIFT);
 	replay_rle_phase = static_cast<uint8_t>(
-		tag >> T3_REPLAY_PACKET_PHASE_SHIFT
+		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) | phase
 	);
 	replay_rle_run = static_cast<uint8_t>(
 		(tag & T3_REPLAY_PACKET_RUN_MASK) + 1
 	);
-	if(replay_rle_phase > T3_REPLAY_PACKET_PHASE_INTERSTITIAL) {
+	if(phase > T3_REPLAY_PACKET_PHASE_INTERSTITIAL) {
 		file_close();
 		return false;
 	}
@@ -1866,12 +1952,23 @@ static bool replay_user_read_rle_packet(void)
 			file_close();
 			return false;
 		}
-		if(file_read(&shift_input, sizeof(shift_input)) != sizeof(shift_input)) {
+		if(
+			file_read(
+				&shift_input, sizeof(shift_input)
+			) != sizeof(shift_input)
+		) {
 			file_close();
 			return false;
 		}
 		replay_input_byte_count += sizeof(shift_input);
 	}
+	if(shift_input > true) {
+		file_close();
+		return false;
+	}
+	replay_rle_phase = static_cast<uint8_t>(
+		phase | (shift_input ? REPLAY_RLE_SHIFT_MASK : 0)
+	);
 	if(change & ~(
 		T3_REPLAY_PACKET_CHANGE_P1 |
 		T3_REPLAY_PACKET_CHANGE_P2 |
@@ -1895,12 +1992,15 @@ static bool replay_user_play_rle_sample(uint8_t phase)
 			return false;
 		}
 	}
-	if(replay_rle_phase != phase) {
+	if((replay_rle_phase & REPLAY_RLE_PHASE_MASK) != phase) {
 		return false;
 	}
 	input_mp_p1 = replay_rle_input_mp_p1;
 	input_mp_p2 = replay_rle_input_mp_p2;
 	input_sp = replay_rle_input_sp;
+	resident->input_shift = (
+		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	);
 	replay_rle_run--;
 	replay_sample_count++;
 	return true;
@@ -2198,6 +2298,7 @@ void far replay_session_start(void)
 	replay_rle_input_mp_p1 = 0;
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
+	resident->input_shift = false;
 	replay_done_written = false;
 	replay_user_slot_fn_set(T3_REPLAY_USER_SLOT_NONE);
 	replay_prompt_skip_queued = false;
@@ -2281,12 +2382,18 @@ void far replay_frame_io(void)
 	bool ok = true;
 
 	if(replay_mode == REPLAY_DISABLED) {
+		replay_input_shift_sense();
+		replay_autofire_apply();
 		return;
 	}
 
 	if(replay_mode == REPLAY_RECORD) {
+		replay_input_shift_sense();
+		replay_autofire_apply();
 		ok = replay_record_sample();
 	} else if(replay_mode == REPLAY_USER_RECORD) {
+		replay_input_shift_sense();
+		replay_autofire_apply();
 		ok = replay_user_record_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		if(replay_user_playback_cancel()) {
@@ -2302,6 +2409,9 @@ void far replay_frame_io(void)
 			return;
 		}
 		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
+		if(ok) {
+			replay_autofire_apply();
+		}
 	} else if(replay_mode == REPLAY_PLAYBACK) {
 		if(replay_sample_count >= replay_header.sample_count) {
 			replay_split_row(RSE_INPUT_END, replay_last_route);
@@ -2351,6 +2461,7 @@ void far replay_input_sense_held(void)
 		);
 	} else {
 		input_reset_sense_key_held();
+		replay_input_shift_sense();
 		if(replay_mode == REPLAY_USER_RECORD) {
 			ok = replay_user_record_logical_sample(
 				T3_REPLAY_PACKET_PHASE_INTERSTITIAL
@@ -2877,4 +2988,4 @@ void far replay_finish(uint8_t route)
 // Keep the following C runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"

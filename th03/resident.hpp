@@ -52,7 +52,7 @@ struct resident_t {
 	score_lebcd_t score_last[PLAYER_COUNT];
 	unsigned char game_mode;
 	PlaycharPalettedOptional story_opponents[STAGE_COUNT];
-	int8_t unused_2;
+	bool input_shift;
 	unsigned char story_stage;
 	unsigned char story_lives;
 	bool show_score_menu;
