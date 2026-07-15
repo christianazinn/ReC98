@@ -859,13 +859,13 @@ void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 	};
 	if(sel == VS_1P_CPU) {
 		static const char STR[] = g_str_vs(gp_1P_vs, gp__CPU);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(1), STR, atrb);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(2), STR, atrb);
 	} else if(sel == VS_1P_2P) {
 		static const char STR[] = g_str_vs(gp_1P_vs, gp__2P);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(2), STR, atrb);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(3), STR, atrb);
 	} else /* if (sel == VS_CPU_CPU) */ {
 		static const char STR[] = g_str_vs(gp_CPU_vs, gp__CPU);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(3), STR, atrb);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(4), STR, atrb);
 	}
 }
 
@@ -905,9 +905,9 @@ static bool near vs_start(bool select_characters)
 				if((input_sp & INPUT_SHOT) || (input_sp & INPUT_OK)) {
 					break;
 				}
-				// ZUN bug: Should have added a INPUT_CANCEL branch to allow
-				// players to quit back to the main menu once they entered this
-				// one.
+				if(input_sp & INPUT_CANCEL) {
+					return false;
+				}
 			}
 			input_prev = input_sp;
 			frame_delay(1);
@@ -1066,7 +1066,6 @@ enum {
 	REPLAY_MENU_LIST_W = 31,
 	REPLAY_MENU_DETAIL_LEFT = 40,
 	REPLAY_MENU_DETAIL_W = 40,
-	REPLAY_MENU_TITLE_Y = 1,
 	REPLAY_MENU_HEAD_Y = 4,
 	REPLAY_MENU_LIST_Y = 5,
 	REPLAY_MENU_DETAIL_Y = 4,
@@ -1086,37 +1085,40 @@ enum {
 	REPLAY_REGI_DASH_TOP = 13,
 	REPLAY_REGI_DASH_BOTTOM = 18,
 
+	REPLAY_NAME_ROW_LEFT = 64,
+	REPLAY_NAME_ROW_RIGHT = 576,
+	REPLAY_NAME_ROW_W = (REPLAY_NAME_ROW_RIGHT - REPLAY_NAME_ROW_LEFT),
+
 	REPLAY_NAME_LINE1_TOP = 64,
-	REPLAY_NAME_RANK_LEFT = 128,
-	REPLAY_NAME_PLAYCHAR_LEFT = 192,
-	REPLAY_NAME_PLAYCHAR_TOP = (
-		REPLAY_NAME_LINE1_TOP +
-		((REPLAY_REGI_GLYPH_H - GLYPH_H) / 2)
-	),
-	REPLAY_NAME_PLAYCHAR_W = (6 * GLYPH_FULL_W),
 	REPLAY_NAME_GLYPH_SPACING = 24,
-	REPLAY_NAME_GLYPH_LEFT = 320,
-	REPLAY_NAME_GLYPH_W = (
-		((T3_REPLAY_USER_NAME_LEN - 1) * REPLAY_NAME_GLYPH_SPACING) +
+	REPLAY_NAME_GLYPH_LEFT = REPLAY_NAME_ROW_LEFT,
+	REPLAY_NAME_SCORE_SPACING = 16,
+	REPLAY_NAME_SCORE_W = (
+		((T3_REPLAY_USER_SCORE_DISPLAY_DIGITS - 1) *
+		 REPLAY_NAME_SCORE_SPACING) +
 		REPLAY_REGI_GLYPH_W
 	),
-	REPLAY_NAME_LINE1_CLEAR_W = (
-		(
-			(
-				(REPLAY_NAME_GLYPH_LEFT + REPLAY_NAME_GLYPH_W) -
-				REPLAY_NAME_RANK_LEFT
-			) + 15
-		) & ~15
+	REPLAY_NAME_SCORE_LEFT = (
+		REPLAY_NAME_ROW_RIGHT - REPLAY_NAME_SCORE_W
 	),
 
 	REPLAY_NAME_LINE2_TOP = 144,
-	REPLAY_NAME_SCORE_LEFT = 72,
-	REPLAY_NAME_SCORE_SPACING = 16,
-	REPLAY_NAME_STAGE_LEFT = 288,
-	REPLAY_NAME_DATE_LEFT = 360,
+	REPLAY_NAME_DATE_LEFT = REPLAY_NAME_ROW_LEFT,
 	REPLAY_NAME_DATE_SPACING = 20,
-	REPLAY_NAME_LINE2_CLEAR_LEFT = 64,
-	REPLAY_NAME_LINE2_CLEAR_W = 512,
+	REPLAY_NAME_STAGE_LEFT = (
+		REPLAY_NAME_ROW_RIGHT - REPLAY_REGI_GLYPH_W
+	),
+	REPLAY_NAME_PLAYCHAR_W = (6 * GLYPH_FULL_W),
+	REPLAY_NAME_PLAYCHAR_LEFT = (
+		REPLAY_NAME_STAGE_LEFT - 16 - REPLAY_NAME_PLAYCHAR_W
+	),
+	REPLAY_NAME_PLAYCHAR_TOP = (
+		REPLAY_NAME_LINE2_TOP +
+		((REPLAY_REGI_GLYPH_H - GLYPH_H) / 2)
+	),
+	REPLAY_NAME_RANK_LEFT = (
+		REPLAY_NAME_PLAYCHAR_LEFT - 16 - REPLAY_REGI_GLYPH_W
+	),
 
 	REPLAY_SAVE_DIALOG_LEFT = 26,
 	REPLAY_SAVE_DIALOG_TOP = 10,
@@ -1133,7 +1135,7 @@ static char replay_menu_line[81];
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
 static const char REPLAY_BG_PI[] = "slb1.pi";
-static char REPLAY_MENU_DATA_PAD[4] = { 1 };
+static char REPLAY_MENU_DATA_PAD[19] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1850,7 +1852,6 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	uint8_t slot;
 	unsigned int line;
 
-	text_putsa(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_TITLE_Y, "Replay Browser", TX_GREEN);
 	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
@@ -1967,6 +1968,7 @@ static bool replay_save_to_slot(uint8_t slot, bool occupied)
 	if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
 		return false;
 	}
+	replay_dir_create();
 	replay_user_slot_fn_set(slot);
 	replay_backup_fn_set(backup_fn);
 	if(occupied) {
@@ -2233,6 +2235,23 @@ static void replay_name_regi_patterns_patch(void)
 			blue[i] |= fill;
 			green[i] |= fill;
 		}
+
+		pattern = reinterpret_cast<uint8_t far *>(MK_FP(
+			super_patdata[patnum + REGI_COUNT], 0
+		));
+		blue = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_BLUE));
+		red = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_RED));
+		green = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_GREEN));
+		intensity = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_INTEN));
+		for(i = 0; i < REPLAY_REGI_PLANE_SIZE; i++) {
+			fill = static_cast<uint8_t>(
+				blue[i] & red[i] & green[i] & intensity[i]
+			);
+			blue[i] &= ~fill;
+			red[i] &= ~fill;
+			green[i] &= ~fill;
+			intensity[i] &= ~fill;
+		}
 	}
 
 	pattern = reinterpret_cast<uint8_t far *>(MK_FP(
@@ -2285,12 +2304,12 @@ static void replay_name_summary_row_unput(
 static void replay_name_summary_unput(void)
 {
 	replay_name_summary_row_unput(
-		REPLAY_NAME_RANK_LEFT, REPLAY_NAME_LINE1_TOP,
-		REPLAY_NAME_LINE1_CLEAR_W
+		REPLAY_NAME_ROW_LEFT, REPLAY_NAME_LINE1_TOP,
+		REPLAY_NAME_ROW_W
 	);
 	replay_name_summary_row_unput(
-		REPLAY_NAME_LINE2_CLEAR_LEFT, REPLAY_NAME_LINE2_TOP,
-		REPLAY_NAME_LINE2_CLEAR_W
+		REPLAY_NAME_ROW_LEFT, REPLAY_NAME_LINE2_TOP,
+		REPLAY_NAME_ROW_W
 	);
 }
 
@@ -2398,13 +2417,6 @@ static void replay_name_summary_put(void)
 
 	replay_name_summary_unput();
 
-	replay_menu_line[0] = replay_rank_initial(replay_user_menu_header.rank);
-	replay_name_glyphs_put(
-		REPLAY_NAME_RANK_LEFT, REPLAY_NAME_LINE1_TOP,
-		replay_menu_line, 1, REPLAY_NAME_GLYPH_SPACING
-	);
-
-	replay_name_playchar_put();
 	replay_name_glyphs_put(
 		REPLAY_NAME_GLYPH_LEFT, REPLAY_NAME_LINE1_TOP,
 		replay_user_menu_header.name, T3_REPLAY_USER_NAME_LEN,
@@ -2418,17 +2430,9 @@ static void replay_name_summary_put(void)
 		p = replay_line_append_unknown_score(p);
 	}
 	replay_name_glyphs_put(
-		REPLAY_NAME_SCORE_LEFT, REPLAY_NAME_LINE2_TOP,
+		REPLAY_NAME_SCORE_LEFT, REPLAY_NAME_LINE1_TOP,
 		replay_menu_line, (p - replay_menu_line),
 		REPLAY_NAME_SCORE_SPACING
-	);
-
-	p = replay_menu_line;
-	p = replay_line_append_final_stage_mark(p);
-	replay_name_glyphs_put(
-		REPLAY_NAME_STAGE_LEFT, REPLAY_NAME_LINE2_TOP,
-		replay_menu_line, (p - replay_menu_line),
-		REPLAY_NAME_GLYPH_SPACING
 	);
 
 	p = replay_menu_line;
@@ -2438,6 +2442,23 @@ static void replay_name_summary_put(void)
 		replay_menu_line, (p - replay_menu_line),
 		REPLAY_NAME_DATE_SPACING
 	);
+
+	replay_menu_line[0] = replay_rank_initial(replay_user_menu_header.rank);
+	replay_name_glyphs_put(
+		REPLAY_NAME_RANK_LEFT, REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, 1, REPLAY_NAME_GLYPH_SPACING
+	);
+
+	replay_name_playchar_put();
+
+	p = replay_menu_line;
+	p = replay_line_append_final_stage_mark(p);
+	replay_name_glyphs_put(
+		REPLAY_NAME_STAGE_LEFT, REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, (p - replay_menu_line),
+		REPLAY_NAME_GLYPH_SPACING
+	);
+
 }
 
 static void replay_name_item_put(int regi, bool selected)
@@ -2978,7 +2999,7 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 			break;
 		}
 	} else if(sel == OC_QUIT) {
-		choice_put_centered(BOX_SUBMENU_CENTER_X, 5, 0, COMMAND_QUIT, atrb);
+		choice_put_centered(BOX_SUBMENU_CENTER_X, 6, 0, COMMAND_QUIT, atrb);
 	}
 }
 
@@ -3055,8 +3076,12 @@ void near main_update_and_render(void)
 		case MC_VS:
 			resident->playchar_paletted[0].set(PLAYCHAR_REIMU);
 			resident->playchar_paletted[1].set(PLAYCHAR_REIMU);
-			vs_menu();
-			return_from_other_screen_to_main(in_this_menu, input_allowed);
+			if(vs_menu()) {
+				return_from_other_screen_to_main(in_this_menu, input_allowed);
+			} else {
+				in_this_menu = false;
+				menu_sel = MC_VS;
+			}
 			return;
 		case MC_MUSICROOM:
 			/* TODO: Replace with the decompiled call
