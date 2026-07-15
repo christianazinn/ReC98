@@ -9,6 +9,8 @@
 #include "th01/rank.h"
 #include "th01/math/clamp.hpp"
 #include "th01/core/initexit.hpp"
+#include "th01/hardware/grppsafx.h"
+#include "th02/v_colors.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/formats/pi.h"
 #include "th02/gaiji/str.hpp"
@@ -443,27 +445,6 @@ static bool replay_user_index_header_valid(
 	);
 }
 
-static uint8_t replay_user_index_next_slot(void)
-{
-	if(!file_ropen(REPLAY_INDEX_FN)) {
-		return 0;
-	}
-	if(
-		file_read(
-			&replay_user_menu_index_header,
-			sizeof(replay_user_menu_index_header)
-		) != sizeof(replay_user_menu_index_header)
-	) {
-		file_close();
-		return 0;
-	}
-	file_close();
-	if(!replay_user_index_header_valid(replay_user_menu_index_header)) {
-		return 0;
-	}
-	return replay_user_menu_index_header.next_slot;
-}
-
 static bool replay_user_read_for_menu(const char *fn)
 {
 	if(!file_ropen(fn)) {
@@ -538,22 +519,6 @@ static uint8_t replay_user_first_used_slot(void)
 		}
 	}
 	return 0;
-}
-
-static uint8_t replay_user_record_slot_alloc(void)
-{
-	uint8_t start = replay_user_index_next_slot();
-	uint8_t slot;
-	uint8_t offset;
-
-	replay_dir_create();
-	for(offset = 0; offset < T3_REPLAY_USER_SLOT_COUNT; offset++) {
-		slot = ((start + offset) % T3_REPLAY_USER_SLOT_COUNT);
-		if(!replay_user_read_slot_for_menu(slot)) {
-			return slot;
-		}
-	}
-	return start;
 }
 
 static void replay_user_index_header_fill(uint8_t next_slot)
@@ -1106,36 +1071,52 @@ enum {
 	REPLAY_MENU_LIST_Y = 5,
 	REPLAY_MENU_DETAIL_Y = 4,
 	REPLAY_MENU_FOOT_Y = 23,
+	REPLAY_SAVE_COMPLETE_Y = 22,
 	REPLAY_MENU_VISIBLE = 10,
-
-	REPLAY_SAVE_TITLE_LEFT = 10,
-	REPLAY_SAVE_TITLE_Y = 3,
 
 	REPLAY_REGI_GLYPH_W = 32,
 	REPLAY_REGI_GLYPH_H = 32,
 	REPLAY_REGI_ROW_SPACING = 24,
 	REPLAY_REGI_GLYPHS_PER_ROW = 16,
 	REPLAY_REGI_GRID_LEFT = 64,
-	REPLAY_REGI_GRID_TOP = 288,
-
-	REPLAY_NAME_SUMMARY_LEFT = 15,
-	REPLAY_NAME_SUMMARY_Y = 4,
-	REPLAY_NAME_PREFIX_CELLS = 5,
-	REPLAY_NAME_GLYPH_SPACING = 24,
-	REPLAY_NAME_GLYPH_LEFT = (
-		(REPLAY_NAME_SUMMARY_LEFT + REPLAY_NAME_PREFIX_CELLS) * GLYPH_HALF_W
+	REPLAY_REGI_GRID_TOP = 256,
+	REPLAY_REGI_PLANE_SIZE = (
+		(REPLAY_REGI_GLYPH_W / 8) * REPLAY_REGI_GLYPH_H
 	),
-	REPLAY_NAME_GLYPH_TOP = (
-		(REPLAY_NAME_SUMMARY_Y * GLYPH_H) -
+	REPLAY_REGI_DASH_TOP = 13,
+	REPLAY_REGI_DASH_BOTTOM = 18,
+
+	REPLAY_NAME_LINE1_TOP = 64,
+	REPLAY_NAME_RANK_LEFT = 128,
+	REPLAY_NAME_PLAYCHAR_LEFT = 192,
+	REPLAY_NAME_PLAYCHAR_TOP = (
+		REPLAY_NAME_LINE1_TOP +
 		((REPLAY_REGI_GLYPH_H - GLYPH_H) / 2)
 	),
+	REPLAY_NAME_PLAYCHAR_W = (6 * GLYPH_FULL_W),
+	REPLAY_NAME_GLYPH_SPACING = 24,
+	REPLAY_NAME_GLYPH_LEFT = 320,
 	REPLAY_NAME_GLYPH_W = (
 		((T3_REPLAY_USER_NAME_LEN - 1) * REPLAY_NAME_GLYPH_SPACING) +
 		REPLAY_REGI_GLYPH_W
 	),
-	REPLAY_NAME_GLYPH_CLEAR_W = (
-		((REPLAY_NAME_GLYPH_W + 15) / 16) * 16
+	REPLAY_NAME_LINE1_CLEAR_W = (
+		(
+			(
+				(REPLAY_NAME_GLYPH_LEFT + REPLAY_NAME_GLYPH_W) -
+				REPLAY_NAME_RANK_LEFT
+			) + 15
+		) & ~15
 	),
+
+	REPLAY_NAME_LINE2_TOP = 144,
+	REPLAY_NAME_SCORE_LEFT = 72,
+	REPLAY_NAME_SCORE_SPACING = 16,
+	REPLAY_NAME_STAGE_LEFT = 288,
+	REPLAY_NAME_DATE_LEFT = 360,
+	REPLAY_NAME_DATE_SPACING = 20,
+	REPLAY_NAME_LINE2_CLEAR_LEFT = 64,
+	REPLAY_NAME_LINE2_CLEAR_W = 512,
 
 	REPLAY_SAVE_DIALOG_LEFT = 26,
 	REPLAY_SAVE_DIALOG_TOP = 10,
@@ -2202,6 +2183,9 @@ static char replay_name_ascii(int regi)
 
 static int replay_name_regi(char c)
 {
+	if((c >= 'a') && (c <= 'z')) {
+		c = static_cast<char>('A' + (c - 'a'));
+	}
 	if((c >= 'A') && (c <= 'M')) {
 		return (REGI_A + (c - 'A'));
 	}
@@ -2216,15 +2200,70 @@ static int replay_name_regi(char c)
 	case ',': return REGI_COMMA;
 	case '!': return REGI_EXCLAMATION;
 	case '?': return REGI_QUESTION;
+	case '-': return REGI_BLANK_1;
 	default:  return -1;
 	}
 }
 
-static void replay_name_glyphs_unput(void)
+static void replay_name_regi_patterns_patch(void)
 {
-	vram_offset_t row_p = vram_offset_shift(
-		REPLAY_NAME_GLYPH_LEFT, REPLAY_NAME_GLYPH_TOP
-	);
+	uint8_t far *pattern;
+	uint8_t far *mask;
+	uint8_t far *blue;
+	uint8_t far *red;
+	uint8_t far *green;
+	uint8_t far *intensity;
+	uint8_t fill;
+	int patnum;
+	int i;
+	int y;
+
+	for(patnum = 0; patnum < REGI_ALL; patnum++) {
+		pattern = reinterpret_cast<uint8_t far *>(MK_FP(
+			super_patdata[patnum], 0
+		));
+		blue = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_BLUE));
+		red = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_RED));
+		green = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_GREEN));
+		intensity = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_INTEN));
+		for(i = 0; i < REPLAY_REGI_PLANE_SIZE; i++) {
+			fill = static_cast<uint8_t>(
+				red[i] & intensity[i] & ~(blue[i] | green[i])
+			);
+			blue[i] |= fill;
+			green[i] |= fill;
+		}
+	}
+
+	pattern = reinterpret_cast<uint8_t far *>(MK_FP(
+		super_patdata[REGI_BLANK_1], 0
+	));
+	mask = pattern;
+	blue = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_BLUE));
+	red = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_RED));
+	green = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_GREEN));
+	intensity = (pattern + (REPLAY_REGI_PLANE_SIZE * PATTERN_INTEN));
+	for(y = REPLAY_REGI_DASH_TOP; y <= REPLAY_REGI_DASH_BOTTOM; y++) {
+		fill = (
+			((y == REPLAY_REGI_DASH_TOP) ||
+			 (y == REPLAY_REGI_DASH_BOTTOM)) ? 3 : 15
+		);
+		i = ((y * (REPLAY_REGI_GLYPH_W / 8)) + 1);
+		for(int x = 0; x < 2; x++, i++) {
+			mask[i] = 0xFF;
+			blue[i] = ((fill & 1) ? 0xFF : 0x00);
+			red[i] = ((fill & 2) ? 0xFF : 0x00);
+			green[i] = ((fill & 4) ? 0xFF : 0x00);
+			intensity[i] = ((fill & 8) ? 0xFF : 0x00);
+		}
+	}
+}
+
+static void replay_name_summary_row_unput(
+	screen_x_t left, screen_y_t top, pixel_t w
+)
+{
+	vram_offset_t row_p = vram_offset_shift(left, top);
 	pixel_t row;
 
 	for(row = 0; row < REPLAY_REGI_GLYPH_H; row++) {
@@ -2232,7 +2271,7 @@ static void replay_name_glyphs_unput(void)
 		int p;
 		for(
 			col = 0, p = row_p;
-			col < (REPLAY_NAME_GLYPH_CLEAR_W >> 4);
+			col < (w >> 4);
 			col++, p += 2
 		) {
 			Planar<dots16_t> p16;
@@ -2243,51 +2282,162 @@ static void replay_name_glyphs_unput(void)
 	}
 }
 
-static void replay_name_glyphs_put(void)
+static void replay_name_summary_unput(void)
 {
-	screen_x_t left = REPLAY_NAME_GLYPH_LEFT;
+	replay_name_summary_row_unput(
+		REPLAY_NAME_RANK_LEFT, REPLAY_NAME_LINE1_TOP,
+		REPLAY_NAME_LINE1_CLEAR_W
+	);
+	replay_name_summary_row_unput(
+		REPLAY_NAME_LINE2_CLEAR_LEFT, REPLAY_NAME_LINE2_TOP,
+		REPLAY_NAME_LINE2_CLEAR_W
+	);
+}
+
+static void replay_name_glyphs_put(
+	screen_x_t left, screen_y_t top, const char near *str,
+	unsigned int len, pixel_t spacing
+)
+{
 	int regi;
 
-	for(int i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
-		regi = replay_name_regi(replay_user_menu_header.name[i]);
+	for(unsigned int i = 0; i < len; i++) {
+		regi = replay_name_regi(str[i]);
 		if(regi >= 0) {
-			super_put(left, REPLAY_NAME_GLYPH_TOP, regi);
+			super_put(left, top, regi);
 		}
-		left += REPLAY_NAME_GLYPH_SPACING;
+		left += spacing;
 	}
+}
+
+static char *replay_line_append_shiftjis(
+	char *p, shiftjis_kanji_t codepoint
+)
+{
+	*p++ = static_cast<char>(codepoint >> 8);
+	*p++ = static_cast<char>(codepoint);
+	return p;
+}
+
+static void replay_name_playchar_put(void)
+{
+	char *p = replay_menu_line;
+	pixel_t text_w;
+
+	switch(replay_playchar_id(replay_user_menu_header.playchar_p1)) {
+	case PLAYCHAR_REIMU:
+		p = replay_line_append_shiftjis(p, 0xE8CB);
+		p = replay_line_append_shiftjis(p, 0x96B2);
+		text_w = (2 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_MIMA:
+		p = replay_line_append_shiftjis(p, 0x96A3);
+		p = replay_line_append_shiftjis(p, 0x9682);
+		text_w = (2 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_MARISA:
+		p = replay_line_append_shiftjis(p, 0x9682);
+		p = replay_line_append_shiftjis(p, 0x979D);
+		p = replay_line_append_shiftjis(p, 0x8DB9);
+		text_w = (3 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_ELLEN:
+		p = replay_line_append_shiftjis(p, 0x8347);
+		p = replay_line_append_shiftjis(p, 0x838C);
+		p = replay_line_append_shiftjis(p, 0x8393);
+		text_w = (3 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_KOTOHIME:
+		p = replay_line_append_shiftjis(p, 0x8FAC);
+		p = replay_line_append_shiftjis(p, 0x9365);
+		p = replay_line_append_shiftjis(p, 0x9550);
+		text_w = (3 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_KANA:
+		p = replay_line_append_shiftjis(p, 0x834A);
+		p = replay_line_append_shiftjis(p, 0x8369);
+		text_w = (2 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_RIKAKO:
+		p = replay_line_append_shiftjis(p, 0x979D);
+		p = replay_line_append_shiftjis(p, 0x8D81);
+		p = replay_line_append_shiftjis(p, 0x8E71);
+		text_w = (3 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_CHIYURI:
+		p = replay_line_append_shiftjis(p, 0x82BF);
+		p = replay_line_append_shiftjis(p, 0x82E4);
+		p = replay_line_append_shiftjis(p, 0x82E8);
+		text_w = (3 * GLYPH_FULL_W);
+		break;
+	case PLAYCHAR_YUMEMI:
+		p = replay_line_append_shiftjis(p, 0x96B2);
+		p = replay_line_append_shiftjis(p, 0x94FC);
+		text_w = (2 * GLYPH_FULL_W);
+		break;
+	default:
+		*p++ = '?';
+		text_w = GLYPH_HALF_W;
+		break;
+	}
+	*p = '\0';
+	graph_putsa_fx(
+		(
+			REPLAY_NAME_PLAYCHAR_LEFT +
+			((REPLAY_NAME_PLAYCHAR_W - text_w) / 2)
+		),
+		REPLAY_NAME_PLAYCHAR_TOP,
+		(V_WHITE | FX_WEIGHT_BOLD),
+		reinterpret_cast<const shiftjis_t *>(replay_menu_line)
+	);
 }
 
 static void replay_name_summary_put(void)
 {
 	char *p;
 
-	replay_name_glyphs_unput();
-	replay_menu_span_clear(0, REPLAY_NAME_SUMMARY_Y, text_width());
-	p = replay_menu_line;
-	*p++ = replay_rank_initial(replay_user_menu_header.rank);
-	*p++ = ' ';
-	p = replay_line_append_playchar_pair(
-		p, replay_user_menu_header.playchar_p1
+	replay_name_summary_unput();
+
+	replay_menu_line[0] = replay_rank_initial(replay_user_menu_header.rank);
+	replay_name_glyphs_put(
+		REPLAY_NAME_RANK_LEFT, REPLAY_NAME_LINE1_TOP,
+		replay_menu_line, 1, REPLAY_NAME_GLYPH_SPACING
 	);
-	*p++ = ' ';
-	for(int i = 0; i < (REPLAY_NAME_GLYPH_W / GLYPH_HALF_W); i++) {
-		*p++ = ' ';
-	}
-	*p++ = ' ';
+
+	replay_name_playchar_put();
+	replay_name_glyphs_put(
+		REPLAY_NAME_GLYPH_LEFT, REPLAY_NAME_LINE1_TOP,
+		replay_user_menu_header.name, T3_REPLAY_USER_NAME_LEN,
+		REPLAY_NAME_GLYPH_SPACING
+	);
+
+	p = replay_menu_line;
 	if(replay_menu_summary_valid()) {
 		p = replay_line_append_packed_score(p, replay_menu_list_score());
 	} else {
 		p = replay_line_append_unknown_score(p);
 	}
-	*p++ = ' ';
-	p = replay_line_append_final_stage_mark(p);
-	*p++ = ' ';
-	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
-	*p = '\0';
-	replay_menu_line_put(
-		REPLAY_NAME_SUMMARY_LEFT, REPLAY_NAME_SUMMARY_Y, TX_WHITE
+	replay_name_glyphs_put(
+		REPLAY_NAME_SCORE_LEFT, REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, (p - replay_menu_line),
+		REPLAY_NAME_SCORE_SPACING
 	);
-	replay_name_glyphs_put();
+
+	p = replay_menu_line;
+	p = replay_line_append_final_stage_mark(p);
+	replay_name_glyphs_put(
+		REPLAY_NAME_STAGE_LEFT, REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, (p - replay_menu_line),
+		REPLAY_NAME_GLYPH_SPACING
+	);
+
+	p = replay_menu_line;
+	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
+	replay_name_glyphs_put(
+		REPLAY_NAME_DATE_LEFT, REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, (p - replay_menu_line),
+		REPLAY_NAME_DATE_SPACING
+	);
 }
 
 static void replay_name_item_put(int regi, bool selected)
@@ -2326,17 +2476,11 @@ static void replay_name_grid_put(int selected)
 
 static void replay_name_screen_put(int selected)
 {
-	char *p;
-
 	replay_menu_resources_clear();
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
+	replay_name_regi_patterns_patch();
 	replay_menu_background_put();
-	p = replay_menu_line;
-	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
-	*p++ = 'y'; *p++ = ' '; *p++ = 'N'; *p++ = 'a'; *p++ = 'm';
-	*p++ = 'e'; *p = '\0';
-	replay_menu_line_put(34, 1, TX_GREEN);
 	replay_name_summary_put();
 	replay_name_grid_put(selected);
 }
@@ -2440,12 +2584,7 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 {
 	uint8_t slot;
 	unsigned int line;
-	char *p = replay_menu_line;
 
-	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
-	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
-	*p++ = 'y'; *p = '\0';
-	replay_menu_line_put(REPLAY_SAVE_TITLE_LEFT, REPLAY_SAVE_TITLE_Y, TX_GREEN);
 	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
@@ -2463,22 +2602,19 @@ static void replay_save_complete_wait(void)
 	*p++ = '.'; *p++ = ' '; *p++ = 'P'; *p++ = 'r'; *p++ = 'e';
 	*p++ = 's'; *p++ = 's'; *p++ = ' '; *p++ = 'a'; *p++ = ' ';
 	*p++ = 'k'; *p++ = 'e'; *p++ = 'y'; *p++ = '.'; *p = '\0';
-	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_FOOT_Y, TX_CYAN);
+	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_SAVE_COMPLETE_Y, TX_CYAN);
 	input_wait_for_change(0);
 	replay_menu_screen_init();
 }
 
 static bool replay_save_slot_menu(void)
 {
-	uint8_t sel = replay_user_record_slot_alloc();
-	uint8_t top = sel;
+	uint8_t sel = 0;
+	uint8_t top = 0;
 	bool occupied;
 	input_t input_prev;
 	replay_save_answer_t answer;
 
-	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
-		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
-	}
 	replay_menu_screen_init();
 	replay_save_slot_render(sel, top);
 	replay_save_input_release();
@@ -3166,7 +3302,7 @@ void main(void)
 	__emit__(
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
 	);
 	cfg_save_exit();
 
