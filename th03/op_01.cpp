@@ -1085,11 +1085,11 @@ enum {
 	REPLAY_REGI_DASH_TOP = 13,
 	REPLAY_REGI_DASH_BOTTOM = 18,
 
-	REPLAY_NAME_ROW_LEFT = 64,
-	REPLAY_NAME_ROW_RIGHT = 576,
+	REPLAY_NAME_ROW_LEFT = 80,
+	REPLAY_NAME_ROW_RIGHT = 560,
 	REPLAY_NAME_ROW_W = (REPLAY_NAME_ROW_RIGHT - REPLAY_NAME_ROW_LEFT),
 
-	REPLAY_NAME_LINE1_TOP = 64,
+	REPLAY_NAME_LINE1_TOP = 96,
 	REPLAY_NAME_GLYPH_SPACING = 24,
 	REPLAY_NAME_GLYPH_LEFT = REPLAY_NAME_ROW_LEFT,
 	REPLAY_NAME_SCORE_SPACING = 16,
@@ -1102,11 +1102,20 @@ enum {
 		REPLAY_NAME_ROW_RIGHT - REPLAY_NAME_SCORE_W
 	),
 
-	REPLAY_NAME_LINE2_TOP = 144,
+	REPLAY_NAME_LINE_GAP = 32,
+	REPLAY_NAME_LINE2_TOP = (
+		REPLAY_NAME_LINE1_TOP +
+		REPLAY_REGI_GLYPH_H +
+		REPLAY_NAME_LINE_GAP
+	),
 	REPLAY_NAME_DATE_LEFT = REPLAY_NAME_ROW_LEFT,
 	REPLAY_NAME_DATE_SPACING = 20,
+	REPLAY_NAME_STAGE_SPACING = 24,
+	REPLAY_NAME_STAGE_MAX_W = (
+		REPLAY_NAME_STAGE_SPACING + REPLAY_REGI_GLYPH_W
+	),
 	REPLAY_NAME_STAGE_LEFT = (
-		REPLAY_NAME_ROW_RIGHT - REPLAY_REGI_GLYPH_W
+		REPLAY_NAME_ROW_RIGHT - REPLAY_NAME_STAGE_MAX_W
 	),
 	REPLAY_NAME_PLAYCHAR_W = (6 * GLYPH_FULL_W),
 	REPLAY_NAME_PLAYCHAR_LEFT = (
@@ -1135,7 +1144,7 @@ static char replay_menu_line[81];
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
 static const char REPLAY_BG_PI[] = "slb1.pi";
-static char REPLAY_MENU_DATA_PAD[19] = { 1 };
+static char REPLAY_MENU_DATA_PAD[16] = { 1 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
 {
@@ -1529,11 +1538,10 @@ static char *replay_line_append_final_stage_mark(char *p)
 	uint8_t stage;
 
 	if(replay_menu_vs()) {
-		*p++ = 'V';
-		return p;
+		return replay_line_append_cstr(p, "VS");
 	}
 	if(replay_user_menu_header.end_reason == RUER_COMPLETE) {
-		*p++ = 'C';
+		return replay_line_append_cstr(p, "All");
 	} else if(
 		replay_menu_summary_valid() &&
 		(replay_user_menu_header.stage_reached_count != 0)
@@ -2220,7 +2228,7 @@ static void replay_name_regi_patterns_patch(void)
 	int i;
 	int y;
 
-	for(patnum = 0; patnum < REGI_ALL; patnum++) {
+	for(patnum = 0; patnum < REGI_COUNT; patnum++) {
 		pattern = reinterpret_cast<uint8_t far *>(MK_FP(
 			super_patdata[patnum], 0
 		));
@@ -2411,6 +2419,37 @@ static void replay_name_playchar_put(void)
 	);
 }
 
+static void replay_name_stage_put(void)
+{
+	char *p;
+	unsigned int len;
+	pixel_t w;
+
+	if(
+		!replay_menu_vs() &&
+		(replay_user_menu_header.end_reason == RUER_COMPLETE)
+	) {
+		super_put(
+			(REPLAY_NAME_ROW_RIGHT - REPLAY_REGI_GLYPH_W),
+			REPLAY_NAME_LINE2_TOP,
+			REGI_ALL
+		);
+		return;
+	}
+
+	p = replay_menu_line;
+	p = replay_line_append_final_stage_mark(p);
+	len = (p - replay_menu_line);
+	w = (
+		((len - 1) * REPLAY_NAME_STAGE_SPACING) +
+		REPLAY_REGI_GLYPH_W
+	);
+	replay_name_glyphs_put(
+		(REPLAY_NAME_ROW_RIGHT - w), REPLAY_NAME_LINE2_TOP,
+		replay_menu_line, len, REPLAY_NAME_STAGE_SPACING
+	);
+}
+
 static void replay_name_summary_put(void)
 {
 	char *p;
@@ -2450,14 +2489,7 @@ static void replay_name_summary_put(void)
 	);
 
 	replay_name_playchar_put();
-
-	p = replay_menu_line;
-	p = replay_line_append_final_stage_mark(p);
-	replay_name_glyphs_put(
-		REPLAY_NAME_STAGE_LEFT, REPLAY_NAME_LINE2_TOP,
-		replay_menu_line, (p - replay_menu_line),
-		REPLAY_NAME_GLYPH_SPACING
-	);
+	replay_name_stage_put();
 
 }
 
