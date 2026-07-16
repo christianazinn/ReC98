@@ -3070,7 +3070,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
 	TITLE_CREDIT_PAIR( 8, '1', '.');
-	TITLE_CREDIT_PAIR( 9, '3', ' ');
+	TITLE_CREDIT_PAIR( 9, '4', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');

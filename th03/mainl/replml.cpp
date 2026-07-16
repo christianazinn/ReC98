@@ -10,8 +10,10 @@
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
 
-// Keep previous Shift state in the otherwise unused high bit of the RLE phase.
-#define REPLAY_RLE_PHASE_MASK 0x7F
+// Pack the pending packet size into unused RLE phase bits.
+#define REPLAY_RLE_PHASE_MASK 0x03
+#define REPLAY_RLE_PACKET_SIZE_SHIFT 2
+#define REPLAY_RLE_PACKET_SIZE_MASK 0x3C
 #define REPLAY_RLE_SHIFT_MASK 0x80
 #define replay_control_pending \
 	resident->unused_3[T3_REPLAY_RES_MAINL_CONTROL_INDEX]
@@ -35,7 +37,8 @@ static uint8_t replay_user_slot;
 static uint32_t replay_sample_count;
 static uint32_t replay_global_frame;
 static uint32_t replay_input_byte_count;
-static uint32_t replay_packet_tag_offset;
+static uint16_t replay_write_buffer_size;
+static uint16_t replay_write_buffer_seg;
 static uint8_t replay_rle_phase;
 static uint8_t replay_rle_run;
 static uint16_t replay_rle_input_mp_p1;
@@ -100,11 +103,6 @@ static void mainl_replay_input_shift_sense(void)
 static bool mainl_replay_write_bytes_checked(const void far *buf, unsigned size)
 {
 	return (file_write(buf, size) != 0);
-}
-
-static bool mainl_replay_write_u16_checked(uint16_t value)
-{
-	return mainl_replay_write_bytes_checked(&value, sizeof(value));
 }
 
 static void mainl_replay_paths_init(void)
@@ -324,25 +322,6 @@ static void mainl_replay_latch_fn_set(char far *fn)
 	}
 }
 
-static bool mainl_replay_guard_verify(void)
-{
-	char guard_fn[13];
-	char latch_fn[13];
-
-	mainl_replay_guard_fn_set(guard_fn);
-	mainl_replay_latch_fn_set(latch_fn);
-	if(!replay_protect_latch_verify(latch_fn)) {
-		return false;
-	}
-	if(!replay_protect_verify(guard_fn)) {
-		if(replay_protect_invalid()) {
-			replay_protect_latch_set(latch_fn);
-		}
-		return false;
-	}
-	return true;
-}
-
 static bool mainl_replay_guard_checkpoint(void)
 {
 	char guard_fn[13];
@@ -363,6 +342,34 @@ static bool mainl_replay_guard_checkpoint(void)
 		return false;
 	}
 	return true;
+}
+
+static bool mainl_replay_guard_create(void)
+{
+	char guard_fn[13];
+	char latch_fn[13];
+
+	mainl_replay_guard_fn_set(guard_fn);
+	mainl_replay_latch_fn_set(latch_fn);
+	replay_protect_file_delete_commit(latch_fn);
+	replay_protect_file_delete_commit(guard_fn);
+	return (
+		replay_protect_guard_create(guard_fn) &&
+		replay_protect_latch_create(latch_fn)
+	);
+}
+
+static bool mainl_replay_record_prepare(void)
+{
+	mainl_replay_user_slot_fn_set(mainl_replay_resident_slot());
+	if(!file_create(replay_user_fn)) {
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
+		return false;
+	}
+	return mainl_replay_guard_create();
 }
 
 static void mainl_replay_guard_delete(void)
@@ -524,10 +531,14 @@ static bool mainl_replay_user_header_write(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
+	uint8_t far *write_buffer = reinterpret_cast<uint8_t far *>(
+		MK_FP(replay_write_buffer_seg, 0)
+	);
+
 	if(replay_protect_blocked()) {
 		return false;
 	}
-	if(!mainl_replay_guard_verify()) {
+	if(!mainl_replay_guard_checkpoint()) {
 		return false;
 	}
 	replay_user_header.status = status;
@@ -555,11 +566,32 @@ static bool mainl_replay_user_header_write(
 		replay_protect_detector_error_set();
 		return false;
 	}
+	if(replay_write_buffer_size != 0) {
+		file_seek(
+			(replay_user_header.input_offset + replay_input_byte_count -
+			 replay_write_buffer_size),
+			SEEK_SET
+		);
+		if(!mainl_replay_write_bytes_checked(
+			write_buffer, replay_write_buffer_size
+		)) {
+			file_close();
+			replay_protect_detector_error_set();
+			return false;
+		}
+	}
 	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
 		return false;
 	}
+	replay_write_buffer_size = 0;
+	replay_rle_packet_open = false;
 	mainl_replay_user_index_write(status, end_reason);
 	return true;
+}
+
+static bool mainl_replay_periodic_flush(void)
+{
+	return mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
 }
 
 static bool mainl_replay_record_sample(void)
@@ -647,6 +679,40 @@ static uint8_t mainl_replay_rle_tag(uint8_t phase, uint8_t run)
 	);
 }
 
+static bool mainl_replay_buffer_u8(uint8_t value)
+{
+	uint8_t far *write_buffer = reinterpret_cast<uint8_t far *>(
+		MK_FP(replay_write_buffer_seg, 0)
+	);
+
+	if(replay_write_buffer_size >= T3_REPLAY_WRITE_BUFFER_SIZE) {
+		return false;
+	}
+	write_buffer[replay_write_buffer_size++] = value;
+	replay_input_byte_count++;
+	return true;
+}
+
+static bool mainl_replay_buffer_u16(uint16_t value)
+{
+	uint8_t far *write_buffer = reinterpret_cast<uint8_t far *>(
+		MK_FP(replay_write_buffer_seg, 0)
+	);
+
+	if(
+		(replay_write_buffer_size + sizeof(value)) >
+		T3_REPLAY_WRITE_BUFFER_SIZE
+	) {
+		return false;
+	}
+	write_buffer[replay_write_buffer_size++] = static_cast<uint8_t>(value);
+	write_buffer[replay_write_buffer_size++] = static_cast<uint8_t>(
+		value >> 8
+	);
+	replay_input_byte_count += sizeof(value);
+	return true;
+}
+
 static bool mainl_replay_control_write(uint8_t control)
 {
 	uint8_t tag = static_cast<uint8_t>(
@@ -654,26 +720,19 @@ static bool mainl_replay_control_write(uint8_t control)
 		control
 	);
 	uint8_t marker = T3_REPLAY_PACKET_CONTROL_MARKER;
-	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
-
 	if(replay_protect_blocked()) {
 		return true;
 	}
-	if(!file_append(replay_user_fn)) {
-		replay_protect_detector_error_set();
-		return false;
-	}
-	file_seek(offset, SEEK_SET);
 	if(
-		!mainl_replay_write_bytes_checked(&tag, sizeof(tag)) ||
-		!mainl_replay_write_bytes_checked(&marker, sizeof(marker))
+		((replay_write_buffer_size + 2) > T3_REPLAY_WRITE_BUFFER_SIZE) &&
+		!mainl_replay_periodic_flush()
 	) {
-		file_close();
+		return false;
+	}
+	if(!mainl_replay_buffer_u8(tag) || !mainl_replay_buffer_u8(marker)) {
 		replay_protect_detector_error_set();
 		return false;
 	}
-	file_close();
-	replay_input_byte_count += 2;
 	replay_rle_packet_open = false;
 	return true;
 }
@@ -730,12 +789,24 @@ static bool mainl_replay_record_rle_sample(void)
 	uint8_t previous_shift = (
 		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
 	);
+	uint8_t packet_size = static_cast<uint8_t>(
+		(replay_rle_phase & REPLAY_RLE_PACKET_SIZE_MASK) >>
+		REPLAY_RLE_PACKET_SIZE_SHIFT
+	);
+	uint8_t far *write_buffer = reinterpret_cast<uint8_t far *>(
+		MK_FP(replay_write_buffer_seg, 0)
+	);
 	uint8_t change = 0;
 	uint8_t tag;
-	uint32_t offset;
-	uint32_t new_input_byte_count;
 
 	if(replay_protect_blocked()) {
+		return true;
+	}
+	if(
+		(replay_write_buffer_size >
+		 (T3_REPLAY_WRITE_BUFFER_SIZE - T3_REPLAY_PACKET_SIZE_MAX)) &&
+		!mainl_replay_periodic_flush()
+	) {
 		return true;
 	}
 
@@ -754,21 +825,8 @@ static bool mainl_replay_record_rle_sample(void)
 		tag = mainl_replay_rle_tag(
 			T3_REPLAY_PACKET_PHASE_INTERSTITIAL, replay_rle_run + 1
 		);
-		if(!mainl_replay_guard_checkpoint()) {
-			return true;
-		}
 		replay_rle_run++;
-		if(!file_append(replay_user_fn)) {
-			replay_protect_detector_error_set();
-			return true;
-		}
-		file_seek(replay_packet_tag_offset, SEEK_SET);
-		if(!mainl_replay_write_bytes_checked(&tag, sizeof(tag))) {
-			file_close();
-			replay_protect_detector_error_set();
-			return true;
-		}
-		file_close();
+		write_buffer[replay_write_buffer_size - packet_size] = tag;
 		replay_sample_count++;
 		return true;
 	}
@@ -795,67 +853,41 @@ static bool mainl_replay_record_rle_sample(void)
 		}
 	}
 
-	offset = (replay_user_header.input_offset + replay_input_byte_count);
-	new_input_byte_count = replay_input_byte_count;
 	tag = mainl_replay_rle_tag(T3_REPLAY_PACKET_PHASE_INTERSTITIAL, 1);
-	if(!mainl_replay_guard_checkpoint()) {
-		return true;
-	}
-	if(!file_append(replay_user_fn)) {
+	packet_size = replay_write_buffer_size;
+	if(!mainl_replay_buffer_u8(tag) || !mainl_replay_buffer_u8(change)) {
 		replay_protect_detector_error_set();
 		return true;
 	}
-	file_seek(offset, SEEK_SET);
-	if(
-		!mainl_replay_write_bytes_checked(&tag, sizeof(tag)) ||
-		!mainl_replay_write_bytes_checked(&change, sizeof(change))
-	) {
-		file_close();
-		replay_protect_detector_error_set();
-		return true;
-	}
-	new_input_byte_count += 2;
 	if(change & T3_REPLAY_PACKET_CHANGE_P1) {
-		if(!mainl_replay_write_u16_checked(input_p1)) {
-			file_close();
+		if(!mainl_replay_buffer_u16(input_p1)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
-		new_input_byte_count += sizeof(input_p1);
 	}
 	if(change & T3_REPLAY_PACKET_CHANGE_P2) {
-		if(!mainl_replay_write_u16_checked(input_p2)) {
-			file_close();
+		if(!mainl_replay_buffer_u16(input_p2)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
-		new_input_byte_count += sizeof(input_p2);
 	}
 	if(change & T3_REPLAY_PACKET_CHANGE_SP) {
-		if(!mainl_replay_write_u16_checked(input_single)) {
-			file_close();
+		if(!mainl_replay_buffer_u16(input_single)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
-		new_input_byte_count += sizeof(input_single);
 	}
 	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
-		if(!mainl_replay_write_bytes_checked(
-			&input_shift, sizeof(input_shift)
-		)) {
-			file_close();
+		if(!mainl_replay_buffer_u8(input_shift)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
-		new_input_byte_count += sizeof(input_shift);
 	}
-	file_close();
-
-	replay_input_byte_count = new_input_byte_count;
-	replay_packet_tag_offset = offset;
+	packet_size = static_cast<uint8_t>(replay_write_buffer_size - packet_size);
 	replay_rle_phase = static_cast<uint8_t>(
 		T3_REPLAY_PACKET_PHASE_INTERSTITIAL |
-		(input_shift ? REPLAY_RLE_SHIFT_MASK : 0)
+		(input_shift ? REPLAY_RLE_SHIFT_MASK : 0) |
+		(packet_size << REPLAY_RLE_PACKET_SIZE_SHIFT)
 	);
 	replay_rle_run = 1;
 	replay_rle_input_mp_p1 = input_p1;
@@ -1066,6 +1098,15 @@ static void mainl_replay_frame_io(void)
 		input_sp = INPUT_OK;
 		return;
 	}
+	if(
+		(mainl_replay_mode == MR_USER_RECORD) &&
+		(
+			(replay_global_frame & (T3_REPLAY_DISK_INTERVAL_SAMPLES - 1)) ==
+			(T3_REPLAY_DISK_INTERVAL_SAMPLES - 1)
+		)
+	) {
+		mainl_replay_periodic_flush();
+	}
 	replay_global_frame++;
 	mainl_replay_cursor_store();
 }
@@ -1083,7 +1124,8 @@ void far mainl_replay_session_start(void)
 	replay_input_byte_count = mainl_replay_handoff_u32_read(
 		T3_REPLAY_RES_INPUT_SIZE_INDEX
 	);
-	replay_packet_tag_offset = 0;
+	replay_write_buffer_size = 0;
+	replay_write_buffer_seg = 0;
 	replay_rle_phase = T3_REPLAY_PACKET_PHASE_INTERSTITIAL;
 	replay_rle_run = 0;
 	replay_rle_input_mp_p1 = 0;
@@ -1094,18 +1136,34 @@ void far mainl_replay_session_start(void)
 	replay_control_pending = false;
 
 	if(
+		(mainl_replay_mode == MR_USER_RECORD) &&
+		(replay_sample_count == 0)
+	) {
+		mainl_replay_paths_init();
+		mainl_replay_record_prepare();
+		replay_protect_local_free();
+		mainl_replay_mode = MR_DISABLED;
+		return;
+	}
+	if(
 		(mainl_replay_mode == MR_DISABLED) ||
 		(replay_sample_count == 0)
 	) {
 		mainl_replay_mode = MR_DISABLED;
 		return;
 	}
+	if(mainl_replay_mode == MR_USER_RECORD) {
+		replay_write_buffer_seg = reinterpret_cast<uint16_t>(
+			hmem_allocbyte(T3_REPLAY_WRITE_BUFFER_SIZE)
+		);
+		if(replay_write_buffer_seg == 0) {
+			replay_protect_detector_error_set();
+		}
+	}
 
 	mainl_replay_paths_init();
 	if(!mainl_replay_user_header_read()) {
 		mainl_replay_mode = MR_ERROR;
-	} else if(mainl_replay_mode == MR_USER_RECORD) {
-		mainl_replay_guard_verify();
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		resident->autofire = replay_user_header.autofire;
 	}
@@ -1152,6 +1210,9 @@ void far mainl_replay_transition_finish(void)
 
 	if(mode == MR_USER_RECORD) {
 		ok = mainl_replay_control_write(T3_REPLAY_PACKET_CONTROL_MAINL_END);
+		if(ok) {
+			ok = mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+		}
 	} else {
 		while(
 			!replay_control_pending &&
@@ -1232,3 +1293,4 @@ void far mainl_replay_exit_to_main(void)
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
