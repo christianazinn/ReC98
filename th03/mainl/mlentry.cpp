@@ -53,7 +53,7 @@ inline void mainl_exit_to_op(void)
 
 inline void mainl_exit_to_main(void)
 {
-	game_exit_from_mainl_to_main();
+	mainl_replay_exit_to_main();
 	execl(mainl_binary_main_fn, mainl_binary_main_fn, nullptr);
 }
 
@@ -158,7 +158,7 @@ ending:
 		gaiji_restore();
 
 exit_to_main:
-		game_exit_from_mainl_to_main();
+		mainl_replay_exit_to_main();
 		asm {
 			db  	66h, 6Ah, 0
 			push	ds

@@ -6,6 +6,8 @@
 
 void far mainl_replay_session_start(void);
 void far mainl_replay_input_mode_interface(void);
+void far mainl_replay_transition_finish(void);
+void far mainl_replay_exit_to_main(void);
 bool far mainl_replay_initial_stage_splash_skip(void);
 uint8_t far mainl_replay_resume_take(void);
 bool far mainl_replay_finish(

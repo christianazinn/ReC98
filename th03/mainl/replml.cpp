@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th03/hardware/input.h"
+#include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
@@ -12,9 +13,8 @@
 // Keep previous Shift state in the otherwise unused high bit of the RLE phase.
 #define REPLAY_RLE_PHASE_MASK 0x7F
 #define REPLAY_RLE_SHIFT_MASK 0x80
-#define mainl_replay_input_vsync (*reinterpret_cast<uint16_t far *>( \
-	&resident->unused_3[T3_REPLAY_RES_MAINL_VSYNC_INDEX] \
-))
+#define replay_control_pending \
+	resident->unused_3[T3_REPLAY_RES_MAINL_CONTROL_INDEX]
 
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
@@ -385,7 +385,7 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header.magic[6] == '6') &&
+		(replay_user_header.magic[6] == '7') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -645,6 +645,80 @@ static uint8_t mainl_replay_rle_tag(uint8_t phase, uint8_t run)
 	return static_cast<uint8_t>(
 		(phase << T3_REPLAY_PACKET_PHASE_SHIFT) | (run - 1)
 	);
+}
+
+static bool mainl_replay_control_write(uint8_t control)
+{
+	uint8_t tag = static_cast<uint8_t>(
+		(T3_REPLAY_PACKET_PHASE_CONTROL << T3_REPLAY_PACKET_PHASE_SHIFT) |
+		control
+	);
+	uint8_t marker = T3_REPLAY_PACKET_CONTROL_MARKER;
+	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
+
+	if(replay_protect_blocked()) {
+		return true;
+	}
+	if(!file_append(replay_user_fn)) {
+		replay_protect_detector_error_set();
+		return false;
+	}
+	file_seek(offset, SEEK_SET);
+	if(
+		!mainl_replay_write_bytes_checked(&tag, sizeof(tag)) ||
+		!mainl_replay_write_bytes_checked(&marker, sizeof(marker))
+	) {
+		file_close();
+		replay_protect_detector_error_set();
+		return false;
+	}
+	file_close();
+	replay_input_byte_count += 2;
+	replay_rle_packet_open = false;
+	return true;
+}
+
+static bool mainl_replay_control_peek(uint8_t control)
+{
+	uint8_t tag;
+	uint8_t marker;
+	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
+
+	if(
+		(replay_rle_run != 0) ||
+		((replay_input_byte_count + 2) > replay_user_header.input_size)
+	) {
+		return false;
+	}
+	if(!file_ropen(replay_user_fn)) {
+		return false;
+	}
+	file_seek(offset, SEEK_SET);
+	if(
+		(file_read(&tag, sizeof(tag)) != sizeof(tag)) ||
+		(file_read(&marker, sizeof(marker)) != sizeof(marker))
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return (
+		(tag == static_cast<uint8_t>(
+			(T3_REPLAY_PACKET_PHASE_CONTROL << T3_REPLAY_PACKET_PHASE_SHIFT) |
+			control
+		)) &&
+		(marker == T3_REPLAY_PACKET_CONTROL_MARKER)
+	);
+}
+
+static bool mainl_replay_control_consume(uint8_t control)
+{
+	if(!mainl_replay_control_peek(control)) {
+		return false;
+	}
+	replay_input_byte_count += 2;
+	replay_control_pending = false;
+	return true;
 }
 
 static bool mainl_replay_record_rle_sample(void)
@@ -964,6 +1038,19 @@ static void mainl_replay_frame_io(void)
 			ok = mainl_replay_record_sample();
 		}
 	} else {
+		if(
+			(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
+			(
+				replay_control_pending ||
+				mainl_replay_control_peek(T3_REPLAY_PACKET_CONTROL_MAINL_END)
+			)
+		) {
+			replay_control_pending = true;
+			input_mp_p1 = replay_rle_input_mp_p1;
+			input_mp_p2 = replay_rle_input_mp_p2;
+			input_sp = replay_rle_input_sp;
+			return;
+		}
 		if(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) {
 			ok = mainl_replay_play_rle_sample();
 		} else {
@@ -1002,9 +1089,9 @@ void far mainl_replay_session_start(void)
 	replay_rle_input_mp_p1 = 0;
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
-	mainl_replay_input_vsync = (vsync_Count2 - 1);
 	resident->input_shift = false;
 	replay_rle_packet_open = false;
+	replay_control_pending = false;
 
 	if(
 		(mainl_replay_mode == MR_DISABLED) ||
@@ -1026,22 +1113,72 @@ void far mainl_replay_session_start(void)
 
 void far mainl_replay_input_mode_interface(void)
 {
-	if(
-		(
-			(mainl_replay_mode == MR_USER_RECORD) ||
-			(mainl_replay_mode == MR_USER_PLAYBACK)
-		) &&
-		(mainl_replay_input_vsync == vsync_Count2)
-	) {
+	if(mainl_replay_mode == MR_ERROR) {
+		input_mp_p1 = INPUT_NONE;
+		input_mp_p2 = INPUT_NONE;
+		input_sp = INPUT_OK;
 		return;
 	}
 
-	mainl_replay_input_vsync = vsync_Count2;
 	input_mode_interface();
+	if(mainl_replay_mode == MR_USER_PLAYBACK) {
+		if(input_sp & INPUT_CANCEL) {
+			resident->game_mode = GM_NONE;
+			mainl_replay_handoff_clear();
+			mainl_replay_mode = MR_ERROR;
+			input_mp_p1 = INPUT_NONE;
+			input_mp_p2 = INPUT_NONE;
+			input_sp = INPUT_OK;
+			return;
+		}
+		input_mp_p1 = replay_rle_input_mp_p1;
+		input_mp_p2 = replay_rle_input_mp_p2;
+		input_sp = replay_rle_input_sp;
+	}
 	if(mainl_replay_mode != MR_USER_PLAYBACK) {
 		mainl_replay_input_shift_sense();
 	}
 	mainl_replay_frame_io();
+}
+
+void far mainl_replay_transition_finish(void)
+{
+	bool ok = true;
+	mainl_replay_mode_t mode = mainl_replay_mode;
+
+	if((mode != MR_USER_RECORD) && (mode != MR_USER_PLAYBACK)) {
+		return;
+	}
+
+	if(mode == MR_USER_RECORD) {
+		ok = mainl_replay_control_write(T3_REPLAY_PACKET_CONTROL_MAINL_END);
+	} else {
+		while(
+			!replay_control_pending &&
+			!mainl_replay_control_peek(T3_REPLAY_PACKET_CONTROL_MAINL_END)
+		) {
+			if(!mainl_replay_play_rle_sample()) {
+				ok = false;
+				break;
+			}
+			replay_global_frame++;
+		}
+		if(ok) {
+			ok = mainl_replay_control_consume(
+				T3_REPLAY_PACKET_CONTROL_MAINL_END
+			);
+		}
+	}
+	if(!ok) {
+		resident->game_mode = GM_NONE;
+		mainl_replay_handoff_clear();
+		mainl_replay_mode = MR_ERROR;
+		input_mp_p1 = INPUT_NONE;
+		input_mp_p2 = INPUT_NONE;
+		input_sp = INPUT_OK;
+		return;
+	}
+	mainl_replay_cursor_store();
 }
 
 bool far mainl_replay_initial_stage_splash_skip(void)
@@ -1057,6 +1194,8 @@ bool far mainl_replay_finish(
 )
 {
 	bool save_pending = false;
+
+	mainl_replay_transition_finish();
 
 	if(mainl_replay_mode == MR_USER_RECORD) {
 		if(replay_protect_invalid()) {
@@ -1084,3 +1223,12 @@ bool far mainl_replay_finish(
 	mainl_replay_mode = MR_DISABLED;
 	return save_pending;
 }
+
+void far mainl_replay_exit_to_main(void)
+{
+	mainl_replay_transition_finish();
+	game_exit_from_mainl_to_main();
+}
+
+// Keep the following shared runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
