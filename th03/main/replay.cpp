@@ -15,6 +15,7 @@
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
+#include "th03/fast_forward.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
@@ -145,6 +146,7 @@ static uint8_t replay_sum_stage_scores[
 
 extern "C" unsigned char score[];
 extern "C" unsigned char byte_220FC[PLAYER_COUNT];
+extern uint8_t byte_23AF9;
 extern uint8_t byte_23B00;
 extern uint8_t randring_p;
 extern uint8_t formation_p[PLAYER_COUNT];
@@ -175,6 +177,31 @@ static void replay_input_shift_sense(void)
 	resident->input_shift = (
 		(peekb(0, KEYGROUP_14) & K14_SHIFT) != 0
 	);
+}
+
+static void replay_fast_forward_wait_skip(bool held)
+{
+	uint8_t phase;
+
+	if(
+		!held ||
+		(
+			(replay_mode != REPLAY_PLAYBACK) &&
+			(replay_mode != REPLAY_USER_PLAYBACK)
+		)
+	) {
+		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
+		return;
+	}
+
+	phase = resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX];
+	phase++;
+	if(phase >= T3_REPLAY_FAST_FORWARD_RATE) {
+		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
+		return;
+	}
+	resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = phase;
+	vsync_Count1 = byte_23AF9;
 }
 
 static void replay_autofire_apply_player(
@@ -2527,6 +2554,7 @@ void far replay_session_start(void)
 	replay_rle_input_mp_p1 = 0;
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
+	resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
 	resident->input_shift = false;
 	replay_done_written = false;
 	replay_user_slot_fn_set(T3_REPLAY_USER_SLOT_NONE);
@@ -2634,6 +2662,7 @@ void far replay_round_start(void)
 void far replay_frame_io(void)
 {
 	bool ok = true;
+	bool fast_forward_held = false;
 	uint8_t shot_bits;
 
 	if(replay_mode == REPLAY_DISABLED) {
@@ -2663,7 +2692,9 @@ void far replay_frame_io(void)
 			T3_REPLAY_PACKET_PHASE_GAMEPLAY, shot_bits
 		);
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
+		fast_forward_held = ((input_sp & INPUT_SHOT) != 0);
 		if(replay_user_playback_cancel()) {
+			replay_fast_forward_wait_skip(false);
 			return;
 		}
 		if(replay_sample_count >= replay_user_header.sample_count) {
@@ -2673,21 +2704,25 @@ void far replay_frame_io(void)
 			replay_resident_handoff_clear();
 			resident->game_mode = GM_NONE;
 			replay_mode = REPLAY_DISABLED;
+			replay_fast_forward_wait_skip(false);
 			return;
 		}
 		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
 	} else if(replay_mode == REPLAY_PLAYBACK) {
+		fast_forward_held = ((input_sp & INPUT_SHOT) != 0);
 		if(replay_sample_count >= replay_header.sample_count) {
 			replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
 			replay_done_write(RTX_OK_INPUT_END);
 			replay_mode = REPLAY_DISABLED;
+			replay_fast_forward_wait_skip(false);
 			return;
 		}
 		ok = replay_play_sample();
 	}
 
 	if(!ok) {
+		replay_fast_forward_wait_skip(false);
 		replay_split_row(RSE_ERROR, replay_last_route);
 		if(replay_mode == REPLAY_USER_PLAYBACK) {
 			resident->game_mode = GM_NONE;
@@ -2697,6 +2732,8 @@ void far replay_frame_io(void)
 		replay_done_write(RTX_ERROR_FRAME_IO);
 		return;
 	}
+
+	replay_fast_forward_wait_skip(fast_forward_held);
 
 	if(
 		(replay_global_frame & (T3_REPLAY_DISK_INTERVAL_SAMPLES - 1)) ==

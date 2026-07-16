@@ -3,7 +3,9 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
+#include "th03/fast_forward.hpp"
 #include "th03/formats/cdg.h"
+#include "th03/formats/scoredat.hpp"
 #include "th03/hardware/input.h"
 #include "th03/mainl/replay.hpp"
 #include "th03/resident.hpp"
@@ -76,6 +78,17 @@ void near staffroll_verdict_overlay_put(void);
 #define staffroll_cdg_setup_y_call(slot_arg, frame_threshold_in, frame_threshold_out) \
 	staffroll_cdg_setup_y(frame_threshold_out, frame_threshold_in, slot_arg)
 
+static bool near staffroll_fast_forward_unlocked_load(void)
+{
+	for(int i = RANK_EASY; i < (RANK_LUNATIC + 1); i++) {
+		scoredat_load_and_decode(static_cast<rank_t>(i));
+		if(hi.score.cleared == SCOREDAT_CLEARED) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void near staffroll_and_verdict_animate(void)
 {
 	#define i   	_SI
@@ -85,6 +98,9 @@ void near staffroll_and_verdict_animate(void)
 	palette_black_out(4);
 	snd_delay_until_volume(255);
 	snd_kaja_func(KAJA_SONG_STOP, 0);
+	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_UNLOCKED_INDEX] =
+		staffroll_fast_forward_unlocked_load();
+	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX] = 0;
 
 	staffroll_flake_count = 0x50;
 	i = 1;
@@ -242,6 +258,8 @@ void near staffroll_and_verdict_animate(void)
 		cdg_free(i);
 		i++;
 	}
+	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_UNLOCKED_INDEX] = false;
+	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX] = 0;
 
 	#undef tone
 	#undef i

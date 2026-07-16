@@ -3,8 +3,11 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "pc98.h"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/math/subpixel.hpp"
+#include "th03/fast_forward.hpp"
 #include "th03/math/vector.hpp"
+#include "th03/resident.hpp"
 #include "th03/sprites/flake.h"
 #include "th03/snd/snd.h"
 #include "x86real.h"
@@ -29,6 +32,32 @@ extern bool staffroll_cdg_put_alpha;
 extern int staffroll_frame;
 extern bool staffroll_flake_reset_pending;
 extern page_t page_back;
+
+static bool near staffroll_fast_forward_held(void)
+{
+	if(!resident->unused_3[T3_RES_FAST_FORWARD_STAFF_UNLOCKED_INDEX]) {
+		return false;
+	}
+	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
+}
+
+static void near staffroll_fast_forward_wait_skip(void)
+{
+	uint8_t phase;
+
+	if(!staffroll_fast_forward_held()) {
+		resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX] = 0;
+		return;
+	}
+	phase = resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX];
+	phase++;
+	if(phase >= T3_STAFF_FAST_FORWARD_RATE) {
+		resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX] = 0;
+		return;
+	}
+	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_PHASE_INDEX] = phase;
+	vsync_Count1 = 1;
+}
 
 void pascal near flake_put(screen_x_t left, screen_y_t top, int cel);
 
@@ -112,6 +141,12 @@ bool16 pascal near staffroll_phase_done(
 	uint16_t measure_threshold, int frame_threshold
 )
 {
+	if(staffroll_fast_forward_held()) {
+		if(staffroll_frame > frame_threshold) {
+			goto phase_done;
+		}
+		goto phase_not_done;
+	}
 	if(!snd_active) {
 		if(staffroll_frame > frame_threshold) {
 			goto phase_done;
@@ -147,6 +182,7 @@ void near staffroll_flakes_tick(void)
 			staffroll_flake_reset_pending = false;
 		}
 	}
+	staffroll_fast_forward_wait_skip();
 	while(vsync_Count1 == 0) {
 	}
 	vsync_Count1 = 0;
