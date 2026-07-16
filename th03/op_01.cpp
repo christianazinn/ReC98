@@ -3005,6 +3005,9 @@ static int8_t padding; // ZUN bloat
 menu_put_func_t menu_put;
 
 static char title_credit_line[39];
+// Keep OP's initialized-data offsets after removing the GDC error path.
+static char gdc_frequency_error_offset_padding[] =
+	ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3;
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
 uint8_t replay_resident_offset_padding[25];
@@ -3067,7 +3070,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
 	TITLE_CREDIT_PAIR( 8, '1', '.');
-	TITLE_CREDIT_PAIR( 9, '2', ' ');
+	TITLE_CREDIT_PAIR( 9, '3', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');
@@ -3412,16 +3415,13 @@ void main(void)
 	graph_400line();
 	text_clear();
 	respal_create();
-
-	// ZUN landmine: There are no known issues with running the game at a GDC
-	// clock speed of 5 MHz, so there's no need to enforce it here.
-	if(graph_VramZoom) {
-		dos_puts2(ERROR_GDC_5MHZ_1);
-		dos_puts2(ERROR_GDC_5MHZ_2);
-		dos_puts2(ERROR_GDC_5MHZ_3);
-		getch();
-		return;
-	}
+	// Keep the accepted OP code phase after removing the GDC frequency check.
+	__emit__(
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+	);
 
 	if(game_init_op(OP_AND_END_PF_FN)) {
 		dos_puts2(ERROR_OUT_OF_MEMORY);
