@@ -91,19 +91,17 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 			ending_after_regist();
 			return;
 		}
-
-		if(resident->story_stage) {
-			if(resident->game_mode == GM_STORY) {
-				result = sub_9887();
-				if(result == 4) {
-					goto ending;
-				}
-				if(result == 5) {
-					ending_staff_and_regist();
-				}
-			}
-		} else {
+		if(!mainl_replay_stage_transition_needed()) {
 			goto stage_splash_load_and_show;
+		}
+		if(resident->game_mode == GM_STORY) {
+			result = sub_9887();
+			if(result == 4) {
+				goto ending;
+			}
+			if(result == 5) {
+				ending_staff_and_regist();
+			}
 		}
 
 		snd_load(mainl_win_bgm_fn, SND_LOAD_SONG);
@@ -121,10 +119,7 @@ stage_splash_show:
 			stage_splash_show_and_wait();
 			goto exit_to_main;
 		}
-		if(result == 3) {
-			goto ending;
-		}
-		if(result == 4) {
+		if(static_cast<uint8_t>(result - 3) < 2) {
 			goto ending;
 		}
 		goto continue_menu_or_gameover;
@@ -217,4 +212,6 @@ stage_splash_load_and_show:
 	}
 }
 
+// Preserve the accepted CUTSCENE_TEXT layout after the equivalent range test.
+#pragma codestring "\x90"
 #pragma codeseg

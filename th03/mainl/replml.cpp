@@ -392,7 +392,7 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header.magic[6] == '7') &&
+		(replay_user_header.magic[6] == '8') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -402,10 +402,14 @@ static bool mainl_replay_user_header_valid(void)
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext_t)
 		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
-		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
+		(replay_user_header.snapshot_size ==
+		 T3R_STAGE_CKPT_SIZE) &&
 		(replay_user_header.input_offset == (
 			static_cast<uint32_t>(replay_user_header.header_size) +
-			static_cast<uint32_t>(sizeof(replay_user_snapshot_t))
+			static_cast<uint32_t>(
+				(replay_user_header.game_mode == GM_STORY) ?
+				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
+			)
 		))
 	);
 }
@@ -1246,7 +1250,31 @@ bool far mainl_replay_initial_stage_splash_skip(void)
 {
 	return (
 		(mainl_replay_resident_mode() == MR_USER_PLAYBACK) &&
-		(mainl_replay_handoff_u32_read(T3_REPLAY_RES_SAMPLE_COUNT_INDEX) == 0)
+		(
+			(mainl_replay_handoff_u32_read(T3_REPLAY_RES_SAMPLE_COUNT_INDEX) == 0) ||
+			(mainl_replay_handoff_u8(T3_REPLAY_RES_PLAYBACK_STAGE_INDEX) != 0)
+		)
+	);
+}
+
+bool far mainl_replay_stage_start_selected(void)
+{
+	uint8_t stage = mainl_replay_handoff_u8(
+		T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
+	);
+
+	return (
+		(mainl_replay_resident_mode() == MR_USER_PLAYBACK) &&
+		(stage != 0) &&
+		(stage <= T3_REPLAY_USER_STAGE_COUNT)
+	);
+}
+
+int far mainl_replay_stage_transition_needed(void)
+{
+	return (
+		(resident->story_stage != 0) &&
+		!mainl_replay_stage_start_selected()
 	);
 }
 
@@ -1287,10 +1315,13 @@ bool far mainl_replay_finish(
 
 void far mainl_replay_exit_to_main(void)
 {
-	mainl_replay_transition_finish();
+	if(!mainl_replay_stage_start_selected()) {
+		mainl_replay_transition_finish();
+	}
 	game_exit_from_mainl_to_main();
 }
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"

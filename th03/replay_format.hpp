@@ -3,7 +3,7 @@
 
 #include "platform.h"
 
-#define T3_REPLAY_USER_VERSION 7
+#define T3_REPLAY_USER_VERSION 8
 #define T3_REPLAY_USER_INDEX_VERSION 4
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
@@ -208,6 +208,15 @@ struct replay_user_snapshot_t {
 	uint16_t player_cpu_frame[T3_REPLAY_USER_PLAYER_COUNT];
 	uint8_t reserved_player[1];
 };
+
+#define T3R_STAGE_CKPT_PREFIX_SIZE 12
+#define T3R_STAGE_CKPT_SIZE ( \
+	T3R_STAGE_CKPT_PREFIX_SIZE + \
+	sizeof(replay_user_snapshot_t) \
+)
+#define T3R_STAGE_CKPTS_SIZE ( \
+	T3_REPLAY_USER_STAGE_COUNT * T3R_STAGE_CKPT_SIZE \
+)
 
 struct replay_user_sample_t {
 	uint32_t frame_index;

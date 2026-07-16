@@ -21,12 +21,15 @@
 #include "th03/replay_protect.hpp"
 #include "th03/snd/snd.h"
 
-// Pack the pending packet size and file-init state into unused RLE phase bits.
+// Pack the pending packet size and stage-checkpoint state into RLE phase bits.
 #define REPLAY_RLE_PHASE_MASK 0x03
 #define REPLAY_RLE_PACKET_SIZE_SHIFT 2
 #define REPLAY_RLE_PACKET_SIZE_MASK 0x3C
-#define REPLAY_RLE_FILE_INITIALIZED_MASK 0x40
+#define REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK 0x40
 #define REPLAY_RLE_SHIFT_MASK 0x80
+#define REPLAY_RECORD_BUFFER_SIZE ( \
+	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
+)
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -1219,57 +1222,118 @@ static void replay_user_snapshot_fill(void)
 		replay_user_snapshot.player_shot_active[i] = players[i].shot_active;
 		replay_user_snapshot.player_cpu_frame[i] = players[i].cpu_frame;
 	}
-	replay_user_summary_init_from_snapshot();
-	replay_user_summary_ext_init();
 }
 
 static void replay_user_header_fill(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
 {
-	replay_memclear(&replay_user_header, sizeof(replay_user_header));
-	replay_user_header.magic[0] = 'T';
-	replay_user_header.magic[1] = '3';
-	replay_user_header.magic[2] = 'R';
-	replay_user_header.magic[3] = 'P';
-	replay_user_header.magic[4] = 'L';
-	replay_user_header.magic[5] = 'Y';
-	replay_user_header.magic[6] = '7';
-	replay_user_header.magic[7] = '\0';
-	replay_user_header.version = T3_REPLAY_USER_VERSION;
-	replay_user_header.header_size = (
-		sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
-	);
-	replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
-	replay_user_header.flags = (
-		T3_REPLAY_USER_FLAG_RLE_INPUT |
-		T3_REPLAY_USER_FLAG_SHIFT_INPUT
-	);
+	if(replay_user_header.version != T3_REPLAY_USER_VERSION) {
+		replay_memclear(&replay_user_header, sizeof(replay_user_header));
+		replay_user_header.magic[0] = 'T';
+		replay_user_header.magic[1] = '3';
+		replay_user_header.magic[2] = 'R';
+		replay_user_header.magic[3] = 'P';
+		replay_user_header.magic[4] = 'L';
+		replay_user_header.magic[5] = 'Y';
+		replay_user_header.magic[6] = '8';
+		replay_user_header.magic[7] = '\0';
+		replay_user_header.version = T3_REPLAY_USER_VERSION;
+		replay_user_header.header_size = (
+			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
+		);
+		replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
+		replay_user_header.flags = (
+			T3_REPLAY_USER_FLAG_RLE_INPUT |
+			T3_REPLAY_USER_FLAG_SHIFT_INPUT
+		);
+		replay_user_header.game_mode = replay_user_snapshot.game_mode;
+		replay_user_header.rank = replay_user_snapshot.rank;
+		replay_user_header.key_mode = replay_user_snapshot.key_mode;
+		replay_user_header.playchar_p1 = (
+			replay_user_snapshot.playchar_paletted[0]
+		);
+		replay_user_header.playchar_p2 = (
+			replay_user_snapshot.playchar_paletted[1]
+		);
+		replay_user_header.story_stage = replay_user_snapshot.story_stage;
+		replay_user_header.is_cpu_p1 = replay_user_snapshot.is_cpu[0];
+		replay_user_header.is_cpu_p2 = replay_user_snapshot.is_cpu[1];
+		replay_user_header.resident_rand = replay_user_snapshot.resident_rand;
+		replay_user_header.random_seed_snapshot = (
+			replay_user_snapshot.random_seed_snapshot
+		);
+		replay_user_header.snapshot_offset = replay_user_header.header_size;
+		replay_user_header.snapshot_size = (
+			T3R_STAGE_CKPT_SIZE
+		);
+		replay_user_header.input_offset = (
+			static_cast<uint32_t>(replay_user_header.header_size) +
+			static_cast<uint32_t>(
+				(replay_user_snapshot.game_mode == GM_STORY) ?
+				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
+			)
+		);
+		replay_user_header.autofire = replay_user_snapshot.autofire;
+	}
 	replay_user_header.status = status;
 	replay_user_header.end_reason = end_reason;
-	replay_user_header.game_mode = replay_user_snapshot.game_mode;
-	replay_user_header.rank = replay_user_snapshot.rank;
-	replay_user_header.key_mode = replay_user_snapshot.key_mode;
-	replay_user_header.playchar_p1 = replay_user_snapshot.playchar_paletted[0];
-	replay_user_header.playchar_p2 = replay_user_snapshot.playchar_paletted[1];
-	replay_user_header.story_stage = replay_user_snapshot.story_stage;
-	replay_user_header.is_cpu_p1 = replay_user_snapshot.is_cpu[0];
-	replay_user_header.is_cpu_p2 = replay_user_snapshot.is_cpu[1];
 	replay_user_header.sample_count = replay_sample_count;
 	replay_user_header.final_frame_count = replay_global_frame;
-	replay_user_header.resident_rand = replay_user_snapshot.resident_rand;
-	replay_user_header.random_seed_snapshot = (
-		replay_user_snapshot.random_seed_snapshot
-	);
-	replay_user_header.snapshot_offset = replay_user_header.header_size;
-	replay_user_header.snapshot_size = sizeof(replay_user_snapshot);
-	replay_user_header.input_offset = (
-		static_cast<uint32_t>(replay_user_header.header_size) +
-		static_cast<uint32_t>(sizeof(replay_user_snapshot))
-	);
 	replay_user_header.input_size = replay_input_byte_count;
-	replay_user_header.autofire = replay_user_snapshot.autofire;
 	replay_user_summary_copy_to_header();
+}
+
+static uint8_t replay_user_checkpoint_stage(void)
+{
+	if(
+		(replay_user_snapshot.game_mode == GM_STORY) &&
+		(replay_user_snapshot.story_stage < T3_REPLAY_USER_STAGE_COUNT)
+	) {
+		return replay_user_snapshot.story_stage;
+	}
+	return 0;
+}
+
+static uint32_t far *replay_user_checkpoint_cursor(void)
+{
+	return reinterpret_cast<uint32_t far *>(MK_FP(
+		replay_write_buffer_seg, T3_REPLAY_WRITE_BUFFER_SIZE
+	));
+}
+
+static void replay_user_checkpoint_cursor_capture(void)
+{
+	if(replay_write_buffer_seg == 0) {
+		return;
+	}
+	uint32_t far *cursor = replay_user_checkpoint_cursor();
+
+	cursor[0] = replay_sample_count;
+	cursor[1] = replay_global_frame;
+	cursor[2] = replay_input_byte_count;
+}
+
+static bool replay_user_checkpoint_write(void)
+{
+	uint32_t far *cursor = replay_user_checkpoint_cursor();
+	uint32_t offset = (
+		replay_user_header.snapshot_offset +
+		(
+			static_cast<uint32_t>(replay_user_checkpoint_stage()) *
+			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+		)
+	);
+
+	file_seek(offset, SEEK_SET);
+	return (
+		replay_write_bytes_checked(&cursor[0], sizeof(cursor[0])) &&
+		replay_write_bytes_checked(&cursor[1], sizeof(cursor[1])) &&
+		replay_write_bytes_checked(&cursor[2], sizeof(cursor[2])) &&
+		replay_write_bytes_checked(
+			&replay_user_snapshot, sizeof(replay_user_snapshot)
+		)
+	);
 }
 
 static bool replay_header_write(void)
@@ -1289,8 +1353,8 @@ static bool replay_user_header_write(
 )
 {
 	uint32_t input_offset;
-	bool initialize_file = (
-		(replay_rle_phase & REPLAY_RLE_FILE_INITIALIZED_MASK) == 0
+	bool checkpoint_pending = (
+		(replay_rle_phase & REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK) != 0
 	);
 	uint8_t far *write_buffer = reinterpret_cast<uint8_t far *>(
 		MK_FP(replay_write_buffer_seg, 0)
@@ -1321,10 +1385,8 @@ static bool replay_user_header_write(
 		replay_protect_detector_error_set();
 		return false;
 	}
-	if(initialize_file) {
-		if(!replay_write_bytes_checked(
-			&replay_user_snapshot, sizeof(replay_user_snapshot)
-		)) {
+	if(checkpoint_pending) {
+		if(!replay_user_checkpoint_write()) {
 			file_close();
 			replay_protect_detector_error_set();
 			return false;
@@ -1347,7 +1409,7 @@ static bool replay_user_header_write(
 	if(!replay_protect_close_current_file(RPD_COMMIT_FLUSH)) {
 		return false;
 	}
-	replay_rle_phase |= REPLAY_RLE_FILE_INITIALIZED_MASK;
+	replay_rle_phase &= ~REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 	replay_write_buffer_size = 0;
 	replay_rle_packet_open = false;
 	replay_user_index_slot_write(status, end_reason);
@@ -1362,7 +1424,7 @@ static bool replay_user_periodic_flush(void)
 static bool replay_user_header_is_rle(void)
 {
 	return (
-		(replay_user_header.magic[6] == '7') &&
+		(replay_user_header.magic[6] == '8') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -1384,11 +1446,15 @@ static bool replay_user_header_valid(void)
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
 		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
-		(replay_user_header.snapshot_size == sizeof(replay_user_snapshot)) &&
+		(replay_user_header.snapshot_size ==
+		 T3R_STAGE_CKPT_SIZE) &&
 		(replay_user_header.autofire <= true) &&
 		(replay_user_header.input_offset == (
 			static_cast<uint32_t>(replay_user_header.header_size) +
-			static_cast<uint32_t>(sizeof(replay_user_snapshot))
+			static_cast<uint32_t>(
+				(replay_user_header.game_mode == GM_STORY) ?
+				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
+			)
 		)) &&
 		(replay_user_header.sample_count != 0)
 	);
@@ -1427,7 +1493,11 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
-	file_seek(replay_user_header.snapshot_offset, SEEK_SET);
+	file_seek(
+		(replay_user_header.snapshot_offset +
+		 T3R_STAGE_CKPT_PREFIX_SIZE),
+		SEEK_SET
+	);
 	if(
 		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
 		sizeof(replay_user_snapshot)
@@ -1461,6 +1531,43 @@ static bool replay_user_read(void)
 	}
 	replay_user_slot_fn_set(0);
 	return replay_user_read_from(replay_user_fn);
+}
+
+static bool replay_user_checkpoint_snapshot_read(uint8_t stage)
+{
+	uint32_t offset;
+
+	if(
+		(stage >= T3_REPLAY_USER_STAGE_COUNT) ||
+		(stage >= replay_user_header.stage_reached_count)
+	) {
+		return false;
+	}
+	offset = (
+		replay_user_header.snapshot_offset +
+		(
+			static_cast<uint32_t>(stage) *
+			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+		) +
+		T3R_STAGE_CKPT_PREFIX_SIZE
+	);
+	if(!file_ropen(replay_user_fn)) {
+		return false;
+	}
+	file_seek(offset, SEEK_SET);
+	if(
+		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
+		sizeof(replay_user_snapshot)
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return (
+		(replay_user_snapshot.game_mode == GM_STORY) &&
+		(replay_user_snapshot.story_stage == stage) &&
+		(replay_user_snapshot.autofire == replay_user_header.autofire)
+	);
 }
 
 static void replay_user_snapshot_restore_resident(void)
@@ -1548,8 +1655,11 @@ static bool replay_user_create(void)
 	uint8_t slot = replay_resident_slot();
 
 	replay_user_snapshot_fill();
+	replay_user_summary_init_from_snapshot();
+	replay_user_summary_ext_init();
+	replay_user_checkpoint_cursor_capture();
 	replay_user_header_fill(RUS_RECORDING, RUER_PARTIAL);
-	replay_rle_phase &= ~REPLAY_RLE_FILE_INITIALIZED_MASK;
+	replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 	replay_user_slot_fn_set(slot);
 	if(replay_protect_blocked()) {
 		return true;
@@ -1884,7 +1994,7 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 	}
 	packet_size = static_cast<uint8_t>(replay_write_buffer_size - packet_size);
 	replay_rle_phase = static_cast<uint8_t>(
-		(replay_rle_phase & REPLAY_RLE_FILE_INITIALIZED_MASK) |
+		(replay_rle_phase & REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK) |
 		phase |
 		(input_shift ? REPLAY_RLE_SHIFT_MASK : 0) |
 		(packet_size << REPLAY_RLE_PACKET_SIZE_SHIFT)
@@ -2397,6 +2507,8 @@ static void replay_resident_handoff_mode_set(uint8_t mode)
 
 void far replay_session_start(void)
 {
+	uint8_t playback_stage;
+
 	replay_paths_init();
 	replay_protect_local_reset();
 
@@ -2443,7 +2555,7 @@ void far replay_session_start(void)
 	}
 	if(replay_mode == REPLAY_USER_RECORD) {
 		replay_write_buffer_seg = reinterpret_cast<uint16_t>(
-			hmem_allocbyte(T3_REPLAY_WRITE_BUFFER_SIZE)
+			hmem_allocbyte(REPLAY_RECORD_BUFFER_SIZE)
 		);
 		if(replay_write_buffer_seg == 0) {
 			replay_protect_detector_error_set();
@@ -2478,7 +2590,9 @@ void far replay_session_start(void)
 			replay_done_write(RTX_ERROR_USER_CREATE);
 			return;
 		} else {
-			replay_rle_phase |= REPLAY_RLE_FILE_INITIALIZED_MASK;
+			replay_user_snapshot_fill();
+			replay_user_checkpoint_cursor_capture();
+			replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 		}
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		if(!replay_user_read()) {
@@ -2486,7 +2600,20 @@ void far replay_session_start(void)
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;
 		}
-		if(replay_sample_count == 0) {
+		playback_stage = replay_handoff_u8(
+			T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
+		);
+		if(playback_stage != 0) {
+			playback_stage--;
+			if(!replay_user_checkpoint_snapshot_read(playback_stage)) {
+				replay_mode = REPLAY_ERROR;
+				replay_done_write(RTX_ERROR_USER_HEADER);
+				return;
+			}
+			replay_user_snapshot_restore_resident();
+			replay_user_snapshot_restore_runtime();
+			resident->unused_3[T3_REPLAY_RES_PLAYBACK_STAGE_INDEX] = 0;
+		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
 			replay_user_snapshot_restore_runtime();
 		}
@@ -3171,7 +3298,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"

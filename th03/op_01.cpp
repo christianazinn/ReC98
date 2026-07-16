@@ -250,6 +250,14 @@ static void replay_resident_handoff_slot_set(uint8_t slot)
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = slot;
 }
 
+static void replay_resident_handoff_u32_set(unsigned int index, uint32_t value)
+{
+	resident->unused_3[index + 0] = static_cast<uint8_t>(value);
+	resident->unused_3[index + 1] = static_cast<uint8_t>(value >> 8);
+	resident->unused_3[index + 2] = static_cast<uint8_t>(value >> 16);
+	resident->unused_3[index + 3] = static_cast<uint8_t>(value >> 24);
+}
+
 static bool replay_resident_handoff_is(char mode)
 {
 	return (
@@ -415,7 +423,7 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(header.magic[6] == '7') &&
+		(header.magic[6] == '8') &&
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -425,10 +433,13 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
 		)) &&
 		(header.snapshot_offset == header.header_size) &&
-		(header.snapshot_size == sizeof(replay_user_snapshot_t)) &&
+		(header.snapshot_size == T3R_STAGE_CKPT_SIZE) &&
 		(header.input_offset == (
 			static_cast<uint32_t>(header.header_size) +
-			static_cast<uint32_t>(sizeof(replay_user_snapshot_t))
+			static_cast<uint32_t>(
+				(header.game_mode == GM_STORY) ?
+				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
+			)
 		)) &&
 		(header.sample_count != 0)
 	);
@@ -487,7 +498,11 @@ static bool replay_user_read_for_menu(const char *fn)
 		file_close();
 		return false;
 	}
-	file_seek(replay_user_menu_header.snapshot_offset, SEEK_SET);
+	file_seek(
+		(replay_user_menu_header.snapshot_offset +
+		 T3R_STAGE_CKPT_PREFIX_SIZE),
+		SEEK_SET
+	);
 	if(
 		file_read(
 			&replay_user_menu_snapshot,
@@ -503,6 +518,58 @@ static bool replay_user_read_for_menu(const char *fn)
 	}
 	file_close();
 	return true;
+}
+
+static bool replay_user_checkpoint_read_for_menu(
+	uint8_t stage,
+	uint32_t _ss *sample_count,
+	uint32_t _ss *global_frame,
+	uint32_t _ss *input_size
+)
+{
+	uint32_t offset;
+
+	if(
+		(replay_user_menu_header.game_mode != GM_STORY) ||
+		(stage >= T3_REPLAY_USER_STAGE_COUNT) ||
+		(stage >= replay_user_menu_header.stage_reached_count)
+	) {
+		return false;
+	}
+	offset = (
+		replay_user_menu_header.snapshot_offset +
+		(
+			static_cast<uint32_t>(stage) *
+			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+		)
+	);
+	if(!file_ropen(REPLAY_SLOT_FN)) {
+		return false;
+	}
+	file_seek(offset, SEEK_SET);
+	if(
+		(file_read(sample_count, sizeof(*sample_count)) != sizeof(*sample_count)) ||
+		(file_read(global_frame, sizeof(*global_frame)) != sizeof(*global_frame)) ||
+		(file_read(input_size, sizeof(*input_size)) != sizeof(*input_size)) ||
+		(
+			file_read(
+				&replay_user_menu_snapshot,
+				sizeof(replay_user_menu_snapshot)
+			) != sizeof(replay_user_menu_snapshot)
+		)
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return (
+		(replay_user_menu_snapshot.game_mode == GM_STORY) &&
+		(replay_user_menu_snapshot.story_stage == stage) &&
+		(replay_user_menu_snapshot.autofire == replay_user_menu_header.autofire) &&
+		(*sample_count <= replay_user_menu_header.sample_count) &&
+		(*global_frame <= replay_user_menu_header.final_frame_count) &&
+		(*input_size <= replay_user_menu_header.input_size)
+	);
 }
 
 static bool replay_user_read_slot_for_menu(uint8_t slot)
@@ -1616,14 +1683,18 @@ static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb
 	text_putsa(x, y, replay_menu_line, atrb);
 }
 
-static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
+static void replay_menu_slot_line_put(
+	uint8_t slot, uint8_t sel, unsigned int y, bool active
+)
 {
 	char *p;
-	tram_atrb2 atrb = ((slot == sel) ? TX_YELLOW : TX_WHITE);
+	tram_atrb2 atrb = (
+		((slot == sel) && active) ? TX_YELLOW : TX_WHITE
+	);
 
 	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	p = replay_menu_line;
-	*p++ = ((slot == sel) ? '>' : ' ');
+	*p++ = (((slot == sel) && active) ? '>' : ' ');
 	p = replay_line_append_u8_2(p, slot);
 	*p++ = ' ';
 	if(replay_user_read_slot_for_menu(slot)) {
@@ -1649,10 +1720,23 @@ static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, y, atrb);
 }
 
+static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
+{
+	replay_menu_slot_line_put(slot, sel, y, true);
+}
+
 static void replay_menu_detail_line_put(unsigned int y, char *p)
 {
 	*p = '\0';
 	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, TX_WHITE);
+}
+
+static void replay_menu_detail_line_put(
+	unsigned int y, char *p, tram_atrb2 atrb
+)
+{
+	*p = '\0';
+	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, atrb);
 }
 
 static char *replay_line_append_round_winner(char *p, uint8_t route_winner)
@@ -1767,10 +1851,11 @@ static void replay_menu_detail_put_vs(void)
 	}
 }
 
-static void replay_menu_detail_put_story(void)
+static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 {
 	char *p;
 	uint8_t stage;
+	tram_atrb2 atrb;
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Final: ");
@@ -1817,7 +1902,10 @@ static void replay_menu_detail_put_story(void)
 
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
 		p = replay_menu_line;
-		*p++ = ' ';
+		atrb = (
+			(stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE
+		);
+		*p++ = ((stage_focus && (stage == stage_sel)) ? '>' : ' ');
 		*p++ = static_cast<char>('1' + stage);
 		*p++ = ' ';
 		p = replay_line_append_playchar_pair(
@@ -1834,7 +1922,9 @@ static void replay_menu_detail_put_story(void)
 		} else {
 			p = replay_line_append_unknown_score(p);
 		}
-		replay_menu_detail_line_put((REPLAY_MENU_DETAIL_Y + 8 + stage), p);
+		replay_menu_detail_line_put(
+			(REPLAY_MENU_DETAIL_Y + 8 + stage), p, atrb
+		);
 	}
 
 	p = replay_menu_line;
@@ -1852,7 +1942,9 @@ static void replay_menu_detail_put_story(void)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 18, p);
 }
 
-static void replay_menu_detail_put(uint8_t slot)
+static void replay_menu_detail_put(
+	uint8_t slot, uint8_t stage_sel, bool stage_focus
+)
 {
 	char *p;
 
@@ -1886,8 +1978,13 @@ static void replay_menu_detail_put(uint8_t slot)
 	if(replay_menu_vs()) {
 		replay_menu_detail_put_vs();
 	} else {
-		replay_menu_detail_put_story();
+		replay_menu_detail_put_story(stage_sel, stage_focus);
 	}
+}
+
+static void replay_menu_detail_put(uint8_t slot)
+{
+	replay_menu_detail_put(slot, 0, false);
 }
 
 static void replay_menu_columns_put(void)
@@ -1905,7 +2002,9 @@ static void replay_menu_columns_put(void)
 	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
 }
 
-static void replay_menu_render(uint8_t sel, uint8_t top)
+static void replay_menu_render(
+	uint8_t sel, uint8_t top, uint8_t stage_sel, bool stage_focus
+)
 {
 	uint8_t slot;
 	unsigned int line;
@@ -1913,9 +2012,11 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	replay_menu_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
-		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
+		replay_menu_slot_line_put(
+			slot, sel, (REPLAY_MENU_LIST_Y + line), !stage_focus
+		);
 	}
-	replay_menu_detail_put(sel);
+	replay_menu_detail_put(sel, stage_sel, stage_focus);
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 }
 
@@ -2874,6 +2975,12 @@ bool near replay_menu(void)
 {
 	uint8_t sel = replay_user_first_used_slot();
 	uint8_t top = sel;
+	uint8_t stage_sel = 0;
+	uint8_t stage_count;
+	bool stage_focus = false;
+	uint32_t sample_count;
+	uint32_t global_frame;
+	uint32_t input_size;
 	input_t input_prev = input_sp;
 
 	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
@@ -2882,41 +2989,97 @@ bool near replay_menu(void)
 
 	replay_menu_screen_init(true);
 	palette_black_in(1);
-	replay_menu_render(sel, top);
+	replay_menu_render(sel, top, stage_sel, stage_focus);
 
 	while(1) {
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-				replay_menu_top_clamp(sel, top);
-				replay_menu_render(sel, top);
+				if(stage_focus) {
+					stage_count = replay_user_menu_header.stage_reached_count;
+					if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
+						stage_count = T3_REPLAY_USER_STAGE_COUNT;
+					}
+					if(stage_count != 0) {
+						if(stage_sel == 0) {
+							stage_sel = (stage_count - 1);
+						} else {
+							stage_sel--;
+						}
+					}
+				} else {
+					ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+					stage_sel = 0;
+					replay_menu_top_clamp(sel, top);
+				}
+				replay_menu_render(sel, top, stage_sel, stage_focus);
 			}
 			if(input_sp & INPUT_DOWN) {
-				ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-				replay_menu_top_clamp(sel, top);
-				replay_menu_render(sel, top);
+				if(stage_focus) {
+					stage_count = replay_user_menu_header.stage_reached_count;
+					if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
+						stage_count = T3_REPLAY_USER_STAGE_COUNT;
+					}
+					if(stage_count != 0) {
+						stage_sel++;
+						if(stage_sel >= stage_count) {
+							stage_sel = 0;
+						}
+					}
+				} else {
+					ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
+					stage_sel = 0;
+					replay_menu_top_clamp(sel, top);
+				}
+				replay_menu_render(sel, top, stage_sel, stage_focus);
 			}
 			if(input_sp & INPUT_LEFT) {
-				if(sel < REPLAY_MENU_VISIBLE) {
-					sel = 0;
-				} else {
-					sel -= REPLAY_MENU_VISIBLE;
+				if(stage_focus) {
+					stage_focus = false;
+					replay_menu_render(sel, top, stage_sel, stage_focus);
 				}
-				replay_menu_top_clamp(sel, top);
-				replay_menu_render(sel, top);
 			}
 			if(input_sp & INPUT_RIGHT) {
-				if(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
-					sel = (T3_REPLAY_USER_SLOT_COUNT - 1);
-				} else {
-					sel += REPLAY_MENU_VISIBLE;
+				if(
+					!stage_focus &&
+					replay_user_read_slot_for_menu(sel) &&
+					!replay_menu_vs() &&
+					(replay_user_menu_header.stage_reached_count != 0)
+				) {
+					stage_focus = true;
+					stage_sel = 0;
+					replay_menu_render(sel, top, stage_sel, stage_focus);
 				}
-				replay_menu_top_clamp(sel, top);
-				replay_menu_render(sel, top);
 			}
 			if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
-				if(replay_user_read_slot_for_menu(sel)) {
+				if(
+					stage_focus &&
+					replay_user_read_slot_for_menu(sel) &&
+					replay_user_checkpoint_read_for_menu(
+						stage_sel, &sample_count, &global_frame, &input_size
+					)
+				) {
+					replay_user_restore_resident_from_menu();
+					replay_resident_handoff_set(
+						T3_REPLAY_RES_MODE_USER_PLAYBACK
+					);
+					replay_resident_handoff_slot_set(sel);
+					replay_resident_handoff_u32_set(
+						T3_REPLAY_RES_SAMPLE_COUNT_INDEX, sample_count
+					);
+					replay_resident_handoff_u32_set(
+						T3_REPLAY_RES_GLOBAL_FRAME_INDEX, global_frame
+					);
+					replay_resident_handoff_u32_set(
+						T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
+					);
+					resident->unused_3[T3_REPLAY_RES_PLAYBACK_STAGE_INDEX] = (
+						stage_sel + 1
+					);
+					return switch_to_mainl(false);
+				} else if(
+					!stage_focus && replay_user_read_slot_for_menu(sel)
+				) {
 					replay_user_restore_resident_from_menu();
 					replay_resident_handoff_set(
 						T3_REPLAY_RES_MODE_USER_PLAYBACK
@@ -2926,8 +3089,13 @@ bool near replay_menu(void)
 				}
 			}
 			if(input_sp & INPUT_CANCEL) {
-				text_clear();
-				return true;
+				if(stage_focus) {
+					stage_focus = false;
+					replay_menu_render(sel, top, stage_sel, stage_focus);
+				} else {
+					text_clear();
+					return true;
+				}
 			}
 		}
 		input_prev = input_sp;
@@ -3070,7 +3238,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
 	TITLE_CREDIT_PAIR( 8, '1', '.');
-	TITLE_CREDIT_PAIR( 9, '4', ' ');
+	TITLE_CREDIT_PAIR( 9, '5', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');
@@ -3526,7 +3694,8 @@ void main(void)
 		0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90
+		0x90, 0x90,
+		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
 	);
 	cfg_save_exit();
 
