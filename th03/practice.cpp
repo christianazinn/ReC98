@@ -131,28 +131,9 @@ struct practice_menu_t {
 	uint8_t stock;
 };
 
-static bool practice_stage_allowed(uint8_t stage)
+static uint8_t practice_fixed_stage(void)
 {
 	playchar_t p1 = resident->playchar_paletted[0].char_id();
-	playchar_t cpu = resident->playchar_paletted[1].char_id();
-
-	if(cpu == PLAYCHAR_CHIYURI) {
-		return (stage == STAGE_CHIYURI);
-	}
-	if(cpu == PLAYCHAR_YUMEMI) {
-		return (stage == STAGE_YUMEMI);
-	}
-	if(stage < STAGE_DECISIVE) {
-		return true;
-	}
-	return (
-		(stage == STAGE_DECISIVE) &&
-		(cpu == practice_stage7_opponent(p1))
-	);
-}
-
-static uint8_t practice_first_stage(void)
-{
 	playchar_t cpu = resident->playchar_paletted[1].char_id();
 
 	if(cpu == PLAYCHAR_CHIYURI) {
@@ -160,6 +141,29 @@ static uint8_t practice_first_stage(void)
 	}
 	if(cpu == PLAYCHAR_YUMEMI) {
 		return STAGE_YUMEMI;
+	}
+	if(cpu == practice_stage7_opponent(p1)) {
+		return STAGE_DECISIVE;
+	}
+	return STAGE_NONE;
+}
+
+static bool practice_stage_allowed(uint8_t stage)
+{
+	uint8_t fixed_stage = practice_fixed_stage();
+
+	if(fixed_stage != STAGE_NONE) {
+		return (stage == fixed_stage);
+	}
+	return (stage < STAGE_DECISIVE);
+}
+
+static uint8_t practice_first_stage(void)
+{
+	uint8_t fixed_stage = practice_fixed_stage();
+
+	if(fixed_stage != STAGE_NONE) {
+		return fixed_stage;
 	}
 	return 0;
 }
@@ -547,7 +551,7 @@ bool far practice_setup_menu(void)
 	uint8_t selected = 0;
 	input_t input_prev;
 
-	cfg.preset = PRACTICE_PRESET_VS_DEFAULT;
+	cfg.preset = PRACTICE_PRESET_STORY_NATIVE;
 	cfg.stage = practice_first_stage();
 	cfg.round = 0;
 	practice_defaults_set(cfg);
@@ -608,4 +612,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

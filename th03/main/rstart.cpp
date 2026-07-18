@@ -148,8 +148,8 @@ extern "C" void pascal near round_startup(void)
 		cpu_hit_damage_additional = 0;
 		_asm { push 3; }
 	}
-	practice_initial_apply();
 	_asm { nop; push cs; call near ptr score_continues_used_digit_update; }
+	practice_initial_apply();
 
 	for(p = players, i = 0; i < PLAYER_COUNT; i++, p++) {
 		p->rounds_won = 0;
