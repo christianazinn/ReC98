@@ -717,7 +717,7 @@ static uint8_t replay_user_summary_stage_round_pack(void)
 {
 	uint8_t stage;
 
-	if(resident->game_mode == GM_STORY) {
+	if((resident->game_mode == GM_STORY) || practice_game_active()) {
 		stage = resident->story_stage;
 		if(stage < T3_REPLAY_USER_STAGE_COUNT) {
 			return static_cast<uint8_t>(
@@ -812,14 +812,16 @@ static void replay_user_summary_load_from_header(void)
 	replay_sum_stage_count = (
 		replay_user_header.stage_reached_count
 	);
-	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
-		replay_sum_stage_opps[i] = (
-			replay_user_header.stage_opponents[i]
-		);
-		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
-			replay_sum_stage_scores[i][j] = (
-				replay_user_header.stage_scores[i][j]
+	if((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0) {
+		for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+			replay_sum_stage_opps[i] = (
+				replay_user_header.scenario.story.stage_opponents[i]
 			);
+			for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+				replay_sum_stage_scores[i][j] = (
+					replay_user_header.scenario.story.stage_scores[i][j]
+				);
+			}
 		}
 	}
 }
@@ -866,14 +868,16 @@ static void replay_user_summary_copy_to_header(void)
 	replay_user_header.final_story_lives = replay_sum_lives;
 	replay_user_header.final_misses = replay_sum_misses;
 	replay_user_header.stage_reached_count = replay_sum_stage_count;
-	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
-		replay_user_header.stage_opponents[i] = (
-			replay_sum_stage_opps[i]
-		);
-		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
-			replay_user_header.stage_scores[i][j] = (
-				replay_sum_stage_scores[i][j]
+	if((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0) {
+		for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+			replay_user_header.scenario.story.stage_opponents[i] = (
+				replay_sum_stage_opps[i]
 			);
+			for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+				replay_user_header.scenario.story.stage_scores[i][j] = (
+					replay_sum_stage_scores[i][j]
+				);
+			}
 		}
 	}
 	replay_score_pack(replay_user_header.final_score, score);
@@ -979,7 +983,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_index_header.magic[3] = 'I';
 	replay_user_index_header.magic[4] = 'D';
 	replay_user_index_header.magic[5] = 'X';
-	replay_user_index_header.magic[6] = '5';
+	replay_user_index_header.magic[6] = '6';
 	replay_user_index_header.magic[7] = '\0';
 	replay_user_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_index_header.header_size = sizeof(replay_user_index_header);
@@ -1016,6 +1020,9 @@ static void replay_user_index_entry_fill(
 	}
 	replay_user_index_entry.dos_date = replay_user_header.dos_date;
 	replay_user_index_entry.autofire = replay_user_header.autofire;
+	replay_user_index_entry.replay_flags = static_cast<uint8_t>(
+		replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE
+	);
 	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
 	replay_user_index_entry.final_route = replay_user_header.final_route;
 	replay_user_index_entry.final_story_stage = (
@@ -1031,10 +1038,12 @@ static void replay_user_index_entry_fill(
 	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
 		replay_user_index_entry.final_score[i] = replay_user_header.final_score[i];
 	}
-	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
-		replay_user_index_entry.stage_opponents[i] = (
-			replay_user_header.stage_opponents[i]
-		);
+	if((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0) {
+		for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+			replay_user_index_entry.stage_opponents[i] = (
+				replay_user_header.scenario.story.stage_opponents[i]
+			);
+		}
 	}
 }
 
@@ -1411,8 +1420,8 @@ static void replay_user_header_fill(
 		replay_user_header.magic[3] = 'P';
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
-		replay_user_header.magic[6] = '9';
-		replay_user_header.magic[7] = '\0';
+		replay_user_header.magic[6] = '1';
+		replay_user_header.magic[7] = '0';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
 		replay_user_header.header_size = (
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
@@ -1422,6 +1431,13 @@ static void replay_user_header_fill(
 			T3_REPLAY_USER_FLAG_RLE_INPUT |
 			T3_REPLAY_USER_FLAG_SHIFT_INPUT
 		);
+		if(practice_game_active()) {
+			replay_user_header.flags |= T3_REPLAY_USER_FLAG_PRACTICE;
+			practice_replay_config_capture(
+				replay_user_header.scenario.practice.config,
+				players[0].cpu_safety_frames
+			);
+		}
 		replay_user_header.game_mode = replay_user_snapshot.game_mode;
 		replay_user_header.rank = replay_user_snapshot.rank;
 		replay_user_header.key_mode = replay_user_snapshot.key_mode;
@@ -1599,12 +1615,26 @@ static bool replay_user_periodic_flush(void)
 static bool replay_user_header_is_rle(void)
 {
 	return (
-		(replay_user_header.magic[6] == '9') &&
+		(replay_user_header.magic[6] == '1') &&
+		(replay_user_header.magic[7] == '0') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0)
 	);
+}
+
+static bool replay_user_header_practice_valid(void)
+{
+	if(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) {
+		return (
+			(replay_user_header.game_mode == GM_VS_1P_CPU) &&
+			practice_replay_config_valid(
+				replay_user_header.scenario.practice.config
+			)
+		);
+	}
+	return true;
 }
 
 static bool replay_user_header_valid(void)
@@ -1617,6 +1647,7 @@ static bool replay_user_header_valid(void)
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
 		replay_user_header_is_rle() &&
+		replay_user_header_practice_valid() &&
 		(replay_user_header.header_size == (
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
 		)) &&
@@ -1668,14 +1699,12 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
-	file_seek(
-		(replay_user_header.snapshot_offset + (
-			static_cast<uint32_t>(replay_user_header.story_stage) *
-			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
-		) +
-		 T3R_STAGE_CKPT_PREFIX_SIZE),
-		SEEK_SET
-	);
+	file_seek((replay_user_header.snapshot_offset + (
+		static_cast<uint32_t>(
+			(replay_user_header.game_mode == GM_STORY) ?
+				replay_user_header.story_stage : 0
+		) * static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+	) + T3R_STAGE_CKPT_PREFIX_SIZE), SEEK_SET);
 	if(
 		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
 		sizeof(replay_user_snapshot)
@@ -2701,16 +2730,12 @@ static void replay_user_record_error_disable(
 void far replay_session_start(void)
 {
 	uint8_t playback_stage;
-	bool practice_active;
 
 	replay_paths_init();
 	replay_protect_local_reset();
 
-	practice_active = practice_game_active();
-	replay_mode = (
-		practice_active ? REPLAY_DISABLED : replay_resident_mode()
-	);
-	if((replay_mode == REPLAY_DISABLED) && !practice_active) {
+	replay_mode = replay_resident_mode();
+	if(replay_mode == REPLAY_DISABLED) {
 		replay_mode = replay_cfg_mode();
 	}
 	replay_sample_count = 0;
@@ -2810,6 +2835,15 @@ void far replay_session_start(void)
 		}
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		if(!replay_user_read()) {
+			replay_mode = REPLAY_ERROR;
+			replay_done_write(RTX_ERROR_USER_HEADER);
+			return;
+		}
+		if(
+			(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
+			(players[0].cpu_safety_frames !=
+			 replay_user_header.scenario.practice.config.initial_cpu_safety_frames)
+		) {
 			replay_mode = REPLAY_ERROR;
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;

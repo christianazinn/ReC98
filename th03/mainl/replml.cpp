@@ -365,11 +365,22 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header.magic[6] == '9') &&
+		(replay_user_header.magic[6] == '1') &&
+		(replay_user_header.magic[7] == '0') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0) &&
+		(
+			(
+				(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
+				(replay_user_header.game_mode == GM_VS_1P_CPU) &&
+				practice_replay_config_valid(
+					replay_user_header.scenario.practice.config
+				)
+			) ||
+			((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
+		) &&
 		(replay_user_header.autofire <= true) &&
 		(replay_user_header.header_size == (
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext_t)
@@ -443,6 +454,9 @@ static bool mainl_replay_user_index_write(
 	}
 	replay_user_index_entry.dos_date = replay_user_header.dos_date;
 	replay_user_index_entry.autofire = replay_user_header.autofire;
+	replay_user_index_entry.replay_flags = static_cast<uint8_t>(
+		replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE
+	);
 	replay_user_index_entry.summary_flags = replay_user_header.summary_flags;
 	replay_user_index_entry.final_route = replay_user_header.final_route;
 	replay_user_index_entry.final_story_stage = (
@@ -458,10 +472,12 @@ static bool mainl_replay_user_index_write(
 	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
 		replay_user_index_entry.final_score[i] = replay_user_header.final_score[i];
 	}
-	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
-		replay_user_index_entry.stage_opponents[i] = (
-			replay_user_header.stage_opponents[i]
-		);
+	if((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0) {
+		for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+			replay_user_index_entry.stage_opponents[i] = (
+				replay_user_header.scenario.story.stage_opponents[i]
+			);
+		}
 	}
 
 	offset = (
@@ -1360,4 +1376,4 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared runtime segment at its accepted near-offset phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

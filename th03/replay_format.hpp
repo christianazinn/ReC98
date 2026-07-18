@@ -3,8 +3,8 @@
 
 #include "platform.h"
 
-#define T3_REPLAY_USER_VERSION 9
-#define T3_REPLAY_USER_INDEX_VERSION 5
+#define T3_REPLAY_USER_VERSION 10
+#define T3_REPLAY_USER_INDEX_VERSION 6
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
@@ -22,6 +22,7 @@
 #define T3_REPLAY_USER_SAMPLE_SIZE_RLE 0
 #define T3_REPLAY_USER_FLAG_RLE_INPUT 0x0001
 #define T3_REPLAY_USER_FLAG_SHIFT_INPUT 0x0002
+#define T3_REPLAY_USER_FLAG_PRACTICE 0x0004
 #define T3_REPLAY_PACKET_PHASE_GAMEPLAY 0
 #define T3_REPLAY_PACKET_PHASE_INTERSTITIAL 1
 #define T3_REPLAY_PACKET_PHASE_CONTROL 2
@@ -109,6 +110,48 @@ typedef char replay_split_row_size_check[
 	(sizeof(replay_split_row_t) == T3_REPLAY_SPLIT_ROW_SIZE) ? 1 : -1
 ];
 
+struct replay_user_practice_t {
+	uint8_t preset;
+	uint8_t stage;
+	uint8_t round;
+	uint8_t stock;
+	uint8_t extends_gained;
+	uint8_t cpu_timer;
+	uint8_t round_speed;
+	uint8_t bullet_speed;
+	uint8_t p1_spell;
+	uint8_t cpu_spell;
+	uint8_t boss_level;
+	uint8_t cpu_damage;
+	uint16_t initial_cpu_safety_frames;
+	uint8_t reserved[2];
+};
+
+typedef char replay_user_practice_size_check[
+	(sizeof(replay_user_practice_t) == 16) ? 1 : -1
+];
+
+struct replay_user_story_summary_t {
+	uint8_t stage_opponents[T3_REPLAY_USER_STAGE_COUNT];
+	uint8_t stage_scores[
+		T3_REPLAY_USER_STAGE_COUNT
+	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
+};
+
+struct replay_user_practice_summary_t {
+	replay_user_practice_t config;
+	uint8_t reserved[29];
+};
+
+union replay_user_scenario_summary_t {
+	replay_user_story_summary_t story;
+	replay_user_practice_summary_t practice;
+};
+
+typedef char replay_user_scenario_summary_size_check[
+	(sizeof(replay_user_scenario_summary_t) == 45) ? 1 : -1
+];
+
 struct replay_user_header_t {
 	char magic[8];
 	uint16_t version;
@@ -142,10 +185,7 @@ struct replay_user_header_t {
 	uint8_t final_story_lives;
 	uint8_t final_misses;
 	uint8_t stage_reached_count;
-	uint8_t stage_opponents[T3_REPLAY_USER_STAGE_COUNT];
-	uint8_t stage_scores[
-		T3_REPLAY_USER_STAGE_COUNT
-	][T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	replay_user_scenario_summary_t scenario;
 	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t autofire;
 	uint16_t dos_date;
@@ -158,6 +198,10 @@ struct replay_user_round_split_t {
 	uint8_t score_p1[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t score_p2[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 };
+
+typedef char replay_user_header_size_check[
+	(sizeof(replay_user_header_t) == 128) ? 1 : -1
+];
 
 struct replay_user_summary_ext_t {
 	uint8_t flags;
@@ -255,7 +299,8 @@ struct replay_user_index_entry_t {
 	char name[T3_REPLAY_USER_NAME_LEN];
 	uint16_t dos_date;
 	uint8_t autofire;
-	uint8_t reserved_metadata[5];
+	uint8_t replay_flags;
+	uint8_t reserved_metadata[4];
 	uint16_t summary_flags;
 	uint8_t final_route;
 	uint8_t final_story_stage;
@@ -265,5 +310,9 @@ struct replay_user_index_entry_t {
 	uint8_t final_score[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t stage_opponents[T3_REPLAY_USER_STAGE_COUNT];
 };
+
+typedef char replay_user_index_entry_size_check[
+	(sizeof(replay_user_index_entry_t) == 56) ? 1 : -1
+];
 
 #endif /* TH03_REPLAY_FORMAT_HPP */

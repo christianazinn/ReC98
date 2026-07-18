@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "th03/fast_forward.hpp"
+#include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 
@@ -115,6 +116,88 @@ inline bool practice_initial_stage_take(void)
 }
 
 void far practice_resident_clear(void);
+
+inline bool practice_replay_config_valid(
+	const replay_user_practice_t near& cfg
+)
+{
+	if(
+		(cfg.preset > PRACTICE_PRESET_STORY_NATIVE) ||
+		(cfg.cpu_timer > PRACTICE_CPU_TIMER_INFINITE) ||
+		(cfg.round_speed > 0x7F) ||
+		(cfg.bullet_speed > 0x7F) ||
+		(cfg.p1_spell < 1) || (cfg.p1_spell > 16) ||
+		(cfg.cpu_spell < 1) || (cfg.cpu_spell > 16) ||
+		(cfg.boss_level > 15) ||
+		(cfg.cpu_damage > 3) ||
+		(cfg.reserved[0] != 0) || (cfg.reserved[1] != 0)
+	) {
+		return false;
+	}
+	if(cfg.preset == PRACTICE_PRESET_VS_DEFAULT) {
+		return (
+			(cfg.stage == 0) &&
+			(cfg.round == 0) &&
+			(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) &&
+			(cfg.extends_gained == 0)
+		);
+	}
+	return (
+		(cfg.stage < T3_REPLAY_USER_STAGE_COUNT) &&
+		(cfg.round <= 5) &&
+		(cfg.stock <= 4) &&
+		(cfg.extends_gained <= 2) &&
+		(cfg.stock <= (2 + cfg.extends_gained))
+	);
+}
+
+inline void practice_replay_config_capture(
+	replay_user_practice_t near& cfg, uint16_t initial_cpu_safety_frames
+)
+{
+	cfg.preset = practice_resident_u8(T3_PRACTICE_RES_PRESET_INDEX);
+	cfg.stage = practice_resident_u8(T3_PRACTICE_RES_STAGE_INDEX);
+	cfg.round = practice_resident_u8(T3_PRACTICE_RES_ROUND_INDEX);
+	cfg.stock = practice_resident_u8(T3_PRACTICE_RES_STOCK_INDEX);
+	cfg.extends_gained = practice_resident_u8(T3_PRACTICE_RES_EXTENDS_INDEX);
+	cfg.cpu_timer = practice_resident_u8(T3_PRACTICE_RES_CPU_TIMER_INDEX);
+	cfg.round_speed = practice_resident_u8(T3_PRACTICE_RES_ROUND_SPEED_INDEX);
+	cfg.bullet_speed = practice_resident_u8(T3_PRACTICE_RES_BULLET_SPEED_INDEX);
+	cfg.p1_spell = practice_resident_u8(T3_PRACTICE_RES_P1_SPELL_INDEX);
+	cfg.cpu_spell = practice_resident_u8(T3_PRACTICE_RES_CPU_SPELL_INDEX);
+	cfg.boss_level = practice_resident_u8(T3_PRACTICE_RES_BOSS_LEVEL_INDEX);
+	cfg.cpu_damage = practice_resident_u8(T3_PRACTICE_RES_CPU_DAMAGE_INDEX);
+	cfg.initial_cpu_safety_frames = initial_cpu_safety_frames;
+	cfg.reserved[0] = 0;
+	cfg.reserved[1] = 0;
+}
+
+inline void practice_replay_config_restore(
+	const replay_user_practice_t near& cfg
+)
+{
+	practice_resident_clear();
+	practice_resident_u8_set(T3_PRACTICE_RES_MAGIC_0_INDEX, T3_PRACTICE_MAGIC_0);
+	practice_resident_u8_set(T3_PRACTICE_RES_MAGIC_1_INDEX, T3_PRACTICE_MAGIC_1);
+	practice_resident_u8_set(T3_PRACTICE_RES_VERSION_INDEX, T3_PRACTICE_VERSION);
+	practice_resident_u8_set(T3_PRACTICE_RES_PRESET_INDEX, cfg.preset);
+	practice_resident_u8_set(T3_PRACTICE_RES_STAGE_INDEX, cfg.stage);
+	practice_resident_u8_set(T3_PRACTICE_RES_ROUND_INDEX, cfg.round);
+	practice_resident_u8_set(T3_PRACTICE_RES_STOCK_INDEX, cfg.stock);
+	practice_resident_u8_set(T3_PRACTICE_RES_EXTENDS_INDEX, cfg.extends_gained);
+	practice_resident_u8_set(T3_PRACTICE_RES_CPU_TIMER_INDEX, cfg.cpu_timer);
+	practice_resident_u8_set(T3_PRACTICE_RES_ROUND_SPEED_INDEX, cfg.round_speed);
+	practice_resident_u8_set(T3_PRACTICE_RES_BULLET_SPEED_INDEX, cfg.bullet_speed);
+	practice_resident_u8_set(T3_PRACTICE_RES_P1_SPELL_INDEX, cfg.p1_spell);
+	practice_resident_u8_set(T3_PRACTICE_RES_CPU_SPELL_INDEX, cfg.cpu_spell);
+	practice_resident_u8_set(T3_PRACTICE_RES_BOSS_LEVEL_INDEX, cfg.boss_level);
+	practice_resident_u8_set(T3_PRACTICE_RES_CPU_DAMAGE_INDEX, cfg.cpu_damage);
+	practice_resident_u16_set(
+		T3_PRACTICE_RES_SAFETY_FRAMES_INDEX,
+		cfg.initial_cpu_safety_frames
+	);
+	practice_resident_u8_set(T3_PRACTICE_RES_INITIAL_STAGE_INDEX, true);
+}
 
 #if (BINARY == 'O')
 playchar_t far practice_stage7_opponent(playchar_t playchar);

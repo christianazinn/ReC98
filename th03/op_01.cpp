@@ -431,11 +431,22 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(header.magic[6] == '9') &&
+		(header.magic[6] == '1') &&
+		(header.magic[7] == '0') &&
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0) &&
+		(
+			(
+				(header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
+				(header.game_mode == GM_VS_1P_CPU) &&
+				practice_replay_config_valid(
+					header.scenario.practice.config
+				)
+			) ||
+			((header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
+		) &&
 		(header.autofire <= true) &&
 		(header.header_size == (
 			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
@@ -464,7 +475,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '5') &&
+		(header.magic[6] == '6') &&
 		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
@@ -620,7 +631,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_menu_index_header.magic[3] = 'I';
 	replay_user_menu_index_header.magic[4] = 'D';
 	replay_user_menu_index_header.magic[5] = 'X';
-	replay_user_menu_index_header.magic[6] = '5';
+	replay_user_menu_index_header.magic[6] = '6';
 	replay_user_menu_index_header.magic[7] = '\0';
 	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_menu_index_header.header_size = (
@@ -686,6 +697,9 @@ static void replay_user_index_entry_fill(
 	}
 	entry.dos_date = replay_user_menu_header.dos_date;
 	entry.autofire = replay_user_menu_header.autofire;
+	entry.replay_flags = static_cast<uint8_t>(
+		replay_user_menu_header.flags & T3_REPLAY_USER_FLAG_PRACTICE
+	);
 	entry.summary_flags = replay_user_menu_header.summary_flags;
 	entry.final_route = replay_user_menu_header.final_route;
 	entry.final_story_stage = replay_user_menu_header.final_story_stage;
@@ -695,8 +709,12 @@ static void replay_user_index_entry_fill(
 	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
 		entry.final_score[i] = replay_user_menu_header.final_score[i];
 	}
-	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
-		entry.stage_opponents[i] = replay_user_menu_header.stage_opponents[i];
+	if((replay_user_menu_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0) {
+		for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+			entry.stage_opponents[i] = (
+				replay_user_menu_header.scenario.story.stage_opponents[i]
+			);
+		}
 	}
 }
 
@@ -793,6 +811,11 @@ static void replay_user_restore_resident_from_menu(void)
 	for(i = 0; i < STAGE_COUNT; i++) {
 		resident->story_opponents[i].v = (
 			replay_user_menu_snapshot.story_opponents[i]
+		);
+	}
+	if(replay_user_menu_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) {
+		practice_replay_config_restore(
+			replay_user_menu_header.scenario.practice.config
 		);
 	}
 }
@@ -1092,7 +1115,7 @@ static bool near vs_start(bool select_characters)
 	}
 
 	resident_reset_scores(sel);
-	if((sel == VS_CPU_CPU) || practice_resident_active()) {
+	if(sel == VS_CPU_CPU) {
 		replay_resident_handoff_clear();
 	} else {
 		replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
@@ -1312,6 +1335,123 @@ static char *replay_line_append_cstr(char *p, const char *str)
 	return p;
 }
 
+enum replay_practice_text_t {
+	RPT_PRACTICE,
+	RPT_FINAL,
+	RPT_RANK,
+	RPT_PRESET,
+	RPT_VS_DEFAULT,
+	RPT_STORY_NATIVE,
+	RPT_P1,
+	RPT_CPU,
+	RPT_START_STAGE,
+	RPT_ROUND,
+	RPT_STOCK,
+	RPT_VS_RULES,
+	RPT_EXTENDS,
+	RPT_DASHES,
+	RPT_TIMER,
+	RPT_INFINITE,
+	RPT_SAFETY,
+	RPT_ROUND_SPEED,
+	RPT_BULLET,
+	RPT_SPELL_P1,
+	RPT_BOSS,
+	RPT_CPU_DAMAGE,
+	RPT_ROUND_HEADING,
+};
+
+static char *replay_line_append_practice_text(
+	char *p, replay_practice_text_t id
+)
+{
+#define P(c) *p++ = (c)
+	switch(id) {
+	case RPT_PRACTICE:
+		P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e');
+		break;
+	case RPT_FINAL:
+		P('F'); P('i'); P('n'); P('a'); P('l'); P(':'); P(' ');
+		break;
+	case RPT_RANK:
+		P(' '); P(' '); P('R'); P('a'); P('n'); P('k'); P(':'); P(' ');
+		break;
+	case RPT_PRESET:
+		P('P'); P('r'); P('e'); P('s'); P('e'); P('t'); P(':'); P(' ');
+		break;
+	case RPT_VS_DEFAULT:
+		P('V'); P('S'); P(' '); P('D'); P('e'); P('f'); P('a'); P('u');
+		P('l'); P('t');
+		break;
+	case RPT_STORY_NATIVE:
+		P('S'); P('t'); P('o'); P('r'); P('y'); P(' '); P('N'); P('a');
+		P('t'); P('i'); P('v'); P('e');
+		break;
+	case RPT_P1:
+		P('P'); P('1'); P(':'); P(' ');
+		break;
+	case RPT_CPU:
+		P(' '); P(' '); P('C'); P('P'); P('U'); P(':'); P(' ');
+		break;
+	case RPT_START_STAGE:
+		P('S'); P('t'); P('a'); P('r'); P('t'); P(':'); P(' '); P('S');
+		P('t'); P('a'); P('g'); P('e'); P(' ');
+		break;
+	case RPT_ROUND:
+		P(' '); P(' '); P('R'); P('o'); P('u'); P('n'); P('d'); P(' ');
+		break;
+	case RPT_STOCK:
+		P('S'); P('t'); P('o'); P('c'); P('k'); P(':'); P(' ');
+		break;
+	case RPT_VS_RULES:
+		P('V'); P('S'); P(' '); P('R'); P('u'); P('l'); P('e'); P('s');
+		break;
+	case RPT_EXTENDS:
+		P(' '); P(' '); P('E'); P('x'); P('t'); P('e'); P('n'); P('d');
+		P('s'); P(':'); P(' ');
+		break;
+	case RPT_DASHES:
+		P('-'); P('-');
+		break;
+	case RPT_TIMER:
+		P('T'); P('i'); P('m'); P('e'); P('r'); P(':'); P(' ');
+		break;
+	case RPT_INFINITE:
+		P('I'); P('n'); P('f'); P('i'); P('n'); P('i'); P('t'); P('e');
+		break;
+	case RPT_SAFETY:
+		P(' '); P(' '); P('S'); P('a'); P('f'); P('e'); P('t'); P('y');
+		P(':'); P(' ');
+		break;
+	case RPT_ROUND_SPEED:
+		P('R'); P('o'); P('u'); P('n'); P('d'); P('S'); P('p'); P(':');
+		P(' ');
+		break;
+	case RPT_BULLET:
+		P(' '); P(' '); P('B'); P('u'); P('l'); P('l'); P('e'); P('t');
+		P(':'); P(' ');
+		break;
+	case RPT_SPELL_P1:
+		P('S'); P('p'); P('e'); P('l'); P('l'); P(' '); P('P'); P('1');
+		P(':'); P(' ');
+		break;
+	case RPT_BOSS:
+		P('B'); P('o'); P('s'); P('s'); P(':'); P(' ');
+		break;
+	case RPT_CPU_DAMAGE:
+		P(' '); P(' '); P('C'); P('P'); P('U'); P(' '); P('D'); P('a');
+		P('m'); P('a'); P('g'); P('e'); P(':'); P(' ');
+		break;
+	case RPT_ROUND_HEADING:
+		P('R'); P('d'); P(' '); P('P'); P('1'); P(' '); P('S'); P('c');
+		P('o'); P('r'); P('e'); P(' '); P(' '); P('P'); P('2'); P(' ');
+		P('S'); P('c'); P('o'); P('r'); P('e'); P(' '); P(' '); P('W');
+		break;
+	}
+	return p;
+#undef P
+}
+
 static char *replay_line_append_u8_2(char *p, uint8_t value)
 {
 	*p++ = static_cast<char>('0' + (value / 10));
@@ -1334,6 +1474,19 @@ static char *replay_line_append_u32(char *p, uint32_t value)
 		i--;
 		*p++ = digits[i];
 	}
+	return p;
+}
+
+static char *replay_line_append_q4(char *p, uint8_t value)
+{
+	uint16_t fraction = static_cast<uint16_t>((value & 0x0F) * 625);
+
+	p = replay_line_append_u32(p, (value >> 4));
+	*p++ = '.';
+	*p++ = static_cast<char>('0' + ((fraction / 1000) % 10));
+	*p++ = static_cast<char>('0' + ((fraction / 100) % 10));
+	*p++ = static_cast<char>('0' + ((fraction / 10) % 10));
+	*p++ = static_cast<char>('0' + (fraction % 10));
 	return p;
 }
 
@@ -1443,6 +1596,13 @@ static bool replay_menu_vs(void)
 	return (replay_user_menu_header.game_mode >= GM_VS);
 }
 
+static bool replay_menu_practice(void)
+{
+	return (
+		(replay_user_menu_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) != 0
+	);
+}
+
 static bool replay_menu_round_summary_valid(void)
 {
 	return (
@@ -1454,6 +1614,11 @@ static bool replay_menu_round_summary_valid(void)
 static replay_user_round_split_t near *replay_menu_round_split(uint8_t round)
 {
 	uint8_t i;
+	uint8_t stage = (
+		replay_menu_practice() ?
+			replay_user_menu_header.scenario.practice.config.stage :
+			T3_REPLAY_USER_ROUND_STAGE_VS
+	);
 	replay_user_round_split_t near *split;
 
 	if(!replay_menu_round_summary_valid()) {
@@ -1462,7 +1627,7 @@ static replay_user_round_split_t near *replay_menu_round_split(uint8_t round)
 	for(i = 0; i < replay_user_menu_summary_ext.round_reached_count; i++) {
 		split = &replay_user_menu_summary_ext.round_splits[i];
 		if(
-			((split->stage_round & 0x0F) == T3_REPLAY_USER_ROUND_STAGE_VS) &&
+			((split->stage_round & 0x0F) == stage) &&
 			((split->stage_round >> 4) == round)
 		) {
 			return split;
@@ -1476,6 +1641,9 @@ static const uint8_t near *replay_menu_list_score(void)
 	replay_user_round_split_t near *split;
 	uint8_t round;
 
+	if(replay_menu_practice()) {
+		return replay_user_menu_header.final_score;
+	}
 	if(replay_menu_vs()) {
 		for(round = 2; round != 0xFF; round--) {
 			split = replay_menu_round_split(round);
@@ -1505,9 +1673,9 @@ static uint8_t replay_menu_stage_opponent(uint8_t stage)
 {
 	if(
 		replay_menu_summary_valid() &&
-		(replay_user_menu_header.stage_opponents[stage] != 0)
+		(replay_user_menu_header.scenario.story.stage_opponents[stage] != 0)
 	) {
-		return replay_user_menu_header.stage_opponents[stage];
+		return replay_user_menu_header.scenario.story.stage_opponents[stage];
 	}
 	return replay_user_menu_snapshot.story_opponents[stage];
 }
@@ -1718,6 +1886,10 @@ static char *replay_line_append_final_stage_mark(char *p)
 {
 	uint8_t stage;
 
+	if(replay_menu_practice()) {
+		*p++ = 'P';
+		return p;
+	}
 	if(replay_menu_vs()) {
 		return replay_line_append_cstr(p, "VS");
 	}
@@ -1923,6 +2095,196 @@ static void replay_menu_detail_put_vs(void)
 	}
 }
 
+static void replay_menu_detail_put_practice(void)
+{
+	char *p;
+	uint8_t attempt;
+	uint8_t attempts = (
+		(replay_user_menu_header.scenario.practice.config.stock ==
+		 T3_PRACTICE_STOCK_VS_RULES) ?
+			3 : (replay_user_menu_header.scenario.practice.config.stock + 1)
+	);
+	uint8_t round;
+	replay_user_round_split_t near *split;
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_FINAL);
+	if(replay_menu_summary_valid()) {
+		p = replay_line_append_packed_score(
+			p, replay_user_menu_header.final_score
+		);
+	} else {
+		p = replay_line_append_unknown_score(p);
+	}
+	p = replay_line_append_practice_text(p, RPT_RANK);
+	p = replay_line_append_cstr(p, replay_rank_name(replay_user_menu_header.rank));
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 2, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_PRESET);
+	p = replay_line_append_practice_text(p, (
+		(replay_user_menu_header.scenario.practice.config.preset ==
+		 PRACTICE_PRESET_VS_DEFAULT) ?
+			RPT_VS_DEFAULT : RPT_STORY_NATIVE
+	));
+	*p++ = ' ';
+	*p++ = ' ';
+	p = replay_line_append_autofire(p);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_P1);
+	p = replay_line_append_cstr(
+		p, replay_playchar_name(replay_user_menu_header.playchar_p1)
+	);
+	p = replay_line_append_practice_text(p, RPT_CPU);
+	p = replay_line_append_cstr(
+		p, replay_playchar_name(replay_user_menu_header.playchar_p2)
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_START_STAGE);
+	p = replay_line_append_u32(
+		p, (replay_user_menu_header.scenario.practice.config.stage + 1)
+	);
+	p = replay_line_append_practice_text(p, RPT_ROUND);
+	p = replay_line_append_u32(
+		p, (replay_user_menu_header.scenario.practice.config.round + 1)
+	);
+	if(replay_user_menu_header.scenario.practice.config.round == 5) {
+		*p++ = '+';
+	}
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 5, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_STOCK);
+	if(
+		replay_user_menu_header.scenario.practice.config.stock ==
+		T3_PRACTICE_STOCK_VS_RULES
+	) {
+		p = replay_line_append_practice_text(p, RPT_VS_RULES);
+	} else {
+		p = replay_line_append_u32(
+			p, replay_user_menu_header.scenario.practice.config.stock
+		);
+	}
+	p = replay_line_append_practice_text(p, RPT_EXTENDS);
+	if(
+		replay_user_menu_header.scenario.practice.config.preset ==
+		PRACTICE_PRESET_VS_DEFAULT
+	) {
+		p = replay_line_append_practice_text(p, RPT_DASHES);
+	} else {
+		p = replay_line_append_u32(
+			p, replay_user_menu_header.scenario.practice.config.extends_gained
+		);
+	}
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 6, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_TIMER);
+	if(
+		replay_user_menu_header.scenario.practice.config.cpu_timer ==
+		PRACTICE_CPU_TIMER_VS_DEFAULT
+	) {
+		p = replay_line_append_practice_text(p, RPT_VS_DEFAULT);
+	} else if(
+		replay_user_menu_header.scenario.practice.config.cpu_timer ==
+		PRACTICE_CPU_TIMER_STORY_NATIVE
+	) {
+		p = replay_line_append_practice_text(p, RPT_STORY_NATIVE);
+	} else {
+		p = replay_line_append_practice_text(p, RPT_INFINITE);
+	}
+	p = replay_line_append_practice_text(p, RPT_SAFETY);
+	p = replay_line_append_u32(
+		p,
+		replay_user_menu_header.scenario.practice.config.initial_cpu_safety_frames
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 7, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_ROUND_SPEED);
+	p = replay_line_append_q4(
+		p, replay_user_menu_header.scenario.practice.config.round_speed
+	);
+	p = replay_line_append_practice_text(p, RPT_BULLET);
+	p = replay_line_append_q4(
+		p, replay_user_menu_header.scenario.practice.config.bullet_speed
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 8, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_SPELL_P1);
+	p = replay_line_append_u32(
+		p, replay_user_menu_header.scenario.practice.config.p1_spell
+	);
+	p = replay_line_append_practice_text(p, RPT_CPU);
+	p = replay_line_append_u32(
+		p, replay_user_menu_header.scenario.practice.config.cpu_spell
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 9, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_BOSS);
+	p = replay_line_append_u32(
+		p, (replay_user_menu_header.scenario.practice.config.boss_level + 1)
+	);
+	p = replay_line_append_practice_text(p, RPT_CPU_DAMAGE);
+	p = replay_line_append_u32(
+		p, replay_user_menu_header.scenario.practice.config.cpu_damage
+	);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 10, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_practice_text(p, RPT_ROUND_HEADING);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 11, p);
+
+	for(attempt = 0; attempt < 5; attempt++) {
+		round = static_cast<uint8_t>(
+			replay_user_menu_header.scenario.practice.config.round + attempt
+		);
+		p = replay_menu_line;
+		if(round < 9) {
+			*p++ = ' ';
+		}
+		p = replay_line_append_u32(p, (round + 1));
+		*p++ = ' ';
+		split = replay_menu_round_split(round);
+		if((attempt < attempts) && (split != NULL)) {
+			p = replay_line_append_packed_score(p, split->score_p1);
+			*p++ = ' ';
+			p = replay_line_append_packed_score(p, split->score_p2);
+			*p++ = ' ';
+			p = replay_line_append_round_winner(p, split->route_winner);
+		} else {
+			p = replay_line_append_unknown_score(p);
+			*p++ = ' ';
+			p = replay_line_append_unknown_score(p);
+			*p++ = ' ';
+			*p++ = '-';
+		}
+		replay_menu_detail_line_put(
+			(REPLAY_MENU_DETAIL_Y + 12 + attempt), p
+		);
+	}
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Smpl: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.sample_count);
+	p = replay_line_append_cstr(p, " Frm: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.final_frame_count);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 17, p);
+
+	p = replay_menu_line;
+	p = replay_line_append_cstr(p, "Bytes: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.input_size);
+	p = replay_line_append_cstr(p, "  RNG: ");
+	p = replay_line_append_u32(p, replay_user_menu_header.resident_rand);
+	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 18, p);
+}
+
 static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 {
 	char *p;
@@ -1989,7 +2351,7 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 			(stage < replay_user_menu_header.stage_reached_count)
 		) {
 			p = replay_line_append_packed_score(
-				p, replay_user_menu_header.stage_scores[stage]
+				p, replay_user_menu_header.scenario.story.stage_scores[stage]
 			);
 		} else {
 			p = replay_line_append_unknown_score(p);
@@ -2033,9 +2395,13 @@ static void replay_menu_detail_put(
 	p = replay_line_append_cstr(p, "Slot ");
 	p = replay_line_append_u8_2(p, slot);
 	p = replay_line_append_cstr(p, "  ");
-	p = replay_line_append_cstr(
-		p, replay_user_end_reason_name(replay_user_menu_header.end_reason)
-	);
+	if(replay_menu_practice()) {
+		p = replay_line_append_practice_text(p, RPT_PRACTICE);
+	} else {
+		p = replay_line_append_cstr(
+			p, replay_user_end_reason_name(replay_user_menu_header.end_reason)
+		);
+	}
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
 
 	p = replay_menu_line;
@@ -2047,7 +2413,9 @@ static void replay_menu_detail_put(
 	p = replay_line_append_date(p, replay_user_menu_header.dos_date);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 1, p);
 
-	if(replay_menu_vs()) {
+	if(replay_menu_practice()) {
+		replay_menu_detail_put_practice();
+	} else if(replay_menu_vs()) {
 		replay_menu_detail_put_vs();
 	} else {
 		replay_menu_detail_put_story(stage_sel, stage_focus);
@@ -3293,7 +3661,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3316,13 +3684,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20372E32UL); // "2.7 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D382E32UL); // "2.8-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0"
 	text_putsa((TRAM_RIGHT - LINE2_LEN), 1, title_credit_line, TX_BLACK);
 }
 
@@ -3875,5 +4243,5 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 // Keep SHARED at its accepted paragraph phase after the practice hooks.
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------
