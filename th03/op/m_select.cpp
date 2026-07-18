@@ -676,9 +676,17 @@ done:
 	return false;
 }
 
-bool near select_vs_cpu_menu(void)
+bool near select_vs_cpu_menu(bool resume)
 {
-	select_init_and_load();
+	if(!resume) {
+		select_init_and_load();
+	} else {
+		// Practice Setup keeps the selection assets and BGM alive.
+		vsync_Count1 = 0;
+		graph_accesspage(1);
+		page_shown = 0;
+		curve_trail_count = 8;
+	}
 	sel_init_vs();
 	input_mode = input_mode_interface;
 	for(int pid_cur = 0; pid_cur < PLAYER_COUNT; pid_cur++) {
@@ -713,7 +721,7 @@ bool near select_vs_cpu_menu(void)
 		}
 done:
 	}
-	select_free();
+	// The caller frees resources after the optional Practice Setup flow.
 	return false;
 }
 

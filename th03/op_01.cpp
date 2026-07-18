@@ -1067,20 +1067,27 @@ static bool near vs_start(bool select_characters)
 				return true;
 			}
 		} else {
+			bool resume = false;
 			while(1) {
-				if(select_vs_cpu_menu()) {
+				if(select_vs_cpu_menu(resume)) {
 					resident->game_mode = GM_NONE;
 					return true;
 				}
-				if((sel != VS_1P_CPU) || !practice_setup_menu()) {
+				if(sel != VS_1P_CPU) {
 					break;
 				}
-				select_cdg_load_part1_of_4();
-				select_cdg_load_part3_of_4();
-				select_cdg_load_part2_of_4();
-				// The completed character-select fade leaves the tone near black.
+				if(!practice_setup_menu()) {
+					break;
+				}
+				// Keep select.m and the selection graphics across this return.
+				while(input_sp != INPUT_NONE) {
+					frame_delay(1);
+					input_mode_interface();
+				}
 				palette_100();
+				resume = true;
 			}
+			select_free();
 		}
 	}
 
@@ -3754,15 +3761,6 @@ void main(void)
 	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
 	__emit__(
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
 	);
 	cfg_save_exit();

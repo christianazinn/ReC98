@@ -7,10 +7,12 @@
 void near select_cdg_load_part1_of_4(void);
 void near select_cdg_load_part2_of_4(void);
 void near select_cdg_load_part3_of_4(void);
+void near select_free(void);
 
 // Shows the respective character selection menu and writes the selected
 // characters to [resident->playchar_paletted]. Returns `true` if the selection
-// was canceled.
+// was canceled. A successful [select_vs_cpu_menu()] leaves its resources alive
+// for optional Practice Setup; the caller must eventually call select_free().
 bool near select_1p_vs_2p_menu(void);
-bool near select_vs_cpu_menu(void); // 1P vs. CPU or CPU vs. CPU
+bool near select_vs_cpu_menu(bool resume); // 1P vs. CPU or CPU vs. CPU
 bool near select_story_menu(void);
