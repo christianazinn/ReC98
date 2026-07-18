@@ -3251,13 +3251,13 @@ int8_t in_option; // ACTUAL TYPE: bool
 static int8_t padding; // ZUN bloat
 menu_put_func_t menu_put;
 
-static char title_credit_line[39];
+static char title_credit_line[44];
 // Keep OP's initialized-data offsets after removing the GDC error path.
 static char gdc_frequency_error_offset_padding[] =
 	ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3;
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
-uint8_t replay_resident_offset_padding[25];
+uint8_t replay_resident_offset_padding[20];
 // -------
 
 // These menus want to display centered strings. However, the underlying gaiji
@@ -3283,13 +3283,17 @@ uint8_t replay_resident_offset_padding[25];
 
 #define TITLE_CREDIT_PAIR(index, left, right) \
 	pairs[index] = static_cast<uint16_t>((left) | ((right) << 8))
+#define TITLE_CREDIT_QUAD(index, value) \
+	(*reinterpret_cast<uint32_t near *>( \
+		&title_credit_line[(index) * sizeof(uint32_t)] \
+	) = (value))
 
 static void near title_credit_put(void)
 {
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3308,30 +3312,22 @@ static void near title_credit_put(void)
 	title_credit_line[LINE1_LEN] = '\0';
 	text_putsa((TRAM_RIGHT - LINE1_LEN), 0, title_credit_line, TX_BLACK);
 
-	TITLE_CREDIT_PAIR( 0, 'R', 'e');
-	TITLE_CREDIT_PAIR( 1, 'p', 'l');
-	TITLE_CREDIT_PAIR( 2, 'a', 'y');
-	TITLE_CREDIT_PAIR( 3, ' ', 'P');
-	TITLE_CREDIT_PAIR( 4, 'a', 't');
-	TITLE_CREDIT_PAIR( 5, 'c', 'h');
-	TITLE_CREDIT_PAIR( 6, ' ', 'v');
-	TITLE_CREDIT_PAIR( 7, '0', '.');
-	TITLE_CREDIT_PAIR( 8, '2', '.');
-	TITLE_CREDIT_PAIR( 9, '2', ' ');
-	TITLE_CREDIT_PAIR(10, 'b', 'y');
-	TITLE_CREDIT_PAIR(11, ' ', 'C');
-	TITLE_CREDIT_PAIR(12, 'h', 'r');
-	TITLE_CREDIT_PAIR(13, 'i', 's');
-	TITLE_CREDIT_PAIR(14, 't', 'i');
-	TITLE_CREDIT_PAIR(15, 'a', 'n');
-	TITLE_CREDIT_PAIR(16, ' ', 'A');
-	TITLE_CREDIT_PAIR(17, 'z', 'i');
-	TITLE_CREDIT_PAIR(18, 'n', 'n');
-	title_credit_line[LINE2_LEN] = '\0';
+	TITLE_CREDIT_QUAD(0, 0x6C706552UL); // "Repl"
+	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
+	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
+	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
+	TITLE_CREDIT_QUAD(4, 0x2D322E32UL); // "2.2-"
+	TITLE_CREDIT_QUAD(5, 0x20376372UL); // "rc7 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0"
 	text_putsa((TRAM_RIGHT - LINE2_LEN), 1, title_credit_line, TX_BLACK);
 }
 
 #undef TITLE_CREDIT_PAIR
+#undef TITLE_CREDIT_QUAD
 
 void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 {

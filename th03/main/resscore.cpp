@@ -47,8 +47,8 @@ extern "C" void pascal far SUB_A38E(void);
 
 // Replay-mod note: Hooks added before this translation unit shift
 // PLAYFLD_TEXT from the matching binary. This rank switch uses an absolute
-// offset into PLAYFLD_TEXT, so keep the table base in sync with the current
-// map when earlier PLAYFLD_TEXT code changes.
+// offsets into PLAYFLD_TEXT, so keep the table base and entries in sync with
+// the current map when earlier PLAYFLD_TEXT code changes.
 #define SUB_9EBF_RANK_TABLE_BASE 0BCAh
 extern "C" void pascal near sub_9EBF(void)
 {
@@ -269,7 +269,7 @@ sub_9EBF_rank_done:
 	}
 	enemy_formations_randomize();
 }
-#pragma codestring "\x00\x57\x09\x8F\x09\xB9\x09\xF4\x09"
+#pragma codestring "\x00\xC7\x09\xFF\x09\x29\x0A\x64\x0A"
 
 #undef SUB_9EBF_RANK_TABLE_BASE
 
