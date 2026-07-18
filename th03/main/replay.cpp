@@ -392,7 +392,7 @@ void far replay_overlay_put(void)
 #endif
 
 	replay_overlay_graph_fill(
-		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, 5
+		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE
 	);
 	text_putsa(TRAM_LEFT, TRAM_TOP, line, (TX_BLACK | TX_REVERSE));
 }
