@@ -65,6 +65,11 @@ void near ending_staff_and_regist(void)
 {
 	char playchar_id;
 
+	if(mainl_replay_clear_playback_finish()) {
+		ending_exit_to_op();
+		return;
+	}
+
 	cdg_free(0);
 	cdg_free(1);
 	cdg_free(2);

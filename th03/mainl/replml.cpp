@@ -1340,6 +1340,17 @@ bool far mainl_replay_finish(
 	return save_pending;
 }
 
+bool far mainl_replay_clear_playback_finish(void)
+{
+	if(mainl_replay_mode != MR_USER_PLAYBACK) {
+		return false;
+	}
+	mainl_replay_finish(
+		RUER_COMPLETE, T3_REPLAY_RES_MODE_SAVE_PROMPT_CLEAR
+	);
+	return true;
+}
+
 void far mainl_replay_exit_to_main(void)
 {
 	if(!mainl_replay_stage_start_selected()) {
@@ -1348,5 +1359,5 @@ void far mainl_replay_exit_to_main(void)
 	game_exit_from_mainl_to_main();
 }
 
-// The mode gate consumes the old phase padding while preserving the following
-// shared runtime segment at its accepted address.
+// Keep the following shared runtime segment at its accepted near-offset phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
