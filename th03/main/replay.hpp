@@ -12,9 +12,7 @@
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-void far replay_debug_overlay_put(void);
-#endif
+void far replay_overlay_put(void);
 void far replay_input_sense_held(void);
 // Returns a one-shot pause request in CF without altering the sampled input.
 extern "C" void far replay_pause_request_poll(void);

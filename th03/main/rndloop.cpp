@@ -74,19 +74,14 @@ void pascal near resident_score_last_update(int pid);
 	_asm { nop; push cs; call near ptr func; } \
 }
 
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-// Reclaim the inert NOP byte for the late diagnostic overlay call.
-#define debug_call_noarg(func) { \
+// Reclaim the inert NOP byte for the late replay overlay call.
+#define overlay_balanced_call_noarg(func) { \
 	_asm { push cs; call near ptr func; } \
 }
-#define debug_call_uint8(func, value) { \
+#define overlay_balanced_call_uint8(func, value) { \
 	__emit__(0x6A, value); \
 	_asm { push cs; call near ptr func; } \
 }
-#else
-#define debug_call_noarg(func) nopcall_noarg(func)
-#define debug_call_uint8(func, value) nopcall_uint8(func, value)
-#endif
 
 #define return_2() { \
 	_asm { mov al, 2; pop bp; ret; } \
@@ -130,7 +125,7 @@ frame:
 	pid.so_attack = SO_ATTACK_P2;
 	gba_gauge_pattern_pellet[1]();
 	gba_gauge_pattern_bullet[1]();
-	debug_call_noarg(SUB_CEB2);
+	overlay_balanced_call_noarg(SUB_CEB2);
 	input_mode();
 	replay_frame_io();
 	pid.current = 0;
@@ -145,7 +140,7 @@ frame:
 	sub_C7A5();
 pause_done:
 
-	debug_call_noarg(SUB_CA3C);
+	overlay_balanced_call_noarg(SUB_CA3C);
 	nopcall_uint8(SUB_CB81, 0);
 	nopcall_uint8(SUB_CB81, 1);
 	farfp_20F24();
@@ -189,7 +184,7 @@ pause_done:
 	player_overlay_render(&p1);
 	pid.current = 1;
 	player_overlay_render(&p2);
-	debug_call_noarg(SUB_CEE0);
+	overlay_balanced_call_noarg(SUB_CEE0);
 	bullets_render();
 	if(defeat_flag == DF_BANNER) {
 		sub_C2F9();
@@ -259,15 +254,13 @@ after_defeat:
 	sub_C830();
 	sub_C8C4();
 	sub_D52E();
-	debug_call_uint8(SUB_C9FE, 0);
-	debug_call_uint8(SUB_C9FE, 1);
+	overlay_balanced_call_uint8(SUB_C9FE, 0);
+	overlay_balanced_call_uint8(SUB_C9FE, 1);
 	sub_BE5D();
 	combos_update_and_render();
 	fp_1FBC0();
 	fp_1E6EA();
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-	replay_debug_overlay_put();
-#endif
+	replay_overlay_put();
 	if(byte_23AFA == 0) {
 		while(byte_23AF9 > vsync_Count1) {
 		}
@@ -337,6 +330,6 @@ loop_test:
 
 #undef nopcall_uint8
 #undef nopcall_noarg
-#undef debug_call_uint8
-#undef debug_call_noarg
+#undef overlay_balanced_call_uint8
+#undef overlay_balanced_call_noarg
 #undef return_2

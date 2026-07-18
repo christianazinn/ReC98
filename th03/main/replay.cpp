@@ -275,7 +275,7 @@ static char __ss *replay_debug_u32_put(
 	return out;
 }
 
-void far replay_debug_overlay_put(void)
+static void replay_debug_overlay_put(void)
 {
 	enum {
 		TRAM_LEFT = 13,
@@ -334,6 +334,55 @@ void far replay_debug_overlay_put(void)
 	text_putsa(TRAM_LEFT, 0, line, TX_WHITE);
 }
 #endif
+
+void far replay_overlay_put(void)
+{
+	enum {
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+		TRAM_LEFT = 38,
+		TRAM_TOP = 1,
+		TRAM_W = 3,
+#else
+		TRAM_LEFT = 37,
+		TRAM_TOP = 0,
+		TRAM_W = 6,
+#endif
+		PIXEL_LEFT = (TRAM_LEFT * GLYPH_HALF_W),
+		PIXEL_TOP = (TRAM_TOP * GLYPH_HALF_H),
+		PIXEL_RIGHT = (((TRAM_LEFT + TRAM_W) * GLYPH_HALF_W) - 1),
+		PIXEL_BOTTOM = (PIXEL_TOP + GLYPH_HALF_H - 1),
+	};
+	char line[7];
+
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	replay_debug_overlay_put();
+#endif
+	if(
+		(replay_mode != REPLAY_PLAYBACK) &&
+		(replay_mode != REPLAY_USER_PLAYBACK)
+	) {
+		return;
+	}
+	line[0] = 'R';
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	line[1] = 'P';
+	line[2] = 'Y';
+	line[3] = '\0';
+#else
+	line[1] = 'E';
+	line[2] = 'P';
+	line[3] = 'L';
+	line[4] = 'A';
+	line[5] = 'Y';
+	line[6] = '\0';
+#endif
+
+	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
+	grcg_setcolor(GC_RMW, 0);
+	grcg_boxfill(PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM);
+	grcg_off();
+	text_putsa(TRAM_LEFT, TRAM_TOP, line, TX_CYAN);
+}
 
 static void replay_autofire_apply_player(
 	input_t near *input, uint8_t pid, bool charge
@@ -3492,7 +3541,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
