@@ -75,10 +75,10 @@ extern "C" void pascal near round_startup(void)
 	text_fillca(' ', (TX_BLACK | TX_REVERSE));
 	graph_copy_page(0);
 	enemy_formations_load();
-	round_id = (
-		practice_resident_active() ?
-		practice_resident_u8(T3_PRACTICE_RES_ROUND_INDEX) : 0
-	);
+	round_id = 0;
+	if(resident->game_mode == GM_VS_1P_CPU) {
+		round_id = practice_initial_round();
+	}
 	sub_9EBF();
 	hflip_lut_generate();
 	nopcall_noarg(sub_D5A2);
@@ -146,10 +146,12 @@ extern "C" void pascal near round_startup(void)
 		gba_gauge_level[1] = GBA_GAUGE_LEVEL_MIN;
 		extends_gained = EXTENDS_DISABLE;
 		cpu_hit_damage_additional = 0;
+		if(resident->game_mode == GM_VS_1P_CPU) {
+			practice_initial_apply();
+		}
 		_asm { push 3; }
 	}
 	_asm { nop; push cs; call near ptr score_continues_used_digit_update; }
-	practice_initial_apply();
 
 	for(p = players, i = 0; i < PLAYER_COUNT; i++, p++) {
 		p->rounds_won = 0;
@@ -249,5 +251,8 @@ extern "C" void pascal near round_startup(void)
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
 }
+
+// Keep all following PLAYFLD_TEXT code at its accepted offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #undef nopcall_noarg

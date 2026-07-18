@@ -1290,7 +1290,7 @@ bool far mainl_replay_stage_start_selected(void)
 
 int far mainl_replay_stage_transition_needed(void)
 {
-	if(practice_initial_stage_take()) {
+	if(practice_game_active() && practice_initial_stage_take()) {
 		return false;
 	}
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
@@ -1348,9 +1348,5 @@ void far mainl_replay_exit_to_main(void)
 	game_exit_from_mainl_to_main();
 }
 
-// Keep the following shared runtime segment at its accepted paragraph phase.
-#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#endif
+// The mode gate consumes the old phase padding while preserving the following
+// shared runtime segment at its accepted address.

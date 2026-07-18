@@ -66,11 +66,19 @@ static uint16_t practice_safety_frames(
 	return practice_vs_safety_frames(rank);
 }
 
+uint8_t far practice_initial_round(void)
+{
+	if(!practice_game_active()) {
+		return 0;
+	}
+	return practice_resident_u8(T3_PRACTICE_RES_ROUND_INDEX);
+}
+
 void far practice_initial_apply(void)
 {
 	uint16_t safety;
 
-	if(!practice_resident_active()) {
+	if(!practice_game_active()) {
 		return;
 	}
 	safety = practice_safety_frames(
@@ -98,7 +106,7 @@ void far practice_retry_apply(uint8_t p1_spell, uint8_t cpu_spell)
 	uint8_t timer;
 	uint16_t safety;
 
-	if(!practice_resident_uses_stock()) {
+	if(!practice_game_active() || !practice_resident_uses_stock()) {
 		return;
 	}
 	timer = practice_resident_u8(T3_PRACTICE_RES_CPU_TIMER_INDEX);
@@ -123,4 +131,4 @@ void far practice_retry_apply(uint8_t p1_spell, uint8_t cpu_spell)
 #pragma codeseg
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"

@@ -88,6 +88,10 @@ inline bool practice_resident_active(void)
 	);
 }
 
+#define practice_game_active() ( \
+	(resident->game_mode == GM_VS_1P_CPU) && practice_resident_active() \
+)
+
 inline bool practice_resident_uses_stock(void)
 {
 	return (
@@ -115,6 +119,7 @@ void far practice_resident_clear(void);
 playchar_t far practice_stage7_opponent(playchar_t playchar);
 bool far practice_setup_menu(void);
 #elif (BINARY == 'M')
+uint8_t far practice_initial_round(void);
 void far practice_initial_apply(void);
 void far practice_retry_apply(uint8_t p1_spell, uint8_t cpu_spell);
 #endif

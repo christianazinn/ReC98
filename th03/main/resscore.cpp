@@ -45,10 +45,10 @@ void near randring_fill(void);
 extern "C" void pascal near hyper_standby(void);
 extern "C" void pascal far SUB_A38E(void);
 
-// Replay-mod note: The far replay hooks added before this translation unit shift
-// PLAYFLD_TEXT by 0x23 from the matching binary. This rank switch uses
-// absolute offsets into PLAYFLD_TEXT, so keep the table base and entries in
-// sync with the current map when earlier PLAYFLD_TEXT code changes.
+// Replay-mod note: Hooks added before this translation unit shift
+// PLAYFLD_TEXT from the matching binary. This rank switch uses an absolute
+// offset into PLAYFLD_TEXT, so keep the table base in sync with the current
+// map when earlier PLAYFLD_TEXT code changes.
 #define SUB_9EBF_RANK_TABLE_BASE 0BCAh
 extern "C" void pascal near sub_9EBF(void)
 {

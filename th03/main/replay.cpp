@@ -2639,14 +2639,16 @@ static void replay_user_record_error_disable(
 void far replay_session_start(void)
 {
 	uint8_t playback_stage;
+	bool practice_active;
 
 	replay_paths_init();
 	replay_protect_local_reset();
 
+	practice_active = practice_game_active();
 	replay_mode = (
-		practice_resident_active() ? REPLAY_DISABLED : replay_resident_mode()
+		practice_active ? REPLAY_DISABLED : replay_resident_mode()
 	);
-	if((replay_mode == REPLAY_DISABLED) && !practice_resident_active()) {
+	if((replay_mode == REPLAY_DISABLED) && !practice_active) {
 		replay_mode = replay_cfg_mode();
 	}
 	replay_sample_count = 0;
