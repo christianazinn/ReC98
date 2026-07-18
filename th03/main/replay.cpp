@@ -221,12 +221,12 @@ static void replay_fast_forward_wait_skip(bool held)
 	vsync_Count1 = byte_23AF9;
 }
 
-static void replay_overlay_backing_put(
-	int left, int top, int right, int bottom
+static void replay_overlay_graph_fill(
+	int left, int top, int right, int bottom, int color
 )
 {
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
-	grcg_setcolor(GC_RMW, 0);
+	grcg_setcolor(GC_RMW, color);
 	graph_accesspage(0);
 	grcg_boxfill(left, top, right, bottom);
 	graph_accesspage(1);
@@ -341,8 +341,8 @@ static void replay_debug_overlay_put(void)
 	out = replay_debug_u16_put(out, players[1].cpu_safety_frames);
 	*out = '\0';
 
-	replay_overlay_backing_put(PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM);
-	text_putsa(TRAM_LEFT, 0, line, TX_WHITE);
+	replay_overlay_graph_fill(PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, 7);
+	text_putsa(TRAM_LEFT, 0, line, (TX_BLACK | TX_REVERSE));
 }
 #endif
 
@@ -388,10 +388,10 @@ void far replay_overlay_put(void)
 	line[6] = '\0';
 #endif
 
-	replay_overlay_backing_put(
-		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM
+	replay_overlay_graph_fill(
+		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, 5
 	);
-	text_putsa(TRAM_LEFT, TRAM_TOP, line, TX_CYAN);
+	text_putsa(TRAM_LEFT, TRAM_TOP, line, (TX_BLACK | TX_REVERSE));
 }
 
 static void replay_autofire_apply_player(
@@ -3551,7 +3551,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
