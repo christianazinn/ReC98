@@ -31,6 +31,7 @@
 #include "th03/shiftjis/main.hpp"
 #include "th03/op/m_main.hpp"
 #include "th03/op/m_select.hpp"
+#include "th03/practice.hpp"
 #include "th03/sprites/regi.h"
 #include "platform/x86real/flags.hpp"
 #include "planar.h"
@@ -764,6 +765,7 @@ static void replay_user_restore_resident_from_menu(void)
 	int i;
 	int digit;
 
+	practice_resident_clear();
 	resident->rand = replay_user_menu_snapshot.resident_rand;
 	resident->rank = replay_user_menu_snapshot.rank;
 	resident->key_mode = replay_user_menu_snapshot.key_mode;
@@ -827,18 +829,8 @@ inline bool switch_to_mainl(bool opwin_free) {
 static int near replay_dev_story_stage_menu(void);
 #endif
 
-static bool near story_start(bool select_character)
+playchar_t far practice_stage7_opponent(playchar_t playchar)
 {
-	enum {
-		RANDOM_OPPONENT_MIN = PLAYCHAR_REIMU,
-		RANDOM_OPPONENT_MAX = PLAYCHAR_RIKAKO,
-		RANDOM_OPPONENT_COUNT = (
-			(RANDOM_OPPONENT_MAX - RANDOM_OPPONENT_MIN) + 1
-		),
-	};
-
-	static bool opponent_seen[RANDOM_OPPONENT_COUNT] = { false };
-
 	// ACTUAL TYPE: playchar_t
 	static const uint8_t STAGE7_OPPONENT_FOR[PLAYCHAR_COUNT] = {
 		PLAYCHAR_MIMA, // for Reimu
@@ -852,12 +844,28 @@ static bool near story_start(bool select_character)
 		PLAYCHAR_RIKAKO, // for Yumemi
 	};
 
+	return static_cast<playchar_t>(STAGE7_OPPONENT_FOR[playchar]);
+}
+
+static bool near story_start(bool select_character)
+{
+	enum {
+		RANDOM_OPPONENT_MIN = PLAYCHAR_REIMU,
+		RANDOM_OPPONENT_MAX = PLAYCHAR_RIKAKO,
+		RANDOM_OPPONENT_COUNT = (
+			(RANDOM_OPPONENT_MAX - RANDOM_OPPONENT_MIN) + 1
+		),
+	};
+
+	static bool opponent_seen[RANDOM_OPPONENT_COUNT] = { false };
+
 	int stage;
 	int candidate;
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 	int replay_dev_story_stage = 0;
 #endif
 
+	practice_resident_clear();
 	resident->demo_num = 0;
 	resident->pid_winner = 0;
 	resident->story_stage = 0;
@@ -882,9 +890,9 @@ static bool near story_start(bool select_character)
 
 retry_opponent_selection:
 	// ACTUAL TYPE: playchar_t
-	int stage7_opponent = STAGE7_OPPONENT_FOR[
+	int stage7_opponent = practice_stage7_opponent(
 		resident->playchar_paletted[0].char_id_16()
-	];
+	);
 	irand_init(resident->rand);
 
 	for(stage = 0; stage < 6; stage++) {
@@ -1030,13 +1038,26 @@ static bool near vs_start(bool select_characters)
 		sel = (resident->game_mode - GM_VS);
 	}
 
+	if(select_characters) {
+		practice_resident_clear();
+	}
 	resident->is_cpu[0] = ((sel == VS_CPU_CPU) ? true : false);
 	resident->is_cpu[1] = ((sel != VS_1P_2P) ? true : false);
 	resident->demo_num = 0;
 	resident->pid_winner = 0;
-	resident->story_stage = 0;
+	resident->story_stage = (
+		practice_resident_active() ?
+		practice_resident_u8(T3_PRACTICE_RES_STAGE_INDEX) : 0
+	);
+	resident->story_lives = (
+		practice_resident_uses_stock() ?
+		practice_resident_u8(T3_PRACTICE_RES_STOCK_INDEX) : 0
+	);
 	resident->game_mode = (GM_VS + sel);
 	resident->show_score_menu = false;
+	if(practice_resident_active()) {
+		practice_resident_u8_set(T3_PRACTICE_RES_INITIAL_STAGE_INDEX, true);
+	}
 
 	// ZUN bloat: Could be compressed into a single branch.
 	if(select_characters) {
@@ -1046,15 +1067,17 @@ static bool near vs_start(bool select_characters)
 				return true;
 			}
 		} else {
-			if(select_vs_cpu_menu()) {
-				resident->game_mode = GM_NONE;
-				return true;
-			}
+			do {
+				if(select_vs_cpu_menu()) {
+					resident->game_mode = GM_NONE;
+					return true;
+				}
+			} while((sel == VS_1P_CPU) && practice_setup_menu());
 		}
 	}
 
 	resident_reset_scores(sel);
-	if(sel == VS_CPU_CPU) {
+	if((sel == VS_CPU_CPU) || practice_resident_active()) {
 		replay_resident_handoff_clear();
 	} else {
 		replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
@@ -1085,6 +1108,7 @@ static void replay_demo_resident_set(void)
 	};
 	static const int32_t RAND[DEMO_COUNT] = { 600, 1000, 3200, 500 };
 
+	practice_resident_clear();
 	resident->is_cpu[0] = true;
 	resident->is_cpu[1] = true;
 	ring_inc_range(resident->demo_num, 1, DEMO_COUNT);
@@ -3278,7 +3302,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
 	TITLE_CREDIT_PAIR( 8, '2', '.');
-	TITLE_CREDIT_PAIR( 9, '1', ' ');
+	TITLE_CREDIT_PAIR( 9, '2', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');
@@ -3852,4 +3876,6 @@ static int near replay_dev_story_stage_menu(void)
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+// Keep SHARED at its accepted paragraph phase after the practice hooks.
+#pragma codestring "\x90\x90"
 /// --------

@@ -16,6 +16,7 @@
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/fast_forward.hpp"
+#include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
@@ -2642,8 +2643,10 @@ void far replay_session_start(void)
 	replay_paths_init();
 	replay_protect_local_reset();
 
-	replay_mode = replay_resident_mode();
-	if(replay_mode == REPLAY_DISABLED) {
+	replay_mode = (
+		practice_resident_active() ? REPLAY_DISABLED : replay_resident_mode()
+	);
+	if((replay_mode == REPLAY_DISABLED) && !practice_resident_active()) {
 		replay_mode = replay_cfg_mode();
 	}
 	replay_sample_count = 0;

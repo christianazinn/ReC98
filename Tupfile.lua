@@ -631,6 +631,7 @@ local th03_op_inputs = {
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
 	"th02/frmdely2.cpp",
+	"th03/practice.cpp",
 }
 th03_op_cfg:link("op", th03_op_inputs)
 
@@ -770,6 +771,7 @@ local th03_main_inputs = {
 	"th03/mrs.cpp",
 	"th03/sprite16.cpp",
 	"th03/main/replay.cpp",
+	"th03/main/pract_m.cpp",
 }
 th03_main_cfg:link("main", th03_main_inputs)
 

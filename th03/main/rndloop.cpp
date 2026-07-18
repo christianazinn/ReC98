@@ -21,6 +21,7 @@
 #include "th03/replay_build.hpp"
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
+#include "th03/practice.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -192,7 +193,10 @@ pause_done:
 	bullets_render();
 	if(defeat_flag == DF_BANNER) {
 		sub_C2F9();
-		if(resident->game_mode == GM_STORY) {
+		if(
+			(resident->game_mode == GM_STORY) ||
+			practice_resident_uses_stock()
+		) {
 			goto story_mode;
 		}
 		if(p1.rounds_won >= 2) {

@@ -2,6 +2,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/gaiji/gaiji.h"
+#include "th03/practice.hpp"
 #include "th03/resident.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 
@@ -153,7 +154,10 @@ void hud_static_put(void)
 		hud_static_rounds_won_put(i);
 		hud_static_gauge_levels_put(i);
 	}
-	if(resident->game_mode == GM_STORY) {
+	if(
+		(resident->game_mode == GM_STORY) ||
+		practice_resident_uses_stock()
+	) {
 		hud_static_story_lives_put();
 	}
 }

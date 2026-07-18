@@ -1,3 +1,6 @@
+#ifndef TH03_RESIDENT_HPP
+#define TH03_RESIDENT_HPP
+
 #include "th03/playchar.hpp"
 #include "th03/score.hpp"
 
@@ -64,3 +67,5 @@ struct resident_t {
 };
 
 extern resident_t far *resident;
+
+#endif /* TH03_RESIDENT_HPP */

@@ -16,6 +16,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
+#include "th03/practice.hpp"
 #include "th03/resident.hpp"
 
 extern unsigned char score[];
@@ -74,7 +75,10 @@ extern "C" void pascal near round_startup(void)
 	text_fillca(' ', (TX_BLACK | TX_REVERSE));
 	graph_copy_page(0);
 	enemy_formations_load();
-	round_id = 0;
+	round_id = (
+		practice_resident_active() ?
+		practice_resident_u8(T3_PRACTICE_RES_ROUND_INDEX) : 0
+	);
 	sub_9EBF();
 	hflip_lut_generate();
 	nopcall_noarg(sub_D5A2);
@@ -144,6 +148,7 @@ extern "C" void pascal near round_startup(void)
 		cpu_hit_damage_additional = 0;
 		_asm { push 3; }
 	}
+	practice_initial_apply();
 	_asm { nop; push cs; call near ptr score_continues_used_digit_update; }
 
 	for(p = players, i = 0; i < PLAYER_COUNT; i++, p++) {

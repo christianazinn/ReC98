@@ -20,6 +20,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
+#include "th03/practice.hpp"
 #include "th03/resident.hpp"
 #include "th02/snd/snd.h"
 
@@ -48,7 +49,7 @@ extern "C" void pascal far SUB_A38E(void);
 // PLAYFLD_TEXT by 0x23 from the matching binary. This rank switch uses
 // absolute offsets into PLAYFLD_TEXT, so keep the table base and entries in
 // sync with the current map when earlier PLAYFLD_TEXT code changes.
-#define SUB_9EBF_RANK_TABLE_BASE 0B5Ah
+#define SUB_9EBF_RANK_TABLE_BASE 0BCAh
 extern "C" void pascal near sub_9EBF(void)
 {
 	register int i;
@@ -274,6 +275,9 @@ sub_9EBF_rank_done:
 
 extern "C" void pascal near sub_A21F(void)
 {
+	uint8_t p1_spell = gba_gauge_level[0];
+	uint8_t cpu_spell = gba_gauge_level[1];
+
 	grcg_setcolor(GC_RMW, 2);
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
 	graph_accesspage(1);
@@ -284,6 +288,7 @@ extern "C" void pascal near sub_A21F(void)
 	grcg_off();
 	round_id++;
 	sub_9EBF();
+	practice_retry_apply(p1_spell, cpu_spell);
 	farfp_20F28();
 	players[0].hyper = hyper_standby;
 	players[1].hyper = hyper_standby;
