@@ -23,6 +23,7 @@
 #include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
 #include "th03/gaiji/gaiji.h"
+#include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/snd/snd.h"
@@ -236,6 +237,9 @@ static void replay_resident_handoff_set(char mode)
 	resident->unused_3[3] = T3_REPLAY_RES_MAGIC_3;
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = mode;
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	resident->unused_3[T3_REPLAY_RES_DEBUG_STAGE_START_INDEX] = 0;
+#endif
 	for(
 		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
 		i < T3_REPLAY_RES_CURSOR_END_INDEX;
@@ -279,6 +283,9 @@ static void replay_resident_handoff_clear(void)
 	resident->unused_3[3] = 0;
 	resident->unused_3[T3_REPLAY_RES_MODE_INDEX] = 0;
 	resident->unused_3[T3_REPLAY_RES_SLOT_INDEX] = T3_REPLAY_USER_SLOT_NONE;
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	resident->unused_3[T3_REPLAY_RES_DEBUG_STAGE_START_INDEX] = 0;
+#endif
 	for(
 		i = T3_REPLAY_RES_SAMPLE_COUNT_INDEX;
 		i < T3_REPLAY_RES_CURSOR_END_INDEX;
@@ -423,7 +430,7 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[3] == 'P') &&
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
-		(header.magic[6] == '8') &&
+		(header.magic[6] == '9') &&
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -456,7 +463,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '4') &&
+		(header.magic[6] == '5') &&
 		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
@@ -612,7 +619,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_menu_index_header.magic[3] = 'I';
 	replay_user_menu_index_header.magic[4] = 'D';
 	replay_user_menu_index_header.magic[5] = 'X';
-	replay_user_menu_index_header.magic[6] = '4';
+	replay_user_menu_index_header.magic[6] = '5';
 	replay_user_menu_index_header.magic[7] = '\0';
 	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_menu_index_header.header_size = (
@@ -816,6 +823,10 @@ inline bool switch_to_mainl(bool opwin_free) {
 	return false;
 }
 
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+static int near replay_dev_story_stage_menu(void);
+#endif
+
 static bool near story_start(bool select_character)
 {
 	enum {
@@ -843,6 +854,9 @@ static bool near story_start(bool select_character)
 
 	int stage;
 	int candidate;
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	int replay_dev_story_stage = 0;
+#endif
 
 	resident->demo_num = 0;
 	resident->pid_winner = 0;
@@ -857,6 +871,14 @@ static bool near story_start(bool select_character)
 	if(select_character && select_story_menu()) {
 		return true;
 	}
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	if(select_character) {
+		replay_dev_story_stage = replay_dev_story_stage_menu();
+		if(replay_dev_story_stage == STAGE_NONE) {
+			return true;
+		}
+	}
+#endif
 
 retry_opponent_selection:
 	// ACTUAL TYPE: playchar_t
@@ -914,12 +936,23 @@ retry_opponent_selection:
 		}
 	}
 
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	resident->story_stage = replay_dev_story_stage;
+	resident->playchar_paletted[1] = resident->story_opponents[
+		replay_dev_story_stage
+	];
+#endif
 	resident_reset_scores(stage);
 	resident->rem_credits = 3;
 	resident->op_animation_fast = false;
 	resident->skill = (70 + (resident->rank * 25));
 	replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
 	replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	resident->unused_3[T3_REPLAY_RES_DEBUG_STAGE_START_INDEX] = (
+		replay_dev_story_stage
+	);
+#endif
 	return switch_to_mainl(false);
 }
 
@@ -3084,6 +3117,13 @@ bool near replay_menu(void)
 					replay_resident_handoff_set(
 						T3_REPLAY_RES_MODE_USER_PLAYBACK
 					);
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+					if(resident->game_mode == GM_STORY) {
+						resident->unused_3[
+							T3_REPLAY_RES_DEBUG_STAGE_START_INDEX
+						] = resident->story_stage;
+					}
+#endif
 					replay_resident_handoff_slot_set(sel);
 					return switch_to_mainl(false);
 				}
@@ -3237,8 +3277,8 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR( 5, 'c', 'h');
 	TITLE_CREDIT_PAIR( 6, ' ', 'v');
 	TITLE_CREDIT_PAIR( 7, '0', '.');
-	TITLE_CREDIT_PAIR( 8, '1', '.');
-	TITLE_CREDIT_PAIR( 9, '6', ' ');
+	TITLE_CREDIT_PAIR( 8, '2', '.');
+	TITLE_CREDIT_PAIR( 9, '0', ' ');
 	TITLE_CREDIT_PAIR(10, 'b', 'y');
 	TITLE_CREDIT_PAIR(11, ' ', 'C');
 	TITLE_CREDIT_PAIR(12, 'h', 'r');
@@ -3716,4 +3756,100 @@ void main(void)
 	game_exit_to_dos();
 	respal_free();
 }
+
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+static int near replay_dev_story_stage_menu(void)
+{
+	int stage = 6;
+	input_t input_prev;
+	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
+
+	#define DEBUG_TEXT_PAIR(index, left, right) \
+		pairs[index] = static_cast<uint16_t>((left) | ((right) << 8))
+
+	text_clear();
+	graph_accesspage(0);
+	graph_clear();
+	graph_accesspage(1);
+	graph_clear();
+	graph_showpage(0);
+	graph_accesspage(0);
+
+	DEBUG_TEXT_PAIR(0, 'D', 'E');
+	DEBUG_TEXT_PAIR(1, 'B', 'U');
+	DEBUG_TEXT_PAIR(2, 'G', ' ');
+	DEBUG_TEXT_PAIR(3, 'S', 'T');
+	DEBUG_TEXT_PAIR(4, 'O', 'R');
+	DEBUG_TEXT_PAIR(5, 'Y', ' ');
+	DEBUG_TEXT_PAIR(6, 'S', 'T');
+	DEBUG_TEXT_PAIR(7, 'A', 'R');
+	title_credit_line[16] = 'T';
+	title_credit_line[17] = '\0';
+	text_putsa(31, 8, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'U', 'P');
+	DEBUG_TEXT_PAIR(1, '/', 'D');
+	DEBUG_TEXT_PAIR(2, 'N', ':');
+	DEBUG_TEXT_PAIR(3, ' ', 'S');
+	DEBUG_TEXT_PAIR(4, 'E', 'L');
+	DEBUG_TEXT_PAIR(5, 'E', 'C');
+	title_credit_line[12] = 'T';
+	title_credit_line[13] = '\0';
+	text_putsa(31, 12, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'Z', '/');
+	DEBUG_TEXT_PAIR(1, 'E', 'N');
+	DEBUG_TEXT_PAIR(2, 'T', 'E');
+	DEBUG_TEXT_PAIR(3, 'R', ':');
+	DEBUG_TEXT_PAIR(4, ' ', 'S');
+	DEBUG_TEXT_PAIR(5, 'T', 'A');
+	DEBUG_TEXT_PAIR(6, 'R', 'T');
+	title_credit_line[14] = '\0';
+	text_putsa(29, 13, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'E', 'S');
+	DEBUG_TEXT_PAIR(1, 'C', ':');
+	DEBUG_TEXT_PAIR(2, ' ', 'C');
+	DEBUG_TEXT_PAIR(3, 'A', 'N');
+	DEBUG_TEXT_PAIR(4, 'C', 'E');
+	title_credit_line[10] = 'L';
+	title_credit_line[11] = '\0';
+	text_putsa(33, 14, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'S', 'T');
+	DEBUG_TEXT_PAIR(1, 'A', 'G');
+	DEBUG_TEXT_PAIR(2, 'E', ' ');
+	title_credit_line[6] = '7';
+	title_credit_line[7] = '\0';
+	text_putsa(36, 10, title_credit_line, TX_WHITE);
+
+	input_mode_interface();
+	input_prev = input_sp;
+	while(1) {
+		input_mode_interface();
+		if(input_prev == INPUT_NONE) {
+			if(input_sp & (INPUT_UP | INPUT_LEFT)) {
+				stage = ((stage == 0) ? (STAGE_COUNT - 1) : (stage - 1));
+			} else if(input_sp & (INPUT_DOWN | INPUT_RIGHT)) {
+				stage = ((stage == (STAGE_COUNT - 1)) ? 0 : (stage + 1));
+			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+				text_clear();
+				return stage;
+			} else if(input_sp & INPUT_CANCEL) {
+				text_clear();
+				return STAGE_NONE;
+			}
+			title_credit_line[6] = ('1' + stage);
+			text_putsa(36, 10, title_credit_line, TX_WHITE);
+		}
+		input_prev = input_sp;
+		frame_delay(1);
+	}
+
+	#undef DEBUG_TEXT_PAIR
+}
+
+// Keep the following shared runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 /// --------

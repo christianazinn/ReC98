@@ -6,6 +6,7 @@
 #include "th03/hardware/input.h"
 #include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/replay_build.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
@@ -17,6 +18,9 @@
 #define REPLAY_RLE_SHIFT_MASK 0x80
 #define replay_control_pending \
 	resident->unused_3[T3_REPLAY_RES_MAINL_CONTROL_INDEX]
+#define mainl_replay_input_vsync (*reinterpret_cast<uint16_t far *>( \
+	&resident->unused_3[T3_REPLAY_RES_MAINL_VSYNC_INDEX] \
+))
 
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
@@ -291,72 +295,43 @@ static void mainl_replay_guard_fn_set(char far *fn)
 	}
 }
 
-static void mainl_replay_latch_fn_set(char far *fn)
-{
-	fn[0] = '\\';
-	if(replay_user_slot < T3_REPLAY_USER_SLOT_COUNT) {
-		fn[1] = 'T';
-		fn[2] = 'H';
-		fn[3] = '3';
-		fn[4] = 'S';
-		fn[5] = static_cast<char>('0' + (replay_user_slot / 10));
-		fn[6] = static_cast<char>('0' + (replay_user_slot % 10));
-		fn[7] = '.';
-		fn[8] = 'T';
-		fn[9] = 'M';
-		fn[10] = 'P';
-		fn[11] = '\0';
-	} else {
-		fn[1] = 'T';
-		fn[2] = 'H';
-		fn[3] = '3';
-		fn[4] = 'L';
-		fn[5] = 'A';
-		fn[6] = 'S';
-		fn[7] = 'T';
-		fn[8] = '.';
-		fn[9] = 'L';
-		fn[10] = 'C';
-		fn[11] = 'H';
-		fn[12] = '\0';
-	}
-}
-
 static bool mainl_replay_guard_checkpoint(void)
 {
 	char guard_fn[13];
-	char latch_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
-	mainl_replay_latch_fn_set(latch_fn);
-	if(!replay_protect_latch_verify(latch_fn)) {
-		if(replay_protect_invalid()) {
-			replay_protect_latch_set(latch_fn);
-		}
-		return false;
-	}
 	if(!replay_protect_checkpoint(guard_fn)) {
 		if(replay_protect_invalid()) {
-			replay_protect_latch_set(latch_fn);
+			replay_protect_guard_marker_set(guard_fn);
 		}
 		return false;
 	}
 	return true;
 }
 
+static void mainl_replay_diag_code_set_if_none(uint8_t code)
+{
+	if(mainl_replay_handoff_u8(T3R_DIAG_CODE_INDEX) == RPD_NONE) {
+		replay_protect_diag_code_set(code);
+	}
+}
+
+static void mainl_replay_guard_buffer_prepare(void)
+{
+	replay_protect_ctx_t ctx;
+
+	if(!replay_protect_ctx_alloc(&ctx)) {
+		replay_protect_detector_error_set();
+	}
+}
+
 static bool mainl_replay_guard_create(void)
 {
 	char guard_fn[13];
-	char latch_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
-	mainl_replay_latch_fn_set(latch_fn);
-	replay_protect_file_delete_commit(latch_fn);
 	replay_protect_file_delete_commit(guard_fn);
-	return (
-		replay_protect_guard_create(guard_fn) &&
-		replay_protect_latch_create(latch_fn)
-	);
+	return replay_protect_guard_create(guard_fn);
 }
 
 static bool mainl_replay_record_prepare(void)
@@ -375,11 +350,8 @@ static bool mainl_replay_record_prepare(void)
 static void mainl_replay_guard_delete(void)
 {
 	char guard_fn[13];
-	char latch_fn[13];
 
 	mainl_replay_guard_fn_set(guard_fn);
-	mainl_replay_latch_fn_set(latch_fn);
-	replay_protect_file_delete_commit(latch_fn);
 	replay_protect_file_delete_commit(guard_fn);
 }
 
@@ -392,7 +364,7 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[3] == 'P') &&
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
-		(replay_user_header.magic[6] == '8') &&
+		(replay_user_header.magic[6] == '9') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
@@ -595,7 +567,27 @@ static bool mainl_replay_user_header_write(
 
 static bool mainl_replay_periodic_flush(void)
 {
-	return mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+	if(!mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL)) {
+		mainl_replay_diag_code_set_if_none(RPD_MAINL_PERIODIC_WRITE);
+		return false;
+	}
+	return true;
+}
+
+static bool mainl_replay_buffer_reserve(unsigned size)
+{
+	if((replay_write_buffer_size + size) <= T3_REPLAY_WRITE_BUFFER_SIZE) {
+		return true;
+	}
+	if(
+		mainl_replay_periodic_flush() &&
+		((replay_write_buffer_size + size) <= T3_REPLAY_WRITE_BUFFER_SIZE)
+	) {
+		return true;
+	}
+	mainl_replay_diag_code_set_if_none(RPD_MAINL_BUFFER_FULL);
+	replay_protect_detector_error_set();
+	return false;
 }
 
 static bool mainl_replay_record_sample(void)
@@ -727,10 +719,7 @@ static bool mainl_replay_control_write(uint8_t control)
 	if(replay_protect_blocked()) {
 		return true;
 	}
-	if(
-		((replay_write_buffer_size + 2) > T3_REPLAY_WRITE_BUFFER_SIZE) &&
-		!mainl_replay_periodic_flush()
-	) {
+	if(!mainl_replay_buffer_reserve(2)) {
 		return false;
 	}
 	if(!mainl_replay_buffer_u8(tag) || !mainl_replay_buffer_u8(marker)) {
@@ -806,11 +795,7 @@ static bool mainl_replay_record_rle_sample(void)
 	if(replay_protect_blocked()) {
 		return true;
 	}
-	if(
-		(replay_write_buffer_size >
-		 (T3_REPLAY_WRITE_BUFFER_SIZE - T3_REPLAY_PACKET_SIZE_MAX)) &&
-		!mainl_replay_periodic_flush()
-	) {
+	if(!mainl_replay_buffer_reserve(T3_REPLAY_PACKET_SIZE_MAX)) {
 		return true;
 	}
 
@@ -1078,7 +1063,12 @@ static void mainl_replay_frame_io(void)
 			(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 			(
 				replay_control_pending ||
-				mainl_replay_control_peek(T3_REPLAY_PACKET_CONTROL_MAINL_END)
+				(
+					(replay_rle_run == 0) &&
+					mainl_replay_control_peek(
+						T3_REPLAY_PACKET_CONTROL_MAINL_END
+					)
+				)
 			)
 		) {
 			replay_control_pending = true;
@@ -1135,6 +1125,7 @@ void far mainl_replay_session_start(void)
 	replay_rle_input_mp_p1 = 0;
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
+	mainl_replay_input_vsync = (vsync_Count2 - 1);
 	resident->input_shift = false;
 	replay_rle_packet_open = false;
 	replay_control_pending = false;
@@ -1157,10 +1148,12 @@ void far mainl_replay_session_start(void)
 		return;
 	}
 	if(mainl_replay_mode == MR_USER_RECORD) {
+		mainl_replay_guard_buffer_prepare();
 		replay_write_buffer_seg = reinterpret_cast<uint16_t>(
 			hmem_allocbyte(T3_REPLAY_WRITE_BUFFER_SIZE)
 		);
 		if(replay_write_buffer_seg == 0) {
+			mainl_replay_diag_code_set_if_none(RPD_MAINL_BUFFER_ALLOC);
 			replay_protect_detector_error_set();
 		}
 	}
@@ -1175,6 +1168,8 @@ void far mainl_replay_session_start(void)
 
 void far mainl_replay_input_mode_interface(void)
 {
+	uint16_t physical_input_sp;
+
 	if(mainl_replay_mode == MR_ERROR) {
 		input_mp_p1 = INPUT_NONE;
 		input_mp_p2 = INPUT_NONE;
@@ -1183,8 +1178,9 @@ void far mainl_replay_input_mode_interface(void)
 	}
 
 	input_mode_interface();
+	physical_input_sp = input_sp;
 	if(mainl_replay_mode == MR_USER_PLAYBACK) {
-		if(input_sp & INPUT_CANCEL) {
+		if(physical_input_sp & INPUT_CANCEL) {
 			resident->game_mode = GM_NONE;
 			mainl_replay_handoff_clear();
 			mainl_replay_mode = MR_ERROR;
@@ -1193,14 +1189,28 @@ void far mainl_replay_input_mode_interface(void)
 			input_sp = INPUT_OK;
 			return;
 		}
-		input_mp_p1 = replay_rle_input_mp_p1;
-		input_mp_p2 = replay_rle_input_mp_p2;
-		input_sp = replay_rle_input_sp;
 	}
 	if(mainl_replay_mode != MR_USER_PLAYBACK) {
 		mainl_replay_input_shift_sense();
 	}
-	mainl_replay_frame_io();
+	if(
+		(
+			(mainl_replay_mode == MR_USER_RECORD) ||
+			(mainl_replay_mode == MR_USER_PLAYBACK)
+		) &&
+		(mainl_replay_input_vsync != vsync_Count2)
+	) {
+		// Match MAIN's temporal input granularity while retaining responsive
+		// physical polling in the cutscene interpreter's tight loops.
+		mainl_replay_frame_io();
+		// Start the next interval after any synchronous replay file access.
+		mainl_replay_input_vsync = vsync_Count2;
+	}
+	if(mainl_replay_mode == MR_USER_PLAYBACK) {
+		input_mp_p1 = replay_rle_input_mp_p1;
+		input_mp_p2 = replay_rle_input_mp_p2;
+		input_sp = replay_rle_input_sp;
+	}
 }
 
 void far mainl_replay_transition_finish(void)
@@ -1216,6 +1226,9 @@ void far mainl_replay_transition_finish(void)
 		ok = mainl_replay_control_write(T3_REPLAY_PACKET_CONTROL_MAINL_END);
 		if(ok) {
 			ok = mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
+			if(!ok) {
+				mainl_replay_diag_code_set_if_none(RPD_MAINL_HEADER_WRITE);
+			}
 		}
 	} else {
 		while(
@@ -1235,8 +1248,12 @@ void far mainl_replay_transition_finish(void)
 		}
 	}
 	if(!ok) {
-		resident->game_mode = GM_NONE;
-		mainl_replay_handoff_clear();
+		if(mode == MR_USER_PLAYBACK) {
+			resident->game_mode = GM_NONE;
+			mainl_replay_handoff_clear();
+		} else {
+			mainl_replay_cursor_store();
+		}
 		mainl_replay_mode = MR_ERROR;
 		input_mp_p1 = INPUT_NONE;
 		input_mp_p2 = INPUT_NONE;
@@ -1272,6 +1289,12 @@ bool far mainl_replay_stage_start_selected(void)
 
 int far mainl_replay_stage_transition_needed(void)
 {
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+	if(resident->unused_3[T3_REPLAY_RES_DEBUG_STAGE_START_INDEX] != 0) {
+		resident->unused_3[T3_REPLAY_RES_DEBUG_STAGE_START_INDEX] = 0;
+		return false;
+	}
+#endif
 	return (
 		(resident->story_stage != 0) &&
 		!mainl_replay_stage_start_selected()
@@ -1322,6 +1345,8 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif

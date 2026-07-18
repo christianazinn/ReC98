@@ -600,7 +600,8 @@ th03:zungen("bin/th03/zun.com", {
 		"bin/masters.lib",
 	})}
 })
-th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
+local th03_op_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
+local th03_op_inputs = {
 	"th03/op_01.cpp",
 	"th03/opsfmdat.asm",
 	"th03/opbss.asm",
@@ -630,8 +631,11 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
 	"th02/frmdely2.cpp",
-})
-th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+}
+th03_op_cfg:link("op", th03_op_inputs)
+
+local th03_main_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" })
+local th03_main_inputs = {
 	"th03/main/main_03_prefix.asm",
 	"th03/main_03.cpp",
 	"th03/main/main_03_dispatch.asm",
@@ -766,8 +770,11 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/mrs.cpp",
 	"th03/sprite16.cpp",
 	"th03/main/replay.cpp",
-})
-th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
+}
+th03_main_cfg:link("main", th03_main_inputs)
+
+local th03_mainl_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
+local th03_mainl_inputs = {
 	"th03/cfg_lres.cpp",
 	"th03/mainl_sc.cpp",
 	"th03/mainl/screens_data.asm",
@@ -821,7 +828,60 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/inp_m_w.cpp",
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
-})
+}
+th03_mainl_cfg:link("mainl", th03_mainl_inputs)
+
+local function th03_replay_inputs_replace(inputs, replacements)
+	local ret = {}
+	for _, input in ipairs(inputs) do
+		local fn = ((type(input) == "string" and input) or input[1])
+		ret += { replacements[fn] or input }
+	end
+	return ret
+end
+
+local function th03_replay_dev_build(
+	dir, cflags, with_overlay, with_stage_select
+)
+	local base = th03:branch(Subdir(dir), { cflags = cflags })
+	local op = base:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
+	local main = base:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" })
+	local mainl = base:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
+	local replacements = {}
+
+	if with_overlay then
+		replacements["th03/main/replay.cpp"] = main:build_uncached(
+			"th03/main/replay.cpp"
+		)
+		replacements["th03/main/rndloop.cpp"] = main:build_uncached(
+			"th03/main/rndloop.cpp"
+		)
+	end
+	if with_stage_select then
+		replacements["th03/op_01.cpp"] = op:build_uncached("th03/op_01.cpp")
+		replacements["th03/mainl/replml.cpp"] = mainl:build_uncached(
+			"th03/mainl/replml.cpp"
+		)
+	end
+
+	op:link("op", th03_replay_inputs_replace(th03_op_inputs, replacements))
+	main:link(
+		"main", th03_replay_inputs_replace(th03_main_inputs, replacements)
+	)
+	mainl:link(
+		"mainl", th03_replay_inputs_replace(th03_mainl_inputs, replacements)
+	)
+end
+
+th03_replay_dev_build(
+	"overlay/", "-DTH03_REPLAY_DEV_OVERLAY", true, false
+)
+th03_replay_dev_build(
+	"stage-select/", "-DTH03_REPLAY_DEV_STAGE_SELECT", false, true
+)
+th03_replay_dev_build(
+	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
+)
 -- ----
 
 -- TH04

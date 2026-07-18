@@ -72,9 +72,12 @@ extern "C" void pascal far SUB_CA3C(void)
 	goto loop_test;
 loop:
 	replay_input_sense_held();
-	if(input_sp & INPUT_CANCEL) {
-		sub_C7A5();
+	asm {
+		call	far ptr replay_pause_request_poll
+		jnc	pause_done
 	}
+	sub_C7A5();
+pause_done:
 	frame_delay(1);
 	_AX = _SI;
 	_AX &= 1;

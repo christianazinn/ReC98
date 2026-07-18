@@ -18,6 +18,7 @@
 #include "th03/main/player/exatt.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
+#include "th03/replay_build.hpp"
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
@@ -72,6 +73,20 @@ void pascal near resident_score_last_update(int pid);
 	_asm { nop; push cs; call near ptr func; } \
 }
 
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+// Reclaim the inert NOP byte for the late diagnostic overlay call.
+#define debug_call_noarg(func) { \
+	_asm { push cs; call near ptr func; } \
+}
+#define debug_call_uint8(func, value) { \
+	__emit__(0x6A, value); \
+	_asm { push cs; call near ptr func; } \
+}
+#else
+#define debug_call_noarg(func) nopcall_noarg(func)
+#define debug_call_uint8(func, value) nopcall_uint8(func, value)
+#endif
+
 #define return_2() { \
 	_asm { mov al, 2; pop bp; ret; } \
 }
@@ -114,7 +129,7 @@ frame:
 	pid.so_attack = SO_ATTACK_P2;
 	gba_gauge_pattern_pellet[1]();
 	gba_gauge_pattern_bullet[1]();
-	nopcall_noarg(SUB_CEB2);
+	debug_call_noarg(SUB_CEB2);
 	input_mode();
 	replay_frame_io();
 	pid.current = 0;
@@ -122,11 +137,14 @@ frame:
 	pid.current = 1;
 	player_update(input_mp_p2, &p2);
 	snd_se_update();
-	if(input_sp & INPUT_CANCEL) {
-		sub_C7A5();
+	asm {
+		call	far ptr replay_pause_request_poll
+		jnc	pause_done
 	}
+	sub_C7A5();
+pause_done:
 
-	nopcall_noarg(SUB_CA3C);
+	debug_call_noarg(SUB_CA3C);
 	nopcall_uint8(SUB_CB81, 0);
 	nopcall_uint8(SUB_CB81, 1);
 	farfp_20F24();
@@ -170,7 +188,7 @@ frame:
 	player_overlay_render(&p1);
 	pid.current = 1;
 	player_overlay_render(&p2);
-	nopcall_noarg(SUB_CEE0);
+	debug_call_noarg(SUB_CEE0);
 	bullets_render();
 	if(defeat_flag == DF_BANNER) {
 		sub_C2F9();
@@ -237,12 +255,15 @@ after_defeat:
 	sub_C830();
 	sub_C8C4();
 	sub_D52E();
-	nopcall_uint8(SUB_C9FE, 0);
-	nopcall_uint8(SUB_C9FE, 1);
+	debug_call_uint8(SUB_C9FE, 0);
+	debug_call_uint8(SUB_C9FE, 1);
 	sub_BE5D();
 	combos_update_and_render();
 	fp_1FBC0();
 	fp_1E6EA();
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	replay_debug_overlay_put();
+#endif
 	if(byte_23AFA == 0) {
 		while(byte_23AF9 > vsync_Count1) {
 		}
@@ -312,4 +333,6 @@ loop_test:
 
 #undef nopcall_uint8
 #undef nopcall_noarg
+#undef debug_call_uint8
+#undef debug_call_noarg
 #undef return_2

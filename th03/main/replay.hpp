@@ -2,6 +2,7 @@
 #define TH03_MAIN_REPLAY_HPP
 
 #include "platform.h"
+#include "th03/replay_build.hpp"
 
 #define REPLAY_PAUSE_RESUME 0
 #define REPLAY_PAUSE_RESTART 1
@@ -11,7 +12,12 @@
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+void far replay_debug_overlay_put(void);
+#endif
 void far replay_input_sense_held(void);
+// Returns a one-shot pause request in CF without altering the sampled input.
+extern "C" void far replay_pause_request_poll(void);
 bool far replay_prompt_skip(void);
 uint8_t far replay_pause_menu(void);
 void far replay_user_record_discard_on_exit(void);
