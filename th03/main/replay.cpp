@@ -4,7 +4,6 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
-#include "platform/x86real/pc98/keyboard.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
@@ -17,6 +16,7 @@
 #include "th03/main/score.hpp"
 #include "th03/main/v_colors.hpp"
 #include "th03/fast_forward.hpp"
+#include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
@@ -30,7 +30,9 @@
 #define REPLAY_RLE_PACKET_SIZE_SHIFT 2
 #define REPLAY_RLE_PACKET_SIZE_MASK 0x3C
 #define REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK 0x40
-#define REPLAY_RLE_SHIFT_MASK 0x80
+#define REPLAY_RLE_STATE_OPEN 0x01
+#define REPLAY_RLE_STATE_CHARGE_SHIFT 1
+#define REPLAY_RLE_STATE_CHARGE_MASK 0x06
 #define REPLAY_RECORD_BUFFER_SIZE ( \
 	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
 )
@@ -129,7 +131,7 @@ static uint16_t replay_rle_input_sp;
 static bool replay_done_written;
 static bool replay_paths_initialized;
 static bool replay_prompt_skip_queued;
-static bool replay_rle_packet_open;
+static uint8_t replay_rle_packet_state;
 static bool replay_user_discard_requested;
 static bool replay_guard_diag_written;
 static bool replay_restart_requested_flag;
@@ -173,13 +175,6 @@ static void replay_memclear(void far *buf, unsigned size)
 		*p++ = 0;
 		size--;
 	}
-}
-
-static void replay_input_shift_sense(void)
-{
-	resident->input_shift = (
-		(peekb(0, KEYGROUP_14) & K14_SHIFT) != 0
-	);
 }
 
 extern "C" void far replay_pause_request_poll(void)
@@ -397,14 +392,15 @@ void far replay_overlay_put(void)
 	text_putsa(TRAM_LEFT, TRAM_TOP, line, (TX_BLACK | TX_REVERSE));
 }
 
-static void replay_autofire_apply_player(
-	input_t near *input, uint8_t pid, bool charge
-)
+static void replay_autofire_apply_player(input_t near *input, uint8_t pid)
 {
 	if(resident->is_cpu[pid]) {
 		return;
 	}
-	if(charge) {
+	if(!(resident->autofire & (1 << pid))) {
+		return;
+	}
+	if(resident->input_charge & (1 << pid)) {
 		*input |= INPUT_SHOT;
 		return;
 	}
@@ -415,27 +411,8 @@ static void replay_autofire_apply_player(
 
 static void replay_autofire_apply(void)
 {
-	bool charge_p1 = false;
-	bool charge_p2 = false;
-
-	if(!resident->autofire) {
-		return;
-	}
-	if(resident->input_shift) {
-		if(
-			resident->is_cpu[0] ||
-			(
-				!resident->is_cpu[1] &&
-				(resident->key_mode == KM_JOY_KEY)
-			)
-		) {
-			charge_p2 = true;
-		} else {
-			charge_p1 = true;
-		}
-	}
-	replay_autofire_apply_player(&input_mp_p1, 0, charge_p1);
-	replay_autofire_apply_player(&input_mp_p2, 1, charge_p2);
+	replay_autofire_apply_player(&input_mp_p1, 0);
+	replay_autofire_apply_player(&input_mp_p2, 1);
 }
 
 static bool replay_char_ieq(char a, char b)
@@ -983,7 +960,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_index_header.magic[3] = 'I';
 	replay_user_index_header.magic[4] = 'D';
 	replay_user_index_header.magic[5] = 'X';
-	replay_user_index_header.magic[6] = '6';
+	replay_user_index_header.magic[6] = '7';
 	replay_user_index_header.magic[7] = '\0';
 	replay_user_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_index_header.header_size = sizeof(replay_user_index_header);
@@ -1421,7 +1398,7 @@ static void replay_user_header_fill(
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
 		replay_user_header.magic[6] = '1';
-		replay_user_header.magic[7] = '0';
+		replay_user_header.magic[7] = '1';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
 		replay_user_header.header_size = (
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
@@ -1429,7 +1406,7 @@ static void replay_user_header_fill(
 		replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
 		replay_user_header.flags = (
 			T3_REPLAY_USER_FLAG_RLE_INPUT |
-			T3_REPLAY_USER_FLAG_SHIFT_INPUT
+			T3_REPLAY_USER_FLAG_CHARGE_INPUT
 		);
 		if(practice_game_active()) {
 			replay_user_header.flags |= T3_REPLAY_USER_FLAG_PRACTICE;
@@ -1602,7 +1579,7 @@ static bool replay_user_header_write(
 	}
 	replay_rle_phase &= ~REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 	replay_write_buffer_size = 0;
-	replay_rle_packet_open = false;
+	replay_rle_packet_state &= ~REPLAY_RLE_STATE_OPEN;
 	replay_user_index_slot_write(status, end_reason);
 	return true;
 }
@@ -1616,11 +1593,11 @@ static bool replay_user_header_is_rle(void)
 {
 	return (
 		(replay_user_header.magic[6] == '1') &&
-		(replay_user_header.magic[7] == '0') &&
+		(replay_user_header.magic[7] == '1') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0)
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0)
 	);
 }
 
@@ -1654,7 +1631,7 @@ static bool replay_user_header_valid(void)
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
 		(replay_user_header.snapshot_size ==
 		 T3R_STAGE_CKPT_SIZE) &&
-		(replay_user_header.autofire <= true) &&
+		(replay_user_header.autofire <= 0x03) &&
 		(replay_user_header.input_offset == (
 			static_cast<uint32_t>(replay_user_header.header_size) +
 			static_cast<uint32_t>(
@@ -2049,7 +2026,7 @@ static bool replay_user_control_write(uint8_t control)
 		replay_protect_detector_error_set();
 		return false;
 	}
-	replay_rle_packet_open = false;
+	replay_rle_packet_state &= ~REPLAY_RLE_STATE_OPEN;
 	return true;
 }
 
@@ -2095,9 +2072,10 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 	uint16_t input_p1 = input_mp_p1;
 	uint16_t input_p2 = input_mp_p2;
 	uint16_t input_single = input_sp;
-	uint8_t input_shift = resident->input_shift;
-	uint8_t previous_shift = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	uint8_t input_charge = (resident->input_charge & 0x03);
+	uint8_t previous_charge = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
 	);
 	uint8_t packet_size = static_cast<uint8_t>(
 		(replay_rle_phase & REPLAY_RLE_PACKET_SIZE_MASK) >>
@@ -2132,12 +2110,12 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 	}
 
 	if(
-		replay_rle_packet_open &&
+		(replay_rle_packet_state & REPLAY_RLE_STATE_OPEN) &&
 		((replay_rle_phase & REPLAY_RLE_PHASE_MASK) == phase) &&
 		(replay_rle_input_mp_p1 == input_p1) &&
 		(replay_rle_input_mp_p2 == input_p2) &&
 		(replay_rle_input_sp == input_single) &&
-		(previous_shift == input_shift) &&
+		(previous_charge == input_charge) &&
 		(replay_rle_run < T3_REPLAY_PACKET_RUN_MAX)
 	) {
 		tag = replay_user_rle_tag(phase, replay_rle_run + 1);
@@ -2147,12 +2125,12 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 		return true;
 	}
 
-	if(!replay_rle_packet_open) {
+	if(!(replay_rle_packet_state & REPLAY_RLE_STATE_OPEN)) {
 		change = (
 			T3_REPLAY_PACKET_CHANGE_P1 |
 			T3_REPLAY_PACKET_CHANGE_P2 |
 			T3_REPLAY_PACKET_CHANGE_SP |
-			T3_REPLAY_PACKET_CHANGE_SHIFT
+			T3_REPLAY_PACKET_CHANGE_CHARGE
 		);
 	} else {
 		if(input_p1 != replay_rle_input_mp_p1) {
@@ -2164,8 +2142,8 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 		if(input_single != replay_rle_input_sp) {
 			change |= T3_REPLAY_PACKET_CHANGE_SP;
 		}
-		if(input_shift != previous_shift) {
-			change |= T3_REPLAY_PACKET_CHANGE_SHIFT;
+		if(input_charge != previous_charge) {
+			change |= T3_REPLAY_PACKET_CHANGE_CHARGE;
 		}
 	}
 
@@ -2193,8 +2171,8 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 			return true;
 		}
 	}
-	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
-		if(!replay_user_buffer_u8(input_shift)) {
+	if(change & T3_REPLAY_PACKET_CHANGE_CHARGE) {
+		if(!replay_user_buffer_u8(input_charge)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
@@ -2203,14 +2181,16 @@ static bool replay_user_record_rle_sample(uint8_t phase, uint8_t shot_bits)
 	replay_rle_phase = static_cast<uint8_t>(
 		(replay_rle_phase & REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK) |
 		phase |
-		(input_shift ? REPLAY_RLE_SHIFT_MASK : 0) |
 		(packet_size << REPLAY_RLE_PACKET_SIZE_SHIFT)
+	);
+	replay_rle_packet_state = static_cast<uint8_t>(
+		REPLAY_RLE_STATE_OPEN |
+		(input_charge << REPLAY_RLE_STATE_CHARGE_SHIFT)
 	);
 	replay_rle_run = 1;
 	replay_rle_input_mp_p1 = input_p1;
 	replay_rle_input_mp_p2 = input_p2;
 	replay_rle_input_sp = input_single;
-	replay_rle_packet_open = true;
 	replay_sample_count++;
 	return true;
 }
@@ -2284,8 +2264,9 @@ static bool replay_user_read_rle_packet(void)
 	uint8_t tag;
 	uint8_t change;
 	uint8_t phase;
-	uint8_t shift_input = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	uint8_t charge_input = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
 	);
 	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
 
@@ -2305,9 +2286,7 @@ static bool replay_user_read_rle_packet(void)
 	}
 	replay_input_byte_count += 2;
 	phase = static_cast<uint8_t>(tag >> T3_REPLAY_PACKET_PHASE_SHIFT);
-	replay_rle_phase = static_cast<uint8_t>(
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) | phase
-	);
+	replay_rle_phase = phase;
 	replay_rle_run = static_cast<uint8_t>(
 		(tag & T3_REPLAY_PACKET_RUN_MASK) + 1
 	);
@@ -2368,9 +2347,9 @@ static bool replay_user_read_rle_packet(void)
 		}
 		replay_input_byte_count += sizeof(replay_rle_input_sp);
 	}
-	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
+	if(change & T3_REPLAY_PACKET_CHANGE_CHARGE) {
 		if(
-			(replay_input_byte_count + sizeof(shift_input)) >
+			(replay_input_byte_count + sizeof(charge_input)) >
 			replay_user_header.input_size
 		) {
 			file_close();
@@ -2378,26 +2357,28 @@ static bool replay_user_read_rle_packet(void)
 		}
 		if(
 			file_read(
-				&shift_input, sizeof(shift_input)
-			) != sizeof(shift_input)
+				&charge_input, sizeof(charge_input)
+			) != sizeof(charge_input)
 		) {
 			file_close();
 			return false;
 		}
-		replay_input_byte_count += sizeof(shift_input);
+		replay_input_byte_count += sizeof(charge_input);
 	}
-	if(shift_input > true) {
+	if(charge_input > 0x03) {
 		file_close();
 		return false;
 	}
-	replay_rle_phase = static_cast<uint8_t>(
-		phase | (shift_input ? REPLAY_RLE_SHIFT_MASK : 0)
+	replay_rle_phase = phase;
+	replay_rle_packet_state = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_OPEN) |
+		(charge_input << REPLAY_RLE_STATE_CHARGE_SHIFT)
 	);
 	if(change & ~(
 		T3_REPLAY_PACKET_CHANGE_P1 |
 		T3_REPLAY_PACKET_CHANGE_P2 |
 		T3_REPLAY_PACKET_CHANGE_SP |
-		T3_REPLAY_PACKET_CHANGE_SHIFT
+		T3_REPLAY_PACKET_CHANGE_CHARGE
 	)) {
 		file_close();
 		return false;
@@ -2422,8 +2403,9 @@ static bool replay_user_play_rle_sample(uint8_t phase)
 	input_mp_p1 = replay_rle_input_mp_p1;
 	input_mp_p2 = replay_rle_input_mp_p2;
 	input_sp = replay_rle_input_sp;
-	resident->input_shift = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	resident->input_charge = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
 	);
 	replay_rle_run--;
 	replay_sample_count++;
@@ -2752,11 +2734,11 @@ void far replay_session_start(void)
 	resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
 	resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX] = false;
 	resident->unused_3[T3_REPLAY_RES_GUARD_FRESH_INDEX] = 0;
-	resident->input_shift = false;
+	resident->input_charge = 0;
 	replay_done_written = false;
 	replay_user_slot_fn_set(T3_REPLAY_USER_SLOT_NONE);
 	replay_prompt_skip_queued = false;
-	replay_rle_packet_open = false;
+	replay_rle_packet_state = 0;
 	replay_user_discard_requested = false;
 	replay_guard_diag_written = false;
 	replay_restart_requested_flag = false;
@@ -2885,8 +2867,9 @@ void far replay_frame_io(void)
 	bool fast_forward_held = false;
 	uint8_t shot_bits;
 
+	keyconfig_charge_mask_human();
+
 	if(replay_mode == REPLAY_DISABLED) {
-		replay_input_shift_sense();
 		replay_autofire_apply();
 		return;
 	}
@@ -2898,11 +2881,9 @@ void far replay_frame_io(void)
 	}
 
 	if(replay_mode == REPLAY_RECORD) {
-		replay_input_shift_sense();
 		replay_autofire_apply();
 		ok = replay_record_sample();
 	} else if(replay_mode == REPLAY_USER_RECORD) {
-		replay_input_shift_sense();
 		shot_bits = (
 			((input_mp_p1 & INPUT_SHOT) ? 0x01 : 0x00) |
 			((input_mp_p2 & INPUT_SHOT) ? 0x02 : 0x00)
@@ -2997,7 +2978,7 @@ void far replay_input_sense_held(void)
 		);
 	} else {
 		input_reset_sense_key_held();
-		replay_input_shift_sense();
+		keyconfig_charge_mask_human();
 		if(replay_mode == REPLAY_USER_RECORD) {
 			ok = replay_user_record_logical_sample(
 				T3_REPLAY_PACKET_PHASE_INTERSTITIAL, 0

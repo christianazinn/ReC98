@@ -19,6 +19,7 @@
 #include "th03/common.h"
 #include "th03/resident.hpp"
 #include "th03/hardware/input.h"
+#include "th03/keyconfig.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
@@ -53,7 +54,6 @@ enum main_choice_t {
 enum option_choice_t {
 	OC_RANK,
 	OC_BGM,
-	OC_AUTOFIRE,
 	OC_KEY_MODE,
 	OC_QUIT,
 	OC_COUNT,
@@ -162,6 +162,7 @@ void near cfg_load(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	keyconfig_load(resident->autofire != 0);
 }
 
 inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
@@ -171,7 +172,7 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 	cfg.opts.bgm_mode = resident->bgm_mode;
 	cfg.opts.key_mode = resident->key_mode;
 	cfg.opts.rank = resident->rank;
-	cfg.opts.autofire = resident->autofire;
+	cfg.opts.autofire = (resident->autofire != 0);
 
 	file_write(&cfg.opts, bytes);
 	file_close();
@@ -226,6 +227,7 @@ static void replay_cfg_load_resident_only(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	keyconfig_load(resident->autofire != 0);
 }
 
 static void replay_resident_handoff_set(char mode)
@@ -432,11 +434,11 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
 		(header.magic[6] == '1') &&
-		(header.magic[7] == '0') &&
+		(header.magic[7] == '1') &&
 		(header.version == T3_REPLAY_USER_VERSION) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
-		((header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0) &&
+		((header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0) &&
 		(
 			(
 				(header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
@@ -447,7 +449,7 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 			) ||
 			((header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
 		) &&
-		(header.autofire <= true) &&
+		(header.autofire <= 0x03) &&
 		(header.header_size == (
 			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
 		)) &&
@@ -475,7 +477,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '6') &&
+		(header.magic[6] == '7') &&
 		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
@@ -631,7 +633,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_menu_index_header.magic[3] = 'I';
 	replay_user_menu_index_header.magic[4] = 'D';
 	replay_user_menu_index_header.magic[5] = 'X';
-	replay_user_menu_index_header.magic[6] = '6';
+	replay_user_menu_index_header.magic[6] = '7';
 	replay_user_menu_index_header.magic[7] = '\0';
 	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_menu_index_header.header_size = (
@@ -1197,6 +1199,22 @@ void near start_demo(void)
 	switch_to_mainl(false);
 }
 
+static void box_to_main_animate(void)
+{
+	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
+
+	// ZUN bloat: Should maybe be merged with the two others in `m_main.cpp`.
+	{for(
+		screen_x_t right_left = (BOX_LEFT + OPWIN_W);
+		right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
+		right_left += OPWIN_STEP_W
+	) {
+		box_column16_unput(right_left);
+		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
+		frame_delay(1);
+	}}
+}
+
 void near wait_for_input_or_start_demo_then_box_to_main_animate(void)
 {
 	{
@@ -1213,18 +1231,7 @@ void near wait_for_input_or_start_demo_then_box_to_main_animate(void)
 		}
 	}
 
-	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
-
-	// ZUN bloat: Should maybe be merged with the two others in `m_main.cpp`.
-	{for(
-		screen_x_t right_left = (BOX_LEFT + OPWIN_W);
-		right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
-		right_left += OPWIN_STEP_W
-	) {
-		box_column16_unput(right_left);
-		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
-		frame_delay(1);
-	}}
+	box_to_main_animate();
 }
 
 bool near score_menu(void)
@@ -1764,25 +1771,38 @@ static const char *replay_game_mode_name(uint8_t game_mode)
 	}
 }
 
-static char *replay_line_append_autofire(char *p)
+static char *replay_line_append_autofire(char *p, bool both_players)
 {
 	*p++ = 'A';
-	*p++ = 'u';
-	*p++ = 't';
-	*p++ = 'o';
-	*p++ = 'f';
-	*p++ = 'i';
-	*p++ = 'r';
-	*p++ = 'e';
+	*p++ = 'F';
+	*p++ = ' ';
+	*p++ = 'P';
+	*p++ = '1';
 	*p++ = ':';
 	*p++ = ' ';
-	if(replay_user_menu_header.autofire) {
+	if(replay_user_menu_header.autofire & 0x01) {
 		*p++ = 'O';
 		*p++ = 'n';
 	} else {
 		*p++ = 'O';
 		*p++ = 'f';
 		*p++ = 'f';
+	}
+	if(both_players) {
+		*p++ = ' ';
+		*p++ = ' ';
+		*p++ = 'P';
+		*p++ = '2';
+		*p++ = ':';
+		*p++ = ' ';
+		if(replay_user_menu_header.autofire & 0x02) {
+			*p++ = 'O';
+			*p++ = 'n';
+		} else {
+			*p++ = 'O';
+			*p++ = 'f';
+			*p++ = 'f';
+		}
 	}
 	return p;
 }
@@ -2045,7 +2065,7 @@ static void replay_menu_detail_put_vs(void)
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
 	p = replay_menu_line;
-	p = replay_line_append_autofire(p);
+	p = replay_line_append_autofire(p, true);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
 
 	p = replay_menu_line;
@@ -2129,7 +2149,7 @@ static void replay_menu_detail_put_practice(void)
 	));
 	*p++ = ' ';
 	*p++ = ' ';
-	p = replay_line_append_autofire(p);
+	p = replay_line_append_autofire(p, true);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 3, p);
 
 	p = replay_menu_line;
@@ -2317,7 +2337,7 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 	*p++ = ' ';
 	*p++ = ' ';
 	*p++ = ' ';
-	p = replay_line_append_autofire(p);
+	p = replay_line_append_autofire(p, false);
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y + 4, p);
 
 	p = replay_menu_line;
@@ -3661,7 +3681,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3684,13 +3704,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20382E32UL); // "2.8 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D392E32UL); // "2.9-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0"
 	text_putsa((TRAM_RIGHT - LINE2_LEN), 1, title_credit_line, TX_BLACK);
 }
 
@@ -3765,32 +3785,17 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_FM, atrb);
 			break;
 		}
-	} else if(sel == OC_AUTOFIRE) {
-		choice_put_centered(
-			LABEL_CENTER_X, 3, 0, LABEL_AUTOFIRE, atrb
-		);
-		if(resident->autofire) {
-			gaiji_putsa(
-				((VALUE_CENTER_X - GAIJI_W) / GLYPH_HALF_W),
-				choice_tram_y(3), VALUE_ON, atrb
-			);
-		} else {
-			gaiji_putsa(
-				((VALUE_CENTER_X - GAIJI_W) / GLYPH_HALF_W),
-				choice_tram_y(3), &VALUE_OFF[2], atrb
-			);
-		}
 	} else if(sel == OC_KEY_MODE) {
-		choice_put_centered(LABEL_CENTER_X, 4, -1, LABEL_KEYCONFIG, atrb);
+		choice_put_centered(LABEL_CENTER_X, 3, -1, LABEL_KEYCONFIG, atrb);
 		switch(resident->key_mode) {
 		case KM_KEY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_KEY_KEY, atrb);
 			break;
 		case KM_JOY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_JOY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_JOY_KEY, atrb);
 			break;
 		case KM_KEY_JOY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_JOY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_KEY_JOY, atrb);
 			break;
 		}
 	} else if(sel == OC_QUIT) {
@@ -3967,9 +3972,6 @@ void near option_update_and_render(void)
 		case OC_BGM:
 			snd_flip();
 			break;
-		case OC_AUTOFIRE:
-			resident->autofire = !resident->autofire;
-			break;
 		case OC_KEY_MODE:
 			ring_inc_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
@@ -3984,9 +3986,6 @@ void near option_update_and_render(void)
 		case OC_BGM:
 			snd_flip();
 			break;
-		case OC_AUTOFIRE:
-			resident->autofire = !resident->autofire;
-			break;
 		case OC_KEY_MODE:
 			ring_dec_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
@@ -3995,7 +3994,17 @@ void near option_update_and_render(void)
 	}
 
 	if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
-		if(menu_sel == OC_QUIT) {
+		if(menu_sel == OC_KEY_MODE) {
+			keyconfig_menu();
+			op_fadein_animate();
+			box_to_main_animate();
+			select_cdg_load_part2_of_4();
+			text_clear();
+			box_main_to_submenu_animate();
+			menu_sel = OC_KEY_MODE;
+			menu_init(in_this_menu, input_allowed, OC_COUNT, option_choice_put);
+			input_sp = INPUT_NONE;
+		} else if(menu_sel == OC_QUIT) {
 			return_from_option_to_main(in_this_menu);
 		}
 	}
@@ -4243,5 +4252,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 // Keep SHARED at its accepted paragraph phase after the practice hooks.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

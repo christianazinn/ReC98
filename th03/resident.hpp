@@ -48,14 +48,14 @@ struct resident_t {
 	PlaycharPalettedOptional playchar_paletted[PLAYER_COUNT];
 	bool is_cpu[PLAYER_COUNT];
 	long rand;
-	bool autofire;
+	uint8_t autofire;
 	unsigned char bgm_mode;
 	unsigned char key_mode;
 	pid_t pid_winner;
 	score_lebcd_t score_last[PLAYER_COUNT];
 	unsigned char game_mode;
 	PlaycharPalettedOptional story_opponents[STAGE_COUNT];
-	bool input_shift;
+	uint8_t input_charge;
 	unsigned char story_stage;
 	unsigned char story_lives;
 	bool show_score_menu;

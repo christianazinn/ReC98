@@ -2,10 +2,10 @@
 
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
-#include "platform/x86real/pc98/keyboard.hpp"
 #include "th03/hardware/input.h"
 #include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_handoff.hpp"
@@ -16,7 +16,8 @@
 #define REPLAY_RLE_PHASE_MASK 0x03
 #define REPLAY_RLE_PACKET_SIZE_SHIFT 2
 #define REPLAY_RLE_PACKET_SIZE_MASK 0x3C
-#define REPLAY_RLE_SHIFT_MASK 0x80
+#define REPLAY_RLE_CHARGE_SHIFT 6
+#define REPLAY_RLE_CHARGE_MASK 0xC0
 #define replay_control_pending \
 	resident->unused_3[T3_REPLAY_RES_MAINL_CONTROL_INDEX]
 #define mainl_replay_input_vsync (*reinterpret_cast<uint16_t far *>( \
@@ -96,13 +97,6 @@ static void mainl_replay_memclear(void near *buf, unsigned size)
 		*p++ = 0;
 		size--;
 	}
-}
-
-static void mainl_replay_input_shift_sense(void)
-{
-	resident->input_shift = (
-		(peekb(0, KEYGROUP_14) & K14_SHIFT) != 0
-	);
 }
 
 static bool mainl_replay_write_bytes_checked(const void far *buf, unsigned size)
@@ -366,11 +360,11 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
 		(replay_user_header.magic[6] == '1') &&
-		(replay_user_header.magic[7] == '0') &&
+		(replay_user_header.magic[7] == '1') &&
 		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
-		((replay_user_header.flags & T3_REPLAY_USER_FLAG_SHIFT_INPUT) != 0) &&
+		((replay_user_header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0) &&
 		(
 			(
 				(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
@@ -381,7 +375,7 @@ static bool mainl_replay_user_header_valid(void)
 			) ||
 			((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
 		) &&
-		(replay_user_header.autofire <= true) &&
+		(replay_user_header.autofire <= 0x03) &&
 		(replay_user_header.header_size == (
 			sizeof(replay_user_header) + sizeof(replay_user_summary_ext_t)
 		)) &&
@@ -795,9 +789,10 @@ static bool mainl_replay_record_rle_sample(void)
 	uint16_t input_p1 = input_mp_p1;
 	uint16_t input_p2 = input_mp_p2;
 	uint16_t input_single = input_sp;
-	uint8_t input_shift = resident->input_shift;
-	uint8_t previous_shift = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	uint8_t input_charge = (resident->input_charge & 0x03);
+	uint8_t previous_charge = static_cast<uint8_t>(
+		(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) >>
+		REPLAY_RLE_CHARGE_SHIFT
 	);
 	uint8_t packet_size = static_cast<uint8_t>(
 		(replay_rle_phase & REPLAY_RLE_PACKET_SIZE_MASK) >>
@@ -825,7 +820,7 @@ static bool mainl_replay_record_rle_sample(void)
 		(replay_rle_input_mp_p1 == input_p1) &&
 		(replay_rle_input_mp_p2 == input_p2) &&
 		(replay_rle_input_sp == input_single) &&
-		(previous_shift == input_shift) &&
+		(previous_charge == input_charge) &&
 		(replay_rle_run < T3_REPLAY_PACKET_RUN_MAX)
 	) {
 		tag = mainl_replay_rle_tag(
@@ -842,7 +837,7 @@ static bool mainl_replay_record_rle_sample(void)
 			T3_REPLAY_PACKET_CHANGE_P1 |
 			T3_REPLAY_PACKET_CHANGE_P2 |
 			T3_REPLAY_PACKET_CHANGE_SP |
-			T3_REPLAY_PACKET_CHANGE_SHIFT
+			T3_REPLAY_PACKET_CHANGE_CHARGE
 		);
 	} else {
 		if(input_p1 != replay_rle_input_mp_p1) {
@@ -854,8 +849,8 @@ static bool mainl_replay_record_rle_sample(void)
 		if(input_single != replay_rle_input_sp) {
 			change |= T3_REPLAY_PACKET_CHANGE_SP;
 		}
-		if(input_shift != previous_shift) {
-			change |= T3_REPLAY_PACKET_CHANGE_SHIFT;
+		if(input_charge != previous_charge) {
+			change |= T3_REPLAY_PACKET_CHANGE_CHARGE;
 		}
 	}
 
@@ -883,8 +878,8 @@ static bool mainl_replay_record_rle_sample(void)
 			return true;
 		}
 	}
-	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
-		if(!mainl_replay_buffer_u8(input_shift)) {
+	if(change & T3_REPLAY_PACKET_CHANGE_CHARGE) {
+		if(!mainl_replay_buffer_u8(input_charge)) {
 			replay_protect_detector_error_set();
 			return true;
 		}
@@ -892,8 +887,8 @@ static bool mainl_replay_record_rle_sample(void)
 	packet_size = static_cast<uint8_t>(replay_write_buffer_size - packet_size);
 	replay_rle_phase = static_cast<uint8_t>(
 		T3_REPLAY_PACKET_PHASE_INTERSTITIAL |
-		(input_shift ? REPLAY_RLE_SHIFT_MASK : 0) |
-		(packet_size << REPLAY_RLE_PACKET_SIZE_SHIFT)
+		(packet_size << REPLAY_RLE_PACKET_SIZE_SHIFT) |
+		(input_charge << REPLAY_RLE_CHARGE_SHIFT)
 	);
 	replay_rle_run = 1;
 	replay_rle_input_mp_p1 = input_p1;
@@ -909,8 +904,9 @@ static bool mainl_replay_read_rle_packet(void)
 	uint8_t tag;
 	uint8_t change;
 	uint8_t phase;
-	uint8_t shift_input = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	uint8_t charge_input = static_cast<uint8_t>(
+		(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) >>
+		REPLAY_RLE_CHARGE_SHIFT
 	);
 	uint32_t offset = (replay_user_header.input_offset + replay_input_byte_count);
 
@@ -931,7 +927,7 @@ static bool mainl_replay_read_rle_packet(void)
 	replay_input_byte_count += 2;
 	phase = static_cast<uint8_t>(tag >> T3_REPLAY_PACKET_PHASE_SHIFT);
 	replay_rle_phase = static_cast<uint8_t>(
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) | phase
+		(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) | phase
 	);
 	replay_rle_run = static_cast<uint8_t>(
 		(tag & T3_REPLAY_PACKET_RUN_MASK) + 1
@@ -993,9 +989,9 @@ static bool mainl_replay_read_rle_packet(void)
 		}
 		replay_input_byte_count += sizeof(replay_rle_input_sp);
 	}
-	if(change & T3_REPLAY_PACKET_CHANGE_SHIFT) {
+	if(change & T3_REPLAY_PACKET_CHANGE_CHARGE) {
 		if(
-			(replay_input_byte_count + sizeof(shift_input)) >
+			(replay_input_byte_count + sizeof(charge_input)) >
 			replay_user_header.input_size
 		) {
 			file_close();
@@ -1003,26 +999,26 @@ static bool mainl_replay_read_rle_packet(void)
 		}
 		if(
 			file_read(
-				&shift_input, sizeof(shift_input)
-			) != sizeof(shift_input)
+				&charge_input, sizeof(charge_input)
+			) != sizeof(charge_input)
 		) {
 			file_close();
 			return false;
 		}
-		replay_input_byte_count += sizeof(shift_input);
+		replay_input_byte_count += sizeof(charge_input);
 	}
-	if(shift_input > true) {
+	if(charge_input > 0x03) {
 		file_close();
 		return false;
 	}
 	replay_rle_phase = static_cast<uint8_t>(
-		phase | (shift_input ? REPLAY_RLE_SHIFT_MASK : 0)
+		phase | (charge_input << REPLAY_RLE_CHARGE_SHIFT)
 	);
 	if(change & ~(
 		T3_REPLAY_PACKET_CHANGE_P1 |
 		T3_REPLAY_PACKET_CHANGE_P2 |
 		T3_REPLAY_PACKET_CHANGE_SP |
-		T3_REPLAY_PACKET_CHANGE_SHIFT
+		T3_REPLAY_PACKET_CHANGE_CHARGE
 	)) {
 		file_close();
 		return false;
@@ -1050,8 +1046,9 @@ static bool mainl_replay_play_rle_sample(void)
 	input_mp_p1 = replay_rle_input_mp_p1;
 	input_mp_p2 = replay_rle_input_mp_p2;
 	input_sp = replay_rle_input_sp;
-	resident->input_shift = (
-		(replay_rle_phase & REPLAY_RLE_SHIFT_MASK) != 0
+	resident->input_charge = static_cast<uint8_t>(
+		(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) >>
+		REPLAY_RLE_CHARGE_SHIFT
 	);
 	replay_rle_run--;
 	replay_sample_count++;
@@ -1143,7 +1140,7 @@ void far mainl_replay_session_start(void)
 	replay_rle_input_mp_p2 = 0;
 	replay_rle_input_sp = 0;
 	mainl_replay_input_vsync = (vsync_Count2 - 1);
-	resident->input_shift = false;
+	resident->input_charge = 0;
 	replay_rle_packet_open = false;
 	replay_control_pending = false;
 
@@ -1195,6 +1192,7 @@ void far mainl_replay_input_mode_interface(void)
 	}
 
 	input_mode_interface();
+	keyconfig_charge_mask_human();
 	physical_input_sp = input_sp;
 	if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		if(physical_input_sp & INPUT_CANCEL) {
@@ -1206,9 +1204,6 @@ void far mainl_replay_input_mode_interface(void)
 			input_sp = INPUT_OK;
 			return;
 		}
-	}
-	if(mainl_replay_mode != MR_USER_PLAYBACK) {
-		mainl_replay_input_shift_sense();
 	}
 	if(
 		(
@@ -1227,6 +1222,10 @@ void far mainl_replay_input_mode_interface(void)
 		input_mp_p1 = replay_rle_input_mp_p1;
 		input_mp_p2 = replay_rle_input_mp_p2;
 		input_sp = replay_rle_input_sp;
+		resident->input_charge = static_cast<uint8_t>(
+			(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) >>
+			REPLAY_RLE_CHARGE_SHIFT
+		);
 	}
 }
 
@@ -1377,3 +1376,4 @@ void far mainl_replay_exit_to_main(void)
 
 // Keep the following shared runtime segment at its accepted near-offset phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"

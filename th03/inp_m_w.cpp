@@ -30,7 +30,7 @@ void pascal input_mode_joy_vs_key()
 	if(js_bexist) {
 		js_sense();
 		input_mp_p1 = js_stat[0];
-		input_mp_p2 = input_sp;
+		input_mp_p2 |= input_sp;
 	}
 }
 
@@ -40,7 +40,7 @@ void pascal input_mode_key_vs_joy()
 	if(js_bexist) {
 		js_sense();
 		input_mp_p2 = js_stat[0];
-		input_mp_p1 = input_sp;
+		input_mp_p1 |= input_sp;
 	}
 }
 
@@ -55,7 +55,7 @@ void pascal input_mode_1p_vs_cpu()
 void pascal input_mode_cpu_vs_1p()
 {
 	input_reset_sense_key_held();
-	input_mp_p2 = (input_sp | input_mp_p1);
+	input_mp_p2 |= input_sp;
 	js_input_merge_into(input_mp_p2);
 	input_mp_p1 = INPUT_NONE;
 }
@@ -110,3 +110,4 @@ void pascal input_wait_for_change(int frames_to_wait)
 		}
 	}
 }
+#pragma codestring "\x90"
