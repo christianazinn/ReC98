@@ -15,6 +15,7 @@
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
+#include "th03/main/v_colors.hpp"
 #include "th03/fast_forward.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
@@ -341,7 +342,9 @@ static void replay_debug_overlay_put(void)
 	out = replay_debug_u16_put(out, players[1].cpu_safety_frames);
 	*out = '\0';
 
-	replay_overlay_graph_fill(PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, 7);
+	replay_overlay_graph_fill(
+		PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE
+	);
 	text_putsa(TRAM_LEFT, 0, line, (TX_BLACK | TX_REVERSE));
 }
 #endif

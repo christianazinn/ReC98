@@ -6,6 +6,7 @@
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/round.hpp"
+#include "th03/main/score.hpp"
 #include "th03/practice.hpp"
 
 extern "C" uint8_t story_cpu_safety_frames[];
@@ -76,6 +77,7 @@ uint8_t far practice_initial_round(void)
 
 void far practice_initial_apply(void)
 {
+	uint8_t initial_extends;
 	uint16_t safety;
 
 	if(!practice_game_active()) {
@@ -98,6 +100,10 @@ void far practice_initial_apply(void)
 	gba_boss_level = practice_resident_u8(T3_PRACTICE_RES_BOSS_LEVEL_INDEX);
 	cpu_hit_damage_additional = practice_resident_u8(
 		T3_PRACTICE_RES_CPU_DAMAGE_INDEX
+	);
+	initial_extends = practice_resident_u8(T3_PRACTICE_RES_EXTENDS_INDEX);
+	extends_gained = (
+		(initial_extends >= EXTENDS_MAX) ? EXTENDS_DISABLE : initial_extends
 	);
 }
 
@@ -131,4 +137,4 @@ void far practice_retry_apply(uint8_t p1_spell, uint8_t cpu_spell)
 #pragma codeseg
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

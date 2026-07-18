@@ -10,6 +10,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/round.hpp"
+#include "th03/main/score.hpp"
 #include "th03/practice.hpp"
 
 static uint8_t practice_default_round_speed(
@@ -112,6 +113,7 @@ enum practice_row_t {
 	PR_BOSS_LEVEL,
 	PR_CPU_DAMAGE,
 	PR_STOCK,
+	PR_EXTENDS,
 	PR_RESET,
 	PR_START,
 	PR_COUNT,
@@ -129,6 +131,7 @@ struct practice_menu_t {
 	uint8_t boss_level;
 	uint8_t cpu_damage;
 	uint8_t stock;
+	uint8_t extends_gained;
 };
 
 static uint8_t practice_fixed_stage(void)
@@ -181,12 +184,14 @@ static void practice_defaults_set(practice_menu_t __ss& cfg)
 		cfg.cpu_spell = GBA_GAUGE_LEVEL_MIN;
 		cfg.cpu_damage = 0;
 		cfg.stock = T3_PRACTICE_STOCK_VS_RULES;
+		cfg.extends_gained = 0;
 	} else {
 		cfg.cpu_timer = PRACTICE_CPU_TIMER_STORY_NATIVE;
 		cfg.p1_spell = (cfg.stage + 1);
 		cfg.cpu_spell = (cfg.stage + 1);
 		cfg.cpu_damage = practice_default_cpu_damage(cfg.stage);
 		cfg.stock = CREDIT_LIVES;
+		cfg.extends_gained = 0;
 	}
 	cfg.round_speed = practice_default_round_speed(resident->rank, cfg.round);
 	cfg.bullet_speed = practice_default_bullet_speed(resident->rank);
@@ -330,6 +335,16 @@ static void practice_row_put(
 			practice_line_u16(line, at, cfg.stock);
 		}
 		break;
+	case PR_EXTENDS:
+		P('E'); P('x'); P('t'); P('e'); P('n'); P('d'); P('s'); P(' ');
+		P('G'); P('a'); P('i'); P('n'); P('e'); P('d');
+		VALUE_COLUMN();
+		if(cfg.preset == PRACTICE_PRESET_VS_DEFAULT) {
+			P('V'); P('S'); P(' '); P('R'); P('u'); P('l'); P('e'); P('s');
+		} else {
+			practice_line_u16(line, at, cfg.extends_gained);
+		}
+		break;
 	case PR_RESET:
 		P('R'); P('e'); P('s'); P('e'); P('t'); P(' '); P('D'); P('e');
 		P('f'); P('a'); P('u'); P('l'); P('t'); P('s');
@@ -458,16 +473,37 @@ static void practice_value_step(
 		}
 		break;
 	case PR_STOCK:
-		if(forward) {
-			cfg.stock = (
-				(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) ? 0 :
-				((cfg.stock == 4) ? T3_PRACTICE_STOCK_VS_RULES : (cfg.stock + 1))
-			);
-		} else {
-			cfg.stock = (
-				(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) ? 4 :
-				((cfg.stock == 0) ? T3_PRACTICE_STOCK_VS_RULES : (cfg.stock - 1))
-			);
+		if(cfg.preset == PRACTICE_PRESET_STORY_NATIVE) {
+			if(forward) {
+				cfg.stock = ((cfg.stock == 4) ? 0 : (cfg.stock + 1));
+			} else {
+				cfg.stock = ((cfg.stock == 0) ? 4 : (cfg.stock - 1));
+			}
+			// A fresh credit starts at 2 stock; each prior extend adds one.
+			if(
+				(cfg.stock > CREDIT_LIVES) &&
+				(cfg.extends_gained < (cfg.stock - CREDIT_LIVES))
+			) {
+				cfg.extends_gained = (cfg.stock - CREDIT_LIVES);
+			}
+		}
+		break;
+	case PR_EXTENDS:
+		if(cfg.preset == PRACTICE_PRESET_STORY_NATIVE) {
+			if(forward) {
+				cfg.extends_gained = (
+					(cfg.extends_gained == EXTENDS_MAX) ?
+					0 : (cfg.extends_gained + 1)
+				);
+			} else {
+				cfg.extends_gained = (
+					(cfg.extends_gained == 0) ?
+					EXTENDS_MAX : (cfg.extends_gained - 1)
+				);
+			}
+			if(cfg.stock > (CREDIT_LIVES + cfg.extends_gained)) {
+				cfg.stock = (CREDIT_LIVES + cfg.extends_gained);
+			}
 		}
 		break;
 	}
@@ -488,7 +524,8 @@ static bool practice_is_exact_vs_default(practice_menu_t __ss& cfg)
 			resident->rank, 0, 0
 		)) &&
 		(cfg.cpu_damage == 0) &&
-		(cfg.stock == T3_PRACTICE_STOCK_VS_RULES)
+		(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) &&
+		(cfg.extends_gained == 0)
 	);
 }
 
@@ -509,6 +546,9 @@ static void practice_config_store(practice_menu_t __ss& cfg)
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_SPELL_INDEX, cfg.cpu_spell);
 	practice_resident_u8_set(T3_PRACTICE_RES_BOSS_LEVEL_INDEX, cfg.boss_level);
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_DAMAGE_INDEX, cfg.cpu_damage);
+	practice_resident_u8_set(
+		T3_PRACTICE_RES_EXTENDS_INDEX, cfg.extends_gained
+	);
 	practice_resident_u8_set(T3_PRACTICE_RES_INITIAL_STAGE_INDEX, true);
 
 	resident->story_stage = cfg.stage;
@@ -612,4 +652,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
