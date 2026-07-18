@@ -1067,12 +1067,18 @@ static bool near vs_start(bool select_characters)
 				return true;
 			}
 		} else {
-			do {
+			while(1) {
 				if(select_vs_cpu_menu()) {
 					resident->game_mode = GM_NONE;
 					return true;
 				}
-			} while((sel == VS_1P_CPU) && practice_setup_menu());
+				if((sel != VS_1P_CPU) || !practice_setup_menu()) {
+					break;
+				}
+				select_cdg_load_part1_of_4();
+				select_cdg_load_part3_of_4();
+				select_cdg_load_part2_of_4();
+			}
 		}
 	}
 
@@ -3494,6 +3500,7 @@ void near main_update_and_render(void)
 			resident->playchar_paletted[0].set(PLAYCHAR_REIMU);
 			resident->playchar_paletted[1].set(PLAYCHAR_REIMU);
 			if(vs_menu()) {
+				menu_sel = MC_VS;
 				return_from_other_screen_to_main(in_this_menu, input_allowed);
 			} else {
 				in_this_menu = false;
@@ -3757,9 +3764,7 @@ void main(void)
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90,
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+		0x90, 0x90
 	);
 	cfg_save_exit();
 
