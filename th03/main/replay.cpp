@@ -3553,15 +3553,16 @@ static void replay_pause_font_put_choices(uint8_t sel)
 
 static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 {
-	if(!menu_font) {
-		replay_pause_put_choices(sel);
-		return;
-	}
-	replay_pause_font_choice_put(old_sel, sel);
-	if(old_sel != sel) {
-		replay_pause_font_choice_put(sel, sel);
-	}
+	(void)old_sel;
+	replay_pause_put_choices(sel);
 }
+
+// Preserve the accepted offset of replay_pause_menu() after returning its
+// redraw path to the smaller native TRAM implementation.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 uint8_t far replay_pause_menu(void)
 {
@@ -3571,21 +3572,14 @@ uint8_t far replay_pause_menu(void)
 	replay_pause_save_refresh();
 	replay_pause_beep();
 	replay_pause_wait_release();
-	if(menu_font) {
-		replay_pause_font_put_graph_backing();
-		replay_pause_font_put_frame();
-		replay_pause_font_put_title();
-	} else {
-		replay_pause_put_graph_backing();
-		replay_pause_put_frame();
-		replay_pause_put_title();
-	}
+	// Gameplay uses doubled 200-line graphics, while TRAM remains 400-line and
+	// owns the center HUD. Keep this menu on TRAM so it retains native height,
+	// true black backing, and priority over that HUD.
+	replay_pause_put_graph_backing();
+	replay_pause_put_frame();
+	replay_pause_put_title();
 	sel = replay_pause_validate_choice(sel);
-	if(menu_font) {
-		replay_pause_font_put_choices(sel);
-	} else {
-		replay_pause_put_choices(sel);
-	}
+	replay_pause_put_choices(sel);
 
 input_wait:
 	replay_input_sense_held();
@@ -3652,9 +3646,7 @@ restart_not_requested:
 resume:
 	replay_pause_wait_release();
 	replay_pause_restore_graphics();
-	if(!menu_font) {
-		replay_pause_clear();
-	}
+	replay_pause_clear();
 	replay_pause_beep();
 	return REPLAY_PAUSE_RESUME;
 }
@@ -3822,3 +3814,7 @@ void far replay_finish(uint8_t route)
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

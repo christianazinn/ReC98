@@ -3695,7 +3695,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E33UL); // "3.0-"
-	TITLE_CREDIT_QUAD(5, 0x20633372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4137,6 +4137,7 @@ void main(void)
 				right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
 				right_left += OPWIN_STEP_W
 			) {
+				box_column16_unput(right_left);
 				super_put(right_left, BOX_TOP, OPWIN_RIGHT);
 			}
 			for(i = 0; i < MC_COUNT; i++) {
@@ -4159,9 +4160,13 @@ void main(void)
 	// Preserve the accepted code phase after removing the final scroll reset.
 	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
+	#if defined(TH03_REPLAY_DEVTOOLS)
+	__emit__(0x90, 0x90);
+	#else
 	__emit__(
 		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
 	);
+	#endif
 	cfg_save_exit();
 
 	// ZUN landmine: The system's previous gaiji should be restored *after*
