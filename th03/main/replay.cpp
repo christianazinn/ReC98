@@ -3037,6 +3037,20 @@ static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 
 	str[0] = static_cast<char>(ch);
 	str[1] = '\0';
+	(void)atrb;
+	text_putsa(x, y, str, (TX_BLACK | TX_REVERSE));
+}
+
+#pragma codestring "\x90"
+
+static void replay_text_putca_raw(
+	unsigned x, unsigned y, int ch, unsigned atrb
+)
+{
+	char str[2];
+
+	str[0] = static_cast<char>(ch);
+	str[1] = '\0';
 	text_putsa(x, y, str, atrb);
 }
 
@@ -3059,21 +3073,15 @@ static unsigned replay_pause_clear_atrb(unsigned x)
 
 static void replay_pause_put_graph_backing(void)
 {
-	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
-	grcg_setcolor(GC_RMW, 0);
-	graph_accesspage(0);
-	grcg_boxfill(
+	replay_overlay_graph_fill(
 		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM, V_WHITE
 	);
-	graph_accesspage(1);
-	grcg_boxfill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM
-	);
-	grcg_off();
-	graph_accesspage(page_front);
 }
+
+// Keep the following pause-menu helpers at their accepted offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static void replay_pause_put_frame(void)
 {
@@ -3172,7 +3180,7 @@ static void replay_pause_put_discard_exit(unsigned y, unsigned atrb)
 	unsigned x = REPLAY_PAUSE_TEXT_LEFT;
 
 #define P(c) replay_text_putca(x++, y, c, atrb)
-	P('E'); P('x'); P('i'); P('t'); P(' '); P('w'); P('i'); P('t');
+	P('E'); P('x'); P('i'); P('t'); P(' '); P('W'); P('i'); P('t');
 	P('h'); P('o'); P('u'); P('t'); P(' '); P('S'); P('a'); P('v');
 	P('i'); P('n'); P('g');
 #undef P
@@ -3309,7 +3317,7 @@ static void replay_pause_clear(void)
 
 	for(y = 0; y < REPLAY_PAUSE_H; y++) {
 		for(x = 0; x < REPLAY_PAUSE_W; x++) {
-			replay_text_putca(
+			replay_text_putca_raw(
 				(REPLAY_PAUSE_LEFT + x), (REPLAY_PAUSE_TOP + y),
 				' ', replay_pause_clear_atrb(REPLAY_PAUSE_LEFT + x)
 			);
