@@ -455,40 +455,15 @@ static void score_put(
 	field_put_right(right, y, p, atrb);
 }
 
-void far replay_font_render_begin(void)
-{
-	if(menu_font) {
-		graph_accesspage(1);
-	}
-}
-
-void far replay_font_render_end(void)
-{
-	if(menu_font) {
-		vsync_wait();
-		graph_showpage(1);
-		graph_copy_page(0);
-		graph_showpage(0);
-		graph_accesspage(0);
-	}
-}
-
-void far replay_font_cursor_move(
-	screen_x_t left, uint8_t old_y, uint8_t y
-)
-{
-	menu_font_restore_rect(left, (old_y * GLYPH_H), 16, GLYPH_H);
-	menu_font_put(left, (y * GLYPH_H), ">", REPLAY_FONT_SELECTED_COLOR);
-}
-
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
 )
 {
 	char *p;
-	unsigned atrb = TX_WHITE;
+	bool selected = ((slot == sel) && active);
+	unsigned atrb = (selected ? TX_CYAN : TX_WHITE);
 
-	if((slot == sel) && active) {
+	if(selected) {
 		menu_font_put(
 			CURSOR_PIXEL_LEFT, (y * GLYPH_H),
 			">", REPLAY_FONT_SELECTED_COLOR
@@ -676,6 +651,7 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 {
 	char *p;
 	uint8_t stage;
+	unsigned atrb;
 	bool valid = summary_valid();
 
 	p = append_cstr(replay_menu_line, "Final Score: ");
@@ -715,22 +691,25 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 		"Score", font_color(TX_CYAN)
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
+		atrb = (
+			(stage_focus && (stage == stage_sel)) ? TX_CYAN : TX_WHITE
+		);
 		p = replay_menu_line;
 		*p++ = static_cast<char>('1' + stage);
 		field_put(
-			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, TX_WHITE
+			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		p = append_playchar_pair(
 			replay_menu_line, stage_opponent(stage)
 		);
 		field_put(
-			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, TX_WHITE
+			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		score_put(
 			DETAIL_SPLIT_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
 			replay_user_menu_header.scenario.story.stage_scores[stage],
 			(valid && (stage < replay_user_menu_header.stage_reached_count)),
-			TX_WHITE
+			atrb
 		);
 	}
 	if(stage_focus) {
@@ -888,4 +867,10 @@ void far replay_font_detail_empty_put(uint8_t slot)
 	);
 }
 
-// The RC2 renderer consumes the former terminal phase padding.
+// Keep the following patch-owned segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

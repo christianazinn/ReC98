@@ -656,13 +656,15 @@ static void practice_heading_put(bool restore)
 }
 
 static void practice_screen_put(
-	practice_menu_t __ss& cfg, uint8_t selected
+	practice_menu_t __ss& cfg, uint8_t selected, uint8_t& page_shown
 )
 {
 	bool restore = true;
+	uint8_t page_drawn = page_shown;
 
 	if(menu_font) {
-		graph_accesspage(1);
+		page_drawn = (1 - page_shown);
+		graph_accesspage(page_drawn);
 		graph_clear();
 		restore = false;
 	}
@@ -670,12 +672,24 @@ static void practice_screen_put(
 	practice_rows_put(cfg, selected, restore);
 	if(menu_font) {
 		vsync_wait();
-		graph_showpage(1);
-		graph_copy_page(0);
-		graph_showpage(0);
-		graph_accesspage(1);
+		graph_showpage(page_drawn);
+		graph_accesspage(page_drawn);
+		page_shown = page_drawn;
+	}
+}
+
+static void practice_screen_clear(uint8_t page_shown)
+{
+	text_clear();
+	if(menu_font) {
+		graph_accesspage(page_shown);
 		graph_clear();
+		graph_accesspage(1 - page_shown);
+		graph_clear();
+		graph_showpage(0);
 		graph_accesspage(0);
+	} else {
+		practice_graphics_band_clear();
 	}
 }
 
@@ -683,6 +697,7 @@ bool far practice_setup_menu(void)
 {
 	practice_menu_t cfg;
 	uint8_t selected = 0;
+	uint8_t page_shown = 0;
 	input_t input_prev;
 
 	cfg.preset = PRACTICE_PRESET_STORY_NATIVE;
@@ -698,7 +713,7 @@ bool far practice_setup_menu(void)
 	graph_showpage(0);
 	graph_accesspage(0);
 	palette_100();
-	practice_screen_put(cfg, selected);
+	practice_screen_put(cfg, selected, page_shown);
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -707,20 +722,20 @@ bool far practice_setup_menu(void)
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
 				selected = ((selected == 0) ? (PR_COUNT - 1) : (selected - 1));
-				practice_screen_put(cfg, selected);
+				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_DOWN) {
 				selected = ((selected == (PR_COUNT - 1)) ? 0 : (selected + 1));
-				practice_screen_put(cfg, selected);
+				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_LEFT) {
 				practice_value_step(cfg, selected, false);
-				practice_screen_put(cfg, selected);
+				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_RIGHT) {
 				practice_value_step(cfg, selected, true);
-				practice_screen_put(cfg, selected);
+				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				if(selected == PR_RESET) {
 					practice_defaults_set(cfg);
-					practice_screen_put(cfg, selected);
+					practice_screen_put(cfg, selected, page_shown);
 				} else if(selected == PR_START) {
 					if(practice_is_exact_vs_default(cfg)) {
 						practice_resident_clear();
@@ -729,14 +744,12 @@ bool far practice_setup_menu(void)
 					} else {
 						practice_config_store(cfg);
 					}
-					text_clear();
-					practice_graphics_band_clear();
+					practice_screen_clear(page_shown);
 					return false;
 				}
 			} else if(input_sp & INPUT_CANCEL) {
 				practice_resident_clear();
-				text_clear();
-				practice_graphics_band_clear();
+				practice_screen_clear(page_shown);
 				return true;
 			}
 		}
@@ -746,4 +759,5 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
