@@ -358,7 +358,7 @@ static bool keyconfig_file_save(const keyconfig_menu_t __ss& menu)
 	if(!file_create(keyconfig_text.temp_fn)) {
 		return false;
 	}
-	if(file_write(&cfg, sizeof(cfg)) != sizeof(cfg)) {
+	if(!file_write(&cfg, sizeof(cfg))) {
 		file_close();
 		keyconfig_file_delete(keyconfig_text.temp_fn);
 		return false;
@@ -576,6 +576,7 @@ static void keyconfig_text_putsa(
 	uint8_t at;
 
 	keyconfig_line_clear(line);
+	text_putsa(8, top, line, TX_WHITE);
 	at = keyconfig_line_puts(line, 0, s);
 	line[at] = '\0';
 	text_putsa(left, top, line, atrb);
@@ -925,3 +926,4 @@ bool far keyconfig_menu(void)
 
 // Keep the following runtime segment at its RC1 paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

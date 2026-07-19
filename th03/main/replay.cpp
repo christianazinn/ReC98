@@ -3360,9 +3360,12 @@ input_wait:
 	if(input_sp & INPUT_Q) {
 		return REPLAY_PAUSE_DISCARD_EXIT;
 	}
-	if(input_mp_p1 & INPUT_UP_LEFT) {
-		return REPLAY_PAUSE_RESTART;
+	asm {
+		call far ptr keyconfig_restart_request_poll
+		jnc restart_not_requested
 	}
+	return REPLAY_PAUSE_RESTART;
+restart_not_requested:
 	if(input_sp & INPUT_CANCEL) {
 		replay_pause_wait_release();
 		replay_pause_clear();

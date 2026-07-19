@@ -3,6 +3,7 @@
 #include "libs/master.lib/master.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th03/hardware/input.h"
+#include "th03/keyconfig.hpp"
 
 /// Modes
 /// -----
@@ -47,7 +48,8 @@ void pascal input_mode_key_vs_joy()
 void pascal input_mode_1p_vs_cpu()
 {
 	input_reset_sense_key_held();
-	input_mp_p1 |= input_sp;
+	keyconfig_story_input_merge();
+	__emit__(0x90, 0x90);
 	js_input_merge_into(input_mp_p1);
 	input_mp_p2 = INPUT_NONE;
 }

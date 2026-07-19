@@ -105,7 +105,6 @@ void far keyconfig_input_apply(void)
 		}
 	}
 	if(resident->game_mode == GM_STORY) {
-		input_sp &= ~INPUT_MOVEMENT;
 		for(action = 0; action < T3_KEYCONFIG_STORY_ACTION_COUNT; action++) {
 			key = (
 				configured ?
@@ -131,6 +130,23 @@ void far keyconfig_input_apply(void)
 	}
 }
 
+void far keyconfig_story_input_merge(void)
+{
+	if(resident->game_mode == GM_STORY) {
+		input_sp &= ~INPUT_MOVEMENT;
+	}
+	input_mp_p1 |= input_sp;
+}
+
+extern "C" void far keyconfig_restart_request_poll(void)
+{
+	if(!(peekb(0, KEYGROUP_2) & K2_R)) {
+		asm { clc; }
+		return;
+	}
+	asm { stc; }
+}
+
 void far keyconfig_charge_mask_human(void)
 {
 	uint8_t mask = (resident->input_charge & 0x03);
@@ -153,3 +169,4 @@ void far keyconfig_charge_mask_human(void)
 
 // Keep the following runtime segment at its RC1 paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
