@@ -20,10 +20,7 @@ static const int COMBO_DIGITS = 2;
 static const unsigned int COMBO_FRAMES = 80;
 static const unsigned int COMBO_HIT_RESET_FRAMES = 32;
 static const unsigned int COMBO_BONUS_CAP = 65535;
-
-// Only applies to the total combo. [player_stuff_t::combo_hits_max] is allowed
-// to hold the full unsigned 8-bit range.
-static const int COMBO_HIT_CAP = 99;
+static const int COMBO_HIT_REFRESH_THRESHOLD = 99;
 /// ---------
 
 /// Coordinates
@@ -50,6 +47,9 @@ inline tram_x_t box_tram_x(tram_x_t playfield_border_left) {
 extern const char near gsHIT[];
 extern const char near gBONUS_BOX[];
 extern const char near aBONUS_BOX_SPACES[];
+void far combo_hits_3digit_put(
+	tram_x_t box_left, tram_y_t y, uint8_t hits
+);
 
 uint16_t pascal combo_add_raw(uint8_t hits, pid_t pid, uint16_t bonus)
 {
@@ -81,12 +81,9 @@ uint16_t pascal combo_add_raw(uint8_t hits, pid_t pid, uint16_t bonus)
 		player.combo_bonus_max = bonus;
 	}
 
-	// The visible hit number is intentionally clamped after recording the
-	// unclamped 8-bit value in [player.combo_hits_max]. This preserves larger
-	// three-digit hit numbers for the defeat screen, where ZUN intentionally
-	// reserves space for and renders that extra digit.
-	if(hits > COMBO_HIT_CAP) {
-		hits = COMBO_HIT_CAP;
+	// Preserve the original post-99 display refresh while showing the chain's
+	// full unsigned 8-bit hit count.
+	if(hits > COMBO_HIT_REFRESH_THRESHOLD) {
 		if(bonus != COMBO_BONUS_CAP) {
 			combo.time = COMBO_FRAMES;
 		}
@@ -101,6 +98,8 @@ uint16_t pascal combo_add_raw(uint8_t hits, pid_t pid, uint16_t bonus)
 
 	return combo.bonus_total;
 }
+
+#pragma codestring "\x90\x90"
 
 void combos_update_and_render(void)
 {
@@ -128,19 +127,9 @@ void combos_update_and_render(void)
 			);
 			gaiji_putsa(box_tram_x(left), SCORE_TRAM_Y, gBONUS_BOX, TX_WHITE);
 
-			// ZUN bloat: This digit rendering code didn't need to write to the
-			// unrelated [col] variable.
 			uint8_t hit_val_rem = p->hits_highest;
-			if(hit_val_rem >= 10) {
-				col = static_cast<gaiji_th03_t>(gb_0 + (hit_val_rem / 10));
-				gaiji_putca(box_tram_x(left), HITS_TRAM_Y, col, TX_WHITE);
-				hit_val_rem %= 10;
-			} else {
-				gaiji_putca(box_tram_x(left), HITS_TRAM_Y, g_SP, TX_WHITE);
-			}
-			col = static_cast<gaiji_th03_t>(gb_0 + hit_val_rem);
-			gaiji_putca(
-				(box_tram_x(left) + GAIJI_TRAM_W), HITS_TRAM_Y, col, TX_WHITE
+			combo_hits_3digit_put(
+				box_tram_x(left), HITS_TRAM_Y, hit_val_rem
 			);
 		}
 		p->time--;
@@ -175,6 +164,12 @@ void combos_update_and_render(void)
 			// last combo frame while leaving the score visible. Should have
 			// maybe been done at the beginning of the next frame.
 			left = playfield_border_tram_x(pid);
+			gaiji_putca(
+				(box_tram_x(left) - GAIJI_TRAM_W),
+				HITS_TRAM_Y,
+				g_SP,
+				TX_WHITE
+			);
 			text_puts(box_tram_x(left), HITS_TRAM_Y, aBONUS_BOX_SPACES);
 			text_puts(box_tram_x(left), SCORE_TRAM_Y, aBONUS_BOX_SPACES);
 
@@ -184,6 +179,14 @@ void combos_update_and_render(void)
 		}
 	}
 }
+
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 uint16_t pascal near combo_add(pid_t pid, uint8_t chain_slot, uint16_t bonus)
 {
@@ -271,3 +274,37 @@ void pascal near fire_point_based_boss_attack_or_panic(
 		boss_panic_fired_in_current_combo[pid] = false;
 	}
 }
+
+#pragma codeseg COMBO_PATCH
+
+void far combo_hits_3digit_put(
+	tram_x_t box_left, tram_y_t y, uint8_t hits
+)
+{
+	tram_x_t x = (box_left - GAIJI_TRAM_W);
+	uint8_t remainder = hits;
+	gaiji_th03_t digit;
+
+	if(remainder >= 100) {
+		digit = static_cast<gaiji_th03_t>(gb_0 + (remainder / 100));
+		gaiji_putca(x, y, digit, TX_WHITE);
+		remainder %= 100;
+	} else {
+		gaiji_putca(x, y, g_SP, TX_WHITE);
+	}
+	x += GAIJI_TRAM_W;
+	if(hits >= 10) {
+		digit = static_cast<gaiji_th03_t>(gb_0 + (remainder / 10));
+		gaiji_putca(x, y, digit, TX_WHITE);
+		remainder %= 10;
+	} else {
+		gaiji_putca(x, y, g_SP, TX_WHITE);
+	}
+	x += GAIJI_TRAM_W;
+	digit = static_cast<gaiji_th03_t>(gb_0 + remainder);
+	gaiji_putca(x, y, digit, TX_WHITE);
+}
+
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+
+#pragma codeseg

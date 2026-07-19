@@ -3676,7 +3676,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 43,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3699,13 +3699,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20392E32UL); // "2.9 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x30312E32UL); // "2.10"
+	TITLE_CREDIT_QUAD(5, 0x3163722DUL); // "-rc1"
+	TITLE_CREDIT_QUAD(6, 0x20796220UL); // " by "
+	TITLE_CREDIT_QUAD(7, 0x69726843UL); // "Chri"
+	TITLE_CREDIT_QUAD(8, 0x61697473UL); // "stia"
+	TITLE_CREDIT_QUAD(9, 0x7A41206EUL); // "n Az"
+	TITLE_CREDIT_QUAD(10, 0x006E6E69UL); // "inn\0"
 	text_putsa((TRAM_RIGHT - LINE2_LEN), 1, title_credit_line, TX_BLACK);
 }
 
