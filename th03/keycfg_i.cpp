@@ -80,12 +80,6 @@ void far keyconfig_input_apply(void)
 	for(pid = 0; pid < T3_KEYCONFIG_PLAYER_COUNT; pid++) {
 		input = ((pid == 0) ? &input_mp_p1 : &input_mp_p2);
 		for(action = 0; action < T3_KEYCONFIG_ACTION_COUNT; action++) {
-			if(
-				(resident->game_mode == GM_STORY) && (pid == 0) &&
-				(action <= KCA_DOWN_RIGHT)
-			) {
-				continue;
-			}
 			key = (
 				configured ?
 				keyconfig_resident_binding(pid, action) :
@@ -104,7 +98,11 @@ void far keyconfig_input_apply(void)
 			}
 		}
 	}
-	if(resident->game_mode == GM_STORY) {
+	if(
+		(resident->game_mode == GM_STORY) ||
+		(resident->game_mode == GM_VS_1P_CPU)
+	) {
+		input_mp_p1 &= ~INPUT_MOVEMENT;
 		for(action = 0; action < T3_KEYCONFIG_STORY_ACTION_COUNT; action++) {
 			key = (
 				configured ?
@@ -129,6 +127,9 @@ void far keyconfig_input_apply(void)
 		}
 	}
 }
+
+// Keep the following gameplay merge helpers at their accepted offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far keyconfig_gameplay_merge_p1(void)
 {
