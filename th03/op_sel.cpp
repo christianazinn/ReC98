@@ -8,7 +8,7 @@
 
 void far select_vs_cpu_practice_background_put(void)
 {
-	select_base_render(vs_sel_pics_put);
+	select_curves_update_and_render();
 }
 
 void far select_vs_cpu_practice_frame_finish(void)
@@ -18,3 +18,4 @@ void far select_vs_cpu_practice_frame_finish(void)
 
 // Keep this patch-owned group segment paragraph-sized.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

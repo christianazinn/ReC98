@@ -608,13 +608,16 @@ static void keyconfig_background_load(void)
 
 	PaletteTone = 100;
 	palette_set_all(pi_headers[0].palette);
-	palette_set(KEYCONFIG_COLOR_HEADER, 0x40, 0xD0, 0xFF);
-	palette_set(KEYCONFIG_COLOR_FOOTER, 0x80, 0xA0, 0xFF);
-	palette_set(KEYCONFIG_COLOR_SELECTED, 0xFF, 0xFF, 0x40);
-	palette_set(KEYCONFIG_COLOR_LABEL, 0xC0, 0x90, 0xFF);
-	palette_set(KEYCONFIG_COLOR_VALUE, 0xFF, 0xFF, 0xFF);
 	palette_show();
 }
+
+// Preserve later menu entry points after removing BG1 palette overrides.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 static void keyconfig_background_put(void)
 {
@@ -632,8 +635,8 @@ static void keyconfig_graphics_row_put(
 )
 {
 	enum {
-		LABEL_CENTER = ((RES_X / 2) - 112),
-		VALUE_CENTER = ((RES_X / 2) + 112),
+		LABEL_LEFT = ((RES_X / 2) - 208),
+		VALUE_LEFT = ((RES_X / 2) + 16),
 		COMMAND_CENTER = (RES_X / 2),
 		CURSOR_GAP = 16,
 	};
@@ -648,11 +651,10 @@ static void keyconfig_graphics_row_put(
 	}
 	line[label_end] = '\0';
 	if(value_at != 0) {
-		label_left = (
-			LABEL_CENTER - (menu_font_width(&line[2]) / 2)
-		);
-		menu_font_put_centered(
-			VALUE_CENTER, y, &line[value_at], KEYCONFIG_COLOR_VALUE
+		label_left = LABEL_LEFT;
+		menu_font_put(
+			VALUE_LEFT, y, &line[value_at],
+			(selected ? KEYCONFIG_COLOR_SELECTED : KEYCONFIG_COLOR_VALUE)
 		);
 	} else {
 		label_left = (

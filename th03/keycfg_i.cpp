@@ -172,5 +172,5 @@ void far keyconfig_charge_mask_human(void)
 	resident->input_charge = mask;
 }
 
-// Keep the following runtime segment at its RC1 paragraph phase.
+// Keep the following runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90"

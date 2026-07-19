@@ -253,31 +253,30 @@ static void practice_graphics_row_put(
 )
 {
 	enum {
-		LABEL_RIGHT = ((RES_X / 2) - 16),
+		LABEL_LEFT = ((RES_X / 2) - 208),
 		VALUE_LEFT = ((RES_X / 2) + 16),
 		CURSOR_GAP = 16,
 	};
 	vram_y_t top = ((4 + row) * GLYPH_H);
-	screen_x_t label_left;
 
 	if(restore) {
 		menu_font_restore_rect(0, top, RES_X, GLYPH_H);
 	}
 	line[label_end] = '\0';
-	label_left = (LABEL_RIGHT - menu_font_width(&line[2]));
 	if(selected) {
 		line[1] = '\0';
 		menu_font_put(
-			(label_left - CURSOR_GAP), top, line, PRACTICE_COLOR_SELECTED
+			(LABEL_LEFT - CURSOR_GAP), top, line, PRACTICE_COLOR_SELECTED
 		);
 	}
 	menu_font_put(
-		label_left, top, &line[2],
+		LABEL_LEFT, top, &line[2],
 		(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_LABEL)
 	);
 	if(value_at != 0) {
 		menu_font_put(
-			VALUE_LEFT, top, &line[value_at], PRACTICE_COLOR_VALUE
+			VALUE_LEFT, top, &line[value_at],
+			(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_VALUE)
 		);
 	}
 }
@@ -697,6 +696,8 @@ bool far practice_setup_menu(void)
 
 	text_clear();
 	palette_100();
+	palette_set(PRACTICE_COLOR_SELECTED, 0x20, 0xE0, 0xFF);
+	palette_show();
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -740,5 +741,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
