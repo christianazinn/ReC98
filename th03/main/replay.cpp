@@ -4,6 +4,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "libs/sprite16/sprite16.h"
 #include "platform.h"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
@@ -25,6 +26,7 @@
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
 #include "th03/snd/snd.h"
+#include "x86real.h"
 
 // Pack the pending packet size and stage-checkpoint state into RLE phase bits.
 #define REPLAY_RLE_PHASE_MASK 0x03
@@ -2870,6 +2872,8 @@ void far replay_round_start(void)
 	replay_split_row(RSE_ROUND_START, replay_last_route);
 }
 
+static bool replay_fast_forward_key_held(void);
+
 void far replay_frame_io(void)
 {
 	bool ok = true;
@@ -2902,7 +2906,7 @@ void far replay_frame_io(void)
 			T3_REPLAY_PACKET_PHASE_GAMEPLAY, shot_bits
 		);
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
-		fast_forward_held = ((input_sp & INPUT_SHOT) != 0);
+		fast_forward_held = replay_fast_forward_key_held();
 		if(replay_user_playback_cancel()) {
 			replay_fast_forward_wait_skip(false);
 			return;
@@ -2919,7 +2923,7 @@ void far replay_frame_io(void)
 		}
 		ok = replay_user_play_logical_sample(T3_REPLAY_PACKET_PHASE_GAMEPLAY);
 	} else if(replay_mode == REPLAY_PLAYBACK) {
-		fast_forward_held = ((input_sp & INPUT_SHOT) != 0);
+		fast_forward_held = replay_fast_forward_key_held();
 		if(replay_sample_count >= replay_header.sample_count) {
 			replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
@@ -2972,6 +2976,11 @@ void far replay_frame_io(void)
 		resident->unused_3[T3_REPLAY_RES_GUARD_FRESH_INDEX]--;
 	}
 }
+
+// Keep replay_input_sense_held() at its accepted offset after replacing two
+// logical Shot tests with calls to the smaller physical-Z polling path.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
 
 void far replay_input_sense_held(void)
 {
@@ -3141,9 +3150,13 @@ static void replay_pause_put_color_backing(
 	);
 }
 
+static bool replay_fast_forward_key_held(void)
+{
+	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
+}
+
 // Keep the following pause-menu helpers at their accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
 
 static void replay_pause_put_frame(void)
 {
