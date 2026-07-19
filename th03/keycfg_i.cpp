@@ -39,6 +39,16 @@ uint8_t far keyconfig_default_binding(uint8_t pid, uint8_t action)
 	}
 }
 
+uint8_t far keyconfig_default_story_binding(uint8_t action)
+{
+	switch(action) {
+	case KCSA_UP:    return keyconfig_key(7, 2); // Up arrow
+	case KCSA_LEFT:  return keyconfig_key(7, 3); // Left arrow
+	case KCSA_RIGHT: return keyconfig_key(7, 4); // Right arrow
+	default:         return keyconfig_key(7, 5); // Down arrow
+	}
+}
+
 static input_t keyconfig_action_input(uint8_t action)
 {
 	switch(action) {
@@ -70,6 +80,12 @@ void far keyconfig_input_apply(void)
 	for(pid = 0; pid < T3_KEYCONFIG_PLAYER_COUNT; pid++) {
 		input = ((pid == 0) ? &input_mp_p1 : &input_mp_p2);
 		for(action = 0; action < T3_KEYCONFIG_ACTION_COUNT; action++) {
+			if(
+				(resident->game_mode == GM_STORY) && (pid == 0) &&
+				(action <= KCA_DOWN_RIGHT)
+			) {
+				continue;
+			}
 			key = (
 				configured ?
 				keyconfig_resident_binding(pid, action) :
@@ -85,6 +101,31 @@ void far keyconfig_input_apply(void)
 				resident->input_charge |= (1 << pid);
 			} else {
 				*input |= keyconfig_action_input(action);
+			}
+		}
+	}
+	if(resident->game_mode == GM_STORY) {
+		input_sp &= ~INPUT_MOVEMENT;
+		for(action = 0; action < T3_KEYCONFIG_STORY_ACTION_COUNT; action++) {
+			key = (
+				configured ?
+				keyconfig_resident_u8(
+					T3_KEYCONFIG_RES_BINDINGS_INDEX +
+					T3_KEYCONFIG_STORY_BINDINGS_INDEX + action
+				) :
+				keyconfig_default_story_binding(action)
+			);
+			if(
+				(key == T3_KEYCONFIG_KEY_UNBOUND) ||
+				!(groups[key >> 3] & (1 << (key & 7)))
+			) {
+				continue;
+			}
+			switch(action) {
+			case KCSA_UP:    input_mp_p1 |= INPUT_UP;    break;
+			case KCSA_LEFT:  input_mp_p1 |= INPUT_LEFT;  break;
+			case KCSA_RIGHT: input_mp_p1 |= INPUT_RIGHT; break;
+			case KCSA_DOWN:  input_mp_p1 |= INPUT_DOWN;  break;
 			}
 		}
 	}
@@ -109,3 +150,6 @@ void far keyconfig_charge_mask_human(void)
 	}
 	resident->input_charge = mask;
 }
+
+// Keep the following runtime segment at its RC1 paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"

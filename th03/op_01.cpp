@@ -1199,22 +1199,6 @@ void near start_demo(void)
 	switch_to_mainl(false);
 }
 
-static void box_to_main_animate(void)
-{
-	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
-
-	// ZUN bloat: Should maybe be merged with the two others in `m_main.cpp`.
-	{for(
-		screen_x_t right_left = (BOX_LEFT + OPWIN_W);
-		right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
-		right_left += OPWIN_STEP_W
-	) {
-		box_column16_unput(right_left);
-		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
-		frame_delay(1);
-	}}
-}
-
 void near wait_for_input_or_start_demo_then_box_to_main_animate(void)
 {
 	{
@@ -1231,7 +1215,18 @@ void near wait_for_input_or_start_demo_then_box_to_main_animate(void)
 		}
 	}
 
-	box_to_main_animate();
+	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
+
+	// ZUN bloat: Should maybe be merged with the two others in `m_main.cpp`.
+	{for(
+		screen_x_t right_left = (BOX_LEFT + OPWIN_W);
+		right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
+		right_left += OPWIN_STEP_W
+	) {
+		box_column16_unput(right_left);
+		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
+		frame_delay(1);
+	}}
 }
 
 bool near score_menu(void)
@@ -2489,7 +2484,7 @@ static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
 	}
 }
 
-static void replay_menu_resources_clear(void)
+static void fullscreen_menu_resources_clear(void)
 {
 	for(int i = 0; i < CDG_SLOT_COUNT; i++) {
 		cdg_free(i);
@@ -2532,13 +2527,13 @@ static void replay_menu_background_put(
 
 static void replay_menu_screen_init(bool start_black)
 {
-	replay_menu_resources_clear();
+	fullscreen_menu_resources_clear();
 	replay_menu_background_put(REPLAY_BG_LIST, start_black);
 }
 
 static void replay_name_background_init(bool fade_in)
 {
-	replay_menu_resources_clear();
+	fullscreen_menu_resources_clear();
 	replay_menu_background_put(REPLAY_BG_NAME, fade_in);
 	if(fade_in) {
 		palette_black_in(1);
@@ -3167,7 +3162,7 @@ static void replay_name_grid_put(int selected)
 
 static void replay_name_screen_put(int selected, bool fade_in)
 {
-	replay_menu_resources_clear();
+	fullscreen_menu_resources_clear();
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
 	replay_name_regi_patterns_patch();
@@ -3705,7 +3700,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D392E32UL); // "2.9-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -3995,15 +3990,14 @@ void near option_update_and_render(void)
 
 	if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
 		if(menu_sel == OC_KEY_MODE) {
+			fullscreen_menu_resources_clear();
 			keyconfig_menu();
-			op_fadein_animate();
-			box_to_main_animate();
-			select_cdg_load_part2_of_4();
-			text_clear();
-			box_main_to_submenu_animate();
-			menu_sel = OC_KEY_MODE;
-			menu_init(in_this_menu, input_allowed, OC_COUNT, option_choice_put);
-			input_sp = INPUT_NONE;
+			menu_sel = MC_OPTION;
+			in_option = false;
+			return_from_other_screen_to_main(
+				in_this_menu, main_input_allowed
+			);
+			return;
 		} else if(menu_sel == OC_QUIT) {
 			return_from_option_to_main(in_this_menu);
 		}
@@ -4255,4 +4249,11 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// Keep SHARED at the RC1 offset after replacing its custom menu return path.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
 /// --------

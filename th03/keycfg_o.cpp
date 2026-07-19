@@ -11,7 +11,7 @@
 #include "th03/keyconfig.hpp"
 #include <stddef.h>
 
-#define T3_KEYCONFIG_FILE_VERSION 1
+#define T3_KEYCONFIG_FILE_VERSION 2
 #define T3_KEYCONFIG_CAPTURE_CANCEL 0xFE
 
 #define KEYCONFIG_TEXT_FIELD(name, value) char name[sizeof(value)]
@@ -77,12 +77,14 @@ struct keyconfig_text_t {
 	KEYCONFIG_TEXT_FIELD(on, "On");
 	KEYCONFIG_TEXT_FIELD(off, "Off");
 	KEYCONFIG_TEXT_FIELD(defaults, "Defaults for this player");
+	KEYCONFIG_TEXT_FIELD(defaults_story, "Defaults for Story movement");
 	KEYCONFIG_TEXT_FIELD(apply, "Apply and return");
 	KEYCONFIG_TEXT_FIELD(cancel, "Cancel");
 	KEYCONFIG_TEXT_FIELD(header, "KEY CONFIGURATION     [ P");
 	KEYCONFIG_TEXT_FIELD(header_end, " ]");
+	KEYCONFIG_TEXT_FIELD(story_header, "KEY CONFIGURATION     [ STORY ]");
 	KEYCONFIG_TEXT_FIELD(footer,
-		"Left/Right: P1/P2   Z/Return: Edit   Esc: Cancel"
+		"Left/Right: P1/P2/Story   Z/Return: Edit   Esc: Cancel"
 	);
 	KEYCONFIG_TEXT_FIELD(discard, "Discard changes?  Z: Yes  Esc: No");
 	KEYCONFIG_TEXT_FIELD(capture, "Press a key. Esc cancels capture.");
@@ -102,8 +104,10 @@ static const keyconfig_text_t far keyconfig_text = {
 	"Ctrl", "Unbound", "Up-Left", "Up", "Up-Right", "Left", "Right",
 	"Down-Left", "Down", "Down-Right", "Shot", "Bomb", "Charge",
 	"Autofire", "On", "Off", "Defaults for this player",
-	"Apply and return", "Cancel", "KEY CONFIGURATION     [ P", " ]",
-	"Left/Right: P1/P2   Z/Return: Edit   Esc: Cancel",
+	"Defaults for Story movement", "Apply and return", "Cancel",
+	"KEY CONFIGURATION     [ P", " ]",
+	"KEY CONFIGURATION     [ STORY ]",
+	"Left/Right: P1/P2/Story   Z/Return: Edit   Esc: Cancel",
 	"Discard changes?  Z: Yes  Esc: No",
 	"Press a key. Esc cancels capture.", "Could not save TH3KEY.CFG"
 };
@@ -121,7 +125,7 @@ struct keyconfig_file_t {
 #pragma option -a2
 
 typedef char keyconfig_file_size_check[
-	(sizeof(keyconfig_file_t) == 36) ? 1 : -1
+	(sizeof(keyconfig_file_t) == 40) ? 1 : -1
 ];
 
 struct keyconfig_menu_t {
@@ -146,6 +150,24 @@ enum keyconfig_row_t {
 	KCR_APPLY,
 	KCR_CANCEL,
 	KCR_COUNT,
+};
+
+enum keyconfig_story_row_t {
+	KCSR_UP,
+	KCSR_LEFT,
+	KCSR_RIGHT,
+	KCSR_DOWN,
+	KCSR_DEFAULTS,
+	KCSR_APPLY,
+	KCSR_CANCEL,
+	KCSR_COUNT,
+};
+
+enum keyconfig_page_t {
+	KCP_P1,
+	KCP_P2,
+	KCP_STORY,
+	KCP_COUNT,
 };
 
 static uint8_t keyconfig_key_mask(uint8_t group)
@@ -203,6 +225,14 @@ static void keyconfig_defaults_set(
 	}
 }
 
+static void keyconfig_story_defaults_set(keyconfig_menu_t __ss& cfg)
+{
+	for(uint8_t action = 0; action < T3_KEYCONFIG_STORY_ACTION_COUNT; action++) {
+		cfg.bindings[T3_KEYCONFIG_STORY_BINDINGS_INDEX + action] =
+			keyconfig_default_story_binding(action);
+	}
+}
+
 static void keyconfig_resident_store(const keyconfig_menu_t __ss& cfg)
 {
 	keyconfig_resident_u8_set(
@@ -232,13 +262,33 @@ static void keyconfig_resident_load(keyconfig_menu_t __ss& cfg)
 	}
 }
 
+static bool keyconfig_binding_range_valid(
+	const keyconfig_file_t near& cfg, uint8_t first, uint8_t end
+)
+{
+	for(uint8_t i = first; i < end; i++) {
+		if(!keyconfig_key_valid(cfg.bindings[i])) {
+			return false;
+		}
+		if(cfg.bindings[i] == T3_KEYCONFIG_KEY_UNBOUND) {
+			continue;
+		}
+		for(uint8_t j = first; j < i; j++) {
+			if(cfg.bindings[i] == cfg.bindings[j]) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 static bool keyconfig_file_valid(const keyconfig_file_t near& cfg)
 {
 	if(
 		(cfg.magic[0] != 'T') || (cfg.magic[1] != '3') ||
 		(cfg.magic[2] != 'K') || (cfg.magic[3] != 'E') ||
 		(cfg.magic[4] != 'Y') || (cfg.magic[5] != '0') ||
-		(cfg.magic[6] != '0') || (cfg.magic[7] != '1') ||
+		(cfg.magic[6] != '0') || (cfg.magic[7] != '2') ||
 		(cfg.version != T3_KEYCONFIG_FILE_VERSION) ||
 		(cfg.size != sizeof(cfg)) ||
 		(cfg.autofire > 0x03) ||
@@ -246,20 +296,15 @@ static bool keyconfig_file_valid(const keyconfig_file_t near& cfg)
 	) {
 		return false;
 	}
-	for(uint8_t i = 0; i < T3_KEYCONFIG_BINDING_COUNT; i++) {
-		if(!keyconfig_key_valid(cfg.bindings[i])) {
-			return false;
-		}
-		if(cfg.bindings[i] == T3_KEYCONFIG_KEY_UNBOUND) {
-			continue;
-		}
-		for(uint8_t j = 0; j < i; j++) {
-			if(cfg.bindings[i] == cfg.bindings[j]) {
-				return false;
-			}
-		}
-	}
-	return true;
+	return (
+		keyconfig_binding_range_valid(
+			cfg, 0, T3_KEYCONFIG_PLAYER_BINDING_COUNT
+		) &&
+		keyconfig_binding_range_valid(
+			cfg, T3_KEYCONFIG_STORY_BINDINGS_INDEX,
+			T3_KEYCONFIG_BINDING_COUNT
+		)
+	);
 }
 
 static bool keyconfig_file_rename(
@@ -300,7 +345,7 @@ static bool keyconfig_file_save(const keyconfig_menu_t __ss& menu)
 	cfg.magic[0] = 'T'; cfg.magic[1] = '3';
 	cfg.magic[2] = 'K'; cfg.magic[3] = 'E';
 	cfg.magic[4] = 'Y'; cfg.magic[5] = '0';
-	cfg.magic[6] = '0'; cfg.magic[7] = '1';
+	cfg.magic[6] = '0'; cfg.magic[7] = '2';
 	cfg.version = T3_KEYCONFIG_FILE_VERSION;
 	cfg.size = sizeof(cfg);
 	cfg.autofire = (menu.autofire & 0x03);
@@ -313,7 +358,7 @@ static bool keyconfig_file_save(const keyconfig_menu_t __ss& menu)
 	if(!file_create(keyconfig_text.temp_fn)) {
 		return false;
 	}
-	if(!file_write(&cfg, sizeof(cfg))) {
+	if(file_write(&cfg, sizeof(cfg)) != sizeof(cfg)) {
 		file_close();
 		keyconfig_file_delete(keyconfig_text.temp_fn);
 		return false;
@@ -366,6 +411,7 @@ void far keyconfig_load(bool legacy_autofire)
 	} else {
 		menu.autofire = 0;
 		keyconfig_defaults_set(menu, 0, true);
+		keyconfig_story_defaults_set(menu);
 		if(!present && legacy_autofire) {
 			menu.autofire = 0x03;
 		}
@@ -535,7 +581,7 @@ static void keyconfig_text_putsa(
 	text_putsa(left, top, line, atrb);
 }
 
-static void keyconfig_row_put(
+static void keyconfig_player_row_put(
 	keyconfig_menu_t __ss& cfg, uint8_t pid, uint8_t row, bool selected
 )
 {
@@ -571,8 +617,57 @@ static void keyconfig_row_put(
 	text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
 }
 
+static void keyconfig_story_row_put(
+	keyconfig_menu_t __ss& cfg, uint8_t row, bool selected
+)
+{
+	char line[65];
+	uint8_t at = 2;
+
+	keyconfig_line_clear(line);
+	line[0] = (selected ? '>' : ' ');
+	if(row <= KCSR_DOWN) {
+		uint8_t player_action;
+		switch(row) {
+		case KCSR_UP:    player_action = KCA_UP;    break;
+		case KCSR_LEFT:  player_action = KCA_LEFT;  break;
+		case KCSR_RIGHT: player_action = KCA_RIGHT; break;
+		default:         player_action = KCA_DOWN;  break;
+		}
+		at = keyconfig_line_put_action_name(line, at, player_action);
+		at = 24;
+		at = keyconfig_line_put_key_name(
+			line, at,
+			cfg.bindings[T3_KEYCONFIG_STORY_BINDINGS_INDEX + row]
+		);
+	} else if(row == KCSR_DEFAULTS) {
+		at = keyconfig_line_puts(line, at, keyconfig_text.defaults_story);
+	} else if(row == KCSR_APPLY) {
+		at = keyconfig_line_puts(line, at, keyconfig_text.apply);
+	} else {
+		at = keyconfig_line_puts(line, at, keyconfig_text.cancel);
+	}
+	text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+}
+
+static uint8_t keyconfig_page_row_count(uint8_t page)
+{
+	return ((page == KCP_STORY) ? KCSR_COUNT : KCR_COUNT);
+}
+
+static void keyconfig_row_put(
+	keyconfig_menu_t __ss& cfg, uint8_t page, uint8_t row, bool selected
+)
+{
+	if(page == KCP_STORY) {
+		keyconfig_story_row_put(cfg, row, selected);
+	} else {
+		keyconfig_player_row_put(cfg, page, row, selected);
+	}
+}
+
 static void keyconfig_screen_put(
-	keyconfig_menu_t __ss& cfg, uint8_t pid, uint8_t selected
+	keyconfig_menu_t __ss& cfg, uint8_t page, uint8_t selected
 )
 {
 	char line[65];
@@ -581,13 +676,17 @@ static void keyconfig_screen_put(
 	text_clear();
 	keyconfig_line_clear(line);
 	at = 0;
-	at = keyconfig_line_puts(line, at, keyconfig_text.header);
-	line[at++] = static_cast<char>('1' + pid);
-	at = keyconfig_line_puts(line, at, keyconfig_text.header_end);
+	if(page == KCP_STORY) {
+		at = keyconfig_line_puts(line, at, keyconfig_text.story_header);
+	} else {
+		at = keyconfig_line_puts(line, at, keyconfig_text.header);
+		line[at++] = static_cast<char>('1' + page);
+		at = keyconfig_line_puts(line, at, keyconfig_text.header_end);
+	}
 	line[at] = '\0';
 	text_putsa(25, 1, line, TX_WHITE);
-	for(uint8_t row = 0; row < KCR_COUNT; row++) {
-		keyconfig_row_put(cfg, pid, row, (row == selected));
+	for(uint8_t row = 0; row < keyconfig_page_row_count(page); row++) {
+		keyconfig_row_put(cfg, page, row, (row == selected));
 	}
 	keyconfig_line_clear(line);
 	at = 0;
@@ -641,8 +740,16 @@ static void keyconfig_binding_assign(
 )
 {
 	uint8_t old_key = cfg.bindings[index];
+	uint8_t first = (
+		(index < T3_KEYCONFIG_PLAYER_BINDING_COUNT) ?
+		0 : T3_KEYCONFIG_STORY_BINDINGS_INDEX
+	);
+	uint8_t end = (
+		(index < T3_KEYCONFIG_PLAYER_BINDING_COUNT) ?
+		T3_KEYCONFIG_PLAYER_BINDING_COUNT : T3_KEYCONFIG_BINDING_COUNT
+	);
 
-	for(uint8_t i = 0; i < T3_KEYCONFIG_BINDING_COUNT; i++) {
+	for(uint8_t i = first; i < end; i++) {
 		if((i != index) && (cfg.bindings[i] == key)) {
 			cfg.bindings[i] = old_key;
 			break;
@@ -690,7 +797,7 @@ bool far keyconfig_menu(void)
 {
 	keyconfig_menu_t original;
 	keyconfig_menu_t cfg;
-	uint8_t pid = 0;
+	uint8_t page = KCP_P1;
 	uint8_t selected = 0;
 	input_t input_prev;
 
@@ -703,7 +810,7 @@ bool far keyconfig_menu(void)
 	graph_clear();
 	graph_showpage(0);
 	graph_accesspage(0);
-	keyconfig_screen_put(cfg, pid, selected);
+	keyconfig_screen_put(cfg, page, selected);
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -711,21 +818,35 @@ bool far keyconfig_menu(void)
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				keyconfig_row_put(cfg, pid, selected, false);
-				selected = ((selected == 0) ? (KCR_COUNT - 1) : (selected - 1));
-				keyconfig_row_put(cfg, pid, selected, true);
+				keyconfig_row_put(cfg, page, selected, false);
+				selected = (
+					(selected == 0) ?
+					(keyconfig_page_row_count(page) - 1) : (selected - 1)
+				);
+				keyconfig_row_put(cfg, page, selected, true);
 			} else if(input_sp & INPUT_DOWN) {
-				keyconfig_row_put(cfg, pid, selected, false);
-				selected = ((selected == (KCR_COUNT - 1)) ? 0 : (selected + 1));
-				keyconfig_row_put(cfg, pid, selected, true);
+				keyconfig_row_put(cfg, page, selected, false);
+				selected = (
+					(selected == (keyconfig_page_row_count(page) - 1)) ?
+					0 : (selected + 1)
+				);
+				keyconfig_row_put(cfg, page, selected, true);
 			} else if(input_sp & (INPUT_LEFT | INPUT_RIGHT)) {
-				pid = (1 - pid);
-				keyconfig_screen_put(cfg, pid, selected);
+				if(input_sp & INPUT_LEFT) {
+					page = ((page == 0) ? (KCP_COUNT - 1) : (page - 1));
+				} else {
+					page = ((page == (KCP_COUNT - 1)) ? 0 : (page + 1));
+				}
+				if(selected >= keyconfig_page_row_count(page)) {
+					selected = 0;
+				}
+				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
-				if(selected == KCR_AUTOFIRE) {
-					cfg.autofire ^= (1 << pid);
-					keyconfig_row_put(cfg, pid, selected, true);
+				if((page != KCP_STORY) && (selected == KCR_AUTOFIRE)) {
+					cfg.autofire ^= (1 << page);
+					keyconfig_row_put(cfg, page, selected, true);
 				} else if(
+					(page != KCP_STORY) &&
 					(selected >= KCR_UP_LEFT) &&
 					(selected <= KCR_CHARGE)
 				) {
@@ -736,16 +857,39 @@ bool far keyconfig_menu(void)
 					if(key != T3_KEYCONFIG_CAPTURE_CANCEL) {
 						keyconfig_binding_assign(
 							cfg,
-							(pid * T3_KEYCONFIG_ACTION_COUNT) + action,
+							(page * T3_KEYCONFIG_ACTION_COUNT) + action,
 							key
 						);
 					}
-					keyconfig_screen_put(cfg, pid, selected);
+					keyconfig_screen_put(cfg, page, selected);
 					input_prev = INPUT_NONE;
-				} else if(selected == KCR_DEFAULTS) {
-					keyconfig_defaults_set(cfg, pid, false);
-					keyconfig_screen_put(cfg, pid, selected);
-				} else if(selected == KCR_APPLY) {
+				} else if((page == KCP_STORY) && (selected <= KCSR_DOWN)) {
+					uint8_t key;
+					keyconfig_text_putsa(18, 20, keyconfig_text.capture, TX_CYAN);
+					key = keyconfig_capture();
+					if(key != T3_KEYCONFIG_CAPTURE_CANCEL) {
+						keyconfig_binding_assign(
+							cfg,
+							(T3_KEYCONFIG_STORY_BINDINGS_INDEX + selected),
+							key
+						);
+					}
+					keyconfig_screen_put(cfg, page, selected);
+					input_prev = INPUT_NONE;
+				} else if(
+					((page != KCP_STORY) && (selected == KCR_DEFAULTS)) ||
+					((page == KCP_STORY) && (selected == KCSR_DEFAULTS))
+				) {
+					if(page == KCP_STORY) {
+						keyconfig_story_defaults_set(cfg);
+					} else {
+						keyconfig_defaults_set(cfg, page, false);
+					}
+					keyconfig_screen_put(cfg, page, selected);
+				} else if(
+					((page != KCP_STORY) && (selected == KCR_APPLY)) ||
+					((page == KCP_STORY) && (selected == KCSR_APPLY))
+				) {
 					if(keyconfig_file_save(cfg)) {
 						keyconfig_resident_store(cfg);
 						text_clear();
@@ -759,7 +903,7 @@ bool far keyconfig_menu(void)
 					text_clear();
 					return false;
 				} else {
-					keyconfig_screen_put(cfg, pid, selected);
+					keyconfig_screen_put(cfg, page, selected);
 					input_prev = INPUT_NONE;
 				}
 			} else if(input_sp & INPUT_CANCEL) {
@@ -770,7 +914,7 @@ bool far keyconfig_menu(void)
 					text_clear();
 					return false;
 				}
-				keyconfig_screen_put(cfg, pid, selected);
+				keyconfig_screen_put(cfg, page, selected);
 				input_prev = INPUT_NONE;
 			}
 		}
@@ -778,3 +922,6 @@ bool far keyconfig_menu(void)
 		frame_delay(1);
 	}
 }
+
+// Keep the following runtime segment at its RC1 paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

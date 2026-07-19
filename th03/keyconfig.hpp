@@ -11,8 +11,13 @@
 
 #define T3_KEYCONFIG_PLAYER_COUNT 2
 #define T3_KEYCONFIG_ACTION_COUNT 11
-#define T3_KEYCONFIG_BINDING_COUNT ( \
+#define T3_KEYCONFIG_PLAYER_BINDING_COUNT ( \
 	T3_KEYCONFIG_PLAYER_COUNT * T3_KEYCONFIG_ACTION_COUNT \
+)
+#define T3_KEYCONFIG_STORY_ACTION_COUNT 4
+#define T3_KEYCONFIG_STORY_BINDINGS_INDEX T3_KEYCONFIG_PLAYER_BINDING_COUNT
+#define T3_KEYCONFIG_BINDING_COUNT ( \
+	T3_KEYCONFIG_PLAYER_BINDING_COUNT + T3_KEYCONFIG_STORY_ACTION_COUNT \
 )
 
 #define T3_KEYCONFIG_KEY_UNBOUND 0xFF
@@ -29,13 +34,16 @@
 
 #define T3_KEYCONFIG_RES_MAGIC_0 'K'
 #define T3_KEYCONFIG_RES_MAGIC_1 'C'
-#define T3_KEYCONFIG_VERSION 1
+#define T3_KEYCONFIG_VERSION 2
 
 #if (T3_KEYCONFIG_RES_START_INDEX <= (T3_REPLAY_RES_MAINL_VSYNC_INDEX + 1))
 #error Key configuration overlaps replay handoff state
 #endif
 #if (T3_KEYCONFIG_RES_END_INDEX > 160)
 #error Key configuration overlaps Practice state
+#endif
+#if (T3_KEYCONFIG_RES_END_INDEX != 98)
+#error Key configuration resident layout changed without an audited version bump
 #endif
 
 enum keyconfig_action_t {
@@ -50,6 +58,13 @@ enum keyconfig_action_t {
 	KCA_SHOT,
 	KCA_BOMB,
 	KCA_CHARGE,
+};
+
+enum keyconfig_story_action_t {
+	KCSA_UP,
+	KCSA_LEFT,
+	KCSA_RIGHT,
+	KCSA_DOWN,
 };
 
 inline uint8_t keyconfig_key(uint8_t group, uint8_t bit)
@@ -99,6 +114,7 @@ inline void keyconfig_resident_binding_set(
 }
 
 uint8_t far keyconfig_default_binding(uint8_t pid, uint8_t action);
+uint8_t far keyconfig_default_story_binding(uint8_t action);
 void far keyconfig_input_apply(void);
 void far keyconfig_charge_mask_human(void);
 
