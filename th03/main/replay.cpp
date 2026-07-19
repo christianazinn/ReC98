@@ -3035,6 +3035,14 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_CHOICE_ATRB TX_WHITE
 #define REPLAY_PAUSE_SELECTED_ATRB TX_YELLOW
 #define REPLAY_PAUSE_DISABLED_ATRB TX_BLUE
+#define REPLAY_PAUSE_CHOICE_COLOR_W ( \
+	(REPLAY_PAUSE_TEXT_LEFT + 20) - REPLAY_PAUSE_CHOICE_MARK_LEFT \
+)
+
+enum replay_pause_vram_color_t {
+	REPLAY_PAUSE_VRAM_BLUE = 9,
+	REPLAY_PAUSE_VRAM_CYAN = 13,
+};
 
 static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 {
@@ -3083,6 +3091,32 @@ static void replay_pause_put_graph_backing(void)
 		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
 		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM,
 		V_WHITE, page_front
+	);
+}
+
+static int replay_pause_vram_color(unsigned atrb)
+{
+	if(atrb == REPLAY_PAUSE_TITLE_ATRB) {
+		return REPLAY_PAUSE_VRAM_CYAN;
+	}
+	if(atrb == REPLAY_PAUSE_SELECTED_ATRB) {
+		return V_YELLOW_BRIGHT;
+	}
+	if(atrb == REPLAY_PAUSE_DISABLED_ATRB) {
+		return REPLAY_PAUSE_VRAM_BLUE;
+	}
+	return V_WHITE;
+}
+
+static void replay_pause_put_color_backing(
+	unsigned left, unsigned top, unsigned width, unsigned atrb
+)
+{
+	replay_overlay_graph_fill(
+		(left * GLYPH_HALF_W), (top * GLYPH_HALF_H),
+		((left + width) * GLYPH_HALF_W) - 1,
+		((top + 1) * GLYPH_HALF_H) - 1,
+		replay_pause_vram_color(atrb), page_front
 	);
 }
 
@@ -3148,6 +3182,7 @@ static void replay_pause_put_title(void)
 	unsigned x = (REPLAY_PAUSE_LEFT + 13);
 	unsigned y = (REPLAY_PAUSE_TOP + 1);
 
+	replay_pause_put_color_backing(x, y, 6, REPLAY_PAUSE_TITLE_ATRB);
 #define P(c) replay_text_putca(x++, y, c, REPLAY_PAUSE_TITLE_ATRB)
 	P('P'); P('A'); P('U'); P('S'); P('E'); P('D');
 #undef P
@@ -3274,6 +3309,10 @@ static void replay_pause_put_choices(uint8_t sel)
 		REPLAY_PAUSE_SELECTED_ATRB :
 		REPLAY_PAUSE_CHOICE_ATRB
 	);
+	replay_pause_put_color_backing(
+		REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+		REPLAY_PAUSE_CHOICE_COLOR_W, atrb
+	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_RESUME) ? '>' : ' '
 	), atrb);
@@ -3284,6 +3323,10 @@ static void replay_pause_put_choices(uint8_t sel)
 		(sel == REPLAY_PAUSE_RESTART) ?
 		REPLAY_PAUSE_SELECTED_ATRB :
 		REPLAY_PAUSE_CHOICE_ATRB
+	);
+	replay_pause_put_color_backing(
+		REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+		REPLAY_PAUSE_CHOICE_COLOR_W, atrb
 	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_RESTART) ? '>' : ' '
@@ -3300,6 +3343,10 @@ static void replay_pause_put_choices(uint8_t sel)
 			REPLAY_PAUSE_CHOICE_ATRB
 		);
 	}
+	replay_pause_put_color_backing(
+		REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+		REPLAY_PAUSE_CHOICE_COLOR_W, atrb
+	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_SAVE_EXIT) ? '>' : ' '
 	), atrb);
@@ -3310,6 +3357,10 @@ static void replay_pause_put_choices(uint8_t sel)
 		(sel == REPLAY_PAUSE_DISCARD_EXIT) ?
 		REPLAY_PAUSE_SELECTED_ATRB :
 		REPLAY_PAUSE_CHOICE_ATRB
+	);
+	replay_pause_put_color_backing(
+		REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+		REPLAY_PAUSE_CHOICE_COLOR_W, atrb
 	);
 	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
 		(sel == REPLAY_PAUSE_DISCARD_EXIT) ? '>' : ' '
@@ -3458,6 +3509,7 @@ resume:
 #undef REPLAY_PAUSE_CHOICE_ATRB
 #undef REPLAY_PAUSE_SELECTED_ATRB
 #undef REPLAY_PAUSE_DISABLED_ATRB
+#undef REPLAY_PAUSE_CHOICE_COLOR_W
 
 bool far replay_prompt_skip(void)
 {
@@ -3595,7 +3647,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
