@@ -3,6 +3,13 @@
 
 #include "platform.h"
 
+void pascal far replay_font_put_fixed_n(
+	int left,
+	int top,
+	const char far *str,
+	unsigned count,
+	int color
+);
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
 );

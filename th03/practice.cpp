@@ -15,10 +15,11 @@
 #include "th03/menu_font.hpp"
 #include "th03/op/practice_bg.hpp"
 #include "th03/practice.hpp"
+#include "th03/rpyfont.hpp"
 
 enum practice_menu_color_t {
-	PRACTICE_COLOR_FOOTER = 9,
 	PRACTICE_COLOR_HEADER = 10,
+	PRACTICE_COLOR_FOOTER = PRACTICE_COLOR_HEADER,
 	PRACTICE_COLOR_LABEL = 13,
 	PRACTICE_COLOR_SELECTED = 14,
 	PRACTICE_COLOR_VALUE = V_WHITE,
@@ -249,7 +250,7 @@ static int practice_line_q4(char __ss *line, int at, uint8_t value)
 
 static void practice_graphics_row_put(
 	char __ss *line, int label_end, int value_at, uint8_t row, bool selected,
-	bool restore
+	bool restore, bool fixed_digits
 )
 {
 	enum {
@@ -258,6 +259,9 @@ static void practice_graphics_row_put(
 		CURSOR_GAP = 16,
 	};
 	vram_y_t top = ((4 + row) * GLYPH_H);
+	int color = (
+		selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_VALUE
+	);
 
 	if(restore) {
 		menu_font_restore_rect(0, top, RES_X, GLYPH_H);
@@ -274,10 +278,26 @@ static void practice_graphics_row_put(
 		(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_LABEL)
 	);
 	if(value_at != 0) {
-		menu_font_put(
-			VALUE_LEFT, top, &line[value_at],
-			(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_VALUE)
-		);
+		if(fixed_digits) {
+			replay_font_put_fixed_n(
+				VALUE_LEFT, top, &line[value_at], 1, color
+			);
+			menu_font_put_n(
+				(VALUE_LEFT + 16), top, &line[value_at + 1], 1, color
+			);
+			replay_font_put_fixed_n(
+				(
+					VALUE_LEFT + 16 +
+					menu_font_width_n(&line[value_at + 1], 1)
+				),
+				top, &line[value_at + 2], 4, color
+			);
+		} else {
+			menu_font_put(
+				VALUE_LEFT, top, &line[value_at],
+				color
+			);
+		}
 	}
 }
 
@@ -410,7 +430,8 @@ static void practice_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		practice_graphics_row_put(
-			line, label_end, value_at, row, selected, restore
+			line, label_end, value_at, row, selected, restore,
+			((row == PR_ROUND_SPEED) || (row == PR_BULLET_SPEED))
 		);
 	} else {
 		text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -730,6 +751,7 @@ bool far practice_setup_menu(void)
 				}
 			} else if(input_sp & INPUT_CANCEL) {
 				practice_resident_clear();
+				select_vs_cpu_practice_palette_restore();
 				text_clear();
 				select_vs_cpu_practice_background_put();
 				select_vs_cpu_practice_frame_finish();

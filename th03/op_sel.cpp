@@ -16,6 +16,10 @@ void far select_vs_cpu_practice_frame_finish(void)
 	select_wait_flip_and_clear_vram();
 }
 
-// Keep this patch-owned group segment paragraph-sized.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+void far select_vs_cpu_practice_palette_restore(void)
+{
+	palette_entry_rgb_show("TLSL.RGB");
+}
+
+// Keep this patch-owned group segment at its accepted size.
+#pragma codestring "\x90\x90"
