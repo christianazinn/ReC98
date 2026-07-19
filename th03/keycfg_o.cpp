@@ -581,7 +581,8 @@ static void keyconfig_graphics_row_put(
 	uint8_t label_end,
 	uint8_t value_at,
 	uint8_t top,
-	int color
+	int color,
+	bool restore
 )
 {
 	enum {
@@ -591,7 +592,9 @@ static void keyconfig_graphics_row_put(
 	};
 	vram_y_t y = (top * GLYPH_H);
 
-	menu_font_restore_rect(0, y, RES_X, GLYPH_H);
+	if(restore) {
+		menu_font_restore_rect(0, y, RES_X, GLYPH_H);
+	}
 	line[1] = '\0';
 	menu_font_put(CURSOR_LEFT, y, line, color);
 	line[label_end] = '\0';
@@ -623,7 +626,8 @@ static void keyconfig_text_putsa(
 }
 
 static void keyconfig_player_row_put(
-	keyconfig_menu_t __ss& cfg, uint8_t pid, uint8_t row, bool selected
+	keyconfig_menu_t __ss& cfg, uint8_t pid, uint8_t row, bool selected,
+	bool restore
 )
 {
 	char line[65];
@@ -668,7 +672,7 @@ static void keyconfig_player_row_put(
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
 			line, label_end, value_at, (3 + row),
-			(selected ? 13 : V_WHITE)
+			(selected ? 13 : V_WHITE), restore
 		);
 	} else {
 		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -676,7 +680,7 @@ static void keyconfig_player_row_put(
 }
 
 static void keyconfig_story_row_put(
-	keyconfig_menu_t __ss& cfg, uint8_t row, bool selected
+	keyconfig_menu_t __ss& cfg, uint8_t row, bool selected, bool restore
 )
 {
 	char line[65];
@@ -716,7 +720,7 @@ static void keyconfig_story_row_put(
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
 			line, label_end, value_at, (3 + row),
-			(selected ? 13 : V_WHITE)
+			(selected ? 13 : V_WHITE), restore
 		);
 	} else {
 		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -729,13 +733,14 @@ static uint8_t keyconfig_page_row_count(uint8_t page)
 }
 
 static void keyconfig_row_put(
-	keyconfig_menu_t __ss& cfg, uint8_t page, uint8_t row, bool selected
+	keyconfig_menu_t __ss& cfg, uint8_t page, uint8_t row, bool selected,
+	bool restore
 )
 {
 	if(page == KCP_STORY) {
-		keyconfig_story_row_put(cfg, row, selected);
+		keyconfig_story_row_put(cfg, row, selected, restore);
 	} else {
-		keyconfig_player_row_put(cfg, page, row, selected);
+		keyconfig_player_row_put(cfg, page, row, selected, restore);
 	}
 }
 
@@ -745,9 +750,16 @@ static void keyconfig_screen_put(
 {
 	char line[65];
 	uint8_t at;
+	bool restore = true;
 
 	text_clear();
-	keyconfig_graphics_band_clear();
+	if(menu_font) {
+		graph_accesspage(1);
+		graph_clear();
+		restore = false;
+	} else {
+		keyconfig_graphics_band_clear();
+	}
 	keyconfig_line_clear(line);
 	at = 0;
 	if(page == KCP_STORY) {
@@ -764,7 +776,7 @@ static void keyconfig_screen_put(
 		text_putsa(25, 1, line, TX_WHITE);
 	}
 	for(uint8_t row = 0; row < keyconfig_page_row_count(page); row++) {
-		keyconfig_row_put(cfg, page, row, (row == selected));
+		keyconfig_row_put(cfg, page, row, (row == selected), restore);
 	}
 	keyconfig_line_clear(line);
 	at = 0;
@@ -776,6 +788,15 @@ static void keyconfig_screen_put(
 		);
 	} else {
 		text_putsa(12, 21, line, TX_WHITE);
+	}
+	if(menu_font) {
+		vsync_wait();
+		graph_showpage(1);
+		graph_copy_page(0);
+		graph_showpage(0);
+		graph_accesspage(1);
+		graph_clear();
+		graph_accesspage(0);
 	}
 }
 
@@ -908,19 +929,17 @@ bool far keyconfig_menu(void)
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				keyconfig_row_put(cfg, page, selected, false);
 				selected = (
 					(selected == 0) ?
 					(keyconfig_page_row_count(page) - 1) : (selected - 1)
 				);
-				keyconfig_row_put(cfg, page, selected, true);
+				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & INPUT_DOWN) {
-				keyconfig_row_put(cfg, page, selected, false);
 				selected = (
 					(selected == (keyconfig_page_row_count(page) - 1)) ?
 					0 : (selected + 1)
 				);
-				keyconfig_row_put(cfg, page, selected, true);
+				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & (INPUT_LEFT | INPUT_RIGHT)) {
 				if(input_sp & INPUT_LEFT) {
 					page = ((page == 0) ? (KCP_COUNT - 1) : (page - 1));
@@ -934,7 +953,7 @@ bool far keyconfig_menu(void)
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				if((page != KCP_STORY) && (selected == KCR_AUTOFIRE)) {
 					cfg.autofire ^= (1 << page);
-					keyconfig_row_put(cfg, page, selected, true);
+					keyconfig_screen_put(cfg, page, selected);
 				} else if(
 					(page != KCP_STORY) &&
 					(selected >= KCR_UP_LEFT) &&

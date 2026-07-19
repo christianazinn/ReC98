@@ -248,7 +248,8 @@ static void practice_graphics_band_clear(void)
 }
 
 static void practice_graphics_row_put(
-	char __ss *line, int label_end, int value_at, uint8_t row, int color
+	char __ss *line, int label_end, int value_at, uint8_t row, int color,
+	bool restore
 )
 {
 	enum {
@@ -258,7 +259,9 @@ static void practice_graphics_row_put(
 	};
 	vram_y_t top = ((4 + row) * GLYPH_H);
 
-	menu_font_restore_rect(0, top, RES_X, GLYPH_H);
+	if(restore) {
+		menu_font_restore_rect(0, top, RES_X, GLYPH_H);
+	}
 	line[1] = '\0';
 	menu_font_put(CURSOR_LEFT, top, line, color);
 	line[label_end] = '\0';
@@ -269,7 +272,7 @@ static void practice_graphics_row_put(
 }
 
 static void practice_row_put(
-	practice_menu_t __ss& cfg, uint8_t row, bool selected
+	practice_menu_t __ss& cfg, uint8_t row, bool selected, bool restore
 )
 {
 	char line[65];
@@ -397,7 +400,8 @@ static void practice_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		practice_graphics_row_put(
-			line, label_end, value_at, row, (selected ? 13 : V_WHITE)
+			line, label_end, value_at, row, (selected ? 13 : V_WHITE),
+			restore
 		);
 	} else {
 		text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -408,11 +412,11 @@ static void practice_row_put(
 }
 
 static void practice_rows_put(
-	practice_menu_t __ss& cfg, uint8_t selected
+	practice_menu_t __ss& cfg, uint8_t selected, bool restore
 )
 {
 	for(uint8_t row = 0; row < PR_COUNT; row++) {
-		practice_row_put(cfg, row, (row == selected));
+		practice_row_put(cfg, row, (row == selected), restore);
 	}
 }
 
@@ -605,7 +609,7 @@ static void practice_config_store(practice_menu_t __ss& cfg)
 	);
 }
 
-static void practice_heading_put(void)
+static void practice_heading_put(bool restore)
 {
 	char line[65];
 	int at;
@@ -618,7 +622,9 @@ static void practice_heading_put(void)
 	P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
 	line[at] = '\0';
 	if(menu_font) {
-		menu_font_restore_rect(0, (2 * GLYPH_H), RES_X, GLYPH_H);
+		if(restore) {
+			menu_font_restore_rect(0, (2 * GLYPH_H), RES_X, GLYPH_H);
+		}
 		menu_font_put_centered(
 			(RES_X / 2), (2 * GLYPH_H), line, V_WHITE
 		);
@@ -636,7 +642,9 @@ static void practice_heading_put(void)
 	P('B'); P('a'); P('c'); P('k');
 	line[at] = '\0';
 	if(menu_font) {
-		menu_font_restore_rect(0, (20 * GLYPH_H), RES_X, GLYPH_H);
+		if(restore) {
+			menu_font_restore_rect(0, (20 * GLYPH_H), RES_X, GLYPH_H);
+		}
 		menu_font_put_centered(
 			(RES_X / 2), (20 * GLYPH_H), line, V_WHITE
 		);
@@ -645,6 +653,30 @@ static void practice_heading_put(void)
 	}
 
 #undef P
+}
+
+static void practice_screen_put(
+	practice_menu_t __ss& cfg, uint8_t selected
+)
+{
+	bool restore = true;
+
+	if(menu_font) {
+		graph_accesspage(1);
+		graph_clear();
+		restore = false;
+	}
+	practice_heading_put(restore);
+	practice_rows_put(cfg, selected, restore);
+	if(menu_font) {
+		vsync_wait();
+		graph_showpage(1);
+		graph_copy_page(0);
+		graph_showpage(0);
+		graph_accesspage(1);
+		graph_clear();
+		graph_accesspage(0);
+	}
 }
 
 bool far practice_setup_menu(void)
@@ -666,8 +698,7 @@ bool far practice_setup_menu(void)
 	graph_showpage(0);
 	graph_accesspage(0);
 	palette_100();
-	practice_heading_put();
-	practice_rows_put(cfg, selected);
+	practice_screen_put(cfg, selected);
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -675,23 +706,21 @@ bool far practice_setup_menu(void)
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				practice_row_put(cfg, selected, false);
 				selected = ((selected == 0) ? (PR_COUNT - 1) : (selected - 1));
-				practice_row_put(cfg, selected, true);
+				practice_screen_put(cfg, selected);
 			} else if(input_sp & INPUT_DOWN) {
-				practice_row_put(cfg, selected, false);
 				selected = ((selected == (PR_COUNT - 1)) ? 0 : (selected + 1));
-				practice_row_put(cfg, selected, true);
+				practice_screen_put(cfg, selected);
 			} else if(input_sp & INPUT_LEFT) {
 				practice_value_step(cfg, selected, false);
-				practice_rows_put(cfg, selected);
+				practice_screen_put(cfg, selected);
 			} else if(input_sp & INPUT_RIGHT) {
 				practice_value_step(cfg, selected, true);
-				practice_rows_put(cfg, selected);
+				practice_screen_put(cfg, selected);
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				if(selected == PR_RESET) {
 					practice_defaults_set(cfg);
-					practice_rows_put(cfg, selected);
+					practice_screen_put(cfg, selected);
 				} else if(selected == PR_START) {
 					if(practice_is_exact_vs_default(cfg)) {
 						practice_resident_clear();

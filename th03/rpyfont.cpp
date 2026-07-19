@@ -1,5 +1,6 @@
 #pragma option -zCRPYFONT_TEXT -zPRPYFONT_TEXT -dc
 
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
 #include "th02/v_colors.hpp"
@@ -32,7 +33,7 @@ enum {
 	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
 	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
 	DETAIL_ROUND_WINNER_LEFT = 584,
-	REPLAY_FONT_SELECTED_COLOR = 12,
+	REPLAY_FONT_SELECTED_COLOR = 9,
 };
 
 extern char replay_menu_line[81];
@@ -456,12 +457,20 @@ static void score_put(
 
 void far replay_font_render_begin(void)
 {
-	graph_showpage(1);
+	if(menu_font) {
+		graph_accesspage(1);
+	}
 }
 
 void far replay_font_render_end(void)
 {
-	graph_showpage(0);
+	if(menu_font) {
+		vsync_wait();
+		graph_showpage(1);
+		graph_copy_page(0);
+		graph_showpage(0);
+		graph_accesspage(0);
+	}
 }
 
 void far replay_font_cursor_move(
@@ -480,7 +489,10 @@ void far replay_font_slot_line_put(
 	unsigned atrb = TX_WHITE;
 
 	if((slot == sel) && active) {
-		text_put(CURSOR_PIXEL_LEFT, y, ">", TX_YELLOW);
+		menu_font_put(
+			CURSOR_PIXEL_LEFT, (y * GLYPH_H),
+			">", REPLAY_FONT_SELECTED_COLOR
+		);
 	}
 	p = append_u8_2(replay_menu_line, slot);
 	field_put(SLOT_PIXEL_LEFT, y, p, atrb);
@@ -505,12 +517,14 @@ void far replay_font_slot_line_put(
 	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
 }
 
-void far replay_font_columns_put(void)
+void far replay_font_columns_put(bool clear)
 {
 	char *p;
 
 	if(menu_font) {
-		replay_menu_span_clear(LIST_LEFT, HEAD_Y, LIST_W);
+		if(clear) {
+			replay_menu_span_clear(LIST_LEFT, HEAD_Y, LIST_W);
+		}
 		text_put(SLOT_PIXEL_LEFT, HEAD_Y, "Slot", TX_CYAN);
 		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Ch", TX_CYAN);
 		text_put(RANK_PIXEL_LEFT, HEAD_Y, "R", TX_CYAN);
@@ -720,9 +734,10 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 		);
 	}
 	if(stage_focus) {
-		text_put(
-			DETAIL_SPLIT_CURSOR_LEFT, (DETAIL_Y + 3 + stage_sel),
-			">", TX_YELLOW
+		menu_font_put(
+			DETAIL_SPLIT_CURSOR_LEFT,
+			((DETAIL_Y + 3 + stage_sel) * GLYPH_H),
+			">", REPLAY_FONT_SELECTED_COLOR
 		);
 	}
 }

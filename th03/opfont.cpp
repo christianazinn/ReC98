@@ -201,3 +201,6 @@ void pascal far replay_menu_line_put(unsigned x, unsigned y, unsigned atrb)
 		(x * GLYPH_HALF_W), (y * GLYPH_H), replay_menu_line, color
 	);
 }
+
+// Keep the following compiler runtime contributions at their 0.3.2-rc2 phase.
+#pragma codestring "\x90\x90\x90\x90"

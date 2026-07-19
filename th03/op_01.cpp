@@ -1351,6 +1351,8 @@ enum {
 	REPLAY_SAVE_DIALOG_NO_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 19),
 };
 
+static void replay_menu_hidden_background_restore(void);
+
 char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
@@ -1961,7 +1963,7 @@ static char *replay_line_append_final_stage_mark(char *p)
 }
 
 static void replay_menu_slot_line_put(
-	uint8_t slot, uint8_t sel, unsigned int y, bool active
+	uint8_t slot, uint8_t sel, unsigned int y, bool active, bool clear
 )
 {
 	char *p;
@@ -1970,7 +1972,9 @@ static void replay_menu_slot_line_put(
 
 	has_replay = replay_user_read_slot_for_menu(slot);
 	atrb = (((slot == sel) && active) ? TX_YELLOW : TX_WHITE);
-	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
+	if(clear) {
+		replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
+	}
 	if(menu_font) {
 		replay_font_slot_line_put(
 			slot, sel, y, active, has_replay
@@ -2007,7 +2011,7 @@ static void replay_menu_slot_line_put(
 
 static void replay_menu_slot_line_put(uint8_t slot, uint8_t sel, unsigned int y)
 {
-	replay_menu_slot_line_put(slot, sel, y, true);
+	replay_menu_slot_line_put(slot, sel, y, true, true);
 }
 
 static void replay_menu_detail_line_put(unsigned int y, char *p)
@@ -2040,12 +2044,16 @@ static char *replay_line_append_round_winner(char *p, uint8_t route_winner)
 	return p;
 }
 
-static void replay_menu_detail_put_empty(uint8_t slot)
+static void replay_menu_detail_put_empty(uint8_t slot, bool clear)
 {
 	char *p;
 
-	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
-		replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
+	if(clear) {
+		for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
+			replay_menu_span_clear(
+				REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W
+			);
+		}
 	}
 	if(menu_font) {
 		replay_font_detail_empty_put(slot);
@@ -2422,17 +2430,21 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 }
 
 static void replay_menu_detail_put(
-	uint8_t slot, uint8_t stage_sel, bool stage_focus
+	uint8_t slot, uint8_t stage_sel, bool stage_focus, bool clear
 )
 {
 	char *p;
 
-	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
-		replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
+	if(clear) {
+		for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
+			replay_menu_span_clear(
+				REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W
+			);
+		}
 	}
 
 	if(!replay_user_read_slot_for_menu(slot)) {
-		replay_menu_detail_put_empty(slot);
+		replay_menu_detail_put_empty(slot, clear);
 		return;
 	}
 	if(menu_font) {
@@ -2476,31 +2488,46 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	uint8_t slot;
 	unsigned int line;
 	bool active = replay_user_read_slot_for_menu(sel);
+	bool clear = !menu_font;
 
 	replay_font_render_begin();
-	for(line = REPLAY_MENU_DETAIL_Y; line < REPLAY_MENU_FOOT_Y; line++) {
-		replay_menu_span_clear(
-			REPLAY_MENU_DETAIL_LEFT, line, REPLAY_MENU_DETAIL_W
-		);
+	if(clear) {
+		for(line = REPLAY_MENU_DETAIL_Y; line < REPLAY_MENU_FOOT_Y; line++) {
+			replay_menu_span_clear(
+				REPLAY_MENU_DETAIL_LEFT, line, REPLAY_MENU_DETAIL_W
+			);
+		}
 	}
-	replay_font_columns_put();
+	replay_font_columns_put(clear);
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
 		replay_menu_slot_line_put(
 			slot, sel,
-			(REPLAY_MENU_LIST_Y + line), active
+			(REPLAY_MENU_LIST_Y + line), active, clear
 		);
 	}
-	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	if(clear) {
+		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	}
 	replay_font_render_end();
+	if(menu_font) {
+		replay_menu_hidden_background_restore();
+	}
 }
 
 static void replay_menu_detail_render(uint8_t slot, uint8_t stage_sel)
 {
+	bool clear = !menu_font;
+
 	replay_font_render_begin();
-	replay_menu_detail_put(slot, stage_sel, true);
-	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	replay_menu_detail_put(slot, stage_sel, true, clear);
+	if(clear) {
+		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	}
 	replay_font_render_end();
+	if(menu_font) {
+		replay_menu_hidden_background_restore();
+	}
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
@@ -2522,7 +2549,7 @@ static void fullscreen_menu_resources_clear(void)
 }
 
 static void replay_menu_background_put(
-	replay_background_t bg, bool start_black
+	replay_background_t bg, bool start_black, bool keep
 )
 {
 	if(bg == REPLAY_BG_NAME) {
@@ -2548,7 +2575,9 @@ static void replay_menu_background_put(
 	pi_put_8(0, 0, 0);
 	graph_accesspage(1);
 	pi_put_8(0, 0, 0);
-	pi_free(0);
+	if(!keep) {
+		pi_free(0);
+	}
 	graph_showpage(0);
 	graph_accesspage(0);
 }
@@ -2556,16 +2585,29 @@ static void replay_menu_background_put(
 static void replay_menu_screen_init(bool start_black)
 {
 	fullscreen_menu_resources_clear();
-	replay_menu_background_put(REPLAY_BG_LIST, start_black);
+	replay_menu_background_put(REPLAY_BG_LIST, start_black, false);
 }
 
 static void replay_name_background_init(bool fade_in)
 {
 	fullscreen_menu_resources_clear();
-	replay_menu_background_put(REPLAY_BG_NAME, fade_in);
+	replay_menu_background_put(REPLAY_BG_NAME, fade_in, false);
 	if(fade_in) {
 		palette_black_in(1);
 	}
+}
+
+static void replay_menu_browser_init(bool start_black)
+{
+	fullscreen_menu_resources_clear();
+	replay_menu_background_put(REPLAY_BG_LIST, start_black, true);
+}
+
+static void replay_menu_hidden_background_restore(void)
+{
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	graph_accesspage(0);
 }
 
 static void replay_save_input_release(void)
@@ -3196,7 +3238,7 @@ static void replay_name_screen_put(int selected, bool fade_in)
 	super_entry_bfnt(REPLAY_REGI2_BFT);
 	super_entry_bfnt(REPLAY_REGI1_BFT);
 	replay_name_regi_patterns_patch();
-	replay_menu_background_put(REPLAY_BG_NAME, fade_in);
+	replay_menu_background_put(REPLAY_BG_NAME, fade_in, false);
 	replay_name_summary_put();
 	replay_name_grid_put(selected);
 	if(fade_in) {
@@ -3304,7 +3346,7 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 	uint8_t slot;
 	unsigned int line;
 
-	replay_font_columns_put();
+	replay_font_columns_put(true);
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
 		replay_menu_slot_line_put(
@@ -3488,7 +3530,7 @@ bool near replay_menu(void)
 		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
 	}
 
-	replay_menu_screen_init(true);
+	replay_menu_browser_init(true);
 	replay_menu_render(sel, top);
 	palette_black_in(1);
 
@@ -3558,6 +3600,7 @@ bool near replay_menu(void)
 								resident->unused_3[
 									T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
 								] = (stage_sel + 1);
+								pi_free(0);
 								return switch_to_mainl(false);
 							}
 						} else {
@@ -3566,6 +3609,7 @@ bool near replay_menu(void)
 								T3_REPLAY_RES_MODE_USER_PLAYBACK
 							);
 							replay_resident_handoff_slot_set(sel);
+							pi_free(0);
 							return switch_to_mainl(false);
 						}
 					}
@@ -3629,6 +3673,7 @@ bool near replay_menu(void)
 					}
 				} else if(input_sp & INPUT_CANCEL) {
 					text_clear();
+					pi_free(0);
 					return true;
 				}
 			}
@@ -3747,7 +3792,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D322E33UL); // "3.2-"
-	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
+	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4244,6 +4289,10 @@ static int near replay_dev_story_stage_menu(void)
 {
 	int stage = 6;
 	input_t input_prev;
+	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
+
+	#define DEBUG_TEXT_PAIR(index, left, right) \
+		pairs[index] = static_cast<uint16_t>((left) | ((right) << 8))
 
 	text_clear();
 	graph_accesspage(0);
@@ -4253,9 +4302,53 @@ static int near replay_dev_story_stage_menu(void)
 	graph_showpage(0);
 	graph_accesspage(0);
 
-	title_credit_line[0] = '7';
-	title_credit_line[1] = '\0';
-	text_putsa(39, 12, title_credit_line, TX_WHITE);
+	DEBUG_TEXT_PAIR(0, 'D', 'E');
+	DEBUG_TEXT_PAIR(1, 'B', 'U');
+	DEBUG_TEXT_PAIR(2, 'G', ' ');
+	DEBUG_TEXT_PAIR(3, 'S', 'T');
+	DEBUG_TEXT_PAIR(4, 'O', 'R');
+	DEBUG_TEXT_PAIR(5, 'Y', ' ');
+	DEBUG_TEXT_PAIR(6, 'S', 'T');
+	DEBUG_TEXT_PAIR(7, 'A', 'R');
+	title_credit_line[16] = 'T';
+	title_credit_line[17] = '\0';
+	text_putsa(31, 8, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'U', 'P');
+	DEBUG_TEXT_PAIR(1, '/', 'D');
+	DEBUG_TEXT_PAIR(2, 'N', ':');
+	DEBUG_TEXT_PAIR(3, ' ', 'S');
+	DEBUG_TEXT_PAIR(4, 'E', 'L');
+	DEBUG_TEXT_PAIR(5, 'E', 'C');
+	title_credit_line[12] = 'T';
+	title_credit_line[13] = '\0';
+	text_putsa(31, 12, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'Z', '/');
+	DEBUG_TEXT_PAIR(1, 'E', 'N');
+	DEBUG_TEXT_PAIR(2, 'T', 'E');
+	DEBUG_TEXT_PAIR(3, 'R', ':');
+	DEBUG_TEXT_PAIR(4, ' ', 'S');
+	DEBUG_TEXT_PAIR(5, 'T', 'A');
+	DEBUG_TEXT_PAIR(6, 'R', 'T');
+	title_credit_line[14] = '\0';
+	text_putsa(29, 13, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'E', 'S');
+	DEBUG_TEXT_PAIR(1, 'C', ':');
+	DEBUG_TEXT_PAIR(2, ' ', 'C');
+	DEBUG_TEXT_PAIR(3, 'A', 'N');
+	DEBUG_TEXT_PAIR(4, 'C', 'E');
+	title_credit_line[10] = 'L';
+	title_credit_line[11] = '\0';
+	text_putsa(33, 14, title_credit_line, TX_WHITE);
+
+	DEBUG_TEXT_PAIR(0, 'S', 'T');
+	DEBUG_TEXT_PAIR(1, 'A', 'G');
+	DEBUG_TEXT_PAIR(2, 'E', ' ');
+	title_credit_line[6] = '7';
+	title_credit_line[7] = '\0';
+	text_putsa(36, 10, title_credit_line, TX_WHITE);
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -4273,13 +4366,14 @@ static int near replay_dev_story_stage_menu(void)
 				text_clear();
 				return STAGE_NONE;
 			}
-			title_credit_line[0] = ('1' + stage);
-			text_putsa(39, 12, title_credit_line, TX_WHITE);
+			title_credit_line[6] = ('1' + stage);
+			text_putsa(36, 10, title_credit_line, TX_WHITE);
 		}
 		input_prev = input_sp;
 		frame_delay(1);
 	}
 
+	#undef DEBUG_TEXT_PAIR
 }
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
@@ -4316,6 +4410,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
 /// --------
