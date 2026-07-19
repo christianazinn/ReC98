@@ -13,7 +13,16 @@
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/menu_font.hpp"
+#include "th03/op/practice_bg.hpp"
 #include "th03/practice.hpp"
+
+enum practice_menu_color_t {
+	PRACTICE_COLOR_FOOTER = 9,
+	PRACTICE_COLOR_HEADER = 10,
+	PRACTICE_COLOR_LABEL = 13,
+	PRACTICE_COLOR_SELECTED = 14,
+	PRACTICE_COLOR_VALUE = V_WHITE,
+};
 
 static uint8_t practice_default_round_speed(
 	uint8_t rank, uint8_t round
@@ -238,36 +247,38 @@ static int practice_line_q4(char __ss *line, int at, uint8_t value)
 	return at;
 }
 
-static void practice_graphics_band_clear(void)
-{
-	if(menu_font) {
-		menu_font_restore_rect(
-			0, (2 * GLYPH_H), RES_X, (19 * GLYPH_H)
-		);
-	}
-}
-
 static void practice_graphics_row_put(
-	char __ss *line, int label_end, int value_at, uint8_t row, int color,
+	char __ss *line, int label_end, int value_at, uint8_t row, bool selected,
 	bool restore
 )
 {
 	enum {
-		CURSOR_LEFT = (8 * GLYPH_HALF_W),
-		LABEL_LEFT = (10 * GLYPH_HALF_W),
-		VALUE_LEFT = (26 * GLYPH_HALF_W),
+		LABEL_RIGHT = ((RES_X / 2) - 16),
+		VALUE_LEFT = ((RES_X / 2) + 16),
+		CURSOR_GAP = 16,
 	};
 	vram_y_t top = ((4 + row) * GLYPH_H);
+	screen_x_t label_left;
 
 	if(restore) {
 		menu_font_restore_rect(0, top, RES_X, GLYPH_H);
 	}
-	line[1] = '\0';
-	menu_font_put(CURSOR_LEFT, top, line, color);
 	line[label_end] = '\0';
-	menu_font_put(LABEL_LEFT, top, &line[2], color);
+	label_left = (LABEL_RIGHT - menu_font_width(&line[2]));
+	if(selected) {
+		line[1] = '\0';
+		menu_font_put(
+			(label_left - CURSOR_GAP), top, line, PRACTICE_COLOR_SELECTED
+		);
+	}
+	menu_font_put(
+		label_left, top, &line[2],
+		(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_LABEL)
+	);
 	if(value_at != 0) {
-		menu_font_put(VALUE_LEFT, top, &line[value_at], color);
+		menu_font_put(
+			VALUE_LEFT, top, &line[value_at], PRACTICE_COLOR_VALUE
+		);
 	}
 }
 
@@ -400,8 +411,7 @@ static void practice_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		practice_graphics_row_put(
-			line, label_end, value_at, row, (selected ? 13 : V_WHITE),
-			restore
+			line, label_end, value_at, row, selected, restore
 		);
 	} else {
 		text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -626,7 +636,7 @@ static void practice_heading_put(bool restore)
 			menu_font_restore_rect(0, (2 * GLYPH_H), RES_X, GLYPH_H);
 		}
 		menu_font_put_centered(
-			(RES_X / 2), (2 * GLYPH_H), line, V_WHITE
+			(RES_X / 2), (2 * GLYPH_H), line, PRACTICE_COLOR_HEADER
 		);
 	} else {
 		text_putsa(31, 2, line, TX_WHITE);
@@ -646,7 +656,7 @@ static void practice_heading_put(bool restore)
 			menu_font_restore_rect(0, (20 * GLYPH_H), RES_X, GLYPH_H);
 		}
 		menu_font_put_centered(
-			(RES_X / 2), (20 * GLYPH_H), line, V_WHITE
+			(RES_X / 2), (20 * GLYPH_H), line, PRACTICE_COLOR_FOOTER
 		);
 	} else {
 		text_putsa(12, 20, line, TX_WHITE);
@@ -655,49 +665,29 @@ static void practice_heading_put(bool restore)
 #undef P
 }
 
-static void practice_screen_put(
-	practice_menu_t __ss& cfg, uint8_t selected, uint8_t& page_shown
-)
+static void practice_screen_put(practice_menu_t __ss& cfg, uint8_t selected)
 {
-	bool restore = true;
-	uint8_t page_drawn = page_shown;
-
-	if(menu_font) {
-		page_drawn = (1 - page_shown);
-		graph_accesspage(page_drawn);
-		graph_clear();
-		restore = false;
-	}
-	practice_heading_put(restore);
-	practice_rows_put(cfg, selected, restore);
-	if(menu_font) {
-		vsync_wait();
-		graph_showpage(page_drawn);
-		graph_accesspage(page_drawn);
-		page_shown = page_drawn;
-	}
+	select_vs_cpu_practice_background_put();
+	practice_heading_put(false);
+	practice_rows_put(cfg, selected, false);
+	select_vs_cpu_practice_frame_finish();
 }
 
-static void practice_screen_clear(uint8_t page_shown)
+static void practice_screen_clear(void)
 {
 	text_clear();
-	if(menu_font) {
-		graph_accesspage(page_shown);
-		graph_clear();
-		graph_accesspage(1 - page_shown);
-		graph_clear();
-		graph_showpage(0);
-		graph_accesspage(0);
-	} else {
-		practice_graphics_band_clear();
-	}
+	graph_accesspage(0);
+	graph_clear();
+	graph_accesspage(1);
+	graph_clear();
+	graph_showpage(0);
+	graph_accesspage(0);
 }
 
 bool far practice_setup_menu(void)
 {
 	practice_menu_t cfg;
 	uint8_t selected = 0;
-	uint8_t page_shown = 0;
 	input_t input_prev;
 
 	cfg.preset = PRACTICE_PRESET_STORY_NATIVE;
@@ -706,36 +696,25 @@ bool far practice_setup_menu(void)
 	practice_defaults_set(cfg);
 
 	text_clear();
-	graph_accesspage(0);
-	graph_clear();
-	graph_accesspage(1);
-	graph_clear();
-	graph_showpage(0);
-	graph_accesspage(0);
 	palette_100();
-	practice_screen_put(cfg, selected, page_shown);
 
 	input_mode_interface();
 	input_prev = input_sp;
 	while(1) {
+		practice_screen_put(cfg, selected);
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
 				selected = ((selected == 0) ? (PR_COUNT - 1) : (selected - 1));
-				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_DOWN) {
 				selected = ((selected == (PR_COUNT - 1)) ? 0 : (selected + 1));
-				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_LEFT) {
 				practice_value_step(cfg, selected, false);
-				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & INPUT_RIGHT) {
 				practice_value_step(cfg, selected, true);
-				practice_screen_put(cfg, selected, page_shown);
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				if(selected == PR_RESET) {
 					practice_defaults_set(cfg);
-					practice_screen_put(cfg, selected, page_shown);
 				} else if(selected == PR_START) {
 					if(practice_is_exact_vs_default(cfg)) {
 						practice_resident_clear();
@@ -744,20 +723,22 @@ bool far practice_setup_menu(void)
 					} else {
 						practice_config_store(cfg);
 					}
-					practice_screen_clear(page_shown);
+					palette_black_out(1);
+					practice_screen_clear();
 					return false;
 				}
 			} else if(input_sp & INPUT_CANCEL) {
 				practice_resident_clear();
-				practice_screen_clear(page_shown);
+				text_clear();
+				select_vs_cpu_practice_background_put();
+				select_vs_cpu_practice_frame_finish();
 				return true;
 			}
 		}
 		input_prev = input_sp;
-		frame_delay(1);
 	}
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"

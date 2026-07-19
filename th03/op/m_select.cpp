@@ -681,10 +681,9 @@ bool near select_vs_cpu_menu(bool resume)
 	if(!resume) {
 		select_init_and_load();
 	} else {
-		// Practice Setup keeps the selection assets and BGM alive.
+		// Practice Setup keeps the selection assets, BGM, and live page-flip
+		// state. Its final clean frame leaves the hidden page accessed.
 		vsync_Count1 = 0;
-		graph_accesspage(1);
-		page_shown = 0;
 		curve_trail_count = 8;
 	}
 	sel_init_vs();
@@ -715,6 +714,12 @@ bool near select_vs_cpu_menu(bool resume)
 				break;
 			}
 			if((pid_cur != 0) && sel_confirmed[1]) {
+				if(resident->game_mode == GM_VS_1P_CPU) {
+					// Practice Setup retains this scene and performs the fade only
+					// after Start. Publish the final confirmed frame first.
+					select_wait_flip_and_clear_vram();
+					goto done;
+				}
 				select_fadeout_render(done);
 			}
 			select_wait_flip_and_clear_vram();

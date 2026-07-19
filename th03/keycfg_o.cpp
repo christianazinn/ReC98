@@ -5,15 +5,26 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "platform/x86real/flags.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
+#include "th02/formats/pi.h"
 #include "th02/hardware/frmdelay.h"
 #include "th02/v_colors.hpp"
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
 #include "th03/menu_font.hpp"
+#include "th03/shiftjis/fns.hpp"
+#include <mem.h>
 #include <stddef.h>
 
 #define T3_KEYCONFIG_FILE_VERSION 2
 #define T3_KEYCONFIG_CAPTURE_CANCEL 0xFE
+
+enum keyconfig_menu_color_t {
+	KEYCONFIG_COLOR_HEADER = 9,
+	KEYCONFIG_COLOR_FOOTER = 10,
+	KEYCONFIG_COLOR_SELECTED = 12,
+	KEYCONFIG_COLOR_LABEL = 13,
+	KEYCONFIG_COLOR_VALUE = V_WHITE,
+};
 
 #define KEYCONFIG_TEXT_FIELD(name, value) char name[sizeof(value)]
 #pragma option -a1
@@ -90,6 +101,8 @@ struct keyconfig_text_t {
 	KEYCONFIG_TEXT_FIELD(discard, "Discard changes?  Z: Yes  Esc: No");
 	KEYCONFIG_TEXT_FIELD(capture, "Press a key. Esc cancels capture.");
 	KEYCONFIG_TEXT_FIELD(save_error, "Could not save TH3KEY.CFG");
+	KEYCONFIG_TEXT_FIELD(asset_pf_fn, "azinn.dat");
+	KEYCONFIG_TEXT_FIELD(restore_pf_fn, OP_AND_END_PF_FN);
 };
 #pragma option -a2
 
@@ -105,12 +118,13 @@ static const keyconfig_text_t far keyconfig_text = {
 	"Ctrl", "Unbound", "Up-Left", "Up", "Up-Right", "Left", "Right",
 	"Down-Left", "Down", "Down-Right", "Shot", "Bomb", "Charge",
 	"Autofire", "On", "Off", "Defaults for this player",
-	"Defaults for Story movement", "Apply and return", "Cancel",
+	"Defaults for Story", "Apply and return", "Cancel",
 	"KEY CONFIGURATION     [ P", " ]",
 	"KEY CONFIGURATION     [ STORY ]",
 	"Left/Right: P1/P2/Story   Z/Return: Edit   Esc: Cancel",
 	"Discard changes?  Z: Yes  Esc: No",
-	"Press a key. Esc cancels capture.", "Could not save TH3KEY.CFG"
+	"Press a key. Esc cancels capture.", "Could not save TH3KEY.CFG",
+	"azinn.dat", OP_AND_END_PF_FN
 };
 #undef KEYCONFIG_TEXT_FIELD
 
@@ -158,6 +172,10 @@ enum keyconfig_story_row_t {
 	KCSR_LEFT,
 	KCSR_RIGHT,
 	KCSR_DOWN,
+	KCSR_SHOT,
+	KCSR_BOMB,
+	KCSR_CHARGE,
+	KCSR_AUTOFIRE,
 	KCSR_DEFAULTS,
 	KCSR_APPLY,
 	KCSR_CANCEL,
@@ -231,6 +249,10 @@ static void keyconfig_story_defaults_set(keyconfig_menu_t __ss& cfg)
 	for(uint8_t action = 0; action < T3_KEYCONFIG_STORY_ACTION_COUNT; action++) {
 		cfg.bindings[T3_KEYCONFIG_STORY_BINDINGS_INDEX + action] =
 			keyconfig_default_story_binding(action);
+	}
+	cfg.autofire &= ~1;
+	for(uint8_t player_action = KCA_SHOT; player_action <= KCA_CHARGE; player_action++) {
+		cfg.bindings[player_action] = keyconfig_default_binding(0, player_action);
 	}
 }
 
@@ -569,11 +591,35 @@ static uint8_t keyconfig_line_put_action_name(
 	}
 }
 
-static void keyconfig_graphics_band_clear(void)
+static void keyconfig_background_load(void)
 {
-	if(menu_font) {
-		menu_font_restore_rect(0, GLYPH_H, RES_X, (GLYPH_H * 21));
-	}
+	char pi_fn[8];
+	uint32_t __ss *pi_fn_quads = reinterpret_cast<uint32_t __ss *>(pi_fn);
+
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.asset_pf_fn));
+	pi_fn_quads[0] = 0x61316762UL; // "bg1a"
+	pi_fn_quads[1] = 0x0069702EUL; // ".pi"
+	pi_load(0, pi_fn);
+	pi_fn[3] = 'b';
+	pi_load(1, pi_fn);
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.restore_pf_fn));
+
+	PaletteTone = 100;
+	palette_set_all(pi_headers[0].palette);
+	palette_set(KEYCONFIG_COLOR_HEADER, 0x40, 0xD0, 0xFF);
+	palette_set(KEYCONFIG_COLOR_FOOTER, 0x80, 0xA0, 0xFF);
+	palette_set(KEYCONFIG_COLOR_SELECTED, 0xFF, 0xFF, 0x40);
+	palette_set(KEYCONFIG_COLOR_LABEL, 0xC0, 0x90, 0xFF);
+	palette_set(KEYCONFIG_COLOR_VALUE, 0xFF, 0xFF, 0xFF);
+	palette_show();
+}
+
+static void keyconfig_background_put(void)
+{
+	pi_put_8(0, 0, 0);
+	pi_put_8(0, (RES_Y / 2), 1);
 }
 
 static void keyconfig_graphics_row_put(
@@ -581,27 +627,45 @@ static void keyconfig_graphics_row_put(
 	uint8_t label_end,
 	uint8_t value_at,
 	uint8_t top,
-	int color,
+	bool selected,
 	bool restore
 )
 {
 	enum {
-		CURSOR_LEFT = (8 * GLYPH_HALF_W),
-		LABEL_LEFT = (10 * GLYPH_HALF_W),
-		VALUE_LEFT = (32 * GLYPH_HALF_W),
+		LABEL_CENTER = ((RES_X / 2) - 112),
+		VALUE_CENTER = ((RES_X / 2) + 112),
+		COMMAND_CENTER = (RES_X / 2),
+		CURSOR_GAP = 16,
 	};
 	vram_y_t y = (top * GLYPH_H);
+	screen_x_t label_left;
+	int label_color = (
+		selected ? KEYCONFIG_COLOR_SELECTED : KEYCONFIG_COLOR_LABEL
+	);
 
 	if(restore) {
 		menu_font_restore_rect(0, y, RES_X, GLYPH_H);
 	}
-	line[1] = '\0';
-	menu_font_put(CURSOR_LEFT, y, line, color);
 	line[label_end] = '\0';
-	menu_font_put(LABEL_LEFT, y, &line[2], color);
 	if(value_at != 0) {
-		menu_font_put(VALUE_LEFT, y, &line[value_at], color);
+		label_left = (
+			LABEL_CENTER - (menu_font_width(&line[2]) / 2)
+		);
+		menu_font_put_centered(
+			VALUE_CENTER, y, &line[value_at], KEYCONFIG_COLOR_VALUE
+		);
+	} else {
+		label_left = (
+			COMMAND_CENTER - (menu_font_width(&line[2]) / 2)
+		);
 	}
+	if(selected) {
+		line[1] = '\0';
+		menu_font_put(
+			(label_left - CURSOR_GAP), y, line, KEYCONFIG_COLOR_SELECTED
+		);
+	}
+	menu_font_put(label_left, y, &line[2], label_color);
 }
 
 static void keyconfig_text_putsa(
@@ -614,7 +678,7 @@ static void keyconfig_text_putsa(
 	if(menu_font) {
 		menu_font_restore_rect(0, (top * GLYPH_H), RES_X, GLYPH_H);
 		menu_font_put_centered(
-			(RES_X / 2), (top * GLYPH_H), s, 13
+			(RES_X / 2), (top * GLYPH_H), s, KEYCONFIG_COLOR_FOOTER
 		);
 		return;
 	}
@@ -671,8 +735,7 @@ static void keyconfig_player_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
-			line, label_end, value_at, (3 + row),
-			(selected ? 13 : V_WHITE), restore
+			line, label_end, value_at, (3 + row), selected, restore
 		);
 	} else {
 		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -706,6 +769,23 @@ static void keyconfig_story_row_put(
 			line, at,
 			cfg.bindings[T3_KEYCONFIG_STORY_BINDINGS_INDEX + row]
 		);
+	} else if((row >= KCSR_SHOT) && (row <= KCSR_CHARGE)) {
+		uint8_t player_action = (KCA_SHOT + (row - KCSR_SHOT));
+		at = keyconfig_line_put_action_name(line, at, player_action);
+		label_end = at;
+		at = 24;
+		value_at = at;
+		at = keyconfig_line_put_key_name(
+			line, at, cfg.bindings[player_action]
+		);
+	} else if(row == KCSR_AUTOFIRE) {
+		at = keyconfig_line_puts(line, at, keyconfig_text.autofire);
+		label_end = at;
+		at = 24;
+		value_at = at;
+		at = keyconfig_line_puts(
+			line, at, ((cfg.autofire & 1) ? keyconfig_text.on : keyconfig_text.off)
+		);
 	} else if(row == KCSR_DEFAULTS) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.defaults_story);
 		label_end = at;
@@ -719,8 +799,7 @@ static void keyconfig_story_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
-			line, label_end, value_at, (3 + row),
-			(selected ? 13 : V_WHITE), restore
+			line, label_end, value_at, (3 + row), selected, restore
 		);
 	} else {
 		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
@@ -750,16 +829,11 @@ static void keyconfig_screen_put(
 {
 	char line[65];
 	uint8_t at;
-	bool restore = true;
+	bool restore = false;
 
 	text_clear();
-	if(menu_font) {
-		graph_accesspage(1);
-		graph_clear();
-		restore = false;
-	} else {
-		keyconfig_graphics_band_clear();
-	}
+	graph_accesspage(1);
+	keyconfig_background_put();
 	keyconfig_line_clear(line);
 	at = 0;
 	if(page == KCP_STORY) {
@@ -771,7 +845,9 @@ static void keyconfig_screen_put(
 	}
 	line[at] = '\0';
 	if(menu_font) {
-		menu_font_put_centered((RES_X / 2), GLYPH_H, line, V_WHITE);
+		menu_font_put_centered(
+			(RES_X / 2), GLYPH_H, line, KEYCONFIG_COLOR_HEADER
+		);
 	} else {
 		text_putsa(25, 1, line, TX_WHITE);
 	}
@@ -784,26 +860,34 @@ static void keyconfig_screen_put(
 	line[at] = '\0';
 	if(menu_font) {
 		menu_font_put_centered(
-			(RES_X / 2), (21 * GLYPH_H), line, V_WHITE
+			(RES_X / 2), (21 * GLYPH_H), line, KEYCONFIG_COLOR_FOOTER
 		);
 	} else {
 		text_putsa(12, 21, line, TX_WHITE);
 	}
-	if(menu_font) {
-		vsync_wait();
-		graph_showpage(1);
-		graph_copy_page(0);
-		graph_showpage(0);
-		graph_accesspage(1);
-		graph_clear();
-		graph_accesspage(0);
-	}
+	vsync_wait();
+	graph_showpage(1);
+	graph_copy_page(0);
+	graph_showpage(0);
+
+	// Keep page 1 as a clean copy of the background for transient message
+	// rows, which restore through menu_font_restore_rect().
+	graph_accesspage(1);
+	keyconfig_background_put();
+	graph_accesspage(0);
 }
 
 static void keyconfig_screen_clear(void)
 {
 	text_clear();
-	keyconfig_graphics_band_clear();
+	pi_free(0);
+	pi_free(1);
+	graph_accesspage(0);
+	graph_clear();
+	graph_accesspage(1);
+	graph_clear();
+	graph_showpage(0);
+	graph_accesspage(0);
 }
 
 static uint8_t keyconfig_raw_first(void)
@@ -908,7 +992,7 @@ bool far keyconfig_menu(void)
 {
 	keyconfig_menu_t original;
 	keyconfig_menu_t cfg;
-	uint8_t page = KCP_P1;
+	uint8_t page = KCP_STORY;
 	uint8_t selected = 0;
 	input_t input_prev;
 
@@ -921,6 +1005,7 @@ bool far keyconfig_menu(void)
 	graph_clear();
 	graph_showpage(0);
 	graph_accesspage(0);
+	keyconfig_background_load();
 	keyconfig_screen_put(cfg, page, selected);
 
 	input_mode_interface();
@@ -955,6 +1040,11 @@ bool far keyconfig_menu(void)
 					cfg.autofire ^= (1 << page);
 					keyconfig_screen_put(cfg, page, selected);
 				} else if(
+					(page == KCP_STORY) && (selected == KCSR_AUTOFIRE)
+				) {
+					cfg.autofire ^= 1;
+					keyconfig_screen_put(cfg, page, selected);
+				} else if(
 					(page != KCP_STORY) &&
 					(selected >= KCR_UP_LEFT) &&
 					(selected <= KCR_CHARGE)
@@ -972,16 +1062,17 @@ bool far keyconfig_menu(void)
 					}
 					keyconfig_screen_put(cfg, page, selected);
 					input_prev = INPUT_NONE;
-				} else if((page == KCP_STORY) && (selected <= KCSR_DOWN)) {
+				} else if((page == KCP_STORY) && (selected <= KCSR_CHARGE)) {
+					uint8_t index = (
+						(selected <= KCSR_DOWN) ?
+						(T3_KEYCONFIG_STORY_BINDINGS_INDEX + selected) :
+						(KCA_SHOT + (selected - KCSR_SHOT))
+					);
 					uint8_t key;
 					keyconfig_text_putsa(18, 20, keyconfig_text.capture, TX_CYAN);
 					key = keyconfig_capture();
 					if(key != T3_KEYCONFIG_CAPTURE_CANCEL) {
-						keyconfig_binding_assign(
-							cfg,
-							(T3_KEYCONFIG_STORY_BINDINGS_INDEX + selected),
-							key
-						);
+						keyconfig_binding_assign(cfg, index, key);
 					}
 					keyconfig_screen_put(cfg, page, selected);
 					input_prev = INPUT_NONE;
@@ -1031,3 +1122,6 @@ bool far keyconfig_menu(void)
 		frame_delay(1);
 	}
 }
+
+// Preserve the paragraph phase of all following code segments.
+#pragma codestring "\x90\x90\x90\x90"
