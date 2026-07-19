@@ -8,8 +8,17 @@
 #include "th02/hardware/pages.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
+#include "th03/replay_build.hpp"
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+#include "th03/formats/hfliplut.h"
+#include "th03/formats/mrs.hpp"
+#endif
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+#include "th03/main/hud/warning.hpp"
+#include "th03/main/player/bomb.hpp"
+#endif
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
@@ -20,7 +29,6 @@
 #include "th03/keyconfig.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/practice.hpp"
-#include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
@@ -47,6 +55,9 @@ static char T3_INPUT_FN[12];
 static char T3_SPLIT_FN[12];
 static char T3_DONE_FN[11];
 static char T3_GUARD_DIAG_FN[12];
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+static char T3_MRS_DIAG_FN[10];
+#endif
 static char T3_USER_REPLAY_DIR[7];
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
@@ -162,6 +173,9 @@ extern uint8_t randring_p;
 extern uint8_t formation_p[PLAYER_COUNT];
 extern uint8_t __seg *formation_type_ring;
 extern uint8_t __seg *formation_pos_type_ring;
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+extern uint8_t far *mrs_images[MRS_SLOT_COUNT];
+#endif
 
 static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
@@ -181,6 +195,294 @@ static void replay_memclear(void far *buf, unsigned size)
 		size--;
 	}
 }
+
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+
+enum replay_mrs_diag_event_t {
+	RMD_BASELINE = 'B',
+	RMD_P2_PORTRAIT = '1',
+	RMD_P2_BOMB = '3',
+};
+
+enum replay_mrs_diag_status_t {
+	RMDS_SLOT_1_PRESENT = 0x01,
+	RMDS_SLOT_3_PRESENT = 0x02,
+	RMDS_SLOT_1_EXPECTED = 0x04,
+	RMDS_SLOT_3_EXPECTED = 0x08,
+	RMDS_SLOT_1_BASELINE = 0x10,
+	RMDS_SLOT_3_BASELINE = 0x20,
+	RMDS_HFLIP_LUT = 0x40,
+};
+
+struct replay_mrs_hash_t {
+	uint32_t sum;
+	uint32_t mix;
+};
+
+struct replay_mrs_diag_record_t {
+	char magic[8];
+	uint8_t event;
+	uint8_t status;
+	uint8_t story_stage;
+	uint8_t game_mode;
+	uint8_t p2_file_id;
+	uint8_t warning;
+	uint8_t bomb;
+	uint8_t bomb_frame;
+	uint8_t page_front_value;
+	uint8_t page_back_value;
+	uint16_t palette_tone;
+	uint16_t slot_1_segment;
+	uint16_t slot_3_segment;
+	uint16_t hflip_lut_first_bad_plus_1;
+	replay_mrs_hash_t expected_1;
+	replay_mrs_hash_t baseline_1;
+	replay_mrs_hash_t current_1;
+	replay_mrs_hash_t expected_3;
+	replay_mrs_hash_t baseline_3;
+	replay_mrs_hash_t current_3;
+	uint8_t palette[COLOR_COUNT * COMPONENT_COUNT];
+};
+
+static const replay_mrs_hash_t far replay_mrs_expected[18][2] = {
+	{{0x00179F34UL, 0x6125F383UL}, {0x007764E0UL, 0xBF4ADE2FUL}},
+	{{0x0018C166UL, 0xA407644BUL}, {0x0074FA1EUL, 0x55B9BA64UL}},
+	{{0x00194A09UL, 0xC6235047UL}, {0x0041D711UL, 0x292195F3UL}},
+	{{0x001B6282UL, 0x43B0D6CDUL}, {0x003EA6ACUL, 0xEDE1CDE1UL}},
+	{{0x00222E77UL, 0xC0891646UL}, {0x0033D52AUL, 0x7B2D83F1UL}},
+	{{0x0026D09BUL, 0x74ADB758UL}, {0x0033CA2CUL, 0x02738F3BUL}},
+	{{0x00238682UL, 0xA90E80B4UL}, {0x001DB4D7UL, 0x7F85DC6CUL}},
+	{{0x00225362UL, 0xA90E80B4UL}, {0x001DB4D7UL, 0x7F85DC6CUL}},
+	{{0x002D8A96UL, 0x562B6B75UL}, {0x006E80E5UL, 0xA693A158UL}},
+	{{0x0029899DUL, 0x31D261D5UL}, {0x006F8B64UL, 0x25992336UL}},
+	{{0x002E46EDUL, 0xE7FCD54DUL}, {0x0024AA9DUL, 0x264F7161UL}},
+	{{0x002EA674UL, 0x91ABDC13UL}, {0x0023A5BCUL, 0x31C3347EUL}},
+	{{0x001EE2CFUL, 0xBA43BB43UL}, {0x006C3389UL, 0xC18FCA4CUL}},
+	{{0x001FE913UL, 0x8281D0CDUL}, {0x006656C9UL, 0x060F7B23UL}},
+	{{0x00418624UL, 0xAC37CBA7UL}, {0x003AC89DUL, 0x6BF0783CUL}},
+	{{0x004212EEUL, 0x954C1AB0UL}, {0x003DEE71UL, 0xD5F07077UL}},
+	{{0x00315C0CUL, 0x9D33FEF2UL}, {0x0040F58EUL, 0x2478D726UL}},
+	{{0x0028379FUL, 0x37B1DBE2UL}, {0x004321EFUL, 0x74D48ECBUL}},
+};
+
+static replay_mrs_hash_t replay_mrs_baseline_1;
+static replay_mrs_hash_t replay_mrs_baseline_3;
+static replay_mrs_hash_t replay_mrs_expected_1;
+static replay_mrs_hash_t replay_mrs_expected_3;
+static uint16_t replay_mrs_lut_first_bad_plus_1;
+static uint8_t replay_mrs_p2_file_id;
+static bool replay_mrs_baseline_captured;
+static bool replay_mrs_portrait_seen;
+static bool replay_mrs_bomb_seen;
+static char replay_mrs_baseline_status;
+static char replay_mrs_portrait_status;
+static char replay_mrs_bomb_status;
+static char replay_mrs_lut_status;
+
+static bool replay_mrs_hash_equal(
+	const replay_mrs_hash_t &a, const replay_mrs_hash_t &b
+)
+{
+	return ((a.sum == b.sum) && (a.mix == b.mix));
+}
+
+static void replay_mrs_hash(
+	const uint8_t far *image, replay_mrs_hash_t &hash
+)
+{
+	#define REPLAY_MRS_IMAGE_SIZE ((MRS_W / BYTE_DOTS) * MRS_H * 5U)
+	unsigned i;
+
+	hash.sum = 0;
+	hash.mix = 0x4D525331UL;
+	if(image == nullptr) {
+		return;
+	}
+	for(i = 0; i < REPLAY_MRS_IMAGE_SIZE; i++) {
+		hash.sum += image[i];
+		hash.mix = ((hash.mix << 5) | (hash.mix >> 27)) ^ image[i];
+	}
+	#undef REPLAY_MRS_IMAGE_SIZE
+}
+
+static uint8_t replay_mrs_bit_reverse(uint8_t value)
+{
+	uint8_t reversed = 0;
+	int bit;
+
+	for(bit = 0; bit < 8; bit++) {
+		reversed <<= 1;
+		reversed |= (value & 1);
+		value >>= 1;
+	}
+	return reversed;
+}
+
+static uint16_t replay_mrs_lut_check(void)
+{
+	unsigned i;
+
+	for(i = 0; i < 256; i++) {
+		if(hflip_lut[i] != replay_mrs_bit_reverse(i)) {
+			return (i + 1);
+		}
+	}
+	return 0;
+}
+
+static void replay_mrs_baseline_capture(void)
+{
+	int file_id = (players[1].playchar_paletted.v - 1);
+
+	replay_mrs_baseline_captured = true;
+	replay_mrs_portrait_seen = false;
+	replay_mrs_bomb_seen = false;
+	replay_mrs_portrait_status = '-';
+	replay_mrs_bomb_status = '-';
+	replay_mrs_hash(mrs_images[1], replay_mrs_baseline_1);
+	replay_mrs_hash(mrs_images[3], replay_mrs_baseline_3);
+	replay_mrs_lut_first_bad_plus_1 = replay_mrs_lut_check();
+	replay_mrs_lut_status = (
+		(replay_mrs_lut_first_bad_plus_1 == 0) ? '+' : '!'
+	);
+	if((file_id >= 0) && (file_id < 18)) {
+		replay_mrs_p2_file_id = file_id;
+		replay_mrs_expected_1.sum = replay_mrs_expected[file_id][0].sum;
+		replay_mrs_expected_1.mix = replay_mrs_expected[file_id][0].mix;
+		replay_mrs_expected_3.sum = replay_mrs_expected[file_id][1].sum;
+		replay_mrs_expected_3.mix = replay_mrs_expected[file_id][1].mix;
+		replay_mrs_baseline_status = (
+			replay_mrs_hash_equal(
+				replay_mrs_baseline_1, replay_mrs_expected_1
+			) &&
+			replay_mrs_hash_equal(
+				replay_mrs_baseline_3, replay_mrs_expected_3
+			)
+		) ? '+' : '!';
+	} else {
+		replay_mrs_p2_file_id = 0xFF;
+		replay_mrs_expected_1.sum = replay_mrs_expected_1.mix = 0;
+		replay_mrs_expected_3.sum = replay_mrs_expected_3.mix = 0;
+		replay_mrs_baseline_status = '?';
+	}
+}
+
+static void replay_mrs_diag_record_fill(
+	replay_mrs_diag_record_t &record, replay_mrs_diag_event_t event
+)
+{
+	replay_mrs_hash_t current_1;
+	replay_mrs_hash_t current_3;
+	uint16_t lut_first_bad_plus_1;
+	int color;
+	int component;
+
+	replay_mrs_hash(mrs_images[1], current_1);
+	replay_mrs_hash(mrs_images[3], current_3);
+	lut_first_bad_plus_1 = replay_mrs_lut_check();
+	if(event == RMD_P2_PORTRAIT) {
+		replay_mrs_portrait_status = replay_mrs_hash_equal(
+			current_1, replay_mrs_baseline_1
+		) ? '+' : '!';
+	} else if(event == RMD_P2_BOMB) {
+		replay_mrs_bomb_status = replay_mrs_hash_equal(
+			current_3, replay_mrs_baseline_3
+		) ? '+' : '!';
+	}
+	replay_memclear(&record, sizeof(record));
+	record.magic[0] = 'T';
+	record.magic[1] = '3';
+	record.magic[2] = 'M';
+	record.magic[3] = 'R';
+	record.magic[4] = 'S';
+	record.magic[5] = 'D';
+	record.magic[6] = '1';
+	record.event = event;
+	if(mrs_images[1] != nullptr) {
+		record.status |= RMDS_SLOT_1_PRESENT;
+	}
+	if(mrs_images[3] != nullptr) {
+		record.status |= RMDS_SLOT_3_PRESENT;
+	}
+	if(replay_mrs_hash_equal(current_1, replay_mrs_expected_1)) {
+		record.status |= RMDS_SLOT_1_EXPECTED;
+	}
+	if(replay_mrs_hash_equal(current_3, replay_mrs_expected_3)) {
+		record.status |= RMDS_SLOT_3_EXPECTED;
+	}
+	if(replay_mrs_hash_equal(current_1, replay_mrs_baseline_1)) {
+		record.status |= RMDS_SLOT_1_BASELINE;
+	}
+	if(replay_mrs_hash_equal(current_3, replay_mrs_baseline_3)) {
+		record.status |= RMDS_SLOT_3_BASELINE;
+	}
+	if(lut_first_bad_plus_1 == 0) {
+		record.status |= RMDS_HFLIP_LUT;
+	}
+	record.story_stage = resident->story_stage;
+	record.game_mode = resident->game_mode;
+	record.p2_file_id = replay_mrs_p2_file_id;
+	record.warning = warning_flag[1];
+	record.bomb = bomb_flag[1];
+	record.bomb_frame = bomb_frame[1];
+	record.page_front_value = page_front;
+	record.page_back_value = page_back;
+	record.palette_tone = PaletteTone;
+	record.slot_1_segment = FP_SEG(mrs_images[1]);
+	record.slot_3_segment = FP_SEG(mrs_images[3]);
+	record.hflip_lut_first_bad_plus_1 = lut_first_bad_plus_1;
+	record.expected_1.sum = replay_mrs_expected_1.sum;
+	record.expected_1.mix = replay_mrs_expected_1.mix;
+	record.baseline_1.sum = replay_mrs_baseline_1.sum;
+	record.baseline_1.mix = replay_mrs_baseline_1.mix;
+	record.current_1.sum = current_1.sum;
+	record.current_1.mix = current_1.mix;
+	record.expected_3.sum = replay_mrs_expected_3.sum;
+	record.expected_3.mix = replay_mrs_expected_3.mix;
+	record.baseline_3.sum = replay_mrs_baseline_3.sum;
+	record.baseline_3.mix = replay_mrs_baseline_3.mix;
+	record.current_3.sum = current_3.sum;
+	record.current_3.mix = current_3.mix;
+	for(color = 0; color < COLOR_COUNT; color++) {
+		for(component = 0; component < COMPONENT_COUNT; component++) {
+			record.palette[(color * COMPONENT_COUNT) + component] =
+				Palettes[color].v[component];
+		}
+	}
+}
+
+static void replay_mrs_diag_write(replay_mrs_diag_event_t event, bool create)
+{
+	replay_mrs_diag_record_t record;
+
+	replay_mrs_diag_record_fill(record, event);
+	if(create) {
+		if(!file_create(T3_MRS_DIAG_FN)) {
+			return;
+		}
+	} else if(!file_append(T3_MRS_DIAG_FN)) {
+		return;
+	}
+	file_write(&record, sizeof(record));
+	file_close();
+}
+
+static void replay_mrs_diag_poll(void)
+{
+	bool portrait_active = (warning_flag[1] != WF_NONE);
+	bool bomb_active = (bomb_flag[1] != BF_INACTIVE);
+
+	if(portrait_active && !replay_mrs_portrait_seen) {
+		replay_mrs_diag_write(RMD_P2_PORTRAIT, false);
+	}
+	if(bomb_active && !replay_mrs_bomb_seen) {
+		replay_mrs_diag_write(RMD_P2_BOMB, false);
+	}
+	replay_mrs_portrait_seen = portrait_active;
+	replay_mrs_bomb_seen = bomb_active;
+}
+
+#endif
 
 extern "C" void far replay_pause_request_poll(void)
 {
@@ -352,6 +654,44 @@ static void replay_debug_overlay_put(void)
 	);
 	text_putsa(TRAM_LEFT, 0, line, (TX_BLACK | TX_REVERSE));
 }
+
+static void replay_mrs_diag_overlay_put(void)
+{
+	enum {
+		TRAM_LEFT = 13,
+		TRAM_TOP = 1,
+		TRAM_W = 17,
+		PIXEL_LEFT = (TRAM_LEFT * GLYPH_HALF_W),
+		PIXEL_TOP = (TRAM_TOP * GLYPH_HALF_H),
+		PIXEL_RIGHT = (((TRAM_LEFT + TRAM_W) * GLYPH_HALF_W) - 1),
+		PIXEL_BOTTOM = (PIXEL_TOP + GLYPH_HALF_H - 1),
+	};
+	char line[18];
+
+	line[0] = 'M';
+	line[1] = 'R';
+	line[2] = 'S';
+	line[3] = ' ';
+	line[4] = 'B';
+	line[5] = replay_mrs_baseline_status;
+	line[6] = ' ';
+	line[7] = '1';
+	line[8] = replay_mrs_portrait_status;
+	line[9] = ' ';
+	line[10] = '3';
+	line[11] = replay_mrs_bomb_status;
+	line[12] = ' ';
+	line[13] = 'L';
+	line[14] = replay_mrs_lut_status;
+	line[15] = ' ';
+	line[16] = ' ';
+	line[17] = '\0';
+
+	replay_overlay_graph_fill(
+		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE, 2
+	);
+	text_putsa(TRAM_LEFT, TRAM_TOP, line, (TX_BLACK | TX_REVERSE));
+}
 #endif
 
 void far replay_overlay_put(void)
@@ -374,7 +714,9 @@ void far replay_overlay_put(void)
 	char line[7];
 
 #if defined(TH03_REPLAY_DEV_OVERLAY)
+	replay_mrs_diag_poll();
 	replay_debug_overlay_put();
+	replay_mrs_diag_overlay_put();
 #endif
 	if(
 		(replay_mode != REPLAY_PLAYBACK) &&
@@ -521,6 +863,19 @@ static void replay_paths_init(void)
 	T3_GUARD_DIAG_FN[9] = 'I';
 	T3_GUARD_DIAG_FN[10] = 'N';
 	T3_GUARD_DIAG_FN[11] = '\0';
+
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	T3_MRS_DIAG_FN[0] = 'T';
+	T3_MRS_DIAG_FN[1] = '3';
+	T3_MRS_DIAG_FN[2] = 'M';
+	T3_MRS_DIAG_FN[3] = 'R';
+	T3_MRS_DIAG_FN[4] = 'S';
+	T3_MRS_DIAG_FN[5] = '.';
+	T3_MRS_DIAG_FN[6] = 'B';
+	T3_MRS_DIAG_FN[7] = 'I';
+	T3_MRS_DIAG_FN[8] = 'N';
+	T3_MRS_DIAG_FN[9] = '\0';
+#endif
 
 	T3_USER_REPLAY_DIR[0] = 'R';
 	T3_USER_REPLAY_DIR[1] = 'E';
@@ -2723,8 +3078,17 @@ void far replay_session_start(void)
 {
 	uint8_t playback_stage;
 
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	// Capture before the menu font and replay systems allocate or access files.
+	replay_mrs_baseline_capture();
+#endif
 	menu_font_load(aCOul);
 	replay_paths_init();
+#if defined(TH03_REPLAY_DEV_OVERLAY)
+	if(replay_mrs_baseline_captured) {
+		replay_mrs_diag_write(RMD_BASELINE, true);
+	}
+#endif
 	replay_protect_local_reset();
 
 	replay_mode = replay_resident_mode();
@@ -3819,7 +4183,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
