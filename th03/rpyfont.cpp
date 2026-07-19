@@ -799,6 +799,5 @@ void far replay_font_detail_put(
 	}
 }
 
-// Preserve the accepted compiler-runtime paragraph phase after this segment.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// Retain the accepted paragraph phase together with OPFONT_TEXT.
+#pragma codestring "\x90"

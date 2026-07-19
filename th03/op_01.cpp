@@ -24,6 +24,9 @@
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
+#if defined(TH03_REPLAY_DEVTOOLS)
+#include "th03/fonttest.hpp"
+#endif
 #include "th03/gaiji/gaiji.h"
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
@@ -1001,6 +1004,26 @@ inline tram_y_t choice_tram_y(unsigned int line) {
 	return ((BOX_TOP / GLYPH_H) + 1 + line);
 }
 
+static void near title_menu_graphics_unput(screen_x_t box_right)
+{
+	if(menu_font) {
+		title_box_interior_restore(
+			(choice_tram_y(0) * GLYPH_H), (7 * GLYPH_H), box_right
+		);
+	}
+}
+
+static void near title_choice_graphics_unput(
+	unsigned line, screen_x_t box_right
+)
+{
+	if(menu_font) {
+		title_box_interior_restore(
+			(choice_tram_y(line) * GLYPH_H), GLYPH_H, box_right
+		);
+	}
+}
+
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
 	const char far *str;
@@ -1019,7 +1042,7 @@ void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 		str = STR;
 		line = 4;
 	}
-	title_choice_graphics_unput(line);
+	title_choice_graphics_unput(line, BOX_SUBMENU_RIGHT);
 	choice_put_centered(BOX_SUBMENU_CENTER_X, line, 0, str, atrb);
 }
 
@@ -1036,7 +1059,7 @@ static bool near vs_start(bool select_characters)
 	// character selection.
 	if(resident->game_mode < GM_VS) {
 		text_clear();
-		title_menu_graphics_unput();
+		title_menu_graphics_unput(BOX_MAIN_RIGHT);
 		title_credit_graphics_unput();
 		box_main_to_submenu_animate();
 
@@ -1062,7 +1085,7 @@ static bool near vs_start(bool select_characters)
 					break;
 				}
 				if(input_sp & INPUT_CANCEL) {
-					title_menu_graphics_unput();
+					title_menu_graphics_unput(BOX_SUBMENU_RIGHT);
 					return false;
 				}
 			}
@@ -3672,7 +3695,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E33UL); // "3.0-"
-	TITLE_CREDIT_QUAD(5, 0x20633172UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20633272UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -3686,7 +3709,7 @@ static void near title_credit_put(void)
 
 void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 {
-	title_choice_graphics_unput(sel);
+	title_choice_graphics_unput(sel, BOX_MAIN_RIGHT);
 	if(sel == MC_STORY) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 0, 0, COMMAND_STORY, atrb);
 	} else if(sel == MC_VS) {
@@ -3721,9 +3744,9 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 	};
 
 	if(sel == OC_QUIT) {
-		title_choice_graphics_unput(6);
+		title_choice_graphics_unput(6, BOX_SUBMENU_RIGHT);
 	} else {
-		title_choice_graphics_unput(sel + 1);
+		title_choice_graphics_unput(sel + 1, BOX_SUBMENU_RIGHT);
 		if(!menu_font) {
 			text_putsa(
 				VALUE_TRAM_LEFT, choice_tram_y(sel + 1),
@@ -3824,7 +3847,7 @@ void near main_update_and_render(void)
 		__emit__(0x90, 0x90, 0x90, 0x90);
 		text_clear();
 		if(!in_main) {
-			title_menu_graphics_unput();
+			title_menu_graphics_unput(BOX_SUBMENU_RIGHT);
 			box_submenu_to_main_animate();
 		}
 		in_main = false; // ZUN bloat: Why is this set here, and now?
@@ -3926,7 +3949,7 @@ void near option_update_and_render(void)
 
 	if(!in_this_menu) {
 		text_clear();
-		title_menu_graphics_unput();
+		title_menu_graphics_unput(BOX_MAIN_RIGHT);
 		title_credit_graphics_unput();
 		box_main_to_submenu_animate();
 		menu_init(in_this_menu, input_allowed, OC_COUNT, option_choice_put);
@@ -4102,6 +4125,30 @@ void main(void)
 
 	while(!quit) {
 		input_mode_interface();
+		#if defined(TH03_REPLAY_DEVTOOLS)
+		if(!in_option && replay_dev_font_specimen_key()) {
+			screen_x_t right_left;
+			int i;
+
+			replay_dev_font_specimen_show();
+			super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
+			for(
+				right_left = (BOX_LEFT + OPWIN_W);
+				right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
+				right_left += OPWIN_STEP_W
+			) {
+				super_put(right_left, BOX_TOP, OPWIN_RIGHT);
+			}
+			for(i = 0; i < MC_COUNT; i++) {
+				main_choice_put(
+					i, ((menu_sel == i) ? TX_WHITE : TX_BLACK)
+				);
+			}
+			title_credit_put();
+			input_sp = INPUT_NONE;
+			main_input_allowed = false;
+		}
+		#endif
 		switch(in_option) {
 		case false:	main_update_and_render();  	break;
 		case true: 	option_update_and_render();	break;
@@ -4231,9 +4278,15 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
 // Keep the browser's dense proportional layouts in patch-owned tail code.
+#if defined(TH03_REPLAY_DEVTOOLS)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
+#else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4246,10 +4299,6 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 /// --------

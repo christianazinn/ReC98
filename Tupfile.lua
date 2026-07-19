@@ -851,7 +851,7 @@ local function th03_replay_inputs_replace(inputs, replacements)
 end
 
 local function th03_replay_dev_build(
-	dir, cflags, with_overlay, with_stage_select
+	dir, cflags, with_overlay, with_stage_select, with_font_test
 )
 	local base = th03:branch(Subdir(dir), { cflags = cflags })
 	local op = base:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
@@ -874,7 +874,11 @@ local function th03_replay_dev_build(
 		)
 	end
 
-	op:link("op", th03_replay_inputs_replace(th03_op_inputs, replacements))
+	local op_inputs = th03_replay_inputs_replace(th03_op_inputs, replacements)
+	if with_font_test then
+		op_inputs += { op:build_uncached("th03/fonttest.cpp") }
+	end
+	op:link("op", op_inputs)
 	main:link(
 		"main", th03_replay_inputs_replace(th03_main_inputs, replacements)
 	)
@@ -884,13 +888,13 @@ local function th03_replay_dev_build(
 end
 
 th03_replay_dev_build(
-	"overlay/", "-DTH03_REPLAY_DEV_OVERLAY", true, false
+	"overlay/", "-DTH03_REPLAY_DEV_OVERLAY", true, false, false
 )
 th03_replay_dev_build(
-	"stage-select/", "-DTH03_REPLAY_DEV_STAGE_SELECT", false, true
+	"stage-select/", "-DTH03_REPLAY_DEV_STAGE_SELECT", false, true, false
 )
 th03_replay_dev_build(
-	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
+	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true, true
 )
 -- ----
 

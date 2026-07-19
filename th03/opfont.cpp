@@ -5,43 +5,77 @@
 #include "th03/menu_font.hpp"
 #include "th03/op/m_main.hpp"
 #include "th03/opfont.hpp"
+#include "planar.h"
+#include "x86real.h"
 
 extern char replay_menu_line[81];
+extern "C" unsigned graph_VramSeg;
 
 static tram_y_t choice_tram_y(unsigned line)
 {
 	return ((BOX_TOP / GLYPH_H) + 1 + line);
 }
 
-void pascal far title_menu_graphics_unput(void)
+void pascal far title_box_interior_restore(
+	unsigned top, unsigned h, screen_x_t box_right
+)
 {
-	int line;
-
-	if(!menu_font) {
-		return;
+	// OPWIN.BFT uses a two-pixel frame around a palette-0/3 checker.
+	grcg_setcolor(GC_RMW, 0);
+	grcg_boxfill(
+		(BOX_LEFT + 2), top, (box_right - 3), (top + h - 1)
+	);
+	grcg_setcolor(GC_RMW, 3);
+	_asm {
+		push	es;
+		push	di;
+		push	bx;
+		mov 	ax, top;
+		mov 	di, ax;
+		shl 	di, 4;
+		mov 	dx, di;
+		shl 	di, 2;
+		add 	di, dx;
+		add 	di, ((BOX_LEFT + 2) / BYTE_DOTS);
+		mov 	es, graph_VramSeg;
+		mov 	bx, h;
+		mov 	cx, box_right;
+		shr 	cx, 3;
+		sub 	cx, ((BOX_LEFT + 2) / BYTE_DOTS);
+		mov 	al, 0AAh;
+	row_loop:
+		push	di;
+		mov 	ah, al;
+		and 	ah, 03Fh;
+		mov 	es:[di], ah;
+		inc 	di;
+		mov 	dx, cx;
+		sub 	dx, 2;
+	byte_loop:
+		mov 	es:[di], al;
+		inc 	di;
+		dec 	dx;
+		jnz 	byte_loop;
+	last_byte:
+		mov 	ah, al;
+		and 	ah, 0FCh;
+		mov 	es:[di], ah;
+		pop 	di;
+		add 	di, ROW_SIZE;
+		xor 	al, 0FFh;
+		dec 	bx;
+		jnz 	row_loop;
+		pop 	bx;
+		pop 	di;
+		pop 	es;
 	}
-	for(line = 0; line < 7; line++) {
-		menu_font_restore_rect(
-			(BOX_LEFT + 16), (choice_tram_y(line) * GLYPH_H),
-			(SUBMENU_W - 32), GLYPH_H
-		);
-	}
-}
-
-void pascal far title_choice_graphics_unput(unsigned line)
-{
-	if(menu_font) {
-		menu_font_restore_rect(
-			(BOX_LEFT + 16), (choice_tram_y(line) * GLYPH_H),
-			(SUBMENU_W - 32), GLYPH_H
-		);
-	}
+	grcg_off();
 }
 
 void pascal far title_credit_graphics_unput(void)
 {
 	if(menu_font) {
-		menu_font_restore_rect(320, 0, 320, (GLYPH_H * 2));
+		menu_font_restore_rect(0, 0, RES_X, (GLYPH_H * 2));
 	}
 }
 
@@ -125,6 +159,3 @@ void pascal far replay_menu_line_put(unsigned x, unsigned y, unsigned atrb)
 		(x * GLYPH_HALF_W), (y * GLYPH_H), replay_menu_line, color
 	);
 }
-
-// Together with MNUFONT_TEXT, retain OP's 0.2.13 runtime paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

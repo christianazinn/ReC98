@@ -4,8 +4,9 @@
 #include "platform.h"
 #include "pc98.h"
 
-void pascal far title_menu_graphics_unput(void);
-void pascal far title_choice_graphics_unput(unsigned line);
+void pascal far title_box_interior_restore(
+	unsigned top, unsigned h, screen_x_t box_right
+);
 void pascal far title_credit_graphics_unput(void);
 void pascal far title_credit_line_put(
 	const char far *str, unsigned len, unsigned y
