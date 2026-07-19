@@ -1,6 +1,7 @@
 #pragma option -zCOPFONT_TEXT -zPOPFONT_TEXT
 
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th01/hardware/egc_impl.hpp"
 #include "th02/v_colors.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/op/m_main.hpp"
@@ -20,11 +21,52 @@ void pascal far title_box_interior_restore(
 	unsigned top, unsigned h, screen_x_t box_right
 )
 {
-	// OPWIN.BFT uses a two-pixel frame around a palette-0/3 checker.
-	grcg_setcolor(GC_RMW, 0);
-	grcg_boxfill(
-		(BOX_LEFT + 2), top, (box_right - 3), (top + h - 1)
+	vram_offset_t vo_row = vram_offset_shift(BOX_LEFT, top);
+	unsigned word_count = (
+		((box_right - BOX_LEFT) + 15) / 16
 	);
+	unsigned last_dots = ((box_right - 2) & 15);
+	unsigned row;
+	unsigned column;
+	dots16_t mask;
+	dots16_t last_mask;
+	dots16_t tmp;
+
+	if(last_dots == 0) {
+		last_mask = 0xFFFF;
+	} else if(last_dots <= 8) {
+		last_mask = (0xFF << (8 - last_dots));
+	} else {
+		last_mask = (
+			0x00FF | ((0xFF << (16 - last_dots)) << 8)
+		);
+	}
+
+	// Page 1 owns the bare title. Restore it through the transparent half of
+	// OPWIN's checker without touching the two-pixel frame on either side.
+	egc_on();
+	egc_setup_copy();
+	for(row = 0; row < h; row++) {
+		for(column = 0; column < word_count; column++) {
+			mask = ((column == 0) ? 0xFF3F : 0xFFFF);
+			if(column == (word_count - 1)) {
+				mask &= last_mask;
+			}
+			outport(EGC_MASKREG, mask);
+			graph_accesspage(1);
+			tmp = *reinterpret_cast<dots16_t far *>(
+				MK_FP(graph_VramSeg, (vo_row + (column * 2)))
+			);
+			graph_accesspage(0);
+			*reinterpret_cast<dots16_t far *>(
+				MK_FP(graph_VramSeg, (vo_row + (column * 2)))
+			) = tmp;
+		}
+		vo_row += ROW_SIZE;
+	}
+	egc_off();
+
+	// Color 0 is transparent in OPWIN.BFT; only color 3 is opaque.
 	grcg_setcolor(GC_RMW, 3);
 	_asm {
 		push	es;
@@ -159,3 +201,7 @@ void pascal far replay_menu_line_put(unsigned x, unsigned y, unsigned atrb)
 		(x * GLYPH_HALF_W), (y * GLYPH_H), replay_menu_line, color
 	);
 }
+
+// Keep the following proportional-font and runtime segments at their accepted
+// paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

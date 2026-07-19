@@ -665,6 +665,7 @@ bool far practice_setup_menu(void)
 	graph_clear();
 	graph_showpage(0);
 	graph_accesspage(0);
+	palette_100();
 	practice_heading_put();
 	practice_rows_put(cfg, selected);
 
@@ -716,5 +717,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
