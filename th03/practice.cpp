@@ -5,12 +5,14 @@
 #include "th01/math/subpixel.hpp"
 #include "th01/rank.h"
 #include "th02/hardware/frmdelay.h"
+#include "th02/v_colors.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
+#include "th03/menu_font.hpp"
 #include "th03/practice.hpp"
 
 static uint8_t practice_default_round_speed(
@@ -236,15 +238,51 @@ static int practice_line_q4(char __ss *line, int at, uint8_t value)
 	return at;
 }
 
+static void practice_graphics_band_clear(void)
+{
+	if(menu_font) {
+		menu_font_restore_rect(
+			0, (2 * GLYPH_H), RES_X, (19 * GLYPH_H)
+		);
+	}
+}
+
+static void practice_graphics_row_put(
+	char __ss *line, int label_end, int value_at, uint8_t row, int color
+)
+{
+	enum {
+		CURSOR_LEFT = (8 * GLYPH_HALF_W),
+		LABEL_LEFT = (10 * GLYPH_HALF_W),
+		VALUE_LEFT = (26 * GLYPH_HALF_W),
+	};
+	vram_y_t top = ((4 + row) * GLYPH_H);
+
+	menu_font_restore_rect(0, top, RES_X, GLYPH_H);
+	line[1] = '\0';
+	menu_font_put(CURSOR_LEFT, top, line, color);
+	line[label_end] = '\0';
+	menu_font_put(LABEL_LEFT, top, &line[2], color);
+	if(value_at != 0) {
+		menu_font_put(VALUE_LEFT, top, &line[value_at], color);
+	}
+}
+
 static void practice_row_put(
 	practice_menu_t __ss& cfg, uint8_t row, bool selected
 )
 {
 	char line[65];
 	int at;
+	int label_end;
+	int value_at = 0;
 
 #define P(c) line[at++] = (c)
-#define VALUE_COLUMN() while(at < 18) { P(' '); }
+#define VALUE_COLUMN() { \
+	label_end = at; \
+	while(at < 18) { P(' '); } \
+	value_at = at; \
+}
 
 	practice_line_clear(line);
 	line[0] = (selected ? '>' : ' ');
@@ -291,25 +329,25 @@ static void practice_row_put(
 		P('R'); P('o'); P('u'); P('n'); P('d'); P(' '); P('S'); P('p');
 		P('e'); P('e'); P('d');
 		VALUE_COLUMN();
-		practice_line_q4(line, at, cfg.round_speed);
+		at = practice_line_q4(line, at, cfg.round_speed);
 		break;
 	case PR_BULLET_SPEED:
 		P('B'); P('u'); P('l'); P('l'); P('e'); P('t'); P(' '); P('B');
 		P('o'); P('n'); P('u'); P('s');
 		VALUE_COLUMN();
-		practice_line_q4(line, at, cfg.bullet_speed);
+		at = practice_line_q4(line, at, cfg.bullet_speed);
 		break;
 	case PR_P1_SPELL:
 		P('P'); P('1'); P(' '); P('S'); P('p'); P('e'); P('l'); P('l');
 		P(' '); P('R'); P('a'); P('n'); P('k');
 		VALUE_COLUMN();
-		practice_line_u16(line, at, cfg.p1_spell);
+		at = practice_line_u16(line, at, cfg.p1_spell);
 		break;
 	case PR_CPU_SPELL:
 		P('C'); P('P'); P('U'); P(' '); P('S'); P('p'); P('e'); P('l');
 		P('l'); P(' '); P('R'); P('a'); P('n'); P('k');
 		VALUE_COLUMN();
-		practice_line_u16(line, at, cfg.cpu_spell);
+		at = practice_line_u16(line, at, cfg.cpu_spell);
 		break;
 	case PR_BOSS_LEVEL:
 		P('B'); P('o'); P('s'); P('s'); P(' '); P('R'); P('a'); P('n'); P('k');
@@ -318,13 +356,13 @@ static void practice_row_put(
 			line, at, ((cfg.boss_level >= 15) ? 16 : (cfg.boss_level + 1))
 		);
 		P(' '); P(' '); P('r'); P('a'); P('w'); P(' ');
-		practice_line_u16(line, at, cfg.boss_level);
+		at = practice_line_u16(line, at, cfg.boss_level);
 		break;
 	case PR_CPU_DAMAGE:
 		P('C'); P('P'); P('U'); P(' '); P('D'); P('a'); P('m'); P('a');
 		P('g'); P('e');
 		VALUE_COLUMN();
-		practice_line_u16(line, at, cfg.cpu_damage);
+		at = practice_line_u16(line, at, cfg.cpu_damage);
 		break;
 	case PR_STOCK:
 		P('S'); P('t'); P('o'); P('c'); P('k');
@@ -332,7 +370,7 @@ static void practice_row_put(
 		if(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) {
 			P('V'); P('S'); P(' '); P('R'); P('u'); P('l'); P('e'); P('s');
 		} else {
-			practice_line_u16(line, at, cfg.stock);
+			at = practice_line_u16(line, at, cfg.stock);
 		}
 		break;
 	case PR_EXTENDS:
@@ -342,7 +380,7 @@ static void practice_row_put(
 		if(cfg.preset == PRACTICE_PRESET_VS_DEFAULT) {
 			P('V'); P('S'); P(' '); P('R'); P('u'); P('l'); P('e'); P('s');
 		} else {
-			practice_line_u16(line, at, cfg.extends_gained);
+			at = practice_line_u16(line, at, cfg.extends_gained);
 		}
 		break;
 	case PR_RESET:
@@ -353,7 +391,17 @@ static void practice_row_put(
 		P('S'); P('t'); P('a'); P('r'); P('t');
 		break;
 	}
-	text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	if(value_at == 0) {
+		label_end = at;
+	}
+	if(menu_font) {
+		line[at] = '\0';
+		practice_graphics_row_put(
+			line, label_end, value_at, row, (selected ? 13 : V_WHITE)
+		);
+	} else {
+		text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	}
 
 #undef VALUE_COLUMN
 #undef P
@@ -569,7 +617,14 @@ static void practice_heading_put(void)
 	P('P'); P('R'); P('A'); P('C'); P('T'); P('I'); P('C'); P('E');
 	P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
 	line[at] = '\0';
-	text_putsa(31, 2, line, TX_WHITE);
+	if(menu_font) {
+		menu_font_restore_rect(0, (2 * GLYPH_H), RES_X, GLYPH_H);
+		menu_font_put_centered(
+			(RES_X / 2), (2 * GLYPH_H), line, V_WHITE
+		);
+	} else {
+		text_putsa(31, 2, line, TX_WHITE);
+	}
 
 	practice_line_clear(line);
 	at = 0;
@@ -580,7 +635,14 @@ static void practice_heading_put(void)
 	P('m'); P(' '); P(' '); P(' '); P('E'); P('s'); P('c'); P(':'); P(' ');
 	P('B'); P('a'); P('c'); P('k');
 	line[at] = '\0';
-	text_putsa(12, 20, line, TX_WHITE);
+	if(menu_font) {
+		menu_font_restore_rect(0, (20 * GLYPH_H), RES_X, GLYPH_H);
+		menu_font_put_centered(
+			(RES_X / 2), (20 * GLYPH_H), line, V_WHITE
+		);
+	} else {
+		text_putsa(12, 20, line, TX_WHITE);
+	}
 
 #undef P
 }
@@ -638,11 +700,13 @@ bool far practice_setup_menu(void)
 						practice_config_store(cfg);
 					}
 					text_clear();
+					practice_graphics_band_clear();
 					return false;
 				}
 			} else if(input_sp & INPUT_CANCEL) {
 				practice_resident_clear();
 				text_clear();
+				practice_graphics_band_clear();
 				return true;
 			}
 		}
@@ -653,3 +717,4 @@ bool far practice_setup_menu(void)
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"

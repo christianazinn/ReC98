@@ -9,6 +9,7 @@
 #include "th02/v_colors.hpp"
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
+#include "th03/menu_font.hpp"
 #include <stddef.h>
 
 #define T3_KEYCONFIG_FILE_VERSION 2
@@ -575,6 +576,38 @@ static uint8_t keyconfig_line_put_action_name(
 	}
 }
 
+static void keyconfig_graphics_band_clear(void)
+{
+	if(menu_font) {
+		menu_font_restore_rect(0, GLYPH_H, RES_X, (GLYPH_H * 21));
+	}
+}
+
+static void keyconfig_graphics_row_put(
+	char __ss *line,
+	uint8_t label_end,
+	uint8_t value_at,
+	uint8_t top,
+	int color
+)
+{
+	enum {
+		CURSOR_LEFT = (8 * GLYPH_HALF_W),
+		LABEL_LEFT = (10 * GLYPH_HALF_W),
+		VALUE_LEFT = (32 * GLYPH_HALF_W),
+	};
+	vram_y_t y = (top * GLYPH_H);
+
+	menu_font_restore_rect(0, y, RES_X, GLYPH_H);
+	line[1] = '\0';
+	menu_font_put(CURSOR_LEFT, y, line, color);
+	line[label_end] = '\0';
+	menu_font_put(LABEL_LEFT, y, &line[2], color);
+	if(value_at != 0) {
+		menu_font_put(VALUE_LEFT, y, &line[value_at], color);
+	}
+}
+
 static void keyconfig_text_putsa(
 	tram_x_t left, tram_y_t top, const char far *s, tram_atrb2 atrb
 )
@@ -582,6 +615,13 @@ static void keyconfig_text_putsa(
 	char line[65];
 	uint8_t at;
 
+	if(menu_font) {
+		menu_font_restore_rect(0, (top * GLYPH_H), RES_X, GLYPH_H);
+		menu_font_put_centered(
+			(RES_X / 2), (top * GLYPH_H), s, 13
+		);
+		return;
+	}
 	keyconfig_line_clear(line);
 	text_putsa(8, top, line, TX_WHITE);
 	at = keyconfig_line_puts(line, 0, s);
@@ -595,12 +635,16 @@ static void keyconfig_player_row_put(
 {
 	char line[65];
 	uint8_t at = 2;
+	uint8_t label_end;
+	uint8_t value_at = 0;
 
 	keyconfig_line_clear(line);
 	line[0] = (selected ? '>' : ' ');
 	if(row == KCR_AUTOFIRE) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.autofire);
+		label_end = at;
 		at = 24;
+		value_at = at;
 		at = keyconfig_line_puts(
 			line,
 			at,
@@ -609,7 +653,9 @@ static void keyconfig_player_row_put(
 	} else if((row >= KCR_UP_LEFT) && (row <= KCR_CHARGE)) {
 		uint8_t action = (row - KCR_UP_LEFT);
 		at = keyconfig_line_put_action_name(line, at, action);
+		label_end = at;
 		at = 24;
+		value_at = at;
 		at = keyconfig_line_put_key_name(
 			line,
 			at,
@@ -617,12 +663,23 @@ static void keyconfig_player_row_put(
 		);
 	} else if(row == KCR_DEFAULTS) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.defaults);
+		label_end = at;
 	} else if(row == KCR_APPLY) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.apply);
+		label_end = at;
 	} else {
 		at = keyconfig_line_puts(line, at, keyconfig_text.cancel);
+		label_end = at;
 	}
-	text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	if(menu_font) {
+		line[at] = '\0';
+		keyconfig_graphics_row_put(
+			line, label_end, value_at, (3 + row),
+			(selected ? 13 : V_WHITE)
+		);
+	} else {
+		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	}
 }
 
 static void keyconfig_story_row_put(
@@ -631,6 +688,8 @@ static void keyconfig_story_row_put(
 {
 	char line[65];
 	uint8_t at = 2;
+	uint8_t label_end;
+	uint8_t value_at = 0;
 
 	keyconfig_line_clear(line);
 	line[0] = (selected ? '>' : ' ');
@@ -643,19 +702,32 @@ static void keyconfig_story_row_put(
 		default:         player_action = KCA_DOWN;  break;
 		}
 		at = keyconfig_line_put_action_name(line, at, player_action);
+		label_end = at;
 		at = 24;
+		value_at = at;
 		at = keyconfig_line_put_key_name(
 			line, at,
 			cfg.bindings[T3_KEYCONFIG_STORY_BINDINGS_INDEX + row]
 		);
 	} else if(row == KCSR_DEFAULTS) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.defaults_story);
+		label_end = at;
 	} else if(row == KCSR_APPLY) {
 		at = keyconfig_line_puts(line, at, keyconfig_text.apply);
+		label_end = at;
 	} else {
 		at = keyconfig_line_puts(line, at, keyconfig_text.cancel);
+		label_end = at;
 	}
-	text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	if(menu_font) {
+		line[at] = '\0';
+		keyconfig_graphics_row_put(
+			line, label_end, value_at, (3 + row),
+			(selected ? 13 : V_WHITE)
+		);
+	} else {
+		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+	}
 }
 
 static uint8_t keyconfig_page_row_count(uint8_t page)
@@ -682,6 +754,7 @@ static void keyconfig_screen_put(
 	uint8_t at;
 
 	text_clear();
+	keyconfig_graphics_band_clear();
 	keyconfig_line_clear(line);
 	at = 0;
 	if(page == KCP_STORY) {
@@ -692,7 +765,11 @@ static void keyconfig_screen_put(
 		at = keyconfig_line_puts(line, at, keyconfig_text.header_end);
 	}
 	line[at] = '\0';
-	text_putsa(25, 1, line, TX_WHITE);
+	if(menu_font) {
+		menu_font_put_centered((RES_X / 2), GLYPH_H, line, V_WHITE);
+	} else {
+		text_putsa(25, 1, line, TX_WHITE);
+	}
 	for(uint8_t row = 0; row < keyconfig_page_row_count(page); row++) {
 		keyconfig_row_put(cfg, page, row, (row == selected));
 	}
@@ -700,7 +777,19 @@ static void keyconfig_screen_put(
 	at = 0;
 	at = keyconfig_line_puts(line, at, keyconfig_text.footer);
 	line[at] = '\0';
-	text_putsa(12, 21, line, TX_WHITE);
+	if(menu_font) {
+		menu_font_put_centered(
+			(RES_X / 2), (21 * GLYPH_H), line, V_WHITE
+		);
+	} else {
+		text_putsa(12, 21, line, TX_WHITE);
+	}
+}
+
+static void keyconfig_screen_clear(void)
+{
+	text_clear();
+	keyconfig_graphics_band_clear();
 }
 
 static uint8_t keyconfig_raw_first(void)
@@ -900,7 +989,7 @@ bool far keyconfig_menu(void)
 				) {
 					if(keyconfig_file_save(cfg)) {
 						keyconfig_resident_store(cfg);
-						text_clear();
+						keyconfig_screen_clear();
 						return true;
 					}
 					keyconfig_text_putsa(23, 20, keyconfig_text.save_error, TX_CYAN);
@@ -908,7 +997,7 @@ bool far keyconfig_menu(void)
 					keyconfig_menu_equal(cfg, original) ||
 					keyconfig_discard_confirm()
 				) {
-					text_clear();
+					keyconfig_screen_clear();
 					return false;
 				} else {
 					keyconfig_screen_put(cfg, page, selected);
@@ -919,7 +1008,7 @@ bool far keyconfig_menu(void)
 					keyconfig_menu_equal(cfg, original) ||
 					keyconfig_discard_confirm()
 				) {
-					text_clear();
+					keyconfig_screen_clear();
 					return false;
 				}
 				keyconfig_screen_put(cfg, page, selected);

@@ -17,6 +17,7 @@
 #include "th03/main/v_colors.hpp"
 #include "th03/fast_forward.hpp"
 #include "th03/keyconfig.hpp"
+#include "th03/menu_font.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
@@ -36,6 +37,8 @@
 #define REPLAY_RECORD_BUFFER_SIZE ( \
 	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
 )
+
+extern "C" const unsigned char aCOul[];
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -2718,6 +2721,7 @@ void far replay_session_start(void)
 {
 	uint8_t playback_stage;
 
+	menu_font_load(aCOul);
 	replay_paths_init();
 	replay_protect_local_reset();
 
@@ -3038,10 +3042,27 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_CHOICE_COLOR_W ( \
 	(REPLAY_PAUSE_TEXT_LEFT + 20) - REPLAY_PAUSE_CHOICE_MARK_LEFT \
 )
+#define REPLAY_PAUSE_FONT_PIXEL_BOTTOM ( \
+	REPLAY_PAUSE_PIXEL_TOP + (REPLAY_PAUSE_H * GLYPH_H) - 1 \
+)
+#define REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT ( \
+	REPLAY_PAUSE_CHOICE_MARK_LEFT * GLYPH_HALF_W \
+)
+#define REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT ( \
+	REPLAY_PAUSE_TEXT_LEFT * GLYPH_HALF_W \
+)
 
 enum replay_pause_vram_color_t {
 	REPLAY_PAUSE_VRAM_BLUE = 9,
 	REPLAY_PAUSE_VRAM_CYAN = 13,
+};
+
+enum replay_pause_font_color_t {
+	REPLAY_PAUSE_FONT_BLACK = 0,
+	REPLAY_PAUSE_FONT_BLUE = 9,
+	REPLAY_PAUSE_FONT_YELLOW = 12,
+	REPLAY_PAUSE_FONT_CYAN = 13,
+	REPLAY_PAUSE_FONT_WHITE = 15,
 };
 
 static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
@@ -3414,18 +3435,157 @@ static void replay_pause_beep(void)
 	snd_se_update();
 }
 
+static void replay_pause_font_put_graph_backing(void)
+{
+	graph_copy_page(page_back);
+	replay_overlay_graph_fill(
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_FONT_BLACK, page_front
+	);
+}
+
+static void replay_pause_font_put_frame(void)
+{
+	replay_overlay_graph_fill(
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_TOP,
+		REPLAY_PAUSE_FONT_WHITE, page_front
+	);
+	replay_overlay_graph_fill(
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_FONT_WHITE, page_front
+	);
+	replay_overlay_graph_fill(
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_FONT_WHITE, page_front
+	);
+	replay_overlay_graph_fill(
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_TOP,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_FONT_WHITE, page_front
+	);
+}
+
+static void replay_pause_font_put_title(void)
+{
+	char str[7];
+
+	str[0] = 'P'; str[1] = 'A'; str[2] = 'U'; str[3] = 'S';
+	str[4] = 'E'; str[5] = 'D'; str[6] = '\0';
+	menu_font_put_centered(
+		((REPLAY_PAUSE_PIXEL_LEFT + REPLAY_PAUSE_PIXEL_RIGHT + 1) / 2),
+		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_H), str,
+		REPLAY_PAUSE_FONT_CYAN
+	);
+}
+
+static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
+{
+	char cursor[2];
+	char str[21];
+	char *p = str;
+	int color;
+	int top = (
+		REPLAY_PAUSE_PIXEL_TOP + ((choice + 2) * GLYPH_H)
+	);
+
+	if(
+		(choice == REPLAY_PAUSE_SAVE_EXIT) &&
+		replay_pause_save_disabled()
+	) {
+		color = REPLAY_PAUSE_FONT_BLUE;
+	} else if(choice == sel) {
+		color = REPLAY_PAUSE_FONT_YELLOW;
+	} else {
+		color = REPLAY_PAUSE_FONT_WHITE;
+	}
+
+	replay_overlay_graph_fill(
+		(REPLAY_PAUSE_PIXEL_LEFT + 1), top,
+		(REPLAY_PAUSE_PIXEL_RIGHT - 1), (top + GLYPH_H - 1),
+		REPLAY_PAUSE_FONT_BLACK, page_front
+	);
+	if(choice == REPLAY_PAUSE_RESUME) {
+		*p++ = 'R'; *p++ = 'e'; *p++ = 's';
+		*p++ = 'u'; *p++ = 'm'; *p++ = 'e';
+	} else if(choice == REPLAY_PAUSE_RESTART) {
+		*p++ = 'R'; *p++ = 'e'; *p++ = 's'; *p++ = 't';
+		*p++ = 'a'; *p++ = 'r'; *p++ = 't';
+	} else if(choice == REPLAY_PAUSE_SAVE_EXIT) {
+		*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
+		*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
+		*p++ = 'y'; *p++ = ' '; *p++ = 'a'; *p++ = 'n'; *p++ = 'd';
+		*p++ = ' '; *p++ = 'E'; *p++ = 'x'; *p++ = 'i'; *p++ = 't';
+	} else {
+		*p++ = 'E'; *p++ = 'x'; *p++ = 'i'; *p++ = 't'; *p++ = ' ';
+		*p++ = 'W'; *p++ = 'i'; *p++ = 't'; *p++ = 'h'; *p++ = 'o';
+		*p++ = 'u'; *p++ = 't'; *p++ = ' '; *p++ = 'S'; *p++ = 'a';
+		*p++ = 'v'; *p++ = 'i'; *p++ = 'n'; *p++ = 'g';
+	}
+	*p = '\0';
+	cursor[0] = '>';
+	cursor[1] = '\0';
+	if(choice == sel) {
+		menu_font_put(
+			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor, color
+		);
+	}
+	menu_font_put(
+		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str, color
+	);
+}
+
+static void replay_pause_font_put_choices(uint8_t sel)
+{
+	uint8_t choice;
+
+	for(
+		choice = REPLAY_PAUSE_RESUME;
+		choice <= REPLAY_PAUSE_DISCARD_EXIT;
+		choice++
+	) {
+		replay_pause_font_choice_put(choice, sel);
+	}
+}
+
+static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
+{
+	if(!menu_font) {
+		replay_pause_put_choices(sel);
+		return;
+	}
+	replay_pause_font_choice_put(old_sel, sel);
+	if(old_sel != sel) {
+		replay_pause_font_choice_put(sel, sel);
+	}
+}
+
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
+	uint8_t old_sel;
 
 	replay_pause_save_refresh();
 	replay_pause_beep();
 	replay_pause_wait_release();
-	replay_pause_put_graph_backing();
-	replay_pause_put_frame();
-	replay_pause_put_title();
+	if(menu_font) {
+		replay_pause_font_put_graph_backing();
+		replay_pause_font_put_frame();
+		replay_pause_font_put_title();
+	} else {
+		replay_pause_put_graph_backing();
+		replay_pause_put_frame();
+		replay_pause_put_title();
+	}
 	sel = replay_pause_validate_choice(sel);
-	replay_pause_put_choices(sel);
+	if(menu_font) {
+		replay_pause_font_put_choices(sel);
+	} else {
+		replay_pause_put_choices(sel);
+	}
 
 input_wait:
 	replay_input_sense_held();
@@ -3443,18 +3603,20 @@ restart_not_requested:
 	}
 	if(input_sp & INPUT_UP) {
 		replay_pause_save_refresh();
+		old_sel = sel;
 		sel = replay_pause_validate_choice(sel);
 		sel = replay_pause_prev_choice(sel);
-		replay_pause_put_choices(sel);
+		replay_pause_choices_redraw(old_sel, sel);
 		replay_pause_beep();
 		replay_pause_wait_release();
 		goto input_wait;
 	}
 	if(input_sp & INPUT_DOWN) {
 		replay_pause_save_refresh();
+		old_sel = sel;
 		sel = replay_pause_validate_choice(sel);
 		sel = replay_pause_next_choice(sel);
-		replay_pause_put_choices(sel);
+		replay_pause_choices_redraw(old_sel, sel);
 		replay_pause_beep();
 		replay_pause_wait_release();
 		goto input_wait;
@@ -3463,16 +3625,18 @@ restart_not_requested:
 		if(sel == REPLAY_PAUSE_SAVE_EXIT) {
 			replay_pause_save_refresh();
 			if(replay_pause_save_disabled()) {
+				old_sel = sel;
 				sel = REPLAY_PAUSE_DISCARD_EXIT;
-				replay_pause_put_choices(sel);
+				replay_pause_choices_redraw(old_sel, sel);
 				replay_pause_beep();
 				replay_pause_wait_release();
 				goto input_wait;
 			}
 		}
 		if((sel == REPLAY_PAUSE_SAVE_EXIT) && replay_pause_save_disabled()) {
+			old_sel = sel;
 			sel = REPLAY_PAUSE_DISCARD_EXIT;
-			replay_pause_put_choices(sel);
+			replay_pause_choices_redraw(old_sel, sel);
 			replay_pause_beep();
 			replay_pause_wait_release();
 			goto input_wait;
@@ -3488,7 +3652,9 @@ restart_not_requested:
 resume:
 	replay_pause_wait_release();
 	replay_pause_restore_graphics();
-	replay_pause_clear();
+	if(!menu_font) {
+		replay_pause_clear();
+	}
 	replay_pause_beep();
 	return REPLAY_PAUSE_RESUME;
 }
@@ -3510,6 +3676,9 @@ resume:
 #undef REPLAY_PAUSE_SELECTED_ATRB
 #undef REPLAY_PAUSE_DISABLED_ATRB
 #undef REPLAY_PAUSE_CHOICE_COLOR_W
+#undef REPLAY_PAUSE_FONT_PIXEL_BOTTOM
+#undef REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT
+#undef REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT
 
 bool far replay_prompt_skip(void)
 {
@@ -3651,3 +3820,5 @@ void far replay_finish(uint8_t route)
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"

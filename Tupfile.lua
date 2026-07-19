@@ -634,6 +634,9 @@ local th03_op_inputs = {
 	"th03/practice.cpp",
 	"th03/keycfg_i.cpp",
 	"th03/keycfg_o.cpp",
+	"th03/rpyfont.cpp",
+	"th03/opfont.cpp",
+	"th03/mnufont.cpp",
 }
 th03_op_cfg:link("op", th03_op_inputs)
 
@@ -775,6 +778,7 @@ local th03_main_inputs = {
 	"th03/main/replay.cpp",
 	"th03/main/pract_m.cpp",
 	"th03/keycfg_i.cpp",
+	"th03/mnufont.cpp",
 }
 th03_main_cfg:link("main", th03_main_inputs)
 

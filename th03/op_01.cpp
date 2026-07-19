@@ -20,6 +20,7 @@
 #include "th03/resident.hpp"
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
+#include "th03/menu_font.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
@@ -32,7 +33,9 @@
 #include "th03/shiftjis/main.hpp"
 #include "th03/op/m_main.hpp"
 #include "th03/op/m_select.hpp"
+#include "th03/opfont.hpp"
 #include "th03/practice.hpp"
+#include "th03/rpyfont.hpp"
 #include "th03/sprites/regi.h"
 #include "platform/x86real/flags.hpp"
 #include "planar.h"
@@ -135,9 +138,9 @@ static const char REPLAY_INDEX_FN[] = "REPLAY\\TH3R.IDX";
 static char REPLAY_SLOT_FN[] = "REPLAY\\TH3R00.RPY";
 static const char REPLAY_FALLBACK_FN[] = "TH3LAST.RPY";
 
-static replay_user_header_t replay_user_menu_header;
-static replay_user_summary_ext_t replay_user_menu_summary_ext;
-static replay_user_snapshot_t replay_user_menu_snapshot;
+replay_user_header_t replay_user_menu_header;
+replay_user_summary_ext_t replay_user_menu_summary_ext;
+replay_user_snapshot_t replay_user_menu_snapshot;
 static replay_user_index_header_t replay_user_menu_index_header;
 
 /// YUME.CFG loading and saving
@@ -1000,20 +1003,24 @@ inline tram_y_t choice_tram_y(unsigned int line) {
 
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
-	enum {
-		W = (8 * GAIJI_W),
-		TRAM_LEFT = ((BOX_SUBMENU_CENTER_X - (W / 2)) / GLYPH_HALF_W),
-	};
+	const char far *str;
+	unsigned line;
+
 	if(sel == VS_1P_CPU) {
-		static const char STR[] = g_str_vs(gp_1P_vs, gp__CPU);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(2), STR, atrb);
+		static const char STR[] = "1P vs CPU";
+		str = STR;
+		line = 2;
 	} else if(sel == VS_1P_2P) {
-		static const char STR[] = g_str_vs(gp_1P_vs, gp__2P);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(3), STR, atrb);
+		static const char STR[] = "1P vs 2P";
+		str = STR;
+		line = 3;
 	} else /* if (sel == VS_CPU_CPU) */ {
-		static const char STR[] = g_str_vs(gp_CPU_vs, gp__CPU);
-		gaiji_putsa(TRAM_LEFT, choice_tram_y(4), STR, atrb);
+		static const char STR[] = "CPU vs CPU";
+		str = STR;
+		line = 4;
 	}
+	title_choice_graphics_unput(line);
+	choice_put_centered(BOX_SUBMENU_CENTER_X, line, 0, str, atrb);
 }
 
 static bool near vs_start(bool select_characters)
@@ -1029,6 +1036,8 @@ static bool near vs_start(bool select_characters)
 	// character selection.
 	if(resident->game_mode < GM_VS) {
 		text_clear();
+		title_menu_graphics_unput();
+		title_credit_graphics_unput();
 		box_main_to_submenu_animate();
 
 		sel = VS_1P_CPU;
@@ -1053,6 +1062,7 @@ static bool near vs_start(bool select_characters)
 					break;
 				}
 				if(input_sp & INPUT_CANCEL) {
+					title_menu_graphics_unput();
 					return false;
 				}
 			}
@@ -1249,7 +1259,7 @@ enum {
 	REPLAY_MENU_DETAIL_Y = 5,
 	REPLAY_MENU_FOOT_Y = 24,
 	REPLAY_SAVE_COMPLETE_Y = 22,
-	REPLAY_MENU_VISIBLE = 10,
+	REPLAY_MENU_VISIBLE = 5,
 
 	REPLAY_REGI_GLYPH_W = 32,
 	REPLAY_REGI_GLYPH_H = 32,
@@ -1316,13 +1326,13 @@ enum {
 	REPLAY_SAVE_DIALOG_NO_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 19),
 };
 
-static char replay_menu_line[81];
+char replay_menu_line[81];
 // Keeps OP DGROUP offsets stable across replay-browser text rewrites.
 static const char REPLAY_REGI2_BFT[] = "regi2.bft";
 static const char REPLAY_REGI1_BFT[] = "regi1.bft";
 static const unsigned char REPLAY_ASSET_PF_FN[] = "azinn.dat";
 static char REPLAY_BG_PI[10] = "slb1.pi";
-static char REPLAY_MENU_DATA_PAD[4] = { 1 };
+static char REPLAY_MENU_DATA_PAD[12] = { 1 };
 
 enum replay_background_t {
 	REPLAY_BG_LIST,
@@ -1925,38 +1935,30 @@ static char *replay_line_append_final_stage_mark(char *p)
 	return p;
 }
 
-static void replay_menu_span_clear(unsigned int x, unsigned int y, unsigned int w)
-{
-	char *p = replay_menu_line;
-
-	while(w != 0) {
-		*p++ = ' ';
-		w--;
-	}
-	*p = '\0';
-	text_putsa(x, y, replay_menu_line, TX_BLACK);
-}
-
-static void replay_menu_line_put(unsigned int x, unsigned int y, tram_atrb2 atrb)
-{
-	text_putsa(x, y, replay_menu_line, atrb);
-}
-
 static void replay_menu_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned int y, bool active
 )
 {
 	char *p;
+	bool has_replay;
 	tram_atrb2 atrb = (
 		((slot == sel) && active) ? TX_YELLOW : TX_WHITE
 	);
 
 	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
+	has_replay = replay_user_read_slot_for_menu(slot);
+	if(menu_font) {
+		replay_font_slot_line_put(
+			slot, sel, y, active, has_replay
+		);
+		return;
+	}
+
 	p = replay_menu_line;
 	*p++ = (((slot == sel) && active) ? '>' : ' ');
 	p = replay_line_append_u8_2(p, slot);
 	*p++ = ' ';
-	if(replay_user_read_slot_for_menu(slot)) {
+	if(has_replay) {
 		p = replay_line_append_playchar_pair(
 			p, replay_user_menu_header.playchar_p1
 		);
@@ -2405,6 +2407,10 @@ static void replay_menu_detail_put(
 		replay_menu_detail_put_empty(slot);
 		return;
 	}
+	if(menu_font) {
+		replay_font_detail_put(slot, stage_sel, stage_focus);
+		return;
+	}
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Slot ");
@@ -2442,21 +2448,6 @@ static void replay_menu_detail_put(uint8_t slot)
 	replay_menu_detail_put(slot, 0, false);
 }
 
-static void replay_menu_columns_put(void)
-{
-	char *p = replay_menu_line;
-
-	*p++ = ' '; *p++ = 'S'; *p++ = 'l'; *p++ = ' ';
-	*p++ = 'C'; *p++ = 'h'; *p++ = ' '; *p++ = 'R'; *p++ = ' ';
-	*p++ = 'N'; *p++ = 'a'; *p++ = 'm'; *p++ = 'e';
-	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
-	*p++ = 'S'; *p++ = 'c'; *p++ = 'o'; *p++ = 'r'; *p++ = 'e';
-	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
-	*p++ = 'S'; *p++ = 't'; *p++ = 'g'; *p = '\0';
-	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_MENU_HEAD_Y, TX_CYAN);
-	text_putsa(REPLAY_MENU_DETAIL_LEFT, REPLAY_MENU_HEAD_Y, "Details", TX_CYAN);
-}
-
 static void replay_menu_render(
 	uint8_t sel, uint8_t top, uint8_t stage_sel, bool stage_focus
 )
@@ -2464,11 +2455,13 @@ static void replay_menu_render(
 	uint8_t slot;
 	unsigned int line;
 
-	replay_menu_columns_put();
+	replay_font_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
 		replay_menu_slot_line_put(
-			slot, sel, (REPLAY_MENU_LIST_Y + line), !stage_focus
+			slot, sel,
+			(REPLAY_MENU_LIST_Y + (menu_font ? (line * 2) : line)),
+			!stage_focus
 		);
 	}
 	replay_menu_detail_put(sel, stage_sel, stage_focus);
@@ -2676,11 +2669,13 @@ static void replay_save_dialog_frame_put(void)
 	);
 	grcg_off();
 
-	for(y = 0; y < REPLAY_SAVE_DIALOG_H; y++) {
-		replay_menu_span_clear(
-			REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
-			REPLAY_SAVE_DIALOG_W
-		);
+	if(!menu_font) {
+		for(y = 0; y < REPLAY_SAVE_DIALOG_H; y++) {
+			replay_menu_span_clear(
+				REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
+				REPLAY_SAVE_DIALOG_W
+			);
+		}
 	}
 
 	p = replay_menu_line;
@@ -3274,10 +3269,13 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 	uint8_t slot;
 	unsigned int line;
 
-	replay_menu_columns_put();
+	replay_font_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
-		replay_menu_slot_line_put(slot, sel, (REPLAY_MENU_LIST_Y + line));
+		replay_menu_slot_line_put(
+			slot, sel,
+			(REPLAY_MENU_LIST_Y + (menu_font ? (line * 2) : line))
+		);
 	}
 	replay_menu_detail_put(sel);
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
@@ -3574,33 +3572,31 @@ bool near replay_menu(void)
 //    and
 // 2) some of those are unused, which points toward ZUN having declared them at
 //    global scope as well.
-char COMMAND_STORY[] = { g_str_3(gp_Start), '\0' };
-char COMMAND_VS[] = { g_str_6(gp_VS_Start), '\0' };
-char COMMAND_MUSICROOM[] = { g_str_7(gp_Music_room), '\0' };
-char COMMAND_REGIST_VIEW[] = { g_str_5(gp_HiScore), '\0' };
-char COMMAND_OPTION[] = { g_str_4(gp_Option), '\0' };
-char COMMAND_REPLAY[] = {
-	g_str_4(gp_Replay), gp_Replay_y_right, '\0'
-};
-char COMMAND_QUIT[] = { g_str_3(gp_Quit), '\0' };
+char COMMAND_STORY[] = "Start";
+char COMMAND_VS[] = "VS Start";
+char COMMAND_MUSICROOM[] = "Music room";
+char COMMAND_REGIST_VIEW[] = "HiScore";
+char COMMAND_OPTION[] = "Option";
+char COMMAND_REPLAY[] = "Replay";
+char COMMAND_QUIT[] = "Quit";
 
-char LABEL_RANK[] = { g_str_3(gp_Rank), '\0' };
-char LABEL_MUSIC[] = { g_str_4(gp_Music), '\0' };
+char LABEL_RANK[] = "Rank";
+char LABEL_MUSIC[] = "Music";
 char LABEL_AUTOFIRE[] = { g_str_7(gp_Autofire), '\0' };
-char LABEL_KEYCONFIG[] = { g_str_6(gp_KeyConfig), '\0' };
+char LABEL_KEYCONFIG[] = "KeyConfig";
 
 // ZUN bloat: Unused, but looks like a gaiji version of the space string below.
 // Since that is the only call to text_putsa() in this binary, using this one
 // would have also removed the need to link in that function.
 char UNUSED_SPACES[5] = { g_SP, g_SP, g_SP, g_SP, '\0' };
 
-char VALUE_EASY[] = { g_str_3(gp_Easy), '\0' };
-char VALUE_NORMAL[] = { g_str_4(gp_Normal), '\0' };
-char VALUE_HARD[] = { g_str_3(gp_Hard), '\0' };
-char VALUE_LUNATIC[] = { g_str_4(gp_Lunatic), '\0' };
+char VALUE_EASY[] = "Easy";
+char VALUE_NORMAL[] = "Normal";
+char VALUE_HARD[] = "Hard";
+char VALUE_LUNATIC[] = "Lunatic";
 
-char VALUE_OFF[8] = { g_SP, g_SP, g_str_2(gp_off), g_SP, g_SP, g_SP };
-char VALUE_FM[8] = { g_SP, g_str_4(gp_FM_86_), g_SP, g_SP };
+char VALUE_OFF[8] = "Off";
+char VALUE_FM[8] = "FM (86)";
 
 // The initial names for the three input modes? Unused in the final game.
 // Replay mod: Reuses the five-byte VALUE_TYPE_1 slot to keep the original
@@ -3609,15 +3605,9 @@ char VALUE_ON[5] = { gp_on_clean_left, gp_on_last, '\0' };
 char VALUE_TYPE_2[] = { g_str_3(gp_Type), gp_2, '\0' };
 char VALUE_TYPE_3[] = { g_str_3(gp_Type), gp_3, '\0' };
 
-char VALUE_KEY_KEY[] = {
-	g_str_2(gp_Key), g_str_2(gp_vs), g_str_2(gp_Key), '\0',
-};
-char VALUE_JOY_KEY[] = {
-	g_str_2(gp_Joy), g_str_2(gp_vs), g_str_2(gp_Key), '\0',
-};
-char VALUE_KEY_JOY[] = {
-	g_str_2(gp_Key), g_str_2(gp_vs), g_str_2(gp_Joy), '\0',
-};
+char VALUE_KEY_KEY[] = "Key vs Key";
+char VALUE_JOY_KEY[] = "Joy vs Key";
+char VALUE_KEY_JOY[] = "Key vs Joy";
 
 // Globals
 // -------
@@ -3636,33 +3626,15 @@ menu_put_func_t menu_put;
 
 static char title_credit_line[44];
 // Keep OP's initialized-data offsets after removing the GDC error path.
-static char gdc_frequency_error_offset_padding[] =
-	ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3;
+static char gdc_frequency_error_offset_padding[
+	(sizeof(
+		ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3
+	) - 44)
+] = { 0 };
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
 uint8_t replay_resident_offset_padding[20];
 // -------
-
-// These menus want to display centered strings. However, the underlying gaiji
-// of all of these (except "Start", which exactly fits into the 48 pixels
-// covered by its 3 gaiji) are left-aligned and leave anywhere from 6 to 14
-// pixels of trailing blank space in their last gaiji. Hence, ZUN shifts the
-// mathematically correct center a bit to get as close as possible to visual
-// centering, but still fails to perfectly center three of these labels; only
-// "Music room" and "Option" are. Would be a ZUN bug, but a fix would also have
-// to change assets. We'll probably only do that once we translate the game.
-#define gaiji_w_shifted(str, shift_x) ( \
-	((sizeof(str) - 1) + shift_x) * GAIJI_W \
-)
-
-#define choice_put_centered(center_x, line, shift_x, str, atrb) { \
-	gaiji_putsa( \
-		((center_x - (gaiji_w_shifted(str, shift_x) / 2)) / GLYPH_HALF_W), \
-		choice_tram_y(line), \
-		str, \
-		atrb \
-	); \
-}
 
 #define TITLE_CREDIT_PAIR(index, left, right) \
 	pairs[index] = static_cast<uint16_t>((left) | ((right) << 8))
@@ -3676,7 +3648,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 39,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3693,20 +3665,20 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_PAIR(10, 'j', 'e');
 	TITLE_CREDIT_PAIR(11, 'c', 't');
 	title_credit_line[LINE1_LEN] = '\0';
-	text_putsa((TRAM_RIGHT - LINE1_LEN), 0, title_credit_line, TX_BLACK);
+	title_credit_line_put(title_credit_line, LINE1_LEN, 0);
 
 	TITLE_CREDIT_QUAD(0, 0x6C706552UL); // "Repl"
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x33312E32UL); // "2.13"
-	TITLE_CREDIT_QUAD(5, 0x20796220UL); // " by "
-	TITLE_CREDIT_QUAD(6, 0x69726843UL); // "Chri"
-	TITLE_CREDIT_QUAD(7, 0x61697473UL); // "stia"
-	TITLE_CREDIT_QUAD(8, 0x7A41206EUL); // "n Az"
-	TITLE_CREDIT_QUAD(9, 0x006E6E69UL); // "inn\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
-	text_putsa((TRAM_RIGHT - LINE2_LEN), 1, title_credit_line, TX_BLACK);
+	TITLE_CREDIT_QUAD(4, 0x2D302E33UL); // "3.0-"
+	TITLE_CREDIT_QUAD(5, 0x20633172UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
+	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
 #undef TITLE_CREDIT_PAIR
@@ -3714,6 +3686,7 @@ static void near title_credit_put(void)
 
 void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 {
+	title_choice_graphics_unput(sel);
 	if(sel == MC_STORY) {
 		choice_put_centered(BOX_MAIN_CENTER_X, 0, 0, COMMAND_STORY, atrb);
 	} else if(sel == MC_VS) {
@@ -3747,14 +3720,20 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 		VALUE_CENTER_X = (VALUE_LEFT + (VALUE_W / 2)),
 	};
 
+	if(sel == OC_QUIT) {
+		title_choice_graphics_unput(6);
+	} else {
+		title_choice_graphics_unput(sel + 1);
+		if(!menu_font) {
+			text_putsa(
+				VALUE_TRAM_LEFT, choice_tram_y(sel + 1),
+				"            ", TX_WHITE
+			);
+		}
+	}
+
 	if(sel == OC_RANK) {
 		choice_put_centered(LABEL_CENTER_X, 1, 0, LABEL_RANK, atrb);
-		text_putsa(
-			(VALUE_TRAM_LEFT + 2), // This is bloat anyway, who cares
-			choice_tram_y(1),
-			"        ",
-			TX_WHITE
-		);
 		switch(resident->rank) {
 		case RANK_EASY:
 			choice_put_centered(VALUE_CENTER_X, 1, 1, VALUE_EASY, atrb);
@@ -3773,11 +3752,11 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 		choice_put_centered(LABEL_CENTER_X, 2, -1, LABEL_MUSIC, atrb);
 		switch(resident->bgm_mode) {
 		case SND_BGM_OFF:
-			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_OFF, atrb);
+			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_OFF, atrb);
 			break;
 		case SND_BGM_FM:
 		case SND_BGM_MIDI:
-			gaiji_putsa(VALUE_TRAM_LEFT, choice_tram_y(2), VALUE_FM, atrb);
+			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_FM, atrb);
 			break;
 		}
 	} else if(sel == OC_KEY_MODE) {
@@ -3845,6 +3824,7 @@ void near main_update_and_render(void)
 		__emit__(0x90, 0x90, 0x90, 0x90);
 		text_clear();
 		if(!in_main) {
+			title_menu_graphics_unput();
 			box_submenu_to_main_animate();
 		}
 		in_main = false; // ZUN bloat: Why is this set here, and now?
@@ -3946,6 +3926,8 @@ void near option_update_and_render(void)
 
 	if(!in_this_menu) {
 		text_clear();
+		title_menu_graphics_unput();
+		title_credit_graphics_unput();
 		box_main_to_submenu_animate();
 		menu_init(in_this_menu, input_allowed, OC_COUNT, option_choice_put);
 	}
@@ -4046,6 +4028,9 @@ void main(void)
 
 	gaiji_backup();
 	gaiji_entry_bfnt(GAIJI_FN);
+	menu_font_load(
+		reinterpret_cast<const unsigned char far *>(OP_AND_END_PF_FN)
+	);
 	cfg_load();
 	replay_restart_requested = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_RESTART
@@ -4245,15 +4230,26 @@ static int near replay_dev_story_stage_menu(void)
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-// Keep SHARED at its accepted paragraph phase after the practice hooks.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-// Keep SHARED at the RC1 offset after replacing its custom menu return path.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+// Keep all following original OP contributions at their 0.2.13 offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
+// Keep the browser's dense proportional layouts in patch-owned tail code.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 /// --------
