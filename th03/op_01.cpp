@@ -1273,16 +1273,16 @@ bool near score_menu(void)
 }
 
 enum {
-	REPLAY_MENU_LIST_LEFT = 6,
-	REPLAY_MENU_LIST_W = 31,
-	REPLAY_MENU_DETAIL_LEFT = 40,
-	REPLAY_MENU_DETAIL_W = 40,
+	REPLAY_MENU_LIST_LEFT = 4,
+	REPLAY_MENU_LIST_W = 72,
+	REPLAY_MENU_DETAIL_LEFT = 4,
+	REPLAY_MENU_DETAIL_W = 72,
 	REPLAY_MENU_HEAD_Y = 5,
 	REPLAY_MENU_LIST_Y = 6,
-	REPLAY_MENU_DETAIL_Y = 5,
+	REPLAY_MENU_DETAIL_Y = 4,
 	REPLAY_MENU_FOOT_Y = 24,
 	REPLAY_SAVE_COMPLETE_Y = 22,
-	REPLAY_MENU_VISIBLE = 5,
+	REPLAY_MENU_VISIBLE = 15,
 
 	REPLAY_REGI_GLYPH_W = 32,
 	REPLAY_REGI_GLYPH_H = 32,
@@ -2046,6 +2046,10 @@ static void replay_menu_detail_put_empty(uint8_t slot)
 	for(uint8_t y = REPLAY_MENU_DETAIL_Y; y < REPLAY_MENU_FOOT_Y; y++) {
 		replay_menu_span_clear(REPLAY_MENU_DETAIL_LEFT, y, REPLAY_MENU_DETAIL_W);
 	}
+	if(menu_font) {
+		replay_font_detail_empty_put(slot);
+		return;
+	}
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Slot ");
@@ -2466,14 +2470,7 @@ static void replay_menu_detail_put(
 	}
 }
 
-static void replay_menu_detail_put(uint8_t slot)
-{
-	replay_menu_detail_put(slot, 0, false);
-}
-
-static void replay_menu_render(
-	uint8_t sel, uint8_t top, uint8_t stage_sel, bool stage_focus
-)
+static void replay_menu_render(uint8_t sel, uint8_t top)
 {
 	uint8_t slot;
 	unsigned int line;
@@ -2483,11 +2480,15 @@ static void replay_menu_render(
 		slot = (top + line);
 		replay_menu_slot_line_put(
 			slot, sel,
-			(REPLAY_MENU_LIST_Y + (menu_font ? (line * 2) : line)),
-			!stage_focus
+			(REPLAY_MENU_LIST_Y + line), true
 		);
 	}
-	replay_menu_detail_put(sel, stage_sel, stage_focus);
+	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+}
+
+static void replay_menu_detail_render(uint8_t slot, uint8_t stage_sel)
+{
+	replay_menu_detail_put(slot, stage_sel, true);
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 }
 
@@ -3297,10 +3298,9 @@ static void replay_save_slot_render(uint8_t sel, uint8_t top)
 		slot = (top + line);
 		replay_menu_slot_line_put(
 			slot, sel,
-			(REPLAY_MENU_LIST_Y + (menu_font ? (line * 2) : line))
+			(REPLAY_MENU_LIST_Y + line)
 		);
 	}
-	replay_menu_detail_put(sel);
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 }
 
@@ -3310,9 +3310,20 @@ static void replay_save_complete_wait(void)
 
 	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = 'd';
 	*p++ = '.'; *p++ = ' '; *p++ = 'P'; *p++ = 'r'; *p++ = 'e';
-	*p++ = 's'; *p++ = 's'; *p++ = ' '; *p++ = 'a'; *p++ = ' ';
-	*p++ = 'k'; *p++ = 'e'; *p++ = 'y'; *p++ = '.'; *p = '\0';
-	replay_menu_line_put(REPLAY_MENU_LIST_LEFT, REPLAY_SAVE_COMPLETE_Y, TX_CYAN);
+	*p++ = 's'; *p++ = 's'; *p++ = ' '; *p++ = 'a'; *p++ = 'n';
+	*p++ = 'y'; *p++ = ' '; *p++ = 'k'; *p++ = 'e'; *p++ = 'y';
+	*p++ = '.'; *p = '\0';
+	if(menu_font) {
+		menu_font_put_centered(
+			(RES_X / 2), (REPLAY_SAVE_COMPLETE_Y * GLYPH_H),
+			replay_menu_line, 13
+		);
+	} else {
+		replay_menu_line_put(
+			((text_width() - 21) / 2),
+			REPLAY_SAVE_COMPLETE_Y, TX_CYAN
+		);
+	}
 	input_wait_for_change(0);
 	replay_menu_screen_init(false);
 }
@@ -3453,7 +3464,7 @@ bool near replay_menu(void)
 	uint8_t top = sel;
 	uint8_t stage_sel = 0;
 	uint8_t stage_count;
-	bool stage_focus = false;
+	bool detail_view = false;
 	uint32_t sample_count;
 	uint32_t global_frame;
 	uint32_t input_size;
@@ -3465,117 +3476,117 @@ bool near replay_menu(void)
 
 	replay_menu_screen_init(true);
 	palette_black_in(1);
-	replay_menu_render(sel, top, stage_sel, stage_focus);
+	replay_menu_render(sel, top);
 
 	while(1) {
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
-			if(input_sp & INPUT_UP) {
-				if(stage_focus) {
-					stage_count = replay_user_menu_header.stage_reached_count;
-					if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
-						stage_count = T3_REPLAY_USER_STAGE_COUNT;
+			if(detail_view) {
+				if(input_sp & (INPUT_CANCEL | INPUT_BOMB)) {
+					detail_view = false;
+					replay_menu_screen_init(false);
+					replay_menu_render(sel, top);
+				} else if(input_sp & INPUT_UP) {
+					if(
+						replay_user_read_slot_for_menu(sel) &&
+						!replay_menu_vs() && !replay_menu_practice()
+					) {
+						stage_count = replay_user_menu_header.stage_reached_count;
+						if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
+							stage_count = T3_REPLAY_USER_STAGE_COUNT;
+						}
+						if(stage_count != 0) {
+							if(stage_sel == 0) {
+								stage_sel = (stage_count - 1);
+							} else {
+								stage_sel--;
+							}
+							replay_menu_detail_render(sel, stage_sel);
+						}
 					}
-					if(stage_count != 0) {
-						if(stage_sel == 0) {
-							stage_sel = (stage_count - 1);
+				} else if(input_sp & INPUT_DOWN) {
+					if(
+						replay_user_read_slot_for_menu(sel) &&
+						!replay_menu_vs() && !replay_menu_practice()
+					) {
+						stage_count = replay_user_menu_header.stage_reached_count;
+						if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
+							stage_count = T3_REPLAY_USER_STAGE_COUNT;
+						}
+						if(stage_count != 0) {
+							stage_sel++;
+							if(stage_sel >= stage_count) {
+								stage_sel = 0;
+							}
+							replay_menu_detail_render(sel, stage_sel);
+						}
+					}
+				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+					if(replay_user_read_slot_for_menu(sel)) {
+						if(!replay_menu_vs() && !replay_menu_practice()) {
+							if(replay_user_checkpoint_read_for_menu(
+								stage_sel,
+								&sample_count, &global_frame, &input_size
+							)) {
+								replay_user_restore_resident_from_menu();
+								replay_resident_handoff_set(
+									T3_REPLAY_RES_MODE_USER_PLAYBACK
+								);
+								replay_resident_handoff_slot_set(sel);
+								replay_resident_handoff_u32_set(
+									T3_REPLAY_RES_SAMPLE_COUNT_INDEX, sample_count
+								);
+								replay_resident_handoff_u32_set(
+									T3_REPLAY_RES_GLOBAL_FRAME_INDEX, global_frame
+								);
+								replay_resident_handoff_u32_set(
+									T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
+								);
+								resident->unused_3[
+									T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
+								] = (stage_sel + 1);
+								return switch_to_mainl(false);
+							}
 						} else {
-							stage_sel--;
+							replay_user_restore_resident_from_menu();
+							replay_resident_handoff_set(
+								T3_REPLAY_RES_MODE_USER_PLAYBACK
+							);
+							replay_resident_handoff_slot_set(sel);
+							return switch_to_mainl(false);
 						}
 					}
-				} else {
+				}
+			} else {
+				if(input_sp & INPUT_UP) {
 					ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-					stage_sel = 0;
 					replay_menu_top_clamp(sel, top);
-				}
-				replay_menu_render(sel, top, stage_sel, stage_focus);
-			}
-			if(input_sp & INPUT_DOWN) {
-				if(stage_focus) {
-					stage_count = replay_user_menu_header.stage_reached_count;
-					if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
-						stage_count = T3_REPLAY_USER_STAGE_COUNT;
-					}
-					if(stage_count != 0) {
-						stage_sel++;
-						if(stage_sel >= stage_count) {
-							stage_sel = 0;
-						}
-					}
-				} else {
+					replay_menu_render(sel, top);
+				} else if(input_sp & INPUT_DOWN) {
 					ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-					stage_sel = 0;
 					replay_menu_top_clamp(sel, top);
-				}
-				replay_menu_render(sel, top, stage_sel, stage_focus);
-			}
-			if(input_sp & INPUT_LEFT) {
-				if(stage_focus) {
-					stage_focus = false;
-					replay_menu_render(sel, top, stage_sel, stage_focus);
-				}
-			}
-			if(input_sp & INPUT_RIGHT) {
-				if(
-					!stage_focus &&
-					replay_user_read_slot_for_menu(sel) &&
-					!replay_menu_vs() &&
-					(replay_user_menu_header.stage_reached_count != 0)
-				) {
-					stage_focus = true;
+					replay_menu_render(sel, top);
+				} else if(input_sp & INPUT_LEFT) {
+					sel = (
+						(sel < REPLAY_MENU_VISIBLE) ?
+						0 : (sel - REPLAY_MENU_VISIBLE)
+					);
+					replay_menu_top_clamp(sel, top);
+					replay_menu_render(sel, top);
+				} else if(input_sp & INPUT_RIGHT) {
+					sel = (
+						(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) ?
+						(T3_REPLAY_USER_SLOT_COUNT - 1) :
+						(sel + REPLAY_MENU_VISIBLE)
+					);
+					replay_menu_top_clamp(sel, top);
+					replay_menu_render(sel, top);
+				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+					detail_view = true;
 					stage_sel = 0;
-					replay_menu_render(sel, top, stage_sel, stage_focus);
-				}
-			}
-			if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
-				if(
-					stage_focus &&
-					replay_user_read_slot_for_menu(sel) &&
-					replay_user_checkpoint_read_for_menu(
-						stage_sel, &sample_count, &global_frame, &input_size
-					)
-				) {
-					replay_user_restore_resident_from_menu();
-					replay_resident_handoff_set(
-						T3_REPLAY_RES_MODE_USER_PLAYBACK
-					);
-					replay_resident_handoff_slot_set(sel);
-					replay_resident_handoff_u32_set(
-						T3_REPLAY_RES_SAMPLE_COUNT_INDEX, sample_count
-					);
-					replay_resident_handoff_u32_set(
-						T3_REPLAY_RES_GLOBAL_FRAME_INDEX, global_frame
-					);
-					replay_resident_handoff_u32_set(
-						T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
-					);
-					resident->unused_3[T3_REPLAY_RES_PLAYBACK_STAGE_INDEX] = (
-						stage_sel + 1
-					);
-					return switch_to_mainl(false);
-				} else if(
-					!stage_focus && replay_user_read_slot_for_menu(sel)
-				) {
-					replay_user_restore_resident_from_menu();
-					replay_resident_handoff_set(
-						T3_REPLAY_RES_MODE_USER_PLAYBACK
-					);
-#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
-					if(resident->game_mode == GM_STORY) {
-						resident->unused_3[
-							T3_REPLAY_RES_DEBUG_STAGE_START_INDEX
-						] = resident->story_stage;
-					}
-#endif
-					replay_resident_handoff_slot_set(sel);
-					return switch_to_mainl(false);
-				}
-			}
-			if(input_sp & INPUT_CANCEL) {
-				if(stage_focus) {
-					stage_focus = false;
-					replay_menu_render(sel, top, stage_sel, stage_focus);
-				} else {
+					replay_menu_screen_init(false);
+					replay_menu_detail_render(sel, stage_sel);
+				} else if(input_sp & INPUT_CANCEL) {
 					text_clear();
 					return true;
 				}
@@ -3671,7 +3682,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -3694,13 +3705,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20312E33UL); // "3.1 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D322E33UL); // "3.2-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4282,6 +4293,11 @@ static int near replay_dev_story_stage_menu(void)
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT)
+// Replaces the obsolete initial-playback stage-select handoff in this profile.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
+#endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
 // Keep the browser's dense proportional layouts in patch-owned tail code.
 #if defined(TH03_REPLAY_DEVTOOLS)
@@ -4289,10 +4305,8 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

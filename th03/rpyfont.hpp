@@ -10,5 +10,6 @@ void far replay_font_columns_put(void);
 void far replay_font_detail_put(
 	uint8_t slot, uint8_t stage_sel, bool stage_focus
 );
+void far replay_font_detail_empty_put(uint8_t slot);
 
 #endif

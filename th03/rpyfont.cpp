@@ -12,21 +12,25 @@
 #include <stddef.h>
 
 enum {
-	LIST_LEFT = 6,
-	LIST_W = 31,
+	LIST_LEFT = 4,
+	LIST_W = 72,
 	HEAD_Y = 5,
 	DETAIL_Y = 5,
 	LIST_PIXEL_LEFT = (LIST_LEFT * GLYPH_HALF_W),
-	SLOT_PIXEL_LEFT = (LIST_PIXEL_LEFT + 12),
-	NAME_PIXEL_LEFT = (LIST_PIXEL_LEFT + 48),
-	CHAR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 12),
-	RANK_PIXEL_LEFT = (LIST_PIXEL_LEFT + 52),
-	SCORE_PIXEL_RIGHT = (LIST_PIXEL_LEFT + 220),
-	STAGE_PIXEL_LEFT = (LIST_PIXEL_LEFT + 228),
-	DETAIL_PIXEL_LEFT = (40 * GLYPH_HALF_W),
-	DETAIL_PIXEL_INSET = (DETAIL_PIXEL_LEFT + 8),
-	DETAIL_PIXEL_MID = (DETAIL_PIXEL_LEFT + 168),
-	DETAIL_PIXEL_RIGHT = 632,
+	CURSOR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 16),
+	SLOT_PIXEL_LEFT = 72,
+	CHAR_PIXEL_LEFT = 128,
+	RANK_PIXEL_LEFT = 170,
+	NAME_PIXEL_LEFT = 208,
+	SCORE_PIXEL_RIGHT = 536,
+	STAGE_PIXEL_LEFT = 568,
+	DETAIL_PIXEL_LEFT = 48,
+	DETAIL_SPLIT_PIXEL_LEFT = 344,
+	DETAIL_SPLIT_OPPONENT_LEFT = 384,
+	DETAIL_SPLIT_SCORE_RIGHT = 600,
+	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
+	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
+	DETAIL_ROUND_WINNER_LEFT = 584,
 };
 
 extern char replay_menu_line[81];
@@ -455,9 +459,8 @@ void far replay_font_slot_line_put(
 	char *p;
 	unsigned atrb = (((slot == sel) && active) ? TX_YELLOW : TX_WHITE);
 
-	replay_menu_span_clear(LIST_LEFT, (y + 1), LIST_W);
 	if((slot == sel) && active) {
-		text_put(LIST_PIXEL_LEFT, y, ">", atrb);
+		text_put(CURSOR_PIXEL_LEFT, y, ">", atrb);
 	}
 	p = append_u8_2(replay_menu_line, slot);
 	field_put(SLOT_PIXEL_LEFT, y, p, atrb);
@@ -466,20 +469,20 @@ void far replay_font_slot_line_put(
 		field_put(NAME_PIXEL_LEFT, y, p, atrb);
 		return;
 	}
-	p = append_name(replay_menu_line);
-	field_put(NAME_PIXEL_LEFT, y, p, atrb);
 	p = append_playchar_pair(
 		replay_menu_line, replay_user_menu_header.playchar_p1
 	);
-	field_put(CHAR_PIXEL_LEFT, (y + 1), p, atrb);
+	field_put(CHAR_PIXEL_LEFT, y, p, atrb);
 	p = replay_menu_line;
 	*p++ = rank_initial(replay_user_menu_header.rank);
-	field_put(RANK_PIXEL_LEFT, (y + 1), p, atrb);
+	field_put(RANK_PIXEL_LEFT, y, p, atrb);
+	p = append_name(replay_menu_line);
+	field_put(NAME_PIXEL_LEFT, y, p, atrb);
 	score_put(
-		SCORE_PIXEL_RIGHT, (y + 1), list_score(), summary_valid(), atrb
+		SCORE_PIXEL_RIGHT, y, list_score(), summary_valid(), atrb
 	);
 	p = append_final_stage(replay_menu_line);
-	field_put(STAGE_PIXEL_LEFT, (y + 1), p, atrb);
+	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
 }
 
 void far replay_font_columns_put(void)
@@ -488,7 +491,9 @@ void far replay_font_columns_put(void)
 
 	if(menu_font) {
 		replay_menu_span_clear(LIST_LEFT, HEAD_Y, LIST_W);
-		text_put(SLOT_PIXEL_LEFT, HEAD_Y, "Sl", TX_CYAN);
+		text_put(SLOT_PIXEL_LEFT, HEAD_Y, "Slot", TX_CYAN);
+		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Ch", TX_CYAN);
+		text_put(RANK_PIXEL_LEFT, HEAD_Y, "R", TX_CYAN);
 		text_put(NAME_PIXEL_LEFT, HEAD_Y, "Name", TX_CYAN);
 		menu_font_put_right(SCORE_PIXEL_RIGHT, (HEAD_Y * GLYPH_H), "Score", 13);
 		text_put(STAGE_PIXEL_LEFT, HEAD_Y, "Stg", TX_CYAN);
@@ -503,25 +508,46 @@ void far replay_font_columns_put(void)
 	*p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' '; *p++ = ' ';
 	*p++ = 'S'; *p++ = 't'; *p++ = 'g'; *p = '\0';
 	replay_menu_line_put(LIST_LEFT, HEAD_Y, TX_CYAN);
-	p = append_cstr(replay_menu_line, "Details");
-	*p = '\0';
-	replay_menu_line_put(40, HEAD_Y, TX_CYAN);
 }
 
-static void common_put(uint8_t slot)
+static void common_put(uint8_t slot, unsigned y)
 {
 	char *p = append_cstr(replay_menu_line, "Slot ");
 
 	p = append_u8_2(p, slot);
-	p = append_cstr(p, "  ");
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_CYAN);
+	p = append_cstr(replay_menu_line, "Status: ");
 	p = append_cstr(p, (replay_practice() ? "Practice" : end_reason_name()));
-	field_put(DETAIL_PIXEL_INSET, DETAIL_Y, p, TX_CYAN);
-	p = append_cstr(replay_menu_line, "N: ");
+	field_put(DETAIL_PIXEL_LEFT, (y + 1), p, TX_CYAN);
+	p = append_cstr(replay_menu_line, "Name: ");
 	p = append_name(p);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 1), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "D: ");
+	field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Date: ");
 	p = append_date(p);
-	field_put_right(DETAIL_PIXEL_RIGHT, (DETAIL_Y + 1), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (y + 3), p, TX_WHITE);
+}
+
+static void diagnostics_put(unsigned y, bool combine_last)
+{
+	char *p = append_cstr(replay_menu_line, "Samples: ");
+
+	p = append_u32(p, replay_user_menu_header.sample_count);
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Frames: ");
+	p = append_u32(p, replay_user_menu_header.final_frame_count);
+	field_put(DETAIL_PIXEL_LEFT, (y + 1), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Bytes: ");
+	p = append_u32(p, replay_user_menu_header.input_size);
+	if(combine_last) {
+		p = append_cstr(p, "  RNG: ");
+		p = append_u32(p, replay_user_menu_header.resident_rand);
+		field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
+		return;
+	}
+	field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "RNG: ");
+	p = append_u32(p, replay_user_menu_header.resident_rand);
+	field_put(DETAIL_PIXEL_LEFT, (y + 3), p, TX_WHITE);
 }
 
 static void round_put(
@@ -534,30 +560,30 @@ static void round_put(
 {
 	char *p = append_u32(replay_menu_line, (round + 1));
 
-	field_put(DETAIL_PIXEL_INSET, y, p, atrb);
+	field_put(DETAIL_SPLIT_PIXEL_LEFT, y, p, atrb);
 	score_put(
-		(DETAIL_PIXEL_LEFT + 160), y,
+		DETAIL_ROUND_P1_SCORE_RIGHT, y,
 		(valid ? split->score_p1 : NULL), valid, atrb
 	);
 	score_put(
-		(DETAIL_PIXEL_LEFT + 280), y,
+		DETAIL_ROUND_P2_SCORE_RIGHT, y,
 		(valid ? split->score_p2 : NULL), valid, atrb
 	);
 	p = replay_menu_line;
 	p = (valid ? append_round_winner(p, split->route_winner) : append_cstr(p, "-"));
-	field_put((DETAIL_PIXEL_LEFT + 300), y, p, atrb);
+	field_put(DETAIL_ROUND_WINNER_LEFT, y, p, atrb);
 }
 
 static void round_heading_put(unsigned y)
 {
-	text_put(DETAIL_PIXEL_INSET, y, "Rd", TX_CYAN);
+	text_put(DETAIL_SPLIT_PIXEL_LEFT, y, "Rd", TX_CYAN);
 	menu_font_put_right(
-		(DETAIL_PIXEL_LEFT + 160), (y * GLYPH_H), "P1 Score", 13
+		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H), "P1 Score", 13
 	);
 	menu_font_put_right(
-		(DETAIL_PIXEL_LEFT + 280), (y * GLYPH_H), "P2 Score", 13
+		DETAIL_ROUND_P2_SCORE_RIGHT, (y * GLYPH_H), "P2 Score", 13
 	);
-	text_put((DETAIL_PIXEL_LEFT + 300), y, "W", TX_CYAN);
+	text_put(DETAIL_ROUND_WINNER_LEFT, y, "W", TX_CYAN);
 }
 
 static void vs_put(void)
@@ -567,43 +593,43 @@ static void vs_put(void)
 	replay_user_round_split_t near *split;
 	bool valid = summary_valid();
 
-	text_put(
-		DETAIL_PIXEL_INSET, (DETAIL_Y + 2),
-		((replay_user_menu_header.game_mode == GM_VS_1P_CPU) ? "P1:" : "Win:"),
-		TX_WHITE
+	p = append_cstr(
+		replay_menu_line,
+		((replay_user_menu_header.game_mode == GM_VS_1P_CPU) ?
+			"P1 Score: " : "Win Score: ")
 	);
-	score_put(
-		(DETAIL_PIXEL_LEFT + 160), (DETAIL_Y + 2),
-		list_score(), valid, TX_WHITE
-	);
-	p = append_cstr(replay_menu_line, "Rank: ");
-	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 2), p, TX_WHITE);
+	p = (valid ? append_packed_score(p, list_score()) : append_unknown_score(p));
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Mode: ");
 	p = append_cstr(p, game_mode_name(replay_user_menu_header.game_mode));
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 3), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "AF P1: ");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Rank: ");
+	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 6), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Autofire P1: ");
 	p = append_cstr(
 		p, ((replay_user_menu_header.autofire & 0x01) ? "On" : "Off")
 	);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "P2: ");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 7), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Autofire P2: ");
 	p = append_cstr(
 		p, ((replay_user_menu_header.autofire & 0x02) ? "On" : "Off")
 	);
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 4), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 8), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "P1: ");
 	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
 	if(replay_user_menu_header.is_cpu_p1) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 5), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 9), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "P2: ");
 	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p2));
 	if(replay_user_menu_header.is_cpu_p2) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 6), p, TX_WHITE);
-	round_heading_put(DETAIL_Y + 8);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
+	diagnostics_put((DETAIL_Y + 12), false);
+	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
+	round_heading_put(DETAIL_Y + 2);
 	for(round = 0; round < 3; round++) {
 		split = round_split(round);
-		round_put((DETAIL_Y + 9 + round), round, split, (split != NULL), TX_WHITE);
+		round_put((DETAIL_Y + 3 + round), round, split, (split != NULL), TX_WHITE);
 	}
 }
 
@@ -614,51 +640,57 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 	unsigned atrb;
 	bool valid = summary_valid();
 
-	text_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 2), "Final:", TX_WHITE);
-	score_put(
-		(DETAIL_PIXEL_LEFT + 180), (DETAIL_Y + 2),
-		replay_user_menu_header.final_score, valid, TX_WHITE
+	p = append_cstr(replay_menu_line, "Final Score: ");
+	p = (
+		valid ?
+			append_packed_score(p, replay_user_menu_header.final_score) :
+			append_unknown_score(p)
 	);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Lives: ");
 	p = append_story_lives(p);
-	field_put((DETAIL_PIXEL_LEFT + 196), (DETAIL_Y + 2), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Mode: ");
 	p = append_cstr(p, game_mode_name(replay_user_menu_header.game_mode));
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 3), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 6), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Rank: ");
 	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 3), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Start: S");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 7), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Start Stage: ");
 	p = append_stage(p, replay_user_menu_header.story_stage);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "AF: ");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 8), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Autofire: ");
 	p = append_cstr(
 		p, ((replay_user_menu_header.autofire & 0x01) ? "On" : "Off")
 	);
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 4), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 9), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Player: ");
 	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
 	if(replay_user_menu_header.is_cpu_p1) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 5), p, TX_WHITE);
-	text_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 7), "St", TX_CYAN);
-	text_put((DETAIL_PIXEL_INSET + 34), (DETAIL_Y + 7), "Op", TX_CYAN);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
+	diagnostics_put((DETAIL_Y + 12), false);
+	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
+	text_put(DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
+	text_put(DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 2), "Op", TX_CYAN);
 	menu_font_put_right(
-		DETAIL_PIXEL_RIGHT, ((DETAIL_Y + 7) * GLYPH_H), "Score", 13
+		DETAIL_SPLIT_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H), "Score", 13
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
 		atrb = ((stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE);
 		p = replay_menu_line;
 		if(stage_focus && (stage == stage_sel)) *p++ = '>';
 		*p++ = static_cast<char>('1' + stage);
-		field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 8 + stage), p, atrb);
+		field_put(
+			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
+		);
 		p = append_playchar_pair(
 			replay_menu_line, stage_opponent(stage)
 		);
 		field_put(
-			(DETAIL_PIXEL_INSET + 34), (DETAIL_Y + 8 + stage), p, atrb
+			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		score_put(
-			DETAIL_PIXEL_RIGHT, (DETAIL_Y + 8 + stage),
+			DETAIL_SPLIT_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
 			replay_user_menu_header.scenario.story.stage_scores[stage],
 			(valid && (stage < replay_user_menu_header.stage_reached_count)), atrb
 		);
@@ -678,37 +710,37 @@ static void practice_put(void)
 	replay_user_round_split_t near *split;
 	bool valid = summary_valid();
 
-	text_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 2), "Final:", TX_WHITE);
-	score_put(
-		(DETAIL_PIXEL_LEFT + 180), (DETAIL_Y + 2),
-		replay_user_menu_header.final_score, valid, TX_WHITE
+	p = append_cstr(replay_menu_line, "Final Score: ");
+	p = (
+		valid ?
+			append_packed_score(p, replay_user_menu_header.final_score) :
+			append_unknown_score(p)
 	);
+	field_put(DETAIL_PIXEL_LEFT, 8, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Rank: ");
 	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put((DETAIL_PIXEL_LEFT + 196), (DETAIL_Y + 2), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, 9, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Preset: ");
 	p = append_cstr(p, (
 		(replay_user_menu_header.scenario.practice.config.preset ==
 		 PRACTICE_PRESET_VS_DEFAULT) ? "VS Default" : "Story Native"
 	));
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 3), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "P1: ");
+	field_put(DETAIL_PIXEL_LEFT, 10, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Players: ");
 	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "CPU: ");
+	p = append_cstr(p, " / ");
 	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p2));
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Stage: ");
+	field_put(DETAIL_PIXEL_LEFT, 11, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Start: Stage ");
 	p = append_u32(
 		p, (replay_user_menu_header.scenario.practice.config.stage + 1)
 	);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 5), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Round: ");
+	p = append_cstr(p, " / Round ");
 	p = append_u32(
 		p, (replay_user_menu_header.scenario.practice.config.round + 1)
 	);
 	if(replay_user_menu_header.scenario.practice.config.round == 5) *p++ = '+';
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 5), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, 12, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Stock: ");
 	if(
 		replay_user_menu_header.scenario.practice.config.stock ==
@@ -718,8 +750,7 @@ static void practice_put(void)
 	} else {
 		p = append_u32(p, replay_user_menu_header.scenario.practice.config.stock);
 	}
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 6), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Ext: ");
+	p = append_cstr(p, " / Extends ");
 	if(
 		replay_user_menu_header.scenario.practice.config.preset ==
 		PRACTICE_PRESET_VS_DEFAULT
@@ -730,7 +761,7 @@ static void practice_put(void)
 			p, replay_user_menu_header.scenario.practice.config.extends_gained
 		);
 	}
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 6), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, 13, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Timer: ");
 	if(
 		replay_user_menu_header.scenario.practice.config.cpu_timer ==
@@ -745,41 +776,41 @@ static void practice_put(void)
 	} else {
 		p = append_cstr(p, "Infinite");
 	}
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 7), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Safety: ");
+	field_put(DETAIL_PIXEL_LEFT, 14, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "CPU Safety: ");
 	p = append_u32(
 		p,
 		replay_user_menu_header.scenario.practice.config.initial_cpu_safety_frames
 	);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 8), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "RSp: ");
+	field_put(DETAIL_PIXEL_LEFT, 15, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Speeds: ");
 	p = append_q4(p, replay_user_menu_header.scenario.practice.config.round_speed);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 9), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Bullet: ");
+	p = append_cstr(p, " / ");
 	p = append_q4(p, replay_user_menu_header.scenario.practice.config.bullet_speed);
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 9), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Spell P1: ");
+	field_put(DETAIL_PIXEL_LEFT, 16, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Spells: P1 ");
 	p = append_u32(p, replay_user_menu_header.scenario.practice.config.p1_spell);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 10), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "CPU: ");
+	p = append_cstr(p, " / CPU ");
 	p = append_u32(p, replay_user_menu_header.scenario.practice.config.cpu_spell);
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 10), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Boss: ");
+	field_put(DETAIL_PIXEL_LEFT, 17, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Boss Level: ");
 	p = append_u32(
 		p, (replay_user_menu_header.scenario.practice.config.boss_level + 1)
 	);
-	field_put(DETAIL_PIXEL_INSET, (DETAIL_Y + 11), p, TX_WHITE);
+	field_put(DETAIL_PIXEL_LEFT, 18, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "CPU Dmg: ");
 	p = append_u32(p, replay_user_menu_header.scenario.practice.config.cpu_damage);
-	field_put(DETAIL_PIXEL_MID, (DETAIL_Y + 11), p, TX_WHITE);
-	round_heading_put(DETAIL_Y + 12);
+	field_put(DETAIL_PIXEL_LEFT, 19, p, TX_WHITE);
+	diagnostics_put(20, true);
+	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
+	round_heading_put(DETAIL_Y + 2);
 	for(attempt = 0; attempt < 5; attempt++) {
 		round = static_cast<uint8_t>(
 			replay_user_menu_header.scenario.practice.config.round + attempt
 		);
 		split = round_split(round);
 		round_put(
-			(DETAIL_Y + 13 + attempt), round, split,
+			(DETAIL_Y + 3 + attempt), round, split,
 			((attempt < attempts) && (split != NULL)), TX_WHITE
 		);
 	}
@@ -789,15 +820,28 @@ void far replay_font_detail_put(
 	uint8_t slot, uint8_t stage_sel, bool stage_focus
 )
 {
-	common_put(slot);
 	if(replay_practice()) {
+		common_put(slot, 4);
 		practice_put();
 	} else if(replay_vs()) {
+		common_put(slot, DETAIL_Y);
 		vs_put();
 	} else {
+		common_put(slot, DETAIL_Y);
 		story_put(stage_sel, stage_focus);
 	}
 }
 
+void far replay_font_detail_empty_put(uint8_t slot)
+{
+	char *p = append_cstr(replay_menu_line, "Slot ");
+
+	p = append_u8_2(p, slot);
+	field_put(DETAIL_PIXEL_LEFT, DETAIL_Y, p, TX_CYAN);
+	text_put(
+		DETAIL_PIXEL_LEFT, (DETAIL_Y + 2), "No replay header found.", TX_WHITE
+	);
+}
+
 // Retain the accepted paragraph phase together with OPFONT_TEXT.
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
