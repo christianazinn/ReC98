@@ -218,15 +218,20 @@ static void replay_fast_forward_wait_skip(bool held)
 }
 
 static void replay_overlay_graph_fill(
-	int left, int top, int right, int bottom, int color
+	int left, int top, int right, int bottom, int color, int page
 )
 {
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
 	grcg_setcolor(GC_RMW, color);
-	graph_accesspage(0);
-	grcg_boxfill(left, top, right, bottom);
-	graph_accesspage(1);
-	grcg_boxfill(left, top, right, bottom);
+	if(page < 2) {
+		graph_accesspage(page);
+		grcg_boxfill(left, top, right, bottom);
+	} else {
+		graph_accesspage(0);
+		grcg_boxfill(left, top, right, bottom);
+		graph_accesspage(1);
+		grcg_boxfill(left, top, right, bottom);
+	}
 	grcg_off();
 	graph_accesspage(page_front);
 }
@@ -338,7 +343,7 @@ static void replay_debug_overlay_put(void)
 	*out = '\0';
 
 	replay_overlay_graph_fill(
-		PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE
+		PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE, 2
 	);
 	text_putsa(TRAM_LEFT, 0, line, (TX_BLACK | TX_REVERSE));
 }
@@ -387,7 +392,7 @@ void far replay_overlay_put(void)
 #endif
 
 	replay_overlay_graph_fill(
-		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE
+		PIXEL_LEFT, PIXEL_TOP, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE, 2
 	);
 	text_putsa(TRAM_LEFT, TRAM_TOP, line, (TX_BLACK | TX_REVERSE));
 }
@@ -3073,9 +3078,11 @@ static unsigned replay_pause_clear_atrb(unsigned x)
 
 static void replay_pause_put_graph_backing(void)
 {
+	graph_copy_page(page_back);
 	replay_overlay_graph_fill(
 		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM, V_WHITE
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM,
+		V_WHITE, page_front
 	);
 }
 
@@ -3325,6 +3332,12 @@ static void replay_pause_clear(void)
 	}
 }
 
+static void replay_pause_restore_graphics(void)
+{
+	graph_copy_page(page_front);
+	graph_accesspage(page_back);
+}
+
 static void replay_pause_wait_release(void)
 {
 	goto release_test;
@@ -3375,10 +3388,7 @@ input_wait:
 	return REPLAY_PAUSE_RESTART;
 restart_not_requested:
 	if(input_sp & INPUT_CANCEL) {
-		replay_pause_wait_release();
-		replay_pause_clear();
-		replay_pause_beep();
-		return REPLAY_PAUSE_RESUME;
+		goto resume;
 	}
 	if(input_sp & INPUT_UP) {
 		replay_pause_save_refresh();
@@ -3417,14 +3427,19 @@ restart_not_requested:
 			goto input_wait;
 		}
 		if(sel == REPLAY_PAUSE_RESUME) {
-			replay_pause_wait_release();
-			replay_pause_clear();
-			replay_pause_beep();
+			goto resume;
 		}
 		return sel;
 	}
 	frame_delay(1);
 	goto input_wait;
+
+resume:
+	replay_pause_wait_release();
+	replay_pause_restore_graphics();
+	replay_pause_clear();
+	replay_pause_beep();
+	return REPLAY_PAUSE_RESUME;
 }
 
 #undef REPLAY_PAUSE_LEFT
@@ -3580,7 +3595,7 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
