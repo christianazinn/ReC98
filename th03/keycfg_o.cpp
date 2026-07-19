@@ -198,9 +198,9 @@ static bool keyconfig_key_valid(uint8_t key)
 	);
 }
 
-static uint8_t keyconfig_checksum(const keyconfig_file_t near& cfg)
+static uint8_t keyconfig_checksum(const keyconfig_file_t __ss& cfg)
 {
-	const uint8_t near *p = reinterpret_cast<const uint8_t near *>(&cfg);
+	const uint8_t __ss *p = reinterpret_cast<const uint8_t __ss *>(&cfg);
 	uint8_t checksum = 0xA7;
 
 	for(unsigned int i = 0; i < offsetof(keyconfig_file_t, checksum); i++) {
@@ -263,7 +263,7 @@ static void keyconfig_resident_load(keyconfig_menu_t __ss& cfg)
 }
 
 static bool keyconfig_binding_range_valid(
-	const keyconfig_file_t near& cfg, uint8_t first, uint8_t end
+	const keyconfig_file_t __ss& cfg, uint8_t first, uint8_t end
 )
 {
 	for(uint8_t i = first; i < end; i++) {
@@ -282,7 +282,7 @@ static bool keyconfig_binding_range_valid(
 	return true;
 }
 
-static bool keyconfig_file_valid(const keyconfig_file_t near& cfg)
+static bool keyconfig_file_valid(const keyconfig_file_t __ss& cfg)
 {
 	if(
 		(cfg.magic[0] != 'T') || (cfg.magic[1] != '3') ||
@@ -388,6 +388,9 @@ static bool keyconfig_file_save(const keyconfig_menu_t __ss& menu)
 	return true;
 }
 
+// Keep the public load entry point at its RC3 offset.
+#pragma codestring "\x90"
+
 void far keyconfig_load(bool legacy_autofire)
 {
 	keyconfig_file_t file_cfg;
@@ -418,6 +421,10 @@ void far keyconfig_load(bool legacy_autofire)
 	}
 	keyconfig_resident_store(menu);
 }
+
+// Keep the menu and following runtime code at their RC3 offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static void keyconfig_line_clear(char __ss *line)
 {

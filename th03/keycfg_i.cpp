@@ -130,12 +130,16 @@ void far keyconfig_input_apply(void)
 	}
 }
 
-void far keyconfig_story_input_merge(void)
+void far keyconfig_gameplay_merge_p1(void)
 {
-	if(resident->game_mode == GM_STORY) {
-		input_sp &= ~INPUT_MOVEMENT;
-	}
+	input_sp &= ~(INPUT_MOVEMENT | INPUT_SHOT | INPUT_BOMB);
 	input_mp_p1 |= input_sp;
+}
+
+void far keyconfig_gameplay_merge_p2(void)
+{
+	input_sp &= ~(INPUT_MOVEMENT | INPUT_SHOT | INPUT_BOMB);
+	input_mp_p2 |= input_sp;
 }
 
 extern "C" void far keyconfig_restart_request_poll(void)
@@ -168,5 +172,4 @@ void far keyconfig_charge_mask_human(void)
 }
 
 // Keep the following runtime segment at its RC1 paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

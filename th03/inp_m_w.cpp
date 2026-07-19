@@ -31,7 +31,8 @@ void pascal input_mode_joy_vs_key()
 	if(js_bexist) {
 		js_sense();
 		input_mp_p1 = js_stat[0];
-		input_mp_p2 |= input_sp;
+		keyconfig_gameplay_merge_p2();
+		__emit__(0x90, 0x90);
 	}
 }
 
@@ -41,14 +42,15 @@ void pascal input_mode_key_vs_joy()
 	if(js_bexist) {
 		js_sense();
 		input_mp_p2 = js_stat[0];
-		input_mp_p1 |= input_sp;
+		keyconfig_gameplay_merge_p1();
+		__emit__(0x90, 0x90);
 	}
 }
 
 void pascal input_mode_1p_vs_cpu()
 {
 	input_reset_sense_key_held();
-	keyconfig_story_input_merge();
+	keyconfig_gameplay_merge_p1();
 	__emit__(0x90, 0x90);
 	js_input_merge_into(input_mp_p1);
 	input_mp_p2 = INPUT_NONE;
@@ -57,7 +59,8 @@ void pascal input_mode_1p_vs_cpu()
 void pascal input_mode_cpu_vs_1p()
 {
 	input_reset_sense_key_held();
-	input_mp_p2 |= input_sp;
+	keyconfig_gameplay_merge_p2();
+	__emit__(0x90, 0x90);
 	js_input_merge_into(input_mp_p2);
 	input_mp_p1 = INPUT_NONE;
 }

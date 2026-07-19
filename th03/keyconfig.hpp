@@ -116,7 +116,8 @@ inline void keyconfig_resident_binding_set(
 uint8_t far keyconfig_default_binding(uint8_t pid, uint8_t action);
 uint8_t far keyconfig_default_story_binding(uint8_t action);
 void far keyconfig_input_apply(void);
-void far keyconfig_story_input_merge(void);
+void far keyconfig_gameplay_merge_p1(void);
+void far keyconfig_gameplay_merge_p2(void);
 extern "C" void far keyconfig_restart_request_poll(void);
 void far keyconfig_charge_mask_human(void);
 
