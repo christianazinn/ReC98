@@ -389,9 +389,6 @@ static bool keyconfig_file_save(const keyconfig_menu_t __ss& menu)
 	return true;
 }
 
-// Keep the public load entry point at its RC3 offset.
-#pragma codestring "\x90"
-
 void far keyconfig_load(bool legacy_autofire)
 {
 	keyconfig_file_t file_cfg;
@@ -422,10 +419,6 @@ void far keyconfig_load(bool legacy_autofire)
 	}
 	keyconfig_resident_store(menu);
 }
-
-// Keep the menu and following runtime code at their RC3 offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static void keyconfig_line_clear(char __ss *line)
 {
@@ -1019,7 +1012,3 @@ bool far keyconfig_menu(void)
 		frame_delay(1);
 	}
 }
-
-// Keep the following runtime segment at its RC1 paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

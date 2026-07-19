@@ -1283,6 +1283,8 @@ enum {
 	REPLAY_MENU_FOOT_Y = 24,
 	REPLAY_SAVE_COMPLETE_Y = 22,
 	REPLAY_MENU_VISIBLE = 15,
+	REPLAY_MENU_LIST_CURSOR_LEFT = 40,
+	REPLAY_MENU_DETAIL_CURSOR_LEFT = 336,
 
 	REPLAY_REGI_GLYPH_W = 32,
 	REPLAY_REGI_GLYPH_H = 32,
@@ -1964,12 +1966,11 @@ static void replay_menu_slot_line_put(
 {
 	char *p;
 	bool has_replay;
-	tram_atrb2 atrb = (
-		((slot == sel) && active) ? TX_YELLOW : TX_WHITE
-	);
+	tram_atrb2 atrb;
 
-	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	has_replay = replay_user_read_slot_for_menu(slot);
+	atrb = (((slot == sel) && active) ? TX_YELLOW : TX_WHITE);
+	replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	if(menu_font) {
 		replay_font_slot_line_put(
 			slot, sel, y, active, has_replay
@@ -2474,22 +2475,32 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 {
 	uint8_t slot;
 	unsigned int line;
+	bool active = replay_user_read_slot_for_menu(sel);
 
+	replay_font_render_begin();
+	for(line = REPLAY_MENU_DETAIL_Y; line < REPLAY_MENU_FOOT_Y; line++) {
+		replay_menu_span_clear(
+			REPLAY_MENU_DETAIL_LEFT, line, REPLAY_MENU_DETAIL_W
+		);
+	}
 	replay_font_columns_put();
 	for(line = 0; line < REPLAY_MENU_VISIBLE; line++) {
 		slot = (top + line);
 		replay_menu_slot_line_put(
 			slot, sel,
-			(REPLAY_MENU_LIST_Y + line), true
+			(REPLAY_MENU_LIST_Y + line), active
 		);
 	}
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	replay_font_render_end();
 }
 
 static void replay_menu_detail_render(uint8_t slot, uint8_t stage_sel)
 {
+	replay_font_render_begin();
 	replay_menu_detail_put(slot, stage_sel, true);
 	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	replay_font_render_end();
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
@@ -3463,6 +3474,9 @@ bool near replay_menu(void)
 	uint8_t sel = replay_user_first_used_slot();
 	uint8_t top = sel;
 	uint8_t stage_sel = 0;
+	uint8_t old_sel;
+	uint8_t old_top;
+	uint8_t old_stage;
 	uint8_t stage_count;
 	bool detail_view = false;
 	uint32_t sample_count;
@@ -3475,8 +3489,8 @@ bool near replay_menu(void)
 	}
 
 	replay_menu_screen_init(true);
-	palette_black_in(1);
 	replay_menu_render(sel, top);
+	palette_black_in(1);
 
 	while(1) {
 		input_mode_interface();
@@ -3484,40 +3498,39 @@ bool near replay_menu(void)
 			if(detail_view) {
 				if(input_sp & (INPUT_CANCEL | INPUT_BOMB)) {
 					detail_view = false;
-					replay_menu_screen_init(false);
 					replay_menu_render(sel, top);
 				} else if(input_sp & INPUT_UP) {
-					if(
-						replay_user_read_slot_for_menu(sel) &&
-						!replay_menu_vs() && !replay_menu_practice()
-					) {
-						stage_count = replay_user_menu_header.stage_reached_count;
-						if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
-							stage_count = T3_REPLAY_USER_STAGE_COUNT;
+					if(stage_count != 0) {
+						old_stage = stage_sel;
+						if(stage_sel == 0) {
+							stage_sel = (stage_count - 1);
+						} else {
+							stage_sel--;
 						}
-						if(stage_count != 0) {
-							if(stage_sel == 0) {
-								stage_sel = (stage_count - 1);
-							} else {
-								stage_sel--;
-							}
+						if(menu_font) {
+							replay_font_cursor_move(
+								REPLAY_MENU_DETAIL_CURSOR_LEFT,
+								(REPLAY_MENU_HEAD_Y + 3 + old_stage),
+								(REPLAY_MENU_HEAD_Y + 3 + stage_sel)
+							);
+						} else {
 							replay_menu_detail_render(sel, stage_sel);
 						}
 					}
 				} else if(input_sp & INPUT_DOWN) {
-					if(
-						replay_user_read_slot_for_menu(sel) &&
-						!replay_menu_vs() && !replay_menu_practice()
-					) {
-						stage_count = replay_user_menu_header.stage_reached_count;
-						if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
-							stage_count = T3_REPLAY_USER_STAGE_COUNT;
+					if(stage_count != 0) {
+						old_stage = stage_sel;
+						stage_sel++;
+						if(stage_sel >= stage_count) {
+							stage_sel = 0;
 						}
-						if(stage_count != 0) {
-							stage_sel++;
-							if(stage_sel >= stage_count) {
-								stage_sel = 0;
-							}
+						if(menu_font) {
+							replay_font_cursor_move(
+								REPLAY_MENU_DETAIL_CURSOR_LEFT,
+								(REPLAY_MENU_HEAD_Y + 3 + old_stage),
+								(REPLAY_MENU_HEAD_Y + 3 + stage_sel)
+							);
+						} else {
 							replay_menu_detail_render(sel, stage_sel);
 						}
 					}
@@ -3559,13 +3572,33 @@ bool near replay_menu(void)
 				}
 			} else {
 				if(input_sp & INPUT_UP) {
+					old_sel = sel;
+					old_top = top;
 					ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
 					replay_menu_top_clamp(sel, top);
-					replay_menu_render(sel, top);
+					if(menu_font && (top == old_top)) {
+						replay_font_cursor_move(
+							REPLAY_MENU_LIST_CURSOR_LEFT,
+							(REPLAY_MENU_LIST_Y + old_sel - top),
+							(REPLAY_MENU_LIST_Y + sel - top)
+						);
+					} else {
+						replay_menu_render(sel, top);
+					}
 				} else if(input_sp & INPUT_DOWN) {
+					old_sel = sel;
+					old_top = top;
 					ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
 					replay_menu_top_clamp(sel, top);
-					replay_menu_render(sel, top);
+					if(menu_font && (top == old_top)) {
+						replay_font_cursor_move(
+							REPLAY_MENU_LIST_CURSOR_LEFT,
+							(REPLAY_MENU_LIST_Y + old_sel - top),
+							(REPLAY_MENU_LIST_Y + sel - top)
+						);
+					} else {
+						replay_menu_render(sel, top);
+					}
 				} else if(input_sp & INPUT_LEFT) {
 					sel = (
 						(sel < REPLAY_MENU_VISIBLE) ?
@@ -3582,10 +3615,18 @@ bool near replay_menu(void)
 					replay_menu_top_clamp(sel, top);
 					replay_menu_render(sel, top);
 				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
-					detail_view = true;
-					stage_sel = 0;
-					replay_menu_screen_init(false);
-					replay_menu_detail_render(sel, stage_sel);
+					if(replay_user_read_slot_for_menu(sel)) {
+						detail_view = true;
+						stage_sel = 0;
+						stage_count = 0;
+						if(!replay_menu_vs() && !replay_menu_practice()) {
+							stage_count = replay_user_menu_header.stage_reached_count;
+							if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
+								stage_count = T3_REPLAY_USER_STAGE_COUNT;
+							}
+						}
+						replay_menu_detail_render(sel, stage_sel);
+					}
 				} else if(input_sp & INPUT_CANCEL) {
 					text_clear();
 					return true;
@@ -3706,7 +3747,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D322E33UL); // "3.2-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4203,10 +4244,6 @@ static int near replay_dev_story_stage_menu(void)
 {
 	int stage = 6;
 	input_t input_prev;
-	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
-
-	#define DEBUG_TEXT_PAIR(index, left, right) \
-		pairs[index] = static_cast<uint16_t>((left) | ((right) << 8))
 
 	text_clear();
 	graph_accesspage(0);
@@ -4216,53 +4253,9 @@ static int near replay_dev_story_stage_menu(void)
 	graph_showpage(0);
 	graph_accesspage(0);
 
-	DEBUG_TEXT_PAIR(0, 'D', 'E');
-	DEBUG_TEXT_PAIR(1, 'B', 'U');
-	DEBUG_TEXT_PAIR(2, 'G', ' ');
-	DEBUG_TEXT_PAIR(3, 'S', 'T');
-	DEBUG_TEXT_PAIR(4, 'O', 'R');
-	DEBUG_TEXT_PAIR(5, 'Y', ' ');
-	DEBUG_TEXT_PAIR(6, 'S', 'T');
-	DEBUG_TEXT_PAIR(7, 'A', 'R');
-	title_credit_line[16] = 'T';
-	title_credit_line[17] = '\0';
-	text_putsa(31, 8, title_credit_line, TX_WHITE);
-
-	DEBUG_TEXT_PAIR(0, 'U', 'P');
-	DEBUG_TEXT_PAIR(1, '/', 'D');
-	DEBUG_TEXT_PAIR(2, 'N', ':');
-	DEBUG_TEXT_PAIR(3, ' ', 'S');
-	DEBUG_TEXT_PAIR(4, 'E', 'L');
-	DEBUG_TEXT_PAIR(5, 'E', 'C');
-	title_credit_line[12] = 'T';
-	title_credit_line[13] = '\0';
-	text_putsa(31, 12, title_credit_line, TX_WHITE);
-
-	DEBUG_TEXT_PAIR(0, 'Z', '/');
-	DEBUG_TEXT_PAIR(1, 'E', 'N');
-	DEBUG_TEXT_PAIR(2, 'T', 'E');
-	DEBUG_TEXT_PAIR(3, 'R', ':');
-	DEBUG_TEXT_PAIR(4, ' ', 'S');
-	DEBUG_TEXT_PAIR(5, 'T', 'A');
-	DEBUG_TEXT_PAIR(6, 'R', 'T');
-	title_credit_line[14] = '\0';
-	text_putsa(29, 13, title_credit_line, TX_WHITE);
-
-	DEBUG_TEXT_PAIR(0, 'E', 'S');
-	DEBUG_TEXT_PAIR(1, 'C', ':');
-	DEBUG_TEXT_PAIR(2, ' ', 'C');
-	DEBUG_TEXT_PAIR(3, 'A', 'N');
-	DEBUG_TEXT_PAIR(4, 'C', 'E');
-	title_credit_line[10] = 'L';
-	title_credit_line[11] = '\0';
-	text_putsa(33, 14, title_credit_line, TX_WHITE);
-
-	DEBUG_TEXT_PAIR(0, 'S', 'T');
-	DEBUG_TEXT_PAIR(1, 'A', 'G');
-	DEBUG_TEXT_PAIR(2, 'E', ' ');
-	title_credit_line[6] = '7';
-	title_credit_line[7] = '\0';
-	text_putsa(36, 10, title_credit_line, TX_WHITE);
+	title_credit_line[0] = '7';
+	title_credit_line[1] = '\0';
+	text_putsa(39, 12, title_credit_line, TX_WHITE);
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -4280,14 +4273,13 @@ static int near replay_dev_story_stage_menu(void)
 				text_clear();
 				return STAGE_NONE;
 			}
-			title_credit_line[6] = ('1' + stage);
-			text_putsa(36, 10, title_credit_line, TX_WHITE);
+			title_credit_line[0] = ('1' + stage);
+			text_putsa(39, 12, title_credit_line, TX_WHITE);
 		}
 		input_prev = input_sp;
 		frame_delay(1);
 	}
 
-	#undef DEBUG_TEXT_PAIR
 }
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
@@ -4296,7 +4288,11 @@ static int near replay_dev_story_stage_menu(void)
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 // Replaces the obsolete initial-playback stage-select handoff in this profile.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
 // Keep the browser's dense proportional layouts in patch-owned tail code.
@@ -4306,18 +4302,20 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90"
+#elif defined(TH03_REPLAY_DEV_STAGE_SELECT)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 /// --------

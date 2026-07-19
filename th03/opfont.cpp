@@ -201,7 +201,3 @@ void pascal far replay_menu_line_put(unsigned x, unsigned y, unsigned atrb)
 		(x * GLYPH_HALF_W), (y * GLYPH_H), replay_menu_line, color
 	);
 }
-
-// Keep the following proportional-font and runtime segments at their accepted
-// paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

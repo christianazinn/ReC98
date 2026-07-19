@@ -17,20 +17,22 @@ enum {
 	HEAD_Y = 5,
 	DETAIL_Y = 5,
 	LIST_PIXEL_LEFT = (LIST_LEFT * GLYPH_HALF_W),
-	CURSOR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 16),
-	SLOT_PIXEL_LEFT = 72,
-	CHAR_PIXEL_LEFT = 128,
-	RANK_PIXEL_LEFT = 170,
-	NAME_PIXEL_LEFT = 208,
-	SCORE_PIXEL_RIGHT = 536,
-	STAGE_PIXEL_LEFT = 568,
+	CURSOR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 8),
+	SLOT_PIXEL_LEFT = 64,
+	CHAR_PIXEL_LEFT = 112,
+	RANK_PIXEL_LEFT = 150,
+	NAME_PIXEL_LEFT = 184,
+	SCORE_PIXEL_RIGHT = 480,
+	STAGE_PIXEL_LEFT = 512,
 	DETAIL_PIXEL_LEFT = 48,
-	DETAIL_SPLIT_PIXEL_LEFT = 344,
+	DETAIL_SPLIT_CURSOR_LEFT = 336,
+	DETAIL_SPLIT_PIXEL_LEFT = 352,
 	DETAIL_SPLIT_OPPONENT_LEFT = 384,
 	DETAIL_SPLIT_SCORE_RIGHT = 600,
 	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
 	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
 	DETAIL_ROUND_WINNER_LEFT = 584,
+	REPLAY_FONT_SELECTED_COLOR = 12,
 };
 
 extern char replay_menu_line[81];
@@ -407,7 +409,7 @@ static char *append_round_winner(char *p, uint8_t route_winner)
 static int font_color(unsigned atrb)
 {
 	if(atrb == TX_BLACK) return 0;
-	if(atrb == TX_CYAN) return 13;
+	if(atrb == TX_CYAN) return 9;
 	if(atrb == TX_YELLOW) return 12;
 	return V_WHITE;
 }
@@ -452,15 +454,33 @@ static void score_put(
 	field_put_right(right, y, p, atrb);
 }
 
+void far replay_font_render_begin(void)
+{
+	graph_showpage(1);
+}
+
+void far replay_font_render_end(void)
+{
+	graph_showpage(0);
+}
+
+void far replay_font_cursor_move(
+	screen_x_t left, uint8_t old_y, uint8_t y
+)
+{
+	menu_font_restore_rect(left, (old_y * GLYPH_H), 16, GLYPH_H);
+	menu_font_put(left, (y * GLYPH_H), ">", REPLAY_FONT_SELECTED_COLOR);
+}
+
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
 )
 {
 	char *p;
-	unsigned atrb = (((slot == sel) && active) ? TX_YELLOW : TX_WHITE);
+	unsigned atrb = TX_WHITE;
 
 	if((slot == sel) && active) {
-		text_put(CURSOR_PIXEL_LEFT, y, ">", atrb);
+		text_put(CURSOR_PIXEL_LEFT, y, ">", TX_YELLOW);
 	}
 	p = append_u8_2(replay_menu_line, slot);
 	field_put(SLOT_PIXEL_LEFT, y, p, atrb);
@@ -495,7 +515,10 @@ void far replay_font_columns_put(void)
 		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Ch", TX_CYAN);
 		text_put(RANK_PIXEL_LEFT, HEAD_Y, "R", TX_CYAN);
 		text_put(NAME_PIXEL_LEFT, HEAD_Y, "Name", TX_CYAN);
-		menu_font_put_right(SCORE_PIXEL_RIGHT, (HEAD_Y * GLYPH_H), "Score", 13);
+		menu_font_put_right(
+			SCORE_PIXEL_RIGHT, (HEAD_Y * GLYPH_H),
+			"Score", font_color(TX_CYAN)
+		);
 		text_put(STAGE_PIXEL_LEFT, HEAD_Y, "Stg", TX_CYAN);
 		return;
 	}
@@ -578,10 +601,12 @@ static void round_heading_put(unsigned y)
 {
 	text_put(DETAIL_SPLIT_PIXEL_LEFT, y, "Rd", TX_CYAN);
 	menu_font_put_right(
-		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H), "P1 Score", 13
+		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H),
+		"P1 Score", font_color(TX_CYAN)
 	);
 	menu_font_put_right(
-		DETAIL_ROUND_P2_SCORE_RIGHT, (y * GLYPH_H), "P2 Score", 13
+		DETAIL_ROUND_P2_SCORE_RIGHT, (y * GLYPH_H),
+		"P2 Score", font_color(TX_CYAN)
 	);
 	text_put(DETAIL_ROUND_WINNER_LEFT, y, "W", TX_CYAN);
 }
@@ -637,7 +662,6 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 {
 	char *p;
 	uint8_t stage;
-	unsigned atrb;
 	bool valid = summary_valid();
 
 	p = append_cstr(replay_menu_line, "Final Score: ");
@@ -673,26 +697,32 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 	text_put(DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
 	text_put(DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 2), "Op", TX_CYAN);
 	menu_font_put_right(
-		DETAIL_SPLIT_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H), "Score", 13
+		DETAIL_SPLIT_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
+		"Score", font_color(TX_CYAN)
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
-		atrb = ((stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE);
 		p = replay_menu_line;
-		if(stage_focus && (stage == stage_sel)) *p++ = '>';
 		*p++ = static_cast<char>('1' + stage);
 		field_put(
-			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
+			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, TX_WHITE
 		);
 		p = append_playchar_pair(
 			replay_menu_line, stage_opponent(stage)
 		);
 		field_put(
-			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
+			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, TX_WHITE
 		);
 		score_put(
 			DETAIL_SPLIT_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
 			replay_user_menu_header.scenario.story.stage_scores[stage],
-			(valid && (stage < replay_user_menu_header.stage_reached_count)), atrb
+			(valid && (stage < replay_user_menu_header.stage_reached_count)),
+			TX_WHITE
+		);
+	}
+	if(stage_focus) {
+		text_put(
+			DETAIL_SPLIT_CURSOR_LEFT, (DETAIL_Y + 3 + stage_sel),
+			">", TX_YELLOW
 		);
 	}
 }
@@ -843,5 +873,4 @@ void far replay_font_detail_empty_put(uint8_t slot)
 	);
 }
 
-// Retain the accepted paragraph phase together with OPFONT_TEXT.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// The RC2 renderer consumes the former terminal phase padding.

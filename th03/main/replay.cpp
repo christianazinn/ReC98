@@ -3063,14 +3063,12 @@ void far replay_input_sense_held(void)
 
 enum replay_pause_vram_color_t {
 	REPLAY_PAUSE_VRAM_BLUE = 9,
-	REPLAY_PAUSE_VRAM_CYAN = 13,
 };
 
 enum replay_pause_font_color_t {
 	REPLAY_PAUSE_FONT_BLACK = 0,
 	REPLAY_PAUSE_FONT_BLUE = 9,
 	REPLAY_PAUSE_FONT_YELLOW = 12,
-	REPLAY_PAUSE_FONT_CYAN = 13,
 	REPLAY_PAUSE_FONT_WHITE = 15,
 };
 
@@ -3127,7 +3125,7 @@ static void replay_pause_put_graph_backing(void)
 static int replay_pause_vram_color(unsigned atrb)
 {
 	if(atrb == REPLAY_PAUSE_TITLE_ATRB) {
-		return REPLAY_PAUSE_VRAM_CYAN;
+		return REPLAY_PAUSE_VRAM_BLUE;
 	}
 	if(atrb == REPLAY_PAUSE_SELECTED_ATRB) {
 		return V_YELLOW_BRIGHT;
@@ -3491,7 +3489,7 @@ static void replay_pause_font_put_title(void)
 	menu_font_put_centered(
 		((REPLAY_PAUSE_PIXEL_LEFT + REPLAY_PAUSE_PIXEL_RIGHT + 1) / 2),
 		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_H), str,
-		REPLAY_PAUSE_FONT_CYAN
+		REPLAY_PAUSE_FONT_BLUE
 	);
 }
 
@@ -3831,3 +3829,4 @@ void far replay_finish(uint8_t route)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
