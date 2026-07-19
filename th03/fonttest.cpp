@@ -26,7 +26,7 @@ void pascal far replay_dev_font_specimen_show(void)
 	#define FONT_SPECIMEN(line, str) \
 		menu_font_put(8, (4 + ((line) * 20)), str, V_WHITE)
 
-	FONT_SPECIMEN( 0, "FONT SPECIMEN 0.3.2-rc4 - F ESC Z X RETURN");
+	FONT_SPECIMEN( 0, "FONT SPECIMEN 0.3.2 - F ESC Z X RETURN    ");
 	FONT_SPECIMEN( 1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 	FONT_SPECIMEN( 2, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 	FONT_SPECIMEN( 3, "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz");
@@ -35,7 +35,7 @@ void pascal far replay_dev_font_specimen_show(void)
 	FONT_SPECIMEN( 6, ": ; < = > ? @ [ \\ ] ^ _ `  :;<=>?@[\\]^_`");
 	FONT_SPECIMEN( 7, "{ | } ~  {|}~  { | } ~  {|}~");
 	FONT_SPECIMEN( 8, "The PoDD Arrange Project");
-	FONT_SPECIMEN( 9, "Replay Patch v0.3.2-rc4 by Christian Azinn");
+	FONT_SPECIMEN( 9, "Replay Patch v0.3.2 by Christian Azinn    ");
 	FONT_SPECIMEN(10, "Start  VS Start  Music Room  HiScore  Option  Replay  Quit");
 	FONT_SPECIMEN(11, "Rank  Easy  Normal  Hard  Lunatic");
 	FONT_SPECIMEN(12, "Music  OFF  FM 86  KeyConfig  Key  Joy");

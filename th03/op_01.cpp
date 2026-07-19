@@ -1372,10 +1372,10 @@ enum replay_background_t {
 static void replay_menu_palette_apply(replay_background_t bg);
 
 enum {
-	REPLAY_MENU_SELECTED_PALETTE = 9,
-	REPLAY_MENU_SELECTED_RED = 0x00,
+	REPLAY_MENU_SELECTED_PALETTE = 12,
+	REPLAY_MENU_SELECTED_RED = 0xFF,
 	REPLAY_MENU_SELECTED_GREEN = 0xFF,
-	REPLAY_MENU_SELECTED_BLUE = 0xFF,
+	REPLAY_MENU_SELECTED_BLUE = 0x00,
 };
 
 static char *replay_line_append_cstr(char *p, const char *str)
@@ -1983,7 +1983,7 @@ static void replay_menu_slot_line_put(
 	tram_atrb2 atrb;
 
 	has_replay = replay_user_read_slot_for_menu(slot);
-	atrb = (((slot == sel) && active) ? TX_CYAN : TX_WHITE);
+	atrb = (((slot == sel) && active) ? TX_YELLOW : TX_WHITE);
 	if(clear) {
 		replay_menu_span_clear(REPLAY_MENU_LIST_LEFT, y, REPLAY_MENU_LIST_W);
 	}
@@ -2402,7 +2402,7 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
 		p = replay_menu_line;
 		atrb = (
-			(stage_focus && (stage == stage_sel)) ? TX_CYAN : TX_WHITE
+			(stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE
 		);
 		*p++ = ((stage_focus && (stage == stage_sel)) ? '>' : ' ');
 		*p++ = static_cast<char>('1' + stage);
@@ -3835,13 +3835,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x2D322E33UL); // "3.2-"
-	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
-	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
+	TITLE_CREDIT_QUAD(4, 0x20322E33UL); // "3.2 "
+	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
+	TITLE_CREDIT_QUAD(10, 0x00000000UL);
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 

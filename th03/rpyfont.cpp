@@ -33,7 +33,7 @@ enum {
 	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
 	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
 	DETAIL_ROUND_WINNER_LEFT = 584,
-	REPLAY_FONT_SELECTED_COLOR = 9,
+	REPLAY_FONT_SELECTED_COLOR = 12,
 };
 
 extern char replay_menu_line[81];
@@ -461,7 +461,7 @@ void far replay_font_slot_line_put(
 {
 	char *p;
 	bool selected = ((slot == sel) && active);
-	unsigned atrb = (selected ? TX_CYAN : TX_WHITE);
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
 
 	if(selected) {
 		menu_font_put(
@@ -692,7 +692,7 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
 		atrb = (
-			(stage_focus && (stage == stage_sel)) ? TX_CYAN : TX_WHITE
+			(stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE
 		);
 		p = replay_menu_line;
 		*p++ = static_cast<char>('1' + stage);
