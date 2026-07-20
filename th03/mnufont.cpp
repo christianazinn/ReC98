@@ -161,11 +161,12 @@ static void near menu_font_glyph_put(
 	uint8_t far *vram,
 	const uint8_t far *glyph,
 	uint8_t left_dots,
-	unsigned byte_count
+	unsigned byte_count,
+	bool16 rows_200line
 )
 {
-	// 200-line graphics doubles each scanline, so merge atlas-row pairs to
-	// retain the font's 16-pixel physical height during gameplay.
+	// Compact line-doubled output merges atlas-row pairs to retain the font's
+	// 16-pixel physical height during gameplay.
 	_asm {
 		push	ds
 		push	es
@@ -176,11 +177,12 @@ static void near menu_font_glyph_put(
 		les 	di, vram
 		mov 	bx, 16
 		xor 	ch, ch
-		cmp 	graph_VramLines, 200
-		jne 	row_loop
+		cmp 	rows_200line, 0
+		je  	rows_ready
 		mov 	bx, 8
 		inc 	ch
 
+	rows_ready:
 	row_loop:
 		mov 	dx, [si]
 		or  	ch, ch
@@ -254,11 +256,12 @@ void pascal menu_font_put_n(
 	unsigned byte_count;
 	uint8_t left_dots;
 	vram_offset_t vo;
+	bool16 rows_200line = ((color & MENU_FONT_200LINE) != 0);
 
 	if(!data || (top < 0) || (top > (graph_VramLines - 16))) {
 		return;
 	}
-	grcg_setcolor(GC_RMW, color);
+	grcg_setcolor(GC_RMW, (color & 0xFF));
 	while(count && *str) {
 		glyph_index = menu_font_index(*str);
 		if(*str != ' ') {
@@ -273,7 +276,9 @@ void pascal menu_font_put_n(
 					MENU_FONT_BITMAP_OFFSET +
 					(glyph_index * MENU_FONT_GLYPH_SIZE)
 				];
-				menu_font_glyph_put(vram, glyph, left_dots, byte_count);
+				menu_font_glyph_put(
+					vram, glyph, left_dots, byte_count, rows_200line
+				);
 			}
 		}
 		left += data[MENU_FONT_ADVANCES_OFFSET + glyph_index];
@@ -376,7 +381,7 @@ void pascal menu_font_restore_rect(
 
 // Keep the following compiler runtime contributions at their 0.2.13 phase.
 #if BINARY == 'O'
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

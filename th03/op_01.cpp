@@ -2663,6 +2663,7 @@ static void replay_menu_background_put(
 	}
 	graph_showpage(0);
 	graph_accesspage(0);
+	replay_menu_state.page_shown = 0;
 }
 
 static void replay_name_background_init(bool fade_in)
@@ -2799,10 +2800,11 @@ static bool replay_save_to_slot(uint8_t slot, bool occupied)
 
 static void replay_save_dialog_frame_put(void)
 {
+	if(menu_font) {
+		graph_copy_page(1 - replay_menu_state.page_shown);
+	}
+	graph_accesspage(replay_menu_state.page_shown);
 	grcg_setcolor(GC_RMW, 0);
-	graph_accesspage(
-		replay_menu_state.list_active ? replay_menu_state.page_shown : 0
-	);
 	grcg_boxfill(
 		REPLAY_SAVE_DIALOG_PIXEL_LEFT, REPLAY_SAVE_DIALOG_PIXEL_TOP,
 		REPLAY_SAVE_DIALOG_PIXEL_RIGHT, REPLAY_SAVE_DIALOG_PIXEL_BOTTOM
@@ -2864,6 +2866,7 @@ static replay_save_answer_t replay_save_yes_no(
 	input_t input_prev;
 	unsigned int question_w;
 	char *p;
+	replay_save_answer_t answer;
 
 	replay_save_dialog_frame_put();
 	p = replay_menu_line;
@@ -2911,15 +2914,21 @@ static replay_save_answer_t replay_save_yes_no(
 				replay_save_yes_no_put(yes);
 			}
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
-				return (yes ? RSA_YES : RSA_NO);
+				answer = (yes ? RSA_YES : RSA_NO);
+				break;
 			}
 			if(input_sp & INPUT_CANCEL) {
-				return RSA_CANCEL;
+				answer = RSA_CANCEL;
+				break;
 			}
 		}
 		input_prev = input_sp;
 		frame_delay(1);
 	}
+	if(menu_font) {
+		replay_menu_render_end(1 - replay_menu_state.page_shown);
+	}
+	return answer;
 }
 
 static bool replay_save_quit_confirm(void)
@@ -3385,7 +3394,9 @@ static bool replay_name_menu(uint8_t& name_len, bool fade_in)
 				if(replay_save_quit_confirm()) {
 					return false;
 				}
-				replay_name_screen_put(regi, false);
+				if(!menu_font) {
+					replay_name_screen_put(regi, false);
+				}
 				replay_save_input_release();
 				input_prev = INPUT_NONE;
 				continue;
@@ -3833,7 +3844,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D362E33UL); // "3.6-"
-	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
+	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4433,7 +4444,6 @@ static int near replay_dev_story_stage_menu(void)
 // Keep all following original OP contributions at their 0.2.13 offsets.
 // Keep the browser's dense proportional layouts in patch-owned tail code.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_STAGE_SELECT)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4446,14 +4456,8 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

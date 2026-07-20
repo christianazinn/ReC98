@@ -915,8 +915,14 @@ void pascal far replay_font_put_fixed_n(
 	int color
 )
 {
+	int glyph_left;
+
 	while(count && *str) {
-		menu_font_put_n(left, top, str, 1, color);
+		glyph_left = left;
+		if(*str == '1') {
+			glyph_left += ((cell_w - menu_font_width_n(str, 1)) / 2);
+		}
+		menu_font_put_n(glyph_left, top, str, 1, color);
 		left += cell_w;
 		str++;
 		count--;
@@ -924,7 +930,4 @@ void pascal far replay_font_put_fixed_n(
 }
 
 // Keep the following patch-owned segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

@@ -3488,7 +3488,7 @@ static void replay_pause_font_put_title(void)
 	menu_font_put_centered(
 		((REPLAY_PAUSE_PIXEL_LEFT + REPLAY_PAUSE_PIXEL_RIGHT + 1) / 2),
 		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_HALF_H), str,
-		REPLAY_PAUSE_FONT_BLUE
+		(REPLAY_PAUSE_FONT_BLUE | MENU_FONT_200LINE)
 	);
 }
 
@@ -3540,11 +3540,13 @@ static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 	cursor[1] = '\0';
 	if(choice == sel) {
 		menu_font_put(
-			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor, color
+			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor,
+			(color | MENU_FONT_200LINE)
 		);
 	}
 	menu_font_put(
-		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str, color
+		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str,
+		(color | MENU_FONT_200LINE)
 	);
 }
 
@@ -3573,7 +3575,7 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 
 // Preserve the accepted offset of replay_pause_menu() across UI rewrites.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
 
 uint8_t far replay_pause_menu(void)
 {

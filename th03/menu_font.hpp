@@ -8,6 +8,10 @@ typedef uint8_t __seg *menu_font_t;
 
 extern menu_font_t far menu_font;
 
+enum menu_font_render_flag_t {
+	MENU_FONT_200LINE = 0x100,
+};
+
 bool16 pascal menu_font_load(const unsigned char far *restore_pf_fn);
 void pascal menu_font_free(void);
 
