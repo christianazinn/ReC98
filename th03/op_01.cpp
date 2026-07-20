@@ -1348,6 +1348,20 @@ enum {
 	REPLAY_SAVE_DIALOG_CHOICE_Y = (REPLAY_SAVE_DIALOG_TOP + 3),
 	REPLAY_SAVE_DIALOG_YES_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 7),
 	REPLAY_SAVE_DIALOG_NO_LEFT = (REPLAY_SAVE_DIALOG_LEFT + 19),
+	REPLAY_SAVE_DIALOG_PIXEL_LEFT = (
+		REPLAY_SAVE_DIALOG_LEFT * GLYPH_HALF_W
+	),
+	REPLAY_SAVE_DIALOG_PIXEL_TOP = (REPLAY_SAVE_DIALOG_TOP * GLYPH_H),
+	REPLAY_SAVE_DIALOG_PIXEL_RIGHT = (
+		((REPLAY_SAVE_DIALOG_LEFT + REPLAY_SAVE_DIALOG_W) * GLYPH_HALF_W) - 1
+	),
+	REPLAY_SAVE_DIALOG_PIXEL_BOTTOM = (
+		((REPLAY_SAVE_DIALOG_TOP + REPLAY_SAVE_DIALOG_H) * GLYPH_H) - 1
+	),
+	REPLAY_SAVE_DIALOG_PIXEL_CENTER = (
+		REPLAY_SAVE_DIALOG_PIXEL_LEFT +
+		((REPLAY_SAVE_DIALOG_W * GLYPH_HALF_W) / 2)
+	),
 };
 
 char replay_menu_line[81];
@@ -2783,66 +2797,18 @@ static bool replay_save_to_slot(uint8_t slot, bool occupied)
 	return true;
 }
 
-static void replay_save_dialog_char_put(
-	unsigned int x, unsigned int y, char c, tram_atrb2 atrb
-)
-{
-	replay_menu_line[0] = c;
-	replay_menu_line[1] = '\0';
-	text_putsa(x, y, replay_menu_line, atrb);
-}
-
 static void replay_save_dialog_frame_put(void)
 {
-	char *p;
-	int x;
-	int y;
-
 	grcg_setcolor(GC_RMW, 0);
 	graph_accesspage(
 		replay_menu_state.list_active ? replay_menu_state.page_shown : 0
 	);
 	grcg_boxfill(
-		(REPLAY_SAVE_DIALOG_LEFT * GLYPH_HALF_W),
-		(REPLAY_SAVE_DIALOG_TOP * GLYPH_H),
-		(
-			((REPLAY_SAVE_DIALOG_LEFT + REPLAY_SAVE_DIALOG_W) *
-			 GLYPH_HALF_W) - 1
-		),
-		(
-			((REPLAY_SAVE_DIALOG_TOP + REPLAY_SAVE_DIALOG_H) *
-			 GLYPH_H) - 1
-		)
+		REPLAY_SAVE_DIALOG_PIXEL_LEFT, REPLAY_SAVE_DIALOG_PIXEL_TOP,
+		REPLAY_SAVE_DIALOG_PIXEL_RIGHT, REPLAY_SAVE_DIALOG_PIXEL_BOTTOM
 	);
 	grcg_off();
 	text_clear();
-
-	p = replay_menu_line;
-	*p++ = '+';
-	for(x = 1; x < (REPLAY_SAVE_DIALOG_W - 1); x++) {
-		*p++ = '-';
-	}
-	*p++ = '+';
-	*p = '\0';
-	text_putsa(
-		REPLAY_SAVE_DIALOG_LEFT, REPLAY_SAVE_DIALOG_TOP,
-		replay_menu_line, TX_WHITE
-	);
-	text_putsa(
-		REPLAY_SAVE_DIALOG_LEFT,
-		(REPLAY_SAVE_DIALOG_TOP + (REPLAY_SAVE_DIALOG_H - 1)),
-		replay_menu_line, TX_WHITE
-	);
-	for(y = 1; y < (REPLAY_SAVE_DIALOG_H - 1); y++) {
-		replay_save_dialog_char_put(
-			REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
-			'|', TX_WHITE
-		);
-		replay_save_dialog_char_put(
-			(REPLAY_SAVE_DIALOG_LEFT + (REPLAY_SAVE_DIALOG_W - 1)),
-			(REPLAY_SAVE_DIALOG_TOP + y), '|', TX_WHITE
-		);
-	}
 }
 
 static void replay_save_yes_no_put(bool yes)
@@ -2850,16 +2816,32 @@ static void replay_save_yes_no_put(bool yes)
 	char *p = replay_menu_line;
 
 	*p++ = 'Y'; *p++ = 'e'; *p++ = 's'; *p = '\0';
-	text_putsa(
-		REPLAY_SAVE_DIALOG_YES_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-		replay_menu_line, (yes ? TX_YELLOW : TX_WHITE)
-	);
+	if(menu_font) {
+		menu_font_put(
+			(REPLAY_SAVE_DIALOG_YES_LEFT * GLYPH_HALF_W),
+			(REPLAY_SAVE_DIALOG_CHOICE_Y * GLYPH_H), replay_menu_line,
+			(yes ? REPLAY_MENU_SELECTED_PALETTE : V_WHITE)
+		);
+	} else {
+		text_putsa(
+			REPLAY_SAVE_DIALOG_YES_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
+			replay_menu_line, (yes ? TX_YELLOW : TX_WHITE)
+		);
+	}
 	p = replay_menu_line;
 	*p++ = 'N'; *p++ = 'o'; *p = '\0';
-	text_putsa(
-		REPLAY_SAVE_DIALOG_NO_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-		replay_menu_line, (yes ? TX_WHITE : TX_YELLOW)
-	);
+	if(menu_font) {
+		menu_font_put(
+			(REPLAY_SAVE_DIALOG_NO_LEFT * GLYPH_HALF_W),
+			(REPLAY_SAVE_DIALOG_CHOICE_Y * GLYPH_H), replay_menu_line,
+			(yes ? V_WHITE : REPLAY_MENU_SELECTED_PALETTE)
+		);
+	} else {
+		text_putsa(
+			REPLAY_SAVE_DIALOG_NO_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
+			replay_menu_line, (yes ? TX_WHITE : TX_YELLOW)
+		);
+	}
 }
 
 enum replay_save_question_t {
@@ -2903,13 +2885,21 @@ static replay_save_answer_t replay_save_yes_no(
 	*p++ = '?';
 	question_w = static_cast<unsigned int>(p - replay_menu_line);
 	*p = '\0';
-	text_putsa(
-		(
-			REPLAY_SAVE_DIALOG_LEFT +
-			((REPLAY_SAVE_DIALOG_W - question_w) / 2)
-		),
-		REPLAY_SAVE_DIALOG_QUESTION_Y, replay_menu_line, TX_CYAN
-	);
+	if(menu_font) {
+		menu_font_put_centered(
+			REPLAY_SAVE_DIALOG_PIXEL_CENTER,
+			(REPLAY_SAVE_DIALOG_QUESTION_Y * GLYPH_H),
+			replay_menu_line, 9
+		);
+	} else {
+		text_putsa(
+			(
+				REPLAY_SAVE_DIALOG_LEFT +
+				((REPLAY_SAVE_DIALOG_W - question_w) / 2)
+			),
+			REPLAY_SAVE_DIALOG_QUESTION_Y, replay_menu_line, TX_CYAN
+		);
+	}
 	replay_save_yes_no_put(yes);
 	replay_save_input_release();
 	input_prev = INPUT_NONE;
@@ -3843,7 +3833,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D362E33UL); // "3.6-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4462,4 +4452,8 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------
