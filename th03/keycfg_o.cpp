@@ -96,7 +96,7 @@ struct keyconfig_text_t {
 	KEYCONFIG_TEXT_FIELD(header_end, " ]");
 	KEYCONFIG_TEXT_FIELD(story_header, "KEY CONFIGURATION     [ STORY ]");
 	KEYCONFIG_TEXT_FIELD(footer,
-		"Left/Right: P1/P2/Story   Z/Return: Edit   Esc: Cancel"
+		"Left/Right: Column/Page   Z/Return: Edit   Esc: Cancel"
 	);
 	KEYCONFIG_TEXT_FIELD(discard, "Discard changes?  Z: Yes  Esc: No");
 	KEYCONFIG_TEXT_FIELD(capture, "Press a key. Esc cancels capture.");
@@ -121,7 +121,7 @@ static const keyconfig_text_t far keyconfig_text = {
 	"Defaults for Story", "Apply and return", "Cancel",
 	"KEY CONFIGURATION     [ P", " ]",
 	"KEY CONFIGURATION     [ STORY ]",
-	"Left/Right: P1/P2/Story   Z/Return: Edit   Esc: Cancel",
+	"Left/Right: Column/Page   Z/Return: Edit   Esc: Cancel",
 	"Discard changes?  Z: Yes  Esc: No",
 	"Press a key. Esc cancels capture.", "Could not save TH3KEY.CFG",
 	"azinn.dat", OP_AND_END_PF_FN
@@ -187,6 +187,21 @@ enum keyconfig_page_t {
 	KCP_P2,
 	KCP_STORY,
 	KCP_COUNT,
+};
+
+enum keyconfig_layout_t {
+	KEYCONFIG_HEADER_TOP = 6,
+	KEYCONFIG_ROWS_TOP = 8,
+	KEYCONFIG_COMMAND_TOP = 16,
+	KEYCONFIG_FOOTER_TOP = 21,
+	KEYCONFIG_STORY_LABEL_LEFT = 216,
+	KEYCONFIG_STORY_VALUE_LEFT = 312,
+	KEYCONFIG_PLAYER_ACTION_LABEL_LEFT = 100,
+	KEYCONFIG_PLAYER_ACTION_VALUE_LEFT = 207,
+	KEYCONFIG_PLAYER_MOVEMENT_LABEL_LEFT = 337,
+	KEYCONFIG_PLAYER_MOVEMENT_VALUE_LEFT = 444,
+	KEYCONFIG_COMMAND_CENTER = (RES_X / 2),
+	KEYCONFIG_CURSOR_GAP = 16,
 };
 
 static uint8_t keyconfig_key_mask(uint8_t group)
@@ -629,19 +644,14 @@ static void keyconfig_graphics_row_put(
 	char __ss *line,
 	uint8_t label_end,
 	uint8_t value_at,
+	screen_x_t label_left,
+	screen_x_t value_left,
 	uint8_t top,
 	bool selected,
 	bool restore
 )
 {
-	enum {
-		LABEL_LEFT = ((RES_X / 2) - 208),
-		VALUE_LEFT = ((RES_X / 2) + 16),
-		COMMAND_CENTER = (RES_X / 2),
-		CURSOR_GAP = 16,
-	};
 	vram_y_t y = (top * GLYPH_H);
-	screen_x_t label_left;
 	int label_color = (
 		selected ? KEYCONFIG_COLOR_SELECTED : KEYCONFIG_COLOR_LABEL
 	);
@@ -651,20 +661,20 @@ static void keyconfig_graphics_row_put(
 	}
 	line[label_end] = '\0';
 	if(value_at != 0) {
-		label_left = LABEL_LEFT;
 		menu_font_put(
-			VALUE_LEFT, y, &line[value_at],
+			value_left, y, &line[value_at],
 			(selected ? KEYCONFIG_COLOR_SELECTED : KEYCONFIG_COLOR_VALUE)
 		);
 	} else {
 		label_left = (
-			COMMAND_CENTER - (menu_font_width(&line[2]) / 2)
+			KEYCONFIG_COMMAND_CENTER - (menu_font_width(&line[2]) / 2)
 		);
 	}
 	if(selected) {
 		line[1] = '\0';
 		menu_font_put(
-			(label_left - CURSOR_GAP), y, line, KEYCONFIG_COLOR_SELECTED
+			(label_left - KEYCONFIG_CURSOR_GAP), y, line,
+			KEYCONFIG_COLOR_SELECTED
 		);
 	}
 	menu_font_put(label_left, y, &line[2], label_color);
@@ -700,6 +710,27 @@ static void keyconfig_player_row_put(
 	uint8_t at = 2;
 	uint8_t label_end;
 	uint8_t value_at = 0;
+	uint8_t top;
+	screen_x_t label_left;
+	screen_x_t value_left;
+
+	if(row == KCR_AUTOFIRE) {
+		top = (KEYCONFIG_ROWS_TOP + 3);
+		label_left = KEYCONFIG_PLAYER_ACTION_LABEL_LEFT;
+		value_left = KEYCONFIG_PLAYER_ACTION_VALUE_LEFT;
+	} else if(row <= KCR_DOWN_RIGHT) {
+		top = (KEYCONFIG_ROWS_TOP + (row - KCR_UP_LEFT));
+		label_left = KEYCONFIG_PLAYER_MOVEMENT_LABEL_LEFT;
+		value_left = KEYCONFIG_PLAYER_MOVEMENT_VALUE_LEFT;
+	} else if(row <= KCR_CHARGE) {
+		top = (KEYCONFIG_ROWS_TOP + (row - KCR_SHOT));
+		label_left = KEYCONFIG_PLAYER_ACTION_LABEL_LEFT;
+		value_left = KEYCONFIG_PLAYER_ACTION_VALUE_LEFT;
+	} else {
+		top = (KEYCONFIG_COMMAND_TOP + (row - KCR_DEFAULTS));
+		label_left = 0;
+		value_left = 0;
+	}
 
 	keyconfig_line_clear(line);
 	line[0] = (selected ? '>' : ' ');
@@ -737,10 +768,11 @@ static void keyconfig_player_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
-			line, label_end, value_at, (3 + row), selected, restore
+			line, label_end, value_at, label_left, value_left, top, selected,
+			restore
 		);
 	} else {
-		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+		text_putsa(8, top, line, (selected ? TX_CYAN : TX_WHITE));
 	}
 }
 
@@ -801,16 +833,34 @@ static void keyconfig_story_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		keyconfig_graphics_row_put(
-			line, label_end, value_at, (3 + row), selected, restore
+			line, label_end, value_at, KEYCONFIG_STORY_LABEL_LEFT,
+			KEYCONFIG_STORY_VALUE_LEFT, (KEYCONFIG_ROWS_TOP + row), selected,
+			restore
 		);
 	} else {
-		text_putsa(8, (3 + row), line, (selected ? TX_CYAN : TX_WHITE));
+		text_putsa(
+			8, (KEYCONFIG_ROWS_TOP + row), line,
+			(selected ? TX_CYAN : TX_WHITE)
+		);
 	}
 }
 
 static uint8_t keyconfig_page_row_count(uint8_t page)
 {
 	return ((page == KCP_STORY) ? KCSR_COUNT : KCR_COUNT);
+}
+
+static uint8_t keyconfig_player_selected_row(bool movement_column, uint8_t at)
+{
+	if(movement_column) {
+		return (
+			(at < 8) ? (KCR_UP_LEFT + at) : (KCR_DEFAULTS + (at - 8))
+		);
+	}
+	if(at < 3) {
+		return (KCR_SHOT + at);
+	}
+	return ((at == 3) ? KCR_AUTOFIRE : (KCR_DEFAULTS + (at - 4)));
 }
 
 static void keyconfig_row_put(
@@ -848,10 +898,11 @@ static void keyconfig_screen_put(
 	line[at] = '\0';
 	if(menu_font) {
 		menu_font_put_centered(
-			(RES_X / 2), GLYPH_H, line, KEYCONFIG_COLOR_HEADER
+			(RES_X / 2), (KEYCONFIG_HEADER_TOP * GLYPH_H), line,
+			KEYCONFIG_COLOR_HEADER
 		);
 	} else {
-		text_putsa(25, 1, line, TX_WHITE);
+		text_putsa(25, KEYCONFIG_HEADER_TOP, line, TX_WHITE);
 	}
 	for(uint8_t row = 0; row < keyconfig_page_row_count(page); row++) {
 		keyconfig_row_put(cfg, page, row, (row == selected), restore);
@@ -862,10 +913,11 @@ static void keyconfig_screen_put(
 	line[at] = '\0';
 	if(menu_font) {
 		menu_font_put_centered(
-			(RES_X / 2), (21 * GLYPH_H), line, KEYCONFIG_COLOR_FOOTER
+			(RES_X / 2), (KEYCONFIG_FOOTER_TOP * GLYPH_H), line,
+			KEYCONFIG_COLOR_FOOTER
 		);
 	} else {
-		text_putsa(12, 21, line, TX_WHITE);
+		text_putsa(12, KEYCONFIG_FOOTER_TOP, line, TX_WHITE);
 	}
 	vsync_wait();
 	graph_showpage(1);
@@ -995,7 +1047,9 @@ bool far keyconfig_menu(void)
 	keyconfig_menu_t original;
 	keyconfig_menu_t cfg;
 	uint8_t page = KCP_STORY;
-	uint8_t selected = 0;
+	uint8_t selected = KCSR_UP;
+	uint8_t player_at = 0;
+	bool movement_column = false;
 	input_t input_prev;
 
 	keyconfig_resident_load(original);
@@ -1016,25 +1070,72 @@ bool far keyconfig_menu(void)
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				selected = (
-					(selected == 0) ?
-					(keyconfig_page_row_count(page) - 1) : (selected - 1)
-				);
+				if(page == KCP_STORY) {
+					selected = (
+						(selected == 0) ? (KCSR_COUNT - 1) : (selected - 1)
+					);
+				} else {
+					uint8_t count = (movement_column ? 11 : 7);
+					player_at = (
+						(player_at == 0) ? (count - 1) : (player_at - 1)
+					);
+					selected = keyconfig_player_selected_row(
+						movement_column, player_at
+					);
+				}
 				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & INPUT_DOWN) {
-				selected = (
-					(selected == (keyconfig_page_row_count(page) - 1)) ?
-					0 : (selected + 1)
-				);
+				if(page == KCP_STORY) {
+					selected = (
+						(selected == (KCSR_COUNT - 1)) ? 0 : (selected + 1)
+					);
+				} else {
+					uint8_t count = (movement_column ? 11 : 7);
+					player_at = (
+						(player_at == (count - 1)) ? 0 : (player_at + 1)
+					);
+					selected = keyconfig_player_selected_row(
+						movement_column, player_at
+					);
+				}
 				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & (INPUT_LEFT | INPUT_RIGHT)) {
-				if(input_sp & INPUT_LEFT) {
+				bool left = ((input_sp & INPUT_LEFT) != 0);
+				bool page_changed = false;
+				bool command = (
+					(page != KCP_STORY) && (selected >= KCR_DEFAULTS)
+				);
+
+				if(
+					!command && (page != KCP_STORY) &&
+					((left && movement_column) || (!left && !movement_column))
+				) {
+					if(movement_column) {
+						movement_column = false;
+						if(player_at > 3) {
+							player_at = 3;
+						}
+					} else {
+						movement_column = true;
+					}
+					selected = keyconfig_player_selected_row(
+						movement_column, player_at
+					);
+				} else if(left) {
 					page = ((page == 0) ? (KCP_COUNT - 1) : (page - 1));
+					page_changed = true;
 				} else {
 					page = ((page == (KCP_COUNT - 1)) ? 0 : (page + 1));
+					page_changed = true;
 				}
-				if(selected >= keyconfig_page_row_count(page)) {
-					selected = 0;
+				if(page_changed) {
+					if(page == KCP_STORY) {
+						selected = KCSR_UP;
+					} else {
+						movement_column = false;
+						player_at = 0;
+						selected = KCR_SHOT;
+					}
 				}
 				keyconfig_screen_put(cfg, page, selected);
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
@@ -1126,4 +1227,4 @@ bool far keyconfig_menu(void)
 }
 
 // Preserve the paragraph phase of all following code segments.
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
