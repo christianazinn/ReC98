@@ -8,8 +8,9 @@ typedef uint8_t __seg *menu_font_t;
 
 extern menu_font_t far menu_font;
 
-enum menu_font_render_flag_t {
-	MENU_FONT_200LINE = 0x100,
+enum menu_font_fixed_t {
+	MENU_FONT_NUMERIC_CELL_W = 12,
+	MENU_FONT_ONE_INSET = 2,
 };
 
 bool16 pascal menu_font_load(const unsigned char far *restore_pf_fn);
@@ -34,7 +35,6 @@ void pascal menu_font_put_centered(
 void pascal menu_font_put_right(
 	screen_x_t right, vram_y_t top, const char far *str, int color
 );
-
 // Keeps existing fixed-cell columns while rendering each non-space token
 // proportionally. [cell_left] is a pixel coordinate, not a TRAM column.
 void pascal menu_font_put_cells(

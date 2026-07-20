@@ -1621,6 +1621,31 @@ static int scorefile_text_fixed(
 	return end;
 }
 
+#pragma codeseg SCOREFONT_TEXT
+
+static void far scorefile_time_put(
+	screen_x_t left, vram_y_t top, const char far *str, int color
+)
+{
+	int glyph_left;
+
+	while(*str) {
+		glyph_left = left;
+		if((*str >= '0') && (*str <= '9')) {
+			if(*str == '1') {
+				glyph_left += MENU_FONT_ONE_INSET;
+			}
+			left += MENU_FONT_NUMERIC_CELL_W;
+		} else {
+			left += menu_font_width_n(str, 1);
+		}
+		menu_font_put_n(glyph_left, top, str, 1, color);
+		str++;
+	}
+}
+
+#pragma codeseg
+
 void far scorefile_view_overlay_put(void)
 {
 	char line[48];
@@ -1641,7 +1666,7 @@ void far scorefile_view_overlay_put(void)
 	line[at++] = ':';
 	at = scorefile_text_fixed(line, at, (seconds % 60UL), 2);
 	line[at] = '\0';
-	menu_font_put(24, 340, line, V_WHITE);
+	scorefile_time_put(24, 340, line, V_WHITE);
 	at = scorefile_text_append(line, 0, SCORE_1CC);
 	at = scorefile_text_u32(line, at, scorefile_view_stats.one_ccs);
 	at = scorefile_text_append(line, at, SCORE_CONTINUES);
@@ -1792,7 +1817,7 @@ void far scorefile_close(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90"
 #elif (BINARY == 'M')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

@@ -3053,6 +3053,9 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_CHOICE_COLOR_W ( \
 	(REPLAY_PAUSE_TEXT_LEFT + 20) - REPLAY_PAUSE_CHOICE_MARK_LEFT \
 )
+#define REPLAY_PAUSE_FONT_PIXEL_BOTTOM ( \
+	REPLAY_PAUSE_PIXEL_TOP + (REPLAY_PAUSE_H * GLYPH_H) - 1 \
+)
 #define REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT ( \
 	REPLAY_PAUSE_CHOICE_MARK_LEFT * GLYPH_HALF_W \
 )
@@ -3450,7 +3453,7 @@ static void replay_pause_font_put_graph_backing(void)
 	graph_copy_page(page_back);
 	replay_overlay_graph_fill(
 		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
 		REPLAY_PAUSE_FONT_BLACK, page_front
 	);
 }
@@ -3463,18 +3466,18 @@ static void replay_pause_font_put_frame(void)
 		REPLAY_PAUSE_FONT_WHITE, page_front
 	);
 	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_BOTTOM,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
 		REPLAY_PAUSE_FONT_WHITE, page_front
 	);
 	replay_overlay_graph_fill(
 		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
 		REPLAY_PAUSE_FONT_WHITE, page_front
 	);
 	replay_overlay_graph_fill(
 		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_BOTTOM,
+		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
 		REPLAY_PAUSE_FONT_WHITE, page_front
 	);
 }
@@ -3487,8 +3490,8 @@ static void replay_pause_font_put_title(void)
 	str[4] = 'E'; str[5] = 'D'; str[6] = '\0';
 	menu_font_put_centered(
 		((REPLAY_PAUSE_PIXEL_LEFT + REPLAY_PAUSE_PIXEL_RIGHT + 1) / 2),
-		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_HALF_H), str,
-		(REPLAY_PAUSE_FONT_BLUE | MENU_FONT_200LINE)
+		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_H), str,
+		REPLAY_PAUSE_FONT_BLUE
 	);
 }
 
@@ -3499,7 +3502,7 @@ static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 	char *p = str;
 	int color;
 	int top = (
-		REPLAY_PAUSE_PIXEL_TOP + ((choice + 2) * GLYPH_HALF_H)
+		REPLAY_PAUSE_PIXEL_TOP + ((choice + 2) * GLYPH_H)
 	);
 
 	if(
@@ -3515,7 +3518,7 @@ static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 
 	replay_overlay_graph_fill(
 		(REPLAY_PAUSE_PIXEL_LEFT + 1), top,
-		(REPLAY_PAUSE_PIXEL_RIGHT - 1), (top + GLYPH_HALF_H - 1),
+		(REPLAY_PAUSE_PIXEL_RIGHT - 1), (top + GLYPH_H - 1),
 		REPLAY_PAUSE_FONT_BLACK, page_front
 	);
 	if(choice == REPLAY_PAUSE_RESUME) {
@@ -3540,13 +3543,11 @@ static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 	cursor[1] = '\0';
 	if(choice == sel) {
 		menu_font_put(
-			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor,
-			(color | MENU_FONT_200LINE)
+			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor, color
 		);
 	}
 	menu_font_put(
-		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str,
-		(color | MENU_FONT_200LINE)
+		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str, color
 	);
 }
 
@@ -3566,16 +3567,15 @@ static void replay_pause_font_put_choices(uint8_t sel)
 static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 {
 	(void)old_sel;
-	if(menu_font) {
-		replay_pause_font_put_choices(sel);
-	} else {
-		replay_pause_put_choices(sel);
-	}
+	replay_pause_put_choices(sel);
 }
 
-// Preserve the accepted offset of replay_pause_menu() across UI rewrites.
+// Preserve the accepted offset of replay_pause_menu() after returning its
+// redraw path to the smaller native TRAM implementation.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 uint8_t far replay_pause_menu(void)
 {
@@ -3585,18 +3585,14 @@ uint8_t far replay_pause_menu(void)
 	replay_pause_save_refresh();
 	replay_pause_beep();
 	replay_pause_wait_release();
+	// Gameplay uses doubled 200-line graphics, while TRAM remains 400-line and
+	// owns the center HUD. Keep this menu on TRAM so it retains native height,
+	// true black backing, and priority over that HUD.
+	replay_pause_put_graph_backing();
+	replay_pause_put_frame();
+	replay_pause_put_title();
 	sel = replay_pause_validate_choice(sel);
-	if(menu_font) {
-		replay_pause_font_put_graph_backing();
-		replay_pause_font_put_frame();
-		replay_pause_font_put_title();
-		replay_pause_font_put_choices(sel);
-	} else {
-		replay_pause_put_graph_backing();
-		replay_pause_put_frame();
-		replay_pause_put_title();
-		replay_pause_put_choices(sel);
-	}
+	replay_pause_put_choices(sel);
 
 input_wait:
 	replay_input_sense_held();
@@ -3663,9 +3659,7 @@ restart_not_requested:
 resume:
 	replay_pause_wait_release();
 	replay_pause_restore_graphics();
-	if(!menu_font) {
-		replay_pause_clear();
-	}
+	replay_pause_clear();
 	replay_pause_beep();
 	return REPLAY_PAUSE_RESUME;
 }
@@ -3687,6 +3681,7 @@ resume:
 #undef REPLAY_PAUSE_SELECTED_ATRB
 #undef REPLAY_PAUSE_DISABLED_ATRB
 #undef REPLAY_PAUSE_CHOICE_COLOR_W
+#undef REPLAY_PAUSE_FONT_PIXEL_BOTTOM
 #undef REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT
 #undef REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT
 
@@ -3833,6 +3828,10 @@ void far replay_finish(uint8_t route)
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"

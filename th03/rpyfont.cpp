@@ -155,13 +155,16 @@ static const uint8_t near *list_score(void)
 	return replay_user_menu_header.final_score;
 }
 
-static uint8_t stage_opponent(uint8_t stage)
+static uint8_t stage_opponent(uint8_t stage, bool show_unreached)
 {
 	if(
 		summary_valid() &&
 		(stage < replay_user_menu_header.stage_reached_count)
 	) {
 		return replay_user_menu_header.scenario.story.stage_opponents[stage];
+	}
+	if(show_unreached) {
+		return replay_user_menu_snapshot.story_opponents[stage];
 	}
 	return 0xFF;
 }
@@ -686,7 +689,9 @@ static void vs_put(void)
 	}
 }
 
-static void story_put(uint8_t stage_sel, bool stage_focus)
+static void story_put(
+	uint8_t stage_sel, bool stage_focus, bool show_unreached_opponents
+)
 {
 	char *p;
 	uint8_t stage;
@@ -739,7 +744,8 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		p = append_playchar_pair(
-			replay_menu_line, stage_opponent(stage)
+			replay_menu_line,
+			stage_opponent(stage, show_unreached_opponents)
 		);
 		field_put(
 			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
@@ -880,7 +886,10 @@ static void practice_put(void)
 }
 
 void far replay_font_detail_put(
-	uint8_t slot, uint8_t stage_sel, bool stage_focus
+	uint8_t slot,
+	uint8_t stage_sel,
+	bool stage_focus,
+	bool show_unreached_opponents
 )
 {
 	if(replay_practice()) {
@@ -891,7 +900,7 @@ void far replay_font_detail_put(
 		vs_put();
 	} else {
 		common_put(slot, DETAIL_Y);
-		story_put(stage_sel, stage_focus);
+		story_put(stage_sel, stage_focus, show_unreached_opponents);
 	}
 }
 
@@ -920,7 +929,7 @@ void pascal far replay_font_put_fixed_n(
 	while(count && *str) {
 		glyph_left = left;
 		if(*str == '1') {
-			glyph_left += ((cell_w - menu_font_width_n(str, 1)) / 2);
+			glyph_left += REPLAY_FONT_ONE_INSET;
 		}
 		menu_font_put_n(glyph_left, top, str, 1, color);
 		left += cell_w;
@@ -930,4 +939,4 @@ void pascal far replay_font_put_fixed_n(
 }
 
 // Keep the following patch-owned segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
