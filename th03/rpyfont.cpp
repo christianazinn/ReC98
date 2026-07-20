@@ -159,11 +159,11 @@ static uint8_t stage_opponent(uint8_t stage)
 {
 	if(
 		summary_valid() &&
-		(replay_user_menu_header.scenario.story.stage_opponents[stage] != 0)
+		(stage < replay_user_menu_header.stage_reached_count)
 	) {
 		return replay_user_menu_header.scenario.story.stage_opponents[stage];
 	}
-	return replay_user_menu_snapshot.story_opponents[stage];
+	return 0xFF;
 }
 
 static char *append_cstr(char *p, const char *str)
@@ -291,7 +291,7 @@ static const char *playchar_name(uint8_t paletted)
 	case PLAYCHAR_RIKAKO: return "Rikako";
 	case PLAYCHAR_CHIYURI: return "Chiyuri";
 	case PLAYCHAR_YUMEMI: return "Yumemi";
-	default: return "?";
+	default: return "-";
 	}
 }
 
@@ -300,7 +300,9 @@ static char *append_playchar_pair(char *p, uint8_t paletted)
 	const char *name = playchar_name(paletted);
 
 	*p++ = name[0];
-	*p++ = ((name[1] == '\0') ? '?' : name[1]);
+	if(name[1] != '\0') {
+		*p++ = name[1];
+	}
 	return p;
 }
 
@@ -486,6 +488,10 @@ static void score_put(
 	p = (valid ? append_packed_score(p, score) : append_unknown_score(p));
 	field_put_right(right, y, p, atrb);
 }
+
+// Keep the public replay-list renderers at their accepted entry offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay

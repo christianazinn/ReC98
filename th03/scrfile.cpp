@@ -369,7 +369,7 @@ typedef char scorefile_size_check[
 scorefile_stats_t scorefile_view_stats;
 uint8_t scorefile_view_page;
 static uint8_t scorefile_view_valid[T3_SCOREFILE_PLACES];
-static uint8_t scorefile_view_total[T3_SCOREFILE_PLACES];
+uint8_t scorefile_view_total[T3_SCOREFILE_PLACES];
 static scorefile_t far *scorefile;
 static scorefile_t far *scorefile_scratch;
 static bool scorefile_recreated;

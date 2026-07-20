@@ -2407,9 +2407,13 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 		*p++ = ((stage_focus && (stage == stage_sel)) ? '>' : ' ');
 		*p++ = static_cast<char>('1' + stage);
 		*p++ = ' ';
-		p = replay_line_append_playchar_pair(
-			p, replay_menu_stage_opponent(stage)
-		);
+		#if defined(TH03_REPLAY_DEVTOOLS)
+			p = replay_line_append_playchar_pair(
+				p, replay_menu_stage_opponent(stage)
+			);
+		#else
+			*p++ = '-';
+		#endif
 		*p++ = ' ';
 		if(
 			replay_menu_summary_valid() &&
@@ -2460,8 +2464,14 @@ static void replay_menu_detail_put(
 		return;
 	}
 	if(menu_font) {
+		#if defined(TH03_REPLAY_DEVTOOLS)
+			if(replay_menu_practice() || replay_menu_vs()) {
+		#endif
 		replay_font_detail_put(slot, stage_sel, stage_focus);
 		return;
+		#if defined(TH03_REPLAY_DEVTOOLS)
+			}
+		#endif
 	}
 
 	p = replay_menu_line;
@@ -2499,6 +2509,9 @@ static uint8_t replay_menu_render_begin(void)
 {
 	uint8_t page_drawn = 0;
 
+	#if defined(TH03_REPLAY_DEVTOOLS)
+		text_clear();
+	#endif
 	if(menu_font) {
 		page_drawn = (1 - replay_menu_state.page_shown);
 	}
@@ -3829,13 +3842,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20352E33UL); // "3.5 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D362E33UL); // "3.6-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4431,9 +4444,9 @@ static int near replay_dev_story_stage_menu(void)
 // Keep the browser's dense proportional layouts in patch-owned tail code.
 #if defined(TH03_REPLAY_DEVTOOLS)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_STAGE_SELECT)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4446,6 +4459,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
 #else
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 /// --------

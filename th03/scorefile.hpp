@@ -52,6 +52,7 @@ struct scorefile_stats_t {
 
 extern scorefile_stats_t scorefile_view_stats;
 extern uint8_t scorefile_view_page;
+extern uint8_t scorefile_view_total[T3_SCOREFILE_PLACES];
 
 bool16 far scorefile_compat_load(rank_t rank);
 void far scorefile_compat_save(rank_t rank);

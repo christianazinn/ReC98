@@ -246,17 +246,16 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 	int c;
 	int score_digit_first_nonzero; // regi_patnum_t
 	bool16 highlight = (entered_place == place);
-	unsigned char col = (entered_place == place) ? 0xF : 0x4;
+	unsigned char col = scorefile_view_total[place];
 
 	if(entered_place == PLACE_NONE) {
 		highlight = true;
-		col = 0xF;
 	}
 
 	// Place number
 	if(place != 9) { // If the 10 is hardcoded in the branch below anyway...
 		regi_put(left, top, (REGI_1 + place), highlight);
-	} else {
+	} else if(!col) {
 		regi_put((left - (REGI_GLYPH_W / 4)), top, REGI_1, highlight);
 		regi_put((left + (REGI_GLYPH_W / 4)), top, REGI_0, highlight);
 	}
@@ -288,7 +287,7 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 	}
 	left += CELL_PADDING_X;
 
-	if(scorefile_row_total(place)) {
+	if(col) {
 		return;
 	}
 
@@ -296,7 +295,7 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 	graph_putsa_fx(
 		left,
 		(top + ((REGI_GLYPH_H - GLYPH_H) / 2)),
-		(col | FX_WEIGHT_BOLD),
+		((highlight ? 0xF : 0x4) | FX_WEIGHT_BOLD),
 		REGIST_PLAYCHARS[hi.score.playchar[place].v]
 	);
 	left += (REGIST_PLAYCHAR_W + CELL_PADDING_X);
@@ -541,7 +540,7 @@ void near regist_next_screen_resume(void)
 
 // Preserve the accepted GROUP_01 phase after replacing the legacy score-file
 // codecs with calls into the expanded score store.
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90"
 
 void near regist_menu(void)
 {
