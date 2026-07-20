@@ -3,11 +3,17 @@
 
 #include "platform.h"
 
+enum replay_font_cell_width_t {
+	REPLAY_FONT_NUMERIC_CELL_W = 12,
+	REPLAY_FONT_NAME_CELL_W = 13,
+};
+
 void pascal far replay_font_put_fixed_n(
 	int left,
 	int top,
 	const char far *str,
 	unsigned count,
+	int cell_w,
 	int color
 );
 void far replay_font_slot_line_put(

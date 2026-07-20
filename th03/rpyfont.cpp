@@ -33,7 +33,11 @@ enum {
 	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
 	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
 	DETAIL_ROUND_WINNER_LEFT = 584,
-	REPLAY_FONT_MONO = 0x100,
+	REPLAY_FONT_FIXED_NUMERIC = 0x100,
+	REPLAY_FONT_FIXED_NAME = 0x200,
+	REPLAY_FONT_FIXED_MASK = (
+		REPLAY_FONT_FIXED_NUMERIC | REPLAY_FONT_FIXED_NAME
+	),
 	REPLAY_FONT_SELECTED_COLOR = 12,
 };
 
@@ -416,14 +420,23 @@ static int font_color(unsigned atrb)
 	return V_WHITE;
 }
 
+static int fixed_cell_width(unsigned atrb)
+{
+	if(atrb & REPLAY_FONT_FIXED_NAME) {
+		return REPLAY_FONT_NAME_CELL_W;
+	}
+	return REPLAY_FONT_NUMERIC_CELL_W;
+}
+
 static void field_put(screen_x_t left, unsigned y, char *p, unsigned atrb)
 {
 	unsigned count = (p - replay_menu_line);
 
 	*p = '\0';
-	if(atrb & REPLAY_FONT_MONO) {
+	if(atrb & REPLAY_FONT_FIXED_MASK) {
 		replay_font_put_fixed_n(
 			left, (y * GLYPH_H), replay_menu_line, count,
+			fixed_cell_width(atrb),
 			font_color(atrb & 0xFF)
 		);
 	} else {
@@ -438,11 +451,12 @@ static void field_put_right(
 	char *first = replay_menu_line;
 
 	*p = '\0';
-	if(atrb & REPLAY_FONT_MONO) {
+	if(atrb & REPLAY_FONT_FIXED_MASK) {
 		unsigned count = (p - replay_menu_line);
+		int cell_w = fixed_cell_width(atrb);
 		replay_font_put_fixed_n(
-			(right - (count * 16)), (y * GLYPH_H),
-			replay_menu_line, count, font_color(atrb & 0xFF)
+			(right - (count * cell_w)), (y * GLYPH_H),
+			replay_menu_line, count, cell_w, font_color(atrb & 0xFF)
 		);
 		return;
 	}
@@ -488,24 +502,24 @@ void far replay_font_slot_line_put(
 		);
 	}
 	p = append_u8_2(replay_menu_line, slot);
-	field_put(SLOT_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_MONO));
+	field_put(SLOT_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NUMERIC));
 	if(!has_replay) {
 		p = append_cstr(replay_menu_line, "none");
-		field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_MONO));
+		field_put(NAME_PIXEL_LEFT, y, p, atrb);
 		return;
 	}
 	p = append_playchar_pair(
 		replay_menu_line, replay_user_menu_header.playchar_p1
 	);
-	field_put(CHAR_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_MONO));
+	field_put(CHAR_PIXEL_LEFT, y, p, atrb);
 	p = replay_menu_line;
 	*p++ = rank_initial(replay_user_menu_header.rank);
 	field_put(RANK_PIXEL_LEFT, y, p, atrb);
 	p = append_name(replay_menu_line);
-	field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_MONO));
+	field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NAME));
 	score_put(
 		SCORE_PIXEL_RIGHT, y, list_score(), summary_valid(),
-		(atrb | REPLAY_FONT_MONO)
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
 	);
 	p = append_final_stage(replay_menu_line);
 	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
@@ -722,14 +736,13 @@ static void story_put(uint8_t stage_sel, bool stage_focus)
 			replay_menu_line, stage_opponent(stage)
 		);
 		field_put(
-			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p,
-			(atrb | REPLAY_FONT_MONO)
+			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		score_put(
 			DETAIL_SPLIT_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
 			replay_user_menu_header.scenario.story.stage_scores[stage],
 			(valid && (stage < replay_user_menu_header.stage_reached_count)),
-			(atrb | REPLAY_FONT_MONO)
+			(atrb | REPLAY_FONT_FIXED_NUMERIC)
 		);
 	}
 	if(stage_focus) {
@@ -892,21 +905,20 @@ void pascal far replay_font_put_fixed_n(
 	int top,
 	const char far *str,
 	unsigned count,
+	int cell_w,
 	int color
 )
 {
 	while(count && *str) {
 		menu_font_put_n(left, top, str, 1, color);
-		left += 16;
+		left += cell_w;
 		str++;
 		count--;
 	}
 }
 
 // Keep the following patch-owned segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"

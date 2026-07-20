@@ -280,17 +280,20 @@ static void practice_graphics_row_put(
 	if(value_at != 0) {
 		if(fixed_digits) {
 			replay_font_put_fixed_n(
-				VALUE_LEFT, top, &line[value_at], 1, color
+				VALUE_LEFT, top, &line[value_at], 1,
+				REPLAY_FONT_NUMERIC_CELL_W, color
 			);
 			menu_font_put_n(
-				(VALUE_LEFT + 16), top, &line[value_at + 1], 1, color
+				(VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W),
+				top, &line[value_at + 1], 1, color
 			);
 			replay_font_put_fixed_n(
 				(
-					VALUE_LEFT + 16 +
+					VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W +
 					menu_font_width_n(&line[value_at + 1], 1)
 				),
-				top, &line[value_at + 2], 4, color
+				top, &line[value_at + 2], 4,
+				REPLAY_FONT_NUMERIC_CELL_W, color
 			);
 		} else {
 			menu_font_put(
@@ -763,4 +766,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
