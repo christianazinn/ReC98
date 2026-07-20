@@ -23,6 +23,7 @@
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
+#include "th03/scorefile.hpp"
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
 #include "th03/snd/snd.h"
@@ -2880,6 +2881,7 @@ void far replay_frame_io(void)
 	bool fast_forward_held = false;
 	uint8_t shot_bits;
 
+	scorestat_frame_tick();
 	keyconfig_charge_mask_human();
 
 	if(replay_mode == REPLAY_DISABLED) {
@@ -3715,6 +3717,9 @@ void far replay_finish(uint8_t route)
 	bool save_pending = false;
 	bool control_ok = true;
 
+	if(route == 0) {
+		scorestat_exit_checkpoint();
+	}
 	replay_split_row(RSE_FINISH, route);
 	if(replay_mode == REPLAY_USER_RECORD) {
 		control_ok = replay_user_control_write(

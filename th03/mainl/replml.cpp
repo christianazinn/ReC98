@@ -11,6 +11,7 @@
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
+#include "th03/scorefile.hpp"
 
 // Pack the pending packet size into unused RLE phase bits.
 #define REPLAY_RLE_PHASE_MASK 0x03
@@ -1123,6 +1124,13 @@ void far mainl_replay_session_start(void)
 {
 	replay_protect_local_reset();
 	mainl_replay_mode = mainl_replay_resident_mode();
+	if(
+		(resident->game_mode == GM_STORY) &&
+		(mainl_replay_mode == MR_USER_RECORD) &&
+		!scorestat_active()
+	) {
+		scorestat_run_begin();
+	}
 	replay_sample_count = mainl_replay_handoff_u32_read(
 		T3_REPLAY_RES_SAMPLE_COUNT_INDEX
 	);
@@ -1368,6 +1376,13 @@ bool far mainl_replay_clear_playback_finish(void)
 
 void far mainl_replay_exit_to_main(void)
 {
+	if(
+		(resident->game_mode == GM_STORY) &&
+		(resident->rem_credits < 3) &&
+		!scorestat_active()
+	) {
+		scorestat_continue_accept();
+	}
 	if(!mainl_replay_stage_start_selected()) {
 		mainl_replay_transition_finish();
 	}

@@ -13,6 +13,8 @@
 #include "th03/snd/snd.h"
 #include "th03/shiftjis/regist.hpp"
 #include "th03/formats/scoredat.hpp"
+#include "th03/menu_font.hpp"
+#include "th03/scorefile.hpp"
 
 #include "th03/formats/score_ld.cpp"
 #include "th03/formats/score_es.cpp"
@@ -139,6 +141,7 @@ int near regist_score_enter_from_resident(void)
 	}
 
 found:
+	scorefile_row_insert(place);
 	if(place < (SCOREDAT_PLACES - 1)) {
 		for(shift = (SCOREDAT_PLACES - 2); shift >= place; shift--) {
 			for(c = 0; c < SCOREDAT_NAME_LEN; c++) {
@@ -258,6 +261,9 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 		regi_put((left + (REGI_GLYPH_W / 4)), top, REGI_0, highlight);
 	}
 	left += PLACE_NUMBER_PADDED_W;
+	if(!scorefile_row_valid(place)) {
+		return;
+	}
 
 	// Name
 	c = (SCOREDAT_NAME_LEN - 1);
@@ -284,6 +290,10 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 		left += SCORE_SPACING;
 	}
 	left += CELL_PADDING_X;
+
+	if(scorefile_row_total(place)) {
+		return;
+	}
 
 	// Player character
 	graph_putsa_fx(
@@ -525,11 +535,16 @@ void near regist_next_screen_resume(void)
 	regist_next_screen_assets_load();
 }
 
+// Preserve the accepted GROUP_01 phase after replacing the legacy score-file
+// codecs with calls into the expanded score store.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+
 void near regist_menu(void)
 {
 	extern const char score_m[];
+	extern const unsigned char mainl_pf_fn[];
 
-	random_seed = resident->rand; // YUME.NEM key generation uses this RNG!
+	random_seed = resident->rand; // Retained at the accepted original code phase.
 
 	snd_load(score_m, SND_LOAD_SONG);
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
@@ -547,6 +562,8 @@ void near regist_menu(void)
 	regist_load_and_put_initial_both();
 	if(entered_place == PLACE_NONE) {
 		regist_rows_unput_and_put();
+		menu_font_load(mainl_pf_fn);
+		scorefile_view_overlay_put();
 		palette_black_in(2);
 	} else {
 		regist_rows_unput_and_put();
@@ -566,7 +583,40 @@ void near regist_menu(void)
 		regist_replace_same_letter_name_with_default_for_playchar();
 		regist_rows_unput_and_put();
 	}
-	input_wait_for_change(0);
+	if(entered_place == PLACE_NONE) {
+		bool viewing = true;
+		while(viewing) {
+			input_wait_for_change(0);
+			if(input_sp & INPUT_RIGHT) {
+				uint8_t visible = (
+					scorefile_unlocked() ? PLAYCHAR_COUNT : PLAYCHAR_COUNT_LOCKED
+				);
+				uint8_t page = (
+					(scorefile_view_page == T3_SCOREFILE_VIEW_ALL) ? 0 :
+					((scorefile_view_page + 1 >= visible) ?
+					 T3_SCOREFILE_VIEW_ALL : (scorefile_view_page + 1))
+				);
+				scorefile_view_load(static_cast<rank_t>(resident->rank), page);
+				regist_rows_unput_and_put();
+				scorefile_view_overlay_put();
+			} else if(input_sp & INPUT_LEFT) {
+				uint8_t page = (
+					(scorefile_view_page == T3_SCOREFILE_VIEW_ALL) ?
+					(scorefile_unlocked() ? (PLAYCHAR_COUNT - 1) :
+					 (PLAYCHAR_COUNT_LOCKED - 1)) :
+					((scorefile_view_page == 0) ? T3_SCOREFILE_VIEW_ALL :
+					 (scorefile_view_page - 1))
+				);
+				scorefile_view_load(static_cast<rank_t>(resident->rank), page);
+				regist_rows_unput_and_put();
+				scorefile_view_overlay_put();
+			} else {
+				viewing = false;
+			}
+		}
+	} else {
+		input_wait_for_change(0);
+	}
 
 	// ZUN quirk: If we're just viewing high scores, we only get the fade if
 	// [resident->rem_credits] either hasn't been initialized yet or happens to
@@ -580,6 +630,8 @@ void near regist_menu(void)
 
 	palette_black_out(2);
 	scoredat_encode_and_save(static_cast<rank_t>(resident->rank));
+	menu_font_free();
+	scorefile_close();
 	super_free();
 
 	// These load calls look like they belong to the respective call site

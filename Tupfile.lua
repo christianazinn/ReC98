@@ -637,6 +637,7 @@ local th03_op_inputs = {
 	"th03/rpyfont.cpp",
 	"th03/opfont.cpp",
 	"th03/mnufont.cpp",
+	"th03/scorio.cpp",
 }
 th03_op_cfg:link("op", th03_op_inputs)
 
@@ -779,6 +780,7 @@ local th03_main_inputs = {
 	"th03/main/pract_m.cpp",
 	"th03/keycfg_i.cpp",
 	"th03/mnufont.cpp",
+	"th03/scrmain.cpp",
 }
 th03_main_cfg:link("main", th03_main_inputs)
 
@@ -838,6 +840,8 @@ local th03_mainl_inputs = {
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
 	"th03/keycfg_i.cpp",
+	"th03/mnufont.cpp",
+	"th03/scrml.cpp",
 }
 th03_mainl_cfg:link("mainl", th03_mainl_inputs)
 
