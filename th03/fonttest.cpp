@@ -35,7 +35,7 @@ void pascal far replay_dev_font_specimen_show(void)
 	FONT_SPECIMEN( 6, ": ; < = > ? @ [ \\ ] ^ _ `  :;<=>?@[\\]^_`");
 	FONT_SPECIMEN( 7, "{ | } ~  {|}~  { | } ~  {|}~");
 	FONT_SPECIMEN( 8, "The PoDD Arrange Project");
-	FONT_SPECIMEN( 9, "Replay Patch v0.3.4-rc5 by Christian Azinn");
+	FONT_SPECIMEN( 9, "Replay Patch v0.3.4-rc6 by Christian Azinn");
 	FONT_SPECIMEN(10, "Start  VS Start  Music Room  HiScore  Option  Replay  Quit");
 	FONT_SPECIMEN(11, "Rank  Easy  Normal  Hard  Lunatic");
 	FONT_SPECIMEN(12, "Music  OFF  FM 86  KeyConfig  Key  Joy");

@@ -19,8 +19,8 @@
 #define T3_KEYCONFIG_CAPTURE_CANCEL 0xFE
 
 enum keyconfig_menu_color_t {
-	KEYCONFIG_COLOR_HEADER = 9,
-	KEYCONFIG_COLOR_FOOTER = 10,
+	KEYCONFIG_COLOR_HEADER = 14,
+	KEYCONFIG_COLOR_FOOTER = 14,
 	KEYCONFIG_COLOR_SELECTED = 12,
 	KEYCONFIG_COLOR_LABEL = 13,
 	KEYCONFIG_COLOR_VALUE = V_WHITE,
@@ -192,6 +192,7 @@ enum keyconfig_page_t {
 enum keyconfig_layout_t {
 	KEYCONFIG_HEADER_TOP = 6,
 	KEYCONFIG_ROWS_TOP = 8,
+	KEYCONFIG_PLAYER_ACTION_TOP = 10,
 	KEYCONFIG_COMMAND_TOP = 16,
 	KEYCONFIG_FOOTER_TOP = 21,
 	KEYCONFIG_STORY_LABEL_LEFT = 216,
@@ -715,7 +716,7 @@ static void keyconfig_player_row_put(
 	screen_x_t value_left;
 
 	if(row == KCR_AUTOFIRE) {
-		top = (KEYCONFIG_ROWS_TOP + 3);
+		top = (KEYCONFIG_PLAYER_ACTION_TOP + 3);
 		label_left = KEYCONFIG_PLAYER_ACTION_LABEL_LEFT;
 		value_left = KEYCONFIG_PLAYER_ACTION_VALUE_LEFT;
 	} else if(row <= KCR_DOWN_RIGHT) {
@@ -723,7 +724,7 @@ static void keyconfig_player_row_put(
 		label_left = KEYCONFIG_PLAYER_MOVEMENT_LABEL_LEFT;
 		value_left = KEYCONFIG_PLAYER_MOVEMENT_VALUE_LEFT;
 	} else if(row <= KCR_CHARGE) {
-		top = (KEYCONFIG_ROWS_TOP + (row - KCR_SHOT));
+		top = (KEYCONFIG_PLAYER_ACTION_TOP + (row - KCR_SHOT));
 		label_left = KEYCONFIG_PLAYER_ACTION_LABEL_LEFT;
 		value_left = KEYCONFIG_PLAYER_ACTION_VALUE_LEFT;
 	} else {
@@ -1112,11 +1113,13 @@ bool far keyconfig_menu(void)
 				) {
 					if(movement_column) {
 						movement_column = false;
-						if(player_at > 3) {
-							player_at = 3;
-						}
+						player_at = (
+							(player_at < 2) ? 0 :
+							((player_at > 5) ? 3 : (player_at - 2))
+						);
 					} else {
 						movement_column = true;
+						player_at += 2;
 					}
 					selected = keyconfig_player_selected_row(
 						movement_column, player_at
@@ -1227,4 +1230,4 @@ bool far keyconfig_menu(void)
 }
 
 // Preserve the paragraph phase of all following code segments.
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
