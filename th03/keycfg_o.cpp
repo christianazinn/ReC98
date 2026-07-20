@@ -885,7 +885,11 @@ static void keyconfig_screen_put(
 	bool restore = false;
 
 	text_clear();
-	graph_accesspage(1);
+	// Page 1 owns the clean background used by menu_font_restore_rect(). Draw
+	// the complete next frame on hidden page 0 without graph_copy_page(),
+	// whose full-VRAM temporary allocation can fail while both PIs are loaded.
+	graph_showpage(1);
+	graph_accesspage(0);
 	keyconfig_background_put();
 	keyconfig_line_clear(line);
 	at = 0;
@@ -921,8 +925,6 @@ static void keyconfig_screen_put(
 		text_putsa(12, KEYCONFIG_FOOTER_TOP, line, TX_WHITE);
 	}
 	vsync_wait();
-	graph_showpage(1);
-	graph_copy_page(0);
 	graph_showpage(0);
 
 	// Keep page 1 as a clean copy of the background for transient message
@@ -931,6 +933,10 @@ static void keyconfig_screen_put(
 	keyconfig_background_put();
 	graph_accesspage(0);
 }
+
+// Preserve all following KeyConfig entry points after removing the allocating
+// full-page copy.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 
 static void keyconfig_screen_clear(void)
 {
