@@ -309,7 +309,11 @@ void near regist_rows_unput_and_put(void)
 {
 	// ZUN bloat: Way too excessive. The names are the only thing we possibly
 	// change throughout this screen.
-	graph_copy_page(0);
+	if(entered_place == PLACE_NONE) {
+		scorefile_view_frame_begin();
+	} else {
+		graph_copy_page(0);
+	}
 
 	int place = 0;
 	screen_y_t top = TABLE_TOP;
@@ -317,6 +321,9 @@ void near regist_rows_unput_and_put(void)
 		regist_row_put_at(TABLE_LEFT, top, place);
 		place++;
 		top += TABLE_ROW_SPACING;
+	}
+	if(entered_place == PLACE_NONE) {
+		scorefile_view_frame_end();
 	}
 }
 
@@ -534,8 +541,7 @@ void near regist_next_screen_resume(void)
 
 // Preserve the accepted GROUP_01 phase after replacing the legacy score-file
 // codecs with calls into the expanded score store.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 void near regist_menu(void)
 {
@@ -559,9 +565,9 @@ void near regist_menu(void)
 
 	regist_load_and_put_initial_both();
 	if(entered_place == PLACE_NONE) {
-		regist_rows_unput_and_put();
 		menu_font_load(mainl_pf_fn);
-		scorefile_view_overlay_put();
+		scorefile_view_assets_load();
+		regist_rows_unput_and_put();
 		palette_black_in(2);
 	} else {
 		regist_rows_unput_and_put();
@@ -596,7 +602,6 @@ void near regist_menu(void)
 				);
 				scorefile_view_load(static_cast<rank_t>(resident->rank), page);
 				regist_rows_unput_and_put();
-				scorefile_view_overlay_put();
 			} else if(input_sp & INPUT_LEFT) {
 				uint8_t page = (
 					(scorefile_view_page == T3_SCOREFILE_VIEW_ALL) ?
@@ -607,7 +612,6 @@ void near regist_menu(void)
 				);
 				scorefile_view_load(static_cast<rank_t>(resident->rank), page);
 				regist_rows_unput_and_put();
-				scorefile_view_overlay_put();
 			} else {
 				viewing = false;
 			}
@@ -627,6 +631,7 @@ void near regist_menu(void)
 	}
 
 	palette_black_out(2);
+	scorefile_view_assets_free();
 	scoredat_encode_and_save(static_cast<rank_t>(resident->rank));
 	menu_font_free();
 	scorefile_close();

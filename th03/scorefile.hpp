@@ -56,10 +56,17 @@ extern uint8_t scorefile_view_page;
 bool16 far scorefile_compat_load(rank_t rank);
 void far scorefile_compat_save(rank_t rank);
 bool16 far scorefile_view_load(rank_t rank, uint8_t page);
+bool16 far scorefile_row_valid(uint8_t place);
 bool16 far scorefile_row_total(uint8_t place);
 void far scorefile_row_insert(uint8_t place);
 bool16 far scorefile_unlocked(void);
 void far scorefile_view_overlay_put(void);
+#if (BINARY == 'L')
+void far scorefile_view_assets_load(void);
+void far scorefile_view_assets_free(void);
+void far scorefile_view_frame_begin(void);
+void far scorefile_view_frame_end(void);
+#endif
 void far scorefile_close(void);
 
 void far scorestat_run_begin(void);

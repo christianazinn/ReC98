@@ -8,6 +8,9 @@
 #include "th03/scorefile.hpp"
 #if (BINARY == 'L')
 #include "th02/v_colors.hpp"
+#include "th02/hardware/frmdelay.h"
+#include "th03/formats/cdg.h"
+#include "th03/formats/pi.hpp"
 #include "th03/menu_font.hpp"
 #endif
 
@@ -1134,6 +1137,7 @@ static bool scorefile_ensure(void)
 
 static void scorefile_hi_clear(void)
 {
+#if (BINARY == 'L')
 	unsigned place;
 	int placeholder = REGI_9;
 
@@ -1154,6 +1158,20 @@ static void scorefile_hi_clear(void)
 		hi.score.score[place][3] = static_cast<regi_patnum_t>(placeholder);
 		placeholder--;
 	}
+#else
+	for(unsigned place = 0; place < T3_SCOREFILE_PLACES; place++) {
+		for(unsigned c = 0; c < T3_SCOREFILE_NAME_LEN; c++) {
+			hi.score.name[place][c] = REGI_SP;
+		}
+		for(unsigned digit = 0; digit < (SCORE_DIGITS + 2); digit++) {
+			hi.score.score[place][digit] = REGI_0;
+		}
+		hi.score.playchar[place].set_none();
+		hi.score.stage[place] = REGI_1;
+		scorefile_view_valid[place] = false;
+		scorefile_view_total[place] = false;
+	}
+#endif
 	hi.score.cleared = (
 		(scorefile->header.flags & T3_SCOREFILE_FLAG_EXTRA_UNLOCKED) ?
 		SCOREDAT_CLEARED : SCOREDAT_NOT_CLEARED
@@ -1178,6 +1196,61 @@ static void scorefile_entry_to_hi(
 	);
 	scorefile_view_valid[place] = true;
 }
+
+#if (BINARY == 'L')
+
+static int scorefile_entry_compare_hi(
+	const scorefile_entry_t far *entry, unsigned place
+)
+{
+	for(int digit = (T3_SCOREFILE_SCORE_DIGITS - 1); digit >= 0; digit--) {
+		int existing = (hi.score.score[place][digit + 1] - REGI_0);
+		if(entry->score[digit] > existing) {
+			return 1;
+		}
+		if(entry->score[digit] < existing) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void scorefile_hi_row_copy(unsigned dst, unsigned src)
+{
+	for(unsigned c = 0; c < T3_SCOREFILE_NAME_LEN; c++) {
+		hi.score.name[dst][c] = hi.score.name[src][c];
+	}
+	for(unsigned digit = 0; digit < (SCORE_DIGITS + 2); digit++) {
+		hi.score.score[dst][digit] = hi.score.score[src][digit];
+	}
+	hi.score.playchar[dst] = hi.score.playchar[src];
+	hi.score.stage[dst] = hi.score.stage[src];
+	scorefile_view_valid[dst] = scorefile_view_valid[src];
+	scorefile_view_total[dst] = false;
+}
+
+static void scorefile_entry_insert_hi(
+	const scorefile_entry_t far *entry, uint8_t playchar, unsigned place_limit
+)
+{
+	unsigned place;
+	int shift;
+
+	for(place = 0; place < place_limit; place++) {
+		if(scorefile_entry_compare_hi(entry, place) > 0) {
+			break;
+		}
+	}
+	if(place >= place_limit) {
+		return;
+	}
+	for(shift = (place_limit - 2); shift >= static_cast<int>(place); shift--) {
+		scorefile_hi_row_copy((shift + 1), shift);
+	}
+	scorefile_entry_to_hi(place, entry, playchar);
+}
+
+#endif
 
 static void scorefile_stats_zero(void)
 {
@@ -1236,7 +1309,13 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 		scorefile_board_t far *board = &scorefile->boards[rank][page];
 		for(unsigned place = 0; place < T3_SCOREFILE_PLACES; place++) {
 			if(board->entries[place].flags & T3_SCOREFILE_ENTRY_VALID) {
+#if (BINARY == 'L')
+				scorefile_entry_insert_hi(
+					&board->entries[place], page, T3_SCOREFILE_PLACES
+				);
+#else
 				scorefile_entry_to_hi(place, &board->entries[place], page);
+#endif
 			}
 		}
 		scorefile_view_stats = board->stats;
@@ -1261,6 +1340,7 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 			best[best_count].entry = &board->entries[0];
 			best_count++;
 			uint8_t carry = 0;
+#if (BINARY == 'L')
 			for(unsigned digit = 1; digit < 10; digit++) {
 				uint8_t add = (
 					(digit <= T3_SCOREFILE_SCORE_DIGITS) ?
@@ -1274,6 +1354,17 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 				total_digits[0] + board->entries[0].continues_used
 			);
 			total_digits[0] = ((continues > 9) ? 9 : continues);
+#else
+			for(unsigned digit = 0; digit < 10; digit++) {
+				uint8_t add = (
+					(digit < T3_SCOREFILE_SCORE_DIGITS) ?
+					board->entries[0].score[digit] : 0
+				);
+				uint8_t sum = (total_digits[digit] + add + carry);
+				total_digits[digit] = (sum % 10);
+				carry = (sum / 10);
+			}
+#endif
 		}
 	}
 	for(unsigned i = 0; i < best_count; i++) {
@@ -1288,12 +1379,26 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 		}
 	}
 	for(unsigned place = 0; place < best_count; place++) {
+#if (BINARY == 'L')
+		scorefile_entry_insert_hi(
+			best[place].entry, best[place].playchar,
+			(T3_SCOREFILE_PLACES - 1)
+		);
+#else
 		scorefile_entry_to_hi(
 			place, best[place].entry, best[place].playchar
 		);
+#endif
 	}
 	scorefile_total_to_hi((T3_SCOREFILE_PLACES - 1), total_digits);
 	return true;
+}
+
+bool16 far scorefile_row_valid(uint8_t place)
+{
+	return (
+		(place < T3_SCOREFILE_PLACES) && scorefile_view_valid[place]
+	);
 }
 
 bool16 far scorefile_row_total(uint8_t place)
@@ -1332,12 +1437,21 @@ static void scorefile_hi_to_board(
 	scorefile_board_t far *board, uint8_t playchar
 )
 {
+#if (BINARY == 'L')
+	unsigned dst = 0;
+	for(unsigned place = 0; place < T3_SCOREFILE_PLACES; place++) {
+		if(!scorefile_view_valid[place]) {
+			continue;
+		}
+		scorefile_entry_t far *entry = &board->entries[dst++];
+#else
 	for(unsigned place = 0; place < T3_SCOREFILE_PLACES; place++) {
 		scorefile_entry_t far *entry = &board->entries[place];
 		if(!scorefile_view_valid[place]) {
 			scorefile_entry_empty(entry);
 			continue;
 		}
+#endif
 		for(unsigned c = 0; c < T3_SCOREFILE_NAME_LEN; c++) {
 			entry->name[c] = legacy_regi_ascii(
 				hi.score.name[place][(T3_SCOREFILE_NAME_LEN - 1) - c]
@@ -1358,6 +1472,11 @@ static void scorefile_hi_to_board(
 		entry->flags = T3_SCOREFILE_ENTRY_VALID;
 		entry->reserved = 0;
 	}
+#if (BINARY == 'L')
+	while(dst < T3_SCOREFILE_PLACES) {
+		scorefile_entry_empty(&board->entries[dst++]);
+	}
+#endif
 	(void)playchar;
 }
 
@@ -1531,6 +1650,47 @@ void far scorefile_view_overlay_put(void)
 	menu_font_put(24, 360, line, V_WHITE);
 }
 
+void far scorefile_view_assets_load(void)
+{
+	extern unsigned char near *rank_image_fn;
+	extern const char regib_pi[];
+
+	pi_load(0, regib_pi);
+	cdg_load_single(0, rank_image_fn, 0);
+}
+
+void far scorefile_view_assets_free(void)
+{
+	extern int entered_place;
+
+	if(entered_place == -1) {
+		cdg_free(0);
+		pi_free(0);
+	}
+}
+
+void far scorefile_view_frame_begin(void)
+{
+	enum {
+		RANK_IMAGE_W = 320,
+		RANK_IMAGE_H = 88,
+	};
+
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	cdg_put_8((RES_X - RANK_IMAGE_W), (RES_Y - RANK_IMAGE_H), 0);
+}
+
+void far scorefile_view_frame_end(void)
+{
+	scorefile_view_overlay_put();
+	vsync_wait();
+	graph_showpage(1);
+	graph_copy_page(0);
+	graph_showpage(0);
+	graph_accesspage(0);
+}
+
 #else
 
 void far scorefile_view_overlay_put(void)
@@ -1629,7 +1789,8 @@ void far scorefile_close(void)
 // Keep the compiler runtime segment at its accepted per-binary paragraph
 // phase. These bytes live entirely in this patch-owned segment.
 #if (BINARY == 'O')
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
 #pragma codestring "\x90\x90"
 #elif (BINARY == 'M')
