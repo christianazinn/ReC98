@@ -1134,9 +1134,12 @@ static bool scorefile_ensure(void)
 
 static void scorefile_hi_clear(void)
 {
-	for(unsigned place = 0; place < T3_SCOREFILE_PLACES; place++) {
+	unsigned place;
+	int placeholder = REGI_9;
+
+	for(place = 0; place < T3_SCOREFILE_PLACES; place++) {
 		for(unsigned c = 0; c < T3_SCOREFILE_NAME_LEN; c++) {
-			hi.score.name[place][c] = REGI_SP;
+			hi.score.name[place][c] = REGI_PERIOD;
 		}
 		for(unsigned digit = 0; digit < (SCORE_DIGITS + 2); digit++) {
 			hi.score.score[place][digit] = REGI_0;
@@ -1145,6 +1148,11 @@ static void scorefile_hi_clear(void)
 		hi.score.stage[place] = REGI_1;
 		scorefile_view_valid[place] = false;
 		scorefile_view_total[place] = false;
+	}
+	hi.score.score[0][4] = REGI_1;
+	for(place = 1; place < T3_SCOREFILE_PLACES; place++) {
+		hi.score.score[place][3] = static_cast<regi_patnum_t>(placeholder);
+		placeholder--;
 	}
 	hi.score.cleared = (
 		(scorefile->header.flags & T3_SCOREFILE_FLAG_EXTRA_UNLOCKED) ?
@@ -1253,15 +1261,19 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 			best[best_count].entry = &board->entries[0];
 			best_count++;
 			uint8_t carry = 0;
-			for(unsigned digit = 0; digit < 10; digit++) {
+			for(unsigned digit = 1; digit < 10; digit++) {
 				uint8_t add = (
-					(digit < T3_SCOREFILE_SCORE_DIGITS) ?
-					board->entries[0].score[digit] : 0
+					(digit <= T3_SCOREFILE_SCORE_DIGITS) ?
+					board->entries[0].score[digit - 1] : 0
 				);
 				uint8_t sum = (total_digits[digit] + add + carry);
 				total_digits[digit] = (sum % 10);
 				carry = (sum / 10);
 			}
+			uint8_t continues = (
+				total_digits[0] + board->entries[0].continues_used
+			);
+			total_digits[0] = ((continues > 9) ? 9 : continues);
 		}
 	}
 	for(unsigned i = 0; i < best_count; i++) {
@@ -1282,13 +1294,6 @@ bool16 far scorefile_view_load(rank_t rank, uint8_t page)
 	}
 	scorefile_total_to_hi((T3_SCOREFILE_PLACES - 1), total_digits);
 	return true;
-}
-
-bool16 far scorefile_row_valid(uint8_t place)
-{
-	return (
-		(place < T3_SCOREFILE_PLACES) && scorefile_view_valid[place]
-	);
 }
 
 bool16 far scorefile_row_total(uint8_t place)
@@ -1624,8 +1629,9 @@ void far scorefile_close(void)
 // Keep the compiler runtime segment at its accepted per-binary paragraph
 // phase. These bytes live entirely in this patch-owned segment.
 #if (BINARY == 'O')
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#elif (BINARY == 'L')
+#pragma codestring "\x90\x90"
 #elif (BINARY == 'M')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

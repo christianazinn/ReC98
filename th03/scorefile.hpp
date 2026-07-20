@@ -56,7 +56,6 @@ extern uint8_t scorefile_view_page;
 bool16 far scorefile_compat_load(rank_t rank);
 void far scorefile_compat_save(rank_t rank);
 bool16 far scorefile_view_load(rank_t rank, uint8_t page);
-bool16 far scorefile_row_valid(uint8_t place);
 bool16 far scorefile_row_total(uint8_t place);
 void far scorefile_row_insert(uint8_t place);
 bool16 far scorefile_unlocked(void);

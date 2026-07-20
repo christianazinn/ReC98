@@ -261,9 +261,6 @@ void pascal near regist_row_put_at(screen_x_t left, screen_y_t top, int place)
 		regi_put((left + (REGI_GLYPH_W / 4)), top, REGI_0, highlight);
 	}
 	left += PLACE_NUMBER_PADDED_W;
-	if(!scorefile_row_valid(place)) {
-		return;
-	}
 
 	// Name
 	c = (SCOREDAT_NAME_LEN - 1);
@@ -538,6 +535,7 @@ void near regist_next_screen_resume(void)
 // Preserve the accepted GROUP_01 phase after replacing the legacy score-file
 // codecs with calls into the expanded score store.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void near regist_menu(void)
 {
