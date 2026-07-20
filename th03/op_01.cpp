@@ -2776,7 +2776,7 @@ static void replay_save_dialog_char_put(
 {
 	replay_menu_line[0] = c;
 	replay_menu_line[1] = '\0';
-	replay_menu_line_put(x, y, atrb);
+	text_putsa(x, y, replay_menu_line, atrb);
 }
 
 static void replay_save_dialog_frame_put(void)
@@ -2802,15 +2802,7 @@ static void replay_save_dialog_frame_put(void)
 		)
 	);
 	grcg_off();
-
-	if(!menu_font) {
-		for(y = 0; y < REPLAY_SAVE_DIALOG_H; y++) {
-			replay_menu_span_clear(
-				REPLAY_SAVE_DIALOG_LEFT, (REPLAY_SAVE_DIALOG_TOP + y),
-				REPLAY_SAVE_DIALOG_W
-			);
-		}
-	}
+	text_clear();
 
 	p = replay_menu_line;
 	*p++ = '+';
@@ -2819,12 +2811,14 @@ static void replay_save_dialog_frame_put(void)
 	}
 	*p++ = '+';
 	*p = '\0';
-	replay_menu_line_put(
-		REPLAY_SAVE_DIALOG_LEFT, REPLAY_SAVE_DIALOG_TOP, TX_WHITE
+	text_putsa(
+		REPLAY_SAVE_DIALOG_LEFT, REPLAY_SAVE_DIALOG_TOP,
+		replay_menu_line, TX_WHITE
 	);
-	replay_menu_line_put(
+	text_putsa(
 		REPLAY_SAVE_DIALOG_LEFT,
-		(REPLAY_SAVE_DIALOG_TOP + (REPLAY_SAVE_DIALOG_H - 1)), TX_WHITE
+		(REPLAY_SAVE_DIALOG_TOP + (REPLAY_SAVE_DIALOG_H - 1)),
+		replay_menu_line, TX_WHITE
 	);
 	for(y = 1; y < (REPLAY_SAVE_DIALOG_H - 1); y++) {
 		replay_save_dialog_char_put(
@@ -2843,15 +2837,15 @@ static void replay_save_yes_no_put(bool yes)
 	char *p = replay_menu_line;
 
 	*p++ = 'Y'; *p++ = 'e'; *p++ = 's'; *p = '\0';
-	replay_menu_line_put(
+	text_putsa(
 		REPLAY_SAVE_DIALOG_YES_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-		(yes ? TX_YELLOW : TX_WHITE)
+		replay_menu_line, (yes ? TX_YELLOW : TX_WHITE)
 	);
 	p = replay_menu_line;
 	*p++ = 'N'; *p++ = 'o'; *p = '\0';
-	replay_menu_line_put(
+	text_putsa(
 		REPLAY_SAVE_DIALOG_NO_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-		(yes ? TX_WHITE : TX_YELLOW)
+		replay_menu_line, (yes ? TX_WHITE : TX_YELLOW)
 	);
 }
 
@@ -2896,12 +2890,12 @@ static replay_save_answer_t replay_save_yes_no(
 	*p++ = '?';
 	question_w = static_cast<unsigned int>(p - replay_menu_line);
 	*p = '\0';
-	replay_menu_line_put(
+	text_putsa(
 		(
 			REPLAY_SAVE_DIALOG_LEFT +
 			((REPLAY_SAVE_DIALOG_W - question_w) / 2)
 		),
-		REPLAY_SAVE_DIALOG_QUESTION_Y, TX_CYAN
+		REPLAY_SAVE_DIALOG_QUESTION_Y, replay_menu_line, TX_CYAN
 	);
 	replay_save_yes_no_put(yes);
 	replay_save_input_release();
@@ -3835,13 +3829,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20352E33UL); // "3.5 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D352E33UL); // "3.5-"
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4422,6 +4416,7 @@ static int near replay_dev_story_stage_menu(void)
 
 // Keep the following shared runtime segment at its accepted paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 // Replaces the obsolete initial-playback stage-select handoff in this profile.
@@ -4451,5 +4446,6 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
 #else
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 /// --------

@@ -620,7 +620,7 @@ static bool scorefile_temp_write_and_validate(void)
 	if(!file_create(T3_SCOREFILE_TEMP_FN)) {
 		return false;
 	}
-	if(file_write(scorefile, sizeof(scorefile_t)) != sizeof(scorefile_t)) {
+	if(!file_write(scorefile, sizeof(scorefile_t))) {
 		file_close();
 		scorefile_delete(T3_SCOREFILE_TEMP_FN);
 		return false;
@@ -1790,9 +1790,9 @@ void far scorefile_close(void)
 // phase. These bytes live entirely in this patch-owned segment.
 #if (BINARY == 'O')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #elif (BINARY == 'M')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
