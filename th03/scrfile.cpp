@@ -1555,6 +1555,26 @@ bool16 far scorefile_unlocked(void)
 	);
 }
 
+#if (BINARY == 'O')
+bool16 far scorefile_extra_unlock(void)
+{
+	uint8_t flags_before;
+
+	if(!scorefile_ensure() ||
+		(scorefile->header.flags & T3_SCOREFILE_FLAG_EXTRA_UNLOCKED)) {
+		return false;
+	}
+	flags_before = scorefile->header.flags;
+	scorefile->header.flags |= T3_SCOREFILE_FLAG_EXTRA_UNLOCKED;
+	if(scorefile_save_atomic()) {
+		return true;
+	}
+	scorefile->header.flags = flags_before;
+	scorefile_checksums_set();
+	return false;
+}
+#endif
+
 #if (BINARY == 'L')
 
 static const char far SCORE_PAGE_ALL[] = "ALL CHARACTERS";
@@ -1816,6 +1836,7 @@ void far scorefile_close(void)
 #if (BINARY == 'O')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
 #pragma codestring "\x90\x90\x90"
 #elif (BINARY == 'M')

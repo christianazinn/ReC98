@@ -24,10 +24,8 @@
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/core/initexit.h"
-#if defined(TH03_REPLAY_DEVTOOLS)
-#include "th03/fonttest.hpp"
-#endif
 #include "th03/gaiji/gaiji.h"
+#include "th03/op_patch.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
@@ -3842,7 +3840,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D362E33UL); // "3.6-"
-	TITLE_CREDIT_QUAD(5, 0x20386372UL); // "rc8 "
+	TITLE_CREDIT_QUAD(5, 0x20396372UL); // "rc9 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4008,6 +4006,7 @@ void near main_update_and_render(void)
 	if(!input_allowed) {
 		return;
 	}
+	title_extra_unlock_update();
 	menu_update_vertical(input_sp, MC_COUNT);
 	if((input_sp & INPUT_OK) || (input_sp & INPUT_SHOT)) {
 		// Preserve the accepted control flow after removing its conditional reset.
@@ -4272,31 +4271,6 @@ void main(void)
 
 	while(!quit) {
 		input_mode_interface();
-		#if defined(TH03_REPLAY_DEVTOOLS)
-		if(!in_option && replay_dev_font_specimen_key()) {
-			screen_x_t right_left;
-			int i;
-
-			replay_dev_font_specimen_show();
-			super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
-			for(
-				right_left = (BOX_LEFT + OPWIN_W);
-				right_left < (BOX_MAIN_RIGHT - OPWIN_STEP_W);
-				right_left += OPWIN_STEP_W
-			) {
-				box_column16_unput(right_left);
-				super_put(right_left, BOX_TOP, OPWIN_RIGHT);
-			}
-			for(i = 0; i < MC_COUNT; i++) {
-				main_choice_put(
-					i, ((menu_sel == i) ? TX_WHITE : TX_BLACK)
-				);
-			}
-			title_credit_put();
-			input_sp = INPUT_NONE;
-			main_input_allowed = false;
-		}
-		#endif
 		switch(in_option) {
 		case false:	main_update_and_render();  	break;
 		case true: 	option_update_and_render();	break;
@@ -4455,9 +4429,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
-#else
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
 /// --------

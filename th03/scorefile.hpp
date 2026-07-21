@@ -61,6 +61,9 @@ bool16 far scorefile_row_valid(uint8_t place);
 bool16 far scorefile_row_total(uint8_t place);
 void far scorefile_row_insert(uint8_t place);
 bool16 far scorefile_unlocked(void);
+#if (BINARY == 'O')
+bool16 far scorefile_extra_unlock(void);
+#endif
 void far scorefile_view_overlay_put(void);
 #if (BINARY == 'L')
 void far scorefile_view_assets_load(void);

@@ -11,6 +11,7 @@
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
 #include "th03/menu_font.hpp"
+#include "th03/op_patch.hpp"
 #include "th03/shiftjis/fns.hpp"
 #include <mem.h>
 #include <stddef.h>
@@ -624,7 +625,8 @@ static void keyconfig_background_load(void)
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.restore_pf_fn));
 
-	PaletteTone = 100;
+	// Keep the first complete KeyConfig frame black until its fade-in begins.
+	PaletteTone = 0;
 	palette_set_all(pi_headers[0].palette);
 	palette_show();
 }
@@ -933,10 +935,11 @@ static void keyconfig_screen_put(
 
 // Preserve all following KeyConfig entry points after removing the allocating
 // full-page copy.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
 
 static void keyconfig_screen_clear(void)
 {
+	keyconfig_palette_fade_out();
 	text_clear();
 	pi_free(0);
 	pi_free(1);
@@ -1070,6 +1073,7 @@ bool far keyconfig_menu(void)
 	keyconfig_page_front = 0;
 	keyconfig_background_load();
 	keyconfig_screen_put(cfg, page, selected);
+	keyconfig_palette_fade_in();
 
 	input_mode_interface();
 	input_prev = input_sp;
@@ -1236,4 +1240,4 @@ bool far keyconfig_menu(void)
 }
 
 // Preserve the paragraph phase of all following code segments.
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
