@@ -4,6 +4,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th02/formats/pi.h"
 #include "th03/snd/snd.h"
+#include "th03/language.hpp"
 #include "th03/op/m_select.hpp"
 #include "th03/shiftjis/fns.hpp"
 #include "libs/master.lib/master.hpp"
@@ -55,7 +56,7 @@ void near op_animate(void)
 	palette_show();
 	pi_free(0);
 
-	pi_load(0, MENU_MAIN_BG_FN);
+	language_pi_load(0, MENU_MAIN_BG_FN);
 	graph_showpage(1);
 
 	// Fade in and move. These values do actually represent the X position of
@@ -143,7 +144,7 @@ void near op_fadein_animate(void)
 	// palette slot 0.
 	palette_settone(0);
 
-	pi_load(0, MENU_MAIN_BG_FN);
+	language_pi_load(0, MENU_MAIN_BG_FN);
 	graph_showpage(0);
 
 	// This function is called either on startup (where we haven't loaded any

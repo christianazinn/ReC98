@@ -9,7 +9,7 @@ struct cfg_options_t {
 	uint8_t rank;
 	// Replay mod: Reuses the low byte of the original unused word.
 	bool autofire;
-	int8_t unused;
+	uint8_t language;
 };
 #endif
 

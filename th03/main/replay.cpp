@@ -13,6 +13,7 @@
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
+#include "th03/language_main.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/main/v_colors.hpp"
@@ -2722,6 +2723,7 @@ static void replay_user_record_error_disable(
 
 void far replay_session_start(void)
 {
+	language_main_apply();
 	uint8_t playback_stage;
 
 	menu_font_load(aCOul);
@@ -3835,3 +3837,4 @@ void far replay_finish(uint8_t route)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

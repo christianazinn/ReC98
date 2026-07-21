@@ -4,6 +4,8 @@
 #include "th02/v_colors.hpp"
 #include "th03/common.h"
 #include "th03/hardware/input.h"
+#include "th03/language.hpp"
+#include "th03/language_mainl.hpp"
 #include "th03/mainl/replay.hpp"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
@@ -251,11 +253,17 @@ void near stage_splash_load(void)
 		do_not_show_stage_number = false;
 	}
 
-	pi_load(0, stage_splash_base_pi_fn);
-	pi_put_8(0, 0, 0);
-	pi_free(0);
-	pi_load(0, stage_splash_bg_fn);
-	pi_put_8(0, 0, 0);
+	{
+		bool16 language_switched = language_archive_begin_if_translated(
+			stage_splash_base_pi_fn
+		);
+		pi_load(0, stage_splash_base_pi_fn);
+		pi_put_8(0, 0, 0);
+		pi_free(0);
+		pi_load(0, stage_splash_bg_fn);
+		pi_put_8(0, 0, 0);
+		language_archive_end(language_switched);
+	}
 }
 
 void near stage_splash_show_and_wait(void)
@@ -271,22 +279,40 @@ void near stage_splash_show_and_wait(void)
 	pi_palette_apply(0);
 	graph_copy_page(0);
 	pi_free(0);
-	cdg_put_8(96, 96, 0);
-	cdg_put_hflip_8(352, 96, 1);
+	cdg_put_8(96, (language_is_english() ? 80 : 96), 0);
+	cdg_put_hflip_8(352, (language_is_english() ? 80 : 96), 1);
 	if(!do_not_show_stage_number) {
-		cdg_put_8(384, 46, 2);
+		cdg_put_8(384, (language_is_english() ? 23 : 46), 2);
 	}
 	cdg_free(0);
 	cdg_free(1);
 	cdg_free(2);
 
 	char_id = (resident->playchar_paletted[0].char_id_16() * 2);
-	graph_putsa_fx(80, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
-	graph_putsa_fx(128, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	if(language_is_english()) {
+		graph_putsa_fx(80, 276, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+		graph_putsa_fx(
+			80, 292, (V_WHITE | FX_WEIGHT_BOLD),
+			language_mainl_title2(char_id / 2)
+		);
+		graph_putsa_fx(80, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	} else {
+		graph_putsa_fx(80, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+		graph_putsa_fx(128, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	}
 
 	char_id = (resident->playchar_paletted[1].char_id_16() * 2);
-	graph_putsa_fx(336, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
-	graph_putsa_fx(384, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	if(language_is_english()) {
+		graph_putsa_fx(336, 276, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+		graph_putsa_fx(
+			336, 292, (V_WHITE | FX_WEIGHT_BOLD),
+			language_mainl_title2(char_id / 2)
+		);
+		graph_putsa_fx(336, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	} else {
+		graph_putsa_fx(336, 292, (V_WHITE | FX_WEIGHT_BOLD), CHAR_TITLE[char_id]);
+		graph_putsa_fx(384, 308, (V_WHITE | FX_WEIGHT_BOLD), CHAR_NAME[char_id]);
+	}
 
 	palette_black_in(1);
 	vsync_Count1 = 0;

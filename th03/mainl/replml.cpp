@@ -5,6 +5,7 @@
 #include "th03/hardware/input.h"
 #include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/language_mainl.hpp"
 #include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
@@ -1122,6 +1123,7 @@ static void mainl_replay_frame_io(void)
 
 void far mainl_replay_session_start(void)
 {
+	language_mainl_apply();
 	replay_protect_local_reset();
 	mainl_replay_mode = mainl_replay_resident_mode();
 	if(
@@ -1392,3 +1394,5 @@ void far mainl_replay_exit_to_main(void)
 // Keep the following shared runtime segment at its accepted near-offset phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

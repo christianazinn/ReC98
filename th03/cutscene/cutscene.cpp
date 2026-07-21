@@ -27,6 +27,7 @@
 #include "th04/hardware/input.h"
 #else
 #include "th03/hardware/input.h"
+#include "th03/language.hpp"
 #include "th03/mainl/replay.hpp"
 #include "th03/formats/pi.hpp"
 #include "x86real.h"
@@ -277,9 +278,15 @@ bool16 near cutscene_input_wait_for_ok_or_measure(
 
 bool16 pascal near cutscene_script_load(const char* fn)
 {
+#if (GAME == 3)
+	bool16 language_switched = language_archive_begin_if_translated(fn);
+#endif
 	cutscene_script_free();
 
 	if(!file_ropen(fn)) {
+#if (GAME == 3)
+		language_archive_end(language_switched);
+#endif
 		return true;
 	}
 	size_t size = file_size();
@@ -292,6 +299,9 @@ bool16 pascal near cutscene_script_load(const char* fn)
 #endif
 	file_read(script_p, size);
 	file_close();
+#if (GAME == 3)
+	language_archive_end(language_switched);
+#endif
 	return false;
 }
 
@@ -928,7 +938,11 @@ script_ret_t pascal near script_op(unsigned char c)
 #if (GAME >= 4)
 			pi_free(CUTSCENE_PIC_SLOT);
 #endif
+#if (GAME == 3)
+			language_pi_load(CUTSCENE_PIC_SLOT, fn);
+#else
 			pi_load(CUTSCENE_PIC_SLOT, fn);
+#endif
 		}
 		break;
 

@@ -8,6 +8,7 @@
 #include "th03/formats/scoredat.hpp"
 #include "th03/hardware/input.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/language.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 #include "x86real.h"
@@ -158,8 +159,14 @@ void near staffroll_and_verdict_animate(void)
 	cdg_load_single_noalpha(5, staffroll_cdg_fn_5, 0);
 	cdg_load_single_noalpha(6, staffroll_cdg_fn_6, 0);
 	cdg_load_single_noalpha(7, staffroll_cdg_fn_7, 0);
-	cdg_load_single_noalpha(8, staffroll_cdg_fn_8, 0);
-	cdg_load_single_noalpha(9, staffroll_cdg_fn_9, 0);
+	{
+		bool16 language_switched = language_archive_begin_if_translated(
+			staffroll_cdg_fn_8
+		);
+		cdg_load_single_noalpha(8, staffroll_cdg_fn_8, 0);
+		cdg_load_single_noalpha(9, staffroll_cdg_fn_9, 0);
+		language_archive_end(language_switched);
+	}
 	cdg_load_single_noalpha(10, staffroll_cdg_fn_10, 0);
 	cdg_load_single_noalpha(11, staffroll_cdg_fn_11, 0);
 

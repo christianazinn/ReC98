@@ -49,6 +49,7 @@ const int TRACK_COUNT[GAME_COUNT] = { 14, 18, 24, 28, 23 };
 #include "th04/shiftjis/music.hpp"
 #elif (GAME == 3)
 #include "th03/shiftjis/music.hpp"
+#include "th03/language.hpp"
 #elif (GAME == 2)
 #include "th02/shiftjis/music.hpp"
 #endif
@@ -496,6 +497,9 @@ void near cmt_bg_snap(void)
 
 void pascal near cmt_load(int track)
 {
+#if (GAME == 3)
+	bool16 language_switched = language_archive_begin_if_translated("MUSIC.TXT");
+#endif
 #if (GAME == 5)
 	char* FN = "_MUSIC0.TXT";
 
@@ -509,6 +513,9 @@ void pascal near cmt_load(int track)
 	file_seek((track * int(sizeof(cmt))), SEEK_SET);
 	file_read(cmt, sizeof(cmt));
 	file_close();
+#if (GAME == 3)
+	language_archive_end(language_switched);
+#endif
 	for(int i = 0; i < CMT_LINES; i++) {
 		cmt[i].c[CMT_LINE_LENGTH] = '\0';
 	}

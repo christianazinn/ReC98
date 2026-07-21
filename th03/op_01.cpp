@@ -20,6 +20,8 @@
 #include "th03/resident.hpp"
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
+#include "th03/language.hpp"
+#include "th03/language_op.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
@@ -59,6 +61,7 @@ enum main_choice_t {
 enum option_choice_t {
 	OC_RANK,
 	OC_BGM,
+	OC_LANGUAGE,
 	OC_KEY_MODE,
 	OC_QUIT,
 	OC_COUNT,
@@ -167,6 +170,14 @@ void near cfg_load(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	if(cfg.opts.language >= LANGUAGE_COUNT) {
+		cfg.opts.language = LANGUAGE_JAPANESE;
+	}
+	language_resident_set(static_cast<language_t>(cfg.opts.language));
+	if(language_is_english() && !language_overlay_available()) {
+		language_resident_set(LANGUAGE_JAPANESE);
+	}
+	language_op_apply();
 	keyconfig_load(resident->autofire != 0);
 }
 
@@ -178,6 +189,7 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 	cfg.opts.key_mode = resident->key_mode;
 	cfg.opts.rank = resident->rank;
 	cfg.opts.autofire = (resident->autofire != 0);
+	cfg.opts.language = language_resident();
 
 	file_write(&cfg.opts, bytes);
 	file_close();
@@ -186,7 +198,7 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 void near cfg_save(void)
 {
 	cfg_t cfg;
-	cfg_save_bytes(cfg, 4); // MODDERS: Should be `sizeof(cfg.opts)`
+	cfg_save_bytes(cfg, sizeof(cfg.opts));
 }
 
 void near cfg_save_exit(void)
@@ -232,6 +244,14 @@ static void replay_cfg_load_resident_only(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	if(cfg.opts.language >= LANGUAGE_COUNT) {
+		cfg.opts.language = LANGUAGE_JAPANESE;
+	}
+	language_resident_set(static_cast<language_t>(cfg.opts.language));
+	if(language_is_english() && !language_overlay_available()) {
+		language_resident_set(LANGUAGE_JAPANESE);
+	}
+	language_op_apply();
 	keyconfig_load(resident->autofire != 0);
 }
 
@@ -3789,7 +3809,7 @@ bool main_input_allowed;
 bool option_input_allowed;
 
 int8_t in_option; // ACTUAL TYPE: bool
-static int8_t padding; // ZUN bloat
+static int8_t padding; // ZUN bloat; reused for the initial Option language
 menu_put_func_t menu_put;
 
 static char title_credit_line[44];
@@ -3839,13 +3859,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20362E33UL); // "3.6 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -3927,17 +3947,60 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_FM, atrb);
 			break;
 		}
+	} else if(sel == OC_LANGUAGE) {
+		title_credit_line[0] = 'L'; title_credit_line[1] = 'a';
+		title_credit_line[2] = 'n'; title_credit_line[3] = 'g';
+		title_credit_line[4] = 'u'; title_credit_line[5] = 'a';
+		title_credit_line[6] = 'g'; title_credit_line[7] = 'e';
+		title_credit_line[8] = '\0';
+		choice_put_centered(
+			LABEL_CENTER_X, 3, -1, title_credit_line, atrb
+		);
+		if(language_is_english()) {
+			title_credit_line[0] = 'E'; title_credit_line[1] = 'n';
+			title_credit_line[2] = 'g'; title_credit_line[3] = 'l';
+			title_credit_line[4] = 'i'; title_credit_line[5] = 's';
+			title_credit_line[6] = 'h'; title_credit_line[7] = '\0';
+			choice_put_centered(
+				VALUE_CENTER_X, 3, 0, title_credit_line, atrb
+			);
+		} else if(menu_font) {
+			title_credit_line[0] = (char)0x93;
+			title_credit_line[1] = (char)0xFA;
+			title_credit_line[2] = (char)0x96;
+			title_credit_line[3] = (char)0x7B;
+			title_credit_line[4] = (char)0x8C;
+			title_credit_line[5] = (char)0xEA;
+			title_credit_line[6] = '\0';
+			graph_putsa_fx(
+				(VALUE_CENTER_X - ((3 * GLYPH_FULL_W) / 2)),
+				(choice_tram_y(3) * GLYPH_H),
+				((atrb == TX_BLACK) ? 0 : V_WHITE), title_credit_line
+			);
+		} else {
+			title_credit_line[0] = (char)0x93;
+			title_credit_line[1] = (char)0xFA;
+			title_credit_line[2] = (char)0x96;
+			title_credit_line[3] = (char)0x7B;
+			title_credit_line[4] = (char)0x8C;
+			title_credit_line[5] = (char)0xEA;
+			title_credit_line[6] = '\0';
+			text_putsa(
+				((VALUE_CENTER_X / GLYPH_HALF_W) - 3),
+				choice_tram_y(3), title_credit_line, atrb
+			);
+		}
 	} else if(sel == OC_KEY_MODE) {
-		choice_put_centered(LABEL_CENTER_X, 3, -1, LABEL_KEYCONFIG, atrb);
+		choice_put_centered(LABEL_CENTER_X, 4, -1, LABEL_KEYCONFIG, atrb);
 		switch(resident->key_mode) {
 		case KM_KEY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_KEY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_KEY, atrb);
 			break;
 		case KM_JOY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_JOY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_JOY_KEY, atrb);
 			break;
 		case KM_KEY_JOY:
-			choice_put_centered(VALUE_CENTER_X, 3, -1, VALUE_KEY_JOY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_JOY, atrb);
 			break;
 		}
 	} else if(sel == OC_QUIT) {
@@ -4088,12 +4151,39 @@ inline void return_from_option_to_main(bool& option_initialized) {
 	in_option = false;
 }
 
+static void near language_flip(void)
+{
+	if(language_is_english()) {
+		language_resident_set(LANGUAGE_JAPANESE);
+	} else if(language_overlay_available()) {
+		language_resident_set(LANGUAGE_ENGLISH);
+	} else {
+		return;
+	}
+	language_op_apply();
+}
+
+static void near option_return_to_main(bool& option_initialized)
+{
+	if(padding == language_resident()) {
+		return_from_option_to_main(option_initialized);
+		return;
+	}
+
+	return_from_option_to_main(option_initialized);
+	fullscreen_menu_resources_clear();
+	return_from_other_screen_to_main(
+		option_initialized, main_input_allowed
+	);
+}
+
 void near option_update_and_render(void)
 {
 	#define input_allowed	option_input_allowed
 	static bool in_this_menu = false;
 
 	if(!in_this_menu) {
+		padding = language_resident();
 		text_clear();
 		title_menu_graphics_unput(BOX_MAIN_RIGHT);
 		title_credit_graphics_unput();
@@ -4118,6 +4208,9 @@ void near option_update_and_render(void)
 		case OC_BGM:
 			snd_flip();
 			break;
+		case OC_LANGUAGE:
+			language_flip();
+			break;
 		case OC_KEY_MODE:
 			ring_inc_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
@@ -4131,6 +4224,9 @@ void near option_update_and_render(void)
 			break;
 		case OC_BGM:
 			snd_flip();
+			break;
+		case OC_LANGUAGE:
+			language_flip();
 			break;
 		case OC_KEY_MODE:
 			ring_dec_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
@@ -4149,12 +4245,15 @@ void near option_update_and_render(void)
 				in_this_menu, main_input_allowed
 			);
 			return;
+		} else if(menu_sel == OC_LANGUAGE) {
+			language_flip();
+			option_choice_put(menu_sel, TX_WHITE);
 		} else if(menu_sel == OC_QUIT) {
-			return_from_option_to_main(in_this_menu);
+			option_return_to_main(in_this_menu);
 		}
 	}
 	if(input_sp & INPUT_CANCEL) {
-		return_from_option_to_main(in_this_menu);
+		option_return_to_main(in_this_menu);
 	}
 	if(input_sp != INPUT_NONE) { // Covers all previous input cases too! Good!
 		input_allowed = false;
@@ -4431,5 +4530,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90"
 /// --------

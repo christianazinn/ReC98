@@ -20,6 +20,7 @@ extern "C" {
 #include "th03/formats/scoredat.hpp"
 #include "th03/gaiji/gaiji.h"
 #include "th03/hardware/input.h"
+#include "th03/language.hpp"
 #include "th03/math/polar.hpp"
 #include "th03/shiftjis/fns.hpp"
 #include "th03/snd/snd.h"
@@ -171,7 +172,13 @@ void near select_init_and_load(void)
 
 	text_clear();
 	super_free();
-	super_entry_bfnt("chname.bft");
+	{
+		bool16 language_switched = language_archive_begin_if_translated(
+			"chname.bft"
+		);
+		super_entry_bfnt("chname.bft");
+		language_archive_end(language_switched);
+	}
 
 	// ZUN landmine: Does nothing to avoid this happening mid-frame and causing
 	// tearing.
