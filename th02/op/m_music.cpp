@@ -748,8 +748,15 @@ inline void game_switch(void) {
 }
 #endif
 
+#if (GAME == 3)
+int MUSICROOM_DISTANCE musicroom_menu(void)
+#else
 void MUSICROOM_DISTANCE musicroom_menu(void)
+#endif
 {
+#if (GAME == 3)
+	bool16 title_bgm_playing = true;
+#endif
 #if (GAME == 5)
 	int frame_since_last_input = 0;
 	uint8_t sel_prev;
@@ -1004,6 +1011,9 @@ controls:
 #endif
 				snd_kaja_func(KAJA_SONG_PLAY, 0);
 				track_playing = music_sel;
+#if (GAME == 3)
+				title_bgm_playing = (track_playing == 0);
+#endif
 				cmt_load_unput_and_put(music_sel);
 				music_update_render_and_flip();
 				cmt_load_unput_and_put(music_sel);
@@ -1073,5 +1083,8 @@ controls:
 #endif
 
 	graph_accesspage(0);
+#endif
+#if (GAME == 3)
+	return title_bgm_playing;
 #endif
 }

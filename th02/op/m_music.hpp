@@ -7,4 +7,9 @@
 // Runs the Music Room menu and returns with VRAM page #0 as the shown and
 // accessed one. TH02 reblits the title screen background to that page before
 // returning; the other games return with a black screen.
+#if (GAME == 3)
+// Returns whether the title theme is still the loaded and playing song.
+int MUSICROOM_DISTANCE musicroom_menu(void);
+#else
 void MUSICROOM_DISTANCE musicroom_menu(void);
+#endif

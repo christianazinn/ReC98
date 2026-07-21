@@ -3859,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
-	TITLE_CREDIT_QUAD(5, 0x20356372UL); // "rc5 "
+	TITLE_CREDIT_QUAD(5, 0x20366372UL); // "rc6 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4153,7 +4153,9 @@ void near main_update_and_render(void)
 			* once the segmentation allows us to, if ever */
 			_asm { nop; push cs; call near ptr musicroom_menu; }
 
-			return_from_other_screen_to_main(in_this_menu, input_allowed, true);
+			return_from_other_screen_to_main(
+				in_this_menu, input_allowed, (_AX == 0)
+			);
 			return;
 		case MC_REGIST_VIEW:
 			score_menu();
@@ -4568,9 +4570,5 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90"
 /// --------
