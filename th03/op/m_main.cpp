@@ -208,17 +208,12 @@ void pascal near box_column16_unput(uscreen_x_t left)
 
 	_AX = (left / BYTE_DOTS);
 
-	// ZUN bloat: ZUN offsets the segment pointer to the top row of the box
-	// below, so this should have been the height rather than the bottom
-	// coordinate. As a result, this code accesses the 256 rows below the box
-	// as well and reaches 240 rows below the bottom of VRAM. For the G and E
-	// segments at 0xB800 and 0xE000, these writes even reach into the adjacent
-	// user and system ROM segments, causing DOSBox-X to throw a barrage of CPU
-	// write errors. :zunpet:
 	_DI = vram_offset_shift(0, (BOX_BOTTOM - 1));
-
 	_DI += _AX;
 	_ES = vram_segment(B, 0, BOX_TOP);
+	// ZUN bug: The original carry-terminated loop continued beyond the box
+	// and restored unrelated rows from page 1, including the title credits.
+	_CX = BOX_H;
 	do {
 		page_access(1);
 		/*                              */	px_b = _peek_(_ES, _DI);
@@ -231,5 +226,5 @@ void pascal near box_column16_unput(uscreen_x_t left)
 		_ES = vram_segment(R, 0, BOX_TOP);	_poke_(_ES, _DI, px_r);
 		_ES = vram_segment(B, 0, BOX_TOP);	_poke_(_ES, _DI, px_b);
 		_DI -= ROW_SIZE;
-	} while(!FLAGS_CARRY);
+	} while(--_CX != 0);
 }

@@ -22,8 +22,8 @@
 enum keyconfig_menu_color_t {
 	KEYCONFIG_COLOR_HEADER = 14,
 	KEYCONFIG_COLOR_FOOTER = 14,
-	KEYCONFIG_COLOR_SELECTED = 12,
-	KEYCONFIG_COLOR_LABEL = 13,
+	KEYCONFIG_COLOR_SELECTED = 11,
+	KEYCONFIG_COLOR_LABEL = 12,
 	KEYCONFIG_COLOR_VALUE = V_WHITE,
 };
 
@@ -120,8 +120,8 @@ static const keyconfig_text_t far keyconfig_text = {
 	"Down-Left", "Down", "Down-Right", "Shot", "Bomb", "Charge",
 	"Autofire", "On", "Off", "Defaults for this player",
 	"Defaults for Story", "Apply and return", "Cancel",
-	"KEY CONFIGURATION     [ P", " ]",
-	"KEY CONFIGURATION     [ STORY ]",
+	"[ P", " ]",
+	"[ STORY ]",
 	"Left/Right: Column/Page   Z/Return: Edit   Esc: Cancel",
 	"Discard changes?  Z: Yes  Esc: No",
 	"Press a key. Esc cancels capture.", "Could not save TH3KEY.CFG",
@@ -617,11 +617,9 @@ static void keyconfig_background_load(void)
 
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.asset_pf_fn));
-	pi_fn_quads[0] = 0x61316762UL; // "bg1a"
-	pi_fn_quads[1] = 0x0069702EUL; // ".pi"
+	pi_fn_quads[0] = 0x2E316762UL; // "bg1."
+	pi_fn_quads[1] = 0x00006970UL; // "pi"
 	pi_load(0, pi_fn);
-	pi_fn[3] = 'b';
-	pi_load(1, pi_fn);
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.restore_pf_fn));
 
@@ -638,11 +636,13 @@ static void keyconfig_background_load(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static void keyconfig_background_put(void)
 {
 	pi_put_8(0, 0, 0);
-	pi_put_8(0, (RES_Y / 2), 1);
 }
 
 static void keyconfig_graphics_row_put(
@@ -942,7 +942,6 @@ static void keyconfig_screen_clear(void)
 	keyconfig_palette_fade_out();
 	text_clear();
 	pi_free(0);
-	pi_free(1);
 	graph_accesspage(0);
 	graph_clear();
 	graph_accesspage(1);

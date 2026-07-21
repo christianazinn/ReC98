@@ -8,7 +8,7 @@ static const pixel_t MAIN_W = 136;
 static const pixel_t SUBMENU_W = 240;
 
 enum {
-	OPTION_W = 256,
+	OPTION_W = 272,
 };
 
 static const screen_x_t BOX_LEFT = 160;

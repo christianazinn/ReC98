@@ -1045,24 +1045,20 @@ static void near title_choice_graphics_unput(
 
 void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
-	const char far *str;
-	unsigned line;
-
+	enum {
+		W = (8 * GAIJI_W),
+		TRAM_LEFT = ((BOX_SUBMENU_CENTER_X - (W / 2)) / GLYPH_HALF_W),
+	};
 	if(sel == VS_1P_CPU) {
-		static const char STR[] = "1P vs CPU";
-		str = STR;
-		line = 2;
+		static const char STR[] = g_str_vs(gp_1P_vs, gp__CPU);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(2), STR, atrb);
 	} else if(sel == VS_1P_2P) {
-		static const char STR[] = "1P vs 2P";
-		str = STR;
-		line = 3;
+		static const char STR[] = g_str_vs(gp_1P_vs, gp__2P);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(3), STR, atrb);
 	} else /* if (sel == VS_CPU_CPU) */ {
-		static const char STR[] = "CPU vs CPU";
-		str = STR;
-		line = 4;
+		static const char STR[] = g_str_vs(gp_CPU_vs, gp__CPU);
+		gaiji_putsa(TRAM_LEFT, choice_tram_y(4), STR, atrb);
 	}
-	title_choice_graphics_unput(line, BOX_SUBMENU_RIGHT);
-	choice_put_centered(BOX_SUBMENU_CENTER_X, line, 0, str, atrb);
 }
 
 static bool near vs_start(bool select_characters)
@@ -3817,7 +3813,7 @@ static char title_credit_line[44];
 static char gdc_frequency_error_offset_padding[
 	(sizeof(
 		ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3
-	) - 52)
+	) - 49)
 ] = { 0 };
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
@@ -3860,7 +3856,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
-	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
+	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4577,8 +4573,8 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------
