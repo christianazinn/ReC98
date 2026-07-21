@@ -38,4 +38,4 @@ void pascal near box_submenu_to_main_animate(screen_x_t box_right);
 // VRAM pages, page 0 both accessed and shown, and parts 1 and 3 of the
 // character selection CDG images loaded.
 void near op_animate(void);
-void near op_fadein_animate(void);
+void near op_fadein_animate(bool restart_bgm);

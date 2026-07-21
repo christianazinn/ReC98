@@ -51,5 +51,17 @@ void far language_op_apply(void)
 	}
 }
 
+void far language_op_toggle(void)
+{
+	if(language_is_english()) {
+		language_resident_set(LANGUAGE_JAPANESE);
+	} else if(language_overlay_available()) {
+		language_resident_set(LANGUAGE_ENGLISH);
+	} else {
+		return;
+	}
+	language_op_apply();
+}
+
 // Keep the following patch and compiler-runtime segments at their accepted phase.
 #pragma codestring "\x90\x90"

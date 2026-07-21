@@ -3859,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
-	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
+	TITLE_CREDIT_QUAD(5, 0x20356372UL); // "rc5 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4082,9 +4082,9 @@ void pascal near menu_sel_update_and_render(int8_t max, int8_t direction)
 }
 
 inline void return_from_other_screen_to_main(
-	bool& in_this_menu, bool& main_input_allowed
+	bool& in_this_menu, bool& main_input_allowed, bool restart_bgm
 ) {
-	op_fadein_animate();
+	op_fadein_animate(restart_bgm);
 	wait_for_input_or_start_demo_then_box_to_main_animate();
 	select_cdg_load_part2_of_4();
 	in_this_menu = false;
@@ -4132,14 +4132,16 @@ void near main_update_and_render(void)
 		switch(menu_sel) {
 		case MC_STORY:
 			story_menu();
-			return_from_other_screen_to_main(in_this_menu, input_allowed);
+			return_from_other_screen_to_main(in_this_menu, input_allowed, true);
 			return;
 		case MC_VS:
 			resident->playchar_paletted[0].set(PLAYCHAR_REIMU);
 			resident->playchar_paletted[1].set(PLAYCHAR_REIMU);
 			if(vs_menu()) {
 				menu_sel = MC_VS;
-				return_from_other_screen_to_main(in_this_menu, input_allowed);
+				return_from_other_screen_to_main(
+					in_this_menu, input_allowed, true
+				);
 			} else {
 				in_this_menu = false;
 				menu_sel = MC_VS;
@@ -4151,7 +4153,7 @@ void near main_update_and_render(void)
 			* once the segmentation allows us to, if ever */
 			_asm { nop; push cs; call near ptr musicroom_menu; }
 
-			return_from_other_screen_to_main(in_this_menu, input_allowed);
+			return_from_other_screen_to_main(in_this_menu, input_allowed, true);
 			return;
 		case MC_REGIST_VIEW:
 			score_menu();
@@ -4163,7 +4165,7 @@ void near main_update_and_render(void)
 			break;
 		case MC_REPLAY:
 			replay_menu();
-			return_from_other_screen_to_main(in_this_menu, input_allowed);
+			return_from_other_screen_to_main(in_this_menu, input_allowed, false);
 			return;
 		case MC_QUIT:
 			in_this_menu = false; // We're quitting anyway...
@@ -4202,18 +4204,6 @@ inline void return_from_option_to_main(bool& option_initialized) {
 	option_initialized = false;
 	menu_sel = MC_OPTION;
 	in_option = false;
-}
-
-static void near language_flip(void)
-{
-	if(language_is_english()) {
-		language_resident_set(LANGUAGE_JAPANESE);
-	} else if(language_overlay_available()) {
-		language_resident_set(LANGUAGE_ENGLISH);
-	} else {
-		return;
-	}
-	language_op_apply();
 }
 
 static void near option_return_to_main(bool& option_initialized)
@@ -4255,7 +4245,7 @@ void near option_update_and_render(void)
 			snd_flip();
 			break;
 		case OC_LANGUAGE:
-			language_flip();
+			language_op_toggle();
 			break;
 		case OC_KEY_MODE:
 			ring_inc_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
@@ -4272,7 +4262,7 @@ void near option_update_and_render(void)
 			snd_flip();
 			break;
 		case OC_LANGUAGE:
-			language_flip();
+			language_op_toggle();
 			break;
 		case OC_KEY_MODE:
 			ring_dec_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
@@ -4288,11 +4278,11 @@ void near option_update_and_render(void)
 			menu_sel = MC_OPTION;
 			in_option = false;
 			return_from_other_screen_to_main(
-				in_this_menu, main_input_allowed
+				in_this_menu, main_input_allowed, false
 			);
 			return;
 		} else if(menu_sel == OC_LANGUAGE) {
-			language_flip();
+			language_op_toggle();
 			option_choice_put(menu_sel, TX_WHITE);
 		} else if(menu_sel == OC_QUIT) {
 			option_return_to_main(in_this_menu);
@@ -4394,7 +4384,7 @@ void main(void)
 		resident->op_animation_fast = true;
 	} else {
 		resident->op_animation_fast = false;
-		op_fadein_animate();
+		op_fadein_animate(true);
 	}
 	wait_for_input_or_start_demo_then_box_to_main_animate();
 
@@ -4580,4 +4570,7 @@ static int near replay_dev_story_stage_menu(void)
 #endif
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 /// --------

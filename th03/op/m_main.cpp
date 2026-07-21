@@ -12,8 +12,12 @@
 #include "platform/x86real/flags.hpp"
 #include "planar.h"
 
-inline void title_load_opwin_and_bgm(void) {
+inline void title_load_opwin(void) {
 	super_entry_bfnt("opwin.bft");
+}
+
+inline void title_load_opwin_and_bgm(void) {
+	title_load_opwin();
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 	snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
 }
@@ -135,9 +139,13 @@ void near op_animate(void)
 	select_cdg_load_part1_of_4();
 }
 
-void near op_fadein_animate(void)
+void near op_fadein_animate(bool restart_bgm)
 {
-	title_load_opwin_and_bgm();
+	if(restart_bgm) {
+		title_load_opwin_and_bgm();
+	} else {
+		title_load_opwin();
+	}
 
 	// ZUN landmine: Will cause tearing if we return from the Music Room, which
 	// leaves with VRAM cleared to color 0 but still keeps its purple color in
@@ -163,7 +171,9 @@ void near op_fadein_animate(void)
 
 	select_cdg_load_part1_of_4();
 
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	if(restart_bgm) {
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+	}
 	for(int i = 0; i <= 100; i += 4) {
 		// At least this one doesn't constitute an additional landmine because
 		// the `palette_settone(0)` call on the first iteration matches the
