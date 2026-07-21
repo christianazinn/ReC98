@@ -1701,7 +1701,9 @@ void far scorefile_view_frame_begin(void)
 	};
 
 	scorefile_view_character_load();
-	graph_accesspage(1);
+	// All (0xFF) and the even final character page make every browser step
+	// alternate this bit, so it always identifies the hidden graphics page.
+	graph_accesspage(scorefile_view_page & 1);
 	pi_put_8(0, 0, 0);
 	if(scorefile_view_page < PLAYCHAR_COUNT) {
 		cdg_put_8(0, (RES_Y - RANK_IMAGE_H), 1);
@@ -1713,10 +1715,8 @@ void far scorefile_view_frame_end(void)
 {
 	scorefile_view_overlay_put();
 	vsync_wait();
-	graph_showpage(1);
-	graph_copy_page(0);
-	graph_showpage(0);
-	graph_accesspage(0);
+	graph_showpage(scorefile_view_page & 1);
+	graph_accesspage(scorefile_view_page & 1);
 }
 
 #else
@@ -1820,7 +1820,7 @@ void far scorefile_close(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90"
 #elif (BINARY == 'M')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
