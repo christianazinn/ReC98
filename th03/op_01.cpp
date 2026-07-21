@@ -1047,7 +1047,10 @@ void pascal near vs_choice_put(int sel, tram_atrb2 atrb)
 {
 	enum {
 		W = (8 * GAIJI_W),
-		TRAM_LEFT = ((BOX_SUBMENU_CENTER_X - (W / 2)) / GLYPH_HALF_W),
+		TRAM_LEFT = (
+			(BOX_SUBMENU_CENTER_X - (W / 2) + GLYPH_HALF_W) /
+			GLYPH_HALF_W
+		),
 	};
 	if(sel == VS_1P_CPU) {
 		static const char STR[] = g_str_vs(gp_1P_vs, gp__CPU);
@@ -3856,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
-	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"

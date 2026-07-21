@@ -208,11 +208,10 @@ void pascal near box_column16_unput(uscreen_x_t left)
 
 	_AX = (left / BYTE_DOTS);
 
-	_DI = vram_offset_shift(0, (BOX_BOTTOM - 1));
+	// ES already starts at BOX_TOP, so DI is relative to that row.
+	_DI = vram_offset_shift(0, (BOX_H - 1));
 	_DI += _AX;
 	_ES = vram_segment(B, 0, BOX_TOP);
-	// ZUN bug: The original carry-terminated loop continued beyond the box
-	// and restored unrelated rows from page 1, including the title credits.
 	_CX = BOX_H;
 	do {
 		page_access(1);
