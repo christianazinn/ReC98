@@ -173,11 +173,11 @@ void near op_fadein_animate(void)
 	}
 }
 
-void near box_main_to_submenu_animate(void)
+void pascal near box_main_to_submenu_animate(screen_x_t box_right)
 {
 	for(
 		screen_x_t right_left = (BOX_MAIN_RIGHT - OPWIN_STEP_W);
-		right_left < (BOX_SUBMENU_RIGHT - OPWIN_STEP_W);
+		right_left < (box_right - OPWIN_STEP_W);
 		right_left += OPWIN_STEP_W
 	) {
 		box_column16_unput(right_left);
@@ -186,10 +186,10 @@ void near box_main_to_submenu_animate(void)
 	}
 }
 
-void near box_submenu_to_main_animate(void)
+void pascal near box_submenu_to_main_animate(screen_x_t box_right)
 {
 	for(
-		screen_x_t right_left = (BOX_SUBMENU_RIGHT - OPWIN_W);
+		screen_x_t right_left = (box_right - OPWIN_W);
 		right_left >= (BOX_MAIN_RIGHT - OPWIN_W);
 		right_left -= OPWIN_STEP_W
 	) {

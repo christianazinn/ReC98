@@ -1080,7 +1080,7 @@ static bool near vs_start(bool select_characters)
 		text_clear();
 		title_menu_graphics_unput(BOX_MAIN_RIGHT);
 		title_credit_graphics_unput();
-		box_main_to_submenu_animate();
+		box_main_to_submenu_animate(BOX_SUBMENU_RIGHT);
 
 		sel = VS_1P_CPU;
 		vs_choice_put(VS_1P_CPU, TX_WHITE);
@@ -3817,7 +3817,7 @@ static char title_credit_line[44];
 static char gdc_frequency_error_offset_padding[
 	(sizeof(
 		ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3
-	) - 44)
+	) - 52)
 ] = { 0 };
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
@@ -3860,7 +3860,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D302E34UL); // "4.0-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -3896,29 +3896,16 @@ void pascal near main_choice_put(int sel, tram_atrb2 atrb)
 
 #pragma option -a2
 
-void pascal near option_choice_put(int sel, tram_atrb2 atrb)
+static void near option_choice_draw(int sel, tram_atrb2 atrb)
 {
 	enum {
 		// ZUN quirk: Not the center of the left column.
 		LABEL_CENTER_X = BOX_MAIN_CENTER_X,
 
 		VALUE_LEFT = BOX_SUBMENU_CENTER_X,
-		VALUE_W = (BOX_SUBMENU_RIGHT - VALUE_LEFT),
-		VALUE_TRAM_LEFT = (VALUE_LEFT / GLYPH_HALF_W),
+		VALUE_W = (BOX_OPTION_RIGHT - VALUE_LEFT),
 		VALUE_CENTER_X = (VALUE_LEFT + (VALUE_W / 2)),
 	};
-
-	if(sel == OC_QUIT) {
-		title_choice_graphics_unput(6, BOX_SUBMENU_RIGHT);
-	} else {
-		title_choice_graphics_unput(sel + 1, BOX_SUBMENU_RIGHT);
-		if(!menu_font) {
-			text_putsa(
-				VALUE_TRAM_LEFT, choice_tram_y(sel + 1),
-				"            ", TX_WHITE
-			);
-		}
-	}
 
 	if(sel == OC_RANK) {
 		choice_put_centered(LABEL_CENTER_X, 1, 0, LABEL_RANK, atrb);
@@ -4004,8 +3991,72 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 			break;
 		}
 	} else if(sel == OC_QUIT) {
-		choice_put_centered(BOX_SUBMENU_CENTER_X, 6, 0, COMMAND_QUIT, atrb);
+		choice_put_centered(BOX_OPTION_CENTER_X, 5, 0, COMMAND_QUIT, atrb);
 	}
+}
+
+void pascal near option_choice_put(int sel, tram_atrb2 atrb)
+{
+	unsigned line = ((sel == OC_QUIT) ? 5 : (sel + 1));
+
+	title_choice_graphics_unput(line, BOX_OPTION_RIGHT);
+	if(!menu_font && (sel != OC_QUIT)) {
+		text_putsa(
+			(BOX_SUBMENU_CENTER_X / GLYPH_HALF_W), choice_tram_y(line),
+			"            ", TX_WHITE
+		);
+	}
+	option_choice_draw(sel, atrb);
+}
+
+static void near option_box_put(void)
+{
+	screen_x_t right_left;
+
+	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
+	for(
+		right_left = (BOX_LEFT + OPWIN_W);
+		right_left < (BOX_OPTION_RIGHT - OPWIN_STEP_W);
+		right_left += OPWIN_STEP_W
+	) {
+		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
+	}
+}
+
+static void near option_frame_put(void)
+{
+	int choice;
+
+	option_box_put();
+	for(choice = 0; choice < OC_COUNT; choice++) {
+		option_choice_draw(
+			choice, ((choice == menu_sel) ? TX_WHITE : TX_BLACK)
+		);
+	}
+	title_credit_put();
+}
+
+static void near option_language_title_refresh(void)
+{
+	language_pi_load(0, MENU_MAIN_BG_FN);
+	pi_palette_apply(0);
+
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	option_frame_put();
+	vsync_wait();
+	graph_showpage(1);
+
+	graph_accesspage(0);
+	pi_put_8(0, 0, 0);
+	option_frame_put();
+	vsync_wait();
+	graph_showpage(0);
+
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	graph_accesspage(0);
+	pi_free(0);
 }
 
 void pascal near menu_sel_update_and_render(int8_t max, int8_t direction)
@@ -4055,8 +4106,11 @@ void near main_update_and_render(void)
 		__emit__(0x90, 0x90, 0x90, 0x90);
 		text_clear();
 		if(!in_main) {
-			title_menu_graphics_unput(BOX_SUBMENU_RIGHT);
-			box_submenu_to_main_animate();
+			screen_x_t box_right = (
+				(menu_sel == MC_OPTION) ? BOX_OPTION_RIGHT : BOX_SUBMENU_RIGHT
+			);
+			title_menu_graphics_unput(box_right);
+			box_submenu_to_main_animate(box_right);
 		}
 		in_main = false; // ZUN bloat: Why is this set here, and now?
 		menu_init(in_this_menu, input_allowed, MC_COUNT, main_choice_put);
@@ -4165,16 +4219,10 @@ static void near language_flip(void)
 
 static void near option_return_to_main(bool& option_initialized)
 {
-	if(padding == language_resident()) {
-		return_from_option_to_main(option_initialized);
-		return;
+	if(padding != language_resident()) {
+		option_language_title_refresh();
 	}
-
 	return_from_option_to_main(option_initialized);
-	fullscreen_menu_resources_clear();
-	return_from_other_screen_to_main(
-		option_initialized, main_input_allowed
-	);
 }
 
 void near option_update_and_render(void)
@@ -4186,8 +4234,7 @@ void near option_update_and_render(void)
 		padding = language_resident();
 		text_clear();
 		title_menu_graphics_unput(BOX_MAIN_RIGHT);
-		title_credit_graphics_unput();
-		box_main_to_submenu_animate();
+		box_main_to_submenu_animate(BOX_OPTION_RIGHT);
 		menu_init(in_this_menu, input_allowed, OC_COUNT, option_choice_put);
 	}
 
@@ -4533,4 +4580,5 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 /// --------
