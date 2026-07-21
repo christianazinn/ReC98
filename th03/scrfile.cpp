@@ -1557,35 +1557,10 @@ bool16 far scorefile_unlocked(void)
 
 #if (BINARY == 'L')
 
-static const char far SCORE_PAGE_ALL[] = "ALL CHARACTERS";
-static const char far SCORE_PAGE_REIMU[] = "REIMU";
-static const char far SCORE_PAGE_MIMA[] = "MIMA";
-static const char far SCORE_PAGE_MARISA[] = "MARISA";
-static const char far SCORE_PAGE_ELLEN[] = "ELLEN";
-static const char far SCORE_PAGE_KOTOHIME[] = "KOTOHIME";
-static const char far SCORE_PAGE_KANA[] = "KANA";
-static const char far SCORE_PAGE_RIKAKO[] = "RIKAKO";
-static const char far SCORE_PAGE_CHIYURI[] = "CHIYURI";
-static const char far SCORE_PAGE_YUMEMI[] = "YUMEMI";
-static const char far SCORE_PLAY_TIME[] = "PLAY TIME ";
-static const char far SCORE_1CC[] = "1CC ";
-static const char far SCORE_CONTINUES[] = "   CONTINUES ";
-
-static const char far *scorefile_view_page_name(void)
-{
-	switch(scorefile_view_page) {
-	case PLAYCHAR_REIMU:    return SCORE_PAGE_REIMU;
-	case PLAYCHAR_MIMA:     return SCORE_PAGE_MIMA;
-	case PLAYCHAR_MARISA:   return SCORE_PAGE_MARISA;
-	case PLAYCHAR_ELLEN:    return SCORE_PAGE_ELLEN;
-	case PLAYCHAR_KOTOHIME: return SCORE_PAGE_KOTOHIME;
-	case PLAYCHAR_KANA:     return SCORE_PAGE_KANA;
-	case PLAYCHAR_RIKAKO:   return SCORE_PAGE_RIKAKO;
-	case PLAYCHAR_CHIYURI:  return SCORE_PAGE_CHIYURI;
-	case PLAYCHAR_YUMEMI:   return SCORE_PAGE_YUMEMI;
-	default:                 return SCORE_PAGE_ALL;
-	}
-}
+static const char far SCORE_PLAY_TIME[] = "TIME ";
+static const char far SCORE_1CC[] = "  1CC ";
+static const char far SCORE_CONTINUES[] = "  CONTINUES ";
+static const unsigned char far SCORE_ASSET_PF_FN[] = "azinn.dat";
 
 static int scorefile_text_append(char __ss *line, int at, const char far *str)
 {
@@ -1623,6 +1598,28 @@ static int scorefile_text_fixed(
 
 #pragma codeseg SCOREFONT_TEXT
 
+static void far scorefile_view_character_load(void)
+{
+	extern const unsigned char mainl_pf_fn[];
+	char fn[9];
+	uint32_t __ss *fn_quads = reinterpret_cast<uint32_t __ss *>(fn);
+
+	fn_quads[0] = 0x30435348UL; // "HSC0"
+	fn_quads[1] = 0x3244432EUL; // ".CD2"
+	fn[8] = '\0';
+
+	cdg_free(1);
+	if(scorefile_view_page >= PLAYCHAR_COUNT) {
+		return;
+	}
+	fn[3] += (scorefile_view_page / 3);
+	pfend();
+	pfstart(SCORE_ASSET_PF_FN);
+	cdg_load_single(1, fn, (scorefile_view_page % 3));
+	pfend();
+	pfstart(mainl_pf_fn);
+}
+
 static void far scorefile_time_put(
 	screen_x_t left, vram_y_t top, const char far *str, int color
 )
@@ -1644,11 +1641,15 @@ static void far scorefile_time_put(
 	}
 }
 
+// Keep the following compiler-runtime phase fixed after moving the HiScore
+// overlay and character-loader code between patch-owned segments.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+
 #pragma codeseg
 
 void far scorefile_view_overlay_put(void)
 {
-	char line[48];
+	char line[56];
 	uint32_t frames = scorefile_view_stats.play_frames;
 	uint32_t seconds = ((frames / 282UL) * 5UL) +
 		(((frames % 282UL) * 5UL) / 282UL);
@@ -1658,21 +1659,18 @@ void far scorefile_view_overlay_put(void)
 	if(hours > 9999UL) {
 		hours = 9999UL;
 	}
-	menu_font_put(24, 320, scorefile_view_page_name(), V_WHITE);
 	at = scorefile_text_append(line, 0, SCORE_PLAY_TIME);
 	at = scorefile_text_fixed(line, at, hours, 4);
 	line[at++] = ':';
 	at = scorefile_text_fixed(line, at, ((seconds / 60UL) % 60UL), 2);
 	line[at++] = ':';
 	at = scorefile_text_fixed(line, at, (seconds % 60UL), 2);
-	line[at] = '\0';
-	scorefile_time_put(24, 340, line, V_WHITE);
-	at = scorefile_text_append(line, 0, SCORE_1CC);
+	at = scorefile_text_append(line, at, SCORE_1CC);
 	at = scorefile_text_u32(line, at, scorefile_view_stats.one_ccs);
 	at = scorefile_text_append(line, at, SCORE_CONTINUES);
 	at = scorefile_text_u32(line, at, scorefile_view_stats.continues_used);
 	line[at] = '\0';
-	menu_font_put(24, 360, line, V_WHITE);
+	scorefile_time_put(8, (RES_Y - GLYPH_H), line, V_WHITE);
 }
 
 void far scorefile_view_assets_load(void)
@@ -1689,6 +1687,7 @@ void far scorefile_view_assets_free(void)
 	extern int entered_place;
 
 	if(entered_place == -1) {
+		cdg_free(1);
 		cdg_free(0);
 		pi_free(0);
 	}
@@ -1701,8 +1700,12 @@ void far scorefile_view_frame_begin(void)
 		RANK_IMAGE_H = 88,
 	};
 
+	scorefile_view_character_load();
 	graph_accesspage(1);
 	pi_put_8(0, 0, 0);
+	if(scorefile_view_page < PLAYCHAR_COUNT) {
+		cdg_put_8(0, (RES_Y - RANK_IMAGE_H), 1);
+	}
 	cdg_put_8((RES_X - RANK_IMAGE_W), (RES_Y - RANK_IMAGE_H), 0);
 }
 

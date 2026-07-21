@@ -148,6 +148,8 @@ struct keyconfig_menu_t {
 	uint8_t bindings[T3_KEYCONFIG_BINDING_COUNT];
 };
 
+static page_t keyconfig_page_front;
+
 enum keyconfig_row_t {
 	KCR_AUTOFIRE,
 	KCR_UP_LEFT,
@@ -689,7 +691,7 @@ static void keyconfig_text_putsa(
 	uint8_t at;
 
 	if(menu_font) {
-		menu_font_restore_rect(0, (top * GLYPH_H), RES_X, GLYPH_H);
+		graph_accesspage(keyconfig_page_front);
 		menu_font_put_centered(
 			(RES_X / 2), (top * GLYPH_H), s, KEYCONFIG_COLOR_FOOTER
 		);
@@ -885,11 +887,10 @@ static void keyconfig_screen_put(
 	bool restore = false;
 
 	text_clear();
-	// Page 1 owns the clean background used by menu_font_restore_rect(). Draw
-	// the complete next frame on hidden page 0 without graph_copy_page(),
-	// whose full-VRAM temporary allocation can fail while both PIs are loaded.
-	graph_showpage(1);
-	graph_accesspage(0);
+	// Compose on the hidden page while the previous complete frame remains
+	// visible. This avoids both graph_copy_page()'s allocation and a blank
+	// intermediate frame.
+	graph_accesspage(!keyconfig_page_front);
 	keyconfig_background_put();
 	keyconfig_line_clear(line);
 	at = 0;
@@ -925,13 +926,9 @@ static void keyconfig_screen_put(
 		text_putsa(12, KEYCONFIG_FOOTER_TOP, line, TX_WHITE);
 	}
 	vsync_wait();
-	graph_showpage(0);
-
-	// Keep page 1 as a clean copy of the background for transient message
-	// rows, which restore through menu_font_restore_rect().
-	graph_accesspage(1);
-	keyconfig_background_put();
-	graph_accesspage(0);
+	graph_showpage(!keyconfig_page_front);
+	keyconfig_page_front = !keyconfig_page_front;
+	graph_accesspage(keyconfig_page_front);
 }
 
 // Preserve all following KeyConfig entry points after removing the allocating
@@ -1049,6 +1046,8 @@ static bool keyconfig_discard_confirm(void)
 	}
 }
 
+#pragma codestring "\x90"
+
 bool far keyconfig_menu(void)
 {
 	keyconfig_menu_t original;
@@ -1068,6 +1067,7 @@ bool far keyconfig_menu(void)
 	graph_clear();
 	graph_showpage(0);
 	graph_accesspage(0);
+	keyconfig_page_front = 0;
 	keyconfig_background_load();
 	keyconfig_screen_put(cfg, page, selected);
 
@@ -1236,4 +1236,4 @@ bool far keyconfig_menu(void)
 }
 
 // Preserve the paragraph phase of all following code segments.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
