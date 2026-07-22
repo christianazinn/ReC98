@@ -22,7 +22,7 @@ enum {
 	SLOT_PIXEL_LEFT = 64,
 	CHAR_PIXEL_LEFT = 104,
 	RANK_PIXEL_LEFT = 216,
-	NAME_PIXEL_LEFT = 288,
+	NAME_PIXEL_LEFT = 300,
 	SCORE_PIXEL_RIGHT = 536,
 	STAGE_PIXEL_LEFT = 560,
 	DETAIL_PIXEL_LEFT = 48,
@@ -725,7 +725,9 @@ static void story_put(
 	diagnostics_put((DETAIL_Y + 12), false);
 	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
 	text_put(DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
-	text_put(DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 2), "Op", TX_CYAN);
+	text_put(
+		DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
+	);
 	menu_font_put_right(
 		DETAIL_SPLIT_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
 		"Score", font_color(TX_CYAN)
@@ -933,6 +935,3 @@ void pascal far replay_font_put_fixed_n(
 		count--;
 	}
 }
-
-// Keep the following patch-owned segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
