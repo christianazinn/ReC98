@@ -2,12 +2,18 @@
 #define TH03_REPLAY_FORMAT_HPP
 
 #include "platform.h"
+#include "th03/resident.hpp"
 
-#define T3_REPLAY_USER_VERSION 11
+#define T3_REPLAY_USER_VERSION_LEGACY 11
+#define T3_REPLAY_USER_VERSION 12
 #define T3_REPLAY_USER_INDEX_VERSION 7
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
+#define T3R_CKPT_COUNT_STORY 15
+#define T3R_CKPT_COUNT_VS 3
+#define T3R_CKPT_COUNT_PRACTICE 5
+#define T3R_CKPT_COUNT_MAX T3R_CKPT_COUNT_STORY
 #define T3_REPLAY_USER_NAME_LEN 8
 #define T3_REPLAY_USER_SCORE_DIGITS 8
 #define T3_REPLAY_USER_SCORE_DISPLAY_DIGITS 9
@@ -207,7 +213,15 @@ struct replay_user_summary_ext_t {
 	uint8_t flags;
 	uint8_t round_reached_count;
 	replay_user_round_split_t round_splits[T3_REPLAY_USER_ROUND_SPLIT_COUNT];
+	uint8_t checkpoint_count;
+	uint8_t checkpoint_stage_round[T3R_CKPT_COUNT_MAX];
 };
+
+#define T3_REPLAY_USER_SUMMARY_EXT_V11_SIZE 272
+
+typedef char replay_user_summary_ext_size_check[
+	(sizeof(replay_user_summary_ext_t) == 288) ? 1 : -1
+];
 
 struct replay_user_snapshot_t {
 	uint32_t resident_rand;
@@ -253,14 +267,119 @@ struct replay_user_snapshot_t {
 	uint8_t reserved_player[1];
 };
 
+struct replay_user_round_state_t {
+	uint8_t round_id;
+	uint8_t rounds_won[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t score[
+		T3_REPLAY_USER_PLAYER_COUNT
+	][T3_REPLAY_USER_SCORE_DIGITS];
+	uint8_t round_speed;
+	uint8_t bullet_speed;
+	uint8_t spell_rank[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t boss_rank;
+	uint8_t cpu_damage;
+	uint8_t extends_gained;
+	uint16_t cpu_safety_frames[T3_REPLAY_USER_PLAYER_COUNT];
+};
+
+typedef char replay_user_round_state_size_check[
+	(sizeof(replay_user_round_state_t) == 30) ? 1 : -1
+];
+
 #define T3R_STAGE_CKPT_PREFIX_SIZE 12
-#define T3R_STAGE_CKPT_SIZE ( \
+#define T3R_STAGE_CKPT_V11_SIZE ( \
 	T3R_STAGE_CKPT_PREFIX_SIZE + \
 	sizeof(replay_user_snapshot_t) \
 )
-#define T3R_STAGE_CKPTS_SIZE ( \
-	T3_REPLAY_USER_STAGE_COUNT * T3R_STAGE_CKPT_SIZE \
+#define T3R_STAGE_CKPT_SIZE ( \
+	T3R_STAGE_CKPT_V11_SIZE + \
+	sizeof(replay_user_round_state_t) \
 )
+#define T3R_STAGE_CKPTS_V11_SIZE ( \
+	T3_REPLAY_USER_STAGE_COUNT * T3R_STAGE_CKPT_V11_SIZE \
+)
+
+typedef char replay_user_checkpoint_size_check[
+	(T3R_STAGE_CKPT_SIZE == 1024) ? 1 : -1
+];
+
+inline uint8_t replay_user_checkpoint_capacity(
+	uint8_t game_mode, uint16_t flags
+)
+{
+	if(game_mode == GM_STORY) {
+		return T3R_CKPT_COUNT_STORY;
+	}
+	if(flags & T3_REPLAY_USER_FLAG_PRACTICE) {
+		return T3R_CKPT_COUNT_PRACTICE;
+	}
+	return T3R_CKPT_COUNT_VS;
+}
+
+inline uint32_t replay_user_checkpoint_reservation_size(
+	uint16_t version, uint8_t game_mode, uint16_t flags
+)
+{
+	if(version == T3_REPLAY_USER_VERSION_LEGACY) {
+		return (
+			(game_mode == GM_STORY) ?
+				static_cast<uint32_t>(T3R_STAGE_CKPTS_V11_SIZE) :
+				static_cast<uint32_t>(T3R_STAGE_CKPT_V11_SIZE)
+		);
+	}
+	return (
+		static_cast<uint32_t>(
+			replay_user_checkpoint_capacity(game_mode, flags)
+		) * static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+	);
+}
+
+inline uint16_t replay_user_summary_ext_size(uint16_t version)
+{
+	return (
+		(version == T3_REPLAY_USER_VERSION_LEGACY) ?
+			T3_REPLAY_USER_SUMMARY_EXT_V11_SIZE :
+			sizeof(replay_user_summary_ext_t)
+	);
+}
+
+inline uint16_t replay_user_checkpoint_size(uint16_t version)
+{
+	return (
+		(version == T3_REPLAY_USER_VERSION_LEGACY) ?
+			T3R_STAGE_CKPT_V11_SIZE : T3R_STAGE_CKPT_SIZE
+	);
+}
+
+inline bool replay_user_version_supported(uint16_t version)
+{
+	return (
+		(version == T3_REPLAY_USER_VERSION_LEGACY) ||
+		(version == T3_REPLAY_USER_VERSION)
+	);
+}
+
+inline bool replay_user_version_is_current(uint16_t version)
+{
+	return (version == T3_REPLAY_USER_VERSION);
+}
+
+inline uint16_t replay_user_header_size(uint16_t version)
+{
+	return static_cast<uint16_t>(
+		sizeof(replay_user_header_t) + replay_user_summary_ext_size(version)
+	);
+}
+
+inline uint32_t replay_user_input_offset(
+	uint16_t version, uint8_t game_mode, uint16_t flags
+)
+{
+	return (
+		static_cast<uint32_t>(replay_user_header_size(version)) +
+		replay_user_checkpoint_reservation_size(version, game_mode, flags)
+	);
+}
 
 struct replay_user_sample_t {
 	uint32_t frame_index;

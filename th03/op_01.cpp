@@ -349,6 +349,10 @@ static void replay_user_summary_ext_init(void)
 			replay_user_menu_summary_ext.round_splits[i].score_p2[j] = 0;
 		}
 	}
+	replay_user_menu_summary_ext.checkpoint_count = 0;
+	for(i = 0; i < T3R_CKPT_COUNT_MAX; i++) {
+		replay_user_menu_summary_ext.checkpoint_stage_round[i] = 0;
+	}
 }
 
 static void replay_memclear(void far *buf, unsigned size)
@@ -459,8 +463,12 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 		(header.magic[4] == 'L') &&
 		(header.magic[5] == 'Y') &&
 		(header.magic[6] == '1') &&
-		(header.magic[7] == '1') &&
-		(header.version == T3_REPLAY_USER_VERSION) &&
+		(
+			header.magic[7] == static_cast<char>(
+				'0' + (header.version - 10)
+			)
+		) &&
+		replay_user_version_supported(header.version) &&
 		(header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0) &&
@@ -475,17 +483,11 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 			((header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
 		) &&
 		(header.autofire <= 0x03) &&
-		(header.header_size == (
-			sizeof(replay_user_header_t) + sizeof(replay_user_summary_ext_t)
-		)) &&
+		(header.header_size == replay_user_header_size(header.version)) &&
 		(header.snapshot_offset == header.header_size) &&
-		(header.snapshot_size == T3R_STAGE_CKPT_SIZE) &&
-		(header.input_offset == (
-			static_cast<uint32_t>(header.header_size) +
-			static_cast<uint32_t>(
-				(header.game_mode == GM_STORY) ?
-				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
-			)
+		(header.snapshot_size == replay_user_checkpoint_size(header.version)) &&
+		(header.input_offset == replay_user_input_offset(
+			header.version, header.game_mode, header.flags
 		)) &&
 		(header.sample_count != 0)
 	);
@@ -513,6 +515,9 @@ static bool replay_user_index_header_valid(
 
 static bool replay_user_read_for_menu(const char *fn)
 {
+	uint16_t summary_size;
+	replay_user_round_state_t round_state;
+
 	if(!file_ropen(fn)) {
 		return false;
 	}
@@ -528,11 +533,12 @@ static bool replay_user_read_for_menu(const char *fn)
 		return false;
 	}
 	replay_user_summary_ext_init();
+	summary_size = replay_user_summary_ext_size(replay_user_menu_header.version);
 	if(
 		file_read(
 			&replay_user_menu_summary_ext,
-			sizeof(replay_user_menu_summary_ext)
-		) != sizeof(replay_user_menu_summary_ext)
+			summary_size
+		) != summary_size
 	) {
 		file_close();
 		return false;
@@ -540,6 +546,20 @@ static bool replay_user_read_for_menu(const char *fn)
 	if(
 		replay_user_menu_summary_ext.round_reached_count >
 		T3_REPLAY_USER_ROUND_SPLIT_COUNT
+	) {
+		file_close();
+		return false;
+	}
+	if(
+		replay_user_version_is_current(replay_user_menu_header.version) &&
+		(
+			(replay_user_menu_summary_ext.checkpoint_count == 0) ||
+			(replay_user_menu_summary_ext.checkpoint_count >
+			 replay_user_checkpoint_capacity(
+				replay_user_menu_header.game_mode,
+				replay_user_menu_header.flags
+			 ))
+		)
 	) {
 		file_close();
 		return false;
@@ -558,6 +578,16 @@ static bool replay_user_read_for_menu(const char *fn)
 		file_close();
 		return false;
 	}
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		if(
+			file_read(
+				&round_state, sizeof(round_state)
+			) != sizeof(round_state)
+		) {
+			file_close();
+			return false;
+		}
+	}
 	if(replay_user_menu_snapshot.autofire != replay_user_menu_header.autofire) {
 		file_close();
 		return false;
@@ -567,26 +597,42 @@ static bool replay_user_read_for_menu(const char *fn)
 }
 
 static bool replay_user_checkpoint_read_for_menu(
-	uint8_t stage,
+	uint8_t checkpoint,
 	uint32_t _ss *sample_count,
 	uint32_t _ss *global_frame,
 	uint32_t _ss *input_size
 )
 {
 	uint32_t offset;
+	uint8_t stage_round;
+	uint8_t stage;
+	replay_user_round_state_t round_state;
 
-	if(
-		(replay_user_menu_header.game_mode != GM_STORY) ||
-		(stage >= T3_REPLAY_USER_STAGE_COUNT) ||
-		(stage >= replay_user_menu_header.stage_reached_count)
-	) {
-		return false;
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		if(checkpoint >= replay_user_menu_summary_ext.checkpoint_count) {
+			return false;
+		}
+		stage_round = (
+			replay_user_menu_summary_ext.checkpoint_stage_round[checkpoint]
+		);
+	} else {
+		if(
+			(replay_user_menu_header.game_mode != GM_STORY) ||
+			(checkpoint >= T3_REPLAY_USER_STAGE_COUNT) ||
+			(checkpoint >= replay_user_menu_header.stage_reached_count)
+		) {
+			return false;
+		}
+		stage_round = checkpoint;
 	}
+	stage = (stage_round & 0x0F);
 	offset = (
 		replay_user_menu_header.snapshot_offset +
 		(
-			static_cast<uint32_t>(stage) *
-			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+			static_cast<uint32_t>(checkpoint) *
+			static_cast<uint32_t>(
+				replay_user_checkpoint_size(replay_user_menu_header.version)
+			)
 		)
 	);
 	if(!file_ropen(REPLAY_SLOT_FN)) {
@@ -607,15 +653,33 @@ static bool replay_user_checkpoint_read_for_menu(
 		file_close();
 		return false;
 	}
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		if(
+			file_read(
+				&round_state, sizeof(round_state)
+			) != sizeof(round_state)
+		) {
+			file_close();
+			return false;
+		}
+	}
 	file_close();
-	return (
-		(replay_user_menu_snapshot.game_mode == GM_STORY) &&
-		(replay_user_menu_snapshot.story_stage == stage) &&
-		(replay_user_menu_snapshot.autofire == replay_user_menu_header.autofire) &&
-		(*sample_count <= replay_user_menu_header.sample_count) &&
-		(*global_frame <= replay_user_menu_header.final_frame_count) &&
-		(*input_size <= replay_user_menu_header.input_size)
-	);
+	if(
+		(replay_user_menu_snapshot.game_mode != replay_user_menu_header.game_mode) ||
+		(replay_user_menu_snapshot.autofire != replay_user_menu_header.autofire) ||
+		(*sample_count > replay_user_menu_header.sample_count) ||
+		(*global_frame > replay_user_menu_header.final_frame_count) ||
+		(*input_size > replay_user_menu_header.input_size)
+	) {
+		return false;
+	}
+	if(replay_user_menu_header.game_mode == GM_STORY) {
+		return (replay_user_menu_snapshot.story_stage == stage);
+	}
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		return (round_state.round_id == (stage_round >> 4));
+	}
+	return true;
 }
 
 static bool replay_user_read_slot_for_menu(uint8_t slot)
@@ -633,6 +697,23 @@ static bool replay_user_read_for_menu(void)
 		return true;
 	}
 	return replay_user_read_slot_for_menu(0);
+}
+
+static uint8_t replay_user_checkpoint_count_for_menu(void)
+{
+	uint8_t count;
+
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		return replay_user_menu_summary_ext.checkpoint_count;
+	}
+	if(replay_user_menu_header.game_mode == GM_STORY) {
+		count = replay_user_menu_header.stage_reached_count;
+		return (
+			(count > T3_REPLAY_USER_STAGE_COUNT) ?
+				T3_REPLAY_USER_STAGE_COUNT : count
+		);
+	}
+	return 1;
 }
 
 static uint8_t replay_user_first_used_slot(void)
@@ -2594,17 +2675,43 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 	replay_menu_render_end(page_drawn);
 }
 
-static void replay_menu_detail_render(uint8_t slot, uint8_t stage_sel)
+static void replay_menu_detail_render(
+	uint8_t slot, uint8_t checkpoint_sel, bool checkpoint_focus
+)
 {
 	uint8_t page_drawn;
 	bool clear = !menu_font;
 
 	page_drawn = replay_menu_render_begin();
-	replay_menu_detail_put(slot, stage_sel, true, clear);
+	replay_menu_detail_put(slot, checkpoint_sel, checkpoint_focus, clear);
 	if(clear) {
 		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 	}
 	replay_menu_render_end(page_drawn);
+}
+
+static void replay_menu_practice_settings_show(
+	uint8_t slot, uint8_t checkpoint_sel
+)
+{
+	uint8_t page_drawn;
+	bool clear = !menu_font;
+
+	page_drawn = replay_menu_render_begin();
+	replay_menu_detail_put(slot, checkpoint_sel, false, clear);
+	if(menu_font) {
+		replay_font_practice_settings_modal_put();
+	}
+	replay_menu_render_end(page_drawn);
+	do {
+		input_mode_interface();
+		frame_delay(1);
+	} while(input_sp != INPUT_NONE);
+	do {
+		input_mode_interface();
+		frame_delay(1);
+	} while(input_sp == INPUT_NONE);
+	replay_menu_detail_render(slot, checkpoint_sel, false);
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
@@ -3623,9 +3730,10 @@ bool near replay_menu(void)
 {
 	uint8_t sel = replay_user_first_used_slot();
 	uint8_t top = sel;
-	uint8_t stage_sel = 0;
-	uint8_t stage_count;
+	uint8_t checkpoint_sel = 0;
+	uint8_t checkpoint_count;
 	bool detail_view = false;
+	bool checkpoint_focus = true;
 	uint32_t sample_count;
 	uint32_t global_frame;
 	uint32_t input_size;
@@ -3646,28 +3754,58 @@ bool near replay_menu(void)
 				if(input_sp & (INPUT_CANCEL | INPUT_BOMB)) {
 					detail_view = false;
 					replay_menu_render(sel, top);
-				} else if(input_sp & INPUT_UP) {
-					if(stage_count != 0) {
-						if(stage_sel == 0) {
-							stage_sel = (stage_count - 1);
+				} else if(
+					(input_sp & INPUT_LEFT) && replay_menu_practice() &&
+					checkpoint_focus
+				) {
+					checkpoint_focus = false;
+					replay_menu_detail_render(
+						sel, checkpoint_sel, checkpoint_focus
+					);
+				} else if(
+					(input_sp & INPUT_RIGHT) && replay_menu_practice() &&
+					!checkpoint_focus
+				) {
+					checkpoint_focus = true;
+					replay_menu_detail_render(
+						sel, checkpoint_sel, checkpoint_focus
+					);
+				} else if((input_sp & INPUT_UP) && checkpoint_focus) {
+					if(checkpoint_count != 0) {
+						if(checkpoint_sel == 0) {
+							checkpoint_sel = (checkpoint_count - 1);
 						} else {
-							stage_sel--;
+							checkpoint_sel--;
 						}
-						replay_menu_detail_render(sel, stage_sel);
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus
+						);
 					}
-				} else if(input_sp & INPUT_DOWN) {
-					if(stage_count != 0) {
-						stage_sel++;
-						if(stage_sel >= stage_count) {
-							stage_sel = 0;
+				} else if((input_sp & INPUT_DOWN) && checkpoint_focus) {
+					if(checkpoint_count != 0) {
+						checkpoint_sel++;
+						if(checkpoint_sel >= checkpoint_count) {
+							checkpoint_sel = 0;
 						}
-						replay_menu_detail_render(sel, stage_sel);
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus
+						);
 					}
 				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+					if(replay_menu_practice() && !checkpoint_focus) {
+						replay_menu_practice_settings_show(
+							sel, checkpoint_sel
+						);
+					} else
 					if(replay_user_read_slot_for_menu(sel)) {
-						if(!replay_menu_vs() && !replay_menu_practice()) {
+						if(
+							replay_user_version_is_current(
+								replay_user_menu_header.version
+							) ||
+							(!replay_menu_vs() && !replay_menu_practice())
+						) {
 							if(replay_user_checkpoint_read_for_menu(
-								stage_sel,
+								checkpoint_sel,
 								&sample_count, &global_frame, &input_size
 							)) {
 								replay_user_restore_resident_from_menu();
@@ -3685,8 +3823,8 @@ bool near replay_menu(void)
 									T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
 								);
 								resident->unused_3[
-									T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
-								] = (stage_sel + 1);
+									T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX
+								] = (checkpoint_sel + 1);
 								pi_free(0);
 								return switch_to_mainl(false);
 							}
@@ -3728,15 +3866,14 @@ bool near replay_menu(void)
 				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 					if(replay_user_read_slot_for_menu(sel)) {
 						detail_view = true;
-						stage_sel = 0;
-						stage_count = 0;
-						if(!replay_menu_vs() && !replay_menu_practice()) {
-							stage_count = replay_user_menu_header.stage_reached_count;
-							if(stage_count > T3_REPLAY_USER_STAGE_COUNT) {
-								stage_count = T3_REPLAY_USER_STAGE_COUNT;
-							}
-						}
-						replay_menu_detail_render(sel, stage_sel);
+						checkpoint_sel = 0;
+						checkpoint_focus = true;
+						checkpoint_count = (
+							replay_user_checkpoint_count_for_menu()
+						);
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus
+						);
 					}
 				} else if(input_sp & INPUT_CANCEL) {
 					text_clear();
@@ -3820,7 +3957,7 @@ static char gdc_frequency_error_offset_padding[
 ] = { 0 };
 // Keeps the resident pointer and all following OP globals at their accepted
 // offsets after replacing the longer replay status strings.
-uint8_t replay_resident_offset_padding[20];
+uint8_t replay_resident_offset_padding[4];
 // -------
 
 #define TITLE_CREDIT_PAIR(index, left, right) \
@@ -3858,13 +3995,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20322E34UL); // "4.2 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4553,4 +4690,6 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

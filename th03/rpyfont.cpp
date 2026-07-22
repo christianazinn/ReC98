@@ -26,14 +26,20 @@ enum {
 	RANK_PIXEL_LEFT = 476,
 	STAGE_PIXEL_LEFT = 560,
 	DETAIL_PIXEL_LEFT = 48,
+	DETAIL_PIXEL_RIGHT = 304,
 	DETAIL_STORY_CURSOR_LEFT = 328,
 	DETAIL_STORY_PIXEL_LEFT = 344,
 	DETAIL_STORY_OPPONENT_LEFT = 376,
+	DETAIL_STORY_ROUND_LEFT = 400,
 	DETAIL_STORY_SCORE_RIGHT = 592,
-	DETAIL_ROUND_PIXEL_LEFT = 320,
+	DETAIL_ROUND_CURSOR_LEFT = 304,
+	DETAIL_ROUND_PIXEL_LEFT = 328,
 	DETAIL_ROUND_P1_SCORE_RIGHT = 452,
 	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
 	DETAIL_ROUND_WINNER_LEFT = 584,
+	DETAIL_SPLIT_ROWS_Y = 8,
+	DETAIL_SPLIT_ROWS_VISIBLE = 14,
+	DETAIL_PRACTICE_SETTINGS_Y = 12,
 	REPLAY_FONT_FIXED_NUMERIC = 0x100,
 	REPLAY_FONT_FIXED_NAME = 0x200,
 	REPLAY_FONT_FIXED_MASK = (
@@ -74,14 +80,11 @@ static bool round_summary_valid(void)
 	);
 }
 
-static replay_user_round_split_t near *round_split(uint8_t round)
+static replay_user_round_split_t near *round_split_at(
+	uint8_t stage, uint8_t round
+)
 {
 	uint8_t i;
-	uint8_t stage = (
-		replay_practice() ?
-			replay_user_menu_header.scenario.practice.config.stage :
-			T3_REPLAY_USER_ROUND_STAGE_VS
-	);
 	replay_user_round_split_t near *split;
 
 	if(!round_summary_valid()) {
@@ -97,6 +100,16 @@ static replay_user_round_split_t near *round_split(uint8_t round)
 		}
 	}
 	return NULL;
+}
+
+static replay_user_round_split_t near *round_split(uint8_t round)
+{
+	return round_split_at(
+		(replay_practice() ?
+			replay_user_menu_header.scenario.practice.config.stage :
+			T3_REPLAY_USER_ROUND_STAGE_VS),
+		round
+	);
 }
 
 static int packed_score_cmp(
@@ -224,6 +237,17 @@ static char *append_name(char *p)
 	return p;
 }
 
+static char *append_name_trimmed(char *p)
+{
+	char *first = p;
+
+	p = append_name(p);
+	while((p > first) && (p[-1] == ' ')) {
+		p--;
+	}
+	return p;
+}
+
 static char *append_date(char *p)
 {
 	uint16_t dos_date = replay_user_menu_header.dos_date;
@@ -315,17 +339,6 @@ static const char *rank_name(uint8_t rank)
 	}
 }
 
-static const char *game_mode_name(uint8_t game_mode)
-{
-	switch(game_mode) {
-	case GM_STORY: return "Story";
-	case GM_VS_1P_CPU: return "VS 1P-CPU";
-	case GM_VS_1P_2P: return "VS 1P-2P";
-	case GM_VS_CPU_CPU: return "VS CPU-CPU";
-	default: return "Unknown";
-	}
-}
-
 static const char *end_reason_name(void)
 {
 	if(replay_vs()) {
@@ -340,31 +353,6 @@ static const char *end_reason_name(void)
 	case RUER_ERROR: return "Error";
 	default: return "None";
 	}
-}
-
-static char *append_story_lives(char *p)
-{
-	if(
-		summary_valid() &&
-		(replay_user_menu_header.final_story_lives !=
-		 T3_REPLAY_USER_SUMMARY_UNKNOWN)
-	) {
-		return append_u32(p, replay_user_menu_header.final_story_lives);
-	}
-	*p++ = '-';
-	*p++ = '-';
-	return p;
-}
-
-static char *append_stage(char *p, uint8_t stage)
-{
-	if(stage == STAGE_ALL) {
-		return append_cstr(p, "All");
-	}
-	if(stage == STAGE_NONE) {
-		return append_cstr(p, "--");
-	}
-	return append_u32(p, (stage + 1));
 }
 
 static char *append_final_stage(char *p)
@@ -570,24 +558,38 @@ void far replay_font_columns_put(bool clear)
 	replay_menu_line_put(LIST_LEFT, HEAD_Y, TX_CYAN);
 }
 
-static void common_put(uint8_t slot, unsigned y)
+static void slot_name_put(uint8_t slot, unsigned y)
 {
 	char *p = append_cstr(replay_menu_line, "Slot ");
 
 	p = append_u8_2(p, slot);
 	field_put(DETAIL_PIXEL_LEFT, y, p, TX_CYAN);
-	p = append_cstr(replay_menu_line, "Status: ");
-	p = append_cstr(p, (replay_practice() ? "Practice" : end_reason_name()));
-	field_put(DETAIL_PIXEL_LEFT, (y + 1), p, TX_CYAN);
-	p = append_cstr(replay_menu_line, "Name: ");
-	p = append_name(p);
-	field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Date: ");
-	p = append_date(p);
-	field_put(DETAIL_PIXEL_LEFT, (y + 3), p, TX_WHITE);
+	p = append_name_trimmed(replay_menu_line);
+	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_CYAN);
 }
 
-static void diagnostics_put(unsigned y, bool combine_last)
+static void score_line_put(const char *label, unsigned y)
+{
+	char *p = append_cstr(replay_menu_line, label);
+
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
+	score_put(
+		DETAIL_PIXEL_RIGHT, y, list_score(), summary_valid(),
+		(TX_WHITE | REPLAY_FONT_FIXED_NUMERIC)
+	);
+}
+
+static void date_line_put(unsigned y)
+{
+	char *p = append_cstr(replay_menu_line, "Date");
+
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
+	p = append_date(replay_menu_line);
+	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_WHITE);
+}
+
+#if defined(TH03_REPLAY_DEVTOOLS)
+static void diagnostics_put(unsigned y)
 {
 	char *p = append_cstr(replay_menu_line, "Samples: ");
 
@@ -598,28 +600,29 @@ static void diagnostics_put(unsigned y, bool combine_last)
 	field_put(DETAIL_PIXEL_LEFT, (y + 1), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Bytes: ");
 	p = append_u32(p, replay_user_menu_header.input_size);
-	if(combine_last) {
-		p = append_cstr(p, "  RNG: ");
-		p = append_u32(p, replay_user_menu_header.resident_rand);
-		field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
-		return;
-	}
 	field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "RNG: ");
 	p = append_u32(p, replay_user_menu_header.resident_rand);
 	field_put(DETAIL_PIXEL_LEFT, (y + 3), p, TX_WHITE);
 }
+#endif
 
 static void round_put(
 	unsigned y,
 	uint8_t round,
 	replay_user_round_split_t near *split,
 	bool valid,
-	unsigned atrb
+	bool selected
 )
 {
-	char *p = append_u32(replay_menu_line, (round + 1));
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
+	char *p;
 
+	if(selected) {
+		text_put(DETAIL_ROUND_CURSOR_LEFT, y, ">", TX_YELLOW);
+	}
+	p = append_cstr(replay_menu_line, "Round ");
+	p = append_u32(p, (round + 1));
 	field_put(DETAIL_ROUND_PIXEL_LEFT, y, p, atrb);
 	score_put(
 		DETAIL_ROUND_P1_SCORE_RIGHT, y,
@@ -638,7 +641,7 @@ static void round_put(
 
 static void round_heading_put(unsigned y)
 {
-	text_put(DETAIL_ROUND_PIXEL_LEFT, y, "Rd", TX_CYAN);
+	text_put(DETAIL_ROUND_PIXEL_LEFT, y, "Round", TX_CYAN);
 	menu_font_put_right(
 		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H),
 		"P1 Score", font_color(TX_CYAN)
@@ -650,93 +653,223 @@ static void round_heading_put(unsigned y)
 	text_put(DETAIL_ROUND_WINNER_LEFT, y, "W", TX_CYAN);
 }
 
-static void vs_put(void)
+static uint8_t checkpoint_count(void)
 {
-	char *p;
-	uint8_t round;
-	replay_user_round_split_t near *split;
-	bool valid = summary_valid();
+	uint8_t count;
 
-	p = append_cstr(
-		replay_menu_line,
-		((replay_user_menu_header.game_mode == GM_VS_1P_CPU) ?
-			"P1 Score: " : "Win Score: ")
-	);
-	p = (valid ? append_packed_score(p, list_score()) : append_unknown_score(p));
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Mode: ");
-	p = append_cstr(p, game_mode_name(replay_user_menu_header.game_mode));
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Rank: ");
-	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 6), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Autofire P1: ");
-	p = append_cstr(
-		p, ((replay_user_menu_header.autofire & 0x01) ? "On" : "Off")
-	);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 7), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Autofire P2: ");
-	p = append_cstr(
-		p, ((replay_user_menu_header.autofire & 0x02) ? "On" : "Off")
-	);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 8), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "P1: ");
-	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
-	if(replay_user_menu_header.is_cpu_p1) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 9), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "P2: ");
-	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p2));
-	if(replay_user_menu_header.is_cpu_p2) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
-	diagnostics_put((DETAIL_Y + 12), false);
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		return replay_user_menu_summary_ext.checkpoint_count;
+	}
+	if(replay_user_menu_header.game_mode == GM_STORY) {
+		count = replay_user_menu_header.stage_reached_count;
+		return (
+			(count > T3_REPLAY_USER_STAGE_COUNT) ?
+				T3_REPLAY_USER_STAGE_COUNT : count
+		);
+	}
+	return 1;
+}
+
+static uint8_t checkpoint_stage_round(uint8_t checkpoint)
+{
+	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+		return replay_user_menu_summary_ext.checkpoint_stage_round[checkpoint];
+	}
+	if(replay_user_menu_header.game_mode == GM_STORY) {
+		return checkpoint;
+	}
+	return T3_REPLAY_USER_ROUND_STAGE_VS;
+}
+
+static void round_splits_put(uint8_t selected, bool focus)
+{
+	uint8_t checkpoint;
+	uint8_t count = checkpoint_count();
+	uint8_t stage_round;
+	replay_user_round_split_t near *split;
+
 	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
-	for(round = 0; round < 3; round++) {
-		split = round_split(round);
-		if(split != NULL) {
-			round_put((DETAIL_Y + 3 + round), round, split, true, TX_WHITE);
-		}
+	for(checkpoint = 0; checkpoint < count; checkpoint++) {
+		stage_round = checkpoint_stage_round(checkpoint);
+		split = round_split_at(
+			(stage_round & 0x0F), (stage_round >> 4)
+		);
+		round_put(
+			(DETAIL_SPLIT_ROWS_Y + checkpoint),
+			(stage_round >> 4), split, (split != NULL),
+			(focus && (checkpoint == selected))
+		);
 	}
 }
 
-static void story_put(
-	uint8_t stage_sel, bool stage_focus, bool show_unreached_opponents
+static void vs_put(uint8_t selected, bool focus)
+{
+	char *p;
+
+	p = append_cstr(replay_menu_line, "Vs Mode ");
+	if(replay_user_menu_header.game_mode == GM_VS_1P_CPU) {
+		p = append_cstr(p, "1P-CPU");
+	} else if(replay_user_menu_header.game_mode == GM_VS_1P_2P) {
+		p = append_cstr(p, "1P-2P");
+	} else {
+		p = append_cstr(p, "CPU-CPU");
+	}
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 1), p, TX_CYAN);
+	score_line_put(
+		((replay_user_menu_header.game_mode == GM_VS_1P_CPU) ?
+			"P1 Score" : "Win Score"),
+		(DETAIL_Y + 2)
+	);
+	date_line_put(DETAIL_Y + 3);
+	p = append_cstr(replay_menu_line, rank_name(replay_user_menu_header.rank));
+	*p++ = ' ';
+	p = append_playchar_name(p, replay_user_menu_header.playchar_p1);
+	p = append_cstr(p, " vs ");
+	p = append_playchar_name(p, replay_user_menu_header.playchar_p2);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
+	p = append_cstr(
+		replay_menu_line,
+		((replay_user_menu_header.autofire & 0x01) ?
+			"AutofireOn" : "AutofireOff")
+	);
+	*p++ = ' ';
+	p = append_cstr(
+		p,
+		((replay_user_menu_header.autofire & 0x02) ?
+			"AutofireOn" : "AutofireOff")
+	);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
+	#if defined(TH03_REPLAY_DEVTOOLS)
+		diagnostics_put(DETAIL_Y + 7);
+	#endif
+	round_splits_put(selected, focus);
+}
+
+static uint8_t story_stage_checkpoint_count(uint8_t stage)
+{
+	uint8_t checkpoint;
+	uint8_t count = 0;
+	uint8_t checkpoints = checkpoint_count();
+
+	for(checkpoint = 0; checkpoint < checkpoints; checkpoint++) {
+		if((checkpoint_stage_round(checkpoint) & 0x0F) == stage) {
+			count++;
+		}
+	}
+	return count;
+}
+
+static uint8_t story_selected_row(uint8_t selected)
+{
+	uint8_t checkpoint;
+	uint8_t checkpoints = checkpoint_count();
+	uint8_t stage;
+	uint8_t stage_count;
+	uint8_t row = 0;
+
+	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
+		stage_count = story_stage_checkpoint_count(stage);
+		if(stage_count == 0) {
+			row++;
+			continue;
+		}
+		if(stage_count > 1) {
+			row++;
+		}
+		for(checkpoint = 0; checkpoint < checkpoints; checkpoint++) {
+			if((checkpoint_stage_round(checkpoint) & 0x0F) == stage) {
+				if(checkpoint == selected) {
+					return row;
+				}
+				row++;
+			}
+		}
+	}
+	return 0;
+}
+
+static void story_stage_row_put(
+	uint8_t row,
+	uint8_t stage,
+	uint8_t checkpoint,
+	uint8_t stage_count,
+	bool selected,
+	bool show_unreached_opponents
 )
 {
 	char *p;
-	uint8_t stage;
-	unsigned atrb;
-	bool valid = summary_valid();
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
+	bool reached = (stage_count != 0);
 
-	p = append_cstr(replay_menu_line, "Final Score: ");
-	p = (
-		valid ?
-			append_packed_score(p, replay_user_menu_header.final_score) :
-			append_unknown_score(p)
+	if(selected) {
+		text_put(DETAIL_STORY_CURSOR_LEFT, row, ">", TX_YELLOW);
+	}
+	p = append_u32(replay_menu_line, (stage + 1));
+	field_put(
+		DETAIL_STORY_PIXEL_LEFT, row, p,
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
 	);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Lives: ");
-	p = append_story_lives(p);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Mode: ");
-	p = append_cstr(p, game_mode_name(replay_user_menu_header.game_mode));
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 6), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Rank: ");
-	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 7), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Start Stage: ");
-	p = append_stage(p, replay_user_menu_header.story_stage);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 8), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Autofire: ");
-	p = append_cstr(
-		p, ((replay_user_menu_header.autofire & 0x01) ? "On" : "Off")
+	p = append_playchar_name(
+		replay_menu_line, stage_opponent(stage, show_unreached_opponents)
 	);
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 9), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Player: ");
-	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
-	if(replay_user_menu_header.is_cpu_p1) p = append_cstr(p, " CPU");
-	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
-	diagnostics_put((DETAIL_Y + 12), false);
+	field_put(DETAIL_STORY_OPPONENT_LEFT, row, p, atrb);
+	if(stage_count > 1) {
+		score_put(
+			DETAIL_STORY_SCORE_RIGHT, row, NULL, false,
+			(atrb | REPLAY_FONT_FIXED_NUMERIC)
+		);
+	} else {
+		score_put(
+			DETAIL_STORY_SCORE_RIGHT, row,
+			replay_user_menu_header.scenario.story.stage_scores[stage],
+			(summary_valid() && reached),
+			(atrb | REPLAY_FONT_FIXED_NUMERIC)
+		);
+	}
+	(void)checkpoint;
+}
+
+static void story_round_row_put(
+	uint8_t row, uint8_t checkpoint, bool selected
+)
+{
+	char *p;
+	uint8_t stage_round = checkpoint_stage_round(checkpoint);
+	replay_user_round_split_t near *split = round_split_at(
+		(stage_round & 0x0F), (stage_round >> 4)
+	);
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
+
+	if(selected) {
+		text_put(DETAIL_STORY_CURSOR_LEFT, row, ">", TX_YELLOW);
+	}
+	p = append_cstr(replay_menu_line, "Round ");
+	p = append_u32(p, ((stage_round >> 4) + 1));
+	field_put(DETAIL_STORY_ROUND_LEFT, row, p, atrb);
+	score_put(
+		DETAIL_STORY_SCORE_RIGHT, row,
+		((split != NULL) ? split->score_p1 : NULL), (split != NULL),
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
+	);
+}
+
+static void story_splits_put(
+	uint8_t selected, bool focus, bool show_unreached_opponents
+)
+{
+	uint8_t checkpoint;
+	uint8_t checkpoints = checkpoint_count();
+	uint8_t stage;
+	uint8_t stage_count;
+	uint8_t physical = 0;
+	uint8_t selected_row = story_selected_row(selected);
+	uint8_t top = (
+		(selected_row >= DETAIL_SPLIT_ROWS_VISIBLE) ?
+			(selected_row - (DETAIL_SPLIT_ROWS_VISIBLE - 1)) : 0
+	);
+	uint8_t row;
+
 	text_put(DETAIL_STORY_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
 	text_put(DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
 	text_put(
@@ -747,155 +880,127 @@ static void story_put(
 		"Score", font_color(TX_CYAN)
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
-		atrb = (
-			(stage_focus && (stage == stage_sel)) ? TX_YELLOW : TX_WHITE
-		);
-		p = replay_menu_line;
-		*p++ = static_cast<char>('1' + stage);
-		field_put(
-			DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
-		);
-		p = append_playchar_name(
-			replay_menu_line,
-			stage_opponent(stage, show_unreached_opponents)
-		);
-		field_put(
-			DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
-		);
-		score_put(
-			DETAIL_STORY_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
-			replay_user_menu_header.scenario.story.stage_scores[stage],
-			(valid && (stage < replay_user_menu_header.stage_reached_count)),
-			(atrb | REPLAY_FONT_FIXED_NUMERIC)
-		);
-	}
-	if(stage_focus) {
-		menu_font_put(
-			DETAIL_STORY_CURSOR_LEFT,
-			((DETAIL_Y + 3 + stage_sel) * GLYPH_H),
-			">", REPLAY_FONT_SELECTED_COLOR
-		);
+		stage_count = story_stage_checkpoint_count(stage);
+		if(stage_count == 0) {
+			if((physical >= top) &&
+			   (physical < (top + DETAIL_SPLIT_ROWS_VISIBLE))) {
+				row = (DETAIL_SPLIT_ROWS_Y + physical - top);
+				story_stage_row_put(
+					row, stage, 0, 0, false, show_unreached_opponents
+				);
+			}
+			physical++;
+			continue;
+		}
+		if(stage_count > 1) {
+			if((physical >= top) &&
+			   (physical < (top + DETAIL_SPLIT_ROWS_VISIBLE))) {
+				row = (DETAIL_SPLIT_ROWS_Y + physical - top);
+				story_stage_row_put(
+					row, stage, 0, stage_count, false,
+					show_unreached_opponents
+				);
+			}
+			physical++;
+		}
+		for(checkpoint = 0; checkpoint < checkpoints; checkpoint++) {
+			if((checkpoint_stage_round(checkpoint) & 0x0F) != stage) {
+				continue;
+			}
+			if((physical >= top) &&
+			   (physical < (top + DETAIL_SPLIT_ROWS_VISIBLE))) {
+				row = (DETAIL_SPLIT_ROWS_Y + physical - top);
+				if(stage_count == 1) {
+					story_stage_row_put(
+						row, stage, checkpoint, stage_count,
+						(focus && (checkpoint == selected)),
+						show_unreached_opponents
+					);
+				} else {
+					story_round_row_put(
+						row, checkpoint,
+						(focus && (checkpoint == selected))
+					);
+				}
+			}
+			physical++;
+		}
 	}
 }
 
-static void practice_put(void)
+static void story_put(
+	uint8_t selected, bool focus, bool show_unreached_opponents
+)
 {
-	char *p;
-	uint8_t attempt;
-	uint8_t round;
-	uint8_t attempts = (
-		(replay_user_menu_header.scenario.practice.config.stock ==
-		 T3_PRACTICE_STOCK_VS_RULES) ?
-			3 : (replay_user_menu_header.scenario.practice.config.stock + 1)
-	);
-	replay_user_round_split_t near *split;
-	bool valid = summary_valid();
+	char *p = append_cstr(replay_menu_line, "Story Mode - ");
 
-	p = append_cstr(replay_menu_line, "Final Score: ");
-	p = (
-		valid ?
-			append_packed_score(p, replay_user_menu_header.final_score) :
-			append_unknown_score(p)
+	p = append_cstr(p, end_reason_name());
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 1), p, TX_CYAN);
+	score_line_put("Final Score", (DETAIL_Y + 2));
+	date_line_put(DETAIL_Y + 3);
+	p = append_cstr(replay_menu_line, rank_name(replay_user_menu_header.rank));
+	*p++ = ' ';
+	p = append_playchar_name(p, replay_user_menu_header.playchar_p1);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
+	p = append_cstr(
+		replay_menu_line,
+		((replay_user_menu_header.autofire & 0x01) ?
+			"AutofireOn" : "AutofireOff")
 	);
-	field_put(DETAIL_PIXEL_LEFT, 8, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Rank: ");
-	p = append_cstr(p, rank_name(replay_user_menu_header.rank));
-	field_put(DETAIL_PIXEL_LEFT, 9, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Preset: ");
-	p = append_cstr(p, (
-		(replay_user_menu_header.scenario.practice.config.preset ==
-		 PRACTICE_PRESET_VS_DEFAULT) ? "VS Default" : "Story Native"
-	));
-	field_put(DETAIL_PIXEL_LEFT, 10, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Players: ");
-	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p1));
-	p = append_cstr(p, " / ");
-	p = append_cstr(p, playchar_name(replay_user_menu_header.playchar_p2));
-	field_put(DETAIL_PIXEL_LEFT, 11, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Start: Stage ");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
+	#if defined(TH03_REPLAY_DEVTOOLS)
+		diagnostics_put(DETAIL_Y + 7);
+	#endif
+	story_splits_put(selected, focus, show_unreached_opponents);
+}
+
+static const char *practice_timer_name(void)
+{
+	uint8_t timer = replay_user_menu_header.scenario.practice.config.cpu_timer;
+
+	if(timer == PRACTICE_CPU_TIMER_VS_DEFAULT) return "VS Default";
+	if(timer == PRACTICE_CPU_TIMER_STORY_NATIVE) return "Story Native";
+	return "Infinite";
+}
+
+static void practice_put(uint8_t selected, bool focus)
+{
+	char *p = append_cstr(replay_menu_line, "Practice Mode");
+
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 1), p, TX_CYAN);
+	score_line_put("Final Score", (DETAIL_Y + 2));
+	date_line_put(DETAIL_Y + 3);
+	p = append_cstr(replay_menu_line, rank_name(replay_user_menu_header.rank));
+	*p++ = ' ';
+	p = append_playchar_name(p, replay_user_menu_header.playchar_p1);
+	p = append_cstr(p, " vs ");
+	p = append_playchar_name(p, replay_user_menu_header.playchar_p2);
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 4), p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Stage ");
 	p = append_u32(
 		p, (replay_user_menu_header.scenario.practice.config.stage + 1)
 	);
-	p = append_cstr(p, " / Round ");
+	p = append_cstr(p, " Round ");
 	p = append_u32(
 		p, (replay_user_menu_header.scenario.practice.config.round + 1)
 	);
 	if(replay_user_menu_header.scenario.practice.config.round == 5) *p++ = '+';
-	field_put(DETAIL_PIXEL_LEFT, 12, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Stock: ");
-	if(
-		replay_user_menu_header.scenario.practice.config.stock ==
-		T3_PRACTICE_STOCK_VS_RULES
-	) {
-		p = append_cstr(p, "VS Rules");
-	} else {
-		p = append_u32(p, replay_user_menu_header.scenario.practice.config.stock);
-	}
-	p = append_cstr(p, " / Extends ");
-	if(
-		replay_user_menu_header.scenario.practice.config.preset ==
-		PRACTICE_PRESET_VS_DEFAULT
-	) {
-		p = append_cstr(p, "--");
-	} else {
-		p = append_u32(
-			p, replay_user_menu_header.scenario.practice.config.extends_gained
+	p = append_cstr(p, " Start");
+	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
+	if(!focus) {
+		text_put(
+			(DETAIL_PIXEL_LEFT - 16), DETAIL_PRACTICE_SETTINGS_Y,
+			">", TX_YELLOW
 		);
 	}
-	field_put(DETAIL_PIXEL_LEFT, 13, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Timer: ");
-	if(
-		replay_user_menu_header.scenario.practice.config.cpu_timer ==
-		PRACTICE_CPU_TIMER_VS_DEFAULT
-	) {
-		p = append_cstr(p, "VS Default");
-	} else if(
-		replay_user_menu_header.scenario.practice.config.cpu_timer ==
-		PRACTICE_CPU_TIMER_STORY_NATIVE
-	) {
-		p = append_cstr(p, "Story Native");
-	} else {
-		p = append_cstr(p, "Infinite");
-	}
-	field_put(DETAIL_PIXEL_LEFT, 14, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "CPU Safety: ");
-	p = append_u32(
-		p,
-		replay_user_menu_header.scenario.practice.config.initial_cpu_safety_frames
+	text_put(
+		DETAIL_PIXEL_LEFT, DETAIL_PRACTICE_SETTINGS_Y,
+		"View Settings", (focus ? TX_WHITE : TX_YELLOW)
 	);
-	field_put(DETAIL_PIXEL_LEFT, 15, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Speeds: ");
-	p = append_q4(p, replay_user_menu_header.scenario.practice.config.round_speed);
-	p = append_cstr(p, " / ");
-	p = append_q4(p, replay_user_menu_header.scenario.practice.config.bullet_speed);
-	field_put(DETAIL_PIXEL_LEFT, 16, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Spells: P1 ");
-	p = append_u32(p, replay_user_menu_header.scenario.practice.config.p1_spell);
-	p = append_cstr(p, " / CPU ");
-	p = append_u32(p, replay_user_menu_header.scenario.practice.config.cpu_spell);
-	field_put(DETAIL_PIXEL_LEFT, 17, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Boss Level: ");
-	p = append_u32(
-		p, (replay_user_menu_header.scenario.practice.config.boss_level + 1)
-	);
-	field_put(DETAIL_PIXEL_LEFT, 18, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "CPU Dmg: ");
-	p = append_u32(p, replay_user_menu_header.scenario.practice.config.cpu_damage);
-	field_put(DETAIL_PIXEL_LEFT, 19, p, TX_WHITE);
-	diagnostics_put(20, true);
-	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
-	round_heading_put(DETAIL_Y + 2);
-	for(attempt = 0; attempt < 5; attempt++) {
-		round = static_cast<uint8_t>(
-			replay_user_menu_header.scenario.practice.config.round + attempt
-		);
-		split = round_split(round);
-		if((attempt < attempts) && (split != NULL)) {
-			round_put(
-				(DETAIL_Y + 3 + attempt), round, split, true, TX_WHITE
-			);
-		}
-	}
+	#if defined(TH03_REPLAY_DEVTOOLS)
+		diagnostics_put(DETAIL_Y + 9);
+	#endif
+	round_splits_put(selected, focus);
 }
 
 // Preserve the following public replay-font entry points across menu revisions.
@@ -903,21 +1008,67 @@ static void practice_put(void)
 
 void far replay_font_detail_put(
 	uint8_t slot,
-	uint8_t stage_sel,
-	bool stage_focus,
+	uint8_t checkpoint_sel,
+	bool checkpoint_focus,
 	bool show_unreached_opponents
 )
 {
+	slot_name_put(slot, DETAIL_Y);
 	if(replay_practice()) {
-		common_put(slot, 4);
-		practice_put();
+		practice_put(checkpoint_sel, checkpoint_focus);
 	} else if(replay_vs()) {
-		common_put(slot, DETAIL_Y);
-		vs_put();
+		vs_put(checkpoint_sel, checkpoint_focus);
 	} else {
-		common_put(slot, DETAIL_Y);
-		story_put(stage_sel, stage_focus, show_unreached_opponents);
+		story_put(
+			checkpoint_sel, checkpoint_focus, show_unreached_opponents
+		);
 	}
+}
+
+void far replay_font_practice_settings_modal_put(void)
+{
+	char *p;
+	const replay_user_practice_t near& cfg = (
+		replay_user_menu_header.scenario.practice.config
+	);
+	unsigned y = 8;
+
+	grcg_setcolor(GC_RMW, 0);
+	grcg_boxfill(72, 104, 568, 296);
+	grcg_off();
+
+	p = append_cstr(replay_menu_line, "Life Stock ");
+	if(cfg.stock == T3_PRACTICE_STOCK_VS_RULES) {
+		p = append_cstr(p, "VS Rules");
+	} else {
+		p = append_u32(p, cfg.stock);
+		p = append_cstr(p, " (");
+		p = append_u32(p, cfg.extends_gained);
+		p = append_cstr(p, " Extends Gained)");
+	}
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "CPU Timer: ");
+	p = append_cstr(p, practice_timer_name());
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "CPU Safety: ");
+	p = append_u32(p, cfg.initial_cpu_safety_frames);
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Speeds: ");
+	p = append_q4(p, cfg.round_speed);
+	p = append_cstr(p, " / ");
+	p = append_q4(p, cfg.bullet_speed);
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Spell Rank: P1 ");
+	p = append_u32(p, cfg.p1_spell);
+	p = append_cstr(p, " / CPU ");
+	p = append_u32(p, cfg.cpu_spell);
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Boss Rank: ");
+	p = append_u32(p, (cfg.boss_level + 1));
+	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "CPU Damage: ");
+	p = append_u32(p, cfg.cpu_damage);
+	field_put(96, y, p, TX_WHITE);
 }
 
 void far replay_font_detail_empty_put(uint8_t slot)
@@ -958,3 +1109,24 @@ void pascal far replay_font_put_fixed_n(
 		count--;
 	}
 }
+
+// Keep the replay renderer at its accepted paragraph size.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"

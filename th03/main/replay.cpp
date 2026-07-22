@@ -11,6 +11,8 @@
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/player/cpu.hpp"
+#include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
 #include "th03/language_main.hpp"
@@ -120,6 +122,7 @@ static replay_input_header_t replay_header;
 static replay_user_header_t replay_user_header;
 static replay_user_summary_ext_t replay_user_summary_ext;
 static replay_user_snapshot_t replay_user_snapshot;
+static replay_user_round_state_t replay_user_round_state;
 static replay_user_index_header_t replay_user_index_header;
 static replay_user_index_entry_t replay_user_index_entry;
 static const char *replay_user_fn;
@@ -1397,6 +1400,32 @@ static void replay_user_snapshot_fill(void)
 	}
 }
 
+static void replay_user_round_state_fill(void)
+{
+	int i;
+	int digit;
+
+	replay_memclear(&replay_user_round_state, sizeof(replay_user_round_state));
+	replay_user_round_state.round_id = round_id;
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		replay_user_round_state.rounds_won[i] = players[i].rounds_won;
+		for(digit = 0; digit < SCORE_DIGITS; digit++) {
+			replay_user_round_state.score[i][digit] = (
+				score[(i * SCORE_DIGITS) + digit]
+			);
+		}
+		replay_user_round_state.spell_rank[i] = gba_gauge_level[i];
+		replay_user_round_state.cpu_safety_frames[i] = (
+			players[i].cpu_safety_frames
+		);
+	}
+	replay_user_round_state.round_speed = round_speed;
+	replay_user_round_state.bullet_speed = bullet_base_speed.v;
+	replay_user_round_state.boss_rank = gba_boss_level;
+	replay_user_round_state.cpu_damage = cpu_hit_damage_additional;
+	replay_user_round_state.extends_gained = extends_gained;
+}
+
 static void replay_user_header_fill(
 	replay_user_status_t status, replay_user_end_reason_t end_reason
 )
@@ -1410,10 +1439,10 @@ static void replay_user_header_fill(
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
 		replay_user_header.magic[6] = '1';
-		replay_user_header.magic[7] = '1';
+		replay_user_header.magic[7] = '2';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
-		replay_user_header.header_size = (
-			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
+		replay_user_header.header_size = replay_user_header_size(
+			T3_REPLAY_USER_VERSION
 		);
 		replay_user_header.sample_size = T3_REPLAY_USER_SAMPLE_SIZE_RLE;
 		replay_user_header.flags = (
@@ -1444,15 +1473,11 @@ static void replay_user_header_fill(
 			replay_user_snapshot.random_seed_snapshot
 		);
 		replay_user_header.snapshot_offset = replay_user_header.header_size;
-		replay_user_header.snapshot_size = (
-			T3R_STAGE_CKPT_SIZE
-		);
-		replay_user_header.input_offset = (
-			static_cast<uint32_t>(replay_user_header.header_size) +
-			static_cast<uint32_t>(
-				(replay_user_snapshot.game_mode == GM_STORY) ?
-				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
-			)
+		replay_user_header.snapshot_size = T3R_STAGE_CKPT_SIZE;
+		replay_user_header.input_offset = replay_user_input_offset(
+			T3_REPLAY_USER_VERSION,
+			replay_user_snapshot.game_mode,
+			replay_user_header.flags
 		);
 		replay_user_header.autofire = replay_user_snapshot.autofire;
 	}
@@ -1462,17 +1487,6 @@ static void replay_user_header_fill(
 	replay_user_header.final_frame_count = replay_global_frame;
 	replay_user_header.input_size = replay_input_byte_count;
 	replay_user_summary_copy_to_header();
-}
-
-static uint8_t replay_user_checkpoint_stage(void)
-{
-	if(
-		(replay_user_snapshot.game_mode == GM_STORY) &&
-		(replay_user_snapshot.story_stage < T3_REPLAY_USER_STAGE_COUNT)
-	) {
-		return replay_user_snapshot.story_stage;
-	}
-	return 0;
 }
 
 static uint32_t far *replay_user_checkpoint_cursor(void)
@@ -1497,10 +1511,13 @@ static void replay_user_checkpoint_cursor_capture(void)
 static bool replay_user_checkpoint_write(void)
 {
 	uint32_t far *cursor = replay_user_checkpoint_cursor();
+	uint8_t checkpoint = static_cast<uint8_t>(
+		replay_user_summary_ext.checkpoint_count - 1
+	);
 	uint32_t offset = (
 		replay_user_header.snapshot_offset +
 		(
-			static_cast<uint32_t>(replay_user_checkpoint_stage()) *
+			static_cast<uint32_t>(checkpoint) *
 			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
 		)
 	);
@@ -1512,6 +1529,9 @@ static bool replay_user_checkpoint_write(void)
 		replay_write_bytes_checked(&cursor[2], sizeof(cursor[2])) &&
 		replay_write_bytes_checked(
 			&replay_user_snapshot, sizeof(replay_user_snapshot)
+		) &&
+		replay_write_bytes_checked(
+			&replay_user_round_state, sizeof(replay_user_round_state)
 		)
 	);
 }
@@ -1605,8 +1625,12 @@ static bool replay_user_header_is_rle(void)
 {
 	return (
 		(replay_user_header.magic[6] == '1') &&
-		(replay_user_header.magic[7] == '1') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
+		(
+			replay_user_header.magic[7] == static_cast<char>(
+				'0' + (replay_user_header.version - 10)
+			)
+		) &&
+		replay_user_version_supported(replay_user_header.version) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0)
@@ -1637,19 +1661,18 @@ static bool replay_user_header_valid(void)
 		(replay_user_header.magic[5] == 'Y') &&
 		replay_user_header_is_rle() &&
 		replay_user_header_practice_valid() &&
-		(replay_user_header.header_size == (
-			sizeof(replay_user_header) + sizeof(replay_user_summary_ext)
+		(replay_user_header.header_size == replay_user_header_size(
+			replay_user_header.version
 		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
-		(replay_user_header.snapshot_size ==
-		 T3R_STAGE_CKPT_SIZE) &&
+		(replay_user_header.snapshot_size == replay_user_checkpoint_size(
+			replay_user_header.version
+		)) &&
 		(replay_user_header.autofire <= 0x03) &&
-		(replay_user_header.input_offset == (
-			static_cast<uint32_t>(replay_user_header.header_size) +
-			static_cast<uint32_t>(
-				(replay_user_header.game_mode == GM_STORY) ?
-				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
-			)
+		(replay_user_header.input_offset == replay_user_input_offset(
+			replay_user_header.version,
+			replay_user_header.game_mode,
+			replay_user_header.flags
 		)) &&
 		(replay_user_header.sample_count != 0)
 	);
@@ -1673,11 +1696,10 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
-	if(
-		file_read(
-			&replay_user_summary_ext, sizeof(replay_user_summary_ext)
-		) != sizeof(replay_user_summary_ext)
-	) {
+	uint16_t summary_size = replay_user_summary_ext_size(
+		replay_user_header.version
+	);
+	if(file_read(&replay_user_summary_ext, summary_size) != summary_size) {
 		file_close();
 		return false;
 	}
@@ -1688,11 +1710,29 @@ static bool replay_user_read_from(const char *fn)
 		file_close();
 		return false;
 	}
+	if(
+		replay_user_version_is_current(replay_user_header.version) &&
+		(
+			(replay_user_summary_ext.checkpoint_count == 0) ||
+			(replay_user_summary_ext.checkpoint_count >
+			 replay_user_checkpoint_capacity(
+				replay_user_header.game_mode, replay_user_header.flags
+			 ))
+		)
+	) {
+		file_close();
+		return false;
+	}
 	file_seek((replay_user_header.snapshot_offset + (
 		static_cast<uint32_t>(
-			(replay_user_header.game_mode == GM_STORY) ?
-				replay_user_header.story_stage : 0
-		) * static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+			(replay_user_header.version == T3_REPLAY_USER_VERSION_LEGACY) ?
+				(
+					(replay_user_header.game_mode == GM_STORY) ?
+						replay_user_header.story_stage : 0
+				) : 0
+		) * static_cast<uint32_t>(
+			replay_user_checkpoint_size(replay_user_header.version)
+		)
 	) + T3R_STAGE_CKPT_PREFIX_SIZE), SEEK_SET);
 	if(
 		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
@@ -1704,6 +1744,16 @@ static bool replay_user_read_from(const char *fn)
 	if(replay_user_snapshot.autofire != replay_user_header.autofire) {
 		file_close();
 		return false;
+	}
+	if(replay_user_version_is_current(replay_user_header.version)) {
+		if(
+			file_read(
+				&replay_user_round_state, sizeof(replay_user_round_state)
+			) != sizeof(replay_user_round_state)
+		) {
+			file_close();
+			return false;
+		}
 	}
 	file_close();
 	replay_user_summary_load_from_header();
@@ -1729,21 +1779,35 @@ static bool replay_user_read(void)
 	return replay_user_read_from(replay_user_fn);
 }
 
-static bool replay_user_checkpoint_snapshot_read(uint8_t stage)
+static bool replay_user_checkpoint_snapshot_read(uint8_t checkpoint)
 {
 	uint32_t offset;
+	uint8_t stage_round = 0;
+	uint8_t stage;
 
-	if(
-		(stage >= T3_REPLAY_USER_STAGE_COUNT) ||
-		(stage >= replay_user_header.stage_reached_count)
-	) {
-		return false;
+	if(replay_user_version_is_current(replay_user_header.version)) {
+		if(checkpoint >= replay_user_summary_ext.checkpoint_count) {
+			return false;
+		}
+		stage_round = replay_user_summary_ext.checkpoint_stage_round[checkpoint];
+	} else {
+		if(
+			(replay_user_header.game_mode != GM_STORY) ||
+			(checkpoint >= T3_REPLAY_USER_STAGE_COUNT) ||
+			(checkpoint >= replay_user_header.stage_reached_count)
+		) {
+			return false;
+		}
+		stage_round = checkpoint;
 	}
+	stage = (stage_round & 0x0F);
 	offset = (
 		replay_user_header.snapshot_offset +
 		(
-			static_cast<uint32_t>(stage) *
-			static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+			static_cast<uint32_t>(checkpoint) *
+			static_cast<uint32_t>(
+				replay_user_checkpoint_size(replay_user_header.version)
+			)
 		) +
 		T3R_STAGE_CKPT_PREFIX_SIZE
 	);
@@ -1758,12 +1822,30 @@ static bool replay_user_checkpoint_snapshot_read(uint8_t stage)
 		file_close();
 		return false;
 	}
+	if(replay_user_version_is_current(replay_user_header.version)) {
+		if(
+			file_read(
+				&replay_user_round_state, sizeof(replay_user_round_state)
+			) != sizeof(replay_user_round_state)
+		) {
+			file_close();
+			return false;
+		}
+	}
 	file_close();
-	return (
-		(replay_user_snapshot.game_mode == GM_STORY) &&
-		(replay_user_snapshot.story_stage == stage) &&
-		(replay_user_snapshot.autofire == replay_user_header.autofire)
-	);
+	if(
+		(replay_user_snapshot.game_mode != replay_user_header.game_mode) ||
+		(replay_user_snapshot.autofire != replay_user_header.autofire)
+	) {
+		return false;
+	}
+	if(replay_user_header.game_mode == GM_STORY) {
+		return (replay_user_snapshot.story_stage == stage);
+	}
+	if(replay_user_version_is_current(replay_user_header.version)) {
+		return (replay_user_round_state.round_id == (stage_round >> 4));
+	}
+	return true;
 }
 
 static void replay_user_snapshot_restore_resident(void)
@@ -1846,6 +1928,31 @@ static void replay_user_snapshot_restore_runtime(void)
 	}
 }
 
+static void replay_user_round_state_restore(void)
+{
+	int i;
+	int digit;
+
+	round_id = replay_user_round_state.round_id;
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		players[i].rounds_won = replay_user_round_state.rounds_won[i];
+		for(digit = 0; digit < SCORE_DIGITS; digit++) {
+			score[(i * SCORE_DIGITS) + digit] = (
+				replay_user_round_state.score[i][digit]
+			);
+		}
+		gba_gauge_level[i] = replay_user_round_state.spell_rank[i];
+		players[i].cpu_safety_frames = (
+			replay_user_round_state.cpu_safety_frames[i]
+		);
+	}
+	round_speed = replay_user_round_state.round_speed;
+	bullet_base_speed.v = replay_user_round_state.bullet_speed;
+	gba_boss_level = replay_user_round_state.boss_rank;
+	cpu_hit_damage_additional = replay_user_round_state.cpu_damage;
+	extends_gained = replay_user_round_state.extends_gained;
+}
+
 static bool replay_user_create(void)
 {
 	uint8_t slot = replay_resident_slot();
@@ -1853,9 +1960,7 @@ static bool replay_user_create(void)
 	replay_user_snapshot_fill();
 	replay_user_summary_init_from_snapshot();
 	replay_user_summary_ext_init();
-	replay_user_checkpoint_cursor_capture();
 	replay_user_header_fill(RUS_RECORDING, RUER_PARTIAL);
-	replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 	replay_user_slot_fn_set(slot);
 	if(replay_protect_blocked()) {
 		return true;
@@ -2948,9 +3053,6 @@ void far replay_session_start(void)
 					T3_REPLAY_RES_GUARD_FRESH_INDEX
 				] = 2;
 			}
-			replay_user_snapshot_fill();
-			replay_user_checkpoint_cursor_capture();
-			replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
 		}
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		if(!replay_user_read()) {
@@ -2968,7 +3070,7 @@ void far replay_session_start(void)
 			return;
 		}
 		playback_stage = replay_handoff_u8(
-			T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
+			T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX
 		);
 		if(playback_stage != 0) {
 			playback_stage--;
@@ -2979,10 +3081,16 @@ void far replay_session_start(void)
 			}
 			replay_user_snapshot_restore_resident();
 			replay_user_snapshot_restore_runtime();
-			resident->unused_3[T3_REPLAY_RES_PLAYBACK_STAGE_INDEX] = 0;
+			if(replay_user_version_is_current(replay_user_header.version)) {
+				replay_user_round_state_restore();
+			}
+			resident->unused_3[T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX] = 0;
 		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
 			replay_user_snapshot_restore_runtime();
+			if(replay_user_version_is_current(replay_user_header.version)) {
+				replay_user_round_state_restore();
+			}
 		}
 	} else if(!replay_header_read()) {
 		replay_mode = REPLAY_ERROR;
@@ -2995,6 +3103,30 @@ void far replay_session_start(void)
 
 void far replay_round_start(void)
 {
+	if(replay_mode == REPLAY_USER_RECORD) {
+		if(
+			(replay_rle_phase & REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK) &&
+			!replay_user_header_write(RUS_RECORDING, RUER_PARTIAL)
+		) {
+			replay_guard_diag_write();
+		}
+		if(
+			!replay_protect_invalid() &&
+			(replay_user_summary_ext.checkpoint_count <
+			 replay_user_checkpoint_capacity(
+				replay_user_header.game_mode, replay_user_header.flags
+			 ))
+		) {
+			replay_user_snapshot_fill();
+			replay_user_round_state_fill();
+			replay_user_checkpoint_cursor_capture();
+			replay_user_summary_ext.checkpoint_stage_round[
+				replay_user_summary_ext.checkpoint_count
+			] = replay_user_summary_stage_round_pack();
+			replay_user_summary_ext.checkpoint_count++;
+			replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
+		}
+	}
 	replay_split_row(RSE_ROUND_START, replay_last_route);
 }
 

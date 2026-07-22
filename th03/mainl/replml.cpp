@@ -362,8 +362,12 @@ static bool mainl_replay_user_header_valid(void)
 		(replay_user_header.magic[4] == 'L') &&
 		(replay_user_header.magic[5] == 'Y') &&
 		(replay_user_header.magic[6] == '1') &&
-		(replay_user_header.magic[7] == '1') &&
-		(replay_user_header.version == T3_REPLAY_USER_VERSION) &&
+		(
+			replay_user_header.magic[7] == static_cast<char>(
+				'0' + (replay_user_header.version - 10)
+			)
+		) &&
+		replay_user_version_supported(replay_user_header.version) &&
 		(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_RLE_INPUT) != 0) &&
 		((replay_user_header.flags & T3_REPLAY_USER_FLAG_CHARGE_INPUT) != 0) &&
@@ -378,18 +382,17 @@ static bool mainl_replay_user_header_valid(void)
 			((replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
 		) &&
 		(replay_user_header.autofire <= 0x03) &&
-		(replay_user_header.header_size == (
-			sizeof(replay_user_header) + sizeof(replay_user_summary_ext_t)
+		(replay_user_header.header_size == replay_user_header_size(
+			replay_user_header.version
 		)) &&
 		(replay_user_header.snapshot_offset == replay_user_header.header_size) &&
-		(replay_user_header.snapshot_size ==
-		 T3R_STAGE_CKPT_SIZE) &&
-		(replay_user_header.input_offset == (
-			static_cast<uint32_t>(replay_user_header.header_size) +
-			static_cast<uint32_t>(
-				(replay_user_header.game_mode == GM_STORY) ?
-				T3R_STAGE_CKPTS_SIZE : T3R_STAGE_CKPT_SIZE
-			)
+		(replay_user_header.snapshot_size == replay_user_checkpoint_size(
+			replay_user_header.version
+		)) &&
+		(replay_user_header.input_offset == replay_user_input_offset(
+			replay_user_header.version,
+			replay_user_header.game_mode,
+			replay_user_header.flags
 		))
 	);
 }
@@ -1302,14 +1305,14 @@ bool far mainl_replay_initial_stage_splash_skip(void)
 
 bool far mainl_replay_stage_start_selected(void)
 {
-	uint8_t stage = mainl_replay_handoff_u8(
-		T3_REPLAY_RES_PLAYBACK_STAGE_INDEX
+	uint8_t checkpoint = mainl_replay_handoff_u8(
+		T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX
 	);
 
 	return (
 		(mainl_replay_resident_mode() == MR_USER_PLAYBACK) &&
-		(stage != 0) &&
-		(stage <= T3_REPLAY_USER_STAGE_COUNT)
+		(checkpoint != 0) &&
+		(checkpoint <= T3R_CKPT_COUNT_MAX)
 	);
 }
 
@@ -1396,3 +1399,4 @@ void far mainl_replay_exit_to_main(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"

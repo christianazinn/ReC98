@@ -25,10 +25,11 @@ void far replay_font_slot_line_put(
 void far replay_font_columns_put(bool clear);
 void far replay_font_detail_put(
 	uint8_t slot,
-	uint8_t stage_sel,
-	bool stage_focus,
+	uint8_t checkpoint_sel,
+	bool checkpoint_focus,
 	bool show_unreached_opponents
 );
+void far replay_font_practice_settings_modal_put(void);
 void far replay_font_detail_empty_put(uint8_t slot);
 
 #endif
