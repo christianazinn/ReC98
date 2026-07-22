@@ -43,6 +43,7 @@
 #define REPLAY_RECORD_BUFFER_SIZE ( \
 	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
 )
+#define REPLAY_SEEK_BUFFER_SIZE 4096
 
 extern "C" const unsigned char aCOul[];
 
@@ -115,6 +116,13 @@ struct replay_input_sample_t {
 	uint16_t input_mp_p1;
 	uint16_t input_mp_p2;
 	uint16_t input_sp;
+};
+
+struct replay_seek_reader_t {
+	uint8_t far *buffer;
+	uint16_t cursor;
+	uint16_t size;
+	uint32_t remaining;
 };
 
 static replay_mode_t replay_mode;
@@ -1503,6 +1511,9 @@ static void replay_user_checkpoint_cursor_capture(void)
 	}
 	uint32_t far *cursor = replay_user_checkpoint_cursor();
 
+	// The checkpoint byte cursor must begin a new, self-contained RLE packet.
+	// No disk write is needed; the next sample emits all four input fields.
+	replay_rle_packet_state &= ~REPLAY_RLE_STATE_OPEN;
 	cursor[0] = replay_sample_count;
 	cursor[1] = replay_global_frame;
 	cursor[2] = replay_input_byte_count;
@@ -2504,6 +2515,177 @@ static bool replay_user_read_rle_packet(void)
 	return true;
 }
 
+static bool replay_seek_read_u8(
+	replay_seek_reader_t _ss *reader, uint8_t _ss *value
+)
+{
+	unsigned read_size;
+
+	if(reader->cursor >= reader->size) {
+		if(reader->remaining == 0) {
+			return false;
+		}
+		read_size = static_cast<unsigned>(
+			(reader->remaining > REPLAY_SEEK_BUFFER_SIZE) ?
+				REPLAY_SEEK_BUFFER_SIZE : reader->remaining
+		);
+		if(file_read(reader->buffer, read_size) != read_size) {
+			return false;
+		}
+		reader->remaining -= read_size;
+		reader->cursor = 0;
+		reader->size = read_size;
+	}
+	*value = reader->buffer[reader->cursor++];
+	return true;
+}
+
+static bool replay_seek_read_u16(
+	replay_seek_reader_t _ss *reader, uint16_t _ss *value
+)
+{
+	uint8_t lo;
+	uint8_t hi;
+
+	if(!replay_seek_read_u8(reader, &lo) || !replay_seek_read_u8(reader, &hi)) {
+		return false;
+	}
+	*value = static_cast<uint16_t>(lo | (hi << 8));
+	return true;
+}
+
+static bool replay_user_decoder_seek(
+	uint32_t target_sample, uint32_t target_byte
+)
+{
+	replay_seek_reader_t reader;
+	uint16_t buffer_seg;
+	uint32_t consumed = 0;
+	uint32_t decoded = 0;
+	uint32_t packet_sample_start = 0;
+	uint16_t input_p1 = 0;
+	uint16_t input_p2 = 0;
+	uint16_t input_single = 0;
+	uint8_t input_charge = 0;
+	uint8_t last_phase = T3_REPLAY_PACKET_PHASE_GAMEPLAY;
+	uint8_t tag;
+	uint8_t change;
+	uint8_t phase;
+	uint8_t run;
+	bool last_packet_is_input = false;
+	bool ok = false;
+
+	if((target_sample > replay_user_header.sample_count) ||
+		(target_byte > replay_user_header.input_size)) {
+		return false;
+	}
+	if(target_byte == 0) {
+		return (target_sample == 0);
+	}
+
+	buffer_seg = reinterpret_cast<uint16_t>(
+		hmem_allocbyte(REPLAY_SEEK_BUFFER_SIZE)
+	);
+	if(buffer_seg == 0) {
+		return false;
+	}
+	reader.buffer = reinterpret_cast<uint8_t far *>(MK_FP(buffer_seg, 0));
+	reader.cursor = 0;
+	reader.size = 0;
+	reader.remaining = target_byte;
+
+	if(!file_ropen(replay_user_fn)) {
+		goto cleanup;
+	}
+	file_seek(replay_user_header.input_offset, SEEK_SET);
+	while(consumed < target_byte) {
+		if(!replay_seek_read_u8(&reader, &tag) ||
+			!replay_seek_read_u8(&reader, &change)) {
+			goto close;
+		}
+		consumed += 2;
+		phase = static_cast<uint8_t>(tag >> T3_REPLAY_PACKET_PHASE_SHIFT);
+		if(phase == T3_REPLAY_PACKET_PHASE_CONTROL) {
+			if((change != T3_REPLAY_PACKET_CONTROL_MARKER) ||
+				((tag & T3_REPLAY_PACKET_RUN_MASK) >
+				 T3_REPLAY_PACKET_CONTROL_MAINL_END)) {
+				goto close;
+			}
+			last_packet_is_input = false;
+			continue;
+		}
+		if((phase > T3_REPLAY_PACKET_PHASE_INTERSTITIAL) ||
+			(change & ~(T3_REPLAY_PACKET_CHANGE_P1 |
+			 T3_REPLAY_PACKET_CHANGE_P2 |
+			 T3_REPLAY_PACKET_CHANGE_SP |
+			 T3_REPLAY_PACKET_CHANGE_CHARGE))) {
+			goto close;
+		}
+		if(change & T3_REPLAY_PACKET_CHANGE_P1) {
+			if(!replay_seek_read_u16(&reader, &input_p1)) {
+				goto close;
+			}
+			consumed += sizeof(input_p1);
+		}
+		if(change & T3_REPLAY_PACKET_CHANGE_P2) {
+			if(!replay_seek_read_u16(&reader, &input_p2)) {
+				goto close;
+			}
+			consumed += sizeof(input_p2);
+		}
+		if(change & T3_REPLAY_PACKET_CHANGE_SP) {
+			if(!replay_seek_read_u16(&reader, &input_single)) {
+				goto close;
+			}
+			consumed += sizeof(input_single);
+		}
+		if(change & T3_REPLAY_PACKET_CHANGE_CHARGE) {
+			if(!replay_seek_read_u8(&reader, &input_charge)) {
+				goto close;
+			}
+			consumed++;
+			if(input_charge > 0x03) {
+				goto close;
+			}
+		}
+		packet_sample_start = decoded;
+		run = static_cast<uint8_t>((tag & T3_REPLAY_PACKET_RUN_MASK) + 1);
+		decoded += run;
+		last_phase = phase;
+		last_packet_is_input = true;
+	}
+
+	if(consumed != target_byte) {
+		goto close;
+	}
+	if(last_packet_is_input) {
+		if((target_sample < packet_sample_start) || (target_sample > decoded)) {
+			goto close;
+		}
+		replay_rle_run = static_cast<uint8_t>(decoded - target_sample);
+	} else {
+		if(target_sample != decoded) {
+			goto close;
+		}
+		replay_rle_run = 0;
+	}
+	replay_rle_phase = last_phase;
+	replay_rle_input_mp_p1 = input_p1;
+	replay_rle_input_mp_p2 = input_p2;
+	replay_rle_input_sp = input_single;
+	replay_rle_packet_state = static_cast<uint8_t>(
+		input_charge << REPLAY_RLE_STATE_CHARGE_SHIFT
+	);
+	replay_input_byte_count = target_byte;
+	ok = true;
+
+close:
+	file_close();
+cleanup:
+	hmem_free(reinterpret_cast<void __seg *>(buffer_seg));
+	return ok;
+}
+
 static bool replay_user_play_rle_sample(uint8_t phase)
 {
 	if(replay_sample_count >= replay_user_header.sample_count) {
@@ -3074,7 +3256,12 @@ void far replay_session_start(void)
 		);
 		if(playback_stage != 0) {
 			playback_stage--;
-			if(!replay_user_checkpoint_snapshot_read(playback_stage)) {
+			if(
+				!replay_user_decoder_seek(
+					replay_sample_count, replay_input_byte_count
+				) ||
+				!replay_user_checkpoint_snapshot_read(playback_stage)
+			) {
 				replay_mode = REPLAY_ERROR;
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
@@ -4037,8 +4224,8 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
