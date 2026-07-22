@@ -30,10 +30,10 @@ enum {
 	DETAIL_STORY_PIXEL_LEFT = 344,
 	DETAIL_STORY_OPPONENT_LEFT = 376,
 	DETAIL_STORY_SCORE_RIGHT = 592,
-	DETAIL_ROUND_PIXEL_LEFT = 336,
-	DETAIL_ROUND_P1_SCORE_RIGHT = 468,
-	DETAIL_ROUND_P2_SCORE_RIGHT = 584,
-	DETAIL_ROUND_WINNER_LEFT = 600,
+	DETAIL_ROUND_PIXEL_LEFT = 320,
+	DETAIL_ROUND_P1_SCORE_RIGHT = 452,
+	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
+	DETAIL_ROUND_WINNER_LEFT = 584,
 	REPLAY_FONT_FIXED_NUMERIC = 0x100,
 	REPLAY_FONT_FIXED_NAME = 0x200,
 	REPLAY_FONT_FIXED_MASK = (
@@ -473,6 +473,15 @@ static void text_put(
 	menu_font_put(left, (y * GLYPH_H), str, font_color(atrb));
 }
 
+static void stage_field_put(unsigned y, unsigned atrb)
+{
+	char *p = append_final_stage(replay_menu_line);
+
+	field_put(
+		STAGE_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NUMERIC)
+	);
+}
+
 static void score_put(
 	screen_x_t right,
 	unsigned y,
@@ -488,10 +497,7 @@ static void score_put(
 }
 
 // Keep enough padding to absorb additions to the fixed-width compositor.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
@@ -527,9 +533,12 @@ void far replay_font_slot_line_put(
 	text_put(
 		RANK_PIXEL_LEFT, y, rank_name(replay_user_menu_header.rank), atrb
 	);
-	p = append_final_stage(replay_menu_line);
-	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
+	stage_field_put(y, atrb);
 }
+
+// Preserve the following public column renderer across slot-layout revisions.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
 
 void far replay_font_columns_put(bool clear)
 {
