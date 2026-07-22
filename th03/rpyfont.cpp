@@ -20,19 +20,19 @@ enum {
 	LIST_PIXEL_LEFT = (LIST_LEFT * GLYPH_HALF_W),
 	CURSOR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 8),
 	SLOT_PIXEL_LEFT = 64,
-	CHAR_PIXEL_LEFT = 104,
-	RANK_PIXEL_LEFT = 216,
-	NAME_PIXEL_LEFT = 300,
-	SCORE_PIXEL_RIGHT = 536,
+	NAME_PIXEL_LEFT = 104,
+	SCORE_PIXEL_RIGHT = 340,
+	CHAR_PIXEL_LEFT = 364,
+	RANK_PIXEL_LEFT = 476,
 	STAGE_PIXEL_LEFT = 560,
 	DETAIL_PIXEL_LEFT = 48,
 	DETAIL_SPLIT_CURSOR_LEFT = 336,
 	DETAIL_SPLIT_PIXEL_LEFT = 352,
 	DETAIL_SPLIT_OPPONENT_LEFT = 384,
 	DETAIL_SPLIT_SCORE_RIGHT = 600,
-	DETAIL_ROUND_P1_SCORE_RIGHT = 456,
-	DETAIL_ROUND_P2_SCORE_RIGHT = 568,
-	DETAIL_ROUND_WINNER_LEFT = 584,
+	DETAIL_ROUND_P1_SCORE_RIGHT = 484,
+	DETAIL_ROUND_P2_SCORE_RIGHT = 600,
+	DETAIL_ROUND_WINNER_LEFT = 616,
 	REPLAY_FONT_FIXED_NUMERIC = 0x100,
 	REPLAY_FONT_FIXED_NAME = 0x200,
 	REPLAY_FONT_FIXED_MASK = (
@@ -481,7 +481,7 @@ static void score_put(
 }
 
 // Keep enough padding to absorb additions to the fixed-width compositor.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -509,18 +509,18 @@ void far replay_font_slot_line_put(
 		field_put(NAME_PIXEL_LEFT, y, p, atrb);
 		return;
 	}
+	p = append_name(replay_menu_line);
+	field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NAME));
+	score_put(
+		SCORE_PIXEL_RIGHT, y, list_score(), summary_valid(),
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
+	);
 	p = append_playchar_name(
 		replay_menu_line, replay_user_menu_header.playchar_p1
 	);
 	field_put(CHAR_PIXEL_LEFT, y, p, atrb);
 	text_put(
 		RANK_PIXEL_LEFT, y, rank_name(replay_user_menu_header.rank), atrb
-	);
-	p = append_name(replay_menu_line);
-	field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NAME));
-	score_put(
-		SCORE_PIXEL_RIGHT, y, list_score(), summary_valid(),
-		(atrb | REPLAY_FONT_FIXED_NUMERIC)
 	);
 	p = append_final_stage(replay_menu_line);
 	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
@@ -535,13 +535,13 @@ void far replay_font_columns_put(bool clear)
 			replay_menu_span_clear(LIST_LEFT, HEAD_Y, LIST_W);
 		}
 		text_put(SLOT_PIXEL_LEFT, HEAD_Y, "Slot", TX_CYAN);
-		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Character", TX_CYAN);
-		text_put(RANK_PIXEL_LEFT, HEAD_Y, "Rank", TX_CYAN);
 		text_put(NAME_PIXEL_LEFT, HEAD_Y, "Name", TX_CYAN);
 		menu_font_put_right(
 			SCORE_PIXEL_RIGHT, (HEAD_Y * GLYPH_H),
 			"Score", font_color(TX_CYAN)
 		);
+		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Character", TX_CYAN);
+		text_put(RANK_PIXEL_LEFT, HEAD_Y, "Rank", TX_CYAN);
 		text_put(STAGE_PIXEL_LEFT, HEAD_Y, "Stg", TX_CYAN);
 		return;
 	}
@@ -609,11 +609,13 @@ static void round_put(
 	field_put(DETAIL_SPLIT_PIXEL_LEFT, y, p, atrb);
 	score_put(
 		DETAIL_ROUND_P1_SCORE_RIGHT, y,
-		(valid ? split->score_p1 : NULL), valid, atrb
+		(valid ? split->score_p1 : NULL), valid,
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
 	);
 	score_put(
 		DETAIL_ROUND_P2_SCORE_RIGHT, y,
-		(valid ? split->score_p2 : NULL), valid, atrb
+		(valid ? split->score_p2 : NULL), valid,
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
 	);
 	p = replay_menu_line;
 	p = (valid ? append_round_winner(p, split->route_winner) : append_cstr(p, "-"));

@@ -3859,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D322E34UL); // "4.2-"
-	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4358,6 +4358,8 @@ void main(void)
 		select_cdg_load_part1_of_4();
 		select_cdg_load_part3_of_4();
 		select_cdg_load_part2_of_4();
+		// Replay-save teardown leaves the global palette tone at black.
+		PaletteTone = 100;
 		vs_menu();
 	}
 
@@ -4395,15 +4397,9 @@ void main(void)
 		resident->rand++;
 		frame_delay(1);
 	}
-	// Preserve the accepted code phase after removing the final scroll reset.
-	__emit__(0x90, 0x90, 0x90, 0x90);
 	// Preserve the accepted SHARED code phase after replay UI growth.
-	#if defined(TH03_REPLAY_DEVTOOLS)
-	__emit__(0x90, 0x90);
-	#else
-	__emit__(
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90
-	);
+	#if !defined(TH03_REPLAY_DEVTOOLS)
+	__emit__(0x90, 0x90, 0x90, 0x90);
 	#endif
 	cfg_save_exit();
 
