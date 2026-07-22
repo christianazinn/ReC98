@@ -480,8 +480,8 @@ static void score_put(
 	field_put_right(right, y, p, atrb);
 }
 
-// Keep the public replay-list renderers at their accepted entry offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// Keep enough padding to absorb additions to the fixed-width compositor.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -525,10 +525,6 @@ void far replay_font_slot_line_put(
 	p = append_final_stage(replay_menu_line);
 	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
 }
-
-// Keep the column heading and all following renderers at their accepted
-// offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_columns_put(bool clear)
 {
@@ -928,6 +924,11 @@ void pascal far replay_font_put_fixed_n(
 		glyph_left = left;
 		if(*str == '1') {
 			glyph_left += REPLAY_FONT_ONE_INSET;
+		}
+		if(*str == 'I') {
+			glyph_left += (
+				(REPLAY_FONT_NAME_CELL_W - REPLAY_FONT_CAPITAL_I_ADVANCE) / 2
+			);
 		}
 		menu_font_put_n(glyph_left, top, str, 1, color);
 		left += cell_w;
