@@ -588,25 +588,6 @@ static void date_line_put(unsigned y)
 	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_WHITE);
 }
 
-#if defined(TH03_REPLAY_DEVTOOLS)
-static void diagnostics_put(unsigned y)
-{
-	char *p = append_cstr(replay_menu_line, "Samples: ");
-
-	p = append_u32(p, replay_user_menu_header.sample_count);
-	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Frames: ");
-	p = append_u32(p, replay_user_menu_header.final_frame_count);
-	field_put(DETAIL_PIXEL_LEFT, (y + 1), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "Bytes: ");
-	p = append_u32(p, replay_user_menu_header.input_size);
-	field_put(DETAIL_PIXEL_LEFT, (y + 2), p, TX_WHITE);
-	p = append_cstr(replay_menu_line, "RNG: ");
-	p = append_u32(p, replay_user_menu_header.resident_rand);
-	field_put(DETAIL_PIXEL_LEFT, (y + 3), p, TX_WHITE);
-}
-#endif
-
 static void round_put(
 	unsigned y,
 	uint8_t round,
@@ -621,8 +602,7 @@ static void round_put(
 	if(selected) {
 		text_put(DETAIL_ROUND_CURSOR_LEFT, y, ">", TX_YELLOW);
 	}
-	p = append_cstr(replay_menu_line, "Round ");
-	p = append_u32(p, (round + 1));
+	p = append_u32(replay_menu_line, (round + 1));
 	field_put(DETAIL_ROUND_PIXEL_LEFT, y, p, atrb);
 	score_put(
 		DETAIL_ROUND_P1_SCORE_RIGHT, y,
@@ -641,7 +621,7 @@ static void round_put(
 
 static void round_heading_put(unsigned y)
 {
-	text_put(DETAIL_ROUND_PIXEL_LEFT, y, "Round", TX_CYAN);
+	text_put(DETAIL_ROUND_PIXEL_LEFT, y, "Rd", TX_CYAN);
 	menu_font_put_right(
 		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H),
 		"P1 Score", font_color(TX_CYAN)
@@ -681,27 +661,8 @@ static uint8_t checkpoint_stage_round(uint8_t checkpoint)
 	return T3_REPLAY_USER_ROUND_STAGE_VS;
 }
 
-static void round_splits_put(uint8_t selected, bool focus)
-{
-	uint8_t checkpoint;
-	uint8_t count = checkpoint_count();
-	uint8_t stage_round;
-	replay_user_round_split_t near *split;
-
-	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
-	round_heading_put(DETAIL_Y + 2);
-	for(checkpoint = 0; checkpoint < count; checkpoint++) {
-		stage_round = checkpoint_stage_round(checkpoint);
-		split = round_split_at(
-			(stage_round & 0x0F), (stage_round >> 4)
-		);
-		round_put(
-			(DETAIL_SPLIT_ROWS_Y + checkpoint),
-			(stage_round >> 4), split, (split != NULL),
-			(focus && (checkpoint == selected))
-		);
-	}
-}
+static void round_splits_legacy_put(bool focus);
+static void round_splits_put(uint8_t selected, bool focus);
 
 static void vs_put(uint8_t selected, bool focus)
 {
@@ -740,9 +701,6 @@ static void vs_put(uint8_t selected, bool focus)
 			"AutofireOn" : "AutofireOff")
 	);
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	#if defined(TH03_REPLAY_DEVTOOLS)
-		diagnostics_put(DETAIL_Y + 7);
-	#endif
 	round_splits_put(selected, focus);
 }
 
@@ -948,9 +906,6 @@ static void story_put(
 			"AutofireOn" : "AutofireOff")
 	);
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	#if defined(TH03_REPLAY_DEVTOOLS)
-		diagnostics_put(DETAIL_Y + 7);
-	#endif
 	story_splits_put(selected, focus, show_unreached_opponents);
 }
 
@@ -997,14 +952,11 @@ static void practice_put(uint8_t selected, bool focus)
 		DETAIL_PIXEL_LEFT, DETAIL_PRACTICE_SETTINGS_Y,
 		"View Settings", (focus ? TX_WHITE : TX_YELLOW)
 	);
-	#if defined(TH03_REPLAY_DEVTOOLS)
-		diagnostics_put(DETAIL_Y + 9);
-	#endif
 	round_splits_put(selected, focus);
 }
 
 // Preserve the following public replay-font entry points across menu revisions.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_detail_put(
 	uint8_t slot,
@@ -1110,23 +1062,83 @@ void pascal far replay_font_put_fixed_n(
 	}
 }
 
-// Keep the replay renderer at its accepted paragraph size.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
+void far replay_font_diagnostic_line_put(
+	unsigned y, uint8_t label, uint32_t value
+)
+{
+	char *p = replay_menu_line;
+	uint32_t near *pairs = reinterpret_cast<uint32_t near *>(p);
+
+	switch(label) {
+	case RFD_SAMPLES:
+		pairs[0] = 0x706D6153UL; // "Samp"
+		pairs[1] = 0x3A73656CUL; // "les:"
+		p += 8;
+		break;
+	case RFD_FRAMES:
+		pairs[0] = 0x6D617246UL; // "Fram"
+		pairs[1] = 0x003A7365UL; // "es:"
+		p += 7;
+		break;
+	case RFD_BYTES:
+		pairs[0] = 0x65747942UL; // "Byte"
+		pairs[1] = 0x00003A73UL; // "s:"
+		p += 6;
+		break;
+	default:
+		pairs[0] = 0x3A474E52UL; // "RNG:"
+		p += 4;
+		break;
+	}
+	*p++ = ' ';
+	p = append_u32(p, value);
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
+}
+
+static void round_splits_put(uint8_t selected, bool focus)
+{
+	uint8_t checkpoint;
+	uint8_t count = checkpoint_count();
+	uint8_t stage_round;
+	replay_user_round_split_t near *split;
+
+	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
+	round_heading_put(DETAIL_Y + 2);
+	if(!replay_user_version_is_current(replay_user_menu_header.version)) {
+		round_splits_legacy_put(focus);
+		return;
+	}
+	for(checkpoint = 0; checkpoint < count; checkpoint++) {
+		stage_round = checkpoint_stage_round(checkpoint);
+		split = round_split_at(
+			(stage_round & 0x0F), (stage_round >> 4)
+		);
+		round_put(
+			(DETAIL_SPLIT_ROWS_Y + checkpoint),
+			(stage_round >> 4), split, (split != NULL),
+			(focus && (checkpoint == selected))
+		);
+	}
+}
+
+static void round_splits_legacy_put(bool focus)
+{
+	uint8_t row;
+	uint8_t round = (
+		replay_practice() ?
+			replay_user_menu_header.scenario.practice.config.round : 0
+	);
+	uint8_t rows = (replay_practice() ? 5 : 3);
+	replay_user_round_split_t near *split;
+
+	for(row = 0; row < rows; row++, round++) {
+		split = round_split(round);
+		if(split == NULL) {
+			break;
+		}
+		round_put(
+			(DETAIL_SPLIT_ROWS_Y + row), round, split, true,
+			(focus && (row == 0))
+		);
+	}
+}

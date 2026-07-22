@@ -2152,6 +2152,26 @@ static void replay_menu_detail_line_put(
 	replay_menu_line_put(REPLAY_MENU_DETAIL_LEFT, y, atrb);
 }
 
+#if defined(TH03_REPLAY_DEVTOOLS)
+static void replay_menu_font_diagnostics_put(void)
+{
+	unsigned y = (replay_menu_practice() ? 14 : 12);
+
+	replay_font_diagnostic_line_put(
+		y, RFD_SAMPLES, replay_user_menu_header.sample_count
+	);
+	replay_font_diagnostic_line_put(
+		(y + 1), RFD_FRAMES, replay_user_menu_header.final_frame_count
+	);
+	replay_font_diagnostic_line_put(
+		(y + 2), RFD_BYTES, replay_user_menu_header.input_size
+	);
+	replay_font_diagnostic_line_put(
+		(y + 3), RFD_RNG, replay_user_menu_header.resident_rand
+	);
+}
+#endif
+
 static char *replay_line_append_round_winner(char *p, uint8_t route_winner)
 {
 	switch(route_winner & 0x0F) {
@@ -2578,6 +2598,7 @@ static void replay_menu_detail_put(
 	if(menu_font) {
 		#if defined(TH03_REPLAY_DEVTOOLS)
 			replay_font_detail_put(slot, stage_sel, stage_focus, true);
+			replay_menu_font_diagnostics_put();
 		#else
 			replay_font_detail_put(slot, stage_sel, stage_focus, false);
 		#endif
@@ -3996,7 +4017,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4656,6 +4677,10 @@ static int near replay_dev_story_stage_menu(void)
 #endif
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 // Replaces the obsolete initial-playback stage-select handoff in this profile.
+#if defined(TH03_REPLAY_DEVTOOLS)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
+#else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4663,11 +4688,10 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
 // Keep the browser's dense proportional layouts in patch-owned tail code.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_STAGE_SELECT)
 
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
