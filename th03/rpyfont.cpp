@@ -26,13 +26,14 @@ enum {
 	RANK_PIXEL_LEFT = 476,
 	STAGE_PIXEL_LEFT = 560,
 	DETAIL_PIXEL_LEFT = 48,
-	DETAIL_SPLIT_CURSOR_LEFT = 336,
-	DETAIL_SPLIT_PIXEL_LEFT = 352,
-	DETAIL_SPLIT_OPPONENT_LEFT = 384,
-	DETAIL_SPLIT_SCORE_RIGHT = 600,
-	DETAIL_ROUND_P1_SCORE_RIGHT = 484,
-	DETAIL_ROUND_P2_SCORE_RIGHT = 600,
-	DETAIL_ROUND_WINNER_LEFT = 616,
+	DETAIL_STORY_CURSOR_LEFT = 328,
+	DETAIL_STORY_PIXEL_LEFT = 344,
+	DETAIL_STORY_OPPONENT_LEFT = 376,
+	DETAIL_STORY_SCORE_RIGHT = 592,
+	DETAIL_ROUND_PIXEL_LEFT = 336,
+	DETAIL_ROUND_P1_SCORE_RIGHT = 468,
+	DETAIL_ROUND_P2_SCORE_RIGHT = 584,
+	DETAIL_ROUND_WINNER_LEFT = 600,
 	REPLAY_FONT_FIXED_NUMERIC = 0x100,
 	REPLAY_FONT_FIXED_NAME = 0x200,
 	REPLAY_FONT_FIXED_MASK = (
@@ -372,6 +373,12 @@ static char *append_final_stage(char *p)
 
 	if(replay_practice()) {
 		*p++ = 'P';
+		*p++ = static_cast<char>(
+			'1' + replay_user_menu_header.scenario.practice.config.stage
+		);
+		*p++ = static_cast<char>(
+			'1' + replay_user_menu_header.scenario.practice.config.round
+		);
 		return p;
 	}
 	if(replay_vs()) {
@@ -481,9 +488,7 @@ static void score_put(
 }
 
 // Keep enough padding to absorb additions to the fixed-width compositor.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -606,7 +611,7 @@ static void round_put(
 {
 	char *p = append_u32(replay_menu_line, (round + 1));
 
-	field_put(DETAIL_SPLIT_PIXEL_LEFT, y, p, atrb);
+	field_put(DETAIL_ROUND_PIXEL_LEFT, y, p, atrb);
 	score_put(
 		DETAIL_ROUND_P1_SCORE_RIGHT, y,
 		(valid ? split->score_p1 : NULL), valid,
@@ -624,7 +629,7 @@ static void round_put(
 
 static void round_heading_put(unsigned y)
 {
-	text_put(DETAIL_SPLIT_PIXEL_LEFT, y, "Rd", TX_CYAN);
+	text_put(DETAIL_ROUND_PIXEL_LEFT, y, "Rd", TX_CYAN);
 	menu_font_put_right(
 		DETAIL_ROUND_P1_SCORE_RIGHT, (y * GLYPH_H),
 		"P1 Score", font_color(TX_CYAN)
@@ -675,11 +680,13 @@ static void vs_put(void)
 	if(replay_user_menu_header.is_cpu_p2) p = append_cstr(p, " CPU");
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
 	diagnostics_put((DETAIL_Y + 12), false);
-	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
+	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
 	for(round = 0; round < 3; round++) {
 		split = round_split(round);
-		round_put((DETAIL_Y + 3 + round), round, split, (split != NULL), TX_WHITE);
+		if(split != NULL) {
+			round_put((DETAIL_Y + 3 + round), round, split, true, TX_WHITE);
+		}
 	}
 }
 
@@ -721,13 +728,13 @@ static void story_put(
 	if(replay_user_menu_header.is_cpu_p1) p = append_cstr(p, " CPU");
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 10), p, TX_WHITE);
 	diagnostics_put((DETAIL_Y + 12), false);
-	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
-	text_put(DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
+	text_put(DETAIL_STORY_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
+	text_put(DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
 	text_put(
-		DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
+		DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
 	);
 	menu_font_put_right(
-		DETAIL_SPLIT_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
+		DETAIL_STORY_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
 		"Score", font_color(TX_CYAN)
 	);
 	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
@@ -737,17 +744,17 @@ static void story_put(
 		p = replay_menu_line;
 		*p++ = static_cast<char>('1' + stage);
 		field_put(
-			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
+			DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		p = append_playchar_name(
 			replay_menu_line,
 			stage_opponent(stage, show_unreached_opponents)
 		);
 		field_put(
-			DETAIL_SPLIT_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
+			DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
 		score_put(
-			DETAIL_SPLIT_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
+			DETAIL_STORY_SCORE_RIGHT, (DETAIL_Y + 3 + stage),
 			replay_user_menu_header.scenario.story.stage_scores[stage],
 			(valid && (stage < replay_user_menu_header.stage_reached_count)),
 			(atrb | REPLAY_FONT_FIXED_NUMERIC)
@@ -755,7 +762,7 @@ static void story_put(
 	}
 	if(stage_focus) {
 		menu_font_put(
-			DETAIL_SPLIT_CURSOR_LEFT,
+			DETAIL_STORY_CURSOR_LEFT,
 			((DETAIL_Y + 3 + stage_sel) * GLYPH_H),
 			">", REPLAY_FONT_SELECTED_COLOR
 		);
@@ -867,19 +874,23 @@ static void practice_put(void)
 	p = append_u32(p, replay_user_menu_header.scenario.practice.config.cpu_damage);
 	field_put(DETAIL_PIXEL_LEFT, 19, p, TX_WHITE);
 	diagnostics_put(20, true);
-	text_put(DETAIL_SPLIT_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
+	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
 	for(attempt = 0; attempt < 5; attempt++) {
 		round = static_cast<uint8_t>(
 			replay_user_menu_header.scenario.practice.config.round + attempt
 		);
 		split = round_split(round);
-		round_put(
-			(DETAIL_Y + 3 + attempt), round, split,
-			((attempt < attempts) && (split != NULL)), TX_WHITE
-		);
+		if((attempt < attempts) && (split != NULL)) {
+			round_put(
+				(DETAIL_Y + 3 + attempt), round, split, true, TX_WHITE
+			);
+		}
 	}
 }
+
+// Preserve the following public replay-font entry points across menu revisions.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_detail_put(
 	uint8_t slot,
