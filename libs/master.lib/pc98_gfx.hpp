@@ -68,6 +68,9 @@ void MASTER_RET gaiji_putca(unsigned x, unsigned y, unsigned c, unsigned atrb);
 void MASTER_RET gaiji_putsa(
 	unsigned x, unsigned y, const char MASTER_PTR *str, unsigned atrb
 );
+void MASTER_RET gaiji_write(
+	unsigned chr, const void MASTER_PTR *pattern
+);
 
 int MASTER_RET gaiji_backup(void);
 int MASTER_RET gaiji_restore(void);

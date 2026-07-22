@@ -2721,12 +2721,135 @@ static void replay_user_record_error_disable(
 	replay_mode = REPLAY_DISABLED;
 }
 
+#define PAUSE_GAIJI_FILE_SIZE 1280
+#define PAUSE_GAIJI_HEADER_SIZE 32
+#define PAUSE_GAIJI_TILE_SIZE 32
+#define PAUSE_GAIJI_TILE_COUNT 39
+#define PAUSE_GAIJI_FIRST_START 0x30
+#define PAUSE_GAIJI_FIRST_COUNT 32
+#define PAUSE_GAIJI_SECOND_START 0xD3
+#define PAUSE_GAIJI_SECOND_COUNT 7
+
+static uint16_t replay_pause_gaiji_u16(const uint8_t far *p)
+{
+	return (p[0] | (p[1] << 8));
+}
+
+static bool16 replay_pause_gaiji_validate(const uint8_t far *data)
+{
+	unsigned i;
+	uint16_t checksum = 0;
+
+	if(
+		(data[0] != 'T') ||
+		(data[1] != '3') ||
+		(data[2] != 'P') ||
+		(data[3] != 'G') ||
+		(data[4] != 'J') ||
+		(data[5] != '1') ||
+		(data[6] != 0) ||
+		(data[7] != 0) ||
+		(replay_pause_gaiji_u16(&data[8]) != PAUSE_GAIJI_FILE_SIZE) ||
+		(replay_pause_gaiji_u16(&data[10]) != PAUSE_GAIJI_HEADER_SIZE) ||
+		(replay_pause_gaiji_u16(&data[12]) != PAUSE_GAIJI_TILE_COUNT) ||
+		(data[14] != PAUSE_GAIJI_FIRST_START) ||
+		(data[15] != PAUSE_GAIJI_FIRST_COUNT) ||
+		(data[16] != PAUSE_GAIJI_SECOND_START) ||
+		(data[17] != PAUSE_GAIJI_SECOND_COUNT) ||
+		(data[18] != 16) ||
+		(data[19] != 16) ||
+		(replay_pause_gaiji_u16(&data[20]) != PAUSE_GAIJI_HEADER_SIZE)
+	) {
+		return false;
+	}
+	for(i = 24; i < PAUSE_GAIJI_HEADER_SIZE; i++) {
+		if(data[i] != 0) {
+			return false;
+		}
+	}
+	for(i = PAUSE_GAIJI_HEADER_SIZE; i < PAUSE_GAIJI_FILE_SIZE; i++) {
+		checksum += data[i];
+	}
+	return (checksum == replay_pause_gaiji_u16(&data[22]));
+}
+
+static bool16 replay_pause_gaiji_load(void)
+{
+	menu_font_t loaded = 0;
+	bool16 valid = false;
+	uint8_t extra;
+	unsigned i;
+	unsigned gaiji;
+	char archive_fn[10];
+	char gaiji_fn[10];
+
+	if(!menu_font) {
+		return false;
+	}
+	archive_fn[0] = 'A'; archive_fn[1] = 'Z'; archive_fn[2] = 'I';
+	archive_fn[3] = 'N'; archive_fn[4] = 'N'; archive_fn[5] = '.';
+	archive_fn[6] = 'D'; archive_fn[7] = 'A'; archive_fn[8] = 'T';
+	archive_fn[9] = '\0';
+	gaiji_fn[0] = 'P'; gaiji_fn[1] = 'A'; gaiji_fn[2] = 'U';
+	gaiji_fn[3] = 'S'; gaiji_fn[4] = 'E'; gaiji_fn[5] = '.';
+	gaiji_fn[6] = 'G'; gaiji_fn[7] = 'F'; gaiji_fn[8] = 'T';
+	gaiji_fn[9] = '\0';
+
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char far *>(archive_fn));
+	if(file_ropen(gaiji_fn)) {
+		loaded = reinterpret_cast<menu_font_t>(
+			hmem_allocbyte(PAUSE_GAIJI_FILE_SIZE)
+		);
+		if(loaded &&
+			(file_read(loaded, PAUSE_GAIJI_FILE_SIZE) == PAUSE_GAIJI_FILE_SIZE) &&
+			(file_read(&extra, 1) == 0)) {
+			valid = replay_pause_gaiji_validate(
+				reinterpret_cast<const uint8_t far *>(loaded)
+			);
+		}
+		file_close();
+	}
+	pfend();
+	pfstart(aCOul);
+
+	if(!valid) {
+		if(loaded) {
+			hmem_free(loaded);
+		}
+		return false;
+	}
+	for(i = 0; i < PAUSE_GAIJI_TILE_COUNT; i++) {
+		gaiji = (
+			(i < PAUSE_GAIJI_FIRST_COUNT) ?
+			(PAUSE_GAIJI_FIRST_START + i) :
+			(PAUSE_GAIJI_SECOND_START + (i - PAUSE_GAIJI_FIRST_COUNT))
+		);
+		gaiji_write(gaiji, &loaded[
+			PAUSE_GAIJI_HEADER_SIZE + (i * PAUSE_GAIJI_TILE_SIZE)
+		]);
+	}
+	hmem_free(loaded);
+	return true;
+}
+
+#undef PAUSE_GAIJI_FILE_SIZE
+#undef PAUSE_GAIJI_HEADER_SIZE
+#undef PAUSE_GAIJI_TILE_SIZE
+#undef PAUSE_GAIJI_TILE_COUNT
+#undef PAUSE_GAIJI_FIRST_START
+#undef PAUSE_GAIJI_FIRST_COUNT
+#undef PAUSE_GAIJI_SECOND_START
+#undef PAUSE_GAIJI_SECOND_COUNT
+
 void far replay_session_start(void)
 {
 	language_main_apply();
 	uint8_t playback_stage;
 
-	menu_font_load(aCOul);
+	if(menu_font_load(aCOul) && !replay_pause_gaiji_load()) {
+		menu_font_free();
+	}
 	replay_paths_init();
 	replay_protect_local_reset();
 
@@ -3055,26 +3178,47 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_CHOICE_COLOR_W ( \
 	(REPLAY_PAUSE_TEXT_LEFT + 20) - REPLAY_PAUSE_CHOICE_MARK_LEFT \
 )
-#define REPLAY_PAUSE_FONT_PIXEL_BOTTOM ( \
-	REPLAY_PAUSE_PIXEL_TOP + (REPLAY_PAUSE_H * GLYPH_H) - 1 \
-)
-#define REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT ( \
-	REPLAY_PAUSE_CHOICE_MARK_LEFT * GLYPH_HALF_W \
-)
-#define REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT ( \
-	REPLAY_PAUSE_TEXT_LEFT * GLYPH_HALF_W \
+#define REPLAY_PAUSE_GAIJI_TEXT_LEFT (REPLAY_PAUSE_LEFT + 5)
+#define REPLAY_PAUSE_GAIJI_CHOICE_COLOR_W ( \
+	(REPLAY_PAUSE_LEFT + REPLAY_PAUSE_W - 1) - \
+	REPLAY_PAUSE_CHOICE_MARK_LEFT \
 )
 
 enum replay_pause_vram_color_t {
 	REPLAY_PAUSE_VRAM_BLUE = 9,
 };
 
-enum replay_pause_font_color_t {
-	REPLAY_PAUSE_FONT_BLACK = 0,
-	REPLAY_PAUSE_FONT_BLUE = 9,
-	REPLAY_PAUSE_FONT_YELLOW = 12,
-	REPLAY_PAUSE_FONT_WHITE = 15,
+enum replay_pause_gaiji_t {
+	REPLAY_PAUSE_GAIJI_TITLE = 0,
+	REPLAY_PAUSE_GAIJI_RESUME = 5,
+	REPLAY_PAUSE_GAIJI_RESTART = 10,
+	REPLAY_PAUSE_GAIJI_SAVE_EXIT = 15,
+	REPLAY_PAUSE_GAIJI_DISCARD_EXIT = 28,
+	REPLAY_PAUSE_GAIJI_FIRST_COUNT = 32,
 };
+
+static unsigned replay_pause_gaiji_id(unsigned tile)
+{
+	return (
+		(tile < REPLAY_PAUSE_GAIJI_FIRST_COUNT) ?
+		(0x30 + tile) :
+		(0xD3 + (tile - REPLAY_PAUSE_GAIJI_FIRST_COUNT))
+	);
+}
+
+static void replay_pause_gaiji_put(
+	unsigned x, unsigned y, unsigned tile, unsigned count
+)
+{
+	while(count != 0) {
+		gaiji_putca(
+			x, y, replay_pause_gaiji_id(tile), (TX_BLACK | TX_REVERSE)
+		);
+		x += GAIJI_TRAM_W;
+		tile++;
+		count--;
+	}
+}
 
 static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 {
@@ -3450,106 +3594,57 @@ static void replay_pause_beep(void)
 	snd_se_update();
 }
 
-static void replay_pause_font_put_graph_backing(void)
-{
-	graph_copy_page(page_back);
-	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
-		REPLAY_PAUSE_FONT_BLACK, page_front
-	);
-}
-
-static void replay_pause_font_put_frame(void)
-{
-	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_FONT_WHITE, page_front
-	);
-	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
-		REPLAY_PAUSE_FONT_WHITE, page_front
-	);
-	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_LEFT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
-		REPLAY_PAUSE_FONT_WHITE, page_front
-	);
-	replay_overlay_graph_fill(
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_PIXEL_TOP,
-		REPLAY_PAUSE_PIXEL_RIGHT, REPLAY_PAUSE_FONT_PIXEL_BOTTOM,
-		REPLAY_PAUSE_FONT_WHITE, page_front
-	);
-}
-
 static void replay_pause_font_put_title(void)
 {
-	char str[7];
+	unsigned x = (REPLAY_PAUSE_LEFT + 11);
+	unsigned y = (REPLAY_PAUSE_TOP + 1);
 
-	str[0] = 'P'; str[1] = 'A'; str[2] = 'U'; str[3] = 'S';
-	str[4] = 'E'; str[5] = 'D'; str[6] = '\0';
-	menu_font_put_centered(
-		((REPLAY_PAUSE_PIXEL_LEFT + REPLAY_PAUSE_PIXEL_RIGHT + 1) / 2),
-		(REPLAY_PAUSE_PIXEL_TOP + GLYPH_H), str,
-		REPLAY_PAUSE_FONT_BLUE
+	replay_pause_put_color_backing(x, y, 10, REPLAY_PAUSE_TITLE_ATRB);
+	replay_pause_gaiji_put(
+		x, y, REPLAY_PAUSE_GAIJI_TITLE, 5
 	);
 }
 
 static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 {
-	char cursor[2];
-	char str[21];
-	char *p = str;
-	int color;
-	int top = (
-		REPLAY_PAUSE_PIXEL_TOP + ((choice + 2) * GLYPH_H)
-	);
+	unsigned tile;
+	unsigned count;
+	unsigned atrb;
+	unsigned y = (REPLAY_PAUSE_TOP + choice + 2);
 
 	if(
 		(choice == REPLAY_PAUSE_SAVE_EXIT) &&
 		replay_pause_save_disabled()
 	) {
-		color = REPLAY_PAUSE_FONT_BLUE;
+		atrb = REPLAY_PAUSE_DISABLED_ATRB;
 	} else if(choice == sel) {
-		color = REPLAY_PAUSE_FONT_YELLOW;
+		atrb = REPLAY_PAUSE_SELECTED_ATRB;
 	} else {
-		color = REPLAY_PAUSE_FONT_WHITE;
+		atrb = REPLAY_PAUSE_CHOICE_ATRB;
 	}
 
-	replay_overlay_graph_fill(
-		(REPLAY_PAUSE_PIXEL_LEFT + 1), top,
-		(REPLAY_PAUSE_PIXEL_RIGHT - 1), (top + GLYPH_H - 1),
-		REPLAY_PAUSE_FONT_BLACK, page_front
+	replay_pause_put_color_backing(
+		REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+		REPLAY_PAUSE_GAIJI_CHOICE_COLOR_W, atrb
 	);
 	if(choice == REPLAY_PAUSE_RESUME) {
-		*p++ = 'R'; *p++ = 'e'; *p++ = 's';
-		*p++ = 'u'; *p++ = 'm'; *p++ = 'e';
+		tile = REPLAY_PAUSE_GAIJI_RESUME;
+		count = 5;
 	} else if(choice == REPLAY_PAUSE_RESTART) {
-		*p++ = 'R'; *p++ = 'e'; *p++ = 's'; *p++ = 't';
-		*p++ = 'a'; *p++ = 'r'; *p++ = 't';
+		tile = REPLAY_PAUSE_GAIJI_RESTART;
+		count = 5;
 	} else if(choice == REPLAY_PAUSE_SAVE_EXIT) {
-		*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
-		*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
-		*p++ = 'y'; *p++ = ' '; *p++ = 'a'; *p++ = 'n'; *p++ = 'd';
-		*p++ = ' '; *p++ = 'E'; *p++ = 'x'; *p++ = 'i'; *p++ = 't';
+		tile = REPLAY_PAUSE_GAIJI_SAVE_EXIT;
+		count = 13;
 	} else {
-		*p++ = 'E'; *p++ = 'x'; *p++ = 'i'; *p++ = 't'; *p++ = ' ';
-		*p++ = 'W'; *p++ = 'i'; *p++ = 't'; *p++ = 'h'; *p++ = 'o';
-		*p++ = 'u'; *p++ = 't'; *p++ = ' '; *p++ = 'S'; *p++ = 'a';
-		*p++ = 'v'; *p++ = 'i'; *p++ = 'n'; *p++ = 'g';
+		tile = REPLAY_PAUSE_GAIJI_DISCARD_EXIT;
+		count = 11;
 	}
-	*p = '\0';
-	cursor[0] = '>';
-	cursor[1] = '\0';
-	if(choice == sel) {
-		menu_font_put(
-			REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT, top, cursor, color
-		);
-	}
-	menu_font_put(
-		REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT, top, str, color
+	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
+		(choice == sel) ? '>' : ' '
+	), atrb);
+	replay_pause_gaiji_put(
+		REPLAY_PAUSE_GAIJI_TEXT_LEFT, y, tile, count
 	);
 }
 
@@ -3569,7 +3664,11 @@ static void replay_pause_font_put_choices(uint8_t sel)
 static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 {
 	(void)old_sel;
-	replay_pause_put_choices(sel);
+	if(menu_font) {
+		replay_pause_font_put_choices(sel);
+	} else {
+		replay_pause_put_choices(sel);
+	}
 }
 
 // Preserve the accepted offset of replay_pause_menu() after returning its
@@ -3592,9 +3691,14 @@ uint8_t far replay_pause_menu(void)
 	// true black backing, and priority over that HUD.
 	replay_pause_put_graph_backing();
 	replay_pause_put_frame();
-	replay_pause_put_title();
 	sel = replay_pause_validate_choice(sel);
-	replay_pause_put_choices(sel);
+	if(menu_font) {
+		replay_pause_font_put_title();
+		replay_pause_font_put_choices(sel);
+	} else {
+		replay_pause_put_title();
+		replay_pause_put_choices(sel);
+	}
 
 input_wait:
 	replay_input_sense_held();
@@ -3683,9 +3787,8 @@ resume:
 #undef REPLAY_PAUSE_SELECTED_ATRB
 #undef REPLAY_PAUSE_DISABLED_ATRB
 #undef REPLAY_PAUSE_CHOICE_COLOR_W
-#undef REPLAY_PAUSE_FONT_PIXEL_BOTTOM
-#undef REPLAY_PAUSE_FONT_CHOICE_PIXEL_LEFT
-#undef REPLAY_PAUSE_FONT_TEXT_PIXEL_LEFT
+#undef REPLAY_PAUSE_GAIJI_TEXT_LEFT
+#undef REPLAY_PAUSE_GAIJI_CHOICE_COLOR_W
 
 bool far replay_prompt_skip(void)
 {
@@ -3826,15 +3929,8 @@ void far replay_finish(uint8_t route)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
