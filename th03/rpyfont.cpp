@@ -20,11 +20,11 @@ enum {
 	LIST_PIXEL_LEFT = (LIST_LEFT * GLYPH_HALF_W),
 	CURSOR_PIXEL_LEFT = (LIST_PIXEL_LEFT + 8),
 	SLOT_PIXEL_LEFT = 64,
-	CHAR_PIXEL_LEFT = 112,
-	RANK_PIXEL_LEFT = 150,
-	NAME_PIXEL_LEFT = 184,
-	SCORE_PIXEL_RIGHT = 480,
-	STAGE_PIXEL_LEFT = 512,
+	CHAR_PIXEL_LEFT = 104,
+	RANK_PIXEL_LEFT = 216,
+	NAME_PIXEL_LEFT = 288,
+	SCORE_PIXEL_RIGHT = 536,
+	STAGE_PIXEL_LEFT = 560,
 	DETAIL_PIXEL_LEFT = 48,
 	DETAIL_SPLIT_CURSOR_LEFT = 336,
 	DETAIL_SPLIT_PIXEL_LEFT = 352,
@@ -298,15 +298,9 @@ static const char *playchar_name(uint8_t paletted)
 	}
 }
 
-static char *append_playchar_pair(char *p, uint8_t paletted)
+static char *append_playchar_name(char *p, uint8_t paletted)
 {
-	const char *name = playchar_name(paletted);
-
-	*p++ = name[0];
-	if(name[1] != '\0') {
-		*p++ = name[1];
-	}
-	return p;
+	return append_cstr(p, playchar_name(paletted));
 }
 
 static const char *rank_name(uint8_t rank)
@@ -318,12 +312,6 @@ static const char *rank_name(uint8_t rank)
 	case RANK_LUNATIC: return "Lunatic";
 	default: return "?";
 	}
-}
-
-static char rank_initial(uint8_t rank)
-{
-	const char *name = rank_name(rank);
-	return name[0];
 }
 
 static const char *game_mode_name(uint8_t game_mode)
@@ -495,6 +483,10 @@ static void score_put(
 // Keep the public replay-list renderers at their accepted entry offsets.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
@@ -517,13 +509,13 @@ void far replay_font_slot_line_put(
 		field_put(NAME_PIXEL_LEFT, y, p, atrb);
 		return;
 	}
-	p = append_playchar_pair(
+	p = append_playchar_name(
 		replay_menu_line, replay_user_menu_header.playchar_p1
 	);
 	field_put(CHAR_PIXEL_LEFT, y, p, atrb);
-	p = replay_menu_line;
-	*p++ = rank_initial(replay_user_menu_header.rank);
-	field_put(RANK_PIXEL_LEFT, y, p, atrb);
+	text_put(
+		RANK_PIXEL_LEFT, y, rank_name(replay_user_menu_header.rank), atrb
+	);
 	p = append_name(replay_menu_line);
 	field_put(NAME_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NAME));
 	score_put(
@@ -534,6 +526,10 @@ void far replay_font_slot_line_put(
 	field_put(STAGE_PIXEL_LEFT, y, p, atrb);
 }
 
+// Keep the column heading and all following renderers at their accepted
+// offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+
 void far replay_font_columns_put(bool clear)
 {
 	char *p;
@@ -543,8 +539,8 @@ void far replay_font_columns_put(bool clear)
 			replay_menu_span_clear(LIST_LEFT, HEAD_Y, LIST_W);
 		}
 		text_put(SLOT_PIXEL_LEFT, HEAD_Y, "Slot", TX_CYAN);
-		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Ch", TX_CYAN);
-		text_put(RANK_PIXEL_LEFT, HEAD_Y, "R", TX_CYAN);
+		text_put(CHAR_PIXEL_LEFT, HEAD_Y, "Character", TX_CYAN);
+		text_put(RANK_PIXEL_LEFT, HEAD_Y, "Rank", TX_CYAN);
 		text_put(NAME_PIXEL_LEFT, HEAD_Y, "Name", TX_CYAN);
 		menu_font_put_right(
 			SCORE_PIXEL_RIGHT, (HEAD_Y * GLYPH_H),
@@ -743,7 +739,7 @@ static void story_put(
 		field_put(
 			DETAIL_SPLIT_PIXEL_LEFT, (DETAIL_Y + 3 + stage), p, atrb
 		);
-		p = append_playchar_pair(
+		p = append_playchar_name(
 			replay_menu_line,
 			stage_opponent(stage, show_unreached_opponents)
 		);
