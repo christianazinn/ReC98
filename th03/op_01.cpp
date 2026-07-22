@@ -3859,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D312E34UL); // "4.1-"
-	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
+	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4008,33 +4008,6 @@ void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 	option_choice_draw(sel, atrb);
 }
 
-static void near option_box_put(void)
-{
-	screen_x_t right_left;
-
-	super_put(BOX_LEFT, BOX_TOP, OPWIN_LEFT);
-	for(
-		right_left = (BOX_LEFT + OPWIN_W);
-		right_left < (BOX_OPTION_RIGHT - OPWIN_STEP_W);
-		right_left += OPWIN_STEP_W
-	) {
-		super_put(right_left, BOX_TOP, OPWIN_RIGHT);
-	}
-}
-
-static void near option_frame_put(void)
-{
-	int choice;
-
-	option_box_put();
-	for(choice = 0; choice < OC_COUNT; choice++) {
-		option_choice_draw(
-			choice, ((choice == menu_sel) ? TX_WHITE : TX_BLACK)
-		);
-	}
-	title_credit_put();
-}
-
 static void near option_language_title_refresh(void)
 {
 	// The regular title loaders load TL02.PI before the character-select CDGs.
@@ -4051,19 +4024,17 @@ static void near option_language_title_refresh(void)
 
 	graph_accesspage(1);
 	pi_put_8(0, 0, 0);
-	option_frame_put();
-	vsync_wait();
-	graph_showpage(1);
-
 	graph_accesspage(0);
-	pi_put_8(0, 0, 0);
-	option_frame_put();
-	vsync_wait();
-	graph_showpage(0);
-
-	graph_accesspage(1);
-	pi_put_8(0, 0, 0);
-	graph_accesspage(0);
+	// Keep the valid animated box on page 0. Copying only around it avoids
+	// stacking OPWIN_RIGHT's transparent intermediate edges, while the clean
+	// page-1 title remains available to the regular contraction animation.
+	menu_font_restore_rect(0, 0, RES_X, BOX_TOP);
+	menu_font_restore_rect(0, BOX_BOTTOM, RES_X, (RES_Y - BOX_BOTTOM));
+	menu_font_restore_rect(0, BOX_TOP, BOX_LEFT, BOX_H);
+	menu_font_restore_rect(
+		BOX_OPTION_RIGHT, BOX_TOP, (RES_X - BOX_OPTION_RIGHT), BOX_H
+	);
+	title_credit_put();
 	pi_free(0);
 
 reload_select_cdgs:
@@ -4579,5 +4550,11 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90"
 /// --------
