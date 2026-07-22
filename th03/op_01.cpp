@@ -3859,7 +3859,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D312E34UL); // "4.1-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4037,7 +4037,16 @@ static void near option_frame_put(void)
 
 static void near option_language_title_refresh(void)
 {
-	language_pi_load(0, MENU_MAIN_BG_FN);
+	// The regular title loaders load TL02.PI before the character-select CDGs.
+	// Free those CDGs here as well: Keeping them allocated can make pi_load()
+	// fail, after which master.lib leaves the freed slot pointer unchanged and
+	// pi_put_8() would blit unrelated heap contents into VRAM.
+	for(int i = 0; i < CDG_SLOT_COUNT; i++) {
+		cdg_free(i);
+	}
+	if(language_pi_load(0, MENU_MAIN_BG_FN) != 0) {
+		goto reload_select_cdgs;
+	}
 	pi_palette_apply(0);
 
 	graph_accesspage(1);
@@ -4056,6 +4065,11 @@ static void near option_language_title_refresh(void)
 	pi_put_8(0, 0, 0);
 	graph_accesspage(0);
 	pi_free(0);
+
+reload_select_cdgs:
+	select_cdg_load_part1_of_4();
+	select_cdg_load_part3_of_4();
+	select_cdg_load_part2_of_4();
 }
 
 void pascal near menu_sel_update_and_render(int8_t max, int8_t direction)
@@ -4318,13 +4332,8 @@ void main(void)
 	graph_400line();
 	text_clear();
 	respal_create();
-	// Keep the accepted OP code phase after removing the GDC frequency check.
-	__emit__(
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-		0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
-	);
+	// The allocation-safe language refresh above now occupies the 32-byte
+	// phase pad left by removing the GDC frequency check.
 
 	if(game_init_op(OP_AND_END_PF_FN)) {
 		dos_puts2(ERROR_OUT_OF_MEMORY);

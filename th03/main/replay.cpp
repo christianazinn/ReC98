@@ -2721,14 +2721,14 @@ static void replay_user_record_error_disable(
 	replay_mode = REPLAY_DISABLED;
 }
 
-#define PAUSE_GAIJI_FILE_SIZE 1280
+#define PAUSE_GAIJI_FILE_SIZE 1312
 #define PAUSE_GAIJI_HEADER_SIZE 32
 #define PAUSE_GAIJI_TILE_SIZE 32
-#define PAUSE_GAIJI_TILE_COUNT 39
+#define PAUSE_GAIJI_TILE_COUNT 40
 #define PAUSE_GAIJI_FIRST_START 0x30
 #define PAUSE_GAIJI_FIRST_COUNT 32
 #define PAUSE_GAIJI_SECOND_START 0xD3
-#define PAUSE_GAIJI_SECOND_COUNT 7
+#define PAUSE_GAIJI_SECOND_COUNT 8
 
 static uint16_t replay_pause_gaiji_u16(const uint8_t far *p)
 {
@@ -3170,7 +3170,6 @@ void far replay_input_sense_held(void)
 #define REPLAY_PAUSE_TEXT_LEFT (REPLAY_PAUSE_LEFT + 6)
 #define REPLAY_PAUSE_CHOICE_MARK_LEFT (REPLAY_PAUSE_LEFT + 3)
 #define REPLAY_PAUSE_BG_ATRB TX_BLACK
-#define REPLAY_PAUSE_FRAME_ATRB TX_WHITE
 #define REPLAY_PAUSE_TITLE_ATRB TX_CYAN
 #define REPLAY_PAUSE_CHOICE_ATRB TX_WHITE
 #define REPLAY_PAUSE_SELECTED_ATRB TX_YELLOW
@@ -3195,6 +3194,7 @@ enum replay_pause_gaiji_t {
 	REPLAY_PAUSE_GAIJI_SAVE_EXIT = 15,
 	REPLAY_PAUSE_GAIJI_DISCARD_EXIT = 28,
 	REPLAY_PAUSE_GAIJI_FIRST_COUNT = 32,
+	REPLAY_PAUSE_GAIJI_CURSOR = 39,
 };
 
 static unsigned replay_pause_gaiji_id(unsigned tile)
@@ -3304,7 +3304,7 @@ static bool replay_fast_forward_key_held(void)
 // Keep the following pause-menu helpers at their accepted offsets.
 #pragma codestring "\x90\x90"
 
-static void replay_pause_put_frame(void)
+static void replay_pause_put_tram_backing(void)
 {
 	int x;
 	int y;
@@ -3316,44 +3316,6 @@ static void replay_pause_put_frame(void)
 				' ', REPLAY_PAUSE_BG_ATRB
 			);
 		}
-	}
-
-	replay_text_putca(
-		REPLAY_PAUSE_LEFT, REPLAY_PAUSE_TOP, '+', REPLAY_PAUSE_FRAME_ATRB
-	);
-	replay_text_putca(
-		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)), REPLAY_PAUSE_TOP,
-		'+', REPLAY_PAUSE_FRAME_ATRB
-	);
-	replay_text_putca(
-		REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
-		'+', REPLAY_PAUSE_FRAME_ATRB
-	);
-	replay_text_putca(
-		(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
-		(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
-		'+', REPLAY_PAUSE_FRAME_ATRB
-	);
-	for(x = 1; x < (REPLAY_PAUSE_W - 1); x++) {
-		replay_text_putca(
-			(REPLAY_PAUSE_LEFT + x), REPLAY_PAUSE_TOP,
-			'-', REPLAY_PAUSE_FRAME_ATRB
-		);
-		replay_text_putca(
-			(REPLAY_PAUSE_LEFT + x),
-			(REPLAY_PAUSE_TOP + (REPLAY_PAUSE_H - 1)),
-			'-', REPLAY_PAUSE_FRAME_ATRB
-		);
-	}
-	for(y = 1; y < (REPLAY_PAUSE_H - 1); y++) {
-		replay_text_putca(
-			REPLAY_PAUSE_LEFT, (REPLAY_PAUSE_TOP + y),
-			'|', REPLAY_PAUSE_FRAME_ATRB
-		);
-		replay_text_putca(
-			(REPLAY_PAUSE_LEFT + (REPLAY_PAUSE_W - 1)),
-			(REPLAY_PAUSE_TOP + y), '|', REPLAY_PAUSE_FRAME_ATRB
-		);
 	}
 }
 
@@ -3640,9 +3602,15 @@ static void replay_pause_font_choice_put(uint8_t choice, uint8_t sel)
 		tile = REPLAY_PAUSE_GAIJI_DISCARD_EXIT;
 		count = 11;
 	}
-	replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, (
-		(choice == sel) ? '>' : ' '
-	), atrb);
+	if(choice == sel) {
+		replay_pause_gaiji_put(
+			REPLAY_PAUSE_CHOICE_MARK_LEFT, y,
+			REPLAY_PAUSE_GAIJI_CURSOR, 1
+		);
+	} else {
+		replay_text_putca(REPLAY_PAUSE_CHOICE_MARK_LEFT, y, ' ', atrb);
+		replay_text_putca((REPLAY_PAUSE_CHOICE_MARK_LEFT + 1), y, ' ', atrb);
+	}
 	replay_pause_gaiji_put(
 		REPLAY_PAUSE_GAIJI_TEXT_LEFT, y, tile, count
 	);
@@ -3671,11 +3639,20 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 	}
 }
 
-// Preserve the accepted offset of replay_pause_menu() after returning its
-// redraw path to the smaller native TRAM implementation.
+// Preserve the accepted offset of replay_pause_menu() after removing the
+// ASCII border from its native TRAM backing.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
 
 uint8_t far replay_pause_menu(void)
@@ -3690,7 +3667,7 @@ uint8_t far replay_pause_menu(void)
 	// owns the center HUD. Keep this menu on TRAM so it retains native height,
 	// true black backing, and priority over that HUD.
 	replay_pause_put_graph_backing();
-	replay_pause_put_frame();
+	replay_pause_put_tram_backing();
 	sel = replay_pause_validate_choice(sel);
 	if(menu_font) {
 		replay_pause_font_put_title();
@@ -3781,7 +3758,6 @@ resume:
 #undef REPLAY_PAUSE_TEXT_LEFT
 #undef REPLAY_PAUSE_CHOICE_MARK_LEFT
 #undef REPLAY_PAUSE_BG_ATRB
-#undef REPLAY_PAUSE_FRAME_ATRB
 #undef REPLAY_PAUSE_TITLE_ATRB
 #undef REPLAY_PAUSE_CHOICE_ATRB
 #undef REPLAY_PAUSE_SELECTED_ATRB
