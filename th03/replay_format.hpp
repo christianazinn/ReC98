@@ -49,6 +49,11 @@
 #define T3_REPLAY_PACKET_CONTROL_MAIN_END 0
 #define T3_REPLAY_PACKET_CONTROL_MAINL_END 1
 #define T3_REPLAY_USER_SUMMARY_VALID 0x0001
+#define T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE 0x0002
+#define T3_REPLAY_USER_SUMMARY_CURRENT ( \
+	T3_REPLAY_USER_SUMMARY_VALID | \
+	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE \
+)
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
 #define T3_REPLAY_USER_ROUND_VALUE_UNKNOWN 0x0F
@@ -72,6 +77,12 @@ enum replay_user_end_reason_t {
 	RUER_PARTIAL = 4,
 	RUER_ERROR = 5,
 	RUER_GAME_OVER = 6,
+};
+
+enum replay_user_background_phase_t {
+	T3R_BACKGROUND_INITIAL = 0,
+	T3R_BACKGROUND_TYPE_A_STEADY = 1,
+	T3R_BACKGROUND_TYPE_B_STEADY = 2,
 };
 
 enum replay_split_event_t {
@@ -365,7 +376,7 @@ struct replay_user_round_carry_t {
 	uint8_t boss_panic_fired[T3_REPLAY_USER_PLAYER_COUNT];
 	uint8_t gba_flag_next[T3_REPLAY_USER_PLAYER_COUNT];
 	int8_t cpu_shot_decision;
-	uint8_t reserved;
+	uint8_t background_phase;
 	uint8_t combo_time[T3_REPLAY_USER_PLAYER_COUNT];
 	uint8_t combo_hits_highest[T3_REPLAY_USER_PLAYER_COUNT];
 	uint16_t combo_bonus_total[T3_REPLAY_USER_PLAYER_COUNT];

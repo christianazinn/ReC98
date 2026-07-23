@@ -373,7 +373,7 @@ static char *append_final_stage(char *p)
 		return append_cstr(p, "VS");
 	}
 	if(replay_user_menu_header.end_reason == RUER_COMPLETE) {
-		return append_cstr(p, "All");
+		return append_cstr(p, "ALL");
 	}
 	if(
 		summary_valid() &&

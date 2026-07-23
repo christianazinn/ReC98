@@ -508,6 +508,13 @@ static bool replay_user_header_valid(const replay_user_header_t near& header)
 			((header.flags & T3_REPLAY_USER_FLAG_PRACTICE) == 0)
 		) &&
 		(header.autofire <= 0x03) &&
+		(
+			(header.version == T3_REPLAY_USER_VERSION_LEGACY) ||
+			(
+				(header.summary_flags & T3_REPLAY_USER_SUMMARY_CURRENT) ==
+				T3_REPLAY_USER_SUMMARY_CURRENT
+			)
+		) &&
 		(header.header_size == replay_user_header_size(header.version)) &&
 		(header.snapshot_offset == header.header_size) &&
 		(header.snapshot_size == replay_user_checkpoint_size(header.version)) &&
@@ -578,6 +585,11 @@ static bool replay_user_read_for_menu(const char *fn)
 	if(
 		replay_user_version_has_round_state(replay_user_menu_header.version) &&
 		(
+			(
+				(replay_user_menu_summary_ext.flags &
+				 T3_REPLAY_USER_SUMMARY_CURRENT) !=
+				T3_REPLAY_USER_SUMMARY_CURRENT
+			) ||
 			(replay_user_menu_summary_ext.checkpoint_count == 0) ||
 			(replay_user_menu_summary_ext.checkpoint_count >
 			 replay_user_checkpoint_capacity(
@@ -2071,7 +2083,7 @@ static char *replay_line_append_playchar_pair(char *p, uint8_t paletted)
 static char *replay_line_append_stage(char *p, uint8_t stage)
 {
 	if(stage == STAGE_ALL) {
-		return replay_line_append_cstr(p, "All");
+		return replay_line_append_cstr(p, "ALL");
 	}
 	if(stage == STAGE_NONE) {
 		return replay_line_append_cstr(p, "--");
@@ -2091,7 +2103,7 @@ static char *replay_line_append_final_stage_mark(char *p)
 		return replay_line_append_cstr(p, "VS");
 	}
 	if(replay_user_menu_header.end_reason == RUER_COMPLETE) {
-		return replay_line_append_cstr(p, "All");
+		return replay_line_append_cstr(p, "ALL");
 	} else if(
 		replay_menu_summary_valid() &&
 		(replay_user_menu_header.stage_reached_count != 0)
@@ -4038,7 +4050,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20366372UL); // "rc6 "
+	TITLE_CREDIT_QUAD(5, 0x20376372UL); // "rc7 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4728,8 +4740,6 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
 /// --------
