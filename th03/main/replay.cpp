@@ -190,9 +190,13 @@ extern uint8_t __seg *formation_type_ring;
 extern uint8_t __seg *formation_pos_type_ring;
 extern uint8_t formation_count;
 extern farfunc_t_near farfp_20F24;
+extern nearfunc_t_near fp_1FBC0;
 
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
+extern "C" void pascal near sub_B4A3(void);
+extern "C" void pascal near sub_B4A8(void);
+extern "C" void pascal near sub_B60A(void);
 
 static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
@@ -217,6 +221,17 @@ static uint8_t replay_user_background_phase(void)
 		return T3R_BACKGROUND_TYPE_B_STEADY;
 	}
 	return T3R_BACKGROUND_INITIAL;
+}
+
+static uint8_t replay_user_result_phase(void)
+{
+	if(fp_1FBC0 == sub_B4A8) {
+		return T3R_RESULT_OPENING;
+	}
+	if(fp_1FBC0 == sub_B60A) {
+		return T3R_RESULT_CLOSING;
+	}
+	return T3R_RESULT_IDLE;
 }
 
 static void replay_memclear(void far *buf, unsigned size)
@@ -1304,6 +1319,7 @@ static uint32_t replay_state_hash(void)
 	hash = replay_hash_u8(hash, boss_panic_fired_in_current_combo[0]);
 	hash = replay_hash_u8(hash, boss_panic_fired_in_current_combo[1]);
 	hash = replay_hash_u8(hash, replay_user_background_phase());
+	hash = replay_hash_u8(hash, replay_user_result_phase());
 	hash = replay_hash_bytes(hash, combos, sizeof(combos));
 	hash = replay_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
 	hash = replay_hash_bytes(hash, &chains, sizeof(chains));
@@ -1724,6 +1740,8 @@ static void replay_user_round_carry_fill(void)
 	replay_user_round_carry.background_phase = (
 		replay_user_background_phase()
 	);
+	replay_user_round_carry.randring_p = randring_p;
+	replay_user_round_carry.result_phase = replay_user_result_phase();
 	replay_user_carry_chains_fill();
 }
 
@@ -2110,6 +2128,10 @@ static bool replay_user_read_from(const char *fn)
 			file_close();
 			return false;
 		}
+		if(replay_user_round_carry.result_phase > T3R_RESULT_CLOSING) {
+			file_close();
+			return false;
+		}
 	}
 	file_close();
 	replay_user_summary_load_from_header();
@@ -2199,6 +2221,10 @@ static bool replay_user_checkpoint_snapshot_read(uint8_t checkpoint)
 			replay_user_round_carry.background_phase >
 			T3R_BACKGROUND_TYPE_B_STEADY
 		) {
+			file_close();
+			return false;
+		}
+		if(replay_user_round_carry.result_phase > T3R_RESULT_CLOSING) {
 			file_close();
 			return false;
 		}
@@ -2413,12 +2439,24 @@ static void replay_user_round_carry_restore(void)
 		);
 	}
 	byte_20E48 = replay_user_round_carry.cpu_shot_decision;
+	randring_p = replay_user_round_carry.randring_p;
 	switch(replay_user_round_carry.background_phase) {
 	case T3R_BACKGROUND_TYPE_A_STEADY:
 		farfp_20F24 = sub_D1E7;
 		break;
 	case T3R_BACKGROUND_TYPE_B_STEADY:
 		farfp_20F24 = sub_D3F9;
+		break;
+	}
+	switch(replay_user_round_carry.result_phase) {
+	case T3R_RESULT_OPENING:
+		fp_1FBC0 = sub_B4A8;
+		break;
+	case T3R_RESULT_CLOSING:
+		fp_1FBC0 = sub_B60A;
+		break;
+	default:
+		fp_1FBC0 = sub_B4A3;
 		break;
 	}
 	replay_user_carry_chains_restore();
@@ -3744,6 +3782,13 @@ void far replay_session_start(void)
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
 			}
+			input_mp_p1 = replay_rle_input_mp_p1;
+			input_mp_p2 = replay_rle_input_mp_p2;
+			input_sp = replay_rle_input_sp;
+			resident->input_charge = static_cast<uint8_t>(
+				(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+				REPLAY_RLE_STATE_CHARGE_SHIFT
+			);
 			replay_user_snapshot_restore_resident();
 			if(!replay_user_snapshot_restore_runtime()) {
 				replay_mode = REPLAY_ERROR;
@@ -4806,11 +4851,11 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"

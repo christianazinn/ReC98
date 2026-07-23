@@ -50,9 +50,11 @@
 #define T3_REPLAY_PACKET_CONTROL_MAINL_END 1
 #define T3_REPLAY_USER_SUMMARY_VALID 0x0001
 #define T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE 0x0002
+#define T3R_SUMMARY_ROUND_RESUME_CURSOR 0x0004
 #define T3_REPLAY_USER_SUMMARY_CURRENT ( \
 	T3_REPLAY_USER_SUMMARY_VALID | \
-	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE \
+	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE | \
+	T3R_SUMMARY_ROUND_RESUME_CURSOR \
 )
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
@@ -83,6 +85,12 @@ enum replay_user_background_phase_t {
 	T3R_BACKGROUND_INITIAL = 0,
 	T3R_BACKGROUND_TYPE_A_STEADY = 1,
 	T3R_BACKGROUND_TYPE_B_STEADY = 2,
+};
+
+enum replay_user_result_phase_t {
+	T3R_RESULT_IDLE = 0,
+	T3R_RESULT_OPENING = 1,
+	T3R_RESULT_CLOSING = 2,
 };
 
 enum replay_split_event_t {
@@ -387,10 +395,12 @@ struct replay_user_round_carry_t {
 	][16];
 	uint8_t chain_charge_fireball[T3_REPLAY_USER_PLAYER_COUNT][16];
 	uint8_t chain_charge_exatt[T3_REPLAY_USER_PLAYER_COUNT][16];
+	uint8_t randring_p;
+	uint8_t result_phase;
 };
 
 typedef char replay_user_round_carry_size_check[
-	(sizeof(replay_user_round_carry_t) == 160) ? 1 : -1
+	(sizeof(replay_user_round_carry_t) == 162) ? 1 : -1
 ];
 
 #define T3R_STAGE_CKPT_PREFIX_SIZE 12
@@ -410,7 +420,7 @@ typedef char replay_user_round_carry_size_check[
 )
 
 typedef char replay_user_checkpoint_size_check[
-	(T3R_STAGE_CKPT_SIZE == 286) ? 1 : -1
+	(T3R_STAGE_CKPT_SIZE == 288) ? 1 : -1
 ];
 
 inline uint8_t replay_user_checkpoint_capacity(
