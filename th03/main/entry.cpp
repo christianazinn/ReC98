@@ -52,6 +52,7 @@ round_loop:
 	resident->rand = round_frame;
 
 	if(route == 1) {
+		replay_round_reset_seed_capture();
 		sub_A21F();
 		replay_round_start();
 		goto round_loop;

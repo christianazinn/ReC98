@@ -9,6 +9,7 @@
 #define REPLAY_PAUSE_SAVE_EXIT 2
 #define REPLAY_PAUSE_DISCARD_EXIT 3
 
+void far replay_round_reset_seed_capture(void);
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);

@@ -14,6 +14,7 @@
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
+#include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/practice.hpp"
@@ -79,6 +80,7 @@ extern "C" void pascal near round_startup(void)
 	if(resident->game_mode == GM_VS_1P_CPU) {
 		round_id = practice_initial_round();
 	}
+	replay_round_reset_seed_capture();
 	sub_9EBF();
 	hflip_lut_generate();
 	nopcall_noarg(sub_D5A2);
@@ -253,6 +255,6 @@ extern "C" void pascal near round_startup(void)
 }
 
 // Keep all following PLAYFLD_TEXT code at its accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #undef nopcall_noarg

@@ -365,6 +365,31 @@ static void replay_memclear(void far *buf, unsigned size)
 	}
 }
 
+static bool replay_user_menu_snapshot_disk_read(void)
+{
+	replay_user_snapshot_compact_t near *compact = (
+		reinterpret_cast<replay_user_snapshot_compact_t near *>(
+			&replay_user_menu_snapshot
+		)
+	);
+
+	if(replay_user_menu_header.version == T3_REPLAY_USER_VERSION_LEGACY) {
+		return (
+			file_read(
+				&replay_user_menu_snapshot,
+				sizeof(replay_user_menu_snapshot)
+			) == sizeof(replay_user_menu_snapshot)
+		);
+	}
+	if(
+		file_read(compact, sizeof(*compact)) != sizeof(*compact)
+	) {
+		return false;
+	}
+	replay_user_menu_snapshot.autofire = compact->autofire;
+	return true;
+}
+
 static uint16_t replay_file_current_psp(void)
 {
 	uint16_t psp = 0;
@@ -569,12 +594,7 @@ static bool replay_user_read_for_menu(const char *fn)
 		 T3R_STAGE_CKPT_PREFIX_SIZE),
 		SEEK_SET
 	);
-	if(
-		file_read(
-			&replay_user_menu_snapshot,
-			sizeof(replay_user_menu_snapshot)
-		) != sizeof(replay_user_menu_snapshot)
-	) {
+	if(!replay_user_menu_snapshot_disk_read()) {
 		file_close();
 		return false;
 	}
@@ -643,12 +663,7 @@ static bool replay_user_checkpoint_read_for_menu(
 		(file_read(sample_count, sizeof(*sample_count)) != sizeof(*sample_count)) ||
 		(file_read(global_frame, sizeof(*global_frame)) != sizeof(*global_frame)) ||
 		(file_read(input_size, sizeof(*input_size)) != sizeof(*input_size)) ||
-		(
-			file_read(
-				&replay_user_menu_snapshot,
-				sizeof(replay_user_menu_snapshot)
-			) != sizeof(replay_user_menu_snapshot)
-		)
+		!replay_user_menu_snapshot_disk_read()
 	) {
 		file_close();
 		return false;
@@ -892,7 +907,13 @@ static void replay_user_restore_resident_from_menu(void)
 	int digit;
 
 	practice_resident_clear();
-	resident->rand = replay_user_menu_snapshot.resident_rand;
+	resident->rand = (
+		(replay_user_menu_header.version == T3_REPLAY_USER_VERSION_LEGACY) ?
+			replay_user_menu_snapshot.resident_rand :
+			reinterpret_cast<replay_user_snapshot_compact_t near *>(
+				&replay_user_menu_snapshot
+			)->round_reset_seed
+	);
 	resident->rank = replay_user_menu_snapshot.rank;
 	resident->key_mode = replay_user_menu_snapshot.key_mode;
 	resident->game_mode = replay_user_menu_snapshot.game_mode;
@@ -4017,7 +4038,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20356372UL); // "rc5 "
+	TITLE_CREDIT_QUAD(5, 0x20366372UL); // "rc6 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4710,9 +4731,5 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 /// --------

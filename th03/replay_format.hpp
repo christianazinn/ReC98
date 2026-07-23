@@ -1,6 +1,7 @@
 #ifndef TH03_REPLAY_FORMAT_HPP
 #define TH03_REPLAY_FORMAT_HPP
 
+#include <stddef.h>
 #include "platform.h"
 #include "th03/resident.hpp"
 
@@ -267,6 +268,71 @@ struct replay_user_snapshot_t {
 	uint8_t reserved_player[1];
 };
 
+// V12 stores only state that cannot be regenerated from the round-reset RNG
+// seed. [formation_first] disambiguates the original randomizer's
+// uninitialized first comparison.
+struct replay_user_snapshot_compact_t {
+	uint32_t resident_rand;
+	uint32_t random_seed_snapshot;
+	uint8_t rank;
+	uint8_t key_mode;
+	uint8_t game_mode;
+	uint8_t story_stage;
+	uint8_t story_lives;
+	uint8_t rem_credits;
+	uint8_t skill;
+	uint8_t demo_num;
+	uint8_t pid_winner;
+	uint8_t show_score_menu;
+	uint8_t op_animation_fast;
+	uint8_t is_cpu[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t playchar_paletted[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t story_opponents[T3_REPLAY_USER_STAGE_COUNT];
+	uint8_t score_last[
+		T3_REPLAY_USER_PLAYER_COUNT
+	][T3_REPLAY_USER_SCORE_DIGITS];
+	uint8_t autofire;
+	uint16_t player_center_x[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_center_y[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_halfhearts[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_invincibility_time[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_gauge_charge_speed[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_gauge_charged[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_gauge_avail[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_bombs[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t player_shot_active[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t player_cpu_frame[T3_REPLAY_USER_PLAYER_COUNT];
+	uint32_t round_reset_seed;
+	uint8_t formation_first;
+};
+
+#define T3R_SNAPSHOT_COMMON_SIZE 48
+#define T3R_SNAPSHOT_PLAYER_RUNTIME_SIZE 30
+
+typedef char replay_user_snapshot_compact_size_check[
+	(sizeof(replay_user_snapshot_compact_t) == 84) ? 1 : -1
+];
+typedef char replay_user_snapshot_common_offset_check[
+	(offsetof(replay_user_snapshot_compact_t, autofire) ==
+	 T3R_SNAPSHOT_COMMON_SIZE) ? 1 : -1
+];
+typedef char replay_user_snapshot_full_common_offset_check[
+	(offsetof(replay_user_snapshot_t, randring_p) ==
+	 T3R_SNAPSHOT_COMMON_SIZE) ? 1 : -1
+];
+typedef char replay_user_snapshot_runtime_offset_check[
+	(offsetof(replay_user_snapshot_compact_t, player_center_x) == 49) ? 1 : -1
+];
+typedef char replay_user_snapshot_seed_offset_check[
+	(offsetof(replay_user_snapshot_compact_t, round_reset_seed) == 79) ? 1 : -1
+];
+typedef char replay_user_snapshot_formation_offset_check[
+	(offsetof(replay_user_snapshot_compact_t, formation_first) == 83) ? 1 : -1
+];
+typedef char replay_user_snapshot_full_runtime_offset_check[
+	(offsetof(replay_user_snapshot_t, player_center_x) == 951) ? 1 : -1
+];
+
 struct replay_user_round_state_t {
 	uint8_t round_id;
 	uint8_t rounds_won[T3_REPLAY_USER_PLAYER_COUNT];
@@ -322,7 +388,8 @@ typedef char replay_user_round_carry_size_check[
 	sizeof(replay_user_snapshot_t) \
 )
 #define T3R_STAGE_CKPT_V12_SIZE ( \
-	T3R_STAGE_CKPT_V11_SIZE + \
+	T3R_STAGE_CKPT_PREFIX_SIZE + \
+	sizeof(replay_user_snapshot_compact_t) + \
 	sizeof(replay_user_round_state_t) + \
 	sizeof(replay_user_round_carry_t) \
 )
@@ -332,7 +399,7 @@ typedef char replay_user_round_carry_size_check[
 )
 
 typedef char replay_user_checkpoint_size_check[
-	(T3R_STAGE_CKPT_SIZE == 1184) ? 1 : -1
+	(T3R_STAGE_CKPT_SIZE == 286) ? 1 : -1
 ];
 
 inline uint8_t replay_user_checkpoint_capacity(

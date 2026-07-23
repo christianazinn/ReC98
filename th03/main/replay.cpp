@@ -180,6 +180,7 @@ extern uint8_t randring_p;
 extern uint8_t formation_p[PLAYER_COUNT];
 extern uint8_t __seg *formation_type_ring;
 extern uint8_t __seg *formation_pos_type_ring;
+extern uint8_t formation_count;
 
 static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
@@ -193,6 +194,7 @@ static bool replay_user_play_sample(void);
 static bool replay_user_play_interstitial_sample(void);
 static void replay_user_carry_chains_fill(void);
 static void replay_user_carry_chains_restore(void);
+static bool replay_user_snapshot_disk_read(void);
 
 static void replay_memclear(void far *buf, unsigned size)
 {
@@ -201,6 +203,11 @@ static void replay_memclear(void far *buf, unsigned size)
 		*p++ = 0;
 		size--;
 	}
+}
+
+void far replay_round_reset_seed_capture(void)
+{
+	replay_header.reserved_2 = random_seed;
 }
 
 extern "C" void far replay_pause_request_poll(void)
@@ -1393,24 +1400,7 @@ static void replay_user_snapshot_fill(void)
 	for(i = 0; i < STAGE_COUNT; i++) {
 		replay_user_snapshot.story_opponents[i] = resident->story_opponents[i].v;
 	}
-	replay_user_snapshot.randring_p = randring_p;
-	for(i = 0; i < RANDRING_SIZE; i++) {
-		replay_user_snapshot.randring[i] = randring[i];
-	}
-	for(i = 0; i < T3_REPLAY_USER_FORMATION_RING_SIZE; i++) {
-		replay_user_snapshot.formation_type_ring[i] = formation_type_ring[i];
-		replay_user_snapshot.formation_pos_type_ring[i] = formation_pos_type_ring[i];
-	}
 	for(i = 0; i < PLAYER_COUNT; i++) {
-		replay_user_snapshot.formation_p[i] = formation_p[i];
-		replay_user_snapshot.cpu_charge_at_avail_ring_p[i] = (
-			players[i].cpu_charge_at_avail_ring_p
-		);
-		for(digit = 0; digit < CHARGE_AT_AVAIL_RING_SIZE; digit++) {
-			replay_user_snapshot.cpu_charge_at_avail_ring[i][digit] = (
-				players[i].cpu_charge_at_avail_ring[digit]
-			);
-		}
 		replay_user_snapshot.player_center_x[i] = players[i].center.x.v;
 		replay_user_snapshot.player_center_y[i] = players[i].center.y.v;
 		replay_user_snapshot.player_halfhearts[i] = players[i].halfhearts;
@@ -1428,6 +1418,52 @@ static void replay_user_snapshot_fill(void)
 		replay_user_snapshot.player_shot_active[i] = players[i].shot_active;
 		replay_user_snapshot.player_cpu_frame[i] = players[i].cpu_frame;
 	}
+}
+
+static void replay_user_compact_pack(void)
+{
+	int i;
+	replay_user_snapshot_compact_t near *compact = (
+		reinterpret_cast<replay_user_snapshot_compact_t near *>(
+			&replay_user_snapshot
+		)
+	);
+	uint8_t near *dst = reinterpret_cast<uint8_t near *>(
+		&compact->player_center_x[0]
+	);
+	uint8_t near *src = reinterpret_cast<uint8_t near *>(
+		&replay_user_snapshot.player_center_x[0]
+	);
+
+	compact->autofire = replay_user_snapshot.autofire;
+	for(i = 0; i < T3R_SNAPSHOT_PLAYER_RUNTIME_SIZE; i++) {
+		dst[i] = src[i];
+	}
+	compact->round_reset_seed = replay_header.reserved_2;
+	compact->formation_first = formation_type_ring[0];
+}
+
+static void replay_user_compact_unpack(void)
+{
+	int i;
+	replay_user_snapshot_compact_t near *compact = (
+		reinterpret_cast<replay_user_snapshot_compact_t near *>(
+			&replay_user_snapshot
+		)
+	);
+	uint8_t near *dst = reinterpret_cast<uint8_t near *>(
+		&replay_user_snapshot.player_center_x[0]
+	);
+	uint8_t near *src = reinterpret_cast<uint8_t near *>(
+		&compact->player_center_x[0]
+	);
+
+	for(i = 0; i < T3R_SNAPSHOT_PLAYER_RUNTIME_SIZE; i++) {
+		dst[i] = src[i];
+	}
+	replay_header.reserved_2 = compact->round_reset_seed;
+	replay_header.reserved_3 = compact->formation_first;
+	replay_user_snapshot.autofire = compact->autofire;
 }
 
 static void replay_user_round_state_fill(void)
@@ -1588,7 +1624,8 @@ static bool replay_user_checkpoint_write(void)
 		replay_write_bytes_checked(&cursor[1], sizeof(cursor[1])) &&
 		replay_write_bytes_checked(&cursor[2], sizeof(cursor[2])) &&
 		replay_write_bytes_checked(
-			&replay_user_snapshot, sizeof(replay_user_snapshot)
+			&replay_user_snapshot,
+			sizeof(replay_user_snapshot_compact_t)
 		) &&
 		replay_write_bytes_checked(
 			&replay_user_round_state, sizeof(replay_user_round_state)
@@ -1700,6 +1737,26 @@ static bool replay_user_header_is_rle(void)
 	);
 }
 
+static bool replay_user_snapshot_disk_read(void)
+{
+	if(replay_user_header.version == T3_REPLAY_USER_VERSION_LEGACY) {
+		return (
+			file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) ==
+			sizeof(replay_user_snapshot)
+		);
+	}
+	if(
+		file_read(
+			&replay_user_snapshot,
+			sizeof(replay_user_snapshot_compact_t)
+		) != sizeof(replay_user_snapshot_compact_t)
+	) {
+		return false;
+	}
+	replay_user_compact_unpack();
+	return true;
+}
+
 static bool replay_user_header_practice_valid(void)
 {
 	if(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) {
@@ -1797,10 +1854,7 @@ static bool replay_user_read_from(const char *fn)
 			replay_user_checkpoint_size(replay_user_header.version)
 		)
 	) + T3R_STAGE_CKPT_PREFIX_SIZE), SEEK_SET);
-	if(
-		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
-		sizeof(replay_user_snapshot)
-	) {
+	if(!replay_user_snapshot_disk_read()) {
 		file_close();
 		return false;
 	}
@@ -1889,10 +1943,7 @@ static bool replay_user_checkpoint_snapshot_read(uint8_t checkpoint)
 		return false;
 	}
 	file_seek(offset, SEEK_SET);
-	if(
-		file_read(&replay_user_snapshot, sizeof(replay_user_snapshot)) !=
-		sizeof(replay_user_snapshot)
-	) {
+	if(!replay_user_snapshot_disk_read()) {
 		file_close();
 		return false;
 	}
@@ -1968,32 +2019,95 @@ static void replay_user_snapshot_restore_resident(void)
 	}
 }
 
-static void replay_user_snapshot_restore_runtime(void)
+static bool replay_user_random_tables_restore(void)
+{
+	int i;
+	int pid;
+	uint8_t next;
+	uint8_t prev;
+
+	if(
+		(formation_count == 0) ||
+		(static_cast<uint8_t>(replay_header.reserved_3) >= formation_count)
+	) {
+		return false;
+	}
+	random_seed = replay_header.reserved_2;
+	for(i = 0; i < RANDRING_SIZE; i++) {
+		randring[i] = irand();
+	}
+	randring_p = 0;
+	for(pid = 0; pid < PLAYER_COUNT; pid++) {
+		for(i = 0; i < CHARGE_AT_AVAIL_RING_SIZE; i++) {
+			players[pid].cpu_charge_at_avail_ring[i] = (
+				((irand() & 3) << 6) + 0x3F
+			);
+		}
+		players[pid].cpu_charge_at_avail_ring_p = 0;
+	}
+
+	// The first recorded formation determines whether the original
+	// uninitialized [prev] byte rejected the first RNG candidate.
+	prev = 0xFF;
+	for(i = 0; i < T3_REPLAY_USER_FORMATION_RING_SIZE; i++) {
+		if(i == 0) {
+			next = (irand() % formation_count);
+			if(next != static_cast<uint8_t>(replay_header.reserved_3)) {
+				prev = next;
+				do {
+					next = (irand() % formation_count);
+				} while(next == prev);
+			}
+			if(next != static_cast<uint8_t>(replay_header.reserved_3)) {
+				return false;
+			}
+		} else {
+			do {
+				next = (irand() % formation_count);
+			} while(next == prev);
+		}
+		formation_type_ring[i] = next;
+		prev = next;
+		formation_pos_type_ring[i] = ((irand() & 1) << 7);
+	}
+	formation_p[0] = 0;
+	formation_p[1] = 0;
+	random_seed = replay_user_snapshot.random_seed_snapshot;
+	return true;
+}
+
+static bool replay_user_snapshot_restore_runtime(void)
 {
 	int i;
 	int digit;
 
-	random_seed = replay_user_snapshot.random_seed_snapshot;
-	randring_p = replay_user_snapshot.randring_p;
-	for(i = 0; i < RANDRING_SIZE; i++) {
-		randring[i] = replay_user_snapshot.randring[i];
-	}
-	for(i = 0; i < T3_REPLAY_USER_FORMATION_RING_SIZE; i++) {
-		formation_type_ring[i] = replay_user_snapshot.formation_type_ring[i];
-		formation_pos_type_ring[i] = (
-			replay_user_snapshot.formation_pos_type_ring[i]
-		);
-	}
-	for(i = 0; i < PLAYER_COUNT; i++) {
-		formation_p[i] = replay_user_snapshot.formation_p[i];
-		players[i].cpu_charge_at_avail_ring_p = (
-			replay_user_snapshot.cpu_charge_at_avail_ring_p[i]
-		);
-		for(digit = 0; digit < CHARGE_AT_AVAIL_RING_SIZE; digit++) {
-			players[i].cpu_charge_at_avail_ring[digit] = (
-				replay_user_snapshot.cpu_charge_at_avail_ring[i][digit]
+	if(replay_user_header.version == T3_REPLAY_USER_VERSION_LEGACY) {
+		random_seed = replay_user_snapshot.random_seed_snapshot;
+		randring_p = replay_user_snapshot.randring_p;
+		for(i = 0; i < RANDRING_SIZE; i++) {
+			randring[i] = replay_user_snapshot.randring[i];
+		}
+		for(i = 0; i < T3_REPLAY_USER_FORMATION_RING_SIZE; i++) {
+			formation_type_ring[i] = replay_user_snapshot.formation_type_ring[i];
+			formation_pos_type_ring[i] = (
+				replay_user_snapshot.formation_pos_type_ring[i]
 			);
 		}
+		for(i = 0; i < PLAYER_COUNT; i++) {
+			formation_p[i] = replay_user_snapshot.formation_p[i];
+			players[i].cpu_charge_at_avail_ring_p = (
+				replay_user_snapshot.cpu_charge_at_avail_ring_p[i]
+			);
+			for(digit = 0; digit < CHARGE_AT_AVAIL_RING_SIZE; digit++) {
+				players[i].cpu_charge_at_avail_ring[digit] = (
+					replay_user_snapshot.cpu_charge_at_avail_ring[i][digit]
+				);
+			}
+		}
+	} else if(!replay_user_random_tables_restore()) {
+		return false;
+	}
+	for(i = 0; i < PLAYER_COUNT; i++) {
 		players[i].center.x.v = replay_user_snapshot.player_center_x[i];
 		players[i].center.y.v = replay_user_snapshot.player_center_y[i];
 		players[i].halfhearts = replay_user_snapshot.player_halfhearts[i];
@@ -2011,6 +2125,7 @@ static void replay_user_snapshot_restore_runtime(void)
 		);
 		players[i].cpu_frame = replay_user_snapshot.player_cpu_frame[i];
 	}
+	return true;
 }
 
 static void replay_user_round_state_restore(void)
@@ -3383,7 +3498,11 @@ void far replay_session_start(void)
 				return;
 			}
 			replay_user_snapshot_restore_resident();
-			replay_user_snapshot_restore_runtime();
+			if(!replay_user_snapshot_restore_runtime()) {
+				replay_mode = REPLAY_ERROR;
+				replay_done_write(RTX_ERROR_USER_HEADER);
+				return;
+			}
 			if(replay_user_version_has_round_state(replay_user_header.version)) {
 				replay_user_round_state_restore();
 			}
@@ -3393,7 +3512,11 @@ void far replay_session_start(void)
 			resident->unused_3[T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX] = 0;
 		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
-			replay_user_snapshot_restore_runtime();
+			if(!replay_user_snapshot_restore_runtime()) {
+				replay_mode = REPLAY_ERROR;
+				replay_done_write(RTX_ERROR_USER_HEADER);
+				return;
+			}
 			if(replay_user_version_has_round_state(replay_user_header.version)) {
 				replay_user_round_state_restore();
 			}
@@ -3427,6 +3550,7 @@ void far replay_round_start(void)
 			 ))
 		) {
 			replay_user_snapshot_fill();
+			replay_user_compact_pack();
 			replay_user_round_state_fill();
 			replay_user_round_carry_fill();
 			replay_user_checkpoint_cursor_capture();
@@ -4415,3 +4539,5 @@ static void replay_user_carry_chains_restore(void)
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
