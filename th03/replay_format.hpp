@@ -51,10 +51,12 @@
 #define T3_REPLAY_USER_SUMMARY_VALID 0x0001
 #define T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE 0x0002
 #define T3R_SUMMARY_ROUND_RESUME_CURSOR 0x0004
+#define T3R_SUMMARY_FIREBALL_GENERATION 0x0008
 #define T3_REPLAY_USER_SUMMARY_CURRENT ( \
 	T3_REPLAY_USER_SUMMARY_VALID | \
 	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE | \
-	T3R_SUMMARY_ROUND_RESUME_CURSOR \
+	T3R_SUMMARY_ROUND_RESUME_CURSOR | \
+	T3R_SUMMARY_FIREBALL_GENERATION \
 )
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
@@ -397,10 +399,11 @@ struct replay_user_round_carry_t {
 	uint8_t chain_charge_exatt[T3_REPLAY_USER_PLAYER_COUNT][16];
 	uint8_t randring_p;
 	uint8_t result_phase;
+	uint8_t fireball_generation_prev;
 };
 
 typedef char replay_user_round_carry_size_check[
-	(sizeof(replay_user_round_carry_t) == 162) ? 1 : -1
+	(sizeof(replay_user_round_carry_t) == 163) ? 1 : -1
 ];
 
 #define T3R_STAGE_CKPT_PREFIX_SIZE 12
@@ -420,7 +423,7 @@ typedef char replay_user_round_carry_size_check[
 )
 
 typedef char replay_user_checkpoint_size_check[
-	(T3R_STAGE_CKPT_SIZE == 288) ? 1 : -1
+	(T3R_STAGE_CKPT_SIZE == 289) ? 1 : -1
 ];
 
 inline uint8_t replay_user_checkpoint_capacity(

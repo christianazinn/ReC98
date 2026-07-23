@@ -10,6 +10,7 @@
 #include "th02/math/randring.hpp"
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
+#include "th03/main/enemy/fireball.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/player/chain.hpp"
@@ -4796,6 +4797,7 @@ static void replay_user_carry_chains_fill(void)
 	int i;
 	int slot;
 
+	replay_user_round_carry.fireball_generation_prev = generation_prev;
 	for(i = 0; i < PLAYER_COUNT; i++) {
 		replay_user_round_carry.combo_time[i] = combos[i].time;
 		replay_user_round_carry.combo_hits_highest[i] = (
@@ -4825,6 +4827,7 @@ static void replay_user_carry_chains_restore(void)
 	int i;
 	int slot;
 
+	generation_prev = replay_user_round_carry.fireball_generation_prev;
 	for(i = 0; i < PLAYER_COUNT; i++) {
 		combos[i].time = replay_user_round_carry.combo_time[i];
 		combos[i].hits_highest = (
@@ -4858,7 +4861,6 @@ static void replay_user_carry_chains_restore(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90"

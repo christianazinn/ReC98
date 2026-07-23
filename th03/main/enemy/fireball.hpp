@@ -11,6 +11,7 @@ enum fireball_variant_t {
 };
 
 extern bool fireball_collision_in_previous_hittest;
+extern uint8_t generation_prev;
 
 // Spawns a fireball at [efe_p.efe]'s current position and playfield, aimed at
 // a random position at the top of the other playfield.
