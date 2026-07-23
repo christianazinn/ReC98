@@ -64,21 +64,25 @@ static bool mainl_replay_preroll_active(void)
 	);
 }
 
+static void mainl_replay_preroll_se_suppress(bool suppress)
+{
+	uint8_t far *se_driver_call = (
+		reinterpret_cast<uint8_t far *>(snd_se_update) +
+		T3_REPLAY_SND_SE_UPDATE_INT_OFFSET
+	);
+
+	se_driver_call[0] = (suppress ? 0x90 : 0xCD);
+	se_driver_call[1] = (suppress ? 0x90 : PMD);
+}
+
 static void mainl_replay_preroll_audio_mask_raw(bool mask)
 {
-	uint8_t part;
-
-	if(!snd_fm_possible) {
-		return;
-	}
-	for(part = 0; part < 16; part++) {
-		_AL = (mask ? part : (part + 0x80));
-		_AH = PMD_PART_MASK;
+	mainl_replay_preroll_se_suppress(mask);
+	if(snd_fm_possible) {
+		_AL = (mask ? 0xFF : 0);
+		_AH = PMD_SET_VOLUME;
 		geninterrupt(PMD);
 	}
-	_AL = (mask ? 0xFF : 0);
-	_AH = PMD_SET_VOLUME;
-	geninterrupt(PMD);
 }
 
 static void mainl_replay_preroll_audio_mask(bool mask)
@@ -96,8 +100,8 @@ static void mainl_replay_preroll_audio_refresh(void)
 	_AH = KAJA_GET_VOLUME;
 	geninterrupt(PMD);
 	if(_AL != 0xFF) {
-		// Song starts reset PMD's volume and part masks. The volume therefore
-		// doubles as a cheap once-per-MAINL-frame remask sentinel.
+		// Song starts reset PMD's volume. It therefore doubles as a cheap
+		// once-per-MAINL-frame mute sentinel.
 		mainl_replay_preroll_audio_mask(true);
 	}
 }

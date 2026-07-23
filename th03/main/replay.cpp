@@ -264,29 +264,32 @@ static uint8_t far *replay_main_01_entry(uint16_t offset)
 
 static bool replay_preroll_simulating(void)
 {
-	uint8_t state = resident->unused_3[
-		T3_REPLAY_RES_PREROLL_TARGET_INDEX
-	];
 	return (
-		(state != 0) &&
-		(state != T3_REPLAY_PREROLL_REVEAL_PENDING)
+		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
 	);
+}
+
+static void replay_preroll_se_suppress(bool suppress)
+{
+	uint8_t far *se_driver_call = (
+		reinterpret_cast<uint8_t far *>(snd_se_update) +
+		T3_REPLAY_SND_SE_UPDATE_INT_OFFSET
+	);
+
+	se_driver_call[0] = (suppress ? 0x90 : 0xCD);
+	se_driver_call[1] = (suppress ? 0x90 : PMD);
 }
 
 static void replay_preroll_audio_mask(bool mask)
 {
-	uint8_t part;
-
-	if(!snd_fm_possible) {
-		return;
-	}
-	asm { pushf; cli; }
-	for(part = 0; part < 16; part++) {
-		_AL = (mask ? part : (part + 0x80));
-		_AH = PMD_PART_MASK;
+	replay_preroll_se_suppress(mask);
+	if(snd_fm_possible) {
+		asm { pushf; cli; }
+		_AL = (mask ? 0xFF : 0);
+		_AH = PMD_SET_VOLUME;
 		geninterrupt(PMD);
+		asm { popf; }
 	}
-	asm { popf; }
 }
 
 static void replay_preroll_render_suppress(void)
@@ -388,10 +391,6 @@ static void replay_playfield_rows_fill_288(unsigned offset)
 
 void far replay_frame_publish(void)
 {
-	uint8_t preroll_state = resident->unused_3[
-		T3_REPLAY_RES_PREROLL_TARGET_INDEX
-	];
-
 	if(replay_preroll_simulating()) {
 		graph_accesspage(page_front);
 		page_front = _AL;
@@ -415,10 +414,6 @@ void far replay_frame_publish(void)
 		((183 * ROW_SIZE) + (336 / BYTE_DOTS))
 	);
 	grcg_off();
-	if(preroll_state == T3_REPLAY_PREROLL_REVEAL_PENDING) {
-		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
-		replay_preroll_display_show();
-	}
 }
 
 void far replay_frame_delay(void)
@@ -4055,11 +4050,9 @@ void far replay_round_start(void)
 			] == replay_user_summary_stage_round_pack()
 		)
 	) {
-		resident->unused_3[
-			T3_REPLAY_RES_PREROLL_TARGET_INDEX
-		] = T3_REPLAY_PREROLL_REVEAL_PENDING;
+		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
 		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
-		replay_preroll_render_restore();
+		replay_preroll_display_show();
 	}
 	if(replay_mode == REPLAY_USER_RECORD) {
 		if(
@@ -5067,9 +5060,9 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
