@@ -19,6 +19,7 @@
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/player/chain.hpp"
 #include "th03/main/player/combo.hpp"
+#include "th03/main/player/exatt.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
@@ -52,8 +53,13 @@
 	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
 )
 #define REPLAY_SEEK_BUFFER_SIZE 4096
+#define REPLAY_ACCEL_HASH_COUNT 4096
+#define REPLAY_ACCEL_HASH_BYTES (REPLAY_ACCEL_HASH_COUNT * sizeof(uint16_t))
+#define REPLAY_ACCEL_MATCH_MIN 3
+#define REPLAY_ACCEL_MATCH_MAX 18
 
 extern "C" const unsigned char aCOul[];
+extern "C" int file_Handle;
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -64,6 +70,7 @@ static char T3_USER_REPLAY_DIR[7];
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
+static char T3_ACCEL_TEMP_FN[10];
 #if defined(TH03_REPLAY_DEVTOOLS)
 static char T3_STATE_REFERENCE_FN[12];
 static char T3_STATE_LIVE_FN[11];
@@ -166,6 +173,10 @@ static uint8_t replay_rle_packet_state;
 static bool replay_user_discard_requested;
 static bool replay_guard_diag_written;
 static bool replay_restart_requested_flag;
+static uint16_t replay_accel_raw_seg;
+static uint8_t replay_accel_target_checkpoint;
+static uint8_t replay_accel_group[17];
+static replay_user_accel_footer_t replay_accel_footer;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
 static uint8_t replay_sum_mode;
@@ -193,8 +204,15 @@ extern uint8_t randring_p;
 extern uint8_t formation_p[PLAYER_COUNT];
 extern uint8_t __seg *formation_type_ring;
 extern uint8_t __seg *formation_pos_type_ring;
+extern uint8_t __seg *enedat_2;
+extern uint8_t __seg *enedat;
+extern uint8_t __seg *formation_scripts;
 extern uint8_t formation_count;
 extern farfunc_t_near farfp_20F24;
+extern farfunc_t_near farfp_20F20;
+extern farfunc_t_near farfp_20F28;
+extern farfunc_t_near callback_205CE[PLAYER_COUNT];
+extern farfunc_t_near bomb_func[PLAYER_COUNT];
 extern nearfunc_t_near fp_1FBC0;
 extern "C" unsigned int TextShown;
 
@@ -210,6 +228,32 @@ extern "C" void pascal near SUB_D50E(void);
 void near hitcircles_render(void);
 void bullets_render(void);
 
+struct replay_accel_pointer_state_t {
+	uint16_t enedat_2_seg;
+	uint16_t enedat_seg;
+	uint16_t formation_scripts_seg;
+	uint16_t formation_type_seg;
+	uint16_t formation_pos_type_seg;
+	farfunc_t_near gba_boss_update[PLAYER_COUNT];
+	farfunc_t_near gba_boss_render[PLAYER_COUNT];
+	exatt_funcs_t exatt_funcs[PLAYER_COUNT];
+	farfunc_t_near chargeshot_update[PLAYER_COUNT];
+	farfunc_t_near chargeshot_render[PLAYER_COUNT];
+	chargeshot_hittest_func_t chargeshot_hittest[PLAYER_COUNT];
+	farfunc_t_near gba_gauge_pattern_pellet[PLAYER_COUNT];
+	farfunc_t_near gba_gauge_pattern_bullet[PLAYER_COUNT];
+	farfunc_t_near callback_205CE[PLAYER_COUNT];
+	farfunc_t_near bomb_func[PLAYER_COUNT];
+	farfunc_t_near farfp_20F20;
+	farfunc_t_near farfp_20F24;
+	farfunc_t_near farfp_20F28;
+	nearfunc_t_near hyper[PLAYER_COUNT];
+	nearfunc_t_near hyper_func[PLAYER_COUNT];
+	chargeshot_add_func_t chargeshot_add[PLAYER_COUNT];
+};
+
+static replay_accel_pointer_state_t replay_accel_pointers;
+
 static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
 static void replay_paths_init(void);
@@ -223,6 +267,11 @@ static bool replay_user_play_interstitial_sample(void);
 static void replay_user_carry_chains_fill(void);
 static void replay_user_carry_chains_restore(void);
 static bool replay_user_snapshot_disk_read(void);
+static bool replay_write_bytes_checked(const void far *buf, unsigned size);
+static void replay_accel_temps_delete(void);
+static bool replay_accel_capture(uint8_t checkpoint);
+static bool replay_accel_prepare(uint8_t checkpoint);
+static bool replay_accel_direct_start(void);
 
 static uint8_t replay_user_background_phase(void)
 {
@@ -253,6 +302,517 @@ static void replay_memclear(void far *buf, unsigned size)
 		*p++ = 0;
 		size--;
 	}
+}
+
+static void replay_copy_far(
+	void far *dst, const void far *src, uint16_t size
+)
+{
+	uint8_t far *d = reinterpret_cast<uint8_t far *>(dst);
+	const uint8_t far *s = reinterpret_cast<const uint8_t far *>(src);
+	while(size != 0) {
+		*d++ = *s++;
+		size--;
+	}
+}
+
+static void replay_accel_temp_fn_set(uint8_t checkpoint)
+{
+	T3_ACCEL_TEMP_FN[4] = static_cast<char>(
+		(checkpoint < 10) ? ('0' + checkpoint) : ('A' + checkpoint - 10)
+	);
+}
+
+static void replay_accel_file_delete(const char far *fn)
+{
+	asm {
+		push	ds
+		lds 	dx, fn
+		mov 	ah, 41h
+		int 	21h
+		pop 	ds
+	}
+}
+
+static long replay_accel_file_size(void)
+{
+	long size;
+
+	file_seek(0, SEEK_END);
+	asm {
+		mov 	bx, file_Handle
+		mov 	ax, 4201h
+		xor 	cx, cx
+		xor 	dx, dx
+		int 	21h
+		mov 	word ptr size, ax
+		mov 	word ptr size+2, dx
+	}
+	return size;
+}
+
+static void replay_accel_temps_delete(void)
+{
+	uint8_t checkpoint;
+
+	for(checkpoint = 0; checkpoint < T3R_CKPT_COUNT_MAX; checkpoint++) {
+		replay_accel_temp_fn_set(checkpoint);
+		replay_accel_file_delete(T3_ACCEL_TEMP_FN);
+	}
+}
+
+static uint32_t replay_accel_hash(const uint8_t far *raw)
+{
+	uint32_t hash = 5381;
+	uint16_t i;
+
+	for(i = 0; i < T3R_ACCEL_RAW_SIZE; i++) {
+		hash = ((hash << 5) + hash) ^ raw[i];
+	}
+	return hash;
+}
+
+static void replay_accel_raw_fill(uint8_t far *raw)
+{
+	uint16_t dgroup_seg = FP_SEG(&replay_mode);
+
+	replay_copy_far(
+		raw,
+		MK_FP(dgroup_seg, T3R_ACCEL_BSS_OFFSET),
+		T3R_ACCEL_BSS_SIZE
+	);
+	replay_copy_far(
+		(raw + T3R_ACCEL_BSS_SIZE),
+		formation_type_ring,
+		T3_REPLAY_USER_FORMATION_RING_SIZE
+	);
+	replay_copy_far(
+		(
+			raw +
+			T3R_ACCEL_BSS_SIZE +
+			T3_REPLAY_USER_FORMATION_RING_SIZE
+		),
+		formation_pos_type_ring,
+		T3_REPLAY_USER_FORMATION_RING_SIZE
+	);
+}
+
+static void replay_accel_pointers_capture(void)
+{
+	int i;
+
+	replay_accel_pointers.enedat_2_seg = reinterpret_cast<uint16_t>(enedat_2);
+	replay_accel_pointers.enedat_seg = reinterpret_cast<uint16_t>(enedat);
+	replay_accel_pointers.formation_scripts_seg = (
+		reinterpret_cast<uint16_t>(formation_scripts)
+	);
+	replay_accel_pointers.formation_type_seg = (
+		reinterpret_cast<uint16_t>(formation_type_ring)
+	);
+	replay_accel_pointers.formation_pos_type_seg = (
+		reinterpret_cast<uint16_t>(formation_pos_type_ring)
+	);
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		replay_accel_pointers.gba_boss_update[i] = gba_boss_update[i];
+		replay_accel_pointers.gba_boss_render[i] = gba_boss_render[i];
+		replay_accel_pointers.exatt_funcs[i].add = exatt_funcs[i].add;
+		replay_accel_pointers.exatt_funcs[i].update = exatt_funcs[i].update;
+		replay_accel_pointers.exatt_funcs[i].render = exatt_funcs[i].render;
+		replay_accel_pointers.chargeshot_update[i] = chargeshot_update[i];
+		replay_accel_pointers.chargeshot_render[i] = chargeshot_render[i];
+		replay_accel_pointers.chargeshot_hittest[i] = chargeshot_hittest[i];
+		replay_accel_pointers.gba_gauge_pattern_pellet[i] = (
+			gba_gauge_pattern_pellet[i]
+		);
+		replay_accel_pointers.gba_gauge_pattern_bullet[i] = (
+			gba_gauge_pattern_bullet[i]
+		);
+		replay_accel_pointers.callback_205CE[i] = callback_205CE[i];
+		replay_accel_pointers.bomb_func[i] = bomb_func[i];
+		replay_accel_pointers.hyper[i] = players[i].hyper;
+		replay_accel_pointers.hyper_func[i] = players[i].hyper_func;
+		replay_accel_pointers.chargeshot_add[i] = players[i].chargeshot_add;
+	}
+	replay_accel_pointers.farfp_20F20 = farfp_20F20;
+	replay_accel_pointers.farfp_20F24 = farfp_20F24;
+	replay_accel_pointers.farfp_20F28 = farfp_20F28;
+}
+
+static void replay_accel_pointers_restore(void)
+{
+	int i;
+
+	enedat_2 = reinterpret_cast<uint8_t __seg *>(
+		replay_accel_pointers.enedat_2_seg
+	);
+	enedat = reinterpret_cast<uint8_t __seg *>(
+		replay_accel_pointers.enedat_seg
+	);
+	formation_scripts = reinterpret_cast<uint8_t __seg *>(
+		replay_accel_pointers.formation_scripts_seg
+	);
+	formation_type_ring = reinterpret_cast<uint8_t __seg *>(
+		replay_accel_pointers.formation_type_seg
+	);
+	formation_pos_type_ring = reinterpret_cast<uint8_t __seg *>(
+		replay_accel_pointers.formation_pos_type_seg
+	);
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		gba_boss_update[i] = replay_accel_pointers.gba_boss_update[i];
+		gba_boss_render[i] = replay_accel_pointers.gba_boss_render[i];
+		exatt_funcs[i].add = replay_accel_pointers.exatt_funcs[i].add;
+		exatt_funcs[i].update = replay_accel_pointers.exatt_funcs[i].update;
+		exatt_funcs[i].render = replay_accel_pointers.exatt_funcs[i].render;
+		chargeshot_update[i] = replay_accel_pointers.chargeshot_update[i];
+		chargeshot_render[i] = replay_accel_pointers.chargeshot_render[i];
+		chargeshot_hittest[i] = replay_accel_pointers.chargeshot_hittest[i];
+		gba_gauge_pattern_pellet[i] = (
+			replay_accel_pointers.gba_gauge_pattern_pellet[i]
+		);
+		gba_gauge_pattern_bullet[i] = (
+			replay_accel_pointers.gba_gauge_pattern_bullet[i]
+		);
+		callback_205CE[i] = replay_accel_pointers.callback_205CE[i];
+		bomb_func[i] = replay_accel_pointers.bomb_func[i];
+		players[i].hyper = replay_accel_pointers.hyper[i];
+		players[i].hyper_func = replay_accel_pointers.hyper_func[i];
+		players[i].chargeshot_add = replay_accel_pointers.chargeshot_add[i];
+	}
+	farfp_20F20 = replay_accel_pointers.farfp_20F20;
+	farfp_20F24 = replay_accel_pointers.farfp_20F24;
+	farfp_20F28 = replay_accel_pointers.farfp_20F28;
+}
+
+static void replay_accel_raw_apply(const uint8_t far *raw)
+{
+	uint16_t dgroup_seg = FP_SEG(&replay_mode);
+
+	replay_accel_pointers_capture();
+	replay_copy_far(
+		MK_FP(dgroup_seg, T3R_ACCEL_BSS_OFFSET),
+		raw,
+		T3R_ACCEL_BSS_SIZE
+	);
+	replay_accel_pointers_restore();
+	replay_copy_far(
+		formation_type_ring,
+		(raw + T3R_ACCEL_BSS_SIZE),
+		T3_REPLAY_USER_FORMATION_RING_SIZE
+	);
+	replay_copy_far(
+		formation_pos_type_ring,
+		(
+			raw +
+			T3R_ACCEL_BSS_SIZE +
+			T3_REPLAY_USER_FORMATION_RING_SIZE
+		),
+		T3_REPLAY_USER_FORMATION_RING_SIZE
+	);
+}
+
+static bool replay_accel_capture(uint8_t checkpoint)
+{
+	replay_user_accel_temp_header_t header;
+	uint16_t raw_seg;
+	uint16_t hash_seg;
+	uint8_t far *raw;
+	uint16_t far *hash_heads;
+	uint16_t pos = 0;
+	uint16_t candidate;
+	uint16_t distance;
+	uint16_t match_len;
+	uint16_t group_size;
+	uint16_t packed_size = 0;
+	uint16_t hash;
+	uint8_t token;
+	uint8_t flags;
+	bool ok = false;
+
+	raw_seg = reinterpret_cast<uint16_t>(hmem_allocbyte(T3R_ACCEL_RAW_SIZE));
+	if(raw_seg == 0) {
+		return false;
+	}
+	hash_seg = reinterpret_cast<uint16_t>(
+		hmem_allocbyte(REPLAY_ACCEL_HASH_BYTES)
+	);
+	if(hash_seg == 0) {
+		hmem_free(reinterpret_cast<void __seg *>(raw_seg));
+		return false;
+	}
+	raw = reinterpret_cast<uint8_t far *>(MK_FP(raw_seg, 0));
+	hash_heads = reinterpret_cast<uint16_t far *>(MK_FP(hash_seg, 0));
+	replay_accel_raw_fill(raw);
+	for(hash = 0; hash < REPLAY_ACCEL_HASH_COUNT; hash++) {
+		hash_heads[hash] = 0xFFFF;
+	}
+	replay_memclear(&header, sizeof(header));
+	header.magic[0] = 'T';
+	header.magic[1] = '3';
+	header.magic[2] = 'C';
+	header.magic[3] = '1';
+	header.checkpoint = checkpoint;
+	header.codec = T3R_ACCEL_CODEC_LZSS4K;
+	header.header_size = sizeof(header);
+	header.raw_size = T3R_ACCEL_RAW_SIZE;
+	header.state_hash = replay_accel_hash(raw);
+	replay_accel_temp_fn_set(checkpoint);
+	replay_accel_file_delete(T3_ACCEL_TEMP_FN);
+	if(!file_create(T3_ACCEL_TEMP_FN)) {
+		goto cleanup;
+	}
+	if(!replay_write_bytes_checked(&header, sizeof(header))) {
+		goto close;
+	}
+	while(pos < T3R_ACCEL_RAW_SIZE) {
+		flags = 0;
+		group_size = 1;
+		for(token = 0; (token < 8) && (pos < T3R_ACCEL_RAW_SIZE); token++) {
+			match_len = 0;
+			distance = 0;
+			if((pos + 2) < T3R_ACCEL_RAW_SIZE) {
+				hash = static_cast<uint16_t>(
+					(
+						(static_cast<uint16_t>(raw[pos]) * 251U) +
+						raw[pos + 1]
+					) * 251U + raw[pos + 2]
+				) & (REPLAY_ACCEL_HASH_COUNT - 1);
+				candidate = hash_heads[hash];
+				hash_heads[hash] = pos;
+				if(
+					(candidate != 0xFFFF) &&
+					((pos - candidate) <= 4095)
+				) {
+					while(
+						(match_len < REPLAY_ACCEL_MATCH_MAX) &&
+						((pos + match_len) < T3R_ACCEL_RAW_SIZE) &&
+						(raw[candidate + match_len] ==
+						 raw[pos + match_len])
+					) {
+						match_len++;
+					}
+					if(match_len >= REPLAY_ACCEL_MATCH_MIN) {
+						distance = static_cast<uint16_t>(pos - candidate);
+					} else {
+						match_len = 0;
+					}
+				}
+			}
+			if(match_len != 0) {
+				replay_accel_group[group_size++] = static_cast<uint8_t>(
+					distance
+				);
+				replay_accel_group[group_size++] = static_cast<uint8_t>(
+					((distance >> 8) << 4) |
+					(match_len - REPLAY_ACCEL_MATCH_MIN)
+				);
+				pos += match_len;
+			} else {
+				flags |= (1 << token);
+				replay_accel_group[group_size++] = raw[pos++];
+			}
+		}
+		replay_accel_group[0] = flags;
+		if(!replay_write_bytes_checked(replay_accel_group, group_size)) {
+			goto close;
+		}
+		packed_size = static_cast<uint16_t>(packed_size + group_size);
+	}
+	header.packed_size = packed_size;
+	file_seek(0, SEEK_SET);
+	ok = replay_write_bytes_checked(&header, sizeof(header));
+close:
+	file_close();
+	if(!ok) {
+		replay_accel_file_delete(T3_ACCEL_TEMP_FN);
+	}
+cleanup:
+	hmem_free(reinterpret_cast<void __seg *>(hash_seg));
+	hmem_free(reinterpret_cast<void __seg *>(raw_seg));
+	return ok;
+}
+
+static bool replay_accel_footer_valid(void)
+{
+	return (
+		(replay_accel_footer.magic[0] == 'T') &&
+		(replay_accel_footer.magic[1] == '3') &&
+		(replay_accel_footer.magic[2] == 'R') &&
+		(replay_accel_footer.magic[3] == 'A') &&
+		(replay_accel_footer.magic[4] == 'C') &&
+		(replay_accel_footer.magic[5] == 'C') &&
+		(replay_accel_footer.magic[6] == '1') &&
+		(replay_accel_footer.magic[7] == '\0') &&
+		(replay_accel_footer.version == 1) &&
+		(replay_accel_footer.footer_size == sizeof(replay_accel_footer)) &&
+		(replay_accel_footer.reserved[0] == 0) &&
+		(replay_accel_footer.reserved[1] == 0) &&
+		(replay_accel_footer.reserved[2] == 0) &&
+		(replay_accel_footer.count != 0) &&
+		(replay_accel_footer.count <= T3R_ACCEL_COUNT_MAX)
+	);
+}
+
+static bool replay_accel_decompress(
+	const uint8_t far *packed,
+	uint16_t packed_size,
+	uint8_t far *raw
+)
+{
+	uint16_t in = 0;
+	uint16_t out = 0;
+	uint16_t distance;
+	uint16_t match_len;
+	uint8_t flags;
+	uint8_t token;
+	uint8_t lo;
+	uint8_t hi;
+
+	while(out < T3R_ACCEL_RAW_SIZE) {
+		if(in >= packed_size) {
+			return false;
+		}
+		flags = packed[in++];
+		for(
+			token = 0;
+			(token < 8) && (out < T3R_ACCEL_RAW_SIZE);
+			token++
+		) {
+			if(flags & (1 << token)) {
+				if(in >= packed_size) {
+					return false;
+				}
+				raw[out++] = packed[in++];
+				continue;
+			}
+			if((in + 1) >= packed_size) {
+				return false;
+			}
+			lo = packed[in++];
+			hi = packed[in++];
+			distance = static_cast<uint16_t>(
+				lo | ((static_cast<uint16_t>(hi) >> 4) << 8)
+			);
+			match_len = static_cast<uint16_t>(
+				(hi & 0x0F) + REPLAY_ACCEL_MATCH_MIN
+			);
+			if(
+				(distance == 0) ||
+				(distance > out) ||
+				((out + match_len) > T3R_ACCEL_RAW_SIZE)
+			) {
+				return false;
+			}
+			while(match_len != 0) {
+				raw[out] = raw[out - distance];
+				out++;
+				match_len--;
+			}
+		}
+	}
+	return (in == packed_size);
+}
+
+static bool replay_accel_prepare(uint8_t checkpoint)
+{
+	replay_user_accel_desc_t far *desc = 0;
+	uint16_t packed_seg = 0;
+	uint8_t far *packed;
+	uint8_t far *raw;
+	uint8_t i;
+	long file_bytes;
+	long footer_offset;
+	uint32_t logical_end;
+	bool ok = false;
+
+	if(
+		(checkpoint == 0) ||
+		resident->unused_3[T3R_RES_PREROLL_FORCE_INDEX]
+	) {
+		return false;
+	}
+	if(!file_ropen(replay_user_fn)) {
+		return false;
+	}
+	file_bytes = replay_accel_file_size();
+	if(file_bytes < static_cast<long>(sizeof(replay_accel_footer))) {
+		goto close;
+	}
+	footer_offset = file_bytes - sizeof(replay_accel_footer);
+	file_seek(footer_offset, SEEK_SET);
+	if(
+		(file_read(&replay_accel_footer, sizeof(replay_accel_footer)) !=
+		 sizeof(replay_accel_footer)) ||
+		!replay_accel_footer_valid()
+	) {
+		goto close;
+	}
+	for(i = 0; i < replay_accel_footer.count; i++) {
+		if(replay_accel_footer.records[i].checkpoint == checkpoint) {
+			desc = &replay_accel_footer.records[i];
+			break;
+		}
+	}
+	logical_end = (
+		replay_user_header.input_offset + replay_user_header.input_size
+	);
+	if(
+		(desc == 0) ||
+		(desc->checkpoint >= replay_user_summary_ext.checkpoint_count) ||
+		(
+			(replay_user_summary_ext.checkpoint_stage_round[
+				desc->checkpoint
+			 ] >> 4) == 0
+		) ||
+		(desc->codec != T3R_ACCEL_CODEC_LZSS4K) ||
+		(desc->raw_size != T3R_ACCEL_RAW_SIZE) ||
+		(desc->packed_size == 0) ||
+		(desc->packed_size > 0xFFF0UL) ||
+		(desc->offset < logical_end) ||
+		(desc->packed_size > static_cast<uint32_t>(footer_offset)) ||
+		(desc->offset > (
+			static_cast<uint32_t>(footer_offset) - desc->packed_size
+		))
+	) {
+		goto close;
+	}
+	packed_seg = reinterpret_cast<uint16_t>(
+		hmem_allocbyte(static_cast<uint16_t>(desc->packed_size))
+	);
+	replay_accel_raw_seg = reinterpret_cast<uint16_t>(
+		hmem_allocbyte(T3R_ACCEL_RAW_SIZE)
+	);
+	if((packed_seg == 0) || (replay_accel_raw_seg == 0)) {
+		goto close;
+	}
+	packed = reinterpret_cast<uint8_t far *>(MK_FP(packed_seg, 0));
+	raw = reinterpret_cast<uint8_t far *>(MK_FP(replay_accel_raw_seg, 0));
+	file_seek(desc->offset, SEEK_SET);
+	if(
+		file_read(packed, static_cast<uint16_t>(desc->packed_size)) !=
+		static_cast<uint16_t>(desc->packed_size)
+	) {
+		goto close;
+	}
+	if(
+		!replay_accel_decompress(
+			packed, static_cast<uint16_t>(desc->packed_size), raw
+		) ||
+		(replay_accel_hash(raw) != desc->state_hash)
+	) {
+		goto close;
+	}
+	replay_accel_target_checkpoint = checkpoint;
+	ok = true;
+close:
+	file_close();
+	if(packed_seg != 0) {
+		hmem_free(reinterpret_cast<void __seg *>(packed_seg));
+	}
+	if(!ok && (replay_accel_raw_seg != 0)) {
+		hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
+		replay_accel_raw_seg = 0;
+	}
+	return ok;
 }
 
 static uint8_t far *replay_main_01_entry(uint16_t offset)
@@ -876,6 +1436,17 @@ static void replay_paths_init(void)
 	T3_USER_REPLAY_FALLBACK_FN[9] = 'P';
 	T3_USER_REPLAY_FALLBACK_FN[10] = 'Y';
 	T3_USER_REPLAY_FALLBACK_FN[11] = '\0';
+
+	T3_ACCEL_TEMP_FN[0] = 'T';
+	T3_ACCEL_TEMP_FN[1] = 'H';
+	T3_ACCEL_TEMP_FN[2] = '3';
+	T3_ACCEL_TEMP_FN[3] = 'C';
+	T3_ACCEL_TEMP_FN[4] = '0';
+	T3_ACCEL_TEMP_FN[5] = '.';
+	T3_ACCEL_TEMP_FN[6] = 'T';
+	T3_ACCEL_TEMP_FN[7] = 'M';
+	T3_ACCEL_TEMP_FN[8] = 'P';
+	T3_ACCEL_TEMP_FN[9] = '\0';
 
 #if defined(TH03_REPLAY_DEVTOOLS)
 	T3_STATE_REFERENCE_FN[0] = 'T';
@@ -3416,6 +3987,99 @@ cleanup:
 	return ok;
 }
 
+static bool replay_accel_checkpoint_cursor_read(
+	uint8_t checkpoint,
+	uint32_t _ss *sample,
+	uint32_t _ss *global_frame,
+	uint32_t _ss *input_byte
+)
+{
+	uint32_t offset = (
+		replay_user_header.snapshot_offset +
+		(
+			static_cast<uint32_t>(checkpoint) *
+			static_cast<uint32_t>(
+				replay_user_checkpoint_size(replay_user_header.version)
+			)
+		)
+	);
+	bool ok;
+
+	if(!file_ropen(replay_user_fn)) {
+		return false;
+	}
+	file_seek(offset, SEEK_SET);
+	ok = (
+		(file_read(sample, sizeof(*sample)) == sizeof(*sample)) &&
+		(file_read(global_frame, sizeof(*global_frame)) ==
+		 sizeof(*global_frame)) &&
+		(file_read(input_byte, sizeof(*input_byte)) == sizeof(*input_byte))
+	);
+	file_close();
+	return ok;
+}
+
+static bool replay_accel_direct_start(void)
+{
+	uint32_t sample;
+	uint32_t global_frame;
+	uint32_t input_byte;
+	uint8_t checkpoint = replay_accel_target_checkpoint;
+	uint8_t far *raw = reinterpret_cast<uint8_t far *>(
+		MK_FP(replay_accel_raw_seg, 0)
+	);
+
+	if(
+		(replay_accel_raw_seg == 0) ||
+		!replay_accel_checkpoint_cursor_read(
+			checkpoint, &sample, &global_frame, &input_byte
+		) ||
+		!replay_user_checkpoint_snapshot_read(checkpoint) ||
+		!replay_user_decoder_seek(sample, input_byte)
+	) {
+		return false;
+	}
+	replay_sample_count = sample;
+	replay_global_frame = global_frame;
+	input_mp_p1 = replay_rle_input_mp_p1;
+	input_mp_p2 = replay_rle_input_mp_p2;
+	input_sp = replay_rle_input_sp;
+	resident->input_charge = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
+	);
+	replay_user_snapshot_restore_resident();
+	if(!replay_user_snapshot_restore_runtime()) {
+		return false;
+	}
+	replay_user_round_state_restore();
+	replay_user_round_carry_restore();
+	replay_accel_raw_apply(raw);
+
+	// The broad image contains recording-process far pointers. Restore the
+	// normalized portable phases after preserving this process's pointers.
+	replay_user_round_carry_restore();
+	input_mp_p1 = replay_rle_input_mp_p1;
+	input_mp_p2 = replay_rle_input_mp_p2;
+	input_sp = replay_rle_input_sp;
+	resident->input_charge = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
+	);
+	hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
+	replay_accel_raw_seg = 0;
+	replay_accel_target_checkpoint = 0;
+	resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+	resident->unused_3[T3R_RES_PREROLL_FORCE_INDEX] = 0;
+	resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
+#if defined(TH03_REPLAY_DEVTOOLS)
+	replay_state_probe_checkpoint = checkpoint;
+	replay_state_probe_pending = true;
+#endif
+	replay_preroll_display_show();
+	return true;
+}
+
 static bool replay_user_play_rle_sample(uint8_t phase)
 {
 	if(replay_sample_count >= replay_user_header.sample_count) {
@@ -3914,6 +4578,8 @@ void far replay_session_start(void)
 	replay_user_discard_requested = false;
 	replay_guard_diag_written = false;
 	replay_restart_requested_flag = false;
+	replay_accel_raw_seg = 0;
+	replay_accel_target_checkpoint = 0;
 #if defined(TH03_REPLAY_DEVTOOLS)
 	replay_state_probe_pending = false;
 	replay_state_probe_checkpoint = 0;
@@ -3969,6 +4635,7 @@ void far replay_session_start(void)
 		}
 	} else if(replay_mode == REPLAY_USER_RECORD) {
 		if(replay_sample_count == 0) {
+			replay_accel_temps_delete();
 			if(!replay_user_create()) {
 				replay_mode = REPLAY_ERROR;
 				replay_done_write(RTX_ERROR_USER_CREATE);
@@ -3994,6 +4661,13 @@ void far replay_session_start(void)
 			replay_mode = REPLAY_ERROR;
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;
+		}
+		if(
+			resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
+		) {
+			(void)replay_accel_prepare(static_cast<uint8_t>(
+				resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] - 1
+			));
 		}
 		if(
 			(replay_user_header.flags & T3_REPLAY_USER_FLAG_PRACTICE) &&
@@ -4092,6 +4766,22 @@ void far replay_round_start(void)
 {
 	if(
 		(replay_mode == REPLAY_USER_PLAYBACK) &&
+		(replay_accel_raw_seg != 0)
+	) {
+		if(!replay_accel_direct_start()) {
+			hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
+			replay_accel_raw_seg = 0;
+			replay_accel_target_checkpoint = 0;
+			resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+			resident->unused_3[T3R_RES_PREROLL_FORCE_INDEX] = 0;
+			replay_preroll_display_show();
+			replay_mode = REPLAY_ERROR;
+			replay_done_write(RTX_ERROR_USER_HEADER);
+			return;
+		}
+	}
+	if(
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
 		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) &&
 		(
 			replay_user_summary_ext.checkpoint_stage_round[
@@ -4100,6 +4790,7 @@ void far replay_round_start(void)
 		)
 	) {
 		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+		resident->unused_3[T3R_RES_PREROLL_FORCE_INDEX] = 0;
 		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
 		replay_preroll_display_show();
 	}
@@ -4127,6 +4818,15 @@ void far replay_round_start(void)
 			] = replay_user_summary_stage_round_pack();
 			replay_user_summary_ext.checkpoint_count++;
 			replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
+			if(
+				(replay_user_summary_ext.checkpoint_stage_round[
+					replay_user_summary_ext.checkpoint_count - 1
+				 ] >> 4) != 0
+			) {
+				(void)replay_accel_capture(static_cast<uint8_t>(
+					replay_user_summary_ext.checkpoint_count - 1
+				));
+			}
 #if defined(TH03_REPLAY_DEVTOOLS)
 			replay_state_probe_record_write(
 				T3_STATE_REFERENCE_FN,
@@ -4940,6 +5640,12 @@ void far replay_finish(uint8_t route)
 	bool save_pending = false;
 	bool control_ok = true;
 
+	if(replay_accel_raw_seg != 0) {
+		hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
+		replay_accel_raw_seg = 0;
+		replay_accel_target_checkpoint = 0;
+	}
+
 	if(route == 0) {
 		scorestat_exit_checkpoint();
 	}
@@ -5109,9 +5815,12 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

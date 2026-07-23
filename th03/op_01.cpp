@@ -40,6 +40,7 @@
 #include "th03/practice.hpp"
 #include "th03/rpyfont.hpp"
 #include "th03/sprites/regi.h"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "platform/x86real/flags.hpp"
 #include "planar.h"
 #include <conio.h>
@@ -3741,6 +3742,7 @@ static void replay_save_pending(bool prompt)
 	int i;
 	replay_save_answer_t answer;
 
+	(void)replay_accel_pending_merge(REPLAY_FALLBACK_FN);
 	if(!replay_user_read_for_menu(REPLAY_FALLBACK_FN)) {
 		return;
 	}
@@ -3756,6 +3758,7 @@ static void replay_save_pending(bool prompt)
 				((answer == RSA_CANCEL) && replay_save_quit_confirm())
 			) {
 				replay_file_delete_commit(REPLAY_FALLBACK_FN);
+				replay_accel_temps_delete();
 				replay_save_screen_exit(false);
 				return;
 			}
@@ -3767,6 +3770,7 @@ static void replay_save_pending(bool prompt)
 	replay_save_date_set();
 	if(!replay_name_menu(name_len, !prompt)) {
 		replay_file_delete_commit(REPLAY_FALLBACK_FN);
+		replay_accel_temps_delete();
 		replay_save_screen_exit(false);
 		return;
 	}
@@ -3777,6 +3781,7 @@ static void replay_save_pending(bool prompt)
 	if(!replay_save_slot_menu()) {
 		replay_file_delete_commit(REPLAY_FALLBACK_FN);
 	}
+	replay_accel_temps_delete();
 	replay_save_screen_exit(true);
 }
 
@@ -3858,6 +3863,17 @@ bool near replay_menu(void)
 							) ||
 							(!replay_menu_vs() && !replay_menu_practice())
 						) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+							replay_checkpoint_force_preroll_set(
+								(
+									*reinterpret_cast<uint8_t far *>(
+										MK_FP(0, KEYGROUP_14)
+									) & K14_SHIFT
+								) != 0
+							);
+#else
+							replay_checkpoint_force_preroll_set(false);
+#endif
 							checkpoint_sel = (
 								replay_checkpoint_anchor_for_menu(checkpoint_sel)
 							);
@@ -4051,7 +4067,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x34316372UL); // "rc14"
+	TITLE_CREDIT_QUAD(5, 0x35316372UL); // "rc15"
 	TITLE_CREDIT_QUAD(6, 0x20796220UL); // " by "
 	TITLE_CREDIT_QUAD(7, 0x69726843UL); // "Chri"
 	TITLE_CREDIT_QUAD(8, 0x61697473UL); // "stia"
@@ -4742,6 +4758,13 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+#if defined(TH03_REPLAY_DEVTOOLS)
+// The debug-only Shift override is larger than the release handoff.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
+// Keep the following shared segment at its accepted paragraph phase after the
+// replay checkpoint selection handoff.
+#pragma codestring "\x90\x90"
 /// --------

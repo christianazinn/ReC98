@@ -15,6 +15,14 @@
 #define T3R_CKPT_COUNT_VS 3
 #define T3R_CKPT_COUNT_PRACTICE 5
 #define T3R_CKPT_COUNT_MAX T3R_CKPT_COUNT_STORY
+#define T3R_ACCEL_COUNT_MAX 4
+#define T3R_ACCEL_CODEC_LZSS4K 1
+#define T3R_ACCEL_BSS_OFFSET 0x1D94
+#define T3R_ACCEL_BSS_END 0x8DFA
+#define T3R_ACCEL_BSS_SIZE (T3R_ACCEL_BSS_END - T3R_ACCEL_BSS_OFFSET)
+#define T3R_ACCEL_RAW_SIZE ( \
+	T3R_ACCEL_BSS_SIZE + (T3_REPLAY_USER_FORMATION_RING_SIZE * 2) \
+)
 #define T3_REPLAY_USER_NAME_LEN 8
 #define T3_REPLAY_USER_SCORE_DIGITS 8
 #define T3_REPLAY_USER_SCORE_DISPLAY_DIGITS 9
@@ -424,6 +432,47 @@ typedef char replay_user_round_carry_size_check[
 
 typedef char replay_user_checkpoint_size_check[
 	(T3R_STAGE_CKPT_SIZE == 289) ? 1 : -1
+];
+
+struct replay_user_accel_temp_header_t {
+	char magic[4];
+	uint8_t checkpoint;
+	uint8_t codec;
+	uint16_t header_size;
+	uint16_t raw_size;
+	uint16_t packed_size;
+	uint32_t state_hash;
+};
+
+struct replay_user_accel_desc_t {
+	uint8_t checkpoint;
+	uint8_t codec;
+	uint16_t raw_size;
+	uint32_t offset;
+	uint32_t packed_size;
+	uint32_t state_hash;
+};
+
+struct replay_user_accel_footer_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t footer_size;
+	uint8_t count;
+	uint8_t reserved[3];
+	replay_user_accel_desc_t records[T3R_ACCEL_COUNT_MAX];
+};
+
+typedef char replay_user_accel_temp_header_size_check[
+	(sizeof(replay_user_accel_temp_header_t) == 16) ? 1 : -1
+];
+typedef char replay_user_accel_desc_size_check[
+	(sizeof(replay_user_accel_desc_t) == 16) ? 1 : -1
+];
+typedef char replay_user_accel_footer_size_check[
+	(sizeof(replay_user_accel_footer_t) == 80) ? 1 : -1
+];
+typedef char replay_user_accel_raw_size_check[
+	(T3R_ACCEL_RAW_SIZE <= 0xFFFFUL) ? 1 : -1
 ];
 
 inline uint8_t replay_user_checkpoint_capacity(
