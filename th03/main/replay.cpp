@@ -58,6 +58,10 @@ static char T3_USER_REPLAY_DIR[7];
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
+#if defined(TH03_REPLAY_DEVTOOLS)
+static char T3_STATE_REFERENCE_FN[12];
+static char T3_STATE_LIVE_FN[11];
+#endif
 
 enum replay_text_id_t {
 	RTX_CRLF,
@@ -169,6 +173,10 @@ static uint8_t replay_sum_stage_opps[T3_REPLAY_USER_STAGE_COUNT];
 static uint8_t replay_sum_stage_scores[
 	T3_REPLAY_USER_STAGE_COUNT
 ][T3_REPLAY_USER_PACKED_SCORE_SIZE];
+#if defined(TH03_REPLAY_DEVTOOLS)
+static bool replay_state_probe_pending;
+static uint8_t replay_state_probe_checkpoint;
+#endif
 
 extern "C" unsigned char score[];
 extern "C" unsigned char byte_220FC[PLAYER_COUNT];
@@ -621,6 +629,33 @@ static void replay_paths_init(void)
 	T3_USER_REPLAY_FALLBACK_FN[9] = 'P';
 	T3_USER_REPLAY_FALLBACK_FN[10] = 'Y';
 	T3_USER_REPLAY_FALLBACK_FN[11] = '\0';
+
+#if defined(TH03_REPLAY_DEVTOOLS)
+	T3_STATE_REFERENCE_FN[0] = 'T';
+	T3_STATE_REFERENCE_FN[1] = '3';
+	T3_STATE_REFERENCE_FN[2] = 'S';
+	T3_STATE_REFERENCE_FN[3] = 'T';
+	T3_STATE_REFERENCE_FN[4] = 'A';
+	T3_STATE_REFERENCE_FN[5] = 'T';
+	T3_STATE_REFERENCE_FN[6] = 'E';
+	T3_STATE_REFERENCE_FN[7] = '.';
+	T3_STATE_REFERENCE_FN[8] = 'B';
+	T3_STATE_REFERENCE_FN[9] = 'I';
+	T3_STATE_REFERENCE_FN[10] = 'N';
+	T3_STATE_REFERENCE_FN[11] = '\0';
+
+	T3_STATE_LIVE_FN[0] = 'T';
+	T3_STATE_LIVE_FN[1] = '3';
+	T3_STATE_LIVE_FN[2] = 'L';
+	T3_STATE_LIVE_FN[3] = 'I';
+	T3_STATE_LIVE_FN[4] = 'V';
+	T3_STATE_LIVE_FN[5] = 'E';
+	T3_STATE_LIVE_FN[6] = '.';
+	T3_STATE_LIVE_FN[7] = 'B';
+	T3_STATE_LIVE_FN[8] = 'I';
+	T3_STATE_LIVE_FN[9] = 'N';
+	T3_STATE_LIVE_FN[10] = '\0';
+#endif
 
 	replay_user_fn = T3_USER_REPLAY_FALLBACK_FN;
 	replay_user_slot = T3_REPLAY_USER_SLOT_NONE;
@@ -1275,6 +1310,160 @@ static uint32_t replay_state_hash(void)
 	hash = replay_hash_u32(hash, random_seed);
 	return hash;
 }
+
+#if defined(TH03_REPLAY_DEVTOOLS)
+enum replay_state_probe_constants_t {
+	REPLAY_STATE_PROBE_VERSION = 1,
+	REPLAY_STATE_PROBE_DGROUP_DATA_OFFSET = 0x0090,
+	REPLAY_STATE_PROBE_DGROUP_DATA_SIZE = (0x0BEE - 0x0090),
+	REPLAY_STATE_PROBE_DGROUP_BSS_OFFSET = 0x1182,
+	REPLAY_STATE_PROBE_DGROUP_BSS_SIZE = (0x8DFA - 0x1182),
+	REPLAY_STATE_PROBE_FORMATION_SIZE = T3_REPLAY_USER_FORMATION_RING_SIZE,
+	REPLAY_STATE_PROBE_BLOCK_COUNT = 5,
+	REPLAY_STATE_PROBE_KIND_REFERENCE = 1,
+	REPLAY_STATE_PROBE_KIND_LIVE = 2,
+};
+
+struct replay_state_probe_file_header_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t record_header_size;
+	uint16_t record_size;
+	uint16_t dgroup_data_offset;
+	uint16_t dgroup_data_size;
+	uint16_t dgroup_bss_offset;
+	uint16_t dgroup_bss_size;
+	uint16_t resident_size;
+	uint16_t formation_size;
+	uint16_t block_count;
+	uint16_t reserved;
+};
+
+struct replay_state_probe_record_header_t {
+	uint16_t header_size;
+	uint16_t checkpoint;
+	uint16_t stage_round;
+	uint16_t game_mode;
+	uint32_t sample_count;
+	uint32_t global_frame;
+	uint32_t input_byte_count;
+	uint32_t curated_hash;
+	uint16_t dgroup_seg;
+	uint16_t resident_seg;
+	uint16_t formation_type_seg;
+	uint16_t formation_pos_seg;
+	uint16_t kind;
+	uint16_t reserved;
+};
+
+typedef char rsp_file_header_size_check[
+	(sizeof(replay_state_probe_file_header_t) == 32) ? 1 : -1
+];
+typedef char rsp_record_header_size_check[
+	(sizeof(replay_state_probe_record_header_t) == 36) ? 1 : -1
+];
+
+static bool replay_state_probe_file_header_write(void)
+{
+	replay_state_probe_file_header_t header;
+
+	replay_memclear(&header, sizeof(header));
+	header.magic[0] = 'T';
+	header.magic[1] = '3';
+	header.magic[2] = 'S';
+	header.magic[3] = 'T';
+	header.magic[4] = 'A';
+	header.magic[5] = 'T';
+	header.magic[6] = 'E';
+	header.magic[7] = '1';
+	header.version = REPLAY_STATE_PROBE_VERSION;
+	header.header_size = sizeof(header);
+	header.record_header_size = sizeof(replay_state_probe_record_header_t);
+	header.record_size = static_cast<uint16_t>(
+		sizeof(replay_state_probe_record_header_t) +
+		REPLAY_STATE_PROBE_DGROUP_DATA_SIZE +
+		REPLAY_STATE_PROBE_DGROUP_BSS_SIZE +
+		sizeof(resident_t) +
+		(REPLAY_STATE_PROBE_FORMATION_SIZE * 2)
+	);
+	header.dgroup_data_offset = REPLAY_STATE_PROBE_DGROUP_DATA_OFFSET;
+	header.dgroup_data_size = REPLAY_STATE_PROBE_DGROUP_DATA_SIZE;
+	header.dgroup_bss_offset = REPLAY_STATE_PROBE_DGROUP_BSS_OFFSET;
+	header.dgroup_bss_size = REPLAY_STATE_PROBE_DGROUP_BSS_SIZE;
+	header.resident_size = sizeof(resident_t);
+	header.formation_size = REPLAY_STATE_PROBE_FORMATION_SIZE;
+	header.block_count = REPLAY_STATE_PROBE_BLOCK_COUNT;
+	return replay_write_bytes_checked(&header, sizeof(header));
+}
+
+static bool replay_state_probe_record_write(
+	const char near *fn, uint8_t checkpoint, uint8_t kind
+)
+{
+	replay_state_probe_record_header_t record;
+	uint16_t dgroup_seg = FP_SEG(&replay_mode);
+	bool ok;
+
+	replay_memclear(&record, sizeof(record));
+	record.header_size = sizeof(record);
+	record.checkpoint = checkpoint;
+	record.stage_round = (
+		replay_user_summary_ext.checkpoint_stage_round[checkpoint]
+	);
+	record.game_mode = resident->game_mode;
+	record.sample_count = replay_sample_count;
+	record.global_frame = replay_global_frame;
+	record.input_byte_count = replay_input_byte_count;
+	record.curated_hash = replay_state_hash();
+	record.dgroup_seg = dgroup_seg;
+	record.resident_seg = FP_SEG(resident);
+	record.formation_type_seg = reinterpret_cast<uint16_t>(
+		formation_type_ring
+	);
+	record.formation_pos_seg = reinterpret_cast<uint16_t>(
+		formation_pos_type_ring
+	);
+	record.kind = kind;
+
+	if(kind == REPLAY_STATE_PROBE_KIND_LIVE) {
+		ok = file_create(fn);
+	} else if(checkpoint == 0) {
+		ok = file_create(fn);
+	} else {
+		ok = file_append(fn);
+	}
+	if(!ok) {
+		return false;
+	}
+	if((kind == REPLAY_STATE_PROBE_KIND_LIVE) || (checkpoint == 0)) {
+		ok = replay_state_probe_file_header_write();
+	} else {
+		ok = true;
+	}
+	ok = (
+		ok &&
+		replay_write_bytes_checked(&record, sizeof(record)) &&
+		replay_write_bytes_checked(
+			MK_FP(dgroup_seg, REPLAY_STATE_PROBE_DGROUP_DATA_OFFSET),
+			REPLAY_STATE_PROBE_DGROUP_DATA_SIZE
+		) &&
+		replay_write_bytes_checked(
+			MK_FP(dgroup_seg, REPLAY_STATE_PROBE_DGROUP_BSS_OFFSET),
+			REPLAY_STATE_PROBE_DGROUP_BSS_SIZE
+		) &&
+		replay_write_bytes_checked(resident, sizeof(resident_t)) &&
+		replay_write_bytes_checked(
+			formation_type_ring, REPLAY_STATE_PROBE_FORMATION_SIZE
+		) &&
+		replay_write_bytes_checked(
+			formation_pos_type_ring, REPLAY_STATE_PROBE_FORMATION_SIZE
+		)
+	);
+	file_close();
+	return ok;
+}
+#endif
 
 static void replay_split_write_header(void)
 {
@@ -3451,6 +3640,10 @@ void far replay_session_start(void)
 	replay_user_discard_requested = false;
 	replay_guard_diag_written = false;
 	replay_restart_requested_flag = false;
+#if defined(TH03_REPLAY_DEVTOOLS)
+	replay_state_probe_pending = false;
+	replay_state_probe_checkpoint = 0;
+#endif
 
 	if(replay_mode == REPLAY_DISABLED) {
 		return;
@@ -3563,6 +3756,10 @@ void far replay_session_start(void)
 			if(replay_user_version_has_round_carry(replay_user_header.version)) {
 				replay_user_round_carry_restore();
 			}
+#if defined(TH03_REPLAY_DEVTOOLS)
+			replay_state_probe_checkpoint = playback_stage;
+			replay_state_probe_pending = true;
+#endif
 			resident->unused_3[T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX] = 0;
 		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
@@ -3613,8 +3810,30 @@ void far replay_round_start(void)
 			] = replay_user_summary_stage_round_pack();
 			replay_user_summary_ext.checkpoint_count++;
 			replay_rle_phase |= REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK;
+#if defined(TH03_REPLAY_DEVTOOLS)
+			replay_state_probe_record_write(
+				T3_STATE_REFERENCE_FN,
+				static_cast<uint8_t>(
+					replay_user_summary_ext.checkpoint_count - 1
+				),
+				REPLAY_STATE_PROBE_KIND_REFERENCE
+			);
+#endif
 		}
 	}
+#if defined(TH03_REPLAY_DEVTOOLS)
+	if(
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
+		replay_state_probe_pending
+	) {
+		replay_state_probe_pending = false;
+		replay_state_probe_record_write(
+			T3_STATE_LIVE_FN,
+			replay_state_probe_checkpoint,
+			REPLAY_STATE_PROBE_KIND_LIVE
+		);
+	}
+#endif
 	replay_split_row(RSE_ROUND_START, replay_last_route);
 }
 
@@ -4586,7 +4805,9 @@ static void replay_user_carry_chains_restore(void)
 }
 
 // Keep the following C runtime segment at its accepted paragraph phase.
-#if defined(TH03_REPLAY_DEV_OVERLAY)
+#if defined(TH03_REPLAY_DEVTOOLS)
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#elif defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
