@@ -560,11 +560,11 @@ void far replay_font_columns_put(bool clear)
 
 static void slot_name_put(uint8_t slot, unsigned y)
 {
-	char *p = append_cstr(replay_menu_line, "Slot ");
+	char *p = append_name_trimmed(replay_menu_line);
 
-	p = append_u8_2(p, slot);
 	field_put(DETAIL_PIXEL_LEFT, y, p, TX_CYAN);
-	p = append_name_trimmed(replay_menu_line);
+	p = append_cstr(replay_menu_line, "Slot ");
+	p = append_u8_2(p, slot);
 	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_CYAN);
 }
 
