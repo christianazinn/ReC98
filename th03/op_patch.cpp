@@ -243,7 +243,10 @@ bool far replay_accel_pending_merge(const char far *replay_fn)
 			(temp.magic[2] == 'C') &&
 			(temp.magic[3] == '1') &&
 			(temp.checkpoint == checkpoint) &&
-			(temp.codec == T3R_ACCEL_CODEC_LZSS4K) &&
+			(
+				(temp.codec == T3R_ACCEL_CODEC_LZSS4K) ||
+				(temp.codec == T3R_ACCEL_CODEC_LZARI512)
+			) &&
 			(temp.header_size == sizeof(temp)) &&
 			(temp.raw_size == T3R_ACCEL_RAW_SIZE) &&
 			(temp.packed_size != 0) &&
@@ -307,5 +310,4 @@ bool far replay_accel_pending_merge(const char far *replay_fn)
 }
 
 // Preserve the paragraph phase of the following patch-owned segments.
-#pragma codestring "\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90"

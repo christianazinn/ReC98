@@ -53,10 +53,20 @@
 	T3_REPLAY_WRITE_BUFFER_SIZE + T3R_STAGE_CKPT_PREFIX_SIZE \
 )
 #define REPLAY_SEEK_BUFFER_SIZE 4096
-#define REPLAY_ACCEL_HASH_COUNT 4096
-#define REPLAY_ACCEL_HASH_BYTES (REPLAY_ACCEL_HASH_COUNT * sizeof(uint16_t))
 #define REPLAY_ACCEL_MATCH_MIN 3
-#define REPLAY_ACCEL_MATCH_MAX 18
+#define REPLAY_ACCEL_WINDOW 512
+#define REPLAY_ACCEL_WINDOW_MASK (REPLAY_ACCEL_WINDOW - 1)
+#define REPLAY_ACCEL_MATCH_MAX 192
+#define REPLAY_ACCEL_NIL REPLAY_ACCEL_WINDOW
+#define REPLAY_ACCEL_SYMBOL_COUNT ( \
+	256 - (REPLAY_ACCEL_MATCH_MIN - 1) + REPLAY_ACCEL_MATCH_MAX \
+)
+#define REPLAY_ACCEL_ARITH_Q1 (1UL << 15)
+#define REPLAY_ACCEL_ARITH_Q2 (2UL * REPLAY_ACCEL_ARITH_Q1)
+#define REPLAY_ACCEL_ARITH_Q3 (3UL * REPLAY_ACCEL_ARITH_Q1)
+#define REPLAY_ACCEL_ARITH_Q4 (4UL * REPLAY_ACCEL_ARITH_Q1)
+#define REPLAY_ACCEL_ARITH_MAX_CUM (REPLAY_ACCEL_ARITH_Q1 - 1)
+#define REPLAY_ACCEL_IO_BUFFER_SIZE 128
 
 extern "C" const unsigned char aCOul[];
 extern "C" int file_Handle;
@@ -175,7 +185,18 @@ static bool replay_guard_diag_written;
 static bool replay_restart_requested_flag;
 static uint16_t replay_accel_raw_seg;
 static uint8_t replay_accel_target_checkpoint;
-static uint8_t replay_accel_group[17];
+static uint8_t replay_accel_text[
+	REPLAY_ACCEL_WINDOW + REPLAY_ACCEL_MATCH_MAX - 1
+];
+static uint16_t replay_accel_lson[REPLAY_ACCEL_WINDOW + 1];
+static uint16_t replay_accel_rson[REPLAY_ACCEL_WINDOW + 257];
+static uint16_t replay_accel_dad[REPLAY_ACCEL_WINDOW + 1];
+static uint16_t replay_accel_char_to_sym[REPLAY_ACCEL_SYMBOL_COUNT];
+static uint16_t replay_accel_sym_to_char[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+static uint16_t replay_accel_sym_freq[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+static uint16_t replay_accel_sym_cum[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+static uint16_t replay_accel_position_cum[REPLAY_ACCEL_WINDOW + 1];
+static uint8_t replay_accel_io_buffer[REPLAY_ACCEL_IO_BUFFER_SIZE];
 static replay_user_accel_footer_t replay_accel_footer;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
@@ -510,48 +531,499 @@ static void replay_accel_raw_apply(const uint8_t far *raw)
 	);
 }
 
+struct replay_accel_bit_writer_t {
+	uint16_t packed_size;
+	uint16_t buffer_size;
+	uint8_t byte;
+	uint8_t mask;
+	bool ok;
+};
+
+struct replay_accel_bit_reader_t {
+	const uint8_t far *packed;
+	uint16_t packed_size;
+	uint16_t pos;
+	uint8_t byte;
+	uint8_t mask;
+	uint8_t synthetic_bits;
+	bool synthetic;
+	bool ok;
+};
+
+static bool replay_accel_writer_flush(replay_accel_bit_writer_t& writer)
+{
+	if(writer.buffer_size == 0) {
+		return true;
+	}
+	if(!replay_write_bytes_checked(
+		replay_accel_io_buffer, writer.buffer_size
+	)) {
+		writer.ok = false;
+		return false;
+	}
+	writer.packed_size = static_cast<uint16_t>(
+		writer.packed_size + writer.buffer_size
+	);
+	writer.buffer_size = 0;
+	return true;
+}
+
+static void replay_accel_bit_put(
+	replay_accel_bit_writer_t& writer, bool bit
+)
+{
+	if(!writer.ok) {
+		return;
+	}
+	if(bit) {
+		writer.byte |= writer.mask;
+	}
+	writer.mask >>= 1;
+	if(writer.mask != 0) {
+		return;
+	}
+	replay_accel_io_buffer[writer.buffer_size++] = writer.byte;
+	writer.byte = 0;
+	writer.mask = 0x80;
+	if(writer.buffer_size == REPLAY_ACCEL_IO_BUFFER_SIZE) {
+		(void)replay_accel_writer_flush(writer);
+	}
+}
+
+static bool replay_accel_writer_finish(replay_accel_bit_writer_t& writer)
+{
+	if(!writer.ok) {
+		return false;
+	}
+	if(writer.mask != 0x80) {
+		replay_accel_io_buffer[writer.buffer_size++] = writer.byte;
+		writer.byte = 0;
+		writer.mask = 0x80;
+	}
+	return replay_accel_writer_flush(writer);
+}
+
+static uint8_t replay_accel_bit_get(replay_accel_bit_reader_t& reader)
+{
+	if((reader.mask >>= 1) == 0) {
+		if(reader.pos < reader.packed_size) {
+			reader.byte = reader.packed[reader.pos++];
+			reader.synthetic = false;
+		} else {
+			reader.byte = 0;
+			reader.synthetic = true;
+		}
+		reader.mask = 0x80;
+	}
+	if(reader.synthetic) {
+		if(reader.synthetic_bits >= 16) {
+			reader.ok = false;
+		} else {
+			reader.synthetic_bits++;
+		}
+	}
+	return ((reader.byte & reader.mask) != 0);
+}
+
+static void replay_accel_model_start(void)
+{
+	uint16_t ch;
+	uint16_t sym;
+	uint16_t i;
+
+	replay_accel_sym_cum[REPLAY_ACCEL_SYMBOL_COUNT] = 0;
+	for(sym = REPLAY_ACCEL_SYMBOL_COUNT; sym != 0; sym--) {
+		ch = static_cast<uint16_t>(sym - 1);
+		replay_accel_char_to_sym[ch] = sym;
+		replay_accel_sym_to_char[sym] = ch;
+		replay_accel_sym_freq[sym] = 1;
+		replay_accel_sym_cum[sym - 1] = static_cast<uint16_t>(
+			replay_accel_sym_cum[sym] + 1
+		);
+	}
+	replay_accel_sym_freq[0] = 0;
+	replay_accel_position_cum[REPLAY_ACCEL_WINDOW] = 0;
+	for(i = REPLAY_ACCEL_WINDOW; i != 0; i--) {
+		replay_accel_position_cum[i - 1] = static_cast<uint16_t>(
+			replay_accel_position_cum[i] + (10000U / (i + 200U))
+		);
+	}
+}
+
+static void replay_accel_model_update(uint16_t sym)
+{
+	uint16_t c;
+	uint16_t ch_i;
+	uint16_t ch_sym;
+	uint16_t i;
+
+	if(replay_accel_sym_cum[0] >= REPLAY_ACCEL_ARITH_MAX_CUM) {
+		c = 0;
+		for(i = REPLAY_ACCEL_SYMBOL_COUNT; i != 0; i--) {
+			replay_accel_sym_cum[i] = c;
+			replay_accel_sym_freq[i] = static_cast<uint16_t>(
+				(replay_accel_sym_freq[i] + 1) >> 1
+			);
+			c = static_cast<uint16_t>(c + replay_accel_sym_freq[i]);
+		}
+		replay_accel_sym_cum[0] = c;
+	}
+	for(
+		i = sym;
+		replay_accel_sym_freq[i] == replay_accel_sym_freq[i - 1];
+		i--
+	) {
+	}
+	if(i < sym) {
+		ch_i = replay_accel_sym_to_char[i];
+		ch_sym = replay_accel_sym_to_char[sym];
+		replay_accel_sym_to_char[i] = ch_sym;
+		replay_accel_sym_to_char[sym] = ch_i;
+		replay_accel_char_to_sym[ch_i] = sym;
+		replay_accel_char_to_sym[ch_sym] = i;
+	}
+	replay_accel_sym_freq[i]++;
+	while(--i != 0) {
+		replay_accel_sym_cum[i]++;
+	}
+	replay_accel_sym_cum[0]++;
+}
+
+static void replay_accel_tree_start(void)
+{
+	uint16_t i;
+
+	for(
+		i = REPLAY_ACCEL_WINDOW + 1;
+		i <= (REPLAY_ACCEL_WINDOW + 256);
+		i++
+	) {
+		replay_accel_rson[i] = REPLAY_ACCEL_NIL;
+	}
+	for(i = 0; i < REPLAY_ACCEL_WINDOW; i++) {
+		replay_accel_dad[i] = REPLAY_ACCEL_NIL;
+	}
+}
+
+static void replay_accel_tree_insert(
+	uint16_t r, uint16_t& match_position, uint16_t& match_length
+)
+{
+	uint8_t *key = &replay_accel_text[r];
+	int16_t cmp = 1;
+	uint16_t i;
+	uint16_t p = static_cast<uint16_t>(
+		REPLAY_ACCEL_WINDOW + 1 + key[0]
+	);
+	uint16_t distance;
+
+	replay_accel_rson[r] = REPLAY_ACCEL_NIL;
+	replay_accel_lson[r] = REPLAY_ACCEL_NIL;
+	match_length = 0;
+	for(;;) {
+		if(cmp >= 0) {
+			if(replay_accel_rson[p] != REPLAY_ACCEL_NIL) {
+				p = replay_accel_rson[p];
+			} else {
+				replay_accel_rson[p] = r;
+				replay_accel_dad[r] = p;
+				return;
+			}
+		} else {
+			if(replay_accel_lson[p] != REPLAY_ACCEL_NIL) {
+				p = replay_accel_lson[p];
+			} else {
+				replay_accel_lson[p] = r;
+				replay_accel_dad[r] = p;
+				return;
+			}
+		}
+		for(i = 1; i < REPLAY_ACCEL_MATCH_MAX; i++) {
+			cmp = static_cast<int16_t>(key[i] - replay_accel_text[p + i]);
+			if(cmp != 0) {
+				break;
+			}
+		}
+		if(i >= REPLAY_ACCEL_MATCH_MIN) {
+			distance = static_cast<uint16_t>(
+				(r - p) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			if(
+				(i > match_length) ||
+				((i == match_length) && (distance < match_position))
+			) {
+				match_position = distance;
+				match_length = i;
+				if(match_length >= REPLAY_ACCEL_MATCH_MAX) {
+					break;
+				}
+			}
+		}
+	}
+	replay_accel_dad[r] = replay_accel_dad[p];
+	replay_accel_lson[r] = replay_accel_lson[p];
+	replay_accel_rson[r] = replay_accel_rson[p];
+	replay_accel_dad[replay_accel_lson[p]] = r;
+	replay_accel_dad[replay_accel_rson[p]] = r;
+	if(replay_accel_rson[replay_accel_dad[p]] == p) {
+		replay_accel_rson[replay_accel_dad[p]] = r;
+	} else {
+		replay_accel_lson[replay_accel_dad[p]] = r;
+	}
+	replay_accel_dad[p] = REPLAY_ACCEL_NIL;
+}
+
+static void replay_accel_tree_delete(uint16_t p)
+{
+	uint16_t q;
+
+	if(replay_accel_dad[p] == REPLAY_ACCEL_NIL) {
+		return;
+	}
+	if(replay_accel_rson[p] == REPLAY_ACCEL_NIL) {
+		q = replay_accel_lson[p];
+	} else if(replay_accel_lson[p] == REPLAY_ACCEL_NIL) {
+		q = replay_accel_rson[p];
+	} else {
+		q = replay_accel_lson[p];
+		if(replay_accel_rson[q] != REPLAY_ACCEL_NIL) {
+			do {
+				q = replay_accel_rson[q];
+			} while(replay_accel_rson[q] != REPLAY_ACCEL_NIL);
+			replay_accel_rson[replay_accel_dad[q]] = replay_accel_lson[q];
+			replay_accel_dad[replay_accel_lson[q]] = replay_accel_dad[q];
+			replay_accel_lson[q] = replay_accel_lson[p];
+			replay_accel_dad[replay_accel_lson[p]] = q;
+		}
+		replay_accel_rson[q] = replay_accel_rson[p];
+		replay_accel_dad[replay_accel_rson[p]] = q;
+	}
+	replay_accel_dad[q] = replay_accel_dad[p];
+	if(replay_accel_rson[replay_accel_dad[p]] == p) {
+		replay_accel_rson[replay_accel_dad[p]] = q;
+	} else {
+		replay_accel_lson[replay_accel_dad[p]] = q;
+	}
+	replay_accel_dad[p] = REPLAY_ACCEL_NIL;
+}
+
+static void replay_accel_arith_bit_and_follow(
+	replay_accel_bit_writer_t& writer, bool bit, uint16_t& pending
+)
+{
+	replay_accel_bit_put(writer, bit);
+	while(pending != 0) {
+		replay_accel_bit_put(writer, !bit);
+		pending--;
+	}
+}
+
+static void replay_accel_arith_encode_range(
+	replay_accel_bit_writer_t& writer,
+	uint32_t& low,
+	uint32_t& high,
+	uint16_t& pending,
+	uint16_t upper,
+	uint16_t lower,
+	uint16_t total
+)
+{
+	uint32_t range = high - low;
+
+	high = low + ((range * upper) / total);
+	low += ((range * lower) / total);
+	for(;;) {
+		if(high <= REPLAY_ACCEL_ARITH_Q2) {
+			replay_accel_arith_bit_and_follow(writer, false, pending);
+		} else if(low >= REPLAY_ACCEL_ARITH_Q2) {
+			replay_accel_arith_bit_and_follow(writer, true, pending);
+			low -= REPLAY_ACCEL_ARITH_Q2;
+			high -= REPLAY_ACCEL_ARITH_Q2;
+		} else if(
+			(low >= REPLAY_ACCEL_ARITH_Q1) &&
+			(high <= REPLAY_ACCEL_ARITH_Q3)
+		) {
+			pending++;
+			low -= REPLAY_ACCEL_ARITH_Q1;
+			high -= REPLAY_ACCEL_ARITH_Q1;
+		} else {
+			break;
+		}
+		low += low;
+		high += high;
+	}
+}
+
+static void replay_accel_arith_encode_symbol(
+	replay_accel_bit_writer_t& writer,
+	uint32_t& low,
+	uint32_t& high,
+	uint16_t& pending,
+	uint16_t ch
+)
+{
+	uint16_t sym = replay_accel_char_to_sym[ch];
+
+	replay_accel_arith_encode_range(
+		writer,
+		low,
+		high,
+		pending,
+		replay_accel_sym_cum[sym - 1],
+		replay_accel_sym_cum[sym],
+		replay_accel_sym_cum[0]
+	);
+	replay_accel_model_update(sym);
+}
+
+static bool replay_accel_lzari_compress(
+	const uint8_t far *raw, uint16_t& packed_size
+)
+{
+	replay_accel_bit_writer_t writer;
+	uint32_t low = 0;
+	uint32_t high = REPLAY_ACCEL_ARITH_Q4;
+	uint16_t pending = 0;
+	uint16_t raw_pos = 0;
+	uint16_t s = 0;
+	uint16_t r = REPLAY_ACCEL_WINDOW - REPLAY_ACCEL_MATCH_MAX;
+	uint16_t len = 0;
+	uint16_t i;
+	uint16_t c;
+	uint16_t last_match_length;
+	uint16_t match_position = 0;
+	uint16_t match_length = 0;
+
+	writer.packed_size = 0;
+	writer.buffer_size = 0;
+	writer.byte = 0;
+	writer.mask = 0x80;
+	writer.ok = true;
+	replay_accel_model_start();
+	replay_accel_tree_start();
+	for(i = 0; i < r; i++) {
+		replay_accel_text[i] = ' ';
+	}
+	while(
+		(len < REPLAY_ACCEL_MATCH_MAX) &&
+		(raw_pos < T3R_ACCEL_RAW_SIZE)
+	) {
+		replay_accel_text[r + len] = raw[raw_pos++];
+		len++;
+	}
+	for(i = 1; i <= REPLAY_ACCEL_MATCH_MAX; i++) {
+		replay_accel_tree_insert(
+			static_cast<uint16_t>(r - i),
+			match_position,
+			match_length
+		);
+	}
+	replay_accel_tree_insert(r, match_position, match_length);
+	do {
+		if(match_length > len) {
+			match_length = len;
+		}
+		if(match_length < REPLAY_ACCEL_MATCH_MIN) {
+			match_length = 1;
+			replay_accel_arith_encode_symbol(
+				writer,
+				low,
+				high,
+				pending,
+				replay_accel_text[r]
+			);
+		} else {
+			replay_accel_arith_encode_symbol(
+				writer,
+				low,
+				high,
+				pending,
+				static_cast<uint16_t>(
+					255 - (REPLAY_ACCEL_MATCH_MIN - 1) + match_length
+				)
+			);
+			replay_accel_arith_encode_range(
+				writer,
+				low,
+				high,
+				pending,
+				replay_accel_position_cum[match_position - 1],
+				replay_accel_position_cum[match_position],
+				replay_accel_position_cum[0]
+			);
+		}
+		if(!writer.ok) {
+			return false;
+		}
+		last_match_length = match_length;
+		for(
+			i = 0;
+			(i < last_match_length) && (raw_pos < T3R_ACCEL_RAW_SIZE);
+			i++
+		) {
+			c = raw[raw_pos++];
+			replay_accel_tree_delete(s);
+			replay_accel_text[s] = static_cast<uint8_t>(c);
+			if(s < (REPLAY_ACCEL_MATCH_MAX - 1)) {
+				replay_accel_text[s + REPLAY_ACCEL_WINDOW] = (
+					static_cast<uint8_t>(c)
+				);
+			}
+			s = static_cast<uint16_t>(
+				(s + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			r = static_cast<uint16_t>(
+				(r + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			replay_accel_tree_insert(r, match_position, match_length);
+		}
+		while(i++ < last_match_length) {
+			replay_accel_tree_delete(s);
+			s = static_cast<uint16_t>(
+				(s + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			r = static_cast<uint16_t>(
+				(r + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			if(--len != 0) {
+				replay_accel_tree_insert(
+					r, match_position, match_length
+				);
+			}
+		}
+	} while(len != 0);
+	pending++;
+	replay_accel_arith_bit_and_follow(
+		writer, (low >= REPLAY_ACCEL_ARITH_Q1), pending
+	);
+	if(!replay_accel_writer_finish(writer)) {
+		return false;
+	}
+	packed_size = writer.packed_size;
+	return writer.ok;
+}
+
 static bool replay_accel_capture(uint8_t checkpoint)
 {
 	replay_user_accel_temp_header_t header;
 	uint16_t raw_seg;
-	uint16_t hash_seg;
 	uint8_t far *raw;
-	uint16_t far *hash_heads;
-	uint16_t pos = 0;
-	uint16_t candidate;
-	uint16_t distance;
-	uint16_t match_len;
-	uint16_t group_size;
 	uint16_t packed_size = 0;
-	uint16_t hash;
-	uint8_t token;
-	uint8_t flags;
 	bool ok = false;
 
 	raw_seg = reinterpret_cast<uint16_t>(hmem_allocbyte(T3R_ACCEL_RAW_SIZE));
 	if(raw_seg == 0) {
 		return false;
 	}
-	hash_seg = reinterpret_cast<uint16_t>(
-		hmem_allocbyte(REPLAY_ACCEL_HASH_BYTES)
-	);
-	if(hash_seg == 0) {
-		hmem_free(reinterpret_cast<void __seg *>(raw_seg));
-		return false;
-	}
 	raw = reinterpret_cast<uint8_t far *>(MK_FP(raw_seg, 0));
-	hash_heads = reinterpret_cast<uint16_t far *>(MK_FP(hash_seg, 0));
 	replay_accel_raw_fill(raw);
-	for(hash = 0; hash < REPLAY_ACCEL_HASH_COUNT; hash++) {
-		hash_heads[hash] = 0xFFFF;
-	}
 	replay_memclear(&header, sizeof(header));
 	header.magic[0] = 'T';
 	header.magic[1] = '3';
 	header.magic[2] = 'C';
 	header.magic[3] = '1';
 	header.checkpoint = checkpoint;
-	header.codec = T3R_ACCEL_CODEC_LZSS4K;
+	header.codec = T3R_ACCEL_CODEC_LZARI512;
 	header.header_size = sizeof(header);
 	header.raw_size = T3R_ACCEL_RAW_SIZE;
 	header.state_hash = replay_accel_hash(raw);
@@ -563,59 +1035,8 @@ static bool replay_accel_capture(uint8_t checkpoint)
 	if(!replay_write_bytes_checked(&header, sizeof(header))) {
 		goto close;
 	}
-	while(pos < T3R_ACCEL_RAW_SIZE) {
-		flags = 0;
-		group_size = 1;
-		for(token = 0; (token < 8) && (pos < T3R_ACCEL_RAW_SIZE); token++) {
-			match_len = 0;
-			distance = 0;
-			if((pos + 2) < T3R_ACCEL_RAW_SIZE) {
-				hash = static_cast<uint16_t>(
-					(
-						(static_cast<uint16_t>(raw[pos]) * 251U) +
-						raw[pos + 1]
-					) * 251U + raw[pos + 2]
-				) & (REPLAY_ACCEL_HASH_COUNT - 1);
-				candidate = hash_heads[hash];
-				hash_heads[hash] = pos;
-				if(
-					(candidate != 0xFFFF) &&
-					((pos - candidate) <= 4095)
-				) {
-					while(
-						(match_len < REPLAY_ACCEL_MATCH_MAX) &&
-						((pos + match_len) < T3R_ACCEL_RAW_SIZE) &&
-						(raw[candidate + match_len] ==
-						 raw[pos + match_len])
-					) {
-						match_len++;
-					}
-					if(match_len >= REPLAY_ACCEL_MATCH_MIN) {
-						distance = static_cast<uint16_t>(pos - candidate);
-					} else {
-						match_len = 0;
-					}
-				}
-			}
-			if(match_len != 0) {
-				replay_accel_group[group_size++] = static_cast<uint8_t>(
-					distance
-				);
-				replay_accel_group[group_size++] = static_cast<uint8_t>(
-					((distance >> 8) << 4) |
-					(match_len - REPLAY_ACCEL_MATCH_MIN)
-				);
-				pos += match_len;
-			} else {
-				flags |= (1 << token);
-				replay_accel_group[group_size++] = raw[pos++];
-			}
-		}
-		replay_accel_group[0] = flags;
-		if(!replay_write_bytes_checked(replay_accel_group, group_size)) {
-			goto close;
-		}
-		packed_size = static_cast<uint16_t>(packed_size + group_size);
+	if(!replay_accel_lzari_compress(raw, packed_size)) {
+		goto close;
 	}
 	header.packed_size = packed_size;
 	file_seek(0, SEEK_SET);
@@ -626,7 +1047,6 @@ close:
 		replay_accel_file_delete(T3_ACCEL_TEMP_FN);
 	}
 cleanup:
-	hmem_free(reinterpret_cast<void __seg *>(hash_seg));
 	hmem_free(reinterpret_cast<void __seg *>(raw_seg));
 	return ok;
 }
@@ -652,7 +1072,7 @@ static bool replay_accel_footer_valid(void)
 	);
 }
 
-static bool replay_accel_decompress(
+static bool replay_accel_lzss_decompress(
 	const uint8_t far *packed,
 	uint16_t packed_size,
 	uint8_t far *raw
@@ -712,6 +1132,209 @@ static bool replay_accel_decompress(
 	return (in == packed_size);
 }
 
+static uint16_t replay_accel_symbol_find(uint32_t scaled)
+{
+	uint16_t lo = 1;
+	uint16_t hi = REPLAY_ACCEL_SYMBOL_COUNT;
+	uint16_t mid;
+
+	while(lo < hi) {
+		mid = static_cast<uint16_t>((lo + hi) >> 1);
+		if(replay_accel_sym_cum[mid] > scaled) {
+			lo = static_cast<uint16_t>(mid + 1);
+		} else {
+			hi = mid;
+		}
+	}
+	return lo;
+}
+
+static uint16_t replay_accel_position_find(uint32_t scaled)
+{
+	uint16_t lo = 1;
+	uint16_t hi = REPLAY_ACCEL_WINDOW;
+	uint16_t mid;
+
+	while(lo < hi) {
+		mid = static_cast<uint16_t>((lo + hi) >> 1);
+		if(replay_accel_position_cum[mid] > scaled) {
+			lo = static_cast<uint16_t>(mid + 1);
+		} else {
+			hi = mid;
+		}
+	}
+	return static_cast<uint16_t>(lo - 1);
+}
+
+static void replay_accel_arith_decode_range(
+	replay_accel_bit_reader_t& reader,
+	uint32_t& low,
+	uint32_t& high,
+	uint32_t& value,
+	uint16_t upper,
+	uint16_t lower,
+	uint16_t total
+)
+{
+	uint32_t range = high - low;
+
+	high = low + ((range * upper) / total);
+	low += ((range * lower) / total);
+	for(;;) {
+		if(low >= REPLAY_ACCEL_ARITH_Q2) {
+			value -= REPLAY_ACCEL_ARITH_Q2;
+			low -= REPLAY_ACCEL_ARITH_Q2;
+			high -= REPLAY_ACCEL_ARITH_Q2;
+		} else if(
+			(low >= REPLAY_ACCEL_ARITH_Q1) &&
+			(high <= REPLAY_ACCEL_ARITH_Q3)
+		) {
+			value -= REPLAY_ACCEL_ARITH_Q1;
+			low -= REPLAY_ACCEL_ARITH_Q1;
+			high -= REPLAY_ACCEL_ARITH_Q1;
+		} else if(high > REPLAY_ACCEL_ARITH_Q2) {
+			break;
+		}
+		low += low;
+		high += high;
+		value = (
+			(value << 1) |
+			replay_accel_bit_get(reader)
+		);
+	}
+}
+
+static uint16_t replay_accel_arith_decode_symbol(
+	replay_accel_bit_reader_t& reader,
+	uint32_t& low,
+	uint32_t& high,
+	uint32_t& value
+)
+{
+	uint32_t range = high - low;
+	uint32_t scaled = (
+		(((value - low + 1) * replay_accel_sym_cum[0]) - 1) /
+		range
+	);
+	uint16_t sym = replay_accel_symbol_find(scaled);
+	uint16_t ch = replay_accel_sym_to_char[sym];
+
+	replay_accel_arith_decode_range(
+		reader,
+		low,
+		high,
+		value,
+		replay_accel_sym_cum[sym - 1],
+		replay_accel_sym_cum[sym],
+		replay_accel_sym_cum[0]
+	);
+	replay_accel_model_update(sym);
+	return ch;
+}
+
+static bool replay_accel_lzari_decompress(
+	const uint8_t far *packed,
+	uint16_t packed_size,
+	uint8_t far *raw
+)
+{
+	replay_accel_bit_reader_t reader;
+	uint32_t low = 0;
+	uint32_t high = REPLAY_ACCEL_ARITH_Q4;
+	uint32_t value = 0;
+	uint32_t range;
+	uint32_t scaled;
+	uint16_t out = 0;
+	uint16_t r = REPLAY_ACCEL_WINDOW - REPLAY_ACCEL_MATCH_MAX;
+	uint16_t ch;
+	uint16_t distance;
+	uint16_t source;
+	uint16_t match_length;
+	uint16_t history_valid = REPLAY_ACCEL_MATCH_MAX;
+	uint16_t i;
+
+	reader.packed = packed;
+	reader.packed_size = packed_size;
+	reader.pos = 0;
+	reader.byte = 0;
+	reader.mask = 0;
+	reader.synthetic_bits = 0;
+	reader.synthetic = false;
+	reader.ok = true;
+	for(i = 0; i < 17; i++) {
+		value = (
+			(value << 1) |
+			replay_accel_bit_get(reader)
+		);
+	}
+	replay_accel_model_start();
+	for(i = 0; i < r; i++) {
+		replay_accel_text[i] = ' ';
+	}
+	while(out < T3R_ACCEL_RAW_SIZE) {
+		ch = replay_accel_arith_decode_symbol(reader, low, high, value);
+		if(ch < 256) {
+			raw[out++] = static_cast<uint8_t>(ch);
+			replay_accel_text[r] = static_cast<uint8_t>(ch);
+			r = static_cast<uint16_t>(
+				(r + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			if(history_valid < REPLAY_ACCEL_WINDOW) {
+				history_valid++;
+			}
+			continue;
+		}
+		match_length = static_cast<uint16_t>(
+			ch - 255 + (REPLAY_ACCEL_MATCH_MIN - 1)
+		);
+		if(
+			(match_length < REPLAY_ACCEL_MATCH_MIN) ||
+			(match_length > REPLAY_ACCEL_MATCH_MAX) ||
+			((out + match_length) > T3R_ACCEL_RAW_SIZE)
+		) {
+			return false;
+		}
+		range = high - low;
+		scaled = (
+			(((value - low + 1) * replay_accel_position_cum[0]) - 1) /
+			range
+		);
+		distance = replay_accel_position_find(scaled);
+		if(distance >= history_valid) {
+			return false;
+		}
+		replay_accel_arith_decode_range(
+			reader,
+			low,
+			high,
+			value,
+			replay_accel_position_cum[distance],
+			replay_accel_position_cum[distance + 1],
+			replay_accel_position_cum[0]
+		);
+		source = static_cast<uint16_t>(
+			(r - distance - 1) & REPLAY_ACCEL_WINDOW_MASK
+		);
+		for(i = 0; i < match_length; i++) {
+			ch = replay_accel_text[
+				(source + i) & REPLAY_ACCEL_WINDOW_MASK
+			];
+			raw[out++] = static_cast<uint8_t>(ch);
+			replay_accel_text[r] = static_cast<uint8_t>(ch);
+			r = static_cast<uint16_t>(
+				(r + 1) & REPLAY_ACCEL_WINDOW_MASK
+			);
+			if(history_valid < REPLAY_ACCEL_WINDOW) {
+				history_valid++;
+			}
+		}
+	}
+	return (
+		reader.ok &&
+		(reader.pos == reader.packed_size)
+	);
+}
+
 static bool replay_accel_prepare(uint8_t checkpoint)
 {
 	replay_user_accel_desc_t far *desc = 0;
@@ -763,7 +1386,10 @@ static bool replay_accel_prepare(uint8_t checkpoint)
 				desc->checkpoint
 			 ] >> 4) == 0
 		) ||
-		(desc->codec != T3R_ACCEL_CODEC_LZSS4K) ||
+		(
+			(desc->codec != T3R_ACCEL_CODEC_LZSS4K) &&
+			(desc->codec != T3R_ACCEL_CODEC_LZARI512)
+		) ||
 		(desc->raw_size != T3R_ACCEL_RAW_SIZE) ||
 		(desc->packed_size == 0) ||
 		(desc->packed_size > 0xFFF0UL) ||
@@ -794,8 +1420,23 @@ static bool replay_accel_prepare(uint8_t checkpoint)
 		goto close;
 	}
 	if(
-		!replay_accel_decompress(
-			packed, static_cast<uint16_t>(desc->packed_size), raw
+		!(
+			(
+				(desc->codec == T3R_ACCEL_CODEC_LZSS4K) &&
+				replay_accel_lzss_decompress(
+					packed,
+					static_cast<uint16_t>(desc->packed_size),
+					raw
+				)
+			) ||
+			(
+				(desc->codec == T3R_ACCEL_CODEC_LZARI512) &&
+				replay_accel_lzari_decompress(
+					packed,
+					static_cast<uint16_t>(desc->packed_size),
+					raw
+				)
+			)
 		) ||
 		(replay_accel_hash(raw) != desc->state_hash)
 	) {
@@ -5823,4 +6464,4 @@ static void replay_user_carry_chains_restore(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
