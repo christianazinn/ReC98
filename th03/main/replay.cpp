@@ -292,6 +292,54 @@ static void replay_preroll_audio_mask(bool mask)
 	}
 }
 
+static bool replay_preroll_startup_requested(void)
+{
+	return (
+		(replay_resident_mode() == REPLAY_USER_PLAYBACK) &&
+		replay_preroll_simulating()
+	);
+}
+
+static void replay_preroll_hardware_hide(void)
+{
+	asm {
+		mov	ah, 41h
+		int	18h
+		mov	ah, 0Dh
+		int	18h
+	}
+	TextShown = false;
+}
+
+static void replay_preroll_hardware_show(void)
+{
+	asm {
+		mov	ah, 40h
+		int	18h
+		mov	ah, 0Ch
+		int	18h
+	}
+	TextShown = true;
+}
+
+void far replay_preroll_startup_mask(void)
+{
+	if(!replay_preroll_startup_requested()) {
+		return;
+	}
+	replay_preroll_audio_mask(true);
+	replay_preroll_hardware_hide();
+}
+
+static void replay_preroll_startup_unmask(void)
+{
+	if(!replay_preroll_startup_requested()) {
+		return;
+	}
+	replay_preroll_hardware_show();
+	replay_preroll_audio_mask(false);
+}
+
 static void replay_preroll_render_suppress(void)
 {
 	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
@@ -302,18 +350,21 @@ static void replay_preroll_render_suppress(void)
 	uint8_t far *points = reinterpret_cast<uint8_t far *>(
 		hud_dynamic_5_digit_points_put
 	);
+	uint8_t far *player = replay_main_01_entry(FP_OFF(player_render));
+	uint8_t far *overlay = replay_main_01_entry(FP_OFF(player_overlay_render));
 
 	// Keep the global SPRITE16 vector valid even if MAIN crashes during preroll.
 	// These process-local entry stubs are restored before the target round.
+	// Parameterized Pascal callees must still remove their arguments.
 	put[0] = 0xCA; put[1] = 6; put[2] = 0;
 	putx[0] = 0xCA; putx[1] = 8; putx[2] = 0;
 	noclip[0] = 0xCA; noclip[1] = 6; noclip[2] = 0;
 	enemy[0] = 0xCB;
 	bullet[0] = 0xCB;
-	points[0] = 0xCB;
+	points[0] = 0xCA; points[1] = 8; points[2] = 0;
 	replay_main_01_entry(FP_OFF(hitcircles_render))[0] = 0xC3;
-	replay_main_01_entry(FP_OFF(player_render))[0] = 0xC3;
-	replay_main_01_entry(FP_OFF(player_overlay_render))[0] = 0xC3;
+	player[0] = 0xC2; player[1] = 2; player[2] = 0;
+	overlay[0] = 0xC2; overlay[1] = 2; overlay[2] = 0;
 	replay_main_01_entry(FP_OFF(sub_C830))[0] = 0xC3;
 	replay_main_01_entry(FP_OFF(sub_C8C4))[0] = 0xC3;
 	replay_main_01_entry(FP_OFF(SUB_D50E))[0] = 0xC3;
@@ -329,16 +380,18 @@ static void replay_preroll_render_restore(void)
 	uint8_t far *points = reinterpret_cast<uint8_t far *>(
 		hud_dynamic_5_digit_points_put
 	);
+	uint8_t far *player = replay_main_01_entry(FP_OFF(player_render));
+	uint8_t far *overlay = replay_main_01_entry(FP_OFF(player_overlay_render));
 
 	put[0] = 0x55; put[1] = 0x8B; put[2] = 0xEC;
 	putx[0] = 0x55; putx[1] = 0x8B; putx[2] = 0xEC;
 	noclip[0] = 0x55; noclip[1] = 0x8B; noclip[2] = 0xEC;
 	enemy[0] = 0x55;
 	bullet[0] = 0x55;
-	points[0] = 0x55;
+	points[0] = 0x55; points[1] = 0x8B; points[2] = 0xEC;
 	replay_main_01_entry(FP_OFF(hitcircles_render))[0] = 0xC8;
-	replay_main_01_entry(FP_OFF(player_render))[0] = 0x55;
-	replay_main_01_entry(FP_OFF(player_overlay_render))[0] = 0x55;
+	player[0] = 0x55; player[1] = 0x8B; player[2] = 0xEC;
+	overlay[0] = 0x55; overlay[1] = 0x8B; overlay[2] = 0xEC;
 	replay_main_01_entry(FP_OFF(sub_C830))[0] = 0x55;
 	replay_main_01_entry(FP_OFF(sub_C8C4))[0] = 0xC8;
 	replay_main_01_entry(FP_OFF(SUB_D50E))[0] = 0x56;
@@ -348,25 +401,13 @@ static void replay_preroll_display_hide(void)
 {
 	replay_preroll_render_suppress();
 	replay_preroll_audio_mask(true);
-	asm {
-		mov	ah, 41h
-		int	18h
-		mov	ah, 0Dh
-		int	18h
-	}
-	TextShown = false;
+	replay_preroll_hardware_hide();
 }
 
 static void replay_preroll_display_show(void)
 {
 	replay_preroll_render_restore();
-	asm {
-		mov	ah, 40h
-		int	18h
-		mov	ah, 0Ch
-		int	18h
-	}
-	TextShown = true;
+	replay_preroll_hardware_show();
 	replay_preroll_audio_mask(false);
 }
 
@@ -3837,9 +3878,10 @@ static bool16 replay_pause_gaiji_load(void)
 
 void far replay_session_start(void)
 {
-	language_main_apply();
 	uint8_t playback_stage;
 
+	replay_preroll_startup_mask();
+	language_main_apply();
 	if(menu_font_load(aCOul) && !replay_pause_gaiji_load()) {
 		menu_font_free();
 	}
@@ -3948,6 +3990,7 @@ void far replay_session_start(void)
 		}
 	} else if(replay_mode == REPLAY_USER_PLAYBACK) {
 		if(!replay_user_read()) {
+			replay_preroll_startup_unmask();
 			replay_mode = REPLAY_ERROR;
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;
@@ -3957,6 +4000,7 @@ void far replay_session_start(void)
 			(players[0].cpu_safety_frames !=
 			 replay_user_header.scenario.practice.config.initial_cpu_safety_frames)
 		) {
+			replay_preroll_startup_unmask();
 			replay_mode = REPLAY_ERROR;
 			replay_done_write(RTX_ERROR_USER_HEADER);
 			return;
@@ -3972,6 +4016,7 @@ void far replay_session_start(void)
 				) ||
 				!replay_user_checkpoint_snapshot_read(playback_stage)
 			) {
+				replay_preroll_startup_unmask();
 				replay_mode = REPLAY_ERROR;
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
@@ -3985,6 +4030,7 @@ void far replay_session_start(void)
 			);
 			replay_user_snapshot_restore_resident();
 			if(!replay_user_snapshot_restore_runtime()) {
+				replay_preroll_startup_unmask();
 				replay_mode = REPLAY_ERROR;
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
@@ -4015,6 +4061,9 @@ void far replay_session_start(void)
 				resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
 			) {
 				replay_preroll_display_hide();
+			} else {
+				replay_preroll_hardware_show();
+				replay_preroll_audio_mask(false);
 			}
 		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
@@ -5060,9 +5109,9 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

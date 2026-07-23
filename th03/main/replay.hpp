@@ -10,6 +10,7 @@
 #define REPLAY_PAUSE_DISCARD_EXIT 3
 
 void far replay_round_reset_seed_capture(void);
+void far replay_preroll_startup_mask(void);
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);

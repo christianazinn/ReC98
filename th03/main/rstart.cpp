@@ -72,6 +72,7 @@ extern "C" void pascal near round_startup(void)
 	register int i;
 	register player_stuff_t near *p;
 
+	replay_preroll_startup_mask();
 	random_seed = resident->rand;
 	text_fillca(' ', (TX_BLACK | TX_REVERSE));
 	graph_copy_page(0);
@@ -255,6 +256,6 @@ extern "C" void pascal near round_startup(void)
 }
 
 // Keep all following PLAYFLD_TEXT code at its accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 
 #undef nopcall_noarg

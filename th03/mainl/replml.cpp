@@ -55,6 +55,7 @@ static uint16_t replay_rle_input_mp_p2;
 static uint16_t replay_rle_input_sp;
 static bool replay_paths_initialized;
 static bool replay_rle_packet_open;
+extern "C" unsigned int TextShown;
 
 static bool mainl_replay_preroll_active(void)
 {
@@ -90,6 +91,30 @@ static void mainl_replay_preroll_audio_mask(bool mask)
 	asm { pushf; cli; }
 	mainl_replay_preroll_audio_mask_raw(mask);
 	asm { popf; }
+}
+
+static void mainl_replay_preroll_display_hide(void)
+{
+	mainl_replay_preroll_audio_mask(true);
+	asm {
+		mov	ah, 41h
+		int	18h
+		mov	ah, 0Dh
+		int	18h
+	}
+	TextShown = false;
+}
+
+static void mainl_replay_preroll_display_show(void)
+{
+	asm {
+		mov	ah, 40h
+		int	18h
+		mov	ah, 0Ch
+		int	18h
+	}
+	TextShown = true;
+	mainl_replay_preroll_audio_mask(false);
 }
 
 static void mainl_replay_preroll_audio_refresh(void)
@@ -1157,7 +1182,7 @@ static void mainl_replay_frame_io(void)
 	if(!ok) {
 		if(mainl_replay_mode == MR_USER_PLAYBACK) {
 			if(mainl_replay_preroll_active()) {
-				mainl_replay_preroll_audio_mask(false);
+				mainl_replay_preroll_display_show();
 			}
 			resident->game_mode = GM_NONE;
 		}
@@ -1242,13 +1267,13 @@ void far mainl_replay_session_start(void)
 	mainl_replay_paths_init();
 	if(!mainl_replay_user_header_read()) {
 		if(mainl_replay_preroll_active()) {
-			mainl_replay_preroll_audio_mask(false);
+			mainl_replay_preroll_display_show();
 		}
 		mainl_replay_mode = MR_ERROR;
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		resident->autofire = replay_user_header.autofire;
 		if(mainl_replay_preroll_active()) {
-			mainl_replay_preroll_audio_mask(true);
+			mainl_replay_preroll_display_hide();
 		}
 	}
 }
@@ -1270,7 +1295,7 @@ void far mainl_replay_input_mode_interface(void)
 	if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		if(physical_input_sp & INPUT_CANCEL) {
 			if(mainl_replay_preroll_active()) {
-				mainl_replay_preroll_audio_mask(false);
+				mainl_replay_preroll_display_show();
 			}
 			resident->game_mode = GM_NONE;
 			mainl_replay_handoff_clear();
@@ -1343,7 +1368,7 @@ void far mainl_replay_transition_finish(void)
 	if(!ok) {
 		if(mode == MR_USER_PLAYBACK) {
 			if(mainl_replay_preroll_active()) {
-				mainl_replay_preroll_audio_mask(false);
+				mainl_replay_preroll_display_show();
 			}
 			resident->game_mode = GM_NONE;
 			mainl_replay_handoff_clear();
@@ -1419,7 +1444,7 @@ bool far mainl_replay_finish(
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		(void)end_reason;
 		if(mainl_replay_preroll_active()) {
-			mainl_replay_preroll_audio_mask(false);
+			mainl_replay_preroll_display_show();
 		}
 		resident->game_mode = GM_NONE;
 	}
@@ -1465,4 +1490,4 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared runtime segment at its accepted near-offset phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
