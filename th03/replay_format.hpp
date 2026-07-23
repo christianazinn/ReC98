@@ -5,7 +5,8 @@
 #include "th03/resident.hpp"
 
 #define T3_REPLAY_USER_VERSION_LEGACY 11
-#define T3_REPLAY_USER_VERSION 12
+#define T3_REPLAY_USER_VERSION_ROUND_V12 12
+#define T3_REPLAY_USER_VERSION 13
 #define T3_REPLAY_USER_INDEX_VERSION 7
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
@@ -286,21 +287,45 @@ typedef char replay_user_round_state_size_check[
 	(sizeof(replay_user_round_state_t) == 30) ? 1 : -1
 ];
 
+// State that the native retry path intentionally leaves live across rounds.
+// Omitting this from V12 made a fresh-process round start diverge even though
+// its RNG rings and recorded inputs were restored correctly.
+struct replay_user_round_carry_t {
+	uint8_t cpu_dodge_strategy[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t human_movement_last[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t spell_ready_frames[T3_REPLAY_USER_PLAYER_COUNT];
+	uint16_t combo_bonus_max[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t combo_hits_max[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t shot_cycle[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t boss_panic_fired[T3_REPLAY_USER_PLAYER_COUNT];
+	uint8_t gba_flag_next[T3_REPLAY_USER_PLAYER_COUNT];
+	int8_t cpu_shot_decision;
+	uint8_t reserved;
+};
+
+typedef char replay_user_round_carry_size_check[
+	(sizeof(replay_user_round_carry_t) == 22) ? 1 : -1
+];
+
 #define T3R_STAGE_CKPT_PREFIX_SIZE 12
 #define T3R_STAGE_CKPT_V11_SIZE ( \
 	T3R_STAGE_CKPT_PREFIX_SIZE + \
 	sizeof(replay_user_snapshot_t) \
 )
-#define T3R_STAGE_CKPT_SIZE ( \
+#define T3R_STAGE_CKPT_V12_SIZE ( \
 	T3R_STAGE_CKPT_V11_SIZE + \
 	sizeof(replay_user_round_state_t) \
+)
+#define T3R_STAGE_CKPT_SIZE ( \
+	T3R_STAGE_CKPT_V12_SIZE + \
+	sizeof(replay_user_round_carry_t) \
 )
 #define T3R_STAGE_CKPTS_V11_SIZE ( \
 	T3_REPLAY_USER_STAGE_COUNT * T3R_STAGE_CKPT_V11_SIZE \
 )
 
 typedef char replay_user_checkpoint_size_check[
-	(T3R_STAGE_CKPT_SIZE == 1024) ? 1 : -1
+	(T3R_STAGE_CKPT_SIZE == 1046) ? 1 : -1
 ];
 
 inline uint8_t replay_user_checkpoint_capacity(
@@ -327,10 +352,14 @@ inline uint32_t replay_user_checkpoint_reservation_size(
 				static_cast<uint32_t>(T3R_STAGE_CKPT_V11_SIZE)
 		);
 	}
+	uint16_t checkpoint_size = (
+		(version == T3_REPLAY_USER_VERSION_ROUND_V12) ?
+			T3R_STAGE_CKPT_V12_SIZE : T3R_STAGE_CKPT_SIZE
+	);
 	return (
 		static_cast<uint32_t>(
 			replay_user_checkpoint_capacity(game_mode, flags)
-		) * static_cast<uint32_t>(T3R_STAGE_CKPT_SIZE)
+		) * static_cast<uint32_t>(checkpoint_size)
 	);
 }
 
@@ -345,21 +374,30 @@ inline uint16_t replay_user_summary_ext_size(uint16_t version)
 
 inline uint16_t replay_user_checkpoint_size(uint16_t version)
 {
-	return (
-		(version == T3_REPLAY_USER_VERSION_LEGACY) ?
-			T3R_STAGE_CKPT_V11_SIZE : T3R_STAGE_CKPT_SIZE
-	);
+	if(version == T3_REPLAY_USER_VERSION_LEGACY) {
+		return T3R_STAGE_CKPT_V11_SIZE;
+	}
+	if(version == T3_REPLAY_USER_VERSION_ROUND_V12) {
+		return T3R_STAGE_CKPT_V12_SIZE;
+	}
+	return T3R_STAGE_CKPT_SIZE;
 }
 
 inline bool replay_user_version_supported(uint16_t version)
 {
 	return (
 		(version == T3_REPLAY_USER_VERSION_LEGACY) ||
+		(version == T3_REPLAY_USER_VERSION_ROUND_V12) ||
 		(version == T3_REPLAY_USER_VERSION)
 	);
 }
 
-inline bool replay_user_version_is_current(uint16_t version)
+inline bool replay_user_version_has_round_state(uint16_t version)
+{
+	return (version != T3_REPLAY_USER_VERSION_LEGACY);
+}
+
+inline bool replay_user_version_has_round_carry(uint16_t version)
 {
 	return (version == T3_REPLAY_USER_VERSION);
 }

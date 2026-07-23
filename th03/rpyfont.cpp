@@ -637,7 +637,7 @@ static uint8_t checkpoint_count(void)
 {
 	uint8_t count;
 
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		return replay_user_menu_summary_ext.checkpoint_count;
 	}
 	if(replay_user_menu_header.game_mode == GM_STORY) {
@@ -652,7 +652,7 @@ static uint8_t checkpoint_count(void)
 
 static uint8_t checkpoint_stage_round(uint8_t checkpoint)
 {
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		return replay_user_menu_summary_ext.checkpoint_stage_round[checkpoint];
 	}
 	if(replay_user_menu_header.game_mode == GM_STORY) {
@@ -1104,7 +1104,7 @@ static void round_splits_put(uint8_t selected, bool focus)
 
 	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
-	if(!replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(!replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		round_splits_legacy_put(focus);
 		return;
 	}

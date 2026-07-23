@@ -551,7 +551,7 @@ static bool replay_user_read_for_menu(const char *fn)
 		return false;
 	}
 	if(
-		replay_user_version_is_current(replay_user_menu_header.version) &&
+		replay_user_version_has_round_state(replay_user_menu_header.version) &&
 		(
 			(replay_user_menu_summary_ext.checkpoint_count == 0) ||
 			(replay_user_menu_summary_ext.checkpoint_count >
@@ -578,7 +578,7 @@ static bool replay_user_read_for_menu(const char *fn)
 		file_close();
 		return false;
 	}
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		if(
 			file_read(
 				&round_state, sizeof(round_state)
@@ -608,7 +608,7 @@ static bool replay_user_checkpoint_read_for_menu(
 	uint8_t stage;
 	replay_user_round_state_t round_state;
 
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		if(checkpoint >= replay_user_menu_summary_ext.checkpoint_count) {
 			return false;
 		}
@@ -653,7 +653,7 @@ static bool replay_user_checkpoint_read_for_menu(
 		file_close();
 		return false;
 	}
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		if(
 			file_read(
 				&round_state, sizeof(round_state)
@@ -676,7 +676,7 @@ static bool replay_user_checkpoint_read_for_menu(
 	if(replay_user_menu_header.game_mode == GM_STORY) {
 		return (replay_user_menu_snapshot.story_stage == stage);
 	}
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		return (round_state.round_id == (stage_round >> 4));
 	}
 	return true;
@@ -703,7 +703,13 @@ static uint8_t replay_user_checkpoint_count_for_menu(void)
 {
 	uint8_t count;
 
-	if(replay_user_version_is_current(replay_user_menu_header.version)) {
+	// V12 never recorded the native retry state required for deterministic
+	// later-round starts. Keep its split history visible, but only its first
+	// checkpoint selectable.
+	if(replay_user_menu_header.version == T3_REPLAY_USER_VERSION_ROUND_V12) {
+		return 1;
+	}
+	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		return replay_user_menu_summary_ext.checkpoint_count;
 	}
 	if(replay_user_menu_header.game_mode == GM_STORY) {
@@ -3820,7 +3826,7 @@ bool near replay_menu(void)
 					} else
 					if(replay_user_read_slot_for_menu(sel)) {
 						if(
-							replay_user_version_is_current(
+							replay_user_version_has_round_state(
 								replay_user_menu_header.version
 							) ||
 							(!replay_menu_vs() && !replay_menu_practice())
@@ -4017,7 +4023,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4686,7 +4692,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
@@ -4710,10 +4716,5 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------
