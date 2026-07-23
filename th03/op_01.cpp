@@ -703,12 +703,6 @@ static uint8_t replay_user_checkpoint_count_for_menu(void)
 {
 	uint8_t count;
 
-	// V12 never recorded the native retry state required for deterministic
-	// later-round starts. Keep its split history visible, but only its first
-	// checkpoint selectable.
-	if(replay_user_menu_header.version == T3_REPLAY_USER_VERSION_ROUND_V12) {
-		return 1;
-	}
 	if(replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		return replay_user_menu_summary_ext.checkpoint_count;
 	}
@@ -4023,7 +4017,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
+	TITLE_CREDIT_QUAD(5, 0x20356372UL); // "rc5 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4717,4 +4711,8 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

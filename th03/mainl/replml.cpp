@@ -1396,3 +1396,4 @@ void far mainl_replay_exit_to_main(void)
 
 // Keep the following shared runtime segment at its accepted near-offset phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"

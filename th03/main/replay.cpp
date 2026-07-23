@@ -12,6 +12,8 @@
 #include "th03/main/difficul.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/main/player/cpu.hpp"
+#include "th03/main/player/chain.hpp"
+#include "th03/main/player/combo.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
@@ -189,6 +191,8 @@ static void replay_user_sample_commit(void);
 static bool replay_user_header_is_rle(void);
 static bool replay_user_play_sample(void);
 static bool replay_user_play_interstitial_sample(void);
+static void replay_user_carry_chains_fill(void);
+static void replay_user_carry_chains_restore(void);
 
 static void replay_memclear(void far *buf, unsigned size)
 {
@@ -1242,6 +1246,9 @@ static uint32_t replay_state_hash(void)
 	hash = replay_hash_u8(hash, byte_20E48);
 	hash = replay_hash_u8(hash, boss_panic_fired_in_current_combo[0]);
 	hash = replay_hash_u8(hash, boss_panic_fired_in_current_combo[1]);
+	hash = replay_hash_bytes(hash, combos, sizeof(combos));
+	hash = replay_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
+	hash = replay_hash_bytes(hash, &chains, sizeof(chains));
 	hash = replay_hash_u32(hash, random_seed);
 	return hash;
 }
@@ -1473,6 +1480,7 @@ static void replay_user_round_carry_fill(void)
 		replay_user_round_carry.gba_flag_next[i] = gba_flag_next[i];
 	}
 	replay_user_round_carry.cpu_shot_decision = byte_20E48;
+	replay_user_carry_chains_fill();
 }
 
 static void replay_user_header_fill(
@@ -1488,7 +1496,7 @@ static void replay_user_header_fill(
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
 		replay_user_header.magic[6] = '1';
-		replay_user_header.magic[7] = '3';
+		replay_user_header.magic[7] = '2';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
 		replay_user_header.header_size = replay_user_header_size(
 			T3_REPLAY_USER_VERSION
@@ -2055,6 +2063,7 @@ static void replay_user_round_carry_restore(void)
 		);
 	}
 	byte_20E48 = replay_user_round_carry.cpu_shot_decision;
+	replay_user_carry_chains_restore();
 }
 
 static bool replay_user_create(void)
@@ -3361,14 +3370,6 @@ void far replay_session_start(void)
 		playback_stage = replay_handoff_u8(
 			T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX
 		);
-		if(
-			(replay_user_header.version == T3_REPLAY_USER_VERSION_ROUND_V12) &&
-			(playback_stage > 1)
-		) {
-			replay_mode = REPLAY_ERROR;
-			replay_done_write(RTX_ERROR_USER_HEADER);
-			return;
-		}
 		if(playback_stage != 0) {
 			playback_stage--;
 			if(
@@ -4346,6 +4347,66 @@ void far replay_finish(uint8_t route)
 	replay_mode = REPLAY_DISABLED;
 }
 
+// These loops live after all offset-sensitive replay entry points. They copy
+// state that ZUN's native retry path leaves live between rounds.
+static void replay_user_carry_chains_fill(void)
+{
+	int i;
+	int slot;
+
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		replay_user_round_carry.combo_time[i] = combos[i].time;
+		replay_user_round_carry.combo_hits_highest[i] = (
+			combos[i].hits_highest
+		);
+		replay_user_round_carry.combo_bonus_total[i] = combos[i].bonus_total;
+		replay_user_round_carry.chain_ring_p[i] = chain_ring_p[i];
+		for(slot = 0; slot < CHAIN_RING_SIZE; slot++) {
+			replay_user_round_carry.chain_hits[i][slot] = (
+				chains.hits[i][slot]
+			);
+			replay_user_round_carry.chain_pellet_and_fireball_value[i][slot] = (
+				chains.pellet_and_fireball_value[i][slot]
+			);
+			replay_user_round_carry.chain_charge_fireball[i][slot] = (
+				chains.charge_fireball[i][slot]
+			);
+			replay_user_round_carry.chain_charge_exatt[i][slot] = (
+				chains.charge_exatt[i][slot]
+			);
+		}
+	}
+}
+
+static void replay_user_carry_chains_restore(void)
+{
+	int i;
+	int slot;
+
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		combos[i].time = replay_user_round_carry.combo_time[i];
+		combos[i].hits_highest = (
+			replay_user_round_carry.combo_hits_highest[i]
+		);
+		combos[i].bonus_total = replay_user_round_carry.combo_bonus_total[i];
+		chain_ring_p[i] = replay_user_round_carry.chain_ring_p[i];
+		for(slot = 0; slot < CHAIN_RING_SIZE; slot++) {
+			chains.hits[i][slot] = (
+				replay_user_round_carry.chain_hits[i][slot]
+			);
+			chains.pellet_and_fireball_value[i][slot] = (
+				replay_user_round_carry.chain_pellet_and_fireball_value[i][slot]
+			);
+			chains.charge_fireball[i][slot] = (
+				replay_user_round_carry.chain_charge_fireball[i][slot]
+			);
+			chains.charge_exatt[i][slot] = (
+				replay_user_round_carry.chain_charge_exatt[i][slot]
+			);
+		}
+	}
+}
+
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4353,4 +4414,4 @@ void far replay_finish(uint8_t route)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
