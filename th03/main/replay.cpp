@@ -192,6 +192,7 @@ extern uint8_t __seg *formation_pos_type_ring;
 extern uint8_t formation_count;
 extern farfunc_t_near farfp_20F24;
 extern nearfunc_t_near fp_1FBC0;
+extern "C" unsigned int TextShown;
 
 extern "C" void pascal far sub_D1E7(void);
 extern "C" void pascal far sub_D3F9(void);
@@ -244,6 +245,28 @@ static void replay_memclear(void far *buf, unsigned size)
 	}
 }
 
+static void replay_preroll_display_hide(void)
+{
+	asm {
+		mov	ah, 41h
+		int	18h
+		mov	ah, 0Dh
+		int	18h
+	}
+	TextShown = false;
+}
+
+static void replay_preroll_display_show(void)
+{
+	asm {
+		mov	ah, 40h
+		int	18h
+		mov	ah, 0Ch
+		int	18h
+	}
+	TextShown = true;
+}
+
 void far replay_round_reset_seed_capture(void)
 {
 	replay_header.reserved_2 = random_seed;
@@ -268,6 +291,14 @@ static void replay_fast_forward_wait_skip(bool held)
 {
 	uint8_t phase;
 
+	if(
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
+		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0)
+	) {
+		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
+		vsync_Count1 = byte_23AF9;
+		return;
+	}
 	if(
 		!held ||
 		(
@@ -3481,6 +3512,9 @@ static void replay_resident_handoff_clear(void)
 {
 	int i;
 
+	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+		replay_preroll_display_show();
+	}
 	resident->unused_3[0] = 0;
 	resident->unused_3[1] = 0;
 	resident->unused_3[2] = 0;
@@ -3807,6 +3841,22 @@ void far replay_session_start(void)
 			replay_state_probe_pending = true;
 #endif
 			resident->unused_3[T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX] = 0;
+			if(
+				(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) &&
+				(
+					(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] >
+					 replay_user_summary_ext.checkpoint_count) ||
+					(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] <=
+					 (playback_stage + 1))
+				)
+			) {
+				resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+			}
+			if(
+				resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
+			) {
+				replay_preroll_display_hide();
+			}
 		} else if(replay_sample_count == 0) {
 			replay_user_snapshot_restore_resident();
 			if(!replay_user_snapshot_restore_runtime()) {
@@ -3832,6 +3882,19 @@ void far replay_session_start(void)
 
 void far replay_round_start(void)
 {
+	if(
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
+		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) &&
+		(
+			replay_user_summary_ext.checkpoint_stage_round[
+				resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] - 1
+			] == replay_user_summary_stage_round_pack()
+		)
+	) {
+		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
+		replay_preroll_display_show();
+	}
 	if(replay_mode == REPLAY_USER_RECORD) {
 		if(
 			(replay_rle_phase & REPLAY_RLE_STAGE_CHECKPOINT_PENDING_MASK) &&
@@ -3990,11 +4053,6 @@ void far replay_frame_io(void)
 	}
 }
 
-// Keep replay_input_sense_held() at its accepted offset after replacing two
-// logical Shot tests with calls to the smaller physical-Z polling path.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
-
 void far replay_input_sense_held(void)
 {
 	bool ok = true;
@@ -4039,6 +4097,12 @@ void far replay_input_sense_held(void)
 		(replay_mode == REPLAY_USER_PLAYBACK)
 	) {
 		replay_user_sample_commit();
+	}
+	if(
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
+		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0)
+	) {
+		vsync_Count1 = byte_23AF9;
 	}
 }
 
@@ -4117,8 +4181,6 @@ static void replay_text_putca(unsigned x, unsigned y, int ch, unsigned atrb)
 	text_putsa(x, y, str, (TX_BLACK | TX_REVERSE));
 }
 
-#pragma codestring "\x90"
-
 static void replay_text_putca_raw(
 	unsigned x, unsigned y, int ch, unsigned atrb
 )
@@ -4187,9 +4249,6 @@ static bool replay_fast_forward_key_held(void)
 {
 	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
 }
-
-// Keep the following pause-menu helpers at their accepted offsets.
-#pragma codestring "\x90\x90"
 
 static void replay_pause_put_tram_backing(void)
 {
@@ -4526,21 +4585,9 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 	}
 }
 
-// Preserve the accepted offset of replay_pause_menu() after removing the
-// ASCII border from its native TRAM backing.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
+#if defined(TH03_REPLAY_DEVTOOLS)
+#pragma codestring "\x90\x90"
+#endif
 
 uint8_t far replay_pause_menu(void)
 {
@@ -4854,13 +4901,11 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90"
+#endif

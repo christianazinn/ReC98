@@ -3858,6 +3858,9 @@ bool near replay_menu(void)
 							) ||
 							(!replay_menu_vs() && !replay_menu_practice())
 						) {
+							checkpoint_sel = (
+								replay_checkpoint_anchor_for_menu(checkpoint_sel)
+							);
 							if(replay_user_checkpoint_read_for_menu(
 								checkpoint_sel,
 								&sample_count, &global_frame, &input_size
@@ -3876,9 +3879,7 @@ bool near replay_menu(void)
 								replay_resident_handoff_u32_set(
 									T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
 								);
-								resident->unused_3[
-									T3_REPLAY_RES_PLAYBACK_CHECKPOINT_INDEX
-								] = (checkpoint_sel + 1);
+								replay_checkpoint_handoff_set(checkpoint_sel);
 								pi_free(0);
 								return switch_to_mainl(false);
 							}
@@ -4026,7 +4027,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 42,
+		LINE2_LEN = 43,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -4050,12 +4051,12 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D332E34UL); // "4.3-"
-	TITLE_CREDIT_QUAD(5, 0x20396372UL); // "rc9 "
-	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
+	TITLE_CREDIT_QUAD(5, 0x30316372UL); // "rc10"
+	TITLE_CREDIT_QUAD(6, 0x20796220UL); // " by "
+	TITLE_CREDIT_QUAD(7, 0x69726843UL); // "Chri"
+	TITLE_CREDIT_QUAD(8, 0x61697473UL); // "stia"
+	TITLE_CREDIT_QUAD(9, 0x7A41206EUL); // "n Az"
+	TITLE_CREDIT_QUAD(10, 0x006E6E69UL); // "inn\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4710,8 +4711,9 @@ static int near replay_dev_story_stage_menu(void)
 #endif
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 // Replaces the obsolete initial-playback stage-select handoff in this profile.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4719,7 +4721,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #endif
 // Keep all following original OP contributions at their 0.2.13 offsets.
@@ -4740,6 +4742,6 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
 /// --------
