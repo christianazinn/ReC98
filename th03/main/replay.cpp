@@ -11,8 +11,11 @@
 #include "th03/hardware/palette.hpp"
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
+#include "th03/main/enemy/enemy.hpp"
 #include "th03/main/enemy/fireball.hpp"
+#include "th03/main/hud/dynamic.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/player/bomb.hpp"
 #include "th03/main/player/cpu.hpp"
 #include "th03/main/player/chain.hpp"
 #include "th03/main/player/combo.hpp"
@@ -200,6 +203,12 @@ extern "C" void pascal far sub_D3F9(void);
 extern "C" void pascal near sub_B4A3(void);
 extern "C" void pascal near sub_B4A8(void);
 extern "C" void pascal near sub_B60A(void);
+extern "C" void pascal far SUB_CA3C(void);
+extern "C" void near sub_C830(void);
+extern "C" void near sub_C8C4(void);
+extern "C" void pascal near SUB_D50E(void);
+void near hitcircles_render(void);
+void bullets_render(void);
 
 static replay_mode_t replay_cfg_mode(void);
 static replay_mode_t replay_resident_mode(void);
@@ -246,17 +255,96 @@ static void replay_memclear(void far *buf, unsigned size)
 	}
 }
 
-static void replay_preroll_display_hide(void)
+static uint8_t far *replay_main_01_entry(uint16_t offset)
+{
+	return reinterpret_cast<uint8_t far *>(
+		MK_FP(FP_SEG(SUB_CA3C), offset)
+	);
+}
+
+static bool replay_preroll_simulating(void)
+{
+	uint8_t state = resident->unused_3[
+		T3_REPLAY_RES_PREROLL_TARGET_INDEX
+	];
+	return (
+		(state != 0) &&
+		(state != T3_REPLAY_PREROLL_REVEAL_PENDING)
+	);
+}
+
+static void replay_preroll_audio_mask(bool mask)
+{
+	uint8_t part;
+
+	if(!snd_fm_possible) {
+		return;
+	}
+	asm { pushf; cli; }
+	for(part = 0; part < 16; part++) {
+		_AL = (mask ? part : (part + 0x80));
+		_AH = PMD_PART_MASK;
+		geninterrupt(PMD);
+	}
+	asm { popf; }
+}
+
+static void replay_preroll_render_suppress(void)
 {
 	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
 	uint8_t far *putx = reinterpret_cast<uint8_t far *>(sprite16_putx);
 	uint8_t far *noclip = reinterpret_cast<uint8_t far *>(sprite16_put_noclip);
+	uint8_t far *enemy = reinterpret_cast<uint8_t far *>(enemies_render);
+	uint8_t far *bullet = reinterpret_cast<uint8_t far *>(bullets_render);
+	uint8_t far *points = reinterpret_cast<uint8_t far *>(
+		hud_dynamic_5_digit_points_put
+	);
 
 	// Keep the global SPRITE16 vector valid even if MAIN crashes during preroll.
 	// These process-local entry stubs are restored before the target round.
 	put[0] = 0xCA; put[1] = 6; put[2] = 0;
 	putx[0] = 0xCA; putx[1] = 8; putx[2] = 0;
 	noclip[0] = 0xCA; noclip[1] = 6; noclip[2] = 0;
+	enemy[0] = 0xCB;
+	bullet[0] = 0xCB;
+	points[0] = 0xCB;
+	replay_main_01_entry(FP_OFF(hitcircles_render))[0] = 0xC3;
+	replay_main_01_entry(FP_OFF(player_render))[0] = 0xC3;
+	replay_main_01_entry(FP_OFF(player_overlay_render))[0] = 0xC3;
+	replay_main_01_entry(FP_OFF(sub_C830))[0] = 0xC3;
+	replay_main_01_entry(FP_OFF(sub_C8C4))[0] = 0xC3;
+	replay_main_01_entry(FP_OFF(SUB_D50E))[0] = 0xC3;
+}
+
+static void replay_preroll_render_restore(void)
+{
+	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
+	uint8_t far *putx = reinterpret_cast<uint8_t far *>(sprite16_putx);
+	uint8_t far *noclip = reinterpret_cast<uint8_t far *>(sprite16_put_noclip);
+	uint8_t far *enemy = reinterpret_cast<uint8_t far *>(enemies_render);
+	uint8_t far *bullet = reinterpret_cast<uint8_t far *>(bullets_render);
+	uint8_t far *points = reinterpret_cast<uint8_t far *>(
+		hud_dynamic_5_digit_points_put
+	);
+
+	put[0] = 0x55; put[1] = 0x8B; put[2] = 0xEC;
+	putx[0] = 0x55; putx[1] = 0x8B; putx[2] = 0xEC;
+	noclip[0] = 0x55; noclip[1] = 0x8B; noclip[2] = 0xEC;
+	enemy[0] = 0x55;
+	bullet[0] = 0x55;
+	points[0] = 0x55;
+	replay_main_01_entry(FP_OFF(hitcircles_render))[0] = 0xC8;
+	replay_main_01_entry(FP_OFF(player_render))[0] = 0x55;
+	replay_main_01_entry(FP_OFF(player_overlay_render))[0] = 0x55;
+	replay_main_01_entry(FP_OFF(sub_C830))[0] = 0x55;
+	replay_main_01_entry(FP_OFF(sub_C8C4))[0] = 0xC8;
+	replay_main_01_entry(FP_OFF(SUB_D50E))[0] = 0x56;
+}
+
+static void replay_preroll_display_hide(void)
+{
+	replay_preroll_render_suppress();
+	replay_preroll_audio_mask(true);
 	asm {
 		mov	ah, 41h
 		int	18h
@@ -268,13 +356,7 @@ static void replay_preroll_display_hide(void)
 
 static void replay_preroll_display_show(void)
 {
-	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
-	uint8_t far *putx = reinterpret_cast<uint8_t far *>(sprite16_putx);
-	uint8_t far *noclip = reinterpret_cast<uint8_t far *>(sprite16_put_noclip);
-
-	put[0] = 0x55; put[1] = 0x8B; put[2] = 0xEC;
-	putx[0] = 0x55; putx[1] = 0x8B; putx[2] = 0xEC;
-	noclip[0] = 0x55; noclip[1] = 0x8B; noclip[2] = 0xEC;
+	replay_preroll_render_restore();
 	asm {
 		mov	ah, 40h
 		int	18h
@@ -282,6 +364,7 @@ static void replay_preroll_display_show(void)
 		int	18h
 	}
 	TextShown = true;
+	replay_preroll_audio_mask(false);
 }
 
 static void replay_playfield_rows_fill_288(unsigned offset)
@@ -305,7 +388,11 @@ static void replay_playfield_rows_fill_288(unsigned offset)
 
 void far replay_frame_publish(void)
 {
-	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+	uint8_t preroll_state = resident->unused_3[
+		T3_REPLAY_RES_PREROLL_TARGET_INDEX
+	];
+
+	if(replay_preroll_simulating()) {
 		graph_accesspage(page_front);
 		page_front = _AL;
 		page_back ^= 1;
@@ -328,6 +415,10 @@ void far replay_frame_publish(void)
 		((183 * ROW_SIZE) + (336 / BYTE_DOTS))
 	);
 	grcg_off();
+	if(preroll_state == T3_REPLAY_PREROLL_REVEAL_PENDING) {
+		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+		replay_preroll_display_show();
+	}
 }
 
 void far replay_frame_delay(void)
@@ -541,7 +632,7 @@ void far replay_overlay_put(void)
 	};
 	char line[7];
 
-	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+	if(replay_preroll_simulating()) {
 		return;
 	}
 #if defined(TH03_REPLAY_DEV_OVERLAY)
@@ -3964,9 +4055,11 @@ void far replay_round_start(void)
 			] == replay_user_summary_stage_round_pack()
 		)
 	) {
-		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] = 0;
+		resident->unused_3[
+			T3_REPLAY_RES_PREROLL_TARGET_INDEX
+		] = T3_REPLAY_PREROLL_REVEAL_PENDING;
 		resident->unused_3[T3_RES_FAST_FORWARD_REPLAY_PHASE_INDEX] = 0;
-		replay_preroll_display_show();
+		replay_preroll_render_restore();
 	}
 	if(replay_mode == REPLAY_USER_RECORD) {
 		if(
@@ -4974,9 +5067,9 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

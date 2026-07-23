@@ -13,6 +13,7 @@
 #include "th03/resident.hpp"
 #include "th03/replay_protect.hpp"
 #include "th03/scorefile.hpp"
+#include "th03/snd/snd.h"
 
 // Pack the pending packet size into unused RLE phase bits.
 #define REPLAY_RLE_PHASE_MASK 0x03
@@ -54,6 +55,52 @@ static uint16_t replay_rle_input_mp_p2;
 static uint16_t replay_rle_input_sp;
 static bool replay_paths_initialized;
 static bool replay_rle_packet_open;
+
+static bool mainl_replay_preroll_active(void)
+{
+	return (
+		(mainl_replay_mode == MR_USER_PLAYBACK) &&
+		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0)
+	);
+}
+
+static void mainl_replay_preroll_audio_mask_raw(bool mask)
+{
+	uint8_t part;
+
+	if(!snd_fm_possible) {
+		return;
+	}
+	for(part = 0; part < 16; part++) {
+		_AL = (mask ? part : (part + 0x80));
+		_AH = PMD_PART_MASK;
+		geninterrupt(PMD);
+	}
+	_AL = (mask ? 0xFF : 0);
+	_AH = PMD_SET_VOLUME;
+	geninterrupt(PMD);
+}
+
+static void mainl_replay_preroll_audio_mask(bool mask)
+{
+	asm { pushf; cli; }
+	mainl_replay_preroll_audio_mask_raw(mask);
+	asm { popf; }
+}
+
+static void mainl_replay_preroll_audio_refresh(void)
+{
+	if(!mainl_replay_preroll_active() || !snd_fm_possible) {
+		return;
+	}
+	_AH = KAJA_GET_VOLUME;
+	geninterrupt(PMD);
+	if(_AL != 0xFF) {
+		// Song starts reset PMD's volume and part masks. The volume therefore
+		// doubles as a cheap once-per-MAINL-frame remask sentinel.
+		mainl_replay_preroll_audio_mask(true);
+	}
+}
 
 static uint8_t mainl_replay_handoff_u8(unsigned index)
 {
@@ -1105,6 +1152,9 @@ static void mainl_replay_frame_io(void)
 
 	if(!ok) {
 		if(mainl_replay_mode == MR_USER_PLAYBACK) {
+			if(mainl_replay_preroll_active()) {
+				mainl_replay_preroll_audio_mask(false);
+			}
 			resident->game_mode = GM_NONE;
 		}
 		mainl_replay_mode = MR_ERROR;
@@ -1187,9 +1237,15 @@ void far mainl_replay_session_start(void)
 
 	mainl_replay_paths_init();
 	if(!mainl_replay_user_header_read()) {
+		if(mainl_replay_preroll_active()) {
+			mainl_replay_preroll_audio_mask(false);
+		}
 		mainl_replay_mode = MR_ERROR;
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		resident->autofire = replay_user_header.autofire;
+		if(mainl_replay_preroll_active()) {
+			mainl_replay_preroll_audio_mask(true);
+		}
 	}
 }
 
@@ -1209,6 +1265,9 @@ void far mainl_replay_input_mode_interface(void)
 	physical_input_sp = input_sp;
 	if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		if(physical_input_sp & INPUT_CANCEL) {
+			if(mainl_replay_preroll_active()) {
+				mainl_replay_preroll_audio_mask(false);
+			}
 			resident->game_mode = GM_NONE;
 			mainl_replay_handoff_clear();
 			mainl_replay_mode = MR_ERROR;
@@ -1225,6 +1284,7 @@ void far mainl_replay_input_mode_interface(void)
 		) &&
 		(mainl_replay_input_vsync != vsync_Count2)
 	) {
+		mainl_replay_preroll_audio_refresh();
 		// Match MAIN's temporal input granularity while retaining responsive
 		// physical polling in the cutscene interpreter's tight loops.
 		mainl_replay_frame_io();
@@ -1278,6 +1338,9 @@ void far mainl_replay_transition_finish(void)
 	}
 	if(!ok) {
 		if(mode == MR_USER_PLAYBACK) {
+			if(mainl_replay_preroll_active()) {
+				mainl_replay_preroll_audio_mask(false);
+			}
 			resident->game_mode = GM_NONE;
 			mainl_replay_handoff_clear();
 		} else {
@@ -1351,6 +1414,9 @@ bool far mainl_replay_finish(
 		mainl_replay_guard_delete();
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		(void)end_reason;
+		if(mainl_replay_preroll_active()) {
+			mainl_replay_preroll_audio_mask(false);
+		}
 		resident->game_mode = GM_NONE;
 	}
 	if(
@@ -1396,4 +1462,3 @@ void far mainl_replay_exit_to_main(void)
 
 // Keep the following shared runtime segment at its accepted near-offset phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"

@@ -25,6 +25,8 @@ typedef enum {
 	PMD_GET_SE_ADDRESS = 0x0B,
 	PMD_SE_PLAY = 0x0C,
 	PMD_GET_WORKAREA_ADDRESS = 0x10,
+	PMD_SET_VOLUME = 0x19,
+	PMD_PART_MASK = 0x1E,
 
 	// Returns the sizes of the song (AL), instrument (AH), and sound effect
 	// (DL) buffers, in KiB. These can be customized on the PMD command line
