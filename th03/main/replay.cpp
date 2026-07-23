@@ -8,6 +8,7 @@
 #include "th02/hardware/pages.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
+#include "th03/hardware/palette.hpp"
 #include "th03/main/defeat.hpp"
 #include "th03/main/difficul.hpp"
 #include "th03/main/enemy/fireball.hpp"
@@ -18,6 +19,7 @@
 #include "th03/main/player/gba.hpp"
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
+#include "th03/main/sprite16.hpp"
 #include "th03/language_main.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
@@ -178,7 +180,6 @@ static uint8_t replay_sum_stage_scores[
 static bool replay_state_probe_pending;
 static uint8_t replay_state_probe_checkpoint;
 #endif
-
 extern "C" unsigned char score[];
 extern "C" unsigned char byte_220FC[PLAYER_COUNT];
 extern "C" signed char byte_20E48;
@@ -247,6 +248,15 @@ static void replay_memclear(void far *buf, unsigned size)
 
 static void replay_preroll_display_hide(void)
 {
+	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
+	uint8_t far *putx = reinterpret_cast<uint8_t far *>(sprite16_putx);
+	uint8_t far *noclip = reinterpret_cast<uint8_t far *>(sprite16_put_noclip);
+
+	// Keep the global SPRITE16 vector valid even if MAIN crashes during preroll.
+	// These process-local entry stubs are restored before the target round.
+	put[0] = 0xCA; put[1] = 6; put[2] = 0;
+	putx[0] = 0xCA; putx[1] = 8; putx[2] = 0;
+	noclip[0] = 0xCA; noclip[1] = 6; noclip[2] = 0;
 	asm {
 		mov	ah, 41h
 		int	18h
@@ -258,6 +268,13 @@ static void replay_preroll_display_hide(void)
 
 static void replay_preroll_display_show(void)
 {
+	uint8_t far *put = reinterpret_cast<uint8_t far *>(sprite16_put);
+	uint8_t far *putx = reinterpret_cast<uint8_t far *>(sprite16_putx);
+	uint8_t far *noclip = reinterpret_cast<uint8_t far *>(sprite16_put_noclip);
+
+	put[0] = 0x55; put[1] = 0x8B; put[2] = 0xEC;
+	putx[0] = 0x55; putx[1] = 0x8B; putx[2] = 0xEC;
+	noclip[0] = 0x55; noclip[1] = 0x8B; noclip[2] = 0xEC;
 	asm {
 		mov	ah, 40h
 		int	18h
@@ -265,6 +282,59 @@ static void replay_preroll_display_show(void)
 		int	18h
 	}
 	TextShown = true;
+}
+
+static void replay_playfield_rows_fill_288(unsigned offset)
+{
+	_BX = offset;
+	asm {
+		push	di
+		mov	di, bx
+		mov	ax, 0A828h
+		mov	es, ax
+		db	66h, 31h, 0C0h	// XOR EAX, EAX
+		db	66h, 0F7h, 0D0h	// NOT EAX
+	replay_rows_fill_loop:
+		mov	cx, 9
+		db	0F3h, 66h, 0ABh	// REP STOSD
+		sub	di, 74h
+		jge	replay_rows_fill_loop
+		pop	di
+	}
+}
+
+void far replay_frame_publish(void)
+{
+	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+		graph_accesspage(page_front);
+		page_front = _AL;
+		page_back ^= 1;
+		return;
+	}
+	if(palette_changed != false) {
+		palette_show();
+		palette_changed = false;
+	}
+	graph_accesspage(page_front);
+	graph_showpage(page_back);
+	page_front = _AL;
+	page_back ^= 1;
+	grcg_setcolor(GC_RMW, 0);
+	replay_playfield_rows_fill_288(
+		((183 * ROW_SIZE) + (16 / BYTE_DOTS))
+	);
+	grcg_setcolor(GC_RMW, 1);
+	replay_playfield_rows_fill_288(
+		((183 * ROW_SIZE) + (336 / BYTE_DOTS))
+	);
+	grcg_off();
+}
+
+void far replay_frame_delay(void)
+{
+	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] == 0) {
+		frame_delay(1);
+	}
 }
 
 void far replay_round_reset_seed_capture(void)
@@ -471,6 +541,9 @@ void far replay_overlay_put(void)
 	};
 	char line[7];
 
+	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+		return;
+	}
 #if defined(TH03_REPLAY_DEV_OVERLAY)
 	replay_debug_overlay_put();
 #endif
@@ -4483,7 +4556,7 @@ static void replay_pause_wait_release(void)
 
 release_wait:
 	replay_input_sense_held();
-	frame_delay(1);
+	replay_frame_delay();
 
 release_test:
 	if(
@@ -4670,7 +4743,7 @@ restart_not_requested:
 		}
 		return sel;
 	}
-	frame_delay(1);
+	replay_frame_delay();
 	goto input_wait;
 
 resume:
@@ -4901,11 +4974,9 @@ static void replay_user_carry_chains_restore(void)
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

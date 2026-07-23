@@ -13,6 +13,8 @@ void far replay_round_reset_seed_capture(void);
 void far replay_session_start(void);
 void far replay_round_start(void);
 void far replay_frame_io(void);
+void far replay_frame_publish(void);
+void far replay_frame_delay(void);
 void far replay_overlay_put(void);
 void far replay_input_sense_held(void);
 // Returns a one-shot pause request in CF without altering the sampled input.

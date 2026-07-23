@@ -41,7 +41,6 @@ extern uint8_t byte_23AFA;
 extern uint8_t byte_23B00;
 
 extern "C" void near collmap_reset(void);
-extern "C" void near playfield_rows_fill_288(void);
 extern "C" void near sub_BB12(void);
 extern "C" void near sub_BE5D(void);
 extern "C" void near sub_C2F9(void);
@@ -274,21 +273,7 @@ after_defeat:
 			byte_23AF9 = 2;
 		}
 	}
-	if(palette_changed != false) {
-		palette_show();
-		palette_changed = false;
-	}
-	graph_accesspage(page_front);
-	graph_showpage(page_back);
-	page_front = _AL;
-	page_back ^= 1;
-	grcg_setcolor(GC_RMW, 0);
-	_BX = ((183 * ROW_SIZE) + (16 / BYTE_DOTS));
-	playfield_rows_fill_288();
-	grcg_setcolor(GC_RMW, 1);
-	_BX = ((183 * ROW_SIZE) + (336 / BYTE_DOTS));
-	playfield_rows_fill_288();
-	grcg_off();
+	replay_frame_publish();
 
 frame_counters:
 	round_frame++;
@@ -327,6 +312,14 @@ loop_test:
 	}
 	return 0;
 }
+
+// Keep every following original MAIN_01 contribution at its accepted offset
+// after moving frame publication into the replay patch segment.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #undef nopcall_uint8
 #undef nopcall_noarg

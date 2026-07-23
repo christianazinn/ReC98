@@ -78,7 +78,7 @@ loop:
 	}
 	sub_C7A5();
 pause_done:
-	frame_delay(1);
+	replay_frame_delay();
 	_AX = _SI;
 	_AX &= 1;
 	imul_reg_to_reg(_AX, _AX, 50);
@@ -91,6 +91,9 @@ loop_test:
 		goto loop;
 	}
 }
+
+// Preserve SUB_CACB and every following original PLAYER_M_TEXT offset.
+#pragma codestring "\x90\x90"
 
 extern "C" void pascal near SUB_CACB(uint8_t pid, int color)
 {
