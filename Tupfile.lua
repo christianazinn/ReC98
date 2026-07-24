@@ -862,7 +862,7 @@ local function th03_replay_inputs_replace(inputs, replacements)
 end
 
 local function th03_replay_dev_build(
-	dir, cflags, with_overlay, with_stage_select, with_devtools
+	dir, cflags, with_overlay, with_stage_select
 )
 	local base = th03:branch(Subdir(dir), { cflags = cflags })
 	local op = base:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
@@ -884,11 +884,6 @@ local function th03_replay_dev_build(
 			"th03/mainl/replml.cpp"
 		)
 	end
-	if with_devtools then
-		replacements["th03/rpyfont.cpp"] = op:build_uncached(
-			"th03/rpyfont.cpp"
-		)
-	end
 
 	local op_inputs = th03_replay_inputs_replace(th03_op_inputs, replacements)
 	op:link("op", op_inputs)
@@ -901,13 +896,13 @@ local function th03_replay_dev_build(
 end
 
 th03_replay_dev_build(
-	"overlay/", "-DTH03_REPLAY_DEV_OVERLAY", true, false, false
+	"overlay/", "-DTH03_REPLAY_DEV_OVERLAY", true, false
 )
 th03_replay_dev_build(
-	"stage-select/", "-DTH03_REPLAY_DEV_STAGE_SELECT", false, true, false
+	"stage-select/", "-DTH03_REPLAY_DEV_STAGE_SELECT", false, true
 )
 th03_replay_dev_build(
-	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true, true
+	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
 )
 -- ----
 

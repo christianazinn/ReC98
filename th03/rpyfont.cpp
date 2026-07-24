@@ -403,7 +403,6 @@ static char *append_round_winner(char *p, uint8_t route_winner)
 static int font_color(unsigned atrb)
 {
 	if(atrb == TX_BLACK) return 0;
-	if(atrb == TX_BLUE) return 8;
 	if(atrb == TX_CYAN) return 9;
 	if(atrb == TX_YELLOW) return 12;
 	return V_WHITE;
@@ -563,10 +562,10 @@ static void slot_name_put(uint8_t slot, unsigned y)
 {
 	char *p = append_name_trimmed(replay_menu_line);
 
-	field_put(DETAIL_PIXEL_LEFT, y, p, TX_BLUE);
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_CYAN);
 	p = append_cstr(replay_menu_line, "Slot ");
 	p = append_u8_2(p, slot);
-	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_CYAN);
+	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_WHITE);
 }
 
 static void score_line_put(const char *label, unsigned y)
@@ -1063,7 +1062,6 @@ void pascal far replay_font_put_fixed_n(
 	}
 }
 
-#if defined(TH03_REPLAY_DEVTOOLS)
 void far replay_font_diagnostic_line_put(
 	unsigned y, uint8_t label, uint32_t value
 )
@@ -1096,11 +1094,6 @@ void far replay_font_diagnostic_line_put(
 	p = append_u32(p, value);
 	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
 }
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
-#else
-// Keep the following patch-owned segments at their existing paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#endif
 
 static void round_splits_put(uint8_t selected, bool focus)
 {

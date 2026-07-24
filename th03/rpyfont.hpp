@@ -11,14 +11,12 @@ enum replay_font_cell_width_t {
 	REPLAY_FONT_ONE_INSET = MENU_FONT_ONE_INSET,
 };
 
-#if defined(TH03_REPLAY_DEVTOOLS)
 enum replay_font_diagnostic_t {
 	RFD_SAMPLES,
 	RFD_FRAMES,
 	RFD_BYTES,
 	RFD_RNG,
 };
-#endif
 
 void pascal far replay_font_put_fixed_n(
 	int left,
@@ -40,10 +38,8 @@ void far replay_font_detail_put(
 );
 void far replay_font_practice_settings_modal_put(void);
 void far replay_font_detail_empty_put(uint8_t slot);
-#if defined(TH03_REPLAY_DEVTOOLS)
 void far replay_font_diagnostic_line_put(
 	unsigned y, uint8_t label, uint32_t value
 );
-#endif
 
 #endif
