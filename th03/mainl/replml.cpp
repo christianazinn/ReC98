@@ -1455,6 +1455,8 @@ bool far mainl_replay_finish(
 		replay_protect_local_free();
 		if(save_pending) {
 			mainl_replay_handoff_mode_set(save_prompt_mode);
+		} else if(mainl_replay_mode == MR_USER_RECORD) {
+			mainl_replay_handoff_mode_set(T3_REPLAY_RES_MODE_ACCEL_CLEANUP);
 		} else {
 			mainl_replay_handoff_clear();
 		}
@@ -1488,6 +1490,3 @@ void far mainl_replay_exit_to_main(void)
 	}
 	game_exit_from_mainl_to_main();
 }
-
-// Keep the following shared runtime segment at its accepted near-offset phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
