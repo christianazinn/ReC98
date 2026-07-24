@@ -1490,3 +1490,6 @@ void far mainl_replay_exit_to_main(void)
 	}
 	game_exit_from_mainl_to_main();
 }
+
+// Keep the following shared segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

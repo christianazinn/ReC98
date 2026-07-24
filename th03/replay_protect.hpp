@@ -14,11 +14,27 @@ extern "C" int __cdecl file_ErrorStat;
 #define RP_FAT_ATTR_VOLUME 0x08
 #define RP_FAT_ATTR_DIR 0x10
 #define RP_SECTOR_BUFFER_SIZE_MAX 4096
+#define RP_ABS_READ_PACKET_SIZE 10
+#define RP_SECTOR_ALLOCATION_SIZE \
+	(RP_SECTOR_BUFFER_SIZE_MAX + RP_ABS_READ_PACKET_SIZE)
 #define RP_DOS_PARAMETER_LIST_WORDS 11
 #define RP_DOS_PARAMETER_LIST_PROCESS_ID 10
 #define RP_GUARD_BASE_SIZE 1UL
 #define RP_GUARD_MARKER_CLEAR 0
 #define RP_GUARD_MARKER_SET 1
+#define RP_FAT12_CLUSTER_COUNT_MAX 4085UL
+#define RP_FAT16_CLUSTER_COUNT_MAX 65525UL
+#define RP_FAT32_CLUSTER_MAX 0x0FFFFFEFUL
+#define RP_FAT32_ENTRY_MASK 0x0FFFFFFFUL
+#define RP_FAT32_CLUSTER_BAD 0x0FFFFFF7UL
+#define RP_FAT32_CLUSTER_EOC 0x0FFFFFF8UL
+
+enum replay_protect_fat_t {
+	RPF_UNKNOWN = 0,
+	RPF_FAT12 = 12,
+	RPF_FAT16 = 16,
+	RPF_FAT32 = 32,
+};
 
 enum replay_protect_diag_t {
 	RPD_NONE = 0,
@@ -65,16 +81,28 @@ enum replay_protect_diag_t {
 	RPD_MARKER_VALUE = 41,
 	RPD_MARKER_WRITE = 42,
 	RPD_MARKER_VERIFY = 43,
+	RPD_EXTENDED_READ_UNAVAILABLE = 44,
+	RPD_ROOT_CHAIN = 45,
+	RPD_ROOT_FAT_READ = 46,
 };
 
 struct replay_protect_ctx_t {
 	uint8_t far *sector;
+	uint8_t far *packet;
 	uint16_t bytes_per_sector;
 	uint16_t root_entry_count;
 	uint32_t root_start;
 	uint16_t root_sectors;
+	uint32_t fat_start;
+	uint32_t fat_sectors;
+	uint32_t first_data_sector;
+	uint32_t total_sectors;
+	uint32_t cluster_count;
+	uint32_t root_cluster;
 	uint8_t drive;
 	uint8_t sectors_per_cluster;
+	uint8_t fat_type;
+	uint8_t extended_abs_read;
 };
 
 static uint16_t replay_protect_u16(const uint8_t far *p)
@@ -92,6 +120,12 @@ static uint32_t replay_protect_u32(const uint8_t far *p)
 	);
 }
 
+static void replay_protect_u16_write(uint8_t far *p, uint16_t value)
+{
+	p[0] = static_cast<uint8_t>(value);
+	p[1] = static_cast<uint8_t>(value >> 8);
+}
+
 static void replay_protect_u32_write(uint8_t far *p, uint32_t value)
 {
 	p[0] = static_cast<uint8_t>(value);
@@ -100,16 +134,15 @@ static void replay_protect_u32_write(uint8_t far *p, uint32_t value)
 	p[3] = static_cast<uint8_t>(value >> 24);
 }
 
-static uint32_t replay_protect_mul_u16(uint16_t a, uint16_t b)
+static uint32_t replay_protect_mul_u32_u8(uint32_t a, uint8_t b)
 {
 	uint32_t ret = 0;
-	uint32_t add = a;
 
 	while(b != 0) {
 		if(b & 1) {
-			ret += add;
+			ret += a;
 		}
-		add <<= 1;
+		a <<= 1;
 		b >>= 1;
 	}
 	return ret;
@@ -303,9 +336,10 @@ static bool replay_protect_ctx_alloc(replay_protect_ctx_t _ss *ctx)
 	);
 
 	ctx->sector = nullptr;
+	ctx->packet = nullptr;
 	if(seg == 0) {
 		seg = reinterpret_cast<uint16_t>(
-			hmem_allocbyte(RP_SECTOR_BUFFER_SIZE_MAX)
+			hmem_allocbyte(RP_SECTOR_ALLOCATION_SIZE)
 		);
 		if(seg == 0) {
 			replay_protect_diag_code_set(RPD_CTX_ALLOC);
@@ -316,7 +350,8 @@ static bool replay_protect_ctx_alloc(replay_protect_ctx_t _ss *ctx)
 		);
 	}
 	ctx->sector = reinterpret_cast<uint8_t far *>(MK_FP(seg, 0));
-	return (ctx->sector != nullptr);
+	ctx->packet = (ctx->sector + RP_SECTOR_BUFFER_SIZE_MAX);
+	return ((ctx->sector != nullptr) && (ctx->packet != nullptr));
 }
 
 static void replay_protect_ctx_free(replay_protect_ctx_t _ss *ctx)
@@ -341,6 +376,25 @@ static uint8_t replay_protect_current_drive(void)
 	_AH = 0x19;
 	geninterrupt(0x21);
 	return _AL;
+}
+
+static bool replay_protect_extended_abs_read_available(void)
+{
+	uint8_t major;
+	uint8_t minor;
+
+	_AX = 0x3000;
+	geninterrupt(0x21);
+	major = _AL;
+	minor = _AH;
+	return ((major > 7) || ((major == 7) && (minor >= 10)));
+}
+
+static void replay_protect_raw_init(replay_protect_ctx_t _ss *ctx)
+{
+	ctx->drive = replay_protect_current_drive();
+	ctx->fat_type = RPF_UNKNOWN;
+	ctx->extended_abs_read = replay_protect_extended_abs_read_available();
 }
 
 static bool replay_protect_abs_read_small(
@@ -385,17 +439,78 @@ static bool replay_protect_abs_read_small(
 	return true;
 }
 
+static bool replay_protect_abs_read_extended(
+	uint8_t drive, uint32_t sector, uint16_t count, void far *buffer,
+	uint8_t far *packet
+)
+{
+	uint16_t dos_ax = 0;
+	uint16_t dos_flags = 1;
+
+	replay_protect_u32_write(packet + 0, sector);
+	replay_protect_u16_write(packet + 4, count);
+	replay_protect_u16_write(packet + 6, FP_OFF(buffer));
+	replay_protect_u16_write(packet + 8, FP_SEG(buffer));
+	_AX = 0x7305;
+	_CX = 0xFFFF;
+	_DX = static_cast<uint16_t>(drive + 1);
+	_SI = 0;
+	asm {
+		push	bp
+		push	si
+		push	di
+		push	es
+		push	ds
+		lds	bx, packet
+		int	21h
+		pushf
+		push	ax
+		pop	cx
+		pop	ax
+		pop	ds
+		pop	es
+		pop	di
+		pop	si
+		pop	bp
+		mov	dos_ax, cx
+		mov	dos_flags, ax
+	}
+	replay_protect_diag_int25_flags_set(dos_flags, 0);
+	if(dos_flags & 1) {
+		replay_protect_diag_dos_ax_set(dos_ax);
+		return false;
+	}
+	replay_protect_diag_dos_ax_set(0);
+	return true;
+}
+
 static bool replay_protect_sector_read(
 	replay_protect_ctx_t _ss *ctx, uint32_t sector
 )
 {
-	if(sector > 0xFFFFUL) {
+	// Preserve the proven FAT12/FAT16 path. FAT32 rejects old-form INT 25h,
+	// after which DOS 7.1's extended absolute read handles the same request.
+	if((ctx->fat_type == RPF_FAT32) || (sector > 0xFFFFUL)) {
+		if(!ctx->extended_abs_read) {
+			replay_protect_diag_location_set(sector, 0);
+			replay_protect_diag_code_set(RPD_EXTENDED_READ_UNAVAILABLE);
+			return false;
+		}
+		return replay_protect_abs_read_extended(
+			ctx->drive, sector, 1, ctx->sector, ctx->packet
+		);
+	}
+	if(replay_protect_abs_read_small(
+		ctx->drive, static_cast<uint16_t>(sector), 1, ctx->sector
+	)) {
+		return true;
+	}
+	if(!ctx->extended_abs_read) {
 		replay_protect_diag_location_set(sector, 0);
-		replay_protect_diag_code_set(RPD_SECTOR_TOO_LARGE);
 		return false;
 	}
-	return replay_protect_abs_read_small(
-		ctx->drive, static_cast<uint16_t>(sector), 1, ctx->sector
+	return replay_protect_abs_read_extended(
+		ctx->drive, sector, 1, ctx->sector, ctx->packet
 	);
 }
 
@@ -407,6 +522,22 @@ static bool replay_protect_sector_size_supported(uint16_t bytes_per_sector)
 		(bytes_per_sector == 2048) ||
 		(bytes_per_sector == 4096)
 	);
+}
+
+static bool replay_protect_sectors_per_cluster_supported(uint8_t value)
+{
+	return ((value != 0) && ((value & (value - 1)) == 0));
+}
+
+static uint8_t replay_protect_power_of_two_shift(uint16_t value)
+{
+	uint8_t shift = 0;
+
+	while(value > 1) {
+		value >>= 1;
+		shift++;
+	}
+	return shift;
 }
 
 static uint16_t replay_protect_root_sector_count(
@@ -429,15 +560,23 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 {
 	uint16_t reserved;
 	uint8_t fat_count;
-	uint16_t sectors_per_fat;
+	uint8_t active_fat = 0;
+	uint8_t i;
+	uint16_t sectors_per_fat_16;
+	uint16_t total_sectors_16;
+	uint16_t fat32_flags;
 	uint32_t root_bytes;
+	uint32_t fat_span = 0;
+	uint32_t root_base;
+	uint32_t data_sectors;
+	uint32_t root_delta;
 
 	if(!replay_protect_ctx_alloc(ctx)) {
 		return false;
 	}
 
-	ctx->drive = replay_protect_current_drive();
-	if(!replay_protect_abs_read_small(ctx->drive, 0, 1, ctx->sector)) {
+	replay_protect_raw_init(ctx);
+	if(!replay_protect_sector_read(ctx, 0)) {
 		replay_protect_diag_code_set(RPD_BPB_READ);
 		replay_protect_ctx_free(ctx);
 		return false;
@@ -448,15 +587,26 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 	reserved = replay_protect_u16(ctx->sector + 0x0E);
 	fat_count = ctx->sector[0x10];
 	ctx->root_entry_count = replay_protect_u16(ctx->sector + 0x11);
-	sectors_per_fat = replay_protect_u16(ctx->sector + 0x16);
+	total_sectors_16 = replay_protect_u16(ctx->sector + 0x13);
+	sectors_per_fat_16 = replay_protect_u16(ctx->sector + 0x16);
+	ctx->total_sectors = total_sectors_16;
+	if(ctx->total_sectors == 0) {
+		ctx->total_sectors = replay_protect_u32(ctx->sector + 0x20);
+	}
+	ctx->fat_sectors = sectors_per_fat_16;
+	if(ctx->fat_sectors == 0) {
+		ctx->fat_sectors = replay_protect_u32(ctx->sector + 0x24);
+	}
 
 	if(
 		!replay_protect_sector_size_supported(ctx->bytes_per_sector) ||
-		(ctx->sectors_per_cluster == 0) ||
+		!replay_protect_sectors_per_cluster_supported(
+			ctx->sectors_per_cluster
+		) ||
 		(reserved == 0) ||
 		(fat_count == 0) ||
-		(ctx->root_entry_count == 0) ||
-		(sectors_per_fat == 0)
+		(ctx->total_sectors == 0) ||
+		(ctx->fat_sectors == 0)
 	) {
 		replay_protect_diag_geometry_set(
 			ctx->drive, ctx->bytes_per_sector, ctx->root_entry_count, 0, 0
@@ -466,21 +616,97 @@ static bool replay_protect_volume_init(replay_protect_ctx_t _ss *ctx)
 		return false;
 	}
 
-	ctx->root_start = (
-		static_cast<uint32_t>(reserved) +
-		replay_protect_mul_u16(fat_count, sectors_per_fat)
-	);
+	for(i = 0; i < fat_count; i++) {
+		root_base = fat_span;
+		fat_span += ctx->fat_sectors;
+		if(fat_span < root_base) {
+			replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
+			replay_protect_ctx_free(ctx);
+			return false;
+		}
+	}
+	root_base = static_cast<uint32_t>(reserved) + fat_span;
+	if(root_base < reserved) {
+		replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
+		replay_protect_ctx_free(ctx);
+		return false;
+	}
 	root_bytes = (static_cast<uint32_t>(ctx->root_entry_count) << 5);
 	ctx->root_sectors = replay_protect_root_sector_count(
 		root_bytes, ctx->bytes_per_sector
 	);
+	ctx->first_data_sector = root_base + ctx->root_sectors;
+	if(
+		(ctx->first_data_sector < root_base) ||
+		(ctx->first_data_sector >= ctx->total_sectors)
+	) {
+		replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
+		replay_protect_ctx_free(ctx);
+		return false;
+	}
+	data_sectors = ctx->total_sectors - ctx->first_data_sector;
+	ctx->cluster_count = (
+		data_sectors >>
+		replay_protect_power_of_two_shift(ctx->sectors_per_cluster)
+	);
+	ctx->fat_start = reserved;
+	ctx->root_cluster = 0;
+	if(ctx->cluster_count < RP_FAT12_CLUSTER_COUNT_MAX) {
+		ctx->fat_type = RPF_FAT12;
+	} else if(ctx->cluster_count < RP_FAT16_CLUSTER_COUNT_MAX) {
+		ctx->fat_type = RPF_FAT16;
+	} else {
+		ctx->fat_type = RPF_FAT32;
+	}
+
+	if(ctx->fat_type == RPF_FAT32) {
+		fat32_flags = replay_protect_u16(ctx->sector + 0x28);
+		if(fat32_flags & 0x0080) {
+			active_fat = static_cast<uint8_t>(fat32_flags & 0x000F);
+		}
+		ctx->root_cluster = (
+			replay_protect_u32(ctx->sector + 0x2C) & RP_FAT32_ENTRY_MASK
+		);
+		if(
+			(ctx->root_entry_count != 0) ||
+			(sectors_per_fat_16 != 0) ||
+			!ctx->extended_abs_read ||
+			(active_fat >= fat_count) ||
+			(ctx->cluster_count >= RP_FAT32_CLUSTER_MAX) ||
+			(ctx->root_cluster < 2) ||
+			(ctx->root_cluster > (ctx->cluster_count + 1))
+		) {
+			replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
+			replay_protect_ctx_free(ctx);
+			return false;
+		}
+		ctx->fat_start += replay_protect_mul_u32_u8(
+			ctx->fat_sectors, active_fat
+		);
+		root_delta = replay_protect_mul_u32_u8(
+			(ctx->root_cluster - 2), ctx->sectors_per_cluster
+		);
+		ctx->root_start = ctx->first_data_sector + root_delta;
+		ctx->root_sectors = 0;
+	} else {
+		if(
+			(ctx->root_entry_count == 0) ||
+			(sectors_per_fat_16 == 0) ||
+			(ctx->root_sectors == 0)
+		) {
+			replay_protect_diag_code_set(RPD_BPB_UNSUPPORTED);
+			replay_protect_ctx_free(ctx);
+			return false;
+		}
+		ctx->root_start = root_base;
+	}
 	replay_protect_diag_geometry_set(
 		ctx->drive, ctx->bytes_per_sector, ctx->root_entry_count,
 		ctx->root_start, ctx->root_sectors
 	);
 	if(
-		(ctx->root_sectors == 0) ||
-		((ctx->root_start + ctx->root_sectors) > 0x10000UL)
+		(ctx->root_start >= ctx->total_sectors) ||
+		((ctx->fat_start + ctx->fat_sectors) > ctx->total_sectors)
 	) {
 		replay_protect_diag_code_set(RPD_ROOT_RANGE);
 		replay_protect_ctx_free(ctx);
@@ -566,6 +792,114 @@ static const char far *replay_protect_basename(const char far *fn)
 	return base;
 }
 
+enum replay_protect_root_scan_t {
+	RPRS_CONTINUE = 0,
+	RPRS_FOUND = 1,
+	RPRS_END = 2,
+};
+
+static bool replay_protect_cluster_sector(
+	replay_protect_ctx_t _ss *ctx, uint32_t cluster, uint32_t _ss *sector
+)
+{
+	uint32_t delta;
+	uint32_t cluster_end;
+
+	if((cluster < 2) || (cluster > (ctx->cluster_count + 1))) {
+		return false;
+	}
+	delta = replay_protect_mul_u32_u8(
+		(cluster - 2), ctx->sectors_per_cluster
+	);
+	*sector = ctx->first_data_sector + delta;
+	cluster_end = *sector + ctx->sectors_per_cluster;
+	return (
+		(*sector >= ctx->first_data_sector) &&
+		(cluster_end >= *sector) &&
+		(cluster_end <= ctx->total_sectors)
+	);
+}
+
+static bool replay_protect_fat32_next_cluster(
+	replay_protect_ctx_t _ss *ctx, uint32_t cluster,
+	uint32_t _ss *next, bool _ss *eoc
+)
+{
+	uint32_t fat_offset = (cluster << 2);
+	uint32_t fat_sector = (
+		ctx->fat_start +
+		(fat_offset >> replay_protect_power_of_two_shift(ctx->bytes_per_sector))
+	);
+	uint16_t offset = static_cast<uint16_t>(
+		fat_offset & (ctx->bytes_per_sector - 1)
+	);
+
+	if(
+		(fat_sector < ctx->fat_start) ||
+		(fat_sector >= (ctx->fat_start + ctx->fat_sectors)) ||
+		(offset > (ctx->bytes_per_sector - 4))
+	) {
+		replay_protect_diag_location_set(fat_sector, offset);
+		replay_protect_diag_code_set(RPD_ROOT_CHAIN);
+		return false;
+	}
+	if(!replay_protect_sector_read(ctx, fat_sector)) {
+		replay_protect_diag_location_set(fat_sector, offset);
+		replay_protect_diag_code_set(RPD_ROOT_FAT_READ);
+		return false;
+	}
+	*next = (replay_protect_u32(ctx->sector + offset) & RP_FAT32_ENTRY_MASK);
+	*eoc = (*next >= RP_FAT32_CLUSTER_EOC);
+	if(*eoc) {
+		return true;
+	}
+	if(
+		(*next < 2) ||
+		(*next == RP_FAT32_CLUSTER_BAD) ||
+		(*next > (ctx->cluster_count + 1))
+	) {
+		replay_protect_diag_sizes_set(cluster, *next);
+		replay_protect_diag_location_set(fat_sector, offset);
+		replay_protect_diag_code_set(RPD_ROOT_CHAIN);
+		return false;
+	}
+	return true;
+}
+
+static uint8_t replay_protect_root_sector_scan(
+	replay_protect_ctx_t _ss *ctx, const char far *short_name,
+	uint32_t far *size, bool cache_location, uint32_t sector
+)
+{
+	uint16_t offset;
+	uint8_t attr;
+	uint8_t first;
+
+	for(offset = 0; offset < ctx->bytes_per_sector; offset += 32) {
+		first = ctx->sector[offset];
+		if(first == RP_FAT_ENTRY_FREE) {
+			replay_protect_diag_location_set(sector, offset);
+			return RPRS_END;
+		}
+		if(first == RP_FAT_ENTRY_DELETED) {
+			continue;
+		}
+		attr = ctx->sector[offset + 0x0B];
+		if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
+			continue;
+		}
+		if(replay_protect_name_match(ctx->sector + offset, short_name)) {
+			*size = replay_protect_u32(ctx->sector + offset + 0x1C);
+			replay_protect_diag_location_set(sector, offset);
+			if(cache_location) {
+				replay_protect_location_set(sector, offset);
+			}
+			return RPRS_FOUND;
+		}
+	}
+	return RPRS_CONTINUE;
+}
+
 static bool replay_protect_root_size_read_impl(
 	const char far *fn, uint32_t far *size, bool cache_location
 )
@@ -574,9 +908,12 @@ static bool replay_protect_root_size_read_impl(
 	char short_name[11];
 	const char far *base;
 	uint32_t sector;
-	uint16_t offset;
-	uint8_t attr;
-	uint8_t first;
+	uint32_t cluster;
+	uint32_t next_cluster;
+	uint32_t clusters_walked = 0;
+	uint8_t sector_in_cluster;
+	uint8_t scan;
+	bool eoc;
 
 	if(!replay_protect_volume_init(&ctx)) {
 		return false;
@@ -588,41 +925,83 @@ static bool replay_protect_root_size_read_impl(
 		return false;
 	}
 
-	for(sector = 0; sector < ctx.root_sectors; sector++) {
-		if(!replay_protect_sector_read(&ctx, ctx.root_start + sector)) {
-			replay_protect_diag_location_set(ctx.root_start + sector, 0);
-			replay_protect_diag_code_set(RPD_ROOT_SECTOR_READ);
-			replay_protect_ctx_free(&ctx);
-			return false;
-		}
-		for(offset = 0; offset < ctx.bytes_per_sector; offset += 32) {
-			first = ctx.sector[offset];
-			if(first == RP_FAT_ENTRY_FREE) {
-				replay_protect_diag_location_set(
-					ctx.root_start + sector, offset
-				);
+	if(ctx.fat_type != RPF_FAT32) {
+		for(sector = 0; sector < ctx.root_sectors; sector++) {
+			if(!replay_protect_sector_read(&ctx, ctx.root_start + sector)) {
+				replay_protect_diag_location_set(ctx.root_start + sector, 0);
+				replay_protect_diag_code_set(RPD_ROOT_SECTOR_READ);
+				replay_protect_ctx_free(&ctx);
+				return false;
+			}
+			scan = replay_protect_root_sector_scan(
+				&ctx, short_name, size, cache_location,
+				(ctx.root_start + sector)
+			);
+			if(scan == RPRS_FOUND) {
+				replay_protect_ctx_free(&ctx);
+				return true;
+			}
+			if(scan == RPRS_END) {
 				replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
 				replay_protect_ctx_free(&ctx);
 				return false;
 			}
-			if(first == RP_FAT_ENTRY_DELETED) {
-				continue;
-			}
-			attr = ctx.sector[offset + 0x0B];
-			if(attr & (RP_FAT_ATTR_VOLUME | RP_FAT_ATTR_DIR)) {
-				continue;
-			}
-			if(replay_protect_name_match(ctx.sector + offset, short_name)) {
-				*size = replay_protect_u32(ctx.sector + offset + 0x1C);
-				replay_protect_diag_location_set(
-					ctx.root_start + sector, offset
-				);
-				if(cache_location) {
-					replay_protect_location_set(ctx.root_start + sector, offset);
-				}
+		}
+	} else {
+		cluster = ctx.root_cluster;
+		while(true) {
+			if(!replay_protect_cluster_sector(&ctx, cluster, &sector)) {
+				replay_protect_diag_sizes_set(2, cluster);
+				replay_protect_diag_code_set(RPD_ROOT_CHAIN);
 				replay_protect_ctx_free(&ctx);
-				return true;
+				return false;
 			}
+			for(
+				sector_in_cluster = 0;
+				sector_in_cluster < ctx.sectors_per_cluster;
+				sector_in_cluster++
+			) {
+				if(!replay_protect_sector_read(
+					&ctx, sector + sector_in_cluster
+				)) {
+					replay_protect_diag_location_set(
+						sector + sector_in_cluster, 0
+					);
+					replay_protect_diag_code_set(RPD_ROOT_SECTOR_READ);
+					replay_protect_ctx_free(&ctx);
+					return false;
+				}
+				scan = replay_protect_root_sector_scan(
+					&ctx, short_name, size, cache_location,
+					(sector + sector_in_cluster)
+				);
+				if(scan == RPRS_FOUND) {
+					replay_protect_ctx_free(&ctx);
+					return true;
+				}
+				if(scan == RPRS_END) {
+					replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
+					replay_protect_ctx_free(&ctx);
+					return false;
+				}
+			}
+			clusters_walked++;
+			if(clusters_walked >= ctx.cluster_count) {
+				replay_protect_diag_sizes_set(ctx.cluster_count, clusters_walked);
+				replay_protect_diag_code_set(RPD_ROOT_CHAIN);
+				replay_protect_ctx_free(&ctx);
+				return false;
+			}
+			if(!replay_protect_fat32_next_cluster(
+				&ctx, cluster, &next_cluster, &eoc
+			)) {
+				replay_protect_ctx_free(&ctx);
+				return false;
+			}
+			if(eoc) {
+				break;
+			}
+			cluster = next_cluster;
 		}
 	}
 	replay_protect_diag_code_set(RPD_ROOT_NOT_FOUND);
@@ -679,7 +1058,7 @@ static bool replay_protect_located_size_read(
 	if(!replay_protect_ctx_alloc(&ctx)) {
 		return false;
 	}
-	ctx.drive = replay_protect_current_drive();
+	replay_protect_raw_init(&ctx);
 	if(!replay_protect_sector_read(&ctx, sector)) {
 		replay_protect_diag_location_set(sector, offset);
 		replay_protect_diag_code_set(RPD_LOCATED_SECTOR_READ);
@@ -738,7 +1117,7 @@ static bool replay_protect_guard_marker_read(
 	uint32_t root_sector;
 	uint32_t data_sector;
 	uint16_t root_offset;
-	uint16_t cluster;
+	uint32_t cluster;
 	uint8_t attr;
 	uint8_t first;
 
@@ -799,18 +1178,20 @@ static bool replay_protect_guard_marker_read(
 		return false;
 	}
 	cluster = replay_protect_u16(ctx.sector + root_offset + 0x1A);
-	if(cluster < 2) {
+	if(ctx.fat_type == RPF_FAT32) {
+		cluster |= (
+			static_cast<uint32_t>(
+				replay_protect_u16(ctx.sector + root_offset + 0x14)
+			) << 16
+		);
+		cluster &= RP_FAT32_ENTRY_MASK;
+	}
+	if(!replay_protect_cluster_sector(&ctx, cluster, &data_sector)) {
 		replay_protect_diag_sizes_set(2, cluster);
 		replay_protect_diag_code_set(RPD_MARKER_CLUSTER);
 		replay_protect_ctx_free(&ctx);
 		return false;
 	}
-	data_sector = (
-		ctx.root_start + ctx.root_sectors +
-		replay_protect_mul_u16(
-			static_cast<uint16_t>(cluster - 2), ctx.sectors_per_cluster
-		)
-	);
 	if(!replay_protect_sector_read(&ctx, data_sector)) {
 		replay_protect_diag_location_set(data_sector, 0);
 		replay_protect_diag_code_set(RPD_MARKER_SECTOR_READ);
