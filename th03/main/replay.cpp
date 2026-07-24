@@ -6345,6 +6345,7 @@ void far replay_finish(uint8_t route)
 			replay_protect_file_delete_commit(replay_user_fn);
 			replay_user_index_slot_clear();
 			replay_user_guard_delete();
+			replay_accel_temps_delete();
 		} else {
 			if(!replay_user_header_write(
 				((route == 0) ? RUS_FINALIZED : RUS_PARTIAL),
@@ -6464,4 +6465,4 @@ static void replay_user_carry_chains_restore(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
