@@ -154,6 +154,19 @@ struct replay_seek_reader_t {
 	uint32_t remaining;
 };
 
+struct replay_accel_workspace_t {
+	uint8_t text[REPLAY_ACCEL_WINDOW + REPLAY_ACCEL_MATCH_MAX - 1];
+	uint16_t lson[REPLAY_ACCEL_WINDOW + 1];
+	uint16_t rson[REPLAY_ACCEL_WINDOW + 257];
+	uint16_t dad[REPLAY_ACCEL_WINDOW + 1];
+	uint16_t char_to_sym[REPLAY_ACCEL_SYMBOL_COUNT];
+	uint16_t sym_to_char[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+	uint16_t sym_freq[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+	uint16_t sym_cum[REPLAY_ACCEL_SYMBOL_COUNT + 1];
+	uint16_t position_cum[REPLAY_ACCEL_WINDOW + 1];
+	uint8_t io_buffer[REPLAY_ACCEL_IO_BUFFER_SIZE];
+};
+
 static replay_mode_t replay_mode;
 static replay_input_header_t replay_header;
 static replay_user_header_t replay_user_header;
@@ -185,18 +198,10 @@ static bool replay_guard_diag_written;
 static bool replay_restart_requested_flag;
 static uint16_t replay_accel_raw_seg;
 static uint8_t replay_accel_target_checkpoint;
-static uint8_t replay_accel_text[
-	REPLAY_ACCEL_WINDOW + REPLAY_ACCEL_MATCH_MAX - 1
-];
-static uint16_t replay_accel_lson[REPLAY_ACCEL_WINDOW + 1];
-static uint16_t replay_accel_rson[REPLAY_ACCEL_WINDOW + 257];
-static uint16_t replay_accel_dad[REPLAY_ACCEL_WINDOW + 1];
-static uint16_t replay_accel_char_to_sym[REPLAY_ACCEL_SYMBOL_COUNT];
-static uint16_t replay_accel_sym_to_char[REPLAY_ACCEL_SYMBOL_COUNT + 1];
-static uint16_t replay_accel_sym_freq[REPLAY_ACCEL_SYMBOL_COUNT + 1];
-static uint16_t replay_accel_sym_cum[REPLAY_ACCEL_SYMBOL_COUNT + 1];
-static uint16_t replay_accel_position_cum[REPLAY_ACCEL_WINDOW + 1];
-static uint8_t replay_accel_io_buffer[REPLAY_ACCEL_IO_BUFFER_SIZE];
+static uint16_t replay_accel_workspace_seg;
+static replay_accel_workspace_t far *replay_accel_workspace;
+// Retain RC16's following BSS offsets after replacing its 17-byte work array.
+static uint8_t replay_accel_workspace_phase_reserve[11];
 static replay_user_accel_footer_t replay_accel_footer;
 static uint16_t replay_sum_flags;
 static uint8_t replay_sum_route;
@@ -233,6 +238,17 @@ extern farfunc_t_near farfp_20F24;
 extern farfunc_t_near farfp_20F20;
 extern farfunc_t_near farfp_20F28;
 extern farfunc_t_near callback_205CE[PLAYER_COUNT];
+
+#define replay_accel_text replay_accel_workspace->text
+#define replay_accel_lson replay_accel_workspace->lson
+#define replay_accel_rson replay_accel_workspace->rson
+#define replay_accel_dad replay_accel_workspace->dad
+#define replay_accel_char_to_sym replay_accel_workspace->char_to_sym
+#define replay_accel_sym_to_char replay_accel_workspace->sym_to_char
+#define replay_accel_sym_freq replay_accel_workspace->sym_freq
+#define replay_accel_sym_cum replay_accel_workspace->sym_cum
+#define replay_accel_position_cum replay_accel_workspace->position_cum
+#define replay_accel_io_buffer replay_accel_workspace->io_buffer
 extern farfunc_t_near bomb_func[PLAYER_COUNT];
 extern nearfunc_t_near fp_1FBC0;
 extern "C" unsigned int TextShown;
@@ -379,6 +395,35 @@ static void replay_accel_temps_delete(void)
 	for(checkpoint = 0; checkpoint < T3R_CKPT_COUNT_MAX; checkpoint++) {
 		replay_accel_temp_fn_set(checkpoint);
 		replay_accel_file_delete(T3_ACCEL_TEMP_FN);
+	}
+}
+
+static bool replay_accel_workspace_alloc(void)
+{
+	if(replay_accel_workspace_seg != 0) {
+		return true;
+	}
+	replay_accel_workspace_seg = reinterpret_cast<uint16_t>(
+		hmem_allocbyte(sizeof(replay_accel_workspace_t))
+	);
+	if(replay_accel_workspace_seg == 0) {
+		replay_accel_workspace = 0;
+		return false;
+	}
+	replay_accel_workspace = reinterpret_cast<replay_accel_workspace_t far *>(
+		MK_FP(replay_accel_workspace_seg, 0)
+	);
+	return true;
+}
+
+static void replay_accel_workspace_free(void)
+{
+	if(replay_accel_workspace_seg != 0) {
+		hmem_free(
+			reinterpret_cast<void __seg *>(replay_accel_workspace_seg)
+		);
+		replay_accel_workspace_seg = 0;
+		replay_accel_workspace = 0;
 	}
 }
 
@@ -1015,6 +1060,10 @@ static bool replay_accel_capture(uint8_t checkpoint)
 	if(raw_seg == 0) {
 		return false;
 	}
+	if(!replay_accel_workspace_alloc()) {
+		hmem_free(reinterpret_cast<void __seg *>(raw_seg));
+		return false;
+	}
 	raw = reinterpret_cast<uint8_t far *>(MK_FP(raw_seg, 0));
 	replay_accel_raw_fill(raw);
 	replay_memclear(&header, sizeof(header));
@@ -1047,6 +1096,7 @@ close:
 		replay_accel_file_delete(T3_ACCEL_TEMP_FN);
 	}
 cleanup:
+	replay_accel_workspace_free();
 	hmem_free(reinterpret_cast<void __seg *>(raw_seg));
 	return ok;
 }
@@ -1420,6 +1470,12 @@ static bool replay_accel_prepare(uint8_t checkpoint)
 		goto close;
 	}
 	if(
+		(desc->codec == T3R_ACCEL_CODEC_LZARI512) &&
+		!replay_accel_workspace_alloc()
+	) {
+		goto close;
+	}
+	if(
 		!(
 			(
 				(desc->codec == T3R_ACCEL_CODEC_LZSS4K) &&
@@ -1445,6 +1501,7 @@ static bool replay_accel_prepare(uint8_t checkpoint)
 	replay_accel_target_checkpoint = checkpoint;
 	ok = true;
 close:
+	replay_accel_workspace_free();
 	file_close();
 	if(packed_seg != 0) {
 		hmem_free(reinterpret_cast<void __seg *>(packed_seg));
@@ -6466,3 +6523,4 @@ static void replay_user_carry_chains_restore(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
