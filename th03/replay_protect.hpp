@@ -451,10 +451,11 @@ static bool replay_protect_abs_read_extended(
 	replay_protect_u16_write(packet + 4, count);
 	replay_protect_u16_write(packet + 6, FP_OFF(buffer));
 	replay_protect_u16_write(packet + 8, FP_SEG(buffer));
-	_AX = 0x7305;
-	_CX = 0xFFFF;
 	_DX = static_cast<uint16_t>(drive + 1);
+	_CX = 0xFFFF;
 	_SI = 0;
+	// Keep AX last. Turbo C++ uses AX to evaluate the drive expression above.
+	_AX = 0x7305;
 	asm {
 		push	bp
 		push	si
