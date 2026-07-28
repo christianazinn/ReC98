@@ -52,7 +52,7 @@ void far title_extra_unlock_update(void)
 	if(!scorefile_extra_unlock()) {
 		return;
 	}
-	if(snd_fm_possible) {
+	if(snd_se_active()) {
 		snd_load(TITLE_EXTRA_UNLOCK_SE_FN, SND_LOAD_SE);
 		_AX = ((PMD_SE_PLAY << 8) | 8);
 		geninterrupt(PMD);

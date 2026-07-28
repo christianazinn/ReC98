@@ -843,7 +843,7 @@ static void replay_preroll_se_suppress(bool suppress)
 static void replay_preroll_audio_mask(bool mask)
 {
 	replay_preroll_se_suppress(mask);
-	if(snd_fm_possible) {
+	if(snd_active || snd_fm_possible) {
 		asm { pushf; cli; }
 		_AL = (mask ? 0xFF : 0);
 		_AH = PMD_SET_VOLUME;
@@ -5826,3 +5826,4 @@ static void replay_user_carry_chains_restore(void)
 #endif
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"

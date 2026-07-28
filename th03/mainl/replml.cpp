@@ -79,7 +79,7 @@ static void mainl_replay_preroll_se_suppress(bool suppress)
 static void mainl_replay_preroll_audio_mask_raw(bool mask)
 {
 	mainl_replay_preroll_se_suppress(mask);
-	if(snd_fm_possible) {
+	if(snd_active || snd_fm_possible) {
 		_AL = (mask ? 0xFF : 0);
 		_AH = PMD_SET_VOLUME;
 		geninterrupt(PMD);
@@ -119,7 +119,10 @@ static void mainl_replay_preroll_display_show(void)
 
 static void mainl_replay_preroll_audio_refresh(void)
 {
-	if(!mainl_replay_preroll_active() || !snd_fm_possible) {
+	if(
+		!mainl_replay_preroll_active() ||
+		(!snd_active && !snd_fm_possible)
+	) {
 		return;
 	}
 	_AH = KAJA_GET_VOLUME;
@@ -1492,4 +1495,4 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

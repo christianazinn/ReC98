@@ -40,6 +40,7 @@
 #include "th03/practice.hpp"
 #include "th03/rpyfont.hpp"
 #include "th03/sprites/regi.h"
+#include "th03/snd/options.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "platform/x86real/flags.hpp"
 #include "planar.h"
@@ -62,6 +63,7 @@ enum main_choice_t {
 enum option_choice_t {
 	OC_RANK,
 	OC_BGM,
+	OC_SFX,
 	OC_LANGUAGE,
 	OC_KEY_MODE,
 	OC_QUIT,
@@ -136,7 +138,8 @@ enum gaiji_th03_mikoft_t {
 #define g_str_vs(first, second) { g_str_4(first), g_str_4(second), '\0' }
 // --------------------------
 
-bool snd_sel_disabled = false; // Yes, it's just (!snd_fm_possible).
+// Cached before applying the independent BGM and SFX preferences.
+bool snd_sel_disabled = false;
 static char REPLAY_BINARY_MAINL[] = "mainl";
 static char REPLAY_BINARY_MAIN[] = "main";
 static const char REPLAY_DIR[] = "REPLAY";
@@ -158,13 +161,14 @@ void near cfg_load(void)
 
 	cfg_load_and_set_resident(cfg, CFG_FN_CAPS);
 
-	resident->bgm_mode = cfg.opts.bgm_mode;
+	th03_snd_cfg_unpack(cfg.opts.bgm_mode);
 	snd_determine_mode();
+	th03_snd_process_apply();
 	snd_sel_disabled = false;
 	if(!snd_active) {
 		resident->bgm_mode = SND_BGM_OFF;
 		snd_sel_disabled = true;
-	} else if(cfg.opts.bgm_mode == SND_BGM_OFF) {
+	} else if(resident->bgm_mode == SND_BGM_OFF) {
 		snd_active = false;
 	}
 
@@ -186,7 +190,7 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 	file_append(CFG_FN_CAPS);
 	file_seek(0, SEEK_SET);
 
-	cfg.opts.bgm_mode = resident->bgm_mode;
+	cfg.opts.bgm_mode = th03_snd_cfg_pack();
 	cfg.opts.key_mode = resident->key_mode;
 	cfg.opts.rank = resident->rank;
 	cfg.opts.autofire = (resident->autofire != 0);
@@ -241,7 +245,7 @@ static void replay_cfg_load_resident_only(void)
 	cfg_t cfg;
 
 	cfg_load_and_set_resident(cfg, CFG_FN_CAPS);
-	resident->bgm_mode = cfg.opts.bgm_mode;
+	th03_snd_cfg_unpack(cfg.opts.bgm_mode);
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
@@ -3976,8 +3980,8 @@ char COMMAND_REPLAY[] = "Replay";
 char COMMAND_QUIT[] = "Quit";
 
 char LABEL_RANK[] = "Rank";
-char LABEL_MUSIC[] = "Music";
-char LABEL_AUTOFIRE[] = { g_str_7(gp_Autofire), '\0' };
+char LABEL_BGM[6] = "BGM";
+char LABEL_SFX[8] = "SFX";
 char LABEL_KEYCONFIG[] = "KeyConfig";
 
 // ZUN bloat: Unused, but looks like a gaiji version of the space string below.
@@ -3996,7 +4000,7 @@ char VALUE_FM[8] = "FM (86)";
 // The initial names for the three input modes? Unused in the final game.
 // Replay mod: Reuses the five-byte VALUE_TYPE_1 slot to keep the original
 // data layout. Cell 87h is cell 3Fh without Option's stray i column.
-char VALUE_ON[5] = { gp_on_clean_left, gp_on_last, '\0' };
+char VALUE_ON[5] = "On";
 char VALUE_TYPE_2[] = { g_str_3(gp_Type), gp_2, '\0' };
 char VALUE_TYPE_3[] = { g_str_3(gp_Type), gp_3, '\0' };
 
@@ -4043,7 +4047,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -4066,13 +4070,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20342E34UL); // "4.4 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D352E34UL); // "4.5-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4131,16 +4135,22 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			break;
 		}
 	} else if(sel == OC_BGM) {
-		choice_put_centered(LABEL_CENTER_X, 2, -1, LABEL_MUSIC, atrb);
+		choice_put_centered(LABEL_CENTER_X, 2, -1, LABEL_BGM, atrb);
 		switch(resident->bgm_mode) {
 		case SND_BGM_OFF:
 			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_OFF, atrb);
 			break;
 		case SND_BGM_FM:
 		case SND_BGM_MIDI:
-			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_FM, atrb);
+			choice_put_centered(VALUE_CENTER_X, 2, 0, VALUE_ON, atrb);
 			break;
 		}
+	} else if(sel == OC_SFX) {
+		choice_put_centered(LABEL_CENTER_X, 3, -1, LABEL_SFX, atrb);
+		choice_put_centered(
+			VALUE_CENTER_X, 3, 0,
+			(th03_snd_se_enabled() ? VALUE_ON : VALUE_OFF), atrb
+		);
 	} else if(sel == OC_LANGUAGE) {
 		title_credit_line[0] = 'L'; title_credit_line[1] = 'a';
 		title_credit_line[2] = 'n'; title_credit_line[3] = 'g';
@@ -4148,7 +4158,7 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 		title_credit_line[6] = 'g'; title_credit_line[7] = 'e';
 		title_credit_line[8] = '\0';
 		choice_put_centered(
-			LABEL_CENTER_X, 3, -1, title_credit_line, atrb
+			LABEL_CENTER_X, 4, -1, title_credit_line, atrb
 		);
 		if(language_is_english()) {
 			title_credit_line[0] = 'E'; title_credit_line[1] = 'n';
@@ -4156,7 +4166,7 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			title_credit_line[4] = 'i'; title_credit_line[5] = 's';
 			title_credit_line[6] = 'h'; title_credit_line[7] = '\0';
 			choice_put_centered(
-				VALUE_CENTER_X, 3, 0, title_credit_line, atrb
+				VALUE_CENTER_X, 4, 0, title_credit_line, atrb
 			);
 		} else if(menu_font) {
 			title_credit_line[0] = (char)0x93;
@@ -4168,7 +4178,7 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			title_credit_line[6] = '\0';
 			graph_putsa_fx(
 				(VALUE_CENTER_X - ((3 * GLYPH_FULL_W) / 2)),
-				(choice_tram_y(3) * GLYPH_H),
+				(choice_tram_y(4) * GLYPH_H),
 				((atrb == TX_BLACK) ? 0 : V_WHITE), title_credit_line
 			);
 		} else {
@@ -4181,30 +4191,30 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			title_credit_line[6] = '\0';
 			text_putsa(
 				((VALUE_CENTER_X / GLYPH_HALF_W) - 3),
-				choice_tram_y(3), title_credit_line, atrb
+				choice_tram_y(4), title_credit_line, atrb
 			);
 		}
 	} else if(sel == OC_KEY_MODE) {
-		choice_put_centered(LABEL_CENTER_X, 4, -1, LABEL_KEYCONFIG, atrb);
+		choice_put_centered(LABEL_CENTER_X, 5, -1, LABEL_KEYCONFIG, atrb);
 		switch(resident->key_mode) {
 		case KM_KEY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 5, -1, VALUE_KEY_KEY, atrb);
 			break;
 		case KM_JOY_KEY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_JOY_KEY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 5, -1, VALUE_JOY_KEY, atrb);
 			break;
 		case KM_KEY_JOY:
-			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_JOY, atrb);
+			choice_put_centered(VALUE_CENTER_X, 5, -1, VALUE_KEY_JOY, atrb);
 			break;
 		}
 	} else if(sel == OC_QUIT) {
-		choice_put_centered(BOX_OPTION_CENTER_X, 5, 0, COMMAND_QUIT, atrb);
+		choice_put_centered(BOX_OPTION_CENTER_X, 6, 0, COMMAND_QUIT, atrb);
 	}
 }
 
 void pascal near option_choice_put(int sel, tram_atrb2 atrb)
 {
-	unsigned line = ((sel == OC_QUIT) ? 5 : (sel + 1));
+	unsigned line = ((sel == OC_QUIT) ? 6 : (sel + 1));
 
 	title_choice_graphics_unput(line, BOX_OPTION_RIGHT);
 	if(!menu_font && (sel != OC_QUIT)) {
@@ -4378,12 +4388,13 @@ void near main_update_and_render(void)
 	#undef input_allowed
 }
 
-#define snd_flip() { \
+#define bgm_flip() { \
 	if(!snd_sel_disabled) { \
 		if(resident->bgm_mode == SND_BGM_OFF) { \
 			resident->bgm_mode = SND_BGM_FM; \
 			snd_kaja_func(KAJA_SONG_STOP, 0); \
 			snd_determine_mode(); \
+			th03_snd_process_apply(); \
 			snd_kaja_func(KAJA_SONG_PLAY, 0); \
 		} else { \
 			resident->bgm_mode = SND_BGM_OFF; \
@@ -4393,6 +4404,10 @@ void near main_update_and_render(void)
 		/* ZUN bloat: Already done at the call site. */ \
 		option_choice_put(menu_sel, TX_WHITE); \
 	} \
+}
+
+#define sfx_flip() { \
+	th03_snd_se_toggle(); \
 }
 
 inline void return_from_option_to_main(bool& option_initialized) {
@@ -4437,7 +4452,10 @@ void near option_update_and_render(void)
 			ring_inc_range(resident->rank, RANK_EASY, RANK_LUNATIC);
 			break;
 		case OC_BGM:
-			snd_flip();
+			bgm_flip();
+			break;
+		case OC_SFX:
+			sfx_flip();
 			break;
 		case OC_LANGUAGE:
 			language_op_toggle();
@@ -4454,7 +4472,10 @@ void near option_update_and_render(void)
 			ring_dec_range(resident->rank, RANK_EASY, RANK_LUNATIC);
 			break;
 		case OC_BGM:
-			snd_flip();
+			bgm_flip();
+			break;
+		case OC_SFX:
+			sfx_flip();
 			break;
 		case OC_LANGUAGE:
 			language_op_toggle();
@@ -4759,7 +4780,7 @@ static int near replay_dev_story_stage_menu(void)
 #endif
 #if defined(TH03_REPLAY_DEVTOOLS)
 // The debug-only Shift override is larger than the release handoff.
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 /// --------

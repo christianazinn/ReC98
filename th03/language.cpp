@@ -2,7 +2,9 @@
 
 #include "libs/master.lib/master.hpp"
 #include "th02/formats/pi.h"
+#include "th02/snd/snd.h"
 #include "th03/language.hpp"
+#include "th03/snd/options.hpp"
 
 static unsigned char language_ascii_upper(unsigned char c)
 {
@@ -143,3 +145,34 @@ int far language_pi_load(int slot, const char far *fn)
 	language_archive_end(switched);
 	return ret;
 }
+
+void far th03_snd_process_init(void)
+{
+	snd_midi_active = false;
+	if(
+		(resident->bgm_mode != SND_BGM_OFF) ||
+		th03_snd_se_enabled()
+	) {
+		snd_determine_mode();
+	}
+	th03_snd_process_apply();
+	if(resident->bgm_mode == SND_BGM_OFF) {
+		snd_active = false;
+	}
+}
+
+void far th03_snd_se_toggle(void)
+{
+	bool enabled = !th03_snd_se_enabled();
+
+	th03_snd_se_enabled_set(enabled);
+	if(enabled) {
+		snd_determine_mode();
+		if(resident->bgm_mode == SND_BGM_OFF) {
+			snd_active = false;
+		}
+	}
+}
+
+// Keep all following OP groups at their accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

@@ -9,6 +9,7 @@
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/options.hpp"
 
 extern "C" const unsigned char aCOul[];
 extern "C" const char aGameft_bft[];
@@ -32,10 +33,7 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
-	snd_midi_active = false;
-	if(resident->bgm_mode != SND_BGM_OFF) {
-		snd_determine_mode();
-	}
+	th03_snd_process_init();
 
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
@@ -80,3 +78,8 @@ exit_to_mainl:
 game_execl:
 	_asm { nop; push cs; call near ptr GameExecl; }
 }
+
+// Keeps every later original MAIN_01 contribution at its accepted offset.
+#pragma codestring \
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90"

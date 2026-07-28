@@ -16,6 +16,7 @@
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
+#include "th03/snd/options.hpp"
 
 #pragma warn -aus
 
@@ -65,10 +66,7 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 	if(cfg_load_resident_ptr()) {
 		game_init_main(mainl_pf_fn);
 		respal_exist();
-		snd_midi_active = false;
-		if(resident->bgm_mode != SND_BGM_OFF) {
-			snd_determine_mode();
-		}
+		th03_snd_process_init();
 		gaiji_backup();
 		gaiji_entry_bfnt(mainl_gaiji_fn);
 		snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
@@ -211,6 +209,11 @@ stage_splash_load_and_show:
 		goto stage_splash_show;
 	}
 }
+
+// Keeps every later original CUTSCENE_TEXT contribution at its accepted offset.
+#pragma codestring \
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90"
 
 // Preserve the accepted CUTSCENE_TEXT layout after the equivalent range test.
 #pragma codestring "\x90"
