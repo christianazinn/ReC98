@@ -22,6 +22,7 @@ enum practice_menu_color_t {
 	PRACTICE_COLOR_FOOTER = PRACTICE_COLOR_HEADER,
 	PRACTICE_COLOR_LABEL = 13,
 	PRACTICE_COLOR_SELECTED = 14,
+	PRACTICE_COLOR_DISABLED = 11,
 	PRACTICE_COLOR_VALUE = V_WHITE,
 };
 
@@ -114,9 +115,10 @@ void far practice_resident_clear(void)
 }
 
 enum practice_row_t {
-	PR_PRESET,
+	PR_MODE,
 	PR_STAGE,
 	PR_ROUND,
+	PR_ADVANCED,
 	PR_CPU_TIMER,
 	PR_ROUND_SPEED,
 	PR_BULLET_SPEED,
@@ -129,6 +131,21 @@ enum practice_row_t {
 	PR_RESET,
 	PR_START,
 	PR_COUNT,
+};
+
+enum practice_page_t {
+	PP_MAIN,
+	PP_ADVANCED,
+};
+
+enum practice_layout_t {
+	PRACTICE_HEADER_TOP = 2,
+	PRACTICE_MAIN_ROWS_TOP = 6,
+	PRACTICE_ADVANCED_ROWS_TOP = 4,
+	PRACTICE_MAIN_COMMAND_TOP = 11,
+	PRACTICE_FOOTER_TOP = 20,
+	PRACTICE_MAIN_ROW_COUNT = 6,
+	PRACTICE_ADVANCED_ROW_COUNT = (PR_EXTENDS - PR_CPU_TIMER + 1),
 };
 
 struct practice_menu_t {
@@ -248,9 +265,25 @@ static int practice_line_q4(char __ss *line, int at, uint8_t value)
 	return at;
 }
 
+static bool practice_row_enabled(
+	const practice_menu_t __ss& cfg, uint8_t row
+)
+{
+	if(row == PR_STAGE) {
+		return (
+			(cfg.preset == PRACTICE_PRESET_STORY_NATIVE) &&
+			(practice_fixed_stage() == STAGE_NONE)
+		);
+	}
+	if((row == PR_ROUND) || (row == PR_STOCK) || (row == PR_EXTENDS)) {
+		return (cfg.preset == PRACTICE_PRESET_STORY_NATIVE);
+	}
+	return true;
+}
+
 static void practice_graphics_row_put(
-	char __ss *line, int label_end, int value_at, uint8_t row, bool selected,
-	bool restore, bool fixed_digits
+	char __ss *line, int label_end, int value_at, uint8_t row, uint8_t top,
+	bool selected, bool restore, bool fixed_digits, bool enabled
 )
 {
 	enum {
@@ -258,60 +291,69 @@ static void practice_graphics_row_put(
 		VALUE_LEFT = ((RES_X / 2) + 16),
 		CURSOR_GAP = 16,
 	};
-	vram_y_t top = ((4 + row) * GLYPH_H);
-	int color = (
-		selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_VALUE
+	vram_y_t y = (top * GLYPH_H);
+	screen_x_t label_left = LABEL_LEFT;
+	bool centered = (
+		(row == PR_ADVANCED) || (row == PR_RESET) || (row == PR_START)
+	);
+	int label_color = (
+		selected ? PRACTICE_COLOR_SELECTED :
+		(((row == PR_RESET) || (row == PR_START)) ?
+		 PRACTICE_COLOR_HEADER : PRACTICE_COLOR_LABEL)
+	);
+	int value_color = (
+		!enabled ? PRACTICE_COLOR_DISABLED :
+		(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_VALUE)
 	);
 
 	if(restore) {
-		menu_font_restore_rect(0, top, RES_X, GLYPH_H);
+		menu_font_restore_rect(0, y, RES_X, GLYPH_H);
 	}
 	line[label_end] = '\0';
+	if(centered) {
+		label_left = ((RES_X / 2) - (menu_font_width(&line[2]) / 2));
+	}
 	if(selected) {
 		line[1] = '\0';
 		menu_font_put(
-			(LABEL_LEFT - CURSOR_GAP), top, line, PRACTICE_COLOR_SELECTED
+			(label_left - CURSOR_GAP), y, line, PRACTICE_COLOR_SELECTED
 		);
 	}
-	menu_font_put(
-		LABEL_LEFT, top, &line[2],
-		(selected ? PRACTICE_COLOR_SELECTED : PRACTICE_COLOR_LABEL)
-	);
+	menu_font_put(label_left, y, &line[2], label_color);
 	if(value_at != 0) {
 		if(fixed_digits) {
 			replay_font_put_fixed_n(
-				VALUE_LEFT, top, &line[value_at], 1,
-				REPLAY_FONT_NUMERIC_CELL_W, color
+				VALUE_LEFT, y, &line[value_at], 1,
+				REPLAY_FONT_NUMERIC_CELL_W, value_color
 			);
 			menu_font_put_n(
 				(VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W),
-				top, &line[value_at + 1], 1, color
+				y, &line[value_at + 1], 1, value_color
 			);
 			replay_font_put_fixed_n(
 				(
 					VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W +
 					menu_font_width_n(&line[value_at + 1], 1)
 				),
-				top, &line[value_at + 2], 4,
-				REPLAY_FONT_NUMERIC_CELL_W, color
+				y, &line[value_at + 2], 4,
+				REPLAY_FONT_NUMERIC_CELL_W, value_color
 			);
 		} else {
-			menu_font_put(
-				VALUE_LEFT, top, &line[value_at],
-				color
-			);
+			menu_font_put(VALUE_LEFT, y, &line[value_at], value_color);
 		}
 	}
 }
 
 static void practice_row_put(
-	practice_menu_t __ss& cfg, uint8_t row, bool selected, bool restore
+	practice_menu_t __ss& cfg, uint8_t row, uint8_t top, bool selected,
+	bool restore
 )
 {
 	char line[65];
 	int at;
 	int label_end;
 	int value_at = 0;
+	bool enabled = practice_row_enabled(cfg, row);
 
 #define P(c) line[at++] = (c)
 #define VALUE_COLUMN() { \
@@ -324,15 +366,14 @@ static void practice_row_put(
 	line[0] = (selected ? '>' : ' ');
 	at = 2;
 	switch(row) {
-	case PR_PRESET:
-		P('P'); P('r'); P('e'); P('s'); P('e'); P('t');
+	case PR_MODE:
+		P('M'); P('o'); P('d'); P('e');
 		VALUE_COLUMN();
 		if(cfg.preset == PRACTICE_PRESET_VS_DEFAULT) {
 			P('V'); P('S'); P(' '); P('D'); P('e'); P('f'); P('a'); P('u');
 			P('l'); P('t');
 		} else {
-			P('S'); P('t'); P('o'); P('r'); P('y'); P(' '); P('N'); P('a');
-			P('t'); P('i'); P('v'); P('e');
+			P('S'); P('t'); P('o'); P('r'); P('y');
 		}
 		break;
 	case PR_STAGE:
@@ -355,8 +396,7 @@ static void practice_row_put(
 			P('V'); P('S'); P(' '); P('D'); P('e'); P('f'); P('a'); P('u');
 			P('l'); P('t');
 		} else if(cfg.cpu_timer == PRACTICE_CPU_TIMER_STORY_NATIVE) {
-			P('S'); P('t'); P('o'); P('r'); P('y'); P(' '); P('N'); P('a');
-			P('t'); P('i'); P('v'); P('e');
+			P('S'); P('t'); P('o'); P('r'); P('y');
 		} else {
 			P('I'); P('n'); P('f'); P('i'); P('n'); P('i'); P('t'); P('e');
 		}
@@ -419,6 +459,11 @@ static void practice_row_put(
 			at = practice_line_u16(line, at, cfg.extends_gained);
 		}
 		break;
+	case PR_ADVANCED:
+		P('A'); P('d'); P('v'); P('a'); P('n'); P('c'); P('e'); P('d');
+		P(' '); P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g');
+		P('s');
+		break;
 	case PR_RESET:
 		P('R'); P('e'); P('s'); P('e'); P('t'); P(' '); P('D'); P('e');
 		P('f'); P('a'); P('u'); P('l'); P('t'); P('s');
@@ -433,23 +478,59 @@ static void practice_row_put(
 	if(menu_font) {
 		line[at] = '\0';
 		practice_graphics_row_put(
-			line, label_end, value_at, row, selected, restore,
-			((row == PR_ROUND_SPEED) || (row == PR_BULLET_SPEED))
+			line, label_end, value_at, row, top, selected, restore,
+			((row == PR_ROUND_SPEED) || (row == PR_BULLET_SPEED)), enabled
 		);
 	} else {
-		text_putsa(8, (4 + row), line, (selected ? TX_CYAN : TX_WHITE));
+		text_putsa(8, top, line, (selected ? TX_CYAN : TX_WHITE));
 	}
 
 #undef VALUE_COLUMN
 #undef P
 }
 
+static uint8_t practice_page_row(uint8_t page, uint8_t at)
+{
+	if(page == PP_ADVANCED) {
+		return (PR_CPU_TIMER + at);
+	}
+	if(at < PR_ADVANCED) {
+		return at;
+	}
+	if(at == PR_ADVANCED) {
+		return PR_ADVANCED;
+	}
+	return (PR_RESET + (at - (PR_ADVANCED + 1)));
+}
+
+static uint8_t practice_page_row_count(uint8_t page)
+{
+	return (
+		(page == PP_ADVANCED) ?
+		PRACTICE_ADVANCED_ROW_COUNT : PRACTICE_MAIN_ROW_COUNT
+	);
+}
+
 static void practice_rows_put(
-	practice_menu_t __ss& cfg, uint8_t selected, bool restore
+	practice_menu_t __ss& cfg, uint8_t page, uint8_t selected, bool restore
 )
 {
-	for(uint8_t row = 0; row < PR_COUNT; row++) {
-		practice_row_put(cfg, row, (row == selected), restore);
+	uint8_t count = practice_page_row_count(page);
+
+	for(uint8_t at = 0; at < count; at++) {
+		uint8_t row = practice_page_row(page, at);
+		uint8_t top;
+
+		if(page == PP_ADVANCED) {
+			top = (PRACTICE_ADVANCED_ROWS_TOP + at);
+		} else if(at <= PR_ADVANCED) {
+			top = (PRACTICE_MAIN_ROWS_TOP + at);
+		} else {
+			top = (
+				PRACTICE_MAIN_COMMAND_TOP + (at - (PR_ADVANCED + 1))
+			);
+		}
+		practice_row_put(cfg, row, top, (at == selected), restore);
 	}
 }
 
@@ -470,7 +551,7 @@ static void practice_value_step(
 )
 {
 	switch(row) {
-	case PR_PRESET:
+	case PR_MODE:
 		cfg.preset = (1 - cfg.preset);
 		practice_defaults_set(cfg);
 		break;
@@ -642,7 +723,7 @@ static void practice_config_store(practice_menu_t __ss& cfg)
 	);
 }
 
-static void practice_heading_put(bool restore)
+static void practice_heading_put(uint8_t page, bool restore)
 {
 	char line[65];
 	int at;
@@ -651,18 +732,27 @@ static void practice_heading_put(bool restore)
 
 	practice_line_clear(line);
 	at = 0;
-	P('P'); P('R'); P('A'); P('C'); P('T'); P('I'); P('C'); P('E');
-	P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
+	if(page == PP_ADVANCED) {
+		P('A'); P('D'); P('V'); P('A'); P('N'); P('C'); P('E'); P('D');
+		P(' '); P('S'); P('E'); P('T'); P('T'); P('I'); P('N'); P('G');
+		P('S');
+	} else {
+		P('P'); P('R'); P('A'); P('C'); P('T'); P('I'); P('C'); P('E');
+		P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
+	}
 	line[at] = '\0';
 	if(menu_font) {
 		if(restore) {
-			menu_font_restore_rect(0, (2 * GLYPH_H), RES_X, GLYPH_H);
+			menu_font_restore_rect(
+				0, (PRACTICE_HEADER_TOP * GLYPH_H), RES_X, GLYPH_H
+			);
 		}
 		menu_font_put_centered(
-			(RES_X / 2), (2 * GLYPH_H), line, PRACTICE_COLOR_HEADER
+			(RES_X / 2), (PRACTICE_HEADER_TOP * GLYPH_H), line,
+			PRACTICE_COLOR_HEADER
 		);
 	} else {
-		text_putsa(31, 2, line, TX_WHITE);
+		text_putsa(31, PRACTICE_HEADER_TOP, line, TX_WHITE);
 	}
 
 	practice_line_clear(line);
@@ -676,23 +766,28 @@ static void practice_heading_put(bool restore)
 	line[at] = '\0';
 	if(menu_font) {
 		if(restore) {
-			menu_font_restore_rect(0, (20 * GLYPH_H), RES_X, GLYPH_H);
+			menu_font_restore_rect(
+				0, (PRACTICE_FOOTER_TOP * GLYPH_H), RES_X, GLYPH_H
+			);
 		}
 		menu_font_put_centered(
-			(RES_X / 2), (20 * GLYPH_H), line, PRACTICE_COLOR_FOOTER
+			(RES_X / 2), (PRACTICE_FOOTER_TOP * GLYPH_H), line,
+			PRACTICE_COLOR_FOOTER
 		);
 	} else {
-		text_putsa(12, 20, line, TX_WHITE);
+		text_putsa(12, PRACTICE_FOOTER_TOP, line, TX_WHITE);
 	}
 
 #undef P
 }
 
-static void practice_screen_put(practice_menu_t __ss& cfg, uint8_t selected)
+static void practice_screen_put(
+	practice_menu_t __ss& cfg, uint8_t page, uint8_t selected
+)
 {
 	select_vs_cpu_practice_background_put();
-	practice_heading_put(false);
-	practice_rows_put(cfg, selected, false);
+	practice_heading_put(page, false);
+	practice_rows_put(cfg, page, selected, false);
 	select_vs_cpu_practice_frame_finish();
 }
 
@@ -710,6 +805,7 @@ static void practice_screen_clear(void)
 bool far practice_setup_menu(void)
 {
 	practice_menu_t cfg;
+	uint8_t page = PP_MAIN;
 	uint8_t selected = 0;
 	input_t input_prev;
 
@@ -721,26 +817,37 @@ bool far practice_setup_menu(void)
 	text_clear();
 	palette_100();
 	palette_set(PRACTICE_COLOR_SELECTED, 0x20, 0xE0, 0xFF);
+	palette_set(PRACTICE_COLOR_DISABLED, 0x80, 0x80, 0x80);
 	palette_show();
 
 	input_mode_interface();
 	input_prev = input_sp;
 	while(1) {
-		practice_screen_put(cfg, selected);
+		uint8_t count = practice_page_row_count(page);
+		uint8_t row = practice_page_row(page, selected);
+
+		practice_screen_put(cfg, page, selected);
 		input_mode_interface();
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
-				selected = ((selected == 0) ? (PR_COUNT - 1) : (selected - 1));
+				selected = ((selected == 0) ? (count - 1) : (selected - 1));
 			} else if(input_sp & INPUT_DOWN) {
-				selected = ((selected == (PR_COUNT - 1)) ? 0 : (selected + 1));
+				selected = ((selected == (count - 1)) ? 0 : (selected + 1));
 			} else if(input_sp & INPUT_LEFT) {
-				practice_value_step(cfg, selected, false);
+				if(practice_row_enabled(cfg, row)) {
+					practice_value_step(cfg, row, false);
+				}
 			} else if(input_sp & INPUT_RIGHT) {
-				practice_value_step(cfg, selected, true);
+				if(practice_row_enabled(cfg, row)) {
+					practice_value_step(cfg, row, true);
+				}
 			} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
-				if(selected == PR_RESET) {
+				if(row == PR_ADVANCED) {
+					page = PP_ADVANCED;
+					selected = 0;
+				} else if(row == PR_RESET) {
 					practice_defaults_set(cfg);
-				} else if(selected == PR_START) {
+				} else if(row == PR_START) {
 					if(practice_is_exact_vs_default(cfg)) {
 						practice_resident_clear();
 						resident->story_stage = 0;
@@ -753,6 +860,12 @@ bool far practice_setup_menu(void)
 					return false;
 				}
 			} else if(input_sp & INPUT_CANCEL) {
+				if(page == PP_ADVANCED) {
+					page = PP_MAIN;
+					selected = PR_ADVANCED;
+					input_prev = input_sp;
+					continue;
+				}
 				practice_resident_clear();
 				select_vs_cpu_practice_palette_restore();
 				text_clear();
@@ -766,4 +879,4 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
