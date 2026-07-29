@@ -1027,7 +1027,13 @@ void far replay_frame_publish(void)
 
 void far replay_frame_delay(void)
 {
-	if(!replay_preroll_simulating()) {
+	if(
+		!replay_preroll_simulating() &&
+		!(
+			(replay_mode == REPLAY_USER_PLAYBACK) &&
+			resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX]
+		)
+	) {
 		frame_delay(1);
 	}
 }
@@ -5049,15 +5055,6 @@ void far replay_input_sense_held(void)
 	) {
 		replay_user_sample_commit();
 	}
-	if(
-		(replay_mode == REPLAY_USER_PLAYBACK) &&
-		(
-			(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) ||
-			resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX]
-		)
-	) {
-		vsync_Count1 = byte_23AF9;
-	}
 }
 
 #define REPLAY_PAUSE_LEFT 24
@@ -5544,7 +5541,7 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
