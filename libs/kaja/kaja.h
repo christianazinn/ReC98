@@ -26,6 +26,8 @@ typedef enum {
 	PMD_SE_PLAY = 0x0C,
 	PMD_GET_WORKAREA_ADDRESS = 0x10,
 	PMD_SET_VOLUME = 0x19,
+	PMD_SONG_PAUSE = 0x1A,
+	PMD_SONG_RESUME = 0x1B,
 	PMD_PART_MASK = 0x1E,
 
 	// Returns the sizes of the song (AL), instrument (AH), and sound effect

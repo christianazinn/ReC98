@@ -5280,6 +5280,7 @@ static bool replay_pause_save_disabled(void)
 
 static void replay_pause_save_refresh(void)
 {
+	snd_kaja_func(PMD_SONG_PAUSE, 0);
 	if(replay_mode == REPLAY_USER_PLAYBACK) {
 		return;
 	}
@@ -5426,6 +5427,7 @@ static void replay_pause_restore_graphics(void)
 {
 	graph_copy_page(page_front);
 	graph_accesspage(page_back);
+	snd_kaja_func(PMD_SONG_RESUME, 0);
 }
 
 static void replay_pause_wait_release(void)
@@ -5541,7 +5543,6 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
