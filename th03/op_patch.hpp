@@ -5,6 +5,7 @@
 
 void far keyconfig_palette_fade_in(void);
 void far keyconfig_palette_fade_out(void);
+void far musicroom_background_put_page0(void);
 void far title_extra_unlock_update(void);
 uint8_t far replay_checkpoint_anchor_for_menu(uint8_t selected);
 void far replay_checkpoint_handoff_set(uint8_t anchor);

@@ -3,9 +3,11 @@
 #include "x86real.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/formats/pi.h"
 #include "th02/snd/snd.h"
 #include "th03/common.h"
 #include "th03/hardware/input.h"
+#include "th03/language.hpp"
 #include "th03/op_patch.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
@@ -29,6 +31,29 @@ void far keyconfig_palette_fade_in(void)
 void far keyconfig_palette_fade_out(void)
 {
 	palette_black_out(1);
+}
+
+void far musicroom_background_put_page0(void)
+{
+	char fn[7];
+
+	// graph_copy_page() needs a contiguous 32 KiB scratch allocation. Render
+	// the background to page 0 directly without allocating that buffer.
+	fn[0] = 'o';
+	fn[1] = 'p';
+	fn[2] = '3';
+	fn[3] = '.';
+	fn[4] = 'p';
+	fn[5] = 'i';
+	fn[6] = '\0';
+	if(language_pi_load_freed_slot(0, fn) != 0) {
+		return;
+	}
+	pi_palette_apply(0);
+	graph_accesspage(0);
+	pi_put_8(0, 0, 0);
+	graph_accesspage(1);
+	pi_free(0);
 }
 
 void far title_extra_unlock_update(void)

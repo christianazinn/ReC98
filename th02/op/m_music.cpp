@@ -50,6 +50,7 @@ const int TRACK_COUNT[GAME_COUNT] = { 14, 18, 24, 28, 23 };
 #elif (GAME == 3)
 #include "th03/shiftjis/music.hpp"
 #include "th03/language.hpp"
+#include "th03/op_patch.hpp"
 #elif (GAME == 2)
 #include "th02/shiftjis/music.hpp"
 #endif
@@ -801,6 +802,8 @@ void MUSICROOM_DISTANCE musicroom_menu(void)
 
 #if (GAME >= 4)
 	pi_fullres_load_palette_apply_put_free(0, "music.pi");
+#elif (GAME == 3)
+	pi_fullres_load_palette_apply_put_free(0, "op3.pi");
 #else
 	pi_fullres_load_palette_apply_put_free(0, "op3.pi");
 #endif
@@ -813,11 +816,18 @@ void MUSICROOM_DISTANCE musicroom_menu(void)
 #else
 	music_sel = track_playing;
 
+#if (GAME == 3)
+	musicroom_background_put_page0();
+	asm { nop; nop; }
+#endif
+
 	// ZUN bloat: We copy pages below anyway, this doesn't need to be blitted
 	// to both.
 	tracklist_put_both(music_sel);
 #endif
+#if (GAME != 3)
 	graph_copy_page(0);
+#endif
 
 #if (GAME == 4)
 	bgimage_snap();

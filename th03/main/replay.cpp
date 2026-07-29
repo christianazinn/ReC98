@@ -272,6 +272,11 @@ static void replay_accel_temps_delete(void);
 static bool replay_accel_capture(uint8_t checkpoint);
 static bool replay_accel_prepare(uint8_t checkpoint);
 static bool replay_accel_direct_start(void);
+#if defined(TH03_REPLAY_DEVTOOLS)
+static void replay_debug_transition_write(
+	uint8_t code, uint8_t requested_phase
+);
+#endif
 
 static uint8_t replay_user_background_phase(void)
 {
@@ -1040,6 +1045,11 @@ extern "C" void far replay_pause_request_poll(void)
 		asm { clc; }
 		return;
 	}
+#if defined(TH03_REPLAY_DEVTOOLS)
+	if(replay_mode == REPLAY_USER_PLAYBACK) {
+		replay_debug_transition_write(0xE6, replay_rle_phase);
+	}
+#endif
 	resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX] = true;
 	asm { stc; }
 }
@@ -3987,15 +3997,24 @@ cleanup:
 	return ok;
 }
 
-static void replay_user_checkpoint_inputs_prepare(void)
+static void replay_user_decoder_inputs_restore(void)
 {
-	// Seeking reconstructs the decoder's internal packet state. Live input
-	// belongs to the next decoded sample and must not escape into the physical
-	// playback-cancel check or a pause-menu phase transition before then.
-	input_mp_p1 = INPUT_NONE;
-	input_mp_p2 = INPUT_NONE;
-	input_sp = INPUT_NONE;
-	resident->input_charge = 0;
+	// At an exact packet boundary, seek leaves the most recently completed
+	// packet in the decoder fields even though no packet is active.
+	if(replay_rle_run == 0) {
+		input_mp_p1 = INPUT_NONE;
+		input_mp_p2 = INPUT_NONE;
+		input_sp = INPUT_NONE;
+		resident->input_charge = 0;
+		return;
+	}
+	input_mp_p1 = replay_rle_input_mp_p1;
+	input_mp_p2 = replay_rle_input_mp_p2;
+	input_sp = replay_rle_input_sp;
+	resident->input_charge = static_cast<uint8_t>(
+		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
+		REPLAY_RLE_STATE_CHARGE_SHIFT
+	);
 }
 
 static bool replay_accel_checkpoint_cursor_read(
@@ -4052,6 +4071,7 @@ static bool replay_accel_direct_start(void)
 	}
 	replay_sample_count = sample;
 	replay_global_frame = global_frame;
+	replay_user_decoder_inputs_restore();
 	replay_user_snapshot_restore_resident();
 	if(!replay_user_snapshot_restore_runtime()) {
 		return false;
@@ -4063,7 +4083,7 @@ static bool replay_accel_direct_start(void)
 	// The broad image contains recording-process far pointers. Restore the
 	// normalized portable phases after preserving this process's pointers.
 	replay_user_round_carry_restore();
-	replay_user_checkpoint_inputs_prepare();
+	replay_user_decoder_inputs_restore();
 	hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
 	replay_accel_raw_seg = 0;
 	replay_accel_target_checkpoint = 0;
@@ -4081,14 +4101,23 @@ static bool replay_accel_direct_start(void)
 static bool replay_user_play_rle_sample(uint8_t phase)
 {
 	if(replay_sample_count >= replay_user_header.sample_count) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+		replay_debug_transition_write(0xE4, phase);
+#endif
 		return false;
 	}
 	if(replay_rle_run == 0) {
 		if(!replay_user_read_rle_packet()) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+			replay_debug_transition_write(0xE1, phase);
+#endif
 			return false;
 		}
 	}
 	if((replay_rle_phase & REPLAY_RLE_PHASE_MASK) != phase) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+		replay_debug_transition_write(0xE2, phase);
+#endif
 		return false;
 	}
 	input_mp_p1 = replay_rle_input_mp_p1;
@@ -4123,6 +4152,11 @@ static bool replay_user_play_logical_sample(uint8_t phase)
 static bool replay_user_playback_cancel(void)
 {
 	if(input_sp & INPUT_CANCEL) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+		replay_debug_transition_write(
+			0xE0, T3_REPLAY_PACKET_PHASE_GAMEPLAY
+		);
+#endif
 		input_sp = INPUT_NONE;
 		byte_23B00 = 1;
 		replay_prompt_skip_queued = true;
@@ -4133,6 +4167,9 @@ static bool replay_user_playback_cancel(void)
 
 static void replay_user_playback_error_finish(void)
 {
+#if defined(TH03_REPLAY_DEVTOOLS)
+	replay_debug_transition_write(0xE3, replay_rle_phase);
+#endif
 	replay_split_row(RSE_ERROR, replay_last_route);
 	replay_done_write(RTX_ERROR_FRAME_IO);
 	replay_resident_handoff_clear();
@@ -4693,6 +4730,7 @@ void far replay_session_start(void)
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
 			}
+			replay_user_decoder_inputs_restore();
 			replay_user_snapshot_restore_resident();
 			if(!replay_user_snapshot_restore_runtime()) {
 				replay_preroll_startup_unmask();
@@ -4706,7 +4744,6 @@ void far replay_session_start(void)
 			if(replay_user_version_has_round_carry(replay_user_header.version)) {
 				replay_user_round_carry_restore();
 			}
-			replay_user_checkpoint_inputs_prepare();
 #if defined(TH03_REPLAY_DEVTOOLS)
 			replay_state_probe_checkpoint = playback_stage;
 			replay_state_probe_pending = true;
@@ -4887,6 +4924,11 @@ void far replay_frame_io(void)
 			return;
 		}
 		if(replay_sample_count >= replay_user_header.sample_count) {
+#if defined(TH03_REPLAY_DEVTOOLS)
+			replay_debug_transition_write(
+				0xE4, T3_REPLAY_PACKET_PHASE_GAMEPLAY
+			);
+#endif
 			replay_split_row(RSE_INPUT_END, replay_last_route);
 			input_sp |= INPUT_CANCEL;
 			replay_done_write(RTX_OK_USER_INPUT_END);
@@ -5490,16 +5532,20 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
 	uint8_t old_sel;
 
+#if defined(TH03_REPLAY_DEVTOOLS)
+	if(
+		(replay_user_slot < T3_REPLAY_USER_SLOT_COUNT) &&
+		(replay_mode != REPLAY_USER_PLAYBACK)
+	) {
+		replay_debug_transition_write(0xE5, 0xFF);
+	}
+#endif
 	replay_pause_save_refresh();
 	replay_pause_beep();
 	replay_pause_wait_release();
@@ -5811,6 +5857,42 @@ static void replay_user_carry_chains_restore(void)
 		}
 	}
 }
+
+#if defined(TH03_REPLAY_DEVTOOLS)
+static void replay_debug_transition_write(
+	uint8_t code, uint8_t requested_phase
+)
+{
+	uint16_t input;
+
+	if(replay_guard_diag_written) {
+		return;
+	}
+	replay_handoff_cursor_store();
+	resident->unused_3[T3R_DIAG_CODE_INDEX] = code;
+	resident->unused_3[T3R_DIAG_DRIVE_INDEX] = replay_mode;
+	resident->unused_3[T3R_DIAG_DOS_AX_INDEX + 0] = requested_phase;
+	resident->unused_3[T3R_DIAG_DOS_AX_INDEX + 1] = replay_rle_phase;
+	input = input_sp;
+	resident->unused_3[T3R_DIAG_BYTES_SECTOR_INDEX + 0] = input;
+	resident->unused_3[T3R_DIAG_BYTES_SECTOR_INDEX + 1] = (input >> 8);
+	input = replay_rle_input_sp;
+	resident->unused_3[T3R_DIAG_ROOT_ENTRIES_INDEX + 0] = input;
+	resident->unused_3[T3R_DIAG_ROOT_ENTRIES_INDEX + 1] = (input >> 8);
+	resident->unused_3[T3R_DIAG_ROOT_SECTORS_INDEX + 0] = replay_rle_run;
+	resident->unused_3[T3R_DIAG_ROOT_SECTORS_INDEX + 1] = (
+		replay_rle_packet_state
+	);
+	resident->unused_3[T3R_DIAG_OFFSET_INDEX + 0] = byte_23B00;
+	resident->unused_3[T3R_DIAG_OFFSET_INDEX + 1] = (
+		resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX]
+	);
+	resident->unused_3[T3R_DIAG_INT25_FLAGS_INDEX + 0] = (
+		replay_prompt_skip_queued
+	);
+	replay_guard_diag_write();
+}
+#endif
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
