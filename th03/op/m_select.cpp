@@ -493,37 +493,63 @@ inline void cursor_put_p2(void) {
 	cursor_put(1, (sel_confirmed[1] ? V_WHITE : 10));
 }
 
-#define select_confirm(pid, palette_id, swap_func) { \
-	int playchar = sel[pid]; \
-	resident->playchar_paletted[pid].v = ( \
-		TO_OPTIONAL_PALETTED(playchar) + palette_id \
-	); \
-	palette_white_in(1); \
-	\
-	static_assert(PLAYER_COUNT == 2); \
-	if(sel_confirmed[1 - pid] && ( \
-		resident->playchar_paletted[0].v == resident->playchar_paletted[1].v \
-	)) { \
-		swap_func; \
-		cdg_load_single( \
-			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], !palette_id \
-		); \
-	} else { \
-		cdg_load_single( \
-			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], palette_id \
-		); \
-	} \
-	\
-	static_assert(PLAYER_COUNT == 2); \
-	if(sel_confirmed[1 - pid]) { \
+inline void select_cdg_free_unselected_pics(void)
+{
+	for(int slot = CDG_PIC; slot <= CDG_PIC_last; slot++) {
+		cdg_free(slot);
+	}
+}
+
+inline void select_cdg_reload_unselected_pics(void)
+{
+	for(int playchar = 0; playchar < PLAYCHAR_COUNT; playchar++) {
+		cdg_load_single(
+			(CDG_PIC + playchar), PLAYCHAR_PIC_FN[playchar], 0
+		);
+	}
+}
+
+void near select_confirm_player(pid2 pid, int palette_id)
+{
+	int playchar = sel[pid];
+	resident->playchar_paletted[pid].v = (
+		TO_OPTIONAL_PALETTED(playchar) + palette_id
+	);
+	palette_white_in(1);
+
+	static_assert(PLAYER_COUNT == 2);
+	if(sel_confirmed[1 - pid]) {
+		// The base portraits are no longer rendered after both players confirm.
+		select_cdg_free_unselected_pics();
+	}
+
+	if(sel_confirmed[1 - pid] && (
+		resident->playchar_paletted[0].v == resident->playchar_paletted[1].v
+	)) {
+		if(palette_id) {
+			resident->playchar_paletted[pid].v--;
+		} else {
+			resident->playchar_paletted[pid].v++;
+		}
+		cdg_load_single(
+			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], !palette_id
+		);
+	} else {
+		cdg_load_single(
+			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], palette_id
+		);
+	}
+
+	static_assert(PLAYER_COUNT == 2);
+	if(sel_confirmed[1 - pid]) {
 		/**
-		 * ZUN bloat: Should only be done in the main function, see the \
-		 * comment there. \
-		 */ \
-		fadeout_frame_third = 0; \
-	} \
-	sel_confirmed[pid] = true; \
-	input_locked[pid] = true; \
+		 * ZUN bloat: Should only be done in the main function, see the
+		 * comment there.
+		 */
+		fadeout_frame_third = 0;
+	}
+	sel_confirmed[pid] = true;
+	input_locked[pid] = true;
 }
 
 void pascal near select_update_player(input_t input, pid2 pid)
@@ -547,10 +573,10 @@ void pascal near select_update_player(input_t input, pid2 pid)
 		input_locked[pid] = true;
 	}
 	if(input & INPUT_SHOT) {
-		select_confirm(pid, 0, resident->playchar_paletted[pid].v++);
+		select_confirm_player(pid, 0);
 	}
 	if(input & INPUT_BOMB) {
-		select_confirm(pid, 1, resident->playchar_paletted[pid].v--);
+		select_confirm_player(pid, 1);
 	}
 }
 
@@ -689,7 +715,9 @@ bool near select_vs_cpu_menu(bool resume)
 		select_init_and_load();
 	} else {
 		// Practice Setup keeps the selection assets, BGM, and live page-flip
-		// state. Its final clean frame leaves the hidden page accessed.
+		// state. Reload the base portraits released on final confirmation so
+		// that every character is available again after returning.
+		select_cdg_reload_unselected_pics();
 		vsync_Count1 = 0;
 		curve_trail_count = 8;
 	}
