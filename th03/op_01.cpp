@@ -1282,13 +1282,13 @@ static bool near vs_start(bool select_characters)
 		}
 	}
 
-	resident_reset_scores(sel);
 	if(sel == VS_CPU_CPU) {
 		replay_resident_handoff_clear();
 	} else {
 		replay_resident_handoff_set(T3_REPLAY_RES_MODE_USER_RECORD);
 		replay_resident_handoff_slot_set(T3_REPLAY_USER_SLOT_NONE);
 	}
+	resident_reset_scores(sel);
 	return switch_to_mainl(false);
 }
 
@@ -4043,7 +4043,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 38,
+		LINE2_LEN = 42,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -4066,13 +4066,13 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20362E34UL); // "4.6 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D372E34UL); // "4.7-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
