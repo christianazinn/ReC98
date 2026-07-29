@@ -128,6 +128,7 @@ enum practice_row_t {
 	PR_CPU_DAMAGE,
 	PR_STOCK,
 	PR_EXTENDS,
+	PR_BACK,
 	PR_RESET,
 	PR_START,
 	PR_COUNT,
@@ -143,9 +144,10 @@ enum practice_layout_t {
 	PRACTICE_MAIN_ROWS_TOP = 6,
 	PRACTICE_ADVANCED_ROWS_TOP = 4,
 	PRACTICE_MAIN_COMMAND_TOP = 11,
+	PRACTICE_ADVANCED_COMMAND_TOP = 14,
 	PRACTICE_FOOTER_TOP = 20,
 	PRACTICE_MAIN_ROW_COUNT = 6,
-	PRACTICE_ADVANCED_ROW_COUNT = (PR_EXTENDS - PR_CPU_TIMER + 1),
+	PRACTICE_ADVANCED_ROW_COUNT = (PR_EXTENDS - PR_CPU_TIMER + 2),
 };
 
 struct practice_menu_t {
@@ -287,18 +289,27 @@ static void practice_graphics_row_put(
 )
 {
 	enum {
-		LABEL_LEFT = ((RES_X / 2) - 208),
-		VALUE_LEFT = ((RES_X / 2) + 16),
+		MAIN_LABEL_LEFT = ((RES_X / 2) - 80),
+		MAIN_VALUE_LEFT = ((RES_X / 2) + 8),
+		ADVANCED_LABEL_LEFT = ((RES_X / 2) - 208),
+		ADVANCED_VALUE_LEFT = ((RES_X / 2) + 16),
 		CURSOR_GAP = 16,
 	};
 	vram_y_t y = (top * GLYPH_H);
-	screen_x_t label_left = LABEL_LEFT;
+	bool main_field = (row <= PR_ROUND);
+	screen_x_t label_left = (
+		main_field ? MAIN_LABEL_LEFT : ADVANCED_LABEL_LEFT
+	);
+	screen_x_t value_left = (
+		main_field ? MAIN_VALUE_LEFT : ADVANCED_VALUE_LEFT
+	);
 	bool centered = (
-		(row == PR_ADVANCED) || (row == PR_RESET) || (row == PR_START)
+		(row == PR_ADVANCED) || (row == PR_BACK) ||
+		(row == PR_RESET) || (row == PR_START)
 	);
 	int label_color = (
 		selected ? PRACTICE_COLOR_SELECTED :
-		(((row == PR_RESET) || (row == PR_START)) ?
+		(((row == PR_BACK) || (row == PR_RESET) || (row == PR_START)) ?
 		 PRACTICE_COLOR_HEADER : PRACTICE_COLOR_LABEL)
 	);
 	int value_color = (
@@ -323,23 +334,23 @@ static void practice_graphics_row_put(
 	if(value_at != 0) {
 		if(fixed_digits) {
 			replay_font_put_fixed_n(
-				VALUE_LEFT, y, &line[value_at], 1,
+				value_left, y, &line[value_at], 1,
 				REPLAY_FONT_NUMERIC_CELL_W, value_color
 			);
 			menu_font_put_n(
-				(VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W),
+				(value_left + REPLAY_FONT_NUMERIC_CELL_W),
 				y, &line[value_at + 1], 1, value_color
 			);
 			replay_font_put_fixed_n(
 				(
-					VALUE_LEFT + REPLAY_FONT_NUMERIC_CELL_W +
+					value_left + REPLAY_FONT_NUMERIC_CELL_W +
 					menu_font_width_n(&line[value_at + 1], 1)
 				),
 				y, &line[value_at + 2], 4,
 				REPLAY_FONT_NUMERIC_CELL_W, value_color
 			);
 		} else {
-			menu_font_put(VALUE_LEFT, y, &line[value_at], value_color);
+			menu_font_put(value_left, y, &line[value_at], value_color);
 		}
 	}
 }
@@ -370,10 +381,9 @@ static void practice_row_put(
 		P('M'); P('o'); P('d'); P('e');
 		VALUE_COLUMN();
 		if(cfg.preset == PRACTICE_PRESET_VS_DEFAULT) {
-			P('V'); P('S'); P(' '); P('D'); P('e'); P('f'); P('a'); P('u');
-			P('l'); P('t');
+			P('V'); P('S');
 		} else {
-			P('S'); P('t'); P('o'); P('r'); P('y');
+			P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e');
 		}
 		break;
 	case PR_STAGE:
@@ -393,8 +403,7 @@ static void practice_row_put(
 		P('C'); P('P'); P('U'); P(' '); P('T'); P('i'); P('m'); P('e'); P('r');
 		VALUE_COLUMN();
 		if(cfg.cpu_timer == PRACTICE_CPU_TIMER_VS_DEFAULT) {
-			P('V'); P('S'); P(' '); P('D'); P('e'); P('f'); P('a'); P('u');
-			P('l'); P('t');
+			P('V'); P('S'); P(' '); P('R'); P('u'); P('l'); P('e'); P('s');
 		} else if(cfg.cpu_timer == PRACTICE_CPU_TIMER_STORY_NATIVE) {
 			P('S'); P('t'); P('o'); P('r'); P('y');
 		} else {
@@ -464,6 +473,9 @@ static void practice_row_put(
 		P(' '); P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g');
 		P('s');
 		break;
+	case PR_BACK:
+		P('B'); P('a'); P('c'); P('k');
+		break;
 	case PR_RESET:
 		P('R'); P('e'); P('s'); P('e'); P('t'); P(' '); P('D'); P('e');
 		P('f'); P('a'); P('u'); P('l'); P('t'); P('s');
@@ -492,7 +504,10 @@ static void practice_row_put(
 static uint8_t practice_page_row(uint8_t page, uint8_t at)
 {
 	if(page == PP_ADVANCED) {
-		return (PR_CPU_TIMER + at);
+		if(at < (PR_EXTENDS - PR_CPU_TIMER + 1)) {
+			return (PR_CPU_TIMER + at);
+		}
+		return PR_BACK;
 	}
 	if(at < PR_ADVANCED) {
 		return at;
@@ -521,7 +536,9 @@ static void practice_rows_put(
 		uint8_t row = practice_page_row(page, at);
 		uint8_t top;
 
-		if(page == PP_ADVANCED) {
+		if((page == PP_ADVANCED) && (row == PR_BACK)) {
+			top = PRACTICE_ADVANCED_COMMAND_TOP;
+		} else if(page == PP_ADVANCED) {
 			top = (PRACTICE_ADVANCED_ROWS_TOP + at);
 		} else if(at <= PR_ADVANCED) {
 			top = (PRACTICE_MAIN_ROWS_TOP + at);
@@ -737,8 +754,7 @@ static void practice_heading_put(uint8_t page, bool restore)
 		P(' '); P('S'); P('E'); P('T'); P('T'); P('I'); P('N'); P('G');
 		P('S');
 	} else {
-		P('P'); P('R'); P('A'); P('C'); P('T'); P('I'); P('C'); P('E');
-		P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
+		P('V'); P('S'); P(' '); P('S'); P('E'); P('T'); P('U'); P('P');
 	}
 	line[at] = '\0';
 	if(menu_font) {
@@ -845,6 +861,9 @@ bool far practice_setup_menu(void)
 				if(row == PR_ADVANCED) {
 					page = PP_ADVANCED;
 					selected = 0;
+				} else if(row == PR_BACK) {
+					page = PP_MAIN;
+					selected = PR_ADVANCED;
 				} else if(row == PR_RESET) {
 					practice_defaults_set(cfg);
 				} else if(row == PR_START) {
@@ -879,4 +898,6 @@ bool far practice_setup_menu(void)
 }
 
 // Keep the compiler runtime segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring \
+	"\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90\x90"
