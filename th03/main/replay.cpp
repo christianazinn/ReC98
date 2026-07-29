@@ -3987,24 +3987,15 @@ cleanup:
 	return ok;
 }
 
-static void replay_user_decoder_inputs_restore(void)
+static void replay_user_checkpoint_inputs_prepare(void)
 {
-	// At an exact packet boundary, seek leaves the most recently completed
-	// packet in the decoder fields even though no packet is active.
-	if(replay_rle_run == 0) {
-		input_mp_p1 = INPUT_NONE;
-		input_mp_p2 = INPUT_NONE;
-		input_sp = INPUT_NONE;
-		resident->input_charge = 0;
-		return;
-	}
-	input_mp_p1 = replay_rle_input_mp_p1;
-	input_mp_p2 = replay_rle_input_mp_p2;
-	input_sp = replay_rle_input_sp;
-	resident->input_charge = static_cast<uint8_t>(
-		(replay_rle_packet_state & REPLAY_RLE_STATE_CHARGE_MASK) >>
-		REPLAY_RLE_STATE_CHARGE_SHIFT
-	);
+	// Seeking reconstructs the decoder's internal packet state. Live input
+	// belongs to the next decoded sample and must not escape into the physical
+	// playback-cancel check or a pause-menu phase transition before then.
+	input_mp_p1 = INPUT_NONE;
+	input_mp_p2 = INPUT_NONE;
+	input_sp = INPUT_NONE;
+	resident->input_charge = 0;
 }
 
 static bool replay_accel_checkpoint_cursor_read(
@@ -4061,7 +4052,6 @@ static bool replay_accel_direct_start(void)
 	}
 	replay_sample_count = sample;
 	replay_global_frame = global_frame;
-	replay_user_decoder_inputs_restore();
 	replay_user_snapshot_restore_resident();
 	if(!replay_user_snapshot_restore_runtime()) {
 		return false;
@@ -4073,7 +4063,7 @@ static bool replay_accel_direct_start(void)
 	// The broad image contains recording-process far pointers. Restore the
 	// normalized portable phases after preserving this process's pointers.
 	replay_user_round_carry_restore();
-	replay_user_decoder_inputs_restore();
+	replay_user_checkpoint_inputs_prepare();
 	hmem_free(reinterpret_cast<void __seg *>(replay_accel_raw_seg));
 	replay_accel_raw_seg = 0;
 	replay_accel_target_checkpoint = 0;
@@ -4703,7 +4693,6 @@ void far replay_session_start(void)
 				replay_done_write(RTX_ERROR_USER_HEADER);
 				return;
 			}
-			replay_user_decoder_inputs_restore();
 			replay_user_snapshot_restore_resident();
 			if(!replay_user_snapshot_restore_runtime()) {
 				replay_preroll_startup_unmask();
@@ -4717,6 +4706,7 @@ void far replay_session_start(void)
 			if(replay_user_version_has_round_carry(replay_user_header.version)) {
 				replay_user_round_carry_restore();
 			}
+			replay_user_checkpoint_inputs_prepare();
 #if defined(TH03_REPLAY_DEVTOOLS)
 			replay_state_probe_checkpoint = playback_stage;
 			replay_state_probe_pending = true;
@@ -5500,6 +5490,10 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 uint8_t far replay_pause_menu(void)
 {

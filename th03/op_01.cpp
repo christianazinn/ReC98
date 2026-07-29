@@ -4071,7 +4071,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D362E34UL); // "4.6-"
-	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4351,6 +4351,10 @@ void near main_update_and_render(void)
 			}
 			return;
 		case MC_MUSICROOM:
+			// graph_pi_free() cannot clear this caller-owned pointer. Only its
+			// segment is inspected, so invalidate that word before Music Room
+			// loads its full-screen PI into the same slot.
+			reinterpret_cast<uint16_t near *>(&pi_buffers[0])[1] = 0;
 			/* TODO: Replace with the decompiled call
 			* 	musicroom_menu();
 			* once the segmentation allows us to, if ever */
@@ -4782,5 +4786,5 @@ static int near replay_dev_story_stage_menu(void)
 // The debug-only Shift override is larger than the release handoff.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 /// --------
