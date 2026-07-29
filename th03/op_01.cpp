@@ -4071,7 +4071,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D362E34UL); // "4.6-"
-	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
+	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
@@ -4235,7 +4235,7 @@ static void near option_language_title_refresh(void)
 	for(int i = 0; i < CDG_SLOT_COUNT; i++) {
 		cdg_free(i);
 	}
-	if(language_pi_load(0, MENU_MAIN_BG_FN) != 0) {
+	if(language_pi_load_freed_slot(0, MENU_MAIN_BG_FN) != 0) {
 		goto reload_select_cdgs;
 	}
 	pi_palette_apply(0);

@@ -3,6 +3,8 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/hardware/egc_impl.hpp"
+#include "th02/formats/pi.h"
+#include "th03/language.hpp"
 #include "th03/menu_font.hpp"
 #include "planar.h"
 #include "x86real.h"
@@ -361,9 +363,18 @@ void pascal menu_font_restore_rect(
 	graph_accesspage(0);
 }
 
+int far language_pi_load_freed_slot(int slot, const char far *fn)
+{
+	// graph_pi_free() receives the image pointer by value and therefore cannot
+	// clear the caller-owned slot. Title reloads follow an explicit free, so
+	// keep pi_load() from freeing that stale segment a second time.
+	pi_buffers[slot] = nullptr;
+	return language_pi_load(slot, fn);
+}
+
 // Keep the following compiler runtime contributions at their 0.2.13 phase.
 #if BINARY == 'O'
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

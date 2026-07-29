@@ -60,7 +60,7 @@ void near op_animate(void)
 	palette_show();
 	pi_free(0);
 
-	language_pi_load(0, MENU_MAIN_BG_FN);
+	language_pi_load_freed_slot(0, MENU_MAIN_BG_FN);
 	graph_showpage(1);
 
 	// Fade in and move. These values do actually represent the X position of
@@ -152,7 +152,7 @@ void near op_fadein_animate(bool restart_bgm)
 	// palette slot 0.
 	palette_settone(0);
 
-	language_pi_load(0, MENU_MAIN_BG_FN);
+	language_pi_load_freed_slot(0, MENU_MAIN_BG_FN);
 	graph_showpage(0);
 
 	// This function is called either on startup (where we haven't loaded any

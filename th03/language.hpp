@@ -45,5 +45,6 @@ bool16 far language_overlay_available(void);
 bool16 far language_archive_begin_if_translated(const char far *fn);
 void far language_archive_end(bool16 switched);
 int far language_pi_load(int slot, const char far *fn);
+int far language_pi_load_freed_slot(int slot, const char far *fn);
 
 #endif /* TH03_LANGUAGE_HPP */
