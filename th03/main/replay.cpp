@@ -830,6 +830,7 @@ static uint8_t far *replay_main_01_entry(uint16_t offset)
 static bool replay_preroll_simulating(void)
 {
 	return (
+		(replay_mode == REPLAY_USER_PLAYBACK) &&
 		resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
 	);
 }
@@ -861,7 +862,9 @@ static bool replay_preroll_startup_requested(void)
 {
 	return (
 		(replay_resident_mode() == REPLAY_USER_PLAYBACK) &&
-		replay_preroll_simulating()
+		(
+			resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0
+		)
 	);
 }
 
@@ -1024,7 +1027,7 @@ void far replay_frame_publish(void)
 
 void far replay_frame_delay(void)
 {
-	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] == 0) {
+	if(!replay_preroll_simulating()) {
 		frame_delay(1);
 	}
 }
@@ -4416,7 +4419,7 @@ static void replay_resident_handoff_clear(void)
 {
 	int i;
 
-	if(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) {
+	if(replay_preroll_simulating()) {
 		replay_preroll_display_show();
 	}
 	resident->unused_3[0] = 0;
@@ -5048,7 +5051,10 @@ void far replay_input_sense_held(void)
 	}
 	if(
 		(replay_mode == REPLAY_USER_PLAYBACK) &&
-		(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0)
+		(
+			(resident->unused_3[T3_REPLAY_RES_PREROLL_TARGET_INDEX] != 0) ||
+			resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX]
+		)
 	) {
 		vsync_Count1 = byte_23AF9;
 	}
@@ -5538,7 +5544,7 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
@@ -5555,6 +5561,9 @@ uint8_t far replay_pause_menu(void)
 	replay_pause_save_refresh();
 	replay_pause_beep();
 	replay_pause_wait_release();
+	if(replay_prompt_skip()) {
+		return REPLAY_PAUSE_DISCARD_EXIT;
+	}
 	// Gameplay uses doubled 200-line graphics, while TRAM remains 400-line and
 	// owns the center HUD. Keep this menu on TRAM so it retains native height,
 	// true black backing, and priority over that HUD.
@@ -5571,6 +5580,9 @@ uint8_t far replay_pause_menu(void)
 
 input_wait:
 	replay_input_sense_held();
+	if(replay_prompt_skip()) {
+		return REPLAY_PAUSE_DISCARD_EXIT;
+	}
 	if(input_sp & INPUT_Q) {
 		return REPLAY_PAUSE_DISCARD_EXIT;
 	}
@@ -5633,6 +5645,9 @@ restart_not_requested:
 
 resume:
 	replay_pause_wait_release();
+	if(replay_prompt_skip()) {
+		return REPLAY_PAUSE_DISCARD_EXIT;
+	}
 	replay_pause_restore_graphics();
 	replay_pause_clear();
 	replay_pause_beep();
@@ -5910,6 +5925,3 @@ static void replay_debug_transition_write(
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
