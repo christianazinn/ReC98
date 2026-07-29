@@ -3043,6 +3043,11 @@ static bool replay_user_checkpoint_snapshot_read(uint8_t checkpoint)
 		}
 	}
 	file_close();
+	// Early V12 recorders replaced each new stage's reset seed while reopening
+	// checkpoint 0. resident_rand independently preserves that stage-start seed.
+	if((stage_round & 0xF0) == 0) {
+		replay_header.reserved_2 = replay_user_snapshot.resident_rand;
+	}
 	if(
 		(replay_user_snapshot.game_mode != replay_user_header.game_mode) ||
 		(replay_user_snapshot.autofire != replay_user_header.autofire)
@@ -4682,6 +4687,9 @@ void far replay_session_start(void)
 			);
 			return;
 		} else {
+			// replay_user_read() loaded checkpoint 0's compact reset seed.
+			// Restore the seed captured by this new MAIN process instead.
+			replay_header.reserved_2 = resident->rand;
 			if(!replay_user_guard_checkpoint()) {
 				replay_guard_diag_write();
 			} else {
@@ -4899,9 +4907,7 @@ void far replay_frame_io(void)
 		return;
 	}
 	if(replay_mode == REPLAY_ERROR) {
-		input_mp_p1 = INPUT_NONE;
-		input_mp_p2 = INPUT_NONE;
-		input_sp = INPUT_CANCEL;
+		replay_user_playback_error_finish();
 		return;
 	}
 
@@ -5532,7 +5538,7 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 #endif
 
 // Keep the pause and following replay functions at their accepted offsets.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 uint8_t far replay_pause_menu(void)
 {
 	uint8_t sel = REPLAY_PAUSE_RESUME;
@@ -5896,14 +5902,14 @@ static void replay_debug_transition_write(
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
