@@ -765,6 +765,9 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/hfliplut.cpp",
 	"th03/mrs.cpp",
 	"th03/sprite16.cpp",
+
+	-- Must stay LAST: OMF concatenates same-named segments in link order.
+	"th03/main/t3case.cpp",
 })
 th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/cfg_lres.cpp",

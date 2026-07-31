@@ -30,6 +30,12 @@ extern "C" uint16_t wordmask_1DB0C[];
 
 extern "C" void near playfield_rows_fill_288(void);
 
+// Called from PLAYFLD_TEXT as a group-relative near offset, so Turbo C++ cannot
+// be handed the SUB_B4A3 / SUB_B60A symbols from this HITCIRC_TEXT translation
+// unit. Kept in sync with the map, as the Replay Patch does.
+#define FP_1FBC0_SUB_B4A3 0x1DE3
+#define FP_1FBC0_SUB_B60A 0x1F4A
+
 #pragma option -k-
 extern "C" void far sub_B39E(void)
 {
@@ -229,7 +235,7 @@ second_loop_test:
 		_asm { nop; push cs; call near ptr sub_B39E; }
 		byte_1FBC3 = 1;
 		byte_1FBC2 = 0;
-		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1F2A);
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(FP_1FBC0_SUB_B60A);
 	}
 
 	trapezoid_hmask = 0xFFFF;
@@ -291,7 +297,7 @@ triangle_loop_test:
 	byte_1FBC2++;
 	if(byte_1FBC2 >= 0x10) {
 		byte_1FBC2 = 0;
-		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(0x1DC3);
+		fp_1FBC0 = reinterpret_cast<nearfunc_t_near>(FP_1FBC0_SUB_B4A3);
 	}
 
 	grcg_off();
