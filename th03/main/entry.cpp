@@ -7,6 +7,7 @@
 #include "th03/formats/cfg.hpp"
 #include "th03/main/enemy/enemy.hpp"
 #include "th03/main/round.hpp"
+#include "th03/main/t3case.hpp"
 #include "th03/resident.hpp"
 
 extern "C" const unsigned char aCOul[];
@@ -40,18 +41,23 @@ extern "C" void far main_entry(void)
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
 	farfp_20F20();
+	t3case_session_start();
+	t3case_round_start();
 
 round_loop:
 	PaletteTone = 100;
 	palette_show();
 	route = sub_9778();
+	t3case_route(route);
 	resident->rand = round_frame;
 
 	if(route == 1) {
 		sub_A21F();
+		t3case_round_start();
 		goto round_loop;
 	}
 
+	t3case_finish();
 	enemy_formations_free();
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 
@@ -73,3 +79,6 @@ exit_to_mainl:
 game_execl:
 	_asm { nop; push cs; call near ptr GameExecl; }
 }
+
+// Keeps every later original MAIN_01 contribution at its accepted offset.
+#pragma codestring "\x90\x90\x90\x90"
