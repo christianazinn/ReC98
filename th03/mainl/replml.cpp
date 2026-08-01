@@ -1421,6 +1421,15 @@ void far mainl_replay_transition_finish(void)
 		input_sp = INPUT_OK;
 		return;
 	}
+	if(
+		(mode == MR_USER_PLAYBACK) &&
+		(replay_sample_count == replay_user_header.sample_count)
+	) {
+		// Some supplied V11s intentionally end at a MAINL boundary without
+		// entering a clear/game-over callback. Exact terminal-control
+		// consumption is the format-level completion invariant.
+		mainl_replay_done_write();
+	}
 	mainl_replay_cursor_store();
 }
 
@@ -1515,6 +1524,17 @@ bool far mainl_replay_clear_playback_finish(void)
 	}
 	mainl_replay_finish(
 		RUER_COMPLETE, T3_REPLAY_RES_MODE_SAVE_PROMPT_CLEAR
+	);
+	return true;
+}
+
+bool far mainl_replay_gameover_playback_finish(void)
+{
+	if(mainl_replay_mode != MR_USER_PLAYBACK) {
+		return false;
+	}
+	mainl_replay_finish(
+		RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT_GAME_OVER
 	);
 	return true;
 }

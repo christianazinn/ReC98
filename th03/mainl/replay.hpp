@@ -22,5 +22,6 @@ bool far mainl_replay_finish(
 	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
 );
 bool far mainl_replay_clear_playback_finish(void);
+bool far mainl_replay_gameover_playback_finish(void);
 
 #endif /* TH03_MAINL_REPLAY_HPP */

@@ -168,6 +168,9 @@ execl_and_return:
 continue_menu_or_gameover:
 		cdg_free_all();
 		pi_free(0);
+		if(mainl_replay_gameover_playback_finish()) {
+			goto exit_to_op;
+		}
 		regist_menu();
 		if(mainl_replay_finish(
 			RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT_GAME_OVER
