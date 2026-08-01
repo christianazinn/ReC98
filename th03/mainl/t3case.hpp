@@ -7,6 +7,12 @@
 void far t3case_mainl_session_start(void);
 void far t3case_mainl_input_mode_interface(void);
 
+// Cutscene presentation timing intentionally differs across validation
+// lineages. Consume the recorded phase-1 stream at the ordinary VSync cadence
+// but expose Cancel continuously so the script interpreter fast-forwards
+// instead of coupling gameplay validation to presentation-frame alignment.
+void far t3case_mainl_cutscene_input_mode_interface(void);
+
 // Replay-aware counterparts for the cutscene interpreter's nested blocking
 // waits. These must sample through the same once-per-VSync adapter as the
 // interpreter's top-level input poll.

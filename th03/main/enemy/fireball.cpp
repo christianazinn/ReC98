@@ -469,7 +469,9 @@ void near fireballs_hittest(void)
 	// See https://rec98.nmlgc.net/blog/2026-03-16#glitches for a more in-depth
 	// documentation of this glitch and the system configurations that are most
 	// likely to cause it.
-	uint8_t chain_slot;
+	// The replay oracle requires deterministic gameplay across executable
+	// layouts, so lock in the value from regular uninterrupted code flow.
+	uint8_t chain_slot = (CHAIN_RING_SIZE - 1);
 
 	hitbox.radius.set(12, 10);
 	p = &fireballs[FIREBALL_COUNT - 1];
