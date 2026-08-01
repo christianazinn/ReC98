@@ -6,6 +6,12 @@
 
 void far mainl_replay_session_start(void);
 void far mainl_replay_input_mode_interface(void);
+
+// Consume replay input at the normal VSync cadence, but expose continuous
+// Cancel to the cutscene interpreter. Presentation timing can differ between
+// languages and validation lineages without changing the following gameplay.
+void far mainl_replay_cutscene_input_mode_interface(void);
+
 void far mainl_replay_transition_finish(void);
 void far mainl_replay_exit_to_main(void);
 bool far mainl_replay_initial_stage_splash_skip(void);

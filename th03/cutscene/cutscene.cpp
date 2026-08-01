@@ -201,7 +201,7 @@ inline void cutscene_input_sense(void) {
 #elif (GAME == 4)
 	input_reset_sense();
 #elif (GAME == 3)
-	mainl_replay_input_mode_interface();
+	mainl_replay_cutscene_input_mode_interface();
 #endif
 }
 

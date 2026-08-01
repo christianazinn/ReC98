@@ -391,7 +391,7 @@ void near fireballs_hittest(void)
 {
 	int i;
 
-	// ZUN landmine: This uninitialized variable is the cause behind the
+	// ZUN landmine: This originally uninitialized variable is the cause behind the
 	// infamous rare score reduction and extend glitches. The collision branch
 	// below doesn't set this slot if a fireball is destroyed by anything that
 	// isn't an explosion, but still passes it to chain_fire_charged_exatt(),
@@ -469,7 +469,9 @@ void near fireballs_hittest(void)
 	// See https://rec98.nmlgc.net/blog/2026-03-16#glitches for a more in-depth
 	// documentation of this glitch and the system configurations that are most
 	// likely to cause it.
-	uint8_t chain_slot;
+	// The replay oracle requires deterministic gameplay across executable
+	// layouts, so apply the Anniversary Edition fix here as well.
+	uint8_t chain_slot = (CHAIN_RING_SIZE - 1);
 
 	hitbox.radius.set(12, 10);
 	p = &fireballs[FIREBALL_COUNT - 1];

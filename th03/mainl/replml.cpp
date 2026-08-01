@@ -30,6 +30,7 @@
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
+static char T3_DONE_FN[11];
 
 enum mainl_replay_mode_t {
 	MR_DISABLED = 0,
@@ -240,9 +241,37 @@ static void mainl_replay_paths_init(void)
 	T3_USER_REPLAY_FALLBACK_FN[10] = 'Y';
 	T3_USER_REPLAY_FALLBACK_FN[11] = '\0';
 
+	T3_DONE_FN[0] = 'T';
+	T3_DONE_FN[1] = '3';
+	T3_DONE_FN[2] = 'D';
+	T3_DONE_FN[3] = 'O';
+	T3_DONE_FN[4] = 'N';
+	T3_DONE_FN[5] = 'E';
+	T3_DONE_FN[6] = '.';
+	T3_DONE_FN[7] = 'T';
+	T3_DONE_FN[8] = 'X';
+	T3_DONE_FN[9] = 'T';
+	T3_DONE_FN[10] = '\0';
+
 	replay_user_fn = T3_USER_REPLAY_FALLBACK_FN;
 	replay_user_slot = T3_REPLAY_USER_SLOT_NONE;
 	replay_paths_initialized = true;
+}
+
+static void mainl_replay_done_write(void)
+{
+	char status[18];
+
+	status[0] = 'o'; status[1] = 'k'; status[2] = ':';
+	status[3] = 'u'; status[4] = 's'; status[5] = 'e'; status[6] = 'r';
+	status[7] = '-';
+	status[8] = 'p'; status[9] = 'l'; status[10] = 'a'; status[11] = 'y';
+	status[12] = 'b'; status[13] = 'a'; status[14] = 'c'; status[15] = 'k';
+	status[16] = '\r'; status[17] = '\n';
+	if(file_create(T3_DONE_FN)) {
+		file_write(status, sizeof(status));
+		file_close();
+	}
 }
 
 static mainl_replay_mode_t mainl_replay_resident_mode(void)
@@ -1334,6 +1363,14 @@ void far mainl_replay_input_mode_interface(void)
 	}
 }
 
+void far mainl_replay_cutscene_input_mode_interface(void)
+{
+	mainl_replay_input_mode_interface();
+	if(mainl_replay_mode == MR_USER_PLAYBACK) {
+		input_sp = INPUT_CANCEL;
+	}
+}
+
 void far mainl_replay_transition_finish(void)
 {
 	bool ok = true;
@@ -1446,6 +1483,9 @@ bool far mainl_replay_finish(
 		mainl_replay_guard_delete();
 	} else if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		(void)end_reason;
+		// A Story clear terminates in MAINL rather than MAIN. Latch the same
+		// headless oracle status before clearing the cross-process handoff.
+		mainl_replay_done_write();
 		if(mainl_replay_preroll_active()) {
 			mainl_replay_preroll_display_show();
 		}

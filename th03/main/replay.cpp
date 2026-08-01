@@ -4622,6 +4622,7 @@ static bool16 replay_pause_gaiji_load(void)
 void far replay_session_start(void)
 {
 	uint8_t playback_stage;
+	uint8_t oracle_status;
 
 	replay_preroll_startup_mask();
 	language_main_apply();
@@ -4697,9 +4698,37 @@ void far replay_session_start(void)
 	}
 
 	if(replay_mode != REPLAY_USER_RECORD) {
-		file_create(T3_DONE_FN);
-		file_close();
-		replay_split_write_header();
+		if(replay_mode != REPLAY_USER_PLAYBACK) {
+			file_create(T3_DONE_FN);
+			file_close();
+			replay_split_write_header();
+		} else {
+			// Keep the complete cross-process trace and terminal marker latched.
+			// At Turbo speed, OP can start the same headless replay again before
+			// the host observes T3DONE; recreating these files would then erase
+			// the just-completed oracle run.
+			oracle_status = 0;
+			if(file_ropen(T3_DONE_FN)) {
+				if(file_read(&oracle_status, sizeof(oracle_status)) != 1) {
+					oracle_status = 0;
+				}
+				file_close();
+			} else {
+				file_create(T3_DONE_FN);
+				file_close();
+			}
+			if(file_ropen(T3_SPLIT_FN)) {
+				file_close();
+			} else {
+				replay_split_write_header();
+			}
+			if(oracle_status != 0) {
+				// The host has not collected the previous terminal yet. Do not
+				// append even a START row from OP's automatic second playback.
+				replay_mode = REPLAY_DISABLED;
+				return;
+			}
+		}
 	}
 
 	if(replay_mode == REPLAY_RECORD) {
