@@ -778,6 +778,13 @@ void far t3case_mainl_terminal_finish(void)
 	t3case_transition_finish(true);
 }
 
+void far t3case_mainl_playback_terminal_latch(void)
+{
+	if(t3case_mode == T3CASE_MAINL_PLAYBACK) {
+		t3case_transition_finish(true);
+	}
+}
+
 // Keep the isolated adapter at a whole-paragraph length so _TEXTC and every
 // later original segment retain their baseline paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
@@ -796,5 +803,4 @@ void far t3case_mainl_terminal_finish(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
