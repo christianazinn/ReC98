@@ -4,6 +4,7 @@
 #include "th02/v_colors.hpp"
 #include "th03/common.h"
 #include "th03/hardware/input.h"
+#include "th03/mainl/t3case.hpp"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
@@ -157,7 +158,7 @@ void near win_animate_and_wait(void)
 		stage_splash_load();
 	}
 	while(1) {
-		input_mode_interface();
+		t3case_mainl_input_mode_interface();
 		if(input_sp != INPUT_NONE) {
 			break;
 		}
@@ -339,7 +340,7 @@ void near stage_splash_show_and_wait(void)
 	while(vsync_Count1 <= 32) {
 	}
 	while((vsync_Count1 <= 96) && (input_sp == INPUT_NONE)) {
-		input_mode_interface();
+		t3case_mainl_input_mode_interface();
 	}
 	palette_white_out(1);
 	graph_accesspage(0);

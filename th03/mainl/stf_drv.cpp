@@ -5,6 +5,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th03/formats/cdg.h"
 #include "th03/hardware/input.h"
+#include "th03/mainl/t3case.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 #include "x86real.h"
@@ -212,7 +213,7 @@ void near staffroll_and_verdict_animate(void)
 	staffroll_frame = 0;
 	tone = 0;
 	do {
-		input_mode_interface();
+		t3case_mainl_input_mode_interface();
 		staffroll_blue_plane_clear();
 		staffroll_flakes_tick();
 		staffroll_frame++;

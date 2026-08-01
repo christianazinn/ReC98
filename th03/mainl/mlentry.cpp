@@ -13,6 +13,7 @@
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
 #include "th03/cutscene/cutscene.hpp"
+#include "th03/mainl/t3case.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -48,6 +49,7 @@ void near ending_staff_and_regist(void);
 
 inline void mainl_exit_to_main(void)
 {
+	t3case_mainl_transition_finish();
 	game_exit_from_mainl_to_main();
 	execl(mainl_binary_main_fn, mainl_binary_main_fn, nullptr);
 }
@@ -69,9 +71,11 @@ int main_cutscene(int argc, const char *argv[])
 		snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 		snd_se_reset();
 		hflip_lut_generate();
+		t3case_mainl_session_start();
 
 		if(resident->show_score_menu) {
 			regist_menu();
+			t3case_mainl_terminal_finish();
 			text_clear();
 			gaiji_restore();
 			game_exit();
@@ -147,6 +151,7 @@ ending:
 		gaiji_restore();
 
 exit_to_main:
+		t3case_mainl_transition_finish();
 		game_exit_from_mainl_to_main();
 		asm {
 			db  	66h, 6Ah, 0
@@ -176,6 +181,7 @@ gameover:
 		pi_free(0);
 
 exit_to_op:
+		t3case_mainl_terminal_finish();
 		text_clear();
 		gaiji_restore();
 		game_exit();

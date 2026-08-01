@@ -908,17 +908,6 @@ static void t3case_snapshot_apply(void)
 // it through the symbol, because the array starts two bytes later on
 // Anniversary, which inserts `pmd_fn` ahead of it.
 
-#define T3CASE_RES_MAGIC_0 'T'
-#define T3CASE_RES_MAGIC_1 '3'
-#define T3CASE_RES_MAGIC_2 'C'
-#define T3CASE_RES_MAGIC_3 '1'
-#define T3CASE_RES_MODE_INDEX     4
-#define T3CASE_RES_SAMPLES_INDEX  5
-#define T3CASE_RES_FRAME_INDEX    9
-#define T3CASE_RES_RECORDS_INDEX  13
-#define T3CASE_RES_CHECKSUM_INDEX 17
-#define T3CASE_RES_STARTED_INDEX  21
-
 static uint32_t t3case_handoff_u32_read(unsigned index)
 {
 	return (

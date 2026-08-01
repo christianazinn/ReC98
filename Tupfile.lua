@@ -686,8 +686,9 @@ obj += {
 	"th03/sprites/pi_mask.cpp",
 	"th03/vector.cpp",
 
-	-- Validation-only code in an isolated segment after all Anniversary code.
+	-- Validation-only code in isolated segments after all Anniversary code.
 	"th03/op/t3op.cpp",
+	"th03/mainl/t3caseml.cpp",
 }
 th03:branch(MODEL_LARGE):link("anniv", obj)
 
