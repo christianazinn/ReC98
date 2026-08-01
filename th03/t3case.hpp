@@ -65,6 +65,20 @@
 #define T3CASE_CONTROL_MAIN_END  1
 #define T3CASE_CONTROL_MAINL_END 2
 
+// Cross-process cursor in resident->unused_3[]. Keep this shared between the
+// MAIN and MAINL validation modules; Anniversary inserts fields before the
+// array, so consumers must always address it through the resident symbol.
+#define T3CASE_RES_MAGIC_0 'T'
+#define T3CASE_RES_MAGIC_1 '3'
+#define T3CASE_RES_MAGIC_2 'C'
+#define T3CASE_RES_MAGIC_3 '1'
+#define T3CASE_RES_MODE_INDEX     4
+#define T3CASE_RES_SAMPLES_INDEX  5
+#define T3CASE_RES_FRAME_INDEX    9
+#define T3CASE_RES_RECORDS_INDEX  13
+#define T3CASE_RES_CHECKSUM_INDEX 17
+#define T3CASE_RES_STARTED_INDEX  21
+
 // FNV-1a/32. Chosen over CRC32 because it needs no lookup table in a
 // constrained DOS build and is trivial to reproduce on the host.
 #define T3CASE_FNV1A_BASIS 0x811C9DC5UL

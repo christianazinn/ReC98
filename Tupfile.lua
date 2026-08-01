@@ -825,6 +825,9 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" }):link("mainl", {
 	"th03/inp_m_w.cpp",
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
+
+	-- Validation-only code in an isolated segment after all original MAINL code.
+	"th03/mainl/t3caseml.cpp",
 })
 -- ----
 
