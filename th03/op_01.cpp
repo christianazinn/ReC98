@@ -25,6 +25,7 @@
 #include "th03/shiftjis/main.hpp"
 #include "th03/op/m_main.hpp"
 #include "th03/op/m_select.hpp"
+#include "th03/op/t3case.hpp"
 #include <conio.h>
 #include <mem.h>
 #include <stddef.h>
@@ -313,6 +314,7 @@ void near start_demo(void)
 	resident->playchar_paletted[1].v = PAIRINGS[pairing_id][1];
 	resident->rand = RAND[pairing_id];
 	palette_black_out(1);
+	t3case_op_scenario_apply();
 	switch_to_mainl();
 }
 
@@ -795,3 +797,8 @@ int main_op(int, const char *[])
 	return 0;
 }
 /// --------
+
+// T3CASE layout pin: The OP hook grows this original segment. Pad that growth
+// to one paragraph so every following original segment retains its paragraph
+// phase and all intra-segment raw offsets keep their original meaning.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

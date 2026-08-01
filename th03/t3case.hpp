@@ -16,15 +16,17 @@
 //
 //   offset 0x00  header  (64 bytes)
 //   offset 0x40  startup (64 bytes)
-//   offset 0x80  payload (record_count * 20 bytes)
+//   offset 0x80  optional V11 runtime snapshot (935 bytes)
+//   payload      record_count * 20 bytes
 
 #include "platform.h"
 
 #define T3CASE_VERSION        1
 #define T3CASE_HEADER_SIZE    64
 #define T3CASE_STARTUP_SIZE   64
+#define T3CASE_PREFIX_SIZE    (T3CASE_HEADER_SIZE + T3CASE_STARTUP_SIZE)
+#define T3CASE_SNAPSHOT_SIZE  935
 #define T3CASE_RECORD_SIZE    20
-#define T3CASE_PAYLOAD_OFFSET (T3CASE_HEADER_SIZE + T3CASE_STARTUP_SIZE)
 
 #define T3CASE_STAGE_COUNT  9
 #define T3CASE_PLAYER_COUNT 2
@@ -42,8 +44,9 @@
 #define T3CASE_PRODUCER_HOST            3
 
 // TH03 consumes 16-bit logical `input_t` values after `input_mode()` and
-// before both `player_update()` calls, with Replay Patch Autofire off. Any
-// change to that boundary requires a new semantics number.
+// before both `player_update()` calls. A normalized V11 case carries mapped
+// pre-Autofire input plus Charge so playback can derive that same boundary.
+// Any change to the boundary requires a new semantics number.
 #define T3CASE_INPUT_SEMANTICS 1
 
 #define T3CASE_RULESET_CLASSIC 1
@@ -61,28 +64,23 @@
 #define T3CASE_CONTROL_MAIN_END  1
 #define T3CASE_CONTROL_MAINL_END 2
 
-// [post_init_flags]: narrowly proven state restored *after* normal round
-// initialization because the ordinary path cannot recreate it. Every bit needs
-// an evidence entry in the implementation note before it may be set.
-#define T3CASE_POST_INIT_RANDRING_P 0x0001
-
 // FNV-1a/32. Chosen over CRC32 because it needs no lookup table in a
 // constrained DOS build and is trivial to reproduce on the host.
 #define T3CASE_FNV1A_BASIS 0x811C9DC5UL
 #define T3CASE_FNV1A_PRIME 0x01000193UL
 
-// [flags] bits. Bit 0 exists because a normalized V11/V12 case has no TH03 frame
+// [flags] bits. Bit 0 exists because a normalized V11 case has no TH03 frame
 // counters to carry; bit 1 because Autofire is a Replay Patch concept that TH03
 // itself has no state for, so a normalized case must hand the Charge mask over
 // and let playback finish the transform.
 #define T3CASE_FLAG_ADVISORY_POSITIONS 0x0001
 #define T3CASE_FLAG_CHARGE_IN_CONTROL  0x0002
-// Bit 2 exists because a .RPY carries a *scenario*, not a progress snapshot: it has
-// no story_lives, rem_credits, skill, demo_num or carried score. Forcing those to
-// zero is not neutral -- zero lives and a zeroed carried score are wrong for the
-// start of a story run -- so a case that does not know them says so and lets TH03's
-// own initialization stand.
-#define T3CASE_FLAG_SCENARIO_ONLY      0x0004
+#define T3CASE_FLAG_SNAPSHOT           0x0008
+#define T3CASE_KNOWN_FLAGS ( \
+	T3CASE_FLAG_ADVISORY_POSITIONS | \
+	T3CASE_FLAG_CHARGE_IN_CONTROL | \
+	T3CASE_FLAG_SNAPSHOT \
+)
 
 struct t3case_header_t {
 	char magic[8]; // "T3CASE1\0"
@@ -105,7 +103,7 @@ struct t3case_header_t {
 	uint32_t source_digest; // digest of the source .RPY when normalized
 	uint32_t source_commit; // first 4 bytes of the ReC98 commit, as ASCII
 	uint32_t payload_checksum;
-	uint32_t header_checksum; // over bytes 0x00..0x7F with this field zeroed
+	uint32_t header_checksum; // header + startup + optional snapshot
 	uint32_t total_size;
 };
 
@@ -136,6 +134,31 @@ struct t3case_startup_t {
 	uint8_t reserved[12];
 };
 
+// Audited phase-2 runtime state for a normalized V11 case. TH03 first executes
+// its ordinary round_startup() and sub_9EBF() path, then playback overwrites
+// exactly the fields restored by Replay Patch V11. No pointers, padding, or
+// unrelated gameplay BSS are present.
+struct t3case_snapshot_t {
+	int32_t random_seed;
+	uint8_t randring[256];
+	uint8_t randring_p;
+	uint8_t formation_type_ring[256];
+	uint8_t formation_pos_type_ring[256];
+	uint8_t formation_p[T3CASE_PLAYER_COUNT];
+	uint8_t cpu_charge_at_avail_ring[T3CASE_PLAYER_COUNT][64];
+	uint8_t cpu_charge_at_avail_ring_p[T3CASE_PLAYER_COUNT];
+	uint16_t player_center_x[T3CASE_PLAYER_COUNT];
+	uint16_t player_center_y[T3CASE_PLAYER_COUNT];
+	uint8_t player_halfhearts[T3CASE_PLAYER_COUNT];
+	uint8_t player_invincibility_time[T3CASE_PLAYER_COUNT];
+	uint8_t player_gauge_charge_speed[T3CASE_PLAYER_COUNT];
+	uint16_t player_gauge_charged[T3CASE_PLAYER_COUNT];
+	uint16_t player_gauge_avail[T3CASE_PLAYER_COUNT];
+	uint8_t player_bombs[T3CASE_PLAYER_COUNT];
+	uint8_t player_shot_active[T3CASE_PLAYER_COUNT];
+	uint16_t player_cpu_frame[T3CASE_PLAYER_COUNT];
+};
+
 // One fixed-size payload record. [frame_index], [round_frame], and
 // [round_or_result_frame] are what make this a *verifier* rather than a mere
 // input tape: playback rejects the case the moment a recorded position stops
@@ -149,7 +172,7 @@ struct t3case_record_t {
 	uint16_t input_mp_p1;
 	uint16_t input_mp_p2;
 	uint16_t input_sp;
-	uint16_t control; // 0 unless kind == T3CASE_RECORD_CONTROL
+	uint16_t control; // Charge mask for input; process code for control
 };
 
 typedef char t3case_header_size_check[
@@ -157,6 +180,9 @@ typedef char t3case_header_size_check[
 ];
 typedef char t3case_startup_size_check[
 	(sizeof(t3case_startup_t) == T3CASE_STARTUP_SIZE) ? 1 : -1
+];
+typedef char t3case_snapshot_size_check[
+	(sizeof(t3case_snapshot_t) == T3CASE_SNAPSHOT_SIZE) ? 1 : -1
 ];
 typedef char t3case_record_size_check[
 	(sizeof(t3case_record_t) == T3CASE_RECORD_SIZE) ? 1 : -1
