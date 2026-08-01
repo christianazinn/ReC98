@@ -656,6 +656,7 @@ obj += {
 	"th03/mainl/screens_bss.asm",
 	"th03/mainl/ending.cpp",
 	"th03/cutscene.cpp",
+	"th03/mainl/t3mlpad.cpp",
 	"th03/regist.cpp",
 	"th03/staff.cpp",
 

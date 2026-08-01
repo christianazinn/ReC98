@@ -10,10 +10,13 @@
 
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
+#include "th02/hardware/frmdelay.h"
 #include "th03/hardware/input.h"
 #include "th03/mainl/t3case.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/snd.h"
 #include "th03/t3case.hpp"
+#include "x86real.h"
 
 enum t3case_mainl_mode_t {
 	T3CASE_MAINL_DISABLED = 0,
@@ -620,6 +623,76 @@ void far t3case_mainl_input_mode_interface(void)
 	}
 }
 
+void far t3case_mainl_input_wait_for_change(int frames_to_wait)
+{
+	int frames_waited = 0;
+
+	while(1) {
+		t3case_mainl_input_mode_interface();
+		if(input_sp == INPUT_NONE) {
+			break;
+		}
+		frame_delay(1);
+	}
+
+	if(!frames_to_wait) {
+		frames_to_wait = 9999;
+	}
+
+	while(frames_waited < frames_to_wait) {
+		t3case_mainl_input_mode_interface();
+		if(input_sp != INPUT_NONE) {
+			break;
+		}
+		frames_waited++;
+		frame_delay(1);
+		if(frames_to_wait == 9999) {
+			frames_waited = 0;
+		}
+	}
+}
+
+bool16 far t3case_mainl_input_wait_for_ok(unsigned int frames)
+{
+	vsync_Count1 = 0;
+	do {
+		t3case_mainl_input_mode_interface();
+		if((input_sp & INPUT_SHOT) || (input_sp & INPUT_OK)) {
+			return true;
+		}
+	} while(vsync_Count1 < frames);
+	return false;
+}
+
+static inline uint16_t t3case_snd_get_song_measure(void)
+{
+	_AH = KAJA_GET_SONG_MEASURE;
+	if(snd_bgm_is_fm()) {
+		geninterrupt(PMD);
+	} else {
+		_DX = (MMD_TICKS_PER_QUARTER_NOTE * 4);
+		geninterrupt(MMD);
+	}
+	return _AX;
+}
+
+bool16 far t3case_mainl_input_wait_for_ok_or_measure(
+	int measure, unsigned int frames
+)
+{
+	if(!snd_active) {
+		return t3case_mainl_input_wait_for_ok(frames);
+	}
+	do {
+		_AX = t3case_snd_get_song_measure();
+		t3case_mainl_input_mode_interface();
+		if((input_sp & INPUT_SHOT) || (input_sp & INPUT_OK)) {
+			return true;
+		}
+	} while(_AX < measure);
+	return false;
+}
+
 static void t3case_transition_finish(bool terminal)
 {
 	bool ok = true;
@@ -697,8 +770,8 @@ void far t3case_mainl_terminal_finish(void)
 	t3case_transition_finish(true);
 }
 
-// Together with CUTSCENE_TEXT's two-paragraph hook growth, this rounds the
-// complete validation-only code delta to whole paragraphs before _TEXTC and
-// all later original segments.
+// Keep the isolated adapter at a whole-paragraph length so _TEXTC and every
+// later original segment retain their baseline paragraph phase.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"

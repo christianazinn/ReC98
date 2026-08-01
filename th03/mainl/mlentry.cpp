@@ -197,8 +197,4 @@ ret:
 	;
 }
 
-// The four validation hooks above add 20 bytes to CUTSCENE_TEXT. Round the
-// growth up to two paragraphs so every following original code segment keeps
-// its baseline paragraph phase; MAINL contains raw cross-segment addresses.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codeseg

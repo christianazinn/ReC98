@@ -148,9 +148,15 @@ extern uint8_t text_fx; // TH04 and TH05 directly set [graph_putsa_fx_func].
 // way.
 void pascal near box_wait_animate(int frames_to_wait = 0);
 #else
+#if (GAME == 3)
+#define box_wait_animate(frames_to_wait) { \
+	t3case_mainl_input_wait_for_change(frames_to_wait); \
+}
+#else
 #define box_wait_animate(frames_to_wait) { \
 	input_wait_for_change(frames_to_wait); \
 }
+#endif
 #endif
 #if (GAME >= 4)
 // Crossfades the text box area from VRAM page 1 to VRAM page 0, spending
@@ -467,7 +473,11 @@ script_ret_t pascal near script_op(unsigned char c)
 					if(c != 'k')  {
 						frame_delay(p1);
 					} else {
+#if (GAME == 3)
+						t3case_mainl_input_wait_for_ok(p1);
+#else
 						input_wait_for_ok(p1);
+#endif
 					}
 #endif
 				}
@@ -488,7 +498,11 @@ script_ret_t pascal near script_op(unsigned char c)
 					if(c != 'k')  {
 						snd_delay_until_measure(p1, p2);
 					} else {
+#if (GAME == 3)
+						t3case_mainl_input_wait_for_ok_or_measure(p1, p2);
+#else
 						input_wait_for_ok_or_measure(p1, p2);
+#endif
 					}
 #endif
 				}
