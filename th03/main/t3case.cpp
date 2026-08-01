@@ -354,6 +354,24 @@ static uint32_t t3case_hash_player(
 	return hash;
 }
 
+static uint32_t t3case_hash_combo(
+	uint32_t hash, const combo_t near *combo
+)
+{
+	uint8_t hits = combo->hits_highest;
+
+	// The Replay Patch retains three-digit values for its expanded combo
+	// display. Normalize that presentation-only delta to ZUN's original cap so
+	// this gameplay hash remains comparable across all three lineages.
+	if(hits > 99) {
+		hits = 99;
+	}
+	hash = t3case_hash_u8(hash, combo->time);
+	hash = t3case_hash_u8(hash, hits);
+	hash = t3case_hash_u16(hash, combo->bonus_total);
+	return hash;
+}
+
 static uint8_t t3case_background_phase(void)
 {
 	if(farfp_20F24 == sub_D1E7) {
@@ -400,7 +418,8 @@ static uint32_t t3case_state_hash(void)
 	hash = t3case_hash_u8(hash, boss_panic_fired_in_current_combo[1]);
 	hash = t3case_hash_u8(hash, t3case_background_phase());
 	hash = t3case_hash_u8(hash, t3case_result_phase());
-	hash = t3case_hash_bytes(hash, combos, sizeof(combos));
+	hash = t3case_hash_combo(hash, &combos[0]);
+	hash = t3case_hash_combo(hash, &combos[1]);
 	hash = t3case_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
 	hash = t3case_hash_bytes(hash, &chains, sizeof(chains));
 	hash = t3case_hash_u32(hash, random_seed);
