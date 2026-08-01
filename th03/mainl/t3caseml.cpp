@@ -696,3 +696,9 @@ void far t3case_mainl_terminal_finish(void)
 {
 	t3case_transition_finish(true);
 }
+
+// Together with CUTSCENE_TEXT's two-paragraph hook growth, this rounds the
+// complete validation-only code delta to whole paragraphs before _TEXTC and
+// all later original segments.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
