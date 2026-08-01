@@ -246,6 +246,6 @@ typedef char t3case_split_row_size_check[
 
 // Version of the curated state-hash field inventory. Bump on every expansion;
 // the inventory itself is recorded in `state/notes/th03-t3case-verifier.md`.
-#define T3CASE_STATE_HASH_SCHEMA 1
+#define T3CASE_STATE_HASH_SCHEMA 2
 
 #endif /* TH03_T3CASE_HPP */
