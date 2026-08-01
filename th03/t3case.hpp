@@ -77,6 +77,12 @@
 // and let playback finish the transform.
 #define T3CASE_FLAG_ADVISORY_POSITIONS 0x0001
 #define T3CASE_FLAG_CHARGE_IN_CONTROL  0x0002
+// Bit 2 exists because a .RPY carries a *scenario*, not a progress snapshot: it has
+// no story_lives, rem_credits, skill, demo_num or carried score. Forcing those to
+// zero is not neutral -- zero lives and a zeroed carried score are wrong for the
+// start of a story run -- so a case that does not know them says so and lets TH03's
+// own initialization stand.
+#define T3CASE_FLAG_SCENARIO_ONLY      0x0004
 
 struct t3case_header_t {
 	char magic[8]; // "T3CASE1\0"
