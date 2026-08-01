@@ -1131,56 +1131,74 @@ static input_t t3case_autofire_apply(input_t input, uint8_t player, uint8_t char
 	return input;
 }
 
-// Terminating a case must never go through INPUT_CANCEL. rndloop.cpp:126 sends
-// that to sub_C7A5(), TH03's pause handler, which returns immediately only when
-// BOTH players are CPU; with a human player it spins in `input_wait:` on
-// frame_delay(1) waiting for a physical keypress, which nothing injects. Every
-// case before the first normalized one was a demo, which is why this never showed.
-// replay.cpp:3708 on `replays` does the right thing -- clear input_sp and raise
-// byte_23B00, the round-exit flag rndloop.cpp:307 actually loops on -- so do that.
-void far t3case_frame_io(void)
+static void t3case_input_error(t3case_text_id_t status)
+{
+	t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
+	t3case_mode = T3CASE_ERROR;
+	input_sp = 0;
+	byte_23B00 = 1;
+	t3case_handoff_clear();
+	t3case_done_write(status);
+}
+
+static void t3case_sample_commit(void)
+{
+	t3case_global_frame++;
+	if((t3case_global_frame & (T3CASE_SPLIT_INTERVAL_SAMPLES - 1)) == 0) {
+		t3case_split_row(T3CASE_EVENT_CHECKPOINT, t3case_last_route);
+		if(
+			(t3case_mode == T3CASE_RECORD) &&
+			!t3case_header_write(false)
+		) {
+			t3case_input_error(T3T_ERR_FRAME_IO);
+			return;
+		}
+		t3case_handoff_store();
+	}
+}
+
+// One logical sample at either of MAIN's two V11 input boundaries. Gameplay
+// enters after input_mode(); the gauge-warning wait enters through
+// t3case_input_sense_held(). Keeping the phase check here prevents a valid
+// stream from being consumed at the wrong call site.
+static void t3case_input_io(uint8_t phase)
 {
 	t3case_record_t rec;
 
 	if((t3case_mode == T3CASE_DISABLED) || (t3case_mode == T3CASE_ERROR)) {
 		return;
 	}
-	if(t3case_global_frame == 0) {
-		t3case_diag('F', 'R', '0', round_frame, t3case_header.sample_count);
-	}
 
 	if(t3case_mode == T3CASE_RECORD) {
 		rec.kind = T3CASE_RECORD_INPUT;
-		rec.phase = T3CASE_PHASE_GAMEPLAY;
-		rec.round_or_result_frame = round_or_result_frame;
+		rec.phase = phase;
 		rec.frame_index = t3case_global_frame;
-		rec.round_frame = round_frame;
+		if(phase == T3CASE_PHASE_GAMEPLAY) {
+			rec.round_or_result_frame = round_or_result_frame;
+			rec.round_frame = round_frame;
+		} else {
+			rec.round_or_result_frame = 0xFFFF;
+			rec.round_frame = 0xFFFFFFFFUL;
+		}
 		rec.input_mp_p1 = input_mp_p1;
 		rec.input_mp_p2 = input_mp_p2;
 		rec.input_sp = input_sp;
 		rec.control = 0;
 		if(!t3case_record_append(&rec)) {
-			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
-			t3case_mode = T3CASE_ERROR;
-			input_sp = 0;
-			byte_23B00 = 1;
-			t3case_handoff_clear();
-			t3case_done_write(T3T_ERR_FRAME_IO);
+			t3case_input_error(T3T_ERR_FRAME_IO);
 			return;
 		}
 		t3case_sample_count++;
 	} else {
+		// Terminating a case must never go through INPUT_CANCEL. The pause
+		// handler waits for a physical key when either player is human. End the
+		// round through its own loop flag instead, as the Replay Patch does.
 		if(t3case_sample_count >= t3case_header.sample_count) {
 			if(
 				!t3case_playback_control_consume(T3CASE_CONTROL_MAIN_END) ||
 				!t3case_playback_payload_final()
 			) {
-				t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
-				t3case_mode = T3CASE_ERROR;
-				input_sp = 0;
-				byte_23B00 = 1;
-				t3case_handoff_clear();
-				t3case_done_write(T3T_ERR_FRAME_IO);
+				t3case_input_error(T3T_ERR_FRAME_IO);
 				return;
 			}
 			t3case_split_row(T3CASE_EVENT_INPUT_END, t3case_last_route);
@@ -1192,12 +1210,7 @@ void far t3case_frame_io(void)
 			return;
 		}
 		if(!t3case_record_fetch(t3case_record_count, &rec)) {
-			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
-			t3case_mode = T3CASE_ERROR;
-			input_sp = 0;
-			byte_23B00 = 1;
-			t3case_handoff_clear();
-			t3case_done_write(T3T_ERR_FRAME_IO);
+			t3case_input_error(T3T_ERR_FRAME_IO);
 			return;
 		}
 		t3case_record_count++;
@@ -1210,24 +1223,30 @@ void far t3case_frame_io(void)
 		// report a spurious desync on the very first frame.
 		if(
 			(rec.kind != T3CASE_RECORD_INPUT) ||
-			(rec.phase != T3CASE_PHASE_GAMEPLAY) ||
+			(rec.phase != phase) ||
 			(rec.frame_index != t3case_global_frame) ||
 			(
+				(phase == T3CASE_PHASE_GAMEPLAY) &&
 				!(t3case_header.flags & T3CASE_FLAG_ADVISORY_POSITIONS) && (
 					(rec.round_frame != round_frame) ||
 					(rec.round_or_result_frame != round_or_result_frame)
 				)
+			) ||
+			(
+				(phase == T3CASE_PHASE_INTERSTITIAL) &&
+				(
+					(rec.round_frame != 0xFFFFFFFFUL) ||
+					(rec.round_or_result_frame != 0xFFFF)
+				)
 			)
 		) {
-			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
-			t3case_mode = T3CASE_ERROR;
-			input_sp = 0;
-			byte_23B00 = 1;
-			t3case_handoff_clear();
-			t3case_done_write(T3T_ERR_DESYNC);
+			t3case_input_error(T3T_ERR_DESYNC);
 			return;
 		}
-		if(t3case_header.flags & T3CASE_FLAG_CHARGE_IN_CONTROL) {
+		if(
+			(phase == T3CASE_PHASE_GAMEPLAY) &&
+			(t3case_header.flags & T3CASE_FLAG_CHARGE_IN_CONTROL)
+		) {
 			input_mp_p1 = t3case_autofire_apply(
 				rec.input_mp_p1, 0, (uint8_t)rec.control
 			);
@@ -1242,14 +1261,24 @@ void far t3case_frame_io(void)
 		t3case_sample_count++;
 	}
 
-	t3case_global_frame++;
-	if((t3case_global_frame & (T3CASE_SPLIT_INTERVAL_SAMPLES - 1)) == 0) {
-		t3case_split_row(T3CASE_EVENT_CHECKPOINT, t3case_last_route);
-		if(t3case_mode == T3CASE_RECORD) {
-			t3case_header_write(false);
-		}
-		t3case_handoff_store();
+	t3case_sample_commit();
+}
+
+void far t3case_frame_io(void)
+{
+	if((t3case_mode == T3CASE_DISABLED) || (t3case_mode == T3CASE_ERROR)) {
+		return;
 	}
+	if(t3case_global_frame == 0) {
+		t3case_diag('F', 'R', '0', round_frame, t3case_header.sample_count);
+	}
+	t3case_input_io(T3CASE_PHASE_GAMEPLAY);
+}
+
+void far t3case_input_sense_held(void)
+{
+	input_reset_sense_key_held();
+	t3case_input_io(T3CASE_PHASE_INTERSTITIAL);
 }
 
 void far t3case_route(uint8_t route)
@@ -1265,6 +1294,7 @@ void far t3case_route(uint8_t route)
 void far t3case_finish(void)
 {
 	uint8_t route = t3case_last_route;
+	bool playback_final = false;
 
 	if((t3case_mode == T3CASE_DISABLED) || (t3case_mode == T3CASE_ERROR)) {
 		return;
@@ -1280,34 +1310,49 @@ void far t3case_finish(void)
 		rec.round_frame = round_frame;
 		rec.round_or_result_frame = round_or_result_frame;
 		rec.control = T3CASE_CONTROL_MAIN_END;
-		t3case_record_append(&rec);
-		if(!t3case_header_write(false)) {
+		if(
+			!t3case_record_append(&rec) ||
+			!t3case_header_write(false)
+		) {
 			t3case_split_row(T3CASE_EVENT_ERROR, route);
 			t3case_mode = T3CASE_ERROR;
 			t3case_handoff_clear();
 			t3case_done_write(T3T_ERR_CASE_FINALIZE);
 			return;
 		}
-	} else if(
-		!t3case_playback_control_consume(T3CASE_CONTROL_MAIN_END) ||
-		((route == 0) && !t3case_playback_payload_final())
-	) {
-		t3case_split_row(T3CASE_EVENT_ERROR, route);
-		t3case_mode = T3CASE_ERROR;
-		t3case_handoff_clear();
-		t3case_done_write(T3T_ERR_FRAME_IO);
-		return;
+	} else {
+		if(!t3case_playback_control_consume(T3CASE_CONTROL_MAIN_END)) {
+			t3case_split_row(T3CASE_EVENT_ERROR, route);
+			t3case_mode = T3CASE_ERROR;
+			t3case_handoff_clear();
+			t3case_done_write(T3T_ERR_FRAME_IO);
+			return;
+		}
+		playback_final = t3case_playback_payload_final();
+		if(
+			!playback_final &&
+			((route == 0) || (t3case_record_count >= t3case_header.record_count))
+		) {
+			t3case_split_row(T3CASE_EVENT_ERROR, route);
+			t3case_mode = T3CASE_ERROR;
+			t3case_handoff_clear();
+			t3case_done_write(T3T_ERR_FRAME_IO);
+			return;
+		}
 	}
 	t3case_split_row(T3CASE_EVENT_FINISH, route);
 
-	// `route == 0` is MAIN's exit to OP, so the run is over. Anything else exits
-	// to MAINL and another MAIN process follows, which must resume this cursor
-	// rather than start a new case.
-	if(route == 0) {
+	// `route == 0` is MAIN's exit to OP. A playback case can also deliberately
+	// end at any exact process boundary; if records remain, a nonzero route
+	// exits to MAINL and the next MAIN must resume this cursor.
+	if((route == 0) || ((t3case_mode == T3CASE_PLAYBACK) && playback_final)) {
 		t3case_handoff_clear();
 		t3case_done_write(
 			(t3case_mode == T3CASE_RECORD) ? T3T_OK_RECORD : T3T_OK_PLAYBACK
 		);
+		if(t3case_mode == T3CASE_PLAYBACK) {
+			t3case_mode = T3CASE_DISABLED;
+		}
 		return;
 	}
 	t3case_handoff_store();
