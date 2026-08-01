@@ -455,6 +455,7 @@ static void t3case_split_write_header(void)
 	header.version = T3CASE_SPLIT_VERSION;
 	header.header_size = sizeof(header);
 	header.row_size = sizeof(t3case_split_row_t);
+	header.flags = T3CASE_STATE_HASH_SCHEMA;
 	if(!file_create(T3CASE_SPLIT_FN)) {
 		return;
 	}
@@ -1161,11 +1162,17 @@ static void t3case_input_error(t3case_text_id_t status)
 	t3case_done_write(status);
 }
 
-static void t3case_sample_commit(void)
+static void t3case_sample_commit(uint8_t phase)
 {
 	t3case_global_frame++;
 	if((t3case_global_frame & (T3CASE_SPLIT_INTERVAL_SAMPLES - 1)) == 0) {
-		t3case_split_row(T3CASE_EVENT_CHECKPOINT, t3case_last_route);
+		// Replay Patch enters its pause UI after player_update(), whereas the
+		// headless Classic adapter enters before it and performs that deferred
+		// update after the pause. Mid-pause state is therefore not the same
+		// simulation boundary even though both consume the same phase-1 stream.
+		if(phase == T3CASE_PHASE_GAMEPLAY) {
+			t3case_split_row(T3CASE_EVENT_CHECKPOINT, t3case_last_route);
+		}
 		if(
 			(t3case_mode == T3CASE_RECORD) &&
 			!t3case_header_write(false)
@@ -1281,7 +1288,7 @@ static void t3case_input_io(uint8_t phase)
 		t3case_sample_count++;
 	}
 
-	t3case_sample_commit();
+	t3case_sample_commit(phase);
 }
 
 static bool t3case_pause_inputs_held(void)
