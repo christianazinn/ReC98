@@ -40,6 +40,9 @@ extern "C" unsigned char byte_220FC[PLAYER_COUNT];
 extern "C" signed char byte_20E48;
 extern "C" bool boss_panic_fired_in_current_combo[PLAYER_COUNT];
 extern uint8_t randring_p;
+extern uint8_t formation_p[PLAYER_COUNT];
+extern uint8_t __seg *formation_type_ring;
+extern uint8_t __seg *formation_pos_type_ring;
 extern farfunc_t_near farfp_20F24;
 extern nearfunc_t_near fp_1FBC0;
 
@@ -102,6 +105,7 @@ enum t3case_result_phase_t {
 
 static t3case_header_t t3case_header;
 static t3case_startup_t t3case_startup;
+static t3case_snapshot_t t3case_snapshot;
 static t3case_mode_t t3case_mode;
 static uint32_t t3case_global_frame;
 static uint32_t t3case_sample_count;
@@ -511,6 +515,9 @@ static void t3case_header_checksum_set(void)
 		T3CASE_FNV1A_BASIS, &t3case_header, sizeof(t3case_header)
 	);
 	hash = t3case_fnv1a(hash, &t3case_startup, sizeof(t3case_startup));
+	if(t3case_header.flags & T3CASE_FLAG_SNAPSHOT) {
+		hash = t3case_fnv1a(hash, &t3case_snapshot, sizeof(t3case_snapshot));
+	}
 	t3case_header.header_checksum = hash;
 }
 
@@ -524,10 +531,8 @@ static bool t3case_header_write(bool create)
 	t3case_header.payload_size = (
 		t3case_record_count * static_cast<uint32_t>(T3CASE_RECORD_SIZE)
 	);
-	t3case_header.total_size = (
-		static_cast<uint32_t>(T3CASE_PAYLOAD_OFFSET) +
-		t3case_header.payload_size
-	);
+	t3case_header.total_size = t3case_header.payload_offset +
+		t3case_header.payload_size;
 	t3case_header.payload_checksum = t3case_payload_checksum;
 	t3case_header_checksum_set();
 
@@ -549,6 +554,13 @@ static bool t3case_header_write(bool create)
 		file_close();
 		return false;
 	}
+	if(
+		(t3case_header.flags & T3CASE_FLAG_SNAPSHOT) &&
+		!file_write(&t3case_snapshot, sizeof(t3case_snapshot))
+	) {
+		file_close();
+		return false;
+	}
 	file_close();
 	return true;
 }
@@ -557,6 +569,7 @@ static bool t3case_header_read(void)
 {
 	uint32_t stored;
 	uint32_t computed;
+	unsigned i;
 
 	if(!file_ropen(T3CASE_BIN_FN)) {
 		return false;
@@ -571,6 +584,17 @@ static bool t3case_header_read(void)
 	if(
 		file_read(&t3case_startup, sizeof(t3case_startup)) !=
 		sizeof(t3case_startup)
+	) {
+		file_close();
+		return false;
+	}
+	t3case_memclear(&t3case_snapshot, sizeof(t3case_snapshot));
+	if(
+		(t3case_header.flags & T3CASE_FLAG_SNAPSHOT) &&
+		(
+			file_read(&t3case_snapshot, sizeof(t3case_snapshot)) !=
+			sizeof(t3case_snapshot)
+		)
 	) {
 		file_close();
 		return false;
@@ -594,11 +618,34 @@ static bool t3case_header_read(void)
 		(t3case_header.header_size != sizeof(t3case_header)) ||
 		(t3case_header.startup_size != sizeof(t3case_startup)) ||
 		(t3case_header.record_size != T3CASE_RECORD_SIZE) ||
-		(t3case_header.payload_offset != T3CASE_PAYLOAD_OFFSET) ||
 		(t3case_header.input_semantics != T3CASE_INPUT_SEMANTICS) ||
 		(t3case_header.ruleset_id != T3CASE_RULESET_CLASSIC) ||
 		(t3case_header.first_process != T3CASE_PROCESS_MAIN)
 	) {
+		return false;
+	}
+	if(t3case_header.flags & ~T3CASE_KNOWN_FLAGS) {
+		return false;
+	}
+	if(t3case_header.flags & T3CASE_FLAG_SNAPSHOT) {
+		if(
+			t3case_header.payload_offset !=
+			(static_cast<uint32_t>(T3CASE_PREFIX_SIZE) + T3CASE_SNAPSHOT_SIZE)
+		) {
+			return false;
+		}
+	} else if(t3case_header.payload_offset != T3CASE_PREFIX_SIZE) {
+		return false;
+	}
+	if(t3case_header.source_kind == T3CASE_SOURCE_MASTER_DIRECT) {
+		if(t3case_header.flags & T3CASE_FLAG_SNAPSHOT) {
+			return false;
+		}
+	} else if(t3case_header.source_kind == T3CASE_SOURCE_NORMALIZED_V11) {
+		if(!(t3case_header.flags & T3CASE_FLAG_SNAPSHOT)) {
+			return false;
+		}
+	} else {
 		return false;
 	}
 	if(
@@ -609,6 +656,24 @@ static bool t3case_header_read(void)
 	}
 	if(t3case_header.sample_count > t3case_header.record_count) {
 		return false;
+	}
+	if(
+		t3case_header.total_size !=
+		(t3case_header.payload_offset + t3case_header.payload_size)
+	) {
+		return false;
+	}
+	if(
+		(t3case_startup.post_init_flags != 0) ||
+		(t3case_startup.post_init_randring_p != 0) ||
+		(t3case_startup.autofire & 0xFC)
+	) {
+		return false;
+	}
+	for(i = 0; i < sizeof(t3case_startup.reserved); i++) {
+		if(t3case_startup.reserved[i] != 0) {
+			return false;
+		}
 	}
 
 	stored = t3case_header.header_checksum;
@@ -621,7 +686,7 @@ static bool t3case_header_read(void)
 static bool t3case_record_append(const t3case_record_t far *rec)
 {
 	uint32_t offset = (
-		static_cast<uint32_t>(T3CASE_PAYLOAD_OFFSET) +
+		t3case_header.payload_offset +
 		(t3case_record_count * static_cast<uint32_t>(T3CASE_RECORD_SIZE))
 	);
 
@@ -644,7 +709,7 @@ static bool t3case_record_append(const t3case_record_t far *rec)
 static bool t3case_record_fetch(uint32_t index, t3case_record_t far *rec)
 {
 	uint32_t offset = (
-		static_cast<uint32_t>(T3CASE_PAYLOAD_OFFSET) +
+		t3case_header.payload_offset +
 		(index * static_cast<uint32_t>(T3CASE_RECORD_SIZE))
 	);
 
@@ -664,6 +729,31 @@ static bool t3case_record_fetch(uint32_t index, t3case_record_t far *rec)
 		t3case_payload_checksum, rec, sizeof(*rec)
 	);
 	return true;
+}
+
+static bool t3case_playback_control_consume(uint16_t expected)
+{
+	t3case_record_t rec;
+
+	if(!t3case_record_fetch(t3case_record_count, &rec)) {
+		return false;
+	}
+	t3case_record_count++;
+	return (
+		(rec.kind == T3CASE_RECORD_CONTROL) &&
+		(rec.phase == T3CASE_PHASE_CONTROL) &&
+		(rec.frame_index == t3case_global_frame) &&
+		(rec.control == expected)
+	);
+}
+
+static bool t3case_playback_payload_final(void)
+{
+	return (
+		(t3case_sample_count == t3case_header.sample_count) &&
+		(t3case_record_count == t3case_header.record_count) &&
+		(t3case_payload_checksum == t3case_header.payload_checksum)
+	);
 }
 
 // ------------------------------------------------------------------ startup
@@ -718,30 +808,66 @@ static void t3case_startup_apply(void)
 	resident->rank = t3case_startup.rank;
 	resident->key_mode = t3case_startup.key_mode;
 	resident->story_stage = t3case_startup.story_stage;
-	if(!(t3case_header.flags & T3CASE_FLAG_SCENARIO_ONLY)) {
-		resident->story_lives = t3case_startup.story_lives;
-		resident->rem_credits = t3case_startup.rem_credits;
-		resident->skill = t3case_startup.skill;
-		resident->demo_num = t3case_startup.demo_num;
-		resident->pid_winner = t3case_startup.pid_winner;
-		resident->show_score_menu = (t3case_startup.show_score_menu != 0);
-		resident->op_animation_fast = (t3case_startup.op_animation_fast != 0);
-	}
+	resident->story_lives = t3case_startup.story_lives;
+	resident->rem_credits = t3case_startup.rem_credits;
+	resident->skill = t3case_startup.skill;
+	resident->demo_num = t3case_startup.demo_num;
+	resident->pid_winner = t3case_startup.pid_winner;
+	resident->show_score_menu = (t3case_startup.show_score_menu != 0);
+	resident->op_animation_fast = (t3case_startup.op_animation_fast != 0);
 	for(i = 0; i < T3CASE_PLAYER_COUNT; i++) {
 		resident->is_cpu[i] = (t3case_startup.is_cpu[i] != 0);
 		resident->playchar_paletted[i].v = (
 			t3case_startup.playchar_paletted[i]
 		);
-		if(!(t3case_header.flags & T3CASE_FLAG_SCENARIO_ONLY)) {
-			for(digit = 0; digit < T3CASE_SCORE_DIGITS; digit++) {
-				resident->score_last[i].digits[digit] = (
-					t3case_startup.score_last[i][digit]
-				);
-			}
+		for(digit = 0; digit < T3CASE_SCORE_DIGITS; digit++) {
+			resident->score_last[i].digits[digit] = (
+				t3case_startup.score_last[i][digit]
+			);
 		}
 	}
 	for(i = 0; i < T3CASE_STAGE_COUNT; i++) {
 		resident->story_opponents[i].v = t3case_startup.story_opponents[i];
+	}
+}
+
+static void t3case_snapshot_apply(void)
+{
+	int i;
+	int ring_i;
+
+	if(!(t3case_header.flags & T3CASE_FLAG_SNAPSHOT)) {
+		return;
+	}
+	random_seed = t3case_snapshot.random_seed;
+	randring_p = t3case_snapshot.randring_p;
+	for(i = 0; i < RANDRING_SIZE; i++) {
+		randring[i] = t3case_snapshot.randring[i];
+		formation_type_ring[i] = t3case_snapshot.formation_type_ring[i];
+		formation_pos_type_ring[i] = t3case_snapshot.formation_pos_type_ring[i];
+	}
+	for(i = 0; i < PLAYER_COUNT; i++) {
+		formation_p[i] = t3case_snapshot.formation_p[i];
+		players[i].cpu_charge_at_avail_ring_p =
+			t3case_snapshot.cpu_charge_at_avail_ring_p[i];
+		for(ring_i = 0; ring_i < CHARGE_AT_AVAIL_RING_SIZE; ring_i++) {
+			players[i].cpu_charge_at_avail_ring[ring_i] =
+				t3case_snapshot.cpu_charge_at_avail_ring[i][ring_i];
+		}
+		players[i].center.x.v = t3case_snapshot.player_center_x[i];
+		players[i].center.y.v = t3case_snapshot.player_center_y[i];
+		players[i].halfhearts = t3case_snapshot.player_halfhearts[i];
+		players[i].invincibility_time =
+			t3case_snapshot.player_invincibility_time[i];
+		players[i].gauge_charge_speed =
+			t3case_snapshot.player_gauge_charge_speed[i];
+		players[i].gauge_charged = t3case_snapshot.player_gauge_charged[i];
+		players[i].gauge_avail = t3case_snapshot.player_gauge_avail[i];
+		players[i].bombs = t3case_snapshot.player_bombs[i];
+		players[i].shot_active = static_cast<shot_active_t>(
+			t3case_snapshot.player_shot_active[i]
+		);
+		players[i].cpu_frame = t3case_snapshot.player_cpu_frame[i];
 	}
 }
 
@@ -914,6 +1040,7 @@ void far t3case_session_start(void)
 		}
 		if(!resumed) {
 			t3case_startup_apply();
+			t3case_snapshot_apply();
 		}
 		t3case_diag('H', 'D', 'R', t3case_header.sample_count, t3case_sample_count);
 	} else if(!resumed) {
@@ -931,7 +1058,7 @@ void far t3case_session_start(void)
 		t3case_header.header_size = sizeof(t3case_header);
 		t3case_header.startup_size = sizeof(t3case_startup);
 		t3case_header.record_size = T3CASE_RECORD_SIZE;
-		t3case_header.payload_offset = T3CASE_PAYLOAD_OFFSET;
+		t3case_header.payload_offset = T3CASE_PREFIX_SIZE;
 		t3case_header.source_kind = T3CASE_SOURCE_MASTER_DIRECT;
 		t3case_header.input_semantics = T3CASE_INPUT_SEMANTICS;
 		t3case_header.ruleset_id = T3CASE_RULESET_CLASSIC;
@@ -978,7 +1105,7 @@ void far t3case_round_start(void)
 	t3case_split_row(T3CASE_EVENT_ROUND_START, t3case_last_route);
 }
 
-// Autofire lives in the Replay Patch, not in TH03. A V11/V12 stream stores the
+// Autofire lives in the Replay Patch, not in TH03. A V11 stream stores the
 // mapped input *before* the transform, while this hook is exactly where the game
 // consumes it *after* — so a normalized case carries the per-player Charge mask in
 // [control] and the Autofire mask in the startup block, and the transform is
@@ -1044,6 +1171,18 @@ void far t3case_frame_io(void)
 		t3case_sample_count++;
 	} else {
 		if(t3case_sample_count >= t3case_header.sample_count) {
+			if(
+				!t3case_playback_control_consume(T3CASE_CONTROL_MAIN_END) ||
+				!t3case_playback_payload_final()
+			) {
+				t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
+				t3case_mode = T3CASE_ERROR;
+				input_sp = 0;
+				byte_23B00 = 1;
+				t3case_handoff_clear();
+				t3case_done_write(T3T_ERR_FRAME_IO);
+				return;
+			}
 			t3case_split_row(T3CASE_EVENT_INPUT_END, t3case_last_route);
 			input_sp = 0;
 			byte_23B00 = 1;
@@ -1052,7 +1191,7 @@ void far t3case_frame_io(void)
 			t3case_mode = T3CASE_DISABLED;
 			return;
 		}
-		if(!t3case_record_fetch(t3case_sample_count, &rec)) {
+		if(!t3case_record_fetch(t3case_record_count, &rec)) {
 			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
 			t3case_mode = T3CASE_ERROR;
 			input_sp = 0;
@@ -1061,6 +1200,7 @@ void far t3case_frame_io(void)
 			t3case_done_write(T3T_ERR_FRAME_IO);
 			return;
 		}
+		t3case_record_count++;
 		// The verification that makes this a verifier: a recorded position
 		// that stops agreeing with the live one means the two branches have
 		// already diverged, so refuse to keep injecting into a different run.
@@ -1070,6 +1210,7 @@ void far t3case_frame_io(void)
 		// report a spurious desync on the very first frame.
 		if(
 			(rec.kind != T3CASE_RECORD_INPUT) ||
+			(rec.phase != T3CASE_PHASE_GAMEPLAY) ||
 			(rec.frame_index != t3case_global_frame) ||
 			(
 				!(t3case_header.flags & T3CASE_FLAG_ADVISORY_POSITIONS) && (
@@ -1147,6 +1288,15 @@ void far t3case_finish(void)
 			t3case_done_write(T3T_ERR_CASE_FINALIZE);
 			return;
 		}
+	} else if(
+		!t3case_playback_control_consume(T3CASE_CONTROL_MAIN_END) ||
+		((route == 0) && !t3case_playback_payload_final())
+	) {
+		t3case_split_row(T3CASE_EVENT_ERROR, route);
+		t3case_mode = T3CASE_ERROR;
+		t3case_handoff_clear();
+		t3case_done_write(T3T_ERR_FRAME_IO);
+		return;
 	}
 	t3case_split_row(T3CASE_EVENT_FINISH, route);
 

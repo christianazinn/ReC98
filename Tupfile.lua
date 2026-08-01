@@ -630,6 +630,9 @@ th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th03/cdg_p_na.asm",
 	"th03/hfliplut.cpp",
 	"th02/frmdely2.cpp",
+
+	-- Validation-only code in an isolated segment after all original OP code.
+	"th03/op/t3op.cpp",
 })
 th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th03/main/main_03_prefix.asm",
