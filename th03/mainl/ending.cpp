@@ -9,6 +9,7 @@
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
+#include "th03/mainl/t3case.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -82,6 +83,7 @@ void near ending_staff_and_regist(void)
 	cutscene_script_free();
 	staffroll_and_verdict_animate();
 	resident->story_stage = STAGE_ALL;
+	t3case_mainl_playback_terminal_latch();
 	regist_menu();
 
 	if(
@@ -100,8 +102,12 @@ void near ending_staff_and_regist(void)
 
 	text_clear();
 	gaiji_restore();
+	t3case_mainl_terminal_finish();
 	game_exit();
 	execl(binary_op_fn, binary_op_fn, nullptr);
 }
+
+// Keep every following original segment on its baseline paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

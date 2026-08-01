@@ -167,6 +167,7 @@ execl_and_return:
 continue_menu_or_gameover:
 		cdg_free_all();
 		pi_free(0);
+		t3case_mainl_playback_terminal_latch();
 		regist_menu();
 		if(continue_menu() != 0) {
 			goto stage_splash_load_and_show;

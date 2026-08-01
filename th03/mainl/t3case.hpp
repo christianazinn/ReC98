@@ -30,4 +30,8 @@ void far t3case_mainl_transition_finish(void);
 // Remaining payload is an error on this path.
 void far t3case_mainl_terminal_finish(void);
 
+// Latch a playback terminal before name registration blocks on physical input.
+// Recording and ordinary game sessions are left untouched.
+void far t3case_mainl_playback_terminal_latch(void);
+
 #endif /* TH03_MAINL_T3CASE_HPP */

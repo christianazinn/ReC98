@@ -10,4 +10,4 @@
 #if (T3CASE_PRODUCER == T3CASE_PRODUCER_ANNIVERSARY_MOD)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
