@@ -7,6 +7,15 @@
 void far t3case_mainl_session_start(void);
 void far t3case_mainl_input_mode_interface(void);
 
+// Replay-aware counterparts for the cutscene interpreter's nested blocking
+// waits. These must sample through the same once-per-VSync adapter as the
+// interpreter's top-level input poll.
+void far t3case_mainl_input_wait_for_change(int frames);
+bool16 far t3case_mainl_input_wait_for_ok(unsigned int frames);
+bool16 far t3case_mainl_input_wait_for_ok_or_measure(
+	int measure, unsigned int frames
+);
+
 // Drains the remainder of this MAINL process, consumes exactly MAINL_END, and
 // stores the cumulative cursor for the next MAIN. Safe to call more than once.
 void far t3case_mainl_transition_finish(void);
