@@ -421,7 +421,18 @@ static uint32_t t3case_state_hash(void)
 	hash = t3case_hash_combo(hash, &combos[0]);
 	hash = t3case_hash_combo(hash, &combos[1]);
 	hash = t3case_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
-	hash = t3case_hash_bytes(hash, &chains, sizeof(chains));
+	hash = t3case_hash_bytes(hash, chains.hits, sizeof(chains.hits));
+	hash = t3case_hash_bytes(
+		hash,
+		chains.pellet_and_fireball_value,
+		sizeof(chains.pellet_and_fireball_value)
+	);
+	hash = t3case_hash_bytes(
+		hash, chains.charge_fireball, sizeof(chains.charge_fireball)
+	);
+	hash = t3case_hash_bytes(
+		hash, chains.charge_exatt, sizeof(chains.charge_exatt)
+	);
 	hash = t3case_hash_u32(hash, random_seed);
 	return hash;
 }
