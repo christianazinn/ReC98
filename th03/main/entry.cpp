@@ -32,6 +32,8 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
+	t3case_scenario_apply();
+
 	snd_midi_active = false;
 	if(resident->bgm_mode != SND_BGM_OFF) {
 		snd_determine_mode();
@@ -81,4 +83,4 @@ game_execl:
 }
 
 // Keeps every later original MAIN_01 contribution at its accepted offset.
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

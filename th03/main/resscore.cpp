@@ -116,7 +116,7 @@ extern "C" void pascal near sub_9EBF(void)
 		db	00Fh, 087h, 0DAh, 0
 		db	03h, 0DBh
 		db	02Eh, 0FFh, 0A7h
-		dw	0B58h
+		dw	0B67h
 
 sub_9EBF_rank_easy:
 		mov	al, round_id
@@ -263,7 +263,7 @@ sub_9EBF_rank_done:
 	}
 	enemy_formations_randomize();
 }
-#pragma codestring "\x00\x55\x09\x8D\x09\xB7\x09\xF2\x09"
+#pragma codestring "\x00\x64\x09\x9C\x09\xC6\x09\x01\x0A"
 
 extern "C" void pascal near sub_A21F(void)
 {

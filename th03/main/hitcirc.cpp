@@ -32,8 +32,8 @@ extern "C" void near playfield_rows_fill_288(void);
 // Called from PLAYFLD_TEXT as a group-relative near offset, so Turbo C++ cannot
 // be handed the SUB_B4A3 / SUB_B60A symbols from this HITCIRC_TEXT translation
 // unit. Kept in sync with the map, as the Replay Patch does.
-#define FP_1FBC0_SUB_B4A3 0x1DE3
-#define FP_1FBC0_SUB_B60A 0x1F4A
+#define FP_1FBC0_SUB_B4A3 0x1DF3
+#define FP_1FBC0_SUB_B60A 0x1F5A
 extern "C" void pascal near sub_B4A3(void);
 
 #pragma option -k-
