@@ -2348,6 +2348,7 @@ static void replay_split_write_header(void)
 	header.version = T3_REPLAY_SPLIT_VERSION;
 	header.header_size = sizeof(header);
 	header.row_size = sizeof(replay_split_row_t);
+	header.flags = T3_REPLAY_STATE_HASH_SCHEMA;
 	if(!file_create(T3_SPLIT_FN)) {
 		return;
 	}
@@ -4441,7 +4442,9 @@ static void replay_user_sample_commit(void)
 		(replay_global_frame & (T3_REPLAY_DISK_INTERVAL_SAMPLES - 1)) ==
 		(T3_REPLAY_DISK_INTERVAL_SAMPLES - 1)
 	) {
-		replay_split_row(RSE_CHECKPOINT, replay_last_route);
+		// Phase-1 input can run inside the pause UI. Its state boundary differs
+		// from the validation-only Classic adapter even though the same samples
+		// are consumed, so only gameplay input emits curated state checkpoints.
 		if(replay_mode == REPLAY_USER_RECORD) {
 			replay_user_periodic_flush();
 			replay_handoff_cursor_store();

@@ -72,6 +72,7 @@
 #define T3_REPLAY_SPLIT_VERSION 1
 #define T3_REPLAY_SPLIT_HEADER_SIZE 16
 #define T3_REPLAY_SPLIT_ROW_SIZE 34
+#define T3_REPLAY_STATE_HASH_SCHEMA 3
 
 enum replay_user_status_t {
 	RUS_EMPTY = 0,
