@@ -2163,7 +2163,18 @@ static uint32_t replay_state_hash(void)
 	hash = replay_hash_combo(hash, &combos[0]);
 	hash = replay_hash_combo(hash, &combos[1]);
 	hash = replay_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
-	hash = replay_hash_bytes(hash, &chains, sizeof(chains));
+	hash = replay_hash_bytes(hash, chains.hits, sizeof(chains.hits));
+	hash = replay_hash_bytes(
+		hash,
+		chains.pellet_and_fireball_value,
+		sizeof(chains.pellet_and_fireball_value)
+	);
+	hash = replay_hash_bytes(
+		hash, chains.charge_fireball, sizeof(chains.charge_fireball)
+	);
+	hash = replay_hash_bytes(
+		hash, chains.charge_exatt, sizeof(chains.charge_exatt)
+	);
 	hash = replay_hash_u32(hash, random_seed);
 	return hash;
 }
