@@ -718,22 +718,26 @@ static void t3case_startup_apply(void)
 	resident->rank = t3case_startup.rank;
 	resident->key_mode = t3case_startup.key_mode;
 	resident->story_stage = t3case_startup.story_stage;
-	resident->story_lives = t3case_startup.story_lives;
-	resident->rem_credits = t3case_startup.rem_credits;
-	resident->skill = t3case_startup.skill;
-	resident->demo_num = t3case_startup.demo_num;
-	resident->pid_winner = t3case_startup.pid_winner;
-	resident->show_score_menu = (t3case_startup.show_score_menu != 0);
-	resident->op_animation_fast = (t3case_startup.op_animation_fast != 0);
+	if(!(t3case_header.flags & T3CASE_FLAG_SCENARIO_ONLY)) {
+		resident->story_lives = t3case_startup.story_lives;
+		resident->rem_credits = t3case_startup.rem_credits;
+		resident->skill = t3case_startup.skill;
+		resident->demo_num = t3case_startup.demo_num;
+		resident->pid_winner = t3case_startup.pid_winner;
+		resident->show_score_menu = (t3case_startup.show_score_menu != 0);
+		resident->op_animation_fast = (t3case_startup.op_animation_fast != 0);
+	}
 	for(i = 0; i < T3CASE_PLAYER_COUNT; i++) {
 		resident->is_cpu[i] = (t3case_startup.is_cpu[i] != 0);
 		resident->playchar_paletted[i].v = (
 			t3case_startup.playchar_paletted[i]
 		);
-		for(digit = 0; digit < T3CASE_SCORE_DIGITS; digit++) {
-			resident->score_last[i].digits[digit] = (
-				t3case_startup.score_last[i][digit]
-			);
+		if(!(t3case_header.flags & T3CASE_FLAG_SCENARIO_ONLY)) {
+			for(digit = 0; digit < T3CASE_SCORE_DIGITS; digit++) {
+				resident->score_last[i].digits[digit] = (
+					t3case_startup.score_last[i][digit]
+				);
+			}
 		}
 	}
 	for(i = 0; i < T3CASE_STAGE_COUNT; i++) {
@@ -1000,6 +1004,13 @@ static input_t t3case_autofire_apply(input_t input, uint8_t player, uint8_t char
 	return input;
 }
 
+// Terminating a case must never go through INPUT_CANCEL. rndloop.cpp:126 sends
+// that to sub_C7A5(), TH03's pause handler, which returns immediately only when
+// BOTH players are CPU; with a human player it spins in `input_wait:` on
+// frame_delay(1) waiting for a physical keypress, which nothing injects. Every
+// case before the first normalized one was a demo, which is why this never showed.
+// replay.cpp:3708 on `replays` does the right thing -- clear input_sp and raise
+// byte_23B00, the round-exit flag rndloop.cpp:307 actually loops on -- so do that.
 void far t3case_frame_io(void)
 {
 	t3case_record_t rec;
@@ -1024,7 +1035,8 @@ void far t3case_frame_io(void)
 		if(!t3case_record_append(&rec)) {
 			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
 			t3case_mode = T3CASE_ERROR;
-			input_sp |= INPUT_CANCEL;
+			input_sp = 0;
+			byte_23B00 = 1;
 			t3case_handoff_clear();
 			t3case_done_write(T3T_ERR_FRAME_IO);
 			return;
@@ -1033,7 +1045,8 @@ void far t3case_frame_io(void)
 	} else {
 		if(t3case_sample_count >= t3case_header.sample_count) {
 			t3case_split_row(T3CASE_EVENT_INPUT_END, t3case_last_route);
-			input_sp |= INPUT_CANCEL;
+			input_sp = 0;
+			byte_23B00 = 1;
 			t3case_handoff_clear();
 			t3case_done_write(T3T_OK_INPUT_END);
 			t3case_mode = T3CASE_DISABLED;
@@ -1042,7 +1055,8 @@ void far t3case_frame_io(void)
 		if(!t3case_record_fetch(t3case_sample_count, &rec)) {
 			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
 			t3case_mode = T3CASE_ERROR;
-			input_sp |= INPUT_CANCEL;
+			input_sp = 0;
+			byte_23B00 = 1;
 			t3case_handoff_clear();
 			t3case_done_write(T3T_ERR_FRAME_IO);
 			return;
@@ -1066,7 +1080,8 @@ void far t3case_frame_io(void)
 		) {
 			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
 			t3case_mode = T3CASE_ERROR;
-			input_sp |= INPUT_CANCEL;
+			input_sp = 0;
+			byte_23B00 = 1;
 			t3case_handoff_clear();
 			t3case_done_write(T3T_ERR_DESYNC);
 			return;
