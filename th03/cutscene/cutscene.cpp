@@ -24,6 +24,7 @@
 #include "th04/hardware/input.h"
 #else
 #include "th03/hardware/input.h"
+#include "th03/mainl/t3case.hpp"
 
 // Let's rather not have this one global, since it might be wrong in an in-game
 // context?
@@ -181,7 +182,7 @@ inline void cutscene_input_sense(void) {
 #elif (GAME == 4)
 	input_reset_sense();
 #elif (GAME == 3)
-	input_mode_interface();
+	t3case_mainl_input_mode_interface();
 #endif
 }
 
