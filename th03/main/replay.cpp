@@ -2118,6 +2118,24 @@ static uint32_t replay_hash_player(
 	return hash;
 }
 
+static uint32_t replay_hash_combo(
+	uint32_t hash, const combo_t near *combo
+)
+{
+	uint8_t hits = combo->hits_highest;
+
+	// The Replay Patch retains three-digit values for its expanded combo
+	// display. Normalize that presentation-only delta to ZUN's original cap so
+	// this gameplay hash remains comparable with master and Anniversary.
+	if(hits > 99) {
+		hits = 99;
+	}
+	hash = replay_hash_u8(hash, combo->time);
+	hash = replay_hash_u8(hash, hits);
+	hash = replay_hash_u16(hash, combo->bonus_total);
+	return hash;
+}
+
 static uint32_t replay_state_hash(void)
 {
 	uint32_t hash = 5381;
@@ -2142,7 +2160,8 @@ static uint32_t replay_state_hash(void)
 	hash = replay_hash_u8(hash, boss_panic_fired_in_current_combo[1]);
 	hash = replay_hash_u8(hash, replay_user_background_phase());
 	hash = replay_hash_u8(hash, replay_user_result_phase());
-	hash = replay_hash_bytes(hash, combos, sizeof(combos));
+	hash = replay_hash_combo(hash, &combos[0]);
+	hash = replay_hash_combo(hash, &combos[1]);
 	hash = replay_hash_bytes(hash, chain_ring_p, sizeof(chain_ring_p));
 	hash = replay_hash_bytes(hash, &chains, sizeof(chains));
 	hash = replay_hash_u32(hash, random_seed);
