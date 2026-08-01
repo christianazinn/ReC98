@@ -22,6 +22,7 @@
 
 #include "libs/master.lib/master.hpp"
 #include "platform.h"
+#include "th02/hardware/frmdelay.h"
 #include "th02/math/randring.hpp"
 #include "th02/score.h"
 #include "th03/main/defeat.hpp"
@@ -1283,6 +1284,98 @@ static void t3case_input_io(uint8_t phase)
 	t3case_sample_commit();
 }
 
+static bool t3case_pause_inputs_held(void)
+{
+	return (
+		(input_sp != INPUT_NONE) ||
+		(input_mp_p1 != INPUT_NONE) ||
+		(input_mp_p2 != INPUT_NONE)
+	);
+}
+
+static bool t3case_pause_phase1(void)
+{
+	input_reset_sense_key_held();
+	t3case_input_io(T3CASE_PHASE_INTERSTITIAL);
+	return (t3case_mode == T3CASE_PLAYBACK);
+}
+
+static bool t3case_pause_wait_release(void)
+{
+	while(t3case_pause_inputs_held()) {
+		if(!t3case_pause_phase1()) {
+			return false;
+		}
+		frame_delay(1);
+	}
+	return true;
+}
+
+// V11 records the Replay Patch's four-choice pause menu as ordinary phase-1
+// input. Stock TH03 would wait for a physical Cancel or Q here and strand the
+// verifier. Reproduce only the menu's input-consumption and exit semantics;
+// its graphics, font, sound-pausing, and save UI are intentionally outside the
+// gameplay oracle. This runs inside the existing frame hook so no original
+// code segment grows.
+static void t3case_pause_playback(void)
+{
+	uint8_t sel = 0; // Resume, Restart, Save and Exit, Exit Without Saving
+	input_t gameplay_p1 = input_mp_p1;
+	input_t gameplay_p2 = input_mp_p2;
+
+	if(!t3case_pause_wait_release()) {
+		goto done;
+	}
+
+input_wait:
+	if(!t3case_pause_phase1()) {
+		goto done;
+	}
+	if(input_sp & INPUT_Q) {
+		goto exit;
+	}
+	if(input_sp & INPUT_CANCEL) {
+		goto resume;
+	}
+	if(input_sp & INPUT_UP) {
+		sel = ((sel == 0) ? 3 : (sel - 1));
+		if(!t3case_pause_wait_release()) {
+			goto done;
+		}
+		goto input_wait;
+	}
+	if(input_sp & INPUT_DOWN) {
+		sel = ((sel == 3) ? 0 : (sel + 1));
+		if(!t3case_pause_wait_release()) {
+			goto done;
+		}
+		goto input_wait;
+	}
+	if(input_sp & (INPUT_OK | INPUT_SHOT)) {
+		if(sel != 0) {
+			goto exit;
+		}
+		goto resume;
+	}
+	frame_delay(1);
+	goto input_wait;
+
+resume:
+	t3case_pause_wait_release();
+	goto done;
+
+exit:
+	byte_23B00 = 1;
+
+done:
+	// The Replay Patch enters its pause menu after player_update(). This compact
+	// adapter runs before that call, so restore the gameplay sample and suppress
+	// stock sub_C7A5() while retaining any requested loop exit.
+	input_mp_p1 = gameplay_p1;
+	input_mp_p2 = gameplay_p2;
+	input_sp = INPUT_NONE;
+}
+
 void far t3case_frame_io(void)
 {
 	if((t3case_mode == T3CASE_DISABLED) || (t3case_mode == T3CASE_ERROR)) {
@@ -1292,6 +1385,12 @@ void far t3case_frame_io(void)
 		t3case_diag('F', 'R', '0', round_frame, t3case_header.sample_count);
 	}
 	t3case_input_io(T3CASE_PHASE_GAMEPLAY);
+	if(
+		(t3case_mode == T3CASE_PLAYBACK) &&
+		(input_sp & INPUT_CANCEL)
+	) {
+		t3case_pause_playback();
+	}
 }
 
 void far t3case_input_sense_held(void)
