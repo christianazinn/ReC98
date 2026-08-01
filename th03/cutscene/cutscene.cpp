@@ -188,7 +188,7 @@ inline void cutscene_input_sense(void) {
 #elif (GAME == 4)
 	input_reset_sense();
 #elif (GAME == 3)
-	t3case_mainl_input_mode_interface();
+	t3case_mainl_cutscene_input_mode_interface();
 #endif
 }
 

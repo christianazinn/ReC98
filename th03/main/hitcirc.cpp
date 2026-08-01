@@ -158,19 +158,21 @@ int pascal GameExecl(const char *binary_fn)
 		push	cs;
 	}
 	__emit__(0x68); // push offset _MERGED_FN
-	__emit__(0xB9, 0x1D);
+	// The T3CASE hooks move this embedded filename by 0x30 bytes within
+	// MAIN_01. Keep ZUN's raw group-relative pointer in sync with the string.
+	__emit__(0xE9, 0x1D);
 	_asm {
 		push	cs;
 	}
 	__emit__(0x68); // push offset _MERGED_FN
-	__emit__(0xB9, 0x1D);
+	__emit__(0xE9, 0x1D);
 	_asm {
 		call	far ptr execl;
 		add	sp, 16;
 	}
 }
 
-#pragma codestring "anniv\x00\x90\x90\x90\x90"
+#pragma codestring "anniv.exe\x00"
 
 void pascal near sub_B4A3(void)
 {
