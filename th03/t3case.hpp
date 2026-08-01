@@ -260,6 +260,6 @@ typedef char t3case_split_row_size_check[
 
 // Version of the curated state-hash contract. Bump on every field, order, or
 // normalization change; the contract is recorded in the verifier note.
-#define T3CASE_STATE_HASH_SCHEMA 2
+#define T3CASE_STATE_HASH_SCHEMA 3
 
 #endif /* TH03_T3CASE_HPP */
