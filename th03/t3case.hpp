@@ -43,10 +43,11 @@
 #define T3CASE_PRODUCER_ANNIVERSARY_MOD 2
 #define T3CASE_PRODUCER_HOST            3
 
-// TH03 consumes 16-bit logical `input_t` values after `input_mode()` and
-// before both `player_update()` calls. A normalized V11 case carries mapped
-// pre-Autofire input plus Charge so playback can derive that same boundary.
-// Any change to the boundary requires a new semantics number.
+// TH03 consumes 16-bit logical `input_t` values at two Replay Patch boundaries:
+// gameplay after `input_mode()` and before both `player_update()` calls, and
+// interstitial input after the held-key sense inside SUB_CA3C(). A normalized
+// V11 case carries mapped pre-Autofire input plus Charge; the transform applies
+// to gameplay only. Any change to either boundary requires new semantics.
 #define T3CASE_INPUT_SEMANTICS 1
 
 #define T3CASE_RULESET_CLASSIC 1
@@ -159,10 +160,10 @@ struct t3case_snapshot_t {
 	uint16_t player_cpu_frame[T3CASE_PLAYER_COUNT];
 };
 
-// One fixed-size payload record. [frame_index], [round_frame], and
-// [round_or_result_frame] are what make this a *verifier* rather than a mere
-// input tape: playback rejects the case the moment a recorded position stops
-// agreeing with the live one.
+// One fixed-size payload record. [frame_index] is dense across both input
+// phases. Gameplay positions make this a verifier rather than a mere input
+// tape; interstitial rows use all-ones counter sentinels because TH03 does not
+// advance either counter inside that blocking wait.
 struct t3case_record_t {
 	uint8_t kind;
 	uint8_t phase;

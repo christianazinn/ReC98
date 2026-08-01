@@ -11,6 +11,7 @@
 #include "th03/main/hud/static.hpp"
 #include "th03/main/player/gba.hpp"
 #include "th03/main/playfld.hpp"
+#include "th03/main/t3case.hpp"
 #include "th03/snd/snd.h"
 
 enum {
@@ -70,7 +71,7 @@ extern "C" void pascal far SUB_CA3C(void)
 	_SI = 0;
 	goto loop_test;
 loop:
-	input_reset_sense_key_held();
+	t3case_input_sense_held();
 	if(input_sp & INPUT_CANCEL) {
 		sub_C7A5();
 	}

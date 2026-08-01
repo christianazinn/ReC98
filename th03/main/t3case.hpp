@@ -28,6 +28,11 @@ void far t3case_round_start(void);
 // Per frame, after `input_mode()` and before both `player_update()` calls.
 void far t3case_frame_io(void);
 
+// Blocking gameplay interstitials sense held keys outside `input_mode()`.
+// This wrapper preserves that physical sense, then records or injects one
+// phase-1 logical sample at the same boundary as the Replay Patch.
+void far t3case_input_sense_held(void);
+
 void far t3case_route(uint8_t route);
 void far t3case_finish(void);
 
