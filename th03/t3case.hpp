@@ -71,6 +71,13 @@
 #define T3CASE_FNV1A_BASIS 0x811C9DC5UL
 #define T3CASE_FNV1A_PRIME 0x01000193UL
 
+// [flags] bits. Bit 0 exists because a normalized V11/V12 case has no TH03 frame
+// counters to carry; bit 1 because Autofire is a Replay Patch concept that TH03
+// itself has no state for, so a normalized case must hand the Charge mask over
+// and let playback finish the transform.
+#define T3CASE_FLAG_ADVISORY_POSITIONS 0x0001
+#define T3CASE_FLAG_CHARGE_IN_CONTROL  0x0002
+
 struct t3case_header_t {
 	char magic[8]; // "T3CASE1\0"
 	uint16_t version;
@@ -119,7 +126,8 @@ struct t3case_startup_t {
 	uint8_t score_last[T3CASE_PLAYER_COUNT][T3CASE_SCORE_DIGITS];
 	uint16_t post_init_flags;
 	uint8_t post_init_randring_p;
-	uint8_t reserved[13];
+	uint8_t autofire; // Replay Patch Autofire mask; 0 on a direct recording
+	uint8_t reserved[12];
 };
 
 // One fixed-size payload record. [frame_index], [round_frame], and

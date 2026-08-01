@@ -952,6 +952,32 @@ void far t3case_round_start(void)
 	t3case_split_row(T3CASE_EVENT_ROUND_START, t3case_last_route);
 }
 
+// Autofire lives in the Replay Patch, not in TH03. A V11/V12 stream stores the
+// mapped input *before* the transform, while this hook is exactly where the game
+// consumes it *after* — so a normalized case carries the per-player Charge mask in
+// [control] and the Autofire mask in the startup block, and the transform is
+// finished here. This is the only place it can be finished: the shot gate below is
+// TH03's live `byte_220FC`, which no host normalizer can know, and which
+// `player_update()` has not yet advanced when this runs.
+//
+// Mirrors `replay_autofire_apply_player()` in th03/main/replay.cpp on `replays`.
+static input_t t3case_autofire_apply(input_t input, uint8_t player, uint8_t charge)
+{
+	if(t3case_startup.is_cpu[player]) {
+		return input; // a CPU side ignores both Autofire and Charge
+	}
+	if(!(t3case_startup.autofire & (1 << player))) {
+		return input;
+	}
+	if(charge & (1 << player)) {
+		return (input | INPUT_SHOT);
+	}
+	if((input & INPUT_SHOT) && (byte_220FC[player] <= 3)) {
+		return (input & ~INPUT_SHOT);
+	}
+	return input;
+}
+
 void far t3case_frame_io(void)
 {
 	t3case_record_t rec;
@@ -1002,11 +1028,19 @@ void far t3case_frame_io(void)
 		// The verification that makes this a verifier: a recorded position
 		// that stops agreeing with the live one means the two branches have
 		// already diverged, so refuse to keep injecting into a different run.
+		// [frame_index] stays authoritative and dense in every case. The two
+		// TH03 counters are only enforced when the case actually recorded them:
+		// a normalized case marks them advisory, and enforcing them there would
+		// report a spurious desync on the very first frame.
 		if(
 			(rec.kind != T3CASE_RECORD_INPUT) ||
 			(rec.frame_index != t3case_global_frame) ||
-			(rec.round_frame != round_frame) ||
-			(rec.round_or_result_frame != round_or_result_frame)
+			(
+				!(t3case_header.flags & T3CASE_FLAG_ADVISORY_POSITIONS) && (
+					(rec.round_frame != round_frame) ||
+					(rec.round_or_result_frame != round_or_result_frame)
+				)
+			)
 		) {
 			t3case_split_row(T3CASE_EVENT_ERROR, t3case_last_route);
 			t3case_mode = T3CASE_ERROR;
@@ -1015,8 +1049,17 @@ void far t3case_frame_io(void)
 			t3case_done_write(T3T_ERR_DESYNC);
 			return;
 		}
-		input_mp_p1 = rec.input_mp_p1;
-		input_mp_p2 = rec.input_mp_p2;
+		if(t3case_header.flags & T3CASE_FLAG_CHARGE_IN_CONTROL) {
+			input_mp_p1 = t3case_autofire_apply(
+				rec.input_mp_p1, 0, (uint8_t)rec.control
+			);
+			input_mp_p2 = t3case_autofire_apply(
+				rec.input_mp_p2, 1, (uint8_t)rec.control
+			);
+		} else {
+			input_mp_p1 = rec.input_mp_p1;
+			input_mp_p2 = rec.input_mp_p2;
+		}
 		input_sp = rec.input_sp;
 		t3case_sample_count++;
 	}
