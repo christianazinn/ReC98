@@ -850,6 +850,28 @@ static void t3case_handoff_clear(void)
 //
 // Capture and apply both happen here, so a recording and its playback see the
 // identical point in the process and stay self-consistent.
+void far t3case_scenario_apply(void)
+{
+	t3case_paths_init();
+
+	// A resumed process already had its scenario applied by the process that
+	// started the case, and its round is rebuilt from the handoff instead.
+	if(t3case_resident_mode() != T3CASE_DISABLED) {
+		return;
+	}
+	if(t3case_cfg_mode() != T3CASE_PLAYBACK) {
+		return;
+	}
+
+	// Deliberately silent on failure: t3case_session_start() runs a few lines
+	// later, reads the same header, and owns all error reporting. Leaving
+	// t3case_mode alone here keeps that single point of truth.
+	if(!t3case_header_read()) {
+		return;
+	}
+	t3case_startup_apply();
+}
+
 void far t3case_session_start(void)
 {
 	bool resumed;

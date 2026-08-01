@@ -13,6 +13,12 @@
 // master.lib and the game are not initialized; between
 // `cfg_load_resident_ptr()` and `round_startup()` the packfile is open and
 // master.lib's single-handle file state is shared with `pfint21`.
+// Applied before round_startup() builds the round, because that is what consumes
+// resident->game_mode, rank, is_cpu, playchar_paletted, story_stage and
+// story_opponents. The Replay Patch gets this state from its OP-side replay menu;
+// T3CASE is menu-free, so MAIN has to apply the case itself or the round is
+// whatever OP last chose -- in practice the attract-mode demo.
+void far t3case_scenario_apply(void);
 void far t3case_session_start(void);
 
 // Normal round initialization has completed and no logical input has been

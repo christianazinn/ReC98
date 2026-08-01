@@ -32,6 +32,8 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
+	t3case_scenario_apply();
+
 	snd_midi_active = false;
 	if(resident->bgm_mode != SND_BGM_OFF) {
 		snd_determine_mode();
@@ -79,4 +81,4 @@ exit_to_mainl:
 game_execl:
 	_asm { nop; push cs; call near ptr GameExecl; }
 }
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
