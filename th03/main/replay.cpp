@@ -5708,6 +5708,11 @@ resume:
 	if(replay_prompt_skip()) {
 		return REPLAY_PAUSE_DISCARD_EXIT;
 	}
+	// The cancel latch only suppresses frame waits while the recorded pause is
+	// being drained. Leaving it set would also suppress the first gameplay
+	// frame wait after Resume, which can change interrupt-visible gameplay
+	// state and desynchronize older replays.
+	resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX] = false;
 	replay_pause_restore_graphics();
 	replay_pause_clear();
 	replay_pause_beep();
