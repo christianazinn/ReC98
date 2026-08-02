@@ -340,9 +340,9 @@ void enemy_formations_randomize(void)
 	// C0 entry point assigns to `SI`, which is then callee-saved onto the
 	// stack by every function that uses `SI` from the start of the program to
 	// the first call of this function.
-	// Should be initialized to `formation_count` to ensure deterministic RNG
-	// behavior.
-	uint8_t prev;
+	// Use an impossible formation ID to preserve the ordinary first draw while
+	// removing the executable-layout dependency.
+	uint8_t prev = formation_count;
 
 	for(int i = 0; i < FORMATION_RING_SIZE; i++) {
 		do {
