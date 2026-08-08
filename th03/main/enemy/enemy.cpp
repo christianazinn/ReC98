@@ -145,6 +145,7 @@ extern uint8_t __seg *formation_type_ring;
 extern enemy_pos_type_t __seg *formation_pos_type_ring;
 extern uint8_t formation_p[PLAYER_COUNT];
 extern uint8_t formation_count;
+extern uint8_t formation_prev;
 // -----
 
 void pascal enemies_add(
@@ -328,21 +329,23 @@ void enemy_formations_load(void)
 		formation_i++;
 	};
 	formation_count = formation_i;
+
+	// The original first call sees 0x5E in [prev], which is outside the range
+	// of valid formation IDs. Use the equally impossible [formation_count] so
+	// that the first random draw is accepted just as in the original binary.
+	formation_prev = formation_count;
 }
 
 void enemy_formations_randomize(void)
 {
 	uint8_t next;
 
-	// ZUN landmine: Uninitialized. In ZUN's original binary, this variable is
-	// allocated to a stack address that always holds a value of 0x5E. That
-	// value comes from the lower 8 bits of the [InitStart] constant that the
-	// C0 entry point assigns to `SI`, which is then callee-saved onto the
-	// stack by every function that uses `SI` from the start of the program to
-	// the first call of this function.
-	// Use an impossible formation ID to preserve the ordinary first draw while
-	// removing the executable-layout dependency.
-	uint8_t prev = formation_count;
+	// ZUN landmine: [prev] was uninitialized. [sub_193BC()] saved `SI` into
+	// this stack slot before every call. The first call therefore saw the
+	// impossible 0x5E carried from the process entry point. On every later
+	// call, `main_entry()` kept the repeat route (1) in `SI`, so the value was
+	// 1. Keep those semantics explicit and independent of the stack layout.
+	uint8_t prev = formation_prev;
 
 	for(int i = 0; i < FORMATION_RING_SIZE; i++) {
 		do {
@@ -358,6 +361,9 @@ void enemy_formations_randomize(void)
 	formation_p[1] = 0;
 	enemies_alive[0] = 0;
 	enemies_alive[1] = 0;
+
+	// All later calls follow the repeat route in [main_entry()].
+	formation_prev = 1;
 }
 
 void enemy_formations_free(void)

@@ -19,15 +19,14 @@ _enedat	dw ?
 FORMATIONS_MAX = 24
 
 public _formation_enemy_count, _formation_scripts, _formation_type_ring
-public _formation_pos_type_ring, _formation_p, _formation_count
+public _formation_pos_type_ring, _formation_p, _formation_count, _formation_prev
 _formation_enemy_count  	db (FORMATIONS_MAX * 2) dup(?)
 _formation_scripts      	dw ?
 _formation_type_ring    	dw ?
 _formation_pos_type_ring	dw ?
 _formation_p            	db PLAYER_COUNT dup(?)
 _formation_count        	db ?
-
-	db ?
+_formation_prev         	db ?
 
 _BSS ends
 
