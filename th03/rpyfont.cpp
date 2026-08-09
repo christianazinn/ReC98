@@ -670,11 +670,14 @@ static void detail_tabs_put(uint8_t detail_page)
 	left = detail_tab_put(left, "Splits", (detail_page == RDP_SPLITS));
 	left = detail_tab_put(left, " / ", false);
 	left = detail_tab_put(
-		left, "Clear Bonuses", (detail_page == RDP_CLEAR_BONUSES)
+		left, "Clears", (detail_page == RDP_CLEAR_BONUSES)
 	);
-	left = detail_tab_put(left, " / ", false);
+	left = detail_tab_put(left, " /", false);
 	detail_tab_put(left, "Timers", (detail_page == RDP_TIMERS));
 }
+
+// Preserve all later replay-browser entry points after shortening the tabs.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static bool clear_bonus_valid(uint8_t stage)
 {

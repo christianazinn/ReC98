@@ -59,14 +59,14 @@ func PALETTE_SHOW	; palette_show() {
 	IFDEF TH03_PHOTOSENSITIVITY_PALETTE_HOOK
 	cmp	AX,100
 	jbe	short PALSHOW_PHOTOSENSITIVITY_DONE
-	cmp	word ptr _resident,0
+	cmp	word ptr _resident+2,0
 	je	short PALSHOW_PHOTOSENSITIVITY_DONE
 	push	ES
-	mov	ES,word ptr _resident
-	cmp	byte ptr ES:[52+185],0
+	push	BX
+	les	BX,_resident
+	cmp	byte ptr ES:[BX+(58+185)],0
+	pop	BX
 	pop	ES
-	nop
-	nop
 	je	short PALSHOW_PHOTOSENSITIVITY_DONE
 	mov	AX,100
 PALSHOW_PHOTOSENSITIVITY_DONE:

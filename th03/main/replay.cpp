@@ -1711,7 +1711,6 @@ static void replay_user_round_split_capture(uint8_t route)
 	split->route_winner = replay_user_summary_route_winner_pack(route);
 	replay_score_pack(split->score_p1, score);
 	replay_score_pack(split->score_p2, (score + SCORE_DIGITS));
-	replay_round_real_frame_tick();
 	split->real_frames = replay_round_real_frames;
 	replay_user_summary_ext.round_reached_count++;
 }
@@ -4993,7 +4992,10 @@ void far replay_frame_io(void)
 	bool fast_forward_held = false;
 	uint8_t shot_bits;
 
-	if(replay_mode == REPLAY_USER_RECORD) {
+	if(
+		(replay_mode == REPLAY_USER_RECORD) &&
+		(defeat_flag == DF_NONE)
+	) {
 		replay_round_real_frame_tick();
 	}
 	scorestat_frame_tick();
@@ -6004,11 +6006,11 @@ static void replay_debug_transition_write(
 
 // Keep the following C runtime segment at its accepted paragraph phase.
 #if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90"
 #else
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #endif
