@@ -51,7 +51,7 @@ include libs/master.lib/js_end.asm
 include libs/master.lib/keybeep.asm
 include libs/master.lib/make_linework.asm
 include libs/master.lib/palette_init.asm
-TH03_PHOTOSENSITIVITY_PALETTE_HOOK = 1
+TH03_PHOTOSENSITIVITY_PALETTE_PATCH = 1
 include libs/master.lib/palette_show.asm
 include libs/master.lib/pfclose.asm
 include libs/master.lib/pfgetc.asm

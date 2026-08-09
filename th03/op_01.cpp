@@ -3911,28 +3911,28 @@ bool near replay_menu(void)
 						(detail_page == RDP_SPLITS)
 					) {
 						checkpoint_focus = false;
-					} else {
-						detail_page = (
-							(detail_page == 0) ?
-								(RDP_COUNT - 1) : (detail_page - 1)
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus, detail_page
+						);
+					} else if(detail_page > RDP_SPLITS) {
+						detail_page--;
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus, detail_page
 						);
 					}
-					replay_menu_detail_render(
-						sel, checkpoint_sel, checkpoint_focus, detail_page
-					);
 				} else if(input_sp & INPUT_RIGHT) {
 					if(replay_menu_practice() && !checkpoint_focus) {
 						checkpoint_focus = true;
 						detail_page = RDP_SPLITS;
-					} else {
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus, detail_page
+						);
+					} else if(detail_page < RDP_TIMERS) {
 						detail_page++;
-						if(detail_page >= RDP_COUNT) {
-							detail_page = RDP_SPLITS;
-						}
+						replay_menu_detail_render(
+							sel, checkpoint_sel, checkpoint_focus, detail_page
+						);
 					}
-					replay_menu_detail_render(
-						sel, checkpoint_sel, checkpoint_focus, detail_page
-					);
 				} else if(
 					(input_sp & INPUT_UP) && checkpoint_focus &&
 					(detail_page != RDP_CLEAR_BONUSES)
@@ -4069,6 +4069,9 @@ bool near replay_menu(void)
 	}
 }
 
+// Preserve all later OP_01_TEXT entry points after simplifying tab navigation.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
+
 /// The menu
 /// --------
 
@@ -4175,7 +4178,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D382E34UL); // "4.8-"
-	TITLE_CREDIT_QUAD(5, 0x20336372UL); // "rc3 "
+	TITLE_CREDIT_QUAD(5, 0x20346372UL); // "rc4 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"

@@ -56,9 +56,16 @@ func PALETTE_SHOW	; palette_show() {
 	CLD
 	push	SI
 	mov	AX,PaletteTone
-	IFDEF TH03_PHOTOSENSITIVITY_PALETTE_HOOK
-	cmp	AX,100
-	jbe	short PALSHOW_PHOTOSENSITIVITY_DONE
+	IFDEF TH03_PHOTOSENSITIVITY_PALETTE_PATCH
+		IFDEF TH03_PHOTOSENSITIVITY_PALETTE_HOOK
+	; TH03's synchronous WARNING loop is the only MAIN caller that uses 150.
+	cmp	AX,150
+	jne	short PALSHOW_PHOTOSENSITIVITY_DONE
+		ELSE
+	; OP and MAINL retain the same relocation topology without applying the hook.
+	jmp	short PALSHOW_PHOTOSENSITIVITY_DONE
+	db	3 dup (90h)
+		ENDIF
 	cmp	word ptr _resident+2,0
 	je	short PALSHOW_PHOTOSENSITIVITY_DONE
 	push	ES
