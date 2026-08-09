@@ -28,6 +28,8 @@
 #define T3_PRACTICE_RES_SAFETY_FRAMES_INDEX 174
 #define T3_PRACTICE_RES_INITIAL_STAGE_INDEX 176
 #define T3_PRACTICE_RES_EXTENDS_INDEX 177
+#define T3_PRACTICE_RES_P1_GAUGE_INDEX 178
+#define T3_PRACTICE_RES_CPU_GAUGE_INDEX 179
 #define T3_PRACTICE_RES_END_INDEX 180
 
 #if (T3_PRACTICE_RES_START_INDEX <= T3_REPLAY_RES_MAINL_VSYNC_INDEX)
@@ -39,7 +41,7 @@
 
 #define T3_PRACTICE_MAGIC_0 'P'
 #define T3_PRACTICE_MAGIC_1 'R'
-#define T3_PRACTICE_VERSION 2
+#define T3_PRACTICE_VERSION 3
 
 enum practice_preset_t {
 	PRACTICE_PRESET_VS_DEFAULT = 0,
@@ -129,8 +131,7 @@ inline bool practice_replay_config_valid(
 		(cfg.p1_spell < 1) || (cfg.p1_spell > 16) ||
 		(cfg.cpu_spell < 1) || (cfg.cpu_spell > 16) ||
 		(cfg.boss_level > 15) ||
-		(cfg.cpu_damage > 3) ||
-		(cfg.reserved[0] != 0) || (cfg.reserved[1] != 0)
+		(cfg.cpu_damage > 3)
 	) {
 		return false;
 	}
@@ -168,8 +169,8 @@ inline void practice_replay_config_capture(
 	cfg.boss_level = practice_resident_u8(T3_PRACTICE_RES_BOSS_LEVEL_INDEX);
 	cfg.cpu_damage = practice_resident_u8(T3_PRACTICE_RES_CPU_DAMAGE_INDEX);
 	cfg.initial_cpu_safety_frames = initial_cpu_safety_frames;
-	cfg.reserved[0] = 0;
-	cfg.reserved[1] = 0;
+	cfg.p1_gauge = practice_resident_u8(T3_PRACTICE_RES_P1_GAUGE_INDEX);
+	cfg.cpu_gauge = practice_resident_u8(T3_PRACTICE_RES_CPU_GAUGE_INDEX);
 }
 
 inline void practice_replay_config_restore(
@@ -192,6 +193,8 @@ inline void practice_replay_config_restore(
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_SPELL_INDEX, cfg.cpu_spell);
 	practice_resident_u8_set(T3_PRACTICE_RES_BOSS_LEVEL_INDEX, cfg.boss_level);
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_DAMAGE_INDEX, cfg.cpu_damage);
+	practice_resident_u8_set(T3_PRACTICE_RES_P1_GAUGE_INDEX, cfg.p1_gauge);
+	practice_resident_u8_set(T3_PRACTICE_RES_CPU_GAUGE_INDEX, cfg.cpu_gauge);
 	practice_resident_u16_set(
 		T3_PRACTICE_RES_SAFETY_FRAMES_INDEX,
 		cfg.initial_cpu_safety_frames

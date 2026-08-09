@@ -124,6 +124,8 @@ enum practice_row_t {
 	PR_BULLET_SPEED,
 	PR_P1_SPELL,
 	PR_CPU_SPELL,
+	PR_P1_GAUGE,
+	PR_CPU_GAUGE,
 	PR_BOSS_LEVEL,
 	PR_CPU_DAMAGE,
 	PR_STOCK,
@@ -144,7 +146,7 @@ enum practice_layout_t {
 	PRACTICE_MAIN_ROWS_TOP = 6,
 	PRACTICE_ADVANCED_ROWS_TOP = 4,
 	PRACTICE_MAIN_COMMAND_TOP = 11,
-	PRACTICE_ADVANCED_COMMAND_TOP = 14,
+	PRACTICE_ADVANCED_COMMAND_TOP = 16,
 	PRACTICE_FOOTER_TOP = 20,
 	PRACTICE_MAIN_ROW_COUNT = 6,
 	PRACTICE_ADVANCED_ROW_COUNT = (PR_EXTENDS - PR_CPU_TIMER + 2),
@@ -159,6 +161,8 @@ struct practice_menu_t {
 	uint8_t bullet_speed;
 	uint8_t p1_spell;
 	uint8_t cpu_spell;
+	uint8_t p1_gauge;
+	uint8_t cpu_gauge;
 	uint8_t boss_level;
 	uint8_t cpu_damage;
 	uint8_t stock;
@@ -226,6 +230,8 @@ static void practice_defaults_set(practice_menu_t __ss& cfg)
 	}
 	cfg.round_speed = practice_default_round_speed(resident->rank, cfg.round);
 	cfg.bullet_speed = practice_default_bullet_speed(resident->rank);
+	cfg.p1_gauge = 64;
+	cfg.cpu_gauge = 64;
 	cfg.boss_level = practice_default_boss_level(
 		resident->rank, cfg.stage, cfg.round
 	);
@@ -434,6 +440,18 @@ static void practice_row_put(
 		VALUE_COLUMN();
 		at = practice_line_u16(line, at, cfg.cpu_spell);
 		break;
+	case PR_P1_GAUGE:
+		P('P'); P('1'); P(' '); P('S'); P('t'); P('a'); P('r'); P('t');
+		P(' '); P('G'); P('a'); P('u'); P('g'); P('e');
+		VALUE_COLUMN();
+		at = practice_line_u16(line, at, cfg.p1_gauge);
+		break;
+	case PR_CPU_GAUGE:
+		P('C'); P('P'); P('U'); P(' '); P('S'); P('t'); P('a'); P('r');
+		P('t'); P(' '); P('G'); P('a'); P('u'); P('g'); P('e');
+		VALUE_COLUMN();
+		at = practice_line_u16(line, at, cfg.cpu_gauge);
+		break;
 	case PR_BOSS_LEVEL:
 		P('B'); P('o'); P('s'); P('s'); P(' '); P('R'); P('a'); P('n'); P('k');
 		VALUE_COLUMN();
@@ -641,6 +659,16 @@ static void practice_value_step(
 			);
 		}
 		break;
+	case PR_P1_GAUGE:
+		cfg.p1_gauge = static_cast<uint8_t>(
+			forward ? (cfg.p1_gauge + 1) : (cfg.p1_gauge - 1)
+		);
+		break;
+	case PR_CPU_GAUGE:
+		cfg.cpu_gauge = static_cast<uint8_t>(
+			forward ? (cfg.cpu_gauge + 1) : (cfg.cpu_gauge - 1)
+		);
+		break;
 	case PR_BOSS_LEVEL:
 		if(forward && (cfg.boss_level < GBA_BOSS_LEVEL_MAX)) {
 			cfg.boss_level++;
@@ -703,6 +731,8 @@ static bool practice_is_exact_vs_default(practice_menu_t __ss& cfg)
 		(cfg.bullet_speed == practice_default_bullet_speed(resident->rank)) &&
 		(cfg.p1_spell == GBA_GAUGE_LEVEL_MIN) &&
 		(cfg.cpu_spell == GBA_GAUGE_LEVEL_MIN) &&
+		(cfg.p1_gauge == 64) &&
+		(cfg.cpu_gauge == 64) &&
 		(cfg.boss_level == practice_default_boss_level(
 			resident->rank, 0, 0
 		)) &&
@@ -729,6 +759,8 @@ static void practice_config_store(practice_menu_t __ss& cfg)
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_SPELL_INDEX, cfg.cpu_spell);
 	practice_resident_u8_set(T3_PRACTICE_RES_BOSS_LEVEL_INDEX, cfg.boss_level);
 	practice_resident_u8_set(T3_PRACTICE_RES_CPU_DAMAGE_INDEX, cfg.cpu_damage);
+	practice_resident_u8_set(T3_PRACTICE_RES_P1_GAUGE_INDEX, cfg.p1_gauge);
+	practice_resident_u8_set(T3_PRACTICE_RES_CPU_GAUGE_INDEX, cfg.cpu_gauge);
 	practice_resident_u8_set(
 		T3_PRACTICE_RES_EXTENDS_INDEX, cfg.extends_gained
 	);

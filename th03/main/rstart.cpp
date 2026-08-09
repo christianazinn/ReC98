@@ -76,7 +76,9 @@ extern "C" void pascal near round_startup(void)
 	random_seed = resident->rand;
 	text_fillca(' ', (TX_BLACK | TX_REVERSE));
 	graph_copy_page(0);
-	enemy_formations_load();
+	enemy_formations_load_deterministic();
+	// The patch-owned wrapper's near call is one byte shorter than the stock call.
+	_asm { nop; }
 	round_id = 0;
 	if(resident->game_mode == GM_VS_1P_CPU) {
 		round_id = practice_initial_round();
@@ -149,9 +151,6 @@ extern "C" void pascal near round_startup(void)
 		gba_gauge_level[1] = GBA_GAUGE_LEVEL_MIN;
 		extends_gained = EXTENDS_DISABLE;
 		cpu_hit_damage_additional = 0;
-		if(resident->game_mode == GM_VS_1P_CPU) {
-			practice_initial_apply();
-		}
 		_asm { push 3; }
 	}
 	_asm { nop; push cs; call near ptr score_continues_used_digit_update; }
@@ -161,6 +160,9 @@ extern "C" void pascal near round_startup(void)
 		p->gauge_avail = TO_SP(64);
 		p->combo_hits_max = 0;
 		p->combo_bonus_max = 0;
+	}
+	if(resident->game_mode == GM_VS_1P_CPU) {
+		practice_initial_apply();
 	}
 
 	if(resident->demo_num == 0) {
@@ -256,6 +258,6 @@ extern "C" void pascal near round_startup(void)
 }
 
 // Keep all following PLAYFLD_TEXT code at its accepted offsets.
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90"
 
 #undef nopcall_noarg

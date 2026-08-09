@@ -54,6 +54,7 @@ include libs/master.lib/graph_pi_load_pack.asm
 include libs/master.lib/iatan2.asm
 include libs/master.lib/js_end.asm
 include libs/master.lib/make_linework.asm
+TH03_PHOTOSENSITIVITY_PALETTE_HOOK = 1
 include libs/master.lib/palette_show.asm
 include libs/master.lib/pfclose.asm
 include libs/master.lib/pfgetc.asm

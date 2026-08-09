@@ -15,7 +15,7 @@
 #include "th03/scorefile.hpp"
 
 extern replay_user_header_t replay_user_menu_header;
-extern replay_user_summary_ext_t replay_user_menu_summary_ext;
+extern replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 extern "C" int file_Handle;
 
 static uint8_t far title_extra_unlock_step = 0;

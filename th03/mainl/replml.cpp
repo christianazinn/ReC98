@@ -5,6 +5,7 @@
 #include "th03/hardware/input.h"
 #include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/language.hpp"
 #include "th03/language_mainl.hpp"
 #include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
@@ -30,6 +31,19 @@
 static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
+
+int MASTER_RET mainl_language_file_ropen(const char MASTER_PTR *filename)
+{
+	(void)language_archive_begin_if_translated(filename);
+	return file_ropen(filename);
+}
+
+void MASTER_RET mainl_language_file_close(void)
+{
+	file_close();
+	// screens.cpp only streams translated win-quote files through this wrapper.
+	language_archive_end(language_is_english());
+}
 
 enum mainl_replay_mode_t {
 	MR_DISABLED = 0,
@@ -1334,7 +1348,7 @@ void far mainl_replay_input_mode_interface(void)
 	}
 }
 
-void far mainl_replay_transition_finish(void)
+static void mainl_replay_transition_finish_impl(bool persist_partial)
 {
 	bool ok = true;
 	mainl_replay_mode_t mode = mainl_replay_mode;
@@ -1345,7 +1359,7 @@ void far mainl_replay_transition_finish(void)
 
 	if(mode == MR_USER_RECORD) {
 		ok = mainl_replay_control_write(T3_REPLAY_PACKET_CONTROL_MAINL_END);
-		if(ok) {
+		if(ok && persist_partial) {
 			ok = mainl_replay_user_header_write(RUS_RECORDING, RUER_PARTIAL);
 			if(!ok) {
 				mainl_replay_diag_code_set_if_none(RPD_MAINL_HEADER_WRITE);
@@ -1385,6 +1399,11 @@ void far mainl_replay_transition_finish(void)
 		return;
 	}
 	mainl_replay_cursor_store();
+}
+
+void far mainl_replay_transition_finish(void)
+{
+	mainl_replay_transition_finish_impl(true);
 }
 
 bool far mainl_replay_initial_stage_splash_skip(void)
@@ -1434,7 +1453,9 @@ bool far mainl_replay_finish(
 {
 	bool save_pending = false;
 
-	mainl_replay_transition_finish();
+	// A terminal transition writes the authoritative finalized header below.
+	// Avoid a redundant guard checkpoint, process commit, and partial index write.
+	mainl_replay_transition_finish_impl(false);
 
 	if(mainl_replay_mode == MR_USER_RECORD) {
 		if(replay_protect_invalid()) {
@@ -1495,4 +1516,4 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

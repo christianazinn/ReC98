@@ -145,6 +145,7 @@ extern uint8_t __seg *formation_type_ring;
 extern enemy_pos_type_t __seg *formation_pos_type_ring;
 extern uint8_t formation_p[PLAYER_COUNT];
 extern uint8_t formation_count;
+extern uint8_t formation_prev;
 // -----
 
 void pascal enemies_add(
@@ -334,14 +335,9 @@ void enemy_formations_randomize(void)
 {
 	uint8_t next;
 
-	// ZUN landmine: Uninitialized. In ZUN's original binary, this variable is
-	// allocated to a stack address that always holds a value of 0x5E. That
-	// value comes from the lower 8 bits of the [InitStart] constant that the
-	// C0 entry point assigns to `SI`, which is then callee-saved onto the
-	// stack by every function that uses `SI` from the start of the program to
-	// the first call of this function.
-	// Should be initialized to `formation_count` to ensure deterministic RNG
-	// behavior.
+	// ZUN landmine: Uninitialized. The Replay Patch keeps this unused copy at
+	// its original size and location; gameplay calls the explicit equivalent
+	// below so no later raw-offset segment moves.
 	uint8_t prev;
 
 	for(int i = 0; i < FORMATION_RING_SIZE; i++) {
@@ -367,6 +363,39 @@ void enemy_formations_free(void)
 	hmem_free(formation_type_ring);
 	hmem_free(formation_pos_type_ring);
 }
+
+#pragma codeseg FORMATION_PATCH_TEXT
+
+void enemy_formations_load_deterministic(void)
+{
+	enemy_formations_load();
+	formation_prev = formation_count;
+}
+
+void enemy_formations_randomize_deterministic(void)
+{
+	uint8_t next;
+	uint8_t prev = formation_prev;
+
+	for(int i = 0; i < FORMATION_RING_SIZE; i++) {
+		do {
+			next = (irand() % formation_count);
+		} while(next == prev);
+		formation_type_ring[i] = next;
+		prev = next;
+		formation_pos_type_ring[i] = ((irand() & 1) * EPT_DO_NOT_MIRROR_X);
+	}
+	static_assert(PLAYER_COUNT == 2);
+	formation_p[0] = 0;
+	formation_p[1] = 0;
+	enemies_alive[0] = 0;
+	enemies_alive[1] = 0;
+
+	// Every later randomization follows main_entry()'s repeat route.
+	formation_prev = 1;
+}
+
+#pragma codeseg ENEMY_2_TEXT main_04
 
 // ZUN quirk: The addition of these two expressions is a convoluted, slow, and
 // bizarrely inaccurate way of expressing

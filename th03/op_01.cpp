@@ -22,6 +22,7 @@
 #include "th03/keyconfig.hpp"
 #include "th03/language.hpp"
 #include "th03/language_op.hpp"
+#include "th03/photosensitivity.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
@@ -66,6 +67,7 @@ enum option_choice_t {
 	OC_SFX,
 	OC_LANGUAGE,
 	OC_KEY_MODE,
+	OC_PHOTOSENSITIVITY,
 	OC_QUIT,
 	OC_COUNT,
 };
@@ -148,7 +150,7 @@ static char REPLAY_SLOT_FN[] = "REPLAY\\TH3R00.RPY";
 static const char REPLAY_FALLBACK_FN[] = "TH3LAST.RPY";
 
 replay_user_header_t replay_user_menu_header;
-replay_user_summary_ext_t replay_user_menu_summary_ext;
+replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 replay_user_snapshot_t replay_user_menu_snapshot;
 static replay_user_index_header_t replay_user_menu_index_header;
 
@@ -175,6 +177,10 @@ void near cfg_load(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	photosensitivity_enabled_set(
+		(cfg.opts.language & T3_CFG_PHOTOSENSITIVITY) != 0
+	);
+	cfg.opts.language &= T3_CFG_LANGUAGE_MASK;
 	if(cfg.opts.language >= LANGUAGE_COUNT) {
 		cfg.opts.language = LANGUAGE_JAPANESE;
 	}
@@ -194,7 +200,10 @@ inline void cfg_save_bytes(cfg_t &cfg, size_t bytes) {
 	cfg.opts.key_mode = resident->key_mode;
 	cfg.opts.rank = resident->rank;
 	cfg.opts.autofire = (resident->autofire != 0);
-	cfg.opts.language = language_resident();
+	cfg.opts.language = static_cast<uint8_t>(
+		language_resident() |
+		(photosensitivity_enabled() ? T3_CFG_PHOTOSENSITIVITY : 0)
+	);
 
 	file_write(&cfg.opts, bytes);
 	file_close();
@@ -249,6 +258,10 @@ static void replay_cfg_load_resident_only(void)
 	resident->key_mode = cfg.opts.key_mode;
 	resident->rank = cfg.opts.rank;
 	resident->autofire = (cfg.opts.autofire == true);
+	photosensitivity_enabled_set(
+		(cfg.opts.language & T3_CFG_PHOTOSENSITIVITY) != 0
+	);
+	cfg.opts.language &= T3_CFG_LANGUAGE_MASK;
 	if(cfg.opts.language >= LANGUAGE_COUNT) {
 		cfg.opts.language = LANGUAGE_JAPANESE;
 	}
@@ -358,6 +371,49 @@ static void replay_user_summary_ext_init(void)
 	for(i = 0; i < T3R_CKPT_COUNT_MAX; i++) {
 		replay_user_menu_summary_ext.checkpoint_stage_round[i] = 0;
 	}
+}
+
+static bool replay_user_summary_ext_disk_read(void)
+{
+	int i;
+	int j;
+	replay_user_round_split_t split;
+
+	if(
+		file_read(&replay_user_menu_summary_ext, 2) != 2
+	) {
+		return false;
+	}
+	for(i = 0; i < T3_REPLAY_USER_ROUND_SPLIT_COUNT; i++) {
+		if(file_read(&split, sizeof(split)) != sizeof(split)) {
+			return false;
+		}
+		replay_user_menu_summary_ext.round_splits[i].stage_round = (
+			split.stage_round
+		);
+		replay_user_menu_summary_ext.round_splits[i].route_winner = (
+			split.route_winner
+		);
+		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
+			replay_user_menu_summary_ext.round_splits[i].score_p1[j] = (
+				split.score_p1[j]
+			);
+			replay_user_menu_summary_ext.round_splits[i].score_p2[j] = (
+				split.score_p2[j]
+			);
+		}
+	}
+	file_seek(
+		static_cast<long>(sizeof(replay_user_stage_clear_bonus_t)) *
+		T3_REPLAY_USER_STAGE_COUNT,
+		SEEK_CUR
+	);
+	return (
+		file_read(
+			&replay_user_menu_summary_ext.checkpoint_count,
+			(1 + T3R_CKPT_COUNT_MAX)
+		) == (1 + T3R_CKPT_COUNT_MAX)
+	);
 }
 
 static void replay_memclear(void far *buf, unsigned size)
@@ -541,7 +597,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '7') &&
+		(header.magic[6] == '8') &&
 		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
@@ -552,7 +608,6 @@ static bool replay_user_index_header_valid(
 
 static bool replay_user_read_for_menu(const char *fn)
 {
-	uint16_t summary_size;
 	replay_user_round_state_t round_state;
 
 	if(!file_ropen(fn)) {
@@ -570,13 +625,7 @@ static bool replay_user_read_for_menu(const char *fn)
 		return false;
 	}
 	replay_user_summary_ext_init();
-	summary_size = replay_user_summary_ext_size(replay_user_menu_header.version);
-	if(
-		file_read(
-			&replay_user_menu_summary_ext,
-			summary_size
-		) != summary_size
-	) {
+	if(!replay_user_summary_ext_disk_read()) {
 		file_close();
 		return false;
 	}
@@ -771,7 +820,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_menu_index_header.magic[3] = 'I';
 	replay_user_menu_index_header.magic[4] = 'D';
 	replay_user_menu_index_header.magic[5] = 'X';
-	replay_user_menu_index_header.magic[6] = '7';
+	replay_user_menu_index_header.magic[6] = '8';
 	replay_user_menu_index_header.magic[7] = '\0';
 	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_menu_index_header.header_size = (
@@ -1808,7 +1857,9 @@ static bool replay_menu_round_summary_valid(void)
 	);
 }
 
-static replay_user_round_split_t near *replay_menu_round_split(uint8_t round)
+static replay_user_menu_round_split_t near *replay_menu_round_split(
+	uint8_t round
+)
 {
 	uint8_t i;
 	uint8_t stage = (
@@ -1816,7 +1867,7 @@ static replay_user_round_split_t near *replay_menu_round_split(uint8_t round)
 			replay_user_menu_header.scenario.practice.config.stage :
 			T3_REPLAY_USER_ROUND_STAGE_VS
 	);
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	if(!replay_menu_round_summary_valid()) {
 		return NULL;
@@ -1835,7 +1886,7 @@ static replay_user_round_split_t near *replay_menu_round_split(uint8_t round)
 
 static const uint8_t near *replay_menu_list_score(void)
 {
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 	uint8_t round;
 
 	if(replay_menu_practice()) {
@@ -2253,7 +2304,7 @@ static void replay_menu_detail_put_vs(void)
 {
 	char *p;
 	uint8_t round;
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, (
@@ -2336,7 +2387,7 @@ static void replay_menu_detail_put_practice(void)
 			3 : (replay_user_menu_header.scenario.practice.config.stock + 1)
 	);
 	uint8_t round;
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	p = replay_menu_line;
 	p = replay_line_append_practice_text(p, RPT_FINAL);
@@ -4019,16 +4070,13 @@ int8_t in_option; // ACTUAL TYPE: bool
 static int8_t padding; // ZUN bloat; reused for the initial Option language
 menu_put_func_t menu_put;
 
-static char title_credit_line[44];
+static char title_credit_line[48];
 // Keep OP's initialized-data offsets after removing the GDC error path.
 static char gdc_frequency_error_offset_padding[
 	(sizeof(
 		ERROR_GDC_5MHZ_1 "\0" ERROR_GDC_5MHZ_2 "\0" ERROR_GDC_5MHZ_3
 	) - 49)
 ] = { 0 };
-// Keeps the resident pointer and all following OP globals at their accepted
-// offsets after replacing the longer replay status strings.
-uint8_t replay_resident_offset_padding[4];
 // -------
 
 #define TITLE_CREDIT_PAIR(index, left, right) \
@@ -4043,7 +4091,7 @@ static void near title_credit_put(void)
 	enum {
 		TRAM_RIGHT = 80,
 		LINE1_LEN = 24,
-		LINE2_LEN = 42,
+		LINE2_LEN = 46,
 	};
 	uint16_t near *pairs = reinterpret_cast<uint16_t near *>(title_credit_line);
 
@@ -4066,13 +4114,14 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20372E34UL); // "4.7 "
-	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
-	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
-	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
-	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
-	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn\0\0"
-	TITLE_CREDIT_QUAD(10, 0x00000000UL);
+	TITLE_CREDIT_QUAD(4, 0x2D382E34UL); // "4.8-"
+	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(9, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(10, 0x00006E6EUL); // "nn\0\0"
+	TITLE_CREDIT_QUAD(11, 0x00000000UL);
 	title_credit_line_put(title_credit_line, LINE2_LEN, 1);
 }
 
@@ -4203,6 +4252,28 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			choice_put_centered(VALUE_CENTER_X, 4, -1, VALUE_KEY_JOY, atrb);
 			break;
 		}
+	} else if(sel == OC_PHOTOSENSITIVITY) {
+		title_credit_line[0] = 'F'; title_credit_line[1] = 'l';
+		title_credit_line[2] = 'a'; title_credit_line[3] = 's';
+		title_credit_line[4] = 'h'; title_credit_line[5] = ' ';
+		title_credit_line[6] = 'F'; title_credit_line[7] = 'X';
+		title_credit_line[8] = '\0';
+		choice_put_centered(
+			LABEL_CENTER_X, 5, -1, title_credit_line, atrb
+		);
+		if(photosensitivity_enabled()) {
+			title_credit_line[0] = 'R'; title_credit_line[1] = 'e';
+			title_credit_line[2] = 'd'; title_credit_line[3] = 'u';
+			title_credit_line[4] = 'c'; title_credit_line[5] = 'e';
+			title_credit_line[6] = 'd'; title_credit_line[7] = '\0';
+		} else {
+			title_credit_line[0] = 'F'; title_credit_line[1] = 'u';
+			title_credit_line[2] = 'l'; title_credit_line[3] = 'l';
+			title_credit_line[4] = '\0';
+		}
+		choice_put_centered(
+			VALUE_CENTER_X, 5, 0, title_credit_line, atrb
+		);
 	} else if(sel == OC_QUIT) {
 		choice_put_centered(BOX_OPTION_CENTER_X, 6, 0, COMMAND_QUIT, atrb);
 	}
@@ -4406,6 +4477,10 @@ void near main_update_and_render(void)
 	th03_snd_se_toggle(); \
 }
 
+#define photosensitivity_flip() { \
+	photosensitivity_enabled_set(!photosensitivity_enabled()); \
+}
+
 inline void return_from_option_to_main(bool& option_initialized) {
 	option_initialized = false;
 	menu_sel = MC_OPTION;
@@ -4459,6 +4534,9 @@ void near option_update_and_render(void)
 		case OC_KEY_MODE:
 			ring_inc_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
+		case OC_PHOTOSENSITIVITY:
+			photosensitivity_flip();
+			break;
 		}
 		option_choice_put(menu_sel, TX_WHITE);
 	}
@@ -4479,6 +4557,9 @@ void near option_update_and_render(void)
 		case OC_KEY_MODE:
 			ring_dec_range(resident->key_mode, KM_KEY_KEY, KM_KEY_JOY);
 			break;
+		case OC_PHOTOSENSITIVITY:
+			photosensitivity_flip();
+			break;
 		}
 		option_choice_put(menu_sel, TX_WHITE);
 	}
@@ -4496,6 +4577,9 @@ void near option_update_and_render(void)
 		} else if(menu_sel == OC_LANGUAGE) {
 			language_op_toggle();
 			option_choice_put(menu_sel, TX_WHITE);
+		} else if(menu_sel == OC_PHOTOSENSITIVITY) {
+			photosensitivity_flip();
+			option_choice_put(menu_sel, TX_WHITE);
 		} else if(menu_sel == OC_QUIT) {
 			option_return_to_main(in_this_menu);
 		}
@@ -4509,6 +4593,8 @@ void near option_update_and_render(void)
 
 	#undef input_allowed
 }
+
+#undef photosensitivity_flip
 
 void main(void)
 {
@@ -4773,6 +4859,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
 #endif
 #if defined(TH03_REPLAY_DEVTOOLS)
 // The debug-only Shift override is larger than the release handoff.

@@ -6,8 +6,8 @@
 #include "th03/resident.hpp"
 
 #define T3_REPLAY_USER_VERSION_LEGACY 11
-#define T3_REPLAY_USER_VERSION 12
-#define T3_REPLAY_USER_INDEX_VERSION 7
+#define T3_REPLAY_USER_VERSION 13
+#define T3_REPLAY_USER_INDEX_VERSION 8
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
@@ -60,11 +60,15 @@
 #define T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE 0x0002
 #define T3R_SUMMARY_ROUND_RESUME_CURSOR 0x0004
 #define T3R_SUMMARY_FIREBALL_GENERATION 0x0008
+#define T3R_SUMMARY_ROUND_REAL_FRAMES 0x0010
+#define T3R_SUMMARY_STAGE_CLEAR_BONUS 0x0020
 #define T3_REPLAY_USER_SUMMARY_CURRENT ( \
 	T3_REPLAY_USER_SUMMARY_VALID | \
 	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE | \
 	T3R_SUMMARY_ROUND_RESUME_CURSOR | \
-	T3R_SUMMARY_FIREBALL_GENERATION \
+	T3R_SUMMARY_FIREBALL_GENERATION | \
+	T3R_SUMMARY_ROUND_REAL_FRAMES | \
+	T3R_SUMMARY_STAGE_CLEAR_BONUS \
 )
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
@@ -160,7 +164,8 @@ struct replay_user_practice_t {
 	uint8_t boss_level;
 	uint8_t cpu_damage;
 	uint16_t initial_cpu_safety_frames;
-	uint8_t reserved[2];
+	uint8_t p1_gauge;
+	uint8_t cpu_gauge;
 };
 
 typedef char replay_user_practice_size_check[
@@ -233,7 +238,25 @@ struct replay_user_round_split_t {
 	uint8_t route_winner;
 	uint8_t score_p1[T3_REPLAY_USER_PACKED_SCORE_SIZE];
 	uint8_t score_p2[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint32_t real_frames;
 };
+
+struct replay_user_stage_clear_bonus_t {
+	uint8_t total[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t max_combo;
+	uint8_t gauge_attacks;
+	uint8_t boss_attacks;
+	uint8_t boss_reversals;
+	uint8_t boss_panics;
+	uint8_t remaining_lives;
+};
+
+typedef char replay_user_round_split_size_check[
+	(sizeof(replay_user_round_split_t) == 14) ? 1 : -1
+];
+typedef char replay_user_stage_clear_bonus_size_check[
+	(sizeof(replay_user_stage_clear_bonus_t) == 10) ? 1 : -1
+];
 
 typedef char replay_user_header_size_check[
 	(sizeof(replay_user_header_t) == 128) ? 1 : -1
@@ -243,6 +266,9 @@ struct replay_user_summary_ext_t {
 	uint8_t flags;
 	uint8_t round_reached_count;
 	replay_user_round_split_t round_splits[T3_REPLAY_USER_ROUND_SPLIT_COUNT];
+	replay_user_stage_clear_bonus_t stage_clear_bonuses[
+		T3_REPLAY_USER_STAGE_COUNT
+	];
 	uint8_t checkpoint_count;
 	uint8_t checkpoint_stage_round[T3R_CKPT_COUNT_MAX];
 };
@@ -250,7 +276,30 @@ struct replay_user_summary_ext_t {
 #define T3_REPLAY_USER_SUMMARY_EXT_V11_SIZE 272
 
 typedef char replay_user_summary_ext_size_check[
-	(sizeof(replay_user_summary_ext_t) == 288) ? 1 : -1
+	(sizeof(replay_user_summary_ext_t) == 486) ? 1 : -1
+];
+
+// The replay browser does not display the V13 timing and clear-bonus fields.
+// Keeping its view at the V12 size avoids moving OP's original near data.
+struct replay_user_menu_round_split_t {
+	uint8_t stage_round;
+	uint8_t route_winner;
+	uint8_t score_p1[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+	uint8_t score_p2[T3_REPLAY_USER_PACKED_SCORE_SIZE];
+};
+
+struct replay_user_menu_summary_ext_t {
+	uint8_t flags;
+	uint8_t round_reached_count;
+	replay_user_menu_round_split_t round_splits[
+		T3_REPLAY_USER_ROUND_SPLIT_COUNT
+	];
+	uint8_t checkpoint_count;
+	uint8_t checkpoint_stage_round[T3R_CKPT_COUNT_MAX];
+};
+
+typedef char replay_user_menu_summary_ext_size_check[
+	(sizeof(replay_user_menu_summary_ext_t) == 288) ? 1 : -1
 ];
 
 struct replay_user_snapshot_t {
@@ -525,10 +574,7 @@ inline uint16_t replay_user_checkpoint_size(uint16_t version)
 
 inline bool replay_user_version_supported(uint16_t version)
 {
-	return (
-		(version == T3_REPLAY_USER_VERSION_LEGACY) ||
-		(version == T3_REPLAY_USER_VERSION)
-	);
+	return (version == T3_REPLAY_USER_VERSION);
 }
 
 inline bool replay_user_version_has_round_state(uint16_t version)

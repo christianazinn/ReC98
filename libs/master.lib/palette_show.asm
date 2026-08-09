@@ -56,6 +56,21 @@ func PALETTE_SHOW	; palette_show() {
 	CLD
 	push	SI
 	mov	AX,PaletteTone
+	IFDEF TH03_PHOTOSENSITIVITY_PALETTE_HOOK
+	cmp	AX,100
+	jbe	short PALSHOW_PHOTOSENSITIVITY_DONE
+	cmp	word ptr _resident+2,0
+	je	short PALSHOW_PHOTOSENSITIVITY_DONE
+	push	ES
+	push	BX
+	les	BX,_resident
+	cmp	byte ptr ES:[BX+(52+185)],0
+	pop	BX
+	pop	ES
+	je	short PALSHOW_PHOTOSENSITIVITY_DONE
+	mov	AX,100
+PALSHOW_PHOTOSENSITIVITY_DONE:
+	ENDIF
 	cwd		; if AX < 0 then AX = 0
 	not	DX	;
 	and	AX,DX	;

@@ -792,6 +792,7 @@ th03_main_cfg:link("main", th03_main_inputs)
 local th03_mainl_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
 local th03_mainl_inputs = {
 	"th03/cfg_lres.cpp",
+	"th03/mainl/mainl_03_prefix.asm",
 	"th03/mainl_sc.cpp",
 	"th03/mainl/screens_data.asm",
 	"th03/mainl/mlsfmdat.asm",

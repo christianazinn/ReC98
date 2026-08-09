@@ -49,6 +49,8 @@ _TEXT		segment	word public 'CODE' use16
 _TEXT		ends
 
 PLAYFLD_TEXT segment word public 'CODE' use16
+		; Preserve the accepted 000Ah origin after replay-owned library growth.
+		db 1 dup (0)
 PLAYFLD_TEXT ends
 
 CFG_LRES_TEXT	segment	byte public 'CODE' use16

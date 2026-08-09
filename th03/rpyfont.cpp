@@ -50,7 +50,7 @@ enum {
 
 extern char replay_menu_line[81];
 extern replay_user_header_t replay_user_menu_header;
-extern replay_user_summary_ext_t replay_user_menu_summary_ext;
+extern replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 extern replay_user_snapshot_t replay_user_menu_snapshot;
 
 static bool summary_valid(void)
@@ -80,12 +80,12 @@ static bool round_summary_valid(void)
 	);
 }
 
-static replay_user_round_split_t near *round_split_at(
+static replay_user_menu_round_split_t near *round_split_at(
 	uint8_t stage, uint8_t round
 )
 {
 	uint8_t i;
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	if(!round_summary_valid()) {
 		return NULL;
@@ -102,7 +102,7 @@ static replay_user_round_split_t near *round_split_at(
 	return NULL;
 }
 
-static replay_user_round_split_t near *round_split(uint8_t round)
+static replay_user_menu_round_split_t near *round_split(uint8_t round)
 {
 	return round_split_at(
 		(replay_practice() ?
@@ -138,7 +138,7 @@ static int packed_score_cmp(
 
 static const uint8_t near *list_score(void)
 {
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 	uint8_t round;
 
 	if(replay_practice()) {
@@ -591,7 +591,7 @@ static void date_line_put(unsigned y)
 static void round_put(
 	unsigned y,
 	uint8_t round,
-	replay_user_round_split_t near *split,
+	replay_user_menu_round_split_t near *split,
 	bool valid,
 	bool selected
 )
@@ -794,7 +794,7 @@ static void story_round_row_put(
 {
 	char *p;
 	uint8_t stage_round = checkpoint_stage_round(checkpoint);
-	replay_user_round_split_t near *split = round_split_at(
+	replay_user_menu_round_split_t near *split = round_split_at(
 		(stage_round & 0x0F), (stage_round >> 4)
 	);
 	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
@@ -1015,6 +1015,11 @@ void far replay_font_practice_settings_modal_put(void)
 	p = append_cstr(p, " / CPU ");
 	p = append_u32(p, cfg.cpu_spell);
 	field_put(96, y++, p, TX_WHITE);
+	p = append_cstr(replay_menu_line, "Start Gauge: P1 ");
+	p = append_u32(p, cfg.p1_gauge);
+	p = append_cstr(p, " / CPU ");
+	p = append_u32(p, cfg.cpu_gauge);
+	field_put(96, y++, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Boss Rank: ");
 	p = append_u32(p, (cfg.boss_level + 1));
 	field_put(96, y++, p, TX_WHITE);
@@ -1100,7 +1105,7 @@ static void round_splits_put(uint8_t selected, bool focus)
 	uint8_t checkpoint;
 	uint8_t count = checkpoint_count();
 	uint8_t stage_round;
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
@@ -1129,7 +1134,7 @@ static void round_splits_legacy_put(bool focus)
 			replay_user_menu_header.scenario.practice.config.round : 0
 	);
 	uint8_t rows = (replay_practice() ? 5 : 3);
-	replay_user_round_split_t near *split;
+	replay_user_menu_round_split_t near *split;
 
 	for(row = 0; row < rows; row++, round++) {
 		split = round_split(round);

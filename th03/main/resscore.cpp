@@ -267,7 +267,7 @@ sub_9EBF_rank_done:
 		damage_all_on[i] = false;
 		warning_flag[i] = WF_NONE;
 	}
-	enemy_formations_randomize();
+	enemy_formations_randomize_deterministic();
 }
 #pragma codestring "\x00\xC7\x09\xFF\x09\x29\x0A\x64\x0A"
 

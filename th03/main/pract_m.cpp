@@ -101,6 +101,12 @@ void far practice_initial_apply(void)
 	cpu_hit_damage_additional = practice_resident_u8(
 		T3_PRACTICE_RES_CPU_DAMAGE_INDEX
 	);
+	players[0].gauge_avail = static_cast<uint16_t>(
+		practice_resident_u8(T3_PRACTICE_RES_P1_GAUGE_INDEX) << 4
+	);
+	players[1].gauge_avail = static_cast<uint16_t>(
+		practice_resident_u8(T3_PRACTICE_RES_CPU_GAUGE_INDEX) << 4
+	);
 	initial_extends = practice_resident_u8(T3_PRACTICE_RES_EXTENDS_INDEX);
 	extends_gained = (
 		(initial_extends >= EXTENDS_MAX) ? EXTENDS_DISABLE : initial_extends

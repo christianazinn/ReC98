@@ -2,6 +2,7 @@
 #define TH03_MAINL_REPLAY_HPP
 
 #include "platform.h"
+#include "libs/master.lib/master.hpp"
 #include "th03/replay_format.hpp"
 
 void far mainl_replay_session_start(void);
@@ -16,5 +17,8 @@ bool far mainl_replay_finish(
 	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
 );
 bool far mainl_replay_clear_playback_finish(void);
+
+int MASTER_RET mainl_language_file_ropen(const char MASTER_PTR *filename);
+void MASTER_RET mainl_language_file_close(void);
 
 #endif /* TH03_MAINL_REPLAY_HPP */

@@ -24,6 +24,7 @@ bool far replay_prompt_skip(void);
 uint8_t far replay_pause_menu(void);
 void far replay_user_record_discard_on_exit(void);
 void far replay_restart_request(void);
+void far replay_clear_bonus_capture(void);
 void far replay_route(uint8_t route);
 void far replay_finish(uint8_t route);
 

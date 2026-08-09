@@ -157,6 +157,8 @@ static const char *replay_user_fn;
 static uint8_t replay_user_slot;
 static uint32_t replay_sample_count;
 static uint32_t replay_global_frame;
+static uint32_t replay_round_real_frames;
+static uint16_t replay_round_vsync_last;
 static uint32_t replay_input_byte_count;
 static uint16_t replay_write_buffer_size;
 static uint16_t replay_write_buffer_seg;
@@ -198,6 +200,12 @@ extern "C" unsigned char score[];
 extern "C" unsigned char byte_220FC[PLAYER_COUNT];
 extern "C" signed char byte_20E48;
 extern "C" bool boss_panic_fired_in_current_combo[PLAYER_COUNT];
+extern "C" uint8_t byte_23DF9;
+extern "C" uint8_t defeat_combo_hits_max;
+extern "C" uint8_t defeat_gauge_attacks_fired;
+extern "C" uint8_t defeat_boss_attacks_fired;
+extern "C" uint8_t defeat_boss_attacks_reversed;
+extern "C" uint8_t defeat_boss_panics_fired;
 extern uint8_t byte_23AF9;
 extern uint8_t byte_23B00;
 extern uint8_t randring_p;
@@ -1609,6 +1617,18 @@ static void replay_score_pack(
 	}
 }
 
+static void replay_u32_pack_score(uint8_t near *packed, uint32_t value)
+{
+	int i;
+
+	for(i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		packed[i] = static_cast<uint8_t>(
+			(value % 10) | (((value / 10) % 10) << 4)
+		);
+		value /= 100;
+	}
+}
+
 static void replay_user_summary_ext_init(void)
 {
 	replay_memclear(&replay_user_summary_ext, sizeof(replay_user_summary_ext));
@@ -1644,6 +1664,16 @@ static uint8_t replay_user_summary_route_winner_pack(uint8_t route)
 	return static_cast<uint8_t>(((route & 0x0F) << 4) | winner);
 }
 
+static void replay_round_real_frame_tick(void)
+{
+	uint16_t now = vsync_Count2;
+
+	replay_round_real_frames += static_cast<uint16_t>(
+		now - replay_round_vsync_last
+	);
+	replay_round_vsync_last = now;
+}
+
 static void replay_user_round_split_capture(uint8_t route)
 {
 	replay_user_round_split_t near *split;
@@ -1665,7 +1695,44 @@ static void replay_user_round_split_capture(uint8_t route)
 	split->route_winner = replay_user_summary_route_winner_pack(route);
 	replay_score_pack(split->score_p1, score);
 	replay_score_pack(split->score_p2, (score + SCORE_DIGITS));
+	replay_round_real_frame_tick();
+	split->real_frames = replay_round_real_frames;
 	replay_user_summary_ext.round_reached_count++;
+}
+
+void far replay_clear_bonus_capture(void)
+{
+	replay_user_stage_clear_bonus_t near *bonus;
+	uint32_t total;
+	uint8_t stage;
+
+	if(
+		(replay_mode != REPLAY_USER_RECORD) ||
+		(resident->pid_winner != 0) ||
+		((resident->game_mode != GM_STORY) && !practice_game_active())
+	) {
+		return;
+	}
+	stage = resident->story_stage;
+	if(stage >= T3_REPLAY_USER_STAGE_COUNT) {
+		return;
+	}
+	bonus = &replay_user_summary_ext.stage_clear_bonuses[stage];
+	bonus->max_combo = defeat_combo_hits_max;
+	bonus->gauge_attacks = defeat_gauge_attacks_fired;
+	bonus->boss_attacks = defeat_boss_attacks_fired;
+	bonus->boss_reversals = defeat_boss_attacks_reversed;
+	bonus->boss_panics = defeat_boss_panics_fired;
+	bonus->remaining_lives = (
+		(stage == STAGE_YUMEMI) ? byte_23DF9 : 0
+	);
+	total = (static_cast<uint32_t>(bonus->max_combo) * 1000UL);
+	total += (static_cast<uint32_t>(bonus->gauge_attacks) * 10000UL);
+	total += (static_cast<uint32_t>(bonus->boss_attacks) * 15000UL);
+	total += (static_cast<uint32_t>(bonus->boss_reversals) * 20000UL);
+	total += (static_cast<uint32_t>(bonus->boss_panics) * 30000UL);
+	total += (static_cast<uint32_t>(bonus->remaining_lives) * 100000UL);
+	replay_u32_pack_score(bonus->total, total);
 }
 
 static void replay_user_summary_init_from_snapshot(void)
@@ -1885,7 +1952,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_index_header.magic[3] = 'I';
 	replay_user_index_header.magic[4] = 'D';
 	replay_user_index_header.magic[5] = 'X';
-	replay_user_index_header.magic[6] = '7';
+	replay_user_index_header.magic[6] = '8';
 	replay_user_index_header.magic[7] = '\0';
 	replay_user_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_index_header.header_size = sizeof(replay_user_index_header);
@@ -2580,7 +2647,7 @@ static void replay_user_header_fill(
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
 		replay_user_header.magic[6] = '1';
-		replay_user_header.magic[7] = '2';
+		replay_user_header.magic[7] = '3';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
 		replay_user_header.header_size = replay_user_header_size(
 			T3_REPLAY_USER_VERSION
@@ -4810,6 +4877,8 @@ void far replay_session_start(void)
 
 void far replay_round_start(void)
 {
+	replay_round_real_frames = 0;
+	replay_round_vsync_last = vsync_Count2;
 	if(
 		(replay_mode == REPLAY_USER_PLAYBACK) &&
 		(replay_accel_raw_seg != 0)
@@ -4908,6 +4977,9 @@ void far replay_frame_io(void)
 	bool fast_forward_held = false;
 	uint8_t shot_bits;
 
+	if(replay_mode == REPLAY_USER_RECORD) {
+		replay_round_real_frame_tick();
+	}
 	scorestat_frame_tick();
 	keyconfig_charge_mask_human();
 
@@ -5087,6 +5159,7 @@ void far replay_input_sense_held(void)
 
 enum replay_pause_vram_color_t {
 	REPLAY_PAUSE_VRAM_BLUE = 9,
+	REPLAY_PAUSE_VRAM_CYAN = 10,
 };
 
 enum replay_pause_gaiji_t {
@@ -5173,7 +5246,7 @@ static void replay_pause_put_graph_backing(void)
 static int replay_pause_vram_color(unsigned atrb)
 {
 	if(atrb == REPLAY_PAUSE_TITLE_ATRB) {
-		return REPLAY_PAUSE_VRAM_BLUE;
+		return REPLAY_PAUSE_VRAM_CYAN;
 	}
 	if(atrb == REPLAY_PAUSE_SELECTED_ATRB) {
 		return V_YELLOW_BRIGHT;
@@ -5599,7 +5672,6 @@ restart_not_requested:
 		sel = replay_pause_validate_choice(sel);
 		sel = replay_pause_prev_choice(sel);
 		replay_pause_choices_redraw(old_sel, sel);
-		replay_pause_beep();
 		replay_pause_wait_release();
 		goto input_wait;
 	}
@@ -5609,7 +5681,6 @@ restart_not_requested:
 		sel = replay_pause_validate_choice(sel);
 		sel = replay_pause_next_choice(sel);
 		replay_pause_choices_redraw(old_sel, sel);
-		replay_pause_beep();
 		replay_pause_wait_release();
 		goto input_wait;
 	}
@@ -5711,6 +5782,8 @@ void far replay_finish(uint8_t route)
 
 	if(route == 0) {
 		scorestat_exit_checkpoint();
+	} else {
+		replay_clear_bonus_capture();
 	}
 	replay_split_row(RSE_FINISH, route);
 	if(replay_mode == REPLAY_USER_RECORD) {

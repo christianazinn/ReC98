@@ -12,6 +12,7 @@ include th03/mainl/mlsb[decl].inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
+	extern _resident:dword
 extrn _mainl_entry:far
 alias <_main> = <_mainl_entry>
 alias <_execl_raw> = <_execl>

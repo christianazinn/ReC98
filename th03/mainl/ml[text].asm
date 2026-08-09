@@ -49,6 +49,7 @@ include libs/master.lib/graph_scrollup.asm
 include libs/master.lib/graph_show.asm
 include libs/master.lib/iatan2.asm
 include libs/master.lib/js_end.asm
+TH03_PHOTOSENSITIVITY_PALETTE_HOOK = 1
 include libs/master.lib/palette_show.asm
 include libs/master.lib/pfclose.asm
 include libs/master.lib/pfgetc.asm
