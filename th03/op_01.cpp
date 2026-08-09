@@ -153,6 +153,13 @@ replay_user_header_t replay_user_menu_header;
 replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 replay_user_snapshot_t replay_user_menu_snapshot;
 static replay_user_index_header_t replay_user_menu_index_header;
+extern uint32_t far replay_user_menu_round_real_frames[
+	T3_REPLAY_USER_ROUND_SPLIT_COUNT
+];
+extern replay_user_stage_clear_bonus_t far
+	replay_user_menu_stage_clear_bonuses[T3_REPLAY_USER_STAGE_COUNT];
+extern uint32_t far replay_user_menu_timed_frames;
+extern uint32_t far replay_user_menu_slow_frames;
 
 /// YUME.CFG loading and saving
 /// ---------------------------
@@ -352,6 +359,8 @@ static void replay_user_slot_fn_set(uint8_t slot)
 	REPLAY_SLOT_FN[12] = static_cast<char>('0' + (slot % 10));
 }
 
+static void replay_memclear(void far *buf, unsigned size);
+
 static void replay_user_summary_ext_init(void)
 {
 	int i;
@@ -362,11 +371,20 @@ static void replay_user_summary_ext_init(void)
 	for(i = 0; i < T3_REPLAY_USER_ROUND_SPLIT_COUNT; i++) {
 		replay_user_menu_summary_ext.round_splits[i].stage_round = 0;
 		replay_user_menu_summary_ext.round_splits[i].route_winner = 0;
+		replay_user_menu_round_real_frames[i] = 0;
 		for(j = 0; j < T3_REPLAY_USER_PACKED_SCORE_SIZE; j++) {
 			replay_user_menu_summary_ext.round_splits[i].score_p1[j] = 0;
 			replay_user_menu_summary_ext.round_splits[i].score_p2[j] = 0;
 		}
 	}
+	for(i = 0; i < T3_REPLAY_USER_STAGE_COUNT; i++) {
+		replay_memclear(
+			&replay_user_menu_stage_clear_bonuses[i],
+			sizeof(replay_user_stage_clear_bonus_t)
+		);
+	}
+	replay_user_menu_timed_frames = 0;
+	replay_user_menu_slow_frames = 0;
 	replay_user_menu_summary_ext.checkpoint_count = 0;
 	for(i = 0; i < T3R_CKPT_COUNT_MAX; i++) {
 		replay_user_menu_summary_ext.checkpoint_stage_round[i] = 0;
@@ -402,12 +420,24 @@ static bool replay_user_summary_ext_disk_read(void)
 				split.score_p2[j]
 			);
 		}
+		replay_user_menu_round_real_frames[i] = split.real_frames;
 	}
-	file_seek(
-		static_cast<long>(sizeof(replay_user_stage_clear_bonus_t)) *
-		T3_REPLAY_USER_STAGE_COUNT,
-		SEEK_CUR
-	);
+	if(
+		file_read(
+			replay_user_menu_stage_clear_bonuses,
+			sizeof(replay_user_menu_stage_clear_bonuses)
+		) != sizeof(replay_user_menu_stage_clear_bonuses)
+	) {
+		return false;
+	}
+	if(
+		(file_read(&replay_user_menu_timed_frames, sizeof(uint32_t)) !=
+		 sizeof(uint32_t)) ||
+		(file_read(&replay_user_menu_slow_frames, sizeof(uint32_t)) !=
+		 sizeof(uint32_t))
+	) {
+		return false;
+	}
 	return (
 		file_read(
 			&replay_user_menu_summary_ext.checkpoint_count,
@@ -2663,7 +2693,8 @@ static void replay_menu_detail_put_story(uint8_t stage_sel, bool stage_focus)
 }
 
 static void replay_menu_detail_put(
-	uint8_t slot, uint8_t stage_sel, bool stage_focus, bool clear
+	uint8_t slot, uint8_t stage_sel, bool stage_focus,
+	uint8_t detail_page, bool clear
 )
 {
 	char *p;
@@ -2682,10 +2713,14 @@ static void replay_menu_detail_put(
 	}
 	if(menu_font) {
 		#if defined(TH03_REPLAY_DEVTOOLS)
-			replay_font_detail_put(slot, stage_sel, stage_focus, true);
+			replay_font_detail_put(
+				slot, stage_sel, stage_focus, detail_page, true
+			);
 			replay_menu_font_diagnostics_put();
 		#else
-			replay_font_detail_put(slot, stage_sel, stage_focus, false);
+			replay_font_detail_put(
+				slot, stage_sel, stage_focus, detail_page, false
+			);
 		#endif
 		return;
 	}
@@ -2782,14 +2817,17 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 }
 
 static void replay_menu_detail_render(
-	uint8_t slot, uint8_t checkpoint_sel, bool checkpoint_focus
+	uint8_t slot, uint8_t checkpoint_sel, bool checkpoint_focus,
+	uint8_t detail_page
 )
 {
 	uint8_t page_drawn;
 	bool clear = !menu_font;
 
 	page_drawn = replay_menu_render_begin();
-	replay_menu_detail_put(slot, checkpoint_sel, checkpoint_focus, clear);
+	replay_menu_detail_put(
+		slot, checkpoint_sel, checkpoint_focus, detail_page, clear
+	);
 	if(clear) {
 		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 	}
@@ -2797,14 +2835,14 @@ static void replay_menu_detail_render(
 }
 
 static void replay_menu_practice_settings_show(
-	uint8_t slot, uint8_t checkpoint_sel
+	uint8_t slot, uint8_t checkpoint_sel, uint8_t detail_page
 )
 {
 	uint8_t page_drawn;
 	bool clear = !menu_font;
 
 	page_drawn = replay_menu_render_begin();
-	replay_menu_detail_put(slot, checkpoint_sel, false, clear);
+	replay_menu_detail_put(slot, checkpoint_sel, false, detail_page, clear);
 	if(menu_font) {
 		replay_font_practice_settings_modal_put();
 	}
@@ -2817,7 +2855,7 @@ static void replay_menu_practice_settings_show(
 		input_mode_interface();
 		frame_delay(1);
 	} while(input_sp == INPUT_NONE);
-	replay_menu_detail_render(slot, checkpoint_sel, false);
+	replay_menu_detail_render(slot, checkpoint_sel, false, detail_page);
 }
 
 static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
@@ -3842,6 +3880,7 @@ bool near replay_menu(void)
 	uint8_t top = sel;
 	uint8_t checkpoint_sel = 0;
 	uint8_t checkpoint_count;
+	uint8_t detail_page = RDP_SPLITS;
 	bool detail_view = false;
 	bool checkpoint_focus = true;
 	uint32_t sample_count;
@@ -3864,23 +3903,40 @@ bool near replay_menu(void)
 				if(input_sp & (INPUT_CANCEL | INPUT_BOMB)) {
 					detail_view = false;
 					replay_menu_render(sel, top);
-				} else if(
-					(input_sp & INPUT_LEFT) && replay_menu_practice() &&
-					checkpoint_focus
-				) {
-					checkpoint_focus = false;
+				} else if(input_sp & INPUT_LEFT) {
+					if(replay_menu_practice() && !checkpoint_focus) {
+						// The settings command is already the leftmost focus target.
+					} else if(
+						replay_menu_practice() &&
+						(detail_page == RDP_SPLITS)
+					) {
+						checkpoint_focus = false;
+					} else {
+						detail_page = (
+							(detail_page == 0) ?
+								(RDP_COUNT - 1) : (detail_page - 1)
+						);
+					}
 					replay_menu_detail_render(
-						sel, checkpoint_sel, checkpoint_focus
+						sel, checkpoint_sel, checkpoint_focus, detail_page
+					);
+				} else if(input_sp & INPUT_RIGHT) {
+					if(replay_menu_practice() && !checkpoint_focus) {
+						checkpoint_focus = true;
+						detail_page = RDP_SPLITS;
+					} else {
+						detail_page++;
+						if(detail_page >= RDP_COUNT) {
+							detail_page = RDP_SPLITS;
+						}
+					}
+					replay_menu_detail_render(
+						sel, checkpoint_sel, checkpoint_focus, detail_page
 					);
 				} else if(
-					(input_sp & INPUT_RIGHT) && replay_menu_practice() &&
-					!checkpoint_focus
+					(input_sp & INPUT_UP) && checkpoint_focus &&
+					(detail_page != RDP_CLEAR_BONUSES)
 				) {
-					checkpoint_focus = true;
-					replay_menu_detail_render(
-						sel, checkpoint_sel, checkpoint_focus
-					);
-				} else if((input_sp & INPUT_UP) && checkpoint_focus) {
 					if(checkpoint_count != 0) {
 						if(checkpoint_sel == 0) {
 							checkpoint_sel = (checkpoint_count - 1);
@@ -3888,25 +3944,28 @@ bool near replay_menu(void)
 							checkpoint_sel--;
 						}
 						replay_menu_detail_render(
-							sel, checkpoint_sel, checkpoint_focus
+							sel, checkpoint_sel, checkpoint_focus, detail_page
 						);
 					}
-				} else if((input_sp & INPUT_DOWN) && checkpoint_focus) {
+				} else if(
+					(input_sp & INPUT_DOWN) && checkpoint_focus &&
+					(detail_page != RDP_CLEAR_BONUSES)
+				) {
 					if(checkpoint_count != 0) {
 						checkpoint_sel++;
 						if(checkpoint_sel >= checkpoint_count) {
 							checkpoint_sel = 0;
 						}
 						replay_menu_detail_render(
-							sel, checkpoint_sel, checkpoint_focus
+							sel, checkpoint_sel, checkpoint_focus, detail_page
 						);
 					}
 				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 					if(replay_menu_practice() && !checkpoint_focus) {
 						replay_menu_practice_settings_show(
-							sel, checkpoint_sel
+							sel, checkpoint_sel, detail_page
 						);
-					} else
+					} else if(detail_page != RDP_CLEAR_BONUSES)
 					if(replay_user_read_slot_for_menu(sel)) {
 						if(
 							replay_user_version_has_round_state(
@@ -3990,11 +4049,12 @@ bool near replay_menu(void)
 						detail_view = true;
 						checkpoint_sel = 0;
 						checkpoint_focus = true;
+						detail_page = RDP_SPLITS;
 						checkpoint_count = (
 							replay_user_checkpoint_count_for_menu()
 						);
 						replay_menu_detail_render(
-							sel, checkpoint_sel, checkpoint_focus
+							sel, checkpoint_sel, checkpoint_focus, detail_page
 						);
 					}
 				} else if(input_sp & INPUT_CANCEL) {
@@ -4115,7 +4175,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
 	TITLE_CREDIT_QUAD(4, 0x2D382E34UL); // "4.8-"
-	TITLE_CREDIT_QUAD(5, 0x20316372UL); // "rc1 "
+	TITLE_CREDIT_QUAD(5, 0x20326372UL); // "rc2 "
 	TITLE_CREDIT_QUAD(6, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(7, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(8, 0x6E616974UL); // "tian"

@@ -52,6 +52,13 @@ extern char replay_menu_line[81];
 extern replay_user_header_t replay_user_menu_header;
 extern replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 extern replay_user_snapshot_t replay_user_menu_snapshot;
+extern uint32_t far replay_user_menu_round_real_frames[
+	T3_REPLAY_USER_ROUND_SPLIT_COUNT
+];
+extern replay_user_stage_clear_bonus_t far
+	replay_user_menu_stage_clear_bonuses[T3_REPLAY_USER_STAGE_COUNT];
+extern uint32_t far replay_user_menu_timed_frames;
+extern uint32_t far replay_user_menu_slow_frames;
 
 static bool summary_valid(void)
 {
@@ -100,6 +107,26 @@ static replay_user_menu_round_split_t near *round_split_at(
 		}
 	}
 	return NULL;
+}
+
+static int round_split_index_at(uint8_t stage, uint8_t round)
+{
+	uint8_t i;
+	replay_user_menu_round_split_t near *split;
+
+	if(!round_summary_valid()) {
+		return -1;
+	}
+	for(i = 0; i < replay_user_menu_summary_ext.round_reached_count; i++) {
+		split = &replay_user_menu_summary_ext.round_splits[i];
+		if(
+			((split->stage_round & 0x0F) == stage) &&
+			((split->stage_round >> 4) == round)
+		) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 static replay_user_menu_round_split_t near *round_split(uint8_t round)
@@ -274,7 +301,7 @@ static char *append_unknown_score(char *p)
 	return p;
 }
 
-static char *append_packed_score(char *p, const uint8_t near *score)
+static char *append_packed_score(char *p, const uint8_t far *score)
 {
 	uint8_t value;
 	bool seen = false;
@@ -473,7 +500,7 @@ static void stage_field_put(unsigned y, unsigned atrb)
 static void score_put(
 	screen_x_t right,
 	unsigned y,
-	const uint8_t near *score,
+	const uint8_t far *score,
 	bool valid,
 	unsigned atrb
 )
@@ -588,6 +615,99 @@ static void date_line_put(unsigned y)
 	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_WHITE);
 }
 
+static void slowdown_line_put(unsigned y)
+{
+	char *p = append_cstr(replay_menu_line, "Slowdown");
+	uint32_t percent;
+
+	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
+	if(replay_user_menu_timed_frames == 0) {
+		p = append_cstr(replay_menu_line, "-");
+	} else {
+		percent = (
+			(replay_user_menu_slow_frames * 100UL) /
+			replay_user_menu_timed_frames
+		);
+		if(percent > 100) {
+			percent = 100;
+		}
+		p = append_u32(replay_menu_line, percent);
+		*p++ = '%';
+	}
+	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_WHITE);
+}
+
+static char *append_timer(char *p, uint32_t frames)
+{
+	uint32_t minutes = (frames / 3384UL);
+	uint16_t remainder = static_cast<uint16_t>(frames % 3384UL);
+	uint16_t centiseconds = static_cast<uint16_t>(
+		(static_cast<uint32_t>(remainder) * 1000UL) / 564UL
+	);
+
+	p = append_u32(p, minutes);
+	*p++ = ':';
+	p = append_u8_2(p, static_cast<uint8_t>(centiseconds / 100));
+	*p++ = '.';
+	return append_u8_2(p, static_cast<uint8_t>(centiseconds % 100));
+}
+
+static screen_x_t detail_tab_put(
+	screen_x_t left, const char far *label, bool selected
+)
+{
+	menu_font_put(
+		left, (DETAIL_Y * GLYPH_H), label,
+		font_color(selected ? TX_YELLOW : TX_CYAN)
+	);
+	return static_cast<screen_x_t>(left + menu_font_width(label));
+}
+
+static void detail_tabs_put(uint8_t detail_page)
+{
+	screen_x_t left = DETAIL_ROUND_PIXEL_LEFT;
+
+	left = detail_tab_put(left, "Splits", (detail_page == RDP_SPLITS));
+	left = detail_tab_put(left, " / ", false);
+	left = detail_tab_put(
+		left, "Clear Bonuses", (detail_page == RDP_CLEAR_BONUSES)
+	);
+	left = detail_tab_put(left, " / ", false);
+	detail_tab_put(left, "Timers", (detail_page == RDP_TIMERS));
+}
+
+static bool clear_bonus_valid(uint8_t stage)
+{
+	replay_user_stage_clear_bonus_t far *bonus = (
+		&replay_user_menu_stage_clear_bonuses[stage]
+	);
+
+	for(uint8_t i = 0; i < T3_REPLAY_USER_PACKED_SCORE_SIZE; i++) {
+		if(bonus->total[i] != 0) {
+			return true;
+		}
+	}
+	return (
+		(bonus->max_combo != 0) ||
+		(bonus->gauge_attacks != 0) ||
+		(bonus->boss_attacks != 0) ||
+		(bonus->boss_reversals != 0) ||
+		(bonus->boss_panics != 0) ||
+		(bonus->remaining_lives != 0)
+	);
+}
+
+static void clear_bonus_score_put(uint8_t stage, unsigned y)
+{
+	bool valid = clear_bonus_valid(stage);
+
+	score_put(
+		DETAIL_STORY_SCORE_RIGHT, y,
+		replay_user_menu_stage_clear_bonuses[stage].total, valid,
+		(TX_WHITE | REPLAY_FONT_FIXED_NUMERIC)
+	);
+}
+
 static void round_put(
 	unsigned y,
 	uint8_t round,
@@ -663,8 +783,10 @@ static uint8_t checkpoint_stage_round(uint8_t checkpoint)
 
 static void round_splits_legacy_put(bool focus);
 static void round_splits_put(uint8_t selected, bool focus);
+static void round_timers_put(uint8_t selected, bool focus);
+static void clear_bonuses_put(bool show_unreached_opponents);
 
-static void vs_put(uint8_t selected, bool focus)
+static void vs_put(uint8_t selected, bool focus, uint8_t detail_page)
 {
 	char *p;
 
@@ -701,7 +823,15 @@ static void vs_put(uint8_t selected, bool focus)
 			"AutofireOn" : "AutofireOff")
 	);
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	round_splits_put(selected, focus);
+	slowdown_line_put(DETAIL_Y + 6);
+	detail_tabs_put(detail_page);
+	if(detail_page == RDP_CLEAR_BONUSES) {
+		clear_bonuses_put(false);
+	} else if(detail_page == RDP_TIMERS) {
+		round_timers_put(selected, focus);
+	} else {
+		round_splits_put(selected, focus);
+	}
 }
 
 static uint8_t story_stage_checkpoint_count(uint8_t stage)
@@ -812,6 +942,211 @@ static void story_round_row_put(
 	);
 }
 
+static bool round_timer_frames(
+	uint8_t stage, uint8_t round, uint32_t& frames
+)
+{
+	int index = round_split_index_at(stage, round);
+
+	if(index < 0) {
+		frames = 0;
+		return false;
+	}
+	frames = replay_user_menu_round_real_frames[index];
+	return true;
+}
+
+static void timer_put(
+	screen_x_t right, unsigned y, uint32_t frames, bool valid, unsigned atrb
+)
+{
+	char *p = (
+		valid ? append_timer(replay_menu_line, frames) :
+		append_cstr(replay_menu_line, "-")
+	);
+
+	field_put_right(right, y, p, atrb);
+}
+
+static uint32_t story_stage_timer(uint8_t stage, bool& valid)
+{
+	uint32_t total = 0;
+	uint32_t frames;
+	uint8_t checkpoint;
+	uint8_t stage_round;
+
+	valid = false;
+	for(checkpoint = 0; checkpoint < checkpoint_count(); checkpoint++) {
+		stage_round = checkpoint_stage_round(checkpoint);
+		if((stage_round & 0x0F) != stage) {
+			continue;
+		}
+		if(round_timer_frames(stage, (stage_round >> 4), frames)) {
+			total += frames;
+			valid = true;
+		}
+	}
+	return total;
+}
+
+static void story_timer_stage_row_put(
+	uint8_t row, uint8_t stage, bool selected,
+	bool show_unreached_opponents
+)
+{
+	char *p;
+	bool valid;
+	uint32_t frames = story_stage_timer(stage, valid);
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
+
+	if(selected) {
+		text_put(DETAIL_STORY_CURSOR_LEFT, row, ">", TX_YELLOW);
+	}
+
+	p = append_u32(replay_menu_line, (stage + 1));
+	field_put(
+		DETAIL_STORY_PIXEL_LEFT, row, p,
+		(atrb | REPLAY_FONT_FIXED_NUMERIC)
+	);
+	p = append_playchar_name(
+		replay_menu_line, stage_opponent(stage, show_unreached_opponents)
+	);
+	field_put(DETAIL_STORY_OPPONENT_LEFT, row, p, atrb);
+	timer_put(DETAIL_STORY_SCORE_RIGHT, row, frames, valid, atrb);
+}
+
+static void story_timer_round_row_put(
+	uint8_t row, uint8_t checkpoint, bool selected
+)
+{
+	char *p;
+	uint8_t stage_round = checkpoint_stage_round(checkpoint);
+	uint32_t frames;
+	bool valid = round_timer_frames(
+		(stage_round & 0x0F), (stage_round >> 4), frames
+	);
+	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
+
+	if(selected) {
+		text_put(DETAIL_STORY_CURSOR_LEFT, row, ">", TX_YELLOW);
+	}
+	p = append_cstr(replay_menu_line, "Round ");
+	p = append_u32(p, ((stage_round >> 4) + 1));
+	field_put(DETAIL_STORY_ROUND_LEFT, row, p, atrb);
+	timer_put(DETAIL_STORY_SCORE_RIGHT, row, frames, valid, atrb);
+}
+
+static void story_timers_put(
+	uint8_t selected, bool focus, bool show_unreached_opponents
+)
+{
+	uint8_t checkpoint;
+	uint8_t checkpoints = checkpoint_count();
+	uint8_t stage;
+	uint8_t stage_count;
+	uint8_t physical = 0;
+	uint8_t selected_row = story_selected_row(selected);
+	uint8_t top = (
+		(selected_row >= DETAIL_SPLIT_ROWS_VISIBLE) ?
+			(selected_row - (DETAIL_SPLIT_ROWS_VISIBLE - 1)) : 0
+	);
+	uint8_t row;
+
+	text_put(DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
+	text_put(
+		DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
+	);
+	menu_font_put_right(
+		DETAIL_STORY_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
+		"Time", font_color(TX_CYAN)
+	);
+	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
+		stage_count = story_stage_checkpoint_count(stage);
+		if((stage_count == 0) || (stage_count > 1)) {
+			if((physical >= top) &&
+			   (physical < (top + DETAIL_SPLIT_ROWS_VISIBLE))) {
+				row = (DETAIL_SPLIT_ROWS_Y + physical - top);
+				story_timer_stage_row_put(
+					row, stage, false, show_unreached_opponents
+				);
+			}
+			physical++;
+		}
+		for(checkpoint = 0; checkpoint < checkpoints; checkpoint++) {
+			if((checkpoint_stage_round(checkpoint) & 0x0F) != stage) {
+				continue;
+			}
+			if((physical >= top) &&
+			   (physical < (top + DETAIL_SPLIT_ROWS_VISIBLE))) {
+				row = (DETAIL_SPLIT_ROWS_Y + physical - top);
+				if(stage_count == 1) {
+					story_timer_stage_row_put(
+						row, stage,
+						(focus && (checkpoint == selected)),
+						show_unreached_opponents
+					);
+				} else {
+					story_timer_round_row_put(
+						row, checkpoint,
+						(focus && (checkpoint == selected))
+					);
+				}
+			}
+			physical++;
+		}
+	}
+}
+
+static void clear_bonus_stage_row_put(
+	uint8_t row, uint8_t stage, bool show_unreached_opponents
+)
+{
+	char *p = append_u32(replay_menu_line, (stage + 1));
+
+	field_put(
+		DETAIL_STORY_PIXEL_LEFT, row, p,
+		(TX_WHITE | REPLAY_FONT_FIXED_NUMERIC)
+	);
+	p = append_playchar_name(
+		replay_menu_line, stage_opponent(stage, show_unreached_opponents)
+	);
+	field_put(DETAIL_STORY_OPPONENT_LEFT, row, p, TX_WHITE);
+	clear_bonus_score_put(stage, row);
+}
+
+static void clear_bonuses_put(bool show_unreached_opponents)
+{
+	uint8_t stage;
+
+	text_put(DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
+	text_put(
+		DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
+	);
+	menu_font_put_right(
+		DETAIL_STORY_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
+		"Bonus", font_color(TX_CYAN)
+	);
+	if(replay_practice()) {
+		stage = replay_user_menu_header.scenario.practice.config.stage;
+		clear_bonus_stage_row_put(
+			DETAIL_SPLIT_ROWS_Y, stage, show_unreached_opponents
+		);
+		return;
+	}
+	if(replay_vs()) {
+		text_put(
+			DETAIL_STORY_PIXEL_LEFT, DETAIL_SPLIT_ROWS_Y,
+			"No stage clear bonuses.", TX_WHITE
+		);
+		return;
+	}
+	for(stage = 0; stage < T3_REPLAY_USER_STAGE_COUNT; stage++) {
+		clear_bonus_stage_row_put(
+			(DETAIL_SPLIT_ROWS_Y + stage), stage, show_unreached_opponents
+		);
+	}
+}
+
 static void story_splits_put(
 	uint8_t selected, bool focus, bool show_unreached_opponents
 )
@@ -828,7 +1163,6 @@ static void story_splits_put(
 	);
 	uint8_t row;
 
-	text_put(DETAIL_STORY_PIXEL_LEFT, DETAIL_Y, "Stage Splits", TX_CYAN);
 	text_put(DETAIL_STORY_PIXEL_LEFT, (DETAIL_Y + 2), "St", TX_CYAN);
 	text_put(
 		DETAIL_STORY_OPPONENT_LEFT, (DETAIL_Y + 2), "Opponent", TX_CYAN
@@ -887,7 +1221,8 @@ static void story_splits_put(
 }
 
 static void story_put(
-	uint8_t selected, bool focus, bool show_unreached_opponents
+	uint8_t selected, bool focus, uint8_t detail_page,
+	bool show_unreached_opponents
 )
 {
 	char *p = append_cstr(replay_menu_line, "Story Mode - ");
@@ -906,7 +1241,15 @@ static void story_put(
 			"AutofireOn" : "AutofireOff")
 	);
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
-	story_splits_put(selected, focus, show_unreached_opponents);
+	slowdown_line_put(DETAIL_Y + 6);
+	detail_tabs_put(detail_page);
+	if(detail_page == RDP_CLEAR_BONUSES) {
+		clear_bonuses_put(show_unreached_opponents);
+	} else if(detail_page == RDP_TIMERS) {
+		story_timers_put(selected, focus, show_unreached_opponents);
+	} else {
+		story_splits_put(selected, focus, show_unreached_opponents);
+	}
 }
 
 static const char *practice_timer_name(void)
@@ -918,7 +1261,9 @@ static const char *practice_timer_name(void)
 	return "Infinite";
 }
 
-static void practice_put(uint8_t selected, bool focus)
+static void practice_put(
+	uint8_t selected, bool focus, uint8_t detail_page
+)
 {
 	char *p = append_cstr(replay_menu_line, "Practice Mode");
 
@@ -942,6 +1287,7 @@ static void practice_put(uint8_t selected, bool focus)
 	if(replay_user_menu_header.scenario.practice.config.round == 5) *p++ = '+';
 	p = append_cstr(p, " Start");
 	field_put(DETAIL_PIXEL_LEFT, (DETAIL_Y + 5), p, TX_WHITE);
+	slowdown_line_put(DETAIL_Y + 6);
 	if(!focus) {
 		text_put(
 			(DETAIL_PIXEL_LEFT - 16), DETAIL_PRACTICE_SETTINGS_Y,
@@ -952,7 +1298,14 @@ static void practice_put(uint8_t selected, bool focus)
 		DETAIL_PIXEL_LEFT, DETAIL_PRACTICE_SETTINGS_Y,
 		"View Settings", (focus ? TX_WHITE : TX_YELLOW)
 	);
-	round_splits_put(selected, focus);
+	detail_tabs_put(detail_page);
+	if(detail_page == RDP_CLEAR_BONUSES) {
+		clear_bonuses_put(false);
+	} else if(detail_page == RDP_TIMERS) {
+		round_timers_put(selected, focus);
+	} else {
+		round_splits_put(selected, focus);
+	}
 }
 
 // Preserve the following public replay-font entry points across menu revisions.
@@ -962,17 +1315,19 @@ void far replay_font_detail_put(
 	uint8_t slot,
 	uint8_t checkpoint_sel,
 	bool checkpoint_focus,
+	uint8_t detail_page,
 	bool show_unreached_opponents
 )
 {
 	slot_name_put(slot, DETAIL_Y);
 	if(replay_practice()) {
-		practice_put(checkpoint_sel, checkpoint_focus);
+		practice_put(checkpoint_sel, checkpoint_focus, detail_page);
 	} else if(replay_vs()) {
-		vs_put(checkpoint_sel, checkpoint_focus);
+		vs_put(checkpoint_sel, checkpoint_focus, detail_page);
 	} else {
 		story_put(
-			checkpoint_sel, checkpoint_focus, show_unreached_opponents
+			checkpoint_sel, checkpoint_focus, detail_page,
+			show_unreached_opponents
 		);
 	}
 }
@@ -1107,7 +1462,6 @@ static void round_splits_put(uint8_t selected, bool focus)
 	uint8_t stage_round;
 	replay_user_menu_round_split_t near *split;
 
-	text_put(DETAIL_ROUND_PIXEL_LEFT, DETAIL_Y, "Round Splits", TX_CYAN);
 	round_heading_put(DETAIL_Y + 2);
 	if(!replay_user_version_has_round_state(replay_user_menu_header.version)) {
 		round_splits_legacy_put(focus);
@@ -1122,6 +1476,47 @@ static void round_splits_put(uint8_t selected, bool focus)
 			(DETAIL_SPLIT_ROWS_Y + checkpoint),
 			(stage_round >> 4), split, (split != NULL),
 			(focus && (checkpoint == selected))
+		);
+	}
+}
+
+static void round_timers_put(uint8_t selected, bool focus)
+{
+	uint8_t checkpoint;
+	uint8_t count = checkpoint_count();
+	uint8_t stage_round;
+	uint32_t frames;
+	bool valid;
+	unsigned atrb;
+	char *p;
+
+	text_put(DETAIL_ROUND_PIXEL_LEFT, (DETAIL_Y + 2), "Rd", TX_CYAN);
+	menu_font_put_right(
+		DETAIL_ROUND_P2_SCORE_RIGHT, ((DETAIL_Y + 2) * GLYPH_H),
+		"Time", font_color(TX_CYAN)
+	);
+	for(checkpoint = 0; checkpoint < count; checkpoint++) {
+		stage_round = checkpoint_stage_round(checkpoint);
+		valid = round_timer_frames(
+			(stage_round & 0x0F), (stage_round >> 4), frames
+		);
+		atrb = (
+			(focus && (checkpoint == selected)) ? TX_YELLOW : TX_WHITE
+		);
+		if(focus && (checkpoint == selected)) {
+			text_put(
+				DETAIL_ROUND_CURSOR_LEFT,
+				(DETAIL_SPLIT_ROWS_Y + checkpoint), ">", TX_YELLOW
+			);
+		}
+		p = append_u32(replay_menu_line, ((stage_round >> 4) + 1));
+		field_put(
+			DETAIL_ROUND_PIXEL_LEFT,
+			(DETAIL_SPLIT_ROWS_Y + checkpoint), p, atrb
+		);
+		timer_put(
+			DETAIL_ROUND_P2_SCORE_RIGHT,
+			(DETAIL_SPLIT_ROWS_Y + checkpoint), frames, valid, atrb
 		);
 	}
 }

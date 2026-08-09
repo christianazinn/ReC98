@@ -62,13 +62,15 @@
 #define T3R_SUMMARY_FIREBALL_GENERATION 0x0008
 #define T3R_SUMMARY_ROUND_REAL_FRAMES 0x0010
 #define T3R_SUMMARY_STAGE_CLEAR_BONUS 0x0020
+#define T3R_SUMMARY_SLOWDOWN 0x0040
 #define T3_REPLAY_USER_SUMMARY_CURRENT ( \
 	T3_REPLAY_USER_SUMMARY_VALID | \
 	T3_REPLAY_USER_SUMMARY_ROUND_RESUME_PHASE | \
 	T3R_SUMMARY_ROUND_RESUME_CURSOR | \
 	T3R_SUMMARY_FIREBALL_GENERATION | \
 	T3R_SUMMARY_ROUND_REAL_FRAMES | \
-	T3R_SUMMARY_STAGE_CLEAR_BONUS \
+	T3R_SUMMARY_STAGE_CLEAR_BONUS | \
+	T3R_SUMMARY_SLOWDOWN \
 )
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
@@ -269,6 +271,8 @@ struct replay_user_summary_ext_t {
 	replay_user_stage_clear_bonus_t stage_clear_bonuses[
 		T3_REPLAY_USER_STAGE_COUNT
 	];
+	uint32_t timed_frames;
+	uint32_t slow_frames;
 	uint8_t checkpoint_count;
 	uint8_t checkpoint_stage_round[T3R_CKPT_COUNT_MAX];
 };
@@ -276,11 +280,12 @@ struct replay_user_summary_ext_t {
 #define T3_REPLAY_USER_SUMMARY_EXT_V11_SIZE 272
 
 typedef char replay_user_summary_ext_size_check[
-	(sizeof(replay_user_summary_ext_t) == 486) ? 1 : -1
+	(sizeof(replay_user_summary_ext_t) == 494) ? 1 : -1
 ];
 
-// The replay browser does not display the V13 timing and clear-bonus fields.
-// Keeping its view at the V12 size avoids moving OP's original near data.
+// Keep OP's frequently accessed round rows compact and load the larger V13
+// telemetry into separate far arrays. This avoids moving OP's original near
+// data while still exposing every V13 detail page.
 struct replay_user_menu_round_split_t {
 	uint8_t stage_round;
 	uint8_t route_winner;

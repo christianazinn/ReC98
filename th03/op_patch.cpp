@@ -18,6 +18,15 @@ extern replay_user_header_t replay_user_menu_header;
 extern replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 extern "C" int file_Handle;
 
+uint32_t far replay_user_menu_round_real_frames[
+	T3_REPLAY_USER_ROUND_SPLIT_COUNT
+];
+replay_user_stage_clear_bonus_t far replay_user_menu_stage_clear_bonuses[
+	T3_REPLAY_USER_STAGE_COUNT
+];
+uint32_t far replay_user_menu_timed_frames;
+uint32_t far replay_user_menu_slow_frames;
+
 static uint8_t far title_extra_unlock_step = 0;
 static uint8_t far replay_checkpoint_target_for_menu = 0;
 static const char far TITLE_EXTRA_UNLOCK_SE_FN[] = "YUME.EFC";

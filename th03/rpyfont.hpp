@@ -18,6 +18,13 @@ enum replay_font_diagnostic_t {
 	RFD_RNG,
 };
 
+enum replay_detail_page_t {
+	RDP_SPLITS = 0,
+	RDP_CLEAR_BONUSES,
+	RDP_TIMERS,
+	RDP_COUNT,
+};
+
 void pascal far replay_font_put_fixed_n(
 	int left,
 	int top,
@@ -34,6 +41,7 @@ void far replay_font_detail_put(
 	uint8_t slot,
 	uint8_t checkpoint_sel,
 	bool checkpoint_focus,
+	uint8_t detail_page,
 	bool show_unreached_opponents
 );
 void far replay_font_practice_settings_modal_put(void);

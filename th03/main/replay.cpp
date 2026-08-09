@@ -1236,6 +1236,21 @@ static void replay_debug_overlay_put(void)
 }
 #endif
 
+static void replay_slowdown_frame_sample(void)
+{
+	if(
+		(replay_mode != REPLAY_USER_RECORD) ||
+		(defeat_flag != DF_NONE) ||
+		resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX]
+	) {
+		return;
+	}
+	replay_user_summary_ext.timed_frames++;
+	if(vsync_Count1 >= byte_23AF9) {
+		replay_user_summary_ext.slow_frames++;
+	}
+}
+
 void far replay_overlay_put(void)
 {
 	enum {
@@ -1261,6 +1276,7 @@ void far replay_overlay_put(void)
 #if defined(TH03_REPLAY_DEV_OVERLAY)
 	replay_debug_overlay_put();
 #endif
+	replay_slowdown_frame_sample();
 	if(
 		(replay_mode != REPLAY_PLAYBACK) &&
 		(replay_mode != REPLAY_USER_PLAYBACK)

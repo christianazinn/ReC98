@@ -660,14 +660,30 @@ static void practice_value_step(
 		}
 		break;
 	case PR_P1_GAUGE:
-		cfg.p1_gauge = static_cast<uint8_t>(
-			forward ? (cfg.p1_gauge + 1) : (cfg.p1_gauge - 1)
-		);
+		if(forward) {
+			cfg.p1_gauge = (
+				(cfg.p1_gauge == 0xFF) ?
+					T3_PRACTICE_GAUGE_MIN : (cfg.p1_gauge + 1)
+			);
+		} else {
+			cfg.p1_gauge = (
+				(cfg.p1_gauge == T3_PRACTICE_GAUGE_MIN) ?
+					0xFF : (cfg.p1_gauge - 1)
+			);
+		}
 		break;
 	case PR_CPU_GAUGE:
-		cfg.cpu_gauge = static_cast<uint8_t>(
-			forward ? (cfg.cpu_gauge + 1) : (cfg.cpu_gauge - 1)
-		);
+		if(forward) {
+			cfg.cpu_gauge = (
+				(cfg.cpu_gauge == 0xFF) ?
+					T3_PRACTICE_GAUGE_MIN : (cfg.cpu_gauge + 1)
+			);
+		} else {
+			cfg.cpu_gauge = (
+				(cfg.cpu_gauge == T3_PRACTICE_GAUGE_MIN) ?
+					0xFF : (cfg.cpu_gauge - 1)
+			);
+		}
 		break;
 	case PR_BOSS_LEVEL:
 		if(forward && (cfg.boss_level < GBA_BOSS_LEVEL_MAX)) {

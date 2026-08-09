@@ -32,6 +32,22 @@ static char T3_USER_REPLAY_INDEX_FN[16];
 static char T3_USER_REPLAY_SLOT_FN[18];
 static char T3_USER_REPLAY_FALLBACK_FN[12];
 
+void far mainl_staffroll_fade_wait(void)
+{
+	const uint16_t start = vsync_Count2;
+
+	if(!snd_bgm_active()) {
+		return;
+	}
+	do {
+		if(static_cast<uint8_t>(
+			snd_kaja_func(KAJA_GET_VOLUME, 0)
+		) == 0xFF) {
+			return;
+		}
+	} while(static_cast<uint16_t>(vsync_Count2 - start) < 300);
+}
+
 int MASTER_RET mainl_language_file_ropen(const char MASTER_PTR *filename)
 {
 	(void)language_archive_begin_if_translated(filename);

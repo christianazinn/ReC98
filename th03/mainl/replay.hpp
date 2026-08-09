@@ -17,6 +17,7 @@ bool far mainl_replay_finish(
 	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
 );
 bool far mainl_replay_clear_playback_finish(void);
+void far mainl_staffroll_fade_wait(void);
 
 int MASTER_RET mainl_language_file_ropen(const char MASTER_PTR *filename);
 void MASTER_RET mainl_language_file_close(void);

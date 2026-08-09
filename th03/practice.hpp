@@ -55,6 +55,7 @@ enum practice_cpu_timer_t {
 };
 
 #define T3_PRACTICE_STOCK_VS_RULES 0xFF
+#define T3_PRACTICE_GAUGE_MIN 64
 
 inline uint8_t practice_resident_u8(unsigned int index)
 {
@@ -130,6 +131,8 @@ inline bool practice_replay_config_valid(
 		(cfg.bullet_speed > 0x7F) ||
 		(cfg.p1_spell < 1) || (cfg.p1_spell > 16) ||
 		(cfg.cpu_spell < 1) || (cfg.cpu_spell > 16) ||
+		(cfg.p1_gauge < T3_PRACTICE_GAUGE_MIN) ||
+		(cfg.cpu_gauge < T3_PRACTICE_GAUGE_MIN) ||
 		(cfg.boss_level > 15) ||
 		(cfg.cpu_damage > 3)
 	) {

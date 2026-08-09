@@ -97,7 +97,9 @@ void near staffroll_and_verdict_animate(void)
 
 	snd_kaja_func(KAJA_SONG_FADE, 16);
 	palette_black_out(4);
-	snd_delay_until_volume(255);
+	mainl_staffroll_fade_wait();
+	// Keep every following MAINL_03_TEXT address at its established offset.
+	__emit__(0x90, 0x90, 0x90, 0x90);
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 	resident->unused_3[T3_RES_FAST_FORWARD_STAFF_UNLOCKED_INDEX] =
 		staffroll_fast_forward_unlocked_load();
