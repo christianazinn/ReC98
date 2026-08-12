@@ -672,7 +672,7 @@ static void detail_tabs_put(uint8_t detail_page)
 	left = detail_tab_put(
 		left, "Clears", (detail_page == RDP_CLEAR_BONUSES)
 	);
-	left = detail_tab_put(left, " /", false);
+	left = detail_tab_put(left, " / ", false);
 	detail_tab_put(left, "Timers", (detail_page == RDP_TIMERS));
 }
 
@@ -963,12 +963,26 @@ static void timer_put(
 	screen_x_t right, unsigned y, uint32_t frames, bool valid, unsigned atrb
 )
 {
-	char *p = (
-		valid ? append_timer(replay_menu_line, frames) :
-		append_cstr(replay_menu_line, "-")
-	);
+	char *p;
+	unsigned count;
+	int width;
 
-	field_put_right(right, y, p, atrb);
+	if(!valid) {
+		p = append_cstr(replay_menu_line, "-");
+		field_put_right(right, y, p, atrb);
+		return;
+	}
+	p = append_timer(replay_menu_line, frames);
+	*p = '\0';
+	count = (p - replay_menu_line);
+	width = (
+		((count - 2) * REPLAY_FONT_NUMERIC_CELL_W) +
+		menu_font_width(":.")
+	);
+	replay_font_put_fixed_n(
+		(right - width), (y * GLYPH_H), replay_menu_line, count, 0,
+		font_color(atrb)
+	);
 }
 
 static uint32_t story_stage_timer(uint8_t stage, bool& valid)
@@ -1419,7 +1433,13 @@ void pascal far replay_font_put_fixed_n(
 			);
 		}
 		menu_font_put_n(glyph_left, top, str, 1, color);
-		left += cell_w;
+		if(cell_w != 0) {
+			left += cell_w;
+		} else if((*str >= '0') && (*str <= '9')) {
+			left += REPLAY_FONT_NUMERIC_CELL_W;
+		} else {
+			left += menu_font_width_n(str, 1);
+		}
 		str++;
 		count--;
 	}
@@ -1545,3 +1565,6 @@ static void round_splits_legacy_put(bool focus)
 		);
 	}
 }
+
+// Keep all following OP segments at their established within-paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
