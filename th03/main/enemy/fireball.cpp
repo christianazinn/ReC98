@@ -391,7 +391,7 @@ void near fireballs_hittest(void)
 {
 	int i;
 
-	// ZUN landmine: This uninitialized variable is the cause behind the
+	// ZUN landmine: In the original game, this uninitialized variable is the
 	// infamous rare score reduction and extend glitches. The collision branch
 	// below doesn't set this slot if a fireball is destroyed by anything that
 	// isn't an explosion, but still passes it to chain_fire_charged_exatt(),
@@ -469,7 +469,7 @@ void near fireballs_hittest(void)
 	// See https://rec98.nmlgc.net/blog/2026-03-16#glitches for a more in-depth
 	// documentation of this glitch and the system configurations that are most
 	// likely to cause it.
-	uint8_t chain_slot;
+	uint8_t chain_slot = (CHAIN_RING_SIZE - 1);
 
 	hitbox.radius.set(12, 10);
 	p = &fireballs[FIREBALL_COUNT - 1];
@@ -512,14 +512,12 @@ void near fireballs_hittest(void)
 				p->flag = EFF_EXPLOSION_IGNORING_ENEMIES;
 				chain_slot = explosion_collision_chain_slot;
 				p->chain_slot = chain_slot;
+				uint8_t& charge_exatt = (chains.charge_exatt[pid][chain_slot]);
 				if(explosion_hittest_against == EHA_FIREBALL_RED) {
-					chains.charge_exatt[pid][chain_slot]++;
+					charge_exatt++;
 				}
-				if(
-					chains.charge_exatt[pid][chain_slot] >=
-					(7 - (round_speed / to_sp8(2.0f)))
-				) {
-					chains.charge_exatt[pid][chain_slot] = 0;
+				if(charge_exatt >= (7 - (round_speed / to_sp8(2.0f)))) {
+					charge_exatt = 0;
 					exatt_add(p->center.x, p->center.y, pid);
 				}
 				if(generation_prev < 4) {
@@ -554,6 +552,8 @@ void near fireballs_hittest(void)
 	}
 	variant = FV_BLUE;
 }
+
+#pragma codestring "- 19 free bytes! -\x00"
 
 void fireballs_hittest_and_render(void)
 {
