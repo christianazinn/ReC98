@@ -5899,6 +5899,7 @@ void far replay_finish(uint8_t route)
 		}
 	}
 	if(replay_restart_requested_flag && (route == 0)) {
+		resident->rand = random_seed;
 		replay_resident_handoff_mode_set(T3_REPLAY_RES_MODE_RESTART);
 	} else if(save_pending) {
 		replay_resident_handoff_mode_set(T3_REPLAY_RES_MODE_SAVE_DIRECT);
@@ -6005,12 +6006,10 @@ static void replay_debug_transition_write(
 #endif
 
 // Keep the following C runtime segment at its accepted paragraph phase.
-#if defined(TH03_REPLAY_DEVTOOLS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#elif defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
-#else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#if !defined(TH03_REPLAY_DEVTOOLS)
+#if defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90"
+#else
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 #endif
