@@ -53,6 +53,8 @@ static bool t3pix_initialized;
 static bool t3pix_disabled;
 static uint8_t t3pix_shown_page;
 static uint8_t t3pix_access_page;
+static bool t3pix_shown_page_known;
+static bool t3pix_access_page_known;
 static uint16_t t3pix_scroll_y;
 static uint32_t t3pix_publication;
 static uint32_t t3pix_logical_sample = T3PIX_ID_NONE;
@@ -190,6 +192,9 @@ static void t3pix_initialize(void)
 	t3pix_access_page = 0;
 	t3pix_scroll_y = 0;
 #if (BINARY == 'O')
+	// OP initializes the GDC itself before the first source publication.
+	t3pix_shown_page_known = true;
+	t3pix_access_page_known = true;
 	t3pix_scene = T3PIX_SCENE_TITLE;
 	t3pix_scene_entered = true;
 #elif (BINARY == 'M')
@@ -422,6 +427,13 @@ void far pascal t3pix_publish(
 	if(t3pix_disabled) {
 		return;
 	}
+	// MAIN and MAINL inherit the GDC across executable transitions. Until the
+	// source explicitly selects both pages, a zero-initialized shadow would be
+	// invented evidence. Preserve the source-event ordinal but emit no record.
+	if(!t3pix_shown_page_known || !t3pix_access_page_known) {
+		t3pix_publication_advance(boundary);
+		return;
+	}
 	// A v2 control selects one process-instance domain. Do not enter any of
 	// the capture call chain for unmatched domains; apart from wasting work,
 	// its depth can exceed these binaries' original 128-byte stack.
@@ -606,6 +618,7 @@ void far pascal t3pix_graph_showpage(unsigned page)
 {
 	t3pix_initialize();
 	t3pix_shown_page = static_cast<uint8_t>(page & 1);
+	t3pix_shown_page_known = true;
 	outportb(0xA4, page);
 	t3pix_publish(T3PIX_EVENT_SHOW_PAGE, T3PIX_BOUNDARY_STATE);
 }
@@ -614,6 +627,7 @@ void far pascal t3pix_graph_accesspage(unsigned page)
 {
 	t3pix_initialize();
 	t3pix_access_page = static_cast<uint8_t>(page & 1);
+	t3pix_access_page_known = true;
 	outportb(0xA6, page);
 }
 
@@ -621,6 +635,7 @@ void far pascal t3pix_graph_accesspage_track(unsigned page)
 {
 	t3pix_initialize();
 	t3pix_access_page = static_cast<uint8_t>(page & 1);
+	t3pix_access_page_known = true;
 }
 
 int far pascal t3pix_graph_copy_page(int page)
