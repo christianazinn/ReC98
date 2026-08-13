@@ -10,6 +10,7 @@
 #include "th03/formats/pi.hpp"
 #include "th03/hiscore/regist.hpp"
 #include "th03/mainl/replay.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
@@ -63,6 +64,7 @@ void near ending_after_regist(void)
 
 void near ending_staff_and_regist(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_ENDING);
 	char playchar_id;
 
 	if(mainl_replay_clear_playback_finish()) {

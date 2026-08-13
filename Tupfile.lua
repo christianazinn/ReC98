@@ -905,6 +905,67 @@ th03_replay_dev_build(
 th03_replay_dev_build(
 	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
 )
+
+-- Publication-aligned raw visual capture. Unlike the smaller replay debug
+-- profiles above, this must rebuild every C/C++ source so the PC-98 page,
+-- palette, scroll, fade, and wait macros route through the capture tracker.
+-- Original ASM contributions remain shared and unmodified.
+local function th03_pixel_capture_inputs(cfg, inputs)
+	local ret = {}
+	for _, input in ipairs(inputs) do
+		local fn = ((type(input) == "string" and input) or input[1])
+		local ext = tup.ext(fn)
+		if ((ext == "c") or (ext == "cpp")) then
+			ret += { cfg:build_uncached(input) }
+		else
+			ret += { input }
+		end
+	end
+	ret += { cfg:build_uncached("th03/t3pix.cpp") }
+	-- The original TH03 binaries did not use these write-side master.lib
+	-- modules, so none of ZUN's existing ASM contribution objects contain
+	-- them. Link private copies into this devtools profile only.
+	ret += { cfg:build_uncached("th03/t3pixio.asm") }
+	return ret
+end
+
+local th03_pixel_capture = th03:branch({
+	-- Keep every DOS-visible path component within 8.3. The host-side DOS
+	-- runner otherwise has to synthesize a source stub for TCC, which the
+	-- compiler then fails to reopen while building the large OP translation
+	-- unit.
+	bin_root = "pixcap/",
+	-- TH03_PIXEL_CAPTURE is itself a dedicated devtools-only profile. Keeping
+	-- the unrelated replay debugger out of these binaries leaves enough TCC
+	-- workspace for the already-large OP translation unit.
+	cflags = "-DTH03_PIXEL_CAPTURE",
+})
+local th03_pixel_capture_op = th03_pixel_capture:branch(
+	{ obj_root = "pixcap/op/" },
+	MODEL_LARGE,
+	{ cflags = "-DBINARY='O'" }
+)
+local th03_pixel_capture_main = th03_pixel_capture:branch(
+	{ obj_root = "pixcap/main/" },
+	MODEL_LARGE,
+	{ cflags = "-DBINARY='M'" }
+)
+local th03_pixel_capture_mainl = th03_pixel_capture:branch(
+	{ obj_root = "pixcap/mainl/" },
+	MODEL_LARGE,
+	{ cflags = "-DBINARY='L'" }
+)
+th03_pixel_capture_op:link(
+	"op", th03_pixel_capture_inputs(th03_pixel_capture_op, th03_op_inputs)
+)
+th03_pixel_capture_main:link(
+	"main", th03_pixel_capture_inputs(th03_pixel_capture_main, th03_main_inputs)
+)
+th03_pixel_capture_mainl:link(
+	"mainl", th03_pixel_capture_inputs(
+		th03_pixel_capture_mainl, th03_mainl_inputs
+	)
+)
 -- ----
 
 -- TH04

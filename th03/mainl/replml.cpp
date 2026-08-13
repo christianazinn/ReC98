@@ -9,6 +9,7 @@
 #include "th03/language_mainl.hpp"
 #include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/replay_build.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
@@ -1176,6 +1177,7 @@ static bool mainl_replay_play_rle_sample(void)
 static void mainl_replay_frame_io(void)
 {
 	bool ok = true;
+	t3pix_logical_identity_set(replay_sample_count, replay_global_frame);
 
 	if(
 		(mainl_replay_mode != MR_USER_RECORD) &&
@@ -1237,6 +1239,7 @@ static void mainl_replay_frame_io(void)
 		mainl_replay_periodic_flush();
 	}
 	replay_global_frame++;
+	t3pix_logical_identity_set(replay_sample_count, replay_global_frame);
 	mainl_replay_cursor_store();
 }
 
@@ -1258,6 +1261,7 @@ void far mainl_replay_session_start(void)
 	replay_global_frame = mainl_replay_handoff_u32_read(
 		T3_REPLAY_RES_GLOBAL_FRAME_INDEX
 	);
+	t3pix_logical_identity_set(replay_sample_count, replay_global_frame);
 	replay_input_byte_count = mainl_replay_handoff_u32_read(
 		T3_REPLAY_RES_INPUT_SIZE_INDEX
 	);

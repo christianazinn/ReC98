@@ -23,6 +23,7 @@
 #include "th03/language.hpp"
 #include "th03/language_op.hpp"
 #include "th03/photosensitivity.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/formats/cdg.h"
@@ -1221,6 +1222,7 @@ retry_opponent_selection:
 
 bool near story_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_CHARACTER_SELECT);
 	return story_start(true);
 }
 
@@ -1384,6 +1386,7 @@ static bool near vs_start(bool select_characters)
 
 bool near vs_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_CHARACTER_SELECT);
 	return vs_start(true);
 }
 
@@ -1487,6 +1490,7 @@ void near wait_for_input_or_start_demo_then_box_to_main_animate(void)
 
 bool near score_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_HISCORE);
 	resident->story_stage = STAGE_NONE;
 	resident->show_score_menu = true;
 	resident->game_mode = GM_NONE;
@@ -3887,6 +3891,7 @@ static void replay_save_pending(bool prompt)
 
 bool near replay_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_REPLAY_BROWSER);
 	uint8_t sel = replay_user_first_used_slot();
 	uint8_t top = sel;
 	uint8_t checkpoint_sel = 0;
@@ -4441,6 +4446,7 @@ inline void return_from_other_screen_to_main(
 // the even more blocking character selection and Music Room screens.
 void near main_update_and_render(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_TITLE);
 	#define input_allowed	main_input_allowed
 	static bool in_this_menu = false;
 
@@ -4571,6 +4577,7 @@ static void near option_return_to_main(bool& option_initialized)
 
 void near option_update_and_render(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_OPTIONS);
 	#define input_allowed	option_input_allowed
 	static bool in_this_menu = false;
 
@@ -4642,6 +4649,7 @@ void near option_update_and_render(void)
 		if(menu_sel == OC_KEY_MODE) {
 			fullscreen_menu_resources_clear();
 			keyconfig_menu();
+			t3pix_scene_set(T3PIX_SCENE_OPTIONS);
 			menu_sel = MC_OPTION;
 			in_option = false;
 			return_from_other_screen_to_main(

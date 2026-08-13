@@ -14,6 +14,7 @@
 #include "th03/shiftjis/regist.hpp"
 #include "th03/formats/scoredat.hpp"
 #include "th03/menu_font.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/scorefile.hpp"
 #include "th03/mainl/replay.hpp"
 #include "th03/replay_handoff.hpp"
@@ -551,6 +552,7 @@ void near regist_game_over_replay_playback_finish(void)
 
 void near regist_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_HISCORE);
 	extern const char score_m[];
 	extern const unsigned char mainl_pf_fn[];
 

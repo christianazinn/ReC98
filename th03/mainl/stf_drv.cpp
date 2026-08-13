@@ -8,6 +8,7 @@
 #include "th03/formats/scoredat.hpp"
 #include "th03/hardware/input.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/language.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
@@ -92,6 +93,7 @@ static bool near staffroll_fast_forward_unlocked_load(void)
 
 void near staffroll_and_verdict_animate(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_STAFF_ROLL);
 	#define i   	_SI
 	#define tone	_DI
 

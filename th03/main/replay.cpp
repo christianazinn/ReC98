@@ -33,6 +33,7 @@
 #include "th03/menu_font.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_build.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/scorefile.hpp"
@@ -4500,6 +4501,7 @@ static void replay_user_sample_commit(void)
 		}
 	}
 	replay_global_frame++;
+	t3pix_logical_identity_set(replay_sample_count, replay_global_frame);
 	replay_handoff_cursor_store();
 }
 
@@ -4689,6 +4691,8 @@ void far replay_session_start(void)
 	}
 	replay_sample_count = 0;
 	replay_global_frame = 0;
+	t3pix_scene_set(T3PIX_SCENE_GAMEPLAY);
+	t3pix_logical_identity_set(0, 0);
 	replay_input_byte_count = 0;
 	replay_write_buffer_size = 0;
 	replay_write_buffer_seg = 0;
@@ -4988,6 +4992,8 @@ static bool replay_fast_forward_key_held(void);
 
 void far replay_frame_io(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_GAMEPLAY);
+	t3pix_logical_identity_set(replay_sample_count, replay_global_frame);
 	bool ok = true;
 	bool fast_forward_held = false;
 	uint8_t shot_bits;
@@ -5636,6 +5642,7 @@ static void replay_pause_choices_redraw(uint8_t old_sel, uint8_t sel)
 // Keep the pause and following replay functions at their accepted offsets.
 uint8_t far replay_pause_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_PAUSE);
 	uint8_t sel = REPLAY_PAUSE_RESUME;
 	uint8_t old_sel;
 

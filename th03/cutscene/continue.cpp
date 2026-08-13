@@ -8,6 +8,7 @@
 #include "th03/formats/pi.hpp"
 #include "th03/hardware/input.h"
 #include "th03/mainl/replay.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
 
@@ -16,6 +17,7 @@ extern const char continue_gameover_bg_pi_fn[];
 
 int near continue_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_CONTINUE);
 	int input_locked;
 	char far *credit_str;
 	register int ret;

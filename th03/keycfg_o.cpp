@@ -12,6 +12,7 @@
 #include "th03/keyconfig.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/op_patch.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/shiftjis/fns.hpp"
 #include <mem.h>
 #include <stddef.h>
@@ -1046,6 +1047,7 @@ static bool keyconfig_discard_confirm(void)
 
 bool far keyconfig_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_KEY_CONFIG);
 	keyconfig_menu_t original;
 	keyconfig_menu_t cfg;
 	uint8_t page = KCP_STORY;

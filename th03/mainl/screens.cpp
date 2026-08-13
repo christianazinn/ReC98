@@ -7,6 +7,7 @@
 #include "th03/language.hpp"
 #include "th03/language_mainl.hpp"
 #include "th03/mainl/replay.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/resident.hpp"
 #include "th03/formats/cdg.h"
 #include "th03/formats/pi.hpp"
@@ -42,6 +43,7 @@ inline playchar_t loser_char_id(void) {
 
 void near win_load(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_WIN);
 	extern const char logo0_rgb[];
 	extern const char logo_cd2[];
 	extern const char logo5_cdg[];
@@ -227,6 +229,7 @@ extern const char stage_splash_yume_efc_fn[];
 
 void near stage_splash_load(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_STAGE_SPLASH);
 	playchar_paletted_t paletted;
 
 	graph_showpage(0);

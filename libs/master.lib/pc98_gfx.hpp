@@ -80,11 +80,19 @@ int MASTER_RET gaiji_entry_bfnt(const char MASTER_PTR *filename);
 // Graphics
 // --------
 
+#if (GAME == 3) && defined(TH03_PIXEL_CAPTURE) && \
+	!defined(TH03_PIXEL_CAPTURE_IMPLEMENTATION)
+#include "th03/pixel_capture.hpp"
+#define graph_showpage(p) \
+	t3pix_graph_showpage(p)
+#define graph_accesspage(p) \
+	t3pix_graph_accesspage(p)
+#else
 #define graph_showpage(p) \
 	outportb(0xA4, p)
-
 #define graph_accesspage(p) \
 	outportb(0xA6, p)
+#endif
 
 extern unsigned __cdecl graph_VramZoom;
 
@@ -228,6 +236,16 @@ void MASTER_RET palette_black_in(unsigned speed);
 void MASTER_RET palette_black_out(unsigned speed);
 void MASTER_RET palette_white_in(unsigned speed);
 void MASTER_RET palette_white_out(unsigned speed);
+
+#if (GAME == 3) && defined(TH03_PIXEL_CAPTURE) && \
+	!defined(TH03_PIXEL_CAPTURE_IMPLEMENTATION)
+#define graph_scrollup(line) t3pix_graph_scrollup(line)
+#define palette_show() t3pix_palette_show()
+#define palette_black_in(speed) t3pix_palette_black_in(speed)
+#define palette_black_out(speed) t3pix_palette_black_out(speed)
+#define palette_white_in(speed) t3pix_palette_white_in(speed)
+#define palette_white_out(speed) t3pix_palette_white_out(speed)
+#endif
 // -------
 
 // .PI

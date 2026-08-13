@@ -232,6 +232,11 @@ extern volatile unsigned int __cdecl vsync_Count1, vsync_Count2;
 void MASTER_RET vsync_start(void);
 void MASTER_RET vsync_end(void);
 void MASTER_RET vsync_wait(void);
+#if (GAME == 3) && defined(TH03_PIXEL_CAPTURE) && \
+	!defined(TH03_PIXEL_CAPTURE_IMPLEMENTATION)
+#include "th03/pixel_capture.hpp"
+#define vsync_wait() t3pix_vsync_wait()
+#endif
 // -----
 #ifdef __cplusplus
 }

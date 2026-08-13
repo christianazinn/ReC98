@@ -14,6 +14,7 @@
 #include "th03/main/score.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/op/practice_bg.hpp"
+#include "th03/pixel_capture.hpp"
 #include "th03/practice.hpp"
 #include "th03/rpyfont.hpp"
 
@@ -868,6 +869,7 @@ static void practice_screen_clear(void)
 
 bool far practice_setup_menu(void)
 {
+	t3pix_scene_set(T3PIX_SCENE_PRACTICE_SETUP);
 	practice_menu_t cfg;
 	uint8_t page = PP_MAIN;
 	uint8_t selected = 0;
