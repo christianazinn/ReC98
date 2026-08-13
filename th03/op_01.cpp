@@ -4690,6 +4690,14 @@ void main(void)
 	{
 		char replay_mode = replay_cfg_mode();
 		if(replay_mode != 0) {
+			#if defined(TH03_PIXEL_CAPTURE)
+			// Capture-profile state equivalence: The deterministic headless
+			// handoff below bypasses ordinary OP startup, whereas selecting a
+			// replay from the in-game browser has already called respal_create().
+			// The raw oracle needs that same resident palette before MAINL/MAIN;
+			// this does not alter any release or non-capture binary.
+			respal_create();
+			#endif
 			replay_start_demo_headless(replay_mode);
 			return;
 		}
