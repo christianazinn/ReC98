@@ -4690,14 +4690,6 @@ void main(void)
 	{
 		char replay_mode = replay_cfg_mode();
 		if(replay_mode != 0) {
-			#if defined(TH03_PIXEL_CAPTURE)
-			// The diagnostic headless route enters before ordinary OP startup.
-			// Create the resident palette here so MAINL can publish its final
-			// opponent palette and MAIN can retrieve the same handoff as a
-			// normal Replay-menu launch. Without this capture-only bootstrap,
-			// the oracle records MAIN's unrelated compiled-in default palette.
-			respal_create();
-			#endif
 			replay_start_demo_headless(replay_mode);
 			return;
 		}
