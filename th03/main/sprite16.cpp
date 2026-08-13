@@ -12,7 +12,13 @@
 
 void pascal sprite16_sprites_commit(void)
 {
+#if defined(TH03_PIXEL_CAPTURE)
+	if(sprite16_sprites_copy_page(1)) {
+		t3pix_graph_accesspage_track(1);
+	}
+#else
 	sprite16_sprites_copy_page(1);
+#endif
 	graph_accesspage(0);
 	_AH = SPRITE16_GENERATE_ALPHA;
 	geninterrupt(SPRITE16);

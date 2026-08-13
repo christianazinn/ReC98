@@ -71,6 +71,7 @@ void MASTER_RET gaiji_putsa(
 void MASTER_RET gaiji_write(
 	unsigned chr, const void MASTER_PTR *pattern
 );
+void MASTER_RET gaiji_read_all(void MASTER_PTR *patterns);
 
 int MASTER_RET gaiji_backup(void);
 int MASTER_RET gaiji_restore(void);
@@ -87,6 +88,8 @@ int MASTER_RET gaiji_entry_bfnt(const char MASTER_PTR *filename);
 	t3pix_graph_showpage(p)
 #define graph_accesspage(p) \
 	t3pix_graph_accesspage(p)
+#define graph_copy_page(p) \
+	t3pix_graph_copy_page(p)
 #else
 #define graph_showpage(p) \
 	outportb(0xA4, p)
@@ -102,7 +105,10 @@ void MASTER_RET graph_clear(void);
 void MASTER_RET graph_show(void);
 void MASTER_RET graph_hide(void);
 void MASTER_RET graph_start(void);
+#if !((GAME == 3) && defined(TH03_PIXEL_CAPTURE) && \
+	!defined(TH03_PIXEL_CAPTURE_IMPLEMENTATION))
 int MASTER_RET graph_copy_page(int to_page);
+#endif
 void MASTER_RET graph_scrollup(unsigned line);
 
 // master.lib bug: In all game-specific versions before TH04, these

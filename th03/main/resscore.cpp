@@ -49,7 +49,14 @@ extern "C" void pascal far SUB_A38E(void);
 // PLAYFLD_TEXT from the matching binary. This rank switch uses an absolute
 // offsets into PLAYFLD_TEXT, so keep the table base and entries in sync with
 // the current map when earlier PLAYFLD_TEXT code changes.
+#if defined(TH03_PIXEL_CAPTURE)
+// The capture-only graph-copy wrapper grows the preceding round_startup()
+// contribution by two bytes. Keep this accepted absolute jump table aligned
+// with the capture map; release and every non-capture profile retain 0BCAh.
+#define SUB_9EBF_RANK_TABLE_BASE 0BCCh
+#else
 #define SUB_9EBF_RANK_TABLE_BASE 0BCAh
+#endif
 extern "C" void pascal near sub_9EBF(void)
 {
 	register int i;
@@ -269,7 +276,11 @@ sub_9EBF_rank_done:
 	}
 	enemy_formations_randomize_deterministic();
 }
+#if defined(TH03_PIXEL_CAPTURE)
+#pragma codestring "\x00\xC9\x09\x01\x0A\x2B\x0A\x66\x0A"
+#else
 #pragma codestring "\x00\xC7\x09\xFF\x09\x29\x0A\x64\x0A"
+#endif
 
 #undef SUB_9EBF_RANK_TABLE_BASE
 

@@ -3842,6 +3842,7 @@ static bool replay_save_slot_menu(void)
 
 static void replay_save_pending(bool prompt)
 {
+	t3pix_scene_set(T3PIX_SCENE_REPLAY_SAVE);
 	uint8_t name_len = 0;
 	int i;
 	replay_save_answer_t answer;
@@ -4498,6 +4499,7 @@ void near main_update_and_render(void)
 			}
 			return;
 		case MC_MUSICROOM:
+			t3pix_scene_set(T3PIX_SCENE_MUSIC_ROOM);
 			/* TODO: Replace with the decompiled call
 			* 	musicroom_menu();
 			* once the segmentation allows us to, if ever */
@@ -4688,6 +4690,14 @@ void main(void)
 	{
 		char replay_mode = replay_cfg_mode();
 		if(replay_mode != 0) {
+			#if defined(TH03_PIXEL_CAPTURE)
+			// The diagnostic headless route enters before ordinary OP startup.
+			// Create the resident palette here so MAINL can publish its final
+			// opponent palette and MAIN can retrieve the same handoff as a
+			// normal Replay-menu launch. Without this capture-only bootstrap,
+			// the oracle records MAIN's unrelated compiled-in default palette.
+			respal_create();
+			#endif
 			replay_start_demo_headless(replay_mode);
 			return;
 		}
