@@ -5838,6 +5838,11 @@ void far replay_finish(uint8_t route)
 			if(!replay_user_header_write(RUS_RECORDING, RUER_PARTIAL)) {
 				replay_guard_diag_write();
 			}
+		} else {
+			resident->unused_3[T3_REPLAY_RES_MODE_INDEX] =
+				((resident->pid_winner == 0)
+					? T3_REPLAY_RES_MODE_USER_PLAYBACK
+					: T3R_RES_MODE_USER_GAME_OVER);
 		}
 		replay_handoff_cursor_store();
 		replay_protect_local_free();
@@ -6013,3 +6018,4 @@ static void replay_debug_transition_write(
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 #endif
+#pragma codestring "\x90\x90\x90\x90"

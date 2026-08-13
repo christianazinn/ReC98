@@ -15,6 +15,8 @@
 #include "th03/formats/scoredat.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/scorefile.hpp"
+#include "th03/mainl/replay.hpp"
+#include "th03/replay_handoff.hpp"
 
 #include "th03/formats/score_ld.cpp"
 #include "th03/formats/score_es.cpp"
@@ -529,18 +531,23 @@ void near regist_next_screen_assets_load(void)
 
 void near regist_next_screen_resume(void)
 {
-	extern const char score_m[];
-
-	if(resident->rem_credits && (resident->story_stage != STAGE_ALL)) {
-		snd_load(score_m, SND_LOAD_SONG);
-		snd_kaja_func(KAJA_SONG_PLAY, 0);
-	}
 	regist_next_screen_assets_load();
+}
+
+void near regist_game_over_replay_playback_finish(void)
+{
+	mainl_replay_finish(
+		RUER_GAME_OVER, T3_REPLAY_RES_MODE_SAVE_PROMPT_GAME_OVER
+	);
 }
 
 // Preserve the accepted GROUP_01 phase after replacing the legacy score-file
 // codecs with calls into the expanded score store.
-#pragma codestring "\x90\x90\x90"
+#pragma codestring \
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90"
 
 void near regist_menu(void)
 {

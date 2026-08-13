@@ -74,6 +74,10 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 		hflip_lut_generate();
 		result = mainl_replay_resume_take();
 		mainl_replay_session_start();
+		if(result == T3R_RES_MODE_USER_GAME_OVER) {
+			regist_game_over_replay_playback_finish();
+			goto exit_to_op;
+		}
 
 		if(resident->show_score_menu) {
 			regist_menu();
@@ -211,10 +215,5 @@ stage_splash_load_and_show:
 }
 
 // Keeps every later original CUTSCENE_TEXT contribution at its accepted offset.
-#pragma codestring \
-	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90"
-
-// Preserve the accepted CUTSCENE_TEXT layout after the equivalent range test.
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codeseg

@@ -13,3 +13,6 @@ void near regist_next_screen_assets_load(void);
 
 // Restores the transient state lost while OP.EXE displays a pending replay.
 void near regist_next_screen_resume(void);
+
+// Ends a Game Over replay before score registration can run.
+void near regist_game_over_replay_playback_finish(void);

@@ -50,6 +50,13 @@
 #define T3_REPLAY_RES_MODE_PLAYBACK 'p'
 #define T3_REPLAY_RES_MODE_USER_RECORD 'u'
 #define T3_REPLAY_RES_MODE_USER_PLAYBACK 'v'
+// Keep this name distinct from T3_REPLAY_RES_MODE_USER_PLAYBACK within the
+// identifier-prefix limit of Turbo C++ 4.0J's preprocessor.
+#define T3R_RES_MODE_USER_GAME_OVER 'V'
+#if (T3_REPLAY_RES_MODE_USER_PLAYBACK != 'v') || \
+	(T3R_RES_MODE_USER_GAME_OVER != 'V')
+#error Replay handoff modes collide in the Turbo C++ preprocessor
+#endif
 #define T3_REPLAY_RES_MODE_RESTART 's'
 #define T3_REPLAY_RES_MODE_SAVE_PROMPT 'n'
 #define T3_REPLAY_RES_MODE_SAVE_DIRECT 'w'

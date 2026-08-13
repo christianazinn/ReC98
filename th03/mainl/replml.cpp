@@ -291,8 +291,9 @@ static mainl_replay_mode_t mainl_replay_resident_mode(void)
 	) {
 		return MR_USER_RECORD;
 	}
+	// The terminal Game Over handoff is the uppercase playback marker.
 	if(
-		resident->unused_3[T3_REPLAY_RES_MODE_INDEX] ==
+		(resident->unused_3[T3_REPLAY_RES_MODE_INDEX] | 0x20) ==
 		T3_REPLAY_RES_MODE_USER_PLAYBACK
 	) {
 		return MR_USER_PLAYBACK;
@@ -337,6 +338,9 @@ uint8_t far mainl_replay_resume_take(void)
 		return 0;
 	}
 	mode = mainl_replay_handoff_u8(T3_REPLAY_RES_MODE_INDEX);
+	if(mode == T3R_RES_MODE_USER_GAME_OVER) {
+		return mode;
+	}
 	if(
 		(mode != T3_REPLAY_RES_MODE_RESUME_GAME_OVER) &&
 		(mode != T3_REPLAY_RES_MODE_RESUME_CLEAR)
@@ -1532,4 +1536,4 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

@@ -1069,6 +1069,17 @@ inline bool switch_to_mainl(bool opwin_free) {
 	return false;
 }
 
+inline bool switch_to_mainl_preserve_bgm(bool opwin_free) {
+	cfg_save();
+	gaiji_restore();
+	if(opwin_free) {
+		super_free();
+	}
+	game_exit();
+	execl(BINARY_MAINL, BINARY_MAINL, nullptr);
+	return false;
+}
+
 #if defined(TH03_REPLAY_DEV_STAGE_SELECT)
 static int near replay_dev_story_stage_menu(void);
 #endif
@@ -4177,7 +4188,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x31312E34UL); // "4.11"
+	TITLE_CREDIT_QUAD(4, 0x32312E34UL); // "4.12"
 	TITLE_CREDIT_QUAD(5, 0x20796220UL); // " by "
 	TITLE_CREDIT_QUAD(6, 0x69726843UL); // "Chri"
 	TITLE_CREDIT_QUAD(7, 0x61697473UL); // "stia"
@@ -4718,7 +4729,11 @@ void main(void)
 	}
 	if(replay_save_resume_mode != 0) {
 		replay_resident_handoff_set(replay_save_resume_mode);
-		switch_to_mainl(false);
+		if(replay_save_resume_mode == T3_REPLAY_RES_MODE_RESUME_GAME_OVER) {
+			switch_to_mainl_preserve_bgm(false);
+		} else {
+			switch_to_mainl(false);
+		}
 		return;
 	}
 	if(replay_restart_requested) {
@@ -4928,6 +4943,5 @@ static int near replay_dev_story_stage_menu(void)
 // The debug-only Shift override is larger than the release handoff.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 /// --------
