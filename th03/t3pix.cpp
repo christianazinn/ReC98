@@ -57,6 +57,12 @@ static uint32_t t3pix_raw_first = T3PIX_ID_NONE;
 static uint32_t t3pix_raw_last;
 static uint16_t t3pix_raw_stride = 1;
 static uint16_t t3pix_publication_stride = 1;
+#if (BINARY == 'M')
+// MAIN's capture hooks reach publication through a deeper call chain than OP
+// or MAINL. Its stock 128-byte stack cannot also hold these 176 scratch bytes.
+static uint8_t t3pix_main_record[T3PIX_RECORD_HEADER_SIZE];
+static uint32_t t3pix_main_plane_hash[4];
+#endif
 
 static void t3pix_clear(uint8_t far *dst, unsigned size)
 {
@@ -238,12 +244,12 @@ static void t3pix_stream_header_fill(uint8_t far *header)
 	t3pix_u16_put(&header[20], 80);
 	t3pix_u32_put(&header[22], T3PIX_PLANE_RAW_SIZE);
 	t3pix_u16_put(&header[26], T3PIX_TRAM_RAW_SIZE);
-	t3pix_u32_put(&header[28], 0x621523C1UL);
-	t3pix_u32_put(&header[32], 0x00000411UL);
+	t3pix_u32_put(&header[28], 0x02C28B1EUL);
+	t3pix_u32_put(&header[32], 0x00000412UL);
 	header[36] = 'R'; header[37] = 'e'; header[38] = 'p'; header[39] = 'l';
 	header[40] = 'a'; header[41] = 'y'; header[42] = '-'; header[43] = '0';
 	header[44] = '.'; header[45] = '4'; header[46] = '.'; header[47] = '1';
-	header[48] = '1';
+	header[48] = '2';
 }
 
 static int t3pix_stream_open_append(void)
@@ -334,8 +340,13 @@ void far pascal t3pix_publish(void)
 	static const uint16_t PLANE_SEGMENTS[4] = {
 		SEG_PLANE_B, SEG_PLANE_R, SEG_PLANE_G, SEG_PLANE_E
 	};
+#if (BINARY == 'M')
+	uint8_t near *record = t3pix_main_record;
+	uint32_t near *plane_hash = t3pix_main_plane_hash;
+#else
 	uint8_t record[T3PIX_RECORD_HEADER_SIZE];
 	uint32_t plane_hash[4];
+#endif
 	uint32_t tram_jis_hash;
 	uint32_t tram_atrb_hash;
 	unsigned active_plane_size;
@@ -381,7 +392,10 @@ void far pascal t3pix_publish(void)
 		record, flags, plane_hash, tram_jis_hash, tram_atrb_hash
 	);
 	fh = t3pix_stream_open_append();
-	if((fh < 0) || !t3pix_write(fh, record, sizeof(record))) {
+	if(
+		(fh < 0) ||
+		!t3pix_write(fh, record, T3PIX_RECORD_HEADER_SIZE)
+	) {
 		if(fh >= 0) {
 			dos_close(fh);
 		}
