@@ -67,9 +67,9 @@ void pascal near items_miss_add(void);
 // Reset to 0 when moving to a new stage. TH04 stores this in a single byte,
 // and increments it without TH05's POINT_ITEMS_MAX cap.
 #if (GAME == 5)
-	extern unsigned int stage_point_items_collected;
+extern unsigned int stage_point_items_collected;
 #else
-	extern unsigned char stage_point_items_collected;
+extern unsigned char stage_point_items_collected;
 #endif
 
 extern unsigned int items_spawned;

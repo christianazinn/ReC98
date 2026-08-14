@@ -2631,7 +2631,7 @@ BOSS_BG_TEXT	ends
 ; contribution, renamed so that a C++ object can append `end_extra` at its
 ; original address in the MIDDLE of the segment. Same `word public` alignment
 ; as before, so nothing moves.
-END_EXT_TEXT segment word public 'CODE' use16
+END_EXT_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2745,7 +2745,7 @@ loc_E466:
 	@end_extra$qv procdesc far
 END_EXT_TEXT	ends
 
-SCORE_TEXT segment word public 'CODE' use16
+SCORE_TEXT	segment	word public 'CODE' use16
 
 include th05/main/player/shots_add.asm
 include th04/main/player/shot_velocity.asm

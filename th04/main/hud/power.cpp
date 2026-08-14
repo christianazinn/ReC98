@@ -16,10 +16,14 @@
 #include "th04/main/hud/hud.hpp"
 
 // The row that hud_put() labels with gsREIRYOKU / gsPOWER at (62, 21).
-// NOT th02/main/hud/hud.hpp's HUD_POWER_Y, which is 20 and is TH02's layout —
-// and definitely not its HUD_RANK_Y, which happens to be 22 under the wrong
-// name.
-#define HUD_POWER_BAR_Y 22
+// th02/main/hud/hud.hpp declares a different row under this same name, but
+// only for TH02 itself.
+//
+// A macro rather than the `static const` that the sibling HUD_*_Y constants
+// use, because Turbo C++ 4.0J's __emit__() only accepts literal constants:
+// with `static const utram_y_t HUD_POWER_Y = 22;` the TH04 branch below fails
+// to compile with "Illegal parameter to __emit__". (kb/codegen/0089)
+#define HUD_POWER_Y 22
 
 extern "C" void pascal hud_power_put(void)
 {
@@ -31,9 +35,7 @@ extern "C" void pascal hud_power_put(void)
 	const struct hack_colors COLORS = HUD_POWER_COLORS;
 
 #if (GAME == 5)
-	hud_bar_put(
-		HUD_POWER_BAR_Y, (_AX = power), (_AX = COLORS.x[shot_level])
-	);
+	hud_bar_put(HUD_POWER_Y, power, COLORS.x[shot_level]);
 #else
 	// The original object reached TH04's same-segment far hud_bar_put()
 	// through `nop; push cs; call near ptr`, and no plain C++ far call
@@ -41,7 +43,7 @@ extern "C" void pascal hud_power_put(void)
 	// callee ends up in the same group. (kb/codegen 0014; upstream's own TODO
 	// in th04/main/demo.hpp says the same thing about GameExecl().) So the
 	// arguments are pushed by hand, in pascal order.
-	__emit__(0x6A, HUD_POWER_BAR_Y);
+	__emit__(0x6A, HUD_POWER_Y);
 	_AX = power;			_asm { push ax; }
 	_AX = COLORS.x[shot_level];	_asm { push ax; }
 	_asm { nop; push cs; call near ptr hud_bar_put; }

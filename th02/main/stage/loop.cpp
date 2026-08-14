@@ -47,9 +47,12 @@ extern farfunc_t_near stage_title_unput;
 extern farfunc_t_near enemies_invalidate;
 extern farfunc_t_near enemies_update_and_render;
 
-// Per-stage foreground/background effects.
-extern farfunc_t_near stage_effect_invalidate;
-extern farfunc_t_near stage_effect_update_and_render;
+// Per-stage foreground/background effects. TH04 and TH05 declare the same
+// pair of per-stage slots as stage_invalidate / stage_render in
+// th04/main/stage/stage.hpp; TH02 runs one combined update-and-render pass,
+// hence the second name.
+extern farfunc_t_near stage_invalidate;
+extern farfunc_t_near stage_update_and_render;
 
 // Only installed for Stage 4 and Extra. What they render is not evidenced,
 // hence the neutral names. [static]
@@ -61,6 +64,11 @@ extern farfunc_t_near farfp_23A76;
 extern farfunc_t_near boss_activate_if_scroll_done;
 
 // Returns `true` once the stage is over, which ends this loop.
+// The slot's default installed function is `bool nullfunc_false(void)`, and
+// the sibling slot above is a `bool` too, but this one has to be [bool16]:
+// ZUN's code tests the result with `or ax, ax`, and a `bool` return compiles
+// to `or al, al` — a real behavioral difference for any installed function
+// that returns a nonzero high byte. (kb/codegen/0090)
 extern bool16 (far pascal *stage_should_end)(void);
 // -----------------------------------------------------------------------
 
@@ -100,16 +108,17 @@ void near egc_start_copy_1(void);
 // `true` if the game should advance to the next stage.
 bool16 stage_loop(void)
 {
-	// master.lib's graph_scroll() parameters, inlined below.
-	int gdc_lines_top;
-	int gdc_sad_top;
+	// master.lib's graph_scroll() parameters, inlined below. master.lib
+	// documents these two as belonging to the 上領域 ("upper region").
+	int gdc_lines_upper;
+	int gdc_sad_upper;
 
 	union {
 		long init;
 		vram_y_t line[PAGE_COUNT];
 	} scroll_line_on_page;
 
-	register vram_y_t scroll_line_live;
+	register vram_y_t scroll_line_saved;
 
 	scroll_line_on_page.init = scroll_line_on_page_init;
 
@@ -120,7 +129,7 @@ bool16 stage_loop(void)
 
 		// The unblitting pass has to use the [scroll_line] that the back page
 		// was last blitted with, not the current one.
-		scroll_line_live = scroll_line;
+		scroll_line_saved = scroll_line;
 		scroll_line = scroll_line_on_page.line[page_back];
 
 		boss_bg_render();
@@ -140,9 +149,9 @@ bool16 stage_loop(void)
 		}
 
 		egc_start_copy_1();
-		stage_effect_invalidate();
+		stage_invalidate();
 		tiles_egc_render();
-		stage_effect_update_and_render();
+		stage_update_and_render();
 		egc_off_inlined();
 
 		if(scroll_step == midboss_scroll_step) {
@@ -150,7 +159,7 @@ bool16 stage_loop(void)
 		}
 
 		scroll_delta = 0;
-		scroll_line = scroll_line_live;
+		scroll_line = scroll_line_saved;
 		if(!scroll_done) {
 			if(!(scroll_cycle % scroll_interval)) {
 				scroll_line -= scroll_speed;
@@ -211,8 +220,8 @@ bool16 stage_loop(void)
 				goto flip;
 			}
 
-			gdc_lines_top = (RES_Y - scroll_line);
-			gdc_sad_top = scroll_sad;
+			gdc_lines_upper = (RES_Y - scroll_line);
+			gdc_sad_upper = scroll_sad;
 			asm {
 				mov 	cx, graph_VramZoom;
 				mov 	cl, 4;
@@ -226,14 +235,14 @@ bool16 stage_loop(void)
 				mov 	al, 70h;
 				out 	0A2h, al;
 
-				mov 	ax, gdc_sad_top;
+				mov 	ax, gdc_sad_upper;
 				out 	0A0h, al;
 				db  	088h, 0E0h; // mov al, ah
 				db  	0EBh, 000h; // jmp short $+2
 				db  	0EBh, 000h; // jmp short $+2
 				out 	0A0h, al;
 
-				mov 	ax, gdc_lines_top;
+				mov 	ax, gdc_lines_upper;
 				shl 	ax, cl;
 				db  	008h, 0ECh; // or ah, ch
 				out 	0A0h, al;

@@ -26680,19 +26680,19 @@ public _midboss_update_and_render, _midboss_invalidate
 _midboss_update_and_render	dd ?
 _midboss_invalidate	dd ?
 include th02/main/boss/funcs[bss].asm
-public _stage_should_end, _stage_effect_update_and_render
+public _stage_should_end, _stage_update_and_render
 public _boss_activate_if_scroll_done, _stage_title_unput
-public _stage_effect_invalidate
+public _stage_invalidate
 _stage_should_end label dword
 farfp_1F48C	dd ?
-_stage_effect_update_and_render label dword
+_stage_update_and_render label dword
 farfp_1F490	dd ?
 _boss_activate_if_scroll_done label dword
 farfp_1F494	dd ?
 _stage_title_unput label dword
 farfp_1F498	dd ?
 _boss_bg_render_func	dd ?
-_stage_effect_invalidate label dword
+_stage_invalidate label dword
 farfp_1F4A0	dd ?
 farfp_1F4A4	dd ?
 include th02/main/demo[bss].asm

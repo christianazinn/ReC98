@@ -11,19 +11,19 @@
 #include "th04/main/score.hpp"
 
 #if (GAME == 5)
-	// The row of the gs_TAMA label that hud_put() draws at (58, 18).
-	static const utram_y_t HUD_GRAZE_Y = 18;
+// The row of the gs_TAMA label that hud_put() draws at (58, 18).
+static const utram_y_t HUD_GRAZE_Y = 18;
 #else
-	// The row of the gs_TAMA label that hud_put() draws at (58, 19).
-	static const utram_y_t HUD_GRAZE_Y = 19;
+// The row of the gs_TAMA label that hud_put() draws at (58, 19).
+static const utram_y_t HUD_GRAZE_Y = 19;
 #endif
 
 void hud_graze_put(void)
 {
 	hud_5_digit_put(
 		HUD_LABELED_LEFT, HUD_GRAZE_Y, stage_graze
-		#if (GAME == 5)
-			, TX_WHITE
-		#endif
+#if (GAME == 5)
+		, TX_WHITE
+#endif
 	);
 }

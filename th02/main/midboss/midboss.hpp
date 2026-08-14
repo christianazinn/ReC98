@@ -5,7 +5,8 @@ extern bool midboss_active;
 
 #if (GAME == 2)
 // The [scroll_step] at which the midboss is activated. Stage 5 disables its
-// midboss by setting this to an unreachable 0xFFFF.
+// midboss by setting this to an unreachable -1, which the dump still spells
+// as the 0FFFFh bit pattern.
 extern int midboss_scroll_step;
 
 // Returns the new value of [midboss_active].

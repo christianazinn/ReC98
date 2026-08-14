@@ -10,9 +10,9 @@
 #include "th04/snd/snd.h"
 #include "th04/end/end.h"
 #if (GAME == 5)
-	#include "th05/resident.hpp"
+#include "th05/resident.hpp"
 #else
-	#include "th04/resident.hpp"
+#include "th04/resident.hpp"
 #endif
 #include "th04/main/end.hpp"
 
@@ -23,11 +23,11 @@
 // the existing label is referenced directly, the same thing
 // th03/main/entry.cpp does for aOp and arg0.
 #if (GAME == 5)
-	extern "C" const char aMaine_0[];
-	#define MAINE_FN aMaine_0
+extern "C" const char aMaine_0[];
+#define MAINE_FN aMaine_0
 #else
-	extern "C" const char aMaine_1[];
-	#define MAINE_FN aMaine_1
+extern "C" const char aMaine_1[];
+#define MAINE_FN aMaine_1
 #endif
 
 void end_extra(void)
