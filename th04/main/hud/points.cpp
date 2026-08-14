@@ -40,19 +40,17 @@ extern "C" void pascal hud_point_items_put(void)
 	);
 #else
 	// [stage_point_items_collected] is a byte in TH04, and the original
-	// zero-extends it through AX right before the push.
-	//
-	// Measured 2026-08-14: the (_AX = …) is *not* load-bearing here — the
-	// plain `stage_point_items_collected` also rebuilds byte-identical,
-	// because the formal is a 16-bit `uint16_t` and the widening conversion
-	// emits the same three instructions on its own. kb/codegen/0034's
-	// counter-shape only applies to byte-sized formals; see kb/codegen/0091.
-	// Kept because state/re/NAMING_REVIEW_VERDICTS.md Q3 explicitly ruled the
-	// idiom KEEP, and that ruling is the human's to revisit.
+	// zero-extends it through AX right before the push. No `(_AX = ...)` is
+	// needed to get that: kb/codegen/0034's wrapper is load-bearing only
+	// against a byte-sized *formal*, and hud_5_digit_put()'s [val] is a
+	// 16-bit `uint16_t`, so the ordinary widening conversion emits the same
+	// `mov al` / `mov ah, 0` / `push ax` unaided. Measured byte-identical
+	// both ways, 2026-08-14; the discriminator is the callee's formal width,
+	// not whether the source byte is a global. (kb/codegen/0091)
 	hud_5_digit_put(
 		HUD_LABELED_LEFT,
 		HUD_POINT_ITEMS_STAGE_Y,
-		(_AX = stage_point_items_collected)
+		stage_point_items_collected
 	);
 #endif
 }
