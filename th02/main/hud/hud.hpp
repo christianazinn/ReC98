@@ -10,8 +10,13 @@ static const tram_y_t HUD_HISCORE_Y = 4;
 static const tram_y_t HUD_SCORE_Y = 6;
 static const tram_y_t HUD_BOMBS_Y = 15;
 static const tram_y_t HUD_LIVES_Y = 17;
+#if (GAME == 2)
+// TH04 and TH05 include this header for the shared columns, but lay their
+// rows out differently and have no rank display at all. [HUD_POWER_Y] in
+// particular is 22 there, which is TH02's rank row.
 static const tram_y_t HUD_POWER_Y = 20;
 static const tram_y_t HUD_RANK_Y = 22;
+#endif
 
 static const tram_cell_amount_t HUD_LABEL_PADDING = 1;
 static const tram_cell_amount_t HUD_LABEL_W = (2 * GAIJI_TRAM_W);
