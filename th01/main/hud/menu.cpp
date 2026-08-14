@@ -2,6 +2,9 @@
 #include "th01/math/clamp.hpp"
 #include "th01/main/hud/menu.hpp"
 #include "th01/shiftjis/hud.hpp"
+#ifdef T1CASE
+#include "th01/t1case.hpp"
+#endif
 
 // Pause menu
 // ----------
@@ -238,6 +241,14 @@ bool16 continue_menu(void)
 		if((input_ok == true) || (input_shot == true)) {
 			if(sel == true) {
 				resident->snd_need_init = false;
+#ifdef T1CASE
+				// ORACLE-TH01 (mod branch only): the fourth REIIDEN process
+				// handoff, and the only one reachable without clearing a boss
+				// stage. Continuing re-executes REIIDEN, so the case cursor,
+				// the trace row count and the payload checksum must survive
+				// exactly as they do at th01/main_01.cpp:958.
+				t1case_finish(false);
+#endif
 				game_switch_binary();
 				resident->point_value = 0;
 				execl(BINARY_MAIN_CAPS, BINARY_MAIN_CAPS, nullptr);

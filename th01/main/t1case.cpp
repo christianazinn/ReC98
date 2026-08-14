@@ -677,6 +677,20 @@ static void t1case_diag(char t0, char t1, char t2, uint32_t a, uint32_t b)
 	close(fd);
 }
 
+bool16 far t1case_active(void)
+{
+	return ((t1case_mode == T1CASE_RECORD) || (t1case_mode == T1CASE_PLAYBACK));
+}
+
+void far t1case_diag_note(char t0, char t1, char t2, uint32_t a, uint32_t b)
+{
+	// Only trace a run that actually has a case; never touch a stock run.
+	if(!t1case_paths_ready) {
+		return;
+	}
+	t1case_diag(t0, t1, t2, a, b);
+}
+
 /// Control surface
 /// ---------------
 
@@ -763,7 +777,17 @@ static bool t1case_resident_ensure(void)
 			return false;
 		}
 		resident = seg;
-		t1case_memclear(resident, sizeof(resident_t));
+
+		// Clear everything EXCEPT `id`. `resdata_create()` writes the ID
+		// string to offset 0 of the new block (libs/master.lib/resdata.asm,
+		// `RSDCREATE_ALLOC_OK`: `xor DI,DI` / `rep movsb`), which is precisely
+		// why `resident_t`'s first member is `char id[sizeof(RES_ID)]`.
+		// Clearing it would make the very next `resdata_exist()` fail to match
+		// the block that was just created.
+		t1case_memclear(
+			(reinterpret_cast<uint8_t far *>(resident) + sizeof(resident->id)),
+			(sizeof(resident_t) - sizeof(resident->id))
+		);
 		resident->rank = CFG_RANK_DEFAULT;
 		resident->bgm_mode = CFG_BGM_MODE_DEFAULT;
 		resident->rem_bombs = CFG_CREDIT_BOMBS_DEFAULT;
@@ -1391,6 +1415,27 @@ void far t1case_session_start(void)
 		t1case_done_write(T1T_ERR_RESIDENT);
 		return;
 	}
+
+	// ORACLE DEVIATION, deliberate and recorded: an active case always runs
+	// with BGM off.
+	//
+	// [emu] REIIDEN's `mdrv2_resident()` gate (th01/main_01.cpp) passes in the
+	// first process but fails in the second: after a continue-menu `execl`, the
+	// INT 0xF2 vector still points somewhere (measured 0912:21AC) but the
+	// "Mdrv2System" magic at that segment is gone, so the driver's memory was
+	// reused across the handoff. An oracle whose multi-process cases depend on
+	// a TSR surviving `execl` is not an oracle.
+	//
+	// Forcing BGM_MODE_OFF is sufficient AND safe: `mdrv2_active` starts false
+	// (th01/snd/mdrv2.cpp:42) and is only ever set by
+	// `mdrv2_enable_if_board_installed()` (:147), which main() calls only under
+	// `bgm_mode == BGM_MODE_MDRV2`. Every other entry point is guarded by
+	// `if(mdrv2_active)`, so no `geninterrupt(0xF2)` can reach the dangling
+	// vector. Audio is explicitly outside the trace schema
+	// (TXSPLIT_CONTRACT.md §7: no renderer or audio bytes), and this is applied
+	// identically while recording and while playing back, so it cannot make a
+	// case disagree with its own lineage.
+	resident->bgm_mode = BGM_MODE_OFF;
 	if(resumed) {
 		t1case_handoff_load();
 	}

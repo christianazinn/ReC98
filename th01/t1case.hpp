@@ -290,11 +290,20 @@ int far t1case_key_sense(int keygroup);
 // resident_stuff_get() and before irand_init(frame_rand).
 void far t1case_session_start(void);
 
+// True once a case is being recorded or played back in this process.
+bool16 far t1case_active(void);
+
 // Post-init verify plus the `start` / `round_start` trace rows.
 void far t1case_round_start(void);
 
 // Process handoff. [terminal] marks the case's last process.
 void far t1case_finish(bool16 terminal);
+
+// Appends one fixed-width line to T1DIAG.TXT. [t0..t2] is a three-character
+// tag. Exposed so lifecycle sites outside this module can record a milestone
+// that a later process would otherwise be unable to distinguish from "never
+// reached".
+void far t1case_diag_note(char t0, char t1, char t2, uint32_t a, uint32_t b);
 
 #if defined(__cplusplus)
 }

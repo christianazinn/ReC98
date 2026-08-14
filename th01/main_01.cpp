@@ -486,19 +486,40 @@ int main(void)
 	int stage_id_copy;
 	char bgm_fn[16];
 
-	if(!mdrv2_resident()) {
-		error_resident_invalid();
-		return 1;
-	}
 	// ORACLE-TH01 (mod branch only): pre-init. Writes the case's startup block
 	// into resident_t BEFORE the game's own initialization reads it, creating
 	// the structure when this process is the case's first — which is what lets
 	// an oracle run start REIIDEN directly instead of traversing OP's menu.
 	// Everything after this point, including resident_stuff_get() and
 	// irand_init(), runs completely unmodified.
+	//
+	// Deliberately placed BEFORE the mdrv2_resident() gate so that the T1DIAG
+	// session marker records every REIIDEN process that starts, including one
+	// that then dies in error_resident_invalid(). A case that cannot tell
+	// "process 2 never started" from "process 2 started and failed" cannot
+	// diagnose a handoff at all.
 #ifdef T1CASE
 	t1case_session_start();
 #endif
+	if(!mdrv2_resident()) {
+#ifdef T1CASE
+		// Record the raw INT 0xF2 vector so a failed handoff can be attributed:
+		// a zero segment means MDRV2 was unloaded, a nonzero one means it is
+		// still hooked but no longer carries the "Mdrv2System" magic.
+		t1case_diag_note('M', 'D', 'R',
+			peek(0, 0xF2 * 4), peek(0, (0xF2 * 4) + 2)
+		);
+		// An active case has already forced BGM_MODE_OFF, which makes every
+		// MDRV2 entry point a no-op, so ZUN's "start me from the batch file"
+		// guard has nothing left to protect. Without this, no multi-process
+		// TH01 case could ever run: the driver does not survive the handoff.
+		if(!t1case_active())
+#endif
+		{
+			error_resident_invalid();
+			return 1;
+		}
+	}
 	if(resident_stuff_get(
 		rank,
 		bgm_mode,
