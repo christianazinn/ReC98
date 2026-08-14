@@ -1,18 +1,57 @@
 /* ReC98
  * -----
- * TH02's demo replay playback. stage_loop() calls this once per frame, in
- * place of reading the actual keyboard, whenever [resident->demo_num] is set.
+ * TH02's demo replays: loading one of the three recordings, and replaying it
+ * one frame at a time in place of the actual keyboard.
  */
 
 #pragma option -zCDEMO_TEXT -zPmain_01 -G
 
 #include "platform.h"
 #include "pc98.h"
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/resident.hpp"
 #include "th02/snd/snd.h"
 // Pulls in th02/hardware/input.hpp, which has no include guard.
 #include "th02/main/demo.h"
 #include "th02/main/main.hpp"
+#include "th02/main/playperf.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/main/stage/stage.hpp"
+
+// The recording filenames still live in th02_main.asm's own _DATA
+// contribution, so they have to be referenced rather than re-emitted.
+extern "C" const char aDemo1_rec[];
+extern "C" const char aDemo2_rec[];
+extern "C" const char aDemo3_rec[];
+
+// Allocates [DemoBuf] and reads the recording selected by
+// [resident->demo_num] into it, along with the run's fixed starting state.
+// main() calls this through a same-code-group `nopcall` alias.
+void demo_load(void)
+{
+	DemoBuf = reinterpret_cast<input_t __seg *>(
+		hmem_allocbyte(DEMO_N * sizeof(input_t))
+	);
+	power = POWER_MAX;
+	playperf = 12;
+	resident->frame = 18;
+	if(resident->demo_num == 1) {
+		stage_id = 3;
+		file_ropen(aDemo1_rec);
+		resident->shottype = 0;
+	} else if(resident->demo_num == 2) {
+		stage_id = 2;
+		file_ropen(aDemo2_rec);
+		resident->shottype = 2;
+	} else if(resident->demo_num == 3) {
+		stage_id = 1;
+		file_ropen(aDemo3_rec);
+		resident->shottype = 1;
+	}
+	file_read(DemoBuf, (DEMO_N * sizeof(input_t)));
+	file_close();
+}
 
 // Replays one frame of [DemoBuf] into [key_det], and ends the demo 50 frames
 // before the buffer would run out.
