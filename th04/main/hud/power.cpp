@@ -35,9 +35,7 @@ extern "C" void pascal hud_power_put(void)
 	const struct hack_colors COLORS = HUD_POWER_COLORS;
 
 #if (GAME == 5)
-	hud_bar_put(
-		HUD_POWER_Y, (_AX = power), (_AX = COLORS.x[shot_level])
-	);
+	hud_bar_put(HUD_POWER_Y, power, COLORS.x[shot_level]);
 #else
 	// The original object reached TH04's same-segment far hud_bar_put()
 	// through `nop; push cs; call near ptr`, and no plain C++ far call
