@@ -229,7 +229,7 @@ void pascal near bomb_bft_8tiles_put_8(
 		tile_cur >>= 1;
 		_DI += TILE_VRAM_W;
 		_SI++;
-	} while(_SI < BYTE_DOTS);
+	} while(static_cast<int>(_SI) < BYTE_DOTS);
 
 	#undef tiles
 	#undef tile_cur
