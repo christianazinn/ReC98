@@ -124,6 +124,14 @@ enum t1case_text_id_t {
 	T1T_ERR_CONTROL_EARLY,
 	T1T_ERR_CONTROL_LATE,
 
+	// The control packet's second byte names the process that EMITTED the
+	// segment, and it is not the process consuming it. Distinct from `desync`
+	// on purpose: REPLAY_CORE_CONTRACT.md 7.2 adopted the process id in place of
+	// TH03's control-code parity precisely so that "resumed in the wrong binary"
+	// is detected directly rather than inferred, and a check that reports the
+	// generic symptom throws that away.
+	T1T_ERR_PROCESS,
+
 	T1T_ERR_RESIDENT
 };
 
@@ -226,6 +234,11 @@ static bool t1case_stream_io_error;
 // the same name is written from it so a post-mortem of a killed run can see it,
 // and is likewise cleared at every session start.
 static bool t1case_control_pending;
+
+// Set when a control packet named a process id other than this binary's. Kept
+// apart from the I/O and control-pending flags so all three stream failures name
+// themselves.
+static bool t1case_process_mismatch;
 
 /// Small helpers
 /// -------------
@@ -708,6 +721,11 @@ static void t1case_write_text(uint8_t id)
 		t1case_write_char('-'); t1case_write_char('l'); t1case_write_char('a');
 		t1case_write_char('t'); t1case_write_char('e');
 		break;
+	case T1T_ERR_PROCESS:
+		t1case_write_char('p'); t1case_write_char('r'); t1case_write_char('o');
+		t1case_write_char('c'); t1case_write_char('e'); t1case_write_char('s');
+		t1case_write_char('s');
+		break;
 	default:
 		t1case_write_char('r'); t1case_write_char('e'); t1case_write_char('s');
 		t1case_write_char('i'); t1case_write_char('d'); t1case_write_char('e');
@@ -883,6 +901,13 @@ static bool t1case_res_open(bool create)
 {
 	t1case_res = ResData<t1case_res_t>::exist(T1CASE_RES_ID_BUF);
 	if(t1case_res) {
+		// A block under our ID whose magic does not check out is a stale one
+		// from an earlier mod build, left resident by an `execl` chain. On the
+		// first-process path it must be RE-STAMPED, not adopted: adopting it
+		// would inherit whatever cursors that build left behind.
+		if(create && !t1case_res_magic_ok()) {
+			t1case_res_stamp();
+		}
 		return true;
 	}
 	if(!create) {
@@ -1004,6 +1029,19 @@ static void t1case_handoff_clear(void)
 // stale produces a case that is silently wrong at exactly one splice point.
 static bool t1case_handoff_verify(void)
 {
+	// The two identity fields, checked rather than merely written. `slot` is
+	// NONE for the whole oracle lineage (TXCASE_CONTRACT.md's control surface is
+	// one fixed T1CASE.BIN, not a numbered slot), and `process_id` is the
+	// carrier-side counterpart of the control packet's second byte: the stream
+	// says which process WROTE a segment, the carrier says which process STORED
+	// the cursors. Only REIIDEN is instrumented, so neither can differ today
+	// without the module being wrong — which is exactly what a check is for.
+	if(t1case_res->slot != T1CASE_SLOT_NONE) {
+		return false;
+	}
+	if(t1case_res->process_id != T1CASE_PROCESS_REIIDEN) {
+		return false;
+	}
 	if(t1case_mode == T1CASE_RECORD) {
 		return (
 			(t1case_header.record_count == t1case_record_count) &&
@@ -1329,6 +1367,7 @@ static bool t1case_decode_control(uint8_t control)
 	// (REPLAY_CORE_CONTRACT.md §7.2).
 	process = t1case_stream_u8();
 	if(process != T1CASE_PROCESS_REIIDEN) {
+		t1case_process_mismatch = true;
 		return false;
 	}
 	t1case_control_pending = false;
@@ -1865,6 +1904,7 @@ void far t1case_session_start(void)
 	t1case_dec_prev_valid = false;
 	t1case_stream_io_error = false;
 	t1case_control_pending = false;
+	t1case_process_mismatch = false;
 
 	// The carrier wins; T1CASE.CFG is only the first-process fallback
 	// (REPLAY_CORE_CONTRACT.md §7, landmine 2). Three outcomes, not two:
@@ -2077,10 +2117,12 @@ void far t1case_finish(bool16 terminal)
 		// reached its process boundary before the recording did. Sampled before
 		// the decode, because a successful decode requires [dec_run] == 0.
 		late = (t1case_dec_run != 0);
+		t1case_process_mismatch = false;
 		if(!t1case_decode_control(control)) {
 			t1case_input_error(
 				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
-				(late ? T1T_ERR_CONTROL_LATE : T1T_ERR_DESYNC)
+				(t1case_process_mismatch ? T1T_ERR_PROCESS :
+					(late ? T1T_ERR_CONTROL_LATE : T1T_ERR_DESYNC))
 			);
 			return;
 		}
