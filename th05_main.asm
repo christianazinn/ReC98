@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -2627,7 +2627,11 @@ BOSS_BG_TEXT	segment	byte public 'CODE' use16
 	@EXALICE_BG_RENDER$QV procdesc pascal near
 BOSS_BG_TEXT	ends
 
-SCORE_TEXT segment word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `SCORE_TEXT`
+; contribution, renamed so that a C++ object can append `end_extra` at its
+; original address in the MIDDLE of the segment. Same `word public` alignment
+; as before, so nothing moves.
+END_EXT_TEXT segment word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2733,25 +2737,15 @@ loc_E466:
 		retf
 @end_game$qv	endp
 
+	; end_extra() now lives in th04/main/end.cpp, which appends to this
+	; segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082), so that any future same-group caller keeps its `push cs` +
+	; near call; the only caller today is th04/main/boss/boss.cpp, which
+	; reaches it far from main_03.
+	@end_extra$qv procdesc far
+END_EXT_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @end_extra$qv
-@end_extra$qv	proc far
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_EXTRA
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine_0	; "maine"
-		nopcall	@GameExecl$qnxc
-		pop	bp
-		retf
-@end_extra$qv	endp
+SCORE_TEXT segment word public 'CODE' use16
 
 include th05/main/player/shots_add.asm
 include th04/main/player/shot_velocity.asm
@@ -4003,7 +3997,11 @@ sub_104BB	endp
 	HUD_POINT_ITEMS_PUT procdesc pascal far
 HUD_PNT_TEXT	ends
 
-main_0_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main_0_TEXT`
+; contribution, renamed so that a C++ object can append `hud_graze_put`
+; at its original address in the MIDDLE of the segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves.
+HUD_GRZ_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4058,57 +4056,28 @@ loc_105E6:
 		retf
 hud_dream_put	endp
 
+	; hud_graze_put() now lives in th04/main/hud/graze.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what keeps TASM lowering hud_put()'s same-group far call
+	; to `push cs` + a near call, while the main_03 call from
+	; th04/main/bullet/update.cpp stays far.
+	@hud_graze_put$qv procdesc far
+HUD_GRZ_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+; Harness carve (kb/codegen/0080): an empty anchor segment split out of the
+; head of `main_0_TEXT`, so that a C++ object can append `hud_power_put` at its
+; original address in the MIDDLE of the segment. Shape copied from
+; `CFG_LRES_TEXT`; same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+HUD_PWR_TEXT	segment	byte public 'CODE' use16
+	; hud_power_put() now lives in th04/main/hud/power.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
+	; and sub_E4FC's `nopcall`, with no call-site edits.
+	HUD_POWER_PUT procdesc pascal far
+HUD_PWR_TEXT	ends
 
-; Attributes: bp-based frame
-public @hud_graze_put$qv
-@hud_graze_put$qv	proc far
-		push	bp
-		mov	bp, sp
-		call	@hud_5_digit_put$quiuiuiui pascal, (62 shl 16) or 18, _stage_graze, TX_WHITE
-		pop	bp
-		retf
-@hud_graze_put$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_POWER_PUT
-hud_power_put	proc far
-
-@@bar_colors	= byte ptr -(((SHOT_LEVEL_MAX + 1) / word) * word)
-
-		push	bp
-		mov	bp, sp
-		sub	sp, -@@bar_colors
-		push	si
-		push	di
-		mov	si, offset _HUD_POWER_COLORS
-		lea	di, [bp+@@bar_colors]
-		push	ss
-		pop	es
-		mov	cx, ((SHOT_LEVEL_MAX + 1) / word)
-		rep movsw
-		push	16h
-		mov	al, _power
-		mov	ah, 0
-		push	ax
-		mov	al, _shot_level
-		mov	ah, 0
-		lea	dx, [bp+@@bar_colors]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-		push	ax
-		call	hud_bar_put
-		pop	di
-		pop	si
-		leave
-		retf
-hud_power_put	endp
+main_0_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/hud/element_put.asm
 
@@ -19572,6 +19541,8 @@ include th05/formats/bb_cheeto[data].asm
 ; char aMaine[]
 aMaine		db 'maine',0
 ; char aMaine_0[]
+public _aMaine_0
+_aMaine_0	label byte
 aMaine_0	db 'maine',0
 include th04/main/player/shot_levels[data].asm
 include th05/formats/bb_txt_load[data].asm
