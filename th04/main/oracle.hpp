@@ -259,16 +259,35 @@ typedef char oracle_record_size_check[
 
 // Per-game row schema version. `T4SPLT` version N and `T5SPLT` version N are
 // unrelated numbers; bump this on every field, order or normalization change.
-#define ORACLE_SPLIT_VERSION       1
+//
+//   version 1  groups 0 (RNG) and 1 (run/scenario counters). row_size 64.
+//   version 2  adds groups 2 (player) and 3 (bullets).       row_size 80.
+//              The two `reserved1` bytes of the v1 critical block become
+//              `bullets_alive`, which is free: the writer is already walking
+//              the bullet array for group 3's hash.
+//
+// The prefix and the first 30 bytes of the critical block are unchanged, so a
+// v1 artifact stays readable forever. A reader keyed on the version REJECTS a
+// file whose `row_size` disagrees rather than reinterpreting fields under a
+// schema that does not describe them (`TXSPLIT_CONTRACT.md` §1).
+#define ORACLE_SPLIT_VERSION       2
 #define ORACLE_SPLIT_HEADER_SIZE   16
 #define ORACLE_SPLIT_PREFIX_SIZE   16
 #define ORACLE_SPLIT_CRITICAL_SIZE 32
 
-// Version 1 declares two subsystem hashes: group 0 (RNG) and group 1
-// (run/scenario counters). `TXSPLIT_CONTRACT.md` §"Growing a schema"
-// prescribes exactly this starting point, and requires the gameplay groups to
-// follow as soon as self-play on groups 0-1 is stable.
-#define ORACLE_SPLIT_HASH_COUNT 2
+// `TXSPLIT_CONTRACT.md` §"Growing a schema": start at groups 0-1, then "do not
+// repeat TH03's mistake of deferring entities, bullets and enemies
+// indefinitely -- those groups are exactly the ones whose absence forced
+// separate diagnostics later."
+//
+// Group 2 is the player (position, shots, bomb state); group 3 is the bullet
+// array plus the custom-entity block. Groups 4-11 remain to be added; each
+// bumps this version again.
+#define ORACLE_SPLIT_HASH_COUNT 4
+#define ORACLE_HASH_GROUP_RNG     0
+#define ORACLE_HASH_GROUP_RUN     1
+#define ORACLE_HASH_GROUP_PLAYER  2
+#define ORACLE_HASH_GROUP_BULLETS 3
 #define ORACLE_SPLIT_ROW_SIZE ( \
 	ORACLE_SPLIT_PREFIX_SIZE + \
 	ORACLE_SPLIT_CRITICAL_SIZE + \
@@ -332,7 +351,12 @@ struct oracle_split_row_t {
 	uint8_t bombing;
 	// TH05 only; what distinguishes "before the Extra splice" from "after".
 	uint8_t dialog_sequence_id;
-	uint8_t reserved1[2];
+	// Schema 2. Live entries in `bullets[BULLET_COUNT]`, i.e. those whose
+	// `flag != F_FREE`. Plain rather than hashed, because when the group 3
+	// hash goes red this is the first number a human needs, and the writer
+	// counts it for free while serializing the array. Zero in a v1 file, where
+	// these two bytes were `reserved1`.
+	uint16_t bullets_alive;
 
 	// Subsystem hashes, group 0 first.
 	oracle_split_hash_t hashes[ORACLE_SPLIT_HASH_COUNT];

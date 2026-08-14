@@ -31,19 +31,36 @@
 // startup block is written *before* `demo_load()` computes anything from it,
 // and the game's own initialization then runs unmodified.
 
+// Most ReC98 game headers carry no include guards, so this list has to be
+// exact rather than defensive: including a header that another one already
+// pulled in is a hard error ("Variable ... is initialized more than once").
+// Three headers this file needs are therefore NOT listed, because a listed one
+// already supplies them:
+//
+//   th04/hardware/inputvar.h  (`key_det`, `shiftkey`)
+//                                <- th04/main/player/move.hpp
+//                                     -> th04/hardware/input.h
+//   th04/main/player/player.hpp  (`player_pos`, `power`, `POWER_MAX`)
+//                                <- th04/main/player/shot.hpp
+//   th02/math/randring.hpp  (`randring[]`)
+//                                <- th04/main/player/shot.hpp
+//                                     -> th04/math/randring.hpp
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
-#include "th02/math/randring.hpp"
 #include "th04/common.h"
 #include "th04/end/end.h"
 #include "th04/formats/std.hpp"
-#include "th04/hardware/inputvar.h"
+#include "th04/main/bullet/bullet.hpp"
+#include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/custom.hpp"
 #include "th04/main/demo.hpp"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/oracle.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/player/bomb.hpp"
+#include "th04/main/player/move.hpp"
+#include "th04/main/player/shot.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
@@ -387,61 +404,100 @@ static uint32_t oracle_fnv1a(uint32_t hash, const void far *buf, unsigned size)
 // This is a divergence detector, not a cryptographic primitive. Fields are
 // serialized in a fixed declared order with explicit widths; never a struct,
 // never a padding byte, never memory directly.
-struct oracle_hasher_t {
-	uint32_t a;
-	uint32_t b;
-	uint8_t index;
-};
+// The accumulator lives in this module's BSS rather than in a caller's stack
+// frame. In this memory model a stack object's address is a *far* pointer, so
+// the version-1 shape charged every hashed byte two segment-override loads and
+// two far stores. Version 2 serializes ~13 KB per row instead of ~300 bytes,
+// which makes that overhead the difference between a slow frame and several.
+// Only the storage location changes: the construction below is byte-for-byte
+// the one in `TXSPLIT_CONTRACT.md` §7, so v1 and v2 agree on groups 0 and 1.
+static uint32_t oracle_h_a;
+static uint32_t oracle_h_b;
+static uint8_t oracle_h_i;
 
-static void oracle_hash_init(oracle_hasher_t far *h)
+static void oracle_hash_init(void)
 {
-	h->a = ORACLE_FNV1A_BASIS_A;
-	h->b = ORACLE_FNV1A_BASIS_B;
-	h->index = 0;
+	oracle_h_a = ORACLE_FNV1A_BASIS_A;
+	oracle_h_b = ORACLE_FNV1A_BASIS_B;
+	oracle_h_i = 0;
 }
 
-static void oracle_hash_u8(oracle_hasher_t far *h, uint8_t value)
+static void oracle_hash_u8(uint8_t value)
 {
-	h->a = ((h->a ^ static_cast<uint32_t>(value)) * ORACLE_FNV1A_PRIME);
-	h->b = ((h->b ^ static_cast<uint32_t>(
-		static_cast<uint8_t>(value ^ h->index)
+	oracle_h_a = (
+		(oracle_h_a ^ static_cast<uint32_t>(value)) * ORACLE_FNV1A_PRIME
+	);
+	oracle_h_b = ((oracle_h_b ^ static_cast<uint32_t>(
+		static_cast<uint8_t>(value ^ oracle_h_i)
 	)) * ORACLE_FNV1A_PRIME);
-	h->index++;
+	oracle_h_i++;
 }
 
-static void oracle_hash_u16(oracle_hasher_t far *h, uint16_t value)
+static void oracle_hash_u16(uint16_t value)
 {
-	oracle_hash_u8(h, static_cast<uint8_t>(value & 0xFF));
-	oracle_hash_u8(h, static_cast<uint8_t>(value >> 8));
+	oracle_hash_u8(static_cast<uint8_t>(value & 0xFF));
+	oracle_hash_u8(static_cast<uint8_t>(value >> 8));
 }
 
-static void oracle_hash_u32(oracle_hasher_t far *h, uint32_t value)
+static void oracle_hash_u32(uint32_t value)
 {
-	oracle_hash_u16(h, static_cast<uint16_t>(value & 0xFFFFUL));
-	oracle_hash_u16(h, static_cast<uint16_t>(value >> 16));
+	oracle_hash_u16(static_cast<uint16_t>(value & 0xFFFFUL));
+	oracle_hash_u16(static_cast<uint16_t>(value >> 16));
 }
 
-static void oracle_hash_store(
-	const oracle_hasher_t far *h, oracle_split_hash_t far *out
-)
+// A `PlayfieldMotion` / `MotionBase<>` is three points of two `Subpixel`s
+// (`th04/math/motion.hpp:3-7`, `th01/math/subpixel.hpp:90-108`). Serialized as
+// six explicit 16-bit fields in declaration order -- never as the struct, so
+// the schema survives the alignment pragmas that the debloated lineage removes
+// (`th04/main/player/move.cpp`, `th04/main/bullet/update.cpp`).
+// Far parameters, like every other helper in this module: this is the large
+// data model, so `&some_global` is a far pointer unless the global itself was
+// declared `near` (as `shots[]` is and `player_pos` is not). Near-to-far
+// conversion is implicit and lossless, the reverse is not.
+static void oracle_hash_motion(const PlayfieldMotion far *m)
 {
-	out->pass_a = h->a;
-	out->pass_b = h->b;
+	oracle_hash_u16(static_cast<uint16_t>(m->cur.x.v));
+	oracle_hash_u16(static_cast<uint16_t>(m->cur.y.v));
+	oracle_hash_u16(static_cast<uint16_t>(m->prev.x.v));
+	oracle_hash_u16(static_cast<uint16_t>(m->prev.y.v));
+	oracle_hash_u16(static_cast<uint16_t>(m->velocity.x.v));
+	oracle_hash_u16(static_cast<uint16_t>(m->velocity.y.v));
+}
+
+static void oracle_hash_sppoint(const SPPoint far *p)
+{
+	oracle_hash_u16(static_cast<uint16_t>(p->x.v));
+	oracle_hash_u16(static_cast<uint16_t>(p->y.v));
+}
+
+// A near function pointer is pointer-shaped state and is NEVER hashed as an
+// address (`TXSPLIT_CONTRACT.md` §7, `DETERMINISTIC_STATE_TH04.md` §6). None of
+// these slots has a stable cross-lineage enum -- the debloated lineage relinks
+// every one of them at a different offset -- so the honest serialization is the
+// only lineage-independent fact about them: whether a handler is installed.
+static uint8_t oracle_hook_installed(nearfunc_t_near f)
+{
+	return ((f != 0) ? 1 : 0);
+}
+
+static void oracle_hash_store(oracle_split_hash_t far *out)
+{
+	out->pass_a = oracle_h_a;
+	out->pass_b = oracle_h_b;
 }
 
 // Group 0 — RNG. `random_seed` (4), `randring[256]`, `randring_p` (2).
 static void oracle_hash_group_rng(oracle_split_hash_t far *out)
 {
-	oracle_hasher_t h;
 	int i;
 
-	oracle_hash_init(&h);
-	oracle_hash_u32(&h, static_cast<uint32_t>(random_seed));
+	oracle_hash_init();
+	oracle_hash_u32(static_cast<uint32_t>(random_seed));
 	for(i = 0; i < ORACLE_RANDRING_SIZE; i++) {
-		oracle_hash_u8(&h, randring[i]);
+		oracle_hash_u8(randring[i]);
 	}
-	oracle_hash_u16(&h, randring_p);
-	oracle_hash_store(&h, out);
+	oracle_hash_u16(randring_p);
+	oracle_hash_store(out);
 }
 
 // `std_ip` is a far pointer into the loaded `.STD` heap segment
@@ -474,49 +530,277 @@ static uint32_t oracle_std_ip_offset(void)
 // they are a scenario input rather than a per-frame measurement.
 static void oracle_hash_group_run(oracle_split_hash_t far *out)
 {
-	oracle_hasher_t h;
-
-	oracle_hash_init(&h);
-	oracle_hash_u8(&h, stage_id);
-	oracle_hash_u8(&h, rank);
-	oracle_hash_u16(&h, stage_frame);
-	oracle_hash_u8(&h, stage_frame_mod2);
-	oracle_hash_u8(&h, stage_frame_mod4);
-	oracle_hash_u8(&h, stage_frame_mod8);
-	oracle_hash_u8(&h, stage_frame_mod16);
-	oracle_hash_u32(&h, total_frames);
-	oracle_hash_u16(&h, total_std_frames);
-	oracle_hash_u32(&h, frames_unused);
-	oracle_hash_u16(&h, resident->std_frames);
-	oracle_hash_u16(&h, resident->items_spawned);
-	oracle_hash_u16(&h, resident->items_collected);
-	oracle_hash_u16(&h, resident->point_items_collected);
-	oracle_hash_u16(&h, resident->max_valued_point_items_collected);
-	oracle_hash_u16(&h, resident->enemies_gone);
-	oracle_hash_u16(&h, resident->enemies_killed);
-	oracle_hash_u16(&h, resident->graze);
-	oracle_hash_u8(&h, resident->miss_count);
-	oracle_hash_u8(&h, resident->bombs_used);
-	oracle_hash_u8(&h, resident->end_sequence);
-	oracle_hash_u32(&h, resident->frames);
-	oracle_hash_u16(&h, stage_graze);
-	oracle_hash_u8(&h, extends_gained);
-	oracle_hash_u32(&h, score_delta);
-	oracle_hash_u32(&h, oracle_std_ip_offset());
+	oracle_hash_init();
+	oracle_hash_u8(stage_id);
+	oracle_hash_u8(rank);
+	oracle_hash_u16(stage_frame);
+	oracle_hash_u8(stage_frame_mod2);
+	oracle_hash_u8(stage_frame_mod4);
+	oracle_hash_u8(stage_frame_mod8);
+	oracle_hash_u8(stage_frame_mod16);
+	oracle_hash_u32(total_frames);
+	oracle_hash_u16(total_std_frames);
+	oracle_hash_u32(frames_unused);
+	oracle_hash_u16(resident->std_frames);
+	oracle_hash_u16(resident->items_spawned);
+	oracle_hash_u16(resident->items_collected);
+	oracle_hash_u16(resident->point_items_collected);
+	oracle_hash_u16(resident->max_valued_point_items_collected);
+	oracle_hash_u16(resident->enemies_gone);
+	oracle_hash_u16(resident->enemies_killed);
+	oracle_hash_u16(resident->graze);
+	oracle_hash_u8(resident->miss_count);
+	oracle_hash_u8(resident->bombs_used);
+	oracle_hash_u8(resident->end_sequence);
+	oracle_hash_u32(resident->frames);
+	oracle_hash_u16(stage_graze);
+	oracle_hash_u8(extends_gained);
+	oracle_hash_u32(score_delta);
+	oracle_hash_u32(oracle_std_ip_offset());
 #if (GAME == 5)
 	// TH05 pre-doubles the section ID so it can be used directly as a byte
 	// offset (`th04/formats/std.hpp:8-15`). Serialize the *semantic* ID, or the
 	// two games' hashes disagree for identical state.
-	oracle_hash_u16(&h, static_cast<uint16_t>(std_map_section_p / 2));
-	oracle_hash_u8(&h, static_cast<uint8_t>(dialog_sequence_id));
+	oracle_hash_u16(static_cast<uint16_t>(std_map_section_p / 2));
+	oracle_hash_u8(static_cast<uint8_t>(dialog_sequence_id));
 #else
-	oracle_hash_u16(&h, static_cast<uint16_t>(std_map_section_id));
-	oracle_hash_u8(&h, 0);
+	oracle_hash_u16(static_cast<uint16_t>(std_map_section_id));
+	oracle_hash_u8(0);
 #endif
-	oracle_hash_u8(&h, static_cast<uint8_t>(quit));
+	oracle_hash_u8(static_cast<uint8_t>(quit));
 	// The injection hook's identity, as a stable enum. Never its address.
-	oracle_hash_u8(&h, ORACLE_HOOK_DEMO);
-	oracle_hash_store(&h, out);
+	oracle_hash_u8(ORACLE_HOOK_DEMO);
+	oracle_hash_store(out);
+}
+
+// Group 2 -- player. `DETERMINISTIC_STATE_TH04.md` §5 names the owners
+// (`player.hpp`, `move.hpp`, `shot.hpp`, `bomb.hpp`); this is their field-level
+// inventory, which that file listed as `[open]`.
+//
+// Deliberately EXCLUDED, and each exclusion is a scope-rule call rather than a
+// convenience:
+//
+//   * `shots_alive[SHOT_COUNT]` (`th04/main/player/shot.hpp:100-108`) -- every
+//     element carries a raw `Shot near *`, and the array is per-frame
+//     collision scratch that `shots_hittest()` rebuilds from `shots[]` before
+//     each use. Its *count* is hashed, so a divergence in how many shots were
+//     alive still shows up.
+//   * `playchar_bomb_func` / `player_bomb_func` are hashed as installed-or-not,
+//     never as offsets: the debloated lineage relinks both.
+static void oracle_hash_group_player(oracle_split_hash_t far *out)
+{
+	int i;
+
+	oracle_hash_init();
+	oracle_hash_motion(&player_pos);
+	oracle_hash_u8(static_cast<uint8_t>(player_is_hit));
+	oracle_hash_u8(player_invincibility_time);
+	oracle_hash_u8(power);
+	oracle_hash_u16(static_cast<uint16_t>(power_overflow));
+	oracle_hash_u8(shot_level);
+	oracle_hash_u8(shot_time);
+	oracle_hash_u8(static_cast<uint8_t>(bombing));
+	oracle_hash_u8(static_cast<uint8_t>(bombing_disabled));
+	oracle_hash_u8(bomb_frame);
+	oracle_hash_u8(oracle_hook_installed(playchar_bomb_func));
+#if (GAME == 5)
+	// TH04 has the extra `player_bomb_func` indirection and TH05 does not;
+	// TH05 has runtime playchar speeds and TH04 compile-time constants. Both
+	// games emit both fields so that one field ordering describes both.
+	oracle_hash_u8(0);
+	oracle_hash_u16(static_cast<uint16_t>(playchar_speed_aligned));
+	oracle_hash_u16(static_cast<uint16_t>(playchar_speed_diagonal));
+#else
+	oracle_hash_u8(oracle_hook_installed(player_bomb_func));
+	oracle_hash_u16(static_cast<uint16_t>(playchar_speed_aligned));
+	oracle_hash_u16(static_cast<uint16_t>(playchar_speed_diagonal));
+#endif
+	oracle_hash_u8(static_cast<uint8_t>(shot_last_id));
+	// `shot_ptr` points into `shots[]` (`th04/main/player/shot.hpp:86`).
+	// Hashed as the element index it denotes, per the pointer rule; 0xFFFF is
+	// "none", which is distinguishable from index 0.
+	oracle_hash_u16(
+		(shot_ptr != 0)
+			? static_cast<uint16_t>(shot_ptr - shots)
+			: 0xFFFFu
+	);
+	oracle_hash_u16(shots_alive_count);
+	oracle_hash_u8(static_cast<uint8_t>(shots_hittest_against_boss));
+	oracle_hash_sppoint(&shot_hitbox_center);
+	oracle_hash_sppoint(&shot_hitbox_radius);
+	// The option laser. `th04/main/player/shot.hpp:139-141` calls it "unused in
+	// TH05, but still present in the code" -- that is true of the *code*, but
+	// TH05's MAIN does not link the state: `_shot_laser_time`,
+	// `_shot_laser_style`, `_shot_laser_ring_cycle` and
+	// `_shot_laser_bottomcenter` are all undefined symbols there. TH05 emits
+	// zeroes in their place so that one field ordering still describes both
+	// games' group 2.
+#if (GAME == 5)
+	oracle_hash_u16(0);
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+	oracle_hash_u16(0); oracle_hash_u16(0); oracle_hash_u16(0);
+	oracle_hash_u16(0); oracle_hash_u16(0); oracle_hash_u16(0);
+#else
+	oracle_hash_u16(shot_laser_time);
+	oracle_hash_u8(static_cast<uint8_t>(shot_laser_style));
+	oracle_hash_u8(shot_laser_ring_cycle);
+	oracle_hash_motion(&shot_laser_bottomcenter);
+#endif
+	for(i = 0; i < SHOT_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].flag));
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].age));
+		oracle_hash_motion(&shots[i].pos);
+#if (GAME == 5)
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].patnum_base));
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].type));
+#else
+		oracle_hash_u16(static_cast<uint16_t>(shots[i].patnum_base));
+#endif
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].damage));
+		oracle_hash_u8(static_cast<uint8_t>(shots[i].angle));
+	}
+	oracle_hash_store(out);
+}
+
+// Group 3 -- bullets. Returns the number of live entries in `bullets[]`, which
+// the row carries plainly: when this hash goes red, "how many bullets were
+// alive" is the first thing a human needs, and the count is free here.
+//
+// `bullet_t` is 26 bytes in TH04 and 32 in TH05 with an inverted
+// pellet/bullet16 split (`th04/main/bullet/bullet.hpp:133-199`), so element
+// index `i` does not denote the same thing in the two games. That is fine --
+// `T4SPLT` and `T5SPLT` are unrelated schemas and are never compared to each
+// other. What IS compared is one game across lineages, and for that the
+// field-by-field serialization below matters: the debloated lineage deletes
+// `#pragma option -a2` from `th04/main/bullet/update.cpp` and
+// `th04/main/player/move.cpp`, so a hash over the raw memory image would be
+// sensitive to a structure-alignment change that has no semantic content.
+//
+// Deliberately EXCLUDED:
+//
+//   * `pellets_render[]` and `pellet_clouds_render[]`
+//     (`th04/main/bullet/pellet_r.hpp:17-22`) -- renderer scratch rebuilt every
+//     frame, and the latter is 180 raw `bullet_t near *`. `pellets_render`
+//     begins on the byte immediately after the last bullet, so the loop below
+//     must stop exactly at BULLET_COUNT.
+//   * `thicklasers[]` / `thicklaser_template` (TH04) and `lasers[]` /
+//     `laser_template` (TH05) -- `[open]`, deferred to schema 3.
+//     `th04/main/bullet/laser_t.hpp:16-42` declares a 21-byte `thicklaser_t`,
+//     but `th04_main.asm:30046-30062` assembles 24: the header carries one
+//     filler byte where the structure has four. Indexing the array through the
+//     header would read misaligned elements, i.e. garbage that happens to be
+//     reproducible. Fix the header before hashing the family.
+static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
+{
+	uint16_t alive = 0;
+	int i;
+
+	oracle_hash_init();
+	for(i = 0; i < BULLET_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].flag));
+		if(bullets[i].flag != F_FREE) {
+			alive++;
+		}
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].age));
+		// `pos.prev` is render-only, but it is never initialized on spawn, so
+		// a reused slot carries its previous occupant's value. That makes it a
+		// sensitive detector of slot-reuse ordering, which is exactly the kind
+		// of divergence this group exists to catch. Hashed deliberately.
+		oracle_hash_motion(&bullets[i].pos);
+		oracle_hash_u8(bullets[i].from_group);
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].unused));
+		oracle_hash_u8(bullets[i].speed_cur.v);
+		oracle_hash_u8(bullets[i].angle);
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].spawn_flag));
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].move_flag));
+		// `special_motion`'s enumerators are offset by `(GAME - 5) * 0x81`
+		// (`th04/main/bullet/bullet.hpp:80-124`), so the same stored byte means
+		// a different motion in each game. Stored raw, which is correct within
+		// one game's schema and must never be cross-compared between games.
+		oracle_hash_u8(static_cast<uint8_t>(bullets[i].special_motion));
+		oracle_hash_u8(bullets[i].speed_final.v);
+		oracle_hash_u8(bullets[i].u1.decelerate_time);
+		oracle_hash_u8(bullets[i].u2.decelerate_speed_delta.v);
+		oracle_hash_u16(static_cast<uint16_t>(bullets[i].patnum));
+#if (GAME == 5)
+		oracle_hash_sppoint(&bullets[i].origin);
+		oracle_hash_u16(static_cast<uint16_t>(bullets[i].distance.v));
+#endif
+	}
+
+	// Spawn parameters. `bullet_template_tune`, `bullets_add_regular` and
+	// `bullets_add_special` are `nearfunc_t_near` slots
+	// (`th04/main/bullet/bullet.hpp:331-356`) and are hashed as
+	// installed-or-not for the same reason as the bomb hooks.
+	oracle_hash_u8(bullet_special.turns_max);
+	oracle_hash_u8(static_cast<uint8_t>(bullet_template_special_angle.v));
+	oracle_hash_u8(bullet_template.spawn_type);
+	oracle_hash_u8(bullet_template.patnum);
+	oracle_hash_u16(static_cast<uint16_t>(bullet_template.origin.x.v));
+	oracle_hash_u16(static_cast<uint16_t>(bullet_template.origin.y.v));
+	oracle_hash_u8(static_cast<uint8_t>(bullet_template.group));
+	oracle_hash_u8(static_cast<uint8_t>(bullet_template.special_motion));
+	oracle_hash_u8(bullet_template.angle);
+	oracle_hash_u8(bullet_template.speed.v);
+	oracle_hash_u8(oracle_hook_installed(bullet_template_tune));
+#if (GAME == 5)
+	oracle_hash_u8(bullet_template.spread);
+	oracle_hash_u8(bullet_template.spread_angle_delta);
+	oracle_hash_u8(bullet_template.stack);
+	oracle_hash_u8(bullet_template.stack_speed_delta.v);
+	oracle_hash_u8(static_cast<uint8_t>(bullet_zap_drop_point_items));
+#else
+	oracle_hash_u16(static_cast<uint16_t>(bullet_template.velocity.x.v));
+	oracle_hash_u16(static_cast<uint16_t>(bullet_template.velocity.y.v));
+	oracle_hash_u8(bullet_template.count);
+	oracle_hash_u8(bullet_template.delta.spread_angle);
+	oracle_hash_u8(bullet_template.unused_1);
+	oracle_hash_u8(bullet_template.unused_2);
+	oracle_hash_u8(oracle_hook_installed(bullets_add_regular));
+	oracle_hash_u8(oracle_hook_installed(bullets_add_special));
+#endif
+	oracle_hash_u8(bullet_zap.frame);
+	oracle_hash_u8(bullet_clear_time);
+
+	// The custom-entity block. `DETERMINISTIC_STATE_TH05.md` §4 files TH05's
+	// cheetos, swords, b4balls and b6balls under this group; all four are
+	// `reinterpret_cast` views of the SAME `custom_entities[]` storage
+	// (`th05/main/bullet/{cheeto,sword,b4ball,b6ball}.hpp`), as are the stage-2
+	// particles and the Stage 3 boss puppets. Hashing the declared `custom_t`
+	// fields once covers every view without hashing any of them twice.
+	for(i = 0; i < CUSTOM_COUNT; i++) {
+		oracle_hash_u8(custom_entities[i].flag);
+		oracle_hash_u8(custom_entities[i].angle);
+#if (GAME == 5)
+		oracle_hash_motion(&custom_entities[i].pos);
+		oracle_hash_u16(custom_entities[i].val1);
+		oracle_hash_u16(custom_entities[i].val2);
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].sprite));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].val3));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].damage));
+		oracle_hash_u8(custom_entities[i].speed.v);
+		oracle_hash_u8(static_cast<uint8_t>(custom_entities[i].padding));
+#else
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].center.x));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].center.y));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].val1));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].origin_y.v));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].velocity.x.v));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].velocity.y.v));
+		oracle_hash_u16(custom_entities[i].val2);
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].distance));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].val3));
+		oracle_hash_u16(static_cast<uint16_t>(custom_entities[i].hp));
+		oracle_hash_u16(
+			static_cast<uint16_t>(custom_entities[i].damage_this_frame)
+		);
+		oracle_hash_u8(custom_entities[i].val4);
+		oracle_hash_u8(custom_entities[i].angle_speed);
+#endif
+	}
+	oracle_hash_store(out);
+	return alive;
 }
 /// --------------------
 
@@ -719,8 +1003,12 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	row.quit = static_cast<uint8_t>(quit);
 	row.bombing = static_cast<uint8_t>(bombing);
 
-	oracle_hash_group_rng(&row.hashes[0]);
-	oracle_hash_group_run(&row.hashes[1]);
+	oracle_hash_group_rng(&row.hashes[ORACLE_HASH_GROUP_RNG]);
+	oracle_hash_group_run(&row.hashes[ORACLE_HASH_GROUP_RUN]);
+	oracle_hash_group_player(&row.hashes[ORACLE_HASH_GROUP_PLAYER]);
+	row.bullets_alive = oracle_hash_group_bullets(
+		&row.hashes[ORACLE_HASH_GROUP_BULLETS]
+	);
 
 	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
 	if(fh < 0) {
