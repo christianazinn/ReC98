@@ -298,15 +298,46 @@ void t2case_frame_io(void);
 void t2case_stage_enter(void);
 
 // Pre-init: applies (playback) or captures (recording) the case's startup
-// block. Called at the end of game_init_main() (th02/core/initmain.cpp), which
-// th02_main.asm:704 invokes before `resident->demo_num` is read at :738, before
+// block, before `resident->demo_num` is read at th02_main.asm:738, before
 // demo_load at :740 and before `random_seed = resident->frame` at :747.
 void t2case_session_start(void);
 
-// Process handoff. Called from game_exit() (th02/core/exit.cpp), which
-// GameExecl (th02_main.asm:2354-2372) invokes at :2368 — the single point every
-// MAIN.EXE handoff passes through, whether the target is MAINE or OP.
+// Process handoff: writes (recording) or consumes (playback) the boundary
+// control record.
 void t2case_process_exit(void);
+
+/// The two lifecycle wrappers
+/// --------------------------
+/// These exist instead of `#ifdef` hooks inside th02/core/initmain.cpp and
+/// th02/core/exit.cpp, and the reason is a build-system constraint worth
+/// stating plainly, because every later game's oracle will meet it:
+///
+///   ReC98 compiles each source file EXACTLY ONCE and reuses the object across
+///   every binary that lists it.
+///
+/// Both of those files are `#pragma option -zCSHARED` and appear in MAIN.EXE's
+/// AND MAINE.EXE's link lists, so a single `obj/th02/initmain.obj` is built —
+/// with MAIN's `-DBINARY='M' -DT2CASE` — and then linked into MAINE.EXE too.
+/// A hook inside them therefore does NOT stay in MAIN: it becomes an
+/// unresolved external in MAINE (measured: `Error: Undefined symbol
+/// t2case_session_start() in module th02/initmain.cpp`), and `BINARY == 'M'`
+/// does not guard against it, because the shared object is compiled with
+/// `BINARY='M'` no matter which binary consumes it.
+///
+/// So both seams are ASM operand redirects in MAIN.EXE's own contribution
+/// instead: `call @game_init_main$qv` at th02_main.asm:704 and
+/// `call @game_exit$qv` at :2368 (inside GameExecl, MAIN.EXE's only caller,
+/// covering the "maine" targets at :15956/:21311 and the "op" target at :827).
+/// Both are far calls to far procs before and after, so neither site changes
+/// length.
+
+// Calls game_init_main(), then t2case_session_start() on its success path.
+// Returns game_init_main()'s value unchanged.
+int t2case_init_main(void);
+
+// Calls t2case_process_exit() — while DOS file I/O and gameplay state are
+// still intact — and then game_exit().
+void t2case_game_exit(void);
 
 // True once a case is being recorded or played back in this process.
 bool16 t2case_active(void);

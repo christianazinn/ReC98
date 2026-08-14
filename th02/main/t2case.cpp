@@ -76,6 +76,7 @@
 #include "th02/main/scroll.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/core/initexit.h"
 
 /// State this module has to declare for itself
 /// -------------------------------------------
@@ -1554,10 +1555,42 @@ static void t2case_process_end_request(bool16 terminal)
 	quit = true;
 }
 
+// True once T2DONE.TXT exists, i.e. once some earlier process in this run
+// already reported a terminal status.
+static bool t2case_done_exists(void)
+{
+	int fd;
+
+	t2case_paths_init();
+	fd = t2f_read_open(T2CASE_DONE_FN);
+	if(fd < 0) {
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
 void t2case_session_start(void)
 {
 	t2case_paths_init();
 	t2case_payload_checksum = T2CASE_FNV1A_BASIS;
+
+	// FAIL-CLOSED, and not optional. When a case ends, the game does not:
+	// MAIN hands off to OP, OP's attract timeout fires again, and a fresh MAIN
+	// starts. With only T2CASE.CFG to go on, that next MAIN would begin a
+	// BRAND NEW recording over the top of the finished case — measured on run
+	// `th02-rec02`, whose T2DIAG.TXT shows four SES lines for a two-process
+	// case and whose T2CASE.BIN was left mid-second-cycle. The host runner does
+	// stop on T2DONE.TXT, but it polls, and a Turbo run outruns the poll.
+	//
+	// T2DONE.TXT is the run's terminal status by contract (TXCASE_CONTRACT.md,
+	// "Control surface"), so its mere existence ends every later process. The
+	// runner deletes it before each run, and only a terminal or an error
+	// creates it.
+	if(t2case_done_exists()) {
+		t2case_mode = T2CASE_DISABLED;
+		return;
+	}
 
 	// The carrier wins; T2CASE.CFG is only the first-process fallback. Without
 	// this precedence a resumed MAIN would re-apply the startup block and
@@ -1946,4 +1979,26 @@ void t2case_process_exit(void)
 		return;
 	}
 	t2case_state_store();
+}
+
+/// Lifecycle wrappers
+/// ------------------
+/// Named by th02_main.asm:704 and :2368 in place of the stock symbols. See
+/// th02/t2case.hpp for why the seams are here and not inside the shared
+/// translation units that define game_init_main() and game_exit().
+
+int t2case_init_main(void)
+{
+	int ret = game_init_main();
+
+	if(ret == 0) {
+		t2case_session_start();
+	}
+	return ret;
+}
+
+void t2case_game_exit(void)
+{
+	t2case_process_exit();
+	game_exit();
 }

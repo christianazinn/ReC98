@@ -40,6 +40,8 @@ include th02/sprites/main_pat.inc
 ; state/notes/oracle-th02-bringup.md.
 	extern @t2case_frame_io$qv:proc
 	extern @t2case_stage_enter$qv:proc
+	extern @t2case_init_main$qv:proc
+	extern @t2case_game_exit$qv:proc
 
 playperf_min = -6
 
@@ -708,7 +710,7 @@ _envp		= dword	ptr  0Ch
 		call	cfg_load
 		or	ax, ax
 		jz	short @@cfg_load_is_1
-		call	@game_init_main$qv
+		call	@t2case_init_main$qv
 		or	ax, ax
 		jz	short @@game_init_main_is_0
 		call	@zun_error$q11zun_error_t pascal, 3
@@ -2372,7 +2374,7 @@ public @GameExecl$qnxc
 		call	graph_clear
 		call	text_clear
 		call	@gaiji_free$qv
-		call	@game_exit$qv
+		call	@t2case_game_exit$qv
 		call	_execl c, large [bp+@@binary_fn], large [bp+@@binary_fn], large 0
 		pop	bp
 		retf
