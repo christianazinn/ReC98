@@ -620,6 +620,15 @@ void CBirds::spawn(
 
 void CBirds::unput_update_render(void)
 {
+	// Unblit unconditionally, before anything is rendered this frame.
+	// Previously, only the flying birds were unblitted, so each cel of the
+	// hatch animation was blitted on top of the previous one.
+	{for(int i = 0; i < BIRD_COUNT; i++) {
+		if(!alive[i]) {
+			continue;
+		}
+		grc_sloppy_unput(left[i], top[i]);
+	}}
 	{for(int i = 0; i < BIRD_COUNT; i++) {
 		if(!alive[i]) {
 			continue;
@@ -630,11 +639,6 @@ void CBirds::unput_update_render(void)
 				(hatch_frames[i] / BIRD_HATCH_CELS)
 			) + C_HATCH));
 			hatch_time[i]--;
-		} else {
-			// ZUN bug: Shouldn't these be unblitted unconditionally?
-			// Because they aren't, each cel of the hatch animation is
-			// blitted on top of the previous one...
-			grc_sloppy_unput(left[i], top[i]);
 		}
 	}}
 	{for(int i = 0; i < BIRD_COUNT; i++) {
@@ -646,7 +650,6 @@ void CBirds::unput_update_render(void)
 		if(!overlap_xy_lrtb_le_ge(
 			left[i], top[i], 0, 0, (RES_X - 1), (RES_Y - 1)
 		)) {
-			grc_sloppy_unput(left[i], top[i]);
 			alive[i] = false;
 			continue;
 		}
