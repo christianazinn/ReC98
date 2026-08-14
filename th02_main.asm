@@ -298,7 +298,7 @@ arg_4		= word ptr  0Ah
 		mov	bx, [bp+arg_2]
 		shl	cx, 4
 		shl	bx, 4
-		mov	ax, 258Ch
+		mov	ax, offset byte_1FFFC
 		mov	si, ax
 		xor	dx, dx
 		jmp	short loc_3E5F
@@ -448,7 +448,7 @@ sub_3EF4	proc far
 		mov	ah, 0
 		push	ax
 		nopcall	grcg_setcolor
-		mov	ax, 258Ch
+		mov	ax, offset byte_1FFFC
 		mov	si, ax
 		xor	di, di
 		jmp	short loc_3F7B
@@ -541,7 +541,7 @@ var_2		= word ptr -2
 		mov	byte_20168, al
 		mov	al, byte_1FFF8
 		mov	byte_20169, al
-		mov	ax, 258Ch
+		mov	ax, offset byte_1FFFC
 		mov	si, ax
 		mov	[bp+var_2], 0
 		jmp	loc_407E
@@ -3967,7 +3967,7 @@ var_3		= byte ptr -3
 		push	si
 		push	di
 		mov	[bp+var_3], 0
-		mov	si, 2908h
+		mov	si, offset byte_20378
 		xor	di, di
 		jmp	loc_D472
 ; ---------------------------------------------------------------------------
@@ -5079,7 +5079,7 @@ var_4		= word ptr -4
 		sub	sp, 64h
 		push	si
 		push	di
-		mov	si, 0BE0h
+		mov	si, offset byte_1E650
 		lea	di, [bp+var_64]
 		push	ss
 		pop	es
@@ -8669,7 +8669,7 @@ stones_1223E	proc near
 		sub	sp, 2
 		push	si
 		push	di
-		mov	si, 5546h
+		mov	si, offset byte_22FB6
 		call	@egc_start_copy_noframe$qv
 		xor	di, di
 		mov	[bp+@@left], PLAYFIELD_LEFT
@@ -9391,7 +9391,7 @@ arg_6		= word ptr  0Ah
 		add	ax, 0FFF8h
 		mov	[bp+var_6], ax
 		sub	[bp+arg_6], 8
-		mov	si, 2908h
+		mov	si, offset byte_20378
 		mov	[bp+var_2], 0
 
 loc_1288F:
@@ -9570,7 +9570,7 @@ sub_129DD	proc far
 		push	bp
 		mov	bp, sp
 		push	si
-		mov	si, 5F6Ch
+		mov	si, offset byte_239DC
 		xor	ax, ax
 		jmp	short loc_129EF
 ; ---------------------------------------------------------------------------
@@ -9619,7 +9619,7 @@ arg_6		= word ptr  0Ah
 		mov	bp, sp
 		push	si
 		push	di
-		mov	si, 5F6Ch
+		mov	si, offset byte_239DC
 		cmp	[bp+arg_6], 20h	; ' '
 		jl	short loc_12A77
 		cmp	[bp+arg_6], 416
@@ -9674,7 +9674,7 @@ sub_12A7D	proc far
 		mov	bp, sp
 		push	si
 		push	di
-		mov	si, 5F6Ch
+		mov	si, offset byte_239DC
 		xor	di, di
 		jmp	short loc_12AD9
 ; ---------------------------------------------------------------------------
@@ -9831,7 +9831,7 @@ var_4		= word ptr -4
 		sub	sp, 6
 		push	si
 		push	di
-		mov	si, 5F6Ch
+		mov	si, offset byte_239DC
 		mov	[bp+var_4], 0
 		jmp	loc_12C66
 ; ---------------------------------------------------------------------------
@@ -9968,7 +9968,7 @@ arg_2		= word ptr  6
 		push	di
 		mov	di, [bp+arg_2]
 		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], 7416h
+		mov	word ptr [bp+var_4], offset byte_24E86
 		xor	si, si
 		jmp	short loc_13508
 ; ---------------------------------------------------------------------------
@@ -10021,7 +10021,7 @@ var_4		= dword	ptr -4
 		sub	sp, 4
 		push	si
 		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], 7416h
+		mov	word ptr [bp+var_4], offset byte_24E86
 		xor	si, si
 		jmp	loc_135B1
 ; ---------------------------------------------------------------------------
@@ -10105,7 +10105,7 @@ var_2		= word ptr -2
 		push	si
 		push	di
 		mov	word ptr [bp+var_6+2], ds
-		mov	word ptr [bp+var_6], 7416h
+		mov	word ptr [bp+var_6], offset byte_24E86
 		mov	[bp+var_2], 0
 		jmp	loc_13660
 ; ---------------------------------------------------------------------------
@@ -11903,7 +11903,7 @@ arg_A		= word ptr  0Eh
 		push	di
 		mov	cx, [bp+arg_A]
 		mov	di, [bp+arg_8]
-		mov	si, 7690h
+		mov	si, offset byte_25100
 		xor	dx, dx
 		jmp	short loc_146E4
 ; ---------------------------------------------------------------------------
@@ -11953,7 +11953,7 @@ meira_146EF	proc near
 		mov	bp, sp
 		push	si
 		push	di
-		mov	si, 7690h
+		mov	si, offset byte_25100
 		xor	di, di
 		jmp	short loc_1471D
 ; ---------------------------------------------------------------------------
@@ -11994,7 +11994,7 @@ var_2		= word ptr -2
 		sub	sp, 4
 		push	si
 		push	di
-		mov	si, 7690h
+		mov	si, offset byte_25100
 		mov	[bp+var_2], 0
 		jmp	loc_1482F
 ; ---------------------------------------------------------------------------
@@ -13391,7 +13391,7 @@ loc_15326:
 		sub	dx, 400
 
 loc_15330:
-		mov	si, 794Ah
+		mov	si, offset byte_253BA
 		xor	cx, cx
 		jmp	short loc_15361
 ; ---------------------------------------------------------------------------
@@ -13452,7 +13452,7 @@ var_2		= byte ptr -2
 		mov	[bp+var_4], ax
 		mov	al, byte_1EE1C
 		mov	[bp+var_2], al
-		mov	si, 794Ah
+		mov	si, offset byte_253BA
 		xor	di, di
 		jmp	short loc_153F9
 ; ---------------------------------------------------------------------------
@@ -13755,7 +13755,7 @@ arg_4		= word ptr  8
 		push	di
 		mov	di, [bp+arg_4]
 		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], 7A7Ch
+		mov	word ptr [bp+var_4], offset byte_254EC
 		or	di, di
 		jle	short loc_1563C
 		cmp	di, 444
@@ -13818,7 +13818,7 @@ var_4		= dword	ptr -4
 		mov	bp, sp
 		sub	sp, 4
 		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], 7A7Ch
+		mov	word ptr [bp+var_4], offset byte_254EC
 		xor	ax, ax
 		jmp	short loc_15668
 ; ---------------------------------------------------------------------------
@@ -13854,7 +13854,7 @@ var_4		= dword	ptr -4
 		sub	sp, 4
 		push	si
 		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], 7A7Ch
+		mov	word ptr [bp+var_4], offset byte_254EC
 		xor	si, si
 		jmp	loc_158D2
 ; ---------------------------------------------------------------------------
@@ -15144,7 +15144,7 @@ var_A	= word ptr -0Ah
 		sub	sp, 0Eh
 		push	si
 		push	di
-		mov	si, 13AEh
+		mov	si, offset byte_1EE1E
 		lea	di, [bp+var_A]
 		push	ss
 		pop	es
@@ -17449,7 +17449,7 @@ var_2		= word ptr -2
 		mov	[bp+var_4], 0
 		mov	word_205D8, 0FFFFh
 		mov	word_205DA, 0FFFFh
-		mov	word_26C46, 7B50h
+		mov	word_26C46, offset byte_255C0
 		xor	di, di
 		jmp	loc_1796A
 ; ---------------------------------------------------------------------------
@@ -25620,7 +25620,7 @@ var_2		= word ptr -2
 		push	si
 		push	di
 		mov	word ptr [bp-0Ch], ds
-		mov	word ptr [bp+dest+2], 111Ah
+		mov	word ptr [bp+dest+2], offset aStage_dt1
 		les	bx, [bp+dest+2]
 		mov	al, _stage_id
 		add	al, '0'
@@ -26318,6 +26318,7 @@ _POWER_TO_SHOT_LEVEL	db 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
 public _total_bombs_used
 _total_bombs_used	db 0
 		db 0
+byte_1E650	label byte
 		db    4
 		db    0
 		db    3
@@ -26866,6 +26867,7 @@ word_1EE18	dw 1002h
 word_1EE1A	dw 1211h
 byte_1EE1C	db 9
 		db 0
+byte_1EE1E	label byte
 		db  3Ch	; <
 		db    0
 		db  2Ch	; ,
@@ -27347,7 +27349,8 @@ public _map_length
 _map_length	dw ?
 		db    ?	;
 byte_22FDB	db ?
-byte_22FDC	db 2704 dup(?)
+byte_22FDC	db 2560 dup(?)
+byte_239DC	db 144 dup(?)
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
@@ -27361,7 +27364,7 @@ point_24E7C	Point <?>
 word_24E80	dw ?
 word_24E82	dw ?
 word_24E84	dw ?
-		db 600 dup(?)
+byte_24E86	db 600 dup(?)
 angle_250DE	db ?
 		db ?
 word_250E0	dw ?
@@ -27370,7 +27373,7 @@ word_250E4	dw ?
 byte_250E6	db 12 dup(?)
 byte_250F2	db 12 dup(?)
 word_250FE	dw ?
-		db 480 dup(?)
+byte_25100	db 480 dup(?)
 byte_252E0	db ?
 byte_252E1	db ?
 word_252E2	dw ?
@@ -27422,10 +27425,11 @@ byte_253B4	db ?
 		db ?
 left_253B6	dw ?
 top_253B8	dw ?
-		db 300 dup(?)
+byte_253BA	db 300 dup(?)
 point_254E6	Point <?>
 byte_254EA	db ?
-		db 161 dup(?)
+		db ?
+byte_254EC	db 160 dup(?)
 byte_2558C	db ?
 byte_2558D	db ?
 byte_2558E	db ?
