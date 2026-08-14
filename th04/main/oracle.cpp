@@ -675,6 +675,7 @@ static void oracle_split_write_header(void)
 static void oracle_split_row(uint8_t event, uint16_t input)
 {
 	oracle_split_row_t row;
+	unsigned written;
 	int fh;
 	int i;
 
@@ -723,13 +724,16 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 
 	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
 	if(fh < 0) {
+		oracle_diag('S', 'P', 'O', oracle_split_size, 0xFFFFFFFFUL);
 		oracle_mode = ORACLE_ERROR;
 		oracle_done_write(ORT_ERR_SPLIT_OPEN);
 		return;
 	}
 	oracle_dos_seek(fh, oracle_split_size);
-	if(oracle_dos_write(fh, &row, sizeof(row)) != sizeof(row)) {
+	written = oracle_dos_write(fh, &row, sizeof(row));
+	if(written != sizeof(row)) {
 		oracle_dos_close(fh);
+		oracle_diag('S', 'P', 'W', oracle_split_size, written);
 		oracle_mode = ORACLE_ERROR;
 		oracle_done_write(ORT_ERR_SPLIT_OPEN);
 		return;
@@ -762,6 +766,25 @@ static oracle_mode_t oracle_cfg_mode(void)
 	unsigned i;
 	unsigned first = 0;
 	char mode = '\0';
+
+	// One shot per staged run. `demo_end()` execs OP, whose attract timeout
+	// execs MAIN again (`th04/op/m_main.cpp:636-637`), and that second MAIN
+	// process starts with freshly-zeroed BSS -- so without this latch it
+	// re-reads the same config and TRUNCATES the case and trace that the first
+	// one just finished writing.
+	//
+	// [measured] That is exactly what happened to TH05 on the first run of
+	// this harness: T5DONE.TXT was stamped 9:44:26 while T5CASE.BIN and
+	// T5SPLIT.BIN were stamped 9:44:28, and the trace ended at global frame
+	// 1792 while the diagnostic log recorded the real run finishing at 4997.
+	// TH04 escaped it only because its own OP never reached the timeout.
+	// The presence of a terminal status file is the run's own record that it
+	// is over; the host harness deletes it before each run.
+	fh = oracle_dos_open(ORACLE_DONE_FN, ORACLE_ACCESS_READ);
+	if(fh >= 0) {
+		oracle_dos_close(fh);
+		return ORACLE_DISABLED;
+	}
 
 	oracle_memclear(cfg, sizeof(cfg));
 	fh = oracle_dos_open(ORACLE_CFG_FN, ORACLE_ACCESS_READ);
@@ -955,6 +978,7 @@ static bool oracle_recbuf_flush(void)
 {
 	uint32_t offset;
 	unsigned len;
+	unsigned written;
 	int fh;
 
 	if(oracle_recbuf_len == 0) {
@@ -967,11 +991,18 @@ static bool oracle_recbuf_flush(void)
 	len = (oracle_recbuf_len * ORACLE_RECORD_SIZE);
 	fh = oracle_dos_open_rw(ORACLE_BIN_FN);
 	if(fh < 0) {
+		oracle_diag('F', 'L', 'O', offset, 0xFFFFFFFFUL);
 		return false;
 	}
-	oracle_dos_seek(fh, offset);
-	if(oracle_dos_write(fh, oracle_recbuf, len) != len) {
+	if(!oracle_dos_seek(fh, offset)) {
 		oracle_dos_close(fh);
+		oracle_diag('F', 'L', 'S', offset, 0);
+		return false;
+	}
+	written = oracle_dos_write(fh, oracle_recbuf, len);
+	if(written != len) {
+		oracle_dos_close(fh);
+		oracle_diag('F', 'L', 'W', offset, written);
 		return false;
 	}
 	oracle_dos_close(fh);
@@ -1560,9 +1591,14 @@ bool oracle_frame(uint16_t shift_offset)
 		);
 		if(oracle_mode == ORACLE_RECORD) {
 			// Rewrite the prefix at every checkpoint, so a run that is killed
-			// mid-case still leaves a self-consistent file.
-			oracle_recbuf_flush();
-			oracle_header_write(false);
+			// mid-case still leaves a self-consistent file. Both results are
+			// checked: silently ignoring them once produced a TH05 recording
+			// that reported ok while its last 3200 records never reached disk.
+			if(!oracle_recbuf_flush() || !oracle_header_write(false)) {
+				oracle_mode = ORACLE_ERROR;
+				oracle_done_write(ORT_ERR_CASE_FINALIZE);
+				return false;
+			}
 		}
 	}
 	oracle_global_frame++;
