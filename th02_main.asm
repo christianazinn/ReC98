@@ -2583,7 +2583,7 @@ arg_2		= word ptr  6
 		mov	dl, [bp+@@angle]
 		mov	ax, word_205E2
 		shl	ax, 4
-		add	ax, 2908h
+		add	ax, offset byte_20378
 		mov	si, ax
 		mov	al, _page_back
 		mov	ah, 0
@@ -2640,13 +2640,13 @@ arg_4		= word ptr  8
 		push	si
 		mov	ax, word_205E2
 		shl	ax, 4
-		add	ax, 2908h
+		add	ax, offset byte_20378
 		mov	si, ax
 		mov	al, _page_back
 		mov	ah, 0
 		add	ax, ax
 		mov	dx, ax
-		mov	word ptr [si], 101h
+		mov	word ptr [si], (1 shl 8) + 1
 		mov	bx, _player_option_left_left_on_back_
 		mov	ax, [bx]
 		add	ax, [bp+arg_4]
@@ -2666,7 +2666,7 @@ arg_4		= word ptr  8
 		mov	[si+0Ch], ax
 		mov	al, byte_1E51A
 		mov	ah, 0
-		add	ax, 100h
+		add	ax, 256
 		mov	[si+0Eh], ax
 		pop	si
 		pop	bp
@@ -3016,7 +3016,7 @@ var_2		= word ptr -2
 loc_CD54:
 		mov	bx, word_205E2
 		shl	bx, 4
-		cmp	byte ptr [bx+2908h], 0
+		cmp	byte_20378[bx], 0
 		jnz	loc_D035
 		cmp	[bp+var_3], 0
 		jnz	loc_CEF7
@@ -3030,7 +3030,7 @@ loc_CD54:
 
 loc_CD81:
 		push	8
-		push	0C0h
+		push	192
 		call	sub_CA62
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
@@ -3039,7 +3039,7 @@ loc_CD8C:
 		push	8
 		push	3
 		call	@randring1_next8_and$quc
-		add	al, 0BEh
+		add	al, 190
 		jmp	short loc_CDA0
 ; ---------------------------------------------------------------------------
 
@@ -3047,7 +3047,7 @@ loc_CD97:
 		push	8
 		push	7
 		call	@randring1_next8_and$quc
-		add	al, 0BCh
+		add	al, 188
 
 loc_CDA0:
 		push	ax
@@ -3068,7 +3068,7 @@ loc_CDAF:
 loc_CDB1:
 		push	7
 		call	@randring1_next8_and$quc
-		add	al, 0BCh
+		add	al, 188
 		push	ax
 		call	sub_CA62
 		mov	di, 1
@@ -3082,7 +3082,7 @@ loc_CDC2:
 
 loc_CDCC:
 		push	[bp+var_2]
-		push	0C0h
+		push	192
 		call	sub_CA62
 		mov	di, 1
 		jmp	loc_CEE8
@@ -3092,13 +3092,13 @@ loc_CDDB:
 		or	si, si
 		jnz	short loc_CDE6
 		push	0
-		push	0BEh
+		push	190
 		jmp	short loc_CDEB
 ; ---------------------------------------------------------------------------
 
 loc_CDE6:
 		push	10h
-		push	0C2h
+		push	194
 
 loc_CDEB:
 		call	sub_CA62
@@ -3113,7 +3113,7 @@ loc_CDF9:
 		or	si, si
 		jnz	short loc_CE04
 		push	8
-		push	0C0h
+		push	192
 		jmp	short loc_CE1A
 ; ---------------------------------------------------------------------------
 
@@ -3121,7 +3121,7 @@ loc_CE04:
 		cmp	si, 1
 		jnz	short loc_CE12
 		push	8
-		mov	al, 0BBh
+		mov	al, 187
 		sub	al, byte ptr [bp+var_2]
 		jmp	short loc_CE19
 ; ---------------------------------------------------------------------------
@@ -3129,7 +3129,7 @@ loc_CE04:
 loc_CE12:
 		push	8
 		mov	al, byte ptr [bp+var_2]
-		add	al, 0C5h
+		add	al, 197
 
 loc_CE19:
 		push	ax
@@ -3156,7 +3156,7 @@ loc_CE30:
 		push	1Fh
 		call	@randring1_next8_and$quc
 		mov	ah, 0
-		add	ax, 0B1h
+		add	ax, 177
 		mov	[bp+var_2], ax
 		push	8
 		jmp	loc_CEDF
@@ -3168,7 +3168,7 @@ loc_CE42:
 
 loc_CE46:
 		push	0
-		push	0C0h
+		push	192
 		jmp	loc_CEE2
 ; ---------------------------------------------------------------------------
 
@@ -3178,7 +3178,7 @@ loc_CE4E:
 
 loc_CE53:
 		push	10h
-		push	0C0h
+		push	192
 		jmp	loc_CEE2
 ; ---------------------------------------------------------------------------
 
@@ -3206,7 +3206,7 @@ loc_CE5B:
 ; ---------------------------------------------------------------------------
 
 loc_CE96:
-		mov	[bp+var_2], 0B7h
+		mov	[bp+var_2], 183
 
 loc_CE9B:
 		push	0
@@ -3237,7 +3237,7 @@ loc_CE9F:
 ; ---------------------------------------------------------------------------
 
 loc_CED8:
-		mov	[bp+var_2], 0C9h
+		mov	[bp+var_2], 201
 
 loc_CEDD:
 		push	10h
@@ -3507,7 +3507,7 @@ loc_D09C:
 loc_D0A5:
 		mov	bx, word_205E2
 		shl	bx, 4
-		cmp	byte ptr [bx+2908h], 0
+		cmp	byte_20378[bx], 0
 		jnz	loc_D341
 		cmp	[bp+var_3], 0
 		jnz	loc_D17D
@@ -3521,7 +3521,7 @@ loc_D0A5:
 
 loc_D0D2:
 		push	8
-		push	0C0h
+		push	192
 		call	sub_CA62
 		jmp	loc_D16E
 ; ---------------------------------------------------------------------------
@@ -3530,7 +3530,7 @@ loc_D0DD:
 		push	8
 		push	3
 		call	@randring1_next8_and$quc
-		add	al, 0BEh
+		add	al, 190
 		jmp	short loc_D0F1
 ; ---------------------------------------------------------------------------
 
@@ -3538,7 +3538,7 @@ loc_D0E8:
 		push	8
 		push	7
 		call	@randring1_next8_and$quc
-		add	al, 0BCh
+		add	al, 188
 
 loc_D0F1:
 		push	ax
@@ -3550,7 +3550,7 @@ loc_D0F7:
 		or	si, si
 		jnz	short loc_D105
 		push	8
-		push	0C0h
+		push	192
 		call	sub_CA62
 		jmp	short loc_D158
 ; ---------------------------------------------------------------------------
@@ -3585,7 +3585,7 @@ loc_D12E:
 
 loc_D133:
 		push	[bp+var_2]
-		push	0C0h
+		push	192
 		call	sub_CA62
 		cmp	si, 3
 		jl	short loc_D158
@@ -3595,7 +3595,7 @@ loc_D133:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		sub	word ptr [bx+290Ch], 100h
+		sub	word ptr byte_20378[bx+4], 256
 
 loc_D158:
 		mov	al, byte_20350
