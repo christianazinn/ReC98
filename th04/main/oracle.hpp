@@ -346,20 +346,29 @@ typedef char oracle_split_row_size_check[
 ];
 /// -------------------------------------------------
 
-/// The two hooks into `th04/main/demo.cpp`
-/// --------------------------------------
+/// The two hooks
+/// -------------
 
-// Called as the very first statement of `demo_load()`, i.e. after the game
-// decided to run a demo (`th04_main.asm:688`, `th05_main.asm:767`) but before
-// it computes the buffer size and the `DEMO?.REC` file name from
-// `resident->demo_num`, and before it propagates `resident->demo_stage` into
-// `resident->stage` and `_stage_id`.
+// Called as the very first statement of `ems_allocate_and_preload_eyecatch()`
+// (`th04/main/ems.cpp:57`), which MAIN runs immediately after
+// `game_init_main()` and `random_seed = resident->rand`
+// (`th04_main.asm:301-304`, `th05_main.asm:342-345`) and well before the demo
+// gate in `sub_AED0`. That is the earliest point at which the packfile is open
+// (so `file_ropen()` works), the resident structure exists, and NOTHING has yet
+// been derived from it — `ems_allocate_and_preload_eyecatch()` itself reads
+// `resident->stage` and `resident->rank` on its very next lines.
 //
-// In playback mode this writes the case's startup block into `resident_t`, so
-// that the game's own `demo_load()`, stage init and `randring_fill()` then run
-// completely unmodified on the case's scenario. In every other mode it does
-// nothing.
-void oracle_scenario_apply(void);
+// Record mode pins the scenario the way OP's `start_demo()` would have
+// (`th04/op/start.cpp:53-86`, `th05/op/start.cpp:57-107`) and captures the
+// startup block. Playback mode writes the case's startup block into
+// `resident_t`. In both cases the game's own gate, `demo_load()`, stage init
+// and `randring_fill()` then run completely unmodified.
+//
+// Hooking here rather than in OP is what makes the oracle independent of the
+// attract-mode idle timeout AND of OP's per-frame `resident->rand++`
+// (`th04/op/m_main.cpp:660`), which would otherwise make two independent
+// recordings of the same scenario disagree on a recorded field.
+void oracle_entry(void);
 
 // True once a case is being recorded or played back.
 bool oracle_active(void);

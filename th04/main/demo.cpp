@@ -13,14 +13,6 @@
 
 void near demo_load(void)
 {
-	// ORACLE MOD: pre-init hook. Runs after the game committed to the demo
-	// path (`th04_main.asm:688`, `th05_main.asm:767`) but before the size and
-	// the DEMO?.REC file name below are derived from `resident->demo_num`, and
-	// before the caller propagates `resident->demo_stage` into
-	// `resident->stage` and `_stage_id`. Everything after this point is ZUN's
-	// own code running unmodified on the case's scenario.
-	oracle_scenario_apply();
-
 #if (GAME == 5)
 	size_t size = ((resident->demo_num <= 4)
 		? sizeof(REC<DEMO_N>)

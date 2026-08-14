@@ -34,6 +34,8 @@
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
 #include "th02/math/randring.hpp"
+#include "th04/common.h"
+#include "th04/end/end.h"
 #include "th04/formats/std.hpp"
 #include "th04/hardware/inputvar.h"
 #include "th04/main/demo.hpp"
@@ -48,8 +50,10 @@
 #include "th04/main/stage/stage.hpp"
 #include "th04/oracle_build.hpp"
 #if (GAME == 5)
+	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
+	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
 #endif
 
@@ -738,12 +742,25 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 /// Case file
 /// ---------
 
+// Control file grammar, deliberately tiny:
+//
+//   p               play back T?CASE.BIN
+//   r<demo>[<rank>] record scenario <demo> (1-4, TH05 also 5) at <rank>
+//
+// <rank> defaults to 1 (Normal). It has to be selectable because `rank` is a
+// required recorded field that the game's own demo path never pins, and a
+// corpus is only useful if the difficulty it was taken at is chosen rather
+// than inherited from whatever the resident structure happened to hold.
+static uint8_t oracle_cfg_demo_num;
+static uint8_t oracle_cfg_rank;
+
 static oracle_mode_t oracle_cfg_mode(void)
 {
 	char cfg[64];
 	int fh;
 	unsigned read_len;
 	unsigned i;
+	unsigned first = 0;
 	char mode = '\0';
 
 	oracle_memclear(cfg, sizeof(cfg));
@@ -760,16 +777,31 @@ static oracle_mode_t oracle_cfg_mode(void)
 			(cfg[i] != '\r') && (cfg[i] != '\n')
 		) {
 			mode = cfg[i];
+			first = i;
 			break;
 		}
-	}
-	if((mode == 'r') || (mode == 'R')) {
-		return ORACLE_RECORD;
 	}
 	if((mode == 'p') || (mode == 'P')) {
 		return ORACLE_PLAYBACK;
 	}
-	return ORACLE_DISABLED;
+	if((mode != 'r') && (mode != 'R')) {
+		return ORACLE_DISABLED;
+	}
+	oracle_cfg_demo_num = 1;
+	oracle_cfg_rank = 1;
+	if(
+		((first + 1) < read_len) &&
+		(cfg[first + 1] >= '1') && (cfg[first + 1] <= '5')
+	) {
+		oracle_cfg_demo_num = static_cast<uint8_t>(cfg[first + 1] - '0');
+	}
+	if(
+		((first + 2) < read_len) &&
+		(cfg[first + 2] >= '0') && (cfg[first + 2] <= '3')
+	) {
+		oracle_cfg_rank = static_cast<uint8_t>(cfg[first + 2] - '0');
+	}
+	return ORACLE_RECORD;
 }
 
 static void oracle_header_checksum_set(void)
@@ -1028,10 +1060,10 @@ static void oracle_startup_capture(void)
 #endif
 
 	oracle_memclear(&oracle_startup, sizeof(oracle_startup));
-	// Captured at the moment `demo_load()` runs, which is *before*
-	// `random_seed = 318` (`th04_main.asm:698`, `th05_main.asm:780`) and
-	// before stage init's `randring_fill()`. The value the contract asks for
-	// is the seed immediately before that fill, so it is written again in
+	// Captured at MAIN entry, which is *before* `random_seed = 318`
+	// (`th04_main.asm:698`, `th05_main.asm:780`) and before stage init's
+	// `randring_fill()`. The value the contract asks for is the seed
+	// immediately before that fill, so it is written again in
 	// `oracle_session_start()`.
 	oracle_startup.random_seed = static_cast<int32_t>(random_seed);
 	oracle_startup.resident_rand = resident->rand;
@@ -1286,7 +1318,45 @@ static void oracle_finish(oracle_text_id_t status)
 /// Hooks
 /// -----
 
-void oracle_scenario_apply(void)
+// Replicates the scenario pinning that OP's `start_demo()` performs
+// (`th04/op/start.cpp:53-86`, `th05/op/start.cpp:57-107`), for a chosen
+// `demo_num` rather than the cycling one, so that a recording is reproducible
+// without going through OP at all.
+//
+// Only the fields those functions actually write are written here. Everything
+// else is left exactly as RES_HUMA.COM / RES_KSO.COM initialized it, and is
+// captured verbatim into the startup block.
+static void oracle_scenario_pin(uint8_t demo_num, uint8_t rank_value)
+{
+	resident->stage = 0;
+	resident->credit_lives = 3;
+	resident->credit_bombs = 3;
+	resident->rank = rank_value;
+	resident->demo_num = demo_num;
+#if (GAME == 5)
+	resident->end_sequence = ES_SCORE;
+	switch(demo_num) {
+	case 1: resident->playchar = PLAYCHAR_REIMU;  resident->demo_stage = 3; break;
+	case 2: resident->playchar = PLAYCHAR_MARISA; resident->demo_stage = 1; break;
+	case 3: resident->playchar = PLAYCHAR_MIMA;   resident->demo_stage = 2; break;
+	case 4: resident->playchar = PLAYCHAR_YUUKA;  resident->demo_stage = 4; break;
+	default:
+		resident->playchar = PLAYCHAR_MIMA;
+		resident->demo_stage = STAGE_EXTRA;
+		break;
+	}
+#else
+	switch(demo_num) {
+	case 1: resident->demo_stage = 3; resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);  resident->shottype = SHOTTYPE_A; break;
+	case 2: resident->demo_stage = 0; resident->playchar_ascii = ('0' + PLAYCHAR_MARISA); resident->shottype = SHOTTYPE_A; break;
+	case 3: resident->demo_stage = 2; resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);  resident->shottype = SHOTTYPE_B; break;
+	default: resident->demo_stage = 1; resident->playchar_ascii = ('0' + PLAYCHAR_MARISA); resident->shottype = SHOTTYPE_B; break;
+	}
+	resident->stage_ascii = ('0' + resident->demo_stage);
+#endif
+}
+
+void oracle_entry(void)
 {
 	oracle_paths_init();
 	if(oracle_mode != ORACLE_DISABLED) {
@@ -1322,13 +1392,14 @@ void oracle_scenario_apply(void)
 		oracle_header.source_kind = ORACLE_SOURCE_NORMALIZED;
 		oracle_header.input_semantics = ORACLE_INPUT_SEMANTICS;
 		oracle_header.ruleset_id = ORACLE_RULESET_CLASSIC;
-		oracle_header.scenario_id = resident->demo_num;
 		oracle_header.first_process = ORACLE_PROCESS_MAIN;
 		oracle_header.producer = ORACLE_PRODUCER;
 		oracle_header.flags = 0;
 		oracle_header.case_id = 0;
 		oracle_header.source_digest = 0;
 		oracle_header.source_commit = ORACLE_SOURCE_COMMIT;
+		oracle_scenario_pin(oracle_cfg_demo_num, oracle_cfg_rank);
+		oracle_header.scenario_id = resident->demo_num;
 		oracle_startup_capture();
 		oracle_diag('R', 'E', 'C', resident->demo_num, resident->rank);
 		return;
@@ -1409,24 +1480,6 @@ bool oracle_frame(uint16_t shift_offset)
 			return false;
 		}
 		oracle_record_count++;
-		if(rec.kind == ORACLE_RECORD_CONTROL) {
-			// The only control record version 1 can reach here is the
-			// terminal one; anything else is a case this build cannot play.
-			if(rec.control != ORACLE_CONTROL_TERMINAL) {
-				oracle_split_row(ORACLE_EVENT_ERROR, 0);
-				oracle_mode = ORACLE_ERROR;
-				oracle_done_write(ORT_ERR_UNSUPPORTED);
-				return false;
-			}
-			oracle_finish(
-				((oracle_sample_count == oracle_header.sample_count) &&
-				 (oracle_record_count == oracle_header.record_count) &&
-				 (oracle_payload_checksum == oracle_header.payload_checksum))
-					? ORT_OK_PLAYBACK
-					: ORT_ERR_CASE_FINALIZE
-			);
-			return false;
-		}
 		if(
 			(rec.kind != ORACLE_RECORD_INPUT) ||
 			(rec.frame_index != oracle_global_frame) ||
@@ -1441,7 +1494,44 @@ bool oracle_frame(uint16_t shift_offset)
 		key_replay = rec.key_det_replay;
 		shift = rec.shiftkey;
 		oracle_sample_count++;
+
+		// Consume the terminal control record on the SAME frame the recorder
+		// stopped on, not on the frame after it. Deferring it by one call
+		// would let the game run one extra gameplay frame, which Gate A
+		// measured as a divergent `finish` row: score 04569430 -> 04569820 on
+		// the very first calibration pair.
+		// A version-1 case is a run of input records followed by exactly one
+		// terminal control record, so "one record left" identifies the last
+		// input frame without any lookahead.
 		keep_going = true;
+		if(oracle_record_count >= oracle_header.record_count) {
+			// The case ended without a terminal control record.
+			oracle_split_row(ORACLE_EVENT_ERROR, 0);
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_CASE_FINALIZE);
+			return false;
+		}
+		if(oracle_record_count == (oracle_header.record_count - 1)) {
+			if(!oracle_record_fetch(oracle_record_count, &rec)) {
+				oracle_split_row(ORACLE_EVENT_ERROR, 0);
+				oracle_mode = ORACLE_ERROR;
+				oracle_done_write(ORT_ERR_FRAME_IO);
+				return false;
+			}
+			oracle_record_count++;
+			if(
+				(rec.kind != ORACLE_RECORD_CONTROL) ||
+				(rec.control != ORACLE_CONTROL_TERMINAL)
+			) {
+				// Anything else is a case this build cannot play; fail loudly
+				// rather than mistrace it.
+				oracle_split_row(ORACLE_EVENT_ERROR, 0);
+				oracle_mode = ORACLE_ERROR;
+				oracle_done_write(ORT_ERR_UNSUPPORTED);
+				return false;
+			}
+			keep_going = false;
+		}
 	}
 
 	// The 8-bit store into the 16-bit variable clears the high byte every
@@ -1478,7 +1568,20 @@ bool oracle_frame(uint16_t shift_offset)
 	oracle_global_frame++;
 
 	if(!keep_going) {
-		oracle_finish(ORT_OK_RECORD);
+		if(oracle_mode == ORACLE_RECORD) {
+			oracle_finish(ORT_OK_RECORD);
+		} else {
+			// Record cursor, sample cursor and incremental payload checksum
+			// are tracked separately, and success is refused unless all three
+			// agree with the header.
+			oracle_finish(
+				((oracle_sample_count == oracle_header.sample_count) &&
+				 (oracle_record_count == oracle_header.record_count) &&
+				 (oracle_payload_checksum == oracle_header.payload_checksum))
+					? ORT_OK_PLAYBACK
+					: ORT_ERR_CASE_FINALIZE
+			);
+		}
 		return false;
 	}
 	return true;
