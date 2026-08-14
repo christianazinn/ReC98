@@ -1070,6 +1070,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/dialog.cpp",
 	"th05/boss_exp.cpp",
 	"th05/playfld.cpp",
+	"th05/hud_pnt.cpp",
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",

@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -3777,7 +3777,12 @@ sub_10214	endp
 	@playfield_shake_update_and_rende$qv procdesc pascal near
 PLAYFLD_TEXT	ends
 
-main_0_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main_0_TEXT`
+; contribution, renamed so that a C++ object can append `hud_point_items_put`
+; at its original address in the MIDDLE of the segment. The tail keeps the
+; original name, because C++ (th05/midboss5.cpp) already contributes to it.
+; Same `byte public 'CODE'` alignment as before, so nothing moves.
+HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4003,20 +4008,14 @@ loc_10571:
 		retf
 sub_104BB	endp
 
+	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
+	; appends to this segment. Declared inside a main_01 segment on purpose:
+	; that is what keeps TASM lowering hud_put()'s same-group far call to
+	; `push cs` + a near call, while sub_16F54's main_03 call stays far.
+	HUD_POINT_ITEMS_PUT procdesc pascal far
+HUD_PNT_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_POINT_ITEMS_PUT
-hud_point_items_put	proc far
-		push	bp
-		mov	bp, sp
-		call	@hud_5_digit_put$quiuiuiui pascal, (62 shl 16) or 16, _stage_point_items_collected, TX_WHITE
-		call	@hud_5_digit_put$quiuiuiui pascal, (62 shl 16) or 15, _extend_point_items_collected, TX_CYAN
-		pop	bp
-		retf
-hud_point_items_put	endp
-
+main_0_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
