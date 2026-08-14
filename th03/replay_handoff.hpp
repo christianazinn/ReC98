@@ -43,6 +43,18 @@
 #define T3_REPLAY_RES_GUARD_FRESH_INDEX (T3R_DIAG_END_INDEX + 3)
 #define T3_REPLAY_RES_MAINL_VSYNC_INDEX (T3R_DIAG_END_INDEX + 4)
 #define T3R_RES_PREROLL_FORCE_INDEX (T3R_DIAG_END_INDEX + 5)
+// Transient MAIN timing state. Keeping this in the resident avoids shifting
+// replay BSS while still carrying one outer-frame pause decision to the
+// end-of-frame slowdown sampler.
+#define T3_REPLAY_RES_TIMING_FLAGS_INDEX 186
+#define T3_REPLAY_RES_TIMING_BASELINE_INDEX 187
+#define T3_REPLAY_RES_TIMING_END_INDEX 189
+#define T3_REPLAY_TIMING_SAMPLE_PENDING 0x01
+#define T3_REPLAY_TIMING_PAUSE_OPENED 0x02
+#define T3_REPLAY_TIMING_BASELINE_PENDING 0x04
+#if (T3_REPLAY_RES_TIMING_END_INDEX > 198)
+#error Replay timing state exceeds resident->unused_3
+#endif
 #define T3_REPLAY_RES_PROTECT_INVALID 0x01
 #define T3_REPLAY_RES_PROTECT_LOCATED 0x02
 #define T3_REPLAY_RES_PROTECT_ERROR 0x04
