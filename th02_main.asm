@@ -365,7 +365,7 @@ arg_0		= word ptr  6
 		mov	di, ax
 		mov	bx, word_20164
 		and	bx, 7
-		mov	al, [si+8EEh]
+		mov	al, byte_1E35E[si]
 		mov	ah, 0
 		mov	[bp+var_2], ax
 		mov	cl, bl
@@ -7367,7 +7367,7 @@ loc_1181C:
 loc_11824:
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx+10AEh]
+		mov	ax, word_1EB1E[bx]
 
 loc_1182C:
 		mov	bx, 8
@@ -7376,15 +7376,15 @@ loc_1182C:
 		add	[bp+var_2], ax
 		mov	bx, si
 		add	bx, bx
-		inc	word ptr [bx+10AEh]
+		inc	word ptr word_1EB1E[bx]
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx+10AEh]
+		mov	ax, word_1EB1E[bx]
 		cmp	ax, [bp+var_4]
 		jl	short loc_1185E
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx+10AEh], 0
+		mov	word ptr word_1EB1E[bx], 0
 		mov	_stone_flag[si], SF_REMOVE
 		mov	ax, 1
 		jmp	short loc_11871
@@ -8633,14 +8633,14 @@ arg_0		= byte ptr  4
 		mov	al, byte_22FCF
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+10B9h]
+		mov	al, byte_1EB29[bx]
 		mov	ah, 0
 		mov	bx, ax
 		mov	byte_22FB6[bx], cl
 		mov	al, byte_22FCF
 		mov	ah, 0
 		mov	bx, ax
-		mov	al, [bx+10C5h]
+		mov	al, byte_1EB35[bx]
 		mov	ah, 0
 		mov	bx, ax
 		mov	byte_22FB6[bx], cl
@@ -9373,11 +9373,11 @@ arg_6		= word ptr  0Ah
 		mov	bl, _shot_level
 		mov	bh, 0
 		add	bx, bx
-		mov	ax, [bx+10DAh]
+		mov	ax, word_1EB4A[bx]
 		mov	[bp+var_E], ax
-		mov	ax, [bx+10EEh]
+		mov	ax, word_1EB5E[bx]
 		mov	[bp+var_10], ax
-		mov	ax, [bx+1102h]
+		mov	ax, word_1EB72[bx]
 		mov	[bp+var_12], ax
 		mov	[bp+var_8], 0
 		mov	ax, [bp+arg_6]
@@ -23007,21 +23007,21 @@ arg_0		= word ptr  4
 		mov	di, 0Ah
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx+142Ch]
+		mov	ax, word_1EE9C[bx]
 		mov	bx, 6
 		cwd
 		idiv	bx
 		add	di, ax
 		mov	bx, si
 		add	bx, bx
-		inc	word ptr [bx+142Ch]
+		inc	word ptr word_1EE9C[bx]
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx+142Ch], 30h ; '0'
+		cmp	word ptr word_1EE9C[bx], 30h ; '0'
 		jl	loc_1AE74
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx+142Ch], 0
+		mov	word ptr word_1EE9C[bx], 0
 		mov	bx, si
 		add	bx, bx
 		mov	word ptr word_26D2A[bx], 2
@@ -25051,7 +25051,7 @@ loc_1BF91:
 		mov	al, byte_26D4C
 		cbw
 		mov	bx, ax
-		mov	al, [bx+1420h]
+		mov	al, byte_1EE90[bx]
 		mov	byte_1FFF8, al
 
 loc_1BF9E:
@@ -26168,6 +26168,7 @@ _mpn_count	db 0
 public _pf_fn
 _pf_fn		db '“Œ•û••–‚.˜^',0
 include th02/snd/se[data].asm
+byte_1E35E	label byte
 		db    0
 		db  80h
 		db 0C0h
@@ -26432,6 +26433,7 @@ _POWER_RESET_FOR	db 1, 1, 4, 8, 16, 24, 32, 40, 52, 64
 public _midboss3_kill_frame
 _midboss3_kill_frame	dw MIDBOSS3_COUNT dup(0)
 
+word_1EB1E	label word
 		db    0
 		db    0
 		db    0
@@ -26442,6 +26444,7 @@ _midboss3_kill_frame	dw MIDBOSS3_COUNT dup(0)
 		db    0
 word_1EB26	dw 0
 angle_1EB28	db 0
+byte_1EB29	label byte
 		db    0
 		db    1
 		db    2
@@ -26454,6 +26457,7 @@ angle_1EB28	db 0
 		db    9
 		db  0Ah
 		db  0Bh
+byte_1EB35	label byte
 		db  17h
 		db  16h
 		db  15h
@@ -26468,6 +26472,7 @@ angle_1EB28	db 0
 		db  0Ch
 aBoss2_m	db 'boss2.m',0
 		db 0
+word_1EB4A	label word
 		db    5
 		db    0
 		db    5
@@ -26488,6 +26493,7 @@ aBoss2_m	db 'boss2.m',0
 		db    0
 		db    1
 		db    0
+word_1EB5E	label word
 		db    2
 		db    0
 		db    2
@@ -26508,6 +26514,7 @@ aBoss2_m	db 'boss2.m',0
 		db    0
 		db    1
 		db    0
+word_1EB72	label word
 		db    0
 		db    0
 		db    0
@@ -26887,6 +26894,7 @@ aMima_m		db 'mima.m',0
 aMaine_0	db 'maine',0
 aMima2_bft	db 'mima2.bft',0
 		db 0
+byte_1EE90	label byte
 		db  0Ah
 		db  0Ch
 		db  0Dh
@@ -26897,6 +26905,7 @@ byte_1EE96	db 0
 		db 0
 word_1EE98	dw 0
 word_1EE9A	dw 0
+word_1EE9C	label word
 		db    0
 		db    0
 		db    0
