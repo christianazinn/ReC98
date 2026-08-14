@@ -1254,24 +1254,7 @@ public @map_load$qv
 		retn
 @map_load$qv	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @map_free$qv
-@map_free$qv	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_map_seg, 0
-		jz	short loc_B9D4
-		push	_map_seg
-		call	hmem_free
-		mov	_map_seg, 0
-
-loc_B9D4:
-		pop	bp
-		retn
-@map_free$qv	endp
+	@map_free$qv procdesc near
 END_TEXT ends
 
 CIRCLE_TEXT segment word public 'CODE' use16
