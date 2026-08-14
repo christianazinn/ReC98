@@ -16,13 +16,12 @@
 #endif
 #include "th04/main/end.hpp"
 
-// "maine", as it already exists in the root ASM's _DATA. ZUN spelled
-// GameExecl("maine") once per ending launcher, from what must have been
-// separate translation units, so each binary carries one copy of the string
-// per call site at consecutive 6-byte offsets. A C++ string literal here would
-// add a further copy rather than reuse the one this function owns, so the
-// existing label is referenced directly — the same thing th03/main/entry.cpp
-// does for aOp and arg0.
+// "maine", as it already exists in the root ASM's _DATA. Each binary carries
+// one copy of the string per GameExecl("maine") call site, at consecutive
+// 6-byte offsets — four in TH04, three in TH05. A C++ string literal here
+// would add a further copy rather than reuse the one this function owns, so
+// the existing label is referenced directly, the same thing
+// th03/main/entry.cpp does for aOp and arg0.
 #if (GAME == 5)
 	extern "C" const char aMaine_0[];
 	#define MAINE_FN aMaine_0
