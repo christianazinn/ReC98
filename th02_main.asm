@@ -18188,7 +18188,7 @@ mima_17D59	proc near
 loc_17D68:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6DC4h], 1
+		cmp	word ptr word_26CAC[bx], 1
 		jz	short loc_17D7A
 		inc	word_26CBC
 		jmp	loc_17E86
@@ -18202,7 +18202,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6E04h]
+		mov	ax, word_26C6C[bx]
 		add	ax, 4
 		push	ax
 		mov	al, _page_back
@@ -18212,7 +18212,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6DE4h]
+		push	word ptr word_26C8C[bx]
 		push	180020h
 		call	sub_1283C
 		mov	al, _page_back
@@ -18222,7 +18222,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6E04h]
+		mov	ax, word_26C6C[bx]
 		add	ax, 0FFF0h
 		mov	dl, _page_front
 		mov	dh, 0
@@ -18237,7 +18237,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6E04h]
+		mov	ax, word_26C6C[bx]
 		add	ax, 10h
 		mov	dl, _page_front
 		mov	dh, 0
@@ -18252,7 +18252,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6DE4h]
+		mov	ax, word_26C8C[bx]
 		add	ax, 0FFF0h
 		mov	dl, _page_front
 		mov	dh, 0
@@ -18267,7 +18267,7 @@ loc_17D7A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6DE4h]
+		mov	ax, word_26C8C[bx]
 		add	ax, 10h
 		mov	dl, _page_front
 		mov	dh, 0
@@ -18285,7 +18285,7 @@ loc_17E50:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6E04h]
+		push	word ptr word_26C6C[bx]
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 4
@@ -18293,7 +18293,7 @@ loc_17E50:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6DE4h]
+		push	word ptr word_26C8C[bx]
 		mov	ax, si
 		and	ax, 3
 		add	ax, 89h
@@ -18327,7 +18327,7 @@ mima_17E91	proc near
 loc_17E9A:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6DC4h], 0
+		cmp	word ptr word_26CAC[bx], 0
 		jz	short loc_17F1C
 		mov	al, _page_back
 		mov	ah, 0
@@ -18336,7 +18336,7 @@ loc_17E9A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6DE4h], 0FFF0h
+		cmp	word ptr word_26C8C[bx], 0FFF0h
 		jle	short loc_17F1C
 		mov	al, _page_back
 		mov	ah, 0
@@ -18345,7 +18345,7 @@ loc_17E9A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6DE4h], 17Eh
+		cmp	word ptr word_26C8C[bx], 382
 		jge	short loc_17F1C
 		mov	al, _page_back
 		mov	ah, 0
@@ -18354,7 +18354,7 @@ loc_17E9A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6E04h]	; left
+		push	word ptr word_26C6C[bx]	; left
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 4
@@ -18362,16 +18362,16 @@ loc_17E9A:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6DE4h]	; top
+		push	word ptr word_26C8C[bx]	; top
 		push	(32 shl 16) or 32	; (w shl 16) or h
 		call	@tiles_invalidate_rect$qiiii
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6DC4h], 2
+		cmp	word ptr word_26CAC[bx], 2
 		jnz	short loc_17F1C
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 0
+		mov	word ptr word_26CAC[bx], 0
 
 loc_17F1C:
 		inc	si
@@ -18942,10 +18942,10 @@ loc_18451:
 		add	ax, dx
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DF4h], ax
+		mov	word_26C7C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6E04h], ax
+		mov	word_26C6C[bx], ax
 		movsx	eax, word_26CD0
 		mov	dl, [bp+@@angle]
 		mov	dh, 0
@@ -18959,13 +18959,13 @@ loc_18451:
 		add	ax, dx
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DD4h], ax
+		mov	word_26C9C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DE4h], ax
+		mov	word_26C8C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 1
+		mov	word ptr word_26CAC[bx], 1
 		inc	[bp+var_2]
 		mov	al, [bp+@@angle]
 		add	al, 40h
@@ -19005,7 +19005,7 @@ loc_184FB:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6E04h], ax
+		mov	word_26C6C[bx], ax
 		movsx	eax, word_26CD0
 		mov	dl, [bp+@@angle]
 		mov	dh, 0
@@ -19024,7 +19024,7 @@ loc_184FB:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6DE4h], ax
+		mov	word_26C8C[bx], ax
 		inc	[bp+var_2]
 		mov	al, [bp+@@angle]
 		add	al, 40h
@@ -19072,7 +19072,7 @@ loc_185EA:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6E04h]
+		mov	ax, word_26C6C[bx]
 		add	ax, 12
 		mov	si, ax
 		mov	al, _page_back
@@ -19082,7 +19082,7 @@ loc_185EA:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6DE4h]
+		mov	ax, word_26C8C[bx]
 		add	ax, 12
 		mov	di, ax
 		mov	[bp+@@speed], 0
@@ -19130,7 +19130,7 @@ loc_1867A:
 		jl	short loc_18661
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 2
+		mov	word ptr word_26CAC[bx], 2
 		inc	[bp+var_2]
 
 loc_18691:
@@ -19185,7 +19185,7 @@ loc_1870B:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6E04h]
+		mov	ax, word_26C6C[bx]
 		add	ax, 0Ch
 		mov	si, ax
 		mov	al, _page_back
@@ -19195,7 +19195,7 @@ loc_1870B:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6DE4h]
+		mov	ax, word_26C8C[bx]
 		add	ax, 0Ch
 		mov	di, ax
 		mov	[bp+@@speed], 0
@@ -19276,7 +19276,7 @@ loc_187DF:
 loc_187E6:
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 2
+		mov	word ptr word_26CAC[bx], 2
 		inc	[bp+var_2]
 
 loc_187F4:
@@ -19310,7 +19310,7 @@ loc_18811:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6E04h], ax
+		mov	word_26C6C[bx], ax
 		movsx	eax, word_26CD0
 		mov	dl, [bp+@@angle]
 		mov	dh, 0
@@ -19329,7 +19329,7 @@ loc_18811:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6DE4h], ax
+		mov	word_26C8C[bx], ax
 		inc	[bp+var_2]
 		mov	al, [bp+@@angle]
 		add	al, 40h
@@ -20056,10 +20056,10 @@ loc_18F32:
 		add	ax, dx
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DF4h], ax
+		mov	word_26C7C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6E04h], ax
+		mov	word_26C6C[bx], ax
 		movsx	eax, word_26CEA
 		mov	dl, [bp+@@angle]
 		mov	dh, 0
@@ -20073,13 +20073,13 @@ loc_18F32:
 		add	ax, dx
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DD4h], ax
+		mov	word_26C9C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6DE4h], ax
+		mov	word_26C8C[bx], ax
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 1
+		mov	word ptr word_26CAC[bx], 1
 		inc	[bp+var_2]
 		mov	al, [bp+@@angle]
 		add	al, 40h
@@ -20115,7 +20115,7 @@ loc_18FD3:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6E04h], ax
+		mov	word_26C6C[bx], ax
 		movsx	eax, word_26CEA
 		mov	dl, [bp+@@angle]
 		mov	dh, 0
@@ -20132,7 +20132,7 @@ loc_18FD3:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx-6DE4h], ax
+		mov	word_26C8C[bx], ax
 		mov	al, _rank
 		cbw
 		shl	ax, 4
@@ -20150,7 +20150,7 @@ loc_18FD3:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6E04h], 0
+		cmp	word ptr word_26C6C[bx], 0
 		jle	loc_19127
 		mov	al, _page_back
 		mov	ah, 0
@@ -20159,7 +20159,7 @@ loc_18FD3:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6E04h], 1A0h
+		cmp	word ptr word_26C6C[bx], 416
 		jge	loc_19127
 		mov	al, _page_back
 		mov	ah, 0
@@ -20168,7 +20168,7 @@ loc_18FD3:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6DE4h], 0
+		cmp	word ptr word_26C8C[bx], 0
 		jle	short loc_19127
 		mov	al, _page_back
 		mov	ah, 0
@@ -20177,7 +20177,7 @@ loc_18FD3:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		cmp	word ptr [bx-6DE4h], 190h
+		cmp	word ptr word_26C8C[bx], 400
 		jge	short loc_19127
 		cmp	byte_26CC0, 0
 		jnz	short loc_190E3
@@ -20203,7 +20203,7 @@ loc_190EF:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6E04h]	; left
+		push	word ptr word_26C6C[bx]	; left
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 4
@@ -20211,7 +20211,7 @@ loc_190EF:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6DE4h]	; top
+		push	word ptr word_26C8C[bx]	; top
 		push	word ptr [bp+var_3]	; angle
 		push	BG_1	; group
 		push	(8 shl 4)	; speed
@@ -20235,7 +20235,7 @@ loc_1912F:
 loc_19149:
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 0
+		mov	word ptr word_26CAC[bx], 0
 		inc	[bp+var_2]
 
 loc_19157:
@@ -21259,7 +21259,7 @@ mima_init	proc far
 loc_19C02:
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6DC4h], 0
+		mov	word ptr word_26CAC[bx], 0
 		inc	si
 
 loc_19C0D:
@@ -27471,7 +27471,16 @@ y_26C64	dw ?
 word_26C66	dw ?
 word_26C68	dw ?
 word_26C6A	dw ?
-		db 80 dup(?)
+
+; Five 8-entry word arrays, 16 bytes apart, which is the whole 80-byte run.
+; Extent from the `add bx, bx` scaling plus the 16-byte spacing the code's own
+; displacements imply. 26C6Ch and 26C8Ch are a left/top pair - the dump already
+; annotates the two pushes as `; left` and `; top`. [static]
+word_26C6C	dw 8 dup(?)
+word_26C7C	dw 8 dup(?)
+word_26C8C	dw 8 dup(?)
+word_26C9C	dw 8 dup(?)
+word_26CAC	dw 8 dup(?)
 word_26CBC	dw ?
 word_26CBE	dw ?
 byte_26CC0	db ?
