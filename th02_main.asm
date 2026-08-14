@@ -739,7 +739,7 @@ loc_B1BA:
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
 		jz	short loc_B1CA
-		nopcall	demo_load
+		nopcall	@demo_load$qv
 
 loc_B1CA:
 		call	sub_B2AB
@@ -1397,67 +1397,10 @@ bgm_show	endp
 
 EGC_START_COPY_DEF 1, near
 
-; =============== S U B	R O U T	I N E =======================================
-
-DEMO_N = 7000 ; ZUN symbol [MAGNet2010]
-
-; Attributes: bp-based frame
-public demo_load
-demo_load	proc far
-		push	bp
-		mov	bp, sp
-		call	hmem_allocbyte pascal, DEMO_N * 2
-		mov	word ptr _DemoBuf+2, ax
-		mov	word ptr _DemoBuf, 0
-		mov	_power, POWER_MAX
-		mov	_playperf, 12
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.frame], 12h
-		cmp	es:[bx+mikoconfig_t.demo_num], 1
-		jnz	short loc_C18A
-		mov	_stage_id, 3
-		push	ds
-		push	offset aDemo1_rec ; "DEMO1.REC"
-		call	file_ropen
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.shottype], 0
-		jmp	short loc_C1D0
-; ---------------------------------------------------------------------------
-
-loc_C18A:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 2
-		jnz	short loc_C1AE
-		mov	_stage_id, 2
-		push	ds
-		push	offset aDemo2_rec ; "DEMO2.REC"
-		call	file_ropen
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.shottype], 2
-		jmp	short loc_C1D0
-; ---------------------------------------------------------------------------
-
-loc_C1AE:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 3
-		jnz	short loc_C1D0
-		mov	_stage_id, 1
-		push	ds
-		push	offset aDemo3_rec ; "DEMO3.REC"
-		call	file_ropen
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.shottype], 1
-
-loc_C1D0:
-		call	file_read pascal, large [_DemoBuf], DEMO_N * 2
-		call	file_close
-		pop	bp
-		retf
-demo_load	endp
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
+	extern @demo_load$qv:proc
 DEMO_TEXT	ends
 
 main_01____TEXT	segment	byte public 'CODE' use16
@@ -25629,8 +25572,14 @@ aVV2		db 'ほんとに終了しちゃうの',0
 aVdvVVBbvVVVV	db 'うそです。すみません。',0
 aB@b@vVvbavtvVV	db '　　はい、やめます。　',0
 aEMPTY	db '                                                ',0
+public _aDemo1_rec
+_aDemo1_rec label byte
 aDemo1_rec	db 'DEMO1.REC',0
+public _aDemo2_rec
+_aDemo2_rec label byte
 aDemo2_rec	db 'DEMO2.REC',0
+public _aDemo3_rec
+_aDemo3_rec label byte
 aDemo3_rec	db 'DEMO3.REC',0
 include libs/master.lib/atan8[data].asm
 include libs/master.lib/bfnt_id[data].asm
