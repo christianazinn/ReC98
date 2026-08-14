@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -4519,45 +4519,20 @@ hud_dream_put	endp
 	@hud_graze_put$qv procdesc far
 HUD_GRZ_TEXT	ends
 
+; Harness carve (kb/codegen/0080): an empty anchor segment split out of the
+; head of `main__TEXT`, so that a C++ object can append `hud_power_put` at its
+; original address in the MIDDLE of the segment. Shape copied from
+; `CFG_LRES_TEXT`; same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+HUD_PWR_TEXT	segment	byte public 'CODE' use16
+	; hud_power_put() now lives in th04/main/hud/power.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
+	; and sub_11DE6's `nopcall`, with no call-site edits.
+	HUD_POWER_PUT procdesc pascal far
+HUD_PWR_TEXT	ends
+
 main__TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_POWER_PUT
-hud_power_put	proc far
-
-@@bar_colors	= byte ptr -(((SHOT_LEVEL_MAX + 1) / word) * word)
-
-		push	bp
-		mov	bp, sp
-		sub	sp, -@@bar_colors
-		push	si
-		push	di
-		mov	si, offset _HUD_POWER_COLORS
-		lea	di, [bp+@@bar_colors]
-		push	ss
-		pop	es
-		mov	cx, ((SHOT_LEVEL_MAX + 1) / word)
-		rep movsw
-		push	16h
-		mov	al, _power
-		mov	ah, 0
-		push	ax
-		mov	al, _shot_level
-		mov	ah, 0
-		lea	dx, [bp+@@bar_colors]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-		push	ax
-		nopcall	main_01:hud_bar_put
-		pop	di
-		pop	si
-		leave
-		retf
-hud_power_put	endp
 
 include th04/main/hud/element_put.asm
 include th04/main/hud/bar_put.asm

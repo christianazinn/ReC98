@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -4082,45 +4082,20 @@ hud_dream_put	endp
 	@hud_graze_put$qv procdesc far
 HUD_GRZ_TEXT	ends
 
+; Harness carve (kb/codegen/0080): an empty anchor segment split out of the
+; head of `main_0_TEXT`, so that a C++ object can append `hud_power_put` at its
+; original address in the MIDDLE of the segment. Shape copied from
+; `CFG_LRES_TEXT`; same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+HUD_PWR_TEXT	segment	byte public 'CODE' use16
+	; hud_power_put() now lives in th04/main/hud/power.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
+	; and sub_E4FC's `nopcall`, with no call-site edits.
+	HUD_POWER_PUT procdesc pascal far
+HUD_PWR_TEXT	ends
+
 main_0_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_POWER_PUT
-hud_power_put	proc far
-
-@@bar_colors	= byte ptr -(((SHOT_LEVEL_MAX + 1) / word) * word)
-
-		push	bp
-		mov	bp, sp
-		sub	sp, -@@bar_colors
-		push	si
-		push	di
-		mov	si, offset _HUD_POWER_COLORS
-		lea	di, [bp+@@bar_colors]
-		push	ss
-		pop	es
-		mov	cx, ((SHOT_LEVEL_MAX + 1) / word)
-		rep movsw
-		push	16h
-		mov	al, _power
-		mov	ah, 0
-		push	ax
-		mov	al, _shot_level
-		mov	ah, 0
-		lea	dx, [bp+@@bar_colors]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-		push	ax
-		call	hud_bar_put
-		pop	di
-		pop	si
-		leave
-		retf
-hud_power_put	endp
 
 include th04/main/hud/element_put.asm
 

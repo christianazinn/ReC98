@@ -5,6 +5,19 @@
 // Low-level
 // ---------
 
+// Renders a HUD bar at ([HUD_LEFT], [y]), filled according to [value] out of
+// BAR_MAX, in the given attribute. Assembly in both games, and `extern "C"`
+// because both spell the export as an undecorated, uppercased `HUD_BAR_PUT`.
+#if (GAME == 5)
+	extern "C" void pascal near hud_bar_put(
+		utram_y_t y, int value, tram_atrb2 atrb
+	);
+#else
+	extern "C" void pascal hud_bar_put(
+		utram_y_t y, int value, tram_atrb2 atrb
+	);
+#endif
+
 // Renders the "Enemy!!" caption and the HP bar, showing the given [bar_value]
 // between 0 and BAR_MAX.
 void pascal hud_hp_put(int bar_value);
