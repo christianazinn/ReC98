@@ -36,4 +36,6 @@ void pascal items_add(int type, screen_x_t left, screen_y_t top);
 // Spawns each of the items dropped when losing a life at the given position.
 void pascal near items_miss_add(screen_x_t left, screen_y_t top);
 
+void near items_invalidate(void);
+
 void near items_update_and_render(void);

@@ -107,4 +107,12 @@ extern int power_overflow;
 
 extern uint8_t shot_level;
 
+#if (GAME == 2)
+// Still ASM in TH02's root dump, which publishes it with __pascal name
+// decoration (`public @PLAYER_INVALIDATE$QV`).
+void pascal near player_invalidate(void);
+
+void near player_update_and_render(void);
+#else
 void near player_invalidate();
+#endif

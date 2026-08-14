@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, POINTNUM_TEXT, main_01__TEXT, ITEM_TEXT, HUD_TEXT, main_01___TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01____TEXT
+main_01 group main_01_TEXT, STAGE_TEXT, main_01__TEXT, POINTNUM_TEXT, main_01___TEXT, ITEM_TEXT, HUD_TEXT, main_01____TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_____TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -863,7 +863,7 @@ loc_B2F5:
 		les	bx, _resident
 		mov	al, es:[bx+mikoconfig_t.reduce_effects]
 		mov	_reduce_effects, al
-		setfarfp	farfp_1F4A4, sub_BCB1
+		setfarfp	farfp_1F4A4, @stage_loop$qv
 		cmp	es:[bx+mikoconfig_t.continues_used], 0
 		jz	short loc_B34C
 		cmp	es:[bx+mikoconfig_t.continues_used], 9
@@ -1333,6 +1333,8 @@ sub_B98E	endp
 
 ; Attributes: bp-based frame
 
+public _sub_B9E2
+_sub_B9E2 label near
 sub_B9E2	proc near
 
 var_1		= byte ptr -1
@@ -1541,289 +1543,15 @@ loc_BCAE:
 		retn
 sub_B9E2	endp
 
+main_01_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+STAGE_TEXT	segment	byte public 'CODE' use16
+	extern @stage_loop$qv:proc
+STAGE_TEXT	ends
 
-; Attributes: bp-based frame
-
-sub_BCB1	proc far
-
-var_8		= dword	ptr -8
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 8
-		push	si
-		mov	eax, dword_1DB82
-		mov	[bp+var_8], eax
-		jmp	loc_BF63
-; ---------------------------------------------------------------------------
-
-loc_BCC3:
-		call	_snd_se_update
-		call	farfp_1F498
-		call	bgm_show
-		mov	si, _scroll_line
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		lea	dx, [bp+var_8]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		mov	_scroll_line, ax
-		call	_boss_bg_render
-		cmp	_midboss_active, 0
-		jz	short loc_BCF9
-		call	_midboss_invalidate
-		mov	_midboss_active, al
-
-loc_BCF9:
-		call	farfp_26C3C
-		call	@player_invalidate$qv
-		call	@bullets_invalidate$qv
-		call	farfp_23A72
-		call	@items_invalidate$qv
-		call	@sparks_invalidate$qv
-		call	sub_E2D9
-		cmp	word_2034C, 0
-		jz	short loc_BD26
-		call	sub_16D9B
-		mov	word_2034C, 0
-
-loc_BD26:
-		call	@egc_start_copy_1$qv
-		call	farfp_1F4A0
-		call	@tiles_egc_render$qv
-		call	farfp_1F490
-		outw2	EGC_ACTIVEPLANEREG, 0FFF0h
-		outw2	EGC_MASKREG, 0FFFFh
-		graph_mode_change	1
-		graph_mode_egc	0
-		GRCG_OFF_VIA_MOV al
-		graph_mode_change	0
-		mov	ax, word_2034A
-		cmp	ax, word_20616
-		jnz	short loc_BD62
-		mov	_midboss_active, 1
-
-loc_BD62:
-		mov	byte_1E503, 0
-		mov	_scroll_line, si
-		cmp	_scroll_done, 0
-		jnz	short loc_BDA2
-		mov	al, _scroll_cycle
-		mov	ah, 0
-		mov	dl, _scroll_interval
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_BDA2
-		mov	al, _scroll_speed
-		mov	ah, 0
-		sub	_scroll_line, ax
-		cmp	_scroll_line, 0
-		jge	short loc_BD9C
-		add	_scroll_line, RES_Y
-
-loc_BD9C:
-		mov	al, _scroll_speed
-		mov	byte_1E503, al
-
-loc_BDA2:
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		lea	dx, [bp+var_8]
-		add	ax, dx
-		mov	dx, _scroll_line
-		mov	bx, ax
-		mov	ss:[bx], dx
-		call	@input_reset_sense$qv
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jz	short loc_BDCC
-		nopcall	DemoPlay
-
-loc_BDCC:
-		call	sub_F1D8
-		call	@bomb_update_and_render$qv
-		call	farfp_26C40
-		call	_boss_update
-		mov	_stage_progression, al
-		cmp	_midboss_active, 0
-		jz	short loc_BDE8
-		call	_midboss_update_and_render
-
-loc_BDE8:
-		call	@player_update_and_render$qv
-		call	@items_update_and_render$qv
-		call	farfp_23A76
-		call	@bullets_update_and_render$qv
-		call	@sparks_update_and_render$qv
-		test	byte ptr _key_det, INPUT_CANCEL
-		jz	short loc_BE0F
-		call	sub_B9E2
-		or	ax, ax
-		jz	short loc_BE0F
-		mov	_quit, 1
-
-loc_BE0F:
-		cmp	byte_1E503, 0
-		jz	loc_BEDC
-		mov	ax, _scroll_line
-		shl	ax, 5
-		mov	dx, _scroll_line
-		shl	dx, 3
-		add	ax, dx
-		mov	word_20348, ax
-		test	byte ptr _scroll_line, 7
-		jnz	short loc_BE3B
-		inc	word_2034A
-		mov	word_2034C, 1
-
-loc_BE3B:
-		call	@egc_start_copy_1$qv
-		mov	al, _scroll_speed
-		mov	ah, 0
-		call	@tiles_scroll_and_egc_render_both$qi pascal, ax
-		mov	_scroll_done, al
-		outw2	EGC_ACTIVEPLANEREG, 0FFF0h
-		outw2	EGC_MASKREG, 0FFFFh
-		graph_mode_change	1
-		graph_mode_egc	0
-		GRCG_OFF_VIA_MOV al
-		graph_mode_change	0
-		cmp	_scroll_done, 0
-		jz	short loc_BE77
-
-		; On this final frame of the stage, we already were one pixel past the
-		; end of the tile map. Pretend we didn't overshoot by just not running
-		; the GDC SCROLL command this frame, and fix up [scroll_line] so that
-		; all sprites blitted during the boss fight appear at their correct Y
-		; coordinate.
-		; ZUN bug: But we've just rendered a full frame of sprites *at* the
-		; wrong [scroll_line] :zunpet: As a result, these will appear one pixel
-		; higher than where they should be, since we skip the GDC SCROLL that
-		; would compensate for it.
-		inc	_scroll_line
-		jmp	short loc_BEE0
-; ---------------------------------------------------------------------------
-
-loc_BE77:
-		mov	ax, RES_Y
-		sub	ax, _scroll_line
-		mov	[bp+var_2], ax
-		mov	ax, word_20348
-		mov	[bp+var_4], ax
-		mov	cx, graph_VramZoom
-		mov	cl, 4
-
-loc_BE8D:
-		jmp	short $+2
-		in	al, 0A0h	; PIC 2	 same as 0020 for PIC 1
-		test	cl, al
-		jz	short loc_BE8D
-		mov	al, 70h	; 7 = SCROLL, 0 = starting regularly with the first parameter
-		out	0A2h, al
-		mov	ax, [bp+var_4]
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	al, ah
-		jmp	short $+2
-		jmp	short $+2
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	ax, [bp+var_2]
-		shl	ax, cl
-		or	ah, ch
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	al, ah
-		jmp	short $+2
-		jmp	short $+2
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	ax, 0
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	al, ah
-		jmp	short $+2
-		jmp	short $+2
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	ax, RES_Y
-		shl	ax, cl
-		or	ah, ch
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		mov	al, ah
-		jmp	short $+2
-		jmp	short $+2
-		out	0A0h, al	; PIC 2	 same as 0020 for PIC 1
-		cmp	_scroll_done, 0
-		jnz	short loc_BEE0
-
-loc_BEDC:
-		inc	_scroll_cycle
-
-loc_BEE0:
-		cmp	_slowdown_factor, 1
-		jnz	short loc_BEED
-		mov	vsync_Count1, 0
-
-loc_BEED:
-		mov	al, _slowdown_factor
-		mov	ah, 0
-		cmp	ax, vsync_Count1
-		ja	short loc_BEED
-		mov	vsync_Count1, 0
-		mov	al, _page_back
-		mov	_page_front, al
-		out	0A4h, al
-		xor	_page_back, 1
-		mov	al, _page_back
-		out	0A6h, al
-		call	farfp_1F494
-		les	bx, _resident
-		inc	es:[bx+mikoconfig_t.frame]
-		inc	_stage_frame
-		call	farfp_1F48C
-		or	ax, ax
-		jz	short loc_BF36
-		cmp	_quit, 0
-		jnz	short loc_BF36
-		mov	ax, 1
-		jmp	short loc_BF78
-; ---------------------------------------------------------------------------
-
-loc_BF36:
-		mov	eax, _stage_frame
-		mov	ebx, 1800
-		xor	edx, edx
-		div	ebx
-		cmp	edx, 1500
-		jnz	short loc_BF60
-		mov	al, _playperf_max
-		mov	ah, 0
-		cmp	ax, _playperf
-		jle	short loc_BF60
-		inc	_playperf
-		jmp	short $+2
-
-loc_BF60:
-		call	@score_update_and_render$qv
-
-loc_BF63:
-		cmp	_quit, 0
-		jz	loc_BCC3
-		nopcall	@score_delta_commit$qv
-		mov	_quit, 0
-		xor	ax, ax
-
-loc_BF78:
-		pop	si
-		leave
-		retf
-sub_BCB1	endp
+main_01__TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1950,6 +1678,8 @@ sub_C05D	endp
 
 ; Attributes: bp-based frame
 
+public _bgm_show
+_bgm_show label near
 bgm_show	proc near
 		push	bp
 		mov	bp, sp
@@ -2533,7 +2263,7 @@ var_2		= word ptr -2
 		leave
 		retn
 @player_invalidate$qv endp
-main_01_TEXT	ends
+main_01__TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_init_for_rank_and_rese$qv procdesc near
@@ -2541,7 +2271,7 @@ POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_update_and_render$qv procdesc near
 POINTNUM_TEXT	ends
 
-main_01__TEXT	segment	word public 'CODE' use16
+main_01___TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4282,7 +4012,7 @@ loc_D61D:
 		leave
 		retn
 @shots_update_and_render$qv endp
-main_01__TEXT	ends
+main_01___TEXT	ends
 
 ITEM_TEXT	segment	byte public 'CODE' use16
 	@items_init_and_reset$qv procdesc near
@@ -4307,7 +4037,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01___TEXT	segment	byte public 'CODE' use16
+main_01____TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4447,6 +4177,8 @@ player_bomb	endp
 
 ; Attributes: bp-based frame
 
+public _sub_E2D9
+_sub_E2D9 label near
 sub_E2D9	proc near
 
 @@angle		= byte ptr -5
@@ -5469,7 +5201,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01___TEXT	ends
+main_01____TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -5489,12 +5221,14 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01____TEXT	segment	byte public 'CODE' use16
+main_01_____TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+public _sub_F1D8
+_sub_F1D8 label near
 sub_F1D8	proc near
 		push	bp
 		mov	bp, sp
@@ -5807,7 +5541,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01____TEXT	ends
+main_01_____TEXT	ends
 
 ; ===========================================================================
 
@@ -16376,6 +16110,8 @@ sub_16C96	endp
 
 ; Attributes: bp-based frame
 
+public _sub_16D9B
+_sub_16D9B label far
 sub_16D9B	proc far
 
 var_4		= word ptr -4
@@ -26091,6 +25827,8 @@ off_1DB7A	dd aVdvVVBbvVVVV
 					; "うそです。すみません。"
 off_1DB7E	dd aB@b@vVvbavtvVV
 					; "　　はい、やめます。　"
+public _scroll_line_on_page_init
+_scroll_line_on_page_init label dword
 dword_1DB82	dd 0
 include th02/main/demo[data].asm
 aTH02_02	db '　 博麗　～Eastern Wind ',0
@@ -26214,6 +25952,8 @@ public _scroll_interval, _scroll_done
 _scroll_interval	db 4
 _scroll_done	db 0
 byte_1E502	db 0
+public _scroll_delta
+_scroll_delta label byte
 byte_1E503	db 0
 
 ; 6 words, indexed by `[si+1] * 2` for shots whose `[si+1]` is <= 5, then
@@ -26940,11 +26680,19 @@ public _midboss_update_and_render, _midboss_invalidate
 _midboss_update_and_render	dd ?
 _midboss_invalidate	dd ?
 include th02/main/boss/funcs[bss].asm
+public _stage_should_end, _stage_effect_update_and_render
+public _boss_activate_if_scroll_done, _stage_title_unput
+public _stage_effect_invalidate
+_stage_should_end label dword
 farfp_1F48C	dd ?
+_stage_effect_update_and_render label dword
 farfp_1F490	dd ?
+_boss_activate_if_scroll_done label dword
 farfp_1F494	dd ?
+_stage_title_unput label dword
 farfp_1F498	dd ?
 _boss_bg_render_func	dd ?
+_stage_effect_invalidate label dword
 farfp_1F4A0	dd ?
 farfp_1F4A4	dd ?
 include th02/main/demo[bss].asm
@@ -27021,8 +26769,12 @@ _scroll_speed	db ?
 _scroll_cycle	db ?
 _scroll_line	dw ?
 _scroll_unused	dw ?
+public _scroll_sad, _scroll_step, _scroll_step_advanced
+_scroll_sad label word
 word_20348	dw ?
+_scroll_step label word
 word_2034A	dw ?
+_scroll_step_advanced label word
 word_2034C	dw ?
 byte_2034E	db ?
 		db ?
@@ -27072,6 +26824,8 @@ byte_20610	db ?
 byte_20611	db ?
 public _stage_frame
 _stage_frame	dd ?
+public _midboss_scroll_step
+_midboss_scroll_step label word
 word_20616	dw ?
 include th02/hardware/pages[bss].asm
 public _midboss_active
@@ -27354,7 +27108,10 @@ byte_239DC	db 144 dup(?)
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
+public _farfp_23A72, _farfp_23A76
+_farfp_23A72 label dword
 farfp_23A72	dd ?
+_farfp_23A76 label dword
 farfp_23A76	dd ?
 public _dialog_text, _dialog_box_cur, _restore_tile_mode_none_at_post
 _dialog_text	db (64 * DIALOG_BOX_LINES * DIALOG_LINE_SIZE) dup(?)
@@ -27481,7 +27238,10 @@ byte_25976	db 4608 dup(?)
 dword_26B76	dd ?
 		db 192 dup(?)
 word_26C3A	dw ?
+public _enemies_invalidate, _enemies_update_and_render
+_enemies_invalidate label dword
 farfp_26C3C	dd ?
+_enemies_update_and_render label dword
 farfp_26C40	dd ?
 word_26C44	dw ?
 word_26C46	dw ?

@@ -4,10 +4,14 @@
 extern bool midboss_active;
 
 #if (GAME == 2)
+// The [scroll_step] at which the midboss is activated. Stage 5 disables its
+// midboss by setting this to an unreachable 0xFFFF.
+extern int midboss_scroll_step;
+
 // Returns the new value of [midboss_active].
 extern bool (*midboss_invalidate)(void);
 
-extern void (*midboss_update_and_render);
+extern void (*midboss_update_and_render)(void);
 
 #define MIDBOSS_DEC(stage) \
 	bool midboss##stage##_invalidate(void); \
