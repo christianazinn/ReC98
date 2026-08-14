@@ -1180,20 +1180,6 @@ static void replay_overlay_graph_fill(
 }
 
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#define T3_REPLAY_RES_TIMING_DEBUG_TARGET_INDEX 189
-#define T3_REPLAY_RES_TIMING_DEBUG_ELAPSED_INDEX 190
-#define T3_REPLAY_RES_TIMING_DEBUG_ELIGIBLE_INDEX 192
-#define T3_REPLAY_RES_TIMING_DEBUG_REASON_INDEX 193
-
-enum replay_timing_debug_reason_t {
-	RTDR_INACTIVE,
-	RTDR_NO_SAMPLE,
-	RTDR_DEFEAT,
-	RTDR_PAUSE,
-	RTDR_ON_TIME,
-	RTDR_SLOW,
-};
-
 static char __ss *replay_debug_u16_put(
 	char __ss *out, unsigned int value
 )
@@ -1247,46 +1233,6 @@ static char __ss *replay_debug_u32_put(
 	return out;
 }
 
-static void replay_timing_debug_set(
-	uint16_t elapsed, bool eligible, replay_timing_debug_reason_t reason
-)
-{
-	resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_TARGET_INDEX] = byte_23AF9;
-	resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_ELAPSED_INDEX + 0] = (
-		static_cast<uint8_t>(elapsed)
-	);
-	resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_ELAPSED_INDEX + 1] = (
-		static_cast<uint8_t>(elapsed >> 8)
-	);
-	resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_ELIGIBLE_INDEX] = eligible;
-	resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_REASON_INDEX] = reason;
-}
-
-static char __ss *replay_timing_debug_reason_put(
-	char __ss *out, uint8_t reason
-)
-{
-	if(reason == RTDR_NO_SAMPLE) {
-		*out++ = 'n'; *out++ = 'o'; *out++ = '-';
-		*out++ = 's'; *out++ = 'a'; *out++ = 'm'; *out++ = 'p'; *out++ = 'l';
-		*out++ = 'e';
-	} else if(reason == RTDR_DEFEAT) {
-		*out++ = 'd'; *out++ = 'e'; *out++ = 'f'; *out++ = 'e';
-		*out++ = 'a'; *out++ = 't';
-	} else if(reason == RTDR_PAUSE) {
-		*out++ = 'p'; *out++ = 'a'; *out++ = 'u'; *out++ = 's'; *out++ = 'e';
-	} else if(reason == RTDR_ON_TIME) {
-		*out++ = 'o'; *out++ = 'n'; *out++ = '-';
-		*out++ = 't'; *out++ = 'i'; *out++ = 'm'; *out++ = 'e';
-	} else if(reason == RTDR_SLOW) {
-		*out++ = 's'; *out++ = 'l'; *out++ = 'o'; *out++ = 'w';
-	} else {
-		*out++ = 'i'; *out++ = 'n'; *out++ = 'a'; *out++ = 'c';
-		*out++ = 't'; *out++ = 'i'; *out++ = 'v'; *out++ = 'e';
-	}
-	return out;
-}
-
 static void replay_debug_overlay_put(void)
 {
 	enum {
@@ -1298,7 +1244,6 @@ static void replay_debug_overlay_put(void)
 		PIXEL_BOTTOM = ((GLYPH_HALF_H * 2) - 1),
 	};
 	char line[58];
-	char timing_line[55];
 	char __ss *out = line;
 
 	*out++ = 'r';
@@ -1344,38 +1289,6 @@ static void replay_debug_overlay_put(void)
 		PIXEL_LEFT, 0, PIXEL_RIGHT, PIXEL_BOTTOM, V_WHITE, 2
 	);
 	text_putsa(TRAM_LEFT, 0, line, (TX_BLACK | TX_REVERSE));
-
-	out = timing_line;
-	*out++ = 't'; *out++ = 'a'; *out++ = 'r'; *out++ = 'g'; *out++ = 'e';
-	*out++ = 't'; *out++ = ' ';
-	out = replay_debug_u16_put(
-		out, static_cast<uint8_t>(
-			resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_TARGET_INDEX]
-		)
-	);
-	*out++ = ' '; *out++ = 'e'; *out++ = 'l'; *out++ = 'a'; *out++ = 'p';
-	*out++ = 's'; *out++ = 'e'; *out++ = 'd'; *out++ = ' ';
-	out = replay_debug_u16_put(out, static_cast<uint16_t>(
-		static_cast<uint8_t>(resident->unused_3[
-			T3_REPLAY_RES_TIMING_DEBUG_ELAPSED_INDEX + 0
-		]) |
-		(
-			static_cast<uint16_t>(static_cast<uint8_t>(resident->unused_3[
-				T3_REPLAY_RES_TIMING_DEBUG_ELAPSED_INDEX + 1
-			])) << 8
-		)
-	));
-	*out++ = ' '; *out++ = 'e'; *out++ = 'l'; *out++ = 'i'; *out++ = 'g';
-	*out++ = 'i'; *out++ = 'b'; *out++ = 'l'; *out++ = 'e'; *out++ = ' ';
-	*out++ = static_cast<char>('0' + static_cast<uint8_t>(resident->unused_3[
-		T3_REPLAY_RES_TIMING_DEBUG_ELIGIBLE_INDEX
-	]));
-	*out++ = ' ';
-	out = replay_timing_debug_reason_put(out, static_cast<uint8_t>(
-		resident->unused_3[T3_REPLAY_RES_TIMING_DEBUG_REASON_INDEX]
-	));
-	*out = '\0';
-	text_putsa(TRAM_LEFT, 1, timing_line, (TX_BLACK | TX_REVERSE));
 }
 #endif
 
@@ -1384,9 +1297,6 @@ static void replay_slowdown_frame_sample(void)
 	uint8_t flags = replay_timing_flags();
 	uint16_t elapsed = vsync_Count1;
 	bool eligible = true;
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-	replay_timing_debug_reason_t reason = RTDR_ON_TIME;
-#endif
 
 	if(flags & T3_REPLAY_TIMING_BASELINE_PENDING) {
 		elapsed = static_cast<uint16_t>(elapsed - replay_timing_baseline());
@@ -1394,35 +1304,17 @@ static void replay_slowdown_frame_sample(void)
 	}
 	if(replay_mode != REPLAY_USER_RECORD) {
 		eligible = false;
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-		reason = RTDR_INACTIVE;
-#endif
 	} else if(!(flags & T3_REPLAY_TIMING_SAMPLE_PENDING)) {
 		eligible = false;
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-		reason = RTDR_NO_SAMPLE;
-#endif
 	} else if(defeat_flag != DF_NONE) {
 		eligible = false;
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-		reason = RTDR_DEFEAT;
-#endif
 	} else if(flags & T3_REPLAY_TIMING_PAUSE_OPENED) {
 		eligible = false;
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-		reason = RTDR_PAUSE;
-#endif
 	}
 	flags &= static_cast<uint8_t>(~(
 		T3_REPLAY_TIMING_SAMPLE_PENDING | T3_REPLAY_TIMING_PAUSE_OPENED
 	));
 	replay_timing_flags_set(flags);
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-	if(eligible && (elapsed >= byte_23AF9)) {
-		reason = RTDR_SLOW;
-	}
-	replay_timing_debug_set(elapsed, eligible, reason);
-#endif
 	if(!eligible) {
 		return;
 	}
@@ -4888,9 +4780,6 @@ void far replay_session_start(void)
 	resident->unused_3[T3_REPLAY_RES_PAUSE_CANCEL_LATCH_INDEX] = false;
 	replay_timing_flags_set(0);
 	replay_timing_baseline_set(0);
-#if defined(TH03_REPLAY_DEV_OVERLAY)
-	replay_timing_debug_set(0, false, RTDR_INACTIVE);
-#endif
 	resident->unused_3[T3_REPLAY_RES_GUARD_FRESH_INDEX] = 0;
 	resident->input_charge = 0;
 	replay_done_written = false;
