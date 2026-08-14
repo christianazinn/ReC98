@@ -901,6 +901,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/dialog.cpp",
 	"th04/boss_exp.cpp",
 	"th04/stages.cpp",
+	"th04/hud_pnt.cpp",
 	"th04/player_m.cpp",
 	"th04/player_p.cpp",
 	"th04/scoreupd.asm",
