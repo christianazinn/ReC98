@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -3997,65 +3997,24 @@ sub_104BB	endp
 	HUD_POINT_ITEMS_PUT procdesc pascal far
 HUD_PNT_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original `main_0_TEXT`
-; contribution, renamed so that a C++ object can append `hud_graze_put`
-; at its original address in the MIDDLE of the segment. Same
-; `byte public 'CODE'` alignment as before, so nothing moves.
+; Harness carve (kb/codegen/0080): an empty anchor segment split out of the
+; head of the original `main_0_TEXT` contribution, so that a C++ object can
+; append `hud_dream_put` at its original address in the MIDDLE of the
+; segment. Shape copied from `CFG_LRES_TEXT`; same `byte public 'CODE'`
+; alignment as before, so nothing moves.
+HUD_DRM_TEXT	segment	byte public 'CODE' use16
+	; hud_dream_put() now lives in th04/main/hud/dream.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what reproduces BOTH hud_put()'s same-group near call
+	; and the main_03 far calls from the item and bonus code.
+	HUD_DREAM_PUT procdesc pascal far
+HUD_DRM_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of the head of the original
+; `main_0_TEXT` contribution once hud_dream_put() moved out of it, i.e. an
+; empty anchor segment for hud_graze_put(). Same `byte public 'CODE'`
+; alignment as before, so nothing moves.
 HUD_GRZ_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_DREAM_PUT
-hud_dream_put	proc far
-
-@@bar_colors		= byte ptr -(((HUD_DREAM_COLOR_COUNT + 1) / word) * word)
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 0Ah
-		mov	ax, word ptr _HUD_DREAM_COLORS + 0
-		mov	word ptr [bp+@@bar_colors + 0], ax
-		mov	ax, word ptr _HUD_DREAM_COLORS + 2
-		mov	word ptr [bp+@@bar_colors + 2], ax
-		mov	ax, word ptr _HUD_DREAM_COLORS + 4
-		mov	word ptr [bp+@@bar_colors + 4], ax
-		mov	ax, word ptr _HUD_DREAM_COLORS + 6
-		mov	word ptr [bp+@@bar_colors + 6], ax
-		mov	al, _HUD_DREAM_COLORS + 8
-		mov	[bp+@@bar_colors + 8], al
-		cmp	byte_22720, 7Fh
-		ja	short loc_105E6
-		cmp	_dream, 128
-		jb	short loc_105E6
-		mov	_overlay_popup_id_new, POPUP_ID_DREAMBONUS_MAX
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_105E6
-		mov	_bullet_clear_time, 20
-
-loc_105E6:
-		mov	al, _dream
-		mov	byte_22720, al
-		push	14h
-		mov	ah, 0
-		push	ax
-		mov	al, _dream
-		mov	ah, 0
-		mov	bx, (BAR_MAX / (HUD_DREAM_COLOR_COUNT - 1))
-		cwd
-		idiv	bx
-		lea	dx, [bp+@@bar_colors]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-		push	ax
-		call	hud_bar_put
-		leave
-		retf
-hud_dream_put	endp
-
 	; hud_graze_put() now lives in th04/main/hud/graze.cpp, which appends to
 	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
 	; 0082): that is what keeps TASM lowering hud_put()'s same-group far call
@@ -19655,7 +19614,6 @@ include th04/main/playfld[data].asm
 include th04/score[data].asm
 include th04/gaiji/hud[data].asm
 gsRUIKEI	db 0EDh, 0EEh, 0, 0, 0
-byte_22720	db 0
 include th05/main/hud/dream[data].asm
 include th02/main/hud/power[data].asm
 include th04/main/hud/hp[data].asm

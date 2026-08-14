@@ -44,6 +44,15 @@ extern unsigned char item_playperf_lower;
 
 #if GAME == 5
 extern unsigned int item_point_score_at_full_dream;
+
+// The "dream" meter shown in the HUD, raised by collecting point items and
+// capped at BAR_MAX. Every point item collected at BAR_MAX is worth
+// [item_point_score_at_full_dream].
+extern unsigned char dream;
+#else
+// The point value of a single point item, raised by collecting point items
+// without missing. The HUD shows this ×10.
+extern unsigned int dream_score;
 #endif
 
 // Items dropped when losing a life
