@@ -45,6 +45,9 @@
 #include "th01/shiftjis/entrance.hpp"
 #include "th01/shiftjis/fns.hpp"
 #include "th01/shiftjis/scoredat.hpp"
+#ifdef T1CASE
+#include "th01/t1case.hpp"
+#endif
 
 // Random state that mostly doesn't belong here
 // --------------------------------------------
@@ -177,17 +180,35 @@ void input_sense(bool16 reset_repeat)
 		input_bomb = 0;
 		return;
 	}
+	// ORACLE-TH01 (mod branch only): advance the case cursor by exactly one
+	// record and latch this pass's seven key group bytes. Deliberately placed
+	// AFTER the `reset_repeat` early return above — input_sense(true) issues
+	// no key_sense() call at all, so it must not consume a record.
+	//
+	// This, not [frame_rand], is the stream's cursor. [frame_rand] is
+	// incremented only by the main gameplay loop (:803), while the
+	// wait-for-shot loop (:781-791), both pause menus, the continue menu, the
+	// stage/scene bonus release-waits and SinGyoku's route select all call
+	// input_sense() without touching it.
+	//
+	// [input_prev] is handed over because it is a function-local static and is
+	// otherwise unreachable; hashing it is the only way to prove the injector
+	// did not desynchronize the edge detector.
+#ifdef T1CASE
+	t1case_frame_io(input_prev);
+#endif
+
 	#define bomb_doubletap_shot input_prev[12]
 	#define bomb_doubletap_strike input_prev[13]
 
-	group_1 = key_sense(7);
-	group_2 = key_sense(5);
-	group_3 = key_sense(8);
-	group_4 = key_sense(9);
-	group_1 |= key_sense(7);
-	group_2 |= key_sense(5);
-	group_3 |= key_sense(8);
-	group_4 |= key_sense(9);
+	group_1 = input_key_sense(7);
+	group_2 = input_key_sense(5);
+	group_3 = input_key_sense(8);
+	group_4 = input_key_sense(9);
+	group_1 |= input_key_sense(7);
+	group_2 |= input_key_sense(5);
+	group_3 |= input_key_sense(8);
+	group_4 |= input_key_sense(9);
 
 	input_onchange_bool_2(0, 8,
 		input_up, (group_1 & K7_ARROW_UP), (group_3 & K8_NUM_8)
@@ -226,8 +247,8 @@ void input_sense(bool16 reset_repeat)
 	}
 
 	if(mode_test == true) {
-		group_1 = key_sense(6);
-		group_1 |= key_sense(6);
+		group_1 = input_key_sense(6);
+		group_1 |= input_key_sense(6);
 
 		// ZUN bug: debug_mem() itself renders a sub-screen in a blocking way,
 		// and senses input after a 3-frame delay, thus recursing back into
@@ -469,6 +490,15 @@ int main(void)
 		error_resident_invalid();
 		return 1;
 	}
+	// ORACLE-TH01 (mod branch only): pre-init. Writes the case's startup block
+	// into resident_t BEFORE the game's own initialization reads it, creating
+	// the structure when this process is the case's first — which is what lets
+	// an oracle run start REIIDEN directly instead of traversing OP's menu.
+	// Everything after this point, including resident_stuff_get() and
+	// irand_init(), runs completely unmodified.
+#ifdef T1CASE
+	t1case_session_start();
+#endif
 	if(resident_stuff_get(
 		rank,
 		bgm_mode,
@@ -794,6 +824,11 @@ int main(void)
 			input_shot = false;
 			timer_initialized = true;
 			irand_init(frame_rand);
+#ifdef T1CASE
+			// TXSPLIT_CONTRACT.md §3: TH01's `round_start` boundary is
+			// immediately after irand_init(frame_rand).
+			t1case_round_start();
+#endif
 			bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
 			first_stage_in_scene = false;
 			pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
@@ -889,6 +924,11 @@ int main(void)
 						resident->score_highest = score;
 					}
 					frame_delay(120);
+#ifdef T1CASE
+					// END.EXE carries no injector, so this is terminal for
+					// T1CASE version 1.
+					t1case_finish(true);
+#endif
 					game_switch_binary();
 					execl(BINARY_END, BINARY_END, nullptr);
 				}
@@ -954,6 +994,14 @@ int main(void)
 				resident->route = route;
 				mdrv2_bgm_fade_out_nonblock();
 				resident->rem_bombs = rem_bombs;
+#ifdef T1CASE
+				// REIIDEN re-execs itself on both entering and leaving every
+				// boss. This is the ordinary process handoff: the case cursor,
+				// the trace row count and the payload checksum all survive in
+				// the T1CaseState resident block, and both the case file and
+				// the trace file are simply reopened by the next process.
+				t1case_finish(false);
+#endif
 				game_switch_binary();
 				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 			}
@@ -995,6 +1043,12 @@ int main(void)
 	continue_menu();
 
 op:
+#ifdef T1CASE
+	// OP.EXE reads the keyboard through `int86(0x18, ah=0x04)` and
+	// key_sense_bios(), not key_sense(), so the injector cannot follow the case
+	// there. Returning to OP is terminal for T1CASE version 1.
+	t1case_finish(true);
+#endif
 	graphics_free_redundant_and_incomplete();
 	boss_free();
 	game_switch_binary();

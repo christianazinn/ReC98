@@ -85,11 +85,24 @@ inline void input_reset_menu_related(void) {
 		cur_sensed_1, cur_sensed_2, input_func_flag(var, flag) \
 	)
 
+// ORACLE-TH01 (mod branch only): the replay injector's seam. Redirecting the
+// call site rather than replacing master.lib's `_key_sense` symbol keeps
+// th01_reiiden.asm — an original segment contribution — untouched, and lets
+// ZUN's edge-detection logic, [input_prev] and the [input_bomb] double-tap
+// derivation run completely unmodified. REIIDEN.EXE only; FUUIN keeps the
+// stock routine.
+#if defined(T1CASE) && (BINARY == 'M')
+	int far t1case_key_sense(int keygroup);
+	#define input_key_sense(group) t1case_key_sense(group)
+#else
+	#define input_key_sense(group) key_sense(group)
+#endif
+
 #define input_pause_ok_sense(prev_slot_esc, prev_slot_ok, group0, group3) \
-	group0 = key_sense(0); \
-	group3 = key_sense(3); \
-	group0 |= key_sense(0); \
-	group3 |= key_sense(3); \
+	group0 = input_key_sense(0); \
+	group3 = input_key_sense(3); \
+	group0 |= input_key_sense(0); \
+	group3 |= input_key_sense(3); \
 	input_onchange(prev_slot_esc, (group0 & K0_ESC), { \
 		paused = (1 - paused); \
 	}) \

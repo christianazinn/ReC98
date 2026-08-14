@@ -375,7 +375,10 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/mdrv2.cpp",
 	"th01/pf.cpp",
 })
-th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
+-- ORACLE-TH01 (mod branch harness/ORACLE-TH01-MASTER): REIIDEN.EXE carries the
+-- T1CASE oracle recorder/player and the T1SPLIT trace writer. This branch is
+-- intentionally NOT byte-identical and must never be merged into harness/main.
+th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1CASE" }):link("reiiden", {
 	piloadc,
 	"th01/main_01.cpp",
 	"th01/frmdelay.cpp",
@@ -430,6 +433,10 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	} },
 	"th01/main_37.cpp",
 	{ "th01/main_38.cpp", extra_inputs = th01_sprites["pellet"] },
+
+	-- Must stay LAST: OMF concatenates same-named segments in link order, so a
+	-- module placed here grows _BSS at its end and moves no original offset.
+	"th01/t1case.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

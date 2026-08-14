@@ -230,6 +230,19 @@ public:
 
 	void unput_and_reset_nonclouds(void);
 	void reset_nonclouds(void);
+
+#ifdef T1CASE
+	// ORACLE-TH01 (mod branch only): read-only access for the T1SPLIT bullet
+	// subsystem hash. The hash serializes individual gameplay fields in a
+	// declared order; it never hashes this struct, its padding, or memory.
+	const Pellet* t1case_slot(int i) const {
+		return &pellets[i];
+	}
+
+	int t1case_alive_count(void) const {
+		return alive_count_excluding_cloud_pellets_after_reset;
+	}
+#endif
 };
 
 /// Globals
