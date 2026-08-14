@@ -2701,7 +2701,7 @@ var_2		= word ptr -2
 loc_CB53:
 		mov	bx, word_205E2
 		shl	bx, 4
-		cmp	byte ptr [bx+2908h], 0
+		cmp	byte_20378[bx], 0
 		jnz	loc_CD00
 		mov	al, _shot_level
 		mov	ah, 0
@@ -2713,7 +2713,7 @@ loc_CB53:
 
 loc_CB78:
 		push	8
-		push	0C0h
+		push	192
 		call	sub_CA62
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -2722,7 +2722,7 @@ loc_CB83:
 		push	8
 		push	3
 		call	@randring1_next8_and$quc
-		add	al, 0BEh
+		add	al, 190
 		push	ax
 		call	sub_CA62
 		jmp	loc_CCFB
@@ -2737,7 +2737,7 @@ loc_CB9D:
 		push	[bp+var_2]
 		push	7
 		call	@randring1_next8_and$quc
-		add	al, 0BCh
+		add	al, 188
 		push	ax
 
 loc_CBA8:
@@ -2753,7 +2753,7 @@ loc_CBB1:
 
 loc_CBBB:
 		push	[bp+var_2]
-		push	0C0h
+		push	192
 		jmp	short loc_CBA8
 ; ---------------------------------------------------------------------------
 
@@ -2764,7 +2764,7 @@ loc_CBC8:
 		or	si, si
 		jnz	short loc_CBD3
 		push	8
-		push	0C0h
+		push	192
 		jmp	short loc_CBE9
 ; ---------------------------------------------------------------------------
 
@@ -2772,7 +2772,7 @@ loc_CBD3:
 		cmp	si, 1
 		jnz	short loc_CBE1
 		push	8
-		mov	al, 0BBh
+		mov	al, 187
 		sub	al, byte ptr [bp+var_2]
 		jmp	short loc_CBE8
 ; ---------------------------------------------------------------------------
@@ -2780,7 +2780,7 @@ loc_CBD3:
 loc_CBE1:
 		push	8
 		mov	al, byte ptr [bp+var_2]
-		add	al, 0C5h
+		add	al, 197
 
 loc_CBE8:
 		push	ax
@@ -2795,7 +2795,7 @@ loc_CBF2:
 		or	si, si
 		jnz	short loc_CBFD
 		push	0
-		push	0C0h
+		push	192
 		jmp	short loc_CC19
 ; ---------------------------------------------------------------------------
 
@@ -2803,7 +2803,7 @@ loc_CBFD:
 		cmp	si, 1
 		jnz	short loc_CC09
 		push	10h
-		push	0C0h
+		push	192
 		jmp	short loc_CC19
 ; ---------------------------------------------------------------------------
 
@@ -2811,7 +2811,7 @@ loc_CC09:
 		push	1Fh
 		call	@randring1_next8_and$quc
 		mov	ah, 0
-		add	ax, 0B1h
+		add	ax, 177
 		mov	[bp+var_2], ax
 		push	8
 		push	ax
@@ -2826,7 +2826,7 @@ loc_CC22:
 		or	si, si
 		jnz	short loc_CC2D
 		push	0
-		push	0C0h
+		push	192
 		jmp	short loc_CC4A
 ; ---------------------------------------------------------------------------
 
@@ -2834,7 +2834,7 @@ loc_CC2D:
 		cmp	si, 1
 		jnz	short loc_CC39
 		push	10h
-		push	0C0h
+		push	192
 		jmp	short loc_CC4A
 ; ---------------------------------------------------------------------------
 
@@ -2842,13 +2842,13 @@ loc_CC39:
 		cmp	si, 2
 		jnz	short loc_CC45
 		push	8
-		push	0B8h
+		push	184
 		jmp	short loc_CC4A
 ; ---------------------------------------------------------------------------
 
 loc_CC45:
 		push	8
-		push	0C8h
+		push	200
 
 loc_CC4A:
 		call	sub_CA62
@@ -2859,33 +2859,33 @@ loc_CC4A:
 loc_CC53:
 		or	si, si
 		jnz	short loc_CC5E
-		mov	[bp+var_2], 0C0h
+		mov	[bp+var_2], 192
 		jmp	short loc_CC87
 ; ---------------------------------------------------------------------------
 
 loc_CC5E:
 		cmp	si, 1
 		jnz	short loc_CC6A
-		mov	[bp+var_2], 0B8h
+		mov	[bp+var_2], 184
 		jmp	short loc_CC87
 ; ---------------------------------------------------------------------------
 
 loc_CC6A:
 		cmp	si, 2
 		jnz	short loc_CC76
-		mov	[bp+var_2], 0C8h
+		mov	[bp+var_2], 200
 		jmp	short loc_CC87
 ; ---------------------------------------------------------------------------
 
 loc_CC76:
 		cmp	si, 3
 		jnz	short loc_CC82
-		mov	[bp+var_2], 0B0h ; '°'
+		mov	[bp+var_2], 176
 		jmp	short loc_CC87
 ; ---------------------------------------------------------------------------
 
 loc_CC82:
-		mov	[bp+var_2], 0D0h
+		mov	[bp+var_2], 208
 
 loc_CC87:
 		push	8
@@ -2899,7 +2899,7 @@ loc_CC94:
 		or	si, si
 		jnz	short loc_CC9F
 		push	0
-		push	0C0h
+		push	192
 		jmp	short loc_CCF5
 ; ---------------------------------------------------------------------------
 
@@ -2907,7 +2907,7 @@ loc_CC9F:
 		cmp	si, 1
 		jnz	short loc_CCAB
 		push	10h
-		push	0C0h
+		push	192
 		jmp	short loc_CCF5
 ; ---------------------------------------------------------------------------
 
@@ -2915,7 +2915,7 @@ loc_CCAB:
 		cmp	si, 2
 		jnz	short loc_CCBE
 		mov	byte_1E519, 34h	; '4'
-		mov	[bp+var_2], 0B3h
+		mov	[bp+var_2], 179
 		push	8
 		jmp	short loc_CCF2
 ; ---------------------------------------------------------------------------
@@ -2923,7 +2923,7 @@ loc_CCAB:
 loc_CCBE:
 		cmp	si, 3
 		jnz	short loc_CCCC
-		mov	[bp+var_2], 0CDh
+		mov	[bp+var_2], 205
 		push	8
 		jmp	short loc_CCF2
 ; ---------------------------------------------------------------------------
@@ -2934,7 +2934,7 @@ loc_CCCC:
 		mov	byte_1E519, 36h	; '6'
 		mov	al, byte_20610
 		cbw
-		mov	dx, 0C0h
+		mov	dx, 192
 		sub	dx, ax
 		mov	[bp+var_2], dx
 		push	0FFE8h
@@ -2944,7 +2944,7 @@ loc_CCCC:
 loc_CCE6:
 		mov	al, byte_20610
 		cbw
-		add	ax, 0C0h
+		add	ax, 192
 		mov	[bp+var_2], ax
 		push	28h ; '('
 
