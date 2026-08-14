@@ -1043,8 +1043,10 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 // required recorded field that the game's own demo path never pins, and a
 // corpus is only useful if the difficulty it was taken at is chosen rather
 // than inherited from whatever the resident structure happened to hold.
+#if ORACLE_RECORD_SUPPORTED
 static uint8_t oracle_cfg_demo_num;
 static uint8_t oracle_cfg_rank;
+#endif
 
 static oracle_mode_t oracle_cfg_mode(void)
 {
@@ -1098,6 +1100,13 @@ static oracle_mode_t oracle_cfg_mode(void)
 	if((mode != 'r') && (mode != 'R')) {
 		return ORACLE_DISABLED;
 	}
+#if !ORACLE_RECORD_SUPPORTED
+	// A record request reaching a playback-only lineage is a harness mistake,
+	// not a case to improvise around: staying DISABLED here would leave no
+	// artifact and look like a crashed run. Fail loudly instead.
+	oracle_done_write(ORT_ERR_UNSUPPORTED);
+	return ORACLE_ERROR;
+#else
 	oracle_cfg_demo_num = 1;
 	oracle_cfg_rank = 1;
 	if(
@@ -1113,6 +1122,7 @@ static oracle_mode_t oracle_cfg_mode(void)
 		oracle_cfg_rank = static_cast<uint8_t>(cfg[first + 2] - '0');
 	}
 	return ORACLE_RECORD;
+#endif /* ORACLE_RECORD_SUPPORTED */
 }
 
 static void oracle_header_checksum_set(void)
@@ -1127,6 +1137,7 @@ static void oracle_header_checksum_set(void)
 	oracle_header.header_checksum = hash;
 }
 
+#if ORACLE_RECORD_SUPPORTED
 // Rewrites the header/startup prefix. Called once at record start and again at
 // every checkpoint, so an interrupted recording still describes exactly the
 // samples it actually committed.
@@ -1170,6 +1181,7 @@ static bool oracle_header_write(bool create)
 	oracle_dos_close(fh);
 	return true;
 }
+#endif /* ORACLE_RECORD_SUPPORTED */
 
 static bool oracle_header_read(void)
 {
@@ -1261,6 +1273,7 @@ static bool oracle_header_read(void)
 	return (stored == computed);
 }
 
+#if ORACLE_RECORD_SUPPORTED
 // Writes the buffered records at their payload offset and empties the buffer.
 static bool oracle_recbuf_flush(void)
 {
@@ -1317,6 +1330,7 @@ static bool oracle_record_append(const oracle_record_t far *rec)
 	oracle_record_count++;
 	return true;
 }
+#endif /* ORACLE_RECORD_SUPPORTED */
 
 // Sequential read-ahead. The payload checksum is accumulated in file order,
 // exactly once per record, so it matches the writer's.
@@ -1371,6 +1385,7 @@ static bool oracle_record_fetch(uint32_t index, oracle_record_t far *rec)
 /// Startup block
 /// -------------
 
+#if ORACLE_RECORD_SUPPORTED
 static void oracle_startup_capture(void)
 {
 	int i;
@@ -1445,6 +1460,7 @@ static void oracle_startup_capture(void)
 	oracle_startup.debug = resident->debug;
 #endif
 }
+#endif /* ORACLE_RECORD_SUPPORTED */
 
 // Pre-init write. Runs as the first statement of `demo_load()`, i.e. after the
 // game has committed to the demo path but before it derives the buffer size and
@@ -1572,6 +1588,7 @@ static void oracle_session_start(void)
 	}
 	oracle_started = true;
 
+#if ORACLE_RECORD_SUPPORTED
 	if(oracle_mode == ORACLE_RECORD) {
 		// The contract's `random_seed` is the value immediately before the
 		// case's first `randring_fill()`, i.e. 318 on the demo path. Recapture
@@ -1587,7 +1604,9 @@ static void oracle_session_start(void)
 			oracle_done_write(ORT_ERR_CASE_CREATE);
 			return;
 		}
-	} else if(!oracle_startup_verify()) {
+	} else
+#endif
+	if(!oracle_startup_verify()) {
 		oracle_split_write_header();
 		oracle_split_row(ORACLE_EVENT_ERROR, 0);
 		oracle_mode = ORACLE_ERROR;
@@ -1603,13 +1622,16 @@ static void oracle_session_start(void)
 
 static void oracle_finish(oracle_text_id_t status)
 {
+#if ORACLE_RECORD_SUPPORTED
 	oracle_record_t rec;
+#endif
 
 	if(oracle_finished) {
 		return;
 	}
 	oracle_finished = true;
 
+#if ORACLE_RECORD_SUPPORTED
 	if(oracle_mode == ORACLE_RECORD) {
 		oracle_memclear(&rec, sizeof(rec));
 		rec.kind = ORACLE_RECORD_CONTROL;
@@ -1628,6 +1650,7 @@ static void oracle_finish(oracle_text_id_t status)
 			return;
 		}
 	}
+#endif /* ORACLE_RECORD_SUPPORTED */
 	oracle_split_row(ORACLE_EVENT_FINISH, 0);
 	oracle_diag('F', 'I', 'N', oracle_global_frame, oracle_record_count);
 	oracle_done_write(status);
@@ -1645,6 +1668,7 @@ static void oracle_finish(oracle_text_id_t status)
 // Only the fields those functions actually write are written here. Everything
 // else is left exactly as RES_HUMA.COM / RES_KSO.COM initialized it, and is
 // captured verbatim into the startup block.
+#if ORACLE_RECORD_SUPPORTED
 static void oracle_scenario_pin(uint8_t demo_num, uint8_t rank_value)
 {
 	resident->stage = 0;
@@ -1674,6 +1698,7 @@ static void oracle_scenario_pin(uint8_t demo_num, uint8_t rank_value)
 	resident->stage_ascii = ('0' + resident->demo_stage);
 #endif
 }
+#endif /* ORACLE_RECORD_SUPPORTED */
 
 void oracle_entry(void)
 {
@@ -1685,6 +1710,19 @@ void oracle_entry(void)
 	if(oracle_mode == ORACLE_DISABLED) {
 		return;
 	}
+#if !ORACLE_RECORD_SUPPORTED
+	// Only a playback-only build can get here in ORACLE_ERROR: that is the
+	// mode `oracle_cfg_mode()` returns when it refuses a record request. It has
+	// already written its own T?DONE.TXT and must not fall through into the
+	// playback path below.
+	//
+	// Conditional on purpose. Making this check unconditional would change the
+	// generated code of the recording lineage, whose MAIN.EXE is the exact
+	// binary Gate A certified; there is no reason to spend that.
+	if(oracle_mode == ORACLE_ERROR) {
+		return;
+	}
+#endif
 	oracle_global_frame = 0;
 	oracle_sample_count = 0;
 	oracle_record_count = 0;
@@ -1693,6 +1731,7 @@ void oracle_entry(void)
 	oracle_recbuf_pos = 0;
 	oracle_recbuf_base = 0;
 
+#if ORACLE_RECORD_SUPPORTED
 	if(oracle_mode == ORACLE_RECORD) {
 #if (GAME == 5)
 		// `[measured]` The Extra replay is two files spliced by
@@ -1737,6 +1776,7 @@ void oracle_entry(void)
 		oracle_diag('R', 'E', 'C', resident->demo_num, resident->rank);
 		return;
 	}
+#endif /* ORACLE_RECORD_SUPPORTED */
 
 	// Playback. Read and fully validate the case before applying anything.
 	if(!oracle_header_read()) {
@@ -1775,6 +1815,7 @@ bool oracle_frame(uint16_t shift_offset)
 		return false;
 	}
 
+#if ORACLE_RECORD_SUPPORTED
 	if(oracle_mode == ORACLE_RECORD) {
 		// Exactly ZUN's own two reads (`th04/main/demo.cpp:52-53`), minus the
 		// abort-on-keypress guard, which must not be reproduced: it would make
@@ -1805,7 +1846,9 @@ bool oracle_frame(uint16_t shift_offset)
 #endif
 			(stage_frame < (DEMO_N - 4))
 		);
-	} else {
+	} else
+#endif /* ORACLE_RECORD_SUPPORTED */
+	{
 		if(!oracle_record_fetch(oracle_record_count, &rec)) {
 			oracle_split_row(ORACLE_EVENT_ERROR, 0);
 			oracle_mode = ORACLE_ERROR;
@@ -1891,6 +1934,7 @@ bool oracle_frame(uint16_t shift_offset)
 			ORACLE_EVENT_CHECKPOINT,
 			static_cast<uint16_t>((static_cast<uint16_t>(shift) << 8) | key_replay)
 		);
+#if ORACLE_RECORD_SUPPORTED
 		if(oracle_mode == ORACLE_RECORD) {
 			// Rewrite the prefix at every checkpoint, so a run that is killed
 			// mid-case still leaves a self-consistent file. Both results are
@@ -1902,13 +1946,17 @@ bool oracle_frame(uint16_t shift_offset)
 				return false;
 			}
 		}
+#endif
 	}
 	oracle_global_frame++;
 
 	if(!keep_going) {
+#if ORACLE_RECORD_SUPPORTED
 		if(oracle_mode == ORACLE_RECORD) {
 			oracle_finish(ORT_OK_RECORD);
-		} else {
+		} else
+#endif
+		{
 			// Record cursor, sample cursor and incremental payload checksum
 			// are tracked separately, and success is refused unless all three
 			// agree with the header.

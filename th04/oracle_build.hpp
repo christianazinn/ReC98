@@ -10,6 +10,16 @@
 
 #define ORACLE_PRODUCER ORACLE_PRODUCER_GAME_MOD
 
+// Whether this lineage may WRITE a case, as opposed to only playing one back.
+//
+// Only the byte-identical lineage records. A case is a statement about what
+// ZUN's demo does, so exactly one lineage gets to make it; every other lineage
+// is a consumer whose job is to reproduce that case's trace. Compiling the
+// recorder out of the others is stronger than merely never configuring it,
+// because it makes "the Anniversary build wrote this corpus" impossible rather
+// than merely unlikely.
+#define ORACLE_RECORD_SUPPORTED 1
+
 // First four bytes of the ReC98 commit this branch is based on, as ASCII, in
 // file order. `harness/main` @ 92a49130 -> '9','2','a','4'.
 //
