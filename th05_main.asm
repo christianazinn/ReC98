@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -4015,7 +4015,11 @@ sub_104BB	endp
 	HUD_POINT_ITEMS_PUT procdesc pascal far
 HUD_PNT_TEXT	ends
 
-main_0_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main_0_TEXT`
+; contribution, renamed so that a C++ object can append `hud_graze_put`
+; at its original address in the MIDDLE of the segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves.
+HUD_GRZ_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4070,19 +4074,15 @@ loc_105E6:
 		retf
 hud_dream_put	endp
 
+	; hud_graze_put() now lives in th04/main/hud/graze.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what keeps TASM lowering hud_put()'s same-group far call
+	; to `push cs` + a near call, while the main_03 call from
+	; th04/main/bullet/update.cpp stays far.
+	@hud_graze_put$qv procdesc far
+HUD_GRZ_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @hud_graze_put$qv
-@hud_graze_put$qv	proc far
-		push	bp
-		mov	bp, sp
-		call	@hud_5_digit_put$quiuiuiui pascal, (62 shl 16) or 18, _stage_graze, TX_WHITE
-		pop	bp
-		retf
-@hud_graze_put$qv	endp
-
+main_0_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
