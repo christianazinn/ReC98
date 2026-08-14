@@ -1406,6 +1406,20 @@ void oracle_entry(void)
 	oracle_recbuf_base = 0;
 
 	if(oracle_mode == ORACLE_RECORD) {
+#if (GAME == 5)
+		// `[measured]` The Extra replay is two files spliced by
+		// `dialog_animate()` (`th05/main/dialog/dialog.cpp:235-281`), and
+		// `DemoPlay`'s end condition is bypassed entirely for
+		// `demo_num > 4` (`th04/main/demo.cpp:54-59`), so a recording of it
+		// never reaches a terminal boundary -- an unattended run just gets
+		// killed by its timeout after ~12000 frames. Version 1 refuses it on
+		// BOTH sides rather than emitting a case that cannot be replayed.
+		if(oracle_cfg_demo_num > 4) {
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_UNSUPPORTED);
+			return;
+		}
+#endif
 		oracle_memclear(&oracle_header, sizeof(oracle_header));
 		oracle_header.magic[0] = 'T';
 		oracle_header.magic[1] = ORACLE_MAGIC_DIGIT;
