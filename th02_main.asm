@@ -34,6 +34,13 @@ include th02/sprites/main_pat.inc
 	extern _getdate:proc
 	extern _memcpy:proc
 
+; ORACLE-TH02 (mod branch harness/ORACLE-TH02-MASTER only): the injector
+; seam. Both are named ONLY in a `nopcall` operand, so this file gains no
+; code and no original offset moves. See th02/t2case.hpp and
+; state/notes/oracle-th02-bringup.md.
+	extern @t2case_frame_io$qv:proc
+	extern @t2case_stage_enter$qv:proc
+
 playperf_min = -6
 
 SP_STAGE = 0
@@ -747,7 +754,7 @@ loc_B1CD:
 		mov	eax, es:[bx+mikoconfig_t.frame]
 		mov	random_seed, eax
 		call	sub_B3DA
-		nopcall	@overlay_stage_enter_animate$qv
+		nopcall	@t2case_stage_enter$qv
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
 		jnz	short loc_B237
@@ -1648,7 +1655,7 @@ loc_BDA2:
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
 		jz	short loc_BDCC
-		nopcall	DemoPlay
+		nopcall	@t2case_frame_io$qv
 
 loc_BDCC:
 		call	sub_F1D8
@@ -27026,6 +27033,11 @@ word_2034A	dw ?
 word_2034C	dw ?
 byte_2034E	db ?
 		db ?
+; ORACLE-TH02: zero-byte export aliases for the T2SPLIT player subsystem
+; hash. `label` emits no bytes; the idiom is already used at
+; midboss3_damage / midboss3_flag below.
+public _t2case_shot_scalar
+_t2case_shot_scalar label byte
 byte_20350	db ?
 
 ; Two arrays that shots_update_and_render() walks in lockstep: one byte per
@@ -27033,7 +27045,11 @@ byte_20350	db ?
 ; that function's own loop bounds (`cmp [bp+var_2], 26h`, `add si, 10h`), so
 ; they are evidenced; what the fields mean is not, hence the neutral names.
 ; 20350h stays separate - it is read and tested as a scalar. [static]
+public _t2case_shot_flags
+_t2case_shot_flags label byte
 byte_20351	db 39 dup(?)
+public _t2case_shot_slots
+_t2case_shot_slots label byte
 byte_20378	db 608 dup(?)
 word_205D8	dw ?
 word_205DA	dw ?
@@ -27101,6 +27117,7 @@ midboss3_damage label word
 _stone_damage	dw STONE_COUNT dup(?)
 
 patnum_2064E	dw ?
+public _boss_phase_frame
 _boss_phase_frame	dw ?
 
 public _boss_left_on_page, _boss_top_on_page

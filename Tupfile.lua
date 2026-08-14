@@ -506,7 +506,10 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
 })
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+-- ORACLE-TH02 (mod branch harness/ORACLE-TH02-MASTER): MAIN.EXE carries the
+-- T2CASE oracle recorder/player and the T2SPLIT trace writer. This branch is
+-- intentionally NOT byte-identical and must never be merged into harness/main.
+th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT2CASE" }):link("main", {
 	{ "th02_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["bombpart"],
@@ -548,6 +551,10 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/dialog.cpp",
 	"th02/boss_5.cpp",
 	"th02/regist_m.cpp",
+
+	-- Must stay LAST: OMF concatenates same-named segments in link order, so a
+	-- module placed here grows _BSS at its end and moves no original offset.
+	"th02/t2case.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
