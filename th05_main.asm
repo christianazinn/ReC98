@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -2639,7 +2639,11 @@ BOSS_BG_TEXT	segment	byte public 'CODE' use16
 	@EXALICE_BG_RENDER$QV procdesc pascal near
 BOSS_BG_TEXT	ends
 
-SCORE_TEXT segment word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `SCORE_TEXT`
+; contribution, renamed so that a C++ object can append `end_extra` at its
+; original address in the MIDDLE of the segment. Same `word public` alignment
+; as before, so nothing moves.
+END_EXT_TEXT segment word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2745,25 +2749,15 @@ loc_E466:
 		retf
 @end_game$qv	endp
 
+	; end_extra() now lives in th04/main/end.cpp, which appends to this
+	; segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082), so that any future same-group caller keeps its `push cs` +
+	; near call; the only caller today is th04/main/boss/boss.cpp, which
+	; reaches it far from main_03.
+	@end_extra$qv procdesc far
+END_EXT_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @end_extra$qv
-@end_extra$qv	proc far
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_EXTRA
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine_0	; "maine"
-		nopcall	@GameExecl$qnxc
-		pop	bp
-		retf
-@end_extra$qv	endp
+SCORE_TEXT segment word public 'CODE' use16
 
 include th05/main/player/shots_add.asm
 include th04/main/player/shot_velocity.asm
@@ -19559,6 +19553,8 @@ include th05/formats/bb_cheeto[data].asm
 ; char aMaine[]
 aMaine		db 'maine',0
 ; char aMaine_0[]
+public _aMaine_0
+_aMaine_0	label byte
 aMaine_0	db 'maine',0
 include th04/main/player/shot_levels[data].asm
 include th05/formats/bb_txt_load[data].asm
