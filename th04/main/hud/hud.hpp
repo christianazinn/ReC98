@@ -9,6 +9,16 @@
 // between 0 and BAR_MAX.
 void pascal hud_hp_put(int bar_value);
 
+#if (GAME == 4)
+// Prints [val] using the bold gaiji font, right-aligned at
+// 	([left+8], [y]),
+// in white. Shares nothing but the name and the semantics with TH05's
+// function below: TH04 builds the digits in a stack buffer and hardcodes
+// TX_WHITE, TH05 uses the shared [hud_gaiji_row] and takes the attribute as a
+// parameter.
+void pascal hud_5_digit_put(utram_x_t left, utram_y_t y, uint16_t val);
+#endif
+
 #if (GAME == 5)
 // Prints [points] using the bold gaiji font, right-aligned at
 // 	([left+8], [y]),

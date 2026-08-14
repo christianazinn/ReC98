@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -3981,7 +3981,11 @@ STAGES_TEXT	segment	byte public 'CODE' use16
 	@STAGE5_INVALIDATE$QV procdesc near
 STAGES_TEXT	ends
 
-main__TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main__TEXT`
+; contribution, renamed so that a C++ object can append `hud_point_items_put`
+; at its original address in the MIDDLE of the segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves.
+HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4461,23 +4465,14 @@ loc_F061:
 		retf
 sub_EFA1	endp
 
+	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
+	; appends to this segment. Declared inside a main_01 segment on purpose:
+	; that is what keeps TASM lowering hud_put()'s same-group far call to
+	; `push cs` + a near call, while sub_1DBAE's main_03 call stays far.
+	HUD_POINT_ITEMS_PUT procdesc pascal far
+HUD_PNT_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_POINT_ITEMS_PUT
-hud_point_items_put	proc far
-		push	bp
-		mov	bp, sp
-		push	3E000Fh
-		mov	al, _stage_point_items_collected
-		mov	ah, 0
-		push	ax
-		call	sub_1D519
-		pop	bp
-		retf
-hud_point_items_put	endp
-
+main__TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4490,7 +4485,7 @@ hud_dream_put	proc far
 		mov	ax, _dream_score
 		imul	ax, 0Ah
 		push	ax
-		call	sub_1D519
+		call	@hud_5_digit_put$quiuiui
 		pop	bp
 		retf
 hud_dream_put	endp
@@ -4505,7 +4500,7 @@ public @hud_graze_put$qv
 		mov	bp, sp
 		push	3E0013h
 		push	_stage_graze
-		call	sub_1D519
+		call	@hud_5_digit_put$quiuiui
 		pop	bp
 		retf
 @hud_graze_put$qv	endp
@@ -24644,7 +24639,14 @@ sub_1D48E	endp
 
 ; Attributes: bp-based frame
 
-sub_1D519	proc far
+; Prints [val] using the bold gaiji font, right-aligned at
+; 	([left+8], [y]),
+; in white. Same job as TH05's 4-argument hud_5_digit_put(), but a
+; genuinely different routine: TH04 builds the digits in a stack buffer and
+; hardcodes TX_WHITE, while TH05 uses the shared [hud_gaiji_row] and takes
+; the attribute as a parameter.
+public @HUD_5_DIGIT_PUT$QUIUIUI
+@hud_5_digit_put$quiuiui	proc far
 
 var_A		= word ptr -0Ah
 var_8		= word ptr -8
@@ -24712,7 +24714,7 @@ loc_1D565:
 		pop	si
 		leave
 		retf	6
-sub_1D519	endp
+@hud_5_digit_put$quiuiui	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -24956,7 +24958,7 @@ var_4		= dword	ptr -4
 		mov	[bp+var_4], eax
 		push	280010h
 		push	si
-		call	sub_1D519
+		call	@hud_5_digit_put$quiuiui
 		mov	eax, [bp+var_4]
 		mov	[bp+var_8], eax
 		push	ss
@@ -25131,7 +25133,7 @@ loc_1D9CE:
 		mov	[bp+var_4], eax
 		push	280011h
 		push	si
-		call	sub_1D519
+		call	@hud_5_digit_put$quiuiui
 		push	ss
 		lea	ax, [bp+var_4]
 		push	ax
