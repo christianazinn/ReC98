@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_TEXT, main_01__TEXT, POINTNUM_TEXT, main_01___TEXT, ITEM_TEXT, HUD_TEXT, main_01____TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_____TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, STAGE_TEXT, main_01___TEXT, POINTNUM_TEXT, main_01____TEXT, ITEM_TEXT, HUD_TEXT, main_01_____TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01______TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -255,6 +255,8 @@ include libs/master.lib/pf_str_ieq.asm
 
 ; Attributes: bp-based frame
 
+public _sub_3DDE
+_sub_3DDE label far
 sub_3DDE	proc far
 		push	bp
 		mov	bp, sp
@@ -746,7 +748,7 @@ loc_B1CD:
 		les	bx, _resident
 		mov	eax, es:[bx+mikoconfig_t.frame]
 		mov	random_seed, eax
-		call	sub_B3DA
+		call	@stage_init$qv
 		nopcall	@overlay_stage_enter_animate$qv
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
@@ -908,6 +910,8 @@ sub_B2AB	endp
 
 ; Attributes: bp-based frame
 
+public SUB_B362
+SUB_B362 label near
 sub_B362	proc near
 
 arg_0		= dword	ptr  4
@@ -940,6 +944,8 @@ sub_B362	endp
 
 ; Attributes: bp-based frame
 
+public SUB_B396
+SUB_B396 label near
 sub_B396	proc near
 
 arg_0		= dword	ptr  4
@@ -964,340 +970,15 @@ arg_0		= dword	ptr  4
 		retn	4
 sub_B396	endp
 
+main_01_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+STAGE_INIT_TEXT	segment	byte public 'CODE' use16
+	@stage_init$qv procdesc near
+STAGE_INIT_TEXT	ends
 
-; Attributes: bp-based frame
-
-sub_B3DA	proc near
-
-var_C		= byte ptr -0Ch
-
-		enter	0Ch, 0
-		push	si
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	sub_B396
-		mov	vsync_Count1, 0
-		call	text_wipe
-		call	graph_scrollup pascal, 0
-		graph_accesspage 1
-		call	graph_clear
-		graph_accesspage 0
-		call	graph_clear
-		graph_showpage 0
-		call	@hud_put$qv
-		call	@overlay_wipe$qv
-		call	@pi_palette_apply$qi stdcall, 0
-		call	@pi_palette_apply$qi stdcall, 0
-		call	@pi_put_8$qiii stdcall, 96, large 144
-		add	sp, 0Ah
-		call	@bullets_and_sparks_init$qv
-		call	sub_16A6B
-		call	sub_3DDE
-		call	sub_129DD
-		call	sub_E271
-		call	_snd_se_reset
-		call	sub_1028C
-		nopcall	sub_CA1C
-		call	@randring_fill$qv
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		mov	ax, PLAYER_LEFT_START
-		mov	_player_left_on_page[0 * word], ax
-		mov	_player_left_on_page[1 * word], ax
-		mov	ax, PLAYER_TOP_START
-		mov	_player_top_on_page[0 * word], ax
-		mov	_player_top_on_page[1 * word], ax
-		mov	_stage_frame, 0
-		mov	_midboss_active, 0
-		mov	_stage_progression, SP_STAGE
-		mov	_slowdown_factor, 1
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_B4BB
-		mov	bgm_show_timer, 1
-		mov	al, _stage_id
-		add	al, al
-		mov	_bgm_title_id, al
-		mov	al, _stage_id
-		add	al, al
-		inc	al
-		mov	byte_1F46E, al
-		jmp	short loc_B4C0
-; ---------------------------------------------------------------------------
-
-loc_B4BB:
-		mov	bgm_show_timer, 0
-
-loc_B4C0:
-		mov	si, 192
-		jmp	short loc_B4D7
-; ---------------------------------------------------------------------------
-
-loc_B4C5:
-		mov	bx, si
-		add	bx, bx
-		cmp	super_patsize[bx], 0
-		jz	short loc_B4D6
-		call	super_cancel_pat pascal, si
-
-loc_B4D6:
-		dec	si
-
-loc_B4D7:
-		cmp	si, 80h
-		jge	short loc_B4C5
-		mov	stage1_gaiji_halflen, 6
-		mov	al, _stage_id
-		cbw
-		mov	bx, 5
-		cwd
-		idiv	bx
-		add	dl, gb_1_
-		mov	gStage1+5, dl
-		mov	al, _stage_id
-		cbw
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _STAGE_TITLES[bx]
-		mov	_stage_title, ax
-		mov	al, _stage_id
-		cbw
-		mov	bx, ax
-		mov	al, _STAGE_TITLE_HALFLENGTHS[bx]
-		mov	_stage_title_halflen, al
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	super_entry_bfnt
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		push	ds
-		push	offset aBmt	; "bmt"
-		call	sub_B362
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	super_entry_bfnt
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		push	ds
-		push	offset aBbt	; "bbt"
-		call	sub_B362
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	super_entry_bfnt
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		push	ds
-		push	offset aMap	; "map"
-		call	sub_B362
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	@map_load$qnxc
-		call	@tiles_stuff_reset$qv
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		push	ds
-		push	offset aMpn	; "mpn"
-		call	sub_B362
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	mpn_load
-		push	size palette_t	; n
-		push	ds
-		push	offset _mpn_palette ; src
-		push	ds
-		push	offset unk_1F4AD ; dest
-		call	_memcpy
-		add	sp, 0Ah
-		call	sub_1C608
-		call	sub_1C3DF
-		call	@dialog_load_and_init$qv
-		setfarfp	_boss_bg_render, @nullfunc_void$qv
-		setfarfp	_boss_update, @nullfunc_false$qv
-		setfarfp	farfp_1F490, @nullfunc_void$qv
-		setfarfp	farfp_1F4A0, @nullfunc_void$qv
-		setfarfp	farfp_23A72, @nullfunc_void$qv
-		setfarfp	farfp_23A76, @nullfunc_void$qv
-		setfarfp	farfp_26C3C, sub_17979
-		setfarfp	farfp_26C40, sub_1766E
-		setfarfp	farfp_1F494, sub_BFD0
-		setfarfp	farfp_1F498, sub_C05D
-		setfarfp	farfp_1F48C, @nullfunc_false$qv
-		call	sub_C5B0
-		mov	_scroll_speed, 1
-		mov	_scroll_interval, 4
-		mov	al, _stage_id
-		cbw
-		mov	bx, ax
-		cmp	bx, 5
-		ja	loc_B88A
-		add	bx, bx
-		jmp	cs:off_B982[bx]
-
-loc_B63C:
-		mov	word_20616, 74h	; 't'
-		setfarfp	_midboss_invalidate, @midboss1_invalidate$qv
-		setfarfp	_midboss_update_and_render, @midboss1_update_and_render$qv
-		setfarfp	_boss_init, rika_init
-		setfarfp	_boss_end, rika_end
-		setfarfp	_boss_bg_render_func, rika_bg_render
-		setfarfp	_boss_update_func, rika_update
-		setfarfp	farfp_1F490, sub_13671
-		jmp	short loc_B6F2
-; ---------------------------------------------------------------------------
-
-loc_B698:
-		mov	word_20616, 50h	; 'P'
-		setfarfp	_midboss_invalidate, @midboss2_invalidate$qv
-		setfarfp	_midboss_update_and_render, @midboss2_update_and_render$qv
-		setfarfp	_boss_init, meira_init
-		setfarfp	_boss_end, meira_end
-		setfarfp	_boss_bg_render_func, meira_bg_render
-		setfarfp	_boss_update_func, meira_update
-		setfarfp	farfp_1F490, sub_140AE
-
-loc_B6F2:
-		setfarfp	farfp_1F4A0, sub_13513
-		jmp	loc_B88A
-; ---------------------------------------------------------------------------
-
-loc_B701:
-		mov	word_20616, 67h	; 'g'
-		setfarfp	_midboss_invalidate, @midboss3_invalidate$qv
-		setfarfp	_midboss_update_and_render, @midboss3_update_and_render$qv
-		setfarfp	_boss_init, stones_init
-		setfarfp	_boss_end, stones_end
-		setfarfp	_boss_bg_render_func, stones_bg_render
-		setfarfp	_boss_update_func, stones_update
-		setfarfp	farfp_1F490, sub_10E95
-		setfarfp	farfp_1F4A0, sub_10E4F
-		jmp	loc_B88A
-; ---------------------------------------------------------------------------
-
-loc_B76A:
-		mov	word_20616, 944
-		setfarfp	_midboss_invalidate, @midboss4_invalidate$qv
-		setfarfp	_midboss_update_and_render, @midboss4_update_and_render$qv
-		setfarfp	_boss_init, marisa_init
-		setfarfp	_boss_end, marisa_end
-		setfarfp	_boss_bg_render_func, marisa_bg_render
-		setfarfp	_boss_update_func, marisa_update
-		cmp	_reduce_effects, 0
-		jnz	short loc_B7CB
-		setfarfp	farfp_1F490, sub_19E2F
-
-loc_B7CB:
-		call	sub_129FC
-		mov	_scroll_speed, 2
-		mov	_scroll_interval, 1
-		jmp	loc_B88A
-; ---------------------------------------------------------------------------
-
-loc_B7DD:
-		mov	word_20616, 0FFFFh
-		setfarfp	_midboss_invalidate, @nullfunc_false$qv
-		setfarfp	_midboss_update_and_render, @nullfunc_void$qv
-		setfarfp	_boss_init, mima_init
-		setfarfp	_boss_end, mima_end
-		setfarfp	_boss_bg_render_func, mima_bg_render
-		setfarfp	_boss_update_func, mima_update
-		mov	_scroll_interval, 1
-		jmp	short loc_B88A
-; ---------------------------------------------------------------------------
-
-loc_B832:
-		mov	word_20616, 200
-		setfarfp	_midboss_invalidate, @midbossx_invalidate$qv
-		setfarfp	_midboss_update_and_render, @midbossx_update_and_render$qv
-		setfarfp	_boss_init, sigma_init
-		setfarfp	_boss_end, sigma_end
-		setfarfp	_boss_bg_render_func, sigma_bg_render
-		setfarfp	_boss_update_func, sigma_update
-		call	sub_129FC
-		mov	_scroll_interval, 2
-
-loc_B88A:
-		call	@tile_area_init_and_put_both$qv
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_B8AF
-		call	_snd_delay_until_volume stdcall, 255
-		pop	cx
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		push	ds
-		push	offset aM	; "m"
-		call	sub_B362
-
-loc_B8AF:
-		call	@items_init_and_reset$qv
-		call	@score_extend_init$qv
-
-loc_B8B5:
-		cmp	vsync_Count1, 64h	; 'd'
-		jb	short loc_B8B5
-		call	text_boxfilla pascal, (4 shl 16) + 1, (51 shl 16) + 23, TX_BLACK + TX_REVERSE
-		push	size palette_t
-		push	ds
-		push	offset unk_1F4AD ; src
-		push	ds
-		push	offset Palettes ; dest
-		call	_memcpy
-		add	sp, 0Ah
-		call	far ptr	palette_show
-		graph_accesspage 1
-		call	@tiles_fill_and_put_initial$qv
-		graph_accesspage 0
-		call	@tiles_render_all$qv
-		call	_mpn_free
-		call	mpn_load pascal, ds, offset aMiko_k_mpn ; "miko_k.mpn"
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_B922
-		push	ss
-		lea	ax, [bp+var_C]
-		push	ax
-		call	sub_13ABB
-		add	sp, 4
-
-loc_B922:
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (RES_Y - 1)
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 11
-		graph_accesspage 0
-		call	grcg_boxfill pascal, (PLAYFIELD_RIGHT shl 16) or 0, (575 shl 16) or (RES_Y - 1)
-		graph_accesspage 1
-		call	grcg_boxfill pascal, (PLAYFIELD_RIGHT shl 16) or 0, (575 shl 16) or (RES_Y - 1)
-		call	grcg_off
-		mov	_page_front, 1
-		mov	al, _page_front
-		out	0A4h, al
-		xor	al, al
-		out	0A6h, al
-		mov	_page_back, al
-		pop	si
-		leave
-		retn
-sub_B3DA	endp
-
-; ---------------------------------------------------------------------------
-off_B982	dw offset loc_B63C
-		dw offset loc_B698
-		dw offset loc_B701
-		dw offset loc_B76A
-		dw offset loc_B7DD
-		dw offset loc_B832
+main_01__TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -1543,13 +1224,13 @@ loc_BCAE:
 		retn
 sub_B9E2	endp
 
-main_01_TEXT	ends
+main_01__TEXT	ends
 
 STAGE_TEXT	segment	byte public 'CODE' use16
 	extern @stage_loop$qv:proc
 STAGE_TEXT	ends
 
-main_01__TEXT	segment	byte public 'CODE' use16
+main_01___TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
@@ -1605,6 +1286,8 @@ sub_BF9C	endp
 
 ; Attributes: bp-based frame
 
+public _sub_BFD0
+_sub_BFD0 label far
 sub_BFD0	proc far
 		push	bp
 		mov	bp, sp
@@ -1654,6 +1337,8 @@ sub_BFD0	endp
 
 ; Attributes: bp-based frame
 
+public _sub_C05D
+_sub_C05D label far
 sub_C05D	proc far
 		push	bp
 		mov	bp, sp
@@ -2106,6 +1791,8 @@ public @GameExecl$qnxc
 
 ; Attributes: bp-based frame
 
+public _sub_C5B0
+_sub_C5B0 label near
 sub_C5B0	proc near
 		push	bp
 		mov	bp, sp
@@ -2263,7 +1950,7 @@ var_2		= word ptr -2
 		leave
 		retn
 @player_invalidate$qv endp
-main_01__TEXT	ends
+main_01___TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_init_for_rank_and_rese$qv procdesc near
@@ -2271,13 +1958,15 @@ POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_update_and_render$qv procdesc near
 POINTNUM_TEXT	ends
 
-main_01___TEXT	segment	word public 'CODE' use16
+main_01____TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+public _sub_CA1C
+_sub_CA1C label far
 sub_CA1C	proc far
 		push	bp
 		mov	bp, sp
@@ -4012,7 +3701,7 @@ loc_D61D:
 		leave
 		retn
 @shots_update_and_render$qv endp
-main_01___TEXT	ends
+main_01____TEXT	ends
 
 ITEM_TEXT	segment	byte public 'CODE' use16
 	@items_init_and_reset$qv procdesc near
@@ -4037,7 +3726,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01____TEXT	segment	byte public 'CODE' use16
+main_01_____TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4132,6 +3821,8 @@ sub_E24A	endp
 
 ; Attributes: bp-based frame
 
+public _sub_E271
+_sub_E271 label near
 sub_E271	proc near
 		push	bp
 		mov	bp, sp
@@ -5201,7 +4892,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01____TEXT	ends
+main_01_____TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -5221,7 +4912,7 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01_____TEXT	segment	byte public 'CODE' use16
+main_01______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5541,7 +5232,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01_____TEXT	ends
+main_01______TEXT	ends
 
 ; ===========================================================================
 
@@ -5865,6 +5556,8 @@ sub_FFF8	endp
 
 ; Attributes: bp-based frame
 
+public _sub_1028C
+_sub_1028C label far
 sub_1028C	proc far
 		push	bp
 		mov	bp, sp
@@ -5973,6 +5666,8 @@ BULLET16_W = 16
 
 ; Attributes: bp-based frame
 
+public _sub_10E4F
+_sub_10E4F label far
 sub_10E4F	proc far
 		push	bp
 		mov	bp, sp
@@ -6015,6 +5710,8 @@ sub_10E4F	endp
 
 ; Attributes: bp-based frame
 
+public _sub_10E95
+_sub_10E95 label far
 sub_10E95	proc far
 
 @@angle		= byte ptr -3
@@ -6915,6 +6612,8 @@ SF_REMOVED = 4
 
 ; Attributes: bp-based frame
 
+public _stones_bg_render
+_stones_bg_render label far
 stones_bg_render	proc far
 		push	bp
 		mov	bp, sp
@@ -8603,6 +8302,8 @@ stones_1232F	endp
 
 ; Attributes: bp-based frame
 
+public _stones_update
+_stones_update label far
 stones_update	proc far
 		push	bp
 		mov	bp, sp
@@ -8982,6 +8683,8 @@ stones_update	endp
 
 ; Attributes: bp-based frame
 
+public _stones_end
+_stones_end label far
 stones_end	proc far
 		push	bp
 		mov	bp, sp
@@ -8999,6 +8702,8 @@ stones_end	endp
 
 ; Attributes: bp-based frame
 
+public _stones_init
+_stones_init label far
 stones_init	proc far
 		push	bp
 		mov	bp, sp
@@ -9300,6 +9005,8 @@ sub_1283C	endp
 
 ; Attributes: bp-based frame
 
+public _sub_129DD
+_sub_129DD label far
 sub_129DD	proc far
 		push	bp
 		mov	bp, sp
@@ -9328,6 +9035,8 @@ sub_129DD	endp
 
 ; Attributes: bp-based frame
 
+public _sub_129FC
+_sub_129FC label far
 sub_129FC	proc far
 		push	bp
 		mov	bp, sp
@@ -9746,6 +9455,8 @@ sub_134B6	endp
 
 ; Attributes: bp-based frame
 
+public _sub_13513
+_sub_13513 label far
 sub_13513	proc far
 
 var_4		= dword	ptr -4
@@ -9915,6 +9626,8 @@ sub_135BB	endp
 
 ; Attributes: bp-based frame
 
+public _sub_13671
+_sub_13671 label far
 sub_13671	proc far
 
 var_4		= byte ptr -4
@@ -10363,6 +10076,8 @@ loc_13AB8:
 
 ; Attributes: bp-based frame
 
+public _sub_13ABB
+_sub_13ABB label far
 sub_13ABB	proc far
 
 arg_0		= dword	ptr  6
@@ -10382,6 +10097,8 @@ sub_13ABB	endp
 
 ; Attributes: bp-based frame
 
+public _rika_init
+_rika_init label far
 rika_init	proc far
 		push	bp
 		mov	bp, sp
@@ -10436,6 +10153,8 @@ rika_init	endp
 
 ; Attributes: bp-based frame
 
+public _rika_end
+_rika_end label far
 rika_end	proc far
 		push	bp
 		mov	bp, sp
@@ -10456,6 +10175,8 @@ rika_end	endp
 
 ; Attributes: bp-based frame
 
+public _rika_bg_render
+_rika_bg_render label far
 rika_bg_render	proc far
 		push	bp
 		mov	bp, sp
@@ -10900,6 +10621,8 @@ rika_13F34	endp
 
 ; Attributes: bp-based frame
 
+public _rika_update
+_rika_update label far
 rika_update	proc far
 		push	bp
 		mov	bp, sp
@@ -10994,6 +10717,8 @@ sub_1403E	endp
 
 ; Attributes: bp-based frame
 
+public _sub_140AE
+_sub_140AE label far
 sub_140AE	proc far
 		push	bp
 		mov	bp, sp
@@ -11331,6 +11056,8 @@ loc_143E1:
 
 ; Attributes: bp-based frame
 
+public _meira_bg_render
+_meira_bg_render label far
 meira_bg_render	proc far
 		push	bp
 		mov	bp, sp
@@ -12847,6 +12574,8 @@ meira_14F16	endp
 
 ; Attributes: bp-based frame
 
+public _meira_update
+_meira_update label far
 meira_update	proc far
 		push	bp
 		mov	bp, sp
@@ -13008,6 +12737,8 @@ off_15210	dw offset loc_15145
 
 ; Attributes: bp-based frame
 
+public _meira_end
+_meira_end label far
 meira_end	proc far
 		push	bp
 		mov	bp, sp
@@ -13027,6 +12758,8 @@ meira_end	endp
 
 ; Attributes: bp-based frame
 
+public _meira_init
+_meira_init label far
 meira_init	proc far
 		push	bp
 		mov	bp, sp
@@ -13904,6 +13637,8 @@ sigma_15907	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_bg_render
+_sigma_bg_render label far
 sigma_bg_render	proc far
 
 var_2		= word ptr -2
@@ -15430,6 +15165,8 @@ sigma_166DE	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_update
+_sigma_update label far
 sigma_update	proc far
 
 var_1		= byte ptr -1
@@ -15627,6 +15364,8 @@ sigma_update	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_init
+_sigma_init label far
 sigma_init	proc far
 		push	bp
 		mov	bp, sp
@@ -15672,6 +15411,8 @@ sigma_init	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_end
+_sigma_end label far
 sigma_end	proc far
 		push	bp
 		mov	bp, sp
@@ -15704,6 +15445,8 @@ loc_16A66:
 
 ; Attributes: bp-based frame
 
+public _sub_16A6B
+_sub_16A6B label far
 sub_16A6B	proc far
 		push	bp
 		mov	bp, sp
@@ -17169,6 +16912,8 @@ sub_175E8	endp
 
 ; Attributes: bp-based frame
 
+public _sub_1766E
+_sub_1766E label far
 sub_1766E	proc far
 
 var_8		= word ptr -8
@@ -17481,6 +17226,8 @@ sub_1766E	endp
 
 ; Attributes: bp-based frame
 
+public _sub_17979
+_sub_17979 label far
 sub_17979	proc far
 
 var_2		= word ptr -2
@@ -17710,6 +17457,8 @@ mima_17A7F	endp
 
 ; Attributes: bp-based frame
 
+public _mima_bg_render
+_mima_bg_render label far
 mima_bg_render	proc far
 
 var_1		= byte ptr -1
@@ -20308,6 +20057,8 @@ mima_193A4	endp
 
 ; Attributes: bp-based frame
 
+public _mima_update
+_mima_update label far
 mima_update	proc far
 
 var_1		= byte ptr -1
@@ -20849,6 +20600,8 @@ main_03__TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public _mima_init
+_mima_init label far
 mima_init	proc far
 		push	bp
 		mov	bp, sp
@@ -21142,6 +20895,8 @@ mima_19C8D	endp
 
 ; Attributes: bp-based frame
 
+public _mima_end
+_mima_end label far
 mima_end	proc far
 		push	bp
 		mov	bp, sp
@@ -21217,6 +20972,8 @@ mima_end	endp
 
 ; Attributes: bp-based frame
 
+public _sub_19E2F
+_sub_19E2F label far
 sub_19E2F	proc far
 
 @@top       	= word ptr -4
@@ -22218,6 +21975,8 @@ sub_1A6C5	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_init
+_marisa_init label far
 marisa_init	proc far
 		push	bp
 		mov	bp, sp
@@ -24711,6 +24470,8 @@ marisa_1BE72	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_update
+_marisa_update label far
 marisa_update	proc far
 		push	bp
 		mov	bp, sp
@@ -25029,6 +24790,8 @@ off_1C160	dw offset loc_1C032
 
 ; Attributes: bp-based frame
 
+public _marisa_bg_render
+_marisa_bg_render label far
 marisa_bg_render	proc far
 		push	bp
 		mov	bp, sp
@@ -25134,6 +24897,8 @@ marisa_bg_render	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_end
+_marisa_end label far
 marisa_end	proc far
 		push	bp
 		mov	bp, sp
@@ -25343,6 +25108,8 @@ main_05_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public _sub_1C3DF
+_sub_1C3DF label far
 sub_1C3DF	proc far
 
 src		= dword	ptr -14h
@@ -25595,6 +25362,8 @@ sub_1C3DF	endp
 
 ; Attributes: bp-based frame
 
+public _sub_1C608
+_sub_1C608 label far
 sub_1C608	proc far
 		push	bp
 		mov	bp, sp
@@ -25779,6 +25548,8 @@ main_06_TEXT	ends
 
 	.data
 
+public _gStage1
+_gStage1 label byte
 gStage1		db 0BCh, 0BDh, 0AAh, 0B0h, 0AEh, 0A1h, 0, 0
 		db 0, 0, 0, 0, 0, 0, 0, 0
 gEXTRA_STAGE	db 0AEh, 0C1h, 0BDh, 0BBh, 0AAh, 0CFh, 0CFh, 0BCh, 0BDh
@@ -25856,13 +25627,25 @@ aEye_pi		db 'EYE.PI',0
 aMiko_bft	db 'miko.bft',0
 aMiko32_bft	db 'miko32.bft',0
 aMiko16_bft	db 'miko16.bft',0
+public _aBmt
+_aBmt label byte
 aBmt		db 'bmt',0
+public _aBbt
+_aBbt label byte
 aBbt		db 'bbt',0
+public _aMap
+_aMap label byte
 aMap		db 'map',0
+public _aMpn
+_aMpn label byte
 aMpn		db 'mpn',0
+public _aM
+_aM label byte
 aM		db 'm',0
 		db    0
 		db    0
+public _aMiko_k_mpn
+_aMiko_k_mpn label byte
 aMiko_k_mpn	db 'miko_k.mpn',0
 aGqbGapic	db 'ÉQÅ[ÉÄèIóπ',0
 aGqbGanKj	db 'ÉQÅ[ÉÄçƒäJ',0
@@ -26667,13 +26450,19 @@ aBoss3_m	db 'boss3.m',0
 
 public _stage_progression
 _stage_progression	db ?
+public _stage1_gaiji_halflen
+_stage1_gaiji_halflen label byte
 stage1_gaiji_halflen	db ?
 public _stage_title, _stage_title_halflen, _bgm_title_id
 _stage_title_halflen	db ?
 	evendata
 _stage_title	dw ?
+public _bgm_show_timer
+_bgm_show_timer label byte
 bgm_show_timer	db ?
 _bgm_title_id	db ?
+public _bgm_title_id_boss
+_bgm_title_id_boss label byte
 byte_1F46E	db ?
 		db ?
 public _midboss_update_and_render, _midboss_invalidate
@@ -26691,6 +26480,7 @@ _boss_activate_if_scroll_done label dword
 farfp_1F494	dd ?
 _stage_title_unput label dword
 farfp_1F498	dd ?
+public _boss_bg_render_func
 _boss_bg_render_func	dd ?
 _stage_invalidate label dword
 farfp_1F4A0	dd ?
@@ -26698,6 +26488,8 @@ farfp_1F4A4	dd ?
 include th02/main/demo[bss].asm
 public _playperf_max
 _playperf_max	db ?
+public _stage_palette
+_stage_palette label byte
 unk_1F4AD	db    ?	;
 		db 47 dup(?)
 byte_1F4DD	db ?
