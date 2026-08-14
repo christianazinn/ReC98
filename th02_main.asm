@@ -263,7 +263,7 @@ sub_3DDE	proc far
 ; ---------------------------------------------------------------------------
 
 loc_3DE5:
-		mov	byte ptr [bx+258Ch], 0
+		mov	byte ptr byte_1FFFC[bx], 0
 		add	bx, 0Ch
 
 loc_3DED:
@@ -2386,7 +2386,7 @@ sub_C5B0	proc near
 loc_C5B7:
 		mov	bx, dx
 		shl	bx, 4
-		mov	byte ptr [bx+2908h], 0
+		mov	byte ptr byte_20378[bx], 0
 		inc	dx
 
 loc_C5C2:
@@ -3941,7 +3941,7 @@ sub_D376	proc far
 loc_D37D:
 		mov	bx, ax
 		shl	bx, 4
-		mov	byte ptr [bx+2908h], 0
+		mov	byte ptr byte_20378[bx], 0
 		inc	ax
 
 loc_D388:
@@ -4038,7 +4038,7 @@ loc_D423:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, [bx+290Ah]
+		mov	ax, word ptr byte_20378[bx+2]
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
@@ -4050,7 +4050,7 @@ loc_D423:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, [bx+290Ch]
+		mov	ax, word ptr byte_20378[bx+4]
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
@@ -4583,7 +4583,7 @@ public @bomb_circle_update_and_render$qv
 		add	ax, ax
 		mov	dx, _scroll_line
 		mov	bx, ax
-		mov	[bx+3E5Ch], dx
+		mov	word ptr byte_218CC[bx], dx
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
 		mov	ax, _bomb_frame
 		shl	ax, 3
@@ -4722,7 +4722,7 @@ loc_E525:
 		mov	bx, di
 		add	bx, si
 		shl	bx, 2
-		mov	[bx+3F5Ch], dx
+		mov	word ptr byte_219CC[bx], dx
 		call	@randring1_next16$qv
 		mov	bx, 368
 		xor	dx, dx
@@ -4731,9 +4731,9 @@ loc_E525:
 		mov	bx, di
 		add	bx, si
 		shl	bx, 2
-		mov	[bx+3F5Eh], dx
+		mov	word ptr byte_219CE[bx], dx
 		mov	bx, si
-		mov	byte ptr [bx+di+3F28h],	1
+		mov	byte ptr byte_21998[bx+di],	1
 		inc	si
 
 loc_E55D:
@@ -4744,7 +4744,7 @@ loc_E55D:
 ; ---------------------------------------------------------------------------
 
 loc_E566:
-		cmp	byte ptr [si+3F28h], 0
+		cmp	byte ptr byte_21998[si], 0
 		jz	short loc_E5AB
 		mov	ax, _bomb_frame
 		and	ax, 3
@@ -4752,21 +4752,21 @@ loc_E566:
 		and	dx, 3
 		cmp	ax, dx
 		jnz	short loc_E58E
-		inc	byte ptr [si+3F28h]
-		cmp	byte ptr [si+3F28h], 5
+		inc	byte ptr byte_21998[si]
+		cmp	byte ptr byte_21998[si], 5
 		jb	short loc_E58E
-		mov	byte ptr [si+3F28h], 0
+		mov	byte ptr byte_21998[si], 0
 		jmp	short loc_E5AB
 ; ---------------------------------------------------------------------------
 
 loc_E58E:
 		mov	bx, si
 		shl	bx, 2
-		push	word ptr [bx+3F5Ch]	; cel
+		push	word ptr byte_219CC[bx]	; cel
 		mov	bx, si
 		shl	bx, 2
-		push	word ptr [bx+3F5Eh]	; top
-		mov	al, [si+3F28h]
+		push	word ptr byte_219CE[bx]	; top
+		mov	al, byte_21998[si]
 		mov	ah, 0
 		dec	ax
 		push	ax	; left
@@ -5106,7 +5106,7 @@ loc_E8C9:
 loc_E8F3:
 		mov	bx, [bp+var_4]
 		shl	bx, 2
-		mov	word ptr [bx+3E62h], 14h
+		mov	word ptr byte_218D2[bx], 14h
 		inc	[bp+var_4]
 
 loc_E902:
@@ -5145,14 +5145,14 @@ loc_E96C:
 		mov	ax, ss:[bx]
 		mov	bx, [bp+var_4]
 		shl	bx, 2
-		add	[bx+3E62h], ax
+		add	word ptr byte_218D2[bx], ax
 		mov	ax, [bp+var_4]
 		shl	ax, 3
 		add	ax, 32
 		push	ax	; column_bottom
 		mov	bx, [bp+var_4]
 		shl	bx, 2
-		push	word ptr [bx+3E62h]	; left
+		push	word ptr byte_218D2[bx]	; left
 		call	@bomb_smear_put_8$qii
 		inc	[bp+var_4]
 
@@ -6144,7 +6144,7 @@ loc_10294:
 		add	bx, bx
 		mov	_stone_damage[bx], 0
 		mov	_stone_flag[si], SF_DORMANT
-		mov	byte ptr [si+2BF5h], 0
+		mov	byte ptr byte_20665[si], 0
 		inc	si
 
 loc_102A9:
@@ -6255,7 +6255,7 @@ loc_10E57:
 		shl	dx, 2
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx+5336h]	; left
+		push	word ptr byte_22DA6[bx]	; left
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 8
@@ -6263,7 +6263,7 @@ loc_10E57:
 		shl	dx, 2
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx+5338h]	; top
+		push	word ptr byte_22DA8[bx]	; top
 		push	(1 shl 16) or 2	; (w shl 16) or h
 		call	@tiles_invalidate_rect$qiiii
 		inc	si
@@ -6451,7 +6451,7 @@ loc_11013:
 		add	ax, dx
 		mov	dx, [bp+var_2]
 		mov	bx, ax
-		mov	[bx+5336h], dx
+		mov	word ptr byte_22DA6[bx], dx
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 8
@@ -6459,7 +6459,7 @@ loc_11013:
 		shl	dx, 2
 		add	ax, dx
 		mov	bx, ax
-		mov	[bx+5338h], si
+		mov	word ptr byte_22DA8[bx], si
 		add	si, _scroll_line
 		cmp	si, RES_Y
 		jl	short loc_11095
@@ -7241,7 +7241,7 @@ loc_116F5:
 		sub	di, RES_Y
 
 loc_11712:
-		cmp	byte ptr [si+2BF5h], 0
+		cmp	byte ptr byte_20665[si], 0
 		jz	short loc_11746
 		call	_snd_se_play c, 4
 		mov	bx, si
@@ -7253,7 +7253,7 @@ loc_11712:
 		push	word_22D4C[bx]
 		pushd	PLANE_PUT or GC_BRGI
 		call	super_roll_put_1plane
-		mov	byte ptr [si+2BF5h], 0
+		mov	byte ptr byte_20665[si], 0
 		jmp	short loc_1175C
 ; ---------------------------------------------------------------------------
 
@@ -7434,7 +7434,7 @@ loc_11885:
 		jz	loc_1193E
 		cmp	_stone_flag[si], SF_ACTIVE
 		jnz	loc_1193E
-		mov	byte ptr [si+2BF5h], 1
+		mov	byte ptr byte_20665[si], 1
 		mov	bx, si
 		add	bx, bx
 		add	_stone_damage[bx], di
@@ -8636,14 +8636,14 @@ arg_0		= byte ptr  4
 		mov	al, [bx+10B9h]
 		mov	ah, 0
 		mov	bx, ax
-		mov	[bx+5546h], cl
+		mov	byte_22FB6[bx], cl
 		mov	al, byte_22FCF
 		mov	ah, 0
 		mov	bx, ax
 		mov	al, [bx+10C5h]
 		mov	ah, 0
 		mov	bx, ax
-		mov	[bx+5546h], cl
+		mov	byte_22FB6[bx], cl
 		inc	byte_22FCF
 		cmp	byte_22FCF, 0Ch
 		jb	short loc_1223A
@@ -8699,7 +8699,7 @@ loc_12279:
 ; ---------------------------------------------------------------------------
 
 loc_12283:
-		cmp	byte ptr [di+5546h], 3
+		cmp	byte ptr byte_22FB6[di], 3
 		jnz	short loc_122A1
 		call	@tile_ring_set_and_put_both_8$qiii pascal, [bp+@@left], y_22D9C, tile_image_22FD6
 		mov	byte ptr [si], 0
@@ -8738,7 +8738,7 @@ stones_122B5	proc near
 ; ---------------------------------------------------------------------------
 
 loc_122CB:
-		mov	byte ptr [si+5546h], 0
+		mov	byte ptr byte_22FB6[si], 0
 		inc	si
 
 loc_122D1:
@@ -8810,7 +8810,7 @@ stones_1232F	proc near
 ; ---------------------------------------------------------------------------
 
 loc_12345:
-		mov	byte ptr [si+5546h], 0
+		mov	byte ptr byte_22FB6[si], 0
 		inc	si
 
 loc_1234B:
@@ -9303,7 +9303,7 @@ loc_12786:
 		mov	bx, si
 		add	bx, bx
 		mov	word_22D4C[bx], 148
-		mov	byte ptr [si+2BF5h], 0
+		mov	byte ptr byte_20665[si], 0
 		inc	si
 
 loc_127A5:
@@ -11631,7 +11631,7 @@ loc_14428:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx+7676h]
+		mov	ax, word ptr byte_250E6[bx]
 		mov	bx, _boss_left_on_back_page
 		cmp	ax, [bx]
 		jz	short loc_14493
@@ -11642,7 +11642,7 @@ loc_14428:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx+7682h]
+		mov	ax, word ptr byte_250F2[bx]
 		mov	bx, _boss_top_on_back_page
 		cmp	ax, [bx]
 		jz	short loc_14493
@@ -11653,7 +11653,7 @@ loc_14428:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx+7676h]	; left
+		push	word ptr byte_250E6[bx]	; left
 		mov	al, _page_back
 		mov	ah, 0
 		imul	ax, 6
@@ -11661,7 +11661,7 @@ loc_14428:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx+7682h]	; top
+		push	word ptr byte_250F2[bx]	; top
 		push	(64 shl 16) or 64	; (w shl 16) or h
 		call	@tiles_invalidate_rect$qiiii
 
@@ -11673,7 +11673,7 @@ loc_14493:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx+7676h]
+		mov	ax, word ptr byte_250E6[bx]
 		mov	dl, _page_back
 		mov	dh, 0
 		imul	dx, 6
@@ -11681,7 +11681,7 @@ loc_14493:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx+7676h], ax
+		mov	word ptr byte_250E6[bx], ax
 		mov	al, _page_front
 		mov	ah, 0
 		imul	ax, 6
@@ -11689,7 +11689,7 @@ loc_14493:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx+7682h]
+		mov	ax, word ptr byte_250F2[bx]
 		mov	dl, _page_back
 		mov	dh, 0
 		imul	dx, 6
@@ -11697,7 +11697,7 @@ loc_14493:
 		add	bx, bx
 		add	dx, bx
 		mov	bx, dx
-		mov	[bx+7682h], ax
+		mov	word ptr byte_250F2[bx], ax
 		inc	si
 
 loc_144E6:
@@ -23732,15 +23732,15 @@ loc_1B3E7:
 		add	bx, bx
 		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1B46C
-		mov	al, [si-6D20h]
+		mov	al, byte_26D50[si]
 		mov	bx, si
 		add	bx, bx
 		add	al, byte ptr word_26D42[bx]
-		mov	[si-6D20h], al
+		mov	byte_26D50[si], al
 		mov	bx, si
 		add	bx, bx
 		movsx	eax, word ptr word_26D3A[bx]
-		mov	dl, [si-6D20h]
+		mov	dl, byte_26D50[si]
 		mov	dh, 0
 		add	dx, dx
 		mov	bx, dx
@@ -23756,7 +23756,7 @@ loc_1B3E7:
 		mov	bx, si
 		add	bx, bx
 		movsx	eax, word ptr word_26D3A[bx]
-		mov	dl, [si-6D20h]
+		mov	dl, byte_26D50[si]
 		mov	dh, 0
 		add	dx, dx
 		mov	bx, dx
@@ -23824,7 +23824,7 @@ loc_1B4C1:
 		mov	bx, [bp+var_2]
 		mov	al, byte ptr [bp+var_2]
 		shl	al, 6
-		mov	[bx-6D20h], al
+		mov	byte_26D50[bx], al
 		add	bx, bx
 		mov	word ptr word_26D3A[bx], 8
 		mov	bx, [bp+var_2]
@@ -24360,7 +24360,7 @@ loc_1B932:
 		mov	ax, [bp+var_2]
 		add	ax, 12
 		push	ax	; top
-		mov	al, [si-6D20h]
+		mov	al, byte_26D50[si]
 		add	al, angle_26D88
 		push	ax	; angle
 		push	BG_1	; group
@@ -24455,7 +24455,7 @@ loc_1BA20:
 loc_1BA55:
 		push	di	; left
 		push	[bp+var_2]	; top
-		mov	al, [si-6D20h]
+		mov	al, byte_26D50[si]
 		add	al, byte ptr [bp+@@angle]
 		push	ax	; angle
 		push	BG_1	; group
@@ -24508,7 +24508,7 @@ loc_1BA90:
 loc_1BAC5:
 		push	di	; left
 		push	[bp+var_2]	; top
-		mov	al, [si-6D20h]
+		mov	al, byte_26D50[si]
 		add	al, byte ptr [bp+var_4]
 		push	ax	; angle
 		push	BG_1	; group
@@ -24629,7 +24629,7 @@ loc_1BBAB:
 		mov	[bp+@@speed], ax
 		push	di	; left
 		push	[bp+var_2]	; top
-		mov	al, [si-6D20h]
+		mov	al, byte_26D50[si]
 		add	al, byte_26D8A[si]
 		push	ax	; angle
 		push	BG_1	; group
@@ -25745,7 +25745,7 @@ loc_1C518:
 		les	bx, [bp+src]
 		mov	dl, es:[bx]
 		mov	bx, ax
-		mov	[bx+556Ch], dl
+		mov	byte_22FDC[bx], dl
 		inc	word ptr [bp+src]
 		inc	[bp+var_4]
 		les	bx, [bp+src]
@@ -26969,7 +26969,8 @@ word_1FFF6	dw ?
 byte_1FFF8	db ?
 byte_1FFF9	db ?
 byte_1FFFA	db ?
-		db 361 dup(?)
+		db ?
+byte_1FFFC	db 360 dup(?)
 word_20164	dw ?
 word_20166	dw ?
 byte_20168	db ?
@@ -27106,7 +27107,7 @@ public _stone_flag
 label midboss3_flag byte
 _stone_flag	db STONE_COUNT dup(?)
 
-		db 5 dup(?)
+byte_20665	db 5 dup(?)
 byte_2066A	db ?
 byte_2066B	db ?
 public _reduce_effects, _slowdown_factor
@@ -27237,10 +27238,13 @@ public _bomb_circle_center, _bomb_circle_frame, _bomb_circle_done
 _bomb_circle_center	Point <?>
 _bomb_circle_frame	dw ?
 _bomb_circle_done	dw ?
-		db 254 dup(?)
+byte_218CC	db 6 dup(?)
+byte_218D2	db 198 dup(?)
+byte_21998	db 50 dup(?)
 public _playchar_bomb_func
 _playchar_bomb_func	dw ?
-		db 128 dup(?)
+byte_219CC	db 2 dup(?)
+byte_219CE	db 126 dup(?)
 tilemode_21A4C	db ?
 rgb_21A4D	rgb_t <?>
 rgb_21A50	rgb_t <?>
@@ -27309,7 +27313,9 @@ word_22D9E	dw ?
 word_22DA0	dw ?
 word_22DA2	dw ?
 byte_22DA4	db ?
-		db 513 dup(?)
+		db ?
+byte_22DA6	db 2 dup(?)
+byte_22DA8	db 510 dup(?)
 byte_22FA6	db ?
 byte_22FA7	db ?
 byte_22FA8	db ?
@@ -27320,7 +27326,7 @@ byte_22FAE	db ?
 angle_22FAF	db ?
 angle_22FB0	db ?
 angle_22FB1 db 5 dup(?)
-		db 24 dup(?)
+byte_22FB6	db 24 dup(?)
 byte_22FCE	db ?
 byte_22FCF	db ?
 byte_22FD0	db ?
@@ -27332,7 +27338,7 @@ public _map_length
 _map_length	dw ?
 		db    ?	;
 byte_22FDB	db ?
-		db 2704 dup(?)
+byte_22FDC	db 2704 dup(?)
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
@@ -27352,7 +27358,8 @@ angle_250DE	db ?
 word_250E0	dw ?
 word_250E2	dw ?
 word_250E4	dw ?
-		db 24 dup(?)
+byte_250E6	db 12 dup(?)
+byte_250F2	db 12 dup(?)
 word_250FE	dw ?
 		db 480 dup(?)
 byte_252E0	db ?
@@ -27567,7 +27574,7 @@ byte_26D4C	db ?
 byte_26D4D	db ?
 byte_26D4E	db ?
 byte_26D4F	db ?
-		db 4 dup(?)
+byte_26D50	db 4 dup(?)
 word_26D54	dw ?
 dword_26D56	dd 4 dup(?)
 dword_26D66	dd 4 dup(?)
