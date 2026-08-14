@@ -942,8 +942,18 @@ static bool t2case_header_read(void)
 		return false;
 	}
 	// `debug` routes OP into "select" instead of MAIN (th02/op_01.cpp:342-346)
-	// and is a live gameplay switch; an oracle case must have it off.
+	// and is a live gameplay switch; an oracle case must have it off. It is
+	// REFUSED here rather than coerced into `resident` at `:1489`, which is
+	// what `TXCASE_CONTRACT.md` requires of every game and what makes the
+	// debug-mode ruling in `kb/conventions/rec98-taxonomy.md` mechanically
+	// true rather than asserted.
 	if(t2case_startup.debug != 0) {
+		// Attributable: `error:case-header` has ~18 causes, and a control run
+		// that cannot tell them apart proves nothing.
+		t2case_diag(
+			'D', 'B', 'G',
+			static_cast<uint32_t>(static_cast<uint8_t>(t2case_startup.debug)), 0
+		);
 		return false;
 	}
 
