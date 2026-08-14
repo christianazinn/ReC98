@@ -1814,6 +1814,12 @@ bool oracle_frame(uint16_t shift_offset)
 	if(oracle_mode == ORACLE_ERROR) {
 		return false;
 	}
+#if !ORACLE_RECORD_SUPPORTED
+	// Only the recorder reads `DemoBuf[stage_frame + shift_offset]`. The
+	// parameter stays in the signature because it is the shared hook ABI that
+	// `th04/main/demo.cpp` calls on every lineage.
+	(void)shift_offset;
+#endif
 
 #if ORACLE_RECORD_SUPPORTED
 	if(oracle_mode == ORACLE_RECORD) {
