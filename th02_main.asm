@@ -4106,7 +4106,7 @@ var_2		= word ptr -2
 		mov	ah, 0
 		shl	ax, 2
 		mov	[bp+var_C], ax
-		mov	si, 2908h
+		mov	si, offset byte_20378
 		mov	[bp+var_2], 0
 		jmp	loc_D61D
 ; ---------------------------------------------------------------------------
@@ -4135,11 +4135,11 @@ loc_D4B2:
 		mov	ax, [bx]
 		sar	ax, 4
 		mov	[bp+@@x], ax
-		cmp	word ptr [bx], 100h
+		cmp	word ptr [bx], 256
 		jle	short loc_D508
-		cmp	word ptr [bx], 1A20h
+		cmp	word ptr [bx], 6688
 		jge	short loc_D508
-		cmp	di, 180h
+		cmp	di, 384
 		jg	short loc_D508
 		cmp	di, 8
 		jge	short loc_D50E
@@ -4159,7 +4159,7 @@ loc_D51C:
 		cmp	byte ptr [si+0Fh], 0
 		jnz	loc_D5B0
 		mov	bx, [bp+var_2]
-		inc	byte ptr [bx+28E1h]
+		inc	byte_20351[bx]
 		cmp	byte ptr [si+1], 0
 		jnz	short loc_D55D
 		cmp	[bp+var_9], 2
@@ -4169,7 +4169,7 @@ loc_D51C:
 		mov	[bp+var_E], ax
 		cmp	[bp+var_E], 32h	; '2'
 		jl	short loc_D553
-		mov	al, [bx+28E1h]
+		mov	al, byte_20351[bx]
 		mov	ah, 0
 		and	ax, 1
 		add	[bp+var_E], ax
@@ -4210,7 +4210,7 @@ loc_D589:
 		mov	ah, 0
 		add	ax, ax
 		mov	bx, ax
-		push	word ptr [bx+0A94h]
+		push	word_1E504[bx]
 		call	super_roll_put
 
 loc_D59F:
@@ -26214,6 +26214,12 @@ _scroll_interval	db 4
 _scroll_done	db 0
 byte_1E502	db 0
 byte_1E503	db 0
+
+; 6 words, indexed by `[si+1] * 2` for shots whose `[si+1]` is <= 5, then
+; pushed straight into super_roll_put(): a sprite pattern number table. What
+; the index means is not yet evidenced, so the name stays the neutral one IDA
+; would have generated. [static]
+word_1E504	label word
 		db  27h	; '
 		db    0
 		db  27h	; '
@@ -27009,7 +27015,14 @@ word_2034C	dw ?
 byte_2034E	db ?
 		db ?
 byte_20350	db ?
-		db 647 dup(?)
+
+; Two arrays that shots_update_and_render() walks in lockstep: one byte per
+; shot at 20351h, then 38 16-byte structures at 20378h. Both extents come from
+; that function's own loop bounds (`cmp [bp+var_2], 26h`, `add si, 10h`), so
+; they are evidenced; what the fields mean is not, hence the neutral names.
+; 20350h stays separate - it is read and tested as a scalar. [static]
+byte_20351	db 39 dup(?)
+byte_20378	db 608 dup(?)
 word_205D8	dw ?
 word_205DA	dw ?
 word_205DC	dw ?
