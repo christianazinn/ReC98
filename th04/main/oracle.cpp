@@ -1265,6 +1265,42 @@ static bool oracle_header_read(void)
 			return false;
 		}
 	}
+	// An oracle case must not carry a debug flag, and it is REFUSED here
+	// rather than coerced into `resident` further down. `TXCASE_CONTRACT.md`
+	// requires this of every game; TH01's `t1case_header_read()` already did
+	// it and TH02's `t2case_header_read()` already did it, and this closes the
+	// TH04/TH05 half.
+	//
+	// It is not a formality in either game:
+	//
+	// * TH05's `debug` is live, and playback would apply it *before* the game
+	//   reads it. `oracle_entry()` runs from
+	//   `ems_allocate_and_preload_eyecatch()` (`th05_main.asm:344`), while
+	//   `th05_main.asm:748-763` overrides `resident->stage` from `debug_stage`
+	//   and `_power` from `debug_power` -- and then clears `debug_mode` --
+	//   before the demo gate at `:765`. So `oracle_startup_apply()` writing a
+	//   set flag back would silently relocate the case to a different stage
+	//   and power level while still reporting `ok:playback`.
+	// * TH04's `debug` selects a DIFFERENT MAIN BINARY:
+	//   `op_exit_into_main()` execs `BINARY_DEB` rather than `BINARY_MAIN`
+	//   (`th04/op/start.hpp:29-33`). A case carrying it does not describe this
+	//   executable at all.
+	//
+	// This is what makes the debug-mode ruling in
+	// `kb/conventions/rec98-taxonomy.md` -- "no legitimate recorded run can
+	// reach it" -- mechanically true for TH04/TH05 rather than asserted.
+	//
+	// `debug_stage` / `debug_power` (TH05 only) are deliberately NOT required
+	// zero. `th05_main.asm:754` reads them only when `debug_mode` is set, so
+	// with the flag refused they are inert; they stay in the startup block
+	// because they are recorded state, and requiring them zero would reject
+	// legitimate cases for a field that provably cannot act.
+	if(oracle_startup.debug != 0) {
+		// Attributable: `error:case-header` has ~15 causes, and a control run
+		// that cannot tell them apart proves nothing.
+		oracle_diag('D', 'B', 'G', oracle_startup.debug, 0);
+		return false;
+	}
 
 	stored = oracle_header.header_checksum;
 	oracle_header_checksum_set();
