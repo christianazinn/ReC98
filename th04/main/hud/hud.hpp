@@ -9,28 +9,22 @@
 // BAR_MAX, in the given attribute. Assembly in both games, and `extern "C"`
 // because both spell the export as an undecorated, uppercased `HUD_BAR_PUT`.
 #if (GAME == 5)
-	extern "C" void pascal near hud_bar_put(
-		utram_y_t y, int value, tram_atrb2 atrb
-	);
+extern "C" void pascal near hud_bar_put(
+	utram_y_t y,
+	int value, // ACTUAL TYPE: unsigned char
+	tram_atrb2 atrb
+);
 #else
-	extern "C" void pascal hud_bar_put(
-		utram_y_t y, int value, tram_atrb2 atrb
-	);
+extern "C" void pascal hud_bar_put(
+	utram_y_t y,
+	int value, // ACTUAL TYPE: unsigned char
+	tram_atrb2 atrb
+);
 #endif
 
 // Renders the "Enemy!!" caption and the HP bar, showing the given [bar_value]
 // between 0 and BAR_MAX.
 void pascal hud_hp_put(int bar_value);
-
-#if (GAME == 4)
-// Prints [val] using the bold gaiji font, right-aligned at
-// 	([left+8], [y]),
-// in white. Shares nothing but the name and the semantics with TH05's
-// function below: TH04 builds the digits in a stack buffer and hardcodes
-// TX_WHITE, TH05 uses the shared [hud_gaiji_row] and takes the attribute as a
-// parameter.
-void pascal hud_5_digit_put(utram_x_t left, utram_y_t y, uint16_t val);
-#endif
 
 #if (GAME == 5)
 // Prints [points] using the bold gaiji font, right-aligned at
@@ -47,6 +41,14 @@ void pascal hud_points_put(
 void pascal hud_5_digit_put(
 	utram_x_t left, utram_y_t y, uint16_t val, tram_atrb2 atrb
 );
+#else
+// Prints [val] using the bold gaiji font, right-aligned at
+// 	([left+8], [y]),
+// in white. Shares nothing but the name and the semantics with TH05's
+// function above: TH04 builds the digits in a stack buffer and hardcodes
+// TX_WHITE, TH05 uses the shared [hud_gaiji_row] and takes the attribute as a
+// parameter.
+void pascal hud_5_digit_put(utram_x_t left, utram_y_t y, uint16_t val);
 #endif
 // ---------
 

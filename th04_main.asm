@@ -1008,7 +1008,7 @@ STD_TEXT	ends
 ; contribution, renamed so that a C++ object can append `end_extra` at its
 ; original address in the MIDDLE of the segment. Same `byte public` alignment
 ; as before, so nothing moves.
-END_EXT_TEXT segment byte public 'CODE' use16
+END_EXT_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
