@@ -14,6 +14,7 @@
 #ifndef TH01_T1CASE_HPP
 #define TH01_T1CASE_HPP
 
+#include <stddef.h> // offsetof(), for the carrier's region-map proofs
 #include "platform.h"
 
 /// Container identity
@@ -203,6 +204,199 @@ struct t1case_startup_t {
 // has no seek (TXCASE_CONTRACT.md), so TH03's 4 KiB seek reader is not ported.
 #define T1CASE_RBUF_SIZE 256
 
+/// Handoff carrier
+/// ---------------
+/// REPLAY_CORE_CONTRACT.md §7, ported from th03/replay_handoff.hpp. TH03 carves
+/// its carrier out of `resident_t::unused_3[198]`, so every field there is a
+/// named INDEX into a raw byte array and the non-overlap assertions are `#error`
+/// guards on that index arithmetic. TH01 cannot extend `resident_t` — it has two
+/// spare bytes and its layout is binary identity — so the carrier is a SECOND
+/// ResData block, `"T1CaseState"`, which means TH01 gets to declare a real
+/// struct instead of carving an array.
+///
+/// Both are bindings of the same core region map. The map is declared below as
+/// indices exactly like TH03's, the `#error` guards assert that no two regions
+/// overlap and that the map fits, and the `offsetof` proofs at the bottom of
+/// this file assert that the struct binding lands on the map. Getting a field
+/// wrong is therefore a compile error in either binding style, which is the
+/// property §7 asks for; the array-of-bytes shape is not.
+///
+/// Every region is relative to the START OF THE BLOCK, so index 0 is the
+/// ResData ID that `resdata_create()` writes there itself.
+
+#define T1CASE_RES_ID "T1CaseState"
+#define T1CASE_RES_ID_SIZE 12 // sizeof(T1CASE_RES_ID)
+
+// A four-byte magic, not the ResData ID. The ID only proves master.lib found
+// A block under that name; the magic plus [carrier_version] prove that THIS
+// build wrote it. A stale block left by an earlier mod build of REIIDEN has the
+// right ID and the wrong layout, and before this parcel the only validity test
+// was `id[0] == 'T'`.
+#define T1CASE_RES_MAGIC_INDEX   T1CASE_RES_ID_SIZE
+#define T1CASE_RES_MAGIC_SIZE    4
+#define T1CASE_RES_MAGIC_0       'T'
+#define T1CASE_RES_MAGIC_1       '1'
+#define T1CASE_RES_MAGIC_2       'C'
+#define T1CASE_RES_MAGIC_3       'S'
+#define T1CASE_RES_VERSION       1
+
+#define T1CASE_RES_VERSION_INDEX (T1CASE_RES_MAGIC_INDEX + T1CASE_RES_MAGIC_SIZE)
+#define T1CASE_RES_MODE_INDEX    (T1CASE_RES_VERSION_INDEX + 1)
+#define T1CASE_RES_SLOT_INDEX    (T1CASE_RES_MODE_INDEX + 1)
+#define T1CASE_RES_PROCESS_INDEX (T1CASE_RES_SLOT_INDEX + 1)
+#define T1CASE_RES_SEQ_INDEX     (T1CASE_RES_PROCESS_INDEX + 1)
+#define T1CASE_RES_FLAGS_INDEX   (T1CASE_RES_SEQ_INDEX + 2)
+
+// The three cursors of §4.4, as one contiguous region so a clear is one loop —
+// TH03's `T3_REPLAY_RES_SAMPLE_COUNT_INDEX .. _CURSOR_END_INDEX` sweep.
+#define T1CASE_RES_CURSOR_INDEX       (T1CASE_RES_FLAGS_INDEX + 2)
+#define T1CASE_RES_SAMPLE_COUNT_INDEX T1CASE_RES_CURSOR_INDEX
+#define T1CASE_RES_GLOBAL_FRAME_INDEX (T1CASE_RES_SAMPLE_COUNT_INDEX + 4)
+#define T1CASE_RES_INPUT_BYTES_INDEX  (T1CASE_RES_GLOBAL_FRAME_INDEX + 4)
+#define T1CASE_RES_CURSOR_END_INDEX   (T1CASE_RES_INPUT_BYTES_INDEX + 4)
+
+#define T1CASE_RES_RECORD_COUNT_INDEX T1CASE_RES_CURSOR_END_INDEX
+
+// TH03 triple-aliases one 4-byte slot as the recorder's committed guard size
+// and the player's checkpoint/stage index (th03/replay_handoff.hpp:11-16),
+// because record and playback never both need it. Keep the union and its
+// documentation; TH01 uses only the record half so far, and step 4 (checkpoints)
+// is what fills the other.
+#define T1CASE_RES_UNION_INDEX    (T1CASE_RES_RECORD_COUNT_INDEX + 4)
+#define T1CASE_RES_COMMITTED_INDEX T1CASE_RES_UNION_INDEX
+#define T1CASE_RES_CHECKPOINT_INDEX T1CASE_RES_UNION_INDEX
+
+#define T1CASE_RES_CHECKSUM_INDEX (T1CASE_RES_UNION_INDEX + 4)
+#define T1CASE_RES_SPLIT_ROWS_INDEX (T1CASE_RES_CHECKSUM_INDEX + 4)
+
+// Reserved for the savestate-protect detector (REPLAY_CORE_CONTRACT.md §6),
+// which is W3.1 step 3. §6.1 records "~45 bytes of scratch that survives process
+// transitions" as the ONE thing TH01's protect binding has nowhere to put, and
+// naming the region now is what makes the non-overlap guards below able to
+// prove step 3 does not collide with the cursors. No field inside it is defined
+// yet: it is a reservation, not a set of dead declarations.
+#define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_SPLIT_ROWS_INDEX + 4)
+#define T1CASE_RES_PROTECT_SIZE  45
+#define T1CASE_RES_END_INDEX (T1CASE_RES_PROTECT_INDEX + T1CASE_RES_PROTECT_SIZE)
+
+// The block master.lib is asked to allocate. Sized from the map, never the
+// other way around.
+#define T1CASE_RES_SIZE T1CASE_RES_END_INDEX
+
+/// Compile-time non-overlap assertions, one per region.
+/// TH03 asserts only that its last region fits (`#if
+/// (T3_REPLAY_RES_TIMING_END_INDEX > 198) #error`) plus one hardcoded tripwire
+/// on a single boundary (`T3_KEYCONFIG_RES_END_INDEX != 98`). That catches an
+/// overflow and one specific collision; it does NOT catch two interior regions
+/// growing into each other, which is the failure the guards are for. Assert
+/// every boundary.
+
+#if (T1CASE_RES_MAGIC_INDEX < T1CASE_RES_ID_SIZE)
+#error T1CASE carrier: the magic overlaps the ResData ID
+#endif
+#if (T1CASE_RES_VERSION_INDEX < (T1CASE_RES_MAGIC_INDEX + T1CASE_RES_MAGIC_SIZE))
+#error T1CASE carrier: the version byte overlaps the magic
+#endif
+#if (T1CASE_RES_MODE_INDEX < (T1CASE_RES_VERSION_INDEX + 1))
+#error T1CASE carrier: mode overlaps the version byte
+#endif
+#if (T1CASE_RES_SLOT_INDEX < (T1CASE_RES_MODE_INDEX + 1))
+#error T1CASE carrier: slot overlaps mode
+#endif
+#if (T1CASE_RES_PROCESS_INDEX < (T1CASE_RES_SLOT_INDEX + 1))
+#error T1CASE carrier: the process id overlaps slot
+#endif
+#if (T1CASE_RES_SEQ_INDEX < (T1CASE_RES_PROCESS_INDEX + 1))
+#error T1CASE carrier: the process sequence overlaps the process id
+#endif
+#if (T1CASE_RES_FLAGS_INDEX < (T1CASE_RES_SEQ_INDEX + 2))
+#error T1CASE carrier: flags overlap the process sequence
+#endif
+#if (T1CASE_RES_CURSOR_INDEX < (T1CASE_RES_FLAGS_INDEX + 2))
+#error T1CASE carrier: the cursor region overlaps flags
+#endif
+#if (T1CASE_RES_CURSOR_END_INDEX != (T1CASE_RES_CURSOR_INDEX + 12))
+#error T1CASE carrier: the cursor region is not the three 32-bit cursors
+#endif
+#if (T1CASE_RES_RECORD_COUNT_INDEX < T1CASE_RES_CURSOR_END_INDEX)
+#error T1CASE carrier: the record count overlaps the cursor region
+#endif
+#if (T1CASE_RES_UNION_INDEX < (T1CASE_RES_RECORD_COUNT_INDEX + 4))
+#error T1CASE carrier: the committed/checkpoint union overlaps the record count
+#endif
+#if (T1CASE_RES_CHECKSUM_INDEX < (T1CASE_RES_UNION_INDEX + 4))
+#error T1CASE carrier: the payload checksum overlaps the union
+#endif
+#if (T1CASE_RES_SPLIT_ROWS_INDEX < (T1CASE_RES_CHECKSUM_INDEX + 4))
+#error T1CASE carrier: the split row count overlaps the payload checksum
+#endif
+#if (T1CASE_RES_PROTECT_INDEX < (T1CASE_RES_SPLIT_ROWS_INDEX + 4))
+#error T1CASE carrier: the protect region overlaps the split row count
+#endif
+#if (T1CASE_RES_END_INDEX > T1CASE_RES_SIZE)
+#error T1CASE carrier: the region map overflows the block
+#endif
+
+// `slot`. The oracle lineage has no numbered slots — TXCASE_CONTRACT.md's
+// control surface is a single fixed T1CASE.BIN — so TH01 stores NONE and
+// VALIDATES it, rather than leaving the byte undefined. The user lineage's
+// 0..99 range (REPLAY_CORE_CONTRACT.md §8) is what the field exists for.
+#define T1CASE_SLOT_NONE 0xFF
+
+// Carrier flags.
+//
+// CONTROL_PENDING is §7.2's latch. TH03 keeps it at
+// `T3_REPLAY_RES_MAINL_CONTROL_INDEX` and MAINL uses it to HOLD THE LAST INPUT
+// STEADY until the interpreter reaches its natural exit. TH01 latches the same
+// condition and does the opposite with it — see t1case_frame_io() for why an
+// early control packet is a desync here and must not be waited out.
+//
+// DONE marks a case that has ENDED. Before this parcel the end state was
+// encoded by destroying the block (`id[0] = '\0'`), which makes the very next
+// process fall through to T1CASE.CFG and start the case over from record zero —
+// exactly the failure §7's carrier-first precedence exists to prevent, reached
+// from the other direction.
+#define T1CASE_RES_FLAG_STARTED         0x0001
+#define T1CASE_RES_FLAG_CONTROL_PENDING 0x0002
+#define T1CASE_RES_FLAG_DONE            0x0004
+
+struct t1case_res_t {
+	// `resdata_create()` writes the ID string to offset 0 of the new block
+	// (libs/master.lib/resdata.asm, RSDCREATE_ALLOC_OK: `xor DI,DI` /
+	// `rep movsb`), which is why `resident_t`'s first member is its own id too.
+	// Clearing it makes the very next `resdata_exist()` fail to match.
+	char id[T1CASE_RES_ID_SIZE];
+
+	char magic[T1CASE_RES_MAGIC_SIZE];
+	uint8_t carrier_version;
+	uint8_t mode;
+	uint8_t slot;
+
+	// The process that last stored this carrier. Always REIIDEN today, because
+	// it is the only instrumented binary; the field is what lets a future FUUIN
+	// or OP binding detect "resumed in the wrong binary" from the CARRIER, the
+	// way the control packet's second byte detects it from the STREAM.
+	uint8_t process_id;
+
+	uint16_t process_seq;
+	uint16_t flags;
+
+	uint32_t sample_count;
+	uint32_t global_frame;
+
+	// The third cursor of REPLAY_CORE_CONTRACT.md §4.4: where in the packet
+	// stream the next process resumes. Sound only because the record side
+	// guarantees a process boundary lands on a packet boundary — t1case_finish()
+	// emits a control packet, which closes the open packet by construction.
+	uint32_t input_byte_count;
+
+	uint32_t record_count;
+	uint32_t committed; // the §7 union; see T1CASE_RES_UNION_INDEX
+	uint32_t payload_checksum;
+	uint32_t split_rows;
+	uint8_t protect[T1CASE_RES_PROTECT_SIZE];
+};
+
 enum t1split_event_t {
 	T1SPLIT_EVENT_START       = 1,
 	T1SPLIT_EVENT_ROUND_START = 2,
@@ -310,6 +504,67 @@ typedef char t1case_wbuf_size_check[
 typedef char t1split_interval_pot_check[
 	((T1SPLIT_INTERVAL_SAMPLES &
 		(T1SPLIT_INTERVAL_SAMPLES - 1)) == 0) ? 1 : -1
+];
+
+// The handoff carrier's struct binding against the core region map. Every
+// offset is asserted, not just the total size: a struct whose fields are all
+// the right width can still bind to the wrong map if the compiler pads
+// differently than the map assumes, and a size check alone would pass.
+typedef char t1case_res_id_offset_check[
+	(offsetof(t1case_res_t, magic) == T1CASE_RES_MAGIC_INDEX) ? 1 : -1
+];
+typedef char t1case_res_version_offset_check[
+	(offsetof(t1case_res_t, carrier_version) == T1CASE_RES_VERSION_INDEX) ? 1 : -1
+];
+typedef char t1case_res_mode_offset_check[
+	(offsetof(t1case_res_t, mode) == T1CASE_RES_MODE_INDEX) ? 1 : -1
+];
+typedef char t1case_res_slot_offset_check[
+	(offsetof(t1case_res_t, slot) == T1CASE_RES_SLOT_INDEX) ? 1 : -1
+];
+typedef char t1case_res_process_offset_check[
+	(offsetof(t1case_res_t, process_id) == T1CASE_RES_PROCESS_INDEX) ? 1 : -1
+];
+typedef char t1case_res_seq_offset_check[
+	(offsetof(t1case_res_t, process_seq) == T1CASE_RES_SEQ_INDEX) ? 1 : -1
+];
+typedef char t1case_res_flags_offset_check[
+	(offsetof(t1case_res_t, flags) == T1CASE_RES_FLAGS_INDEX) ? 1 : -1
+];
+typedef char t1case_res_sample_offset_check[
+	(offsetof(t1case_res_t, sample_count) == T1CASE_RES_SAMPLE_COUNT_INDEX) ?
+	1 : -1
+];
+typedef char t1case_res_frame_offset_check[
+	(offsetof(t1case_res_t, global_frame) == T1CASE_RES_GLOBAL_FRAME_INDEX) ?
+	1 : -1
+];
+typedef char t1case_res_bytes_offset_check[
+	(offsetof(t1case_res_t, input_byte_count) == T1CASE_RES_INPUT_BYTES_INDEX) ?
+	1 : -1
+];
+typedef char t1case_res_records_offset_check[
+	(offsetof(t1case_res_t, record_count) == T1CASE_RES_RECORD_COUNT_INDEX) ?
+	1 : -1
+];
+typedef char t1case_res_union_offset_check[
+	(offsetof(t1case_res_t, committed) == T1CASE_RES_UNION_INDEX) ? 1 : -1
+];
+typedef char t1case_res_checksum_offset_check[
+	(offsetof(t1case_res_t, payload_checksum) == T1CASE_RES_CHECKSUM_INDEX) ?
+	1 : -1
+];
+typedef char t1case_res_rows_offset_check[
+	(offsetof(t1case_res_t, split_rows) == T1CASE_RES_SPLIT_ROWS_INDEX) ? 1 : -1
+];
+typedef char t1case_res_protect_offset_check[
+	(offsetof(t1case_res_t, protect) == T1CASE_RES_PROTECT_INDEX) ? 1 : -1
+];
+typedef char t1case_res_size_check[
+	(sizeof(t1case_res_t) == T1CASE_RES_SIZE) ? 1 : -1
+];
+typedef char t1case_res_id_size_check[
+	(sizeof(T1CASE_RES_ID) == T1CASE_RES_ID_SIZE) ? 1 : -1
 ];
 
 typedef char t1split_header_size_check[

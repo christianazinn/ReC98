@@ -90,28 +90,9 @@ extern bool timer_initialized; // th01/main_01.cpp:85
 
 /// Cross-process carrier
 /// ---------------------
-
-#define T1CASE_RES_ID "T1CaseState"
-
-struct t1case_res_t {
-	char id[sizeof(T1CASE_RES_ID)];
-	uint8_t mode;
-	uint8_t started;
-	uint8_t process_seq;
-	uint8_t reserved;
-	uint32_t sample_count;
-	uint32_t record_count;
-	uint32_t global_frame;
-
-	// The third cursor of REPLAY_CORE_CONTRACT.md §4.4: where in the packet
-	// stream the next process resumes. Sound only because the record side
-	// guarantees a process boundary lands on a packet boundary — t1case_finish()
-	// emits a control packet, which closes the open packet by construction.
-	uint32_t input_byte_count;
-
-	uint32_t payload_checksum;
-	uint32_t split_rows;
-};
+/// The layout, the region map and its compile-time proofs live in
+/// th01/t1case.hpp next to the wire formats, because the carrier IS a format —
+/// it is read by a different process image than the one that wrote it.
 
 enum t1case_mode_t {
 	T1CASE_DISABLED = 0,
@@ -130,6 +111,19 @@ enum t1case_text_id_t {
 	T1T_ERR_DESYNC,
 	T1T_ERR_SPLIT_OPEN,
 	T1T_ERR_VERIFY,
+
+	// The carrier disagrees with the case file it says it is in the middle of.
+	// Before this parcel the equivalent evidence existed only as the HDR/FIN
+	// pair in T1DIAG.TXT, i.e. as something a human read afterwards.
+	T1T_ERR_HANDOFF,
+
+	// §7.2's latch, both directions. The stream said the process segment was
+	// over while the game was still asking for samples (EARLY), or the game
+	// reached its process boundary while the stream still owed samples (LATE).
+	// Both were `error:desync` before.
+	T1T_ERR_CONTROL_EARLY,
+	T1T_ERR_CONTROL_LATE,
+
 	T1T_ERR_RESIDENT
 };
 
@@ -218,6 +212,20 @@ static bool t1case_dec_prev_valid;
 // Distinguishes a failed read from a stream that decoded into something
 // invalid, so `error:frame-io` and `error:desync` stay meaningful.
 static bool t1case_stream_io_error;
+
+// REPLAY_CORE_CONTRACT.md §7.2's control-pending latch: the decoder has met a
+// control packet, i.e. the stream says this process segment is over.
+//
+// [measured] The reference keeps the same condition in its CARRIER
+// (`replay_control_pending`, th03/mainl/replml.cpp:26-28) — but
+// `mainl_replay_session_start()` (:1284) sets it false unconditionally, so it
+// never crosses a process transition and is not handoff state at all. It is in
+// the resident because MAINL's BSS layout is pinned by the accel path's bulk
+// image (T3R_ACCEL_BSS_OFFSET/END), and adding a BSS byte there would move it.
+// TH01 has no accel layer, so the latch is a plain static; the carrier flag of
+// the same name is written from it so a post-mortem of a killed run can see it,
+// and is likewise cleared at every session start.
+static bool t1case_control_pending;
 
 /// Small helpers
 /// -------------
@@ -685,6 +693,21 @@ static void t1case_write_text(uint8_t id)
 		t1case_write_char('v'); t1case_write_char('e'); t1case_write_char('r');
 		t1case_write_char('i'); t1case_write_char('f'); t1case_write_char('y');
 		break;
+	case T1T_ERR_HANDOFF:
+		t1case_write_char('h'); t1case_write_char('a'); t1case_write_char('n');
+		t1case_write_char('d'); t1case_write_char('o'); t1case_write_char('f');
+		t1case_write_char('f');
+		break;
+	case T1T_ERR_CONTROL_EARLY:
+		t1case_write_char('c'); t1case_write_char('t'); t1case_write_char('l');
+		t1case_write_char('-'); t1case_write_char('e'); t1case_write_char('a');
+		t1case_write_char('r'); t1case_write_char('l'); t1case_write_char('y');
+		break;
+	case T1T_ERR_CONTROL_LATE:
+		t1case_write_char('c'); t1case_write_char('t'); t1case_write_char('l');
+		t1case_write_char('-'); t1case_write_char('l'); t1case_write_char('a');
+		t1case_write_char('t'); t1case_write_char('e');
+		break;
 	default:
 		t1case_write_char('r'); t1case_write_char('e'); t1case_write_char('s');
 		t1case_write_char('i'); t1case_write_char('d'); t1case_write_char('e');
@@ -804,6 +827,57 @@ static uint8_t t1case_cfg_mode(void)
 
 /// Carrier
 /// -------
+/// REPLAY_CORE_CONTRACT.md §7. The two landmines that section records were both
+/// paid for on this branch and both still apply:
+///
+///  1. `resdata_create()` writes the ID string to offset 0 of the new block, so
+///     a blanket clear after creating it makes the very next `resdata_exist()`
+///     miss. Clear everything EXCEPT `id`.
+///  2. Resume precedence is CARRIER-FIRST: T1CASE.CFG is consulted only when the
+///     block is absent or invalid. Without that a self-restarted REIIDEN
+///     re-applies the startup block and restarts the case from record zero,
+///     which for TH01 is 8-10 opportunities per run.
+
+static bool t1case_res_magic_ok(void)
+{
+	return (
+		(t1case_res != 0) &&
+		(t1case_res->magic[0] == T1CASE_RES_MAGIC_0) &&
+		(t1case_res->magic[1] == T1CASE_RES_MAGIC_1) &&
+		(t1case_res->magic[2] == T1CASE_RES_MAGIC_2) &&
+		(t1case_res->magic[3] == T1CASE_RES_MAGIC_3) &&
+		(t1case_res->carrier_version == T1CASE_RES_VERSION)
+	);
+}
+
+// Stamps identity and zeroes every region the core owns. Mirrors
+// `replay_resident_handoff_mode_set()` (th03/main/replay.cpp:4604), which
+// likewise clears first and stamps the magic afterwards.
+static void t1case_res_stamp(void)
+{
+	unsigned i;
+
+	t1case_res->magic[0] = T1CASE_RES_MAGIC_0;
+	t1case_res->magic[1] = T1CASE_RES_MAGIC_1;
+	t1case_res->magic[2] = T1CASE_RES_MAGIC_2;
+	t1case_res->magic[3] = T1CASE_RES_MAGIC_3;
+	t1case_res->carrier_version = T1CASE_RES_VERSION;
+	t1case_res->mode = T1CASE_DISABLED;
+	t1case_res->slot = T1CASE_SLOT_NONE;
+	t1case_res->process_id = T1CASE_PROCESS_REIIDEN;
+	t1case_res->process_seq = 0;
+	t1case_res->flags = 0;
+	t1case_res->sample_count = 0;
+	t1case_res->global_frame = 0;
+	t1case_res->input_byte_count = 0;
+	t1case_res->record_count = 0;
+	t1case_res->committed = 0;
+	t1case_res->payload_checksum = T1CASE_FNV1A_BASIS;
+	t1case_res->split_rows = 0;
+	for(i = 0; i < T1CASE_RES_PROTECT_SIZE; i++) {
+		t1case_res->protect[i] = 0;
+	}
+}
 
 static bool t1case_res_open(bool create)
 {
@@ -818,16 +892,7 @@ static bool t1case_res_open(bool create)
 	if(!t1case_res) {
 		return false;
 	}
-	t1case_res->mode = T1CASE_DISABLED;
-	t1case_res->started = 0;
-	t1case_res->process_seq = 0;
-	t1case_res->reserved = 0;
-	t1case_res->sample_count = 0;
-	t1case_res->record_count = 0;
-	t1case_res->global_frame = 0;
-	t1case_res->input_byte_count = 0;
-	t1case_res->payload_checksum = T1CASE_FNV1A_BASIS;
-	t1case_res->split_rows = 0;
+	t1case_res_stamp();
 	return true;
 }
 
@@ -880,16 +945,29 @@ static void t1case_handoff_load(void)
 	t1case_input_byte_count = t1case_res->input_byte_count;
 	t1case_payload_checksum = t1case_res->payload_checksum;
 	t1case_split_rows = t1case_res->split_rows;
-	t1case_started = (t1case_res->started != 0);
+	t1case_started = ((t1case_res->flags & T1CASE_RES_FLAG_STARTED) != 0);
 }
 
 static void t1case_handoff_store(void)
 {
+	uint16_t flags;
+
 	if(!t1case_res) {
 		return;
 	}
 	t1case_res->mode = t1case_mode;
-	t1case_res->started = (t1case_started ? 1 : 0);
+	t1case_res->slot = T1CASE_SLOT_NONE;
+	t1case_res->process_id = T1CASE_PROCESS_REIIDEN;
+
+	flags = (t1case_res->flags & T1CASE_RES_FLAG_DONE);
+	if(t1case_started) {
+		flags |= T1CASE_RES_FLAG_STARTED;
+	}
+	if(t1case_control_pending) {
+		flags |= T1CASE_RES_FLAG_CONTROL_PENDING;
+	}
+	t1case_res->flags = flags;
+
 	t1case_res->sample_count = t1case_sample_count;
 	t1case_res->record_count = t1case_record_count;
 	t1case_res->global_frame = t1case_global_frame;
@@ -899,12 +977,45 @@ static void t1case_handoff_store(void)
 }
 
 // Ends the case: a later REIIDEN process must not resume a run that is over.
+//
+// The block STAYS VALID and stays findable. The previous revision wrote
+// `id[0] = '\0'` so that `resdata_exist()` would miss, which does end the case
+// for the process that wrote it — and hands the NEXT process a run with no
+// carrier at all, so t1case_session_start() falls through to T1CASE.CFG and
+// starts the whole case again from record zero with the startup block
+// re-applied. REIIDEN self-`execl`s 8-10 times per run, and TH01's playback
+// reaches input-end mid-run by construction, so that path is reachable rather
+// than theoretical. A DONE latch in a still-valid carrier is the same "the case
+// is over" statement made in a way the next process can read.
 static void t1case_handoff_clear(void)
 {
 	if(t1case_res) {
 		t1case_res->mode = T1CASE_DISABLED;
-		t1case_res->id[0] = '\0';
+		t1case_res->flags |= T1CASE_RES_FLAG_DONE;
 	}
+}
+
+// Cross-checks the resumed carrier against the case file's own header. This is
+// the HDR/FIN equality that T1DIAG.TXT has always exposed to a human reader,
+// enforced by the game instead: on a record resume the header on disk is the
+// one the previous process last wrote, so its counters and the carrier's must
+// agree exactly, and on a playback resume the carrier's cursors must lie inside
+// the case they claim to index. A carrier that survived `execl` with one field
+// stale produces a case that is silently wrong at exactly one splice point.
+static bool t1case_handoff_verify(void)
+{
+	if(t1case_mode == T1CASE_RECORD) {
+		return (
+			(t1case_header.record_count == t1case_record_count) &&
+			(t1case_header.sample_count == t1case_sample_count) &&
+			(t1case_header.payload_size == t1case_input_byte_count)
+		);
+	}
+	return (
+		(t1case_record_count <= t1case_header.record_count) &&
+		(t1case_sample_count <= t1case_header.sample_count) &&
+		(t1case_input_byte_count <= t1case_header.payload_size)
+	);
 }
 
 /// Packet codec
@@ -1128,10 +1239,28 @@ static bool t1case_decode_sample(uint8_t phase)
 			return false;
 		}
 		if(
+			static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) ==
+			T1CASE_PHASE_CONTROL
+		) {
+			// §7.2's latch. The stream says this process segment is over while
+			// the game is still asking for samples.
+			//
+			// TH01 does NOT do what MAINL does here. MAINL holds the last input
+			// steady and drains, because its exit is an interpreter reaching a
+			// natural end and the stream can legitimately run out first. TH01's
+			// process boundaries are `execl` sites reached by game logic, and
+			// game logic is a deterministic function of the recorded input, so
+			// in a correct playback the control packet arrives exactly when the
+			// game reaches the boundary. Waiting it out would mask the desync
+			// this whole module exists to detect. Latch and fail, by name.
+			t1case_control_pending = true;
+			return false;
+		}
+		if(
 			static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) >
 			T1CASE_PHASE_INTERSTITIAL
 		) {
-			return false;
+			return false; // phase 3 does not exist
 		}
 		mask = t1case_stream_u8();
 		if(mask < 0) {
@@ -1176,7 +1305,8 @@ static bool t1case_decode_control(uint8_t control)
 	int process;
 
 	// The stream must be at an exact packet boundary: a run that still owes
-	// samples means the process ended earlier than the recording did.
+	// samples means the process ended earlier than the recording did. The other
+	// half of §7.2's latch — CONTROL_LATE, reported by the caller.
 	if(t1case_dec_run != 0) {
 		return false;
 	}
@@ -1185,16 +1315,23 @@ static bool t1case_decode_control(uint8_t control)
 		return false;
 	}
 	if(
-		(static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) !=
-			T1CASE_PHASE_CONTROL) ||
-		(static_cast<uint8_t>(tag & T1CASE_PACKET_RUN_MASK) != control)
+		static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) !=
+		T1CASE_PHASE_CONTROL
 	) {
 		return false;
 	}
+	if(static_cast<uint8_t>(tag & T1CASE_PACKET_RUN_MASK) != control) {
+		return false;
+	}
+
+	// "Resumed in the wrong binary", detected directly rather than inferred from
+	// TH03's control-code parity, which REIIDEN's self-handoff makes vacuous
+	// (REPLAY_CORE_CONTRACT.md §7.2).
 	process = t1case_stream_u8();
 	if(process != T1CASE_PROCESS_REIIDEN) {
 		return false;
 	}
+	t1case_control_pending = false;
 	t1case_dec_prev_valid = false;
 	return true;
 }
@@ -1678,9 +1815,11 @@ void far t1case_frame_io(uint8_t near *prev)
 			return;
 		}
 		t1case_stream_io_error = false;
+		t1case_control_pending = false;
 		if(!t1case_decode_sample(phase)) {
 			t1case_input_error(
-				t1case_stream_io_error ? T1T_ERR_FRAME_IO : T1T_ERR_DESYNC
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
+				(t1case_control_pending ? T1T_ERR_CONTROL_EARLY : T1T_ERR_DESYNC)
 			);
 			return;
 		}
@@ -1702,6 +1841,7 @@ void far t1case_frame_io(uint8_t near *prev)
 void far t1case_session_start(void)
 {
 	bool resumed;
+	bool carrier_done;
 
 	t1case_paths_init();
 	t1case_payload_checksum = T1CASE_FNV1A_BASIS;
@@ -1724,23 +1864,39 @@ void far t1case_session_start(void)
 	t1case_dec_phase = T1CASE_PHASE_GAMEPLAY;
 	t1case_dec_prev_valid = false;
 	t1case_stream_io_error = false;
+	t1case_control_pending = false;
 
-	// The resident handoff wins; T1CASE.CFG is only the first-process
-	// fallback. Without this precedence a self-restarted REIIDEN would
-	// re-apply the startup block and restart the case from record zero.
-	if(t1case_res_open(false)) {
-		t1case_mode = t1case_res->mode;
-		if(
-			(t1case_res->id[0] != 'T') ||
-			((t1case_mode != T1CASE_RECORD) && (t1case_mode != T1CASE_PLAYBACK))
-		) {
+	// The carrier wins; T1CASE.CFG is only the first-process fallback
+	// (REPLAY_CORE_CONTRACT.md §7, landmine 2). Three outcomes, not two:
+	//
+	//   valid + RECORD/PLAYBACK -> resume this process from the carrier
+	//   valid + DONE            -> the case is OVER; stay disabled and do NOT
+	//                              consult T1CASE.CFG, or the case restarts
+	//   absent or invalid       -> first process; T1CASE.CFG decides
+	//
+	// Validity is the magic plus the carrier version, not `id[0] == 'T'`: the
+	// ID only proves master.lib found a block under that name, which a stale
+	// block from an older mod build also does.
+	carrier_done = false;
+	if(t1case_res_open(false) && t1case_res_magic_ok()) {
+		if(t1case_res->flags & T1CASE_RES_FLAG_DONE) {
+			carrier_done = true;
 			t1case_mode = T1CASE_DISABLED;
+		} else {
+			t1case_mode = t1case_res->mode;
+			if(
+				(t1case_mode != T1CASE_RECORD) &&
+				(t1case_mode != T1CASE_PLAYBACK)
+			) {
+				t1case_mode = T1CASE_DISABLED;
+			}
 		}
 	} else {
+		t1case_res = 0;
 		t1case_mode = T1CASE_DISABLED;
 	}
 	resumed = (t1case_mode != T1CASE_DISABLED);
-	if(!resumed) {
+	if(!resumed && !carrier_done) {
 		t1case_mode = t1case_cfg_mode();
 	}
 	if(t1case_mode == T1CASE_DISABLED) {
@@ -1785,6 +1941,16 @@ void far t1case_session_start(void)
 		'S', 'E', 'S', t1case_mode, (resumed ? 1UL : 0UL)
 	);
 
+	// The two carrier facts SES cannot show: which process of the chain this is,
+	// and where in the packet stream it resumes. The byte cursor is the one
+	// step 1 added and the one no diagnostic has ever exposed, so a handoff
+	// checker could not see the third cursor at all.
+	t1case_diag(
+		'S', 'E', 'Q',
+		(t1case_res ? static_cast<uint32_t>(t1case_res->process_seq) : 0UL),
+		t1case_input_byte_count
+	);
+
 	if(t1case_mode == T1CASE_PLAYBACK) {
 		if(!t1case_header_read()) {
 			t1case_mode = T1CASE_ERROR;
@@ -1826,6 +1992,16 @@ void far t1case_session_start(void)
 			t1case_done_write(T1T_ERR_CASE_HEADER);
 			return;
 		}
+	}
+	// Cross-check the resumed carrier against the case file's own header. This
+	// MUST happen before the record path below rewrites that header from the
+	// carrier's counters, which would make them agree by construction and turn
+	// the check into a tautology.
+	if(resumed && !t1case_handoff_verify()) {
+		t1case_mode = T1CASE_ERROR;
+		t1case_handoff_clear();
+		t1case_done_write(T1T_ERR_HANDOFF);
+		return;
 	}
 	if(t1case_mode == T1CASE_RECORD) {
 		if(!t1case_header_write(!resumed)) {
@@ -1871,6 +2047,7 @@ void far t1case_finish(bool16 terminal)
 {
 	uint8_t control;
 	bool final_case;
+	bool late = false;
 
 	if((t1case_mode == T1CASE_DISABLED) || (t1case_mode == T1CASE_ERROR)) {
 		return;
@@ -1895,9 +2072,15 @@ void far t1case_finish(bool16 terminal)
 		}
 	} else {
 		t1case_stream_io_error = false;
+
+		// A run that still owes samples is the LATE half of §7.2: the game
+		// reached its process boundary before the recording did. Sampled before
+		// the decode, because a successful decode requires [dec_run] == 0.
+		late = (t1case_dec_run != 0);
 		if(!t1case_decode_control(control)) {
 			t1case_input_error(
-				t1case_stream_io_error ? T1T_ERR_FRAME_IO : T1T_ERR_DESYNC
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
+				(late ? T1T_ERR_CONTROL_LATE : T1T_ERR_DESYNC)
 			);
 			return;
 		}
@@ -1906,6 +2089,12 @@ void far t1case_finish(bool16 terminal)
 
 	t1case_split_row(T1SPLIT_EVENT_FINISH);
 	t1case_diag('F', 'I', 'N', t1case_record_count, t1case_global_frame);
+
+	// The byte cursor as the outgoing process leaves it, so the next process's
+	// SEQ line can be checked against it. On the record path the flush above has
+	// already committed the control packet, so this is a packet boundary
+	// (REPLAY_CORE_CONTRACT.md §4.4 item 1) and not merely a byte count.
+	t1case_diag('F', 'B', 'C', t1case_input_byte_count, t1case_sample_count);
 
 	final_case = (
 		(terminal != false) ||
