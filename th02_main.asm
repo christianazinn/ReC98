@@ -15980,7 +15980,7 @@ sub_16A6B	proc far
 loc_16A72:
 		mov	bx, ax
 		imul	bx, 26h
-		mov	byte ptr [bx+7B5Eh], 0
+		mov	byte ptr byte_255C0[bx+14], 0
 		inc	ax
 
 loc_16A7D:
@@ -16287,14 +16287,14 @@ arg_6		= word ptr  0Ah
 		mov	si, [bp+arg_6]
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B5Eh], 1
+		mov	byte ptr byte_255C0[bx+14], 1
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	[bx+7B50h], si
+		mov	word ptr byte_255C0[bx], si
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	al, _page_back
@@ -16302,33 +16302,33 @@ arg_6		= word ptr  0Ah
 		shl	ax, 2
 		add	bx, ax
 		mov	ax, [bp+arg_4]
-		mov	[bx+7B52h], ax
+		mov	word ptr byte_255C0[bx+2], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B62h], 0
+		mov	word ptr byte_255C0[bx+18], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B58h], 0
+		mov	word ptr byte_255C0[bx+8], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	ax, [bp+arg_0]
-		mov	[bx+7B5Ch], ax
+		mov	word ptr byte_255C0[bx+12], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B5Ah], 0
+		mov	word ptr byte_255C0[bx+10], 0
 		call	@randring2_next8$qv
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	[bx+7B5Fh], al
+		mov	byte_255C0[bx+15], al
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B66h], 0
+		mov	word ptr byte_255C0[bx+22], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B72h], 0
+		mov	byte ptr byte_255C0[bx+34], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B73h], 0
+		mov	byte ptr byte_255C0[bx+35], 0
 		cmp	si, 0D0h
 		jge	short loc_16D3E
 		mov	ax, 1
@@ -16341,22 +16341,22 @@ loc_16D3E:
 loc_16D40:
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	[bx+7B68h], ax
+		mov	word ptr byte_255C0[bx+24], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B6Ah], 0
+		mov	word ptr byte_255C0[bx+26], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B6Eh], 0
+		mov	byte ptr byte_255C0[bx+30], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B64h], 1
+		mov	word ptr byte_255C0[bx+20], 1
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B60h], 0
+		mov	byte ptr byte_255C0[bx+16], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr [bx+7B70h], 0
+		mov	word ptr byte_255C0[bx+32], 0
 		mov	al, byte_1EE52
 		mov	ah, 0
 		cmp	ax, [bp+arg_2]
@@ -16418,7 +16418,7 @@ loc_16DC4:
 		mov	[bp+var_2], ax
 		mov	bx, [bp+var_2]
 		imul	bx, 24h
-		mov	ax, [bx+7F08h]
+		mov	ax, word ptr byte_25976[bx+2]
 		mov	[bp+var_4], ax
 		cmp	_midboss_active, 0
 		jnz	short loc_16E2F
@@ -16429,7 +16429,7 @@ loc_16DC4:
 loc_16E08:
 		mov	bx, si
 		imul	bx, 26h
-		cmp	byte ptr [bx+7B5Eh], 0
+		cmp	byte ptr byte_255C0[bx+14], 0
 		jnz	short loc_16E29
 		mov	ax, di
 		shl	ax, 3
@@ -17461,7 +17461,7 @@ loc_17697:
 		mov	bx, word_26C46
 		mov	ax, [bx+0Ch]
 		imul	ax, 24h
-		add	ax, 7F06h
+		add	ax, offset byte_25976
 		mov	word_26C48, ax
 		mov	al, _page_back
 		mov	ah, 0
@@ -17762,7 +17762,7 @@ var_2		= word ptr -2
 loc_1798E:
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		cmp	byte ptr [bx+7B5Eh], 0
+		cmp	byte ptr byte_255C0[bx+14], 0
 		jz	loc_17A46
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
@@ -17770,22 +17770,22 @@ loc_1798E:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	si, [bx+7B50h]
+		mov	si, word ptr byte_255C0[bx]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	di, [bx+7B52h]
+		mov	di, word ptr byte_255C0[bx+2]
 		call	@tiles_invalidate_rect$qiiii pascal, si, di, (32 shl 16) or 32
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		cmp	byte ptr [bx+7B5Eh], 2
+		cmp	byte ptr byte_255C0[bx+14], 2
 		jnz	short loc_179EC
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		mov	byte ptr [bx+7B5Eh], 0
+		mov	byte ptr byte_255C0[bx+14], 0
 		jmp	short loc_17A46
 ; ---------------------------------------------------------------------------
 
@@ -17799,28 +17799,28 @@ loc_179EC:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, [bx+7B50h]
+		mov	ax, word ptr byte_255C0[bx]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
 		add	bx, dx
-		mov	[bx+7B50h], ax
+		mov	word ptr byte_255C0[bx], ax
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	al, _page_front
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, [bx+7B52h]
+		mov	ax, word ptr byte_255C0[bx+2]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
 		add	bx, dx
-		mov	[bx+7B52h], ax
+		mov	word ptr byte_255C0[bx+2], ax
 
 loc_17A46:
 		inc	[bp+var_2]
@@ -17849,11 +17849,11 @@ sub_17A55	proc far
 loc_17A5C:
 		mov	bx, ax
 		imul	bx, 26h
-		cmp	byte ptr [bx+7B5Eh], 0
+		cmp	byte ptr byte_255C0[bx+14], 0
 		jz	short loc_17A72
 		mov	bx, ax
 		imul	bx, 26h
-		mov	byte ptr [bx+7B5Eh], 2
+		mov	byte ptr byte_255C0[bx+14], 2
 
 loc_17A72:
 		inc	ax
@@ -25666,7 +25666,7 @@ loc_1C451:
 		mov	[bp+var_2], ax
 		add	word ptr [bp+src], 2
 		mov	byte_22FDB, 0
-		mov	word ptr [bp+dest], 7F06h
+		mov	word ptr [bp+dest], offset byte_25976
 		xor	di, di
 		jmp	loc_1C55E
 ; ---------------------------------------------------------------------------
@@ -25681,7 +25681,7 @@ loc_1C473:
 		add	word ptr [bp+src], 1Ch
 		mov	bx, di
 		imul	bx, 24h
-		mov	bx, [bx+7F0Eh]
+		mov	bx, word ptr byte_25976[bx+8]
 		add	bx, bx
 		mov	ax, [bx+1EDAh]
 		shr	ax, 8
@@ -25690,7 +25690,7 @@ loc_1C473:
 		mov	[bx+1Ch], ax
 		mov	bx, di
 		imul	bx, 24h
-		mov	bx, [bx+7F0Eh]
+		mov	bx, word ptr byte_25976[bx+8]
 		add	bx, bx
 		mov	ax, [bx+1EDAh]
 		and	ax, 255
@@ -27445,7 +27445,19 @@ fp_255B8	dw ?
 fp_255BA	dw ?
 word_255BC	dw ?
 byte_255BE	db ?
-		db 5559 dup(?)
+		db ?
+
+; 25 structures of 38 bytes. sub_16A6B clears them with `imul bx, 26h` under
+; `cmp ax, 19h`, which fixes both numbers; fields at +0 and +2 are additionally
+; biased by `page_back * 4`, the same front/back page pairing the rest of this
+; BSS uses. [static]
+byte_255C0	db 950 dup(?)
+
+; A second array, 36 bytes per element (`imul bx, 24h`), filled from the stage
+; map by 1C473h's `memcpy` loop over `_map_length`. The element count is bounded
+; by that variable and is NOT evidenced here, so this label deliberately covers
+; the whole remaining run rather than claiming one. [static]
+byte_25976	db 4608 dup(?)
 dword_26B76	dd ?
 		db 192 dup(?)
 word_26C3A	dw ?
