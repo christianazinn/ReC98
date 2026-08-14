@@ -1241,7 +1241,7 @@ static void replay_debug_overlay_put(void)
 		PIXEL_LEFT = (TRAM_LEFT * GLYPH_HALF_W),
 		PIXEL_RIGHT = (((TRAM_LEFT + TRAM_W) * GLYPH_HALF_W) - 1),
 		// MAIN uses doubled 200-line graphics under 16-pixel TRAM glyphs.
-		PIXEL_BOTTOM = ((GLYPH_HALF_H * 2) - 1),
+		PIXEL_BOTTOM = (GLYPH_HALF_H - 1),
 	};
 	char line[58];
 	char __ss *out = line;
