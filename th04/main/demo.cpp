@@ -4,6 +4,7 @@
 #include "th04/hardware/inputvar.h"
 #include "th04/main/frames.h"
 #include "th04/main/demo.hpp"
+#include "th04/main/oracle.hpp"
 #if (GAME == 5)
 #include "th05/resident.hpp"
 #else
@@ -12,6 +13,14 @@
 
 void near demo_load(void)
 {
+	// ORACLE MOD: pre-init hook. Runs after the game committed to the demo
+	// path (`th04_main.asm:688`, `th05_main.asm:767`) but before the size and
+	// the DEMO?.REC file name below are derived from `resident->demo_num`, and
+	// before the caller propagates `resident->demo_stage` into
+	// `resident->stage` and `_stage_id`. Everything after this point is ZUN's
+	// own code running unmodified on the case's scenario.
+	oracle_scenario_apply();
+
 #if (GAME == 5)
 	size_t size = ((resident->demo_num <= 4)
 		? sizeof(REC<DEMO_N>)
@@ -42,6 +51,21 @@ void near DemoPlay(void)
 #else
 	#define shift_offset DEMO_N
 #endif
+
+	// ORACLE MOD: the injection seam. `fp_23D90` / `fp_2300E` already point
+	// here on the demo path (`th04_main.asm:697`, `th05_main.asm:779`), so no
+	// ASM edit is needed anywhere.
+	//
+	// The oracle deliberately does NOT reproduce the abort-on-keypress guard
+	// below: it would make playback depend on the host keyboard, which is the
+	// opposite of an oracle. Recorded as a deviation in the delta index.
+	if(oracle_active()) {
+		if(oracle_frame(shift_offset)) {
+			return;
+		}
+		demo_end();
+		return;
+	}
 
 	// In TH04, replay playback ends by pressing anything. In TH05, only the
 	// non-movement inputs (shot, bomb, cancel, OK, and Q) work.

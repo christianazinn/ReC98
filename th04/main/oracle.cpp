@@ -1,0 +1,1486 @@
+#pragma option -zCORACLE_TEXT
+
+// T4CASE1 / T5CASE1 verifier for TH04 and TH05 MAIN.
+//
+// Validation-only mod code. It is NOT part of any bit-identical match branch
+// and the binaries it produces are intentionally nonmatching. Nothing here may
+// be described as matching an original binary.
+//
+// Two modes, selected by the first non-blank character of T4CASE.CFG /
+// T5CASE.CFG:
+//
+//   r  record   run ZUN's own attract demo, capture the audited startup
+//               description plus every injected sample into T?CASE.BIN, and
+//               emit T?SPLIT.BIN
+//   p  playback apply the recorded startup, inject the recorded input stream,
+//               verify frame alignment, and emit T?SPLIT.BIN
+//
+// Absent or unrecognized config leaves the game completely untouched.
+//
+// Record mode doubles as the normalizer. ZUN's DEMO?.REC files are members of
+// the retail packfile (`th03/formats/pfopen.asm:54-66`; the directory is
+// encrypted and member payloads are RLE-compressed, which is why a plain grep
+// never found them), and master.lib's INT 21h hook
+// (`libs/master.lib/pfint21.asm`) serves them transparently through
+// `file_ropen()`. So the game itself reads the stock demo and writes the
+// normalized case, and no original bytes ever leave `originals/`.
+//
+// Playback deliberately re-derives everything it can instead of restoring a
+// memory image. There is no runtime snapshot: the scenario start is pinned by
+// ZUN's own code (`th04_main.asm:689-698`, `th05_main.asm:769-780`), so the
+// startup block is written *before* `demo_load()` computes anything from it,
+// and the game's own initialization then runs unmodified.
+
+#include "platform.h"
+#include "libs/master.lib/master.hpp"
+#include "th02/math/randring.hpp"
+#include "th04/formats/std.hpp"
+#include "th04/hardware/inputvar.h"
+#include "th04/main/demo.hpp"
+#include "th04/main/ems.hpp"
+#include "th04/main/frames.h"
+#include "th04/main/oracle.hpp"
+#include "th04/main/playperf.hpp"
+#include "th04/main/player/bomb.hpp"
+#include "th04/main/quit.hpp"
+#include "th04/main/rank.hpp"
+#include "th04/main/score.hpp"
+#include "th04/main/stage/stage.hpp"
+#include "th04/oracle_build.hpp"
+#if (GAME == 5)
+	#include "th05/resident.hpp"
+#else
+	#include "th04/resident.hpp"
+#endif
+
+// `th02/math/randring[bss].asm:10-15`: a *word*-sized cursor whose low byte
+// alone is incremented by the TH04/TH05 accessors
+// (`th04/math/randring.inc:1-33`). Hash the full uint16; never reuse TH02's
+// byte-sized serializer.
+extern uint16_t randring_p;
+
+// `th04/main/play[bss].asm`, `th04_main.asm:30125`, `th05_main.asm:20203`.
+extern uint8_t power;
+
+// `th04/main/bullet/update[bss].asm:16-18`.
+extern uint16_t stage_graze;
+
+// `th04/score[data].asm:1-2`.
+extern uint8_t extends_gained;
+
+#if (GAME == 5)
+	// `th05_main.asm:19959-19960`. TH05 has no `rem_lives` / `rem_bombs` in
+	// `resident_t`; those counters are MAIN-local. This closes the `[open]`
+	// item in `state/re/DETERMINISTIC_STATE_TH05.md` §3.
+	extern uint8_t lives;
+	extern uint8_t bombs;
+
+	// `th05/main/dialog/dialog.cpp:248`. Deterministic gameplay state for a
+	// TH05 demo case: it is what distinguishes "before the Extra splice" from
+	// "after".
+	extern int8_t dialog_sequence_id;
+#endif
+
+/// Module state
+/// ------------
+/// None of this is initialized data. A `_DATA` contribution from this module
+/// would be placed between the original `_DATA` and `_BSS` inside DGROUP and
+/// would shift every original BSS offset. TH04/TH05 carry no hardcoded raw BSS
+/// offsets the way TH03 does, but the rule in
+/// kb/conventions/th03-mod-layout-verification.md is cheap to honour and the
+/// built map is checked against it, so filenames are assembled and status text
+/// is emitted one character at a time.
+
+static char ORACLE_CFG_FN[11];
+static char ORACLE_BIN_FN[11];
+static char ORACLE_SPLIT_FN[12];
+static char ORACLE_DONE_FN[11];
+static char ORACLE_DIAG_FN[11];
+static bool oracle_paths_ready;
+
+enum oracle_text_id_t {
+	ORT_OK_RECORD = 0,
+	ORT_OK_PLAYBACK,
+	ORT_OK_INPUT_END,
+	ORT_ERR_CASE_HEADER,
+	ORT_ERR_CASE_CREATE,
+	ORT_ERR_CASE_FINALIZE,
+	ORT_ERR_FRAME_IO,
+	ORT_ERR_DESYNC,
+	ORT_ERR_STARTUP,
+	ORT_ERR_SPLIT_OPEN,
+	ORT_ERR_UNSUPPORTED
+};
+
+enum oracle_mode_t {
+	ORACLE_DISABLED = 0,
+	ORACLE_RECORD   = 1,
+	ORACLE_PLAYBACK = 2,
+	ORACLE_ERROR    = 3
+};
+
+// Serialized identity of the frame-loop injection hook. Never its address:
+// `fp_23D90` / `fp_2300E` are pointer-shaped state (`th04_main.asm:29956`,
+// `th05_main.asm:19893`).
+#define ORACLE_HOOK_DEMO 1
+
+// A whole record buffer, so the frame loop performs one file operation every
+// [ORACLE_RECBUF_COUNT] frames instead of one per frame. Per-frame disk I/O
+// would be host-timing-dependent work inside the measurement window.
+#define ORACLE_RECBUF_COUNT 64
+
+static oracle_header_t oracle_header;
+static oracle_startup_t oracle_startup;
+static oracle_record_t oracle_recbuf[ORACLE_RECBUF_COUNT];
+static uint16_t oracle_recbuf_len;  // valid entries in [oracle_recbuf]
+static uint16_t oracle_recbuf_pos;  // playback read cursor within the buffer
+static uint32_t oracle_recbuf_base; // record index of oracle_recbuf[0]
+static oracle_mode_t oracle_mode;
+static uint32_t oracle_global_frame;
+static uint32_t oracle_sample_count;
+static uint32_t oracle_record_count;
+static uint32_t oracle_payload_checksum;
+static uint32_t oracle_split_size;
+static uint32_t oracle_diag_size;
+static bool oracle_started;
+static bool oracle_done_written;
+static bool oracle_finished;
+/// ------------
+
+/// Raw INT 21h file I/O
+/// --------------------
+/// TH04's MAIN links master.lib's write side (`th04_main.asm:69-90` has
+/// `dos_axdx`, `file_append`, `file_create`, `file_write`, `file_seek`,
+/// `file_exist`), but TH05's does NOT (`th05_main.asm:60-95` has only the read
+/// side). Adding those procedures would mean growing an original segment
+/// contribution, which CLAUDE.md forbids outright. A private INT 21h layer
+/// therefore keeps ONE shared implementation across both games and touches no
+/// ASM at all. It also uses its own DOS handle, so it never disturbs
+/// master.lib's single global file state — a robustness gain over the TH03
+/// verifier, which had to interleave with `file_ropen()`'s handle.
+///
+/// This is safe while `pfstart()` is active. `libs/master.lib/pfint21.asm`
+/// intercepts an open only in read mode with no packfile member currently open
+/// (`_Open`: `test AL,0fh` then `or DI,DI`), and passes read, write, seek and
+/// close straight through whenever `BX` does not match its own handle.
+
+#define ORACLE_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
+#define ORACLE_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
+
+#define ORACLE_ACCESS_READ 0
+#define ORACLE_ACCESS_RW   2
+
+static int oracle_dos_open(const char far *fn, unsigned char access)
+{
+	unsigned fn_seg = ORACLE_FP_SEG(fn);
+	unsigned fn_off = ORACLE_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 3Dh
+		mov	al, access
+		int	21h
+		pop	ds	/* POP does not touch flags, so CF survives */
+		sbb	dx, dx	/* -1 if CF, 0 otherwise */
+		or	ax, dx
+		mov	result, ax
+	}
+	return result;
+}
+
+static int oracle_dos_create(const char far *fn)
+{
+	unsigned fn_seg = ORACLE_FP_SEG(fn);
+	unsigned fn_off = ORACLE_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 3Ch
+		xor	cx, cx
+		int	21h
+		pop	ds
+		sbb	dx, dx
+		or	ax, dx
+		mov	result, ax
+	}
+	return result;
+}
+
+static void oracle_dos_close(int fh)
+{
+	_asm {
+		mov	bx, fh
+		mov	ah, 3Eh
+		int	21h
+	}
+}
+
+static unsigned oracle_dos_read(int fh, void far *buf, unsigned len)
+{
+	unsigned buf_seg = ORACLE_FP_SEG(buf);
+	unsigned buf_off = ORACLE_FP_OFF(buf);
+	unsigned result;
+
+	_asm {
+		push	ds
+		mov	bx, fh
+		mov	cx, len
+		mov	dx, buf_off
+		mov	ds, buf_seg
+		mov	ah, 3Fh
+		int	21h
+		pop	ds
+		sbb	cx, cx
+		not	cx	/* 0 on error, 0FFFFh on success */
+		and	ax, cx
+		mov	result, ax
+	}
+	return result;
+}
+
+static unsigned oracle_dos_write(int fh, const void far *buf, unsigned len)
+{
+	unsigned buf_seg = ORACLE_FP_SEG(buf);
+	unsigned buf_off = ORACLE_FP_OFF(buf);
+	unsigned result;
+
+	_asm {
+		push	ds
+		mov	bx, fh
+		mov	cx, len
+		mov	dx, buf_off
+		mov	ds, buf_seg
+		mov	ah, 40h
+		int	21h
+		pop	ds
+		sbb	cx, cx
+		not	cx
+		and	ax, cx
+		mov	result, ax
+	}
+	return result;
+}
+
+static bool oracle_dos_seek(int fh, uint32_t pos)
+{
+	unsigned pos_hi = static_cast<unsigned>(pos >> 16);
+	unsigned pos_lo = static_cast<unsigned>(pos & 0xFFFFUL);
+	unsigned failed;
+
+	_asm {
+		mov	bx, fh
+		mov	cx, pos_hi
+		mov	dx, pos_lo
+		mov	ax, 4200h
+		int	21h
+		sbb	ax, ax
+		neg	ax
+		mov	failed, ax
+	}
+	return (failed == 0);
+}
+
+// Opens for read/write, creating the file when it does not exist. The position
+// is left at zero, so a caller that wants to rewrite a header simply writes,
+// and a caller that wants to append seeks to a size it tracks itself.
+static int oracle_dos_open_rw(const char far *fn)
+{
+	int fh = oracle_dos_open(fn, ORACLE_ACCESS_RW);
+
+	if(fh < 0) {
+		fh = oracle_dos_create(fn);
+	}
+	return fh;
+}
+/// --------------------
+
+// Stack objects are SS-relative in this memory model, so every helper that a
+// caller may hand a local to takes a far pointer.
+static void oracle_memclear(void far *buf, unsigned size)
+{
+	uint8_t far *p = reinterpret_cast<uint8_t far *>(buf);
+
+	while(size != 0) {
+		*p++ = 0;
+		size--;
+	}
+}
+
+// Explicit, rather than a struct assignment. `*a = *b` on a struct emits a
+// call to Turbo C++'s `F_SCOPY@` helper, which TH04's MAIN already links but
+// TH05's does not — pulling it in would grow TH05's original `_TEXT`
+// contribution, which the layout gate rightly rejects.
+static void oracle_record_copy(oracle_record_t far *dst, const oracle_record_t far *src)
+{
+	uint8_t far *d = reinterpret_cast<uint8_t far *>(dst);
+	const uint8_t far *s = reinterpret_cast<const uint8_t far *>(src);
+	unsigned i;
+
+	for(i = 0; i < ORACLE_RECORD_SIZE; i++) {
+		d[i] = s[i];
+	}
+}
+
+static void oracle_paths_init(void)
+{
+	if(oracle_paths_ready) {
+		return;
+	}
+	ORACLE_CFG_FN[0] = 'T'; ORACLE_CFG_FN[1] = ORACLE_MAGIC_DIGIT;
+	ORACLE_CFG_FN[2] = 'C'; ORACLE_CFG_FN[3] = 'A'; ORACLE_CFG_FN[4] = 'S';
+	ORACLE_CFG_FN[5] = 'E'; ORACLE_CFG_FN[6] = '.'; ORACLE_CFG_FN[7] = 'C';
+	ORACLE_CFG_FN[8] = 'F'; ORACLE_CFG_FN[9] = 'G'; ORACLE_CFG_FN[10] = '\0';
+	ORACLE_BIN_FN[0] = 'T'; ORACLE_BIN_FN[1] = ORACLE_MAGIC_DIGIT;
+	ORACLE_BIN_FN[2] = 'C'; ORACLE_BIN_FN[3] = 'A'; ORACLE_BIN_FN[4] = 'S';
+	ORACLE_BIN_FN[5] = 'E'; ORACLE_BIN_FN[6] = '.'; ORACLE_BIN_FN[7] = 'B';
+	ORACLE_BIN_FN[8] = 'I'; ORACLE_BIN_FN[9] = 'N'; ORACLE_BIN_FN[10] = '\0';
+	ORACLE_SPLIT_FN[0] = 'T'; ORACLE_SPLIT_FN[1] = ORACLE_MAGIC_DIGIT;
+	ORACLE_SPLIT_FN[2] = 'S'; ORACLE_SPLIT_FN[3] = 'P'; ORACLE_SPLIT_FN[4] = 'L';
+	ORACLE_SPLIT_FN[5] = 'I'; ORACLE_SPLIT_FN[6] = 'T'; ORACLE_SPLIT_FN[7] = '.';
+	ORACLE_SPLIT_FN[8] = 'B'; ORACLE_SPLIT_FN[9] = 'I'; ORACLE_SPLIT_FN[10] = 'N';
+	ORACLE_SPLIT_FN[11] = '\0';
+	ORACLE_DONE_FN[0] = 'T'; ORACLE_DONE_FN[1] = ORACLE_MAGIC_DIGIT;
+	ORACLE_DONE_FN[2] = 'D'; ORACLE_DONE_FN[3] = 'O'; ORACLE_DONE_FN[4] = 'N';
+	ORACLE_DONE_FN[5] = 'E'; ORACLE_DONE_FN[6] = '.'; ORACLE_DONE_FN[7] = 'T';
+	ORACLE_DONE_FN[8] = 'X'; ORACLE_DONE_FN[9] = 'T'; ORACLE_DONE_FN[10] = '\0';
+	ORACLE_DIAG_FN[0] = 'T'; ORACLE_DIAG_FN[1] = ORACLE_MAGIC_DIGIT;
+	ORACLE_DIAG_FN[2] = 'D'; ORACLE_DIAG_FN[3] = 'I'; ORACLE_DIAG_FN[4] = 'A';
+	ORACLE_DIAG_FN[5] = 'G'; ORACLE_DIAG_FN[6] = '.'; ORACLE_DIAG_FN[7] = 'T';
+	ORACLE_DIAG_FN[8] = 'X'; ORACLE_DIAG_FN[9] = 'T'; ORACLE_DIAG_FN[10] = '\0';
+	oracle_paths_ready = true;
+}
+
+/// Checksums and hashes
+/// --------------------
+/// FNV-1a/32, basis 0x811C9DC5, prime 0x01000193. Chosen over CRC32 because it
+/// needs no lookup table in a constrained DOS build and is trivial to reproduce
+/// on the host.
+
+static uint32_t oracle_fnv1a(uint32_t hash, const void far *buf, unsigned size)
+{
+	const uint8_t far *p = reinterpret_cast<const uint8_t far *>(buf);
+
+	while(size != 0) {
+		hash ^= static_cast<uint32_t>(*p++);
+		hash *= ORACLE_FNV1A_PRIME;
+		size--;
+	}
+	return hash;
+}
+
+// The 64-bit subsystem hash of `state/port/TXSPLIT_CONTRACT.md` §7: two
+// independent FNV-1a/32 passes over the same serialized byte sequence, so an
+// 8086 needs only 32-bit arithmetic. Pass B's index XOR makes the two passes
+// disagree on transpositions and on runs of equal bytes, which a same-basis
+// pair would not. Both passes stream forward and accumulate in one loop.
+//
+// This is a divergence detector, not a cryptographic primitive. Fields are
+// serialized in a fixed declared order with explicit widths; never a struct,
+// never a padding byte, never memory directly.
+struct oracle_hasher_t {
+	uint32_t a;
+	uint32_t b;
+	uint8_t index;
+};
+
+static void oracle_hash_init(oracle_hasher_t far *h)
+{
+	h->a = ORACLE_FNV1A_BASIS_A;
+	h->b = ORACLE_FNV1A_BASIS_B;
+	h->index = 0;
+}
+
+static void oracle_hash_u8(oracle_hasher_t far *h, uint8_t value)
+{
+	h->a = ((h->a ^ static_cast<uint32_t>(value)) * ORACLE_FNV1A_PRIME);
+	h->b = ((h->b ^ static_cast<uint32_t>(
+		static_cast<uint8_t>(value ^ h->index)
+	)) * ORACLE_FNV1A_PRIME);
+	h->index++;
+}
+
+static void oracle_hash_u16(oracle_hasher_t far *h, uint16_t value)
+{
+	oracle_hash_u8(h, static_cast<uint8_t>(value & 0xFF));
+	oracle_hash_u8(h, static_cast<uint8_t>(value >> 8));
+}
+
+static void oracle_hash_u32(oracle_hasher_t far *h, uint32_t value)
+{
+	oracle_hash_u16(h, static_cast<uint16_t>(value & 0xFFFFUL));
+	oracle_hash_u16(h, static_cast<uint16_t>(value >> 16));
+}
+
+static void oracle_hash_store(
+	const oracle_hasher_t far *h, oracle_split_hash_t far *out
+)
+{
+	out->pass_a = h->a;
+	out->pass_b = h->b;
+}
+
+// Group 0 — RNG. `random_seed` (4), `randring[256]`, `randring_p` (2).
+static void oracle_hash_group_rng(oracle_split_hash_t far *out)
+{
+	oracle_hasher_t h;
+	int i;
+
+	oracle_hash_init(&h);
+	oracle_hash_u32(&h, static_cast<uint32_t>(random_seed));
+	for(i = 0; i < ORACLE_RANDRING_SIZE; i++) {
+		oracle_hash_u8(&h, randring[i]);
+	}
+	oracle_hash_u16(&h, randring_p);
+	oracle_hash_store(&h, out);
+}
+
+// `std_ip` is a far pointer into the loaded `.STD` heap segment
+// (`th04/formats/std.hpp:6,23`) and must be hashed as an offset from
+// `std_seg`, never as a pointer. 0xFFFFFFFF means "no `.STD` loaded", which is
+// distinguishable from offset 0.
+static uint32_t oracle_std_ip_offset(void)
+{
+	// `th05/formats/std.cpp:58` establishes this cast for a `__seg` pointer.
+	uint16_t seg = reinterpret_cast<uint16_t>(std_seg);
+
+	if(seg == 0) {
+		return 0xFFFFFFFFUL;
+	}
+	return (
+		(static_cast<uint32_t>(
+			static_cast<uint16_t>(ORACLE_FP_SEG(std_ip) - seg)
+		) << 4) +
+		static_cast<uint32_t>(ORACLE_FP_OFF(std_ip))
+	);
+}
+
+// Group 1 — run and scenario counters.
+//
+// `total_slow_frames` and `resident->slow_frames` are deliberately EXCLUDED.
+// They count frames whose rendering exceeded the vsync time
+// (`th04/main/frames.h:12-15`), i.e. host performance rather than game state.
+// Hashing them would make the trace a stopwatch and every comparison
+// host-dependent. They stay recorded once, in the startup block, because there
+// they are a scenario input rather than a per-frame measurement.
+static void oracle_hash_group_run(oracle_split_hash_t far *out)
+{
+	oracle_hasher_t h;
+
+	oracle_hash_init(&h);
+	oracle_hash_u8(&h, stage_id);
+	oracle_hash_u8(&h, rank);
+	oracle_hash_u16(&h, stage_frame);
+	oracle_hash_u8(&h, stage_frame_mod2);
+	oracle_hash_u8(&h, stage_frame_mod4);
+	oracle_hash_u8(&h, stage_frame_mod8);
+	oracle_hash_u8(&h, stage_frame_mod16);
+	oracle_hash_u32(&h, total_frames);
+	oracle_hash_u16(&h, total_std_frames);
+	oracle_hash_u32(&h, frames_unused);
+	oracle_hash_u16(&h, resident->std_frames);
+	oracle_hash_u16(&h, resident->items_spawned);
+	oracle_hash_u16(&h, resident->items_collected);
+	oracle_hash_u16(&h, resident->point_items_collected);
+	oracle_hash_u16(&h, resident->max_valued_point_items_collected);
+	oracle_hash_u16(&h, resident->enemies_gone);
+	oracle_hash_u16(&h, resident->enemies_killed);
+	oracle_hash_u16(&h, resident->graze);
+	oracle_hash_u8(&h, resident->miss_count);
+	oracle_hash_u8(&h, resident->bombs_used);
+	oracle_hash_u8(&h, resident->end_sequence);
+	oracle_hash_u32(&h, resident->frames);
+	oracle_hash_u16(&h, stage_graze);
+	oracle_hash_u8(&h, extends_gained);
+	oracle_hash_u32(&h, score_delta);
+	oracle_hash_u32(&h, oracle_std_ip_offset());
+#if (GAME == 5)
+	// TH05 pre-doubles the section ID so it can be used directly as a byte
+	// offset (`th04/formats/std.hpp:8-15`). Serialize the *semantic* ID, or the
+	// two games' hashes disagree for identical state.
+	oracle_hash_u16(&h, static_cast<uint16_t>(std_map_section_p / 2));
+	oracle_hash_u8(&h, static_cast<uint8_t>(dialog_sequence_id));
+#else
+	oracle_hash_u16(&h, static_cast<uint16_t>(std_map_section_id));
+	oracle_hash_u8(&h, 0);
+#endif
+	oracle_hash_u8(&h, static_cast<uint8_t>(quit));
+	// The injection hook's identity, as a stable enum. Never its address.
+	oracle_hash_u8(&h, ORACLE_HOOK_DEMO);
+	oracle_hash_store(&h, out);
+}
+/// --------------------
+
+/// Status and diagnostics
+/// ----------------------
+
+static void oracle_write_char(int fh, char c)
+{
+	oracle_dos_write(fh, &c, 1);
+}
+
+// One character at a time, so this module contributes no initialized data.
+static void oracle_write_text(int fh, oracle_text_id_t text)
+{
+#define W(c) oracle_write_char(fh, c)
+	switch(text) {
+	case ORT_OK_RECORD:
+		W('o'); W('k'); W(':'); W('r'); W('e'); W('c'); W('o'); W('r'); W('d');
+		break;
+	case ORT_OK_PLAYBACK:
+		W('o'); W('k'); W(':'); W('p'); W('l'); W('a'); W('y'); W('b'); W('a');
+		W('c'); W('k');
+		break;
+	case ORT_OK_INPUT_END:
+		W('o'); W('k'); W(':'); W('i'); W('n'); W('p'); W('u'); W('t'); W('-');
+		W('e'); W('n'); W('d');
+		break;
+	case ORT_ERR_CASE_HEADER:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('c'); W('a'); W('s');
+		W('e'); W('-'); W('h'); W('e'); W('a'); W('d'); W('e'); W('r');
+		break;
+	case ORT_ERR_CASE_CREATE:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('c'); W('a'); W('s');
+		W('e'); W('-'); W('c'); W('r'); W('e'); W('a'); W('t'); W('e');
+		break;
+	case ORT_ERR_CASE_FINALIZE:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('c'); W('a'); W('s');
+		W('e'); W('-'); W('f'); W('i'); W('n'); W('a'); W('l');
+		break;
+	case ORT_ERR_FRAME_IO:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('f'); W('r'); W('a');
+		W('m'); W('e'); W('-'); W('i'); W('o');
+		break;
+	case ORT_ERR_DESYNC:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('d'); W('e'); W('s');
+		W('y'); W('n'); W('c');
+		break;
+	case ORT_ERR_STARTUP:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('s'); W('t'); W('a');
+		W('r'); W('t'); W('u'); W('p');
+		break;
+	case ORT_ERR_SPLIT_OPEN:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('s'); W('p'); W('l');
+		W('i'); W('t'); W('-'); W('o'); W('p'); W('e'); W('n');
+		break;
+	case ORT_ERR_UNSUPPORTED:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('u'); W('n'); W('s');
+		W('u'); W('p'); W('p'); W('o'); W('r'); W('t'); W('e'); W('d');
+		break;
+	}
+#undef W
+}
+
+static void oracle_done_write(oracle_text_id_t status)
+{
+	int fh;
+
+	if(oracle_done_written) {
+		return;
+	}
+	oracle_paths_init();
+	fh = oracle_dos_create(ORACLE_DONE_FN);
+	if(fh >= 0) {
+		oracle_write_text(fh, status);
+		oracle_write_char(fh, '\r');
+		oracle_write_char(fh, '\n');
+		oracle_dos_close(fh);
+	}
+	oracle_done_written = true;
+}
+
+static void oracle_diag_hex32(char far *out, uint32_t value)
+{
+	int i;
+	uint8_t nibble;
+
+	for(i = 0; i < 8; i++) {
+		nibble = static_cast<uint8_t>(value & 0x0FUL);
+		out[7 - i] = static_cast<char>(
+			(nibble < 10) ? ('0' + nibble) : ('A' + (nibble - 10))
+		);
+		value >>= 4;
+	}
+}
+
+// One fixed-width line per milestone, flushed immediately, so an interrupted
+// run still leaves a usable trace. [t0..t2] is the three-character tag.
+static void oracle_diag(char t0, char t1, char t2, uint32_t a, uint32_t b)
+{
+	char line[24];
+	int fh;
+
+	oracle_paths_init();
+	line[0] = t0;
+	line[1] = t1;
+	line[2] = t2;
+	line[3] = ' ';
+	oracle_diag_hex32(&line[4], a);
+	line[12] = ' ';
+	oracle_diag_hex32(&line[13], b);
+	line[21] = '\r';
+	line[22] = '\n';
+	fh = oracle_dos_open_rw(ORACLE_DIAG_FN);
+	if(fh < 0) {
+		return;
+	}
+	oracle_dos_seek(fh, oracle_diag_size);
+	if(oracle_dos_write(fh, line, 23) == 23) {
+		oracle_diag_size += 23;
+	}
+	oracle_dos_close(fh);
+}
+/// ----------------------
+
+/// Split trace
+/// -----------
+
+static void oracle_split_write_header(void)
+{
+	oracle_split_header_t header;
+	int fh;
+
+	oracle_memclear(&header, sizeof(header));
+	header.magic[0] = 'T';
+	header.magic[1] = ORACLE_MAGIC_DIGIT;
+	header.magic[2] = 'S';
+	header.magic[3] = 'P';
+	header.magic[4] = 'L';
+	header.magic[5] = 'T';
+	header.magic[6] = '1';
+	header.version = ORACLE_SPLIT_VERSION;
+	header.header_size = sizeof(header);
+	header.row_size = sizeof(oracle_split_row_t);
+	header.flags = 0;
+	fh = oracle_dos_create(ORACLE_SPLIT_FN);
+	if(fh < 0) {
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_SPLIT_OPEN);
+		return;
+	}
+	oracle_dos_write(fh, &header, sizeof(header));
+	oracle_dos_close(fh);
+	oracle_split_size = sizeof(header);
+}
+
+static void oracle_split_row(uint8_t event, uint16_t input)
+{
+	oracle_split_row_t row;
+	int fh;
+	int i;
+
+	if((oracle_mode == ORACLE_DISABLED) || (oracle_mode == ORACLE_ERROR)) {
+		return;
+	}
+	oracle_memclear(&row, sizeof(row));
+	row.event = event;
+	row.process = ORACLE_PROCESS_MAIN;
+	row.stage_id = stage_id;
+	row.rank = rank;
+	row.global_frame = oracle_global_frame;
+	// Not monotonic: TH05's Extra splice resets `stage_frame`
+	// (`th05/main/dialog/dialog.cpp:271`). A comparator must never sort, diff
+	// or interpolate on this column.
+	row.scenario_cursor = static_cast<uint32_t>(stage_frame);
+	row.input = input;
+	row.schema = ORACLE_SPLIT_VERSION;
+
+	row.random_seed = static_cast<uint32_t>(random_seed);
+	row.randring_p = randring_p;
+	row.stage_graze = stage_graze;
+	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
+		row.score[i] = score.digits[i];
+	}
+	row.samples_consumed = oracle_sample_count;
+#if (GAME == 5)
+	row.rem_lives = lives;
+	row.rem_bombs = bombs;
+	row.dialog_sequence_id = static_cast<uint8_t>(dialog_sequence_id);
+#else
+	row.rem_lives = resident->rem_lives;
+	row.rem_bombs = resident->rem_bombs;
+	row.dialog_sequence_id = 0;
+#endif
+	row.credit_lives = resident->credit_lives;
+	row.credit_bombs = resident->credit_bombs;
+	row.power = power;
+	row.playperf = playperf;
+	row.end_sequence = resident->end_sequence;
+	row.quit = static_cast<uint8_t>(quit);
+	row.bombing = static_cast<uint8_t>(bombing);
+
+	oracle_hash_group_rng(&row.hashes[0]);
+	oracle_hash_group_run(&row.hashes[1]);
+
+	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
+	if(fh < 0) {
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_SPLIT_OPEN);
+		return;
+	}
+	oracle_dos_seek(fh, oracle_split_size);
+	if(oracle_dos_write(fh, &row, sizeof(row)) != sizeof(row)) {
+		oracle_dos_close(fh);
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_SPLIT_OPEN);
+		return;
+	}
+	oracle_dos_close(fh);
+	oracle_split_size += sizeof(row);
+}
+/// -----------
+
+/// Case file
+/// ---------
+
+static oracle_mode_t oracle_cfg_mode(void)
+{
+	char cfg[64];
+	int fh;
+	unsigned read_len;
+	unsigned i;
+	char mode = '\0';
+
+	oracle_memclear(cfg, sizeof(cfg));
+	fh = oracle_dos_open(ORACLE_CFG_FN, ORACLE_ACCESS_READ);
+	if(fh < 0) {
+		return ORACLE_DISABLED;
+	}
+	read_len = oracle_dos_read(fh, cfg, (sizeof(cfg) - 1));
+	oracle_dos_close(fh);
+
+	for(i = 0; i < read_len; i++) {
+		if(
+			(cfg[i] != ' ') && (cfg[i] != '\t') &&
+			(cfg[i] != '\r') && (cfg[i] != '\n')
+		) {
+			mode = cfg[i];
+			break;
+		}
+	}
+	if((mode == 'r') || (mode == 'R')) {
+		return ORACLE_RECORD;
+	}
+	if((mode == 'p') || (mode == 'P')) {
+		return ORACLE_PLAYBACK;
+	}
+	return ORACLE_DISABLED;
+}
+
+static void oracle_header_checksum_set(void)
+{
+	uint32_t hash;
+
+	oracle_header.header_checksum = 0;
+	hash = oracle_fnv1a(
+		ORACLE_FNV1A_BASIS_A, &oracle_header, sizeof(oracle_header)
+	);
+	hash = oracle_fnv1a(hash, &oracle_startup, sizeof(oracle_startup));
+	oracle_header.header_checksum = hash;
+}
+
+// Rewrites the header/startup prefix. Called once at record start and again at
+// every checkpoint, so an interrupted recording still describes exactly the
+// samples it actually committed.
+static bool oracle_header_write(bool create)
+{
+	int fh;
+
+	oracle_header.sample_count = oracle_sample_count;
+	oracle_header.record_count = oracle_record_count;
+	oracle_header.payload_size = (
+		oracle_record_count * static_cast<uint32_t>(ORACLE_RECORD_SIZE)
+	);
+	oracle_header.total_size = (
+		oracle_header.payload_offset + oracle_header.payload_size
+	);
+	oracle_header.payload_checksum = oracle_payload_checksum;
+	oracle_header_checksum_set();
+
+	fh = (create
+		? oracle_dos_create(ORACLE_BIN_FN)
+		: oracle_dos_open_rw(ORACLE_BIN_FN)
+	);
+	if(fh < 0) {
+		return false;
+	}
+	oracle_dos_seek(fh, 0);
+	if(
+		oracle_dos_write(fh, &oracle_header, sizeof(oracle_header)) !=
+		sizeof(oracle_header)
+	) {
+		oracle_dos_close(fh);
+		return false;
+	}
+	if(
+		oracle_dos_write(fh, &oracle_startup, sizeof(oracle_startup)) !=
+		sizeof(oracle_startup)
+	) {
+		oracle_dos_close(fh);
+		return false;
+	}
+	oracle_dos_close(fh);
+	return true;
+}
+
+static bool oracle_header_read(void)
+{
+	uint32_t stored;
+	uint32_t computed;
+	unsigned i;
+	int fh;
+
+	fh = oracle_dos_open(ORACLE_BIN_FN, ORACLE_ACCESS_READ);
+	if(fh < 0) {
+		return false;
+	}
+	if(
+		oracle_dos_read(fh, &oracle_header, sizeof(oracle_header)) !=
+		sizeof(oracle_header)
+	) {
+		oracle_dos_close(fh);
+		return false;
+	}
+	if(
+		oracle_dos_read(fh, &oracle_startup, sizeof(oracle_startup)) !=
+		sizeof(oracle_startup)
+	) {
+		oracle_dos_close(fh);
+		return false;
+	}
+	oracle_dos_close(fh);
+
+	if(
+		(oracle_header.magic[0] != 'T') ||
+		(oracle_header.magic[1] != ORACLE_MAGIC_DIGIT) ||
+		(oracle_header.magic[2] != 'C') ||
+		(oracle_header.magic[3] != 'A') ||
+		(oracle_header.magic[4] != 'S') ||
+		(oracle_header.magic[5] != 'E') ||
+		(oracle_header.magic[6] != '1') ||
+		(oracle_header.magic[7] != '\0')
+	) {
+		return false;
+	}
+	if(
+		(oracle_header.version != ORACLE_VERSION) ||
+		(oracle_header.header_size != sizeof(oracle_header)) ||
+		(oracle_header.startup_size != sizeof(oracle_startup)) ||
+		(oracle_header.record_size != ORACLE_RECORD_SIZE) ||
+		(oracle_header.input_semantics != ORACLE_INPUT_SEMANTICS) ||
+		(oracle_header.ruleset_id != ORACLE_RULESET_CLASSIC) ||
+		(oracle_header.first_process != ORACLE_PROCESS_MAIN)
+	) {
+		return false;
+	}
+	if(oracle_header.flags & ~ORACLE_KNOWN_FLAGS) {
+		return false;
+	}
+	if(
+		(oracle_header.source_kind != ORACLE_SOURCE_DIRECT) &&
+		(oracle_header.source_kind != ORACLE_SOURCE_NORMALIZED)
+	) {
+		return false;
+	}
+	if(oracle_header.payload_offset != ORACLE_PREFIX_SIZE) {
+		return false;
+	}
+	if(
+		oracle_header.payload_size !=
+		(oracle_header.record_count * static_cast<uint32_t>(ORACLE_RECORD_SIZE))
+	) {
+		return false;
+	}
+	if(oracle_header.sample_count > oracle_header.record_count) {
+		return false;
+	}
+	if(
+		oracle_header.total_size !=
+		(oracle_header.payload_offset + oracle_header.payload_size)
+	) {
+		return false;
+	}
+	for(i = 0; i < sizeof(oracle_startup.reserved); i++) {
+		if(oracle_startup.reserved[i] != 0) {
+			return false;
+		}
+	}
+
+	stored = oracle_header.header_checksum;
+	oracle_header_checksum_set();
+	computed = oracle_header.header_checksum;
+	oracle_header.header_checksum = stored;
+	return (stored == computed);
+}
+
+// Writes the buffered records at their payload offset and empties the buffer.
+static bool oracle_recbuf_flush(void)
+{
+	uint32_t offset;
+	unsigned len;
+	int fh;
+
+	if(oracle_recbuf_len == 0) {
+		return true;
+	}
+	offset = (
+		oracle_header.payload_offset +
+		(oracle_recbuf_base * static_cast<uint32_t>(ORACLE_RECORD_SIZE))
+	);
+	len = (oracle_recbuf_len * ORACLE_RECORD_SIZE);
+	fh = oracle_dos_open_rw(ORACLE_BIN_FN);
+	if(fh < 0) {
+		return false;
+	}
+	oracle_dos_seek(fh, offset);
+	if(oracle_dos_write(fh, oracle_recbuf, len) != len) {
+		oracle_dos_close(fh);
+		return false;
+	}
+	oracle_dos_close(fh);
+	oracle_recbuf_base += oracle_recbuf_len;
+	oracle_recbuf_len = 0;
+	return true;
+}
+
+static bool oracle_record_append(const oracle_record_t far *rec)
+{
+	oracle_record_t far *slot;
+
+	if(oracle_recbuf_len >= ORACLE_RECBUF_COUNT) {
+		if(!oracle_recbuf_flush()) {
+			return false;
+		}
+	}
+	slot = &oracle_recbuf[oracle_recbuf_len];
+	oracle_record_copy(slot, rec);
+	oracle_recbuf_len++;
+	oracle_payload_checksum = oracle_fnv1a(
+		oracle_payload_checksum, rec, ORACLE_RECORD_SIZE
+	);
+	oracle_record_count++;
+	return true;
+}
+
+// Sequential read-ahead. The payload checksum is accumulated in file order,
+// exactly once per record, so it matches the writer's.
+static bool oracle_record_fetch(uint32_t index, oracle_record_t far *rec)
+{
+	uint32_t offset;
+	unsigned want;
+	unsigned got;
+	uint32_t remaining;
+	int fh;
+
+	if(index >= oracle_header.record_count) {
+		return false;
+	}
+	if(
+		(oracle_recbuf_len == 0) ||
+		(index < oracle_recbuf_base) ||
+		(index >= (oracle_recbuf_base + oracle_recbuf_len))
+	) {
+		remaining = (oracle_header.record_count - index);
+		want = ((remaining > ORACLE_RECBUF_COUNT)
+			? ORACLE_RECBUF_COUNT
+			: static_cast<unsigned>(remaining)
+		);
+		offset = (
+			oracle_header.payload_offset +
+			(index * static_cast<uint32_t>(ORACLE_RECORD_SIZE))
+		);
+		fh = oracle_dos_open(ORACLE_BIN_FN, ORACLE_ACCESS_READ);
+		if(fh < 0) {
+			return false;
+		}
+		oracle_dos_seek(fh, offset);
+		got = oracle_dos_read(fh, oracle_recbuf, (want * ORACLE_RECORD_SIZE));
+		oracle_dos_close(fh);
+		if(got != (want * ORACLE_RECORD_SIZE)) {
+			return false;
+		}
+		oracle_recbuf_base = index;
+		oracle_recbuf_len = want;
+	}
+	oracle_record_copy(
+		rec, &oracle_recbuf[static_cast<unsigned>(index - oracle_recbuf_base)]
+	);
+	oracle_payload_checksum = oracle_fnv1a(
+		oracle_payload_checksum, rec, ORACLE_RECORD_SIZE
+	);
+	return true;
+}
+/// ---------
+
+/// Startup block
+/// -------------
+
+static void oracle_startup_capture(void)
+{
+	int i;
+#if (GAME == 5)
+	int j;
+#endif
+
+	oracle_memclear(&oracle_startup, sizeof(oracle_startup));
+	// Captured at the moment `demo_load()` runs, which is *before*
+	// `random_seed = 318` (`th04_main.asm:698`, `th05_main.asm:780`) and
+	// before stage init's `randring_fill()`. The value the contract asks for
+	// is the seed immediately before that fill, so it is written again in
+	// `oracle_session_start()`.
+	oracle_startup.random_seed = static_cast<int32_t>(random_seed);
+	oracle_startup.resident_rand = resident->rand;
+	oracle_startup.slow_frames = resident->slow_frames;
+	oracle_startup.frames = resident->frames;
+	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
+		oracle_startup.score_last[i] = resident->score_last.digits[i];
+	}
+	oracle_startup.std_frames = resident->std_frames;
+	oracle_startup.items_spawned = resident->items_spawned;
+	oracle_startup.items_collected = resident->items_collected;
+	oracle_startup.point_items_collected = resident->point_items_collected;
+	oracle_startup.max_valued_point_items_collected =
+		resident->max_valued_point_items_collected;
+	oracle_startup.enemies_gone = resident->enemies_gone;
+	oracle_startup.enemies_killed = resident->enemies_killed;
+	oracle_startup.graze = resident->graze;
+	oracle_startup.credit_lives = resident->credit_lives;
+	oracle_startup.credit_bombs = resident->credit_bombs;
+	oracle_startup.cfg_lives = resident->cfg_lives;
+	oracle_startup.cfg_bombs = resident->cfg_bombs;
+	oracle_startup.rank = resident->rank;
+	oracle_startup.bgm_mode = resident->bgm_mode;
+	oracle_startup.se_mode = resident->se_mode;
+	oracle_startup.stage = resident->stage;
+	oracle_startup.turbo_mode = resident->turbo_mode;
+	oracle_startup.end_sequence = resident->end_sequence;
+	oracle_startup.miss_count = resident->miss_count;
+	oracle_startup.bombs_used = resident->bombs_used;
+	oracle_startup.demo_stage = resident->demo_stage;
+	oracle_startup.demo_num = resident->demo_num;
+	oracle_startup.zunsoft_shown = resident->zunsoft_shown;
+	oracle_startup.stage_id = stage_id;
+	oracle_startup.power = power;
+	oracle_startup.playperf = playperf;
+	oracle_startup.ems_present = ((Ems != 0) ? 1 : 0);
+#if (GAME == 5)
+	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
+		oracle_startup.score_highest[i] = resident->score_highest.digits[i];
+	}
+	for(i = 0; i < 6; i++) {
+		for(j = 0; j < ORACLE_SCORE_DIGITS; j++) {
+			oracle_startup.stage_score[i][j] =
+				resident->stage_score[i].digits[j];
+		}
+	}
+	oracle_startup.playchar = resident->playchar;
+	oracle_startup.debug = resident->debug;
+	oracle_startup.debug_stage = resident->debug_stage;
+	oracle_startup.debug_power = resident->debug_power;
+	oracle_startup.unknown = static_cast<uint8_t>(resident->unknown);
+#else
+	oracle_startup.rem_lives = resident->rem_lives;
+	oracle_startup.rem_bombs = resident->rem_bombs;
+	oracle_startup.playchar_ascii = resident->playchar_ascii;
+	oracle_startup.stage_ascii = static_cast<uint8_t>(resident->stage_ascii);
+	oracle_startup.shottype = static_cast<uint8_t>(resident->shottype);
+	oracle_startup.end_type_ascii =
+		static_cast<uint8_t>(resident->end_type_ascii);
+	oracle_startup.debug = resident->debug;
+#endif
+}
+
+// Pre-init write. Runs as the first statement of `demo_load()`, i.e. after the
+// game has committed to the demo path but before it derives the buffer size and
+// the DEMO?.REC file name from `resident->demo_num`, and before it propagates
+// `resident->demo_stage` into `resident->stage` / `_stage_id`. Everything the
+// game's own code then derives is derived normally.
+//
+// Only the resident fields are applied. The MAIN-local ones (`stage_id`,
+// `power`, `playperf`) are recreated by the game's own initialization and are
+// therefore *verified*, not restored — see `oracle_startup_verify()`.
+static void oracle_startup_apply(void)
+{
+	int i;
+#if (GAME == 5)
+	int j;
+#endif
+
+	resident->rand = oracle_startup.resident_rand;
+	resident->slow_frames = oracle_startup.slow_frames;
+	resident->frames = oracle_startup.frames;
+	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
+		resident->score_last.digits[i] = oracle_startup.score_last[i];
+	}
+	resident->std_frames = oracle_startup.std_frames;
+	resident->items_spawned = oracle_startup.items_spawned;
+	resident->items_collected = oracle_startup.items_collected;
+	resident->point_items_collected = oracle_startup.point_items_collected;
+	resident->max_valued_point_items_collected =
+		oracle_startup.max_valued_point_items_collected;
+	resident->enemies_gone = oracle_startup.enemies_gone;
+	resident->enemies_killed = oracle_startup.enemies_killed;
+	resident->graze = oracle_startup.graze;
+	resident->credit_lives = oracle_startup.credit_lives;
+	resident->credit_bombs = oracle_startup.credit_bombs;
+	resident->cfg_lives = oracle_startup.cfg_lives;
+	resident->cfg_bombs = oracle_startup.cfg_bombs;
+	resident->rank = oracle_startup.rank;
+	resident->bgm_mode = oracle_startup.bgm_mode;
+	resident->se_mode = oracle_startup.se_mode;
+	resident->stage = oracle_startup.stage;
+	resident->turbo_mode = oracle_startup.turbo_mode;
+	resident->end_sequence = oracle_startup.end_sequence;
+	resident->miss_count = oracle_startup.miss_count;
+	resident->bombs_used = oracle_startup.bombs_used;
+	resident->demo_stage = oracle_startup.demo_stage;
+	resident->demo_num = oracle_startup.demo_num;
+	resident->zunsoft_shown = oracle_startup.zunsoft_shown;
+#if (GAME == 5)
+	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
+		resident->score_highest.digits[i] = oracle_startup.score_highest[i];
+	}
+	for(i = 0; i < 6; i++) {
+		for(j = 0; j < ORACLE_SCORE_DIGITS; j++) {
+			resident->stage_score[i].digits[j] =
+				oracle_startup.stage_score[i][j];
+		}
+	}
+	resident->playchar = oracle_startup.playchar;
+	resident->debug = oracle_startup.debug;
+	resident->debug_stage = oracle_startup.debug_stage;
+	resident->debug_power = oracle_startup.debug_power;
+	resident->unknown = static_cast<char>(oracle_startup.unknown);
+#else
+	resident->rem_lives = oracle_startup.rem_lives;
+	resident->rem_bombs = oracle_startup.rem_bombs;
+	resident->playchar_ascii = oracle_startup.playchar_ascii;
+	resident->stage_ascii = static_cast<char>(oracle_startup.stage_ascii);
+	resident->shottype = static_cast<char>(oracle_startup.shottype);
+	resident->end_type_ascii =
+		static_cast<char>(oracle_startup.end_type_ascii);
+	resident->debug = oracle_startup.debug;
+#endif
+}
+
+// Post-init verify, NOT post-init restore. Because the scenario start is pinned
+// by the game's own code, the correct behavior for a field the normal path
+// recreates is to compare and fail. A mismatch is a startup-logic divergence
+// and must be reported, never papered over.
+static bool oracle_startup_verify(void)
+{
+	if(oracle_startup.stage_id != stage_id) {
+		oracle_diag('S', 'I', 'D', oracle_startup.stage_id, stage_id);
+		return false;
+	}
+	if(oracle_startup.power != power) {
+		oracle_diag('P', 'W', 'R', oracle_startup.power, power);
+		return false;
+	}
+	if(oracle_startup.playperf != playperf) {
+		oracle_diag('P', 'P', 'F', oracle_startup.playperf, playperf);
+		return false;
+	}
+	if(oracle_startup.rank != rank) {
+		oracle_diag('R', 'N', 'K', oracle_startup.rank, rank);
+		return false;
+	}
+	if(oracle_startup.ems_present != ((Ems != 0) ? 1 : 0)) {
+		oracle_diag('E', 'M', 'S', oracle_startup.ems_present, (Ems != 0));
+		return false;
+	}
+	if(oracle_startup.random_seed != static_cast<int32_t>(random_seed)) {
+		oracle_diag(
+			'S', 'E', 'D',
+			static_cast<uint32_t>(oracle_startup.random_seed),
+			static_cast<uint32_t>(random_seed)
+		);
+		return false;
+	}
+	return true;
+}
+/// -------------
+
+/// Session
+/// -------
+
+// Emitted on the first injected frame, which is the first moment at which the
+// demo gate, `random_seed = 318` and stage init's `randring_fill()` have all
+// completed and no input has been consumed yet. `start` and `round_start`
+// coincide there for a single-stage demo case; a multi-stage case would emit
+// `round_start` again from a stage hook.
+static void oracle_session_start(void)
+{
+	if(oracle_started) {
+		return;
+	}
+	oracle_started = true;
+
+	if(oracle_mode == ORACLE_RECORD) {
+		// The contract's `random_seed` is the value immediately before the
+		// case's first `randring_fill()`, i.e. 318 on the demo path. Recapture
+		// the three MAIN-local fields at the same boundary.
+		oracle_startup.random_seed = static_cast<int32_t>(random_seed);
+		oracle_startup.stage_id = stage_id;
+		oracle_startup.power = power;
+		oracle_startup.playperf = playperf;
+		oracle_startup.rank = rank;
+		oracle_startup.ems_present = ((Ems != 0) ? 1 : 0);
+		if(!oracle_header_write(true)) {
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_CASE_CREATE);
+			return;
+		}
+	} else if(!oracle_startup_verify()) {
+		oracle_split_write_header();
+		oracle_split_row(ORACLE_EVENT_ERROR, 0);
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_STARTUP);
+		return;
+	}
+
+	oracle_split_write_header();
+	oracle_split_row(ORACLE_EVENT_START, 0);
+	oracle_split_row(ORACLE_EVENT_ROUND_START, 0);
+	oracle_diag('S', 'T', 'A', static_cast<uint32_t>(random_seed), stage_id);
+}
+
+static void oracle_finish(oracle_text_id_t status)
+{
+	oracle_record_t rec;
+
+	if(oracle_finished) {
+		return;
+	}
+	oracle_finished = true;
+
+	if(oracle_mode == ORACLE_RECORD) {
+		oracle_memclear(&rec, sizeof(rec));
+		rec.kind = ORACLE_RECORD_CONTROL;
+		rec.phase = ORACLE_PHASE_CONTROL;
+		rec.scenario_cursor = 0xFFFF;
+		rec.frame_index = oracle_global_frame;
+		rec.control = ORACLE_CONTROL_TERMINAL;
+		if(!oracle_record_append(&rec) || !oracle_recbuf_flush()) {
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_CASE_FINALIZE);
+			return;
+		}
+		if(!oracle_header_write(false)) {
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_CASE_FINALIZE);
+			return;
+		}
+	}
+	oracle_split_row(ORACLE_EVENT_FINISH, 0);
+	oracle_diag('F', 'I', 'N', oracle_global_frame, oracle_record_count);
+	oracle_done_write(status);
+}
+/// -------
+
+/// Hooks
+/// -----
+
+void oracle_scenario_apply(void)
+{
+	oracle_paths_init();
+	if(oracle_mode != ORACLE_DISABLED) {
+		return;
+	}
+	oracle_mode = oracle_cfg_mode();
+	if(oracle_mode == ORACLE_DISABLED) {
+		return;
+	}
+	oracle_global_frame = 0;
+	oracle_sample_count = 0;
+	oracle_record_count = 0;
+	oracle_payload_checksum = ORACLE_FNV1A_BASIS_A;
+	oracle_recbuf_len = 0;
+	oracle_recbuf_pos = 0;
+	oracle_recbuf_base = 0;
+
+	if(oracle_mode == ORACLE_RECORD) {
+		oracle_memclear(&oracle_header, sizeof(oracle_header));
+		oracle_header.magic[0] = 'T';
+		oracle_header.magic[1] = ORACLE_MAGIC_DIGIT;
+		oracle_header.magic[2] = 'C';
+		oracle_header.magic[3] = 'A';
+		oracle_header.magic[4] = 'S';
+		oracle_header.magic[5] = 'E';
+		oracle_header.magic[6] = '1';
+		oracle_header.magic[7] = '\0';
+		oracle_header.version = ORACLE_VERSION;
+		oracle_header.header_size = sizeof(oracle_header);
+		oracle_header.startup_size = sizeof(oracle_startup);
+		oracle_header.record_size = ORACLE_RECORD_SIZE;
+		oracle_header.payload_offset = ORACLE_PREFIX_SIZE;
+		oracle_header.source_kind = ORACLE_SOURCE_NORMALIZED;
+		oracle_header.input_semantics = ORACLE_INPUT_SEMANTICS;
+		oracle_header.ruleset_id = ORACLE_RULESET_CLASSIC;
+		oracle_header.scenario_id = resident->demo_num;
+		oracle_header.first_process = ORACLE_PROCESS_MAIN;
+		oracle_header.producer = ORACLE_PRODUCER;
+		oracle_header.flags = 0;
+		oracle_header.case_id = 0;
+		oracle_header.source_digest = 0;
+		oracle_header.source_commit = ORACLE_SOURCE_COMMIT;
+		oracle_startup_capture();
+		oracle_diag('R', 'E', 'C', resident->demo_num, resident->rank);
+		return;
+	}
+
+	// Playback. Read and fully validate the case before applying anything.
+	if(!oracle_header_read()) {
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_CASE_HEADER);
+		return;
+	}
+	// Version 1 does not represent the TH05 Extra splice: a 20000-frame case
+	// exceeds what a single 16-bit payload cursor and one CURSOR_RESET site
+	// have been calibrated for, and `state/re/DETERMINISTIC_STATE_TH05.md` §6
+	// still lists the second reset site as `[open]`. Fail loudly rather than
+	// silently producing an unfaithful trace.
+	if(oracle_header.flags & ORACLE_FLAG_SPLICED_SOURCE) {
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_UNSUPPORTED);
+		return;
+	}
+	oracle_startup_apply();
+	oracle_diag('P', 'L', 'Y', oracle_header.record_count, resident->demo_num);
+}
+
+bool oracle_active(void)
+{
+	return ((oracle_mode == ORACLE_RECORD) || (oracle_mode == ORACLE_PLAYBACK));
+}
+
+bool oracle_frame(uint16_t shift_offset)
+{
+	oracle_record_t rec;
+	uint8_t key_replay;
+	uint8_t shift;
+	bool keep_going;
+
+	oracle_session_start();
+	if(oracle_mode == ORACLE_ERROR) {
+		return false;
+	}
+
+	if(oracle_mode == ORACLE_RECORD) {
+		// Exactly ZUN's own two reads (`th04/main/demo.cpp:52-53`), minus the
+		// abort-on-keypress guard, which must not be reproduced: it would make
+		// the run depend on the host keyboard, which is the opposite of an
+		// oracle. Recorded as a deviation in the TH04/TH05 delta index.
+		key_replay = DemoBuf[stage_frame];
+		shift = DemoBuf[stage_frame + shift_offset];
+
+		oracle_memclear(&rec, sizeof(rec));
+		rec.kind = ORACLE_RECORD_INPUT;
+		rec.phase = ORACLE_PHASE_GAMEPLAY;
+		rec.scenario_cursor = stage_frame;
+		rec.frame_index = oracle_global_frame;
+		rec.key_det_replay = key_replay;
+		rec.shiftkey = shift;
+		rec.control = 0;
+		if(!oracle_record_append(&rec)) {
+			oracle_split_row(ORACLE_EVENT_ERROR, 0);
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_FRAME_IO);
+			return false;
+		}
+		oracle_sample_count++;
+
+		keep_going = (
+#if (GAME == 5)
+			(resident->demo_num > 4) ||
+#endif
+			(stage_frame < (DEMO_N - 4))
+		);
+	} else {
+		if(!oracle_record_fetch(oracle_record_count, &rec)) {
+			oracle_split_row(ORACLE_EVENT_ERROR, 0);
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_FRAME_IO);
+			return false;
+		}
+		oracle_record_count++;
+		if(rec.kind == ORACLE_RECORD_CONTROL) {
+			// The only control record version 1 can reach here is the
+			// terminal one; anything else is a case this build cannot play.
+			if(rec.control != ORACLE_CONTROL_TERMINAL) {
+				oracle_split_row(ORACLE_EVENT_ERROR, 0);
+				oracle_mode = ORACLE_ERROR;
+				oracle_done_write(ORT_ERR_UNSUPPORTED);
+				return false;
+			}
+			oracle_finish(
+				((oracle_sample_count == oracle_header.sample_count) &&
+				 (oracle_record_count == oracle_header.record_count) &&
+				 (oracle_payload_checksum == oracle_header.payload_checksum))
+					? ORT_OK_PLAYBACK
+					: ORT_ERR_CASE_FINALIZE
+			);
+			return false;
+		}
+		if(
+			(rec.kind != ORACLE_RECORD_INPUT) ||
+			(rec.frame_index != oracle_global_frame) ||
+			(rec.scenario_cursor != stage_frame)
+		) {
+			oracle_diag('D', 'S', 'Y', rec.scenario_cursor, stage_frame);
+			oracle_split_row(ORACLE_EVENT_ERROR, 0);
+			oracle_mode = ORACLE_ERROR;
+			oracle_done_write(ORT_ERR_DESYNC);
+			return false;
+		}
+		key_replay = rec.key_det_replay;
+		shift = rec.shiftkey;
+		oracle_sample_count++;
+		keep_going = true;
+	}
+
+	// The 8-bit store into the 16-bit variable clears the high byte every
+	// frame, exactly as ZUN's own `DemoPlay` does. Consequence, and it is
+	// deliberate: the frame loop's `test _key_det.hi, high INPUT_CANCEL`
+	// immediately after this hook can never fire, so pause is unreachable
+	// during injected playback. A case that needs a pause requires a format
+	// revision, not a workaround.
+	key_det = key_replay;
+	shiftkey = (shift != 0);
+
+	// AND rather than MOD: the cadence is a power of two, and a 32-bit modulo
+	// would call a `mathl.lib` helper once per frame inside the very window
+	// this module is supposed to measure without perturbing.
+	static_assert(
+		(ORACLE_SPLIT_INTERVAL_SAMPLES &
+		 (ORACLE_SPLIT_INTERVAL_SAMPLES - 1)) == 0
+	);
+	if(
+		((oracle_global_frame & (ORACLE_SPLIT_INTERVAL_SAMPLES - 1)) == 0) &&
+		(oracle_global_frame != 0)
+	) {
+		oracle_split_row(
+			ORACLE_EVENT_CHECKPOINT,
+			static_cast<uint16_t>((static_cast<uint16_t>(shift) << 8) | key_replay)
+		);
+		if(oracle_mode == ORACLE_RECORD) {
+			// Rewrite the prefix at every checkpoint, so a run that is killed
+			// mid-case still leaves a self-consistent file.
+			oracle_recbuf_flush();
+			oracle_header_write(false);
+		}
+	}
+	oracle_global_frame++;
+
+	if(!keep_going) {
+		oracle_finish(ORT_OK_RECORD);
+		return false;
+	}
+	return true;
+}
+/// -----
