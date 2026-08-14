@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_TEXT, main_01__TEXT, POINTNUM_TEXT, main_01___TEXT, ITEM_TEXT, HUD_TEXT, main_01____TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_____TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, STAGE_TEXT, main_01___TEXT, POINTNUM_TEXT, main_01____TEXT, ITEM_TEXT, HUD_TEXT, main_01_____TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01______TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -964,6 +964,14 @@ arg_0		= dword	ptr  4
 		retn	4
 sub_B396	endp
 
+main_01_TEXT	ends
+
+STAGE_INIT_TEXT	segment	byte public 'CODE' use16
+STAGE_INIT_TEXT	ends
+
+main_01__TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -1543,13 +1551,13 @@ loc_BCAE:
 		retn
 sub_B9E2	endp
 
-main_01_TEXT	ends
+main_01__TEXT	ends
 
 STAGE_TEXT	segment	byte public 'CODE' use16
 	extern @stage_loop$qv:proc
 STAGE_TEXT	ends
 
-main_01__TEXT	segment	byte public 'CODE' use16
+main_01___TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
@@ -2263,7 +2271,7 @@ var_2		= word ptr -2
 		leave
 		retn
 @player_invalidate$qv endp
-main_01__TEXT	ends
+main_01___TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_init_for_rank_and_rese$qv procdesc near
@@ -2271,7 +2279,7 @@ POINTNUM_TEXT	segment	byte public 'CODE' use16
 	@pointnums_update_and_render$qv procdesc near
 POINTNUM_TEXT	ends
 
-main_01___TEXT	segment	word public 'CODE' use16
+main_01____TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4012,7 +4020,7 @@ loc_D61D:
 		leave
 		retn
 @shots_update_and_render$qv endp
-main_01___TEXT	ends
+main_01____TEXT	ends
 
 ITEM_TEXT	segment	byte public 'CODE' use16
 	@items_init_and_reset$qv procdesc near
@@ -4037,7 +4045,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01____TEXT	segment	byte public 'CODE' use16
+main_01_____TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5201,7 +5209,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01____TEXT	ends
+main_01_____TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -5221,7 +5229,7 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01_____TEXT	segment	byte public 'CODE' use16
+main_01______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5541,7 +5549,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01_____TEXT	ends
+main_01______TEXT	ends
 
 ; ===========================================================================
 
