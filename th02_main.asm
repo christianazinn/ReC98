@@ -22618,13 +22618,13 @@ marisa_init	proc far
 loc_1A9FB:
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D4Eh], 0
+		mov	word ptr word_26D22[bx], 0
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D46h], 2
+		mov	word ptr word_26D2A[bx], 2
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D3Eh], 0
+		mov	word ptr word_26D32[bx], 0
 		inc	si
 
 loc_1AA1A:
@@ -22750,7 +22750,7 @@ marisa_1AB35	proc near
 loc_1AB43:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	loc_1AC6B
 		mov	bx, si
 		shl	bx, 2
@@ -22768,13 +22768,13 @@ loc_1AB43:
 		jz	short loc_1ABEE
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D3Eh], 1
+		mov	word ptr word_26D32[bx], 1
 		mov	bx, si
 		add	bx, bx
-		inc	word ptr [bx-6D4Eh]
+		inc	word ptr word_26D22[bx]
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D4Eh], 6Eh ; 'n'
+		cmp	word ptr word_26D22[bx], 6Eh ; 'n'
 		jl	short loc_1ABEE
 		call	@randring2_next8$qv
 		mov	ah, 0
@@ -22804,7 +22804,7 @@ loc_1ABD1:
 		call	_snd_se_play c, 2
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D46h], 1
+		mov	word ptr word_26D2A[bx], 1
 		add	_score_delta, 5000
 
 loc_1ABEE:
@@ -23024,7 +23024,7 @@ arg_0		= word ptr  4
 		mov	word ptr [bx+142Ch], 0
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D46h], 2
+		mov	word ptr word_26D2A[bx], 2
 		graph_accesspage _page_front
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
 		mov	al, _page_front
@@ -23034,7 +23034,7 @@ arg_0		= word ptr  4
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6D6Eh]
+		mov	ax, word_26D02[bx]
 		sar	ax, 3
 		mov	[bp+var_2], ax
 		push	ax
@@ -23045,7 +23045,7 @@ arg_0		= word ptr  4
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		push	word ptr [bx-6D5Eh]
+		push	word ptr word_26D12[bx]
 		mov	ax, [bp+var_2]
 		add	ax, 5
 		push	ax
@@ -23056,7 +23056,7 @@ arg_0		= word ptr  4
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6D5Eh]
+		mov	ax, word_26D12[bx]
 		add	ax, 20h	; ' '
 		push	ax
 		call	grcg_byteboxfill_x
@@ -23064,7 +23064,7 @@ arg_0		= word ptr  4
 		graph_accesspage _page_back
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D4Eh], 0
+		mov	word ptr word_26D22[bx], 0
 		mov	ax, 1
 		jmp	short loc_1AE94
 ; ---------------------------------------------------------------------------
@@ -23299,7 +23299,7 @@ var_8		= byte ptr -8
 loc_1B03E:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1B056
 		mov	bx, di
 		add	bx, bx
@@ -23375,11 +23375,11 @@ loc_1B0D7:
 loc_1B0E5:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 1
+		cmp	word ptr word_26D2A[bx], 1
 		jge	loc_1B191
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D3Eh], 0
+		cmp	word ptr word_26D32[bx], 0
 		jz	short loc_1B16F
 		mov	bx, si
 		shl	bx, 2
@@ -23417,7 +23417,7 @@ loc_1B0E5:
 loc_1B163:
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D3Eh], 0
+		mov	word ptr word_26D32[bx], 0
 		jmp	short loc_1B191
 ; ---------------------------------------------------------------------------
 
@@ -23730,16 +23730,16 @@ marisa_1B3DE	proc near
 loc_1B3E7:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1B46C
 		mov	al, [si-6D20h]
 		mov	bx, si
 		add	bx, bx
-		add	al, [bx-6D2Eh]
+		add	al, byte ptr word_26D42[bx]
 		mov	[si-6D20h], al
 		mov	bx, si
 		add	bx, bx
-		movsx	eax, word ptr [bx-6D36h]
+		movsx	eax, word ptr word_26D3A[bx]
 		mov	dl, [si-6D20h]
 		mov	dh, 0
 		add	dx, dx
@@ -23755,7 +23755,7 @@ loc_1B3E7:
 		mov	es:[bx], ax
 		mov	bx, si
 		add	bx, bx
-		movsx	eax, word ptr [bx-6D36h]
+		movsx	eax, word ptr word_26D3A[bx]
 		mov	dl, [si-6D20h]
 		mov	dh, 0
 		add	dx, dx
@@ -23820,28 +23820,28 @@ loc_1B4A2:
 loc_1B4C1:
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6D46h], 0
+		mov	word ptr word_26D2A[bx], 0
 		mov	bx, [bp+var_2]
 		mov	al, byte ptr [bp+var_2]
 		shl	al, 6
 		mov	[bx-6D20h], al
 		add	bx, bx
-		mov	word ptr [bx-6D36h], 8
+		mov	word ptr word_26D3A[bx], 8
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	word ptr [bx-6D2Eh], 2
+		mov	word ptr word_26D42[bx], 2
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6D6Eh], si
+		mov	word_26D02[bx], si
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6D66h], si
+		mov	word_26D0A[bx], si
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6D5Eh], di
+		mov	word_26D12[bx], di
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		mov	[bx-6D56h], di
+		mov	word_26D1A[bx], di
 		inc	[bp+var_2]
 
 loc_1B513:
@@ -23866,7 +23866,7 @@ loc_1B52F:
 loc_1B53E:
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		add	word ptr [bx-6D36h], 2
+		add	word ptr word_26D3A[bx], 2
 		inc	[bp+var_2]
 
 loc_1B54B:
@@ -23949,7 +23949,7 @@ loc_1B592:
 		mov	si, ax
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1B631
 		mov	bx, si
 		shl	bx, 2
@@ -24078,7 +24078,7 @@ marisa_1B6DA	proc near
 loc_1B6F3:
 		mov	bx, si
 		add	bx, bx
-		inc	word ptr [bx-6D36h]
+		inc	word ptr word_26D3A[bx]
 		inc	si
 
 loc_1B6FC:
@@ -24097,7 +24097,7 @@ loc_1B703:
 loc_1B70F:
 		mov	bx, si
 		add	bx, bx
-		dec	word ptr [bx-6D36h]
+		dec	word ptr word_26D3A[bx]
 		inc	si
 
 loc_1B718:
@@ -24215,7 +24215,7 @@ loc_1B7FA:
 loc_1B80F:
 		mov	bx, si
 		add	bx, bx
-		add	word ptr [bx-6D36h], 2
+		add	word ptr word_26D3A[bx], 2
 		add	si, 2
 
 loc_1B81B:
@@ -24236,7 +24236,7 @@ loc_1B823:
 loc_1B839:
 		mov	bx, si
 		add	bx, bx
-		sub	word ptr [bx-6D36h], 2
+		sub	word ptr word_26D3A[bx], 2
 		add	si, 2
 
 loc_1B845:
@@ -24251,7 +24251,7 @@ loc_1B845:
 loc_1B856:
 		mov	bx, si
 		add	bx, bx
-		inc	word ptr [bx-6D36h]
+		inc	word ptr word_26D3A[bx]
 		add	si, 2
 
 loc_1B861:
@@ -24272,7 +24272,7 @@ loc_1B868:
 loc_1B87C:
 		mov	bx, si
 		add	bx, bx
-		dec	word ptr [bx-6D36h]
+		dec	word ptr word_26D3A[bx]
 		add	si, 2
 
 loc_1B887:
@@ -24336,7 +24336,7 @@ loc_1B903:
 loc_1B932:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1B98A
 		mov	bx, si
 		shl	bx, 2
@@ -24434,7 +24434,7 @@ loc_1BA0B:
 loc_1BA20:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1BA72
 		mov	bx, si
 		shl	bx, 2
@@ -24487,7 +24487,7 @@ loc_1BA7B:
 loc_1BA90:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1BAF5
 		mov	bx, si
 		shl	bx, 2
@@ -24524,7 +24524,7 @@ loc_1BAE5:
 		jl	short loc_1BAC5
 		mov	bx, si
 		add	bx, bx
-		mov	word ptr [bx-6D46h], 1
+		mov	word ptr word_26D2A[bx], 1
 
 loc_1BAF5:
 		inc	si
@@ -24609,7 +24609,7 @@ loc_1BB85:
 loc_1BBAB:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1BC0E
 		mov	bx, si
 		shl	bx, 2
@@ -24638,7 +24638,7 @@ loc_1BBAB:
 		mov	al, [si-6CE6h]
 		mov	bx, si
 		add	bx, bx
-		mov	dl, [bx-6D2Eh]
+		mov	dl, byte ptr word_26D42[bx]
 		add	dl, dl
 		add	al, dl
 		mov	[si-6CE6h], al
@@ -24764,7 +24764,7 @@ loc_1BD16:
 loc_1BD46:
 		mov	bx, [bp+var_2]
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 0
+		cmp	word ptr word_26D2A[bx], 0
 		jnz	short loc_1BD83
 		mov	bx, [bp+var_2]
 		shl	bx, 2
@@ -24988,7 +24988,7 @@ marisa_update	proc far
 loc_1BF01:
 		mov	bx, si
 		add	bx, bx
-		mov	ax, [bx-6D46h]
+		mov	ax, word_26D2A[bx]
 		add	word_26D4A, ax
 		inc	si
 
@@ -25258,7 +25258,7 @@ loc_1C136:
 loc_1C13A:
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 1
+		cmp	word ptr word_26D2A[bx], 1
 		jnz	short loc_1C14C
 		push	si
 		call	marisa_1AD80
@@ -25354,7 +25354,7 @@ loc_1C1D9:
 		mov	word ptr dword_26D66[bx], ax
 		mov	bx, si
 		add	bx, bx
-		cmp	word ptr [bx-6D46h], 2
+		cmp	word ptr word_26D2A[bx], 2
 		jge	short loc_1C260
 		mov	al, _page_front
 		mov	ah, 0
@@ -25363,7 +25363,7 @@ loc_1C1D9:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6D6Eh]
+		mov	ax, word_26D02[bx]
 		mov	bx, si
 		shl	bx, 2
 		les	bx, dword_26D56[bx]
@@ -25375,7 +25375,7 @@ loc_1C1D9:
 		add	dx, dx
 		add	ax, dx
 		mov	bx, ax
-		mov	ax, [bx-6D5Eh]
+		mov	ax, word_26D12[bx]
 		mov	bx, si
 		shl	bx, 2
 		les	bx, dword_26D66[bx]
