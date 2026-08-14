@@ -19,10 +19,12 @@
 /// Container identity
 /// ------------------
 
-#define T1CASE_VERSION      1
+// Version 2 replaced version 1's fixed 16-byte records with the shared replay
+// core's N-channel packet RLE (state/port/REPLAY_CORE_CONTRACT.md §4). The
+// logical sample sequence is unchanged; only the payload encoding is.
+#define T1CASE_VERSION      2
 #define T1CASE_HEADER_SIZE  64
 #define T1CASE_STARTUP_SIZE 64
-#define T1CASE_RECORD_SIZE  16
 
 // The seven `key_sense()` groups TH01's gameplay path reads, in the fixed
 // order they are stored in. Groups 7/5/8/9 are read directly by input_sense()
@@ -39,14 +41,46 @@
 #define T1CASE_GI_8 5
 #define T1CASE_GI_9 6
 
-// Records
-#define T1CASE_RECORD_INPUT   1
-#define T1CASE_RECORD_CONTROL 2
-
-// Phases
+// Phases. A packet's phase lives in the top two bits of its tag byte; 3 is
+// not a valid phase and a decoder rejects it.
 #define T1CASE_PHASE_GAMEPLAY     0
 #define T1CASE_PHASE_INTERSTITIAL 1
 #define T1CASE_PHASE_CONTROL      2
+
+/// Packet RLE
+/// ----------
+/// REPLAY_CORE_CONTRACT.md §4, generalized from TH03's four fixed channels to
+/// N declared channels of declared width. TH01 is the tightest fit of the five
+/// games: seven 1-byte channels need seven of the change mask's eight bits.
+///
+///   byte 0  tag  = (phase << 6) | (run - 1)      run 1..64
+///   byte 1  mask = bit i set <=> channel i changed; bit 7 is SPARE and must
+///                  be zero
+///   [...]   each changed channel's byte, in ascending channel index
+///
+/// A control packet is phase 2 and always exactly two bytes:
+///   byte 0  tag  = 0x80 | control code
+///   byte 1  the EMITTING process id
+/// TH03 stores a fixed 0xA5 marker there. TH01 cannot: REIIDEN hands off to
+/// ITSELF, so TH03's "controls alternate, beginning with MAIN" invariant proves
+/// nothing here, and an explicit process id detects "resumed in the wrong
+/// binary" directly (REPLAY_CORE_CONTRACT.md §7.2).
+///
+/// An unchanged channel retains its previous value WITHIN a process segment.
+/// The first packet of a segment — at session start, and after every control
+/// packet — is a complete keyframe with every change bit set.
+
+#define T1CASE_PACKET_RUN_MAX     64
+#define T1CASE_PACKET_RUN_MASK    0x3F
+#define T1CASE_PACKET_PHASE_SHIFT 6
+
+// Seven channels, so the low seven bits. Bit 7 is the one spare bit the format
+// has left; do not spend it casually (REPLAY_CORE_CONTRACT.md §4.1).
+#define T1CASE_PACKET_KEYFRAME_MASK ((1 << T1CASE_GROUP_COUNT) - 1)
+
+// tag + mask + one byte per channel. Exactly TH03's 9, which is why its write
+// buffer sizing argument carries over verbatim.
+#define T1CASE_PACKET_SIZE_MAX (2 + T1CASE_GROUP_COUNT)
 
 // Control codes (TXCASE_CONTRACT.md, "Control records")
 #define T1CASE_CONTROL_PROCESS_END   1
@@ -67,7 +101,9 @@
 #define T1CASE_PRODUCER_GAME_MOD 1
 #define T1CASE_PRODUCER_HOST     3
 
-// Flags
+// Flags. ADVISORY_POSITIONS described v1's per-record `scenario_cursor`, which
+// a packet stream does not carry; it is dead for TH01 and is never set. The bit
+// number is not reused.
 #define T1CASE_FLAG_ADVISORY_POSITIONS 0x0001
 #define T1CASE_FLAG_SOURCE_CLIPPED     0x0002
 #define T1CASE_FLAG_SPLICED_SOURCE     0x0004
@@ -78,11 +114,17 @@ struct t1case_header_t {
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t startup_size;
-	uint16_t record_size;
+
+	// v1's `record_size`, at the same offset and width. A packet stream has no
+	// fixed record size; what a decoder needs instead is how many channels the
+	// change mask covers, which is the core's own per-game parameter
+	// (REPLAY_CORE_CONTRACT.md §9).
+	uint16_t channel_count;
+
 	uint32_t payload_offset;
-	uint32_t payload_size;
-	uint32_t sample_count; // records with kind == T1CASE_RECORD_INPUT
-	uint32_t record_count; // input plus control records
+	uint32_t payload_size;  // encoded byte length of the packet stream
+	uint32_t sample_count;  // input samples; excludes control packets
+	uint32_t record_count;  // input samples plus control packets
 	uint8_t source_kind;
 	uint8_t input_semantics;
 	uint8_t ruleset_id;
@@ -131,24 +173,6 @@ struct t1case_startup_t {
 	int8_t reserved[3];  // required zero
 };
 
-struct t1case_record_t {
-	uint8_t kind;
-	uint8_t phase;
-
-	// The game's own cursor: the low 16 bits of [frame_rand]. Diagnostic only
-	// — the authoritative cursor is [frame_index]. 0xFFFF for control records.
-	uint16_t scenario_cursor;
-
-	uint32_t frame_index; // dense, monotonic, never reset across the case
-
-	// The values t1case_key_sense() must return for groups 0, 3, 5, 6, 7, 8, 9
-	// in that fixed order. For a control record, keys[0..1] carry the 16-bit
-	// control code and keys[2..6] are required zero.
-	uint8_t keys[T1CASE_GROUP_COUNT];
-
-	uint8_t reserved; // required zero
-};
-
 /// Trace container
 /// ---------------
 
@@ -159,7 +183,25 @@ struct t1case_record_t {
 #define T1SPLIT_ROW_SIZE      (16 + T1SPLIT_CRITICAL_SIZE + (8 * T1SPLIT_GROUPS))
 
 // Must be a power of two: the cadence test is a mask, not a modulo.
+//
+// This is also the packet stream's disk-flush cadence, exactly as TH03 ties
+// T3_REPLAY_WRITE_BUFFER_SIZE to T3_REPLAY_DISK_INTERVAL_SAMPLES. Measured
+// against TH01's real Gate A corpus, 64 costs 2,655 payload bytes on an
+// 80,000-sample case and 128 costs 2,653 — so the core's 128 buys nothing here
+// and TH01 keeps its 64. See state/notes/t1case-packet-rle.md §1.
 #define T1SPLIT_INTERVAL_SAMPLES 64
+
+// Large enough for the worst-case packet on each of the T1SPLIT_INTERVAL_SAMPLES
+// logical samples between disk flushes, plus one control/overflow packet. Same
+// cadence argument as tools/replay/FORMAT.md:752-755, with TH01's 64 in place
+// of TH03's 128.
+#define T1CASE_WBUF_SIZE ( \
+	(T1CASE_PACKET_SIZE_MAX * T1SPLIT_INTERVAL_SAMPLES) + T1CASE_PACKET_SIZE_MAX \
+)
+
+// Playback read-ahead. Only the sequential decoder uses it; the oracle lineage
+// has no seek (TXCASE_CONTRACT.md), so TH03's 4 KiB seek reader is not ported.
+#define T1CASE_RBUF_SIZE 256
 
 enum t1split_event_t {
 	T1SPLIT_EVENT_START       = 1,
@@ -249,9 +291,27 @@ typedef char t1case_header_size_check[
 typedef char t1case_startup_size_check[
 	(sizeof(t1case_startup_t) == T1CASE_STARTUP_SIZE) ? 1 : -1
 ];
-typedef char t1case_record_size_check[
-	(sizeof(t1case_record_t) == T1CASE_RECORD_SIZE) ? 1 : -1
+// The codec's invariants. TH03 leaves every one of these unchecked
+// (state/notes/t1case-packet-rle.md), and each is silent when violated.
+typedef char t1case_packet_run_check[
+	(T1CASE_PACKET_RUN_MAX == (T1CASE_PACKET_RUN_MASK + 1)) ? 1 : -1
 ];
+typedef char t1case_packet_phase_shift_check[
+	((1 << T1CASE_PACKET_PHASE_SHIFT) == (T1CASE_PACKET_RUN_MASK + 1)) ? 1 : -1
+];
+typedef char t1case_packet_mask_check[
+	(T1CASE_PACKET_KEYFRAME_MASK == 0x7F) ? 1 : -1
+];
+typedef char t1case_wbuf_size_check[
+	(T1CASE_WBUF_SIZE >= (T1CASE_PACKET_SIZE_MAX * T1SPLIT_INTERVAL_SAMPLES)) ?
+	1 : -1
+];
+// The cadence test is `& (N - 1)`, so N must be a power of two.
+typedef char t1split_interval_pot_check[
+	((T1SPLIT_INTERVAL_SAMPLES &
+		(T1SPLIT_INTERVAL_SAMPLES - 1)) == 0) ? 1 : -1
+];
+
 typedef char t1split_header_size_check[
 	(sizeof(t1split_header_t) == T1SPLIT_HEADER_SIZE) ? 1 : -1
 ];

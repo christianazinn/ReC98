@@ -13,8 +13,13 @@
  *     cursor. A separate ResData block leaves resident_t's layout completely
  *     untouched, and `resident_free()` (th01/core/resstuff.cpp:67-73) only
  *     frees RES_ID, so it cannot collect ours by accident.
- *  2. The injection seam is `key_sense()`, redirected at its six call sites,
- *     not an `fp_*` callback slot. TH01 has no such slot, and overwriting the
+ *  2. The injection seam is `key_sense()`, redirected at its CALL SITES rather
+ *     than at the symbol, and not an `fp_*` callback slot. Count them
+ *     carefully: 14 redirected invocations in 3 lexical blocks covering 7
+ *     groups (th01/main_01.cpp:204-211, th01/hardware/input.hpp:102-105,
+ *     th01/main_01.cpp:250-251), not the "six" an earlier revision of this
+ *     comment claimed — that six was the six groups on the unconditional path.
+ *     See state/notes/th01-input-injection.md §9. TH01 has no such slot, and overwriting the
  *     output booleans would desynchronize input_sense()'s function-local
  *     `static uint8_t input_prev[16]` and make [input_bomb] — which is derived
  *     from double-tap history, not from a key — unreproducible.
@@ -26,6 +31,14 @@
  *  4. The 64-bit two-pass subsystem hash of TXSPLIT_CONTRACT.md §7 replaces
  *     T3SPLT1's single 32-bit DJB2 aggregate, so a divergence names the
  *     subsystem that diverged.
+ *  5. The packet encoder keeps `packet_open` and the delta basis as two
+ *     separate flags. The reference has one and therefore emits a full
+ *     keyframe at every disk flush; see the comment on [t1case_packet_open].
+ *
+ * Case version 2 carries the shared replay core's N-channel packet RLE
+ * (state/port/REPLAY_CORE_CONTRACT.md §4) in place of version 1's fixed 16-byte
+ * records. Same logical sample sequence, ~480x fewer bytes on the Gate A
+ * corpus.
  *
  * None of the statics below are initialized data. A `_DATA` contribution from
  * this module would land between the original `_DATA` and `_BSS` inside
@@ -39,7 +52,6 @@
 
 #include <fcntl.h>
 #include <io.h>
-#include <string.h>
 #include <sys/stat.h>
 #include "platform.h"
 #include "pc98.h"
@@ -90,6 +102,13 @@ struct t1case_res_t {
 	uint32_t sample_count;
 	uint32_t record_count;
 	uint32_t global_frame;
+
+	// The third cursor of REPLAY_CORE_CONTRACT.md §4.4: where in the packet
+	// stream the next process resumes. Sound only because the record side
+	// guarantees a process boundary lands on a packet boundary — t1case_finish()
+	// emits a control packet, which closes the open packet by construction.
+	uint32_t input_byte_count;
+
 	uint32_t payload_checksum;
 	uint32_t split_rows;
 };
@@ -145,9 +164,60 @@ static uint32_t t1case_payload_checksum;
 static uint32_t t1case_split_rows;
 
 // The seven group bytes latched for the current input_sense() pass, and a
-// pointer to input_sense()'s function-local [input_prev].
+// pointer to input_sense()'s function-local [input_prev]. On playback the latch
+// doubles as the decoder's channel state: an unchanged channel simply keeps the
+// value the previous packet left there.
 static uint8_t t1case_keys[T1CASE_GROUP_COUNT];
 static uint8_t near *t1case_input_prev;
+
+/// Packet RLE state
+/// ----------------
+/// REPLAY_CORE_CONTRACT.md §4. One shadow-state encoding, not TH03's two
+/// (§1 item 1: MAIN packs `packet_size`/`charge`/`open` across two bitfield
+/// bytes, MAINL packs the same information differently for the same wire
+/// format). TH01 has one recorder, so plain statics — this module contributes
+/// no initialized data either way, and clarity is worth more than four bytes.
+
+// Total encoded bytes, INCLUDING bytes still sitting in [t1case_wbuf].
+// Mirrors TH03's `replay_input_byte_count`, which is likewise advanced at
+// buffer time so a flush writes at `offset + count - buffered`.
+static uint32_t t1case_input_byte_count;
+
+static uint8_t t1case_wbuf[T1CASE_WBUF_SIZE];
+static uint16_t t1case_wbuf_len;
+
+// The encoder's two flags, and the ONE place this port deliberately does not
+// follow the reference. TH03 keeps a single packet-open bit and treats it as
+// both "may I extend the buffered tag?" and "have I got a delta basis?"
+// (th03/main/replay.cpp:3736 sets every change bit whenever the bit is clear),
+// so its every disk flush emits a full keyframe. A keyframe is only REQUIRED
+// where a reader may BEGIN reading — for TH01 that is the process-segment
+// start, which the control packet already marks. Conflating the two costs
+// +8,750 bytes on an 80,000-sample case. See state/notes/t1case-packet-rle.md.
+static bool t1case_packet_open;   // cleared at every flush
+static bool t1case_enc_prev_valid; // cleared only at a process-segment boundary
+
+static uint8_t t1case_enc_prev[T1CASE_GROUP_COUNT];
+static uint8_t t1case_packet_run;   // 1..T1CASE_PACKET_RUN_MAX
+static uint8_t t1case_packet_phase;
+
+// Offset of the open packet's tag byte within [t1case_wbuf]. TH03 instead
+// caches the open packet's byte length in four bits of its shadow state and
+// walks back with `write_buffer[size - packet_size]`
+// (th03/main/replay.cpp:3731), which silently corrupts if a packet ever exceeds
+// 15 bytes. Storing the offset has the same effect with no such ceiling.
+static uint16_t t1case_packet_at;
+
+static uint8_t t1case_rbuf[T1CASE_RBUF_SIZE];
+static uint16_t t1case_rbuf_len;
+static uint16_t t1case_rbuf_pos;
+static uint8_t t1case_dec_run;    // samples left in the decoded packet
+static uint8_t t1case_dec_phase;
+static bool t1case_dec_prev_valid;
+
+// Distinguishes a failed read from a stream that decoded into something
+// invalid, so `error:frame-io` and `error:desync` stay meaningful.
+static bool t1case_stream_io_error;
 
 /// Small helpers
 /// -------------
@@ -755,6 +825,7 @@ static bool t1case_res_open(bool create)
 	t1case_res->sample_count = 0;
 	t1case_res->record_count = 0;
 	t1case_res->global_frame = 0;
+	t1case_res->input_byte_count = 0;
 	t1case_res->payload_checksum = T1CASE_FNV1A_BASIS;
 	t1case_res->split_rows = 0;
 	return true;
@@ -806,6 +877,7 @@ static void t1case_handoff_load(void)
 	t1case_sample_count = t1case_res->sample_count;
 	t1case_record_count = t1case_res->record_count;
 	t1case_global_frame = t1case_res->global_frame;
+	t1case_input_byte_count = t1case_res->input_byte_count;
 	t1case_payload_checksum = t1case_res->payload_checksum;
 	t1case_split_rows = t1case_res->split_rows;
 	t1case_started = (t1case_res->started != 0);
@@ -821,6 +893,7 @@ static void t1case_handoff_store(void)
 	t1case_res->sample_count = t1case_sample_count;
 	t1case_res->record_count = t1case_record_count;
 	t1case_res->global_frame = t1case_global_frame;
+	t1case_res->input_byte_count = t1case_input_byte_count;
 	t1case_res->payload_checksum = t1case_payload_checksum;
 	t1case_res->split_rows = t1case_split_rows;
 }
@@ -834,13 +907,305 @@ static void t1case_handoff_clear(void)
 	}
 }
 
+/// Packet codec
+/// ------------
+/// Ported from th03/main/replay.cpp: the encoder at :3678 with its
+/// extend-in-place run growth at :3714, the decoder at :3870, and the flush
+/// tail of replay_user_header_write() at :2898-2917. Not ported: the seek
+/// reader (:3998) and replay_user_decoder_seek() (:4037), because an oracle
+/// case is written once and read front to back and has no mid-stream resume;
+/// and the autofire shot-bit re-derivation at :3701, which is TH03 gameplay.
+
+static uint8_t t1case_rle_tag(uint8_t phase, uint8_t run)
+{
+	return static_cast<uint8_t>(
+		(phase << T1CASE_PACKET_PHASE_SHIFT) | (run - 1)
+	);
+}
+
+static bool t1case_buffer_u8(uint8_t value)
+{
+	if(t1case_wbuf_len >= T1CASE_WBUF_SIZE) {
+		return false;
+	}
+	t1case_wbuf[t1case_wbuf_len++] = value;
+	t1case_input_byte_count++;
+	return true;
+}
+
+// Commits every buffered byte and folds it into [payload_checksum].
+//
+// ALWAYS closes the open packet, even on the empty-buffer path. Extend-in-place
+// rewrites [t1case_wbuf][t1case_packet_at], which after a flush addresses a byte
+// that is no longer the open packet's tag; TH03 clears the same bit for the same
+// reason at th03/main/replay.cpp:2917. The delta basis is deliberately NOT
+// invalidated here.
+static bool t1case_stream_flush(void)
+{
+	uint32_t offset;
+	int fd;
+
+	t1case_packet_open = false;
+	if(t1case_wbuf_len == 0) {
+		return true;
+	}
+	offset = (
+		t1case_header.payload_offset +
+		t1case_input_byte_count - t1case_wbuf_len
+	);
+	fd = t1f_update(T1CASE_BIN_FN);
+	if(fd < 0) {
+		return false;
+	}
+	lseek(fd, static_cast<long>(offset), SEEK_SET);
+	if(!t1f_write(fd, t1case_wbuf, t1case_wbuf_len)) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	t1case_payload_checksum = t1case_fnv1a(
+		t1case_payload_checksum, t1case_wbuf, t1case_wbuf_len
+	);
+	t1case_wbuf_len = 0;
+	return true;
+}
+
+// Encodes the seven latched group bytes as one logical sample.
+static bool t1case_encode_sample(uint8_t phase)
+{
+	uint8_t mask = 0;
+	int i;
+
+	// Never let a packet straddle a flush (th03/main/replay.cpp:3712).
+	if(
+		(t1case_wbuf_len > (T1CASE_WBUF_SIZE - T1CASE_PACKET_SIZE_MAX)) &&
+		!t1case_stream_flush()
+	) {
+		return false;
+	}
+
+	if(
+		t1case_packet_open &&
+		(t1case_packet_phase == phase) &&
+		(t1case_packet_run < T1CASE_PACKET_RUN_MAX)
+	) {
+		for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+			if(t1case_enc_prev[i] != t1case_keys[i]) {
+				break;
+			}
+		}
+		if(i == T1CASE_GROUP_COUNT) {
+			// Extend in place: rewrite the already-buffered tag byte. Growing a
+			// run costs ZERO additional bytes, and that is the entire reason the
+			// ratio is what it is (REPLAY_CORE_CONTRACT.md §4.2).
+			t1case_packet_run++;
+			t1case_wbuf[t1case_packet_at] = t1case_rle_tag(
+				phase, t1case_packet_run
+			);
+			return true;
+		}
+	}
+
+	if(!t1case_enc_prev_valid) {
+		mask = T1CASE_PACKET_KEYFRAME_MASK;
+	} else {
+		for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+			if(t1case_keys[i] != t1case_enc_prev[i]) {
+				mask |= static_cast<uint8_t>(1 << i);
+			}
+		}
+	}
+	t1case_packet_at = t1case_wbuf_len;
+	if(
+		!t1case_buffer_u8(t1case_rle_tag(phase, 1)) ||
+		!t1case_buffer_u8(mask)
+	) {
+		return false;
+	}
+	for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+		if(mask & (1 << i)) {
+			if(!t1case_buffer_u8(t1case_keys[i])) {
+				return false;
+			}
+		}
+	}
+	for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+		t1case_enc_prev[i] = t1case_keys[i];
+	}
+	t1case_enc_prev_valid = true;
+	t1case_packet_open = true;
+	t1case_packet_run = 1;
+	t1case_packet_phase = phase;
+	return true;
+}
+
+static bool t1case_encode_control(uint8_t control)
+{
+	if(
+		((t1case_wbuf_len + 2) > T1CASE_WBUF_SIZE) && !t1case_stream_flush()
+	) {
+		return false;
+	}
+	t1case_packet_open = false;
+	if(
+		!t1case_buffer_u8(static_cast<uint8_t>(
+			(T1CASE_PHASE_CONTROL << T1CASE_PACKET_PHASE_SHIFT) |
+			(control & T1CASE_PACKET_RUN_MASK)
+		)) ||
+		!t1case_buffer_u8(T1CASE_PROCESS_REIIDEN)
+	) {
+		return false;
+	}
+	// A control packet ends the process segment, so the next packet must be a
+	// self-contained keyframe: the process that reads it starts at
+	// [input_byte_count] and has never seen an earlier channel value.
+	t1case_enc_prev_valid = false;
+	return true;
+}
+
+// Returns the next stream byte, or -1. Sets [t1case_stream_io_error] only for a
+// genuine read failure; running out of declared payload is a desync, not I/O.
+static int t1case_stream_u8(void)
+{
+	uint32_t remaining;
+	uint32_t offset;
+	unsigned want;
+	uint8_t value;
+	int fd;
+
+	if(t1case_rbuf_pos >= t1case_rbuf_len) {
+		if(t1case_input_byte_count >= t1case_header.payload_size) {
+			return -1;
+		}
+		remaining = (t1case_header.payload_size - t1case_input_byte_count);
+		want = (
+			(remaining > static_cast<uint32_t>(T1CASE_RBUF_SIZE)) ?
+			T1CASE_RBUF_SIZE : static_cast<unsigned>(remaining)
+		);
+		offset = (t1case_header.payload_offset + t1case_input_byte_count);
+		fd = t1f_read_open(T1CASE_BIN_FN);
+		if(fd < 0) {
+			t1case_stream_io_error = true;
+			return -1;
+		}
+		lseek(fd, static_cast<long>(offset), SEEK_SET);
+		if(read(fd, t1case_rbuf, want) != static_cast<int>(want)) {
+			close(fd);
+			t1case_stream_io_error = true;
+			return -1;
+		}
+		close(fd);
+		t1case_rbuf_len = static_cast<uint16_t>(want);
+		t1case_rbuf_pos = 0;
+	}
+	value = t1case_rbuf[t1case_rbuf_pos++];
+	t1case_input_byte_count++;
+
+	// One FNV-1a step, inline: the same fold t1case_fnv1a() applies, without a
+	// far pointer to a stack byte per byte of the stream.
+	t1case_payload_checksum = (
+		(t1case_payload_checksum ^ static_cast<uint32_t>(value)) *
+		T1CASE_FNV1A_PRIME
+	);
+	return value;
+}
+
+// Decodes one logical sample into [t1case_keys], refilling from the stream when
+// the current packet's run is spent. [phase] is what the game is doing right
+// now and must equal the stream's; a mismatch is the cursor desync this whole
+// design exists to catch, and is fatal rather than skipped
+// (th03/main/replay.cpp:4287).
+static bool t1case_decode_sample(uint8_t phase)
+{
+	int tag;
+	int mask;
+	int value;
+	int i;
+
+	if(t1case_dec_run == 0) {
+		tag = t1case_stream_u8();
+		if(tag < 0) {
+			return false;
+		}
+		if(
+			static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) >
+			T1CASE_PHASE_INTERSTITIAL
+		) {
+			return false;
+		}
+		mask = t1case_stream_u8();
+		if(mask < 0) {
+			return false;
+		}
+		if(mask & ~T1CASE_PACKET_KEYFRAME_MASK) {
+			return false; // the spare bit is required zero
+		}
+		if(
+			!t1case_dec_prev_valid &&
+			(mask != T1CASE_PACKET_KEYFRAME_MASK)
+		) {
+			return false; // a process segment must open with a keyframe
+		}
+		for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+			if(mask & (1 << i)) {
+				value = t1case_stream_u8();
+				if(value < 0) {
+					return false;
+				}
+				t1case_keys[i] = static_cast<uint8_t>(value);
+			}
+		}
+		t1case_dec_phase = static_cast<uint8_t>(
+			tag >> T1CASE_PACKET_PHASE_SHIFT
+		);
+		t1case_dec_run = static_cast<uint8_t>(
+			(tag & T1CASE_PACKET_RUN_MASK) + 1
+		);
+		t1case_dec_prev_valid = true;
+	}
+	if(t1case_dec_phase != phase) {
+		return false;
+	}
+	t1case_dec_run--;
+	return true;
+}
+
+static bool t1case_decode_control(uint8_t control)
+{
+	int tag;
+	int process;
+
+	// The stream must be at an exact packet boundary: a run that still owes
+	// samples means the process ended earlier than the recording did.
+	if(t1case_dec_run != 0) {
+		return false;
+	}
+	tag = t1case_stream_u8();
+	if(tag < 0) {
+		return false;
+	}
+	if(
+		(static_cast<uint8_t>(tag >> T1CASE_PACKET_PHASE_SHIFT) !=
+			T1CASE_PHASE_CONTROL) ||
+		(static_cast<uint8_t>(tag & T1CASE_PACKET_RUN_MASK) != control)
+	) {
+		return false;
+	}
+	process = t1case_stream_u8();
+	if(process != T1CASE_PROCESS_REIIDEN) {
+		return false;
+	}
+	t1case_dec_prev_valid = false;
+	return true;
+}
+
 /// Case file I/O
 /// -------------
-/// master.lib has a single global file handle, so every access is
-/// open -> seek -> read/write -> close and nothing is ever left open across a
-/// game call. All of these routines are already linked into REIIDEN.EXE by
-/// th01_reiiden.asm, so no master.lib include had to be added to an original
-/// segment contribution.
+/// Turbo C++ low-level I/O (delta D4), so every access is
+/// open -> seek -> read/write -> close and no descriptor is left open across a
+/// game call. The packet stream is buffered on both sides, so a recording
+/// touches the file once per T1SPLIT_INTERVAL_SAMPLES samples rather than once
+/// per sample as version 1 did.
 
 static void t1case_header_checksum_set(void)
 {
@@ -854,23 +1219,36 @@ static void t1case_header_checksum_set(void)
 	t1case_header.header_checksum = hash;
 }
 
+// Commits the packet stream and then rewrites the header, in that order: the
+// header declares [payload_size] and [payload_checksum], and both must describe
+// bytes that are already on disk. TH03 folds the same flush into its own header
+// write for the same reason (th03/main/replay.cpp:2898-2917).
 static bool t1case_header_write(bool create)
 {
 	int fd;
 
 	t1case_paths_init();
+	if(create) {
+		// Truncate first; the flush below writes into the file this creates.
+		fd = t1f_create(T1CASE_BIN_FN);
+		if(fd < 0) {
+			return false;
+		}
+		close(fd);
+	}
+	if(!t1case_stream_flush()) {
+		return false;
+	}
 	t1case_header.record_count = t1case_record_count;
 	t1case_header.sample_count = t1case_sample_count;
-	t1case_header.payload_size = (
-		t1case_record_count * static_cast<uint32_t>(T1CASE_RECORD_SIZE)
-	);
+	t1case_header.payload_size = t1case_input_byte_count;
 	t1case_header.total_size = (
 		t1case_header.payload_offset + t1case_header.payload_size
 	);
 	t1case_header.payload_checksum = t1case_payload_checksum;
 	t1case_header_checksum_set();
 
-	fd = (create ? t1f_create(T1CASE_BIN_FN) : t1f_update(T1CASE_BIN_FN));
+	fd = t1f_update(T1CASE_BIN_FN);
 	if(fd < 0) {
 		return false;
 	}
@@ -930,7 +1308,7 @@ static bool t1case_header_read(void)
 		(t1case_header.version != T1CASE_VERSION) ||
 		(t1case_header.header_size != T1CASE_HEADER_SIZE) ||
 		(t1case_header.startup_size != T1CASE_STARTUP_SIZE) ||
-		(t1case_header.record_size != T1CASE_RECORD_SIZE) ||
+		(t1case_header.channel_count != T1CASE_GROUP_COUNT) ||
 		(t1case_header.input_semantics != 1) ||
 		(t1case_header.ruleset_id != 1) ||
 		(t1case_header.source_kind != T1CASE_SOURCE_DIRECT) ||
@@ -938,10 +1316,14 @@ static bool t1case_header_read(void)
 		(t1case_header.flags & ~static_cast<uint16_t>(T1CASE_FLAG_KNOWN)) ||
 		(t1case_header.payload_offset !=
 			(T1CASE_HEADER_SIZE + T1CASE_STARTUP_SIZE)) ||
-		(t1case_header.payload_size !=
-			(t1case_header.record_count *
-				static_cast<uint32_t>(T1CASE_RECORD_SIZE))) ||
 		(t1case_header.sample_count > t1case_header.record_count) ||
+		// Every record costs at least the two bytes of a minimal packet, and a
+		// run covers at most T1CASE_PACKET_RUN_MAX samples. Both bounds are
+		// cheap and both reject a header whose counters cannot describe the
+		// stream it declares.
+		(t1case_header.payload_size <
+			(((t1case_header.record_count + (T1CASE_PACKET_RUN_MAX - 1)) /
+				T1CASE_PACKET_RUN_MAX) * 2UL)) ||
 		(t1case_header.total_size !=
 			(t1case_header.payload_offset + t1case_header.payload_size))
 	) {
@@ -982,62 +1364,16 @@ static bool t1case_header_read(void)
 	return (stored == computed);
 }
 
-static bool t1case_record_append(const t1case_record_t far *rec)
-{
-	uint32_t offset = (
-		t1case_header.payload_offset +
-		(t1case_record_count * static_cast<uint32_t>(T1CASE_RECORD_SIZE))
-	);
-	int fd = t1f_update(T1CASE_BIN_FN);
-
-	if(fd < 0) {
-		return false;
-	}
-	lseek(fd, static_cast<long>(offset), SEEK_SET);
-	if(!t1f_write(fd, rec, sizeof(*rec))) {
-		close(fd);
-		return false;
-	}
-	close(fd);
-	t1case_payload_checksum = t1case_fnv1a(
-		t1case_payload_checksum, rec, sizeof(*rec)
-	);
-	t1case_record_count++;
-	return true;
-}
-
-static bool t1case_record_fetch(uint32_t index, t1case_record_t far *rec)
-{
-	uint32_t offset = (
-		t1case_header.payload_offset +
-		(index * static_cast<uint32_t>(T1CASE_RECORD_SIZE))
-	);
-	int fd;
-
-	if(index >= t1case_header.record_count) {
-		return false;
-	}
-	fd = t1f_read_open(T1CASE_BIN_FN);
-	if(fd < 0) {
-		return false;
-	}
-	lseek(fd, static_cast<long>(offset), SEEK_SET);
-	if(read(fd, rec, sizeof(*rec)) != static_cast<int>(sizeof(*rec))) {
-		close(fd);
-		return false;
-	}
-	close(fd);
-	t1case_payload_checksum = t1case_fnv1a(
-		t1case_payload_checksum, rec, sizeof(*rec)
-	);
-	return true;
-}
-
 static bool t1case_playback_final(void)
 {
 	return (
 		(t1case_sample_count == t1case_header.sample_count) &&
 		(t1case_record_count == t1case_header.record_count) &&
+		// Version 1 could not check this: with fixed records, consuming
+		// `record_count` records consumed the payload by definition. A packet
+		// stream can decode the right number of samples out of the wrong number
+		// of bytes, so the byte cursor is an independent witness.
+		(t1case_input_byte_count == t1case_header.payload_size) &&
 		(t1case_payload_checksum == t1case_header.payload_checksum)
 	);
 }
@@ -1299,7 +1635,6 @@ int far t1case_key_sense(int keygroup)
 
 void far t1case_frame_io(uint8_t near *prev)
 {
-	t1case_record_t rec;
 	uint8_t phase;
 
 	t1case_input_prev = prev;
@@ -1328,16 +1663,11 @@ void far t1case_frame_io(uint8_t near *prev)
 		t1case_keys[T1CASE_GI_8] = static_cast<uint8_t>(key_sense(8) | key_sense(8));
 		t1case_keys[T1CASE_GI_9] = static_cast<uint8_t>(key_sense(9) | key_sense(9));
 
-		t1case_memclear(&rec, sizeof(rec));
-		rec.kind = T1CASE_RECORD_INPUT;
-		rec.phase = phase;
-		rec.scenario_cursor = static_cast<uint16_t>(frame_rand);
-		rec.frame_index = t1case_global_frame;
-		memcpy(rec.keys, t1case_keys, T1CASE_GROUP_COUNT);
-		if(!t1case_record_append(&rec)) {
+		if(!t1case_encode_sample(phase)) {
 			t1case_input_error(T1T_ERR_FRAME_IO);
 			return;
 		}
+		t1case_record_count++;
 		t1case_sample_count++;
 	} else {
 		if(t1case_record_count >= t1case_header.record_count) {
@@ -1347,21 +1677,14 @@ void far t1case_frame_io(uint8_t near *prev)
 			t1case_done_write(T1T_OK_INPUT_END);
 			return;
 		}
-		if(!t1case_record_fetch(t1case_record_count, &rec)) {
-			t1case_input_error(T1T_ERR_FRAME_IO);
+		t1case_stream_io_error = false;
+		if(!t1case_decode_sample(phase)) {
+			t1case_input_error(
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO : T1T_ERR_DESYNC
+			);
 			return;
 		}
 		t1case_record_count++;
-		if(
-			(rec.kind != T1CASE_RECORD_INPUT) ||
-			(rec.phase != phase) ||
-			(rec.frame_index != t1case_global_frame) ||
-			(rec.reserved != 0)
-		) {
-			t1case_input_error(T1T_ERR_DESYNC);
-			return;
-		}
-		memcpy(t1case_keys, rec.keys, T1CASE_GROUP_COUNT);
 		t1case_sample_count++;
 	}
 
@@ -1382,6 +1705,25 @@ void far t1case_session_start(void)
 
 	t1case_paths_init();
 	t1case_payload_checksum = T1CASE_FNV1A_BASIS;
+
+	// Codec state, explicitly, even though BSS starts zeroed: this is a fresh
+	// PROCESS SEGMENT in both directions. Neither the encoder's delta basis nor
+	// the decoder's channel values may carry over from the previous process,
+	// which is exactly why the control packet forces the next packet to be a
+	// keyframe (REPLAY_CORE_CONTRACT.md §4).
+	t1case_input_byte_count = 0;
+	t1case_wbuf_len = 0;
+	t1case_packet_open = false;
+	t1case_enc_prev_valid = false;
+	t1case_packet_run = 0;
+	t1case_packet_phase = T1CASE_PHASE_GAMEPLAY;
+	t1case_packet_at = 0;
+	t1case_rbuf_len = 0;
+	t1case_rbuf_pos = 0;
+	t1case_dec_run = 0;
+	t1case_dec_phase = T1CASE_PHASE_GAMEPLAY;
+	t1case_dec_prev_valid = false;
+	t1case_stream_io_error = false;
 
 	// The resident handoff wins; T1CASE.CFG is only the first-process
 	// fallback. Without this precedence a self-restarted REIIDEN would
@@ -1467,7 +1809,7 @@ void far t1case_session_start(void)
 		t1case_header.version = T1CASE_VERSION;
 		t1case_header.header_size = T1CASE_HEADER_SIZE;
 		t1case_header.startup_size = T1CASE_STARTUP_SIZE;
-		t1case_header.record_size = T1CASE_RECORD_SIZE;
+		t1case_header.channel_count = T1CASE_GROUP_COUNT;
 		t1case_header.payload_offset = (T1CASE_HEADER_SIZE + T1CASE_STARTUP_SIZE);
 		t1case_header.source_kind = T1CASE_SOURCE_DIRECT;
 		t1case_header.input_semantics = 1;
@@ -1527,49 +1869,39 @@ void far t1case_round_start(void)
 
 void far t1case_finish(bool16 terminal)
 {
-	t1case_record_t rec;
+	uint8_t control;
 	bool final_case;
 
 	if((t1case_mode == T1CASE_DISABLED) || (t1case_mode == T1CASE_ERROR)) {
 		return;
 	}
-	t1case_memclear(&rec, sizeof(rec));
-	rec.kind = T1CASE_RECORD_CONTROL;
-	rec.phase = T1CASE_PHASE_CONTROL;
-	rec.scenario_cursor = 0xFFFF;
-	rec.frame_index = t1case_global_frame;
-	rec.keys[0] = static_cast<uint8_t>(
+	control = static_cast<uint8_t>(
 		terminal ? T1CASE_CONTROL_TERMINAL : T1CASE_CONTROL_PROCESS_END
 	);
-	rec.keys[1] = 0;
 
 	if(t1case_mode == T1CASE_RECORD) {
-		if(!t1case_record_append(&rec)) {
+		if(!t1case_encode_control(control)) {
 			t1case_input_error(T1T_ERR_FRAME_IO);
 			return;
 		}
+		t1case_record_count++;
+
+		// Commits the control packet, so [input_byte_count] in the carrier is a
+		// packet boundary the next process can resume at
+		// (REPLAY_CORE_CONTRACT.md §4.4 item 1).
 		if(!t1case_header_write(false)) {
 			t1case_input_error(T1T_ERR_FRAME_IO);
 			return;
 		}
 	} else {
-		t1case_record_t got;
-
-		if(!t1case_record_fetch(t1case_record_count, &got)) {
-			t1case_input_error(T1T_ERR_FRAME_IO);
+		t1case_stream_io_error = false;
+		if(!t1case_decode_control(control)) {
+			t1case_input_error(
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO : T1T_ERR_DESYNC
+			);
 			return;
 		}
 		t1case_record_count++;
-		if(
-			(got.kind != T1CASE_RECORD_CONTROL) ||
-			(got.phase != T1CASE_PHASE_CONTROL) ||
-			(got.scenario_cursor != 0xFFFF) ||
-			(got.frame_index != t1case_global_frame) ||
-			(got.keys[0] != rec.keys[0])
-		) {
-			t1case_input_error(T1T_ERR_DESYNC);
-			return;
-		}
 	}
 
 	t1case_split_row(T1SPLIT_EVENT_FINISH);
