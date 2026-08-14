@@ -1463,38 +1463,6 @@ DEMO_TEXT	ends
 main_01____TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public DEMOPLAY
-DemoPlay	proc far ; ZUN symbol [MAGNet2010]
-		push	bp
-		mov	bp, sp
-		cmp	_key_det, 0
-		jnz	short loc_C20B
-		mov	ax, _demo_frame
-		add	ax, ax
-		les	bx, _DemoBuf
-		add	bx, ax
-		mov	ax, es:[bx]
-		mov	_key_det, ax
-		inc	_demo_frame
-		cmp	_demo_frame, DEMO_N - 50
-		jl	short loc_C222
-
-loc_C20B:
-		mov	_key_det, 0
-		push	0Ah
-		call	palette_black_out
-		mov	_quit, 1
-		call	_snd_se_reset
-
-loc_C222:
-		pop	bp
-		retf
-DemoPlay	endp
-
 include th02/math/randring_fill.asm
 RANDRING_NEXT_DEF 1
 
