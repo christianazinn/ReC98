@@ -2,8 +2,8 @@
 	public	part, _bgm_part
 	public	esound, _bgm_esound
 
-timerorg	dd	?
+timerorg	dd	0
 _bgm_part	label	word
-part		SPART	PMAX dup(<>)
+part		SPART	PMAX dup(<0,0,0,0,0,0,0,0,0>)
 _bgm_esound	label	word
-esound		SESOUND	SMAX dup(<>)
+esound		SESOUND	SMAX dup(<0,0>)
