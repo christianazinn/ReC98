@@ -64,6 +64,11 @@ extern farfunc_t_near farfp_23A76;
 extern farfunc_t_near boss_activate_if_scroll_done;
 
 // Returns `true` once the stage is over, which ends this loop.
+// The slot's default installed function is `bool nullfunc_false(void)`, and
+// the sibling slot above is a `bool` too, but this one has to be [bool16]:
+// ZUN's code tests the result with `or ax, ax`, and a `bool` return compiles
+// to `or al, al` — a real behavioral difference for any installed function
+// that returns a nonzero high byte. (kb/codegen/0090)
 extern bool16 (far pascal *stage_should_end)(void);
 // -----------------------------------------------------------------------
 
