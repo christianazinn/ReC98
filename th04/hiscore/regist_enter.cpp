@@ -13,18 +13,29 @@
 /// with the same [resident] source. TH03's returns the place; this one stores
 /// it in [entered_place], exactly as MAIN.EXE's version does.
 ///
-/// `#if (GAME == 4)`-guarded ONLY because TH05's copy of this function is still
-/// ASM, at the head of th05_maine.asm's own SCORE_TEXT root contribution
-/// (`sub_B730`, `0A54:11F0`), immediately after th05/hi_end.cpp's object. An
-/// unguarded body here would grow that object while that copy is still in the
-/// dump, which is a guaranteed RED. Whether the two bodies are one source is
-/// NOT measured yet — TH04 keeps the signed-promotion bug documented below and
-/// th04/main/hiscore.cpp records that TH05's MAIN.EXE version fixes it by
-/// comparing unsigned bytes, so expect at least one `#if (GAME == 5)` site
-/// there rather than a clean rename.
+/// ONE body for both games, since 2026-08-15. TH05's copy was `sub_B730` at the
+/// head of th05_maine.asm's own SCORE_TEXT root contribution (`0A54:11F0`),
+/// immediately after th05/hi_end.cpp's object, and is now lifted into this file
+/// too.
+///
+/// The prediction this file used to carry — "expect at least one
+/// `#if (GAME == 5)` site" at the *comparison*, because th04/main/hiscore.cpp
+/// records that TH05's MAIN.EXE version fixes the signed-promotion bug by
+/// comparing unsigned bytes — was WRONG, and the measurement is the interesting
+/// half of this function. TH05's MAINE.EXE copy compares exactly as TH04 does
+/// (`mov ah, 0` / `mov dh, 0` / `add dx, -gb_0` / `cmp ax, dx` / `jg` / `jl`,
+/// i.e. a SIGNED 16-bit compare of two int-promoted operands), so **ZUN fixed
+/// the sorting bug in TH05's MAIN.EXE and not in TH05's MAINE.EXE**. The two
+/// binaries of the same game disagree about the same algorithm.
+///
+/// The only real divergence is the stage column's third arm; see the tail.
 
 #include "th04/end/end.h"
-#include "th04/resident.hpp"
+#if (GAME == 5)
+	#include "th05/resident.hpp"
+#else
+	#include "th04/resident.hpp"
+#endif
 
 // ZUN bloat: Could have been local, exactly as in MAIN.EXE's version. Shared
 // with regist_menu() and regist_row_put_at(), which is why it is not.
@@ -95,6 +106,18 @@ shift:
 	if(resident->end_sequence >= ES_EXTRA) {
 		hi.score.g_stage[entered_place] = gs_ALL;
 	} else {
+	#if (GAME == 5)
+		// The one place the two games really differ. An Extra run that did
+		// *not* reach its ending has no meaningful stage number to show —
+		// [resident->stage] still counts from the main game — so TH05 shows a
+		// bare "1" for it. TH04 has no such arm and always adds the stage.
+		if(rank < RANK_EXTRA) {
+			hi.score.g_stage[entered_place] = (gb_1 + resident->stage);
+		} else {
+			hi.score.g_stage[entered_place] = gb_1;
+		}
+	#else
 		hi.score.g_stage[entered_place] = (gb_1 + resident->stage);
+	#endif
 	}
 }
