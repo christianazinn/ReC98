@@ -109,8 +109,11 @@ extern "C" uint8_t bgm_show_timer;
 extern "C" uint8_t bgm_title_id;
 
 // The BGM title shown once the boss starts; boss_activate_if_scroll_done()
-// copies it into [bgm_title_id].
-extern "C" uint8_t bgm_title_id_boss;
+// copies it into [bgm_title_id]. Qualifier first, because that is how a
+// sibling game already spells the same concept in both languages:
+// th04/main/hud/overlay.hpp's [boss_bgm_title] and
+// th04/main/hud/overlay[bss].asm's [_boss_bgm_title_len].
+extern "C" uint8_t boss_bgm_title_id;
 
 extern "C" uint8_t stage1_gaiji_halflen;
 extern "C" uint8_t gStage1[];
@@ -261,7 +264,7 @@ void near stage_init(void)
 	if(!resident->demo_num) {
 		bgm_show_timer = 1;
 		bgm_title_id = (stage_id * 2);
-		bgm_title_id_boss = ((stage_id * 2) + 1);
+		boss_bgm_title_id = ((stage_id * 2) + 1);
 	} else {
 		bgm_show_timer = 0;
 	}
