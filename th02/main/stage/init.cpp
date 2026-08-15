@@ -1,0 +1,388 @@
+/* ReC98
+ * -----
+ * TH02's per-stage initialization. main() calls this once per stage, right
+ * after seeding [random_seed] and right before the gameplay loop in
+ * th02/main/stage/loop.cpp.
+ */
+
+// -G- (optimize for size) is what turns the prolog into a single ENTER;
+// stage_loop() next door needs -G and its `push bp; mov bp, sp; sub sp, N`.
+#pragma option -zCSTAGE_INIT_TEXT -zPmain_01 -G-
+
+#include <mem.h>
+#include "platform.h"
+#include "pc98.h"
+#include "shiftjis.hpp"
+#include "decomp.hpp"
+#include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "platform/x86real/pc98/page.hpp"
+#include "th02/resident.hpp"
+#include "th02/formats/map.hpp"
+#include "th02/formats/mpn.hpp"
+#include "th02/formats/pi.h"
+#include "th02/gaiji/gaiji.h"
+#include "th02/hardware/pages.hpp"
+#include "th02/math/randring.hpp"
+#include "th02/snd/snd.h"
+#include "th02/main/frames.hpp"
+#include "th02/main/main.hpp"
+#include "th02/main/null.hpp"
+#include "th02/main/playfld.hpp"
+#include "th02/main/score.hpp"
+#include "th02/main/scroll.hpp"
+#include "th02/main/slowdown.hpp"
+#include "th02/main/bullet/bullet.hpp"
+#include "th02/main/dialog/dialog.hpp"
+#include "th02/main/hud/hud.hpp"
+#include "th02/main/hud/overlay.hpp"
+#include "th02/main/item/item.hpp"
+#include "th02/main/midboss/midboss.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/main/stage/stage.hpp"
+#include "th02/main/tile/tile.hpp"
+
+// Per-stage callback slots
+// ------------------------
+// Unlike TH03-TH05's __pascal callbacks (platform.h's farfunc_t_near), every
+// function TH02 installs into these is __cdecl: th02/main/null.asm publishes
+// the defaults as `@nullfunc_void$qv` / `@nullfunc_false$qv` in lower case,
+// which is Borland's __cdecl decoration (kb/codegen/0086). For a parameterless
+// call the two conventions emit identical bytes, which is why
+// th02/main/stage/loop.cpp can get away with declaring the same variables as
+// farfunc_t_near — but only this spelling can be assigned to without a cast.
+
+extern void (far *boss_bg_render)(void);
+extern stage_progression_t (far *boss_update)(void);
+extern void (far *boss_bg_render_func)(void);
+extern stage_progression_t (far *boss_update_func)(void);
+extern void (far *boss_init)(void);
+extern void (far *boss_end)(void);
+
+// Erases the stage title from TRAM at [stage_frame] == 160, then disables
+// itself.
+extern void (far *stage_title_unput)(void);
+
+extern void (far *enemies_invalidate)(void);
+extern void (far *enemies_update_and_render)(void);
+
+// Per-stage foreground/background effects.
+extern void (far *stage_invalidate)(void);
+extern void (far *stage_update_and_render)(void);
+
+// Only installed for Stage 4 and Extra. What they render is not evidenced,
+// hence the neutral names. [static]
+extern void (far *farfp_23A72)(void);
+extern void (far *farfp_23A76)(void);
+
+// Starts the boss fight once the map has been scrolled to its end, then
+// disables itself.
+extern void (far *boss_activate_if_scroll_done)(void);
+
+// Returns `true` once the stage is over. Has to be [bool16]: ZUN's loop tests
+// the result with `or ax, ax` (kb/codegen/0090).
+extern bool16 (far *stage_should_end)(void);
+// ------------------------
+
+// Still ASM in th02_main.asm.
+// ---------------------------
+extern "C" void pascal near text_wipe(void);
+
+// Writes "stage<[stage_id] + '0'>.bft" into [fn].
+extern "C" void pascal near sub_B396(char *fn);
+
+// Replaces the 3-character extension of [fn] with [ext].
+extern "C" void pascal near sub_B362(char *fn, const char *ext);
+
+extern "C" void near sub_C5B0(void);
+extern "C" void near sub_E271(void);
+extern "C" void far sub_3DDE(void);
+extern "C" void far sub_1028C(void);
+extern "C" void far sub_129DD(void);
+extern "C" void far sub_129FC(void);
+extern "C" void far sub_16A6B(void);
+extern "C" void far sub_1C3DF(void);
+extern "C" void far sub_1C608(void);
+extern "C" void far sub_13ABB(char *fn);
+
+// Resets the scrolling state. Called through a `nopcall` alias.
+extern "C" void far sub_CA1C(void);
+
+// Callback defaults.
+extern "C" void far sub_17979(void); // enemies_invalidate
+extern "C" void far sub_1766E(void); // enemies_update_and_render
+extern "C" void far sub_BFD0(void);  // boss_activate_if_scroll_done
+extern "C" void far sub_C05D(void);  // stage_title_unput
+
+// Per-stage effect functions.
+extern "C" void far sub_13513(void); // Stages 1 and 2, invalidate
+extern "C" void far sub_13671(void); // Stage 1, update and render
+extern "C" void far sub_140AE(void); // Stage 2, update and render
+extern "C" void far sub_10E4F(void); // Stage 3, invalidate
+extern "C" void far sub_10E95(void); // Stage 3, update and render
+extern "C" void far sub_19E2F(void); // Stage 4, update and render
+
+#define BOSS_DEC(name) \
+	extern "C" void far name##_init(void); \
+	extern "C" void far name##_end(void); \
+	extern "C" void far name##_bg_render(void); \
+	extern "C" stage_progression_t far name##_update(void);
+
+BOSS_DEC(rika);
+BOSS_DEC(meira);
+BOSS_DEC(stones);
+BOSS_DEC(marisa);
+BOSS_DEC(mima);
+BOSS_DEC(sigma);
+
+// The stage's own copy of the .MPN palette, taken right after the file is
+// loaded and applied once the previous stage has faded out.
+extern "C" Palette8 stage_palette;
+
+extern "C" uint8_t bgm_show_timer;
+extern "C" uint8_t bgm_title_id;
+
+// The BGM title shown once the boss starts; boss_activate_if_scroll_done()
+// copies it into [bgm_title_id].
+extern "C" uint8_t bgm_title_id_boss;
+
+extern "C" uint8_t stage1_gaiji_halflen;
+extern "C" uint8_t gStage1[];
+
+extern "C" shiftjis_t near *STAGE_TITLES[];
+extern "C" shiftjis_t near *stage_title;
+extern "C" const uint8_t STAGE_TITLE_HALFLENGTHS[];
+extern "C" uint8_t stage_title_halflen;
+
+extern "C" bool reduce_effects;
+
+extern "C" const char aBmt[];
+extern "C" const char aBbt[];
+extern "C" const char aMap[];
+extern "C" const char aMpn[];
+extern "C" const char aM[];
+extern "C" const char aMiko_k_mpn[];
+// ---------------------------
+
+// Turbo C++ compiled ZUN's far calls to same-code-group functions as
+// `nop; push cs; call near ptr`. Now that this function sits in its own
+// segment, only inline ASM still emits those bytes. (kb/codegen/0014)
+#define nopcall_same_group(func) _asm { \
+	nop; \
+	push	cs; \
+	call	near ptr func; \
+}
+
+void near stage_init(void)
+{
+	char fn[12];
+	register int i;
+
+	sub_B396(fn);
+	vsync_Count1 = 0;
+	text_wipe();
+	graph_scrollup(0);
+	graph_accesspage(1);
+	graph_clear();
+	graph_accesspage(0);
+	graph_clear();
+	graph_showpage(0);
+	hud_put();
+	overlay_wipe();
+	// ZUN bloat: Applied twice, for no effect.
+	pi_palette_apply(0);
+	pi_palette_apply(0);
+	pi_put_8(96, 144, 0);
+	bullets_and_sparks_init();
+	sub_16A6B();
+	sub_3DDE();
+	sub_129DD();
+	sub_E271();
+	snd_se_reset();
+	sub_1028C();
+	nopcall_same_group(sub_CA1C);
+	randring_fill();
+	palette_100();
+
+	player_left_on_page[1] = player_left_on_page[0] = PLAYER_LEFT_START;
+	player_top_on_page[1] = player_top_on_page[0] = PLAYER_TOP_START;
+	stage_frame = 0;
+	midboss_active = false;
+	stage_progression = SP_STAGE;
+	slowdown_factor = 1;
+	if(!resident->demo_num) {
+		bgm_show_timer = 1;
+		bgm_title_id = (stage_id * 2);
+		bgm_title_id_boss = ((stage_id * 2) + 1);
+	} else {
+		bgm_show_timer = 0;
+	}
+
+	for(i = 192; i >= 128; i--) {
+		if(super_patsize[i]) {
+			super_cancel_pat(i);
+		}
+	}
+
+	stage1_gaiji_halflen = 6;
+	gStage1[5] = ((stage_id % 5) + gb_1);
+	stage_title = STAGE_TITLES[stage_id];
+	stage_title_halflen = STAGE_TITLE_HALFLENGTHS[stage_id];
+
+	super_entry_bfnt(fn);
+	sub_B362(fn, aBmt);
+	super_entry_bfnt(fn);
+	sub_B362(fn, aBbt);
+	super_entry_bfnt(fn);
+	sub_B362(fn, aMap);
+	map_load(fn);
+	tiles_stuff_reset();
+	sub_B362(fn, aMpn);
+	mpn_load(fn);
+	memcpy(
+		reinterpret_cast<void *>(&stage_palette),
+		reinterpret_cast<void *>(&mpn_palette),
+		sizeof(Palette8)
+	);
+	sub_1C608();
+	sub_1C3DF();
+	dialog_load_and_init();
+
+	boss_bg_render = nullfunc_void;
+	boss_update = reinterpret_cast<stage_progression_t (far *)(void)>(
+		nullfunc_false
+	);
+	stage_update_and_render = nullfunc_void;
+	stage_invalidate = nullfunc_void;
+	farfp_23A72 = nullfunc_void;
+	farfp_23A76 = nullfunc_void;
+	enemies_invalidate = sub_17979;
+	enemies_update_and_render = sub_1766E;
+	boss_activate_if_scroll_done = sub_BFD0;
+	stage_title_unput = sub_C05D;
+	stage_should_end = reinterpret_cast<bool16 (far *)(void)>(nullfunc_false);
+	sub_C5B0();
+	scroll_speed = 1;
+	scroll_interval = 4;
+
+	switch(stage_id) {
+	case 0:
+		midboss_scroll_step = 116;
+		midboss_invalidate = midboss1_invalidate;
+		midboss_update_and_render = midboss1_update_and_render;
+		boss_init = rika_init;
+		boss_end = rika_end;
+		boss_bg_render_func = rika_bg_render;
+		boss_update_func = rika_update;
+		stage_update_and_render = sub_13671;
+		stage_invalidate = sub_13513;
+		break;
+
+	case 1:
+		midboss_scroll_step = 80;
+		midboss_invalidate = midboss2_invalidate;
+		midboss_update_and_render = midboss2_update_and_render;
+		boss_init = meira_init;
+		boss_end = meira_end;
+		boss_bg_render_func = meira_bg_render;
+		boss_update_func = meira_update;
+		stage_update_and_render = sub_140AE;
+		stage_invalidate = sub_13513;
+		break;
+
+	case 2:
+		midboss_scroll_step = 103;
+		midboss_invalidate = midboss3_invalidate;
+		midboss_update_and_render = midboss3_update_and_render;
+		boss_init = stones_init;
+		boss_end = stones_end;
+		boss_bg_render_func = stones_bg_render;
+		boss_update_func = stones_update;
+		stage_update_and_render = sub_10E95;
+		stage_invalidate = sub_10E4F;
+		break;
+
+	case 3:
+		midboss_scroll_step = 944;
+		midboss_invalidate = midboss4_invalidate;
+		midboss_update_and_render = midboss4_update_and_render;
+		boss_init = marisa_init;
+		boss_end = marisa_end;
+		boss_bg_render_func = marisa_bg_render;
+		boss_update_func = marisa_update;
+		if(!reduce_effects) {
+			stage_update_and_render = sub_19E2F;
+		}
+		sub_129FC();
+		scroll_speed = 2;
+		scroll_interval = 1;
+		break;
+
+	case 4:
+		// Stage 5 has no midboss, and disables it with an unreachable
+		// [scroll_step].
+		midboss_scroll_step = -1;
+		midboss_invalidate = nullfunc_false;
+		midboss_update_and_render = nullfunc_void;
+		boss_init = mima_init;
+		boss_end = mima_end;
+		boss_bg_render_func = mima_bg_render;
+		boss_update_func = mima_update;
+		scroll_interval = 1;
+		break;
+
+	case 5:
+		midboss_scroll_step = 200;
+		midboss_invalidate = midbossx_invalidate;
+		midboss_update_and_render = midbossx_update_and_render;
+		boss_init = sigma_init;
+		boss_end = sigma_end;
+		boss_bg_render_func = sigma_bg_render;
+		boss_update_func = sigma_update;
+		sub_129FC();
+		scroll_interval = 2;
+		break;
+	}
+
+	tile_area_init_and_put_both();
+	if(!resident->demo_num) {
+		snd_delay_until_volume(255);
+		sub_B362(fn, aM);
+	}
+	items_init_and_reset();
+	score_extend_init();
+	while(vsync_Count1 < 100) {
+	}
+	text_boxfilla(4, 1, 51, 23, (TX_BLACK | TX_REVERSE));
+	palette_set_all(stage_palette);
+	palette_show();
+	graph_accesspage(1);
+	tiles_fill_and_put_initial();
+	graph_accesspage(0);
+	tiles_render_all();
+	mpn_free();
+	mpn_load(aMiko_k_mpn);
+	if(!resident->demo_num) {
+		sub_13ABB(fn);
+	}
+	grc_setclip(0, 0, (RES_X - 1), (RES_Y - 1));
+	grcg_setcolor(GC_RMW, 11);
+	graph_accesspage(0);
+	grcg_boxfill(PLAYFIELD_RIGHT, 0, 575, (RES_Y - 1));
+	graph_accesspage(1);
+	grcg_boxfill(PLAYFIELD_RIGHT, 0, 575, (RES_Y - 1));
+	grcg_off();
+	page_front = 1;
+	page_show(page_front);
+	// ZUN's compiler materialized the 0 once, into AL, and reused it for both
+	// the port write and the [page_back] store. `page_access(0); page_back =
+	// 0;` cannot reproduce that: the __emit__ that carries the immediate-form
+	// OUT is an opaque barrier to -Z's register tracking, so the store falls
+	// back to a 5-byte `mov byte ptr [page_back], 0`. The `db` also pins the
+	// direction bit of the `xor` (kb/codegen/0088).
+	_asm {
+		db  	030h, 0C0h; // xor al, al
+		out 	0A6h, al;
+	}
+	page_back = _AL;
+}

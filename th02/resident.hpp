@@ -26,7 +26,12 @@ struct resident_t {
 	bool reduce_effects;
 	char unused_3;
 	uint8_t shottype;
-	char demo_num;
+
+	// The demo to replay, 1-3, or 0 for a regular game. [uint8_t] rather than
+	// [char] because demo_load() compares it against 1/2/3 and Turbo C++ only
+	// keeps those as direct memory-byte compares for an unsigned type
+	// (kb/codegen/0029).
+	uint8_t demo_num;
 	int skill;
 	int unused_4;
 	long score_highest;
