@@ -157,6 +157,14 @@ enum t1case_text_id_t {
 	// session start and only this one means the RESUME POINT is wrong.
 	T1T_ERR_CHECKPOINT,
 
+	// The DOS files this case was recorded against are not the ones on disk.
+	// REPLAY_CORE_CONTRACT.md open item 10: a case pins its inputs, and from
+	// version 4 it also pins the session files, because the high-score table
+	// decides `regist_name()`'s branch and no row schema may ever hash it.
+	// Distinct from `header` on purpose — the case is well-formed and the
+	// ENVIRONMENT is wrong, which is a different thing for a human to fix.
+	T1T_ERR_SESSION,
+
 	T1T_ERR_RESIDENT
 };
 
@@ -169,6 +177,11 @@ static char T1CASE_SPLIT_FN[12];
 static char T1CASE_DONE_FN[11];
 static char T1CASE_DIAG_FN[11];
 static char T1CASE_GUARD_FN[13];
+
+// "REYHI??.DAT" — the session file of TXCASE_CONTRACT.md's session-file rule.
+// Assembled per rank rather than at paths-init time, because which of the four
+// score tables is live is a property of the CASE, not of the process.
+static char T1CASE_SCORE_FN[12];
 
 // The two ResData IDs. Assembled at runtime for the same reason as the
 // filenames: a string literal is initialized data, and this module must
@@ -542,6 +555,105 @@ static uint32_t t1case_fnv1a(uint32_t hash, const void far *buf, unsigned size)
 		hash ^= static_cast<uint32_t>(*p++);
 		hash *= T1CASE_FNV1A_PRIME;
 		size--;
+	}
+	return hash;
+}
+
+/// The session-file pin
+/// --------------------
+/// REPLAY_CORE_CONTRACT.md open item 10, TXCASE_CONTRACT.md "Session files".
+///
+/// A case pins the INPUTS. Until version 4 it pinned nothing about the DOS
+/// files the game reads and writes as a side effect of playing, and
+/// TXSPLIT_CONTRACT.md §7 excludes DOS-runtime state from every row schema by
+/// rule - so the trace could not see them either. TH01 has exactly one such
+/// file, the high-score table for the case's rank; see the checkpoint-slot
+/// commentary in th01/t1case.hpp for the call-graph evidence and for why
+/// REIIDEN.CFG is not one.
+///
+/// The pin is a DIGEST, and a mismatch REFUSES the case. It never rewrites the
+/// file to match: that would make the oracle manufacture its own input
+/// environment, which is the coercion TXCASE_CONTRACT.md already refuses for
+/// debug flags.
+
+// Assembles "REYHI??.DAT" for [rank] into T1CASE_SCORE_FN. False for a rank
+// scoredat_fn() (th01/hiscore/scorelod.cpp:12-19) does not name, which cannot
+// select a file and therefore cannot be digested.
+static bool t1case_score_fn_set(int8_t rank)
+{
+	char a;
+	char b;
+
+	switch(rank) {
+	case RANK_EASY:   	a = 'E'; b = 'S'; break;
+	case RANK_NORMAL: 	a = 'N'; b = 'O'; break;
+	case RANK_HARD:   	a = 'H'; b = 'A'; break;
+	case RANK_LUNATIC:	a = 'L'; b = 'U'; break;
+	default:          	return false;
+	}
+	T1CASE_SCORE_FN[0] = 'R';
+	T1CASE_SCORE_FN[1] = 'E';
+	T1CASE_SCORE_FN[2] = 'Y';
+	T1CASE_SCORE_FN[3] = 'H';
+	T1CASE_SCORE_FN[4] = 'I';
+	T1CASE_SCORE_FN[5] = a;
+	T1CASE_SCORE_FN[6] = b;
+	T1CASE_SCORE_FN[7] = '.';
+	T1CASE_SCORE_FN[8] = 'D';
+	T1CASE_SCORE_FN[9] = 'A';
+	T1CASE_SCORE_FN[10] = 'T';
+	T1CASE_SCORE_FN[11] = '\0';
+	return true;
+}
+
+// The pin's value for [rank], evaluated against the CURRENT contents of the
+// disk. Both the recorder and the player call this from t1case_session_start(),
+// at the same statement and before any game initialisation, which is what makes
+// the two values comparable at all.
+//
+// The length is folded in ahead of the bytes so a truncation cannot alias a
+// shorter legitimate file, and a computed zero is mapped to one so that
+// T1CASE_SESSION_ABSENT stays an exact sentinel rather than a value a present
+// file could collide with.
+static uint32_t t1case_session_digest(int8_t rank)
+{
+	uint8_t buf[64];
+	uint32_t hash;
+	uint32_t length;
+	long physical_size;
+	int fd;
+	int got;
+
+	if(!t1case_score_fn_set(rank)) {
+		return T1CASE_SESSION_ABSENT;
+	}
+	fd = t1f_read_open(T1CASE_SCORE_FN);
+	if(fd < 0) {
+		return T1CASE_SESSION_ABSENT;
+	}
+	physical_size = lseek(fd, 0L, SEEK_END);
+	lseek(fd, 0L, SEEK_SET);
+	if(physical_size < 0) {
+		close(fd);
+		return T1CASE_SESSION_ABSENT;
+	}
+	length = static_cast<uint32_t>(physical_size);
+	hash = t1case_fnv1a(T1CASE_FNV1A_BASIS, &length, sizeof(length));
+	while(1) {
+		got = read(fd, buf, sizeof(buf));
+		if(got <= 0) {
+			break;
+		}
+		hash = t1case_fnv1a(hash, buf, static_cast<unsigned>(got));
+	}
+	close(fd);
+	if(got < 0) {
+		// A file that exists but cannot be read is not the same environment as
+		// one that does not exist, and it must not be reported as either.
+		return 1UL;
+	}
+	if(hash == T1CASE_SESSION_ABSENT) {
+		hash = 1UL;
 	}
 	return hash;
 }
@@ -1051,6 +1163,11 @@ static void t1case_write_text(uint8_t id)
 	case T1T_ERR_CHECKPOINT:
 		t1case_write_char('c'); t1case_write_char('k'); t1case_write_char('p');
 		t1case_write_char('t');
+		break;
+	case T1T_ERR_SESSION:
+		t1case_write_char('s'); t1case_write_char('e'); t1case_write_char('s');
+		t1case_write_char('s'); t1case_write_char('i'); t1case_write_char('o');
+		t1case_write_char('n');
 		break;
 	default:
 		t1case_write_char('r'); t1case_write_char('e'); t1case_write_char('s');
@@ -2421,6 +2538,19 @@ static bool t1case_checkpoint_write(uint16_t index)
 	t1case_ckpt.payload_checksum = t1case_payload_checksum;
 	t1case_startup_capture(&t1case_ckpt.startup);
 
+	// The session pin, version 4. Captured AFTER the startup block, because the
+	// rank that names the file comes out of it - and captured here, at the
+	// start of the process segment, which is the same statement the player
+	// evaluates it at. `hiscore_load()` has not run yet in either mode
+	// (th01/main_01.cpp calls t1case_session_start() first), so both sides see
+	// the file as the PREVIOUS segment left it.
+	t1case_ckpt.session_digest = t1case_session_digest(
+		t1case_ckpt.startup.rank
+	);
+	t1case_diag(
+		'S', 'F', 'R', t1case_ckpt.session_digest, index
+	);
+
 	fd = t1f_update(T1CASE_BIN_FN);
 	if(fd < 0) {
 		return false;
@@ -2466,6 +2596,38 @@ static bool t1case_checkpoint_array_verify(void)
 		hash = t1case_fnv1a(hash, &t1case_ckpt, sizeof(t1case_ckpt));
 	}
 	return (hash == t1case_header.checkpoint_checksum);
+}
+
+// Verifies the session pin for process segment [index] BEFORE any of that
+// slot's state is applied, the same way the header checksum is verified before
+// the startup block is.
+//
+// A slot the case does not have is UNPINNED rather than a failure, and says so
+// with its own tag: a host-converted case declares `checkpoint_capacity` 0 and
+// therefore carries no pin at all, which is exactly what keeps the archived
+// Gate A artifacts comparable across this version bump - the same property
+// version 3 bought for the checkpoint array itself.
+static bool t1case_session_verify(uint8_t index)
+{
+	uint32_t live;
+
+	if(index >= t1case_header.checkpoint_count) {
+		t1case_diag(
+			'S', 'F', 'U', index, t1case_header.checkpoint_count
+		);
+		return true;
+	}
+	if(!t1case_checkpoint_read(index)) {
+		return false;
+	}
+	live = t1case_session_digest(t1case_ckpt.startup.rank);
+
+	// Emitted only once the case itself has been accepted, so that
+	// `error:session` + `SFD` is attributable in the way TH02/TH04/TH05's
+	// `error:case-header` + `DBG` is: a case refused for any OTHER reason
+	// produces no SFD line at all.
+	t1case_diag('S', 'F', 'D', live, t1case_ckpt.session_digest);
+	return (live == t1case_ckpt.session_digest);
 }
 
 static bool t1case_checkpoint_restore(uint8_t index)
@@ -2769,6 +2931,17 @@ void far t1case_session_start(void)
 			return;
 		}
 		if(!resumed) {
+			// The session-file pin (REPLAY_CORE_CONTRACT.md open item 10),
+			// before either entry path applies any state. A case describes the
+			// process segment it resumes into, and the DOS files that segment
+			// started with are part of that description even though no row
+			// schema may ever hash them (TXSPLIT_CONTRACT.md §7).
+			if(!t1case_session_verify(t1case_cfg_checkpoint)) {
+				t1case_mode = T1CASE_ERROR;
+				t1case_handoff_clear();
+				t1case_done_write(T1T_ERR_SESSION);
+				return;
+			}
 			if(t1case_cfg_checkpoint != 0) {
 				if(!t1case_checkpoint_restore(t1case_cfg_checkpoint)) {
 					t1case_mode = T1CASE_ERROR;

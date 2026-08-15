@@ -23,7 +23,14 @@
 // Version 2 replaced version 1's fixed 16-byte records with the shared replay
 // core's N-channel packet RLE (state/port/REPLAY_CORE_CONTRACT.md §4). The
 // logical sample sequence is unchanged; only the payload encoding is.
-#define T1CASE_VERSION      3
+//
+// Version 4 adds the SESSION-FILE PIN (REPLAY_CORE_CONTRACT.md open item 10):
+// a case pins its inputs, and until now pinned nothing about the DOS files the
+// game reads and writes while it plays. One `session_digest` per checkpoint
+// slot covers the high-score table the case's rank selects, at the exact
+// program point a process segment starts. Header shape and size are unchanged;
+// only the checkpoint stride grows.
+#define T1CASE_VERSION      4
 #define T1CASE_HEADER_SIZE  64
 #define T1CASE_STARTUP_SIZE 64
 
@@ -245,9 +252,39 @@ struct t1case_startup_t {
 ///                   is a field of it, so there is nothing left for a directory
 ///                   to say.
 
-#define T1CASE_CHECKPOINT_PREFIX_SIZE 16
+/// Version 4 adds one more prefix field:
+///
+///   +16 u32 session_digest    the SESSION-FILE PIN, below
+///
+/// Nothing in `resident_t` describes the DOS files the game reads and writes
+/// while it plays, and TXSPLIT_CONTRACT.md §7 excludes DOS-runtime state from
+/// every row schema by rule - so no schema bump can ever cover them and the
+/// case has to (REPLAY_CORE_CONTRACT.md open item 10).
+///
+/// For TH01 that is exactly ONE file: the high-score table
+/// `REYHI??.DAT` named by the case's own `startup.rank`
+/// (th01/hiscore/scorelod.cpp:12-19). It is read by `hiscore_load()` once per
+/// REIIDEN process (th01/main_01.cpp:349) and again by `regist_menu()`
+/// (th01/hiscore/regist.cpp:601), and written by `scoredat_save()` (:524)
+/// during play. `rank` is assigned once from `resident->rank`
+/// (th01/core/resstuff.cpp:55) and never reassigned inside a REIIDEN process,
+/// so the other three rank files provably cannot be opened. `REIIDEN.CFG` is
+/// OP-only - every `cfg_load`/`cfg_save` call site is in th01/op_01.cpp - and a
+/// case's `first_process` is always REIIDEN.
+///
+/// The digest belongs in the SLOT rather than in the header because the state
+/// that decides `regist_name()`'s branch is per PROCESS SEGMENT, not per case:
+/// a checkpoint restore re-enters at segment k with whatever the disk holds,
+/// which is what made step 4's checkpoints 8/11/12/13 diverge. Both the
+/// recorder and the player evaluate it in `t1case_session_start()`, at the same
+/// statement, before any game initialisation has run.
+#define T1CASE_CHECKPOINT_PREFIX_SIZE 20
 #define T1CASE_CHECKPOINT_STRIDE \
 	(T1CASE_CHECKPOINT_PREFIX_SIZE + T1CASE_STARTUP_SIZE)
+
+// A file that does not exist. Distinguished from every present-file digest by
+// construction: t1case_session_digest() maps a computed 0 to 1.
+#define T1CASE_SESSION_ABSENT 0UL
 
 // Slots reserved in a case the GAME writes. Measured bound: the longest TH01
 // recording to date is 13 REIIDEN processes
@@ -269,6 +306,7 @@ struct t1case_checkpoint_t {
 	uint32_t global_frame;
 	uint32_t input_byte_count;
 	uint32_t payload_checksum;
+	uint32_t session_digest;
 	t1case_startup_t startup;
 };
 
@@ -782,6 +820,13 @@ typedef char t1case_checkpoint_prefix_check[
 ];
 typedef char t1case_checkpoint_stride_check[
 	(sizeof(t1case_checkpoint_t) == T1CASE_CHECKPOINT_STRIDE) ? 1 : -1
+];
+// Version 4's session pin sits exactly where version 3's startup block began.
+// The host reader derives every startup offset from the prefix size, so a slot
+// whose new field landed anywhere else would silently reinterpret game state as
+// a digest.
+typedef char t1case_checkpoint_session_offset_check[
+	(offsetof(t1case_checkpoint_t, session_digest) == 16) ? 1 : -1
 ];
 // The three fields that replaced `case_id` must land exactly on its four
 // bytes, or every v2-era offset in the host reader moves.
