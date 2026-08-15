@@ -263,7 +263,7 @@ static const pixel_t OPTION_DISTANCE = 48;
 // putting both tables at odd addresses. -a2 reproduces it, and it is needed
 // ONLY here — shot_a()'s single table is unpadded in the original and stays
 // unpadded under -a2, so the pragma is scoped rather than file-wide.
-// (kb/codegen/0096, kb/codegen/0138)
+// (kb/codegen/0096, kb/codegen/0139)
 #pragma option -a2
 
 void near shot_b(void)
