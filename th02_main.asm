@@ -74,7 +74,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, SHOT_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, PLAYER_B_TEXT, PLAYER_TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, SHOT_TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, PLAYER_B_TEXT, PLAYER_TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT
 
@@ -980,214 +980,8 @@ SHOT_TEXT	segment	byte public 'CODE' use16
 	@shot_c$qv procdesc near
 	@shots_free_all$qv procdesc far
 	@shots_invalidate$qv procdesc near
+	@shots_update_and_render$qv procdesc near
 SHOT_TEXT	ends
-
-main_01______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @shots_update_and_render$qv
-@shots_update_and_render$qv proc near
-
-var_E		= word ptr -0Eh
-var_C		= word ptr -0Ch
-var_9		= byte ptr -9
-var_8		= word ptr -8
-var_6		= word ptr -6
-@@x		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 0Eh
-		push	si
-		push	di
-		mov	al, _reduce_effects
-		mov	cl, _page_back
-		shl	al, cl
-		mov	[bp+var_9], al
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	[bp+var_C], ax
-		mov	si, offset byte_20378
-		mov	[bp+var_2], 0
-		jmp	loc_D61D
-; ---------------------------------------------------------------------------
-
-loc_D4B2:
-		cmp	byte ptr [si], 1
-		jnz	loc_D613
-		mov	ax, si
-		add	ax, [bp+var_C]
-		add	ax, 2
-		mov	[bp+var_6], ax
-		mov	ax, si
-		add	ax, [bp+var_C]
-		add	ax, 4
-		mov	[bp+var_8], ax
-		mov	ax, [si+0Ah]
-		mov	bx, [bp+var_6]
-		add	[bx], ax
-		mov	ax, [si+0Ch]
-		mov	bx, [bp+var_8]
-		add	[bx], ax
-		mov	ax, [bx]
-		sar	ax, 4
-		mov	di, ax
-		mov	bx, [bp+var_6]
-		mov	ax, [bx]
-		sar	ax, 4
-		mov	[bp+@@x], ax
-		cmp	word ptr [bx], 256
-		jle	short loc_D508
-		cmp	word ptr [bx], 6688
-		jge	short loc_D508
-		cmp	di, 384
-		jg	short loc_D508
-		cmp	di, 8
-		jge	short loc_D50E
-
-loc_D508:
-		mov	byte ptr [si], 2
-		jmp	loc_D613
-; ---------------------------------------------------------------------------
-
-loc_D50E:
-		add	di, _scroll_line
-		cmp	di, RES_Y
-		jl	short loc_D51C
-		sub	di, RES_Y
-
-loc_D51C:
-		cmp	byte ptr [si+0Fh], 0
-		jnz	loc_D5B0
-		mov	bx, [bp+var_2]
-		inc	byte_20351[bx]
-		cmp	byte ptr [si+1], 0
-		jnz	short loc_D55D
-		cmp	[bp+var_9], 2
-		jz	loc_D613
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		mov	[bp+var_E], ax
-		cmp	[bp+var_E], 32h	; '2'
-		jl	short loc_D553
-		mov	al, byte_20351[bx]
-		mov	ah, 0
-		and	ax, 1
-		add	[bp+var_E], ax
-
-loc_D553:
-		push	[bp+@@x]
-		push	di
-		push	[bp+var_E]
-		jmp	loc_D60E
-; ---------------------------------------------------------------------------
-
-loc_D55D:
-		cmp	byte ptr [si+1], 5
-		jbe	short loc_D569
-		mov	byte ptr [si], 2
-		jmp	loc_D613
-; ---------------------------------------------------------------------------
-
-loc_D569:
-		cmp	[bp+var_9], 2
-		jz	short loc_D59F
-		cmp	byte ptr [si+0Eh], 7Ch ; '|'
-		jnb	short loc_D589
-		push	[bp+@@x]
-		push	di
-		mov	al, [si+1]
-		mov	ah, 0
-		add	ax, 74
-		push	ax
-		call	super_roll_put_tiny
-		jmp	short loc_D59F
-; ---------------------------------------------------------------------------
-
-loc_D589:
-		push	[bp+@@x]
-		push	di
-		mov	al, [si+1]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	word_1E504[bx]
-		call	super_roll_put
-
-loc_D59F:
-		test	byte ptr _stage_frame, 3
-		jnz	short loc_D613
-		mov	al, [si+1]
-		inc	al
-		mov	[si+1],	al
-		jmp	short loc_D613
-; ---------------------------------------------------------------------------
-
-loc_D5B0:
-		cmp	byte ptr [si+1], 1
-		jbe	short loc_D5ED
-		mov	al, byte_1E518
-		cbw
-		movsx	ebx, ax
-		mov	eax, _stage_frame
-		xor	edx, edx
-		div	ebx
-		cmp	edx, 0
-		jnz	short loc_D5E1
-		mov	al, [si+1]
-		inc	al
-		mov	[si+1],	al
-		cmp	byte ptr [si+1], 4
-		jbe	short loc_D5E1
-		mov	byte ptr [si], 2
-		jmp	short loc_D613
-; ---------------------------------------------------------------------------
-
-loc_D5E1:
-		test	byte ptr _stage_frame, 1
-		jz	short loc_D5F7
-		sar	word ptr [si+0Ch], 1
-		jmp	short loc_D5F7
-; ---------------------------------------------------------------------------
-
-loc_D5ED:
-		cmp	byte ptr [si+0Eh], 3Bh ; ';'
-		jz	short loc_D5F7
-		sub	word ptr [si+0Ch], 4
-
-loc_D5F7:
-		cmp	[bp+var_9], 2
-		jz	short loc_D613
-		push	[bp+@@x]
-		push	di
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		mov	dl, [si+1]
-		mov	dh, 0
-		add	ax, dx
-		push	ax
-
-loc_D60E:
-		call	super_roll_put_tiny
-
-loc_D613:
-		inc	[bp+var_2]
-		xor	[bp+var_9], 3
-		add	si, 10h
-
-loc_D61D:
-		cmp	[bp+var_2], 26h	; '&'
-		jl	loc_D4B2
-		pop	di
-		pop	si
-		leave
-		retn
-@shots_update_and_render$qv endp
-main_01______TEXT	ends
 
 ITEM_TEXT	segment	byte public 'CODE' use16
 	@items_init_and_reset$qv procdesc near
@@ -20503,10 +20297,12 @@ public _scroll_delta
 _scroll_delta label byte
 byte_1E503	db 0
 
-; 6 words, indexed by `[si+1] * 2` for shots whose `[si+1]` is <= 5, then
-; pushed straight into super_roll_put(): a sprite pattern number table. What
-; the index means is not yet evidenced, so the name stays the neutral one IDA
-; would have generated. [static]
+; The 32x32 decay animation of a shot whose patnum is >= 7Ch, indexed by the
+; shot's [decay_cel] and pushed straight into super_roll_put(). The index is
+; evidenced by shots_update_and_render(), which reaches this table only on the
+; `[si+1] <= 5` path and scales `[si+1]` by 2. [measured]
+public _shot_decay_patnums_large
+_shot_decay_patnums_large label word
 word_1E504	label word
 		db  27h	; '
 		db    0
@@ -20531,6 +20327,8 @@ _player_patnum	dw PAT_PLAYCHAR_STILL
 public _power, _miss_active
 _power	db 1
 _miss_active	db 0
+public _shot_option_decay_interval
+_shot_option_decay_interval label byte
 byte_1E518	db 4
 public _byte_1E519
 _byte_1E519 label byte
@@ -21398,9 +21196,11 @@ byte_20350	db ?
 
 ; Two arrays that shots_update_and_render() walks in lockstep: one byte per
 ; shot at 20351h, then 38 16-byte structures at 20378h. Both extents come from
-; that function's own loop bounds (`cmp [bp+var_2], 26h`, `add si, 10h`), so
-; they are evidenced. 20378h is now shot_t[SHOT_COUNT]; 20351h stays neutral.
-; 20350h stays separate - it is read and tested as a scalar. [static]
+; that function's own loop bounds, so they are evidenced. 20350h stays
+; separate - it is read and tested as a scalar. The 39th byte at 20377h is
+; touched by no instruction in the binary and only pads up to _shots.
+public _shot_anim_frame
+_shot_anim_frame label byte
 byte_20351	db 39 dup(?)
 public _shots
 _shots label byte
