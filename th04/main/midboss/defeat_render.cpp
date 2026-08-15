@@ -10,7 +10,8 @@
 /// [midboss.phase_frame] until it reaches MIDBOSS_DEFEAT_RADIUS_MAX, and only
 /// starts rotating once it stops growing.
 
-#pragma option -zPmain_01
+// `#pragma option -zPmain_01` now lives in th04/mb_dfr.cpp, which #includes
+// this file after th04/main/boss/render.cpp. (kb/codegen/0112, trap 0)
 
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"

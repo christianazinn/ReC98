@@ -71,6 +71,17 @@ typedef enum {
 
 	PAT_STAGE = 128,
 
+	/// Stage 2 – Kurumi
+	/// ================
+	// No source-file comment: nothing in the dump ties this patnum to a
+	// specific .bmt/.bb?, and naming one would be a guess.
+	//
+	// Base of Kurumi's cel range. Unlike every other TH04 boss,
+	// stage2_setup() seeds [boss.sprite] with 0 rather than an absolute
+	// patnum, so kurumi_fg_render() adds this base on every blit.
+	PAT_KURUMI = (PAT_STAGE + 18),
+	/// ================
+
 	/// Stage 4
 	/// =======
 	// st03b.bmt
