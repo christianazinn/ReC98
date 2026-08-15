@@ -79,3 +79,10 @@ void pascal near midboss3_render(void)
 	midboss_put_generic(left, top, patnum);
 }
 // ---------
+
+// Both of these are unprefixed tokens in a file that is #included into
+// mx.cpp's translation unit, so without these they would leak into
+// midbossx_render() and into any later lift landed in the same host.
+// m1.cpp already does this for midboss1_top_patnum().
+#undef patterns_done
+#undef FLY_ANGLES

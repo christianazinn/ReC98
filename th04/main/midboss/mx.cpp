@@ -87,12 +87,19 @@ void pascal near midbossx_render(void)
 	}
 }
 #else
-// ZUN's object for this code segment also held the Stage 1 and the Stage 3
-// midboss renderer, immediately ahead of this one and in this order
-// (kb/codegen/0112). They keep their own files, but not their own translation
-// unit: every header they need is already included above, and none of those
-// headers has an include guard, so a second TU would have to add ~13 of them
-// to a write set that other lanes want.
+// [measured] ZUN's object for this code segment also held the Stage 1 and the
+// Stage 3 midboss renderer, immediately ahead of this one and in this order:
+// midboss1_render at 0AAF:1C88+0x10D, midboss3_render at 0AAF:1D95+0xC5, this
+// one at 0AAF:1E5A — each starting exactly where its predecessor ends. That an
+// original object held several unrelated sources is kb/codegen/0112.
+//
+// They keep their own files, but not their own translation unit. The route is
+// kb/codegen/0129, not 0112: every header they need is already included above,
+// and 11 of the 13 in the closure have no include guard, so giving them a
+// second TU means adding guards to 11 shared headers that other lanes want.
+// (The two that already have one are libs/master.lib/pc98_gfx.hpp and
+// th01/math/subpixel.hpp; 0129 said thirteen and none, and its ruling is
+// unchanged by the correction — 11 is still not worth paying for one lift.)
 #include "th04/main/midboss/m1.cpp"
 #include "th04/main/midboss/m3.cpp"
 
