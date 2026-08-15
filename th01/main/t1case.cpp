@@ -1831,31 +1831,31 @@ static void t1case_startup_capture(t1case_startup_t far *dst)
 	int i;
 
 	t1case_memclear(dst, sizeof(t1case_startup_t));
-	t1case_startup.resident_rand = resident->rand;
-	t1case_startup.score = resident->score;
-	t1case_startup.continues_total = resident->continues_total;
-	t1case_startup.hiscore = resident->hiscore;
-	t1case_startup.score_highest = resident->score_highest;
+	dst->resident_rand = resident->rand;
+	dst->score = resident->score;
+	dst->continues_total = resident->continues_total;
+	dst->hiscore = resident->hiscore;
+	dst->score_highest = resident->score_highest;
 	for(i = 0; i < (STAGES_PER_SCENE - 1); i++) {
-		t1case_startup.bonus_per_stage[i] = resident->bonus_per_stage[i];
+		dst->bonus_per_stage[i] = resident->bonus_per_stage[i];
 	}
 	for(i = 0; i < SCENE_COUNT; i++) {
-		t1case_startup.continues_per_scene[i] = resident->continues_per_scene[i];
+		dst->continues_per_scene[i] = resident->continues_per_scene[i];
 	}
-	t1case_startup.stage_id = resident->stage_id;
-	t1case_startup.point_value = resident->point_value;
-	t1case_startup.pellet_speed = static_cast<int16_t>(resident->pellet_speed);
-	t1case_startup.rank = resident->rank;
-	t1case_startup.bgm_mode = static_cast<int8_t>(resident->bgm_mode);
-	t1case_startup.rem_bombs = resident->rem_bombs;
-	t1case_startup.credit_lives_extra = resident->credit_lives_extra;
-	t1case_startup.rem_lives = resident->rem_lives;
-	t1case_startup.route = resident->route;
-	t1case_startup.end_flag = static_cast<int8_t>(resident->end_flag);
-	t1case_startup.debug_mode = resident->debug_mode;
-	t1case_startup.snd_need_init = resident->snd_need_init;
-	t1case_startup.mode_test = 0;
-	t1case_startup.start_binary = T1CASE_PROCESS_REIIDEN;
+	dst->stage_id = resident->stage_id;
+	dst->point_value = resident->point_value;
+	dst->pellet_speed = static_cast<int16_t>(resident->pellet_speed);
+	dst->rank = resident->rank;
+	dst->bgm_mode = static_cast<int8_t>(resident->bgm_mode);
+	dst->rem_bombs = resident->rem_bombs;
+	dst->credit_lives_extra = resident->credit_lives_extra;
+	dst->rem_lives = resident->rem_lives;
+	dst->route = resident->route;
+	dst->end_flag = static_cast<int8_t>(resident->end_flag);
+	dst->debug_mode = resident->debug_mode;
+	dst->snd_need_init = resident->snd_need_init;
+	dst->mode_test = 0;
+	dst->start_binary = T1CASE_PROCESS_REIIDEN;
 }
 
 static void t1case_startup_apply(void)
