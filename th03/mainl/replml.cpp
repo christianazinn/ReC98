@@ -1177,6 +1177,7 @@ static bool mainl_replay_play_rle_sample(void)
 static void mainl_replay_frame_io(void)
 {
 	bool ok = true;
+	scorestat_process_sync();
 	t3pix_logical_identity_set(
 		replay_sample_count, replay_global_frame, T3PIX_ID_NONE
 	);
@@ -1249,6 +1250,7 @@ static void mainl_replay_frame_io(void)
 
 void far mainl_replay_session_start(void)
 {
+	scorestat_process_enter();
 	language_mainl_apply();
 	replay_protect_local_reset();
 	mainl_replay_mode = mainl_replay_resident_mode();
@@ -1481,6 +1483,7 @@ bool far mainl_replay_finish(
 	replay_user_end_reason_t end_reason, uint8_t save_prompt_mode
 )
 {
+	scorestat_exit_checkpoint();
 	bool save_pending = false;
 
 	// A terminal transition writes the authoritative finalized header below.
@@ -1532,6 +1535,7 @@ bool far mainl_replay_clear_playback_finish(void)
 
 void far mainl_replay_exit_to_main(void)
 {
+	scorestat_exit_checkpoint();
 	if(
 		(resident->game_mode == GM_STORY) &&
 		(resident->rem_credits < 3) &&

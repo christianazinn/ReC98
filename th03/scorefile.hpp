@@ -35,7 +35,8 @@ extern const char far t3_scoretime_fn[];
 #define T3_SCORESTAT_RES_PLAYCHAR_INDEX 103
 #define T3_SCORESTAT_RES_FRAMES_INDEX 104
 #define T3_SCORESTAT_RES_RUN_ID_INDEX 108
-#define T3_SCORESTAT_RES_END_INDEX 112
+#define T3_SCORESTAT_RES_PROCESS_VSYNC_INDEX 112
+#define T3_SCORESTAT_RES_END_INDEX 116
 
 #if (T3_SCORESTAT_RES_START_INDEX < T3_KEYCONFIG_RES_END_INDEX)
 #error Score-stat resident block overlaps KeyConfig
@@ -74,7 +75,8 @@ void far scorefile_view_frame_end(void);
 void far scorefile_close(void);
 
 void far scorestat_run_begin(void);
-void far scorestat_frame_tick(void);
+void far scorestat_process_enter(void);
+void far scorestat_process_sync(void);
 void far scorestat_exit_checkpoint(void);
 void far scorestat_continue_accept(void);
 bool16 far scorestat_active(void);

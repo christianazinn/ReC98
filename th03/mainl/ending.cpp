@@ -13,6 +13,7 @@
 #include "th03/pixel_capture.hpp"
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
+#include "th03/scorefile.hpp"
 #include "th03/snd/snd.h"
 
 #pragma warn -aus
@@ -26,6 +27,7 @@ void near staffroll_and_verdict_animate(void);
 
 static void near ending_exit_to_op(void)
 {
+	scorestat_exit_checkpoint();
 	text_clear();
 	gaiji_restore();
 	game_exit();

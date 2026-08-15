@@ -1045,6 +1045,7 @@ void far replay_frame_delay(void)
 	) {
 		frame_delay(1);
 	}
+	scorestat_process_sync();
 }
 
 void far replay_round_reset_seed_capture(void)
@@ -4751,6 +4752,7 @@ void far replay_session_start(void)
 {
 	uint8_t playback_stage;
 
+	scorestat_process_enter();
 	replay_preroll_startup_mask();
 	language_main_apply();
 	if(menu_font_load(aCOul) && !replay_pause_gaiji_load()) {
@@ -5089,7 +5091,7 @@ void far replay_frame_io(void)
 	) {
 		replay_round_real_frame_tick();
 	}
-	scorestat_frame_tick();
+	scorestat_process_sync();
 	keyconfig_charge_mask_human();
 
 	if(replay_mode == REPLAY_DISABLED) {
@@ -5894,9 +5896,8 @@ void far replay_finish(uint8_t route)
 		replay_accel_target_checkpoint = 0;
 	}
 
-	if(route == 0) {
-		scorestat_exit_checkpoint();
-	} else {
+	scorestat_exit_checkpoint();
+	if(route != 0) {
 		replay_clear_bonus_capture();
 	}
 	replay_split_row(RSE_FINISH, route);

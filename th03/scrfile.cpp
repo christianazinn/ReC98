@@ -271,10 +271,28 @@ static bool scoretime_write(void)
 	return true;
 }
 
-void far scorestat_frame_tick(void)
+void far scorestat_process_enter(void)
+{
+	scorestat_resident_u32_set(T3_SCORESTAT_RES_PROCESS_VSYNC_INDEX, 0);
+}
+
+void far scorestat_process_sync(void)
 {
 	uint8_t replay_mode;
+	uint16_t elapsed;
+	uint16_t process_vsync_last;
+	uint32_t frames_before;
 	uint32_t frames;
+
+	process_vsync_last = static_cast<uint16_t>(scorestat_resident_u32(
+		T3_SCORESTAT_RES_PROCESS_VSYNC_INDEX
+	));
+	elapsed = static_cast<uint16_t>(
+		vsync_Count2 - process_vsync_last
+	);
+	scorestat_resident_u32_set(
+		T3_SCORESTAT_RES_PROCESS_VSYNC_INDEX, vsync_Count2
+	);
 
 	if(
 		!scorestat_active() || (resident->game_mode != GM_STORY) ||
@@ -289,18 +307,26 @@ void far scorestat_frame_tick(void)
 	) {
 		return;
 	}
-	frames = scorestat_resident_u32(T3_SCORESTAT_RES_FRAMES_INDEX);
-	if(frames != 0xFFFFFFFFUL) {
-		frames++;
-		scorestat_resident_u32_set(T3_SCORESTAT_RES_FRAMES_INDEX, frames);
+	frames_before = scorestat_resident_u32(T3_SCORESTAT_RES_FRAMES_INDEX);
+	frames = frames_before;
+	if((0xFFFFFFFFUL - frames) < elapsed) {
+		frames = 0xFFFFFFFFUL;
+	} else {
+		frames += elapsed;
 	}
-	if((frames & (T3_SCORETIME_INTERVAL - 1)) == 0) {
+	scorestat_resident_u32_set(T3_SCORESTAT_RES_FRAMES_INDEX, frames);
+	if(
+		frames != frames_before &&
+		((frames & ~(T3_SCORETIME_INTERVAL - 1)) !=
+		 (frames_before & ~(T3_SCORETIME_INTERVAL - 1)))
+	) {
 		scoretime_write();
 	}
 }
 
 void far scorestat_exit_checkpoint(void)
 {
+	scorestat_process_sync();
 	if(scorestat_active()) {
 		scoretime_write();
 	}
@@ -1518,6 +1544,7 @@ void far scorefile_compat_save(rank_t rank)
 	if(scorestat_eligible && scorestat_active() &&
 		(scorestat_resident_u8(T3_SCORESTAT_RES_RANK_INDEX) == rank) &&
 		(scorestat_resident_u8(T3_SCORESTAT_RES_PLAYCHAR_INDEX) == playchar)) {
+		scorestat_process_sync();
 		frames = scorestat_resident_u32(T3_SCORESTAT_RES_FRAMES_INDEX);
 		run_id = scorestat_resident_u32(T3_SCORESTAT_RES_RUN_ID_INDEX);
 		scoretime_write();
@@ -1535,8 +1562,12 @@ void far scorefile_compat_save(rank_t rank)
 		}
 	}
 	if(scorefile_save_atomic()) {
-		scorestat_clear();
-		scorefile_delete(T3_SCORETIME_FN);
+		if(scorestat_eligible && scorestat_active()) {
+			scorestat_run_begin();
+		} else {
+			scorestat_clear();
+			scorefile_delete(T3_SCORETIME_FN);
+		}
 	} else {
 		board->stats = stats_before;
 		scorefile->header.flags = flags_before;
@@ -1785,6 +1816,7 @@ void far scorestat_run_begin(void)
 	);
 	scorestat_resident_u32_set(T3_SCORESTAT_RES_FRAMES_INDEX, 0);
 	scorestat_resident_u32_set(T3_SCORESTAT_RES_RUN_ID_INDEX, run_id);
+	scorestat_process_sync();
 	scorefile_close();
 }
 
@@ -1794,6 +1826,7 @@ void far scorestat_continue_accept(void)
 	uint32_t continues_before;
 	scorefile_board_t far *board;
 
+	scorestat_process_sync();
 	if(
 		!scorefile_ensure() || (resident->game_mode != GM_STORY) ||
 		(resident->demo_num != 0) || practice_game_active()
@@ -1810,7 +1843,9 @@ void far scorestat_continue_accept(void)
 		board->stats.continues_used, 1
 	);
 	if(scorefile_save_atomic()) {
-		scorestat_run_begin();
+		if(!scorestat_active()) {
+			scorestat_run_begin();
+		}
 	} else {
 		board->stats.continues_used = continues_before;
 		scorefile_checksums_set();
