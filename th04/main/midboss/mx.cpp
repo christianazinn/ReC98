@@ -42,18 +42,20 @@ static const int MIDBOSSX_FRAMES_PER_CEL = 4;
 // bound that midbossx_update() applies to the very same coordinate.
 // So the sprite stops being drawn 8 pixels before it stops existing.
 //
-// [measured, static simulation of th04_main.asm] Derived over a full Extra
-// Stage encounter from stagex_setup()'s constants: pos.cur.x reaches this bound
-// on exactly 8 consecutive frames at 1 pixel per frame, never reaches TO_SP(400)
-// on a frame that is still rendered, and midbossx_update() then despawns the
-// midboss at TO_SP(400.94). Across those 8 frames the suppressed blit would have
-// covered screen columns 408…415 down to 415…415, i.e. 8 down to 1 columns of a
-// 32-row sprite inside PLAYFIELD_RIGHT (416).
+// [verified-by-emulator] Measured over a full Extra Stage encounter, from
+// activation to midboss_reset(): pos.cur.x reaches this bound on exactly 8
+// consecutive frames at 1 pixel per frame, never reaches TO_SP(400) on a frame
+// that is still rendered, and midbossx_update() then despawns the midboss at
+// TO_SP(400.94). Across those 8 frames the suppressed blit would have covered
+// screen columns 408…415 down to 415…415, i.e. 8 down to 1 columns of a 32-row
+// sprite inside PLAYFIELD_RIGHT (416).
 //
-// The numbers were reproduced independently by naming review round 5, but no
-// emulator run exists for them: nothing on disk records one, and every quantity
-// above is derivable from th04_main.asm alone. Marked accordingly rather than
-// `[verified-by-emulator]`, which is what this comment claimed before.
+// Measured twice and independently, agreeing on all 2593 frames: a DOSBox-X
+// probe running ZUN's own ASM (ReC98 harness/PROBE-TH04-MIDBOSSX 459eff0b, two
+// byte-identical runs reporting through oracle_diag()), and a from-the-dump
+// host model. Parcel FIXLAYER-MIDBOSSX-CLIP-TAXONOMY; the run, its in-band
+// control and the full table are in state/notes/_midbossx_render_qv.md, section
+// "SETTLED", and in state/port/TH04_ORACLE_DELTA_INDEX.md F6.
 //
 // `ZUN bug` rather than `ZUN quirk` because the fix cannot desync a replay:
 // th02/main/playfld.hpp says these macros are for rendering only, with
@@ -98,25 +100,29 @@ void pascal near midbossx_render(void)
 {
 	// No bottom clip, unlike midboss4_render()'s
 	// playfield_clip_point_yx_small_roll(); and the top check that *is* present
-	// never fires either. Left unlabelled here, but the disposition is open —
-	// see state/port/FIX_LAYER_CANDIDATES.md J2. "Dead condition rather than a
-	// defect" was the previous wording and is a false dichotomy: the missing
-	// bottom check is a candidate `ZUN landmine` (harmless only because of
-	// stagex_setup()'s specific hp/angle constants), and the never-firing top
-	// check is a candidate `ZUN bloat` (CONTRIBUTING.md lists "code without any
-	// effect" first among its examples). The taxonomy lane owns that call.
+	// never fires either. No label is assigned, and that is the finding: the
+	// whole vertical axis is inert for this sprite, so the omission is not an
+	// asymmetry ZUN got wrong. `ZUN landmine` is excluded on measured evidence
+	// — a landmine is unobservable because of a layout or TSR assumption that a
+	// recompilation can break, and this is unreachable because of code, which
+	// no rebuild can move. A mod that changed the trajectory would need the
+	// clip; that is what this comment is for, not a taxonomy label. Settled by
+	// parcel FIXLAYER-MIDBOSSX-CLIP-TAXONOMY; see
+	// state/port/TH04_ORACLE_DELTA_INDEX.md F7.
 	//
 	// [measured, static simulation of th04_main.asm] [pos.cur.y] is derived as
 	// polar(TO_SP(96), midboss.hp, Sin8(midboss.angle)) — not in
-	// midbossx_update() itself, but in its callees sub_146AF
-	// (th04_main.asm:10461) and sub_14700 (:10498). So it is confined to
-	// TO_SP(96) ± [hp] — and [hp] is 4096 only for the ~125 frames the script
-	// takes to drain it to 128, and is capped at 896 and 768 afterwards. Over
-	// a full encounter [pos.cur.y] stays inside [TO_SP(-7.69), TO_SP(323.44)],
-	// against a missing bottom bound of TO_SP(384) and the present top bound
-	// of TO_SP(-16). Neither is approached within 60 and 8 pixels
-	// respectively. No emulator run backs this; see the note above the
-	// MIDBOSSX_CLIP_CENTER_RIGHT definition.
+	// midbossx_update() itself, but in the two procs it calls, sub_146AF and
+	// sub_14700. So it is confined to TO_SP(96) ± [hp] — and [hp] is 4096 only
+	// for the ~125 frames the script takes to drain it to 128, and is capped at
+	// 896 and 768 afterwards.
+	//
+	// [verified-by-emulator] Over a full encounter [pos.cur.y] stays inside
+	// [TO_SP(-7.69), TO_SP(323.44)], against a missing bottom bound of
+	// TO_SP(384) and the present top bound of TO_SP(-16). Neither is approached
+	// within 60 and 8 pixels respectively — same run as the note above the
+	// MIDBOSSX_CLIP_CENTER_RIGHT definition. The two markers are split on
+	// purpose: the mechanism is read from the dump, the bounds are measured.
 	if(
 		playfield_clip_center_top_small_roll(midboss.pos.cur.y, MIDBOSSX_H) ||
 		playfield_clip_center_left_small(midboss.pos.cur.x, MIDBOSSX_W) ||
