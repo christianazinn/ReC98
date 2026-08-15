@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -5616,7 +5616,14 @@ PLAYER_P_TEXT	segment	byte public 'CODE' use16
 	@player_pos_update_and_clamp$qv procdesc near
 PLAYER_P_TEXT	ends
 
-main_01_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_01_TEXT` contribution, renamed so that a C++ object can append
+; shots_invalidate() at its original address in the MIDDLE of the
+; segment. The head has to be the renamed half here: five C++ TUs
+; (th05/p_common.cpp and the four playchar shot files) already append to
+; the tail under the original name. Same `byte public 'CODE'` alignment
+; as before, so nothing moves.
+SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5859,59 +5866,18 @@ sub_1214A	endp
 
 include th04/main/player/render.asm
 
-; =============== S U B	R O U T	I N E =======================================
+	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
+	; which appends to this segment.
+	@shots_invalidate$qv procdesc near
+SHOT_INV_TEXT	ends
 
-; Attributes: bp-based frame
-public @shots_invalidate$qv
-@shots_invalidate$qv proc near
-
-@@i		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_tile_invalidate_box.x, 16
-		mov	_tile_invalidate_box.y, 16
-		mov	si, offset _shots
-		mov	di, offset _hitshots
-		mov	[bp+@@i], 0
-		jmp	short loc_123E0
-; ---------------------------------------------------------------------------
-
-loc_123CC:
-		cmp	[si+shot_t.flag], F_FREE
-		jz	short loc_123DA
-		call	tiles_invalidate_around pascal, [si+shot_t.pos.prev.y], [si+shot_t.pos.prev.x]
-
-loc_123DA:
-		inc	[bp+@@i]
-		add	si, size shot_t
-
-loc_123E0:
-		cmp	[bp+@@i], SHOT_COUNT
-		jl	short loc_123CC
-		mov	[bp+@@i], 0
-		jmp	short @@hitshot_more?
-; ---------------------------------------------------------------------------
-
-@@hitshot_loop:
-		cmp	[di+hitshot_t.HITSHOT_age], 0
-		jz	short @@hitshot_next
-		call	tiles_invalidate_around pascal, [di+hitshot_t.pos.prev.y], [di+hitshot_t.pos.prev.x]
-
-@@hitshot_next:
-		inc	[bp+@@i]
-		add	di, size hitshot_t
-
-@@hitshot_more?:
-		cmp	[bp+@@i], HITSHOT_COUNT
-		jl	short @@hitshot_loop
-		pop	di
-		pop	si
-		leave
-		retn
-@shots_invalidate$qv endp
-
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main_01_TEXT` contribution once shots_invalidate() moved out of it. Same
+; `byte public 'CODE'` alignment as before, so nothing moves, and the
+; `byte` alignment also means kb/codegen/0111's even-parity question does
+; not arise at all. This segment contains no `even`, so no
+; `#pragma codestring` pad is needed either.
+main_01_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
