@@ -33,12 +33,15 @@ void pascal near vector2(int&, int&, unsigned char, int);
 
 extern "C" bool reduce_effects;
 
-// Write-only. [_1] is seeded to -1 by bg_particles_reset() and copied into
-// [_2] once per frame, right next to a copy of [bg_particle_col] into [_3];
-// nothing ever reads any of the three. [_1] is `_BSS` right after
+// Write-only. The first is seeded to -1 by bg_particles_reset() and copied
+// into [_2] once per frame, right next to a copy of [bg_particle_col] into
+// [_3]; nothing ever reads any of the three. The first is `_BSS` right after
 // [bg_particle_unput_col], [_2] and [_3] are `_BSS` right after
 // [dot_square_top]. ZUN bloat.
-extern int8_t bg_particle_unused_1;
+// The first is unnumbered on purpose, exactly as th02/main/scroll.cpp:25-27
+// spells its own three: a `_1` would imply a contiguous family that the
+// layout above does not have.
+extern int8_t bg_particle_unused;
 extern uint8_t bg_particle_unused_2;
 extern uint8_t bg_particle_unused_3;
 
@@ -70,11 +73,11 @@ void far bg_particles_reset(void)
 	bg_particle_angle_delta = 0;
 	bg_particle_col = V_WHITE;
 	bg_particle_unput_col = 0;
-	bg_particle_unused_1 = -1;
+	bg_particle_unused = -1;
 	bg_particle_edge_step = 32;
 }
 
-void pascal far bg_particle_add(
+void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 )
 {
@@ -112,7 +115,12 @@ void pascal far bg_particle_add(
 
 void pascal far grcg_dot_square_put(int edge)
 {
-	#define edge_left    	_SI
+	// Rows still to be blitted, counted down from [edge]. Not `edge_left`:
+	// every other `edge` in the tree means "boundary of a region"
+	// (x_edge_offset, bullet_bounce_edge_t, …), which would read this as the
+	// square's *left* edge.
+	#define rows_remaining	_SI
+
 	#define vo           	_DI
 	#define first_bit    	_BX
 	#define dots_mirrored	_DX
@@ -120,7 +128,7 @@ void pascal far grcg_dot_square_put(int edge)
 	int dots;
 
 	_ES = SEG_PLANE_B;
-	edge_left = edge;
+	rows_remaining = edge;
 	vo = vram_offset_shift_fast(dot_square_left, dot_square_top);
 	first_bit = dot_square_left;
 
@@ -144,33 +152,33 @@ void pascal far grcg_dot_square_put(int edge)
 	dots_mirrored <<= _CL;
 	_AX |= dots_mirrored;
 
-	while(static_cast<int16_t>(edge_left) > 0) {
+	while(static_cast<int16_t>(rows_remaining) > 0) {
 		*reinterpret_cast<dots16_t __es *>(vo) = _AX;
 		vo += ROW_SIZE;
-		edge_left--;
+		rows_remaining--;
 	}
 
 	#undef dots_mirrored
 	#undef first_bit
 	#undef vo
-	#undef edge_left
+	#undef rows_remaining
 }
 
 void pascal near grcg_dot_square_unput(int edge)
 {
-	#define edge_left	_SI
-	#define vo       	_BX
+	#define rows_remaining	_SI
+	#define vo            	_BX
 
-	edge_left = edge;
+	rows_remaining = edge;
 	vo = vram_offset_shift_fast(dot_square_left, dot_square_top);
-	while(static_cast<int16_t>(edge_left) > 0) {
+	while(static_cast<int16_t>(rows_remaining) > 0) {
 		*reinterpret_cast<dots16_t __es *>(vo) = 0xFFFF;
 		vo += ROW_SIZE;
-		edge_left--;
+		rows_remaining--;
 	}
 
 	#undef vo
-	#undef edge_left
+	#undef rows_remaining
 }
 
 #pragma codestring "\x90"
@@ -228,7 +236,7 @@ void far bg_particles_update_and_render(void)
 	int delta_y;
 
 	grcg_setcolor(GC_RMW, bg_particle_col);
-	bg_particle_unused_2 = bg_particle_unused_1;
+	bg_particle_unused_2 = bg_particle_unused;
 	bg_particle_unused_3 = bg_particle_col;
 	p = unneeded_copy = bg_particles;
 	for(i = 0; i < BG_PARTICLE_COUNT; i++, p++) {
