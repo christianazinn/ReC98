@@ -1282,11 +1282,10 @@ include th04/main/pointnum/num_put.asm
 	;
 	; TH04's copy was the SAME body -- kb/codegen/0115 over the two
 	; originals gives 6 differing bytes of 16, and all six are the two
-	; memory operands and the one `offset` immediate. It sat at the
-	; identical tail position of th04_main.asm's own PLAYER_B_TEXT, and
-	; has since been lifted too, so the `#if (GAME == 5)` that used to
-	; guard the C++ body is gone and one unguarded body now serves both
-	; games.
+	; memory operands and the one `offset` immediate. It sat at the same
+	; tail position of th04_main.asm's own PLAYER_B_TEXT and has since
+	; been lifted too, so the `#if (GAME == 5)` that used to guard the
+	; C++ body is gone: one unguarded body now serves both games.
 	@bomb_reset$qv procdesc near
 
 
