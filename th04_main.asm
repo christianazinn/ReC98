@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -14513,7 +14513,12 @@ marisa_16AE9	endp
 		duration:word
 B4M_UPDATE_TEXT	ends
 
-main_033_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_033_TEXT` contribution, renamed so that a C++ object can append
+; `enemy_bullet_template_push` at its original address in the MIDDLE of
+; the segment. Same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -16573,31 +16578,17 @@ locret_17E3C:
 @std_run$qv endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; enemy_bullet_template_push() now lives in
+	; th04/main/enemy/bullet_template.cpp, which appends to this segment.
+	ENEMY_BULLET_TEMPLATE_PUSH procdesc pascal near \
+		enemy:word
+ENM_BTPL_TEXT	ends
 
-; Attributes: bp-based frame
-public ENEMY_BULLET_TEMPLATE_PUSH
-enemy_bullet_template_push	proc near
-
-@@enemy		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	cx, size _bullet_template / 2
-		mov	si, [bp+@@enemy]
-		add	si, offset enemy_t.E_bullet_template
-		mov	di, offset _bullet_template
-		push	ds
-		pop	es
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main_033_TEXT` contribution once enemy_bullet_template_push() moved out
+; of it. Same `byte public 'CODE'` alignment as before, so nothing moves.
+main_033_TEXT	segment	byte public 'CODE' use16
 		assume es:_DATA
-		rep movsw
-		pop	di
-		pop	si
-		pop	bp
-		retn	2
-enemy_bullet_template_push	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
