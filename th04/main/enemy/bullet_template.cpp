@@ -11,6 +11,12 @@
 #include "th04/main/enemy/enemy.hpp"
 #endif
 
+// The `rep movsw` is hand-rolled rather than expressed with decomp.hpp's
+// copy_near_struct_member(): the original's instruction order is
+// _CX -> prepare_si_di() -> `push ds; pop es` -> `rep movsw`, and neither of
+// that macro's two arms spells that order. Do not "simplify" it into the
+// macro. (kb/codegen/0109)
+
 #if (GAME == 5)
 extern "C" void pascal near enemy_bullet_template_push(
 	BulletTemplate near &tmpl

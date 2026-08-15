@@ -31,12 +31,19 @@ static const pixel_t MIDBOSSX_H = 32;
 // they exactly fill the 16-frame [stage_frame_mod16] cycle.
 static const int MIDBOSSX_FRAMES_PER_CEL = 4;
 
-// ZUN quirk: Hardcoded, unlike the top and left edges below, which do come out
-// of the regular macros for a MIDBOSSX_W × MIDBOSSX_H sprite. It clips 8
-// pixels earlier than playfield_clip_center_right_small() would, i.e. once the
+// Hardcoded, unlike the top and left edges below, which do come out of the
+// regular macros for a MIDBOSSX_W × MIDBOSSX_H sprite. It clips 8 pixels
+// earlier than playfield_clip_center_right_small() would, i.e. once the
 // sprite's right edge reaches (PLAYFIELD_CLIP_RIGHT - GLYPH_HALF_W) rather
 // than PLAYFIELD_CLIP_RIGHT.
-static const subpixel_t MIDBOSSX_CLIP_RIGHT = TO_SP(392);
+//
+// Deliberately NOT labelled `ZUN quirk`: a quirk's fix has to be observable
+// *and* desync replays, and th02/main/playfld.hpp says these macros are for
+// rendering only, with gameplay-relevant clipping going through
+// playfield_encloses*(). This bound (392) and the macro's (400) both also lie
+// outside PLAYFIELD_W (384), so it is not even established that either is ever
+// reached. [inferred, static evidence only]
+static const subpixel_t MIDBOSSX_CLIP_CENTER_RIGHT = TO_SP(392);
 #endif
 // ---------
 
@@ -62,13 +69,17 @@ void pascal near midbossx_render(void)
 #else
 void pascal near midbossx_render(void)
 {
-	// ZUN quirk: No bottom clip, unlike every other *_render() function that
-	// uses these macros. The Extra Stage midboss never reaches the bottom of
-	// the playfield, so the missing check is unobservable.
+	// No bottom clip, unlike every other *_render() function that uses these
+	// macros. Deliberately NOT labelled: `ZUN quirk` requires an observable
+	// fix, and the label was originally written next to the claim that the
+	// omission is unobservable — which would make it a `ZUN landmine` instead.
+	// Neither reading is measured. Whether the Extra Stage midboss's
+	// [pos.cur.y] ever reaches the bottom margin is an emulator question, and
+	// its update function is still ASM. [inferred, static evidence only]
 	if(
 		playfield_clip_center_top_small_roll(midboss.pos.cur.y, MIDBOSSX_H) ||
 		playfield_clip_center_left_small(midboss.pos.cur.x, MIDBOSSX_W) ||
-		(midboss.pos.cur.x >= MIDBOSSX_CLIP_RIGHT)
+		(midboss.pos.cur.x >= MIDBOSSX_CLIP_CENTER_RIGHT)
 	) {
 		return;
 	}
@@ -83,7 +94,8 @@ void pascal near midbossx_render(void)
 // the head of the reopened TILE_TEXT, because TASM's `even` directives further
 // down that segment align against the *module-local* offset, which a reopened
 // segment restarts at 0. Keeping this byte on this side keeps that offset even,
-// exactly like the original's. (kb/codegen/0080, 0069)
+// exactly like the original's. (kb/codegen/0111; carve mechanics in 0080 and
+// 0069)
 #pragma codestring "\x00"
 #endif
 // ---------
