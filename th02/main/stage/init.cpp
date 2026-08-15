@@ -43,6 +43,7 @@
 #include "th02/main/hud/overlay.hpp"
 #include "th02/main/item/item.hpp"
 #include "th02/main/midboss/midboss.hpp"
+#include "th02/main/player/bomb.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
@@ -53,9 +54,7 @@
 extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
-extern "C" void near sub_E178(void);
 extern "C" void far sub_1CD36(void);
-extern "C" void near sub_E271(void);
 extern "C" void far sub_3DDE(void);
 extern "C" void far sub_129DD(void);
 extern "C" void far sub_129FC(void);
@@ -173,7 +172,7 @@ void near gameplay_init(void)
 		super_convert_tiny(i);
 	}
 	gaiji_load();
-	sub_E178();
+	bomb_load();
 	reduce_effects = resident->reduce_effects;
 	stage_loop_func = stage_loop;
 	if(resident->continues_used) {
@@ -245,7 +244,7 @@ void near stage_init(void)
 	sub_16A6B();
 	sub_3DDE();
 	sub_129DD();
-	sub_E271();
+	bombs_reset();
 	snd_se_reset();
 	bosses_reset();
 	nopcall_same_group(scroll_reset);
