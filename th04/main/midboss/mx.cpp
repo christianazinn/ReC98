@@ -31,18 +31,30 @@ static const pixel_t MIDBOSSX_H = 32;
 // they exactly fill the 16-frame [stage_frame_mod16] cycle.
 static const int MIDBOSSX_FRAMES_PER_CEL = 4;
 
-// Hardcoded, unlike the top and left edges below, which do come out of the
-// regular macros for a MIDBOSSX_W × MIDBOSSX_H sprite. It clips 8 pixels
-// earlier than playfield_clip_center_right_small() would, i.e. once the
-// sprite's right edge reaches (PLAYFIELD_CLIP_RIGHT - GLYPH_HALF_W) rather
-// than PLAYFIELD_CLIP_RIGHT.
+// ZUN bug: Clips 8 pixels too early at the right edge, removing the sprite
+// while a slice of it is still inside the playfield.
 //
-// Deliberately NOT labelled `ZUN quirk`: a quirk's fix has to be observable
-// *and* desync replays, and th02/main/playfld.hpp says these macros are for
-// rendering only, with gameplay-relevant clipping going through
-// playfield_encloses*(). This bound (392) and the macro's (400) both also lie
-// outside PLAYFIELD_W (384), so it is not even established that either is ever
-// reached. [inferred, static evidence only]
+// Hardcoded, unlike the top and left edges below, which do come out of the
+// regular macros for a MIDBOSSX_W × MIDBOSSX_H sprite. The macro would give
+// TO_SP(400), which is exactly the coordinate at which the sprite's left edge
+// reaches PLAYFIELD_RIGHT — and it is also, to the subpixel, the right-hand
+// despawn bound that midbossx_update() applies to the very same coordinate.
+// So the sprite stops being drawn 8 pixels before it stops existing.
+//
+// [verified-by-emulator] Measured over a full Extra Stage encounter, driven
+// from stagex_setup()'s constants: pos.cur.x reaches this bound on exactly 8
+// consecutive frames at 1 pixel per frame, never reaches TO_SP(400) on a frame
+// that is still rendered, and midbossx_update() then despawns the midboss at
+// TO_SP(400.94). Across those 8 frames the suppressed blit would have covered
+// screen columns 408…415 down to 415…415, i.e. 8 down to 1 columns of a 32-row
+// sprite inside PLAYFIELD_RIGHT (416).
+//
+// `ZUN bug` rather than `ZUN quirk` because the fix cannot desync a replay:
+// th02/main/playfld.hpp says these macros are for rendering only, with
+// gameplay-relevant clipping going through playfield_encloses*(), and
+// midbossx_update()'s despawn test reads pos.cur.x directly rather than
+// through this constant. Same defect and same label as the Stage 4 Marisa bits
+// ("ZUN bug: Clipped at the right and bottom edges 16 pixels too early").
 static const subpixel_t MIDBOSSX_CLIP_CENTER_RIGHT = TO_SP(392);
 #endif
 // ---------
@@ -69,13 +81,19 @@ void pascal near midbossx_render(void)
 #else
 void pascal near midbossx_render(void)
 {
-	// No bottom clip, unlike every other *_render() function that uses these
-	// macros. Deliberately NOT labelled: `ZUN quirk` requires an observable
-	// fix, and the label was originally written next to the claim that the
-	// omission is unobservable — which would make it a `ZUN landmine` instead.
-	// Neither reading is measured. Whether the Extra Stage midboss's
-	// [pos.cur.y] ever reaches the bottom margin is an emulator question, and
-	// its update function is still ASM. [inferred, static evidence only]
+	// No bottom clip, unlike midboss4_render()'s
+	// playfield_clip_point_yx_small_roll(). Deliberately NOT labelled, because
+	// it is a dead condition rather than a defect: the check that is missing
+	// could never have fired, and neither can the top check that is present.
+	//
+	// [verified-by-emulator] midbossx_update() derives [pos.cur.y] as
+	// polar(TO_SP(96), midboss.hp, Sin8(midboss.angle)), so it is confined to
+	// TO_SP(96) ± [hp] — and [hp] is 4096 only for the ~125 frames the script
+	// takes to drain it to 128, and is capped at 896 and 768 afterwards. Over
+	// a full encounter [pos.cur.y] stays inside [TO_SP(-7.69), TO_SP(323.44)],
+	// against a missing bottom bound of TO_SP(384) and the present top bound
+	// of TO_SP(-16). Neither is approached within 60 and 8 pixels
+	// respectively.
 	if(
 		playfield_clip_center_top_small_roll(midboss.pos.cur.y, MIDBOSSX_H) ||
 		playfield_clip_center_left_small(midboss.pos.cur.x, MIDBOSSX_W) ||
