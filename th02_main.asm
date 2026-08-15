@@ -28,6 +28,7 @@ include th02/main/hud/hud.inc
 include th02/main/tile/tile.inc
 include th02/main/player/player.inc
 include th02/sprites/main_pat.inc
+include th02/main/enemy/enemy.inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
@@ -13320,7 +13321,7 @@ sub_16A6B	proc far
 loc_16A72:
 		mov	bx, ax
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+14], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
 		inc	ax
 
 loc_16A7D:
@@ -13627,14 +13628,14 @@ arg_6		= word ptr  0Ah
 		mov	si, [bp+arg_6]
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+14], 1
+		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_ALIVE
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	word ptr byte_255C0[bx], si
+		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x], si
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	al, _page_back
@@ -13642,33 +13643,33 @@ arg_6		= word ptr  0Ah
 		shl	ax, 2
 		add	bx, ax
 		mov	ax, [bp+arg_4]
-		mov	word ptr byte_255C0[bx+2], ax
+		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+18], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_patnum_delta], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+8], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_script_ip], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	ax, [bp+arg_0]
-		mov	word ptr byte_255C0[bx+12], ax
+		mov	word ptr byte_255C0[bx+enemy_t.E_template_id], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+10], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_age], 0
 		call	@randring2_next8$qv
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte_255C0[bx+15], al
+		mov	byte_255C0[bx+enemy_t.E_anim_frame], al
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+22], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_angle], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+34], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_not_shootable], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+35], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_no_player_collision], 0
 		cmp	si, 208
 		jge	short loc_16D3E
 		mov	ax, 1
@@ -13681,22 +13682,22 @@ loc_16D3E:
 loc_16D40:
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+24], ax
+		mov	word ptr byte_255C0[bx+enemy_t.E_spawned_in_left_half], ax
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+26], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_loop_i], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+30], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_despawn_when_offscreen_vertically], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+20], 1
+		mov	word ptr byte_255C0[bx+enemy_t.E_render_as], 1
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+16], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_in_kill_anim], 0
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+32], 0
+		mov	word ptr byte_255C0[bx+enemy_t.E_damage], 0
 		mov	al, byte_1EE52
 		mov	ah, 0
 		cmp	ax, [bp+arg_2]
@@ -13760,7 +13761,7 @@ loc_16DC4:
 		mov	[bp+var_2], ax
 		mov	bx, [bp+var_2]
 		imul	bx, 24h
-		mov	ax, word ptr byte_25976[bx+2]
+		mov	ax, word ptr byte_25976[bx+enemy_template_t.ET_spawn_top]
 		mov	[bp+var_4], ax
 		cmp	_midboss_active, 0
 		jnz	short loc_16E2F
@@ -13771,7 +13772,7 @@ loc_16DC4:
 loc_16E08:
 		mov	bx, si
 		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+14], 0
+		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
 		jnz	short loc_16E29
 		mov	ax, di
 		shl	ax, 3
@@ -15108,7 +15109,7 @@ var_2		= word ptr -2
 loc_1798E:
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+14], 0
+		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
 		jz	loc_17A46
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
@@ -15116,22 +15117,22 @@ loc_1798E:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	si, word ptr byte_255C0[bx]
+		mov	si, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	di, word ptr byte_255C0[bx+2]
+		mov	di, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y]
 		call	@tiles_invalidate_rect$qiiii pascal, si, di, (32 shl 16) or 32
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+14], 2
+		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_REMOVE
 		jnz	short loc_179EC
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+14], 0
+		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
 		jmp	short loc_17A46
 ; ---------------------------------------------------------------------------
 
@@ -15145,28 +15146,28 @@ loc_179EC:
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, word ptr byte_255C0[bx]
+		mov	ax, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
 		add	bx, dx
-		mov	word ptr byte_255C0[bx], ax
+		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x], ax
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	al, _page_front
 		mov	ah, 0
 		shl	ax, 2
 		add	bx, ax
-		mov	ax, word ptr byte_255C0[bx+2]
+		mov	ax, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y]
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	dl, _page_back
 		mov	dh, 0
 		shl	dx, 2
 		add	bx, dx
-		mov	word ptr byte_255C0[bx+2], ax
+		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y], ax
 
 loc_17A46:
 		inc	[bp+var_2]
@@ -15195,11 +15196,11 @@ sub_17A55	proc far
 loc_17A5C:
 		mov	bx, ax
 		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+14], 0
+		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
 		jz	short loc_17A72
 		mov	bx, ax
 		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+14], 2
+		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_REMOVE
 
 loc_17A72:
 		inc	ax
@@ -24273,7 +24274,7 @@ _enemy_scripts_used	label byte
 byte_22FDB	db ?
 public _enemy_scripts
 _enemy_scripts	label byte
-byte_22FDC	db 2560 dup(?)
+byte_22FDC	db (ENEMY_SCRIPT_COUNT * ENEMY_SCRIPT_SIZE) dup(?)
 public _lasers
 _lasers label byte
 byte_239DC	db 144 dup(?)
@@ -24400,23 +24401,33 @@ word_255BC	dw ?
 byte_255BE	db ?
 		db ?
 
-; 25 structures of 38 bytes. sub_16A6B clears them with `imul bx, 26h` under
-; `cmp ax, 19h`, which fixes both numbers; fields at +0 and +2 are additionally
-; biased by `page_back * 4`, the same front/back page pairing the rest of this
-; BSS uses. [static]
-byte_255C0	db 950 dup(?)
+; ENEMY_COUNT structures of `size enemy_t`. sub_16A6B clears them with
+; `imul bx, 26h` under `cmp ax, 19h`, which fixes both numbers; E_pos_on_page
+; is additionally biased by `page_back * 4`, the same front/back page pairing
+; the rest of this BSS uses. [measured], and now [verified-by-oracle]: every
+; field name below resolves to the displacement it replaced.
 
-; A second array, 36 bytes per element (`imul bx, 24h`), filled from the stage
-; map by 1C473h's `memcpy` loop over `_map_length`. The element count is bounded
-; by that variable and is NOT evidenced here, so this label deliberately covers
-; the whole remaining run rather than claiming one. [static]
+
+
+public _enemies
+_enemies	label byte
+byte_255C0	db (ENEMY_COUNT * (size enemy_t)) dup(?)
+
+; A second array, `size enemy_template_t` per element (`imul bx, 24h`), filled
+; by enemy_stagedata_load() from a count word that follows the tile map in
+; STAGE?.DT1. Nothing bounds-checks that count, so ENEMY_TEMPLATE_COUNT is the
+; array's capacity -- the label run divided by the stride -- and not a count
+; any instruction knows about. [measured] extent, [inferred] count.
+
+
+
 public _enemy_templates
 _enemy_templates	label byte
-byte_25976	db 4608 dup(?)
+byte_25976	db (ENEMY_TEMPLATE_COUNT * (size enemy_template_t)) dup(?)
 public _spawn_grid
 _spawn_grid	label dword
-dword_26B76	dd ?
-		db 192 dup(?)
+dword_26B76	dd SPAWN_COLUMN_COUNT dup(?)
+
 public _spawn_rows
 _spawn_rows	label word
 word_26C3A	dw ?

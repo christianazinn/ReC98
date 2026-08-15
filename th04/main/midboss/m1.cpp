@@ -2,10 +2,15 @@
 /// ---------------
 /// (#included from th04/main/midboss/mx.cpp. ZUN's object for this code
 /// segment held the Stage 1, Stage 3 and Extra Stage midboss renderers in
-/// exactly that order, so all three are compiled into that one translation
-/// unit — see kb/codegen/0112. This file deliberately has no #includes of its
-/// own: every header it would need is already included by mx.cpp, and none of
-/// them has an include guard.)
+/// exactly that order — that an original object held several unrelated sources
+/// is kb/codegen/0112 — so all three are compiled into that one translation
+/// unit, by the host-source include form of kb/codegen/0129. This file
+/// deliberately has no #includes of its own: every header it would need is
+/// already included by mx.cpp, and 11 of the 13 in that closure have no
+/// include guard.)
+///
+/// Because this file shares a translation unit with mx.cpp and m3.cpp, its
+/// file-scope names are NOT file-local. Prefix every one of them.
 
 // Constants
 // ---------
