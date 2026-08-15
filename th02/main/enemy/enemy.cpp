@@ -23,6 +23,29 @@
 // would grow `_DATA` and shift everything after it. (kb/codegen/0084)
 extern "C" char aStage_dt1[];
 
+// th02/main/enemy/enemy.inc is the mirror the oracle grades: every field name
+// it defines was substituted into th02_main.asm in place of the displacement
+// it replaced, and the two `_BSS` extents are now the products
+// `ENEMY_COUNT * size enemy_t` and
+// `ENEMY_TEMPLATE_COUNT * size enemy_template_t`. These pin the C++ side to
+// the same layout so the two mirrors cannot drift apart silently. They emit
+// no code.
+typedef char enemy_t_layout_check[(
+	(sizeof(enemy_t) == 0x26) &&
+	(offsetof(enemy_t, script_ip) == 0x08) &&
+	(offsetof(enemy_t, flag) == 0x0E) &&
+	(offsetof(enemy_t, angle) == 0x16) &&
+	(offsetof(enemy_t, velocity_x) == 0x1C) &&
+	(offsetof(enemy_t, pellet_speed) == 0x25)
+) ? 1 : -1];
+
+typedef char enemy_template_t_layout_check[(
+	(sizeof(enemy_template_t) == 0x24) &&
+	(offsetof(enemy_template_t, score) == 0x12) &&
+	(offsetof(enemy_template_t, autofire_interval) == 0x1A) &&
+	(offsetof(enemy_template_t, script) == 0x20)
+) ? 1 : -1];
+
 // Escape byte in front of a template's script field: the next byte is the
 // index of an already-loaded script rather than the start of a new one.
 static const uint8_t SCRIPT_REUSE = 0xFE;
