@@ -31,6 +31,10 @@
  *  4. The 64-bit two-pass subsystem hash of TXSPLIT_CONTRACT.md §7 replaces
  *     T3SPLT1's single 32-bit DJB2 aggregate, so a divergence names the
  *     subsystem that diverged.
+ *  6. Checkpoints are per PROCESS SEGMENT, not per round. TH01's stage-clear
+ *     `execl` is guarded, so three of every five stage starts are mid-process
+ *     and are NOT restorable at any payload size; see th01/t1case.hpp and
+ *     state/notes/t1case-checkpoint.md.
  *  5. The packet encoder keeps `packet_open` and the delta basis as two
  *     separate flags. The reference has one and therefore emits a full
  *     keyframe at every disk flush; see the comment on [t1case_packet_open].
@@ -145,6 +149,11 @@ enum t1case_text_id_t {
 	// generic symptom throws that away.
 	T1T_ERR_PROCESS,
 
+	// A checkpoint could not be captured or could not be restored. Kept
+	// apart from `header` and `desync` because all three are reachable at
+	// session start and only this one means the RESUME POINT is wrong.
+	T1T_ERR_CHECKPOINT,
+
 	T1T_ERR_RESIDENT
 };
 
@@ -172,6 +181,28 @@ static t1case_res_t far *t1case_res;
 
 static uint8_t t1case_mode;
 static bool t1case_started;
+
+// Checkpoints (REPLAY_CORE_CONTRACT.md 5). One scratch slot, reused by the
+// capture, the restore and the array reservation - never more than one is in
+// flight, and 80 bytes of BSS is cheaper than 80 bytes of stack in a module
+// every call of which is reached from deep inside REIIDEN's own frames.
+static t1case_checkpoint_t t1case_ckpt;
+
+// Which checkpoint this playback was started from, and whether the restored
+// startup block still owes its verify. The verify is deliberately NOT folded
+// into [t1case_started]: a checkpoint start is `started` from the first
+// instant, and the plain `!started` test would therefore skip the one check
+// that looks at state which was RESTORED rather than played into.
+static uint8_t t1case_ckpt_index;
+static bool t1case_ckpt_verify_pending;
+
+// The running FNV-1a over every slot this RUN has written, mirrored into the
+// carrier so it survives the handoff and into the header so a reader can check
+// the array it is about to trust.
+static uint32_t t1case_checkpoint_checksum;
+
+// The checkpoint index T1CASE.CFG asked for, e.g. "p3".
+static uint8_t t1case_cfg_checkpoint;
 static bool t1case_done_written;
 static uint32_t t1case_sample_count;
 static uint32_t t1case_record_count;
@@ -764,6 +795,10 @@ static void t1case_write_text(uint8_t id)
 		t1case_write_char('c'); t1case_write_char('e'); t1case_write_char('s');
 		t1case_write_char('s');
 		break;
+	case T1T_ERR_CHECKPOINT:
+		t1case_write_char('c'); t1case_write_char('k'); t1case_write_char('p');
+		t1case_write_char('t');
+		break;
 	default:
 		t1case_write_char('r'); t1case_write_char('e'); t1case_write_char('s');
 		t1case_write_char('i'); t1case_write_char('d'); t1case_write_char('e');
@@ -849,6 +884,7 @@ static uint8_t t1case_cfg_mode(void)
 	int read_len;
 	int i;
 	int fd;
+	int value = 0;
 	char mode = '\0';
 
 	t1case_paths_init();
@@ -872,6 +908,22 @@ static uint8_t t1case_cfg_mode(void)
 			break;
 		}
 	}
+
+	// An optional decimal immediately after the mode character selects the
+	// checkpoint to resume from: "p3" plays the case from checkpoint 3. "p"
+	// and "p0" are the same thing, the case's own beginning, so the whole
+	// existing control surface keeps its meaning unchanged.
+	t1case_cfg_checkpoint = 0;
+	for(i = (i + 1); i < read_len; i++) {
+		if((cfg[i] < '0') || (cfg[i] > '9')) {
+			break;
+		}
+		value = ((value * 10) + (cfg[i] - '0'));
+		if(value > 255) {
+			value = 255; // rejected below against `checkpoint_count`
+		}
+	}
+	t1case_cfg_checkpoint = static_cast<uint8_t>(value);
 	if((mode == 'r') || (mode == 'R')) {
 		return T1CASE_RECORD;
 	}
@@ -933,6 +985,7 @@ static void t1case_res_stamp(void)
 	t1case_res->committed = 0;
 	t1case_res->payload_checksum = T1CASE_FNV1A_BASIS;
 	t1case_res->split_rows = 0;
+	t1case_res->checkpoint_checksum = T1CASE_FNV1A_BASIS;
 	for(i = 0; i < T1CASE_RES_PROTECT_SIZE; i++) {
 		t1case_res->protect[i] = 0;
 	}
@@ -1011,6 +1064,7 @@ static void t1case_handoff_load(void)
 	t1case_input_byte_count = t1case_res->input_byte_count;
 	t1case_payload_checksum = t1case_res->payload_checksum;
 	t1case_split_rows = t1case_res->split_rows;
+	t1case_checkpoint_checksum = t1case_res->checkpoint_checksum;
 	t1case_started = ((t1case_res->flags & T1CASE_RES_FLAG_STARTED) != 0);
 }
 
@@ -1040,6 +1094,7 @@ static void t1case_handoff_store(void)
 	t1case_res->input_byte_count = t1case_input_byte_count;
 	t1case_res->payload_checksum = t1case_payload_checksum;
 	t1case_res->split_rows = t1case_split_rows;
+	t1case_res->checkpoint_checksum = t1case_checkpoint_checksum;
 }
 
 // Ends the case: a later REIIDEN process must not resume a run that is over.
@@ -1087,7 +1142,12 @@ static bool t1case_handoff_verify(void)
 		return (
 			(t1case_header.record_count == t1case_record_count) &&
 			(t1case_header.sample_count == t1case_sample_count) &&
-			(t1case_header.payload_size == t1case_input_byte_count)
+			(t1case_header.payload_size == t1case_input_byte_count) &&
+
+			// The checkpoint array, from both directions: the carrier's running
+			// hash against the one the previous process wrote into the header.
+			(t1case_header.checkpoint_checksum ==
+				t1case_checkpoint_checksum)
 		);
 	}
 	return (
@@ -1445,6 +1505,7 @@ static void t1case_header_checksum_set(void)
 static bool t1case_header_write(bool create)
 {
 	int fd;
+	int i;
 
 	t1case_paths_init();
 	if(create) {
@@ -1479,6 +1540,23 @@ static bool t1case_header_write(bool create)
 	if(!t1f_write(fd, &t1case_startup, sizeof(t1case_startup))) {
 		close(fd);
 		return false;
+	}
+
+	// The checkpoint array is reserved PHYSICALLY at creation, right here,
+	// where the file position is already T1CASE_CHECKPOINT_ARRAY_OFFSET. It
+	// has to exist rather than be an lseek hole, because `total_size` counts
+	// it from the first header write onwards and t1case_header_read()'s
+	// physical-length check - which a RESUMING RECORD PROCESS runs against
+	// its own case - would otherwise reject the case the previous process
+	// just created.
+	if(create) {
+		t1case_memclear(&t1case_ckpt, sizeof(t1case_ckpt));
+		for(i = 0; i < T1CASE_CHECKPOINT_CAP; i++) {
+			if(!t1f_write(fd, &t1case_ckpt, sizeof(t1case_ckpt))) {
+				close(fd);
+				return false;
+			}
+		}
 	}
 	close(fd);
 	return true;
@@ -1533,8 +1611,18 @@ static bool t1case_header_read(void)
 		(t1case_header.source_kind != T1CASE_SOURCE_DIRECT) ||
 		(t1case_header.first_process != T1CASE_PROCESS_REIIDEN) ||
 		(t1case_header.flags & ~static_cast<uint16_t>(T1CASE_FLAG_KNOWN)) ||
-		(t1case_header.payload_offset !=
-			(T1CASE_HEADER_SIZE + T1CASE_STARTUP_SIZE)) ||
+		// The checkpoint array's geometry, and `payload_offset` derived from
+		// it rather than fixed. A host-converted case declares capacity 0 and
+		// therefore keeps v2's 128, which is what lets the archived Gate A
+		// cases cross the version bump without growing.
+		(t1case_header.checkpoint_stride != T1CASE_CHECKPOINT_STRIDE) ||
+		(t1case_header.checkpoint_count >
+			t1case_header.checkpoint_capacity) ||
+		(t1case_header.payload_offset != (
+			static_cast<uint32_t>(T1CASE_CHECKPOINT_ARRAY_OFFSET) +
+			(static_cast<uint32_t>(t1case_header.checkpoint_capacity) *
+				T1CASE_CHECKPOINT_STRIDE)
+		)) ||
 		(t1case_header.sample_count > t1case_header.record_count) ||
 		// Every record costs at least the two bytes of a minimal packet, and a
 		// run covers at most T1CASE_PACKET_RUN_MAX samples. Both bounds are
@@ -1733,11 +1821,16 @@ static void t1case_input_error(uint8_t status)
 /// Startup block
 /// -------------
 
-static void t1case_startup_capture(void)
+// Writes the current `resident_t` into [dst]. Takes a destination because a
+// checkpoint capture on a RESUMED recording must not touch the global
+// [t1case_startup], which at that moment holds the case's own startup block
+// as read back from the header - and which t1case_header_write() would then
+// write over the case's identity with a mid-run state.
+static void t1case_startup_capture(t1case_startup_t far *dst)
 {
 	int i;
 
-	t1case_memclear(&t1case_startup, sizeof(t1case_startup));
+	t1case_memclear(dst, sizeof(t1case_startup_t));
 	t1case_startup.resident_rand = resident->rand;
 	t1case_startup.score = resident->score;
 	t1case_startup.continues_total = resident->continues_total;
@@ -1828,6 +1921,182 @@ static bool t1case_startup_verify(void)
 	}
 	// [mode_test] must be off, or the input stream's shape changes.
 	return (mode_test == false);
+}
+
+/// Per-round checkpoints
+/// ---------------------
+/// REPLAY_CORE_CONTRACT.md 5. The array's geometry and the reasoning behind the
+/// 80-byte slot are in th01/t1case.hpp; this is the capture/restore pair.
+///
+/// One checkpoint per PROCESS SEGMENT, captured in t1case_session_start() from
+/// the `resident_t` the previous process handed over, before the game has read
+/// a single field of it. That is the entire trick: a fresh REIIDEN rebuilds all
+/// of its live state from `resident_t` plus constants, so the state at that
+/// instant IS the checkpoint. Nothing else has to be stored, and nothing has to
+/// be regenerated - TH01 has no RNG rings, and `random_seed` is re-derived by
+/// the game's own `irand_init(frame_rand)` immediately before the round-start
+/// row.
+
+// Reads slot [index] into [t1case_ckpt].
+static bool t1case_checkpoint_read(uint8_t index)
+{
+	int fd;
+
+	if(
+		(index >= t1case_header.checkpoint_count) ||
+		(t1case_header.checkpoint_stride != T1CASE_CHECKPOINT_STRIDE)
+	) {
+		return false;
+	}
+	fd = t1f_read_open(T1CASE_BIN_FN);
+	if(fd < 0) {
+		return false;
+	}
+	lseek(fd, static_cast<long>(
+		static_cast<uint32_t>(T1CASE_CHECKPOINT_ARRAY_OFFSET) +
+		(static_cast<uint32_t>(index) * T1CASE_CHECKPOINT_STRIDE)
+	), SEEK_SET);
+	if(
+		read(fd, &t1case_ckpt, sizeof(t1case_ckpt)) !=
+		static_cast<int>(sizeof(t1case_ckpt))
+	) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
+// Captures this process segment's checkpoint and appends it to the array.
+//
+// [index] is the process sequence, and that identity is the whole basis for
+// recomputing `record_count` at restore instead of storing it. So it is CHECKED
+// here rather than assumed: every process segment ends with exactly one control
+// packet, so `record_count - sample_count` must equal the number of segments
+// already closed. If that ever stops holding - a second control code emitted
+// mid-segment would do it - the restore would silently resume with the wrong
+// record cursor, and a checkpoint that restores 90% of a cursor is worse than
+// no checkpoint at all. Fail closed, as REPLAY_CORE_CONTRACT.md 5.1 requires of
+// every regenerated field.
+static bool t1case_checkpoint_write(uint16_t index)
+{
+	int fd;
+
+	if(t1case_record_count != (t1case_sample_count + index)) {
+		return false;
+	}
+	if(index >= T1CASE_CHECKPOINT_CAP) {
+		// Not an error. Every sample is still recorded and every earlier
+		// checkpoint still restores; the case is simply not resumable past
+		// here, and says so.
+		t1case_header.flags |= T1CASE_FLAG_CHECKPOINTS_FULL;
+		return true;
+	}
+	t1case_ckpt.sample_count = t1case_sample_count;
+	t1case_ckpt.global_frame = t1case_global_frame;
+	t1case_ckpt.input_byte_count = t1case_input_byte_count;
+	t1case_ckpt.payload_checksum = t1case_payload_checksum;
+	t1case_startup_capture(&t1case_ckpt.startup);
+
+	fd = t1f_update(T1CASE_BIN_FN);
+	if(fd < 0) {
+		return false;
+	}
+	lseek(fd, static_cast<long>(
+		static_cast<uint32_t>(T1CASE_CHECKPOINT_ARRAY_OFFSET) +
+		(static_cast<uint32_t>(index) * T1CASE_CHECKPOINT_STRIDE)
+	), SEEK_SET);
+	if(!t1f_write(fd, &t1case_ckpt, sizeof(t1case_ckpt))) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+
+	// The slot is on disk BEFORE the header claims it, and the caller rewrites
+	// the header afterwards. A process killed between the two leaves a case
+	// whose array is one slot shorter than it could have been, never one whose
+	// last declared slot is garbage.
+	t1case_header.checkpoint_count = static_cast<uint8_t>(index + 1);
+	t1case_checkpoint_checksum = t1case_fnv1a(
+		t1case_checkpoint_checksum, &t1case_ckpt, sizeof(t1case_ckpt)
+	);
+	t1case_header.checkpoint_checksum = t1case_checkpoint_checksum;
+	return true;
+}
+
+// Starts this playback at checkpoint [index] instead of at the case's own
+// beginning.
+// Folds every declared slot and compares against the header. Without this the
+// array is the one region of the container no checksum covers, and a slot
+// corrupted in place restores CLEANLY: its cursors are in range and
+// t1case_startup_verify() compares the resident against the same block that
+// was just applied to it, so it agrees with the corruption.
+static bool t1case_checkpoint_array_verify(void)
+{
+	uint32_t hash = T1CASE_FNV1A_BASIS;
+	int i;
+
+	for(i = 0; i < t1case_header.checkpoint_count; i++) {
+		if(!t1case_checkpoint_read(static_cast<uint8_t>(i))) {
+			return false;
+		}
+		hash = t1case_fnv1a(hash, &t1case_ckpt, sizeof(t1case_ckpt));
+	}
+	return (hash == t1case_header.checkpoint_checksum);
+}
+
+static bool t1case_checkpoint_restore(uint8_t index)
+{
+	uint32_t records;
+
+	if(!t1case_checkpoint_array_verify()) {
+		return false;
+	}
+	if(!t1case_checkpoint_read(index)) {
+		return false;
+	}
+
+	// `record_count` is REGENERATED rather than stored, so every bound it must
+	// satisfy is checked before anything is applied.
+	records = (t1case_ckpt.sample_count + index);
+	if(
+		(records > t1case_header.record_count) ||
+		(t1case_ckpt.sample_count > t1case_header.sample_count) ||
+		(t1case_ckpt.input_byte_count > t1case_header.payload_size) ||
+
+		// [measured] A TH01 BINDING CHECK, not a core rule. t1case_frame_io()
+		// increments [t1case_sample_count] and [t1case_global_frame] exactly
+		// once each per call and nothing else writes either, so on TH01 the two
+		// are the same number - TH03 separates them only because MAINL throttles
+		// samples to hardware VSync (th03/mainl/replml.cpp:1359). Asserting a
+		// redundancy is free and catches a mutated cursor by name; relying on it
+		// to SAVE four bytes would not be, which is why the field is stored.
+		(t1case_ckpt.global_frame != t1case_ckpt.sample_count)
+	) {
+		return false;
+	}
+
+	t1case_sample_count = t1case_ckpt.sample_count;
+	t1case_global_frame = t1case_ckpt.global_frame;
+	t1case_input_byte_count = t1case_ckpt.input_byte_count;
+	t1case_payload_checksum = t1case_ckpt.payload_checksum;
+	t1case_record_count = records;
+
+	// The checkpoint's startup block REPLACES the case's own for the rest of
+	// this process, so that t1case_startup_apply() and t1case_startup_verify()
+	// both act on the state this run is actually resuming into, with no special
+	// case in either. Safe because a checkpoint start is playback-only and the
+	// playback path never writes the header back.
+	t1case_startup = t1case_ckpt.startup;
+	t1case_startup_apply();
+
+	// Already `started`: the trace must be comparable row for row against the
+	// tail of a full playback, and a full playback's process k emits
+	// ROUND_START, not START. The verify is scheduled separately rather than
+	// dropped with it - see t1case_round_start().
+	t1case_started = true;
+	t1case_ckpt_verify_pending = true;
+	return true;
 }
 
 /// Public seam
@@ -1943,6 +2212,7 @@ void far t1case_session_start(void)
 
 	t1case_paths_init();
 	t1case_payload_checksum = T1CASE_FNV1A_BASIS;
+	t1case_checkpoint_checksum = T1CASE_FNV1A_BASIS;
 
 	// The sector buffer belongs to THIS process. TH01 self-`execl`s 8-10 times
 	// per run, so a segment inherited from the previous image would be 8-10
@@ -1969,6 +2239,8 @@ void far t1case_session_start(void)
 	t1case_stream_io_error = false;
 	t1case_control_pending = false;
 	t1case_process_mismatch = false;
+	t1case_ckpt_index = 0;
+	t1case_ckpt_verify_pending = false;
 
 	// The carrier wins; T1CASE.CFG is only the first-process fallback
 	// (REPLAY_CORE_CONTRACT.md §7, landmine 2). Three outcomes, not two:
@@ -2060,6 +2332,12 @@ void far t1case_session_start(void)
 		t1case_input_byte_count
 	);
 
+	// The checkpoint alignment pair: the trace row index and the sample cursor
+	// this process segment starts at. A gate that compares a checkpoint-started
+	// run against the TAIL of a full run needs both, and no diagnostic carried
+	// the row index before - so the comparison could not have been made at all.
+	t1case_diag('C', 'K', 'P', t1case_split_rows, t1case_sample_count);
+
 	if(t1case_mode == T1CASE_PLAYBACK) {
 		if(!t1case_header_read()) {
 			t1case_mode = T1CASE_ERROR;
@@ -2068,10 +2346,23 @@ void far t1case_session_start(void)
 			return;
 		}
 		if(!resumed) {
-			t1case_startup_apply();
+			if(t1case_cfg_checkpoint != 0) {
+				if(!t1case_checkpoint_restore(t1case_cfg_checkpoint)) {
+					t1case_mode = T1CASE_ERROR;
+					t1case_handoff_clear();
+					t1case_done_write(T1T_ERR_CHECKPOINT);
+					return;
+				}
+				t1case_ckpt_index = t1case_cfg_checkpoint;
+				t1case_diag(
+					'C', 'K', 'R', t1case_ckpt_index, t1case_record_count
+				);
+			} else {
+				t1case_startup_apply();
+			}
 		}
 	} else if(!resumed) {
-		t1case_startup_capture();
+		t1case_startup_capture(&t1case_startup);
 		t1case_memclear(&t1case_header, sizeof(t1case_header));
 		t1case_header.magic[0] = 'T';
 		t1case_header.magic[1] = '1';
@@ -2085,7 +2376,15 @@ void far t1case_session_start(void)
 		t1case_header.header_size = T1CASE_HEADER_SIZE;
 		t1case_header.startup_size = T1CASE_STARTUP_SIZE;
 		t1case_header.channel_count = T1CASE_GROUP_COUNT;
-		t1case_header.payload_offset = (T1CASE_HEADER_SIZE + T1CASE_STARTUP_SIZE);
+		t1case_header.checkpoint_capacity = T1CASE_CHECKPOINT_CAP;
+		t1case_header.checkpoint_count = 0;
+		t1case_header.checkpoint_stride = T1CASE_CHECKPOINT_STRIDE;
+		t1case_header.checkpoint_checksum = T1CASE_FNV1A_BASIS;
+		t1case_header.payload_offset = (
+			static_cast<uint32_t>(T1CASE_CHECKPOINT_ARRAY_OFFSET) +
+			(static_cast<uint32_t>(T1CASE_CHECKPOINT_CAP) *
+				T1CASE_CHECKPOINT_STRIDE)
+		);
 		t1case_header.source_kind = T1CASE_SOURCE_DIRECT;
 		t1case_header.input_semantics = 1;
 		t1case_header.ruleset_id = 1;
@@ -2114,6 +2413,28 @@ void far t1case_session_start(void)
 	}
 	if(t1case_mode == T1CASE_RECORD) {
 		if(!t1case_header_write(!resumed)) {
+			t1case_mode = T1CASE_ERROR;
+			t1case_handoff_clear();
+			t1case_done_write(T1T_ERR_CASE_CREATE);
+			return;
+		}
+
+		// One checkpoint per process segment, indexed BY the process
+		// sequence. The order is: header (so the file and its array exist),
+		// then the slot, then the header again (so `checkpoint_count` only
+		// ever claims slots that are already on disk).
+		t1case_ckpt_index = static_cast<uint8_t>(
+			t1case_res ? t1case_res->process_seq : 0
+		);
+		if(!t1case_checkpoint_write(
+			t1case_res ? t1case_res->process_seq : 0
+		)) {
+			t1case_mode = T1CASE_ERROR;
+			t1case_handoff_clear();
+			t1case_done_write(T1T_ERR_CHECKPOINT);
+			return;
+		}
+		if(!t1case_header_write(false)) {
 			t1case_mode = T1CASE_ERROR;
 			t1case_handoff_clear();
 			t1case_done_write(T1T_ERR_CASE_CREATE);
@@ -2148,11 +2469,24 @@ void far t1case_round_start(void)
 	if((t1case_mode == T1CASE_DISABLED) || (t1case_mode == T1CASE_ERROR)) {
 		return;
 	}
+	// The post-init verify runs for a fresh playback AND for a
+	// checkpoint-started one. A checkpoint start is `started` from the first
+	// instant, so that its trace is comparable row for row against the tail of
+	// a full playback - but it is also the single place where the verify
+	// matters most, because the state being checked was RESTORED rather than
+	// played into. Letting `started` gate both would skip exactly the check
+	// that covers the restore.
+	if(
+		(t1case_mode == T1CASE_PLAYBACK) &&
+		(!t1case_started || t1case_ckpt_verify_pending) &&
+		!t1case_startup_verify()
+	) {
+		t1case_ckpt_verify_pending = false;
+		t1case_input_error(T1T_ERR_VERIFY);
+		return;
+	}
+	t1case_ckpt_verify_pending = false;
 	if(!t1case_started) {
-		if((t1case_mode == T1CASE_PLAYBACK) && !t1case_startup_verify()) {
-			t1case_input_error(T1T_ERR_VERIFY);
-			return;
-		}
 		t1case_started = true;
 		t1case_split_row(T1SPLIT_EVENT_START);
 	} else {

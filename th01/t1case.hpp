@@ -23,7 +23,7 @@
 // Version 2 replaced version 1's fixed 16-byte records with the shared replay
 // core's N-channel packet RLE (state/port/REPLAY_CORE_CONTRACT.md §4). The
 // logical sample sequence is unchanged; only the payload encoding is.
-#define T1CASE_VERSION      2
+#define T1CASE_VERSION      3
 #define T1CASE_HEADER_SIZE  64
 #define T1CASE_STARTUP_SIZE 64
 
@@ -108,7 +108,13 @@
 #define T1CASE_FLAG_ADVISORY_POSITIONS 0x0001
 #define T1CASE_FLAG_SOURCE_CLIPPED     0x0002
 #define T1CASE_FLAG_SPLICED_SOURCE     0x0004
-#define T1CASE_FLAG_KNOWN              0x0007
+
+// The recording ran out of checkpoint slots. Not an error: every sample is
+// still recorded and every earlier checkpoint still restores. It marks the
+// case as resumable only up to `checkpoint_count`.
+#define T1CASE_FLAG_CHECKPOINTS_FULL   0x0008
+
+#define T1CASE_FLAG_KNOWN              0x000F
 
 struct t1case_header_t {
 	char magic[8]; // "T1CASE1\0"
@@ -133,8 +139,27 @@ struct t1case_header_t {
 	uint8_t first_process;
 	uint8_t producer;
 	uint16_t flags;
-	uint32_t case_id;
-	uint32_t source_digest;
+	// v2's `case_id`, at the same offset and width. It was declared, never
+	// written and validated for nothing (REPLAY_CORE_CONTRACT.md open item
+	// 7), which is the trap that item calls it. Version 3 spends it on the
+	// only thing the checkpoint array needs that its slots cannot carry:
+	// where the array is and how much of it is real.
+	uint8_t checkpoint_capacity; // slots reserved in the file; may be 0
+	uint8_t checkpoint_count;    // slots actually written
+	uint16_t checkpoint_stride;  // bytes per slot
+	// v2's `source_digest`, at the same offset and width, and the second of
+	// the three fields REPLAY_CORE_CONTRACT.md open item 7 records as
+	// declared, never written and validated for nothing. It now covers the
+	// checkpoint array: FNV-1a over the `checkpoint_count` written slots.
+	//
+	// The array needs its own cover because `header_checksum` spans only the
+	// header and the startup block, and `payload_checksum` only the packet
+	// stream - so before version 3 the whole array sat between two checksums
+	// and under neither. A corrupted slot would have restored cleanly: the
+	// cursors would be in range, and t1case_startup_verify() compares the
+	// resident against the very block that was applied to it, so it agrees
+	// with a corrupted block by construction.
+	uint32_t checkpoint_checksum;
 	uint32_t source_commit;
 	uint32_t payload_checksum;
 	uint32_t header_checksum;
@@ -172,6 +197,79 @@ struct t1case_startup_t {
 
 	int8_t start_binary; // matches header.first_process
 	int8_t reserved[3];  // required zero
+};
+
+/// Per-round checkpoints
+/// ---------------------
+/// REPLAY_CORE_CONTRACT.md 5, and the measured answer to its 5.4 hypothesis.
+///
+/// A checkpoint is captured at the start of every PROCESS SEGMENT, and that is
+/// not the same thing as every stage start. REIIDEN's stage-clear `execl` is
+/// GUARDED - `if(stage_is_boss(stage_id) || (boss_id != BID_NONE))`,
+/// th01/main_01.cpp - so within a five-stage scene only 3->4 and 4->5 start a
+/// new process, and the other three stage transitions stay inside one. A fresh
+/// process rebuilds its entire live state from `resident_t` plus constants
+/// before the first input_sense() of the stage; a mid-process stage start does
+/// not, and it additionally re-enters the `while(!input_shot)` wait, because a
+/// fresh process sets [stage_wait_for_shot_to_begin] - which CONSUMES CASE
+/// SAMPLES THE RECORDING DOES NOT CONTAIN. That last one is a control-flow
+/// problem and no payload size fixes it.
+///
+/// So the payload is cheap because the resume point is a PROCESS ENTRY, not
+/// because it is a stage start. Details: state/notes/t1case-checkpoint.md.
+///
+/// The slot, stride 80:
+///
+///   +0  u32 sample_count      | the core's 12-byte cursor prefix
+///   +4  u32 global_frame      |
+///   +8  u32 input_byte_count  |
+///   +12 u32 payload_checksum  running FNV-1a over the stream consumed so far
+///   +16 64B startup block     TH01's whole cross-process state
+///
+/// TH03's prefix has no checksum field, because its seek re-decodes from byte 0
+/// and recomputes one. TH01 has no seek (TXCASE_CONTRACT.md), so without this
+/// field a checkpoint-started playback could never satisfy
+/// t1case_playback_final()'s checksum equality - the container's strongest
+/// end-to-end check. Four bytes to avoid weakening a check to fit a feature.
+///
+/// NOT stored, because they are recomputable:
+///   record_count == sample_count + checkpoint index. Exactly one control
+///                   packet per process segment and exactly one checkpoint per
+///                   process segment, so the index IS the number of controls
+///                   already consumed. Witnessed at capture AND at restore, and
+///                   fails closed either way.
+///   split_rows   == (trace length - header) / row_size.
+///   the stage/round DIRECTORY TH03 keeps beside its array
+///                   (checkpoint_stage_round[cap], th03/replay_format.hpp:471):
+///                   TH01's slot carries the whole startup block and `stage_id`
+///                   is a field of it, so there is nothing left for a directory
+///                   to say.
+
+#define T1CASE_CHECKPOINT_PREFIX_SIZE 16
+#define T1CASE_CHECKPOINT_STRIDE \
+	(T1CASE_CHECKPOINT_PREFIX_SIZE + T1CASE_STARTUP_SIZE)
+
+// Slots reserved in a case the GAME writes. Measured bound: the longest TH01
+// recording to date is 13 REIIDEN processes
+// (state/notes/t1case-handoff-carrier.md 5.3), and a full playthrough is 8 boss
+// handoffs plus one per continue. 16 is the next power of two above the
+// measured maximum. Overflow is not an error - the recorder keeps recording and
+// sets T1CASE_FLAG_CHECKPOINTS_FULL, because a case that cannot be resumed from
+// its 17th process is still a valid case.
+//
+// The CAPACITY IS A HEADER FIELD, not this constant. A host-converted case
+// carries capacity 0 and therefore costs nothing, which is what keeps the
+// archived Gate A cases comparable across the version bump.
+#define T1CASE_CHECKPOINT_CAP 16
+
+#define T1CASE_CHECKPOINT_ARRAY_OFFSET (T1CASE_HEADER_SIZE + T1CASE_STARTUP_SIZE)
+
+struct t1case_checkpoint_t {
+	uint32_t sample_count;
+	uint32_t global_frame;
+	uint32_t input_byte_count;
+	uint32_t payload_checksum;
+	t1case_startup_t startup;
 };
 
 /// Trace container
@@ -247,12 +345,18 @@ struct t1case_startup_t {
 #define T1CASE_RES_MAGIC_1       '1'
 #define T1CASE_RES_MAGIC_2       'C'
 #define T1CASE_RES_MAGIC_3       'S'
+// Bumped to 3 by W3.1 step 4: the checkpoint-array checksum was inserted
+// ahead of the protect region, which moves every protect byte. 101 B is still
+// 7 paragraphs, exactly the band this comment already warned about, so
+// `resdata_exist()` would otherwise hand a step-4 build a step-3 block whose
+// protect state is offset by four.
+//
 // Bumped to 2 by W3.1 step 3: the protect region's interior layout is now
 // defined, and that change lands INSIDE a constant paragraph count (97 B is 7
 // paragraphs, and everything from 81 to 112 rounds the same way), so
 // `resdata_exist()` will happily hand a step-3 build a step-2 block. The version
 // byte is the only thing that catches it. See REPLAY_CORE_CONTRACT.md §7.4.
-#define T1CASE_RES_VERSION       2
+#define T1CASE_RES_VERSION       3
 
 #define T1CASE_RES_VERSION_INDEX (T1CASE_RES_MAGIC_INDEX + T1CASE_RES_MAGIC_SIZE)
 #define T1CASE_RES_MODE_INDEX    (T1CASE_RES_VERSION_INDEX + 1)
@@ -283,13 +387,19 @@ struct t1case_startup_t {
 #define T1CASE_RES_CHECKSUM_INDEX (T1CASE_RES_UNION_INDEX + 4)
 #define T1CASE_RES_SPLIT_ROWS_INDEX (T1CASE_RES_CHECKSUM_INDEX + 4)
 
+// The running FNV-1a over every checkpoint slot this RUN has written. Kept in
+// the carrier rather than recomputed, because a recording appends one slot per
+// process and re-reading the whole array at every handoff to extend a hash is
+// work proportional to the run length for no gain.
+#define T1CASE_RES_CKPT_SUM_INDEX (T1CASE_RES_SPLIT_ROWS_INDEX + 4)
+
 // Reserved for the savestate-protect detector (REPLAY_CORE_CONTRACT.md §6),
 // which is W3.1 step 3. §6.1 records "~45 bytes of scratch that survives process
 // transitions" as the ONE thing TH01's protect binding has nowhere to put, and
 // naming the region now is what makes the non-overlap guards below able to
 // prove step 3 does not collide with the cursors. No field inside it is defined
 // yet: it is a reservation, not a set of dead declarations.
-#define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_SPLIT_ROWS_INDEX + 4)
+#define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_CKPT_SUM_INDEX + 4)
 #define T1CASE_RES_PROTECT_SIZE  45
 #define T1CASE_RES_END_INDEX (T1CASE_RES_PROTECT_INDEX + T1CASE_RES_PROTECT_SIZE)
 
@@ -430,8 +540,11 @@ struct t1case_startup_t {
 #if (T1CASE_RES_SPLIT_ROWS_INDEX < (T1CASE_RES_CHECKSUM_INDEX + 4))
 #error T1CASE carrier: the split row count overlaps the payload checksum
 #endif
-#if (T1CASE_RES_PROTECT_INDEX < (T1CASE_RES_SPLIT_ROWS_INDEX + 4))
-#error T1CASE carrier: the protect region overlaps the split row count
+#if (T1CASE_RES_CKPT_SUM_INDEX < (T1CASE_RES_SPLIT_ROWS_INDEX + 4))
+#error T1CASE carrier: the checkpoint checksum overlaps the split row count
+#endif
+#if (T1CASE_RES_PROTECT_INDEX < (T1CASE_RES_CKPT_SUM_INDEX + 4))
+#error T1CASE carrier: the protect region overlaps the checkpoint checksum
 #endif
 #if (T1CASE_RES_END_INDEX > T1CASE_RES_SIZE)
 #error T1CASE carrier: the region map overflows the block
@@ -494,6 +607,7 @@ struct t1case_res_t {
 	uint32_t committed; // the §7 union; see T1CASE_RES_UNION_INDEX
 	uint32_t payload_checksum;
 	uint32_t split_rows;
+	uint32_t checkpoint_checksum;
 	uint8_t protect[T1CASE_RES_PROTECT_SIZE];
 };
 
@@ -585,6 +699,35 @@ typedef char t1case_header_size_check[
 typedef char t1case_startup_size_check[
 	(sizeof(t1case_startup_t) == T1CASE_STARTUP_SIZE) ? 1 : -1
 ];
+// The checkpoint slot binds to the same kind of map the carrier does, so it
+// gets the same kind of proof: the prefix boundary and the total stride, not
+// just the total. A slot whose fields are all the right width can still be
+// laid out wrong, and a stride check alone passes that.
+typedef char t1case_checkpoint_prefix_check[
+	(offsetof(t1case_checkpoint_t, startup) == T1CASE_CHECKPOINT_PREFIX_SIZE) ?
+	1 : -1
+];
+typedef char t1case_checkpoint_stride_check[
+	(sizeof(t1case_checkpoint_t) == T1CASE_CHECKPOINT_STRIDE) ? 1 : -1
+];
+// The three fields that replaced `case_id` must land exactly on its four
+// bytes, or every v2-era offset in the host reader moves.
+typedef char t1case_header_ckpt_sum_offset_check[
+	(offsetof(t1case_header_t, checkpoint_checksum) == 44) ? 1 : -1
+];
+typedef char t1case_header_ckpt_cap_offset_check[
+	(offsetof(t1case_header_t, checkpoint_capacity) == 40) ? 1 : -1
+];
+typedef char t1case_header_ckpt_count_offset_check[
+	(offsetof(t1case_header_t, checkpoint_count) == 41) ? 1 : -1
+];
+typedef char t1case_header_ckpt_stride_offset_check[
+	(offsetof(t1case_header_t, checkpoint_stride) == 42) ? 1 : -1
+];
+// The capacity is a u8 in the header.
+typedef char t1case_checkpoint_cap_check[
+	((T1CASE_CHECKPOINT_CAP > 0) && (T1CASE_CHECKPOINT_CAP <= 255)) ? 1 : -1
+];
 // The codec's invariants. TH03 leaves every one of these unchecked
 // (state/notes/t1case-packet-rle.md), and each is silent when violated.
 typedef char t1case_packet_run_check[
@@ -660,6 +803,10 @@ typedef char t1case_res_checksum_offset_check[
 ];
 typedef char t1case_res_rows_offset_check[
 	(offsetof(t1case_res_t, split_rows) == T1CASE_RES_SPLIT_ROWS_INDEX) ? 1 : -1
+];
+typedef char t1case_res_ckpt_sum_offset_check[
+	(offsetof(t1case_res_t, checkpoint_checksum) == T1CASE_RES_CKPT_SUM_INDEX) ?
+	1 : -1
 ];
 typedef char t1case_res_protect_offset_check[
 	(offsetof(t1case_res_t, protect) == T1CASE_RES_PROTECT_INDEX) ? 1 : -1
