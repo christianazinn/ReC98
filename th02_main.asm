@@ -286,147 +286,17 @@ main_01_TEXT	segment	word public 'CODE' use16
 ; Attributes: bp-based frame
 
 ; int __cdecl main(int _argc, const char **_argv, const	char **_envp)
-public _main
-_main		proc far
+; main() now lives in th02/main/entry.cpp, which appends to this segment. It
+; is called main_entry() there and exported under its original name through
+; the alias below, because a C++ function literally named `main` would come
+; with a code segment of its own and shift every address in this group
+; (kb/codegen 0040).
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		call	cfg_load
-		or	ax, ax
-		jz	short @@cfg_load_is_1
-		call	@game_init_main$qv
-		or	ax, ax
-		jz	short @@game_init_main_is_0
-		call	@zun_error$q11zun_error_t pascal, 3
-
-@@cfg_load_is_1:
-		mov	ax, 1
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-@@game_init_main_is_0:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.bgm_mode], 1
-		jnz	short loc_B19A
-		call	_snd_pmd_resident
-		mov	_snd_midi_active, 0
-		jmp	short loc_B1B5
-; ---------------------------------------------------------------------------
-
-loc_B19A:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.bgm_mode], 2
-		jnz	short loc_B1BA
-		call	_snd_pmd_resident
-		call	_snd_mmd_resident
-		mov	al, _snd_midi_possible
-		mov	_snd_midi_active, al
-
-loc_B1B5:
-		call	_snd_determine_mode
-
-loc_B1BA:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jz	short loc_B1CA
-		nopcall	@demo_load$qv
-
-loc_B1CA:
-		call	@gameplay_init$qv
-
-loc_B1CD:
-		les	bx, _resident
-		mov	eax, es:[bx+mikoconfig_t.frame]
-		mov	random_seed, eax
-		call	@stage_init$qv
-		nopcall	@overlay_stage_enter_animate$qv
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_B237
-		mov	al, _stage_id
-		cbw
-		cmp	ax, 5
-		jnz	short loc_B202
-		push	(16 shl 16) + 12
-		push	ds
-		push	offset gEXTRA_STAGE
-		jmp	short loc_B213
-; ---------------------------------------------------------------------------
-
-loc_B202:
-		mov	al, stage1_gaiji_halflen
-		mov	ah, 0
-		mov	dx, 1Ch
-		sub	dx, ax
-		push	dx
-		push	12
-		push	ds
-		push	offset gStage1
-
-loc_B213:
-		push	TX_YELLOW
-		call	gaiji_putsa
-		mov	al, _stage_title_halflen
-		mov	ah, 0
-		mov	dx, 1Ch
-		sub	dx, ax
-		call	text_putsa pascal, dx, 13, ds, _stage_title, TX_WHITE
-		jmp	short loc_B249
-; ---------------------------------------------------------------------------
-
-loc_B237:
-		call	gaiji_putsa pascal, (18 shl 16) + 12, ds, offset gDEMO_PLAY, TX_YELLOW + TX_BLINK
-
-loc_B249:
-		mov	_key_det, 0
-
-loc_B24F:
-		call	farfp_1F4A4
-		or	ax, ax
-		jz	short loc_B263
-		kajacall	KAJA_SONG_FADE, 40
-		pop	cx
-		jmp	loc_B1CD
-; ---------------------------------------------------------------------------
-
-loc_B263:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_B287
-		call	sub_C31F
-		or	ax, ax
-		jz	short loc_B27A
-		call	@continue_resume$qv
-		jmp	short loc_B24F
-; ---------------------------------------------------------------------------
-
-loc_B27A:
-		les	bx, _resident
-		mov	al, _stage_id
-		mov	es:[bx+mikoconfig_t.stage], al
-		jmp	short loc_B290
-; ---------------------------------------------------------------------------
-
-loc_B287:
-		push	word ptr _DemoBuf+2
-		call	hmem_free
-
-loc_B290:
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		push	ds
-		push	offset arg0	; "op"
-		nopcall	@GameExecl$qnxc
-		add	sp, 4
-		xor	ax, ax
-		pop	bp
-		retf
-_main		endp
+; The C++ contribution to main_01_TEXT goes here, at main()'s original
+; address. The dump's own contribution is now a zero-byte anchor that only
+; fixes this SEGDEF at the head of the group.
 
 
 main_01_TEXT	ends
@@ -627,6 +497,8 @@ RANDRING_NEXT_DEF 1
 
 ; Attributes: bp-based frame
 public CFG_LOAD
+public _cfg_load
+_cfg_load label near
 cfg_load	proc near
 
 @@resident_seg		= word ptr -2
@@ -709,6 +581,8 @@ sub_C2F4	endp
 
 ; Attributes: bp-based frame
 
+public _sub_C31F
+_sub_C31F label near
 sub_C31F	proc near
 
 var_2		= word ptr -2
@@ -21901,6 +21775,8 @@ public _gStage1
 _gStage1 label byte
 gStage1		db 0BCh, 0BDh, 0AAh, 0B0h, 0AEh, 0A1h, 0, 0
 		db 0, 0, 0, 0, 0, 0, 0, 0
+public _gEXTRA_STAGE
+_gEXTRA_STAGE label byte
 gEXTRA_STAGE	db 0AEh, 0C1h, 0BDh, 0BBh, 0AAh, 0CFh, 0CFh, 0BCh, 0BDh
 		db	0AAh, 0B0h, 0AEh, 0, 0, 0, 0
 public _BGM_TITLES, _STAGE_TITLES, _STAGE_TITLE_HALFLENGTHS
@@ -21931,6 +21807,8 @@ _STAGE_TITLE_HALFLENGTHS	label byte
 		db  0Ch
 		db  0Dh
 		db  0Dh
+public _gDEMO_PLAY
+_gDEMO_PLAY label byte
 gDEMO_PLAY	db 0ADh, 0AEh, 0B7h, 0B8h, 0CFh, 0B9h, 0B5h, 0AAh, 0C2h, 0
 public _gPAUSE_MENU
 _gPAUSE_MENU label byte
@@ -21986,6 +21864,8 @@ aSTAGE4_TITLE	db 'óÏñÇÅ@Å`Revengeful Ghost',0
 aSTAGE5_TITLE	db 'ïïñÇÅ@Å`ìåï˚ïïñÇò^ and ...',0
 aEXTRA_TITLE		db 'àŸãÛÅ@Å`for Lunatic Gamers',0
 ; char arg0[3]
+public _arg0
+_arg0 label byte
 arg0		db 'op',0
 public _aHuuma_efc
 _aHuuma_efc label byte
