@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -5616,7 +5616,14 @@ PLAYER_P_TEXT	segment	byte public 'CODE' use16
 	@player_pos_update_and_clamp$qv procdesc near
 PLAYER_P_TEXT	ends
 
-main_01_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_01_TEXT` contribution, renamed so that a C++ object can append
+; shots_invalidate() at its original address in the MIDDLE of the
+; segment. The head has to be the renamed half here: five C++ TUs
+; (th05/p_common.cpp and the four playchar shot files) already append to
+; the tail under the original name. Same `byte public 'CODE'` alignment
+; as before, so nothing moves.
+SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5859,59 +5866,18 @@ sub_1214A	endp
 
 include th04/main/player/render.asm
 
-; =============== S U B	R O U T	I N E =======================================
+	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
+	; which appends to this segment.
+	@shots_invalidate$qv procdesc near
+SHOT_INV_TEXT	ends
 
-; Attributes: bp-based frame
-public @shots_invalidate$qv
-@shots_invalidate$qv proc near
-
-@@i		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_tile_invalidate_box.x, 16
-		mov	_tile_invalidate_box.y, 16
-		mov	si, offset _shots
-		mov	di, offset _hitshots
-		mov	[bp+@@i], 0
-		jmp	short loc_123E0
-; ---------------------------------------------------------------------------
-
-loc_123CC:
-		cmp	[si+shot_t.flag], F_FREE
-		jz	short loc_123DA
-		call	tiles_invalidate_around pascal, [si+shot_t.pos.prev.y], [si+shot_t.pos.prev.x]
-
-loc_123DA:
-		inc	[bp+@@i]
-		add	si, size shot_t
-
-loc_123E0:
-		cmp	[bp+@@i], SHOT_COUNT
-		jl	short loc_123CC
-		mov	[bp+@@i], 0
-		jmp	short @@hitshot_more?
-; ---------------------------------------------------------------------------
-
-@@hitshot_loop:
-		cmp	[di+hitshot_t.HITSHOT_age], 0
-		jz	short @@hitshot_next
-		call	tiles_invalidate_around pascal, [di+hitshot_t.pos.prev.y], [di+hitshot_t.pos.prev.x]
-
-@@hitshot_next:
-		inc	[bp+@@i]
-		add	di, size hitshot_t
-
-@@hitshot_more?:
-		cmp	[bp+@@i], HITSHOT_COUNT
-		jl	short @@hitshot_loop
-		pop	di
-		pop	si
-		leave
-		retn
-@shots_invalidate$qv endp
-
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main_01_TEXT` contribution once shots_invalidate() moved out of it. Same
+; `byte public 'CODE'` alignment as before, so nothing moves, and the
+; `byte` alignment also means kb/codegen/0111's even-parity question does
+; not arise at all. This segment contains no `even`, so no
+; `#pragma codestring` pad is needed either.
+main_01_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -7425,117 +7391,12 @@ BULLET_A_TEXT	ends
 ; moves.
 ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMIES_ADD
-enemies_add	proc near
-
-@@center_y	= word ptr -4
-@@i	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		les	bx, _std_ip
-		mov	di, es:[bx+1]
-		mov	ax, es:[bx+3]
-		mov	[bp+@@center_y], ax
-		mov	si, offset _enemies
-		mov	[bp+@@i], 0
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+enemy_t.flag], EF_FREE
-		jnz	@@next
-		mov	[si+enemy_t.flag], EF_ALIVE_FIRST_FRAME
-		mov	[si+enemy_t.age], 0
-		mov	[si+enemy_t.E_cur_instr_frame], 0
-		mov	[si+enemy_t.E_loop_i], 0
-		mov	[si+enemy_t.E_script_ip], 0
-		les	bx, _std_ip
-		mov	al, es:[bx]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _std_enemy_scripts[bx]
-		mov	[si+enemy_t.E_script], ax
-		cmp	di, ENEMY_POS_RANDOM
-		jnz	short loc_15F6D
-		call	@randring2_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	di, ax
-
-loc_15F6D:
-		mov	[si+enemy_t.cur.pos.x], di
-		cmp	di, ((PLAYFIELD_W / 2) shl 4)
-		jge	short @@spawned_in_right_half
-		mov	al, 1
-		jmp	short loc_15F7C
-; ---------------------------------------------------------------------------
-
-@@spawned_in_right_half:
-		mov	al, 0
-
-loc_15F7C:
-		mov	[si+enemy_t.E_spawned_in_left_half], al
-		cmp	[bp+@@center_y], ENEMY_POS_RANDOM
-		jnz	short loc_15F8F
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_H) shl 4)
-		mov	[bp+@@center_y], ax
-
-loc_15F8F:
-		mov	ax, [bp+@@center_y]
-		mov	[si+enemy_t.cur.pos.y], ax
-		les	bx, _std_ip
-		mov	al, es:[bx+5]
-		mov	[si+enemy_t.E_item], al
-		mov	al, es:[bx+6]
-		mov	[si+enemy_t.E_subtype], al
-		mov	[si+enemy_t.E_damaged_this_frame], 0
-		cmp	_rank, RANK_LUNATIC
-		jnz	short loc_15FB7
-		mov	ax, 1
-		jmp	short loc_15FB9
-; ---------------------------------------------------------------------------
-
-loc_15FB7:
-		xor	ax, ax
-
-loc_15FB9:
-		mov	[si+enemy_t.E_autofire], al
-		mov	[si+enemy_t.E_clip], 0
-		mov	[si+enemy_t.E_anim_cels], 1
-		mov	[si+enemy_t.E_anim_frames_per_cel], 4
-		mov	[si+enemy_t.E_anim_cur_cel], 0
-		mov	[si+enemy_t.E_can_be_damaged], 0
-		mov	[si+enemy_t.E_kills_player_on_collision], 0
-		call	@randring2_next16$qv
-		mov	[si+enemy_t.E_autofire_cur_frame], al
-		mov	[si+enemy_t.E_autofire_interval], 128
-		mov	[si+enemy_t.E_bullet_template.BT_group], BG_FORCESINGLE_AIMED
-		mov	[si+enemy_t.E_bullet_template.spawn_type], BST_NORMAL
-		mov	[si+enemy_t.E_bullet_template.speed], (2 shl 4) + 10
-		mov	[si+enemy_t.E_bullet_template.BT_origin.x], 0
-		mov	[si+enemy_t.E_bullet_template.BT_origin.y], 0
-		mov	[si+enemy_t.E_bullet_template.patnum], 0
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@next:
-		inc	[bp+@@i]
-		add	si, size enemy_t
-
-@@more?:
-		cmp	[bp+@@i], ENEMY_COUNT
-		jl	@@loop
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retn
-enemies_add	endp
+	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
+	; th05/std_run.cpp object appends to this segment ahead of std_run()
+	; itself (kb/codegen/0112 + 0114): in the original it was the ONLY proc
+	; of this contribution, which is now a zero-byte anchor for the segment
+	; name, exactly like CFG_LRES_TEXT / HUD_DRM_TEXT / STAGE_TEXT.
+	ENEMIES_ADD procdesc pascal near
 
 	; std_run() now lives in th04/formats/std_run.cpp, which appends to this
 	; segment ahead of th0N/enm_btpl.cpp.
@@ -19710,7 +19571,7 @@ include th04/main/player/option[bss].asm
 public _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
 	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
-	; unnamed global, exactly like th03/main/gba_exatt_bomb[bss].asm does
+	; unnamed global, exactly like th03/main/gba_exatt_bomb_bss.asm does
 	; for its own byte_202B8.
 	public _byte_2CEBD
 _byte_2CEBD label byte

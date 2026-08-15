@@ -19,7 +19,9 @@
 #include "th04/main/enemy/enemy.hpp"
 #include "th04/main/enemy/size.hpp"
 
-// Defined in th04/main/execl.cpp, which declares it the same way.
+// Declared here rather than through a header, exactly as th04/main/execl.cpp:34
+// does and for the same reason. The definition is still ASM, in th04_main.asm's
+// own _DATA contribution.
 extern unsigned int enemies_gone;
 
 // Advances the current enemy along its velocity, and clips it off the

@@ -49,8 +49,8 @@
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/bg_particle.hpp"
+#include "th02/main/hiscore.hpp"
 #include "th02/main/laser.hpp"
-void far hiscore_get(void);
 
 // Still ASM in th02_main.asm.
 // ---------------------------
