@@ -25670,8 +25670,8 @@ public _bgm_show_timer
 _bgm_show_timer label byte
 bgm_show_timer	db ?
 _bgm_title_id	db ?
-public _bgm_title_id_boss
-_bgm_title_id_boss label byte
+public _boss_bgm_title_id
+_boss_bgm_title_id label byte
 byte_1F46E	db ?
 		db ?
 public _midboss_update_and_render, _midboss_invalidate
@@ -25890,11 +25890,11 @@ public _stone_flag
 label midboss3_flag byte
 _stone_flag	db STONE_COUNT dup(?)
 
-public _byte_20665
-_byte_20665 label byte
+public _stone_hit_flash
+_stone_hit_flash label byte
 byte_20665	db 5 dup(?)
-public _byte_2066A
-_byte_2066A label byte
+public _boss_phase
+_boss_phase label byte
 byte_2066A	db ?
 public _byte_2066B
 _byte_2066B label byte
@@ -25910,8 +25910,8 @@ byte_20672	db ?
 		db 15 dup(?)
 public _sigma_frame
 _sigma_frame	dd ?
-public _word_20686
-_word_20686 label word
+public _stage3_effect_frame
+_stage3_effect_frame label word
 word_20686	dw ?
 
 BULLET_COUNT = 150
