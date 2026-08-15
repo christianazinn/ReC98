@@ -8,8 +8,12 @@
 ///
 /// TH03's ancestor of this function is enemy_move_and_clip()
 /// (th03/main/enemy/enemy.cpp), down to the `goto clip` structure.
-
-#pragma option -zCENM_POS_TEXT -zPmain_03
+///
+/// The `-zCENM_POS_TEXT -zPmain_03` that used to sit here now lives in the
+/// th04/enm_pos.cpp wrapper, which compiles this file together with
+/// th04/main/enemy/velocity.cpp: a segment pragma only takes effect before any
+/// code is generated, so the second file in an object cannot repeat it
+/// (kb/codegen/0112).
 
 #include "th04/main/playfld.hpp"
 #include "th04/main/enemy/enemy.hpp"

@@ -11991,33 +11991,21 @@ word_1553B	dw	0,     1,     2,     3
 	; enemy_pos_update() now lives in th04/main/enemy/pos.cpp, which appends
 	; to this segment.
 	ENEMY_POS_UPDATE procdesc pascal near
+	; enemy_velocity_set() now lives in th04/main/enemy/velocity.cpp,
+	; which the same object appends immediately after pos.cpp
+	; (kb/codegen/0112 + 0114): in the original it sat directly behind
+	; enemy_pos_update(), i.e. at what is now the end of this segment.
+	ENEMY_VELOCITY_SET procdesc pascal near
 ENM_POS_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the original
-; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() moved out of it.
-; `byte` rather than the original `word`: `byte` makes any future drift in
-; the C++ prefix fail loudly instead of being silently padded away. The
-; original has no pad between enemy_pos_update() and enemy_velocity_set(),
-; and this segment contains no `even` at all, so there is nothing for
-; kb/codegen/0111 to bite on here.
+; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() and, after it,
+; enemy_velocity_set() moved out of it. `byte` rather than the original
+; `word`: `byte` makes any future drift in the C++ prefix fail loudly
+; instead of being silently padded away. The original has no pad between
+; either of them and sub_155AA, and this segment contains no `even` at
+; all, so there is nothing for kb/codegen/0111 to bite on here.
 B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMY_VELOCITY_SET
-enemy_velocity_set	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _enemy_cur
-		lea	ax, [si+enemy_t.pos.velocity]
-		call	vector2_near pascal, ax, word ptr [si+enemy_t.E_angle], [si+enemy_t.E_speed]
-		pop	si
-		pop	bp
-		retn
-enemy_velocity_set	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
