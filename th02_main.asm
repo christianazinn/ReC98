@@ -7947,8 +7947,8 @@ _sub_129FC label far
 sub_129FC	proc far
 		push	bp
 		mov	bp, sp
-		setfarfp	farfp_23A72, sub_12A7D
-		setfarfp	farfp_23A76, sub_12B9E
+		setfarfp	farfp_23A72, @lasers_invalidate$qv
+		setfarfp	farfp_23A76, @lasers_update_and_render$qv
 		pop	bp
 		retf
 sub_129FC	endp
@@ -8014,274 +8014,11 @@ loc_12A77:
 		retn	8
 sub_12A19	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_12A7D	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset byte_239DC
-		xor	di, di
-		jmp	short loc_12AD9
-; ---------------------------------------------------------------------------
-
-loc_12A89:
-		cmp	byte ptr [si], 0
-		jz	short loc_12AD5
-		cmp	byte ptr [si+0Ah], 4
-		ja	short loc_12AB9
-		mov	ax, [si+2]
-		add	ax, -8
-		push	ax	; left
-		mov	ax, [si+4]
-		add	ax, -8
-		push	ax	; top
-		push	(32 shl 16) or 32	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		test	byte ptr _stage_frame, 3
-		jnz	short loc_12ACD
-		inc	byte ptr [si+0Ah]
-		jmp	short loc_12ACD
-; ---------------------------------------------------------------------------
-
-loc_12AB9:
-		push	word ptr [si+2]	; left
-		push	word ptr [si+4]	; top
-		push	16	; w
-		mov	ax, RES_Y
-		sub	ax, [si+4]
-		push	ax	; h
-		call	@tiles_invalidate_rect$qiiii
-
-loc_12ACD:
-		cmp	byte ptr [si], 2
-		jnz	short loc_12AD5
-		mov	byte ptr [si], 0
-
-loc_12AD5:
-		inc	di
-		add	si, 0Ch
-
-loc_12AD9:
-		cmp	di, 0Ch
-		jl	short loc_12A89
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_12A7D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_12AE2	proc near
-
-@@patnum		= word ptr -4
-@@y		= word ptr -2
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		mov	si, _scroll_line
-		mov	ax, point_23A6C.y
-		mov	[bp+@@y], ax
-		add	si, point_23A6C.y
-		cmp	si, RES_Y
-		jl	short loc_12B05
-		sub	si, RES_Y
-
-loc_12B05:
-		cmp	byte ptr [di+1], 5
-		jnb	short loc_12B1E
-		push	point_23A6C.x
-		push	si
-		mov	al, [di+1]
-		mov	ah, 0
-		add	ax, 91
-		push	ax
-		call	super_roll_put_tiny
-
-loc_12B1E:
-		add	si, 8
-		cmp	si, RES_Y
-		jl	short loc_12B2B
-		sub	si, RES_Y
-
-loc_12B2B:
-		add	[bp+@@y], 8
-		mov	al, [di+0Bh]
-		mov	ah, 0
-		mov	dl, [di+1]
-		mov	dh, 0
-		add	ax, dx
-		mov	[bp+@@patnum], ax
-		jmp	short loc_12B5E
-; ---------------------------------------------------------------------------
-
-loc_12B40:
-		call	super_roll_put_tiny pascal, point_23A6C.x, si, [bp+@@patnum]
-		add	si, 16
-		cmp	si, RES_Y
-		jl	short loc_12B5A
-		sub	si, RES_Y
-
-loc_12B5A:
-		add	[bp+@@y], 16
-
-loc_12B5E:
-		cmp	[bp+@@y], 384
-		jl	short loc_12B40
-		cmp	byte ptr [di+1], 4
-		jnz	short loc_12B98
-		mov	ax, point_23A6C.x
-		add	ax, -24
-		cmp	ax, _player_topleft.x
-		jge	short loc_12B98
-		mov	ax, point_23A6C.x
-		add	ax, 8
-		cmp	ax, _player_topleft.x
-		jle	short loc_12B98
-		mov	ax, _player_topleft.y
-		cmp	ax, point_23A6C.y
-		jl	short loc_12B98
-		cmp	_player_is_hit, 0
-		jnz	short loc_12B98
-		mov	_player_is_hit, 1
-
-loc_12B98:
-		pop	di
-		pop	si
-		leave
-		retn	2
-sub_12AE2	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_12B9E	proc far
-
-@@patnum		= word ptr -6
-var_4		= word ptr -4
-@@x		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 6
-		push	si
-		push	di
-		mov	si, offset byte_239DC
-		mov	[bp+var_4], 0
-		jmp	loc_12C66
-; ---------------------------------------------------------------------------
-
-loc_12BB1:
-		cmp	byte ptr [si], 1
-		jnz	loc_12C60
-		mov	ax, [si+2]
-		mov	point_23A6C.x, ax
-		mov	ax, [si+4]
-		mov	point_23A6C.y, ax
-		cmp	byte ptr [si+0Ah], 4
-		jnb	short loc_12C00
-		add	ax, 0FFF8h
-		mov	di, ax
-		add	di, _scroll_line
-		cmp	di, RES_Y
-		jl	short loc_12BDD
-		sub	di, RES_Y
-
-loc_12BDD:
-		mov	ax, point_23A6C.x
-		add	ax, -8
-		mov	[bp+@@x], ax
-		mov	al, [si+0Ah]
-		mov	ah, 0
-		add	ax, 30
-		mov	[bp+@@patnum], ax
-		call	super_roll_put pascal, [bp+@@x], di, ax
-		dec	word ptr [si+6]
-		jmp	short loc_12C60
-; ---------------------------------------------------------------------------
-
-loc_12C00:
-		cmp	byte ptr [si+1], 1
-		jnz	short loc_12C11
-		dec	word ptr [si+6]
-		cmp	word ptr [si+6], 0
-		jg	short loc_12C5C
-		jmp	short loc_12C42
-; ---------------------------------------------------------------------------
-
-loc_12C11:
-		cmp	byte ptr [si+1], 4
-		jnb	short loc_12C33
-		test	byte ptr _stage_frame, 7
-		jnz	short loc_12C21
-		inc	byte ptr [si+1]
-
-loc_12C21:
-		cmp	byte ptr [si+1], 4
-		jnz	short loc_12C5C
-		call	_snd_se_play c, 7
-		jmp	short loc_12C5C
-; ---------------------------------------------------------------------------
-
-loc_12C33:
-		cmp	byte ptr [si+1], 4
-		jnz	short loc_12C47
-		dec	word ptr [si+8]
-		cmp	word ptr [si+8], 0
-		jnz	short loc_12C5C
-
-loc_12C42:
-		inc	byte ptr [si+1]
-		jmp	short loc_12C5C
-; ---------------------------------------------------------------------------
-
-loc_12C47:
-		test	byte ptr _stage_frame, 3
-		jnz	short loc_12C51
-		inc	byte ptr [si+1]
-
-loc_12C51:
-		cmp	byte ptr [si+1], 9
-		jnz	short loc_12C5C
-		mov	byte ptr [si], 2
-		jmp	short loc_12C60
-; ---------------------------------------------------------------------------
-
-loc_12C5C:
-		push	si
-		call	sub_12AE2
-
-loc_12C60:
-		inc	[bp+var_4]
-		add	si, 0Ch
-
-loc_12C66:
-		cmp	[bp+var_4], 0Ch
-		jl	loc_12BB1
-		pop	di
-		pop	si
-		leave
-		retf
-sub_12B9E	endp
-
 DS_PREBOSS = 0
 DS_POSTBOSS = 1
 
+	extern @lasers_invalidate$qv:proc
+	extern @lasers_update_and_render$qv:proc
 	extern @dialog_load_and_init$qv:proc
 	@dialog_pre$qv procdesc near
 	@dialog_post$qv procdesc near
@@ -25890,7 +25627,11 @@ _map_length	dw ?
 		db    ?	;
 byte_22FDB	db ?
 byte_22FDC	db 2560 dup(?)
+public _lasers
+_lasers label byte
 byte_239DC	db 144 dup(?)
+public _laser_origin
+_laser_origin label word
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
