@@ -2587,7 +2587,7 @@ loc_D61D:
 		leave
 		retn
 @shots_update_and_render$qv endp
-main_01_____TEXT	ends
+main_01______TEXT	ends
 
 ITEM_TEXT	segment	byte public 'CODE' use16
 	@items_init_and_reset$qv procdesc near
