@@ -12,16 +12,8 @@
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/item/item.hpp"
 
-#if (GAME == 5)
-// Below the gs_TEN label that hud_put() draws at (58, 16).
-static const utram_y_t HUD_POINT_ITEMS_STAGE_Y = 16;
-
-// Below the gsRUIKEI ("cumulative") label that hud_put() draws at (57, 15).
-static const utram_y_t HUD_POINT_ITEMS_EXTEND_Y = 15;
-#else
-// Below the gs_TEN label that hud_put() draws at (58, 15).
-static const utram_y_t HUD_POINT_ITEMS_STAGE_Y = 15;
-#endif
+// [HUD_POINT_ITEMS_STAGE_Y] and [HUD_POINT_ITEMS_EXTEND_Y] are in
+// th04/main/hud/hud.hpp; hud_put() needs the same rows.
 
 extern "C" void pascal hud_point_items_put(void)
 {

@@ -578,7 +578,7 @@ loc_B260:
 		mov	al, es:[bx+resident_t.debug_power]
 		mov	_power, al
 		mov	es:[bx+resident_t.debug_mode], 0
-		mov	_debug_mode, 1
+		mov	_debug_mode_active, 1
 
 loc_B2A5:
 		les	bx, _resident
@@ -3769,7 +3769,7 @@ loc_10796:
 		call	hud_bombs_put
 		call	hud_lives_put
 		call	gaiji_putca pascal, (58 shl 16) + 16, (gs_TEN shl 16) + TX_YELLOW
-		call	gaiji_putsa pascal, (57 shl 16) + 15, ds, offset _gsRUIKEI, TX_CYAN
+		call	gaiji_putsa pascal, (57 shl 16) + 15, ds, offset gsRUIKEI, TX_CYAN
 		call	hud_point_items_put
 		call	gaiji_putca pascal, (63 shl 16) + 19, (gs_YUME shl 16) + TX_YELLOW
 		call	hud_dream_put
@@ -19060,9 +19060,9 @@ BOSS_TEXT	ends
 
 	.data
 
-public _debug_fast_forward, _debug_mode
+public _debug_fast_forward, _debug_mode_active
 _debug_fast_forward	db 0
-_debug_mode	db 0
+_debug_mode_active	db 0
 		dd aVersion1_01		; "version 1.01"
 include th04/gaiji/pause[data].asm
 	evendata
@@ -19314,8 +19314,10 @@ _bullet_zap_drop_point_items	db 0
 include th04/main/playfld[data].asm
 include th04/score[data].asm
 include th04/gaiji/hud[data].asm
-public _gsRUIKEI
-_gsRUIKEI	db 0EDh, 0EEh, 0, 0, 0
+; Only consumed by TH05's own hud_put() below, which is deliberately still
+; assembly, so this label keeps the bare spelling that th04/gaiji/hud[data].asm
+; prescribes for a gaiji label no C++ ever names.
+gsRUIKEI	db 0EDh, 0EEh, 0, 0, 0
 include th05/main/hud/dream[data].asm
 include th02/main/hud/power[data].asm
 include th04/main/hud/hp[data].asm

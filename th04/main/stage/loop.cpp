@@ -111,9 +111,18 @@ void pascal near shots_render(void);
 	extern "C" void near sub_100C6(void);
 	extern "C" void near sub_10214(void);
 
-	// Set from [resident->debug] once, at stage setup time, and never reset.
-	// Gates the Q key toggle below. [static]
-	extern bool debug_mode;
+	// Set from [resident_t.debug_mode] once, at stage setup time, and never
+	// reset. Gates the Q key toggle below. [static]
+	//
+	// NOT named [debug_mode]: that name already means something else in three
+	// places, one of which is two instructions away from this variable's only
+	// writer, where th05_main.asm reads
+	// 	mov es:[bx+resident_t.debug_mode], 0
+	// 	mov _debug_mode_active, 1
+	// and would otherwise read as `debug_mode = 0; debug_mode = 1`. The other
+	// two are th04/th04.inc's and th05/th05.inc's own resident_t field, and
+	// TH01's 0-3 command-line selector in th01/op_01.cpp.
+	extern bool debug_mode_active;
 
 	// Debug fast-forward, toggled with the Q key: one press turns it on and
 	// the next one turns it off, with the two intermediate states below
@@ -243,7 +252,7 @@ void near stage_loop(void)
 		total_frames++;
 
 		#if (GAME == 5)
-			if(debug_mode) {
+			if(debug_mode_active) {
 				if(key_det & INPUT_Q) {
 					if(debug_fast_forward == DEBUG_FF_OFF) {
 						debug_fast_forward = DEBUG_FF_TURNING_ON;

@@ -64,9 +64,9 @@ static const tram_x_t HUD_ICON_LEFT = (HUD_LEFT + 2);
 
 static const tram_y_t HUD_BOMBS_Y = 11;
 static const tram_y_t HUD_LIVES_Y = 13;
-static const tram_y_t HUD_POINT_ITEMS_Y = 15;
-static const tram_y_t HUD_DREAM_Y = 17;
-static const tram_y_t HUD_GRAZE_Y = 19;
+// The three rows in between are shared with their individual renderers and
+// therefore live in th04/main/hud/hud.hpp: [HUD_POINT_ITEMS_STAGE_Y] (15),
+// [HUD_DREAM_Y] (17) and [HUD_GRAZE_Y] (19).
 static const tram_y_t HUD_POWER_LABEL_Y = 21;
 static const tram_y_t HUD_RANK_Y = 23;
 // -----------
@@ -108,7 +108,7 @@ extern "C" void pascal hud_put(void)
 		hud_label_put(HUD_LABEL_LEFT, HUD_LIVES_Y, gsPLAYER);
 	}
 
-	hud_icon_put(HUD_ICON_LEFT, HUD_POINT_ITEMS_Y, gs_TEN);
+	hud_icon_put(HUD_ICON_LEFT, HUD_POINT_ITEMS_STAGE_Y, gs_TEN);
 	_asm { push cs; call near ptr hud_point_items_put; }
 
 	hud_icon_put(HUD_ICON_LEFT, HUD_DREAM_Y, gs_YUME);

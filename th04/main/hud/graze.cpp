@@ -10,13 +10,7 @@
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/score.hpp"
 
-#if (GAME == 5)
-// The row of the gs_TAMA label that hud_put() draws at (58, 18).
-static const utram_y_t HUD_GRAZE_Y = 18;
-#else
-// The row of the gs_TAMA label that hud_put() draws at (58, 19).
-static const utram_y_t HUD_GRAZE_Y = 19;
-#endif
+// [HUD_GRAZE_Y] is in th04/main/hud/hud.hpp; hud_put() needs the same row.
 
 void hud_graze_put(void)
 {
