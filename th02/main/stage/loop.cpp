@@ -40,7 +40,6 @@
 extern long scroll_line_on_page_init;
 
 extern "C" void near bgm_show(void);
-extern "C" void near sub_E2D9(void);
 extern "C" void sub_16D9B(void);
 extern "C" void pascal DemoPlay(void);
 
@@ -104,7 +103,7 @@ bool16 stage_loop(void)
 		farfp_23A72();
 		items_invalidate();
 		sparks_invalidate();
-		sub_E2D9();
+		bomb_invalidate();
 		if(scroll_step_advanced) {
 			sub_16D9B();
 			scroll_step_advanced = false;
