@@ -43,3 +43,9 @@ struct thicklaser_t {
 
 extern thicklaser_t thicklaser_template;
 extern thicklaser_t thicklasers[THICKLASER_COUNT];
+
+// Renders every non-TF_FREE thick laser, and nothing else -- the function
+// writes no thicklaser_t field. Still ASM (`sub_E2C3` in EXECL_TEXT), published
+// under this name for its C++ callers; the three ASM call sites, all boss
+// foreground renderers, keep the dump's spelling.
+extern "C" void near thicklasers_render(void);
