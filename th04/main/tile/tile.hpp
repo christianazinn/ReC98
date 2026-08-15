@@ -29,6 +29,17 @@ extern int tile_ring_row_filled;
 // itself. Called once per frame, from th04_main.asm's sub_CCD6.
 void near tiles_scroll_and_egc_render(void);
 
+// Copies the topmost [scroll_lines_pending] lines of every one of the
+// [TILES_X] playfield columns from the tile source area to the playfield,
+// starting at [scroll_line] and wrapping through the [tile_ring] as it goes.
+// Assumes the EGC to be active and initialized for a copy — the caller above
+// is the one that does that. Still ZUN's hand-written assembly, in
+// th04_main.asm's CIRCLE_TEXT: it pushes BP and then uses it as the scratch
+// register for the tile word being copied without ever establishing a frame
+// (kb/conventions/handwritten-asm-tells.md). TH05's twin is th05_main.asm's
+// still-unnamed sub_BC6A.
+extern "C" void near tiles_egc_copy_scrolled_lines(void);
+
 // Loads the .MPN file with the given [fn] into slot 0, blits all of its tile
 // images to the tile area in VRAM on both pages, and frees the slot again.
 // (TH02 splits this into mpn_load() and tile_area_init_and_put_both().)

@@ -24,7 +24,7 @@ extern bool scroll_active;
 // function is called, raised by [scroll_lines_prev_frame] inside it, and
 // cleared once the copy is done. [inferred]: the binary only shows the
 // arithmetic, so "still to be copied" is read off the two writers and the one
-// consumer (th04_main.asm's sub_BAEE), not off a name of ZUN's.
+// consumer (tiles_egc_copy_scrolled_lines()), not off a name of ZUN's.
 extern pixel_length_8_t scroll_lines_pending;
 
 // The previous frame's [scroll_lines_pending], added to the current frame's
