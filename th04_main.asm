@@ -865,47 +865,18 @@ STD_TEXT	ends
 ; as before, so nothing moves.
 END_EXT_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-public @end_game_good$qv
-@end_game_good$qv	proc far
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_GOOD
-		mov	es:[bx+resident_t.end_type_ascii], '0'
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-		pop	bp
-		retf
-@end_game_good$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @end_game_bad$qv
-@end_game_bad$qv	proc far
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_BAD
-		mov	es:[bx+resident_t.end_type_ascii], '1'
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine_0	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-		pop	bp
-		retf
-@end_game_bad$qv	endp
-
+	; end_game_good() and end_game_bad() now live in th04/main/end.cpp
+	; alongside end_extra(), which already appends to this segment, so what
+	; is left of this root contribution is a zero-byte anchor. Same
+	; `byte public 'CODE'` alignment as before, so nothing moves.
+	;
+	; Only end_game_bad() needs a declaration: it is the only one of the two
+	; with a caller left in this file (the `nopcall` in EXECL_TEXT).
+	; end_game_good()'s only caller is th04/main/end.hpp's inline end_game(),
+	; so TLINK will report it `idle` -- linked, just not externally
+	; referenced (kb/codegen 0112).
+	@end_game_bad$qv procdesc far
 	; end_extra() now lives in th04/main/end.cpp, which appends to this
 	; segment. Declared inside a main_01 segment on purpose (kb/codegen
 	; 0082), so that any future same-group caller keeps its `push cs` +
@@ -28214,8 +28185,12 @@ include th03/snd/se_state[data].asm
 include th03/formats/cdg[data].asm
 include th04/formats/std[data].asm
 ; char aMaine[]
+public _aMaine
+_aMaine		label byte
 aMaine		db 'maine',0
 ; char aMaine_0[]
+public _aMaine_0
+_aMaine_0	label byte
 aMaine_0	db 'maine',0
 ; char aMaine_1[]
 public _aMaine_1

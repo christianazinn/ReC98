@@ -26,8 +26,55 @@
 extern "C" const char aMaine_0[];
 #define MAINE_FN aMaine_0
 #else
+extern "C" const char aMaine[];
+extern "C" const char aMaine_0[];
 extern "C" const char aMaine_1[];
 #define MAINE_FN aMaine_1
+#endif
+
+#if (GAME != 5)
+/// Ending selection
+/// ----------------
+/// One shape, two bodies, and they are the same source with two constants
+/// swapped: the two 43-byte regions of the original differ in exactly 5 bytes
+/// (`kb/codegen/0115`), which are the [end_sequence] value, the
+/// [end_type_ascii] digit, and the `'maine'` copy each one launches through.
+/// TH05 has neither — its single end_game() sets no [end_type_ascii], because
+/// TH05's resident structure has no such field.
+
+void end_game_good(void)
+{
+	resident->end_sequence = ES_GOOD;
+	resident->end_type_ascii = '0';
+	snd_kaja_func(KAJA_SONG_FADE, 4);
+	palette_black_out(16);
+
+	// Same linker-relaxed far call as end_extra() below. (kb/codegen 0014)
+	_asm {
+		push	ds;
+		push	offset aMaine;
+		nop;
+		push	cs;
+		call	near ptr GameExecl;
+	}
+}
+
+void end_game_bad(void)
+{
+	resident->end_sequence = ES_BAD;
+	resident->end_type_ascii = '1';
+	snd_kaja_func(KAJA_SONG_FADE, 4);
+	palette_black_out(16);
+
+	_asm {
+		push	ds;
+		push	offset aMaine_0;
+		nop;
+		push	cs;
+		call	near ptr GameExecl;
+	}
+}
+/// ----------------
 #endif
 
 void end_extra(void)
