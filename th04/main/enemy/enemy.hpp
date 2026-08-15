@@ -1,5 +1,10 @@
+// TH05's enemy_t has to be declared before this file's `extern enemies[]`, so
+// th05/main/enemy/enemy.hpp includes these two itself and then includes this
+// file. ReC98's headers have no include guards, so skip them in that case.
+#if (GAME != 5)
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
+#endif
 #include "th04/sprites/main_pat.h"
 
 enum enemy_flag_t {
@@ -89,3 +94,14 @@ extern enemy_t near *enemy_cur;
 
 void near enemies_invalidate(void);
 void pascal near enemies_render(void);
+
+// Copies an enemy's bullet template into the global [bullet_template], ready
+// for bullet_template_tune() and bullets_add_regular(). TH04 resolves the
+// member itself, TH05 expects the caller to have done it.
+#if (GAME == 5)
+extern "C" void pascal near enemy_bullet_template_push(
+	BulletTemplate near &tmpl
+);
+#else
+extern "C" void pascal near enemy_bullet_template_push(enemy_t near &enemy);
+#endif
