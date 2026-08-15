@@ -154,6 +154,13 @@ inline int shots_hittest(
 	return shots_hittest();
 }
 
+#if (GAME == 4)
+// Clears the shot-firing state at the start of every stage. TH04-only: two of
+// the three counters it resets belong to the option laser, and TH05 sets its
+// one survivor inline in stage_init() instead.
+void near shot_reset(void);
+#endif
+
 void near shots_invalidate(void);
 
 // Also renders hitshots in TH05.

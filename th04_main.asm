@@ -791,7 +791,7 @@ sub_B1D0	proc near
 		mov	_dream_items_collected, 0
 		mov	_std_update, offset @std_update_frames_then_animate_d$qv
 		mov	_scroll_active, 1
-		call	main_01:sub_1042A
+		call	@shot_reset$qv
 		nopcall	main_01:sub_11DE6
 		call	@randring_fill$qv
 		call	sub_1DA1B
@@ -5936,24 +5936,21 @@ loc_1041D:
 bomb_stars_update_and_render_for	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1042A	proc near
-		push	bp
-		mov	bp, sp
-		mov	_shot_laser_time, 0
-		mov	_shot_laser_style, 0
-		mov	_shot_time, 0
-		mov	byte_259A7, 0
-		pop	bp
-		retn
-sub_1042A	endp
-
-
-	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
-	; which appends to this segment.
+	; shot_reset() and shots_invalidate() now both live in
+	; th04/main/player/shots_inv.cpp, which appends to this segment in that
+	; order -- shot_reset() was the LAST proc of this root contribution and
+	; that file's object already appended immediately after it, so no carve,
+	; no new segment, no group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried no
+	; `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; shot_reset() is TH04-only, and not because of lifting order: TH05 has
+	; no such helper at all. It sets its one surviving counter inline in its
+	; own stage-init proc (th05_main.asm, `mov _shot_time, 0`, in the same
+	; run of statements that calls bomb_reset here), because the option
+	; laser whose two other counters this resets is TH04-only.
+	@shot_reset$qv procdesc near
 	@shots_invalidate$qv procdesc near
 SHOT_INV_TEXT	ends
 
@@ -28482,6 +28479,15 @@ byte_259A3	db ?
 _power	db ?
 _shot_level	db ?
 _shot_time	db ?
+	; Zero-byte alias so th04/main/player/shots_inv.cpp can reach this
+	; still-unnamed global, like the alias five lines up for byte_259A3.
+	; Named for what was MEASURED about it rather than for what it might
+	; have meant: shot_reset() is its only writer and nothing in the tree
+	; reads it. Exactly TH02's device and TH02's spelling for the same
+	; situation -- see `public _scroll_unused_2` / `_scroll_unused_2 label
+	; byte` in th02_main.asm, whose byte_2034E this mirrors. ZUN bloat.
+	public _shot_unused
+_shot_unused label byte
 byte_259A7	db ?
 		db    ?	;
 include th01/main/player_is_hit[bss].asm
