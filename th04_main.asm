@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -9819,7 +9819,11 @@ IT_SPL_U_TEXT	segment	word public 'CODE' use16
 	@item_splashes_update$qv procdesc pascal near
 IT_SPL_U_TEXT	ends
 
-B4M_UPDATE_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `B4M_UPDATE_TEXT` contribution, renamed so that a C++ object can append
+; `enemy_pos_update` at its original address in the MIDDLE of the segment.
+; Same `word public 'CODE'` alignment as before, so nothing moves.
+ENM_POS_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -12009,52 +12013,19 @@ word_1553B	dw	0,     1,     2,     3
 		dw offset loc_1536B
 		dw offset loc_15370
 
-; =============== S U B	R O U T	I N E =======================================
+	; enemy_pos_update() now lives in th04/main/enemy/pos.cpp, which appends
+	; to this segment.
+	ENEMY_POS_UPDATE procdesc pascal near
+ENM_POS_TEXT	ends
 
-; Attributes: bp-based frame
-public ENEMY_POS_UPDATE
-enemy_pos_update	proc near
-
-@@enemy		= word ptr -2
-
-		enter	2, 0
-		push	si
-		mov	ax, _enemy_cur
-		mov	[bp+@@enemy], ax
-		add	ax, enemy_t.pos
-		call	@PlayfieldMotion@update_seg3$qv pascal, ax
-		mov	si, [bp+@@enemy]
-		cmp	[si+enemy_t.E_clip_x], 0
-		jz	short @@clip_y?
-
-		; Note that these comparisons abuse underflow to implicitly handle the
-		; negative direction as well.
-		add	ax, ((ENEMY_W / 2) shl 4)
-		cmp	ax, ((PLAYFIELD_W + ENEMY_W) shl 4)
-		jnb	short @@clip
-
-@@clip_y?:
-		cmp	[si+enemy_t.E_clip_y], 0
-		jz	short @@on_playfield
-		add	dx, ((ENEMY_H / 2) shl 4)
-		cmp	dx, ((PLAYFIELD_H + ENEMY_H) shl 4)
-		jnb	short @@clip
-
-@@on_playfield:
-		mov	al, 0
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@clip:
-		inc	_enemies_gone
-		mov	[si+enemy_t.flag], EF_KILLED
-		mov	al, 1
-
-@@ret:
-		pop	si
-		leave
-		retn
-enemy_pos_update	endp
+; Harness carve (kb/codegen/0080): what is left of the original
+; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() moved out of it.
+; `byte` rather than the original `word`: `byte` makes any future drift in
+; the C++ prefix fail loudly instead of being silently padded away. The
+; original has no pad between enemy_pos_update() and enemy_velocity_set(),
+; and this segment contains no `even` at all, so there is nothing for
+; kb/codegen/0111 to bite on here.
+B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
 
 
 ; =============== S U B	R O U T	I N E =======================================
