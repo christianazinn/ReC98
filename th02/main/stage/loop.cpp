@@ -24,6 +24,7 @@
 #include "th02/main/slowdown.hpp"
 #include "th02/main/spark.hpp"
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/hud/menu.hpp"
 #include "th02/main/item/item.hpp"
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/player/bomb.hpp"
@@ -78,7 +79,6 @@ extern stage_progression_t (far pascal *boss_update)(void);
 extern "C" void near bgm_show(void);
 extern "C" void near sub_E2D9(void);
 extern "C" void near sub_F1D8(void);
-extern "C" bool16 near sub_B9E2(void);
 extern "C" void sub_16D9B(void);
 extern "C" void pascal DemoPlay(void);
 
@@ -189,7 +189,7 @@ bool16 stage_loop(void)
 		bullets_update_and_render();
 		sparks_update_and_render();
 		if(key_det & INPUT_CANCEL) {
-			if(sub_B9E2()) {
+			if(pause_menu()) {
 				quit = true;
 			}
 		}
