@@ -118,10 +118,20 @@
 #define T1CASE_PRODUCER_GAME_MOD 1
 #define T1CASE_PRODUCER_HOST     3
 
-// Flags. ADVISORY_POSITIONS described v1's per-record `scenario_cursor`, which
-// a packet stream does not carry; it is dead for TH01 and is never set. The bit
-// number is not reused.
-#define T1CASE_FLAG_ADVISORY_POSITIONS 0x0001
+// Flags. Bit 0, ADVISORY_POSITIONS, is DROPPED for TH01 and RESERVED by the
+// core (REPLAY_CORE_CONTRACT.md 14 item 9, decided by PORT-TH01-BOSS-BEATEN).
+// It described v1's per-record `scenario_cursor`, and version 2 deleted the
+// field - the same shape of reason that retired CURSOR_RESET one item earlier.
+// It is not merely left unset: it stops being a KNOWN bit, so a TH01 case that
+// declares it is refused at header-read time on BOTH sides rather than
+// accepted and ignored. TXCASE_CONTRACT.md's "unknown bits are rejected"
+// already requires that of an assertion the format cannot honour, and a bit
+// whose meaning was deleted is exactly such an assertion. TH03's T3CASE1 still
+// uses the bit, so the NUMBER stays spoken for and is never reused.
+//
+// The other half of item 9 - whether the core wants a diagnostic sidecar for
+// per-sample cursors - is answered NO, by measurement rather than by taste:
+// state/notes/t1case-boss-beaten.md 5.
 #define T1CASE_FLAG_SOURCE_CLIPPED     0x0002
 #define T1CASE_FLAG_SPLICED_SOURCE     0x0004
 
@@ -130,7 +140,7 @@
 // case as resumable only up to `checkpoint_count`.
 #define T1CASE_FLAG_CHECKPOINTS_FULL   0x0008
 
-#define T1CASE_FLAG_KNOWN              0x000F
+#define T1CASE_FLAG_KNOWN              0x000E
 
 struct t1case_header_t {
 	char magic[8]; // "T1CASE1\0"
