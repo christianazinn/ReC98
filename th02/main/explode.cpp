@@ -1,14 +1,16 @@
 /* ReC98
  * -----
- * TH02's boss defeat explosion. ZUN's object for this code segment held both
- * this and the bullets, which is why they are compiled into the same
- * translation unit here — see th02/bullet.cpp.
+ * TH02's boss defeat explosion. ZUN compiled it into its own object, ahead of
+ * the bullets in the same BULLET_TEXT segment, so it stays a separate object
+ * here too — the segment and group are named by this file's object wrapper,
+ * th02/explode.cpp. (kb/codegen/0112)
  */
 
 // The original's prolog for the first function is `push bp; mov bp, sp`, which
 // is -G; the second one's is `ENTER`, which is not. The bullet code that
-// follows in this object was built with -G again, and th02/main/bullet/
-// bullet.cpp turns it back on at its top. (kb/codegen/0011)
+// follows in this *segment* was built with -G again, and th02/main/bullet/
+// bullet.cpp turns it back on at its own top — a separate object, so this
+// file's -G- below cannot reach it either way. (kb/codegen/0011)
 #pragma option -G
 
 #include "platform.h"
@@ -71,13 +73,24 @@ void pascal near boss_explode_render(
 	if(frame == 0) {
 		boss_explode_margins_clear();
 	}
-	if(frame < EXPLODE_STAGE_2_BASE) {
+	if(frame < EXPLODE_PHASE_2_START) {
 		if(frame == 1) {
 			snd_se_play(18);
 		}
 
-		// ZUN landmine: Shifts the entire stage 1 ring 7 pixels to the right
-		// of the point the caller asked for, and of the stage 2 ring.
+		// Shifts the entire phase 1 ring 7 pixels to the right of the point the
+		// caller asked for, and of the phase 2 ring.
+		//
+		// NOT `ZUN landmine`, which is what this said before: a landmine
+		// requires "fix would be observable: no", and a 7-pixel displacement of
+		// the whole ring is observable in ZUN's own build, under no special
+		// assumption. [center_x] feeds only dot_square_ring_invalidate() and
+		// dot_square_ring_put() below, both rendering-only, so a fix cannot
+		// desync a replay either. That leaves `ZUN bug` or `ZUN quirk`, and the
+		// phase 2 ring using the unshifted center is surrounding-code evidence
+		// for `bug` — but the call is the taxonomy lane's, and an unclear
+		// classification is a stop condition (kb/conventions/rec98-taxonomy.md).
+		// See state/port/FIX_LAYER_CANDIDATES.md J4.
 		center_x += 7;
 
 		if(frame >= 2) {
@@ -88,7 +101,7 @@ void pascal near boss_explode_render(
 			frame += 2;
 			egc_off();
 		}
-		if(frame < EXPLODE_STAGE_1_FRAMES) {
+		if(frame < EXPLODE_PHASE_1_FRAMES) {
 			col = (((frame & 1) * 11) + 4);
 			grcg_setcolor(GC_RMW, col);
 			radius = (240 - (frame * 8));
@@ -98,8 +111,8 @@ void pascal near boss_explode_render(
 		return;
 	}
 
-	frame -= EXPLODE_STAGE_2_BASE;
-	if(frame >= EXPLODE_STAGE_2_FRAMES) {
+	frame -= EXPLODE_PHASE_2_START;
+	if(frame >= EXPLODE_PHASE_2_FRAMES) {
 		return;
 	}
 	if(frame == 0) {
@@ -149,8 +162,17 @@ void pascal near boss_explode_render(
 		);
 		vram_top = scroll_screen_y_to_vram(vram_top, ring_y);
 
-		// ZUN bloat: One pixel narrower on the left than the invalidation
-		// loop above, which is the safe direction to be inconsistent in.
+		// One pixel narrower on the left than the invalidation loop above
+		// (`> 16` here against `>= 16` there), which is the safe direction to
+		// be inconsistent in: a square that is invalidated but not drawn leaves
+		// no artifact, whereas the reverse would.
+		//
+		// NOT `ZUN bloat`, which is what this said before: bloat requires that
+		// the code "could be significantly simplified without making observable
+		// changes", and harmonising the two bounds *is* observable — a sprite
+		// whose [ring_x] lands on exactly 16 is skipped now and would then be
+		// drawn. Same open bug-vs-quirk question as the phase 1 shift above;
+		// see state/port/FIX_LAYER_CANDIDATES.md J4.
 		if(
 			(ring_x > 16) && (ring_x < 416) &&
 			(ring_y > 0) && (ring_y < 384)

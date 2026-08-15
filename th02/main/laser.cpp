@@ -67,6 +67,64 @@ extern screen_point_t laser_origin;
 static const pixel_t HITBOX_OFFSET_LEFT = -24;
 static const pixel_t HITBOX_OFFSET_RIGHT = 8;
 
+// The value lasers_reset() puts back into [laser_wait_frames]. Three of the
+// five spawning bosses write the same number themselves before a volley.
+static const int LASER_WAIT_FRAMES_DEFAULT = 16;
+
+// th02/main/stage/callback.hpp declares these two slots, but it needs
+// th02/main/stage/stage.hpp, which has no include guard and which
+// th02/main/dialog/dialog.cpp includes further down this translation unit.
+extern void (far *lasers_invalidate_func)(void);
+extern void (far *lasers_update_and_render_func)(void);
+
+// Frees every slot at the beginning of a stage.
+void far lasers_reset(void)
+{
+	register laser_t near *laser = lasers;
+	int i;
+
+	for(i = 0; i < LASER_COUNT; i++, laser++) {
+		laser->flag = F_FREE;
+	}
+	laser_wait_frames = LASER_WAIT_FRAMES_DEFAULT;
+}
+
+// Turns the subsystem on for the rest of the stage.
+void far lasers_callbacks_set(void)
+{
+	lasers_invalidate_func = lasers_invalidate;
+	lasers_update_and_render_func = lasers_update_and_render;
+}
+
+// Spawns a laser at ([left], [top]), unless [left] is outside the playfield or
+// every slot is taken.
+void pascal near lasers_add(
+	screen_x_t left, screen_y_t top, int active_frames, uint8_t patnum_base
+)
+{
+	register laser_t near *laser = lasers;
+	register int i;
+
+	if((left < PLAYFIELD_LEFT) || (left >= PLAYFIELD_RIGHT)) {
+		return;
+	}
+	for(i = 0; i < LASER_COUNT; i++, laser++) {
+		if(laser->flag != F_FREE) {
+			continue;
+		}
+		laser->flag = F_ALIVE;
+		laser->phase = LASER_PHASE_WAIT;
+		laser->origin.x = left;
+		laser->origin.y = top;
+		laser->wait_frames = laser_wait_frames;
+		laser->active_frames = active_frames;
+		laser->charge_cel = 0;
+		laser->patnum_base = patnum_base;
+		snd_se_play(6);
+		return;
+	}
+}
+
 // Marks the tiles under every live laser for redrawing, and doubles as the
 // driver of the charge animation. Retires lasers that were marked F_REMOVE
 // during the previous frame, after this final unblit.

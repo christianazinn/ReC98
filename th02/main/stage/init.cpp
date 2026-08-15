@@ -50,14 +50,13 @@
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/hiscore.hpp"
+#include "th02/main/laser.hpp"
 
 // Still ASM in th02_main.asm.
 // ---------------------------
 extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
-extern "C" void far sub_129DD(void);
-extern "C" void far sub_129FC(void);
 extern "C" void far sub_16A6B(void);
 extern "C" void far sub_1C3DF(void);
 extern "C" void far sub_1C608(void);
@@ -246,7 +245,7 @@ void near stage_init(void)
 	bullets_and_sparks_init();
 	sub_16A6B();
 	bg_particles_reset();
-	sub_129DD();
+	lasers_reset();
 	bomb_reset();
 	snd_se_reset();
 	bosses_reset();
@@ -363,7 +362,7 @@ void near stage_init(void)
 		if(!reduce_effects) {
 			stage_update_and_render = sub_19E2F;
 		}
-		sub_129FC();
+		lasers_callbacks_set();
 		scroll_speed = 2;
 		scroll_interval = 1;
 		break;
@@ -389,7 +388,7 @@ void near stage_init(void)
 		boss_end = sigma_end;
 		boss_bg_render_func = sigma_bg_render;
 		boss_update_func = sigma_update;
-		sub_129FC();
+		lasers_callbacks_set();
 		scroll_interval = 2;
 		break;
 	}
