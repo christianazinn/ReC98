@@ -89,6 +89,9 @@ static const uint8_t POWER_MIN = 1;
 static const uint8_t POWER_MAX = 80;
 static const uint8_t MISS_INVINCIBILITY_FRAMES = 220;
 
+// Frames of invincibility granted after the player used a continue.
+static const uint8_t CONTINUE_INVINCIBILITY_FRAMES = 200;
+
 // Grants invincibility as long as it's true. Works independently from
 // [player_invincibility_time].
 extern bool player_invincible_via_bomb;
