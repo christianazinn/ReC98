@@ -809,7 +809,7 @@ int main(void)
 				mdrv2_bgm_play();
 			}
 
-			input_reset_sense();
+			input_reset_sense_at(T1RS_SITE_LIFE_LOOP);
 
 			if(player_invincibility_time > 1) {
 				player_invincible = true;

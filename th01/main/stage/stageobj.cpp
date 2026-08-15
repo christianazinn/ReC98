@@ -11,6 +11,20 @@
 #include "th01/main/stage/stages.hpp"
 #include "th01/main/stage/stageobj.hpp"
 
+#ifdef T1CASE
+#include "th01/t1case.hpp"
+
+// ORACLE-TH01 (mod branch only). Four of hash group 5's live objects are
+// function-local statics of the three update functions below and are
+// unreachable from th01/main/t1case.cpp, exactly like group 9's [input_prev].
+// Each owning function therefore publishes pointers; nothing is hoisted, so no
+// object's storage, size or order changes. See th01/t1case.hpp's
+// "Function-local statics published for hash groups 5 and 8".
+typedef char t1case_bars_flag_width_check[
+	(sizeof(bool) == sizeof(unsigned char)) ? 1 : -1
+];
+#endif
+
 // Globals
 // -------
 
@@ -628,6 +642,12 @@ void obstacles_update_and_render(bool16 reset)
 	// oscillate between a fixed set of bumper bars.)
 	static bool vertical_bars_blocked;
 
+#ifdef T1CASE
+	t1case_bars_bind(
+		reinterpret_cast<unsigned char near *>(&vertical_bars_blocked)
+	);
+#endif
+
 	if(reset == true) {
 		vertical_bars_blocked = false;
 	}
@@ -815,9 +835,22 @@ enum turret_flag_t {
 	_turret_flag_t_FORCE_INT16 = 0x7FFF
 };
 
+#ifdef T1CASE
+typedef char t1case_turret_flag_width_check[
+	(sizeof(turret_flag_t) == sizeof(int)) ? 1 : -1
+];
+#endif
+
 void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 {
 	static turret_flag_t *turret_flag;
+
+#ifdef T1CASE
+	// The SLOT, not the pointer: `turret_flag` is `new[]`-allocated per stage
+	// and nulled between stages, and the hasher has to observe that rather
+	// than cache a dangling far pointer. Only its elements are ever hashed.
+	t1case_turrets_bind(reinterpret_cast<int far * near *>(&turret_flag));
+#endif
 
 	if(reset == true) {
 		if(turret_flag) {
@@ -928,6 +961,12 @@ void portal_enter_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 
 	int dst_slot;
 	int completed_loops_over_all_obstacles;
+
+#ifdef T1CASE
+	t1case_portals_bind(
+		&obstacle_slot_of_entered_portal, &dst_left, &dst_top, &portals_blocked
+	);
+#endif
 
 	if(reset == true) {
 		obstacle_slot_of_entered_portal = 0; // (redundant)

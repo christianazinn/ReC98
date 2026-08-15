@@ -79,6 +79,9 @@
 #include "th01/main/player/player.hpp"
 #include "th01/main/player/shot.hpp"
 #include "th01/main/stage/stages.hpp"
+#include "th01/main/stage/stageobj.hpp" // hash group 5: cards, obstacles
+#include "th01/main/stage/card.hpp"     // hash group 5: card_flip_cycle
+#include "th01/main/stage/item.hpp"     // hash group 5: the item accessor
 
 // File-scope globals that TH01 never declared in a header.
 extern int8_t boss_id;      // th01/main_01.cpp:428
@@ -226,6 +229,21 @@ static bool t1case_inp_seen;
 // is exactly why it is worth counting.
 static uint32_t t1case_reset_count;
 
+// W3.1 step 5. The bare count above proved that two runs at an IDENTICAL
+// cursor had executed a different number of input_sense(true) calls; it could
+// not say which of the eight input_reset_sense() call sites was responsible,
+// and the eight guards are owned by five different subsystem groups
+// (state/notes/t1split-schema2.md 2). One counter per site turns "a reset
+// happened that the other run did not do" into a named site, which is the
+// difference between a divergence the row schema can be grown to see and one
+// it can NEVER see - site 8's guard is scoredat_load()'s return value, i.e.
+// DOS file state, which TXSPLIT_CONTRACT.md 7 excludes by rule.
+//
+// The last site alone is also kept, so the diag can show WHICH reset most
+// recently ran without having to difference eight counters.
+static uint16_t t1case_reset_by_site[T1RS_SITES];
+static uint8_t t1case_reset_last_site;
+
 // The checkpoint index T1CASE.CFG asked for, e.g. "p3".
 static uint8_t t1case_cfg_checkpoint;
 static bool t1case_done_written;
@@ -241,6 +259,42 @@ static uint32_t t1case_split_rows;
 // value the previous packet left there.
 static uint8_t t1case_keys[T1CASE_GROUP_COUNT];
 static uint8_t near *t1case_input_prev;
+
+/// Function-local statics published for hash groups 5 and 8
+/// --------------------------------------------------------
+/// Same shape as [t1case_input_prev] directly above, for the same reason and
+/// with the same nullptr discipline: until the owning function has run once,
+/// nothing is bound and the hash must serialize NOTHING rather than read a
+/// wild pointer. th01/t1case.hpp records why these are published rather than
+/// hoisted to file scope.
+
+// th01/main/particle.cpp:9-20 - the entirety of hash group 8.
+static int t1case_particle_count;
+static int near *t1case_p_spawn_interval;
+static int near *t1case_p_velocity_base_max;
+static int near *t1case_p_x;
+static int near *t1case_p_y;
+static int near *t1case_p_velocity_x;
+static int near *t1case_p_velocity_y;
+static uint8_t near *t1case_p_alive;
+static uint8_t near *t1case_p_velocity_base;
+static uint8_t near *t1case_p_spawn_cycle;
+
+// th01/main/stage/stageobj.cpp - three of hash group 5's objects.
+// Derived by the group-5 and group-8 hashers as a by-product of the walk they
+// already do, and copied into the row's critical block. Kept as statics rather
+// than recomputed in t1case_split_row(), so the plain column and the hash can
+// never describe different walks of the same arrays.
+static uint16_t t1case_cards_removed;
+static uint8_t t1case_items_alive_n;
+static uint8_t t1case_particles_alive_n;
+
+static uint8_t near *t1case_vertical_bars_blocked;
+static int far * near *t1case_turret_flag;
+static int near *t1case_portal_slot;
+static int near *t1case_portal_dst_left;
+static int near *t1case_portal_dst_top;
+static int near *t1case_portals_blocked;
 
 /// Packet RLE state
 /// ----------------
@@ -577,6 +631,22 @@ static void t1h_group_run(void)
 	t1h_u8(static_cast<uint8_t>(credit_lives_extra));
 	t1h_u32(static_cast<uint32_t>(score));
 	t1h_u32(static_cast<uint32_t>(resident->score_highest));
+
+	// [hiscore] is DELIBERATELY not here, and the reason is worth stating
+	// because the obvious reading of REPLAY_CORE_CONTRACT.md §14 item 1b
+	// ("hash it in group `run` at schema 2, or add it to the verify") points
+	// the other way. Adding a field to an EXISTING group changes that group's
+	// hash for every row of every trace, which destroys the one property that
+	// made the TH04/TH05 1 -> 2 bump safe to accept: every column version 1
+	// also had, INCLUDING the untouched groups' hashes, must be byte-identical
+	// between a v1 and a v2 trace. Measured, not supposed — the first schema-2
+	// build did put it here, and the v1-vs-v2 column comparison went red on
+	// `hash_run` at row 0.
+	//
+	// So [hiscore] becomes a CRITICAL field instead. That covers the gap more
+	// strongly than hashing would (a plain column is compared byte for byte
+	// AND is readable without a preimage) and leaves groups 0-4, 6, 7 and 9
+	// provably untouched by the bump.
 	t1h_u32(static_cast<uint32_t>(continues_total));
 	for(i = 0; i < SCENE_COUNT; i++) {
 		t1h_u32(static_cast<uint32_t>(resident->continues_per_scene[i]));
@@ -679,6 +749,164 @@ static void t1h_group_boss(void)
 	t1h_u16(static_cast<uint16_t>(boss_hp));
 	t1h_u8(static_cast<uint8_t>(boss_phase));
 	t1h_u16(static_cast<uint16_t>(boss_phase_frame));
+}
+
+// Group 5 — stage objects, cards, items. `[open]` from Gate A until W3.1
+// step 5, hashing a declared-empty sequence, which is exactly what made the
+// step-4 checkpoint divergence invisible to the oracle.
+//
+// This group owns the stage-clear predicate and nothing else does:
+// th01/main/stage/card.cpp:225-228 sets `stage_cleared` and `player_is_hit`
+// when every card is CARD_REMOVED, and those two decide three of the eight
+// input_reset_sense() call sites (state/notes/t1split-schema2.md §2).
+//
+// Excluded, with reasons: [cards_score] (the score it carries is added to
+// [score] at the instant it is written, card.cpp:56, and the array is
+// thereafter read only by cards_score_render()); CARD_ANIM (an immutable
+// sprite LUT); [stageobj_bgs] and [stageobj_bgs_size] (a farcalloc()'d VRAM
+// plane cache — §7 excludes the pointer AND the pixels); [default_grp_fn] /
+// [default_bgm_fn] (asset filenames); [stage_palette] (hardware palette).
+static void t1h_group_stageobj(void)
+{
+	int fields[T1CASE_ITEM_FIELDS];
+	int removed = 0;
+	int i;
+	int j;
+
+	t1h_begin();
+
+	// The trap this group's inventory found first: BOTH constructors set
+	// `count = 1` while leaving every array pointer null
+	// (stageobj.hpp:104-112, :144-150), and free() nulls them again between
+	// stages (:95-102, :152-157). So every loop is guarded on the POINTERS,
+	// never on the count alone — a count-only loop dereferences a null far
+	// pointer at boot and at every stage transition.
+	t1h_u16(static_cast<uint16_t>(cards.count));
+	if(
+		(cards.count > 0) && (cards.left != nullptr) &&
+		(cards.top != nullptr) && (cards.flag != nullptr) &&
+		(cards.flip_frame != nullptr) && (cards.hp != nullptr)
+	) {
+		for(i = 0; i < cards.count; i++) {
+			t1h_u16(static_cast<uint16_t>(cards.left[i]));
+			t1h_u16(static_cast<uint16_t>(cards.top[i]));
+			t1h_u8(static_cast<uint8_t>(cards.flag[i]));
+			t1h_u16(static_cast<uint16_t>(cards.flip_frame[i]));
+			t1h_u8(static_cast<uint8_t>(cards.hp[i]));
+			if(cards.flag[i] == CARD_REMOVED) {
+				removed++;
+			}
+		}
+	}
+	t1case_cards_removed = static_cast<uint16_t>(removed);
+	t1h_u8(card_flip_cycle);
+
+	t1h_u16(static_cast<uint16_t>(obstacles.count));
+	if(
+		(obstacles.count > 0) && (obstacles.left != nullptr) &&
+		(obstacles.top != nullptr) && (obstacles.type != nullptr) &&
+		(obstacles.frame != nullptr)
+	) {
+		for(i = 0; i < obstacles.count; i++) {
+			t1h_u16(static_cast<uint16_t>(obstacles.left[i]));
+			t1h_u16(static_cast<uint16_t>(obstacles.top[i]));
+
+			// obstacle_type_t is the one enum in this group with no
+			// _FORCE_INT16 member (th01/formats/stagedat.hpp:35-72), so its
+			// storage width depends on `-b-` in the build's cflags. Written at
+			// an explicit width rather than at sizeof(), or dropping that flag
+			// would silently change every recorded row.
+			t1h_u8(static_cast<uint8_t>(obstacles.type[i]));
+
+			// A union of three ints (stageobj.hpp:123-127) — one storage cell
+			// whose meaning depends on type[i], not three fields. Hashed once.
+			t1h_u16(static_cast<uint16_t>(obstacles.frame[i].v));
+		}
+
+		// Heap array, one element per obstacle, published as the SLOT holding
+		// the pointer so that a stage transition nulling it is observable.
+		if((t1case_turret_flag != nullptr) && (*t1case_turret_flag != nullptr)) {
+			for(i = 0; i < obstacles.count; i++) {
+				t1h_u16(static_cast<uint16_t>((*t1case_turret_flag)[i]));
+			}
+		}
+	}
+
+	if(t1case_vertical_bars_blocked != nullptr) {
+		t1h_u8(*t1case_vertical_bars_blocked);
+	}
+	if(t1case_portal_slot != nullptr) {
+		t1h_u16(static_cast<uint16_t>(*t1case_portal_slot));
+		t1h_u16(static_cast<uint16_t>(*t1case_portal_dst_left));
+		t1h_u16(static_cast<uint16_t>(*t1case_portal_dst_top));
+		t1h_u16(static_cast<uint16_t>(*t1case_portals_blocked));
+	}
+
+	for(i = 0; i < T1CASE_ITEM_SLOTS; i++) {
+		t1case_item_get(i, fields);
+		for(j = 0; j < T1CASE_ITEM_FIELDS; j++) {
+			t1h_u16(static_cast<uint16_t>(fields[j]));
+		}
+	}
+	t1case_items_alive_n = static_cast<uint8_t>(t1case_items_alive());
+}
+
+// Group 8 — geometry and effects. `[open]` from Gate A until W3.1 step 5,
+// alongside group 5.
+//
+// [measured] This group IS th01/main/particle.cpp's 40-particle system and
+// nothing else. Of its four owning headers
+// (state/re/DETERMINISTIC_STATE_TH01.md §6), three declare no live state at
+// all: shape.hpp and spawnray.hpp are drawing helpers whose only persistent
+// state is unblit bookkeeping (b20m.cpp:404-405, b20j.cpp:301-302 — the same
+// prev_left/prev_top exclusion the bullet group applies), and entity.hpp
+// declares types with no instances of its own, its one file-scope
+// instantiation being `CShots Shots`, already hashed in group 2.
+// shape.cpp:12's [stage_palette] is a hardware palette and shape.cpp:13's
+// [unused][340] is dead.
+//
+// [measured] And unlike group 5, group 8 gates NONE of the eight
+// input_reset_sense() call sites. Closing it completes the schema; it is not
+// the instrument for the step-4 divergence.
+static void t1h_group_effects(void)
+{
+	int alive = 0;
+	int i;
+
+	t1h_begin();
+
+	// particles_unput_update_render() is called only from boss code
+	// (b05, b10j, b10m, b15j, b15m), so on a case that never reaches a boss
+	// nothing is ever bound and this group correctly hashes an empty sequence.
+	// [particles_alive] in the critical block is what tells a reader that
+	// apart from a group that is bound and quiescent.
+	if(t1case_p_x != nullptr) {
+		t1h_u16(static_cast<uint16_t>(t1case_particle_count));
+		t1h_u16(static_cast<uint16_t>(*t1case_p_spawn_interval));
+		t1h_u16(static_cast<uint16_t>(*t1case_p_velocity_base_max));
+		t1h_u8(*t1case_p_spawn_cycle);
+		for(i = 0; i < t1case_particle_count; i++) {
+			// Subpixel is Q12.4 fixed point; the raw .v is hashed, never
+			// to_pixel(), exactly as the pellet group does.
+			t1h_u16(static_cast<uint16_t>(t1case_p_x[i]));
+			t1h_u16(static_cast<uint16_t>(t1case_p_y[i]));
+			t1h_u16(static_cast<uint16_t>(t1case_p_velocity_x[i]));
+			t1h_u16(static_cast<uint16_t>(t1case_p_velocity_y[i]));
+			t1h_u8(t1case_p_alive[i]);
+
+			// Deliberately hashed even though particle.cpp:18 calls it
+			// "MODDERS: Should be local": particle.cpp:52-55 documents that
+			// alive[PARTICLE_COUNT] aliases velocity_base[0], so this array is
+			// where one of ZUN's out-of-bounds writes lands. Omitting it would
+			// hide the effect the aliasing produces.
+			t1h_u8(t1case_p_velocity_base[i]);
+
+			if(t1case_p_alive[i] != 0) {
+				alive++;
+			}
+		}
+	}
+	t1case_particles_alive_n = static_cast<uint8_t>(alive);
 }
 
 static void t1h_group_scoring(void)
@@ -894,6 +1122,72 @@ bool16 far t1case_active(void)
 void far t1case_reset_note(void)
 {
 	t1case_reset_count++;
+}
+
+void far t1case_reset_site(int site)
+{
+	if((site > 0) && (site < T1RS_SITES)) {
+		t1case_reset_by_site[site]++;
+		t1case_reset_last_site = static_cast<uint8_t>(site);
+	} else {
+		// Slot 0 is "a site that did not identify itself". It must be
+		// reachable and countable rather than silently folded into a real
+		// site, or a missed call-site annotation would look like a genuine
+		// extra reset at whichever site was annotated last.
+		t1case_reset_by_site[0]++;
+		t1case_reset_last_site = 0;
+	}
+}
+
+/// Function-local static publishes
+/// -------------------------------
+
+void far t1case_particles_bind(
+	int count,
+	int near *spawn_interval,
+	int near *velocity_base_max,
+	int near *x,
+	int near *y,
+	int near *velocity_x,
+	int near *velocity_y,
+	unsigned char near *alive,
+	unsigned char near *velocity_base,
+	unsigned char near *spawn_cycle
+)
+{
+	t1case_particle_count = count;
+	t1case_p_spawn_interval = spawn_interval;
+	t1case_p_velocity_base_max = velocity_base_max;
+	t1case_p_x = x;
+	t1case_p_y = y;
+	t1case_p_velocity_x = velocity_x;
+	t1case_p_velocity_y = velocity_y;
+	t1case_p_alive = alive;
+	t1case_p_velocity_base = velocity_base;
+	t1case_p_spawn_cycle = spawn_cycle;
+}
+
+void far t1case_bars_bind(unsigned char near *vertical_bars_blocked)
+{
+	t1case_vertical_bars_blocked = vertical_bars_blocked;
+}
+
+void far t1case_turrets_bind(int far * near *turret_flag)
+{
+	t1case_turret_flag = turret_flag;
+}
+
+void far t1case_portals_bind(
+	int near *obstacle_slot_of_entered_portal,
+	int near *dst_left,
+	int near *dst_top,
+	int near *portals_blocked
+)
+{
+	t1case_portal_slot = obstacle_slot_of_entered_portal;
+	t1case_portal_dst_left = dst_left;
+	t1case_portal_dst_top = dst_top;
+	t1case_portals_blocked = portals_blocked;
 }
 
 void far t1case_diag_note(char t0, char t1, char t2, uint32_t a, uint32_t b)
@@ -1769,6 +2063,36 @@ static uint16_t t1case_input_digest(void)
 	return static_cast<uint16_t>(both | (static_cast<uint16_t>(mix) << 8));
 }
 
+// The conformance fixture TXSPLIT_CONTRACT.md §9 item 2 has wanted since the
+// contract was written, and which schema 2 made mandatory rather than nice to
+// have.
+//
+// Schema 1 had this property by ACCIDENT. Groups 5 and 8 hashed a
+// declared-empty sequence, so their columns held exactly the two basis
+// constants, and tools/port/t1case.py checked that on row 0 — "if these
+// columns hold the basis pair, the guest's hash seeding, commit order and
+// endianness agree with this file's". Filling those two groups DELETES that
+// check, and the 64-bit construction is "chosen here, not inherited" (§7): it
+// has to stay pinned by something both the PC-98 writer and the host
+// comparator reproduce byte for byte.
+//
+// Emitted to T1DIAG.TXT rather than into the row, because the row is
+// byte-compared across lineages and must not grow, and a fixture living in the
+// row would need re-versioning every time the row is.
+static void t1h_fixture_emit(void)
+{
+	int i;
+
+	t1h_begin();
+	for(i = 0; i < T1SPLIT_FIXTURE_SIZE; i++) {
+		t1h_u8(static_cast<uint8_t>(T1SPLIT_FIXTURE_BYTE(i)));
+	}
+
+	// Deliberately NOT via t1h_commit(): that writes into a row, and this
+	// fixture must be readable from a run that produced no rows at all.
+	t1case_diag('H', 'S', 'H', t1h_a, t1h_b);
+}
+
 static void t1case_split_row(uint8_t event)
 {
 	t1split_row_t row;
@@ -1824,15 +2148,26 @@ static void t1case_split_row(uint8_t event)
 	t1h_group_player();   t1h_commit(&row, T1SPLIT_G_PLAYER);
 	t1h_group_bullets();  t1h_commit(&row, T1SPLIT_G_BULLETS);
 	t1h_group_boss();     t1h_commit(&row, T1SPLIT_G_BOSS);
-	// Groups 5 (stage objects/cards/items) and 8 (geometry/effects) are [open]
-	// for schema 2; they hash a declared-empty sequence and therefore emit the
-	// two basis constants unchanged. That is deliberately recognizable rather
-	// than silently zero. See state/notes/oracle-th01-bringup.md.
-	t1h_begin();          t1h_commit(&row, T1SPLIT_G_STAGEOBJ);
+	// Groups 5 and 8 were [open] from Gate A until W3.1 step 5 and hashed a
+	// declared-empty sequence. Step 4a measured what that cost: at the
+	// checkpoint-restore divergence all ten groups agreed one row earlier, so
+	// the oracle could name the messenger (group 9) and not the cause.
+	t1h_group_stageobj(); t1h_commit(&row, T1SPLIT_G_STAGEOBJ);
 	t1h_group_scoring();  t1h_commit(&row, T1SPLIT_G_SCORING);
 	t1h_group_hud();      t1h_commit(&row, T1SPLIT_G_HUD);
-	t1h_begin();          t1h_commit(&row, T1SPLIT_G_EFFECTS);
+	t1h_group_effects();  t1h_commit(&row, T1SPLIT_G_EFFECTS);
 	t1h_group_input();    t1h_commit(&row, T1SPLIT_G_INPUT);
+
+	// Schema 2's critical block, filled AFTER the two hashers because they
+	// derive three of the five values from the walk they already do. A plain
+	// column and a hash that described different walks of the same arrays
+	// would be worse than no column at all.
+	row.hiscore = resident->hiscore;
+	row.cards_count = static_cast<uint16_t>(cards.count);
+	row.cards_removed = t1case_cards_removed;
+	row.obstacles_count = static_cast<uint16_t>(obstacles.count);
+	row.items_alive = t1case_items_alive_n;
+	row.particles_alive = t1case_particles_alive_n;
 
 	// [emu] diagnostic, not schema: T1SPLIT rows are compared byte for byte
 	// across lineages and must not grow, so this goes to T1DIAG.TXT.
@@ -1879,6 +2214,15 @@ static void t1case_split_row(uint8_t event)
 		t1case_diag('I', 'P', 'B', ip2, ip3);
 		t1case_diag('I', 'P', 'C', ipb, t1case_reset_count);
 		t1case_diag('I', 'P', 'D', t1case_global_frame, t1case_sample_count);
+
+		// W3.1 step 5: which of the eight input_reset_sense() sites ran most
+		// recently, beside the count that step 4a could only total. This is
+		// the whole reason the id is threaded from the call site — the two
+		// runs of the step-4 divergence differ by ONE reset, and A/C (guards
+		// owned by groups 1 and 5) versus H (guard owned by nothing, because
+		// it is scoredat_load()'s DOS return value) are completely different
+		// findings.
+		t1case_diag('I', 'P', 'E', t1case_reset_last_site, t1case_reset_count);
 	}
 
 	if(!t1f_write(fd, &row, sizeof(row))) {
@@ -2567,6 +2911,7 @@ void far t1case_round_start(void)
 	t1case_ckpt_verify_pending = false;
 	if(!t1case_started) {
 		t1case_started = true;
+		t1h_fixture_emit();
 		t1case_split_row(T1SPLIT_EVENT_START);
 	} else {
 		t1case_split_row(T1SPLIT_EVENT_ROUND_START);
@@ -2579,6 +2924,7 @@ void far t1case_finish(bool16 terminal)
 	uint8_t control;
 	bool final_case;
 	bool late = false;
+	int site;
 
 	if((t1case_mode == T1CASE_DISABLED) || (t1case_mode == T1CASE_ERROR)) {
 		return;
@@ -2628,6 +2974,23 @@ void far t1case_finish(bool16 terminal)
 	// already committed the control packet, so this is a packet boundary
 	// (REPLAY_CORE_CONTRACT.md §4.4 item 1) and not merely a byte count.
 	t1case_diag('F', 'B', 'C', t1case_input_byte_count, t1case_sample_count);
+
+	// W3.1 step 5: the per-site input_reset_sense() profile for this process
+	// segment, one line per site that actually fired. Emitted at the boundary
+	// rather than per row, because the whole point of the step-4 divergence is
+	// that two process segments starting from the same checkpoint ran a
+	// DIFFERENT number of resets — and the profile is what says which site.
+	// Site 0 is "did not identify itself"; a nonzero count there means a call
+	// site lost its T1RS_SITE_* annotation, which is a defect in this
+	// instrumentation rather than a finding about the game.
+	for(site = 0; site < T1RS_SITES; site++) {
+		if(t1case_reset_by_site[site] != 0) {
+			t1case_diag(
+				'R', 'S', static_cast<char>('0' + site),
+				t1case_reset_by_site[site], t1case_global_frame
+			);
+		}
+	}
 
 	final_case = (
 		(terminal != false) ||

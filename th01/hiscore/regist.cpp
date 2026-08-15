@@ -565,7 +565,7 @@ void regist_name_enter(int entered_place)
 	}
 	entered_name.ubyte[SCOREDAT_NAME_BYTES] = '\0';
 
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_REGIST_NAME);
 	while(1) {
 		input_sense(false);
 		int input_ret = regist_on_input(
@@ -652,7 +652,7 @@ void regist_menu(
 		}
 	}
 
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_REGIST_MENU);
 
 	if(place < SCOREDAT_PLACES) {
 		for(long shift = (SCOREDAT_PLACES - 1); shift > place; shift--) {

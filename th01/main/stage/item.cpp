@@ -61,6 +61,52 @@ static const int ITEM_POINT_COUNT = 10;
 
 item_t items_bomb[ITEM_BOMB_COUNT];
 item_t items_point[ITEM_POINT_COUNT];
+
+#ifdef T1CASE
+// ORACLE-TH01 (mod branch only). The counts are duplicated as macros in
+// item.hpp because the constants above are TU-private; proven equal here so
+// the duplication cannot drift.
+typedef char t1case_item_bomb_count_check[
+	(ITEM_BOMB_COUNT == T1CASE_ITEM_BOMBS) ? 1 : -1
+];
+typedef char t1case_item_point_count_check[
+	(ITEM_POINT_COUNT == T1CASE_ITEM_POINTS) ? 1 : -1
+];
+
+void t1case_item_get(int slot, int far *out)
+{
+	const item_t *item = (slot < ITEM_BOMB_COUNT)
+		? &items_bomb[slot]
+		: &items_point[slot - ITEM_BOMB_COUNT];
+
+	out[0] = item->left;
+	out[1] = item->top;
+	out[2] = item->velocity_y;
+	out[3] = item->flag;
+
+	// The union's two members alias one byte; item.cpp's own code selects by
+	// [flag], but the hash needs the byte, so it takes either view.
+	out[4] = item->flag_state.splash_radius;
+}
+
+int t1case_items_alive(void)
+{
+	int alive = 0;
+	int i;
+
+	for(i = 0; i < ITEM_BOMB_COUNT; i++) {
+		if(items_bomb[i].flag != IF_FREE) {
+			alive++;
+		}
+	}
+	for(i = 0; i < ITEM_POINT_COUNT; i++) {
+		if(items_point[i].flag != IF_FREE) {
+			alive++;
+		}
+	}
+	return alive;
+}
+#endif
 /// ----------
 
 /// Function types

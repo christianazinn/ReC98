@@ -143,7 +143,7 @@ void singyoku_defeat_animate_and_select_route(void)
 	route_sel.v = ROUTE_MAKAI;
 	input_shot = false;
 	input_ok = false;
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_ROUTE_SELECT);
 	bool16 holding_up = false;
 	bool16 holding_down = false;
 

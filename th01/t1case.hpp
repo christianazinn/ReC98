@@ -275,11 +275,31 @@ struct t1case_checkpoint_t {
 /// Trace container
 /// ---------------
 
-#define T1SPLIT_VERSION       1
+// Row schema version 2 closes groups 5 (stage objects, cards, items) and 8
+// (geometry, effects), which hashed a declared-empty sequence from Gate A
+// until W3.1 step 5, and adds five critical fields derived from state the
+// writer now walks anyway.
+//
+// Following the TH04/TH05 1 -> 2 bump exactly (state/notes/
+// oracle-th0405-bringup.md, TASK 1): the 16-byte prefix and the FIRST 44 BYTES
+// of the critical block are byte-identical to version 1, and the new fields go
+// at the end of the block. That is what makes "every column v1 also had is
+// byte-identical between a v1 and a v2 trace" a checkable claim rather than a
+// hope, and it is the check that made the TH04/TH05 bump safe to accept.
+//
+// The host reader dispatches on the header's `version` and REJECTS a file
+// whose `row_size` disagrees with it (TXSPLIT_CONTRACT.md 1), rather than
+// reinterpreting v1 fields under a schema that does not describe them.
+#define T1SPLIT_VERSION       2
 #define T1SPLIT_HEADER_SIZE   16
-#define T1SPLIT_CRITICAL_SIZE 44
+#define T1SPLIT_CRITICAL_SIZE 56
 #define T1SPLIT_GROUPS        10
 #define T1SPLIT_ROW_SIZE      (16 + T1SPLIT_CRITICAL_SIZE + (8 * T1SPLIT_GROUPS))
+
+// The version-1 geometry, kept as a constant so the size proofs below can
+// assert that the v1 prefix + critical prefix really did not move.
+#define T1SPLIT_V1_CRITICAL_SIZE 44
+#define T1SPLIT_V1_ROW_SIZE      (16 + T1SPLIT_V1_CRITICAL_SIZE + (8 * 10))
 
 // Must be a power of two: the cadence test is a mask, not a modulo.
 //
@@ -663,6 +683,29 @@ struct t1split_row_t {
 	int8_t stage_cleared;
 	int8_t player_is_hit;
 
+	/// Critical fields added by row schema 2 — 12 bytes, appended so that
+	/// everything above is byte-identical to version 1.
+	///
+	/// All five are derived from state the group-5 and group-8 hashers already
+	/// walk, so they cost only their row bytes — the same argument TH04/TH05
+	/// used for `bullets_alive`. Two of them are degeneracy witnesses: a
+	/// subsystem hash that never changes is indistinguishable from a subsystem
+	/// that is never populated, and a human reading a TSV column cannot tell
+	/// those apart without a preimage.
+	// REPLAY_CORE_CONTRACT.md §14 item 1b: restored by
+	// t1case_startup_apply() and covered by nothing — in no t1h_group_* and
+	// absent from t1case_startup_verify(), so a build that dropped its restore
+	// passed every gate this campaign had. Critical rather than hashed into
+	// group 1, so that no EXISTING group's hash changes under the bump; see
+	// the comment at t1h_group_run()'s [score_highest].
+	uint32_t hiscore;
+
+	uint16_t cards_count;
+	uint16_t cards_removed;  // the LHS of card.cpp:225's stage-clear predicate
+	uint16_t obstacles_count;
+	uint8_t items_alive;
+	uint8_t particles_alive;
+
 	/// Subsystem hashes — 10 x 64-bit, little-endian, low word first.
 	/// hash[2*g] is pass B, hash[(2*g) + 1] is pass A
 	/// (TXSPLIT_CONTRACT.md §7: hash64 = (passA << 32) | passB).
@@ -675,10 +718,10 @@ struct t1split_row_t {
 #define T1SPLIT_G_PLAYER   2
 #define T1SPLIT_G_BULLETS  3
 #define T1SPLIT_G_BOSS     4
-#define T1SPLIT_G_STAGEOBJ 5 // [open] schema 2
+#define T1SPLIT_G_STAGEOBJ 5 // closed by schema 2
 #define T1SPLIT_G_SCORING  6
 #define T1SPLIT_G_HUD      7
-#define T1SPLIT_G_EFFECTS  8 // [open] schema 2
+#define T1SPLIT_G_EFFECTS  8 // closed by schema 2
 #define T1SPLIT_G_INPUT    9
 
 /// Hashes
@@ -687,6 +730,36 @@ struct t1split_row_t {
 #define T1CASE_FNV1A_BASIS 0x811C9DC5UL
 #define T1CASE_FNV1A_PRIME 0x01000193UL
 #define T1SPLIT_PASSB_BASIS 0x7EE3623AUL
+
+// The conformance fixture TXSPLIT_CONTRACT.md 9 item 2 asks for, made explicit
+// by schema 2.
+//
+// Version 1 got this property for free and by accident: groups 5 and 8 hashed
+// a declared-empty sequence, so their columns held exactly the two basis
+// constants, and tools/port/t1case.py checked that on row 0. Filling those two
+// groups DELETES that check. Replacing it rather than dropping it is the whole
+// point — the construction of TXSPLIT_CONTRACT.md 7 is "chosen here, not
+// inherited" and must be pinned by something both the PC-98 writer and the
+// host comparator reproduce byte for byte.
+//
+// The preimage is 16 bytes covering every case the two passes are supposed to
+// disagree on: a run of equal zero bytes, a run of equal 0xFF bytes, an
+// ascending ramp (which pass B's index XOR folds to a constant while pass A
+// does not), and a transposed pair.
+//
+// Expressed as a RULE rather than an initializer list, for two reasons. The
+// module is forbidden from contributing initialized data — a `_DATA`
+// contribution would land between the original `_DATA` and `_BSS` inside
+// DGROUP (see the header comment of th01/main/t1case.cpp) — and a rule is one
+// source of truth that the guest and the host comparator both evaluate,
+// instead of two byte lists that can drift apart silently.
+#define T1SPLIT_FIXTURE_SIZE 16
+#define T1SPLIT_FIXTURE_BYTE(i) ( \
+	((i) <  4) ? 0x00 : \
+	((i) <  8) ? 0xFF : \
+	((i) < 14) ? ((i) - 8) : \
+	((i) == 14) ? 0x5A : 0xA5 \
+)
 
 /// Build-time size proofs
 /// ----------------------
@@ -824,6 +897,34 @@ typedef char t1split_header_size_check[
 typedef char t1split_row_size_check[
 	(sizeof(t1split_row_t) == T1SPLIT_ROW_SIZE) ? 1 : -1
 ];
+// The schema-2 bump's safety property, asserted rather than described: every
+// version-1 field is still at its version-1 offset, and the version-1 critical
+// block still ends exactly where it did. A bump that quietly moved `score` or
+// `player_is_hit` would still satisfy the total-size check above, and the
+// host's v1-vs-v2 column comparison would then be comparing different bytes
+// under the same name.
+typedef char t1split_row_v1_score_offset_check[
+	(offsetof(t1split_row_t, score) == 16) ? 1 : -1
+];
+typedef char t1split_row_v1_tail_offset_check[
+	(offsetof(t1split_row_t, player_is_hit) ==
+		(16 + T1SPLIT_V1_CRITICAL_SIZE - 1)) ? 1 : -1
+];
+// The first schema-2 field must begin exactly where version 1's critical block
+// ended: schema 2 APPENDS, it does not interleave.
+typedef char t1split_row_v2_critical_offset_check[
+	(offsetof(t1split_row_t, hiscore) == (16 + T1SPLIT_V1_CRITICAL_SIZE)) ?
+	1 : -1
+];
+typedef char t1split_row_hash_offset_check[
+	(offsetof(t1split_row_t, hash) == (16 + T1SPLIT_CRITICAL_SIZE)) ? 1 : -1
+];
+// A schema bump is a version bump: the two must never move independently.
+typedef char t1split_version_size_check[
+	((T1SPLIT_VERSION == 1) ?
+		(T1SPLIT_ROW_SIZE == T1SPLIT_V1_ROW_SIZE) :
+		(T1SPLIT_ROW_SIZE != T1SPLIT_V1_ROW_SIZE)) ? 1 : -1
+];
 
 /// The seam
 /// --------
@@ -850,6 +951,68 @@ void far t1case_frame_io(uint8_t near *prev);
 // by a call counter: each group is sensed twice and OR'd as a keyboard-UART
 // guard, and `a | a == a` makes the repeat exact.
 int far t1case_key_sense(int keygroup);
+
+/// Function-local statics published for hash groups 5 and 8
+/// --------------------------------------------------------
+/// Same reachability problem as [input_prev], and the same solution: the
+/// owning function hands over a pointer, because nothing else can.
+///
+/// [decision] Hoisting these to file scope was REJECTED, and the reason is
+/// load-bearing rather than stylistic. th01/main/particle.cpp:52-55 and
+/// :100-104 document that ZUN's loops write one element PAST the end of
+/// `alive[]` and `velocity_y[]`, so `alive[PARTICLE_COUNT]` aliases
+/// `velocity_base[0]` and `velocity_y[PARTICLE_COUNT]` aliases `alive[0..1]`.
+/// That behaviour depends on the objects being adjacent in the order the
+/// compiler laid out THAT FUNCTION's statics. Moving them to file scope is a
+/// storage change that could silently rearrange them, i.e. change the game
+/// rather than observe it. A pointer publish changes no object's storage,
+/// size or order — which is exactly why [input_prev] was done this way too.
+///
+/// Every array is passed as a pointer to its ELEMENT type, never as an opaque
+/// blob, so the hasher serializes fields and never a struct image
+/// (TXSPLIT_CONTRACT.md §7). The owning TU proves the element widths.
+
+// th01/main/particle.cpp:9-20. [count] is that function's local
+// `enum { PARTICLE_COUNT = 40 }`, which no header exposes.
+// The four Subpixel arrays are handed over as `int near *` views of
+// `SubpixelBase::v` (th01/math/subpixel.hpp:45), the type's ONLY data member.
+void far t1case_particles_bind(
+	int count,
+	int near *spawn_interval,
+	int near *velocity_base_max,
+	int near *x,
+	int near *y,
+	int near *velocity_x,
+	int near *velocity_y,
+	unsigned char near *alive,
+	unsigned char near *velocity_base,
+	unsigned char near *spawn_cycle
+);
+
+// th01/main/stage/stageobj.cpp:629, in obstacles_update_and_render().
+void far t1case_bars_bind(unsigned char near *vertical_bars_blocked);
+
+// th01/main/stage/stageobj.cpp:820, in
+// turret_fire_update_and_render_or_reset(). The array is heap-allocated with
+// `new[]` and freed with `delete[]`, so what is published is the SLOT that
+// holds the pointer, not the pointer — it can become null between stages and
+// the hasher has to see that rather than cache a dangling value. The pointer
+// itself is never hashed; only [obstacles.count] elements behind it are.
+void far t1case_turrets_bind(int far * near *turret_flag);
+
+// th01/main/stage/stageobj.cpp:919-927, in
+// portal_enter_update_and_render_or_reset().
+void far t1case_portals_bind(
+	int near *obstacle_slot_of_entered_portal,
+	int near *dst_left,
+	int near *dst_top,
+	int near *portals_blocked
+);
+
+// Records which of the eight input_reset_sense() call sites is about to run.
+// See th01/hardware/input.hpp's T1RS_SITE_* block for why the id has to come
+// from the call site.
+void far t1case_reset_site(int site);
 
 // Pre-init: applies the case's startup block, creating resident_t when this
 // process is the case's first. Called from REIIDEN's main() after

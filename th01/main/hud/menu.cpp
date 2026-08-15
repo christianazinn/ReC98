@@ -146,7 +146,7 @@ bool16 pause_menu(void)
 	}
 
 	z_palette_set_all_show(stage_palette);
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_PAUSE_MENU);
 
 	// ZUN landmine: Same as above.
 	egc_copy_rect_1_to_0_16(
@@ -222,7 +222,7 @@ bool16 continue_menu(void)
 	input_ok = false;
 	paused = false;
 	input_shot = false;
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_CONTINUE_MENU);
 
 	// If we don't, we quit back to the main menu anyway.
 	resident_continue_use();

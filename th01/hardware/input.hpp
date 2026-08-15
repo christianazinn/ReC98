@@ -38,6 +38,42 @@ void input_sense(bool16 reset_repeat);
 // keyboard state.
 void input_reset_sense(void);
 
+// ORACLE-TH01 (mod branch only, -DT1CASE on the REIIDEN branch alone —
+// Tupfile.lua:381). input_reset_sense() calls input_sense(true), whose early
+// return happens BEFORE t1case_frame_io() and therefore consumes no case
+// record. All eight call sites are consequently invisible to every one of the
+// case's three cursors, and W3.1 step 4a measured two runs holding different
+// reset counts at an identical cursor. A bare counter proved that; naming
+// WHICH site fired needs the id, and the id cannot be recovered from inside
+// input_sense() without reading a return address — which is a layout address
+// and therefore a stop condition (TXSPLIT_CONTRACT.md 7).
+//
+// So the id is passed in at the call site. This is diagnostic only: it reaches
+// T1DIAG.TXT and never the T1SPLIT row, which is byte-compared across
+// lineages and must not grow.
+#define T1RS_SITE_LIFE_LOOP     1 // th01/main_01.cpp, per life-loop iteration
+#define T1RS_SITE_PAUSE_MENU    2 // th01/main/hud/menu.cpp, non-quit exit
+#define T1RS_SITE_CONTINUE_MENU 3 // th01/main/hud/menu.cpp
+#define T1RS_SITE_ROUTE_SELECT  4 // th01/main/boss/defeat.cpp, SinGyoku
+#define T1RS_SITE_STAGE_BONUS   5 // th01/main/bonus.cpp, non-boss stage clear
+#define T1RS_SITE_TOTLE         6 // th01/main/bonus.cpp, boss stage clear
+#define T1RS_SITE_REGIST_NAME   7 // th01/hiscore/regist.cpp, name entry
+#define T1RS_SITE_REGIST_MENU   8 // th01/hiscore/regist.cpp, after scoredat_load()
+#define T1RS_SITES              9
+
+#ifdef T1CASE
+extern "C" void far t1case_reset_site(int site);
+
+#define input_reset_sense_at(site) { \
+	t1case_reset_site(site); \
+	input_reset_sense(); \
+}
+#else
+#define input_reset_sense_at(site) { \
+	input_reset_sense(); \
+}
+#endif
+
 // Resets just menu-related inputs.
 inline void input_reset_menu_related(void) {
 	input_lr = INPUT_NONE;

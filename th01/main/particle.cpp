@@ -1,5 +1,22 @@
 #include "th01/main/particle.hpp"
 
+#ifdef T1CASE
+#include "th01/t1case.hpp"
+
+// ORACLE-TH01 (mod branch only). The `int near *` views handed to
+// t1case_particles_bind() below address SubpixelBase's sole data member
+// `SubpixelType v` (th01/math/subpixel.hpp:45, typedef'd `int` at :13), which
+// is the whole object — so the hash serializes a field, not a struct image
+// (TXSPLIT_CONTRACT.md §7). Proven here, in the TU that owns the type, rather
+// than assumed in the TU that consumes it.
+typedef char t1case_subpixel_width_check[
+	(sizeof(Subpixel) == sizeof(int)) ? 1 : -1
+];
+typedef char t1case_bool_width_check[
+	(sizeof(bool) == sizeof(unsigned char)) ? 1 : -1
+];
+#endif
+
 void particles_unput_update_render(particle_origin_t origin, vc2 col)
 {
 	enum {
@@ -20,6 +37,31 @@ void particles_unput_update_render(particle_origin_t origin, vc2 col)
 	static unsigned char spawn_cycle;
 
 	unsigned char i;
+
+#ifdef T1CASE
+	// Hash group 8 (geometry and effects) IS this particle system and nothing
+	// else: shape.hpp, spawnray.hpp and entity.hpp declare no live state of
+	// their own, and shape.cpp's [stage_palette] is a hardware palette.
+	// Everything here is a function-local static, so this publish is the only
+	// way group 8 can stop hashing a declared-empty sequence.
+	//
+	// Unconditional and before the PO_INITIALIZE early return, because the
+	// alternative — a `static bool bound` guard — would add another static to
+	// this function, and the layout of this function's statics is exactly what
+	// ZUN's two documented out-of-bounds writes below depend on.
+	t1case_particles_bind(
+		PARTICLE_COUNT,
+		&spawn_interval,
+		&velocity_base_max,
+		reinterpret_cast<int near *>(x),
+		reinterpret_cast<int near *>(y),
+		reinterpret_cast<int near *>(velocity_x),
+		reinterpret_cast<int near *>(velocity_y),
+		reinterpret_cast<unsigned char near *>(alive),
+		velocity_base,
+		&spawn_cycle
+	);
+#endif
 
 	// Completely pointless, since all of this could have been statically
 	// initialized.

@@ -414,7 +414,7 @@ void stagebonus_animate(int stage_num)
 	// Don't you love explicitly spelling out everything that can happen?
 	score_extend_update_and_render();
 
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_STAGE_BONUS);
 	input_shot = true;
 	input_ok = true;
 	while((input_shot == true) && (input_ok == true)) {
@@ -515,7 +515,7 @@ void totle_animate(int stage_num)
 	totle_metric_digit_animate(bonus_remainder,          4, TOTLE_TOTLE_TOP);
 	frame_delay(5);
 
-	input_reset_sense();
+	input_reset_sense_at(T1RS_SITE_TOTLE);
 	input_shot = true;
 	input_ok = true;
 
