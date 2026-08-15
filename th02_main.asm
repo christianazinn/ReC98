@@ -3894,6 +3894,9 @@ BULLET16_W = 16
 	@BULLETS_SET_STACK_MULTIPLIER$QUC procdesc pascal near \
 		v:byte
 
+	@LASERS_ADD$QIIIUC procdesc pascal near
+	extern @lasers_callbacks_set$qv:proc
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -5484,16 +5487,16 @@ stones_11B5D	proc near
 		mov	byte_23A70, 24h	; '$'
 		push	300060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	0C00060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	0F00060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	1800060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		pop	bp
 		retn
 ; ---------------------------------------------------------------------------
@@ -5503,16 +5506,16 @@ loc_11BB3:
 		jnz	short loc_11BFC
 		push	500060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	0A00060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	1100060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		push	1600060h
 		push	100067h
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	_boss_phase_frame, 0
 
 loc_11BFC:
@@ -5578,7 +5581,7 @@ var_2		= word ptr -2
 		push	ax
 		push	600010h
 		push	67h ; 'g'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 
 loc_11C7A:
 		cmp	_boss_phase_frame, 140
@@ -5698,13 +5701,13 @@ loc_11D4E:
 		push	word_22FAC
 		push	600003h
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	ax, 432
 		sub	ax, word_22FAC
 		push	ax
 		push	600003h
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		add	word_22FAC, 10h
 		cmp	word_22FAC, 176
 		jle	short loc_11D9A
@@ -5719,13 +5722,13 @@ loc_11D9A:
 		push	word_22FAC
 		push	600001h
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	ax, 432
 		sub	ax, word_22FAC
 		push	ax
 		push	600001h
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		sub	word_22FAC, 10h
 		cmp	word_22FAC, 40h
 		jge	short loc_11DF4
@@ -5856,7 +5859,7 @@ stones_11E76	proc near
 		push	ax
 		push	60000Ch
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 
 loc_11EBE:
 		mov	ax, _boss_phase_frame
@@ -5894,7 +5897,7 @@ loc_11EFC:
 		push	ax
 		push	60000Ch
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		inc	si
 
 loc_11F1E:
@@ -6947,7 +6950,7 @@ stones_init	proc far
 		nopcall	sub_13ABB
 		add	sp, 4
 		call	stones_12778
-		nopcall	sub_129FC
+		nopcall	@lasers_callbacks_set$qv
 		pop	bp
 		retf
 stones_init	endp
@@ -7232,118 +7235,9 @@ loc_129CD:
 		retn	8
 sub_1283C	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_129DD
-_sub_129DD label far
-sub_129DD	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset byte_239DC
-		xor	ax, ax
-		jmp	short loc_129EF
-; ---------------------------------------------------------------------------
-
-loc_129E8:
-		mov	byte ptr [si], 0
-		inc	ax
-		add	si, 0Ch
-
-loc_129EF:
-		cmp	ax, 0Ch
-		jl	short loc_129E8
-		mov	byte_23A70, 10h
-		pop	si
-		pop	bp
-		retf
-sub_129DD	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_129FC
-_sub_129FC label far
-sub_129FC	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	farfp_23A72, @lasers_invalidate$qv
-		setfarfp	farfp_23A76, @lasers_update_and_render$qv
-		pop	bp
-		retf
-sub_129FC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_12A19	proc near
-
-arg_0		= byte ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset byte_239DC
-		cmp	[bp+arg_6], 20h	; ' '
-		jl	short loc_12A77
-		cmp	[bp+arg_6], 416
-		jge	short loc_12A77
-		xor	di, di
-		jmp	short loc_12A72
-; ---------------------------------------------------------------------------
-
-loc_12A32:
-		cmp	byte ptr [si], 0
-		jnz	short loc_12A6E
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 1
-		mov	ax, [bp+arg_6]
-		mov	[si+2],	ax
-		mov	ax, [bp+arg_4]
-		mov	[si+4],	ax
-		mov	al, byte_23A70
-		mov	ah, 0
-		mov	[si+6],	ax
-		mov	ax, [bp+arg_2]
-		mov	[si+8],	ax
-		mov	byte ptr [si+0Ah], 0
-		mov	al, [bp+arg_0]
-		mov	[si+0Bh], al
-		call	_snd_se_play c, 6
-		jmp	short loc_12A77
-; ---------------------------------------------------------------------------
-
-loc_12A6E:
-		inc	di
-		add	si, 0Ch
-
-loc_12A72:
-		cmp	di, 0Ch
-		jl	short loc_12A32
-
-loc_12A77:
-		pop	di
-		pop	si
-		pop	bp
-		retn	8
-sub_12A19	endp
-
 DS_PREBOSS = 0
 DS_POSTBOSS = 1
 
-	extern @lasers_invalidate$qv:proc
-	extern @lasers_update_and_render$qv:proc
 	extern @dialog_load_and_init$qv:proc
 	@dialog_pre$qv procdesc near
 	@dialog_post$qv procdesc near
@@ -8086,7 +7980,7 @@ rika_init	proc far
 		mov	patnum_2064E, 150
 		mov	_stage_frame, 0
 		mov	word_24E80, 0
-		nopcall	sub_129FC
+		nopcall	@lasers_callbacks_set$qv
 		mov	patnum_2064E, 150
 		mov	point_24E7C.y, 48
 		mov	ax, _scroll_line
@@ -8341,13 +8235,13 @@ loc_13DCD:
 		push	ax
 		push	(112 shl 16) + 160
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	ax, point_24E7C.x
 		add	ax, 46
 		push	ax
 		push	(112 shl 16) + 160
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		jmp	loc_13ECA
 ; ---------------------------------------------------------------------------
 
@@ -12523,33 +12417,33 @@ loc_161EE:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	byte_23A70, 30h	; '0'
 		mov	ax, point_254E6.x
 		add	ax, 44
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	ax, point_254E6.x
 		add	ax, 76
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	byte_23A70, 64h	; 'd'
 		mov	ax, point_254E6.x
 		add	ax, 28
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	ax, point_254E6.x
 		add	ax, 92
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	byte_23A70, 10h
 
 loc_162B2:
@@ -12622,7 +12516,7 @@ loc_16325:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 
 loc_1634B:
 		mov	al, byte_255A3
@@ -12637,7 +12531,7 @@ loc_1634B:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		jmp	loc_1641D
 ; ---------------------------------------------------------------------------
 
@@ -12658,7 +12552,7 @@ loc_1637C:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	al, byte_255A3
 		cbw
 		add	ax, ax
@@ -12670,7 +12564,7 @@ loc_1637C:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 		mov	byte_255A3, 0
 		jmp	short loc_1641D
 ; ---------------------------------------------------------------------------
@@ -19342,7 +19236,7 @@ midboss4_1A17E	proc near
 		push	ax
 		push	500006h
 		push	6Fh ; 'o'
-		call	sub_12A19
+		call	@LASERS_ADD$QIIIUC
 
 loc_1A1B4:
 		pop	bp
@@ -24854,6 +24748,8 @@ byte_239DC	db 144 dup(?)
 public _laser_origin
 _laser_origin label word
 point_23A6C	Point <?>
+public _laser_wait_frames
+_laser_wait_frames label byte
 byte_23A70	db ?
 		db ?
 public _lasers_invalidate_func, _lasers_update_and_render_func

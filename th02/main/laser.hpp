@@ -4,8 +4,8 @@
 /// animation there, then extends a 16-pixel-wide beam straight down to the
 /// bottom of the playfield. It only damages the player during a single phase
 /// of that animation. Five different bosses and midbosses spawn them; the two
-/// per-frame functions are installed as stage callbacks by the still-ASM
-/// `sub_129FC` (th02_main.asm), which stage_init() calls for Stage 4 and Extra.
+/// per-frame functions are installed as stage callbacks by
+/// lasers_callbacks_set(), which stage_init() calls for Stage 4 and Extra.
 
 #ifndef TH02_MAIN_LASER_HPP
 #define TH02_MAIN_LASER_HPP
@@ -36,9 +36,7 @@ struct laser_t {
 	screen_point_t origin;
 
 	// Frames to spend in LASER_PHASE_WAIT before growing. Seeded at spawn time
-	// from the still-unnamed [byte_23A70], which `sub_129DD` defaults to 16 and
-	// every boss that spawns lasers overwrites beforehand. Its only reader is
-	// the still-ASM spawner `sub_12A19`, so naming it waits for that lift.
+	// from [laser_wait_frames].
 	int wait_frames;
 
 	// Frames to spend in LASER_PHASE_ACTIVE.
@@ -55,5 +53,34 @@ struct laser_t {
 };
 
 extern laser_t lasers[LASER_COUNT];
+
+// The [wait_frames] every newly spawned laser starts with. A single-field
+// spawn-time template, in the family of TH04's [thicklaser_template] and TH05's
+// [laser_template]: each of the five bosses that spawn lasers writes it
+// immediately before its burst of lasers_add() calls, and lasers_reset()
+// restores the default.
+extern uint8_t laser_wait_frames;
+
+// Frees every slot and restores [laser_wait_frames]. Called once per stage from
+// stage_init(), regardless of whether that stage has any lasers at all.
+void far lasers_reset(void);
+
+// Installs the two per-frame functions below into their stage callback slots.
+// stage_init() calls this for Stage 4 and Extra, and two of the bosses call it
+// again from their own init function.
+void far lasers_callbacks_set(void);
+
+// Spawns a laser at ([left], [top]) in the first free slot, with the sound
+// effect that every spawn plays. Does nothing if [left] is outside the
+// playfield, or if all LASER_COUNT slots are taken.
+void pascal near lasers_add(
+	screen_x_t left,
+	screen_y_t top,
+	int active_frames,
+	uint8_t patnum_base
+);
+
+void far lasers_invalidate(void);
+void far lasers_update_and_render(void);
 
 #endif /* TH02_MAIN_LASER_HPP */
