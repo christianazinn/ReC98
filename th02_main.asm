@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -806,7 +806,7 @@ loc_B263:
 		call	sub_C31F
 		or	ax, ax
 		jz	short loc_B27A
-		call	sub_B98E
+		call	@continue_resume$qv
 		jmp	short loc_B24F
 ; ---------------------------------------------------------------------------
 
@@ -909,42 +909,8 @@ main_01_TEXT	ends
 
 STAGE_INIT_TEXT	segment	byte public 'CODE' use16
 	@stage_init$qv procdesc near
+	@continue_resume$qv procdesc near
 STAGE_INIT_TEXT	ends
-
-main_01__TEXT	segment	byte public 'CODE' use16
-		assume cs:main_01
-		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B98E	proc near
-		push	bp
-		mov	bp, sp
-		call	@hud_put$qv
-		nopcall	@overlay_stage_leave_animate$qv
-		mov	ax, PLAYER_LEFT_START
-		mov	_player_left_on_page[1 * word], ax
-		mov	_player_left_on_page[0 * word], ax
-		mov	ax, PLAYER_TOP_START
-		mov	_player_top_on_page[1 * word], ax
-		mov	_player_top_on_page[0 * word], ax
-		call	sub_C5B0
-		mov	_player_invincibility_time, CONTINUE_INVINCIBILITY_FRAMES
-		graph_accesspage _page_front
-		call	@tiles_render_all$qv
-		graph_accesspage _page_back
-		call	@tiles_render_all$qv
-		call	@bullets_clear$qv
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		nopcall	@overlay_stage_enter_animate$qv
-		pop	bp
-		retn
-sub_B98E	endp
-
-main_01__TEXT	ends
 
 MENU_TEXT	segment	byte public 'CODE' use16
 MENU_TEXT	ends
@@ -5173,42 +5139,6 @@ loc_10286:
 		retn	6
 sub_FFF8	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1028C
-_sub_1028C label far
-sub_1028C	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_102A9
-; ---------------------------------------------------------------------------
-
-loc_10294:
-		mov	bx, si
-		add	bx, bx
-		mov	_stone_damage[bx], 0
-		mov	_stone_flag[si], SF_DORMANT
-		mov	byte ptr byte_20665[si], 0
-		inc	si
-
-loc_102A9:
-		cmp	si, STONE_COUNT
-		jl	short loc_10294
-		mov	_boss_phase_frame, 0
-		mov	byte_2066A, 0
-		mov	_boss_damage, 0
-		mov	byte_2066B, 0
-		mov	_sigma_frame, 0
-		mov	word_20686, 0
-		pop	si
-		pop	bp
-		retf
-sub_1028C	endp
 BULLET_TEXT ends
 
 DIALOG_TEXT	segment	byte public 'CODE' use16
@@ -26299,6 +26229,7 @@ midboss3_damage label word
 _stone_damage	dw STONE_COUNT dup(?)
 
 patnum_2064E	dw ?
+public _boss_phase_frame
 _boss_phase_frame	dw ?
 
 public _boss_left_on_page, _boss_top_on_page
@@ -26316,8 +26247,14 @@ public _stone_flag
 label midboss3_flag byte
 _stone_flag	db STONE_COUNT dup(?)
 
+public _byte_20665
+_byte_20665 label byte
 byte_20665	db 5 dup(?)
+public _byte_2066A
+_byte_2066A label byte
 byte_2066A	db ?
+public _byte_2066B
+_byte_2066B label byte
 byte_2066B	db ?
 public _reduce_effects, _slowdown_factor
 _reduce_effects	db ?
@@ -26330,6 +26267,8 @@ byte_20672	db ?
 		db 15 dup(?)
 public _sigma_frame
 _sigma_frame	dd ?
+public _word_20686
+_word_20686 label word
 word_20686	dw ?
 
 BULLET_COUNT = 150

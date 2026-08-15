@@ -32,6 +32,7 @@
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
+#include "th02/main/boss/bosses.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/hud.hpp"
@@ -50,7 +51,6 @@ extern "C" void pascal near text_wipe(void);
 extern "C" void near sub_C5B0(void);
 extern "C" void near sub_E271(void);
 extern "C" void far sub_3DDE(void);
-extern "C" void far sub_1028C(void);
 extern "C" void far sub_129DD(void);
 extern "C" void far sub_129FC(void);
 extern "C" void far sub_16A6B(void);
@@ -190,7 +190,7 @@ void near stage_init(void)
 	sub_129DD();
 	sub_E271();
 	snd_se_reset();
-	sub_1028C();
+	bosses_reset();
 	nopcall_same_group(scroll_reset);
 	randring_fill();
 	palette_100();
@@ -376,4 +376,29 @@ void near stage_init(void)
 		out 	0A6h, al;
 	}
 	page_back = _AL;
+}
+
+#pragma option -G
+
+// Restarts the current stage after the player used a continue. main() calls
+// this immediately after the continue menu returns 1, and then re-enters the
+// gameplay loop without going through stage_init() again.
+void near continue_resume(void)
+{
+	hud_put();
+	nopcall_same_group(overlay_stage_leave_animate);
+	// Assigned in this order, not the other way round: the store to [1] comes
+	// first in the original, and -O emits a chained assignment's stores in the
+	// reverse of their source order (kb/codegen/0092).
+	player_left_on_page[0] = player_left_on_page[1] = PLAYER_LEFT_START;
+	player_top_on_page[0] = player_top_on_page[1] = PLAYER_TOP_START;
+	sub_C5B0();
+	player_invincibility_time = CONTINUE_INVINCIBILITY_FRAMES;
+	graph_accesspage(page_front);
+	tiles_render_all();
+	graph_accesspage(page_back);
+	tiles_render_all();
+	bullets_clear();
+	palette_100();
+	nopcall_same_group(overlay_stage_enter_animate);
 }
