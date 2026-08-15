@@ -555,6 +555,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/dialog.cpp",
 	"th02/boss_5.cpp",
 	"th02/main_04.cpp",
+	"th02/main_05.cpp",
 	"th02/regist_m.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {

@@ -39,6 +39,7 @@
 #include "th02/main/boss/bosses.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/dialog/dialog.hpp"
+#include "th02/main/enemy/enemy.hpp"
 #include "th02/main/hud/hud.hpp"
 #include "th02/main/hud/overlay.hpp"
 #include "th02/main/item/item.hpp"
@@ -58,8 +59,6 @@ extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
 extern "C" void far sub_16A6B(void);
-extern "C" void far sub_1C3DF(void);
-extern "C" void far sub_1C608(void);
 extern "C" void far sub_13ABB(char *fn);
 
 // Resets the scrolling state. Called through a `nopcall` alias.
@@ -293,8 +292,8 @@ void near stage_init(void)
 		reinterpret_cast<void *>(&mpn_palette),
 		sizeof(Palette8)
 	);
-	sub_1C608();
-	sub_1C3DF();
+	enemy_stagedata_free();
+	enemy_stagedata_load();
 	dialog_load_and_init();
 
 	boss_bg_render = nullfunc_void;

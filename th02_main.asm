@@ -907,7 +907,7 @@ public @GameExecl$qnxc
 		freePISlotLarge	0
 		call	@bomb_free$qv
 		call	_mpn_free
-		call	sub_1C608
+		call	_enemy_stagedata_free
 		call	super_free
 		call	graph_clear
 		call	text_clear
@@ -22791,306 +22791,8 @@ main_04_TEXT	ends
 
 ; Segment type:	Pure code
 main_05_TEXT	segment	byte public 'CODE' use16
-		assume cs:main_05_TEXT
-		;org 0Fh
-		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1C3DF
-_sub_1C3DF label far
-sub_1C3DF	proc far
-
-src		= dword	ptr -14h
-dest		= dword	ptr -10h
-var_A		= word ptr -0Ah
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	14h, 0
-		push	si
-		push	di
-		mov	word ptr [bp-0Ch], ds
-		mov	word ptr [bp+dest+2], offset aStage_dt1
-		les	bx, [bp+dest+2]
-		mov	al, _stage_id
-		add	al, '0'
-		mov	es:[bx+5], al
-		push	word ptr [bp-0Ch]
-		push	bx
-		call	file_ropen
-		push	ss
-		lea	ax, [bp+var_A]
-		push	ax
-		push	4
-		call	file_read
-		push	[bp+var_A]
-		call	hmem_allocbyte
-		mov	[bp+var_6], ax
-		mov	word ptr [bp+src+2], ax
-		mov	word ptr [bp+src], 0
-		push	ax
-		push	word ptr [bp+src]
-		push	[bp+var_A]
-		call	file_read
-		call	file_close
-		les	bx, [bp+src]
-		mov	ax, es:[bx]
-		mov	_map_length, ax
-		add	word ptr [bp+src], 2
-		xor	di, di
-		jmp	short loc_1C451
-; ---------------------------------------------------------------------------
-
-loc_1C443:
-		les	bx, [bp+src]
-		mov	al, es:[bx]
-		mov	_map[di], al
-		inc	word ptr [bp+src]
-		inc	di
-
-loc_1C451:
-		cmp	di, _map_length
-		jl	short loc_1C443
-		les	bx, [bp+src]
-		mov	ax, es:[bx]
-		mov	[bp+var_2], ax
-		add	word ptr [bp+src], 2
-		mov	byte_22FDB, 0
-		mov	word ptr [bp+dest], offset byte_25976
-		xor	di, di
-		jmp	loc_1C55E
-; ---------------------------------------------------------------------------
-
-loc_1C473:
-		push	1Ch		; n
-		pushd	[bp+src]	; src
-		push	ds
-		push	word ptr [bp+dest] ; dest
-		call	_memcpy
-		add	sp, 0Ah
-		add	word ptr [bp+src], 1Ch
-		mov	bx, di
-		imul	bx, 24h
-		mov	bx, word ptr byte_25976[bx+8]
-		add	bx, bx
-		mov	ax, super_patsize[bx]
-		shr	ax, 8
-		shl	ax, 3
-		mov	bx, word ptr [bp+dest]
-		mov	[bx+1Ch], ax
-		mov	bx, di
-		imul	bx, 24h
-		mov	bx, word ptr byte_25976[bx+8]
-		add	bx, bx
-		mov	ax, super_patsize[bx]
-		and	ax, 255
-		mov	bx, word ptr [bp+dest]
-		mov	[bx+1Eh], ax
-		mov	ax, [bx+1Ah]
-		mov	[bp+var_4], ax
-		cmp	_rank, RANK_EASY
-		jnz	short loc_1C4CE
-		shl	[bp+var_4], 1
-		jmp	short loc_1C4DF
-; ---------------------------------------------------------------------------
-
-loc_1C4CE:
-		cmp	_rank, RANK_HARD
-		jz	short loc_1C4DC
-		cmp	_rank, RANK_LUNATIC
-		jnz	short loc_1C4DF
-
-loc_1C4DC:
-		sar	[bp+var_4], 1
-
-loc_1C4DF:
-		mov	bx, word ptr [bp+dest]
-		mov	ax, [bp+var_4]
-		mov	[bx+1Ah], ax
-		les	bx, [bp+src]
-		cmp	byte ptr es:[bx], -2
-		jnz	short loc_1C513
-		inc	word ptr [bp+src]
-		les	bx, [bp+src]
-		mov	al, es:[bx]
-		mov	ah, 0
-		shl	ax, 6
-		add	ax, offset byte_22FDC
-		mov	bx, word ptr [bp+dest]
-		mov	word ptr [bx+22h], ds
-		mov	[bx+20h], ax
-		inc	word ptr [bp+src]
-		inc	word ptr [bp+src]
-		jmp	short loc_1C559
-; ---------------------------------------------------------------------------
-
-loc_1C513:
-		mov	[bp+var_4], 0
-
-loc_1C518:
-		mov	al, byte_22FDB
-		mov	ah, 0
-		shl	ax, 6
-		add	ax, [bp+var_4]
-		les	bx, [bp+src]
-		mov	dl, es:[bx]
-		mov	bx, ax
-		mov	byte_22FDC[bx], dl
-		inc	word ptr [bp+src]
-		inc	[bp+var_4]
-		les	bx, [bp+src]
-		cmp	byte ptr es:[bx], -1
-		jnz	short loc_1C518
-		inc	word ptr [bp+src]
-		mov	al, byte_22FDB
-		mov	ah, 0
-		shl	ax, 6
-		add	ax, offset byte_22FDC
-		mov	bx, word ptr [bp+dest]
-		mov	word ptr [bx+22h], ds
-		mov	[bx+20h], ax
-		inc	byte_22FDB
-
-loc_1C559:
-		inc	di
-		add	word ptr [bp+dest], 24h	; '$'
-
-loc_1C55E:
-		cmp	di, [bp+var_2]
-		jl	loc_1C473
-		les	bx, [bp+src]
-		mov	ax, es:[bx]
-		mov	[bp+var_2], ax
-		add	word ptr [bp+src], 2
-		mov	word_26C3A, ax
-		xor	di, di
-		jmp	short loc_1C594
-; ---------------------------------------------------------------------------
-
-loc_1C579:
-		mov	ax, [bp+var_2]
-		add	ax, ax
-		push	ax
-		call	hmem_allocbyte
-		mov	bx, di
-		shl	bx, 2
-		mov	word ptr dword_26B76[bx+2], ax
-		mov	word ptr dword_26B76[bx], 0
-		inc	di
-
-loc_1C594:
-		cmp	di, 31h	; '1'
-		jl	short loc_1C579
-		xor	di, di
-		jmp	short loc_1C5F7
-; ---------------------------------------------------------------------------
-
-loc_1C59D:
-		mov	ax, di
-		add	ax, ax
-		les	bx, dword_26B76
-		add	bx, ax
-		push	es
-		les	si, [bp+src]
-		mov	ax, es:[si]
-		pop	es
-		mov	es:[bx], ax
-		add	word ptr [bp+src], 2
-		mov	[bp+var_4], 1
-		jmp	short loc_1C5F0
-; ---------------------------------------------------------------------------
-
-loc_1C5BD:
-		mov	bx, [bp+var_4]
-		shl	bx, 2
-		les	bx, dword_26B76[bx]
-		mov	ax, di
-		add	ax, ax
-		add	bx, ax
-		push	es
-		push	bx
-		les	bx, [bp+src]
-		cmp	byte ptr es:[bx], -1
-		jnz	short loc_1C5DD
-		mov	ax, 0FFFFh
-		jmp	short loc_1C5E5
-; ---------------------------------------------------------------------------
-
-loc_1C5DD:
-		les	bx, [bp+src]
-		mov	al, es:[bx]
-		mov	ah, 0
-
-loc_1C5E5:
-		pop	bx
-		pop	es
-		mov	es:[bx], ax
-		inc	word ptr [bp+src]
-		inc	[bp+var_4]
-
-loc_1C5F0:
-		cmp	[bp+var_4], 31h	; '1'
-		jl	short loc_1C5BD
-		inc	di
-
-loc_1C5F7:
-		cmp	di, [bp+var_2]
-		jl	short loc_1C59D
-		push	[bp+var_6]
-		call	hmem_free
-		pop	di
-		pop	si
-		leave
-		retf
-sub_1C3DF	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1C608
-_sub_1C608 label far
-sub_1C608	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_1C63F
-; ---------------------------------------------------------------------------
-
-loc_1C610:
-		mov	bx, si
-		shl	bx, 2
-		mov	ax, word ptr dword_26B76[bx]
-		or	ax, word ptr dword_26B76[bx+2]
-		jz	short loc_1C63E
-		mov	bx, si
-		shl	bx, 2
-		push	word ptr dword_26B76[bx+2]
-		call	hmem_free
-		mov	bx, si
-		shl	bx, 2
-		mov	word ptr dword_26B76[bx+2], 0
-		mov	word ptr dword_26B76[bx], 0
-
-loc_1C63E:
-		inc	si
-
-loc_1C63F:
-		cmp	si, 31h	; '1'
-		jl	short loc_1C610
-		pop	si
-		pop	bp
-
-locret_1C646:
-		retf
-sub_1C608	endp
-
+	extern _enemy_stagedata_load:proc
+	extern _enemy_stagedata_free:proc
 main_05_TEXT	ends
 
 REGIST_M_TEXT segment	byte public 'CODE' use16
@@ -23676,6 +23378,8 @@ word_1EB72	label word
 		db    0
 byte_1EB88	db 1
 		db 0
+public _aStage_dt1
+_aStage_dt1	label byte
 aStage_dt1	db 'STAGE .DT1',0
 		db 0
 public _LINE_BLANK, _clear_bytes
@@ -24564,7 +24268,11 @@ tile_image_22FD6	dw ?
 public _map_length
 _map_length	dw ?
 		db    ?	;
+public _enemy_scripts_used
+_enemy_scripts_used	label byte
 byte_22FDB	db ?
+public _enemy_scripts
+_enemy_scripts	label byte
 byte_22FDC	db 2560 dup(?)
 public _lasers
 _lasers label byte
@@ -24702,9 +24410,15 @@ byte_255C0	db 950 dup(?)
 ; map by 1C473h's `memcpy` loop over `_map_length`. The element count is bounded
 ; by that variable and is NOT evidenced here, so this label deliberately covers
 ; the whole remaining run rather than claiming one. [static]
+public _enemy_templates
+_enemy_templates	label byte
 byte_25976	db 4608 dup(?)
+public _spawn_grid
+_spawn_grid	label dword
 dword_26B76	dd ?
 		db 192 dup(?)
+public _spawn_rows
+_spawn_rows	label word
 word_26C3A	dw ?
 public _enemies_invalidate, _enemies_update_and_render
 _enemies_invalidate label dword
