@@ -92,14 +92,42 @@ extern int8_t easy_slow_skip_cycle;
 // Boss state, reset by the function below. ZUN put it at the top of this
 // translation unit even though it has nothing to do with bullets; it is the
 // last function before bullets_and_sparks_init() in the original object.
-// The four globals that still carry their IDA names are written here and read
-// only by boss code that is still ASM, so this parcel has no evidence for
-// naming them. [HELD FOR NAMING REVIEW]
+//
+// Three of the four globals that used to carry their IDA names here were named
+// from evidence in this same dump by naming review 2. All three are
+// [inferred]: the oracle cannot check a name, so what follows is the search,
+// not a proof.
+//
+// - [stone_hit_flash] is set to 1 behind a `stone_flag[i] == SF_ACTIVE` guard,
+//   one instruction before the matching `stone_damage[i]` is raised, and is
+//   read-then-cleared in the render pass, which uses it to play SE 4 and blit
+//   a single extra frame through super_roll_put_1plane().
+// - [boss_phase] takes 0-3, is shared by every boss and midboss across 35
+//   references, is zeroed in every `*_init`, and is set in lockstep with
+//   [boss_phase_frame]. Attested in two other games: TH01's
+//   th01/main/boss/boss.hpp declares boss_hp / boss_phase_frame / boss_phase
+//   together, and th04_main.asm has a global [_boss_phase] compared against a
+//   PHASE_* family. TH02 already had the sibling [boss_phase_frame] and was
+//   missing exactly this one.
+// - [stage3_effect_frame] is referenced from nowhere but sub_10E95, which
+//   stage_init() installs as stage_update_and_render() for `stage_id == 2`.
+//   It is incremented once per frame and used purely as a timeline: SE at 168,
+//   a palette strobe over 168-200, gates at 400/600/800/1000, then a wrap back
+//   to 200.
+//   Being zeroed by bosses_reset() is the only reason it reads as boss state;
+//   it is stage state that happens to be reset from here. Deliberately NOT
+//   labelled `ZUN bloat`: the store is reached once per stage and the value is
+//   read afterwards, so it is not redundant — only misleadingly placed.
+//
+// [byte_2066B] is deliberately still a placeholder. It has the same
+// read-then-clear shape but on the boss side, and its consuming render code is
+// still ASM, so this is the one where "no evidence yet" genuinely holds.
+// [HELD FOR NAMING REVIEW]
 extern "C" {
-	extern uint8_t byte_20665[STONE_COUNT];
-	extern uint8_t byte_2066A;
+	extern uint8_t stone_hit_flash[STONE_COUNT];
+	extern uint8_t boss_phase;
 	extern uint8_t byte_2066B;
-	extern uint16_t word_20686;
+	extern uint16_t stage3_effect_frame;
 }
 
 void bosses_reset(void)
@@ -107,14 +135,14 @@ void bosses_reset(void)
 	for(int i = 0; i < STONE_COUNT; i++) {
 		stone_damage[i] = 0;
 		stone_flag[i] = SF_DORMANT;
-		byte_20665[i] = 0;
+		stone_hit_flash[i] = 0;
 	}
 	boss_phase_frame = 0;
-	byte_2066A = 0;
+	boss_phase = 0;
 	boss_damage = 0;
 	byte_2066B = 0;
 	sigma_frame = 0;
-	word_20686 = 0;
+	stage3_effect_frame = 0;
 }
 
 #pragma option -a2

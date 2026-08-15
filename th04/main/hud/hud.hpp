@@ -5,11 +5,15 @@
 // Rows
 // ----
 // Declared here rather than privately in each row's own translation unit,
-// because hud_put() (TH04 only, th04/main/hud/hud.cpp) needs the same numbers
-// to place the icon in front of each row that the row's renderer needs to
-// place the value. Every one of these used to be spelled out twice with the
-// same value, and [HUD_POINT_ITEMS_STAGE_Y] had a third spelling,
-// HUD_POINT_ITEMS_Y, in hud.cpp.
+// because hud_put() needs the same number to place the label or icon in front
+// of a row that the row's own renderer needs to place the value. Every one of
+// these used to be spelled out twice with the same value, and
+// [HUD_POINT_ITEMS_STAGE_Y] had a third spelling, HUD_POINT_ITEMS_Y.
+//
+// "hud_put() draws at" below means th04/main/hud/hud.cpp for TH04, but
+// th05_main.asm for TH05, whose hud_put() is still assembly — the `GAME == 5`
+// coordinates were read back out of that dump's `gaiji_putca`/`gaiji_putsa`
+// call sites, not assumed from TH04's.
 //
 // [HUD_POWER_Y] is deliberately NOT here: it has to stay a `#define` in
 // th04/main/hud/power.cpp, because Turbo C++ 4.0J's __emit__() takes literal
