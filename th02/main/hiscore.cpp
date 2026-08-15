@@ -10,6 +10,7 @@
 #include "th01/rank.h"
 #include "th02/common.h"
 #include "th02/main/score.hpp"
+#include "th02/main/hiscore.hpp"
 
 // The initializer templates for the two local arrays below already sit in
 // th02_main.asm's own `_DATA` contribution, and their addresses are
