@@ -47,12 +47,6 @@
 // ---------------------------
 extern "C" void pascal near text_wipe(void);
 
-// Writes "stage<[stage_id] + '0'>.bft" into [fn].
-extern "C" void pascal near sub_B396(char *fn);
-
-// Replaces the 3-character extension of [fn] with [ext].
-extern "C" void pascal near sub_B362(char *fn, const char *ext);
-
 extern "C" void near sub_C5B0(void);
 extern "C" void near sub_E271(void);
 extern "C" void far sub_3DDE(void);
@@ -132,12 +126,49 @@ extern "C" const char aMiko_k_mpn[];
 	call	near ptr func; \
 }
 
+// Both of these start with a plain `push bp; mov bp, sp` and have no locals,
+// which is -G; stage_init() below starts with `ENTER 0Ch, 0`, which is -G-.
+// (kb/codegen/0011, scoped exactly as th03/main/player/defeat.cpp does it.)
+#pragma option -G
+
+// The filename layout both of these assume: "stage<N>.<ext>".
+static const int STAGE_FN_DIGIT = 5;
+static const int STAGE_FN_EXT = 7;
+
+// Replaces the 3-character extension of a filename previously built by
+// stage_fn(). Defined before it because ZUN put it at the lower address.
+void pascal near stage_fn_ext_set(char *fn, const char *ext)
+{
+	fn[STAGE_FN_EXT + 0] = ext[0];
+	fn[STAGE_FN_EXT + 1] = ext[1];
+	fn[STAGE_FN_EXT + 2] = ext[2];
+}
+
+// Writes the current stage's .BFT filename into [fn], which must have room for
+// 11 characters and a terminator. Named after TH01's scoredat_fn().
+void pascal near stage_fn(char *fn)
+{
+	fn[0] = 's';
+	fn[1] = 't';
+	fn[2] = 'a';
+	fn[3] = 'g';
+	fn[4] = 'e';
+	fn[STAGE_FN_DIGIT] = (stage_id + '0');
+	fn[6] = '.';
+	fn[STAGE_FN_EXT + 0] = 'b';
+	fn[STAGE_FN_EXT + 1] = 'f';
+	fn[STAGE_FN_EXT + 2] = 't';
+	fn[10] = '\0';
+}
+
+#pragma option -G-
+
 void near stage_init(void)
 {
 	char fn[12];
 	register int i;
 
-	sub_B396(fn);
+	stage_fn(fn);
 	vsync_Count1 = 0;
 	text_wipe();
 	graph_scrollup(0);
@@ -189,14 +220,14 @@ void near stage_init(void)
 	stage_title_halflen = STAGE_TITLE_HALFLENGTHS[stage_id];
 
 	super_entry_bfnt(fn);
-	sub_B362(fn, aBmt);
+	stage_fn_ext_set(fn, aBmt);
 	super_entry_bfnt(fn);
-	sub_B362(fn, aBbt);
+	stage_fn_ext_set(fn, aBbt);
 	super_entry_bfnt(fn);
-	sub_B362(fn, aMap);
+	stage_fn_ext_set(fn, aMap);
 	map_load(fn);
 	tiles_stuff_reset();
-	sub_B362(fn, aMpn);
+	stage_fn_ext_set(fn, aMpn);
 	mpn_load(fn);
 	memcpy(
 		reinterpret_cast<void *>(&stage_palette),
@@ -306,7 +337,7 @@ void near stage_init(void)
 	tile_area_init_and_put_both();
 	if(!resident->demo_num) {
 		snd_delay_until_volume(255);
-		sub_B362(fn, aM);
+		stage_fn_ext_set(fn, aM);
 	}
 	items_init_and_reset();
 	score_extend_init();
