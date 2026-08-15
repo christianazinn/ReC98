@@ -1,3 +1,6 @@
+#ifndef TH02_MAIN_PLAYER_PLAYER_HPP
+#define TH02_MAIN_PLAYER_PLAYER_HPP
+
 #include "pc98.h"
 
 #define PLAYER_W 32
@@ -123,3 +126,5 @@ void near player_move_and_shoot(void);
 #else
 void near player_invalidate();
 #endif
+
+#endif /* TH02_MAIN_PLAYER_PLAYER_HPP */
