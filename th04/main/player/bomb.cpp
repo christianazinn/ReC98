@@ -20,6 +20,7 @@
 #include "th04/main/player/player.hpp"
 #include "th04/main/player/bomb.hpp"
 #include "th04/main/bg.hpp"
+#include "th04/main/null.hpp"
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/hud/hud.hpp"
 #include "th02/snd/snd.h"
@@ -77,6 +78,35 @@ extern bool items_pull_to_player;
 #else
 	extern "C" unsigned char byte_259A3;
 	#define miss_move_lock_time byte_259A3
+#endif
+
+// Cancels any bomb still in progress and unhooks its background renderer.
+// stage_init() calls this once per stage, four lines away from the shot-state
+// reset, in both games.
+//
+// ONE body: `kb/codegen/0115` over the two originals — TH04's `sub_FFA4` at
+// `0AAF:54B4` against TH05's at `0AE1:1663`, `0x10` bytes each — gives 6
+// differing bytes, at offsets 5, 6, 10, 11, 12, 13. Those are exactly the two
+// memory operands and the one `offset` immediate, so EVERY non-operand byte is
+// identical and this is one source function in both games.
+//
+// `#if (GAME == 5)`-guarded ONLY because TH04's copy is still ASM, at the
+// identical tail position of th04_main.asm's own PLAYER_B_TEXT root
+// contribution. An unguarded body would grow TH04's C++ contribution to that
+// segment while its own copy is still in the dump, which is a guaranteed RED.
+// The guard is a lifting-order artifact, not a divergence; deleting TH04's
+// `sub_FFA4` and this `#if` is the whole of the TH04 parcel.
+//
+// Named for TH02's bomb_reset(), which th02/main/player/bomb.hpp declares with
+// the same role and spells out the convention: singular like every other
+// scalar-state reset in the tree (scroll_reset(), score_reset(),
+// player_reset()) rather than plural like the array ones.
+#if (GAME == 5)
+void near bomb_reset(void)
+{
+	bombing = false;
+	bg_render_bombing = nullfunc_near;
+}
 #endif
 
 // Drops a bomb, if possible. Also cancels a death if called during the
