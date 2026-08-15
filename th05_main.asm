@@ -1003,47 +1003,12 @@ mpn_load	endp
 
 ; =============== S U B	R O U T	I N E =======================================
 
-public @map_load$qv
-@map_load$qv	proc near
-		push	si
-		call	@map_free$qv
-		mov	al, _stage_id
-		add	al, '0'
-		mov	aSt00_map+3, al
-		mov	ax, (3Dh shl 8) or 00h
-		mov	dx, offset aSt00_map
-		int	21h		; DOS -	2+ - OPEN DISK FILE WITH HANDLE
-					; DS:DX	-> ASCIZ filename
-					; AL = access mode
-					; 0 - read
-		mov	bx, ax
-		mov	si, ax
-		mov	ah, 3Fh	; '?'
-		mov	dx, offset map_header
-		mov	cx, 8
-		int	21h		; DOS -	2+ - READ FROM FILE WITH HANDLE
-					; BX = file handle, CX = number	of bytes to read
-					; DS:DX	-> buffer
-		push	map_header.map_size
-		call	hmem_allocbyte
-		mov	_map_seg, ax
-		push	ds
-		mov	bx, si
-		mov	cx, map_header.map_size
-		mov	ds, ax
-		xor	dx, dx
-		mov	ah, 3Fh
-		int	21h		; DOS -	2+ - READ FROM FILE WITH HANDLE
-					; BX = file handle, CX = number	of bytes to read
-					; DS:DX	-> buffer
-		pop	ds
-		mov	ah, 3Eh
-		int	21h		; DOS -	2+ - CLOSE A FILE WITH HANDLE
-					; BX = file handle
-		pop	si
-		retn
-@map_load$qv	endp
+; map_load() now lives in th04/formats/map.cpp, which appends to this
+; segment right here: map_load() was the LAST proc in this root
+; contribution, and th05/map.cpp already owned everything after it, so
+; no carve and no new segment were needed (kb/codegen 0098).
 
+	@map_load$qv procdesc near
 	@map_free$qv procdesc near
 END_TEXT ends
 
@@ -19198,6 +19163,8 @@ include th05/hardware/vram_planes[data].asm
 include th03/formats/cdg[data].asm
 include th04/formats/cfg_lres[data].asm
 		db 0
+public _aSt00_map
+_aSt00_map	label byte
 aSt00_map	db  'st00.map',0
 	evendata
 include th04/main/tile/section[data].asm
@@ -19565,6 +19532,8 @@ include libs/master.lib/pfint21[bss].asm
 include th05/formats/cfg_lres[bss].asm
 public _resident
 _resident	dd ?
+public _map_header
+_map_header	label byte
 map_header	map_header_t ?
 byte_23EFC	db ?
 word_23EFD	dw ?

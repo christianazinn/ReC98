@@ -1064,38 +1064,12 @@ mpn_load	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-public @map_load$qv
-@map_load$qv	proc near
+; map_load() now lives in th04/formats/map.cpp, which appends to this
+; segment right here: map_load() was the LAST proc in this root
+; contribution, and th04/map.cpp already owned everything after it, so
+; no carve and no new segment were needed (kb/codegen 0098).
 
-@@mh		= map_header_t ptr -(size map_header_t)
-
-		enter	size map_header_t, 0
-		les	bx, _resident
-		assume es:nothing
-		mov	al, es:[bx+resident_t.stage_ascii]
-		les	bx, off_21CBA
-		mov	es:[bx+3], al
-		push	word ptr off_21CBA+2
-		push	bx
-		call	file_ropen
-		push	ss
-		lea	ax, [bp+@@mh]
-		push	ax
-		push	size map_header_t
-		call	file_read
-		call	@map_free$qv
-		push	[bp+@@mh.map_size]
-		call	hmem_allocbyte
-		mov	_map_seg, ax
-		push	ax
-		push	0
-		push	[bp+@@mh.map_size]
-		call	file_read
-		call	file_close
-		leave
-		retn
-@map_load$qv	endp
-
+	@map_load$qv procdesc near
 	@map_free$qv procdesc near
 END_TEXT ends
 
@@ -29217,6 +29191,8 @@ public _aMaine_1
 _aMaine_1	label byte
 aMaine_1	db 'maine',0
 include th04/main/tile/section[data].asm
+public _off_21CBA
+_off_21CBA	label dword
 off_21CBA	dd aSt00_map
 					; "ST00.MAP"
 aSt00_map	db 'ST00.MAP',0
