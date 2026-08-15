@@ -10,6 +10,7 @@ typedef enum {
 
 #define REIMU_ORB_CELS 4
 #define YUUKA6_CHASECROSS_CELS 4
+#define MIDBOSSX_CELS 4
 
 /// Pattern numbers for the super_*() functions.
 /// Since super_entry_bfnt() doesn't take a "start patnum" parameter, the
@@ -158,6 +159,14 @@ typedef enum {
 	),
 	// --------
 	/// =======
+
+	/// Extra Stage
+	/// ===========
+	// Idle animation of the Extra Stage midboss, cycled by midbossx_render()
+	// through [stage_frame_mod16].
+	PAT_MIDBOSSX = (PAT_STAGE + 20),
+	PAT_MIDBOSSX_last = (PAT_MIDBOSSX + MIDBOSSX_CELS - 1),
+	/// ===========
 
 	/// Extra Boss 2 – Gengetsu
 	/// =======================
