@@ -21,7 +21,10 @@
 #include "th02/formats/map.hpp"
 #include "th02/formats/mpn.hpp"
 #include "th02/formats/pi.h"
+#include "th01/rank.h"
+#include "th02/core/globals.hpp"
 #include "th02/gaiji/gaiji.h"
+#include "th02/gaiji/loadfree.h"
 #include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
 #include "th02/snd/snd.h"
@@ -29,6 +32,7 @@
 #include "th02/main/main.hpp"
 #include "th02/main/null.hpp"
 #include "th02/main/playfld.hpp"
+#include "th02/main/playperf.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -49,6 +53,8 @@
 extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
+extern "C" void near sub_E178(void);
+extern "C" void far sub_1CD36(void);
 extern "C" void near sub_E271(void);
 extern "C" void far sub_3DDE(void);
 extern "C" void far sub_129DD(void);
@@ -116,6 +122,19 @@ extern "C" const char aMap[];
 extern "C" const char aMpn[];
 extern "C" const char aM[];
 extern "C" const char aMiko_k_mpn[];
+extern "C" const char aHuuma_efc[];
+extern "C" const char aEye_pi[];
+extern "C" const char aMiko_bft[];
+extern "C" const char aMiko32_bft[];
+extern "C" const char aMiko16_bft[];
+
+// The [farfp_1F4A4] slot: main() calls the per-stage gameplay loop through
+// it, and gameplay_init() is the only thing that ever writes it.
+// [HELD FOR NAMING REVIEW]
+extern "C" bool16 (far *stage_loop_func)(void);
+
+// th02/main/stage/loop.cpp
+bool16 stage_loop(void);
 // ---------------------------
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
@@ -127,10 +146,42 @@ extern "C" const char aMiko_k_mpn[];
 	call	near ptr func; \
 }
 
-// Both of these start with a plain `push bp; mov bp, sp` and have no locals,
-// which is -G; stage_init() below starts with `ENTER 0Ch, 0`, which is -G-.
+// gameplay_init() and the two filename helpers all start with a plain
+// `push bp; mov bp, sp` and have no locals, which is -G; stage_init() below
+// starts with `ENTER 0Ch, 0`, which is -G-.
 // (kb/codegen/0011, scoped exactly as th03/main/player/defeat.cpp does it.)
 #pragma option -G
+
+// Run-wide gameplay setup. main() calls this once, after the optional demo
+// load and before the first stage_init(), and never again — everything here
+// outlives a stage transition.
+void near gameplay_init(void)
+{
+	snd_load(aHuuma_efc, SND_LOAD_SE);
+	sub_1CD36();
+	pi_load(0, aEye_pi);
+	super_entry_bfnt(aMiko_bft);
+	super_entry_bfnt(aMiko32_bft);
+	super_entry_bfnt(aMiko16_bft);
+	for(int i = 48; i < 128; i++) {
+		super_convert_tiny(i);
+	}
+	gaiji_load();
+	sub_E178();
+	reduce_effects = resident->reduce_effects;
+	stage_loop_func = stage_loop;
+	if(resident->continues_used) {
+		score = (
+			(resident->continues_used >= 9) ? 9 : resident->continues_used
+		);
+		item_bigpower_override = ((stage_id % 5) + 2);
+	}
+	if(rank == RANK_EASY) {
+		playperf_max = 4;
+	} else {
+		playperf_max = 16;
+	}
+}
 
 // The filename layout both of these assume: "stage<N>.<ext>".
 static const int STAGE_FN_DIGIT = 5;

@@ -266,8 +266,10 @@ SLOWDOWN_TEXT segment word public 'CODE' use16
 SLOWDOWN_TEXT ends
 
 ; Harness carve (kb/codegen/0080): the head of the original `DEMO_TEXT`
-; contribution, renamed so that a C++ object can append stage_loop() at its
-; original address in the MIDDLE of the segment. Same `word public 'CODE'`
+; contribution, renamed so that C++ objects can append main() and
+; stage_loop() at their original addresses in the MIDDLE of the segment.
+; With main() lifted as well, this root contribution is now a zero-byte
+; anchor, the same shape `CFG_LRES_TEXT` has. Same `word public 'CODE'`
 ; alignment as before, so nothing moves.
 STAGE_TEXT	segment	word public 'CODE' use16
 		assume cs:main_01
@@ -288,11 +290,6 @@ STAGE_TEXT	segment	word public 'CODE' use16
 	; because the original proc is (kb/codegen 0064).
 	@midboss_defeat_render$qv procdesc near
 
-	; stage_loop() now lives in th04/main/stage/loop.cpp, which appends to
-	; this segment. Declared `near` because the original proc is
-	; (kb/codegen 0064), and ahead of main()'s call site below.
-	@stage_loop$qv procdesc near
-
 	; GameExecl() now lives in th04/main/execl.cpp, which appends to the
 	; EXECL_TEXT segment carved out of the head of main_TEXT below.
 	; Declared here, ahead of every `nopcall` site, and inside a main_01
@@ -305,67 +302,17 @@ STAGE_TEXT	segment	word public 'CODE' use16
 ; Attributes: bp-based frame
 
 ; int __cdecl main(int argc, const char	**argv,	const char **envp)
-public _main
-_main		proc far
+; main() now lives in th04/main/entry.cpp, which appends to this segment
+; ahead of th04/stg_loop.cpp. It is called main_entry() there and exported
+; under its original name through the alias below, because a C++ function
+; literally named `main` would come with a code segment of its own and shift
+; every address in this group (kb/codegen 0040).
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		call	@cfg_load_resident_ptr$qv
-		or	ax, ax
-		jz	short loc_AB86
-
-		; ZUN landmine: This is roughly 3.8 KB below what this game would need
-		; when running without an EMS driver, and thus causes the infamous
-		; crash after Reimu's Stage 5 pre-battle dialog.
-		; https://rec98.nmlgc.net/blog/2021-11-29 documents this issue in full
-		; detail.
-		mov	_mem_assign_paras, (320000 shr 4)
-
-		call	@game_init_main$qnxuc pascal, ds, offset aUmx
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.rand]
-		mov	random_seed, eax
-		call	@ems_allocate_and_preload_eyecatc$qv
-		call	text_clear
-		call	gaiji_backup
-		push	ds
-		push	offset aGameft_bft ; "GAMEFT.bft"
-		call	gaiji_entry_bfnt
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bgm_mode]
-		mov	ah, 0
-		push	ax
-		mov	al, es:[bx+resident_t.se_mode]
-		mov	ah, 0
-		push	ax
-		call	snd_determine_modes
-		call	snd_load pascal, ds, offset aMiko, SND_LOAD_SE
-
-loc_AB6B:
-		call	main_01:sub_AED0
-		call	@stage_loop$qv
-		cmp	_quit, Q_NEXT_STAGE
-		jnz	short loc_AB7D
-		call	main_01:sub_B29E
-		jmp	short loc_AB6B
-; ---------------------------------------------------------------------------
-
-loc_AB7D:
-		push	ds
-		push	offset arg0	; "op"
-		nopcall	@GAMEEXECL$QNXC
-
-loc_AB86:
-		pop	bp
-		retf
-_main		endp
-
-; The C++ contribution to STAGE_TEXT goes here, at the original address of
-; the frame loop.
+; The two C++ contributions to STAGE_TEXT go here: th04/entry.cpp at the
+; original address of main(), then th04/stg_loop.cpp at the original address
+; of the frame loop.
 STAGE_TEXT	ends
 
 ; ===========================================================================
@@ -562,6 +509,8 @@ sub_AD03	endp
 
 ; Attributes: bp-based frame
 
+public _sub_AED0
+_sub_AED0 label near
 sub_AED0	proc near
 		push	bp
 		mov	bp, sp
@@ -857,6 +806,8 @@ sub_B1D0	endp
 
 ; Attributes: bp-based frame
 
+public _sub_B29E
+_sub_B29E label near
 sub_B29E	proc near
 		push	bp
 		mov	bp, sp
@@ -29170,10 +29121,15 @@ off_213E0	dd aSt00
 					; "ST00"
 _bbname	dd aBb0_cdg_0	; original ZUN variable name
 _EYECATCH_FN_FORMAT	db 'eye0.cdg',0
+public _aUmx, _aGameft_bft, _aMiko, _arg0
+_aUmx		label byte
 aUmx		db '“Œ•ûŒ¶‘z.‹½',0
+_aGameft_bft	label byte
 aGameft_bft	db 'GAMEFT.bft',0
+_aMiko		label byte
 aMiko		db 'miko',0
 ; char arg0[]
+_arg0		label byte
 arg0		db 'op',0
 aSt00		db 'ST00',0
 aEye_rgb	db 'eye.rgb',0
