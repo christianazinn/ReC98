@@ -36,15 +36,21 @@ struct laser_t {
 	screen_point_t origin;
 
 	// Frames to spend in LASER_PHASE_WAIT before growing. Seeded at spawn time
-	// from [laser_wait_frames].
+	// from [laser_wait_frames], which the spawning boss usually overwrites
+	// first — see that variable below for the measured census, and for the
+	// placeholder name its ASM writers still use.
 	int wait_frames;
 
 	// Frames to spend in LASER_PHASE_ACTIVE.
 	int active_frames;
 
-	// Cel of the 32×32 charge animation, 0 to 5. Advanced by
-	// lasers_invalidate(), not by the update function. Once it reaches 4, the
-	// beam proper takes over.
+	// Cel of the 32×32 charge animation, advanced by lasers_invalidate() rather
+	// than by the update function. Only 0 … (LASER_CHARGE_CELS - 1) are actual
+	// cels — th02/sprites/main_pat.h:42 caps the sprite range there. The counter
+	// runs past that on both sides of the handover: the update function draws
+	// the beam once it merely *reaches* LASER_CHARGE_CELS, while
+	// lasers_invalidate() keeps unblitting the charge box until it passes it.
+	// See th02/main/laser.cpp for what that window costs.
 	uint8_t charge_cel;
 
 	// Base pattern number of the 16×16 beam strip. The rendered pattern is
@@ -56,9 +62,24 @@ extern laser_t lasers[LASER_COUNT];
 
 // The [wait_frames] every newly spawned laser starts with. A single-field
 // spawn-time template, in the family of TH04's [thicklaser_template] and TH05's
-// [laser_template]: each of the five bosses that spawn lasers writes it
-// immediately before its burst of lasers_add() calls, and lasers_reset()
-// restores the default.
+// [laser_template].
+//
+// Every write is still ASM, and still spells the variable with its IDA
+// placeholder name: the storage published as `_laser_wait_frames`
+// (th02_main.asm:24751-24752) is `byte_23A70` (`:24753`), and all twelve writes
+// use that spelling. Census, measured at ReC98 45e7e2e7 — four laser-spawning
+// entities, spread over eight procs that call lasers_add():
+//
+// 	stones     	`stones_11B5D` 24h, `stones_11C37` 1Eh, `stones_11D30` 10h,
+// 	           	`stones_11E76` 1Eh twice, plus `stones_12778` 0Ch, which
+// 	           	writes the value without spawning anything
+// 	rika       	`rika_13C91` 40h
+// 	sigma      	`sigma_1619C` 20h, 30h, 64h, 10h; `sigma_162D3` writes nothing
+// 	           	at all and spawns four lasers on whatever was left behind
+// 	midboss4   	`midboss4_1A17E` 10h
+//
+// So: eight distinct values across twelve writes, and only three of them are
+// the 16 that lasers_reset() restores.
 extern uint8_t laser_wait_frames;
 
 // Frees every slot and restores [laser_wait_frames]. Called once per stage from

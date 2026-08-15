@@ -8,9 +8,10 @@
 
 // Sets [velocity] to a vector with the given [angle] and a 12-pixel length.
 //
-// TH05 also insists on setting shot_t::angle via a ridiculous out-of-bounds
+// TH05 also insists on setting Shot::angle via a ridiculous out-of-bounds
 // access, and therefore *must* be called with [velocity] pointing inside a
-// shot_t structure!
+// Shot structure! (The struct was `shot_t` until upstream's 456768a4 renamed it;
+// the dump's own struc keeps the old spelling, see HitShot below.)
 SPPoint pascal near shot_velocity_set(
 	SPPoint near* velocity, unsigned char angle
 );
@@ -81,9 +82,10 @@ static const int SHOT_COUNT = ((GAME == 5) ? 64 : 68);
 
 #if (GAME == 5)
 // Decay animation played where a shot hit a stage enemy or boss. TH04 runs the
-// same animation inside the shot_t itself, via SF_HIT and SF_REMOVE.
-// (The dump's struc still spells [age] `HITSHOT_age`, to keep it from
-// colliding with shot_t's own `age` inside th05_main.asm.)
+// same animation inside the Shot itself, via SF_HIT and SF_REMOVE.
+// (The dump's struc still spells [age] `HITSHOT_age`, to keep it from colliding
+// with the `age` of the dump's `shot_t` struc inside th05_main.asm — that one
+// really is spelled `shot_t`, unlike the C++ struct above.)
 struct HitShot {
 	unsigned char age;
 

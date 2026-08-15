@@ -46,10 +46,16 @@ static const pixel_t BEAM_CEL_W = 16;
 static const pixel_t BEAM_CEL_H = 16;
 static const pixel_t BEAM_CEL_FIRST_OFFSET = 8;
 
-// lasers_invalidate() unblits the 32×32 charge sprite while [charge_cel] is
-// ≤ LASER_CHARGE_CELS, i.e. for one cel longer than there are cels, but
-// lasers_update_and_render() already draws the beam once [charge_cel] reaches
-// that count. So the two disagree for one 4-frame window.
+// The two per-frame functions disagree about when the charge animation ends.
+// lasers_invalidate() unblits the 32×32 charge box while [charge_cel] is
+// ≤ LASER_CHARGE_CELS, but lasers_update_and_render() already draws the beam
+// once [charge_cel] merely *reaches* that count — and [charge_cel] only
+// advances every 4th frame. So for one 4-frame window the beam is drawn while
+// only a 32×32 box around its origin is invalidated, leaving the scrolling
+// tiles under the rest of the beam unmarked for redrawing.
+// Deliberately left unlabelled: whether that leaves visible residue is an
+// emulator question, not a static one. Escalated as J5 in
+// state/port/FIX_LAYER_CANDIDATES.md.
 
 // Origin of the laser currently being rendered. Scratch, only used to pass the
 // position from lasers_update_and_render() to laser_render(), so it stays out
@@ -67,8 +73,10 @@ extern screen_point_t laser_origin;
 static const pixel_t HITBOX_OFFSET_LEFT = -24;
 static const pixel_t HITBOX_OFFSET_RIGHT = 8;
 
-// The value lasers_reset() puts back into [laser_wait_frames]. Three of the
-// five spawning bosses write the same number themselves before a volley.
+// The value lasers_reset() puts back into [laser_wait_frames] at the start of
+// every stage. Three of that variable's twelve ASM writes happen to write this
+// same 16; the other nine spread over seven other values, and one spawner never
+// writes it at all. Census in th02/main/laser.hpp.
 static const int LASER_WAIT_FRAMES_DEFAULT = 16;
 
 // th02/main/stage/callback.hpp declares these two slots, but it needs

@@ -16,9 +16,12 @@
 #include "th02/main/entity.hpp"
 
 // See th04/main/tile/tile.hpp for why this declaration has to be repeated in
-// every translation unit that calls the function. This one needs the two
-// separate coordinates rather than the SPPoint form, because the laser half
-// below passes computed values rather than a struct.
+// every translation unit that calls the function, and why the parameter list is
+// a per-TU choice: it is decided by the code the original generated, not by what
+// the call sites would find convenient. Both games push two separate words here,
+// so both take this form — note that TH05 does too, even though the laser half
+// below, the only place that passes computed values rather than struct members,
+// is TH04-only. th04/main/midboss/inv.cpp is the SPPoint form of the same call.
 extern "C" void pascal near tiles_invalidate_around(
 	subpixel_t center_y, subpixel_t center_x
 );

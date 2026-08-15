@@ -39,6 +39,11 @@ void pascal near midboss4_render(void)
 	// Note for whoever fixes it: the early `return` below also skips the
 	// midboss_put_generic() call that is the only place clearing
 	// midboss.damage_this_frame, so this and the carryover bug move together.
+	// "bug" is deliberate, against the `ZUN quirk` that
+	// th04/main/midboss/midboss.hpp:64 still carries: that label is upstream's
+	// own and was refuted on measured evidence in
+	// state/port/FIX_LAYER_CANDIDATES.md §B. Fix the carryover first; the
+	// ordering constraint is recorded there too.
 	if(playfield_clip_point_yx_small_roll(
 		midboss.pos.cur, MIDBOSS4_W, MIDBOSS4_H
 	)) {
