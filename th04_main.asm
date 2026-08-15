@@ -795,7 +795,7 @@ sub_B1D0	proc near
 		nopcall	main_01:sub_11DE6
 		call	@randring_fill$qv
 		call	sub_1DA1B
-		call	main_01:sub_FFA4
+		call	@bomb_reset$qv
 		call	_sparks_init
 		call	hud_score_put
 		call	sub_15D74
@@ -5478,18 +5478,22 @@ off_FF28	dw offset loc_FEE7
 
 include th04/formats/bb_playchar.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FFA4	proc near
-		push	bp
-		mov	bp, sp
-		mov	_bombing, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		pop	bp
-		retn
-sub_FFA4	endp
+	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
+	; player_bomb(), which is its original address order: it was the LAST
+	; proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried
+	; no `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; Same single body as TH05's, which landed first -- kb/codegen/0115
+	; over the two originals gives 6 differing bytes of 16, and all six
+	; are the two memory operands and the one `offset` immediate. With
+	; this copy gone the `#if (GAME == 5)` that used to guard the C++
+	; body is gone too: it only ever existed because this dump still
+	; held a second copy of the same function.
+	@bomb_reset$qv procdesc near
 
 
 	; player_bomb() now lives in th04/main/player/bomb.cpp, which appends

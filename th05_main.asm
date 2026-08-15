@@ -1280,12 +1280,13 @@ include th04/main/pointnum/num_put.asm
 	; no `assume`, so there is nothing to restore into the rest of this
 	; contribution.
 	;
-	; TH04's sub_FFA4 is the SAME body -- kb/codegen/0115 over the two
+	; TH04's copy was the SAME body -- kb/codegen/0115 over the two
 	; originals gives 6 differing bytes of 16, and all six are the two
-	; memory operands and the one `offset` immediate. It is still in
-	; th04_main.asm, at the identical tail position of that dump's own
-	; PLAYER_B_TEXT, which is why the C++ body is `#if (GAME == 5)` for
-	; now; lifting it is that guard's deletion.
+	; memory operands and the one `offset` immediate. It sat at the
+	; identical tail position of th04_main.asm's own PLAYER_B_TEXT, and
+	; has since been lifted too, so the `#if (GAME == 5)` that used to
+	; guard the C++ body is gone and one unguarded body now serves both
+	; games.
 	@bomb_reset$qv procdesc near
 
 
