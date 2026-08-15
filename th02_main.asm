@@ -251,417 +251,11 @@ include libs/master.lib/pfint21.asm
 include th02/formats/pfopen.asm
 include libs/master.lib/pf_str_ieq.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_3DDE
-_sub_3DDE label far
-sub_3DDE	proc far
-		push	bp
-		mov	bp, sp
-		xor	bx, bx
-		jmp	short loc_3DED
-; ---------------------------------------------------------------------------
-
-loc_3DE5:
-		mov	byte ptr byte_1FFFC[bx], 0
-		add	bx, 0Ch
-
-loc_3DED:
-		cmp	bx, 360
-		jl	short loc_3DE5
-		mov	word_1FFF0, 20h	; ' '
-		mov	word_1FFF2, 1
-		mov	word_1FFF4, 0
-		mov	byte_1FFF8, V_WHITE
-		mov	byte_1FFF9, 0
-		mov	byte_1FFFA, -1
-		mov	word_1FFF6, 20h	; ' '
-		pop	bp
-		retf
-sub_3DDE	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_3E1C	proc far
-
-arg_0		= byte ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	cx, [bp+arg_4]
-		mov	bx, [bp+arg_2]
-		shl	cx, 4
-		shl	bx, 4
-		mov	ax, offset byte_1FFFC
-		mov	si, ax
-		xor	dx, dx
-		jmp	short loc_3E5F
-; ---------------------------------------------------------------------------
-
-loc_3E35:
-		cmp	byte ptr [si], 0
-		jnz	short loc_3E5B
-		mov	byte ptr [si], 1
-		mov	al, [bp+arg_0]
-		mov	[si+1],	al
-		mov	[si+2],	cx
-		mov	[si+6],	cx
-		mov	[si+4],	bx
-		mov	[si+8],	bx
-		mov	byte ptr [si+0Ah], 1
-		mov	al, byte ptr word_1FFF0
-		mov	[si+0Bh], al
-		jmp	short loc_3E64
-; ---------------------------------------------------------------------------
-
-loc_3E5B:
-		inc	dx
-		add	si, 0Ch
-
-loc_3E5F:
-		cmp	dx, 1Eh
-		jl	short loc_3E35
-
-loc_3E64:
-		pop	si
-		pop	bp
-		retf	6
-sub_3E1C	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_3E6A	proc far
-
-var_2		= word ptr -2
-arg_0		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	ax, 0A800h
-		mov	es, ax
-		assume es:nothing
-		mov	si, [bp+arg_0]
-		mov	ax, word_20164
-		sar	ax, 3
-		mov	dx, word_20166
-		shl	dx, 6
-		add	ax, dx
-		shr	dx, 2
-		add	ax, dx
-		mov	di, ax
-		mov	bx, word_20164
-		and	bx, 7
-		mov	al, byte_1E35E[si]
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	cl, bl
-		shr	ax, cl
-		mov	cl, 10h
-		sub	cl, bl
-		mov	dx, [bp+var_2]
-		shl	dx, cl
-		or	ax, dx
-		jmp	short loc_3EB8
-; ---------------------------------------------------------------------------
-
-loc_3EB1:
-		mov	es:[di], ax
-		add	di, 50h	; 'P'
-		dec	si
-
-loc_3EB8:
-		or	si, si
-		jg	short loc_3EB1
-		pop	di
-		pop	si
-		leave
-		retf	2
-sub_3E6A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_3EC2	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		mov	ax, word_20164
-		sar	ax, 3
-		mov	dx, word_20166
-		shl	dx, 6
-		add	ax, dx
-		shr	dx, 2
-		add	ax, dx
-		mov	bx, ax
-		jmp	short loc_3EEA
-; ---------------------------------------------------------------------------
-
-loc_3EE1:
-		mov	word ptr es:[bx], 0FFFFh
-		add	bx, 50h	; 'P'
-		dec	si
-
-loc_3EEA:
-		or	si, si
-		jg	short loc_3EE1
-		pop	si
-		pop	bp
-		retn	2
-sub_3EC2	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_3EF4	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, 0A800h
-		mov	es, ax
-		push	GC_RMW
-		mov	al, byte_1FFF9
-		mov	ah, 0
-		push	ax
-		nopcall	grcg_setcolor
-		mov	ax, offset byte_1FFFC
-		mov	si, ax
-		xor	di, di
-		jmp	short loc_3F7B
-; ---------------------------------------------------------------------------
-
-loc_3F15:
-		cmp	byte ptr [si], 0
-		jz	short loc_3F77
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, [bx+si+2]
-		sar	ax, 4
-		mov	word_20164, ax
-		mov	ax, [bx+si+4]
-		sar	ax, 4
-		mov	word_20166, ax
-		cmp	_reduce_effects, 0
-		jz	short loc_3F4B
-		mov	al, _page_back
-		mov	ah, 0
-		mov	dx, di
-		and	dx, 1
-		cmp	ax, dx
-		jnz	short loc_3F54
-
-loc_3F4B:
-		mov	al, [si+0Ah]
-		mov	ah, 0
-		push	ax
-		call	sub_3EC2
-
-loc_3F54:
-		cmp	byte ptr [si], 2
-		jnz	short loc_3F5E
-		mov	byte ptr [si], 0
-		jmp	short loc_3F77
-; ---------------------------------------------------------------------------
-
-loc_3F5E:
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, [bx+si+2]
-		mov	cx, [bx+si+4]
-		xor	bx, 4
-		mov	[bx+si+2], ax
-		mov	[bx+si+4], cx
-
-loc_3F77:
-		inc	di
-		add	si, 0Ch
-
-loc_3F7B:
-		cmp	di, 1Eh
-		jl	short loc_3F15
-		nopcall	grcg_off
-		pop	di
-		pop	si
-		pop	bp
-		retf
-sub_3EF4	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_3F8A	proc far
-
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 6
-		push	si
-		push	di
-		push	GC_RMW
-		mov	al, byte_1FFF8
-		mov	ah, 0
-		push	ax
-		nopcall	grcg_setcolor
-		mov	al, byte_1FFFA
-		mov	byte_20168, al
-		mov	al, byte_1FFF8
-		mov	byte_20169, al
-		mov	ax, offset byte_1FFFC
-		mov	si, ax
-		mov	[bp+var_2], 0
-		jmp	loc_407E
-; ---------------------------------------------------------------------------
-
-loc_3FB9:
-		cmp	byte ptr [si], 1
-		jz	short loc_3FC1
-		jmp	loc_4078
-; ---------------------------------------------------------------------------
-
-loc_3FC1:
-		mov	al, [si+0Bh]
-		add	al, byte ptr word_1FFF2
-		mov	[si+0Bh], al
-		mov	al, [si+1]
-		add	al, byte ptr word_1FFF4
-		mov	[si+1],	al
-		push	ss
-		lea	ax, [bp+var_4]
-		push	ax
-		push	ss
-		lea	ax, [bp+var_6]
-		push	ax
-		push	word ptr [si+1]
-		mov	al, [si+0Bh]
-		mov	ah, 0
-		push	ax
-		nop
-		push	cs
-		; Hack (what is this I don't even)
-		db 0e8h
-		db 075h
-		db 0b5h
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	dx, [bp+var_4]
-		add	[bx+si+2], dx
-		mov	dx, [bp+var_6]
-		add	[bx+si+4], dx
-		mov	dx, [bx+si+2]
-		sar	dx, 4
-		mov	word_20164, dx
-		mov	ax, [bx+si+4]
-		sar	ax, 4
-		mov	word_20166, ax
-		cmp	dx, 416
-		jge	short loc_402B
-		cmp	dx, 18h
-		jle	short loc_402B
-		cmp	ax, 8
-		jle	short loc_402B
-		cmp	ax, 384
-		jl	short loc_4030
-
-loc_402B:
-		mov	byte ptr [si], 2
-		jmp	short loc_4078
-; ---------------------------------------------------------------------------
-
-loc_4030:
-		mov	ax, word_1FFF6
-		shl	ax, 2
-		add	ax, word_1FFF6
-		mov	di, ax
-		mov	bl, 5
-		jmp	short loc_404F
-; ---------------------------------------------------------------------------
-
-loc_4040:
-		mov	al, [si+0Bh]
-		mov	ah, 0
-		cmp	ax, di
-		jg	short loc_4055
-		sub	di, word_1FFF6
-		dec	bl
-
-loc_404F:
-		cmp	di, word_1FFF6
-		jg	short loc_4040
-
-loc_4055:
-		mov	[si+0Ah], bl
-		cmp	_reduce_effects, 0
-		jz	short loc_406E
-		mov	al, _page_back
-		mov	ah, 0
-		mov	dx, [bp+var_2]
-		and	dx, 1
-		cmp	ax, dx
-		jnz	short loc_4078
-
-loc_406E:
-		mov	al, [si+0Ah]
-		mov	ah, 0
-		push	ax
-		call	sub_3E6A
-
-loc_4078:
-		inc	[bp+var_2]
-		add	si, 0Ch
-
-loc_407E:
-		cmp	[bp+var_2], 1Eh
-		jge	short loc_4087
-		jmp	loc_3FB9
-; ---------------------------------------------------------------------------
-
-loc_4087:
-		nopcall	grcg_off
-		pop	di
-		pop	si
-		leave
-		retf
-sub_3F8A	endp
-
+	extern @bg_particles_reset$qv:proc
+	extern @BG_PARTICLE_ADD$QIIUC:proc
+	extern @GRCG_DOT_SQUARE_PUT$QI:proc
+	extern @bg_particles_invalidate$qv:proc
+	extern @bg_particles_update_and_render$qv:proc
 	extern @SPARKS_ADD$QIUIIII:proc
 	extern @sparks_update_and_render$qv:proc
 	extern @sparks_invalidate$qv:proc
@@ -8249,7 +7843,7 @@ loc_1364A:
 		mov	word_20164, di
 		mov	word_20166, si
 		push	2
-		call	sub_3E6A
+		call	@GRCG_DOT_SQUARE_PUT$QI
 
 loc_13659:
 		inc	[bp+var_2]
@@ -16062,7 +15656,7 @@ loc_17AA9:
 		mov	al, [bp+var_4]
 		mov	ah, 0
 		push	ax
-		call	sub_3E6A
+		call	@GRCG_DOT_SQUARE_PUT$QI
 
 loc_17B24:
 		cmp	[bp+arg_2], 0
@@ -23176,7 +22770,7 @@ loc_1BF53:
 		idiv	bx
 		add	al, 40h
 		push	ax
-		call	sub_3E1C
+		call	@BG_PARTICLE_ADD$QIIUC
 
 loc_1BF78:
 		test	byte ptr _stage_frame, 1Fh
@@ -23196,7 +22790,7 @@ loc_1BF91:
 		mov	byte_1FFF8, al
 
 loc_1BF9E:
-		call	sub_3F8A
+		call	@bg_particles_update_and_render$qv
 		cmp	byte_2066A, 0
 		jnz	loc_1C11A
 		cmp	word_26CFC, 0
@@ -23453,7 +23047,7 @@ marisa_bg_render	proc far
 		call	egc_off
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
 		call	grcg_byteboxfill_x pascal, (PLAYFIELD_VRAM_LEFT shl 16) or PLAYFIELD_TOP, ((PLAYFIELD_VRAM_RIGHT - 1) shl 16) or PLAYFIELD_BOTTOM - 1
-		call	sub_3EF4
+		call	@bg_particles_invalidate$qv
 		mov	al, _page_front
 		mov	ah, 0
 		add	ax, ax
@@ -23639,7 +23233,7 @@ loc_1C321:
 		mov	al, [bp+var_4]
 		mov	ah, 0
 		push	ax
-		call	sub_3E6A
+		call	@GRCG_DOT_SQUARE_PUT$QI
 
 loc_1C32C:
 		mov	ax, [bp+arg_0]
@@ -24367,6 +23961,8 @@ _mpn_count	db 0
 public _pf_fn
 _pf_fn		db '“Œ•û••–‚.˜^',0
 include th02/snd/se[data].asm
+public _DOT_SQUARE_ROWS
+_DOT_SQUARE_ROWS label byte
 byte_1E35E	label byte
 		db    0
 		db  80h
@@ -25217,18 +24813,42 @@ include th02/snd/load[bss].asm
 public _mpn_images, _mpn_palette
 _mpn_images	dd ?
 _mpn_palette	palette_t <?>
+public _bg_particle_speed_initial
+_bg_particle_speed_initial label word
 word_1FFF0	dw ?
+public _bg_particle_speed_delta
+_bg_particle_speed_delta label word
 word_1FFF2	dw ?
+public _bg_particle_angle_delta
+_bg_particle_angle_delta label word
 word_1FFF4	dw ?
+public _bg_particle_edge_step
+_bg_particle_edge_step label word
 word_1FFF6	dw ?
+public _bg_particle_col
+_bg_particle_col label byte
 byte_1FFF8	db ?
+public _bg_particle_unput_col
+_bg_particle_unput_col label byte
 byte_1FFF9	db ?
+public _bg_particle_unused_1
+_bg_particle_unused_1 label byte
 byte_1FFFA	db ?
 		db ?
+public _bg_particles
+_bg_particles label byte
 byte_1FFFC	db 360 dup(?)
+public _dot_square_left
+_dot_square_left label word
 word_20164	dw ?
+public _dot_square_top
+_dot_square_top label word
 word_20166	dw ?
+public _bg_particle_unused_2
+_bg_particle_unused_2 label byte
 byte_20168	db ?
+public _bg_particle_unused_3
+_bg_particle_unused_3 label byte
 byte_20169	db ?
 include th02/math/randring[bss].asm
 public _resident, _playperf
