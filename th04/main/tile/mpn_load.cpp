@@ -14,7 +14,8 @@
 /// function performs, so it is the one TH02 function this is not built from.
 ///
 /// TH05's mpn_load() is ZUN's hand-written assembly and stays in
-/// th05_main.asm. See state/notes/_map_free_qv.md:161-179, :308-309; the short
+/// th05_main.asm. See state/notes/mpn_load.md, and
+/// state/notes/_map_free_qv.md:161-179, :308-309 for the carve. The short
 /// version is that it uses BP as its tile counter after establishing a standard
 /// frame and reading its own parameter through it, which Turbo C++ never does.
 /// That tell is the decisive one on its own. Its helpers corroborate but do not
