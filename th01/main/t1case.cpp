@@ -201,6 +201,31 @@ static bool t1case_ckpt_verify_pending;
 // the array it is about to trust.
 static uint32_t t1case_checkpoint_checksum;
 
+// The four input-derivation slots that SURVIVE an all-zero input_sense()
+// pass, packed into one word and emitted only when the word changes.
+//
+// Every other byte of hash group 9 is rewritten on every pass: the eight
+// `input_onchange` slots take the sensed value, and the booleans follow
+// them. These four do not. [input_prev][12] and [13] are the bomb
+// double-tap counters, written only on a Z/X edge, on a bomb trigger, and
+// by input_sense(true) - which consumes NO case record, so all eight
+// input_reset_sense() call sites are invisible to the sample cursor.
+// [paused] and [input_bomb] are cleared only explicitly.
+//
+// So this word is exactly the state a checkpoint restore can disagree
+// about while every cursor agrees, which is the W3.1 step-4 divergence
+// (state/notes/t1case-checkpoint.md 3a). Emitting on CHANGE rather than
+// per row keeps a 90,000-row recording from paying an open/seek/write/
+// close per sample - the exact cost step 1 removed from the case path.
+static uint32_t t1case_ip0, t1case_ip1, t1case_ip2, t1case_ip3, t1case_ipb;
+static uint32_t t1case_reset_seen;
+static bool t1case_inp_seen;
+
+// Counts input_sense(true) calls. This path returns BEFORE t1case_frame_io(),
+// so it consumes no case record and is invisible to all three cursors - which
+// is exactly why it is worth counting.
+static uint32_t t1case_reset_count;
+
 // The checkpoint index T1CASE.CFG asked for, e.g. "p3".
 static uint8_t t1case_cfg_checkpoint;
 static bool t1case_done_written;
@@ -864,6 +889,11 @@ static void t1case_diag(char t0, char t1, char t2, uint32_t a, uint32_t b)
 bool16 far t1case_active(void)
 {
 	return ((t1case_mode == T1CASE_RECORD) || (t1case_mode == T1CASE_PLAYBACK));
+}
+
+void far t1case_reset_note(void)
+{
+	t1case_reset_count++;
 }
 
 void far t1case_diag_note(char t0, char t1, char t2, uint32_t a, uint32_t b)
@@ -1742,7 +1772,9 @@ static uint16_t t1case_input_digest(void)
 static void t1case_split_row(uint8_t event)
 {
 	t1split_row_t row;
+	uint32_t ip0, ip1, ip2, ip3, ipb;
 	int fd;
+	int i;
 
 	if((t1case_mode == T1CASE_DISABLED) || (t1case_mode == T1CASE_ERROR)) {
 		return;
@@ -1801,6 +1833,53 @@ static void t1case_split_row(uint8_t event)
 	t1h_group_hud();      t1h_commit(&row, T1SPLIT_G_HUD);
 	t1h_begin();          t1h_commit(&row, T1SPLIT_G_EFFECTS);
 	t1h_group_input();    t1h_commit(&row, T1SPLIT_G_INPUT);
+
+	// [emu] diagnostic, not schema: T1SPLIT rows are compared byte for byte
+	// across lineages and must not grow, so this goes to T1DIAG.TXT.
+	// [emu] W3.1 step 4a probe. Dumps the ENTIRE preimage of hash group 9 plus
+	// the count of input_sense(true) calls, emitted only when any of it changes.
+	//
+	// The step-4 checkpoint divergence is confined to group 9 and survives an
+	// all-zero input pass, and the first probe - the four slots that a zero pass
+	// cannot rewrite - showed both runs AGREEING. So the differing byte is one
+	// the pass does rewrite, which is only possible if the two runs saw a
+	// different number of input_sense(TRUE) calls: that path returns before
+	// t1case_frame_io() and therefore consumes no case record, so it can zero
+	// input_prev[0..13] without moving a single cursor.
+	ip0 = 0; ip1 = 0; ip2 = 0; ip3 = 0;
+	if(t1case_input_prev != nullptr) {
+		for(i = 0; i < 4; i++) {
+			ip0 |= (static_cast<uint32_t>(t1case_input_prev[i]) << (i * 8));
+			ip1 |= (static_cast<uint32_t>(t1case_input_prev[4 + i]) << (i * 8));
+			ip2 |= (static_cast<uint32_t>(t1case_input_prev[8 + i]) << (i * 8));
+			ip3 |= (static_cast<uint32_t>(t1case_input_prev[12 + i]) << (i * 8));
+		}
+	}
+	ipb = (
+		(static_cast<uint32_t>(input_up ? 1 : 0) << 0) |
+		(static_cast<uint32_t>(input_down ? 1 : 0) << 1) |
+		(static_cast<uint32_t>(input_lr) << 2) |
+		(static_cast<uint32_t>(input_shot ? 1 : 0) << 4) |
+		(static_cast<uint32_t>(input_strike ? 1 : 0) << 5) |
+		(static_cast<uint32_t>(input_ok ? 1 : 0) << 6) |
+		(static_cast<uint32_t>(paused ? 1 : 0) << 7) |
+		(static_cast<uint32_t>(input_bomb ? 1 : 0) << 8) |
+		(static_cast<uint32_t>(input_mem_enter ? 1 : 0) << 9) |
+		(static_cast<uint32_t>(input_mem_leave ? 1 : 0) << 10)
+	);
+	if(
+		!t1case_inp_seen || (ip0 != t1case_ip0) || (ip1 != t1case_ip1) ||
+		(ip2 != t1case_ip2) || (ip3 != t1case_ip3) || (ipb != t1case_ipb) ||
+		(t1case_reset_count != t1case_reset_seen)
+	) {
+		t1case_inp_seen = true;
+		t1case_ip0 = ip0; t1case_ip1 = ip1; t1case_ip2 = ip2; t1case_ip3 = ip3;
+		t1case_ipb = ipb; t1case_reset_seen = t1case_reset_count;
+		t1case_diag('I', 'P', 'A', ip0, ip1);
+		t1case_diag('I', 'P', 'B', ip2, ip3);
+		t1case_diag('I', 'P', 'C', ipb, t1case_reset_count);
+		t1case_diag('I', 'P', 'D', t1case_global_frame, t1case_sample_count);
+	}
 
 	if(!t1f_write(fd, &row, sizeof(row))) {
 		t1case_mode = T1CASE_ERROR;

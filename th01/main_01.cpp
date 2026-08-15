@@ -178,6 +178,13 @@ void input_sense(bool16 reset_repeat)
 		input_prev[13] = 0;
 		// Yup, no reset for 14 or 15.
 		input_bomb = 0;
+#ifdef T1CASE
+		// [emu] W3.1 step 4a probe. This branch zeroes input_prev[0..13] and
+		// returns WITHOUT reaching t1case_frame_io(), so it changes hash group 9
+		// without advancing a single case cursor. Counting it is how a
+		// checkpoint divergence that shows up only in group 9 gets attributed.
+		t1case_reset_note();
+#endif
 		return;
 	}
 	// ORACLE-TH01 (mod branch only): advance the case cursor by exactly one

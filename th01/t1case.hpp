@@ -869,6 +869,10 @@ void far t1case_finish(bool16 terminal);
 // tag. Exposed so lifecycle sites outside this module can record a milestone
 // that a later process would otherwise be unable to distinguish from "never
 // reached".
+// [emu] W3.1 step 4a probe: counts input_sense(true) calls, which consume no
+// case record and are therefore invisible to every cursor.
+void far t1case_reset_note(void);
+
 void far t1case_diag_note(char t0, char t1, char t2, uint32_t a, uint32_t b);
 
 #if defined(__cplusplus)
