@@ -49,6 +49,21 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 	#define _SI               	reinterpret_cast<uint8_t near *>(_SI)
 	#define tile_image_vos    	reinterpret_cast<vram_offset_t __ds *>(_BX)
 	#define tile_ring_bytewise	reinterpret_cast<uint8_t __ds*>(tile_ring)
+	#define tile_x            	_DX
+
+	// Every register-to-register move, `add` and `xor` in this function is
+	// written as inline ASM rather than as a pseudo-register assignment,
+	// because the two disagree on the *encoding* of an otherwise identical
+	// instruction: TASM picks the `r/m16, r16` opcode direction (89 / 01 /
+	// 31), Turbo C++ picks `r16, r/m16` (8B / 03 / 33). The original binary
+	// consistently has the former throughout this function, so ZUN wrote this
+	// register shuffling as inline ASM as well. [inferred]
+	// That the original uses those encodings *here* is [verified by funcdiff],
+	// and it is a property of this block rather than of the translation unit:
+	// stage4_render() below keeps the compiler's `xor di, di` = 33 FF.
+	// Same class as kb/codegen/0037, but with the directions swapped, so no
+	// `db` byte pins are needed -- ordinary inline ASM already emits what the
+	// original has.
 
 	// ZUN bloat: We don't use ES here?
 	asm {
@@ -60,7 +75,7 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 	_BX = TILES_X;
 	_AX = cel;
 	asm { mul bx; }
-	_SI = reinterpret_cast<uint8_t near *>(_AX);
+	asm { mov	si, ax; }	// _SI = _AX;
 	_SI += FP_OFF(CARPET_LIGHTING_ANIM);
 
 	// ZUN bloat: tile_image_vos = CARPET_TILE_IMAGE_VOS[target_level];
@@ -69,12 +84,12 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 		sizeof(CARPET_TILE_IMAGE_VOS[0][0]) ==
 		(2 * sizeof(CARPET_LIGHTING_ANIM[0][0]))
 	);
-	_BX += _BX;
+	asm { add	bx, bx; }	// _BX += _BX;
 	asm { mul bx; }
 	_AX += FP_OFF(CARPET_TILE_IMAGE_VOS);
-	tile_image_vos = reinterpret_cast<vram_offset_t near *>(_AX);
+	asm { mov	bx, ax; }	// tile_image_vos = _AX;
 
-	int tile_x = 0;
+	asm { xor	dx, dx; }	// tile_x = 0;
 	_CX = TILES_X;
 	column_loop: {
 		asm { lodsb; }
@@ -82,7 +97,7 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 			/// Set all tiles in the current column...
 			/// --------------------------------------
 
-			_DI = tile_x;
+			asm { mov	di, dx; }	// _DI = tile_x;
 			static_assert(sizeof(tile_ring[0][0]) == 2);
 
 			// Turbo C++ is too smart to emit this instruction for either
@@ -101,7 +116,7 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 			/// …  and mark them for redrawing.
 			/// -------------------------------
 
-			_DI = tile_x;
+			asm { mov	di, dx; }	// _DI = tile_x;
 			static_assert(sizeof(halftiles_dirty[0][0]) == 1);
 
 			do {
@@ -115,6 +130,7 @@ void pascal near carpet_lighting_put_new(int cel, unsigned int target_level)
 		asm { loop column_loop; }
 	}
 
+	#undef tile_x
 	#undef tile_ring_bytewise
 	#undef tile_image_vos
 	#undef _SI
