@@ -16,8 +16,10 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/gaiji/gaiji.h"
 #include "th04/main/hud/hud.hpp"
+#include "th04/main/playperf.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/stage/bonus.hpp"
+#include "th04/main/stage/stage.hpp"
 #include "th04/main/item/item.hpp"
 #include "th05/resident.hpp"
 
@@ -27,6 +29,7 @@ extern "C" {
 	// contents rather than an immediate offset. Reached through kb/codegen/0123
 	// zero-byte aliases; no Shift-JIS byte is touched.
 	extern const char near *ALL_CLEAR;
+	extern const char near *BONUS_STAGE;
 	extern const char near *BONUS_DREAM;
 	extern const char near *GRAZEX50;
 	extern const char near *PLAYER_REM;
@@ -36,7 +39,8 @@ extern "C" {
 	extern const char near *POINT_TOTAL;
 	extern const char near *BONUS_TOTAL;
 
-	// This one *is* the array, hence the `offset` at its call site.
+	// These two *are* the arrays, hence the `offset` at their call sites.
+	extern const gaiji_th04_t gpCLEAR_BONUS[];
 	extern const gaiji_th04_t gpCONGRATULATION[];
 
 	// No header declares TH05's life counter; the root dump publishes `_lives`
@@ -103,6 +107,90 @@ extern "C" {
 	nop; push cs; call near ptr hud_5_digit_put; \
 }
 
+/// Both bonuses open by latching the previous stage's miss and bomb counts, and
+/// the no-bomb bonus is additionally gated on the no-miss one — so a stage you
+/// bombed through cannot pay a no-bomb bonus.
+#define BONUS_LATCH_MISS_AND_BOMB() \
+	no_miss = (resident->miss_count == byte_22274); \
+	byte_22274 = resident->miss_count; \
+	no_bomb = ((resident->bombs_used == byte_22275) && no_miss); \
+	byte_22275 = resident->bombs_used;
+
+void near stage_clear_bonus(void)
+{
+	unsigned long points;
+	bool no_miss;
+	bool no_bomb;
+	unsigned int bonus;
+
+	BONUS_LATCH_MISS_AND_BOMB();
+
+	PaletteTone = 60;
+	palette_show();
+
+	gaiji_putsa(
+		20, 4, reinterpret_cast<const char near *>(gpCLEAR_BONUS), TX_WHITE
+	);
+	text_putsa( 6,  8, BONUS_STAGE, TX_WHITE);
+	text_putsa( 6, 10, BONUS_DREAM, TX_WHITE);
+	text_putsa( 6, 12, GRAZEX50,    TX_WHITE);
+	text_putsa( 6, 14, POINT_ITEMS, TX_WHITE);
+	if(no_miss) {
+		text_putsa(6, 16, BONUS_NOMISS, TX_CYAN);
+	}
+	if(no_bomb) {
+		text_putsa(6, 17, BONUS_NOBOMB, TX_CYAN);
+	}
+	text_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
+
+	bonus = ((stage_id * 100) + 100);
+	points = bonus;
+	HUD_POINTS_PUT_EAX(34, 8);
+
+	bonus = (dream * 10);
+	points += bonus;
+	HUD_POINTS_PUT_EAX(34, 10);
+
+	bonus = (stage_graze * 5);
+	points += bonus;
+	HUD_POINTS_PUT_EAX(34, 12);
+
+	// ZUN bloat: as in stage_allclear_bonus(), the point item count
+	// *multiplies* the running total rather than adding to it.
+	bonus = stage_point_items_collected;
+	points = (bonus * points);
+	HUD_5_DIGIT_PUT_SI(40, 14, TX_WHITE);
+
+	// Both bonuses are worth the same, and it is computed once for both.
+	bonus = ((stage_id * 5000) + 10000);
+	if(no_miss) {
+		points += bonus;
+		HUD_POINTS_PUT_EAX(34, 16);
+	}
+	if(no_bomb) {
+		points += bonus;
+		HUD_POINTS_PUT_EAX(34, 17);
+	}
+
+	// Note the gap: a total between 200,001 and 499,999 moves playperf nowhere.
+	if(points >= 1200000) {
+		playperf_raise(4);
+	} else if(points >= 800000) {
+		playperf_raise(2);
+	} else if(points >= 500000) {
+		playperf_raise(1);
+	} else if(points <= 100000) {
+		playperf_lower(2);
+	} else if(points <= 200000) {
+		playperf_lower(1);
+	}
+
+	sub_16438(&points);
+	HUD_POINTS_PUT_MEM(34, 21);
+
+	score_delta += points;
+}
+
 void near stage_allclear_bonus(void)
 {
 	unsigned long points;
@@ -111,10 +199,7 @@ void near stage_allclear_bonus(void)
 	bool no_bomb;
 	unsigned int bonus;
 
-	no_miss = (resident->miss_count == byte_22274);
-	byte_22274 = resident->miss_count;
-	no_bomb = ((resident->bombs_used == byte_22275) && no_miss);
-	byte_22275 = resident->bombs_used;
+	BONUS_LATCH_MISS_AND_BOMB();
 
 	PaletteTone = 60;
 	palette_show();
@@ -181,6 +266,7 @@ void near stage_allclear_bonus(void)
 
 // kb/codegen/0112 trap 3: this file's scope is merged into th05/gather.cpp's,
 // so every macro it defines has to be taken back out again.
+#undef BONUS_LATCH_MISS_AND_BOMB
 #undef HUD_POINTS_PUT_EAX
 #undef HUD_POINTS_PUT_MEM
 #undef HUD_5_DIGIT_PUT_SI
