@@ -82,6 +82,23 @@
 #include "th01/main/stage/stageobj.hpp" // hash group 5: cards, obstacles
 #include "th01/main/stage/card.hpp"     // hash group 5: card_flip_cycle
 #include "th01/main/stage/item.hpp"     // hash group 5: the item accessor
+// `th01/common.h` (STAGE_COUNT) and `th01/main/bullet/pellet_s.hpp`
+// (to_pellet_speed) are already in scope through the includes above. Neither
+// has an include guard, so naming them again is a compile error rather than a
+// no-op — measured, not assumed.
+
+// th01/op_01.cpp:338 declares this as a FILE-LOCAL `static const`, so it cannot
+// be shared and has to be restated. Same expression, same citation: it is what
+// both `start_game()` (:393) and `start_continue()` (:421) write, and a
+// memcleared 0 is not merely unset but WRONG - every pellet would be faster
+// than in any real run.
+#define T1CASE_PELLET_SPEED_DEFAULT to_pellet_speed(-0.1)
+
+// The RNG seed a record-mode scenario start uses. Arbitrary but FIXED, and its
+// value carries no meaning: it lands in the startup block, so playback reads it
+// from the case rather than from this constant. What matters is only that two
+// recordings of the same scenario begin from the same seed.
+#define T1CASE_SCENARIO_SEED 12345UL
 
 // File-scope globals that TH01 never declared in a header.
 extern int8_t boss_id;      // th01/main_01.cpp:428
@@ -257,8 +274,15 @@ static uint32_t t1case_reset_count;
 static uint16_t t1case_reset_by_site[T1RS_SITES];
 static uint8_t t1case_reset_last_site;
 
-// The checkpoint index T1CASE.CFG asked for, e.g. "p3".
+// The decimal T1CASE.CFG carried after the mode character, dispatched by mode
+// so that each name means exactly one thing and a mode mix-up cannot compile:
+// a checkpoint index on playback ("p3"), a START STAGE on record ("r9").
+// Exactly one of the two is ever non-zero.
 static uint8_t t1case_cfg_checkpoint;
+static uint8_t t1case_cfg_stage;
+
+// The optional 'j' after that decimal: ROUTE_JIGOKU. Record mode only.
+static uint8_t t1case_cfg_route;
 static bool t1case_done_written;
 static uint32_t t1case_sample_count;
 static uint32_t t1case_record_count;
@@ -1350,11 +1374,21 @@ static uint8_t t1case_cfg_mode(void)
 		}
 	}
 
-	// An optional decimal immediately after the mode character selects the
-	// checkpoint to resume from: "p3" plays the case from checkpoint 3. "p"
-	// and "p0" are the same thing, the case's own beginning, so the whole
-	// existing control surface keeps its meaning unchanged.
+	// An optional decimal immediately after the mode character. On PLAYBACK it
+	// selects the checkpoint to resume from: "p3" plays the case from
+	// checkpoint 3, and "p" and "p0" are the same thing. On RECORD it selects
+	// the STAGE to start at: "r9" records from stage 9, and "r" and "r0" are
+	// the same thing. Both readings leave the bare characters meaning exactly
+	// what they always did, and the record reading spends a value that was
+	// parsed and then ignored.
+	//
+	// An optional 'j' after the decimal selects ROUTE_JIGOKU, which is not a
+	// nicety: `boss_id = BID_YUUGENMAGAN + route` (th01/main_01.cpp:676), so
+	// stage 9 is Mima on Jigoku and YuugenMagan on Makai, and Mima is the ONLY
+	// boss whose per-frame code runs the particle system.
 	t1case_cfg_checkpoint = 0;
+	t1case_cfg_stage = 0;
+	t1case_cfg_route = 0;
 	for(i = (i + 1); i < read_len; i++) {
 		if((cfg[i] < '0') || (cfg[i] > '9')) {
 			break;
@@ -1364,10 +1398,17 @@ static uint8_t t1case_cfg_mode(void)
 			value = 255; // rejected below against `checkpoint_count`
 		}
 	}
-	t1case_cfg_checkpoint = static_cast<uint8_t>(value);
+	if((i < read_len) && ((cfg[i] == 'j') || (cfg[i] == 'J'))) {
+		t1case_cfg_route = 1; // ROUTE_JIGOKU
+	}
 	if((mode == 'r') || (mode == 'R')) {
+		if(value >= STAGE_COUNT) {
+			return T1CASE_DISABLED; // no such stage; refuse rather than clamp
+		}
+		t1case_cfg_stage = static_cast<uint8_t>(value);
 		return T1CASE_RECORD;
 	}
+	t1case_cfg_checkpoint = static_cast<uint8_t>(value);
 	if((mode == 'p') || (mode == 'P')) {
 		return T1CASE_PLAYBACK;
 	}
@@ -2958,6 +2999,36 @@ void far t1case_session_start(void)
 			}
 		}
 	} else if(!resumed) {
+		// RECORD, first process: the scenario start.
+		//
+		// `resident_stuff_get()` (th01/main_01.cpp:530) is the ONLY thing that
+		// gives main()'s local `stage_id` a value before the first gameplay
+		// frame, and it runs 21 lines after this call - so writing
+		// `resident->stage_id` here is the whole mechanism. There is no
+		// `execl` in between: the boss-boundary one (th01/main_01.cpp:1034)
+		// sits inside `if(stage_cleared)` and fires on the OUTGOING stage, so a
+		// process that starts on a boss stage runs that boss itself.
+		//
+		// This exists because TH01's particle system is reachable only from
+		// `mima_main()` (th01/main/boss/b10j.cpp:1228 - the other five call
+		// sites all pass PO_INITIALIZE, two of them with ZUN's own "no
+		// particles are shown in this fight" comment), so T1SPLT group 8 could
+		// never be exercised by an AUTOTYPE corpus that cannot clear a stage.
+		//
+		// The field list is not invented: it is `start_game()`
+		// (th01/op_01.cpp:340-396). `t1case_resident_ensure()` above already
+		// reproduces all of it except these, which a memclear gets WRONG rather
+		// than merely unset - `pellet_speed` 0 would make every pellet in the
+		// recording faster than any real run.
+		if(t1case_cfg_stage != 0) {
+			resident->stage_id = t1case_cfg_stage;
+			resident->route = static_cast<int8_t>(t1case_cfg_route);
+			resident->pellet_speed = T1CASE_PELLET_SPEED_DEFAULT;
+			resident->rand = T1CASE_SCENARIO_SEED;
+			t1case_diag(
+				'S', 'T', 'G', t1case_cfg_stage, t1case_cfg_route
+			);
+		}
 		t1case_startup_capture(&t1case_startup);
 		t1case_memclear(&t1case_header, sizeof(t1case_header));
 		t1case_header.magic[0] = 'T';
