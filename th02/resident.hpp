@@ -15,7 +15,12 @@ struct resident_t {
 	char rem_lives;
 	char rank;
 	char start_power;
-	char bgm_mode;
+
+	// [uint8_t] rather than [char] for the same reason as [demo_num] below:
+	// main() compares it against 1 and 2, and Turbo C++ only keeps those as
+	// direct memory-byte compares for an unsigned type (kb/codegen/0029).
+	// Every other reference in TH02 is a store, which is signedness-neutral.
+	uint8_t bgm_mode;
 	uint8_t start_bombs;
 	uint8_t start_lives;
 	int8_t padding_2;
