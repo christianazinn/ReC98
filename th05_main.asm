@@ -470,7 +470,7 @@ loc_B15D:
 		mov	_turbo_mode, al
 
 loc_B16F:
-		call	sub_10398
+		call	_score_highest_update_and_reset
 		call	@hiscore_load$qv
 		mov	al, _rank
 		mov	ah, 0
@@ -2685,39 +2685,12 @@ BOSS_EXP_TEXT	ends
 ; alignment as before, so nothing moves.
 EXECL_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+	; score_last_commit() -- the whole root contribution to this segment --
+	; now lives in th04/main/execl.cpp under #if (GAME == 5), ahead of
+	; GameExecl() in the same object, so it keeps the head of the segment.
+	; TH04's counterpart is still `sub_E7DE` in th04_main.asm, and the TH04
+	; arm of that #if still calls it.
 
-; Attributes: bp-based frame
-
-public _sub_F6E4
-_sub_F6E4 label near
-sub_F6E4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_F6FB
-; ---------------------------------------------------------------------------
-
-loc_F6EC:
-		mov	al, _score[si]
-		les	bx, _resident
-		assume es:nothing
-		add	bx, si
-		mov	es:[bx+resident_t.score_last], al
-		inc	si
-
-loc_F6FB:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_F6EC
-		call	sub_10398
-		pop	si
-		pop	bp
-		retn
-sub_F6E4	endp
-
-; The C++ contribution to EXECL_TEXT goes here, at the original address of
-; GameExecl().
 EXECL_TEXT	ends
 
 ; ===========================================================================
@@ -3123,7 +3096,7 @@ loc_FBB5:
 		nopcall	hud_lives_put
 		nopcall	hud_bombs_put
 		inc	_continues_used
-		call	sub_10398
+		call	_score_highest_update_and_reset
 		call	hud_score_put
 		mov	al, Q_KEEP_RUNNING
 		jmp	short loc_FBF7
@@ -3379,7 +3352,8 @@ HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_10398	proc near
+public _score_highest_update_and_reset
+_score_highest_update_and_reset	proc near
 		push	bp
 		mov	bp, sp
 		push	si
@@ -3430,7 +3404,7 @@ loc_103E9:
 		pop	si
 		pop	bp
 		retn
-sub_10398	endp
+_score_highest_update_and_reset	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
