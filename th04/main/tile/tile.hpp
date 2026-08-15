@@ -15,6 +15,20 @@ extern vram_offset_t tile_ring[TILES_Y][TILES_MEMORY_X];
 
 extern int8_t tile_row_in_section;
 
+// The [tile_ring] row most recently refilled from [map_seg], as a
+// [scroll_line] divided by [TILE_H]. Guards the refill in
+// tiles_scroll_and_egc_render() so that it runs once per crossed tile row
+// rather than once per frame. [inferred]: the binary only shows the
+// comparison. TH05's is th05_main.asm's still-unnamed [word_23F06].
+extern int tile_ring_row_filled;
+
+// Advances the map cursor by one tile row whenever [scroll_line] has crossed
+// into a new one, refills the [tile_ring] row that exposed, and EGC-copies
+// the lines that scrolled in since the page currently being drawn was last
+// rendered. Assumes nothing about the EGC; it starts and stops the copy
+// itself. Called once per frame, from th04_main.asm's sub_CCD6.
+void near tiles_scroll_and_egc_render(void);
+
 // Loads the .MPN file with the given [fn] into slot 0, blits all of its tile
 // images to the tile area in VRAM on both pages, and frees the slot again.
 // (TH02 splits this into mpn_load() and tile_area_init_and_put_both().)
