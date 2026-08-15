@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -3723,7 +3723,12 @@ HUD_PWR_TEXT	segment	byte public 'CODE' use16
 	HUD_POWER_PUT procdesc pascal far
 HUD_PWR_TEXT	ends
 
-main_0_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_0_TEXT` contribution, renamed so that a C++ object can append
+; `midbossx_render` at its original address in the MIDDLE of the
+; segment. Same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+MIDBOSSX_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/hud/element_put.asm
 
@@ -5374,62 +5379,16 @@ loc_1162C:
 		retn
 @stage2_update$qv endp
 
+	; midbossx_render() now lives in th04/main/midboss/mx.cpp, which
+	; appends to this segment.
+	@MIDBOSSX_RENDER$QV procdesc pascal near
+MIDBOSSX_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSSX_RENDER$QV
-@midbossx_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_11687
-		cmp	_midboss_pos.cur.y, 0
-		jl	short loc_11691
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	di, ax
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_1166D
-		push	si
-		push	ax
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_roll_put
-		jmp	short loc_11691
-; ---------------------------------------------------------------------------
-
-loc_1166D:
-		push	si
-		push	di
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_roll_put_1plane
-		mov	_midboss_damage_this_frame, 0
-		jmp	short loc_11691
-; ---------------------------------------------------------------------------
-
-loc_11687:
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_11691
-		call	@midboss_defeat_render$qv
-
-loc_11691:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@midbossx_render$qv	endp
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main_0_TEXT` contribution once midbossx_render() moved out of it. Same
+; `byte public 'CODE'` alignment as before, so nothing moves;
+; th05/midboss5.cpp still appends to this name.
+main_0_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 

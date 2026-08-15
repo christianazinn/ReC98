@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -1265,7 +1265,11 @@ include th04/formats/z_super_roll_put_tiny.asm
 	@circles_render$qv procdesc near
 CIRCLE_TEXT ends
 
-TILE_TEXT segment word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `TILE_TEXT`
+; contribution, renamed so that a C++ object can append
+; `midbossx_render` at its original address in the MIDDLE of the segment.
+; Same `word public 'CODE'` alignment as before, so nothing moves.
+MIDBOSSX_TEXT segment word public 'CODE' use16
 include th04/main/enemy/inv.asm
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1479,46 +1483,20 @@ loc_C946:
 		retn
 @midboss3_render$qv	endp
 
+	; midbossx_render() now lives in th04/main/midboss/mx.cpp, which
+	; appends to this segment.
+	@MIDBOSSX_RENDER$QV procdesc pascal near
+MIDBOSSX_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MIDBOSSX_RENDER$QV
-@midbossx_render$qv	proc near
-
-@@patnum		= word ptr -6
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	6, 0
-		cmp	_midboss_pos.cur.y, (-16 shl 4)
-		jle	short locret_C999
-		cmp	_midboss_pos.cur.x, (-16 shl 4)
-		jle	short locret_C999
-		cmp	_midboss_pos.cur.x, (392 shl 4)
-		jge	short locret_C999
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		add	ax, 16
-		mov	[bp+@@x], ax
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, _midboss_pos.cur.y
-		mov	[bp+@@y], ax
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 148
-		mov	[bp+@@patnum], ax
-		call	super_roll_put pascal, [bp+@@x], [bp+@@y], ax
-
-locret_C999:
-		leave
-		retn
-@midbossx_render$qv	endp
-
-; ---------------------------------------------------------------------------
-		db    0
+; Harness carve (kb/codegen/0080): what is left of the original `TILE_TEXT`
+; contribution once midbossx_render() moved out of it. `byte` rather than
+; the original `word`: `byte` makes any future drift in the C++ prefix fail
+; loudly instead of being silently padded away. The original's 1-byte pad
+; between midbossx_render() and pellet_r.asm is emitted from the C++ TU
+; rather than left here, because the `even` directives below align against
+; the MODULE-LOCAL offset, which a reopened segment restarts at 0 - so this
+; half has to start on the same parity the original had (kb/codegen/0069).
+TILE_TEXT	segment	byte public 'CODE' use16
 
 PELLET_W = 8
 PELLET_H = 8
