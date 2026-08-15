@@ -1008,9 +1008,12 @@ sub_B835	endp
 
 	; mpn_load() now lives in th04/main/tile/mpn_load.cpp, which the
 	; th04/map.cpp object appends to this segment ahead of map_load()
-	; itself (kb/codegen 0112 + 0114): in the original it was the LAST
-	; proc of this contribution, and th04/map.cpp already owned everything
-	; after it, so no carve and no new segment were needed.
+	; itself (kb/codegen 0112 + 0114): once map_load() had been lifted it
+	; was the LAST proc LEFT in this root contribution, and
+	; th04/formats/map.cpp already owned everything after it, so no carve
+	; and no new segment were needed. NOT "last in the original" -- the
+	; original order was sub_B835, mpn_load, map_load, map_free, which is
+	; why :1022 below says map_load() held that position.
 	MPN_LOAD procdesc pascal near \
 		fn_seg:word, fn_off:word
 
