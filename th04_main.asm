@@ -16228,8 +16228,11 @@ off_17CEB	dw offset loc_17A1F
 
 	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
 	; th04/std_run.cpp object appends to this segment ahead of std_run()
-	; itself (kb/codegen/0112 + 0114): in the original it was the LAST proc
-	; of this contribution, so no carve was needed.
+	; itself (kb/codegen/0112 + 0114): once std_run() and
+	; enemy_bullet_template_push() had been lifted it was the LAST proc LEFT
+	; in this root contribution, so no carve was needed. NOT "last in the
+	; original": the three procdescs below reproduce the original address
+	; order, so enemy_bullet_template_push() held that position.
 	ENEMIES_ADD procdesc pascal near \
 		script_id:word, center_x:word, center_y:word, item:word
 
