@@ -13076,7 +13076,7 @@ loc_167A0:
 		imul	ax, 0Eh
 		add	ax, 2
 		push	ax
-		call	dot_square_ring_put
+		call	@DOT_SQUARE_RING_PUT$QIIII
 		inc	si
 		mov	al, [bp+var_1]
 		add	al, 80h
@@ -17984,7 +17984,7 @@ loc_194E9:
 		mov	ah, 0
 		push	ax
 		push	10h
-		call	dot_square_ring_put
+		call	@DOT_SQUARE_RING_PUT$QIIII
 		inc	si
 		mov	al, [bp+var_1]
 		add	al, 80h
@@ -22784,183 +22784,7 @@ main_03__TEXT	ends
 
 ; Segment type:	Pure code
 main_04_TEXT	segment	byte public 'CODE' use16
-		assume cs:main_04_TEXT
-		;org 7
-		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @DOT_SQUARE_RING_PUT$QIIII
-@DOT_SQUARE_RING_PUT$QIIII label far
-dot_square_ring_put	proc far
-
-var_4		= byte ptr -4
-@@angle		= byte ptr -3
-var_2		= word ptr -2
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-arg_6		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	di, [bp+arg_6]
-		mov	si, [bp+arg_2]
-		mov	ax, si
-		sar	ax, 6
-		inc	al
-		mov	[bp+var_4], al
-		mov	[bp+var_2], 0
-		jmp	loc_1C332
-; ---------------------------------------------------------------------------
-
-loc_1C2A7:
-		mov	al, byte ptr [bp+var_2]
-		mov	[bp+@@angle], al
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, di
-		mov	word_20164, ax
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_4]
-		mov	word_20166, ax
-		cmp	word_20164, 416
-		jge	short loc_1C32C
-		cmp	word_20164, 18h
-		jle	short loc_1C32C
-		cmp	word_20166, 8
-		jle	short loc_1C32C
-		cmp	word_20166, 384
-		jge	short loc_1C32C
-		mov	ax, _scroll_line
-		add	word_20166, ax
-		cmp	word_20166, RES_Y
-		jl	short loc_1C321
-		sub	word_20166, RES_Y
-
-loc_1C321:
-		mov	al, [bp+var_4]
-		mov	ah, 0
-		push	ax
-		call	@GRCG_DOT_SQUARE_PUT$QI
-
-loc_1C32C:
-		mov	ax, [bp+arg_0]
-		add	[bp+var_2], ax
-
-loc_1C332:
-		cmp	[bp+var_2], 256
-		jb	loc_1C2A7
-		pop	di
-		pop	si
-		leave
-		retf	8
-dot_square_ring_put	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @DOT_SQUARE_RING_INVALIDATE$QIIII
-@DOT_SQUARE_RING_INVALIDATE$QIIII label far
-dot_square_ring_invalidate	proc far
-
-var_4		= byte ptr -4
-@@angle		= byte ptr -3
-var_2		= word ptr -2
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-arg_6		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	ax, [bp+arg_2]
-		sar	ax, 6
-		inc	al
-		mov	[bp+var_4], al
-		mov	[bp+var_2], 0
-		jmp	short loc_1C3D2
-; ---------------------------------------------------------------------------
-
-loc_1C35B:
-		mov	al, byte ptr [bp+var_2]
-		mov	[bp+@@angle], al
-		movsx	eax, [bp+arg_2]
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_6]
-		mov	si, ax
-		movsx	eax, [bp+arg_2]
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_4]
-		mov	di, ax
-		cmp	si, 416
-		jge	short loc_1C3CC
-		cmp	si, 18h
-		jle	short loc_1C3CC
-		cmp	di, 8
-		jle	short loc_1C3CC
-		cmp	di, 384
-		jge	short loc_1C3CC
-		push	si	; left
-		push	ax	; top
-		mov	al, [bp+var_4]
-		mov	ah, 0
-		push	ax	; w
-		mov	al, [bp+var_4]
-		mov	ah, 0
-		push	ax	; h
-		call	@tiles_invalidate_rect$qiiii
-
-loc_1C3CC:
-		mov	ax, [bp+arg_0]
-
-loc_1C3CF:
-		add	[bp+var_2], ax
-
-loc_1C3D2:
-		cmp	[bp+var_2], 256
-		jb	short loc_1C35B
-		pop	di
-		pop	si
-		leave
-		retf	8
-dot_square_ring_invalidate	endp
-
+	extern @DOT_SQUARE_RING_PUT$QIIII:proc
 main_04_TEXT	ends
 
 ; ===========================================================================
