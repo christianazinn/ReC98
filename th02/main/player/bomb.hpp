@@ -36,6 +36,11 @@ void near bomb_free(void);
 // Resets the per-stage bomb counter and any bomb still in progress.
 // stage_init() calls this once per stage.
 void near bombs_reset(void);
+
+// Marks the tiles under the expanding bomb circle for redrawing.
+// stage_loop() calls this once per frame, together with the other
+// *_invalidate() functions.
+void near bomb_invalidate(void);
 #endif
 
 // Drops a bomb, if possible.

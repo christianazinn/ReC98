@@ -15,6 +15,7 @@
 #include "platform.h"
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
+#include "th01/math/polar.hpp"
 #include "th02/resident.hpp"
 #include "th02/formats/pi.h"
 #include "th02/snd/snd.h"
@@ -22,6 +23,7 @@
 #include "th02/main/playperf.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/hud/hud.hpp"
+#include "th02/main/tile/tile.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/bomb.hpp"
 
@@ -122,4 +124,66 @@ extern "C" void pascal near player_bomb(void)
 	bomb_circle_frame = 0;
 	bomb_circle_done = false;
 	bullets_clear();
+}
+
+// The number of points sampled around the bomb circle, and the angle step that
+// spreads them over the full turn.
+static const int BOMB_CIRCLE_POINTS = 64;
+static const unsigned char BOMB_CIRCLE_ANGLE_STEP = 4;
+
+// Marks the tiles under the expanding bomb circle for redrawing, and forces a
+// full tile redraw on the two frames where the shottype's own bomb animation
+// changes the size of what it covers. stage_loop() calls this once per frame.
+void near bomb_invalidate(void)
+{
+	int radius;
+	screen_x_t left;
+	unsigned char angle;
+	screen_y_t top;
+	int i;
+
+	if(!bombing) {
+		return;
+	}
+	if(bomb_circle_frame > 1) {
+		// ZUN quirk: Decremented here and incremented again at the end of the
+		// branch, so that the ring is sampled at the *previous* frame's
+		// radius. Every other reader sees the undecremented value.
+		bomb_frame--;
+
+		radius = (256 - (bomb_frame * 8));
+		for(i = 0, angle = bomb_frame; i < BOMB_CIRCLE_POINTS; i++,
+			angle = (angle + BOMB_CIRCLE_ANGLE_STEP)
+		) {
+			left = polar_x_fast(bomb_circle_center.x, radius, angle);
+			top  = polar_y_fast(bomb_circle_center.y, radius, angle);
+			if(top <= 8) {
+				continue;
+			}
+			if(top >= PLAYFIELD_BOTTOM) {
+				continue;
+			}
+			tiles_invalidate_rect(left, top, 8, 8);
+		}
+		if(bomb_frame >= BOMB_CIRCLE_FRAMES) {
+			bomb_circle_frame = 0;
+		}
+		bomb_frame++;
+	}
+	if((bomb_circle_done == true) && (bomb_frame <= BOMB_CIRCLE_FRAMES)) {
+		tiles_egc_render_all = true;
+	}
+	if(resident->shottype == 0) {
+		if((bomb_frame == 136) || (bomb_frame == 137)) {
+			tiles_egc_render_all = true;
+		}
+	} else if(resident->shottype == 1) {
+		if((bomb_frame == 164) || (bomb_frame == 165)) {
+			tiles_egc_render_all = true;
+		}
+	} else {
+		if((bomb_frame == 112) || (bomb_frame == 113)) {
+			tiles_egc_render_all = true;
+		}
+	}
 }
