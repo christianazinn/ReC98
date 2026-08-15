@@ -44,8 +44,10 @@ extern bool items_pull_to_player;
 // *separate* [knockback_time] (bomb.cpp:450-452), and its knockback is a
 // directional shove that also stores a [knockback_angle] (:572-581). This byte
 // stores no angle and applies no velocity, so it is TH03's move lock and not
-// TH03's knockback — which is why an earlier `miss_knockback` spelling is not
-// used here: it named the one construct the evidence rules out.
+// TH03's knockback — which is why an earlier miss_knockback spelling (named
+// here without backticks on purpose: it is a rejected spelling, not a symbol
+// this tree defines) is not used here. It named the one construct the evidence
+// rules out.
 #if (GAME == 5)
 	extern "C" unsigned char byte_2CEBD;
 	#define miss_move_lock_time byte_2CEBD
@@ -84,7 +86,7 @@ extern bool items_pull_to_player;
 // stage_init() calls this once per stage, four lines away from the shot-state
 // reset, in both games.
 //
-// ONE body: `kb/codegen/0115` over the two originals — TH04's `sub_FFA4` at
+// ONE body: kb/codegen/0115 over the two originals — TH04's `sub_FFA4` at
 // `0AAF:54B4` against TH05's at `0AE1:1663`, `0x10` bytes each — gives 6
 // differing bytes, at offsets 5, 6, 10, 11, 12, 13. Those are exactly the two
 // memory operands and the one `offset` immediate, so EVERY non-operand byte is
