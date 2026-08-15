@@ -77,200 +77,14 @@ SCORE_TEXT segment byte public 'CODE' use16
 	@HISCORE_SCOREDAT_LOAD_FOR$QI procdesc pascal near \
 		playchar:word
 	@hiscore_scoredat_save$qv procdesc near
+	; regist_score_enter_from_resident() now lives in
+	; th04/hiscore/regist_enter.cpp, at the tail of th05/hi_end.cpp's
+	; SCORE_TEXT contribution, i.e. exactly where this block used to begin.
+	@regist_score_enter_from_resident$qv procdesc near
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B730	proc near
-
-@@place		= word ptr -2
-
-		enter	2, 0
-		mov	[bp+@@place], (SCOREDAT_PLACES - 1)
-		jmp	short loc_B78C
-; ---------------------------------------------------------------------------
-
-loc_B73B:
-		mov	cx, 7
-		jmp	short loc_B785
-; ---------------------------------------------------------------------------
-
-loc_B740:
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		mov	ah, 0
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	dl, _hi.score.g_score[bx]
-		mov	dh, 0
-		add	dx, -gb_0_
-		cmp	ax, dx
-		jg	short loc_B789
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		mov	ah, 0
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	dl, _hi.score.g_score[bx]
-		mov	dh, 0
-		add	dx, -gb_0_
-		cmp	ax, dx
-		jl	short loc_B799
-		dec	cx
-
-loc_B785:
-		or	cx, cx
-		jge	short loc_B740
-
-loc_B789:
-		dec	[bp+@@place]
-
-loc_B78C:
-		cmp	[bp+@@place], 0
-		jge	short loc_B73B
-		mov	_entered_place, 0
-		jmp	short loc_B7AE
-; ---------------------------------------------------------------------------
-
-loc_B799:
-		cmp	[bp+@@place], 4
-		jnz	short loc_B7A6
-		mov	_entered_place, -1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_B7A6:
-		mov	al, byte ptr [bp+@@place]
-		inc	al
-		mov	_entered_place, al
-
-loc_B7AE:
-		mov	[bp+@@place], 3
-		jmp	short loc_B807
-; ---------------------------------------------------------------------------
-
-loc_B7B5:
-		mov	cx, 7
-		jmp	short loc_B7D3
-; ---------------------------------------------------------------------------
-
-loc_B7BA:
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		add	bx, cx
-		mov	al, _hi.score.g_name[0 * (SCOREDAT_NAME_LEN + 1)][bx]
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		add	bx, cx
-		mov	_hi.score.g_name[1 * (SCOREDAT_NAME_LEN + 1)][bx], al
-		dec	cx
-
-loc_B7D3:
-		or	cx, cx
-		jge	short loc_B7BA
-		mov	cx, SCORE_DIGITS - 1
-		jmp	short loc_B7F5
-; ---------------------------------------------------------------------------
-
-loc_B7DC:
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	al, _hi.score.g_score[0 * SCORE_DIGITS][bx]
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	_hi.score.g_score[1 * SCORE_DIGITS][bx], al
-		dec	cx
-
-loc_B7F5:
-		or	cx, cx
-		jge	short loc_B7DC
-		mov	bx, [bp+@@place]
-		mov	al, _hi.score.g_stage+0[bx]
-		mov	_hi.score.g_stage+1[bx], al
-		dec	[bp+@@place]
-
-loc_B807:
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, [bp+@@place]
-		jle	short loc_B7B5
-		mov	cx, (SCOREDAT_NAME_LEN - 1)
-		jmp	short loc_B828
-; ---------------------------------------------------------------------------
-
-loc_B816:
-		mov	al, _entered_place
-		mov	ah, 0
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, cx
-		mov	bx, ax
-		mov	_hi.score.g_name[bx], gs_DOT
-		dec	cx
-
-loc_B828:
-		or	cx, cx
-		jge	short loc_B816
-		mov	cx, SCOREDAT_NAME_LEN - 1
-		jmp	short loc_B84F
-; ---------------------------------------------------------------------------
-
-loc_B831:
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		add	al, gb_0_
-		mov	dl, _entered_place
-		mov	dh, 0
-		shl	dx, 3
-		add	dx, cx
-		mov	bx, dx
-		mov	_hi.score.g_score[bx], al
-		dec	cx
-
-loc_B84F:
-		or	cx, cx
-		jge	short loc_B831
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_EXTRA
-		jb	short loc_B86C
-		mov	al, _entered_place
-		mov	ah, 0
-		mov	bx, ax
-		mov	_hi.score.g_stage[bx], gs_ALL
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_B86C:
-		cmp	_rank, RANK_EXTRA
-		jnb	short loc_B88B
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage]
-		add	al, gb_1_
-		mov	dl, _entered_place
-		mov	dh, 0
-		mov	bx, dx
-		mov	_hi.score.g_stage[bx], al
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_B88B:
-		mov	al, _entered_place
-		mov	ah, 0
-		mov	bx, ax
-		mov	_hi.score.g_stage[bx], gb_1_
-		leave
-		retn
-sub_B730	endp
+; The C++ contribution to SCORE_TEXT that precedes this block ends with
+; regist_score_enter_from_resident() (th04/hiscore/regist_enter.cpp), lifted
+; out of the head of this block. Nothing may be added above this line.
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1679,7 +1493,7 @@ loc_C28C:
 		jnz	short loc_C2BB
 
 loc_C2AD:
-		call	sub_B730
+		call	@regist_score_enter_from_resident$qv
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
