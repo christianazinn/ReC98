@@ -742,7 +742,7 @@ loc_B1BA:
 		nopcall	@demo_load$qv
 
 loc_B1CA:
-		call	sub_B2AB
+		call	@gameplay_init$qv
 
 loc_B1CD:
 		les	bx, _resident
@@ -834,80 +834,10 @@ loc_B290:
 _main		endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B2AB	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	_snd_load stdcall, offset aHuuma_efc, ds, SND_LOAD_SE
-		call	sub_1CD36
-		call	@pi_load$qinxc stdcall, 0, offset aEye_pi, ds
-		add	sp, 0Ch
-		call	super_entry_bfnt pascal, ds, offset aMiko_bft ; "miko.bft"
-		call	super_entry_bfnt pascal, ds, offset aMiko32_bft ; "miko32.bft"
-		call	super_entry_bfnt pascal, ds, offset aMiko16_bft ; "miko16.bft"
-		mov	si, 48
-		jmp	short loc_B2F5
-; ---------------------------------------------------------------------------
-
-loc_B2EE:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_B2F5:
-		cmp	si, 128
-		jl	short loc_B2EE
-		call	@gaiji_load$qv
-		call	sub_E178
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.reduce_effects]
-		mov	_reduce_effects, al
-		setfarfp	farfp_1F4A4, @stage_loop$qv
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jz	short loc_B34C
-		cmp	es:[bx+mikoconfig_t.continues_used], 9
-		jb	short loc_B32B
-		mov	ax, 9
-		jmp	short loc_B333
-; ---------------------------------------------------------------------------
-
-loc_B32B:
-		les	bx, _resident
-		mov	ax, es:[bx+mikoconfig_t.continues_used]
-
-loc_B333:
-		movzx	eax, ax
-		mov	_score, eax
-		mov	al, _stage_id
-		cbw
-		mov	bx, 5
-		cwd
-		idiv	bx
-		add	dx, 2
-		mov	_item_bigpower_override, dx
-
-loc_B34C:
-		cmp	_rank, RANK_EASY
-		jnz	short loc_B35A
-		mov	_playperf_max, 4
-		jmp	short loc_B35F
-; ---------------------------------------------------------------------------
-
-loc_B35A:
-		mov	_playperf_max, 16
-
-loc_B35F:
-		pop	si
-		pop	bp
-		retn
-sub_B2AB	endp
-
 main_01_TEXT	ends
 
 STAGE_INIT_TEXT	segment	byte public 'CODE' use16
+	@gameplay_init$qv procdesc near
 	@stage_init$qv procdesc near
 	@continue_resume$qv procdesc near
 STAGE_INIT_TEXT	ends
@@ -3320,6 +3250,8 @@ main_01_______TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public _sub_E178
+_sub_E178 label near
 sub_E178	proc near
 		push	bp
 		mov	bp, sp
@@ -24973,6 +24905,8 @@ main_06_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+public _sub_1CD36
+_sub_1CD36 label far
 sub_1CD36	proc far
 		push	bp
 		mov	bp, sp
@@ -25190,10 +25124,20 @@ aSTAGE5_TITLE	db 'ïïñÇÅ@Å`ìåï˚ïïñÇò^ and ...',0
 aEXTRA_TITLE		db 'àŸãÛÅ@Å`for Lunatic Gamers',0
 ; char arg0[3]
 arg0		db 'op',0
+public _aHuuma_efc
+_aHuuma_efc label byte
 aHuuma_efc	db 'huuma.efc',0
+public _aEye_pi
+_aEye_pi label byte
 aEye_pi		db 'EYE.PI',0
+public _aMiko_bft
+_aMiko_bft label byte
 aMiko_bft	db 'miko.bft',0
+public _aMiko32_bft
+_aMiko32_bft label byte
 aMiko32_bft	db 'miko32.bft',0
+public _aMiko16_bft
+_aMiko16_bft label byte
 aMiko16_bft	db 'miko16.bft',0
 public _aBmt
 _aBmt label byte
@@ -26060,6 +26004,8 @@ public _boss_bg_render_func
 _boss_bg_render_func	dd ?
 _stage_invalidate label dword
 farfp_1F4A0	dd ?
+public _stage_loop_func
+_stage_loop_func label dword
 farfp_1F4A4	dd ?
 include th02/main/demo[bss].asm
 public _playperf_max
