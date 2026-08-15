@@ -15,6 +15,8 @@
 /// address order, which is the whole reason the two share one object.
 
 #include "th04/math/vector.hpp"
+#include "th04/main/player/player.hpp"
+#include "libs/master.lib/master.hpp"
 
 // Sets [enemy_cur]'s velocity to a vector with the enemy's own [angle] and
 // [speed].
@@ -29,4 +31,21 @@ extern "C" void pascal near enemy_velocity_set(void)
 {
 	register enemy_t near *p = enemy_cur;
 	vector2_near(p->pos.velocity, p->angle, p->speed);
+}
+
+extern "C" void pascal near enemy_velocity_set_aimed(void)
+{
+	register enemy_t near *p = enemy_cur;
+
+	// ZUN bloat, inherited verbatim from TH03: nothing in here touches ES, and
+	// nothing the two calls clobber is live across them. TH03's
+	// enemy_velocity_set_from_angle_and_speed()
+	// (th03/main/enemy/enemy.cpp:427) carries the same pointless bracket around
+	// its own vector2() call, which is where this one came from.
+	asm { push es; }
+	p->angle = (iatan2(
+		(player_pos.cur.y - p->pos.cur.y), (player_pos.cur.x - p->pos.cur.x)
+	) + p->angle);
+	vector2_near(p->pos.velocity, p->angle, p->speed);
+	asm { pop es; }
 }

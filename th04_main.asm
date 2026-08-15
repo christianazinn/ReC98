@@ -11946,48 +11946,29 @@ word_1553B	dw	0,     1,     2,     3
 	; (kb/codegen/0112 + 0114): in the original it sat directly behind
 	; enemy_pos_update(), i.e. at what is now the end of this segment.
 	ENEMY_VELOCITY_SET procdesc pascal near
+
+	; sub_155AA() -> enemy_velocity_set_aimed(), same file, appended
+	; immediately after enemy_velocity_set(): it was the FIRST proc of
+	; the reopened tail below, i.e. the next kb/codegen/0114 mirror
+	; position, so again no carve.
+	; kb/codegen/0121 check: the deleted body ended with an
+	; `assume es:nothing` after its `pop es`, but the state entering it
+	; was ALREADY es:nothing (set at th04_main.asm:9201 and unchanged
+	; until :12863), so that directive was IDA restating the status quo
+	; and nothing has to be restored in the tail. Checked, not assumed.
+	ENEMY_VELOCITY_SET_AIMED procdesc pascal near
 ENM_POS_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the original
-; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() and, after it,
-; enemy_velocity_set() moved out of it. `byte` rather than the original
-; `word`: `byte` makes any future drift in the C++ prefix fail loudly
-; instead of being silently padded away. The original has no pad between
-; either of them and sub_155AA, and this segment contains no `even` at
-; all, so there is nothing for kb/codegen/0111 to bite on here.
+; `B4M_UPDATE_TEXT` contribution once enemy_pos_update(), then
+; enemy_velocity_set(), then sub_155AA() moved out of it. `byte` rather
+; than the original `word`: `byte` makes any future drift in the C++
+; prefix fail loudly instead of being silently padded away. The original
+; has no pad between any of the three and sub_155DD, and this segment
+; contains no `even` at all, so nothing for kb/codegen/0111 to bite on.
 B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_155AA	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _enemy_cur
-		push	es
-		mov	ax, _player_pos.cur.y
-		sub	ax, [si+enemy_t.pos.cur.y]
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, [si+enemy_t.pos.cur.x]
-		push	ax
-		call	iatan2
-		add	al, [si+enemy_t.E_angle]
-		mov	[si+enemy_t.E_angle], al
-		lea	ax, [si+enemy_t.pos.velocity]
-		call	vector2_near pascal, ax, word ptr [si+enemy_t.E_angle], [si+enemy_t.E_speed]
-		pop	es
-		assume es:nothing
-		pop	si
-		pop	bp
-		retn
-sub_155AA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
@@ -12211,7 +12192,7 @@ loc_157B7:
 		mov	al, es:[di+2]
 		mov	ah, 0
 		mov	[si+enemy_t.E_speed], ax
-		call	sub_155AA
+		call	enemy_velocity_set_aimed
 		jmp	loc_15A9D
 ; ---------------------------------------------------------------------------
 
