@@ -5,8 +5,8 @@
 /// variable and TASM's group qualifier on the scroll call, and neither is a
 /// source-level difference.
 ///
-/// Renders the expanding ring of MIDBOSS_DEFEAT_SPRITES explosion sprites that
-/// midboss_defeat_update() animates. The ring grows with
+/// Renders the expanding ring of MIDBOSS_DEFEAT_SPRITE_COUNT explosion sprites
+/// that midboss_defeat_update() animates. The ring grows with
 /// [midboss.phase_frame] until it reaches MIDBOSS_DEFEAT_RADIUS_MAX, and only
 /// starts rotating once it stops growing.
 
@@ -22,13 +22,17 @@
 // stopped expanding.
 extern uint8_t midboss_defeat_angle;
 
-static const int MIDBOSS_DEFEAT_SPRITES = 16;
+// The number of instances of the one explosion sprite placed around the ring,
+// not the number of distinct cels in an animation — hence CONTRIBUTING's
+// `<ENTITY>_COUNT` and not `*_CELS`.
+static const int MIDBOSS_DEFEAT_SPRITE_COUNT = 16;
+
 // `int` rather than the `uint8_t` this really is: a byte-typed constant
 // makes Turbo C++ fold the compound assignment below into a single
 // `ADD mem, imm8`, while an int-typed one keeps the original's round trip
 // through AL. (kb/codegen/0094)
 static const int MIDBOSS_DEFEAT_SPRITE_SPACING = (
-	0x100 / MIDBOSS_DEFEAT_SPRITES
+	0x100 / MIDBOSS_DEFEAT_SPRITE_COUNT
 );
 
 static const subpixel_t MIDBOSS_DEFEAT_RADIUS_MAX = TO_SP(48);
@@ -57,7 +61,7 @@ void near midboss_defeat_render(void)
 	// of the body: the original increments [i] first.
 	for(
 		i = 0;
-		i < MIDBOSS_DEFEAT_SPRITES;
+		i < MIDBOSS_DEFEAT_SPRITE_COUNT;
 		i++, midboss_defeat_angle += MIDBOSS_DEFEAT_SPRITE_SPACING
 	) {
 		subpixel_t x = polar_x(

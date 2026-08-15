@@ -97,6 +97,12 @@ BOSS_DEC(sigma);
 
 // The stage's own copy of the .MPN palette, taken right after the file is
 // loaded and applied once the previous stage has faded out.
+//
+// Shares nothing but the name with TH01's [stage_palette]
+// (th01/main/shape.cpp): that one is a Palette4 holding the *live* hardware
+// palette, which bosses mutate component-wise in place and re-show
+// (th01/main/boss/b10m.cpp). This one is a Palette8 snapshot of a file that is
+// only ever read back out.
 extern "C" Palette8 stage_palette;
 
 extern "C" uint8_t bgm_show_timer;

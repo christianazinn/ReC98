@@ -16,6 +16,12 @@
 // Written by scroll_reset() and never read anywhere in MAIN.EXE.
 // ZUN bloat: Three stores with no effect. [static] — the evidence is a
 // whole-binary symbol search, not an emulator run.
+//
+// The numbering implies a contiguous family that the layout does not have:
+// [scroll_unused] and [scroll_unused_2] are `_BSS` (the latter at 2034Eh),
+// but [scroll_unused_3] is `_DATA` with an initializer (1E502h, `db 0`) —
+// 7,756 bytes below [scroll_unused_2], in the other segment. The suffixes
+// are IDA's discovery order, not an array or a struct.
 extern int scroll_unused;
 extern uint8_t scroll_unused_2;
 extern uint8_t scroll_unused_3;
