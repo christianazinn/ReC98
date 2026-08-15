@@ -1519,7 +1519,7 @@ player_bomb	proc near
 
 loc_C4BC:
 		dec	_bombs
-		nopcall	sub_104BB
+		nopcall	hud_bombs_put
 		mov	_bombing, 1
 		mov	_bomb_frame, 0
 		push	(192 shl 16) or 160
@@ -3515,8 +3515,8 @@ loc_FBB5:
 		mov	al, es:[bx+resident_t.credit_lives]
 		mov	_lives, al
 		nopcall	sub_E4FC
-		nopcall	sub_10407
-		nopcall	sub_104BB
+		nopcall	hud_lives_put
+		nopcall	hud_bombs_put
 		inc	_continues_used
 		call	sub_10398
 		call	hud_score_put
@@ -3828,7 +3828,8 @@ sub_10398	endp
 
 ; Attributes: bp-based frame
 
-sub_10407	proc far
+public HUD_LIVES_PUT
+hud_lives_put	proc far
 
 var_2		= byte ptr -2
 var_1		= byte ptr -1
@@ -3904,14 +3905,15 @@ loc_104B8:
 		pop	si
 		leave
 		retf
-sub_10407	endp
+hud_lives_put	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_104BB	proc far
+public HUD_BOMBS_PUT
+hud_bombs_put	proc far
 
 var_2		= byte ptr -2
 var_1		= byte ptr -1
@@ -3988,7 +3990,7 @@ loc_10571:
 		pop	si
 		leave
 		retf
-sub_104BB	endp
+hud_bombs_put	endp
 
 	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
 	; appends to this segment. Declared inside a main_01 segment on purpose:
@@ -4047,8 +4049,8 @@ public HUD_PUT
 hud_put	proc far
 		push	bp
 		mov	bp, sp
-		call	gaiji_putsa pascal, (60 shl 16) + 3, ds offset gsHISCORE, TX_YELLOW
-		call	gaiji_putsa pascal, (61 shl 16) + 5, ds offset gsSCORE, TX_YELLOW
+		call	gaiji_putsa pascal, (60 shl 16) + 3, ds offset _gsHISCORE, TX_YELLOW
+		call	gaiji_putsa pascal, (61 shl 16) + 5, ds offset _gsSCORE, TX_YELLOW
 		call	hud_score_put
 		mov	al, _playchar
 		mov	ah, 0
@@ -4059,30 +4061,30 @@ hud_put	proc far
 		jmp	word ptr cs:table_1083C[bx]
 
 @@reimu:
-		call	gaiji_putsa pascal, (57 shl 16) + 11, ds, offset gsREIGEKI, TX_YELLOW
-		call	gaiji_putsa pascal, (57 shl 16) + 13, ds, offset gsREIMU, TX_YELLOW
+		call	gaiji_putsa pascal, (57 shl 16) + 11, ds, offset _gsREIGEKI, TX_YELLOW
+		call	gaiji_putsa pascal, (57 shl 16) + 13, ds, offset _gsREIMU, TX_YELLOW
 		push	(62 shl 16) + 21
 		push	ds
-		push	offset gsREIRYOKU
+		push	offset _gsREIRYOKU
 		jmp	short loc_1078E
 ; ---------------------------------------------------------------------------
 
 @@not_reimu:
-		call	gaiji_putsa pascal, (57 shl 16) + 11, ds, offset gsBOMB, TX_YELLOW
-		call	gaiji_putsa pascal, (57 shl 16) + 13, ds, offset gsPLAYER, TX_YELLOW
+		call	gaiji_putsa pascal, (57 shl 16) + 11, ds, offset _gsBOMB, TX_YELLOW
+		call	gaiji_putsa pascal, (57 shl 16) + 13, ds, offset _gsPLAYER, TX_YELLOW
 		push	(62 shl 16) + 21
 		push	ds
-		push	offset gsPOWER
+		push	offset _gsPOWER
 
 loc_1078E:
 		push	TX_YELLOW
 		call	gaiji_putsa
 
 loc_10796:
-		call	sub_104BB
-		call	sub_10407
+		call	hud_bombs_put
+		call	hud_lives_put
 		call	gaiji_putca pascal, (58 shl 16) + 16, (gs_TEN shl 16) + TX_YELLOW
-		call	gaiji_putsa pascal, (57 shl 16) + 15, ds, offset gsRUIKEI, TX_CYAN
+		call	gaiji_putsa pascal, (57 shl 16) + 15, ds, offset _gsRUIKEI, TX_CYAN
 		call	hud_point_items_put
 		call	gaiji_putca pascal, (63 shl 16) + 19, (gs_YUME shl 16) + TX_YELLOW
 		call	hud_dream_put
@@ -4094,7 +4096,7 @@ loc_10796:
 		mov	al, _rank
 		mov	ah, 0
 		shl	ax, 3
-		add	ax, offset glEASY
+		add	ax, offset _gRANKS
 		push	ax
 		cmp	_rank, RANK_EASY
 		jnz	short loc_10812
@@ -6095,11 +6097,11 @@ loc_120F0:
 		cmp	_lives, 1
 		jbe	short loc_12142
 		dec	_lives
-		nopcall	sub_10407
+		nopcall	hud_lives_put
 		les	bx, _resident
 		mov	al, es:[bx+resident_t.credit_bombs]
 		mov	_bombs, al
-		nopcall	sub_104BB
+		nopcall	hud_bombs_put
 		mov	_bullet_clear_time, 32
 		leave
 		retn
@@ -8866,7 +8868,7 @@ sub_16F05	proc near
 		mov	_bullet_clear_time, 20
 
 loc_16F3B:
-		call	sub_10407
+		call	hud_lives_put
 		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
 		mov	_overlay2, offset @overlay_popup_update_and_render$qv
 		call	snd_se_play pascal, 7
@@ -9071,7 +9073,7 @@ loc_1710E:
 loc_1711E:
 		inc	_bombs
 		mov	si, 100
-		call	sub_104BB
+		call	hud_bombs_put
 		jmp	short loc_17174
 ; ---------------------------------------------------------------------------
 
@@ -9079,7 +9081,7 @@ loc_1712C:
 		push	3
 		call	playperf_raise
 		inc	_lives
-		call	sub_10407
+		call	hud_lives_put
 		call	snd_se_play pascal, 7
 		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
 		mov	_overlay2, offset @overlay_popup_update_and_render$qv
@@ -19613,7 +19615,8 @@ _bullet_zap_drop_point_items	db 0
 include th04/main/playfld[data].asm
 include th04/score[data].asm
 include th04/gaiji/hud[data].asm
-gsRUIKEI	db 0EDh, 0EEh, 0, 0, 0
+public _gsRUIKEI
+_gsRUIKEI	db 0EDh, 0EEh, 0, 0, 0
 include th05/main/hud/dream[data].asm
 include th02/main/hud/power[data].asm
 include th04/main/hud/hp[data].asm
