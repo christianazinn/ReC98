@@ -17,11 +17,13 @@
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th01/math/polar.hpp"
 #include "th02/hardware/egc.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/explode.hpp"
+#include "th02/main/playfld.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
 #include "th02/main/tile/tile.hpp"
@@ -34,11 +36,14 @@ extern "C" {
 
 // The two 16-pixel-wide columns cleared by boss_explode_margins_clear(), in
 // VRAM bytes. Also the exact columns that the clipping conditions further down
-// allow a 16×16 sprite to be blitted into.
-static const vram_x_t MARGIN_LEFT_LEFT = (16 / BYTE_DOTS);
-static const vram_x_t MARGIN_LEFT_RIGHT = (24 / BYTE_DOTS);
-static const vram_x_t MARGIN_RIGHT_LEFT = (416 / BYTE_DOTS);
-static const vram_x_t MARGIN_RIGHT_RIGHT = (424 / BYTE_DOTS);
+// allow a 16×16 sprite to be blitted into. Both are two byte columns wide and
+// sit immediately outside the playfield, so all four derive from it — the right
+// pair is literally PLAYFIELD_VRAM_RIGHT, which these used to spell out as a
+// bare 416 / 8.
+static const vram_x_t MARGIN_LEFT_LEFT = (PLAYFIELD_VRAM_LEFT - 2);
+static const vram_x_t MARGIN_LEFT_RIGHT = (PLAYFIELD_VRAM_LEFT - 1);
+static const vram_x_t MARGIN_RIGHT_LEFT = PLAYFIELD_VRAM_RIGHT;
+static const vram_x_t MARGIN_RIGHT_RIGHT = (PLAYFIELD_VRAM_RIGHT + 1);
 
 void near boss_explode_margins_clear(void)
 {
@@ -124,17 +129,25 @@ void pascal near boss_explode_render(
 		egc_start_copy_noframe();
 		for(i = 0; i < 256; i += 4) {
 			angle = (i + frame);
-			ring_x = (
-				((static_cast<long>(radius) * CosTable8[angle]) >> 8) + center_x
+
+			// The two helpers are not interchangeable here, and the asymmetry
+			// is ZUN's: X indexes CosTable8[] raw, which is polar_x_fast()'s
+			// body character for character, while Y goes through Sin8()'s
+			// `& 0xff` mask, which is the polar_y() *template*. polar_y_fast()
+			// would turn that mask into an int -> unsigned char narrowing
+			// instead — same value, different construct.
+			ring_x = polar_x_fast(center_x, radius, angle);
+			ring_y = polar_y(
+				center_y, radius, (angle + boss_explode_angle_offset)
 			);
-			ring_y = (
-				((static_cast<long>(radius) * Sin8(
-					angle + boss_explode_angle_offset
-				)) >> 8) + center_y
-			);
+			// The right and bottom bounds are the playfield's own edges. The
+			// left and top ones deliberately are NOT: they are 16 and 0, not
+			// PLAYFIELD_LEFT (32) and PLAYFIELD_TOP (16), because the ring is
+			// allowed into the cleared margin columns above. Do not "fix" them
+			// into the macros.
 			if(
-				(ring_x >= 16) && (ring_x < 416) &&
-				(ring_y > 0) && (ring_y < 384)
+				(ring_x >= 16) && (ring_x < PLAYFIELD_RIGHT) &&
+				(ring_y > 0) && (ring_y < PLAYFIELD_BOTTOM)
 			) {
 				tiles_invalidate_rect(ring_x, ring_y, 16, 16);
 			}
@@ -152,14 +165,8 @@ void pascal near boss_explode_render(
 	radius = (frame * 16);
 	for(i = 0; i < 256; i += 4) {
 		angle = (i + frame);
-		ring_x = (
-			((static_cast<long>(radius) * CosTable8[angle]) >> 8) + center_x
-		);
-		ring_y = (
-			((static_cast<long>(radius) * Sin8(
-				angle + boss_explode_angle_offset
-			)) >> 8) + center_y
-		);
+		ring_x = polar_x_fast(center_x, radius, angle);
+		ring_y = polar_y(center_y, radius, (angle + boss_explode_angle_offset));
 		vram_top = scroll_screen_y_to_vram(vram_top, ring_y);
 
 		// One pixel narrower on the left than the invalidation loop above
@@ -174,8 +181,8 @@ void pascal near boss_explode_render(
 		// drawn. Same open bug-vs-quirk question as the phase 1 shift above;
 		// see state/port/FIX_LAYER_CANDIDATES.md J4.
 		if(
-			(ring_x > 16) && (ring_x < 416) &&
-			(ring_y > 0) && (ring_y < 384)
+			(ring_x > 16) && (ring_x < PLAYFIELD_RIGHT) &&
+			(ring_y > 0) && (ring_y < PLAYFIELD_BOTTOM)
 		) {
 			super_roll_put_tiny(ring_x, vram_top, patnum);
 		}

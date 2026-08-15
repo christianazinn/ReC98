@@ -3,7 +3,12 @@
 
 // TH05's enemy_t has to be declared before this file's `extern enemies[]`, so
 // th05/main/enemy/enemy.hpp includes these two itself and then includes this
-// file. ReC98's headers have no include guards, so skip them in that case.
+// file. Neither of those two carries an include guard, so they have to be
+// skipped in that case — the guard above only protects this file.
+// (Guards are the exception in ReC98 rather than the rule: CONTRIBUTING.md asks
+// for them "only if the code structure necessitates it", and 45 of the tree's
+// 459 headers have one. This is a case that necessitates it, which is why this
+// file and th05/main/enemy/enemy.hpp gained theirs together.)
 #if (GAME != 5)
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
