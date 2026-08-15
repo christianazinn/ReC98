@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -2965,7 +2965,12 @@ BOSS_EXP_TEXT	segment	byte public 'CODE' use16
 	@explosions_big_update_and_render$qv procdesc near
 BOSS_EXP_TEXT	ends
 
-main__TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main__TEXT`
+; contribution, renamed so that a C++ object can append
+; `midboss_defeat_render` at its original address in the MIDDLE of the
+; segment. Same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+MB_DFR_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3052,87 +3057,15 @@ loc_F71C:
 
 include th04/main/item/render.asm
 
-; =============== S U B	R O U T	I N E =======================================
+	; midboss_defeat_render() now lives in
+	; th04/main/midboss/defeat_render.cpp, which appends to this segment.
+	; Declared `near` inside a main_01 segment on purpose: that is what
+	; keeps both call sites at their original 3-byte near encoding
+	; (kb/codegen 0064, 0082).
+	@midboss_defeat_render$qv procdesc near
+MB_DFR_TEXT	ends
 
-; Attributes: bp-based frame
-public @midboss_defeat_render$qv
-@midboss_defeat_render$qv	proc near
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _midboss_phase_frame
-		shl	ax, 4
-		mov	[bp+var_4], ax
-		cmp	[bp+var_4], (48 shl 4)
-		jl	short loc_F80F
-		mov	[bp+var_4], (48 shl 4)
-		mov	al, angle_2268E
-		inc	al
-		mov	angle_2268E, al
-
-loc_F80F:
-		mov	[bp+var_2], 0
-		jmp	short loc_F88C
-; ---------------------------------------------------------------------------
-
-loc_F816:
-		push	_midboss_pos.cur.x
-		push	[bp+var_4]
-		mov	al, angle_2268E
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		call	@polar$qiii
-		mov	si, ax
-		push	_midboss_pos.cur.y
-		push	[bp+var_4]
-		mov	al, angle_2268E
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	di, ax
-		cmp	di, (-16 shl 4)
-		jle	short loc_F881
-		cmp	di, ((PLAYFIELD_H + 16) shl 4)
-		jge	short loc_F881
-		cmp	si, (-16 shl 4)
-		jle	short loc_F881
-		cmp	si, ((PLAYFIELD_W + 16) shl 4)
-		jge	short loc_F881
-		mov	ax, si
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - 16)
-		mov	si, ax
-		call	scroll_subpixel_y_to_vram_seg1 pascal, di
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_roll_put
-
-loc_F881:
-		inc	[bp+var_2]
-		mov	al, angle_2268E
-		add	al, 10h
-		mov	angle_2268E, al
-
-loc_F88C:
-		cmp	[bp+var_2], 10h
-		jl	short loc_F816
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss_defeat_render$qv	endp
+main__TEXT	segment	byte public 'CODE' use16
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -19601,7 +19534,9 @@ include th05/main/boss/move[data].asm
 include th05/main/item/enemy_drops[data].asm
 include th04/main/item/items[data].asm
 include th04/main/hud/hud[data].asm
-angle_2268E	db 0
+; Rotation of the 16-sprite ring that midboss_defeat_render() draws.
+public _midboss_defeat_angle
+_midboss_defeat_angle	db 0
 		db 0
 include th04/gaiji/gameover[data].asm
 asc_226B3	db '  ',0
