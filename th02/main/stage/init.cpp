@@ -49,13 +49,13 @@
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/bg_particle.hpp"
+void far hiscore_get(void);
 
 // Still ASM in th02_main.asm.
 // ---------------------------
 extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
-extern "C" void far sub_1CD36(void);
 extern "C" void far sub_129DD(void);
 extern "C" void far sub_129FC(void);
 extern "C" void far sub_16A6B(void);
@@ -166,7 +166,7 @@ bool16 stage_loop(void);
 void near gameplay_init(void)
 {
 	snd_load(aHuuma_efc, SND_LOAD_SE);
-	sub_1CD36();
+	hiscore_get();
 	pi_load(0, aEye_pi);
 	super_entry_bfnt(aMiko_bft);
 	super_entry_bfnt(aMiko32_bft);

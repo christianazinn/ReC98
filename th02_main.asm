@@ -75,7 +75,7 @@ FACE_COL_0 = 255
 
 main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
-main_06 group REGIST_M_TEXT, main_06_TEXT
+main_06 group REGIST_M_TEXT
 
 ; ===========================================================================
 
@@ -13665,7 +13665,7 @@ sigma_end	proc far
 		movzx	edx, es:[bx+mikoconfig_t.continues_used]
 		add	eax, edx
 		mov	es:[bx+mikoconfig_t.score], eax
-		call	sub_1CDD6
+		call	@scoredat_extra_cleared_set$qv
 		call	@GameExecl$qnxc c, offset aMaine, ds	; "maine"
 		pop	bp
 		retf
@@ -19197,7 +19197,7 @@ mima_end	proc far
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.continues_used], 0
 		jnz	short loc_19E2A
-		call	sub_1CD8E
+		call	@scoredat_cleared_set$qv
 
 loc_19E2A:
 		call	mima_19C1D
@@ -23645,146 +23645,10 @@ REGIST_M_TEXT segment	byte public 'CODE' use16
 	@scoredat_load$qv procdesc near
 	extern @scoredat_save$qv:proc
 	extern @regist_menu$qv:proc
+	extern @hiscore_get$qv:proc
+	extern @scoredat_cleared_set$qv:proc
+	extern @scoredat_extra_cleared_set$qv:proc
 REGIST_M_TEXT ends
-
-; ===========================================================================
-
-; Segment type:	Pure code
-main_06_TEXT	segment	byte public 'CODE' use16
-		assume cs:main_06
-		;org 7
-		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1CD36
-_sub_1CD36 label far
-sub_1CD36	proc far
-		push	bp
-		mov	bp, sp
-		pushd	[_SCOREDAT_FN_PTR]
-		call	file_exist
-		or	ax, ax
-		jnz	short loc_1CD4D
-		call	@scoredat_defaults_set$qv
-		jmp	short loc_1CD50
-; ---------------------------------------------------------------------------
-
-loc_1CD4D:
-		call	@scoredat_load$qv
-
-loc_1CD50:
-		mov	eax, _hi.SCOREDAT_score[(0 * SCOREDAT_PLACES) * dword]
-		mov	ebx, 10
-		cdq
-		idiv	ebx
-		cmp	eax, _score
-		jl	short loc_1CD71
-		mov	eax, _hi.SCOREDAT_score[(0 * SCOREDAT_PLACES) * dword]
-		cdq
-		idiv	ebx
-		jmp	short loc_1CD75
-; ---------------------------------------------------------------------------
-
-loc_1CD71:
-		mov	eax, _score
-
-loc_1CD75:
-		mov	_hiscore, eax
-		mov	eax, _hi.SCOREDAT_score[(0 * SCOREDAT_PLACES) * dword]
-		mov	ebx, 0Ah
-		cdq
-		idiv	ebx
-		mov	_hiscore_continues, dl
-		pop	bp
-		retf
-sub_1CD36	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1CD8E	proc far
-
-@@rank		= byte ptr -7
-var_6		= byte ptr -6
-
-		enter	8, 0
-		lea	ax, [bp+var_6]
-		push	ss
-		push	ax
-		push	ds
-		push	offset _GAME_CLEAR_CONSTANTS
-		mov	cx, (SHOTTYPE_COUNT * word)
-		call	SCOPY@
-		mov	al, _rank
-		mov	[bp+@@rank], al
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.shottype]
-		mov	_rank, al
-		call	@scoredat_load$qv
-		mov	al, _rank
-		cbw
-		add	ax, ax
-		lea	dx, [bp+var_6]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		mov	_hi.SCOREDAT_cleared, ax
-		call	@scoredat_save$qv
-		mov	al, [bp+@@rank]
-		mov	_rank, al
-		leave
-		retf
-sub_1CD8E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1CDD6	proc far
-
-@@rank		= byte ptr -5
-var_4		= byte ptr -4
-
-		enter	6, 0
-		lea	ax, [bp+var_4]
-		push	ss
-		push	ax
-		push	ds
-		push	offset _EXTRA_CLEAR_FLAGS
-		mov	cx, SHOTTYPE_COUNT
-		call	SCOPY@
-		mov	al, _rank
-		mov	[bp+@@rank], al
-		mov	_rank, RANK_LUNATIC
-		call	@scoredat_load$qv
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.shottype]
-		mov	ah, 0
-		lea	dx, [bp+var_4]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-
-loc_1CE0F:
-		or	_hi.SCOREDAT_cleared, ax
-		push	cs
-
-loc_1CE14:
-		call	near ptr @scoredat_save$qv
-		mov	al, [bp+@@rank]
-		mov	_rank, al
-		leave
-		retf
-sub_1CDD6	endp
-
-main_06_TEXT	ends
 
 	.data
 
