@@ -1,26 +1,36 @@
-/// TH05's all-clear bonus tally
-/// ---------------------------
-/// Shares a skeleton with TH04's function of the same name and nothing else:
-/// the frames are different sizes, every term between the opening and the
-/// closing differs, and the two reach their tally printer through entirely
-/// different mechanisms (TH05 nopcalls a 4-argument renderer that takes the
-/// text attribute, TH04 plainly calls a 3-argument one that hardcodes it).
-/// So this body is TH05-only and deliberately not shared.
+/// TH05's stage-clear and all-clear bonus tallies
+/// ----------------------------------------------
+/// Four functions, in the original's address order: the two multiplier helpers
+/// that scale a finished tally, then the two tallies themselves.
+///
+/// The tallies share a skeleton with TH04's functions of the same name and
+/// nothing else: the frames are different sizes, every term between the opening
+/// and the closing differs, and the two games reach their tally printer through
+/// entirely different mechanisms (TH05 nopcalls a 4-argument renderer that takes
+/// the text attribute, TH04 plainly calls a 3-argument one that hardcodes it).
+/// So these bodies are TH05-only and deliberately not shared.
 ///
 /// Not compiled on its own: th05/gather.cpp #includes this file above
-/// th04/main/gather.cpp. Within one object code is emitted in source order,
-/// so that include position is what keeps this function at the front of that
-/// object's contribution to main_032_TEXT, i.e. at its original address
+/// th04/main/gather.cpp. Within one object code is emitted in source order, so
+/// that include position is what keeps this file's *first* function at the front
+/// of that object's contribution to main_032_TEXT, i.e. at its original address
 /// immediately after the root dump's shrunken contribution. (kb/codegen/0112)
 
+// kb/codegen/0129: `th04/gaiji/gaiji.h` has no include guard, so it may appear
+// exactly ONCE in this object's include set. It is NOT included directly here:
+// `th05/main/boss/boss.hpp` -> `th04/main/boss/boss.hpp` ->
+// `th04/main/hud/overlay.hpp:6` already pulls it in, and adding the direct line
+// back produces ~200 `Multiple declaration` errors rather than a silent
+// mismatch. This TU is the first in the tree to need both gaiji and `boss`.
 #include "libs/master.lib/pc98_gfx.hpp"
-#include "th04/gaiji/gaiji.h"
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/playperf.hpp"
+#include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/stage/bonus.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/item/item.hpp"
+#include "th05/main/boss/boss.hpp"
 #include "th05/resident.hpp"
 
 extern "C" {
@@ -47,20 +57,92 @@ extern "C" {
 	// directly, with no alias needed.
 	extern uint8_t lives;
 
-	// The previous stage's [miss_count] and [bombs_used], latched here and in
-	// stage_clear_bonus() to decide the no-miss and no-bomb bonuses.
+	// The previous stage's [miss_count] and [bombs_used], latched by both
+	// tallies below to decide the no-miss and no-bomb bonuses.
 	// [placeholder names] Searched th04/, th05/ and every *.hpp for an existing
-	// name for either: none exists, and neither is referenced outside these two
-	// functions, so there is no call site to take a name from. stage_clear_bonus()
-	// is still ASM and shares both, so they stay in the dump for now.
+	// name for either: none exists, and neither is referenced outside this file,
+	// so there is no call site to take a name from. Re-run and still failing as
+	// of this parcel. They are plain `db 0` storage in the root dump's data
+	// segment; lifting that storage is a data parcel, not this one.
 	extern uint8_t byte_22274;
 	extern uint8_t byte_22275;
 
-	// Adds the per-difficulty and per-continue penalty rows to the running
-	// total, and renders each. [placeholder name] Its own body is still ASM and
-	// reaches its rows through _STAGE_CLEAR_BONUS_DESC, which is equally
-	// unnamed, so naming it is a separate parcel.
-	void pascal near sub_16438(unsigned long far *points);
+	// The label for each multiplier row, indexed by the `desc` parameter of
+	// stage_clear_bonus_multiplier_apply_and_put() below. Same `dw offset a…`
+	// shape as the tally labels above, and the name is upstream's own — it is
+	// already `public _STAGE_CLEAR_BONUS_DESC` in the root dump, so it is
+	// adopted verbatim rather than coined. Each label ends in the multiplier it
+	// selects, printed to one decimal place, which is where the `_tenths`
+	// spelling below comes from:
+	// (dump spellings, as the `dw offset` table lists them)
+	//	0        aBOSS_FINAL_TIMEOUT       × 0.0
+	//	1  - 3   aPENALTY_6 / _5 / _4      × 0.3 / 0.5 / 0.7  (starting lives)
+	//	4  - 6   aPENALTY_CONT_1 / _2 / _3 × 0.8 / 0.6 / 0.4  (continues used)
+	//	7  - 10  aBONUS_EASY / aBONUS_NORMAL / aBONUS_HARD / aBONUS_LUNATIC
+	//	                                   × 0.5 / 1.0 / 1.2 / 1.4
+	extern const char near *STAGE_CLEAR_BONUS_DESC[];
+}
+
+/// *Multiplies* the running tally by one multiplier given in tenths — it does
+/// not add to it — and renders the row that explains it. Below × 1.0 the row is
+/// a penalty and prints red; at or above it, a bonus, and prints green.
+///
+/// The two statements really are separate in the original: the product is
+/// stored back through the far pointer and reloaded before the divide, which is
+/// why the divide reloads only BX and keeps ES (kb/codegen/0002).
+void pascal near stage_clear_bonus_multiplier_apply_and_put(
+	int y, int desc, int multiplier_tenths, unsigned long far *points
+)
+{
+	int col;
+
+	*points *= multiplier_tenths;
+	*points /= 10;
+
+	col = ((multiplier_tenths < 10) ? TX_RED : TX_GREEN);
+	text_putsa(6, y, STAGE_CLEAR_BONUS_DESC[desc], col);
+}
+
+/// Applies every setting-dependent multiplier to a finished stage tally, in
+/// three rows: the starting-lives penalty, the continue penalty, and the
+/// per-rank scaling — so `rank` is the difficulty one, and `credit_lives` is
+/// not. Failing to defeat the final boss instead zeroes the tally with a × 0.0
+/// row and skips all three.
+///
+/// Each dispatch is deliberately a `switch` and not an `if`/`else if` chain:
+/// Borland cross-jumps the identical `points` push and call out of every arm, so
+/// all four arms of the rank dispatch share one call site, and the timeout arm
+/// shares it too.
+///
+/// The case bodies are in ZUN's source order, which is NOT the order of the
+/// compare chains: Turbo C++ sorts a sparse `switch`'s comparisons by ascending
+/// case value while emitting the bodies where they were written, so the
+/// descending 6/5/4 below is what produces an ascending 4/5/6 chain.
+void pascal near stage_clear_bonus_multipliers_apply(unsigned long far *points)
+{
+	if(boss.phase_state.defeat_bonus == false) {
+		stage_clear_bonus_multiplier_apply_and_put(20, 0, 0, points);
+		return;
+	}
+
+	switch(resident->credit_lives) {
+	case 6:	stage_clear_bonus_multiplier_apply_and_put(18, 1, 3, points);	break;
+	case 5:	stage_clear_bonus_multiplier_apply_and_put(18, 2, 5, points);	break;
+	case 4:	stage_clear_bonus_multiplier_apply_and_put(18, 3, 7, points);	break;
+	}
+
+	switch(score.continues_used) {
+	case 1:	stage_clear_bonus_multiplier_apply_and_put(19, 4, 8, points);	break;
+	case 2:	stage_clear_bonus_multiplier_apply_and_put(19, 5, 6, points);	break;
+	case 3:	stage_clear_bonus_multiplier_apply_and_put(19, 6, 4, points);	break;
+	}
+
+	switch(rank) {
+	case RANK_EASY:   	stage_clear_bonus_multiplier_apply_and_put(20,  7,  5, points);	break;
+	case RANK_NORMAL: 	stage_clear_bonus_multiplier_apply_and_put(20,  8, 10, points);	break;
+	case RANK_HARD:   	stage_clear_bonus_multiplier_apply_and_put(20,  9, 12, points);	break;
+	case RANK_LUNATIC:	stage_clear_bonus_multiplier_apply_and_put(20, 10, 14, points);	break;
+	}
 }
 
 /// kb/codegen/0083: Turbo C++ 4.0J emits `9A seg:off` for every far call to a
@@ -185,7 +267,7 @@ void near stage_clear_bonus(void)
 		playperf_lower(1);
 	}
 
-	sub_16438(&points);
+	stage_clear_bonus_multipliers_apply(&points);
 	HUD_POINTS_PUT_MEM(34, 21);
 
 	score_delta += points;
@@ -258,7 +340,7 @@ void near stage_allclear_bonus(void)
 	points += bonus_l;
 	HUD_POINTS_PUT_EAX(34, 18);
 
-	sub_16438(&points);
+	stage_clear_bonus_multipliers_apply(&points);
 	HUD_POINTS_PUT_MEM(34, 21);
 
 	score_delta += points;
