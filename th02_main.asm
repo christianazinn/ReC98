@@ -973,66 +973,10 @@ SCROLL_TEXT	segment	byte public 'CODE' use16
 SCROLL_TEXT	ends
 
 SHOT_TEXT	segment	byte public 'CODE' use16
+	@SHOT_ADD$QIUC procdesc pascal near
 SHOT_TEXT	ends
 
 main_01______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_CA62	proc near
-
-@@angle		= byte ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	dl, [bp+@@angle]
-		mov	ax, word_205E2
-		shl	ax, 4
-		add	ax, offset byte_20378
-		mov	si, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	cx, ax
-		mov	word ptr [si], 1
-		mov	ax, _player_topleft.x
-		add	ax, [bp+arg_2]
-		shl	ax, 4
-		mov	bx, cx
-		add	bx, bx
-		mov	[bx+si+2], ax
-		mov	bx, cx
-		add	bx, bx
-		mov	ax, word_205E4
-		mov	[bx+si+4], ax
-		mov	al, dl
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _CosTable8[bx]
-		imul	ax, 0Ch
-		sar	ax, 4
-		mov	[si+0Ah], ax
-		mov	al, dl
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _SinTable8[bx]
-		imul	ax, 0Ch
-		sar	ax, 4
-		mov	[si+0Ch], ax
-		mov	al, byte_1E519
-		mov	ah, 0
-		mov	[si+0Eh], ax
-		pop	si
-		pop	bp
-		retn	4
-sub_CA62	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -1123,7 +1067,7 @@ loc_CB53:
 loc_CB78:
 		push	8
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
 
@@ -1133,7 +1077,7 @@ loc_CB83:
 		call	@randring1_next8_and$quc
 		add	al, 190
 		push	ax
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
 
@@ -1150,7 +1094,7 @@ loc_CB9D:
 		push	ax
 
 loc_CBA8:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 1
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -1195,7 +1139,7 @@ loc_CBE8:
 		push	ax
 
 loc_CBE9:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 2
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -1226,7 +1170,7 @@ loc_CC09:
 		push	ax
 
 loc_CC19:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 3
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -1260,7 +1204,7 @@ loc_CC45:
 		push	200
 
 loc_CC4A:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 3
 		jmp	loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -1299,7 +1243,7 @@ loc_CC82:
 loc_CC87:
 		push	8
 		push	[bp+var_2]
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 4
 		jmp	short loc_CCFB
 ; ---------------------------------------------------------------------------
@@ -1361,7 +1305,7 @@ loc_CCF2:
 		push	[bp+var_2]
 
 loc_CCF5:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 5
 
 loc_CCFB:
@@ -1440,7 +1384,7 @@ loc_CD54:
 loc_CD81:
 		push	8
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
 
@@ -1460,7 +1404,7 @@ loc_CD97:
 
 loc_CDA0:
 		push	ax
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
 
@@ -1479,7 +1423,7 @@ loc_CDB1:
 		call	@randring1_next8_and$quc
 		add	al, 188
 		push	ax
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 1
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
@@ -1492,7 +1436,7 @@ loc_CDC2:
 loc_CDCC:
 		push	[bp+var_2]
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 1
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
@@ -1510,7 +1454,7 @@ loc_CDE6:
 		push	194
 
 loc_CDEB:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 1
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
@@ -1544,7 +1488,7 @@ loc_CE19:
 		push	ax
 
 loc_CE1A:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		mov	di, 2
 		jmp	loc_CEE8
 ; ---------------------------------------------------------------------------
@@ -1655,7 +1599,7 @@ loc_CEDF:
 		push	[bp+var_2]
 
 loc_CEE2:
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 
 loc_CEE5:
 		mov	di, 3
@@ -1931,7 +1875,7 @@ loc_D0A5:
 loc_D0D2:
 		push	8
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	loc_D16E
 ; ---------------------------------------------------------------------------
 
@@ -1951,7 +1895,7 @@ loc_D0E8:
 
 loc_D0F1:
 		push	ax
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	short loc_D16E
 ; ---------------------------------------------------------------------------
 
@@ -1960,7 +1904,7 @@ loc_D0F7:
 		jnz	short loc_D105
 		push	8
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		jmp	short loc_D158
 ; ---------------------------------------------------------------------------
 
@@ -1995,7 +1939,7 @@ loc_D12E:
 loc_D133:
 		push	[bp+var_2]
 		push	192
-		call	sub_CA62
+		call	@SHOT_ADD$QIUC
 		cmp	si, 3
 		jl	short loc_D158
 		mov	bx, word_205E2
@@ -22901,9 +22845,11 @@ byte_20350	db ?
 ; Two arrays that shots_update_and_render() walks in lockstep: one byte per
 ; shot at 20351h, then 38 16-byte structures at 20378h. Both extents come from
 ; that function's own loop bounds (`cmp [bp+var_2], 26h`, `add si, 10h`), so
-; they are evidenced; what the fields mean is not, hence the neutral names.
+; they are evidenced. 20378h is now shot_t[SHOT_COUNT]; 20351h stays neutral.
 ; 20350h stays separate - it is read and tested as a scalar. [static]
 byte_20351	db 39 dup(?)
+public _shots
+_shots label byte
 byte_20378	db 608 dup(?)
 word_205D8	dw ?
 word_205DA	dw ?
@@ -22912,7 +22858,11 @@ byte_205DE	db ?
 byte_205DF	db ?
 byte_205E0	db ?
 		db ?
+public _shot_slot_i
+_shot_slot_i label word
 word_205E2	dw ?
+public _shot_spawn_top
+_shot_spawn_top label word
 word_205E4	dw ?
 public _player_left_on_page, _player_top_on_page
 public _player_left_on_back_page, _player_top_on_back_page
