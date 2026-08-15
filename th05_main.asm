@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -313,11 +313,19 @@ SLOWDOWN_TEXT segment word public 'CODE' use16
 	@slowdown_frame_delay$qv procdesc near
 SLOWDOWN_TEXT ends
 
-; Segment type:	Pure code
-DEMO_TEXT	segment word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `DEMO_TEXT`
+; contribution, renamed so that a C++ object can append stage_loop() at its
+; original address in the MIDDLE of the segment. Same `word public 'CODE'`
+; alignment as before, so nothing moves.
+STAGE_TEXT	segment word public 'CODE' use16
 		assume cs:main_01
 		;org 0Dh
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
+
+	; stage_loop() now lives in th04/main/stage/loop.cpp, which appends to
+	; this segment. Declared `near` because the original proc is
+	; (kb/codegen 0064), and ahead of main()'s call site below.
+	@stage_loop$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -355,7 +363,7 @@ _envp		= dword	ptr  0Ch
 
 loc_AE89:
 		call	sub_B237
-		call	sub_AEA6
+		call	@stage_loop$qv
 		cmp	_quit, Q_NEXT_STAGE
 		jnz	short loc_AE9B
 		call	sub_B609
@@ -372,177 +380,20 @@ loc_AEA4:
 		retf
 _main		endp
 
+; The C++ contribution to STAGE_TEXT goes here, at the original address of
+; the frame loop.
+STAGE_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+; ===========================================================================
 
-; Attributes: bp-based frame
+; The tail of the original `DEMO_TEXT` contribution, reopened under its
+; original name. `byte` rather than the original `word` alignment, because
+; the C++ prefix above ends at an odd offset (kb/codegen/0069); the address
+; is the original one either way.
+DEMO_TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-sub_AEA6	proc near
-		push	bp
-		mov	bp, sp
-		mov	_slowdown_factor, 1
-		call	@frame_delay$qi pascal, 1
-		call	@input_reset_sense$qv
-
-loc_AEBB:
-		call	@input_sense$qv
-		call	fp_2300E
-		test	_key_det.hi, high INPUT_CANCEL
-		jz	short loc_AED7
-		call	_pause
-		or	ax, ax
-		jz	short loc_AED7
-		mov	_quit, Q_QUIT_TO_OP
-
-loc_AED7:
-		call	_std_update
-		call	_stage_vm
-		cmp	_bombing, 0
-		jnz	short @@bombing
-		call	_bg_render_not_bombing
-		jmp	short @@update
-; ---------------------------------------------------------------------------
-
-@@bombing:
-		call	_bg_render_bombing
-
-@@update:
-		call	pointnums_update
-		call	@circles_update$qv
-		call	_sparks_update
-		call	sub_1214A
-		call	sub_1240B
-		call	@lasers_update$qv
-		call	@bullets_update$qv
-		call	enemies_update
-		call	_midboss_update
-		call	_boss_update
-		call	items_update
-		call	@gather_update$qv
-		call	_stage_render
-		cmp	_bombing, 0
-		jz	short loc_AF2D
-		call	_playchar_bomb_func
-
-loc_AF2D:
-		call	_boss_fg_render
-		call	_midboss_render
-		call	enemies_render
-		call	@shots_render$qv
-		call	player_render
-		call	@grcg_setmode_rmw$qv
-		call	_boss_custombullets_render
-		call	@lasers_render$qv
-		call	@gather_render$qv
-		call	_sparks_render
-		call	items_render
-		call	pointnums_render
-		call	sub_100C6
-		call	@circles_render$qv
-		GRCG_OFF_CLOBBERING dx
-		call	_overlay1
-		call	_overlay2
-		call	@playfield_shake_update_and_rende$qv
-		call	@input_reset_sense$qv
-		mov	al, _slowdown_caused_by_bullets
-		mov	ah, 0
-		push	ax
-		mov	ax, vsync_Count1
-		cmp	ax, _slowdown_factor
-		jb	short loc_AF86
-		mov	ax, 1
-		jmp	short loc_AF88
-; ---------------------------------------------------------------------------
-
-loc_AF86:
-		xor	ax, ax
-
-loc_AF88:
-		pop	dx
-		or	dx, ax
-		movsx	eax, dx
-		add	_total_slow_frames, eax
-		inc	_total_frames
-		cmp	byte_20A71, 0
-		jz	short loc_AFDF
-		test	_key_det.hi, high INPUT_Q
-		jz	short loc_AFC3
-		cmp	byte_20A70, 0
-		jnz	short loc_AFB5
-		mov	byte_20A70, -2
-		jmp	short loc_AFDF
-; ---------------------------------------------------------------------------
-
-loc_AFB5:
-		cmp	byte_20A70, -1
-		jnz	short loc_AFDF
-		mov	byte_20A70, 1
-		jmp	short loc_AFDF
-; ---------------------------------------------------------------------------
-
-loc_AFC3:
-		cmp	byte_20A70, 1
-		jnz	short loc_AFD1
-		mov	byte_20A70, 0
-		jmp	short loc_AFDF
-; ---------------------------------------------------------------------------
-
-loc_AFD1:
-		cmp	byte_20A70, -2
-		jnz	short loc_AFDF
-		mov	byte_20A70, -1
-		jmp	short $+2
-
-loc_AFDF:
-		cmp	byte_20A70, 0
-		jnz	short loc_AFEB
-		call	@slowdown_frame_delay$qv
-		jmp	short loc_AFF0
-; ---------------------------------------------------------------------------
-
-loc_AFEB:
-		mov	_player_is_hit, 0
-
-loc_AFF0:
-		cmp	_palette_changed, 0
-		jz	short loc_B003
-		call	far ptr	palette_show
-		mov	_palette_changed, 0
-		jmp	short $+2
-
-loc_B003:
-		call	sub_10214
-		graph_accesspage _page_front
-		graph_showpage _page_back
-		mov	_page_front, al
-		xor	_page_back, 1
-		call	_snd_se_update
-		inc	_frames_unused
-		mov	ax, _stage_frame
-		mov	dx, ax
-		inc	ax
-		mov	_stage_frame, ax
-		and	ax, 0Fh
-		mov	_stage_frame_mod16, al
-		and	al, 7
-		mov	_stage_frame_mod8, al
-		and	al, 3
-		mov	_stage_frame_mod4, al
-		and	al, 1
-		mov	_stage_frame_mod2, al
-		test	_stage_frame, 4095
-		jnz	short loc_B055
-		push	1
-		nopcall	playperf_raise
-		jmp	short $+2
-
-loc_B055:
-		call	@score_update_and_render$qv
-		cmp	_quit, Q_KEEP_RUNNING
-		jz	loc_AEBB
-		pop	bp
-		retn
-sub_AEA6	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -748,7 +599,7 @@ sub_B237	proc near
 loc_B260:
 		mov	word_20A84, 1
 		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		mov	fp_2300E, offset nullfunc_near
+		mov	_demo_update, offset nullfunc_near
 		call	sub_B063
 		les	bx, _resident
 		cmp	es:[bx+resident_t.debug_mode], 0
@@ -760,7 +611,7 @@ loc_B260:
 		mov	al, es:[bx+resident_t.debug_power]
 		mov	_power, al
 		mov	es:[bx+resident_t.debug_mode], 0
-		mov	byte_20A71, 1
+		mov	_debug_mode, 1
 
 loc_B2A5:
 		les	bx, _resident
@@ -776,7 +627,7 @@ loc_B2A5:
 		mov	_power, POWER_MAX
 
 loc_B2CE:
-		mov	fp_2300E, offset @DemoPlay$qv
+		mov	_demo_update, offset @DemoPlay$qv
 		mov	random_seed, 318
 
 loc_B2DD:
@@ -3481,6 +3332,8 @@ include th04/main/item/splashes_render.asm
 
 ; Attributes: bp-based frame
 
+public _sub_100C6
+_sub_100C6 label near
 sub_100C6	proc near
 
 @@i		= word ptr -2
@@ -3642,6 +3495,8 @@ sub_100C6	endp
 
 ; Attributes: bp-based frame
 
+public _sub_10214
+_sub_10214 label near
 sub_10214	proc near
 		push	bp
 		mov	bp, sp
@@ -6054,6 +5909,8 @@ sub_12017	endp
 
 ; Attributes: bp-based frame
 
+public _sub_1214A
+_sub_1214A label near
 sub_1214A	proc near
 
 var_1		= byte ptr -1
@@ -6231,6 +6088,8 @@ loc_123E0:
 
 ; Attributes: bp-based frame
 
+public _sub_1240B
+_sub_1240B label near
 sub_1240B	proc near
 
 var_5		= byte ptr -5
@@ -19304,8 +19163,9 @@ BOSS_TEXT	ends
 
 	.data
 
-byte_20A70	db 0
-byte_20A71	db 0
+public _debug_fast_forward, _debug_mode
+_debug_fast_forward	db 0
+_debug_mode	db 0
 		dd aVersion1_01		; "version 1.01"
 include th04/gaiji/pause[data].asm
 	evendata
@@ -19744,7 +19604,8 @@ include th04/main/hud/gaiji_row[data].asm
 
 		db ?
 		db ?
-fp_2300E	dw ?
+public _demo_update
+_demo_update	dw ?
 include libs/master.lib/clip[bss].asm
 include libs/master.lib/fil[bss].asm
 include libs/master.lib/grcg_circle[bss].asm

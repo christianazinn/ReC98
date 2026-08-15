@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -265,8 +265,11 @@ SLOWDOWN_TEXT segment word public 'CODE' use16
 	@slowdown_frame_delay$qv procdesc near
 SLOWDOWN_TEXT ends
 
-; Segment type:	Pure code
-DEMO_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `DEMO_TEXT`
+; contribution, renamed so that a C++ object can append stage_loop() at its
+; original address in the MIDDLE of the segment. Same `word public 'CODE'`
+; alignment as before, so nothing moves.
+STAGE_TEXT	segment	word public 'CODE' use16
 		assume cs:main_01
 		;org 1
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
@@ -284,6 +287,11 @@ DEMO_TEXT	segment	word public 'CODE' use16
 	; below. Declared here, ahead of both call sites, and `near`
 	; because the original proc is (kb/codegen 0064).
 	@midboss_defeat_render$qv procdesc near
+
+	; stage_loop() now lives in th04/main/stage/loop.cpp, which appends to
+	; this segment. Declared `near` because the original proc is
+	; (kb/codegen 0064), and ahead of main()'s call site below.
+	@stage_loop$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -332,7 +340,7 @@ _envp		= dword	ptr  0Ch
 
 loc_AB6B:
 		call	main_01:sub_AED0
-		call	main_01:sub_AB88
+		call	@stage_loop$qv
 		cmp	_quit, Q_NEXT_STAGE
 		jnz	short loc_AB7D
 		call	main_01:sub_B29E
@@ -349,151 +357,20 @@ loc_AB86:
 		retf
 _main		endp
 
+; The C++ contribution to STAGE_TEXT goes here, at the original address of
+; the frame loop.
+STAGE_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+; ===========================================================================
 
-; Attributes: bp-based frame
+; The tail of the original `DEMO_TEXT` contribution, reopened under its
+; original name. `byte` rather than the original `word` alignment, because
+; the C++ prefix above ends at an odd offset (kb/codegen/0069); the address
+; is the original one either way.
+DEMO_TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-sub_AB88	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_slowdown_factor, 1
-		call	@frame_delay$qi pascal, 1
-		call	@input_reset_sense$qv
-
-loc_AB9E:
-		call	@input_sense$qv
-		call	fp_23D90
-		test	_key_det.hi, high INPUT_CANCEL
-		jz	short loc_ABBA
-		call	main_01:_pause
-		or	ax, ax
-		jz	short loc_ABBA
-		mov	_quit, Q_QUIT_TO_OP
-
-loc_ABBA:
-		call	_std_update
-		call	@midboss_activate_if_stage_frame_$qv
-		call	_stage_vm
-		cmp	_bombing, 0
-		jnz	short @@bombing
-		call	_bg_render_not_bombing
-		jmp	short @@update
-; ---------------------------------------------------------------------------
-
-@@bombing:
-		call	_bg_render_bombing
-
-@@update:
-		call	main_01:pointnums_update
-		call	@circles_update$qv
-		call	_sparks_update
-		call	main_01:sub_10ABF
-		call	main_01:sub_104B6
-		call	@bullets_update$qv
-		call	enemies_update
-		call	_midboss_update
-		call	_boss_update
-		call	items_update
-		call	@gather_update$qv
-		call	_stage_render
-		call	@bomb_update_and_render$qv
-		call	_boss_fg_render
-		call	_midboss_render
-		call	main_01:enemies_render
-		call	@shots_render$qv
-		call	main_01:player_render
-		call	@grcg_setmode_rmw$qv
-		call	@gather_render$qv
-		call	_sparks_render
-		call	main_01:items_render
-		call	main_01:pointnums_render
-		call	main_01:bullets_render
-		call	@circles_render$qv
-		GRCG_OFF_CLOBBERING dx
-		call	_overlay1
-		call	_overlay2
-		call	@playfield_shake_update_and_rende$qv
-		call	@input_reset_sense$qv
-		mov	ax, vsync_Count1
-		cmp	ax, _slowdown_factor
-		jb	short loc_AC56
-		mov	ax, 1
-		jmp	short loc_AC58
-; ---------------------------------------------------------------------------
-
-loc_AC56:
-		xor	ax, ax
-
-loc_AC58:
-		cwde
-		add	_total_slow_frames, eax
-		inc	_total_frames
-		call	@slowdown_frame_delay$qv
-		cmp	_palette_changed, 0
-		jz	short loc_AC7A
-		call	far ptr	palette_show
-		mov	_palette_changed, 0
-		jmp	short $+2
-
-loc_AC7A:
-		call	main_01:sub_CCD6
-		graph_accesspage _page_front
-		graph_showpage _page_back
-		mov	_page_front, al
-		xor	_page_back, 1
-		call	_snd_se_update
-		inc	_frames_unused
-		mov	ax, _stage_frame
-		mov	dx, ax
-		inc	ax
-		mov	_stage_frame, ax
-		and	ax, 0Fh
-		mov	_stage_frame_mod16, al
-		and	al, 7
-		mov	_stage_frame_mod8, al
-		and	al, 3
-		mov	_stage_frame_mod4, al
-		and	al, 1
-		mov	_stage_frame_mod2, al
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_lives]
-		mov	ah, 0
-		mov	si, ax
-		cmp	si, 10
-		jl	short loc_ACD1
-		mov	ax, 1000
-		jmp	short loc_ACDE
-; ---------------------------------------------------------------------------
-
-loc_ACD1:
-		mov	ax, si
-		imul	ax, 500
-		push	ax
-		mov	ax, 6000
-		pop	dx
-		sub	ax, dx
-
-loc_ACDE:
-		mov	si, ax
-		mov	ax, _stage_frame
-		xor	dx, dx
-		div	si
-		or	dx, dx
-		jnz	short loc_ACF4
-		push	1
-		nopcall	playperf_raise
-		jmp	short $+2
-
-loc_ACF4:
-		call	@score_update_and_render$qv
-		cmp	_quit, Q_KEEP_RUNNING
-		jz	loc_AB9E
-		pop	si
-		pop	bp
-		retn
-sub_AB88	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -695,7 +572,7 @@ sub_AED0	proc near
 loc_AEF9:
 		mov	word_213DE, 1
 		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		mov	fp_23D90, offset nullfunc_near
+		mov	_demo_update, offset nullfunc_near
 		call	main_01:sub_AD03
 		les	bx, _resident
 		cmp	es:[bx+resident_t.demo_num], 0
@@ -708,7 +585,7 @@ loc_AEF9:
 		mov	_power, POWER_MAX
 		add	al, '0'
 		mov	es:[bx+resident_t.stage_ascii], al
-		mov	fp_23D90, offset @DemoPlay$qv
+		mov	_demo_update, offset @DemoPlay$qv
 		mov	random_seed, 318
 
 loc_AF4A:
@@ -1807,6 +1684,8 @@ loc_CCD2:
 
 ; Attributes: bp-based frame
 
+public _sub_CCD6
+_sub_CCD6 label near
 sub_CCD6	proc near
 		push	bp
 		mov	bp, sp
@@ -6821,6 +6700,8 @@ loc_104B2:
 
 ; Attributes: bp-based frame
 
+public _sub_104B6
+_sub_104B6 label near
 sub_104B6	proc near
 
 @@i		= word ptr -2
@@ -7234,6 +7115,8 @@ sub_10988	endp
 
 ; Attributes: bp-based frame
 
+public _sub_10ABF
+_sub_10ABF label near
 sub_10ABF	proc near
 
 @@move_ret	= byte ptr -2
@@ -29757,7 +29640,8 @@ aSt05_bb	db 'st05.bb',0
 	.data?
 
 		dw ?
-fp_23D90	dw ?
+public _demo_update
+_demo_update	dw ?
 include th02/main/demo[bss].asm
 include libs/master.lib/clip[bss].asm
 include libs/master.lib/fil[bss].asm
