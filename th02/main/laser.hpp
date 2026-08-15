@@ -66,10 +66,11 @@ extern laser_t lasers[LASER_COUNT];
 // [laser_template].
 //
 // Every write is still ASM, and still spells the variable with its IDA
-// placeholder name: the storage published as `_laser_wait_frames`
-// (th02_main.asm:24751-24752) is `byte_23A70` (`:24753`), and all twelve writes
-// use that spelling. Census, measured at ReC98 45e7e2e7 — four laser-spawning
-// entities, spread over eight procs that call lasers_add():
+// placeholder name: in th02_main.asm's `_BSS`, the three-line publish alias
+// `public _laser_wait_frames` / `_laser_wait_frames label byte` sits directly
+// above the `byte_23A70 db ?` that reserves the storage, and all twelve writes
+// spell it `byte_23A70`. Census, re-measured at ReC98 a99dbfc2 — four
+// laser-spawning entities, spread over eight procs that call lasers_add():
 //
 // 	stones     	`stones_11B5D` 24h, `stones_11C37` 1Eh, `stones_11D30` 10h,
 // 	           	`stones_11E76` 1Eh twice, plus `stones_12778` 0Ch, which
