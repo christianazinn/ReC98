@@ -7841,183 +7841,9 @@ off_16508	dw offset loc_164D7
 		dw offset loc_164EB
 		dw offset loc_164F5
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @stage_clear_bonus$qv
-@stage_clear_bonus$qv	proc near
-
-var_6		= byte ptr -6
-var_5		= byte ptr -5
-@@points		= dword	ptr -4
-
-		enter	6, 0
-		push	si
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.miss_count]
-		cmp	al, byte_22274
-		jnz	short loc_16528
-		mov	ax, 1
-		jmp	short loc_1652A
-; ---------------------------------------------------------------------------
-
-loc_16528:
-		xor	ax, ax
-
-loc_1652A:
-		mov	[bp+var_5], al
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.miss_count]
-		mov	byte_22274, al
-		mov	al, es:[bx+resident_t.bombs_used]
-		cmp	al, byte_22275
-		jnz	short loc_1654D
-		cmp	[bp+var_5], 0
-		jz	short loc_1654D
-		mov	ax, 1
-		jmp	short loc_1654F
-; ---------------------------------------------------------------------------
-
-loc_1654D:
-		xor	ax, ax
-
-loc_1654F:
-		mov	[bp+var_6], al
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bombs_used]
-		mov	byte_22275, al
-		mov	PaletteTone, 60
-		call	far ptr	palette_show
-		call	gaiji_putsa pascal, (20 shl 16) + 4, ds, offset gpCLEAR_BONUS, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 8, ds, BONUS_STAGE, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 10, ds, BONUS_DREAM, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 12, ds, GRAZEX50, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 14, ds, POINT_ITEMS, TX_WHITE
-		cmp	[bp+var_5], 0
-		jz	short loc_165DF
-		call	text_putsa pascal, (6 shl 16) + 16, ds, BONUS_NOMISS, TX_CYAN
-
-loc_165DF:
-		cmp	[bp+var_6], 0
-		jz	short loc_165F8
-		call	text_putsa pascal, (6 shl 16) + 17, ds, BONUS_NOBOMB, TX_CYAN
-
-loc_165F8:
-		call	text_putsa pascal, (6 shl 16) + 21, ds, BONUS_TOTAL, TX_WHITE
-		mov	al, _stage_id
-		mov	ah, 0
-		imul	ax, 100
-		add	ax, 100
-		mov	si, ax
-		movzx	eax, si
-		mov	[bp+@@points], eax
-		push	(34 shl 16) or 8	; (left shl 16) or y
-		push	eax	; points
-		nopcall	@hud_points_put$quiuiul
-		mov	al, _dream
-		mov	ah, 0
-		imul	ax, 10
-		mov	si, ax
-		movzx	eax, si
-		add	[bp+@@points], eax
-		push	(34 shl 16) or 10	; (left shl 16) or y
-		push	eax	; points
-		nopcall	@hud_points_put$quiuiul
-		mov	ax, _stage_graze
-		imul	ax, 5
-		mov	si, ax
-		movzx	eax, si
-		add	[bp+@@points], eax
-		push	(34 shl 16) or 12	; (left shl 16) or y
-		push	eax	; points
-		nopcall	@hud_points_put$quiuiul
-		mov	si, _stage_point_items_collected
-		movzx	eax, si
-		imul	eax, [bp+@@points]
-		mov	[bp+@@points], eax
-		push	(40 shl 16) or 14	; (left shl 16) or y
-		push	si	; val
-		push	TX_WHITE	; atrb
-		nopcall	@hud_5_digit_put$quiuiuiui
-		mov	al, _stage_id
-		mov	ah, 0
-		imul	ax, 5000
-		add	ax, 10000
-		mov	si, ax
-		cmp	[bp+var_5], 0
-		jz	short loc_166B2
-		movzx	eax, si
-		add	[bp+@@points], eax
-		push	(34 shl 16) or 16	; (left shl 16) or y
-		push	eax	; points
-		nopcall	@hud_points_put$quiuiul
-
-loc_166B2:
-		cmp	[bp+var_6], 0
-		jz	short loc_166CD
-		movzx	eax, si
-		add	[bp+@@points], eax
-		push	(34 shl 16) or 17	; (left shl 16) or y
-		push	eax	; points
-		nopcall	@hud_points_put$quiuiul
-
-loc_166CD:
-		cmp	[bp+@@points], 1200000
-		jb	short loc_166DB
-		push	4
-		jmp	short loc_166F5
-; ---------------------------------------------------------------------------
-
-loc_166DB:
-		cmp	[bp+@@points], 800000
-		jb	short loc_166E9
-		push	2
-		jmp	short loc_166F5
-; ---------------------------------------------------------------------------
-
-loc_166E9:
-		cmp	[bp+@@points], 500000
-		jb	short loc_166FC
-		push	1
-
-loc_166F5:
-		call	playperf_raise
-		jmp	short loc_1671B
-; ---------------------------------------------------------------------------
-
-loc_166FC:
-		cmp	[bp+@@points], 100000
-		ja	short loc_1670A
-		push	2
-		jmp	short loc_16716
-; ---------------------------------------------------------------------------
-
-loc_1670A:
-		cmp	[bp+@@points], 200000
-		ja	short loc_1671B
-		push	1
-
-loc_16716:
-		call	playperf_lower
-
-loc_1671B:
-		push	ss
-		lea	ax, [bp+@@points]
-		push	ax
-		call	sub_16438
-		push	(34 shl 16) or 21	; (left shl 16) or y
-		pushd	[bp+@@points]	; points
-		nopcall	@hud_points_put$quiuiul
-		mov	eax, [bp+@@points]
-		add	_score_delta, eax
-		pop	si
-		leave
-		retn
-@stage_clear_bonus$qv	endp
-
-	; stage_allclear_bonus() now lives in th05/main/stage/bonus.cpp, which
-	; th05/gather.cpp includes above th04/main/gather.cpp so that it keeps
-	; this segment's original address order.
+	; stage_clear_bonus() and stage_allclear_bonus() now live in
+	; th05/main/stage/bonus.cpp, which th05/gather.cpp includes above
+	; th04/main/gather.cpp so that they keep this segment's address order.
 	@gather_add_only$qv procdesc near
 	@GATHER_ADD_ONLY_3STACK$QIUIUI procdesc pascal near \
 		frame:word, col_for_0_2_and_4:dword
@@ -18648,6 +18474,8 @@ _STAGE_CLEAR_BONUS_DESC label word
 		dw offset aBONUS_NORMAL
 		dw offset aBONUS_HARD
 		dw offset aBONUS_LUNATIC
+public _BONUS_STAGE
+_BONUS_STAGE label word
 BONUS_STAGE	dw offset aBONUS_STAGE
 public _BONUS_DREAM
 _BONUS_DREAM label word
@@ -18676,6 +18504,8 @@ PLAYER_REM	dw offset aPLAYER_REM
 public _POINT_TOTAL
 _POINT_TOTAL label word
 POINT_TOTAL	dw offset aPOINT_TOTAL
+public _gpCLEAR_BONUS
+_gpCLEAR_BONUS label byte
 gpCLEAR_BONUS	db 4Dh,	4Eh, 4Fh, 2, 58h, 59h, 5Ah, 5Bh, 0
 public _gpCONGRATULATION
 _gpCONGRATULATION label byte
