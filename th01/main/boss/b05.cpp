@@ -21,6 +21,19 @@
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/palette.hpp"
+#ifdef T1CASE
+	// Declared locally rather than by including th01/t1case.hpp, for the
+	// reason spelled out at th01/main/boss/defeat.cpp:16 — a TU that has
+	// already seen th01/hardware/input.hpp cannot then include t1case.hpp,
+	// because input.hpp:131 declares t1case_key_sense() with C++ linkage and
+	// t1case.hpp declares it inside `extern "C"`.
+	// `int8_t` is `char` here (platform.h:16), a THIRD type distinct from both
+	// `signed char` and `unsigned char` in C++ — so the parameter is spelled
+	// int8_t, exactly as th01/t1case.hpp spells it.
+	extern "C" void far t1case_boss_bind(
+		int near *hp, int8_t near *phase, int near *phase_frame
+	);
+#endif
 
 // Coordinates
 // -----------
@@ -143,6 +156,18 @@ void singyoku_load(void)
 {
 	svc2 col;
 	int comp;
+
+#ifdef T1CASE
+	// ORACLE-TH01 (mod branch only): publish the three statics above, which
+	// SHADOW th01/main/boss/boss.hpp's shared trio and are therefore the only
+	// boss progress state the T1SPLIT hasher cannot reach. Bound here rather
+	// than in singyoku_setup() so that the stage's FIRST trace row already
+	// reads them: main_01.cpp:671 calls this at stage entry, :858 emits the
+	// row. Nothing unbinds — a REIIDEN process holds at most one boss stage
+	// (main_01.cpp:1018 execl's on leaving one) and the next process starts
+	// with fresh BSS, so no later stage can observe a stale pointer.
+	t1case_boss_bind(&boss_hp, &boss_phase, &boss_phase_frame);
+#endif
 
 	singyoku_ent_load();
 

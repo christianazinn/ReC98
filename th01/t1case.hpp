@@ -1213,6 +1213,27 @@ void far t1case_particles_bind(
 	unsigned char near *spawn_cycle
 );
 
+// th01/main/boss/b05.cpp:57-60, in singyoku_load(). NOT a function-local
+// static like the rest of this block, and the only bind that REPLACES a value
+// hash group 4 already had rather than adding one it could not see.
+//
+// SinGyoku is the one boss that does not use th01/main/boss/boss.hpp's shared
+// trio — b05.cpp shadows [boss_hp], [boss_phase] and [boss_phase_frame] with
+// file statics under ZUN's own heading "State that's suddenly no longer shared
+// with other bosses". Group 4 and the two plain columns therefore read
+// variables stage 4 never writes.
+//
+// `[emu]` That is a HOLE, not a labelling nit, and it was measured before it
+// was fixed: over `b4singyoku`'s 21 stage-4 rows — a fight that took the boss
+// from HP_TOTAL 8 to 0 through both of its phases — `hash_boss` is the single
+// constant 83218FA40649168C, moving only when [boss_id] changes at the process
+// boundary. A SinGyoku HP divergence between two lineages would have moved no
+// column and no hash. REPLAY_CORE_CONTRACT.md §14 item 13.
+//
+// A bind rather than a hoist, for the reason stated at the top of this block:
+// publishing a pointer changes no object's storage, size or order.
+void far t1case_boss_bind(int near *hp, int8_t near *phase, int near *phase_frame);
+
 // th01/main/stage/stageobj.cpp:629, in obstacles_update_and_render().
 void far t1case_bars_bind(unsigned char near *vertical_bars_blocked);
 

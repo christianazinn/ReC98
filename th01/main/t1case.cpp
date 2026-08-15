@@ -436,6 +436,15 @@ static uint16_t t1case_cards_removed;
 static uint8_t t1case_items_alive_n;
 static uint8_t t1case_particles_alive_n;
 
+// th01/main/boss/b05.cpp:57-60 - hash group 4's THREE objects on stage 4, and
+// the only place in this module where a bind REPLACES a global rather than
+// adding a value the hasher could not otherwise see. SinGyoku shadows the
+// boss.hpp trio with file statics; see t1case_boss_bind() for the measurement
+// that made this necessary rather than cosmetic.
+static int near *t1case_boss_hp_p;
+static int8_t near *t1case_boss_phase_p;
+static int near *t1case_boss_phase_frame_p;
+
 static uint8_t near *t1case_vertical_bars_blocked;
 static int far * near *t1case_turret_flag;
 static int near *t1case_portal_slot;
@@ -1151,13 +1160,34 @@ static void t1h_group_bullets(void)
 	t1h_u16(static_cast<uint16_t>(pellet_interlace));
 }
 
+// The three accessors group 4 and the row's critical block share. A bound boss
+// REPLACES the global, so the preimage keeps its width and its field order and
+// only its VALUE changes - which is why every trace recorded before the bind
+// existed still reproduces byte for byte on any stage that does not bind.
+static int t1case_boss_hp_read(void)
+{
+	return (t1case_boss_hp_p != nullptr) ? *t1case_boss_hp_p : boss_hp;
+}
+
+static int8_t t1case_boss_phase_read(void)
+{
+	return (t1case_boss_phase_p != nullptr) ? *t1case_boss_phase_p : boss_phase;
+}
+
+static int t1case_boss_phase_frame_read(void)
+{
+	return (t1case_boss_phase_frame_p != nullptr)
+		? *t1case_boss_phase_frame_p
+		: boss_phase_frame;
+}
+
 static void t1h_group_boss(void)
 {
 	t1h_begin();
 	t1h_u8(static_cast<uint8_t>(boss_id));
-	t1h_u16(static_cast<uint16_t>(boss_hp));
-	t1h_u8(static_cast<uint8_t>(boss_phase));
-	t1h_u16(static_cast<uint16_t>(boss_phase_frame));
+	t1h_u16(static_cast<uint16_t>(t1case_boss_hp_read()));
+	t1h_u8(static_cast<uint8_t>(t1case_boss_phase_read()));
+	t1h_u16(static_cast<uint16_t>(t1case_boss_phase_frame_read()));
 }
 
 // Group 5 — stage objects, cards, items. `[open]` from Gate A until W3.1
@@ -1579,6 +1609,15 @@ void far t1case_particles_bind(
 	t1case_p_alive = alive;
 	t1case_p_velocity_base = velocity_base;
 	t1case_p_spawn_cycle = spawn_cycle;
+}
+
+void far t1case_boss_bind(
+	int near *hp, int8_t near *phase, int near *phase_frame
+)
+{
+	t1case_boss_hp_p = hp;
+	t1case_boss_phase_p = phase;
+	t1case_boss_phase_frame_p = phase_frame;
 }
 
 void far t1case_bars_bind(unsigned char near *vertical_bars_blocked)
@@ -2571,7 +2610,7 @@ static void t1case_split_row(uint8_t event)
 	row.score_highest = resident->score_highest;
 	row.bomb_frame = bomb_frame;
 	row.rem_lives = static_cast<int16_t>(rem_lives);
-	row.boss_hp = static_cast<int16_t>(boss_hp);
+	row.boss_hp = static_cast<int16_t>(t1case_boss_hp_read());
 	row.player_left = static_cast<int16_t>(player_left);
 	row.pellet_speed = static_cast<int16_t>(resident->pellet_speed);
 	row.point_value = resident->point_value;
@@ -2581,7 +2620,7 @@ static void t1case_split_row(uint8_t event)
 	row.route = route;
 	row.end_flag = static_cast<int8_t>(resident->end_flag);
 	row.boss_id = boss_id;
-	row.boss_phase = boss_phase;
+	row.boss_phase = t1case_boss_phase_read();
 	row.stage_cleared = static_cast<int8_t>(stage_cleared);
 	row.player_is_hit = static_cast<int8_t>(player_is_hit);
 
