@@ -114,8 +114,10 @@ extern int8_t easy_slow_skip_cycle;
 //   It is incremented once per frame and used purely as a timeline: SE at 168,
 //   a palette strobe over 168-200, gates at 400/600/800/1000, then a wrap back
 //   to 200.
-//   ZUN bloat: bosses_reset() zeroing it is what makes it look like boss
-//   state. It is stage state that happens to be reset from here.
+//   Being zeroed by bosses_reset() is the only reason it reads as boss state;
+//   it is stage state that happens to be reset from here. Deliberately NOT
+//   labelled `ZUN bloat`: the store is reached once per stage and the value is
+//   read afterwards, so it is not redundant — only misleadingly placed.
 //
 // [byte_2066B] is deliberately still a placeholder. It has the same
 // read-then-clear shape but on the boss side, and its consuming render code is
