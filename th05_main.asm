@@ -19571,7 +19571,7 @@ include th04/main/player/option[bss].asm
 public _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
 	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
-	; unnamed global, exactly like th03/main/gba_exatt_bomb[bss].asm does
+	; unnamed global, exactly like th03/main/gba_exatt_bomb_bss.asm does
 	; for its own byte_202B8.
 	public _byte_2CEBD
 _byte_2CEBD label byte

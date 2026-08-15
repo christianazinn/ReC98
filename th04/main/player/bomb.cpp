@@ -29,15 +29,25 @@
 // Same reason as th04/main/execl.cpp and th04/main/stage/loop.cpp.
 extern bool items_pull_to_player;
 
-// Still unnamed, in both games. Set to 72 together with [miss_time] when the
-// player is hit, counted down once per frame while nonzero, and while it *is*
-// nonzero the player keeps drifting on the momentum they had rather than
-// responding to input. Cleared both at stage start and here, so a deathbomb
-// also returns control immediately. Not named because "72 frames of something"
-// is not enough evidence to pick between "knockback" and "controls locked".
+// Still unnamed in the dump, in both games, so the placeholder is what the
+// linker sees; the alias below is ours. Set to 72 together with [miss_time]
+// when the player is hit, counted down once per frame while nonzero, and while
+// it *is* nonzero the player keeps drifting on the momentum they had rather
+// than responding to input. Cleared both at stage start and here, so a
+// deathbomb also returns control immediately.
+//
+// The alias is `move_lock_time` because that is TH03's own word for exactly
+// this: th03/main/player/stuff.hpp:36 declares `unsigned char move_lock_time;`
+// — same width, same role, counted down the same way
+// (th03/main/player/bomb.cpp:209-210, :290). TH03 sets it alongside a
+// *separate* [knockback_time] (bomb.cpp:450-452), and its knockback is a
+// directional shove that also stores a [knockback_angle] (:572-581). This byte
+// stores no angle and applies no velocity, so it is TH03's move lock and not
+// TH03's knockback — which is why an earlier `miss_knockback` spelling is not
+// used here: it named the one construct the evidence rules out.
 #if (GAME == 5)
 	extern "C" unsigned char byte_2CEBD;
-	#define miss_knockback byte_2CEBD
+	#define miss_move_lock_time byte_2CEBD
 
 	// TH05's bomb count is a plain global rather than [resident]'s field.
 	extern unsigned char bombs;
@@ -66,7 +76,7 @@ extern bool items_pull_to_player;
 	}
 #else
 	extern "C" unsigned char byte_259A3;
-	#define miss_knockback byte_259A3
+	#define miss_move_lock_time byte_259A3
 #endif
 
 // Drops a bomb, if possible. Also cancels a death if called during the
@@ -93,7 +103,7 @@ extern "C" void pascal near player_bomb(void)
 		}
 		miss_time = 0;
 		player_is_hit = false;
-		miss_knockback = 0;
+		miss_move_lock_time = 0;
 	}
 	#if (GAME == 5)
 		bombs--;
@@ -124,8 +134,10 @@ extern "C" void pascal near player_bomb(void)
 		player_invincibility_time = BOMB_INVINCIBILITY_FRAMES;
 		bg_render_bombing = bg_render_bombing_func;
 
-		// Left as a literal, like bullets_clear()'s own 20: the dump names
-		// BOMB_INVINCIBILITY_FRAMES two lines up but never named this one.
+		// Left as a literal, like bullets_clear()'s own 20
+		// (th04/main/bullet/clearzap.hpp:23-25): the ASM side names
+		// BOMB_INVINCIBILITY_FRAMES two lines up, at th04/th04.inc:49, but
+		// never named this one.
 		bullet_clear_time = 192;
 	#endif
 	snd_se_play(13);
