@@ -767,12 +767,12 @@ sub_B1D0	proc near
 		mov	_stage_frame, 0
 		mov	_bombing_disabled, 0
 		mov	_scroll_line, 0
-		mov	word_25100, 0
+		mov	_tile_ring_row_filled, 0
 		mov	_scroll_line_on_page[0 * 2], 0
 		mov	_scroll_line_on_page[1 * 2], 0
 		mov	_scroll_subpixel_line, 0
-		mov	byte_25104, 0
-		mov	byte_250FE, 0
+		mov	_scroll_lines_pending, 0
+		mov	_scroll_lines_prev_frame, 0
 		mov	_playfield_shake_x, 0
 		mov	_playfield_shake_y, 0
 		mov	_player_pos.cur.x, 192 * 16
@@ -887,95 +887,22 @@ END_EXT_TEXT	ends
 
 END_TEXT segment byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+	; tiles_scroll_and_egc_render() now lives in th04/main/tile/scroll.cpp,
+	; which th04/map.cpp compiles ahead of mpn_load() by way of that file's
+	; own #include (kb/codegen 0112 + 0129). It was the ONLY proc left in
+	; this root contribution, so lifting it empties the contribution to a
+	; zero-byte anchor -- no carve, no new segment, no group-list edit and
+	; no Tupfile.lua line were needed.
+	@tiles_scroll_and_egc_render$qv procdesc near
 
-; Attributes: bp-based frame
-
-sub_B835	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_25104, 0
-		jnz	short loc_B84B
-		cmp	byte_250FE, 0
-		jz	loc_B8F8
-
-loc_B84B:
-		cmp	_scroll_speed, 0
-		jz	loc_B8F8
-		mov	ax, _scroll_line
-		shr	ax, 4
-		cmp	ax, word_25100
-		jz	short loc_B8CE
-		mov	word_25100, ax
-		mov	bx, _std_seg
-		mov	es, bx
-		dec	_tile_row_in_section
-		jns	short loc_B89D
-		mov	_tile_row_in_section, 4
-		inc	_std_map_section_id
-		inc	_std_scroll_speed
-		mov	bx, _std_scroll_speed
-		mov	dl, es:[bx]
-		mov	_scroll_speed, dl
-		or	dl, dl
-		jnz	short loc_B89D
-		mov	_scroll_line, 0
-		mov	byte_250FE, 0
-
-loc_B896:
-		mov	byte_25104, 0
-		jmp	short loc_B8F8
-; ---------------------------------------------------------------------------
-
-loc_B89D:
-		shl	ax, 6
-		add	ax, offset _tile_ring
-		mov	di, ax
-		xor	ax, ax
-		mov	al, _tile_row_in_section
-		shl	ax, 6
-		mov	bx, _std_map_section_id
-		mov	bl, es:[bx]
-		xor	bh, bh
-		add	bl, bl
-		mov	bx, _TILE_SECTION_OFFSETS[bx]
-		mov	si, ax
-		add	si, bx
-		push	ds
-		pop	es
+	; Restored from the body of the proc that moved to C++ (kb/codegen
+	; 0121): it ended on `assume es:_DATA` after a `push ds` / `pop es`,
+	; and the state entering it was `es:nothing`, set by the `assume` at
+	; the top of the reopened DEMO_TEXT contribution, so
+	; deleting it would have changed the assumption every following
+	; contribution is assembled under. A C++ object carries its own segment
+	; overrides and does not participate in TASM's assume state at all.
 		assume es:_DATA
-		push	ds
-		mov	ax, _map_seg
-		mov	ds, ax
-		mov	cx, TILES_X
-		rep movsw
-		pop	ds
-
-loc_B8CE:
-		mov	al, byte_250FE
-		mov	[bp+var_1], al
-		mov	al, byte_25104
-		mov	byte_250FE, al
-		mov	al, [bp+var_1]
-		add	byte_25104, al
-		cmp	_scroll_active, 0
-		jz	short loc_B896
-		call	@egc_start_copy_noframe$qv
-		call	main_01:sub_BAEE
-		mov	byte_25104, 0
-		call	egc_off
-
-loc_B8F8:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_B835	endp
-
 
 	; mpn_load() now lives in th04/main/tile/mpn_load.cpp, which the
 	; th04/map.cpp object appends to this segment ahead of map_load()
@@ -983,8 +910,9 @@ sub_B835	endp
 	; was the LAST proc LEFT in this root contribution, and
 	; th04/formats/map.cpp already owned everything after it, so no carve
 	; and no new segment were needed. NOT "last in the original" -- the
-	; original order was sub_B835, mpn_load, map_load, map_free, which is
-	; why :1022 below says map_load() held that position.
+	; original order was tiles_scroll_and_egc_render(), mpn_load(),
+	; map_load(), map_free(), which is why the `@map_load$qv procdesc`
+	; below says map_load() held that position.
 	MPN_LOAD procdesc pascal near \
 		fn_seg:word, fn_off:word
 
@@ -1008,6 +936,8 @@ include th04/main/tile/fill_ini.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _sub_BAEE
+_sub_BAEE label near
 sub_BAEE	proc near
 		push	bp
 		push	si
@@ -1037,7 +967,7 @@ sub_BAEE	proc near
 		add	dx, cx
 		mov	word_25105, dx
 		xor	ch, ch
-		mov	cl, byte_25104
+		mov	cl, _scroll_lines_pending
 		mov	bh, bl
 		add	bl, cl
 		cmp	bl, 10h
@@ -1325,7 +1255,7 @@ sub_CCD6	proc near
 		mov	dx, _scroll_line
 		mov	bx, ax
 		mov	_scroll_line_on_page[bx], dx
-		cmp	byte_250FE, 0
+		cmp	_scroll_lines_prev_frame, 0
 		jz	short loc_CCFE
 		cmp	_scroll_active, 0
 		jz	short loc_CCFE
@@ -1345,13 +1275,13 @@ loc_CCFE:
 		add	_scroll_line, RES_Y
 
 loc_CD23:
-		mov	byte_25104, al
+		mov	_scroll_lines_pending, al
 		and	_scroll_subpixel_line, 0Fh
 		shl	ax, 4
 		mov	_scroll_last_delta, ax
 
 loc_CD31:
-		call	main_01:sub_B835
+		call	@tiles_scroll_and_egc_render$qv
 		pop	bp
 		retn
 sub_CCD6	endp
@@ -28581,11 +28511,13 @@ include th04/mem[bss].asm
 include th04/hardware/input[bss].asm
 include th04/formats/cdg[bss].asm
 include th04/formats/std[bss].asm
-byte_250FE	db ?
+public _scroll_lines_prev_frame, _tile_ring_row_filled
+public _scroll_lines_pending
+_scroll_lines_prev_frame	db ?
 		db ?
-word_25100	dw ?
+_tile_ring_row_filled	dw ?
 _invalidate_left_x_tile	dw ?
-byte_25104	db ?
+_scroll_lines_pending	db ?
 word_25105	dw ?
 word_25107	dw ?
 word_25109	dw ?

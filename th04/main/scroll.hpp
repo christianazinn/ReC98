@@ -18,6 +18,26 @@ extern Subpixel scroll_last_delta;
 // draws the background.
 extern bool scroll_active;
 
+// Playfield lines that scrolled in since the VRAM page currently being drawn
+// was last rendered, and that tiles_scroll_and_egc_render() therefore still
+// has to copy into it. Set to this frame's own scroll delta before that
+// function is called, raised by [scroll_lines_prev_frame] inside it, and
+// cleared once the copy is done. [inferred]: the binary only shows the
+// arithmetic, so "still to be copied" is read off the two writers and the one
+// consumer (th04_main.asm's sub_BAEE), not off a name of ZUN's.
+extern pixel_length_8_t scroll_lines_pending;
+
+// The previous frame's [scroll_lines_pending], added to the current frame's
+// on the next call. The two VRAM pages alternate, so the page being drawn
+// missed the previous frame's scroll entirely and has to catch up on both.
+// [inferred], same evidence as above.
+//
+// TH05 has both of these variables, still unnamed, as th05_main.asm's
+// [byte_23EFC] ([scroll_lines_pending]) and [byte_23F04]
+// ([scroll_lines_prev_frame]); its sub_BD20 is this file's
+// tiles_scroll_and_egc_render().
+extern pixel_length_8_t scroll_lines_prev_frame;
+
 #pragma codeseg mai_TEXT main_01
 
 // Transforms [y] to its corresponding VRAM line, adding the current

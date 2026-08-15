@@ -35,6 +35,12 @@
 #include "th04/formats/mpn.hpp"
 #include "th04/main/tile/tile.hpp"
 
+// ZUN's object for this code segment also held the tile ring scroller,
+// immediately ahead of mpn_load(). #included from here rather than from the
+// th04/map.cpp wrapper because it wants this file's header set
+// (kb/codegen/0129).
+#include "th04/main/tile/scroll.cpp"
+
 extern "C" void pascal near mpn_load(const char *fn)
 {
 	int tile_x;
