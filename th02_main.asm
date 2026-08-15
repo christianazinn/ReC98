@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -3243,6 +3243,9 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_leave_animate$qv:proc
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
+
+BOMB_TEXT	segment	byte public 'CODE' use16
+BOMB_TEXT	ends
 
 main_01_______TEXT	segment	byte public 'CODE' use16
 
