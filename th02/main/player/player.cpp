@@ -1,6 +1,9 @@
-#pragma option -G
+#pragma option -zCPLAYER_TEXT -zPmain_01 -G
 
+#include "th02/hardware/input.hpp"
+#include "th02/hardware/pages.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/bomb.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/hud/hud.hpp"
 #include "th02/main/item/item.hpp"
@@ -23,6 +26,51 @@ static const screen_y_t PLAYER_TOP_MAX = (PLAYFIELD_BOTTOM - (PLAYER_H - 8));
 // -----------
 
 extern int player_patnum; // ACTUAL TYPE: main_patnum_t
+
+// Per-playchar movement speeds, in pixels per frame. All values are signed
+// (yes, allowing you to invert the controls with negative values!) and are set
+// once per game from the shottype.
+extern "C" int8_t playchar_speed_aligned_x;
+extern "C" int8_t playchar_speed_aligned_y;
+extern "C" int8_t playchar_speed_diagonal_x;
+extern "C" int8_t playchar_speed_diagonal_y;
+
+// Fires one round of the current shottype's shot. Set from the shottype
+// together with the speeds above.
+extern "C" void (near *playchar_shot_func)(void);
+
+// The two shot streams. Both are still ASM-private and unnamed:
+//
+// * [byte_1EB0D] / [byte_1EB0E] are shot counters, 0xFF while the respective
+//   stream is inactive. Stream A restarts on the frame [INPUT_SHOT] is
+//   pressed, stream B on the next frame; releasing the key ends whichever one
+//   has fired enough rounds.
+// * [byte_22D4A] / [byte_22D4B] are the frames left until each stream may fire
+//   again.
+// * [byte_1E519] / [byte_1E51A] are the patnums the shot spawners write into
+//   the entity they create; [byte_2060E] / [byte_2060F] hold the shottype's
+//   fully powered replacements for them.
+// * [byte_20610] ramps between 0 and 26 while the player holds or releases a
+//   direction, and is read by shot_b()/shot_c().
+//
+// Naming all of these needs the shot spawners (sub_CA62, sub_CAD2) and the
+// entity structure they write to, which are separate parcels.
+extern "C" uint8_t byte_1EB0D;
+extern "C" uint8_t byte_1EB0E;
+extern "C" uint8_t byte_22D4A;
+extern "C" uint8_t byte_22D4B;
+extern "C" uint8_t byte_1E519;
+extern "C" uint8_t byte_1E51A;
+extern "C" uint8_t byte_2060E;
+extern "C" uint8_t byte_2060F;
+extern "C" int8_t byte_20610;
+
+static const uint8_t SHOT_STREAM_INACTIVE = 0xFF;
+static const uint8_t SHOT_COOLDOWN = 8;
+
+// Patnums used while the shot is not fully powered.
+static const uint8_t SHOT_PATNUM_A_UNPOWERED = 0x34;
+static const uint8_t SHOT_PATNUM_B_UNPOWERED = 0x3F;
 
 // Function ordering fails
 // -----------------------
@@ -244,3 +292,199 @@ void near player_miss_update_and_render(void)
 		player_is_hit = PLAYER_NOT_HIT;
 	}
 }
+
+// The sparse `switch` below generates a jump table, and the original pads it
+// to a word boundary with a single 0 byte. That padding is what `-a2` does;
+// the rest of this file compiles identically either way. (kb/codegen/0043)
+#pragma option -a2
+// Reads the player's input for this frame: movement, the option positions,
+// the two shot streams, and the bomb key. Called from stage_loop().
+void near player_move_and_shoot(void)
+{
+	register pixel_t delta_x;
+	register pixel_t delta_y;
+
+	negate_hits_if_invincible();
+	if(player_is_hit) {
+		return;
+	}
+
+	// Diagonals have their own input bits, but are also recognized as a
+	// combination of the two aligned ones. Both paths do the same thing.
+	switch(key_det & INPUT_MOVEMENT_DIAGONAL) {
+	case INPUT_UP_LEFT:
+		delta_y = -playchar_speed_diagonal_y;
+		delta_x = -playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_LEFT;
+		break;
+	case INPUT_UP_RIGHT:
+		delta_y = -playchar_speed_diagonal_y;
+		delta_x = playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_RIGHT;
+		break;
+	case INPUT_DOWN_LEFT:
+		delta_y = playchar_speed_diagonal_y;
+		delta_x = -playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_LEFT;
+		break;
+	case INPUT_DOWN_RIGHT:
+		delta_y = playchar_speed_diagonal_y;
+		delta_x = playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_RIGHT;
+		break;
+	default:
+		switch(key_det & INPUT_MOVEMENT_ALIGNED) {
+		case INPUT_UP:
+			delta_y = -playchar_speed_aligned_y;
+			delta_x = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		case INPUT_DOWN:
+			delta_y = playchar_speed_aligned_y;
+			delta_x = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		case INPUT_LEFT:
+			delta_x = -playchar_speed_aligned_x;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case INPUT_RIGHT:
+			delta_x = playchar_speed_aligned_x;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		case (INPUT_UP | INPUT_LEFT):
+			delta_y = -playchar_speed_diagonal_y;
+			delta_x = -playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case (INPUT_UP | INPUT_RIGHT):
+			delta_y = -playchar_speed_diagonal_y;
+			delta_x = playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		case (INPUT_DOWN | INPUT_LEFT):
+			delta_y = playchar_speed_diagonal_y;
+			delta_x = -playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case (INPUT_DOWN | INPUT_RIGHT):
+			delta_y = playchar_speed_diagonal_y;
+			delta_x = playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		default:
+			delta_x = 0;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		}
+	}
+
+	// [static] Half-pixel movement for the shottype whose aligned speed is 5:
+	// the delta is pulled one pixel back towards 0 on every other frame, since
+	// [page_back] alternates between 0 and 1. The effective speed is therefore
+	// 4.5 pixels per frame.
+	if(playchar_speed_aligned_x == 5) {
+		if(delta_x < 0) {
+			delta_x += page_back;
+		} else if(delta_x > 0) {
+			delta_x -= page_back;
+		}
+		if(delta_y < 0) {
+			delta_y += page_back;
+		} else if(delta_y > 0) {
+			delta_y -= page_back;
+		}
+	}
+
+	player_move(delta_x, delta_y);
+
+	// player_move() has already applied the delta to [player_topleft], so
+	// subtracting it again places the options at the player's *previous*
+	// position, one frame behind.
+	*player_option_left_left_on_back_page = (
+		(player_topleft.x - PLAYER_LEFT_TO_OPTION_LEFT_LEFT) - delta_x
+	);
+	*player_option_left_top_on_back_page = (
+		(player_topleft.y + ((PLAYER_H / 2) - (PLAYER_OPTION_H / 2))) - delta_y
+	);
+
+	if(key_det & INPUT_SHOT) {
+		if(byte_1EB0D == SHOT_STREAM_INACTIVE) {
+			byte_1EB0D = 0;
+			byte_22D4A = 0;
+		} else if(byte_1EB0E == SHOT_STREAM_INACTIVE) {
+			byte_1EB0E = 0;
+			byte_22D4B = 0;
+		}
+	} else {
+		if(byte_1EB0D >= 3) {
+			byte_1EB0D = SHOT_STREAM_INACTIVE;
+			byte_1EB0E = 4;
+		} else if(byte_1EB0E >= 2) {
+			byte_1EB0E = SHOT_STREAM_INACTIVE;
+		}
+	}
+
+	if(byte_1EB0D != SHOT_STREAM_INACTIVE) {
+		if(byte_22D4A == 0) {
+			if(shot_level == SHOT_LEVEL_MAX) {
+				byte_1E519 = byte_2060E;
+				byte_1E51A = byte_2060F;
+			} else {
+				byte_1E519 = SHOT_PATNUM_A_UNPOWERED;
+				byte_1E51A = SHOT_PATNUM_B_UNPOWERED;
+			}
+			playchar_shot_func();
+			snd_se_play(1);
+			byte_22D4A = SHOT_COOLDOWN;
+			byte_1EB0D++;
+
+			// Only one stream may fire per frame.
+			goto bomb;
+		}
+		byte_22D4A--;
+	}
+	if(byte_1EB0E < 2) {
+		if(byte_22D4B == 0) {
+			if(shot_level == SHOT_LEVEL_MAX) {
+				byte_1E519 = byte_2060E;
+				byte_1E51A = byte_2060F;
+				if(key_det & (
+					INPUT_DOWN | INPUT_DOWN_LEFT | INPUT_DOWN_RIGHT
+				)) {
+					byte_20610 += 5;
+					if(byte_20610 > 26) {
+						byte_20610 = 26;
+					}
+				} else if(!(key_det & (
+					INPUT_MOVEMENT_ALIGNED | INPUT_MOVEMENT_DIAGONAL
+				))) {
+					byte_20610 -= 5;
+					if(byte_20610 < 0) {
+						byte_20610 = 0;
+					}
+				}
+			} else {
+				byte_1E519 = SHOT_PATNUM_A_UNPOWERED;
+				byte_1E51A = SHOT_PATNUM_B_UNPOWERED;
+			}
+			playchar_shot_func();
+			byte_22D4B = SHOT_COOLDOWN;
+			byte_1EB0E++;
+		} else {
+			// Note the asymmetry with the first stream, which plays this sound
+			// when it *fires*, not while it waits.
+			snd_se_play(1);
+			byte_22D4B--;
+		}
+	}
+
+bomb:
+	if(key_det & INPUT_BOMB) {
+		player_bomb();
+	}
+}
+#pragma option -a1

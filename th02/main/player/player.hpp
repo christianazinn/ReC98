@@ -116,6 +116,10 @@ extern uint8_t shot_level;
 void pascal near player_invalidate(void);
 
 void near player_update_and_render(void);
+
+// Reads the player's input for this frame: movement, the option positions,
+// the two shot streams, and the bomb key.
+void near player_move_and_shoot(void);
 #else
 void near player_invalidate();
 #endif
