@@ -899,7 +899,7 @@ var_2		= word ptr -2
 		sub	sp, 2
 		push	si
 		mov	[bp+var_2], 2
-		call	sub_D38F
+		call	@shots_invalidate$qv
 		mov	al, _page_back
 		mov	ah, 0
 		add	ax, ax
@@ -979,136 +979,10 @@ SHOT_TEXT	segment	byte public 'CODE' use16
 	@shot_b$qv procdesc near
 	@shot_c$qv procdesc near
 	@shots_free_all$qv procdesc far
+	@shots_invalidate$qv procdesc near
 SHOT_TEXT	ends
 
 main_01______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_D38F	proc near
-
-var_3		= byte ptr -3
-@@left		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	[bp+var_3], 0
-		mov	si, offset byte_20378
-		xor	di, di
-		jmp	loc_D472
-; ---------------------------------------------------------------------------
-
-loc_D3A3:
-		cmp	byte ptr [si], 0
-		jz	loc_D46E
-		cmp	_reduce_effects, 0
-		jz	short loc_D3BF
-		mov	al, _page_back
-		mov	ah, 0
-		mov	dx, di
-		and	dx, 1
-		cmp	ax, dx
-		jnz	short loc_D419
-
-loc_D3BF:
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, [bx+si+2]
-		sar	ax, 4
-		mov	[bp+@@left], ax
-		cmp	byte ptr [si+0Eh], 7Ch ; '|'
-		jb	short loc_D3DE
-		cmp	byte ptr [si+1], 0
-		jnz	short loc_D3FA
-
-loc_D3DE:
-		push	[bp+@@left]	; left
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, [bx+si+4]
-		sar	ax, 4
-		push	ax	; top
-		push	(16 shl 16) or 16	; (w shl 16) or h
-		jmp	short loc_D414
-; ---------------------------------------------------------------------------
-
-loc_D3FA:
-		push	[bp+@@left]	; left
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, [bx+si+4]
-		sar	ax, 4
-		push	ax	; top
-		push	(32 shl 16) or 32	; (w shl 16) or h
-
-loc_D414:
-		call	@tiles_invalidate_rect$qiiii
-
-loc_D419:
-		cmp	byte ptr [si], 2
-		jnz	short loc_D423
-		mov	byte ptr [si], 0
-		jmp	short loc_D46E
-; ---------------------------------------------------------------------------
-
-loc_D423:
-		mov	bx, di
-		shl	bx, 4
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	ax, word ptr byte_20378[bx+2]
-		mov	dl, _page_back
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	[bx+si+2], ax
-		mov	bx, di
-		shl	bx, 4
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	ax, word ptr byte_20378[bx+4]
-		mov	dl, _page_back
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	[bx+si+4], ax
-		cmp	byte ptr [si+0Fh], 0
-		jz	short loc_D46E
-		inc	[bp+var_3]
-
-loc_D46E:
-		inc	di
-		add	si, 10h
-
-loc_D472:
-		cmp	di, 26h	; '&'
-		jl	loc_D3A3
-		cmp	[bp+var_3], 0
-		jnz	short loc_D484
-		mov	byte_205DE, 0
-
-loc_D484:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_D38F	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -21540,8 +21414,8 @@ word_205DA	dw ?
 public _boss_pos_x_unused
 _boss_pos_x_unused label word
 word_205DC	dw ?
-public _byte_205DE
-_byte_205DE label byte
+public _option_shots_alive
+_option_shots_alive label byte
 byte_205DE	db ?
 byte_205DF	db ?
 byte_205E0	db ?

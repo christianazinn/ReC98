@@ -79,6 +79,11 @@ void near shot_c(void);
 // boss code's own segments.
 void far shots_free_all(void);
 
+// Marks the tiles behind every alive shot for redrawing, retires the ones that
+// shots_hittest() flagged for removal, and copies the remaining ones' positions
+// from the front page to the back one.
+void near shots_invalidate(void);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */
