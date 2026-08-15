@@ -2569,63 +2569,14 @@ include th04/formats/scoredat_code_asm.asm
 SCORE_TEXT ends
 
 LASER_RH_TEXT segment byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @SHINKI_STAGE_BACKDROP_COLORFILL$QV
-@shinki_stage_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	  0, 104
-		GRCG_FILL_PLAYFIELD_ROWS	296,  72
-		pop	di
-		retn
-@shinki_stage_backdrop_colorfill$qv	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @boss_bg_fill_col_0$qv
-@boss_bg_fill_col_0$qv	proc near
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	0, PLAYFIELD_H
-		GRCG_OFF_VIA_XOR al
-		pop	di
-		retn
-@boss_bg_fill_col_0$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @shinki_bg_type_d_colorfill$qv
-@shinki_bg_type_d_colorfill$qv	proc near
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	0, 240
-		GRCG_OFF_VIA_XOR al
-		pop	di
-		retn
-@shinki_bg_type_d_colorfill$qv	endp
+	; shinki_stage_backdrop_colorfill(), boss_bg_fill_col_0() and
+	; shinki_bg_type_d_colorfill() were the entire root contribution to this
+	; segment. They now live in th05/main/boss/colorfill.cpp, which
+	; th05/laser_rh.cpp includes ahead of the laser code so that they keep the
+	; head of the segment.
+	; The declaration stays behind with a zero-length contribution, because
+	; segment order in the image comes from the order of first appearance in
+	; the link, and th05_main.asm is what establishes it.
 LASER_RH_TEXT	ends
 
 main_TEXT	segment	word public 'CODE' use16
