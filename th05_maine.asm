@@ -67,77 +67,6 @@ _TEXT ends
 CUTSCENE_TEXT segment byte public 'CODE' use16
 		assume cs:group_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @screen_line_next_animate$qv
-@screen_line_next_animate$qv proc near
-
-@@str		= dword	ptr -4
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	bx, _line_id_total
-		shl	bx, 2
-		mov	ax, word ptr (_LINES+2)[bx]
-		mov	dx, word ptr _LINES[bx]
-		mov	word ptr [bp+@@str+2], ax
-		mov	word ptr [bp+@@str], dx
-		mov	bx, _loaded_screen_id
-		add	bx, bx
-		mov	ax, word ptr _LINES_PER_SCREEN[bx]
-		dec	ax
-		shl	ax, 4
-		mov	dx, 192
-		sub	dx, ax
-		mov	ax, _line_id_on_screen
-		shl	ax, 5
-		add	dx, ax
-		mov	si, dx
-		mov	_graph_putsa_fx_func, (FX_MASK_END - 1)
-		xor	di, di
-		jmp	short loc_B21E
-; ---------------------------------------------------------------------------
-
-loc_B1F7:
-		call	graph_putsa_fx pascal, 64, si, V_WHITE, large [bp+@@str]
-		call	@wait_flip_and_check_measure_targ$qv
-		call	graph_putsa_fx pascal, 64, si, V_WHITE, large [bp+@@str]
-		call	@wait_flip_and_check_measure_targ$qv
-		dec	_graph_putsa_fx_func
-		inc	di
-
-loc_B21E:
-		cmp	di, FX_MASK
-		jl	short loc_B1F7
-		mov	_graph_putsa_fx_func, FX_WEIGHT_BOLD
-		call	graph_putsa_fx pascal, 64, si, V_WHITE, large [bp+@@str]
-		call	@wait_flip_and_check_measure_targ$qv
-		call	graph_putsa_fx pascal, 64, si, V_WHITE, large [bp+@@str]
-		call	@wait_flip_and_check_measure_targ$qv
-		inc	_line_id_total
-		inc	_line_id_on_screen
-		mov	bx, _loaded_screen_id
-		add	bx, bx
-		mov	ax, word ptr _LINES_PER_SCREEN[bx]
-		cmp	ax, _line_id_on_screen
-		jg	short loc_B26D
-		mov	_line_id_on_screen, 0
-		mov	al, 1
-		jmp	short loc_B26F
-; ---------------------------------------------------------------------------
-
-loc_B26D:
-		mov	al, 0
-
-loc_B26F:
-		pop	di
-		pop	si
-		leave
-		retn
-@screen_line_next_animate$qv endp
 CUTSCENE_TEXT ends
 
 maine_01_TEXT segment byte public 'CODE' use16
@@ -5902,6 +5831,7 @@ _BG_QUARTER	label word
 		dw 1, 0, 1, 2, 1, 1, 1, 0
 		dw 1, 2, 0, 1, 0, 2, 2, 0
 		dw 1, 0, 0, 2, 0, 3, 3, 0
+public _LINES
 _LINES	dd aProjectOfTouho
 		dd aNo_1Buumx		; "		     Project of	TOUHOU	  "...
 		dd aReimuHakureiSh
