@@ -225,13 +225,14 @@ struct t1case_startup_t {
 /// So the payload is cheap because the resume point is a PROCESS ENTRY, not
 /// because it is a stage start. Details: state/notes/t1case-checkpoint.md.
 ///
-/// The slot, stride 80:
+/// The slot, stride 84 (version 3 was 80; the session pin below made it 84):
 ///
 ///   +0  u32 sample_count      | the core's 12-byte cursor prefix
 ///   +4  u32 global_frame      |
 ///   +8  u32 input_byte_count  |
 ///   +12 u32 payload_checksum  running FNV-1a over the stream consumed so far
-///   +16 64B startup block     TH01's whole cross-process state
+///   +16 u32 session_digest    version 4's SESSION-FILE PIN, described below
+///   +20 64B startup block     TH01's whole cross-process state
 ///
 /// TH03's prefix has no checksum field, because its seek re-decodes from byte 0
 /// and recomputes one. TH01 has no seek (TXCASE_CONTRACT.md), so without this
@@ -252,7 +253,7 @@ struct t1case_startup_t {
 ///                   is a field of it, so there is nothing left for a directory
 ///                   to say.
 
-/// Version 4 adds one more prefix field:
+/// Version 4's one added prefix field:
 ///
 ///   +16 u32 session_digest    the SESSION-FILE PIN, below
 ///
@@ -309,6 +310,107 @@ struct t1case_checkpoint_t {
 	uint32_t session_digest;
 	t1case_startup_t startup;
 };
+
+/// The session-file SIDECAR, `T1SESS.BIN`
+/// -------------------------------------
+///
+/// The pin above tells an operator that the disk is wrong. It does not tell
+/// them what the right disk was, so a checkpoint restore at slot k is refused
+/// unless they happen to still hold the score table segment k started with.
+/// This closes that gap, and the shape it does NOT take is the point.
+///
+/// REJECTED: carrying the 247 bytes per slot INSIDE the case (3,952 B for 16)
+/// and having the player write them to disk before the game runs. The size was
+/// never the objection - `TXCASE_CONTRACT.md` §"Refuse; never coerce" is, and
+/// it is a rule this module's own last parcel wrote for all five games: *"It
+/// does not rewrite the file to match ... the oracle never manufactures its own
+/// input environment."* A player that writes the score table it is about to
+/// digest makes the pin SELF-FULFILLING - the comparison stops being evidence
+/// about the environment and becomes evidence that a memcpy worked. It would
+/// also need a DELETE path for the ABSENT sentinel, which on a RANK_EASY case
+/// means removing a file that ships in `originals/`.
+///
+/// So the bytes are carried OUT OF BAND and the enforcement does not move: the
+/// HOST stages `REYHI??.DAT` from this file (`run_t1case.ps1 -ScoreFile`, which
+/// already existed), and the GUEST still refuses on a mismatch, unchanged. The
+/// refusal stays auditable; it just becomes satisfiable.
+///
+/// It is an OUTPUT artifact in both modes, alongside `T1SPLIT.BIN`, and is
+/// never staged INTO the guest. Writing a diagnostic file is not the same act
+/// as writing the game's own input environment, and keeping those two acts
+/// distinct is the whole of the argument above.
+///
+///   header, 24 B
+///     +0   8  magic "T1SESS1\0"
+///     +8   2  version
+///     +10  2  header_size
+///     +12  2  record_stride
+///     +14  2  record_count       ┐ the only two MUTABLE fields, and adjacent on
+///     +16  4  records_checksum   ┘ purpose: one 6-byte in-place rewrite after
+///                                every append means a timeout-killed run leaves
+///                                a header describing exactly the records that
+///                                reached the disk, not the ones it meant to
+///                                write
+///     +20  4  startup_checksum   FNV-1a/32 over the case's 64-byte startup
+///                                block, which is constant for the case's life;
+///                                a sidecar from a DIFFERENT case fails here as
+///                                one loud check rather than 16 quiet ones
+///
+///   record, 264 B, one per checkpoint slot
+///     +0   2  slot
+///     +2   2  length   the file's REAL length; 0 means ABSENT
+///     +4   4  digest   equal to that slot's `session_digest` by construction
+///     +8 256  bytes    the first `length`, zero-padded
+///
+/// `length > T1SESS_BYTES_MAX` is how a file too large to carry declares
+/// itself: the digest and the length are still exact, the bytes are partial,
+/// and the host reports the slot UNCARRIED rather than staging a truncation.
+/// The binding a reader must check is `session_digest(bytes) == digest` AND
+/// `digest == case.slot[k].session_digest` - computed, not declared, so a
+/// sidecar that drifted from its case cannot pass by carrying a matching name.
+#define T1SESS_VERSION      1
+#define T1SESS_HEADER_SIZE  24
+#define T1SESS_BYTES_MAX    256
+#define T1SESS_RECORD_SIZE  (8 + T1SESS_BYTES_MAX)
+
+// The offset of the two mutable header fields, rewritten in place after every
+// append. Named rather than spelled `14L` at the seek, because a literal at a
+// seek is the same defect class as a literal row size at a stride.
+#define T1SESS_MUTABLE_INDEX 14
+#define T1SESS_MUTABLE_SIZE  6
+
+struct t1sess_header_t {
+	char magic[8]; // "T1SESS1\0"
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t record_stride;
+	uint16_t record_count;
+	uint32_t records_checksum;
+	uint32_t startup_checksum;
+};
+
+struct t1sess_record_t {
+	uint16_t slot;
+	uint16_t length;
+	uint32_t digest;
+	uint8_t bytes[T1SESS_BYTES_MAX];
+};
+
+typedef char t1sess_header_size_check[
+	(sizeof(t1sess_header_t) == T1SESS_HEADER_SIZE) ? 1 : -1
+];
+typedef char t1sess_record_size_check[
+	(sizeof(t1sess_record_t) == T1SESS_RECORD_SIZE) ? 1 : -1
+];
+typedef char t1sess_mutable_offset_check[
+	(offsetof(t1sess_header_t, record_count) == T1SESS_MUTABLE_INDEX) ? 1 : -1
+];
+// The two mutable fields must be ADJACENT, or the single 6-byte rewrite silently
+// clobbers whatever sits between them.
+typedef char t1sess_mutable_adjacency_check[
+	(offsetof(t1sess_header_t, records_checksum) ==
+		(T1SESS_MUTABLE_INDEX + sizeof(uint16_t))) ? 1 : -1
+];
 
 /// Trace container
 /// ---------------
@@ -403,6 +505,12 @@ struct t1case_checkpoint_t {
 #define T1CASE_RES_MAGIC_1       '1'
 #define T1CASE_RES_MAGIC_2       'C'
 #define T1CASE_RES_MAGIC_3       'S'
+// Bumped to 4 by W3.1 step 7: `restore_origin` was inserted ahead of the
+// protect region, which moves every protect byte again. 102 B is still 7
+// paragraphs (81..112 all round the same way), so without the bump
+// `resdata_exist()` hands a step-7 build a step-4 block and every protect field
+// reads one byte low.
+//
 // Bumped to 3 by W3.1 step 4: the checkpoint-array checksum was inserted
 // ahead of the protect region, which moves every protect byte. 101 B is still
 // 7 paragraphs, exactly the band this comment already warned about, so
@@ -414,7 +522,7 @@ struct t1case_checkpoint_t {
 // paragraphs, and everything from 81 to 112 rounds the same way), so
 // `resdata_exist()` will happily hand a step-3 build a step-2 block. The version
 // byte is the only thing that catches it. See REPLAY_CORE_CONTRACT.md §7.4.
-#define T1CASE_RES_VERSION       3
+#define T1CASE_RES_VERSION       4
 
 #define T1CASE_RES_VERSION_INDEX (T1CASE_RES_MAGIC_INDEX + T1CASE_RES_MAGIC_SIZE)
 #define T1CASE_RES_MODE_INDEX    (T1CASE_RES_VERSION_INDEX + 1)
@@ -451,13 +559,30 @@ struct t1case_checkpoint_t {
 // work proportional to the run length for no gain.
 #define T1CASE_RES_CKPT_SUM_INDEX (T1CASE_RES_SPLIT_ROWS_INDEX + 4)
 
+// The checkpoint index this SESSION was started from, or T1CASE_CKPT_ORIGIN_NONE
+// (W3.1 step 7). Without it a resumed segment cannot name the slot it should be
+// session-verified against: `process_seq` counts segments of THIS RUN, so after
+// a restore at checkpoint k the run's segment i is the recording's segment
+// `k + i`, and nothing else in the carrier carries k. With it, the slot index is
+// simply `restore_origin + process_seq` and a full playback is the k == 0 case
+// of the same arithmetic rather than a second code path.
+//
+// A DEDICATED BYTE, deliberately, and not the `T1CASE_RES_UNION_INDEX` alias
+// that was reserved for exactly this. The union's two halves are kept apart by a
+// RUNTIME invariant - `t1prt_*` writes the committed size only under
+// `t1case_mode == T1CASE_RECORD`, restore happens only under playback - enforced
+// by two gates in two different functions, which no `#if` can check and whose
+// failure mode is silent corruption of the savestate detector. One byte buys a
+// boundary guard and an `offsetof` proof instead.
+#define T1CASE_RES_ORIGIN_INDEX (T1CASE_RES_CKPT_SUM_INDEX + 4)
+
 // Reserved for the savestate-protect detector (REPLAY_CORE_CONTRACT.md §6),
 // which is W3.1 step 3. §6.1 records "~45 bytes of scratch that survives process
 // transitions" as the ONE thing TH01's protect binding has nowhere to put, and
 // naming the region now is what makes the non-overlap guards below able to
 // prove step 3 does not collide with the cursors. No field inside it is defined
 // yet: it is a reservation, not a set of dead declarations.
-#define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_CKPT_SUM_INDEX + 4)
+#define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_ORIGIN_INDEX + 1)
 #define T1CASE_RES_PROTECT_SIZE  45
 #define T1CASE_RES_END_INDEX (T1CASE_RES_PROTECT_INDEX + T1CASE_RES_PROTECT_SIZE)
 
@@ -601,11 +726,23 @@ struct t1case_checkpoint_t {
 #if (T1CASE_RES_CKPT_SUM_INDEX < (T1CASE_RES_SPLIT_ROWS_INDEX + 4))
 #error T1CASE carrier: the checkpoint checksum overlaps the split row count
 #endif
-#if (T1CASE_RES_PROTECT_INDEX < (T1CASE_RES_CKPT_SUM_INDEX + 4))
-#error T1CASE carrier: the protect region overlaps the checkpoint checksum
+#if (T1CASE_RES_ORIGIN_INDEX < (T1CASE_RES_CKPT_SUM_INDEX + 4))
+#error T1CASE carrier: the restore origin overlaps the checkpoint checksum
 #endif
-#if (T1CASE_RES_END_INDEX > T1CASE_RES_SIZE)
-#error T1CASE carrier: the region map overflows the block
+#if (T1CASE_RES_PROTECT_INDEX < (T1CASE_RES_ORIGIN_INDEX + 1))
+#error T1CASE carrier: the protect region overlaps the restore origin
+#endif
+// This used to read `#if (T1CASE_RES_END_INDEX > T1CASE_RES_SIZE)`, which is
+// IDENTICALLY FALSE: T1CASE_RES_SIZE is *defined as* T1CASE_RES_END_INDEX four
+// lines below, so the guard compared a value to itself and could never fire —
+// the same shape as the `$RowSize` / `$rowSize` collision that made
+// `tools/replay/export_splits.ps1`'s layout check vacuous. A guard on a derived
+// quantity has to assert something the derivation does not already force. This
+// one does: the protect region must be the LAST region, so a region appended
+// after it without updating the map is caught rather than silently overlapping
+// `protect[]`'s tail.
+#if (T1CASE_RES_END_INDEX != (T1CASE_RES_PROTECT_INDEX + T1CASE_RES_PROTECT_SIZE))
+#error T1CASE carrier: a region was added after protect without extending the map
 #endif
 
 // `slot`. The oracle lineage has no numbered slots — TXCASE_CONTRACT.md's
@@ -666,8 +803,19 @@ struct t1case_res_t {
 	uint32_t payload_checksum;
 	uint32_t split_rows;
 	uint32_t checkpoint_checksum;
+
+	// The checkpoint index this SESSION began at, so a RESUMED segment can name
+	// the recording slot it must be session-verified against. NONE on record and
+	// on any session that never restored. See T1CASE_RES_ORIGIN_INDEX.
+	uint8_t restore_origin;
+
 	uint8_t protect[T1CASE_RES_PROTECT_SIZE];
 };
+
+// `restore_origin` when the session did not start from a checkpoint at all —
+// i.e. record mode. 0 is a legitimate index (a full playback IS a restore from
+// slot 0 for this arithmetic), so it cannot double as the sentinel.
+#define T1CASE_CKPT_ORIGIN_NONE 0xFF
 
 enum t1split_event_t {
 	T1SPLIT_EVENT_START       = 1,
@@ -925,6 +1073,9 @@ typedef char t1case_res_rows_offset_check[
 typedef char t1case_res_ckpt_sum_offset_check[
 	(offsetof(t1case_res_t, checkpoint_checksum) == T1CASE_RES_CKPT_SUM_INDEX) ?
 	1 : -1
+];
+typedef char t1case_res_origin_offset_check[
+	(offsetof(t1case_res_t, restore_origin) == T1CASE_RES_ORIGIN_INDEX) ? 1 : -1
 ];
 typedef char t1case_res_protect_offset_check[
 	(offsetof(t1case_res_t, protect) == T1CASE_RES_PROTECT_INDEX) ? 1 : -1

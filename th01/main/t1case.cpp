@@ -100,6 +100,59 @@
 // recordings of the same scenario begin from the same seed.
 #define T1CASE_SCENARIO_SEED 12345UL
 
+/// The SURVIVABLE scenario preset (`T1CASE.CFG` = `r<n>s`)
+/// ------------------------------------------------------
+/// `[measured]` The reason this exists is a fact that inverts the whole
+/// stage-clear problem: **a player shot deals ZERO damage to a TH01 boss.**
+/// `Shots.hittest_boss()` is called at th01/main/boss/hit.cpp:31 and its return
+/// value is DISCARDED; the only non-debug `hp--` is hit.cpp:43, gated on
+/// `colliding_with_orb` or `bomb_deals_damage()`. So the previous corpus did not
+/// "lose to Mima" - a `z`-only recorder could never have damaged her, and no
+/// amount of extra runtime would have changed that.
+///
+/// The preset therefore does not try to make a boss killable. It makes the
+/// player SURVIVE long enough for the Orb to clear an ordinary card stage, which
+/// reaches the same `execl` — see the record-mode block in
+/// t1case_session_start() for why the guard is satisfied by a CARD stage.
+///
+/// Every value is one the game itself produces, and every one lands in the
+/// startup block where `t1case_startup_verify()` compares it post-init:
+///
+///   rem_lives 6, credit_lives_extra 4   `start_game()` writes
+///                                       `rem_lives = credit_lives_extra + 2`
+///                                       (th01/op_01.cpp:380) and
+///                                       CFG_CREDIT_LIVES_EXTRA_MAX is 5, so
+///                                       6 is the game's own maximum and
+///                                       LIVES_MAX (th01/common.h:16) is 6 too
+///   rem_bombs 5                         BOMBS_MAX (th01/common.h:17)
+///   pellet_speed -15                    PELLET_SPEED_LOWER_MIN
+///                                       (th01/main/bullet/pellet_s.hpp:12),
+///                                       which a continue plus two misses
+///                                       reaches on its own
+///
+/// `rem_lives` is NOT raised past 6, and that bound is load-bearing twice over:
+/// `hud_lives_put()` reserves exactly LIVES_MAX .PTN quarters
+/// (th01/sprites/main_ptn.h:112-113) and a 7th icon corrupts the neighbouring
+/// HUD backgrounds, and `pellet_speed_raise_cycle = 1800 - (rem_lives * 200) -
+/// (rem_bombs * 50)` (th01/main_01.cpp:867) is a DIVISOR — `(9,0)`, `(8,4)` and
+/// `(7,8)` each make it exactly zero and kill the process.
+#define T1CASE_SURVIVABLE_LIVES        6
+#define T1CASE_SURVIVABLE_LIVES_EXTRA  4
+#define T1CASE_SURVIVABLE_BOMBS        5
+#define T1CASE_SURVIVABLE_PELLET_SPEED PELLET_SPEED_LOWER_MIN
+
+// The divide-by-zero above, asserted rather than trusted to a comment.
+typedef char t1case_survivable_raise_cycle_check[
+	((1800 - (T1CASE_SURVIVABLE_LIVES * 200) -
+		(T1CASE_SURVIVABLE_BOMBS * 50)) != 0) ? 1 : -1
+];
+typedef char t1case_survivable_lives_check[
+	(T1CASE_SURVIVABLE_LIVES <= LIVES_MAX) ? 1 : -1
+];
+typedef char t1case_survivable_bombs_check[
+	(T1CASE_SURVIVABLE_BOMBS <= BOMBS_MAX) ? 1 : -1
+];
+
 // File-scope globals that TH01 never declared in a header.
 extern int8_t boss_id;      // th01/main_01.cpp:428
 extern uscore_t score_bonus; // th01/main_01.cpp:83
@@ -195,6 +248,12 @@ static char T1CASE_DONE_FN[11];
 static char T1CASE_DIAG_FN[11];
 static char T1CASE_GUARD_FN[13];
 
+// "T1SESS.BIN" — the session-file SIDECAR (th01/t1case.hpp, T1SESS_VERSION).
+// An OUTPUT artifact in both modes, never staged INTO the guest: it carries the
+// score-table bytes out of band so a checkpoint restore can be SUPPLIED with the
+// environment it needs, while the pin itself keeps REFUSING a wrong one.
+static char T1CASE_SESS_FN[11];
+
 // "REYHI??.DAT" — the session file of TXCASE_CONTRACT.md's session-file rule.
 // Assembled per rank rather than at paths-init time, because which of the four
 // score tables is live is a property of the CASE, not of the process.
@@ -283,6 +342,9 @@ static uint8_t t1case_cfg_stage;
 
 // The optional 'j' after that decimal: ROUTE_JIGOKU. Record mode only.
 static uint8_t t1case_cfg_route;
+
+// The optional 's': the SURVIVABLE scenario preset. Record mode only.
+static bool t1case_cfg_survivable;
 static bool t1case_done_written;
 static uint32_t t1case_sample_count;
 static uint32_t t1case_record_count;
@@ -500,6 +562,19 @@ static void t1case_paths_init(void)
 	T1CASE_GUARD_FN[10] = 'D';
 	T1CASE_GUARD_FN[11] = '\0';
 
+	// "T1SESS.BIN"
+	T1CASE_SESS_FN[0] = 'T';
+	T1CASE_SESS_FN[1] = '1';
+	T1CASE_SESS_FN[2] = 'S';
+	T1CASE_SESS_FN[3] = 'E';
+	T1CASE_SESS_FN[4] = 'S';
+	T1CASE_SESS_FN[5] = 'S';
+	T1CASE_SESS_FN[6] = '.';
+	T1CASE_SESS_FN[7] = 'B';
+	T1CASE_SESS_FN[8] = 'I';
+	T1CASE_SESS_FN[9] = 'N';
+	T1CASE_SESS_FN[10] = '\0';
+
 	// "T1CaseState"
 	T1CASE_RES_ID_BUF[0] = 'T';
 	T1CASE_RES_ID_BUF[1] = '1';
@@ -630,6 +705,26 @@ static bool t1case_score_fn_set(int8_t rank)
 	return true;
 }
 
+// The SIDECAR's capture of the same bytes the digest above just covered, filled
+// in the SAME PASS. A second read pass would be simpler, but it would let the
+// digest and the carried bytes describe two different instants; filling both
+// from one pass makes `session_digest(bytes) == digest` a property of the
+// construction rather than a coincidence the host has to hope for.
+//
+// [t1case_session_length] is the file's REAL length, which may exceed
+// T1SESS_BYTES_MAX. That is how an uncarriable file declares itself: the digest
+// and the length stay exact, the bytes are partial, and the host reports the
+// slot UNCARRIED instead of staging a truncation.
+static uint8_t t1case_session_bytes[T1SESS_BYTES_MAX];
+static uint32_t t1case_session_length;
+
+// The sidecar's own header and record, in BSS for the same reason
+// [t1case_ckpt] is: 288 bytes of stack in a module reached from deep inside
+// REIIDEN's own frames is a worse trade than 288 bytes of a segment that
+// contributes no initialized data either way.
+static t1sess_header_t t1case_sess_hdr;
+static t1sess_record_t t1case_sess_rec;
+
 // The pin's value for [rank], evaluated against the CURRENT contents of the
 // disk. Both the recorder and the player call this from t1case_session_start(),
 // at the same statement and before any game initialisation, which is what makes
@@ -647,6 +742,11 @@ static uint32_t t1case_session_digest(int8_t rank)
 	long physical_size;
 	int fd;
 	int got;
+	unsigned copied = 0;
+	unsigned i;
+
+	t1case_session_length = 0;
+	t1case_memclear(t1case_session_bytes, sizeof(t1case_session_bytes));
 
 	if(!t1case_score_fn_set(rank)) {
 		return T1CASE_SESSION_ABSENT;
@@ -669,17 +769,142 @@ static uint32_t t1case_session_digest(int8_t rank)
 			break;
 		}
 		hash = t1case_fnv1a(hash, buf, static_cast<unsigned>(got));
+		for(i = 0; (i < static_cast<unsigned>(got)) &&
+			(copied < T1SESS_BYTES_MAX); i++) {
+			t1case_session_bytes[copied++] = buf[i];
+		}
 	}
 	close(fd);
 	if(got < 0) {
 		// A file that exists but cannot be read is not the same environment as
 		// one that does not exist, and it must not be reported as either.
+		t1case_session_length = 0;
+		t1case_memclear(t1case_session_bytes, sizeof(t1case_session_bytes));
 		return 1UL;
 	}
+	t1case_session_length = length;
 	if(hash == T1CASE_SESSION_ABSENT) {
 		hash = 1UL;
 	}
 	return hash;
+}
+
+// Appends one sidecar record for [slot], from whatever the last
+// t1case_session_digest() call captured. [create] truncates and writes the
+// header first; it is true exactly in a session's FIRST process, mirroring
+// t1case_header_write()'s own create flag.
+//
+// A failure here is deliberately NOT fatal. The sidecar is an operator
+// convenience that makes a refusal satisfiable; the pin, the trace and the case
+// are the oracle, and none of them depends on it. Failing a run because a
+// convenience file could not be written would trade an oracle result for a
+// disk-space problem.
+static bool t1case_sess_append(uint16_t slot, uint32_t digest, bool create)
+{
+	unsigned i;
+	int fd;
+	int got;
+	bool ok;
+
+	// The append position and the running checksum come from the FILE'S OWN
+	// HEADER, re-read at every call, not from a module static (which resets at
+	// every `execl`, and TH01 self-`execl`s 8-10 times per run) and not from the
+	// carrier (which would spend 6 bytes to cache something the file already
+	// states). A sidecar record is written at most 16 times per run, so re-reading
+	// 24 bytes is free — and it means the file, not a counter, decides where the
+	// next record goes.
+	t1case_memclear(&t1case_sess_rec, sizeof(t1case_sess_rec));
+	t1case_sess_rec.slot = slot;
+	t1case_sess_rec.length = static_cast<uint16_t>(
+		(t1case_session_length > 0xFFFFUL) ? 0xFFFFU : t1case_session_length
+	);
+	t1case_sess_rec.digest = digest;
+	for(i = 0; i < T1SESS_BYTES_MAX; i++) {
+		t1case_sess_rec.bytes[i] = t1case_session_bytes[i];
+	}
+
+	if(create) {
+		t1case_memclear(&t1case_sess_hdr, sizeof(t1case_sess_hdr));
+		t1case_sess_hdr.magic[0] = 'T';
+		t1case_sess_hdr.magic[1] = '1';
+		t1case_sess_hdr.magic[2] = 'S';
+		t1case_sess_hdr.magic[3] = 'E';
+		t1case_sess_hdr.magic[4] = 'S';
+		t1case_sess_hdr.magic[5] = 'S';
+		t1case_sess_hdr.magic[6] = '1';
+		t1case_sess_hdr.magic[7] = '\0';
+		t1case_sess_hdr.version = T1SESS_VERSION;
+		t1case_sess_hdr.header_size = T1SESS_HEADER_SIZE;
+		t1case_sess_hdr.record_stride = T1SESS_RECORD_SIZE;
+
+		// `record_count` and `records_checksum` stay ZERO here and are rewritten
+		// in place after every append, so a timeout-killed run leaves a header
+		// describing the records that reached the disk.
+		t1case_sess_hdr.record_count = 0;
+		t1case_sess_hdr.records_checksum = T1CASE_FNV1A_BASIS;
+		t1case_sess_hdr.startup_checksum = t1case_fnv1a(
+			T1CASE_FNV1A_BASIS, &t1case_startup, sizeof(t1case_startup)
+		);
+		fd = t1f_create(T1CASE_SESS_FN);
+		if(fd < 0) {
+			return false;
+		}
+		ok = t1f_write(fd, &t1case_sess_hdr, sizeof(t1case_sess_hdr));
+		close(fd);
+		if(!ok) {
+			return false;
+		}
+	} else {
+		fd = t1f_read_open(T1CASE_SESS_FN);
+		if(fd < 0) {
+			return false;
+		}
+		got = read(fd, &t1case_sess_hdr, sizeof(t1case_sess_hdr));
+		close(fd);
+		if(got != static_cast<int>(sizeof(t1case_sess_hdr))) {
+			return false;
+		}
+		if(
+			(t1case_sess_hdr.version != T1SESS_VERSION) ||
+			(t1case_sess_hdr.header_size != T1SESS_HEADER_SIZE) ||
+			(t1case_sess_hdr.record_stride != T1SESS_RECORD_SIZE)
+		) {
+			return false;
+		}
+	}
+
+	fd = t1f_update(T1CASE_SESS_FN);
+	if(fd < 0) {
+		return false;
+	}
+	if(lseek(fd, (static_cast<long>(T1SESS_HEADER_SIZE) +
+		(static_cast<long>(t1case_sess_hdr.record_count) * T1SESS_RECORD_SIZE)),
+		SEEK_SET) < 0
+	) {
+		close(fd);
+		return false;
+	}
+	if(!t1f_write(fd, &t1case_sess_rec, sizeof(t1case_sess_rec))) {
+		close(fd);
+		return false;
+	}
+
+	// The two mutable header fields, rewritten as ONE adjacent block. Their
+	// adjacency is proven at compile time (t1sess_mutable_adjacency_check).
+	t1case_sess_hdr.record_count++;
+	t1case_sess_hdr.records_checksum = t1case_fnv1a(
+		t1case_sess_hdr.records_checksum, &t1case_sess_rec,
+		sizeof(t1case_sess_rec)
+	);
+	if(lseek(fd, static_cast<long>(T1SESS_MUTABLE_INDEX), SEEK_SET) < 0) {
+		close(fd);
+		return false;
+	}
+	ok = t1f_write(
+		fd, &t1case_sess_hdr.record_count, T1SESS_MUTABLE_SIZE
+	);
+	close(fd);
+	return ok;
 }
 
 /// Subsystem hashing
@@ -1386,9 +1611,13 @@ static uint8_t t1case_cfg_mode(void)
 	// nicety: `boss_id = BID_YUUGENMAGAN + route` (th01/main_01.cpp:676), so
 	// stage 9 is Mima on Jigoku and YuugenMagan on Makai, and Mima is the ONLY
 	// boss whose per-frame code runs the particle system.
+	// An optional 's' selects the SURVIVABLE scenario preset, below. Both
+	// suffixes are scanned for in ANY order, so `r3js` and `r3sj` are the same
+	// request and neither is a silent no-op.
 	t1case_cfg_checkpoint = 0;
 	t1case_cfg_stage = 0;
 	t1case_cfg_route = 0;
+	t1case_cfg_survivable = false;
 	for(i = (i + 1); i < read_len; i++) {
 		if((cfg[i] < '0') || (cfg[i] > '9')) {
 			break;
@@ -1398,8 +1627,14 @@ static uint8_t t1case_cfg_mode(void)
 			value = 255; // rejected below against `checkpoint_count`
 		}
 	}
-	if((i < read_len) && ((cfg[i] == 'j') || (cfg[i] == 'J'))) {
-		t1case_cfg_route = 1; // ROUTE_JIGOKU
+	for(; i < read_len; i++) {
+		if((cfg[i] == 'j') || (cfg[i] == 'J')) {
+			t1case_cfg_route = 1; // ROUTE_JIGOKU
+		} else if((cfg[i] == 's') || (cfg[i] == 'S')) {
+			t1case_cfg_survivable = true;
+		} else {
+			break;
+		}
 	}
 	if((mode == 'r') || (mode == 'R')) {
 		if(value >= STAGE_COUNT) {
@@ -1467,6 +1702,7 @@ static void t1case_res_stamp(void)
 	t1case_res->committed = 0;
 	t1case_res->payload_checksum = T1CASE_FNV1A_BASIS;
 	t1case_res->split_rows = 0;
+	t1case_res->restore_origin = T1CASE_CKPT_ORIGIN_NONE;
 	t1case_res->checkpoint_checksum = T1CASE_FNV1A_BASIS;
 	for(i = 0; i < T1CASE_RES_PROTECT_SIZE; i++) {
 		t1case_res->protect[i] = 0;
@@ -2559,7 +2795,7 @@ static bool t1case_checkpoint_read(uint8_t index)
 // record cursor, and a checkpoint that restores 90% of a cursor is worse than
 // no checkpoint at all. Fail closed, as REPLAY_CORE_CONTRACT.md 5.1 requires of
 // every regenerated field.
-static bool t1case_checkpoint_write(uint16_t index)
+static bool t1case_checkpoint_write(uint16_t index, bool sess_create)
 {
 	int fd;
 
@@ -2615,6 +2851,16 @@ static bool t1case_checkpoint_write(uint16_t index)
 		t1case_checkpoint_checksum, &t1case_ckpt, sizeof(t1case_ckpt)
 	);
 	t1case_header.checkpoint_checksum = t1case_checkpoint_checksum;
+
+	// The sidecar record for this slot, from the SAME digest pass above. Emitted
+	// after the slot is on disk, so the sidecar can never claim a slot the case
+	// does not have. A failure is reported and ignored: the sidecar is an
+	// operator convenience (it makes a refusal SATISFIABLE), never part of the
+	// oracle, and failing a recording because a convenience file could not be
+	// written would trade a result for a disk-space problem.
+	if(!t1case_sess_append(index, t1case_ckpt.session_digest, sess_create)) {
+		t1case_diag('S', 'F', 'W', index, 0);
+	}
 	return true;
 }
 
@@ -2648,7 +2894,7 @@ static bool t1case_checkpoint_array_verify(void)
 // therefore carries no pin at all, which is exactly what keeps the archived
 // Gate A artifacts comparable across this version bump - the same property
 // version 3 bought for the checkpoint array itself.
-static bool t1case_session_verify(uint8_t index)
+static bool t1case_session_verify(uint8_t index, bool sess_create)
 {
 	uint32_t live;
 
@@ -2668,6 +2914,14 @@ static bool t1case_session_verify(uint8_t index)
 	// `error:case-header` + `DBG` is: a case refused for any OTHER reason
 	// produces no SFD line at all.
 	t1case_diag('S', 'F', 'D', live, t1case_ckpt.session_digest);
+
+	// The playback-side sidecar: what the environment ACTUALLY was at every
+	// segment of this run, beside the recording's own. It is emitted on the
+	// refusal path too, and deliberately so — a refused run's sidecar is the
+	// only artifact that says what the wrong disk held.
+	if(!t1case_sess_append(index, live, sess_create)) {
+		t1case_diag('S', 'F', 'W', index, 1);
+	}
 	return (live == t1case_ckpt.session_digest);
 }
 
@@ -2977,11 +3231,18 @@ void far t1case_session_start(void)
 			// process segment it resumes into, and the DOS files that segment
 			// started with are part of that description even though no row
 			// schema may ever hash them (TXSPLIT_CONTRACT.md §7).
-			if(!t1case_session_verify(t1case_cfg_checkpoint)) {
+			if(!t1case_session_verify(t1case_cfg_checkpoint, true)) {
 				t1case_mode = T1CASE_ERROR;
 				t1case_handoff_clear();
 				t1case_done_write(T1T_ERR_SESSION);
 				return;
+			}
+
+			// Where this SESSION started, so every later segment can name the
+			// recording slot it must be verified against. A full playback is the
+			// `origin == 0` case of the same arithmetic, not a second path.
+			if(t1case_res) {
+				t1case_res->restore_origin = t1case_cfg_checkpoint;
 			}
 			if(t1case_cfg_checkpoint != 0) {
 				if(!t1case_checkpoint_restore(t1case_cfg_checkpoint)) {
@@ -2997,6 +3258,36 @@ void far t1case_session_start(void)
 			} else {
 				t1case_startup_apply();
 			}
+		} else {
+			// RESUMED SEGMENT (REPLAY_CORE_CONTRACT.md §5.6's `[open]`). Until
+			// now only a fresh start and a checkpoint restore compared their
+			// environment, so a playback that reproduced the case's inputs but
+			// NOT its score-table writes diverged silently from the second
+			// process onwards, and the trace's `hiscore` column was the only
+			// witness - detection without attribution.
+			//
+			// The recording slot for this run's segment `process_seq` is
+			// `restore_origin + process_seq`, which is the whole reason
+			// `restore_origin` exists: `process_seq` counts segments of THIS RUN,
+			// so after a restore at checkpoint k the two differ by exactly k.
+			// A resumed segment past the recording's last slot is UNPINNED, not
+			// an error - the SFU tag says so - because a case whose 17th process
+			// overflowed T1CASE_CHECKPOINT_CAP is still a valid case.
+			uint16_t origin = ((t1case_res &&
+				(t1case_res->restore_origin != T1CASE_CKPT_ORIGIN_NONE)) ?
+				t1case_res->restore_origin : 0);
+			uint16_t slot = (origin +
+				(t1case_res ? t1case_res->process_seq : 0));
+
+			if(slot > 0xFF) {
+				slot = 0xFF;
+			}
+			if(!t1case_session_verify(static_cast<uint8_t>(slot), false)) {
+				t1case_mode = T1CASE_ERROR;
+				t1case_handoff_clear();
+				t1case_done_write(T1T_ERR_SESSION);
+				return;
+			}
 		}
 	} else if(!resumed) {
 		// RECORD, first process: the scenario start.
@@ -3006,8 +3297,17 @@ void far t1case_session_start(void)
 		// frame, and it runs 21 lines after this call - so writing
 		// `resident->stage_id` here is the whole mechanism. There is no
 		// `execl` in between: the boss-boundary one (th01/main_01.cpp:1034)
-		// sits inside `if(stage_cleared)` and fires on the OUTGOING stage, so a
-		// process that starts on a boss stage runs that boss itself.
+		// sits inside `if(stage_cleared)`, so a process that starts on a boss
+		// stage runs that boss itself.
+		//
+		// CORRECTION, W3.1 step 7. This comment used to say the `execl` "fires
+		// on the OUTGOING stage_id". `[measured]` It does not: `stage_id++` is
+		// th01/main_01.cpp:1004 and the guard
+		// `if(stage_is_boss(stage_id) || (boss_id != BID_NONE))` is :1018, so it
+		// tests the INCOMING stage. The consequence is the whole of the
+		// stage-clear scenario below - clearing the ordinary CARD stage 3 makes
+		// `stage_id` 4, `stage_is_boss(4)` is true, and the boss-boundary
+		// `execl` fires without any boss having been fought.
 		//
 		// This exists because TH01's particle system is reachable only from
 		// `mima_main()` (th01/main/boss/b10j.cpp:1228 - the other five call
@@ -3027,6 +3327,19 @@ void far t1case_session_start(void)
 			resident->rand = T1CASE_SCENARIO_SEED;
 			t1case_diag(
 				'S', 'T', 'G', t1case_cfg_stage, t1case_cfg_route
+			);
+		}
+
+		// The survivable preset, in its OWN `if` rather than inside the block
+		// above: a field written there is silently inert for a plain `r`
+		// recording, and `rs` is a legitimate request.
+		if(t1case_cfg_survivable) {
+			resident->rem_lives = T1CASE_SURVIVABLE_LIVES;
+			resident->credit_lives_extra = T1CASE_SURVIVABLE_LIVES_EXTRA;
+			resident->rem_bombs = T1CASE_SURVIVABLE_BOMBS;
+			resident->pellet_speed = T1CASE_SURVIVABLE_PELLET_SPEED;
+			t1case_diag(
+				'S', 'V', 'B', resident->rem_lives, resident->rem_bombs
 			);
 		}
 		t1case_startup_capture(&t1case_startup);
@@ -3094,7 +3407,7 @@ void far t1case_session_start(void)
 			t1case_res ? t1case_res->process_seq : 0
 		);
 		if(!t1case_checkpoint_write(
-			t1case_res ? t1case_res->process_seq : 0
+			(t1case_res ? t1case_res->process_seq : 0), !resumed
 		)) {
 			t1case_mode = T1CASE_ERROR;
 			t1case_handoff_clear();
