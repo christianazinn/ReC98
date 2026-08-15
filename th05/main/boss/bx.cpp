@@ -1,7 +1,8 @@
 /// Extra Stage Boss - EX-Alice
 /// ---------------------------
-
-#pragma option -zCBX_UPDATE_TEXT -zPmain_03
+/// The `-zCBX_UPDATE_TEXT -zPmain_03` pragma this file used to carry now lives
+/// in th05/boss_x.cpp, which compiles this file together with the Extra Stage
+/// midboss's update function (kb/codegen/0112 trap 0).
 
 #include "th05/main/boss/boss.hpp"
 

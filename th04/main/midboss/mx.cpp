@@ -85,6 +85,15 @@ void pascal near midbossx_render(void)
 	}
 }
 #else
+// ZUN's object for this code segment also held the Stage 1 and the Stage 3
+// midboss renderer, immediately ahead of this one and in this order
+// (kb/codegen/0112). They keep their own files, but not their own translation
+// unit: every header they need is already included above, and none of those
+// headers has an include guard, so a second TU would have to add ~13 of them
+// to a write set that other lanes want.
+#include "th04/main/midboss/m1.cpp"
+#include "th04/main/midboss/m3.cpp"
+
 void pascal near midbossx_render(void)
 {
 	// No bottom clip, unlike midboss4_render()'s
