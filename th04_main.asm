@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -270,6 +270,20 @@ DEMO_TEXT	segment	word public 'CODE' use16
 		assume cs:main_01
 		;org 1
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
+
+	; hud_put() now lives in th04/main/hud/hud.cpp, which appends to the
+	; HUD_PUT_TEXT segment carved out of the head of main__TEXT below.
+	; Declared here, ahead of the two `nopcall` sites in this segment,
+	; and inside a main_01 segment on purpose (kb/codegen 0082): that is
+	; what keeps them lowered to `nop` + `push cs` + a near call.
+	HUD_PUT procdesc pascal far
+
+	; midboss_defeat_render() now lives in
+	; th04/main/midboss/defeat_render.cpp, which appends to the
+	; MB_DFR_TEXT segment carved out of the head of main_012_TEXT
+	; below. Declared here, ahead of both call sites, and `near`
+	; because the original proc is (kb/codegen 0064).
+	@midboss_defeat_render$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3659,8 +3673,8 @@ loc_E796:
 		mov	al, es:[bx+resident_t.credit_lives]
 		mov	es:[bx+resident_t.rem_lives], al
 		nopcall	main_01:sub_11DE6
-		nopcall	main_01:sub_EEE8
-		nopcall	main_01:sub_EFA1
+		nopcall	main_01:hud_lives_put
+		nopcall	main_01:hud_bombs_put
 		inc	_continues_used
 		call	sub_EEB0
 		call	hud_score_put
@@ -4241,7 +4255,7 @@ loc_EE60:
 		mov	_bullet_clear_time, 20
 
 loc_EE8C:
-		nopcall	main_01:sub_EEE8
+		nopcall	main_01:hud_lives_put
 		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
 		mov	_overlay2, offset @overlay_popup_update_and_render$qv
 		call	snd_se_play pascal, 7
@@ -4293,7 +4307,8 @@ sub_EEB0	endp
 
 ; Attributes: bp-based frame
 
-sub_EEE8	proc far
+public HUD_LIVES_PUT
+hud_lives_put	proc far
 
 var_2		= byte ptr -2
 var_1		= byte ptr -1
@@ -4370,14 +4385,15 @@ loc_EF9E:
 		pop	si
 		leave
 		retf
-sub_EEE8	endp
+hud_lives_put	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_EFA1	proc far
+public HUD_BOMBS_PUT
+hud_bombs_put	proc far
 
 var_2		= byte ptr -2
 var_1		= byte ptr -1
@@ -4456,7 +4472,7 @@ loc_F061:
 		pop	si
 		leave
 		retf
-sub_EFA1	endp
+hud_bombs_put	endp
 
 	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
 	; appends to this segment. Declared inside a main_01 segment on purpose:
@@ -4465,28 +4481,24 @@ sub_EFA1	endp
 	HUD_POINT_ITEMS_PUT procdesc pascal far
 HUD_PNT_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original `main__TEXT`
-; contribution, renamed so that a C++ object can append `hud_graze_put`
-; at its original address in the MIDDLE of the segment. Same
-; `byte public 'CODE'` alignment as before, so nothing moves.
+; Harness carve (kb/codegen/0080): an empty anchor segment split out of the
+; head of the original `main__TEXT` contribution, so that a C++ object can
+; append `hud_dream_put` at its original address in the MIDDLE of the
+; segment. Shape copied from `CFG_LRES_TEXT`; same `byte public 'CODE'`
+; alignment as before, so nothing moves.
+HUD_DRM_TEXT	segment	byte public 'CODE' use16
+	; hud_dream_put() now lives in th04/main/hud/dream.cpp, which appends to
+	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
+	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
+	; and sub_1DBAE's main_03 far call, with no call-site edits.
+	HUD_DREAM_PUT procdesc pascal far
+HUD_DRM_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of the head of the original
+; `main__TEXT` contribution once hud_dream_put() moved out of it, i.e. an
+; empty anchor segment for hud_graze_put(). Same `byte public 'CODE'`
+; alignment as before, so nothing moves.
 HUD_GRZ_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public HUD_DREAM_PUT
-hud_dream_put	proc far
-		push	bp
-		mov	bp, sp
-		push	3E0011h
-		mov	ax, _dream_score
-		imul	ax, 0Ah
-		push	ax
-		call	@hud_5_digit_put$quiuiui
-		pop	bp
-		retf
-hud_dream_put	endp
-
 	; hud_graze_put() now lives in th04/main/hud/graze.cpp, which appends to
 	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
 	; 0082): that is what keeps TASM lowering hud_put()'s same-group far call
@@ -4508,118 +4520,23 @@ HUD_PWR_TEXT	segment	byte public 'CODE' use16
 	HUD_POWER_PUT procdesc pascal far
 HUD_PWR_TEXT	ends
 
-main__TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main__TEXT`
+; contribution, renamed so that a C++ object can append `hud_put` at its
+; original address in the MIDDLE of the segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves.
+HUD_PUT_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/hud/element_put.asm
 include th04/main/hud/bar_put.asm
 
-; =============== S U B	R O U T	I N E =======================================
+	; hud_put() now lives in th04/main/hud/hud.cpp, which appends to this
+	; segment. Its `HUD_PUT procdesc pascal far` is declared at the top of
+	; DEMO_TEXT rather than here, because both `nopcall main_01:hud_put`
+	; sites are earlier in this file than this segment; only the GROUP of
+	; the declaring segment matters (kb/codegen 0082).
+HUD_PUT_TEXT	ends
 
-; Attributes: bp-based frame
-public HUD_PUT
-hud_put	proc far
-		push	bp
-		mov	bp, sp
-		call	gaiji_putsa pascal, (60 shl 16) + 3, ds offset gsHISCORE, TX_YELLOW
-		call	gaiji_putsa pascal, (61 shl 16) + 5, ds offset gsSCORE, TX_YELLOW
-		call	hud_score_put
-		les	bx, _resident
-		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_REIMU
-		jnz	short loc_F245
-		push	(57 shl 16) + 11
-		push	ds
-		push	offset gsREIGEKI
-		jmp	short loc_F24F
-; ---------------------------------------------------------------------------
-
-loc_F245:
-		push	(57 shl 16) + 11
-		push	ds
-		push	offset gsBOMB
-
-loc_F24F:
-		push	TX_YELLOW
-		call	gaiji_putsa
-		call	main_01:sub_EFA1
-		call	main_01:sub_EEE8
-		les	bx, _resident
-		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_REIMU
-		jnz	short loc_F276
-		push	(57 shl 16) + 13
-		push	ds
-		push	offset gsREIMU
-		jmp	short loc_F280
-; ---------------------------------------------------------------------------
-
-loc_F276:
-		push	(57 shl 16) + 13
-		push	ds
-		push	offset gsPLAYER
-
-loc_F280:
-		push	TX_YELLOW
-		call	gaiji_putsa
-		call	gaiji_putca pascal, (58 shl 16) + 15, (gs_TEN shl 16) + TX_YELLOW
-		call	main_01:hud_point_items_put
-		call	gaiji_putca pascal, (58 shl 16) + 17, (gs_YUME shl 16) + TX_YELLOW
-		call	main_01:hud_dream_put
-		call	gaiji_putca pascal, (58 shl 16) + 19, (gs_TAMA shl 16) + TX_YELLOW
-		call	@hud_graze_put$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_REIMU
-		jnz	short loc_F2DE
-		push	(62 shl 16) + 21
-		push	ds
-		push	offset gsREIRYOKU
-		jmp	short loc_F2E8
-; ---------------------------------------------------------------------------
-
-loc_F2DE:
-		push	(62 shl 16) + 21
-		push	ds
-		push	offset gsPOWER
-
-loc_F2E8:
-		push	TX_YELLOW
-		call	gaiji_putsa
-		call	main_01:hud_power_put
-		push	(57 shl 16) + 23
-		push	ds
-		mov	al, _rank
-		mov	ah, 0
-		shl	ax, 3
-		add	ax, offset glEASY
-		push	ax
-		cmp	_rank, RANK_EASY
-		jnz	short loc_F313
-		mov	ax, TX_GREEN
-		jmp	short loc_F32E
-; ---------------------------------------------------------------------------
-
-loc_F313:
-		cmp	_rank, RANK_NORMAL
-		jnz	short loc_F31F
-		mov	ax, TX_CYAN
-		jmp	short loc_F32E
-; ---------------------------------------------------------------------------
-
-loc_F31F:
-		cmp	_rank, RANK_HARD
-		jnz	short loc_F32B
-		mov	ax, TX_MAGENTA
-		jmp	short loc_F32E
-; ---------------------------------------------------------------------------
-
-loc_F32B:
-		mov	ax, TX_RED
-
-loc_F32E:
-		push	ax
-		call	gaiji_putsa
-		call	@hud_hp_put$qi pascal, 0
-		pop	bp
-		retf
-hud_put	endp
+main__TEXT	segment	byte public 'CODE' use16
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6362,7 +6279,7 @@ player_bomb	proc near
 loc_FFED:
 		les	bx, _resident
 		dec	es:[bx+resident_t.rem_bombs]
-		nopcall	main_01:sub_EFA1
+		nopcall	main_01:hud_bombs_put
 		mov	_bombing, 1
 		mov	_bomb_frame, 0
 		mov	_player_invincibility_time, BOMB_INVINCIBILITY_FRAMES
@@ -7293,11 +7210,11 @@ loc_10A60:
 		cmp	es:[bx+resident_t.rem_lives], 1
 		jbe	short loc_10AB7
 		dec	es:[bx+resident_t.rem_lives]
-		nopcall	main_01:sub_EEE8
+		nopcall	main_01:hud_lives_put
 		les	bx, _resident
 		mov	al, es:[bx+resident_t.credit_bombs]
 		mov	es:[bx+resident_t.rem_bombs], al
-		nopcall	main_01:sub_EFA1
+		nopcall	main_01:hud_bombs_put
 		mov	_bullet_clear_time, 32
 		leave
 		retn
@@ -7583,7 +7500,12 @@ main_01_TEXT	ends
 	HUD_SCORE_PUT procdesc near
 	@score_update_and_render$qv procdesc near
 
-main_012_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_012_TEXT` contribution, renamed so that a C++ object can append
+; `midboss_defeat_render` at its original address in the MIDDLE of the
+; segment. Same `byte public 'CODE'` alignment as before, so nothing
+; moves.
+MB_DFR_TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -7913,87 +7835,14 @@ loc_11A90:
 @orange_fg_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; midboss_defeat_render() now lives in
+	; th04/main/midboss/defeat_render.cpp, which appends to this segment.
+	; Its `procdesc near` is declared at the top of DEMO_TEXT rather than
+	; here, because both call sites are earlier in this file; only the
+	; GROUP of the declaring segment matters (kb/codegen 0064, 0082).
+MB_DFR_TEXT	ends
 
-; Attributes: bp-based frame
-public @midboss_defeat_render$qv
-@midboss_defeat_render$qv	proc near
-
-@@length		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _midboss_phase_frame
-		shl	ax, 4
-		mov	[bp+@@length], ax
-		cmp	[bp+@@length], (48 shl 4)
-		jl	short loc_11ABD
-		mov	[bp+@@length], (48 shl 4)
-		mov	al, angle_23212
-		inc	al
-		mov	angle_23212, al
-
-loc_11ABD:
-		mov	[bp+var_2], 0
-		jmp	short loc_11B3A
-; ---------------------------------------------------------------------------
-
-loc_11AC4:
-		push	_midboss_pos.cur.x
-		push	[bp+@@length]
-		mov	al, angle_23212
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		call	@polar$qiii
-		mov	si, ax
-		push	_midboss_pos.cur.y
-		push	[bp+@@length]
-		mov	al, angle_23212
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	di, ax
-		cmp	di, (-16 shl 4)
-		jle	short loc_11B2F
-		cmp	di, ((PLAYFIELD_H + 16) shl 4)
-		jge	short loc_11B2F
-		cmp	si, (-16 shl 4)
-		jle	short loc_11B2F
-		cmp	si, ((PLAYFIELD_W + 16) shl 4)
-		jge	short loc_11B2F
-		mov	ax, si
-		sar	ax, 4
-		add	ax,  (PLAYFIELD_LEFT - 16)
-		mov	si, ax
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, di
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_roll_put
-
-loc_11B2F:
-		inc	[bp+var_2]
-		mov	al, angle_23212
-		add	al, 10h
-		mov	angle_23212, al
-
-loc_11B3A:
-		cmp	[bp+var_2], 10h
-		jl	short loc_11AC4
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss_defeat_render$qv	endp
+main_012_TEXT	segment	byte public 'CODE' use16
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -24977,7 +24826,7 @@ loc_1D84F:
 loc_1D854:
 		les	bx, _resident
 		inc	es:[bx+resident_t.rem_bombs]
-		call	sub_EFA1
+		call	hud_bombs_put
 		les	bx, _resident
 		mov	al, es:[bx+resident_t.miss_count]
 		cmp	al, _stage_id
@@ -25380,7 +25229,7 @@ loc_1DD35:
 		les	bx, _resident
 		inc	es:[bx+resident_t.rem_bombs]
 		mov	si, 100
-		call	sub_EFA1
+		call	hud_bombs_put
 		jmp	short loc_1DD93
 ; ---------------------------------------------------------------------------
 
@@ -25388,7 +25237,7 @@ loc_1DD47:
 		call	playperf_raise pascal, 3
 		les	bx, _resident
 		inc	es:[bx+resident_t.rem_lives]
-		call	sub_EEE8
+		call	hud_lives_put
 		call	snd_se_play pascal, 7
 		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
 		mov	_overlay2, offset @overlay_popup_update_and_render$qv
@@ -29793,7 +29642,9 @@ include th03/main/5_powers_of_10[data].asm
 include th04/main/scoreupd[data].asm
 include th04/main/hud/gaiji_row[data].asm
 include th04/main/hud/hud[data].asm
-angle_23212	db 0
+; Rotation of the 16-sprite ring that midboss_defeat_render() draws.
+public _midboss_defeat_angle
+_midboss_defeat_angle	db 0
 	evendata
 
 YUUKA6_PHASE2_FLY_PATHS = 2

@@ -8,12 +8,13 @@ static const tram_cell_amount_t HUD_TRAM_W = 16;
 
 static const tram_y_t HUD_HISCORE_Y = 4;
 static const tram_y_t HUD_SCORE_Y = 6;
+#if (GAME == 2)
+// TH04 and TH05 include this header for the shared columns and the two score
+// rows, but lay out every other row differently — bombs 11, lives 13, power
+// bar 22, rank 23 — and define their own constants in th04/main/hud/hud.cpp.
+// [HUD_POWER_Y] in particular is 22 there, which is TH02's rank row.
 static const tram_y_t HUD_BOMBS_Y = 15;
 static const tram_y_t HUD_LIVES_Y = 17;
-#if (GAME == 2)
-// TH04 and TH05 include this header for the shared columns, but lay their
-// rows out differently and have no rank display at all. [HUD_POWER_Y] in
-// particular is 22 there, which is TH02's rank row.
 static const tram_y_t HUD_POWER_Y = 20;
 static const tram_y_t HUD_RANK_Y = 22;
 #endif
@@ -30,6 +31,7 @@ static const tram_cell_amount_t HUD_LABELED_W = (
 );
 // -----------
 
+#if (GAME == 2)
 // Yup, this also commits changes to [power] to the [shot_level], which
 // absolutely doesn't belong here.
 void near player_shot_level_update_and_hud_power_put(void);
@@ -39,3 +41,4 @@ void near hud_bombs_put(void);
 
 // Renders the entire HUD, reflecting all current values.
 void near hud_put(void);
+#endif
