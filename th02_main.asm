@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -4431,328 +4431,6 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 		delta_x:word, delta_y:word
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
-
-main_01________TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_F1D8
-_sub_F1D8 label near
-sub_F1D8	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_player_invincible_via_bomb, 0
-		jnz	short loc_F1F2
-		cmp	_player_invincibility_time, 0
-		jz	short loc_F1F7
-		cmp	_miss_active, 0
-		jnz	short loc_F1F7
-
-loc_F1F2:
-		mov	_player_is_hit, 0
-
-loc_F1F7:
-		cmp	_player_is_hit, 0
-		jnz	loc_F43E
-		mov	ax, _key_det
-		and	ax, INPUT_MOVEMENT_DIAGONAL
-		cmp	ax, INPUT_DOWN_LEFT
-		jz	loc_F29E
-		ja	short loc_F21B
-		cmp	ax, INPUT_UP_LEFT
-		jz	short loc_F270
-		cmp	ax, INPUT_UP_RIGHT
-		jz	short loc_F288
-		jmp	short loc_F222
-; ---------------------------------------------------------------------------
-
-loc_F21B:
-		cmp	ax, INPUT_DOWN_RIGHT
-		jz	loc_F2A4
-
-loc_F222:
-		mov	bx, _key_det
-		and	bx, INPUT_MOVEMENT_ALIGNED
-		dec	bx
-		cmp	bx, 9
-		ja	loc_F2B8
-		add	bx, bx
-		jmp	cs:off_F443[bx]
-
-loc_F238:
-		mov	al, _playchar_speed_aligned_y
-		cbw
-		neg	ax
-		mov	di, ax
-		xor	si, si
-		jmp	short loc_F2BC
-; ---------------------------------------------------------------------------
-
-loc_F244:
-		mov	al, _playchar_speed_aligned_y
-		cbw
-		mov	di, ax
-		xor	si, si
-		jmp	short loc_F2BC
-; ---------------------------------------------------------------------------
-
-loc_F24E:
-		mov	al, _playchar_speed_aligned_x
-		cbw
-		neg	ax
-		mov	si, ax
-		xor	di, di
-		mov	_player_patnum, PAT_PLAYCHAR_LEFT
-		jmp	short loc_F2C2
-; ---------------------------------------------------------------------------
-
-loc_F260:
-		mov	al, _playchar_speed_aligned_x
-		cbw
-		mov	si, ax
-		xor	di, di
-		mov	_player_patnum, PAT_PLAYCHAR_RIGHT
-		jmp	short loc_F2C2
-; ---------------------------------------------------------------------------
-
-loc_F270:
-		mov	al, _playchar_speed_diagonal_y
-		cbw
-		neg	ax
-
-loc_F276:
-		mov	di, ax
-		mov	al, _playchar_speed_diagonal_x
-		cbw
-		neg	ax
-		mov	si, ax
-		mov	_player_patnum, PAT_PLAYCHAR_LEFT
-		jmp	short loc_F2C2
-; ---------------------------------------------------------------------------
-
-loc_F288:
-		mov	al, _playchar_speed_diagonal_y
-		cbw
-		neg	ax
-		mov	di, ax
-		mov	al, _playchar_speed_diagonal_x
-		cbw
-		mov	si, ax
-		mov	_player_patnum, PAT_PLAYCHAR_RIGHT
-		jmp	short loc_F2C2
-; ---------------------------------------------------------------------------
-
-loc_F29E:
-		mov	al, _playchar_speed_diagonal_y
-		cbw
-		jmp	short loc_F276
-; ---------------------------------------------------------------------------
-
-loc_F2A4:
-		mov	al, _playchar_speed_diagonal_y
-		cbw
-		mov	di, ax
-		mov	al, _playchar_speed_diagonal_x
-		cbw
-		mov	si, ax
-		mov	_player_patnum, PAT_PLAYCHAR_RIGHT
-		jmp	short loc_F2C2
-; ---------------------------------------------------------------------------
-
-loc_F2B8:
-		xor	si, si
-		xor	di, di
-
-loc_F2BC:
-		mov	_player_patnum, PAT_PLAYCHAR_STILL
-
-loc_F2C2:
-		mov	al, _playchar_speed_aligned_x
-		cbw
-		cmp	ax, 5
-		jnz	short loc_F2FB
-		or	si, si
-		jge	short loc_F2D8
-		mov	al, _page_back
-		mov	ah, 0
-		add	si, ax
-		jmp	short loc_F2E3
-; ---------------------------------------------------------------------------
-
-loc_F2D8:
-		or	si, si
-		jle	short loc_F2E3
-		mov	al, _page_back
-		mov	ah, 0
-		sub	si, ax
-
-loc_F2E3:
-		or	di, di
-		jge	short loc_F2F0
-		mov	al, _page_back
-		mov	ah, 0
-		add	di, ax
-		jmp	short loc_F2FB
-; ---------------------------------------------------------------------------
-
-loc_F2F0:
-		or	di, di
-		jle	short loc_F2FB
-		mov	al, _page_back
-		mov	ah, 0
-		sub	di, ax
-
-loc_F2FB:
-		call	@player_move$qii pascal, si, di
-		mov	ax, _player_topleft.x
-		add	ax, -PLAYER_LEFT_TO_OPTION_LEFT_LEFT
-		sub	ax, si
-		mov	bx, _player_option_left_left_on_back_
-		mov	[bx], ax
-		mov	ax, _player_topleft.y
-		add	ax, ((PLAYER_H / 2) - (PLAYER_OPTION_H / 2))
-		sub	ax, di
-		mov	bx, _player_option_left_top_on_back_p
-		mov	[bx], ax
-		test	byte ptr _key_det, INPUT_SHOT
-		jz	short loc_F349
-		cmp	byte_1EB0D, -1
-		jnz	short loc_F336
-		mov	byte_1EB0D, 0
-		mov	byte_22D4A, 0
-		jmp	short loc_F368
-; ---------------------------------------------------------------------------
-
-loc_F336:
-		cmp	byte_1EB0E, -1
-		jnz	short loc_F368
-		mov	byte_1EB0E, 0
-		mov	byte_22D4B, 0
-		jmp	short loc_F368
-; ---------------------------------------------------------------------------
-
-loc_F349:
-		cmp	byte_1EB0D, 3
-		jb	short loc_F35C
-		mov	byte_1EB0D, -1
-		mov	byte_1EB0E, 4
-		jmp	short loc_F368
-; ---------------------------------------------------------------------------
-
-loc_F35C:
-		cmp	byte_1EB0E, 2
-		jb	short loc_F368
-		mov	byte_1EB0E, -1
-
-loc_F368:
-		cmp	byte_1EB0D, -1
-		jz	short loc_F3B3
-		cmp	byte_22D4A, 0
-		jnz	short loc_F3AF
-		cmp	_shot_level, SHOT_LEVEL_MAX
-		jnz	short loc_F38B
-		mov	al, byte_2060E
-		mov	byte_1E519, al
-		mov	al, byte_2060F
-		mov	byte_1E51A, al
-		jmp	short loc_F395
-; ---------------------------------------------------------------------------
-
-loc_F38B:
-		mov	byte_1E519, 34h	; '4'
-		mov	byte_1E51A, 3Fh	; '?'
-
-loc_F395:
-		call	playchar_shot_func
-		call	_snd_se_play c, 1
-		mov	byte_22D4A, 8
-		inc	byte_1EB0D
-		jmp	loc_F434
-; ---------------------------------------------------------------------------
-
-loc_F3AF:
-		dec	byte_22D4A
-
-loc_F3B3:
-		cmp	byte_1EB0E, 2
-		jnb	short loc_F434
-		cmp	byte_22D4B, 0
-		jnz	short loc_F426
-		cmp	_shot_level, SHOT_LEVEL_MAX
-		jnz	short loc_F40D
-		mov	al, byte_2060E
-		mov	byte_1E519, al
-		mov	al, byte_2060F
-		mov	byte_1E51A, al
-		test	_key_det, INPUT_DOWN or INPUT_DOWN_LEFT or INPUT_DOWN_RIGHT
-		jz	short loc_F3F1
-		mov	al, byte_20610
-		add	al, 5
-		mov	byte_20610, al
-		cbw
-		cmp	ax, 1Ah
-		jle	short loc_F417
-		mov	byte_20610, 1Ah
-		jmp	short loc_F417
-; ---------------------------------------------------------------------------
-
-loc_F3F1:
-		test	_key_det, INPUT_UP or INPUT_DOWN or INPUT_LEFT or INPUT_RIGHT or INPUT_UP_LEFT or INPUT_UP_RIGHT or INPUT_DOWN_LEFT or INPUT_DOWN_RIGHT
-		jnz	short loc_F417
-		mov	al, byte_20610
-		add	al, -5
-		mov	byte_20610, al
-		cbw
-		or	ax, ax
-		jge	short loc_F417
-		mov	byte_20610, 0
-		jmp	short loc_F417
-; ---------------------------------------------------------------------------
-
-loc_F40D:
-		mov	byte_1E519, 34h	; '4'
-		mov	byte_1E51A, 3Fh	; '?'
-
-loc_F417:
-		call	playchar_shot_func
-		mov	byte_22D4B, 8
-		inc	byte_1EB0E
-		jmp	short loc_F434
-; ---------------------------------------------------------------------------
-
-loc_F426:
-		call	_snd_se_play c, 1
-		dec	byte_22D4B
-
-loc_F434:
-		test	byte ptr _key_det, INPUT_BOMB
-		jz	short loc_F43E
-		call	player_bomb
-
-loc_F43E:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_F1D8	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_F443	dw offset loc_F238
-		dw offset loc_F244
-		dw offset loc_F2B8
-		dw offset loc_F24E
-		dw offset loc_F270
-		dw offset loc_F29E
-		dw offset loc_F2B8
-		dw offset loc_F260
-		dw offset loc_F288
-		dw offset loc_F2A4
-main_01________TEXT	ends
 
 ; ===========================================================================
 
@@ -25286,7 +24964,11 @@ public _power, _miss_active
 _power	db 1
 _miss_active	db 0
 byte_1E518	db 4
+public _byte_1E519
+_byte_1E519 label byte
 byte_1E519	db 40h
+public _byte_1E51A
+_byte_1E51A label byte
 byte_1E51A	db 4Ch
 public _player_option_patnum, _power_overflow
 _player_option_patnum	db PAT_OPTION_A
@@ -25469,7 +25151,11 @@ include th02/sprites/sparks.asp
 public _spark_accel_x, _total_miss_count, _POWER_RESET_FOR
 _spark_accel_x	dw 0
 _total_miss_count	db 0
+public _byte_1EB0D
+_byte_1EB0D label byte
 byte_1EB0D	db -1
+public _byte_1EB0E
+_byte_1EB0E label byte
 byte_1EB0E	db -1
 _POWER_RESET_FOR	db 1, 1, 4, 8, 16, 24, 32, 40, 52, 64
 	evendata
@@ -26128,6 +25814,8 @@ _player_option_left_top_on_back_p	dw ?
 public _player_topleft, _player_option_left_topleft
 _player_topleft	Point <?>
 _player_option_left_topleft	Point 2 dup(<?>)
+public _playchar_shot_func
+_playchar_shot_func label word
 playchar_shot_func	dw ?
 include th01/main/player_is_hit[bss].asm
 public _player_invincibility_time, _player_invincible_via_bomb
@@ -26138,8 +25826,14 @@ _quit	db ?
 _stage_miss_count	db ?
 _miss_frame	db ?
 include th02/main/player/speed[bss].asm
+public _byte_2060E
+_byte_2060E label byte
 byte_2060E	db ?
+public _byte_2060F
+_byte_2060F label byte
 byte_2060F	db ?
+public _byte_20610
+_byte_20610 label byte
 byte_20610	db ?
 byte_20611	db ?
 public _stage_frame
@@ -26371,7 +26065,11 @@ _tile_dirty	db TILE_COUNT dup(?)
 _tile_column_dirty	db TILES_X dup(?)
 _tiles_egc_render_all	db ?
 	evendata
+public _byte_22D4A
+_byte_22D4A label byte
 byte_22D4A	db ?
+public _byte_22D4B
+_byte_22D4B label byte
 byte_22D4B	db ?
 word_22D4C	dw ?
 word_22D4E	dw ?
