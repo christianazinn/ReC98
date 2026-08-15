@@ -1,3 +1,6 @@
+#ifndef TH04_MAIN_ENEMY_ENEMY_HPP
+#define TH04_MAIN_ENEMY_ENEMY_HPP
+
 // TH05's enemy_t has to be declared before this file's `extern enemies[]`, so
 // th05/main/enemy/enemy.hpp includes these two itself and then includes this
 // file. ReC98's headers have no include guards, so skip them in that case.
@@ -102,6 +105,11 @@ void pascal near enemies_render(void);
 // declaration can express: it takes [enemy_cur] implicitly in SI and returns
 // the result in the carry flag. (kb/conventions/handwritten-asm-tells.md)
 extern "C" bool pascal near enemy_pos_update(void);
+
+// Sets [enemy_cur]'s velocity to a vector with the enemy's own [angle] and
+// [speed]. TH05's function of the same name is hand-written assembly from the
+// same cluster, with the same implicit-SI ABI as its enemy_pos_update().
+extern "C" void pascal near enemy_velocity_set(void);
 #endif
 
 // Spawns the enemies described by one .STD stage instruction. TH04 takes the
@@ -129,3 +137,5 @@ extern "C" void pascal near enemy_bullet_template_push(
 #else
 extern "C" void pascal near enemy_bullet_template_push(enemy_t near &enemy);
 #endif
+
+#endif /* TH04_MAIN_ENEMY_ENEMY_HPP */

@@ -4,8 +4,12 @@
 /// th04/formats/std.cpp lives: this function sits in a completely different
 /// part of the original's code, immediately ahead of
 /// enemy_bullet_template_push(). (kb/codegen/0099)
-
-#pragma option -zCENM_BTPL_TEXT -zPmain_03
+///
+/// The `-zCENM_BTPL_TEXT -zPmain_03` that used to sit here now lives in the
+/// th0N/std_run.cpp wrappers, which compile this file after
+/// th04/main/enemy/add.cpp: a segment pragma only takes effect before any code
+/// is generated, so the second file in an object cannot repeat it
+/// (kb/codegen/0112).
 
 #include "platform.h"
 #include "x86real.h"

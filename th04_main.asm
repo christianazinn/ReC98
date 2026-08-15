@@ -11991,33 +11991,21 @@ word_1553B	dw	0,     1,     2,     3
 	; enemy_pos_update() now lives in th04/main/enemy/pos.cpp, which appends
 	; to this segment.
 	ENEMY_POS_UPDATE procdesc pascal near
+	; enemy_velocity_set() now lives in th04/main/enemy/velocity.cpp,
+	; which the same object appends immediately after pos.cpp
+	; (kb/codegen/0112 + 0114): in the original it sat directly behind
+	; enemy_pos_update(), i.e. at what is now the end of this segment.
+	ENEMY_VELOCITY_SET procdesc pascal near
 ENM_POS_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the original
-; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() moved out of it.
-; `byte` rather than the original `word`: `byte` makes any future drift in
-; the C++ prefix fail loudly instead of being silently padded away. The
-; original has no pad between enemy_pos_update() and enemy_velocity_set(),
-; and this segment contains no `even` at all, so there is nothing for
-; kb/codegen/0111 to bite on here.
+; `B4M_UPDATE_TEXT` contribution once enemy_pos_update() and, after it,
+; enemy_velocity_set() moved out of it. `byte` rather than the original
+; `word`: `byte` makes any future drift in the C++ prefix fail loudly
+; instead of being silently padded away. The original has no pad between
+; either of them and sub_155AA, and this segment contains no `even` at
+; all, so there is nothing for kb/codegen/0111 to bite on here.
 B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMY_VELOCITY_SET
-enemy_velocity_set	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _enemy_cur
-		lea	ax, [si+enemy_t.pos.velocity]
-		call	vector2_near pascal, ax, word ptr [si+enemy_t.E_angle], [si+enemy_t.E_speed]
-		pop	si
-		pop	bp
-		retn
-enemy_velocity_set	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -16345,111 +16333,12 @@ off_17CEB	dw offset loc_17A1F
 		dw offset loc_17AC1
 		dw offset loc_17C44
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMIES_ADD
-enemies_add	proc near
-
-@@i		= word ptr -2
-arg_0		= byte ptr  4
-@@center_y		= word ptr  6
-@@center_x		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, [bp+@@center_x]
-		mov	si, offset _enemies
-		mov	[bp+@@i], 0
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+enemy_t.flag], EF_FREE
-		jnz	@@next
-		mov	[si+enemy_t.flag], EF_ALIVE_FIRST_FRAME
-		mov	[si+enemy_t.E_cur_instr_frame], 0
-		mov	[si+enemy_t.E_loop_i], 0
-		mov	[si+enemy_t.age], 0
-		mov	[si+enemy_t.E_script_ip], 0
-		mov	bx, [bp+arg_6]
-		add	bx, bx
-		mov	ax, _std_enemy_scripts[bx]
-		mov	[si+enemy_t.E_script], ax
-		cmp	di, ENEMY_POS_RANDOM
-		jnz	short loc_17D3C
-		call	@randring2_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	di, ax
-
-loc_17D3C:
-		cmp	[bp+@@center_y], ENEMY_POS_RANDOM
-		jnz	short loc_17D4C
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_H) shl 4)
-		mov	[bp+@@center_y], ax
-
-loc_17D4C:
-		mov	[si+enemy_t.pos.cur.x], di
-		mov	ax, [bp+@@center_y]
-		mov	[si+enemy_t.pos.cur.y],	ax
-		mov	al, [bp+arg_0]
-		mov	[si+enemy_t.E_item], al
-		mov	[si+enemy_t.E_damaged_this_frame], 0
-		cmp	_rank, RANK_LUNATIC
-		jnz	short loc_17D6B
-		mov	ax, 1
-		jmp	short loc_17D6D
-; ---------------------------------------------------------------------------
-
-loc_17D6B:
-		xor	ax, ax
-
-loc_17D6D:
-		mov	[si+enemy_t.E_autofire], al
-		mov	[si+enemy_t.E_clip_x], 0
-		mov	[si+enemy_t.E_clip_y], 0
-		mov	[si+enemy_t.E_anim_cels], 1
-		mov	[si+enemy_t.E_anim_frames_per_cel], 4
-		mov	[si+enemy_t.E_anim_cur_cel], 0
-		mov	[si+enemy_t.E_can_be_damaged], 0
-		mov	[si+enemy_t.E_kills_player_on_collision], 0
-		cmp	di, ((PLAYFIELD_W / 2) shl 4)
-		jge	short @@spawned_in_right_half
-		mov	al, 1
-		jmp	short loc_17D98
-; ---------------------------------------------------------------------------
-
-@@spawned_in_right_half:
-		mov	al, 0
-
-loc_17D98:
-		mov	[si+enemy_t.E_spawned_in_left_half], al
-		call	@randring2_next16$qv
-		mov	[si+enemy_t.E_autofire_cur_frame], al
-		mov	[si+enemy_t.E_autofire_interval], 128
-		mov	[si+enemy_t.E_bullet_template.BT_group], BG_FORCESINGLE_AIMED
-		mov	[si+enemy_t.E_bullet_template.spawn_type], BST_PELLET
-		mov	[si+enemy_t.E_bullet_template.speed], (2 shl 4) + 10
-		mov	[si+enemy_t.E_bullet_template.BT_origin.x], 0
-		mov	[si+enemy_t.E_bullet_template.BT_origin.y], 0
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@next:
-		inc	[bp+@@i]
-		add	si, size enemy_t
-
-@@more?:
-		cmp	[bp+@@i], ENEMY_COUNT
-		jl	@@loop
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retn	8
-enemies_add	endp
+	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
+	; th04/std_run.cpp object appends to this segment ahead of std_run()
+	; itself (kb/codegen/0112 + 0114): in the original it was the LAST proc
+	; of this contribution, so no carve was needed.
+	ENEMIES_ADD procdesc pascal near \
+		script_id:word, center_x:word, center_y:word, item:word
 
 	; std_run() now lives in th04/formats/std_run.cpp, which appends to this
 	; segment ahead of th0N/enm_btpl.cpp.

@@ -7425,117 +7425,12 @@ BULLET_A_TEXT	ends
 ; moves.
 ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMIES_ADD
-enemies_add	proc near
-
-@@center_y	= word ptr -4
-@@i	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		les	bx, _std_ip
-		mov	di, es:[bx+1]
-		mov	ax, es:[bx+3]
-		mov	[bp+@@center_y], ax
-		mov	si, offset _enemies
-		mov	[bp+@@i], 0
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+enemy_t.flag], EF_FREE
-		jnz	@@next
-		mov	[si+enemy_t.flag], EF_ALIVE_FIRST_FRAME
-		mov	[si+enemy_t.age], 0
-		mov	[si+enemy_t.E_cur_instr_frame], 0
-		mov	[si+enemy_t.E_loop_i], 0
-		mov	[si+enemy_t.E_script_ip], 0
-		les	bx, _std_ip
-		mov	al, es:[bx]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _std_enemy_scripts[bx]
-		mov	[si+enemy_t.E_script], ax
-		cmp	di, ENEMY_POS_RANDOM
-		jnz	short loc_15F6D
-		call	@randring2_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	di, ax
-
-loc_15F6D:
-		mov	[si+enemy_t.cur.pos.x], di
-		cmp	di, ((PLAYFIELD_W / 2) shl 4)
-		jge	short @@spawned_in_right_half
-		mov	al, 1
-		jmp	short loc_15F7C
-; ---------------------------------------------------------------------------
-
-@@spawned_in_right_half:
-		mov	al, 0
-
-loc_15F7C:
-		mov	[si+enemy_t.E_spawned_in_left_half], al
-		cmp	[bp+@@center_y], ENEMY_POS_RANDOM
-		jnz	short loc_15F8F
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_H) shl 4)
-		mov	[bp+@@center_y], ax
-
-loc_15F8F:
-		mov	ax, [bp+@@center_y]
-		mov	[si+enemy_t.cur.pos.y], ax
-		les	bx, _std_ip
-		mov	al, es:[bx+5]
-		mov	[si+enemy_t.E_item], al
-		mov	al, es:[bx+6]
-		mov	[si+enemy_t.E_subtype], al
-		mov	[si+enemy_t.E_damaged_this_frame], 0
-		cmp	_rank, RANK_LUNATIC
-		jnz	short loc_15FB7
-		mov	ax, 1
-		jmp	short loc_15FB9
-; ---------------------------------------------------------------------------
-
-loc_15FB7:
-		xor	ax, ax
-
-loc_15FB9:
-		mov	[si+enemy_t.E_autofire], al
-		mov	[si+enemy_t.E_clip], 0
-		mov	[si+enemy_t.E_anim_cels], 1
-		mov	[si+enemy_t.E_anim_frames_per_cel], 4
-		mov	[si+enemy_t.E_anim_cur_cel], 0
-		mov	[si+enemy_t.E_can_be_damaged], 0
-		mov	[si+enemy_t.E_kills_player_on_collision], 0
-		call	@randring2_next16$qv
-		mov	[si+enemy_t.E_autofire_cur_frame], al
-		mov	[si+enemy_t.E_autofire_interval], 128
-		mov	[si+enemy_t.E_bullet_template.BT_group], BG_FORCESINGLE_AIMED
-		mov	[si+enemy_t.E_bullet_template.spawn_type], BST_NORMAL
-		mov	[si+enemy_t.E_bullet_template.speed], (2 shl 4) + 10
-		mov	[si+enemy_t.E_bullet_template.BT_origin.x], 0
-		mov	[si+enemy_t.E_bullet_template.BT_origin.y], 0
-		mov	[si+enemy_t.E_bullet_template.patnum], 0
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@next:
-		inc	[bp+@@i]
-		add	si, size enemy_t
-
-@@more?:
-		cmp	[bp+@@i], ENEMY_COUNT
-		jl	@@loop
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retn
-enemies_add	endp
+	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
+	; th05/std_run.cpp object appends to this segment ahead of std_run()
+	; itself (kb/codegen/0112 + 0114): in the original it was the ONLY proc
+	; of this contribution, which is now a zero-byte anchor for the segment
+	; name, exactly like CFG_LRES_TEXT / HUD_DRM_TEXT / STAGE_TEXT.
+	ENEMIES_ADD procdesc pascal near
 
 	; std_run() now lives in th04/formats/std_run.cpp, which appends to this
 	; segment ahead of th0N/enm_btpl.cpp.
