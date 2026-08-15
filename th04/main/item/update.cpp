@@ -1,21 +1,19 @@
 /// Per-frame item movement, collection, and off-playfield removal
 /// --------------------------------------------------------------
-/// The segment pragma lives in the th05/main033.cpp wrapper rather than here:
-/// it only takes effect before any code is generated (kb/codegen/0112).
+/// ONE shared body for both games, and it earns that: the two dumps are
+/// instruction-for-instruction identical from the loop entry onwards, and
+/// TH04's extra 0x13 bytes (0x104 against TH05's 0xF1) are *entirely* the one
+/// `pointnum_times_2` prologue armed below. The byte arithmetic is the check
+/// that "the only difference" is a complete claim and not merely a plausible
+/// one. (kb/codegen/0115 sibling compare, run before any C++ was written.)
 ///
-/// TH04 has the same function — `th04_main.asm`'s `items_update`, 0x104 bytes
-/// at 13A9:A3CD — and it is the same function, not merely the same name: from
-/// the loop entry onwards the two bodies are instruction-for-instruction
-/// identical, and TH04's extra 0x13 bytes are entirely one `pointnum_times_2`
-/// prologue ahead of the loop. It is NOT lifted here, because it sits 0x9CF
-/// bytes into `main_035_TEXT`'s single contribution and therefore needs a
-/// kb/codegen/0080 carve first, while TH05's is the last proc of its segment
-/// and needs none (kb/codegen/0098).
-///
-/// So this file is deliberately TH05-only and carries NO `#if (GAME == 4)`
-/// arm. An arm that nothing compiles is an arm that nothing has ever proven:
-/// th04/main/midboss/m3.cpp spent this campaign as dead code with three
-/// unverified declarations in it, and that is the mistake not to repeat.
+/// The segment pragma lives in each game's wrapper rather than here, because
+/// it only takes effect before any code is generated (kb/codegen/0112), and
+/// the two games land this in differently-named segments anyway:
+///   TH05  th05/main033.cpp -> main_033_TEXT, 1528:1F8E, the LAST proc of its
+///         contribution, so a kb/codegen/0098 tail lift with no carve.
+///   TH04  th04/it_updt.cpp -> IT_UPDT_TEXT, 13A9:A3CD, 0x9CF bytes into
+///         `main_035_TEXT`, so a kb/codegen/0080 head-rename carve.
 
 #include "th04/main/item/item.hpp"
 #include "th04/main/item/splash.hpp"
@@ -25,13 +23,26 @@
 #include "th02/snd/snd.h"
 #include "libs/master.lib/master.hpp"
 
-// Both still live in th05_main.asm's `main_033_TEXT` contribution, directly
-// above this function, and are reached through the zero-byte `public` alias
-// the dump already uses for its own `pascal` exports (kb/codegen/0123).
-// sub_16F54() applies a collected item's effect; sub_171C8() runs the
-// bookkeeping for one that left the playfield.
-extern "C" void pascal near sub_16F54(item_t near *item);
-extern "C" void pascal near sub_171C8(item_t near *item);
+// Still ASM, still unnamed, one pair per game, both sitting directly above
+// this function in their own dump. Reached through a bare `public` line added
+// to the dump: `extern "C"` + `pascal` mangles to the all-uppercase,
+// undecorated name (kb/codegen/0081), and TASM's `/mx` leaves *local* symbols
+// case-insensitive, so `public SUB_16F54` over `sub_16F54 proc near` publishes
+// exactly what TCC asks for and costs zero bytes — kb/codegen/0123's two-line
+// `label` form is only needed when the C++ side is not `pascal`.
+// Naming follows th04/main/execl.cpp:49-57's precedent for this exact case.
+// [inferred from call sites — neither body has been read]
+#if (GAME == 5)
+	extern "C" void pascal near sub_16F54(item_t near *item);
+	extern "C" void pascal near sub_171C8(item_t near *item);
+	#define item_collected(item)		sub_16F54(item)
+	#define item_left_playfield(item)	sub_171C8(item)
+#else
+	extern "C" void pascal near sub_1DBAE(item_t near *item);
+	extern "C" void pascal near sub_1DDF7(item_t near *item);
+	#define item_collected(item)		sub_1DBAE(item)
+	#define item_left_playfield(item)	sub_1DDF7(item)
+#endif
 
 // The collection box, relative to the player's center. Note the asymmetry on
 // the Y axis: an item is collected from 24 pixels above the player's center
@@ -67,6 +78,18 @@ extern "C" void pascal items_update(void)
 	unsigned char angle;
 
 	p = items;
+#if (GAME == 4)
+	// TH04's one addition, and the whole of its extra 0x13 bytes: the flag is
+	// armed once up front, ahead of the loop, as well as per-item inside it.
+	// So a frame that pulls no items still leaves it *cleared* rather than
+	// stale — which is the same end state TH05 reaches by clearing it after
+	// the loop, one frame later.
+	if(items_pull_to_player) {
+		pointnum_times_2 = true;
+	} else {
+		pointnum_times_2 = false;
+	}
+#endif
 	for(i = 0; i < ITEM_COUNT; (i++, p++)) {
 		if(p->flag == F_FREE) {
 			continue;
@@ -96,7 +119,7 @@ extern "C" void pascal items_update(void)
 			(static_cast<subpixel_t>(_DX) >= to_sp(PLAYFIELD_H + (ITEM_H / 2)))
 		) {
 			p->flag = F_REMOVE;
-			sub_171C8(p);
+			item_left_playfield(p);
 			continue;
 		}
 
@@ -124,7 +147,7 @@ extern "C" void pascal items_update(void)
 		if(_BX > to_sp(ITEM_COLLECT_H)) {
 			goto missed;
 		}
-		sub_16F54(p);
+		item_collected(p);
 		snd_se_play(11);
 		p->flag = F_REMOVE;
 		continue;
