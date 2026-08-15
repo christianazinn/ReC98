@@ -13,20 +13,23 @@
 /// with the same [resident] source. TH03's returns the place; this one stores
 /// it in [entered_place], exactly as MAIN.EXE's version does.
 ///
-/// ONE body for both games, since 2026-08-15. TH05's copy was `sub_B730` at the
-/// head of th05_maine.asm's own SCORE_TEXT root contribution (`0A54:11F0`),
-/// immediately after th05/hi_end.cpp's object, and is now lifted into this file
-/// too.
+/// ONE body for both games, since 2026-08-15. TH05's copy sat at the head of
+/// `th05_maine.asm@3a56689e:81-273`, i.e. the head of that dump's own
+/// SCORE_TEXT root contribution at `0A54:11F0`, immediately after
+/// th05/hi_end.cpp's object, and is now lifted into this file too.
 ///
 /// The prediction this file used to carry — "expect at least one
 /// `#if (GAME == 5)` site" at the *comparison*, because th04/main/hiscore.cpp
 /// records that TH05's MAIN.EXE version fixes the signed-promotion bug by
 /// comparing unsigned bytes — was WRONG, and the measurement is the interesting
-/// half of this function. TH05's MAINE.EXE copy compares exactly as TH04 does
-/// (`mov ah, 0` / `mov dh, 0` / `add dx, -gb_0` / `cmp ax, dx` / `jg` / `jl`,
-/// i.e. a SIGNED 16-bit compare of two int-promoted operands), so **ZUN fixed
-/// the sorting bug in TH05's MAIN.EXE and not in TH05's MAINE.EXE**. The two
-/// binaries of the same game disagree about the same algorithm.
+/// half of this function. TH05's MAINE.EXE copy compares exactly as TH04 does:
+/// both operands zero-extended from bytes into full words, the gaiji base
+/// subtracted from the right-hand one, and the two branches taken on the SIGNED
+/// conditions — a signed 16-bit compare of two int-promoted operands, the very
+/// shape th04/main/hiscore.cpp's bug write-up describes. So **ZUN fixed the
+/// sorting bug in TH05's MAIN.EXE and not in TH05's MAINE.EXE**: the two
+/// binaries of the same game disagree about the same algorithm. Measured
+/// against `th05_maine.asm@3a56689e:99-123`, the pre-lift search loop.
 ///
 /// The only real divergence is the stage column's third arm; see the tail.
 
