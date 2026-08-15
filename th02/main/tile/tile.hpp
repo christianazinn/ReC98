@@ -1,3 +1,6 @@
+#ifndef TH02_MAIN_TILE_TILE_HPP
+#define TH02_MAIN_TILE_TILE_HPP
+
 #include "th02/formats/tile.hpp"
 #include "planar.h"
 
@@ -106,3 +109,5 @@ void tiles_egc_render(void);
 // palette color 0 in all other modes.
 void tiles_render_all(void);
 #endif
+
+#endif /* TH02_MAIN_TILE_TILE_HPP */
