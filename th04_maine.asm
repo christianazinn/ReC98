@@ -1680,189 +1680,19 @@ SCORE_TEXT segment byte public 'CODE' use16
 		playchar:byte
 	@hiscore_scoredat_save$qv procdesc near
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C3B2	proc near
-
-@@place		= word ptr -2
-
-		enter	2, 0
-		mov	[bp+@@place], (SCOREDAT_PLACES - 1)
-		jmp	short loc_C40E
-; ---------------------------------------------------------------------------
-
-loc_C3BD:
-		mov	cx, 7
-		jmp	short loc_C407
-; ---------------------------------------------------------------------------
-
-loc_C3C2:
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		mov	ah, 0
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	dl, _hi.score.g_score[bx]
-		mov	dh, 0
-		add	dx, -gb_0_
-		cmp	ax, dx
-		jg	short loc_C40B
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		mov	ah, 0
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	dl, _hi.score.g_score[bx]
-		mov	dh, 0
-		add	dx, -gb_0_
-		cmp	ax, dx
-		jl	short loc_C41B
-		dec	cx
-
-loc_C407:
-		or	cx, cx
-		jge	short loc_C3C2
-
-loc_C40B:
-		dec	[bp+@@place]
-
-loc_C40E:
-		cmp	[bp+@@place], 0
-		jge	short loc_C3BD
-		mov	_entered_place, 0
-		jmp	short loc_C430
-; ---------------------------------------------------------------------------
-
-loc_C41B:
-		cmp	[bp+@@place], (SCOREDAT_PLACES - 1)
-		jnz	short loc_C428
-		mov	_entered_place, -1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C428:
-		mov	al, byte ptr [bp+@@place]
-		inc	al
-		mov	_entered_place, al
-
-loc_C430:
-		mov	[bp+@@place], (SCOREDAT_PLACES - 2)
-		jmp	short loc_C489
-; ---------------------------------------------------------------------------
-
-loc_C437:
-		mov	cx, SCOREDAT_NAME_LEN - 1
-		jmp	short loc_C455
-; ---------------------------------------------------------------------------
-
-loc_C43C:
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		add	bx, cx
-		mov	al, _hi.score.g_name[0 * (SCOREDAT_NAME_LEN + 1)][bx]
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		add	bx, cx
-		mov	_hi.score.g_name[1 * (SCOREDAT_NAME_LEN + 1)][bx], al
-		dec	cx
-
-loc_C455:
-		or	cx, cx
-		jge	short loc_C43C
-		mov	cx, SCORE_DIGITS - 1
-		jmp	short loc_C477
-; ---------------------------------------------------------------------------
-
-loc_C45E:
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	al, _hi.score.g_score[0 * SCORE_DIGITS][bx]
-		mov	bx, [bp+@@place]
-		shl	bx, 3
-		add	bx, cx
-		mov	_hi.score.g_score[1 * SCORE_DIGITS][bx], al
-		dec	cx
-
-loc_C477:
-		or	cx, cx
-		jge	short loc_C45E
-		mov	bx, [bp+@@place]
-		mov	al, _hi.score.g_stage+0[bx]
-		mov	_hi.score.g_stage+1[bx], al
-		dec	[bp+@@place]
-
-loc_C489:
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, [bp+@@place]
-		jle	short loc_C437
-		mov	cx, (SCOREDAT_NAME_LEN - 1)
-		jmp	short loc_C4AA
-; ---------------------------------------------------------------------------
-
-loc_C498:
-		mov	al, _entered_place
-		mov	ah, 0
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, cx
-		mov	bx, ax
-		mov	_hi.score.g_name[bx], gs_DOT
-		dec	cx
-
-loc_C4AA:
-		or	cx, cx
-		jge	short loc_C498
-		mov	cx, SCOREDAT_NAME_LEN - 1
-		jmp	short loc_C4D1
-; ---------------------------------------------------------------------------
-
-loc_C4B3:
-		les	bx, _resident
-		add	bx, cx
-		mov	al, es:[bx+resident_t.score_last]
-		add	al, gb_0_
-		mov	dl, _entered_place
-		mov	dh, 0
-		shl	dx, 3
-		add	dx, cx
-		mov	bx, dx
-		mov	_hi.score.g_score[bx], al
-		dec	cx
-
-loc_C4D1:
-		or	cx, cx
-		jge	short loc_C4B3
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_EXTRA
-		jb	short loc_C4EE
-		mov	al, _entered_place
-		mov	ah, 0
-		mov	bx, ax
-		mov	_hi.score.g_stage[bx], gs_ALL
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C4EE:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage]
-		add	al, gb_1_
-		mov	dl, _entered_place
-		mov	dh, 0
-		mov	bx, dx
-		mov	_hi.score.g_stage[bx], al
-		leave
-		retn
-sub_C3B2	endp
-
+	; regist_score_enter_from_resident() now lives in
+	; th04/hiscore/regist_enter.cpp, which th04/hiscore/end.cpp includes at
+	; its very end -- and th04/hi_end.cpp's object already contributed to
+	; this segment immediately AHEAD of this root contribution, so the
+	; lifted body lands at its own original address by growing that object's
+	; tail into the hole (kb/codegen/0098 + 0114). It was the FIRST proc of
+	; this root contribution; nothing else moved, no carve, no new segment,
+	; no group-list edit and no Tupfile.lua line were needed.
+	;
+	; kb/codegen/0121: the deleted body contained no `assume`, and the two
+	; procdescs above it emit nothing, so the state this contribution is
+	; assembled under is unchanged and there is nothing to restore.
+	@regist_score_enter_from_resident$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2416,7 +2246,7 @@ loc_C897:
 		jnz	short loc_C8D9
 
 loc_C8CB:
-		call	sub_C3B2
+		call	@regist_score_enter_from_resident$qv
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
