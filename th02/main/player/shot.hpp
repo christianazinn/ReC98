@@ -75,6 +75,10 @@ void near shot_b(void);
 // half only fires on some calls — see [shot_c_cycle].
 void near shot_c(void);
 
+// Frees every shot slot at once. far, because its only callers are in the
+// boss code's own segments.
+void far shots_free_all(void);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */

@@ -978,34 +978,10 @@ SHOT_TEXT	segment	byte public 'CODE' use16
 	@shot_a$qv procdesc near
 	@shot_b$qv procdesc near
 	@shot_c$qv procdesc near
+	@shots_free_all$qv procdesc far
 SHOT_TEXT	ends
 
 main_01______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_D376	proc far
-		push	bp
-		mov	bp, sp
-		xor	ax, ax
-		jmp	short loc_D388
-; ---------------------------------------------------------------------------
-
-loc_D37D:
-		mov	bx, ax
-		shl	bx, 4
-		mov	byte ptr byte_20378[bx], 0
-		inc	ax
-
-loc_D388:
-		cmp	ax, 26h	; '&'
-		jl	short loc_D37D
-		pop	bp
-		retf
-sub_D376	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -10866,7 +10842,7 @@ sigma_init	proc far
 		mov	byte_255B2, 0
 		mov	byte_2558C, 7
 		nopcall	@bullets_clear$qv
-		call	sub_D376
+		call	@shots_free_all$qv
 		push	1
 		call	palette_white_out
 		call	sigma_158DC
@@ -16190,7 +16166,7 @@ mima_init	proc far
 		add	sp, 6
 		call	@dialog_script_stage5_pre_winged_$qv
 		call	@dialog_post$qv
-		call	sub_D376
+		call	@shots_free_all$qv
 		mov	_boss_damage, 0
 		mov	byte_2066A, 0
 		mov	_boss_phase_frame, 0
@@ -16286,7 +16262,7 @@ mima_19C1D	endp
 mima_19C8D	proc near
 		push	bp
 		mov	bp, sp
-		call	sub_D376
+		call	@shots_free_all$qv
 		nopcall	@bullets_clear$qv
 		mov	al, _page_back
 		mov	ah, 0
@@ -17575,7 +17551,7 @@ marisa_init	proc far
 		graph_accesspage _page_back
 		graph_showpage _page_front
 		mov	_tile_mode, TM_NONE
-		call	sub_D376
+		call	@shots_free_all$qv
 		mov	_boss_damage, 0
 		mov	byte_2066A, 0
 		mov	_boss_phase_frame, 0

@@ -704,3 +704,14 @@ void near shot_c(void)
 		volley_i++;
 	}
 }
+
+// Frees every shot slot at once. Called only from the still-ASM boss code, at
+// the four points where a boss transition should clear the playfield.
+void far shots_free_all(void)
+{
+	int i;
+
+	for(i = 0; i < SHOT_COUNT; i++) {
+		shots[i].flag = F_FREE;
+	}
+}
