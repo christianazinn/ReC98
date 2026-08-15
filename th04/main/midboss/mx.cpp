@@ -35,19 +35,25 @@ static const int MIDBOSSX_FRAMES_PER_CEL = 4;
 // while a slice of it is still inside the playfield.
 //
 // Hardcoded, unlike the top and left edges below, which do come out of the
-// regular macros for a MIDBOSSX_W × MIDBOSSX_H sprite. The macro would give
-// TO_SP(400), which is exactly the coordinate at which the sprite's left edge
-// reaches PLAYFIELD_RIGHT — and it is also, to the subpixel, the right-hand
-// despawn bound that midbossx_update() applies to the very same coordinate.
+// regular macros — playfield_clip_center_right_small() for a
+// MIDBOSSX_W × MIDBOSSX_H sprite. That macro would give TO_SP(400), which is
+// exactly the coordinate at which the sprite's left edge reaches
+// PLAYFIELD_RIGHT — and it is also, to the subpixel, the right-hand despawn
+// bound that midbossx_update() applies to the very same coordinate.
 // So the sprite stops being drawn 8 pixels before it stops existing.
 //
-// [verified-by-emulator] Measured over a full Extra Stage encounter, driven
-// from stagex_setup()'s constants: pos.cur.x reaches this bound on exactly 8
-// consecutive frames at 1 pixel per frame, never reaches TO_SP(400) on a frame
-// that is still rendered, and midbossx_update() then despawns the midboss at
-// TO_SP(400.94). Across those 8 frames the suppressed blit would have covered
-// screen columns 408…415 down to 415…415, i.e. 8 down to 1 columns of a 32-row
-// sprite inside PLAYFIELD_RIGHT (416).
+// [measured, static simulation of th04_main.asm] Derived over a full Extra
+// Stage encounter from stagex_setup()'s constants: pos.cur.x reaches this bound
+// on exactly 8 consecutive frames at 1 pixel per frame, never reaches TO_SP(400)
+// on a frame that is still rendered, and midbossx_update() then despawns the
+// midboss at TO_SP(400.94). Across those 8 frames the suppressed blit would have
+// covered screen columns 408…415 down to 415…415, i.e. 8 down to 1 columns of a
+// 32-row sprite inside PLAYFIELD_RIGHT (416).
+//
+// The numbers were reproduced independently by naming review round 5, but no
+// emulator run exists for them: nothing on disk records one, and every quantity
+// above is derivable from th04_main.asm alone. Marked accordingly rather than
+// `[verified-by-emulator]`, which is what this comment claimed before.
 //
 // `ZUN bug` rather than `ZUN quirk` because the fix cannot desync a replay:
 // th02/main/playfld.hpp says these macros are for rendering only, with
@@ -82,18 +88,26 @@ void pascal near midbossx_render(void)
 void pascal near midbossx_render(void)
 {
 	// No bottom clip, unlike midboss4_render()'s
-	// playfield_clip_point_yx_small_roll(). Deliberately NOT labelled, because
-	// it is a dead condition rather than a defect: the check that is missing
-	// could never have fired, and neither can the top check that is present.
+	// playfield_clip_point_yx_small_roll(); and the top check that *is* present
+	// never fires either. Left unlabelled here, but the disposition is open —
+	// see state/port/FIX_LAYER_CANDIDATES.md J2. "Dead condition rather than a
+	// defect" was the previous wording and is a false dichotomy: the missing
+	// bottom check is a candidate `ZUN landmine` (harmless only because of
+	// stagex_setup()'s specific hp/angle constants), and the never-firing top
+	// check is a candidate `ZUN bloat` (CONTRIBUTING.md lists "code without any
+	// effect" first among its examples). The taxonomy lane owns that call.
 	//
-	// [verified-by-emulator] midbossx_update() derives [pos.cur.y] as
-	// polar(TO_SP(96), midboss.hp, Sin8(midboss.angle)), so it is confined to
+	// [measured, static simulation of th04_main.asm] [pos.cur.y] is derived as
+	// polar(TO_SP(96), midboss.hp, Sin8(midboss.angle)) — not in
+	// midbossx_update() itself, but in its callees sub_146AF
+	// (th04_main.asm:10461) and sub_14700 (:10498). So it is confined to
 	// TO_SP(96) ± [hp] — and [hp] is 4096 only for the ~125 frames the script
 	// takes to drain it to 128, and is capped at 896 and 768 afterwards. Over
 	// a full encounter [pos.cur.y] stays inside [TO_SP(-7.69), TO_SP(323.44)],
 	// against a missing bottom bound of TO_SP(384) and the present top bound
 	// of TO_SP(-16). Neither is approached within 60 and 8 pixels
-	// respectively.
+	// respectively. No emulator run backs this; see the note above the
+	// MIDBOSSX_CLIP_CENTER_RIGHT definition.
 	if(
 		playfield_clip_center_top_small_roll(midboss.pos.cur.y, MIDBOSSX_H) ||
 		playfield_clip_center_left_small(midboss.pos.cur.x, MIDBOSSX_W) ||

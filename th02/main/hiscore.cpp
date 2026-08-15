@@ -10,6 +10,7 @@
 #include "th01/rank.h"
 #include "th02/common.h"
 #include "th02/main/score.hpp"
+#include "th02/main/hiscore.hpp"
 
 // The initializer templates for the two local arrays below already sit in
 // th02_main.asm's own `_DATA` contribution, and their addresses are
@@ -41,10 +42,18 @@ void far hiscore_get(void)
 // Records that the main 5 stages have been cleared with the shot type the
 // player is currently using.
 //
-// ZUN quirk: [cleared] is a field of a *rank*-specific structure that stores a
-// *shot type*-specific value, so both functions below have to temporarily
-// overwrite [rank] with the shot type to select the right one — and
-// scoredat_is_extra_unlocked() in MAINE.EXE then reads them back the same way.
+// ZUN bloat: [cleared] is a field of a *rank*-specific structure that stores a
+// *shot type*-specific value, so both functions below have to save [rank],
+// overwrite it to select the right structure, and restore it — with the shot
+// type in this one, and with RANK_LUNATIC in the one below, which indexes by
+// shot type instead. scoredat_is_extra_unlocked() in MAINE.EXE reads them back
+// the same way. Upstream documents the same fact without a label at
+// th02/formats/scoredat/scoredat.hpp:12-27.
+//
+// Not `ZUN quirk`: [cleared] is score-file persistence, written only at the end
+// of a run and read only by MAINE.EXE and the OP menu. Nothing in the
+// simulation loop consumes it, so no fix here could desync a replay — the
+// middle column of CONTRIBUTING.md's summary table can never fire.
 void far scoredat_cleared_set(void)
 {
 	game_clear_constants_t game_clear_constants = GAME_CLEAR_CONSTANTS;
