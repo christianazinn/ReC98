@@ -136,10 +136,51 @@
 /// HUD backgrounds, and `pellet_speed_raise_cycle = 1800 - (rem_lives * 200) -
 /// (rem_bombs * 50)` (th01/main_01.cpp:867) is a DIVISOR — `(9,0)`, `(8,4)` and
 /// `(7,8)` each make it exactly zero and kill the process.
+///
+/// `rank` was added in W3.1 step 8, and what it is worth was MEASURED rather
+/// than assumed. Two effects, and only two, reach an ordinary card stage:
+///
+///   `turret_update()` (th01/main/stage/stageobj.cpp:547) advances
+///   `fire_cycle` only `if(rank != RANK_EASY)`, so on Easy a turret NEVER
+///   reaches its firing interval and NEVER fires. On a stage that has turrets
+///   this removes the only pellet source a card stage has, because the other
+///   one — a flipped card's revenge group, th01/main/stage/card.cpp:191 — is
+///   `rank == RANK_LUNATIC` only.
+///
+///   `swing_deflection_frames` (th01/main/player/player.cpp:414-418) is 15 on
+///   Easy against 12 on Normal: +25% of the window in which the Orb is
+///   REPELLED instead of hitting Reimu.
+///
+/// `[measured]` **On the stage this preset was built for, only the second one
+/// applies.** Stage 3 of scene 0 — the card stage whose clear fires the
+/// boss-boundary `execl` — carries 34 cards, all at HP 0, and `0` turrets; its
+/// whole obstacle list is 2 bumpers and 2 BAR_TOPs. Read straight out of
+/// STAGE0.DAT (th01/formats/stagedat.hpp:74-80 for the layout,
+/// th01/main/stage/stageobj.cpp:452-468 for the HP-from-obstacle rule). So the
+/// "Easy halves the pellet patterns" argument is VOID here: there are no
+/// pellets on that stage at any rank, and the only thing that ever ends a life
+/// on it is `orb_player_hittest(OR_NONE)` (th01/main/player/player.cpp:909).
+/// Easy buys exactly the deflection window, which is real but small — and it is
+/// worth stating that way rather than letting a later session assume the pellet
+/// half did the work.
+///
+/// It is still the right value: it is legal, it is what the game itself writes
+/// from OP's difficulty menu, it costs nothing, and it makes every OTHER
+/// card stage (scenes 1-7 carry 1-6 turrets each) pellet-free for a recorder
+/// that has to survive rather than score.
+///
+/// One deliberate side effect, and it is a WANTED one:
+/// `scoredat_fn()` names the score table from `rank`, so a survivable case runs
+/// against **REYHIES.DAT**, which SHIPS inside `originals/th01_full`, where
+/// RANK_NORMAL's REYHINO.DAT does not. `state/notes/t1case-session-files.md` §1a
+/// flagged "the live file is always absent at the start of a fresh run" as a
+/// constant-across-the-corpus false-green shape; this case is the first one
+/// whose slot 0 session digest is a REAL digest instead of the ABSENT sentinel.
 #define T1CASE_SURVIVABLE_LIVES        6
 #define T1CASE_SURVIVABLE_LIVES_EXTRA  4
 #define T1CASE_SURVIVABLE_BOMBS        5
 #define T1CASE_SURVIVABLE_PELLET_SPEED PELLET_SPEED_LOWER_MIN
+#define T1CASE_SURVIVABLE_RANK         RANK_EASY
 
 // The divide-by-zero above, asserted rather than trusted to a comment.
 typedef char t1case_survivable_raise_cycle_check[
@@ -151,6 +192,13 @@ typedef char t1case_survivable_lives_check[
 ];
 typedef char t1case_survivable_bombs_check[
 	(T1CASE_SURVIVABLE_BOMBS <= BOMBS_MAX) ? 1 : -1
+];
+// The rank must be one `scoredat_fn()` can name, or the session pin would have
+// no file to digest and t1case_score_fn_set() would return false for every
+// slot — a pin that silently degrades to "always ABSENT".
+typedef char t1case_survivable_rank_check[
+	((T1CASE_SURVIVABLE_RANK >= RANK_EASY) &&
+		(T1CASE_SURVIVABLE_RANK <= RANK_LUNATIC)) ? 1 : -1
 ];
 
 // File-scope globals that TH01 never declared in a header.
@@ -3338,8 +3386,20 @@ void far t1case_session_start(void)
 			resident->credit_lives_extra = T1CASE_SURVIVABLE_LIVES_EXTRA;
 			resident->rem_bombs = T1CASE_SURVIVABLE_BOMBS;
 			resident->pellet_speed = T1CASE_SURVIVABLE_PELLET_SPEED;
+
+			// `rank` is written HERE, before t1case_resident_ensure()'s
+			// CFG_RANK_DEFAULT can be mistaken for a decision, and before
+			// resident_stuff_get() (th01/core/resstuff.cpp:55) copies it into
+			// the global that `turret_update()` and `player_reset()` read. It
+			// also re-points the session pin at REYHIES.DAT for the whole run,
+			// which is why the digest is captured after this block rather than
+			// before it.
+			resident->rank = T1CASE_SURVIVABLE_RANK;
 			t1case_diag(
 				'S', 'V', 'B', resident->rem_lives, resident->rem_bombs
+			);
+			t1case_diag(
+				'S', 'V', 'R', resident->rank, resident->credit_lives_extra
 			);
 		}
 		t1case_startup_capture(&t1case_startup);
