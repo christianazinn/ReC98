@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -327,6 +327,13 @@ STAGE_TEXT	segment word public 'CODE' use16
 	; (kb/codegen 0064), and ahead of main()'s call site below.
 	@stage_loop$qv procdesc near
 
+	; GameExecl() now lives in th04/main/execl.cpp, which appends to the
+	; EXECL_TEXT segment carved out of the head of MB_DFR_TEXT below.
+	; Declared here, ahead of every `nopcall` site, and inside a main_01
+	; segment on purpose (kb/codegen 0082): that is what keeps them lowered
+	; to `nop` + `push cs` + a near call.
+	@GAMEEXECL$QNXC procdesc pascal far
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -373,7 +380,7 @@ loc_AE89:
 loc_AE9B:
 		push	ds
 		push	offset arg0	; "op"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 
 loc_AEA4:
 		pop	bp
@@ -2583,7 +2590,7 @@ loc_E466:
 		call	palette_black_out
 		push	ds
 		push	offset aMaine	; "maine"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 		pop	bp
 		retf
 @end_game$qv	endp
@@ -2821,12 +2828,18 @@ BOSS_EXP_TEXT	ends
 ; `midboss_defeat_render` at its original address in the MIDDLE of the
 ; segment. Same `byte public 'CODE'` alignment as before, so nothing
 ; moves.
-MB_DFR_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `MB_DFR_TEXT`
+; contribution, renamed so that a C++ object can append GameExecl() at its
+; original address in the MIDDLE of the segment. Same `byte public 'CODE'`
+; alignment as before, so nothing moves.
+EXECL_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+public _sub_F6E4
+_sub_F6E4 label near
 sub_F6E4	proc near
 		push	bp
 		mov	bp, sp
@@ -2852,59 +2865,16 @@ loc_F6FB:
 		retn
 sub_F6E4	endp
 
+; The C++ contribution to EXECL_TEXT goes here, at the original address of
+; GameExecl().
+EXECL_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+; ===========================================================================
 
-; Attributes: bp-based frame
+; The tail of the original `MB_DFR_TEXT` contribution, reopened under its
+; original name.
+MB_DFR_TEXT	segment	byte public 'CODE' use16
 
-public @GAMEEXECL$QNXC
-@GameExecl$qnxc	proc far ; ZUN symbol [MAGNet2010]
-
-@@binary_fn		= dword	ptr  6
-
-		push	bp
-		mov	bp, sp
-		call	sub_F6E4
-		cmp	_Ems, 0
-		jz	short loc_F71C
-		push	_Ems
-		call	ems_free
-
-loc_F71C:
-		les	bx, _resident
-		mov	ax, _total_std_frames
-		mov	es:[bx+resident_t.std_frames], ax
-		mov	ax, _items_spawned
-		mov	es:[bx+resident_t.items_spawned], ax
-		mov	ax, _items_collected
-		mov	es:[bx+resident_t.items_collected], ax
-		mov	ax, _total_point_items_collected
-		mov	es:[bx+resident_t.point_items_collected], ax
-		mov	ax, _total_max_valued_point_items_collected
-		mov	es:[bx+resident_t.max_valued_point_items_collected], ax
-		mov	ax, _enemies_gone
-		mov	es:[bx+resident_t.enemies_gone], ax
-		mov	ax, _enemies_killed
-		mov	es:[bx+resident_t.enemies_killed], ax
-		mov	eax, _total_slow_frames
-		mov	es:[bx+resident_t.slow_frames], eax
-		mov	eax, _total_frames
-		mov	es:[bx+resident_t.frames], eax
-		call	bb_txt_free
-		call	cdg_free_all
-		call	@bb_boss_free$qv
-		call	@dialog_free$qv
-		call	bb_playchar_free
-		call	@std_free$qv
-		call	@map_free$qv
-		call	super_free
-		call	graph_hide
-		call	text_clear
-		call	@game_exit$qv
-		call	_execl c, large [bp+@@binary_fn], large [bp+@@binary_fn], large 0
-		pop	bp
-		retf	4
-@GameExecl$qnxc	endp
 
 include th04/main/item/render.asm
 
@@ -3173,7 +3143,7 @@ loc_FA7D:
 		call	palette_black_out
 		push	ds
 		push	offset aMaine_1	; "maine"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 
 loc_FA9E:
 		mov	al, byte ptr [bp+var_2]
@@ -19308,6 +19278,7 @@ _gCONTINUE	db 0ACh, 0B8h, 0B7h, 0BDh, 0B2h, 0B7h, 0BEh, 0AEh, 0
 public _group_is_special
 _group_is_special	db 0
 	evendata
+public _enemies_gone, _enemies_killed
 _enemies_gone	dw 0
 _enemies_killed	dw 0
 include th04/main/frames[data].asm
