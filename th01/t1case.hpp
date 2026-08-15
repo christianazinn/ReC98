@@ -91,9 +91,18 @@
 #define T1CASE_PACKET_SIZE_MAX (2 + T1CASE_GROUP_COUNT)
 
 // Control codes (TXCASE_CONTRACT.md, "Control records")
+//
+// DECIDED, REPLAY_CORE_CONTRACT.md §14 item 6: codes 2 (`CURSOR_RESET`) and 3
+// (`STAGE`) are RESERVED BY THE CORE AND NOT DECLARED HERE. They came from the
+// TH03 reference, TH01 emits neither and consumes neither, and a `#define` that
+// nothing reaches is a trap for the next lane that ports this header - which is
+// the whole reason §14 item 6 said "decide, do not leave them declared". The
+// numbers stay spoken for in the CONTRACT so no game reuses them for something
+// else; the tag's low six bits hold 63 codes, so reserving two costs nothing.
+// TH01's accepted set is exactly the two below, on both sides: the guest's
+// t1case_decode_control() compares against the code it EXPECTS, and
+// tools/port/t1case.py's reader refuses any other value outright.
 #define T1CASE_CONTROL_PROCESS_END   1
-#define T1CASE_CONTROL_CURSOR_RESET  2
-#define T1CASE_CONTROL_STAGE         3
 #define T1CASE_CONTROL_TERMINAL      4
 
 // `first_process` / `start_binary`
@@ -824,6 +833,15 @@ enum t1split_event_t {
 	T1SPLIT_EVENT_ERROR       = 4,
 	T1SPLIT_EVENT_CHECKPOINT  = 5,
 	T1SPLIT_EVENT_FINISH      = 6,
+
+	// DECIDED, REPLAY_CORE_CONTRACT.md §14 item 6, and decided DIFFERENTLY from
+	// the two dead control codes above: this one is KEPT. It is not dead space,
+	// it is an UNIMPLEMENTED FEATURE naming a boundary TH01 really has -
+	// SinGyoku's route select, after which `boss_id = BID_YUUGENMAGAN + route`
+	// (th01/main_01.cpp:676) and the whole rest of the scene changes. No corpus
+	// has ever fought SinGyoku, so no code emits it yet. A synthesised case
+	// starting at stage 4 is the cheapest way in
+	// (tools/port/t1synth/, state/notes/t1case-synth.md).
 	T1SPLIT_EVENT_ROUTE       = 7
 };
 
