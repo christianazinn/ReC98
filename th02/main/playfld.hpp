@@ -173,6 +173,19 @@
 #define playfield_encloses_point(center, w, h) \
 	playfield_encloses(center.x, center.y, w, h)
 
+// Single-axis variant, and like overlap_1d_inplace_fast() it is ugly on
+// purpose: shifting the coordinate by half the sprite's extent makes an
+// off-playfield coordinate on the *negative* side underflow past the positive
+// bound, so one unsigned comparison covers both directions. Only worth it for
+// a coordinate that already sits in the _AX or _DX pseudoregister, where the
+// in-place `+=` costs no instruction at all.
+// Note the resulting off-by-one against the macros above: a coordinate of
+// exactly -([extent] / 2) is enclosed here, but not there.
+#define playfield_encloses_1d_inplace_fast(center, playfield_extent, extent) ( \
+	(unsigned int)((center) += to_sp(extent / 2), center) < \
+	to_sp(playfield_extent + extent) \
+)
+
 #define playfield_to_screen_left(subpixel_center_x, sprite_w) ( \
 	PLAYFIELD_LEFT + TO_PIXEL(subpixel_center_x) - (sprite_w / 2) \
 )
