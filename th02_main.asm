@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, ITEM_TEXT, HUD_TEXT, main_01______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_______TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -905,71 +905,6 @@ loc_B35F:
 		retn
 sub_B2AB	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_B362
-SUB_B362 label near
-sub_B362	proc near
-
-arg_0		= dword	ptr  4
-arg_4		= dword	ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		les	bx, [bp+arg_4]
-		push	es
-		les	si, [bp+arg_0]
-		mov	al, es:[si]
-		pop	es
-		mov	es:[bx+7], al
-		les	bx, [bp+arg_0]
-		mov	al, es:[bx+1]
-		les	bx, [bp+arg_4]
-		mov	es:[bx+8], al
-		les	bx, [bp+arg_0]
-		mov	al, es:[bx+2]
-		les	bx, [bp+arg_4]
-		mov	es:[bx+9], al
-		pop	si
-		pop	bp
-		retn	8
-sub_B362	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_B396
-SUB_B396 label near
-sub_B396	proc near
-
-arg_0		= dword	ptr  4
-
-		push	bp
-		mov	bp, sp
-		les	bx, [bp+arg_0]
-		mov	byte ptr es:[bx], 's'
-		mov	byte ptr es:[bx+1], 't'
-		mov	byte ptr es:[bx+2], 'a'
-		mov	byte ptr es:[bx+3], 'g'
-		mov	byte ptr es:[bx+4], 'e'
-		mov	al, _stage_id
-		add	al, '0'
-		mov	es:[bx+5], al
-		mov	byte ptr es:[bx+6], '.'
-		mov	byte ptr es:[bx+7], 'b'
-		mov	byte ptr es:[bx+8], 'f'
-		mov	byte ptr es:[bx+9], 't'
-		mov	byte ptr es:[bx+0Ah], 0
-		pop	bp
-		retn	4
-sub_B396	endp
-
 main_01_TEXT	ends
 
 STAGE_INIT_TEXT	segment	byte public 'CODE' use16
@@ -1009,222 +944,10 @@ sub_B98E	proc near
 		retn
 sub_B98E	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_B9E2
-_sub_B9E2 label near
-sub_B9E2	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		xor	si, si
-		mov	[bp+var_1], 0
-		call	text_putsa pascal, (23 shl 16) + 15, off_1DB70, TX_WHITE + TX_UNDERLINE
-		call	text_putsa pascal, (23 shl 16) + 16, off_1DB6C, TX_MAGENTA
-		mov	PaletteTone, 70
-		call	far ptr	palette_show
-
-loc_BA1D:
-		mov	ax, si
-		and	ax, 3Fh
-		cmp	ax, 32h	; '2'
-		jnb	short loc_BA33
-		push	(18 shl 16) + 12
-		push	ds
-		push	offset gPAUSE_MENU
-		jmp	short loc_BA3D
-; ---------------------------------------------------------------------------
-
-loc_BA33:
-		push	(18 shl 16) + 12
-		push	ds
-		push	offset g11SPACES
-
-loc_BA3D:
-		push	TX_WHITE
-		call	gaiji_putsa
-		call	@input_reset_sense$qv
-		inc	si
-		cmp	[bp+var_1], 0
-		jnz	short loc_BA5C
-		cmp	_key_det, 0
-		jnz	short loc_BA5C
-		mov	[bp+var_1], 1
-
-loc_BA5C:
-		cmp	[bp+var_1], 1
-		jnz	loc_BB30
-		test	byte ptr _key_det, INPUT_UP
-		jnz	short loc_BA72
-		test	byte ptr _key_det, INPUT_DOWN
-		jz	short loc_BAC8
-
-loc_BA72:
-		mov	al, 1
-		sub	al, byte_1DB74
-		mov	byte_1DB74, al
-		cmp	byte_1DB74, 0
-		jnz	short loc_BA8E
-		mov	byte_1F4DD, TX_WHITE + TX_UNDERLINE
-		mov	byte_1F4DE, TX_MAGENTA
-		jmp	short loc_BA98
-; ---------------------------------------------------------------------------
-
-loc_BA8E:
-		mov	byte_1F4DD, TX_MAGENTA
-		mov	byte_1F4DE, TX_WHITE + TX_UNDERLINE
-
-loc_BA98:
-		push	(23 shl 16) + 15
-		pushd	[off_1DB70]
-		mov	al, byte_1F4DD
-		mov	ah, 0
-		push	ax
-		call	text_putsa
-		push	(23 shl 16) + 16
-		pushd	[off_1DB6C]
-		mov	al, byte_1F4DE
-		mov	ah, 0
-		push	ax
-		call	text_putsa
-		mov	[bp+var_1], 0
-
-loc_BAC8:
-		test	byte ptr _key_det, INPUT_OK
-		jnz	short loc_BAD6
-		test	byte ptr _key_det, INPUT_SHOT
-		jz	short loc_BB24
-
-loc_BAD6:
-		cmp	byte_1DB74, 0
-		jnz	short loc_BAE3
-		mov	[bp+var_1], 2
-		jmp	short loc_BB24
-; ---------------------------------------------------------------------------
-
-loc_BAE3:
-		call	text_putsa pascal, (17 shl 16) + 14, off_1DB76, TX_WHITE + TX_BLINK
-		call	text_putsa pascal, (17 shl 16) + 15, off_1DB7A, TX_WHITE
-		call	text_putsa pascal, (17 shl 16) + 16, off_1DB7E, TX_MAGENTA
-		mov	[bp+var_1], 3
-		mov	byte_1DB74, 0
-
-loc_BB24:
-		test	byte ptr _key_det, INPUT_CANCEL
-		jz	loc_BCA4
-		jmp	loc_BCA0
-; ---------------------------------------------------------------------------
-
-loc_BB30:
-		cmp	[bp+var_1], 2
-		jnz	short loc_BB9D
-		cmp	_key_det, 0
-		jnz	loc_BCA4
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		mov	_key_det, 0
-		call	gaiji_putsa pascal, (18 shl 16) + 12, ds, offset g11SPACES, TX_WHITE
-		call	gaiji_putsa pascal, (17 shl 16) + 14, ds, offset g11SPACES, TX_WHITE
-		call	gaiji_putsa pascal, (17 shl 16) + 15, ds, offset g11SPACES, TX_WHITE
-		call	gaiji_putsa pascal, (17 shl 16) + 16, ds, offset g11SPACES, TX_WHITE
-		xor	ax, ax
-		jmp	loc_BCAE
-; ---------------------------------------------------------------------------
-
-loc_BB9D:
-		cmp	[bp+var_1], 3
-		jnz	short loc_BBB2
-		cmp	_key_det, 0
-		jnz	loc_BCA4
-		inc	[bp+var_1]
-		jmp	loc_BCA4
-; ---------------------------------------------------------------------------
-
-loc_BBB2:
-		cmp	[bp+var_1], 4
-		jnz	loc_BCA4
-		test	byte ptr _key_det, INPUT_UP
-		jnz	short loc_BBC8
-		test	byte ptr _key_det, INPUT_DOWN
-		jz	short loc_BC1E
-
-loc_BBC8:
-		mov	al, 1
-		sub	al, byte_1DB74
-		mov	byte_1DB74, al
-		cmp	byte_1DB74, 0
-		jnz	short loc_BBE4
-		mov	byte_1F4DD, TX_WHITE + TX_UNDERLINE
-		mov	byte_1F4DE, TX_MAGENTA
-		jmp	short loc_BBEE
-; ---------------------------------------------------------------------------
-
-loc_BBE4:
-		mov	byte_1F4DD, TX_MAGENTA
-		mov	byte_1F4DE, TX_WHITE + TX_UNDERLINE
-
-loc_BBEE:
-		push	(17 shl 16) + 15
-		pushd	[off_1DB7A]
-		mov	al, byte_1F4DD
-		mov	ah, 0
-		push	ax
-		call	text_putsa
-		push	(17 shl 16) + 16
-		pushd	[off_1DB7E]
-		mov	al, byte_1F4DE
-		mov	ah, 0
-		push	ax
-		call	text_putsa
-		mov	[bp+var_1], 3
-
-loc_BC1E:
-		test	byte ptr _key_det, INPUT_OK
-		jnz	short loc_BC2C
-		test	byte ptr _key_det, INPUT_SHOT
-		jz	short loc_BC99
-
-loc_BC2C:
-		cmp	byte_1DB74, 0
-		jnz	short loc_BC94
-		call	gaiji_putsa pascal, (17 shl 16) + 14, ds, offset g11SPACES, TX_WHITE
-		call	gaiji_putsa pascal, (17 shl 16) + 15, ds, offset g11SPACES, TX_WHITE
-		call	gaiji_putsa pascal, (17 shl 16) + 16, ds, offset g11SPACES, TX_WHITE
-		call	text_putsa pascal, (23 shl 16) + 15, off_1DB70, TX_WHITE + TX_UNDERLINE
-		call	text_putsa pascal, (23 shl 16) + 16, off_1DB6C, TX_MAGENTA
-		mov	[bp+var_1], 0
-		jmp	short loc_BC99
-; ---------------------------------------------------------------------------
-
-loc_BC94:
-		mov	ax, 1
-		jmp	short loc_BCAE
-; ---------------------------------------------------------------------------
-
-loc_BC99:
-		test	byte ptr _key_det, INPUT_CANCEL
-		jz	short loc_BCA4
-
-loc_BCA0:
-		mov	[bp+var_1], 2
-
-loc_BCA4:
-		call	@frame_delay$qi pascal, 1
-		jmp	loc_BA1D
-; ---------------------------------------------------------------------------
-
-loc_BCAE:
-		pop	si
-		leave
-		retn
-sub_B9E2	endp
-
 main_01__TEXT	ends
+
+MENU_TEXT	segment	byte public 'CODE' use16
+MENU_TEXT	ends
 
 STAGE_TEXT	segment	byte public 'CODE' use16
 	extern @stage_loop$qv:proc
@@ -1879,32 +1602,12 @@ POINTNUM_TEXT	ends
 
 main_01_____TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
+main_01_____TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+SCROLL_TEXT	segment	byte public 'CODE' use16
+SCROLL_TEXT	ends
 
-; Attributes: bp-based frame
-
-public _sub_CA1C
-_sub_CA1C label far
-sub_CA1C	proc far
-		push	bp
-		mov	bp, sp
-		mov	_scroll_speed, 1
-		mov	_scroll_cycle, 0
-		mov	_scroll_line, 0
-		mov	_scroll_unused, 0
-		mov	word_2034A, 0
-		mov	_scroll_interval, 4
-		mov	_scroll_done, 0
-		mov	byte_2034E, 0
-		mov	byte_1E502, 0
-		mov	word_20348, 0
-		mov	word_2034C, 0
-		mov	byte_1E503, 0
-		pop	bp
-		retf
-sub_CA1C	endp
-
+main_01______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3645,7 +3348,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01______TEXT	segment	byte public 'CODE' use16
+main_01_______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4811,7 +4514,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01______TEXT	ends
+main_01_______TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -4831,7 +4534,7 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01_______TEXT	segment	byte public 'CODE' use16
+main_01________TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -5151,7 +4854,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01_______TEXT	ends
+main_01________TEXT	ends
 
 ; ===========================================================================
 
@@ -25502,19 +25205,35 @@ _STAGE_TITLE_HALFLENGTHS	label byte
 		db  0Dh
 		db  0Dh
 gDEMO_PLAY	db 0ADh, 0AEh, 0B7h, 0B8h, 0CFh, 0B9h, 0B5h, 0AAh, 0C2h, 0
+public _gPAUSE_MENU
+_gPAUSE_MENU label byte
 gPAUSE_MENU	db 0B9h, 0AAh, 0BEh, 0BCh, 0AEh, 0CFh, 0B7h, 0AEh, 0B6h, 0BEh, 0
+public _g11SPACES
+_g11SPACES label byte
 g11SPACES	db 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0CFh, 0
 		db 0
+public _PAUSE_CHOICE_QUIT
+_PAUSE_CHOICE_QUIT label dword
 off_1DB6C	dd aGqbGapic
 					; "ゲーム終了"
+public _PAUSE_CHOICE_RESUME
+_PAUSE_CHOICE_RESUME label dword
 off_1DB70	dd aGqbGanKj
 					; "ゲーム再開"
+public _pause_sel
+_pause_sel label byte
 byte_1DB74	db 0
 		db 0
+public _QUIT_TITLE
+_QUIT_TITLE label dword
 off_1DB76	dd aVV2
 					; "ほんとに終了しちゃうの"
+public _QUIT_CHOICE_NO
+_QUIT_CHOICE_NO label dword
 off_1DB7A	dd aVdvVVBbvVVVV
 					; "うそです。すみません。"
+public _QUIT_CHOICE_YES
+_QUIT_CHOICE_YES label dword
 off_1DB7E	dd aB@b@vVvbavtvVV
 					; "　　はい、やめます。　"
 public _scroll_line_on_page_init
@@ -25659,6 +25378,8 @@ include th02/sprites/pointnum.asp
 public _scroll_interval, _scroll_done
 _scroll_interval	db 4
 _scroll_done	db 0
+public _scroll_unused_3
+_scroll_unused_3 label byte
 byte_1E502	db 0
 public _scroll_delta
 _scroll_delta label byte
@@ -26417,7 +26138,11 @@ public _stage_palette
 _stage_palette label byte
 unk_1F4AD	db    ?	;
 		db 47 dup(?)
+public _pause_atrb_0
+_pause_atrb_0 label byte
 byte_1F4DD	db ?
+public _pause_atrb_1
+_pause_atrb_1 label byte
 byte_1F4DE	db ?
 		db ?
 include libs/master.lib/clip[bss].asm
@@ -26493,6 +26218,8 @@ _scroll_step label word
 word_2034A	dw ?
 _scroll_step_advanced label word
 word_2034C	dw ?
+public _scroll_unused_2
+_scroll_unused_2 label byte
 byte_2034E	db ?
 		db ?
 byte_20350	db ?

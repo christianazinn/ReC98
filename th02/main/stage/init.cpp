@@ -40,59 +40,12 @@
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
-
-// Per-stage callback slots
-// ------------------------
-// Unlike TH03-TH05's __pascal callbacks (platform.h's farfunc_t_near), every
-// function TH02 installs into these is __cdecl: th02/main/null.asm publishes
-// the defaults as `@nullfunc_void$qv` / `@nullfunc_false$qv` in lower case,
-// which is Borland's __cdecl decoration (kb/codegen/0086). For a parameterless
-// call the two conventions emit identical bytes, which is why
-// th02/main/stage/loop.cpp can get away with declaring the same variables as
-// farfunc_t_near — but only this spelling can be assigned to without a cast.
-
-extern void (far *boss_bg_render)(void);
-extern stage_progression_t (far *boss_update)(void);
-extern void (far *boss_bg_render_func)(void);
-extern stage_progression_t (far *boss_update_func)(void);
-extern void (far *boss_init)(void);
-extern void (far *boss_end)(void);
-
-// Erases the stage title from TRAM at [stage_frame] == 160, then disables
-// itself.
-extern void (far *stage_title_unput)(void);
-
-extern void (far *enemies_invalidate)(void);
-extern void (far *enemies_update_and_render)(void);
-
-// Per-stage foreground/background effects.
-extern void (far *stage_invalidate)(void);
-extern void (far *stage_update_and_render)(void);
-
-// Only installed for Stage 4 and Extra. What they render is not evidenced,
-// hence the neutral names. [static]
-extern void (far *farfp_23A72)(void);
-extern void (far *farfp_23A76)(void);
-
-// Starts the boss fight once the map has been scrolled to its end, then
-// disables itself.
-extern void (far *boss_activate_if_scroll_done)(void);
-
-// Returns `true` once the stage is over. Has to be [bool16]: ZUN's loop tests
-// the result with `or ax, ax` (kb/codegen/0090).
-extern bool16 (far *stage_should_end)(void);
-// ------------------------
 
 // Still ASM in th02_main.asm.
 // ---------------------------
 extern "C" void pascal near text_wipe(void);
-
-// Writes "stage<[stage_id] + '0'>.bft" into [fn].
-extern "C" void pascal near sub_B396(char *fn);
-
-// Replaces the 3-character extension of [fn] with [ext].
-extern "C" void pascal near sub_B362(char *fn, const char *ext);
 
 extern "C" void near sub_C5B0(void);
 extern "C" void near sub_E271(void);
@@ -106,7 +59,8 @@ extern "C" void far sub_1C608(void);
 extern "C" void far sub_13ABB(char *fn);
 
 // Resets the scrolling state. Called through a `nopcall` alias.
-extern "C" void far sub_CA1C(void);
+// th02/main/scroll.cpp
+void far scroll_reset(void);
 
 // Callback defaults.
 extern "C" void far sub_17979(void); // enemies_invalidate
@@ -173,12 +127,49 @@ extern "C" const char aMiko_k_mpn[];
 	call	near ptr func; \
 }
 
+// Both of these start with a plain `push bp; mov bp, sp` and have no locals,
+// which is -G; stage_init() below starts with `ENTER 0Ch, 0`, which is -G-.
+// (kb/codegen/0011, scoped exactly as th03/main/player/defeat.cpp does it.)
+#pragma option -G
+
+// The filename layout both of these assume: "stage<N>.<ext>".
+static const int STAGE_FN_DIGIT = 5;
+static const int STAGE_FN_EXT = 7;
+
+// Replaces the 3-character extension of a filename previously built by
+// stage_fn(). Defined before it because ZUN put it at the lower address.
+void pascal near stage_fn_ext_set(char *fn, const char *ext)
+{
+	fn[STAGE_FN_EXT + 0] = ext[0];
+	fn[STAGE_FN_EXT + 1] = ext[1];
+	fn[STAGE_FN_EXT + 2] = ext[2];
+}
+
+// Writes the current stage's .BFT filename into [fn], which must have room for
+// 11 characters and a terminator. Named after TH01's scoredat_fn().
+void pascal near stage_fn(char *fn)
+{
+	fn[0] = 's';
+	fn[1] = 't';
+	fn[2] = 'a';
+	fn[3] = 'g';
+	fn[4] = 'e';
+	fn[STAGE_FN_DIGIT] = (stage_id + '0');
+	fn[6] = '.';
+	fn[STAGE_FN_EXT + 0] = 'b';
+	fn[STAGE_FN_EXT + 1] = 'f';
+	fn[STAGE_FN_EXT + 2] = 't';
+	fn[10] = '\0';
+}
+
+#pragma option -G-
+
 void near stage_init(void)
 {
 	char fn[12];
 	register int i;
 
-	sub_B396(fn);
+	stage_fn(fn);
 	vsync_Count1 = 0;
 	text_wipe();
 	graph_scrollup(0);
@@ -200,7 +191,7 @@ void near stage_init(void)
 	sub_E271();
 	snd_se_reset();
 	sub_1028C();
-	nopcall_same_group(sub_CA1C);
+	nopcall_same_group(scroll_reset);
 	randring_fill();
 	palette_100();
 
@@ -230,14 +221,14 @@ void near stage_init(void)
 	stage_title_halflen = STAGE_TITLE_HALFLENGTHS[stage_id];
 
 	super_entry_bfnt(fn);
-	sub_B362(fn, aBmt);
+	stage_fn_ext_set(fn, aBmt);
 	super_entry_bfnt(fn);
-	sub_B362(fn, aBbt);
+	stage_fn_ext_set(fn, aBbt);
 	super_entry_bfnt(fn);
-	sub_B362(fn, aMap);
+	stage_fn_ext_set(fn, aMap);
 	map_load(fn);
 	tiles_stuff_reset();
-	sub_B362(fn, aMpn);
+	stage_fn_ext_set(fn, aMpn);
 	mpn_load(fn);
 	memcpy(
 		reinterpret_cast<void *>(&stage_palette),
@@ -347,7 +338,7 @@ void near stage_init(void)
 	tile_area_init_and_put_both();
 	if(!resident->demo_num) {
 		snd_delay_until_volume(255);
-		sub_B362(fn, aM);
+		stage_fn_ext_set(fn, aM);
 	}
 	items_init_and_reset();
 	score_extend_init();
