@@ -1106,6 +1106,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/boss_bg.cpp",
 	"th05/score_rm.cpp",
 	"th05/laser_rh.cpp",
+	"th05/player_b.cpp",
 	"th05/p_common.cpp",
 	"th05/p_reimu.cpp",
 	"th05/p_marisa.cpp",
