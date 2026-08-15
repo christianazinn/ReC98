@@ -53,10 +53,13 @@
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
+#include <dos.h>    // int86(), MK_FP(), the _AX/_CX/_DX pseudo-registers
+#include <alloc.h>  // farmalloc(); see TH01_ORACLE_DELTA_INDEX.md D4
 #include "platform.h"
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
 #include "th01/t1case.hpp"
+#include "th01/t1protect.hpp"
 #include "th01/core/resstuff.hpp"
 #include "th01/formats/cfg.hpp"
 #include "th01/resident.hpp"
@@ -98,12 +101,22 @@ enum t1case_mode_t {
 	T1CASE_DISABLED = 0,
 	T1CASE_RECORD   = 1,
 	T1CASE_PLAYBACK = 2,
-	T1CASE_ERROR    = 3
+	T1CASE_ERROR    = 3,
+
+	// Not a recording mode: `T1CASE.CFG` = "g" runs the savestate detector's
+	// verdict selftest and exits. Shipped rather than debug-only, because it is
+	// the negative control the human runs before trusting a savestate result.
+	T1CASE_SELFTEST = 4
 };
 
 enum t1case_text_id_t {
 	T1T_OK_RECORD = 0,
 	T1T_OK_PLAYBACK,
+	T1T_OK_SELFTEST,
+
+	// The ok/error split in t1case_write_text() is `id <= T1T_OK_INPUT_END`,
+	// so every success code must sort at or before this one. Adding a success
+	// after it silently reports "error:".
 	T1T_OK_INPUT_END,
 	T1T_ERR_CASE_HEADER,
 	T1T_ERR_CASE_CREATE,
@@ -143,6 +156,7 @@ static char T1CASE_BIN_FN[11];
 static char T1CASE_SPLIT_FN[12];
 static char T1CASE_DONE_FN[11];
 static char T1CASE_DIAG_FN[11];
+static char T1CASE_GUARD_FN[13];
 
 // The two ResData IDs. Assembled at runtime for the same reason as the
 // filenames: a string literal is initialized data, and this module must
@@ -319,6 +333,25 @@ static void t1case_paths_init(void)
 	T1CASE_DIAG_FN[8] = 'X';
 	T1CASE_DIAG_FN[9] = 'T';
 	T1CASE_DIAG_FN[10] = '\0';
+
+	// "\T1LAST.GRD" — ROOT-RELATIVE, and that is load-bearing rather than
+	// cosmetic. The detector only ever scans the ROOT directory and matches on
+	// the basename, so a CWD-relative name would find a same-named file in the
+	// root and read ITS size instead. Every other file this module opens is
+	// CWD-relative; this one must not be.
+	// See state/notes/t1case-protect.md §10.1.
+	T1CASE_GUARD_FN[0] = '\\';
+	T1CASE_GUARD_FN[1] = 'T';
+	T1CASE_GUARD_FN[2] = '1';
+	T1CASE_GUARD_FN[3] = 'L';
+	T1CASE_GUARD_FN[4] = 'A';
+	T1CASE_GUARD_FN[5] = 'S';
+	T1CASE_GUARD_FN[6] = 'T';
+	T1CASE_GUARD_FN[7] = '.';
+	T1CASE_GUARD_FN[8] = 'G';
+	T1CASE_GUARD_FN[9] = 'R';
+	T1CASE_GUARD_FN[10] = 'D';
+	T1CASE_GUARD_FN[11] = '\0';
 
 	// "T1CaseState"
 	T1CASE_RES_ID_BUF[0] = 'T';
@@ -676,6 +709,11 @@ static void t1case_write_text(uint8_t id)
 		t1case_write_char('y'); t1case_write_char('b'); t1case_write_char('a');
 		t1case_write_char('c'); t1case_write_char('k');
 		break;
+	case T1T_OK_SELFTEST:
+		t1case_write_char('s'); t1case_write_char('e'); t1case_write_char('l');
+		t1case_write_char('f'); t1case_write_char('t'); t1case_write_char('e');
+		t1case_write_char('s'); t1case_write_char('t');
+		break;
 	case T1T_OK_INPUT_END:
 		t1case_write_char('i'); t1case_write_char('n'); t1case_write_char('p');
 		t1case_write_char('u'); t1case_write_char('t'); t1case_write_char('-');
@@ -839,6 +877,9 @@ static uint8_t t1case_cfg_mode(void)
 	}
 	if((mode == 'p') || (mode == 'P')) {
 		return T1CASE_PLAYBACK;
+	}
+	if((mode == 'g') || (mode == 'G')) {
+		return T1CASE_SELFTEST;
 	}
 	return T1CASE_DISABLED;
 }
@@ -1055,6 +1096,8 @@ static bool t1case_handoff_verify(void)
 		(t1case_input_byte_count <= t1case_header.payload_size)
 	);
 }
+
+#include "th01/main/t1protect.cpp"
 
 /// Packet codec
 /// ------------
@@ -1867,6 +1910,22 @@ void far t1case_frame_io(uint8_t near *prev)
 	}
 
 	t1case_global_frame++;
+
+	// The savestate checkpoint. Deliberately BEFORE the trace checkpoint and on
+	// its own cadence constant. Gameplay is never interrupted by the verdict:
+	// the only effect of a detection is that the case stops being saveable, and
+	// the evidence lands in T1DIAG.TXT.
+	if(
+		(t1case_mode == T1CASE_RECORD) &&
+		((t1case_global_frame & (T1CASE_GUARD_INTERVAL_SAMPLES - 1)) == 0)
+	) {
+		if(!t1prt_checkpoint(T1CASE_GUARD_FN)) {
+			if(t1prt_invalid()) {
+				t1prt_guard_marker_set(T1CASE_GUARD_FN); // *** THE POISON ***
+			}
+			t1prt_diag_emit();
+		}
+	}
 	if((t1case_global_frame & (T1SPLIT_INTERVAL_SAMPLES - 1)) == 0) {
 		t1case_split_row(T1SPLIT_EVENT_CHECKPOINT);
 		if((t1case_mode == T1CASE_RECORD) && !t1case_header_write(false)) {
@@ -1884,6 +1943,11 @@ void far t1case_session_start(void)
 
 	t1case_paths_init();
 	t1case_payload_checksum = T1CASE_FNV1A_BASIS;
+
+	// The sector buffer belongs to THIS process. TH01 self-`execl`s 8-10 times
+	// per run, so a segment inherited from the previous image would be 8-10
+	// chances to free memory this process does not own.
+	t1prt_local_reset();
 
 	// Codec state, explicitly, even though BSS starts zeroed: this is a fresh
 	// PROCESS SEGMENT in both directions. Neither the encoder's delta basis nor
@@ -1938,6 +2002,11 @@ void far t1case_session_start(void)
 	resumed = (t1case_mode != T1CASE_DISABLED);
 	if(!resumed && !carrier_done) {
 		t1case_mode = t1case_cfg_mode();
+	}
+	if(t1case_mode == T1CASE_SELFTEST) {
+		t1prt_verdict_selftest();
+		t1case_mode = T1CASE_DISABLED;
+		return;
 	}
 	if(t1case_mode == T1CASE_DISABLED) {
 		return;
@@ -2051,6 +2120,15 @@ void far t1case_session_start(void)
 			return;
 		}
 	}
+	// The savestate guard belongs to a RUN, not to a process: creating it is
+	// what resets the detector's sticky state, so it happens exactly once, in
+	// the first process of a recording. A failure disables saving and is
+	// recorded, but never interrupts the game.
+	if((t1case_mode == T1CASE_RECORD) && !resumed) {
+		if(!t1prt_guard_create(T1CASE_GUARD_FN)) {
+			t1prt_diag_emit();
+		}
+	}
 	if(!resumed) {
 		if(!t1case_split_write_header()) {
 			t1case_mode = T1CASE_ERROR;
@@ -2148,6 +2226,10 @@ void far t1case_finish(bool16 terminal)
 			return;
 		}
 		t1case_handoff_clear();
+		if(t1case_mode == T1CASE_RECORD) {
+			t1prt_diag_emit();
+		}
+		t1prt_local_free();
 		t1case_done_write(
 			(t1case_mode == T1CASE_RECORD) ? T1T_OK_RECORD : T1T_OK_PLAYBACK
 		);

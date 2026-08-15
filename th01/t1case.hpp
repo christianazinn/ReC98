@@ -192,6 +192,15 @@ struct t1case_startup_t {
 // and TH01 keeps its 64. See state/notes/t1case-packet-rle.md §1.
 #define T1SPLIT_INTERVAL_SAMPLES 64
 
+// The savestate guard's cadence (REPLAY_CORE_CONTRACT.md §6.1), DELIBERATELY a
+// separate constant from T1SPLIT_INTERVAL_SAMPLES even though both are 64.
+// T1SPLIT_INTERVAL_SAMPLES also sizes T1CASE_WBUF_SIZE and sets the packet
+// stream's flush cadence, so changing it changes recorded bytes and would
+// invalidate the byte-identical T1SPLIT.BIN regression that steps 1 and 2 both
+// rest on. The guard file grows one byte per checkpoint, so this is also the
+// guard's growth rate. Must be a power of two: the test is a mask.
+#define T1CASE_GUARD_INTERVAL_SAMPLES 64
+
 // Large enough for the worst-case packet on each of the T1SPLIT_INTERVAL_SAMPLES
 // logical samples between disk flushes, plus one control/overflow packet. Same
 // cadence argument as tools/replay/FORMAT.md:752-755, with TH01's 64 in place
@@ -238,7 +247,12 @@ struct t1case_startup_t {
 #define T1CASE_RES_MAGIC_1       '1'
 #define T1CASE_RES_MAGIC_2       'C'
 #define T1CASE_RES_MAGIC_3       'S'
-#define T1CASE_RES_VERSION       1
+// Bumped to 2 by W3.1 step 3: the protect region's interior layout is now
+// defined, and that change lands INSIDE a constant paragraph count (97 B is 7
+// paragraphs, and everything from 81 to 112 rounds the same way), so
+// `resdata_exist()` will happily hand a step-3 build a step-2 block. The version
+// byte is the only thing that catches it. See REPLAY_CORE_CONTRACT.md §7.4.
+#define T1CASE_RES_VERSION       2
 
 #define T1CASE_RES_VERSION_INDEX (T1CASE_RES_MAGIC_INDEX + T1CASE_RES_MAGIC_SIZE)
 #define T1CASE_RES_MODE_INDEX    (T1CASE_RES_VERSION_INDEX + 1)
@@ -278,6 +292,92 @@ struct t1case_startup_t {
 #define T1CASE_RES_PROTECT_INDEX (T1CASE_RES_SPLIT_ROWS_INDEX + 4)
 #define T1CASE_RES_PROTECT_SIZE  45
 #define T1CASE_RES_END_INDEX (T1CASE_RES_PROTECT_INDEX + T1CASE_RES_PROTECT_SIZE)
+
+// The protect region's interior (W3.1 step 3), as offsets WITHIN `protect[]`.
+// The committed size is deliberately NOT here: it reuses the §7 union at
+// T1CASE_RES_UNION_INDEX, because duplicating it would make two copies of the
+// one value the entire detection compares (state/notes/t1case-protect.md §0b).
+// The sector buffer is deliberately NOT here either: it must not survive an
+// `execl`, and TH01 self-`execl`s 8-10 times per run.
+#define T1PRT_FLAGS_INDEX        0
+#define T1PRT_GUARD_SECTOR_INDEX 1
+#define T1PRT_GUARD_OFFSET_INDEX 5
+
+// Diagnostics. Everything from here on is evidence, never control flow.
+#define T1PRT_DIAG_INDEX             7
+#define T1PRT_DIAG_CODE_INDEX        T1PRT_DIAG_INDEX
+#define T1PRT_DIAG_DRIVE_INDEX       8
+#define T1PRT_DIAG_DOS_AX_INDEX      9
+#define T1PRT_DIAG_BPS_INDEX        11
+#define T1PRT_DIAG_ROOT_ENTS_INDEX  13
+#define T1PRT_DIAG_ROOT_START_INDEX 15
+#define T1PRT_DIAG_ROOT_SECS_INDEX  19
+#define T1PRT_DIAG_SECTOR_INDEX     21
+#define T1PRT_DIAG_OFFSET_INDEX     25
+#define T1PRT_DIAG_EXPECTED_INDEX   27
+#define T1PRT_DIAG_ACTUAL_INDEX     31
+#define T1PRT_DIAG_I25_FLAGS_INDEX  35
+#define T1PRT_DIAG_I25_STACK_INDEX  37
+#define T1PRT_DIAG_END_INDEX        39
+#define T1PRT_PROTECT_END_INDEX     T1PRT_DIAG_END_INDEX
+
+// Sticky flag bits.
+#define T1PRT_FLAG_INVALID 0x01
+#define T1PRT_FLAG_LOCATED 0x02
+#define T1PRT_FLAG_ERROR   0x04
+
+// One boundary guard per region, exactly as §7.5 requires of the outer map.
+#if (T1PRT_GUARD_SECTOR_INDEX < (T1PRT_FLAGS_INDEX + 1))
+#error T1CASE protect: the guard sector overlaps the flags byte
+#endif
+#if (T1PRT_GUARD_OFFSET_INDEX < (T1PRT_GUARD_SECTOR_INDEX + 4))
+#error T1CASE protect: the guard offset overlaps the guard sector
+#endif
+#if (T1PRT_DIAG_INDEX < (T1PRT_GUARD_OFFSET_INDEX + 2))
+#error T1CASE protect: the diagnostics overlap the cached location
+#endif
+#if (T1PRT_DIAG_DRIVE_INDEX < (T1PRT_DIAG_CODE_INDEX + 1))
+#error T1CASE protect: the diagnostic drive overlaps the diagnostic code
+#endif
+#if (T1PRT_DIAG_DOS_AX_INDEX < (T1PRT_DIAG_DRIVE_INDEX + 1))
+#error T1CASE protect: the DOS AX diagnostic overlaps the drive
+#endif
+#if (T1PRT_DIAG_BPS_INDEX < (T1PRT_DIAG_DOS_AX_INDEX + 2))
+#error T1CASE protect: the bytes-per-sector diagnostic overlaps DOS AX
+#endif
+#if (T1PRT_DIAG_ROOT_ENTS_INDEX < (T1PRT_DIAG_BPS_INDEX + 2))
+#error T1CASE protect: the root entry count overlaps bytes-per-sector
+#endif
+#if (T1PRT_DIAG_ROOT_START_INDEX < (T1PRT_DIAG_ROOT_ENTS_INDEX + 2))
+#error T1CASE protect: the root start overlaps the root entry count
+#endif
+#if (T1PRT_DIAG_ROOT_SECS_INDEX < (T1PRT_DIAG_ROOT_START_INDEX + 4))
+#error T1CASE protect: the root sector count overlaps the root start
+#endif
+#if (T1PRT_DIAG_SECTOR_INDEX < (T1PRT_DIAG_ROOT_SECS_INDEX + 2))
+#error T1CASE protect: the located sector overlaps the root sector count
+#endif
+#if (T1PRT_DIAG_OFFSET_INDEX < (T1PRT_DIAG_SECTOR_INDEX + 4))
+#error T1CASE protect: the located offset overlaps the located sector
+#endif
+#if (T1PRT_DIAG_EXPECTED_INDEX < (T1PRT_DIAG_OFFSET_INDEX + 2))
+#error T1CASE protect: the expected size overlaps the located offset
+#endif
+#if (T1PRT_DIAG_ACTUAL_INDEX < (T1PRT_DIAG_EXPECTED_INDEX + 4))
+#error T1CASE protect: the actual size overlaps the expected size
+#endif
+#if (T1PRT_DIAG_I25_FLAGS_INDEX < (T1PRT_DIAG_ACTUAL_INDEX + 4))
+#error T1CASE protect: the INT 25h flags overlap the actual size
+#endif
+#if (T1PRT_DIAG_I25_STACK_INDEX < (T1PRT_DIAG_I25_FLAGS_INDEX + 2))
+#error T1CASE protect: the INT 25h stack word overlaps the INT 25h flags
+#endif
+#if (T1PRT_DIAG_END_INDEX < (T1PRT_DIAG_I25_STACK_INDEX + 2))
+#error T1CASE protect: the region end overlaps the INT 25h stack word
+#endif
+#if (T1PRT_PROTECT_END_INDEX > T1CASE_RES_PROTECT_SIZE)
+#error T1CASE protect: the interior map overflows the reserved region
+#endif
 
 // The block master.lib is asked to allocate. Sized from the map, never the
 // other way around.
@@ -504,6 +604,10 @@ typedef char t1case_wbuf_size_check[
 typedef char t1split_interval_pot_check[
 	((T1SPLIT_INTERVAL_SAMPLES &
 		(T1SPLIT_INTERVAL_SAMPLES - 1)) == 0) ? 1 : -1
+];
+typedef char t1case_guard_interval_pot_check[
+	((T1CASE_GUARD_INTERVAL_SAMPLES &
+		(T1CASE_GUARD_INTERVAL_SAMPLES - 1)) == 0) ? 1 : -1
 ];
 
 // The handoff carrier's struct binding against the core region map. Every
