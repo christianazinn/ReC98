@@ -5173,42 +5173,6 @@ loc_10286:
 		retn	6
 sub_FFF8	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1028C
-_sub_1028C label far
-sub_1028C	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_102A9
-; ---------------------------------------------------------------------------
-
-loc_10294:
-		mov	bx, si
-		add	bx, bx
-		mov	_stone_damage[bx], 0
-		mov	_stone_flag[si], SF_DORMANT
-		mov	byte ptr byte_20665[si], 0
-		inc	si
-
-loc_102A9:
-		cmp	si, STONE_COUNT
-		jl	short loc_10294
-		mov	_boss_phase_frame, 0
-		mov	byte_2066A, 0
-		mov	_boss_damage, 0
-		mov	byte_2066B, 0
-		mov	_sigma_frame, 0
-		mov	word_20686, 0
-		pop	si
-		pop	bp
-		retf
-sub_1028C	endp
 BULLET_TEXT ends
 
 DIALOG_TEXT	segment	byte public 'CODE' use16
@@ -26299,6 +26263,7 @@ midboss3_damage label word
 _stone_damage	dw STONE_COUNT dup(?)
 
 patnum_2064E	dw ?
+public _boss_phase_frame
 _boss_phase_frame	dw ?
 
 public _boss_left_on_page, _boss_top_on_page
@@ -26316,8 +26281,14 @@ public _stone_flag
 label midboss3_flag byte
 _stone_flag	db STONE_COUNT dup(?)
 
+public _byte_20665
+_byte_20665 label byte
 byte_20665	db 5 dup(?)
+public _byte_2066A
+_byte_2066A label byte
 byte_2066A	db ?
+public _byte_2066B
+_byte_2066B label byte
 byte_2066B	db ?
 public _reduce_effects, _slowdown_factor
 _reduce_effects	db ?
@@ -26330,6 +26301,8 @@ byte_20672	db ?
 		db 15 dup(?)
 public _sigma_frame
 _sigma_frame	dd ?
+public _word_20686
+_word_20686 label word
 word_20686	dw ?
 
 BULLET_COUNT = 150

@@ -19,6 +19,9 @@
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/boss/b3.hpp"
+#include "th02/main/boss/boss.hpp"
+#include "th02/main/boss/bosses.hpp"
 #include "th01/sprites/pellet.h"
 #include "th02/sprites/bullet16.h"
 
@@ -85,6 +88,34 @@ extern uint8_t rank_base_stack;
 extern uint8_t stack;
 extern int8_t easy_slow_skip_cycle;
 // -----
+
+// Boss state, reset by the function below. ZUN put it at the top of this
+// translation unit even though it has nothing to do with bullets; it is the
+// last function before bullets_and_sparks_init() in the original object.
+// The four globals that still carry their IDA names are written here and read
+// only by boss code that is still ASM, so this parcel has no evidence for
+// naming them. [HELD FOR NAMING REVIEW]
+extern "C" {
+	extern uint8_t byte_20665[STONE_COUNT];
+	extern uint8_t byte_2066A;
+	extern uint8_t byte_2066B;
+	extern uint16_t word_20686;
+}
+
+void bosses_reset(void)
+{
+	for(int i = 0; i < STONE_COUNT; i++) {
+		stone_damage[i] = 0;
+		stone_flag[i] = SF_DORMANT;
+		byte_20665[i] = 0;
+	}
+	boss_phase_frame = 0;
+	byte_2066A = 0;
+	boss_damage = 0;
+	byte_2066B = 0;
+	sigma_frame = 0;
+	word_20686 = 0;
+}
 
 #pragma option -a2
 
