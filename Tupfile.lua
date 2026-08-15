@@ -1155,6 +1155,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/motion_3.asm",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
+	"th05/main033.cpp",
 	"th05/std_run.cpp",
 	"th05/enm_btpl.cpp",
 	"th05/midboss.cpp",
