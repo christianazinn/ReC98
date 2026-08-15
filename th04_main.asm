@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -2560,6 +2560,8 @@ sub_E1F4	endp
 
 ; Attributes: bp-based frame
 
+public _thicklasers_render
+_thicklasers_render label near
 sub_E2C3	proc near
 
 @@screen_top            	= word ptr -0Ah
@@ -3172,200 +3174,32 @@ EXECL_TEXT	ends
 
 ; ===========================================================================
 
+; Harness carve (kb/codegen/0080): the head of the original `main_TEXT`
+; contribution, renamed so that a C++ object can supply yuuka5_fg_render()
+; at its original address at the START of the segment. Same `byte public
+; 'CODE'` alignment as before, so nothing moves.
+BOSS_5R_TEXT	segment	byte public 'CODE' use16
+
+	; yuuka5_fg_render() now lives in th04/main/boss/b5r.cpp, which supplies
+	; this entire segment. What is left of the root contribution is a
+	; zero-byte anchor, the same shape MB_DFR_TEXT has.
+	;
+	; Declared here, inside a main_01 segment on purpose (kb/codegen 0064,
+	; 0082): stage5_setup() stores the `offset` of it into
+	; [boss_fg_render_func], and only the GROUP of the declaring segment
+	; decides which group frame that offset is relative to. Uppercase
+	; because it is __pascal (kb/codegen 0081, 0103) -- the dump's lowercase
+	; spelling at the `offset` site is not the symbol's case.
+	@YUUKA5_FG_RENDER$QV procdesc pascal near
+BOSS_5R_TEXT	ends
+
+; ===========================================================================
+
 ; The tail of the original `main_TEXT` contribution, reopened under its
-; original name.
+; original name. The `db 0` that used to separate the two functions went
+; with the head: it is the pad Turbo C++ emits after yuuka5_fg_render(),
+; and b5r.cpp reproduces it as a `#pragma codestring "\x00"`.
 main_TEXT	segment	byte public 'CODE' use16
-
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@yuuka5_fg_render$qv	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		add	ax, -16
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_E8D8
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		push	3
-		call	super_zoom
-		jmp	loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E8D8:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		ja	short loc_E91D
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_E906
-		call	super_put pascal, si, ax, 128
-		jmp	loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E906:
-		call	super_put_1plane pascal, si, di, (128 shl 16) or 0, PLANE_PUT or GC_BRGI
-		mov	_boss_damage_this_frame, 0
-		jmp	loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E91D:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	loc_EA5B
-		cmp	byte_25667, 0
-		jnz	short loc_E98E
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, ax
-		add	ax, 129
-		mov	[bp+var_2], ax
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_E961
-		call	super_put pascal, si, di, ax
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	ax, [bp+var_2]
-		inc	ax
-		push	ax
-		call	super_put
-		jmp	loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E961:
-		push	si
-		push	di
-		push	[bp+var_2]
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	ax, [bp+var_2]
-		inc	ax
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		mov	_boss_damage_this_frame, 0
-		jmp	loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E98E:
-		cmp	byte_25667, 1
-		jnz	short loc_E9DD
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		call	@grcg_setmode_rmw$qv
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		mov	ax, _boss_phase_frame
-		add	ax, ax
-		mov	dx, 80
-		sub	dx, ax
-		mov	[bp+var_2], dx
-		lea	ax, [si+32]
-		push	ax
-		lea	ax, [di+32]
-		push	ax
-		push	dx
-		call	grcg_circlefill
-		GRCG_OFF_CLOBBERING dx
-		call	super_put pascal, si, di, 128
-		jmp	short loc_EA5B
-; ---------------------------------------------------------------------------
-
-loc_E9DD:
-		cmp	byte_25667, 2
-		jnz	short loc_EA0D
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		add	ax, 32
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, 16
-		mov	di, ax
-		call	@grcg_setmode_rmw$qv
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		call	grcg_circlefill pascal, si, di, 16
-		jmp	short loc_EA55
-; ---------------------------------------------------------------------------
-
-loc_EA0D:
-		cmp	byte_25667, 3
-		jnz	short loc_EA5B
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		call	@grcg_setmode_rmw$qv
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		mov	ax, _boss_phase_frame
-		shl	ax, 3
-		add	ax, 16
-		mov	[bp+var_2], ax
-		lea	ax, [si+32]
-		push	ax
-		lea	ax, [di+32]
-		push	ax
-		push	[bp+var_2]
-		call	grcg_circlefill
-		call	super_put pascal, si, di, 128
-
-loc_EA55:
-		GRCG_OFF_CLOBBERING dx
-
-loc_EA5B:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		cmp	_boss_phase, PHASE_NONE
-		jnb	short loc_EA6B
-		call	main_01:sub_E2C3
-
-loc_EA6B:
-		pop	di
-		pop	si
-		leave
-		retn
-@yuuka5_fg_render$qv	endp
-
-; ---------------------------------------------------------------------------
-		db    0
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -28598,6 +28432,8 @@ word_25662	dw ?
 byte_25664	db ?
 byte_25665	db ?
 byte_25666	db ?
+public _yuuka5_warp_phase
+_yuuka5_warp_phase label byte
 byte_25667	db ?
 
 public _carpet_light_level

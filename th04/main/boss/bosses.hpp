@@ -16,6 +16,7 @@ void pascal near mugetsu_gengetsu_backdrop_colorfill(void);
 
 void pascal near orange_fg_render(void);
 void pascal near kurumi_fg_render(void);
+void pascal near yuuka5_fg_render(void);
 
 void pascal near mugetsu_gengetsu_bg_render(void);
 void pascal near mugetsu_fg_render(void);
