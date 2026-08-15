@@ -112,7 +112,12 @@ void pascal far bg_particle_add(
 
 void pascal far grcg_dot_square_put(int edge)
 {
-	#define edge_left    	_SI
+	// Rows still to be blitted, counted down from [edge]. Not `edge_left`:
+	// every other `edge` in the tree means "boundary of a region"
+	// (x_edge_offset, bullet_bounce_edge_t, …), which would read this as the
+	// square's *left* edge.
+	#define rows_remaining	_SI
+
 	#define vo           	_DI
 	#define first_bit    	_BX
 	#define dots_mirrored	_DX
@@ -120,7 +125,7 @@ void pascal far grcg_dot_square_put(int edge)
 	int dots;
 
 	_ES = SEG_PLANE_B;
-	edge_left = edge;
+	rows_remaining = edge;
 	vo = vram_offset_shift_fast(dot_square_left, dot_square_top);
 	first_bit = dot_square_left;
 
@@ -144,33 +149,33 @@ void pascal far grcg_dot_square_put(int edge)
 	dots_mirrored <<= _CL;
 	_AX |= dots_mirrored;
 
-	while(static_cast<int16_t>(edge_left) > 0) {
+	while(static_cast<int16_t>(rows_remaining) > 0) {
 		*reinterpret_cast<dots16_t __es *>(vo) = _AX;
 		vo += ROW_SIZE;
-		edge_left--;
+		rows_remaining--;
 	}
 
 	#undef dots_mirrored
 	#undef first_bit
 	#undef vo
-	#undef edge_left
+	#undef rows_remaining
 }
 
 void pascal near grcg_dot_square_unput(int edge)
 {
-	#define edge_left	_SI
-	#define vo       	_BX
+	#define rows_remaining	_SI
+	#define vo            	_BX
 
-	edge_left = edge;
+	rows_remaining = edge;
 	vo = vram_offset_shift_fast(dot_square_left, dot_square_top);
-	while(static_cast<int16_t>(edge_left) > 0) {
+	while(static_cast<int16_t>(rows_remaining) > 0) {
 		*reinterpret_cast<dots16_t __es *>(vo) = 0xFFFF;
 		vo += ROW_SIZE;
-		edge_left--;
+		rows_remaining--;
 	}
 
 	#undef vo
-	#undef edge_left
+	#undef rows_remaining
 }
 
 #pragma codestring "\x90"

@@ -247,7 +247,7 @@ void near stage_init(void)
 	sub_16A6B();
 	bg_particles_reset();
 	sub_129DD();
-	bombs_reset();
+	bomb_reset();
 	snd_se_reset();
 	bosses_reset();
 	nopcall_same_group(scroll_reset);

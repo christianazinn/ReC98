@@ -100,7 +100,7 @@ void near bomb_free(void)
 	}
 }
 
-void near bombs_reset(void)
+void near bomb_reset(void)
 {
 	stage_bombs_used = 0;
 	bombing = false;
@@ -147,8 +147,23 @@ void near bomb_invalidate(void)
 	}
 	if(bomb_circle_frame > 1) {
 		// ZUN quirk: Decremented here and incremented again at the end of the
-		// branch, so that the ring is sampled at the *previous* frame's
-		// radius. Every other reader sees the undecremented value.
+		// branch, so that both readers inside it see one frame less than the
+		// rest of the game does.
+		//
+		// • The ring is sampled one radius step behind what
+		//   bomb_circle_update_and_render() actually drew: [bomb_frame] is only
+		//   incremented there, and stage_loop() runs that function *after* this
+		//   one, so the undecremented value would already be the correct one.
+		// • The [BOMB_CIRCLE_FRAMES] test below therefore zeroes
+		//   [bomb_circle_frame] one frame later than it otherwise would, which
+		//   delays the end of the circle phase in bomb_update_and_render() by
+		//   that same frame.
+		//
+		// The second effect is what makes this a quirk rather than a rendering
+		// bug: it moves the length of the bomb, hence the frame on which
+		// [bombing] clears and [player_invincibility_time] is set, so fixing it
+		// would desync a replay — the middle column of CONTRIBUTING.md's
+		// summary table. [inferred, static evidence only]
 		bomb_frame--;
 
 		radius = (256 - (bomb_frame * 8));
