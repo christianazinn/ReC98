@@ -252,7 +252,7 @@ include th02/formats/pfopen.asm
 include libs/master.lib/pf_str_ieq.asm
 
 	extern @bg_particles_reset$qv:proc
-	extern @BG_PARTICLE_ADD$QIIUC:proc
+	extern @BG_PARTICLES_ADD$QIIUC:proc
 	extern @GRCG_DOT_SQUARE_PUT$QI:proc
 	extern @bg_particles_invalidate$qv:proc
 	extern @bg_particles_update_and_render$qv:proc
@@ -3818,276 +3818,6 @@ BULLET_TEXT	segment	byte public 'CODE' use16
 	@stage_clear_bonus_animate$qv procdesc near
 	@stage_extra_clear_bonus_animate$qv procdesc near
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FF91	proc near
-		push	bp
-		mov	bp, sp
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		graph_accesspage _page_front
-		call	grcg_byteboxfill_x pascal, (( 16 / 8) shl 16) or 0, (( 24 / 8) shl 16) or (RES_Y - 1)
-		call	grcg_byteboxfill_x pascal, ((416 / 8) shl 16) or 0, ((424 / 8) shl 16) or (RES_Y - 1)
-		graph_accesspage _page_back
-		call	grcg_byteboxfill_x pascal, (( 16 / 8) shl 16) or 0, (( 24 / 8) shl 16) or (RES_Y - 1)
-		call	grcg_byteboxfill_x pascal, ((416 / 8) shl 16) or 0, ((424 / 8) shl 16) or (RES_Y - 1)
-		call	grcg_off
-		pop	bp
-		retn
-sub_FF91	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FFF8	proc near
-
-var_A		= byte ptr -0Ah
-@@angle		= byte ptr -9
-var_8		= word ptr -8
-@@y		= word ptr -6
-@@patnum		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		cmp	[bp+arg_0], 0
-		jl	loc_10286
-		cmp	[bp+arg_0], 0
-		jnz	short loc_1000F
-		call	sub_FF91
-
-loc_1000F:
-		cmp	[bp+arg_0], 20h	; ' '
-		jge	loc_100A0
-		cmp	[bp+arg_0], 1
-		jnz	short loc_10025
-		call	_snd_se_play stdcall, 18
-		pop	cx
-
-loc_10025:
-		add	[bp+arg_4], 7
-		cmp	[bp+arg_0], 2
-		jl	short loc_1005C
-		call	@egc_start_copy_noframe$qv
-		sub	[bp+arg_0], 2
-		mov	ax, [bp+arg_0]
-		shl	ax, 3
-		mov	dx, 240
-		sub	dx, ax
-		mov	si, dx
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	dx
-		push	2
-		call	sub_1C341
-		add	[bp+arg_0], 2
-		call	egc_off
-
-loc_1005C:
-		cmp	[bp+arg_0], 1Eh
-		jge	loc_10286
-		mov	ax, [bp+arg_0]
-		and	ax, 1
-		imul	ax, 0Bh
-		add	al, 4
-		mov	[bp+var_A], al
-		push	GC_RMW
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		mov	ax, [bp+arg_0]
-		shl	ax, 3
-		mov	dx, 240
-		sub	dx, ax
-		mov	si, dx
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	dx
-		push	2
-		call	sub_1C287
-		call	grcg_off
-		jmp	loc_10286
-; ---------------------------------------------------------------------------
-
-loc_100A0:
-		sub	[bp+arg_0], 20h	; ' '
-		cmp	[bp+arg_0], 1Ah
-		jge	loc_10286
-		cmp	[bp+arg_0], 0
-		jnz	short loc_100BA
-		call	_snd_se_play stdcall, 14
-		pop	cx
-
-loc_100BA:
-		cmp	[bp+arg_0], 2
-		jl	loc_10171
-		sub	[bp+arg_0], 2
-		mov	ax, [bp+arg_0]
-		shl	ax, 4
-		mov	si, ax
-		call	@egc_start_copy_noframe$qv
-		mov	[bp+var_8], 0
-		jmp	loc_1015A
-; ---------------------------------------------------------------------------
-
-loc_100DB:
-		mov	al, byte ptr [bp+var_8]
-		add	al, byte ptr [bp+arg_0]
-		mov	[bp+@@angle], al
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_4]
-		mov	di, ax
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		mov	bl, angle_1E510
-		mov	bh, 0
-		add	dx, bx
-		and	dx, 255
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_2]
-		mov	[bp+var_2], ax
-		cmp	di, 10h
-		jl	short loc_10156
-		cmp	di, 416
-		jge	short loc_10156
-		cmp	[bp+var_2], 0
-		jle	short loc_10156
-		cmp	[bp+var_2], 384
-		jge	short loc_10156
-		call	@tiles_invalidate_rect$qiiii pascal, di, ax, (16 shl 16) or 16
-
-loc_10156:
-		add	[bp+var_8], 4
-
-loc_1015A:
-		cmp	[bp+var_8], 256
-		jl	loc_100DB
-		add	[bp+arg_0], 2
-		call	@tiles_egc_render$qv
-		call	egc_off
-
-loc_10171:
-		mov	_slowdown_factor, 1
-		cmp	[bp+arg_0], 18h
-		jge	loc_10286
-		mov	ax, [bp+arg_0]
-		mov	bx, 6
-		cwd
-		idiv	bx
-		add	ax, 88
-		mov	[bp+@@patnum], ax
-		mov	ax, [bp+arg_0]
-		shl	ax, 4
-		mov	si, ax
-		mov	[bp+var_8], 0
-		jmp	loc_10230
-; ---------------------------------------------------------------------------
-
-loc_1019D:
-		mov	al, byte ptr [bp+var_8]
-		add	al, byte ptr [bp+arg_0]
-		mov	[bp+@@angle], al
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_4]
-		mov	di, ax
-		movsx	eax, si
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		mov	bl, angle_1E510
-		mov	bh, 0
-		add	dx, bx
-		and	dx, 255
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, [bp+arg_2]
-		mov	[bp+var_2], ax
-		mov	[bp+@@y], ax
-		mov	ax, _scroll_line
-		add	[bp+@@y], ax
-		cmp	[bp+@@y], RES_Y
-		jl	short loc_10208
-		sub	[bp+@@y], RES_Y
-
-loc_10208:
-		cmp	di, 10h
-		jle	short loc_1022C
-		cmp	di, 416
-		jge	short loc_1022C
-		cmp	[bp+var_2], 0
-		jle	short loc_1022C
-		cmp	[bp+var_2], 384
-		jge	short loc_1022C
-		call	super_roll_put_tiny pascal, di, [bp+@@y], [bp+@@patnum]
-
-loc_1022C:
-		add	[bp+var_8], 4
-
-loc_10230:
-		cmp	[bp+var_8], 256
-		jl	loc_1019D
-		mov	_slowdown_factor, 2
-		cmp	[bp+arg_0], 8
-		jg	short loc_10258
-		mov	ax, [bp+arg_0]
-		and	ax, 1
-		imul	ax, 70
-		add	ax, 100
-		mov	PaletteTone, ax
-		call	far ptr	palette_show
-
-loc_10258:
-		cmp	[bp+arg_0], 14h
-		jg	short loc_10286
-		mov	ax, [bp+arg_0]
-		and	ax, 1
-		mov	[bp+var_8], ax
-		mov	ax, RES_Y
-		sub	ax, _scroll_line
-		push	ax
-		mov	ax, _scroll_line
-		imul	ax, 40
-		add	ax, [bp+var_8]
-		push	ax
-		push	[bp+var_8]
-		call	graph_scroll
-		mov	_slowdown_factor, 3
-
-loc_10286:
-		pop	di
-		pop	si
-		leave
-		retn	6
-sub_FFF8	endp
-
 BULLET_TEXT ends
 
 DIALOG_TEXT	segment	byte public 'CODE' use16
@@ -4152,6 +3882,7 @@ PAT_BULLET16_BILLIARD_BALL_PURPLE = 123
 PELLET_W = 8
 BULLET16_W = 16
 
+	@BOSS_EXPLODE_RENDER$QIII procdesc pascal near
 	extern @bullets_and_sparks_init$qv:proc
 	@BULLETS_ADD_PELLET$QIIUCUCI procdesc pascal near \
 		left:word, top:word, angle:byte, group:byte, speed:word
@@ -5264,7 +4995,7 @@ loc_117B6:
 		add	ax, 8
 		push	ax
 		push	word_1EB26
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		cmp	word_1EB26, 18h
 		jl	short loc_117F3
 		mov	ax, _stone_left[STONE_NORTH * word]
@@ -5276,7 +5007,7 @@ loc_117B6:
 		mov	ax, word_1EB26
 		add	ax, 0FFE8h
 		push	ax
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 
 loc_117F3:
 		cmp	word_1EB26, 20h	; ' '
@@ -5290,7 +5021,7 @@ loc_117F3:
 loc_11810:
 		cmp	word_1EB26, 38h	; '8'
 		jnz	short loc_1181C
-		mov	angle_1E510, -20h
+		mov	_boss_explode_angle_offset, -20h
 
 loc_1181C:
 		mov	ax, word_1EB26
@@ -7267,7 +6998,7 @@ loc_127A5:
 		mov	dword_22D58, 0
 		mov	byte_22D56, 0
 		mov	byte_22D57, 0
-		mov	angle_1E510, 20h
+		mov	_boss_explode_angle_offset, 20h
 		mov	y_22D9C, 96
 		mov	ax, _scroll_line
 		add	y_22D9C, ax
@@ -8347,7 +8078,7 @@ rika_init	proc far
 		call	@dialog_pre$qv
 		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_PREBOSS
 		call	@dialog_post$qv
-		mov	angle_1E510, 20h
+		mov	_boss_explode_angle_offset, 20h
 		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 32)
 		mov	_boss_left_on_page[1 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 32)
 		mov	_boss_damage, 0
@@ -8492,7 +8223,7 @@ loc_13C7C:
 		push	ax
 		push	70h ; 'p'
 		push	word_1ED98
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		xor	ax, ax
 
 loc_13C8E:
@@ -9443,7 +9174,7 @@ meira_14519	proc near
 		add	ax, 24
 		push	ax
 		push	word_1EDAA
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		mov	bx, _boss_left_on_back_page
 		mov	ax, [bx]
 		add	ax, 24
@@ -9455,7 +9186,7 @@ meira_14519	proc near
 		mov	ax, word_1EDAA
 		add	ax, 0FFE8h
 		push	ax
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		mov	bx, _boss_left_on_back_page
 		mov	ax, [bx]
 		add	ax, 48
@@ -11042,7 +10773,7 @@ loc_15296:
 		mov	_boss_damage, 0
 		mov	byte_2066A, 0
 		mov	bullet_special_turns_max, 2
-		mov	angle_1E510, 0
+		mov	_boss_explode_angle_offset, 0
 		mov	byte_252F6, 0
 		mov	byte_252F7, 0
 		mov	word_250FE, 0
@@ -13451,7 +13182,7 @@ loc_167A0:
 		imul	ax, 0Eh
 		add	ax, 2
 		push	ax
-		call	sub_1C287
+		call	dot_square_ring_put
 		inc	si
 		mov	al, [bp+var_1]
 		add	al, 80h
@@ -18359,7 +18090,7 @@ loc_194E9:
 		mov	ah, 0
 		push	ax
 		push	10h
-		call	sub_1C287
+		call	dot_square_ring_put
 		inc	si
 		mov	al, [bp+var_1]
 		add	al, 80h
@@ -20373,7 +20104,7 @@ loc_1AA1A:
 		mov	byte_26D4D, 0
 		mov	byte_26D4E, 0
 		mov	byte_26D4F, 0
-		mov	angle_1E510, -20h
+		mov	_boss_explode_angle_offset, -20h
 		call	marisa_1B214
 		pop	si
 		pop	bp
@@ -20616,12 +20347,12 @@ marisa_1AC7B	proc near
 		add	ax, 40
 		push	ax
 		push	word_1EE9A
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		cmp	word_1EE9A, 18h
 		jl	short loc_1AD16
 		cmp	word_1EE9A, 38h	; '8'
 		jnz	short loc_1ACAA
-		mov	angle_1E510, 20h
+		mov	_boss_explode_angle_offset, 20h
 
 loc_1ACAA:
 		mov	ax, point_26D76.x
@@ -20633,12 +20364,12 @@ loc_1ACAA:
 		mov	ax, word_1EE9A
 		add	ax, 0FFE8h
 		push	ax
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		cmp	word_1EE9A, 30h	; '0'
 		jl	short loc_1AD16
 		cmp	word_1EE9A, 50h	; 'P'
 		jnz	short loc_1ACD5
-		mov	angle_1E510, 0
+		mov	_boss_explode_angle_offset, 0
 
 loc_1ACD5:
 		mov	ax, point_26D76.x
@@ -20650,7 +20381,7 @@ loc_1ACD5:
 		mov	ax, word_1EE9A
 		add	ax, 0FFD0h
 		push	ax
-		call	sub_FFF8
+		call	@BOSS_EXPLODE_RENDER$QIII
 		cmp	word_1EE9A, 40h
 		jl	short loc_1AD16
 		test	byte ptr word_1EE9A, 0Fh
@@ -22770,7 +22501,7 @@ loc_1BF53:
 		idiv	bx
 		add	al, 40h
 		push	ax
-		call	@BG_PARTICLE_ADD$QIIUC
+		call	@BG_PARTICLES_ADD$QIIUC
 
 loc_1BF78:
 		test	byte ptr _stage_frame, 1Fh
@@ -23167,7 +22898,9 @@ main_04_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_1C287	proc far
+public @DOT_SQUARE_RING_PUT$QIIII
+@DOT_SQUARE_RING_PUT$QIIII label far
+dot_square_ring_put	proc far
 
 var_4		= byte ptr -4
 @@angle		= byte ptr -3
@@ -23246,14 +22979,16 @@ loc_1C332:
 		pop	si
 		leave
 		retf	8
-sub_1C287	endp
+dot_square_ring_put	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
-sub_1C341	proc far
+public @DOT_SQUARE_RING_INVALIDATE$QIIII
+@DOT_SQUARE_RING_INVALIDATE$QIIII label far
+dot_square_ring_invalidate	proc far
 
 var_4		= byte ptr -4
 @@angle		= byte ptr -3
@@ -23330,7 +23065,7 @@ loc_1C3D2:
 		pop	si
 		leave
 		retf	8
-sub_1C341	endp
+dot_square_ring_invalidate	endp
 
 main_04_TEXT	ends
 
@@ -23896,6 +23631,8 @@ word_1E504	label word
 		db    0
 		db  2Fh	; /
 		db    0
+public _boss_explode_angle_offset
+_boss_explode_angle_offset label byte
 angle_1E510	db 20h
 		db 0
 public _player_patnum
@@ -24695,8 +24432,8 @@ byte_1FFF8	db ?
 public _bg_particle_unput_col
 _bg_particle_unput_col label byte
 byte_1FFF9	db ?
-public _bg_particle_unused_1
-_bg_particle_unused_1 label byte
+public _bg_particle_unused
+_bg_particle_unused label byte
 byte_1FFFA	db ?
 		db ?
 public _bg_particles
@@ -25119,10 +24856,10 @@ _laser_origin label word
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
-public _farfp_23A72, _farfp_23A76
-_farfp_23A72 label dword
+public _lasers_invalidate_func, _lasers_update_and_render_func
+_lasers_invalidate_func label dword
 farfp_23A72	dd ?
-_farfp_23A76 label dword
+_lasers_update_and_render_func label dword
 farfp_23A76	dd ?
 public _dialog_text, _dialog_box_cur, _restore_tile_mode_none_at_post
 _dialog_text	db (64 * DIALOG_BOX_LINES * DIALOG_LINE_SIZE) dup(?)

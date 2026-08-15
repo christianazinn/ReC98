@@ -38,6 +38,27 @@ void pascal far grcg_dot_square_put(int edge);
 // • ES is set to SEG_PLANE_B
 // • [edge] ≤ DOT_SQUARE_EDGE_MAX
 void pascal near grcg_dot_square_unput(int edge);
+
+/// Rings of dot squares
+/// --------------------
+/// Both walk a full 256-step circle around ([center_x], [center_y]) in
+/// [angle_step] steps, and derive the edge length of each square from the
+/// radius, as ((radius / 64) + 1). Their clipping box is one pixel wider on
+/// the left and 8 pixels shorter at the top than the playfield.
+
+// Blits one such ring. Assumes the GRCG to be active and set to the intended
+// color, and converts each point to VRAM space before blitting it.
+void pascal far dot_square_ring_put(
+	screen_x_t center_x, screen_y_t center_y, int radius, int angle_step
+);
+
+// Marks the tiles covered by one such ring for redrawing. Note that this does
+// *not* mirror dot_square_ring_put()'s conversion to VRAM space, because
+// tiles_invalidate_rect() expects unscrolled screen coordinates.
+void pascal far dot_square_ring_invalidate(
+	screen_x_t center_x, screen_y_t center_y, int radius, int angle_step
+);
+/// --------------------
 /// ----------
 
 struct bg_particle_t {
@@ -50,6 +71,10 @@ struct bg_particle_t {
 
 	// Edge length of this particle's dot square, in pixels. Recalculated
 	// from [speed] on every frame.
+	// The tree has no attested word for a square's side length — every other
+	// `edge` in it means "boundary of a region" — so this one is a coinage,
+	// kept for consistency with DOT_SQUARE_EDGE_MAX and
+	// [bg_particle_edge_step] above rather than because it has precedent.
 	uint8_t edge;
 
 	SubpixelLength8 speed;
@@ -58,7 +83,9 @@ struct bg_particle_t {
 static const int BG_PARTICLE_COUNT = 30;
 
 // Size of the box a particle is clipped against. Larger than the largest
-// square that can actually be blitted for one.
+// square that can actually be blitted for one — exactly as SPARK_W / SPARK_H
+// (th02/main/sparks.inc) are 8×8 for a spark that may be rendered as a single
+// dot, which is why these keep the plain `_W` / `_H` spelling anyway.
 static const pixel_t BG_PARTICLE_W = 8;
 static const pixel_t BG_PARTICLE_H = 8;
 
@@ -87,7 +114,10 @@ extern vc_t bg_particle_unput_col;
 void far bg_particles_reset(void);
 
 // Spawns a single particle at the given screen position, moving at [angle].
-void pascal far bg_particle_add(
+// Plural like sparks_add() and items_add(), which also spawn into an array:
+// every *_add() in the tree is named after the array it writes to, never after
+// the one entity it adds.
+void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 );
 
