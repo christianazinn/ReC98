@@ -67,6 +67,10 @@ void pascal near shot_option_add(
 // from [resident->shottype]; shot_b() and shot_c() are its two siblings.
 void near shot_a(void);
 
+// Fires one volley of shottype B's shot: first the player's own shots, then —
+// in the same slot scan — the option shots, once per button press.
+void near shot_b(void);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */
