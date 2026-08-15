@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, ITEM_TEXT, HUD_TEXT, main_01______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_______TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -1602,6 +1602,12 @@ POINTNUM_TEXT	ends
 
 main_01_____TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
+main_01_____TEXT	ends
+
+SCROLL_TEXT	segment	byte public 'CODE' use16
+SCROLL_TEXT	ends
+
+main_01______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3368,7 +3374,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01______TEXT	segment	byte public 'CODE' use16
+main_01_______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4534,7 +4540,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01______TEXT	ends
+main_01_______TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -4554,7 +4560,7 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01_______TEXT	segment	byte public 'CODE' use16
+main_01________TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4874,7 +4880,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01_______TEXT	ends
+main_01________TEXT	ends
 
 ; ===========================================================================
 
