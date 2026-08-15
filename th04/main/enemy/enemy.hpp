@@ -1,3 +1,6 @@
+#ifndef TH04_MAIN_ENEMY_ENEMY_HPP
+#define TH04_MAIN_ENEMY_ENEMY_HPP
+
 // TH05's enemy_t has to be declared before this file's `extern enemies[]`, so
 // th05/main/enemy/enemy.hpp includes these two itself and then includes this
 // file. ReC98's headers have no include guards, so skip them in that case.
@@ -134,3 +137,5 @@ extern "C" void pascal near enemy_bullet_template_push(
 #else
 extern "C" void pascal near enemy_bullet_template_push(enemy_t near &enemy);
 #endif
+
+#endif /* TH04_MAIN_ENEMY_ENEMY_HPP */
