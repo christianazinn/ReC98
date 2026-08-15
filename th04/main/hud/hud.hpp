@@ -61,6 +61,27 @@ void pascal near hud_hp_update_and_render(int hp_cur, int hp_max);
 
 static const int HUD_HP_FILL_FRAMES = BAR_MAX;
 
+// Renders both the current and the high score, including the continues digit.
+// Assembly in both games (th04/main/scoreupd.asm).
+extern "C" void pascal near hud_score_put(void);
+
+// Displays the remaining bombs and lives, as up to 5 (resp. 6) gaiji, or as a
+// number if there are more. Assembly in both games.
+extern "C" void pascal hud_bombs_put(void);
+extern "C" void pascal hud_lives_put(void);
+
+// Displays the point item counter(s).
+extern "C" void pascal hud_point_items_put(void);
+
+// Displays the dream row: TH04's per-point-item score, TH05's dream meter.
+extern "C" void pascal hud_dream_put(void);
+
 // Displays [stage_graze] in the graze row.
 void hud_graze_put();
+
+// Displays [power] as a bar.
+extern "C" void pascal hud_power_put(void);
+
+// Renders the entire HUD, reflecting all current values.
+extern "C" void pascal hud_put(void);
 // ----------
