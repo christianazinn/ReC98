@@ -1,4 +1,6 @@
-#pragma option -zC_TEXT -zPTEXT -2
+// The segment is named by th02/spark.cpp, this file's object wrapper, which
+// also compiles th02/main/bg_particle.cpp ahead of this one. (kb/codegen/0112)
+#pragma option -2
 
 #include <stddef.h>
 #include "th02/main/spark.hpp"

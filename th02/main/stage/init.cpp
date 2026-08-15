@@ -48,6 +48,7 @@
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
+#include "th02/main/bg_particle.hpp"
 
 // Still ASM in th02_main.asm.
 // ---------------------------
@@ -55,7 +56,6 @@ extern "C" void pascal near text_wipe(void);
 
 extern "C" void near sub_C5B0(void);
 extern "C" void far sub_1CD36(void);
-extern "C" void far sub_3DDE(void);
 extern "C" void far sub_129DD(void);
 extern "C" void far sub_129FC(void);
 extern "C" void far sub_16A6B(void);
@@ -245,7 +245,7 @@ void near stage_init(void)
 	pi_put_8(96, 144, 0);
 	bullets_and_sparks_init();
 	sub_16A6B();
-	sub_3DDE();
+	bg_particles_reset();
 	sub_129DD();
 	bombs_reset();
 	snd_se_reset();
