@@ -71,6 +71,10 @@ void near shot_a(void);
 // in the same slot scan — the option shots, once per button press.
 void near shot_b(void);
 
+// Fires one volley of shottype C's shot. Unlike its two siblings, the option
+// half only fires on some calls — see [shot_c_cycle].
+void near shot_c(void);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */

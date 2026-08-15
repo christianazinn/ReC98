@@ -498,3 +498,209 @@ void near shot_b(void)
 // Back to the build's default alignment, so that the next function appended to
 // this TU does not silently inherit shot_b()'s table padding.
 #pragma option -a1
+
+// Incremented once per shot_c() call and used as the phase of a repeating
+// cycle: shottype C fires its option volley only on some calls, and which ones
+// depends on [shot_level]. Referenced nowhere but shot_c().
+extern "C" uint8_t shot_c_cycle;
+
+void near shot_c(void)
+{
+	register int volley_i;
+	register int volley_last;
+	int tmp;
+	unsigned char options_phase;
+
+	volley_i = 0;
+	tmp = 0;
+	volley_last = 0;
+	options_phase = 0;
+	shot_c_cycle++;
+	shot_spawn_top = TO_SP(player_topleft.y + SHOT_SPAWN_TOP_OFFSET);
+	if(shot_level >= 2) {
+		byte_1E519 = 0x7C;
+	}
+	for(shot_slot_i = 0; shot_slot_i < SHOT_COUNT; shot_slot_i++) {
+		if(shots[shot_slot_i].flag != F_FREE) {
+			continue;
+		}
+		if(options_phase == 0) {
+			switch(shot_level) {
+			case 0:
+			case 1:
+			case 2:
+				shot_add(8, 192);
+				break;
+
+			case 3:
+			case 4:
+			case 5:
+				shot_add(8, (randring1_next8_and(3) + 190));
+				break;
+
+			case 6:
+			case 7:
+			case 8:
+				shot_add(8, (randring1_next8_and(7) + 188));
+				break;
+
+			case SHOT_LEVEL_MAX:
+				if(volley_i == 0) {
+					shot_add(8, 192);
+				} else {
+					if(volley_i == 1) {
+						tmp = -16;
+
+						// The second shot of the volley switches the whole
+						// rest of it to a different sprite.
+						byte_1E519 = 0x31;
+					} else if(volley_i == 2) {
+						tmp = 32;
+					} else if(volley_i == 3) {
+						tmp = -16;
+					} else if(volley_i == 4) {
+						tmp = 32;
+					}
+					shot_add(tmp, 192);
+
+					// The last three shots start 16 pixels higher up. Indexed
+					// in SPPoints here, unlike shot_add()'s word indexing.
+					if(volley_i >= 3) {
+						shots[shot_slot_i].pos_on_page[page_back].y.v -= TO_SP(16);
+					}
+				}
+				if((shot_c_cycle % 3) == 0) {
+					volley_last = 4;
+				} else {
+					volley_last = 0;
+				}
+				break;
+			}
+			if(volley_i == volley_last) {
+				options_phase = 1;
+				volley_i = 0;
+				continue;
+			}
+		} else {
+			if(shot_level < 2) {
+				break;
+			}
+
+			// How often the option volley fires, per shot_level. The masks are
+			// spelled with & rather than % because [shot_c_cycle] is unsigned
+			// and Turbo C++ only turns a power-of-two modulo into a mask when
+			// the source already says so. (kb/codegen/0128)
+			if(shot_level < 3) {
+				if(byte_205DE != 0) {
+					break;
+				}
+			} else if(shot_level < 4) {
+				if((shot_c_cycle % 5) != 0) {
+					break;
+				}
+			} else if(shot_level < 6) {
+				if((shot_c_cycle & 3) != 0) {
+					break;
+				}
+			} else if(shot_level < SHOT_LEVEL_MAX) {
+				if((shot_c_cycle % 3) != 0) {
+					break;
+				}
+			} else {
+				if((shot_c_cycle & 1) != 0) {
+					break;
+				}
+			}
+			switch(shot_level) {
+			case 2:
+			case 3:
+				shot_option_add((volley_i * OPTION_DISTANCE), 0, -4);
+				volley_last = 1;
+				break;
+
+			case 4:
+				shot_option_add((volley_i * OPTION_DISTANCE), 0, -16);
+				volley_last = 1;
+				break;
+
+			case 5:
+				if(volley_i == 0) {
+					shot_option_add(0, 4, -16);
+				} else if(volley_i == 1) {
+					shot_option_add(48, -4, -16);
+				} else if(volley_i == 2) {
+					shot_option_add(-8, 0, -16);
+				} else {
+					shot_option_add(56, 0, -16);
+				}
+				volley_last = 3;
+				break;
+
+			case 6:
+				if(volley_i == 0) {
+					shot_option_add(0, 6, -24);
+				} else if(volley_i == 1) {
+					shot_option_add(48, -6, -24);
+				} else if(volley_i == 2) {
+					shot_option_add(-8, 0, -24);
+				} else {
+					shot_option_add(56, 0, -24);
+				}
+				volley_last = 3;
+				break;
+
+			case 7:
+				if(volley_i == 0) {
+					shot_option_add(0, 6, -26);
+				} else if(volley_i == 1) {
+					shot_option_add(48, -6, -26);
+				} else if(volley_i == 2) {
+					shot_option_add(-8, 0, -26);
+				} else {
+					shot_option_add(56, 0, -26);
+				}
+				volley_last = 3;
+				break;
+
+			case 8:
+				if(volley_i == 0) {
+					shot_option_add(0, 10, -48);
+				} else if(volley_i == 1) {
+					shot_option_add(48, -10, -48);
+				} else if(volley_i == 2) {
+					shot_option_add(-8, -4, -48);
+				} else {
+					shot_option_add(56, 4, -48);
+				}
+				volley_last = 3;
+				break;
+
+			case SHOT_LEVEL_MAX:
+				if(volley_i == 0) {
+					shot_option_add(0, -10, -160);
+				} else if(volley_i == 1) {
+					shot_option_add(48, 10, -160);
+				} else if(volley_i == 2) {
+					shot_option_add(-8, 20, -140);
+				} else if(volley_i == 3) {
+					shot_option_add(56, -20, -140);
+				} else if(volley_i == 4) {
+					shot_option_add(-16, -7, -120);
+				} else {
+					shot_option_add(64, 7, -120);
+				}
+				if((shot_c_cycle & 3) == 0) {
+					volley_last = 5;
+				} else {
+					volley_last = 3;
+				}
+				break;
+			}
+			if(volley_i == volley_last) {
+				byte_205DE = 1;
+				break;
+			}
+		}
+		volley_i++;
+	}
+}
