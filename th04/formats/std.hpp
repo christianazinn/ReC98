@@ -33,5 +33,10 @@ void near std_load(void);
 // Frees [std_seg] if previously allocated.
 void near std_free(void);
 
+// Size of one enemy spawn record inside a stage instruction. TH04 reads six
+// of these bytes and passes them to enemies_add(); TH05 lets enemies_add()
+// read them itself.
+#define STD_ENEMY_SPAWN_SIZE 8
+
 // Runs the next stage instruction at [std_ip].
 void pascal std_run();

@@ -7564,46 +7564,9 @@ loc_15FB9:
 		retn
 enemies_add	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @STD_RUN$QV
-@std_run$qv proc far
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		nopcall	@midboss_activate_if_stage_frame_$qv
-		les	bx, _std_ip
-		mov	ax, es:[bx]
-		cmp	ax, _stage_frame
-		jnz	short locret_16063
-		add	word ptr _std_ip, 2
-		les	bx, _std_ip
-		mov	al, es:[bx]
-		mov	[bp+var_1], al
-		inc	word ptr _std_ip
-
-loc_16035:
-		cmp	_midboss_active, 0
-		jnz	short loc_1603F
-		call	enemies_add
-
-loc_1603F:
-		add	word ptr _std_ip, 8
-		dec	[bp+var_1]
-		cmp	[bp+var_1], 0
-		ja	short loc_16035
-		les	bx, _std_ip
-		cmp	word ptr es:[bx], 0
-		jnz	short locret_16063
-		setfarfp	_stage_vm, nullfunc_far
-
-locret_16063:
-		leave
-		retf
-@std_run$qv endp
+	; std_run() now lives in th04/formats/std_run.cpp, which appends to this
+	; segment ahead of th0N/enm_btpl.cpp.
+	@STD_RUN$QV procdesc pascal far
 
 	; enemy_bullet_template_push() now lives in
 	; th04/main/enemy/bullet_template.cpp, which appends to this segment.

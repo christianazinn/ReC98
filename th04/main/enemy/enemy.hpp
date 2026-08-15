@@ -95,6 +95,18 @@ extern enemy_t near *enemy_cur;
 void near enemies_invalidate(void);
 void pascal near enemies_render(void);
 
+// Spawns the enemies described by one .STD stage instruction. TH04 takes the
+// spawn record's fields from its caller; TH05 reads them off [std_ip] itself.
+// (The two unnamed parameters are still `arg_0` / `arg_6` in the dump.)
+#if (GAME == 5)
+extern "C" void pascal near enemies_add(void);
+#else
+extern "C" void pascal near enemies_add(
+	unsigned int arg_6, subpixel_t center_x, subpixel_t center_y,
+	unsigned int arg_0
+);
+#endif
+
 // Copies an enemy's bullet template into the global [bullet_template], ready
 // for bullet_template_tune() and bullets_add_regular(). TH04 resolves the
 // member itself, TH05 expects the caller to have done it.
