@@ -470,7 +470,7 @@ loc_B15D:
 		mov	_turbo_mode, al
 
 loc_B16F:
-		call	sub_10398
+		call	_score_highest_update_and_reset
 		call	@hiscore_load$qv
 		mov	al, _rank
 		mov	ah, 0
@@ -2573,63 +2573,14 @@ include th04/formats/scoredat_code_asm.asm
 SCORE_TEXT ends
 
 LASER_RH_TEXT segment byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @SHINKI_STAGE_BACKDROP_COLORFILL$QV
-@shinki_stage_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	  0, 104
-		GRCG_FILL_PLAYFIELD_ROWS	296,  72
-		pop	di
-		retn
-@shinki_stage_backdrop_colorfill$qv	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @boss_bg_fill_col_0$qv
-@boss_bg_fill_col_0$qv	proc near
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	0, PLAYFIELD_H
-		GRCG_OFF_VIA_XOR al
-		pop	di
-		retn
-@boss_bg_fill_col_0$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @shinki_bg_type_d_colorfill$qv
-@shinki_bg_type_d_colorfill$qv	proc near
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	0, 240
-		GRCG_OFF_VIA_XOR al
-		pop	di
-		retn
-@shinki_bg_type_d_colorfill$qv	endp
+	; shinki_stage_backdrop_colorfill(), boss_bg_fill_col_0() and
+	; shinki_bg_type_d_colorfill() were the entire root contribution to this
+	; segment. They now live in th05/main/boss/colorfill.cpp, which
+	; th05/laser_rh.cpp includes ahead of the laser code so that they keep the
+	; head of the segment.
+	; The declaration stays behind with a zero-length contribution, because
+	; segment order in the image comes from the order of first appearance in
+	; the link, and th05_main.asm is what establishes it.
 LASER_RH_TEXT	ends
 
 main_TEXT	segment	word public 'CODE' use16
@@ -2738,39 +2689,12 @@ BOSS_EXP_TEXT	ends
 ; alignment as before, so nothing moves.
 EXECL_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+	; score_last_commit() -- the whole root contribution to this segment --
+	; now lives in th04/main/execl.cpp under #if (GAME == 5), ahead of
+	; GameExecl() in the same object, so it keeps the head of the segment.
+	; TH04's counterpart is still `sub_E7DE` in th04_main.asm, and the TH04
+	; arm of that #if still calls it.
 
-; Attributes: bp-based frame
-
-public _sub_F6E4
-_sub_F6E4 label near
-sub_F6E4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_F6FB
-; ---------------------------------------------------------------------------
-
-loc_F6EC:
-		mov	al, _score[si]
-		les	bx, _resident
-		assume es:nothing
-		add	bx, si
-		mov	es:[bx+resident_t.score_last], al
-		inc	si
-
-loc_F6FB:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_F6EC
-		call	sub_10398
-		pop	si
-		pop	bp
-		retn
-sub_F6E4	endp
-
-; The C++ contribution to EXECL_TEXT goes here, at the original address of
-; GameExecl().
 EXECL_TEXT	ends
 
 ; ===========================================================================
@@ -3176,7 +3100,7 @@ loc_FBB5:
 		nopcall	hud_lives_put
 		nopcall	hud_bombs_put
 		inc	_continues_used
-		call	sub_10398
+		call	_score_highest_update_and_reset
 		call	hud_score_put
 		mov	al, Q_KEEP_RUNNING
 		jmp	short loc_FBF7
@@ -3432,7 +3356,8 @@ HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-sub_10398	proc near
+public _score_highest_update_and_reset
+_score_highest_update_and_reset	proc near
 		push	bp
 		mov	bp, sp
 		push	si
@@ -3483,7 +3408,7 @@ loc_103E9:
 		pop	si
 		pop	bp
 		retn
-sub_10398	endp
+_score_highest_update_and_reset	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================

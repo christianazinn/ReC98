@@ -126,169 +126,15 @@ maine_01_TEXT	segment	byte public 'CODE' use16
 		;org 3
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @extra_unlock_animate$qv
-@extra_unlock_animate$qv proc far
-		push	bp
-		mov	bp, sp
-		call	@scoredat_is_extra_unlocked$qv
-		or	ax, ax
-		jz	loc_B07D
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jnz	short loc_B07D
-		call	@pi_load$qinxc c, 0, offset aAll_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		push	2
-		call	palette_black_in
-		call	@frame_delay$qi pascal, 150
-		call	@pi_load$qinxc c, 0, offset aBut_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		call	@key_delay$qv
-		push	5
-		call	palette_black_out
-
-loc_B07D:
-		pop	bp
-		retf
-@extra_unlock_animate$qv endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B07F	proc far
-		push	bp
-		mov	bp, sp
-		call	@scoredat_is_extra_unlocked$qv
-		or	ax, ax
-		jz	loc_B115
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@pi_load$qinxc c, 0, offset aAll_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		push	2
-		call	palette_black_in
-		call	@frame_delay$qi pascal, 150
-		call	@pi_load$qinxc c, 0, offset aExtra_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		call	@key_delay$qv
-		push	5
-		call	palette_black_out
-
-loc_B115:
-		pop	bp
-		retf
-sub_B07F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; int __cdecl main(int _argc, const char **_argv, const	char **_envp)
-public _main
-_main		proc far
-
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		call	@cfg_load$qv
-		or	ax, ax
-		jz	loc_B1FE
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.stage], 7Fh
-		jnz	loc_B1FE
-		call	@game_init_main$qv
-		call	gaiji_backup
-		push	ds
-		push	offset aMikoft_bft ; "MIKOFT.bft"
-		call	gaiji_entry_bfnt
-		call	_snd_pmd_resident
-		call	_snd_mmd_resident
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.bgm_mode], 0
-		jnz	short loc_B161
-		mov	_snd_midi_active, 0
-		jmp	short loc_B189
-; ---------------------------------------------------------------------------
-
-loc_B161:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.bgm_mode], 1
-		jnz	short loc_B173
-		mov	_snd_midi_active, 0
-		jmp	short loc_B184
-; ---------------------------------------------------------------------------
-
-loc_B173:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.bgm_mode], 2
-		jnz	short loc_B189
-		mov	al, _snd_midi_possible
-		mov	_snd_midi_active, al
-
-loc_B184:
-		call	_snd_determine_mode
-
-loc_B189:
-		graph_accesspage 0
-		mov	dx, 164	; Port 00A4h: Page display register
-		out	dx, al
-		call	super_entry_bfnt pascal, ds, offset aEndft_bft ; "endft.bft"
-		call	@frame_delay$qi pascal, 100
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.rank], 4
-		jz	short loc_B1C2
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jz	short loc_B1BA
-		call	@end_bad_animate$qv
-		jmp	short loc_B1BD
-; ---------------------------------------------------------------------------
-
-loc_B1BA:
-		call	@end_good_animate$qv
-
-loc_B1BD:
-		call	@staffroll_and_verdict_animate$qv
-		jmp	short loc_B1C6
-; ---------------------------------------------------------------------------
-
-loc_B1C2:
-		call	sub_B07F
-
-loc_B1C6:
-		mov	PaletteTone, 50
-		call	far ptr	palette_show
-		call	@regist_menu$qv
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	_execl c, offset path, ds, offset path, ds, large 0
-
-loc_B1FE:
-		pop	bp
-		retf
-_main		endp
+; This segment holds no code of its own any more. All three of its bodies are
+; th02/end/end.cpp's, contributed ahead of this object because end.cpp links
+; first; what is left here is a zero-byte anchor that keeps the SEGDEF and the
+; group entry alive. main() is called main_entry() over there and exported
+; under its original name through the alias below, because a C++ function
+; literally named `main` would come with a code segment of its own and shift
+; every address in this group (kb/codegen 0040).
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
 maine_01_TEXT	ends
 
@@ -322,13 +168,6 @@ maine_04_TEXT	ends
 
 	.data
 
-aAll_pi = ($ - 7)
-aBut_pi		db 'but.pi',0
-aExtra_pi	db 'extra.pi',0
-aMikoft_bft	db 'MIKOFT.bft',0
-aEndft_bft	db 'endft.bft',0
-; char path[]
-path		db 'op',0
 include libs/master.lib/bfnt_id[data].asm
 include libs/master.lib/clip[data].asm
 include libs/master.lib/edges[data].asm
