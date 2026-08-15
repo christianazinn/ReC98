@@ -1126,12 +1126,13 @@ void near staffroll_and_verdict_animate(void)
 // MAINE.EXE's second code segment
 // -------------------------------
 // ZUN kept these in the same translation unit as the verdict sequence above,
-// and the .PI filename literals prove it: `all.pi` sits in the last 7 bytes of
-// this object's `_DATA` contribution, immediately before `but.pi` — which used
-// to be th02_maine.asm's first `.data` byte, reached from the dump by the
-// alias `aAll_pi = ($ - 7)`. Re-spelling it as an ordinary literal here puts it
-// back where it belongs; `-d` (merge duplicate strings) makes the second use
-// free. [verified-by-oracle]
+// and the .PI filename literals prove it: "all.pi" occupied the last 7 bytes of
+// this object's `_DATA` contribution, immediately before "but.pi", which used
+// to be th02_maine.asm's first `.data` byte. The dump reached backwards into
+// those 7 bytes with a `$`-relative equate, and this object had to pad its
+// copyright string with them to keep the layout; both of those hacks are gone
+// now that the literal is spelled here, where it belongs. `-d` (merge
+// duplicate strings) makes the second use free. [verified-by-oracle]
 //
 // The call site above still needs its hand-written `push cs`: these functions
 // are `far` and in a DIFFERENT segment of the same group, which is the one case
