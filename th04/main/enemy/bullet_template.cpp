@@ -19,11 +19,11 @@
 
 #if (GAME == 5)
 extern "C" void pascal near enemy_bullet_template_push(
-	BulletTemplate near &tmpl
+	BulletTemplate near &src
 )
 {
 	_CX = (sizeof(BulletTemplate) / sizeof(uint16_t));
-	prepare_si_di(FP_OFF(&bullet_template), 0, FP_OFF(&tmpl), 0);
+	prepare_si_di(FP_OFF(&bullet_template), 0, FP_OFF(&src), 0);
 	asm { push ds; pop es; }
 	asm { rep movsw; }
 }
