@@ -974,58 +974,10 @@ SCROLL_TEXT	ends
 
 SHOT_TEXT	segment	byte public 'CODE' use16
 	@SHOT_ADD$QIUC procdesc pascal near
+	@SHOT_OPTION_ADD$QIII procdesc pascal near
 SHOT_TEXT	ends
 
 main_01______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_CAD2	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	ax, word_205E2
-		shl	ax, 4
-		add	ax, offset byte_20378
-		mov	si, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, ax
-		mov	word ptr [si], (1 shl 8) + 1
-		mov	bx, _player_option_left_left_on_back_
-		mov	ax, [bx]
-		add	ax, [bp+arg_4]
-		shl	ax, 4
-		mov	bx, dx
-		add	bx, bx
-		mov	[bx+si+2], ax
-		mov	bx, _player_option_left_top_on_back_p
-		mov	ax, [bx]
-		shl	ax, 4
-		mov	bx, dx
-		add	bx, bx
-		mov	[bx+si+4], ax
-		mov	ax, [bp+arg_2]
-		mov	[si+0Ah], ax
-		mov	ax, [bp+arg_0]
-		mov	[si+0Ch], ax
-		mov	al, byte_1E51A
-		mov	ah, 0
-		add	ax, 256
-		mov	[si+0Eh], ax
-		pop	si
-		pop	bp
-		retn	6
-sub_CAD2	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -1642,7 +1594,7 @@ loc_CF36:
 		imul	ax, 30h
 		push	ax
 		pushd	0FFFCh
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		mov	di, 1
 		jmp	loc_D029
 ; ---------------------------------------------------------------------------
@@ -1677,7 +1629,7 @@ loc_CF78:
 		push	0FFFAh
 
 loc_CF7A:
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		mov	di, 3
 		jmp	loc_D029
 ; ---------------------------------------------------------------------------
@@ -1728,7 +1680,7 @@ loc_CFCE:
 		push	0FFE8h
 
 loc_CFD0:
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		mov	di, 5
 
 loc_CFD6:
@@ -1777,7 +1729,7 @@ loc_D021:
 		push	0FFD8h
 
 loc_D023:
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		mov	di, 5
 
 loc_D029:
@@ -2046,7 +1998,7 @@ loc_D209:
 		pushd	0FFF0h
 
 loc_D215:
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		mov	di, 1
 		jmp	loc_D335
 ; ---------------------------------------------------------------------------
@@ -2080,7 +2032,7 @@ loc_D23F:
 
 loc_D241:
 		push	0FFF0h
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		jmp	loc_D332
 ; ---------------------------------------------------------------------------
 
@@ -2113,7 +2065,7 @@ loc_D26A:
 
 loc_D26C:
 		push	0FFE8h
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		jmp	loc_D332
 ; ---------------------------------------------------------------------------
 
@@ -2146,7 +2098,7 @@ loc_D295:
 
 loc_D297:
 		push	0FFE6h
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		jmp	loc_D332
 ; ---------------------------------------------------------------------------
 
@@ -2176,7 +2128,7 @@ loc_D2C2:
 
 loc_D2C8:
 		push	0FFD0h
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		jmp	short loc_D332
 ; ---------------------------------------------------------------------------
 
@@ -2226,7 +2178,7 @@ loc_D321:
 		push	0FF88h
 
 loc_D323:
-		call	sub_CAD2
+		call	@SHOT_OPTION_ADD$QIII
 		test	byte_20350, 3
 		jnz	short loc_D332
 		mov	di, 5

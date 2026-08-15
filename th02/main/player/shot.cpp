@@ -23,6 +23,9 @@
 // it needs that function's shottype table, not this one.
 extern "C" uint8_t byte_1E519;
 
+// The same, for option shots.
+extern "C" uint8_t byte_1E51A;
+
 // The vector length of a player shot, in pixels. Identical to TH04 and TH05's
 // shot_velocity_set().
 static const int SHOT_VELOCITY = 12;
@@ -52,4 +55,34 @@ void pascal near shot_add(pixel_t left_offset, unsigned char angle)
 	p->velocity.y.v = ((SinTable8[_DL] * SHOT_VELOCITY) >> SUBPIXEL_BITS);
 
 	shot_patnum_and_from_option(p) = byte_1E519;
+}
+
+void pascal near shot_option_add(
+	pixel_t left_offset, subpixel_t velocity_x, subpixel_t velocity_y
+)
+{
+	register shot_t near *p;
+
+	p = &shots[shot_slot_i];
+	_DX = (page_back * 2);
+
+	// [decay_cel] starts at 1 rather than 0: shots_update_and_render() runs a
+	// different, [byte_1E518]-paced animation on option shots and uses this
+	// field as its counter instead of as a decay counter.
+	shot_flag_and_decay_cel(p) = ((1 << 8) + F_ALIVE);
+
+	#define x_words(p) reinterpret_cast<subpixel_t near *>(&(p)->pos_on_page[0].x)
+	#define y_words(p) reinterpret_cast<subpixel_t near *>(&(p)->pos_on_page[0].y)
+	x_words(p)[_DX] = TO_SP(
+		*player_option_left_left_on_back_page + left_offset
+	);
+	y_words(p)[_DX] = TO_SP(*player_option_left_top_on_back_page);
+	#undef y_words
+	#undef x_words
+
+	p->velocity.x.v = velocity_x;
+	p->velocity.y.v = velocity_y;
+
+	// The high byte is [from_option].
+	shot_patnum_and_from_option(p) = (byte_1E51A + (1 << 8));
 }

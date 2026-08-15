@@ -56,6 +56,12 @@ extern "C" subpixel_t shot_spawn_top;
 // [angle].
 void pascal near shot_add(pixel_t left_offset, unsigned char angle);
 
+// Spawns one option shot into [shot_slot_i], [left_offset] pixels to the right
+// of the left option's left edge, with an explicit velocity vector.
+void pascal near shot_option_add(
+	pixel_t left_offset, subpixel_t velocity_x, subpixel_t velocity_y
+);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */
