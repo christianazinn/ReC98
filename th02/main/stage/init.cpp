@@ -40,49 +40,8 @@
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
-
-// Per-stage callback slots
-// ------------------------
-// Unlike TH03-TH05's __pascal callbacks (platform.h's farfunc_t_near), every
-// function TH02 installs into these is __cdecl: th02/main/null.asm publishes
-// the defaults as `@nullfunc_void$qv` / `@nullfunc_false$qv` in lower case,
-// which is Borland's __cdecl decoration (kb/codegen/0086). For a parameterless
-// call the two conventions emit identical bytes, which is why
-// th02/main/stage/loop.cpp can get away with declaring the same variables as
-// farfunc_t_near — but only this spelling can be assigned to without a cast.
-
-extern void (far *boss_bg_render)(void);
-extern stage_progression_t (far *boss_update)(void);
-extern void (far *boss_bg_render_func)(void);
-extern stage_progression_t (far *boss_update_func)(void);
-extern void (far *boss_init)(void);
-extern void (far *boss_end)(void);
-
-// Erases the stage title from TRAM at [stage_frame] == 160, then disables
-// itself.
-extern void (far *stage_title_unput)(void);
-
-extern void (far *enemies_invalidate)(void);
-extern void (far *enemies_update_and_render)(void);
-
-// Per-stage foreground/background effects.
-extern void (far *stage_invalidate)(void);
-extern void (far *stage_update_and_render)(void);
-
-// Only installed for Stage 4 and Extra. What they render is not evidenced,
-// hence the neutral names. [static]
-extern void (far *farfp_23A72)(void);
-extern void (far *farfp_23A76)(void);
-
-// Starts the boss fight once the map has been scrolled to its end, then
-// disables itself.
-extern void (far *boss_activate_if_scroll_done)(void);
-
-// Returns `true` once the stage is over. Has to be [bool16]: ZUN's loop tests
-// the result with `or ax, ax` (kb/codegen/0090).
-extern bool16 (far *stage_should_end)(void);
-// ------------------------
 
 // Still ASM in th02_main.asm.
 // ---------------------------

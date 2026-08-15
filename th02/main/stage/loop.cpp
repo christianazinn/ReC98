@@ -30,6 +30,7 @@
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
 
 // Turbo C++ initializer template for stage_loop()'s local
@@ -37,44 +38,6 @@
 // because its address is in the middle of that contribution, and can
 // therefore not be regenerated from this translation unit.
 extern long scroll_line_on_page_init;
-
-// Per-frame callback slots, all defaulting to nullfunc_void() / _false().
-// -----------------------------------------------------------------------
-
-// Erases the stage title from TRAM at [stage_frame] == 160, then disables
-// itself.
-extern farfunc_t_near stage_title_unput;
-
-extern farfunc_t_near enemies_invalidate;
-extern farfunc_t_near enemies_update_and_render;
-
-// Per-stage foreground/background effects. TH04 and TH05 declare the same
-// pair of per-stage slots as stage_invalidate / stage_render in
-// th04/main/stage/stage.hpp; TH02 runs one combined update-and-render pass,
-// hence the second name.
-extern farfunc_t_near stage_invalidate;
-extern farfunc_t_near stage_update_and_render;
-
-// Only installed for Stage 4 and Extra. What they render is not evidenced,
-// hence the neutral names. [static]
-extern farfunc_t_near farfp_23A72;
-extern farfunc_t_near farfp_23A76;
-
-// Starts the boss fight once the map has been scrolled to its end, then
-// disables itself.
-extern farfunc_t_near boss_activate_if_scroll_done;
-
-// Returns `true` once the stage is over, which ends this loop.
-// The slot's default installed function is `bool nullfunc_false(void)`, and
-// the sibling slot above is a `bool` too, but this one has to be [bool16]:
-// ZUN's code tests the result with `or ax, ax`, and a `bool` return compiles
-// to `or al, al` — a real behavioral difference for any installed function
-// that returns a nonzero high byte. (kb/codegen/0090)
-extern bool16 (far pascal *stage_should_end)(void);
-// -----------------------------------------------------------------------
-
-extern void (far pascal *boss_bg_render)(void);
-extern stage_progression_t (far pascal *boss_update)(void);
 
 extern "C" void near bgm_show(void);
 extern "C" void near sub_E2D9(void);
