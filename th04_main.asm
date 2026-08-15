@@ -936,9 +936,8 @@ include th04/main/tile/fill_ini.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
-public _sub_BAEE
-_sub_BAEE label near
-sub_BAEE	proc near
+public _tiles_egc_copy_scrolled_lines
+_tiles_egc_copy_scrolled_lines	proc near
 		push	bp
 		push	si
 		push	di
@@ -1025,7 +1024,7 @@ loc_BB8F:
 		pop	si
 		pop	bp
 		retn
-sub_BAEE	endp
+_tiles_egc_copy_scrolled_lines	endp
 
 include th04/main/tile/redraw.asm
 include th04/main/scroll_y_1.asm

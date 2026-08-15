@@ -32,14 +32,6 @@
 struct map_section_tiles_t;
 extern map_section_tiles_t __seg* map_seg;
 
-// EGC-copies [scroll_lines_pending] lines of the playfield from the tile
-// source area to the page currently being drawn. Still ZUN's hand-written
-// assembly in CIRCLE_TEXT, and still unnamed: it pushes BP and then uses it as
-// the scratch register for the tile word it copies, without ever establishing
-// a frame (kb/conventions/handwritten-asm-tells.md). Declared locally, the way
-// th04/main/entry.cpp declares sub_AED0() and sub_B29E().
-extern "C" void near sub_BAEE(void);
-
 // Indexes [TILE_SECTION_OFFSETS] with a byte offset, the way the original
 // does: the section ID is doubled in place rather than scaled by the index.
 #define TILE_SECTION_OFFSETS_bytewise \
@@ -153,7 +145,7 @@ tile_row_still_in_section:
 		return;
 	}
 	egc_start_copy_noframe();
-	sub_BAEE();
+	tiles_egc_copy_scrolled_lines();
 	scroll_lines_pending = 0;
 	egc_off();
 }
