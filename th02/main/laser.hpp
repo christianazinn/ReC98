@@ -3,7 +3,8 @@
 /// A laser is anchored at a point inside the playfield, plays a 32×32 charge
 /// animation there, then extends a 16-pixel-wide beam straight down to the
 /// bottom of the playfield. It only damages the player during a single phase
-/// of that animation. Five different bosses and midbosses spawn them; the two
+/// of that animation. Four bosses and midbosses spawn them, over eight procs
+/// and 27 call sites (the census is under [laser_wait_frames] below); the two
 /// per-frame functions are installed as stage callbacks by
 /// lasers_callbacks_set(), which stage_init() calls for Stage 4 and Extra.
 
