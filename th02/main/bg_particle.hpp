@@ -38,6 +38,27 @@ void pascal far grcg_dot_square_put(int edge);
 // • ES is set to SEG_PLANE_B
 // • [edge] ≤ DOT_SQUARE_EDGE_MAX
 void pascal near grcg_dot_square_unput(int edge);
+
+/// Rings of dot squares
+/// --------------------
+/// Both walk a full 256-step circle around ([center_x], [center_y]) in
+/// [angle_step] steps, and derive the edge length of each square from the
+/// radius, as ((radius / 64) + 1). Their clipping box is one pixel wider on
+/// the left and 8 pixels shorter at the top than the playfield.
+
+// Blits one such ring. Assumes the GRCG to be active and set to the intended
+// color, and converts each point to VRAM space before blitting it.
+void pascal far dot_square_ring_put(
+	screen_x_t center_x, screen_y_t center_y, int radius, int angle_step
+);
+
+// Marks the tiles covered by one such ring for redrawing. Note that this does
+// *not* mirror dot_square_ring_put()'s conversion to VRAM space, because
+// tiles_invalidate_rect() expects unscrolled screen coordinates.
+void pascal far dot_square_ring_invalidate(
+	screen_x_t center_x, screen_y_t center_y, int radius, int angle_step
+);
+/// --------------------
 /// ----------
 
 struct bg_particle_t {
