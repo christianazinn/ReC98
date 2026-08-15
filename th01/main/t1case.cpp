@@ -3536,6 +3536,23 @@ void far t1case_round_start(void)
 	t1case_handoff_store();
 }
 
+void far t1case_route_note(void)
+{
+	// No mode guard of its own: t1case_split_row() already returns for DISABLED
+	// and ERROR, and this site is only compiled into the mod branch. A row here
+	// consumes no case record, so a case that never reaches SinGyoku is
+	// unaffected and a case that does keeps every cursor it had.
+	t1case_split_row(T1SPLIT_EVENT_ROUTE);
+
+	// [emu] diagnostic, not schema: names the sample the selection loop exited
+	// on beside the route it committed, which is the pair the frozen
+	// [frame_rand] of §14 item 9 could only bracket to 64 samples.
+	t1case_diag(
+		'R', 'T', 'E',
+		static_cast<uint32_t>(static_cast<uint8_t>(route)), t1case_sample_count
+	);
+}
+
 void far t1case_finish(bool16 terminal)
 {
 	uint8_t control;

@@ -844,14 +844,14 @@ enum t1split_event_t {
 	T1SPLIT_EVENT_CHECKPOINT  = 5,
 	T1SPLIT_EVENT_FINISH      = 6,
 
-	// DECIDED, REPLAY_CORE_CONTRACT.md §14 item 6, and decided DIFFERENTLY from
-	// the two dead control codes above: this one is KEPT. It is not dead space,
-	// it is an UNIMPLEMENTED FEATURE naming a boundary TH01 really has -
-	// SinGyoku's route select, after which `boss_id = BID_YUUGENMAGAN + route`
-	// (th01/main_01.cpp:676) and the whole rest of the scene changes. No corpus
-	// has ever fought SinGyoku, so no code emits it yet. A synthesised case
-	// starting at stage 4 is the cheapest way in
-	// (tools/port/t1synth/, state/notes/t1case-synth.md).
+	// KEPT by REPLAY_CORE_CONTRACT.md §14 item 6 as an unimplemented feature,
+	// IMPLEMENTED by §14 item 12: SinGyoku's route select, after which
+	// `boss_id = BID_YUUGENMAGAN + route` (th01/main_01.cpp:676) and the whole
+	// rest of the scene changes. Emitted by t1case_route_note() from
+	// th01/main/boss/defeat.cpp, on the line AFTER `route = route_sel.v` and
+	// BEFORE `stage_cleared`/`player_is_hit`, so the row's `route` column is the
+	// selected route and its `stage_cleared` column is still 0 - a row that
+	// cannot be confused with the `finish` row of the same boundary.
 	T1SPLIT_EVENT_ROUTE       = 7
 };
 
@@ -1251,6 +1251,12 @@ void far t1case_round_start(void);
 
 // Process handoff. [terminal] marks the case's last process.
 void far t1case_finish(bool16 terminal);
+
+// The `route` trace row (T1SPLIT_EVENT_ROUTE). Called from
+// th01/main/boss/defeat.cpp once SinGyoku's route selection loop has committed
+// its choice to the global. Consumes no case record, so it moves no cursor and
+// changes no case file - only the trace grows.
+void far t1case_route_note(void);
 
 // Appends one fixed-width line to T1DIAG.TXT. [t0..t2] is a three-character
 // tag. Exposed so lifecycle sites outside this module can record a milestone

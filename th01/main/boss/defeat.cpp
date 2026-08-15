@@ -13,6 +13,21 @@
 #include "th01/main/boss/entity_a.hpp"
 #include "th01/main/boss/defeat.hpp"
 #include "th01/main/stage/stages.hpp"
+#ifdef T1CASE
+	// ORACLE-TH01 (mod branch only): declared here rather than by including
+	// th01/t1case.hpp, and the reason is a real constraint on this lineage
+	// rather than a preference. th01/hardware/input.hpp:131 declares the seam
+	// `t1case_key_sense()` with C++ linkage while th01/t1case.hpp declares it
+	// inside `extern "C"`, so any TU that has already seen input.hpp - which
+	// this one has, three includes up - cannot then include t1case.hpp:
+	//     Error th01/t1case.hpp 1177: 't1case_key_sense(int)' was previously
+	//     declared with the language 'C++'
+	// th01/main/hud/menu.cpp gets away with the include because nothing in its
+	// chain reaches input.hpp. Same shape as input.hpp:65's own extern for
+	// t1case_reset_site(), and REPLAY_CORE_CONTRACT.md §14 item 12 records it,
+	// because the next hook a port hangs off a gameplay TU will hit it too.
+	extern "C" void far t1case_route_note(void);
+#endif
 
 void grcg_whiteline(screen_y_t y)
 {
@@ -193,6 +208,15 @@ void singyoku_defeat_animate_and_select_route(void)
 	}
 
 	route = route_sel.v;
+#ifdef T1CASE
+	// ORACLE-TH01 (mod branch only): T1SPLIT_EVENT_ROUTE. Placed HERE and not
+	// at the end of the function, because the row is meant to answer "which
+	// route, and on which sample" - `route` is live from the line above, while
+	// `stage_cleared` and `player_is_hit` below are the defeat bookkeeping that
+	// every stage clear does. A row taken after them would be indistinguishable
+	// from the ordinary boss-stage exit in every column but `event`.
+	t1case_route_note();
+#endif
 	stage_cleared = true;
 	player_is_hit = true;
 }
