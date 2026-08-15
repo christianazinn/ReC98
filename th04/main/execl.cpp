@@ -49,27 +49,27 @@ extern "C" {
 // Hands MAINE.EXE the score this run ended on, by snapshotting every BCD digit
 // of [score] into the resident structure.
 //
-// TH04's half is still ASM (`sub_E7DE` in th04_main.asm) and is byte-identical
-// to the loop below; only TH05's tail call is new, which is why this is an
-// #if rather than one shared body. Decompiling TH04's is a th04_main.asm
-// parcel and belongs to whoever owns that dump.
+// ONE loop, shared: both dumps spell the copy the same way, down to reloading
+// the far [resident] pointer on every iteration. The games differ only in
+// TH05's tail call, so that call is the only thing under an #if here. This used
+// to be two arms — TH04's was a #define onto the placeholder the dump gave its
+// still-ASM copy — and collapsing it was the whole of the TH04 parcel.
 #if (GAME == 5)
 	// Commits [score] to [resident->score_highest] if it beats it, then zeroes
 	// [score] and the score popup state. Still ASM, in HUD_PNT_TEXT; a near
 	// call reaches it because both segments are in group main_01.
 	extern "C" void near score_highest_update_and_reset(void);
-
-	void near score_last_commit(void)
-	{
-		for(int i = 0; i < SCORE_DIGITS; i++) {
-			resident->score_last.digits[i] = score.digits[i];
-		}
-		score_highest_update_and_reset();
-	}
-#else
-	extern "C" void near sub_E7DE(void);
-	#define score_last_commit() sub_E7DE()
 #endif
+
+void near score_last_commit(void)
+{
+	for(int i = 0; i < SCORE_DIGITS; i++) {
+		resident->score_last.digits[i] = score.digits[i];
+	}
+	#if (GAME == 5)
+		score_highest_update_and_reset();
+	#endif
+}
 
 extern "C" void pascal near bb_txt_free(void);
 extern "C" void pascal cdg_free_all(void);
