@@ -4,7 +4,8 @@
 /// animation there, then extends a 16-pixel-wide beam straight down to the
 /// bottom of the playfield. It only damages the player during a single phase
 /// of that animation. Five different bosses and midbosses spawn them; the two
-/// per-frame functions are installed as stage callbacks by lasers_enable().
+/// per-frame functions are installed as stage callbacks by the still-ASM
+/// `sub_129FC` (th02_main.asm), which stage_init() calls for Stage 4 and Extra.
 
 #ifndef TH02_MAIN_LASER_HPP
 #define TH02_MAIN_LASER_HPP
@@ -34,8 +35,10 @@ struct laser_t {
 	// wrapped before blitting.
 	screen_point_t origin;
 
-	// Frames to spend in LASER_PHASE_WAIT before growing. Seeded from
-	// [laser_wait_frames] at spawn time.
+	// Frames to spend in LASER_PHASE_WAIT before growing. Seeded at spawn time
+	// from the still-unnamed [byte_23A70], which `sub_129DD` defaults to 16 and
+	// every boss that spawns lasers overwrites beforehand. Its only reader is
+	// the still-ASM spawner `sub_12A19`, so naming it waits for that lift.
 	int wait_frames;
 
 	// Frames to spend in LASER_PHASE_ACTIVE.
@@ -52,10 +55,5 @@ struct laser_t {
 };
 
 extern laser_t lasers[LASER_COUNT];
-
-// Origin of the laser currently being rendered. Scratch, only used to pass the
-// position from lasers_update_and_render() to laser_render().
-// ZUN bloat: laser_render() already receives the laser itself.
-extern screen_point_t laser_origin;
 
 #endif /* TH02_MAIN_LASER_HPP */

@@ -22,46 +22,50 @@
 #include "th02/main/laser.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/sprites/main_pat.h"
 
 // th02/snd/snd.h has no include guard, and th02/main/dialog/dialog.cpp
 // includes it further down this translation unit. Declaring the one function
 // needed here avoids the duplicate. `DEFCONV` is __cdecl for TH02.
 extern "C" void __cdecl snd_se_play(int new_se);
 
-// Pattern numbers. All below 128, i.e. inside the stage-independent set that
-// stage_init() loads once; th02/sprites/main_pat.h leaves the 10…33 and
-// 88…121 ranges unnamed, so these are held here until a naming review decides
-// whether they belong in that enum.
-// ----------------------------------------------------------------------
-
-// 32×32, four cels of the charge animation, indexed by [charge_cel].
-static const int PATNUM_CHARGE = 30;
-
-// 16×16, the cap at the top of the beam, indexed by [phase].
-static const int PATNUM_HEAD = 91;
-// ----------------------------------------------------------------------
+// The two pattern numbers this file uses, PAT_LASER_CHARGE and PAT_LASER_HEAD,
+// live in th02/sprites/main_pat.h with every other stage-independent patnum.
 
 // Size of the charge animation's sprite, and the distance from the laser's
-// origin to that sprite's top-left corner.
+// origin to that sprite's top-left corner. One constant for both axes, so it
+// takes no axis suffix, unlike MISSILE_OFFSET_LEFT / _TOP
+// (th01/main/bullet/missile.cpp).
 static const pixel_t CHARGE_W = 32;
 static const pixel_t CHARGE_H = 32;
 static const pixel_t CHARGE_OFFSET = 8;
 
-// The cels the beam is stacked out of, and the distance from the cap sprite's
-// top edge to the first of them.
-static const pixel_t BEAM_W = 16;
+// The 16×16 cels the beam is stacked out of, and the distance from the cap
+// sprite's top edge to the first of them.
+static const pixel_t BEAM_CEL_W = 16;
 static const pixel_t BEAM_CEL_H = 16;
 static const pixel_t BEAM_CEL_FIRST_OFFSET = 8;
 
-// [charge_cel] stops here. lasers_invalidate() unblits the 32×32 charge sprite
-// while [charge_cel] is ≤ this, but lasers_update_and_render() already draws
-// the beam once it reaches it, so the two disagree for one 4-frame window.
-static const uint8_t CHARGE_CEL_LAST = 4;
+// lasers_invalidate() unblits the 32×32 charge sprite while [charge_cel] is
+// ≤ LASER_CHARGE_CELS, i.e. for one cel longer than there are cels, but
+// lasers_update_and_render() already draws the beam once [charge_cel] reaches
+// that count. So the two disagree for one 4-frame window.
 
-// Half-open horizontal range, relative to the beam's origin, in which the
-// player's top-left corner counts as hit.
-static const pixel_t HITBOX_LEFT = -24;
-static const pixel_t HITBOX_RIGHT = 8;
+// Origin of the laser currently being rendered. Scratch, only used to pass the
+// position from lasers_update_and_render() to laser_render(), so it stays out
+// of the header — the same treatment TH02 already gives [item_p_left] /
+// [item_p_top] at th02/main/item/item.cpp:74-79.
+// ZUN bloat: laser_render() already receives the laser itself.
+extern screen_point_t laser_origin;
+
+// Offsets from the beam's origin, not screen coordinates — hence
+// `HITBOX_OFFSET_*` rather than TH01's absolute `HITBOX_LEFT` / `HITBOX_RIGHT`
+// (th01/main/boss/b15j.cpp:44-45); this is the shape of
+// HITBOX_OFFSET_LEFT / _RIGHT at th01/main/bullet/missile.cpp:184-185.
+// The range is open at both ends (`<` on the left bound, `>` on the right),
+// i.e. th01/math/overlap.hpp's `_lt_gt` shape.
+static const pixel_t HITBOX_OFFSET_LEFT = -24;
+static const pixel_t HITBOX_OFFSET_RIGHT = 8;
 
 // Marks the tiles under every live laser for redrawing, and doubles as the
 // driver of the charge animation. Retires lasers that were marked F_REMOVE
@@ -75,7 +79,7 @@ void far lasers_invalidate(void)
 		if(laser->flag == F_FREE) {
 			continue;
 		}
-		if(laser->charge_cel <= CHARGE_CEL_LAST) {
+		if(laser->charge_cel <= LASER_CHARGE_CELS) {
 			tiles_invalidate_rect(
 				(laser->origin.x - CHARGE_OFFSET),
 				(laser->origin.y - CHARGE_OFFSET),
@@ -89,7 +93,7 @@ void far lasers_invalidate(void)
 			tiles_invalidate_rect(
 				laser->origin.x,
 				laser->origin.y,
-				BEAM_W,
+				BEAM_CEL_W,
 				(RES_Y - laser->origin.y)
 			);
 		}
@@ -116,7 +120,7 @@ void pascal near laser_render(laser_t near *laser)
 	}
 	if(laser->phase < LASER_PHASE_SHRINK) {
 		super_roll_put_tiny(
-			laser_origin.x, vram_top, (PATNUM_HEAD + laser->phase)
+			laser_origin.x, vram_top, (PAT_LASER_HEAD + laser->phase)
 		);
 	}
 	vram_top += BEAM_CEL_FIRST_OFFSET;
@@ -135,8 +139,8 @@ void pascal near laser_render(laser_t near *laser)
 	}
 	if(laser->phase == LASER_PHASE_ACTIVE) {
 		if(
-			((laser_origin.x + HITBOX_LEFT) < player_topleft.x) &&
-			((laser_origin.x + HITBOX_RIGHT) > player_topleft.x) &&
+			((laser_origin.x + HITBOX_OFFSET_LEFT) < player_topleft.x) &&
+			((laser_origin.x + HITBOX_OFFSET_RIGHT) > player_topleft.x) &&
 			(player_topleft.y >= laser_origin.y) &&
 			(player_is_hit == PLAYER_NOT_HIT)
 		) {
@@ -146,7 +150,7 @@ void pascal near laser_render(laser_t near *laser)
 }
 
 // Advances every live laser's phase and renders it. stage_loop() calls this
-// through the [farfp_23A76] callback.
+// through the [lasers_update_and_render_func] slot.
 void far lasers_update_and_render(void)
 {
 	screen_x_t x;
@@ -161,14 +165,14 @@ void far lasers_update_and_render(void)
 		}
 		laser_origin.x = laser->origin.x;
 		laser_origin.y = laser->origin.y;
-		if(laser->charge_cel < CHARGE_CEL_LAST) {
+		if(laser->charge_cel < LASER_CHARGE_CELS) {
 			vram_top = (laser_origin.y - CHARGE_OFFSET);
 			vram_top += scroll_line;
 			if(vram_top >= RES_Y) {
 				vram_top -= RES_Y;
 			}
 			x = (laser_origin.x - CHARGE_OFFSET);
-			patnum = (PATNUM_CHARGE + laser->charge_cel);
+			patnum = (PAT_LASER_CHARGE + laser->charge_cel);
 			super_roll_put(x, vram_top, patnum);
 			laser->wait_frames--;
 			continue;

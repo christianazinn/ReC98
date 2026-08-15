@@ -71,6 +71,10 @@ struct bg_particle_t {
 
 	// Edge length of this particle's dot square, in pixels. Recalculated
 	// from [speed] on every frame.
+	// The tree has no attested word for a square's side length — every other
+	// `edge` in it means "boundary of a region" — so this one is a coinage,
+	// kept for consistency with DOT_SQUARE_EDGE_MAX and
+	// [bg_particle_edge_step] above rather than because it has precedent.
 	uint8_t edge;
 
 	SubpixelLength8 speed;
@@ -79,7 +83,9 @@ struct bg_particle_t {
 static const int BG_PARTICLE_COUNT = 30;
 
 // Size of the box a particle is clipped against. Larger than the largest
-// square that can actually be blitted for one.
+// square that can actually be blitted for one — exactly as SPARK_W / SPARK_H
+// (th02/main/sparks.inc) are 8×8 for a spark that may be rendered as a single
+// dot, which is why these keep the plain `_W` / `_H` spelling anyway.
 static const pixel_t BG_PARTICLE_W = 8;
 static const pixel_t BG_PARTICLE_H = 8;
 
@@ -108,7 +114,10 @@ extern vc_t bg_particle_unput_col;
 void far bg_particles_reset(void);
 
 // Spawns a single particle at the given screen position, moving at [angle].
-void pascal far bg_particle_add(
+// Plural like sparks_add() and items_add(), which also spawn into an array:
+// every *_add() in the tree is named after the array it writes to, never after
+// the one entity it adds.
+void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 );
 

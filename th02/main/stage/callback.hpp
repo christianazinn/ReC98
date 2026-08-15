@@ -43,10 +43,14 @@ extern void (far *enemies_update_and_render)(void);
 extern void (far *stage_invalidate)(void);
 extern void (far *stage_update_and_render)(void);
 
-// Only installed for Stage 4 and Extra. What they render is not evidenced,
-// hence the neutral names. [static]
-extern void (far *farfp_23A72)(void);
-extern void (far *farfp_23A76)(void);
+// The vertical boss lasers' per-frame pair. Only installed for Stage 4 and
+// Extra, by the still-ASM `sub_129FC`, which is the only writer of either slot
+// in the whole binary (th02_main.asm, `setfarfp`) and always installs exactly
+// these two; stage_init() defaults both to nullfunc_void for every other
+// stage. `_func` disambiguates the slot from the installed function, the way
+// boss_bg_render_func does from boss_bg_render above.
+extern void (far *lasers_invalidate_func)(void);
+extern void (far *lasers_update_and_render_func)(void);
 
 // Starts the boss fight once the map has been scrolled to its end, then
 // disables itself.

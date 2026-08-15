@@ -252,7 +252,7 @@ include th02/formats/pfopen.asm
 include libs/master.lib/pf_str_ieq.asm
 
 	extern @bg_particles_reset$qv:proc
-	extern @BG_PARTICLE_ADD$QIIUC:proc
+	extern @BG_PARTICLES_ADD$QIIUC:proc
 	extern @GRCG_DOT_SQUARE_PUT$QI:proc
 	extern @bg_particles_invalidate$qv:proc
 	extern @bg_particles_update_and_render$qv:proc
@@ -22501,7 +22501,7 @@ loc_1BF53:
 		idiv	bx
 		add	al, 40h
 		push	ax
-		call	@BG_PARTICLE_ADD$QIIUC
+		call	@BG_PARTICLES_ADD$QIIUC
 
 loc_1BF78:
 		test	byte ptr _stage_frame, 1Fh
@@ -24432,8 +24432,8 @@ byte_1FFF8	db ?
 public _bg_particle_unput_col
 _bg_particle_unput_col label byte
 byte_1FFF9	db ?
-public _bg_particle_unused_1
-_bg_particle_unused_1 label byte
+public _bg_particle_unused
+_bg_particle_unused label byte
 byte_1FFFA	db ?
 		db ?
 public _bg_particles
@@ -24856,10 +24856,10 @@ _laser_origin label word
 point_23A6C	Point <?>
 byte_23A70	db ?
 		db ?
-public _farfp_23A72, _farfp_23A76
-_farfp_23A72 label dword
+public _lasers_invalidate_func, _lasers_update_and_render_func
+_lasers_invalidate_func label dword
 farfp_23A72	dd ?
-_farfp_23A76 label dword
+_lasers_update_and_render_func label dword
 farfp_23A76	dd ?
 public _dialog_text, _dialog_box_cur, _restore_tile_mode_none_at_post
 _dialog_text	db (64 * DIALOG_BOX_LINES * DIALOG_LINE_SIZE) dup(?)
