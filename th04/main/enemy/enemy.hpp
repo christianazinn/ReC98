@@ -95,6 +95,15 @@ extern enemy_t near *enemy_cur;
 void near enemies_invalidate(void);
 void pascal near enemies_render(void);
 
+#if (GAME != 5)
+// Advances [enemy_cur] along its velocity and clips it off the playfield along
+// whichever axes it asked to be clipped on, returning `true` if it did. TH05's
+// function of the same name is hand-written assembly with an ABI no C++
+// declaration can express: it takes [enemy_cur] implicitly in SI and returns
+// the result in the carry flag. (kb/conventions/handwritten-asm-tells.md)
+extern "C" bool pascal near enemy_pos_update(void);
+#endif
+
 // Spawns the enemies described by one .STD stage instruction. TH04 takes the
 // spawn record's fields from its caller; TH05 reads them off [std_ip] itself.
 // (The two unnamed parameters are still `arg_0` / `arg_6` in the dump.)
