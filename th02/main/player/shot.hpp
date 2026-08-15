@@ -62,6 +62,11 @@ void pascal near shot_option_add(
 	pixel_t left_offset, subpixel_t velocity_x, subpixel_t velocity_y
 );
 
+// Fires one volley of shottype A's shot. Reached only through
+// [playchar_shot_func], which the still-ASM per-shottype player reset installs
+// from [resident->shottype]; shot_b() and shot_c() are its two siblings.
+void near shot_a(void);
+
 void near shots_update_and_render(void);
 
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */
