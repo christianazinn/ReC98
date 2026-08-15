@@ -1101,7 +1101,7 @@ void near staffroll_and_verdict_animate(void)
 
 	// Copyright
 	graph_accesspage(1);
-	verdict_label_put(8, VERDICT_LABEL_LEFT, VERDICT_COPYRIGHT "\0all.pi");
+	verdict_label_put(8, VERDICT_LABEL_LEFT, VERDICT_COPYRIGHT);
 	verdict_row_1_to_0_animate(
 		8, ((sizeof(VERDICT_COPYRIGHT) - 1) / sizeof(shiftjis_kanji_t))
 	);
@@ -1117,3 +1117,59 @@ void near staffroll_and_verdict_animate(void)
 	graph_clear();
 	/// -------
 }
+
+// MAINE.EXE's second code segment
+// -------------------------------
+// ZUN kept these in the same translation unit as the verdict sequence above,
+// and the .PI filename literals prove it: `all.pi` sits in the last 7 bytes of
+// this object's `_DATA` contribution, immediately before `but.pi` — which used
+// to be th02_maine.asm's first `.data` byte, reached from the dump by the
+// alias `aAll_pi = ($ - 7)`. Re-spelling it as an ordinary literal here puts it
+// back where it belongs; `-d` (merge duplicate strings) makes the second use
+// free. [verified-by-oracle]
+//
+// The call site above still needs its hand-written `push cs`: these functions
+// are `far` and in a DIFFERENT segment of the same group, which is the one case
+// Turbo C++ will not fold into a near call by itself (kb/codegen/0014).
+
+// Defined in th02/maine_04.cpp; no header declares it yet.
+int scoredat_is_extra_unlocked(void);
+
+#pragma codeseg maine_01_TEXT maine_01
+
+/// Shown after the regular ending, to reveal that the Extra Stage is now
+/// unlocked. Requires a no-continue clear on top of the all-shot-type clear
+/// that scoredat_is_extra_unlocked() checks for.
+void extra_unlock_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	if(resident->continues_used != 0) {
+		return;
+	}
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "but.pi");
+	key_delay();
+	palette_black_out(5);
+}
+
+/// The Extra Stage's own ending, and the third alternative to
+/// end_bad_animate() / end_good_animate(). Unlike those two, it is skipped
+/// entirely for a player who has not cleared with every shot type.
+void end_extra_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	palette_settone(0);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "extra.pi");
+	key_delay();
+	palette_black_out(5);
+}
+// -------------------------------

@@ -126,76 +126,7 @@ maine_01_TEXT	segment	byte public 'CODE' use16
 		;org 3
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @extra_unlock_animate$qv
-@extra_unlock_animate$qv proc far
-		push	bp
-		mov	bp, sp
-		call	@scoredat_is_extra_unlocked$qv
-		or	ax, ax
-		jz	loc_B07D
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jnz	short loc_B07D
-		call	@pi_load$qinxc c, 0, offset aAll_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		push	2
-		call	palette_black_in
-		call	@frame_delay$qi pascal, 150
-		call	@pi_load$qinxc c, 0, offset aBut_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		call	@key_delay$qv
-		push	5
-		call	palette_black_out
-
-loc_B07D:
-		pop	bp
-		retf
-@extra_unlock_animate$qv endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_B07F	proc far
-		push	bp
-		mov	bp, sp
-		call	@scoredat_is_extra_unlocked$qv
-		or	ax, ax
-		jz	loc_B115
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@pi_load$qinxc c, 0, offset aAll_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		push	2
-		call	palette_black_in
-		call	@frame_delay$qi pascal, 150
-		call	@pi_load$qinxc c, 0, offset aExtra_pi, ds
-		call	@pi_palette_apply$qi stdcall, 0
-		pop	cx
-		call	@pi_put_8$qiii c, 0, large 0
-		freePISlotLarge	0
-		call	@key_delay$qv
-		push	5
-		call	palette_black_out
-
-loc_B115:
-		pop	bp
-		retf
-sub_B07F	endp
-
+	@end_extra_animate$qv procdesc far
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -273,7 +204,7 @@ loc_B1BD:
 ; ---------------------------------------------------------------------------
 
 loc_B1C2:
-		call	sub_B07F
+		call	@end_extra_animate$qv
 
 loc_B1C6:
 		mov	PaletteTone, 50
@@ -322,9 +253,6 @@ maine_04_TEXT	ends
 
 	.data
 
-aAll_pi = ($ - 7)
-aBut_pi		db 'but.pi',0
-aExtra_pi	db 'extra.pi',0
 aMikoft_bft	db 'MIKOFT.bft',0
 aEndft_bft	db 'endft.bft',0
 ; char path[]
