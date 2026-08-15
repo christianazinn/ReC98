@@ -37,18 +37,19 @@ extern "C" int8_t byte_20610;
 // loop while it is 1; shot_a(), which has no option shots, only ever clears it.
 extern "C" uint8_t byte_205DE;
 
-// The boss's current position, or 0xFFFF on both axes while there is no boss.
-// Written all over the still-ASM boss code; shot_b()'s two SHOT_LEVEL_MAX
-// homing shots are the only readers in this TU, and they guard on [_y] being
-// positive, which is what the no-boss value fails.
-extern "C" int word_205D8;
-extern "C" int word_205DA;
+// The point shottype B's homing shots aim at. Every writer is still-ASM boss
+// or midboss code publishing its own position, and both axes are set to 0xFFFF
+// while no boss is on screen — which is exactly what shot_b()'s `> 0` guard on
+// [boss_pos_y] tests, since 0xFFFF read as a signed int is -1.
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
 
-// ZUN bloat: Written by shot_b() and by the per-shottype player reset, read by
-// nothing. The dump census is closed — the variable carries no `public` alias,
-// so no C++ translation unit can name it either. Reproducing the writes is
-// required for the match.
-extern "C" int word_205DC;
+// ZUN bloat: [boss_pos_x] again, but only while the shot is fully powered.
+// Written by shot_b() and by the still-ASM per-shottype player reset, and read
+// by nothing at all — the dump census over the whole binary is closed. It looks
+// like the homing target of a cut feature that would have let the OPTION shots
+// home too. Reproducing the writes is required for the match; do not delete it.
+extern "C" int boss_pos_x_unused;
 
 // The vector length of a player shot, in pixels. Identical to TH04 and TH05's
 // shot_velocity_set().
@@ -378,10 +379,10 @@ void near shot_b(void)
 					// patnum; the two homing shots keep it for the rest of
 					// the volley.
 					byte_1E519 = 0x32;
-					if(word_205DA > 0) {
+					if(boss_pos_y > 0) {
 						tmp = iatan2(
-							((word_205DA - player_topleft.y) - 32),
-							(word_205D8 - player_topleft.x)
+							((boss_pos_y - player_topleft.y) - 32),
+							(boss_pos_x - player_topleft.x)
 						);
 						tmp += (randring1_next8_and(7) - 3);
 					} else {
@@ -389,10 +390,10 @@ void near shot_b(void)
 					}
 					shot_add(0, tmp);
 				} else if(volley_i == 3) {
-					if(word_205DA > 0) {
+					if(boss_pos_y > 0) {
 						tmp = iatan2(
-							((word_205DA - player_topleft.y) - 32),
-							((word_205D8 - player_topleft.x) - 16)
+							((boss_pos_y - player_topleft.y) - 32),
+							((boss_pos_x - player_topleft.x) - 16)
 						);
 						tmp += (randring1_next8_and(7) - 3);
 					} else {
@@ -413,9 +414,9 @@ void near shot_b(void)
 				break;
 			}
 			if(shot_level == SHOT_LEVEL_MAX) {
-				word_205DC = word_205D8;
+				boss_pos_x_unused = boss_pos_x;
 			} else {
-				word_205DC = -1;
+				boss_pos_x_unused = -1;
 			}
 			if(byte_205DE != 0) {
 				break;

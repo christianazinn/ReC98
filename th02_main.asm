@@ -22007,14 +22007,14 @@ byte_20351	db 39 dup(?)
 public _shots
 _shots label byte
 byte_20378	db 608 dup(?)
-public _word_205D8
-_word_205D8 label word
+public _boss_pos_x
+_boss_pos_x label word
 word_205D8	dw ?
-public _word_205DA
-_word_205DA label word
+public _boss_pos_y
+_boss_pos_y label word
 word_205DA	dw ?
-public _word_205DC
-_word_205DC label word
+public _boss_pos_x_unused
+_boss_pos_x_unused label word
 word_205DC	dw ?
 public _byte_205DE
 _byte_205DE label byte
