@@ -28,4 +28,18 @@ void pascal mpn_palette_show(int slot);
 // into the given [slot], -1 otherwise.
 int pascal mpn_load_palette_show(int slot, const char *fn);
 
+// Blits the given [image] from the .MPN in the given [slot] to
+// (⌊left/8⌋*8, top).
+//
+// Still ZUN's assembly, as sub_3680 in th04_main.asm's _TEXT; the name is
+// TH02's for the same routine (th02/formats/mpn.hpp), and reaches the linker
+// through a zero-byte alias in front of that proc (kb/codegen/0123).
+//
+// [measured 2026-08-15] Unlike TH02's, this one *does* bail out for an [image]
+// past ([mpn_slots[slot]].count), so TH02's `ZUN landmine` about
+// tile_area_init_and_put_both() blitting undefined data past the loaded tile
+// count does not carry over to TH04. mpn_load() below still walks all
+// TILE_IMAGE_COUNT positions; the surplus ones are simply left untouched.
+void pascal mpn_put_8(screen_x_t left, vram_y_t top, int slot, int image);
+
 }

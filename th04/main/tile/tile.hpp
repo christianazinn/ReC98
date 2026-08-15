@@ -15,6 +15,15 @@ extern vram_offset_t tile_ring[TILES_Y][TILES_MEMORY_X];
 
 extern int8_t tile_row_in_section;
 
+// Loads the .MPN file with the given [fn] into slot 0, blits all of its tile
+// images to the tile area in VRAM on both pages, and frees the slot again.
+// (TH02 splits this into mpn_load() and tile_area_init_and_put_both().)
+// TH05's is hand-written assembly and has no C++ body; see
+// th04/main/tile/mpn_load.cpp.
+#if (GAME != 5)
+extern "C" void pascal near mpn_load(const char *fn);
+#endif
+
 // Completely fills [tile_ring] with the initial screen of a stage, by loading
 // the section IDs from [std_seg], and the tiles themselves from [map_seg].
 void pascal near tiles_fill_initial(void);

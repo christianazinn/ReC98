@@ -6,7 +6,9 @@
 /// hand-rolls .CFG loading. They do not even free the old map at the same
 /// point.
 
-#pragma option -zPmain_01
+// The [-zC]/[-zP] segment pragmas live in the th0N/map.cpp wrappers, not here:
+// TH04's wrapper #includes a second file ahead of this one, and a segment
+// pragma only takes effect before any code is generated (kb/codegen/0112).
 
 #include "libs/master.lib/master.hpp"
 #include "th04/formats/map.hpp"

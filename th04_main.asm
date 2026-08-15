@@ -166,6 +166,12 @@ include libs/master.lib/js_sense.asm
 
 ; Attributes: bp-based frame
 
+; Called from C++ as mpn_put_8(), which is what TH02 already calls the
+; same routine (th02/formats/mpn.hpp); this one just takes an extra .MPN
+; [slot]. The alias emits no bytes and leaves the dump label alone
+; (kb/codegen 0123).
+public MPN_PUT_8
+MPN_PUT_8 label far
 sub_3680	proc far
 
 arg_0		= word ptr  6
@@ -1000,65 +1006,13 @@ loc_B8F8:
 sub_B835	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public MPN_LOAD
-mpn_load	proc near
-
-var_6		= word ptr -6
-@@tile_y		= word ptr -4
-@@tile_x		= word ptr -2
-@@fn		= dword	ptr  4
-
-		enter	6, 0
-		push	si
-		push	di
-		call	mpn_load_palette_show pascal, 0, large [bp+@@fn]
-		mov	[bp+var_6], 0
-		mov	[bp+@@tile_x], 0
-		mov	si, TILE_AREA_LEFT
-		jmp	short loc_B95E
-; ---------------------------------------------------------------------------
-
-loc_B91C:
-		mov	[bp+@@tile_y], 0
-		xor	di, di
-		jmp	short loc_B952
-; ---------------------------------------------------------------------------
-
-loc_B925:
-		graph_accesspage 1
-		push	si
-		push	di
-		push	0
-		push	[bp+var_6]
-		call	sub_3680
-		graph_accesspage 0
-		push	si
-		push	di
-		push	0
-		push	[bp+var_6]
-		call	sub_3680
-		inc	[bp+var_6]
-		inc	[bp+@@tile_y]
-		add	di, TILE_H
-
-loc_B952:
-		cmp	[bp+@@tile_y], TILE_AREA_ROWS
-		jl	short loc_B925
-		inc	[bp+@@tile_x]
-		add	si, TILE_W
-
-loc_B95E:
-		cmp	[bp+@@tile_x], TILE_AREA_COLUMNS
-		jl	short loc_B91C
-		call	mpn_free pascal, 0
-		pop	di
-		pop	si
-		leave
-		retn	4
-mpn_load	endp
+	; mpn_load() now lives in th04/main/tile/mpn_load.cpp, which the
+	; th04/map.cpp object appends to this segment ahead of map_load()
+	; itself (kb/codegen 0112 + 0114): in the original it was the LAST
+	; proc of this contribution, and th04/map.cpp already owned everything
+	; after it, so no carve and no new segment were needed.
+	MPN_LOAD procdesc pascal near \
+		fn_seg:word, fn_off:word
 
 
 ; =============== S U B	R O U T	I N E =======================================
