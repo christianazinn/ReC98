@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -23595,8 +23595,11 @@ BULLET_A_TEXT	segment	byte public 'CODE' use16
 	_bullets_add_special_fixedspeed procdesc near
 BULLET_A_TEXT	ends
 
-main_035_TEXT	segment	byte public 'CODE' use16
-
+; Harness carve (kb/codegen/0080): the head of the original
+; `main_035_TEXT` contribution, renamed so that a C++ object can append
+; `items_update` at its original address in the MIDDLE of the segment.
+; Same `byte public 'CODE'` alignment as before, so nothing moves.
+IT_UPDT_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -24291,6 +24294,7 @@ include th04/main/item/miss_add.asm
 
 ; Attributes: bp-based frame
 
+public SUB_1DBAE
 sub_1DBAE	proc near
 
 @@yellow		= byte ptr -1
@@ -24532,6 +24536,7 @@ off_1DDE9	dw offset loc_1DBD0
 
 ; Attributes: bp-based frame
 
+public SUB_1DDF7
 sub_1DDF7	proc near
 
 arg_0		= word ptr  4
@@ -24602,131 +24607,20 @@ off_1DE51	dw offset loc_1DE11
 		dw offset loc_1DE2B
 		dw offset loc_1DE2F
 
-; =============== S U B	R O U T	I N E =======================================
+	; items_update() now lives in th04/main/item/update.cpp, which the
+	; th04/it_updt.cpp object appends to this segment. Nothing in this dump
+	; ever called it -- its only caller is C++, at th04/main/stage/loop.cpp --
+	; so no `procdesc` is needed here.
+IT_UPDT_TEXT	ends
 
-; Attributes: bp-based frame
-public ITEMS_UPDATE
-items_update	proc far
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, offset _items
-		cmp	_items_pull_to_player, 0
-		jz	short loc_1DE74
-		mov	_pointnum_times_2, 1
-		jmp	short loc_1DE79
-; ---------------------------------------------------------------------------
-
-loc_1DE74:
-		mov	_pointnum_times_2, 0
-
-loc_1DE79:
-		xor	di, di
-		jmp	loc_1DF4E
-; ---------------------------------------------------------------------------
-
-loc_1DE7E:
-		cmp	byte ptr [si], 0
-		jz	loc_1DF4A
-		cmp	byte ptr [si], 2
-		jnz	short loc_1DE90
-		mov	byte ptr [si], 0
-		jmp	loc_1DF4A
-; ---------------------------------------------------------------------------
-
-loc_1DE90:
-		cmp	_items_pull_to_player, 0
-		jz	short loc_1DEC6
-		mov	_pointnum_times_2, 1
-		mov	[si+item_t.pulled_to_player], 1
-		mov	ax, _player_pos.cur.y
-		sub	ax, [si+item_t.pos.cur.y]
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, [si+item_t.pos.cur.x]
-		push	ax
-		call	iatan2
-		mov	[bp+@@angle], al
-		lea	ax, [si+item_t.pos.velocity]
-		call	vector2_near pascal, ax, word ptr [bp+@@angle], (ITEM_PULL_SPEED shl 4)
-		jmp	short loc_1DEDB
-; ---------------------------------------------------------------------------
-
-loc_1DEC6:
-		cmp	[si+item_t.pulled_to_player], 0
-		jz	short loc_1DEDB
-		mov	[si+item_t.pos.velocity.x], 0
-		mov	[si+item_t.pos.velocity.y], 0
-		mov	[si+item_t.pulled_to_player], 0
-
-loc_1DEDB:
-		lea	ax, [si+item_t.pos]
-		push	ax
-		call	@PlayfieldMotion@update_seg3$qv
-		cmp	ax, (-(ITEM_W / 2) shl 4)
-		jle	short loc_1DEF2
-		cmp	ax, ((PLAYFIELD_W + (ITEM_W / 2)) shl 4)
-		jge	short loc_1DEF2
-		cmp	dx, ((PLAYFIELD_H + (ITEM_H / 2)) shl 4)
-		jl	short loc_1DEFB
-
-loc_1DEF2:
-		mov	byte ptr [si], 2
-		push	si
-		call	sub_1DDF7
-		jmp	short loc_1DF4A
-; ---------------------------------------------------------------------------
-
-loc_1DEFB:
-		cmp	dx, (-(ITEM_H / 2) shl 4)
-		jge	short loc_1DF05
-		mov	[si+item_t.pos.cur.y], (-(ITEM_H / 2) shl 4)
-
-loc_1DF05:
-		cmp	word ptr [si+0Ch], 0
-		jl	short @@hittest
-		mov	word ptr [si+0Ah], 0
-
-@@hittest:
-		cmp	_miss_time, 0
-		jnz	short loc_1DF47
-		mov	bx, _player_pos.cur.x
-		add	bx, (24 shl 4)
-		sub	bx, ax
-		cmp	bx, (48 shl 4)
-		ja	short loc_1DF47
-		mov	bx, _player_pos.cur.y
-		add	bx, (24 shl 4)
-		sub	bx, dx
-		cmp	bx, (38 shl 4)
-		ja	short loc_1DF47
-		push	si
-		call	sub_1DBAE
-		call	snd_se_play pascal, 11
-		mov	byte ptr [si], 2
-		jmp	short loc_1DF4A
-; ---------------------------------------------------------------------------
-
-loc_1DF47:
-		inc	[si+item_t.pos.velocity.y]
-
-loc_1DF4A:
-		inc	di
-		add	si, size item_t
-
-loc_1DF4E:
-		cmp	di, ITEM_COUNT
-		jl	loc_1DE7E
-		call	@item_splashes_update$qv
-		mov	_pointnum_times_2, 0
-		pop	di
-		pop	si
-		leave
-		retf
-items_update	endp
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main_035_TEXT` contribution once items_update() moved out of it. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. The `assume`
+; is restated by hand because a reopened segment does not inherit the state
+; the removed proc left behind; `es:nothing` is what was in force here, set
+; back inside sub_1D58F and never changed since.
+main_035_TEXT	segment	byte public 'CODE' use16
+		assume es:nothing
 
 
 ; =============== S U B	R O U T	I N E =======================================

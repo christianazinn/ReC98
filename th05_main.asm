@@ -8320,6 +8320,7 @@ sub_16F05	endp
 
 ; Attributes: bp-based frame
 
+public SUB_16F54
 sub_16F54	proc near
 
 @@yellow		= byte ptr -3
@@ -8581,6 +8582,7 @@ off_171BA	dw offset loc_16F76
 
 ; Attributes: bp-based frame
 
+public SUB_171C8
 sub_171C8	proc near
 
 arg_0		= word ptr  4
@@ -8628,121 +8630,12 @@ loc_17204:
 sub_171C8	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ITEMS_UPDATE
-items_update	proc far
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, offset _items
-		xor	di, di
-		jmp	loc_172EC
-; ---------------------------------------------------------------------------
-
-loc_1721C:
-		cmp	byte ptr [si], 0
-		jz	loc_172E8
-		cmp	byte ptr [si], 2
-		jnz	short loc_1722E
-		mov	byte ptr [si], 0
-		jmp	loc_172E8
-; ---------------------------------------------------------------------------
-
-loc_1722E:
-		cmp	_items_pull_to_player, 0
-		jz	short loc_17264
-		mov	_pointnum_times_2, 1
-		mov	[si+item_t.pulled_to_player], 1
-		mov	ax, _player_pos.cur.y
-		sub	ax, [si+item_t.pos.cur.y]
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, [si+item_t.pos.cur.x]
-		push	ax
-		call	iatan2
-		mov	[bp+var_1], al
-		lea	ax, [si+item_t.pos.velocity]
-		call	vector2_near pascal, ax, word ptr [bp+@@angle], (ITEM_PULL_SPEED shl 4)
-		jmp	short loc_17279
-; ---------------------------------------------------------------------------
-
-loc_17264:
-		cmp	[si+item_t.pulled_to_player], 0
-		jz	short loc_17279
-		mov	[si+item_t.pos.velocity.x], 0
-		mov	[si+item_t.pos.velocity.y], 0
-		mov	[si+item_t.pulled_to_player], 0
-
-loc_17279:
-		lea	ax, [si+item_t.pos]
-		push	ax
-		call	@PlayfieldMotion@update_seg3$qv
-		cmp	ax, (-(ITEM_W / 2) shl 4)
-		jle	short loc_17290
-		cmp	ax, ((PLAYFIELD_W + (ITEM_W / 2)) shl 4)
-		jge	short loc_17290
-		cmp	dx, ((PLAYFIELD_H + (ITEM_H / 2)) shl 4)
-		jl	short loc_17299
-
-loc_17290:
-		mov	byte ptr [si], 2
-		push	si
-		call	sub_171C8
-		jmp	short loc_172E8
-; ---------------------------------------------------------------------------
-
-loc_17299:
-		cmp	dx, (-(ITEM_H / 2) shl 4)
-		jge	short loc_172A3
-		mov	[si+item_t.pos.cur.y], (-(ITEM_H / 2) shl 4)
-
-loc_172A3:
-		cmp	word ptr [si+0Ch], 0
-		jl	short @@hittest
-		mov	word ptr [si+0Ah], 0
-
-@@hittest:
-		cmp	_miss_time, 0
-		jnz	short loc_172E5
-		mov	bx, _player_pos.cur.x
-		add	bx, (24 shl 4)
-		sub	bx, ax
-		cmp	bx, (48 shl 4)
-		ja	short loc_172E5
-		mov	bx, _player_pos.cur.y
-		add	bx, (24 shl 4)
-		sub	bx, dx
-		cmp	bx, (38 shl 4)
-		ja	short loc_172E5
-		push	si
-		call	sub_16F54
-		call	snd_se_play pascal, 11
-		mov	byte ptr [si], 2
-		jmp	short loc_172E8
-; ---------------------------------------------------------------------------
-
-loc_172E5:
-		inc	[si+item_t.pos.velocity.y]
-
-loc_172E8:
-		inc	di
-		add	si, size item_t
-
-loc_172EC:
-		cmp	di, ITEM_COUNT
-		jl	loc_1721C
-		call	@item_splashes_update$qv
-		mov	_pointnum_times_2, 0
-		pop	di
-		pop	si
-		leave
-		retf
-items_update	endp
+	; items_update() now lives in th04/main/item/update.cpp, which the
+	; th05/main033.cpp object appends to this segment. It was the LAST proc
+	; of this contribution, so this is a kb/codegen/0098 tail lift: no carve,
+	; no rename, and nothing here moved. No `procdesc` is declared because
+	; nothing in this dump ever called it -- its only caller is C++, at
+	; th04/main/stage/loop.cpp.
 main_033_TEXT	ends
 
 MIDBOSS_TEXT	segment	byte public 'CODE' use16
