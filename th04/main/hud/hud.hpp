@@ -2,6 +2,44 @@
 
 #define BAR_MAX 128
 
+// Rows
+// ----
+// Declared here rather than privately in each row's own translation unit,
+// because hud_put() (TH04 only, th04/main/hud/hud.cpp) needs the same numbers
+// to place the icon in front of each row that the row's renderer needs to
+// place the value. Every one of these used to be spelled out twice with the
+// same value, and [HUD_POINT_ITEMS_STAGE_Y] had a third spelling,
+// HUD_POINT_ITEMS_Y, in hud.cpp.
+//
+// [HUD_POWER_Y] is deliberately NOT here: it has to stay a `#define` in
+// th04/main/hud/power.cpp, because Turbo C++ 4.0J's __emit__() takes literal
+// constants only and rejects a file-scope `static const` outright.
+// (kb/codegen/0089)
+
+#if (GAME == 5)
+// Below the gsRUIKEI ("cumulative") label that hud_put() draws at (57, 15).
+static const utram_y_t HUD_POINT_ITEMS_EXTEND_Y = 15;
+
+// Below the gs_TEN label that hud_put() draws at (58, 16).
+static const utram_y_t HUD_POINT_ITEMS_STAGE_Y = 16;
+
+// Below the gs_YUME label that hud_put() draws at (63, 19).
+static const utram_y_t HUD_DREAM_Y = 20;
+
+// The row of the gs_TAMA label that hud_put() draws at (58, 18).
+static const utram_y_t HUD_GRAZE_Y = 18;
+#else
+// Below the gs_TEN label that hud_put() draws at (58, 15).
+static const utram_y_t HUD_POINT_ITEMS_STAGE_Y = 15;
+
+// The row of the gs_YUME label that hud_put() draws at (58, 17).
+static const utram_y_t HUD_DREAM_Y = 17;
+
+// The row of the gs_TAMA label that hud_put() draws at (58, 19).
+static const utram_y_t HUD_GRAZE_Y = 19;
+#endif
+// ----
+
 // Low-level
 // ---------
 

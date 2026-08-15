@@ -20,16 +20,12 @@
 	#include "th04/main/hud/overlay.hpp"
 #endif
 
-#if (GAME == 5)
-	// Below the gs_YUME label that hud_put() draws at (63, 19).
-	static const utram_y_t HUD_DREAM_Y = 20;
+// [HUD_DREAM_Y] is in th04/main/hud/hud.hpp; hud_put() needs the same row.
 
+#if (GAME == 5)
 	// Same value as the ASM-side HUD_DREAM_COLOR_COUNT in
 	// th05/main/hud/dream[data].asm.
 	static const int HUD_DREAM_COLOR_COUNT = 9;
-#else
-	// The row of the gs_YUME label that hud_put() draws at (58, 17).
-	static const utram_y_t HUD_DREAM_Y = 17;
 #endif
 
 extern "C" void pascal hud_dream_put(void)
