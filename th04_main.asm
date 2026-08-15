@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -4287,7 +4287,11 @@ include th04/main/hud/bar_put.asm
 	; the declaring segment matters (kb/codegen 0082).
 HUD_PUT_TEXT	ends
 
-main__TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main__TEXT`
+; contribution, renamed so that a C++ object can append `player_bomb` at
+; its original address in the MIDDLE of the segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves.
+PLAYER_B_TEXT	segment	byte public 'CODE' use16
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -6005,47 +6009,18 @@ sub_FFA4	proc near
 sub_FFA4	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; player_bomb() now lives in th04/main/player/bomb.cpp, which appends
+	; to this segment.
+	PLAYER_BOMB procdesc pascal near
+PLAYER_B_TEXT	ends
 
-; Attributes: bp-based frame
-public PLAYER_BOMB
-player_bomb	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bombing, 0
-		jnz	short loc_10028
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_bombs], 0
-		jz	short loc_10028
-		cmp	_bombing_disabled, 0
-		jnz	short loc_10028
-		cmp	_miss_time, 0
-		jz	short loc_FFED
-		cmp	_miss_time, MISS_ANIM_FRAMES
-		jbe	short loc_10028
-		mov	_miss_time, 0
-		mov	_player_is_hit, 0
-		mov	byte_259A3, 0
-
-loc_FFED:
-		les	bx, _resident
-		dec	es:[bx+resident_t.rem_bombs]
-		nopcall	main_01:hud_bombs_put
-		mov	_bombing, 1
-		mov	_bomb_frame, 0
-		mov	_player_invincibility_time, BOMB_INVINCIBILITY_FRAMES
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	_bullet_clear_time, 192
-		call	snd_se_play pascal, 13
-		mov	_items_pull_to_player, 1
-		les	bx, _resident
-		inc	es:[bx+resident_t.bombs_used]
-
-loc_10028:
-		pop	bp
-		retn
-player_bomb	endp
+; Harness carve (kb/codegen/0080): what is left of the original
+; `main__TEXT` contribution once player_bomb() moved out of it. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. The head is
+; 0C78h and the C++ body 76h, an EVEN 0CEEh together, and this segment
+; contains no `even` at all, so kb/codegen/0111 does not bite and no
+; `#pragma codestring` pad is needed.
+main__TEXT	segment	byte public 'CODE' use16
 
 include th04/main/player/bb_playchar_put.asm
 
@@ -29604,6 +29579,11 @@ word_2599E	dw ?
 word_259A0	dw ?
 public _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
+	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
+	; unnamed global, exactly like th03/main/gba_exatt_bomb[bss].asm does
+	; for its own byte_202B8.
+	public _byte_259A3
+_byte_259A3 label byte
 byte_259A3	db ?
 _power	db ?
 _shot_level	db ?

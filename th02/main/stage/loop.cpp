@@ -100,7 +100,7 @@ bool16 stage_loop(void)
 		enemies_invalidate();
 		player_invalidate();
 		bullets_invalidate();
-		farfp_23A72();
+		lasers_invalidate_func();
 		items_invalidate();
 		sparks_invalidate();
 		bomb_invalidate();
@@ -146,7 +146,7 @@ bool16 stage_loop(void)
 		}
 		player_update_and_render();
 		items_update_and_render();
-		farfp_23A76();
+		lasers_update_and_render_func();
 		bullets_update_and_render();
 		sparks_update_and_render();
 		if(key_det & INPUT_CANCEL) {

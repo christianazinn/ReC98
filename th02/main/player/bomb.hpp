@@ -33,9 +33,13 @@ void near bomb_load(void);
 // a run.
 void near bomb_free(void);
 
-// Resets the per-stage bomb counter and any bomb still in progress.
+// Resets the per-stage bomb-use counter and any bomb still in progress — not
+// the remaining [bombs], which is why this is singular like every other
+// scalar-state reset in the tree (scroll_reset(), score_reset(),
+// player_reset()) rather than plural like the array ones (bullets_reset(),
+// items_reset(), bg_particles_reset()).
 // stage_init() calls this once per stage.
-void near bombs_reset(void);
+void near bomb_reset(void);
 
 // Marks the tiles under the expanding bomb circle for redrawing.
 // stage_loop() calls this once per frame, together with the other
