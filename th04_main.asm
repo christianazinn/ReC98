@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, B4M_UPDATE_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -293,6 +293,13 @@ STAGE_TEXT	segment	word public 'CODE' use16
 	; (kb/codegen 0064), and ahead of main()'s call site below.
 	@stage_loop$qv procdesc near
 
+	; GameExecl() now lives in th04/main/execl.cpp, which appends to the
+	; EXECL_TEXT segment carved out of the head of main_TEXT below.
+	; Declared here, ahead of every `nopcall` site, and inside a main_01
+	; segment on purpose (kb/codegen 0082): that is what keeps them lowered
+	; to `nop` + `push cs` + a near call.
+	@GAMEEXECL$QNXC procdesc pascal far
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -350,7 +357,7 @@ loc_AB6B:
 loc_AB7D:
 		push	ds
 		push	offset arg0	; "op"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 
 loc_AB86:
 		pop	bp
@@ -916,7 +923,7 @@ public @end_game_good$qv
 		call	palette_black_out
 		push	ds
 		push	offset aMaine	; "maine"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 		pop	bp
 		retf
 @end_game_good$qv	endp
@@ -937,7 +944,7 @@ public @end_game_bad$qv
 		call	palette_black_out
 		push	ds
 		push	offset aMaine_0	; "maine"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 		pop	bp
 		retf
 @end_game_bad$qv	endp
@@ -1748,7 +1755,11 @@ BOSS_EXP_TEXT	segment	byte public 'CODE' use16
 	@explosions_big_update_and_render$qv procdesc near
 BOSS_EXP_TEXT	ends
 
-main_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the original `main_TEXT`
+; contribution, renamed so that a C++ object can append GameExecl() at its
+; original address in the MIDDLE of the segment. Same `byte public 'CODE'`
+; alignment as before, so nothing moves.
+EXECL_TEXT	segment	byte public 'CODE' use16
 
 shot_marisa_l0	proc near
 		push	bp
@@ -3424,7 +3435,7 @@ loc_E654:
 		call	palette_black_out
 		push	ds
 		push	offset aMaine_2	; "maine"
-		nopcall	@GameExecl$qnxc
+		nopcall	@GAMEEXECL$QNXC
 
 loc_E675:
 		mov	al, byte ptr [bp+var_2]
@@ -3578,6 +3589,8 @@ sub_E67A	endp
 
 ; Attributes: bp-based frame
 
+public _sub_E7DE
+_sub_E7DE label near
 sub_E7DE	proc near
 		push	bp
 		mov	bp, sp
@@ -3601,60 +3614,16 @@ loc_E7F5:
 		retn
 sub_E7DE	endp
 
+; The C++ contribution to EXECL_TEXT goes here, at the original address of
+; GameExecl().
+EXECL_TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+; ===========================================================================
 
-; Attributes: bp-based frame
+; The tail of the original `main_TEXT` contribution, reopened under its
+; original name.
+main_TEXT	segment	byte public 'CODE' use16
 
-public @GAMEEXECL$QNXC
-@GameExecl$qnxc proc far ; ZUN symbol [MAGNet2010]
-
-@@binary_fn		= dword	ptr  6
-
-		push	bp
-		mov	bp, sp
-		call	main_01:sub_E7DE
-		cmp	_Ems, 0
-		jz	short loc_E813
-		push	_Ems
-		call	ems_free
-
-loc_E813:
-		les	bx, _resident
-		mov	ax, _total_std_frames
-		mov	es:[bx+resident_t.std_frames], ax
-		mov	ax, _items_spawned
-		mov	es:[bx+resident_t.items_spawned], ax
-		mov	ax, _items_collected
-		mov	es:[bx+resident_t.items_collected], ax
-		mov	ax, _total_point_items_collected
-		mov	es:[bx+resident_t.point_items_collected], ax
-		mov	ax, _total_max_valued_point_items_collected
-		mov	es:[bx+resident_t.max_valued_point_items_collected], ax
-		mov	ax, _enemies_gone
-		mov	es:[bx+resident_t.enemies_gone], ax
-		mov	ax, _enemies_killed
-		mov	es:[bx+resident_t.enemies_killed], ax
-		mov	eax, _total_slow_frames
-		mov	es:[bx+resident_t.slow_frames], eax
-		mov	eax, _total_frames
-		mov	es:[bx+resident_t.frames], eax
-		call	main_01:bb_txt_free
-		call	cdg_free_all
-		call	@bb_boss_free$qv
-		call	@dialog_free$qv
-		call	main_01:bb_playchar_free
-		call	@std_free$qv
-		call	@map_free$qv
-		call	super_free
-		call	graph_hide
-		call	text_clear
-		call	gaiji_restore
-		call	@game_exit$qv
-		call	_execl c, large [bp+@@binary_fn], large [bp+@@binary_fn], large 0
-		pop	bp
-		retf	4
-@GameExecl$qnxc endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -29491,6 +29460,7 @@ SHOT_FUNCS_MARISA_B label word
 	dw shot_marisa_b_l8
 	dw shot_marisa_b_l9
 include th04/main/player/shots_hittest[data].asm
+public _enemies_gone, _enemies_killed
 _enemies_gone	dw 0
 _enemies_killed	dw 0
 include th04/main/hud/overlay[data].asm
