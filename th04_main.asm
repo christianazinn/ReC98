@@ -1008,9 +1008,12 @@ sub_B835	endp
 
 	; mpn_load() now lives in th04/main/tile/mpn_load.cpp, which the
 	; th04/map.cpp object appends to this segment ahead of map_load()
-	; itself (kb/codegen 0112 + 0114): in the original it was the LAST
-	; proc of this contribution, and th04/map.cpp already owned everything
-	; after it, so no carve and no new segment were needed.
+	; itself (kb/codegen 0112 + 0114): once map_load() had been lifted it
+	; was the LAST proc LEFT in this root contribution, and
+	; th04/formats/map.cpp already owned everything after it, so no carve
+	; and no new segment were needed. NOT "last in the original" -- the
+	; original order was sub_B835, mpn_load, map_load, map_free, which is
+	; why :1022 below says map_load() held that position.
 	MPN_LOAD procdesc pascal near \
 		fn_seg:word, fn_off:word
 
@@ -11907,8 +11910,12 @@ word_1553B	dw	0,     1,     2,     3
 	; position, so again no carve.
 	; kb/codegen/0121 check: the deleted body ended with an
 	; `assume es:nothing` after its `pop es`, but the state entering it
-	; was ALREADY es:nothing (set at th04_main.asm:9201 and unchanged
-	; until :12863), so that directive was IDA restating the status quo
+	; was ALREADY es:nothing: set inside bullets_render(), and not
+	; changed again until @thicklaser_template_pull$qr12thicklaser_t.
+	; Anchored to symbols rather than line numbers on purpose -- the
+	; original form cited :12863, and two later lifts in this same file
+	; moved that position to :12844 and then :12798 within the hour.
+	; So that directive was IDA restating the status quo
 	; and nothing has to be restored in the tail. Checked, not assumed.
 	ENEMY_VELOCITY_SET_AIMED procdesc pascal near
 ENM_POS_TEXT	ends
@@ -11923,6 +11930,7 @@ ENM_POS_TEXT	ends
 B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
 
 
+; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
@@ -16220,8 +16228,11 @@ off_17CEB	dw offset loc_17A1F
 
 	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
 	; th04/std_run.cpp object appends to this segment ahead of std_run()
-	; itself (kb/codegen/0112 + 0114): in the original it was the LAST proc
-	; of this contribution, so no carve was needed.
+	; itself (kb/codegen/0112 + 0114): once std_run() and
+	; enemy_bullet_template_push() had been lifted it was the LAST proc LEFT
+	; in this root contribution, so no carve was needed. NOT "last in the
+	; original": the three procdescs below reproduce the original address
+	; order, so enemy_bullet_template_push() held that position.
 	ENEMIES_ADD procdesc pascal near \
 		script_id:word, center_x:word, center_y:word, item:word
 

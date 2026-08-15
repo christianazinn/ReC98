@@ -53,13 +53,22 @@ static const pixel_t BEAM_CEL_FIRST_OFFSET = 8;
 // advances every 4th frame. So for one 4-frame window the beam is drawn while
 // only a 32×32 box around its origin is invalidated, leaving the scrolling
 // tiles under the rest of the beam unmarked for redrawing.
-// ZUN bloat: the window is measurably not observable. A per-frame hash of all
+// ZUN landmine: the window is measurably not observable. A per-frame hash of all
 // four VRAM bitplanes of both pages, over ZUN's DEMO1.REC, is identical between
 // this build and one whose bound is harmonised to `<` — on all 231 rows a laser
 // is live, both before the frame's sprites are drawn and on the composed page —
 // while [charge_cel] itself differs on 85 of them, so the two really do run the
 // two branches. Neither rect is load-bearing at the handover.
-// (state/port/FIX_LAYER_CANDIDATES.md J5, state/notes/th02-effect-slots.md 14)
+//
+// `landmine` rather than `bloat`, and the distinction is the whole point: this
+// is not redundant work that could be simplified away, it is two bounds that
+// must agree and do not, mitigated only because the midboss the laser sits on
+// invalidates the same neighbourhood every frame anyway. Move the origin off
+// the midboss, lengthen the beam or retime the charge, and the unmarked tiles
+// become real — which is exactly what "breaks as soon as the code is modded"
+// means. The measurement also reaches only one of the four spawning entities;
+// the other three are boss-side and no zero-input corpus gets there.
+// (state/port/FIX_LAYER_CANDIDATES.md J5, state/notes/th02-effect-slots.md §14)
 
 // Origin of the laser currently being rendered. Scratch, only used to pass the
 // position from lasers_update_and_render() to laser_render(), so it stays out

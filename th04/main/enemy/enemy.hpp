@@ -116,10 +116,25 @@ extern "C" bool pascal near enemy_pos_update(void);
 // same cluster, with the same implicit-SI ABI as its enemy_pos_update().
 extern "C" void pascal near enemy_velocity_set(void);
 
-// enemy_velocity_set(), but first turns the enemy's [angle] towards the player
-// by adding the angle from the enemy to the player onto it. The dump called
-// this one `sub_155AA`; the name is ours, and TH03's equivalent pair is
-// enemy_velocity_set_from_angle_and_speed() / enemy_angle_update().
+// enemy_velocity_set(), but first adds the angle from the enemy to the player
+// onto the enemy's own [angle]. So [angle] is an *offset* onto the player
+// direction here, not a heading: the .STD script writes it from its own operand
+// immediately before the call, which is how a script picks a spread offset and
+// still has the shot aimed.
+//
+// That first step is upstream's player_angle_from() (th05/main/player/angle.cpp)
+// open-coded — TH04 has no such helper, so the dump inlines the expression.
+// TH05's counterpart is the still-unlifted sub_15330 in the hand-written
+// main_031_TEXT cluster, which calls that helper and then enemy_velocity_set():
+// this function in two steps, and the true cross-game equivalent.
+//
+// TH03 has NO equivalent — its enemies never aim (th03/formats/enedat.hpp has no
+// aimed-move opcode, and th03/main/enemy/enemy.cpp never calls iatan2). Despite
+// the name, TH03's enemy_velocity_set_from_angle_and_speed() is the analogue of
+// the plain enemy_velocity_set() above, and its enemy_angle_update() only
+// integrates [angle_speed] for the circular and sine moves.
+//
+// The dump called this one `sub_155AA`; the name is ours.
 extern "C" void pascal near enemy_velocity_set_aimed(void);
 #endif
 

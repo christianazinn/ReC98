@@ -37,11 +37,24 @@ extern "C" void pascal near enemy_velocity_set_aimed(void)
 {
 	register enemy_t near *p = enemy_cur;
 
-	// ZUN bloat, inherited verbatim from TH03: nothing in here touches ES, and
-	// nothing the two calls clobber is live across them. TH03's
-	// enemy_velocity_set_from_angle_and_speed()
-	// (th03/main/enemy/enemy.cpp:427) carries the same pointless bracket around
-	// its own vector2() call, which is where this one came from.
+	// ZUN bloat: neither call touches ES, so bracketing them achieves nothing.
+	//
+	// That had to be checked rather than assumed, because ES is emphatically
+	// NOT dead here. The .STD script VM that calls this holds [std_seg] in ES
+	// across its whole dispatch loop, loads it exactly once before the loop
+	// head, and reads es:[di] on both sides of this call — and it brackets its
+	// own push es/pop es around only the two callees that really do clobber ES.
+	// So the caller depends on this function preserving ES; what makes the
+	// bracket redundant is the callees, not the register being free.
+	// libs/master.lib/iatan2.asm and th04/math/vector2n.asm mention ES nowhere.
+	//
+	// [inferred] The same bracket surrounds the same computation in TH03 and
+	// TH05, but never with the same scope: TH03's
+	// enemy_velocity_set_from_angle_and_speed() (th03/main/enemy/enemy.cpp:423,
+	// upstream-labelled "ZUN bloat: Yes, no point to this at all…") wraps only
+	// its vector2() call, TH05's sub_15330 wraps only the aiming call and
+	// leaves enemy_velocity_set() outside, and this one wraps both. It is a
+	// habit ZUN carried between games, not a body that was copied across.
 	asm { push es; }
 	p->angle = (iatan2(
 		(player_pos.cur.y - p->pos.cur.y), (player_pos.cur.x - p->pos.cur.x)

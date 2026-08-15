@@ -5,17 +5,25 @@
 /// tile area *is* the copy the game blits from for the rest of the stage, so
 /// the .MPN itself is only needed for the length of this function.
 ///
-/// TH02 splits the same work across mpn_load() and
-/// tile_area_init_and_put_both() (th02/main/tile/tile.cpp), and rolls the two
-/// VRAM pages into a `do` loop with a page toggle. TH04 fused the two
-/// functions, kept the .MPN one's name, and unrolled the pages.
+/// TH02 splits the same work across mpn_load_palette_show()
+/// (th02/formats/mpn.hpp:29) and tile_area_init_and_put_both()
+/// (th02/main/tile/tile.cpp:78), and rolls the two VRAM pages into a `do` loop
+/// with a page toggle. TH04 fused those two, kept the .MPN one's name, and
+/// unrolled the pages. NOT TH02's own mpn_load() (th02/main02_1.cpp:12-21):
+/// that one exists precisely to *suppress* the palette show which this
+/// function performs, so it is the one TH02 function this is not built from.
 ///
 /// TH05's mpn_load() is ZUN's hand-written assembly and stays in
-/// th05_main.asm. See state/notes/mpn_load.md; the short version is that it
-/// uses BP as its tile counter after establishing a standard frame and reading
-/// its own parameter through it, which Turbo C++ never does, and that all four
-/// of its helpers are frameless `MOV BX, SP` procs — upstream's own
-/// compiler-verified exclusion (kb/conventions/handwritten-asm-tells.md).
+/// th05_main.asm. See state/notes/mpn_load.md, and
+/// state/notes/_map_free_qv.md:161-179, :308-309 for the carve. The short
+/// version is that it uses BP as its tile counter after establishing a standard
+/// frame and reading its own parameter through it, which Turbo C++ never does.
+/// That tell is the decisive one on its own. Its helpers corroborate but do not
+/// carry it: all four are frameless, yet only two (mpn_load_inner,
+/// th05_main.asm:177, and sub_4226, :251) are `MOV BX, SP` procs, and both of
+/// those do push and pop SI/DI — so upstream's three-condition exclusion
+/// (kb/conventions/handwritten-asm-tells.md, which also warns that one
+/// frameless proc means little because `-k-` exists) does not fire on them.
 ///
 /// This file is compiled as the first half of th04/map.cpp (kb/codegen/0112):
 /// mpn_load() was the LAST proc of END_TEXT's root contribution and
