@@ -73,7 +73,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, ITEM_TEXT, HUD_TEXT, main_01______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01_______TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, main_01__TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, main_01______TEXT, ITEM_TEXT, HUD_TEXT, main_01_______TEXT, PLAYER_B_TEXT, PLAYER_TEXT, main_01________TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT, main_06_TEXT
 
@@ -1602,32 +1602,12 @@ POINTNUM_TEXT	ends
 
 main_01_____TEXT	segment	word public 'CODE' use16
 include th02/main/pointnum/num_put.asm
+main_01_____TEXT	ends
 
-; =============== S U B	R O U T	I N E =======================================
+SCROLL_TEXT	segment	byte public 'CODE' use16
+SCROLL_TEXT	ends
 
-; Attributes: bp-based frame
-
-public _sub_CA1C
-_sub_CA1C label far
-sub_CA1C	proc far
-		push	bp
-		mov	bp, sp
-		mov	_scroll_speed, 1
-		mov	_scroll_cycle, 0
-		mov	_scroll_line, 0
-		mov	_scroll_unused, 0
-		mov	word_2034A, 0
-		mov	_scroll_interval, 4
-		mov	_scroll_done, 0
-		mov	byte_2034E, 0
-		mov	byte_1E502, 0
-		mov	word_20348, 0
-		mov	word_2034C, 0
-		mov	byte_1E503, 0
-		pop	bp
-		retf
-sub_CA1C	endp
-
+main_01______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3368,7 +3348,7 @@ HUD_TEXT	segment	byte public 'CODE' use16
 	extern @overlay_stage_enter_animate$qv:proc
 HUD_TEXT	ends
 
-main_01______TEXT	segment	byte public 'CODE' use16
+main_01_______TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4534,7 +4514,7 @@ loc_ECA9:
 		pop	bp
 		retn
 bomb_reimu_b	endp
-main_01______TEXT	ends
+main_01_______TEXT	ends
 
 PLAYER_B_TEXT	segment	byte public 'CODE' use16
 	@bomb_update_and_render$qv procdesc near
@@ -4554,7 +4534,7 @@ PLAYER_TEXT	segment	byte public 'CODE' use16
 	@player_update_and_render$qv procdesc near
 PLAYER_TEXT ends
 
-main_01_______TEXT	segment	byte public 'CODE' use16
+main_01________TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4874,7 +4854,7 @@ off_F443	dw offset loc_F238
 		dw offset loc_F260
 		dw offset loc_F288
 		dw offset loc_F2A4
-main_01_______TEXT	ends
+main_01________TEXT	ends
 
 ; ===========================================================================
 
@@ -25398,6 +25378,8 @@ include th02/sprites/pointnum.asp
 public _scroll_interval, _scroll_done
 _scroll_interval	db 4
 _scroll_done	db 0
+public _scroll_unused_3
+_scroll_unused_3 label byte
 byte_1E502	db 0
 public _scroll_delta
 _scroll_delta label byte
@@ -26236,6 +26218,8 @@ _scroll_step label word
 word_2034A	dw ?
 _scroll_step_advanced label word
 word_2034C	dw ?
+public _scroll_unused_2
+_scroll_unused_2 label byte
 byte_2034E	db ?
 		db ?
 byte_20350	db ?
