@@ -7,13 +7,6 @@
 #include "th02/main/player/bomb.hpp"
 #include "th02/sprites/bombpart.h"
 
-extern int bomb_frame;
-extern point_t bomb_circle_center;
-extern int bomb_circle_frame;
-extern bool16 bomb_circle_done;
-
-extern bool16 (near pascal *near playchar_bomb_func)(void);
-
 // Function ordering fails
 // -----------------------
 

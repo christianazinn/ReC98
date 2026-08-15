@@ -1311,7 +1311,7 @@ public @GameExecl$qnxc
 		push	bp
 		mov	bp, sp
 		freePISlotLarge	0
-		call	sub_E24A
+		call	@bomb_free$qv
 		call	_mpn_free
 		call	sub_1C608
 		call	super_free
@@ -3245,147 +3245,10 @@ HUD_TEXT	segment	byte public 'CODE' use16
 HUD_TEXT	ends
 
 BOMB_TEXT	segment	byte public 'CODE' use16
+	@bomb_free$qv procdesc near
 BOMB_TEXT	ends
 
 main_01_______TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_E178
-_sub_E178 label near
-sub_E178	proc near
-		push	bp
-		mov	bp, sp
-		push	ds
-		push	offset aBombs_bft ; "bombs.bft"
-		call	file_ropen
-		pushd	20h ; ' '
-		push	0
-		call	file_seek
-		push	1080
-		call	hmem_allocbyte
-		mov	word_218C0, ax
-		mov	word_218BE, 0
-		push	ax
-		push	word_218BE
-		push	1080
-		call	file_read
-		call	file_close
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.shottype], 0
-		jnz	short loc_E1D2
-		call	@pi_load$qinxc c, 1, offset aBomb1_pi, ds
-		mov	_playchar_bomb_func, offset bomb_reimu_a
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_E1D2:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.shottype], 2
-		jnz	short loc_E1F3
-		call	@pi_load$qinxc c, 1, offset aBomb3_pi, ds
-		mov	_playchar_bomb_func, offset bomb_reimu_c
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_E1F3:
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.shottype], 1
-		jnz	short loc_E248
-		call	@pi_load$qinxc c, 1, offset aBomb2_pi, ds
-		push	ds
-		push	offset aBomb1_bft ; "bomb1.bft"
-		call	file_ropen
-		pushd	50h ; 'P'
-		push	0
-		call	file_seek
-		push	5184
-		call	hmem_allocbyte
-		mov	word ptr dword_218BA+2,	ax
-		mov	word ptr dword_218BA, 0
-		push	ax
-		push	word ptr dword_218BA
-		push	5184
-		call	file_read
-		call	file_close
-		mov	_playchar_bomb_func, offset bomb_reimu_b
-
-loc_E248:
-		pop	bp
-		retn
-sub_E178	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_E24A	proc near
-		push	bp
-		mov	bp, sp
-		freePISlotLarge	1
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.shottype], 1
-		jnz	short loc_E26F
-		push	word ptr dword_218BA+2
-		call	hmem_free
-
-loc_E26F:
-		pop	bp
-		retn
-sub_E24A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_E271
-_sub_E271 label near
-sub_E271	proc near
-		push	bp
-		mov	bp, sp
-		mov	_stage_bombs_used, 0
-		mov	_bombing, 0
-		pop	bp
-		retn
-sub_E271	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public PLAYER_BOMB
-player_bomb	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bombing, 0
-		jnz	short loc_E2D7
-		cmp	_bombs, 0
-		jz	short loc_E2D7
-		mov	_bombing, 1
-		mov	_player_invincible_via_bomb, 1
-		dec	_bombs
-		call	@hud_bombs_put$qv
-		mov	_bomb_frame, 0
-		inc	_stage_bombs_used
-		inc	_total_bombs_used
-		call	_snd_se_play c, 9
-		mov	_bomb_circle_center.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 4)
-		mov	_bomb_circle_center.y, (PLAYFIELD_TOP + (PLAYFIELD_H / 2) - 4)
-		mov	_bomb_circle_frame, 0
-		mov	_bomb_circle_done, 0
-		call	@bullets_clear$qv
-
-loc_E2D7:
-		pop	bp
-		retn
-player_bomb	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -25143,10 +25006,20 @@ byte_1E650	label byte
 		db    0
 		db    4
 		db    0
+public _aBombs_bft
+_aBombs_bft label byte
 aBombs_bft	db 'bombs.bft',0
+public _aBomb1_pi
+_aBomb1_pi label byte
 aBomb1_pi	db 'bomb1.pi',0
+public _aBomb3_pi
+_aBomb3_pi label byte
 aBomb3_pi	db 'bomb3.pi',0
+public _aBomb2_pi
+_aBomb2_pi label byte
 aBomb2_pi	db 'bomb2.pi',0
+public _aBomb1_bft
+_aBomb1_bft label byte
 aBomb1_bft	db 'bomb1.bft',0
 asc_1E6DF	db '  ',0
 include th02/sprites/bombpart.asp
@@ -26019,7 +25892,11 @@ _score_delta_transferred_prev	dw ?
 _shot_level	db ?
 		db ?
 include th02/main/player/bomb[bss].asm
+public _bomb1_bft
+_bomb1_bft label dword
 dword_218BA	dd ?
+public _bomb_bft
+_bomb_bft label dword
 word_218BE	dw ?
 word_218C0	dw ?
 public _stage_bombs_used

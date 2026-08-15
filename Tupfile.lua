@@ -524,6 +524,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/pointnum.cpp",
 	"th02/item.cpp",
 	"th02/hud.cpp",
+	"th02/main/player/bombload.cpp",
 	"th02/player_b.cpp",
 	"th02/player.cpp",
 	"th02/zunerror.cpp",
