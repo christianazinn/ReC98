@@ -49,27 +49,32 @@ extern "C" {
 // Hands MAINE.EXE the score this run ended on, by snapshotting every BCD digit
 // of [score] into the resident structure.
 //
-// TH04's half is still ASM (`sub_E7DE` in th04_main.asm) and is byte-identical
-// to the loop below; only TH05's tail call is new, which is why this is an
-// #if rather than one shared body. Decompiling TH04's is a th04_main.asm
-// parcel and belongs to whoever owns that dump.
+// ONE body for both games. The copy loop is instruction-for-instruction
+// identical in TH04 and TH05; only TH05's tail call is new.
+//
+// The loop deliberately runs over ALL of [score], index 0 included, even though
+// index 0 is not a score digit: th04/main/score[bss].asm puts a zero-size
+// `_continues_used` label on [score]'s first byte and th04/score.h types the
+// two as a union, so digits[0] IS [score.continues_used]. Carrying it along is
+// what lets MAINE.EXE read the continues count back out of
+// [resident->score_last]. score_highest_update_and_reset() is the function
+// that has to skip index 0 for the same reason.
 #if (GAME == 5)
 	// Commits [score] to [resident->score_highest] if it beats it, then zeroes
 	// [score] and the score popup state. Still ASM, in HUD_PNT_TEXT; a near
 	// call reaches it because both segments are in group main_01.
 	extern "C" void near score_highest_update_and_reset(void);
-
-	void near score_last_commit(void)
-	{
-		for(int i = 0; i < SCORE_DIGITS; i++) {
-			resident->score_last.digits[i] = score.digits[i];
-		}
-		score_highest_update_and_reset();
-	}
-#else
-	extern "C" void near sub_E7DE(void);
-	#define score_last_commit() sub_E7DE()
 #endif
+
+void near score_last_commit(void)
+{
+	for(int i = 0; i < SCORE_DIGITS; i++) {
+		resident->score_last.digits[i] = score.digits[i];
+	}
+	#if (GAME == 5)
+		score_highest_update_and_reset();
+	#endif
+}
 
 extern "C" void pascal near bb_txt_free(void);
 extern "C" void pascal cdg_free_all(void);

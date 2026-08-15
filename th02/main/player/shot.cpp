@@ -14,10 +14,13 @@
 #include "platform.h"
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
+#include "th02/resident.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
+#include "th02/main/entity.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/shot.hpp"
+#include "th02/main/tile/tile.hpp"
 
 // The patnum the player-shot spawner writes into the shot it creates.
 // player_move_and_shoot() sets it from the shottype before each volley; naming
@@ -32,10 +35,13 @@ extern "C" uint8_t byte_1E51A;
 // Signed, and player_move_and_shoot() relies on that when it ramps back down.
 extern "C" int8_t byte_20610;
 
-// Latches that this button press has already fired its option volley.
-// shot_b() and shot_c() set it once their volley completes and skip the option
-// loop while it is 1; shot_a(), which has no option shots, only ever clears it.
-extern "C" uint8_t byte_205DE;
+// Latches that an option volley is currently on screen. shot_b() and shot_c()
+// set it once their volley completes and skip the option loop while it is 1;
+// shots_invalidate() clears it again on the first frame on which no shot with
+// [from_option] is left alive, which is what limits the playfield to one option
+// volley at a time. shot_a(), whose shottype has no option shots, only ever
+// clears it.
+extern "C" uint8_t option_shots_alive;
 
 // The point shottype B's homing shots aim at. Every writer is still-ASM boss
 // or midboss code publishing its own position, and both axes are set to 0xFFFF
@@ -252,7 +258,7 @@ void near shot_a(void)
 		}
 		volley_i++;
 	}
-	byte_205DE = 0;
+	option_shots_alive = 0;
 }
 
 // The X distance between the left and the right option, in pixels.
@@ -418,7 +424,7 @@ void near shot_b(void)
 			} else {
 				boss_pos_x_unused = -1;
 			}
-			if(byte_205DE != 0) {
+			if(option_shots_alive != 0) {
 				break;
 			}
 			switch(shot_level) {
@@ -487,7 +493,7 @@ void near shot_b(void)
 				break;
 			}
 			if(volley_i == volley_last) {
-				byte_205DE = 1;
+				option_shots_alive = 1;
 				break;
 			}
 		}
@@ -591,7 +597,7 @@ void near shot_c(void)
 			// and Turbo C++ only turns a power-of-two modulo into a mask when
 			// the source already says so. (kb/codegen/0128)
 			if(shot_level < 3) {
-				if(byte_205DE != 0) {
+				if(option_shots_alive != 0) {
 					break;
 				}
 			} else if(shot_level < 4) {
@@ -697,7 +703,7 @@ void near shot_c(void)
 				break;
 			}
 			if(volley_i == volley_last) {
-				byte_205DE = 1;
+				option_shots_alive = 1;
 				break;
 			}
 		}
@@ -713,5 +719,78 @@ void far shots_free_all(void)
 
 	for(i = 0; i < SHOT_COUNT; i++) {
 		shots[i].flag = F_FREE;
+	}
+}
+
+// The blitted size of a regular shot, and of the 32×32 decay animation that
+// shottype C's fully powered shots play instead of the regular tiny one.
+static const pixel_t SHOT_W = 16;
+static const pixel_t SHOT_H = 16;
+static const pixel_t SHOT_DECAY_LARGE_W = 32;
+static const pixel_t SHOT_DECAY_LARGE_H = 32;
+
+// The first patnum blitted with super_roll_put() rather than
+// super_roll_put_tiny(); shot_c() assigns it to every shot from shot_level 2
+// on. Both this function and shots_update_and_render() branch on it.
+static const uint8_t SHOT_PATNUM_LARGE = 0x7C;
+
+void near shots_invalidate(void)
+{
+	register shot_t near *shot;
+	register int i;
+	screen_x_t left;
+
+	// Only ever compared against 0, so this could have been a bool. Counting is
+	// what the original does, though: it is an INC on a stack byte.
+	unsigned char options_alive;
+
+	options_alive = 0;
+	shot = shots;
+	for(i = 0; i < SHOT_COUNT; (i++, shot++)) {
+		if(shot->flag == F_FREE) {
+			continue;
+		}
+
+		// ZUN quirk: With [reduce_effects] on, each slot is only invalidated on
+		// every other frame — the ones on which the page it is rendered to
+		// matches the slot's own parity. Since the tiles behind a shot are
+		// therefore only restored every other frame, a shot leaves a one-frame
+		// trail of itself on both pages. shots_update_and_render() runs the same
+		// parity over the same slots, spelled completely differently.
+		if(!reduce_effects || (page_back == (i & 1))) {
+			left = shot->pos_on_page[page_back].x.to_pixel();
+
+			// Two complete calls rather than one with conditional sizes: Turbo
+			// C++ cross-jumps the shared tail back to the point of divergence,
+			// leaving only the CALL itself merged. (kb/codegen/0125 also folds
+			// each pair of constant sizes into one 32-bit PUSH.)
+			if((shot->patnum < SHOT_PATNUM_LARGE) || (shot->decay_cel == 0)) {
+				tiles_invalidate_rect(
+					left,
+					shot->pos_on_page[page_back].y.to_pixel(),
+					SHOT_W,
+					SHOT_H
+				);
+			} else {
+				tiles_invalidate_rect(
+					left,
+					shot->pos_on_page[page_back].y.to_pixel(),
+					SHOT_DECAY_LARGE_W,
+					SHOT_DECAY_LARGE_H
+				);
+			}
+		}
+		if(shot->flag == F_REMOVE) {
+			shot->flag = F_FREE;
+			continue;
+		}
+		shot->pos_on_page[page_back].x = shots[i].pos_on_page[page_front].x;
+		shot->pos_on_page[page_back].y = shots[i].pos_on_page[page_front].y;
+		if(shot->from_option) {
+			options_alive++;
+		}
+	}
+	if(options_alive == 0) {
+		option_shots_alive = 0;
 	}
 }

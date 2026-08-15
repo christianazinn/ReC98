@@ -3139,37 +3139,10 @@ loc_E7DA:
 sub_E67A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_E7DE
-_sub_E7DE label near
-sub_E7DE	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_E7F5
-; ---------------------------------------------------------------------------
-
-loc_E7E6:
-		mov	al, _score[si]
-		les	bx, _resident
-		add	bx, si
-		mov	es:[bx+resident_t.score_last], al
-		inc	si
-
-loc_E7F5:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_E7E6
-		pop	si
-		pop	bp
-		retn
-sub_E7DE	endp
-
 ; The C++ contribution to EXECL_TEXT goes here, at the original address of
-; GameExecl().
+; score_last_commit(), which is followed by GameExecl(). Both games now own
+; the whole segment in th04/main/execl.cpp; this root contribution is
+; codeless and only establishes the segment.
 EXECL_TEXT	ends
 
 ; ===========================================================================
