@@ -59,7 +59,8 @@ extern "C" void far sub_1C608(void);
 extern "C" void far sub_13ABB(char *fn);
 
 // Resets the scrolling state. Called through a `nopcall` alias.
-extern "C" void far sub_CA1C(void);
+// th02/main/scroll.cpp
+void far scroll_reset(void);
 
 // Callback defaults.
 extern "C" void far sub_17979(void); // enemies_invalidate
@@ -190,7 +191,7 @@ void near stage_init(void)
 	sub_E271();
 	snd_se_reset();
 	sub_1028C();
-	nopcall_same_group(sub_CA1C);
+	nopcall_same_group(scroll_reset);
 	randring_fill();
 	palette_100();
 

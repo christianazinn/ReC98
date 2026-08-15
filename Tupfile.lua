@@ -518,6 +518,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/tile.cpp",
 	"th02/main/stage/init.cpp",
 	"th02/main/hud/menu.cpp",
+	"th02/main/scroll.cpp",
 	"th02/main/demo.cpp",
 	"th02/main/stage/loop.cpp",
 	"th02/pointnum.cpp",

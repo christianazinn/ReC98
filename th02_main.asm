@@ -1613,32 +1613,6 @@ main_01______TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
-public _sub_CA1C
-_sub_CA1C label far
-sub_CA1C	proc far
-		push	bp
-		mov	bp, sp
-		mov	_scroll_speed, 1
-		mov	_scroll_cycle, 0
-		mov	_scroll_line, 0
-		mov	_scroll_unused, 0
-		mov	word_2034A, 0
-		mov	_scroll_interval, 4
-		mov	_scroll_done, 0
-		mov	byte_2034E, 0
-		mov	byte_1E502, 0
-		mov	word_20348, 0
-		mov	word_2034C, 0
-		mov	byte_1E503, 0
-		pop	bp
-		retf
-sub_CA1C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
 sub_CA62	proc near
 
 @@angle		= byte ptr  4
@@ -25404,6 +25378,8 @@ include th02/sprites/pointnum.asp
 public _scroll_interval, _scroll_done
 _scroll_interval	db 4
 _scroll_done	db 0
+public _scroll_unused_3
+_scroll_unused_3 label byte
 byte_1E502	db 0
 public _scroll_delta
 _scroll_delta label byte
@@ -26242,6 +26218,8 @@ _scroll_step label word
 word_2034A	dw ?
 _scroll_step_advanced label word
 word_2034C	dw ?
+public _scroll_unused_2
+_scroll_unused_2 label byte
 byte_2034E	db ?
 		db ?
 byte_20350	db ?
