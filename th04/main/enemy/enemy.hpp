@@ -110,6 +110,12 @@ extern "C" bool pascal near enemy_pos_update(void);
 // [speed]. TH05's function of the same name is hand-written assembly from the
 // same cluster, with the same implicit-SI ABI as its enemy_pos_update().
 extern "C" void pascal near enemy_velocity_set(void);
+
+// enemy_velocity_set(), but first turns the enemy's [angle] towards the player
+// by adding the angle from the enemy to the player onto it. The dump called
+// this one `sub_155AA`; the name is ours, and TH03's equivalent pair is
+// enemy_velocity_set_from_angle_and_speed() / enemy_angle_update().
+extern "C" void pascal near enemy_velocity_set_aimed(void);
 #endif
 
 // Spawns the enemies described by one .STD stage instruction. TH04 takes the
