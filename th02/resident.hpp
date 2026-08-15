@@ -13,7 +13,15 @@ struct resident_t {
 	unsigned int continues_used;
 	char rem_bombs;
 	char rem_lives;
-	char rank;
+
+	// [uint8_t] rather than [char] for the same reason as [bgm_mode] and
+	// [demo_num] below: MAINE.EXE's main() compares it against RANK_EXTRA, and
+	// Turbo C++ only keeps that as a direct memory-byte compare for an unsigned
+	// type (kb/codegen/0029). Signed [char] costs 3 extra bytes there
+	// (`MOV AL` + `CBW` + `CMP AX`). Every other reference in TH02 is a store
+	// or a byte-to-byte copy, both of which are signedness-neutral.
+	uint8_t rank;
+
 	char start_power;
 
 	// [uint8_t] rather than [char] for the same reason as [demo_num] below:
