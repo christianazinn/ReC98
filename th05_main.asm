@@ -314,18 +314,15 @@ SLOWDOWN_TEXT segment word public 'CODE' use16
 SLOWDOWN_TEXT ends
 
 ; Harness carve (kb/codegen/0080): the head of the original `DEMO_TEXT`
-; contribution, renamed so that a C++ object can append stage_loop() at its
-; original address in the MIDDLE of the segment. Same `word public 'CODE'`
+; contribution, renamed so that C++ objects can append main() and
+; stage_loop() at their original addresses in the MIDDLE of the segment.
+; With main() lifted as well, this root contribution is now a zero-byte
+; anchor, the same shape `CFG_LRES_TEXT` has. Same `word public 'CODE'`
 ; alignment as before, so nothing moves.
 STAGE_TEXT	segment word public 'CODE' use16
 		assume cs:main_01
 		;org 0Dh
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-	; stage_loop() now lives in th04/main/stage/loop.cpp, which appends to
-	; this segment. Declared `near` because the original proc is
-	; (kb/codegen 0064), and ahead of main()'s call site below.
-	@stage_loop$qv procdesc near
 
 	; GameExecl() now lives in th04/main/execl.cpp, which appends to the
 	; EXECL_TEXT segment carved out of the head of MB_DFR_TEXT below.
@@ -339,56 +336,17 @@ STAGE_TEXT	segment word public 'CODE' use16
 ; Attributes: bp-based frame
 
 ; int __cdecl main(int argc, const char	**argv,	const char **envp)
-public _main
-_main		proc far
+; main() now lives in th04/main/entry.cpp, which appends to this segment
+; ahead of th05/stg_loop.cpp. It is called main_entry() there and exported
+; under its original name through the alias below, because a C++ function
+; literally named `main` would come with a code segment of its own and shift
+; every address in this group (kb/codegen 0040).
+extrn _main_entry:far
+alias <_main> = <_main_entry>
 
-_argc		= word ptr  6
-_argv		= dword	ptr  8
-_envp		= dword	ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		call	@cfg_load_resident_ptr$qv
-		or	ax, ax
-		jz	short loc_AEA4
-		mov	_mem_assign_paras, (291200 shr 4)
-		call	@game_init_main$qnxuc pascal, ds, offset aKAIKIDAN2_DAT
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.rand]
-		mov	random_seed, eax
-		call	@ems_allocate_and_preload_eyecatc$qv
-		call	text_clear
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bgm_mode]
-		mov	ah, 0
-		push	ax
-		mov	al, es:[bx+resident_t.se_mode]
-		mov	ah, 0
-		push	ax
-		call	snd_determine_modes
-		call	snd_load pascal, ds, offset aMiko, SND_LOAD_SE
-
-loc_AE89:
-		call	sub_B237
-		call	@stage_loop$qv
-		cmp	_quit, Q_NEXT_STAGE
-		jnz	short loc_AE9B
-		call	sub_B609
-		jmp	short loc_AE89
-; ---------------------------------------------------------------------------
-
-loc_AE9B:
-		push	ds
-		push	offset arg0	; "op"
-		nopcall	@GAMEEXECL$QNXC
-
-loc_AEA4:
-		pop	bp
-		retf
-_main		endp
-
-; The C++ contribution to STAGE_TEXT goes here, at the original address of
-; the frame loop.
+; The two C++ contributions to STAGE_TEXT go here: th05/entry.cpp at the
+; original address of main(), then th05/stg_loop.cpp at the original address
+; of the frame loop.
 STAGE_TEXT	ends
 
 ; ===========================================================================
@@ -589,6 +547,8 @@ sub_B063	endp
 
 ; Attributes: bp-based frame
 
+public _sub_B237
+_sub_B237 label near
 sub_B237	proc near
 		push	bp
 		mov	bp, sp
@@ -945,6 +905,8 @@ sub_B55A	endp
 
 ; Attributes: bp-based frame
 
+public _sub_B609
+_sub_B609 label near
 sub_B609	proc near
 		push	bp
 		mov	bp, sp
@@ -19147,9 +19109,13 @@ off_20A86	dd aSt00
 _bbname	dd aBb0_cdg_0	; ZUN symbol [MAGNet2010]
 aVersion1_01	db 'version 1.01',0
 _EYECATCH_FN	db 'eye.cdg',0
+public _aKAIKIDAN2_DAT, _aMiko, _arg0
+_aKAIKIDAN2_DAT	label byte
 aKAIKIDAN2_DAT	db '‰öãY’k2.dat',0
+_aMiko	label byte
 aMiko		db 'miko',0
 ; char arg0[]
+_arg0	label byte
 arg0		db 'op',0
 aSt00		db 'ST00',0
 aEye_rgb	db 'eye.rgb',0
