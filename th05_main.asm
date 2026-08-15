@@ -7571,7 +7571,7 @@ enemies_add	endp
 	; enemy_bullet_template_push() now lives in
 	; th04/main/enemy/bullet_template.cpp, which appends to this segment.
 	ENEMY_BULLET_TEMPLATE_PUSH procdesc pascal near \
-		tmpl:word
+		src:word
 ENM_BTPL_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the original

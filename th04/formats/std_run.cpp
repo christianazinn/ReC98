@@ -38,7 +38,7 @@ void pascal std_run(void)
 	}
 	std_p += sizeof(uint16_t);
 
-	unsigned char enemies_remaining = *std_p;
+	unsigned char enemy_spawns_remaining = *std_p;
 	std_p++;
 	do {
 		if(!midboss_active) {
@@ -54,8 +54,8 @@ void pascal std_run(void)
 			#endif
 		}
 		std_p += STD_ENEMY_SPAWN_SIZE;
-		enemies_remaining--;
-	} while(enemies_remaining > 0);
+		enemy_spawns_remaining--;
+	} while(enemy_spawns_remaining > 0);
 
 	if(*reinterpret_cast<uint16_t far *>(std_ip) == 0) {
 		stage_vm = nullfunc_far;

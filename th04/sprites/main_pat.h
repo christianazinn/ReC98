@@ -162,6 +162,10 @@ typedef enum {
 
 	/// Extra Stage
 	/// ===========
+	// No source-file comment like the blocks above: nothing in the dump ties
+	// this patnum range to a specific .bmt/.bb?, and naming one would be a
+	// guess. Omitted deliberately, not forgotten.
+	//
 	// Idle animation of the Extra Stage midboss, cycled by midbossx_render()
 	// through [stage_frame_mod16].
 	PAT_MIDBOSSX = (PAT_STAGE + 20),

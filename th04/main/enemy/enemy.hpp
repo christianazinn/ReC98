@@ -106,22 +106,25 @@ extern "C" bool pascal near enemy_pos_update(void);
 
 // Spawns the enemies described by one .STD stage instruction. TH04 takes the
 // spawn record's fields from its caller; TH05 reads them off [std_ip] itself.
-// (The two unnamed parameters are still `arg_0` / `arg_6` in the dump.)
+// The dump still spells the first and last parameters `arg_6` and `arg_0`;
+// they index [std_enemy_scripts] and initialize [item] respectively.
 #if (GAME == 5)
 extern "C" void pascal near enemies_add(void);
 #else
 extern "C" void pascal near enemies_add(
-	unsigned int arg_6, subpixel_t center_x, subpixel_t center_y,
-	unsigned int arg_0
+	unsigned int script_id, subpixel_t center_x, subpixel_t center_y,
+	unsigned int item // ACTUAL TYPE: item_type_t
 );
 #endif
 
 // Copies an enemy's bullet template into the global [bullet_template], ready
 // for bullet_template_tune() and bullets_add_regular(). TH04 resolves the
 // member itself, TH05 expects the caller to have done it.
+// (The dump spells TH05's parameter `tmpl`; `src` here, because
+// th04/main/bullet/add.cpp's `tmpl` is the destination global instead.)
 #if (GAME == 5)
 extern "C" void pascal near enemy_bullet_template_push(
-	BulletTemplate near &tmpl
+	BulletTemplate near &src
 );
 #else
 extern "C" void pascal near enemy_bullet_template_push(enemy_t near &enemy);
