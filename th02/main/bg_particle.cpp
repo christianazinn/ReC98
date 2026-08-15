@@ -33,12 +33,15 @@ void pascal near vector2(int&, int&, unsigned char, int);
 
 extern "C" bool reduce_effects;
 
-// Write-only. [_1] is seeded to -1 by bg_particles_reset() and copied into
-// [_2] once per frame, right next to a copy of [bg_particle_col] into [_3];
-// nothing ever reads any of the three. [_1] is `_BSS` right after
+// Write-only. The first is seeded to -1 by bg_particles_reset() and copied
+// into [_2] once per frame, right next to a copy of [bg_particle_col] into
+// [_3]; nothing ever reads any of the three. The first is `_BSS` right after
 // [bg_particle_unput_col], [_2] and [_3] are `_BSS` right after
 // [dot_square_top]. ZUN bloat.
-extern int8_t bg_particle_unused_1;
+// The first is unnumbered on purpose, exactly as th02/main/scroll.cpp:25-27
+// spells its own three: a `_1` would imply a contiguous family that the
+// layout above does not have.
+extern int8_t bg_particle_unused;
 extern uint8_t bg_particle_unused_2;
 extern uint8_t bg_particle_unused_3;
 
@@ -70,11 +73,11 @@ void far bg_particles_reset(void)
 	bg_particle_angle_delta = 0;
 	bg_particle_col = V_WHITE;
 	bg_particle_unput_col = 0;
-	bg_particle_unused_1 = -1;
+	bg_particle_unused = -1;
 	bg_particle_edge_step = 32;
 }
 
-void pascal far bg_particle_add(
+void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 )
 {
@@ -233,7 +236,7 @@ void far bg_particles_update_and_render(void)
 	int delta_y;
 
 	grcg_setcolor(GC_RMW, bg_particle_col);
-	bg_particle_unused_2 = bg_particle_unused_1;
+	bg_particle_unused_2 = bg_particle_unused;
 	bg_particle_unused_3 = bg_particle_col;
 	p = unneeded_copy = bg_particles;
 	for(i = 0; i < BG_PARTICLE_COUNT; i++, p++) {

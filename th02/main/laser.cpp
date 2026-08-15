@@ -150,7 +150,7 @@ void pascal near laser_render(laser_t near *laser)
 }
 
 // Advances every live laser's phase and renders it. stage_loop() calls this
-// through the [farfp_23A76] callback.
+// through the [lasers_update_and_render_func] slot.
 void far lasers_update_and_render(void)
 {
 	screen_x_t x;

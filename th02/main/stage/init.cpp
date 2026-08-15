@@ -304,8 +304,8 @@ void near stage_init(void)
 	);
 	stage_update_and_render = nullfunc_void;
 	stage_invalidate = nullfunc_void;
-	farfp_23A72 = nullfunc_void;
-	farfp_23A76 = nullfunc_void;
+	lasers_invalidate_func = nullfunc_void;
+	lasers_update_and_render_func = nullfunc_void;
 	enemies_invalidate = sub_17979;
 	enemies_update_and_render = sub_1766E;
 	boss_activate_if_scroll_done = sub_BFD0;

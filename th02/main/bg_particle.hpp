@@ -93,7 +93,10 @@ extern vc_t bg_particle_unput_col;
 void far bg_particles_reset(void);
 
 // Spawns a single particle at the given screen position, moving at [angle].
-void pascal far bg_particle_add(
+// Plural like sparks_add() and items_add(), which also spawn into an array:
+// every *_add() in the tree is named after the array it writes to, never after
+// the one entity it adds.
+void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 );
 
