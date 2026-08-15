@@ -16614,6 +16614,11 @@ BX_UPDATE_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+; The Extra Stage midboss's per-frame step, called from C++ in
+; th04/main/midboss/mx_update.cpp. `pascal`, hence the uppercase alias
+; without an underscore (kb/codegen 0123).
+public SUB_1E556
+SUB_1E556 label near
 sub_1E556	proc near
 
 arg_0		= word ptr  4
@@ -16741,6 +16746,11 @@ sub_1E5FC	endp
 
 ; Attributes: bp-based frame
 
+; The pattern that the Extra Stage midboss's phase 1 starts from; its
+; address is taken in th04/main/midboss/mx_update.cpp through this
+; zero-byte alias (kb/codegen 0123).
+public _sub_1E60E
+_sub_1E60E label near
 sub_1E60E	proc near
 		push	bp
 		mov	bp, sp
@@ -16861,130 +16871,6 @@ loc_1E70A:
 		pop	bp
 		retn
 sub_1E6A6	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSSX_UPDATE$QV
-@midbossx_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		mov	eax, _midboss_pos.cur
-		mov	_bullet_template.BT_origin, eax
-		mov	_gather_template.GT_center, eax
-		inc	_midboss_phase_frame
-		mov	al, _midboss_phase
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1E732
-		cmp	ax, 1
-		jz	short loc_1E776
-		jmp	loc_1E855
-; ---------------------------------------------------------------------------
-
-loc_1E732:
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		mov	_midboss_angle, 64
-		push	_midboss_phase_frame
-		call	sub_1E556
-		or	al, al
-		jz	loc_1E864
-		inc	_midboss_phase
-		mov	_midboss_phase_frame, 0
-		mov	_midboss_angle, 0
-		mov	_boss_statebyte[15], 0
-		mov	_boss_statebyte[14], 0
-		mov	_boss_statebyte[12], 0
-		mov	off_2285A, offset sub_1E60E
-		jmp	loc_1E864
-; ---------------------------------------------------------------------------
-
-loc_1E776:
-		mov	ax, _midboss_phase_frame
-		add	ax, -64
-		push	ax
-		call	sub_1E556
-		or	al, al
-		jz	short loc_1E7F2
-		cmp	_boss_statebyte[12], 0
-		jnz	short loc_1E7AF
-		cmp	_midboss_hp, 1000
-		jge	short loc_1E7AF
-		call	@midboss_score_bonus$qui pascal, 10
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1E7A4
-		mov	_bullet_clear_time, 20
-
-loc_1E7A4:
-		call	snd_se_play pascal, 15
-		inc	_boss_statebyte[12]
-
-loc_1E7AF:
-		mov	_boss_statebyte[15], 1
-		mov	_midboss_phase_frame, 0
-		mov	al, _boss_statebyte[14]
-		mov	ah, 0
-		and	ax, 7
-		mov	bx, ax
-		mov	al, byte_22868[bx]
-		mov	_midboss_angle, al
-		inc	_boss_statebyte[14]
-		mov	al, _boss_statebyte[12]
-		mov	ah, 0
-		shl	ax, 2
-		mov	dl, _boss_statebyte[14]
-		mov	dh, 0
-		mov	bx, 2
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		add	dx, dx
-		pop	bx
-		add	bx, dx
-		mov	ax, off_2285C[bx]
-		mov	off_2285A, ax
-
-loc_1E7F2:
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 4
-		mov	_midboss_damage_this_frame, al
-		mov	ah, 0
-		sub	_midboss_hp, ax
-		cmp	_boss_statebyte[14], 14h
-		jnb	short loc_1E82B
-		cmp	_midboss_hp, 0
-		jg	short loc_1E864
-		mov	_bullet_zap_active, 1
-		call	@midboss_score_bonus$qui pascal, 30
-		call	@items_add$qii11item_type_t pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, IT_1UP
-
-loc_1E82B:
-		mov	_midboss_phase, PHASE_EXPLODE_BIG
-		mov	_midboss_sprite, 4
-		mov	_midboss_phase_frame, 0
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		call	snd_se_play pascal, 12
-		jmp	short loc_1E864
-; ---------------------------------------------------------------------------
-
-loc_1E855:
-		call	@midboss_defeat_update$qv
-		call	@hud_hp_update_and_render$qii pascal, _midboss_hp, 3000
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_1E864:
-		call	@hud_hp_update_and_render$qii pascal, _midboss_hp, 3000
-		mov	ax, _midboss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _midboss_pos.cur.y
-		mov	_homing_target.y, ax
-		pop	bp
-		retf
-@midbossx_update$qv	endp
 
 	@FIREWAVES_ADD$QIUC procdesc pascal near \
 		amp:word, is_right:byte
@@ -19172,13 +19058,26 @@ _shinki_float_direction	db 0
 word_22856	dw 0
 byte_22858	db 0
 byte_22859	db 0
+; The Extra Stage midboss's current pattern callback, assigned from C++ in
+; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
+public _off_2285A
+_off_2285A label word
 off_2285A	dw offset sub_1E5FC
+; The Extra Stage midboss's [2][2] pattern table, indexed from C++ in
+; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
+public _off_2285C
+_off_2285C label word
 off_2285C	dw offset sub_1E60E
 		dw offset sub_1E66F
 		dw offset sub_1E6A6
 		dw offset sub_1E6A6
 		dw 0
 		dw 0
+; [midboss.angle] for each of the first 8 phase-1 cycles of the Extra Stage
+; midboss; read from C++ in th04/main/midboss/mx_update.cpp through this
+; zero-byte alias (kb/codegen 0123).
+public _byte_22868
+_byte_22868 label byte
 byte_22868	db  10h
 		db  70h	; p
 		db  80h
