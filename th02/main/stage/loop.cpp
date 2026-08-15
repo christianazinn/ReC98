@@ -41,7 +41,6 @@ extern long scroll_line_on_page_init;
 
 extern "C" void near bgm_show(void);
 extern "C" void near sub_E2D9(void);
-extern "C" void near sub_F1D8(void);
 extern "C" void sub_16D9B(void);
 extern "C" void pascal DemoPlay(void);
 
@@ -139,7 +138,7 @@ bool16 stage_loop(void)
 			nopcall_same_group(DemoPlay);
 		}
 
-		sub_F1D8();
+		player_move_and_shoot();
 		bomb_update_and_render();
 		enemies_update_and_render();
 		stage_progression = boss_update();
