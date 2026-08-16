@@ -14,10 +14,13 @@
 #include "platform.h"
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/resident.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
 #include "th02/main/entity.hpp"
+#include "th02/main/frames.hpp"
+#include "th02/main/scroll.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/tile/tile.hpp"
@@ -794,3 +797,191 @@ void near shots_invalidate(void)
 		option_shots_alive = 0;
 	}
 }
+
+// A free-running frame counter per shot SLOT rather than per shot: nothing
+// resets it when a slot is freed and reused. shots_update_and_render()
+// increments it once per frame for every alive, non-decaying player shot, and
+// the only thing ever read back out of it is bit 0, which alternates the two
+// animation cels of a shot whose patnum is at least SHOT_PATNUM_ANIMATED. The
+// dump reserves 39 bytes here; the 39th is touched by no instruction anywhere
+// in the binary and only pads up to [shots]. [measured]
+extern "C" uint8_t shot_anim_frame[SHOT_COUNT];
+
+// Frames per cel of an option shot's decay animation. 4 by default; the
+// still-ASM per-shottype player reset lowers it to 3 for shottype C. Signed,
+// and the modulo below is what proves it: `cbw` / `movsx` before the DIV.
+extern "C" int8_t shot_option_decay_interval;
+
+// The last cel of a player shot's decay animation; the shot is removed once
+// [decay_cel] passes it. uint8_t rather than int so that the comparison stays
+// the original's direct memory-byte compare. (kb/codegen/0029)
+static const uint8_t SHOT_DECAY_CELS = 5;
+
+// The decay animation of a shot whose patnum is at least SHOT_PATNUM_LARGE,
+// indexed by [decay_cel] and blitted with the 32×32 super_roll_put(). Stays in
+// the dump's _DATA — re-emitting the initializer from here would grow _DATA and
+// shift everything after it. (kb/codegen/0084)
+extern "C" int shot_decay_patnums_large[SHOT_DECAY_CELS + 1];
+
+// Byte offsets of [pos_on_page][0].x and .y within a shot_t. Spelled as
+// constants because the pointer arithmetic below starts at the shot itself
+// rather than at the field: ZUN hoists [page_back]'s byte offset into a local
+// before the loop, so `&shot->pos_on_page[page_back].x` — which would recompute
+// `page_back * 4` from the global every time — is not what the original does.
+static const int SHOT_POS_X_OFFSET = 2;
+static const int SHOT_POS_Y_OFFSET = 4;
+
+#define pos_on_back(shot, page_offset, field_offset) \
+	reinterpret_cast<subpixel_t near *>( \
+		reinterpret_cast<uint8_t near *>(shot) + (page_offset) + \
+		(field_offset) \
+	)
+
+// The bounds a shot is removed at. ZUN quirk: the X pair is compared in
+// SUBPIXELS against the position word while the Y pair is compared in PIXELS,
+// even though the converted pixel X is sitting in a local two statements up.
+// Neither pair lines up with the playfield either — PLAYFIELD_LEFT is 32,
+// PLAYFIELD_RIGHT is 416 and PLAYFIELD_TOP is 16, so only the bottom edge is
+// exact. Shots therefore survive 16 pixels to the left of the playfield and 2
+// pixels into the HUD.
+static const subpixel_t SHOT_REMOVE_LEFT = TO_SP(16);
+static const subpixel_t SHOT_REMOVE_RIGHT = TO_SP(418);
+static const screen_y_t SHOT_REMOVE_TOP = 8;
+static const screen_y_t SHOT_REMOVE_BOTTOM = 384;
+
+// The first patnum whose two animation cels are alternated by
+// [shot_anim_frame]'s low bit. It is shot_b()'s powered shottype B patnum, so
+// the effect is that a powered shot animates and an unpowered one does not.
+static const int SHOT_PATNUM_ANIMATED = 0x32;
+
+// The tiny decay animation, [decay_cel] cels long, starting at this patnum.
+// shots_hittest() starts the animation by setting [decay_cel] to 1 or 2.
+static const int SHOT_DECAY_PATNUM = 74;
+
+// The last cel of an option shot's decay animation; one shorter than a player
+// shot's SHOT_DECAY_CELS.
+static const uint8_t SHOT_OPTION_DECAY_CELS = 4;
+
+// The one option-shot patnum that is exempt from the constant upward
+// acceleration below. The still-ASM per-shottype player reset installs 3Bh into
+// the second of its two patnum globals for shottype C and for no other
+// shottype (`mov byte_2060F, 3Bh`), so this exempts exactly one shottype —
+// but which of those two globals reaches an option shot's [patnum] needs
+// player_move_and_shoot(), which is still ASM. [inferred]
+static const uint8_t SHOT_OPTION_PATNUM_UNACCELERATED = 0x3B;
+
+// Subpixels per frame that an option shot's upward velocity grows by while its
+// [decay_cel] is still its spawn value.
+static const subpixel_t SHOT_OPTION_ACCELERATION = 4;
+
+void near shots_update_and_render(void)
+{
+	register shot_t near *shot;
+	register vram_y_t top;
+
+	int i;
+	screen_x_t left;
+	subpixel_t near *cur_x;
+	subpixel_t near *cur_y;
+
+	// 0 with [reduce_effects] off, and otherwise 1 or 2, flipped between those
+	// two on every slot: rendering is skipped for the slots this reads 2 on,
+	// which is the same alternating half of the slots that shots_invalidate()
+	// skips invalidating. That function spells the identical condition as
+	// `page_back == (i & 1)`, and the two agreeing is what proves either
+	// reading. ZUN bloat: an XOR-flipped 2-state byte is a strange way to
+	// write a parity that the loop counter already carries.
+	unsigned char skip_render;
+
+	// [page_back]'s byte offset into a shot's [pos_on_page] pair, hoisted out
+	// of the loop.
+	int page_offset;
+
+	int patnum;
+
+	skip_render = (reduce_effects << page_back);
+	page_offset = (page_back * sizeof(SPPoint));
+	shot = shots;
+	for(i = 0; i < SHOT_COUNT; (i++, skip_render ^= 3, shot++)) {
+		if(shot->flag != F_ALIVE) {
+			continue;
+		}
+		cur_x = pos_on_back(shot, page_offset, SHOT_POS_X_OFFSET);
+		cur_y = pos_on_back(shot, page_offset, SHOT_POS_Y_OFFSET);
+
+		*cur_x += shot->velocity.x.v;
+		*cur_y += shot->velocity.y.v;
+		top = TO_PIXEL(*cur_y);
+		left = TO_PIXEL(*cur_x);
+		if(
+			(*cur_x <= SHOT_REMOVE_LEFT) || (*cur_x >= SHOT_REMOVE_RIGHT) ||
+			(top > SHOT_REMOVE_BOTTOM) || (top < SHOT_REMOVE_TOP)
+		) {
+			shot->flag = F_REMOVE;
+			continue;
+		}
+		top = scroll_screen_y_to_vram(top, top);
+
+		if(!shot->from_option) {
+			shot_anim_frame[i]++;
+			if(shot->decay_cel == 0) {
+				if(skip_render != 2) {
+					patnum = shot->patnum;
+					if(patnum >= SHOT_PATNUM_ANIMATED) {
+						patnum += (shot_anim_frame[i] & 1);
+					}
+					super_roll_put_tiny(left, top, patnum);
+				}
+			} else {
+				if(shot->decay_cel > SHOT_DECAY_CELS) {
+					shot->flag = F_REMOVE;
+					continue;
+				}
+				if(skip_render != 2) {
+					if(shot->patnum < SHOT_PATNUM_LARGE) {
+						super_roll_put_tiny(
+							left, top, (shot->decay_cel + SHOT_DECAY_PATNUM)
+						);
+					} else {
+						super_roll_put(
+							left,
+							top,
+							shot_decay_patnums_large[shot->decay_cel]
+						);
+					}
+				}
+				if((stage_frame & 3) == 0) {
+					shot->decay_cel += 1;
+				}
+			}
+		} else {
+			// Option shots spawn with [decay_cel] at 1 and keep it there until
+			// shots_hittest() raises it, so the else branch is the flight path
+			// and the then branch is the decay one — the opposite way round
+			// from the player shots above.
+			if(shot->decay_cel > 1) {
+				if((stage_frame % shot_option_decay_interval) == 0) {
+					shot->decay_cel += 1;
+					if(shot->decay_cel > SHOT_OPTION_DECAY_CELS) {
+						shot->flag = F_REMOVE;
+						continue;
+					}
+				}
+				if((stage_frame & 1) != 0) {
+					shot->velocity.y.v >>= 1;
+				}
+			} else {
+				if(shot->patnum != SHOT_OPTION_PATNUM_UNACCELERATED) {
+					shot->velocity.y.v -= SHOT_OPTION_ACCELERATION;
+				}
+			}
+			if(skip_render != 2) {
+				super_roll_put_tiny(
+					left, top, (shot->patnum + shot->decay_cel)
+				);
+			}
+		}
+	}
+}
+
+#undef pos_on_back
