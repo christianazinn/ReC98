@@ -71,6 +71,8 @@ static int16_t t3pix_applied_tone;
 static uint16_t t3pix_publication_stride = 1;
 static uint16_t t3pix_control_version;
 static uint8_t t3pix_target_process;
+static uint8_t t3pix_replay_checkpoint;
+static uint8_t t3pix_control_selection;
 static uint32_t t3pix_target_invocation = T3PIX_ID_NONE;
 static uint32_t t3pix_target_publication = T3PIX_ID_NONE;
 static void t3pix_clear(uint8_t far *dst, unsigned size)
@@ -169,10 +171,13 @@ static void t3pix_control_read(void)
 		(control[0] == 'T') && (control[1] == '3') &&
 		(control[2] == 'P') && (control[3] == 'C') &&
 		(t3pix_u16_get(&control[4]) == 2) &&
-		(t3pix_u16_get(&control[6]) == sizeof(control))
+		(t3pix_u16_get(&control[6]) == sizeof(control)) &&
+		(control[9] < 15) && (control[10] <= 1)
 	) {
 		t3pix_control_version = 2;
 		t3pix_target_process = control[8];
+		t3pix_replay_checkpoint = control[9];
+		t3pix_control_selection = control[10];
 		t3pix_target_invocation = t3pix_u32_get(&control[12]);
 		t3pix_invocation = t3pix_target_invocation;
 		t3pix_target_publication = t3pix_u32_get(&control[16]);
@@ -251,8 +256,22 @@ static uint32_t t3pix_fnv1a_extend(
 	return hash;
 }
 
-static bool t3pix_raw_selected(void)
+static bool t3pix_raw_selected(
+	t3pix_event_t event, t3pix_boundary_t boundary
+)
 {
+	if(
+		(t3pix_control_version == 2) &&
+		(t3pix_control_selection == 1)
+	) {
+		return (
+			(event == T3PIX_EVENT_SHOW_PAGE) &&
+			(boundary == T3PIX_BOUNDARY_STATE) &&
+			(t3pix_target_publication == t3pix_logical_sample) &&
+			(t3pix_target_publication == t3pix_replay_global_frame) &&
+			(t3pix_round_frame == 0)
+		);
+	}
 	return (
 		(t3pix_control_version == 2) &&
 		(t3pix_target_publication == t3pix_publication)
@@ -392,6 +411,9 @@ static void t3pix_record_fill(
 	);
 	t3pix_u16_put(&record[194], t3pix_publication_stride);
 	t3pix_u32_put(&record[196], payload_hash);
+	record[200] = t3pix_replay_checkpoint;
+	record[201] = t3pix_control_selection;
+	t3pix_u32_put(&record[204], t3pix_target_publication);
 }
 
 static void t3pix_publication_advance(t3pix_boundary_t boundary)
@@ -441,7 +463,7 @@ void far pascal t3pix_publish(
 		t3pix_publication_advance(boundary);
 		return;
 	}
-	if(t3pix_raw_selected()) {
+	if(t3pix_raw_selected(event, boundary)) {
 		flags |= T3PIX_RECORD_RAW;
 	} else if(
 		(t3pix_publication_stride == 0) ||

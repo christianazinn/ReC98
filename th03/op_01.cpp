@@ -149,6 +149,9 @@ static const char REPLAY_DIR[] = "REPLAY";
 static const char REPLAY_INDEX_FN[] = "REPLAY\\TH3R.IDX";
 static char REPLAY_SLOT_FN[] = "REPLAY\\TH3R00.RPY";
 static const char REPLAY_FALLBACK_FN[] = "TH3LAST.RPY";
+#if defined(TH03_PIXEL_CAPTURE)
+static uint8_t replay_cfg_checkpoint;
+#endif
 
 replay_user_header_t replay_user_menu_header;
 replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
@@ -252,6 +255,19 @@ static char replay_cfg_mode(void)
 		return T3_REPLAY_RES_MODE_PLAYBACK;
 	}
 	if((cfg[0] == 'v') || (cfg[0] == 'V')) {
+#if defined(TH03_PIXEL_CAPTURE)
+		// Capture-only suffix: v10 selects checkpoint 10 through the same
+		// anchor/target handoff as the in-game Replay browser.
+		replay_cfg_checkpoint = 0;
+		if((cfg[1] >= '0') && (cfg[1] <= '9')) {
+			replay_cfg_checkpoint = static_cast<uint8_t>(cfg[1] - '0');
+			if((cfg[2] >= '0') && (cfg[2] <= '9')) {
+				replay_cfg_checkpoint = static_cast<uint8_t>(
+					(replay_cfg_checkpoint * 10) + (cfg[2] - '0')
+				);
+			}
+		}
+#endif
 		return T3_REPLAY_RES_MODE_USER_PLAYBACK;
 	}
 	return 0;
@@ -752,7 +768,11 @@ static bool replay_user_checkpoint_read_for_menu(
 			)
 		)
 	);
+#if defined(TH03_PIXEL_CAPTURE)
+	if(!file_ropen(REPLAY_FALLBACK_FN)) {
+#else
 	if(!file_ropen(REPLAY_SLOT_FN)) {
+#endif
 		return false;
 	}
 	file_seek(offset, SEEK_SET);
@@ -1435,12 +1455,47 @@ static void replay_demo_resident_set(void)
 
 static void replay_start_demo_headless(char mode)
 {
+#if defined(TH03_PIXEL_CAPTURE)
+	uint8_t checkpoint;
+	uint8_t anchor;
+	uint32_t sample_count;
+	uint32_t global_frame;
+	uint32_t input_size;
+#endif
+
 	replay_cfg_load_resident_only();
 	replay_resident_handoff_set(mode);
 	if(mode == T3_REPLAY_RES_MODE_USER_PLAYBACK) {
 		if(!replay_user_read_for_menu()) {
 			return;
 		}
+#if defined(TH03_PIXEL_CAPTURE)
+		checkpoint = replay_cfg_checkpoint;
+		if(checkpoint != 0) {
+			if(checkpoint >= replay_user_checkpoint_count_for_menu()) {
+				return;
+			}
+			// Match the Replay browser's ordinary checkpoint selection. MAINL
+			// applies a broad accelerator when the selected anchor provides one.
+			replay_checkpoint_force_preroll_set(false);
+			anchor = replay_checkpoint_anchor_for_menu(checkpoint);
+			if(!replay_user_checkpoint_read_for_menu(
+				anchor, &sample_count, &global_frame, &input_size
+			)) {
+				return;
+			}
+			replay_resident_handoff_u32_set(
+				T3_REPLAY_RES_SAMPLE_COUNT_INDEX, sample_count
+			);
+			replay_resident_handoff_u32_set(
+				T3_REPLAY_RES_GLOBAL_FRAME_INDEX, global_frame
+			);
+			replay_resident_handoff_u32_set(
+				T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
+			);
+			replay_checkpoint_handoff_set(anchor);
+		}
+#endif
 		replay_user_restore_resident_from_menu();
 		execl(REPLAY_BINARY_MAINL, REPLAY_BINARY_MAINL, nullptr);
 		return;

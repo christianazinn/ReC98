@@ -61,6 +61,9 @@
 
 extern "C" const unsigned char aCOul[];
 extern "C" int file_Handle;
+#if defined(TH03_PIXEL_CAPTURE)
+extern "C" Palette8 palette_1F2F4;
+#endif
 
 static char T3_REPLAY_CFG_FN[13];
 static char T3_INPUT_FN[12];
@@ -386,13 +389,26 @@ static uint32_t replay_accel_hash(const uint8_t far *raw)
 	return hash;
 }
 
+#if defined(TH03_PIXEL_CAPTURE)
+static uint16_t replay_accel_bss_offset(void)
+{
+	// T3R accelerator images contain the original MAIN state beginning at
+	// palette_1F2F4. T3PIX adds capture-only BSS ahead of that state, so bind
+	// the image to the symbol rather than the release build's numeric offset.
+	return FP_OFF(&palette_1F2F4);
+}
+#define REPLAY_ACCEL_BSS_OFFSET replay_accel_bss_offset()
+#else
+#define REPLAY_ACCEL_BSS_OFFSET T3R_ACCEL_BSS_OFFSET
+#endif
+
 static void replay_accel_raw_fill(uint8_t far *raw)
 {
 	uint16_t dgroup_seg = FP_SEG(&replay_mode);
 
 	replay_copy_far(
 		raw,
-		MK_FP(dgroup_seg, T3R_ACCEL_BSS_OFFSET),
+		MK_FP(dgroup_seg, REPLAY_ACCEL_BSS_OFFSET),
 		T3R_ACCEL_BSS_SIZE
 	);
 	replay_copy_far(
@@ -503,7 +519,7 @@ static void replay_accel_raw_apply(const uint8_t far *raw)
 
 	replay_accel_pointers_capture();
 	replay_copy_far(
-		MK_FP(dgroup_seg, T3R_ACCEL_BSS_OFFSET),
+		MK_FP(dgroup_seg, REPLAY_ACCEL_BSS_OFFSET),
 		raw,
 		T3R_ACCEL_BSS_SIZE
 	);
