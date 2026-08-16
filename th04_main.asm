@@ -13424,99 +13424,17 @@ loc_16AE5:
 marisa_16A1A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_16AE9	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		mov	ax, _boss_phase_frame
-		and	ax, 1Fh
-		cmp	ax, 1
-		jnz	loc_16B7D
-		cmp	_boss_pos.cur.x, (112 shl 4)
-		jg	short loc_16B0A
-		mov	_boss_pos.velocity.x, (2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B0A:
-		cmp	_boss_pos.cur.x, (272 shl 4)
-		jl	short loc_16B1A
-		mov	_boss_pos.velocity.x, (-2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B1A:
-		push	1
-		call	@randring2_next16_and$qui
-		or	ax, ax
-		jz	short loc_16B28
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B2B
-; ---------------------------------------------------------------------------
-
-loc_16B28:
-		mov	ax, (-1 shl 4)
-
-loc_16B2B:
-		mov	_boss_pos.velocity.x, ax
-
-loc_16B2E:
-		cmp	_boss_pos.cur.y, (80 shl 4)
-		jg	short loc_16B3E
-		mov	_boss_pos.velocity.y, (1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B3E:
-		cmp	_boss_pos.cur.y, (144 shl 4)
-		jl	short loc_16B4E
-		mov	_boss_pos.velocity.y, (-1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B4E:
-		push	3
-
-loc_16B50:
-		call	@randring2_next16_and$qui	; jumptable 0001EA6B case 7819
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jnz	short loc_16B61
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B61:
-		cmp	[bp+var_1], 1
-		jnz	short loc_16B6C
-		mov	ax, (-1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B6C:
-		cmp	[bp+var_1], 2
-		jnz	short loc_16B77
-		mov	ax, 24
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B77:
-		mov	ax, -24
-
-loc_16B7A:
-		mov	_boss_pos.velocity.y, ax
-
-loc_16B7D:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		leave
-		retn
-marisa_16AE9	endp
+	; marisa_flystep_random() now lives in th04/main/boss/b4m.cpp, above
+	; marisa_flystep_pointreflected(), which is its original address order:
+	; it was the LAST proc of this root contribution and that file's object
+	; already appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed (kb/codegen/0098 +
+	; 0114). kb/codegen/0121: the deleted body carried no `assume`, so there
+	; is nothing to restore into the rest of this contribution.
+	;
+	; Its one call site is in ENM_BTPL_TEXT, which is in the same main_03
+	; group, so the call stays near and unqualified.
+	@marisa_flystep_random$qv procdesc near
 
 	@MARISA_FLYSTEP_POINTREFLECTED$QI procdesc pascal near \
 		duration:word
@@ -15248,7 +15166,7 @@ loc_17B19:
 ; ---------------------------------------------------------------------------
 
 loc_17B1E:
-		call	marisa_16AE9	; jumptable 00017ADF case 255
+		call	@marisa_flystep_random$qv ; jumptable 00017ADF case 255
 		cmp	_boss_phase_frame, 64
 		jl	short loc_17B98	; default
 		inc	_boss_phase_state

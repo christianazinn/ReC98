@@ -6,6 +6,7 @@
 #include "th04/sprites/main_pat.h"
 #include "th04/main/custom.hpp"
 #include "th04/main/boss/boss.hpp"
+#include "th04/math/randring.hpp"
 
 // Constants
 // ---------
@@ -63,6 +64,62 @@ extern screen_x_t bit_center_y[BIT_COUNT];
 
 // Game logic
 // ----------
+
+// Marisa's other flight step: a bounded random wander. Every 32nd frame — on
+// the frame *after* each multiple of 32, since the test is against 1 rather
+// than 0 — this picks a new velocity for each axis independently. An axis
+// whose coordinate has left its box is turned back towards the middle at a
+// fixed speed; otherwise the new direction is random. Every call, including
+// the 31 that pick nothing, then applies the current velocity to [boss].
+//
+// The two axes are not symmetric, and the asymmetry is ZUN's: X gets a
+// straight coin flip between two speeds, while Y draws from four, adding the
+// two 1.5-pixel variants that have no X counterpart.
+void near marisa_flystep_random(void)
+{
+	enum {
+		INTERVAL_MASK = 0x1F,
+
+		LEFT   = TO_SP(112),
+		RIGHT  = TO_SP(272),
+		TOP    = TO_SP(80),
+		BOTTOM = TO_SP(144),
+
+		SPEED_TURN_X = TO_SP(2),
+		SPEED_TURN_Y = TO_SP(1),
+		SPEED_RANDOM = TO_SP(1),
+
+		// 1.5 pixels. Not expressible as TO_SP() of an integer, which is why
+		// the original stores it as the raw subpixel literal 24.
+		SPEED_RANDOM_FAST = (TO_SP(3) / 2),
+	};
+	if((boss.phase_frame & INTERVAL_MASK) == 1) {
+		if(boss.pos.cur.x <= LEFT) {
+			boss.pos.velocity.x.v = SPEED_TURN_X;
+		} else if(boss.pos.cur.x >= RIGHT) {
+			boss.pos.velocity.x.v = -SPEED_TURN_X;
+		} else {
+			boss.pos.velocity.x.v = (
+				randring2_next16_and(1) ? SPEED_RANDOM : -SPEED_RANDOM
+			);
+		}
+
+		if(boss.pos.cur.y <= TOP) {
+			boss.pos.velocity.y.v = SPEED_TURN_Y;
+		} else if(boss.pos.cur.y >= BOTTOM) {
+			boss.pos.velocity.y.v = -SPEED_TURN_Y;
+		} else {
+			unsigned char direction = randring2_next16_and(3);
+			boss.pos.velocity.y.v = (
+				(direction == 0) ?  SPEED_RANDOM :
+				(direction == 1) ? -SPEED_RANDOM :
+				(direction == 2) ?  SPEED_RANDOM_FAST :
+				                   -SPEED_RANDOM_FAST
+			);
+		}
+	}
+	boss.pos.update_seg3();
+}
 
 // On [flystep_pointreflected_tick] 0, this function sets up [boss] movement
 // towards the point reflection of Marisa's position across a fixed position
