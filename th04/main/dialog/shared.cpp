@@ -143,7 +143,7 @@ inline void dialog_text_put(shiftjis_t* const& text) {
 	// ZUN landmine: Since this function is supposed to be called with [text]
 	// containing one fullwidth Shift-JIS codepoint followed by a terminating
 	// \0, it would have been safer to just assume this format and use
-	// text_putnsa() with a width of 2, or even to do a manual Shift-JIS➜JIS
+	// master.lib's text_putnsa with a width of 2, or even a manual Shift-JIS➜JIS
 	// conversion followed by a direct write to TRAM. master.lib's TRAM
 	// functions follow the JIS X 0208:1997 standard of Shift-JIS that treats
 	// 0xE0 to 0xFF inclusive as fullwidth characters, and 0xFF can easily
@@ -272,7 +272,17 @@ void pascal near dialog_box_put(uscreen_x_t left, uvram_y_t top, int tile)
 	_ES = SEG_PLANE_B;
 	_AX = left;
 	_DX = top;
-	_DI = vram_offset_shift_fast(_AX, _DX);
+	// vram_offset_shift_fast() expanded with the two additions and the final
+	// move written out, because the target spells all three in the assembler
+	// direction (`01 D0` / `01 D0` / `89 C7`) where the pseudo-register form
+	// compiles to `03 C2` / `03 C2` / `8B F8`. Same instructions, same order --
+	// see vram_offset_shift_fast_asm() in planar.h and kb/codegen/0037.
+	_AX >>= BYTE_BITS; // unsigned, as in the macro: `shr`, not `sar`
+	_DX <<= 6;
+	asm { add	ax, dx; }
+	_DX >>= 2;
+	asm { add	ax, dx; }
+	asm { mov	di, ax; }
 
 	static_assert(BOX_TILE_SIZE == 8);
 	offset = tile;
@@ -352,12 +362,20 @@ void pascal near dialog_face_unput_8(uscreen_x_t left, uvram_y_t top)
 	egc_start_copy_noframe();
 
 	// ZUN bloat: _ES = grcg_segment(0, top);
+	// The three register-to-register instructions here are all spelled in the
+	// assembler direction (`89 C3` / `01 D8` / `01 C7`); pseudo-register
+	// assignments compile to `8B D8` / `03 C3` / `03 F8`. kb/codegen/0037.
 	_AX = top;
-	_BX = _AX;
-	_ES = (SEG_PLANE_B + ((_AX * 4) + _BX));
+	asm { mov	bx, ax; }
+	_AX <<= 2;
+	asm { add	ax, bx; }
+	_AX += SEG_PLANE_B;
+	_ES = _AX;
 
 	_DI = ((FACE_H - 1) * ROW_SIZE);
-	_DI += (left / BYTE_DOTS);
+	_AX = left;
+	static_cast<uvram_offset_t>(_AX) /= BYTE_DOTS;
+	asm { add	di, ax; }
 	egc_rect_interpage_16(
 		reinterpret_cast<egc_temp_t __es *>(_DI), FACE_W, page_back
 	);
