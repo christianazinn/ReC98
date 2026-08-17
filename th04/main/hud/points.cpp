@@ -9,11 +9,22 @@
 #pragma option -zPmain_01
 
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th04/gaiji/gaiji.h"
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/item/item.hpp"
+#include "th04/resident.hpp"
 
 // [HUD_POINT_ITEMS_STAGE_Y] and [HUD_POINT_ITEMS_EXTEND_Y] are in
 // th04/main/hud/hud.hpp; hud_put() needs the same rows.
+
+#if (GAME != 5)
+	// ZUN's object for this code segment also held the remaining-lives and
+	// remaining-bombs rows, immediately ahead of this one and in this order.
+	// TH05 still has both in th05_main.asm, so its build of this file simply
+	// does not see them (kb/codegen/0129).
+	#include "th04/main/hud/lives.cpp"
+	#include "th04/main/hud/bombs.cpp"
+#endif
 
 extern "C" void pascal hud_point_items_put(void)
 {

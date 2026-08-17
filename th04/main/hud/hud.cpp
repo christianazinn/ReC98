@@ -62,11 +62,10 @@ static const tram_x_t HUD_LABEL_LEFT = (HUD_LEFT + HUD_LABEL_PADDING);
 // The single-gaiji icon in front of a counter or bar row.
 static const tram_x_t HUD_ICON_LEFT = (HUD_LEFT + 2);
 
-static const tram_y_t HUD_BOMBS_Y = 11;
-static const tram_y_t HUD_LIVES_Y = 13;
-// The three rows in between are shared with their individual renderers and
-// therefore live in th04/main/hud/hud.hpp: [HUD_POINT_ITEMS_STAGE_Y] (15),
-// [HUD_DREAM_Y] (17) and [HUD_GRAZE_Y] (19).
+// [HUD_BOMBS_Y] (11) and [HUD_LIVES_Y] (13) moved to th04/main/hud/hud.hpp
+// when their renderers were lifted into their own translation unit, joining
+// the three rows in between that were already shared for the same reason:
+// [HUD_POINT_ITEMS_STAGE_Y] (15), [HUD_DREAM_Y] (17) and [HUD_GRAZE_Y] (19).
 static const tram_y_t HUD_POWER_LABEL_Y = 21;
 static const tram_y_t HUD_RANK_Y = 23;
 // -----------

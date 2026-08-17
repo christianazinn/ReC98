@@ -85,407 +85,34 @@ SCORE_TEXT segment byte public 'CODE' use16
 		place:word, playchar:word
 	@STAGE_PUT$QIII procdesc pascal near \
 		place:word, playchar:word, gaiji:word
+	@NAME_PUT$QI10PLAYCHAR_TUC procdesc pascal near \
+		place:word, playchar:byte, cursor:byte
+	@PLACE_PUT$QII procdesc pascal near \
+		place:word, playchar:word
+	@PLACES_PUT$QI procdesc pascal near \
+		playchar:word
+	@ALPHABET_PUTCA$QIIUI procdesc pascal near \
+		col:word, row:word, atrb:word
 
-; The C++ contribution to SCORE_TEXT that precedes this block now ends with
-; stage_put() (th04/hiscore/regist_view.cpp); regist_score_enter_from_resident()
-; and score_put() are the two before it. All three were lifted out of the head
-; of this block. Nothing may be added above this line.
+; The C++ contribution to SCORE_TEXT that precedes this block now ends
+; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
+; five functions, and regist_score_enter_from_resident()
+; (th04/hiscore/regist_enter.cpp), are the six before it. All seven were
+; lifted out of the head of this block. Nothing may be added above this
+; line.
 
 
-; score_put() and stage_put() now live in th04/hiscore/regist_view.cpp,
+; ALL SIX functions of this dump's high score table cluster now live in
+; th04/hiscore/regist_view.cpp -- score_put(), stage_put(), name_put(),
+; place_put(), places_put() and alphabet_putca(), in that order,
 ; immediately after regist_score_enter_from_resident() at the tail of
-; th05/hi_end.cpp's SCORE_TEXT contribution -- i.e. exactly where this
-; block used to continue. Their two `jmp cs:` switch tables and the
-; alignment byte ahead of the second one went with them; Turbo C++ emits
-; both from the `switch(playchar)` statements.
+; th05/hi_end.cpp's SCORE_TEXT contribution, i.e. exactly where this
+; block used to continue. Their four `jmp cs:` switch tables and the
+; alignment bytes ahead of three of them went with them; Turbo C++
+; emits all of it from the `switch(playchar)` statements.
 
-; kb/codegen/0121: neither deleted body contained an `assume`, so the
-; state the rest of this contribution is assembled under is unchanged.
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_BA84	proc near
-
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-@@place		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	short loc_BB00
-		add	bx, bx
-		jmp	cs:off_BBE7[bx]
-
-loc_BA9C:
-		mov	si, 8
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAAA
-		mov	ax, 88
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAAA:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAB5:
-		mov	si, 328
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAC3
-		mov	ax, 88
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAC3:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BACE:
-		mov	si, 8
-		cmp	[bp+@@place], 0
-		jnz	short loc_BADC
-		mov	ax, 224
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BADC:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 232
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAE7:
-		mov	si, 328
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAF5
-		mov	ax, 224
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAF5:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 232
-
-loc_BAFE:
-		mov	di, ax
-
-loc_BB00:
-		call	bgimage_put_rect_16 pascal, si, di, (130 shl 16) or 18
-		lea	ax, [si+2]
-		push	ax
-		lea	ax, [di+2]
-		push	ax
-		push	GAIJI_W
-		mov	ax, [bp+@@place]
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		push	si
-		push	di
-		push	GAIJI_W
-		mov	ax, [bp+@@place]
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	6
-		call	graph_gaiji_puts
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		push	ax
-		push	di
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	bx, ax
-		mov	al, _hi.score.g_name[bx]
-		mov	ah, 0
-		push	ax
-		push	7
-		call	graph_gaiji_putc
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 7
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		push	ax
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		add	ax, 16
-		push	ax
-		lea	ax, [di+15]
-		push	ax
-		call	grcg_hline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_vline
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_vline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		call	grcg_hline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_hline
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-sub_BA84	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_BBE7	dw offset loc_BA9C
-		dw offset loc_BAB5
-		dw offset loc_BACE
-		dw offset loc_BAE7
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_BBEF	proc near
-
-@@x		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_2]
-		mov	bx, [bp+arg_0]
-		cmp	bx, 3
-		ja	short loc_BC67
-		add	bx, bx
-		jmp	cs:off_BCCB[bx]
-
-loc_BC07:
-		mov	[bp+@@x], 8
-		or	si, si
-		jnz	short loc_BC15
-		mov	ax, 88
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC15:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC1F:
-		mov	[bp+@@x], 328
-		or	si, si
-		jnz	short loc_BC2D
-		mov	ax, 88
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC2D:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC37:
-		mov	[bp+@@x], 8
-		or	si, si
-		jnz	short loc_BC45
-		mov	ax, 224
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC45:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 232
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC4F:
-		mov	[bp+@@x], 328
-		or	si, si
-		jnz	short loc_BC5D
-		mov	ax, 224
-		jmp	short loc_BC65
-; ---------------------------------------------------------------------------
-
-loc_BC5D:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 232
-
-loc_BC65:
-		mov	di, ax
-
-loc_BC67:
-		push	si
-		push	[bp+arg_0]
-		call	@score_put$qii
-		push	si
-		push	[bp+arg_0]
-		mov	al, _hi.score.g_stage[si]
-		mov	ah, 0
-		push	ax
-		call	@stage_put$qiii
-		mov	al, _playchar
-		mov	ah, 0
-		cmp	ax, [bp+arg_0]
-		jnz	short loc_BC8F
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, si
-		jz	short loc_BCC4
-
-loc_BC8F:
-		mov	ax, [bp+@@x]
-		add	ax, 2
-		push	ax
-		lea	ax, [di+2]
-		push	ax
-		push	GAIJI_W
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		push	[bp+@@x]
-		push	di
-		push	GAIJI_W
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	2
-		call	graph_gaiji_puts
-
-loc_BCC4:
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_BBEF	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_BCCB	dw offset loc_BC07
-		dw offset loc_BC1F
-		dw offset loc_BC37
-		dw offset loc_BC4F
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_BCD3	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_BCE3
-; ---------------------------------------------------------------------------
-
-loc_BCDB:
-		push	si
-		push	[bp+arg_0]
-		call	sub_BBEF
-		inc	si
-
-loc_BCE3:
-		cmp	si, 5
-		jl	short loc_BCDB
-		pop	si
-		pop	bp
-		retn	2
-sub_BCD3	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_BCED	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, [bp+arg_4]
-		mov	di, [bp+arg_2]
-		mov	ax, si
-		add	ax, ax
-		add	ax, 17h
-		push	ax
-		lea	ax, [di+15h]
-		push	ax
-		mov	bx, di
-		imul	bx, ALPHABET_COLS
-		mov	al, _gALPHABET[bx+si]
-		mov	ah, 0
-		push	ax
-		push	[bp+arg_0]
-		call	gaiji_putca
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-sub_BCED	endp
-
-
+; kb/codegen/0121: none of the deleted bodies contained an `assume`, so
+; the state the rest of this contribution is assembled under is unchanged.
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -761,7 +388,7 @@ loc_BECC:
 		push	ax
 		push	word ptr _playchar
 		push	_entered_name_cursor
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		mov	si, offset _glyphballs
 		xor	di, di
 		jmp	loc_C156
@@ -1189,7 +816,7 @@ loc_C273:
 		jz	short loc_C289
 		call	@hiscore_scoredat_load_for$qi pascal, [bp+var_4]
 		push	[bp+var_4]
-		call	sub_BCD3
+		call	@places_put$qi
 
 loc_C289:
 		inc	[bp+var_4]
@@ -1211,7 +838,7 @@ loc_C2AD:
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
-		call	sub_BCD3
+		call	@places_put$qi
 		jmp	short loc_C2EB
 ; ---------------------------------------------------------------------------
 
@@ -1220,7 +847,7 @@ loc_C2BB:
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
-		call	sub_BCD3
+		call	@places_put$qi
 		call	graph_putsa_fx pascal, (124 shl 16) or 196, 9, ds, offset aGxgnbGvbGhvVGv
 		call	graph_putsa_fx pascal, (120 shl 16) or 192, 2, ds, offset aGxgnbGvbGhvV_0
 
@@ -1248,14 +875,14 @@ loc_C307:
 		push	ax
 		push	word ptr _playchar
 		push	0
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		graph_accesspage 0
 		mov	al, _entered_place
 		mov	ah, 0
 		push	ax
 		push	word ptr _playchar
 		push	0
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		graph_accesspage 1
 		mov	[bp+var_4], 0
 		jmp	short loc_C3AA
@@ -1311,7 +938,7 @@ loc_C3CD:
 		push	si
 		push	di
 		push	TX_WHITE
-		call	sub_BCED
+		call	@alphabet_putca$qiiui
 		test	_key_det.lo, low INPUT_UP
 		jz	short loc_C3F1
 		dec	di
@@ -1359,7 +986,7 @@ loc_C429:
 		push	si
 		push	di
 		push	TX_GREEN + TX_REVERSE
-		call	sub_BCED
+		call	@alphabet_putca$qiiui
 		call	snd_se_play pascal, 1
 
 loc_C438:
@@ -1439,13 +1066,13 @@ loc_C4D4:
 		push	si
 		push	di
 		push	TX_WHITE
-		call	sub_BCED
+		call	@alphabet_putca$qiiui
 		mov	si, ALPHABET_ENTER_COL
 		mov	di, ALPHABET_ENTER_ROW
 		push	si
 		push	di
 		push	TX_GREEN + TX_REVERSE
-		call	sub_BCED
+		call	@alphabet_putca$qiiui
 
 loc_C50B:
 		cmp	_entered_name_cursor, (SCOREDAT_NAME_LEN - 1)

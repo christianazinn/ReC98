@@ -239,7 +239,7 @@ loc_36EE:
 		pop	bp
 		retf	8
 sub_3680	endp
-
+	even
 include libs/master.lib/bgm_bell_org.asm
 include libs/master.lib/bgm_mget.asm
 include libs/master.lib/bgm_read_sdata.asm
@@ -791,11 +791,11 @@ sub_B1D0	proc near
 		mov	_dream_items_collected, 0
 		mov	_std_update, offset @std_update_frames_then_animate_d$qv
 		mov	_scroll_active, 1
-		call	main_01:sub_1042A
+		call	@shot_reset$qv
 		nopcall	main_01:sub_11DE6
 		call	@randring_fill$qv
 		call	sub_1DA1B
-		call	main_01:sub_FFA4
+		call	@bomb_reset$qv
 		call	_sparks_init
 		call	hud_score_put
 		call	sub_15D74
@@ -3510,176 +3510,24 @@ loc_EEBF:
 sub_EEB0	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; hud_lives_put() and hud_bombs_put() now live in
+	; th04/main/hud/lives.cpp and th04/main/hud/bombs.cpp, which
+	; th04/main/hud/points.cpp #includes ahead of its own function
+	; (kb/codegen/0129), so that all three land here in their original
+	; address order. They were the LAST two procs of this root
+	; contribution and that file's object already appended immediately
+	; after it, so no carve, no new segment, no group-list edit and no
+	; Tupfile.lua line were needed (kb/codegen/0099 + 0112).
+	; kb/codegen/0121: neither body carried an `assume`, so there is
+	; nothing to restore into the rest of this contribution.
+	;
+	; Declared inside a main_01 segment for the same reason as
+	; HUD_POINT_ITEMS_PUT below -- that is what keeps this dump's own
+	; `nopcall main_01:hud_lives_put` sites assembling unchanged, with no
+	; call-site edit anywhere. Same precedent as HUD_POWER_PUT.
+	HUD_LIVES_PUT procdesc pascal far
+	HUD_BOMBS_PUT procdesc pascal far
 
-; Attributes: bp-based frame
-
-public HUD_LIVES_PUT
-hud_lives_put	proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_lives]
-		dec	al
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 6
-		jge	short loc_EF47
-		mov	[bp+var_2], 0
-		mov	si, 3Eh	; '>'
-		jmp	short loc_EF20
-; ---------------------------------------------------------------------------
-
-loc_EF0B:
-		call	gaiji_putca pascal, si, (13 shl 16) + gs_YINYANG, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EF20:
-		mov	al, [bp+var_2]
-		cmp	al, [bp+var_1]
-		jl	short loc_EF0B
-		jmp	short loc_EF3F
-; ---------------------------------------------------------------------------
-
-loc_EF2A:
-		call	gaiji_putca pascal, si, (13 shl 16) + g_EMPTY, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EF3F:
-		cmp	[bp+var_2], 5
-		jl	short loc_EF2A
-		jmp	short loc_EF9E
-; ---------------------------------------------------------------------------
-
-loc_EF47:
-		call	text_putsa pascal, (62 shl 16) + 13, ds, offset aB@b@bB@b@, TX_WHITE
-		cmp	[bp+var_1], 0Ah
-		jl	short loc_EF88
-		push	(68 shl 16) + 13
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-
-loc_EF88:
-		push	(70 shl 16) + 13
-		mov	al, [bp+var_1]
-		cbw
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-
-loc_EF9E:
-		pop	si
-		leave
-		retf
-hud_lives_put	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public HUD_BOMBS_PUT
-hud_bombs_put	proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	[bp+var_2], 0
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_bombs], 5
-		ja	short loc_EFFF
-		mov	si, 3Eh	; '>'
-		mov	al, es:[bx+resident_t.rem_bombs]
-		mov	[bp+var_1], al
-		jmp	short loc_EFD8
-; ---------------------------------------------------------------------------
-
-loc_EFC3:
-		call	gaiji_putca pascal, si, (11 shl 16) + gs_BOMB, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EFD8:
-		mov	al, [bp+var_2]
-		cmp	al, [bp+var_1]
-		jl	short loc_EFC3
-		jmp	short loc_EFF7
-; ---------------------------------------------------------------------------
-
-loc_EFE2:
-		call	gaiji_putca pascal, si, (11 shl 16) + g_EMPTY, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EFF7:
-		cmp	[bp+var_2], 5
-		jl	short loc_EFE2
-		jmp	short loc_F061
-; ---------------------------------------------------------------------------
-
-loc_EFFF:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_bombs]
-		mov	[bp+var_1], al
-		call	text_putsa pascal, (62 shl 16) + 11, ds, offset aB@b@bB@b@_0, TX_WHITE
-		cmp	[bp+var_1], 0Ah
-		jl	short loc_F04B
-		push	(68 shl 16) + 11
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-
-loc_F04B:
-		push	(70 shl 16) + 11
-		mov	al, [bp+var_1]
-		cbw
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-
-loc_F061:
-		pop	si
-		leave
-		retf
-hud_bombs_put	endp
 
 	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
 	; appends to this segment. Declared inside a main_01 segment on purpose:
@@ -5451,18 +5299,22 @@ off_FF28	dw offset loc_FEE7
 
 include th04/formats/bb_playchar.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FFA4	proc near
-		push	bp
-		mov	bp, sp
-		mov	_bombing, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		pop	bp
-		retn
-sub_FFA4	endp
+	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
+	; player_bomb(), which is its original address order: it was the LAST
+	; proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried
+	; no `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; Same single body as TH05's, which landed first -- kb/codegen/0115
+	; over the two originals gives 6 differing bytes of 16, and all six
+	; are the two memory operands and the one `offset` immediate. With
+	; this copy gone the `#if (GAME == 5)` that used to guard the C++
+	; body is gone too: it only ever existed because this dump still
+	; held a second copy of the same function.
+	@bomb_reset$qv procdesc near
 
 
 	; player_bomb() now lives in th04/main/player/bomb.cpp, which appends
@@ -5920,24 +5772,21 @@ loc_1041D:
 bomb_stars_update_and_render_for	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1042A	proc near
-		push	bp
-		mov	bp, sp
-		mov	_shot_laser_time, 0
-		mov	_shot_laser_style, 0
-		mov	_shot_time, 0
-		mov	byte_259A7, 0
-		pop	bp
-		retn
-sub_1042A	endp
-
-
-	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
-	; which appends to this segment.
+	; shot_reset() and shots_invalidate() now both live in
+	; th04/main/player/shots_inv.cpp, which appends to this segment in that
+	; order -- shot_reset() was the LAST proc of this root contribution and
+	; that file's object already appended immediately after it, so no carve,
+	; no new segment, no group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried no
+	; `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; shot_reset() is TH04-only, and not because of lifting order: TH05 has
+	; no such helper at all. It sets its one surviving counter inline in its
+	; own stage-init proc (th05_main.asm, `mov _shot_time, 0`, in the same
+	; run of statements that calls bomb_reset here), because the option
+	; laser whose two other counters this resets is TH04-only.
+	@shot_reset$qv procdesc near
 	@shots_invalidate$qv procdesc near
 SHOT_INV_TEXT	ends
 
@@ -13411,99 +13260,17 @@ loc_16AE5:
 marisa_16A1A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_16AE9	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		mov	ax, _boss_phase_frame
-		and	ax, 1Fh
-		cmp	ax, 1
-		jnz	loc_16B7D
-		cmp	_boss_pos.cur.x, (112 shl 4)
-		jg	short loc_16B0A
-		mov	_boss_pos.velocity.x, (2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B0A:
-		cmp	_boss_pos.cur.x, (272 shl 4)
-		jl	short loc_16B1A
-		mov	_boss_pos.velocity.x, (-2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B1A:
-		push	1
-		call	@randring2_next16_and$qui
-		or	ax, ax
-		jz	short loc_16B28
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B2B
-; ---------------------------------------------------------------------------
-
-loc_16B28:
-		mov	ax, (-1 shl 4)
-
-loc_16B2B:
-		mov	_boss_pos.velocity.x, ax
-
-loc_16B2E:
-		cmp	_boss_pos.cur.y, (80 shl 4)
-		jg	short loc_16B3E
-		mov	_boss_pos.velocity.y, (1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B3E:
-		cmp	_boss_pos.cur.y, (144 shl 4)
-		jl	short loc_16B4E
-		mov	_boss_pos.velocity.y, (-1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B4E:
-		push	3
-
-loc_16B50:
-		call	@randring2_next16_and$qui	; jumptable 0001EA6B case 7819
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jnz	short loc_16B61
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B61:
-		cmp	[bp+var_1], 1
-		jnz	short loc_16B6C
-		mov	ax, (-1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B6C:
-		cmp	[bp+var_1], 2
-		jnz	short loc_16B77
-		mov	ax, 24
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B77:
-		mov	ax, -24
-
-loc_16B7A:
-		mov	_boss_pos.velocity.y, ax
-
-loc_16B7D:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		leave
-		retn
-marisa_16AE9	endp
+	; marisa_flystep_random() now lives in th04/main/boss/b4m.cpp, above
+	; marisa_flystep_pointreflected(), which is its original address order:
+	; it was the LAST proc of this root contribution and that file's object
+	; already appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed (kb/codegen/0098 +
+	; 0114). kb/codegen/0121: the deleted body carried no `assume`, so there
+	; is nothing to restore into the rest of this contribution.
+	;
+	; Its one call site is in ENM_BTPL_TEXT, which is in the same main_03
+	; group, so the call stays near and unqualified.
+	@marisa_flystep_random$qv procdesc near
 
 	@MARISA_FLYSTEP_POINTREFLECTED$QI procdesc pascal near \
 		duration:word
@@ -15235,7 +15002,7 @@ loc_17B19:
 ; ---------------------------------------------------------------------------
 
 loc_17B1E:
-		call	marisa_16AE9	; jumptable 00017ADF case 255
+		call	@marisa_flystep_random$qv ; jumptable 00017ADF case 255
 		cmp	_boss_phase_frame, 64
 		jl	short loc_17B98	; default
 		inc	_boss_phase_state
@@ -28086,7 +27853,11 @@ include th04/gaiji/hud[data].asm
 include th02/main/hud/power[data].asm
 include th04/main/hud/hp[data].asm
 include th04/main/hud/bar_put[data].asm
+public _HUD_LIVES_OVERFLOW
+_HUD_LIVES_OVERFLOW	label byte
 aB@b@bB@b@	db '　　×　　',0
+public _HUD_BOMBS_OVERFLOW
+_HUD_BOMBS_OVERFLOW	label byte
 aB@b@bB@b@_0	db '　　×　　',0
 include th04/formats/bb_playchar[data].asm
 SHOT_FUNCS_REIMU_A label word
@@ -28466,6 +28237,15 @@ byte_259A3	db ?
 _power	db ?
 _shot_level	db ?
 _shot_time	db ?
+	; Zero-byte alias so th04/main/player/shots_inv.cpp can reach this
+	; still-unnamed global, like the alias five lines up for byte_259A3.
+	; Named for what was MEASURED about it rather than for what it might
+	; have meant: shot_reset() is its only writer and nothing in the tree
+	; reads it. Exactly TH02's device and TH02's spelling for the same
+	; situation -- see `public _scroll_unused_2` / `_scroll_unused_2 label
+	; byte` in th02_main.asm, whose byte_2034E this mirrors. ZUN bloat.
+	public _shot_unused
+_shot_unused label byte
 byte_259A7	db ?
 		db    ?	;
 include th01/main/player_is_hit[bss].asm

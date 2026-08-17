@@ -66,7 +66,7 @@ make_lin_d	= 6	; 最小横移動量(符号付き)
 ;	AX,CX,DX,Flags
 ;
 	public make_linework
-	EVEN
+	EVENDATA
 make_linework	PROC NEAR
 	push	SI
 	mov	[BX+make_lin_x],DX	; w.x = x1
