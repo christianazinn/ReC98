@@ -20,6 +20,14 @@
 // constants only and rejects a file-scope `static const` outright.
 // (kb/codegen/0089)
 
+// Both games put these two rows on the same lines. They used to be private to
+// th04/main/hud/hud.cpp, which is where hud_put() places the label; the row's
+// own renderer now lives in a different translation unit
+// (th04/main/hud/bombs.cpp, th04/main/hud/lives.cpp) and needs the same number,
+// which is exactly the condition this block exists for.
+static const tram_y_t HUD_BOMBS_Y = 11;
+static const tram_y_t HUD_LIVES_Y = 13;
+
 #if (GAME == 5)
 // Below the gsRUIKEI ("cumulative") label that hud_put() draws at (57, 15).
 static const utram_y_t HUD_POINT_ITEMS_EXTEND_Y = 15;
@@ -107,8 +115,13 @@ static const int HUD_HP_FILL_FRAMES = BAR_MAX;
 // Assembly in both games (th04/main/scoreupd.asm).
 extern "C" void pascal near hud_score_put(void);
 
-// Displays the remaining bombs and lives, as up to 5 (resp. 6) gaiji, or as a
-// number if there are more. Assembly in both games.
+// Displays the remaining bombs, and the remaining *spare* lives
+// ([rem_lives] - 1), as a tally of up to [HUD_LABELED_W] / GAIJI_TRAM_W gaiji
+// padded out with g_EMPTY -- or, once the count no longer fits that row, as a
+// `　　×　　` label with the number written over its last two cells. Assembly
+// in TH05; TH04's are th04/main/hud/bombs.cpp and th04/main/hud/lives.cpp.
+// The two are NOT one shape: they differ in statement order and in whether
+// the guard is signed, so each is written out separately.
 extern "C" void pascal hud_bombs_put(void);
 extern "C" void pascal hud_lives_put(void);
 

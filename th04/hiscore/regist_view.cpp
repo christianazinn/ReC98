@@ -19,6 +19,7 @@
 /// new segment, no Tupfile.lua line, exactly as regist_enter.cpp before it.
 
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/hiscore/regist.h"
 #if (GAME == 5)
 #include "th04/hardware/bgimage.hpp"
 #else
@@ -115,17 +116,25 @@ static const pixel_t FRAME_RIGHT_REL = (
 	(STAGE_LEFT - NAME_LEFT) + GAIJI_W + 4
 );
 #else
-/// [measured] TH04 draws this row's *foreground* into text RAM rather than
-/// onto the graphics plane, so ZUN wrote its coordinates in TRAM cells. They
-/// do not line up with the pixel columns above: the leftmost name starts at
-/// cell 2 (pixel 16) rather than at NAME_LEFT (8), and the two columns are 38
-/// cells (304 pixels) apart rather than COLUMN_W (308) — nor do they line up
-/// with th04/hiscore/view.cpp's own `COLUMN_W + 4` ZUN bug, which happens to
-/// put the *second* column at the same pixel 320 and the first one 8 pixels
-/// further left. Only the drop shadow, and the rectangle that unblits it,
-/// are converted back to pixels.
-static const tram_x_t NAME_TRAM_LEFT = 2;
-static const tram_cell_amount_t COLUMN_TRAM_W = 38;
+/// [measured] TH04's name column has its own horizontal geometry, and it does
+/// not line up with the score and stage columns above: the leftmost name
+/// starts at pixel 16 rather than at NAME_LEFT (8), and the two columns are
+/// 304 pixels apart rather than COLUMN_W (308). Nor does it line up with
+/// th04/hiscore/view.cpp's own `COLUMN_W + 4` ZUN bug, which happens to put
+/// the *second* column at the same pixel 320 and the first one 8 pixels
+/// further left. Vertically it is exactly top_for_place().
+static const screen_x_t NAME_ROW_LEFT = 16;
+static const pixel_t NAME_ROW_COLUMN_W = 304;
+
+/// [measured] …and both of its functions need it in TRAM cells as well,
+/// because TH04 draws the name row's *foreground* into text RAM rather than
+/// onto the graphics plane. The two disagree about which unit is primary:
+/// name_put() holds cells and multiplies up for the drop shadow, place_put()
+/// holds pixels and divides back down. Both conversions are in the original.
+static const tram_x_t NAME_ROW_TRAM_LEFT = (NAME_ROW_LEFT / GLYPH_HALF_W);
+static const tram_cell_amount_t NAME_ROW_TRAM_COLUMN_W = (
+	NAME_ROW_COLUMN_W / GLYPH_HALF_W
+);
 static const tram_y_t TABLE_TRAM_TOP = (TABLE_TOP / GLYPH_H);
 static const tram_cell_amount_t PLACE_1_TRAM_PADDING_BOTTOM = (
 	PLACE_1_PADDING_BOTTOM / GLYPH_H
@@ -137,6 +146,15 @@ static const tram_cell_amount_t PLACE_1_TRAM_PADDING_BOTTOM = (
 		: (TABLE_TRAM_TOP + PLACE_1_TRAM_PADDING_BOTTOM + (place)) \
 )
 #endif
+
+/// [measured] The name entry alphabet, in TRAM cells. Same table
+/// (th04/hiscore/alphabet[data].asm) and the same 3×17 shape as TH02's, which
+/// is why both dumps `include th02/hiscore/regist.inc` for the dimensions;
+/// only the row differs between the games.
+static const tram_x_t ALPHABET_LEFT = 23;
+static const tram_y_t ALPHABET_TOP = ((GAME == 5) ? 21 : 18);
+
+extern const unsigned char gALPHABET[ALPHABET_ROWS][ALPHABET_COLS];
 /// -----------
 
 #define scoredat_name(place) \
@@ -162,12 +180,14 @@ static const int PAT_SCNUM_ENTERED = (PAT_SCNUM + 10);
 // ---------
 /// -------------------------------------------
 
-/// [measured] TH04's name row is drawn in text RAM, so only TH05 has graphics
-/// colors for it. TH04's TRAM attributes are spelled out at the call sites,
-/// exactly as th02/hiscore/regist.cpp's scoredat_name_puts() spells out its
-/// own TX_GREEN pair.
+/// [measured] The row being registered gets its own name treatment in both
+/// games, but only TH05 keeps it on the graphics plane and therefore has a
+/// *color* for it — TH04 moves it to text RAM, and its TRAM attributes are
+/// spelled out at the call sites, exactly as th02/hiscore/regist.cpp's
+/// scoredat_name_puts() spells out its own TX_GREEN pair.
 typedef enum {
-	COL_NAME = 6, // GAME == 5 only
+	COL_NAME = ((GAME == 5) ? 2 : 12),
+	COL_NAME_ENTERED = 6, // GAME == 5 only
 	COL_NAME_CURSOR = 7, // GAME == 5 only
 	COL_STAGE = ((GAME == 5) ? 2 : 12),
 	COL_STAGE_ENTERED = 7,
@@ -375,7 +395,9 @@ void pascal near name_put(int place, playchar_t pc, unsigned char cursor)
 		scoredat_name(place),
 		COL_SHADOW
 	);
-	graph_gaiji_puts(left, top, GAIJI_W, scoredat_name(place), COL_NAME);
+	graph_gaiji_puts(
+		left, top, GAIJI_W, scoredat_name(place), COL_NAME_ENTERED
+	);
 	graph_gaiji_putc(
 		(left + (cursor * GAIJI_W)),
 		top,
@@ -416,8 +438,8 @@ void pascal near name_put(int place, playchar_t pc, unsigned char cursor)
 	tram_y_t top;
 
 	left = ((pc == PLAYCHAR_REIMU)
-		? (NAME_TRAM_LEFT + (PLAYCHAR_REIMU * COLUMN_TRAM_W))
-		: (NAME_TRAM_LEFT + (PLAYCHAR_MARISA * COLUMN_TRAM_W))
+		? (NAME_ROW_TRAM_LEFT + (PLAYCHAR_REIMU * NAME_ROW_TRAM_COLUMN_W))
+		: (NAME_ROW_TRAM_LEFT + (PLAYCHAR_MARISA * NAME_ROW_TRAM_COLUMN_W))
 	);
 	top = tram_top_for_place(place);
 
@@ -444,4 +466,121 @@ void pascal near name_put(int place, playchar_t pc, unsigned char cursor)
 #endif
 }
 
+/// One whole row of the table: name, score digits, stage gaiji. MAINE.EXE's
+/// counterpart to th04/hiscore/view.cpp's place_put(), and the same ZUN bloat
+/// — TH05 spells out all four player characters in a `switch` where two
+/// multiplications would do, TH04 spells out its two in a ternary.
+///
+/// The row that regist_score_enter_from_resident() just created is the one
+/// interesting difference between the games, and it runs the other way round
+/// from everything else in this file: **TH05 skips its name entirely** and
+/// leaves it to name_put(), which is drawing it on the graphics plane a glyph
+/// at a time; **TH04 draws it here**, but into text RAM, matching what its own
+/// name_put() puts there. TH04 therefore always lays down the graphics-plane
+/// drop shadow first and only then decides which plane the foreground goes on
+/// — which is why its shadow is unconditional and TH05's is not.
+///
+/// The two also disagree about statement order: TH05 draws the score and the
+/// stage before the name, TH04 after.
+void pascal near place_put(int place, playchar_and_patnum_t pc)
+{
+	// Declared in this order because the original keeps [top] in DI and
+	// spills [left]; Turbo C++ hands the one free register to whichever of
+	// the two is declared first.
+	screen_y_t top;
+	screen_x_t left;
+
+#if (GAME == 5)
+	switch(pc) {
+	case PLAYCHAR_REIMU:
+		left = (NAME_LEFT + (0 * COLUMN_W));
+		top = top_for_place(TABLE_1_TOP, place);
+		break;
+	case PLAYCHAR_MARISA:
+		left = (NAME_LEFT + (1 * COLUMN_W));
+		top = top_for_place(TABLE_1_TOP, place);
+		break;
+	case PLAYCHAR_MIMA:
+		left = (NAME_LEFT + (0 * COLUMN_W));
+		top = top_for_place(TABLE_2_TOP, place);
+		break;
+	case PLAYCHAR_YUUKA:
+		left = (NAME_LEFT + (1 * COLUMN_W));
+		top = top_for_place(TABLE_2_TOP, place);
+		break;
+	}
+
+	score_put(place, pc);
+	stage_put(place, pc, hi.score.g_stage[place]);
+
+	if((playchar != pc) || (entered_place != place)) {
+		graph_gaiji_puts(
+			(left + SHADOW_OFFSET),
+			(top + SHADOW_OFFSET),
+			GAIJI_W,
+			scoredat_name(place),
+			COL_SHADOW
+		);
+		graph_gaiji_puts(left, top, GAIJI_W, scoredat_name(place), COL_NAME);
+	}
+#else
+	left = ((pc == PLAYCHAR_REIMU)
+		? (NAME_ROW_LEFT + (PLAYCHAR_REIMU * NAME_ROW_COLUMN_W))
+		: (NAME_ROW_LEFT + (PLAYCHAR_MARISA * NAME_ROW_COLUMN_W))
+	);
+	top = top_for_place(TABLE_TOP, place);
+
+	graph_gaiji_puts(
+		(left + SHADOW_OFFSET),
+		(top + SHADOW_OFFSET),
+		GAIJI_W,
+		scoredat_name(place),
+		COL_SHADOW
+	);
+
+	// The cast is th04/playchar.h's signed `playchar_t` again; see
+	// [playchar_and_patnum_t].
+	if((entered_place != place) ||
+		(pc != static_cast<playchar_and_patnum_t>(playchar))
+	) {
+		graph_gaiji_puts(left, top, GAIJI_W, scoredat_name(place), COL_NAME);
+	} else {
+		// ZUN bloat: name_put() already has both coordinates in cells.
+		gaiji_putsa(
+			(left / GLYPH_HALF_W),
+			(top / GLYPH_H),
+			scoredat_name(place),
+			TX_RED
+		);
+	}
+
+	score_put(place, pc);
+	stage_put(place, pc, hi.score.g_stage[place]);
+#endif
+}
+
 #pragma option -a1
+
+// ZUN bloat: th04/hiscore/view.cpp's TH04 rank_render() moves the first and
+// last iterations out of the equivalent loop. This one doesn't, in either game.
+void pascal near places_put(playchar_and_patnum_t pc)
+{
+	int place;
+
+	for(place = 0; place < SCOREDAT_PLACES; place++) {
+		place_put(place, pc);
+	}
+}
+
+// Character-for-character TH02's alphabet_putca()
+// (th02/hiscore/regist.cpp), down to the parameter order and the same
+// "ZUN bloat: Should use the function throughout" macro at its call sites.
+void pascal near alphabet_putca(int col, int row, tram_atrb2 atrb)
+{
+	gaiji_putca(
+		(ALPHABET_LEFT + (col * GAIJI_TRAM_W)),
+		(ALPHABET_TOP + row),
+		gALPHABET[row][col],
+		atrb
+	);
+}
