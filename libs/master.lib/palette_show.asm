@@ -52,6 +52,9 @@
 ;	93/12/ 5 [M0.22] Palettes[] 0..15 -> 0..255
 ;	94/ 1/ 9 [M0.22] NEC機での反転状態自動対応をNS/T以降にも対応
 
+; ReC98: inter-module alignment fill was the linker's 00, not the EVEN -> NOP
+; that a single concatenated assembly produces. See kb/codegen/0141.
+	EVENDATA
 func PALETTE_SHOW	; palette_show() {
 	CLD
 	push	SI

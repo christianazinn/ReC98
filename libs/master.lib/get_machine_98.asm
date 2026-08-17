@@ -71,6 +71,9 @@ LINE480	EQU	00000100b or PC9801	; 0:400line	/ 1:480line(MATE mode)
 HIRESO	EQU	00001000b or PC9801	; 0:Normal	/ 1:Hi-resorusion
 COLOR	EQU	00010000b or PC9801	; 0:Mono	/ 1:color
 
+; ReC98: inter-module alignment fill was the linker's 00, not the EVEN -> NOP
+; that a single concatenated assembly produces. See kb/codegen/0141.
+	EVENDATA
 func GET_MACHINE_98	; get_machine_98(void)
 	_call	CHECK_MACHINE_FMR
 	jnz	short @@NOT_FMR

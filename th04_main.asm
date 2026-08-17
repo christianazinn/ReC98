@@ -239,7 +239,7 @@ loc_36EE:
 		pop	bp
 		retf	8
 sub_3680	endp
-
+	even
 include libs/master.lib/bgm_bell_org.asm
 include libs/master.lib/bgm_mget.asm
 include libs/master.lib/bgm_read_sdata.asm
