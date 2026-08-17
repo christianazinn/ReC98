@@ -40,6 +40,9 @@
 ;	93/12/19 Initial: b_b_org.asm / master.lib 0.22 <- bgmlibs.lib 1.12
 ;	94/ 4/11 [M0.23] AT互換機対応
 
+; ReC98: inter-module alignment fill was the linker's 00, not the EVEN -> NOP
+; that a single concatenated assembly produces. See kb/codegen/0141.
+	EVENDATA
 func _BGM_BELL_ORG
 	test	Machine_State,10h
 	jnz	short B_B_ORG_PCAT

@@ -319,7 +319,16 @@ void near nopoly_B_put(void)
 	_ES = SEG_PLANE_B;
 	_AX = FP_SEG(nopoly_B);
 	_DS = _AX;
-	__memcpy__(MK_FP(_ES, 0), MK_FP(_DS, 0), PLANE_SIZE);
+	// Turbo C++'s memcpy intrinsic zeroes the two index registers as `33 FF` /
+	// `33 F6`; ZUN's build has TASM's `31 FF` / `31 F6`. The target is the
+	// assembler direction, so ordinary inline ASM emits it with no byte pins.
+	// kb/codegen/0037.
+	_asm {
+		xor 	di, di;
+		xor 	si, si;
+		mov 	cx, (PLANE_SIZE / 2);
+		rep 	movsw;
+	}
 	asm { pop ds; }
 #else
 	for(vram_offset_t p = 0; p < PLANE_SIZE; p += int(sizeof(dots32_t))) {
