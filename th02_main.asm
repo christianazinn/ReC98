@@ -319,19 +319,6 @@ main_01___TEXT	segment	byte public 'CODE' use16
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public TEXT_WIPE
-text_wipe	proc near
-		push	bp
-		mov	bp, sp
-		call	text_clear
-		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		pop	bp
-		retn
-text_wipe	endp
-
 include th02/main/null.asm
 
 ; =============== S U B	R O U T	I N E =======================================
