@@ -12,7 +12,9 @@ void near item_splashes_init(void)
 	// memset(item_splashes, 0x00, sizeof(item_splashes));
 	_CX = (sizeof(item_splashes) / sizeof(uint16_t));
 	_ES = _DS;
-	_AX = 0x00;
+	// kb/codegen/0037: the zeroing is spelled in the assembler direction
+	// (`31 C0`); the pseudo-register form compiles to `33 C0`.
+	asm { xor	ax, ax; }
 	reinterpret_cast<item_splash_t near *>(_DI) = item_splashes;
 	asm { rep stosw; }
 
