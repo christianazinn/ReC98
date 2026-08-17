@@ -1699,193 +1699,24 @@ SCORE_TEXT segment byte public 'CODE' use16
 		place:word, playchar:word, gaiji:word
 	@NAME_PUT$QI10PLAYCHAR_TUC procdesc pascal near \
 		place:word, playchar:byte, cursor:byte
+	@PLACE_PUT$QIUC procdesc pascal near \
+		place:word, playchar:byte
+	@PLACES_PUT$QUC procdesc pascal near \
+		playchar:byte
+	@ALPHABET_PUTCA$QIIUI procdesc pascal near \
+		col:word, row:word, atrb:word
 
-; score_put(), stage_put() and name_put() now live in
-; th04/hiscore/regist_view.cpp, immediately after
-; regist_score_enter_from_resident() at the tail of th04/hi_end.cpp's
-; SCORE_TEXT contribution -- i.e. exactly where this block used to
-; continue. One body serves all three in both games; TH04 takes the
-; two-player-character arms of its `#if`, and name_put()'s TEXT RAM one.
+; ALL SIX functions of this dump's high score table cluster now live in
+; th04/hiscore/regist_view.cpp -- score_put(), stage_put(), name_put(),
+; place_put(), places_put() and alphabet_putca(), in that order,
+; immediately after regist_score_enter_from_resident() at the tail of
+; th04/hi_end.cpp's SCORE_TEXT contribution, i.e. exactly where this
+; block used to continue. One body serves all six in both games; TH04
+; takes the two-player-character arms of its `#if`s, and the TEXT RAM
+; arms that TH05 has no counterpart for.
 
 ; kb/codegen/0121: none of the deleted bodies contained an `assume`, so
 ; the state the rest of this contribution is assembled under is unchanged.
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C711	proc near
-
-@@x		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_2]
-		cmp	byte ptr [bp+arg_0], 0
-		jnz	short loc_C725
-		mov	ax, 16
-		jmp	short loc_C728
-; ---------------------------------------------------------------------------
-
-loc_C725:
-		mov	ax, 320
-
-loc_C728:
-		mov	[bp+@@x], ax
-		or	si, si
-		jnz	short loc_C734
-		mov	ax, 96
-		jmp	short loc_C73C
-; ---------------------------------------------------------------------------
-
-loc_C734:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 112
-
-loc_C73C:
-		mov	di, ax
-		mov	ax, [bp+@@x]
-		add	ax, 2
-		push	ax
-		lea	ax, [di+2]
-		push	ax
-		push	GAIJI_W
-		mov	ax, si
-		imul	ax, 9
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, si
-		jnz	short loc_C76E
-		mov	al, byte ptr [bp+arg_0]
-		cmp	al, _playchar
-		jz	short loc_C787
-
-loc_C76E:
-		push	[bp+@@x]
-		push	di
-		push	GAIJI_W
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	12
-		call	graph_gaiji_puts
-		jmp	short loc_C7AB
-; ---------------------------------------------------------------------------
-
-loc_C787:
-		mov	ax, [bp+@@x]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, di
-		mov	bx, 16
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	TX_RED
-		call	gaiji_putsa
-
-loc_C7AB:
-		push	si
-		push	[bp+arg_0]
-		call	@score_put$qiuc
-		push	si
-		mov	al, byte ptr [bp+arg_0]
-		mov	ah, 0
-		push	ax
-		mov	al, _hi.score.g_stage[si]
-		mov	ah, 0
-		push	ax
-		call	@stage_put$qiii
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_C711	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C7C9	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_C7D9
-; ---------------------------------------------------------------------------
-
-loc_C7D1:
-		push	si
-		push	[bp+arg_0]
-		call	sub_C711
-		inc	si
-
-loc_C7D9:
-		cmp	si, 0Ah
-		jl	short loc_C7D1
-		pop	si
-		pop	bp
-		retn	2
-sub_C7C9	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C7E3	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, [bp+arg_4]
-		mov	di, [bp+arg_2]
-		mov	ax, si
-		add	ax, ax
-		add	ax, 17h
-		push	ax
-		lea	ax, [di+12h]
-		push	ax
-		mov	bx, di
-		imul	bx, ALPHABET_COLS
-		mov	al, _gALPHABET[bx+si]
-		mov	ah, 0
-		push	ax
-		push	[bp+arg_0]
-		call	gaiji_putca
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-sub_C7E3	endp
-
-
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -1949,7 +1780,7 @@ loc_C897:
 		mov	dx, 1
 		sub	dx, ax
 		push	dx
-		call	sub_C7C9
+		call	@places_put$quc
 		call	@hiscore_scoredat_load_for$q10playchar_t pascal, word ptr _playchar
 		les	bx, _resident
 		cmp	es:[bx+resident_t.turbo_mode], 0
@@ -1962,7 +1793,7 @@ loc_C8CB:
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
-		call	sub_C7C9
+		call	@places_put$quc
 		jmp	short loc_C909
 ; ---------------------------------------------------------------------------
 
@@ -1971,7 +1802,7 @@ loc_C8D9:
 		mov	al, _playchar
 		mov	ah, 0
 		push	ax
-		call	sub_C7C9
+		call	@places_put$quc
 		call	graph_putsa_fx pascal, (124 shl 16) or 196, 9, ds, offset aGxgnbGvbGhvVGv ; "スローモードでのプレイでは、スコアは記・...
 		call	graph_putsa_fx pascal, (120 shl 16) or 192, 2, ds, offset aGxgnbGvbGhvV_1 ; "スローモードでのプレイでは、スコアは記・...
 
@@ -2085,7 +1916,7 @@ loc_C9F6:
 		push	di
 		push	[bp+@@row]
 		push	TX_WHITE
-		call	sub_C7E3
+		call	@alphabet_putca$qiiui
 		test	_key_det.lo, low INPUT_UP
 		jz	short loc_CA1E
 		dec	[bp+@@row]
@@ -2133,7 +1964,7 @@ loc_CA60:
 		push	di
 		push	[bp+@@row]
 		push	TX_GREEN + TX_REVERSE
-		call	sub_C7E3
+		call	@alphabet_putca$qiiui
 
 loc_CA6A:
 		test	_key_det.lo, low INPUT_SHOT
@@ -2189,13 +2020,13 @@ loc_CA7A:
 		push	di
 		push	[bp+@@row]
 		push	TX_WHITE
-		call	sub_C7E3
+		call	@alphabet_putca$qiiui
 		mov	di, ALPHABET_ENTER_COL
 		mov	[bp+@@row], ALPHABET_ENTER_ROW
 		push	di
 		push	[bp+@@row]
 		push	TX_GREEN + TX_REVERSE
-		call	sub_C7E3
+		call	@alphabet_putca$qiiui
 
 loc_CAEF:
 		cmp	si, 7
