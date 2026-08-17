@@ -85,202 +85,26 @@ SCORE_TEXT segment byte public 'CODE' use16
 		place:word, playchar:word
 	@STAGE_PUT$QIII procdesc pascal near \
 		place:word, playchar:word, gaiji:word
+	@NAME_PUT$QI10PLAYCHAR_TUC procdesc pascal near \
+		place:word, playchar:byte, cursor:byte
 
-; The C++ contribution to SCORE_TEXT that precedes this block now ends with
-; stage_put() (th04/hiscore/regist_view.cpp); regist_score_enter_from_resident()
-; and score_put() are the two before it. All three were lifted out of the head
-; of this block. Nothing may be added above this line.
+; The C++ contribution to SCORE_TEXT that precedes this block now ends
+; with name_put() (th04/hiscore/regist_view.cpp); score_put(),
+; stage_put() and regist_score_enter_from_resident() are the three
+; before it. All four were lifted out of the head of this block.
+; Nothing may be added above this line.
 
 
-; score_put() and stage_put() now live in th04/hiscore/regist_view.cpp,
-; immediately after regist_score_enter_from_resident() at the tail of
-; th05/hi_end.cpp's SCORE_TEXT contribution -- i.e. exactly where this
-; block used to continue. Their two `jmp cs:` switch tables and the
-; alignment byte ahead of the second one went with them; Turbo C++ emits
-; both from the `switch(playchar)` statements.
+; score_put(), stage_put() and name_put() now live in
+; th04/hiscore/regist_view.cpp, immediately after
+; regist_score_enter_from_resident() at the tail of th05/hi_end.cpp's
+; SCORE_TEXT contribution -- i.e. exactly where this block used to
+; continue. Their three `jmp cs:` switch tables and the alignment bytes
+; ahead of the second and the third one went with them; Turbo C++ emits
+; all of it from the `switch(playchar)` statements.
 
-; kb/codegen/0121: neither deleted body contained an `assume`, so the
-; state the rest of this contribution is assembled under is unchanged.
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_BA84	proc near
-
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-@@place		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	al, [bp+arg_2]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	short loc_BB00
-		add	bx, bx
-		jmp	cs:off_BBE7[bx]
-
-loc_BA9C:
-		mov	si, 8
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAAA
-		mov	ax, 88
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAAA:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAB5:
-		mov	si, 328
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAC3
-		mov	ax, 88
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAC3:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 96
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BACE:
-		mov	si, 8
-		cmp	[bp+@@place], 0
-		jnz	short loc_BADC
-		mov	ax, 224
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BADC:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 232
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAE7:
-		mov	si, 328
-		cmp	[bp+@@place], 0
-		jnz	short loc_BAF5
-		mov	ax, 224
-		jmp	short loc_BAFE
-; ---------------------------------------------------------------------------
-
-loc_BAF5:
-		mov	ax, [bp+@@place]
-		shl	ax, 4
-		add	ax, 232
-
-loc_BAFE:
-		mov	di, ax
-
-loc_BB00:
-		call	bgimage_put_rect_16 pascal, si, di, (130 shl 16) or 18
-		lea	ax, [si+2]
-		push	ax
-		lea	ax, [di+2]
-		push	ax
-		push	GAIJI_W
-		mov	ax, [bp+@@place]
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		push	si
-		push	di
-		push	GAIJI_W
-		mov	ax, [bp+@@place]
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	6
-		call	graph_gaiji_puts
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		push	ax
-		push	di
-		mov	bx, [bp+@@place]
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	bx, ax
-		mov	al, _hi.score.g_name[bx]
-		mov	ah, 0
-		push	ax
-		push	7
-		call	graph_gaiji_putc
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 7
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		push	ax
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		shl	ax, 4
-		add	ax, si
-		add	ax, 16
-		push	ax
-		lea	ax, [di+15]
-		push	ax
-		call	grcg_hline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_vline
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_vline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di-1]
-		push	ax
-		call	grcg_hline
-		lea	ax, [si-2]
-		push	ax
-		lea	ax, [si+306]
-		push	ax
-		lea	ax, [di+16]
-		push	ax
-		call	grcg_hline
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-sub_BA84	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_BBE7	dw offset loc_BA9C
-		dw offset loc_BAB5
-		dw offset loc_BACE
-		dw offset loc_BAE7
-
+; kb/codegen/0121: none of the deleted bodies contained an `assume`, so
+; the state the rest of this contribution is assembled under is unchanged.
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -761,7 +585,7 @@ loc_BECC:
 		push	ax
 		push	word ptr _playchar
 		push	_entered_name_cursor
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		mov	si, offset _glyphballs
 		xor	di, di
 		jmp	loc_C156
@@ -1248,14 +1072,14 @@ loc_C307:
 		push	ax
 		push	word ptr _playchar
 		push	0
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		graph_accesspage 0
 		mov	al, _entered_place
 		mov	ah, 0
 		push	ax
 		push	word ptr _playchar
 		push	0
-		call	sub_BA84
+		call	@name_put$qi10playchar_tuc
 		graph_accesspage 1
 		mov	[bp+var_4], 0
 		jmp	short loc_C3AA
