@@ -92,11 +92,15 @@ tile_row_still_in_section:
 		/// Refill the newly exposed [tile_ring] row from [map_seg].
 		/// -------------------------------------------------------
 		static_assert(sizeof(tile_ring[0]) == 64);
+		// kb/codegen/0037: every register-to-register instruction in this block
+		// is spelled in the assembler direction in the original, and Turbo C++
+		// emits the compiler direction for the equivalent pseudo-register
+		// assignment. Ordinary inline ASM gives the target with no byte pins.
 		_AX <<= 6;
 		_AX += FP_OFF(tile_ring);
-		_DI = _AX;
+		asm { mov	di, ax; }	// pseudo-register form: `8B F8`, target `89 C7`
 
-		_AX = 0;
+		asm { xor	ax, ax; }	// pseudo-register form: `33 C0`, target `31 C0`
 		_AL = tile_row_in_section;
 		_AX <<= 6;
 
@@ -110,14 +114,23 @@ tile_row_still_in_section:
 		// still, and that one was measured: it routes the load through AX
 		// (`MOV AL, ES:[BX]` / `MOV AH, 0` / `MOV BX, AX`), which is 2 bytes
 		// longer *and* wrong, because AX is live here.
-		_BH ^= _BH;
-		_BL += _BL;
+		//
+		// Self-XOR and self-add pseudo-register forms do give the right two
+		// instructions, but in the compiler direction (`32 FF` / `02 DB`)
+		// against the original's `30 FF` / `00 DB`. Inline ASM settles the
+		// encoding as well as the instruction.
+		asm {
+			xor 	bh, bh;
+			add 	bl, bl;
+		}
 		_BX = *reinterpret_cast<const uint16_t near *>(
 			&TILE_SECTION_OFFSETS_bytewise[_BX]
 		);
 
-		_SI = _AX;
-		_SI += _BX;
+		asm {
+			mov 	si, ax;	// pseudo-register form: `8B F0`, target `89 C6`
+			add 	si, bx;	// pseudo-register form: `03 F3`, target `01 DE`
+		}
 
 		asm {
 			push	ds;
