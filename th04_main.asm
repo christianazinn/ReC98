@@ -3510,176 +3510,24 @@ loc_EEBF:
 sub_EEB0	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; hud_lives_put() and hud_bombs_put() now live in
+	; th04/main/hud/lives.cpp and th04/main/hud/bombs.cpp, which
+	; th04/main/hud/points.cpp #includes ahead of its own function
+	; (kb/codegen/0129), so that all three land here in their original
+	; address order. They were the LAST two procs of this root
+	; contribution and that file's object already appended immediately
+	; after it, so no carve, no new segment, no group-list edit and no
+	; Tupfile.lua line were needed (kb/codegen/0099 + 0112).
+	; kb/codegen/0121: neither body carried an `assume`, so there is
+	; nothing to restore into the rest of this contribution.
+	;
+	; Declared inside a main_01 segment for the same reason as
+	; HUD_POINT_ITEMS_PUT below -- that is what keeps this dump's own
+	; `nopcall main_01:hud_lives_put` sites assembling unchanged, with no
+	; call-site edit anywhere. Same precedent as HUD_POWER_PUT.
+	HUD_LIVES_PUT procdesc pascal far
+	HUD_BOMBS_PUT procdesc pascal far
 
-; Attributes: bp-based frame
-
-public HUD_LIVES_PUT
-hud_lives_put	proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_lives]
-		dec	al
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 6
-		jge	short loc_EF47
-		mov	[bp+var_2], 0
-		mov	si, 3Eh	; '>'
-		jmp	short loc_EF20
-; ---------------------------------------------------------------------------
-
-loc_EF0B:
-		call	gaiji_putca pascal, si, (13 shl 16) + gs_YINYANG, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EF20:
-		mov	al, [bp+var_2]
-		cmp	al, [bp+var_1]
-		jl	short loc_EF0B
-		jmp	short loc_EF3F
-; ---------------------------------------------------------------------------
-
-loc_EF2A:
-		call	gaiji_putca pascal, si, (13 shl 16) + g_EMPTY, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EF3F:
-		cmp	[bp+var_2], 5
-		jl	short loc_EF2A
-		jmp	short loc_EF9E
-; ---------------------------------------------------------------------------
-
-loc_EF47:
-		call	text_putsa pascal, (62 shl 16) + 13, ds, offset aB@b@bB@b@, TX_WHITE
-		cmp	[bp+var_1], 0Ah
-		jl	short loc_EF88
-		push	(68 shl 16) + 13
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-
-loc_EF88:
-		push	(70 shl 16) + 13
-		mov	al, [bp+var_1]
-		cbw
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-
-loc_EF9E:
-		pop	si
-		leave
-		retf
-hud_lives_put	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public HUD_BOMBS_PUT
-hud_bombs_put	proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	[bp+var_2], 0
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_bombs], 5
-		ja	short loc_EFFF
-		mov	si, 3Eh	; '>'
-		mov	al, es:[bx+resident_t.rem_bombs]
-		mov	[bp+var_1], al
-		jmp	short loc_EFD8
-; ---------------------------------------------------------------------------
-
-loc_EFC3:
-		call	gaiji_putca pascal, si, (11 shl 16) + gs_BOMB, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EFD8:
-		mov	al, [bp+var_2]
-		cmp	al, [bp+var_1]
-		jl	short loc_EFC3
-		jmp	short loc_EFF7
-; ---------------------------------------------------------------------------
-
-loc_EFE2:
-		call	gaiji_putca pascal, si, (11 shl 16) + g_EMPTY, TX_WHITE
-		add	si, 2
-		inc	[bp+var_2]
-
-loc_EFF7:
-		cmp	[bp+var_2], 5
-		jl	short loc_EFE2
-		jmp	short loc_F061
-; ---------------------------------------------------------------------------
-
-loc_EFFF:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rem_bombs]
-		mov	[bp+var_1], al
-		call	text_putsa pascal, (62 shl 16) + 11, ds, offset aB@b@bB@b@_0, TX_WHITE
-		cmp	[bp+var_1], 0Ah
-		jl	short loc_F04B
-		push	(68 shl 16) + 11
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-		mov	al, [bp+var_1]
-		cbw
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-
-loc_F04B:
-		push	(70 shl 16) + 11
-		mov	al, [bp+var_1]
-		cbw
-		add	ax, gb_0_
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putca
-
-loc_F061:
-		pop	si
-		leave
-		retf
-hud_bombs_put	endp
 
 	; hud_point_items_put() now lives in th04/main/hud/points.cpp, which
 	; appends to this segment. Declared inside a main_01 segment on purpose:
@@ -28005,7 +27853,11 @@ include th04/gaiji/hud[data].asm
 include th02/main/hud/power[data].asm
 include th04/main/hud/hp[data].asm
 include th04/main/hud/bar_put[data].asm
+public _HUD_LIVES_OVERFLOW
+_HUD_LIVES_OVERFLOW	label byte
 aB@b@bB@b@	db '　　×　　',0
+public _HUD_BOMBS_OVERFLOW
+_HUD_BOMBS_OVERFLOW	label byte
 aB@b@bB@b@_0	db '　　×　　',0
 include th04/formats/bb_playchar[data].asm
 SHOT_FUNCS_REIMU_A label word
