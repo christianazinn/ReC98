@@ -1697,110 +1697,18 @@ SCORE_TEXT segment byte public 'CODE' use16
 		place:word, playchar:byte
 	@STAGE_PUT$QIII procdesc pascal near \
 		place:word, playchar:word, gaiji:word
+	@NAME_PUT$QI10PLAYCHAR_TUC procdesc pascal near \
+		place:word, playchar:byte, cursor:byte
 
-; score_put() and stage_put() now live in th04/hiscore/regist_view.cpp,
-; immediately after regist_score_enter_from_resident() at the tail of
-; th04/hi_end.cpp's SCORE_TEXT contribution -- i.e. exactly where this
-; block used to continue. One body serves both games; TH04 takes the
-; two-player-character arms of its `#if`.
+; score_put(), stage_put() and name_put() now live in
+; th04/hiscore/regist_view.cpp, immediately after
+; regist_score_enter_from_resident() at the tail of th04/hi_end.cpp's
+; SCORE_TEXT contribution -- i.e. exactly where this block used to
+; continue. One body serves all three in both games; TH04 takes the
+; two-player-character arms of its `#if`, and name_put()'s TEXT RAM one.
 
-; kb/codegen/0121: neither deleted body contained an `assume`, so the
-; state the rest of this contribution is assembled under is unchanged.
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C665	proc near
-
-@@y		= word ptr -2
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-arg_4		= word ptr  8
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_4]
-		cmp	[bp+arg_2], 0
-		jnz	short loc_C679
-		mov	ax, 2
-		jmp	short loc_C67C
-; ---------------------------------------------------------------------------
-
-loc_C679:
-		mov	ax, 40
-
-loc_C67C:
-		mov	di, ax
-		or	si, si
-		jnz	short loc_C687
-		mov	ax, 6
-		jmp	short loc_C68A
-; ---------------------------------------------------------------------------
-
-loc_C687:
-		lea	ax, [si+7]
-
-loc_C68A:
-		mov	[bp+@@y], ax
-		mov	ax, di
-		shl	ax, 3
-		add	ax, 2
-		push	ax
-		mov	ax, [bp+@@y]
-		shl	ax, 4
-		add	ax, 2
-		push	ax
-		push	800010h
-		call	sub_CBF3
-		mov	ax, di
-		shl	ax, 3
-		add	ax, 2
-		push	ax
-		mov	ax, [bp+@@y]
-		shl	ax, 4
-		add	ax, 2
-		push	ax
-		push	GAIJI_W
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		push	di
-		push	[bp+@@y]
-		mov	ax, si
-		imul	ax, (SCOREDAT_NAME_LEN + 1)
-		add	ax, offset _hi.score.g_name
-		push	ds
-		push	ax
-		push	TX_RED
-		call	gaiji_putsa
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	ax, ax
-		add	ax, di
-		push	ax
-		push	[bp+@@y]
-		mov	bx, si
-		imul	bx, (SCOREDAT_NAME_LEN + 1)
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	bx, ax
-		mov	al, offset _hi.score.g_name[bx]
-		mov	ah, 0
-		push	ax
-		push	TX_RED + TX_REVERSE
-		call	gaiji_putca
-		pop	di
-		pop	si
-		leave
-		retn	6
-sub_C665	endp
-
-
+; kb/codegen/0121: none of the deleted bodies contained an `assume`, so
+; the state the rest of this contribution is assembled under is unchanged.
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -2302,7 +2210,7 @@ loc_CAF5:
 		push	ax
 		push	word ptr _playchar
 		push	si
-		call	sub_C665
+		call	@name_put$qi10playchar_tuc
 
 loc_CB03:
 		test	_key_det.lo, low INPUT_BOMB
@@ -2322,7 +2230,7 @@ loc_CB1E:
 		push	ax
 		push	word ptr _playchar
 		push	si
-		call	sub_C665
+		call	@name_put$qi10playchar_tuc
 
 loc_CB2C:
 		test	_key_det.hi, high INPUT_CANCEL
@@ -2411,7 +2319,8 @@ _egc_start_copy_inlined	endp
 
 ; Attributes: bp-based frame
 
-sub_CBF3	proc near
+public EGC_COPY_RECT_1_TO_0_16_NEAR
+egc_copy_rect_1_to_0_16_near	proc near
 
 var_8		= word ptr -8
 var_6		= word ptr -6
@@ -2481,7 +2390,7 @@ loc_CC66:
 		pop	si
 		leave
 		retn	8
-sub_CBF3	endp
+egc_copy_rect_1_to_0_16_near	endp
 		db    0
 
 SCORE_TEXT	ends

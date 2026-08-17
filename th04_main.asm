@@ -791,11 +791,11 @@ sub_B1D0	proc near
 		mov	_dream_items_collected, 0
 		mov	_std_update, offset @std_update_frames_then_animate_d$qv
 		mov	_scroll_active, 1
-		call	main_01:sub_1042A
+		call	@shot_reset$qv
 		nopcall	main_01:sub_11DE6
 		call	@randring_fill$qv
 		call	sub_1DA1B
-		call	main_01:sub_FFA4
+		call	@bomb_reset$qv
 		call	_sparks_init
 		call	hud_score_put
 		call	sub_15D74
@@ -5451,18 +5451,22 @@ off_FF28	dw offset loc_FEE7
 
 include th04/formats/bb_playchar.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FFA4	proc near
-		push	bp
-		mov	bp, sp
-		mov	_bombing, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		pop	bp
-		retn
-sub_FFA4	endp
+	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
+	; player_bomb(), which is its original address order: it was the LAST
+	; proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried
+	; no `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; Same single body as TH05's, which landed first -- kb/codegen/0115
+	; over the two originals gives 6 differing bytes of 16, and all six
+	; are the two memory operands and the one `offset` immediate. With
+	; this copy gone the `#if (GAME == 5)` that used to guard the C++
+	; body is gone too: it only ever existed because this dump still
+	; held a second copy of the same function.
+	@bomb_reset$qv procdesc near
 
 
 	; player_bomb() now lives in th04/main/player/bomb.cpp, which appends
@@ -5920,24 +5924,21 @@ loc_1041D:
 bomb_stars_update_and_render_for	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1042A	proc near
-		push	bp
-		mov	bp, sp
-		mov	_shot_laser_time, 0
-		mov	_shot_laser_style, 0
-		mov	_shot_time, 0
-		mov	byte_259A7, 0
-		pop	bp
-		retn
-sub_1042A	endp
-
-
-	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
-	; which appends to this segment.
+	; shot_reset() and shots_invalidate() now both live in
+	; th04/main/player/shots_inv.cpp, which appends to this segment in that
+	; order -- shot_reset() was the LAST proc of this root contribution and
+	; that file's object already appended immediately after it, so no carve,
+	; no new segment, no group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried no
+	; `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; shot_reset() is TH04-only, and not because of lifting order: TH05 has
+	; no such helper at all. It sets its one surviving counter inline in its
+	; own stage-init proc (th05_main.asm, `mov _shot_time, 0`, in the same
+	; run of statements that calls bomb_reset here), because the option
+	; laser whose two other counters this resets is TH04-only.
+	@shot_reset$qv procdesc near
 	@shots_invalidate$qv procdesc near
 SHOT_INV_TEXT	ends
 
@@ -13411,99 +13412,17 @@ loc_16AE5:
 marisa_16A1A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_16AE9	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		mov	ax, _boss_phase_frame
-		and	ax, 1Fh
-		cmp	ax, 1
-		jnz	loc_16B7D
-		cmp	_boss_pos.cur.x, (112 shl 4)
-		jg	short loc_16B0A
-		mov	_boss_pos.velocity.x, (2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B0A:
-		cmp	_boss_pos.cur.x, (272 shl 4)
-		jl	short loc_16B1A
-		mov	_boss_pos.velocity.x, (-2 shl 4)
-		jmp	short loc_16B2E
-; ---------------------------------------------------------------------------
-
-loc_16B1A:
-		push	1
-		call	@randring2_next16_and$qui
-		or	ax, ax
-		jz	short loc_16B28
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B2B
-; ---------------------------------------------------------------------------
-
-loc_16B28:
-		mov	ax, (-1 shl 4)
-
-loc_16B2B:
-		mov	_boss_pos.velocity.x, ax
-
-loc_16B2E:
-		cmp	_boss_pos.cur.y, (80 shl 4)
-		jg	short loc_16B3E
-		mov	_boss_pos.velocity.y, (1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B3E:
-		cmp	_boss_pos.cur.y, (144 shl 4)
-		jl	short loc_16B4E
-		mov	_boss_pos.velocity.y, (-1 shl 4)
-		jmp	short loc_16B7D
-; ---------------------------------------------------------------------------
-
-loc_16B4E:
-		push	3
-
-loc_16B50:
-		call	@randring2_next16_and$qui	; jumptable 0001EA6B case 7819
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jnz	short loc_16B61
-		mov	ax, (1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B61:
-		cmp	[bp+var_1], 1
-		jnz	short loc_16B6C
-		mov	ax, (-1 shl 4)
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B6C:
-		cmp	[bp+var_1], 2
-		jnz	short loc_16B77
-		mov	ax, 24
-		jmp	short loc_16B7A
-; ---------------------------------------------------------------------------
-
-loc_16B77:
-		mov	ax, -24
-
-loc_16B7A:
-		mov	_boss_pos.velocity.y, ax
-
-loc_16B7D:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		leave
-		retn
-marisa_16AE9	endp
+	; marisa_flystep_random() now lives in th04/main/boss/b4m.cpp, above
+	; marisa_flystep_pointreflected(), which is its original address order:
+	; it was the LAST proc of this root contribution and that file's object
+	; already appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed (kb/codegen/0098 +
+	; 0114). kb/codegen/0121: the deleted body carried no `assume`, so there
+	; is nothing to restore into the rest of this contribution.
+	;
+	; Its one call site is in ENM_BTPL_TEXT, which is in the same main_03
+	; group, so the call stays near and unqualified.
+	@marisa_flystep_random$qv procdesc near
 
 	@MARISA_FLYSTEP_POINTREFLECTED$QI procdesc pascal near \
 		duration:word
@@ -15235,7 +15154,7 @@ loc_17B19:
 ; ---------------------------------------------------------------------------
 
 loc_17B1E:
-		call	marisa_16AE9	; jumptable 00017ADF case 255
+		call	@marisa_flystep_random$qv ; jumptable 00017ADF case 255
 		cmp	_boss_phase_frame, 64
 		jl	short loc_17B98	; default
 		inc	_boss_phase_state
@@ -28466,6 +28385,15 @@ byte_259A3	db ?
 _power	db ?
 _shot_level	db ?
 _shot_time	db ?
+	; Zero-byte alias so th04/main/player/shots_inv.cpp can reach this
+	; still-unnamed global, like the alias five lines up for byte_259A3.
+	; Named for what was MEASURED about it rather than for what it might
+	; have meant: shot_reset() is its only writer and nothing in the tree
+	; reads it. Exactly TH02's device and TH02's spelling for the same
+	; situation -- see `public _scroll_unused_2` / `_scroll_unused_2 label
+	; byte` in th02_main.asm, whose byte_2034E this mirrors. ZUN bloat.
+	public _shot_unused
+_shot_unused label byte
 byte_259A7	db ?
 		db    ?	;
 include th01/main/player_is_hit[bss].asm

@@ -19,6 +19,36 @@
 /// new segment, no Tupfile.lua line, exactly as regist_enter.cpp before it.
 
 #include "libs/master.lib/pc98_gfx.hpp"
+#if (GAME == 5)
+#include "th04/hardware/bgimage.hpp"
+#else
+/// [measured] TH04's MAINE.EXE links neither th04/hardware/bgimage.cpp's
+/// unblitter nor th04/egcrect.cpp — Tupfile.lua gives the latter to TH04's
+/// OP.EXE only. It keeps this screen's background on VRAM page 1 instead, and
+/// unblits through its own `near` page-1-to-page-0 EGC rectangle copy, which
+/// takes the same four parameters as bgimage_put_rect_16() and still sits in
+/// ASM at the very END of this same SCORE_TEXT contribution — after
+/// regist_menu(), so a head lift cannot reach it.
+///
+/// `[measured]` Its contract is exactly th04/hardware/egcrect.cpp's
+/// egc_copy_rect_1_to_0_16(): it starts the EGC itself, copies the rectangle
+/// 16 pixels at a time through plane B alone, and turns the EGC back off. Its
+/// *body* is not — it is a plain-C double loop with a stack-allocated VRAM
+/// offset, closer to th02/hardware/grp_rect.cpp's
+/// graph_copy_rect_1_to_0_16() (which in turn is not this contract: it copies
+/// all four planes explicitly and never touches the EGC). So TH04 has two
+/// different bodies for one operation, and the `_near` suffix is what keeps
+/// them apart — this is MAINE.EXE's own `near` one. Rename it freely once it
+/// is decompiled; it has exactly one caller, below.
+extern "C" void pascal near egc_copy_rect_1_to_0_16_near(
+	screen_x_t left, vram_y_t top, pixel_t w, pixel_t h
+);
+#endif
+
+// master.lib's GRCG_OFF_CLOBBERING macro, which spills the port number to DX
+// instead of using the immediate-port form that _outportb_() would emit.
+// Same spelling as th04/main/stage/loop.cpp's.
+#define grcg_off_clobbering_dx() outportb(0x7C, GC_OFF)
 
 /// Coordinates
 /// -----------
@@ -66,7 +96,51 @@ static const pixel_t PLACE_1_PADDING_BOTTOM = GLYPH_H;
 		? (table_top) \
 		: ((table_top) + PLACE_1_PADDING_BOTTOM + ((place) * GLYPH_H)) \
 )
+
+// The name's drop shadow, in both games.
+static const pixel_t SHADOW_OFFSET = 2;
+
+#if (GAME == 5)
+// name_put() unblits the name *and* its drop shadow before redrawing both.
+static const pixel_t NAME_UNBLIT_W = (NAME_W + SHADOW_OFFSET);
+static const pixel_t NAME_UNBLIT_H = (GLYPH_H + SHADOW_OFFSET);
+
+/// [measured] The frame TH05 draws around the row being registered, relative
+/// to that column's [NAME_LEFT] and that row's top: 2 pixels of padding to the
+/// left of the name, 1 above it, GLYPH_H below it, and a right edge 4 pixels
+/// past the right edge of the stage gaiji.
+static const pixel_t FRAME_PADDING_LEFT = 2;
+static const pixel_t FRAME_PADDING_TOP = 1;
+static const pixel_t FRAME_RIGHT_REL = (
+	(STAGE_LEFT - NAME_LEFT) + GAIJI_W + 4
+);
+#else
+/// [measured] TH04 draws this row's *foreground* into text RAM rather than
+/// onto the graphics plane, so ZUN wrote its coordinates in TRAM cells. They
+/// do not line up with the pixel columns above: the leftmost name starts at
+/// cell 2 (pixel 16) rather than at NAME_LEFT (8), and the two columns are 38
+/// cells (304 pixels) apart rather than COLUMN_W (308) — nor do they line up
+/// with th04/hiscore/view.cpp's own `COLUMN_W + 4` ZUN bug, which happens to
+/// put the *second* column at the same pixel 320 and the first one 8 pixels
+/// further left. Only the drop shadow, and the rectangle that unblits it,
+/// are converted back to pixels.
+static const tram_x_t NAME_TRAM_LEFT = 2;
+static const tram_cell_amount_t COLUMN_TRAM_W = 38;
+static const tram_y_t TABLE_TRAM_TOP = (TABLE_TOP / GLYPH_H);
+static const tram_cell_amount_t PLACE_1_TRAM_PADDING_BOTTOM = (
+	PLACE_1_PADDING_BOTTOM / GLYPH_H
+);
+
+#define tram_top_for_place(place) ( \
+	((place) == 0) \
+		? TABLE_TRAM_TOP \
+		: (TABLE_TRAM_TOP + PLACE_1_TRAM_PADDING_BOTTOM + (place)) \
+)
+#endif
 /// -----------
+
+#define scoredat_name(place) \
+	reinterpret_cast<const char far *>(hi.score.g_name[place])
 
 /// Pattern numbers for the super_*() functions
 /// -------------------------------------------
@@ -88,7 +162,13 @@ static const int PAT_SCNUM_ENTERED = (PAT_SCNUM + 10);
 // ---------
 /// -------------------------------------------
 
+/// [measured] TH04's name row is drawn in text RAM, so only TH05 has graphics
+/// colors for it. TH04's TRAM attributes are spelled out at the call sites,
+/// exactly as th02/hiscore/regist.cpp's scoredat_name_puts() spells out its
+/// own TX_GREEN pair.
 typedef enum {
+	COL_NAME = 6, // GAME == 5 only
+	COL_NAME_CURSOR = 7, // GAME == 5 only
 	COL_STAGE = ((GAME == 5) ? 2 : 12),
 	COL_STAGE_ENTERED = 7,
 	COL_SHADOW = 14,
@@ -241,6 +321,127 @@ void pascal near stage_put(
 	// branch: MAINE.EXE only ever reaches it with a real stage gaiji.
 	graph_gaiji_putc((left + 2), (top + 2), gaiji, COL_SHADOW);
 	graph_gaiji_putc(left, top, gaiji, col);
+}
+
+/// The direct descendant of TH02's scoredat_name_puts()
+/// (th02/hiscore/regist.cpp): the same "redraw one name row, then redraw the
+/// one glyph the cursor sits on in a highlighted attribute" shape, called from
+/// regist_name_enter_menu() after every cursor move and every glyph commit.
+/// Unlike TH02's, it also has to unblit the previous name first, because the
+/// glyphs it overwrites are not blanks.
+///
+/// This is where the two games stop sharing anything but the shadow:
+///
+/// • TH04 puts the name's foreground into TEXT RAM (gaiji_putsa() /
+///   gaiji_putca(), TRAM cell coordinates, TRAM attributes), and only its drop
+///   shadow onto the graphics plane. So it only ever unblits the shadow.
+/// • TH05 puts everything onto the graphics plane (graph_gaiji_puts() /
+///   graph_gaiji_putc(), pixel coordinates, palette colors), unblits name and
+///   shadow together, and additionally frames the entire row — name, score and
+///   stage — with four GRCG lines.
+///
+/// The score and stage columns of the same row are drawn by score_put() and
+/// stage_put() above, in both games.
+void pascal near name_put(int place, playchar_t pc, unsigned char cursor)
+{
+#if (GAME == 5)
+	screen_x_t left;
+	screen_y_t top;
+
+	switch(pc) {
+	case PLAYCHAR_REIMU:
+		left = (NAME_LEFT + (0 * COLUMN_W));
+		top = top_for_place(TABLE_1_TOP, place);
+		break;
+	case PLAYCHAR_MARISA:
+		left = (NAME_LEFT + (1 * COLUMN_W));
+		top = top_for_place(TABLE_1_TOP, place);
+		break;
+	case PLAYCHAR_MIMA:
+		left = (NAME_LEFT + (0 * COLUMN_W));
+		top = top_for_place(TABLE_2_TOP, place);
+		break;
+	case PLAYCHAR_YUUKA:
+		left = (NAME_LEFT + (1 * COLUMN_W));
+		top = top_for_place(TABLE_2_TOP, place);
+		break;
+	}
+
+	bgimage_put_rect_16(left, top, NAME_UNBLIT_W, NAME_UNBLIT_H);
+	graph_gaiji_puts(
+		(left + SHADOW_OFFSET),
+		(top + SHADOW_OFFSET),
+		GAIJI_W,
+		scoredat_name(place),
+		COL_SHADOW
+	);
+	graph_gaiji_puts(left, top, GAIJI_W, scoredat_name(place), COL_NAME);
+	graph_gaiji_putc(
+		(left + (cursor * GAIJI_W)),
+		top,
+		hi.score.g_name[place][cursor],
+		COL_NAME_CURSOR
+	);
+
+	// The cursor's underline, and then the frame around the whole row.
+	grcg_setcolor(GC_RMW, COL_NAME_CURSOR);
+	grcg_hline(
+		(left + (cursor * GAIJI_W)),
+		(left + (cursor * GAIJI_W) + GAIJI_W),
+		(top + GLYPH_H - 1)
+	);
+	grcg_vline(
+		(left - FRAME_PADDING_LEFT),
+		(top - FRAME_PADDING_TOP),
+		(top + GLYPH_H)
+	);
+	grcg_vline(
+		(left + FRAME_RIGHT_REL),
+		(top - FRAME_PADDING_TOP),
+		(top + GLYPH_H)
+	);
+	grcg_hline(
+		(left - FRAME_PADDING_LEFT),
+		(left + FRAME_RIGHT_REL),
+		(top - FRAME_PADDING_TOP)
+	);
+	grcg_hline(
+		(left - FRAME_PADDING_LEFT),
+		(left + FRAME_RIGHT_REL),
+		(top + GLYPH_H)
+	);
+	grcg_off_clobbering_dx();
+#else
+	tram_x_t left;
+	tram_y_t top;
+
+	left = ((pc == PLAYCHAR_REIMU)
+		? (NAME_TRAM_LEFT + (PLAYCHAR_REIMU * COLUMN_TRAM_W))
+		: (NAME_TRAM_LEFT + (PLAYCHAR_MARISA * COLUMN_TRAM_W))
+	);
+	top = tram_top_for_place(place);
+
+	egc_copy_rect_1_to_0_16_near(
+		((left * GLYPH_HALF_W) + SHADOW_OFFSET),
+		((top * GLYPH_H) + SHADOW_OFFSET),
+		NAME_W,
+		GLYPH_H
+	);
+	graph_gaiji_puts(
+		((left * GLYPH_HALF_W) + SHADOW_OFFSET),
+		((top * GLYPH_H) + SHADOW_OFFSET),
+		GAIJI_W,
+		scoredat_name(place),
+		COL_SHADOW
+	);
+	gaiji_putsa(left, top, scoredat_name(place), TX_RED);
+	gaiji_putca(
+		(left + (cursor * GAIJI_TRAM_W)),
+		top,
+		hi.score.g_name[place][cursor],
+		(TX_RED | TX_REVERSE)
+	);
+#endif
 }
 
 #pragma option -a1
