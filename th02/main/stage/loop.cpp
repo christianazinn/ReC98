@@ -267,3 +267,12 @@ flip:
 	quit = false;
 	return false;
 }
+
+// Emitted at the end of STAGE_TEXT, where the original object put it: the
+// segment that follows, MAIN_01___TEXT, opens with th02/main/null.asm and can
+// therefore never be emptied from its head by a C++ contribution of its own.
+void pascal near text_wipe(void)
+{
+	text_clear();
+	text_fillca(' ', TX_BLACK | TX_REVERSE);
+}

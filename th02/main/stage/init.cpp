@@ -53,10 +53,11 @@
 #include "th02/main/hiscore.hpp"
 #include "th02/main/laser.hpp"
 
+// Defined at the end of th02/main/stage/loop.cpp, which owns STAGE_TEXT.
+void pascal near text_wipe(void);
+
 // Still ASM in th02_main.asm.
 // ---------------------------
-extern "C" void pascal near text_wipe(void);
-
 extern "C" void near sub_C5B0(void);
 extern "C" void far sub_16A6B(void);
 extern "C" void far sub_13ABB(char *fn);
