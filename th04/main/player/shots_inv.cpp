@@ -30,6 +30,49 @@ extern "C" void pascal near tiles_invalidate_around(
 	#define SHOT_FLAG_FREE F_FREE
 #else
 	#define SHOT_FLAG_FREE SF_FREE
+
+	// Written by shot_reset() and never read anywhere in MAIN.EXE.
+	// ZUN bloat: one store with no effect. The evidence is a whole-binary
+	// symbol search, not an emulator run — the placeholder the dump gives it
+	// occurs exactly twice in the tree, that store and its `db ?`, and its
+	// address occurs nowhere else at all.
+	//
+	// Named for what was measured about it rather than for what it might have
+	// meant, which is the only honest option for a variable with no reader to
+	// argue from. The spelling and the zero-byte alias behind it
+	// (kb/codegen/0123) are both TH02's, for the identical situation:
+	// th02/main/scroll.cpp declares [scroll_unused_2] this way and
+	// th02_main.asm aliases its byte_2034E to match. No numeric suffix here,
+	// because TH02's suffixes are IDA's discovery order across a family of
+	// three and this subsystem has exactly one.
+	extern uint8_t shot_unused;
+#endif
+
+#if (GAME == 4)
+// Clears the shot-firing state at the start of every stage: the regular shot's
+// cooldown, and both halves of the option laser's. stage_init() calls this
+// four statements before bomb_reset(), which resets the other half of the
+// player's per-stage state.
+//
+// TH04-only, and NOT for lifting-order reasons: TH05 has no such helper. Two of
+// the three counters belong to the option laser, which TH05 keeps in its code
+// but never fires, so TH05's stage-init proc simply sets [shot_time] inline in
+// the same run of statements that calls bomb_reset(). Singular, per the
+// convention th02/main/player/bomb.hpp spells out: scalar-state resets are
+// singular (bomb_reset(), scroll_reset(), score_reset(), player_reset()) and
+// only the array ones are plural — which is also why this sits next to
+// shots_invalidate() without matching its plural.
+void near shot_reset(void)
+{
+	shot_laser_time = 0;
+	shot_laser_style = SLS_2;
+	shot_time = 0;
+
+	// ZUN bloat, declared above: a byte in this MAIN.EXE's own BSS, not a
+	// field of the resident structure, so no other binary can observe it
+	// either. Kept because removing it would change the bytes.
+	shot_unused = 0;
+}
 #endif
 
 void near shots_invalidate(void)
