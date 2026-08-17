@@ -41,6 +41,9 @@
 ;	93/ 5/14 加速
 ;	95/ 2/20 縦倍モード対応
 
+; ReC98: inter-module alignment fill was the linker's 00, not the EVEN -> NOP
+; that a single concatenated assembly produces. See kb/codegen/0141.
+	EVENDATA
 func GRCG_CIRCLE_X	; grcg_circle_x() {
 	push	BP
 	mov	BP,SP

@@ -44,6 +44,9 @@
 ;	93/ 9/20 [M0.21] WORD_MASK廃止
 ;
 
+; ReC98: inter-module alignment fill was the linker's 00, not the EVEN -> NOP
+; that a single concatenated assembly produces. See kb/codegen/0141.
+	EVENDATA
 func SUPER_PUT
 	push	BP
 	mov	BP,SP
