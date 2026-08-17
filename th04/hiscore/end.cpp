@@ -1,3 +1,13 @@
+// Has to sit here rather than in recreate.cpp, which sets the -zC for this
+// whole chain: th04/hiscore/view.cpp includes that file too, from OP.EXE's
+// -zPop_01 translation unit, and a -zP inside it would override op_01 there.
+// This file is only ever the very first thing in th0N/hi_end.cpp, so the
+// pragma still precedes every byte of emitted code (kb/codegen/0138).
+// Needed since regist_view.cpp: score_put() and stage_put() dispatch through
+// `jmp cs:` switch tables, and without the group the compiler frames those
+// displacements on SCORE_TEXT instead of group_01.
+#pragma option -zPgroup_01
+
 #include "th04/formats/scoredat/recreate.cpp"
 #include "th04/hiscore/score_ld.cpp"
 
@@ -11,3 +21,8 @@ extern playchar_t playchar;
 // kb/codegen/0098 head lift into the object that already sat immediately
 // before it, in both games: no carve, no new segment, no Tupfile.lua line.
 #include "th04/hiscore/regist_enter.cpp"
+
+// …and so do score_put() and stage_put(), which were the next two procs of
+// that same root dump block in both games. Same kb/codegen/0098 head lift,
+// one step further down.
+#include "th04/hiscore/regist_view.cpp"

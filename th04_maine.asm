@@ -1693,215 +1693,19 @@ SCORE_TEXT segment byte public 'CODE' use16
 	; procdescs above it emit nothing, so the state this contribution is
 	; assembled under is unchanged and there is nothing to restore.
 	@regist_score_enter_from_resident$qv procdesc near
+	@SCORE_PUT$QIUC procdesc pascal near \
+		place:word, playchar:byte
+	@STAGE_PUT$QIII procdesc pascal near \
+		place:word, playchar:word, gaiji:word
 
-; =============== S U B	R O U T	I N E =======================================
+; score_put() and stage_put() now live in th04/hiscore/regist_view.cpp,
+; immediately after regist_score_enter_from_resident() at the tail of
+; th04/hi_end.cpp's SCORE_TEXT contribution -- i.e. exactly where this
+; block used to continue. One body serves both games; TH04 takes the
+; two-player-character arms of its `#if`.
 
-; Attributes: bp-based frame
-
-sub_C506	proc near
-
-@@y		= word ptr -4
-var_2		= word ptr -2
-arg_0		= byte ptr  4
-arg_2		= word ptr  6
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_2]
-		or	si, si
-		jnz	short loc_C518
-		mov	ax, 96
-		jmp	short loc_C520
-; ---------------------------------------------------------------------------
-
-loc_C518:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 112
-
-loc_C520:
-		mov	[bp+@@y], ax
-		cmp	[bp+arg_0], 0
-		jnz	short loc_C52E
-		mov	ax, 172
-		jmp	short loc_C531
-; ---------------------------------------------------------------------------
-
-loc_C52E:
-		mov	ax, 480
-
-loc_C531:
-		mov	di, ax
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, si
-		jnz	short loc_C549
-		mov	al, [bp+arg_0]
-		cmp	al, _playchar
-		jnz	short loc_C549
-		mov	al, 0Ah
-		jmp	short loc_C54B
-; ---------------------------------------------------------------------------
-
-loc_C549:
-		mov	al, 0
-
-loc_C54B:
-		mov	[bp+arg_0], al
-		mov	bx, si
-		shl	bx, 3
-		mov	al, _hi.score.g_score[bx][SCORE_DIGITS - 1]
-		mov	ah, 0
-		add	ax, -gb_0_
-		cmp	ax, 10
-		jl	short loc_C589
-		lea	ax, [di-32]
-		push	ax
-		push	[bp+@@y]
-		mov	bx, si
-		shl	bx, 3
-		mov	al, _hi.score.g_score[bx][SCORE_DIGITS - 1]
-		mov	ah, 0
-		add	ax, -gb_0_
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	dl, [bp+arg_0]
-		mov	dh, 0
-		add	ax, dx
-		push	ax
-		call	super_put
-
-loc_C589:
-		lea	ax, [di-16]
-		push	ax
-		push	[bp+@@y]
-		mov	bx, si
-		shl	bx, 3
-		mov	al, _hi.score.g_score[bx][SCORE_DIGITS - 1]
-		mov	ah, 0
-		add	ax, -gb_0_
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	al, [bp+arg_0]
-		mov	ah, 0
-		add	dx, ax
-		push	dx
-		call	super_put
-		mov	[bp+var_2], 6
-		jmp	short loc_C5E0
-; ---------------------------------------------------------------------------
-
-loc_C5B8:
-		push	di
-		push	[bp+@@y]
-		mov	bx, si
-		shl	bx, 3
-		add	bx, [bp+var_2]
-		mov	al, _hi.score.g_score[bx]
-		mov	ah, 0
-		mov	dl, [bp+arg_0]
-		mov	dh, 0
-		add	ax, dx
-		add	ax, -gb_0_
-		push	ax
-		call	super_put
-		dec	[bp+var_2]
-		add	di, 16
-
-loc_C5E0:
-		cmp	[bp+var_2], 0
-		jge	short loc_C5B8
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_C506	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C5EC	proc near
-
-@@col		= byte ptr -5
-@@y		= word ptr -4
-@@x		= word ptr -2
-@@gaiji		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, [bp+arg_4]
-		mov	di, [bp+arg_2]
-		mov	al, _entered_place
-		mov	ah, 0
-		cmp	ax, si
-		jnz	short loc_C60E
-		mov	al, _playchar
-		mov	ah, 0
-		cmp	ax, di
-		jnz	short loc_C60E
-		mov	al, 7
-		jmp	short loc_C610
-; ---------------------------------------------------------------------------
-
-loc_C60E:
-		mov	al, 12
-
-loc_C610:
-		mov	[bp+@@col], al
-		or	si, si
-		jnz	short loc_C61C
-		mov	ax, 96
-		jmp	short loc_C624
-; ---------------------------------------------------------------------------
-
-loc_C61C:
-		mov	ax, si
-		shl	ax, 4
-		add	ax, 112
-
-loc_C624:
-		mov	[bp+@@y], ax
-		or	di, di
-		jnz	short loc_C630
-		mov	ax, 292
-		jmp	short loc_C633
-; ---------------------------------------------------------------------------
-
-loc_C630:
-		mov	ax, 600
-
-loc_C633:
-		mov	[bp+@@x], ax
-		add	ax, 2
-		push	ax
-		mov	ax, [bp+@@y]
-		add	ax, 2
-		push	ax
-		push	[bp+@@gaiji]
-		push	14
-		call	graph_gaiji_putc
-		push	[bp+@@x]
-		push	[bp+@@y]
-		push	[bp+@@gaiji]
-		mov	al, [bp+@@col]
-		mov	ah, 0
-		push	ax
-		call	graph_gaiji_putc
-		pop	di
-		pop	si
-		leave
-		retn	6
-sub_C5EC	endp
-
-
+; kb/codegen/0121: neither deleted body contained an `assume`, so the
+; state the rest of this contribution is assembled under is unchanged.
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -2092,7 +1896,7 @@ loc_C787:
 loc_C7AB:
 		push	si
 		push	[bp+arg_0]
-		call	sub_C506
+		call	@score_put$qiuc
 		push	si
 		mov	al, byte ptr [bp+arg_0]
 		mov	ah, 0
@@ -2100,7 +1904,7 @@ loc_C7AB:
 		mov	al, _hi.score.g_stage[si]
 		mov	ah, 0
 		push	ax
-		call	sub_C5EC
+		call	@stage_put$qiii
 		pop	di
 		pop	si
 		leave
