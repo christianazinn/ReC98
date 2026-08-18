@@ -1240,6 +1240,10 @@ off_BB75	dw offset loc_BA18
 
 ; Attributes: bp-based frame
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
+; this. `label` emits nothing, so every following offset is unchanged.
+public _verdict_stats_put_and_wait
+_verdict_stats_put_and_wait label near
 sub_BB81	proc near
 
 var_4		= dword	ptr -4
@@ -1652,27 +1656,19 @@ off_C0EE	dw offset loc_BE1B
 		dw offset loc_BE4B
 		dw offset loc_BE5E
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @verdict_animate$qv
-@verdict_animate$qv proc near
-		push	bp
-		mov	bp, sp
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		graph_accesspage 1
-		call	@pi_load$qinxc pascal, 0, ds, offset aUde_pi
-		call	@pi_palette_apply$qi pascal, 0
-		call	@pi_put_8$qiii pascal, large 0, 0
-		freePISlotLarge	0
-		call	graph_copy_page pascal, 0
-		push	4
-		call	palette_black_in
-		call	sub_BB81
-		pop	bp
-		retn
-@verdict_animate$qv endp
+; verdict_animate() now lives in th04/end/verdict_animate.cpp, which
+; th04/staff.cpp includes. That object is the LAST one in TH04's MAINE.EXE
+; link list and emitted nothing at all until now -- only an empty,
+; auto-named STAFF_TEXT segment -- so a -zCMAINE_01_TEXT -zPgroup_01 body in
+; it lands immediately BEHIND this contribution, at the address this proc
+; already had. A kb/codegen/0098 tail lift: no carve, no new segment, no
+; group-list edit and no Tupfile.lua line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`, so the state the
+; rest of this contribution is assembled under is unchanged.
+;
+; Nothing may be added BELOW this line: the tail of this contribution is now
+; the seam that every further lift out of this segment grows into.
 maine_01_TEXT ends
 
 SCORE_TEXT segment byte public 'CODE' use16
@@ -1848,7 +1844,8 @@ aPoint		db '点',0
 a_ude_txt	db '_ude.txt',0
 aBhbhbhbhbhbhu_	db '？？？？？？点',0
 aPicacovVVcvsfT	db '処理落ちによる判定不可',0
-aUde_pi		db 'ude.pi',0
+public _ude_pi
+_ude_pi		db 'ude.pi',0
 		db    0
 include th04/hiscore/alphabet[data].asm
 public _SCOREDAT_FN, _SCOREDAT_FN_0, _SCOREDAT_FN_1, _SCOREDAT_FN_2
