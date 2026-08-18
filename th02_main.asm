@@ -780,170 +780,6 @@ public @GameExecl$qnxc
 		retf
 @GameExecl$qnxc	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_C5B0
-_sub_C5B0 label near
-sub_C5B0	proc near
-		push	bp
-		mov	bp, sp
-		xor	dx, dx
-		jmp	short loc_C5C2
-; ---------------------------------------------------------------------------
-
-loc_C5B7:
-		mov	bx, dx
-		shl	bx, 4
-		mov	byte ptr byte_20378[bx], 0
-		inc	dx
-
-loc_C5C2:
-		cmp	dx, 26h	; '&'
-		jl	short loc_C5B7
-		mov	byte_205DE, 0
-		mov	_player_invincibility_time, 0
-		mov	_player_invincible_via_bomb, 0
-		mov	_quit, 0
-		mov	_stage_miss_count, 0
-		mov	_miss_frame, 0
-		mov	byte_205DF, 8
-		mov	byte_205E0, 0
-		mov	_player_is_hit, 0
-		mov	_miss_active, 0
-		mov	_player_option_patnum, PAT_OPTION_A
-		mov	word_205D8, 0FFFFh
-		mov	word_205DC, 0FFFFh
-		mov	word_205DA, 0FFFFh
-		mov	byte_20610, 0
-		mov	byte_20611, 0
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.shottype]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_C634
-		cmp	ax, 1
-		jz	short loc_C655
-		cmp	ax, 2
-		jz	short loc_C67F
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C634:
-		mov	playchar_shot_func, offset @shot_a$qv
-		mov	_playchar_speed_aligned_x, 5
-		mov	_playchar_speed_aligned_y, 5
-		mov	_playchar_speed_diagonal_x, 4
-		mov	_playchar_speed_diagonal_y, 4
-		mov	byte_2060E, 30h	; '0'
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C655:
-		mov	playchar_shot_func, offset @shot_b$qv
-		mov	_playchar_speed_aligned_x, 4
-		mov	_playchar_speed_aligned_y, 4
-		mov	_playchar_speed_diagonal_x, 3
-		mov	_playchar_speed_diagonal_y, 3
-		mov	byte_2060E, 34h	; '4'
-		mov	byte_2060F, 37h	; '7'
-		inc	_player_option_patnum
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C67F:
-		mov	playchar_shot_func, offset @shot_c$qv
-		mov	_playchar_speed_aligned_x, 3
-		mov	_playchar_speed_aligned_y, 3
-		mov	_playchar_speed_diagonal_x, 3
-		mov	_playchar_speed_diagonal_y, 3
-		mov	byte_1E518, 3
-		mov	byte_2060E, 7Dh	; '}'
-		mov	byte_2060F, 3Bh	; ';'
-		mov	al, _player_option_patnum
-		add	al, 2
-		mov	_player_option_patnum, al
-		pop	bp
-		retn
-sub_C5B0	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @PLAYER_INVALIDATE$QV
-@player_invalidate$qv proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	[bp+var_2], 2
-		call	@shots_invalidate$qv
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _player_left_on_page
-		mov	_player_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _player_top_on_page
-		mov	_player_top_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, offset _player_option_left_topleft.x
-		mov	_player_option_left_left_on_back_, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, offset _player_option_left_topleft.y
-		mov	_player_option_left_top_on_back_p, ax
-		mov	bx, _player_left_on_back_page
-		push	word ptr [bx]	; left
-		mov	bx, _player_top_on_back_page
-		push	word ptr [bx]	; top
-		push	(PLAYER_W shl 16) or PLAYER_H	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		mov	bx, _player_option_left_left_on_back_
-		mov	si, [bx]
-		push	si	; left
-		mov	bx, _player_option_left_top_on_back_p
-		push	word ptr [bx]	; top
-		push	(PLAYER_OPTION_W shl 16) or PLAYER_OPTION_H	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		lea	ax, [si+PLAYER_OPTION_TO_OPTION_DISTANCE]
-		push	ax	; left
-		mov	bx, _player_option_left_top_on_back_p
-		push	word ptr [bx]	; top
-		push	(PLAYER_OPTION_W shl 16) or PLAYER_OPTION_H	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		mov	bx, _player_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_top_on_page[bx]
-		mov	bx, _player_top_on_back_page
-		mov	[bx], ax
-		pop	si
-		leave
-		retn
-@player_invalidate$qv endp
 main_01____TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
@@ -21181,7 +21017,11 @@ word_205DC	dw ?
 public _option_shots_alive
 _option_shots_alive label byte
 byte_205DE	db ?
+public _shot_unused
+_shot_unused label byte
 byte_205DF	db ?
+public _shot_unused_2
+_shot_unused_2 label byte
 byte_205E0	db ?
 		db ?
 public _shot_slot_i
@@ -21223,6 +21063,8 @@ byte_2060F	db ?
 public _byte_20610
 _byte_20610 label byte
 byte_20610	db ?
+public _player_unused
+_player_unused label byte
 byte_20611	db ?
 public _stage_frame
 _stage_frame	dd ?

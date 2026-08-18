@@ -4,9 +4,12 @@
 #pragma option -zCB4M_UPDATE_TEXT -zPmain_03
 
 #include "th04/sprites/main_pat.h"
-#include "th04/main/custom.hpp"
-#include "th04/main/boss/boss.hpp"
+#include "th04/snd/snd.h"
 #include "th04/math/randring.hpp"
+#include "th04/main/circle.hpp"
+#include "th04/main/custom.hpp"
+#include "th04/main/gather.hpp"
+#include "th04/main/boss/boss.hpp"
 
 // Constants
 // ---------
@@ -48,6 +51,22 @@ struct bit_t {
 };
 
 #define bits (reinterpret_cast<bit_t *>(custom_entities))
+
+// What marisa_charge_animate() tells the pattern it opens. Deliberately a
+// byte-sized enum: the original returns these in AL alone, and every caller
+// homes the result in a byte local before testing it.
+enum marisa_charge_t {
+	// Still charging. The pattern must not fire yet.
+	MC_CHARGING = 0,
+
+	// The charge is over and the pattern has already fired; keep running it.
+	MC_RUNNING = 1,
+
+	// This one frame is the frame the pattern fires on.
+	MC_FIRE = 2,
+
+	_marisa_charge_t_FORCE_UINT8 = 0xFF
+};
 // ----------
 
 // State
@@ -64,6 +83,95 @@ extern screen_x_t bit_center_y[BIT_COUNT];
 
 // Game logic
 // ----------
+
+// The fixed 64-frame charge-up that every one of Marisa's patterns opens
+// with, and the only thing that tells the pattern when to fire. Advances
+// nothing itself: the caller owns [boss.phase_frame], and this function just
+// reads it and stages the animation, the two sound effects and the two
+// effect spawns that go with each of its landmark frames.
+//
+// The gather ring is a three-circle stack, added on the same 0/+2/+4 frames
+// and in the same shape as gather_add_only_3stack() -- which this function
+// does NOT call, because its first circle also has to re-seed the whole
+// [gather_template] and that helper only sets the color.
+//
+// The ring is the one part of the animation gated on [boss.mode], which
+// leaves Marisa's two defeat phases without it.
+marisa_charge_t near marisa_charge_animate(void)
+{
+	enum {
+		// The landmark frames. FRAME_FIRE also ends the charge, so the whole
+		// lead-in is exactly that many frames long.
+		FRAME_CAST = 16,
+		FRAME_CIRCLE = 30,
+		FRAME_GATHER = 32,	// ... and +2 and +4
+		FRAME_CELS = 44,
+		FRAME_FIRE = 64,
+
+		FRAMES_PER_CEL = 4,
+
+		// Both the gather ring and the shrinking circle are centered above
+		// and to the left of Marisa's origin, not on it.
+		CENTER_OFFSET_X = TO_SP(20),
+		CENTER_OFFSET_Y = TO_SP(8),
+
+		GATHER_RADIUS = TO_SP(256),
+		GATHER_RING_POINTS = 16,
+		GATHER_ANGLE_DELTA = -2,
+		COL_GATHER_1 = 3,
+		COL_GATHER_2 = 2,
+
+		// Marisa's cels are absolute patnums -- marisa_fg_render() blits
+		// [boss.sprite] as it stands, with no per-boss base added.
+		PAT_MARISA_CAST = (PAT_STAGE + 2),
+
+		// The [boss.mode] range that gets the gather ring.
+		MODE_GATHER_FIRST = 1,
+		MODE_GATHER_LAST = 6,
+	};
+	if((boss.mode >= MODE_GATHER_FIRST) && (boss.mode <= MODE_GATHER_LAST)) {
+		switch(boss.phase_frame) {
+		case FRAME_GATHER:
+			gather_template.center.x.v = (boss.pos.cur.x - CENTER_OFFSET_X);
+			gather_template.center.y.v = (boss.pos.cur.y - CENTER_OFFSET_Y);
+			gather_template.ring_points = GATHER_RING_POINTS;
+			gather_template.angle_delta = GATHER_ANGLE_DELTA;
+			gather_template.col = COL_GATHER_1;
+			gather_template.radius.v = GATHER_RADIUS;
+			gather_add_only();
+			break;
+		case (FRAME_GATHER + 2):
+			gather_template.col = COL_GATHER_2;
+			gather_add_only();
+			break;
+		case (FRAME_GATHER + 4):
+			gather_add_only();
+		}
+	}
+	if(boss.phase_frame == FRAME_CAST) {
+		boss.sprite = PAT_MARISA_CAST;
+		snd_se_play(8);
+	} else if(boss.phase_frame == FRAME_CIRCLE) {
+		circles_add_shrinking(
+			(boss.pos.cur.x - CENTER_OFFSET_X),
+			(boss.pos.cur.y - CENTER_OFFSET_Y)
+		);
+	} else if(
+		(boss.phase_frame >= FRAME_CELS) && (boss.phase_frame < FRAME_FIRE)
+	) {
+		boss.sprite = (
+			PAT_STAGE + ((boss.phase_frame - FRAME_GATHER) / FRAMES_PER_CEL)
+		);
+	} else if(boss.phase_frame == FRAME_FIRE) {
+		boss.sprite = PAT_MARISA_CAST;
+		snd_se_play(15);
+		return MC_FIRE;
+	}
+	if(boss.phase_frame < FRAME_FIRE) {
+		return MC_CHARGING;
+	}
+	return MC_RUNNING;
+}
 
 // Marisa's other flight step: a bounded random wander. Every 32nd frame — on
 // the frame *after* each multiple of 32, since the test is against 1 rather

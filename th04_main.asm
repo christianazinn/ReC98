@@ -13009,106 +13009,18 @@ off_169F4	dw offset loc_16638
 		dw offset loc_1691A
 		dw offset loc_16953
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_16A1A	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_mode, 1
-		jb	short loc_16A71
-		cmp	_boss_mode, 6
-		ja	short loc_16A71
-		mov	ax, _boss_phase_frame
-		cmp	ax, 32
-		jz	short loc_16A3F
-		cmp	ax, 34
-		jz	short loc_16A69
-		cmp	ax, 36
-		jz	short loc_16A6E
-		jmp	short loc_16A71
-; ---------------------------------------------------------------------------
-
-loc_16A3F:
-		mov	ax, _boss_pos.cur.x
-		add	ax, (-20 shl 4)
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_gather_template.GT_center.y, ax
-		mov	_gather_template.GT_ring_points, 16
-		mov	_gather_template.GT_angle_delta, -2
-		mov	_gather_template.GT_col, 3
-		mov	_gather_template.GT_radius, (256 shl 4)
-		jmp	short loc_16A6E
-; ---------------------------------------------------------------------------
-
-loc_16A69:
-		mov	_gather_template.GT_col, 2
-
-loc_16A6E:
-		call	@gather_add_only$qv
-
-loc_16A71:
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_16A86
-		mov	_boss_sprite, 130
-		call	snd_se_play pascal, 8
-		jmp	short loc_16ADA
-; ---------------------------------------------------------------------------
-
-loc_16A86:
-		cmp	_boss_phase_frame, 30
-		jnz	short loc_16AA2
-		mov	ax, _boss_pos.cur.x
-		add	ax, (-20 shl 4)
-		push	ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		push	ax
-		call	@circles_add_shrinking$qii
-		jmp	short loc_16ADA
-; ---------------------------------------------------------------------------
-
-loc_16AA2:
-		cmp	_boss_phase_frame, 44
-		jl	short loc_16AC3
-		cmp	_boss_phase_frame, 64
-		jge	short loc_16AC3
-		mov	ax, _boss_phase_frame
-		add	ax, -32
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, 128
-		mov	_boss_sprite, al
-		jmp	short loc_16ADA
-; ---------------------------------------------------------------------------
-
-loc_16AC3:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_16ADA
-		mov	_boss_sprite, 130
-		call	snd_se_play pascal, 15
-		mov	al, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_16ADA:
-		cmp	_boss_phase_frame, 64
-		jge	short loc_16AE5
-		mov	al, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_16AE5:
-		mov	al, 1
-		pop	bp
-		retn
-marisa_16A1A	endp
+	; marisa_charge_animate() now lives in th04/main/boss/b4m.cpp, above
+	; marisa_flystep_random(), which is its original address order: it was
+	; the LAST proc of this root contribution after that lift, and that
+	; file's object already appended immediately after it, so no carve, no
+	; new segment, no group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried no
+	; `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; Its eleven call sites are all in ENM_BTPL_TEXT, which is in the same
+	; main_03 group, so every call stays near and unqualified.
+	@marisa_charge_animate$qv procdesc near
 
 
 	; marisa_flystep_random() now lives in th04/main/boss/b4m.cpp, above
@@ -13390,7 +13302,7 @@ marisa_16DFF	proc near
 var_1		= byte ptr -1
 
 		enter	2, 0
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_16E2E
@@ -13455,7 +13367,7 @@ marisa_16E9D	proc near
 var_2		= word ptr -2
 
 		enter	2, 0
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	ax, _boss_phase_frame
 		mov	[bp+var_2], ax
 		mov	cx, 5		; switch 5 cases
@@ -13573,7 +13485,7 @@ var_1		= byte ptr -1
 		enter	2, 0
 		push	si
 		push	di
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_16F9F
@@ -13701,7 +13613,7 @@ var_1		= byte ptr -1
 		enter	2, 0
 		push	si
 		push	di
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_170C3
@@ -13819,7 +13731,7 @@ var_1		= byte ptr -1
 		enter	2, 0
 		push	si
 		push	di
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_171A2
@@ -14010,7 +13922,7 @@ var_3		= byte ptr -3
 		enter	4, 0
 		push	si
 		push	di
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_3], al
 		cmp	[bp+var_3], 2
 		jnz	short loc_1736D
@@ -14159,7 +14071,7 @@ var_1		= byte ptr -1
 
 		enter	2, 0
 		push	si
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_174CD
@@ -14378,7 +14290,7 @@ marisa_1769E	proc near
 var_1		= byte ptr -1
 
 		enter	2, 0
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_176D9
@@ -14507,7 +14419,7 @@ marisa_17813	proc near
 var_1		= byte ptr -1
 
 		enter	2, 0
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_1784F
@@ -14571,7 +14483,7 @@ var_1		= byte ptr -1
 		enter	2, 0
 		push	si
 		push	di
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		mov	[bp+var_1], al
 		cmp	[bp+var_1], 2
 		jnz	short loc_178AD
@@ -14581,7 +14493,7 @@ var_1		= byte ptr -1
 		mov	_boss_statebyte[15].BSB_angle_mirror_y, al
 
 loc_178AD:
-		call	marisa_16A1A
+		call	@marisa_charge_animate$qv
 		cmp	al, 1
 		jnz	loc_179B8
 		cmp	_bits_alive, 0

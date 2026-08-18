@@ -3352,63 +3352,28 @@ PLAYFLD_TEXT	ends
 ; Same `byte public 'CODE'` alignment as before, so nothing moves.
 HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _score_highest_update_and_reset
-_score_highest_update_and_reset	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	dx, 1
-		mov	si, SCORE_DIGITS - 1
-		jmp	short loc_103E9
-; ---------------------------------------------------------------------------
-
-loc_103A4:
-		cmp	dx, 1
-		jnz	short loc_103D0
-		les	bx, _resident
-		assume es:nothing
-		add	bx, si
-		mov	al, es:[bx+resident_t.score_highest]
-		cmp	al, _score[si]
-		jnb	short loc_103BE
-		mov	dx, 2
-		jmp	short loc_103D0
-; ---------------------------------------------------------------------------
-
-loc_103BE:
-		les	bx, _resident
-		add	bx, si
-		mov	al, es:[bx+resident_t.score_highest]
-		cmp	al, _score[si]
-		jbe	short loc_103D0
-		xor	dx, dx
-
-loc_103D0:
-		cmp	dx, 2
-		jnz	short loc_103E3
-		mov	al, _score[si]
-		les	bx, _resident
-		add	bx, si
-		mov	es:[bx+resident_t.score_highest], al
-
-loc_103E3:
-		mov	_score[si], 0
-		dec	si
-
-loc_103E9:
-		or	si, si
-		jg	short loc_103A4
-		mov	_score_delta, 0
-		mov	_score_delta_frame, 0
-		mov	_hiscore_popup_shown, 0
-		pop	si
-		pop	bp
-		retn
-_score_highest_update_and_reset	endp
+	; score_highest_update_and_reset() now lives in
+	; th05/main/score_highest.cpp, which th04/main/hud/points.cpp #includes
+	; under #if (GAME == 5) ahead of lives.cpp, bombs.cpp and its own
+	; function (kb/codegen/0129), so that all four land here in their
+	; original address order. It was the LAST -- and, after the
+	; hud_lives_put()/hud_bombs_put() lift, the ONLY -- proc of this root
+	; contribution, and that file's object already appended immediately
+	; after it, so no carve, no new segment, no group-list edit and no
+	; Tupfile.lua line were needed (kb/codegen/0099 + 0112).
+	; This dump's contribution to HUD_PNT_TEXT is now ZERO bytes. The block
+	; stays for the main_01 group list and for the declarations below.
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution.
+	;
+	; TH04's proc in this same slot is a DIFFERENT function,
+	; @score_reset$qv, and lives in th04/main/score_reset.cpp.
+	;
+	; `procdesc near`, matching the `public _score_highest_update_and_reset`
+	; this dump used to carry (kb/codegen/0102) -- C decoration, near call.
+	; Both call sites above, in DEMO_TEXT and main__TEXT, were already
+	; spelled unqualified, so unlike TH04's they needed no edit.
+	_score_highest_update_and_reset procdesc near
 
 
 	; hud_lives_put() and hud_bombs_put() now live in

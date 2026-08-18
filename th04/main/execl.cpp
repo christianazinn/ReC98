@@ -61,8 +61,11 @@ extern "C" {
 // that has to skip index 0 for the same reason.
 #if (GAME == 5)
 	// Commits [score] to [resident->score_highest] if it beats it, then zeroes
-	// [score] and the score popup state. Still ASM, in HUD_PNT_TEXT; a near
-	// call reaches it because both segments are in group main_01.
+	// [score] and the score popup state. Lifted, in th05/main/score_highest.cpp
+	// (HUD_PNT_TEXT); a near call reaches it because both segments are in group
+	// main_01. Declared here rather than in a header because this TU cannot
+	// reach that file, and because the ASM's `public _score_highest_update_and_
+	// reset` is what pins the `extern "C"` (kb/codegen/0102).
 	extern "C" void near score_highest_update_and_reset(void);
 #endif
 
