@@ -780,98 +780,6 @@ public @GameExecl$qnxc
 		retf
 @GameExecl$qnxc	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_C5B0
-_sub_C5B0 label near
-sub_C5B0	proc near
-		push	bp
-		mov	bp, sp
-		xor	dx, dx
-		jmp	short loc_C5C2
-; ---------------------------------------------------------------------------
-
-loc_C5B7:
-		mov	bx, dx
-		shl	bx, 4
-		mov	byte ptr byte_20378[bx], 0
-		inc	dx
-
-loc_C5C2:
-		cmp	dx, 26h	; '&'
-		jl	short loc_C5B7
-		mov	byte_205DE, 0
-		mov	_player_invincibility_time, 0
-		mov	_player_invincible_via_bomb, 0
-		mov	_quit, 0
-		mov	_stage_miss_count, 0
-		mov	_miss_frame, 0
-		mov	byte_205DF, 8
-		mov	byte_205E0, 0
-		mov	_player_is_hit, 0
-		mov	_miss_active, 0
-		mov	_player_option_patnum, PAT_OPTION_A
-		mov	word_205D8, 0FFFFh
-		mov	word_205DC, 0FFFFh
-		mov	word_205DA, 0FFFFh
-		mov	byte_20610, 0
-		mov	byte_20611, 0
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.shottype]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_C634
-		cmp	ax, 1
-		jz	short loc_C655
-		cmp	ax, 2
-		jz	short loc_C67F
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C634:
-		mov	playchar_shot_func, offset @shot_a$qv
-		mov	_playchar_speed_aligned_x, 5
-		mov	_playchar_speed_aligned_y, 5
-		mov	_playchar_speed_diagonal_x, 4
-		mov	_playchar_speed_diagonal_y, 4
-		mov	byte_2060E, 30h	; '0'
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C655:
-		mov	playchar_shot_func, offset @shot_b$qv
-		mov	_playchar_speed_aligned_x, 4
-		mov	_playchar_speed_aligned_y, 4
-		mov	_playchar_speed_diagonal_x, 3
-		mov	_playchar_speed_diagonal_y, 3
-		mov	byte_2060E, 34h	; '4'
-		mov	byte_2060F, 37h	; '7'
-		inc	_player_option_patnum
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C67F:
-		mov	playchar_shot_func, offset @shot_c$qv
-		mov	_playchar_speed_aligned_x, 3
-		mov	_playchar_speed_aligned_y, 3
-		mov	_playchar_speed_diagonal_x, 3
-		mov	_playchar_speed_diagonal_y, 3
-		mov	byte_1E518, 3
-		mov	byte_2060E, 7Dh	; '}'
-		mov	byte_2060F, 3Bh	; ';'
-		mov	al, _player_option_patnum
-		add	al, 2
-		mov	_player_option_patnum, al
-		pop	bp
-		retn
-sub_C5B0	endp
-
 main_01____TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
@@ -21109,7 +21017,11 @@ word_205DC	dw ?
 public _option_shots_alive
 _option_shots_alive label byte
 byte_205DE	db ?
+public _shot_unused
+_shot_unused label byte
 byte_205DF	db ?
+public _shot_unused_2
+_shot_unused_2 label byte
 byte_205E0	db ?
 		db ?
 public _shot_slot_i
@@ -21151,6 +21063,8 @@ byte_2060F	db ?
 public _byte_20610
 _byte_20610 label byte
 byte_20610	db ?
+public _player_unused
+_player_unused label byte
 byte_20611	db ?
 public _stage_frame
 _stage_frame	dd ?

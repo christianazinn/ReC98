@@ -7,5 +7,6 @@
 // name still comes from this wrapper's own basename (kb/codegen/0105).
 #pragma option -zPmain_01 -G
 
+#include "th02/main/player/reset.cpp"
 #include "th02/main/player/invalidate.cpp"
 #include "th02/main/pointnum/pointnum.cpp"

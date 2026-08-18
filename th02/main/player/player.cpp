@@ -27,18 +27,6 @@ static const screen_y_t PLAYER_TOP_MAX = (PLAYFIELD_BOTTOM - (PLAYER_H - 8));
 
 extern int player_patnum; // ACTUAL TYPE: main_patnum_t
 
-// Per-playchar movement speeds, in pixels per frame. All values are signed
-// (yes, allowing you to invert the controls with negative values!) and are set
-// once per game from the shottype.
-extern "C" int8_t playchar_speed_aligned_x;
-extern "C" int8_t playchar_speed_aligned_y;
-extern "C" int8_t playchar_speed_diagonal_x;
-extern "C" int8_t playchar_speed_diagonal_y;
-
-// Fires one round of the current shottype's shot. Set from the shottype
-// together with the speeds above.
-extern "C" void (near *playchar_shot_func)(void);
-
 // The two shot streams. Both are still ASM-private and unnamed:
 //
 // * [byte_1EB0D] / [byte_1EB0E] are shot counters, 0xFF while the respective

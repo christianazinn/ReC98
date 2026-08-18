@@ -58,7 +58,6 @@ void pascal near text_wipe(void);
 
 // Still ASM in th02_main.asm.
 // ---------------------------
-extern "C" void near sub_C5B0(void);
 extern "C" void far sub_16A6B(void);
 extern "C" void far sub_13ABB(char *fn);
 
@@ -310,7 +309,7 @@ void near stage_init(void)
 	boss_activate_if_scroll_done = sub_BFD0;
 	stage_title_unput = sub_C05D;
 	stage_should_end = reinterpret_cast<bool16 (far *)(void)>(nullfunc_false);
-	sub_C5B0();
+	player_reset();
 	scroll_speed = 1;
 	scroll_interval = 4;
 
@@ -450,7 +449,7 @@ void near continue_resume(void)
 	// reverse of their source order (kb/codegen/0092).
 	player_left_on_page[0] = player_left_on_page[1] = PLAYER_LEFT_START;
 	player_top_on_page[0] = player_top_on_page[1] = PLAYER_TOP_START;
-	sub_C5B0();
+	player_reset();
 	player_invincibility_time = CONTINUE_INVINCIBILITY_FRAMES;
 	graph_accesspage(page_front);
 	tiles_render_all();
