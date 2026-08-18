@@ -74,6 +74,18 @@ inline screen_x_t player_center_y(void) {
 
 extern main_patnum_t player_option_patnum;
 
+// Per-playchar movement speeds, in pixels per frame. All values are signed
+// (yes, allowing you to invert the controls with negative values!) and are set
+// once per game from the shottype.
+extern "C" int8_t playchar_speed_aligned_x;
+extern "C" int8_t playchar_speed_aligned_y;
+extern "C" int8_t playchar_speed_diagonal_x;
+extern "C" int8_t playchar_speed_diagonal_y;
+
+// Fires one round of the current shottype's shot. Set from the shottype
+// together with the speeds above.
+extern "C" void (near *playchar_shot_func)(void);
+
 extern enum {
 	PLAYER_NOT_HIT = false,
 	PLAYER_HIT = true,
@@ -119,6 +131,14 @@ extern uint8_t shot_level;
 // The original decorated this function's public symbol in the upper-case
 // form that Turbo C++ reserves for pascal linkage, which is where the
 // calling convention below comes from (kb/codegen/0086).
+// Resets everything the player owns for one attempt - every shot slot, the
+// invincibility and miss state, the homing target, and the option sprite -
+// and then installs the shot function and the four movement speeds for
+// [resident]'s shottype. Singular, like the other scalar-state resets the
+// convention in th02/main/player/bomb.hpp spells out. stage_init() and
+// continue_resume() are its two callers.
+void near player_reset(void);
+
 void pascal near player_invalidate(void);
 
 void near player_update_and_render(void);
