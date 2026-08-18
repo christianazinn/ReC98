@@ -1240,42 +1240,20 @@ mai_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/player/bb_playchar_put.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C52D	proc near
-		push	bp
-		mov	bp, sp
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_C565
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jz	short loc_C555
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jz	short loc_C565
-
-loc_C555:
-		cmp	_dream, 1
-		jbe	short loc_C560
-		dec	_dream
-
-loc_C560:
-		nopcall	hud_dream_put
-
-loc_C565:
-		pop	bp
-		retn
-sub_C52D	endp
+	; The bomb animations' Dream drain now lives in
+	; th05/main/player/bombanim.cpp, ahead of
+	; reimu_stars_update_and_render() in that object -- the original order,
+	; and the order this segment needs, since it was the LAST proc of the
+	; root contribution and th05/main010.cpp already owned everything after
+	; it (kb/codegen 0114). No carve, no new segment, no Tupfile.lua line.
+	;
+	; This seam is now CLOSED: what is left of the root contribution is the
+	; bb_playchar_put.asm include above, which is not a proc, so mai_TEXT
+	; can take no further tail lift.
+	;
+	; The four bomb update functions in MB_INV_TEXT still call it, so it
+	; keeps a procdesc. Same group (main_01), so it stays a near call.
+	@bomb_dream_decay$qv procdesc near
 mai_TEXT	ends
 
 MB_INV_TEXT	segment	byte public 'CODE' use16
@@ -1355,7 +1333,7 @@ loc_C7C9:
 
 loc_C7D0:
 		call	sub_C73A
-		call	sub_C52D
+		call	@bomb_dream_decay$qv
 		jmp	short loc_C849
 ; ---------------------------------------------------------------------------
 
@@ -1602,7 +1580,7 @@ bomb_marisa	proc near
 
 loc_C9FD:
 		call	sub_C99E
-		call	sub_C52D
+		call	@bomb_dream_decay$qv
 		jmp	short loc_CA75
 ; ---------------------------------------------------------------------------
 
@@ -1815,7 +1793,7 @@ bomb_mima	proc near
 
 loc_CC20:
 		call	sub_CB30
-		call	sub_C52D
+		call	@bomb_dream_decay$qv
 		jmp	short loc_CC98
 ; ---------------------------------------------------------------------------
 
@@ -2014,7 +1992,7 @@ loc_CDCF:
 
 loc_CDD6:
 		call	sub_CD1C
-		call	sub_C52D
+		call	@bomb_dream_decay$qv
 		jmp	short loc_CE4F
 ; ---------------------------------------------------------------------------
 
