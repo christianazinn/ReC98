@@ -1,6 +1,13 @@
+#ifndef TH04_MAIN_CUSTOM_HPP
+#define TH04_MAIN_CUSTOM_HPP
+
 // Fixed-size memory block for entities of a custom type, specific to a stage
 // or boss portion. To define such a custom type, declare your own structure,
 // then reinterpret_cast [custom_entities] to that type.
+//
+// Guarded, unlike most of ReC98's headers: two of those derived-type headers
+// now exist (th04/main/boss/b4r.hpp and th04/main/boss/bx2.hpp), each needs
+// this file for the block it casts, and th04/main/boss/fg.cpp includes both.
 
 #include "th04/main/playfld.hpp"
 
@@ -46,3 +53,5 @@ extern custom_t custom_entities[CUSTOM_COUNT];
 		(sizeof(derived_type) * derived_count) <= \
 		(sizeof(custom_t) * CUSTOM_COUNT) \
 	)
+
+#endif /* TH04_MAIN_CUSTOM_HPP */

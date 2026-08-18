@@ -40,6 +40,7 @@
 #include "th04/main/frames.h"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/boss/bosses.hpp"
+#include "th04/main/boss/b4r.hpp"
 #include "th04/main/boss/bx2.hpp"
 #include "th04/main/bullet/laser_t.hpp"
 #include "th04/sprites/main_pat.h"
@@ -67,14 +68,6 @@ extern "C" void near mugetsu_gengetsu_shield_render(void);
 // [inferred] name.
 extern "C" unsigned char gengetsu_damage_frames;
 
-// Blits every non-OF_FREE Reimu orb that is not still above the playfield,
-// through super_roll_put(), cycling REIMU_ORB_CELS cels off [stage_frame]
-// plus the orb's own index so that the orbs are out of phase with each other.
-// th04_main.asm's sub_12E37, the proc immediately above reimu_fg_render() in
-// this very segment; its structures are the ones th04/main/boss/b4r.cpp
-// already declares as [orb_t] / [orbs].
-extern "C" void near reimu_orbs_render(void);
-
 // While set, reimu_fg_render() blits one extra copy of the boss sprite at
 // [boss.pos.prev] in a single color, i.e. a one-frame motion trail. Set on
 // frame 1 of two of Reimu's attack patterns and cleared when each ends, so it
@@ -95,6 +88,46 @@ static const int REIMU_FRAMES_PER_CEL = 4;
 // The color the afterimage is blitted in. Not V_WHITE, which is what the
 // damage flash below uses; this is master.lib's GC_BI plane pair.
 static const vc_t REIMU_AFTERIMAGE_COL = 9;
+
+// The orb cel animation runs at half the speed of its 8-frame cycle, giving
+// REIMU_ORB_CELS cels of 2 frames each.
+static const int REIMU_ORB_CYCLE_FRAMES = (REIMU_ORB_CELS * 2);
+
+// Blits every orb that is alive and has entered the playfield from the top.
+// Each orb's cel is offset by its own index, so a ring of them ripples rather
+// than pulsing in lockstep.
+void near reimu_orbs_render(void)
+{
+	// [bp-2], [bp-4] and [bp-6] in declaration order. (kb/codegen/0010)
+	screen_x_t x;
+	vram_y_t y;
+	int patnum;
+
+	// The two register variables: the orb pointer earns SI by how often it is
+	// dereferenced as a base (kb/codegen/0117), the counter takes DI.
+	reimu_orb_t near *orb = reimu_orbs;
+	int i;
+
+	for(i = 0; i < REIMU_ORB_COUNT; i++, orb++) {
+		if(orb->flag == OF_FREE) {
+			continue;
+		}
+
+		// Orbs are spawned above the playfield and fly in, so this skips the
+		// ones that would still be blitted entirely off its top edge.
+		if(orb->center.y <= -TO_SP(REIMU_ORB_H / 2)) {
+			continue;
+		}
+
+		x = orb->center.to_screen_left(REIMU_ORB_W);
+		y = orb->center.to_screen_top(REIMU_ORB_H);
+		patnum = (
+			orb_patnum_base +
+			(((stage_frame + i) % REIMU_ORB_CYCLE_FRAMES) / 2)
+		);
+		super_roll_put(x, y, patnum);
+	}
+}
 
 void pascal near reimu_fg_render(void)
 {
