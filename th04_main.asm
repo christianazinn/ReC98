@@ -438,7 +438,7 @@ loc_ADEA:
 		mov	_turbo_mode, al
 
 loc_ADFC:
-		call	main_01:sub_EEB0
+		call	@score_reset$qv
 		call	@hiscore_load$qv
 		mov	al, _rank
 		mov	ah, 0
@@ -3120,7 +3120,7 @@ loc_E796:
 		nopcall	main_01:hud_lives_put
 		nopcall	main_01:hud_bombs_put
 		inc	_continues_used
-		call	sub_EEB0
+		call	@score_reset$qv
 		call	hud_score_put
 		mov	al, Q_KEEP_RUNNING
 		jmp	short loc_E7DA
@@ -3480,34 +3480,20 @@ off_EEA6	dw offset loc_EE23
 		dw offset loc_EE45
 		dw offset loc_EE55
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_EEB0	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, 1
-		jmp	short loc_EEBF
-; ---------------------------------------------------------------------------
-
-loc_EEB9:
-		mov	_score[si], 0
-		inc	si
-
-loc_EEBF:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_EEB9
-		mov	_score_delta, 0
-		mov	_score_delta_frame, 0
-		mov	_score_unused, 0
-		mov	_extends_gained, 0
-		mov	_hiscore_popup_shown, 0
-		pop	si
-		pop	bp
-		retn
-sub_EEB0	endp
+	; score_reset() now lives in th04/main/score_reset.cpp, which
+	; th04/main/hud/points.cpp #includes ahead of lives.cpp, bombs.cpp and
+	; its own function (kb/codegen/0129), so that all four land here in
+	; their original address order. It was the LAST proc of this root
+	; contribution and that file's object already appended immediately
+	; after it, so no carve and no new segment were needed
+	; (kb/codegen/0099 + 0112).
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution.
+	;
+	; `procdesc near`, so both call sites are spelled UNQUALIFIED -- the
+	; `main_01:` group override the DEMO_TEXT one carried had to go, unlike
+	; the `procdesc pascal far` HUD symbols below, whose sites keep theirs.
+	@score_reset$qv procdesc near
 
 
 	; hud_lives_put() and hud_bombs_put() now live in
