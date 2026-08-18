@@ -19999,29 +19999,6 @@ loc_1C261:
 		retf
 marisa_bg_render	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_end
-_marisa_end label far
-marisa_end	proc far
-		push	bp
-		mov	bp, sp
-		call	@dialog_pre$qv
-		call	@dialog_script_stage4_post_animat$qv
-		call	@stage_clear_bonus_animate$qv
-
-loc_1C27C:
-		call	@overlay_stage_leave_animate$qv
-		inc	_stage_id
-		pop	bp
-
-locret_1C286:
-		retf
-marisa_end	endp
-
 main_03__TEXT	ends
 
 ; ===========================================================================
