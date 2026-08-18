@@ -32,6 +32,7 @@ include th02/main/enemy/enemy.inc
 
 	extern SCOPY@:proc
 	extern _execl:proc
+	extern @GameExecl$qnxc:proc
 	extern _getdate:proc
 	extern _memcpy:proc
 
@@ -753,32 +754,6 @@ loc_C516:
 		leave
 		retn
 sub_C31F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @GameExecl$qnxc
-@GameExecl$qnxc	proc far
-
-@@binary_fn		= dword	ptr  6
-
-		push	bp
-		mov	bp, sp
-		freePISlotLarge	0
-		call	@bomb_free$qv
-		call	_mpn_free
-		call	_enemy_stagedata_free
-		call	super_free
-		call	graph_clear
-		call	text_clear
-		call	@gaiji_free$qv
-		call	@game_exit$qv
-		call	_execl c, large [bp+@@binary_fn], large [bp+@@binary_fn], large 0
-		pop	bp
-		retf
-@GameExecl$qnxc	endp
 
 main_01____TEXT	ends
 
