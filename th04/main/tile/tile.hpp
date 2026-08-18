@@ -27,8 +27,8 @@ extern int tile_ring_row_filled;
 // into a new one, refills the [tile_ring] row that exposed, and EGC-copies
 // the lines that scrolled in since the page currently being drawn was last
 // rendered. Assumes nothing about the EGC; it starts and stops the copy
-// itself. Called once per frame, from th04_main.asm's sub_CCD6 and
-// th05_main.asm's sub_10214. TH05 shares this C++ body; see
+// itself. Called once per frame, from scroll_update_and_render() in both
+// games (th04/main/scroll.cpp). TH05 shares this C++ body; see
 // th04/main/tile/scroll.cpp for the three places the two games differ.
 void near tiles_scroll_and_egc_render(void);
 
