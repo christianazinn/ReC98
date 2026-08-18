@@ -32,7 +32,10 @@
 #include "th04/resident.hpp"
 #include "th04/end/end.h"
 #include "th04/hardware/input.h"
-#include "th04/hardware/grppsafx.h"
+/// th04/hardware/grppsafx.h has no include guard and th04/end/verdict_guts.cpp,
+/// which now precedes this file in the same translation unit, already needs it.
+/// Relying on the host is the idiom for every other .cpp fragment in this
+/// chain.
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 
@@ -107,11 +110,9 @@ void pascal near graph_3_digit_put(
 ;
 
 /// Renders `resident->score_last` as eight right-aligned boldface gaiji digits
-/// at a hardcoded (160, 96), followed by 「点」. Still ASM, the proc
-/// immediately ahead of the [skill] accumulator below; the dump spells it
-/// `sub_B81D` and publishes this name as a zero-byte `label near` alias in
-/// front of it (kb/codegen/0123). TH05's parameterised nine-digit sibling is
-/// already C++, in th04/end/verdict_digits.cpp.
+/// at a hardcoded (160, 96), followed by 「点」. Defined in
+/// th04/end/verdict_digits.cpp, alongside TH05's parameterised nine-digit
+/// sibling.
 extern "C" void near graph_score_and_ten_put(void);
 
 void pascal near skill_apply_and_graph_percentage(
@@ -120,20 +121,15 @@ void pascal near skill_apply_and_graph_percentage(
 ;
 
 /// The 「気合い」 row: a pseudo-random bonus seeded from `resident->rand` and
-/// weighted by the continues, the Turbo Mode flag and the graze count. Still
-/// ASM (`sub_B9F2`), reached through the same kind of alias, and the next tail
-/// lift out of this segment.
+/// weighted by the continues, the Turbo Mode flag and the graze count. Defined
+/// in th04/end/verdict_guts.cpp, the file this one's chain includes
+/// immediately ahead of itself.
 extern "C" void near skill_apply_and_graph_guts(void);
 
 void pascal near graph_fraction_of_million_put(
 	screen_x_t left, screen_y_t top, uint32_t num
 )
 ;
-
-/// The verdict's own value colour, one step below V_WHITE. Spelled out rather
-/// than shared with th04/end/verdict_digits.cpp's VERDICT_COL, which is not
-/// part of this translation unit until that file's TH04 arm is compiled.
-#define VERDICT_VALUE_COL 14
 
 /// Rows are 24 pixels apart, except for the 24-pixel gap between the last
 /// percentage row and the verdict itself.
@@ -174,13 +170,13 @@ extern "C" void near verdict_stats_put_and_wait(void)
 	verdict_rank = (
 		(resident->stage == STAGE_EXTRA) ? RANK_EXTRA : resident->rank
 	);
-	graph_gaiji_puts(176, 72, GAIJI_W, gbRANKS[verdict_rank], VERDICT_VALUE_COL);
+	graph_gaiji_puts(176, 72, GAIJI_W, gbRANKS[verdict_rank], VERDICT_COL);
 
 	graph_score_and_ten_put();
 	graph_3_digit_put(240, 120, resident->miss_count);
 	graph_3_digit_put(240, 144, resident->bombs_used);
-	graph_putsa_fx(288, 120, VERDICT_VALUE_COL, TIMES_MSG);
-	graph_putsa_fx(288, 144, VERDICT_VALUE_COL, TIMES_MSG_0);
+	graph_putsa_fx(288, 120, VERDICT_COL, TIMES_MSG);
+	graph_putsa_fx(288, 144, VERDICT_COL, TIMES_MSG_0);
 
 	skill_stash_quarter = true;
 
@@ -339,7 +335,7 @@ extern "C" void near verdict_stats_put_and_wait(void)
 	// whatever it was clamped to.
 	if((resident->frames / 2) > resident->slow_frames) {
 		graph_fraction_of_million_put(VERDICT_VALUE_LEFT, 336, skill);
-		graph_putsa_fx(288, 336, VERDICT_VALUE_COL, POINT_MSG_0);
+		graph_putsa_fx(288, 336, VERDICT_COL, POINT_MSG_0);
 
 		file_ropen(ude_txt);
 
@@ -367,7 +363,7 @@ extern "C" void near verdict_stats_put_and_wait(void)
 		graph_putsa_fx(64, 360, V_WHITE, verdict_line);
 	} else {
 		graph_putsa_fx(
-			VERDICT_VALUE_LEFT, 336, VERDICT_VALUE_COL, SKILL_UNKNOWN_MSG
+			VERDICT_VALUE_LEFT, 336, VERDICT_COL, SKILL_UNKNOWN_MSG
 		);
 		graph_putsa_fx(64, 360, V_WHITE, SLOWDOWN_NO_VERDICT_MSG);
 	}

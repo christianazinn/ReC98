@@ -16,5 +16,7 @@
 // Everything lifted out of that tail is included here in DUMP ORDER, i.e.
 // each new lift goes ABOVE the ones already here, because the segment grows
 // backwards from verdict_animate() into the hole the deletion leaves.
+#include "th04/end/verdict_digits.cpp"
+#include "th04/end/verdict_guts.cpp"
 #include "th04/end/verdict_stats.cpp"
 #include "th04/end/verdict_animate.cpp"

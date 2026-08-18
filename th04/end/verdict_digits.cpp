@@ -6,16 +6,26 @@
 /// high score table functions and regist_menu() into th05/hi_end.cpp and
 /// th05/regist.cpp before it. No carve, no new segment, no Tupfile.lua line.
 ///
-/// TH04 has the same function at `0A05:0DBC`, but in `MAINE_01_TEXT` and as
-/// the NINTH of that block's fifteen procs, so its copy cannot be lifted until
-/// the eight ahead of it are. When it can, this file takes it unchanged except
-/// for the colour: see VERDICT_COL below.
+/// TH04's copies came out of MAINE_01_TEXT's tail four at a time, in dump
+/// order, which is exactly this file's order — so th04/staff.cpp includes it
+/// whole, ahead of th04/end/verdict_guts.cpp. `[measured]` They had to come
+/// out together: the guts row alone leaves its generated jump table one byte
+/// early, and only an odd-length prefix in the same object fixes that
+/// (kb/codegen/0096). The four in front of it supply one.
 
 /// th04/gaiji/gaiji.h has no include guard and every translation unit that can
 /// reach this file has already included it — th05/regist.cpp through
-/// th04/hiscore/regist_menu.cpp. Including it again is 26 "Multiple
-/// declaration" errors, so this file relies on its host, which is the idiom
-/// for every other .cpp fragment in the chain.
+/// th04/hiscore/regist_menu.cpp. TH04's own chain, th04/staff.cpp, does not:
+/// this file is the first thing in it that needs a gaiji constant, so under
+/// GAME==4 it is the one that includes it. Including it twice is 26 "Multiple
+/// declaration" errors.
+/// The same applies to th04/hardware/grppsafx.h, which TH05 reaches through
+/// th05/regist.cpp and TH04 does not reach at all until here.
+#if (GAME == 4)
+#include "th04/gaiji/gaiji.h"
+#include "th04/hardware/grppsafx.h"
+#include "th04/resident.hpp"
+#endif
 #include "libs/master.lib/pc98_gfx.hpp"
 
 /// `[measured]` TH05 hoists the verdict overlay's origin and colours into
@@ -31,9 +41,10 @@
 extern "C" vc2 verdict_col;
 #define VERDICT_COL verdict_col
 #else
-/// `[inferred]` TH04's copy pushes the immediate 14 here. NOT oracle-verified:
-/// nothing compiles this arm yet, and it must be re-measured against
-/// `th04_maine.asm` when that copy is lifted.
+/// `[measured]`, and now oracle-verified: TH04's copies push the immediate 14 at every one of
+/// the seven sites in this file and the ten more in th04/end/verdict_stats.cpp
+/// and th04/end/verdict_guts.cpp, which is what makes it a `#define` rather
+/// than a variable.
 #define VERDICT_COL 14
 #endif
 
@@ -89,7 +100,6 @@ void pascal near graph_3_digit_put(
 	graph_gaiji_puts(left, top, GAIJI_W, g_str, VERDICT_COL);
 }
 
-#if (GAME == 5)
 /// `[measured]` The 点 label this function appends stays a `_DATA` byte of the
 /// root dump, published there as `_POINT_MSG` (kb/codegen/0123). It has to:
 /// the dump holds a SECOND, byte-identical copy of the same Shift-JIS string
@@ -97,6 +107,55 @@ void pascal near graph_3_digit_put(
 /// pair into one and shift every following byte of that contribution.
 extern "C" const shiftjis_t POINT_MSG[];
 
+#if (GAME == 4)
+/// TH04's own score renderer, and it is NOT the same body as TH05's below.
+/// `[measured]` It takes no parameters at all — it hardcodes
+/// `resident->score_last` and (160, 96) — renders EIGHT digits rather than
+/// nine, and reads each one raw, with none of TH05's `/ 10` and `% 10` split
+/// for the tens place of the topmost byte. Head-to-head that is 105 bytes
+/// against 170, which is why the two are written out separately rather than
+/// `#if`-woven.
+///
+/// ZUN bug: a final score of exactly 0 renders as an entirely blank field.
+/// [digit_seen] never becomes true, so every one of the eight cells gets
+/// g_EMPTY, including the ones place. TH05's copy fixes this with the
+/// `(i == SCORE_DIGITS)` term in the same test; TH04 has no counterpart to it.
+/// Reachable — the score is reset to 0 for a Slow Mode run — and it renders
+/// wrongly rather than crashing, which is the discriminator
+/// kb/conventions/rec98-taxonomy.md uses.
+extern "C" void near graph_score_and_ten_put(void)
+{
+	// `[measured]` Declaration order is load-bearing: Turbo C++ gives the
+	// first-declared local the slot closest to BP, and the original's frame is
+	// [digit] at `bp-1`, [digit_seen] at `bp-2` and the string at `bp-12`,
+	// with `bp-3` left as the array's even-alignment pad.
+	unsigned char digit;
+	unsigned char digit_seen;
+	char g_str[SCORE_DIGITS + 1];
+	register int i;
+
+	digit_seen = false;
+	for(i = 0; i < SCORE_DIGITS; i++) {
+		digit = resident->score_last.digits[(SCORE_DIGITS - 1) - i];
+		digit_seen |= digit;
+		if(digit_seen) {
+			g_str[i] = static_cast<char>(digit + gb_0);
+		} else {
+			g_str[i] = g_EMPTY;
+		}
+	}
+
+	g_str[SCORE_DIGITS] = g_NULL;
+	graph_gaiji_puts(160, 96, GAIJI_W, g_str, VERDICT_COL);
+
+	// ZUN bloat: dead store. Nothing reads [digit_seen] again, and the
+	// function returns two statements later. TH05's copy sets the same flag
+	// where it is actually used.
+	digit_seen = true;
+
+	graph_putsa_fx(288, 96, VERDICT_COL, POINT_MSG);
+}
+#else
 /// Renders a raw (i.e. NOT gaiji-offsetted) LEBCD score as nine right-aligned
 /// boldface gaiji digits with leading zeroes blanked, followed by 「点」 at a
 /// fixed 144-pixel offset. The ninth digit is the tens place of the topmost
@@ -105,11 +164,8 @@ extern "C" const shiftjis_t POINT_MSG[];
 /// persisted table, except that this one's digits carry no [gb_0] offset and
 /// therefore none of that function's inherited sign-promotion trap.
 ///
-/// TH04 has the same renderer at `0A05:0DBC` + 0x69 (`sub_B81D`), but with no
-/// parameters at all: it hardcodes `resident->score_last` and (160, 96). One
-/// shared body is plausible and untested; the two must be compared with
-/// state/notes/th0405-maine-regist-menu.md's instruction-shape instrument, not
-/// with raw bytes, which put them at an inconclusive 6.7%.
+/// TH04's own eight-digit, parameterless variant is the arm above; the two
+/// are separate bodies, settled by reading both.
 extern "C" void pascal near graph_score_and_ten_put(
 	screen_x_t left, vram_y_t top, const score_lebcd_t far *score
 )
@@ -180,7 +236,6 @@ extern "C" bool skill_stash_quarter;
 extern "C" uint32_t skill_quarter;
 #endif
 
-#if (GAME == 5)
 /// `[measured]` Both of these stay `_DATA` bytes of the root dump, published
 /// there by zero-byte aliases, for the same reason POINT_MSG does: the dump
 /// holds a byte-identical SECOND copy of each (which is why the fraction
@@ -220,9 +275,14 @@ void pascal near skill_apply_and_graph_percentage(
 		fraction = (share * fraction);
 	}
 	skill = (!skill_subtract ? (skill + fraction) : (skill - fraction));
+#if (GAME == 5)
+	// `[measured]` The whole of TH04's 0x17-byte shortfall against this
+	// function. TH04 writes the flag around the same row and never reads it,
+	// and has no [skill_quarter] at all.
 	if(skill_stash_quarter) {
 		skill_quarter = (fraction >> 2);
 	}
+#endif
 
 	digits = (fraction / 10000);
 	graph_3_digit_put(left, top, digits);
@@ -256,4 +316,3 @@ void pascal near graph_fraction_of_million_put(
 	graph_3_digit_put_as_fixed_2_digit = false;
 	graph_putsa_fx((left + 48), top, VERDICT_COL, DOT_MSG_0);
 }
-#endif

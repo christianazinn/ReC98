@@ -805,444 +805,35 @@ public @staffroll_animate$qv
 @staffroll_animate$qv endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+; The verdict screen's four digit renderers -- graph_3_digit_put(),
+; graph_score_and_ten_put(), skill_apply_and_graph_percentage() and
+; graph_fraction_of_million_put(), in that order -- now live in
+; th04/end/verdict_digits.cpp, which th04/staff.cpp includes ahead of
+; verdict_guts.cpp. ONE file already served TH05's four; this parcel opened
+; its GAME==4 arms, and only graph_score_and_ten_put() needed a second body
+; (TH04's takes no parameters and renders eight raw digits where TH05's
+; takes three and renders nine).
+;
+; Another kb/codegen/0098 tail lift into the object that already contributes
+; to this segment immediately behind this dump. They had to come out
+; together with the guts row below them: that row alone left its generated
+; jump table one byte early, and only an odd-length prefix in the same
+; object fixes that (kb/codegen/0096). None of the four deleted bodies
+; contained an `assume` (kb/codegen/0121).
+;
+; The four gaiji suffixes they render stay in this dump's _DATA and are
+; published there as _POINT_MSG, _DOT_MSG, _PERCENT_MSG and _DOT_MSG_0.
 
-; Attributes: bp-based frame
-public @GRAPH_3_DIGIT_PUT$QIIUI
-@graph_3_digit_put$qiiui	proc near
-
-@@digit	= word ptr -6
-@@g_str	= byte ptr -4
-@@val  	= word ptr  4
-@@top  	= word ptr  6
-@@left 	= word ptr  8
-
-		enter	6, 0
-		push	si
-		xor	si, si
-		mov	[bp+@@g_str], g_EMPTY
-		mov	ax, [bp+@@val]
-		mov	bx, 100
-		xor	dx, dx
-		div	bx
-		mov	[bp+@@digit], ax
-		mov	ax, [bp+@@val]
-		xor	dx, dx
-		div	bx
-		mov	[bp+@@val], dx
-		cmp	_graph_3_digit_put_as_fixed_2_dig, 0
-		jnz	short loc_B7C5
-		or	si, [bp+@@digit]
-		or	si, si
-		jz	short loc_B7C1
-		mov	al, byte ptr [bp+@@digit]
-		add	al, gb_0_
-		mov	[bp+@@g_str], al
-		jmp	short loc_B7C5
-; ---------------------------------------------------------------------------
-
-loc_B7C1:
-		mov	[bp+@@g_str], g_EMPTY
-
-loc_B7C5:
-		mov	ax, [bp+@@val]
-		mov	bx, 10
-		xor	dx, dx
-		div	bx
-		mov	[bp+@@digit], ax
-		mov	ax, [bp+@@val]
-		xor	dx, dx
-		div	bx
-		mov	[bp+@@val], dx
-		or	si, [bp+@@digit]
-		mov	al, _graph_3_digit_put_as_fixed_2_dig
-		mov	ah, 0
-		or	si, ax
-		or	si, si
-		jz	short loc_B7F4
-		mov	al, byte ptr [bp+@@digit]
-		add	al, gb_0_
-		mov	[bp+@@g_str+1], al
-		jmp	short loc_B7F8
-; ---------------------------------------------------------------------------
-
-loc_B7F4:
-		mov	[bp+@@g_str+1], g_EMPTY
-
-loc_B7F8:
-		mov	al, byte ptr [bp+@@val]
-		add	al, gb_0_
-		mov	[bp+@@g_str+2], al
-		mov	[bp+@@g_str+3], 0
-		push	[bp+@@left]
-		push	[bp+@@top]
-		push	GAIJI_W
-		push	ss
-		lea	ax, [bp+@@g_str]
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		pop	si
-		leave
-		retn	6
-@graph_3_digit_put$qiiui	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; kb/codegen/0123: a zero-byte alias so th04/end/verdict_stats.cpp can call
-; this. `label` emits nothing, so every following offset is unchanged.
-public _graph_score_and_ten_put
-_graph_score_and_ten_put label near
-sub_B81D	proc near
-
-@@g_str		= byte ptr -0Ch
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		enter	0Ch, 0
-		push	si
-		mov	[bp+var_2], 0
-		xor	si, si
-		jmp	short loc_B851
-; ---------------------------------------------------------------------------
-
-loc_B82A:
-		mov	ax, 7
-		sub	ax, si
-		les	bx, _resident
-		add	bx, ax
-		mov	al, es:[bx+resident_t.score_last]
-		mov	[bp+var_1], al
-		or	[bp+var_2], al
-		cmp	[bp+var_2], 0
-		jz	short loc_B84C
-		add	al, gb_0_
-		mov	[bp+si+@@g_str], al
-		jmp	short loc_B850
-; ---------------------------------------------------------------------------
-
-loc_B84C:
-		mov	[bp+si+@@g_str], g_EMPTY
-
-loc_B850:
-		inc	si
-
-loc_B851:
-		cmp	si, 8
-		jl	short loc_B82A
-		mov	[bp+@@g_str+8], 0
-		push	(160 shl 16) or 96
-		push	GAIJI_W
-		push	ss
-		lea	ax, [bp+@@g_str]
-		push	ax
-		push	14
-		call	graph_gaiji_puts
-		mov	[bp+var_2], 1
-		call	graph_putsa_fx pascal, (288 shl 16) or 96, 14, ds, offset aU_	; "点"
-		pop	si
-		leave
-		retn
-sub_B81D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @SKILL_APPLY_AND_GRAPH_PERCENTAGE$QIIUIUI
-@skill_apply_and_graph_percentage$qiiuiui	proc near
-
-@@fraction	= dword	ptr -6
-@@digits  	= word ptr -2
-@@share   	= word ptr  4
-@@total   	= word ptr  6
-@@top     	= word ptr  8
-@@left    	= word ptr  0Ah
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, [bp+@@left]
-		mov	di, [bp+@@top]
-		cmp	[bp+@@total], 0
-		jz	short loc_B8A2
-		mov	[bp+@@fraction], 1000000
-		jmp	short loc_B8AA
-; ---------------------------------------------------------------------------
-
-loc_B8A2:
-		mov	[bp+@@fraction], 0
-
-loc_B8AA:
-		mov	ax, [bp+@@total]
-		cmp	ax, [bp+@@share]
-		jz	short loc_B8E3
-		cmp	[bp+@@total], 0
-		jz	short loc_B8CD
-		movzx	ebx, [bp+@@total]
-		mov	eax, [bp+@@fraction]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@fraction], eax
-		jmp	short loc_B8D5
-; ---------------------------------------------------------------------------
-
-loc_B8CD:
-		mov	[bp+@@fraction], 0
-
-loc_B8D5:
-		movzx	eax, [bp+@@share]
-		imul	eax, [bp+@@fraction]
-		mov	[bp+@@fraction], eax
-
-loc_B8E3:
-		cmp	_skill_subtract, 0
-		jnz	short loc_B8F4
-		mov	eax, _skill
-		add	eax, [bp+@@fraction]
-		jmp	short loc_B8FC
-; ---------------------------------------------------------------------------
-
-loc_B8F4:
-		mov	eax, _skill
-		sub	eax, [bp+@@fraction]
-
-loc_B8FC:
-		mov	_skill, eax
-		mov	eax, [bp+@@fraction]
-		mov	ebx, 10000
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiui pascal, si, di, ax
-		mov	ebx, 10000
-		mov	eax, [bp+@@fraction]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@fraction], edx
-		mov	eax, [bp+@@fraction]
-		mov	ebx, 100
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		mov	_graph_3_digit_put_as_fixed_2_dig, 1
-		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
-		mov	_graph_3_digit_put_as_fixed_2_dig, 0
-		lea	ax, [si+48]
-		call	graph_putsa_fx pascal, ax, di, 14, ds, offset aBd	; "．"
-		lea	ax, [si+96]
-		call	graph_putsa_fx pascal, ax, di, 14, ds, offset aBu	; "％"
-		pop	di
-		pop	si
-		leave
-		retn	8
-@skill_apply_and_graph_percentage$qiiuiui	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @GRAPH_FRACTION_OF_MILLION_PUT$QIIUL
-@graph_fraction_of_million_put$qiiul	proc near
-
-@@digits	= word ptr -2
-@@val   	= dword	ptr  4
-@@top   	= word ptr  8
-@@left  	= word ptr  0Ah
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+@@left]
-		mov	di, [bp+@@top]
-		mov	eax, [bp+@@val]
-		mov	ebx, 10000
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiui pascal, si, di, ax
-		mov	ebx, 10000
-		mov	eax, [bp+@@val]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@val], edx
-		mov	eax, [bp+@@val]
-		mov	ebx, 100
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		mov	_graph_3_digit_put_as_fixed_2_dig, 1
-		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
-		mov	_graph_3_digit_put_as_fixed_2_dig, 0
-		lea	ax, [si+48]
-		call	graph_putsa_fx pascal, ax, di, 14, ds, offset aBd_0	; "．"
-		pop	di
-		pop	si
-		leave
-		retn	8
-@graph_fraction_of_million_put$qiiul	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; kb/codegen/0123: a zero-byte alias so th04/end/verdict_stats.cpp can call
-; this. `label` emits nothing, so every following offset is unchanged.
-public _skill_apply_and_graph_guts
-_skill_apply_and_graph_guts label near
-sub_B9F2	proc near
-
-var_8		= dword	ptr -8
-var_4		= dword	ptr -4
-
-		enter	8, 0
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.rand]
-		mov	random_seed, eax
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	ah, 0
-		dec	ax
-		mov	bx, ax
-		cmp	bx, 5
-		ja	short loc_BA52
-		add	bx, bx
-		jmp	cs:off_BB75[bx]
-
-loc_BA18:
-		mov	[bp+var_4], 2500
-		jmp	short loc_BA52
-; ---------------------------------------------------------------------------
-
-loc_BA22:
-		mov	[bp+var_4], 2000
-		jmp	short loc_BA52
-; ---------------------------------------------------------------------------
-
-loc_BA2C:
-		mov	[bp+var_4], 1500
-		jmp	short loc_BA52
-; ---------------------------------------------------------------------------
-
-loc_BA36:
-		mov	[bp+var_4], 1000
-		jmp	short loc_BA52
-; ---------------------------------------------------------------------------
-
-loc_BA40:
-		mov	[bp+var_4], 500
-		jmp	short loc_BA52
-; ---------------------------------------------------------------------------
-
-loc_BA4A:
-		mov	[bp+var_4], 0
-
-loc_BA52:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_BA67
-		cmp	ax, 1
-		jz	short loc_BA71
-		jmp	short loc_BA79
-; ---------------------------------------------------------------------------
-
-loc_BA67:
-		add	[bp+var_4], 2500
-		jmp	short loc_BA79
-; ---------------------------------------------------------------------------
-
-loc_BA71:
-		add	[bp+var_4], 1500
-
-loc_BA79:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.turbo_mode], 0
-		jz	short loc_BA8C
-		add	[bp+var_4], 2000
-
-loc_BA8C:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.graze], 0
-		jz	short loc_BAA5
-		mov	ax, es:[bx+resident_t.graze]
-		add	ax, ax
-		movzx	eax, ax
-		add	[bp+var_4], eax
-
-loc_BAA5:
-		mov	[bp+var_8], 1000000
-		les	bx, _resident
-		mov	ax, es:[bx+resident_t.items_spawned]
-		cmp	ax, es:[bx+resident_t.items_collected]
-		jz	short loc_BAF3
-		cmp	es:[bx+resident_t.items_spawned], 0
-		jz	short loc_BAD8
-		movzx	ebx, es:[bx+resident_t.items_spawned]
-		mov	eax, [bp+var_8]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+var_8], eax
-		jmp	short loc_BAE0
-; ---------------------------------------------------------------------------
-
-loc_BAD8:
-		mov	[bp+var_8], 0
-
-loc_BAE0:
-		les	bx, _resident
-		movzx	eax, es:[bx+resident_t.items_collected]
-		imul	eax, [bp+var_8]
-		mov	[bp+var_8], eax
-
-loc_BAF3:
-		mov	eax, 1000000
-		sub	eax, [bp+var_8]
-		mov	[bp+var_8], eax
-		mov	ebx, 100
-		xor	edx, edx
-		div	ebx
-		mov	[bp+var_8], eax
-		cmp	[bp+var_8], 0
-		jz	short loc_BB2A
-		call	IRand
-		cwde
-		xor	edx, edx
-		div	[bp+var_8]
-		add	[bp+var_4], edx
-
-loc_BB2A:
-		mov	eax, [bp+var_4]
-		imul	eax, 100
-		mov	[bp+var_4], eax
-		cmp	[bp+var_4], 1000000
-		jbe	short loc_BB48
-		mov	[bp+var_4], 1000000
-
-loc_BB48:
-		mov	eax, _skill
-		add	eax, [bp+var_4]
-		mov	_skill, eax
-		call	@graph_fraction_of_million_put$qiiul pascal, (192 shl 16) or 264, [bp+var_4]
-		call	graph_putsa_fx pascal, (288 shl 16) or 264, 14, ds, offset aBu_0	; "％"
-		leave
-		retn
-sub_B9F2	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_BB75	dw offset loc_BA18
-		dw offset loc_BA22
-		dw offset loc_BA2C
-		dw offset loc_BA36
-		dw offset loc_BA40
-		dw offset loc_BA4A
+; skill_apply_and_graph_guts() -- the verdict screen's guts row, a handicap
+; bonus over the continues, the bombs, Turbo Mode and the graze count plus a
+; random term bounded by the share of items missed -- now lives in
+; th04/end/verdict_guts.cpp, which th04/staff.cpp includes immediately
+; before verdict_stats.cpp so that the two lifted bodies stay in dump order.
+; Another kb/codegen/0098 tail lift into the object that already contributes
+; to this segment immediately behind this dump: no carve, no new segment, no
+; group-list edit and no Tupfile.lua line. Its dense continues jump table
+; went with it, Turbo C++ generates that after the epilogue, and the deleted
+; body contained no `assume` (kb/codegen/0121).
 
 ; verdict_stats_put_and_wait() -- the twelve labels and their values, the
 ; [skill] computation and its clamp, the `_ude.txt` verdict line, then the
@@ -1429,11 +1020,13 @@ aSff7_cdg	db 'sff7.cdg',0
 aSff7b_cdg	db 'sff7b.cdg',0
 		db    0
 include th04/gaiji/verdict[data].asm
-aU_		db '点',0
-aBd		db '．',0
-aBu		db '％',0
-aBd_0		db '．',0
-aBu_0		db '％',0
+public _POINT_MSG, _DOT_MSG, _PERCENT_MSG, _DOT_MSG_0
+_POINT_MSG		db '点',0
+_DOT_MSG		db '．',0
+_PERCENT_MSG		db '％',0
+_DOT_MSG_0		db '．',0
+public _PERCENT_MSG_0
+_PERCENT_MSG_0		db '％',0
 public _VERDICT_TITLE, _LABEL_RANK, _LABEL_SCORE, _LABEL_MISSES
 public _LABEL_BOMBS, _LABEL_GAME_COMPLETION, _LABEL_ENEMIES_KILLED
 public _LABEL_ITEMS_COLLECTED, _LABEL_POINT_ITEMS_MAXED, _LABEL_GUTS
