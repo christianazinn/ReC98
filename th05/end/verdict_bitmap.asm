@@ -19,7 +19,7 @@ verdict_bitmap_snap	proc near
 	mov	ax, SEG_PLANE_E
 	mov	ds, ax
 	assume ds:nothing
-	xor	si, si
+	db	031h, 0F6h	; xor si, si (TASM: 33 F6)
 	mov	di, [bp+@@bitmap_offset]
 	add	di, offset _verdict_bitmap
 	mov	ax, VERDICT_SCREEN_H
@@ -52,7 +52,7 @@ verdict_bitmap_put proc near
 	mov	ax, GRAM_400
 	mov	es, ax
 	assume es:nothing
-	xor	di, di
+	db	031h, 0FFh	; xor di, di (TASM: 33 FF)
 	mov	dx, VERDICT_SCREEN_H
 
 @@clear_loop:
@@ -62,7 +62,7 @@ verdict_bitmap_put proc near
 	dec	dx
 	jnz	short @@clear_loop
 	call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-	xor	di, di
+	db	031h, 0FFh	; xor di, di (TASM: 33 FF)
 	mov	si, [bp+@@bitmap_offset]
 	add	si, offset _verdict_bitmap
 	mov	dx, VERDICT_SCREEN_H
