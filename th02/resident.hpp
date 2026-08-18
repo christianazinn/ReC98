@@ -47,7 +47,10 @@ struct resident_t {
 	uint8_t demo_num;
 	int skill;
 	int unused_4;
-	long score_highest;
+	// [unsigned] on the oracle's evidence: continue_prompt() compares this
+	// field against the signed [score] with JAE, which only an unsigned
+	// operand produces. [score] itself has to stay signed (th02/score.h).
+	unsigned long score_highest;
 };
 
 extern resident_t far *resident;

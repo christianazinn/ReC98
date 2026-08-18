@@ -2400,35 +2400,18 @@ include th04/main/tile/inv.asm
 include th05/formats/super_roll_put_16x16_m.asm
 include th04/main/enemy/inv.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @end_game$qv
-@end_game$qv	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_continues_used, 0
-		jz	short loc_E45D
-		les	bx, _resident
-		assume es:nothing
-		mov	es:[bx+resident_t.end_sequence], ES_BAD
-		jmp	short loc_E466
-; ---------------------------------------------------------------------------
-
-loc_E45D:
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_GOOD
-
-loc_E466:
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-		pop	bp
-		retf
-@end_game$qv	endp
+	; end_game() now lives in th04/main/end.cpp too, which puts it ahead of
+	; end_extra() in that object -- the original order, and the order this
+	; segment needs, since end_game() was the LAST proc of the root
+	; contribution and th05/end_ext.cpp already owned everything after it
+	; (kb/codegen 0114). No carve, no new segment, no Tupfile.lua line.
+	; Declared far here for the same kb/codegen 0082 reason as end_extra()
+	; below. Nothing in this dump calls it; th04/main/boss/boss.cpp does.
+	;
+	; kb/codegen 0121: the deleted body carried `assume es:nothing`, and the
+	; state entering it was ALREADY `es:nothing`, set earlier in this same
+	; segment, so there is nothing to restore -- measured, not assumed.
+	@end_game$qv procdesc far
 
 	; end_extra() now lives in th04/main/end.cpp, which appends to this
 	; segment. Declared inside a main_01 segment on purpose (kb/codegen
@@ -3221,14 +3204,14 @@ sub_100C6	endp
 
 
 	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
-	; th04/main/playfld.cpp #includes under #if (GAME == 5) ahead of
+	; th04/main/playfld.cpp #includes ahead of
 	; playfield_shake_update_and_render() (kb/codegen 0129), so the two land
 	; here in their original address order. It was the LAST proc of this root
 	; contribution and th05/playfld.cpp already owned everything after it
 	; (kb/codegen 0114), so no carve, no new segment, no group-list edit and
-	; no Tupfile.lua line were needed. TH04 has the same function as sub_CCD6
-	; in mai_TEXT, differing only in the two Stage 6 tests, and it is NOT
-	; liftable yet: its own C++ host contributes zero bytes.
+	; no Tupfile.lua line were needed. TH04 has the same function, minus the
+	; two Stage 6 tests; it was the last proc of th04_main.asm's mai_TEXT and
+	; its neighbour PLAYFLD_TEXT hosted the lift.
 	@scroll_update_and_render$qv procdesc near
 
 	@playfield_shake_update_and_rende$qv procdesc pascal near
@@ -7714,56 +7697,15 @@ off_171BA	dw offset loc_16F76
 		dw offset loc_1712C
 		dw offset loc_17150
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_171C8
-sub_171C8	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		cmp	ax, 1
-		jz	short loc_171E5
-		cmp	ax, 4
-		jz	short loc_171F9
-		cmp	ax, 5
-		jz	short loc_171FD
-		jmp	short loc_17204
-; ---------------------------------------------------------------------------
-
-loc_171E5:
-		cmp	_dream, 1
-		jbe	short loc_17204
-		cmp	_dream, 128
-		jnb	short loc_17204
-		dec	_dream
-		jmp	short loc_17204
-; ---------------------------------------------------------------------------
-
-loc_171F9:
-		push	2
-		jmp	short loc_171FF
-; ---------------------------------------------------------------------------
-
-loc_171FD:
-		push	4
-
-loc_171FF:
-		call	playperf_lower
-
-loc_17204:
-		call	hud_dream_put
-		pop	si
-		pop	bp
-		retn	2
-sub_171C8	endp
+	; The off-playfield item penalty now lives in
+	; th04/main/item/update.cpp as item_left_playfield(), ahead of
+	; items_update() in that object -- the original order, and the order this
+	; segment needs, since it was the LAST proc of the root contribution and
+	; th05/main033.cpp already owned everything after it (kb/codegen 0114).
+	; No carve, no new segment, no Tupfile.lua line.
+	;
+	; The `public` line that used to publish it for the C++ side went with it:
+	; nothing in this dump ever called it either, so no `procdesc` replaces it.
 
 
 	; items_update() now lives in th04/main/item/update.cpp, which the
@@ -10741,6 +10683,7 @@ off_1A3D1	dw offset loc_1A089
 
 ; Attributes: bp-based frame
 
+public MAI_YUKI_1A3EF
 mai_yuki_1A3EF	proc near
 
 @@se		= word ptr  4
@@ -10772,39 +10715,17 @@ loc_1A41F:
 mai_yuki_1A3EF	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1A42B	proc near
-		push	bp
-		mov	bp, sp
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	short loc_1A439
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A439:
-		call	mai_yuki_1A3EF pascal, (24 shl 4) or ((24 shl 4) shl 16), 4
-		mov	_yuki_damage_this_frame, al
-		mov	ah, 0
-		sub	_yuki_hp, ax
-		mov	ax, _yuki_hp
-		cmp	ax, _yuki_phase_end_hp
-		jg	short loc_1A45A
-		mov	al, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A45A:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1A42B	endp
+	; The combined Mai/Yuki shot hittest now lives in
+	; th05/main/boss/b4_both.cpp, ahead of mai_yuki_flystep_random() in
+	; that object -- the original order, and the order this segment needs,
+	; since it was the LAST proc of the root contribution and
+	; th05/boss_4.cpp already owned everything after it (kb/codegen 0114).
+	; No carve, no new segment, no Tupfile.lua line.
+	;
+	; main_035_TEXT calls it, so it keeps a procdesc. The helper above
+	; stays ASM: main_035_TEXT calls that one twice as well, so it is not
+	; a tail and cannot be lifted with it.
+	@mai_yuki_hittest_shots$qv procdesc near
 
 	@MAI_YUKI_FLYSTEP_RANDOM$QI procdesc pascal near \
 		frame:word
@@ -11819,7 +11740,7 @@ loc_1ADF4:
 		mov	_boss_phase_state, 14
 
 loc_1AE17:
-		call	mai_yuki_1A42B
+		call	@mai_yuki_hittest_shots$qv
 		mov	ah, 0
 		mov	[bp+var_2], ax
 		cmp	[bp+var_2], 0
@@ -17859,6 +17780,8 @@ _hexagrams_flag	db 0
 include th04/main/player/shot_laser[data].asm
 include th05/formats/bb_cheeto[data].asm
 ; char aMaine[]
+public _aMaine
+_aMaine		label byte
 aMaine		db 'maine',0
 ; char aMaine_0[]
 public _aMaine_0

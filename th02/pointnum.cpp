@@ -1,14 +1,16 @@
-// Four contiguous runs of this code segment, compiled into one translation
-// unit here in their original address order: the cleanup/handoff function,
-// the per-attempt player reset, the player invalidation pass, and the point
-// number code. The order is the addresses' - each file's contribution begins
-// exactly where the previous one ends.
+// Five contiguous runs of this code segment, compiled into one translation
+// unit here in their original address order: the GAME OVER screen and its
+// continue prompt, the cleanup/handoff function, the per-attempt player reset,
+// the player invalidation pass, and the point number code. The order is the
+// addresses' - each file's contribution begins exactly where the previous one
+// ends.
 
 // -zC/-zP only take effect before any code is generated, so the group has to
 // be named here rather than in an included file (kb/codegen/0112). The segment
 // name still comes from this wrapper's own basename (kb/codegen/0105).
 #pragma option -zPmain_01 -G
 
+#include "th02/main/continue.cpp"
 #include "th02/main/gameexecl.cpp"
 #include "th02/main/player/reset.cpp"
 #include "th02/main/player/invalidate.cpp"

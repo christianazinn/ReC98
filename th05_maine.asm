@@ -106,6 +106,11 @@ SCORE_TEXT segment byte public 'CODE' use16
 		left:word, top:word, total:word, share:word
 	@GRAPH_FRACTION_OF_MILLION_PUT$QIIUL procdesc pascal near \
 		left:word, top:word, num:dword
+	; The per-stage score table, now at the tail of this segment in
+	; th05/end/verdict_scores.cpp. staffroll_animate() still calls it
+	; from maine_01__TEXT, which stays a near call because group_01
+	; spans both segments.
+	@verdict_stage_scores_put$qv procdesc near
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -453,6 +458,10 @@ sub_CA02	endp
 
 ; Attributes: bp-based frame
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
+; this. `label` emits nothing, so every following offset is unchanged.
+public _verdict_stats_put
+_verdict_stats_put label near
 sub_CA9B	proc near
 
 var_4		= dword	ptr -4
@@ -1075,6 +1084,10 @@ off_D165	dw offset loc_CE08
 
 ; Attributes: bp-based frame
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
+; this. `label` emits nothing, so every following offset is unchanged.
+public _verdict_comment_put
+_verdict_comment_put label near
 sub_D16F	proc near
 		push	bp
 		mov	bp, sp
@@ -1107,144 +1120,29 @@ loc_D1AF:
 sub_D16F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @verdict_animate$qv
-@verdict_animate$qv proc near
-		push	bp
-		mov	bp, sp
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		graph_accesspage 1
-		call	@pi_load$qinxc pascal, 0, ds, offset aUde_pi
-		call	@pi_palette_apply$qi pascal, 0
-		call	@pi_put_8$qiii pascal, large 0, 0
-		call	@pi_free$qi pascal, 0
-		call	graph_copy_page pascal, 0
-		push	4
-		call	palette_black_in
-		graph_accesspage 0
-		graph_showpage al
-		call	sub_CA9B
-		call	@frame_delay$qi pascal, 64
-		call	sub_D16F
-		call	@input_wait_for_change$qi pascal, 0
-		push	2
-		call	palette_black_out
-		pop	bp
-		retn
-@verdict_animate$qv endp
+; The verdict screen's entry point is now ONE body shared with TH04, in
+; th04/end/verdict_animate.cpp, reached from th05/staff.cpp -- the object
+; that contributes to this segment immediately after this block. It is
+; the second lift out of this tail, so it sits ahead of
+; verdict_stage_scores_put() in that file and lands at its original
+; address. No carve, no new segment, no group-list edit, no Tupfile.lua
+; line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added below this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_D21D	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 64
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vpcB@	; "　１面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 96
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vqcB@	; "　２面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 128
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vrcB@	; "　３面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 160
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vscB@	; "　４面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 192
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vtcB@	; "　５面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 224
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aB@vucB@	; "　６面　"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 288
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aNPiuU__0 ; "最終得点"
-		call	graph_putsa_fx
-		mov	ax, x_116E2
-		add	ax, 128
-		mov	[bp+var_2], ax
-		xor	si, si
-		mov	ax, y_116E8
-		add	ax, 64
-		mov	di, ax
-		jmp	short loc_D2FE
-; ---------------------------------------------------------------------------
-
-loc_D2E0:
-		push	[bp+var_2]
-		push	di
-		mov	ax, si
-		shl	ax, 3
-		mov	dx, word ptr _resident
-		add	dx, ax
-		add	dx, 4Ch	; 'L'
-		push	word ptr _resident+2
-		push	dx
-		call	GRAPH_SCORE_AND_TEN_PUT
-		inc	si
-		add	di, 20h	; ' '
-
-loc_D2FE:
-		cmp	si, 6
-		jl	short loc_D2E0
-		push	[bp+var_2]
-		mov	ax, y_116E8
-		add	ax, 288
-		push	ax
-		mov	ax, word ptr _resident
-		add	ax, 20h	; ' '
-		push	word ptr _resident+2
-		push	ax
-		call	GRAPH_SCORE_AND_TEN_PUT
-		pop	di
-		pop	si
-		leave
-		retn
-sub_D21D	endp
+; This block's last proc -- the verdict screen's per-stage score table --
+; now lives in th05/end/verdict_scores.cpp as verdict_stage_scores_put(),
+; included from th05/staff.cpp. That object contributes to this segment
+; immediately after this block, so the body lands at its original address
+; by growing that object's head (kb/codegen/0099 + 0114). No carve, no new
+; segment, no group-list edit, no Tupfile.lua line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added below this line.
 SCORE_TEXT	ends
 
 maine_01__TEXT	segment	byte public 'CODE' use16
@@ -3279,7 +3177,7 @@ var_4		= word ptr -4
 		graph_accesspage 0
 		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
 		GRCG_OFF_CLOBBERING dx
-		call	sub_D21D
+		call	@verdict_stage_scores_put$qv
 		call	verdict_bitmap_snap pascal, (1 * VERDICT_SCREEN_SIZE)
 		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
 		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
@@ -3835,6 +3733,8 @@ include th05/formats/scoredat_load_for[data].asm
 _SCOREDAT_FN_2	db 'GENSOU.SCR',0
 public _hi01_pi, _scnum_bft, _sctm0_bft, _sctm1_bft
 public _SLOW_MODE_MSG_SHADOW, _SLOW_MODE_MSG, _BGM_NAME_FN
+public _STAGE_1_MSG, _STAGE_2_MSG, _STAGE_3_MSG, _STAGE_4_MSG
+public _STAGE_5_MSG, _STAGE_6_MSG, _FINAL_SCORE_MSG_0
 _hi01_pi	db 'hi01.pi',0
 _scnum_bft	db 'scnum.bft',0
 _sctm0_bft	db 'sctm0.bft',0
@@ -3843,6 +3743,11 @@ _SLOW_MODE_MSG_SHADOW	db 'スローモードでのプレイでは、スコアは記録されません',0
 _SLOW_MODE_MSG	db 'スローモードでのプレイでは、スコアは記録されません',0
 _BGM_NAME_FN	db 'name',0
 		db 0
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_scores.cpp can
+; read this. `label` emits nothing, so every following offset is
+; unchanged, and this block's own references keep the original spelling.
+public _verdict_left
+_verdict_left	label word
 x_116E2	dw 336
 ; kb/codegen/0123: a zero-byte alias so th04/end/verdict_digits.cpp can read
 ; this. `label` emits nothing, so every following offset is unchanged, and
@@ -3851,6 +3756,11 @@ public _verdict_col
 _verdict_col	label word
 col_116E4	dw 2
 word_116E6	dw 6
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_scores.cpp can
+; read this. `label` emits nothing, so every following offset is
+; unchanged, and this block's own references keep the original spelling.
+public _verdict_top
+_verdict_top	label word
 y_116E8	dw 48
 include th04/gaiji/verdict[data].asm
 public _POINT_MSG
@@ -3884,14 +3794,15 @@ aU_		db '点',0
 a_ude_txt	db '_ude.txt',0
 aBhbhbhbhbhbhu_	db '？？？？？？点',0
 aPicacovVVcvsfT	db '処理落ちによる判定不可',0
-aUde_pi		db 'ude.pi',0
-aB@vpcB@	db '　１面　',0
-aB@vqcB@	db '　２面　',0
-aB@vrcB@	db '　３面　',0
-aB@vscB@	db '　４面　',0
-aB@vtcB@	db '　５面　',0
-aB@vucB@	db '　６面　',0
-aNPiuU__0	db '最終得点',0
+public _ude_pi
+_ude_pi		db 'ude.pi',0
+_STAGE_1_MSG	db '　１面　',0
+_STAGE_2_MSG	db '　２面　',0
+_STAGE_3_MSG	db '　３面　',0
+_STAGE_4_MSG	db '　４面　',0
+_STAGE_5_MSG	db '　５面　',0
+_STAGE_6_MSG	db '　６面　',0
+_FINAL_SCORE_MSG_0	db '最終得点',0
 byte_1183A	db 0
 		db 0
 particle_i_1183C	dw 0

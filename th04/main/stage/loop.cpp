@@ -149,7 +149,6 @@ void pascal near shots_render(void);
 
 	extern "C" void near sub_10ABF(void);
 	extern "C" void near sub_104B6(void);
-	extern "C" void near sub_CCD6(void);
 
 	// # of frames between two playperf_raise() calls at the lowest and the
 	// highest life count. TH05 uses a constant interval instead.
@@ -281,11 +280,7 @@ void near stage_loop(void)
 			palette_changed = false;
 			__emit__(0xEB, 0x00); // JMP SHORT $+2
 		}
-		#if (GAME == 5)
-			scroll_update_and_render();
-		#else
-			sub_CCD6();
-		#endif
+		scroll_update_and_render();
 
 		graph_accesspage(page_front);
 		graph_showpage(page_back);
