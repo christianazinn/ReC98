@@ -521,6 +521,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/hud/menu.cpp",
 	"th02/main/scroll.cpp",
 	"th02/main/player/shot.cpp",
+	"th02/main/bgm_show.cpp",
 	"th02/main/demo.cpp",
 	"th02/main/stage/loop.cpp",
 	"th02/main/cfg_load.cpp",

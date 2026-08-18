@@ -430,43 +430,6 @@ loc_C0A6:
 		retf
 sub_C05D	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _bgm_show
-_bgm_show label near
-bgm_show	proc near
-		push	bp
-		mov	bp, sp
-		cmp	bgm_show_timer, 0
-		jz	short loc_C108
-		cmp	bgm_show_timer, 1
-		jnz	short loc_C0E6
-		call	gaiji_putca pascal, (24 shl 16) + 23, (gs_NOTES shl 16) + TX_YELLOW
-		push	(26 shl 16) + 23
-		push	ds
-		mov	al, _bgm_title_id
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	word ptr _BGM_TITLES[bx]
-		push	TX_WHITE
-		call	text_putsa
-
-loc_C0E6:
-		inc	bgm_show_timer
-		cmp	bgm_show_timer, 160
-		jb	short loc_C108
-		call	text_putsa pascal, (24 shl 16) + 23, ds, offset aEMPTY+22, TX_WHITE
-		mov	bgm_show_timer, 0
-
-loc_C108:
-		pop	bp
-		retn
-bgm_show	endp
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
@@ -19604,6 +19567,8 @@ aGqbGanKj	db 'ゲーム再開',0
 aVV2		db 'ほんとに終了しちゃうの',0
 aVdvVVBbvVVVV	db 'うそです。すみません。',0
 aB@b@vVvbavtvVV	db '　　はい、やめます。　',0
+public _aEMPTY
+_aEMPTY label byte
 aEMPTY	db '                                                ',0
 public _aDemo1_rec
 _aDemo1_rec label byte
