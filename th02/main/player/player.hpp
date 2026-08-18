@@ -54,13 +54,13 @@ static const pixel_t PLAYER_LEFT_TO_OPTION_LEFT_LEFT = (
 // of the sparks by temporarily mutating the position. This can definitely be
 // done in a cleaner and less redundant way.
 
-extern screen_x_t player_left_on_page[PAGE_COUNT];
-extern screen_y_t player_top_on_page[PAGE_COUNT];
+extern screen_x_t near player_left_on_page[PAGE_COUNT];
+extern screen_y_t near player_top_on_page[PAGE_COUNT];
 extern screen_x_t near* player_left_on_back_page;
 extern screen_y_t near* player_top_on_back_page;
 extern screen_point_t player_topleft;
 
-extern screen_point_t player_option_left_topleft[PAGE_COUNT];
+extern screen_point_t near player_option_left_topleft[PAGE_COUNT];
 extern screen_x_t near* player_option_left_left_on_back_page;
 extern screen_y_t near* player_option_left_top_on_back_page;
 
@@ -114,8 +114,11 @@ extern int power_overflow;
 extern uint8_t shot_level;
 
 #if (GAME == 2)
-// Still ASM in TH02's root dump, which publishes it with __pascal name
-// decoration (`public @PLAYER_INVALIDATE$QV`).
+// Invalidates the tiles covered by the player and its two options, then
+// carries the front page's position over to the back page.
+// The original decorated this function's public symbol in the upper-case
+// form that Turbo C++ reserves for pascal linkage, which is where the
+// calling convention below comes from (kb/codegen/0086).
 void pascal near player_invalidate(void);
 
 void near player_update_and_render(void);
