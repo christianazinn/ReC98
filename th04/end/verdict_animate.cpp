@@ -1,7 +1,7 @@
 /// The verdict screen's entry point
 /// --------------------------------
-/// Shows `ude.pi`, fades it in, and hands over to the screen body, which is
-/// still ASM. `[measured]` This was the LAST proc of th04_maine.asm's
+/// Shows `ude.pi`, fades it in, and hands over to the screen body.
+/// `[measured]` This was the LAST proc of th04_maine.asm's
 /// MAINE_01_TEXT contribution, and th04/staff.cpp is the LAST object in TH04's
 /// MAINE.EXE link list — an otherwise declarations-only translation unit whose
 /// only trace in the map was an empty, auto-named `STAFF_TEXT` segment. Giving
@@ -19,6 +19,12 @@
 /// seen. They sit at the top of the th04/staff.cpp wrapper instead.
 
 #include "th02/hardware/frmdelay.h"
+#if (GAME == 5)
+/// th04/hardware/input.h has no include guard. TH04 gets it from
+/// th04/end/verdict_stats.cpp, which now precedes this file in that game's
+/// translation unit; including it again there is 15 "initialized more than
+/// once" errors. Relying on the host is the idiom for every other .cpp
+/// fragment in these chains.
 #include "th04/hardware/input.h"
 /// `[measured]` The game-specific header is mandatory here, not a tidiness
 /// choice. th02/formats/pi.h defines `pi_free` as a MACRO, and TH05 is the
@@ -28,7 +34,6 @@
 /// expands `pi_free(0)` into the macro's three-argument far call: 14 bytes
 /// where the original has 7, which grew SCORE_TEXT by exactly 7 and shifted
 /// 16,524 bytes of MAINE.EXE behind it.
-#if (GAME == 5)
 #include "th05/formats/pi.hpp"
 #else
 #include "th03/formats/pi.hpp"
@@ -65,13 +70,11 @@ extern "C" void near verdict_stats_put(void);
 /// linkage had to flip with it.
 void near verdict_comment_put(void);
 #else
-/// The body of the verdict screen: twelve `graph_putsa_fx` labels and their
-/// values, the [skill] computation and its clamp, the `_ude.txt` verdict line,
-/// then `input_wait_for_change()` and `palette_black_out(2)`. Still ASM, at
-/// `0A05:1B31` — the proc immediately ahead of this one, and the next tail
-/// lift out of this segment. The dump spells it `sub_BB81` and publishes this
-/// name as a zero-byte `label near` alias in front of it (kb/codegen/0123),
-/// so nothing moved to make this call linkable.
+/// The body of the verdict screen: twelve labels and their values, the [skill]
+/// computation and its clamp, the `_ude.txt` verdict line, then the wait and
+/// the fade-out. Now C++ too, at `0A05:1B31` — th04/end/verdict_stats.cpp,
+/// which th04/staff.cpp includes immediately ahead of this file so that the
+/// two contributions stay in dump order.
 extern "C" void near verdict_stats_put_and_wait(void);
 #endif
 

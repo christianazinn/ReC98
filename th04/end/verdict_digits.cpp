@@ -150,7 +150,14 @@ extern "C" void pascal near graph_score_and_ten_put(
 /// ------------------------------------------------------------------
 
 /// Published by th04/gaiji/verdict[data].asm and the root dumps' own `.data?`.
-extern "C" uint32_t skill;
+///
+/// `[measured]` Signed, despite what "skill" suggests: TH04's
+/// verdict_stats_put_and_wait() clamps it against 0 with a signed compare and
+/// divides it with a sign-extending division, while the same statement's upper
+/// bound comes out unsigned because the cap it is compared against is an
+/// `unsigned long`. Byte-inert for TH05, whose only uses here are the
+/// sign-agnostic addition and subtraction below.
+extern "C" int32_t skill;
 
 /// If `true`, skill_apply_and_graph_percentage() subtracts the calculated
 /// fraction from [skill] rather than adding it.
