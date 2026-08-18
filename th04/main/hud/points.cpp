@@ -12,7 +12,11 @@
 #include "th04/gaiji/gaiji.h"
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/item/item.hpp"
-#include "th04/resident.hpp"
+#if (GAME == 5)
+	#include "th05/resident.hpp"
+#else
+	#include "th04/resident.hpp"
+#endif
 
 // [HUD_POINT_ITEMS_STAGE_Y] and [HUD_POINT_ITEMS_EXTEND_Y] are in
 // th04/main/hud/hud.hpp; hud_put() needs the same rows.
@@ -23,10 +27,11 @@
 // `GAME != 5` guard that used to sit around the two HUD rows was a
 // lifting-order artifact of TH04 landing first, and is gone now that TH05's
 // copies have left th05_main.asm too.
-#if (GAME != 5)
-	// TH05's slot here holds score_highest_update_and_reset(), a different
-	// function, and it is still in th05_main.asm. This guard IS a
-	// lifting-order artifact and goes away with that lift.
+#if (GAME == 5)
+	// TH05's slot here holds score_highest_update_and_reset(), a related but
+	// different function -- see that file's docblock.
+	#include "th05/main/score_highest.cpp"
+#else
 	#include "th04/main/score_reset.cpp"
 #endif
 #include "th04/main/hud/lives.cpp"
