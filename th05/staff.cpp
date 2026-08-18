@@ -86,6 +86,12 @@ SPPoint stars_center[STAR_COUNT];
 dots8_t verdict_bitmap[2][VERDICT_SCREEN_H][VERDICT_BITMAP_W / BYTE_DOTS];
 // -----
 
+// The tail of th05_maine.asm's SCORE_TEXT block, lifted backwards into the
+// head of this object's contribution to the same segment. It has to precede
+// space_window_set() to land at its original address; see the file itself for
+// why this object is the one that can take it.
+#include "th05/end/verdict_scores.cpp"
+
 void pascal near space_window_set(
 	screen_x_t center_x, screen_y_t center_y, pixel_t w, pixel_t h
 )
