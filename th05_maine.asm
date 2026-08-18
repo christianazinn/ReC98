@@ -74,50 +74,14 @@ maine_01_TEXT segment byte public 'CODE' use16
 maine_01_TEXT ends
 
 SCORE_TEXT segment byte public 'CODE' use16
-	@HISCORE_SCOREDAT_LOAD_FOR$QI procdesc pascal near \
-		playchar:word
-	@hiscore_scoredat_save$qv procdesc near
-	; regist_score_enter_from_resident() now lives in
-	; th04/hiscore/regist_enter.cpp, at the tail of th05/hi_end.cpp's
-	; SCORE_TEXT contribution, i.e. exactly where this block used to begin.
-	@regist_score_enter_from_resident$qv procdesc near
-	@SCORE_PUT$QII procdesc pascal near \
-		place:word, playchar:word
-	@STAGE_PUT$QIII procdesc pascal near \
-		place:word, playchar:word, gaiji:word
-	@NAME_PUT$QI10PLAYCHAR_TUC procdesc pascal near \
-		place:word, playchar:byte, cursor:byte
-	@PLACE_PUT$QII procdesc pascal near \
-		place:word, playchar:word
-	@PLACES_PUT$QI procdesc pascal near \
-		playchar:word
-	@ALPHABET_PUTCA$QIIUI procdesc pascal near \
-		col:word, row:word, atrb:word
-	@regist_frame_and_flip$qv procdesc near
-	@GLYPHBALL_SPAWN$QIII10PLAYCHAR_TUC procdesc pascal near \
-		alphabet_col:word, alphabet_row:word, place:word, \
-		playchar:byte, slot:byte
-	@glyphballs_rush_and_wait$qv procdesc near
-	@GRAPH_3_DIGIT_PUT$QIIUI procdesc pascal near \
-		left:word, top:word, num:word
-	GRAPH_SCORE_AND_TEN_PUT procdesc pascal near \
-		left:word, top:word, score:dword
-	@SKILL_APPLY_AND_GRAPH_PERCENTAGE$QIIUIUI procdesc pascal near \
-		left:word, top:word, total:word, share:word
-	@GRAPH_FRACTION_OF_MILLION_PUT$QIIUL procdesc pascal near \
-		left:word, top:word, num:dword
-	; The per-stage score table, now at the tail of this segment in
-	; th05/end/verdict_scores.cpp. staffroll_animate() still calls it
-	; from maine_01__TEXT, which stays a near call because group_01
-	; spans both segments.
+	; The only two symbols this dump still reaches across the segment
+	; boundary: staffroll_animate(), in maine_01__TEXT, calls both, and the
+	; calls stay near because group_01 spans both segments. Every other
+	; procdesc that used to stand here went with verdict_stats_put(), the
+	; last proc of this block and the last caller of any of them.
 	@verdict_stage_scores_put$qv procdesc near
+	@verdict_stats_put$qv procdesc near
 	@verdict_comment_put$qv procdesc near
-	; The handicap bonus row and the second comment line's record
-	; picker, both lifted out of the head of this block into the tail
-	; of th05/regist.cpp's contribution. verdict_stats_put() is the
-	; only caller of either.
-	@skill_apply_and_graph_guts$qv procdesc near
-	@verdict_comment_2_num$qv procdesc near
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -252,631 +216,35 @@ glyphball_t ends
 ; Nothing may be added above this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
-; this. `label` emits nothing, so every following offset is unchanged.
-public _verdict_stats_put
-_verdict_stats_put label near
-sub_CA9B	proc near
-
-var_4		= dword	ptr -4
-
-		enter	4, 0
-		push	si
-		mov	_skill, 0
-		mov	_graph_putsa_fx_func, FX_WEIGHT_BOLD
-		call	graph_putsa_fx pascal, x_116E2, y_116E8, col_116E4, ds, offset aB@b@b@b@b@b@b@ ; "　　　　　　　 腕前判定"
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 24
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aUqiUx	; "難易度"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 48
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aNPiuU_	; "最終得点"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 72
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aGGxi
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 96
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aGGaogcpi
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 120
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aGqbGatbrmcj ; "ゲーム達成率"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 144
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aIlcSObcj ; "悪霊退治率"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 168
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aGagcgegai
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 192
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aUU_gagcgeganNv ; "得点アイテム最高点率"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 216
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aLcnzvv	; "気合い"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 240
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aPicacovCj ; "処理落ち率"
-		call	graph_putsa_fx
-		push	x_116E2
-		mov	ax, y_116E8
-		add	ax, 272
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aVavVVSrso ; "あなたの腕前"
-		call	graph_putsa_fx
-		les	bx, _resident
-		cmp	es:[bx+resident_t.stage], STAGE_EXTRA
-		jnz	short loc_CBDB
-		mov	al, RANK_EXTRA
-		jmp	short loc_CBE3
-; ---------------------------------------------------------------------------
-
-loc_CBDB:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rank]
-
-loc_CBE3:
-		mov	_verdict_rank, al
-		mov	ax, x_116E2
-		add	ax, 160
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 24
-		push	ax
-		push	GAIJI_W
-		push	ds
-		mov	al, _verdict_rank
-		mov	ah, 0
-		shl	ax, 3
-		add	ax, offset grEASY
-		push	ax
-		push	col_116E4
-		call	graph_gaiji_puts
-		mov	ax, x_116E2
-		add	ax, 128
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 48
-		push	ax
-		mov	ax, word ptr _resident
-		add	ax, 20h	; ' '
-		push	word ptr _resident+2
-		push	ax
-		call	GRAPH_SCORE_AND_TEN_PUT
-		mov	ax, x_116E2
-		add	ax, 224
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 72
-		push	ax	; top
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.miss_count]
-		mov	ah, 0
-		push	ax	; num
-		call	@graph_3_digit_put$qiiui
-		mov	ax, x_116E2
-		add	ax, 224
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 96
-		push	ax	; top
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bombs_used]
-		mov	ah, 0
-		push	ax	; num
-		call	@graph_3_digit_put$qiiui
-		mov	ax, x_116E2
-		add	ax, 272
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 72
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aI
-		call	graph_putsa_fx
-		mov	ax, x_116E2
-		add	ax, 272
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 96
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aI_0
-		call	graph_putsa_fx
-		mov	byte_1517C, 1
-		les	bx, _resident
-		cmp	es:[bx+resident_t.stage], STAGE_EXTRA
-		jz	short loc_CCC6
-		cmp	es:[bx+resident_t.end_sequence], ES_BAD
-		jb	short loc_CCB3
-		mov	es:[bx+resident_t.std_frames], 46000
-
-loc_CCB3:
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 120
-		push	ax
-		push	46000
-		jmp	short loc_CCE8
-; ---------------------------------------------------------------------------
-
-loc_CCC6:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_EXTRA
-		jnz	short loc_CCD7
-		mov	es:[bx+resident_t.std_frames], 12800
-
-loc_CCD7:
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 120
-		push	ax	; top
-		push	12800	; total
-
-loc_CCE8:
-		les	bx, _resident
-		push	es:[bx+resident_t.std_frames]	; share
-		call	@skill_apply_and_graph_percentage$qiiuiui
-		mov	byte_1517C, 0
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 144
-		push	ax	; top
-		les	bx, _resident
-		push	es:[bx+resident_t.enemies_gone]	; total
-		push	es:[bx+resident_t.enemies_killed]	; share
-		call	@skill_apply_and_graph_percentage$qiiuiui
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 168
-		push	ax	; top
-		les	bx, _resident
-		push	es:[bx+resident_t.items_spawned]	; total
-		push	es:[bx+resident_t.items_collected]	; share
-		call	@skill_apply_and_graph_percentage$qiiuiui
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 192
-		push	ax	; top
-		les	bx, _resident
-		push	es:[bx+resident_t.point_items_collected]	; total
-		push	es:[bx+resident_t.max_valued_point_items_collected]	; share
-		call	@skill_apply_and_graph_percentage$qiiuiui
-		call	@skill_apply_and_graph_guts$qv
-		mov	_skill_subtract, 1
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 240
-		push	ax	; top
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.frames]
-		mov	ebx, 10
-		xor	edx, edx
-		div	ebx
-		push	ax	; total
-		mov	bx, word ptr _resident
-		mov	eax, es:[bx+resident_t.slow_frames]
-		mov	ebx, 10
-		xor	edx, edx
-		div	ebx
-		push	ax	; share
-		call	@skill_apply_and_graph_percentage$qiiuiui
-		mov	_skill_subtract, 0
-		mov	ebx, 12
-		mov	eax, _skill
-		cdq
-		idiv	ebx
-		mov	_skill, eax
-		mov	eax, dword_15182
-		add	_skill, eax
-		les	bx, _resident
-		cmp	es:[bx+resident_t.score_highest][7], 10
-		jb	short loc_CDCB
-		add	_skill, 500000
-		jmp	short loc_CDF3
-; ---------------------------------------------------------------------------
-
-loc_CDCB:
-		les	bx, _resident
-		movzx	eax, es:[bx+resident_t.score_highest][6]
-		imul	eax, 5000
-		add	_skill, eax
-		movzx	eax, es:[bx+resident_t.score_highest][7]
-		imul	eax, 50000
-		add	_skill, eax
-
-loc_CDF3:
-		mov	al, _verdict_rank
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, RANK_EXTRA
-		ja	loc_CEAF
-		add	bx, bx
-		jmp	cs:off_D165[bx]
-
-loc_CE08:
-		sub	_skill, 50000
-		mov	[bp+var_4], 800000
-		jmp	loc_CEAF
-; ---------------------------------------------------------------------------
-
-loc_CE1C:
-		mov	[bp+var_4], 1000000
-		; Hack (jmp	loc_CEAF)
-		; No idea why TASM can't assemble this properly after
-		; scoredat_load_for() was decompiled.
-		db	0E9h, 88h, 00h
-; ---------------------------------------------------------------------------
-
-loc_CE27:
-		mov	eax, _skill
-		imul	eax, 5
-		mov	_skill, eax
-		mov	ebx, 4
-		cdq
-		idiv	ebx
-		mov	_skill, eax
-		add	_skill, 150000
-		mov	[bp+var_4], 1200000
-		jmp	short loc_CEAF
-; ---------------------------------------------------------------------------
-
-loc_CE55:
-		mov	eax, _skill
-		imul	eax, 3
-		mov	_skill, eax
-		mov	ebx, 2
-		cdq
-		idiv	ebx
-		mov	_skill, eax
-		add	_skill, 300000
-		mov	[bp+var_4], 1400000
-		jmp	short loc_CEAF
-; ---------------------------------------------------------------------------
-
-loc_CE83:
-		mov	eax, _skill
-		imul	eax, 3
-		mov	_skill, eax
-		mov	ebx, 2
-		cdq
-		idiv	ebx
-		mov	_skill, eax
-		add	_skill, 250000
-		mov	[bp+var_4], 2000000
-
-loc_CEAF:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	ah, 0
-		dec	ax
-		mov	bx, ax
-		cmp	bx, 5
-		ja	short loc_CF0A
-		add	bx, bx
-		jmp	cs:off_D159[bx]
-
-loc_CEC8:
-		add	_skill, 50000
-		add	[bp+var_4], 100000
-		jmp	short loc_CF0A
-; ---------------------------------------------------------------------------
-
-loc_CEDB:
-		add	_skill, 25000
-		add	[bp+var_4], 50000
-		jmp	short loc_CF0A
-; ---------------------------------------------------------------------------
-
-loc_CEEE:
-		sub	[bp+var_4], 25000
-		jmp	short loc_CF0A
-; ---------------------------------------------------------------------------
-
-loc_CEF8:
-		sub	[bp+var_4], 50000
-		jmp	short loc_CF0A
-; ---------------------------------------------------------------------------
-
-loc_CF02:
-		sub	[bp+var_4], 75000
-
-loc_CF0A:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_CF24
-		cmp	ax, 1
-		jz	short loc_CF37
-		cmp	ax, 2
-		jz	short loc_CF4A
-		jmp	short loc_CF5B
-; ---------------------------------------------------------------------------
-
-loc_CF24:
-		add	_skill, 50000
-		add	[bp+var_4], 100000
-		jmp	short loc_CF5B
-; ---------------------------------------------------------------------------
-
-loc_CF37:
-		add	_skill, 30000
-		add	[bp+var_4], 50000
-		jmp	short loc_CF5B
-; ---------------------------------------------------------------------------
-
-loc_CF4A:
-		add	_skill, 20000
-		add	[bp+var_4], 25000
-
-loc_CF5B:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.turbo_mode], 0
-		jnz	short loc_CF77
-		sub	_skill, 200000
-		sub	[bp+var_4], 100000
-
-loc_CF77:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.miss_count], 10
-		jb	short loc_CF8D
-		sub	_skill, 300000
-		jmp	short loc_CFA3
-; ---------------------------------------------------------------------------
-
-loc_CF8D:
-		les	bx, _resident
-		movzx	eax, es:[bx+resident_t.miss_count]
-		imul	eax, 30000
-		sub	_skill, eax
-
-loc_CFA3:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.bombs_used], 15
-		jb	short loc_CFB9
-		sub	_skill, 225000
-		jmp	short loc_CFCF
-; ---------------------------------------------------------------------------
-
-loc_CFB9:
-		les	bx, _resident
-		movzx	eax, es:[bx+resident_t.bombs_used]
-		imul	eax, 15000
-		sub	_skill, eax
-
-loc_CFCF:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_EXTRA
-		jnb	short loc_CFF5
-		mov	eax, _skill
-		imul	eax, 7
-		mov	_skill, eax
-		mov	ebx, 8
-		cdq
-		idiv	ebx
-		mov	_skill, eax
-
-loc_CFF5:
-		cmp	_skill, 0
-		jge	short loc_D008
-		mov	_skill, 0
-		jmp	short loc_D01A
-; ---------------------------------------------------------------------------
-
-loc_D008:
-		mov	eax, _skill
-		cmp	eax, [bp+var_4]
-		jbe	short loc_D01A
-		mov	eax, [bp+var_4]
-		mov	_skill, eax
-
-loc_D01A:
-		mov	byte_15187, 0
-		mov	byte_151A5, 0
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.frames]
-		shr	eax, 1
-		cmp	eax, es:[bx+resident_t.slow_frames]
-		jbe	loc_D120
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 272
-		push	ax	; top
-		pushd	[_skill]	; num
-		call	@graph_fraction_of_million_put$qiiul
-		mov	ax, x_116E2
-		add	ax, 272
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 272
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aU_
-		call	graph_putsa_fx
-		push	ds
-		push	offset a_ude_txt ; "_ude.txt"
-		call	file_ropen
-		cmp	_skill, 1500000
-		jge	short loc_D0E1
-		cmp	_skill, 0
-		jnz	short loc_D08B
-		mov	si, 19h
-		jmp	short loc_D0D1
-; ---------------------------------------------------------------------------
-
-loc_D08B:
-		cmp	_skill, 1050000
-		jge	short loc_D0AE
-		mov	eax, _skill
-		mov	ebx, 50000
-		cdq
-		idiv	ebx
-		mov	dx, 24
-		sub	dx, ax
-		mov	si, dx
-		jmp	short loc_D0D1
-; ---------------------------------------------------------------------------
-
-loc_D0AE:
-		cmp	_skill, 1200000
-		jge	short loc_D0BE
-		mov	si, 3
-		jmp	short loc_D0D1
-; ---------------------------------------------------------------------------
-
-loc_D0BE:
-		cmp	_skill, 1350000
-		jge	short loc_D0CE
-		mov	si, 2
-		jmp	short loc_D0D1
-; ---------------------------------------------------------------------------
-
-loc_D0CE:
-		mov	si, 1
-
-loc_D0D1:
-		mov	ax, si
-		imul	ax, 1Eh
-		cwde
-		push	eax
-		push	0
-		call	file_seek
-
-loc_D0E1:
-		push	ds
-		push	offset byte_15187
-		push	1Eh
-		call	file_read
-		call	@verdict_comment_2_num$qv
-		mov	ah, 0
-		mov	si, ax
-		imul	ax, 1Eh
-		add	ax, 780
-		cwde
-		push	eax
-		push	0
-		call	file_seek
-		push	ds
-		push	offset byte_151A5
-		push	1Eh
-		call	file_read
-		call	file_close
-		mov	byte_151A3, 0
-		mov	byte_151C1, 0
-		jmp	short loc_D156
-; ---------------------------------------------------------------------------
-
-loc_D120:
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 272
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aBhbhbhbhbhbhu_ ; "？？？？？？点"
-		call	graph_putsa_fx
-		mov	ax, x_116E2
-		add	ax, 48
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 296
-		push	ax
-		push	word_116E6
-		push	ds
-		push	offset aPicacovVVcvsfT ; "処理落ちによる判定不可"
-		call	graph_putsa_fx
-
-loc_D156:
-		pop	si
-		leave
-		retn
-sub_CA9B	endp
-
-; ---------------------------------------------------------------------------
-off_D159	dw offset loc_CEC8
-		dw offset loc_CEDB
-		dw offset loc_CF0A
-		dw offset loc_CEEE
-		dw offset loc_CEF8
-		dw offset loc_CF02
-off_D165	dw offset loc_CE08
-		dw offset loc_CE1C
-		dw offset loc_CE27
-		dw offset loc_CE55
-		dw offset loc_CE83
+; verdict_stats_put() -- the verdict screen's body, and the LAST proc of
+; this block -- now lives in th05/end/verdict_stats.cpp, the final
+; #include of th05/regist.cpp. That object contributes to this segment
+; immediately ahead of this block, so the body lands at its original
+; address by growing that object's tail into the hole
+; (kb/codegen/0098 + 0114). Its two `jmp cs:` switch tables went with it,
+; and they needed no alignment pad: the first one's offset is ODD, so
+; `-a1` reproduces it and `-a2` would not.
+;
+; The zero-byte `public _verdict_stats_put` alias that used to stand here
+; is GONE, not moved: it existed so th04/end/verdict_animate.cpp could
+; call INTO this dump, and now that C++ defines the body it would be a
+; duplicate symbol. staffroll_animate() calls the body too, so the call
+; direction has flipped in both directions at once and the linkage went
+; with it: plain C++ linkage, reached from this dump by the mangled
+; @verdict_stats_put$qv, exactly the flip state/notes/verdict_comment_put.md
+; predicted this symbol would need.
+;
+; Lifting it also retired one of this file's hand-encoded instructions:
+; a three-byte `db` stood in for the near jump out of the RANK_NORMAL arm,
+; under upstream's own note that TASM would not assemble it after
+; scoredat_load_for() was decompiled. Turbo C++ emits those bytes itself.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; **THIS BLOCK IS NOW EMPTY.** th05_maine.asm contributes zero bytes to
+; SCORE_TEXT, so th05/regist.cpp's contribution runs straight into
+; th05/staff.cpp's. Nothing may be added between them, above this line or
+; below it.
 
 ; The verdict screen's two _ude.txt comment lines now live in
 ; th05/end/verdict_comment.cpp, at the head of th05/staff.cpp's
@@ -3147,7 +2515,7 @@ loc_E6DB:
 		jnz	short loc_E6F1
 
 loc_E6EC:
-		call	sub_CA9B
+		call	@verdict_stats_put$qv
 		jmp	short loc_E70D
 ; ---------------------------------------------------------------------------
 
@@ -3556,23 +2924,64 @@ aBd_0		db '．',0
 public _PERCENT_MSG_0
 _PERCENT_MSG_0	label byte
 aBu_0		db '％',0
+; kb/codegen/0123: zero-byte aliases so th05/end/verdict_stats.cpp can read
+; these. `label` emits nothing, so every following offset is unchanged.
+; They stay _DATA bytes of this dump rather than becoming literals of that
+; translation unit because the build compiles with `-d` and three of them
+; have byte-identical duplicates elsewhere in this contribution.
+public _VERDICT_TITLE
+_VERDICT_TITLE	label byte
 aB@b@b@b@b@b@b@	db '　　　　　　　 腕前判定',0
+public _LABEL_RANK
+_LABEL_RANK	label byte
 aUqiUx		db '難易度',0
+public _FINAL_SCORE_MSG
+_FINAL_SCORE_MSG	label byte
 aNPiuU_		db '最終得点',0
+public _LABEL_MISSES
+_LABEL_MISSES	label byte
 aGGxi		db 'ミス回数',0
+public _LABEL_BOMBS
+_LABEL_BOMBS	label byte
 aGGaogcpi	db 'ボム使用回数',0
+public _LABEL_GAME_COMPLETION
+_LABEL_GAME_COMPLETION	label byte
 aGqbGatbrmcj	db 'ゲーム達成率',0
+public _LABEL_ENEMIES_KILLED
+_LABEL_ENEMIES_KILLED	label byte
 aIlcSObcj	db '悪霊退治率',0
+public _LABEL_ITEMS_COLLECTED
+_LABEL_ITEMS_COLLECTED	label byte
 aGagcgegai	db 'アイテム回収率',0
+public _LABEL_POINT_ITEMS_MAXED
+_LABEL_POINT_ITEMS_MAXED	label byte
 aUU_gagcgeganNv	db '得点アイテム最高点率',0
+public _LABEL_GUTS
+_LABEL_GUTS	label byte
 aLcnzvv		db '気合い',0
+public _LABEL_SLOWDOWN
+_LABEL_SLOWDOWN	label byte
 aPicacovCj	db '処理落ち率',0
+public _LABEL_YOUR_SKILL
+_LABEL_YOUR_SKILL	label byte
 aVavVVSrso	db 'あなたの腕前',0
+public _TIMES_MSG
+_TIMES_MSG	label byte
 aI		db '回',0
+public _TIMES_MSG_0
+_TIMES_MSG_0	label byte
 aI_0		db '回',0
+public _POINT_MSG_0
+_POINT_MSG_0	label byte
 aU_		db '点',0
+public _ude_txt
+_ude_txt	label byte
 a_ude_txt	db '_ude.txt',0
+public _SKILL_UNKNOWN_MSG
+_SKILL_UNKNOWN_MSG	label byte
 aBhbhbhbhbhbhu_	db '？？？？？？点',0
+public _SLOWDOWN_NO_VERDICT_MSG
+_SLOWDOWN_NO_VERDICT_MSG	label byte
 aPicacovVVcvsfT	db '処理落ちによる判定不可',0
 public _ude_pi
 _ude_pi		db 'ude.pi',0
@@ -3652,6 +3061,10 @@ _skill	dd ?
 public _skill_quarter
 _skill_quarter	label dword
 dword_15182	dd ?
+; th05/end/verdict_stats.cpp now WRITES this, and the still-ASM
+; staffroll_animate() still reads it, so the storage stays here and
+; only the name is exported.
+public _verdict_rank
 _verdict_rank	db ?
 ; kb/codegen/0123: a zero-byte alias so th05/end/verdict_comment.cpp can read this.
 ; `label` emits nothing, so every following offset is unchanged, and

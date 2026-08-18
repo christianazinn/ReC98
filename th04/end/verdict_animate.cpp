@@ -51,14 +51,16 @@ extern const char ude_pi[];
 
 #if (GAME == 5)
 /// The body of the verdict screen: twelve `graph_putsa_fx` labels and their
-/// values, the [skill] computation and its clamp, and the `_ude.txt` verdict
-/// line. Still ASM in th05_maine.asm, reachable only because that dump
-/// publishes this name as a zero-byte `label near` alias in front of the
-/// still-IDA-named proc (kb/codegen/0123), so nothing moved to make the call
-/// linkable. `[measured]` TH05 keeps the waiting and the fade-out OUT of this
-/// function, where TH04 has them inside its own copy — which is the whole of
-/// the difference between the two arms below.
-extern "C" void near verdict_stats_put(void);
+/// values, the [skill] computation and its clamp, and the two `_ude.txt`
+/// comment records. Now C++ too, in th05/end/verdict_stats.cpp — the last
+/// `#include` of th05/regist.cpp, which emptied th05_maine.asm's SCORE_TEXT
+/// block. `[measured]` C++ linkage, not `extern "C"`: the dump's zero-byte
+/// `label near` alias is gone with the body, and staffroll_animate() — still
+/// ASM — now reaches the definition through its mangled name, the same way it
+/// reaches verdict_comment_put(). `[measured]` TH05 keeps the waiting and the
+/// fade-out OUT of this function, where TH04 has them inside its own copy —
+/// which is the whole of the difference between the two arms below.
+void near verdict_stats_put(void);
 
 /// The two 30-byte `_ude.txt` comment lines under the stats block, chosen by
 /// an id that a third, still-ASM proc of the same block computes. TH05-only:
