@@ -475,3 +475,9 @@ void near glyphballs_rush_and_wait(void)
 // anything lifted next goes BELOW this line, never above it.
 #include "th05/end/verdict_guts.cpp"
 #include "th05/end/verdict_comment_num.cpp"
+
+// ...and the screen those two feed, which was the LAST proc of that block.
+// With it gone, th05_maine.asm contributes zero bytes to SCORE_TEXT and this
+// object's contribution runs straight into th05/staff.cpp's. Nothing may be
+// appended below this line without measuring what it does to that seam.
+#include "th05/end/verdict_stats.cpp"
