@@ -15,8 +15,12 @@
 /// th04/end/verdict_digits.cpp) where TH04 hardcodes them: the same renderers
 /// run twice, from two callers, against two different origins.
 
-#include "th04/hardware/grppsafx.h"
-#include "th05/resident.hpp"
+/// th04/hardware/grppsafx.h and th05/resident.hpp have no include guards and
+/// th05/end/verdict_comment.cpp — which the host includes ahead of this file —
+/// has already pulled both in. Including them again is a wall of "Multiple
+/// declaration" errors, so this file relies on its host, which is the idiom
+/// for every other .cpp fragment in the chain (see
+/// th04/end/verdict_digits.cpp on th04/gaiji/gaiji.h).
 
 /// `[measured]` The overlay origin, published by zero-byte `label word`
 /// aliases in front of the private _DATA words they alias in th05_maine.asm
