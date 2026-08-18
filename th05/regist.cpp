@@ -463,3 +463,8 @@ void near glyphballs_rush_and_wait(void)
 // The screen that drives all of the above. ONE body for both games; TH04
 // includes the same file from the tail of th04/hiscore/end.cpp.
 #include "th04/hiscore/regist_menu.cpp"
+
+// ...and the verdict screen's 3-digit gaiji renderer, which was the first
+// proc of the root dump's SCORE_TEXT block, i.e. immediately after this
+// object's contribution. Another kb/codegen/0098 head lift.
+#include "th04/end/verdict_digits.cpp"

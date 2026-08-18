@@ -98,6 +98,8 @@ SCORE_TEXT segment byte public 'CODE' use16
 		alphabet_col:word, alphabet_row:word, place:word, \
 		playchar:byte, slot:byte
 	@glyphballs_rush_and_wait$qv procdesc near
+	@GRAPH_3_DIGIT_PUT$QIIUI procdesc pascal near \
+		left:word, top:word, num:word
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -158,87 +160,18 @@ glyphball_t ends
 ; Nothing may be added above this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @GRAPH_3_DIGIT_PUT$QIIU
-@graph_3_digit_put$qiiu	proc near
-
-var_6		= word ptr -6
-@@g_str		= byte ptr -4
-arg_0		= word ptr  4
-@@y		= word ptr  6
-@@x		= word ptr  8
-
-		enter	6, 0
-		push	si
-		xor	si, si
-		mov	[bp+@@g_str], 2
-		mov	ax, [bp+arg_0]
-		mov	bx, 100
-		xor	dx, dx
-		div	bx
-		mov	[bp+var_6], ax
-		mov	ax, [bp+arg_0]
-		xor	dx, dx
-		div	bx
-		mov	[bp+arg_0], dx
-		cmp	_graph_3_digit_put_as_fixed_2_dig, 0
-		jnz	short loc_C625
-		or	si, [bp+var_6]
-		or	si, si
-		jz	short loc_C621
-		mov	al, byte ptr [bp+var_6]
-		add	al, gb_0_
-		mov	[bp+@@g_str], al
-		jmp	short loc_C625
-; ---------------------------------------------------------------------------
-
-loc_C621:
-		mov	[bp+@@g_str], 2
-
-loc_C625:
-		mov	ax, [bp+arg_0]
-		mov	bx, 10
-		xor	dx, dx
-		div	bx
-		mov	[bp+var_6], ax
-		mov	ax, [bp+arg_0]
-		xor	dx, dx
-		div	bx
-		mov	[bp+arg_0], dx
-		or	si, [bp+var_6]
-		mov	al, _graph_3_digit_put_as_fixed_2_dig
-		mov	ah, 0
-		or	si, ax
-		or	si, si
-		jz	short loc_C654
-		mov	al, byte ptr [bp+var_6]
-		add	al, gb_0_
-		mov	[bp+@@g_str+1], al
-		jmp	short loc_C658
-; ---------------------------------------------------------------------------
-
-loc_C654:
-		mov	[bp+@@g_str+1], g_EMPTY
-
-loc_C658:
-		mov	al, byte ptr [bp+arg_0]
-		add	al, gb_0_
-		mov	[bp+@@g_str+2], al
-		mov	[bp+@@g_str+3], 0
-		push	[bp+@@x]
-		push	[bp+@@y]
-		push	GAIJI_W
-		push	ss
-		lea	ax, [bp+@@g_str]
-		push	ax
-		push	col_116E4
-		call	graph_gaiji_puts
-		pop	si
-		leave
-		retn	6
-@graph_3_digit_put$qiiu	endp
+; graph_3_digit_put() now lives in th04/end/verdict_digits.cpp, the last
+; #include of th05/regist.cpp -- the object that already contributed to this
+; segment immediately AHEAD of this block, so the lifted body lands at its
+; original address by growing that object's tail into the hole
+; (kb/codegen/0098 + 0114). It was the FIRST proc of this contribution;
+; nothing else moved, no carve, no new segment, no group-list edit and no
+; Tupfile.lua line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`, so the state the
+; rest of this contribution is assembled under is unchanged.
+;
+; Nothing may be added above this line.
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -409,7 +342,7 @@ loc_C7B6:
 		xor	edx, edx
 		div	ebx
 		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiu pascal, si, di, ax
+		call	@graph_3_digit_put$qiiui pascal, si, di, ax
 		mov	ebx, 10000
 		mov	eax, [bp+@@fraction]
 		xor	edx, edx
@@ -422,7 +355,7 @@ loc_C7B6:
 		mov	[bp+@@digits], ax
 		mov	_graph_3_digit_put_as_fixed_2_dig, 1
 		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiu pascal, ax, di, [bp+@@digits]
+		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
 		mov	_graph_3_digit_put_as_fixed_2_dig, 0
 		lea	ax, [si+48]
 		call	graph_putsa_fx pascal, ax, di, col_116E4, ds, offset aBd
@@ -456,7 +389,7 @@ public @GRAPH_FRACTION_OF_MILLION_PUT$QIIUL
 		xor	edx, edx
 		div	ebx
 		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiu pascal, si, di, ax
+		call	@graph_3_digit_put$qiiui pascal, si, di, ax
 		mov	ebx, 10000
 		mov	eax, [bp+@@val]
 		xor	edx, edx
@@ -469,7 +402,7 @@ public @GRAPH_FRACTION_OF_MILLION_PUT$QIIUL
 		mov	[bp+@@digits], ax
 		mov	_graph_3_digit_put_as_fixed_2_dig, 1
 		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiu pascal, ax, di, [bp+@@digits]
+		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
 		mov	_graph_3_digit_put_as_fixed_2_dig, 0
 		lea	ax, [si+48]
 		call	graph_putsa_fx pascal, ax, di, col_116E4, ds, offset aBd_0
@@ -872,7 +805,7 @@ loc_CBE3:
 		mov	al, es:[bx+resident_t.miss_count]
 		mov	ah, 0
 		push	ax	; num
-		call	@graph_3_digit_put$qiiu
+		call	@graph_3_digit_put$qiiui
 		mov	ax, x_116E2
 		add	ax, 224
 		push	ax	; left
@@ -883,7 +816,7 @@ loc_CBE3:
 		mov	al, es:[bx+resident_t.bombs_used]
 		mov	ah, 0
 		push	ax	; num
-		call	@graph_3_digit_put$qiiu
+		call	@graph_3_digit_put$qiiui
 		mov	ax, x_116E2
 		add	ax, 272
 		push	ax
@@ -4117,6 +4050,11 @@ _SLOW_MODE_MSG	db 'スローモードでのプレイでは、スコアは記録されません',0
 _BGM_NAME_FN	db 'name',0
 		db 0
 x_116E2	dw 336
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_digits.cpp can read
+; this. `label` emits nothing, so every following offset is unchanged, and
+; this block's own thirty-odd references keep the original spelling.
+public _verdict_col
+_verdict_col	label word
 col_116E4	dw 2
 word_116E6	dw 6
 y_116E8	dw 48
