@@ -467,11 +467,20 @@ loc_C108:
 		retn
 bgm_show	endp
 
-EGC_START_COPY_DEF 1, near
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
+		assume cs:main_01
+		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
+
+; egc_start_copy_1() was the last thing main_01___TEXT emitted, which left
+; every proc above it unliftable: the tail of a root contribution has to be a
+; proc before a C++ object can take it. DEMO_TEXT begins exactly where
+; main_01___TEXT ended and is in the same group, so moving the macro across
+; that boundary moves only the boundary - every byte, and the main_01 group
+; base every near reference resolves against, stays where it was.
+EGC_START_COPY_DEF 1, near
+
 	extern @demo_load$qv:proc
 DEMO_TEXT	ends
 
