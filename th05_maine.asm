@@ -100,6 +100,8 @@ SCORE_TEXT segment byte public 'CODE' use16
 	@glyphballs_rush_and_wait$qv procdesc near
 	@GRAPH_3_DIGIT_PUT$QIIUI procdesc pascal near \
 		left:word, top:word, num:word
+	GRAPH_SCORE_AND_TEN_PUT procdesc pascal near \
+		left:word, top:word, score:dword
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -174,97 +176,18 @@ glyphball_t ends
 ; Nothing may be added above this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C67F	proc near
-
-@@g_str		= byte ptr -0Ch
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-arg_0		= dword	ptr  4
-@@y		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		enter	0Ch, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_6]
-		les	bx, [bp+arg_0]
-		cmp	byte ptr es:[bx+7], 0Ah
-		jb	short loc_C6AC
-		mov	al, es:[bx+7]
-		mov	ah, 0
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		add	al, gb_0_
-		mov	[bp+@@g_str], al
-		mov	[bp+var_2], 1
-		jmp	short loc_C6B4
-; ---------------------------------------------------------------------------
-
-loc_C6AC:
-		mov	[bp+@@g_str], g_EMPTY
-		mov	[bp+var_2], 0
-
-loc_C6B4:
-		mov	si, 1
-		jmp	short loc_C6F1
-; ---------------------------------------------------------------------------
-
-loc_C6B9:
-		mov	ax, 8
-		sub	ax, si
-		les	bx, [bp+arg_0]
-		add	bx, ax
-		mov	al, es:[bx]
-		mov	ah, 0
-		mov	bx, 10
-		cwd
-		idiv	bx
-		mov	[bp+var_1], dl
-		mov	al, [bp+var_1]
-		or	[bp+var_2], al
-		cmp	[bp+var_2], 0
-		jnz	short loc_C6E2
-		cmp	si, 8
-		jnz	short loc_C6EC
-
-loc_C6E2:
-		mov	al, [bp+var_1]
-		add	al, gb_0_
-		mov	[bp+si+@@g_str], al
-		jmp	short loc_C6F0
-; ---------------------------------------------------------------------------
-
-loc_C6EC:
-		mov	[bp+si+@@g_str], g_EMPTY
-
-loc_C6F0:
-		inc	si
-
-loc_C6F1:
-		cmp	si, 8
-		jle	short loc_C6B9
-		mov	[bp+@@g_str+9], 0
-		push	di
-		push	[bp+@@y]
-		push	GAIJI_W
-		push	ss
-		lea	ax, [bp+@@g_str]
-		push	ax
-		push	col_116E4
-		call	graph_gaiji_puts
-		lea	ax, [di+144]
-		call	graph_putsa_fx pascal, ax, [bp+@@y], col_116E4, ds, offset aU__0
-		pop	di
-		pop	si
-		leave
-		retn	8
-sub_C67F	endp
+; This block's second proc -- the nine-digit LEBCD score renderer that
+; appends the Shift-JIS points label -- now lives in
+; th04/end/verdict_digits.cpp as
+; graph_score_and_ten_put(), immediately after graph_3_digit_put() and
+; therefore immediately after the previous head lift. th05/regist.cpp
+; contributes to this segment right before this block, so it lands at its
+; original address by growing that object's tail (kb/codegen/0098 + 0114).
+; No carve, no new segment, no group-list edit, no Tupfile.lua line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added above this line.
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -794,7 +717,7 @@ loc_CBE3:
 		add	ax, 20h	; ' '
 		push	word ptr _resident+2
 		push	ax
-		call	sub_C67F
+		call	GRAPH_SCORE_AND_TEN_PUT
 		mov	ax, x_116E2
 		add	ax, 224
 		push	ax	; left
@@ -1430,7 +1353,7 @@ loc_D2E0:
 		add	dx, 4Ch	; 'L'
 		push	word ptr _resident+2
 		push	dx
-		call	sub_C67F
+		call	GRAPH_SCORE_AND_TEN_PUT
 		inc	si
 		add	di, 20h	; ' '
 
@@ -1445,7 +1368,7 @@ loc_D2FE:
 		add	ax, 20h	; ' '
 		push	word ptr _resident+2
 		push	ax
-		call	sub_C67F
+		call	GRAPH_SCORE_AND_TEN_PUT
 		pop	di
 		pop	si
 		leave
@@ -4059,6 +3982,8 @@ col_116E4	dw 2
 word_116E6	dw 6
 y_116E8	dw 48
 include th04/gaiji/verdict[data].asm
+public _POINT_MSG
+_POINT_MSG	label byte
 aU__0		db 'ì_',0
 aBd		db 'ÅD',0
 aBu		db 'Åì',0

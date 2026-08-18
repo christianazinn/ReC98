@@ -88,3 +88,60 @@ void pascal near graph_3_digit_put(
 	g_str[3] = g_NULL;
 	graph_gaiji_puts(left, top, GAIJI_W, g_str, VERDICT_COL);
 }
+
+#if (GAME == 5)
+/// `[measured]` The 点 label this function appends stays a `_DATA` byte of the
+/// root dump, published there as `_POINT_MSG` (kb/codegen/0123). It has to:
+/// the dump holds a SECOND, byte-identical copy of the same Shift-JIS string
+/// twenty lines further down, and the build's `-d` would merge a C++ literal
+/// pair into one and shift every following byte of that contribution.
+extern "C" const shiftjis_t POINT_MSG[];
+
+/// Renders a raw (i.e. NOT gaiji-offsetted) LEBCD score as nine right-aligned
+/// boldface gaiji digits with leading zeroes blanked, followed by 「点」 at a
+/// fixed 144-pixel offset. The ninth digit is the tens place of the topmost
+/// byte, which is what gives the score its 959,999,999 ceiling — the same
+/// packing th04/hiscore/regist_view.cpp's score_put() renders out of the
+/// persisted table, except that this one's digits carry no [gb_0] offset and
+/// therefore none of that function's inherited sign-promotion trap.
+///
+/// TH04 has the same renderer at `0A05:0DBC` + 0x69 (`sub_B81D`), but with no
+/// parameters at all: it hardcodes `resident->score_last` and (160, 96). One
+/// shared body is plausible and untested; the two must be compared with
+/// state/notes/th0405-maine-regist-menu.md's instruction-shape instrument, not
+/// with raw bytes, which put them at an inconclusive 6.7%.
+extern "C" void pascal near graph_score_and_ten_put(
+	screen_x_t left, vram_y_t top, const score_lebcd_t far *score
+)
+{
+	unsigned char digit;
+	unsigned char digit_seen;
+	char g_str[SCORE_DIGITS + 2];
+	register int i;
+
+	if(score->digits[SCORE_DIGITS - 1] >= 10) {
+		digit = (score->digits[SCORE_DIGITS - 1] / 10);
+		g_str[0] = static_cast<char>(digit + gb_0);
+		digit_seen = true;
+	} else {
+		g_str[0] = g_EMPTY;
+		digit_seen = false;
+	}
+
+	for(i = 1; i <= SCORE_DIGITS; i++) {
+		digit = (score->digits[SCORE_DIGITS - i] % 10);
+		digit_seen |= digit;
+
+		// The last digit is always shown, even for a score of 0.
+		if(digit_seen || (i == SCORE_DIGITS)) {
+			g_str[i] = static_cast<char>(digit + gb_0);
+		} else {
+			g_str[i] = g_EMPTY;
+		}
+	}
+
+	g_str[SCORE_DIGITS + 1] = g_NULL;
+	graph_gaiji_puts(left, top, GAIJI_W, g_str, VERDICT_COL);
+	graph_putsa_fx((left + 144), top, VERDICT_COL, POINT_MSG);
+}
+#endif
