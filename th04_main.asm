@@ -7090,8 +7090,11 @@ loc_1245C:
 
 ; Attributes: bp-based frame
 
-public _sub_12461
-_sub_12461 label near
+; The alias carries the NAME; the dump's own references keep the bare
+; label. kb/codegen/0123: making a private label linkable and choosing
+; what to call it are two separate decisions.
+public _yuuka6_bg_update_and_render
+_yuuka6_bg_update_and_render label near
 sub_12461	proc near
 
 var_9		= byte ptr -9
@@ -27878,10 +27881,10 @@ include th04/main/player/shots[bss].asm
 public _resident
 _resident	dd ?
 include th04/main/boss/bg[bss].asm
-public _byte_2CDD0, _byte_2CDD1
-_byte_2CDD0 label byte
+public _yuuka6_bg_state, _yuuka6_bg_state_frame
+_yuuka6_bg_state label byte
 byte_2CDD0	db ?
-_byte_2CDD1 label byte
+_yuuka6_bg_state_frame label byte
 byte_2CDD1	db ?
 
 YUUKA6_BG_SHAPE_COUNT = 56
