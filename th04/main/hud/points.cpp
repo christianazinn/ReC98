@@ -19,9 +19,16 @@
 
 // ZUN's object for this code segment also held the remaining-lives and
 // remaining-bombs rows, immediately ahead of this one and in this order, in
-// *both* games (kb/codegen/0129). The `GAME != 5` guard that used to sit here
-// was a lifting-order artifact of TH04 landing first, and is gone now that
-// TH05's copies have left th05_main.asm too.
+// *both* games, and score_reset() ahead of those again (kb/codegen/0129). The
+// `GAME != 5` guard that used to sit around the two HUD rows was a
+// lifting-order artifact of TH04 landing first, and is gone now that TH05's
+// copies have left th05_main.asm too.
+#if (GAME != 5)
+	// TH05's slot here holds score_highest_update_and_reset(), a different
+	// function, and it is still in th05_main.asm. This guard IS a
+	// lifting-order artifact and goes away with that lift.
+	#include "th04/main/score_reset.cpp"
+#endif
 #include "th04/main/hud/lives.cpp"
 #include "th04/main/hud/bombs.cpp"
 
