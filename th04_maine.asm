@@ -1732,96 +1732,26 @@ SCORE_TEXT segment byte public 'CODE' use16
 ; C++ literal pair into one.
 ; Nothing may be added above this line.
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-_egc_start_copy_inlined	proc near
-		push	bp
-		mov	bp, sp
-		EGC_START_COPY_INLINED
-		pop	bp
-		retn
-_egc_start_copy_inlined	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public EGC_COPY_RECT_1_TO_0_16_NEAR
-egc_copy_rect_1_to_0_16_near	proc near
-
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		enter	8, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_2]
-		call	_egc_start_copy_inlined
-		mov	ax, [bp+arg_6]
-		sar	ax, 3
-		mov	dx, [bp+arg_4]
-		shl	dx, 6
-		add	ax, dx
-		mov	dx, [bp+arg_4]
-		shl	dx, 4
-		add	ax, dx
-		mov	[bp+var_6], ax
-		mov	bx, 16
-		mov	ax, di
-		cwd
-		idiv	bx
-		mov	di, ax
-		mov	[bp+var_4], 0
-		jmp	short loc_CC66
-; ---------------------------------------------------------------------------
-
-loc_CC29:
-		mov	[bp+var_2], 0
-		mov	si, [bp+var_6]
-		jmp	short loc_CC5A
-; ---------------------------------------------------------------------------
-
-loc_CC33:
-		graph_accesspage 1
-		les	bx, _VRAM_PLANE_B
-		add	bx, si
-		mov	ax, es:[bx]
-		mov	[bp+var_8], ax
-		mov	al, 0
-		out	dx, al
-		mov	bx, word ptr _VRAM_PLANE_B
-		add	bx, si
-		mov	ax, [bp+var_8]
-		mov	es:[bx], ax
-		inc	[bp+var_2]
-		add	si, 2
-
-loc_CC5A:
-		cmp	[bp+var_2], di
-		jl	short loc_CC33
-		inc	[bp+var_4]
-		add	[bp+var_6], 50h	; 'P'
-
-loc_CC66:
-		mov	ax, [bp+var_4]
-		cmp	ax, [bp+arg_0]
-		jl	short loc_CC29
-		call	egc_off
-		pop	di
-		pop	si
-		leave
-		retn	8
-egc_copy_rect_1_to_0_16_near	endp
-		db    0
+; egc_copy_rect_1_to_0_16_near() -- the `near` page 1 -> page 0 EGC
+; rectangle copy that regist_menu() unblits through -- now lives in
+; th04/hiscore/regist_unblit.cpp, together with the static egc_start_copy()
+; helper it calls, which is th01/hardware/egc.inc's EGC_START_COPY_INLINED
+; spelled in C++ (kb/codegen/0051 for the six 16-bit register writes,
+; kb/codegen/0088 for the five immediate-form byte writes).
+; th04/hiscore/end.cpp includes that file immediately after regist_menu.cpp,
+; i.e. at the very end of th04/hi_end.cpp's SCORE_TEXT contribution -- the
+; object that already sat immediately before this one -- so both bodies land
+; at their original addresses by growing that contribution's tail
+; (kb/codegen/0098 + 0114). No carve, no new segment, no group-list edit and
+; no Tupfile.lua line.
+;
+; kb/codegen/0121: neither deleted body contained an `assume`, so the state
+; this contribution is assembled under is unchanged and there is nothing to
+; restore.
+;
+; THIS DUMP'S CONTRIBUTION TO SCORE_TEXT IS NOW EMPTY. Everything left in
+; the block above is procdescs and externs, which emit nothing. Nothing may
+; be added to it.
 
 SCORE_TEXT	ends
 

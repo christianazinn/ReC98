@@ -32,4 +32,10 @@ extern playchar_t playchar;
 // code that it calls, so that game includes the same file from there instead.
 #if (GAME != 5)
 #include "th04/hiscore/regist_menu.cpp"
+
+// …and, after it, the `near` EGC rectangle copy that regist_menu() unblits
+// through. It was the last proc of the root dump's block, so this include
+// empties th04_maine.asm's SCORE_TEXT contribution entirely. TH05 has no
+// counterpart — it unblits through bgimage_put_rect_16().
+#include "th04/hiscore/regist_unblit.cpp"
 #endif
