@@ -6646,6 +6646,12 @@ sub_12024	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+; th04/main/boss/bg.cpp's yuuka6_bg_render() is the first C++ caller of
+; this proc, and a bare dump label is private to its object, so it needs
+; the same zero-byte alias its neighbour playfield_fillm_0_40_384_274
+; already carries (kb/codegen 0123).
+public _playfield_fill
+_playfield_fill label near
 playfield_fill	proc near
 		push	di
 		GRCG_FILL_PLAYFIELD_ROWS	0, PLAYFIELD_H
@@ -7084,6 +7090,11 @@ loc_1245C:
 
 ; Attributes: bp-based frame
 
+; The alias carries the NAME; the dump's own references keep the bare
+; label. kb/codegen/0123: making a private label linkable and choosing
+; what to call it are two separate decisions.
+public _yuuka6_bg_update_and_render
+_yuuka6_bg_update_and_render label near
 sub_12461	proc near
 
 var_9		= byte ptr -9
@@ -7604,101 +7615,12 @@ table_1289F	dw loc_12484
 		dw loc_12492
 		dw loc_12484
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@yuuka6_bg_render$qv	proc near
-
-@@entrance_cel		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		call	@grcg_setmode_tdw$qv
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_12921
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:playfield_fill
-		GRCG_OFF_CLOBBERING dx
-		cmp	_boss_phase_frame, 2
-		jnz	loc_12975
-		mov	si, offset _bg_shapes
-		xor	di, di
-		jmp	short loc_12904
-; ---------------------------------------------------------------------------
-
-loc_128E7:
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	[si+yuuka6_bg_shape_t.B6B_pos.x], ax
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_H shl 4)
-		mov	[si+yuuka6_bg_shape_t.B6B_pos.y], ax
-		mov	[si+yuuka6_bg_shape_t.B6B_angle], 60h
-		mov	[si+yuuka6_bg_shape_t.B6B_speed], (1 shl 4)
-		inc	di
-		add	si, size yuuka6_bg_shape_t
-
-loc_12904:
-		cmp	di, YUUKA6_BG_SHAPE_COUNT
-		jl	short loc_128E7
-		mov	_bg_shape_flyout_speed, (1 shl 4)
-		mov	_bg_shape_patnum, 120
-		mov	byte_2CDD0, 0
-		mov	byte_2CDD1, 0
-		jmp	short loc_12975
-; ---------------------------------------------------------------------------
-
-loc_12921:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_12958
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+@@entrance_cel], al
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		cmp	[bp+@@entrance_cel], 8
-		jnb	short loc_12944
-		call	main_01:playfield_fill
-		jmp	short loc_12947
-; ---------------------------------------------------------------------------
-
-loc_12944:
-		call	@playfield_checkerboard_grcg_tdw_$qv
-
-loc_12947:
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	al, [bp+@@entrance_cel]
-		mov	ah, 0
-		call	@tiles_bb_put_raw$qi pascal, ax
-		jmp	short loc_12975
-; ---------------------------------------------------------------------------
-
-loc_12958:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_12964
-		call	@playfield_checkerboard_grcg_tdw_$qv
-		jmp	short loc_12972
-; ---------------------------------------------------------------------------
-
-loc_12964:
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:playfield_fill
-		GRCG_OFF_CLOBBERING dx
-
-loc_12972:
-		call	main_01:sub_12461
-
-loc_12975:
-		pop	di
-		pop	si
-		leave
-		retn
-@yuuka6_bg_render$qv	endp
+	; yuuka6_bg_render() now lives in th04/main/boss/bg.cpp, ahead of
+	; mugetsu_gengetsu_bg_render() and therefore in its original address
+	; order. Same shape as the lift below it: the object th04/boss_bg.cpp
+	; compiles into THIS segment, so a second tail costs nothing at all --
+	; not even a Tupfile.lua line, because the first one already paid it.
+	@YUUKA6_BG_RENDER$QV procdesc pascal near
 
 	; mugetsu_gengetsu_bg_render() now lives in th04/main/boss/bg.cpp, which
 	; th04/boss_bg.cpp compiles into THIS segment: the wrapper leaves the
@@ -27959,7 +27881,10 @@ include th04/main/player/shots[bss].asm
 public _resident
 _resident	dd ?
 include th04/main/boss/bg[bss].asm
+public _yuuka6_bg_state, _yuuka6_bg_state_frame
+_yuuka6_bg_state label byte
 byte_2CDD0	db ?
+_yuuka6_bg_state_frame label byte
 byte_2CDD1	db ?
 
 YUUKA6_BG_SHAPE_COUNT = 56

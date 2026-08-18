@@ -2,10 +2,12 @@
 /// -------------------------------------------
 /// ZUN's object for this code segment held every one of TH04's boss
 /// background renderers, in stage order, plus the two Stage 6 background
-/// shape helpers wedged in between (kb/codegen/0112). Only the LAST of them,
-/// the one shared by both Extra Stage bosses, is C++ so far; everything above
-/// it is still th04_main.asm's `BOSS_BG_TEXT` contribution, which this object
-/// is appended to. Later lifts extend this file upwards, one tail at a time.
+/// shape helpers wedged in between (kb/codegen/0112). The last TWO of them are
+/// C++ so far — Yuuka's Phase 6 background and the one shared by both Extra
+/// Stage bosses; everything above them is still th04_main.asm's
+/// `BOSS_BG_TEXT` contribution, which this object is appended to. Later lifts
+/// extend this file upwards, one tail at a time, and cost nothing at all now
+/// that the object exists.
 ///
 /// TH05's counterpart is th05/main/boss/render.cpp, which holds that game's
 /// five macro-shaped renderers and its two hand-rolled ones.
@@ -16,15 +18,132 @@
 #include "th03/formats/cdg.h"
 #include "th04/hardware/grcg.hpp"
 #include "th04/formats/bb.h"
+#include "th04/math/randring.hpp"
+#include "th04/main/checkerb.hpp"
 #include "th04/main/null.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/boss/bosses.hpp"
 #include "th04/main/boss/backdrop.hpp"
 #include "th04/main/boss/impl.hpp"
+#include "th04/main/boss/b6.cpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/main/tile/bb.hpp"
 #include "th04/sprites/main_cdg.h"
+
+/// Still ASM
+/// ---------
+// Fills the entire playfield with the current GRCG tile register, assuming
+// TDW mode. th04_main.asm's main_013_TEXT, a GRCG_FILL_PLAYFIELD_ROWS pair
+// with an ES:DI __usercall callee — the same hand-written shape as its
+// neighbor playfield_fillm_0_40_384_274() (th04/main/player/bombchar.cpp).
+// Unlike TH05's boss_bg_fill_col_0(), it neither enables nor disables the
+// GRCG; both are the caller's job.
+extern "C" void near playfield_fill(void);
+
+// Yuuka's Phase 6 background, and the only thing that draws it during the
+// fight: an 18-state machine that ramps palette color 0, re-seeds and re-aims
+// all [bg_shapes] and swaps [bg_shape_clip] on every state change, then
+// advances each shape and blits it as a 16×16 mono sprite. Still
+// th04_main.asm's sub_12461.
+//
+// [inferred] name: it advances this subsystem's state for the frame and then
+// draws it, which is what the tree's other `_update_and_render` symbols mean,
+// and every global it touches is already `bg_shape_*`. A naming round is owed
+// for all three names in this block; the evidence is in
+// state/notes/_yuuka6_bg_render_qv.md.
+extern "C" void near yuuka6_bg_update_and_render(void);
+
+// That state machine's two variables, reset here and written nowhere else
+// outside it. [yuuka6_bg_state] is the state index, 0…0x11, and bounds two
+// `cs:` jump tables (`ja` at 0x0C, `jb` at 0x11); [yuuka6_bg_state_frame] is
+// its per-state frame counter, which doubles as the fade ramp — below 0x80 it
+// is used directly, at or above it as `255 - it`, giving a triangle wave.
+// Both are th04_main.asm `.data?` labels with no `public` of ZUN's, so they
+// needed a zero-byte `label` alias to become linkable (kb/codegen/0123).
+extern "C" unsigned char yuuka6_bg_state;
+extern "C" unsigned char yuuka6_bg_state_frame;
+/// ---------
+
+// Same value as TH05's ENTRANCE_BB_FRAMES_PER_CEL
+// (th05/main/boss/bosses.hpp), which TH04 has no header constant for because
+// these are the only TH04 functions that have needed it so far.
+static const int ENTRANCE_BB_FRAMES_PER_CEL = 4;
+
+/// Stage 6 — Yuuka
+/// ---------------
+// Nothing in Phase 6's background is made of tiles or of a backdrop image, so
+// this one shares none of the impl.hpp macros' body — only their phase chain.
+// Three structural differences are worth naming, because each is why a macro
+// could not have been used:
+//
+// 1) grcg_setmode_tdw() is hoisted ABOVE the phase test and runs once for
+//    every arm. The macros only ever set TDW inside their entrance branch.
+// 2) There are FOUR arms, not five: the `>= PHASE_EXPLODE_BIG` arm covers
+//    both PHASE_EXPLODE_BIG and PHASE_NONE, and there is no
+//    tiles_render_after_custom() at all.
+// 3) The last two arms share a trailing yuuka6_bg_update_and_render() call,
+//    and the HP-fill arm carries the one-shot shape re-seed. Neither has a
+//    macro slot.
+void pascal near yuuka6_bg_render(void)
+{
+	grcg_setmode_tdw();
+	if(boss.phase == PHASE_HP_FILL) {
+		grcg_setcolor_direct(1);
+		playfield_fill();
+		grcg_off();
+
+		// Frame 2 rather than frame 0: boss_reset() runs on frame 0, and the
+		// HP fill is the only phase long enough for a one-shot to be safe
+		// here. [inferred] — the binary only shows the comparison.
+		if(boss.phase_frame == 2) {
+			bg_shape_t near *shape = bg_shapes;
+			int i;
+
+			// kb/codegen/0003's near-pointer iterator, with one addition: the
+			// two increments are emitted in SOURCE order, so `shape++` has to
+			// stay in the for-increment expression after `i++`. Written as a
+			// trailing statement in the body instead, it becomes `ADD SI, 6` /
+			// `INC DI` — the same two instructions, swapped, and the only
+			// thing that separated a 2/70 diff from IDENTICAL.
+			for(i = 0; i < BG_SHAPE_COUNT; i++, shape++) {
+				shape->pos.x.v = randring1_next16_mod(TO_SP(PLAYFIELD_W));
+				shape->pos.y.v = randring1_next16_mod(TO_SP(PLAYFIELD_H));
+				shape->angle = 0x60;
+				shape->speed.v = TO_SP(1);
+			}
+			bg_shape_flyout_speed.v = TO_SP(1);
+
+			// Not one of the PAT_* constants: 120 is below PAT_STAGE, in the
+			// range th04/sprites/main_pat.h leaves unnamed.
+			bg_shape_patnum = static_cast<main_patnum_t>(120);
+
+			yuuka6_bg_state = 0;
+			yuuka6_bg_state_frame = 0;
+		}
+	} else if(boss.phase == PHASE_BOSS_ENTRANCE_BB) {
+		unsigned char entrance_cel = (
+			boss.phase_frame / ENTRANCE_BB_FRAMES_PER_CEL
+		);
+		grcg_setcolor_direct(1);
+		if(entrance_cel < (TILES_BB_CELS / 2)) {
+			playfield_fill();
+		} else {
+			playfield_checkerboard_grcg_tdw_update_and_render();
+		}
+		tiles_bb_put(bb_boss_seg, entrance_cel);
+	} else {
+		if(boss.phase < PHASE_EXPLODE_BIG) {
+			playfield_checkerboard_grcg_tdw_update_and_render();
+		} else {
+			grcg_setcolor_direct(1);
+			playfield_fill();
+			grcg_off();
+		}
+		yuuka6_bg_update_and_render();
+	}
+}
+/// ---------------
 
 /// Extra Stage backdrop
 /// --------------------
@@ -33,11 +152,6 @@
 // Gengetsu transition. Position of ST06BK.CDG within the playfield.
 static const screen_x_t MUGETSU_GENGETSU_BACKDROP_LEFT = 32;
 static const vram_y_t MUGETSU_GENGETSU_BACKDROP_TOP = 16;
-
-// Same value as TH05's ENTRANCE_BB_FRAMES_PER_CEL
-// (th05/main/boss/bosses.hpp), which TH04 has no header constant for because
-// this is the only TH04 function that has needed it so far.
-static const int ENTRANCE_BB_FRAMES_PER_CEL = 4;
 /// --------------------
 
 // This is boss_bg_render_entrance_bb_opaque_and_backdrop()
