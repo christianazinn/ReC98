@@ -1014,6 +1014,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/bgimager.asm",
 	"th04/cdg_load.asm",
 	"th04/cutscene.cpp",
+	"th04/staffrol.cpp",
 	"th04/staff.cpp",
 })
 -- ----
