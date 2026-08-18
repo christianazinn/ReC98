@@ -2,10 +2,12 @@
 /// -------------------------------------------
 /// ZUN's object for this code segment held every one of TH04's boss
 /// background renderers, in stage order, plus the two Stage 6 background
-/// shape helpers wedged in between (kb/codegen/0112). Only the LAST of them,
-/// the one shared by both Extra Stage bosses, is C++ so far; everything above
-/// it is still th04_main.asm's `BOSS_BG_TEXT` contribution, which this object
-/// is appended to. Later lifts extend this file upwards, one tail at a time.
+/// shape helpers wedged in between (kb/codegen/0112). The last TWO of them are
+/// C++ so far — Yuuka's Phase 6 background and the one shared by both Extra
+/// Stage bosses; everything above them is still th04_main.asm's
+/// `BOSS_BG_TEXT` contribution, which this object is appended to. Later lifts
+/// extend this file upwards, one tail at a time, and cost nothing at all now
+/// that the object exists.
 ///
 /// TH05's counterpart is th05/main/boss/render.cpp, which holds that game's
 /// five macro-shaped renderers and its two hand-rolled ones.
@@ -39,21 +41,28 @@
 // GRCG; both are the caller's job.
 extern "C" void near playfield_fill(void);
 
-// Yuuka's Phase 6 background: an 18-state machine that ramps palette color 0,
-// re-seeds and re-aims all [bg_shapes] on every state change, then advances
-// and blits each of them. Still th04_main.asm's sub_12461, and the placeholder
-// name is deliberate — yuuka6_bg_render() is its only caller, so nothing about
-// it has been graded, and naming it belongs to the parcel that lifts it.
-extern "C" void near sub_12461(void);
+// Yuuka's Phase 6 background, and the only thing that draws it during the
+// fight: an 18-state machine that ramps palette color 0, re-seeds and re-aims
+// all [bg_shapes] and swaps [bg_shape_clip] on every state change, then
+// advances each shape and blits it as a 16×16 mono sprite. Still
+// th04_main.asm's sub_12461.
+//
+// [inferred] name: it advances this subsystem's state for the frame and then
+// draws it, which is what the tree's other `_update_and_render` symbols mean,
+// and every global it touches is already `bg_shape_*`. A naming round is owed
+// for all three names in this block; the evidence is in
+// state/notes/_yuuka6_bg_render_qv.md.
+extern "C" void near yuuka6_bg_update_and_render(void);
 
-// sub_12461()'s two state variables, reset here. [byte_2CDD0] is the state
-// index (0…0x11, bounding two `cs:` jump tables), [byte_2CDD1] its per-state
-// frame counter, which doubles as a triangle-wave fade ramp. Left under their
-// dump names for the same reason as sub_12461() itself; both needed a
-// zero-byte `label` alias in th04_main.asm to become linkable at all
-// (kb/codegen/0123).
-extern "C" unsigned char byte_2CDD0;
-extern "C" unsigned char byte_2CDD1;
+// That state machine's two variables, reset here and written nowhere else
+// outside it. [yuuka6_bg_state] is the state index, 0…0x11, and bounds two
+// `cs:` jump tables (`ja` at 0x0C, `jb` at 0x11); [yuuka6_bg_state_frame] is
+// its per-state frame counter, which doubles as the fade ramp — below 0x80 it
+// is used directly, at or above it as `255 - it`, giving a triangle wave.
+// Both are th04_main.asm `.data?` labels with no `public` of ZUN's, so they
+// needed a zero-byte `label` alias to become linkable (kb/codegen/0123).
+extern "C" unsigned char yuuka6_bg_state;
+extern "C" unsigned char yuuka6_bg_state_frame;
 /// ---------
 
 // Same value as TH05's ENTRANCE_BB_FRAMES_PER_CEL
@@ -73,8 +82,9 @@ static const int ENTRANCE_BB_FRAMES_PER_CEL = 4;
 // 2) There are FOUR arms, not five: the `>= PHASE_EXPLODE_BIG` arm covers
 //    both PHASE_EXPLODE_BIG and PHASE_NONE, and there is no
 //    tiles_render_after_custom() at all.
-// 3) The last two arms share a trailing sub_12461() call, and the HP-fill arm
-//    carries the one-shot shape re-seed. Neither has a macro slot.
+// 3) The last two arms share a trailing yuuka6_bg_update_and_render() call,
+//    and the HP-fill arm carries the one-shot shape re-seed. Neither has a
+//    macro slot.
 void pascal near yuuka6_bg_render(void)
 {
 	grcg_setmode_tdw();
@@ -108,8 +118,8 @@ void pascal near yuuka6_bg_render(void)
 			// range th04/sprites/main_pat.h leaves unnamed.
 			bg_shape_patnum = static_cast<main_patnum_t>(120);
 
-			byte_2CDD0 = 0;
-			byte_2CDD1 = 0;
+			yuuka6_bg_state = 0;
+			yuuka6_bg_state_frame = 0;
 		}
 	} else if(boss.phase == PHASE_BOSS_ENTRANCE_BB) {
 		unsigned char entrance_cel = (
@@ -130,7 +140,7 @@ void pascal near yuuka6_bg_render(void)
 			playfield_fill();
 			grcg_off();
 		}
-		sub_12461();
+		yuuka6_bg_update_and_render();
 	}
 }
 /// ---------------
