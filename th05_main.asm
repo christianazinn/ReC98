@@ -10679,53 +10679,28 @@ off_1A3D1	dw offset loc_1A089
 		dw offset loc_1A315
 		dw offset loc_1A35E
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public MAI_YUKI_1A3EF
-mai_yuki_1A3EF	proc near
-
-@@se		= word ptr  4
-@@radius_y		= word ptr  6
-@@radius_x		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_shots_hittest_against_boss, 1
-		mov	ax, [bp+@@radius_x]
-		mov	_shot_hitbox_radius.x, ax
-		mov	ax, [bp+@@radius_y]
-		mov	_shot_hitbox_radius.y, ax
-		mov	eax, _yuki_pos.cur
-		mov	_shot_hitbox_center, eax
-		call	@shots_hittest$qv
-		mov	si, ax
-		or	si, si
-		jz	short loc_1A41F
-		call	snd_se_play pascal, [bp+@@se]
-
-loc_1A41F:
-		mov	_shots_hittest_against_boss, 0
-		mov	ax, si
-		pop	si
-		pop	bp
-		retn	6
-mai_yuki_1A3EF	endp
-
-
-	; The combined Mai/Yuki shot hittest now lives in
+	; The combined Mai/Yuki shot hittest and, ahead of it,
+	; yuki_hittest_shots_damage() now both live in
 	; th05/main/boss/b4_both.cpp, ahead of mai_yuki_flystep_random() in
-	; that object -- the original order, and the order this segment needs,
-	; since it was the LAST proc of the root contribution and
+	; that object -- the original order, and the order this segment needs.
+	; Each was in turn the LAST proc of the root contribution, and
 	; th05/boss_4.cpp already owned everything after it (kb/codegen 0114).
 	; No carve, no new segment, no Tupfile.lua line.
 	;
-	; main_035_TEXT calls it, so it keeps a procdesc. The helper above
-	; stays ASM: main_035_TEXT calls that one twice as well, so it is not
-	; a tail and cannot be lifted with it.
+	; This seam is now CLOSED. The item ahead of
+	; yuki_hittest_shots_damage() was off_1A3D1, a jump table, so the root
+	; contribution to B4_UPDATE_TEXT can take no further tail lift.
+	;
+	; main_035_TEXT calls both, so both keep a procdesc. The one for
+	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
+	; argument rather than as two words, because that is how both call
+	; sites spell the packed 32-bit push -- the same shape the sibling
+	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
+	; A procdesc carrying an argument list is also spelled UPPERCASE:
+	; TASM uppercases the symbol on the CALLPROC path such a list selects.
 	@mai_yuki_hittest_shots$qv procdesc near
+	@YUKI_HITTEST_SHOTS_DAMAGE$QIII procdesc pascal near \
+		radius:Point, se_on_hit:word
 
 	@MAI_YUKI_FLYSTEP_RANDOM$QI procdesc pascal near \
 		frame:word
@@ -11580,7 +11555,7 @@ loc_1AC58:
 
 loc_1AC5E:
 		call	@boss_hittest_shots_invincible$qv
-		call	mai_yuki_1A3EF pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
+		call	@yuki_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
 		cmp	_boss_phase_frame, 128
 		jl	loc_1AFA7	; default
 		inc	_boss_phase
@@ -11592,7 +11567,7 @@ loc_1AC5E:
 
 loc_1AC90:
 		call	@boss_hittest_shots_invincible$qv	; jumptable 0001AC18 case 1
-		call	mai_yuki_1A3EF pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
+		call	@yuki_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
 		cmp	_boss_phase_frame, 64
 		jl	loc_1AFA7	; default
 		inc	_boss_phase
