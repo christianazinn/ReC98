@@ -145,3 +145,108 @@ extern "C" void pascal near graph_score_and_ten_put(
 	graph_putsa_fx((left + 144), top, VERDICT_COL, POINT_MSG);
 }
 #endif
+
+/// The verdict's [skill] accumulator, and the two flags that steer it
+/// ------------------------------------------------------------------
+
+/// Published by th04/gaiji/verdict[data].asm and the root dumps' own `.data?`.
+extern "C" uint32_t skill;
+
+/// If `true`, skill_apply_and_graph_percentage() subtracts the calculated
+/// fraction from [skill] rather than adding it.
+extern "C" bool skill_subtract;
+
+#if (GAME == 5)
+/// `[measured]` If `true`, skill_apply_and_graph_percentage() ALSO stashes a
+/// quarter of the calculated fraction in [skill_quarter]. The verdict screen
+/// sets it around exactly one row — the one that scores `std_frames` against
+/// 46,000 (12,800 on the Extra Stage) — and adds [skill_quarter] back into
+/// [skill] *after* dividing [skill] by 12, so that row's percentage ends up
+/// counting three times as much as every other one.
+///
+/// `[measured]` TH04 has the flag at the same structural position in its own
+/// `.data?` and writes it 1/0 around the same row, but **nothing in TH04
+/// MAINE.EXE ever reads it, and TH04 has no [skill_quarter] at all** — the
+/// stash block is the whole of that game's 0x17-byte shortfall against this
+/// function. `[inferred]` Vestigial in TH04, finished in TH05.
+extern "C" bool skill_stash_quarter;
+extern "C" uint32_t skill_quarter;
+#endif
+
+#if (GAME == 5)
+/// `[measured]` Both of these stay `_DATA` bytes of the root dump, published
+/// there by zero-byte aliases, for the same reason POINT_MSG does: the dump
+/// holds a byte-identical SECOND copy of each (which is why the fraction
+/// renderer below uses DOT_MSG_0 while the percentage renderer uses DOT_MSG),
+/// and `-d` would merge a C++ literal pair into one. The `_0` suffix is the
+/// dump's own convention for such a duplicate — see its four identical
+/// `_SCOREDAT_FN*` copies.
+extern "C" const shiftjis_t DOT_MSG[];
+extern "C" const shiftjis_t DOT_MSG_0[];
+extern "C" const shiftjis_t PERCENT_MSG[];
+
+/// Calculates ([share] / [total]), applies the result × 1,000,000 to [skill],
+/// and renders it as a right-aligned 3.2-digit percentage to the given VRAM
+/// position.
+void pascal near skill_apply_and_graph_percentage(
+	screen_x_t left, screen_y_t top, uint16_t total, uint16_t share
+)
+{
+	uint16_t digits;
+	uint32_t fraction;
+
+	// `[measured]` Both of these are if/else, not a ternary: the original
+	// stores into [fraction] inside each arm, where a ternary makes Turbo C++
+	// compute the value in EAX and store once at the merge point. The
+	// [skill] assignment below is the opposite case and IS a ternary.
+	if(total != 0) {
+		fraction = 1000000;
+	} else {
+		fraction = 0;
+	}
+	if(total != share) {
+		if(total != 0) {
+			fraction = (fraction / total);
+		} else {
+			fraction = 0;
+		}
+		fraction = (share * fraction);
+	}
+	skill = (!skill_subtract ? (skill + fraction) : (skill - fraction));
+	if(skill_stash_quarter) {
+		skill_quarter = (fraction >> 2);
+	}
+
+	digits = (fraction / 10000);
+	graph_3_digit_put(left, top, digits);
+	// `[measured]` Compound assignment, not `fraction = (fraction % 10000)`:
+	// the original loads the divisor into EBX BEFORE the dividend into EAX,
+	// which is what `%=` emits and the spelled-out form does not.
+	fraction %= 10000;
+	digits = (fraction / 100);
+	graph_3_digit_put_as_fixed_2_digit = true;
+	graph_3_digit_put((left + 48), top, digits);
+	graph_3_digit_put_as_fixed_2_digit = false;
+	graph_putsa_fx((left + 48), top, VERDICT_COL, DOT_MSG);
+	graph_putsa_fx((left + 96), top, VERDICT_COL, PERCENT_MSG);
+}
+
+/// Calculates ([num] / 1,000,000) and renders the result as a right-aligned
+/// 3.2-digit fraction to the given VRAM position.
+void pascal near graph_fraction_of_million_put(
+	screen_x_t left, screen_y_t top, uint32_t num
+)
+{
+	uint16_t digits;
+
+	digits = (num / 10000);
+	graph_3_digit_put(left, top, digits);
+	// `[measured]` `%=` for the divisor-first load order, as above.
+	num %= 10000;
+	digits = (num / 100);
+	graph_3_digit_put_as_fixed_2_digit = true;
+	graph_3_digit_put((left + 48), top, digits);
+	graph_3_digit_put_as_fixed_2_digit = false;
+	graph_putsa_fx((left + 48), top, VERDICT_COL, DOT_MSG_0);
+}
+#endif
