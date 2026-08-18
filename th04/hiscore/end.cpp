@@ -26,3 +26,10 @@ extern playchar_t playchar;
 // that same root dump block in both games. Same kb/codegen/0098 head lift,
 // one step further down.
 #include "th04/hiscore/regist_view.cpp"
+
+// …and finally regist_menu() itself, which was the last proc of that block.
+// TH05 needs its copy one object later, after th05/regist.cpp's glyph ball
+// code that it calls, so that game includes the same file from there instead.
+#if (GAME != 5)
+#include "th04/hiscore/regist_menu.cpp"
+#endif

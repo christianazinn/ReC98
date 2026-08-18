@@ -459,3 +459,7 @@ void near glyphballs_rush_and_wait(void)
 		regist_frame_and_flip();
 	} while(live != 0);
 }
+
+// The screen that drives all of the above. ONE body for both games; TH04
+// includes the same file from the tail of th04/hiscore/end.cpp.
+#include "th04/hiscore/regist_menu.cpp"
