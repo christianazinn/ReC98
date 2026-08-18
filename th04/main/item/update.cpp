@@ -22,32 +22,84 @@
 #include "th04/math/vector.hpp"
 #include "th02/snd/snd.h"
 #include "libs/master.lib/master.hpp"
+#if (GAME == 5)
+#include "th04/main/hud/hud.hpp"
+#include "th04/main/playperf.hpp"
+#endif
 
-// Still ASM, still unnamed, one pair per game, both sitting directly above
-// this function in their own dump. Reached through a bare `public` line added
-// to the dump: `extern "C"` + `pascal` mangles to the all-uppercase,
-// undecorated name (kb/codegen/0081), and TASM's `/mx` leaves *local* symbols
-// case-insensitive, so `public SUB_16F54` over `sub_16F54 proc near` publishes
-// exactly what TCC asks for and costs zero bytes — kb/codegen/0123's two-line
-// `label` form is only needed when the C++ side is not `pascal`.
-// Naming follows th04/main/execl.cpp:49-57's precedent for this exact case.
-// The roles are [inferred from call sites]. These four placeholder spellings
-// are NOT licensed by a failed search: all four bodies are present in the
-// dumps, directly above this function (`sub_16F54` / `sub_171C8` in
-// `th05_main.asm`, `sub_1DBAE` / `sub_1DDF7` in `th04_main.asm`). They are
-// retained only because naming four ASM bodies across two games is its own
-// parcel, and it belongs to the naming lane rather than to a codegen fix.
+// Still ASM, still unnamed, sitting directly above this function in their own
+// dump. Reached through a bare `public` line added to the dump: `extern "C"` +
+// `pascal` mangles to the all-uppercase, undecorated name (kb/codegen/0081),
+// and TASM's `/mx` leaves *local* symbols case-insensitive, so
+// `public SUB_16F54` over `sub_16F54 proc near` publishes exactly what TCC asks
+// for and costs zero bytes — kb/codegen/0123's two-line `label` form is only
+// needed when the C++ side is not `pascal`.
+// Naming follows th04/main/execl.cpp's precedent for this exact case.
+// The roles are [inferred from call sites]. These placeholder spellings are NOT
+// licensed by a failed search: every one of these bodies is present in the
+// dumps, directly above this function. They are retained only because naming
+// ASM bodies across two games is its own parcel, and it belongs to the naming
+// lane rather than to a codegen fix.
 // Recorded with evidence in `state/notes/items_update.md`.
+//
+// The list started at four and is now three: TH05's off-playfield helper left
+// it to become item_left_playfield() below, lifted out of the dump. Its role
+// was [inferred from call sites] when this list was written, and the body has
+// since confirmed it — the only three item types it reacts to are the three
+// whose loss is a *penalty*. TH04's off-playfield helper is a different
+// function and stays here.
 #if (GAME == 5)
 	extern "C" void pascal near sub_16F54(item_t near *item);
-	extern "C" void pascal near sub_171C8(item_t near *item);
 	#define item_collected(item)		sub_16F54(item)
-	#define item_left_playfield(item)	sub_171C8(item)
 #else
 	extern "C" void pascal near sub_1DBAE(item_t near *item);
 	extern "C" void pascal near sub_1DDF7(item_t near *item);
 	#define item_collected(item)		sub_1DBAE(item)
 	#define item_left_playfield(item)	sub_1DDF7(item)
+#endif
+
+#if (GAME == 5)
+/// The penalty for letting an item fall off the playfield
+/// ------------------------------------------------------
+/// TH05 only. TH04's twin (`sub_1DDF7`) is a *different* function, not a
+/// sibling to share a body with: it switches over all six types through a
+/// jump table and pushes its result through [item_playperf_lower], while this
+/// one tests three types with a compare chain and has no accumulator at all.
+/// Only the two `playperf_lower()` cases survive into TH05, and even they lost
+/// their delayed-accumulation path.
+///
+/// The three types that carry a penalty are exactly the three whose loss costs
+/// the player something concrete. Everything else — power, big power, full
+/// power, and the dream item itself — falls off for free. [inferred from the
+/// body; the switch has no default case]
+///
+/// hud_dream_put() is called on *every* path, including the types that do
+/// nothing, which is how the meter gets its unconditional per-item refresh.
+
+void pascal near item_left_playfield(item_t near *item)
+{
+	switch(item->type) {
+	case IT_POINT:
+		// Asymmetric on purpose, and both halves are load-bearing.
+		// `dream > 1` is `cmp 1` / `JBE`; `dream < BAR_MAX` is `cmp 80h` /
+		// `JNB`, the exact shape kb/codegen/0092 predicts and the one
+		// th04/main/hud/dream.cpp had to spell *around*. Turbo C++ 4.0J takes
+		// each relational operator literally, so neither may be rewritten
+		// into a `<=`/`>=` form.
+		if((dream > 1) && (dream < BAR_MAX)) {
+			dream--;
+		}
+		break;
+	case IT_BOMB:
+		playperf_lower(2);
+		break;
+	case IT_1UP:
+		playperf_lower(4);
+		break;
+	}
+	hud_dream_put();
+}
+/// ------------------------------------------------------
 #endif
 
 // The collection box, relative to the player's center: ITEM_COLLECT_DIST_LEFT
