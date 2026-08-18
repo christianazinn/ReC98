@@ -5920,7 +5920,7 @@ include th04/formats/bb_txt_load.asm
 		mov	ah, 0
 		push	ax
 		call	super_put
-		call	main_01:sub_11647
+		call	main_01:_mugetsu_gengetsu_shield_render
 		jmp	short loc_1163D
 ; ---------------------------------------------------------------------------
 
@@ -5971,49 +5971,15 @@ loc_1163D:
 @mugetsu_fg_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Blits the barrier sprite pair over both Extra Stage bosses for as long as
-; a player bomb keeps them invincible. gengetsu_fg_render()
-; (th04/main/boss/fg.cpp) is C++ and needs a linkable name; the zero-byte
-; `label` alias below provides one without disturbing this contribution
-; (kb/codegen 0123). mugetsu_fg_render() above is still ASM and keeps the
-; dump's spelling.
-public _mugetsu_gengetsu_shield_render
-_mugetsu_gengetsu_shield_render label near
-sub_11647	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	byte_259EF, 0
-		jz	short loc_1168E
-		cmp	byte_259EF, 20h	; ' '
-		jnb	short loc_11661
-		test	byte_259EF, 1
-		jz	short loc_1168E
-
-loc_11661:
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		add	ax, -15
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		call	super_put pascal, si, ax, 136
-		lea	ax, [si+48]
-		call	super_put pascal, ax, di, 137
-
-loc_1168E:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_11647	endp
+	; mugetsu_gengetsu_shield_render() now lives in
+	; th04/main/boss/shield.cpp, which th04/main_01.cpp compiles into THIS
+	; segment. The wrapper leaves the code segment name to Turbo C++'s
+	; basename default (kb/codegen 0105 + 0112), but its Tupfile.lua line is
+	; POSITION-CRITICAL: this segment's other contribution is
+	; th04\scoreupd.asm, so the new object has to be listed BEFORE it or
+	; TLINK puts it at the far end of the segment. Lower case because the
+	; function is `cdecl`, not `pascal`.
+	_mugetsu_gengetsu_shield_render procdesc near
 main_01_TEXT	ends
 
 	HUD_SCORE_PUT procdesc near
@@ -27279,6 +27245,8 @@ fp_259E8	dw ?
 point_259EA	Point <?>
 public _mugetsu_phase2_mode
 _mugetsu_phase2_mode	db ?
+public _mugetsu_gengetsu_shield_frames
+_mugetsu_gengetsu_shield_frames label byte
 byte_259EF	db ?
 byte_259F0	db ?
 byte_259F1	db ?

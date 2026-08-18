@@ -45,22 +45,15 @@
 #include "th04/main/bullet/laser_t.hpp"
 #include "th04/sprites/main_pat.h"
 
-/// Still ASM
-/// ---------
 // Blits the barrier sprite pair over both Extra Stage bosses while a player
-// bomb keeps them invincible. th04_main.asm's sub_11647 in main_01_TEXT,
-// published under this name for its one C++ caller; mugetsu_fg_render() is
-// still ASM and keeps the dump's spelling.
-//
-// [inferred] name: the byte it branches on is set to 32 by both
-// mugetsu_update() and gengetsu_update() on every frame [bombing] is nonzero
-// and decremented from there, and both bosses' hittest functions swap
-// boss_hittest_shots() for the invincibility-sound variant for exactly as
-// long as it stays nonzero. So the sprite pair it draws is the visual for
-// that window. What the sprites themselves depict is not recoverable from the
-// binary; the evidence is in state/notes/_gengetsu_fg_render_qv.md.
+// bomb keeps them invincible. Defined in th04/main/boss/shield.cpp, which is
+// a different code segment (main_01_TEXT) but the same group, so the call
+// stays near. `extern "C"` because the mangled spelling would be 35
+// characters (kb/codegen/0123).
 extern "C" void near mugetsu_gengetsu_shield_render(void);
 
+/// Still ASM
+/// ---------
 // Counts the frames on which Gengetsu took damage, and nothing else — its
 // parity is the only thing ever read out of it, and this function is its only
 // writer. A th04_main.asm `.data?` label with no `public` of ZUN's, so it

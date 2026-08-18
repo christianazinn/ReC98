@@ -933,6 +933,9 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/shot_inv.cpp",
 	"th04/player_m.cpp",
 	"th04/player_p.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/scoreupd.asm, which
+	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
+	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
