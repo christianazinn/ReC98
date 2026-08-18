@@ -28,6 +28,24 @@
 	#include "th04/math/vector.hpp"
 	#include "th04/formats/super.h"
 
+	// And these five exist only for bombupd.cpp, checked the same way: none
+	// of them is in this TU's closure yet, and none of them re-includes any
+	// of its unguarded members. libs/master.lib/pc98_gfx.hpp is the one that
+	// FAILS that check -- it would pull libs/master.lib/func.hpp in a second
+	// time -- so the three master.lib symbols are declared in bombupd.cpp
+	// itself instead.
+	// Macro-only and idempotent (its whole body is guarded by
+	// `#if !defined(MASTER_NEAR) && ...`), so it is safe here even though
+	// pc98_gfx.hpp would also bring it. bombupd.cpp needs MASTER_RET.
+	#include "libs/master.lib/func.hpp"
+	#include "th03/hardware/palette.hpp"
+	#include "th04/snd/snd.h"
+	#include "th04/main/bg.hpp"
+	#include "th04/main/circle.hpp"
+	#include "th04/main/null.hpp"
+	#include "th04/main/item/item.hpp"
+
+	#include "th04/main/player/bombupd.cpp"
 	#include "th04/main/player/bombanim.cpp"
 #endif
 
