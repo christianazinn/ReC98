@@ -38,6 +38,18 @@ extern pixel_length_8_t scroll_lines_pending;
 // file's C++ body; see th04/main/tile/scroll.cpp.
 extern pixel_length_8_t scroll_lines_prev_frame;
 
+// Records this frame's [scroll_line] for the VRAM page about to be drawn,
+// hardware-scrolls the display to the position the previous frame computed,
+// advances [scroll_subpixel_line] by [scroll_speed] and turns every whole
+// pixel it crosses into a [scroll_line] step plus a [scroll_lines_pending] /
+// [scroll_last_delta] pair, then calls tiles_scroll_and_egc_render(). Called
+// once per frame from the stage loop, just before the page flip.
+// TH04's copy is still th04_main.asm's sub_CCD6, in mai_TEXT; the two bodies
+// differ only in TH05's two Stage 6 tests. See th04/main/scroll.cpp.
+#if (GAME == 5)
+void near scroll_update_and_render(void);
+#endif
+
 #pragma codeseg mai_TEXT main_01
 
 // Transforms [y] to its corresponding VRAM line, adding the current

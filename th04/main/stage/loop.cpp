@@ -109,7 +109,6 @@ void pascal near shots_render(void);
 	extern "C" void near sub_1214A(void);
 	extern "C" void near sub_1240B(void);
 	extern "C" void near sub_100C6(void);
-	extern "C" void near sub_10214(void);
 
 	// Set from [resident_t.debug_mode] once, at stage setup time, and never
 	// reset. Gates the Q key toggle below. [static]
@@ -283,7 +282,7 @@ void near stage_loop(void)
 			__emit__(0xEB, 0x00); // JMP SHORT $+2
 		}
 		#if (GAME == 5)
-			sub_10214();
+			scroll_update_and_render();
 		#else
 			sub_CCD6();
 		#endif

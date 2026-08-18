@@ -8,6 +8,17 @@
 
 extern int8_t playfield_shake_redraw_time;
 
+#if (GAME == 5)
+	// ZUN's object for this code segment also held the per-frame scroll
+	// advance, immediately ahead of playfield_shake_update_and_render(): it
+	// was the last proc of th05_main.asm's PLAYFLD_TEXT root contribution and
+	// this object already owned everything after it, so this #include is the
+	// original address order and needs neither a carve nor a Tupfile.lua line
+	// (kb/codegen/0114 + 0129). TH04's copy of the same function lives in
+	// mai_TEXT and is not lifted yet, so TH04 does not compile that file.
+	#include "th04/main/scroll.cpp"
+#endif
+
 inline void shift(
 	egc_shift_func_t *func,
 	vram_y_t top,
