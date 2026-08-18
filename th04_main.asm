@@ -5389,106 +5389,22 @@ loc_100FE:
 bomb_reimu	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_MARISA
-bomb_marisa	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		call	@grcg_setmode_tdw$qv
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:playfield_fillm_0_40_384_274
-		GRCG_OFF_CLOBBERING dx
-		call	cdg_put_noalpha_8 pascal, large (32 shl 16) or 56, 0
-		cmp	_bomb_frame, 80
-		ja	short loc_1015E
-		mov	_circles_color, V_WHITE
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -48
-		imul	ax, 3
-		mov	dx, 196
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		jmp	loc_101F4
-; ---------------------------------------------------------------------------
-
-loc_1015E:
-		cmp	_bomb_frame, 160
-		ja	loc_101F4
-		cmp	_stage_frame_mod4, 0
-		jnz	loc_101F4
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -80
-		shl	ax, 2
-		mov	si, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	dx, 161
-		sub	dx, ax
-		imul	dx, 3
-		add	dx, 28h	; '('
-		mov	[bp-2],	dx
-		cmp	_bomb_frame, 120
-		jnb	short loc_101B6
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -80
-		shl	ax, 3
-		push	ax
-		call	@randring1_next16_mod$qui
-		mov	dl, _bomb_frame
-		mov	dh, 0
-		add	dx, -64
-		shl	dx, 2
-		sub	ax, dx
-		jmp	short loc_101D7
-; ---------------------------------------------------------------------------
-
-loc_101B6:
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	dx, 161
-		sub	dx, ax
-		shl	dx, 3
-		push	dx
-		call	@randring1_next16_mod$qui
-		mov	dl, _bomb_frame
-		mov	dh, 0
-		mov	bx, 161
-		sub	bx, dx
-		shl	bx, 2
-		sub	ax, bx
-
-loc_101D7:
-		add	ax, si
-		mov	si, ax
-		mov	ax, si
-		shl	ax, 4
-		push	ax
-		mov	ax, [bp+var_2]
-		shl	ax, 4
-		push	ax
-		nopcall	@circles_add_growing$qii
-		call	snd_se_play pascal, 9
-
-loc_101F4:
-		call	@grcg_setmode_rmw$qv
-		mov	ah, 8
-		call	@grcg_setcolor_direct_raw$qv
-		call	bomb_stars_update_and_render_for pascal, PLAYCHAR_MARISA
-		GRCG_OFF_CLOBBERING dx
-		pop	si
-		leave
-		retn
-bomb_marisa	endp
+	; bomb_marisa() now lives in th04/main/player/bombchar.cpp, which
+	; th04/main/player/shots_inv.cpp #includes ahead of bombupd.cpp,
+	; bombanim.cpp and its own two functions (kb/codegen/0129), so that
+	; all five land here in their original address order. It was the LAST
+	; proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried
+	; no `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; Declared here because main() still references it, as
+	; `mov _playchar_bomb_func, offset bomb_marisa`. `pascal near` with a
+	; `public`, and that site is unqualified and lowercase, so it needs no
+	; edit at all (kb/codegen/0086 + 0103).
+	BOMB_MARISA procdesc pascal near
 
 
 	; bomb_update_and_render() now lives in
@@ -6749,6 +6665,16 @@ include th04/main/tile/bb_put.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+	; A `near` helper with no `public` of its own, whose only callers are
+	; bomb_reimu() and bomb_marisa() in SHOT_INV_TEXT above. Now that one
+	; of those is C++, it needs to be linkable: the zero-byte `label near`
+	; alias kb/codegen/0123 prescribes costs no bytes and leaves the
+	; dump's own remaining call site on the bare name. The underscore is
+	; the project's default cdecl decoration, which is what the
+	; `extern "C" void near` declaration in
+	; th04/main/player/bombchar.cpp asks the linker for (kb/codegen/0086).
+	public _playfield_fillm_0_40_384_274
+	_playfield_fillm_0_40_384_274 label near
 playfield_fillm_0_40_384_274	proc near
 		push	di
 		GRCG_FILL_PLAYFIELD_ROWS	  0, 40

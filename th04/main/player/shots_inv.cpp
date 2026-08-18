@@ -16,13 +16,14 @@
 #include "th02/main/entity.hpp"
 
 #if (GAME != 5)
-	// ZUN's object for SHOT_INV_TEXT opened with the bomb star animation, so
-	// it has to be emitted from this translation unit and ahead of both
-	// functions below (kb/codegen/0129). These four headers exist only for it
-	// and are the four its closure needs that the three above do not already
-	// bring: verified one-by-one, because 15 of the 30 headers in this TU's
-	// closure have no include guard and a second inclusion of any of them is
-	// a hard error.
+	// ZUN's object for SHOT_INV_TEXT opened with the playchar-specific bomb
+	// animations, then the bomb driver, then the bomb star animation, so all
+	// three have to be emitted from this translation unit and ahead of both
+	// functions below, in that order (kb/codegen/0129). These four headers
+	// exist only for the star animation and are the four its closure needs
+	// that the three above do not already bring: verified one-by-one, because
+	// 15 of the 30 headers in this TU's closure have no include guard and a
+	// second inclusion of any of them is a hard error.
 	#include "th04/main/player/bomb.hpp"
 	#include "th04/playchar.h"
 	#include "th04/math/vector.hpp"
@@ -45,6 +46,19 @@
 	#include "th04/main/null.hpp"
 	#include "th04/main/item/item.hpp"
 
+	// And these five exist only for bombchar.cpp, checked the same way. None
+	// of them is in this TU's closure yet, and the only unguarded ones —
+	// th02/v_colors.hpp, th04/hardware/grcg.hpp and th04/main/frames.h — are
+	// each pulled in exactly once from here. th04/hardware/grcg.hpp brings
+	// nothing but pc98.h and x86real.h, both of which are guarded and
+	// already present.
+	#include "th02/v_colors.hpp"
+	#include "th04/hardware/grcg.hpp"
+	#include "th04/main/frames.h"
+	#include "th03/formats/cdg.h"
+	#include "th04/sprites/main_cdg.h"
+
+	#include "th04/main/player/bombchar.cpp"
 	#include "th04/main/player/bombupd.cpp"
 	#include "th04/main/player/bombanim.cpp"
 #endif
