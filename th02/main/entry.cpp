@@ -46,8 +46,8 @@ extern "C" bool16 (far *stage_loop_func)(void);
 
 // The post-stage continue prompt. Returns whether the player asked to
 // continue; ZUN tests the result with `or ax, ax`, hence [bool16] rather than
-// [bool] (kb/codegen/0090). Still ASM in th02_main.asm.
-extern "C" bool16 near sub_C31F(void);
+// [bool] (kb/codegen/0090). th02/main/continue.cpp.
+bool16 near continue_prompt(void);
 
 // Set by stage_init(); still owned by the dump's data segment.
 extern "C" uint8_t stage1_gaiji_halflen;
@@ -143,7 +143,7 @@ frame:
 	}
 
 	if(!resident->demo_num) {
-		if(sub_C31F()) {
+		if(continue_prompt()) {
 			continue_resume();
 			goto frame;
 		}
