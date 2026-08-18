@@ -458,6 +458,10 @@ sub_CA02	endp
 
 ; Attributes: bp-based frame
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
+; this. `label` emits nothing, so every following offset is unchanged.
+public _verdict_stats_put
+_verdict_stats_put label near
 sub_CA9B	proc near
 
 var_4		= dword	ptr -4
@@ -1080,6 +1084,10 @@ off_D165	dw offset loc_CE08
 
 ; Attributes: bp-based frame
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
+; this. `label` emits nothing, so every following offset is unchanged.
+public _verdict_comment_put
+_verdict_comment_put label near
 sub_D16F	proc near
 		push	bp
 		mov	bp, sp
@@ -1112,34 +1120,17 @@ loc_D1AF:
 sub_D16F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @verdict_animate$qv
-@verdict_animate$qv proc near
-		push	bp
-		mov	bp, sp
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		graph_accesspage 1
-		call	@pi_load$qinxc pascal, 0, ds, offset aUde_pi
-		call	@pi_palette_apply$qi pascal, 0
-		call	@pi_put_8$qiii pascal, large 0, 0
-		call	@pi_free$qi pascal, 0
-		call	graph_copy_page pascal, 0
-		push	4
-		call	palette_black_in
-		graph_accesspage 0
-		graph_showpage al
-		call	sub_CA9B
-		call	@frame_delay$qi pascal, 64
-		call	sub_D16F
-		call	@input_wait_for_change$qi pascal, 0
-		push	2
-		call	palette_black_out
-		pop	bp
-		retn
-@verdict_animate$qv endp
+; The verdict screen's entry point is now ONE body shared with TH04, in
+; th04/end/verdict_animate.cpp, reached from th05/staff.cpp -- the object
+; that contributes to this segment immediately after this block. It is
+; the second lift out of this tail, so it sits ahead of
+; verdict_stage_scores_put() in that file and lands at its original
+; address. No carve, no new segment, no group-list edit, no Tupfile.lua
+; line.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added below this line.
 
 
 ; This block's last proc -- the verdict screen's per-stage score table --
@@ -3803,7 +3794,8 @@ aU_		db '点',0
 a_ude_txt	db '_ude.txt',0
 aBhbhbhbhbhbhu_	db '？？？？？？点',0
 aPicacovVVcvsfT	db '処理落ちによる判定不可',0
-aUde_pi		db 'ude.pi',0
+public _ude_pi
+_ude_pi		db 'ude.pi',0
 _STAGE_1_MSG	db '　１面　',0
 _STAGE_2_MSG	db '　２面　',0
 _STAGE_3_MSG	db '　３面　',0
