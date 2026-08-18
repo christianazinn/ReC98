@@ -21,8 +21,22 @@ extern nearfunc_t_near player_bomb_func;
 
 extern nearfunc_t_near playchar_bomb_func;
 
-void pascal near bomb_reimu(void);
-void pascal near bomb_marisa(void);
+// `extern "C"`, because every dump that publishes these spells them
+// UNDECORATED and all-uppercase (kb/codegen/0086) — the form th05_main.asm
+// still carries for its own, unrelated pair of playchar bomb functions. Once a
+// TH04 body is lifted, its own `public` line goes with it, and what pins the
+// undecorated name from then on is the `procdesc pascal near` the lift leaves
+// behind for main()'s `mov _playchar_bomb_func, offset bomb_…` site.
+//
+// Neither declaration carried `extern "C"` until TH04's bomb_marisa() became
+// the first C++ definition either name had ever had. Nothing had graded them
+// before that — no translation unit in the tree defined or called either
+// function — and Turbo C++ rejected the body outright with "'pascal
+// bomb_marisa()' was previously declared with the language 'C++'".
+extern "C" {
+	void pascal near bomb_reimu(void);
+	void pascal near bomb_marisa(void);
+}
 // ---------------------------------------------------
 
 #if (GAME == 4)
