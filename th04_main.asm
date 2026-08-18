@@ -5318,75 +5318,24 @@ SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/player/bb_playchar_put.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_REIMU
-bomb_reimu	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		call	@grcg_setmode_tdw$qv
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:playfield_fillm_0_40_384_274
-		GRCG_OFF_CLOBBERING dx
-		call	cdg_put_noalpha_8 pascal, large (32 shl 16) or 56, 0
-		cmp	_bomb_frame, 80
-		ja	short loc_10096
-		mov	_circles_color, 9
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -48
-		imul	ax, 3
-		mov	dx, 196
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		jmp	short loc_100FE
-; ---------------------------------------------------------------------------
-
-loc_10096:
-		cmp	_bomb_frame, 160
-		ja	short loc_100FE
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_100FE
-		mov	al, byte ptr _stage_frame
-		shl	al, 2
-		mov	[bp+var_1], al
-		push	offset _drawpoint
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or ((PLAYFIELD_H / 2) shl 4)
-		push	(128 shl 4)
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-		push	_drawpoint.x
-		push	_drawpoint.y
-		nopcall	@circles_add_growing$qii
-		mov	al, 80h
-		sub	al, [bp+var_1]
-		mov	[bp+var_1], al
-		push	offset _drawpoint
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or ((PLAYFIELD_H / 2) shl 4)
-		push	(128 shl 4)
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-		push	_drawpoint.x
-		push	_drawpoint.y
-		nopcall	@circles_add_growing$qii
-		call	snd_se_play pascal, 9
-
-loc_100FE:
-		call	@grcg_setmode_rmw$qv
-		mov	ah, 14
-		call	@grcg_setcolor_direct_raw$qv
-		call	bomb_stars_update_and_render_for pascal, PLAYCHAR_REIMU
-		GRCG_OFF_CLOBBERING dx
-		leave
-		retn
-bomb_reimu	endp
+	; bomb_reimu() now lives in th04/main/player/bombchar.cpp, above
+	; bomb_marisa(), which is their original address order. It was the
+	; LAST proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted body carried
+	; no `assume`, so there is nothing to restore into the rest of this
+	; contribution.
+	;
+	; With this body gone, all that is left of the root contribution is
+	; the `include` above, so this segment is no longer a carve-free tail:
+	; the last emitting item in the root is no longer a proc.
+	;
+	; Declared here because main() still references it, as
+	; `mov _playchar_bomb_func, offset bomb_reimu`. `pascal near` with a
+	; `public`, and that site is unqualified and lowercase, so it needs no
+	; edit at all (kb/codegen/0086 + 0103).
+	BOMB_REIMU procdesc pascal near
 
 
 	; bomb_marisa() now lives in th04/main/player/bombchar.cpp, which
@@ -6665,13 +6614,14 @@ include th04/main/tile/bb_put.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
-	; A `near` helper with no `public` of its own, whose only callers are
-	; bomb_reimu() and bomb_marisa() in SHOT_INV_TEXT above. Now that one
-	; of those is C++, it needs to be linkable: the zero-byte `label near`
-	; alias kb/codegen/0123 prescribes costs no bytes and leaves the
-	; dump's own remaining call site on the bare name. The underscore is
-	; the project's default cdecl decoration, which is what the
-	; `extern "C" void near` declaration in
+	; A `near` helper with no `public` of its own, whose only two callers
+	; in this binary are bomb_reimu() and bomb_marisa(). Both are C++ now,
+	; and this dump no longer references it at all, so the zero-byte
+	; `label near` alias kb/codegen/0123 prescribes is the only thing
+	; making it reachable; it costs no bytes, and the bare lowercase name
+	; below stays because renaming a `proc` is not what a lift owes. The
+	; underscore is the project's default cdecl decoration, which is what
+	; the `extern "C" void near` declaration in
 	; th04/main/player/bombchar.cpp asks the linker for (kb/codegen/0086).
 	public _playfield_fillm_0_40_384_274
 	_playfield_fillm_0_40_384_274 label near

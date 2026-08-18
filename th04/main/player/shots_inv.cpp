@@ -46,15 +46,17 @@
 	#include "th04/main/null.hpp"
 	#include "th04/main/item/item.hpp"
 
-	// And these five exist only for bombchar.cpp, checked the same way. None
+	// And these six exist only for bombchar.cpp, checked the same way. None
 	// of them is in this TU's closure yet, and the only unguarded ones —
-	// th02/v_colors.hpp, th04/hardware/grcg.hpp and th04/main/frames.h — are
-	// each pulled in exactly once from here. th04/hardware/grcg.hpp brings
-	// nothing but pc98.h and x86real.h, both of which are guarded and
-	// already present.
+	// th02/v_colors.hpp, th04/hardware/grcg.hpp, th04/main/frames.h and
+	// th04/main/drawp.hpp — are each pulled in exactly once from here.
+	// th04/hardware/grcg.hpp brings nothing but pc98.h and x86real.h, and
+	// th04/main/drawp.hpp nothing but th04/main/playfld.hpp; all three are
+	// guarded and already present.
 	#include "th02/v_colors.hpp"
 	#include "th04/hardware/grcg.hpp"
 	#include "th04/main/frames.h"
+	#include "th04/main/drawp.hpp"
 	#include "th03/formats/cdg.h"
 	#include "th04/sprites/main_cdg.h"
 
