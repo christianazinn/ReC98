@@ -7,7 +7,9 @@
 
 #include "platform.h"
 #include "pc98.h"
-#include "th02/resident.hpp"
+// th02/resident.hpp, which this function needs for [resident] alone, has no
+// include guard, and th02/main/continue.cpp already includes it earlier in this
+// translation unit - see th02/pointnum.cpp.
 #include "th02/main/main.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/player/player.hpp"
