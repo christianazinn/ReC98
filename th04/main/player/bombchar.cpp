@@ -66,6 +66,115 @@ extern "C" void pascal near bomb_stars_update_and_render_for(int playchar);
 // it and the 54 below.
 static const pixel_t BOMB_BG_TOP = 40;
 
+extern "C" void pascal near bomb_reimu(void)
+{
+	enum {
+		// Same five as bomb_marisa() below, with the same meanings, and
+		// deliberately not shared: this function is emitted first and each
+		// body carries its own copy in the original, which is why both of
+		// them reload [bomb_frame] for every one of their own tests.
+		FRAME_BOMB = 48,
+		FRAME_FLASH_END = 80,
+		FRAME_CIRCLES_END = 160,
+		TONE_START = 196,
+		TONE_PER_FRAME = 3,
+
+		// Colors. Reimu's bomb fills the playfield margins in white and draws
+		// the star field in 14; her circles are 9.
+		COL_FILL = V_WHITE,
+		COL_STARS = 14,
+		COL_CIRCLES = 9,
+
+		// The two circles are spawned on a ring this far from the playfield's
+		// center, at [angle] and at its mirror image across the vertical
+		// axis, so they converge on the player from both sides — the same
+		// idea bombanim.cpp's star spawn keeps the middle third clear for.
+		CIRCLE_RADIUS = 128,
+		ANGLE_MIRROR = 0x80,
+	};
+
+	// A byte local at [bp-1], and `enter 2, 0` rounds the frame up to a word.
+	// kb/codegen/0131: byte-sized, so no amount of use would have put it in a
+	// register — which is also why the two inline-ASM islands below cannot
+	// demote anything (kb/codegen/0143).
+	unsigned char angle;
+
+	grcg_setmode_tdw();
+	grcg_setcolor_direct(COL_FILL);
+	playfield_fillm_0_40_384_274();
+	grcg_off_clobbering_dx();
+	cdg_put_noalpha_8(
+		PLAYFIELD_LEFT, (PLAYFIELD_TOP + BOMB_BG_TOP), CDG_BG_PLAYCHAR_BOMB
+	);
+
+	if(bomb_frame <= FRAME_FLASH_END) {
+		circles_color = COL_CIRCLES;
+		palette_settone_deferred(
+			TONE_START - ((bomb_frame - FRAME_BOMB) * TONE_PER_FRAME)
+		);
+	} else if(
+		(bomb_frame <= FRAME_CIRCLES_END) && (stage_frame_mod4 == 0)
+	) {
+		// kb/codegen/0032: the shift stays in AL and the store comes after
+		// it, which is what the pseudo-register spelling buys. [stage_frame]
+		// is a *word*, and only its low byte is read — the angle wraps every
+		// 64 frames rather than every 16384, and the truncation is the
+		// original's, not a narrowing this transcription introduced.
+		_AL = stage_frame;
+		_AL <<= 2;
+		angle = _AL;
+
+		// kb/codegen/0034 + 0023: AL is still live across the three constant
+		// pushes, so the zero-extension has to be part of the last argument
+		// expression rather than a statement of its own. A plain `angle`
+		// argument would reload it from [bp-1] and add three bytes.
+		vector2_at(
+			drawpoint,
+			TO_SP(PLAYFIELD_W / 2),
+			TO_SP(PLAYFIELD_H / 2),
+			TO_SP(CIRCLE_RADIUS),
+			(_AH = 0, _AX)
+		);
+
+		// kb/codegen/0083, as in bomb_marisa() below — except that here the
+		// two arguments are memory words rather than register values, so the
+		// pushes are `FF 36` against [drawpoint] itself. `_AX = drawpoint.x.v;
+		// push ax` is the same 4 bytes and the wrong ones.
+		_asm {
+			push	word ptr [drawpoint];
+			push	word ptr [drawpoint + 2];
+			nop;
+			push	cs;
+			call	near ptr circles_add_growing;
+		}
+
+		_AL = ANGLE_MIRROR;
+		_AL -= angle;
+		angle = _AL;
+		vector2_at(
+			drawpoint,
+			TO_SP(PLAYFIELD_W / 2),
+			TO_SP(PLAYFIELD_H / 2),
+			TO_SP(CIRCLE_RADIUS),
+			(_AH = 0, _AX)
+		);
+		_asm {
+			push	word ptr [drawpoint];
+			push	word ptr [drawpoint + 2];
+			nop;
+			push	cs;
+			call	near ptr circles_add_growing;
+		}
+
+		snd_se_play(9);
+	}
+
+	grcg_setmode_rmw();
+	grcg_setcolor_direct(COL_STARS);
+	bomb_stars_update_and_render_for(PLAYCHAR_REIMU);
+	grcg_off_clobbering_dx();
+}
+
 extern "C" void pascal near bomb_marisa(void)
 {
 	enum {
