@@ -7,6 +7,7 @@
 
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/main/execl.hpp"
+#include "th04/score.h"
 #include "th04/snd/snd.h"
 #include "th04/end/end.h"
 #if (GAME == 5)
@@ -23,6 +24,7 @@
 // the existing label is referenced directly, the same thing
 // th03/main/entry.cpp does for aOp and arg0.
 #if (GAME == 5)
+extern "C" const char aMaine[];
 extern "C" const char aMaine_0[];
 #define MAINE_FN aMaine_0
 #else
@@ -75,6 +77,39 @@ void end_game_bad(void)
 	}
 }
 /// ----------------
+#endif
+
+#if (GAME == 5)
+/// TH05's single ending launcher
+/// -----------------------------
+/// TH04 picks between its two endings at the call site and needs no runtime
+/// test; TH05 has one function that decides for itself, and its resident
+/// structure has no [end_type_ascii] field to set. Everything below the choice
+/// is end_extra()'s body with a different [end_sequence] and the FIRST of the
+/// dump's three `'maine'` copies.
+
+void end_game(void)
+{
+	// Written out in both arms rather than as one conditional assignment:
+	// the original reloads [resident] into ES:BX inside each arm.
+	if(score.continues_used) {
+		resident->end_sequence = ES_BAD;
+	} else {
+		resident->end_sequence = ES_GOOD;
+	}
+	snd_kaja_func(KAJA_SONG_FADE, 4);
+	palette_black_out(16);
+
+	// Same linker-relaxed far call as end_extra() below. (kb/codegen 0014)
+	_asm {
+		push	ds;
+		push	offset aMaine;
+		nop;
+		push	cs;
+		call	near ptr GameExecl;
+	}
+}
+/// -----------------------------
 #endif
 
 void end_extra(void)
