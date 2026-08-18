@@ -3221,14 +3221,14 @@ sub_100C6	endp
 
 
 	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
-	; th04/main/playfld.cpp #includes under #if (GAME == 5) ahead of
+	; th04/main/playfld.cpp #includes ahead of
 	; playfield_shake_update_and_render() (kb/codegen 0129), so the two land
 	; here in their original address order. It was the LAST proc of this root
 	; contribution and th05/playfld.cpp already owned everything after it
 	; (kb/codegen 0114), so no carve, no new segment, no group-list edit and
-	; no Tupfile.lua line were needed. TH04 has the same function as sub_CCD6
-	; in mai_TEXT, differing only in the two Stage 6 tests, and it is NOT
-	; liftable yet: its own C++ host contributes zero bytes.
+	; no Tupfile.lua line were needed. TH04 has the same function, minus the
+	; two Stage 6 tests; it was the last proc of th04_main.asm's mai_TEXT and
+	; its neighbour PLAYFLD_TEXT hosted the lift.
 	@scroll_update_and_render$qv procdesc near
 
 	@playfield_shake_update_and_rende$qv procdesc pascal near
