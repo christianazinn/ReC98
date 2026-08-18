@@ -5491,118 +5491,20 @@ loc_101F4:
 bomb_marisa	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @bomb_update_and_render$qv
-@bomb_update_and_render$qv proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bombing, 0
-		jz	loc_1030B
-		cmp	_bomb_frame, 32
-		jnb	short loc_1022A
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		jmp	short loc_1023E
-; ---------------------------------------------------------------------------
-
-loc_1022A:
-		cmp	_bomb_frame, 48
-		jnb	short loc_10245
-		mov	al, _bomb_frame
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, -8
-
-loc_1023E:
-		call	bb_playchar_put pascal, ax
-
-loc_10242:
-		jmp	loc_10307
-; ---------------------------------------------------------------------------
-
-loc_10245:
-		cmp	_bomb_frame, 48
-		jnz	short loc_10281
-		mov	_scroll_active, 0
-		call	graph_scrollup pascal, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		mov	al, Palettes[14 * size rgb_t].r
-		mov	rgb_257D6.r, al
-		mov	al, Palettes[14 * size rgb_t].g
-		mov	rgb_257D6.g, al
-		mov	al, Palettes[14 * size rgb_t].b
-		mov	rgb_257D6.b, al
-		mov	Palettes[14 * size rgb_t].r, 240
-		mov	Palettes[14 * size rgb_t].g, 176
-		mov	Palettes[14 * size rgb_t].b, 192
-		jmp	short loc_10288
-; ---------------------------------------------------------------------------
-
-loc_10281:
-		cmp	_bomb_frame, 176
-		jnb	short loc_1028E
-
-loc_10288:
-		call	_playchar_bomb_func
-		jmp	short loc_10307
-; ---------------------------------------------------------------------------
-
-loc_1028E:
-		cmp	_bomb_frame, 176
-		jnz	short loc_102A8
-		call	snd_se_play pascal, 15
-		mov	_scroll_active, 1
-		mov	_items_pull_to_player, 0
-		jmp	short loc_102AF
-; ---------------------------------------------------------------------------
-
-loc_102A8:
-		cmp	_bomb_frame, 226
-		jnb	short loc_102F2
-
-loc_102AF:
-		mov	al, rgb_257D6.r
-		mov	Palettes[14 * size rgb_t].r, al
-		mov	al, rgb_257D6.g
-		mov	Palettes[14 * size rgb_t].g, al
-		mov	al, rgb_257D6.b
-		mov	Palettes[14 * size rgb_t].b, al
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -176
-		add	ax, ax
-		mov	dx, 200
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		cmp	_bomb_frame, 177
-		jnz	short loc_10307
-		call	graph_scrollup pascal, _scroll_line
-		jmp	loc_10242
-; ---------------------------------------------------------------------------
-
-loc_102F2:
-		mov	_bombing, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-		mov	_circles_color, 13
-
-loc_10307:
-		inc	_bomb_frame
-
-loc_1030B:
-		pop	bp
-		retn
-@bomb_update_and_render$qv endp
+	; bomb_update_and_render() now lives in
+	; th04/main/player/bombupd.cpp, which th04/main/player/shots_inv.cpp
+	; #includes ahead of bombanim.cpp and its own two functions
+	; (kb/codegen/0129), so that all four land here in their original
+	; address order. It was the LAST proc of this root contribution and
+	; that file's object already appended immediately after it, so no
+	; carve, no new segment, no group-list edit and no Tupfile.lua line
+	; were needed (kb/codegen/0098 + 0114). kb/codegen/0121: the deleted
+	; body carried no `assume`, so there is nothing to restore into the
+	; rest of this contribution.
+	;
+	; No declaration is needed here: this dump never called it. Its only
+	; callers are C++, through the `#if (GAME == 4)` declaration in
+	; th04/main/player/bomb.hpp.
 
 
 	; bomb_stars_update_and_render_for() now lives in
@@ -27972,6 +27874,13 @@ include th04/main/player/shots_add[bss].asm
 include th04/main/player/bomb[bss].asm
 include th04/formats/bb_playchar[bss].asm
 include th04/main/player/bombanim[bss].asm
+; The saved copy of palette color 14 that bomb_update_and_render()
+; restores when a bomb ends. That function now lives in
+; th04/main/player/bombupd.cpp, so this private label needs an
+; underscore-prefixed alias for C++ to reference (kb/codegen/0123).
+; `label` emits nothing, so no offset moves.
+public _bomb_col14_backup
+_bomb_col14_backup label byte
 rgb_257D6	rgb_t <?>
 		db ?
 playchar_shot_func	dw ?
