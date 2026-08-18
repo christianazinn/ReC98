@@ -112,6 +112,12 @@ SCORE_TEXT segment byte public 'CODE' use16
 	; spans both segments.
 	@verdict_stage_scores_put$qv procdesc near
 	@verdict_comment_put$qv procdesc near
+	; The handicap bonus row and the second comment line's record
+	; picker, both lifted out of the head of this block into the tail
+	; of th05/regist.cpp's contribution. verdict_stats_put() is the
+	; only caller of either.
+	@skill_apply_and_graph_guts$qv procdesc near
+	@verdict_comment_2_num$qv procdesc near
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -213,246 +219,37 @@ glyphball_t ends
 ; Nothing may be added above this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
+; skill_apply_and_graph_guts() -- the verdict screen's handicap bonus row
+; -- now lives in th05/end/verdict_guts.cpp, the next #include of
+; th05/regist.cpp after th04/end/verdict_digits.cpp. That object
+; contributes to this segment immediately ahead of this block, so the
+; lifted body lands at its original address by growing that object's tail
+; into the hole (kb/codegen/0098 + 0114). It was the FIRST proc of this
+; contribution; nothing else moved, no carve, no new segment, no
+; group-list edit and no Tupfile.lua line. The six-entry `jmp cs:`
+; continues table Turbo C++ generates after the epilogue went with it,
+; and it needed no alignment pad, unlike TH04's: the table's address is
+; already even, so `-a2` and `-a1` emit the same bytes there.
+;
+; kb/codegen/0121: the deleted body contained no `assume`, so the state
+; the rest of this contribution is assembled under is unchanged.
+;
+; Nothing may be added above this line.
 
-; Attributes: bp-based frame
 
-sub_C8AE	proc near
-
-var_4		= dword	ptr -4
-
-		enter	4, 0
-		les	bx, _resident
-		mov	eax, es:[bx+resident_t.rand]
-		mov	random_seed, eax
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	ah, 0
-		dec	ax
-		mov	bx, ax
-		cmp	bx, 5
-		ja	short loc_C90E
-		add	bx, bx
-		jmp	cs:off_C9F6[bx]
-
-loc_C8D4:
-		mov	[bp+var_4], 2500
-		jmp	short loc_C90E
-; ---------------------------------------------------------------------------
-
-loc_C8DE:
-		mov	[bp+var_4], 2000
-		jmp	short loc_C90E
-; ---------------------------------------------------------------------------
-
-loc_C8E8:
-		mov	[bp+var_4], 1500
-		jmp	short loc_C90E
-; ---------------------------------------------------------------------------
-
-loc_C8F2:
-		mov	[bp+var_4], 1000
-		jmp	short loc_C90E
-; ---------------------------------------------------------------------------
-
-loc_C8FC:
-		mov	[bp+var_4], 500
-		jmp	short loc_C90E
-; ---------------------------------------------------------------------------
-
-loc_C906:
-		mov	[bp+var_4], 0
-
-loc_C90E:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_C928
-		cmp	ax, 1
-		jz	short loc_C932
-		cmp	ax, 2
-		jz	short loc_C93C
-		jmp	short loc_C944
-; ---------------------------------------------------------------------------
-
-loc_C928:
-		add	[bp+var_4], 2500
-		jmp	short loc_C944
-; ---------------------------------------------------------------------------
-
-loc_C932:
-		add	[bp+var_4], 1500
-		jmp	short loc_C944
-; ---------------------------------------------------------------------------
-
-loc_C93C:
-		add	[bp+var_4], 1000
-
-loc_C944:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.turbo_mode], 0
-		jz	short loc_C957
-		add	[bp+var_4], 2000
-
-loc_C957:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.graze], 0
-		jz	short loc_C971
-		mov	ax, es:[bx+resident_t.graze]
-		imul	ax, 3
-		movzx	eax, ax
-		add	[bp+var_4], eax
-
-loc_C971:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.miss_count]
-		mov	ah, 0
-		mov	dl, es:[bx+resident_t.bombs_used]
-		mov	dh, 0
-		sub	ax, dx
-		cwde
-		imul	eax, 200
-		add	[bp+var_4], eax
-		cmp	[bp+var_4], 0
-		jge	short loc_C9A1
-		mov	[bp+var_4], 0
-		jmp	short loc_C9B3
-; ---------------------------------------------------------------------------
-
-loc_C9A1:
-		cmp	[bp+var_4], 10000
-		jle	short loc_C9B3
-		mov	[bp+var_4], 10000
-
-loc_C9B3:
-		mov	eax, [bp+var_4]
-		imul	eax, 100
-		mov	[bp+var_4], eax
-		add	_skill, eax
-		mov	ax, x_116E2
-		add	ax, 176
-		push	ax	; left
-		mov	ax, y_116E8
-		add	ax, 216
-		push	ax	; top
-		pushd	[bp+var_4]	; num
-		call	@graph_fraction_of_million_put$qiiul
-		mov	ax, x_116E2
-		add	ax, 272
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 216
-		push	ax
-		push	col_116E4
-		push	ds
-		push	offset aBu_0
-		call	graph_putsa_fx
-		leave
-		retn
-sub_C8AE	endp
-
-; ---------------------------------------------------------------------------
-off_C9F6	dw offset loc_C8D4
-		dw offset loc_C8DE
-		dw offset loc_C8E8
-		dw offset loc_C8F2
-		dw offset loc_C8FC
-		dw offset loc_C906
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_CA02	proc near
-		push	bp
-		mov	bp, sp
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_GOOD
-		jz	short loc_CA17
-		cmp	es:[bx+resident_t.end_sequence], ES_EXTRA
-		jnz	short loc_CA57
-
-loc_CA17:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rank], RANK_EASY
-		jnz	short loc_CA26
-		mov	al, 4
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA26:
-		les	bx, _resident
-		cmp	byte ptr es:[bx+score_last][7], 7
-		ja	short loc_CA35
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA35:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.miss_count], 6
-		jb	short loc_CA44
-		mov	al, 7
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA44:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.RESIDENT_unknown], 15
-		jb	short loc_CA53
-		mov	al, 8
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA53:
-		mov	al, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA57:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.end_sequence], ES_BAD
-		jnz	short loc_CA66
-		mov	al, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA66:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bombs_used]
-		mov	ah, 0
-		mov	dl, es:[bx+resident_t.miss_count]
-		mov	dh, 0
-		add	dx, dx
-		cmp	ax, dx
-		jg	short loc_CA80
-		mov	al, 5
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA80:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.stage], 4
-		jb	short loc_CA97
-		cmp	es:[bx+resident_t.point_items_collected], 350
-		ja	short loc_CA97
-		mov	al, 6
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CA97:
-		mov	al, 3
-		pop	bp
-		retn
-sub_CA02	endp
+; ...and verdict_comment_2_num(), which picks the record this screen reads
+; as the SECOND _ude.txt comment line, is now
+; th05/end/verdict_comment_num.cpp, the #include right after it in the
+; same object and therefore still in this block's original order. Same
+; kb/codegen/0098 head lift, and TH04 has no counterpart to share.
+;
+; kb/codegen/0042: the original keeps a BP frame for a function with
+; neither parameters nor locals, which the build's global `-k-` would
+; drop, so that file restores `-k` around the body and `-k-` after it.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added above this line.
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -710,7 +507,7 @@ loc_CCE8:
 		push	es:[bx+resident_t.point_items_collected]	; total
 		push	es:[bx+resident_t.max_valued_point_items_collected]	; share
 		call	@skill_apply_and_graph_percentage$qiiuiui
-		call	sub_C8AE
+		call	@skill_apply_and_graph_guts$qv
 		mov	_skill_subtract, 1
 		mov	ax, x_116E2
 		add	ax, 176
@@ -1021,7 +818,7 @@ loc_D0E1:
 		push	offset byte_15187
 		push	1Eh
 		call	file_read
-		call	sub_CA02
+		call	@verdict_comment_2_num$qv
 		mov	ah, 0
 		mov	si, ax
 		imul	ax, 1Eh
@@ -3753,6 +3550,11 @@ aBu		db '％',0
 public _DOT_MSG_0
 _DOT_MSG_0	label byte
 aBd_0		db '．',0
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_guts.cpp can
+; read this. `label` emits nothing, so every following offset is
+; unchanged, and this block's own reference keeps the original spelling.
+public _PERCENT_MSG_0
+_PERCENT_MSG_0	label byte
 aBu_0		db '％',0
 aB@b@b@b@b@b@b@	db '　　　　　　　 腕前判定',0
 aUqiUx		db '難易度',0

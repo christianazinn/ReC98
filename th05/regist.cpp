@@ -468,3 +468,10 @@ void near glyphballs_rush_and_wait(void)
 // proc of the root dump's SCORE_TEXT block, i.e. immediately after this
 // object's contribution. Another kb/codegen/0098 head lift.
 #include "th04/end/verdict_digits.cpp"
+
+// The next two out of that same head, in the dump's own order. Each one only
+// lands at its original address because the one above it already did, so
+// nothing may be inserted between them or above verdict_digits.cpp — and
+// anything lifted next goes BELOW this line, never above it.
+#include "th05/end/verdict_guts.cpp"
+#include "th05/end/verdict_comment_num.cpp"
