@@ -7789,63 +7789,10 @@ bullets_render	endp
 
 include th04/main/item/render.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Blits Reimu's orbs. reimu_fg_render() (th04/main/boss/fg.cpp) is C++ and
-; needs a linkable name for it; the zero-byte `label` alias below provides
-; one without disturbing this contribution (kb/codegen 0123).
-public _reimu_orbs_render
-_reimu_orbs_render label near
-sub_12E37	proc near
-
-@@patnum		= word ptr -6
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, offset reimu_orbs
-		xor	di, di
-		jmp	short loc_12E8A
-; ---------------------------------------------------------------------------
-
-loc_12E44:
-		cmp	[si+reimu_orb_t.B4RO_flag], OF_FREE
-		jz	short loc_12E86
-		cmp	[si+reimu_orb_t.B4RO_center.y], (-(REIMU_ORB_H / 2) shl 4)
-		jle	short loc_12E86
-		mov	ax, [si+reimu_orb_t.B4RO_center.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (REIMU_ORB_W / 2))
-		mov	[bp+@@x], ax
-		mov	ax, [si+reimu_orb_t.B4RO_center.y]
-		sar	ax, 4
-		mov	[bp+@@y], ax
-		mov	al, _orb_patnum_base
-		mov	ah, 0
-		mov	dx, _stage_frame
-		add	dx, di
-		and	dx, 7
-		shr	dx, 1
-		add	ax, dx
-		mov	[bp+@@patnum], ax
-		call	super_roll_put pascal, [bp+@@x], [bp+@@y], ax
-
-loc_12E86:
-		inc	di
-		add	si, size reimu_orb_t
-
-loc_12E8A:
-		cmp	di, REIMU_ORB_COUNT
-		jl	short loc_12E44
-		pop	di
-		pop	si
-		leave
-		retn
-sub_12E37	endp
+	; reimu_orbs_render() now lives in th04/main/boss/fg.cpp, ahead of
+	; reimu_fg_render() and therefore in its original address order. Nothing
+	; in this file calls it any more, so it needs no procdesc -- the zero-byte
+	; `label near` alias the previous parcel added went with it.
 
 	; reimu_fg_render() now lives in th04/main/boss/fg.cpp, ahead of
 	; gengetsu_fg_render() and therefore in its original address order. Same
