@@ -1079,7 +1079,14 @@ include th04/main/item/invalidate.asm
 
 ; =============== S U B	R O U T	I N E =======================================
 
+; Turbo C++ only keeps 32 significant characters of an identifier before it
+; mangles the name, so a C++ caller of mugetsu_gengetsu_backdrop_colorfill()
+; asks TLINK for `@MUGETSU_GENGETSU_BACKDROP_COLORF$QV`, three characters
+; shorter than the name this file publishes. The zero-byte `label` alias
+; below makes the proc linkable under both spellings (kb/codegen 0123).
 public @MUGETSU_GENGETSU_BACKDROP_COLORFILL$QV
+public @MUGETSU_GENGETSU_BACKDROP_COLORF$QV
+@mugetsu_gengetsu_backdrop_colorf$qv label near
 @mugetsu_gengetsu_backdrop_colorfill$qv	proc near
 		push	di
 		GRCG_FILL_PLAYFIELD_ROWS	192, 176
@@ -7693,79 +7700,19 @@ loc_12975:
 		retn
 @yuuka6_bg_render$qv	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MUGETSU_GENGETSU_BG_RENDER$QV
-@mugetsu_gengetsu_bg_render$qv	proc near
-
-@@entrance_cel		= byte ptr -1
-
-		enter	2, 0
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_12996
-		cmp	_boss_phase_frame, 2
-		jg	short loc_12A05
-		mov	_stage_render, offset nullfunc_near
-
-loc_12991:
-		call	@tiles_render_all$qv
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12996:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_129E3
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+@@entrance_cel], al
-		cmp	[bp+@@entrance_cel], 8
-		jnb	short loc_129B4
-		call	@tiles_render_all$qv
-		jmp	short loc_129D2
-; ---------------------------------------------------------------------------
-
-loc_129B4:
-		call	@grcg_setmode_tdw$qv
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		call	@mugetsu_gengetsu_backdrop_colorfill$qv
-		GRCG_OFF_CLOBBERING dx
-		call	cdg_put_noalpha_8 pascal, large (32 shl 16) or 16, 16
-
-loc_129D2:
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	al, [bp+@@entrance_cel]
-		mov	ah, 0
-		call	@tiles_bb_put_raw$qi pascal, ax
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_129E3:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_129F7
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 16, 1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_129F7:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jz	short loc_12991
-		cmp	_boss_phase_frame, 2
-		jle	short loc_12991
-
-loc_12A05:
-		call	@tiles_render$qv
-		leave
-		retn
-@mugetsu_gengetsu_bg_render$qv	endp
+	; mugetsu_gengetsu_bg_render() now lives in th04/main/boss/bg.cpp, which
+	; th04/boss_bg.cpp compiles into THIS segment: the wrapper leaves the
+	; code segment name to Turbo C++'s basename default, so the object is
+	; appended to the contribution above and lands at the tail position the
+	; proc already held (kb/codegen 0112 + 0114). It was the LAST proc of the
+	; segment, so no carve, no new segment name and no group-list edit were
+	; needed -- only the one Tupfile.lua line the new object costs.
+	; The name is spelled in upper case because the function is `pascal`, and
+	; that is how Turbo C++ mangles a `pascal` name -- TASM emits the EXTRN
+	; under exactly the spelling written here, without applying the language
+	; rule itself. The lower-case references elsewhere in this file still
+	; resolve, because TASM's own symbol table is case-insensitive.
+	@MUGETSU_GENGETSU_BG_RENDER$QV procdesc pascal near
 BOSS_BG_TEXT ends
 
 SCORE_TEXT segment byte public 'CODE' use16
