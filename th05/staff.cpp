@@ -94,6 +94,7 @@ dots8_t verdict_bitmap[2][VERDICT_SCREEN_H][VERDICT_BITMAP_W / BYTE_DOTS];
 //
 // verdict_animate() is ONE body shared with TH04, which reaches it through
 // th04/staff.cpp instead; only its tail differs, under `#if (GAME == 5)`.
+#include "th05/end/verdict_comment.cpp"
 #include "th04/end/verdict_animate.cpp"
 #include "th05/end/verdict_scores.cpp"
 

@@ -58,8 +58,12 @@ extern "C" void near verdict_stats_put(void);
 /// The two 30-byte `_ude.txt` comment lines under the stats block, chosen by
 /// an id that a third, still-ASM proc of the same block computes. TH05-only:
 /// TH04 renders its single line inline inside verdict_stats_put_and_wait().
-/// Published by the same kind of alias as the function above.
-extern "C" void near verdict_comment_put(void);
+/// `[measured]` C++ linkage, not `extern "C"`: this one is now DEFINED in
+/// th05/end/verdict_comment.cpp, and the staff roll — still ASM — reaches it
+/// through its mangled name, the same way it reaches
+/// verdict_stage_scores_put(). The direction of the call flipped, so the
+/// linkage had to flip with it.
+void near verdict_comment_put(void);
 #else
 /// The body of the verdict screen: twelve `graph_putsa_fx` labels and their
 /// values, the [skill] computation and its clamp, the `_ude.txt` verdict line,
