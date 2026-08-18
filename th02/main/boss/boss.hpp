@@ -7,8 +7,11 @@ extern int16_t boss_phase_frame;
 
 // Same indirection as used for the player position. Unfortunately not
 // contiguous in memory, or else we could have created a struct for both.
-extern screen_x_t boss_left_on_page[PAGE_COUNT];
-extern screen_y_t boss_top_on_page[PAGE_COUNT];
+// `near`, because marisa_bg_render() takes their address into the two near
+// pointers below and the original computes only a 16-bit offset there.
+// (kb/codegen/0003)
+extern screen_x_t near boss_left_on_page[PAGE_COUNT];
+extern screen_y_t near boss_top_on_page[PAGE_COUNT];
 extern screen_x_t near* boss_left_on_back_page;
 extern screen_y_t near* boss_top_on_back_page;
 

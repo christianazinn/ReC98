@@ -19704,112 +19704,6 @@ off_1C160	dw offset loc_1C032
 		dw offset loc_1C04D
 		dw offset loc_1C053
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_bg_render
-_marisa_bg_render label far
-marisa_bg_render	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		call	egc_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, (PLAYFIELD_VRAM_LEFT shl 16) or PLAYFIELD_TOP, ((PLAYFIELD_VRAM_RIGHT - 1) shl 16) or PLAYFIELD_BOTTOM - 1
-		call	@bg_particles_invalidate$qv
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		xor	si, si
-		jmp	loc_1C261
-; ---------------------------------------------------------------------------
-
-loc_1C1D9:
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 3
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		add	ax, offset word_26D02
-		mov	bx, si
-		shl	bx, 2
-		mov	word ptr dword_26D56[bx+2], ds
-		mov	word ptr dword_26D56[bx], ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 3
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		add	ax, offset word_26D12
-		mov	bx, si
-		shl	bx, 2
-		mov	word ptr dword_26D66[bx+2], ds
-		mov	word ptr dword_26D66[bx], ax
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26D2A[bx], 2
-		jge	short loc_1C260
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 3
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26D02[bx]
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D56[bx]
-		mov	es:[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 3
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26D12[bx]
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D66[bx]
-		mov	es:[bx], ax
-
-loc_1C260:
-		inc	si
-
-loc_1C261:
-		cmp	si, 4
-		jl	loc_1C1D9
-		call	grcg_off
-		pop	si
-		pop	bp
-		retf
-marisa_bg_render	endp
-
 main_03__TEXT	ends
 
 ; ===========================================================================
@@ -21605,20 +21499,29 @@ word_26CFC	dw ?
 word_26CFE	dw ?
 top_26D00	dw ?
 
-; Eight 4-entry word arrays, then two 4-entry far-pointer arrays. The extents
-; are pinned by marisa_1AB35's `cmp si, 4` bound together with the `add bx, bx`
-; (word arrays) and `shl bx, 2` (pointer arrays) index scaling, and the pointer
-; arrays are filled at 1C1D9h with `9292h + (page_back * 8) + (si * 2)` and
-; `92A2h + ...`, which is what pairs 26D02h/26D0Ah and 26D12h/26D1Ah as
-; front/back page copies of the same two quantities. Field meanings are still
-; open, so the names stay IDA-neutral. [static]
+; Marisa's four orbs, in eight 4-entry word arrays followed by two 4-entry
+; far-pointer arrays. The extents are pinned by marisa_1AB35's `cmp si, 4`
+; bound together with the `add bx, bx` (word arrays) and `shl bx, 2` (pointer
+; arrays) index scaling, and the pointer arrays are filled at 1C1D9h with
+; `9292h + (page_back * 8) + (si * 2)` and `92A2h + ...`, which is what makes
+; 26D02h/26D0Ah and 26D12h/26D1Ah the two pages of one [2][4] array each.
+; th02/main/boss/b4.hpp records what each of the eight carries. [static]
+public _marisa_orb_left_on_page
+_marisa_orb_left_on_page label word
 word_26D02	dw 4 dup(?)
 word_26D0A	dw 4 dup(?)
+public _marisa_orb_top_on_page
+_marisa_orb_top_on_page label word
 word_26D12	dw 4 dup(?)
 word_26D1A	dw 4 dup(?)
+marisa_orb_damage label word
 word_26D22	dw 4 dup(?)
+public _marisa_orb_flag
+_marisa_orb_flag label word
 word_26D2A	dw 4 dup(?)
+marisa_orb_hit_flash label word
 word_26D32	dw 4 dup(?)
+marisa_orb_radius label word
 word_26D3A	dw 4 dup(?)
 word_26D42	dw ?
 word_26D44	dw ?
@@ -21631,7 +21534,11 @@ byte_26D4E	db ?
 byte_26D4F	db ?
 byte_26D50	db 4 dup(?)
 word_26D54	dw ?
+public _marisa_orb_left_on_back_page
+_marisa_orb_left_on_back_page label dword
 dword_26D56	dd 4 dup(?)
+public _marisa_orb_top_on_back_page
+_marisa_orb_top_on_back_page label dword
 dword_26D66	dd 4 dup(?)
 point_26D76	Point <?>
 word_26D7A	dw ?
