@@ -532,7 +532,7 @@ extern "C" void pascal far sub_D135(void)
 	_ES = SEG_PLANE_B;
 	angle_2142C = 0x40;
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 d135_grcg_loop:
 	_AX = (irand() & 1);
 	_asm {
@@ -615,7 +615,7 @@ d1e7_vector_set_flag:
 
 d1e7_vector_flag_ready:
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 d1e7_vector_loop:
 		sub_D0FA();
 		if(should_vector) {
@@ -646,7 +646,7 @@ d1e7_vector_loop:
 	grcg_setcolor(GC_RMW, 10);
 	_ES = SEG_PLANE_B;
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 d1e7_grcg_loop:
 		sub_D031();
 		_DI += sizeof(d3f9_rec_t);
@@ -722,7 +722,7 @@ extern "C" void pascal far sub_D340(void)
 	_ES = SEG_PLANE_B;
 	angle_2142C = 0x40;
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 grcg_loop:
 	_AX = (irand() & 1);
 	_asm {
@@ -740,7 +740,7 @@ grcg_loop:
 	grcg_off();
 	egc_on();
 sprite_loop:
-	_AX = 0;
+	asm { xor	ax, ax; } // _AX = 0;
 	if(static_cast<uint16_t>(_SI) < 0x28) {
 		_AX = (irand() & 1);
 	}
@@ -808,7 +808,7 @@ vector_set_flag:
 
 vector_flag_ready:
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 vector_loop:
 		sub_D0FA();
 		if(should_vector) {
@@ -839,7 +839,7 @@ vector_loop:
 	grcg_setcolor(GC_RMW, 13);
 	_ES = SEG_PLANE_B;
 	_DI = FP_OFF(byte_20F2C);
-	_SI = 0;
+	asm { xor	si, si; } // _SI = 0;
 grcg_loop:
 		sub_D031();
 		_DI += sizeof(d3f9_rec_t);
@@ -850,7 +850,7 @@ grcg_loop:
 	grcg_off();
 	egc_on();
 sprite_loop:
-		_DX = 0;
+		asm { xor	dx, dx; } // _DX = 0;
 		if(static_cast<uint16_t>(_SI) >= 0x28) {
 			_DX = frame_mod_4096;
 			_asm {
