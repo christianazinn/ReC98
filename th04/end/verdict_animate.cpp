@@ -19,7 +19,11 @@
 /// seen. They sit at the top of the th04/staff.cpp wrapper instead.
 
 #include "th02/hardware/frmdelay.h"
-#include "th04/hardware/input.h"
+/// th04/hardware/input.h has no include guard, and th04/end/verdict_stats.cpp
+/// — which now precedes this file in the same translation unit — already needs
+/// it. Including it again is 15 "initialized more than once" errors, so this
+/// file relies on its host, which is the idiom for every other .cpp fragment
+/// in the chain.
 #include "th03/formats/pi.hpp"
 #include "th04/end/verdict.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
@@ -32,13 +36,11 @@
 /// `_ude_pi` (kb/codegen/0123), next to `_hi01_pi` and `_scnum2_bft`.
 extern const char ude_pi[];
 
-/// The body of the verdict screen: twelve `graph_putsa_fx` labels and their
-/// values, the [skill] computation and its clamp, the `_ude.txt` verdict line,
-/// then `input_wait_for_change()` and `palette_black_out(2)`. Still ASM, at
-/// `0A05:1B31` — the proc immediately ahead of this one, and the next tail
-/// lift out of this segment. The dump spells it `sub_BB81` and publishes this
-/// name as a zero-byte `label near` alias in front of it (kb/codegen/0123),
-/// so nothing moved to make this call linkable.
+/// The body of the verdict screen: twelve labels and their values, the [skill]
+/// computation and its clamp, the `_ude.txt` verdict line, then the wait and
+/// the fade-out. Now C++ too, at `0A05:1B31` — th04/end/verdict_stats.cpp,
+/// which th04/staff.cpp includes immediately ahead of this file so that the
+/// two contributions stay in dump order.
 extern "C" void near verdict_stats_put_and_wait(void);
 
 void near verdict_animate(void)

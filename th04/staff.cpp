@@ -12,4 +12,9 @@
 // emitted nothing at all. Anything given a MAINE_01_TEXT contribution here
 // therefore lands immediately after th04_maine.asm's, which is what makes the
 // tail of that segment a free lift.
+//
+// Everything lifted out of that tail is included here in DUMP ORDER, i.e.
+// each new lift goes ABOVE the ones already here, because the segment grows
+// backwards from verdict_animate() into the hole the deletion leaves.
+#include "th04/end/verdict_stats.cpp"
 #include "th04/end/verdict_animate.cpp"
