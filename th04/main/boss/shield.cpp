@@ -1,21 +1,25 @@
 /// Extra Stage boss barrier
 /// ------------------------
-/// (#included from th04/main_01.cpp. ZUN's object for this code segment held
-/// th04/formats/bb_txt_load.asm, mugetsu_fg_render() and then this function;
-/// that an original object held several unrelated sources is kb/codegen/0112.
-/// The other two stay in the dump, so this object is spliced *between*
-/// th04_main.asm and th04\scoreupd.asm in the link list rather than appended
-/// after both — see th04/main_01.cpp for why that line is position-critical.)
+/// (#included from th04/main_01.cpp, after th04/main/boss/bx1_fg.cpp. ZUN's
+/// object for this code segment held th04/formats/bb_txt_load.asm,
+/// mugetsu_fg_render() and then this function; that an original object held
+/// several unrelated sources is kb/codegen/0112. The first of the three stays
+/// in the dump, so this object is spliced *between* th04_main.asm and
+/// th04\scoreupd.asm in the link list rather than appended after both — see
+/// th04/main_01.cpp for why that line is position-critical.)
 ///
 /// Both Extra Stage bosses become invincible for a fixed window whenever the
 /// player bombs, and both of their foreground renderers call this from their
 /// undamaged branch to draw the barrier that shows it.
 
-#include "platform.h"
+// platform.h and th04/main/boss/bosses.hpp are NOT included here: neither has
+// an include guard, and th04/main/boss/bx1_fg.cpp already supplies both to
+// this object. Naming either again is a compile error. (The same arrangement
+// as th05/main/midboss/m5.cpp, which sits behind th05/main/boss/bx_fg.cpp in
+// its object.)
 #include "pc98.h"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/main/boss/boss.hpp"
-#include "th04/main/boss/bosses.hpp"
 #include "th04/sprites/main_pat.h"
 
 /// Still ASM

@@ -5892,84 +5892,14 @@ HUD_OVRL_TEXT	ends
 main_01_TEXT	segment	byte public 'CODE' use16
 include th04/formats/bb_txt_load.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@mugetsu_fg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_boss_sprite, 0
-		jz	short loc_1163D
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_11629
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_115F5
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		call	main_01:_mugetsu_gengetsu_shield_render
-		jmp	short loc_1163D
-; ---------------------------------------------------------------------------
-
-loc_115F5:
-		inc	byte_259E6
-		test	byte_259E6, 1
-		jz	short loc_1160F
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		jmp	short loc_11622
-; ---------------------------------------------------------------------------
-
-loc_1160F:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-
-loc_11622:
-		mov	_boss_damage_this_frame, 0
-		jmp	short loc_1163D
-; ---------------------------------------------------------------------------
-
-loc_11629:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_1163D
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_1163D:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@mugetsu_fg_render$qv	endp
-
+	; mugetsu_fg_render() now lives in th04/main/boss/bx1_fg.cpp, ahead of
+	; mugetsu_gengetsu_shield_render() and therefore in its original address
+	; order. th04/main_01.cpp compiles both into THIS segment; see that file
+	; for why its Tupfile.lua line is position-critical. UPPER case because
+	; the function is `pascal`: Turbo C++ mangles pascal names in upper case,
+	; and TASM emits the EXTRN under exactly the spelling given here without
+	; applying the language's own case rule.
+	@MUGETSU_FG_RENDER$QV procdesc pascal near
 
 	; mugetsu_gengetsu_shield_render() now lives in
 	; th04/main/boss/shield.cpp, which th04/main_01.cpp compiles into THIS
@@ -27239,6 +27169,8 @@ _miss_explosion_angle	db ?
 _miss_explosion_radius	dw ?
 		db 4 dup(?)
 include th04/main/hud/overlay[bss].asm
+public _mugetsu_damage_frames
+_mugetsu_damage_frames label byte
 byte_259E6	db ?
 		db ?
 fp_259E8	dw ?
