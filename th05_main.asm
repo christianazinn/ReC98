@@ -2400,35 +2400,18 @@ include th04/main/tile/inv.asm
 include th05/formats/super_roll_put_16x16_m.asm
 include th04/main/enemy/inv.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @end_game$qv
-@end_game$qv	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_continues_used, 0
-		jz	short loc_E45D
-		les	bx, _resident
-		assume es:nothing
-		mov	es:[bx+resident_t.end_sequence], ES_BAD
-		jmp	short loc_E466
-; ---------------------------------------------------------------------------
-
-loc_E45D:
-		les	bx, _resident
-		mov	es:[bx+resident_t.end_sequence], ES_GOOD
-
-loc_E466:
-		kajacall	KAJA_SONG_FADE, 4
-		push	10h
-		call	palette_black_out
-		push	ds
-		push	offset aMaine	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-		pop	bp
-		retf
-@end_game$qv	endp
+	; end_game() now lives in th04/main/end.cpp too, which puts it ahead of
+	; end_extra() in that object -- the original order, and the order this
+	; segment needs, since end_game() was the LAST proc of the root
+	; contribution and th05/end_ext.cpp already owned everything after it
+	; (kb/codegen 0114). No carve, no new segment, no Tupfile.lua line.
+	; Declared far here for the same kb/codegen 0082 reason as end_extra()
+	; below. Nothing in this dump calls it; th04/main/boss/boss.cpp does.
+	;
+	; kb/codegen 0121: the deleted body carried `assume es:nothing`, and the
+	; state entering it was ALREADY `es:nothing`, set earlier in this same
+	; segment, so there is nothing to restore -- measured, not assumed.
+	@end_game$qv procdesc far
 
 	; end_extra() now lives in th04/main/end.cpp, which appends to this
 	; segment. Declared inside a main_01 segment on purpose (kb/codegen
@@ -17859,6 +17842,8 @@ _hexagrams_flag	db 0
 include th04/main/player/shot_laser[data].asm
 include th05/formats/bb_cheeto[data].asm
 ; char aMaine[]
+public _aMaine
+_aMaine		label byte
 aMaine		db 'maine',0
 ; char aMaine_0[]
 public _aMaine_0
