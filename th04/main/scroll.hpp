@@ -32,10 +32,10 @@ extern pixel_length_8_t scroll_lines_pending;
 // missed the previous frame's scroll entirely and has to catch up on both.
 // [inferred], same evidence as above.
 //
-// TH05 has both of these variables, still unnamed, as th05_main.asm's
-// [byte_23EFC] ([scroll_lines_pending]) and [byte_23F04]
-// ([scroll_lines_prev_frame]); its sub_BD20 is this file's
-// tiles_scroll_and_egc_render().
+// TH05 has both of these variables too, in the same roles, and th05_main.asm
+// now publishes them under these same two names -- they used to be a pair of
+// unnamed bytes in its _BSS. TH05's tiles_scroll_and_egc_render() shares this
+// file's C++ body; see th04/main/tile/scroll.cpp.
 extern pixel_length_8_t scroll_lines_prev_frame;
 
 #pragma codeseg mai_TEXT main_01

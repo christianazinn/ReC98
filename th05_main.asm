@@ -866,12 +866,12 @@ sub_B55A	proc near
 		mov	_stage_frame, 0
 		mov	_bombing_disabled, 0
 		mov	_scroll_line, 0
-		mov	word_23F06, 0
+		mov	_tile_ring_row_filled, 0
 		mov	_scroll_line_on_page[0 * 2], 0
 		mov	_scroll_line_on_page[1 * 2], 0
 		mov	_scroll_subpixel_line, 0
-		mov	byte_23EFC, 0
-		mov	byte_23F04, 0
+		mov	_scroll_lines_pending, 0
+		mov	_scroll_lines_prev_frame, 0
 		mov	_playfield_shake_x, 0
 		mov	_playfield_shake_y, 0
 		mov	_player_pos.cur.x, 192 * 16
@@ -1019,7 +1019,8 @@ include th04/main/tile/render_a.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_BC6A	proc near
+public _tiles_egc_copy_scrolled_lines
+_tiles_egc_copy_scrolled_lines	proc near
 		push	bp
 		push	si
 		push	di
@@ -1047,7 +1048,7 @@ sub_BC6A	proc near
 		add	dx, cx
 		mov	word_23EFD, dx
 		xor	ch, ch
-		mov	cl, byte_23EFC
+		mov	cl, _scroll_lines_pending
 		mov	bh, bl
 		add	bl, cl
 		cmp	bl, 10h
@@ -1105,99 +1106,29 @@ loc_BD0B:
 		pop	si
 		pop	bp
 		retn
-sub_BC6A	endp
+_tiles_egc_copy_scrolled_lines	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; tiles_scroll_and_egc_render() now lives in th04/main/tile/scroll.cpp,
+	; the same shared body TH04 compiles; th05/formats/std.cpp #includes it
+	; ahead of std_load() (kb/codegen 0112 + 0129). It was the LAST proc of
+	; this root contribution and th05/std.cpp already owned everything after
+	; it (kb/codegen 0114), so no carve, no new segment, no group-list edit
+	; and no Tupfile.lua line were needed. TH05 differs from TH04 in three
+	; places only, all of them #if (GAME == 5) in that one file: the
+	; pre-doubled [std_map_section_p], the missing `add bl, bl` that TH04
+	; needs to double its own, and the Stage 6 test ahead of the
+	; [scroll_active] one.
+	@tiles_scroll_and_egc_render$qv procdesc near
 
-; Attributes: bp-based frame
-
-sub_BD20	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_23EFC, 0
-		jnz	short loc_BD36
-		cmp	byte_23F04, 0
-		jz	loc_BDE8
-
-loc_BD36:
-		cmp	_scroll_speed, 0
-		jz	loc_BDE8
-		mov	ax, _scroll_line
-		shr	ax, 4
-		cmp	ax, word_23F06
-		jz	short loc_BDB7
-		mov	word_23F06, ax
-		mov	bx, _std_seg
-		mov	es, bx
-		assume es:nothing
-		dec	_tile_row_in_section
-		jns	short loc_BD88
-		mov	_tile_row_in_section, 4
-		inc	_std_map_section_p
-		inc	_std_scroll_speed
-		mov	bx, _std_scroll_speed
-		mov	dl, es:[bx]
-		mov	_scroll_speed, dl
-		or	dl, dl
-		jnz	short loc_BD88
-		mov	_scroll_line, 0
-		mov	byte_23F04, 0
-
-loc_BD81:
-		mov	byte_23EFC, 0
-		jmp	short loc_BDE8
-; ---------------------------------------------------------------------------
-
-loc_BD88:
-		shl	ax, 6
-		add	ax, offset _tile_ring
-		db	089h, 0C7h	; mov di, ax (TASM: 8B F8)
-		db	031h, 0C0h	; xor ax, ax (TASM: 33 C0)
-		mov	al, _tile_row_in_section
-		shl	ax, 6
-		mov	bx, _std_map_section_p
-		mov	bl, es:[bx]
-		db	030h, 0FFh	; xor bh, bh (TASM: 32 FF)
-		mov	bx, _TILE_SECTION_OFFSETS[bx]
-		db	089h, 0C6h	; mov si, ax (TASM: 8B F0)
-		db	001h, 0DEh	; add si, bx (TASM: 03 F3)
-		push	ds
-		pop	es
+	; Restored from the body of the proc that moved to C++ (kb/codegen
+	; 0121): it ended on `assume es:_DATA` after a `push ds` / `pop es`, and
+	; the state entering it was `es:nothing`, set at the top of the main_01
+	; contribution far above this one, so deleting the proc would have
+	; changed the assumption every following contribution is assembled
+	; under. A C++ object carries its own segment overrides and does not
+	; participate in TASM's assume state at all.
 		assume es:_DATA
-		push	ds
-		mov	ax, _map_seg
-		mov	ds, ax
-		mov	cx, TILES_X
-		rep movsw
-		pop	ds
-
-loc_BDB7:
-		mov	al, byte_23F04
-		mov	[bp+var_1], al
-		mov	al, byte_23EFC
-		mov	byte_23F04, al
-		mov	al, [bp+var_1]
-		add	byte_23EFC, al
-		cmp	_stage_id, 5
-		jz	short loc_BD81
-		cmp	_scroll_active, 0
-		jz	short loc_BD81
-		call	@egc_start_copy_noframe$qv
-		call	sub_BC6A
-		mov	byte_23EFC, 0
-		call	egc_off
-
-loc_BDE8:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_BD20	endp
 
 	@std_load$qv procdesc near
 	@std_free$qv procdesc near
@@ -3309,7 +3240,7 @@ loc_10223:
 		mov	dx, _scroll_line
 		mov	bx, ax
 		mov	_scroll_line_on_page[bx], dx
-		cmp	byte_23F04, 0
+		cmp	_scroll_lines_prev_frame, 0
 		jz	short loc_1024F
 		cmp	_scroll_active, 0
 		jz	short loc_1024F
@@ -3331,13 +3262,13 @@ loc_1024F:
 		add	_scroll_line, RES_Y
 
 loc_10274:
-		mov	byte_23EFC, al
+		mov	_scroll_lines_pending, al
 		and	_scroll_subpixel_line, 0Fh
 		shl	ax, 4
 		mov	_scroll_last_delta, ax
 
 loc_10282:
-		call	sub_BD20
+		call	@tiles_scroll_and_egc_render$qv
 		pop	bp
 		retn
 sub_10214	endp
@@ -18356,14 +18287,17 @@ _resident	dd ?
 public _map_header
 _map_header	label byte
 map_header	map_header_t ?
-byte_23EFC	db ?
+public _scroll_lines_pending
+_scroll_lines_pending	db ?
 word_23EFD	dw ?
 word_23EFF	dw ?
 word_23F01	dw ?
 		db ?
-byte_23F04	db ?
+public _scroll_lines_prev_frame
+_scroll_lines_prev_frame	db ?
 		db ?
-word_23F06	dw ?
+public _tile_ring_row_filled
+_tile_ring_row_filled	dw ?
 include th04/formats/std[bss].asm
 include th04/main/tile/inv[bss].asm
 word_23F60	dw ?
