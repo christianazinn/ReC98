@@ -111,6 +111,7 @@ SCORE_TEXT segment byte public 'CODE' use16
 	; from maine_01__TEXT, which stays a near call because group_01
 	; spans both segments.
 	@verdict_stage_scores_put$qv procdesc near
+	@verdict_comment_put$qv procdesc near
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -1080,44 +1081,16 @@ off_D165	dw offset loc_CE08
 		dw offset loc_CE55
 		dw offset loc_CE83
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; kb/codegen/0123: a zero-byte alias so th04/end/verdict_animate.cpp can call
-; this. `label` emits nothing, so every following offset is unchanged.
-public _verdict_comment_put
-_verdict_comment_put label near
-sub_D16F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	byte_15187, 0
-		jz	short loc_D1AF
-		mov	ax, x_116E2
-		add	ax, 48
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 296
-		push	ax
-		push	word_116E6
-		push	ds
-		push	offset byte_15187
-		call	graph_putsa_fx
-		mov	ax, x_116E2
-		add	ax, 48
-		push	ax
-		mov	ax, y_116E8
-		add	ax, 312
-		push	ax
-		push	word_116E6
-		push	ds
-		push	offset byte_151A5
-		call	graph_putsa_fx
-
-loc_D1AF:
-		pop	bp
-		retn
-sub_D16F	endp
+; The verdict screen's two _ude.txt comment lines now live in
+; th05/end/verdict_comment.cpp, at the head of th05/staff.cpp's
+; contribution to this segment -- the third body lifted out of this
+; tail, and the first of the three in emitted order. staffroll_animate()
+; still calls it from maine_01__TEXT, which stays a near call because
+; group_01 spans both segments.
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; Nothing may be added below this line.
 
 
 ; The verdict screen's entry point is now ONE body shared with TH04, in
@@ -3388,7 +3361,7 @@ loc_E6F1:
 		jnz	short loc_E702
 
 loc_E6FD:
-		call	sub_D16F
+		call	@verdict_comment_put$qv
 		jmp	short loc_E70D
 ; ---------------------------------------------------------------------------
 
@@ -3755,6 +3728,11 @@ x_116E2	dw 336
 public _verdict_col
 _verdict_col	label word
 col_116E4	dw 2
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_comment.cpp can read this.
+; `label` emits nothing, so every following offset is unchanged, and
+; this dump's own remaining references keep the original spelling.
+public _verdict_comment_col
+_verdict_comment_col	label word
 word_116E6	dw 6
 ; kb/codegen/0123: a zero-byte alias so th05/end/verdict_scores.cpp can
 ; read this. `label` emits nothing, so every following offset is
@@ -3873,10 +3851,20 @@ public _skill_quarter
 _skill_quarter	label dword
 dword_15182	dd ?
 _verdict_rank	db ?
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_comment.cpp can read this.
+; `label` emits nothing, so every following offset is unchanged, and
+; this dump's own remaining references keep the original spelling.
+public _verdict_comment_1
+_verdict_comment_1	label byte
 byte_15187	db ?
 		db 27 dup(?)
 byte_151A3	db ?
 		db    ?	;
+; kb/codegen/0123: a zero-byte alias so th05/end/verdict_comment.cpp can read this.
+; `label` emits nothing, so every following offset is unchanged, and
+; this dump's own remaining references keep the original spelling.
+public _verdict_comment_2
+_verdict_comment_2	label byte
 byte_151A5	db ?
 		db 27 dup(?)
 byte_151C1	db ?
