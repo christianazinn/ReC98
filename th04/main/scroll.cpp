@@ -8,13 +8,15 @@
 /// of that to tiles_scroll_and_egc_render(), which is the only thing that
 /// actually redraws tiles.
 ///
-/// (#included from th04/main/playfld.cpp on the TH05 side, which is
-/// kb/codegen/0129's host-source form: this function was the last proc of
-/// th05_main.asm's PLAYFLD_TEXT root contribution and th05/playfld.cpp already
-/// owned everything after it, so the #include is the original address order
-/// and costs neither a carve nor a Tupfile.lua line. TH04 puts its copy in
-/// mai_TEXT instead, whose C++ host contributes 0 bytes today, so TH04 does
-/// not #include this file yet -- see state/notes/scroll_update_and_render.md.
+/// (#included from th04/main/playfld.cpp in both games, which is
+/// kb/codegen/0129's host-source form. On the TH05 side this function was the
+/// last proc of th05_main.asm's PLAYFLD_TEXT root contribution and
+/// th05/playfld.cpp already owned everything after it. TH04 put its copy in
+/// mai_TEXT, whose own C++ host contributes 0 bytes -- but mai_TEXT is
+/// immediately followed by PLAYFLD_TEXT in main_01, and th04/playfld.cpp owns
+/// all of that segment, so the neighbour hosted the lift instead. Either way
+/// the #include is the original address order and costs neither a carve nor a
+/// Tupfile.lua line -- see state/notes/scroll_update_and_render.md.
 ///
 /// Because this file shares a translation unit with th04/main/playfld.cpp, it
 /// only includes headers that are #include-guarded; everything else comes
