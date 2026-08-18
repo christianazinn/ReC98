@@ -4,8 +4,12 @@
 #pragma option -zCB4_UPDATE_TEXT -zPmain_03
 
 #include "th04/math/vector.hpp"
-#include "th04/math/randring.hpp"
-#include "th05/sprites/main_pat.h"
+#include "th04/snd/snd.h"
+// Also supplies th04/math/randring.hpp and th05/sprites/main_pat.h, which this
+// file used to include directly. Neither has an include guard, so each can
+// only come from one place; naming them here as well is a compile error, not a
+// no-op. th04/main/boss/boss.cpp reaches both the same way.
+#include "th04/main/player/shot.hpp"
 #include "th05/main/boss/boss.hpp"
 #include "th05/main/boss/impl.hpp"
 
@@ -14,22 +18,6 @@
 
 extern y_direction_t mai_flystep_random_next_y_direction;
 extern y_direction_t yuki_flystep_random_next_y_direction;
-
-// Still ZUN's assembly in th05_main.asm's B4_UPDATE_TEXT, reached through the
-// zero-byte `public` alias in front of the dump's own label (kb/codegen/0081:
-// `extern "C"` + `pascal` mangles to the all-uppercase undecorated name, so
-// `public MAI_YUKI_1A3EF` over a lowercase `proc` costs no bytes). Left at its
-// IDA placeholder spelling on purpose: it is NOT a tail — main_035_TEXT calls
-// it twice more — so it cannot be lifted alongside the function below, and
-// this campaign does not name a body it is not lifting.
-//
-// It is yuki's boss_hittest_shots_damage(): same three parameters and same
-// return, but it sets [shot_hitbox_center] from [yuki.pos.cur] explicitly (the
-// shape midboss_hittest_shots_damage() uses) and never calls
-// boss_hittest_player().
-extern "C" int pascal near mai_yuki_1A3EF(
-	subpixel_t radius_x, subpixel_t radius_y, int se_on_hit
-);
 
 // Game logic
 // ----------
@@ -44,16 +32,37 @@ extern "C" int pascal near mai_yuki_1A3EF(
 /// site; the dump left this function unnamed]
 ///
 /// Mai goes through the shared boss_hittest_shots(), because `mai` IS [boss].
-/// Yuki needs the separate helper above for the same work against [boss2].
+/// Yuki needs the separate function below for the same work against [boss2].
 /// The hitbox radius is the (W/2) - (W/8) idiom that TH05's Extra midboss also
 /// uses — 24 of BOSS_W's 64, NOT `BOSS_W / 2`, which would be 32.
+
+// Yuki's boss_hittest_shots_damage(): the same three parameters, the same
+// return value, and the same body apart from two differences that both follow
+// from `yuki` being [boss2] rather than [boss]. It sets [shot_hitbox_center]
+// from [yuki.pos.cur] — the shape midboss_hittest_shots_damage() uses — and it
+// never calls boss_hittest_player(), because the Mai half of the same frame's
+// hittest already did. [inferred; the dump left this function unnamed]
+// Also called twice from ZUN's remaining assembly in main_035_TEXT, with the
+// invincibility sound effect.
+int pascal near yuki_hittest_shots_damage(
+	subpixel_t radius_x, subpixel_t radius_y, int se_on_hit
+)
+{
+	shots_hittest_against_boss = true;
+	int ret = shots_hittest(yuki.pos.cur, radius_x, radius_y);
+	if(ret) {
+		snd_se_play(se_on_hit);
+	}
+	shots_hittest_against_boss = false;
+	return ret;
+}
 
 unsigned char near mai_yuki_hittest_shots(void)
 {
 	if(boss_hittest_shots()) {
 		return 1;
 	}
-	yuki.damage_this_frame = mai_yuki_1A3EF(
+	yuki.damage_this_frame = yuki_hittest_shots_damage(
 		to_sp((BOSS_W / 2) - (BOSS_W / 8)),
 		to_sp((BOSS_W / 2) - (BOSS_W / 8)),
 		4
