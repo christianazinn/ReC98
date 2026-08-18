@@ -1238,55 +1238,21 @@ loc_CCD2:
 		retn
 @midboss2_render$qv	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_CCD6
-_sub_CCD6 label near
-sub_CCD6	proc near
-		push	bp
-		mov	bp, sp
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, _scroll_line
-		mov	bx, ax
-		mov	_scroll_line_on_page[bx], dx
-		cmp	_scroll_lines_prev_frame, 0
-		jz	short loc_CCFE
-		cmp	_scroll_active, 0
-		jz	short loc_CCFE
-		call	graph_scrollup pascal, dx
-
-loc_CCFE:
-		mov	_scroll_last_delta, 0
-		mov	al, _scroll_subpixel_line
-		add	al, _scroll_speed
-		mov	_scroll_subpixel_line, al
-		cmp	al, (1 shl 4)
-		jb	short loc_CD31
-		mov	ah, 0
-		shr	ax, 4
-		sub	_scroll_line, ax
-		jns	short loc_CD23
-		add	_scroll_line, RES_Y
-
-loc_CD23:
-		mov	_scroll_lines_pending, al
-		and	_scroll_subpixel_line, 0Fh
-		shl	ax, 4
-		mov	_scroll_last_delta, ax
-
-loc_CD31:
-		call	@tiles_scroll_and_egc_render$qv
-		pop	bp
-		retn
-sub_CCD6	endp
 mai_TEXT	ends
 
 PLAYFLD_TEXT	segment	byte public 'CODE' use16
+	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
+	; th04/main/playfld.cpp #includes ahead of
+	; playfield_shake_update_and_render() (kb/codegen 0129). In TH04 it was
+	; the LAST proc of mai_TEXT above, and this segment -- the next one in
+	; main_01, byte-aligned, and starting exactly where mai_TEXT ended -- is
+	; owned in full by th04/playfld.cpp, so lifting the proc into the FRONT
+	; of that object left every byte of the image where it was and merely
+	; moved the mai_TEXT/PLAYFLD_TEXT boundary down by 60h. No carve, no new
+	; segment, no group-list edit, and no Tupfile.lua line. TH05 has the
+	; same function, with two extra Stage 6 tests, in its own PLAYFLD_TEXT.
+	@scroll_update_and_render$qv procdesc near
+
 	@playfield_shake_update_and_rende$qv procdesc pascal near
 PLAYFLD_TEXT	ends
 
