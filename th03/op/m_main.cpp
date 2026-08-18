@@ -224,8 +224,10 @@ void pascal near box_column16_unput(uscreen_x_t left)
 		_ES = vram_segment(R, 0, BOX_TOP);	px_r = _peek_(_ES, _DI);
 		_ES = vram_segment(G, 0, BOX_TOP);	px_g = _peek_(_ES, _DI);
 		_ES = vram_segment(E, 0, BOX_TOP);	px_e = _peek_(_ES, _DI);
-		// `page_access(_AL ^= _AL);`, expanded so that the zeroing lands in
-		// the assembler direction (`30 C0`) — kb/codegen/0037 and 0093.
+		// Switch access back to page 0. The page macro is expanded here so
+		// that the zeroing of AL lands in the assembler direction (`30 C0`)
+		// — kb/codegen/0037 — and so that the OUT stays in the same block as
+		// the operand it consumes, which kb/codegen/0093 requires.
 		_asm {
 			xor	al, al;
 			out	0A6h, al;

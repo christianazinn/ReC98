@@ -443,10 +443,10 @@ void near hitcircles_render(void)
 		sprite16_put(p->topleft.x, p->topleft.y, so);
 	}
 
-	// `sprite16_mono_(false);`, expanded because the original zeroes DX in
-	// the assembler direction (`31 D2`) here — kb/codegen/0037. Every other
-	// call site of that macro passes a nonzero value or is already exact, so
-	// the macro itself stays as it is.
+	// Turn mono mode back off. The macro is expanded here because the
+	// original zeroes DX in the assembler direction (`31 D2`) —
+	// kb/codegen/0037 — and every other call site of it either passes a
+	// nonzero value or is already exact, so the macro itself stays as it is.
 	asm { xor	dx, dx; }
 	_AH = SPRITE16_SET_MONO;
 	geninterrupt(SPRITE16);

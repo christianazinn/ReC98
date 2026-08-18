@@ -1444,8 +1444,9 @@ void bullets_update(void)
 			// the expected horizontal movement direction.
 			static_assert(PLAYER_COUNT == 2);
 			_BL = p->pid;
-			// `if(_BL == 0)`. The comparison against 0 has to be spelled out
-			// to get the assembler direction; the JNE still comes from C++.
+			// Branch on the origin player. The comparison against 0 has to
+			// be spelled out to get the assembler direction (kb/codegen/0037);
+			// the JNE still comes from C++.
 			asm { or	bl, bl; }
 			if(FLAGS_ZERO) {
 				if(coord_next >= p->target_center_x_for_origin_pid.v) {
@@ -1549,7 +1550,7 @@ void bullets_update(void)
 			 * 	explosions_hittest();
 			 * once the segmentation allows us to, if ever */
 			asm { push cs; call near ptr explosions_hittest; }
-			// `if(_AL != 0)`, spelled out for the same reason as above.
+			// Test the hit result, spelled out for the same reason as above.
 			asm { or	al, al; }
 			if(!FLAGS_ZERO) {
 				static_assert(PLAYER_COUNT == 2);
@@ -1708,9 +1709,9 @@ void bullets_render(void)
 			#define top static_cast<int>(_BX)
 
 			left = (playfield_fg_x_to_screen(
-				// `_AH ^= _AH` in the assembler direction. An `asm` statement
-				// cannot appear in the comma expression that orders these
-				// pushes, so this one is an `__emit__()` pin.
+				// Widening the PID to AX, in the assembler direction. An
+				// `asm` statement cannot appear in the comma expression that
+				// orders these pushes, so this one is an `__emit__()` pin.
 				pellet_p->center.x,
 				(_AL = pellet_p->pid, __emit__(0x30, 0xE4), _AX)
 			) - (PELLET_W / 2));
