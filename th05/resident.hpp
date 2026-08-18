@@ -6,7 +6,10 @@ struct resident_t {
 	char id[sizeof(RES_ID)];
 	bool zunsoft_shown;
 	int8_t unused_1;
-	char unknown;
+	// `[measured]` Unsigned: MAINE.EXE's verdict_comment_2_num() is the only
+	// consumer this project has found, and it compares this field against 15
+	// with an unsigned `jb`. What it counts is still unknown.
+	unsigned char unknown;
 	unsigned char credit_lives;
 	unsigned char credit_bombs;
 	unsigned char cfg_lives;
