@@ -10,10 +10,12 @@
 /// Because this file shares a translation unit with points.cpp and bombs.cpp,
 /// its file-scope names are NOT file-local. Every one of them is prefixed.
 ///
-/// Assembly in TH05, which spells the same row against MAIN-local `_lives`
-/// instead of the resident structure; see the note for the shared-body
-/// arithmetic. The `GAME == 4` guard below is therefore a LIFTING-ORDER
-/// artifact, not a game difference -- unlike shot_reset()'s.
+/// One body for both games. The only difference is where the counter lives:
+/// TH04 reads it out of the resident structure, TH05 out of a MAIN-local byte.
+/// That is the whole of the two originals' 5-byte size difference, 0xB9 against
+/// 0xB4: loading the resident pointer and reading a byte through it costs 8
+/// bytes, where TH05's direct byte load costs 3. kb/codegen/0115 calls that one
+/// shared body, and the arithmetic closing exactly is the evidence.
 
 // kb/codegen/0011, derived from this function's own prolog and not from a
 // neighbour: the original opens `push bp / mov bp, sp / sub sp, 2` and closes
@@ -44,6 +46,30 @@ static const int HUD_TALLY_TWO_DIGITS_AT = 10;
 // it from C++ would shift every later byte of _DATA (kb/codegen/0084).
 extern "C" const char HUD_LIVES_OVERFLOW[];
 
+// Where each game keeps the two counters -- the ONLY thing that differs
+// between the two games' originals here, and the whole of their size
+// difference. TH05 uses MAIN-local bytes that th05_main.asm publishes as
+// `_lives` and `_bombs` directly, so they need no header and no
+// kb/codegen/0123 alias; `lives` is the spelling th05/main/stage/bonus.cpp
+// already uses for the same byte.
+//
+// Object-like macros rather than an accessor function, deliberately: the
+// expansion is textual, so each use site still compiles the counter read in
+// place. bombs.cpp needs exactly that -- kb/codegen/0002 has TH04 reusing the
+// ES:BX one read left live in one arm and reloading it in the other, which no
+// accessor could reproduce. Prefixed, because this translation unit is shared
+// with bombs.cpp and points.cpp; #undef'd at the end of bombs.cpp.
+#if (GAME == 5)
+	extern "C" uint8_t lives;
+	extern "C" uint8_t bombs;
+
+	#define hud_rem_lives lives
+	#define hud_rem_bombs bombs
+#else
+	#define hud_rem_lives resident->rem_lives
+	#define hud_rem_bombs resident->rem_bombs
+#endif
+
 extern "C" void pascal hud_lives_put(void)
 {
 	// Declaration order is load-bearing: [count] is the byte at [bp-1] and
@@ -64,11 +90,11 @@ extern "C" void pascal hud_lives_put(void)
 	int x;
 
 	// The row shows the *spare* lives, so one less than the player has.
-	count = (resident->rem_lives - 1);
+	count = (hud_rem_lives - 1);
 
 	// Signed, on the local -- `cmp [bp-1], 6` / `jge`. hud_bombs_put()
-	// spells the same idea unsigned and on the member; the two functions
-	// were written separately and are deliberately not one macro here.
+	// spells the same idea unsigned and on the counter itself; the two
+	// functions were written separately and are deliberately not one macro.
 	if(count < HUD_TALLY_OVERFLOW_AT) {
 		i = 0;
 		x = HUD_LABELED_LEFT;

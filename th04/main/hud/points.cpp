@@ -17,14 +17,13 @@
 // [HUD_POINT_ITEMS_STAGE_Y] and [HUD_POINT_ITEMS_EXTEND_Y] are in
 // th04/main/hud/hud.hpp; hud_put() needs the same rows.
 
-#if (GAME != 5)
-	// ZUN's object for this code segment also held the remaining-lives and
-	// remaining-bombs rows, immediately ahead of this one and in this order.
-	// TH05 still has both in th05_main.asm, so its build of this file simply
-	// does not see them (kb/codegen/0129).
-	#include "th04/main/hud/lives.cpp"
-	#include "th04/main/hud/bombs.cpp"
-#endif
+// ZUN's object for this code segment also held the remaining-lives and
+// remaining-bombs rows, immediately ahead of this one and in this order, in
+// *both* games (kb/codegen/0129). The `GAME != 5` guard that used to sit here
+// was a lifting-order artifact of TH04 landing first, and is gone now that
+// TH05's copies have left th05_main.asm too.
+#include "th04/main/hud/lives.cpp"
+#include "th04/main/hud/bombs.cpp"
 
 extern "C" void pascal hud_point_items_put(void)
 {
