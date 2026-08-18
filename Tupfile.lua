@@ -922,6 +922,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_5r.cpp",
 	"th04/boss_bg.cpp",
 	"th04/boss_fg.cpp",
+	"th04/mai.cpp",
 	"th04/stages.cpp",
 	"th04/hud_pnt.cpp",
 	"th04/hud_drm.cpp",
