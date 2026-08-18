@@ -1,14 +1,20 @@
-/// Foreground rendering code for TH04's Extra Stage boss
-/// -----------------------------------------------------
+/// Foreground rendering code for TH04's Stage 4 and Extra Stage bosses
+/// -------------------------------------------------------------------
 /// (#included from th04/boss_fg.cpp. ZUN's object for this code segment held
-/// bullets_render(), a bullet helper, reimu_fg_render() and finally this
-/// function; that an original object held several unrelated sources is
-/// kb/codegen/0112. This file is appended to that object's dump contribution
-/// and grows upwards, one tail at a time.)
+/// bullets_render(), reimu_orbs_render(), reimu_fg_render() and finally
+/// gengetsu_fg_render(), in that address order; that an original object held
+/// several unrelated sources is kb/codegen/0112. This file is appended to
+/// that object's dump contribution and grows upwards, one tail at a time.)
 ///
-/// Gengetsu keeps the [boss_fg_render] contract that
-/// th04/main/boss/render.cpp documents for Orange and Kurumi, but is the only
-/// boss to differ in all four of these ways at once:
+/// Reimu keeps the three-way [boss_fg_render] contract that
+/// th04/main/boss/render.cpp documents for Orange and Kurumi, with two
+/// additions: a one-frame afterimage of her previous position while
+/// [reimu_afterimage] is set, and her orbs, which she is the only TH04 boss
+/// to have. Unlike Orange and Kurumi she *does* reset
+/// [boss.damage_this_frame] after the white flash.
+///
+/// Gengetsu keeps that contract too, but is the only boss to differ in all
+/// four of these ways at once:
 ///
 /// • She is two sprites wide. Every blit is a pair, GENGETSU_W / 2 pixels
 ///   apart, with [boss.sprite] and its successor — which is why her sprite
@@ -36,6 +42,7 @@
 #include "th04/main/boss/bosses.hpp"
 #include "th04/main/boss/bx2.hpp"
 #include "th04/main/bullet/laser_t.hpp"
+#include "th04/sprites/main_pat.h"
 
 /// Still ASM
 /// ---------
@@ -59,7 +66,85 @@ extern "C" void near mugetsu_gengetsu_shield_render(void);
 // needed a zero-byte `label` alias to become linkable (kb/codegen/0123).
 // [inferred] name.
 extern "C" unsigned char gengetsu_damage_frames;
+
+// Blits every non-OF_FREE Reimu orb that is not still above the playfield,
+// through super_roll_put(), cycling REIMU_ORB_CELS cels off [stage_frame]
+// plus the orb's own index so that the orbs are out of phase with each other.
+// th04_main.asm's sub_12E37, the proc immediately above reimu_fg_render() in
+// this very segment; its structures are the ones th04/main/boss/b4r.cpp
+// already declares as [orb_t] / [orbs].
+extern "C" void near reimu_orbs_render(void);
+
+// While set, reimu_fg_render() blits one extra copy of the boss sprite at
+// [boss.pos.prev] in a single color, i.e. a one-frame motion trail. Set on
+// frame 1 of two of Reimu's attack patterns and cleared when each ends, so it
+// covers exactly the patterns that move her fast enough for the trail to be
+// visible. A th04_main.asm `.data?` label with no `public` of ZUN's
+// (kb/codegen/0123). [inferred] name.
+extern "C" unsigned char reimu_afterimage;
 /// ---------
+
+/// Stage 4 Boss - Reimu
+/// --------------------
+
+// Reimu's cels are absolute patnums, like Orange's: stage4_setup() seeds
+// [boss.sprite] with PAT_STAGE rather than with 0, the way stage2_setup()
+// does for Kurumi.
+static const int REIMU_FRAMES_PER_CEL = 4;
+
+// The color the afterimage is blitted in. Not V_WHITE, which is what the
+// damage flash below uses; this is master.lib's GC_BI plane pair.
+static const vc_t REIMU_AFTERIMAGE_COL = 9;
+
+void pascal near reimu_fg_render(void)
+{
+	// Declared first so that it takes the original's single [bp-2] stack
+	// slot; the two coordinates below are the register variables.
+	// (kb/codegen/0010)
+	int patnum;
+
+	screen_x_t left;
+	vram_y_t top;
+
+	if(boss.phase < PHASE_EXPLODE_BIG) {
+		// The afterimage is the *previous* position, so it can't reuse the
+		// coordinates computed for the blit below — ZUN computes both.
+		if(reimu_afterimage) {
+			left = boss.pos.prev.to_screen_left(BOSS_W);
+			top = boss.pos.prev.to_screen_top(BOSS_H);
+			super_put_1plane(
+				left, top, boss.sprite, 0, super_plane(REIMU_AFTERIMAGE_COL)
+			);
+		}
+		left = boss.pos.cur.to_screen_left(BOSS_W);
+		top = boss.pos.cur.to_screen_top(BOSS_H);
+
+		// One cel range animates; every other [boss.sprite] value is a single
+		// pose that is blitted as-is.
+		if(boss.sprite == PAT_REIMU_ANIMATED) {
+			patnum = (
+				(stage_frame_mod16 / REIMU_FRAMES_PER_CEL) + PAT_REIMU_ANIMATED
+			);
+		} else {
+			patnum = boss.sprite;
+		}
+
+		if(boss.damage_this_frame == 0) {
+			super_put(left, top, patnum);
+		} else {
+			super_put_1plane(left, top, patnum, 0, super_plane(V_WHITE));
+			boss.damage_this_frame = 0;
+		}
+		reimu_orbs_render();
+	} else if(boss.phase == PHASE_EXPLODE_BIG) {
+		left = boss.pos.cur.to_screen_left(BOSS_W);
+		top = boss.pos.cur.to_screen_top(BOSS_H);
+		super_large_put(left, top, boss.sprite);
+	}
+	explosions_small_update_and_render();
+	explosions_big_update_and_render();
+}
+/// --------------------
 
 /// Teleport animation
 /// ------------------

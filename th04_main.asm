@@ -7793,6 +7793,11 @@ include th04/main/item/render.asm
 
 ; Attributes: bp-based frame
 
+; Blits Reimu's orbs. reimu_fg_render() (th04/main/boss/fg.cpp) is C++ and
+; needs a linkable name for it; the zero-byte `label` alias below provides
+; one without disturbing this contribution (kb/codegen 0123).
+public _reimu_orbs_render
+_reimu_orbs_render label near
 sub_12E37	proc near
 
 @@patnum		= word ptr -6
@@ -7842,102 +7847,14 @@ loc_12E8A:
 		retn
 sub_12E37	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@reimu_fg_render$qv	proc near
-
-@@patnum	= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	loc_12F2E
-		cmp	byte_2D03C, 0
-		jz	short loc_12ECF
-		mov	ax, _boss_pos.prev.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.prev.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BI
-		call	super_put_1plane
-
-loc_12ECF:
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		cmp	_boss_sprite, 136
-		jnz	short loc_12EF9
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 136
-		jmp	short loc_12EFE
-; ---------------------------------------------------------------------------
-
-loc_12EF9:
-		mov	al, _boss_sprite
-		mov	ah, 0
-
-loc_12EFE:
-		mov	[bp+@@patnum], ax
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_12F14
-		call	super_put pascal, si, di, [bp+@@patnum]
-		jmp	short loc_12F29
-; ---------------------------------------------------------------------------
-
-loc_12F14:
-		call	super_put_1plane pascal, si, di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-		mov	_boss_damage_this_frame, 0
-
-loc_12F29:
-		call	main_01:sub_12E37
-		jmp	short loc_12F55
-; ---------------------------------------------------------------------------
-
-loc_12F2E:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_12F55
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_12F55:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@reimu_fg_render$qv	endp
+	; reimu_fg_render() now lives in th04/main/boss/fg.cpp, ahead of
+	; gengetsu_fg_render() and therefore in its original address order. Same
+	; shape as the lift below it: the object th04/boss_fg.cpp compiles into
+	; THIS segment, so a second tail costs nothing at all -- not even a
+	; Tupfile.lua line, because the first one already paid it.
+	; Upper case because the function is `pascal`; TASM emits the EXTRN under
+	; exactly the spelling written here and does not apply the language rule.
+	@REIMU_FG_RENDER$QV procdesc pascal near
 
 
 	; gengetsu_fg_render() now lives in th04/main/boss/fg.cpp, which
@@ -27769,6 +27686,8 @@ byte_2D03A	db ?
 
 public _orb_patnum_base
 _orb_patnum_base	db ?
+public _reimu_afterimage
+_reimu_afterimage label byte
 byte_2D03C	db ?
 	evendata
 
