@@ -1169,81 +1169,16 @@ TILE_TEXT	ends
 mai_TEXT	segment	word public 'CODE' use16
 include th04/main/tile/render_a.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MIDBOSS2_RENDER$QV
-@midboss2_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_pos.cur.y, 0
-		jle	loc_CCD2
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	[bp+@@y], ax
-		cmp	_midboss_phase, 2
-		ja	short loc_CCD2
-		cmp	_midboss_sprite, 0
-		jnz	short loc_CC7C
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 146
-		jmp	short loc_CCA8
-; ---------------------------------------------------------------------------
-
-loc_CC7C:
-		cmp	_midboss_sprite, 1
-		jnz	short loc_CC93
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 150
-		jmp	short loc_CCA8
-; ---------------------------------------------------------------------------
-
-loc_CC93:
-		cmp	_midboss_sprite, 2
-		jnz	short loc_CCAA
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 152
-
-loc_CCA8:
-		mov	si, ax
-
-loc_CCAA:
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_CCBD
-		call	super_roll_put pascal, di, [bp+@@y], si
-		jmp	short loc_CCD2
-; ---------------------------------------------------------------------------
-
-loc_CCBD:
-		call	super_roll_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-
-loc_CCD2:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss2_render$qv	endp
+	; midboss2_render() now lives in th04/main/midboss/m2.cpp, which
+	; th04/mai.cpp compiles into THIS segment: the wrapper leaves the code
+	; segment name to Turbo C++'s basename default, and `mai.cpp` gives
+	; MAI_TEXT (kb/codegen 0105 + 0112). It was the LAST proc of the segment,
+	; so the object lands exactly where it was and no carve, no new segment
+	; name and no group-list edit were needed -- only the one Tupfile.lua
+	; line. The include above it stays here.
+	; Upper case because the function is `pascal`; TASM emits the EXTRN under
+	; exactly the spelling written here and does not apply the language rule.
+	@MIDBOSS2_RENDER$QV procdesc pascal near
 
 mai_TEXT	ends
 
@@ -6040,6 +5975,14 @@ loc_1163D:
 
 ; Attributes: bp-based frame
 
+; Blits the barrier sprite pair over both Extra Stage bosses for as long as
+; a player bomb keeps them invincible. gengetsu_fg_render()
+; (th04/main/boss/fg.cpp) is C++ and needs a linkable name; the zero-byte
+; `label` alias below provides one without disturbing this contribution
+; (kb/codegen 0123). mugetsu_fg_render() above is still ASM and keeps the
+; dump's spelling.
+public _mugetsu_gengetsu_shield_render
+_mugetsu_gengetsu_shield_render label near
 sub_11647	proc near
 		push	bp
 		mov	bp, sp
@@ -7781,347 +7724,34 @@ bullets_render	endp
 
 include th04/main/item/render.asm
 
-; =============== S U B	R O U T	I N E =======================================
+	; reimu_orbs_render() now lives in th04/main/boss/fg.cpp, ahead of
+	; reimu_fg_render() and therefore in its original address order. Nothing
+	; in this file calls it any more, so it needs no procdesc -- the zero-byte
+	; `label near` alias the previous parcel added went with it.
 
-; Attributes: bp-based frame
-
-sub_12E37	proc near
-
-@@patnum		= word ptr -6
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, offset reimu_orbs
-		xor	di, di
-		jmp	short loc_12E8A
-; ---------------------------------------------------------------------------
-
-loc_12E44:
-		cmp	[si+reimu_orb_t.B4RO_flag], OF_FREE
-		jz	short loc_12E86
-		cmp	[si+reimu_orb_t.B4RO_center.y], (-(REIMU_ORB_H / 2) shl 4)
-		jle	short loc_12E86
-		mov	ax, [si+reimu_orb_t.B4RO_center.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (REIMU_ORB_W / 2))
-		mov	[bp+@@x], ax
-		mov	ax, [si+reimu_orb_t.B4RO_center.y]
-		sar	ax, 4
-		mov	[bp+@@y], ax
-		mov	al, _orb_patnum_base
-		mov	ah, 0
-		mov	dx, _stage_frame
-		add	dx, di
-		and	dx, 7
-		shr	dx, 1
-		add	ax, dx
-		mov	[bp+@@patnum], ax
-		call	super_roll_put pascal, [bp+@@x], [bp+@@y], ax
-
-loc_12E86:
-		inc	di
-		add	si, size reimu_orb_t
-
-loc_12E8A:
-		cmp	di, REIMU_ORB_COUNT
-		jl	short loc_12E44
-		pop	di
-		pop	si
-		leave
-		retn
-sub_12E37	endp
+	; reimu_fg_render() now lives in th04/main/boss/fg.cpp, ahead of
+	; gengetsu_fg_render() and therefore in its original address order. Same
+	; shape as the lift below it: the object th04/boss_fg.cpp compiles into
+	; THIS segment, so a second tail costs nothing at all -- not even a
+	; Tupfile.lua line, because the first one already paid it.
+	; Upper case because the function is `pascal`; TASM emits the EXTRN under
+	; exactly the spelling written here and does not apply the language rule.
+	@REIMU_FG_RENDER$QV procdesc pascal near
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@reimu_fg_render$qv	proc near
-
-@@patnum	= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	loc_12F2E
-		cmp	byte_2D03C, 0
-		jz	short loc_12ECF
-		mov	ax, _boss_pos.prev.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.prev.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BI
-		call	super_put_1plane
-
-loc_12ECF:
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		cmp	_boss_sprite, 136
-		jnz	short loc_12EF9
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 136
-		jmp	short loc_12EFE
-; ---------------------------------------------------------------------------
-
-loc_12EF9:
-		mov	al, _boss_sprite
-		mov	ah, 0
-
-loc_12EFE:
-		mov	[bp+@@patnum], ax
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_12F14
-		call	super_put pascal, si, di, [bp+@@patnum]
-		jmp	short loc_12F29
-; ---------------------------------------------------------------------------
-
-loc_12F14:
-		call	super_put_1plane pascal, si, di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-		mov	_boss_damage_this_frame, 0
-
-loc_12F29:
-		call	main_01:sub_12E37
-		jmp	short loc_12F55
-; ---------------------------------------------------------------------------
-
-loc_12F2E:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_12F55
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_12F55:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@reimu_fg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @GENGETSU_FG_RENDER$QV
-@gengetsu_fg_render$qv	proc near
-
-@@spawncolumn	= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_boss_sprite, 0
-		jz	loc_13083
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	si, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	loc_1306D
-		cmp	_gengetsu_wave_amp, 0
-		jz	short loc_12FE7
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		mov	al, _gengetsu_wave_amp
-		mov	ah, 0
-		mov	dx, 80
-		sub	dx, ax
-		push	dx
-		push	word ptr _gengetsu_wave_amp
-		mov	al, _boss_angle
-		mov	ah, 0
-		push	ax
-		call	super_wave_put
-		lea	ax, [di+48]
-		push	ax
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		mov	al, _gengetsu_wave_amp
-		mov	ah, 0
-		mov	dx, 80
-		sub	dx, ax
-		push	dx
-		push	word ptr _gengetsu_wave_amp
-		mov	al, _boss_angle
-		mov	ah, 0
-		push	ax
-		call	super_wave_put
-		mov	al, _boss_angle
-		add	al, 4
-		mov	_boss_angle, al
-		jmp	loc_13083
-; ---------------------------------------------------------------------------
-
-loc_12FE7:
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_13011
-		push	di
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		lea	ax, [di+48]
-		push	ax
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	super_put
-		call	main_01:sub_11647
-		jmp	short loc_13083
-; ---------------------------------------------------------------------------
-
-loc_13011:
-		inc	byte_2D058
-		test	byte_2D058, 1
-		jz	short loc_1303C
-		push	di
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		lea	ax, [di+48]
-		push	ax
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	super_put
-		jmp	short loc_13066
-; ---------------------------------------------------------------------------
-
-loc_1303C:
-		push	di
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		lea	ax, [di+48]
-		push	ax
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-
-loc_13066:
-		mov	_boss_damage_this_frame, 0
-		jmp	short loc_13083
-; ---------------------------------------------------------------------------
-
-loc_1306D:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_13083
-		push	di
-		push	si
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		push	3
-		call	super_zoom
-
-loc_13083:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		call	main_01:sub_E2C3
-		cmp	_boss_phase, 5
-		jnz	short loc_130E9
-		cmp	_boss_mode, 1
-		jnz	short loc_130E9
-		cmp	_boss_phase_frame, 32
-		jl	short loc_130E9
-		cmp	_boss_phase_frame, 96
-		jge	short loc_130E9
-		call	@grcg_setmode_rmw$qv
-		cmp	_stage_frame_mod2, 0
-		jz	short loc_130B6
-		mov	ah, 9
-		jmp	short loc_130B8
-; ---------------------------------------------------------------------------
-
-loc_130B6:
-		mov	ah, V_WHITE
-
-loc_130B8:
-		call	@grcg_setcolor_direct_raw$qv
-		mov	[bp+@@spawncolumn], offset gengetsu_spawncolumns
-		xor	si, si
-		jmp	short loc_130E4
-; ---------------------------------------------------------------------------
-
-loc_130C4:
-		mov	bx, [bp+@@spawncolumn]
-		mov	ax, [bx+gengetsu_spawncolumn_t.BX2S_pos.x]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, PLAYFIELD_LEFT
-		mov	di, ax
-		call	grcg_vline pascal, ax, bx, PLAYFIELD_BOTTOM - 1
-		inc	si
-		add	[bp+@@spawncolumn], size gengetsu_spawncolumn_t
-
-loc_130E4:
-		cmp	si, GENGETSU_SPAWNCOLUMN_COUNT
-		jl	short loc_130C4
-
-loc_130E9:
-		pop	di
-		pop	si
-		leave
-		retn
-@gengetsu_fg_render$qv	endp
+	; gengetsu_fg_render() now lives in th04/main/boss/fg.cpp, which
+	; th04/boss_fg.cpp compiles into THIS segment: the wrapper leaves the
+	; code segment name to Turbo C++'s basename default, so the object is
+	; appended to the contribution above and lands at the tail position the
+	; proc already held (kb/codegen 0112 + 0114). carve_free_tails.py files
+	; BOSS_FG_TEXT as BLOCKED, but only for the neighbour route -- the next
+	; contribution, th01/vplanset.cpp, starts one byte later and is in no
+	; group. A new object needs neither of those things.
+	; The name is spelled in upper case because the function is `pascal`,
+	; and that is how Turbo C++ mangles a `pascal` name -- TASM emits the
+	; EXTRN under exactly the spelling written here, without applying the
+	; language rule itself.
+	@GENGETSU_FG_RENDER$QV procdesc pascal near
 BOSS_FG_TEXT ends
 
 ; ===========================================================================
@@ -27938,12 +27568,16 @@ byte_2D03A	db ?
 
 public _orb_patnum_base
 _orb_patnum_base	db ?
+public _reimu_afterimage
+_reimu_afterimage label byte
 byte_2D03C	db ?
 	evendata
 
 public _orb_template
 _orb_template	reimu_orb_t <?>
 
+public _gengetsu_damage_frames
+_gengetsu_damage_frames label byte
 byte_2D058	db ?
 		db ?
 	extern _gengetsu_wave_target_x:word
