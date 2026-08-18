@@ -116,10 +116,12 @@ extern "C" void pascal near bomb_reimu(void)
 		(bomb_frame <= FRAME_CIRCLES_END) && (stage_frame_mod4 == 0)
 	) {
 		// kb/codegen/0032: the shift stays in AL and the store comes after
-		// it, which is what the pseudo-register spelling buys. [stage_frame]
-		// is a *word*, and only its low byte is read — the angle wraps every
-		// 64 frames rather than every 16384, and the truncation is the
-		// original's, not a narrowing this transcription introduced.
+		// it, which is what the pseudo-register spelling buys. The byte load
+		// from a *word* [stage_frame] is codegen and not a narrowing:
+		// `((stage_frame & 0xFF) << 2) & 0xFF` and `(stage_frame << 2) & 0xFF`
+		// are the same value. Either way the angle sweeps a full turn every
+		// 64 frames, 16 units per circle, since only every 4th frame spawns
+		// one.
 		_AL = stage_frame;
 		_AL <<= 2;
 		angle = _AL;
