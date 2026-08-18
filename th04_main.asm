@@ -5605,157 +5605,22 @@ loc_1030B:
 @bomb_update_and_render$qv endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_STARS_UPDATE_AND_RENDER_FOR
-bomb_stars_update_and_render_for	proc near
-
-@@vector_y		= word ptr -4
-@@vector_x		= word ptr -2
-@@playchar		= word ptr  4
-
-		enter	4, 0
-		push	si
-		push	di
-		cmp	_bomb_frame, 48
-		jnz	short loc_10386
-		mov	si, offset _bomb_stars
-		xor	di, di
-		jmp	short loc_10381
-; ---------------------------------------------------------------------------
-
-loc_10321:
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	[si+bomb_star_t.BS_center.x], ax
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_H shl 4)
-		mov	[si+bomb_star_t.BS_center.y], ax
-		cmp	[bp+@@playchar], PLAYCHAR_REIMU
-		jnz	short loc_1036F
-		mov	[si+bomb_star_t.BS_angle], -40h
-		jmp	short loc_10346
-; ---------------------------------------------------------------------------
-
-loc_1033E:
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	[si+bomb_star_t.BS_center.x], ax
-
-loc_10346:
-		cmp	[si+bomb_star_t.BS_center.x], (((PLAYFIELD_W / 3) * 1) shl 4)
-		jl	short loc_10352
-		cmp	[si+bomb_star_t.BS_center.x], (((PLAYFIELD_W / 3) * 2) shl 4)
-		jle	short loc_1033E
-
-loc_10352:
-		cmp	[si+bomb_star_t.BS_center.x], ((PLAYFIELD_W / 2) shl 4)
-		jg	short loc_1035F
-		mov	ax, (130 shl 4)
-		sub	ax, [si+bomb_star_t.BS_center.x]
-		jmp	short loc_10364
-; ---------------------------------------------------------------------------
-
-loc_1035F:
-		mov	ax, [si+bomb_star_t.BS_center.x]
-		add	ax, (-254 shl 4)
-
-loc_10364:
-		mov	[bp+@@vector_x], ax
-		mov	bx, 9
-		cwd
-		idiv	bx
-		jmp	short loc_1037A
-; ---------------------------------------------------------------------------
-
-loc_1036F:
-		mov	[si+bomb_star_t.BS_angle], -20h
-		call	@randring1_next16_and$qui pascal, ((8 shl 4) - 1)
-		add	al, (10 shl 4)
-
-loc_1037A:
-		mov	[si+bomb_star_t.BS_speed], al
-		inc	di
-		add	si, size bomb_star_t
-
-loc_10381:
-		cmp	di, BOMB_STAR_COUNT
-		jl	short loc_10321
-
-loc_10386:
-		mov	si, offset _bomb_stars
-		xor	di, di
-		jmp	loc_1041D
-; ---------------------------------------------------------------------------
-
-loc_1038E:
-		push	ss
-		lea	ax, [bp+@@vector_x]
-		push	ax
-		push	ss
-		lea	ax, [bp+@@vector_y]
-		push	ax
-		push	word ptr [si+bomb_star_t.BS_angle]
-		mov	al, [si+bomb_star_t.BS_speed]
-		mov	ah, 0
-		push	ax
-		call	vector2
-		mov	ax, [bp+@@vector_x]
-		add	[si+bomb_star_t.BS_center.x], ax
-		mov	ax, [bp+@@vector_y]
-		add	[si+bomb_star_t.BS_center.y], ax
-		cmp	[si+bomb_star_t.BS_center.x], (-(BOMB_STAR_W / 2) shl 4)
-		jle	short loc_103C9
-		cmp	[si+bomb_star_t.BS_center.x], ((PLAYFIELD_W + (BOMB_STAR_W / 2)) shl 4)
-		jge	short loc_103C9
-		cmp	[si+bomb_star_t.BS_center.y], (-(BOMB_STAR_H / 2) shl 4)
-		jle	short loc_103C9
-		cmp	[si+bomb_star_t.BS_center.y], ((PLAYFIELD_H + BOMB_STAR_H) shl 4) ; !
-		jl	short loc_103F8
-
-loc_103C9:
-		cmp	[bp+@@playchar], 0
-		jnz	short loc_103D6
-		mov	[si+bomb_star_t.BS_center.y], ((PLAYFIELD_H + BOMB_STAR_H) shl 4)
-		jmp	short loc_103F8
-; ---------------------------------------------------------------------------
-
-loc_103D6:
-		test	di, 1
-		jz	short loc_103EB
-		mov	[si+bomb_star_t.BS_center.x], (-8 shl 4)
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_H shl 4)
-		mov	[si+bomb_star_t.BS_center.y], ax
-		jmp	short loc_103F8
-; ---------------------------------------------------------------------------
-
-loc_103EB:
-		call	@randring1_next16_mod$qui pascal, (PLAYFIELD_W shl 4)
-		mov	[si+bomb_star_t.BS_center.x], ax
-		mov	[si+bomb_star_t.BS_center.y], ((PLAYFIELD_H + (BOMB_STAR_H / 2)) shl 4)
-
-loc_103F8:
-		mov	ax, GRAM_400
-		mov	es, ax
-		assume es:nothing
-		mov	ax, [si+bomb_star_t.BS_center.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (BOMB_STAR_W / 2))
-		mov	[bp+@@vector_x], ax
-		mov	ax, [si+bomb_star_t.BS_center.y]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_TOP - (BOMB_STAR_H / 2))
-		mov	cx, [bp+@@vector_x]
-		call	@z_super_put_16x16_mono_raw$qi pascal, 120
-		inc	di
-		add	si, size bomb_star_t
-
-loc_1041D:
-		cmp	di, BOMB_STAR_COUNT
-		jl	loc_1038E
-		pop	di
-		pop	si
-		leave
-		retn	2
-bomb_stars_update_and_render_for	endp
+	; bomb_stars_update_and_render_for() now lives in
+	; th04/main/player/bombanim.cpp, which th04/main/player/shots_inv.cpp
+	; #includes ahead of its own two functions (kb/codegen/0129), so that
+	; all three land here in their original address order. It was the LAST
+	; proc of this root contribution and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0099 + 0112).
+	; kb/codegen/0121: the only `assume` in the deleted body was
+	; `es:nothing`, which is ALREADY the state in force on entry to this
+	; segment, so there is nothing to restore and nothing leaks.
+	;
+	; `pascal near` with a `public`, so the two `call ... pascal,` sites
+	; above it in this same segment need no edit at all.
+	BOMB_STARS_UPDATE_AND_RENDER_FOR procdesc pascal near \
+		playchar:word
 
 
 	; shot_reset() and shots_invalidate() now both live in

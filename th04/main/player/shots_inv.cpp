@@ -15,6 +15,22 @@
 #include "th04/main/tile/tile.hpp"
 #include "th02/main/entity.hpp"
 
+#if (GAME != 5)
+	// ZUN's object for SHOT_INV_TEXT opened with the bomb star animation, so
+	// it has to be emitted from this translation unit and ahead of both
+	// functions below (kb/codegen/0129). These four headers exist only for it
+	// and are the four its closure needs that the three above do not already
+	// bring: verified one-by-one, because 15 of the 30 headers in this TU's
+	// closure have no include guard and a second inclusion of any of them is
+	// a hard error.
+	#include "th04/main/player/bomb.hpp"
+	#include "th04/playchar.h"
+	#include "th04/math/vector.hpp"
+	#include "th04/formats/super.h"
+
+	#include "th04/main/player/bombanim.cpp"
+#endif
+
 // See th04/main/tile/tile.hpp for why this declaration has to be repeated in
 // every translation unit that calls the function, and why the parameter list is
 // a per-TU choice: it is decided by the code the original generated, not by what
