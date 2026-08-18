@@ -481,63 +481,6 @@ main_01____TEXT	segment	byte public 'CODE' use16
 include th02/math/randring_fill.asm
 RANDRING_NEXT_DEF 1
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public CFG_LOAD
-public _cfg_load
-_cfg_load label near
-cfg_load	proc near
-
-@@resident_seg		= word ptr -2
-
-		enter	2, 0
-		push	ds
-		push	offset aHuuma_cfg ; "huuma.cfg"
-		call	file_ropen
-		pushd	5
-		push	0
-		call	file_seek
-		push	ss
-		lea	ax, [bp+@@resident_seg]
-		push	ax
-		push	2
-		call	file_read
-		call	file_close
-		cmp	[bp+@@resident_seg], 0
-		jz	short loc_C2F0
-		mov	ax, [bp+@@resident_seg]
-		mov	word ptr _resident+2, ax
-		mov	word ptr _resident, 0
-		les	bx, _resident
-		mov	al, es:[bx+mikoconfig_t.stage]
-		mov	_stage_id, al
-		mov	al, es:[bx+mikoconfig_t.start_lives]
-		mov	_lives, al
-		mov	al, es:[bx+mikoconfig_t.start_bombs]
-		mov	_bombs, al
-		mov	al, es:[bx+mikoconfig_t.rank]
-		mov	_rank, al
-		mov	al, es:[bx+mikoconfig_t.start_power]
-		mov	_power, al
-		cmp	_power, 0
-		jnz	short loc_C2DF
-		inc	_power
-
-loc_C2DF:
-		mov	_playperf, 0
-		mov	_item_bigpower_override, 0
-		mov	ax, 1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C2F0:
-		xor	ax, ax
-		leave
-		retn
-cfg_load	endp
-
 main_01____TEXT	ends
 
 POINTNUM_TEXT	segment	byte public 'CODE' use16
@@ -19704,10 +19647,10 @@ byte_1E35E	label byte
 		db 0E0h
 		db 0F0h
 		db 0F8h
-public _rank, _stage_id
+public _rank, _stage_id, _cfg_fn
 _rank	db RANK_NORMAL
 _stage_id	db 0
-aHuuma_cfg	db 'huuma.cfg',0
+_cfg_fn		db 'huuma.cfg',0
 include th02/sprites/pellet.asp
 public _gBONUS_0, _gBONUS_1
 _gBONUS_0	db 0ABh, 0B8h, 0B6h, 0BEh, 0BCh, 0
