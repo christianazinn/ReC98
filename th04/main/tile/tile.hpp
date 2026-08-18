@@ -19,14 +19,17 @@ extern int8_t tile_row_in_section;
 // [scroll_line] divided by [TILE_H]. Guards the refill in
 // tiles_scroll_and_egc_render() so that it runs once per crossed tile row
 // rather than once per frame. [inferred]: the binary only shows the
-// comparison. TH05's is th05_main.asm's still-unnamed [word_23F06].
+// comparison. TH05 has the same variable, and th05_main.asm now publishes it
+// under this same name.
 extern int tile_ring_row_filled;
 
 // Advances the map cursor by one tile row whenever [scroll_line] has crossed
 // into a new one, refills the [tile_ring] row that exposed, and EGC-copies
 // the lines that scrolled in since the page currently being drawn was last
 // rendered. Assumes nothing about the EGC; it starts and stops the copy
-// itself. Called once per frame, from th04_main.asm's sub_CCD6.
+// itself. Called once per frame, from th04_main.asm's sub_CCD6 and
+// th05_main.asm's sub_10214. TH05 shares this C++ body; see
+// th04/main/tile/scroll.cpp for the three places the two games differ.
 void near tiles_scroll_and_egc_render(void);
 
 // Copies the topmost [scroll_lines_pending] lines of every one of the
@@ -34,10 +37,11 @@ void near tiles_scroll_and_egc_render(void);
 // starting at [scroll_line] and wrapping through the [tile_ring] as it goes.
 // Assumes the EGC to be active and initialized for a copy — the caller above
 // is the one that does that. Still ZUN's hand-written assembly, in
-// th04_main.asm's CIRCLE_TEXT: it pushes BP and then uses it as the scratch
-// register for the tile word being copied without ever establishing a frame
-// (kb/conventions/handwritten-asm-tells.md). TH05's twin is th05_main.asm's
-// still-unnamed sub_BC6A.
+// th04_main.asm's CIRCLE_TEXT and th05_main.asm's STD_TEXT: it pushes BP and
+// then uses it as the scratch register for the tile word being copied without
+// ever establishing a frame (kb/conventions/handwritten-asm-tells.md). TH05's
+// twin is instruction-for-instruction the same proc, so th05_main.asm now
+// publishes it under this same name.
 extern "C" void near tiles_egc_copy_scrolled_lines(void);
 
 // Loads the .MPN file with the given [fn] into slot 0, blits all of its tile

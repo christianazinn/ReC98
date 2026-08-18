@@ -16,6 +16,19 @@
 #include "platform/x86real/flags.hpp"
 #include "x86real.h"
 
+// ZUN's object for this code segment also held the tile ring scroller,
+// immediately ahead of std_load() -- it was the last proc of th05_main.asm's
+// STD_TEXT root contribution and this object already owned everything after
+// it, so the #include below is the original address order and needs neither a
+// carve nor a Tupfile.lua line (kb/codegen/0114 + 0129). TH04 has the same
+// function in END_TEXT and #includes the same file from
+// th04/main/tile/mpn_load.cpp.
+//
+// The three headers that file expects from its host TU -- tile.hpp,
+// stage.hpp, and (TH04 only) map.hpp -- are all above, or forward-declared
+// there.
+#include "th04/main/tile/scroll.cpp"
+
 void near std_load(void)
 {
 	extern char std_fn[];

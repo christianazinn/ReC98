@@ -5,21 +5,31 @@
 /// then EGC-copies the lines that scrolled in since the VRAM page currently
 /// being drawn was last rendered.
 ///
-/// (#included from th04/main/tile/mpn_load.cpp, which is itself #included from
-/// the th04/map.cpp object wrapper. That is kb/codegen/0129's host-source
-/// form, not kb/codegen/0112's wrapper form, and the count that decides it is
-/// 2: of the headers this file needs that th04/map.cpp's translation unit
-/// already provides — th04/main/tile/tile.hpp and th04/formats/map.hpp —
-/// *both* are unguarded, so including either here would break the TU. This
-/// form costs 0 header edits. Including this file from the wrapper instead
-/// would have needed a guard on tile.hpp, or mpn_load.cpp's #include moved
-/// up into the wrapper.
+/// (TH04: #included from th04/main/tile/mpn_load.cpp, which is itself
+/// #included from the th04/map.cpp object wrapper. That is kb/codegen/0129's
+/// host-source form, not kb/codegen/0112's wrapper form, and the count that
+/// decides it is 2: of the headers this file needs that th04/map.cpp's
+/// translation unit already provides — th04/main/tile/tile.hpp and
+/// th04/formats/map.hpp — *both* are unguarded, so including either here
+/// would break the TU. This form costs 0 header edits. Including this file
+/// from the wrapper instead would have needed a guard on tile.hpp, or
+/// mpn_load.cpp's #include moved up into the wrapper.
+///
+/// TH05 puts the same function in a different segment — STD_TEXT rather than
+/// END_TEXT — so it is #included from th05/formats/std.cpp instead, ahead of
+/// std_load(). Same kb/codegen/0129 host-source form, and the host provides
+/// th04/main/tile/tile.hpp and th04/main/stage/stage.hpp, both unguarded.
+/// TH05's copy was th05_main.asm's sub_BD20 (a placeholder name that no
+/// longer exists in that dump).
 ///
 /// Because this file shares a translation unit with mpn_load.cpp and
 /// th04/formats/map.cpp, its file-scope names are NOT file-local. The one
 /// macro below is #undef'd at the end.
 
 #include "x86real.h"
+// egc_off(); the host TU only has it on the TH04 side. Guarded, so the
+// #include is a no-op there.
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/egc.hpp"
 #include "th04/formats/std.hpp"
 #include "th04/main/scroll.hpp"
@@ -71,7 +81,11 @@ void near tiles_scroll_and_egc_render(void)
 		}
 		{
 			tile_row_in_section = (TILE_ROWS_PER_SECTION - 1);
-			std_map_section_id++;
+			#if (GAME == 5)
+				std_map_section_p++;
+			#else
+				std_map_section_id++;
+			#endif
 			std_scroll_speed++;
 			_DL = *reinterpret_cast<subpixel_length_8_t __es *>(
 				std_scroll_speed
@@ -104,7 +118,11 @@ tile_row_still_in_section:
 		_AL = tile_row_in_section;
 		_AX <<= 6;
 
-		_BX = std_map_section_id;
+		#if (GAME == 5)
+			_BX = std_map_section_p;
+		#else
+			_BX = std_map_section_id;
+		#endif
 		_BL = *reinterpret_cast<uint8_t __es *>(_BX);
 
 		// `_BH = 0` emits a 2-byte `MOV BH, 0`: the same length as the
@@ -119,10 +137,14 @@ tile_row_still_in_section:
 		// instructions, but in the compiler direction (`32 FF` / `02 DB`)
 		// against the original's `30 FF` / `00 DB`. Inline ASM settles the
 		// encoding as well as the instruction.
-		asm {
-			xor 	bh, bh;
-			add 	bl, bl;
-		}
+		asm { xor 	bh, bh; }
+
+		// TH05 stores the section ID pre-doubled inside [std_seg]
+		// (th04/formats/std.hpp), so only TH04 has to scale it here.
+		#if (GAME != 5)
+			asm { add 	bl, bl; }
+		#endif
+
 		_BX = *reinterpret_cast<const uint16_t near *>(
 			&TILE_SECTION_OFFSETS_bytewise[_BX]
 		);
@@ -153,6 +175,19 @@ tile_row_still_in_section:
 	scroll_lines_prev_frame = scroll_lines_pending;
 	scroll_lines_pending += lines_last_frame;
 
+	#if (GAME == 5)
+		// Stage 6 (Shinki) scrolls no tiles: th05_main.asm's sub_10214, the
+		// only caller, clears [scroll_active] on that stage two instructions
+		// into its own body, immediately before it ends up here. So the test
+		// below would already catch it, and this one looks redundant --
+		// [inferred], not measured: [scroll_active] has other writers
+		// (th04/main/player/bomb.cpp raises it again), and nothing rules out
+		// one of them running on Stage 6 between the two tests.
+		if(stage_id == 5) {
+			scroll_lines_pending = 0;
+			return;
+		}
+	#endif
 	if(scroll_active == false) {
 		scroll_lines_pending = 0;
 		return;
