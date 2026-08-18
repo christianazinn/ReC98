@@ -97,6 +97,7 @@ SCORE_TEXT segment byte public 'CODE' use16
 	@GLYPHBALL_SPAWN$QIII10PLAYCHAR_TUC procdesc pascal near \
 		alphabet_col:word, alphabet_row:word, place:word, \
 		playchar:byte, slot:byte
+	@glyphballs_rush_and_wait$qv procdesc near
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -125,11 +126,13 @@ SCORE_TEXT segment byte public 'CODE' use16
 ; that contribution: a kb/codegen/0098 head lift with no carve, no new
 ; segment, no group-list edit and no Tupfile.lua line. Their two `jmp cs:`
 ; switch tables and the alignment byte ahead of each went with them, and
-; none of them contained an `assume` either (kb/codegen/0121).
+; none of them contained an `assume` either (kb/codegen/0121). The proc
+; that followed them went the same way, into the same object, as
+; glyphballs_rush_and_wait().
 ; Nothing may be added above this line.
 
-; Still referenced below, by sub_C16C and regist_menu(), and by
-; _glyphballs in this dump's BSS.
+; Still referenced below, by regist_menu(), and by _glyphballs in this
+; dump's BSS.
 GBP_FREE = 0
 GBP_CLOUD_AT_ORIGIN = 1
 GBP_FLOAT_TO_TARGET = 2
@@ -147,79 +150,6 @@ glyphball_t struc
 	GB_phase_frame	dw ?
 		db 6 dup (?)
 glyphball_t ends
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C16C	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	[bp+var_1], 0
-		call	snd_se_play pascal, 11
-		mov	si, offset _glyphballs
-		xor	di, di
-		jmp	short loc_C1AF
-; ---------------------------------------------------------------------------
-
-loc_C184:
-		cmp	[si+glyphball_t.GB_phase], GBP_CLOUD_AT_ORIGIN
-		jnz	short loc_C18C
-		mov	[si+glyphball_t.GB_phase], GBP_FLOAT_TO_TARGET
-
-loc_C18C:
-		cmp	[si+glyphball_t.GB_phase], GBP_FLOAT_TO_TARGET
-		jnz	short loc_C1AB
-		mov	ax, [si+glyphball_t.GB_target.y]
-		sub	ax, [si+glyphball_t.GB_pos.cur.y]
-		push	ax
-		mov	ax, [si+glyphball_t.GB_target.x]
-		sub	ax, [si+glyphball_t.GB_pos.cur.x]
-		push	ax
-		call	iatan2
-		mov	[si+glyphball_t.GB_angle], al
-		mov	[si+glyphball_t.GB_speed], (6 shl 4)
-
-loc_C1AB:
-		inc	di
-		add	si, size glyphball_t
-
-loc_C1AF:
-		cmp	di, SCOREDAT_NAME_LEN
-		jl	short loc_C184
-
-loc_C1B4:
-		mov	[bp+var_1], 0
-		xor	di, di
-		mov	si, offset _glyphballs
-		jmp	short loc_C1CB
-; ---------------------------------------------------------------------------
-
-loc_C1BF:
-		cmp	[si+glyphball_t.GB_phase], GBP_FREE
-		jz	short loc_C1C7
-		inc	[bp+var_1]
-
-loc_C1C7:
-		inc	di
-		add	si, size glyphball_t
-
-loc_C1CB:
-		cmp	di, SCOREDAT_NAME_LEN
-		jl	short loc_C1BF
-		call	@regist_frame_and_flip$qv
-		cmp	[bp+var_1], 0
-		jnz	short loc_C1B4
-		pop	di
-		pop	si
-		leave
-		retn
-sub_C16C	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -585,7 +515,7 @@ loc_C576:
 		jz	short loc_C582
 
 @@enter:
-		call	sub_C16C
+		call	@glyphballs_rush_and_wait$qv
 		jmp	short loc_C5BE
 ; ---------------------------------------------------------------------------
 

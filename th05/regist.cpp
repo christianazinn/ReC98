@@ -421,3 +421,41 @@ static void near glyphballs_update_and_render(void)
 }
 
 #pragma option -a1
+
+/// The player confirmed the name: give every glyph ball still on screen a
+/// straight line to its own slot at a fixed speed — "rushing" it, as opposed
+/// to glyphballs_update_and_render()'s gradual steering, which only turns the
+/// angle by degrees and accelerates in steps — and then block until all of
+/// them have splashed down and freed themselves.
+void near glyphballs_rush_and_wait(void)
+{
+	unsigned char live = 0;
+	int i;
+	glyphball_t near *p;
+
+	snd_se_play(11);
+
+	p = glyphballs;
+	for(i = 0; i < SCOREDAT_NAME_LEN; i++, p++) {
+		if(p->phase == GBP_CLOUD_AT_ORIGIN) {
+			p->phase = GBP_FLOAT_TO_TARGET;
+		}
+		if(p->phase == GBP_FLOAT_TO_TARGET) {
+			p->angle = iatan2(
+				(p->target.y.v - p->pos.cur.y.v),
+				(p->target.x.v - p->pos.cur.x.v)
+			);
+			p->speed.v = TO_SP(6);
+		}
+	}
+
+	do {
+		live = 0;
+		for(i = 0, p = glyphballs; i < SCOREDAT_NAME_LEN; i++, p++) {
+			if(p->phase != GBP_FREE) {
+				live++;
+			}
+		}
+		regist_frame_and_flip();
+	} while(live != 0);
+}
