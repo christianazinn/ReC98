@@ -87,9 +87,14 @@ dots8_t verdict_bitmap[2][VERDICT_SCREEN_H][VERDICT_BITMAP_W / BYTE_DOTS];
 // -----
 
 // The tail of th05_maine.asm's SCORE_TEXT block, lifted backwards into the
-// head of this object's contribution to the same segment. It has to precede
-// space_window_set() to land at its original address; see the file itself for
-// why this object is the one that can take it.
+// head of this object's contribution to the same segment. These have to
+// precede space_window_set(), and keep their original order relative to each
+// other, to land at their original addresses; see the files themselves for
+// why this object is the one that can take them.
+//
+// verdict_animate() is ONE body shared with TH04, which reaches it through
+// th04/staff.cpp instead; only its tail differs, under `#if (GAME == 5)`.
+#include "th04/end/verdict_animate.cpp"
 #include "th05/end/verdict_scores.cpp"
 
 void pascal near space_window_set(
