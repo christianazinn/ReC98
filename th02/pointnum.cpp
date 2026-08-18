@@ -5,6 +5,10 @@
 // addresses' - each file's contribution begins exactly where the previous one
 // ends.
 
+// th02/main/cfg_load.cpp is linked ahead of this object into the same segment,
+// as ZUN's own two objects were; see that file for why it cannot be folded in
+// here as a sixth #include.
+
 // -zC/-zP only take effect before any code is generated, so the group has to
 // be named here rather than in an included file (kb/codegen/0112). The segment
 // name still comes from this wrapper's own basename (kb/codegen/0105).
