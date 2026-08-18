@@ -97,6 +97,13 @@ typedef enum {
 	/// ===============
 	// st03b.bbt
 	// ---------
+	// [inferred] The one cel range reimu_fg_render() animates: her
+	// [boss.sprite] is an absolute patnum, and this exact value is the only
+	// one it turns into a REIMU_FRAMES_PER_CEL run rather than blitting as a
+	// single pose. What the four cels depict is not recoverable from the
+	// binary.
+	PAT_REIMU_ANIMATED = (PAT_STAGE + 8),
+
 	PAT_REIMU_ORB_BLUE = (PAT_STAGE + 12),
 	PAT_REIMU_ORB_BLUE_last = (PAT_REIMU_ORB_BLUE + REIMU_ORB_CELS - 1),
 	PAT_REIMU_ORB_YELLOW,
