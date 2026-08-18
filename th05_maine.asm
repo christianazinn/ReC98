@@ -102,6 +102,10 @@ SCORE_TEXT segment byte public 'CODE' use16
 		left:word, top:word, num:word
 	GRAPH_SCORE_AND_TEN_PUT procdesc pascal near \
 		left:word, top:word, score:dword
+	@SKILL_APPLY_AND_GRAPH_PERCENTAGE$QIIUIUI procdesc pascal near \
+		left:word, top:word, total:word, share:word
+	@GRAPH_FRACTION_OF_MILLION_PUT$QIIUL procdesc pascal near \
+		left:word, top:word, num:dword
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -190,150 +194,17 @@ glyphball_t ends
 ; Nothing may be added above this line.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @SKILL_APPLY_AND_GRAPH_PERCENTAGE$QIIUIUI
-@skill_apply_and_graph_percentage$qiiuiui	proc near
-
-@@fraction	= dword	ptr -6
-@@digits  	= word ptr -2
-@@share   	= word ptr  4
-@@total   	= word ptr  6
-@@top     	= word ptr  8
-@@left    	= word ptr  0Ah
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	si, [bp+@@left]
-		mov	di, [bp+@@top]
-		cmp	[bp+@@total], 0
-		jz	short loc_C745
-		mov	[bp+@@fraction], 1000000
-		jmp	short loc_C74D
-; ---------------------------------------------------------------------------
-
-loc_C745:
-		mov	[bp+@@fraction], 0
-
-loc_C74D:
-		mov	ax, [bp+@@total]
-		cmp	ax, [bp+@@share]
-		jz	short loc_C786
-		cmp	[bp+@@total], 0
-		jz	short loc_C770
-		movzx	ebx, [bp+@@total]
-		mov	eax, [bp+@@fraction]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@fraction], eax
-		jmp	short loc_C778
-; ---------------------------------------------------------------------------
-
-loc_C770:
-		mov	[bp+@@fraction], 0
-
-loc_C778:
-		movzx	eax, [bp+@@share]
-		imul	eax, [bp+@@fraction]
-		mov	[bp+@@fraction], eax
-
-loc_C786:
-		cmp	_skill_subtract, 0
-		jnz	short loc_C797
-		mov	eax, _skill
-		add	eax, [bp+@@fraction]
-		jmp	short loc_C79F
-; ---------------------------------------------------------------------------
-
-loc_C797:
-		mov	eax, _skill
-		sub	eax, [bp+@@fraction]
-
-loc_C79F:
-		mov	_skill, eax
-		cmp	byte_1517C, 0
-		jz	short loc_C7B6
-		mov	eax, [bp+@@fraction]
-		shr	eax, 2
-		mov	dword_15182, eax
-
-loc_C7B6:
-		mov	eax, [bp+@@fraction]
-		mov	ebx, 10000
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiui pascal, si, di, ax
-		mov	ebx, 10000
-		mov	eax, [bp+@@fraction]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@fraction], edx
-		mov	eax, [bp+@@fraction]
-		mov	ebx, 100
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		mov	_graph_3_digit_put_as_fixed_2_dig, 1
-		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
-		mov	_graph_3_digit_put_as_fixed_2_dig, 0
-		lea	ax, [si+48]
-		call	graph_putsa_fx pascal, ax, di, col_116E4, ds, offset aBd
-		lea	ax, [si+96]
-		call	graph_putsa_fx pascal, ax, di, col_116E4, ds, offset aBu
-		pop	di
-		pop	si
-		leave
-		retn	8
-@skill_apply_and_graph_percentage$qiiuiui	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @GRAPH_FRACTION_OF_MILLION_PUT$QIIUL
-@graph_fraction_of_million_put$qiiul	proc near
-
-@@digits	= word ptr -2
-@@val   	= dword	ptr  4
-@@top   	= word ptr  8
-@@left  	= word ptr  0Ah
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+@@left]
-		mov	di, [bp+@@top]
-		mov	eax, [bp+@@val]
-		mov	ebx, 10000
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		call	@graph_3_digit_put$qiiui pascal, si, di, ax
-		mov	ebx, 10000
-		mov	eax, [bp+@@val]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@val], edx
-		mov	eax, [bp+@@val]
-		mov	ebx, 100
-		xor	edx, edx
-		div	ebx
-		mov	[bp+@@digits], ax
-		mov	_graph_3_digit_put_as_fixed_2_dig, 1
-		lea	ax, [si+48]
-		call	@graph_3_digit_put$qiiui pascal, ax, di, [bp+@@digits]
-		mov	_graph_3_digit_put_as_fixed_2_dig, 0
-		lea	ax, [si+48]
-		call	graph_putsa_fx pascal, ax, di, col_116E4, ds, offset aBd_0
-		pop	di
-		pop	si
-		leave
-		retn	8
-@graph_fraction_of_million_put$qiiul	endp
+; skill_apply_and_graph_percentage() and graph_fraction_of_million_put()
+; now live in th04/end/verdict_digits.cpp, after graph_score_and_ten_put()
+; and therefore still in this block's original order. th05/regist.cpp
+; contributes to this segment right before this block, so both land at
+; their original addresses by growing that object's tail
+; (kb/codegen/0098 + 0114). No carve, no new segment, no group-list edit,
+; no Tupfile.lua line.
+;
+; kb/codegen/0121: neither deleted body contained an `assume`.
+;
+; Nothing may be added above this line.
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -3985,8 +3856,14 @@ include th04/gaiji/verdict[data].asm
 public _POINT_MSG
 _POINT_MSG	label byte
 aU__0		db '点',0
+public _DOT_MSG
+_DOT_MSG	label byte
 aBd		db '．',0
+public _PERCENT_MSG
+_PERCENT_MSG	label byte
 aBu		db '％',0
+public _DOT_MSG_0
+_DOT_MSG_0	label byte
 aBd_0		db '．',0
 aBu_0		db '％',0
 aB@b@b@b@b@b@b@	db '　　　　　　　 腕前判定',0
@@ -4074,9 +3951,15 @@ _rank	db ?
 _playchar	db ?
 		db 3 dup(?)
 public _skill
+; kb/codegen/0123: zero-byte aliases so th04/end/verdict_digits.cpp can
+; reach these two. `label` emits nothing.
+public _skill_stash_quarter
+_skill_stash_quarter	label byte
 byte_1517C	db ?
 		db ?
 _skill	dd ?
+public _skill_quarter
+_skill_quarter	label dword
 dword_15182	dd ?
 _verdict_rank	db ?
 byte_15187	db ?
