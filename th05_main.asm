@@ -1156,16 +1156,16 @@ loc_BD81:
 loc_BD88:
 		shl	ax, 6
 		add	ax, offset _tile_ring
-		mov	di, ax
-		xor	ax, ax
+		db	089h, 0C7h	; mov di, ax (TASM: 8B F8)
+		db	031h, 0C0h	; xor ax, ax (TASM: 33 C0)
 		mov	al, _tile_row_in_section
 		shl	ax, 6
 		mov	bx, _std_map_section_p
 		mov	bl, es:[bx]
-		xor	bh, bh
+		db	030h, 0FFh	; xor bh, bh (TASM: 32 FF)
 		mov	bx, _TILE_SECTION_OFFSETS[bx]
-		mov	si, ax
-		add	si, bx
+		db	089h, 0C6h	; mov si, ax (TASM: 8B F0)
+		db	001h, 0DEh	; add si, bx (TASM: 03 F3)
 		push	ds
 		pop	es
 		assume es:_DATA
