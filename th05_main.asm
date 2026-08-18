@@ -5120,82 +5120,22 @@ loc_117BA:
 exalice_custombullets_render	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @EXALICE_FG_RENDER$QV
-@exalice_fg_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_117F9
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_11862
-; ---------------------------------------------------------------------------
-
-loc_117F9:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	si, ax
-		mov	al, byte_2CE56
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jz	short loc_11812
-		add	si, 8
-
-loc_11812:
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_11825
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_1183A
-; ---------------------------------------------------------------------------
-
-loc_11825:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_boss_damage_this_frame, 0
-
-loc_1183A:
-		cmp	si, 181
-		jg	short loc_11862
-		cmp	_boss_phase, 2
-		jb	short loc_11862
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, patnum_2CE64
-		mov	si, ax
-		call	super_put pascal, di, [bp+@@y], ax
-
-loc_11862:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@exalice_fg_render$qv	endp
+	; EX-Alice's foreground renderer now lives in
+	; th05/main/boss/bx_fg.cpp, ahead of the Stage 5 midboss in
+	; th05/midboss5.cpp -- the original order, and the order this segment
+	; needs, since it was the LAST proc of the root contribution and that
+	; object already owned everything after it (kb/codegen 0114). No carve,
+	; no new segment, no Tupfile.lua line; the object only needed the
+	; -zCmain_0_TEXT pragma hoisted out of the included file into the
+	; wrapper, because a pragma stops taking effect once code is generated
+	; (kb/codegen 0112 trap 0).
+	;
+	; Nothing in this dump calls it -- th05/main/stage/setup.cpp installs it
+	; into boss_fg_render_func -- so it needs no procdesc, and the public
+	; that used to export it to that assignment goes with the body.
+	;
+	; This seam stays OPEN: the item ahead is exalice_custombullets_render,
+	; a proc, so main_0_TEXT can give up another tail.
 main_0_TEXT	ends
 
 HUD_OVRL_TEXT	segment	byte public 'CODE' use16
@@ -16812,10 +16752,10 @@ sub_1F21A	proc far
 		mov	bp, sp
 		cmp	_bombing, 0
 		jz	short loc_1F229
-		mov	byte_2CE56, 27h	; '''
+		mov	_exalice_invincibility_frames, 27h	; '''
 
 loc_1F229:
-		cmp	byte_2CE56, 0
+		cmp	_exalice_invincibility_frames, 0
 		jnz	short loc_1F237
 		call	@boss_hittest_shots$qv
 		mov	ah, 0
@@ -16840,9 +16780,9 @@ public @EXALICE_UPDATE$QV
 		push	bp
 		mov	bp, sp
 		push	si
-		cmp	byte_2CE56, 0
+		cmp	_exalice_invincibility_frames, 0
 		jz	short loc_1F298
-		dec	byte_2CE56
+		dec	_exalice_invincibility_frames
 
 loc_1F298:
 		mov	eax, _boss_pos.cur
@@ -16872,7 +16812,7 @@ loc_1F2C9:
 		mov	_boss_sprite_left, 186
 		mov	_boss_sprite_right, 184
 		mov	_boss_sprite_stay, 180
-		mov	byte_2CE56, 0
+		mov	_exalice_invincibility_frames, 0
 		mov	_boss_flystep_random_clamp.A_left, (BOSS_W shl 4)
 		mov	_boss_flystep_random_clamp.A_right, ((PLAYFIELD_W - BOSS_W) shl 4)
 		mov	_boss_flystep_random_clamp.A_top, (48 shl 4)
@@ -16900,7 +16840,7 @@ loc_1F333:
 		mov	Palettes[0 * size rgb_t].g, 0
 		mov	Palettes[0 * size rgb_t].b, 0
 		mov	_palette_changed, 1
-		mov	patnum_2CE64, 196
+		mov	_exalice_overlay_patnum, 196
 		mov	_bg_render_bombing_func, offset @exalice_bg_render$qv
 		jmp	loc_1F666
 ; ---------------------------------------------------------------------------
@@ -17070,7 +17010,7 @@ loc_1F51A:
 
 loc_1F523:
 		mov	_pellet_bottom_col, 9
-		mov	patnum_2CE64, 200
+		mov	_exalice_overlay_patnum, 200
 		inc	_boss_statebyte[9]
 		jmp	loc_1F666
 ; ---------------------------------------------------------------------------
@@ -18396,10 +18336,12 @@ byte_2CE4C	db ?
 		db ?
 include th04/main/stage/funcs[bss].asm
 point_2CE52	Point <?>
-byte_2CE56	db ?
+	public _exalice_invincibility_frames
+_exalice_invincibility_frames	db ?
 		evendata
 include th05/main/boss/bx[bss].asm
-patnum_2CE64	dw ?
+	public _exalice_overlay_patnum
+_exalice_overlay_patnum	dw ?
 fp_2CE66	dw ?
 fp_2CE68	dw ?
 include th04/main/hud/overlay[bss].asm
