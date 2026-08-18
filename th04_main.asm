@@ -1169,81 +1169,16 @@ TILE_TEXT	ends
 mai_TEXT	segment	word public 'CODE' use16
 include th04/main/tile/render_a.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MIDBOSS2_RENDER$QV
-@midboss2_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_pos.cur.y, 0
-		jle	loc_CCD2
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	[bp+@@y], ax
-		cmp	_midboss_phase, 2
-		ja	short loc_CCD2
-		cmp	_midboss_sprite, 0
-		jnz	short loc_CC7C
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 146
-		jmp	short loc_CCA8
-; ---------------------------------------------------------------------------
-
-loc_CC7C:
-		cmp	_midboss_sprite, 1
-		jnz	short loc_CC93
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 150
-		jmp	short loc_CCA8
-; ---------------------------------------------------------------------------
-
-loc_CC93:
-		cmp	_midboss_sprite, 2
-		jnz	short loc_CCAA
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 152
-
-loc_CCA8:
-		mov	si, ax
-
-loc_CCAA:
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_CCBD
-		call	super_roll_put pascal, di, [bp+@@y], si
-		jmp	short loc_CCD2
-; ---------------------------------------------------------------------------
-
-loc_CCBD:
-		call	super_roll_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-
-loc_CCD2:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss2_render$qv	endp
+	; midboss2_render() now lives in th04/main/midboss/m2.cpp, which
+	; th04/mai.cpp compiles into THIS segment: the wrapper leaves the code
+	; segment name to Turbo C++'s basename default, and `mai.cpp` gives
+	; MAI_TEXT (kb/codegen 0105 + 0112). It was the LAST proc of the segment,
+	; so the object lands exactly where it was and no carve, no new segment
+	; name and no group-list edit were needed -- only the one Tupfile.lua
+	; line. The include above it stays here.
+	; Upper case because the function is `pascal`; TASM emits the EXTRN under
+	; exactly the spelling written here and does not apply the language rule.
+	@MIDBOSS2_RENDER$QV procdesc pascal near
 
 mai_TEXT	ends
 
