@@ -7697,56 +7697,15 @@ off_171BA	dw offset loc_16F76
 		dw offset loc_1712C
 		dw offset loc_17150
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_171C8
-sub_171C8	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		cmp	ax, 1
-		jz	short loc_171E5
-		cmp	ax, 4
-		jz	short loc_171F9
-		cmp	ax, 5
-		jz	short loc_171FD
-		jmp	short loc_17204
-; ---------------------------------------------------------------------------
-
-loc_171E5:
-		cmp	_dream, 1
-		jbe	short loc_17204
-		cmp	_dream, 128
-		jnb	short loc_17204
-		dec	_dream
-		jmp	short loc_17204
-; ---------------------------------------------------------------------------
-
-loc_171F9:
-		push	2
-		jmp	short loc_171FF
-; ---------------------------------------------------------------------------
-
-loc_171FD:
-		push	4
-
-loc_171FF:
-		call	playperf_lower
-
-loc_17204:
-		call	hud_dream_put
-		pop	si
-		pop	bp
-		retn	2
-sub_171C8	endp
+	; The off-playfield item penalty now lives in
+	; th04/main/item/update.cpp as item_left_playfield(), ahead of
+	; items_update() in that object -- the original order, and the order this
+	; segment needs, since it was the LAST proc of the root contribution and
+	; th05/main033.cpp already owned everything after it (kb/codegen 0114).
+	; No carve, no new segment, no Tupfile.lua line.
+	;
+	; The `public` line that used to publish it for the C++ side went with it:
+	; nothing in this dump ever called it either, so no `procdesc` replaces it.
 
 
 	; items_update() now lives in th04/main/item/update.cpp, which the
