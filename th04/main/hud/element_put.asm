@@ -33,7 +33,7 @@ public @HUD_HP_PUT$QI
 	mov	byte ptr [bp+@@bar_colors+4], al
 	or	si, si
 	jz	short @@no_bar
-	call	gaiji_putsa pascal, ((HUD_LEFT + 5) shl 16) + HUD_HP_CAPTION_TRAM_Y, ds, offset gsENEMY, TX_YELLOW
+	call	gaiji_putsa pascal, ((HUD_LEFT + 5) shl 16) + HUD_HP_CAPTION_TRAM_Y, ds, offset _gsENEMY, TX_YELLOW
 	push	HUD_HP_BAR_TRAM_Y
 	push	si
 	mov	ax, si

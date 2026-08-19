@@ -374,7 +374,7 @@ loc_AD3B:
 		mov	es:[bx+resident_t.rem_bombs], al
 		mov	al, es:[bx+resident_t.credit_lives]
 		mov	es:[bx+resident_t.rem_lives], al
-		call	main_01:bb_txt_load
+		call	main_01:BB_TXT_LOAD
 		cmp	_playchar, PLAYCHAR_REIMU
 		jnz	short loc_AD90
 		mov	_player_option_patnum, PAT_OPTION_REIMU
@@ -839,7 +839,7 @@ loc_B2C7:
 		retn
 sub_B29E	endp
 
-include th04/main/pause.asm
+	; pause() is now th04/main/pause.cpp, at the head of th04/main/demo.cpp
 	@demo_load$qv procdesc near
 	@DemoPlay$qv procdesc near
 DEMO_TEXT	ends
@@ -2953,24 +2953,24 @@ HUD_PWR_TEXT	ends
 ; original address in the MIDDLE of the segment. Same
 ; `byte public 'CODE'` alignment as before, so nothing moves.
 HUD_PUT_TEXT	segment	byte public 'CODE' use16
-	; hud_bar_put() now lives in th04/main/hud/bar_put.cpp, compiled into
-	; this segment by th04/hud_bar.cpp, which the link list places directly
-	; ahead of th04/hud_put.cpp. TLINK lays a segment's contributions out
-	; in link order with the root dump first, so it lands exactly where the
-	; `include` that used to follow element_put.asm put it -- no carve and
-	; no new segment name (kb/codegen 0099 + 0105 + 0114).
+	; hud_hp_put() and hud_bar_put() both now live in C++, compiled into
+	; this segment by th04/hud_bar.cpp, which includes hp_put.cpp and then
+	; bar_put.cpp -- the order the two bodies had here. TLINK lays a
+	; segment's contributions out in link order with the root dump first,
+	; and this block is now empty, so that object begins exactly where the
+	; `include` did (kb/codegen 0099 + 0105 + 0114).
 	;
-	; Declared HERE, at the head of the segment, rather than where that
-	; `include` was: hud_hp_put() in element_put.asm calls it, and that
-	; module is included below this point, so a declaration after it would
-	; be a forward reference. Same segment and therefore same group as the
-	; call site, which is what keeps TASM lowering that far call to
-	; `push cs` + a near call (kb/codegen/0082), with no edit to the
-	; element_put.asm both games share. Uppercase because it is __pascal
-	; (kb/codegen 0081, 0103).
-	HUD_BAR_PUT procdesc pascal far
-
-include th04/main/hud/element_put.asm
+	; The pascal far procdesc for hud_bar_put that stood here went with the
+	; include. Its only consumer was the call inside hud_hp_put, and the C++
+	; reaches the same callee through the hand-spelled nop / push cs / near
+	; call island that kb/codegen/0083 requires instead, so nothing in this
+	; dump names that symbol any more.
+	;
+	; TH05 still includes th04/main/hud/element_put.asm, at the HEAD of its
+	; own MIDBOSSX_TEXT, where the same lift would need a carve rather than
+	; this seam. The module stays for that game.
+	;
+	; **THIS BLOCK IS NOW EMPTY.** Nothing may be added here.
 
 	; hud_put() now lives in th04/main/hud/hud.cpp, which appends to this
 	; segment. Its `HUD_PUT procdesc pascal far` is declared at the top of
@@ -5413,7 +5413,7 @@ HUD_OVRL_TEXT	segment	byte public 'CODE' use16
 HUD_OVRL_TEXT	ends
 
 main_01_TEXT	segment	byte public 'CODE' use16
-include th04/formats/bb_txt_load.asm
+	BB_TXT_LOAD procdesc near  ; th04/formats/bb_txt_load.cpp
 
 	; mugetsu_fg_render() now lives in th04/main/boss/bx1_fg.cpp, ahead of
 	; mugetsu_gengetsu_shield_render() and therefore in its original address
