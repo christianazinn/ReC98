@@ -10,6 +10,8 @@
 /// name compiled into a different memory model, which is kb/codegen/0115, not
 /// a rename. The dump's `call` is the tell: `retf` here, `retn` there.
 
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th04/playchar.h"
 #include "th04/sprites/main_cdg.h"
 #include "th04/sprites/main_pat.h"
 #include "th04/formats/bb.h"
@@ -41,6 +43,98 @@ extern char st05_bb[];
 extern char st04bk_cdg[];
 extern char st04_bb[];
 extern char st04_cdg[];
+
+// Four more private `_DATA` labels in th04_main.asm, aliased in place
+// (kb/codegen/0123).
+extern char st03_bmt[];
+extern char st03bk_cdg[];
+extern char st03bk2_cdg[];
+extern char st03_bb[];
+
+/// Stage 4
+/// -------
+
+// Whichever of the two playable characters you are NOT playing as.
+static const int PAT_REIMU_MARISA_STILL = PAT_STAGE;
+
+void pascal far stage4_setup(void)
+{
+	midboss_update_func = midboss4_update;
+	midboss_render_func = midboss4_render;
+	midboss.frames_until = 2800;
+	midboss.pos.     cur.set(144, -32);
+	midboss.pos.    prev.set(144, -32);
+	midboss.pos.velocity.set(4, 2);
+	midboss.hp = 1200;
+	midboss.sprite = 0;
+
+	boss_reset();
+	boss.pos.init(192, 64);
+	boss_bg_render_func = reimu_marisa_bg_render;
+
+	// Stage 4's boss is the character you did not pick.
+	if(playchar == PLAYCHAR_MARISA) {
+		boss_update_func = reimu_update;
+		boss_fg_render_func = reimu_fg_render;
+
+		// Reimu seeds seven per-rank pattern parameters; Marisa seeds none
+		// and takes a flat HP pool instead.
+		//
+		// [4] and [5] are BOTH BSB_spread_delta_angle in boss_statebyte_t —
+		// the union names the field, not the slot — and they are read back
+		// from two different still-ASM patterns. Nothing in the binary
+		// distinguishes them, so they stay bare indices rather than taking
+		// an invented discriminator, the same call
+		// th04/main/midboss/mx_update.cpp made for its own slots.
+		#define orb_count       	boss_statebyte[0]
+		#define orb_interval    	boss_statebyte[1]
+		#define spread_turns_max	boss_statebyte[2]
+		#define spread          	boss_statebyte[3]
+		#define stack           	boss_statebyte[6]
+
+		orb_count        = select_for_rank( 4,  6,  8, 12);
+		orb_interval     = select_for_rank(16, 12,  8,  6);
+		spread_turns_max = select_for_rank( 1,  2,  3,  4);
+		spread           = select_for_rank(23, 23, 24, 24);
+		boss_statebyte[4] = select_for_rank( 8,  9,  9, 10);
+		boss_statebyte[5] = select_for_rank(18, 16, 14, 10);
+		stack            = select_for_rank( 6,  8,  9, 10);
+
+		#undef orb_count
+		#undef orb_interval
+		#undef spread_turns_max
+		#undef spread
+		#undef stack
+	} else {
+		boss_update_func = marisa_update;
+		boss_fg_render_func = marisa_fg_render;
+		boss.hp = 6000;
+	}
+
+	boss.sprite = PAT_REIMU_MARISA_STILL;
+	boss_hitbox_radius.set(24, 24);
+	boss_backdrop_colorfill = reimu_marisa_backdrop_colorfill;
+
+	super_entry_bfnt(st03_bmt);
+
+	// Written out in both arms rather than as one call with a ternary
+	// filename: the original re-pushes the slot and DS inside each arm and
+	// shares only the trailing 0 and the call itself, which is what -O's tail
+	// merger produces from two full calls (kb/codegen/0097 — the `jmp` into
+	// the middle of the second arm is the tell). A ternary instead hoists the
+	// two common pushes above the test and routes the filename through AX,
+	// which is 2 bytes shorter and one instruction longer.
+	if(playchar != PLAYCHAR_REIMU) {
+		cdg_load_single_noalpha(CDG_BG_BOSS, st03bk_cdg, 0);
+	} else {
+		cdg_load_single_noalpha(CDG_BG_BOSS, st03bk2_cdg, 0);
+	}
+	bb_boss_load(st03_bb);
+
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
 
 /// Stage 5
 /// -------

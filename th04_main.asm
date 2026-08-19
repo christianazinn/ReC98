@@ -674,7 +674,7 @@ loc_B0AC:
 loc_B0B2:
 		call	cdg_load_all
 		call	super_entry_bfnt pascal, ds, offset aSt03_bft ; "st03.bft"
-		call	stage4_setup
+		call	@stage4_setup$qv
 		call	mpn_load pascal, ds, offset aSt03_mpn ; "st03.mpn"
 		mov	_stage_render, offset @stage4_render$qv
 		jmp	short loc_B144
@@ -3216,7 +3216,7 @@ sub_EC8E	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @MARISA_FG_RENDER$QV
 @marisa_fg_render$qv	proc near
 		push	bp
 		mov	bp, sp
@@ -6701,7 +6701,7 @@ loc_122D2:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @REIMU_MARISA_BG_RENDER$QV
 @reimu_marisa_bg_render$qv	proc near
 
 @@entrance_cel		= byte ptr -1
@@ -13771,7 +13771,7 @@ marisa_179BC	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @MARISA_UPDATE$QV
 @marisa_update$qv	proc far
 
 var_4		= word ptr -4
@@ -22840,107 +22840,14 @@ stage3_setup	proc far
 stage3_setup	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage4_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midboss4_update$qv
-		mov	_midboss_render_func, offset @midboss4_render$qv
-		mov	_midboss_frames_until, 2800
-		mov	_midboss_pos.cur.x, (144 shl 4)
-		mov	_midboss_pos.cur.y, (-32 shl 4)
-		mov	_midboss_pos.prev.x, (144 shl 4)
-		mov	_midboss_pos.prev.y, (-32 shl 4)
-		mov	_midboss_pos.velocity.x, (4 shl 4)
-		mov	_midboss_pos.velocity.y, (2 shl 4)
-		mov	_midboss_hp, 1200
-		mov	_midboss_sprite, 0
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (64 shl 4)
-		mov	_boss_pos.prev.y, (64 shl 4)
-		mov	_boss_bg_render_func, offset @reimu_marisa_bg_render$qv
-		cmp	_playchar, PLAYCHAR_MARISA
-		jnz	@@playing_as_reimu
-		setfarfp	_boss_update_func, @reimu_update$qv
-		mov	_boss_fg_render_func, offset @reimu_fg_render$qv
-		push	( 4 shl 16) or  6
-		push	( 8 shl 16) or 12
-		call	select_for_rank
-		mov	_boss_statebyte[0].BSB_orb_count, al
-		push	(16 shl 16) or 12
-		push	( 8 shl 16) or  6
-		call	select_for_rank
-		mov	_boss_statebyte[1].BSB_orb_interval, al
-		push	( 1 shl 16) or  2
-		push	( 3 shl 16) or  4
-		call	select_for_rank
-		mov	_boss_statebyte[2].BSB_spread_turns_max, al
-		push	(23 shl 16) or 23
-		push	(24 shl 16) or 24
-		call	select_for_rank
-		mov	_boss_statebyte[3].BSB_spread, al
-		push	( 8 shl 16) or  9
-		push	( 9 shl 16) or 10
-		call	select_for_rank
-		mov	_boss_statebyte[4].BSB_spread_delta_angle, al
-		push	(18 shl 16) or 16
-		push	(14 shl 16) or 10
-		call	select_for_rank
-		mov	_boss_statebyte[5].BSB_spread_delta_angle, al
-		push	( 6 shl 16) or  8
-		push	( 9 shl 16) or 10
-		call	select_for_rank
-		mov	_boss_statebyte[6].BSB_stack, al
-		jmp	short loc_1E371
-; ---------------------------------------------------------------------------
-
-@@playing_as_reimu:
-		setfarfp	_boss_update_func, @marisa_update$qv
-		mov	_boss_fg_render_func, offset @marisa_fg_render$qv
-		mov	_boss_hp, 6000
-
-loc_1E371:
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (24 shl 4)
-		mov	_boss_backdrop_colorfill, offset @reimu_marisa_backdrop_colorfill$qv
-		call	super_entry_bfnt pascal, ds, offset aSt03_bmt ; "st03.bmt"
-		cmp	_playchar, PLAYCHAR_REIMU
-		jz	short loc_1E3A0
-		push	CDG_BG_BOSS
-		push	ds
-		push	offset aSt03bk_cdg ; "st03bk.cdg"
-		jmp	short loc_1E3A6
-; ---------------------------------------------------------------------------
-
-loc_1E3A0:
-		push	CDG_BG_BOSS
-		push	ds
-		push	offset aSt03bk2_cdg ; "st03bk2.cdg"
-
-loc_1E3A6:
-		push	0
-		call	cdg_load_single_noalpha
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt03_bb
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stage4_setup	endp
-
-
-	; stage5_setup(), stage6_setup() and stagex_setup() now live in
+	; stage4_setup() through stage6_setup(), and stagex_setup(), now live in
 	; th04/main/stage/setup.cpp, which th04/main_035.cpp compiles into THIS
-	; segment. All three are `far` here, unlike TH05's near twins of the
+	; segment. All are `far` here, unlike TH05's near twins of the
 	; same names (kb/codegen/0115). All are written in the mangled
 	; UPPER-case spelling because TASM emits the EXTRN under exactly the
 	; spelling given and applies no language case rule of its own; the call
 	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGE4_SETUP$QV procdesc far
 	@STAGE5_SETUP$QV procdesc far
 	@STAGE6_SETUP$QV procdesc far
 	@STAGEX_SETUP$QV procdesc far
@@ -24184,7 +24091,7 @@ reimu_1F378	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @REIMU_UPDATE$QV
 @reimu_update$qv	proc far
 
 var_2		= word ptr -2
@@ -26835,9 +26742,17 @@ aSt01_bb	db 'st01.bb',0
 aSt02_bmt	db 'st02.bmt',0
 aSt02bk_cdg	db 'st02bk.cdg',0
 aSt02_bb	db 'st02.bb',0
+public _st03_bmt
+_st03_bmt label byte
 aSt03_bmt	db 'st03.bmt',0
+public _st03bk_cdg
+_st03bk_cdg label byte
 aSt03bk_cdg	db 'st03bk.cdg',0
+public _st03bk2_cdg
+_st03bk2_cdg label byte
 aSt03bk2_cdg	db 'st03bk2.cdg',0
+public _st03_bb
+_st03_bb label byte
 aSt03_bb	db 'st03.bb',0
 public _st04bk_cdg
 _st04bk_cdg label byte
