@@ -11,9 +11,11 @@
 #include "platform.h"
 
 // Every function TH02 installs into these is __cdecl, unlike TH03-TH05's
-// __pascal callbacks (platform.h's farfunc_t_near): th02/main/null.asm
-// publishes the defaults as `@nullfunc_void$qv` / `@nullfunc_false$qv` in
-// lower case, which is Borland's __cdecl decoration (kb/codegen/0086).
+// __pascal callbacks (platform.h's farfunc_t_near): the defaults publish as
+// `@nullfunc_void$qv` / `@nullfunc_false$qv` in lower case, which is
+// Borland's __cdecl decoration (kb/codegen/0086). They were
+// th02/main/null.asm until MAIN_01___TEXT went fully C++; the decoration
+// is now what th02/main/bgm_show.cpp's own definitions emit.
 //
 // For a parameterless call the two conventions emit identical bytes, so
 // declaring these as farfunc_t_near also builds, links, and matches — which is
@@ -78,10 +80,13 @@ extern void (far *boss_activate_if_scroll_done_func)(void);
 
 // The slot for stage_should_end(), whose `true` ends stage_loop().
 // boss_activate_if_scroll_done() installs the real one for the duration of the
-// boss fight; the rest of the time it holds `bool nullfunc_false(void)`, which
-// is why stage_init() has to reinterpret_cast when it defaults this slot.
-// That cast is also the reason the slot is [bool16] rather than `bool`: ZUN's
-// code tests the result with `or ax, ax`, and a `bool` return compiles to
-// `or al, al` — a real behavioral difference for any installed function that
-// returns a nonzero high byte. (kb/codegen/0090)
+// boss fight; the rest of the time it holds nullfunc_false(), which defaults
+// straight in — no cast, because that function returns [bool16] too.
+//
+// The slot is [bool16] rather than `bool` because ZUN's code tests the result
+// with `or ax, ax`, and a `bool` return compiles to `or al, al` — a real
+// behavioral difference for any installed function that returns a nonzero
+// high byte. (kb/codegen/0090). nullfunc_false()'s own body agrees: it zeroes
+// the whole of AX. The one slot that DOES need the cast is now
+// [midboss_invalidate], which is byte-wide for its own reasons.
 extern bool16 (far *stage_should_end_func)(void);
