@@ -1166,41 +1166,21 @@ include th04/main/pointnum/inv_upd.asm
 include th05/main/pointnum/render.asm
 include th04/main/pointnum/num_put.asm
 
-; ---------------------------------------------------------------------------
-		; Identical copy of TH04's tile_ring_set(), already decompiled there.
-		enter	2, 0
-		push	si
-		push	di
-		mov	si, [bp+0Ah]
-		mov	di, [bp+8]
-		mov	ax, si
-		sar	ax, 4
-		mov	si, ax
-		mov	al, _scroll_active
-		mov	[bp-1],	al
-		mov	_scroll_active, 1
-		lea	ax, [di+(16 shl 4)]
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	di, ax
-		mov	bx, 16
-		cwd
-		idiv	bx
-		shl	ax, 6
-		push	ax
-		mov	ax, si
-		cwd
-		idiv	bx
-		add	ax, ax
-		pop	bx
-		add	bx, ax
-		mov	ax, [bp+6]
-		mov	_tile_ring[bx], ax
-		mov	al, [bp-1]
-		mov	_scroll_active, al
-		pop	di
-		pop	si
-		leave
-		retf	6
+	; tile_ring_set_vo() now lives in th04/main/tile/set.cpp, which
+	; th05/player_b.cpp includes ahead of the bomb code: it was the LAST
+	; thing this root contribution emitted and that file's object already
+	; appended immediately after it, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen 0098 + 0112 + 0114). The deleted body carried no assume
+	; directive, so there is nothing to restore into the rest of this
+	; contribution (kb/codegen/0121).
+	;
+	; TH04's copy is the SAME body and was already decompiled:
+	; th04/tile_set.cpp wraps the same th04/main/tile/set.cpp into its own
+	; TILE_SET_TEXT object at 0AAF:0B92 + 0x4F, and TH05 emitted the same
+	; 0x4F bytes at the tail of this contribution. IDA left it without a
+	; proc/endp wrapper because nothing in this binary calls it: TH05
+	; links the function and never uses it.
 
 	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
 	; player_bomb(), which is its original address order: it was the LAST
