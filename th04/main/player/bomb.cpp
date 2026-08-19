@@ -5,7 +5,7 @@
 /// count in [resident] and hardcodes both durations, while TH05 keeps it in a
 /// plain global, picks both durations per playchar, and lowers [playperf].
 
-#pragma option -zCPLAYER_B_TEXT -zPmain_01
+// The segment and group pragma moved to both wrappers; state/notes/bb_playchar_load.md says why. One line, so nothing below it moves.
 
 #include "platform.h"
 #include "pc98.h"

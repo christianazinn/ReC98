@@ -935,6 +935,10 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/stages.cpp",
 	"th04/hud_pnt.cpp",
 	"th04/hud_drm.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/hud_put.cpp. Both
+	-- contribute to HUD_PUT_TEXT, and TLINK lays a segment's contributions
+	-- out in link order; hud_bar_put() precedes hud_put() in the original.
+	"th04/hud_bar.cpp",
 	"th04/hud_put.cpp",
 	"th04/hud_grz.cpp",
 	"th04/hud_pwr.cpp",
