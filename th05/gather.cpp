@@ -1,7 +1,7 @@
 // kb/codegen/0104: -zC only names the segment; -zP is what puts it into the
 // GROUP, and the group is the frame TASM uses for `cs:`-relative references.
-// This TU went without -zP for as long as nothing in it emitted one — the
-// first `switch` jump table in bonus_multipliers_put() is what made the
+// This TU went without -zP for as long as nothing in it emitted one — the first
+// `switch` jump table in stage_clear_bonus_multipliers_apply() is what made the
 // difference observable, as a dispatch displacement and four table entries all
 // low by (group base - segment base) = 0xDF0.
 #pragma option -zCmain_032_TEXT -zPmain_03
@@ -11,6 +11,14 @@
 // main_032_TEXT — so it has to come first. It cannot go into
 // th04/main/gather.cpp: Tupfile.lua compiles that source for TH04 as well, and
 // the two games' bonus tallies share nothing.
+// ... and boss2_explode_big_circle() sat immediately before even that: it was
+// the LAST thing th05_main.asm contributed to main_032_TEXT, an `include` of a
+// module rather than a proc, so replacing the module with a C++ file put it at
+// the front of this object (kb/codegen/0112 + 0114). It is deliberately not
+// #included from th05/main/stage/bonus.cpp below, which would work but would
+// bury a segment-order fact inside an unrelated file.
+#include "th05/main/boss/2_explode_big.cpp"
+
 #include "th05/main/stage/bonus.cpp"
 
 #include "th04/main/gather.cpp"

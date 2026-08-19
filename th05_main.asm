@@ -6096,8 +6096,8 @@ include th04/main/boss/explosions_reset.asm
 include th04/main/boss/explode_small.asm
 include th05/main/boss/2_explode_small.asm
 include th05/main/boss/explode_big.asm
-include th05/main/boss/2_explode_big.asm
-
+	@boss2_explode_big_circle$qv procdesc near	; was include th05/main/boss/2_explode_big.asm; now th05/main/boss/2_explode_big.cpp, which th05/gather.cpp includes ahead of th05/main/stage/bonus.cpp so it keeps this segment address order (kb/codegen 0112 + 0114)
+	; kb/codegen/0102: the deleted module PUBLISHed that symbol, so the call site in main_035_TEXT resolved with no declaration at all. The C++ definition needs this one, and it goes on the line the include vacated so that nothing below is renumbered.
 	; stage_clear_bonus() and stage_allclear_bonus() now live in
 	; th05/main/stage/bonus.cpp, which th05/gather.cpp includes above
 	; th04/main/gather.cpp so that they keep this segment's address order.
