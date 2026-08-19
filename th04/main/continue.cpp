@@ -13,6 +13,7 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th04/common.h"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th04/gaiji/gaiji.h"
@@ -82,14 +83,27 @@ static const uint8_t POWER_MIN = 1;
 // credit counter below is drawn from the [gb_0] gaiji.
 static const uint8_t CONTINUES_MAX = 3;
 
-// Extra Stage, where a continue is not offered.
-static const uint8_t STAGE_EXTRA = 6;
+// [STAGE_EXTRA] -- the Extra Stage, where a continue is not offered -- comes
+// from th04/common.h, included above. It used to be re-declared here as a
+// local `static const uint8_t`, which shadowed the upstream-published macro
+// that 26 other sites across TH04 *and* TH05 consume, and compiled only
+// because th04/common.h happened not to be in th04/execl.cpp's include
+// closure. th05/main/continue.cpp already spells the hazard out for its own
+// half of the same function. (Naming review round 16 section 6.1.)
 
 // Runs the continue prompt, and returns Q_KEEP_RUNNING if the player chose to
 // continue, having already reset the per-attempt state a continue needs.
-// The refusal value is *not* Q_QUIT_TO_OP even though it is also 1: the caller
-// compares against it to launch MAINE.EXE with the score tally instead, which
-// is why this returns a plain byte rather than a quit_t.
+//
+// [verified-by-oracle] for the codegen: the return type is a plain byte
+// rather than a quit_t because the caller zero-extends `al` itself
+// (`mov ah, 0`), which a 2-byte enum return would not have needed.
+//
+// [inferred] for what the refusal value MEANS. It is 1, and it is *not*
+// Q_QUIT_TO_OP even though it shares that value: the dump carries ZUN-adjacent
+// commentary saying the caller compares against it to launch MAINE.EXE with
+// the score tally instead, and the reading rests on that comment plus the
+// caller's shape rather than on a run.
+// (state/notes/th04_continue_prompt.md; naming review round 16 section 6.7.)
 unsigned char near continue_prompt(void)
 {
 	// Both are byte temporaries in ZUN's frame, and only [atrb] is live
