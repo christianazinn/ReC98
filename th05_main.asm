@@ -3018,168 +3018,23 @@ PLAYFLD_TEXT	segment	byte public 'CODE' use16
 include th05/main/bullet/cheetos_render.asm
 include th04/main/item/splashes_render.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_100C6
-_sub_100C6 label near
-sub_100C6	proc near
-
-@@i		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
-		mov	si, offset _bullets[(BULLET_COUNT - 1) * size bullet_t]
-		mov	[bp+@@i], 0
-		jmp	loc_10171
-; ---------------------------------------------------------------------------
-
-loc_100DE:
-		cmp	[si+bullet_t.flag], F_ALIVE
-		jnz	loc_1016B
-		cmp	[si+bullet_t.spawn_flag], BSF_CLOUD_BACKWARDS
-		ja	short loc_10108
-		mov	ax, [si+bullet_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (BULLET16_H / 2)) shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (BULLET16_W / 2))
-		call	z_super_roll_put_tiny_16x16_raw pascal, [si+bullet_t.BULLET_patnum]
-		jmp	short loc_1016B
-; ---------------------------------------------------------------------------
-
-loc_10108:
-		cmp	[si+bullet_t.pos.cur.y], 0
-		jl	short loc_1016B
-		cmp	[si+bullet_t.pos.cur.y], (PLAYFIELD_H shl 4)
-		jge	short loc_1016B
-		cmp	[si+bullet_t.pos.cur.x], 0
-		jl	short loc_1016B
-		cmp	[si+bullet_t.pos.cur.x], ((PLAYFIELD_W + 16) shl 4) ; Huh?
-		jge	short loc_1016B
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_N_RED
-		jl	short loc_10141
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_D_BLUE
-		jl	short loc_10134
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_D_GREEN
-		jl	short loc_10141
-
-loc_10134:
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_V_BLUE
-		jl	short loc_10146
-		cmp	[si+bullet_t.BULLET_patnum], (PAT_CLOUD_PELLET + BULLET_CLOUD_CELS)
-		jge	short loc_10146
-
-loc_10141:
-		mov	di, (PAT_CLOUD_BULLET16_BLUE - 1)
-		jmp	short loc_10149
-; ---------------------------------------------------------------------------
-
-loc_10146:
-		mov	di, (PAT_CLOUD_BULLET16_RED - 1)
-
-loc_10149:
-		mov	al, [si+bullet_t.spawn_flag]
-		mov	ah, 0
-		mov	bx, (BSF_CLOUD_FRAMES / BULLET_CLOUD_CELS)
-		cwd
-		idiv	bx
-		add	di, ax
-		call	scroll_subpixel_y_to_vram_seg1 pascal, [si+bullet_t.pos.cur.y]
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, 16
-		call	z_super_roll_put_tiny_32x32_raw pascal, di
-
-loc_1016B:
-		inc	[bp+@@i]
-		sub	si, size bullet_t
-
-loc_10171:
-		cmp	[bp+@@i], BULLET16_COUNT
-		jl	loc_100DE
-		cmp	_bullet_zap_active, 0
-		jnz	short loc_101DC
-		cmp	_bullet_clear_time, 0
-		jnz	short loc_101DC
-		jmp	short loc_101BD
-; ---------------------------------------------------------------------------
-
-loc_1018A:
-		mov	bx, _pellet_clouds_render_count
-		add	bx, bx
-		mov	si, _pellet_clouds_render[bx]
-		mov	al, [si+bullet_t.spawn_flag]
-		mov	ah, 0
-		mov	bx, (BSF_CLOUD_FRAMES / BULLET_CLOUD_CELS)
-		cwd
-		idiv	bx
-		add	ax, (PAT_CLOUD_PELLET - 1)
-		mov	di, ax
-		mov	ax, [si+bullet_t.pos.cur.y]
-		add	ax, (8 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, 24
-		call	z_super_roll_put_tiny_16x16_raw pascal, di
-
-loc_101BD:
-		mov	ax, _pellet_clouds_render_count
-		dec	_pellet_clouds_render_count
-		or	ax, ax
-		jnz	short loc_1018A
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		call	_pellets_render_top
-		mov	ah, byte ptr _pellet_bottom_col
-		call	@grcg_setcolor_direct_raw$qv
-		call	_pellets_render_bottom
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-loc_101DC:
-		mov	[bp+@@i], 0
-		jmp	short loc_10209
-; ---------------------------------------------------------------------------
-
-loc_101E3:
-		cmp	[si+bullet_t.flag], F_ALIVE
-		jnz	short loc_10203
-		mov	ax, [si+bullet_t.pos.cur.y]
-		add	ax, (8 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, 24
-		call	z_super_roll_put_tiny_16x16_raw pascal, [si+bullet_t.BULLET_patnum]
-
-loc_10203:
-		inc	[bp+@@i]
-		sub	si, size bullet_t
-
-loc_10209:
-		cmp	[bp+@@i], PELLET_COUNT
-		jl	short loc_101E3
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_100C6	endp
-
+	; bullets_render() now lives in th04/main/bullet/render.cpp, which
+	; th04/main/playfld.cpp #includes ahead of th04/main/scroll.cpp (kb/codegen
+	; 0129), so the three land here in their original address order. It was
+	; the LAST proc of this root contribution and th05/playfld.cpp already
+	; owned everything after it (kb/codegen 0114), so no carve, no new
+	; segment, no group-list edit and no Tupfile.lua line were needed. The
+	; `public _sub_100C6` alias this dump used to publish for
+	; th04/main/stage/loop.cpp's call goes with the body; that call site now
+	; spells the name directly, in both games.
+	;
+	; TH04 has the same function -- minus the pellet cloud list, and with
+	; [patnum] and the loop counter in the opposite storage -- but it lives
+	; in th04_main.asm's BOSS_FG_TEXT, so it is a separate lift.
+	;
+	; This seam CLOSES: the item ahead is `include
+	; th04/main/item/splashes_render.asm`, so PLAYFLD_TEXT has no further
+	; carve-free tail to give up.
 
 	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
 	; th04/main/playfld.cpp #includes ahead of
@@ -4959,166 +4814,25 @@ MIDBOSSX_TEXT	ends
 ; th05/midboss5.cpp still appends to this name.
 main_0_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public EXALICE_CUSTOMBULLETS_RENDER
-exalice_custombullets_render	proc near
-
-@@left		= word ptr -0Ah
-@@patnum		= word ptr -8
-var_6		= word ptr -6
-@@angle		= word ptr -4
-@@i		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	di, offset _firewaves
-		mov	[bp+@@i], 0
-		jmp	loc_117BA
-; ---------------------------------------------------------------------------
-
-loc_116A6:
-		cmp	byte ptr [di], 0
-		jz	loc_117B4
-		mov	si, [di+2]
-		mov	ax, si
-		and	ax, 0Fh
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+@@angle], ax
-		and	si, 0FFF0h
-		mov	al, [di+1]
-		mov	ah, 0
-		add	ax, PAT_FIREWAVE_LEFT
-		mov	[bp+@@patnum], ax
-		jmp	loc_117A6
-; ---------------------------------------------------------------------------
-
-loc_116CE:
-		cmp	si, PLAYFIELD_TOP + PLAYFIELD_H
-		jge	loc_1179F
-		push	0
-		push	word ptr [di+4]
-		mov	bx, [bp+@@angle]
-		add	bx, bx
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	[bp+var_6], ax
-		cmp	byte ptr [di+1], 0
-		jnz	short loc_116F8
-		add	[bp+var_6], 10h
-		jmp	short loc_11701
-; ---------------------------------------------------------------------------
-
-loc_116F8:
-		mov	ax, PLAYFIELD_RIGHT
-		sub	ax, [bp+var_6]
-		mov	[bp+var_6], ax
-
-loc_11701:
-		mov	ax, [bp+var_6]
-		mov	[bp+@@left], ax
-		cmp	byte ptr [di+1], 0
-		jnz	short loc_11749
-		cmp	[bp+var_6], 20h ; ' '
-		jle	short loc_11727
-		push	4
-		push	si
-		dec	ax
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		lea	ax, [si+15]
-		push	ax
-		call	grcg_byteboxfill_x
-
-loc_11727:
-		mov	ax, _player_pos.cur.y
-		mov	bx, 16
-		cwd
-		idiv	bx
-		sub	ax, si
-		cmp	ax, 10h
-		jnb	short loc_1178F
-		mov	ax, _player_pos.cur.x
-		cwd
-		idiv	bx
-		mov	dx, [bp+var_6]
-		add	dx, 0FFE0h
-		cmp	ax, dx
-		jge	short loc_1178F
-		jmp	short loc_1178A
-; ---------------------------------------------------------------------------
-
-loc_11749:
-		add	[bp+var_6], 16
-		cmp	[bp+var_6], PLAYFIELD_RIGHT
-		jge	short loc_1176A
-		mov	ax, [bp+var_6]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		push	si
-		push	PLAYFIELD_VRAM_RIGHT - 1
-		lea	ax, [si+15]
-		push	ax
-		call	grcg_byteboxfill_x
-
-loc_1176A:
-		mov	ax, _player_pos.cur.y
-		mov	bx, 16
-		cwd
-		idiv	bx
-		sub	ax, si
-		cmp	ax, 10h
-		jnb	short loc_1178F
-		mov	ax, _player_pos.cur.x
-		cwd
-		idiv	bx
-		mov	dx, [bp+var_6]
-		add	dx, 0FFE0h
-		cmp	ax, dx
-		jle	short loc_1178F
-
-loc_1178A:
-		mov	_player_is_hit, 1
-
-loc_1178F:
-		mov	ax, GRAM_400
-		mov	es, ax
-		mov	dx, si
-		mov	ax, [bp+@@left]
-		call	z_super_roll_put_tiny_16x16_raw pascal, [bp+@@patnum]
-
-loc_1179F:
-		sub	si, 10h
-		add	[bp+@@angle], 8
-
-loc_117A6:
-		cmp	si, 10h
-		jl	short loc_117B4
-		cmp	[bp+@@angle], 80h
-		jl	loc_116CE
-
-loc_117B4:
-		inc	[bp+@@i]
-		add	di, size firewave_t
-
-loc_117BA:
-		cmp	[bp+@@i], 2
-		jl	loc_116A6
-		call	cheetos_render
-		pop	di
-		pop	si
-		leave
-		retn
-exalice_custombullets_render	endp
-
+	; EX-Alice's custom-bullet callback -- her two edge fire waves, plus a
+	; tail call to cheetos_render() -- now lives in
+	; th05/main/boss/bx_custombullets.cpp, which th05/midboss5.cpp #includes
+	; AHEAD of th05/main/boss/bx_fg.cpp. It was the ONLY proc of this root
+	; contribution and that object already owned everything after it
+	; (kb/codegen 0114), so no carve, no new segment, no group-list edit and
+	; no Tupfile.lua line were needed. This dump now contributes ZERO bytes
+	; to main_0_TEXT, and the segment is still anchored correctly by the
+	; empty contribution.
+	;
+	; The procdesc stays because th05_main.asm still takes this function's
+	; ADDRESS -- `mov _boss_custombullets_render, offset
+	; exalice_custombullets_render` in exalice's setup -- which is why the
+	; C++ definition is `extern "C"` + `pascal` and keeps the bare uppercase
+	; public rather than a mangled one.
+	;
+	; This seam is now CLOSED for lack of anything to lift: the root
+	; contribution is empty.
+	EXALICE_CUSTOMBULLETS_RENDER procdesc pascal near
 
 	; EX-Alice's foreground renderer now lives in
 	; th05/main/boss/bx_fg.cpp, ahead of the Stage 5 midboss in

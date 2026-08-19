@@ -63,4 +63,11 @@ void __fastcall near cheeto_put(uscreen_x_t left, uscreen_y_t top, int sprite);
 void near cheetos_add(void);
 
 void near cheetos_update();
-void pascal near cheetos_render();
+
+// th05/main/bullet/cheetos_render.asm publishes this one as the bare
+// uppercase `CHEETOS_RENDER`, so the declaration needs C linkage — unlike
+// cheetos_add() and cheetos_update() above, which the dump reaches through
+// the mangled `@cheetos_add$qv` / `@cheetos_update$qv` procdescs. It sat
+// outside an `extern "C"` for as long as this header had no C++ caller; the
+// first one was exalice_custombullets_render().
+extern "C" void pascal near cheetos_render();

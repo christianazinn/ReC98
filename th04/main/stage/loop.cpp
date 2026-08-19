@@ -97,6 +97,14 @@ void bullets_update(void);
 // export this one as the all-uppercase `@SHOTS_RENDER$QV` — which is how
 // Turbo C++ spells a __pascal C++ function. (kb/codegen/0081)
 void pascal near shots_render(void);
+
+// `pascal` for the same reason: th04_main.asm exports TH04's copy as the
+// all-uppercase `BULLETS_RENDER`. TH05's is a C++ function in
+// th04/main/bullet/render.cpp as of this branch, and a parameterless call is
+// byte-identical under either convention anyway (kb/codegen/0081, and the
+// "one symbol, one declaration" note in
+// kb/conventions/agent-working-discipline.md).
+extern "C" void pascal near bullets_render(void);
 // ---------------------------------------------------------------------
 
 #if (GAME == 5)
@@ -108,7 +116,6 @@ void pascal near shots_render(void);
 
 	extern "C" void near sub_1214A(void);
 	extern "C" void near sub_1240B(void);
-	extern "C" void near sub_100C6(void);
 
 	// Set from [resident_t.debug_mode] once, at stage setup time, and never
 	// reset. Gates the Q key toggle below. [static]
@@ -144,8 +151,6 @@ void pascal near shots_render(void);
 	void midboss_activate_if_stage_frame_is_midboss_start_frame(void);
 
 	void near bomb_update_and_render(void);
-
-	extern "C" void pascal near bullets_render(void);
 
 	extern "C" void near sub_10ABF(void);
 	extern "C" void near sub_104B6(void);
@@ -229,11 +234,7 @@ void near stage_loop(void)
 		sparks_render();
 		items_render();
 		pointnums_render();
-		#if (GAME == 5)
-			sub_100C6();
-		#else
-			bullets_render();
-		#endif
+		bullets_render();
 		circles_render();
 		grcg_off_clobbering_dx();
 		overlay1();
