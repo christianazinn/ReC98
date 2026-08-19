@@ -12,13 +12,16 @@
 /// hand-off to hardware scrolling, and then a field of star particles over a
 /// background colour that pulses for the rest of the stage.
 ///
-/// The particle respawner it calls, s2particle_respawn(), is still ASM: it
-/// picks a spawn angle and emitter position out of a seven-way ladder on
-/// (stage_frame % 4096), which is the whole choreography of the stage.
+/// The particle respawner it calls, s2particle_respawn(), is the other half of
+/// the same effect and lives here too, ahead of it because that is where it
+/// sits in the segment. It is where the choreography actually is: the emitter
+/// walks a 4096-frame cycle between three positions, and every particle that
+/// leaves the playfield comes back out of wherever the emitter has got to.
 
 #include "platform.h"
 #include "pc98.h"
 #include "x86real.h"
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 // After pc98_gfx.hpp, and required: it `#undef`s master.lib's grcg_off()
 // prototype and replaces it with the inline `outportb(0x7C, 0)` macro, which
@@ -67,14 +70,6 @@ extern unsigned char stage2_flash_tone;
 extern int8_t stage2_bg_pulse_direction;
 // -----
 
-// Still ASM, immediately ahead of this function in MIDBOSSX_TEXT, with this
-// its only caller. Gives the particle a fresh angle, emitter position, zoom
-// and velocity; which emitter it picks depends on where (stage_frame % 4096)
-// currently is. The dump publishes it under this name through a zero-byte
-// alias (kb/codegen/0123); the `public` is upper-case because the function is
-// `pascal` (kb/codegen/0086).
-extern "C" void pascal near s2particle_respawn(s2particle_t near *particle);
-
 // Constants
 // ---------
 
@@ -95,16 +90,39 @@ static const vram_offset_t S2_GAP_TILE_VO = (
 static const unsigned char S2_BG_PULSE_MIN = 0x20;
 static const unsigned char S2_BG_PULSE_MAX = 0x3F;
 
-// One particle is spawned every other frame, and its angle decides both its
-// velocity and the point along the top edge it starts from: 8 pixels further
-// right for every angle unit below S2PARTICLE_ORIGIN_ANGLE. s2particle_respawn()
-// applies the same rule with six further (base angle, origin) pairs.
-static const unsigned char S2PARTICLE_ANGLE_MIN = 0x30;
+// A particle leaves the emitter at a random angle within
+// S2PARTICLE_ANGLE_RANGE of a base, and at a point that is
+// S2PARTICLE_PIXELS_PER_ANGLE pixels further right for every angle unit its
+// own angle falls short of the top of that range. So the whole spray is a fan
+// anchored at one X, and moving the emitter means moving the base and the X
+// together.
 static const unsigned char S2PARTICLE_ANGLE_RANGE = 0x20;
-static const unsigned char S2PARTICLE_ORIGIN_ANGLE = 0x50;
-static const pixel_t S2PARTICLE_ORIGIN_LEFT = 64;
 static const pixel_t S2PARTICLE_PIXELS_PER_ANGLE = 8;
 static const subpixel_t S2PARTICLE_SPEED = TO_SP(8);
+
+// The three emitter positions the stage uses, and the angle base that goes
+// with each. The entrance spawn and the S2PARTICLE_CYCLE_FRAMES cycle below
+// both start from the middle one.
+static const unsigned char S2PARTICLE_ANGLE_LEFT = 0x20;
+static const unsigned char S2PARTICLE_ANGLE_MID = 0x30;
+static const unsigned char S2PARTICLE_ANGLE_RIGHT = 0x40;
+static const pixel_t S2PARTICLE_ORIGIN_LEFT = 0;
+static const pixel_t S2PARTICLE_ORIGIN_MID = 64;
+static const pixel_t S2PARTICLE_ORIGIN_RIGHT = 128;
+
+// The cycle s2particle_respawn() reads its emitter out of: mostly parked at
+// one of the three positions, with four S2PARTICLE_SWEEP_FRAMES-long moves
+// between them at one angle unit per S2PARTICLE_FRAMES_PER_ANGLE frames and
+// S2PARTICLE_PIXELS_PER_ANGLE subpixels of X per frame — which is the same
+// ratio the fan itself uses, and why the spray does not visibly bend while
+// the emitter travels.
+static const int S2PARTICLE_CYCLE_FRAMES = 4096;
+static const int S2PARTICLE_SWEEP_FRAMES = 128;
+static const int S2PARTICLE_FRAMES_PER_ANGLE = 8;
+static const int S2PARTICLE_SWEEP_MID_TO_RIGHT = 1000;
+static const int S2PARTICLE_SWEEP_RIGHT_TO_MID = 2000;
+static const int S2PARTICLE_SWEEP_MID_TO_LEFT = 3000;
+static const int S2PARTICLE_SWEEP_LEFT_TO_MID = 3968;
 
 // Despawn margin around the playfield, one half-sprite on each edge.
 static const pixel_t S2PARTICLE_MARGIN = (PARTICLE_W / 2);
@@ -112,7 +130,135 @@ static const pixel_t S2PARTICLE_MARGIN = (PARTICLE_W / 2);
 // Frames each of the PARTICLE_CELS zoom cels is held for, given that [zoom]
 // only advances on 3 of every 4 particles.
 static const unsigned int S2PARTICLE_ZOOM_PER_CEL = 16;
+static const unsigned int S2PARTICLE_ZOOM_INITIAL = 8;
+
+// Jitter added to the respawn X, on top of the emitter's own.
+static const pixel_t S2PARTICLE_JITTER_W = 8;
 // ---------
+
+// The two halves of "put this particle at the emitter": a random angle within
+// S2PARTICLE_ANGLE_RANGE of [angle_base], and the X that goes with the angle
+// it drew. Separate rather than one macro because the sweeping arms of
+// s2particle_respawn() reuse [cycle] between the two.
+#define s2particle_angle_from(angle_base) { \
+	particle->angle = ( \
+		randring1_next16_mod(S2PARTICLE_ANGLE_RANGE) + (angle_base) \
+	); \
+}
+
+#define s2particle_x_from(angle_base) \
+	TO_SP( \
+		(((angle_base) + S2PARTICLE_ANGLE_RANGE) - particle->angle) * \
+		S2PARTICLE_PIXELS_PER_ANGLE \
+	)
+
+// Everything a respawn does once the emitter has decided where the particle
+// goes. Written out in all eight arms of s2particle_respawn() rather than
+// factored into a tail, because that is what the original does: `-O`
+// cross-jumps the eight identical copies into one and jumps to it from each
+// arm, and the merge point is exactly where the arms stop agreeing
+// (kb/codegen/0097). The tail is branch-free, so 0144's bound on that rule
+// does not apply here.
+// (Its parameter cannot be called `x`: this macro writes through
+// `particle->pos.cur.x`, and the substitution would eat the member name.)
+#define s2particle_emit(left) { \
+	particle->pos.cur.x.v = (left); \
+	particle->pos.cur.x.v += TO_SP(irand() % S2PARTICLE_JITTER_W); \
+	particle->zoom = S2PARTICLE_ZOOM_INITIAL; \
+	particle->pos.cur.y.v = 0; \
+	vector2( \
+		particle->pos.velocity.x.v, particle->pos.velocity.y.v, \
+		particle->angle, S2PARTICLE_SPEED \
+	); \
+}
+
+// Sends a particle that has left the playfield back out of the emitter, whose
+// position is a function of where the stage currently is in its
+// S2PARTICLE_CYCLE_FRAMES cycle. Four parked stretches and four sweeps, and
+// the two kinds are only told apart by whether the angle base and the X are
+// constants or track [cycle].
+extern "C" void pascal near s2particle_respawn(s2particle_t near *particle)
+{
+	// Where in the cycle the stage is; then, inside a sweep, how far into it,
+	// and finally that same distance scaled to the X the emitter has reached.
+	int cycle;
+
+	// The angle base the emitter has swept to. Read as a byte by the
+	// s2particle_angle_from() below, which is what keeps it off a register
+	// (kb/codegen/0131).
+	int angle_base;
+
+	cycle = (stage_frame % S2PARTICLE_CYCLE_FRAMES);
+	if(cycle < S2PARTICLE_SWEEP_MID_TO_RIGHT) {
+		s2particle_angle_from(S2PARTICLE_ANGLE_MID);
+		s2particle_emit(
+			s2particle_x_from(S2PARTICLE_ANGLE_MID) +
+			TO_SP(S2PARTICLE_ORIGIN_MID)
+		);
+	} else if(
+		cycle < (S2PARTICLE_SWEEP_MID_TO_RIGHT + S2PARTICLE_SWEEP_FRAMES)
+	) {
+		cycle -= S2PARTICLE_SWEEP_MID_TO_RIGHT;
+		angle_base = (
+			(cycle / S2PARTICLE_FRAMES_PER_ANGLE) + S2PARTICLE_ANGLE_MID
+		);
+		s2particle_angle_from(angle_base);
+		cycle = (cycle * S2PARTICLE_PIXELS_PER_ANGLE);
+		s2particle_emit(
+			s2particle_x_from(angle_base) + cycle +
+			TO_SP(S2PARTICLE_ORIGIN_MID)
+		);
+	} else if(cycle < S2PARTICLE_SWEEP_RIGHT_TO_MID) {
+		s2particle_angle_from(S2PARTICLE_ANGLE_RIGHT);
+		s2particle_emit(
+			s2particle_x_from(S2PARTICLE_ANGLE_RIGHT) +
+			TO_SP(S2PARTICLE_ORIGIN_RIGHT)
+		);
+	} else if(
+		cycle < (S2PARTICLE_SWEEP_RIGHT_TO_MID + S2PARTICLE_SWEEP_FRAMES)
+	) {
+		cycle -= S2PARTICLE_SWEEP_RIGHT_TO_MID;
+		angle_base = (
+			S2PARTICLE_ANGLE_RIGHT - (cycle / S2PARTICLE_FRAMES_PER_ANGLE)
+		);
+		s2particle_angle_from(angle_base);
+		cycle = (cycle * S2PARTICLE_PIXELS_PER_ANGLE);
+		s2particle_emit(
+			s2particle_x_from(angle_base) +
+			(TO_SP(S2PARTICLE_ORIGIN_RIGHT) - cycle)
+		);
+	} else if(cycle < S2PARTICLE_SWEEP_MID_TO_LEFT) {
+		s2particle_angle_from(S2PARTICLE_ANGLE_MID);
+		s2particle_emit(
+			s2particle_x_from(S2PARTICLE_ANGLE_MID) +
+			TO_SP(S2PARTICLE_ORIGIN_MID)
+		);
+	} else if(
+		cycle < (S2PARTICLE_SWEEP_MID_TO_LEFT + S2PARTICLE_SWEEP_FRAMES)
+	) {
+		cycle -= S2PARTICLE_SWEEP_MID_TO_LEFT;
+		angle_base = (
+			S2PARTICLE_ANGLE_MID - (cycle / S2PARTICLE_FRAMES_PER_ANGLE)
+		);
+		s2particle_angle_from(angle_base);
+		cycle = (cycle * S2PARTICLE_PIXELS_PER_ANGLE);
+		s2particle_emit(
+			s2particle_x_from(angle_base) +
+			(TO_SP(S2PARTICLE_ORIGIN_MID) - cycle)
+		);
+	} else if(cycle < S2PARTICLE_SWEEP_LEFT_TO_MID) {
+		s2particle_angle_from(S2PARTICLE_ANGLE_LEFT);
+		s2particle_emit(s2particle_x_from(S2PARTICLE_ANGLE_LEFT));
+	} else {
+		cycle -= S2PARTICLE_SWEEP_LEFT_TO_MID;
+		angle_base = (
+			(cycle / S2PARTICLE_FRAMES_PER_ANGLE) + S2PARTICLE_ANGLE_LEFT
+		);
+		s2particle_angle_from(angle_base);
+		cycle = (cycle * S2PARTICLE_PIXELS_PER_ANGLE);
+		s2particle_emit(s2particle_x_from(angle_base) + cycle);
+	}
+}
 
 void pascal near stage2_update(void)
 {
@@ -198,14 +344,13 @@ void pascal near stage2_update(void)
 		) {
 			particle = &s2particles[s2particles_spawned];
 			particle->flag = 1;
-			particle->angle = (
-				randring1_next16_mod(S2PARTICLE_ANGLE_RANGE) +
-				S2PARTICLE_ANGLE_MIN
+			// The same emitter s2particle_respawn() parks at for most of
+			// the cycle, minus its jitter and its [zoom] reset.
+			s2particle_angle_from(S2PARTICLE_ANGLE_MID);
+			particle->pos.cur.x.v = (
+				s2particle_x_from(S2PARTICLE_ANGLE_MID) +
+				TO_SP(S2PARTICLE_ORIGIN_MID)
 			);
-			particle->pos.cur.x.v = (TO_SP(
-				(S2PARTICLE_ORIGIN_ANGLE - particle->angle) *
-				S2PARTICLE_PIXELS_PER_ANGLE
-			) + TO_SP(S2PARTICLE_ORIGIN_LEFT));
 			particle->pos.cur.y.v = 0;
 			vector2(
 				particle->pos.velocity.x.v, particle->pos.velocity.y.v,
