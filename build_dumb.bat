@@ -216,12 +216,12 @@ bin\Pipeline\bmp2arr.com -q -i th04/sprites/pointnum.bmp -o th04/sprites/pointnu
 tasm32 /m /mx /kh32768 /t /dGAME=4 th04_zuninit.asm obj\th04\zuninit.obj
 echo -c -s -t -3  obj\th04\zuninit.obj, bin\th04\zuninit.com, obj\th04\zuninit.map, >obj\th04\zuninit.@l
 tlink @obj\th04\zuninit.@l
-echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=4  -mt  -nobj/th04/  th04/res_huma.cpp>obj\batch013.@c
+echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=4  -mt  -nobj/th04/  th04/res_huma.cpp  th04/memchka.cpp>obj\batch013.@c
 tcc @obj/batch013.@c
 echo -c -s -t c0t.obj obj\th04\res_huma.obj, bin\th04\res_huma.com, obj\th04\res_huma.map, bin\masters.lib emu.lib maths.lib ct.lib>obj\th04\res_huma.@l
 tlink @obj\th04\res_huma.@l
 tasm32 /m /mx /kh32768 /t /dGAME=4 th04_memchk.asm obj\th04\memchk.obj
-echo -c -s -t c0t.obj obj\th04\memchk.obj, bin\th04\memchk.com, obj\th04\memchk.map, emu.lib maths.lib ct.lib>obj\th04\memchk.@l
+echo -c -s -t c0t.obj obj\th04\memchka.obj obj\th04\memchk.obj, bin\th04\memchk.com, obj\th04\memchk.map, emu.lib maths.lib ct.lib>obj\th04\memchk.@l
 tlink @obj\th04\memchk.@l
 echo 4 -O -I -S -M libs/kaja/ongchk.com bin/th04/zuninit.com bin/th04/res_huma.com bin/th04/memchk.com>obj\th04\zuncom.@z
 bin\Pipeline\zungen.com obj/Pipeline/zun_stub.bin obj\th04\zuncom.@z obj/th04/zuncom.bin

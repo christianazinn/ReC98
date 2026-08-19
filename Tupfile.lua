@@ -851,7 +851,14 @@ local th04_zuncom = th04:zungen("obj/th04/zuncom.bin", {
 		"th04/res_huma.cpp",
 		"bin/masters.lib",
 	}) },
-	{ "-M", th04:branch(MODEL_TINY):link("memchk", { "th04_memchk.asm" }) },
+	-- `th04/memchka.cpp`, not `memchk.cpp`: the object basename must be unique
+	-- across obj/th04/, and `th04_memchk.asm` already claims `memchk.obj`
+	-- (kb/codegen/0071). It MUST stay ahead of the dump -- it carries main(),
+	-- which is the first thing both the _TEXT and the _DATA contribution emit.
+	{ "-M", th04:branch(MODEL_TINY):link("memchk", {
+		"th04/memchka.cpp",
+		"th04_memchk.asm",
+	}) },
 })
 th04:comcstm("zun.com", "th04/zun.txt", th04_zuncom, 621381155)
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
