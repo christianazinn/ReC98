@@ -15,9 +15,12 @@
 /// `-G` back off mid-translation-unit would put hud_put()'s prolog at the
 /// mercy of a pragma two files away.
 
-#include "libs/master.lib/pc98_gfx.hpp"
-#include "th04/gaiji/gaiji.h"
-#include "th04/main/hud/hud.hpp"
+/// This file deliberately has no #includes of its own any more: every header
+/// it needs is already included by th04/main/hud/hp_put.cpp, which shares its
+/// translation unit and is included ahead of it, and two of the three reach
+/// unguarded files (th04/gaiji/gaiji.h and th04/main/hud/hud.hpp, the latter
+/// via th02/main/hud/hud.hpp), so including them again would be a hard error.
+/// Its file-scope names are therefore NOT file-local. kb/codegen/0129.
 
 // The completely filled bar, as its own gaiji string, in
 // th04/main/hud/bar_put[data].asm. Read through the `struct` wrapper that
