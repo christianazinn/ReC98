@@ -2596,12 +2596,12 @@ EXECL_TEXT	ends
 
 ; ===========================================================================
 
-; The tail of the original `MB_DFR_TEXT` contribution, reopened under its
-; original name.
+; What is left of the original `MB_DFR_TEXT` contribution, reopened under
+; its original name. It now contributes ZERO bytes.
 MB_DFR_TEXT	segment	byte public 'CODE' use16
 
 
-include th04/main/item/render.asm
+	; items_render() now lives in th04/main/item/render.cpp (kb/codegen 0114).
 
 	; midboss_defeat_render() now lives in
 	; th04/main/midboss/defeat_render.cpp, which appends to this segment.

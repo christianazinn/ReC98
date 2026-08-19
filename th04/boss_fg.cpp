@@ -13,4 +13,8 @@
 // effect before any code is generated. (kb/codegen/0112, trap 0)
 #pragma option -zPmain_01
 
+// items_render() was the tail `include` of this segment's dump contribution,
+// so it goes FIRST here: the object grows backwards into the hole the dump
+// leaves and every byte keeps its address (kb/codegen/0114).
+#include "th04/main/item/render.cpp"
 #include "th04/main/boss/fg.cpp"
