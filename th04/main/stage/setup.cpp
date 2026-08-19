@@ -2,8 +2,9 @@
 /// -------------------------
 /// (#included from th04/main_035.cpp. ZUN's object for main_035_TEXT held all
 /// seven stage setup functions, stage1_setup() through stagex_setup(), in that
-/// address order; the other two are still in th04_main.asm, so this file is
-/// appended to that contribution and grows upwards, one tail at a time.
+/// address order, and all seven are now here — the file grew upwards, one
+/// tail at a time, and th04_main.asm's contribution to that segment is down to
+/// boss_reset() and one include.
 /// th05/main/stage/setup.cpp is the same file for TH05, and holds all seven.)
 ///
 /// TH04's are `far` where TH05's are `near` — the same function under the same
@@ -55,6 +56,117 @@ extern char st03_bb[];
 extern char st02_bmt[];
 extern char st02bk_cdg[];
 extern char st02_bb[];
+
+// And three more (kb/codegen/0123).
+extern char st01_bmt[];
+extern char st01bk_cdg[];
+extern char st01_bb[];
+
+// The last three (kb/codegen/0123).
+extern char st00_bmt[];
+extern char st00bk_cdg[];
+extern char st00_bb[];
+
+/// Stage 1
+/// -------
+
+// Orange enters on the first cel of the stage sprite range, the way every
+// stage-1-style boss does. (th04/main/boss/render.cpp)
+static const int PAT_ORANGE_STILL = PAT_STAGE;
+
+void pascal far stage1_setup(void)
+{
+	midboss_update_func = midboss1_update;
+	midboss_render_func = midboss1_render;
+	midboss.frames_until = 3100;
+
+	// Below the bottom of the playfield, drifting up — Stage 1's midboss is
+	// the only one that enters from underneath.
+	midboss.pos.     cur.set(192, 368);
+	midboss.pos.    prev.set(192, 368);
+	midboss.pos.velocity.set(0, 1);
+	midboss.hp = 800;
+
+	// [inferred] Alone among the five setups that have a midboss at all, this
+	// one does not clear [midboss.sprite]. The only other writer for this
+	// midboss is midboss1_update() (still ASM), which seeds it during the
+	// battle; nothing in the binary says whether the omission is deliberate.
+
+	boss_reset();
+	boss.pos.init(192, 40);
+	boss_bg_render_func = orange_bg_render;
+	boss_update_func = orange_update;
+	boss_fg_render_func = orange_fg_render;
+	boss.sprite = PAT_ORANGE_STILL;
+
+	// The one boss in TH04 with a hitbox wider than it is tall.
+	boss_hitbox_radius.set(24, 16);
+
+	boss_backdrop_colorfill = orange_backdrop_colorfill;
+
+	super_entry_bfnt(st00_bmt);
+	cdg_load_single_noalpha(CDG_BG_BOSS, st00bk_cdg, 0);
+	bb_boss_load(st00_bb);
+
+	// R and G of color 0, in master.lib's palette copy only: nothing here
+	// calls palette_show(), so the change reaches the hardware at whatever
+	// the next show is. B is left at whatever the background load put there.
+	// The only stage setup that touches the palette at all.
+	Palettes[0].c.r = 255;
+	Palettes[0].c.g = 255;
+
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
+
+/// Stage 2
+/// -------
+
+void pascal far stage2_setup(void)
+{
+	midboss_update_func = midboss2_update;
+	midboss_render_func = midboss2_render;
+	midboss.frames_until = 2600;
+	midboss.pos.     cur.set(192, -32);
+	midboss.pos.    prev.set(192, -32);
+	midboss.pos.velocity.set(0, 1);
+	midboss.hp = 750;
+	midboss.sprite = 0;
+
+	boss_reset();
+	boss.pos.init(192, 81);
+	boss_bg_render_func = kurumi_bg_render;
+	boss_update_func = kurumi_update;
+	boss_fg_render_func = kurumi_fg_render;
+
+	// No PAT_* constant, and that is Kurumi's quirk rather than a missing
+	// name: hers is the one TH04 boss whose [boss.sprite] is a cel index into
+	// her own range instead of an absolute patnum, so kurumi_fg_render() adds
+	// PAT_KURUMI on every blit. (th04/sprites/main_pat.h says the same from
+	// the other side.)
+	boss.sprite = 0;
+
+	boss_hitbox_radius.set(24, 24);
+	boss_backdrop_colorfill = kurumi_backdrop_colorfill;
+
+	super_entry_bfnt(st01_bmt);
+	cdg_load_single_noalpha(CDG_BG_BOSS, st01bk_cdg, 0);
+	bb_boss_load(st01_bb);
+
+	// The only per-rank parameter Kurumi takes, and it is a frame interval:
+	// kurumi_1905A() — one of her still-ASM patterns, called from
+	// kurumi_update() — fires a spread of aimed pellets on every frame where
+	// [boss.phase_frame] divides evenly by it. 255 on Easy against 8 on
+	// Lunatic.
+	#define spread_interval	boss_statebyte[0]
+	spread_interval = select_for_rank(255, 128, 32, 8);
+	#undef spread_interval
+
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
 
 /// Stage 3
 /// -------

@@ -621,7 +621,7 @@ loc_B003:
 		les	bx, off_213E0
 		mov	es:[bx+2], al
 		call	super_entry_bfnt pascal, ds, offset aSt00_bft ; "st00.bft"
-		call	stage1_setup
+		call	@stage1_setup$qv
 		les	bx, _resident
 		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_REIMU
 		jnz	short loc_B044
@@ -640,7 +640,7 @@ loc_B04B:
 		mov	word_2CFF4, 9
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss1_cd2
 		call	super_entry_bfnt pascal, ds, offset aSt01_bft ; "st01.bft"
-		call	stage2_setup
+		call	@stage2_setup$qv
 		push	ds
 		push	offset aSt01_mpn ; "st01.mpn"
 		jmp	loc_B141
@@ -5811,13 +5811,19 @@ MB_DFR_TEXT	segment	byte public 'CODE' use16
 	; CFG_LRES_TEXT has; same `byte public 'CODE'` alignment as before, so
 	; nothing moves.
 	;
-	; Both are declared here, inside a main_01 segment on purpose
-	; (kb/codegen 0064, 0082): stage1_setup() and stage2_setup() store the
-	; `offset` of each into [boss_fg_render_func], and only the GROUP of
-	; the declaring segment decides which group frame that offset is
+	; Both were declared here, inside a main_01 segment on purpose
+	; (kb/codegen 0064, 0082): stage1_setup() and stage2_setup() stored
+	; the `offset` of each into [boss_fg_render_func], and only the GROUP
+	; of the declaring segment decides which group frame that offset is
 	; relative to. Uppercase because they are __pascal (kb/codegen 0081,
-	; 0103) -- the dump's lowercase spelling at the two `offset` sites is
-	; not the symbol's case.
+	; 0103) -- the dump's lowercase spelling at the two `offset` sites
+	; was not the symbol's case.
+	;
+	; NEITHER has an ASM reference any more: both stage setups that took
+	; their address are now C++ in th04/main/stage/setup.cpp. Both are
+	; kept declared here on the same terms as @MIDBOSSX_RENDER$QV in
+	; MIDBOSSX_TEXT, whose only caller left the dump the same way. An
+	; unreferenced procdesc emits an EXTDEF and no bytes.
 	@KURUMI_FG_RENDER$QV procdesc pascal near
 	@ORANGE_FG_RENDER$QV procdesc pascal near
 
@@ -6403,7 +6409,7 @@ BOSS_BG_TEXT	segment	word public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @ORANGE_BG_RENDER$QV
 @orange_bg_render$qv	proc near
 		push	bp
 		mov	bp, sp
@@ -6460,7 +6466,7 @@ loc_121E6:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @KURUMI_BG_RENDER$QV
 @kurumi_bg_render$qv	proc near
 		push	bp
 		mov	bp, sp
@@ -16214,7 +16220,7 @@ kurumi_1905A	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @KURUMI_UPDATE$QV
 @kurumi_update$qv	proc far
 
 var_2		= word ptr -2
@@ -17217,7 +17223,7 @@ orange_1998B	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @ORANGE_UPDATE$QV
 @orange_update$qv	proc far
 		push	bp
 		mov	bp, sp
@@ -22528,98 +22534,16 @@ public @boss_reset$qv
 
 include th04/formats/bb_boss.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage1_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midboss1_update$qv
-		mov	_midboss_render_func, offset @midboss1_render$qv
-		mov	_midboss_frames_until, 3100
-		mov	_midboss_pos.cur.x, (192 shl 4)
-		mov	_midboss_pos.cur.y, (368 shl 4)
-		mov	_midboss_pos.prev.x, (192 shl 4)
-		mov	_midboss_pos.prev.y, (368 shl 4)
-		mov	_midboss_pos.velocity.x, 0
-		mov	_midboss_pos.velocity.y, (1 shl 4)
-		mov	_midboss_hp, 800
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (40 shl 4)
-		mov	_boss_pos.prev.y, (40 shl 4)
-		mov	_boss_bg_render_func, offset @orange_bg_render$qv
-		setfarfp	_boss_update_func, @orange_update$qv
-		mov	_boss_fg_render_func, offset @orange_fg_render$qv
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (16 shl 4)
-		mov	_boss_backdrop_colorfill, offset @orange_backdrop_colorfill$qv
-		call	super_entry_bfnt pascal, ds, offset aSt00_bmt ; "st00.bmt"
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset aSt00bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt00_bb
-		mov	Palettes[0 * size rgb_t].r, 255
-		mov	Palettes[0 * size rgb_t].g, 255
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stage1_setup	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage2_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midboss2_update$qv
-		mov	_midboss_render_func, offset @midboss2_render$qv
-		mov	_midboss_frames_until, 2600
-		mov	_midboss_pos.cur.x, (192 shl 4)
-		mov	_midboss_pos.cur.y, (-32 shl 4)
-		mov	_midboss_pos.prev.x, (192 shl 4)
-		mov	_midboss_pos.prev.y, (-32 shl 4)
-		mov	_midboss_pos.velocity.x, 0
-		mov	_midboss_pos.velocity.y, (1 shl 4)
-		mov	_midboss_hp, 750
-		mov	_midboss_sprite, 0
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (81 shl 4)
-		mov	_boss_pos.prev.y, (81 shl 4)
-		mov	_boss_bg_render_func, offset @kurumi_bg_render$qv
-		setfarfp	_boss_update_func, @kurumi_update$qv
-		mov	_boss_fg_render_func, offset @kurumi_fg_render$qv
-		mov	_boss_sprite, 0
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (24 shl 4)
-		mov	_boss_backdrop_colorfill, offset @kurumi_backdrop_colorfill$qv
-		call	super_entry_bfnt pascal, ds, offset aSt01_bmt ; "st01.bmt"
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset aSt01bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt01_bb
-		push	(255 shl 16) or 128
-		push	( 32 shl 16) or   8
-		call	select_for_rank
-		mov	_boss_statebyte[0].BSB_spread_interval, al
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stage2_setup	endp
-
-
-	; stage3_setup() through stage6_setup(), and stagex_setup(), now live in
-	; th04/main/stage/setup.cpp, which th04/main_035.cpp compiles into THIS
+	; ALL SEVEN stage setups -- stage1_setup() through stage6_setup(), and
+	; stagex_setup() -- now live in th04/main/stage/setup.cpp, which
+	; th04/main_035.cpp compiles into THIS
 	; segment. All are `far` here, unlike TH05's near twins of the
 	; same names (kb/codegen/0115). All are written in the mangled
 	; UPPER-case spelling because TASM emits the EXTRN under exactly the
 	; spelling given and applies no language case rule of its own; the call
 	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGE1_SETUP$QV procdesc far
+	@STAGE2_SETUP$QV procdesc far
 	@STAGE3_SETUP$QV procdesc far
 	@STAGE4_SETUP$QV procdesc far
 	@STAGE5_SETUP$QV procdesc far
@@ -26507,11 +26431,23 @@ aBONUS_TOTAL_2	db 'Å@Å@Å@ÇsÇnÇsÇ`Çk',0
 include th04/main/item/enemy_drops[data].asm
 include th04/main/item/items[data].asm
 include th04/main/boss/end[data].asm
+public _st00_bmt
+_st00_bmt label byte
 aSt00_bmt	db 'st00.bmt',0
+public _st00bk_cdg
+_st00bk_cdg label byte
 aSt00bk_cdg	db 'st00bk.cdg',0
+public _st00_bb
+_st00_bb label byte
 aSt00_bb	db 'st00.bb',0
+public _st01_bmt
+_st01_bmt label byte
 aSt01_bmt	db 'st01.bmt',0
+public _st01bk_cdg
+_st01bk_cdg label byte
 aSt01bk_cdg	db 'st01bk.cdg',0
+public _st01_bb
+_st01_bb label byte
 aSt01_bb	db 'st01.bb',0
 public _st02_bmt
 _st02_bmt label byte
