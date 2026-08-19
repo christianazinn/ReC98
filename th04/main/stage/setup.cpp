@@ -2,7 +2,7 @@
 /// -------------------------
 /// (#included from th04/main_035.cpp. ZUN's object for main_035_TEXT held all
 /// seven stage setup functions, stage1_setup() through stagex_setup(), in that
-/// address order; the other two are still in th04_main.asm, so this file is
+/// address order; stage1_setup() is still in th04_main.asm, so this file is
 /// appended to that contribution and grows upwards, one tail at a time.
 /// th05/main/stage/setup.cpp is the same file for TH05, and holds all seven.)
 ///
@@ -55,6 +55,59 @@ extern char st03_bb[];
 extern char st02_bmt[];
 extern char st02bk_cdg[];
 extern char st02_bb[];
+
+// And three more (kb/codegen/0123).
+extern char st01_bmt[];
+extern char st01bk_cdg[];
+extern char st01_bb[];
+
+/// Stage 2
+/// -------
+
+void pascal far stage2_setup(void)
+{
+	midboss_update_func = midboss2_update;
+	midboss_render_func = midboss2_render;
+	midboss.frames_until = 2600;
+	midboss.pos.     cur.set(192, -32);
+	midboss.pos.    prev.set(192, -32);
+	midboss.pos.velocity.set(0, 1);
+	midboss.hp = 750;
+	midboss.sprite = 0;
+
+	boss_reset();
+	boss.pos.init(192, 81);
+	boss_bg_render_func = kurumi_bg_render;
+	boss_update_func = kurumi_update;
+	boss_fg_render_func = kurumi_fg_render;
+
+	// No PAT_* constant, and that is Kurumi's quirk rather than a missing
+	// name: hers is the one TH04 boss whose [boss.sprite] is a cel index into
+	// her own range instead of an absolute patnum, so kurumi_fg_render() adds
+	// PAT_KURUMI on every blit. (th04/sprites/main_pat.h says the same from
+	// the other side.)
+	boss.sprite = 0;
+
+	boss_hitbox_radius.set(24, 24);
+	boss_backdrop_colorfill = kurumi_backdrop_colorfill;
+
+	super_entry_bfnt(st01_bmt);
+	cdg_load_single_noalpha(CDG_BG_BOSS, st01bk_cdg, 0);
+	bb_boss_load(st01_bb);
+
+	// The only per-rank parameter Kurumi takes, and it is a frame interval:
+	// kurumi_1905A() — one of her still-ASM patterns, called from
+	// kurumi_update() — fires a spread of aimed pellets on every frame where
+	// [boss.phase_frame] divides evenly by it. 255 on Easy against 8 on
+	// Lunatic.
+	#define spread_interval	boss_statebyte[0]
+	spread_interval = select_for_rank(255, 128, 32, 8);
+	#undef spread_interval
+
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
 
 /// Stage 3
 /// -------

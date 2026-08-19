@@ -15,7 +15,13 @@ void pascal near mugetsu_gengetsu_backdrop_colorfill(void);
 /// ---------
 
 void pascal near orange_fg_render(void);
+
+// Kurumi's fight. kurumi_fg_render() is already C++
+// (th04/main/boss/render.cpp); the other two are still in th04_main.asm, which
+// publishes them under their mangled UPPER-case spelling for this header.
+void pascal near kurumi_bg_render(void);
 void pascal near kurumi_fg_render(void);
+void pascal  far kurumi_update(void);
 
 // Elly's fight. All three are still in th04_main.asm, which publishes them
 // under their mangled UPPER-case spelling for this header.
