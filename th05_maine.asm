@@ -297,6 +297,7 @@ maine_01__TEXT	segment	byte public 'CODE' use16
 	@orb_phase_update$qv procdesc near
 	@rain_particle_spawn$qv procdesc near
 	@rain_phase_update$qv procdesc near
+	@staffroll_frame_and_flip$qv procdesc near
 
 	@SPACE_WINDOW_SET$QIIII procdesc pascal near \
 		center_x:word, center_y:word, w:word, h:word
@@ -417,397 +418,25 @@ orb	equ <_particles[ORB_INDEX * size orb_particle_t]>
 ;
 ; Nothing may be added above this line.
 ;
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DFEC	proc near
-
-@@star_center		= word ptr -0Ah
-@@trail_center		= word ptr -8
-@@trail_col		= word ptr -6
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	si, offset orb
-		mov	[bp+@@trail_center], offset _orb_trails_center[(ORB_TRAIL_COUNT - 1) * size Point]
-		mov	[bp+@@star_center], offset _stars_center
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.x
-		sub	dx, ax
-		push	dx
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.y
-		sub	dx, ax
-		push	dx
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		dec	ax
-		push	ax
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.y
-		dec	ax
-		push	ax
-		call	grcg_boxfill
-		GRCG_OFF_CLOBBERING dx
-		xor	di, di
-		jmp	short loc_E098
-; ---------------------------------------------------------------------------
-
-loc_E053:
-		mov	bx, [bp+@@star_center]
-		mov	ax, [bx+Point.x]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, _space_window_center.x
-		add	ax, -4
-		mov	[bp+@@x], ax
-		mov	bx, [bp+@@star_center]
-		mov	ax, [bx+Point.y]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, _space_window_center.y
-		add	ax, -4
-		mov	[bp+@@y], ax
-		push	[bp+@@x]	; x
-		push	ax	; y
-		mov	ax, di
-		mov	bx, 2
-		cwd
-		idiv	bx
-		add	dx, PAT_STAR_BIG
-		push	dx	; num
-		call	super_put_tiny_small
-		inc	di
-		add	[bp+@@star_center], size Point
-
-loc_E098:
-		cmp	di, STAR_COUNT
-		jl	short loc_E053
-		xor	di, di
-		mov	[bp+@@trail_col], 6
-		jmp	short loc_E0FB
-; ---------------------------------------------------------------------------
-
-loc_E0A6:
-		mov	bx, [bp+@@trail_center]
-		cmp	[bx+Point.x], SUBPIXEL_NONE
-		jz	short loc_E0F6
-		mov	bx, [bp+@@trail_center]
-		mov	ax, [bx+Point.x]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, _space_window_center.x
-		mov	[bp+@@x], ax
-		mov	bx, [bp+@@trail_center]
-		mov	ax, [bx+Point.y]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, _space_window_center.y
-		mov	[bp+@@y], ax
-		push	GC_RMW
-		mov	ax, [bp+@@trail_col]
-		inc	[bp+@@trail_col]
-		push	ax
-		call	grcg_setcolor
-		call	grcg_circlefill pascal, [bp+@@x], [bp+@@y], ORB_RADIUS_FULL
-		GRCG_OFF_CLOBBERING dx
-
-loc_E0F6:
-		inc	di
-		sub	[bp+@@trail_center], size Point
-
-loc_E0FB:
-		cmp	di, ORB_TRAIL_COUNT
-		jl	short loc_E0A6
-		cmp	[si+orb_particle_t.OP_center_x], SUBPIXEL_NONE
-		jz	loc_E18B
-		mov	eax, [si+orb_particle_t.OP_center_x]
-		mov	ebx, 16
-		cdq
-		idiv	ebx
-		add	ax, _space_window_center.x
-		add	ax, -(ORB_W / 2)
-		mov	[bp+@@x], ax
-		mov	eax, [si+orb_particle_t.OP_center_y]
-		cdq
-		idiv	ebx
-		add	ax, _space_window_center.y
-		add	ax, -(ORB_H / 2)
-		mov	[bp+@@y], ax
-		cmp	[si+orb_particle_t.OP_al_radius], ORB_RADIUS_FULL
-		jb	short loc_E161
-		mov	al, byte_151CC
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		cwd
-		idiv	bx
-		add	dx, 8
-		mov	di, dx
-		call	super_put_rect pascal, [bp+@@x], [bp+@@y], dx
-		inc	byte_151CC
-		jmp	short loc_E18B
-; ---------------------------------------------------------------------------
-
-loc_E161:
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, [bp+@@x]
-		add	ax, (ORB_W / 2)
-		push	ax
-		mov	ax, [bp+@@y]
-		add	ax, (ORB_H / 2)
-		push	ax
-		mov	al, [si+orb_particle_t.OP_al_radius]
-		mov	ah, 0
-		push	ax
-		call	grcg_circlefill
-		GRCG_OFF_CLOBBERING dx
-
-loc_E18B:
-		sub	si, size orb_particle_t
-		; ; si == particles[ORB_PARTICLE_COUNT - 1]
-		xor	di, di
-		jmp	loc_E21D
-; ---------------------------------------------------------------------------
-
-loc_E193:
-		cmp	[si+orb_particle_t.OP_center_x], SUBPIXEL_NONE
-		jz	short loc_E219
-		mov	ax, _space_window_w
-		neg	ax
-		shl	ax, 3
-		add	ax, (-4 shl 4)
-		cwde
-		cmp	eax, [si+orb_particle_t.OP_center_x]
-		jge	short loc_E219
-		mov	ax, _space_window_w
-		shl	ax, 3
-		add	ax, (4 shl 4)
-		cwde
-		cmp	eax, [si+orb_particle_t.OP_center_x]
-		jle	short loc_E219
-		mov	ax, _space_window_h
-		neg	ax
-		shl	ax, 3
-		add	ax, (-4 shl 4)
-		cwde
-		cmp	eax, [si+orb_particle_t.OP_center_y]
-		jge	short loc_E219
-		mov	ax, _space_window_h
-		shl	ax, 3
-		add	ax, (4 shl 4)
-		cwde
-		cmp	eax, [si+orb_particle_t.OP_center_y]
-		jle	short loc_E219
-		mov	eax, [si+orb_particle_t.OP_center_x]
-		mov	ebx, 16
-		cdq
-		idiv	ebx
-		add	ax, _space_window_center.x
-		add	ax, -4
-		mov	[bp+@@x], ax
-		mov	eax, [si+orb_particle_t.OP_center_y]
-		cdq
-		idiv	ebx
-		add	ax, _space_window_center.y
-		add	ax, -4
-		mov	[bp+@@y], ax
-		call	super_put_tiny_small pascal, [bp+@@x], ax, [si+orb_particle_t.OP_patnum_tiny]
-
-loc_E219:
-		inc	di
-		sub	si, size orb_particle_t
-
-loc_E21D:
-		cmp	di, ORB_PARTICLE_COUNT
-		jl	loc_E193
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.x
-		sub	dx, ax
-		add	dx, -8
-		push	dx
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.y
-		sub	dx, ax
-		push	dx
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.x
-		sub	dx, ax
-		dec	dx
-		push	dx
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.y
-		dec	ax
-		push	ax
-		call	grcg_boxfill
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		push	ax
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.y
-		sub	dx, ax
-		push	dx
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		add	ax, 7
-		push	ax
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.y
-		dec	ax
-		push	ax
-		call	grcg_boxfill
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.x
-		sub	dx, ax
-		add	dx, -8
-		push	dx
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.y
-		sub	dx, ax
-		add	dx, -8
-		push	dx
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		add	ax, 7
-		push	ax
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.y
-		sub	dx, ax
-		dec	dx
-		push	dx
-		call	grcg_boxfill
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, _space_window_center.x
-		sub	dx, ax
-		add	dx, -8
-		push	dx
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.y
-		push	ax
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		add	ax, 7
-		push	ax
-		mov	ax, _space_window_h
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.y
-		add	ax, 7
-		push	ax
-		call	grcg_boxfill
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		leave
-		retn
-sub_DFEC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_E349	proc near
-		push	bp
-		mov	bp, sp
-		call	@space_update$qv
-		call	sub_DFEC
-		call	@frame_delay$qi pascal, 1
-		graph_accesspage byte_1183A
-		mov	al, 1
-		sub	al, byte_1183A
-		mov	byte_1183A, al
-		graph_showpage al
-		cmp	byte_11846, 0
-		jz	short loc_E37E
-		call	text_clear
-		mov	byte_11846, 0
-
-loc_E37E:
-		inc	word_151E2
-		call	_snd_bgm_measure
-		mov	measure_151E0, ax
-		cmp	measure_151E0, 0
-		jge	short loc_E39D
-		mov	ax, word_151E2
-		mov	bx, 22
-		cwd
-		idiv	bx
-		mov	measure_151E0, ax
-
-loc_E39D:
-		pop	bp
-		retn
-sub_E349	endp
+; The scene's renderer and its frame function now live in th05/space.cpp too,
+; as space_put() and staffroll_frame_and_flip(). They extend the same
+; contiguous prefix as the fourteen bodies above, into the object Tupfile.lua
+; lists directly before this dump, so both land at their original addresses by
+; growing that contribution: a kb/codegen/0098 head lift with no carve, no new
+; segment, no group-list edit and no Tupfile.lua line.
+;
+; space_put() has five stack locals, so the -k- state this file's tail is
+; compiled under emits its `enter` on its own. staffroll_frame_and_flip() has
+; neither parameters nor stack locals, so it needed kb/codegen/0042's
+; per-function -k. wrapper to keep the BP frame the original has.
+;
+; space_put() is called only from staffroll_frame_and_flip(), so it needs no
+; procdesc here; staffroll_animate() below still calls the frame function, and
+; the call stays near because both are in this segment.
+;
+; kb/codegen/0121: neither deleted body contained an `assume`.
+;
+; Nothing may be added above this line.
 
 include th05/end/verdict_bitmap.asm
 
@@ -878,7 +507,7 @@ loc_E565:
 		call	far ptr	palette_show
 
 loc_E573:
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		inc	si
 		cmp	measure_151E0, 30
 		jl	short loc_E565
@@ -889,7 +518,7 @@ loc_E573:
 
 loc_E585:
 		call	@orb_gather_animate$qv
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		inc	si
 
 loc_E58C:
@@ -900,7 +529,7 @@ loc_E58C:
 loc_E594:
 		call	@orb_phase_update$qv
 		mov	si, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	si, si
 		jz	short loc_E594
 		cmp	measure_151E0, 48
@@ -924,7 +553,7 @@ loc_E5C9:
 		pushd	(0 shl 16) or 76
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		inc	si
 		or	di, di
 		jz	short loc_E5AB
@@ -936,7 +565,7 @@ loc_E5E1:
 		push	(2 shl 16) or 92
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E5E1
 		xor	si, si
@@ -958,7 +587,7 @@ loc_E61E:
 		push	(3 shl 16) or 120
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		inc	si
 		or	di, di
 		jz	short loc_E600
@@ -967,7 +596,7 @@ loc_E61E:
 loc_E63A:
 		call	@rain_phase_update$qv
 		mov	si, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	si, si
 		jz	short loc_E63A
 		xor	di, di
@@ -978,7 +607,7 @@ loc_E648:
 		push	(5 shl 16) or 172
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E648
 
@@ -988,7 +617,7 @@ loc_E663:
 		push	(6 shl 16) or 188
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E663
 
@@ -998,7 +627,7 @@ loc_E67E:
 		push	(7 shl 16) or 204
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E67E
 
@@ -1008,7 +637,7 @@ loc_E699:
 		push	(8 shl 16) or 220
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E699
 
@@ -1018,7 +647,7 @@ loc_E6B4:
 		push	(9 shl 16) or 236
 		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		or	di, di
 		jz	short loc_E6B4
 		xor	si, si
@@ -1085,7 +714,7 @@ loc_E74A:
 ; ---------------------------------------------------------------------------
 
 loc_E757:
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		jmp	short loc_E7C1
 ; ---------------------------------------------------------------------------
 
@@ -1128,7 +757,7 @@ loc_E7B5:
 		call	verdict_bitmap_put pascal, [bp+@@verdict_bitmap_offset]
 
 loc_E7BB:
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		jmp	loc_E6DB
 ; ---------------------------------------------------------------------------
 
@@ -1140,7 +769,7 @@ loc_E7CC:
 		mov	PaletteTone, si
 		call	far ptr	palette_show
 		call	@rain_phase_update$qv
-		call	sub_E349
+		call	@staffroll_frame_and_flip$qv
 		dec	si
 		or	si, si
 		jg	short loc_E7CC
@@ -1661,7 +1290,11 @@ word_151C8	dw ?
 public _credit_2_fade_frame
 _credit_2_fade_frame	label word
 word_151CA	dw ?
-byte_151CC	db ?
+; kb/codegen/0123: renamed outright rather than aliased. space_put() was
+; this byte's only user and is now C++, so no reference in this dump
+; remains and one spelling is enough.
+public _orb_cel_frame
+_orb_cel_frame	db ?
 		db ?
 public _space_window_center, _space_window_w, _space_window_h
 public _space_window_w, _space_window_h

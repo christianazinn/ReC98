@@ -28,6 +28,12 @@ typedef enum {
 	PAT_STAR_BIG,
 	PAT_STAR_SMALL,
 	// ---------
+
+	// stf00.bft
+	// ---------
+	// The orb's four 32x32 cels, cycled through by space_put().
+	PAT_ORB,
+	// ---------
 } staff_patnum_t;
 /// -------------------------------------------
 
@@ -162,5 +168,16 @@ bool16 pascal near credit_animate(
 bool16 pascal near credit_2_animate(
 	screen_x_t x_center, vram_y_t y_center, int slot, int measure
 );
+
+// Redraws the entire scene onto the current VRAM page: the space window is
+// cleared, every star, orb trail, orb and particle inside it is blitted, and
+// the 8-pixel border around it is painted over so that nothing survives the
+// window sliding across the screen.
+void near space_put(void);
+
+// One frame of the scene: space_update(), space_put(), a frame of delay, and
+// the page flip, followed by the pending text layer clear and the BGM measure
+// that both credit lines time their fade-out on.
+void near staffroll_frame_and_flip(void);
 
 #endif /* TH05_STAFF_HPP */
