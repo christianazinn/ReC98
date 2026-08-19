@@ -15256,36 +15256,10 @@ loc_1E66B:
 		retn
 sub_1E60E	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E66F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_page_back, 0
-		jz	short loc_1E696
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RANDOM_ANGLE_AND_SPEED
-		mov	_bullet_template.speed, (1 shl 4)
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 12
-		mov	_bullet_template.patnum, 0
-		call	_bullets_add_regular
-
-loc_1E696:
-		cmp	_midboss_phase_frame, 128
-		jl	short loc_1E6A2
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1E6A2:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1E66F	endp
+	; The Extra Stage midboss's second phase-1 pattern, now compiled from
+	; th04/main/midboss/mx_update.cpp as well, and declared here for the
+	; same reason as the one below.
+	@pattern_random_pellets$qv procdesc near
 
 	; The Extra Stage midboss's phase-1 post-bonus pattern, now compiled
 	; from th04/main/midboss/mx_update.cpp. Declared here rather than at
@@ -17523,7 +17497,7 @@ off_2285A	dw offset sub_1E5FC
 public _MIDBOSSX_PATTERNS_PHASE_1
 _MIDBOSSX_PATTERNS_PHASE_1 label word
 off_2285C	dw offset sub_1E60E
-		dw offset sub_1E66F
+		dw offset @pattern_random_pellets$qv
 		dw offset @pattern_symmetric_turning_spread$qv
 		dw offset @pattern_symmetric_turning_spread$qv
 		dw 0
