@@ -3974,6 +3974,12 @@ include th05/main/stage/s2part.asm
 
 ; Attributes: bp-based frame
 
+	; The Stage 2 star-particle respawner, called from stage2_update()
+	; in th05/main/stage/stages.cpp. Zero-byte alias, kb/codegen/0123;
+	; upper case and no underscore because the function is `pascal`
+	; (kb/codegen/0086).
+public S2PARTICLE_RESPAWN
+S2PARTICLE_RESPAWN label near
 sub_111B7	proc near
 
 var_2		= word ptr -2
@@ -4184,284 +4190,27 @@ loc_11331:
 		retn	2
 sub_111B7	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @STAGE2_UPDATE$QV
-@stage2_update$qv proc near
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jbe	short loc_113B9
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jb	loc_1162C
-
-loc_113B9:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_113C9
-		cmp	_boss_phase_frame, 32
-		jge	loc_1162C
-
-loc_113C9:
-		cmp	_stage_frame, 304
-		jnb	loc_11475
-		mov	_scroll_active, 0
-		cmp	_stage_frame, 256
-		jb	loc_1146F
-		mov	ax, 303
-		sub	ax, _stage_frame
-		mov	[bp+var_2], ax
-		mov	al, byte ptr [bp+var_2]
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	Palettes[0 * size rgb_t].g, al
-		mov	ax, [bp+var_2]
-		imul	ax, 5
-		mov	Palettes[0 * size rgb_t].b, al
-		mov	al, byte_22859
-		mov	ah, 0
-		add	ax, 100
-		mov	PaletteTone, ax
-		mov	_palette_changed, 1
-		mov	al, byte_22859
-		add	al, 2
-		mov	byte_22859, al
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_1146F
-		mov	ax, _stage_frame
-		sub	ax, 256
-		shr	ax, 2
-		mov	[bp+var_2], ax
-		mov	ax, 0Bh
-		sub	ax, [bp+var_2]
-		mov	di, ax
-		mov	ax, [bp+var_2]
-		add	ax, 0Ch
-		mov	[bp+var_4], ax
-		mov	[bp+var_2], 0
-		jmp	short loc_11469
-; ---------------------------------------------------------------------------
-
-loc_11441:
-		mov	bx, [bp+var_2]
-		shl	bx, 6
-		mov	ax, di
-		add	ax, ax
-		add	bx, ax
-		mov	_tile_ring[bx], (TILE_AREA_VRAM_LEFT + (256 * ROW_SIZE))
-		mov	bx, [bp+var_2]
-		shl	bx, 6
-		mov	ax, [bp+var_4]
-		add	ax, ax
-		add	bx, ax
-		mov	_tile_ring[bx], (TILE_AREA_VRAM_LEFT + (256 * ROW_SIZE))
-		inc	[bp+var_2]
-
-loc_11469:
-		cmp	[bp+var_2], 19h
-		jl	short loc_11441
-
-loc_1146F:
-		call	@tiles_invalidate_all$qv
-		jmp	loc_1162C
-; ---------------------------------------------------------------------------
-
-loc_11475:
-		cmp	_stage_frame, 306
-		jnb	short loc_114CD
-		call	graph_scrollup pascal, _scroll_line
-		xor	di, di
-		jmp	short loc_114AD
-; ---------------------------------------------------------------------------
-
-loc_1148A:
-		mov	[bp+var_2], 0
-		jmp	short loc_114A6
-; ---------------------------------------------------------------------------
-
-loc_11491:
-		mov	bx, [bp+var_2]
-		shl	bx, 6
-		mov	ax, di
-		add	ax, ax
-		add	bx, ax
-		mov	_tile_ring[bx], 48h
-		inc	[bp+var_2]
-
-loc_114A6:
-		cmp	[bp+var_2], 19h
-		jl	short loc_11491
-		inc	di
-
-loc_114AD:
-		cmp	di, 18h
-		jl	short loc_1148A
-		call	@tiles_invalidate_all$qv
-		mov	_scroll_active, 1
-		mov	word_22856, 0
-		mov	byte_22858, 0
-		mov	byte_2CE4C, 0
-		jmp	loc_1162C
-; ---------------------------------------------------------------------------
-
-loc_114CD:
-		cmp	byte_22859, 0
-		jz	short loc_114F8
-		cmp	byte_22859, 4
-		jbe	short loc_114E5
-		mov	al, byte_22859
-		add	al, -4
-		mov	byte_22859, al
-		jmp	short loc_114EA
-; ---------------------------------------------------------------------------
-
-loc_114E5:
-		mov	byte_22859, 0
-
-loc_114EA:
-		mov	al, byte_22859
-		mov	ah, 0
-		add	ax, 100
-		mov	PaletteTone, ax
-		jmp	loc_11627
-; ---------------------------------------------------------------------------
-
-loc_114F8:
-		cmp	word_22856, 40h
-		jge	short loc_11553
-		cmp	_stage_frame_mod2, 0
-		jnz	short loc_11553
-		mov	ax, word_22856
-		imul	ax, size s2particle_t
-		add	ax, offset s2particles
-		mov	si, ax
-		mov	[si+s2particle_t.S2P_alive], 1
-		call	@randring1_next16_mod$qui pascal, 20h
-		add	al, 30h
-		mov	[si+s2particle_t.S2P_angle], al
-		mov	al, [si+s2particle_t.S2P_angle]
-		mov	ah, 0
-		mov	dx, 50h
-		sub	dx, ax
-		shl	dx, 3
-		shl	dx, 4
-		add	dx, (64 shl 4)
-		mov	[si+s2particle_t.pos.cur.x], dx
-		mov	[si+s2particle_t.pos.cur.y], 0
-		push	ds
-		lea	ax, [si+s2particle_t.pos.velocity.x]
-		push	ax
-		push	ds
-		lea	ax, [si+s2particle_t.pos.velocity.y]
-		push	ax
-		push	word ptr [si+s2particle_t.S2P_angle]
-		push	(8 shl 4)
-		call	vector2
-		inc	word_22856
-
-loc_11553:
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		mov	si, offset s2particles
-		mov	[bp+var_2], 0
-		jmp	short loc_115D4
-; ---------------------------------------------------------------------------
-
-loc_11568:
-		cmp	[si+s2particle_t.S2P_alive], 0
-		jz	short loc_115CE
-		lea	ax, [si+s2particle_t.pos]
-		call	@PlayfieldMotion@update_seg1$qv pascal, ax
-		cmp	ax, (-8 shl 4)
-		jle	short loc_11589
-		cmp	ax, ((PLAYFIELD_W + 8) shl 4)
-		jge	short loc_11589
-		cmp	dx, (-8 shl 4)
-		jle	short loc_11589
-		cmp	dx, ((PLAYFIELD_H + 8) shl 4)
-		jl	short loc_1158F
-
-loc_11589:
-		call	sub_111B7 pascal, si
-		jmp	short loc_115CE
-; ---------------------------------------------------------------------------
-
-loc_1158F:
-		mov	ax, GRAM_400
-		mov	es, ax
-		test	byte ptr [bp+var_2], 3
-		jz	short loc_1159D
-		inc	[si+s2particle_t.zoom]
-
-loc_1159D:
-		mov	ax, [si+s2particle_t.zoom]
-		shr	ax, 4
-		mov	di, ax
-		cmp	di, (PARTICLE_CELS - 1)
-		jl	short loc_115AD
-		mov	di, (PARTICLE_CELS - 1)
-
-loc_115AD:
-		add	di, PAT_PARTICLE
-		mov	ax, [si+s2particle_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (PARTICLE_W / 2))
-		mov	[bp+var_4], ax
-		mov	ax, [si+s2particle_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (PARTICLE_H / 2)) shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	cx, [bp+var_4]
-		call	z_super_roll_put_16x16_mono_raw pascal, di
-
-loc_115CE:
-		inc	[bp+var_2]
-		add	si, size s2particle_t
-
-loc_115D4:
-		cmp	[bp+var_2], S2PARTICLE_COUNT
-		jl	short loc_11568
-		GRCG_OFF_CLOBBERING dx
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_1162C
-		cmp	byte_2CE4C, 0
-		jnz	short loc_115FF
-		inc	byte_22858
-		cmp	byte_22858, 3Fh	; '?'
-		jb	short loc_1160E
-		inc	byte_2CE4C
-		jmp	short loc_1160E
-; ---------------------------------------------------------------------------
-
-loc_115FF:
-		dec	byte_22858
-		cmp	byte_22858, 20h	; ' '
-		ja	short loc_1160E
-		dec	byte_2CE4C
-
-loc_1160E:
-		mov	al, byte_22858
-		add	al, al
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	al, byte_22858
-		add	al, al
-		mov	Palettes[0 * size rgb_t].g, al
-		mov	al, byte_22858
-		shl	al, 2
-		mov	Palettes[0 * size rgb_t].b, al
-
-loc_11627:
-		mov	_palette_changed, 1
-
-loc_1162C:
-		pop	di
-		pop	si
-		leave
-		retn
-@stage2_update$qv endp
+	; stage2_update() now lives in th05/main/stage/stages.cpp, compiled
+	; through the new object th05/stages.cpp, which Tupfile.lua lists
+	; AHEAD of th05/midbossx.cpp. It was the LAST proc of this root
+	; contribution, so the C++ side of the segment simply grows backwards
+	; into the hole and every byte keeps its address (kb/codegen/0099 +
+	; 0114). Its own object rather than an #include into th05/midbossx.cpp
+	; because th04/main/midboss/mx.cpp carries a `#pragma option -zP` that
+	; Turbo C++ rejects once a TU has emitted code -- the reasoning is in
+	; th05/stages.cpp.
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution. The state in force
+	; through the whole of this segment is the one set before it.
+	;
+	; `procdesc pascal near`, upper-case, because the `public` this
+	; replaces was upper-case and that is what declares the calling
+	; convention (kb/codegen/0086). Nothing in this dump calls it --
+	; th05/main/stage/setup.cpp installs it into [stage_render] -- but it
+	; is declared inside a main_01 segment on purpose, so that a future
+	; same-group caller keeps a 3-byte near call (kb/codegen 0064, 0082).
+	@STAGE2_UPDATE$QV procdesc pascal near
 
 	; midbossx_render() now lives in th04/main/midboss/mx.cpp, which
 	; appends to this segment.
@@ -17255,8 +17004,16 @@ public _shinki_devil_laser_grow_delay, _shinki_float_direction
 _shinki_devil_laser_grow_delay	dw 0
 _shinki_float_direction	db 0
 	evendata
+; Stage 2's own state, read and written only by stage2_update() in
+; th05/main/stage/stages.cpp. Zero-byte aliases, kb/codegen 0123.
+public _s2particles_spawned
+_s2particles_spawned label word
 word_22856	dw 0
+public _stage2_bg_pulse
+_stage2_bg_pulse label byte
 byte_22858	db 0
+public _stage2_flash_tone
+_stage2_flash_tone label byte
 byte_22859	db 0
 ; The Extra Stage midboss's current pattern callback, assigned from C++ in
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
@@ -17657,6 +17414,11 @@ fp_2CE46	dw ?
 public _shinki_phase_2_3_pattern, _shinki_wing_pattern
 _shinki_phase_2_3_pattern	dw ?
 _shinki_wing_pattern     	dw ?
+; Direction of stage2_update()'s background colour pulse; the twin of
+; [reimu_bg_pulse_direction] in th04/main/boss/b4r.cpp. Zero-byte
+; alias, kb/codegen 0123.
+public _stage2_bg_pulse_direction
+_stage2_bg_pulse_direction label byte
 byte_2CE4C	db ?
 		db ?
 include th04/main/stage/funcs[bss].asm
