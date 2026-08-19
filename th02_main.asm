@@ -3640,7 +3640,7 @@ loc_127A5:
 		mov	_stone_top[STONE_NORTH * word], (PLAYFIELD_TOP + 16)
 		mov	top_22D9A, (PLAYFIELD_TOP + 24)
 		mov	left_22D98, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - (PELLET_W / 2))
-		nopcall	sub_17A55
+		nopcall	enemies_remove_all
 		mov	byte_23A70, 0Ch
 		mov	word_22FAA, 0
 		mov	dword_22D58, 0
@@ -9943,7 +9943,10 @@ sigma_end	endp
 
 ; ---------------------------------------------------------------------------
 
-loc_16A66:
+; A second compiled copy of the same empty far function that
+; th02/main/null.asm publishes as @nullfunc_void$qv -- same five bytes,
+; different address, no `public`. Only enemies_callbacks_null uses it.
+nullfunc_void_2:
 		push	bp
 		mov	bp, sp
 		pop	bp
@@ -9981,16 +9984,16 @@ sub_16A6B	endp
 
 ; Attributes: bp-based frame
 
-public _sub_16A8A
-_sub_16A8A label far
-sub_16A8A	proc far
+public _enemies_callbacks_null
+_enemies_callbacks_null label far
+enemies_callbacks_null proc far
 		push	bp
 		mov	bp, sp
-		setfarfp	farfp_26C3C, loc_16A66
-		setfarfp	farfp_26C40, loc_16A66
+		setfarfp	farfp_26C3C, nullfunc_void_2
+		setfarfp	farfp_26C40, nullfunc_void_2
 		pop	bp
 		retf
-sub_16A8A	endp
+enemies_callbacks_null endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -10344,13 +10347,13 @@ loc_16D40:
 		mov	bx, [bp+arg_2]
 		imul	bx, 26h
 		mov	word ptr byte_255C0[bx+enemy_t.E_damage], 0
-		mov	al, byte_1EE52
+		mov	al, enemies_loop_bound
 		mov	ah, 0
 		cmp	ax, [bp+arg_2]
 		jge	short loc_16D96
 		mov	al, byte ptr [bp+arg_2]
 		inc	al
-		mov	byte_1EE52, al
+		mov	enemies_loop_bound, al
 
 loc_16D96:
 		pop	si
@@ -11721,7 +11724,7 @@ loc_17964:
 		add	word_26C46, 26h	; '&'
 
 loc_1796A:
-		mov	al, byte_1EE52
+		mov	al, enemies_loop_bound
 		mov	ah, 0
 		cmp	ax, di
 		jg	loc_17697
@@ -11747,7 +11750,7 @@ var_2		= word ptr -2
 		sub	sp, 2
 		push	si
 		push	di
-		mov	byte_1EE52, 0
+		mov	enemies_loop_bound, 0
 		mov	[bp+var_2], 0
 		jmp	loc_17A49
 ; ---------------------------------------------------------------------------
@@ -11785,7 +11788,7 @@ loc_1798E:
 loc_179EC:
 		mov	al, byte ptr [bp+var_2]
 		inc	al
-		mov	byte_1EE52, al
+		mov	enemies_loop_bound, al
 		mov	bx, [bp+var_2]
 		imul	bx, 26h
 		mov	al, _page_front
@@ -11832,9 +11835,9 @@ sub_17979	endp
 
 ; Attributes: bp-based frame
 
-public _sub_17A55
-_sub_17A55 label far
-sub_17A55	proc far
+public _enemies_remove_all
+_enemies_remove_all label far
+enemies_remove_all proc far
 		push	bp
 		mov	bp, sp
 		xor	ax, ax
@@ -11856,10 +11859,10 @@ loc_17A72:
 loc_17A73:
 		cmp	ax, 19h
 		jl	short loc_17A5C
-		mov	byte_1EE52, 0
+		mov	enemies_loop_bound, 0
 		pop	bp
 		retf
-sub_17A55	endp
+enemies_remove_all endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -20261,7 +20264,11 @@ aBoss5_m	db 'boss5.m',0
 ; char aMaine[]
 aMaine		db 'maine',0
 word_1EE50	dw 0
-byte_1EE52	db 0
+; Exclusive upper bound on the [enemies] slot index that
+; enemies_update_and_render walks to. NOT a count: enemies_invalidate
+; recomputes it as (highest non-F_FREE slot) + 1, so free slots below it
+; are still iterated.
+enemies_loop_bound db 0
 		db 0
 word_1EE54	dw 0
 word_1EE56	dw 0

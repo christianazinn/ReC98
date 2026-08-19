@@ -48,27 +48,28 @@ extern "C" shiftjis_t near *BGM_TITLES[];
 extern "C" uint8_t boss_bgm_title_id;
 
 // Still ASM in th02_main.asm, reached through the kb/codegen/0123 aliases it
-// now carries. Both are called once, from boss_activate_if_scroll_done(), and
-// both keep their dump placeholder as their C++ spelling: the searches that
-// would have produced names are recorded as FAILED in
-// state/notes/boss_activate_if_scroll_done.md, per
-// kb/conventions/naming-precedents.md §3. Naming either one also means coining
-// a name for a second unnamed symbol it owns, which is a parcel of its own.
+// carries. Both are called once, from boss_activate_if_scroll_done() below.
 // ---------------------------------------------------------------------------
 // Retires every live stage enemy: each [enemies] slot whose flag is not F_FREE
 // becomes F_REMOVE — not F_FREE, so the enemies' own update pass is what
-// actually reclaims them — and the loop bound at 1EE52h is zeroed, which stops
-// enemies_update_and_render() dead on the same frame. That bound is the second
-// unnamed symbol. [inferred from the ASM]
-extern "C" void far sub_17A55(void);
+// actually reclaims them — and [enemies_loop_bound] is zeroed, which stops
+// enemies_update_and_render() dead on the same frame. Also reached, through a
+// nopcall, from the Stage 3 boss's own still-ASM setup routine, the one that
+// arms stone_flag[] and that stones_init() belongs to. `_all` mirrors
+// shots_free_all() (th02/main/player/shot.cpp), the same shape for the shot
+// array; the verb is F_REMOVE's own, because this pass does not free.
+// [inferred from the ASM]
+extern "C" void far enemies_remove_all(void);
 
 // Disables the stage enemies for the rest of the fight, by pointing BOTH the
 // [enemies_invalidate] and [enemies_update_and_render] slots at one shared
-// empty far function at 16A66h — which is a second, duplicate nullfunc ZUN
-// compiled into th02_main.asm, NOT th02/main/null.asm's @nullfunc_void$qv.
-// That duplicate is the second unnamed symbol. The exact inverse of
-// lasers_callbacks_set() in th02/main/laser.cpp. [inferred from the ASM]
-extern "C" void far sub_16A8A(void);
+// empty far function. That function is a SECOND copy of nullfunc_void, which
+// ZUN compiled into a different segment of the same binary — five identical
+// bytes at a different address, spelled nullfunc_void_2 in th02_main.asm after
+// upstream's own frame_delay() / frame_delay_2() precedent for a duplicated
+// compiled body. The exact inverse of lasers_callbacks_set() in
+// th02/main/laser.cpp, whose stem this name mirrors. [inferred from the ASM]
+extern "C" void far enemies_callbacks_null(void);
 
 // 48 half-width spaces -- exactly the playfield's TRAM width -- reached
 // through the `public` line th02_main.asm carries for it (kb/codegen/0123).
@@ -154,8 +155,8 @@ extern "C" void far boss_activate_if_scroll_done(void)
 	}
 
 	boss_init();
-	sub_17A55();
-	sub_16A8A();
+	enemies_remove_all();
+	enemies_callbacks_null();
 	boss_activate_if_scroll_done_func = nullfunc_void;
 
 	// The first two are a staged/live PAIR: stage_init() picked this stage's
