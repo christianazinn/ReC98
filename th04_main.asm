@@ -569,7 +569,7 @@ loc_AF4A:
 		cmp	word_213DE, 0
 		jz	short loc_AFD5
 		call	@bomb_bg_load__ems_preload_playch$qv
-		call	main_01:bb_playchar_load
+		call	bb_playchar_load
 		cmp	_playchar, PLAYCHAR_REIMU
 		jnz	short loc_AFA0
 		push	ds
@@ -5099,7 +5099,27 @@ off_FF28	dw offset loc_FEE7
 		dw offset loc_FECF
 		dw offset loc_FECF
 
-include th04/formats/bb_playchar.asm
+	; bb_playchar_load() now lives in th04/formats/bb_playchar.cpp, which
+	; th04/player_b.cpp compiles into this segment ahead of bomb_reset()
+	; and player_bomb() -- the address it already had, because the module
+	; it replaces was the last thing this file contributed here
+	; (kb/codegen 0099 + 0112 + 0114). Same segment, same group as its one
+	; call site in DEMO_TEXT, which is why that site drops its `main_01:`
+	; override: every `procdesc near` in this file is called unqualified
+	; (kb/codegen/0082). Uppercase because it is __pascal and the export is
+	; undecorated (kb/codegen 0081, 0103).
+	;
+	; Declared BELOW its call site on purpose. A `procdesc pascal near`
+	; taking no arguments encodes identically either way, so the forward
+	; reference costs nothing -- and declaring it at the head of DEMO_TEXT
+	; instead, where hud_put()'s far procdesc has to live, would insert
+	; lines above line 343 and renumber every line-anchored citation into
+	; this file. That measured 8 blocking naming_precheck findings across
+	; six harness files, two of them claimed by other lanes.
+	;
+	; bb_playchar_free() gets no procdesc: nothing in this file references
+	; it. Its only caller is th04/main/execl.cpp, from C++.
+	BB_PLAYCHAR_LOAD procdesc pascal near
 
 	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
 	; player_bomb(), which is its original address order: it was the LAST
