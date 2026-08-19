@@ -1,21 +1,40 @@
 /// GAME OVER
 /// ---------
-/// TH04's GAME OVER screen: the blocking sequence that hides the playfield,
-/// flies a single bold-font G in ahead of the GAME OVER text, runs the continue
+/// The GAME OVER screen: the blocking sequence that hides the playfield, flies
+/// a single bold-font G in ahead of the GAME OVER text, runs the continue
 /// prompt, and then either restores the playfield for the continued attempt or
 /// hands the process to MAINE.EXE for the score tally — together with the two
-/// per-frame overlay fade steps it blocks on. The three were the entire tail of
-/// EXECL_TEXT's root contribution.
+/// per-frame overlay fade steps it blocks on.
 ///
-/// ONE screen, two games. TH05's is th05/main/gameover.cpp, and the two fade
-/// steps are byte-for-byte identical there; gameover() itself differs only in
-/// the Extra-stage prologue below, which TH04 has and TH05 does not, and in
-/// which of the dump's `"maine"` copies it launches through. The names, the
-/// constants, the statement order and the two macros are all
-/// th05/main/gameover.cpp's, so that the two files can be merged into one body
-/// with a `#if (GAME == 5)` around the prologue as soon as both halves are on
-/// the same branch. They are not merged here because TH05's lift has not
-/// reached the integration branch yet.
+/// ONE screen, ONE body, two games. The two fade steps are byte-for-byte
+/// identical; gameover() itself differs in exactly two places, and both are
+/// marked below: the Extra-stage prologue, which TH04 has and TH05 does not,
+/// and which of the dump's `"maine"` copies it launches through.
+///
+/// TH02 owns the same screen from inside its continue_prompt()
+/// (th02/main/continue.cpp); TH04 and TH05 split the prompt out, which is why
+/// there is a separate function here at all.
+///
+/// THE TWO HALVES LAND IN DIFFERENT SEGMENTS, AND THAT IS NOT AN OBSTACLE.
+/// This body was the entire tail of EXECL_TEXT's root contribution in
+/// th04_main.asm and the entire head of main__TEXT's in th05_main.asm. The
+/// earlier TH05-only version of this file gave that as its first reason for
+/// NOT sharing a body — but a segment name is set by the wrapper, not by the
+/// body, and the two wrappers th04/gameover.cpp and th05/gameover.cpp already
+/// carry different `-zC`/`-zP` lines for exactly that reason. The same
+/// construction now carries th04/main/bullet/render.cpp across BOSS_FG_TEXT
+/// and PLAYFLD_TEXT. Its second reason — that the TH04 arm could not be
+/// verified from a parcel that held only the TH05 half, and that an
+/// unverifiable arm is a guess compiled into nothing — was correct and has
+/// simply expired: both halves are on the integration branch and one oracle
+/// run now grades both.
+///
+/// The two fade steps are copies of the stage transition's pair in
+/// th04/main/hud/overlay.cpp, with three differences: their own counter
+/// instead of [overlay_fade], an interval of 4 frames per cel instead of 8,
+/// and a `done` return value, because nothing installs them into [overlay1] --
+/// the caller below spins on them instead. They still clear [overlay1] on the
+/// last frame, exactly as the stage pair does.
 
 #include "platform.h"
 #include "pc98.h"
@@ -24,12 +43,23 @@
 #include "th02/main/execl.hpp"
 #include "th02/main/playfld.hpp"
 #include "th04/end/end.h"
-#include "th04/main/end.hpp"
+#if (GAME == 4)
+	// end_game_bad(), for the Extra-stage prologue below. TH05 does not have
+	// that branch and must not name this header: it is the one include the two
+	// closures do not share.
+	#include "th04/main/end.hpp"
+#endif
 #include "th04/main/null.hpp"
-// Also the only include of th04/gaiji/gaiji.h, which has no include guard.
+// Also the only include of th04/gaiji/gaiji.h, which has no include guard;
+// naming it again above is the one collision this TU's include closure has.
 #include "th04/main/hud/overlay.hpp"
-#include "th04/hardware/input.h"
-#include "th04/resident.hpp"
+#if (GAME == 5)
+	#include "th05/hardware/input.h"
+	#include "th05/resident.hpp"
+#else
+	#include "th04/hardware/input.h"
+	#include "th04/resident.hpp"
+#endif
 #include "th04/snd/snd.h"
 
 // Gaiji string literal, still owned by the dump's data segment. Unlike the four
@@ -40,7 +70,7 @@ extern "C" const char gGAMEOVER[];
 
 // Two ASCII spaces, exactly the two TRAM cells one gaiji covers. Erases the
 // previous frame of the sliding G below. The dump holds two identical copies
-// because ZUN wrote the literal once per loop, the same way it holds four
+// because ZUN wrote the literal once per loop, the same way it holds several
 // copies of `"maine"`; the second keeps the `_0` suffix the dump's own
 // duplicates use. A C++ literal cannot stand in for either: `-d` is in the base
 // cflags and merges duplicate strings, so two occurrences here would collapse
@@ -48,9 +78,18 @@ extern "C" const char gGAMEOVER[];
 extern "C" const char GAMEOVER_G_BLANK[];
 extern "C" const char GAMEOVER_G_BLANK_0[];
 
-// The fourth of the dump's four `"maine"` copies -- th04/main/end.cpp owns the
-// other three and gives the reason a C++ string literal cannot be used instead.
-extern "C" const char aMaine_2[];
+// DIFFERENCE 1/2: the last of each dump's `"maine"` copies -- the fourth of
+// TH04's four, the third of TH05's three. th04/main/end.cpp owns the rest in
+// each game, and gives the reason a C++ string literal cannot be used instead.
+// The two spellings are the dump's own; they are not interchangeable and there
+// is no shared alias to hide the difference behind.
+#if (GAME == 5)
+	extern "C" const char aMaine_1[];
+	#define GAMEOVER_MAINE aMaine_1
+#else
+	extern "C" const char aMaine_2[];
+	#define GAMEOVER_MAINE aMaine_2
+#endif
 
 // This screen's own fade counter, still a private [_BSS] label in th04_main.asm
 // under a kb/codegen/0123 alias. Shaped like [overlay_fade] in
@@ -61,22 +100,24 @@ extern union {
 	unsigned char out_time;
 } gameover_fade; // = 0
 
-// Declared here rather than through th04/main/stage/stage.hpp, which this
-// translation unit cannot safely reach.
-extern unsigned char stage_id;
+#if (GAME == 4)
+	// Declared here rather than through th04/main/stage/stage.hpp, which this
+	// translation unit cannot safely reach.
+	extern unsigned char stage_id;
 
-// Defined by th04/main/continue.cpp, in the object that lands immediately after
-// this one in the same segment. No header declares it.
+	// Turbo C++ compiled ZUN's far calls to same-code-group functions as
+	// `nop; push cs; call near ptr`, which no plain C++ far call reproduces.
+	// (kb/codegen/0014, kb/codegen/0083)
+	#define nopcall_same_group(func) _asm { \
+		nop; \
+		push	cs; \
+		call	near ptr func; \
+	}
+#endif
+
+// Defined by each game's own th0?/main/continue.cpp, in the object that lands
+// immediately after this one in the same segment. No header declares it.
 unsigned char near continue_prompt(void);
-
-// Turbo C++ compiled ZUN's far calls to same-code-group functions as
-// `nop; push cs; call near ptr`, which no plain C++ far call reproduces.
-// (kb/codegen/0014, kb/codegen/0083)
-#define nopcall_same_group(func) _asm { \
-	nop; \
-	push	cs; \
-	call	near ptr func; \
-}
 
 // Frames per cel of the fade. Half of the stage transition's
 // OVERLAY_FADE_INTERVAL, which is the only number that differs between the two
@@ -110,7 +151,9 @@ static const tram_y_t GAMEOVER_TRAM_Y = 12;
 // NOT included: it also #defines STAGE_EXTRA, and th04/main/continue.cpp
 // declares a `static const uint8_t STAGE_EXTRA` that the macro would rewrite
 // into `static const uint8_t 6 = 6;` if the two ever shared a translation unit.
-static const uint8_t STAGE_FINAL = 5;
+#if (GAME == 4)
+	static const uint8_t STAGE_FINAL = 5;
+#endif
 
 // One cel of the fade, over the whole playfield. Identical to
 // th04/main/hud/overlay.cpp's overlay_fade_put() apart from the interval, and
@@ -196,9 +239,13 @@ unsigned char near gameover(void)
 	// the ordinary reason.
 	int i;
 
-	if(stage_id == STAGE_FINAL) {
-		nopcall_same_group(end_game_bad);
-	}
+	// DIFFERENCE 2/2: TH05 has nothing in place of this, and the whole 313 vs
+	// 301 byte difference between the two originals is this block.
+	#if (GAME == 4)
+		if(stage_id == STAGE_FINAL) {
+			nopcall_same_group(end_game_bad);
+		}
+	#endif
 
 	gameover_fade.out_time = GAMEOVER_FADE_TIME;
 	gameover_fade_animate(overlay_gameover_leave_update_and_render);
@@ -242,7 +289,7 @@ unsigned char near gameover(void)
 		// (kb/codegen/0014)
 		_asm {
 			push	ds;
-			push	offset aMaine_2;
+			push	offset GAMEOVER_MAINE;
 			nop;
 			push	cs;
 			call	near ptr GameExecl;
