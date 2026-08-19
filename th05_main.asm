@@ -14375,136 +14375,28 @@ B6_UPDATE_TEXT	ends
 
 BX_UPDATE_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; The Extra Stage midboss's per-frame step, called from C++ in
-; th04/main/midboss/mx_update.cpp. `pascal`, hence the uppercase alias
-; without an underscore (kb/codegen 0123).
-public MIDBOSSX_FLYSTEP_AND_PATTERN
-MIDBOSSX_FLYSTEP_AND_PATTERN label near
-sub_1E556	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		cmp	si, 0FFF8h
-		jl	loc_1E5F5
-		or	si, si
-		jge	short loc_1E570
-		mov	_midboss_sprite, 221
-		jmp	loc_1E5F5
-; ---------------------------------------------------------------------------
-
-loc_1E570:
-		cmp	si, 1Eh
-		jge	short loc_1E5C6
-		or	si, si
-		jnz	short loc_1E580
-		call	snd_se_play pascal, 8
-
-loc_1E580:
-		mov	ax, 2
-		imul	si
-		mov	si, ax
-		push	offset _midboss_pos.velocity
-		push	word ptr _midboss_angle
-		mov	ax, (4 shl 4)
-		sub	ax, si
-		push	ax
-		call	vector2_near
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		cmp	si, 10h
-		jge	short loc_1E5A7
-		mov	ax, 1
-		jmp	short loc_1E5A9
-; ---------------------------------------------------------------------------
-
-loc_1E5A7:
-		xor	ax, ax
-
-loc_1E5A9:
-		push	ax
-		cmp	si, 30h	; '0'
-		jle	short loc_1E5B4
-		mov	ax, 1
-		jmp	short loc_1E5B6
-; ---------------------------------------------------------------------------
-
-loc_1E5B4:
-		xor	ax, ax
-
-loc_1E5B6:
-		pop	dx
-		or	dx, ax
-		jz	short loc_1E5BF
-		mov	al, 222
-		jmp	short loc_1E5C1
-; ---------------------------------------------------------------------------
-
-loc_1E5BF:
-		mov	al, 223
-
-loc_1E5C1:
-		mov	_midboss_sprite, al
-		jmp	short loc_1E5F5
-; ---------------------------------------------------------------------------
-
-loc_1E5C6:
-		cmp	si, 28h	; '('
-		jge	short loc_1E5EA
-		cmp	si, 1Eh
-		jnz	short loc_1E5D7
-		call	snd_se_play pascal, 15
-
-loc_1E5D7:
-		mov	eax, _midboss_pos.cur
-		mov	_midboss_pos.prev, eax
-		mov	_midboss_sprite, 221
-		call	off_2285A
-		jmp	short loc_1E5F5
-; ---------------------------------------------------------------------------
-
-loc_1E5EA:
-		mov	_midboss_sprite, 220
-		call	off_2285A
-		jmp	short loc_1E5F7
-; ---------------------------------------------------------------------------
-
-loc_1E5F5:
-		mov	al, 0
-
-loc_1E5F7:
-		pop	si
-		pop	bp
-		retn	2
-sub_1E556	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E5FC	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_midboss_phase_frame, 112
-		jl	short loc_1E60A
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1E60A:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1E5FC	endp
+	; midbossx_flystep_and_pattern() and pattern_wait() now live in
+	; th04/main/midboss/mx_update.cpp, ahead of the three patterns already
+	; there -- the original order. They were this dump's ENTIRE contribution
+	; to BX_UPDATE_TEXT, so the contribution is now zero-length and the C++
+	; side of the segment starts at its original first byte
+	; (kb/codegen 0099 + 0114). No carve, no new segment, no Tupfile.lua
+	; line: th05/boss_x.cpp simply grew backwards into the hole four times.
+	;
+	; Both zero-byte aliases this block used to carry are gone with them.
+	; The declarations below are what the two `dw offset` references in
+	; _DATA resolve through: pattern_wait() seeds the phase-1 pattern
+	; pointer, and the other three fill the [2][2] table.
+	;
+	; `procdesc pascal near` for the step, undecorated and upper-case,
+	; because that is what its `public` was and that is what declares the
+	; calling convention (kb/codegen/0086). pattern_wait() is a plain C++
+	; `bool near`, like the two patterns lifted before it.
+	;
+	; kb/codegen/0121: neither body carried an `assume`.
+	MIDBOSSX_FLYSTEP_AND_PATTERN procdesc pascal near \
+		frame:word
+	@pattern_wait$qv procdesc near
 
 
 	; The pattern the Extra Stage midboss's phase 1 starts from, now
@@ -16771,7 +16663,7 @@ byte_22859	db 0
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
 public _midbossx_phase_1_pattern
 _midbossx_phase_1_pattern label word
-off_2285A	dw offset sub_1E5FC
+off_2285A	dw offset @pattern_wait$qv
 ; The Extra Stage midboss's [2][2] pattern table, indexed from C++ in
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
 public _MIDBOSSX_PATTERNS_PHASE_1

@@ -19,6 +19,7 @@
 #include "th04/snd/snd.h"
 #include "th04/main/pattern.hpp"
 #include "th04/math/randring.hpp"
+#include "th04/math/vector.hpp"
 #include "th04/main/homing.hpp"
 #include "th04/main/gather.hpp"
 #include "th04/main/bullet/clearzap.hpp"
@@ -51,10 +52,14 @@ static const int HP_TOTAL = 3000;
 // pattern_symmetric_turning_spread_stacks(), written by the very commit that
 // claimed the licence, describes all three remaining bodies in the vocabulary
 // the tree's own pattern names use -- so the examination had happened, and a
-// search that examines the body does not fail. sub_1E5FC and sub_1E66F appear
-// here only inside comments, never as identifiers, which is round 4's licensed
-// way to record a dump's own spelling; naming them belongs to whichever parcel
-// lifts them, and NAMING_REVIEW_VERDICTS_16 carries the ruling.
+// search that examines the body does not fail. All four are now named and
+// none of them by this file alone: round 16 named the first, the parcel that
+// lifted the BG_RANDOM_ANGLE_AND_SPEED one named it pattern_random_pellets()
+// below, and MATCH-TH05-MAIN-MIDBOSSX-FLYSTEP named the last of them
+// pattern_wait() as it lifted it -- it fires nothing at all, so there is
+// nothing to disambiguate against, and `wait` is the token
+// th05/main/boss/b1.cpp already uses for a timed stretch that fires nothing.
+// No placeholder from this table is left.
 // -----
 
 extern "C" {
@@ -87,6 +92,9 @@ extern "C" {
 // `_and_pattern` is the half none of the four has. th05/main/boss/b1.cpp's
 // phase_2_3_wait_fly_and_select_pattern -- a `#define`, not a function -- is
 // the same compound shape in the same role, one level up.
+// Defined below; the declaration stays in this block because it is what
+// gives the function the undecorated upper-case `pascal` symbol the
+// dump published for it.
 bool pascal near midbossx_flystep_and_pattern(int frame);
 
 // The pattern that phase 1 starts from. Its address is taken by the dump
@@ -123,8 +131,9 @@ bool near pattern_curved_speedup_rings(void);
 }
 
 // The pattern [midbossx_flystep_and_pattern] calls once the approach is over.
-// Initialised to sub_1E5FC in the dump's own data. Mirrors its table exactly as
-// shinki_phase_2_3_pattern and sara_phase_2_3_pattern mirror theirs.
+// Initialised to pattern_wait() in the dump's own data. Mirrors its table
+// exactly as shinki_phase_2_3_pattern and sara_phase_2_3_pattern mirror
+// theirs.
 extern pattern_oneshot_func_t midbossx_phase_1_pattern;
 
 // The pattern picked on every phase-1 cycle, indexed by [boss_statebyte[12]]
@@ -144,6 +153,90 @@ extern const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 // spelling has no members at all.
 extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // -----
+
+// The first function of BX_UPDATE_TEXT, and the one every frame of the
+// Extra Stage midboss fight goes through. [frame] is relative to the start
+// of the current phase, so it is negative while the midboss is still
+// counting down to its entrance.
+//
+// Everything before [frame] 40 returns false itself; from 40 on it returns
+// whatever the current pattern returned, which is how a pattern ends a
+// cycle. The four `return false` arms are written out and `-O` merges them
+// into the one epilogue the original has (kb/codegen/0097).
+bool pascal near midbossx_flystep_and_pattern(int frame)
+{
+	// ONE `return false` at the end, reached by every arm that does not
+	// return the pattern's own result. Four separate `return false`
+	// statements are semantically identical and lay out differently: `-O`
+	// merges them into the LAST of the four, which puts the block ahead of
+	// the `else` arm instead of after it, and the function comes out three
+	// bytes short with one instruction too many.
+	if(frame >= -8) {
+		if(frame < 0) {
+			midboss.sprite = 221;
+		} else if(frame < 30) {
+			if(frame == 0) {
+				snd_se_play(8);
+			}
+
+			// [frame] itself is doubled from here on, so every comparison
+			// below is against twice the frame it names. `*=` rather than
+			// `frame = (frame * 2)`: the compound form emits the two-step
+			// load-then-multiply the original has, the long form strength-reduces
+			// to a shift.
+			frame *= 2;
+
+			// Decelerating approach: 4.0 pixels per frame at the start, down
+			// to 0.125 on the last one.
+			vector2_near(
+				midboss.pos.velocity, midboss.angle, (TO_SP(4) - frame)
+			);
+			midboss.pos.update_seg3();
+
+			// A BITWISE `|`, not `||`. The original evaluates both halves
+			// into AX as 0 or 1, pushes the first, and ORs them -- 22 bytes
+			// where the short-circuiting form is 9. `||` branches even in a
+			// value context, so the two spellings are not interchangeable.
+			midboss.sprite = (((frame < 16) | (frame > 48)) ? 222 : 223);
+		} else if(frame < 40) {
+			if(frame == 30) {
+				snd_se_play(15);
+			}
+
+			// Ends the approach by collapsing the motion's history onto its
+			// current position, so the first pattern frame does not
+			// interpolate from where the midboss came in.
+			midboss.pos.prev = midboss.pos.cur;
+
+			midboss.sprite = 221;
+			midbossx_phase_1_pattern();
+		} else {
+			midboss.sprite = 220;
+			return midbossx_phase_1_pattern();
+		}
+	}
+	return false;
+}
+
+// The pattern [midbossx_phase_1_pattern] is SEEDED with, and the only one
+// of the four that is not in [MIDBOSSX_PATTERNS_PHASE_1]: it is what runs
+// during the first cycle, and all it does is end that cycle 16 frames
+// earlier than the other three end theirs. Its address is taken by the
+// dump's own initialiser, so this may not be `static`.
+//
+// `wait` is th05/main/boss/b1.cpp's own token for a timed stretch in which
+// nothing is fired (phase_2_3_wait_fly_and_select_pattern). Round 16 left
+// this one a placeholder because its body had not been read; it has now,
+// and there is nothing in it to disambiguate against.
+bool near pattern_wait(void)
+{
+	// Two separate returns, for the same reason the three patterns below
+	// give.
+	if(midboss.phase_frame >= 112) {
+		return true;
+	}
+	return false;
+}
 
 // The pattern phase 1 starts from, and the first of the four in address
 // order. Its address is taken by [midbossx_phase_1_pattern]'s initialiser
@@ -257,13 +350,13 @@ bool near pattern_random_pellets(void)
 // section 3, and NAMING_REVIEW_VERDICTS_9 section 7, which holds that a
 // placeholder may be kept only while the body has genuinely not been read).
 // The other three patterns are each distinguishable from this one in the same
-// terms the existing TH05 pattern names use -- [sub_1E5FC] fires nothing at
+// terms the existing TH05 pattern names use -- [pattern_wait] fires nothing at
 // all, [pattern_curved_speedup_rings] is a BG_RING of BSM_SPEEDUP crosses, and
 // [pattern_random_pellets] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. Round
 // 16 read that sentence as the record of a search that did NOT fail and named
-// the second of them; the parcel that lifted the third named it above, so
-// [sub_1E5FC] is now the only one left at its dump spelling, and it appears
-// here inside comments only, never as an identifier. The `pattern_`
+// the second of them; the parcels that lifted the other two named those as
+// they went, so all four now carry names and none of the table's entries is
+// a placeholder any more. The `pattern_`
 // prefix and the adjective-then-noun shape follow th05/main/boss/b1.cpp and
 // th05/main/boss/b6.cpp, whose pattern functions are reached from dump tables
 // through exactly this `dw offset @pattern_...$qv` route.
