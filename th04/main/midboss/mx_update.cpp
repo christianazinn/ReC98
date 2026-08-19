@@ -12,6 +12,10 @@
 // th04/main/gather.hpp brings in th04/main/bullet/bullet.hpp, and
 // th04/main/boss/boss.hpp brings in th04/main/phase.hpp; neither of those two
 // has an include guard, so neither may be listed here as well.
+// th02/hardware/pages.hpp has no include guard either, and is listed here on
+// the measured ground that it is in neither file's #include closure otherwise:
+// bx.cpp reaches 23 headers and this file 47, and pages.hpp is in neither set.
+#include "th02/hardware/pages.hpp"
 #include "th04/snd/snd.h"
 #include "th04/main/pattern.hpp"
 #include "th04/main/homing.hpp"
@@ -137,6 +141,56 @@ extern const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // -----
 
+// The second of the Extra Stage midboss's four phase-1 patterns, taken on the
+// odd-numbered cycles before the half-HP score bonus:
+// [MIDBOSSX_PATTERNS_PHASE_1] holds it at [0][1] and nowhere else. Its address
+// is taken by that table, which is still the dump's own data, so this may not
+// be `static`, and th05_main.asm's BX_UPDATE_TEXT block declares it as a
+// `procdesc near`.
+//
+// On every frame with [page_back] set -- so on every other frame, since the
+// shared stage loop in th04/main/stage/loop.cpp flips it once per frame -- it
+// fires one BG_RANDOM_ANGLE_AND_SPEED group of 12 pellets at a base speed of
+// 1.0, which th04/main/bullet/add.cpp then gives an independent
+// randring2_next16() angle and a random speed bonus of 0.0 to 2.0 each. The
+// cycle ends after 128 frames, like all four of them.
+//
+// [spread_angle_delta] is written along with [spread] by the single word store
+// the original emits, and is dead for this group: add.cpp reads the delta half
+// only on the BG_SPREAD families, never on the path this group takes. That is
+// why the spelling is set_spread(), whose reinterpret_cast is what emits one
+// word store rather than two byte stores.
+//
+// [inferred] name. Solved twin, field for field:
+// pattern_dense_spreads_and_random_balls_within_laser_walls() in
+// th05/main/boss/b1.cpp sets the same BG_RANDOM_ANGLE_AND_SPEED group, the
+// same speed.set(1.0f), the same [spread]-as-count and the same
+// bullets_add_regular(), and names that half `random_balls` after its
+// PAT_BULLET16_N_BALL_BLUE [patnum]. This [patnum] is 0, which BulletTemplate
+// documents as TH05's pellet, so the same construction yields
+// `random_pellets`. The rate gate is deliberately left out of the name: no
+// pattern_* identifier in either game encodes a firing interval, and
+// pattern_symmetric_turning_spread_stacks() below fires on a `% 16` gate that
+// its own name likewise omits. 22 characters, so nothing truncates.
+bool near pattern_random_pellets(void)
+{
+	if(page_back) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_RANDOM_ANGLE_AND_SPEED;
+		bullet_template.speed.set(1.0f);
+		bullet_template.set_spread(12, 10);
+		bullet_template.patnum = 0;
+		bullets_add_regular();
+	}
+
+	// Two separate returns rather than one returning the comparison itself,
+	// for the reason spelled out at the end of the function below.
+	if(midboss.phase_frame >= 128) {
+		return true;
+	}
+	return false;
+}
+
 // The last of the Extra Stage midboss's four phase-1 patterns, and the only
 // one taken once the half-HP score bonus has been given:
 // [MIDBOSSX_PATTERNS_PHASE_1] holds it in *both* columns of its second row, so
@@ -159,10 +213,11 @@ extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // The other three patterns are each distinguishable from this one in the same
 // terms the existing TH05 pattern names use -- [sub_1E5FC] fires nothing at
 // all, [pattern_curved_speedup_rings] is a BG_RING of BSM_SPEEDUP crosses, and
-// [sub_1E66F] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. Round 16 read that
-// sentence as the record of a search that did NOT fail and named the second of
-// them; the two that keep their dump spellings appear here only inside
-// comments, never as identifiers. The `pattern_`
+// [pattern_random_pellets] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. Round
+// 16 read that sentence as the record of a search that did NOT fail and named
+// the second of them; the parcel that lifted the third named it above, so
+// [sub_1E5FC] is now the only one left at its dump spelling, and it appears
+// here inside comments only, never as an identifier. The `pattern_`
 // prefix and the adjective-then-noun shape follow th05/main/boss/b1.cpp and
 // th05/main/boss/b6.cpp, whose pattern functions are reached from dump tables
 // through exactly this `dw offset @pattern_...$qv` route.
