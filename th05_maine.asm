@@ -293,6 +293,10 @@ maine_01__TEXT	segment	byte public 'CODE' use16
 	@space_update$qv procdesc near
 	@orb_particle_emit$qv procdesc near
 	@orb_trails_advance$qv procdesc near
+	@orb_gather_animate$qv procdesc near
+	@orb_phase_update$qv procdesc near
+	@rain_particle_spawn$qv procdesc near
+	@rain_phase_update$qv procdesc near
 
 	@SPACE_WINDOW_SET$QIIII procdesc pascal near \
 		center_x:word, center_y:word, w:word, h:word
@@ -371,399 +375,26 @@ orb	equ <_particles[ORB_INDEX * size orb_particle_t]>
 ;
 ; Nothing may be added above this line.
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_D8F5	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset _particles
-		xor	cx, cx
-		jmp	short loc_D91D
-; ---------------------------------------------------------------------------
-
-loc_D900:
-		inc	[si+orb_particle_t.OP_gather_frame]
-		mov	ax, [si+orb_particle_t.OP_gather_frame]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_D919
-		cmp	[si+orb_particle_t.OP_patnum_tiny], PAT_ORB_PARTICLE_last
-		jge	short loc_D919
-		inc	[si+orb_particle_t.OP_patnum_tiny]
-
-loc_D919:
-		inc	cx
-		add	si, size orb_particle_t
-
-loc_D91D:
-		cmp	cx, ORB_PARTICLE_COUNT
-		jl	short loc_D900
-		; si == particles[ORB_INDEX]
-		cmp	[si+orb_particle_t.OP_al_radius], ORB_RADIUS_FULL
-		jnb	short loc_D92E
-		mov	al, byte_1183A
-		add	[si+orb_particle_t.OP_al_radius], al
-
-loc_D92E:
-		pop	si
-		pop	bp
-		retn
-sub_D8F5	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_D931	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		inc	word_1183E
-		cmp	word_1183E, 80
-		jl	loc_DA31
-		cmp	word_1183E, 176
-		jge	short loc_D951
-		inc	_space_camera_velocity.y
-		jmp	short loc_D9B5
-; ---------------------------------------------------------------------------
-
-loc_D951:
-		cmp	word_1183E, 344
-		jge	short loc_D964
-		mov	al, byte_1183A
-		mov	ah, 0
-		add	_space_camera_velocity.y, ax
-		jmp	short loc_D9B5
-; ---------------------------------------------------------------------------
-
-loc_D964:
-		cmp	byte_11840, 0
-		jnz	short loc_D991
-		mov	ax, word_151E2
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_D97D
-		mov	ax, 1
-		jmp	short loc_D97F
-; ---------------------------------------------------------------------------
-
-loc_D97D:
-		xor	ax, ax
-
-loc_D97F:
-		add	_space_camera_velocity.y, ax
-		cmp	_space_camera_velocity.y, ((11 shl 4) + 6)
-		jle	short loc_D9B5
-		inc	byte_11840
-		jmp	short loc_D9B5
-; ---------------------------------------------------------------------------
-
-loc_D991:
-		mov	ax, word_151E2
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_D9A3
-		mov	ax, 1
-		jmp	short loc_D9A5
-; ---------------------------------------------------------------------------
-
-loc_D9A3:
-		xor	ax, ax
-
-loc_D9A5:
-		sub	_space_camera_velocity.y, ax
-		cmp	_space_camera_velocity.y, ((11 shl 4) + 2)
-		jge	short loc_D9B5
-		dec	byte_11840
-
-loc_D9B5:
-		cmp	word_1183E, 234
-		jl	short loc_DA31
-		cmp	word_1183E, 512
-		jge	short loc_DA04
-		mov	ax, word_1183E
-		add	ax, -234
-		mov	si, ax
-		cmp	si, 88
-		jle	short loc_D9D7
-		add	ax, -88
-		jmp	short loc_D9D9
-; ---------------------------------------------------------------------------
-
-loc_D9D7:
-		xor	ax, ax
-
-loc_D9D9:
-		mov	[bp+var_2], ax
-		mov	ax, (RES_X / 2)
-		sub	ax, [bp+var_2]
-		push	ax	; center_x
-		push	(RES_Y / 2)	; center_y
-		mov	ax, si
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, 384
-		sub	dx, ax
-		push	dx	; w
-		mov	ax, si
-		mov	bx, 8
-		cwd
-		idiv	bx
-		add	ax, 320
-		push	ax	; h
-		call	@space_window_set$qiiii
-		jmp	short loc_DA31
-; ---------------------------------------------------------------------------
-
-loc_DA04:
-		cmp	word_1183E, 992
-		jl	short loc_DA18
-		cmp	word_1183E, 1024
-		jg	short loc_DA18
-		dec	orb.OP_velocity.x
-
-loc_DA18:
-		cmp	word_1183E, 1008
-		jl	short loc_DA2C
-		cmp	word_1183E, 1040
-		jg	short loc_DA2C
-		dec	_space_camera_velocity.x
-
-loc_DA2C:
-		mov	ax, 1
-		jmp	short loc_DA33
-; ---------------------------------------------------------------------------
-
-loc_DA31:
-		xor	ax, ax
-
-loc_DA33:
-		pop	si
-		leave
-		retn
-sub_D931	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DA36	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	ax, word_11842
-		imul	ax, size orb_particle_t
-		add	ax, offset _particles
-		mov	si, ax
-		inc	word_11842
-		mov	ax, word_11842
-		cmp	ax, 40h
-		jge	loc_DAD4
-		call	IRand
-		mov	bx, (1 shl 4) + 8
-		cwd
-		idiv	bx
-		add	dx, 8
-		mov	[si+orb_particle_t.OP_speed], dx
-		call	IRand
-		mov	bx, 40h
-		cwd
-		idiv	bx
-		add	dl, 20h
-		mov	[si+orb_particle_t.OP_angle], dl
-		call	IRand
-		mov	bx, ORB_PARTICLE_CELS
-		cwd
-		idiv	bx
-		mov	[si+orb_particle_t.OP_patnum_tiny], dx
-		call	IRand
-		cwd
-		idiv	_space_window_w
-		shl	dx, 4
-		mov	ax, _space_window_w
-		shl	ax, 3
-		sub	dx, ax
-		movsx	eax, dx
-		mov	[si+orb_particle_t.OP_center_x], eax
-		mov	ax, _space_window_h
-		neg	ax
-		shl	ax, 3
-		add	ax, (-4 shl 4)
-		cwde
-		mov	[si+orb_particle_t.OP_center_y], eax
-		cmp	[si+orb_particle_t.OP_angle], 40h
-		jnb	short loc_DABA
-		mov	al, X_RIGHT
-		jmp	short loc_DABC
-; ---------------------------------------------------------------------------
-
-loc_DABA:
-		mov	al, X_LEFT
-
-loc_DABC:
-		mov	[si+orb_particle_t.OP_al_rain_sway_x_direction], al
-		lea	ax, [si+orb_particle_t.OP_velocity]
-		push	ax
-		pushd	0
-		push	[si+orb_particle_t.OP_speed]
-		mov	al, [si+orb_particle_t.OP_angle]
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-
-loc_DAD4:
-		pop	si
-		pop	bp
-		retn
-sub_DA36	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DAD7	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset _particles
-		cmp	_space_camera_velocity.x, 0
-		jge	short loc_DAEF
-		mov	al, byte_1183A
-		mov	ah, 0
-		add	_space_camera_velocity.x, ax
-
-loc_DAEF:
-		inc	word_11844
-		cmp	word_11844, 32
-		jl	loc_DBE0
-		cmp	word_11844, 128
-		jge	short loc_DB0B
-		dec	_space_camera_velocity.y
-		jmp	loc_DBC3
-; ---------------------------------------------------------------------------
-
-loc_DB0B:
-		cmp	word_11844, 308
-		jge	short loc_DB1F
-		mov	al, byte_1183A
-		mov	ah, 0
-		sub	_space_camera_velocity.y, ax
-		jmp	loc_DBC3
-; ---------------------------------------------------------------------------
-
-loc_DB1F:
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		cmp	ax, (RES_X - 10)
-		jge	short loc_DB45
-		mov	ax, _space_window_center.x
-		add	ax, 4
-		call	@space_window_set$qiiii pascal, ax, (RES_Y / 2), _space_window_w, _space_window_h
-
-loc_DB45:
-		mov	word_151DE, 0
-		mov	ax, word_11844
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DB9F
-		call	sub_DA36
-		xor	di, di
-		jmp	short loc_DB9A
-; ---------------------------------------------------------------------------
-
-loc_DB5F:
-		cmp	[si+orb_particle_t.OP_al_rain_sway_x_direction], X_RIGHT
-		jnz	short loc_DB74
-		inc	[si+orb_particle_t.OP_angle]
-		cmp	[si+orb_particle_t.OP_angle], 60h
-		jb	short loc_DB81
-		mov	[si+orb_particle_t.OP_al_rain_sway_x_direction], X_LEFT
-		jmp	short loc_DB81
-; ---------------------------------------------------------------------------
-
-loc_DB74:
-		dec	[si+orb_particle_t.OP_angle]
-		cmp	[si+orb_particle_t.OP_angle], 20h
-		ja	short loc_DB81
-		mov	[si+orb_particle_t.OP_al_rain_sway_x_direction], X_RIGHT
-
-loc_DB81:
-		lea	ax, [si+orb_particle_t.OP_velocity]
-		push	ax
-		pushd	0
-		push	[si+orb_particle_t.OP_speed]
-		mov	al, [si+orb_particle_t.OP_angle]
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-		inc	di
-		add	si, size orb_particle_t
-
-loc_DB9A:
-		cmp	di, ORB_PARTICLE_COUNT
-		jl	short loc_DB5F
-
-loc_DB9F:
-		cmp	word_11844, 30000
-		jl	short loc_DBAD
-		mov	word_11844, 29992
-
-loc_DBAD:
-		mov	ax, _space_window_w
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, _space_window_center.x
-		cmp	ax, (RES_X - 10)
-		jl	short loc_DBC3
-		mov	ax, 1
-		jmp	short loc_DBE2
-; ---------------------------------------------------------------------------
-
-loc_DBC3:
-		mov	ax, word_11844
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DBE0
-		cmp	Palettes[0 * size rgb_t].b, 96
-		jnb	short loc_DBE0
-		inc	Palettes[0 * size rgb_t].b
-		call	far ptr	palette_show
-
-loc_DBE0:
-		xor	ax, ax
-
-loc_DBE2:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_DAD7	endp
-
-
+; The gather animation and the two phase scripts that drive the rest of the
+; scene now live in th05/space.cpp too, in the same order, as
+; orb_gather_animate(), orb_phase_update(), rain_particle_spawn() and
+; rain_phase_update(). They extend the same contiguous prefix as the seven
+; bodies above, into the object Tupfile.lua lists directly before this dump.
+;
+; rain_particle_spawn() was NOT forced in by the naming gate this time --
+; rain_phase_update() is its only caller and follows it in dump order, so the
+; contiguous head lift covers it either way. The whole remaining call graph is
+; a DAG whose every edge points backwards in address order, which is why no
+; further clustering is forced.
+;
+; orb_gather_animate(), rain_particle_spawn() and rain_phase_update() have
+; neither parameters nor stack locals, so all three needed kb/codegen/0149's
+; per-function -k. wrapper; orb_phase_update() has one stack local and did not.
+;
+; kb/codegen/0121: none of the four deleted bodies contained an `assume`.
+;
+; Nothing may be added above this line.
+;
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -1765,7 +1396,7 @@ loc_E573:
 ; ---------------------------------------------------------------------------
 
 loc_E585:
-		call	sub_D8F5
+		call	@orb_gather_animate$qv
 		call	sub_E349
 		inc	si
 
@@ -1775,7 +1406,7 @@ loc_E58C:
 		call	@orb_gather_end$qv
 
 loc_E594:
-		call	sub_D931
+		call	@orb_phase_update$qv
 		mov	si, ax
 		call	sub_E349
 		or	si, si
@@ -1786,7 +1417,7 @@ loc_E594:
 		xor	di, di
 
 loc_E5AB:
-		call	sub_D931
+		call	@orb_phase_update$qv
 		cmp	si, 128
 		jle	short loc_E5C9
 		push	(528 shl 16) or 240
@@ -1808,7 +1439,7 @@ loc_E5C9:
 		xor	di, di
 
 loc_E5E1:
-		call	sub_D931
+		call	@orb_phase_update$qv
 		push	(464 shl 16) or 200
 		push	(2 shl 16) or 92
 		call	sub_DCFC
@@ -1820,7 +1451,7 @@ loc_E5E1:
 		xor	di, di
 
 loc_E600:
-		call	sub_D931
+		call	@orb_phase_update$qv
 		cmp	si, 256
 		jle	short loc_E61E
 		push	(464 shl 16) or 224
@@ -1842,7 +1473,7 @@ loc_E61E:
 		call	@orb_burst$qv
 
 loc_E63A:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		mov	si, ax
 		call	sub_E349
 		or	si, si
@@ -1850,7 +1481,7 @@ loc_E63A:
 		xor	di, di
 
 loc_E648:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(5 shl 16) or 172
 		call	sub_DCFC
@@ -1860,7 +1491,7 @@ loc_E648:
 		jz	short loc_E648
 
 loc_E663:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(6 shl 16) or 188
 		call	sub_DCFC
@@ -1870,7 +1501,7 @@ loc_E663:
 		jz	short loc_E663
 
 loc_E67E:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(7 shl 16) or 204
 		call	sub_DCFC
@@ -1880,7 +1511,7 @@ loc_E67E:
 		jz	short loc_E67E
 
 loc_E699:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(8 shl 16) or 220
 		call	sub_DCFC
@@ -1890,7 +1521,7 @@ loc_E699:
 		jz	short loc_E699
 
 loc_E6B4:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(9 shl 16) or 236
 		call	sub_DCFC
@@ -1931,7 +1562,7 @@ loc_E702:
 		call	verdict_bitmap_snap pascal, 0
 
 loc_E70D:
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		push	(176 shl 16) or 368
 		push	(10 shl 16) or 3996
 		call	sub_DCFC
@@ -2016,7 +1647,7 @@ loc_E7C1:
 loc_E7CC:
 		mov	PaletteTone, si
 		call	far ptr	palette_show
-		call	sub_DAD7
+		call	@rain_phase_update$qv
 		call	sub_E349
 		dec	si
 		or	si, si
@@ -2402,10 +2033,24 @@ byte_1183A	db 0
 public _particle_i
 _particle_i	label word
 particle_i_1183C	dw 0
+; kb/codegen/0123: zero-byte aliases for the orb phase's two pieces of
+; state. orb_phase_update() is the sole user of both, so both are named
+; from their complete usage set.
+public _orb_phase_frame
+_orb_phase_frame	label word
 word_1183E	dw 0
+public _orb_phase_camera_slowing
+_orb_phase_camera_slowing	label byte
 byte_11840	db 0
 		db 0
+; kb/codegen/0123: zero-byte aliases for the rain phase's two pieces of
+; state. rain_particle_spawn() is the sole user of the first and
+; rain_phase_update() the sole user of the second.
+public _rain_particle_i
+_rain_particle_i	label word
 word_11842	dw 0
+public _rain_phase_frame
+_rain_phase_frame	label word
 word_11844	dw 0
 byte_11846	db 0
 		db 0
@@ -2515,14 +2160,15 @@ _space_camera_velocity	Point <?>
 ; particle's speed; 0 additionally selects the wrap-around field mode.
 ; Named from its complete usage set: the four writers and the one reader
 ; that space_reset(), orb_gather_end(), orb_burst() and space_update()
-; now are, plus sub_DAD7 below, which zeroes it again for the rain phase.
+; now are, plus rain_phase_update(), which zeroes it again every frame of
+; the rain phase.
 public _particle_decel
 _particle_decel	label word
 word_151DE	dw ?
 measure_151E0	dw ?
 ; kb/codegen/0123: zero-byte alias for the scene's frame counter.
 ; staffroll_animate() zeroes it, sub_E349 increments it, and
-; space_update() and sub_D931 read it.
+; space_update() and orb_phase_update() read it.
 public _staffroll_frame
 _staffroll_frame	label word
 word_151E2	dw ?
