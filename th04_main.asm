@@ -704,7 +704,7 @@ loc_B11E:
 		mov	word_2CFF4, 9
 		call	super_entry_bfnt pascal, ds, offset aSt06_bft ; "st06.bft"
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss6_cd2
-		call	stagex_setup
+		call	@stagex_setup$qv
 		push	ds
 		push	offset aSt06_mpn ; "st06.mpn"
 
@@ -15169,7 +15169,7 @@ mugetsu_186B9	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @MUGETSU_UPDATE$QV
 @mugetsu_update$qv	proc far
 
 var_4		= word ptr -4
@@ -23010,45 +23010,13 @@ stage6_setup	proc far
 stage6_setup	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stagex_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midbossx_update$qv
-		mov	_midboss_render_func, offset @midbossx_render$qv
-		mov	_midboss_frames_until, 5400
-		mov	_midboss_pos.cur.x, (-16 shl 4)
-		mov	_midboss_pos.cur.y, (256 shl 4)
-		mov	_midboss_pos.prev.x, (-16 shl 4)
-		mov	_midboss_pos.prev.y, (256 shl 4)
-		mov	_midboss_pos.velocity.x, (4 shl 4)
-		mov	_midboss_pos.velocity.y, (-4 shl 4)
-		mov	_midboss_hp, 4096
-		mov	_midboss_sprite, 0
-		mov	_midboss_angle, 96
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (80 shl 4)
-		mov	_boss_pos.prev.y, (80 shl 4)
-		mov	_boss_bg_render_func, offset @mugetsu_gengetsu_bg_render$qv
-		setfarfp	_boss_update_func, @mugetsu_update$qv
-		mov	_boss_fg_render_func, offset @mugetsu_fg_render$qv
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (48 shl 4)
-		mov	_boss_backdrop_colorfill, offset @mugetsu_gengetsu_backdrop_colorfill$qv
-		mov	_boss_statebyte[0].BSB_gengetsu_started, 0
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset _st06bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset _st06_bb
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stagex_setup	endp
+	; stagex_setup() now lives in th04/main/stage/setup.cpp, which
+	; th04/main_035.cpp compiles into THIS segment. `far`, unlike TH05's
+	; near twin of the same name (kb/codegen/0115). Written in the mangled
+	; UPPER-case spelling because TASM emits the EXTRN under exactly the
+	; spelling given and applies no language case rule of its own; the call
+	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGEX_SETUP$QV procdesc far
 main_035_TEXT	ends
 
 BOSS_TEXT	segment	byte public 'CODE' use16

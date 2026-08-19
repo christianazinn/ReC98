@@ -945,6 +945,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
 	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
+	"th04/main_035.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
 	"th04/checkerb.cpp",
