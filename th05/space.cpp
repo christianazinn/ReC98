@@ -586,10 +586,6 @@ bool16 near rain_phase_update(void)
 // One curtain cel per [CREDIT_FADE_INTERVAL] frames.
 static const int CREDIT_FADE_INTERVAL = 4;
 
-// A [measure] that snd_bgm_measure() can never report, given to the one credit
-// line that is supposed to stay on screen until the staff roll itself ends.
-static const int CREDIT_MEASURE_HOLD = 3996;
-
 // Anything past the far end of a [w]-wide image's curtain travel, i.e. past
 // ((w / GAIJI_W) + (STAFF_FADE_CELS - 1)). Passed as the [cel] of the final,
 // unconditional erase, which therefore always takes credit_fade_put()'s

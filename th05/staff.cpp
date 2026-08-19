@@ -14,15 +14,6 @@
 // animation code in MAINE_01__TEXT, which this object does not contribute to.
 #include "th05/staff.hpp"
 
-static const pixel_t VERDICT_BITMAP_W = 320;
-static const pixel_t VERDICT_SCREEN_H = 352;
-static const vram_byte_amount_t VERDICT_BITMAP_VRAM_W = (
-	VERDICT_BITMAP_W / BYTE_DOTS
-);
-static const size_t VERDICT_SCREEN_SIZE = (
-	VERDICT_SCREEN_H * VERDICT_BITMAP_VRAM_W
-);
-
 // The definitions behind th05/staff.hpp's declarations. Their order is what
 // puts them at their original _BSS addresses; nothing may be added between
 // them.
@@ -60,16 +51,3 @@ void pascal near space_window_set(
 		(space_window_center.y + (space_window_h / 2)) + 7
 	);
 }
-
-// Copies a single verdict screen from
-//	(0, 0) - (VERDICT_BITMAP_W, VERDICT_SCREEN_H)
-// on the E plane in VRAM to ([verdict_bitmap] + [bitmap_offset]).
-void pascal near verdict_bitmap_snap(size_t bitmap_offset)
-;
-
-// Blits a single verdict screen starting at
-// ([verdict_bitmap] + [bitmap_offset]) to
-//	(0, 0) - (VERDICT_BITMAP_W, VERDICT_SCREEN_H)
-// in VRAM.
-void pascal near verdict_bitmap_put(size_t bitmap_offset)
-;

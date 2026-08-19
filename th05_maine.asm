@@ -74,14 +74,10 @@ maine_01_TEXT segment byte public 'CODE' use16
 maine_01_TEXT ends
 
 SCORE_TEXT segment byte public 'CODE' use16
-	; The only two symbols this dump still reaches across the segment
-	; boundary: staffroll_animate(), in maine_01__TEXT, calls both, and the
-	; calls stay near because group_01 spans both segments. Every other
-	; procdesc that used to stand here went with verdict_stats_put(), the
-	; last proc of this block and the last caller of any of them.
-	@verdict_stage_scores_put$qv procdesc near
-	@verdict_stats_put$qv procdesc near
-	@verdict_comment_put$qv procdesc near
+	; No symbol of this dump reaches across the segment boundary any more.
+	; The three procdescs that used to stand here went with
+	; staffroll_animate(), the last caller of any of them.
+
 
 ; The C++ contribution to SCORE_TEXT that precedes this block now ends
 ; with alphabet_putca() (th04/hiscore/regist_view.cpp); that file's other
@@ -284,41 +280,10 @@ glyphball_t ends
 SCORE_TEXT	ends
 
 maine_01__TEXT	segment	byte public 'CODE' use16
-	; Lifted out of the head of this block into th05/space.cpp; still
-	; called from staffroll_animate() below.
-	@space_reset$qv procdesc near
-	@orb_gather_start$qv procdesc near
-	@orb_gather_end$qv procdesc near
-	@orb_burst$qv procdesc near
-	@space_update$qv procdesc near
-	@orb_particle_emit$qv procdesc near
-	@orb_trails_advance$qv procdesc near
-	@orb_gather_animate$qv procdesc near
-	@orb_phase_update$qv procdesc near
-	@rain_particle_spawn$qv procdesc near
-	@rain_phase_update$qv procdesc near
-	@staffroll_frame_and_flip$qv procdesc near
-
-	@SPACE_WINDOW_SET$QIIII procdesc pascal near \
-		center_x:word, center_y:word, w:word, h:word
-
-	@CREDIT_ANIMATE$QIIII procdesc pascal near \
-		x_center:word, y_center:word, slot:word, measure:word
-	@CREDIT_2_ANIMATE$QIIII procdesc pascal near \
-		x_center_2:word, y_center_2:word, slot_2:word, measure_2:word
-
-ORB_PARTICLE_CELS = 6
-PAT_ORB_PARTICLE = 0
-PAT_ORB_PARTICLE_last = (PAT_ORB_PARTICLE + ORB_PARTICLE_CELS - 1)
-PAT_STAR_BIG = (PAT_ORB_PARTICLE + ORB_PARTICLE_CELS - 1) + 1
-PAT_STAR_SMALL = PAT_STAR_BIG + 1
-
-ORB_RADIUS_FULL = 16
-ORB_W = 32
-ORB_H = 32
-
-X_RIGHT = 0
-X_LEFT = 1
+	; No procdesc stands here any more, and none may be added: this dump
+	; calls nothing in this segment because it no longer contributes any
+	; code to it. Everything below is still needed to type the _BSS
+	; externs at the end of this file.
 
 orb_particle_t struc
 	OP_center_x	dd ?
@@ -336,8 +301,6 @@ orb_particle_t ends
 ORB_PARTICLE_COUNT = 64
 ORB_TRAIL_COUNT = 8
 STAR_COUNT = 48
-ORB_INDEX = ORB_PARTICLE_COUNT
-orb	equ <_particles[ORB_INDEX * size orb_particle_t]>
 
 ; The scene reset -- scatter every particle and star across a fresh space
 ; window, clear the orb, its trails and the camera -- now lives in
@@ -440,347 +403,33 @@ orb	equ <_particles[ORB_INDEX * size orb_particle_t]>
 
 include th05/end/verdict_bitmap.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @staffroll_animate$qv
-@staffroll_animate$qv proc near
-
-var_4		= word ptr -4
-@@verdict_bitmap_offset		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	x_116E2, 32
-		mov	col_116E4, 13
-		mov	word_116E6, 0Dh
-		mov	y_116E8, 16
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		graph_accesspage 0
-		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
-		GRCG_OFF_CLOBBERING dx
-		call	@verdict_stage_scores_put$qv
-		call	verdict_bitmap_snap pascal, (1 * VERDICT_SCREEN_SIZE)
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
-		graph_accesspage 1
-		call	grcg_byteboxfill_x pascal, large 0, (((RES_X - 1) / 8) shl 16) or (RES_Y - 1)
-		GRCG_OFF_CLOBBERING dx
-		call	snd_load pascal, ds, offset aStaff, SND_LOAD_SONG
-		kajacall	KAJA_SONG_PLAY
-		call	cdg_load_all_noalpha pascal,  0, ds, offset aStf00_cdg
-		call	cdg_load_all_noalpha pascal,  1, ds, offset aStf01_cdg
-		call	cdg_load_all_noalpha pascal,  2, ds, offset aStf02_cdg
-		call	cdg_load_all_noalpha pascal,  3, ds, offset aStf03_cdg
-		call	cdg_load_all_noalpha pascal,  4, ds, offset aStf04_cdg
-		call	cdg_load_all_noalpha pascal,  5, ds, offset aStf05_cdg
-		call	cdg_load_all_noalpha pascal,  6, ds, offset aStf06_cdg
-		call	cdg_load_all_noalpha pascal,  7, ds, offset aStf07_cdg
-		call	cdg_load_all_noalpha pascal,  8, ds, offset aStf08_cdg
-		call	cdg_load_all_noalpha pascal,  9, ds, offset aStf09_cdg
-		call	cdg_load_all_noalpha pascal, 10, ds, offset aStf10_cdg
-		call	super_entry_bfnt pascal, ds, offset aStf01_bft ; "stf01.bft"
-		call	super_entry_bfnt pascal, ds, offset aStf00_bft ; "stf00.bft"
-		xor	si, si
-		jmp	short loc_E550
-; ---------------------------------------------------------------------------
-
-loc_E549:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_E550:
-		cmp	si, 8
-		jl	short loc_E549
-		mov	Palettes[0 * size rgb_t].b, 48
-		call	@space_reset$qv
-		xor	si, si
-		mov	word_151E2, 0
-
-loc_E565:
-		cmp	si, 100
-		jg	short loc_E573
-		mov	PaletteTone, si
-		call	far ptr	palette_show
-
-loc_E573:
-		call	@staffroll_frame_and_flip$qv
-		inc	si
-		cmp	measure_151E0, 30
-		jl	short loc_E565
-		call	@orb_gather_start$qv
-		xor	si, si
-		jmp	short loc_E58C
-; ---------------------------------------------------------------------------
-
-loc_E585:
-		call	@orb_gather_animate$qv
-		call	@staffroll_frame_and_flip$qv
-		inc	si
-
-loc_E58C:
-		cmp	si, 32
-		jl	short loc_E585
-		call	@orb_gather_end$qv
-
-loc_E594:
-		call	@orb_phase_update$qv
-		mov	si, ax
-		call	@staffroll_frame_and_flip$qv
-		or	si, si
-		jz	short loc_E594
-		cmp	measure_151E0, 48
-		jl	short loc_E594
-		xor	si, si
-		xor	di, di
-
-loc_E5AB:
-		call	@orb_phase_update$qv
-		cmp	si, 128
-		jle	short loc_E5C9
-		push	(528 shl 16) or 240
-		push	(1 shl 16) or 76
-		call	@CREDIT_2_ANIMATE$QIIII
-		or	ax, ax
-		jz	short loc_E5C9
-		xor	si, si
-
-loc_E5C9:
-		push	(464 shl 16) or 192
-		pushd	(0 shl 16) or 76
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		inc	si
-		or	di, di
-		jz	short loc_E5AB
-		xor	di, di
-
-loc_E5E1:
-		call	@orb_phase_update$qv
-		push	(464 shl 16) or 200
-		push	(2 shl 16) or 92
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E5E1
-		xor	si, si
-		xor	di, di
-
-loc_E600:
-		call	@orb_phase_update$qv
-		cmp	si, 256
-		jle	short loc_E61E
-		push	(464 shl 16) or 224
-		push	(4 shl 16) or 120
-		call	@CREDIT_2_ANIMATE$QIIII
-		or	ax, ax
-		jz	short loc_E61E
-		xor	si, si
-
-loc_E61E:
-		push	(464 shl 16) or 176
-		push	(3 shl 16) or 120
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		inc	si
-		or	di, di
-		jz	short loc_E600
-		call	@orb_burst$qv
-
-loc_E63A:
-		call	@rain_phase_update$qv
-		mov	si, ax
-		call	@staffroll_frame_and_flip$qv
-		or	si, si
-		jz	short loc_E63A
-		xor	di, di
-
-loc_E648:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 200
-		push	(5 shl 16) or 172
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E648
-
-loc_E663:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 200
-		push	(6 shl 16) or 188
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E663
-
-loc_E67E:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 200
-		push	(7 shl 16) or 204
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E67E
-
-loc_E699:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 200
-		push	(8 shl 16) or 220
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E699
-
-loc_E6B4:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 200
-		push	(9 shl 16) or 236
-		call	@CREDIT_ANIMATE$QIIII
-		mov	di, ax
-		call	@staffroll_frame_and_flip$qv
-		or	di, di
-		jz	short loc_E6B4
-		xor	si, si
-		mov	[bp+@@verdict_bitmap_offset], 0
-		mov	[bp+var_4], 0
-
-loc_E6DB:
-		call	@input_reset_sense_held$qv
-		cmp	si, 256
-		jz	short loc_E6EC
-		cmp	si, 257
-		jnz	short loc_E6F1
-
-loc_E6EC:
-		call	@verdict_stats_put$qv
-		jmp	short loc_E70D
-; ---------------------------------------------------------------------------
-
-loc_E6F1:
-		cmp	si, 320
-		jz	short loc_E6FD
-		cmp	si, 321
-		jnz	short loc_E702
-
-loc_E6FD:
-		call	@verdict_comment_put$qv
-		jmp	short loc_E70D
-; ---------------------------------------------------------------------------
-
-loc_E702:
-		cmp	si, 350
-		jnz	short loc_E70D
-		call	verdict_bitmap_snap pascal, 0
-
-loc_E70D:
-		call	@rain_phase_update$qv
-		push	(176 shl 16) or 368
-		push	(10 shl 16) or 3996
-		call	@CREDIT_ANIMATE$QIIII
-		inc	si
-		cmp	si, 400
-		; Hack (jl	loc_E7BB)
-		; No idea why TASM can't assemble this properly after script_op() was
-		; decompiled. Seems to be related to the size of this segment; it works
-		; when removing some instructions further above.
-		; It still doesn't after decompiling cutscene_animate() though?
-		db	0Fh, 8Ch, 93h, 00h
-		test	_key_det.hi, high INPUT_CANCEL
-		jnz	short loc_E757
-		test	_key_det.lo, low INPUT_BOMB
-		jnz	short loc_E757
-		cmp	[bp+var_4], 0
-		jnz	short loc_E781
-		test	_key_det.lo, low INPUT_SHOT
-		jnz	short loc_E74A
-		test	_key_det.hi, high INPUT_OK
-		jz	short loc_E75C
-
-loc_E74A:
-		cmp	[bp+@@verdict_bitmap_offset], 0
-		jnz	short loc_E757
-		mov	[bp+var_4], 1
-		jmp	short loc_E75C
-; ---------------------------------------------------------------------------
-
-loc_E757:
-		call	@staffroll_frame_and_flip$qv
-		jmp	short loc_E7C1
-; ---------------------------------------------------------------------------
-
-loc_E75C:
-		test	_key_det.lo, low INPUT_DOWN
-		jz	short loc_E76E
-		cmp	[bp+@@verdict_bitmap_offset], 0
-		jnz	short loc_E76E
-		mov	[bp+var_4], 1
-
-loc_E76E:
-		test	_key_det.lo, low INPUT_UP
-		jz	short loc_E781
-		cmp	[bp+@@verdict_bitmap_offset], VERDICT_SCREEN_SIZE
-		jnz	short loc_E781
-		mov	[bp+var_4], 2
-
-loc_E781:
-		cmp	[bp+var_4], 1
-		jnz	short loc_E79A
-		add	[bp+@@verdict_bitmap_offset], (8 * VERDICT_BITMAP_VRAM_W)
-		cmp	[bp+@@verdict_bitmap_offset], VERDICT_SCREEN_SIZE
-		jbe	short loc_E7B5
-		mov	[bp+@@verdict_bitmap_offset], VERDICT_SCREEN_SIZE
-		jmp	short loc_E7B0
-; ---------------------------------------------------------------------------
-
-loc_E79A:
-		cmp	[bp+var_4], 2
-		jnz	short loc_E7BB
-		sub	[bp+@@verdict_bitmap_offset], (8 * VERDICT_BITMAP_VRAM_W)
-		cmp	[bp+@@verdict_bitmap_offset], 0
-		jge	short loc_E7B5
-		mov	[bp+@@verdict_bitmap_offset], 0
-
-loc_E7B0:
-		mov	[bp+var_4], 0
-
-loc_E7B5:
-		call	verdict_bitmap_put pascal, [bp+@@verdict_bitmap_offset]
-
-loc_E7BB:
-		call	@staffroll_frame_and_flip$qv
-		jmp	loc_E6DB
-; ---------------------------------------------------------------------------
-
-loc_E7C1:
-		kajacall	KAJA_SONG_FADE, 4
-		mov	si, 100
-
-loc_E7CC:
-		mov	PaletteTone, si
-		call	far ptr	palette_show
-		call	@rain_phase_update$qv
-		call	@staffroll_frame_and_flip$qv
-		dec	si
-		or	si, si
-		jg	short loc_E7CC
-		call	cdg_free_all
-		call	super_free
-		call	grc_setclip pascal, large 0, ((RES_X - 1) shl 16) or (RES_Y - 1)
-		pop	di
-		pop	si
-		leave
-		retn
-@staffroll_animate$qv endp
+; The staff roll itself -- the whole scene's script, from the fade-in through
+; the credits to the verdict screen the player scrolls through at the end --
+; now lives in th05/staffrol.cpp as staffroll_animate(). That object
+; contributes to this segment immediately AFTER this block, so the body lands
+; at its original address by growing that object's head
+; (kb/codegen/0099 + 0114).
+;
+; This is the one lift out of this segment that could NOT extend
+; th05/space.cpp's contribution: th05/end/verdict_bitmap.asm sits between the
+; frame function and this body and stays here, so the lifted code has to be
+; behind the dump rather than in front of it. The object and its Tupfile.lua
+; line are therefore new, and that line is POSITION-CRITICAL in the opposite
+; direction from th05/space.cpp's -- listed before this dump it would land
+; ahead of verdict_bitmap.asm (kb/codegen/0112 + 0114).
+;
+; It has two stack locals, so it needed no kb/codegen/0042 wrapper. The
+; hand-encoded `db 0Fh, 8Ch, 93h, 00h` that stood in for the near jump out of
+; the frame counter's test went with it, under upstream's own note that TASM
+; would not assemble it after script_op() was decompiled: Turbo C++ emits
+; those bytes itself, exactly as it did for verdict_stats_put().
+;
+; kb/codegen/0121: the deleted body contained no `assume`.
+;
+; **THIS BLOCK IS NOW EMPTY**, and with it the whole dump: th05_maine.asm
+; contributes zero bytes of code to TH05's MAINE.EXE. Nothing may be added
+; between th05/end/verdict_bitmap.asm above and th05/staffrol.cpp's
+; contribution below.
 
 maine_01__TEXT	ends
 
@@ -1200,20 +849,34 @@ _CREDIT_2_BLACK	label byte
 unk_1184F	db  20h
 		db  20h
 		db    0
-aStaff		db 'staff',0
-aStf00_cdg	db 'stf00.cdg',0
-aStf01_cdg	db 'stf01.cdg',0
-aStf02_cdg	db 'stf02.cdg',0
-aStf03_cdg	db 'stf03.cdg',0
-aStf04_cdg	db 'stf04.cdg',0
-aStf05_cdg	db 'stf05.cdg',0
-aStf06_cdg	db 'stf06.cdg',0
-aStf07_cdg	db 'stf07.cdg',0
-aStf08_cdg	db 'stf08.cdg',0
-aStf09_cdg	db 'stf09.cdg',0
-aStf10_cdg	db 'stf10.cdg',0
-aStf01_bft	db 'stf01.bft',0
-aStf00_bft	db 'stf00.bft',0
+public _staff_bgm
+_staff_bgm		db 'staff',0
+public _stf00_cdg
+_stf00_cdg	db 'stf00.cdg',0
+public _stf01_cdg
+_stf01_cdg	db 'stf01.cdg',0
+public _stf02_cdg
+_stf02_cdg	db 'stf02.cdg',0
+public _stf03_cdg
+_stf03_cdg	db 'stf03.cdg',0
+public _stf04_cdg
+_stf04_cdg	db 'stf04.cdg',0
+public _stf05_cdg
+_stf05_cdg	db 'stf05.cdg',0
+public _stf06_cdg
+_stf06_cdg	db 'stf06.cdg',0
+public _stf07_cdg
+_stf07_cdg	db 'stf07.cdg',0
+public _stf08_cdg
+_stf08_cdg	db 'stf08.cdg',0
+public _stf09_cdg
+_stf09_cdg	db 'stf09.cdg',0
+public _stf10_cdg
+_stf10_cdg	db 'stf10.cdg',0
+public _stf01_bft
+_stf01_bft	db 'stf01.bft',0
+public _stf00_bft
+_stf00_bft	db 'stf00.bft',0
 
 	.data?
 
