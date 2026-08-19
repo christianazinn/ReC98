@@ -1238,7 +1238,7 @@ PLAYER_B_TEXT	ends
 mai_TEXT	segment	byte public 'CODE' use16
 		assume es:nothing
 
-include th04/main/player/bb_playchar_put.asm
+	BB_PLAYCHAR_PUT procdesc pascal near cel:word	; now compiled from th04/main/player/bb_playchar_put.cpp
 
 	; The bomb animations' Dream drain now lives in
 	; th05/main/player/bombanim.cpp, ahead of
@@ -1247,9 +1247,9 @@ include th04/main/player/bb_playchar_put.asm
 	; root contribution and th05/main010.cpp already owned everything after
 	; it (kb/codegen 0114). No carve, no new segment, no Tupfile.lua line.
 	;
-	; This seam is now CLOSED: what is left of the root contribution is the
-	; bb_playchar_put.asm include above, which is not a proc, so mai_TEXT
-	; can take no further tail lift.
+	; This seam is now CLOSED for a stronger reason than it used to be: the
+	; root contribution is EMPTY. Its last remaining `include` went to C++
+	; as well, and this block now holds nothing but two declarations.
 	;
 	; The four bomb update functions in MB_INV_TEXT still call it, so it
 	; keeps a procdesc. Same group (main_01), so it stays a near call.
