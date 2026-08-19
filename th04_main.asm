@@ -1148,7 +1148,7 @@ CIRCLE_TEXT ends
 ; `midbossx_render` at its original address in the MIDDLE of the segment.
 ; Same `word public 'CODE'` alignment as before, so nothing moves.
 MIDBOSSX_TEXT segment word public 'CODE' use16
-include th04/main/enemy/inv.asm
+	; enemies_invalidate() now lives in th04/main/enemy/inv.cpp; that file carries the whole account.
 
 	; midboss1_render(), midboss3_render() and midbossx_render() now live
 	; in th04/main/midboss/m1.cpp, m3.cpp and mx.cpp, which are compiled as

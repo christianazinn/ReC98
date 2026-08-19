@@ -6,6 +6,25 @@
 
 #pragma option -zPmain_01
 
+#if (GAME != 5)
+// TH04's original object for MIDBOSSX_TEXT opened with enemies_invalidate(),
+// ahead of the three renderers below. th04_main.asm contributed it as the
+// segment's only line, an assembler include of th04/main/enemy/inv.asm, and
+// TLINK appends this object after that root contribution -- so the lift has to
+// be the FIRST code this translation unit emits.
+//
+// It goes here rather than into th04/midbossx.cpp, above the `#include` of
+// this file, because the `-zP` above cannot follow emitted code
+// (kb/codegen/0138) and this file is shared: th05/midbossx.cpp includes it
+// too, so honouring 0138 by moving the pragma into the wrapper would mean
+// duplicating it into BOTH wrappers. Same kb/codegen/0129 reasoning the
+// m1/m3 include below already gives for staying in one translation unit.
+//
+// TH05 still has the module: th05_main.asm's own `include` of it is not the
+// last emitting item of its segment, so lifting that copy needs a carve.
+#include "th04/main/enemy/inv.cpp"
+#endif
+
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/v_colors.hpp"
 #include "th04/main/phase.hpp"
