@@ -11,6 +11,22 @@
 #include "th04/main/tile/tile.hpp"
 #include "th04/sprites/main_cdg.h"
 
+// These two are here rather than inside th04/main/boss/colorfill.cpp below,
+// which is the kb/codegen/0129 host-source form: the included file names no
+// headers of its own and this object owns them. Both are new to this
+// translation unit's closure, and both reach nothing beyond the guarded pc98.h
+// and x86real.h, so neither can collide with what is already above.
+#include "th02/main/playfld.hpp"
+#include "th04/hardware/grcg.hpp"
+
+// kurumi_backdrop_colorfill() was the whole of th04_main.asm's `main_TEXT`,
+// the segment immediately BEFORE this object's own `STAGES_TEXT` and in the
+// same group, so it goes first here and the object grows backwards across the
+// segment boundary. It is a boss callback rather than stage code, and it lives
+// at the head of a stage object only because that is where the original put its
+// bytes; see the file's own header.
+#include "th04/main/boss/colorfill.cpp"
+
 // See tile.hpp for the reason why this declaration is necessary
 extern "C" void pascal near tiles_invalidate_around(
 	subpixel_t center_y, subpixel_t center_x

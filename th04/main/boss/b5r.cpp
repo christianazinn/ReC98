@@ -1,9 +1,12 @@
 /// Foreground rendering code for TH04's Stage 5 boss
 /// -------------------------------------------------
 /// (#included from th04/boss_5r.cpp. ZUN's object for this code segment held
-/// yuuka5_fg_render() followed by kurumi_backdrop_colorfill(); the latter is
-/// hand-written ASM and stays in the dump. That an original object held
-/// several unrelated sources is kb/codegen/0112.)
+/// yuuka5_fg_render() followed by kurumi_backdrop_colorfill(). That an original
+/// object held several unrelated sources is kb/codegen/0112.
+///
+/// This used to add "the latter is hand-written ASM and stays in the dump".
+/// It is not and it did not: it is two grcg_fill_playfield_rows_at() calls and
+/// it lives in th04/main/boss/colorfill.cpp as of 2026-08-19.)
 ///
 /// This is the third member of the [boss_fg_render] family, next to
 /// kurumi_fg_render() and orange_fg_render() (th04/main/boss/render.cpp), and

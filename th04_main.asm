@@ -2561,20 +2561,19 @@ BOSS_5R_TEXT	ends
 ; with the head: it is the pad Turbo C++ emits after yuuka5_fg_render(),
 ; and b5r.cpp reproduces it as a `#pragma codestring "\x00"`.
 main_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @KURUMI_BACKDROP_COLORFILL$QV
-@kurumi_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	192, 192
-		GRCG_FILL_PLAYFIELD_ROWS	  0,  80
-		pop	di
-		retn
-@kurumi_backdrop_colorfill$qv	endp
-
-; ---------------------------------------------------------------------------
-		nop
+	; kurumi_backdrop_colorfill() now lives in th04/main/boss/colorfill.cpp,
+	; which th04/main/stage/stages.cpp #includes at the FRONT of its own
+	; object. That object supplies STAGES_TEXT, the next segment below, which
+	; is in this same group and starts at the very next byte -- so the C++
+	; grows backwards ACROSS the segment boundary and every byte keeps its
+	; address (kb/codegen 0114 + 0129). The trailing alignment `nop` went with
+	; it, as a codestring.
+	;
+	; This segment is now ZERO bytes long and is kept only as this comment,
+	; so that the `main_01 group` line at the top of this file stays correct
+	; without an edit. Nothing in this file called the function -- its only
+	; reference was the C++ assignment in th04/main/stage/setup.cpp -- so no
+	; procdesc is owed either, and the public directive went with the body.
 main_TEXT	ends
 
 STAGES_TEXT	segment	byte public 'CODE' use16
