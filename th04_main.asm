@@ -763,7 +763,7 @@ off_B1C2	dw offset loc_B003
 sub_B1D0	proc near
 		push	bp
 		mov	bp, sp
-		call	main_01:sub_11ECB
+		call	@stage_state_reset$qv
 		mov	_stage_frame, 0
 		mov	_bombing_disabled, 0
 		mov	_scroll_line, 0
@@ -1104,6 +1104,20 @@ include th04/main/item/splash_dot_render.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+	; stage_state_reset() (th04/main/stage/reset.cpp) is this proc's only
+	; caller -- all nine call sites moved there with it, so nothing in
+	; this file references it any more. A bare dump label is private to
+	; its object, so the zero-byte `label` alias below is the only thing
+	; making it reachable, and it costs no bytes (kb/codegen 0123). The
+	; C++ declaration is `extern "C" void pascal near dwords_clear(void
+	; near *dst, int dword_count)`, and a `pascal` symbol reaches the
+	; linker in UPPER case, which is what TASM must be told literally
+	; (kb/codegen 0081, 0086, 0103).
+	;
+	; The proc itself stays assembly: its `mov bx, sp` frame reads both
+	; parameters through SS:BX, which no C++ signature expresses.
+	public DWORDS_CLEAR
+	DWORDS_CLEAR label near
 sub_C34E	proc near
 		mov	bx, sp
 		push	di
@@ -6248,62 +6262,22 @@ loc_11EC1:
 @elly_fg_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_11ECB	proc near
-		push	bp
-		mov	bp, sp
-		mov	_frames_unused, 0
-		mov	_stage_frame, 0
-		mov	_stage_frame_mod2, 0
-		mov	_stage_frame_mod4, 0
-		mov	_stage_frame_mod8, 0
-		mov	_stage_frame_mod16, 0
-		mov	_slowdown_factor, 1
-		mov	_quit, Q_KEEP_RUNNING
-		mov	_palette_changed, 0
-		mov	_bullet_zap_active, 0
-		mov	_stage_graze, 0
-		mov	_circles_color, 13
-		call	grc_setclip pascal, large (PLAYFIELD_LEFT shl 16) or PLAYFIELD_TOP, large ((PLAYFIELD_RIGHT - 1) shl 16) or (PLAYFIELD_BOTTOM - 1)
-		push	offset _shots
-		push	size _shots / 4
-		call	main_01:sub_C34E
-		push	offset _enemies
-		push	size _enemies / 4
-		call	main_01:sub_C34E
-		push	offset _sparks
-		push	size _sparks / 4
-		call	main_01:sub_C34E
-		push	offset _bullets
-		push	(size _pellets + size _bullets16) / 4
-		call	main_01:sub_C34E
-		push	offset _custom_entities
-		push	size _custom_entities / 4
-		call	main_01:sub_C34E
-		push	offset _circles
-		push	size _circles / 4
-		call	main_01:sub_C34E
-		push	offset _items
-		push	size _items / 4
-		call	main_01:sub_C34E
-		push	offset _pointnums
-		push	size _pointnums / 4
-		call	main_01:sub_C34E
-		push	offset _gather_circles
-		push	size _gather_circles / 4
-		call	main_01:sub_C34E
-		mov	_gather_template.GT_ring_points, 8
-		mov	_gather_template.GT_col, 9
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_velocity.x, 0
-		mov	_gather_template.GT_velocity.y, 0
-		pop	bp
-		retn
-sub_11ECB	endp
+	; stage_state_reset() now lives in th04/main/stage/reset.cpp, which
+	; th04/main_012.cpp compiles into the only C++ contribution to this
+	; segment. TLINK appends it after this root contribution, which is
+	; the address the function already had -- no carve and no new segment
+	; name (kb/codegen 0098 + 0105 + 0112).
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution.
+	;
+	; `procdesc near`, so the one call site above -- in sub_B1D0, in
+	; DEMO_TEXT -- is spelled UNQUALIFIED; the `main_01:` group override
+	; it carried had to go, exactly as score_reset()'s and
+	; continue_prompt()'s sites did. Only the GROUP of the declaring
+	; segment decides the frame, and this one is main_01 like the caller
+	; (kb/codegen 0064, 0082).
+	@stage_state_reset$qv procdesc near
 main_012_TEXT	ends
 
 CFG_LRES_TEXT	segment	byte public 'CODE' use16

@@ -7,18 +7,9 @@
 // More like 17 though, due to the quirks documented below.
 static const int CIRCLE_FRAMES = 16;
 
-// Note the slight semantic differences to the item_splash_t structure.
-struct circle_t {
-	entity_flag_t flag;
-	unsigned char age;
-	screen_point_t center;
-	pixel_t radius_cur;
-	pixel_t radius_delta;
-};
-
-static const int CIRCLE_COUNT = ((GAME == 5) ? 8 : 16);
-
-extern circle_t circles[CIRCLE_COUNT];
+// circle_t, CIRCLE_COUNT and [circles] moved to th04/main/circle.hpp, which
+// this file already includes: stage_state_reset() needs sizeof(circles) and is
+// a second translation unit.
 
 #define circle_init(p, center_x, center_y, radius_delta_) { \
 	p->flag = F_ALIVE; \
