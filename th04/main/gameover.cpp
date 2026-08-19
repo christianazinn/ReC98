@@ -3,25 +3,32 @@
 /// TH04's GAME OVER screen: the blocking sequence that hides the playfield,
 /// flies a single bold-font G in ahead of the GAME OVER text, runs the continue
 /// prompt, and then either restores the playfield for the continued attempt or
-/// hands the process to MAINE.EXE for the score tally.
+/// hands the process to MAINE.EXE for the score tally — together with the two
+/// per-frame overlay fade steps it blocks on. The three were the entire tail of
+/// EXECL_TEXT's root contribution.
 ///
-/// ONE screen, two games. TH05's is th05/main/gameover.cpp, and the bodies are
-/// the same apart from the Extra-stage prologue below, which TH04 has and TH05
-/// does not, and which of the dump's `"maine"` copies each launches through.
-/// The two are not one file yet because TH04's two fade steps are still ASM
-/// (sub_E461 and sub_E4D1 in th04_main.asm's EXECL_TEXT) where TH05's are
-/// already lifted; the names, the constants and the statement order here are
-/// th05/main/gameover.cpp's, so that they can be merged when they are.
+/// ONE screen, two games. TH05's is th05/main/gameover.cpp, and the two fade
+/// steps are byte-for-byte identical there; gameover() itself differs only in
+/// the Extra-stage prologue below, which TH04 has and TH05 does not, and in
+/// which of the dump's `"maine"` copies it launches through. The names, the
+/// constants, the statement order and the two macros are all
+/// th05/main/gameover.cpp's, so that the two files can be merged into one body
+/// with a `#if (GAME == 5)` around the prologue as soon as both halves are on
+/// the same branch. They are not merged here because TH05's lift has not
+/// reached the integration branch yet.
 
 #include "platform.h"
 #include "pc98.h"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/main/execl.hpp"
+#include "th02/main/playfld.hpp"
 #include "th04/end/end.h"
-#include "th04/gaiji/gaiji.h"
-#include "th04/hardware/input.h"
 #include "th04/main/end.hpp"
+#include "th04/main/null.hpp"
+// Also the only include of th04/gaiji/gaiji.h, which has no include guard.
+#include "th04/main/hud/overlay.hpp"
+#include "th04/hardware/input.h"
 #include "th04/resident.hpp"
 #include "th04/snd/snd.h"
 
@@ -54,23 +61,8 @@ extern union {
 	unsigned char out_time;
 } gameover_fade; // = 0
 
-// The two fade steps, still ASM as sub_E461 and sub_E4D1 in th04_main.asm's
-// EXECL_TEXT, which now publishes zero-byte aliases under these names for these
-// references (kb/codegen/0123). They are ZUN's second copy of
-// th04/main/hud/overlay.cpp's overlay_stage_enter_update_and_render() and
-// overlay_stage_leave_update_and_render(), differing in [gameover_fade] instead
-// of [overlay_fade], an interval of 4 frames per cel instead of 8, and a `done`
-// return value -- because nothing installs them into [overlay1], the caller
-// below spins on them instead. They still clear [overlay1] on their last frame,
-// exactly as the stage pair does. Already lifted in TH05, under these names.
-bool near overlay_gameover_enter_update_and_render(void);
-bool near overlay_gameover_leave_update_and_render(void);
-
-// Declared here rather than through th04/main/hud/overlay.hpp, whose
-// `#pragma codeseg HUD_OVRL_TEXT` would fight this object's own `-zC`, and
-// through th04/main/stage/stage.hpp, which this translation unit cannot safely
-// reach.
-void near overlay_wipe(void);
+// Declared here rather than through th04/main/stage/stage.hpp, which this
+// translation unit cannot safely reach.
 extern unsigned char stage_id;
 
 // Defined by th04/main/continue.cpp, in the object that lands immediately after
@@ -90,6 +82,12 @@ unsigned char near continue_prompt(void);
 // OVERLAY_FADE_INTERVAL, which is the only number that differs between the two
 // animations.
 static const int GAMEOVER_FADE_INTERVAL = 4;
+
+// The fade runs one frame past its last cel before it finishes, exactly like
+// OVERLAY_FADE_FRAMES.
+static const int GAMEOVER_FADE_FRAMES = (
+	(OVERLAY_FADE_CELS + 1) * GAMEOVER_FADE_INTERVAL
+);
 
 // Both directions start from the most opaque cel rather than from either end of
 // the frame range, so the black-out is instant and only the reveal is animated.
@@ -114,6 +112,62 @@ static const tram_y_t GAMEOVER_TRAM_Y = 12;
 // into `static const uint8_t 6 = 6;` if the two ever shared a translation unit.
 static const uint8_t STAGE_FINAL = 5;
 
+// One cel of the fade, over the whole playfield. Identical to
+// th04/main/hud/overlay.cpp's overlay_fade_put() apart from the interval, and
+// duplicated rather than shared because that one is a macro private to that
+// translation unit.
+#define gameover_fade_put(frame) { \
+	if((frame % GAMEOVER_FADE_INTERVAL) == 0) { \
+		unsigned char cel_num = (frame / GAMEOVER_FADE_INTERVAL); \
+		if(cel_num != 0) { \
+			tram_y_t y = PLAYFIELD_TRAM_TOP; \
+			while(y < PLAYFIELD_TRAM_BOTTOM) { \
+				tram_x_t x = PLAYFIELD_TRAM_LEFT; \
+				while(x < PLAYFIELD_TRAM_RIGHT) { \
+					gaiji_putca( \
+						x, y, ((g_OVERLAY_FADE_last + 1) - cel_num), TX_BLACK \
+					); \
+					x += GAIJI_TRAM_W; \
+				} \
+				y++; \
+			} \
+		} \
+	} \
+}
+
+// Runs one frame of the fade that ends with the playfield area of TRAM filled
+// with empty gaiji cells, and returns whether that was the last one. Same
+// naming as TH02's blocking overlay_stage_enter_animate() and TH04/TH05's
+// overlay_stage_enter_update_and_render(). Nothing installs either of these two
+// into [overlay1] -- gameover() below spins on them instead -- but they still
+// clear it on their last frame, exactly as the stage pair does.
+bool near overlay_gameover_enter_update_and_render(void)
+{
+	if(gameover_fade.in_frame >= GAMEOVER_FADE_FRAMES) {
+		overlay_wipe();
+		overlay1 = nullfunc_near;
+		return true;
+	}
+	gameover_fade_put(gameover_fade.in_frame);
+	gameover_fade.in_frame++;
+	return false;
+}
+
+// Runs one frame of the fade that ends with the playfield area of TRAM filled
+// with opaque black cells, and returns whether that was the last one.
+bool near overlay_gameover_leave_update_and_render(void)
+{
+	if(gameover_fade.out_time == 0) {
+		overlay_black();
+		overlay1 = nullfunc_near;
+		return true;
+	}
+	gameover_fade.out_time--;
+	gameover_fade_put(gameover_fade.out_time);
+	return false;
+}
+
+// Spins on one of the two fade steps above until it reports itself finished.
 // Written out at each of its four call sites in the original rather than
 // factored into a function, so it is a macro here.
 #define gameover_fade_animate(step) { \

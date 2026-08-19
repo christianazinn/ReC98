@@ -2652,200 +2652,41 @@ loc_E44F:
 sub_E2C3	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Zero-byte alias (kb/codegen/0123) so that th04/main/gameover.cpp can name
-; this proc in the poll loop it drives it from. ZUN's second copy of
-; overlay_stage_enter_update_and_render(), at half the fade interval and on
-; its own counter; TH05's identical copy is already lifted under this name in
-; th05/main/gameover.cpp. The name is TASM-spelled at the 32-character
-; identifier truncation TLINK applies, exactly as
-; @overlay_stage_enter_update_and_r$qv is elsewhere in this file. The dump has
-; no reference of its own left.
-public @overlay_gameover_enter_update_an$qv
-@overlay_gameover_enter_update_an$qv label near
-sub_E461	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_25660, 24h	; '$'
-		jb	short loc_E47B
-		call	@overlay_wipe$qv
-		mov	_overlay1, offset nullfunc_near
-		mov	al, 1
-		jmp	short loc_E4CD
-; ---------------------------------------------------------------------------
-
-loc_E47B:
-		mov	al, byte_25660
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_E4C7
-		mov	al, byte_25660
-		mov	ah, 0
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jz	short loc_E4C7
-		mov	si, 1
-		jmp	short loc_E4C2
-; ---------------------------------------------------------------------------
-
-loc_E4A0:
-		mov	di, 4
-		jmp	short loc_E4BC
-; ---------------------------------------------------------------------------
-
-loc_E4A5:
-		push	di
-		push	si
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		mov	dx, 40h
-		sub	dx, ax
-		push	dx
-		push	TX_BLACK
-		call	gaiji_putca
-		add	di, 2
-
-loc_E4BC:
-		cmp	di, 52
-		jl	short loc_E4A5
-		inc	si
-
-loc_E4C2:
-		cmp	si, 24
-		jl	short loc_E4A0
-
-loc_E4C7:
-		inc	byte_25660
-		mov	al, 0
-
-loc_E4CD:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E461	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Zero-byte alias (kb/codegen/0123), same reason as the proc above: the
-; overlay_stage_leave_update_and_render() half of the pair.
-public @overlay_gameover_leave_update_an$qv
-@overlay_gameover_leave_update_an$qv label near
-sub_E4D1	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_25660, 0
-		jnz	short loc_E4EB
-		call	@overlay_black$qv
-		mov	_overlay1, offset nullfunc_near
-		mov	al, 1
-		jmp	short loc_E53D
-; ---------------------------------------------------------------------------
-
-loc_E4EB:
-		dec	byte_25660
-		mov	al, byte_25660
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_E53B
-		mov	al, byte_25660
-		mov	ah, 0
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jz	short loc_E53B
-		mov	si, 1
-		jmp	short loc_E536
-; ---------------------------------------------------------------------------
-
-loc_E514:
-		mov	di, 4
-		jmp	short loc_E530
-; ---------------------------------------------------------------------------
-
-loc_E519:
-		push	di
-		push	si
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		mov	dx, 40h
-		sub	dx, ax
-		push	dx
-		push	TX_BLACK
-		call	gaiji_putca
-		add	di, 2
-
-loc_E530:
-		cmp	di, 52
-		jl	short loc_E519
-		inc	si
-
-loc_E536:
-		cmp	si, 24
-		jl	short loc_E514
-
-loc_E53B:
-		mov	al, 0
-
-loc_E53D:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E4D1	endp
-
-
-	; gameover() now lives in th04/main/gameover.cpp, which th04/execl.cpp
-	; #includes AHEAD of th04/main/continue.cpp (kb/codegen/0129), so that
-	; it lands here at its original address, before continue_prompt(),
-	; score_last_commit() and GameExecl(). It was the LAST proc of this root
-	; contribution and that file's object already appended immediately after
-	; it, so no carve and no new segment were needed (kb/codegen/0099 +
-	; 0112).
+	; The whole tail of this root contribution now lives in
+	; th04/main/gameover.cpp, which th04/gameover.cpp supplies from its own
+	; object -- named with `#pragma option -zCEXECL_TEXT` and listed in
+	; Tupfile.lua immediately ahead of th04/execl.cpp, so that TLINK lays it
+	; down here, directly after this contribution and before the one holding
+	; continue_prompt(). Three procs went together, in this order:
 	;
-	; The lift may NOT go into th04/main/execl.cpp itself: th05/execl.cpp
-	; #includes that same shared body, and TH05's counterpart to this
-	; function is still ASM in th05_main.asm.
+	;   overlay_gameover_enter_update_and_render()  was sub_E461
+	;   overlay_gameover_leave_update_and_render()  was sub_E4D1
+	;   gameover()                                  was sub_E541
 	;
-	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
-	; restore into the rest of this contribution.
+	; A separate object rather than an `#include` into th04/execl.cpp: that
+	; translation unit's th04/main/continue.cpp owns its only copy of
+	; th04/gaiji/gaiji.h, th04/hardware/input.h and th04/main/quit.hpp, none
+	; of which is include-guarded, so a body appended ahead of it there could
+	; reach neither [gb_G] nor OVERLAY_FADE_CELS. It also leaves that object
+	; at its original address AND size (kb/codegen/0119).
 	;
-	; `procdesc near`, so the one call site -- in main_0_TEXT, further down
-	; this file -- is spelled UNQUALIFIED, and the `main_01:` group override
-	; it carried had to go, exactly as continue_prompt()'s site did.
+	; The two fade steps are byte-for-byte identical to TH05's sub_F896 and
+	; sub_F906, already lifted under these names in th05/main/gameover.cpp.
 	;
-	; @continue_prompt$qv's own `procdesc` went with this proc: the call it
-	; described was its last reference in this file.
+	; kb/codegen/0121: none of the three carried an `assume`, so there is
+	; nothing to restore into the rest of this contribution.
+	;
+	; `procdesc near` for gameover(), so its one call site -- in main_0_TEXT,
+	; further down this file -- is spelled UNQUALIFIED, and the `main_01:`
+	; group override it carried had to go, exactly as continue_prompt()'s site
+	; did. The other two need none: nothing in this file calls them any more,
+	; because their only caller was gameover().
 	@gameover$qv procdesc near
 
-; The C++ contributions to EXECL_TEXT go here: th04/main/gameover.cpp at
-; the original address of gameover(), then th04/main/continue.cpp at the
-; original address of continue_prompt(), then th04/main/execl.cpp at the
-; original address of score_last_commit(), which is followed by
-; GameExecl().
+; The C++ contributions to EXECL_TEXT go here: th04/gameover.cpp at the
+; original address of overlay_gameover_enter_update_and_render(), then
+; th04/execl.cpp at the original address of continue_prompt(), which is
+; followed by score_last_commit() and GameExecl().
 EXECL_TEXT	ends
 
 ; ===========================================================================
