@@ -15207,8 +15207,8 @@ sub_1E5FC	endp
 ; The pattern that the Extra Stage midboss's phase 1 starts from; its
 ; address is taken in th04/main/midboss/mx_update.cpp through this
 ; zero-byte alias (kb/codegen 0123).
-public _sub_1E60E
-_sub_1E60E label near
+public _pattern_curved_speedup_rings
+_pattern_curved_speedup_rings label near
 sub_1E60E	proc near
 		push	bp
 		mov	bp, sp

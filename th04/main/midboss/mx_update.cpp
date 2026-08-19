@@ -38,10 +38,18 @@ static const int HP_TOTAL = 3000;
 // what 0123 prescribes; the C++ side is named, because a `public` a parcel
 // wrote itself is not a precedent that parcel may then defer to
 // (NAMING_REVIEW_VERDICTS_9 section 7, applied by round 16 once this dump was
-// free). `sub_1E5FC` and `sub_1E60E` keep their placeholder spellings on the
-// one ground that survives review: their *bodies* have not been read, so a
-// descriptive name would describe behaviour nobody has measured, and that is a
-// search that fails (naming-precedents.md section 3).
+// free).
+//
+// Round 9 kept the phase-1 patterns at their placeholder spellings on the
+// narrower ground that their bodies were still unexamined. Round 16 voided that
+// for the one below: the paragraph above
+// pattern_symmetric_turning_spread_stacks(), written by the very commit that
+// claimed the licence, describes all three remaining bodies in the vocabulary
+// the tree's own pattern names use -- so the examination had happened, and a
+// search that examines the body does not fail. sub_1E5FC and sub_1E66F appear
+// here only inside comments, never as identifiers, which is round 4's licensed
+// way to record a dump's own spelling; naming them belongs to whichever parcel
+// lifts them, and NAMING_REVIEW_VERDICTS_16 carries the ruling.
 // -----
 
 extern "C" {
@@ -58,7 +66,8 @@ extern "C" {
 // [inferred] name, from the behaviour above and this tree's own vocabulary:
 // `flystep` is what the four other `bool pascal near f(int frame)` step-and-
 // report-done functions call the movement half (boss_flystep_random,
-// boss_flystep_towards, marisa_flystep_pointreflected, mai_yuki_flystep_random),
+// boss_flystep_towards, marisa_flystep_pointreflected and
+// mai_yuki_flystep_random),
 // and `_and_pattern` is the half they do not have. th05/main/boss/b1.cpp's
 // phase_2_3_wait_fly_and_select_pattern is the same compound shape in the same
 // role, one level up.
@@ -66,7 +75,20 @@ bool pascal near midbossx_flystep_and_pattern(int frame);
 
 // The pattern that phase 1 starts from. Its address is taken here and stored
 // into [midbossx_flystep_and_pattern]'s callback; the body stays in the dump.
-bool near sub_1E60E(void);
+//
+// On [midboss.phase_frame] 94 it picks +1 or -1 with randring2_next16_and(1)
+// and parks it in [boss_statebyte[13]]; on every frame up to 114 it fires one
+// BG_RING of BSM_SPEEDUP blue crosses whose angle has drifted by that constant
+// since the last, and it reports done at 128. `[inferred]` name, by the
+// solved-twin rule: pattern_curved_rings() in th05/main/boss/b6.cpp is the same
+// construct field for field -- BG_RING, blue, a randomly signed angle delta
+// chosen with randring2_next16_and(1) and parked in a [boss_statebyte] slot --
+// so `curved` is this tree's own token for that drift. `speedup` distinguishes
+// it from that twin's BSM_EXACT_LINEAR and from b1.cpp's
+// pattern_accelerating_rings, whose `accelerating` names a rising per-RING
+// speed rather than a per-bullet motion; BSM_SPEEDUP appears in no other C++
+// identifier, so that half is coined. 28 characters, so nothing truncates.
+bool near pattern_curved_speedup_rings(void);
 
 }
 
@@ -112,10 +134,13 @@ extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // because the search does not fail (kb/conventions/naming-precedents.md
 // section 3, and NAMING_REVIEW_VERDICTS_9 section 7, which holds that a
 // placeholder may be kept only while the body has genuinely not been read).
-// The three patterns that stay in the dump are each distinguishable from this
-// one in the same terms the existing TH05 pattern names use -- [sub_1E5FC]
-// fires nothing at all, [sub_1E60E] is a BG_RING of BSM_SPEEDUP crosses, and
-// [sub_1E66F] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. The `pattern_`
+// The other three patterns are each distinguishable from this one in the same
+// terms the existing TH05 pattern names use -- [sub_1E5FC] fires nothing at
+// all, [pattern_curved_speedup_rings] is a BG_RING of BSM_SPEEDUP crosses, and
+// [sub_1E66F] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. Round 16 read that
+// sentence as the record of a search that did NOT fail and named the second of
+// them; the two that keep their dump spellings appear here only inside
+// comments, never as identifiers. The `pattern_`
 // prefix and the adjective-then-noun shape follow th05/main/boss/b1.cpp and
 // th05/main/boss/b6.cpp, whose pattern functions are reached from dump tables
 // through exactly this `dw offset @pattern_...$qv` route.
@@ -189,7 +214,7 @@ void pascal midbossx_update(void)
 			boss_statebyte[15] = 0;
 			boss_statebyte[14] = 0;
 			boss_statebyte[12] = 0;
-			midbossx_phase_1_pattern = sub_1E60E;
+			midbossx_phase_1_pattern = pattern_curved_speedup_rings;
 		}
 		break;
 
