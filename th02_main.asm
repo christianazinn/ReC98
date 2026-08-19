@@ -1366,7 +1366,7 @@ loc_11599:
 		les	bx, _midboss3_top_on_back_page[bx]
 		push	word ptr es:[bx]
 		push	28001Eh
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	di, ax
 		or	ax, ax
 		jz	short loc_115E3
@@ -1425,7 +1425,7 @@ loc_1161B:
 		les	bx, _midboss3_top_on_back_page[bx]
 		push	word ptr es:[bx]
 		push	28001Eh
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	di, ax
 		or	ax, ax
 		jz	short loc_11685
@@ -1735,7 +1735,7 @@ loc_11885:
 		add	bx, bx
 		push	_stone_top[bx]
 		push	200028h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	di, ax
 		or	ax, ax
 		jz	loc_1193E
@@ -3658,226 +3658,11 @@ stones_12778	endp
 ; ---------------------------------------------------------------------------
 		db 0
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1283C	proc near
-
-var_12		= word ptr -12h
-var_10		= word ptr -10h
-var_E		= word ptr -0Eh
-var_B		= byte ptr -0Bh
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= word ptr -6
-@@left		= word ptr -4
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 12h
-		push	si
-		push	di
-		mov	bl, _shot_level
-		mov	bh, 0
-		add	bx, bx
-		mov	ax, word_1EB4A[bx]
-		mov	[bp+var_E], ax
-		mov	ax, word_1EB5E[bx]
-		mov	[bp+var_10], ax
-		mov	ax, word_1EB72[bx]
-		mov	[bp+var_12], ax
-		mov	[bp+var_8], 0
-		mov	ax, [bp+arg_6]
-		add	ax, [bp+arg_2]
-		mov	[bp+var_A], ax
-		mov	al, _page_back
-		shl	al, 2
-		add	al, 4
-		mov	[bp+var_B], al
-		mov	ax, [bp+arg_4]
-		add	ax, 0FFF8h
-		mov	[bp+var_6], ax
-		sub	[bp+arg_6], 8
-		mov	si, offset byte_20378
-		mov	[bp+var_2], 0
-
-loc_1288F:
-		cmp	byte ptr [si], 1
-		jz	short loc_12897
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_12897:
-		cmp	byte ptr [si+0Fh], 0
-		jz	short loc_128A0
-		jmp	loc_12943
-; ---------------------------------------------------------------------------
-
-loc_128A0:
-		cmp	byte ptr [si+1], 0
-		jz	short loc_128A9
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_128A9:
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si-2]
-		sar	ax, 4
-		mov	[bp+@@left], ax
-		cmp	ax, [bp+arg_6]
-		jg	short loc_128C1
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_128C1:
-		cmp	ax, [bp+var_A]
-		jl	short loc_128C9
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_128C9:
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si]
-		sar	ax, 4
-		mov	di, ax
-		cmp	di, [bp+var_6]
-		jg	short loc_128DF
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_128DF:
-		mov	ax, [bp+var_6]
-		add	ax, [bp+arg_0]
-		cmp	ax, di
-		jg	short loc_128EC
-		jmp	loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_128EC:
-		inc	[bp+var_8]
-		cmp	word ptr [si+0Eh], 32h ; '2'
-		jl	short loc_12926
-		sar	word ptr [si+0Ah], 3
-		sar	word ptr [si+0Ch], 3
-		cmp	word ptr [si+0Eh], 78h ; 'x'
-		jl	short loc_1291C
-		mov	byte ptr [si+1], 1
-		mov	ax, [bx+si-2]
-		sub	ax, 80h
-		mov	[bx+si-2], ax
-		mov	ax, [bx+si]
-		sub	ax, 80h
-		mov	[bx+si], ax
-		mov	ax, [bp+var_12]
-		jmp	short loc_12923
-; ---------------------------------------------------------------------------
-
-loc_1291C:
-		mov	byte ptr [si+1], 2
-		mov	ax, [bp+var_E]
-
-loc_12923:
-		add	[bp+var_8], ax
-
-loc_12926:
-		push	[bp+@@left]	; left
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si]
-		sar	ax, 4
-		push	ax	; top
-		push	((1 shl 4) + 14)	; speed_base
-		push	1	; count
-		push	0	; as_sprite
-		call	@sparks_add$qiuiiii
-		jmp	short loc_129AB
-; ---------------------------------------------------------------------------
-
-loc_12943:
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si-2]
-		sar	ax, 4
-		mov	[bp+@@left], ax
-		cmp	ax, [bp+arg_6]
-		jle	short loc_129AB
-		mov	ax, [bp+arg_6]
-		add	ax, [bp+arg_2]
-		cmp	ax, [bp+@@left]
-		jle	short loc_129AB
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si]
-		sar	ax, 4
-		mov	di, ax
-		cmp	di, [bp+var_6]
-		jle	short loc_129AB
-		mov	ax, [bp+var_6]
-		add	ax, [bp+arg_0]
-		cmp	ax, di
-		jle	short loc_129AB
-		cmp	byte ptr [si+1], 1
-		jnz	short loc_129A5
-		push	[bp+@@left]	; left
-		mov	al, [bp+var_B]
-		mov	ah, 0
-		mov	bx, ax
-		mov	ax, [bx+si]
-		sar	ax, 4
-		push	ax	; top
-		push	((2 shl 4) + 8)	; speed_base
-		push	1	; count
-		push	0	; as_sprite
-		call	@sparks_add$qiuiiii
-		mov	byte ptr [si+1], 2
-
-loc_129A5:
-		mov	ax, [bp+var_10]
-		add	[bp+var_8], ax
-
-loc_129AB:
-		inc	[bp+var_2]
-		add	si, 10h
-		cmp	[bp+var_2], 23h	; '#'
-		jge	short loc_129BA
-		jmp	loc_1288F
-; ---------------------------------------------------------------------------
-
-loc_129BA:
-		cmp	_bombing, 0
-		jz	short loc_129CD
-		mov	al, byte_1EB88
-		test	byte ptr _stage_frame, al
-		jnz	short loc_129CD
-		inc	[bp+var_8]
-
-loc_129CD:
-		mov	ax, [bp+var_8]
-		add	word ptr _score_delta, ax
-		mov	ax, [bp+var_8]
-		pop	di
-		pop	si
-		leave
-		retn	8
-sub_1283C	endp
-
 DS_PREBOSS = 0
 DS_POSTBOSS = 1
 
 	extern @dialog_load_and_init$qv:proc
+	@SHOTS_HITTEST$QIIII procdesc pascal near
 	@dialog_pre$qv procdesc near
 	@dialog_post$qv procdesc near
 	@DIALOG_SCRIPT_GENERIC_PART_ANIMA$Q17DIALOG_SEQUENCE_T procdesc pascal near \
@@ -4528,7 +4313,7 @@ loc_13A1D:
 		mov	bx, _boss_top_on_back_page
 		push	word ptr [bx]
 		push	400060h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+var_2], ax
 		or	ax, ax
 		jz	short loc_13A85
@@ -4989,7 +4774,7 @@ rika_13ECD	proc far
 		push	point_24E7C.x
 		push	300040h
 		push	60h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+@@damage], ax
 		or	ax, ax
 		jz	short loc_13F30
@@ -5468,7 +5253,7 @@ loc_142E1:
 		mov	bx, _boss_top_on_back_page
 		push	word ptr [bx]
 		push	40003Ah
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		or	ax, ax
 		jz	loc_143D4
 		call	_snd_se_play c, 4
@@ -5513,7 +5298,7 @@ loc_1435F:
 		mov	bx, _boss_top_on_back_page
 		push	word ptr [bx]
 		push	40003Ah
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+@@damage], ax
 		or	ax, ax
 		jz	short loc_143C7
@@ -5820,7 +5605,7 @@ loc_14628:
 		mov	bx, _boss_top_on_back_page
 		push	word ptr [bx]
 		push	300030h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+@@damage], ax
 		or	ax, ax
 		jz	short loc_14689
@@ -8085,7 +7870,7 @@ sigma_15907	proc near
 		add	ax, 32
 		push	ax
 		push	380020h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+@@damage], ax
 		or	ax, ax
 		jz	short loc_1594A
@@ -11337,7 +11122,7 @@ loc_175D1:
 		push	left_26C4E
 		push	top_26C50
 		push	200020h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+var_2], ax
 		pop	si
 		leave
@@ -12108,7 +11893,7 @@ var_2		= word ptr -2
 		add	ax, 32
 		push	ax
 		push	400040h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+var_2], ax
 		or	ax, ax
 		jz	short loc_17CF9
@@ -12208,7 +11993,7 @@ loc_17D7A:
 		mov	bx, ax
 		push	word ptr word_26C8C[bx]
 		push	180020h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	al, _page_back
 		mov	ah, 0
 		shl	ax, 4
@@ -15714,7 +15499,7 @@ midboss4_1A044	proc near
 		push	ax
 		push	point_26D76.y
 		push	300030h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	di, ax
 		or	ax, ax
 		jz	short loc_1A0CA
@@ -16672,7 +16457,7 @@ var_2		= word ptr -2
 		add	ax, 24
 		push	ax
 		push	300030h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		mov	[bp+var_2], ax
 		or	ax, ax
 		jz	short loc_1AAD6
@@ -16746,7 +16531,7 @@ marisa_1AB35	proc near
 		push	bp
 		mov	bp, sp
 		push	si
-		mov	byte_1EB88, 3
+		mov	_bomb_damage_frame_mask, 3
 		xor	si, si
 		jmp	loc_1AC6C
 ; ---------------------------------------------------------------------------
@@ -16767,7 +16552,7 @@ loc_1AB43:
 		les	bx, dword_26D66[bx]
 		push	word ptr es:[bx]
 		push	180020h
-		call	sub_1283C
+		call	@SHOTS_HITTEST$QIIII
 		or	ax, ax
 		jz	short loc_1ABEE
 		mov	bx, si
@@ -16864,7 +16649,7 @@ loc_1AC6B:
 loc_1AC6C:
 		cmp	si, 4
 		jl	loc_1AB43
-		mov	byte_1EB88, 1
+		mov	_bomb_damage_frame_mask, 1
 		pop	si
 		pop	bp
 		retn
@@ -19845,7 +19630,8 @@ byte_1EB35	label byte
 		db  0Ch
 aBoss2_m	db 'boss2.m',0
 		db 0
-word_1EB4A	label word
+public _shot_hit_damage
+_shot_hit_damage	label word
 		db    5
 		db    0
 		db    5
@@ -19866,7 +19652,8 @@ word_1EB4A	label word
 		db    0
 		db    1
 		db    0
-word_1EB5E	label word
+public _shot_option_hit_damage
+_shot_option_hit_damage	label word
 		db    2
 		db    0
 		db    2
@@ -19887,7 +19674,8 @@ word_1EB5E	label word
 		db    0
 		db    1
 		db    0
-word_1EB72	label word
+public _shot_hit_damage_large
+_shot_hit_damage_large	label word
 		db    0
 		db    0
 		db    0
@@ -19910,7 +19698,8 @@ word_1EB72	label word
 		db    0
 		db    0
 		db    0
-byte_1EB88	db 1
+public _bomb_damage_frame_mask
+_bomb_damage_frame_mask	db 1
 		db 0
 public _aStage_dt1
 _aStage_dt1	label byte

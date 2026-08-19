@@ -86,4 +86,14 @@ void near shots_invalidate(void);
 
 void near shots_update_and_render(void);
 
+// Tests every alive shot against the given hitbox, consumes the player shots
+// that hit, and returns the total damage dealt — which it also adds to
+// [score_delta]. Defined in th02/main/player/shot_hittest.cpp: ZUN's object put
+// it in front of the vertical boss lasers and the dialog code, so it is
+// compiled into th02/dialog.cpp's translation unit rather than into this
+// subsystem's own. Every caller is still ASM.
+int pascal near shots_hittest(
+	screen_x_t left, screen_y_t top, pixel_t w, pixel_t h
+);
+
 #endif /* TH02_MAIN_PLAYER_SHOT_HPP */
