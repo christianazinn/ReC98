@@ -52,19 +52,36 @@ extern void (far *stage_update_and_render)(void);
 // two; stage_init() defaults both to nullfunc_void for every other stage.
 // (That function was still ASM when this comment was first written, and was
 // named for its dump placeholder; it has since been decompiled.)
-// `_func` disambiguates the slot from the installed function, the way
-// boss_bg_render_func does from boss_bg_render above.
+// `_func` disambiguates the slot from the installed function.
+//
+// THE SUFFIX MEANS TWO DIFFERENT THINGS IN THIS HEADER, so read it per slot
+// rather than by pattern. On this pair, on [stage_title_unput_func],
+// [boss_activate_if_scroll_done_func] and [stage_should_end_func], `_func`
+// separates the slot from a function of the same name. On
+// [boss_bg_render_func] / [boss_update_func] it does not: those are STAGED
+// values that stage_init() picks per stage and that
+// boss_activate_if_scroll_done() promotes into the bare [boss_bg_render] /
+// [boss_update] on the frame the fight starts, so there both names are slots.
 extern void (far *lasers_invalidate_func)(void);
 extern void (far *lasers_update_and_render_func)(void);
 
-// Starts the boss fight once the map has been scrolled to its end, then
-// disables itself.
-extern void (far *boss_activate_if_scroll_done)(void);
+// The slot for boss_activate_if_scroll_done(), which starts the boss fight
+// once the map has been scrolled to its end and then nulls this pointer. The
+// bare name belongs to the function, which is now C++ in
+// th02/main/bgm_show.cpp.
+//
+// This one identifier is 33 characters, and Turbo C++ only sees the first 32,
+// so the external it emits is `_boss_activate_if_scroll_done_fun` and that is
+// the spelling th02_main.asm has to publish (kb/codegen/0060). Renaming
+// anything here means re-checking that truncation.
+extern void (far *boss_activate_if_scroll_done_func)(void);
 
-// Returns `true` once the stage is over, which ends stage_loop().
-// The slot's default installed function is `bool nullfunc_false(void)`, and
-// the sibling slot above is a `bool` too, but this one has to be [bool16]:
-// ZUN's code tests the result with `or ax, ax`, and a `bool` return compiles
-// to `or al, al` — a real behavioral difference for any installed function
-// that returns a nonzero high byte. (kb/codegen/0090)
-extern bool16 (far *stage_should_end)(void);
+// The slot for stage_should_end(), whose `true` ends stage_loop().
+// boss_activate_if_scroll_done() installs the real one for the duration of the
+// boss fight; the rest of the time it holds `bool nullfunc_false(void)`, which
+// is why stage_init() has to reinterpret_cast when it defaults this slot.
+// That cast is also the reason the slot is [bool16] rather than `bool`: ZUN's
+// code tests the result with `or ax, ax`, and a `bool` return compiles to
+// `or al, al` — a real behavioral difference for any installed function that
+// returns a nonzero high byte. (kb/codegen/0090)
+extern bool16 (far *stage_should_end_func)(void);
