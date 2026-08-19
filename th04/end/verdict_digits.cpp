@@ -120,9 +120,20 @@ extern "C" const shiftjis_t POINT_MSG[];
 /// [digit_seen] never becomes true, so every one of the eight cells gets
 /// g_EMPTY, including the ones place. TH05's copy fixes this with the
 /// `(i == SCORE_DIGITS)` term in the same test; TH04 has no counterpart to it.
-/// Reachable — the score is reset to 0 for a Slow Mode run — and it renders
-/// wrongly rather than crashing, which is the discriminator
-/// kb/conventions/rec98-taxonomy.md uses.
+/// Reachable, and Slow Mode has nothing to do with it: Slow Mode skips the
+/// high score *table* entry (th04/main/hiscore.cpp, th04/hiscore/regist_menu.cpp)
+/// and never writes [score] or [score_last]. `[measured]`
+/// score_last_commit() (th04/main/execl.cpp) is the only writer of
+/// [resident->score_last] in TH04 and copies [score] unconditionally, so all
+/// eight bytes are 0 exactly when the run scored nothing AND used no continues
+/// — digits[0] is [score.continues_used] (th04/score.h), which
+/// th04/main/scoreupd.asm's adder skips and score_reset() preserves. The field
+/// renders on every MAINE.EXE path: th04/end/entry.cpp always reaches
+/// verdict_animate(), ahead of the SLOWDOWN_NO_VERDICT_MSG fork in
+/// th04/end/verdict_stats.cpp. `[inferred]` A game over on the first credit
+/// without shooting, grazing or collecting anything is such a run; not yet
+/// confirmed on an emulator. It renders wrongly rather than crashing, which is
+/// the discriminator kb/conventions/rec98-taxonomy.md uses.
 extern "C" void near graph_score_and_ten_put(void)
 {
 	// `[measured]` Declaration order is load-bearing: Turbo C++ gives the

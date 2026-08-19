@@ -205,11 +205,17 @@ void near regist_menu(void)
 	hiscore_scoredat_load_for(playchar);
 #endif
 
-	/// ZUN bug: Backwards? The message shown in the `else` branch says that
-	/// scores are not recorded in slow mode, yet it is slow mode
-	/// ([turbo_mode] being nonzero) that takes the branch which *does* enter
-	/// the score. `[measured]`, not inferred: `cmp turbo_mode, 0` /
-	/// `jnz` reaches regist_score_enter_from_resident() in both dumps.
+	/// `[measured]` This branch is CONSISTENT, and a ZUN-bug "Backwards?" note
+	/// here was retracted on 2026-08-18: it rested on reading `[turbo_mode]`
+	/// nonzero as "slow mode", which is inverted. Nonzero is TURBO mode —
+	/// `command_put(..., CDG_OPTION_SLOW - resident->turbo_mode)`
+	/// (th04/op/m_main.cpp) renders the SLOW label only when [turbo_mode] is 0,
+	/// CDG_OPTION_SLOW being CDG_OPTION_TURBO + 1 (th04/sprites/op_cdg.hpp), and
+	/// the bullet-density slowdown is gated on `turbo_mode == false`
+	/// (th04/main/bullet/update.cpp). So `cmp turbo_mode, 0` / `jnz` reaching
+	/// regist_score_enter_from_resident() — which is measured and correct — is
+	/// the TURBO path entering the score, while Slow Mode falls to the `else`
+	/// and shows SLOW_MODE_MSG. Message and behaviour agree.
 	if(resident->turbo_mode || (rank == RANK_EXTRA)) {
 		regist_score_enter_from_resident();
 		places_put(playchar_arg(playchar));
