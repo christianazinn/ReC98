@@ -141,4 +141,26 @@ void near rain_particle_spawn(void);
 // burst particles down; returns whether that slide is over.
 bool16 near rain_phase_update(void);
 
+// One frame of the first credit line: the .CDG image in [slot], centered at
+// ([x_center], [y_center]), fading in behind a gaiji curtain, held until
+// snd_bgm_measure() reports [measure], then fading back out and erasing
+// itself. Returns whether that whole cycle is over, which is what
+// staffroll_animate() waits for before moving on to the next line.
+//
+// Both this function and its state machine have to be called twice per frame,
+// once for each VRAM page: the first two calls blit the image, the next two
+// fade it in, and so on.
+bool16 pascal near credit_animate(
+	screen_x_t x_center, vram_y_t y_center, int slot, int measure
+);
+
+// credit_animate() for the second credit line — the one shown below the first
+// one and at the same time as it, on its own copy of the same state. ZUN
+// duplicated the entire function rather than parameterizing it, exactly as
+// TH04's staff roll duplicates dissolve_out_animate() into
+// dissolve_out_2_animate().
+bool16 pascal near credit_2_animate(
+	screen_x_t x_center, vram_y_t y_center, int slot, int measure
+);
+
 #endif /* TH05_STAFF_HPP */

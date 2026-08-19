@@ -301,6 +301,11 @@ maine_01__TEXT	segment	byte public 'CODE' use16
 	@SPACE_WINDOW_SET$QIIII procdesc pascal near \
 		center_x:word, center_y:word, w:word, h:word
 
+	@CREDIT_ANIMATE$QIIII procdesc pascal near \
+		x_center:word, y_center:word, slot:word, measure:word
+	@CREDIT_2_ANIMATE$QIIII procdesc pascal near \
+		x_center_2:word, y_center_2:word, slot_2:word, measure_2:word
+
 ORB_PARTICLE_CELS = 6
 PAT_ORB_PARTICLE = 0
 PAT_ORB_PARTICLE_last = (PAT_ORB_PARTICLE + ORB_PARTICLE_CELS - 1)
@@ -395,536 +400,23 @@ orb	equ <_particles[ORB_INDEX * size orb_particle_t]>
 ;
 ; Nothing may be added above this line.
 ;
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DBE6	proc near
-
-var_2C		= byte ptr -2Ch
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-arg_8		= word ptr  0Ch
-arg_A		= word ptr  0Eh
-
-		enter	2Ch, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_8]
-		cmp	[bp+arg_2], 0
-		jge	short loc_DBFF
-		mov	byte_11846, 1
-		mov	al, 1
-		jmp	loc_DCF6
-; ---------------------------------------------------------------------------
-
-loc_DBFF:
-		mov	ax, [bp+arg_6]
-		mov	bx, 10h
-		cwd
-		idiv	bx
-		add	ax, 7
-		cmp	ax, [bp+arg_2]
-		jge	short loc_DC48
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 1
-		mov	ax, [bp+arg_A]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		push	di
-		mov	ax, [bp+arg_A]
-		add	ax, [bp+arg_6]
-		dec	ax
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, di
-		add	ax, [bp+arg_4]
-		dec	ax
-		push	ax
-		call	grcg_byteboxfill_x
-		GRCG_OFF_CLOBBERING dx
-		mov	al, 2
-		jmp	loc_DCF6
-; ---------------------------------------------------------------------------
-
-loc_DC48:
-		mov	bx, 8
-		mov	ax, [bp+arg_A]
-		cwd
-		idiv	bx
-		mov	[bp+arg_A], ax
-		mov	bx, 10h
-		mov	ax, di
-		cwd
-		idiv	bx
-		mov	di, ax
-		mov	ax, [bp+arg_6]
-		cwd
-		idiv	bx
-		mov	[bp+arg_6], ax
-		mov	ax, [bp+arg_4]
-		cwd
-		idiv	bx
-		mov	[bp+arg_4], ax
-		cmp	[bp+arg_0], 0
-		jle	short loc_DC7D
-		mov	[bp+var_2], 0
-		jmp	short loc_DC84
-; ---------------------------------------------------------------------------
-
-loc_DC7D:
-		mov	ax, [bp+arg_6]
-		dec	ax
-		mov	[bp+var_2], ax
-
-loc_DC84:
-		xor	si, si
-		jmp	short loc_DCD0
-; ---------------------------------------------------------------------------
-
-loc_DC88:
-		cmp	[bp+arg_2], 7
-		jl	short loc_DC9A
-		lea	bx, [bp+var_2C]
-		add	bx, [bp+var_2]
-		mov	byte ptr ss:[bx], 152
-		jmp	short loc_DCBA
-; ---------------------------------------------------------------------------
-
-loc_DC9A:
-		cmp	[bp+arg_2], 0
-		jge	short loc_DCAC
-		lea	bx, [bp+var_2C]
-		add	bx, [bp+var_2]
-		mov	byte ptr ss:[bx], 2
-		jmp	short loc_DCBA
-; ---------------------------------------------------------------------------
-
-loc_DCAC:
-		lea	bx, [bp+var_2C]
-		add	bx, [bp+var_2]
-		mov	al, 159
-		sub	al, byte ptr [bp+arg_2]
-		mov	ss:[bx], al
-
-loc_DCBA:
-		mov	ax, si
-		add	ax, ax
-		add	ax, [bp+arg_A]
-		cmp	ax, 50h	; 'P'
-		jge	short loc_DCD5
-		inc	si
-		mov	ax, [bp+arg_0]
-		add	[bp+var_2], ax
-		dec	[bp+arg_2]
-
-loc_DCD0:
-		cmp	si, [bp+arg_6]
-		jl	short loc_DC88
-
-loc_DCD5:
-		mov	[bp+si+var_2C],	0
-		xor	si, si
-		jmp	short loc_DCEF
-; ---------------------------------------------------------------------------
-
-loc_DCDD:
-		push	[bp+arg_A]
-		push	di
-		push	ss
-		lea	ax, [bp+var_2C]
-		push	ax
-		push	TX_BLACK
-		call	gaiji_putsa
-		inc	si
-		inc	di
-
-loc_DCEF:
-		cmp	si, [bp+arg_4]
-		jle	short loc_DCDD
-		mov	al, 0
-
-loc_DCF6:
-		pop	di
-		pop	si
-		leave
-		retn	0Ch
-sub_DBE6	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DCFC	proc near
-
-var_4     	= word ptr -4
-var_2     	= word ptr -2
-@@measure     	= word ptr  4
-@@slot    	= word ptr  6
-@@y_center	= word ptr  8
-@@x_center	= word ptr  0Ah
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, [bp+@@y_center]
-
-		cdg_slot_offset	ax, [bp+@@slot]
-
-		mov	si, ax
-		mov	ax, [si+cdg_t.pixel_w]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		sub	[bp+@@x_center], ax
-		mov	ax, [si+cdg_t.pixel_h]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		sub	di, ax
-		cmp	word_11848, 1
-		jg	loc_DDBC
-		mov	ax, [si+cdg_t.pixel_w]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, 7
-		mov	word_151C4, ax
-		mov	word_151C6, 0
-		inc	word_11848
-		call	cdg_put_noalpha_8 pascal, [bp+@@x_center], di, [bp+@@slot]
-		mov	[bp+var_2], 0
-		jmp	short loc_DDB1
-; ---------------------------------------------------------------------------
-
-loc_DD5A:
-		mov	[bp+var_4], 0
-		jmp	short loc_DDA2
-; ---------------------------------------------------------------------------
-
-loc_DD61:
-		mov	ax, [bp+@@x_center]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, [bp+var_4]
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		cmp	dx, 50h	; 'P'
-		jge	short loc_DD9E
-		mov	ax, [bp+@@x_center]
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, [bp+var_4]
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		push	dx
-		mov	ax, di
-		mov	bx, 16
-		cwd
-		idiv	bx
-		push	ax
-		push	ds
-		push	offset unk_1184C
-		push	TX_BLACK + TX_REVERSE
-		call	text_putsa
-
-loc_DD9E:
-		add	[bp+var_4], 10h
-
-loc_DDA2:
-		mov	ax, [si+2]
-		cmp	ax, [bp+var_4]
-		jge	short loc_DD61
-		add	[bp+var_2], 10h
-		add	di, 10h
-
-loc_DDB1:
-		mov	ax, [si+4]
-		cmp	ax, [bp+var_2]
-		jge	short loc_DD5A
-		jmp	loc_DE6C
-; ---------------------------------------------------------------------------
-
-loc_DDBC:
-		cmp	word_11848, 3
-		jg	short loc_DE01
-		inc	word_151C6
-		mov	ax, word_151C6
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DDD8
-		dec	word_151C4
-
-loc_DDD8:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	word_151C4
-		push	1
-		call	sub_DBE6
-		cmp	al, 1
-		jnz	short loc_DE6C
-		inc	word_11848
-		mov	word_151C4, 0
-		mov	word_151C6, 0
-		jmp	short loc_DE6C
-; ---------------------------------------------------------------------------
-
-loc_DE01:
-		mov	ax, measure_151E0
-		cmp	ax, [bp+@@measure]
-		jl	short loc_DE6C
-		cmp	[bp+@@measure], 3996
-		jz	short loc_DE6C
-		cmp	word_11848, 4
-		jnz	short loc_DE49
-		inc	word_151C6
-		mov	ax, word_151C6
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DE2C
-		inc	word_151C4
-
-loc_DE2C:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	word_151C4
-		push	0FFFFh
-		call	sub_DBE6
-		cmp	al, 2
-		jnz	short loc_DE6C
-		inc	word_11848
-		jmp	short loc_DE6C
-; ---------------------------------------------------------------------------
-
-loc_DE49:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	80FFFFh
-		call	sub_DBE6
-		mov	word_11848, 0
-		mov	byte_11846, 1
-		mov	ax, 1
-		jmp	short loc_DE6E
-; ---------------------------------------------------------------------------
-
-loc_DE6C:
-		xor	ax, ax
-
-loc_DE6E:
-		pop	di
-		pop	si
-		leave
-		retn	8
-sub_DCFC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_DE74	proc near
-
-var_4     	= word ptr -4
-var_2     	= word ptr -2
-@@measure     	= word ptr  4
-@@slot    	= word ptr  6
-@@y_center	= word ptr  8
-@@x_center	= word ptr  0Ah
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, [bp+@@y_center]
-
-		cdg_slot_offset	ax, [bp+@@slot]
-
-		mov	si, ax
-		mov	ax, [si+cdg_t.pixel_w]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		sub	[bp+@@x_center], ax
-		mov	ax, [si+cdg_t.pixel_h]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		sub	di, ax
-		cmp	word_1184A, 1
-		jg	loc_DF34
-		mov	ax, [si+cdg_t.pixel_w]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, 7
-		mov	word_151C8, ax
-		mov	word_151CA, 0
-		inc	word_1184A
-		call	cdg_put_noalpha_8 pascal, [bp+@@x_center], di, [bp+@@slot]
-		mov	[bp+var_2], 0
-		jmp	short loc_DF29
-; ---------------------------------------------------------------------------
-
-loc_DED2:
-		mov	[bp+var_4], 0
-		jmp	short loc_DF1A
-; ---------------------------------------------------------------------------
-
-loc_DED9:
-		mov	ax, [bp+@@x_center]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, [bp+var_4]
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		cmp	dx, 50h	; 'P'
-		jge	short loc_DF16
-		mov	ax, [bp+@@x_center]
-		cwd
-		idiv	bx
-		push	ax
-		mov	ax, [bp+var_4]
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		push	dx
-		mov	ax, di
-		mov	bx, 16
-		cwd
-		idiv	bx
-		push	ax
-		push	ds
-		push	offset unk_1184F
-		push	TX_BLACK + TX_REVERSE
-		call	text_putsa
-
-loc_DF16:
-		add	[bp+var_4], 10h
-
-loc_DF1A:
-		mov	ax, [si+cdg_t.pixel_w]
-		cmp	ax, [bp+var_4]
-		jge	short loc_DED9
-		add	[bp+var_2], 10h
-		add	di, 10h
-
-loc_DF29:
-		mov	ax, [si+cdg_t.pixel_h]
-		cmp	ax, [bp+var_2]
-		jge	short loc_DED2
-		jmp	loc_DFE4
-; ---------------------------------------------------------------------------
-
-loc_DF34:
-		cmp	word_1184A, 3
-		jg	short loc_DF79
-		inc	word_151CA
-		mov	ax, word_151CA
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DF50
-		dec	word_151C8
-
-loc_DF50:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	word_151C8
-		push	1
-		call	sub_DBE6
-		cmp	al, 1
-		jnz	short loc_DFE4
-		inc	word_1184A
-		mov	word_151C8, 0
-		mov	word_151CA, 0
-		jmp	short loc_DFE4
-; ---------------------------------------------------------------------------
-
-loc_DF79:
-		mov	ax, measure_151E0
-		cmp	ax, [bp+@@measure]
-		jl	short loc_DFE4
-		cmp	[bp+@@measure], 3996
-		jz	short loc_DFE4
-		cmp	word_1184A, 4
-		jnz	short loc_DFC1
-		inc	word_151CA
-		mov	ax, word_151CA
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_DFA4
-		inc	word_151C8
-
-loc_DFA4:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	word_151C8
-		push	0FFFFh
-		call	sub_DBE6
-		cmp	al, 2
-		jnz	short loc_DFE4
-		inc	word_1184A
-		jmp	short loc_DFE4
-; ---------------------------------------------------------------------------
-
-loc_DFC1:
-		push	[bp+@@x_center]
-		push	di
-		push	[si+cdg_t.pixel_w]
-		push	[si+cdg_t.pixel_h]
-		push	80FFFFh
-		call	sub_DBE6
-		mov	word_1184A, 0
-		mov	byte_11846, 1
-		mov	ax, 1
-		jmp	short loc_DFE6
-; ---------------------------------------------------------------------------
-
-loc_DFE4:
-		xor	ax, ax
-
-loc_DFE6:
-		pop	di
-		pop	si
-		leave
-		retn	8
-sub_DE74	endp
-
-
+; The two credit lines, and the gaiji curtain that fades each of them in and
+; out, now live in th05/space.cpp as credit_fade_put(), credit_animate() and
+; credit_2_animate(). They extend the same contiguous prefix as the eleven
+; bodies above, into the object Tupfile.lua lists directly before this dump.
+;
+; credit_animate() and credit_2_animate() are the same body on two state sets,
+; duplicated in the original the way TH04's staff roll duplicates
+; dissolve_out_animate() into dissolve_out_2_animate(). credit_fade_put() is
+; static: both of its callers went with it, and nothing here reaches it.
+;
+; All three have stack locals, so the build's -k- emits their `enter` on its
+; own and none of them needed kb/codegen/0042's per-function -k. wrapper.
+;
+; kb/codegen/0121: none of the three deleted bodies contained an `assume`.
+;
+; Nothing may be added above this line.
+;
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -1422,7 +914,7 @@ loc_E5AB:
 		jle	short loc_E5C9
 		push	(528 shl 16) or 240
 		push	(1 shl 16) or 76
-		call	sub_DE74
+		call	@CREDIT_2_ANIMATE$QIIII
 		or	ax, ax
 		jz	short loc_E5C9
 		xor	si, si
@@ -1430,7 +922,7 @@ loc_E5AB:
 loc_E5C9:
 		push	(464 shl 16) or 192
 		pushd	(0 shl 16) or 76
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		inc	si
@@ -1442,7 +934,7 @@ loc_E5E1:
 		call	@orb_phase_update$qv
 		push	(464 shl 16) or 200
 		push	(2 shl 16) or 92
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1456,7 +948,7 @@ loc_E600:
 		jle	short loc_E61E
 		push	(464 shl 16) or 224
 		push	(4 shl 16) or 120
-		call	sub_DE74
+		call	@CREDIT_2_ANIMATE$QIIII
 		or	ax, ax
 		jz	short loc_E61E
 		xor	si, si
@@ -1464,7 +956,7 @@ loc_E600:
 loc_E61E:
 		push	(464 shl 16) or 176
 		push	(3 shl 16) or 120
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		inc	si
@@ -1484,7 +976,7 @@ loc_E648:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(5 shl 16) or 172
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1494,7 +986,7 @@ loc_E663:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(6 shl 16) or 188
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1504,7 +996,7 @@ loc_E67E:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(7 shl 16) or 204
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1514,7 +1006,7 @@ loc_E699:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(8 shl 16) or 220
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1524,7 +1016,7 @@ loc_E6B4:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 200
 		push	(9 shl 16) or 236
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		mov	di, ax
 		call	sub_E349
 		or	di, di
@@ -1565,7 +1057,7 @@ loc_E70D:
 		call	@rain_phase_update$qv
 		push	(176 shl 16) or 368
 		push	(10 shl 16) or 3996
-		call	sub_DCFC
+		call	@CREDIT_ANIMATE$QIIII
 		inc	si
 		cmp	si, 400
 		; Hack (jl	loc_E7BB)
@@ -2052,13 +1544,30 @@ word_11842	dw 0
 public _rain_phase_frame
 _rain_phase_frame	label word
 word_11844	dw 0
+; kb/codegen/0123: zero-byte alias. The still-ASM frame function below is
+; the one that acts on this flag, so its storage has to stay here anyway.
+public _text_clear_pending
+_text_clear_pending	label byte
 byte_11846	db 0
 		db 0
+; kb/codegen/0123: zero-byte aliases for the two credit lines' phase
+; counters and for the black text-layer strings each line blanks its image
+; area with. All six users are now in th05/space.cpp; the storage stays
+; here because it is initialised data, so moving it would move it from
+; _DATA to _BSS and shift every address after it.
+public _credit_phase
+_credit_phase	label word
 word_11848	dw 0
+public _credit_2_phase
+_credit_2_phase	label word
 word_1184A	dw 0
+public _CREDIT_BLACK
+_CREDIT_BLACK	label byte
 unk_1184C	db  20h
 		db  20h
 		db    0
+public _CREDIT_2_BLACK
+_CREDIT_2_BLACK	label byte
 unk_1184F	db  20h
 		db  20h
 		db    0
@@ -2136,9 +1645,21 @@ byte_151A5	db ?
 		db 27 dup(?)
 byte_151C1	db ?
 		db 2 dup(?)
+; kb/codegen/0123: zero-byte aliases for the two credit lines' fade
+; curtains -- the cel of the column each curtain leads with, and the frame
+; counter that steps it. credit_animate() and credit_2_animate() are the
+; sole users of their respective pair.
+public _credit_fade_cel
+_credit_fade_cel	label word
 word_151C4	dw ?
+public _credit_fade_frame
+_credit_fade_frame	label word
 word_151C6	dw ?
+public _credit_2_fade_cel
+_credit_2_fade_cel	label word
 word_151C8	dw ?
+public _credit_2_fade_frame
+_credit_2_fade_frame	label word
 word_151CA	dw ?
 byte_151CC	db ?
 		db ?
@@ -2165,6 +1686,12 @@ _space_camera_velocity	Point <?>
 public _particle_decel
 _particle_decel	label word
 word_151DE	dw ?
+; kb/codegen/0123: zero-byte alias for the measure snd_bgm_measure() last
+; reported. Both credit lines time their fade-out on it, and the still-ASM
+; frame function below writes it. Scoped because this binary already links
+; a different [measure_cur], in th05/end/allcast.cpp.
+public _staffroll_measure_cur
+_staffroll_measure_cur	label word
 measure_151E0	dw ?
 ; kb/codegen/0123: zero-byte alias for the scene's frame counter.
 ; staffroll_animate() zeroes it, sub_E349 increments it, and

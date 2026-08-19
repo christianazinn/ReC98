@@ -6,6 +6,7 @@
 
 #define OVERLAY_FADE_CELS 8
 #define RETURN_KEY_CELS 4u
+#define STAFF_FADE_CELS 8
 
 typedef enum {
 	g_NULL = '\0',
@@ -39,6 +40,21 @@ typedef enum {
 
 	g_OVERLAY_FADE,
 	g_OVERLAY_FADE_last = (g_OVERLAY_FADE + OVERLAY_FADE_CELS - 1),
+
+#if (GAME == 5)
+	// A second brightness ramp, structurally identical to the one above and
+	// ordered the same way — g_STAFF_FADE fully covers the pixel behind it,
+	// g_STAFF_FADE_last barely darkens it. Only TH05's staff roll uses these,
+	// as the curtain credit_fade_put() (th05/space.cpp) fades each credit
+	// image in and out behind.
+	//
+	// [inferred] The cel artwork was not inspected; the range is read off the
+	// two literals in that function, 0x98 and 0x9F, and off the fact that
+	// nothing between 0x40 and 0x9F is named.
+	g_STAFF_FADE = 0x98,
+	g_STAFF_FADE_last = (g_STAFF_FADE + STAFF_FADE_CELS - 1),
+#endif
+
 	gaiji_boldfont(0xA0),
 	gs_DOT = 0xC4,
 	gaiji_symbols_th02(0xC9),
