@@ -1436,7 +1436,7 @@ loc_C87C:
 		mov	si, ax
 		mov	eax, _player_pos.cur
 		mov	dword ptr [si+marisa_laser_t.BA_center], eax
-		call	sub_158CC
+		call	@sparks_add_circle_at_player$qv
 		mov	ax, _player_pos.cur.x
 		mov	[si+marisa_laser_t.BA_center.x], ax
 		mov	ax, _player_pos.cur.y
@@ -6584,17 +6584,23 @@ RANDRING_NEXT_DEF 2
 include th04/main/gather_point_render.asm
 include th04/main/pointnum/add.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_158CC	proc far
-		push	bp
-		mov	bp, sp
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _player_pos.cur.x, _player_pos.cur.y, large (((12 shl 4) shl 16) or 24)
-		pop	bp
-		retf
-sub_158CC	endp
+	; sparks_add_circle_at_player() now lives in th05/main031.cpp, which
+	; appends to this segment. The segment's only other contribution is this
+	; dump, so TLINK's link order drops the new object exactly where the body
+	; used to be (kb/codegen 0112 + 0114 + 0105) -- no carve, no new segment
+	; name, no group-list edit.
+	;
+	; Declared far here, with the encoding settled from the ORIGINAL binary
+	; BEFORE the split (kb/codegen 0082): exactly one call site reaches this
+	; symbol, a true 5-byte `9A` far call at load-image 0x0C8AA, and zero
+	; near-lowered ones. Its only caller, marisa_lasers_update_and_render(),
+	; sits in MB_INV_TEXT / group main_01, so TASM's SMART lowering cannot
+	; fire across the group boundary.
+	;
+	; Lowercase because the C++ prototype is not `pascal`: per kb/codegen
+	; 0103 it is this DECLARATION's case that reaches TLINK, not the call
+	; site's.
+	@sparks_add_circle_at_player$qv procdesc far
 main_031_TEXT	ends
 
 VECTOR2N_TEXT	segment byte public 'CODE' use16

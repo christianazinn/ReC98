@@ -1175,6 +1175,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/cdg_load.asm",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
+	"th05/main031.cpp",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
 	"th05/main033.cpp",
