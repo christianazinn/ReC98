@@ -28,8 +28,9 @@ void pascal near kurumi_bg_render(void);
 void pascal near kurumi_fg_render(void);
 void pascal  far kurumi_update(void);
 
-// Elly's fight. All three are still in th04_main.asm, which publishes them
-// under their mangled UPPER-case spelling for this header.
+// Elly's fight. elly_fg_render() is already C++ (th04/main/boss/b3_fg.cpp);
+// the other two are still in th04_main.asm, which publishes them under their
+// mangled UPPER-case spelling for this header.
 void pascal near elly_bg_render(void);
 void pascal near elly_fg_render(void);
 void pascal  far elly_update(void);

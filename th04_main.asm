@@ -6173,94 +6173,17 @@ loc_11DFB:
 sub_11DE6	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @ELLY_FG_RENDER$QV
-@elly_fg_render$qv	proc near
-
-@@patnum	= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_11E5D
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_11E48
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		jmp	short loc_11E71
-; ---------------------------------------------------------------------------
-
-loc_11E48:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		jmp	short loc_11E71
-; ---------------------------------------------------------------------------
-
-loc_11E5D:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_11E71
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_11E71:
-		cmp	byte_25A27, 1
-		jnz	short loc_11EC1
-		cmp	motion_25A28.cur.x, 0
-		jl	short loc_11EC1
-		cmp	motion_25A28.cur.x, (384 shl 4)
-		jge	short loc_11EC1
-		cmp	motion_25A28.cur.y, 0
-		jl	short loc_11EC1
-		cmp	motion_25A28.cur.y, (368 shl 4)
-		jge	short loc_11EC1
-		mov	ax, motion_25A28.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, motion_25A28.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, 142
-		mov	[bp+@@patnum], ax
-		call	super_put pascal, si, di, ax
-
-loc_11EC1:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@elly_fg_render$qv	endp
-
+	; elly_fg_render() now lives in th04/main/boss/b3_fg.cpp, which
+	; th04/main_012.cpp compiles into this segment's only C++ contribution,
+	; ahead of stage_state_reset() and therefore at this very address.
+	; TLINK appends that object after this root contribution, and this proc
+	; was the last thing in it, so every byte stays where it was -- no carve
+	; and no new segment name (kb/codegen 0098 + 0105 + 0112).
+	;
+	; Nothing in this file referenced it. Its only caller is the
+	; [boss_fg_render_func] pointer, which stage3_setup()
+	; (th04/main/stage/setup.cpp) already assigns from C++, so it needs
+	; neither a `procdesc` nor a `public` here.
 
 	; stage_state_reset() now lives in th04/main/stage/reset.cpp, which
 	; th04/main_012.cpp compiles into the only C++ contribution to this
@@ -26711,7 +26634,15 @@ byte_25A1E	db ?
 byte_25A24	db ?
 		db ?
 byte_25A26	db ?
+; Elly's single thrown entity and the byte that tracks it. Private dump
+; labels that the ASM in this file still references, so they take zero-byte
+; `label` aliases rather than a rename (kb/codegen 0123). elly_fg_render()
+; (th04/main/boss/b3_fg.cpp) is the only C++ reader of either.
+public _elly_boomerang_flag
+_elly_boomerang_flag label byte
 byte_25A27	db ?
+public _elly_boomerang_pos
+_elly_boomerang_pos label word
 motion_25A28	motion_t <?>
 word_25A34	dw ?
 angle_25A36	db ?
