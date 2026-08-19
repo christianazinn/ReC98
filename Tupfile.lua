@@ -1222,6 +1222,11 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/cutscene.cpp",
 	"th05/allcast.cpp",
 	"th05/regist.cpp",
+	-- POSITION-CRITICAL: th05/space.cpp contributes to MAINE_01__TEXT, and
+	-- TLINK concatenates a segment's contributions in link order. It has to
+	-- stay immediately before th05_maine.asm, or its bodies land at that
+	-- segment's tail instead of at the head of the dump's block.
+	"th05/space.cpp",
 	"th05_maine.asm",
 	"th05/staff.cpp",
 })
