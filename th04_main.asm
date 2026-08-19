@@ -2856,7 +2856,7 @@ loc_E5EF:
 		call	gaiji_putsa pascal, (20 shl 16) + 12, ds, offset gGAMEOVER, TX_WHITE
 		call	@input_wait_for_change$qi pascal, 0
 		call	@overlay_wipe$qv
-		call	main_01:sub_E67A
+		call	@continue_prompt$qv
 		mov	ah, 0
 		mov	[bp+var_2], ax
 		mov	byte_25660, 20h	; ' '
@@ -2906,151 +2906,30 @@ loc_E675:
 sub_E541	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; continue_prompt() now lives in th04/main/continue.cpp, which
+	; th04/execl.cpp #includes AHEAD of th04/main/execl.cpp
+	; (kb/codegen/0129), so that it lands here at its original address,
+	; before score_last_commit() and GameExecl(). It was the LAST proc of
+	; this root contribution and that file's object already appended
+	; immediately after it, so no carve and no new segment were needed
+	; (kb/codegen/0099 + 0112).
+	;
+	; The lift may NOT go into th04/main/execl.cpp itself: th05/execl.cpp
+	; #includes that same shared body, and TH05's counterpart to this
+	; function is still ASM in th05_main.asm.
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution.
+	;
+	; `procdesc near`, so the one call site above is spelled UNQUALIFIED
+	; -- the `main_01:` group override it carried had to go, exactly as
+	; score_reset()'s site did.
+	@continue_prompt$qv procdesc near
 
-; Attributes: bp-based frame
-
-sub_E67A	proc near
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_stage_id, 6
-		jz	loc_E7D8
-		xor	di, di
-		mov	si, 1
-		mov	al, 3
-		sub	al, _continues_used
-		mov	[bp+var_2], al
-		cmp	[bp+var_2], 0
-		jz	loc_E7D8
-		call	gaiji_putsa pascal, (19 shl 16) + 10, ds, offset gCONTINUE?, TX_WHITE
-		call	gaiji_putsa pascal, (24 shl 16) + 13, ds, offset gYES, TX_GREEN + TX_REVERSE
-		call	gaiji_putsa pascal, (25 shl 16) + 15, ds, offset gNO, TX_WHITE
-		call	gaiji_putsa pascal, (19 shl 16) + 22, ds, offset gCREDIT, TX_GREEN
-		push	(33 shl 16) + 22
-		mov	al, [bp+var_2]
-		mov	ah, 0
-		add	ax, gb_0_
-		push	ax
-		push	TX_GREEN
-		call	gaiji_putca
-		call	@input_reset_sense$qv
-
-loc_E703:
-		call	@input_sense$qv
-		or	si, si
-		jnz	short loc_E783
-		mov	si, _key_det
-		test	si, INPUT_UP
-		jnz	short loc_E71C
-		test	si, INPUT_DOWN
-		jz	short loc_E76A
-
-loc_E71C:
-		mov	ax, 1
-		sub	ax, di
-		mov	di, ax
-		or	di, di
-		jnz	short loc_E72D
-		mov	[bp+var_1], TX_GREEN + TX_REVERSE
-		jmp	short loc_E731
-; ---------------------------------------------------------------------------
-
-loc_E72D:
-		mov	[bp+var_1], TX_WHITE
-
-loc_E731:
-		push	(24 shl 16) + 13
-		push	ds
-		push	offset gYES
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		call	gaiji_putsa
-		cmp	di, 1
-		jnz	short loc_E751
-		mov	[bp+var_1], TX_GREEN + TX_REVERSE
-		jmp	short loc_E755
-; ---------------------------------------------------------------------------
-
-loc_E751:
-		mov	[bp+var_1], TX_WHITE
-
-loc_E755:
-		push	(25 shl 16) + 15
-		push	ds
-		push	offset gNO
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		call	gaiji_putsa
-
-loc_E76A:
-		test	si, INPUT_CANCEL
-		jz	short loc_E775
-		mov	di, 1
-		jmp	short loc_E796
-; ---------------------------------------------------------------------------
-
-loc_E775:
-		test	si, INPUT_OK
-		jnz	short loc_E796
-		test	si, INPUT_SHOT
-		jz	short loc_E787
-		jmp	short loc_E796
-; ---------------------------------------------------------------------------
-
-loc_E783:
-		mov	si, _key_det
-
-loc_E787:
-		call	@input_reset_sense$qv
-		call	@frame_delay$qi pascal, 1
-		jmp	loc_E703
-; ---------------------------------------------------------------------------
-
-loc_E796:
-		or	di, di
-		jnz	short loc_E7D8
-		call	@hiscore_continue_enter$qv
-		mov	_power, POWER_MIN
-		mov	_dream_items_collected, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	es:[bx+resident_t.rem_bombs], al
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	es:[bx+resident_t.rem_lives], al
-		nopcall	main_01:sub_11DE6
-		nopcall	main_01:hud_lives_put
-		nopcall	main_01:hud_bombs_put
-		inc	_continues_used
-		call	@score_reset$qv
-		call	hud_score_put
-		mov	al, Q_KEEP_RUNNING
-		jmp	short loc_E7DA
-; ---------------------------------------------------------------------------
-
-loc_E7D8:
-		; *Not* Q_QUIT_TO_OP; the calling function checks for this value and
-		; launches MAINE.EXE with the score tally instead.
-		mov	al, 1
-
-loc_E7DA:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E67A	endp
-
-
-; The C++ contribution to EXECL_TEXT goes here, at the original address of
-; score_last_commit(), which is followed by GameExecl(). Both games now own
-; the whole segment in th04/main/execl.cpp; this root contribution is
-; codeless and only establishes the segment.
+; The C++ contributions to EXECL_TEXT go here: th04/main/continue.cpp at
+; the original address of continue_prompt(), then th04/main/execl.cpp at
+; the original address of score_last_commit(), which is followed by
+; GameExecl().
 EXECL_TEXT	ends
 
 ; ===========================================================================
@@ -6245,6 +6124,11 @@ include th04/main/player/shot_velocity.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+; Zero-byte alias (kb/codegen/0123) so that th04/main/continue.cpp can name
+; this proc in the `nop` + `push cs` + near call it has to hand-spell for
+; the `nopcall` above. The dump's own call sites keep the bare spelling.
+public _sub_11DE6
+_sub_11DE6 label near
 sub_11DE6	proc far
 		xor	bx, bx
 		xor	ax, ax
