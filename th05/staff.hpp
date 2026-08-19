@@ -123,4 +123,22 @@ void near orb_particle_emit(void);
 // Shifts the orb's position history down by one and records where it is now.
 void near orb_trails_advance(void);
 
+// Advances the gather animation by one frame: every particle cycles through
+// its cels as it flies in, and the orb they gather into grows.
+void near orb_gather_animate(void);
+
+// One frame of the orb phase, between orb_gather_end() and orb_burst().
+// Scripts the camera and slides the space window off to the left; returns
+// whether that slide is over.
+bool16 near orb_phase_update(void);
+
+// Recycles the next particle in [particles] as a raindrop entering the space
+// window from above. Stops once the whole array has been walked once.
+void near rain_particle_spawn(void);
+
+// One frame of the rain phase, after orb_burst(). Undoes the orb phase's
+// camera script, slides the space window back over the screen and rains the
+// burst particles down; returns whether that slide is over.
+bool16 near rain_phase_update(void);
+
 #endif /* TH05_STAFF_HPP */
