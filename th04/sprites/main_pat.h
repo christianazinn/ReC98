@@ -1,3 +1,6 @@
+#ifndef TH04_SPRITES_MAIN_PAT_H
+#define TH04_SPRITES_MAIN_PAT_H
+
 #include "th04/sprites/cels.h"
 
 typedef enum {
@@ -202,3 +205,5 @@ typedef enum {
 
 	_main_patnum_t_FORCE_INT16 = 0x7FFF,
 } main_patnum_t;
+
+#endif /* TH04_SPRITES_MAIN_PAT_H */

@@ -63,14 +63,25 @@ extern "C" {
 // [frame] 40 on it calls the current pattern and returns *its* result; every
 // earlier path returns false.
 //
-// [inferred] name, from the behaviour above and this tree's own vocabulary:
-// `flystep` is what the four other `bool pascal near f(int frame)` step-and-
-// report-done functions call the movement half (boss_flystep_random,
-// boss_flystep_towards, marisa_flystep_pointreflected and
-// mai_yuki_flystep_random),
-// and `_and_pattern` is the half they do not have. th05/main/boss/b1.cpp's
-// phase_2_3_wait_fly_and_select_pattern is the same compound shape in the same
-// role, one level up.
+// [inferred] name, from the behaviour above and this tree's own vocabulary.
+//
+// `flystep` is what this tree calls the movement half of a routine that steps
+// a boss's or midboss's flight and reports whether that flight is done. The
+// family is defined by that ROLE, not by a signature: its four unqualified
+// members are boss_flystep_random, boss_flystep_towards,
+// marisa_flystep_pointreflected and mai_yuki_flystep_random, all `bool pascal
+// near`, but they agree only in the return. Only boss_flystep_random and
+// mai_yuki_flystep_random take an `int frame`;
+// marisa_flystep_pointreflected takes an `int duration`, and
+// boss_flystep_towards takes two subpixel_t coordinates and no counter at all.
+// (Naming round 16 stated this census as a four-member
+// `bool pascal near f(int frame)` family; round 17 measured it and two of the
+// four do not have that shape. The stem survives, the signature claim does
+// not.) Eight further identifiers carry `flystep` as helpers or ticks.
+//
+// `_and_pattern` is the half none of the four has. th05/main/boss/b1.cpp's
+// phase_2_3_wait_fly_and_select_pattern -- a `#define`, not a function -- is
+// the same compound shape in the same role, one level up.
 bool pascal near midbossx_flystep_and_pattern(int frame);
 
 // The pattern that phase 1 starts from. Its address is taken here and stored
@@ -83,11 +94,22 @@ bool pascal near midbossx_flystep_and_pattern(int frame);
 // solved-twin rule: pattern_curved_rings() in th05/main/boss/b6.cpp is the same
 // construct field for field -- BG_RING, blue, a randomly signed angle delta
 // chosen with randring2_next16_and(1) and parked in a [boss_statebyte] slot --
-// so `curved` is this tree's own token for that drift. `speedup` distinguishes
-// it from that twin's BSM_EXACT_LINEAR and from b1.cpp's
-// pattern_accelerating_rings, whose `accelerating` names a rising per-RING
-// speed rather than a per-bullet motion; BSM_SPEEDUP appears in no other C++
-// identifier, so that half is coined. 28 characters, so nothing truncates.
+// so `curved` is this tree's own token for that drift.
+//
+// `speedup` is BSM_SPEEDUP's own token, and it is NOT coined: cheeto_flag_t's
+// CF_SPEEDUP (th05/main/bullet/cheeto.hpp) already spells the same word for the
+// same physical behaviour in the same subsystem. One prior, not zero.
+//
+// What `speedup` distinguishes needs saying precisely, because the obvious
+// reading is wrong. It is NOT "this one speeds up and the twin does not":
+// pattern_curved_rings ramps bullet_template.speed by 0.5f every fourth frame,
+// which is a rising per-RING speed, exactly what b1.cpp's
+// pattern_accelerating_rings means by `accelerating`. The split is over WHICH
+// speed changes -- the twin raises the template's speed once per ring, this one
+// sets BSM_SPEEDUP, a per-BULLET special motion that the twin spells
+// BSM_EXACT_LINEAR. So `accelerating` and `speedup` are not synonyms competing
+// for one slot; they name different layers, and the tree does not yet mark the
+// per-ring layer consistently. 28 characters, so nothing truncates.
 bool near pattern_curved_speedup_rings(void);
 
 }
