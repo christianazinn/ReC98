@@ -46,14 +46,21 @@
 	#include "th04/main/null.hpp"
 	#include "th04/main/item/item.hpp"
 
-	// And these six exist only for bombchar.cpp, checked the same way. None
-	// of them is in this TU's closure yet, and the only unguarded ones —
-	// th02/v_colors.hpp, th04/hardware/grcg.hpp, th04/main/frames.h and
-	// th04/main/drawp.hpp — are each pulled in exactly once from here.
+	// And these exist only for bombchar.cpp, checked the same way. None of
+	// them is in this TU's closure yet, and the only unguarded ones —
+	// th04/hardware/grcg.hpp, th04/main/frames.h and th04/main/drawp.hpp —
+	// are each pulled in exactly once from here.
 	// th04/hardware/grcg.hpp brings nothing but pc98.h and x86real.h, and
 	// th04/main/drawp.hpp nothing but th04/main/playfld.hpp; all three are
 	// guarded and already present.
-	#include "th02/v_colors.hpp"
+	//
+	// th02/v_colors.hpp used to be on this list and is NOT any more. It is
+	// unguarded, and as of TH04's adoption of
+	// th04/main/player/bb_playchar_put.cpp that file reaches it first in this
+	// same object — which is the only object in the tree where both files are
+	// present. Naming it twice is a redefinition of `enum th02_vram_colors_t`.
+	// If this file is ever compiled without that one ahead of it, this is the
+	// line to put back.
 	#include "th04/hardware/grcg.hpp"
 	#include "th04/main/frames.h"
 	#include "th04/main/drawp.hpp"

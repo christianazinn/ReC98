@@ -4739,7 +4739,16 @@ PLAYER_B_TEXT	ends
 ; even-parity question does not arise, and there is no `even` to pad.
 SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
-include th04/main/player/bb_playchar_put.asm
+	; bb_playchar_put() now lives in th04/main/player/bb_playchar_put.cpp,
+	; which th04/shot_inv.cpp compiles into THIS segment at the FRONT of its
+	; object. It was the entire remaining root contribution here, which is now
+	; zero-length, so no carve, no new segment name, no group-list edit and no
+	; Tupfile.lua line were needed (kb/codegen 0112 + 0114). That file is
+	; shared with TH05, where th05/main010.cpp adopted it first.
+	;
+	; Unlike th05_main.asm this needs no procdesc: TH04's only call site is
+	; already C++, in th04/main/player/bombupd.cpp, and the undecorated
+	; upper-case export the module carried went with it.
 
 	; bomb_reimu() now lives in th04/main/player/bombchar.cpp, above
 	; bomb_marisa(), which is their original address order. It was the
