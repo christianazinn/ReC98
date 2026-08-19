@@ -2407,6 +2407,11 @@ include th04/main/player/shot_velocity.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+; Zero-byte alias (kb/codegen/0123) so that th05/main/continue.cpp can name
+; this proc in the `nop` + `push cs` + near call it has to hand-spell for
+; the `nopcall` above. The dump's own call sites keep the bare spelling.
+public _sub_E4FC
+_sub_E4FC label near
 sub_E4FC	proc far
 		xor	bx, bx
 		xor	ax, ax
@@ -2822,7 +2827,7 @@ loc_FA18:
 		call	gaiji_putsa pascal, (20 shl 16) + 12, ds offset gGAMEOVER, TX_WHITE
 		call	@input_wait_for_change$qi pascal, 0
 		call	@overlay_wipe$qv
-		call	sub_FAA3
+		call	@continue_prompt$qv
 		mov	ah, 0
 		mov	[bp+var_2], ax
 		mov	byte_2C99C, 20h	; ' '
@@ -2872,143 +2877,33 @@ loc_FA9E:
 sub_F976	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_FAA3	proc near
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_stage_id, 6
-		jz	loc_FBF5
-		xor	di, di
-		mov	si, 1
-		mov	al, 3
-		sub	al, _continues_used
-		mov	[bp+var_2], al
-		cmp	[bp+var_2], 0
-		jz	loc_FBF5
-		call	gaiji_putsa pascal, (19 shl 16) + 10, ds, offset gCONTINUE?, TX_WHITE
-		call	gaiji_putsa pascal, (24 shl 16) + 13, ds, offset gYES, TX_GREEN + TX_REVERSE
-		call	gaiji_putsa pascal, (25 shl 16) + 15, ds, offset gNO, TX_WHITE
-		call	gaiji_putsa pascal, (19 shl 16) + 22, ds, offset gCREDIT, TX_GREEN
-		push	(33 shl 16) + 22
-		mov	al, [bp+var_2]
-		mov	ah, 0
-		add	ax, gb_0_
-		push	ax
-		push	TX_GREEN
-		call	gaiji_putca
-
-loc_FB27:
-		call	@input_reset_sense_held$qv
-		or	si, si
-		jnz	short loc_FBA7
-		mov	si, _key_det
-		test	si, INPUT_UP
-		jnz	short loc_FB40
-		test	si, INPUT_DOWN
-		jz	short loc_FB8E
-
-loc_FB40:
-		mov	ax, 1
-		sub	ax, di
-		mov	di, ax
-		or	di, di
-		jnz	short loc_FB51
-		mov	[bp+var_1], TX_GREEN + TX_REVERSE
-		jmp	short loc_FB55
-; ---------------------------------------------------------------------------
-
-loc_FB51:
-		mov	[bp+var_1], TX_WHITE
-
-loc_FB55:
-		push	(24 shl 16) + 13
-		push	ds
-		push	offset gYES
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		call	gaiji_putsa
-		cmp	di, 1
-		jnz	short loc_FB75
-		mov	[bp+var_1], TX_GREEN + TX_REVERSE
-		jmp	short loc_FB79
-; ---------------------------------------------------------------------------
-
-loc_FB75:
-		mov	[bp+var_1], TX_WHITE
-
-loc_FB79:
-		push	(25 shl 16) + 15
-		push	ds
-		push	offset gNO
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		call	gaiji_putsa
-
-loc_FB8E:
-		test	si, INPUT_CANCEL
-		jz	short loc_FB99
-		mov	di, 1
-		jmp	short loc_FBB5
-; ---------------------------------------------------------------------------
-
-loc_FB99:
-		test	si, INPUT_OK
-		jnz	short loc_FBB5
-		test	si, INPUT_SHOT
-		jz	short loc_FBAB
-		jmp	short loc_FBB5
-; ---------------------------------------------------------------------------
-
-loc_FBA7:
-		mov	si, _key_det
-
-loc_FBAB:
-		call	@frame_delay$qi pascal, 1
-		jmp	loc_FB27
-; ---------------------------------------------------------------------------
-
-loc_FBB5:
-		or	di, di
-		jnz	short loc_FBF5
-		call	@hiscore_continue_enter$qv
-		mov	_power, POWER_MIN
-		mov	_dream, 1
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	_bombs, al
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	_lives, al
-		nopcall	sub_E4FC
-		nopcall	hud_lives_put
-		nopcall	hud_bombs_put
-		inc	_continues_used
-		call	_score_highest_update_and_reset
-		call	hud_score_put
-		mov	al, Q_KEEP_RUNNING
-		jmp	short loc_FBF7
-; ---------------------------------------------------------------------------
-
-loc_FBF5:
-		; *Not* Q_QUIT_TO_OP; the calling function checks for this value and
-		; launches MAINE.EXE with the score tally instead.
-		mov	al, 1
-
-loc_FBF7:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_FAA3	endp
+	; continue_prompt() now lives in th05/main/continue.cpp, which
+	; th05/laser.cpp #includes AHEAD of th05/main/bullet/laser.cpp
+	; (kb/codegen/0129), so that it lands here at its original address,
+	; before lasers_update() and lasers_render(). It was the LAST proc of
+	; this root contribution, and that file's object is the first one to
+	; put any bytes into this segment, so no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line were needed
+	; (kb/codegen/0099 + 0112).
+	;
+	; th05/laser_rh.cpp links into this segment BEFORE th05/laser.cpp,
+	; but contributes zero bytes to it: it only opens the segment by
+	; including th05/main/bullet/laser.hpp, whose `#pragma codeseg
+	; main__TEXT main_01` covers the two laser functions below. A
+	; zero-length map row is not a host.
+	;
+	; The lift may NOT go into th04/main/continue.cpp. That is TH04's
+	; body, it lands at the head of TH04's EXECL_TEXT in a different
+	; object, and five of its statements differ from this one's -- see
+	; the header comment of th05/main/continue.cpp.
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing
+	; to restore into the rest of this contribution.
+	;
+	; `procdesc near`. The one call site above was already spelled
+	; unqualified, so unlike TH04's it needed no `main_01:` group
+	; override removed.
+	@continue_prompt$qv procdesc near
 
 	@lasers_update$qv procdesc near
 	@lasers_render$qv procdesc near
