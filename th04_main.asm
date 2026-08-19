@@ -569,7 +569,7 @@ loc_AF4A:
 		cmp	word_213DE, 0
 		jz	short loc_AFD5
 		call	@bomb_bg_load__ems_preload_playch$qv
-		call	main_01:bb_playchar_load
+		call	bb_playchar_load
 		cmp	_playchar, PLAYCHAR_REIMU
 		jnz	short loc_AFA0
 		push	ds
@@ -3367,9 +3367,24 @@ HUD_PWR_TEXT	ends
 ; original address in the MIDDLE of the segment. Same
 ; `byte public 'CODE'` alignment as before, so nothing moves.
 HUD_PUT_TEXT	segment	byte public 'CODE' use16
+	; hud_bar_put() now lives in th04/main/hud/bar_put.cpp, compiled into
+	; this segment by th04/hud_bar.cpp, which the link list places directly
+	; ahead of th04/hud_put.cpp. TLINK lays a segment's contributions out
+	; in link order with the root dump first, so it lands exactly where the
+	; `include` that used to follow element_put.asm put it -- no carve and
+	; no new segment name (kb/codegen 0099 + 0105 + 0114).
+	;
+	; Declared HERE, at the head of the segment, rather than where that
+	; `include` was: hud_hp_put() in element_put.asm calls it, and that
+	; module is included below this point, so a declaration after it would
+	; be a forward reference. Same segment and therefore same group as the
+	; call site, which is what keeps TASM lowering that far call to
+	; `push cs` + a near call (kb/codegen/0082), with no edit to the
+	; element_put.asm both games share. Uppercase because it is __pascal
+	; (kb/codegen 0081, 0103).
+	HUD_BAR_PUT procdesc pascal far
 
 include th04/main/hud/element_put.asm
-include th04/main/hud/bar_put.asm
 
 	; hud_put() now lives in th04/main/hud/hud.cpp, which appends to this
 	; segment. Its `HUD_PUT procdesc pascal far` is declared at the top of
@@ -5084,7 +5099,27 @@ off_FF28	dw offset loc_FEE7
 		dw offset loc_FECF
 		dw offset loc_FECF
 
-include th04/formats/bb_playchar.asm
+	; bb_playchar_load() now lives in th04/formats/bb_playchar.cpp, which
+	; th04/player_b.cpp compiles into this segment ahead of bomb_reset()
+	; and player_bomb() -- the address it already had, because the module
+	; it replaces was the last thing this file contributed here
+	; (kb/codegen 0099 + 0112 + 0114). Same segment, same group as its one
+	; call site in DEMO_TEXT, which is why that site drops its `main_01:`
+	; override: every `procdesc near` in this file is called unqualified
+	; (kb/codegen/0082). Uppercase because it is __pascal and the export is
+	; undecorated (kb/codegen 0081, 0103).
+	;
+	; Declared BELOW its call site on purpose. A `procdesc pascal near`
+	; taking no arguments encodes identically either way, so the forward
+	; reference costs nothing -- and declaring it at the head of DEMO_TEXT
+	; instead, where hud_put()'s far procdesc has to live, would insert
+	; lines above line 343 and renumber every line-anchored citation into
+	; this file. That measured 8 blocking naming_precheck findings across
+	; six harness files, two of them claimed by other lanes.
+	;
+	; bb_playchar_free() gets no procdesc: nothing in this file references
+	; it. Its only caller is th04/main/execl.cpp, from C++.
+	BB_PLAYCHAR_LOAD procdesc pascal near
 
 	; bomb_reset() now lives in th04/main/player/bomb.cpp, above
 	; player_bomb(), which is its original address order: it was the LAST
@@ -22407,29 +22442,48 @@ main_035_TEXT	segment	byte public 'CODE' use16
 		assume es:nothing
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; boss_reset() now lives in th04/main/boss/reset.cpp -- the SAME file
+	; TH05 has compiled since before this harness existed. It was the LAST
+	; and, by then, the ONLY thing this file contributed to this segment, so
+	; th04/main_035.cpp appending it at the front of that object leaves every
+	; byte where it was (kb/codegen 0099 + 0112 + 0114).
+	;
+	; THIS FILE'S CONTRIBUTION TO main_035_TEXT IS NOW ZERO BYTES. The block
+	; stays because it still declares BB_BOSS_FREE and the seven stage
+	; setups, and because a zero-byte anchor is the shape BOSS_5R_TEXT and
+	; MB_DFR_TEXT already have in this same dump -- so the case is
+	; precedented here, not new. The `assume es:nothing` above is likewise
+	; kept: kb/codegen/0121, a reopened segment inherits nothing, and the
+	; declarations below sit inside it.
+	;
+	; No procdesc: nothing in this file ever referenced @boss_reset$qv. Its
+	; callers are th04/main/stage/setup.cpp and th04/main/boss/boss.cpp, both
+	; C++.
 
-; Attributes: bp-based frame
-public @boss_reset$qv
-@boss_reset$qv	proc near
-		push	bp
-		mov	bp, sp
-		setfarfp	_boss_update, nullfunc_far
-		mov	_boss_fg_render, offset nullfunc_near
-		mov	_boss_phase, PHASE_BOSS_HP_FILL
-		mov	_boss_mode, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_pos.velocity.x, 0
-		mov	_boss_pos.velocity.y, 0
-		mov	_boss_damage_this_frame, 0
-		nopcall	@explosions_small_reset$qv
-		mov	_boss_phase_timed_out, 1
-		pop	bp
-		retn
-@boss_reset$qv	endp
-
-include th04/formats/bb_boss.asm
+	; bb_boss_load() and bb_boss_free() now live in
+	; th04/formats/bb_boss.cpp -- the SAME file TH05 has compiled for
+	; months, whose `if GAME eq 5` arms this module mirrored line for line.
+	; th04/main_035.cpp includes it ahead of the stage setups, which is the
+	; address it already had, because this module was the last thing this
+	; file contributed to the segment (kb/codegen 0099 + 0112 + 0114).
+	;
+	; The one dump call site, in sub_B29E in DEMO_TEXT, is a plain far call
+	; across GROUPS -- main_01 to main_03 -- so it needs no override and no
+	; `nopcall` relaxation, and it did not change (kb/codegen/0083).
+	; Lowercase because bb_boss_free() is NOT __pascal, unlike
+	; BB_BOSS_LOAD; the module published each under its own case and TASM
+	; applies no case rule of its own (kb/codegen 0081, 0103).
+	;
+	; Declared here, at the seam, rather than above that call site: the
+	; forward reference is what the module itself already was -- it defined
+	; the far proc ~21,600 lines BELOW the call -- and putting a block above
+	; line 821 instead would renumber every line-anchored citation into this
+	; file, one of which lives in a harness file another lane holds.
+	;
+	; bb_boss_load() gets no procdesc: nothing in this file references it.
+	; Its callers are th04/main/stage/setup.cpp and th04/main/boss/boss.cpp,
+	; both C++.
+	@bb_boss_free$qv procdesc far
 
 	; ALL SEVEN stage setups -- stage1_setup() through stage6_setup(), and
 	; stagex_setup() -- now live in th04/main/stage/setup.cpp, which

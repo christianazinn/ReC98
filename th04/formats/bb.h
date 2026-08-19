@@ -1,3 +1,11 @@
+// Guarded because th04/main_035.cpp now includes it once for
+// th04/formats/bb_boss.cpp and th04/main/stage/setup.cpp includes it again
+// (kb/codegen/0129: at a collision set of ONE header, guarding is the cheap
+// fix; it was eleven that made guarding the wrong answer). Byte-inert: nothing
+// here is conditional on anything but GAME, which is fixed per build.
+#ifndef TH04_FORMATS_BB_H
+#define TH04_FORMATS_BB_H
+
 #include "pc98.h"
 
 #define BB_SIZE 2048
@@ -43,3 +51,5 @@ void far bb_boss_free(void);
 	bb_txt_put_8_raw(left, top);
 void __fastcall near bb_txt_put_8_raw(uscreen_x_t left, uvram_y_t top);
 /// ---------------------
+
+#endif /* TH04_FORMATS_BB_H */
