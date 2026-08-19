@@ -4,14 +4,16 @@
 /// a window that space_window_set() clips to and slides across the screen.
 ///
 /// The entities used to be declared inside th05/staff.cpp. They moved here
-/// because the scene is split across two objects, and ZUN's own segmentation
+/// because the scene is split across three objects, and ZUN's own segmentation
 /// is why: staff.cpp contributes to SCORE_TEXT, while the scene's animation
-/// code sits in MAINE_01__TEXT and therefore has to live in a separate
-/// translation unit (th05/space.cpp). One declaration, two users.
+/// code sits in MAINE_01__TEXT and therefore has to live in separate
+/// translation units (th05/space.cpp for the head of that block,
+/// th05/staffrol.cpp for its tail). One declaration, three users.
 
 #ifndef TH05_STAFF_HPP
 #define TH05_STAFF_HPP
 
+#include <stddef.h>
 #include "th01/math/dir.hpp"
 #include "th01/math/subpixel.hpp"
 
@@ -27,6 +29,12 @@ typedef enum {
 	PAT_ORB_PARTICLE_last = (PAT_ORB_PARTICLE + ORB_PARTICLE_CELS - 1),
 	PAT_STAR_BIG,
 	PAT_STAR_SMALL,
+	// ---------
+
+	// stf00.bft
+	// ---------
+	// The orb's four 32x32 cels, cycled through by space_put().
+	PAT_ORB,
 	// ---------
 } staff_patnum_t;
 /// -------------------------------------------
@@ -94,6 +102,43 @@ void pascal near space_window_set(
 	screen_x_t center_x, screen_y_t center_y, pixel_t w, pixel_t h
 );
 
+/// The verdict screen's VRAM snapshots
+/// -----------------------------------
+/// Two screens' worth of the E plane, kept in [verdict_bitmap] (th05/staff.cpp)
+/// so that staffroll_animate() can scroll between them at the end of the staff
+/// roll without redrawing either.
+static const pixel_t VERDICT_BITMAP_W = 320;
+static const pixel_t VERDICT_SCREEN_H = 352;
+static const vram_byte_amount_t VERDICT_BITMAP_VRAM_W = (
+	VERDICT_BITMAP_W / BYTE_DOTS
+);
+// `[measured]` Turbo C++ folds a `static const` integer into a literal whose
+// type is the *value's*, not the declaration's, so a comparison against this
+// constant comes out signed however it is spelled here. staffroll_animate()
+// needs one of them unsigned and casts its own operand instead.
+static const size_t VERDICT_SCREEN_SIZE = (
+	VERDICT_SCREEN_H * VERDICT_BITMAP_VRAM_W
+);
+
+// Both of these are still ASM, in th05/end/verdict_bitmap.asm, and both are
+// published there under their plain uppercased Pascal names rather than a
+// mangled C++ one — so both need C linkage here.
+extern "C" {
+
+// Copies a single verdict screen from
+//	(0, 0) - (VERDICT_BITMAP_W, VERDICT_SCREEN_H)
+// on the E plane in VRAM to ([verdict_bitmap] + [bitmap_offset]).
+void pascal near verdict_bitmap_snap(size_t bitmap_offset);
+
+// Blits a single verdict screen starting at
+// ([verdict_bitmap] + [bitmap_offset]) to
+//	(0, 0) - (VERDICT_BITMAP_W, VERDICT_SCREEN_H)
+// in VRAM.
+void pascal near verdict_bitmap_put(size_t bitmap_offset);
+
+}
+/// -----------------------------------
+
 // The scene's own animation, in MAINE_01__TEXT (th05/space.cpp).
 // -------------------------------------------------------------
 
@@ -141,6 +186,10 @@ void near rain_particle_spawn(void);
 // burst particles down; returns whether that slide is over.
 bool16 near rain_phase_update(void);
 
+// A [measure] that snd_bgm_measure() can never report, given to the one credit
+// line that is supposed to stay on screen until the staff roll itself ends.
+static const int CREDIT_MEASURE_HOLD = 3996;
+
 // One frame of the first credit line: the .CDG image in [slot], centered at
 // ([x_center], [y_center]), fading in behind a gaiji curtain, held until
 // snd_bgm_measure() reports [measure], then fading back out and erasing
@@ -162,5 +211,21 @@ bool16 pascal near credit_animate(
 bool16 pascal near credit_2_animate(
 	screen_x_t x_center, vram_y_t y_center, int slot, int measure
 );
+
+// Redraws the entire scene onto the current VRAM page: the space window is
+// cleared, every star, orb trail, orb and particle inside it is blitted, and
+// the 8-pixel border around it is painted over so that nothing survives the
+// window sliding across the screen.
+void near space_put(void);
+
+// One frame of the scene: space_update(), space_put(), a frame of delay, and
+// the page flip, followed by the pending text layer clear and the BGM measure
+// that both credit lines time their fade-out on.
+void near staffroll_frame_and_flip(void);
+
+// The staff roll itself, from the fade-in through the credits to the verdict
+// screen the player scrolls through at the end. The tail of th05_maine.asm's
+// MAINE_01__TEXT block, in th05/staffrol.cpp.
+void near staffroll_animate(void);
 
 #endif /* TH05_STAFF_HPP */

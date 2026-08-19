@@ -26,9 +26,12 @@
 #include "th05/staff.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/v_colors.hpp"
+#include "th02/hardware/frmdelay.h"
 #include "th04/math/vector.hpp"
 #include "th04/gaiji/gaiji.h"
 #include "th04/formats/cdg.h"
+#include "th05/snd/snd.h"
 
 // Storage that stays in th05_maine.asm because still-ASM procedures further
 // down the segment share it, reached through kb/codegen/0123 zero-byte
@@ -81,12 +84,17 @@ extern int rain_particle_i;
 extern int rain_phase_frame;
 
 // Set by everything that leaves gaiji or text behind on the text layer, and
-// acted on once per frame by the still-ASM frame function further down the
-// segment, which calls text_clear() and clears this again.
+// acted on once per frame by staffroll_frame_and_flip(), which calls
+// text_clear() and clears this again.
 extern bool text_clear_pending;
 
+// Steps the orb's own cel, once per rendered frame in which the orb is a
+// finished circle. Its only user is space_put(); nothing ever resets it, so it
+// simply wraps around its own 8-bit range.
+extern unsigned char orb_cel_frame;
+
 // The measure snd_bgm_measure() last reported for the staff roll BGM, which is
-// what both credit lines time their fade-out on. The still-ASM frame function
+// what both credit lines time their fade-out on. staffroll_frame_and_flip()
 // writes it every frame, falling back to ([staffroll_frame] / 22) whenever
 // snd_bgm_measure() has nothing to report. Scoped because this binary already
 // links a different [measure_cur], in th05/end/allcast.cpp.
@@ -578,10 +586,6 @@ bool16 near rain_phase_update(void)
 // One curtain cel per [CREDIT_FADE_INTERVAL] frames.
 static const int CREDIT_FADE_INTERVAL = 4;
 
-// A [measure] that snd_bgm_measure() can never report, given to the one credit
-// line that is supposed to stay on screen until the staff roll itself ends.
-static const int CREDIT_MEASURE_HOLD = 3996;
-
 // Anything past the far end of a [w]-wide image's curtain travel, i.e. past
 // ((w / GAIJI_W) + (STAFF_FADE_CELS - 1)). Passed as the [cel] of the final,
 // unconditional erase, which therefore always takes credit_fade_put()'s
@@ -824,3 +828,203 @@ bool16 pascal near credit_2_animate(
 	return false;
 }
 /// ----------------
+
+/// The renderer
+/// ------------
+
+// The color the innermost orb trail is drawn in. Each further one out is drawn
+// in the next hardware color, which is why the trail fades from red to white.
+static const vc2 COL_TRAIL_INNERMOST = 6;
+
+// The border that space_put() paints over on all four sides of the space
+// window, and that space_window_set() therefore includes in its clipping
+// rectangle. Anything the window covered before it moved has to end up inside
+// it, or it would be left on screen forever.
+static const pixel_t SPACE_BORDER = 8;
+
+// One orb cel per [ORB_CEL_FRAMES] rendered frames, cycling through
+// [ORB_CELS] of them.
+static const int ORB_CELS = 4;
+static const int ORB_CEL_FRAMES = 4;
+
+// Distance the stars and particles are blitted up and to the left of their own
+// center, i.e. half of a small .BFT cel.
+static const pixel_t TINY_SMALL_RADIUS = 4;
+
+void near space_put(void)
+{
+	orb_particle_t near *p = &orb;
+	int i;
+	screen_x_t x;
+	screen_y_t y;
+	vc2 trail_col;
+	SPPoint near *trail_center = &orb_trails_center[ORB_TRAIL_COUNT - 1];
+	SPPoint near *star_center = stars_center;
+
+	// ZUN bloat: TDW mode would have been faster, exactly as it would have
+	// been for the equivalent clears in th05/end/allcast.cpp.
+	grcg_setcolor(GC_RMW, 0);
+	grcg_boxfill(
+		(space_window_center.x - (space_window_w / 2)),
+		(space_window_center.y - (space_window_h / 2)),
+		((space_window_center.x + (space_window_w / 2)) - 1),
+		((space_window_center.y + (space_window_h / 2)) - 1)
+	);
+	grcg_off_clobbering_dx();
+
+	for(i = 0; i < STAR_COUNT; i++, star_center++) {
+		x = (
+			(star_center->x.to_pixel_slow() + space_window_center.x) -
+			TINY_SMALL_RADIUS
+		);
+		y = (
+			(star_center->y.to_pixel_slow() + space_window_center.y) -
+			TINY_SMALL_RADIUS
+		);
+		super_put_tiny_small(x, y, ((i % 2) + PAT_STAR_BIG));
+	}
+
+	// Walked from the oldest trail position to the newest, so that the newest
+	// one ends up on top and in the brightest color.
+	for(
+		i = 0, trail_col = COL_TRAIL_INNERMOST;
+		i < ORB_TRAIL_COUNT;
+		i++, trail_center--
+	) {
+		if(trail_center->x.v == Subpixel::None()) {
+			continue;
+		}
+		x = (trail_center->x.to_pixel_slow() + space_window_center.x);
+		y = (trail_center->y.to_pixel_slow() + space_window_center.y);
+		grcg_setcolor(GC_RMW, trail_col++);
+		grcg_circlefill(x, y, ORB_RADIUS_FULL);
+		grcg_off_clobbering_dx();
+	}
+
+	if(p->center.x.v != Subpixel::None()) {
+		x = (
+			(p->center.x.to_pixel_slow() + space_window_center.x) - (ORB_W / 2)
+		);
+		y = (
+			(p->center.y.to_pixel_slow() + space_window_center.y) - (ORB_H / 2)
+		);
+		if(p->al.radius >= ORB_RADIUS_FULL) {
+			i = (((orb_cel_frame / ORB_CEL_FRAMES) % ORB_CELS) + PAT_ORB);
+			super_put_rect(x, y, i);
+			orb_cel_frame++;
+		} else {
+			// Still gathering, so there is no cel for this size yet.
+			grcg_setcolor(GC_RMW, V_WHITE);
+			grcg_circlefill(
+				(x + (ORB_W / 2)), (y + (ORB_H / 2)), p->al.radius
+			);
+			grcg_off_clobbering_dx();
+		}
+	}
+
+	p--; // p == &particles[ORB_PARTICLE_COUNT - 1]
+
+	// Backwards, so that the most recently emitted spark is drawn last.
+	for(i = 0; i < ORB_PARTICLE_COUNT; i++, p--) {
+		if(p->center.x.v == Subpixel::None()) {
+			continue;
+		}
+
+		// super_put_tiny_small() does not clip, and grc_setclip() only applies
+		// to master.lib's own drawing functions, so every particle outside the
+		// window has to be rejected here.
+		if((space_left() + to_sp(-4.0f)) >= p->center.x.v) {
+			continue;
+		}
+		if((space_right() + to_sp(4.0f)) <= p->center.x.v) {
+			continue;
+		}
+		if((space_top() + to_sp(-4.0f)) >= p->center.y.v) {
+			continue;
+		}
+		if((space_bottom() + to_sp(4.0f)) <= p->center.y.v) {
+			continue;
+		}
+		x = (
+			(p->center.x.to_pixel_slow() + space_window_center.x) -
+			TINY_SMALL_RADIUS
+		);
+		y = (
+			(p->center.y.to_pixel_slow() + space_window_center.y) -
+			TINY_SMALL_RADIUS
+		);
+		super_put_tiny_small(x, y, p->patnum_tiny);
+	}
+
+	// The border: left, right, top, bottom.
+	grcg_setcolor(GC_RMW, 1);
+	grcg_boxfill(
+		((space_window_center.x - (space_window_w / 2)) - SPACE_BORDER),
+		(space_window_center.y - (space_window_h / 2)),
+		((space_window_center.x - (space_window_w / 2)) - 1),
+		((space_window_center.y + (space_window_h / 2)) - 1)
+	);
+	grcg_boxfill(
+		(space_window_center.x + (space_window_w / 2)),
+		(space_window_center.y - (space_window_h / 2)),
+		(
+			(space_window_center.x + (space_window_w / 2)) +
+			(SPACE_BORDER - 1)
+		),
+		((space_window_center.y + (space_window_h / 2)) - 1)
+	);
+	grcg_boxfill(
+		((space_window_center.x - (space_window_w / 2)) - SPACE_BORDER),
+		((space_window_center.y - (space_window_h / 2)) - SPACE_BORDER),
+		(
+			(space_window_center.x + (space_window_w / 2)) +
+			(SPACE_BORDER - 1)
+		),
+		((space_window_center.y - (space_window_h / 2)) - 1)
+	);
+	grcg_boxfill(
+		((space_window_center.x - (space_window_w / 2)) - SPACE_BORDER),
+		(space_window_center.y + (space_window_h / 2)),
+		(
+			(space_window_center.x + (space_window_w / 2)) +
+			(SPACE_BORDER - 1)
+		),
+		(
+			(space_window_center.y + (space_window_h / 2)) +
+			(SPACE_BORDER - 1)
+		)
+	);
+	grcg_off_clobbering_dx();
+}
+
+// kb/codegen/0042: neither parameters nor stack locals, so the BP frame the
+// original has needs -k restored around the body.
+#pragma option -k.
+
+// One frame of the scene, rendered onto the page that is not currently being
+// shown and then flipped in. Spelled the same way th05/regist.cpp spells
+// regist_frame_and_flip().
+void near staffroll_frame_and_flip(void)
+{
+	space_update();
+	space_put();
+	frame_delay(1);
+	graph_accesspage(staffroll_page_shown);
+	graph_showpage(staffroll_page_shown = (1 - staffroll_page_shown));
+	if(text_clear_pending) {
+		text_clear();
+		text_clear_pending = false;
+	}
+	staffroll_frame++;
+	staffroll_measure_cur = snd_bgm_measure();
+	if(staffroll_measure_cur < 0) {
+		// ZUN bug: The same one th05/end/allcast.cpp documents for its own
+		// copy of this fallback — 「Days」 is timed in beats rather than
+		// measures, and 22 *double* frames are unrelated to its tempo either
+		// way.
+		staffroll_measure_cur = (staffroll_frame / 22);
+	}
+}
+
+#pragma option -k-
+/// ------------
