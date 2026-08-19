@@ -39,6 +39,15 @@ static const int HP_TOTAL = 3000;
 // same routine elsewhere, and none of these has one. Naming them is a review
 // round's call, and the evidence each one would be named from is written out
 // below and in state/notes/_midbossx_update_qv.md.
+//
+// That review round has since happened and rejected this paragraph's reasoning
+// (NAMING_REVIEW_VERDICTS_9 section 7): these are pinned by aliases this
+// parcel wrote itself, and a `public` a parcel writes is not a precedent it
+// may then defer to. Four of the five carry rulings, unapplied here only
+// because the round that made them did not hold this dump. The one part that
+// survives is narrower than what is written above: a placeholder may stay
+// while its *body* has not been read, because a descriptive name would then
+// describe behaviour nobody has measured.
 // -----
 
 extern "C" {
@@ -77,6 +86,74 @@ extern const pattern_oneshot_func_t off_2285C[2][2];
 // unwinnable that long, see below.
 extern const unsigned char byte_22868[8];
 // -----
+
+// The last of the Extra Stage midboss's four phase-1 patterns, and the only
+// one taken once the half-HP score bonus has been given: [off_2285C] holds it
+// in *both* columns of its second row, so it repeats for every remaining
+// cycle regardless of the parity index. Its address is taken by that table,
+// which is still the dump's own data, so this may not be `static`, and
+// th05_main.asm's BX_UPDATE_TEXT block declares it as a `procdesc near`.
+//
+// Every 16th frame of the cycle it fires two BSM_DECELERATE_THEN_TURN spread
+// stacks of blue cross bullets in mirrored directions (angle 0x80 and 0x00),
+// each turning by 0x38 towards the other after the single deceleration that
+// [bullet_special.turns_max] allows -- an exact mirror pair, since mapping
+// angle to (0x80 - angle) and turn_by to -turn_by takes one onto the other.
+// The cycle ends after 128 frames.
+//
+// Named rather than left at the IDA placeholder the dump carried for it,
+// because the search does not fail (kb/conventions/naming-precedents.md
+// section 3, and NAMING_REVIEW_VERDICTS_9 section 7, which holds that a
+// placeholder may be kept only while the body has genuinely not been read).
+// The three patterns that stay in the dump are each distinguishable from this
+// one in the same terms the existing TH05 pattern names use -- [sub_1E5FC]
+// fires nothing at all, [sub_1E60E] is a BG_RING of BSM_SPEEDUP crosses, and
+// [sub_1E66F] is a BG_RANDOM_ANGLE_AND_SPEED pellet spray. The `pattern_`
+// prefix and the adjective-then-noun shape follow th05/main/boss/b1.cpp and
+// th05/main/boss/b6.cpp, whose pattern functions are reached from dump tables
+// through exactly this `dw offset @pattern_...$qv` route.
+//
+// `symmetric` is th05/main/boss/b6.cpp's own token for a mirrored volley
+// (pattern_aimed_b6balls_and_symmetric_spreads) and `spread_stack` is
+// th05/main/boss/b1.cpp's for this BG_ group (pattern_aimed_red_spread_stack,
+// whose `_aimed` this one correctly lacks). Turbo C++ truncates the
+// identifier to 32 characters, so the linker and the dump both spell it
+// `@pattern_symmetric_turning_spread$qv`, the same way
+// `pattern_pellet_arcs_at_expanding_random_angles` is spelled there.
+bool near pattern_symmetric_turning_spread_stacks(void)
+{
+	if((midboss.phase_frame % 16) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_BACKWARDS | BST_NO_DECELERATE);
+		bullet_special.turns_max = 1;
+		bullet_template.special_motion = BSM_DECELERATE_THEN_TURN;
+		bullet_template.group = BG_SPREAD_STACK;
+		bullet_template.set_spread_stack(5, 0x08, 4, 1.0f);
+		bullet_template.speed.set(1.5f);
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_BLUE;
+
+		bullet_template.angle = 0x80;
+		bullet_template_special_angle.turn_by = -0x38;
+		bullets_add_special();
+
+		bullet_template.angle = 0x00;
+		bullet_template_special_angle.turn_by = 0x38;
+		bullets_add_special();
+
+		snd_se_play(3);
+	}
+
+	// Two separate returns rather than one returning the comparison itself.
+	// The comparison is an `int` expression, so the single-expression spelling
+	// evaluates it into AX and converts on the way out
+	// (`mov ax, 1` / `jmp` / `xor ax, ax`); the original computes the 1-byte
+	// [bool] directly in AL and duplicates the epilogue, which is what a pair
+	// of constant returns emits. The other three patterns in this table end
+	// the same way.
+	if(midboss.phase_frame >= 128) {
+		return true;
+	}
+	return false;
+}
 
 // [boss_statebyte] slots used here. Not #defined to names: [12] is both the
 // "score bonus already given" latch and the pattern table's row index, [14] is

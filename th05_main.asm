@@ -15392,49 +15392,12 @@ loc_1E6A2:
 		retn
 sub_1E66F	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E6A6	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _midboss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1E6FE
-		mov	_bullet_template.spawn_type, BST_CLOUD_BACKWARDS or BST_NO_DECELERATE
-		mov	_bullet_special_turns_max, 1
-		mov	_bullet_template.BT_special_motion, BSM_DECELERATE_THEN_TURN
-		mov	_bullet_template.BT_group, BG_SPREAD_STACK
-		mov	dword ptr _bullet_template.spread, (16 shl 24) or (4 shl 16) or (8 shl 8) or 5
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.patnum, PAT_BULLET16_N_CROSS_BLUE
-		mov	_bullet_template.BT_angle, 80h
-		mov	_bullet_template_special_angle.BSA_turn_by, -38h
-		call	_bullets_add_special
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template_special_angle.BSA_turn_by, 38h
-		call	_bullets_add_special
-		call	snd_se_play pascal, 3
-
-loc_1E6FE:
-		cmp	_midboss_phase_frame, 128
-		jl	short loc_1E70A
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1E70A:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1E6A6	endp
-
+	; The Extra Stage midboss's phase-1 post-bonus pattern, now compiled
+	; from th04/main/midboss/mx_update.cpp. Declared here rather than at
+	; the [off_2285C] table below because a procdesc binds its symbol to
+	; the segment block it is written in (kb/codegen 0123, and the same
+	; shape as B1_UPDATE_TEXT's eight pattern procdescs).
+	@pattern_symmetric_turning_spread$qv procdesc near
 	@FIREWAVES_ADD$QIUC procdesc pascal near \
 		amp:word, is_right:byte
 	@firewaves_update$qv procdesc pascal near
@@ -17666,8 +17629,8 @@ public _off_2285C
 _off_2285C label word
 off_2285C	dw offset sub_1E60E
 		dw offset sub_1E66F
-		dw offset sub_1E6A6
-		dw offset sub_1E6A6
+		dw offset @pattern_symmetric_turning_spread$qv
+		dw offset @pattern_symmetric_turning_spread$qv
 		dw 0
 		dw 0
 ; [midboss.angle] for each of the first 8 phase-1 cycles of the Extra Stage
