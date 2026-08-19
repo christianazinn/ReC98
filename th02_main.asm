@@ -404,32 +404,6 @@ loc_C05B:
 		retf
 sub_BFD0	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_C05D
-_sub_C05D label far
-sub_C05D	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_stage_frame, 160
-		jnz	short loc_C0A6
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.demo_num], 0
-		jnz	short loc_C09A
-		call	text_putsa pascal, (4 shl 16) + 12, ds, offset aEMPTY, TX_WHITE
-		call	text_putsa pascal, (4 shl 16) + 13, ds, offset aEMPTY, TX_WHITE
-
-loc_C09A:
-		setfarfp	farfp_1F498, @nullfunc_void$qv
-
-loc_C0A6:
-		pop	bp
-		retf
-sub_C05D	endp
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
@@ -20428,7 +20402,7 @@ _midboss_update_and_render	dd ?
 _midboss_invalidate	dd ?
 include th02/main/boss/funcs[bss].asm
 public _stage_should_end, _stage_update_and_render
-public _boss_activate_if_scroll_done, _stage_title_unput
+public _boss_activate_if_scroll_done, _stage_title_unput_func
 public _stage_invalidate
 _stage_should_end label dword
 farfp_1F48C	dd ?
@@ -20436,7 +20410,7 @@ _stage_update_and_render label dword
 farfp_1F490	dd ?
 _boss_activate_if_scroll_done label dword
 farfp_1F494	dd ?
-_stage_title_unput label dword
+_stage_title_unput_func label dword
 farfp_1F498	dd ?
 public _boss_bg_render_func
 _boss_bg_render_func	dd ?

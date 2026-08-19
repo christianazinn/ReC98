@@ -29,9 +29,12 @@ extern stage_progression_t (far *boss_update_func)(void);
 extern void (far *boss_init)(void);
 extern void (far *boss_end)(void);
 
-// Erases the stage title from TRAM at [stage_frame] == 160, then disables
-// itself.
-extern void (far *stage_title_unput)(void);
+// The slot for stage_title_unput(), which erases the stage title from TRAM at
+// [stage_frame] == 160 and then disables itself by nulling this pointer.
+// `_func` on the slot rather than on the function, exactly as stage_loop_func
+// does for stage_loop() (th02/main/stage/init.cpp) — the same convention the
+// lasers pair below already spells out.
+extern void (far *stage_title_unput_func)(void);
 
 extern void (far *enemies_invalidate)(void);
 extern void (far *enemies_update_and_render)(void);
@@ -44,10 +47,12 @@ extern void (far *stage_invalidate)(void);
 extern void (far *stage_update_and_render)(void);
 
 // The vertical boss lasers' per-frame pair. Only installed for Stage 4 and
-// Extra, by the still-ASM `sub_129FC`, which is the only writer of either slot
-// in the whole binary (th02_main.asm, `setfarfp`) and always installs exactly
-// these two; stage_init() defaults both to nullfunc_void for every other
-// stage. `_func` disambiguates the slot from the installed function, the way
+// Extra, by lasers_callbacks_set() in th02/main/laser.cpp, which is the only
+// writer of either slot in the whole binary and always installs exactly these
+// two; stage_init() defaults both to nullfunc_void for every other stage.
+// (That function was still ASM when this comment was first written, and was
+// named for its dump placeholder; it has since been decompiled.)
+// `_func` disambiguates the slot from the installed function, the way
 // boss_bg_render_func does from boss_bg_render above.
 extern void (far *lasers_invalidate_func)(void);
 extern void (far *lasers_update_and_render_func)(void);
