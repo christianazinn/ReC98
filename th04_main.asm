@@ -3367,9 +3367,24 @@ HUD_PWR_TEXT	ends
 ; original address in the MIDDLE of the segment. Same
 ; `byte public 'CODE'` alignment as before, so nothing moves.
 HUD_PUT_TEXT	segment	byte public 'CODE' use16
+	; hud_bar_put() now lives in th04/main/hud/bar_put.cpp, compiled into
+	; this segment by th04/hud_bar.cpp, which the link list places directly
+	; ahead of th04/hud_put.cpp. TLINK lays a segment's contributions out
+	; in link order with the root dump first, so it lands exactly where the
+	; `include` that used to follow element_put.asm put it -- no carve and
+	; no new segment name (kb/codegen 0099 + 0105 + 0114).
+	;
+	; Declared HERE, at the head of the segment, rather than where that
+	; `include` was: hud_hp_put() in element_put.asm calls it, and that
+	; module is included below this point, so a declaration after it would
+	; be a forward reference. Same segment and therefore same group as the
+	; call site, which is what keeps TASM lowering that far call to
+	; `push cs` + a near call (kb/codegen/0082), with no edit to the
+	; element_put.asm both games share. Uppercase because it is __pascal
+	; (kb/codegen 0081, 0103).
+	HUD_BAR_PUT procdesc pascal far
 
 include th04/main/hud/element_put.asm
-include th04/main/hud/bar_put.asm
 
 	; hud_put() now lives in th04/main/hud/hud.cpp, which appends to this
 	; segment. Its `HUD_PUT procdesc pascal far` is declared at the top of
