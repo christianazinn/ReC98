@@ -521,6 +521,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/hud/menu.cpp",
 	"th02/main/scroll.cpp",
 	"th02/main/player/shot.cpp",
+	"th02/main/bgm_show.cpp",
 	"th02/main/demo.cpp",
 	"th02/main/stage/loop.cpp",
 	"th02/main/cfg_load.cpp",
@@ -850,7 +851,14 @@ local th04_zuncom = th04:zungen("obj/th04/zuncom.bin", {
 		"th04/res_huma.cpp",
 		"bin/masters.lib",
 	}) },
-	{ "-M", th04:branch(MODEL_TINY):link("memchk", { "th04_memchk.asm" }) },
+	-- `th04/memchka.cpp`, not `memchk.cpp`: the object basename must be unique
+	-- across obj/th04/, and `th04_memchk.asm` already claims `memchk.obj`
+	-- (kb/codegen/0071). It MUST stay ahead of the dump -- it carries main(),
+	-- which is the first thing both the _TEXT and the _DATA contribution emit.
+	{ "-M", th04:branch(MODEL_TINY):link("memchk", {
+		"th04/memchka.cpp",
+		"th04_memchk.asm",
+	}) },
 })
 th04:comcstm("zun.com", "th04/zun.txt", th04_zuncom, 621381155)
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
@@ -937,6 +945,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
 	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
+	"th04/main_035.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
 	"th04/checkerb.cpp",
@@ -1166,6 +1175,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/cdg_load.asm",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
+	"th05/main031.cpp",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
 	"th05/main033.cpp",
@@ -1222,6 +1232,11 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/cutscene.cpp",
 	"th05/allcast.cpp",
 	"th05/regist.cpp",
+	-- POSITION-CRITICAL: th05/space.cpp contributes to MAINE_01__TEXT, and
+	-- TLINK concatenates a segment's contributions in link order. It has to
+	-- stay immediately before th05_maine.asm, or its bodies land at that
+	-- segment's tail instead of at the head of the dump's block.
+	"th05/space.cpp",
 	"th05_maine.asm",
 	"th05/staff.cpp",
 })

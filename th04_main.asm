@@ -694,7 +694,7 @@ loc_B0F9:
 		mov	word_2CFF4, 9
 		call	super_entry_bfnt pascal, ds, offset aSt05_bft ; "st05.bft"
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss5_cd2
-		call	stage6_setup
+		call	@stage6_setup$qv
 		push	ds
 		push	offset aSt05_mpn ; "st05.mpn"
 		jmp	short loc_B141
@@ -704,7 +704,7 @@ loc_B11E:
 		mov	word_2CFF4, 9
 		call	super_entry_bfnt pascal, ds, offset aSt06_bft ; "st06.bft"
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss6_cd2
-		call	stagex_setup
+		call	@stagex_setup$qv
 		push	ds
 		push	offset aSt06_mpn ; "st06.mpn"
 
@@ -5892,84 +5892,14 @@ HUD_OVRL_TEXT	ends
 main_01_TEXT	segment	byte public 'CODE' use16
 include th04/formats/bb_txt_load.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-@mugetsu_fg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_boss_sprite, 0
-		jz	short loc_1163D
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_11629
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_115F5
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		call	main_01:_mugetsu_gengetsu_shield_render
-		jmp	short loc_1163D
-; ---------------------------------------------------------------------------
-
-loc_115F5:
-		inc	byte_259E6
-		test	byte_259E6, 1
-		jz	short loc_1160F
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		jmp	short loc_11622
-; ---------------------------------------------------------------------------
-
-loc_1160F:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-
-loc_11622:
-		mov	_boss_damage_this_frame, 0
-		jmp	short loc_1163D
-; ---------------------------------------------------------------------------
-
-loc_11629:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_1163D
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_1163D:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@mugetsu_fg_render$qv	endp
-
+	; mugetsu_fg_render() now lives in th04/main/boss/bx1_fg.cpp, ahead of
+	; mugetsu_gengetsu_shield_render() and therefore in its original address
+	; order. th04/main_01.cpp compiles both into THIS segment; see that file
+	; for why its Tupfile.lua line is position-critical. UPPER case because
+	; the function is `pascal`: Turbo C++ mangles pascal names in upper case,
+	; and TASM emits the EXTRN under exactly the spelling given here without
+	; applying the language's own case rule.
+	@MUGETSU_FG_RENDER$QV procdesc pascal near
 
 	; mugetsu_gengetsu_shield_render() now lives in
 	; th04/main/boss/shield.cpp, which th04/main_01.cpp compiles into THIS
@@ -6128,7 +6058,7 @@ sub_11B44	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @YUUKA6_FG_RENDER$QV
 @yuuka6_fg_render$qv	proc near
 		push	bp
 		mov	bp, sp
@@ -15239,7 +15169,7 @@ mugetsu_186B9	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @MUGETSU_UPDATE$QV
 @mugetsu_update$qv	proc far
 
 var_4		= word ptr -4
@@ -19694,7 +19624,7 @@ include th04/main/boss/b6.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @YUUKA6_UPDATE$QV
 @yuuka6_update$qv	proc far
 
 var_6		= word ptr -6
@@ -23043,82 +22973,15 @@ stage5_setup	proc far
 stage5_setup	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage6_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, nullfunc_far
-		mov	_midboss_render_func, offset nullfunc_near
-		mov	_midboss_frames_until, 60000
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (80 shl 4)
-		mov	_boss_pos.prev.y, (80 shl 4)
-		mov	_boss_bg_render_func, offset @yuuka6_bg_render$qv
-		setfarfp	_boss_update_func, @yuuka6_update$qv
-		mov	_boss_fg_render_func, offset @yuuka6_fg_render$qv
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (48 shl 4)
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt05_bb
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		push	(48 shl 16) or 64
-		push	(80 shl 16) or 96
-		call	select_for_rank
-		mov	_boss_statebyte[0].BSB_thicklaser_radius, al
-		push	( 1 shl 16) or  1
-		push	( 2 shl 16) or  4
-		call	select_for_rank
-		mov	_boss_statebyte[1].BSB_spin_ring, al
-		pop	bp
-		retf
-stage6_setup	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stagex_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midbossx_update$qv
-		mov	_midboss_render_func, offset @midbossx_render$qv
-		mov	_midboss_frames_until, 5400
-		mov	_midboss_pos.cur.x, (-16 shl 4)
-		mov	_midboss_pos.cur.y, (256 shl 4)
-		mov	_midboss_pos.prev.x, (-16 shl 4)
-		mov	_midboss_pos.prev.y, (256 shl 4)
-		mov	_midboss_pos.velocity.x, (4 shl 4)
-		mov	_midboss_pos.velocity.y, (-4 shl 4)
-		mov	_midboss_hp, 4096
-		mov	_midboss_sprite, 0
-		mov	_midboss_angle, 96
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (80 shl 4)
-		mov	_boss_pos.prev.y, (80 shl 4)
-		mov	_boss_bg_render_func, offset @mugetsu_gengetsu_bg_render$qv
-		setfarfp	_boss_update_func, @mugetsu_update$qv
-		mov	_boss_fg_render_func, offset @mugetsu_fg_render$qv
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (48 shl 4)
-		mov	_boss_backdrop_colorfill, offset @mugetsu_gengetsu_backdrop_colorfill$qv
-		mov	_boss_statebyte[0].BSB_gengetsu_started, 0
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset _st06bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset _st06_bb
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stagex_setup	endp
+	; stage6_setup() and stagex_setup() now live in
+	; th04/main/stage/setup.cpp, which th04/main_035.cpp compiles into THIS
+	; segment. Both are `far` here, unlike TH05's near twins of the same
+	; names (kb/codegen/0115). Both are written in the mangled
+	; UPPER-case spelling because TASM emits the EXTRN under exactly the
+	; spelling given and applies no language case rule of its own; the call
+	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGE6_SETUP$QV procdesc far
+	@STAGEX_SETUP$QV procdesc far
 main_035_TEXT	ends
 
 BOSS_TEXT	segment	byte public 'CODE' use16
@@ -27017,6 +26880,8 @@ aSt03_bb	db 'st03.bb',0
 aSt04bk_cdg	db 'st04bk.cdg',0
 aSt04_bb	db 'st04.bb',0
 aSt04_cdg	db 'st04.cdg',0
+public _st05_bb
+_st05_bb label byte
 aSt05_bb	db 'st05.bb',0
 	extern _st06bk_cdg:byte
 	extern _st06_bb:byte
@@ -27239,6 +27104,8 @@ _miss_explosion_angle	db ?
 _miss_explosion_radius	dw ?
 		db 4 dup(?)
 include th04/main/hud/overlay[bss].asm
+public _mugetsu_damage_frames
+_mugetsu_damage_frames label byte
 byte_259E6	db ?
 		db ?
 fp_259E8	dw ?

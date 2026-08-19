@@ -8,6 +8,16 @@
 
 extern int8_t playfield_shake_redraw_time;
 
+#if (GAME == 5)
+// TH05's bullet renderer was the last proc of th05_main.asm's PLAYFLD_TEXT
+// root contribution, so it belongs at the very front of this object — ahead of
+// the scroll advance below (kb/codegen/0114 + 0129). No carve, no new segment,
+// no group-list edit and no Tupfile.lua line. TH04 keeps its own copy in
+// BOSS_FG_TEXT, a different segment with a different host, so it is not
+// #included here.
+#include "th04/main/bullet/render.cpp"
+#endif
+
 // ZUN's object for this code segment also held the per-frame scroll advance,
 // immediately ahead of playfield_shake_update_and_render(), so this #include
 // is the original address order and needs neither a carve nor a Tupfile.lua

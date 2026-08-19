@@ -17,4 +17,9 @@
 // effect before any code is generated. (kb/codegen/0112, trap 0)
 #pragma option -zPmain_01
 
+// Address order inside ZUN's own object for this segment, which is what TLINK
+// reproduces from the order of these #includes: mugetsu_fg_render() first,
+// then the barrier it calls. th04/main/boss/bx1_fg.cpp therefore also owns
+// every unguarded header the two share.
+#include "th04/main/boss/bx1_fg.cpp"
 #include "th04/main/boss/shield.cpp"
