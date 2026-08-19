@@ -650,7 +650,7 @@ loc_B071:
 		mov	word_2CFF4, 9
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss2_cd2
 		call	super_entry_bfnt pascal, ds, offset aSt02_bft ; "st02.bft"
-		call	stage3_setup
+		call	@stage3_setup$qv
 		push	ds
 		push	offset aSt02_mpn ; "st02.mpn"
 		jmp	loc_B141
@@ -6156,7 +6156,7 @@ sub_11DE6	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @ELLY_FG_RENDER$QV
 @elly_fg_render$qv	proc near
 
 @@patnum	= word ptr -2
@@ -6529,7 +6529,7 @@ sub_12247	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @ELLY_BG_RENDER$QV
 @elly_bg_render$qv	proc near
 		push	bp
 		mov	bp, sp
@@ -21100,7 +21100,7 @@ elly_1C251	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @ELLY_UPDATE$QV
 @elly_update$qv	proc far
 
 var_2		= word ptr -2
@@ -22684,53 +22684,14 @@ stage2_setup	proc far
 stage2_setup	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage3_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, @midboss3_update$qv
-		mov	_midboss_render_func, offset @midboss3_render$qv
-		mov	_midboss_frames_until, 1600
-		mov	_midboss_pos.cur.x, (192 shl 4)
-		mov	_midboss_pos.cur.y, (-32 shl 4)
-		mov	_midboss_pos.prev.x, (192 shl 4)
-		mov	_midboss_pos.prev.y, (-32 shl 4)
-		mov	_midboss_pos.velocity.x, 0
-		mov	_midboss_pos.velocity.y, (4 shl 4)
-		mov	_midboss_hp, 850
-		mov	_midboss_sprite, 0
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (64 shl 4)
-		mov	_boss_pos.prev.y, (64 shl 4)
-		mov	_boss_bg_render_func, offset @elly_bg_render$qv
-		setfarfp	_boss_update_func, @elly_update$qv
-		mov	_boss_fg_render_func, offset @elly_fg_render$qv
-		mov	_boss_sprite, 134
-		mov	_boss_hitbox_radius.x, (24 shl 4)
-		mov	_boss_hitbox_radius.y, (24 shl 4)
-		mov	_boss_backdrop_colorfill, offset @elly_backdrop_colorfill$qv
-		call	super_entry_bfnt pascal, ds, offset aSt02_bmt ; "st02.bmt"
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset aSt02bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt02_bb
-		mov	_stage_render, offset nullfunc_near
-		mov	_stage_invalidate, offset nullfunc_near
-		pop	bp
-		retf
-stage3_setup	endp
-
-
-	; stage4_setup() through stage6_setup(), and stagex_setup(), now live in
+	; stage3_setup() through stage6_setup(), and stagex_setup(), now live in
 	; th04/main/stage/setup.cpp, which th04/main_035.cpp compiles into THIS
 	; segment. All are `far` here, unlike TH05's near twins of the
 	; same names (kb/codegen/0115). All are written in the mangled
 	; UPPER-case spelling because TASM emits the EXTRN under exactly the
 	; spelling given and applies no language case rule of its own; the call
 	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGE3_SETUP$QV procdesc far
 	@STAGE4_SETUP$QV procdesc far
 	@STAGE5_SETUP$QV procdesc far
 	@STAGE6_SETUP$QV procdesc far
@@ -26623,8 +26584,14 @@ aSt00_bb	db 'st00.bb',0
 aSt01_bmt	db 'st01.bmt',0
 aSt01bk_cdg	db 'st01bk.cdg',0
 aSt01_bb	db 'st01.bb',0
+public _st02_bmt
+_st02_bmt label byte
 aSt02_bmt	db 'st02.bmt',0
+public _st02bk_cdg
+_st02bk_cdg label byte
 aSt02bk_cdg	db 'st02bk.cdg',0
+public _st02_bb
+_st02_bb label byte
 aSt02_bb	db 'st02.bb',0
 public _st03_bmt
 _st03_bmt label byte

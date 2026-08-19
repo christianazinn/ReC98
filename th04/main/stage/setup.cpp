@@ -2,7 +2,7 @@
 /// -------------------------
 /// (#included from th04/main_035.cpp. ZUN's object for main_035_TEXT held all
 /// seven stage setup functions, stage1_setup() through stagex_setup(), in that
-/// address order; the other six are still in th04_main.asm, so this file is
+/// address order; the other two are still in th04_main.asm, so this file is
 /// appended to that contribution and grows upwards, one tail at a time.
 /// th05/main/stage/setup.cpp is the same file for TH05, and holds all seven.)
 ///
@@ -50,6 +50,52 @@ extern char st03_bmt[];
 extern char st03bk_cdg[];
 extern char st03bk2_cdg[];
 extern char st03_bb[];
+
+// Three more of the same, aliased in place (kb/codegen/0123).
+extern char st02_bmt[];
+extern char st02bk_cdg[];
+extern char st02_bb[];
+
+/// Stage 3
+/// -------
+
+// Elly's resting pose. elly_fg_render() blits [boss.sprite] as a single cel,
+// and elly_update() — still ASM in th04_main.asm — animates forward from this
+// patnum through the seven cels above it during her cast, then stores this
+// value back when the animation ends. So it is both the still cel and the base
+// of that range; only the former is what stage3_setup() means by it.
+static const int PAT_ELLY_STILL = (PAT_STAGE + 6);
+
+void pascal far stage3_setup(void)
+{
+	midboss_update_func = midboss3_update;
+	midboss_render_func = midboss3_render;
+	midboss.frames_until = 1600;
+	midboss.pos.     cur.set(192, -32);
+	midboss.pos.    prev.set(192, -32);
+	midboss.pos.velocity.set(0, 4);
+	midboss.hp = 850;
+	midboss.sprite = 0;
+
+	boss_reset();
+	boss.pos.init(192, 64);
+	boss_bg_render_func = elly_bg_render;
+	boss_update_func = elly_update;
+	boss_fg_render_func = elly_fg_render;
+	boss.sprite = PAT_ELLY_STILL;
+	boss_hitbox_radius.set(24, 24);
+	boss_backdrop_colorfill = elly_backdrop_colorfill;
+
+	super_entry_bfnt(st02_bmt);
+	cdg_load_single_noalpha(CDG_BG_BOSS, st02bk_cdg, 0);
+	bb_boss_load(st02_bb);
+
+	// Elly's stage has no scrolling layer of its own; her background is drawn
+	// by boss_bg_render_func() above.
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
 
 /// Stage 4
 /// -------
