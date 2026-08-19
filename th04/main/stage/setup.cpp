@@ -21,6 +21,7 @@
 #include "th04/main/boss/backdrop.hpp"
 #include "th04/main/midboss/midboss.hpp"
 #include "th04/main/stage/stage.hpp"
+#include "th04/main/stage/stages.hpp"
 
 // Both defined in th04/main/boss/boss.cpp, which notes that it holds them for
 // alignment reasons rather than because they belong there.
@@ -33,6 +34,57 @@ extern char st06_bb[];
 // (kb/codegen/0123). Defining it here instead would move bytes between
 // objects, which is exactly what the alias exists to avoid.
 extern char st05_bb[];
+
+// Same story as st05_bb below: all three are private `_DATA` labels in
+// th04_main.asm, reached through the zero-byte aliases this parcel added in
+// front of them (kb/codegen/0123).
+extern char st04bk_cdg[];
+extern char st04_bb[];
+extern char st04_cdg[];
+
+/// Stage 5
+/// -------
+
+// Yuuka's single entrance/idle cel, at the start of the stage sprite range.
+// th04/main/boss/b5r.cpp gives the same value the same name for
+// yuuka5_fg_render()'s own use; it has internal linkage there, so the
+// definition is repeated rather than shared.
+static const int PAT_YUUKA5_STILL = PAT_STAGE;
+
+void pascal far stage5_setup(void)
+{
+	// Like Stage 6, Stage 5 has no midboss.
+	midboss_update_func = nullfunc_far;
+	midboss_render_func = nullfunc_near;
+	midboss.frames_until = 60000;
+
+	boss_reset();
+	boss.pos.init(192, 64);
+	boss_bg_render_func = yuuka5_bg_render;
+	boss_update_func = yuuka5_update;
+	boss_fg_render_func = yuuka5_fg_render;
+	boss.sprite = PAT_YUUKA5_STILL;
+	boss_hitbox_radius.set(26, 26);
+	boss_backdrop_colorfill = yuuka5_backdrop_colorfill;
+
+	cdg_load_single_noalpha(CDG_BG_BOSS, st04bk_cdg, 0);
+	bb_boss_load(st04_bb);
+	cdg_load_single_noalpha(CDG_BG_2, st04_cdg, 0);
+
+	// Seeded off-screen and staggered, so the three stars do not cross the
+	// playfield in step. stage5_render() scrolls them from here.
+	stage5_star_center_y[0].v = to_sp(320);
+	stage5_star_center_y[1].v = to_sp(40);
+	stage5_star_center_y[2].v = to_sp(190);
+
+	stage_render = stage5_render;
+	stage_invalidate = stage5_invalidate;
+
+	#define thicklaser_radius	boss_statebyte[0]
+	thicklaser_radius = select_for_rank(144, 160, 168, 180);
+	#undef thicklaser_radius
+}
+/// -------
 
 /// Stage 6
 /// -------
