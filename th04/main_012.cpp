@@ -6,10 +6,17 @@
 // Its Tupfile.lua line is therefore append-anywhere, unlike th04/main_01.cpp's.
 // (kb/codegen/0112 + 0114.)
 //
-// main_012_TEXT is in group main_01, and the two other main_01 wrappers in
-// this binary (th04/boss_bg.cpp, th04/main_01.cpp) both declare it, so this
-// one does too. The group pragma lives here rather than in the included file:
-// it only takes effect before any code is generated. (kb/codegen/0112, trap 0;
+// main_012_TEXT is in group main_01, and every other root-level wrapper in
+// this binary that names that group declares it, so this one does too. There
+// are `[measured]` EIGHT of them, not the two this comment used to claim:
+// th04/boss_5r.cpp, th04/boss_bg.cpp, th04/boss_fg.cpp, th04/mai.cpp,
+// th04/main_01.cpp, th04/map.cpp, th04/mb_dfr.cpp and th04/shot_inv.cpp.
+// (Naming review round 16 section 6.4. Two of the eight are easy to miss with
+// a grep for `option -zPmain_01`: th04/map.cpp and th04/shot_inv.cpp spell it
+// after a -zC on the same #pragma line.)
+//
+// The group pragma lives here rather than in the included file: it only takes
+// effect before any code is generated. (kb/codegen/0112, trap 0;
 // kb/codegen/0138.)
 #pragma option -zPmain_01
 
