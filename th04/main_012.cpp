@@ -13,4 +13,10 @@
 // kb/codegen/0138.)
 #pragma option -zPmain_01
 
+// Address order inside ZUN's own object for this segment, which is what TLINK
+// reproduces from the order of these #includes: elly_fg_render() first, then
+// stage_state_reset(). th04/main/boss/b3_fg.cpp therefore also owns every
+// unguarded header the two share -- and, for the one unguarded header it
+// cannot share, says so where it declines to include it.
+#include "th04/main/boss/b3_fg.cpp"
 #include "th04/main/stage/reset.cpp"
