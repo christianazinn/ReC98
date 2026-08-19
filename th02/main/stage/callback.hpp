@@ -50,8 +50,10 @@ extern void (far *stage_update_and_render)(void);
 
 // The vertical boss lasers' per-frame pair. Only installed for Stage 4 and
 // Extra, by lasers_callbacks_set() in th02/main/laser.cpp, which is the only
-// writer of either slot in the whole binary and always installs exactly these
-// two; stage_init() defaults both to nullfunc_void for every other stage.
+// writer that installs the REAL pair -- it always installs exactly these two --
+// while th02/main/stage/init.cpp writes both slots with nullfunc_void for
+// every other stage. The scope limiter matters: without it the sentence
+// contradicts its own next clause.
 // (That function was still ASM when this comment was first written, and was
 // named for its dump placeholder; it has since been decompiled.)
 // `_func` disambiguates the slot from the installed function.
