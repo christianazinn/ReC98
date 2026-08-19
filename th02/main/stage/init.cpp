@@ -310,9 +310,7 @@ void near stage_init(void)
 	enemies_update_and_render = sub_1766E;
 	boss_activate_if_scroll_done_func = boss_activate_if_scroll_done;
 	stage_title_unput_func = stage_title_unput;
-	stage_should_end_func = reinterpret_cast<bool16 (far *)(void)>(
-		nullfunc_false
-	);
+	stage_should_end_func = nullfunc_false;
 	player_reset();
 	scroll_speed = 1;
 	scroll_interval = 4;
@@ -374,7 +372,9 @@ void near stage_init(void)
 		// Stage 5 has no midboss, and disables it with an unreachable
 		// [scroll_step].
 		midboss_scroll_step = -1;
-		midboss_invalidate = nullfunc_false;
+		midboss_invalidate = reinterpret_cast<bool (far *)(void)>(
+			nullfunc_false
+		);
 		midboss_update_and_render = nullfunc_void;
 		boss_init = mima_init;
 		boss_end = mima_end;

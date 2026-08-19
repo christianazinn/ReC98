@@ -316,12 +316,6 @@ STAGE_TEXT	segment	byte public 'CODE' use16
 STAGE_TEXT	ends
 
 main_01___TEXT	segment	byte public 'CODE' use16
-		assume cs:main_01
-		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-
-
-include th02/main/null.asm
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
@@ -9944,7 +9938,7 @@ sigma_end	endp
 ; ---------------------------------------------------------------------------
 
 ; A second compiled copy of the same empty far function that
-; th02/main/null.asm publishes as @nullfunc_void$qv -- same five bytes,
+; th02/main/bgm_show.cpp publishes as @nullfunc_void$qv -- same five bytes,
 ; different address, no `public`. Only enemies_callbacks_null uses it.
 nullfunc_void_2:
 		push	bp
