@@ -70,13 +70,6 @@ extern "C" void far sub_17A55(void);
 // lasers_callbacks_set() in th02/main/laser.cpp. [inferred from the ASM]
 extern "C" void far sub_16A8A(void);
 
-// The [stage_should_end_func] slot's boss-fight implementation: still ASM one
-// proc up in main_01___TEXT, and the next link in this segment's
-// kb/codegen/0099 chain. th02_main.asm names it with a zero-byte `label far`
-// alias (kb/codegen/0123) rather than leaving the placeholder for C++ to
-// spell, because the slot it is installed into already fixes the name.
-extern "C" bool16 far stage_should_end(void);
-
 // 48 half-width spaces -- exactly the playfield's TRAM width -- reached
 // through the `public` line th02_main.asm carries for it (kb/codegen/0123).
 // Both users are now in this file: stage_title_unput() blanks two whole rows
@@ -103,6 +96,35 @@ static const int BGM_TITLE_BLANK = 22;
 // actual extent.
 static const int STAGE_TITLE_TOP = 12;
 static const int STAGE_TITLE_FRAMES = 160;
+
+// The boss fight's own end condition, installed into [stage_should_end_func]
+// by boss_activate_if_scroll_done() below and called by stage_loop() once per
+// frame from then on. It answers "is the stage over?" and, on the one frame
+// where the answer is yes, also performs the ending: [stage_progression]
+// reaches SP_CLEAR only after boss_update() has returned it, so this is where
+// the boss's own teardown callback runs. Reading the name as a pure predicate
+// would be wrong.
+//
+// Stage 3 blacks out palette color 0 first, mirroring what
+// boss_activate_if_scroll_done() does for the same stage on the way in.
+// [inferred: the stage ID is ZUN's, the symmetry is ours]
+extern "C" bool16 far stage_should_end(void)
+{
+	// The `return false` is the LAST statement, not a guard clause at the top.
+	// Spelling it as a guard is the same 52 bytes and still fails: TCC then
+	// emits `je` over a false-return block placed right after the test, where
+	// the original has `jne` forward to one shared at the end. That counter-
+	// shape is kb/codegen/0074's, measured again here.
+	if(stage_progression == SP_CLEAR) {
+		if(stage_id == 2) {
+			palette_set(0, 0, 0, 0);
+			palette_show();
+		}
+		boss_end();
+		return true;
+	}
+	return false;
+}
 
 // stage_init() installs this into [boss_activate_if_scroll_done_func] at the
 // start of every stage, and stage_loop() calls it once per frame until the map

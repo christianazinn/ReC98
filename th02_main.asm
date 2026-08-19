@@ -322,39 +322,6 @@ main_01___TEXT	segment	byte public 'CODE' use16
 
 include th02/main/null.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stage_should_end
-_stage_should_end label far
-sub_BF9C	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_stage_progression, SP_CLEAR
-		jnz	short loc_BFCC
-		mov	al, _stage_id
-		cbw
-		cmp	ax, 2
-		jnz	short loc_BFC3
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		call	far ptr	palette_show
-
-loc_BFC3:
-		call	_boss_end
-		mov	ax, 1
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_BFCC:
-		xor	ax, ax
-		pop	bp
-		retf
-sub_BF9C	endp
-
 main_01___TEXT	ends
 
 DEMO_TEXT	segment	byte public 'CODE' use16
