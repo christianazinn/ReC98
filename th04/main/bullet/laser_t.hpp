@@ -17,7 +17,14 @@ struct thicklaser_t {
 	thicklaser_flag_t flag;
 	/* ------------------------- */ int8_t unused_1;
 	SPPoint origin;
-	/* ------------------------- */ int8_t unused_2;
+
+	// FOUR bytes, not one. th04_main.asm's own `thicklaser_t struc` has four
+	// unnamed `db ?` between [origin] and [cur_flag_frame], which puts
+	// [radius_cur] at +0x14 and makes the whole structure 24 bytes wide.
+	// Modelling this hole as a single byte -- as this file did until
+	// thicklasers_render() became the first C++ to read past it -- silently
+	// moves every field below by 3 and shrinks `sizeof()` by 3.
+	/* ------------------------- */ int8_t unused_2[4];
 	int cur_flag_frame;
 
 	// Frames to spend in TF_LINE before transitioning to TF_GROW.
@@ -45,7 +52,7 @@ extern thicklaser_t thicklaser_template;
 extern thicklaser_t thicklasers[THICKLASER_COUNT];
 
 // Renders every non-TF_FREE thick laser, and nothing else -- the function
-// writes no thicklaser_t field. Still ASM (`sub_E2C3` in EXECL_TEXT), published
-// under this name for its C++ callers; the three ASM call sites, all boss
-// foreground renderers, keep the dump's spelling.
+// writes no thicklaser_t field, which is why the name ends in _render rather
+// than _update_and_render. Lifted, in th04/main/bullet/laser_render.cpp; the
+// one remaining ASM caller reaches it through a procdesc in th04_main.asm.
 extern "C" void near thicklasers_render(void);
