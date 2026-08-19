@@ -839,7 +839,7 @@ loc_B2C7:
 		retn
 sub_B29E	endp
 
-include th04/main/pause.asm
+	; pause() is now th04/main/pause.cpp, at the head of th04/main/demo.cpp
 	@demo_load$qv procdesc near
 	@DemoPlay$qv procdesc near
 DEMO_TEXT	ends
