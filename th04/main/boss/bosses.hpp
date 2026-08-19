@@ -17,7 +17,9 @@ void pascal near mugetsu_gengetsu_backdrop_colorfill(void);
 void pascal near orange_fg_render(void);
 void pascal near kurumi_fg_render(void);
 void pascal near reimu_fg_render(void);
+void pascal near yuuka5_bg_render(void);
 void pascal near yuuka5_fg_render(void);
+void pascal  far yuuka5_update(void);
 
 // Yuuka's Stage 6 fight. yuuka6_bg_render() is already C++
 // (th04/main/boss/bg.cpp); the other two are still in th04_main.asm, which

@@ -684,7 +684,7 @@ loc_B0D4:
 		mov	word_2CFF4, 9
 		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss4_cd2
 		call	super_entry_bfnt pascal, ds, offset aSt04_bft ; "st04.bft"
-		call	stage5_setup
+		call	@stage5_setup$qv
 		push	ds
 		push	offset aSt04_mpn ; "st04.mpn"
 		jmp	short loc_B141
@@ -6776,7 +6776,7 @@ loc_1235F:
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @YUUKA5_BG_RENDER$QV
 @yuuka5_bg_render$qv	proc near
 
 @@entrance_cel		= byte ptr -1
@@ -11736,7 +11736,7 @@ yuuka5_1653D	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
-
+public @YUUKA5_UPDATE$QV
 @yuuka5_update$qv	proc far
 
 var_4		= word ptr -4
@@ -22934,52 +22934,14 @@ loc_1E3A6:
 stage4_setup	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stage5_setup	proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	_midboss_update_func, nullfunc_far
-		mov	_midboss_render_func, offset nullfunc_near
-		mov	_midboss_frames_until, 60000
-		call	@boss_reset$qv
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.prev.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (64 shl 4)
-		mov	_boss_pos.prev.y, (64 shl 4)
-		mov	_boss_bg_render_func, offset @yuuka5_bg_render$qv
-		setfarfp	_boss_update_func, @yuuka5_update$qv
-		mov	_boss_fg_render_func, offset @yuuka5_fg_render$qv
-		mov	_boss_sprite, 128
-		mov	_boss_hitbox_radius.x, (26 shl 4)
-		mov	_boss_hitbox_radius.y, (26 shl 4)
-		mov	_boss_backdrop_colorfill, offset @yuuka5_backdrop_colorfill$qv
-		call	cdg_load_single_noalpha pascal, CDG_BG_BOSS, ds, offset aSt04bk_cdg, 0
-		call	@bb_boss_load$qnxc pascal, ds, offset aSt04_bb
-		call	cdg_load_single_noalpha pascal, CDG_BG_2, ds, offset aSt04_cdg, 0
-		mov	_stage5_star_center_y[0 * word], (320 shl 4)
-		mov	_stage5_star_center_y[1 * word], (40 shl 4)
-		mov	_stage5_star_center_y[2 * word], (190 shl 4)
-		mov	_stage_render, offset @stage5_render$qv
-		mov	_stage_invalidate, offset @stage5_invalidate$qv
-		push	(144 shl 16) or 160
-		push	(168 shl 16) or 180
-		call	select_for_rank
-		mov	_boss_statebyte[0].BSB_thicklaser_radius, al
-		pop	bp
-		retf
-stage5_setup	endp
-
-
-	; stage6_setup() and stagex_setup() now live in
+	; stage5_setup(), stage6_setup() and stagex_setup() now live in
 	; th04/main/stage/setup.cpp, which th04/main_035.cpp compiles into THIS
-	; segment. Both are `far` here, unlike TH05's near twins of the same
-	; names (kb/codegen/0115). Both are written in the mangled
+	; segment. All three are `far` here, unlike TH05's near twins of the
+	; same names (kb/codegen/0115). All are written in the mangled
 	; UPPER-case spelling because TASM emits the EXTRN under exactly the
 	; spelling given and applies no language case rule of its own; the call
 	; site above may keep the lower-case form, as th05_main.asm does.
+	@STAGE5_SETUP$QV procdesc far
 	@STAGE6_SETUP$QV procdesc far
 	@STAGEX_SETUP$QV procdesc far
 main_035_TEXT	ends
@@ -26877,8 +26839,14 @@ aSt03_bmt	db 'st03.bmt',0
 aSt03bk_cdg	db 'st03bk.cdg',0
 aSt03bk2_cdg	db 'st03bk2.cdg',0
 aSt03_bb	db 'st03.bb',0
+public _st04bk_cdg
+_st04bk_cdg label byte
 aSt04bk_cdg	db 'st04bk.cdg',0
+public _st04_bb
+_st04_bb label byte
 aSt04_bb	db 'st04.bb',0
+public _st04_cdg
+_st04_cdg label byte
 aSt04_cdg	db 'st04.cdg',0
 public _st05_bb
 _st05_bb label byte
