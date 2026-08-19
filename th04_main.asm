@@ -22442,27 +22442,23 @@ main_035_TEXT	segment	byte public 'CODE' use16
 		assume es:nothing
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @boss_reset$qv
-@boss_reset$qv	proc near
-		push	bp
-		mov	bp, sp
-		setfarfp	_boss_update, nullfunc_far
-		mov	_boss_fg_render, offset nullfunc_near
-		mov	_boss_phase, PHASE_BOSS_HP_FILL
-		mov	_boss_mode, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_pos.velocity.x, 0
-		mov	_boss_pos.velocity.y, 0
-		mov	_boss_damage_this_frame, 0
-		nopcall	@explosions_small_reset$qv
-		mov	_boss_phase_timed_out, 1
-		pop	bp
-		retn
-@boss_reset$qv	endp
+	; boss_reset() now lives in th04/main/boss/reset.cpp -- the SAME file
+	; TH05 has compiled since before this harness existed. It was the LAST
+	; and, by then, the ONLY thing this file contributed to this segment, so
+	; th04/main_035.cpp appending it at the front of that object leaves every
+	; byte where it was (kb/codegen 0099 + 0112 + 0114).
+	;
+	; THIS FILE'S CONTRIBUTION TO main_035_TEXT IS NOW ZERO BYTES. The block
+	; stays because it still declares BB_BOSS_FREE and the seven stage
+	; setups, and because a zero-byte anchor is the shape BOSS_5R_TEXT and
+	; MB_DFR_TEXT already have in this same dump -- so the case is
+	; precedented here, not new. The `assume es:nothing` above is likewise
+	; kept: kb/codegen/0121, a reopened segment inherits nothing, and the
+	; declarations below sit inside it.
+	;
+	; No procdesc: nothing in this file ever referenced @boss_reset$qv. Its
+	; callers are th04/main/stage/setup.cpp and th04/main/boss/boss.cpp, both
+	; C++.
 
 	; bb_boss_load() and bb_boss_free() now live in
 	; th04/formats/bb_boss.cpp -- the SAME file TH05 has compiled for

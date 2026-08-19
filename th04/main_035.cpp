@@ -32,6 +32,9 @@
 // include guard in the same parcel.
 #include "libs/master.lib/master.hpp"
 #include "th04/formats/bb.h"
+#include "th04/main/null.hpp"
+#include "th04/main/boss/boss.hpp"
 
+#include "th04/main/boss/reset.cpp"
 #include "th04/formats/bb_boss.cpp"
 #include "th04/main/stage/setup.cpp"
