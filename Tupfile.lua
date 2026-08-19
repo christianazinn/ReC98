@@ -1138,6 +1138,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",
 	"th05/score_rm.cpp",
+	"th05/gameover.cpp",
 	"th05/laser_rh.cpp",
 	"th05/player_b.cpp",
 	"th05/shot_inv.cpp",

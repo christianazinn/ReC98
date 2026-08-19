@@ -2613,269 +2613,34 @@ MB_DFR_TEXT	ends
 
 main__TEXT	segment	byte public 'CODE' use16
 
+	; kb/codegen/0121: sub_F976 -- now gameover() in
+	; th05/main/gameover.cpp -- ended with `assume es:nothing`, and TASM's
+	; assume state is neither proc- nor segment-scoped, so that directive
+	; governed everything assembled after it in this file. The state
+	; entering this segment is `es:_DATA`, set inside SCORE_TEXT's root
+	; contribution and unchanged since, so deleting the body would have
+	; silently reverted the whole tail to it. Restored by hand.
+	assume es:nothing
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F896	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_2C99C, 24h	; '$'
-		jb	short loc_F8B0
-		call	@overlay_wipe$qv
-		mov	_overlay1, offset nullfunc_near
-		mov	al, 1
-		jmp	short loc_F902
-; ---------------------------------------------------------------------------
-
-loc_F8B0:
-		mov	al, byte_2C99C
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_F8FC
-		mov	al, byte_2C99C
-		mov	ah, 0
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jz	short loc_F8FC
-		mov	si, 1
-		jmp	short loc_F8F7
-; ---------------------------------------------------------------------------
-
-loc_F8D5:
-		mov	di, 4
-		jmp	short loc_F8F1
-; ---------------------------------------------------------------------------
-
-loc_F8DA:
-		push	di
-		push	si
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		mov	dx, 40h
-		sub	dx, ax
-		push	dx
-		push	TX_BLACK
-		call	gaiji_putca
-		add	di, 2
-
-loc_F8F1:
-		cmp	di, 52
-		jl	short loc_F8DA
-		inc	si
-
-loc_F8F7:
-		cmp	si, 24
-		jl	short loc_F8D5
-
-loc_F8FC:
-		inc	byte_2C99C
-		mov	al, 0
-
-loc_F902:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_F896	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F906	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	byte_2C99C, 0
-		jnz	short loc_F920
-		call	@overlay_black$qv
-		mov	_overlay1, offset nullfunc_near
-		mov	al, 1
-		jmp	short loc_F972
-; ---------------------------------------------------------------------------
-
-loc_F920:
-		dec	byte_2C99C
-		mov	al, byte_2C99C
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_F970
-		mov	al, byte_2C99C
-		mov	ah, 0
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jz	short loc_F970
-		mov	si, 1
-		jmp	short loc_F96B
-; ---------------------------------------------------------------------------
-
-loc_F949:
-		mov	di, 4
-		jmp	short loc_F965
-; ---------------------------------------------------------------------------
-
-loc_F94E:
-		push	di
-		push	si
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		mov	dx, 40h
-		sub	dx, ax
-		push	dx
-		push	TX_BLACK
-		call	gaiji_putca
-		add	di, 2
-
-loc_F965:
-		cmp	di, 52
-		jl	short loc_F94E
-		inc	si
-
-loc_F96B:
-		cmp	si, 24
-		jl	short loc_F949
-
-loc_F970:
-		mov	al, 0
-
-loc_F972:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_F906	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_F976	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		mov	byte_2C99C, 20h	; ' '
-
-loc_F97F:
-		call	sub_F906
-		or	al, al
-		jnz	short loc_F98F
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_F97F
-; ---------------------------------------------------------------------------
-
-loc_F98F:
-		mov	PaletteTone, 50
-		call	far ptr	palette_show
-
-loc_F99A:
-		call	sub_F896
-		or	al, al
-		jnz	short loc_F9AA
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_F99A
-; ---------------------------------------------------------------------------
-
-loc_F9AA:
-		mov	[bp+var_2], 32h	; '2'
-		jmp	short loc_F9DE
-; ---------------------------------------------------------------------------
-
-loc_F9B1:
-		call	gaiji_putca pascal, [bp+var_2], (12 shl 16) + gb_G_, TX_WHITE
-		call	@frame_delay$qi pascal, 1
-		call	text_putsa pascal, [bp+var_2], 12, ds, offset asc_226B3, TX_WHITE
-		sub	[bp+var_2], 2
-
-loc_F9DE:
-		cmp	[bp+var_2], 8
-		jg	short loc_F9B1
-		mov	[bp+var_2], 8
-		jmp	short loc_FA18
-; ---------------------------------------------------------------------------
-
-loc_F9EB:
-		call	gaiji_putca pascal, [bp+var_2], (12 shl 16) + gb_G_, TX_WHITE
-		call	@frame_delay$qi pascal, 1
-		call	text_putsa pascal, [bp+var_2], 12, ds, offset asc_226B6, TX_WHITE
-		add	[bp+var_2], 2
-
-loc_FA18:
-		cmp	[bp+var_2], 14h
-		jl	short loc_F9EB
-		call	gaiji_putsa pascal, (20 shl 16) + 12, ds offset gGAMEOVER, TX_WHITE
-		call	@input_wait_for_change$qi pascal, 0
-		call	@overlay_wipe$qv
-		call	@continue_prompt$qv
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	byte_2C99C, 20h	; ' '
-
-loc_FA47:
-		call	sub_F906
-		or	al, al
-		jnz	short loc_FA57
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_FA47
-; ---------------------------------------------------------------------------
-
-loc_FA57:
-		cmp	[bp+var_2], 0
-		jnz	short loc_FA7D
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-
-loc_FA68:
-		call	sub_F896
-		or	al, al
-		jnz	short loc_FA78
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_FA68
-; ---------------------------------------------------------------------------
-
-loc_FA78:
-		call	@overlay_wipe$qv
-		jmp	short loc_FA9E
-; ---------------------------------------------------------------------------
-
-loc_FA7D:
-		les	bx, _resident
-		assume es:nothing
-		mov	es:[bx+resident_t.end_sequence], ES_SCORE
-		kajacall	KAJA_SONG_FADE, 4
-		push	4
-		call	palette_black_out
-		push	ds
-		push	offset aMaine_1	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-
-loc_FA9E:
-		mov	al, byte ptr [bp+var_2]
-		leave
-		retn
-sub_F976	endp
-
+	; gameover() and the two overlay fade steps it blocks on --
+	; overlay_gameover_enter_update_and_render() and its _leave_ twin --
+	; now live in th05/main/gameover.cpp. Those three procs were this
+	; dump's ENTIRE contribution to main__TEXT, so the contribution is now
+	; zero-length and the C++ side of the segment starts at the byte
+	; sub_F896 used to.
+	;
+	; They needed an object of their own, th05/gameover.cpp, rather than
+	; an #include into th05/laser.cpp the way continue_prompt() below took:
+	; the lifted range is 0x20D bytes, an ODD length, and folding it in
+	; front of a host that emits `-a2`-aligned data re-rolls that object's
+	; own offsets (kb/codegen/0119). That object is listed in Tupfile.lua
+	; ahead of th05/laser_rh.cpp, and TLINK lays a segment's contributions
+	; out in link order, so the lifted bytes land back where they were.
+	;
+	; `procdesc near`. The one call site, in sub_12017, was already spelled
+	; unqualified. The two fade steps get no declaration at all: nothing
+	; outside these three procs ever called them.
+	@gameover$qv procdesc near
 
 	; continue_prompt() now lives in th05/main/continue.cpp, which
 	; th05/laser.cpp #includes AHEAD of th05/main/bullet/laser.cpp
@@ -4877,7 +4642,7 @@ loc_120F0:
 ; ---------------------------------------------------------------------------
 
 loc_12142:
-		call	sub_F976
+		call	@gameover$qv
 		mov	_quit, al
 
 locret_12148:
@@ -17362,9 +17127,15 @@ public _midboss_defeat_angle
 _midboss_defeat_angle	db 0
 		db 0
 include th04/gaiji/gameover[data].asm
+public _GAMEOVER_G_BLANK
+_GAMEOVER_G_BLANK	label byte
 asc_226B3	db '  ',0
+public _GAMEOVER_G_BLANK_0
+_GAMEOVER_G_BLANK_0	label byte
 asc_226B6	db '  ',0
 ; char aMaine_1[]
+public _aMaine_1
+_aMaine_1	label byte
 aMaine_1	db 'maine',0
 		db 0
 public _bullet_zap_drop_point_items
@@ -17853,6 +17624,8 @@ _item_point_score_at_full_dream	dw ?
 byte_2C98A	db ?
 		db ?
 include th04/main/midboss/funcs[bss].asm
+public _gameover_fade
+_gameover_fade	label byte
 byte_2C99C	db ?
 		db ?
 public _laser_line_endpoint
