@@ -34,20 +34,14 @@ static const int HP_TOTAL = 3000;
 
 // Still ZUN's assembly in th05_main.asm's BX_UPDATE_TEXT, reached through the
 // zero-byte `public` aliases in front of the dump's own labels
-// (kb/codegen/0123). All five are deliberately left at their IDA placeholder
-// spellings: this campaign only *defers to* names that already exist for the
-// same routine elsewhere, and none of these has one. Naming them is a review
-// round's call, and the evidence each one would be named from is written out
-// below and in state/notes/_midbossx_update_qv.md.
-//
-// That review round has since happened and rejected this paragraph's reasoning
-// (NAMING_REVIEW_VERDICTS_9 section 7): these are pinned by aliases this
-// parcel wrote itself, and a `public` a parcel writes is not a precedent it
-// may then defer to. Four of the five carry rulings, unapplied here only
-// because the round that made them did not hold this dump. The one part that
-// survives is narrower than what is written above: a placeholder may stay
-// while its *body* has not been read, because a descriptive name would then
-// describe behaviour nobody has measured.
+// (kb/codegen/0123). The dump's own labels keep their IDA spellings, which is
+// what 0123 prescribes; the C++ side is named, because a `public` a parcel
+// wrote itself is not a precedent that parcel may then defer to
+// (NAMING_REVIEW_VERDICTS_9 section 7, applied by round 16 once this dump was
+// free). `sub_1E5FC` and `sub_1E60E` keep their placeholder spellings on the
+// one ground that survives review: their *bodies* have not been read, so a
+// descriptive name would describe behaviour nobody has measured, and that is a
+// search that fails (naming-precedents.md section 3).
 // -----
 
 extern "C" {
@@ -60,17 +54,26 @@ extern "C" {
 // [frame]s 0…29, and plays se 8 on [frame] 0 and se 15 on [frame] 30. From
 // [frame] 40 on it calls the current pattern and returns *its* result; every
 // earlier path returns false.
-bool pascal near sub_1E556(int frame);
+//
+// [inferred] name, from the behaviour above and this tree's own vocabulary:
+// `flystep` is what the four other `bool pascal near f(int frame)` step-and-
+// report-done functions call the movement half (boss_flystep_random,
+// boss_flystep_towards, marisa_flystep_pointreflected, mai_yuki_flystep_random),
+// and `_and_pattern` is the half they do not have. th05/main/boss/b1.cpp's
+// phase_2_3_wait_fly_and_select_pattern is the same compound shape in the same
+// role, one level up.
+bool pascal near midbossx_flystep_and_pattern(int frame);
 
 // The pattern that phase 1 starts from. Its address is taken here and stored
-// into [sub_1E556]'s callback; the body stays in the dump.
+// into [midbossx_flystep_and_pattern]'s callback; the body stays in the dump.
 bool near sub_1E60E(void);
 
 }
 
-// The pattern [sub_1E556] calls once the approach is over. Initialised to
-// sub_1E5FC in the dump's own data.
-extern pattern_oneshot_func_t off_2285A;
+// The pattern [midbossx_flystep_and_pattern] calls once the approach is over.
+// Initialised to sub_1E5FC in the dump's own data. Mirrors its table exactly as
+// shinki_phase_2_3_pattern and sara_phase_2_3_pattern mirror theirs.
+extern pattern_oneshot_func_t midbossx_phase_1_pattern;
 
 // The pattern picked on every phase-1 cycle, indexed by [boss_statebyte[12]]
 // (0 before the score bonus below, 1 after) and by the low bit of the cycle
@@ -78,21 +81,25 @@ extern pattern_oneshot_func_t off_2285A;
 // th05/main/boss/b6.cpp — but note that the column index is spelled `% 2`
 // rather than `& 1`, because [boss_statebyte] promotes to a *signed* int and
 // only the remainder emits the original's `cwd`/`idiv` pair.
-extern const pattern_oneshot_func_t off_2285C[2][2];
+extern const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 
 // [midboss.angle] for each of the first 8 phase-1 cycles, indexed by
 // [boss_statebyte[14]] & 7. Cycle 8 onwards would read 0 twice before the
 // timeout condition ends the fight at cycle 20 — except that the fight is
-// unwinnable that long, see below.
-extern const unsigned char byte_22868[8];
+// unwinnable that long, see below. Named for MIDBOSS3_FLY_ANGLES and
+// YUUKA6_PHASE2_FLY_ANGLES, the tree's only other angle tables of this shape:
+// every `*_ANGLES` token in the tree is a `*_FLY_ANGLES`, and a bare `_ANGLES`
+// spelling has no members at all.
+extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // -----
 
 // The last of the Extra Stage midboss's four phase-1 patterns, and the only
-// one taken once the half-HP score bonus has been given: [off_2285C] holds it
-// in *both* columns of its second row, so it repeats for every remaining
-// cycle regardless of the parity index. Its address is taken by that table,
-// which is still the dump's own data, so this may not be `static`, and
-// th05_main.asm's BX_UPDATE_TEXT block declares it as a `procdesc near`.
+// one taken once the half-HP score bonus has been given:
+// [MIDBOSSX_PATTERNS_PHASE_1] holds it in *both* columns of its second row, so
+// it repeats for every remaining cycle regardless of the parity index. Its
+// address is taken by that table, which is still the dump's own data, so this
+// may not be `static`, and th05_main.asm's BX_UPDATE_TEXT block declares it as
+// a `procdesc near`.
 //
 // Every 16th frame of the cycle it fires two BSM_DECELERATE_THEN_TURN spread
 // stacks of blue cross bullets in mirrored directions (angle 0x80 and 0x00),
@@ -175,19 +182,19 @@ void pascal midbossx_update(void)
 			TO_SP((MIDBOSSX_H / 2) - (MIDBOSSX_H / 8))
 		);
 		midboss.angle = 0x40;
-		if(sub_1E556(midboss.phase_frame)) {
+		if(midbossx_flystep_and_pattern(midboss.phase_frame)) {
 			midboss.phase++;
 			midboss.phase_frame = 0;
 			midboss.angle = 0x00;
 			boss_statebyte[15] = 0;
 			boss_statebyte[14] = 0;
 			boss_statebyte[12] = 0;
-			off_2285A = sub_1E60E;
+			midbossx_phase_1_pattern = sub_1E60E;
 		}
 		break;
 
 	case 1:
-		if(sub_1E556(midboss.phase_frame - 64)) {
+		if(midbossx_flystep_and_pattern(midboss.phase_frame - 64)) {
 			if((boss_statebyte[12] == 0) && (midboss.hp < 1000)) {
 				midboss_score_bonus(10);
 				bullets_clear();
@@ -196,9 +203,10 @@ void pascal midbossx_update(void)
 			}
 			boss_statebyte[15] = 1;
 			midboss.phase_frame = 0;
-			midboss.angle = byte_22868[boss_statebyte[14] & 7];
+			midboss.angle = MIDBOSSX_FLY_ANGLES[boss_statebyte[14] & 7];
 			boss_statebyte[14]++;
-			off_2285A = off_2285C[boss_statebyte[12]][boss_statebyte[14] % 2];
+			midbossx_phase_1_pattern =
+				MIDBOSSX_PATTERNS_PHASE_1[boss_statebyte[12]][boss_statebyte[14] % 2];
 		}
 		midboss_hittest_shots(
 			TO_SP((MIDBOSSX_W / 2) - (MIDBOSSX_W / 8)),

@@ -15075,8 +15075,8 @@ BX_UPDATE_TEXT	segment	byte public 'CODE' use16
 ; The Extra Stage midboss's per-frame step, called from C++ in
 ; th04/main/midboss/mx_update.cpp. `pascal`, hence the uppercase alias
 ; without an underscore (kb/codegen 0123).
-public SUB_1E556
-SUB_1E556 label near
+public MIDBOSSX_FLYSTEP_AND_PATTERN
+MIDBOSSX_FLYSTEP_AND_PATTERN label near
 sub_1E556	proc near
 
 arg_0		= word ptr  4
@@ -17515,13 +17515,13 @@ byte_22858	db 0
 byte_22859	db 0
 ; The Extra Stage midboss's current pattern callback, assigned from C++ in
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
-public _off_2285A
-_off_2285A label word
+public _midbossx_phase_1_pattern
+_midbossx_phase_1_pattern label word
 off_2285A	dw offset sub_1E5FC
 ; The Extra Stage midboss's [2][2] pattern table, indexed from C++ in
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
-public _off_2285C
-_off_2285C label word
+public _MIDBOSSX_PATTERNS_PHASE_1
+_MIDBOSSX_PATTERNS_PHASE_1 label word
 off_2285C	dw offset sub_1E60E
 		dw offset sub_1E66F
 		dw offset @pattern_symmetric_turning_spread$qv
@@ -17531,8 +17531,8 @@ off_2285C	dw offset sub_1E60E
 ; [midboss.angle] for each of the first 8 phase-1 cycles of the Extra Stage
 ; midboss; read from C++ in th04/main/midboss/mx_update.cpp through this
 ; zero-byte alias (kb/codegen 0123).
-public _byte_22868
-_byte_22868 label byte
+public _MIDBOSSX_FLY_ANGLES
+_MIDBOSSX_FLY_ANGLES label byte
 byte_22868	db  10h
 		db  70h	; p
 		db  80h
