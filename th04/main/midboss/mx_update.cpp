@@ -18,6 +18,7 @@
 #include "th02/hardware/pages.hpp"
 #include "th04/snd/snd.h"
 #include "th04/main/pattern.hpp"
+#include "th04/math/randring.hpp"
 #include "th04/main/homing.hpp"
 #include "th04/main/gather.hpp"
 #include "th04/main/bullet/clearzap.hpp"
@@ -88,8 +89,8 @@ extern "C" {
 // the same compound shape in the same role, one level up.
 bool pascal near midbossx_flystep_and_pattern(int frame);
 
-// The pattern that phase 1 starts from. Its address is taken here and stored
-// into [midbossx_flystep_and_pattern]'s callback; the body stays in the dump.
+// The pattern that phase 1 starts from. Its address is taken by the dump
+// and stored into [midbossx_flystep_and_pattern]'s callback.
 //
 // On [midboss.phase_frame] 94 it picks +1 or -1 with randring2_next16_and(1)
 // and parks it in [boss_statebyte[13]]; on every frame up to 114 it fires one
@@ -114,6 +115,9 @@ bool pascal near midbossx_flystep_and_pattern(int frame);
 // BSM_EXACT_LINEAR. So `accelerating` and `speedup` are not synonyms competing
 // for one slot; they name different layers, and the tree does not yet mark the
 // per-ring layer consistently. 28 characters, so nothing truncates.
+// Defined below, once it was lifted; the declaration stays here because
+// this `extern "C"` block is what gives it the `_`-prefixed symbol the
+// dump's own pattern table references.
 bool near pattern_curved_speedup_rings(void);
 
 }
@@ -140,6 +144,48 @@ extern const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 // spelling has no members at all.
 extern const unsigned char MIDBOSSX_FLY_ANGLES[8];
 // -----
+
+// The pattern phase 1 starts from, and the first of the four in address
+// order. Its address is taken by [midbossx_phase_1_pattern]'s initialiser
+// and by [MIDBOSSX_PATTERNS_PHASE_1], both still the dump's own data, so
+// this may not be `static` and th05_main.asm's BX_UPDATE_TEXT block
+// declares it as a `procdesc near`.
+//
+// On frame 94 it picks +1 or -1 and parks it in [boss_statebyte[13]]; on
+// every frame up to 114 it fires one BG_RING of BSM_SPEEDUP blue crosses
+// whose angle has drifted by that constant since the last, which is the
+// `curved` in the name. The cycle ends at 128, like all four of them.
+//
+// The name and its whole justification were already written above, by the
+// parcel that could not yet lift the body; this one only moves the body
+// under it. Naming cost zero.
+bool near pattern_curved_speedup_rings(void)
+{
+	if(midboss.phase_frame == 94) {
+		// One store, so a conditional expression rather than two
+		// assignments: the original computes the value in AL and writes
+		// [boss_statebyte[13]] exactly once.
+		boss_statebyte[13] = (randring2_next16_and(1) ? 1 : -1);
+	}
+	if(midboss.phase_frame <= 114) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_special.speed_delta.set(0.125f);
+		bullet_template.special_motion = BSM_SPEEDUP;
+		bullet_template.set_spread(18, 16);
+		bullet_template.group = BG_RING;
+		bullet_template.speed.set(0.5f);
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_BLUE;
+		bullet_template.angle += boss_statebyte[13];
+		bullets_add_special();
+	}
+
+	// Two separate returns, for the same reason the two patterns below
+	// give.
+	if(midboss.phase_frame >= 128) {
+		return true;
+	}
+	return false;
+}
 
 // The second of the Extra Stage midboss's four phase-1 patterns, taken on the
 // odd-numbered cycles before the half-HP score bonus:

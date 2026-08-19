@@ -14507,61 +14507,20 @@ loc_1E60A:
 sub_1E5FC	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; The pattern that the Extra Stage midboss's phase 1 starts from; its
-; address is taken in th04/main/midboss/mx_update.cpp through this
-; zero-byte alias (kb/codegen 0123).
-public _pattern_curved_speedup_rings
-_pattern_curved_speedup_rings label near
-sub_1E60E	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_midboss_phase_frame, 94
-		jnz	short loc_1E62A
-		push	1
-		call	@randring2_next16_and$qui
-		or	ax, ax
-		jz	short loc_1E625
-		mov	al, 1
-		jmp	short loc_1E627
-; ---------------------------------------------------------------------------
-
-loc_1E625:
-		mov	al, -1
-
-loc_1E627:
-		mov	_boss_statebyte[13], al
-
-loc_1E62A:
-		cmp	_midboss_phase_frame, 114
-		jg	short loc_1E65F
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_special_speed_delta, 2
-		mov	_bullet_template.BT_special_motion, BSM_SPEEDUP
-		mov	word ptr _bullet_template.spread, (16 shl 8) or 18
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.speed, 8
-		mov	_bullet_template.patnum, PAT_BULLET16_N_CROSS_BLUE
-		mov	al, _boss_statebyte[13]
-		add	_bullet_template.BT_angle, al
-		call	_bullets_add_special
-
-loc_1E65F:
-		cmp	_midboss_phase_frame, 128
-		jl	short loc_1E66B
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1E66B:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1E60E	endp
+	; The pattern the Extra Stage midboss's phase 1 starts from, now
+	; compiled from th04/main/midboss/mx_update.cpp, which puts it ahead of
+	; pattern_random_pellet_spray() in that object -- the original order.
+	; It was the LAST proc of this root contribution, so the C++ side grows
+	; backwards into the hole and every byte keeps its address
+	; (kb/codegen 0099 + 0114). The zero-byte `public` alias this block used
+	; to carry is gone: the C++ definition owns the symbol now, and the
+	; `_` prefix comes from the `extern "C"` block it is written in.
+	;
+	; The two `dw offset` references below in _DATA -- the phase-1 pattern
+	; pointer and the [2][2] table -- resolve through this declaration.
+	;
+	; kb/codegen/0121: the body carried no `assume`.
+	_pattern_curved_speedup_rings procdesc near
 
 	; The Extra Stage midboss's second phase-1 pattern, now compiled from
 	; th04/main/midboss/mx_update.cpp as well, and declared here for the
@@ -16817,7 +16776,7 @@ off_2285A	dw offset sub_1E5FC
 ; th04/main/midboss/mx_update.cpp. Zero-byte alias, kb/codegen 0123.
 public _MIDBOSSX_PATTERNS_PHASE_1
 _MIDBOSSX_PATTERNS_PHASE_1 label word
-off_2285C	dw offset sub_1E60E
+off_2285C	dw offset _pattern_curved_speedup_rings
 		dw offset @pattern_random_pellets$qv
 		dw offset @pattern_symmetric_turning_spread$qv
 		dw offset @pattern_symmetric_turning_spread$qv
