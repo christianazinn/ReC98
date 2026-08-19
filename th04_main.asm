@@ -2656,6 +2656,16 @@ sub_E2C3	endp
 
 ; Attributes: bp-based frame
 
+; Zero-byte alias (kb/codegen/0123) so that th04/main/gameover.cpp can name
+; this proc in the poll loop it drives it from. ZUN's second copy of
+; overlay_stage_enter_update_and_render(), at half the fade interval and on
+; its own counter; TH05's identical copy is already lifted under this name in
+; th05/main/gameover.cpp. The name is TASM-spelled at the 32-character
+; identifier truncation TLINK applies, exactly as
+; @overlay_stage_enter_update_and_r$qv is elsewhere in this file. The dump has
+; no reference of its own left.
+public @overlay_gameover_enter_update_an$qv
+@overlay_gameover_enter_update_an$qv label near
 sub_E461	proc near
 
 var_1		= byte ptr -1
@@ -2732,6 +2742,10 @@ sub_E461	endp
 
 ; Attributes: bp-based frame
 
+; Zero-byte alias (kb/codegen/0123), same reason as the proc above: the
+; overlay_stage_leave_update_and_render() half of the pair.
+public @overlay_gameover_leave_update_an$qv
+@overlay_gameover_leave_update_an$qv label near
 sub_E4D1	proc near
 
 var_1		= byte ptr -1
@@ -2804,145 +2818,33 @@ loc_E53D:
 sub_E4D1	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_E541	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		cmp	_stage_id, 5
-		jnz	short loc_E551
-		nopcall	@end_game_bad$qv
-
-loc_E551:
-		mov	byte_25660, 20h	; ' '
-
-loc_E556:
-		call	main_01:sub_E4D1
-		or	al, al
-		jnz	short loc_E566
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_E556
-; ---------------------------------------------------------------------------
-
-loc_E566:
-		mov	PaletteTone, 50
-		call	far ptr	palette_show
-
-loc_E571:
-		call	main_01:sub_E461
-		or	al, al
-		jnz	short loc_E581
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_E571
-; ---------------------------------------------------------------------------
-
-loc_E581:
-		mov	[bp+var_2], 32h	; '2'
-		jmp	short loc_E5B5
-; ---------------------------------------------------------------------------
-
-loc_E588:
-		call	gaiji_putca pascal, [bp+var_2], (12 shl 16) + gb_G_, TX_WHITE
-		call	@frame_delay$qi pascal, 1
-		call	text_putsa pascal, [bp+var_2], 12, ds, offset asc_22C3F, TX_WHITE
-		sub	[bp+var_2], 2
-
-loc_E5B5:
-		cmp	[bp+var_2], 8
-		jg	short loc_E588
-		mov	[bp+var_2], 8
-		jmp	short loc_E5EF
-; ---------------------------------------------------------------------------
-
-loc_E5C2:
-		call	gaiji_putca pascal, [bp+var_2], (12 shl 16) + gb_G_, TX_WHITE
-		call	@frame_delay$qi pascal, 1
-		call	text_putsa pascal, [bp+var_2], 12, ds, offset asc_22C42, TX_WHITE
-		add	[bp+var_2], 2
-
-loc_E5EF:
-		cmp	[bp+var_2], 14h
-		jl	short loc_E5C2
-		call	gaiji_putsa pascal, (20 shl 16) + 12, ds, offset gGAMEOVER, TX_WHITE
-		call	@input_wait_for_change$qi pascal, 0
-		call	@overlay_wipe$qv
-		call	@continue_prompt$qv
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	byte_25660, 20h	; ' '
-
-loc_E61E:
-		call	main_01:sub_E4D1
-		or	al, al
-		jnz	short loc_E62E
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_E61E
-; ---------------------------------------------------------------------------
-
-loc_E62E:
-		cmp	[bp+var_2], 0
-		jnz	short loc_E654
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-
-loc_E63F:
-		call	main_01:sub_E461
-		or	al, al
-		jnz	short loc_E64F
-		call	@frame_delay$qi pascal, 1
-		jmp	short loc_E63F
-; ---------------------------------------------------------------------------
-
-loc_E64F:
-		call	@overlay_wipe$qv
-		jmp	short loc_E675
-; ---------------------------------------------------------------------------
-
-loc_E654:
-		les	bx, _resident
-		assume es:nothing
-		mov	es:[bx+resident_t.end_sequence], ES_SCORE
-		kajacall	KAJA_SONG_FADE, 4
-		push	4
-		call	palette_black_out
-		push	ds
-		push	offset aMaine_2	; "maine"
-		nopcall	@GAMEEXECL$QNXC
-
-loc_E675:
-		mov	al, byte ptr [bp+var_2]
-		leave
-		retn
-sub_E541	endp
-
-
-	; continue_prompt() now lives in th04/main/continue.cpp, which
-	; th04/execl.cpp #includes AHEAD of th04/main/execl.cpp
-	; (kb/codegen/0129), so that it lands here at its original address,
-	; before score_last_commit() and GameExecl(). It was the LAST proc of
-	; this root contribution and that file's object already appended
-	; immediately after it, so no carve and no new segment were needed
-	; (kb/codegen/0099 + 0112).
+	; gameover() now lives in th04/main/gameover.cpp, which th04/execl.cpp
+	; #includes AHEAD of th04/main/continue.cpp (kb/codegen/0129), so that
+	; it lands here at its original address, before continue_prompt(),
+	; score_last_commit() and GameExecl(). It was the LAST proc of this root
+	; contribution and that file's object already appended immediately after
+	; it, so no carve and no new segment were needed (kb/codegen/0099 +
+	; 0112).
 	;
 	; The lift may NOT go into th04/main/execl.cpp itself: th05/execl.cpp
 	; #includes that same shared body, and TH05's counterpart to this
 	; function is still ASM in th05_main.asm.
 	;
-	; kb/codegen/0121: the body carried no `assume`, so there is nothing
-	; to restore into the rest of this contribution.
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore into the rest of this contribution.
 	;
-	; `procdesc near`, so the one call site above is spelled UNQUALIFIED
-	; -- the `main_01:` group override it carried had to go, exactly as
-	; score_reset()'s site did.
-	@continue_prompt$qv procdesc near
+	; `procdesc near`, so the one call site -- in main_0_TEXT, further down
+	; this file -- is spelled UNQUALIFIED, and the `main_01:` group override
+	; it carried had to go, exactly as continue_prompt()'s site did.
+	;
+	; @continue_prompt$qv's own `procdesc` went with this proc: the call it
+	; described was its last reference in this file.
+	@gameover$qv procdesc near
 
-; The C++ contributions to EXECL_TEXT go here: th04/main/continue.cpp at
-; the original address of continue_prompt(), then th04/main/execl.cpp at
-; the original address of score_last_commit(), which is followed by
+; The C++ contributions to EXECL_TEXT go here: th04/main/gameover.cpp at
+; the original address of gameover(), then th04/main/continue.cpp at the
+; original address of continue_prompt(), then th04/main/execl.cpp at the
+; original address of score_last_commit(), which is followed by
 ; GameExecl().
 EXECL_TEXT	ends
 
@@ -5658,7 +5560,7 @@ loc_10A60:
 ; ---------------------------------------------------------------------------
 
 loc_10AB7:
-		call	main_01:sub_E541
+		call	@gameover$qv
 		mov	_quit, al
 
 locret_10ABD:
@@ -26101,9 +26003,19 @@ public _shot_laser_ring_cycle
 _shot_laser_ring_cycle	db 0
 	evendata
 include th04/gaiji/gameover[data].asm
+; Zero-byte aliases (kb/codegen/0123) publishing the two GAME OVER erasers
+; and the fourth 'maine' under C-visible names for th04/main/gameover.cpp.
+; The two erasers are one two-space literal that ZUN's build emitted once
+; per source occurrence; ours merges duplicate strings (-d), so the C++ side
+; has to reach these rather than spell them. The dump's own references keep
+; the bare spellings, so nothing here moves.
+public _GAMEOVER_G_BLANK, _GAMEOVER_G_BLANK_0, _aMaine_2
+_GAMEOVER_G_BLANK	label byte
 asc_22C3F	db '  ',0
+_GAMEOVER_G_BLANK_0 label byte
 asc_22C42	db '  ',0
 ; char aMaine_2[]
+_aMaine_2	label byte
 aMaine_2	db 'maine',0
 	evendata
 
@@ -26557,6 +26469,13 @@ public _thicklaser_template, _thicklasers
 _thicklaser_template	thicklaser_t <?>
 _thicklasers        	thicklaser_t THICKLASER_COUNT dup(<?>)
 
+; Zero-byte alias (kb/codegen/0123) for the GAME OVER fade counter that the
+; two procs at the tail of EXECL_TEXT's root contribution share, and that
+; th04/main/gameover.cpp reseeds before each fade. One byte doing both of
+; [overlay_fade]'s jobs, which is why the C++ side declares it as the same
+; kind of union; TH05's copy carries the same name.
+public _gameover_fade
+_gameover_fade label byte
 byte_25660	db ?
 		db ?
 word_25662	dw ?
