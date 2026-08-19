@@ -69,7 +69,9 @@ void far scroll_reset(void);
 extern "C" void far sub_17979(void); // enemies_invalidate
 extern "C" void far sub_1766E(void); // enemies_update_and_render
 extern "C" void far sub_BFD0(void);  // boss_activate_if_scroll_done
-extern "C" void far sub_C05D(void);  // stage_title_unput
+
+// Now C++, in th02/main/bgm_show.cpp, which owns MAIN_01___TEXT's tail.
+extern "C" void far stage_title_unput(void);
 
 // Per-stage effect functions.
 extern "C" void far sub_13513(void); // Stages 1 and 2, invalidate
@@ -307,7 +309,7 @@ void near stage_init(void)
 	enemies_invalidate = sub_17979;
 	enemies_update_and_render = sub_1766E;
 	boss_activate_if_scroll_done = sub_BFD0;
-	stage_title_unput = sub_C05D;
+	stage_title_unput_func = stage_title_unput;
 	stage_should_end = reinterpret_cast<bool16 (far *)(void)>(nullfunc_false);
 	player_reset();
 	scroll_speed = 1;

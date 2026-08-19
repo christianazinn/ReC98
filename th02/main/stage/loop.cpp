@@ -85,7 +85,7 @@ bool16 stage_loop(void)
 
 	while(!quit) {
 		snd_se_update();
-		stage_title_unput();
+		stage_title_unput_func();
 		bgm_show();
 
 		// The unblitting pass has to use the [scroll_line] that the back page

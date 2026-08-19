@@ -24,6 +24,12 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/gaiji/gaiji.h"
+#include "th02/resident.hpp"
+#include "th02/main/frames.hpp"
+#include "th02/main/null.hpp"
+#include "th02/main/playfld.hpp"
+#include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 
 // All three still live in th02_main.asm's own _DATA contribution.
 // th02/main/stage/init.cpp declares the first two exactly this way, and is
@@ -32,10 +38,11 @@ extern "C" uint8_t bgm_show_timer;
 extern "C" uint8_t bgm_title_id;
 extern "C" shiftjis_t near *BGM_TITLES[];
 
-// 48 half-width spaces, reached through the `public` line th02_main.asm now
-// carries (kb/codegen/0123). The dump still spells it this way in sub_C05D,
-// which blanks two whole rows with the entire run; this function only needs
-// the last 26 cells of it.
+// 48 half-width spaces -- exactly the playfield's TRAM width -- reached
+// through the `public` line th02_main.asm carries for it (kb/codegen/0123).
+// Both users are now in this file: stage_title_unput() blanks two whole rows
+// with the entire run, bgm_show() only needs the last 26 cells of it. The
+// alias stays regardless: it is what the C++ links against.
 extern "C" const shiftjis_t aEMPTY[];
 
 static const int BGM_TITLE_LEFT = 24;
@@ -50,6 +57,36 @@ static const int BGM_TITLE_FRAMES = 160;
 // Offset into [aEMPTY] of the first cell this function has to blank, i.e. the
 // 26 cells from [BGM_TITLE_LEFT] to the right edge of the text RAM.
 static const int BGM_TITLE_BLANK = 22;
+
+// The stage title that main_entry() writes across TRAM rows 12 and 13 the
+// moment a stage starts. Both rows are blanked with the whole of [aEMPTY],
+// which is 48 cells -- the full playfield width -- rather than the two rows'
+// actual extent.
+static const int STAGE_TITLE_TOP = 12;
+static const int STAGE_TITLE_FRAMES = 160;
+
+// stage_loop() calls this through [stage_title_unput_func] once per frame.
+// It does nothing at all until [stage_frame] reaches 160, then takes the title
+// down and nulls its own slot, so the cost for the rest of the stage is one
+// far call and one 32-bit compare.
+//
+// A demo keeps its title up: main_entry() writes the blinking `gDEMO_PLAY`
+// gaiji to row 12 instead of a stage name when [demo_num] is set, and skipping
+// the blanking here is what leaves it on screen for the whole demo. The slot
+// is still nulled in that case, so the check happens exactly once either way.
+extern "C" void far stage_title_unput(void)
+{
+	if(stage_frame != STAGE_TITLE_FRAMES) {
+		return;
+	}
+	if(!resident->demo_num) {
+		text_putsa(PLAYFIELD_TRAM_LEFT, STAGE_TITLE_TOP, aEMPTY, TX_WHITE);
+		text_putsa(
+			PLAYFIELD_TRAM_LEFT, (STAGE_TITLE_TOP + 1), aEMPTY, TX_WHITE
+		);
+	}
+	stage_title_unput_func = nullfunc_void;
+}
 
 // Renders the note gaiji and the current track's title on the frame
 // [bgm_show_timer] turns 1, then blanks the row again once the timer runs out.
