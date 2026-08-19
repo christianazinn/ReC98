@@ -7405,7 +7405,7 @@ loc_12DBE:
 		retn
 bullets_render	endp
 
-include th04/main/item/render.asm
+	; items_render() now lives in th04/main/item/render.cpp (kb/codegen 0114).
 
 	; reimu_orbs_render() now lives in th04/main/boss/fg.cpp, ahead of
 	; reimu_fg_render() and therefore in its original address order. Nothing
