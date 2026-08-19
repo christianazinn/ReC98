@@ -2,8 +2,9 @@
 /// -------------------------
 /// (#included from th04/main_035.cpp. ZUN's object for main_035_TEXT held all
 /// seven stage setup functions, stage1_setup() through stagex_setup(), in that
-/// address order; stage1_setup() is still in th04_main.asm, so this file is
-/// appended to that contribution and grows upwards, one tail at a time.
+/// address order, and all seven are now here — the file grew upwards, one
+/// tail at a time, and th04_main.asm's contribution to that segment is down to
+/// boss_reset() and one include.
 /// th05/main/stage/setup.cpp is the same file for TH05, and holds all seven.)
 ///
 /// TH04's are `far` where TH05's are `near` — the same function under the same
@@ -60,6 +61,64 @@ extern char st02_bb[];
 extern char st01_bmt[];
 extern char st01bk_cdg[];
 extern char st01_bb[];
+
+// The last three (kb/codegen/0123).
+extern char st00_bmt[];
+extern char st00bk_cdg[];
+extern char st00_bb[];
+
+/// Stage 1
+/// -------
+
+// Orange enters on the first cel of the stage sprite range, the way every
+// stage-1-style boss does. (th04/main/boss/render.cpp)
+static const int PAT_ORANGE_STILL = PAT_STAGE;
+
+void pascal far stage1_setup(void)
+{
+	midboss_update_func = midboss1_update;
+	midboss_render_func = midboss1_render;
+	midboss.frames_until = 3100;
+
+	// Below the bottom of the playfield, drifting up — Stage 1's midboss is
+	// the only one that enters from underneath.
+	midboss.pos.     cur.set(192, 368);
+	midboss.pos.    prev.set(192, 368);
+	midboss.pos.velocity.set(0, 1);
+	midboss.hp = 800;
+
+	// [inferred] Alone among the five setups that have a midboss at all, this
+	// one does not clear [midboss.sprite]. The only other writer for this
+	// midboss is midboss1_update() (still ASM), which seeds it during the
+	// battle; nothing in the binary says whether the omission is deliberate.
+
+	boss_reset();
+	boss.pos.init(192, 40);
+	boss_bg_render_func = orange_bg_render;
+	boss_update_func = orange_update;
+	boss_fg_render_func = orange_fg_render;
+	boss.sprite = PAT_ORANGE_STILL;
+
+	// The one boss in TH04 with a hitbox wider than it is tall.
+	boss_hitbox_radius.set(24, 16);
+
+	boss_backdrop_colorfill = orange_backdrop_colorfill;
+
+	super_entry_bfnt(st00_bmt);
+	cdg_load_single_noalpha(CDG_BG_BOSS, st00bk_cdg, 0);
+	bb_boss_load(st00_bb);
+
+	// R and G of color 0, in master.lib's palette copy only: nothing here
+	// calls palette_show(), so the change reaches the hardware at whatever
+	// the next show is. B is left at whatever the background load put there.
+	// The only stage setup that touches the palette at all.
+	Palettes[0].c.r = 255;
+	Palettes[0].c.g = 255;
+
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+}
+/// -------
 
 /// Stage 2
 /// -------
