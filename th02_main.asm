@@ -326,6 +326,8 @@ include th02/main/null.asm
 
 ; Attributes: bp-based frame
 
+public _stage_should_end
+_stage_should_end label far
 sub_BF9C	proc far
 		push	bp
 		mov	bp, sp
@@ -352,57 +354,6 @@ loc_BFCC:
 		pop	bp
 		retf
 sub_BF9C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_BFD0
-_sub_BFD0 label far
-sub_BFD0	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_scroll_done, 1
-		jnz	loc_C05B
-		mov	_stage_progression, SP_BOSS
-		mov	al, _stage_id
-		cbw
-		cmp	ax, 3
-		jnz	short loc_BFF8
-		setfarfp	farfp_1F490, @nullfunc_void$qv
-		jmp	short loc_C015
-; ---------------------------------------------------------------------------
-
-loc_BFF8:
-		mov	al, _stage_id
-		cbw
-		cmp	ax, 2
-		jnz	short loc_C015
-		mov	Palettes, 0
-		mov	Palettes+1, 0
-		mov	Palettes+2, 0
-		call	far ptr	palette_show
-
-loc_C015:
-		call	_boss_init
-		call	sub_17A55
-		call	sub_16A8A
-		setfarfp	farfp_1F494, @nullfunc_void$qv
-		mov	eax, _boss_bg_render_func
-		mov	_boss_bg_render, eax
-		mov	eax, _boss_update_func
-		mov	_boss_update, eax
-		setfarfp	farfp_1F48C, sub_BF9C
-		mov	_scroll_cycle, -1
-		mov	bgm_show_timer, 1
-		mov	al, byte_1F46E
-		mov	_bgm_title_id, al
-
-loc_C05B:
-		pop	bp
-		retf
-sub_BFD0	endp
 
 main_01___TEXT	ends
 
@@ -10063,6 +10014,8 @@ sub_16A6B	endp
 
 ; Attributes: bp-based frame
 
+public _sub_16A8A
+_sub_16A8A label far
 sub_16A8A	proc far
 		push	bp
 		mov	bp, sp
@@ -11912,6 +11865,8 @@ sub_17979	endp
 
 ; Attributes: bp-based frame
 
+public _sub_17A55
+_sub_17A55 label far
 sub_17A55	proc far
 		push	bp
 		mov	bp, sp
@@ -20401,14 +20356,16 @@ public _midboss_update_and_render, _midboss_invalidate
 _midboss_update_and_render	dd ?
 _midboss_invalidate	dd ?
 include th02/main/boss/funcs[bss].asm
-public _stage_should_end, _stage_update_and_render
-public _boss_activate_if_scroll_done, _stage_title_unput_func
+public _stage_should_end_func, _stage_update_and_render
+; kb/codegen/0060: TCC only sees the first 32 characters of an identifier, so
+; the C++ [boss_activate_if_scroll_done_func] emits this 32-character external.
+public _boss_activate_if_scroll_done_fun, _stage_title_unput_func
 public _stage_invalidate
-_stage_should_end label dword
+_stage_should_end_func label dword
 farfp_1F48C	dd ?
 _stage_update_and_render label dword
 farfp_1F490	dd ?
-_boss_activate_if_scroll_done label dword
+_boss_activate_if_scroll_done_fun label dword
 farfp_1F494	dd ?
 _stage_title_unput_func label dword
 farfp_1F498	dd ?

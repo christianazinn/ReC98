@@ -248,10 +248,10 @@ flip:
 		page_back ^= 1;
 		page_access(page_back);
 
-		boss_activate_if_scroll_done();
+		boss_activate_if_scroll_done_func();
 		resident->frame++;
 		stage_frame++;
-		if(stage_should_end() && !quit) {
+		if(stage_should_end_func() && !quit) {
 			return true;
 		}
 
