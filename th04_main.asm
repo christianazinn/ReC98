@@ -2478,192 +2478,26 @@ off_E2B9	dw offset @@style_2
 		dw offset @@style_8
 sub_E1F4	endp
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _thicklasers_render
-_thicklasers_render label near
-sub_E2C3	proc near
-
-@@screen_top            	= word ptr -0Ah
-@@screen_left           	= word ptr -8
-@@screen_circle_center_y	= word ptr -6
-@@screen_center_x       	= word ptr -4
-@@i                     	= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 0Ah
-		push	si
-		push	di
-		mov	si, offset _thicklasers
-		mov	[bp+@@i], 0
-		jmp	loc_E44F
-; ---------------------------------------------------------------------------
-
-loc_E2D6:
-		cmp	[si+thicklaser_t.TL_flag], TF_FREE
-		jz	loc_E449
-		cmp	[si+thicklaser_t.TL_flag], TF_LINE
-		jnz	short loc_E316
-		mov	ax, [si+thicklaser_t.TL_origin.x]
-		sar	ax, 4
-		add	ax, PLAYFIELD_LEFT
-		mov	[bp+@@screen_center_x], ax
-		mov	ax, [si+thicklaser_t.TL_origin.y]
-		sar	ax, 4
-		add	ax, PLAYFIELD_TOP
-		mov	[bp+@@screen_circle_center_y], ax
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		call	grcg_vline pascal, [bp+@@screen_center_x], [bp+@@screen_circle_center_y], (PLAYFIELD_BOTTOM - 1)
-		jmp	loc_E449
-; ---------------------------------------------------------------------------
-
-loc_E316:
-		mov	ax, [si+thicklaser_t.TL_origin.x]
-		sar	ax, 4
-		add	ax, PLAYFIELD_LEFT
-		mov	[bp+@@screen_center_x], ax
-		mov	ax, [si+thicklaser_t.TL_origin.y]
-		sar	ax, 4
-		add	ax, [si+thicklaser_t.TL_radius_cur]
-		add	ax, PLAYFIELD_TOP
-		mov	[bp+@@screen_circle_center_y], ax
-		mov	ax, [bp+@@screen_center_x]
-		sub	ax, [si+thicklaser_t.TL_radius_cur]
-		mov	[bp+@@screen_left], ax
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		add	ax, [bp+@@screen_center_x]
-		mov	[bp+@@screen_top], ax
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	di, ax
-		cmp	di, 16
-		jle	short loc_E356
-		mov	di, 16
-
-loc_E356:
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		or	ax, ax
-		jz	short loc_E3B1
-		push	GC_RMW
-		mov	al, [si+thicklaser_t.TL_col_outline]
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		call	grcg_circlefill pascal, [bp+@@screen_center_x], [bp+@@screen_circle_center_y], [si+thicklaser_t.TL_radius_cur]
-		push	[bp+@@screen_left]
-		push	[bp+@@screen_circle_center_y]
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, [bp+@@screen_left]
-		push	ax
-		push	(PLAYFIELD_BOTTOM - 1)
-		call	grcg_boxfill
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, [bp+@@screen_top]
-		sub	dx, ax
-		push	dx
-		push	[bp+@@screen_circle_center_y]
-		push	[bp+@@screen_top]
-		push	(PLAYFIELD_BOTTOM - 1)
-		call	grcg_boxfill
-
-loc_E3B1:
-		or	di, di
-		jz	short loc_E416
-		push	GC_RMW
-		mov	al, [si+thicklaser_t.TL_col_outline]
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	grcg_setcolor
-		push	[bp+@@screen_center_x]
-		push	[bp+@@screen_circle_center_y]
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, [si+thicklaser_t.TL_radius_cur]
-		sub	dx, ax
-		push	dx
-		call	grcg_circlefill
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, [bp+@@screen_left]
-		push	ax
-		push	[bp+@@screen_circle_center_y]
-		mov	ax, [bp+@@screen_left]
-		add	ax, di
-		push	ax
-		push	(PLAYFIELD_BOTTOM - 1)
-		call	grcg_boxfill
-		mov	ax, [bp+@@screen_top]
-		sub	ax, di
-		push	ax
-		push	[bp+@@screen_circle_center_y]
-		mov	ax, di
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, [bp+@@screen_top]
-		sub	dx, ax
-		push	dx
-		push	(PLAYFIELD_BOTTOM - 1)
-		call	grcg_boxfill
-
-loc_E416:
-		add	[bp+@@screen_left], di
-		sub	[bp+@@screen_top], di
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		push	[bp+@@screen_center_x]
-		push	[bp+@@screen_circle_center_y]
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		sub	ax, di
-		push	ax
-		call	grcg_circlefill
-		call	grcg_boxfill pascal, [bp+@@screen_left], [bp+@@screen_circle_center_y], [bp+@@screen_top], (PLAYFIELD_BOTTOM - 1)
-
-loc_E449:
-		inc	[bp+@@i]
-		add	si, size thicklaser_t
-
-loc_E44F:
-		cmp	[bp+@@i], THICKLASER_COUNT
-		jl	loc_E2D6
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		leave
-		retn
-sub_E2C3	endp
 
 
-	; The whole tail of this root contribution now lives in
-	; th04/main/gameover.cpp, which th04/gameover.cpp supplies from its own
-	; object -- named with `#pragma option -zCEXECL_TEXT` and listed in
-	; Tupfile.lua immediately ahead of th04/execl.cpp, so that TLINK lays it
-	; down here, directly after this contribution and before the one holding
-	; continue_prompt(). Three procs went together, in this order:
+	; The whole tail of this root contribution is now C++, in two objects that
+	; Tupfile.lua lists -- in this order -- ahead of th04/execl.cpp, so that
+	; TLINK lays them down here, directly after this contribution and before
+	; the one holding continue_prompt(). Both name this segment with
+	; `#pragma option -zCEXECL_TEXT`. Four procs went, in this order:
 	;
+	;   thicklasers_render()                        was sub_E2C3
+	;     -- th04/main/bullet/laser_render.cpp, via th04/laser_r.cpp
 	;   overlay_gameover_enter_update_and_render()  was sub_E461
 	;   overlay_gameover_leave_update_and_render()  was sub_E4D1
 	;   gameover()                                  was sub_E541
+	;     -- th04/main/gameover.cpp, via th04/gameover.cpp
 	;
-	; A separate object rather than an `#include` into th04/execl.cpp: that
+	; thicklasers_render() needs an object of its own rather than a place in
+	; th04/main/gameover.cpp, because it builds its frame by hand where every
+	; function there uses `ENTER`, and `-G` is per object (kb/codegen/0011).
+	;
+	; Separate objects rather than an `#include` into th04/execl.cpp: that
 	; translation unit's th04/main/continue.cpp owns its only copy of
 	; th04/gaiji/gaiji.h, th04/hardware/input.h and th04/main/quit.hpp, none
 	; of which is include-guarded, so a body appended ahead of it there could
@@ -2681,9 +2515,19 @@ sub_E2C3	endp
 	; group override it carried had to go, exactly as continue_prompt()'s site
 	; did. The other two need none: nothing in this file calls them any more,
 	; because their only caller was gameover().
+	;
+	; thicklasers_render() keeps ONE ASM caller, @yuuka6_fg_render$qv in
+	; main_012_TEXT below, so it needs a declaration too. `extern "C"` on the
+	; C++ side, so the linker's spelling is the underscored one and there is
+	; no mangling to reproduce; `near` because the original proc is, and
+	; declared inside a main_01 segment so that the call stays near
+	; (kb/codegen/0082). Its site is spelled UNQUALIFIED for the reason
+	; gameover()'s is.
+	_thicklasers_render procdesc near
 	@gameover$qv procdesc near
 
-; The C++ contributions to EXECL_TEXT go here: th04/gameover.cpp at the
+; The C++ contributions to EXECL_TEXT go here: th04/laser_r.cpp at the
+; original address of thicklasers_render(), then th04/gameover.cpp at the
 ; original address of overlay_gameover_enter_update_and_render(), then
 ; th04/execl.cpp at the original address of continue_prompt(), which is
 ; followed by score_last_commit() and GameExecl().
@@ -5906,7 +5750,7 @@ loc_11D7A:
 loc_11D86:
 		call	@explosions_small_update_and_rend$qv
 		call	@explosions_big_update_and_render$qv
-		call	main_01:sub_E2C3
+		call	_thicklasers_render
 		call	main_01:sub_11B44
 
 loc_11D92:
