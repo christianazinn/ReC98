@@ -22464,7 +22464,30 @@ public @boss_reset$qv
 		retn
 @boss_reset$qv	endp
 
-include th04/formats/bb_boss.asm
+	; bb_boss_load() and bb_boss_free() now live in
+	; th04/formats/bb_boss.cpp -- the SAME file TH05 has compiled for
+	; months, whose `if GAME eq 5` arms this module mirrored line for line.
+	; th04/main_035.cpp includes it ahead of the stage setups, which is the
+	; address it already had, because this module was the last thing this
+	; file contributed to the segment (kb/codegen 0099 + 0112 + 0114).
+	;
+	; The one dump call site, in sub_B29E in DEMO_TEXT, is a plain far call
+	; across GROUPS -- main_01 to main_03 -- so it needs no override and no
+	; `nopcall` relaxation, and it did not change (kb/codegen/0083).
+	; Lowercase because bb_boss_free() is NOT __pascal, unlike
+	; BB_BOSS_LOAD; the module published each under its own case and TASM
+	; applies no case rule of its own (kb/codegen 0081, 0103).
+	;
+	; Declared here, at the seam, rather than above that call site: the
+	; forward reference is what the module itself already was -- it defined
+	; the far proc ~21,600 lines BELOW the call -- and putting a block above
+	; line 821 instead would renumber every line-anchored citation into this
+	; file, one of which lives in a harness file another lane holds.
+	;
+	; bb_boss_load() gets no procdesc: nothing in this file references it.
+	; Its callers are th04/main/stage/setup.cpp and th04/main/boss/boss.cpp,
+	; both C++.
+	@bb_boss_free$qv procdesc far
 
 	; ALL SEVEN stage setups -- stage1_setup() through stage6_setup(), and
 	; stagex_setup() -- now live in th04/main/stage/setup.cpp, which

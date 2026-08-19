@@ -20,4 +20,18 @@
 // is also group main_03, it also assigns main_01 renderers, and it also
 // carries no `-zP`.
 
+// Address order inside main_035_TEXT, which is what TLINK reproduces from the
+// order of these #includes: the .BB boss-entrance lifecycle was the last thing
+// th04_main.asm contributed to this segment, so it goes at the FRONT of this
+// object, ahead of the seven stage setups.
+//
+// th04/formats/bb_boss.cpp is not self-contained -- it takes its declarations
+// from whichever file includes it, exactly as it does from th05/main014.cpp --
+// so the two headers it needs are pulled in here. th04/main/stage/setup.cpp
+// includes th04/formats/bb.h a second time, which is why that header gained an
+// include guard in the same parcel.
+#include "libs/master.lib/master.hpp"
+#include "th04/formats/bb.h"
+
+#include "th04/formats/bb_boss.cpp"
 #include "th04/main/stage/setup.cpp"
