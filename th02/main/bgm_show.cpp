@@ -98,6 +98,36 @@ static const int BGM_TITLE_BLANK = 22;
 static const int STAGE_TITLE_TOP = 12;
 static const int STAGE_TITLE_FRAMES = 160;
 
+// The two empty callback defaults that stage_init() installs, at the very
+// front of the segment because that is where they have always been: they were
+// th02/main/null.asm, an `include` that was the whole of this segment's root
+// contribution. Replacing the module rather than appending after it is what
+// lets this object grow BACKWARDS over those 12 bytes, the same seam a
+// kb/codegen/0099 tail lift uses; MENU_TEXT and STAGE_TEXT already show what a
+// root contribution that has reached zero looks like in the map. Upstream's
+// reason for writing them as ASM was "Too lazy to split segments right now"
+// (dd63e999), which is a convenience, not a codegen obstacle.
+//
+// nullfunc_false() returns [bool16], and that is measured rather than tidy:
+// `false` is `#define false 0`, so a `bool` return narrows the constant and
+// TCC materializes it byte-wide as `mov al, 0`, where the original has
+// `xor ax, ax` (kb/codegen/0120's AL-vs-AX form; the two are both two bytes,
+// so nothing shifts and only the opcode differs). stage_should_end() below
+// returns [bool16] and its own `return false` is the `xor ax, ax` this one
+// needed. The knock-on is that [stage_should_end_func] now defaults without a
+// cast and [midboss_invalidate], which is byte-wide, needs one instead
+// (kb/codegen/0090 fixes THAT slot's width from how stage_loop() consumes it,
+// which is a separate question from this function's own return type).
+// [verified by the oracle]
+void nullfunc_void(void)
+{
+}
+
+bool16 nullfunc_false(void)
+{
+	return false;
+}
+
 // The boss fight's own end condition, installed into [stage_should_end_func]
 // by boss_activate_if_scroll_done() below and called by stage_loop() once per
 // frame from then on. It answers "is the stage over?" and, on the one frame

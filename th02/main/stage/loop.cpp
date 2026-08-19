@@ -268,9 +268,11 @@ flip:
 	return false;
 }
 
-// Emitted at the end of STAGE_TEXT, where the original object put it: the
-// segment that follows, MAIN_01___TEXT, opens with th02/main/null.asm and can
-// therefore never be emptied from its head by a C++ contribution of its own.
+// Emitted at the end of STAGE_TEXT, where the original object put it. The
+// segment that follows, MAIN_01___TEXT, used to open with th02/main/null.asm,
+// which is what once made it unemptiable from its head; those two functions
+// are now C++ at the front of th02/main/bgm_show.cpp and that segment's root
+// contribution is zero.
 void pascal near text_wipe(void)
 {
 	text_clear();
