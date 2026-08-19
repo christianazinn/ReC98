@@ -18,8 +18,15 @@
 #pragma option -zPmain_01
 
 // Address order inside ZUN's own object for this segment, which is what TLINK
-// reproduces from the order of these #includes: mugetsu_fg_render() first,
-// then the barrier it calls. th04/main/boss/bx1_fg.cpp therefore also owns
-// every unguarded header the two share.
+// reproduces from the order of these #includes: the .BB text loader first,
+// then mugetsu_fg_render(), then the barrier it calls.
+// th04/main/boss/bx1_fg.cpp still owns every unguarded header the last two
+// share — the loader's own two headers are both guarded, so it adds nothing
+// to that set and takes nothing away from it.
+//
+// The loader was the last thing th04_main.asm contributed to this segment, so
+// putting it at the FRONT of this object grows the object backwards into that
+// hole and takes the dump's contribution to zero (kb/codegen 0099 + 0114).
+#include "th04/formats/bb_txt_load.cpp"
 #include "th04/main/boss/bx1_fg.cpp"
 #include "th04/main/boss/shield.cpp"

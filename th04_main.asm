@@ -374,7 +374,7 @@ loc_AD3B:
 		mov	es:[bx+resident_t.rem_bombs], al
 		mov	al, es:[bx+resident_t.credit_lives]
 		mov	es:[bx+resident_t.rem_lives], al
-		call	main_01:bb_txt_load
+		call	main_01:BB_TXT_LOAD
 		cmp	_playchar, PLAYCHAR_REIMU
 		jnz	short loc_AD90
 		mov	_player_option_patnum, PAT_OPTION_REIMU
@@ -5405,7 +5405,7 @@ HUD_OVRL_TEXT	segment	byte public 'CODE' use16
 HUD_OVRL_TEXT	ends
 
 main_01_TEXT	segment	byte public 'CODE' use16
-include th04/formats/bb_txt_load.asm
+	BB_TXT_LOAD procdesc near  ; th04/formats/bb_txt_load.cpp
 
 	; mugetsu_fg_render() now lives in th04/main/boss/bx1_fg.cpp, ahead of
 	; mugetsu_gengetsu_shield_render() and therefore in its original address
