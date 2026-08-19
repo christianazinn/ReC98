@@ -931,6 +931,10 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_exp.cpp",
 	"th04/boss_5r.cpp",
 	"th04/boss_bg.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/boss_fg.cpp. Both
+	-- contribute to BOSS_FG_TEXT, and TLINK lays a segment's contributions out
+	-- in link order; bullets_render() precedes items_render() in the original.
+	"th04/bullet_r.cpp",
 	"th04/boss_fg.cpp",
 	"th04/mai.cpp",
 	"th04/stages.cpp",
