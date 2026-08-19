@@ -4814,166 +4814,25 @@ MIDBOSSX_TEXT	ends
 ; th05/midboss5.cpp still appends to this name.
 main_0_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public EXALICE_CUSTOMBULLETS_RENDER
-exalice_custombullets_render	proc near
-
-@@left		= word ptr -0Ah
-@@patnum		= word ptr -8
-var_6		= word ptr -6
-@@angle		= word ptr -4
-@@i		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	di, offset _firewaves
-		mov	[bp+@@i], 0
-		jmp	loc_117BA
-; ---------------------------------------------------------------------------
-
-loc_116A6:
-		cmp	byte ptr [di], 0
-		jz	loc_117B4
-		mov	si, [di+2]
-		mov	ax, si
-		and	ax, 0Fh
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+@@angle], ax
-		and	si, 0FFF0h
-		mov	al, [di+1]
-		mov	ah, 0
-		add	ax, PAT_FIREWAVE_LEFT
-		mov	[bp+@@patnum], ax
-		jmp	loc_117A6
-; ---------------------------------------------------------------------------
-
-loc_116CE:
-		cmp	si, PLAYFIELD_TOP + PLAYFIELD_H
-		jge	loc_1179F
-		push	0
-		push	word ptr [di+4]
-		mov	bx, [bp+@@angle]
-		add	bx, bx
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	[bp+var_6], ax
-		cmp	byte ptr [di+1], 0
-		jnz	short loc_116F8
-		add	[bp+var_6], 10h
-		jmp	short loc_11701
-; ---------------------------------------------------------------------------
-
-loc_116F8:
-		mov	ax, PLAYFIELD_RIGHT
-		sub	ax, [bp+var_6]
-		mov	[bp+var_6], ax
-
-loc_11701:
-		mov	ax, [bp+var_6]
-		mov	[bp+@@left], ax
-		cmp	byte ptr [di+1], 0
-		jnz	short loc_11749
-		cmp	[bp+var_6], 20h ; ' '
-		jle	short loc_11727
-		push	4
-		push	si
-		dec	ax
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		lea	ax, [si+15]
-		push	ax
-		call	grcg_byteboxfill_x
-
-loc_11727:
-		mov	ax, _player_pos.cur.y
-		mov	bx, 16
-		cwd
-		idiv	bx
-		sub	ax, si
-		cmp	ax, 10h
-		jnb	short loc_1178F
-		mov	ax, _player_pos.cur.x
-		cwd
-		idiv	bx
-		mov	dx, [bp+var_6]
-		add	dx, 0FFE0h
-		cmp	ax, dx
-		jge	short loc_1178F
-		jmp	short loc_1178A
-; ---------------------------------------------------------------------------
-
-loc_11749:
-		add	[bp+var_6], 16
-		cmp	[bp+var_6], PLAYFIELD_RIGHT
-		jge	short loc_1176A
-		mov	ax, [bp+var_6]
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		push	si
-		push	PLAYFIELD_VRAM_RIGHT - 1
-		lea	ax, [si+15]
-		push	ax
-		call	grcg_byteboxfill_x
-
-loc_1176A:
-		mov	ax, _player_pos.cur.y
-		mov	bx, 16
-		cwd
-		idiv	bx
-		sub	ax, si
-		cmp	ax, 10h
-		jnb	short loc_1178F
-		mov	ax, _player_pos.cur.x
-		cwd
-		idiv	bx
-		mov	dx, [bp+var_6]
-		add	dx, 0FFE0h
-		cmp	ax, dx
-		jle	short loc_1178F
-
-loc_1178A:
-		mov	_player_is_hit, 1
-
-loc_1178F:
-		mov	ax, GRAM_400
-		mov	es, ax
-		mov	dx, si
-		mov	ax, [bp+@@left]
-		call	z_super_roll_put_tiny_16x16_raw pascal, [bp+@@patnum]
-
-loc_1179F:
-		sub	si, 10h
-		add	[bp+@@angle], 8
-
-loc_117A6:
-		cmp	si, 10h
-		jl	short loc_117B4
-		cmp	[bp+@@angle], 80h
-		jl	loc_116CE
-
-loc_117B4:
-		inc	[bp+@@i]
-		add	di, size firewave_t
-
-loc_117BA:
-		cmp	[bp+@@i], 2
-		jl	loc_116A6
-		call	cheetos_render
-		pop	di
-		pop	si
-		leave
-		retn
-exalice_custombullets_render	endp
-
+	; EX-Alice's custom-bullet callback -- her two edge fire waves, plus a
+	; tail call to cheetos_render() -- now lives in
+	; th05/main/boss/bx_custombullets.cpp, which th05/midboss5.cpp #includes
+	; AHEAD of th05/main/boss/bx_fg.cpp. It was the ONLY proc of this root
+	; contribution and that object already owned everything after it
+	; (kb/codegen 0114), so no carve, no new segment, no group-list edit and
+	; no Tupfile.lua line were needed. This dump now contributes ZERO bytes
+	; to main_0_TEXT, and the segment is still anchored correctly by the
+	; empty contribution.
+	;
+	; The procdesc stays because th05_main.asm still takes this function's
+	; ADDRESS -- `mov _boss_custombullets_render, offset
+	; exalice_custombullets_render` in exalice's setup -- which is why the
+	; C++ definition is `extern "C"` + `pascal` and keeps the bare uppercase
+	; public rather than a mangled one.
+	;
+	; This seam is now CLOSED for lack of anything to lift: the root
+	; contribution is empty.
+	EXALICE_CUSTOMBULLETS_RENDER procdesc pascal near
 
 	; EX-Alice's foreground renderer now lives in
 	; th05/main/boss/bx_fg.cpp, ahead of the Stage 5 midboss in
