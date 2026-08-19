@@ -2561,20 +2561,19 @@ BOSS_5R_TEXT	ends
 ; with the head: it is the pad Turbo C++ emits after yuuka5_fg_render(),
 ; and b5r.cpp reproduces it as a `#pragma codestring "\x00"`.
 main_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @KURUMI_BACKDROP_COLORFILL$QV
-@kurumi_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	192, 192
-		GRCG_FILL_PLAYFIELD_ROWS	  0,  80
-		pop	di
-		retn
-@kurumi_backdrop_colorfill$qv	endp
-
-; ---------------------------------------------------------------------------
-		nop
+	; kurumi_backdrop_colorfill() now lives in th04/main/boss/colorfill.cpp,
+	; which th04/main/stage/stages.cpp #includes at the FRONT of its own
+	; object. That object supplies STAGES_TEXT, the next segment below, which
+	; is in this same group and starts at the very next byte -- so the C++
+	; grows backwards ACROSS the segment boundary and every byte keeps its
+	; address (kb/codegen 0114 + 0129). The trailing alignment `nop` went with
+	; it, as a codestring.
+	;
+	; This segment is now ZERO bytes long and is kept only as this comment,
+	; so that the `main_01 group` line at the top of this file stays correct
+	; without an edit. Nothing in this file called the function -- its only
+	; reference was the C++ assignment in th04/main/stage/setup.cpp -- so no
+	; procdesc is owed either, and the public directive went with the body.
 main_TEXT	ends
 
 STAGES_TEXT	segment	byte public 'CODE' use16
@@ -4739,7 +4738,16 @@ PLAYER_B_TEXT	ends
 ; even-parity question does not arise, and there is no `even` to pad.
 SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
-include th04/main/player/bb_playchar_put.asm
+	; bb_playchar_put() now lives in th04/main/player/bb_playchar_put.cpp,
+	; which th04/shot_inv.cpp compiles into THIS segment at the FRONT of its
+	; object. It was the entire remaining root contribution here, which is now
+	; zero-length, so no carve, no new segment name, no group-list edit and no
+	; Tupfile.lua line were needed (kb/codegen 0112 + 0114). That file is
+	; shared with TH05, where th05/main010.cpp adopted it first.
+	;
+	; Unlike th05_main.asm this needs no procdesc: TH04's only call site is
+	; already C++, in th04/main/player/bombupd.cpp, and the undecorated
+	; upper-case export the module carried went with it.
 
 	; bomb_reimu() now lives in th04/main/player/bombchar.cpp, above
 	; bomb_marisa(), which is their original address order. It was the
@@ -6891,142 +6899,14 @@ SCORE_TEXT segment byte public 'CODE' use16
 SCORE_TEXT ends
 
 BOSS_FG_TEXT segment byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BULLETS_RENDER
-bullets_render	proc near
-
-@@patnum		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
-		assume es:nothing
-		mov	si, offset _bullets[(BULLET_COUNT - 1) * size bullet_t]
-		xor	di, di
-		jmp	@@bullets16_more?
-; ---------------------------------------------------------------------------
-
-@@sprite_bullet_loop:
-		cmp	[si+bullet_t.flag], F_ALIVE
-		jnz	@@sprite_bullet_next
-		cmp	[si+bullet_t.spawn_flag], BSF_CLOUD_BACKWARDS
-		ja	short loc_12D24
-		mov	ax, [si+bullet_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (BULLET16_H / 2)) shl 4)
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (BULLET16_W / 2))
-		call	main_01:z_super_roll_put_tiny_16x16_raw pascal, [si+bullet_t.BULLET_patnum]
-		jmp	short @@sprite_bullet_next
-; ---------------------------------------------------------------------------
-
-loc_12D24:
-		cmp	[si+bullet_t.pos.cur.y], 0
-		jl	short @@sprite_bullet_next
-		cmp	[si+bullet_t.pos.cur.y], (PLAYFIELD_H shl 4)
-		jge	short @@sprite_bullet_next
-		cmp	[si+bullet_t.pos.cur.x], 0
-		jl	short @@sprite_bullet_next
-		cmp	[si+bullet_t.pos.cur.x], (PLAYFIELD_W shl 4)
-		jge	short @@sprite_bullet_next
-		mov	ax, [si+bullet_t.BULLET_patnum]
-		cmp	ax, PAT_BULLET16_N_OUTLINED_BALL_GREEN
-		jz	short loc_12D50
-		cmp	ax, PAT_BULLET16_N_OUTLINED_BALL_BLUE
-		jz	short loc_12D50
-		cmp	ax, PAT_BULLET16_N_BALL_BLUE
-		jnz	short loc_12D57
-
-loc_12D50:
-		mov	[bp+@@patnum], (PAT_CLOUD_BULLET16_BLUE - 1)
-		jmp	short loc_12D5C
-; ---------------------------------------------------------------------------
-
-loc_12D57:
-		mov	[bp+@@patnum], (PAT_CLOUD_BULLET16_RED - 1)
-
-loc_12D5C:
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_D_BLUE
-		jl	short loc_12D6D
-		cmp	[si+bullet_t.BULLET_patnum], PAT_BULLET16_D_YELLOW
-		jge	short loc_12D6D
-		mov	[bp+@@patnum], (PAT_CLOUD_BULLET16_BLUE - 1)
-
-loc_12D6D:
-		mov	al, [si+bullet_t.spawn_flag]
-		mov	ah, 0
-		mov	bx, (BSF_CLOUD_FRAMES / BULLET_CLOUD_CELS)
-		cwd
-		idiv	bx
-		add	[bp+@@patnum], ax
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, [si+bullet_t.pos.cur.y]
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, 16
-		call	main_01:z_super_roll_put_tiny_32x32_raw pascal, [bp+@@patnum]
-
-@@sprite_bullet_next:
-		inc	di
-		sub	si, size bullet_t
-
-@@bullets16_more?:
-		cmp	di, BULLET16_COUNT
-		jl	@@sprite_bullet_loop
-		cmp	_bullet_zap_active, 0
-		jnz	short loc_12DBE
-		cmp	_bullet_clear_time, 0
-		jnz	short loc_12DBE
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:_pellets_render_top
-		mov	ah, 9
-		call	@grcg_setcolor_direct_raw$qv
-		call	main_01:_pellets_render_bottom
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-loc_12DBE:
-		xor	di, di
-		jmp	short @@pellets_more?
-; ---------------------------------------------------------------------------
-
-@@dot_bullet_loop:
-		cmp	[si+bullet_t.flag], F_ALIVE
-		jnz	short @@dot_bullet_next
-		mov	ax, [si+bullet_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (BULLET16_H / 2)) shl 4)
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+bullet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (BULLET16_W / 2))
-		call	main_01:z_super_roll_put_tiny_16x16_raw pascal, [si+bullet_t.BULLET_patnum]
-
-@@dot_bullet_next:
-		inc	di
-		sub	si, size bullet_t
-
-@@pellets_more?:
-		cmp	di, PELLET_COUNT
-		jl	short @@dot_bullet_loop
-
-@@ret:
-		pop	di
-		pop	si
-		leave
-		retn
-bullets_render	endp
-
+	; bullets_render() now lives in th04/main/bullet/render.cpp, which
+	; th04/bullet_r.cpp compiles into THIS segment, listed ahead of
+	; th04/boss_fg.cpp in the link list so that it keeps the head position
+	; it already held. It was the ONLY proc in this root contribution, which
+	; is now zero-length -- so no carve, no new segment name and no
+	; group-list edit were needed (kb/codegen 0112 + 0114). Nothing in this
+	; file calls it, so it needs no procdesc either, and the public
+	; directive that used to export it to C++ went with the body.
 	; items_render() now lives in th04/main/item/render.cpp (kb/codegen 0114).
 
 	; reimu_orbs_render() now lives in th04/main/boss/fg.cpp, ahead of

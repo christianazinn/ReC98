@@ -18,6 +18,10 @@
 // and th05/laser.cpp, so the three lifted procs land back at the head of
 // main__TEXT where they started. th05_main.asm's contribution to that segment
 // is now zero-length; it was exactly these three procs.
+// The body is shared with TH04, whose own wrapper th04/gameover.cpp names a
+// different segment and no group. A segment name belongs to the wrapper, not to
+// the body, which is why one file can serve two objects in two binaries at two
+// unrelated addresses.
 #pragma option -zCmain__TEXT -zPmain_01
 
-#include "th05/main/gameover.cpp"
+#include "th04/main/gameover.cpp"

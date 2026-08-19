@@ -98,11 +98,13 @@ void bullets_update(void);
 // Turbo C++ spells a __pascal C++ function. (kb/codegen/0081)
 void pascal near shots_render(void);
 
-// `pascal` for the same reason: th04_main.asm exports TH04's copy as the
-// all-uppercase `BULLETS_RENDER`. TH05's is a C++ function in
-// th04/main/bullet/render.cpp as of this branch, and a parameterless call is
-// byte-identical under either convention anyway (kb/codegen/0081, and the
-// "one symbol, one declaration" note in
+// `pascal` for the same reason: while the dumps still owned this function they
+// exported it under its all-uppercase, undecorated spelling. BOTH games' copies
+// are C++ functions in th04/main/bullet/render.cpp as of this branch and
+// neither dump exports the name any more, so the two keywords now only have to
+// agree with that definition — which they do, and which nothing in the compiler
+// checks. A parameterless call is byte-identical under either convention
+// anyway (kb/codegen/0081, and the "one symbol, one declaration" note in
 // kb/conventions/agent-working-discipline.md).
 extern "C" void pascal near bullets_render(void);
 // ---------------------------------------------------------------------
