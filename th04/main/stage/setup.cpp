@@ -15,6 +15,7 @@
 #include "th04/formats/bb.h"
 #include "th04/formats/cdg.h"
 #include "th04/main/null.hpp"
+#include "th04/main/rank.hpp"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/boss/bosses.hpp"
 #include "th04/main/boss/backdrop.hpp"
@@ -25,6 +26,56 @@
 // alignment reasons rather than because they belong there.
 extern char st06bk_cdg[];
 extern char st06_bb[];
+
+// Unlike st06_bb above, this one has NOT been lifted into C++: the string
+// still sits in th04_main.asm's _DATA as `aSt05_bb`, reached through the
+// zero-byte `_st05_bb` alias this parcel added in front of it
+// (kb/codegen/0123). Defining it here instead would move bytes between
+// objects, which is exactly what the alias exists to avoid.
+extern char st05_bb[];
+
+/// Stage 6
+/// -------
+
+// Yuuka enters on the first cel of her own Stage 6 sprite range, the way every
+// boss does. (th04/sprites/main_pat.h)
+
+void pascal far stage6_setup(void)
+{
+	// Stage 6 has no midboss at all — unlike every other stage, these three are
+	// only ever cleared, never pointed at anything. The frame count is still
+	// seeded, because midboss_update() counts down from it unconditionally.
+	midboss_update_func = nullfunc_far;
+	midboss_render_func = nullfunc_near;
+	midboss.frames_until = 60000;
+
+	boss_reset();
+	boss.pos.init(192, 80);
+	boss_bg_render_func = yuuka6_bg_render;
+	boss_update_func = yuuka6_update;
+	boss_fg_render_func = yuuka6_fg_render;
+	boss.sprite = PAT_YUUKA6_PARASOL_BACK_OPEN;
+	boss_hitbox_radius.set(24, 48);
+	bb_boss_load(st05_bb);
+
+	// Yuuka draws her own background; the stage layer stays empty.
+	stage_render = nullfunc_near;
+	stage_invalidate = nullfunc_near;
+
+	// Both slots are named by th04/main/boss/boss[bss].asm's boss_statebyte_t
+	// union, and both are read back from still-ASM Yuuka code. Spelled here the
+	// way gengetsu_started is below: a function-local #define off the union
+	// member name, since the array itself is a bare unsigned char[16].
+	#define thicklaser_radius	boss_statebyte[0]
+	#define spin_ring        	boss_statebyte[1]
+
+	thicklaser_radius = select_for_rank(48, 64, 80, 96);
+	spin_ring = select_for_rank(1, 1, 2, 4);
+
+	#undef thicklaser_radius
+	#undef spin_ring
+}
+/// -------
 
 /// Extra Stage
 /// -----------

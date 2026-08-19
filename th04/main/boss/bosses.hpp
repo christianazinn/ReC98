@@ -19,6 +19,13 @@ void pascal near kurumi_fg_render(void);
 void pascal near reimu_fg_render(void);
 void pascal near yuuka5_fg_render(void);
 
+// Yuuka's Stage 6 fight. yuuka6_bg_render() is already C++
+// (th04/main/boss/bg.cpp); the other two are still in th04_main.asm, which
+// publishes them under their mangled UPPER-case spelling for this header.
+void pascal near yuuka6_bg_render(void);
+void pascal near yuuka6_fg_render(void);
+void pascal  far yuuka6_update(void);
+
 void pascal near mugetsu_gengetsu_bg_render(void);
 void pascal near mugetsu_fg_render(void);
 void pascal  far mugetsu_update(void);
