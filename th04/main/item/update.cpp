@@ -1,19 +1,25 @@
 /// Per-frame item movement, collection, and off-playfield removal
 /// --------------------------------------------------------------
-/// ONE shared body for both games, and it earns that: the two dumps are
-/// instruction-for-instruction identical from the loop entry onwards, and
-/// TH04's extra 0x13 bytes (0x104 against TH05's 0xF1) are *entirely* the one
-/// `pointnum_times_2` prologue armed below. The byte arithmetic is the check
-/// that "the only difference" is a complete claim and not merely a plausible
-/// one. (kb/codegen/0115 sibling compare, run before any C++ was written.)
+/// items_update() is ONE shared body for both games, and it earns that: the
+/// two dumps are instruction-for-instruction identical from the loop entry
+/// onwards, and TH04's extra 0x13 bytes (0x104 against TH05's 0xF1) are
+/// *entirely* the one `pointnum_times_2` prologue armed below. The byte
+/// arithmetic is the check that "the only difference" is a complete claim and
+/// not merely a plausible one. (kb/codegen/0115 sibling compare, run before
+/// any C++ was written.) The off-playfield penalty in this same file is the
+/// opposite case: same role, same name, two genuinely different functions, so
+/// it is spelled once per game.
 ///
 /// The segment pragma lives in each game's wrapper rather than here, because
 /// it only takes effect before any code is generated (kb/codegen/0112), and
 /// the two games land this in differently-named segments anyway:
-///   TH05  th05/main033.cpp -> main_033_TEXT, 1528:1F8E, the LAST proc of its
+///   TH05  th05/main033.cpp -> main_033_TEXT, 1528:1F48, the tail of its
 ///         contribution, so a kb/codegen/0098 tail lift with no carve.
-///   TH04  th04/it_updt.cpp -> IT_UPDT_TEXT, 13A9:A3CD, 0x9CF bytes into
-///         `main_035_TEXT`, so a kb/codegen/0080 head-rename carve.
+///   TH04  th04/it_updt.cpp -> IT_UPDT_TEXT, 13A9:A367, 0x969 bytes into what
+///         used to be `main_035_TEXT`: a kb/codegen/0080 head-rename carve
+///         that a second, later kb/codegen/0098 tail lift then extended
+///         backwards by the 0x66 bytes of the penalty handler and its jump
+///         table. Both halves of this file are now the whole object.
 
 #include "th04/main/item/item.hpp"
 #include "th04/main/item/splash.hpp"
@@ -22,9 +28,9 @@
 #include "th04/math/vector.hpp"
 #include "th02/snd/snd.h"
 #include "libs/master.lib/master.hpp"
+#include "th04/main/playperf.hpp"
 #if (GAME == 5)
 #include "th04/main/hud/hud.hpp"
-#include "th04/main/playperf.hpp"
 #endif
 
 // Still ASM, still unnamed, sitting directly above this function in their own
@@ -42,29 +48,27 @@
 // lane rather than to a codegen fix.
 // Recorded with evidence in `state/notes/items_update.md`.
 //
-// The list started at four and is now three: TH05's off-playfield helper left
-// it to become item_left_playfield() below, lifted out of the dump. Its role
-// was [inferred from call sites] when this list was written, and the body has
-// since confirmed it — the only three item types it reacts to are the three
-// whose loss is a *penalty*. TH04's off-playfield helper is a different
-// function and stays here.
+// The list started at four, went to three, and is now two: both games'
+// off-playfield helpers have left it to become item_left_playfield() below,
+// each lifted out of its own dump. That role was [inferred from call sites]
+// when this list was written, and both bodies have since confirmed it — every
+// item type either of them reacts to is one whose loss is a *penalty*.
 #if (GAME == 5)
 	extern "C" void pascal near sub_16F54(item_t near *item);
 	#define item_collected(item)		sub_16F54(item)
 #else
 	extern "C" void pascal near sub_1DBAE(item_t near *item);
-	extern "C" void pascal near sub_1DDF7(item_t near *item);
 	#define item_collected(item)		sub_1DBAE(item)
-	#define item_left_playfield(item)	sub_1DDF7(item)
 #endif
 
 #if (GAME == 5)
 /// The penalty for letting an item fall off the playfield
 /// ------------------------------------------------------
-/// TH05 only. TH04's twin (`sub_1DDF7`) is a *different* function, not a
-/// sibling to share a body with: it switches over all six types through a
-/// jump table and pushes its result through [item_playperf_lower], while this
-/// one tests three types with a compare chain and has no accumulator at all.
+/// TH05 only. TH04's twin is the `#else` arm below, and it is a *different*
+/// function rather than a sibling to share a body with: it switches over all
+/// six types through a jump table and pushes its result through
+/// [item_playperf_lower], while this one tests three types with a compare
+/// chain and has no accumulator at all.
 /// Only the two `playperf_lower()` cases survive into TH05, and even they lost
 /// their delayed-accumulation path.
 ///
@@ -98,6 +102,69 @@ void pascal near item_left_playfield(item_t near *item)
 		break;
 	}
 	hud_dream_put();
+}
+/// ------------------------------------------------------
+#else
+/// The penalty for letting an item fall off the playfield
+/// ------------------------------------------------------
+/// TH04 only, and the reason the two games cannot share this body: *every*
+/// declared item type except IT_FULLPOWER is handled, and four of those six
+/// only add to [item_playperf_lower] rather than lowering the rank there and
+/// then. That accumulator is drained in one step once it reaches 64, and the
+/// drain is a `playperf_lower(1)` *on top of* whatever the type itself already
+/// did — so the cheap item types still pay, just later and jointly.
+/// [inferred from the body]
+///
+/// The deltas rank the types by what losing one is worth: 1 for either power
+/// item, 2 for a point item, 4 for a dream item, and the two that a player
+/// actually loses something by dropping — bomb and 1up — skip the accumulator
+/// and lower the rank immediately, by the same 2 and 4. IT_FULLPOWER is the
+/// switch's only uncovered value and falls off for free.
+/// [inferred from the body; the jump table has six entries against
+/// item_type_t's seven non-negative values]
+///
+/// Dense-range `switch` form (kb/codegen/0135's third row: a range check plus
+/// a direct `jmp cs:[bx+tbl]`), so the emitted table is indexed by value while
+/// the bodies follow *source* order — which is why the two power items are
+/// written first and IT_POINT/IT_DREAM before IT_BOMB/IT_1UP.
+/// [verified-by-oracle]
+
+void pascal near item_left_playfield(item_t near *item)
+{
+	switch(item->type) {
+	case IT_POWER:
+	case IT_BIGPOWER:
+		item_playperf_lower++;
+		break;
+	case IT_POINT:
+		item_playperf_lower += 2;
+		break;
+	case IT_DREAM:
+		item_playperf_lower += 4;
+		break;
+	case IT_BOMB:
+		playperf_lower(2);
+		break;
+	case IT_1UP:
+		playperf_lower(4);
+		break;
+	}
+	if(item_playperf_lower >= 64) {
+		// The threshold and the drain are NOT the same number: 64 in, 48 out.
+		// So the accumulator keeps a remainder of at least 16 across a drain
+		// instead of returning to 0, and the next drain therefore needs only
+		// 48 further points rather than 64. Both constants are literal in the
+		// dump — the test is `cmp` against 40h and the drain is encoded in the
+		// assembler's `add al, -48` direction, not as a subtraction — and
+		// neither is a symbol. As the removed dump said in as many words:
+		// and that's why we don't declare symbols for the increment and
+		// decrement periods of these... The asymmetry is preserved exactly as
+		// ZUN wrote it; whether it is deliberate pacing or an off-by-one is
+		// not decidable from this function.
+		// [verified-by-oracle: both constants; the intent is NOT established]
+		item_playperf_lower -= 48;
+		playperf_lower(1);
+	}
 }
 /// ------------------------------------------------------
 #endif

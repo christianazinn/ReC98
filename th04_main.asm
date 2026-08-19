@@ -22484,85 +22484,14 @@ off_1DDE9	dw offset loc_1DBD0
 		dw offset loc_1DD47
 		dw offset loc_1DD6F
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_1DDF7
-sub_1DDF7	proc near
-
-arg_0		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_0]
-		mov	al, [si+0Eh]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 5
-		ja	short loc_1DE36
-		add	bx, bx
-		jmp	cs:off_1DE51[bx]
-
-loc_1DE11:
-		inc	_item_playperf_lower
-		jmp	short loc_1DE36
-; ---------------------------------------------------------------------------
-
-loc_1DE17:
-		mov	al, _item_playperf_lower
-		add	al, 2
-		mov	_item_playperf_lower, al
-		jmp	short loc_1DE36
-; ---------------------------------------------------------------------------
-
-loc_1DE21:
-		mov	al, _item_playperf_lower
-		add	al, 4
-		mov	_item_playperf_lower, al
-		jmp	short loc_1DE36
-; ---------------------------------------------------------------------------
-
-loc_1DE2B:
-		push	2
-		jmp	short loc_1DE31
-; ---------------------------------------------------------------------------
-
-loc_1DE2F:
-		push	4
-
-loc_1DE31:
-		call	playperf_lower
-
-loc_1DE36:
-		cmp	_item_playperf_lower, 64
-		jb	short loc_1DE4C
-		mov	al, _item_playperf_lower
-		; And that's why we don't declare symbols for the increment and
-		; decrement periods of these...
-		add	al, -48
-		mov	_item_playperf_lower, al
-		call	playperf_lower pascal, 1
-
-loc_1DE4C:
-		pop	si
-		pop	bp
-		retn	2
-sub_1DDF7	endp
-
-; ---------------------------------------------------------------------------
-off_1DE51	dw offset loc_1DE11
-		dw offset loc_1DE17
-		dw offset loc_1DE21
-		dw offset loc_1DE11
-		dw offset loc_1DE2B
-		dw offset loc_1DE2F
-
-	; items_update() now lives in th04/main/item/update.cpp, which the
-	; th04/it_updt.cpp object appends to this segment. Nothing in this dump
-	; ever called it -- its only caller is C++, at th04/main/stage/loop.cpp --
-	; so no `procdesc` is needed here.
+	; item_left_playfield() and items_update() now both live in
+	; th04/main/item/update.cpp, which the th04/it_updt.cpp object appends to
+	; this segment. The penalty handler and its jump table were the tail of
+	; what this dump used to contribute here, so removing them just extends
+	; that object backwards to the handler's own address (kb/codegen/0098).
+	; Nothing in this dump ever called either function -- items_update()'s
+	; only caller is C++, at th04/main/stage/loop.cpp, and the penalty
+	; handler's is update.cpp itself -- so no `procdesc` is needed here.
 IT_UPDT_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the original
