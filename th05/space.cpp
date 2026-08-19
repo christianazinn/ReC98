@@ -27,6 +27,8 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/math/vector.hpp"
+#include "th04/gaiji/gaiji.h"
+#include "th04/formats/cdg.h"
 
 // Storage that stays in th05_maine.asm because still-ASM procedures further
 // down the segment share it, reached through kb/codegen/0123 zero-byte
@@ -77,6 +79,41 @@ extern int rain_particle_i;
 // only user is rain_phase_update(), which scripts the rain phase off it and
 // clamps it just below 30000 so it cannot overflow during a long staff roll.
 extern int rain_phase_frame;
+
+// Set by everything that leaves gaiji or text behind on the text layer, and
+// acted on once per frame by the still-ASM frame function further down the
+// segment, which calls text_clear() and clears this again.
+extern bool text_clear_pending;
+
+// The measure snd_bgm_measure() last reported for the staff roll BGM, which is
+// what both credit lines time their fade-out on. The still-ASM frame function
+// writes it every frame, falling back to ([staffroll_frame] / 22) whenever
+// snd_bgm_measure() has nothing to report. Scoped because this binary already
+// links a different [measure_cur], in th05/end/allcast.cpp.
+extern int staffroll_measure_cur;
+
+// The two credit lines' state machines. Each counts 0 -> 5 and back to 0 over
+// one line: 0 and 1 blit the image (once per VRAM page), 2 and 3 fade it in,
+// 4 fades it back out, and 5 erases it. Every value is used on two consecutive
+// frames because the scene is double-buffered.
+extern int credit_phase;
+extern int credit_2_phase;
+
+// Each line's fade curtain: the cel of the column the curtain currently leads
+// with, and the frame counter that steps it. Both are reset at the start of
+// every line, and both are only ever touched by the line's own function.
+extern int credit_fade_cel;
+extern int credit_fade_frame;
+extern int credit_2_fade_cel;
+extern int credit_2_fade_frame;
+
+// Two 16x16 text cells' worth of spaces, drawn in reverse video so that they
+// come out solid black. credit_animate() tiles the rectangle its image is
+// about to cover with these, to hide whatever the previous line left on the
+// text layer. ZUN emitted one copy per line rather than sharing a single
+// string.
+extern const char CREDIT_BLACK[];
+extern const char CREDIT_2_BLACK[];
 
 }
 // ----------------------------------------------------------------------
@@ -529,3 +566,261 @@ bool16 near rain_phase_update(void)
 }
 
 #pragma option -k-
+
+/// The credit lines
+/// ----------------
+
+/// master.lib's GRCG_OFF_CLOBBERING macro, which spills the port number to DX
+/// rather than using the 8-bit immediate form. Spelled the same way
+/// th04/end/staff_dissolve.cpp and th04/main/stage/loop.cpp spell it.
+#define grcg_off_clobbering_dx() outportb(0x7C, GC_OFF)
+
+// One curtain cel per [CREDIT_FADE_INTERVAL] frames.
+static const int CREDIT_FADE_INTERVAL = 4;
+
+// A [measure] that snd_bgm_measure() can never report, given to the one credit
+// line that is supposed to stay on screen until the staff roll itself ends.
+static const int CREDIT_MEASURE_HOLD = 3996;
+
+// Anything past the far end of a [w]-wide image's curtain travel, i.e. past
+// ((w / GAIJI_W) + (STAFF_FADE_CELS - 1)). Passed as the [cel] of the final,
+// unconditional erase, which therefore always takes credit_fade_put()'s
+// CREDIT_FADE_ERASED branch.
+static const int CREDIT_CEL_PAST_END = 128;
+
+// Which end of its travel the curtain hit on the frame credit_fade_put() just
+// drew. (-b- makes this an `unsigned char`, which is why the originals set
+// only AL.)
+enum credit_fade_ret_t {
+	// Neither end: the curtain is somewhere across the image, and was drawn.
+	CREDIT_FADE_ACTIVE = 0,
+
+	// Lifted. The leading column has passed the near end, so every column
+	// would have been g_EMPTY and nothing was drawn at all — but the gaiji of
+	// the previous frame are still on the text layer, hence the
+	// [text_clear_pending].
+	CREDIT_FADE_LIFTED = 1,
+
+	// Closed. The leading column has passed the far end, so every column would
+	// have been g_STAFF_FADE. Rather than drawing that, this function takes the
+	// image out of the current VRAM page for good.
+	CREDIT_FADE_ERASED = 2,
+};
+
+// Draws one frame of the curtain that fades the [w]x[h] credit image at
+// ([left], [top]) in or out, as a rectangle of gaiji on the text layer. [cel]
+// is the curtain cel of the column the curtain leads with — the leftmost one
+// for a [cel_delta] of 1, the rightmost one for -1 — and every further column
+// trails one cel further behind it, which is what turns a straight fade into a
+// sideways wipe. Advancing [cel] by 1 per call therefore moves the whole wipe
+// by one column.
+static credit_fade_ret_t pascal near credit_fade_put(
+	screen_x_t left, vram_y_t top, pixel_t w, pixel_t h, int cel, int cel_delta
+)
+{
+	int i;
+	int col;
+
+	// The frame is 0x2C bytes with [col] nearest BP, so this is 42 rather than
+	// the 41 the loop below can actually reach (a 640-pixel-wide image is 40
+	// gaiji plus the terminator). [inferred]: ZUN's slack, not a live element.
+	char cels[42];
+
+	if(cel < 0) {
+		text_clear_pending = true;
+		return CREDIT_FADE_LIFTED;
+	}
+	if(((w / GAIJI_W) + (STAFF_FADE_CELS - 1)) < cel) {
+		grcg_setcolor(GC_RMW, 1);
+		grcg_byteboxfill_x(
+			(left / BYTE_DOTS),
+			top,
+			((left + w - 1) / BYTE_DOTS),
+			(top + h - 1)
+		);
+		grcg_off_clobbering_dx();
+		return CREDIT_FADE_ERASED;
+	}
+
+	// From pixels to the text layer's own units. gaiji_putsa() takes an X in
+	// 8-pixel cells but advances by 16 pixels per character.
+	left /= BYTE_DOTS;
+	top /= GLYPH_H;
+	w /= GAIJI_W;
+	h /= GLYPH_H;
+
+	if(cel_delta > 0) {
+		col = 0;
+	} else {
+		col = (w - 1);
+	}
+	for(i = 0; i < w; i++, col += cel_delta, cel--) {
+		if(cel >= (STAFF_FADE_CELS - 1)) {
+			cels[col] = g_STAFF_FADE;
+		} else if(cel < 0) {
+			cels[col] = g_EMPTY;
+		} else {
+			cels[col] = (g_STAFF_FADE_last - cel);
+		}
+		// The image can extend past the right edge of the text layer, and
+		// gaiji_putsa() would wrap around to the next row rather than clip.
+		if(((i * GAIJI_TRAM_W) + left) >= text_width()) {
+			break;
+		}
+	}
+	cels[i] = '\0';
+
+	for(i = 0; i <= h; i++, top++) {
+		gaiji_putsa(left, top, cels, TX_BLACK);
+	}
+	return CREDIT_FADE_ACTIVE;
+}
+
+bool16 pascal near credit_animate(
+	screen_x_t x_center, vram_y_t y_center, int slot, int measure
+)
+{
+	CDG near *cdg = &cdg_slots[slot];
+	int y_off;
+	int x_off;
+
+	x_center -= (cdg->pixel_w / 2);
+	y_center -= (cdg->pixel_h / 2);
+	if(credit_phase <= 1) {
+		credit_fade_cel = ((cdg->pixel_w / GAIJI_W) + (STAFF_FADE_CELS - 1));
+		credit_fade_frame = 0;
+		credit_phase++;
+		cdg_put_noalpha_8(x_center, y_center, slot);
+
+		// Blacks out the text layer behind the image, one gaiji-sized cell at
+		// a time, so that the previous line's leftover curtain cannot show
+		// through this one.
+		for(
+			y_off = 0;
+			cdg->pixel_h >= y_off;
+			y_off += GLYPH_H, y_center += GLYPH_H
+		) {
+			for(x_off = 0; cdg->pixel_w >= x_off; x_off += GAIJI_W) {
+				if(
+					((x_center / BYTE_DOTS) + (x_off / BYTE_DOTS)) <
+					text_width()
+				) {
+					text_putsa(
+						((x_center / BYTE_DOTS) + (x_off / BYTE_DOTS)),
+						(y_center / GLYPH_H),
+						CREDIT_BLACK,
+						(TX_BLACK | TX_REVERSE)
+					);
+				}
+			}
+		}
+	} else if(credit_phase <= 3) {
+		if((++credit_fade_frame % CREDIT_FADE_INTERVAL) == 0) {
+			credit_fade_cel--;
+		}
+		if(credit_fade_put(
+			x_center, y_center, cdg->pixel_w, cdg->pixel_h, credit_fade_cel, 1
+		) == CREDIT_FADE_LIFTED) {
+			credit_phase++;
+			credit_fade_cel = 0;
+			credit_fade_frame = 0;
+		}
+	} else if(
+		(staffroll_measure_cur >= measure) && (measure != CREDIT_MEASURE_HOLD)
+	) {
+		if(credit_phase == 4) {
+			if((++credit_fade_frame % CREDIT_FADE_INTERVAL) == 0) {
+				credit_fade_cel++;
+			}
+			if(credit_fade_put(
+				x_center, y_center, cdg->pixel_w, cdg->pixel_h,
+				credit_fade_cel, -1
+			) == CREDIT_FADE_ERASED) {
+				credit_phase++;
+			}
+		} else {
+			// Both pages have been erased by now, so this call only exists to
+			// take the image out of the one that was just flipped to.
+			credit_fade_put(
+				x_center, y_center, cdg->pixel_w, cdg->pixel_h,
+				CREDIT_CEL_PAST_END, -1
+			);
+			credit_phase = 0;
+			text_clear_pending = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool16 pascal near credit_2_animate(
+	screen_x_t x_center, vram_y_t y_center, int slot, int measure
+)
+{
+	CDG near *cdg = &cdg_slots[slot];
+	int y_off;
+	int x_off;
+
+	x_center -= (cdg->pixel_w / 2);
+	y_center -= (cdg->pixel_h / 2);
+	if(credit_2_phase <= 1) {
+		credit_2_fade_cel = ((cdg->pixel_w / GAIJI_W) + (STAFF_FADE_CELS - 1));
+		credit_2_fade_frame = 0;
+		credit_2_phase++;
+		cdg_put_noalpha_8(x_center, y_center, slot);
+		for(
+			y_off = 0;
+			cdg->pixel_h >= y_off;
+			y_off += GLYPH_H, y_center += GLYPH_H
+		) {
+			for(x_off = 0; cdg->pixel_w >= x_off; x_off += GAIJI_W) {
+				if(
+					((x_center / BYTE_DOTS) + (x_off / BYTE_DOTS)) <
+					text_width()
+				) {
+					text_putsa(
+						((x_center / BYTE_DOTS) + (x_off / BYTE_DOTS)),
+						(y_center / GLYPH_H),
+						CREDIT_2_BLACK,
+						(TX_BLACK | TX_REVERSE)
+					);
+				}
+			}
+		}
+	} else if(credit_2_phase <= 3) {
+		if((++credit_2_fade_frame % CREDIT_FADE_INTERVAL) == 0) {
+			credit_2_fade_cel--;
+		}
+		if(credit_fade_put(
+			x_center, y_center, cdg->pixel_w, cdg->pixel_h, credit_2_fade_cel, 1
+		) == CREDIT_FADE_LIFTED) {
+			credit_2_phase++;
+			credit_2_fade_cel = 0;
+			credit_2_fade_frame = 0;
+		}
+	} else if(
+		(staffroll_measure_cur >= measure) && (measure != CREDIT_MEASURE_HOLD)
+	) {
+		if(credit_2_phase == 4) {
+			if((++credit_2_fade_frame % CREDIT_FADE_INTERVAL) == 0) {
+				credit_2_fade_cel++;
+			}
+			if(credit_fade_put(
+				x_center, y_center, cdg->pixel_w, cdg->pixel_h,
+				credit_2_fade_cel, -1
+			) == CREDIT_FADE_ERASED) {
+				credit_2_phase++;
+			}
+		} else {
+			credit_fade_put(
+				x_center, y_center, cdg->pixel_w, cdg->pixel_h,
+				CREDIT_CEL_PAST_END, -1
+			);
+			credit_2_phase = 0;
+			text_clear_pending = true;
+			return true;
+		}
+	}
+	return false;
+}
+/// ----------------
