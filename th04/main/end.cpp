@@ -5,6 +5,24 @@
 
 #pragma option -zPmain_01
 
+#if (GAME == 5)
+// TH05's original object for END_EXT_TEXT opened with enemies_invalidate(),
+// ahead of end_game(). th05_main.asm contributed it as that segment's last
+// emitting item, an assembler include of the module th04/main/enemy/inv.cpp
+// replaces, and TLINK appends this object right after that root contribution
+// -- so the lift has to be the FIRST code this translation unit emits.
+//
+// It goes here rather than into th05/end_ext.cpp, above the `#include` of this
+// file, for the reason th04/main/midboss/mx.cpp gives for the same shape on
+// TH04's side: the `-zP` above cannot follow emitted code (kb/codegen/0138),
+// and this file is shared with th04/end_ext.cpp, so honouring 0138 by moving
+// the pragma into the wrapper would mean duplicating it into BOTH wrappers.
+//
+// TH04's copy of this lift is in mx.cpp, not here: that game's module sat in
+// MIDBOSSX_TEXT.
+#include "th04/main/enemy/inv.cpp"
+#endif
+
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/main/execl.hpp"
 #include "th04/score.h"

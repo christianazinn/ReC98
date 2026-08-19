@@ -2376,7 +2376,7 @@ public @YUMEKO_BACKDROP_COLORFILL$QV
 include th04/formats/z_super_roll_put_tiny.asm
 include th04/main/tile/inv.asm
 include th05/formats/super_roll_put_16x16_m.asm
-include th04/main/enemy/inv.asm
+	; enemies_invalidate() now lives in th04/main/enemy/inv.cpp; that file carries the whole account.
 
 	; end_game() now lives in th04/main/end.cpp too, which puts it ahead of
 	; end_extra() in that object -- the original order, and the order this
