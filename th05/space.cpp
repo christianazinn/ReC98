@@ -115,11 +115,13 @@ extern int credit_fade_frame;
 extern int credit_2_fade_cel;
 extern int credit_2_fade_frame;
 
-// Two 16x16 text cells' worth of spaces, drawn in reverse video so that they
-// come out solid black. credit_animate() tiles the rectangle its image is
-// about to cover with these, to hide whatever the previous line left on the
-// text layer. ZUN emitted one copy per line rather than sharing a single
-// string.
+// Two HALF-width text cells' worth of spaces -- the dump stores two 0x20 bytes
+// and a terminator, and a half-width cell is GLYPH_HALF_W by GLYPH_H, so the
+// two of them cover one 16x16 cell's worth of area between them, not two.
+// Drawn in reverse video so that they come out solid black. credit_animate()
+// tiles the rectangle its image is about to cover with these, to hide whatever
+// the previous line left on the text layer. ZUN emitted one copy per line
+// rather than sharing a single string.
 extern const char CREDIT_BLACK[];
 extern const char CREDIT_2_BLACK[];
 
@@ -842,10 +844,15 @@ static const vc2 COL_TRAIL_INNERMOST = 6;
 // it, or it would be left on screen forever.
 static const pixel_t SPACE_BORDER = 8;
 
-// One orb cel per [ORB_CEL_FRAMES] rendered frames, cycling through
-// [ORB_CELS] of them.
-static const int ORB_CELS = 4;
-static const int ORB_CEL_FRAMES = 4;
+// One orb cel per [ORB_FRAMES_PER_CEL] rendered frames, cycling through the
+// [ORB_CELS] of them that th05/staff.hpp declares beside [PAT_ORB].
+//
+// Spelled the way th01/main/player/orb.hpp already spells this exact quantity
+// -- a different value there, but the same role in the same expression shape,
+// a pattern-number base plus a frame counter divided by it. The
+// _FRAMES_PER_CEL suffix has 25 other identifiers tree-wide; nothing else ends
+// in _CEL_FRAMES at all.
+static const int ORB_FRAMES_PER_CEL = 4;
 
 // Distance the stars and particles are blitted up and to the left of their own
 // center, i.e. half of a small .BFT cel.
@@ -909,7 +916,7 @@ void near space_put(void)
 			(p->center.y.to_pixel_slow() + space_window_center.y) - (ORB_H / 2)
 		);
 		if(p->al.radius >= ORB_RADIUS_FULL) {
-			i = (((orb_cel_frame / ORB_CEL_FRAMES) % ORB_CELS) + PAT_ORB);
+			i = (((orb_cel_frame / ORB_FRAMES_PER_CEL) % ORB_CELS) + PAT_ORB);
 			super_put_rect(x, y, i);
 			orb_cel_frame++;
 		} else {
@@ -1018,10 +1025,30 @@ void near staffroll_frame_and_flip(void)
 	staffroll_frame++;
 	staffroll_measure_cur = snd_bgm_measure();
 	if(staffroll_measure_cur < 0) {
-		// ZUN bug: The same one th05/end/allcast.cpp documents for its own
-		// copy of this fallback — 「Days」 is timed in beats rather than
-		// measures, and 22 *double* frames are unrelated to its tempo either
-		// way.
+		// The staff roll's own track is 「Mystic Dream」, not the 「Days」 an
+		// earlier revision of this comment named: that is TH04's staff-roll
+		// theme (th04/shiftjis/bgm.hpp's TH04_19, its only definition in the
+		// tree). th05/shiftjis/music.hpp puts "staff" at the MUSIC_FILES index
+		// whose MUSIC_CHOICES title is TH05_21, one entry before the "exed" /
+		// TH05_22 「Peaceful Romancer」 pair that upstream's own comment in
+		// th05/end/allcast.cpp names for that file's copy of this fallback.
+		// [measured]
+		//
+		// This copy is NOT allcast's. Its
+		// wait_flip_and_check_measure_target() calls frame_delay(2) and
+		// divides the half-frame counter, so its fallback advances once per 22
+		// DOUBLE frames; staffroll_frame_and_flip() calls frame_delay(1) and
+		// divides [staffroll_frame], so this one advances once per 22 SINGLE
+		// frames. [measured]
+		//
+		// That single-frame divisor is the figure allcast.cpp argues ZUN
+		// actually intended — about 153.9 BPM rather than the 76.9 its own
+		// doubled copy produces — so this fallback is the corrected shape of
+		// the one that file labels a ZUN bug, and importing that label here
+		// would invert it. Whether 153.9 BPM is right for 「Mystic Dream」 is
+		// an OPEN taxonomy question: that song's tempo is not measurable from
+		// this tree, so the label is unsupported rather than refuted, and no
+		// marker is carried for it. [not measured]
 		staffroll_measure_cur = (staffroll_frame / 22);
 	}
 }

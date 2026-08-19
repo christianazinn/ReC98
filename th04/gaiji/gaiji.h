@@ -42,15 +42,23 @@ typedef enum {
 	g_OVERLAY_FADE_last = (g_OVERLAY_FADE + OVERLAY_FADE_CELS - 1),
 
 #if (GAME == 5)
-	// A second brightness ramp, structurally identical to the one above and
-	// ordered the same way — g_STAFF_FADE fully covers the pixel behind it,
-	// g_STAFF_FADE_last barely darkens it. Only TH05's staff roll uses these,
-	// as the curtain credit_fade_put() (th05/space.cpp) fades each credit
-	// image in and out behind.
+	// A second brightness ramp, structurally identical to the one above.
+	// Only TH05's staff roll uses these, as the curtain credit_fade_put()
+	// (th05/space.cpp) fades each credit image in and out behind.
 	//
-	// [inferred] The cel artwork was not inspected; the range is read off the
-	// two literals in that function, 0x98 and 0x9F, and off the fact that
-	// nothing between 0x40 and 0x9F is named.
+	// [inferred, static evidence only] The ramp runs the same way round as the
+	// one above — g_STAFF_FADE fully covers the pixel behind it,
+	// g_STAFF_FADE_last barely darkens it. The cel artwork was NOT inspected;
+	// this is read off credit_fade_put()'s own two exit branches, which are
+	// static evidence and not a reading of the cels: past the far end of the
+	// travel every column would have been g_STAFF_FADE, and that case erases
+	// the image outright rather than drawing it, while past the near end every
+	// column would have been g_EMPTY and nothing is drawn at all.
+	//
+	// [inferred] The range itself is read off the two literals ZUN's code
+	// carries for it — decimal 152 and 159, in the proc th05_maine.asm held
+	// before credit_fade_put() was lifted, which is why no dump spells them
+	// today — and off the fact that nothing between 0x40 and 0x9F is named.
 	g_STAFF_FADE = 0x98,
 	g_STAFF_FADE_last = (g_STAFF_FADE + STAFF_FADE_CELS - 1),
 #endif

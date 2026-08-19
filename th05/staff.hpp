@@ -20,6 +20,7 @@
 /// Pattern numbers for the super_*() functions
 /// -------------------------------------------
 static const int ORB_PARTICLE_CELS = 6;
+static const int ORB_CELS = 4;
 
 typedef enum {
 	// stf01.bft
@@ -35,6 +36,7 @@ typedef enum {
 	// ---------
 	// The orb's four 32x32 cels, cycled through by space_put().
 	PAT_ORB,
+	PAT_ORB_last = (PAT_ORB + ORB_CELS - 1),
 	// ---------
 } staff_patnum_t;
 /// -------------------------------------------
@@ -196,9 +198,12 @@ static const int CREDIT_MEASURE_HOLD = 3996;
 // itself. Returns whether that whole cycle is over, which is what
 // staffroll_animate() waits for before moving on to the next line.
 //
-// Both this function and its state machine have to be called twice per frame,
-// once for each VRAM page: the first two calls blit the image, the next two
-// fade it in, and so on.
+// Called ONCE per hardware frame: staffroll_animate() (th05/staffrol.cpp)
+// pairs every call with exactly one staffroll_frame_and_flip(), which is the
+// single frame_delay(1) and the single page flip. It is the STATE MACHINE that
+// holds each [credit_phase] value for two consecutive frames, one per VRAM
+// page, which is why the first two calls blit the image, the next two fade it
+// in, and so on. th05/space.cpp's [credit_phase] comment states it that way.
 bool16 pascal near credit_animate(
 	screen_x_t x_center, vram_y_t y_center, int slot, int measure
 );

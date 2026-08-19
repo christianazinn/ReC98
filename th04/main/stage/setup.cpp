@@ -80,8 +80,23 @@ void pascal far stage1_setup(void)
 	midboss_render_func = midboss1_render;
 	midboss.frames_until = 3100;
 
-	// Below the bottom of the playfield, drifting up — Stage 1's midboss is
-	// the only one that enters from underneath.
+	// Below the bottom of the playfield — Stage 1's midboss is the only one
+	// that enters from underneath.
+	//
+	// [measured] The seeded velocity is DOWNWARD and never reaches an
+	// integration step. +1 is down: stage2_setup() and stage3_setup() seed
+	// (192, -32), above the top, with the same sign, and stagex_setup() spells
+	// "up and to the right" as -4. And midboss1_update()'s phase 0 writes -1
+	// into the Y velocity as its first statement, two instructions before its
+	// first update_seg3() call, so the upward drift the midboss actually has
+	// is that function's, not this seed's.
+	//
+	// A seeded value its own updater overwrites before first use would be a
+	// taxonomy candidate, but it is deliberately left UNLABELLED: nothing
+	// established whether anything reads this field between stage start and
+	// midboss activation, so step 1 of kb/conventions/rec98-taxonomy.md's
+	// table cannot be discharged, and an unclear classification is a stop
+	// condition.
 	midboss.pos.     cur.set(192, 368);
 	midboss.pos.    prev.set(192, 368);
 	midboss.pos.velocity.set(0, 1);
@@ -99,7 +114,11 @@ void pascal far stage1_setup(void)
 	boss_fg_render_func = orange_fg_render;
 	boss.sprite = PAT_ORANGE_STILL;
 
-	// The one boss in TH04 with a hitbox wider than it is tall.
+	// [measured] The one boss in TH04 with a hitbox wider than it is tall.
+	// The population is the seven boss_hitbox_radius.set() calls in this file
+	// plus th04/main/boss/boss.cpp's Gengetsu override, which is
+	// (GENGETSU_W / 4, GENGETSU_H / 2) = (24, 48); every other one is square
+	// or taller than wide.
 	boss_hitbox_radius.set(24, 16);
 
 	boss_backdrop_colorfill = orange_backdrop_colorfill;
@@ -140,11 +159,11 @@ void pascal far stage2_setup(void)
 	boss_update_func = kurumi_update;
 	boss_fg_render_func = kurumi_fg_render;
 
-	// No PAT_* constant, and that is Kurumi's quirk rather than a missing
-	// name: hers is the one TH04 boss whose [boss.sprite] is a cel index into
-	// her own range instead of an absolute patnum, so kurumi_fg_render() adds
-	// PAT_KURUMI on every blit. (th04/sprites/main_pat.h says the same from
-	// the other side.)
+	// [measured] No PAT_* constant, and that is Kurumi's quirk rather than a
+	// missing name: hers is the one TH04 boss whose [boss.sprite] is a cel
+	// index into her own range instead of an absolute patnum, so
+	// kurumi_fg_render() adds PAT_KURUMI on every blit.
+	// (th04/sprites/main_pat.h says the same from the other side.)
 	boss.sprite = 0;
 
 	boss_hitbox_radius.set(24, 24);
@@ -323,8 +342,9 @@ void pascal far stage5_setup(void)
 	bb_boss_load(st04_bb);
 	cdg_load_single_noalpha(CDG_BG_2, st04_cdg, 0);
 
-	// Seeded off-screen and staggered, so the three stars do not cross the
-	// playfield in step. stage5_render() scrolls them from here.
+	// [inferred] Seeded off-screen and staggered, so the three stars do not
+	// cross the playfield in step. The three values are ZUN's; the reason is
+	// ours. stage5_render() scrolls them from here.
 	stage5_star_center_y[0].v = to_sp(320);
 	stage5_star_center_y[1].v = to_sp(40);
 	stage5_star_center_y[2].v = to_sp(190);
@@ -342,13 +362,21 @@ void pascal far stage5_setup(void)
 /// -------
 
 // Yuuka enters on the first cel of her own Stage 6 sprite range, the way every
-// boss does. (th04/sprites/main_pat.h)
+// stage-1-style boss does — NOT "every boss": stage2_setup()'s own comment
+// above records Kurumi as the one whose [boss.sprite] is a cel index into her
+// own range rather than an absolute patnum.
+//
+// Unlike every sibling block in this file, nothing is declared under this
+// comment. The value is PAT_YUUKA6_PARASOL_BACK_OPEN, which
+// th04/sprites/main_pat.h already names, so there is no local constant for the
+// comment to introduce.
 
 void pascal far stage6_setup(void)
 {
-	// Stage 6 has no midboss at all — unlike every other stage, these three are
-	// only ever cleared, never pointed at anything. The frame count is still
-	// seeded, because midboss_update() counts down from it unconditionally.
+	// Stage 6 has no midboss at all — like Stage 5, and unlike the other five
+	// setups, these three are only ever cleared, never pointed at anything.
+	// The frame count is still seeded, because midboss_update() counts down
+	// from it unconditionally.
 	midboss_update_func = nullfunc_far;
 	midboss_render_func = nullfunc_near;
 	midboss.frames_until = 60000;

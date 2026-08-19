@@ -33,11 +33,17 @@
 /// zero-byte `label` aliases to become linkable (kb/codegen/0123). This
 /// function is their only C++ reader; every writer is still ASM.
 ///
-/// [inferred] names. "boomerang" names the *measured out-and-back trajectory*,
-/// not a reading of the artwork — nothing in the dump ties patnums 142…145 to
-/// an asset, and th04/sprites/main_pat.h refuses to name Kurumi's and
-/// MidbossX's ranges for exactly that reason. The trajectory itself is all in
-/// `elly_1B95C`, Elly's pattern driver:
+/// [inferred] The STEM only. "boomerang" names the out-and-back trajectory
+/// below, not a reading of the artwork — nothing in the dump ties patnums
+/// 142…145 to an asset. th04/sprites/main_pat.h does the same thing for its
+/// own two unattributable ranges, and note what it actually withholds: it
+/// NAMES both (PAT_KURUMI, PAT_MIDBOSSX) and omits only the source-FILE
+/// comment every other block there carries, "because nothing in the dump ties
+/// this patnum range to a specific .bmt/.bb?, and naming one would be a
+/// guess." The tree names sprites from their behaviour freely.
+///
+/// [measured] Everything below is read out of `elly_1B95C`, Elly's pattern
+/// driver, and none of it is inferred:
 ///
 /// • thrown from Elly's own position on one frame of her pattern
 ///   (snd_se_play(9); flag ← EBF_THROWN; position ← [boss.pos.cur]);
@@ -46,11 +52,15 @@
 ///   update_seg3() only integrates — the reflection off the
 ///   playfield edges is that driver's own state dispatch on the edge
 ///   comparisons, each arm of which also takes 4 off the speed;
-/// • it hurts the player within a 24-subpixel box, and the player's shots
-///   *deflect* rather than destroy it: shots_hittest() with a 32-subpixel
+/// • it hurts the player within a ±24-PIXEL box, and the player's shots
+///   *deflect* rather than destroy it: shots_hittest() with a 32-PIXEL
 ///   radius, half the hit count subtracted from its downward velocity;
-/// • it is caught inside a ±16-subpixel box around Elly, which sets
+/// • it is caught inside a ±16-PIXEL box around Elly, which sets
 ///   EBF_CAUGHT and advances her pattern.
+///
+/// All three of those are pixels, not subpixels: the driver spells them
+/// `(±24 shl 4)`, `(32 shl 4)` and `(±16 shl 4)`, and `N shl 4` is to_sp(N),
+/// i.e. N pixels converted INTO subpixels.
 enum elly_boomerang_flag_t {
 	EBF_FREE = 0,
 	EBF_THROWN = 1,
@@ -66,14 +76,20 @@ extern "C" PlayfieldMotion elly_boomerang_pos;
 
 // = PAT_STAGE + 14, four cels at two frames each.
 //
-// Spelled as the literal rather than through th04/sprites/main_pat.h — where
-// naming round 4's ruling would otherwise put it — because that header is
-// unguarded and defines `typedef enum { … } main_patnum_t`, while
-// th04/main/stage/reset.cpp, which th04/main_012.cpp compiles into this same
-// object after this file, already reaches it through
-// th04/main/enemy/enemy.hpp. Including it here would define that enum twice in
-// one translation unit. (The same unguarded-header closure trap that
-// th04/main_01.cpp documents for its own two sources.)
+// Still spelled as the literal rather than through th04/sprites/main_pat.h,
+// where naming round 4's ruling would put it — but NOT for the reason this
+// comment used to give. That reason was the double-`typedef enum` this
+// translation unit would get, because th04/main/stage/reset.cpp, which
+// th04/main_012.cpp compiles into the same object after this file, already
+// reaches that header through th04/main/enemy/enemy.hpp and the header had no
+// include guard. IT HAS ONE NOW, so that blocker is discharged and this is no
+// longer a KEEP-WITH-LICENCE resting on a build constraint.
+//
+// What is left is a structural decision, not a constraint: main_pat.h has no
+// Stage 3 block at all, so honouring round 4 here means opening a new section
+// in a header that 16 sources and one shared header include directly. That
+// belongs to the parcel that next edits that enum, not to the one that added
+// the guard.
 static const int PAT_ELLY_BOOMERANG = 142;
 static const int ELLY_BOOMERANG_FRAMES_PER_CEL = 2;
 
