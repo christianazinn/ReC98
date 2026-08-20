@@ -1,3 +1,15 @@
+; TH05 ONLY as of parcel MATCH-TH04-MAIN-BULLETS-GATHER-INVALIDATE. TH04's
+; half is th04/main/bullets_gather_inv.cpp, compiled by th04/bul_ginv.cpp:
+; there the module was the last emitting item of th04_main.asm's contribution
+; to TILE_TEXT, so a C++ object lands at its address. Here it sits mid-list in
+; SCORE_TEXT with two further modules and a proc behind it, which is a
+; kb/codegen/0080 carve rather than a seam.
+;
+; The `if GAME eq 4` arms below are therefore dead and are kept deliberately:
+; they are the record of what the two games shared, and the C++ file carries
+; the same split under `#if (GAME == 5)`. Delete this file, do not prune it,
+; when TH05's copy is lifted too.
+
 public @bullets_and_gather_invalidate$qv
 @bullets_and_gather_invalidate$qv proc near
 	push	si
