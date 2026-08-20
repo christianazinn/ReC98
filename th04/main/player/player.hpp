@@ -69,6 +69,11 @@ extern unsigned char miss_time;
 // animation runs.
 extern subpixel_t miss_explosion_radius;
 extern unsigned char miss_explosion_angle;
+
+// Frames of invincibility granted after a miss. Both games share this value;
+// TH02's own, different one is declared next to its own POWER_MAX in
+// th02/main/player/player.hpp. (th04/main/player/player.inc)
+static const uint8_t MISS_INVINCIBILITY_FRAMES = 192;
 // ----
 
 // Shots

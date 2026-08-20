@@ -1,3 +1,14 @@
+#ifndef TH04_MAIN_PLAYER_SHOT_HPP
+#define TH04_MAIN_PLAYER_SHOT_HPP
+
+// Guarded for the same reason th04/main/player/player.hpp is, one object
+// further along: th04/main_.cpp reaches this file twice, once from
+// th04/main/player/shots_render.cpp and once from
+// th04/main/player/shots_hittest.cpp behind it, and a second expansion rejects
+// every `static const` and every struct it declares. Ordering the two so that
+// only the first one includes it would work today and break the moment either
+// body is shared with TH05 -- which is exactly how MATCH-TH05-MAIN-TAILS-1 and
+// MATCH-TH04-MAIN-CARVE-TAILS-1 collided over player.hpp. (kb/codegen/0129)
 #if (GAME == 5)
 #include "th05/sprites/main_pat.h"
 #endif
@@ -102,6 +113,12 @@ static const int HITSHOT_COUNT = 24;
 extern HitShot near hitshots[HITSHOT_COUNT];
 #endif
 
+// Shots are always fired for multiples of this number of frames, even if
+// INPUT_SHOT is held for a shorter amount of time. Two further rounds are
+// fired at the ⅓ and ⅔ points of each cycle.
+// (th04/main/player/player.inc)
+static const uint8_t SHOT_CYCLE_FRAMES = 18;
+
 extern unsigned char shot_time;
 extern Shot near shots[SHOT_COUNT];
 
@@ -128,7 +145,9 @@ struct shot_alive_t {
 	Shot near *shot;
 };
 extern unsigned int shots_alive_count;
-extern shot_alive_t shots_alive[SHOT_COUNT];
+// `near`: shots_hittest() walks this array through a near pointer kept in a
+// 16-bit stack slot, which the far spelling cannot express.
+extern shot_alive_t near shots_alive[SHOT_COUNT];
 
 // Searches and returns the next free shot slot, or a nullptr if there are no
 // more free ones.
@@ -164,7 +183,13 @@ void near shot_reset(void);
 void near shots_invalidate(void);
 
 // Also renders hitshots in TH05.
-void near shots_render(void);
+// `pascal`, and that is not a style choice: Borland decorates a pascal
+// function's mangled name in UPPER CASE, so the all-caps `public` that both
+// dumps carried for this symbol IS the calling convention (kb/codegen/0086).
+// th04/main/stage/loop.cpp, the only caller in either game, has always
+// re-declared it locally with `pascal`; this header disagreed with it until
+// TH04's body became the first C++ definition either game's copy ever had.
+void pascal near shots_render(void);
 
 // Option laser
 // ------------
@@ -215,3 +240,5 @@ void __fastcall near shot_laser_put_raw(
 	screen_x_t left, vram_y_t top, shot_laser_cel_t cel
 );
 // ------------
+
+#endif /* TH04_MAIN_PLAYER_SHOT_HPP */

@@ -1,5 +1,11 @@
 #include "th02/main/player/bomb.hpp"
 
+// Frames after a hit during which a bomb still takes the death back. Added on
+// top of MISS_ANIM_FRAMES when [miss_time] is set, so a [miss_time] above
+// MISS_ANIM_FRAMES means the miss animation has not started yet.
+// (th04/shared.inc)
+static const uint8_t DEATHBOMB_WINDOW = 8;
+
 extern bool bombing_disabled;
 extern unsigned char bomb_frame;
 
