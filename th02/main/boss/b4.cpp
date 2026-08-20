@@ -48,13 +48,24 @@ extern "C" void __cdecl snd_se_play(int new_se);
 // means ruling on all of those sites at once, which is its own parcel.
 extern "C" int patnum_2064E;
 
-// One cell of the five-byte rank-scaled parameter block that every boss and
-// midboss init function writes ([byte_2066E] through [byte_20672], of which
-// [group_20670] is the only one named so far). state/notes/marisa_1BC43.md
-// records the search: three bosses pass this cell straight to
-// bullets_add_*() as a [group], Marisa reads it as a bullet count, and no
-// one name covers both.
-extern "C" uint8_t byte_20671;
+// The five-byte rank-scaled parameter block that every boss and midboss init
+// function fills in - always in a two-way branch on [rank] - and that that
+// boss's own pattern functions then read back. stones_11997(), rika_init(),
+// meira_init(), mima_180AC() and marisa_1B214() are its only writers, each
+// filling a contiguous prefix of it; 20 reads across those same five bosses
+// take cells out of it again. Full census in
+// state/notes/th02-boss-rank-param.md.
+//
+// It is named as the ARRAY rather than cell by cell because no per-cell name
+// is true across bosses: sixteen of the reads hand a cell straight to
+// bullets_add_*() as a [group], but the others use one as a stone index
+// (stones_11DF6()), a frame-period mask (rika_13C91()), an angle delta
+// (mima_19173()) and a bullet count (marisa_1BC43(), below). `[measured]`
+// mima_180EC() also spells `byte_2066F[bx]` with [bx] a 0-or-1 phase flag,
+// which is an access no set of scalar names can express at all. The
+// genericity is the fact: this is one scratch block whose meaning belongs to
+// whichever boss happens to be alive.
+extern "C" uint8_t boss_rank_param[5];
 
 // th02/resident.hpp, declared the same way th02/main/bg_particle.cpp does
 // rather than by pulling the whole resident structure in for one flag.
@@ -94,26 +105,18 @@ extern "C" void near marisa_1AD80(int orb_i);
 extern "C" void near marisa_1AE98(void);
 extern "C" void near marisa_1B025(void);
 
-// The other cast-cel stepper. Same job as marisa_1B665() below, but with the
-// five cel changes wired to fixed [boss_phase_frame] values instead of to a
-// parameter, and with the middle three playing a different sound. Called by
-// marisa_1B24A(), which is still in the dump, as well as by marisa_1B35F()
-// below.
-extern "C" void near marisa_1B19D(void);
-
-extern "C" void near marisa_1B24A(void);
-extern "C" void near marisa_1B2E9(void);
 /// --------------------------
 
 
 /// The angle accumulators the patterns below sweep their aim with
 /// -------------------------------------------------------------------
-/// All three are `db` slots in th02_main.asm's own spelling, address-suffixed
+/// All four are `db` slots in th02_main.asm's own spelling, address-suffixed
 /// rather than IDA placeholders, and each is read and written by exactly one
-/// of the patterns below - [angle_26D80] by marisa_1B35F(), [angle_26D87] by
-/// marisa_1B6DA(), [angle_26D88] by marisa_1B7D3(). Retiring the address
-/// suffix would be a rename of a slot no other function touches, which this
-/// parcel does not need to make in order to lift the bodies.
+/// of the patterns below - [angle_26D7F] by marisa_1B24A(), [angle_26D80] by
+/// marisa_1B35F(), [angle_26D87] by marisa_1B6DA(), [angle_26D88] by
+/// marisa_1B7D3(). Retiring the address suffix would be a rename of a slot no
+/// other function touches, which this parcel does not need to make in order to
+/// lift the bodies.
 ///
 /// [marisa_swoop_angle] is deliberately NOT in this class even though it is
 /// the same kind of `db` slot: it is not an aim accumulator but one of the
@@ -121,10 +124,157 @@ extern "C" void near marisa_1B2E9(void);
 /// so this parcel has to rule on them anyway and leaving the fourth
 /// address-suffixed would split one decision across two spellings.
 
+extern "C" uint8_t angle_26D7F;
 extern "C" uint8_t angle_26D80;
 extern "C" uint8_t angle_26D87;
 extern "C" uint8_t angle_26D88;
 /// -------------------------------------------------------------------
+
+
+// Set once by marisa_init() and cleared by the first wrap of [marisa_pattern]
+// case -1, so it is true for that pattern's first run in a fight and false
+// for every later one. `[measured]` It picks the muzzles case -1 sprays from:
+// true fires a fast pellet from each of Marisa's two hands, false a slow one
+// from between them, so the pattern is at its strongest the first time she
+// uses it. A kb/codegen/0123 alias rather than a rename, because marisa_init()
+// still writes the slot from th02_main.asm.
+extern "C" bool marisa_spray_is_first_run;
+
+
+// The other cast-cel stepper. Same job as marisa_1B665() below, but with the
+// five cel changes wired to fixed [boss_phase_frame] values instead of to a
+// parameter, and with the middle three playing a different sound. Called by
+// marisa_1B24A() and marisa_1B35F(), both below.
+extern "C" void near marisa_1B19D(void)
+{
+	if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+	} else if(boss_phase_frame == 100) {
+		snd_se_play(10);
+		patnum_2064E = 132;
+	} else if(boss_phase_frame == 108) {
+		snd_se_play(10);
+		patnum_2064E = 134;
+	} else if(boss_phase_frame == 116) {
+		snd_se_play(10);
+		patnum_2064E = 136;
+	} else if(boss_phase_frame == 130) {
+		patnum_2064E = 128;
+	}
+}
+
+
+// Marisa's quarter of [boss_rank_param]: the two groups case -2 fires, the one
+// group case -1 fires, and the number of star pairs marisa_1BC43() rains from
+// the playfield's edges. Easy widens both of the aimed spreads by one step and
+// halves the rain. Called from marisa_init(), which is still in th02_main.asm
+// - the only place in this tree where that dump calls into C++ with a `near`
+// call.
+extern "C" void near marisa_1B214(void)
+{
+	if(rank != RANK_EASY) {
+		boss_rank_param[0] = BG_5_SPREAD_MEDIUM_AIMED;
+		boss_rank_param[1] = BG_4_SPREAD_MEDIUM_AIMED;
+		boss_rank_param[2] = BG_2_SPREAD_MEDIUM;
+		boss_rank_param[3] = 4;
+	} else {
+		boss_rank_param[0] = BG_5_SPREAD_WIDE_AIMED;
+		boss_rank_param[1] = BG_4_SPREAD_WIDE_AIMED;
+		boss_rank_param[2] = BG_1;
+		boss_rank_param[3] = 2;
+	}
+}
+
+
+// [marisa_pattern] case -1, another of the three she only uses once all four
+// orbs are gone. Frame 50 points the aim up and to the right; from frame 101,
+// every 3rd frame sprays one BG_1 pellet and turns the aim by 10, so the
+// stream rakes a little over a full circle before [boss_phase_frame] wraps at
+// 130. The first run of it in a fight fires a fast pellet from each of
+// Marisa's hands; every later one fires a single slow pellet from between
+// them.
+extern "C" void near marisa_1B24A(void)
+{
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	marisa_1B19D();
+	if(boss_phase_frame == 50) {
+		angle_26D7F = 0x18;
+	} else if(boss_phase_frame == 130) {
+		boss_phase_frame = 0;
+		marisa_spray_is_first_run = false;
+	}
+	if(boss_phase_frame <= 100) {
+		return;
+	}
+	if((boss_phase_frame % 3) != 0) {
+		return;
+	}
+	if(marisa_spray_is_first_run) {
+		bullets_add_pellet(
+			(marisa_topleft.x + 36),
+			(marisa_topleft.y + 64),
+			angle_26D7F,
+			BG_1,
+			((3 << 4) + 12)
+		);
+		bullets_add_pellet(
+			(marisa_topleft.x + 52),
+			(marisa_topleft.y + 64),
+			angle_26D7F,
+			BG_1,
+			((3 << 4) + 12)
+		);
+	} else {
+		bullets_add_pellet(
+			(marisa_topleft.x + 44),
+			(marisa_topleft.y + 64),
+			angle_26D7F,
+			BG_1,
+			((3 << 4) + 2)
+		);
+	}
+	angle_26D7F += 10;
+}
+
+
+// [marisa_pattern] case -2, the last of the three. Every 24th frame from frame
+// 72, both of the rank-scaled aimed groups marisa_1B214() picked go off at
+// once from the same point above her hat, at the same angle and at two
+// different speeds, so the two spreads arrive as one thickening wall.
+// [boss_phase_frame] wraps at 193.
+extern "C" void near marisa_1B2E9(void)
+{
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+	}
+	if((boss_phase_frame % 24) == 0) {
+		bullets_add_pellet(
+			(marisa_topleft.x + 64),
+			(marisa_topleft.y + 16),
+			0x00,
+			boss_rank_param[0],
+			((3 << 4) + 6)
+		);
+		bullets_add_pellet(
+			(marisa_topleft.x + 64),
+			(marisa_topleft.y + 16),
+			0x00,
+			boss_rank_param[1],
+			((3 << 4) + 12)
+		);
+	}
+	if(boss_phase_frame > 192) {
+		boss_phase_frame = 0;
+		patnum_2064E = 128;
+	}
+}
 
 
 // [marisa_pattern] case -3, one of the three she only uses once all four orbs
@@ -692,20 +842,25 @@ extern "C" void near marisa_1BAFF(void)
 // by adding up the map's own lengths for everything this object emits ahead of
 // marisa_update(), never by counting dump bytes:
 //
-//	0x07F marisa_1B35F  0x099 marisa_1B3DE  0x0DE marisa_1B477
-//	0x110 marisa_1B555  0x075 marisa_1B665  0x0F9 marisa_1B6DA
-//	0x1C3 marisa_1B7D3  0x169 marisa_1B996  0x144 marisa_1BAFF
-//	0x22F marisa_1BC43  0x080 marisa_1BE72          = 0xB93, odd.
+//	0x077 marisa_1B19D  0x036 marisa_1B214  0x09F marisa_1B24A
+//	0x076 marisa_1B2E9  0x07F marisa_1B35F  0x099 marisa_1B3DE
+//	0x0DE marisa_1B477  0x110 marisa_1B555  0x075 marisa_1B665
+//	0x0F9 marisa_1B6DA  0x1C3 marisa_1B7D3  0x169 marisa_1B996
+//	0x144 marisa_1BAFF  0x22F marisa_1BC43  0x080 marisa_1BE72
+//	                                                = 0xD55, odd.
 //
-// Six of the eleven bodies are an odd number of bytes long, so a chain of them
-// is not parity-free at every depth. Of the four this parcel adds, only the
-// depths after marisa_1B477() and after marisa_1B35F() are safe; stopping
-// after marisa_1B3DE() would have left an EVEN prefix and silently dropped the
-// pad under a function the parcel never edits. That failure is invisible to a
-// per-function funcdiff, which is kb/codegen/0119's whole point.
+// Nine of the fifteen bodies are an odd number of bytes long, so a chain of
+// them is not parity-free at every depth. Of the four this parcel adds, only
+// the depths after marisa_1B2E9() (0xC09) and after marisa_1B19D() (0xD55) are
+// safe; stopping after marisa_1B24A() (0xCA8) or marisa_1B214() (0xCDE) would
+// have left an EVEN prefix and silently dropped the pad under a function the
+// parcel never edits. That failure is invisible to a per-function funcdiff,
+// which is kb/codegen/0119's whole point. The same held one parcel earlier,
+// where marisa_1B3DE()'s 0xB14 was the trap and marisa_1B35F() bought the
+// parity back.
 //
-// The next body up, marisa_1B2E9(), is 0x076 and so lands on 0xC09, odd - the
-// next lane inherits a safe single step rather than a forced pair.
+// The next body up is marisa_1B025, 0x178 - so 0xECD, odd, and the lane after
+// this one inherits a safe single step again.
 
 
 // Marisa's star pattern, [marisa_pattern] case 4. Nothing happens for the first
@@ -800,7 +955,7 @@ extern "C" void near marisa_1BC43(void)
 			rain_left = PLAYFIELD_LEFT;
 		}
 		i = 0;
-		while(i < byte_20671) {
+		while(i < boss_rank_param[3]) {
 			// Both stars of a pair share one angle, 22.5° off straight down,
 			// leaning away from the side the pair is spawned on.
 			angle = (

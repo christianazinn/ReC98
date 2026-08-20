@@ -14890,6 +14890,12 @@ BOSS_5_TEXT	ends
 
 main_03__TEXT	segment	byte public 'CODE' use16
 
+; marisa_1B214() is th02/main/boss/b4.cpp, prepended into this segment below.
+; marisa_init() is its only caller and is still in this dump, so the call has
+; to cross the object boundary. Both contributions are in this one segment,
+; so `near` resolves to the same 3-byte `E8 rel16` the original encodes.
+extrn _marisa_1B214:near
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -16430,7 +16436,7 @@ loc_1AA1A:
 		mov	byte_26D4E, 0
 		mov	byte_26D4F, 0
 		mov	_boss_explode_angle_offset, -20h
-		call	marisa_1B214
+		call	_marisa_1B214
 		pop	si
 		pop	bp
 		retf
@@ -17248,227 +17254,10 @@ loc_1B192:
 marisa_1B025	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B19D
-_marisa_1B19D label near
-marisa_1B19D	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1B1B9
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 130
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B1B9:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_1B1D2
-		call	_snd_se_play c, 10
-		mov	patnum_2064E, 132
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B1D2:
-		cmp	_boss_phase_frame, 108
-		jnz	short loc_1B1EB
-		call	_snd_se_play c, 10
-		mov	patnum_2064E, 134
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B1EB:
-		cmp	_boss_phase_frame, 116
-		jnz	short loc_1B204
-		call	_snd_se_play c, 10
-		mov	patnum_2064E, 136
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B204:
-		cmp	_boss_phase_frame, 130
-		jnz	short loc_1B212
-		mov	patnum_2064E, 128
-
-loc_1B212:
-		pop	bp
-		retn
-marisa_1B19D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_1B214	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_rank, RANK_EASY
-		jz	short loc_1B234
-		mov	byte_2066E, 17h
-		mov	byte_2066F, 11h
-		mov	group_20670, BG_2_SPREAD_MEDIUM
-		mov	byte_20671, 4
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B234:
-		mov	byte_2066E, 18h
-		mov	byte_2066F, 12h
-		mov	group_20670, BG_1
-		mov	byte_20671, 2
-		pop	bp
-		retn
-marisa_1B214	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B24A
-_marisa_1B24A label near
-marisa_1B24A	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_1B2E7
-		call	marisa_1B19D
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1B267
-		mov	angle_26D7F, 18h
-		jmp	short loc_1B27A
-; ---------------------------------------------------------------------------
-
-loc_1B267:
-		cmp	_boss_phase_frame, 130
-		jnz	short loc_1B27A
-		mov	_boss_phase_frame, 0
-		mov	byte_26D7E, 0
-
-loc_1B27A:
-		cmp	_boss_phase_frame, 100
-		jle	short loc_1B2E7
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B2E7
-		cmp	byte_26D7E, 0
-		jz	short loc_1B2C6
-		mov	ax, point_26D76.x
-		add	ax, 36
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 64
-		push	ax	; top
-		push	word ptr angle_26D7F	; angle
-		push	BG_1	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		mov	ax, point_26D76.x
-		add	ax, 52
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 64
-		push	ax
-		push	word ptr angle_26D7F
-		push	BG_1	; group
-		push	((3 shl 4) + 12)	; speed
-		jmp	short loc_1B2DC
-; ---------------------------------------------------------------------------
-
-loc_1B2C6:
-		mov	ax, point_26D76.x
-		add	ax, 44
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 64
-		push	ax	; top
-		push	word ptr angle_26D7F	; angle
-		push	BG_1	; group
-		push	((3 shl 4) + 2)	; speed
-
-loc_1B2DC:
-		call	@bullets_add_pellet$qiiucuci
-		mov	al, angle_26D7F
-		add	al, 0Ah
-		mov	angle_26D7F, al
-
-loc_1B2E7:
-		pop	bp
-		retn
-marisa_1B24A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B2E9
-_marisa_1B2E9 label near
-marisa_1B2E9	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	short loc_1B35D
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1B30A
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 130
-
-loc_1B30A:
-		mov	ax, _boss_phase_frame
-		mov	bx, 24
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B349
-		mov	ax, point_26D76.x
-		add	ax, 64
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 16
-		push	ax	; top
-		push	00h	; angle
-		push	word ptr byte_2066E	; group
-		push	((3 shl 4) + 6)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		mov	ax, point_26D76.x
-		add	ax, 64
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 16
-		push	ax	; top
-		push	00h	; angle
-		push	word ptr byte_2066F	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_1B349:
-		cmp	_boss_phase_frame, 192
-		jle	short loc_1B35D
-		mov	_boss_phase_frame, 0
-		mov	patnum_2064E, 128
-
-loc_1B35D:
-		pop	bp
-		retn
-marisa_1B2E9	endp
-
-
-; marisa_1B35F() through marisa_1BAFF(), marisa_1BC43(), marisa_1BE72() and
-; marisa_update() are th02/main/boss/b4.cpp, prepended into this segment in that
-; order (kb/codegen/0099).  marisa_update()'s `db 0` pad and its 5-entry jump
+; marisa_1B19D() through marisa_1B2E9(), marisa_1B35F() through marisa_1BAFF(),
+; marisa_1BC43(), marisa_1BE72() and marisa_update() are th02/main/boss/b4.cpp,
+; prepended into this segment in that order (kb/codegen/0099).
+; marisa_update()'s `db 0` pad and its 5-entry jump
 ; table are part of what that function compiles to, so they moved with it.
 
 main_03__TEXT	ends
@@ -18786,11 +18575,11 @@ byte_2066B	db ?
 public _reduce_effects, _slowdown_factor
 _reduce_effects	db ?
 _slowdown_factor	db ?
+public _boss_rank_param
+_boss_rank_param label byte
 byte_2066E	db ?
 byte_2066F	db ?
 group_20670	db ?
-public _byte_20671
-_byte_20671 label byte
 byte_20671	db ?
 byte_20672	db ?
 		db 15 dup(?)
@@ -19353,8 +19142,11 @@ point_26D76	Point <?>
 word_26D7A	dw ?
 byte_26D7C	db ?
 byte_26D7D	db ?
+public _marisa_spray_is_first_run
+_marisa_spray_is_first_run label byte
 byte_26D7E	db ?
-angle_26D7F	db ?
+public _angle_26D7F
+_angle_26D7F	db ?
 public _angle_26D80
 _angle_26D80	db ?
 public _marisa_swoop_direction
