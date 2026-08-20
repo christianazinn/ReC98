@@ -401,7 +401,7 @@ STAR_COUNT = 48
 ;
 ; Nothing may be added above this line.
 
-include th05/end/verdict_bitmap.asm
+	; verdict_bitmap_snap() and verdict_bitmap_put() are now C++ definitions in th05/verd_bmp.cpp, whose Tupfile.lua line sits between this dump and th05/staffrol.cpp -- exactly where the module's bytes were, since TLINK concatenates a segment's contributions in link order (kb/codegen 0112 + 0114). The MODULE IS DELETED: this dump was its only includer. Its three `db` direction pins went with it and are not a loss -- kb/codegen/0037 measured that TASM assembles `xor si, si` to 33 F6 where Turbo C++'s inline assembler emits the 31 F6 the original has, so the pins were only ever needed while the code lived in a .asm file. This dump needs no declaration for either function: nothing here calls them, and both callers are C++ (th05/staffrol.cpp, through th05/staff.hpp). This line replaces the `include` rather than deleting it, so the file's length does not change and nothing below is renumbered.
 
 ; The staff roll itself -- the whole scene's script, from the fade-in through
 ; the credits to the verdict screen the player scrolls through at the end --
@@ -411,12 +411,12 @@ include th05/end/verdict_bitmap.asm
 ; (kb/codegen/0099 + 0114).
 ;
 ; This is the one lift out of this segment that could NOT extend
-; th05/space.cpp's contribution: th05/end/verdict_bitmap.asm sits between the
+; th05/space.cpp's contribution: the verdict bitmap pair sits between the
 ; frame function and this body and stays here, so the lifted code has to be
 ; behind the dump rather than in front of it. The object and its Tupfile.lua
 ; line are therefore new, and that line is POSITION-CRITICAL in the opposite
 ; direction from th05/space.cpp's -- listed before this dump it would land
-; ahead of verdict_bitmap.asm (kb/codegen/0112 + 0114).
+; ahead of th05/verd_bmp.cpp (kb/codegen/0112 + 0114).
 ;
 ; It has two stack locals, so it needed no kb/codegen/0042 wrapper. The
 ; hand-encoded `db 0Fh, 8Ch, 93h, 00h` that stood in for the near jump out of
@@ -426,10 +426,10 @@ include th05/end/verdict_bitmap.asm
 ;
 ; kb/codegen/0121: the deleted body contained no `assume`.
 ;
-; **THIS BLOCK IS NOW EMPTY**, and with it the whole dump: th05_maine.asm
-; contributes zero bytes of code to TH05's MAINE.EXE. Nothing may be added
-; between th05/end/verdict_bitmap.asm above and th05/staffrol.cpp's
-; contribution below.
+; **THIS BLOCK IS NOW EMPTY**, and so, now, is the whole dump:
+; th05_maine.asm contributes zero bytes of code to TH05's MAINE.EXE, and its
+; map record for maine_01__TEXT is a zero-length one. Nothing may be added
+; between th05/space.cpp's contribution above and th05/staffrol.cpp's below.
 
 maine_01__TEXT	ends
 
@@ -998,6 +998,6 @@ word_151E2	dw ?
 	extern _particles:orb_particle_t:ORB_PARTICLE_COUNT
 	extern _orb_trails_center:Point:ORB_TRAIL_COUNT
 	extern _stars_center:Point:STAR_COUNT
-	extern _verdict_bitmap:word:(VERDICT_SCREEN_H * 2 * (VERDICT_BITMAP_W / 16))
+	; [verdict_bitmap] needs no declaration here any more. Its only two users in this dump were verdict_bitmap_snap() and verdict_bitmap_put(), and the size expression that used to be on this line was built from VERDICT_SCREEN_H and VERDICT_BITMAP_W -- two equates that th05/end/verdict_bitmap.asm DEFINED, so deleting the module took them with it. The array itself is unchanged, defined in C++ at th05/staff.cpp and declared in th05/staff.hpp, which is where both of those constants already live as well.
 
 		end
