@@ -4787,8 +4787,8 @@ sub_15345	endp
 		nop
 
 ; =============== S U B	R O U T	I N E =======================================
-
-
+	public _sub_1535A
+	_sub_1535A label near
 sub_1535A	proc near
 		push	si
 		push	di
@@ -5541,251 +5541,25 @@ ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 		src:word
 ENM_BTPL_TEXT	ends
 
-; Harness carve (kb/codegen/0080): what is left of the original
-; `main_032_TEXT` contribution once enemy_bullet_template_push() moved out
-; of it. Same `byte public 'CODE'` alignment as before, so nothing moves;
-; th05/gather.cpp and th05/main032.cpp still append to this name.
+; Harness carve (kb/codegen/0080): this contribution to `main_032_TEXT` is
+; now EMPTY. enemy_bullet_template_push() left it first; enemies_update(),
+; the last proc in it, is now a C++ definition in
+; th05/main/enemy/update.cpp, compiled through th05/enemy_u.cpp. That
+; object names this segment and its Tupfile.lua line sits ABOVE
+; th05/gather.cpp's, so it takes the segment start this contribution used
+; to hold and nothing below it moves (kb/codegen 0112 + 0114). The map
+; record for this file is a zero-length one at the segment start, the same
+; shape SHOT_INV_TEXT took.
+;
+; This dump needs no declaration for the function and never did: nothing
+; here calls it, and its only caller is C++ (th04/main/stage/loop.cpp
+; declares it and calls it for both games). The `public ENEMIES_UPDATE`
+; went with the body, because the C++ definition publishes that same
+; undecorated upper-case name itself (kb/codegen 0081 + 0102).
+;
+; The segment block itself stays: the procdescs below it are still live.
 main_032_TEXT	segment	byte public 'CODE' use16
 		assume es:_DATA
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public ENEMIES_UPDATE
-enemies_update	proc far
-
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_homing_target.x, SUBPIXEL_NONE
-		mov	_homing_target.y, SUBPIXEL_NONE
-		mov	_shot_hitbox_radius.x, (16 shl 4)
-		mov	_shot_hitbox_radius.y, (12 shl 4)
-		mov	[bp+var_2], 0
-		mov	si, offset _enemies
-		xor	di, di
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+enemy_t.flag], EF_FREE
-		jz	@@next
-		cmp	[si+enemy_t.flag], EF_KILLED
-		jnz	short @@alive
-		mov	[si+enemy_t.flag], EF_FREE
-		jmp	@@next
-; ---------------------------------------------------------------------------
-
-@@alive:
-		mov	_enemy_cur, si
-		cmp	[si+enemy_t.flag], EF_KILL_ANIM
-		jnb	loc_16221
-		call	sub_1535A
-		cmp	[si+enemy_t.E_kills_player_on_collision], 0
-		jz	short loc_160F2
-		mov	ax, [si+enemy_t.pos.cur.x]
-		sub	ax, _player_pos.cur.x
-		add	ax, (12 shl 4)
-		cmp	ax, (24 shl 4)
-		jnb	short loc_160F2
-		mov	ax, [si+enemy_t.pos.cur.y]
-		sub	ax, _player_pos.cur.y
-		add	ax, (12  shl 4)
-		cmp	ax, (24  shl 4)
-		jnb	short loc_160F2
-		mov	_player_is_hit, 1
-		jmp	short loc_16161
-; ---------------------------------------------------------------------------
-
-loc_160F2:
-		cmp	[si+enemy_t.E_can_be_damaged], 0
-		jz	@@autofire?
-		cmp	[si+enemy_t.E_hp], -1
-		jz	@@autofire?
-		mov	ax, [si+enemy_t.pos.cur.x]
-		add	ax, ((ENEMY_W / 2) shl 4)
-		cmp	ax, (PLAYFIELD_RIGHT shl 4)
-		jnb	@@autofire?
-		mov	ax, [si+enemy_t.pos.cur.y]
-		add	ax, ((ENEMY_H / 2) shl 4)
-		cmp	ax, (PLAYFIELD_BOTTOM shl 4)
-		jnb	@@autofire?
-		inc	[bp+var_2]
-		mov	ax, [si+enemy_t.pos.cur.y]
-		cmp	ax, _homing_target.y
-		jle	short loc_16134
-		mov	ax, [si+enemy_t.pos.cur.x]
-		mov	_homing_target.x, ax
-		mov	ax, [si+enemy_t.pos.cur.y]
-		mov	_homing_target.y, ax
-
-loc_16134:
-		mov	eax, dword ptr [si+enemy_t.pos.cur]
-		mov	dword ptr _shot_hitbox_center, eax
-		call	@shots_hittest$qv
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 0
-		jz	short @@autofire?
-		cmp	[si+enemy_t.E_hp], -2
-		jz	short loc_161BF
-		mov	ah, 0
-		cmp	ax, [si+enemy_t.E_hp]
-		jge	short loc_16161
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		sub	[si+enemy_t.E_hp], ax
-		jmp	short loc_161B9
-; ---------------------------------------------------------------------------
-
-loc_16161:
-		mov	[si+enemy_t.flag], EF_KILL_ANIM
-		mov	[si+enemy_t.E_anim_cels], 1
-		mov	[si+enemy_t.E_can_be_damaged], 0
-		mov	[si+enemy_t.E_kills_player_on_collision], 0
-		mov	[si+enemy_t.pos.velocity.x], 0
-		mov	[si+enemy_t.pos.velocity.y], 0
-		cmp	[si+enemy_t.E_item], IT_NONE
-		jz	short loc_1618C
-		call	@items_add$qii11item_type_t pascal, [si+enemy_t.pos.cur.x], [si+enemy_t.pos.cur.y], word ptr [si+enemy_t.E_item]
-
-loc_1618C:
-		call	snd_se_play pascal, 3
-		movzx	eax, word ptr [si+enemy_t.E_score]
-		add	_score_delta, eax
-		push	[si+enemy_t.pos.cur.x]
-		push	[si+enemy_t.pos.cur.y]
-		push	large (((4 shl 4) shl 16) or 7)
-		nop
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii
-		inc	_enemies_gone
-		inc	_enemies_killed
-		jmp	@@next
-; ---------------------------------------------------------------------------
-
-loc_161B9:
-		mov	[si+enemy_t.E_damaged_this_frame], 1
-		jmp	short @@autofire?
-; ---------------------------------------------------------------------------
-
-loc_161BF:
-		call	snd_se_play pascal, 10
-
-@@autofire?:
-		cmp	[si+enemy_t.E_autofire], 0
-		jz	short @@no_autofire
-		inc	[si+enemy_t.E_autofire_cur_frame]
-		mov	al, [si+enemy_t.E_autofire_cur_frame]
-		cmp	al, [si+enemy_t.E_autofire_interval]
-		jb	short @@no_autofire
-		cmp	[si+enemy_t.pos.cur.y], (304 shl 4)
-		jge	short @@no_autofire
-		mov	ax, [si+enemy_t.pos.cur.x]
-		sub	ax, _player_pos.cur.x
-		add	ax, (48 shl 4)
-		cmp	ax, (96 shl 4)
-		jnb	short @@fire
-		mov	ax, [si+enemy_t.pos.cur.y]
-		sub	ax, _player_pos.cur.y
-		add	ax, (48 shl 4)
-		cmp	ax, (96 shl 4)
-		jb	short @@no_autofire
-
-@@fire:
-		mov	[si+enemy_t.E_autofire_cur_frame], 0
-		lea	ax, [si+enemy_t.E_bullet_template]
-		call	enemy_bullet_template_push pascal, ax
-		mov	ax, [si+enemy_t.pos.cur.x]
-		add	_bullet_template.BT_origin.x, ax
-		mov	ax, [si+enemy_t.pos.cur.y]
-		add	_bullet_template.BT_origin.y, ax
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-@@no_autofire:
-		inc	[si+enemy_t.age]
-		jmp	short @@next
-; ---------------------------------------------------------------------------
-
-loc_16221:
-		lea	ax, [si+enemy_t.pos]
-		call	@PlayfieldMotion@update_seg3$qv pascal, ax
-		mov	al, [si+enemy_t.flag]
-		inc	al
-		mov	[si+enemy_t.flag], al
-		mov	[bp+var_1], al
-		mov	ah, 0
-		add	ax, -EF_KILL_ANIM
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, PAT_ENEMY_KILL
-		mov	[bp+var_1], al
-		mov	[si+enemy_t.E_patnum_base], al
-		cmp	[bp+var_1], (PAT_ENEMY_KILL + ENEMY_KILL_CELS)
-		jb	short @@next
-		mov	[si+enemy_t.flag], EF_KILLED
-
-@@next:
-		inc	di
-		add	si, size enemy_t
-
-@@more?:
-		cmp	di, ENEMY_COUNT
-		jl	@@loop
-		cmp	_homing_target.x, SUBPIXEL_NONE
-		jz	short loc_162B9
-		cmp	[bp+var_2], 8
-		jb	short loc_1626C
-		mov	[bp+var_2], 80
-		jmp	short loc_16279
-; ---------------------------------------------------------------------------
-
-loc_1626C:
-		mov	al, [bp+var_2]
-		shl	al, 3
-		mov	dl, 144
-		sub	dl, al
-		mov	[bp+var_2], dl
-
-loc_16279:
-		mov	al, _stage_id
-		shl	al, 4
-		mov	dl, [bp+var_2]
-		sub	dl, al
-		mov	[bp+var_2], dl
-		cmp	[bp+var_2], 144
-		ja	short loc_16293
-		cmp	[bp+var_2], 4
-		jnb	short loc_16297
-
-loc_16293:
-		mov	[bp+var_2], 4
-
-loc_16297:
-		mov	al, [bp+var_2]
-		mov	ah, 0
-		push	ax
-		mov	ax, _stage_frame
-		xor	dx, dx
-		pop	bx
-		div	bx
-		or	dx, dx
-		jnz	short loc_162B9
-		cmp	_dream, 128
-		jnb	short loc_162B9
-		inc	_dream
-		call	hud_dream_put
-
-loc_162B9:
-		pop	di
-		pop	si
-		leave
-		retf
-enemies_update	endp
 
 	; explosions_small_reset() is now a C++ definition at the front of the th05/gather.cpp object, above the four declared below it. This dump needed no declaration for it and still needs none: nothing here calls it, and its only caller is C++. The MODULE STILL EXISTS and th04_main.asm still includes it, where it is not the tail of the root contribution. This line replaces the `include` rather than deleting it, so the file's length does not change and nothing below is renumbered.
 	@BOSS_EXPLODE_SMALL$Q16EXPLOSION_TYPE_T procdesc pascal near explosion_type:word	; now a C++ definition at the front of the th05/gather.cpp object, above the three declared below it. The MODULE STILL EXISTS and th04_main.asm still includes it: there it is not the tail of the root contribution, and it also defines the EXPLOSION_TYPED macro that TH04's big explosion expands. Nothing in this dump expands that macro any more. kb/codegen/0102: UPPER case because the function is `pascal`.
