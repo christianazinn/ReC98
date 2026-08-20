@@ -2655,7 +2655,7 @@ main__TEXT	segment	byte public 'CODE' use16
 main__TEXT	ends
 
 PLAYFLD_TEXT	segment	byte public 'CODE' use16
-include th05/main/bullet/cheetos_render.asm
+	CHEETOS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/playfld.cpp object, ahead of the item splash renderer and the two lifts below it, so all four keep this segment's address order (kb/codegen 0112 + 0114). It was the FIRST thing this root contribution emitted and there was nothing else in it, so the contribution is now zero bytes; PLAYFLD_TEXT is byte-aligned, so an empty root block pads nothing. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's own `call` and `offset` sites resolve against.
 	; item_splashes_render() now lives in th04/main/item/splashes_render.cpp,
 	; which th04/main/playfld.cpp #includes under `#if (GAME == 5)` ahead of
 	; th04/main/bullet/render.cpp, so the two land in their original address
@@ -2672,9 +2672,9 @@ include th05/main/bullet/cheetos_render.asm
 	; (kb/codegen 0129), and the `public _sub_100C6` alias it published for
 	; th04/main/stage/loop.cpp went with the body; that call site spells the
 	; name directly now, in both games. TH04's copy is in BOSS_FG_TEXT and
-	; is a separate lift. The tail here is now `include
-	; th05/main/bullet/cheetos_render.asm`, so this seam is still closed --
-	; the note this block replaces said that of the module above it.
+	; is a separate lift. That module has now been lifted as well, into
+	; th05/main/bullet/cheetos_render.cpp at the front of the same object,
+	; so this root contribution now emits nothing at all.
 
 	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
 	; th04/main/playfld.cpp #includes ahead of

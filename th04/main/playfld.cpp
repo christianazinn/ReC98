@@ -9,6 +9,14 @@
 extern int8_t playfield_shake_redraw_time;
 
 #if (GAME == 5)
+// ... and ahead of even THAT: the cheeto bullet renderer, which was the first
+// thing th05_main.asm's PLAYFLD_TEXT root contribution emitted and is now the
+// front of this object. With it lifted, that contribution is zero bytes.
+// TH04 has no cheeto bullets, so nothing is wired there.
+#include "th05/main/bullet/cheetos_render.cpp"
+#endif
+
+#if (GAME == 5)
 // ... and ahead of even that: the item splash renderer, which sat immediately
 // before the bullet renderer in th05_main.asm's PLAYFLD_TEXT root
 // contribution and is therefore the front of this object. TH04 includes the
