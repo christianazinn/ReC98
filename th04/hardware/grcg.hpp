@@ -1,3 +1,6 @@
+#ifndef TH04_HARDWARE_GRCG_HPP
+#define TH04_HARDWARE_GRCG_HPP
+
 #include "pc98.h"
 #include "x86real.h"
 
@@ -67,3 +70,5 @@ extern "C" void near grcg_fill_playfield_rows(void);
 	grcg_fill_playfield_rows(); \
 }
 // ---------------------
+
+#endif /* TH04_HARDWARE_GRCG_HPP */

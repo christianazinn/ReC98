@@ -2656,25 +2656,25 @@ main__TEXT	ends
 
 PLAYFLD_TEXT	segment	byte public 'CODE' use16
 include th05/main/bullet/cheetos_render.asm
-include th04/main/item/splashes_render.asm
-
-	; bullets_render() now lives in th04/main/bullet/render.cpp, which
-	; th04/main/playfld.cpp #includes ahead of th04/main/scroll.cpp (kb/codegen
-	; 0129), so the three land here in their original address order. It was
-	; the LAST proc of this root contribution and th05/playfld.cpp already
-	; owned everything after it (kb/codegen 0114), so no carve, no new
-	; segment, no group-list edit and no Tupfile.lua line were needed. The
-	; `public _sub_100C6` alias this dump used to publish for
-	; th04/main/stage/loop.cpp's call goes with the body; that call site now
-	; spells the name directly, in both games.
+	; item_splashes_render() now lives in th04/main/item/splashes_render.cpp,
+	; which th04/main/playfld.cpp #includes under `#if (GAME == 5)` ahead of
+	; th04/main/bullet/render.cpp, so the two land in their original address
+	; order. It was the LAST emitting item of this root contribution and
+	; th05/playfld.cpp already owned everything after it (kb/codegen 0114),
+	; so no carve and no Tupfile.lua line. Nothing in this dump referenced
+	; its `public ITEM_SPLASHES_RENDER`, so nothing replaces it. TH04
+	; includes the SAME module from MID-segment inside CIRCLE_TEXT and so
+	; keeps the .asm: one module, two very different pieces of work.
 	;
-	; TH04 has the same function -- minus the pellet cloud list, and with
-	; [patnum] and the loop counter in the opposite storage -- but it lives
-	; in th04_main.asm's BOSS_FG_TEXT, so it is a separate lift.
-	;
-	; This seam CLOSES: the item ahead is `include
-	; th04/main/item/splashes_render.asm`, so PLAYFLD_TEXT has no further
-	; carve-free tail to give up.
+	; bullets_render() and, ahead of it, that module were the last two
+	; things this contribution emitted. bullets_render() now lives in
+	; th04/main/bullet/render.cpp, #included ahead of th04/main/scroll.cpp
+	; (kb/codegen 0129), and the `public _sub_100C6` alias it published for
+	; th04/main/stage/loop.cpp went with the body; that call site spells the
+	; name directly now, in both games. TH04's copy is in BOSS_FG_TEXT and
+	; is a separate lift. The tail here is now `include
+	; th05/main/bullet/cheetos_render.asm`, so this seam is still closed --
+	; the note this block replaces said that of the module above it.
 
 	; scroll_update_and_render() now lives in th04/main/scroll.cpp, which
 	; th04/main/playfld.cpp #includes ahead of

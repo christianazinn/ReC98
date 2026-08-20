@@ -9,6 +9,15 @@
 extern int8_t playfield_shake_redraw_time;
 
 #if (GAME == 5)
+// ... and ahead of even that: the item splash renderer, which sat immediately
+// before the bullet renderer in th05_main.asm's PLAYFLD_TEXT root
+// contribution and is therefore the front of this object. TH04 includes the
+// same module from mid-segment inside CIRCLE_TEXT, where it needs a
+// kb/codegen/0080 carve, so that game keeps the .asm and is not wired here.
+#include "th04/main/item/splashes_render.cpp"
+#endif
+
+#if (GAME == 5)
 // TH05's bullet renderer was the last proc of th05_main.asm's PLAYFLD_TEXT
 // root contribution, so it belongs at the very front of this object — ahead of
 // the scroll advance below (kb/codegen/0114 + 0129). No carve, no new segment,

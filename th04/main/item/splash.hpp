@@ -16,7 +16,15 @@ static const int ITEM_SPLASH_DOTS = ((GAME == 5) ? 32 : 64);
 
 extern item_splash_t item_splashes[ITEM_SPLASH_COUNT];
 
-void __fastcall near item_splash_dot_render(screen_x_t x, vram_y_t vram_y);
+// `extern "C"`, for the same reason item_splashes_render() below is: the
+// module publishes the plain `@item_splash_dot_render` that Borland's
+// `__fastcall` decoration produces for C linkage, and nothing defines the
+// `@item_splash_dot_render$qii` this used to ask for. Latent until
+// item_splashes_render() became its first C++ caller — a declaration with no
+// caller is not a measurement.
+extern "C" void __fastcall near item_splash_dot_render(
+	screen_x_t x, vram_y_t vram_y
+);
 void near item_splashes_init(void);
 void pascal near item_splashes_add(Subpixel center_x, Subpixel center_y);
 void near item_splashes_update(void);
