@@ -6093,7 +6093,7 @@ loc_162B9:
 enemies_update	endp
 
 include th04/main/boss/explosions_reset.asm
-include th04/main/boss/explode_small.asm
+	@BOSS_EXPLODE_SMALL$Q16EXPLOSION_TYPE_T procdesc pascal near explosion_type:word	; now a C++ definition at the front of the th05/gather.cpp object, above the three declared below it. The MODULE STILL EXISTS and th04_main.asm still includes it: there it is not the tail of the root contribution, and it also defines the EXPLOSION_TYPED macro that TH04's big explosion expands. Nothing in this dump expands that macro any more. kb/codegen/0102: UPPER case because the function is `pascal`.
 	@BOSS2_EXPLODE_SMALL$QUI procdesc pascal near explosion_type:word	; also now a C++ definition, at the front of the th05/gather.cpp object and above the two declared below it, so all three keep this segment's address order (kb/codegen 0112 + 0114). kb/codegen/0102 in the OTHER direction: this one IS `pascal`, so its module published the mangled name in UPPER case and the procdesc has to match that, not the proc's own spelling.
 	@boss_explode_big_circle$qv procdesc near	; now a C++ definition at the front of the th05/gather.cpp object, ahead of the boss2 wrapper below, so both keep this segment's address order (kb/codegen 0112 + 0114). kb/codegen/0102: its module PUBLISHed this symbol, which is what the main_035_TEXT call site was resolving against, so the declaration is spelled in that module's own lower case.
 	@boss2_explode_big_circle$qv procdesc near	; was include th05/main/boss/2_explode_big.asm; now th05/main/boss/2_explode_big.cpp, which th05/gather.cpp includes ahead of th05/main/stage/bonus.cpp so it keeps this segment address order (kb/codegen 0112 + 0114)

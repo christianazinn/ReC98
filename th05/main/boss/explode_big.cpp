@@ -20,9 +20,14 @@
 /// `push si`, with nothing reserved -- confirms that no second, stack-homed
 /// local exists.
 
+// kb/codegen/0129: `th02/snd/snd.h` has no include guard, so it may appear
+// exactly ONCE in this object's include set, and this file is no longer the
+// first in it to need snd_se_play(). th04/main/boss/explode_small.cpp, which
+// th05/gather.cpp includes above this one, owns the include now; adding the
+// direct line back here produces 18 `Multiple declaration` errors out of
+// `th02/snd/snd.h` and `libs/kaja/kaja.h` rather than a silent mismatch.
 #include "platform.h"
 #include "pc98.h"
-#include "th02/snd/snd.h"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/boss/explode.hpp"
 
