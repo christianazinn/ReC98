@@ -32,6 +32,11 @@
 	// different function -- see that file's docblock.
 	#include "th05/main/score_highest.cpp"
 #else
+	// Ahead of score_reset() again, and the front of this object: it was the
+	// last thing th04_main.asm contributed to HUD_PNT_TEXT. TH05's proc in
+	// the same slot is a different body and is still assembly.
+	#include "th04/main/score_extend.cpp"
+
 	#include "th04/main/score_reset.cpp"
 #endif
 #include "th04/main/hud/lives.cpp"

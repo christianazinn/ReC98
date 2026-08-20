@@ -2778,94 +2778,94 @@ public @ORANGE_BACKDROP_COLORFILL$QV
 @orange_backdrop_colorfill$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public SCORE_EXTEND_UPDATE_AND_RENDER
-score_extend_update_and_render	proc near
-
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		mov	[bp+var_1], 0
-		mov	al, _extends_gained
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	short loc_EE60
-		add	bx, bx
-		jmp	cs:off_EEA6[bx]
-
-loc_EE23:
-		cmp	_score[6], 3
-		jb	short loc_EE60
-		jmp	short loc_EE5C
-; ---------------------------------------------------------------------------
-
-loc_EE2C:
-		cmp	_score[6], 8
-		jb	short loc_EE60
-		jmp	short loc_EE5C
-; ---------------------------------------------------------------------------
-
-loc_EE35:
-		cmp	_score[7], 1
-		jb	short loc_EE60
-		cmp	_score[6], 5
-		jb	short loc_EE60
-		jmp	short loc_EE5C
-; ---------------------------------------------------------------------------
-
-loc_EE45:
-		cmp	_score[7], 2
-		jb	short loc_EE60
-		cmp	_score[6], 2
-		jb	short loc_EE60
-		jmp	short loc_EE5C
-; ---------------------------------------------------------------------------
-
-loc_EE55:
-		cmp	_score[7], 3
-		jb	short loc_EE60
-
-loc_EE5C:
-		mov	[bp+var_1], 1
-
-loc_EE60:
-		cmp	[bp+var_1], 0
-		jz	short locret_EEA3
-		push	4
-		nopcall	playperf_raise
-		inc	_extends_gained
-		les	bx, _resident
-		assume es:nothing
-		cmp	es:[bx+resident_t.rem_lives], 99
-		ja	short locret_EEA3
-		inc	es:[bx+resident_t.rem_lives]
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_EE8C
-		mov	_bullet_clear_time, 20
-
-loc_EE8C:
-		nopcall	main_01:hud_lives_put
-		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		call	snd_se_play pascal, 7
-
-locret_EEA3:
-		leave
-		retn
-score_extend_update_and_render	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_EEA6	dw offset loc_EE23
-		dw offset loc_EE2C
-		dw offset loc_EE35
-		dw offset loc_EE45
-		dw offset loc_EE55
+	; score_extend_update_and_render() -- one frame of the score-based extend
+	; check -- was lifted out of here and is now th04/main/score_extend.cpp.
+	; th04/main/hud/points.cpp #includes it at the very FRONT, ahead of
+	; score_reset.cpp, lives.cpp, bombs.cpp and its own function, so that all
+	; five land here in their original address order (kb/codegen/0129).
+	;
+	; ITS ONE-BYTE ALIGNMENT PAD AND ITS FIVE-ENTRY `dw offset` JUMP TABLE
+	; WENT WITH THE BODY, and that is the whole point of this parcel. The
+	; table is not data this dump owns; it is what the `switch` on
+	; [extends_gained] COMPILES TO, so the C++ emits it, and a copy left
+	; behind here would be emitted twice. tools/pi-audit/carve_free_tails.py
+	; files a segment whose last emitting item is a `dw offset loc_` run under
+	; TAIL=`data` and drops it out of every liftable section; this is the
+	; first row of state/re/JUMP_TABLE_TAILS.md's class to land in TH04, after
+	; th02/main/boss/b4.cpp's marisa_update() proved the route.
+	;
+	; No carve, no new segment name, no group-list edit and no Tupfile.lua
+	; line: th04/hud_pnt.cpp already appended directly after this block, so
+	; the object grows backwards into the hole and every byte above it keeps
+	; its address (kb/codegen 0099 + 0112 + 0114).
+	;
+	; THE NAME IS THE ONE THIS FILE ALREADY PUBLISHED. `public
+	; SCORE_EXTEND_UPDATE_AND_RENDER` was all-caps and undecorated, i.e.
+	; `extern "C" ... pascal` (kb/codegen/0081), and the C++ definition
+	; publishes it itself, so the `public` left with the body. No procdesc
+	; replaces it here: the only caller anywhere is th04/main/scoreupd.asm,
+	; which is its own translation unit and has always carried its own
+	; `SCORE_EXTEND_UPDATE_AND_RENDER procdesc near` inside a MAIN_01 segment
+	; block. That call site is unchanged and did not move.
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore into the rest of this contribution.
+	;
+	; THE PAD IS -a2's, AND THE PARITY IS THE OPPOSITE WAY ROUND FROM WHAT
+	; COSTING THIS ROW FROM kb/codegen/0154 PREDICTS. `[measured]` with
+	; `tcc -S` over th04/hud_pnt.cpp, both parities probed: the body is 0x9F
+	; bytes and is the first thing the object emits, so the natural table
+	; offset is 0x9F and ODD -- 0154's table calls that the case -a2 leaves
+	; alone. Here -a2 emits `db 1 dup (0)` at exactly that offset, and emits
+	; nothing once a one-byte `#pragma codestring` makes the offset even. So
+	; this lift needs no borrowed prefix byte and takes none; the `retn` of
+	; @orange_backdrop_colorfill$qv above is untouched. Whoever takes the next
+	; row of this class should probe BOTH parities off its own object rather
+	; than predict one, which is kb/codegen/0119's standing warning: get it
+	; wrong and every body is still byte-identical while the pad evaporates
+	; under a function the parcel never touched.
+	;
+	; WHAT THE BODY DID, recorded here rather than left to the C++ to assert:
+	;
+	;   1) [score] is a little-endian BCD digit array whose element 0 IS
+	;      [continues_used] (th04/score.h), so element 7 is the millions digit
+	;      and element 6 the hundred-thousands one. [extends_gained] indexes
+	;      five thresholds -- 300,000 / 800,000 / 1,500,000 / 2,200,000 /
+	;      3,000,000 -- and the `switch` is dense over 0..4, which is why it
+	;      compiled to a table at all.
+	;
+	;   2) ZUN quirk: cases 0 and 1 test the hundred-thousands digit ALONE.
+	;      A run that crosses 1,000,000 while still on case 1 has to reach
+	;      x,800,000 for its second extend, because 1,200,000 leaves element 6
+	;      at 2. The millions digit only enters the test from case 2 on.
+	;
+	;   3) The 100th life is refused but the threshold is still consumed:
+	;      [extends_gained] is incremented before the [rem_lives] cap is
+	;      tested, so a player already at 99 loses that extend outright rather
+	;      than banking it.
+	;
+	;   4) The [resident] far pointer is loaded ONCE and ES:BX is kept live
+	;      across the cap test into the increment (kb/codegen/0002). Writing
+	;      the cap as an early `return` on the negated condition makes Turbo
+	;      C++ reload it, which is 4 bytes this body does not have -- so the
+	;      C++ nests instead.
+	;
+	;   5) Both calls out are `nopcall`s, i.e. same-code-group far calls that
+	;      Turbo C++ lowered to `nop` + `push cs` + a near call (kb/codegen
+	;      0014 + 0083), and playperf_raise()'s argument is pushed AHEAD of
+	;      its island, so the C++ spells that push as `__emit__(0x6A, 4)`
+	;      rather than as a call argument (kb/codegen 0083 + 0089).
+	;
+	;   6) The popup is the same pair of stores th04/main/hud/overlay.hpp's
+	;      overlay_popup_show() inlines, but that header is unguarded and
+	;      re-expands two more headers points.cpp already pulls in, so the
+	;      lifted file spells the two variables itself (kb/codegen/0129).
+	;
+	; WHAT THIS SEGMENT'S TAIL IS NOW: @orange_backdrop_colorfill$qv, directly
+	; above, and it is NOT a further lift -- carve_free_tails.py screens it
+	; HAND-WRITTEN because it programs the GRCG tile register through `out`.
+	; HUD_PNT_TEXT yields exactly this one row, so the next parcel in this
+	; class belongs to another segment (state/notes/th04-main-score-extend.md).
 
 	; score_reset() now lives in th04/main/score_reset.cpp, which
 	; th04/main/hud/points.cpp #includes ahead of lives.cpp, bombs.cpp and
