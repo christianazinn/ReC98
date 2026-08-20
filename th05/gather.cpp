@@ -21,6 +21,12 @@
 // before *that*, as the new last item of the same root contribution once the
 // wrapper had left it. Same route, one module further up, so this line has to
 // stay above the one below it.
+// ... and boss2_explode_small() above even that, by the same argument applied a
+// third time. Draining a segment's `include` tail promotes whatever was above
+// it, so each of these lines went in at the FRONT of the list, and the list is
+// therefore in reverse lift order and in forward address order.
+#include "th05/main/boss/2_explode_small.cpp"
+
 #include "th05/main/boss/explode_big.cpp"
 
 #include "th05/main/boss/2_explode_big.cpp"
