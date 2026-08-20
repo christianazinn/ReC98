@@ -13,6 +13,7 @@
 // th05/stages.cpp, so the lifted body lands back at the address it had.
 #pragma option -zCMIDBOSSX_TEXT -zPmain_01
 
+#include "th05/main/bullet/b4balls_render.cpp"
 #include "th05/main/boss/b4_fg.cpp"
 #include "th05/main/bullet/swords_render.cpp"
 #include "th05/main/boss/b5_fg.cpp"

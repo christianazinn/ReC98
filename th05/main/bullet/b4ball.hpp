@@ -41,4 +41,7 @@ void pascal near b4balls_reset(void);
 void pascal near b4balls_add(void);
 
 void pascal near b4balls_update(void);
-void pascal near b4balls_render(void);
+// `extern "C"` + `pascal`: the module published the undecorated
+// upper-case `B4BALLS_RENDER`, and th05_main.asm resolves two `offset`
+// sites against that spelling (kb/codegen/0081 + 0102).
+extern "C" void pascal near b4balls_render(void);

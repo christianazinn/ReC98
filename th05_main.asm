@@ -3678,8 +3678,8 @@ loc_10EAE:
 		retn
 @midboss4_render$qv	endp
 
-include th05/main/bullet/b4balls_render.asm
-
+		assume	es:nothing	; kb/codegen/0121: this was set inside b4balls_render(), which is now C++ and does not participate in TASM's assume state at all. It is restored at the module's own position, so every later contribution in this file is assembled under exactly the assumption it was before.
+	B4BALLS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of b4_fg_render() and the three lifts below it, so all five keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's two `offset` sites resolve against.
 	B4_FG_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of swords_render(), yumeko_fg_render() and shinki_custombullets_render(), so all four keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST proc of this root contribution. The original published no symbol for it at all, so the name is this campaign's; kb/codegen/0102's UPPER case because the function is pascal, which is what the `offset` site below resolves against.
 
 	SWORDS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of yumeko_fg_render() and shinki_custombullets_render(), so all three keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's own `offset` site resolves against.
@@ -3699,9 +3699,9 @@ include th05/main/bullet/b4balls_render.asm
 	; kb/codegen/0121: the body carried no `assume`, and neither does any
 	; other part of this segment, so there is nothing to restore.
 	;
-	; That proc is lifted too (b4_fg_render(), the Stage 4 pair's foreground
-	; renderer), so the item ahead is now an `include` of
-	; th05/main/bullet/b4balls_render.asm: INCLUDE-TAILED once more.
+
+	; Everything below that proc is lifted too, so this contribution's tail
+	; is midboss4_render(): CARVE-FREE-TAILED, hosted by the same object.
 
 	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
