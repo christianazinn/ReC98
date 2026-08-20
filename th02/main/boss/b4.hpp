@@ -74,6 +74,20 @@ extern screen_y_t marisa_orb_top_on_page[PAGE_COUNT][MARISA_ORB_COUNT];
 extern screen_x_t* marisa_orb_left_on_back_page[MARISA_ORB_COUNT];
 extern screen_y_t* marisa_orb_top_on_back_page[MARISA_ORB_COUNT];
 
+// How much the still-ASM per-orb angle (the `byte_26D50` array the comment
+// above calls [marisa_orb_radius]'s angle) advances per frame, per orb. Set in
+// ± pairs - orbs 0 and 2 one way, 1 and 3 the other - so the ring
+// counter-rotates against itself. marisa_1BC43() widens the pairs from ±2 to
+// ±4 over the first 30 frames of its pattern, and marisa_1BAFF() flips the
+// sign of all four at once.
+//
+// `[measured]` The dump still spells this array as four separate `word_26D42`
+// through `word_26D48` definitions, because eight sites in main_03__TEXT
+// address the elements by their own names; every indexed access
+// (`word_26D42[bx]`, bx = orb * 2) proves it is one four-element array, and
+// kb/codegen/0123's alias is what gives it this name.
+extern int marisa_orb_angle_delta[MARISA_ORB_COUNT];
+
 // Recomputed at the top of every marisa_update() as the plain sum of all four
 // [marisa_orb_flag] values, and only ever compared against
 // (MARISA_ORB_COUNT * MOF_REMOVED) - i.e. it is a "have all four orbs gone"
@@ -101,6 +115,16 @@ extern int marisa_intro_step;
 extern int8_t marisa_pattern;
 
 static const int8_t MP_UNSTARTED = 0x7F;
+
+// Which way pattern 4's star rain leans: +1 or -1, flipped on frame 50 of
+// every run of it, and initialized to +1 in the dump's own `_DATA`.
+//
+// `[measured]` marisa_1BC43() held every reference to this slot in
+// th02_main.asm, and it decides three things there at once - the sign of
+// [bullet_special]'s drift angle, which of the playfield's two sides the paired
+// stars spawn on, and the ±22.5° the whole rain is angled by. Nothing resets
+// it between rounds, so the lean alternates across the entire fight.
+extern int8_t marisa_pattern_side;
 
 // Frames MP_UNSTARTED waits before picking the next pattern.
 static const int MARISA_PATTERN_GAP_FRAMES = 30;

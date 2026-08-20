@@ -17813,6 +17813,8 @@ marisa_1B555	endp
 
 ; Attributes: bp-based frame
 
+public @MARISA_1B665$QI
+@MARISA_1B665$QI label near
 marisa_1B665	proc near
 
 @@frame	= word ptr  4
@@ -18496,236 +18498,10 @@ loc_1BC3F:
 marisa_1BAFF	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1BC43
-_marisa_1BC43 label near
-marisa_1BC43	proc near
-
-@@angle	= byte ptr -3
-var_2	= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		cmp	_boss_phase_frame, 50
-		jl	loc_1BE6F
-		cmp	_boss_phase_frame, 150
-		jl	short loc_1BC60
-		push	78h ; 'x'
-		call	marisa_1B665
-
-loc_1BC60:
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1BCAE
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 130
-		mov	al, byte_1EEA5
-		cbw
-		mov	bullet_special_drift_angle, ax
-		mov	bullet_special_drift_speed, 0
-		mov	bullet_special_drift_frames, 64
-		mov	al, byte_1EEA5
-		cbw
-		imul	ax, -1
-		mov	byte_1EEA5, al
-		mov	word_26D42, 2
-		mov	word_26D46, 2
-		mov	word_26D44, 0FFFEh
-		mov	word_26D48, 0FFFEh
-		jmp	short loc_1BD16
-; ---------------------------------------------------------------------------
-
-loc_1BCAE:
-		cmp	_boss_phase_frame, 70
-		jnz	short loc_1BCCF
-		mov	word_26D42, 3
-		mov	word_26D46, 3
-		mov	word_26D44, 0FFFDh
-		mov	word_26D48, 0FFFDh
-		jmp	short loc_1BD16
-; ---------------------------------------------------------------------------
-
-loc_1BCCF:
-		cmp	_boss_phase_frame, 80
-		jnz	short loc_1BCF0
-		mov	word_26D42, 4
-		mov	word_26D46, 4
-		mov	word_26D44, 0FFFCh
-		mov	word_26D48, 0FFFCh
-		jmp	short loc_1BD16
-; ---------------------------------------------------------------------------
-
-loc_1BCF0:
-		cmp	_boss_phase_frame, 200
-		jnz	short loc_1BD16
-		mov	word_26D42, 2
-		mov	word_26D46, 2
-		mov	word_26D44, 0FFFEh
-		mov	word_26D48, 0FFFEh
-		mov	_boss_phase_frame, 0
-
-loc_1BD16:
-		cmp	_boss_phase_frame, 70
-		jle	loc_1BE6F
-		mov	ax, _boss_phase_frame
-		mov	bx, 14
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1BE6F
-		call	_snd_se_play c, 10
-		cmp	_boss_phase_frame, 120
-		jg	short loc_1BDAC
-		mov	[bp+var_2], 0
-		jmp	short loc_1BD86
-; ---------------------------------------------------------------------------
-
-loc_1BD46:
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		cmp	word ptr word_26D2A[bx], 0
-		jnz	short loc_1BD83
-		mov	bx, [bp+var_2]
-		shl	bx, 2
-		les	bx, dword_26D56[bx]
-		mov	ax, es:[bx]
-		add	ax, 8
-		push	ax	; left
-		mov	bx, [bp+var_2]
-		shl	bx, 2
-		les	bx, dword_26D66[bx]
-		mov	ax, es:[bx]
-		add	ax, 8
-		push	ax	; top
-		push	(-40h and 0FFh)	; angle
-		push	BSM_1	; group
-		push	(PAT_BULLET16_STAR shl 16) or ((4 shl 4) + 6)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-
-loc_1BD83:
-		inc	[bp+var_2]
-
-loc_1BD86:
-		cmp	[bp+var_2], 4
-		jl	short loc_1BD46
-		mov	ax, point_26D76.x
-		add	ax, 40
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 40
-		push	ax	; top
-		push	(-40h and 0FFh)	; angle
-		push	BSM_1	; group
-		push	(PAT_BULLET16_STAR shl 16) or ((4 shl 4) + 6)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		jmp	loc_1BE2F
-; ---------------------------------------------------------------------------
-
-loc_1BDAC:
-		mov	al, byte_1EEA5
-		cbw
-		cmp	ax, 1
-		jnz	short loc_1BDBA
-		mov	si, 400
-		jmp	short loc_1BDBD
-; ---------------------------------------------------------------------------
-
-loc_1BDBA:
-		mov	si, 20h	; ' '
-
-loc_1BDBD:
-		mov	[bp+var_2], 0
-		jmp	short loc_1BE25
-; ---------------------------------------------------------------------------
-
-loc_1BDC4:
-		call	@randring2_next8_and$quc pascal, 7
-		mov	dl, byte_1EEA5
-		shl	dl, 4
-		add	al, dl
-		add	al, 40h
-		mov	[bp+@@angle], al
-		call	@randring2_next16$qv
-		mov	bx, (PLAYFIELD_W - BULLET16_W)
-		xor	dx, dx
-		div	bx
-		add	dx, PLAYFIELD_LEFT
-		push	dx	; left
-		push	PLAYFIELD_TOP	; top
-		push	word ptr [bp+@@angle]	; angle
-		push	BSM_1	; group
-		push	PAT_BULLET16_STAR	; patnum
-		call	@randring2_next8_and$quc pascal, 1Fh
-		mov	ah, 0
-		add	ax, 10h
-		push	ax	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		push	si	; left
-		call	@randring2_next16$qv
-		mov	bx, 320
-		xor	dx, dx
-		div	bx
-		add	dx, PLAYFIELD_TOP
-		push	dx	; top
-		push	word ptr [bp+@@angle]	; angle
-		push	BSM_1	; group
-		push	PAT_BULLET16_STAR	; patnum
-		call	@randring2_next8_and$quc pascal, 1Fh
-		mov	ah, 0
-		add	ax, 10h
-		push	ax	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		inc	[bp+var_2]
-
-loc_1BE25:
-		mov	al, byte_20671
-		mov	ah, 0
-		cmp	ax, [bp+var_2]
-		jg	short loc_1BDC4
-
-loc_1BE2F:
-		cmp	word_26D4A, 8
-		jnz	short loc_1BE6F
-		mov	[bp+var_2], 0
-		jmp	short loc_1BE69
-; ---------------------------------------------------------------------------
-
-loc_1BE3D:
-		mov	ax, point_26D76.x
-		add	ax, 40
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 40
-		push	ax	; top
-		mov	al, byte ptr [bp+var_2]
-		shl	al, 6
-		mov	dl, byte ptr _boss_phase_frame
-		add	dl, dl
-		add	al, dl
-		push	ax	; angle
-		push	BSM_DRIFT_ANGLE_CHASE	; group
-		push	(PAT_BULLET16_STAR shl 16) or ((4 shl 4) + 6)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		inc	[bp+var_2]
-
-loc_1BE69:
-		cmp	[bp+var_2], 4
-		jl	short loc_1BE3D
-
-loc_1BE6F:
-		pop	si
-		leave
-; This proc's final `retn` (0C3h) is emitted by th02/main/boss/b4.cpp
-marisa_1BC43	endp
-
-
-; marisa_1BE72() and marisa_update() are th02/main/boss/b4.cpp, prepended into
-; this segment (kb/codegen/0099). marisa_update()'s `db 0` pad and its 5-entry
-; jump table are part of what that function compiles to, so they moved with it.
+; marisa_1BC43(), marisa_1BE72() and marisa_update() are th02/main/boss/b4.cpp,
+; prepended into this segment (kb/codegen/0099). marisa_update()'s `db 0` pad
+; and its 5-entry jump table are part of what that function compiles to, so they
+; moved with it.
 
 main_03__TEXT	ends
 
@@ -19735,7 +19511,8 @@ word_1EE9C	label word
 		db    0
 		db    0
 byte_1EEA4	db 2
-byte_1EEA5	db 1
+public _marisa_pattern_side
+_marisa_pattern_side	db 1
 aMima_bft_0	db 'mima.bft',0
 aStage3_b_bft	db 'stage3_b.bft',0
 aStage3_b_btt_0	db 'stage3_b.btt',0
@@ -20007,6 +19784,8 @@ public _stone_damage
 midboss3_damage label word
 _stone_damage	dw STONE_COUNT dup(?)
 
+public _patnum_2064E
+_patnum_2064E label word
 patnum_2064E	dw ?
 public _boss_phase_frame
 _boss_phase_frame	dw ?
@@ -20041,6 +19820,8 @@ _slowdown_factor	db ?
 byte_2066E	db ?
 byte_2066F	db ?
 group_20670	db ?
+public _byte_20671
+_byte_20671 label byte
 byte_20671	db ?
 byte_20672	db ?
 		db 15 dup(?)
@@ -20565,6 +20346,8 @@ marisa_orb_hit_flash label word
 word_26D32	dw 4 dup(?)
 marisa_orb_radius label word
 word_26D3A	dw 4 dup(?)
+public _marisa_orb_angle_delta
+_marisa_orb_angle_delta label word
 word_26D42	dw ?
 word_26D44	dw ?
 word_26D46	dw ?
