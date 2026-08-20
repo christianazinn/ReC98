@@ -3383,238 +3383,34 @@ loc_10C96:
 puppets_render	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @ALICE_FG_RENDER$QV
-@alice_fg_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10CCA
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_10D1C
-; ---------------------------------------------------------------------------
-
-loc_10CCA:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	si, ax
-		cmp	si, 180
-		jnz	short loc_10CDC
-		mov	al, _stage_frame_mod16
-		jmp	short loc_10CEC
-; ---------------------------------------------------------------------------
-
-loc_10CDC:
-		cmp	si, 184
-		jnz	short loc_10CE9
-		mov	al, _stage_frame_mod2
-		mov	ah, 0
-		jmp	short loc_10CF4
-; ---------------------------------------------------------------------------
-
-loc_10CE9:
-		mov	al, _stage_frame_mod8
-
-loc_10CEC:
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-
-loc_10CF4:
-		add	si, ax
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_10D09
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_10D19
-; ---------------------------------------------------------------------------
-
-loc_10D09:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-
-loc_10D19:
-		call	puppets_render
-
-loc_10D1C:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@alice_fg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_10D26	proc near
-
-arg_0		= word ptr  4
-@@patnum		= word ptr  6
-@@y		= word ptr  8
-@@x		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+@@x]
-		mov	si, [bp+@@patnum]
-		cmp	si, 184
-		jz	short loc_10D3D
-		cmp	si, 200
-		jnz	short loc_10D49
-
-loc_10D3D:
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	si, ax
-
-loc_10D49:
-		cmp	[bp+arg_0], 0
-		jnz	short loc_10D5B
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_10D6B
-; ---------------------------------------------------------------------------
-
-loc_10D5B:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-
-loc_10D6B:
-		pop	di
-		pop	si
-		pop	bp
-		retn	8
-sub_10D26	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MAI_YUKI_FG_RENDER$QV
-@mai_yuki_fg_render$qv	proc near
-
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	di, ax
-		mov	ax, _yuki_pos.cur.x
-		sar	ax, 4
-		mov	[bp+@@x], ax
-		mov	ax, _yuki_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10DDA
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_10DBC
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_10E07
-; ---------------------------------------------------------------------------
-
-loc_10DBC:
-		push	[bp+@@x]
-		push	[bp+@@y]
-		mov	al, _yuki_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		mov	al, _boss_damage_this_frame
-		jmp	short loc_10E19
-; ---------------------------------------------------------------------------
-
-loc_10DDA:
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		jbe	short loc_10DE8
-		cmp	_boss2_phase_state, 0
-		jz	short loc_10DF9
-
-loc_10DE8:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		mov	al, _boss_damage_this_frame
-		mov	ah, 0
-		push	ax
-		call	sub_10D26
-
-loc_10DF9:
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		jbe	short loc_10E07
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_10E1F
-
-loc_10E07:
-		push	[bp+@@x]
-		push	[bp+@@y]
-		mov	al, _yuki_sprite
-		mov	ah, 0
-		add	ax, B4_CELS
-		push	ax
-		mov	al, _yuki_damage_this_frame
-
-loc_10E19:
-		mov	ah, 0
-		push	ax
-		call	sub_10D26
-
-loc_10E1F:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		mov	_boss_damage_this_frame, 0
-		mov	_yuki_damage_this_frame, 0
-		pop	di
-		pop	si
-		leave
-		retn
-@mai_yuki_fg_render$qv	endp
+	; alice_fg_render() and mai_yuki_fg_render() now live in
+	; th05/main/boss/b3_fg.cpp and th05/main/boss/b4_pair_fg.cpp, in that
+	; order, in the NEW th05/b34fg.cpp object -- listed in Tupfile.lua
+	; immediately ahead of th05/b6cbull.cpp, so it is this segment's next
+	; contribution and the three bodies land back on the addresses they
+	; had (kb/codegen 0112 + 0114).
+	;
+	; A new object rather than a prepend into th05/b6cbull.cpp, because
+	; these two need th05/main/boss/bosses.hpp and
+	; th05/main/boss/b3puppet.hpp, and neither is in scope at the top of
+	; that object, where two already-matched bodies compile first. An
+	; #include hoisted to the front of a multi-object translation unit
+	; changes codegen further down it, and a per-function funcdiff cannot
+	; see that.
+	;
+	; sub_10D26, which sat between them, went with mai_yuki_fg_render():
+	; it is the ordinary blit for one of the pair, only ever called from
+	; the two sites inside that function, and the original published no
+	; symbol for it. It is therefore `static` in C++ and needs no
+	; kb/codegen/0123 alias here.
+	;
+	; Nothing in this dump calls any of the three -- th05/main/stage/
+	; setup.cpp installs the two renderers into [boss_fg_render_func] --
+	; so no `procdesc` replaces them, and the mangled `public`s that
+	; exported them go with the bodies.
+	;
+	; kb/codegen/0121: none of the three bodies carried an `assume`, so
+	; there is nothing to restore at this position.
 
 
 	; midboss4_render() now lives in th05/main/midboss/m4.cpp, at the front

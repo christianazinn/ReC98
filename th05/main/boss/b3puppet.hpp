@@ -23,5 +23,11 @@ struct puppet_t {
 
 #define puppets (reinterpret_cast<puppet_t *>(custom_entities))
 
-void pascal near puppets_update();
-void pascal near puppets_render();
+// `extern "C"`, because th05_main.asm publishes these two undecorated, as
+// `public PUPPETS_UPDATE` / `public PUPPETS_RENDER` -- an upper-case,
+// unmangled name is `pascal` with C linkage. Without it these declarations
+// mangle to `@PUPPETS_UPDATE$QV` / `@PUPPETS_RENDER$QV` and no call through
+// them can link. Nothing had ever called one, so nothing caught it until
+// alice_fg_render() was lifted (kb/codegen 0081 + 0102).
+extern "C" void pascal near puppets_update(void);
+extern "C" void pascal near puppets_render(void);
