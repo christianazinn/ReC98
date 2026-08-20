@@ -1,3 +1,6 @@
+#ifndef TH05_SPRITES_MAIN_PAT_H
+#define TH05_SPRITES_MAIN_PAT_H
+
 #include "th02/formats/bfnt.h"
 #include "th04/sprites/cels.h"
 #include "pc98.h"
@@ -217,3 +220,5 @@ typedef enum {
 
 	_main_patnum_t_FORCE_INT16 = 0x7FFF,
 } main_patnum_t;
+
+#endif /* TH05_SPRITES_MAIN_PAT_H */

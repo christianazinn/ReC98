@@ -20,4 +20,10 @@
 // so the lifted body lands back at the address it had.
 #pragma option -zCMIDBOSSX_TEXT -zPmain_01
 
+// shinki_fg_render() was the last `proc` of th05_main.asm's block for this
+// segment, and this object is the segment's next contribution, so the lift
+// has to be the FIRST code this translation unit emits (kb/codegen 0112 +
+// 0114).
+#include "th05/main/boss/b6_fg.cpp"
+
 #include "th05/main/stage/stages.cpp"

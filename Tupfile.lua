@@ -1132,6 +1132,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/end_ext.cpp",
 	"th04/tile.cpp",
 	"th05/main010.cpp",
+	"th05/main011.cpp",
 	"th05/circle.cpp",
 	"th05/f_dialog.cpp",
 	"th05/dialog.cpp",

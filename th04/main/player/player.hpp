@@ -1,3 +1,14 @@
+#ifndef TH04_MAIN_PLAYER_PLAYER_HPP
+#define TH04_MAIN_PLAYER_PLAYER_HPP
+
+// Guarded because th05/shot_inv.cpp reaches this file twice in one object:
+// once through th04/main/player/render.cpp, the lift at the front of it, and
+// once through th04/main/player/shot.hpp on the way to
+// th04/main/player/shots_inv.cpp. It is the ONLY header in that intersection
+// that collides -- the other members are either guarded already or declare
+// nothing with an initializer -- so guarding this one file is the whole fix,
+// and CONTRIBUTING.md's "only if the code structure necessitates it" is met
+// the same way th04/main/enemy/enemy.hpp met it. (kb/codegen/0129)
 #include "th04/main/playfld.hpp"
 #include "th02/main/player/player.hpp"
 
@@ -17,7 +28,14 @@ extern PlayfieldPoint player_option_pos_prev;
 // A variable in TH04, where the option sprite cycles; a fixed PAT_OPTION in
 // TH05. Not a `main_patnum_t`: the dump reserves a full `dw` for it and every
 // access is a word one.
+//
+// Declared for TH04 only, because th04/main/player/option[bss].asm spells the
+// TH05 name as an absolute EQUATE rather than storage — there is no object to
+// point an `extern` at. player_render() is the only C++ reader in either game
+// and supplies TH05's value itself.
+#if (GAME != 5)
 extern int player_option_patnum;
+#endif
 // -------
 
 // Miss
@@ -61,3 +79,5 @@ static const uint8_t POWER_MAX = 128;
 #define SHOT_W 16
 #define SHOT_H 16
 // -----
+
+#endif /* TH04_MAIN_PLAYER_PLAYER_HPP */
