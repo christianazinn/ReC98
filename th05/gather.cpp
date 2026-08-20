@@ -25,6 +25,12 @@
 // third time. Draining a segment's `include` tail promotes whatever was above
 // it, so each of these lines went in at the FRONT of the list, and the list is
 // therefore in reverse lift order and in forward address order.
+// ... and boss_explode_small() above all three, a fourth time. That one is the
+// first file in this object to emit a `switch` jump table of its own, which is
+// what the `-zPmain_03` above has always been for; its body is even-length, so
+// nothing below it moves within the object either (kb/codegen 0104 + 0119).
+#include "th04/main/boss/explode_small.cpp"
+
 #include "th05/main/boss/2_explode_small.cpp"
 
 #include "th05/main/boss/explode_big.cpp"
