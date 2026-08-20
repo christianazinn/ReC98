@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -929,7 +929,7 @@ END_TEXT segment byte public 'CODE' use16
 	@map_free$qv procdesc near
 END_TEXT ends
 
-CIRCLE_TEXT segment word public 'CODE' use16
+CIRCLE_A_TEXT segment word public 'CODE' use16
 include th04/main/tile/inv.asm
 include th04/main/tile/fill_ini.asm
 
@@ -1038,15 +1038,15 @@ include th04/main/pointnum/render.asm
 include th04/main/pointnum/num_put.asm
 include th04/main/player/shot_laser.asm
 
-; =============== S U B	R O U T	I N E =======================================
+; elly_backdrop_colorfill() is C++ now. It is emitted into this segment
+; from th04/main/circle.cpp with a `#pragma codeseg`, so that it keeps its
+; original address instead of landing after the whole root contribution.
+; CIRCLE_TEXT is therefore split here in the head-rename form of
+; kb/codegen 0080: the head above becomes CIRCLE_A_TEXT and the tail below
+; keeps the old name, which leaves the tail's existing th04/main/circle.cpp
+CIRCLE_A_TEXT ends
 
-public @ELLY_BACKDROP_COLORFILL$QV
-@elly_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	112, 256
-		pop	di
-		retn
-@elly_backdrop_colorfill$qv	endp
+CIRCLE_TEXT segment word public 'CODE' use16
 
 include th04/hardware/fillm64-56_256-256.asm
 include th04/main/tile/bb_put_a.asm
