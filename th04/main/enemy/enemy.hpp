@@ -13,7 +13,19 @@
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
 #endif
+// The game's OWN patnum table, the way every other shared TU spells this pair
+// (th04/main/boss/explode.cpp:10-14). It used to be TH04's unconditionally,
+// which no TU noticed because the only name taken from it below is
+// PAT_ENEMY_KILL, whose value is 4 in both games and whose one consumer,
+// EF_KILL_ANIM_last, is read by nothing. It stops being invisible the moment
+// one object reaches this header and th04/main/player/shot.hpp — which pulls
+// th05/sprites/main_pat.h under GAME == 5 — because the two tables declare the
+// same enumerator names.
+#if (GAME == 5)
+#include "th05/sprites/main_pat.h"
+#else
 #include "th04/sprites/main_pat.h"
+#endif
 
 enum enemy_flag_t {
 	EF_FREE = 0,

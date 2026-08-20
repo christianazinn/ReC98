@@ -20,4 +20,11 @@
 // kb/codegen/0138).
 #pragma option -zCmain_TEXT -zPmain_01
 
+// stage_state_reset() was the whole of th05_main.asm's contribution to this
+// segment, and this object is the segment's only other one, so it has to be
+// the FIRST code this translation unit emits for every byte below it to keep
+// its address (kb/codegen 0112 + 0114). With it lifted, main_TEXT's root
+// contribution is ZERO bytes.
+#include "th04/main/stage/reset.cpp"
+
 #include "th04/main/enemy/render.cpp"
