@@ -35,6 +35,8 @@ enum t3pix_event_t {
 	T3PIX_EVENT_VSYNC_BOUNDARY = 6,
 	T3PIX_EVENT_FRAME_DELAY_BOUNDARY = 7,
 	T3PIX_EVENT_FRAME_DELAY_2_BOUNDARY = 8,
+	// A complete source-owned visible mutation without a page flip or wait.
+	T3PIX_EVENT_SOURCE_MUTATION = 9,
 };
 
 enum t3pix_boundary_t {

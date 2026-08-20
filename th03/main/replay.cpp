@@ -5776,6 +5776,7 @@ uint8_t far replay_pause_menu(void)
 		replay_pause_put_title();
 		replay_pause_put_choices(sel);
 	}
+	t3pix_publish(T3PIX_EVENT_SOURCE_MUTATION, T3PIX_BOUNDARY_STATE);
 
 input_wait:
 	replay_input_sense_held();
