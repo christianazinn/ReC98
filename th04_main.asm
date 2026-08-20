@@ -1174,7 +1174,7 @@ BULLET16_W = 16
 BULLET16_H = 16
 
 include th04/main/bullet/pellet_r.asm
-include th04/main/bullets_gather_inv.asm
+	; bullets_and_gather_invalidate() now lives in th04/main/bullets_gather_inv.cpp, which th04/tile.cpp compiles into THIS segment ahead of th04/main/tile/tile.cpp -- the address it already had, since the module was this file's LAST emitting item here (kb/codegen 0099 + 0105 + 0112 + 0114). th05_main.asm still includes the module: there it sits mid-list in SCORE_TEXT, not at a seam. The four sprite-size equates above stay -- th04/main/bullet/pellet_r.asm still reads PELLET_H.
 	@tiles_invalidate_reset$qv procdesc near
 	@TILES_RENDER$QV procdesc near
 	extern @tiles_activate$qv:proc
