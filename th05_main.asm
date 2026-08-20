@@ -2529,7 +2529,7 @@ sub_EACE	proc near
 		retn
 sub_EACE	endp
 
-include th04/main/enemy/render.asm
+	; enemies_render() is now a C++ definition, the whole of the th05/main011.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it. The module th04/main/enemy/render.asm was shared with th04_main.asm, which stopped including it in bc058d53; with this line gone nothing references it any more and it IS DELETED. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 main_TEXT	ends
 
 CIRCLE_TEXT segment byte public 'CODE' use16
@@ -3866,87 +3866,27 @@ loc_11069:
 
 include th05/main/bullet/b6_custombullets_render.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @SHINKI_FG_RENDER$QV
-@shinki_fg_render$qv	proc near
-
-var_4		= word ptr -4
-@@y		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_11114
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_1117A
-; ---------------------------------------------------------------------------
-
-loc_11114:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	di, ax
-		cmp	di, 184
-		jge	short loc_11146
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_11134
-		call	super_put pascal, si, [bp+@@y], ax
-		jmp	short loc_11175
-; ---------------------------------------------------------------------------
-
-loc_11134:
-		call	super_put_1plane pascal, si, [bp+@@y], di, large PLANE_PUT or GC_BRGI
-		jmp	short loc_11175
-; ---------------------------------------------------------------------------
-
-loc_11146:
-		sub	si, 96
-		sub	[bp+@@y], 16
-		cmp	_boss_damage_this_frame, 0
-		jz	short loc_11157
-		add	di, 4
-
-loc_11157:
-		mov	[bp+var_4], 0
-		jmp	short loc_1116F
-; ---------------------------------------------------------------------------
-
-loc_1115E:
-		call	super_put_8 pascal, si, [bp+@@y], di
-		inc	[bp+var_4]
-		add	si, 64
-		inc	di
-
-loc_1116F:
-		cmp	[bp+var_4], 4
-		jl	short loc_1115E
-
-loc_11175:
-		mov	_boss_damage_this_frame, 0
-
-loc_1117A:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@shinki_fg_render$qv	endp
+	; Shinki's foreground renderer now lives in
+	; th05/main/boss/b6_fg.cpp, at the front of the th05/stages.cpp
+	; object -- the segment's next contribution, and this was the LAST
+	; proc of the root's block, so the C++ side simply grows backwards
+	; into the hole and every byte keeps its address (kb/codegen 0112 +
+	; 0114). No carve, no new segment, no Tupfile.lua line: that object
+	; already exists and already carries the -zCMIDBOSSX_TEXT pragma.
+	;
+	; Nothing in this dump calls it -- th05/main/stage/setup.cpp installs
+	; it into [boss_fg_render_func] -- so no `procdesc` replaces it, and
+	; the upper-case `public` that exported it to that assignment goes
+	; with the body.
+	;
+	; kb/codegen/0121: the body carried no `assume`, and neither does any
+	; other part of this segment, so there is nothing to restore.
+	;
+	; The seam does NOT stay open as a carve-free tail: the item ahead is
+	; an `include` of th05/main/bullet/b6_custombullets_render.asm, so
+	; this contribution goes back to being include-tailed. Its host is
+	; already th05/stages.cpp, though, so draining that module costs no
+	; new file either.
 
 	; stage2_invalidate() now lives in th05/main/stage/stages.cpp, ahead
 	; of s2particle_respawn() in the same object, which is where its
@@ -4296,7 +4236,7 @@ loc_12260:
 		retn
 sub_1214A	endp
 
-include th04/main/player/render.asm
+	; player_render() is now a C++ definition at the front of the th05/shot_inv.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. The module was shared with th04_main.asm, which stopped including it in a9e9c817; with this line gone nothing references it any more and it IS DELETED. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
 	; shots_invalidate() now lives in th04/main/player/shots_inv.cpp,
 	; which appends to this segment.

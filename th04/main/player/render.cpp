@@ -7,8 +7,12 @@
 /// exactly at the seam the deleted module left behind, and every byte above
 /// it keeps its address (kb/codegen 0112 + 0114).
 ///
-/// th04/main/player/render.asm is NOT deleted: th05_main.asm still includes
-/// it, in the middle of its SHOT_INV_TEXT block, where it is not a tail.)
+/// TH05: #included from th05/shot_inv.cpp, ahead of shots_invalidate(). It
+/// was the tail `include` of th05_main.asm's SHOT_INV_TEXT block too — an
+/// earlier revision of this comment said it sat in the middle of that block
+/// and was not a tail, which stopped being true once shots_invalidate() was
+/// carved out into its own object. th04/main/player/render.asm is now
+/// unreferenced and DELETED.)
 ///
 /// Two disjoint halves in one function, selected by [miss_time]:
 ///
@@ -29,9 +33,22 @@
 #include "th04/hardware/grcg.hpp"
 #include "th04/formats/super.h"
 #include "th04/math/vector.hpp"
+#if (GAME == 5)
+#include "th05/sprites/main_pat.h"
+#endif
 
 // The sprite blitted for each of the eight miss explosion points.
 static const int PAT_MISS_EXPLOSION = 3;
+
+#if (GAME == 5)
+// TH05 has no [player_option_patnum] object at all: that game's option sprite
+// never cycles, so th04/main/player/option[bss].asm spells the name as an
+// absolute equate rather than storage, and this function is its only reader
+// in either game. Both reads below therefore push an immediate here and a
+// memory word in TH04 — which is the whole length difference between the two
+// games' copies of this function, 0x14E in TH04 against 0x14A in TH05.
+static const int player_option_patnum = PAT_OPTION;
+#endif
 
 extern "C" void pascal near player_render(void)
 {

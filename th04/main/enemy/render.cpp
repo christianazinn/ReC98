@@ -6,10 +6,10 @@
 /// where they ended and every byte above them keeps its address
 /// (kb/codegen 0112 + 0114).
 ///
-/// th04/main/enemy/render.asm is NOT deleted: th05_main.asm still includes
-/// it, as the tail of its own MAIN_TEXT block. Lifting the TH05 half is a
-/// separate parcel that only has to delete that `include` and give TH05's
-/// segment a host; this body is already shared.)
+/// TH05: #included from th05/main011.cpp, the wrapper that names main_TEXT.
+/// It was the tail `include` of that segment's dump contribution too, and
+/// that segment has no other C++ object, so the same seam argument applies
+/// there. th04/main/enemy/render.asm is now unreferenced and DELETED.)
 ///
 /// Every live enemy is blitted with its animation cel resolved from [age],
 /// and flashed white on any frame it took damage. Clipped twice: once on the
@@ -20,7 +20,15 @@
 #include "pc98.h"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/v_colors.hpp"
+// TH05's enemy_t has to be declared before th04/main/enemy/enemy.hpp's
+// `extern enemies[]`, so in that game this header may only be reached through
+// th05/main/enemy/enemy.hpp. Same conditional every other shared enemy TU
+// carries (th04/main/enemy/add.cpp, inv.cpp, pos.cpp, bullet_template.cpp).
+#if (GAME == 5)
+#include "th05/main/enemy/enemy.hpp"
+#else
 #include "th04/main/enemy/enemy.hpp"
+#endif
 #include "th04/main/enemy/size.hpp"
 
 extern "C" void pascal near enemies_render(void)
