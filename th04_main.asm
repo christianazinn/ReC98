@@ -5135,8 +5135,8 @@ loc_10704:
 		retf
 @shots_hittest$qv	endp
 
-include th04/main/enemy/render.asm
-include th04/main/player/invalidate.asm
+	; enemies_render() is now a C++ definition at the front of the th04/main_.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it. The MODULE STILL EXISTS and th05_main.asm still includes it, as the tail of its own MAIN_TEXT block.
+	; player_invalidate() is now a C++ definition behind it in the same object, in the same address order. Nothing in this dump calls it either. This module was TH04-only and IS DELETED: TH05's function of the same name is a different, hand-written body in th05/player.asm. Both lines replace their `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 main__TEXT	ends
 
 PLAYER_M_TEXT	segment	byte public 'CODE' use16

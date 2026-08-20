@@ -1,5 +1,17 @@
 ; void pascal near tiles_invalidate_around(Point center);
 public TILES_INVALIDATE_AROUND
+
+; A second published name for the same entry point, at ZERO bytes. The proc
+; takes one dword, but ZUN's call sites deliver it two ways -- one 32-bit push,
+; or two 16-bit pushes of the halves -- which C++ can only express as two
+; different parameter lists (th04/main/tile/tile.hpp says so). A translation
+; unit that needs BOTH cannot spell them: Turbo C++ 4.02 rejects a second
+; `extern "C"` declaration of one name, and rejects a block-scoped one with
+; "Linkage specification not allowed in function". th04/main/player/invalidate.cpp
+; is the first body to need both, so the two-coordinate list gets its own name.
+; (kb/codegen/0123.)
+public TILES_INVALIDATE_AROUND_YX
+TILES_INVALIDATE_AROUND_YX label near
 tiles_invalidate_around proc near
 arg_bx	near, @center:dword
 
