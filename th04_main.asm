@@ -2345,9 +2345,9 @@ off_E1E8	dw offset loc_E1BC
 		dw offset loc_E199
 
 ; =============== S U B	R O U T	I N E =======================================
-
+		public _shot_laser_render
 ; Attributes: bp-based frame
-
+_shot_laser_render label near
 SHOT_LASER_W = 8
 SHOT_LASER_CEL_0 = 0
 SHOT_LASER_CEL_1 = 1
@@ -4935,207 +4935,207 @@ loc_1054E:
 sub_104B6	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; shots_render() -- every live shot, plus the option laser ahead of them
+	; -- was lifted out of here and is now th04/main/player/shots_render.cpp.
+	; th04/main_.cpp #includes it at the very FRONT, ahead of the
+	; shots_hittest() body that the same parcel put there one commit earlier:
+	; this proc became main__TEXT's carve-free tail the moment shots_hittest()
+	; left, so the object grew backwards into the hole a second time and every
+	; byte above it kept its address (kb/codegen 0099 + 0112 + 0114). No
+	; carve, no new segment name, no group-list edit, no Tupfile.lua line.
+	;
+	; THE `public` SPELLING WAS THE FINDING, and it was a live contradiction
+	; rather than a discovery about this proc. `public @SHOTS_RENDER$QV` is
+	; UPPER-CASE, which is Borland's mangling for pascal linkage and nothing
+	; else (kb/codegen/0086) -- but th04/main/player/shot.hpp declared
+	; `void near shots_render(void)` with no `pascal`, while
+	; th04/main/stage/loop.cpp, the only caller in either game, carried a
+	; LOCAL re-declaration spelling it `void pascal near`. Two contradictory
+	; declarations of one symbol, and nothing had ever graded them, because no
+	; translation unit both included the header and called the function. The
+	; header is corrected in this parcel; loop.cpp's local copy is left alone,
+	; since it was the one that was right. TH05's own body, still ASM below in
+	; its own dump, publishes the same upper-case spelling.
+	;
+	; sub_E1F4 -- the option laser renderer -- lost its ONLY reference in this
+	; file when this body left, so it is published for the C++ to reach with a
+	; kb/codegen/0123 zero-byte alias plus a public, both written onto the two
+	; blank lines of its own subroutine banner. The ALIAS carries the name
+	; state/notes/shot_laser_render.md already adjudicated for it, exactly as
+	; _shot_unused does for byte_259A7 below; the proc keeps IDA's spelling
+	; because only its BODY is blocked, and the parcel that finally lifts it
+	; deletes this alias with it. Both procs are near and in group main_01, so
+	; the call is a plain same-group near call with no call-site edit anywhere.
+	;
+	; THE SPRITE NUMBER LIVES IN CX AND CANNOT BE A LOCAL. It is computed
+	; before the two coordinates and stays live across the
+	; scroll_subpixel_y_to_vram_seg1() call between them -- and Turbo C++
+	; assumes a callee preserves only SI, DI, BP and DS, so no compiler
+	; temporary could survive there. The frame is `push bp` / `mov bp, sp`
+	; with no locals at all, which settles it: the original reached CX through
+	; the _CH/_CL/_AL pseudo-registers, and the C++ does the same.
+	;
+	; SI and DI are the shot pointer and the counter, in that declaration
+	; order (kb/codegen/0146). The loop walks the array BACKWARDS from the
+	; last slot while the counter runs forwards -- th04/main/bullet/render.cpp
+	; exactly. The two-frame sprite alternation is added only for an SF_ALIVE
+	; shot: a hitshot, one in its SF_HIT decay animation, advances patnum_base
+	; itself during the update, so adding it here would double-step it.
+	;
+	; th04/main/player/shot.hpp GAINED AN INCLUDE GUARD in this parcel, and
+	; the reason is worth the line: this body and shots_hittest() behind it
+	; both need that header in one object, and ordering them so that only the
+	; first one includes it is precisely the arrangement that broke when
+	; MATCH-TH05-MAIN-TAILS-1 gave th04/main/player/render.cpp a second host
+	; in th05/shot_inv.cpp. A guard is invariant to include order and to which
+	; game shares the body later; a decline comment is not.
+	;
+	; kb/codegen/0121: the body carried no `assume` of its own.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long, and the publication below rides on two existing blank lines, so no
+	; line-anchored citation into this file moves. Nothing in this dump ever
+	; called shots_render(), so no procdesc replaces the deleted public.
 
-; Attributes: bp-based frame
-public @SHOTS_RENDER$QV
-@shots_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
-		call	@grcg_setmode_rmw$qv
-		cmp	_shot_laser_time, SHOT_LASER_COOLDOWN_FRAMES
-		jbe	short loc_10569
-		call	main_01:sub_E1F4
 
-loc_10569:
-		mov	si, offset _shots[(SHOT_COUNT - 1) * size shot_t]
-		xor	di, di
-		jmp	short loc_105AA
-; ---------------------------------------------------------------------------
+	; shots_hittest() -- the shot-vs-hitbox pass and its damage total -- was
+	; lifted out of here and is now th04/main/player/shots_hittest.cpp.
+	; th04/main_.cpp #includes it AHEAD of th04/main/enemy/render.cpp, which
+	; is the address order the three bodies had here: this proc was the tail
+	; of this file's contribution to main__TEXT once the two `include`s below
+	; moved out, and that object is the next contribution behind it, so it
+	; grows backwards into the hole and every byte above keeps its address
+	; (kb/codegen 0099 + 0112 + 0114). No carve, no new segment name, no
+	; group-list edit and no Tupfile.lua line.
+	;
+	; THE NAME WAS ALREADY DECIDED, which is what made this row cheap.
+	; th04/main/player/shot.hpp has declared `int shots_hittest(void)` and its
+	; three-argument inline overload since long before the body moved, both
+	; call sites in th04/main/boss/boss.cpp use them, and the proc's own
+	; `public` was already the C++-mangled @shots_hittest$qv -- so the lift
+	; invented no name, changed no signature and needed no `extern "C"`.
+	;
+	; THE NINE CALL SITES IN THIS FILE DID NOT MOVE AND WERE NOT EDITED. All
+	; nine sit in main_03 segments (ENM_POS_TEXT ×3, ENM_BTPL_TEXT,
+	; main_033_TEXT, main_034_TEXT ×3, main_036_TEXT) while the body is in
+	; main_01, so every one of them was already a real far call and stays one.
+	; The `procdesc far` at the foot of this block is what lets TASM keep
+	; assembling them unchanged; it is declared INSIDE a main_01 segment on
+	; purpose (kb/codegen/0082), which is also what would keep a same-group
+	; caller lowering to `push cs` if one ever appeared.
+	;
+	; kb/codegen/0083 did NOT apply in the other direction either: the three
+	; sparks_add_random() calls the body makes are 9A far calls in the
+	; original (measured at 0x10658, 0x106CF and 0x106FF), because that
+	; function lives in main_03 and the body in main_01. A cross-group call is
+	; exactly what a plain C++ call emits, so none of the three needed the
+	; hand-spelled inline-ASM island that a `nopcall` site would have.
+	;
+	; byte_25980 in _BSS lost ALL SIX of its references when the body left --
+	; every one of them was inside it -- so nothing needed the undecorated
+	; spelling any more and it is RENAMED to _byte_25980 rather than given a
+	; kb/codegen/0123 alias pair, which keeps IDA's placeholder under the
+	; underscore the C++ side needs at no line cost. It joins the `public` line
+	; already below it, the same one _word_2598C and _playchar_shot_func joined
+	; in the sibling lift. The placeholder stays a placeholder: it is a bare
+	; alternation counter with no other reference in either dump to take a name
+	; from, and the failed search is recorded in
+	; state/notes/th04-main-carve-tails-1.md per
+	; kb/conventions/naming-precedents.md.
+	;
+	; WHAT THE BODY DID, measured here rather than left to the C++ to assert:
+	;
+	;   1) The hitbox is precomputed ONCE into four stack slots -- left, top,
+	;      width and height -- and every shot is then tested with the usual
+	;      unsigned-underflow trick, `(pos - left) > width` as an unsigned
+	;      compare, which rejects a shot left of the box and one right of it
+	;      in the same instruction. shot_hitbox_center and shot_hitbox_radius
+	;      are set by the caller; th04/main/boss/boss.cpp's inline overload of
+	;      shots_hittest() is the one that writes them.
+	;
+	;   2) DAMAGE FALLS OFF WITHIN A SINGLE FRAME. A byte counter at [bp-0Fh]
+	;      counts the hits so far, and the n-th shot to connect contributes
+	;      only (its damage / n). Both operands are zero-extended bytes but
+	;      the division is signed, which is what `push dx` / `cwd` / `pop bx`
+	;      around the IDIV is: the divisor is evaluated into DX, saved across
+	;      the CWD that clobbers it, and restored into BX.
+	;
+	;   3) During a bomb, a flat 5 is added once every four frames and the
+	;      whole total is then quartered against a boss or midboss -- in that
+	;      order, so the flat bonus is quartered too. shots_hittest_against_boss
+	;      is the caller's flag, and th04/main/player/shots_hittest[data].asm
+	;      still owns the byte.
+	;
+	;   4) THE OPTION LASER IS CHECKED EVERY SECOND FRAME, not every frame,
+	;      and only while shot_laser_time is still above
+	;      SHOT_LASER_COOLDOWN_FRAMES. Its two columns are tested one after the
+	;      other from the same stack slot, the left one first, by adding the
+	;      option-to-option distance to it in place; each is worth a flat 3.
+	;      The vertical test is a single one-sided compare against the laser's
+	;      own bottom, not a box.
+	;
+	;   5) The spark spawns are RATIONED by byte_25980, which is incremented at
+	;      every hit and tested against 1 in the shot branch and against 3 in
+	;      the laser branch -- so a shot sparks every second time and a laser
+	;      column every fourth, and the two branches share one counter rather
+	;      than having one each.
+	;
+	;   6) The return value is also accumulated into score_delta, zero-extended
+	;      to the 32-bit score, before being returned in AX.
+	;
+	; THE FRAME IS 10h BYTES AND TWO REGISTERS. Seven words at [bp-2] through
+	; [bp-0Eh] and one byte at [bp-0Fh] under it, which is the declaration
+	; order kb/codegen/0010 requires -- words in order, then the byte, with the
+	; odd byte at [bp-10h] left as padding. SI holds the Shot pointer inside
+	; the hit branch and DI the running damage total, in that order, because
+	; Turbo C++ hands SI to the first `register` declaration and DI to the
+	; second (kb/codegen/0146).
+	;
+	; th04/main/player/shot.hpp's [shots_alive] gained a `near` in this parcel.
+	; The array has always lived in the near data segment and the body walks it
+	; through a 16-bit pointer in a stack slot, which the far spelling cannot
+	; express; no C++ had referenced the array before, so nothing else had ever
+	; graded the declaration.
+	;
+	; THE SPARK CALLS PASS FOUR ARGUMENTS AND PUSH THREE TIMES. The last two
+	; are literal constants, so Turbo C++ folds them into one 32-bit immediate
+	; push under -3 (kb/codegen/0008), which is what `large (((8 shl 4) shl
+	; 16) or 1)` transcribes: the radius in the high word, the count of 1 in
+	; the low one, pushed in that order because pascal pushes left to right.
+	; The fold needs both halves to be constants the compiler can prove
+	; adjacent on the stack, which is why the radius is spelled TO_SP(8) in
+	; the C++ rather than through the inline to_sp() helper.
+	;
+	; PAT_HITSHOT is written as a WORD here, not a byte: TH04's Shot carries an
+	; `int patnum_base` where TH05's carries a `char`, and this store is the
+	; only place in this file that shows it. The two velocity divisions above
+	; it share one `mov bx, 6`, which is -Z register tracking keeping the
+	; divisor live across the second IDIV rather than anything the source
+	; says; both are spelled `x = (x / 6)` and not `x /= 6`, since the
+	; compound form materialises the divisor first (kb/codegen/0145).
+	;
+	; WHAT THIS SEGMENT STILL HOLDS. The root's contribution to main__TEXT is
+	; not empty: shots_render() and everything above it stay here, and the
+	; segment's tail is now the C++ object outright. The next row in this
+	; segment is therefore an ordinary carve-free tail again as soon as
+	; shots_render() becomes one, and needs no wrapper of its own.
+	;
+	; kb/codegen/0121: the body carried no `assume` of its own, and the
+	; segment's own state at its head still covers everything above it, so
+	; there is nothing to restore.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long -- 135 comment lines plus the `procdesc` -- and the publication
+	; below rides on an existing `public` line, so no line-anchored citation
+	; into this file moves. Seven same-count dump edits have now renumbered
+	; none of the 410 the harness holds against it.
+	;
+	; Declared here rather than at the foot of the segment because the two
+	; lines below this one are the segment's tail and are `include`
+	; replacements that must not move.
+	@shots_hittest$qv procdesc far
 
-loc_10570:
-		cmp	[si+shot_t.flag], SF_FREE
-		jz	short loc_105A6
-		cmp	[si+shot_t.flag], SF_REMOVE
-		jnb	short loc_105A6
-		mov	ch, 0
-		mov	cl, byte ptr [si+shot_t.patnum_base]
-		cmp	[si+shot_t.flag], SF_ALIVE
-		jnz	short loc_1058D
-
-@@not_hitshot:	; Hitshots increment [patnum_base] during the update.
-		mov	al, [si+shot_t.SHOT_age]
-		and	al, 1
-		add	al, cl
-		mov	cl, al
-
-loc_1058D:
-		mov	ax, [si+shot_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (SHOT_H / 2)) shl 4)
-		call	main_01:scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+shot_t.pos.cur.x]
-		sar	ax, SUBPIXEL_BITS
-		add	ax, (PLAYFIELD_LEFT - (SHOT_W / 2))
-		call	main_01:z_super_roll_put_tiny_16x16_raw pascal, cx
-
-loc_105A6:
-		inc	di
-		sub	si, size shot_t
-
-loc_105AA:
-		cmp	di, SHOT_COUNT
-		jl	short loc_10570
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@shots_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @shots_hittest$qv
-@shots_hittest$qv	proc far
-
-var_F		= byte ptr -0Fh
-@@laser_x		= word ptr -0Eh
-var_C		= word ptr -0Ch
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= word ptr -6
-@@sa		= word ptr -4
-@@i		= word ptr -2
-
-		enter	10h, 0
-		push	si
-		push	di
-		mov	ax, _shot_hitbox_center.x
-		sub	ax, _shot_hitbox_radius.x
-		mov	[bp+var_6], ax
-		mov	ax, _shot_hitbox_center.y
-		sub	ax, _shot_hitbox_radius.y
-		mov	[bp+var_8], ax
-		mov	ax, _shot_hitbox_radius.x
-		add	ax, ax
-		mov	[bp+var_A], ax
-		mov	ax, _shot_hitbox_radius.y
-		add	ax, ax
-		mov	[bp+var_C], ax
-		xor	di, di
-		mov	[bp+var_F], 0
-		mov	[bp+@@sa], offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	short @@shots_more?
-; ---------------------------------------------------------------------------
-
-@@shot_loop:
-		mov	bx, [bp+@@sa]
-		mov	ax, [bx+shot_alive_t.SA_pos.x]
-		sub	ax, [bp+var_6]
-		cmp	ax, [bp+var_A]
-		ja	short @@shot_next
-		mov	ax, [bx+shot_alive_t.SA_pos.y]
-		sub	ax, [bp+var_8]
-		cmp	ax, [bp+var_C]
-		ja	short @@shot_next
-		mov	si, [bx+shot_alive_t.SA_shot]
-		mov	[si+shot_t.flag], SF_HIT
-		mov	ax, [si+shot_t.pos.velocity.x]
-		mov	bx, 6
-		cwd
-		idiv	bx
-		mov	[si+shot_t.pos.velocity.x], ax
-		mov	ax, [si+shot_t.pos.velocity.y]
-		cwd
-		idiv	bx
-		mov	[si+shot_t.pos.velocity.y], ax
-		mov	[si+shot_t.patnum_base], PAT_HITSHOT
-		inc	[bp+var_F]
-		mov	al, [si+shot_t.damage]
-		mov	ah, 0
-		mov	dl, [bp+var_F]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		add	di, ax
-		inc	byte_25980
-		test	byte_25980, 1
-		jz	short @@shot_next
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii pascal, [si+shot_t.pos.cur.x], [si+shot_t.pos.cur.y], large (((8 shl 4) shl 16) or 1)
-
-@@shot_next:
-		inc	[bp+@@i]
-		add	[bp+@@sa], size shot_alive_t
-
-@@shots_more?:
-		mov	ax, [bp+@@i]
-		cmp	ax, _shots_alive_count
-		jb	short @@shot_loop
-		cmp	_bombing, 0
-		jz	short loc_1068C
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_1067E
-		add	di, 5
-
-loc_1067E:
-		cmp	_shots_hittest_against_boss, 0
-		jz	short loc_1068C
-		mov	ax, di
-		shr	ax, 2
-		mov	di, ax
-
-loc_1068C:
-		cmp	_stage_frame_mod2, 0
-		jz	short loc_10704
-		cmp	_shot_laser_time, SHOT_LASER_COOLDOWN_FRAMES
-		jbe	short loc_10704
-		mov	ax, [bp+var_8]
-		cmp	ax, _shot_laser_bottomcenter.cur.y
-		ja	short loc_10704
-		mov	ax, _shot_laser_bottomcenter.cur.x
-		add	ax, (-PLAYER_OPTION_DISTANCE shl 4)
-		mov	[bp+@@laser_x], ax
-		sub	ax, [bp+var_6]
-		cmp	ax, [bp+var_A]
-		ja	short loc_106D4
-		add	di, 3
-		inc	byte_25980
-		test	byte_25980, 3
-		jnz	short loc_106D4
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii pascal, [bp+@@laser_x], _shot_hitbox_center.y, large (((8 shl 4) shl 16) or 1)
-
-loc_106D4:
-		add	[bp+@@laser_x], ((PLAYER_OPTION_DISTANCE * 2) shl 4)
-		mov	ax, [bp+@@laser_x]
-		sub	ax, [bp+var_6]
-		cmp	ax, [bp+var_A]
-		ja	short loc_10704
-		add	di, 3
-		inc	byte_25980
-		test	byte_25980, 3
-		jnz	short loc_10704
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii pascal, [bp+@@laser_x], _shot_hitbox_center.y, large (((8 shl 4) shl 16) or 1)
-
-loc_10704:
-		movzx	eax, di
-		add	_score_delta, eax
-		mov	ax, di
-		pop	di
-		pop	si
-		leave
-		retf
-@shots_hittest$qv	endp
-
-	; enemies_render() is now a C++ definition at the front of the th04/main_.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it. The MODULE STILL EXISTS and th05_main.asm still includes it, as the tail of its own MAIN_TEXT block.
+	; enemies_render() is now a C++ definition in the th04/main_.cpp object, behind the shots_hittest() body that took over the front of it, and lands exactly where this `include` ended. Nothing in this dump calls it. The MODULE STILL EXISTS and th05_main.asm still includes it, as the tail of its own MAIN_TEXT block.
 	; player_invalidate() is now a C++ definition behind it in the same object, in the same address order. Nothing in this dump calls it either. This module was TH04-only and IS DELETED: TH05's function of the same name is a different, hand-written body in th05/player.asm. Both lines replace their `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 main__TEXT	ends
 
@@ -5151,9 +5151,9 @@ PLAYER_P_TEXT	ends
 main_0_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
-
+		public _sub_10988
 ; Attributes: bp-based frame
-
+_sub_10988 label near
 sub_10988	proc near
 
 var_1		= byte ptr -1
@@ -5262,142 +5262,142 @@ locret_10ABD:
 sub_10988	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_10ABF
-_sub_10ABF label near
-sub_10ABF	proc near
-
-@@move_ret	= byte ptr -2
-var_1     	= byte ptr -1
-
-		enter	2, 0
-		push	si
-		cmp	_player_invincibility_time, 0
-		jz	short loc_10ACF
-		dec	_player_invincibility_time
-
-loc_10ACF:
-		cmp	_player_is_hit, 0
-		jz	short loc_10B11
-		cmp	_player_invincibility_time, 0
-		jz	short loc_10AE4
-		mov	_player_is_hit, 0
-		jmp	short loc_10B11
-; ---------------------------------------------------------------------------
-
-loc_10AE4:
-		cmp	_shot_laser_time, (SHOT_LASER_COOLDOWN_FRAMES + 1)
-		jbe	short loc_10AF1
-		mov	_shot_laser_time, (SHOT_LASER_COOLDOWN_FRAMES + 1)
-
-loc_10AF1:
-		mov	_miss_time, MISS_ANIM_FRAMES + DEATHBOMB_WINDOW
-		mov	_player_is_hit, 0
-		mov	_player_invincibility_time, MISS_INVINCIBILITY_FRAMES
-		mov	byte_259A3, 48h	; 'H'
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-
-loc_10B11:
-		cmp	byte_259A3, 0
-		jnz	loc_10BBD
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-		mov	ax, _key_det
-		and	ax, INPUT_MOVEMENT
-		mov	si, ax
-		mov	[bp+var_1], 1
-
-loc_10B32:
-		call	@player_move$qui pascal, si
-		mov	[bp+@@move_ret], al
-		cmp	[bp+@@move_ret], MOVE_INVALID
-		jnz	short loc_10B58
-		cmp	[bp+var_1], 0
-		jz	short loc_10B58
-		cmp	word_2598C, si
-		jz	short loc_10B58
-		mov	ax, word_2598C
-		not	ax
-		and	si, ax
-		mov	[bp+var_1], 0
-		jmp	short loc_10B32
-; ---------------------------------------------------------------------------
-
-loc_10B58:
-		cmp	_shiftkey, 0
-		jz	short loc_10B75
-		mov	ax, _player_pos.velocity.x
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_player_pos.velocity.x, ax
-		mov	ax, _player_pos.velocity.y
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_player_pos.velocity.y, ax
-
-loc_10B75:
-		call	@player_pos_update_and_clamp$qv
-		cmp	[bp+var_1], 0
-		jz	short loc_10B82
-		mov	word_2598C, si
-
-loc_10B82:
-		test	_key_det.lo, low INPUT_SHOT
-		jz	short loc_10B97
-		cmp	_shot_time, 1
-		ja	short loc_10B97
-		mov	_shot_time, SHOT_CYCLE_FRAMES
-		jmp	short loc_10BB0
-; ---------------------------------------------------------------------------
-
-loc_10B97:
-		cmp	_shot_time, 0
-		jz	short loc_10BC7
-		dec	_shot_time
-		cmp	_shot_time, (SHOT_CYCLE_FRAMES / 3) * 1
-		jz	short loc_10BB0
-		cmp	_shot_time, (SHOT_CYCLE_FRAMES / 3) * 2
-		jnz	short loc_10BC7
-
-loc_10BB0:
-		call	playchar_shot_func
-		call	snd_se_play pascal, 1
-		jmp	short loc_10BC7
-; ---------------------------------------------------------------------------
-
-loc_10BBD:
-		call	@PlayfieldMotion@update_seg1$qv pascal, offset _player_pos
-		dec	byte_259A3
-
-loc_10BC7:
-		mov	eax, _player_option_pos_cur
-		mov	_player_option_pos_prev, eax
-		mov	eax, _player_pos.cur
-		mov	_player_option_pos_cur, eax
-		mov	ax, _player_pos.velocity.x
-		sub	_player_option_pos_cur.x, ax
-		mov	ax, _player_pos.velocity.y
-		sub	_player_option_pos_cur.y, ax
-		test	_key_det.lo, low INPUT_BOMB
-		jz	short loc_10BF0
-		call	_player_bomb_func
-
-loc_10BF0:
-		cmp	_miss_time, 0
-		jz	short loc_10BFA
-		call	main_01:sub_10988
-
-loc_10BFA:
-		pop	si
-		leave
-		retn
-sub_10ABF	endp
+	; sub_10ABF() -- one frame of the player -- was lifted out of here and is
+	; now th04/main/player/update.cpp. th04/main_0.cpp #includes it ahead of
+	; th04/main/player/render.cpp, which is the address order the two bodies
+	; had in this segment: this proc was the last thing this file contributed
+	; to main_0_TEXT, and that object is the next contribution behind it, so
+	; it grows backwards into the hole and every byte above keeps its address
+	; (kb/codegen 0099 + 0112 + 0114). No carve, no new segment name, no
+	; group-list edit and no Tupfile.lua line -- the second lift that one
+	; wrapper has absorbed on those terms.
+	;
+	; IDA'S SPELLING IS KEPT, and this is a recorded failed search rather than
+	; a shrug: th04/main/stage/loop.cpp has called it `sub_10ABF()` since
+	; before this lift, TH05's counterpart in the same slot of the same loop
+	; is the equally unnamed sub_1214A(), and no third call site exists in
+	; either dump to take a name from. Per kb/conventions/naming-precedents.md
+	; the record lives in state/notes/th04-main-carve-tails-1.md.
+	;
+	; The `public _sub_10ABF` and its kb/codegen/0123 zero-byte alias left
+	; with the body: the C++ definition publishes the name itself now, and
+	; th04/main/stage/loop.cpp's `extern "C" void near sub_10ABF(void)` still
+	; describes it exactly. Nothing in this file ever called it.
+	;
+	; THREE SYMBOLS LOST THEIR LAST REFERENCE IN THIS FILE when the body left,
+	; and each is published by whichever device costs no line:
+	;
+	;   * sub_10988, the miss animation directly above, keeps IDA's spelling
+	;     and gains a kb/codegen/0123 zero-byte alias plus a public, both
+	;     written onto the blank lines of its own subroutine banner -- the
+	;     device this dump already uses for sub_11DE6, sub_15D74 and
+	;     sub_1DA1B. It is a NEAR proc and the C++ that calls it now sits in
+	;     the same segment, so the call stays a plain near call.
+	;
+	;   * playchar_shot_func in _BSS is RENAMED to _playchar_shot_func, which
+	;     is the spelling TH02's C++ has always exported for the identically
+	;     named pointer (th02/main/player/player.hpp). It had exactly one
+	;     other reference in this file, the store in sub_11DE6, so the rename
+	;     costs one edited line instead of the alias pair's two added ones,
+	;     and the name is not a placeholder that a rename could misrepresent.
+	;
+	;   * word_2598C in _BSS is RENAMED to _word_2598C, keeping IDA's
+	;     placeholder under the underscore the C++ side needs, exactly as
+	;     _stage_init_unused_0 through _3 five lines below it do. It had NO
+	;     other reference in either TH04 dump once this body left, so nothing
+	;     needed the undecorated spelling and no alias pair was worth two
+	;     lines. Its failed name search is recorded beside sub_10ABF's.
+	;
+	; Both renamed symbols were added to the `public _stage_vm, _enemy_cur`
+	; line that already sits between them, so the publications consumed no
+	; line of their own either.
+	;
+	; WHAT THE BODY DID, measured here rather than left to the C++ to assert,
+	; because two of the three shapes are easy to misread from the ASM alone:
+	;
+	;   1) The movement retry. The frame's INPUT_MOVEMENT bits go to SI,
+	;      player_move() is called, and if it returns MOVE_INVALID the
+	;      PREVIOUS frame's accepted direction set -- word_2598C -- is masked
+	;      out of SI and the call is retried exactly once. [bp-1] is the
+	;      once-only latch, and it doubles as the guard on the store back to
+	;      word_2598C at the end: a retried frame does not become the next
+	;      frame's memory. The single call site with a backward jump is a
+	;      loop, not two calls.
+	;
+	;   2) The shot cycle. Pressing INPUT_SHOT while shot_time <= 1 restarts
+	;      the cycle at SHOT_CYCLE_FRAMES and fires immediately; otherwise
+	;      shot_time counts down and fires again as it passes the one-third
+	;      and two-thirds marks. The `jmp` from the first branch lands inside
+	;      the second, which is why the C++ needs one label.
+	;
+	;   3) The options. They are placed at the player's CURRENT position
+	;      minus this frame's velocity, i.e. one frame behind, after the
+	;      previous frame's pair is carried over. Both carries are 32-bit
+	;      moves of a whole PlayfieldPoint under -3.
+	;
+	;   4) The hit. player_is_hit is consumed here, not where it is set, and
+	;      an active invincibility silently swallows it instead of starting a
+	;      miss. The miss itself sets miss_time to
+	;      (MISS_ANIM_FRAMES + DEATHBOMB_WINDOW), so the first DEATHBOMB_WINDOW
+	;      frames of the countdown are still take-backable by a bomb, which is
+	;      what th04/main/player/bomb.cpp reads it for. It also caps
+	;      shot_laser_time at (SHOT_LASER_COOLDOWN_FRAMES + 1), ending a laser
+	;      that is still being fired, and parks the movement lock at 48h.
+	;
+	;   5) The movement lock. While byte_259A3 is non-zero the whole input
+	;      block above is skipped: the player coasts on the velocity the miss
+	;      left, through one PlayfieldMotion::update_seg1(), and the lock
+	;      counts down. th04/main/stage/init.cpp clears it at stage start and
+	;      th04/main/player/bomb.cpp is its other writer.
+	;
+	; THE FRAME IS TWO BYTES AND A REGISTER. [bp-1] is the retry latch and
+	; [bp-2] holds player_move()'s return, which is the declaration order the
+	; C++ needs under kb/codegen/0010's byte variant -- the byte declared
+	; first lands at [bp-1]. SI is a register variable holding the input for
+	; the duration of the retry loop, which is what the `push si` in the
+	; prologue and the `pop si` in the epilogue are for; nothing else in the
+	; body wants a register.
+	;
+	; DEATHBOMB_WINDOW, MISS_INVINCIBILITY_FRAMES and SHOT_CYCLE_FRAMES had
+	; no C++ spelling before this lift even though th04/main/player/player.inc
+	; and th04/shared.inc have always carried them. They are now declared in
+	; th04/main/player/bomb.hpp, player.hpp and shot.hpp respectively, beside
+	; the variables each one bounds, and each keeps the .inc's value rather
+	; than a re-derived one. MISS_INVINCIBILITY_FRAMES is deliberately NOT the
+	; TH02 constant of the same name: th02/main/player/player.hpp declares its
+	; own, different value inside a `#if (GAME == 2)`, so the two never meet
+	; in one translation unit.
+	;
+	; WHAT THE NEXT LANE FACES IN THIS SEGMENT. sub_10988 above is the only
+	; thing this file still contributes to main_0_TEXT, and emptying the
+	; contribution therefore needs exactly that one body. It is NOT the same
+	; price as this one: it reaches five callees through `nopcall`
+	; (hud_dream_put, sub_11DE6, playperf_lower, hud_lives_put and
+	; hud_bombs_put), and kb/codegen/0083 measured that a C++ far call never
+	; lowers to that encoding no matter which group the caller is compiled
+	; into. Each of the five is therefore a hand-spelled inline-ASM island of
+	; the kb/codegen 0014 + 0122 shape, and playperf_lower's argument is
+	; pushed ahead of the island rather than by it. sub_11DE6 is separately
+	; recorded as attempted-and-unsolved in state/notes/th04-main-sub-11DE6.md,
+	; but only its BODY is blocked; calling it from C++ is not, because this
+	; dump already publishes _sub_11DE6 with a 0123 alias.
+	;
+	; PLAYER_M_TEXT and PLAYER_P_TEXT above lost the only reference this file
+	; had to either of their procdescs, since player_move() and
+	; player_pos_update_and_clamp() were called from nowhere else here. Both
+	; declarations are left in place: an unreferenced procdesc emits nothing.
+	;
+	; kb/codegen/0121: the body carried no `assume` of its own, and the
+	; segment's own state at its head still covers sub_10988 above, so there
+	; is nothing to restore.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long, and the six edits outside it -- two publications onto blank banner
+	; lines, two _BSS renames, one call-site rename and one public line --
+	; each add and remove nothing, so no line-anchored citation into this file
+	; moves. 146 of the 410 citations the harness holds against this dump
+	; point below this block; six same-count dump edits have now renumbered
+	; none of them.
 
 	; player_render() is now a C++ definition in the th04/main_0.cpp object, which is this segment's only other non-empty contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it -- its only caller is C++ -- so no declaration replaces it. The MODULE STILL EXISTS and th05_main.asm still includes it, mid-block inside SHOT_INV_TEXT. This line replaces the `include` rather than deleting it, so the file's length does not change and nothing below is renumbered.
 main_0_TEXT	ends
@@ -5797,7 +5797,7 @@ loc_11DFB:
 		mov	_shot_level, dl
 		add	bx, playchar_shot_funcs
 		mov	ax, [bx]
-		mov	playchar_shot_func, ax
+		mov	_playchar_shot_func, ax
 		nopcall	main_01:hud_power_put
 		retf
 sub_11DE6	endp
@@ -26089,16 +26089,16 @@ public _bomb_col14_backup
 _bomb_col14_backup label byte
 rgb_257D6	rgb_t <?>
 		db ?
-playchar_shot_func	dw ?
+_playchar_shot_func	dw ?
 playchar_shot_funcs	dw ?
 include th04/main/player/shots_alive[bss].asm
-byte_25980	db ?
+_byte_25980	db ?
 		db ?
 include th04/main/homing_target[bss].asm
-public _stage_vm, _enemy_cur
+public _stage_vm, _enemy_cur, _playchar_shot_func, _word_2598C, _byte_25980
 _stage_vm	dd ?
 _enemy_cur	dw ?
-word_2598C	dw ?
+_word_2598C	dw ?
 include th04/main/player/pos[bss].asm
 _stage_init_unused_0	dw ?
 _stage_init_unused_1	dw ?

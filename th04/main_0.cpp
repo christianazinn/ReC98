@@ -12,4 +12,14 @@
 // before any code is generated. (kb/codegen/0112, trap 0; kb/codegen/0138.)
 #pragma option -zPmain_01
 
+// Address order inside ZUN's own object for this segment, which is what TLINK
+// reproduces from the order of these #includes: sub_10ABF() first -- it was
+// the tail of th04_main.asm's own contribution and the C++ grows backwards
+// into the hole it left -- then player_render(), which took the `include` that
+// used to end the contribution. Both files reach th04/main/player/player.hpp
+// -- update.cpp through th04/main/player/shot.hpp -- and neither has to
+// decline it, because MATCH-TH05-MAIN-TAILS-1 guarded that header for the
+// same collision in th05/shot_inv.cpp. Nothing else in the two include sets
+// intersects (kb/codegen/0129).
+#include "th04/main/player/update.cpp"
 #include "th04/main/player/render.cpp"

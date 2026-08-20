@@ -1,12 +1,20 @@
 #ifndef TH04_MAIN_PLAYER_SHOT_HPP
 #define TH04_MAIN_PLAYER_SHOT_HPP
 
-// Guarded because th05/shot_inv.cpp reaches this file twice in one object:
-// once from the sub_1214A() lift at the front of it, and once through
-// th04/main/player/shots_inv.cpp further down. Same collision-set-of-one
-// that th04/main/player/player.hpp -- the other header that object reaches
-// twice -- was guarded for, and the same cheap fix (kb/codegen/0129).
-// Byte-inert: this file only declares.
+// Guarded because TWO objects now reach this file twice, one in each game,
+// and a second expansion rejects every `static const` and every struct it
+// declares (kb/codegen/0129):
+//
+//   th05/shot_inv.cpp -- once from the sub_1214A() lift at its front, once
+//   through th04/main/player/shots_inv.cpp further down;
+//   th04/main_.cpp    -- once from shots_render.cpp, once from
+//   shots_hittest.cpp behind it.
+//
+// Ordering the includes so only the first one pulls this in would work today
+// and break the moment either body is shared with the other game -- which is
+// exactly how MATCH-TH05-MAIN-TAILS-1 and MATCH-TH04-MAIN-CARVE-TAILS-1
+// collided over th04/main/player/player.hpp. Ordering is not an invariant
+// across hosts; a guard is. Byte-inert: this file only declares.
 #if (GAME == 5)
 #include "th05/sprites/main_pat.h"
 #endif
@@ -143,7 +151,9 @@ struct shot_alive_t {
 	Shot near *shot;
 };
 extern unsigned int shots_alive_count;
-extern shot_alive_t shots_alive[SHOT_COUNT];
+// `near`: shots_hittest() walks this array through a near pointer kept in a
+// 16-bit stack slot, which the far spelling cannot express.
+extern shot_alive_t near shots_alive[SHOT_COUNT];
 
 // Searches and returns the next free shot slot, or a nullptr if there are no
 // more free ones.
@@ -179,7 +189,13 @@ void near shot_reset(void);
 void near shots_invalidate(void);
 
 // Also renders hitshots in TH05.
-void near shots_render(void);
+// `pascal`, and that is not a style choice: Borland decorates a pascal
+// function's mangled name in UPPER CASE, so the all-caps `public` that both
+// dumps carried for this symbol IS the calling convention (kb/codegen/0086).
+// th04/main/stage/loop.cpp, the only caller in either game, has always
+// re-declared it locally with `pascal`; this header disagreed with it until
+// TH04's body became the first C++ definition either game's copy ever had.
+void pascal near shots_render(void);
 
 // Option laser
 // ------------
