@@ -42,7 +42,7 @@ struct bullet_t {
 	SPPoint screen_topleft[PAGE_COUNT];
 
 	SPPoint velocity;
-	main_patnum_t patnum; // Only used with `BST_BULLET16`.
+	uint8_t patnum; // ACTUAL TYPE: main_patnum_t. Only used with `BST_BULLET16`.
 
 	// Only used with `BST_BULLET16`.
 	bullet_group_or_special_motion_t group_or_special_motion;
@@ -119,9 +119,9 @@ extern int8_t easy_slow_skip_cycle;
 //   labelled `ZUN bloat`: the store is reached once per stage and the value is
 //   read afterwards, so it is not redundant — only misleadingly placed.
 //
-// [byte_2066B] is deliberately still a placeholder. It has the same
-// read-then-clear shape but on the boss side, and its consuming render code is
-// still ASM, so this is the one where "no evidence yet" genuinely holds.
+// [byte_2066B] is deliberately still a placeholder, and its C++ spelling is
+// forced rather than chosen: th02_main.asm publishes `_byte_2066B`. Same
+// read-then-clear shape, boss side; the NAME is what the search failed to find.
 // [HELD FOR NAMING REVIEW]
 extern "C" {
 	extern uint8_t stone_hit_flash[STONE_COUNT];

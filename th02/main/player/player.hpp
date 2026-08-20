@@ -72,7 +72,7 @@ inline screen_x_t player_center_y(void) {
 }
 // ----------------
 
-extern main_patnum_t player_option_patnum;
+extern uint8_t player_option_patnum; // ACTUAL TYPE: main_patnum_t
 
 // Per-playchar movement speeds, in pixels per frame. All values are signed
 // (yes, allowing you to invert the controls with negative values!) and are set

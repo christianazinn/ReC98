@@ -23,15 +23,36 @@
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b4.hpp"
+#include "th02/main/bullet/bullet.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/sprites/bullet16.h"
 
 // th02/main/dialog/dialog.cpp. dialog.hpp declares every dialog_script_*
 // function but not this one.
 void near dialog_pre(void);
+
+// th02/snd/snd.h, declared here rather than included, the way
+// th02/main/laser.cpp already declares it: snd.h has no include guard and
+// pulls in three more unguarded headers for the sake of one function.
+extern "C" void __cdecl snd_se_play(int new_se);
+
+// The sprite the boss and midboss renderers blit, shared by all of them and
+// written from ~150 sites across th02_main.asm. `patnum_2064E` is the dump's
+// own spelling and is not an IDA placeholder; retiring the address suffix
+// means ruling on all of those sites at once, which is its own parcel.
+extern "C" int patnum_2064E;
+
+// One cell of the five-byte rank-scaled parameter block that every boss and
+// midboss init function writes ([byte_2066E] through [byte_20672], of which
+// [group_20670] is the only one named so far). state/notes/marisa_1BC43.md
+// records the search: three bosses pass this cell straight to
+// bullets_add_*() as a [group], Marisa reads it as a bullet count, and no
+// one name covers both.
+extern "C" uint8_t byte_20671;
 
 // th02/resident.hpp, declared the same way th02/main/bg_particle.cpp does
 // rather than by pulling the whole resident structure in for one flag.
@@ -53,8 +74,9 @@ extern "C" uint8_t boss_phase;
 /// --------------------------
 /// All of them are `proc near` in th02_main.asm's main_03__TEXT block, all sit
 /// above marisa_update() in the same segment, and marisa_update() is the only
-/// caller of every one of them. marisa_1BE72() was the sixteenth and is now
-/// defined below. The spellings are the dump's own; they are
+/// caller of every one of them except marisa_1B665(), whose only caller is
+/// marisa_1BC43(). marisa_1BC43() was the seventeenth and is now defined
+/// below. The spellings are the dump's own; they are
 /// address-suffixed rather than IDA placeholders, so naming them is a separate
 /// decision that this parcel does not make (`marisa_1AA60` is not matched by
 /// tools/re/naming_precheck.py's placeholder pattern, which is keyed on IDA's
@@ -75,22 +97,170 @@ extern "C" void near marisa_1B35F(void);
 extern "C" void near marisa_1B3DE(void);
 extern "C" void near marisa_1B477(void);
 extern "C" void near marisa_1B555(void);
+
+// Steps [patnum_2064E] through Marisa's five cast cels at fixed offsets from
+// [frame]. `pascal` (`retn 2`), hence the C++ mangling rather than the
+// `extern "C"` the rest of this list uses; th02/formats/mpn.hpp declares
+// mpn_put_8() the same way.
+extern "C++" void pascal near marisa_1B665(int frame);
+
 extern "C" void near marisa_1B6DA(void);
 extern "C" void near marisa_1B7D3(void);
 extern "C" void near marisa_1B996(void);
 extern "C" void near marisa_1BAFF(void);
-extern "C" void near marisa_1BC43(void);
 /// --------------------------
 
 
-// marisa_1BC43()'s final `retn`, handed to this translation unit so that the
-// object's code contribution starts one byte before marisa_1BE72() and
-// therefore an ODD number of bytes before marisa_update(). That is the parity
-// under which -a2 pads marisa_update()'s generated jump table
-// (kb/codegen/0154); marisa_1BE72()'s own `retn` used to buy it, and now that
-// this object emits marisa_1BE72() the byte has to come from the proc above.
-// kb/codegen/0096's named escape hatch.
-#pragma codestring "\xC3"
+// No `#pragma codestring` here any more, and that is arithmetic rather than
+// hope. marisa_update()'s generated jump table needs an ODD number of bytes
+// ahead of it inside this object (kb/codegen/0154, and the block above
+// marisa_update() below). Until this parcel that byte was marisa_1BC43()'s own
+// `retn`, borrowed as a one-byte codestring while the rest of the function was
+// still in the dump. marisa_1BC43() is 0x22F bytes and marisa_1BE72() is 0x80,
+// so emitting both leaves the prefix at 0x2AF - still odd, with nothing left to
+// borrow. The pragma is deleted rather than re-pointed at the proc above.
+
+
+// Marisa's star pattern, [marisa_pattern] case 4. Nothing happens for the first
+// 50 frames; frame 50 arms the drifting-star motion and starts the orb ring
+// spinning, and from frame 71 every 14th frame fires. Up to frame 120 that is
+// one star from each orb still alive plus one from Marisa herself; after it, a
+// rain of star pairs from the playfield's top edge and from one of its two
+// sides. [boss_phase_frame] wraps at 200, so the pattern runs until
+// marisa_update() takes it away.
+extern "C" void near marisa_1BC43(void)
+{
+	int i;
+	register screen_x_t rain_left;
+	unsigned char angle;
+
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame >= 150) {
+		marisa_1B665(120);
+	}
+	if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+
+		// One turn of the ring per 256 frames, leaning whichever way this run
+		// of the pattern happens to have.
+		bullet_special.u1.drift_angle = marisa_pattern_side;
+		bullet_special.u2.drift_speed.v = 0;
+		bullet_special.u3.drift_frames = 64;
+		marisa_pattern_side = (marisa_pattern_side * -1);
+
+		marisa_orb_angle_delta[0] = 2;
+		marisa_orb_angle_delta[2] = 2;
+		marisa_orb_angle_delta[1] = -2;
+		marisa_orb_angle_delta[3] = -2;
+	} else if(boss_phase_frame == 70) {
+		marisa_orb_angle_delta[0] = 3;
+		marisa_orb_angle_delta[2] = 3;
+		marisa_orb_angle_delta[1] = -3;
+		marisa_orb_angle_delta[3] = -3;
+	} else if(boss_phase_frame == 80) {
+		marisa_orb_angle_delta[0] = 4;
+		marisa_orb_angle_delta[2] = 4;
+		marisa_orb_angle_delta[1] = -4;
+		marisa_orb_angle_delta[3] = -4;
+	} else if(boss_phase_frame == 200) {
+		marisa_orb_angle_delta[0] = 2;
+		marisa_orb_angle_delta[2] = 2;
+		marisa_orb_angle_delta[1] = -2;
+		marisa_orb_angle_delta[3] = -2;
+		boss_phase_frame = 0;
+	}
+	if(boss_phase_frame <= 70) {
+		return;
+	}
+	if((boss_phase_frame % 14) != 0) {
+		return;
+	}
+	snd_se_play(10);
+	if(boss_phase_frame <= 120) {
+		i = 0;
+		while(i < MARISA_ORB_COUNT) {
+			if(marisa_orb_flag[i] == MOF_ALIVE) {
+				bullets_add_16x16(
+					(*marisa_orb_left_on_back_page[i] + 8),
+					(*marisa_orb_top_on_back_page[i] + 8),
+					-0x40,
+					BSM_1,
+					PAT_BULLET16_STAR,
+					((4 << 4) + 6)
+				);
+			}
+			i++;
+		}
+		bullets_add_16x16(
+			(marisa_topleft.x + MARISA_CENTER_OFFSET),
+			(marisa_topleft.y + MARISA_CENTER_OFFSET),
+			-0x40,
+			BSM_1,
+			PAT_BULLET16_STAR,
+			((4 << 4) + 6)
+		);
+	} else {
+		// if/else rather than a ternary: the original stores straight into the
+		// register variable in each arm, and a ternary does not do that here -
+		// it funnels both arms through AX and then copies AX into SI
+		// (kb/codegen/0120 from the other side).
+		if(marisa_pattern_side == 1) {
+			rain_left = (PLAYFIELD_RIGHT - BULLET16_W);
+		} else {
+			rain_left = PLAYFIELD_LEFT;
+		}
+		i = 0;
+		while(i < byte_20671) {
+			// Both stars of a pair share one angle, 22.5° off straight down,
+			// leaning away from the side the pair is spawned on.
+			angle = (
+				(randring2_next8_and(7) + (marisa_pattern_side << 4)) + 0x40
+			);
+			bullets_add_16x16(
+				(
+					(randring2_next16() % (PLAYFIELD_W - BULLET16_W)) +
+					PLAYFIELD_LEFT
+				),
+				PLAYFIELD_TOP,
+				angle,
+				BSM_1,
+				PAT_BULLET16_STAR,
+				(randring2_next8_and(0x1F) + 0x10)
+			);
+
+			// ZUN quirk: 320 is neither PLAYFIELD_H nor the height of anything
+			// else on screen, so the side spawns are squeezed into the top 320
+			// of the playfield's 368 rows.
+			bullets_add_16x16(
+				rain_left,
+				((randring2_next16() % 320) + PLAYFIELD_TOP),
+				angle,
+				BSM_1,
+				PAT_BULLET16_STAR,
+				(randring2_next8_and(0x1F) + 0x10)
+			);
+			i++;
+		}
+	}
+	if(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) {
+		i = 0;
+		while(i < MARISA_ORB_COUNT) {
+			bullets_add_16x16(
+				(marisa_topleft.x + MARISA_CENTER_OFFSET),
+				(marisa_topleft.y + MARISA_CENTER_OFFSET),
+				((i << 6) + (boss_phase_frame * 2)),
+				BSM_DRIFT_ANGLE_CHASE,
+				PAT_BULLET16_STAR,
+				((4 << 4) + 6)
+			);
+			i++;
+		}
+	}
+}
+
 
 // Marisa's drift. Run after nine of the eleven patterns below, and by
 // MP_UNSTARTED's own branch as well. Picks a direction on frame 2 of the
@@ -138,11 +308,14 @@ extern "C" void near marisa_1BE72(void)
 /// odd (0x26D).
 ///
 /// `[measured]` The prefix is the whole of what this object emits ahead of
-/// marisa_update(), not just the codestring: marisa_1BE72() is 0x80 bytes, so
-/// the codestring above is what keeps the total odd. A lift of marisa_1BE72()
-/// with no codestring would be byte-identical in both function bodies and
-/// still lose the pad, which is kb/codegen/0119's failure mode exactly - diff
-/// the whole segment, never the two functions.
+/// marisa_update(), and it is arithmetic over the lifted bodies rather than a
+/// property of any one pragma: marisa_1BC43() is 0x22F bytes and
+/// marisa_1BE72() is 0x80, so the prefix is 0x2AF and odd. While
+/// marisa_1BC43() was still in the dump the same parity was bought by handing
+/// this object its final `retn` as a one-byte `#pragma codestring`. Either
+/// way, a lift that gets the parity wrong is byte-identical in every function
+/// body and still loses the pad, which is kb/codegen/0119's failure mode
+/// exactly - diff the whole segment, never the two functions.
 ///
 /// `[measured]` With an ODD prefix and -a2, the same compiler emits the pad.
 /// Probed across prefixes of 0, 1 and 2 bytes: only the 1-byte prefix produces

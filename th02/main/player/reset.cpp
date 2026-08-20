@@ -93,10 +93,10 @@ void near player_reset(void)
 
 		// `++`, not `+= 1`: the increment operator gets the dedicated
 		// `INC byte ptr [mem]` form, while the compound assignment round-trips
-		// through AL for three extra bytes (kb/codegen/0094). The `int to enum`
-		// warning is the price; [main_patnum_t] has to stay a 1-byte enum,
-		// because widening it to `int` would turn every store here into a word
-		// one.
+		// through AL for three extra bytes (kb/codegen/0094). The byte store
+		// comes from the SLOT (`_player_option_patnum db PAT_OPTION_A`), not
+		// from [main_patnum_t], which th02/sprites/main_pat.h now measures as
+		// word-wide; this comment used to claim the opposite.
 		player_option_patnum++;
 		break;
 

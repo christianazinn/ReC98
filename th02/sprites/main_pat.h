@@ -89,7 +89,27 @@ typedef enum {
 	PAT_BULLET16_BILLIARD_BALL_PURPLE,
 	// ----------
 
-	_main_patnum_t_FORCE_UINT8 = 0xFF
+	// INT16, not UINT8, and it is `[measured]` from ZUN's own call sites
+	// rather than assumed. Under -b- Turbo C++ 4.02 gives an enum the
+	// narrowest type its values fit, and -3 merges a pair of adjacent
+	// constant `pascal` arguments into one 32-bit push ONLY when both formals
+	// are word-sized (kb/codegen/0125, and the probe in
+	// state/notes/marisa_1BC43.md). th02_main.asm therefore measures the
+	// width directly, twice over and in opposite directions:
+	//
+	//	@bullets_add_pellet$qiiucuci   73 call sites, formals (…, uc, i),
+	//	                               NEVER merged
+	//	@bullets_add_16x16$…13main_patnum_ti
+	//	                               29 call sites, formals
+	//	                               (…, main_patnum_t, i), ALWAYS merged
+	//
+	// The two differ in exactly one formal, so a byte-wide [main_patnum_t]
+	// cannot produce the second shape. The byte-wide SLOTS that used to be
+	// the reason for the UINT8 force ([bullet_t::patnum], [ITEM_PATNUM],
+	// [player_option_patnum]) are spelled `uint8_t` with an ACTUAL TYPE
+	// comment instead, the way th02/main/player/shot.hpp already spells its
+	// own. TH04's and TH05's copies of this header force INT16 already.
+	_main_patnum_t_FORCE_INT16 = 0x7FFF
 } main_patnum_t;
 /// -------------------------------------------------------------
 
