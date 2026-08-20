@@ -134,9 +134,9 @@ static const int STAGE_TITLE_FRAMES = 160;
 // so nothing shifts and only the opcode differs). stage_should_end() below
 // returns [bool16] and its own `return false` is the `xor ax, ax` this one
 // needed. The knock-on is that [stage_should_end_func] now defaults without a
-// cast and [midboss_invalidate], which is byte-wide, needs one instead
-// (kb/codegen/0090 fixes THAT slot's width from how stage_loop() consumes it,
-// which is a separate question from this function's own return type).
+// cast; [midboss_invalidate] needed one for as long as it was byte-wide, and
+// stopped needing it once midboss4_invalidate()'s own `mov ax, word ptr`
+// return widened that slot to [bool16] as well.
 // [verified by the oracle]
 void nullfunc_void(void)
 {
