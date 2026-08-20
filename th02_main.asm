@@ -16441,6 +16441,8 @@ marisa_init	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AA60
+_marisa_1AA60 label near
 marisa_1AA60	proc near
 
 var_2		= word ptr -2
@@ -16527,6 +16529,8 @@ marisa_1AA60	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AB35
+_marisa_1AB35 label near
 marisa_1AB35	proc near
 		push	bp
 		mov	bp, sp
@@ -16660,6 +16664,8 @@ marisa_1AB35	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AC7B
+_marisa_1AC7B label near
 marisa_1AC7B	proc near
 		push	bp
 		mov	bp, sp
@@ -16767,6 +16773,8 @@ marisa_1AC7B	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AD80
+_marisa_1AD80 label near
 marisa_1AD80	proc near
 
 var_2		= word ptr -2
@@ -16883,6 +16891,8 @@ marisa_1AD80	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AE98
+_marisa_1AE98 label near
 marisa_1AE98	proc near
 
 var_12		= word ptr -12h
@@ -17067,6 +17077,8 @@ marisa_1AE98	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B025
+_marisa_1B025 label near
 marisa_1B025	proc near
 
 var_E		= word ptr -0Eh
@@ -17320,6 +17332,8 @@ marisa_1B214	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B24A
+_marisa_1B24A label near
 marisa_1B24A	proc near
 		push	bp
 		mov	bp, sp
@@ -17398,6 +17412,8 @@ marisa_1B24A	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B2E9
+_marisa_1B2E9 label near
 marisa_1B2E9	proc near
 		push	bp
 		mov	bp, sp
@@ -17452,6 +17468,8 @@ marisa_1B2E9	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B35F
+_marisa_1B35F label near
 marisa_1B35F	proc near
 		push	bp
 		mov	bp, sp
@@ -17508,6 +17526,8 @@ marisa_1B35F	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B3DE
+_marisa_1B3DE label near
 marisa_1B3DE	proc near
 		push	bp
 		mov	bp, sp
@@ -17575,6 +17595,8 @@ marisa_1B3DE	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B477
+_marisa_1B477 label near
 marisa_1B477	proc near
 
 var_2		= word ptr -2
@@ -17674,6 +17696,8 @@ marisa_1B477	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B555
+_marisa_1B555 label near
 marisa_1B555	proc near
 		push	bp
 		mov	bp, sp
@@ -17852,6 +17876,8 @@ marisa_1B665	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B6DA
+_marisa_1B6DA label near
 marisa_1B6DA	proc near
 		push	bp
 		mov	bp, sp
@@ -17976,6 +18002,8 @@ marisa_1B6DA	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B7D3
+_marisa_1B7D3 label near
 marisa_1B7D3	proc near
 
 var_2		= word ptr -2
@@ -18175,6 +18203,8 @@ marisa_1B7D3	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B996
+_marisa_1B996 label near
 marisa_1B996	proc near
 
 @@angle = word ptr -4
@@ -18334,6 +18364,8 @@ marisa_1B996	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BAFF
+_marisa_1BAFF label near
 marisa_1BAFF	proc near
 
 @@speed		= word ptr -4
@@ -18468,6 +18500,8 @@ marisa_1BAFF	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BC43
+_marisa_1BC43 label near
 marisa_1BC43	proc near
 
 @@angle	= byte ptr -3
@@ -18693,6 +18727,8 @@ marisa_1BC43	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BE72
+_marisa_1BE72 label near
 marisa_1BE72	proc near
 		push	bp
 		mov	bp, sp
@@ -20063,6 +20099,8 @@ aMima_m		db 'mima.m',0
 aMaine_0	db 'maine',0
 aMima2_bft	db 'mima2.bft',0
 		db 0
+public _MARISA_BG_PARTICLE_COLS
+_MARISA_BG_PARTICLE_COLS label byte
 byte_1EE90	label byte
 		db  0Ah
 		db  0Ch
@@ -20070,6 +20108,8 @@ byte_1EE90	label byte
 		db  0Dh
 		db  0Ch
 		db  0Ah
+public _marisa_damage_multiplier
+_marisa_damage_multiplier label byte
 byte_1EE96	db 0
 		db 0
 word_1EE98	dw 0
@@ -20884,6 +20924,8 @@ byte_26CF8	db ?
 byte_26CF9	db ?
 byte_26CFA	db ?
 		db ?
+public _marisa_intro_step
+_marisa_intro_step label word
 word_26CFC	dw ?
 word_26CFE	dw ?
 top_26D00	dw ?
@@ -20916,10 +20958,20 @@ word_26D42	dw ?
 word_26D44	dw ?
 word_26D46	dw ?
 word_26D48	dw ?
+public _marisa_orb_flag_sum
+_marisa_orb_flag_sum label word
 word_26D4A	dw ?
+public _marisa_bg_particle_col_i
+_marisa_bg_particle_col_i label byte
 byte_26D4C	db ?
+public _marisa_pattern
+_marisa_pattern label byte
 byte_26D4D	db ?
+public _marisa_orbless_patterns_seen
+_marisa_orbless_patterns_seen label byte
 byte_26D4E	db ?
+public _marisa_rounds_done
+_marisa_rounds_done label byte
 byte_26D4F	db ?
 byte_26D50	db 4 dup(?)
 word_26D54	dw ?
@@ -20929,6 +20981,8 @@ dword_26D56	dd 4 dup(?)
 public _marisa_orb_top_on_back_page
 _marisa_orb_top_on_back_page label dword
 dword_26D66	dd 4 dup(?)
+public _marisa_topleft
+_marisa_topleft label word
 point_26D76	Point <?>
 word_26D7A	dw ?
 byte_26D7C	db ?
@@ -20949,6 +21003,8 @@ byte_26D8C	db ?
 byte_26D8D	db ?
 word_26D8E	dw ?
 word_26D90	dw ?
+public _marisa_patterns_seen
+_marisa_patterns_seen label byte
 byte_26D92	db ?
 		db    ?	;
 
