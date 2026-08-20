@@ -119,14 +119,14 @@ extern int8_t easy_slow_skip_cycle;
 //   labelled `ZUN bloat`: the store is reached once per stage and the value is
 //   read afterwards, so it is not redundant — only misleadingly placed.
 //
-// [byte_2066B] is deliberately still a placeholder, and its C++ spelling is
-// forced rather than chosen: th02_main.asm publishes `_byte_2066B`. Same
-// read-then-clear shape, boss side; the NAME is what the search failed to find.
-// [HELD FOR NAMING REVIEW]
+// [boss_hit_flash] is the same read-then-clear shape one level up, and was
+// held for naming review here because none of this file's three sites could
+// show that half. th02/main/boss/b4.cpp names it: all three boss renderers
+// read it, blit their sprite white and lower it again on the same frame.
 extern "C" {
 	extern uint8_t stone_hit_flash[STONE_COUNT];
 	extern uint8_t boss_phase;
-	extern uint8_t byte_2066B;
+	extern bool boss_hit_flash;
 	extern uint16_t stage3_effect_frame;
 }
 
@@ -140,7 +140,7 @@ void bosses_reset(void)
 	boss_phase_frame = 0;
 	boss_phase = 0;
 	boss_damage = 0;
-	byte_2066B = 0;
+	boss_hit_flash = false;
 	sigma_frame = 0;
 	stage3_effect_frame = 0;
 }

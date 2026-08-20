@@ -61,12 +61,38 @@ enum marisa_orb_flag_t {
 
 extern marisa_orb_flag_t marisa_orb_flag[MARISA_ORB_COUNT];
 
+// The four orb sprites, one per orb, blitted by marisa_1B025().
+static const int MARISA_ORB_PATNUM = 138;
+
+// The box marisa_1B025() hands to shots_hittest() for each alive orb, offset
+// by 4 pixels to the right of that orb's own top-left corner.
+static const pixel_t MARISA_ORB_W = 24;
+static const pixel_t MARISA_ORB_H = 32;
+
+// Half-extent of the box the *player* is tested against instead, on both axes.
+// `[measured]` Centered on the orb's top-left corner rather than on the orb,
+// so the orb's collision box sits 16 pixels up and to the left of its sprite.
+static const pixel_t MARISA_ORB_PLAYER_HITBOX = 16;
+
+// Raised by 1 per frame in which any player shot overlaps orb [i]; the orb is
+// shot down once it reaches MARISA_ORB_DAMAGE_MAX.
+extern int marisa_orb_damage[MARISA_ORB_COUNT];
+static const int MARISA_ORB_DAMAGE_MAX = 110;
+
+// Raised on the frame orb [i] was hit, and lowered again by marisa_1B025()
+// after it blitted that orb white for one frame.
+extern bool16 marisa_orb_hit_flash[MARISA_ORB_COUNT];
+
+// How long orb [i] has been playing its removal animation for. Picks the cel,
+// and ends the animation - and the orb - at MARISA_ORB_KILL_FRAMES.
+extern int marisa_orb_kill_frame[MARISA_ORB_COUNT];
+static const int MARISA_ORB_KILL_PATNUM = 10;
+static const int MARISA_ORB_KILL_FRAMES_PER_CEL = 6;
+static const int MARISA_ORB_KILL_FRAMES = 48;
+
 // Same page-indexed indirection as used for the boss itself (boss.hpp), except
 // that the cached pointers are far ones, and that the two arrays *are*
-// contiguous in memory. Two of the remaining per-orb arrays are still ASM-only:
-// [marisa_orb_damage] (raised by 1 per frame in which any player shot overlaps
-// the orb, and the orb is removed at 110) and [marisa_orb_hit_flash] (set on
-// the same frame, and cleared by the renderer after one white blit).
+// contiguous in memory.
 extern screen_x_t marisa_orb_left_on_page[PAGE_COUNT][MARISA_ORB_COUNT];
 extern screen_y_t marisa_orb_top_on_page[PAGE_COUNT][MARISA_ORB_COUNT];
 extern screen_x_t* marisa_orb_left_on_back_page[MARISA_ORB_COUNT];
@@ -214,6 +240,11 @@ extern int8_t marisa_orbless_patterns_seen;
 // Completed rounds. Marisa is defeated at MARISA_ROUNDS.
 extern uint8_t marisa_rounds_done;
 static const uint8_t MARISA_ROUNDS = 7;
+
+// Frames marisa_1AC7B() has been playing the defeat animation for. Reset to 0
+// when it ends, so it is ready for the next playthrough's fight.
+extern int marisa_defeat_frame;
+static const int MARISA_DEFEAT_FRAMES = 100;
 /// -----------------
 
 /// Background

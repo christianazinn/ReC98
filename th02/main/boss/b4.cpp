@@ -14,6 +14,7 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "planar.h"
 #include "th01/rank.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
@@ -26,7 +27,13 @@
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b4.hpp"
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/explode.hpp"
+#include "th02/main/spark.hpp"
+#include "th02/main/score.hpp"
+#include "th02/main/item/item.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/shot.hpp"
+#include "th02/v_colors.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
@@ -85,27 +92,37 @@ extern "C" uint8_t boss_phase;
 
 /// Marisa's still-ASM helpers
 /// --------------------------
-/// All of them are `proc near` in th02_main.asm's main_03__TEXT block, all sit
-/// above marisa_update() in the same segment, and marisa_update() is the only
-/// caller of every one of them except marisa_1B665(), whose only caller is
-/// marisa_1BC43(). marisa_1BC43() was the seventeenth and is now defined
-/// below. The spellings are the dump's own; they are
-/// address-suffixed rather than IDA placeholders, so naming them is a separate
-/// decision that this parcel does not make (`marisa_1AA60` is not matched by
-/// tools/re/naming_precheck.py's placeholder pattern, which is keyed on IDA's
-/// own kind prefixes).
+/// One left: `proc near` in th02_main.asm's main_03__TEXT block, sitting above
+/// marisa_update() in the same segment, and marisa_update() is its only caller.
+/// The spelling is the dump's own; it is address-suffixed rather than an IDA
+/// placeholder, so naming it is a separate decision that this parcel does not
+/// make (`marisa_1AA60` is not matched by tools/re/naming_precheck.py's
+/// placeholder pattern, which is keyed on IDA's own kind prefixes).
 
 extern "C" void near marisa_1AA60(void);
-extern "C" void near marisa_1AB35(void);
-
-// Returns nonzero once the defeat animation has finished.
-extern "C" bool16 near marisa_1AC7B(void);
-
-extern "C" void near marisa_1AD80(int orb_i);
-extern "C" void near marisa_1AE98(void);
-extern "C" void near marisa_1B025(void);
 
 /// --------------------------
+
+
+// The white flash every boss and midboss in this binary blits itself with for
+// exactly one frame after being hit. `[measured]` Every one of the 12
+// references left in th02_main.asm falls into the same three-role pattern,
+// across all three bosses that share the slot: the hit test raises it
+// (mima_17C92(), midboss4_1A044(), marisa_1AA60()), the renderer reads it,
+// blits the sprite in white and immediately lowers it again (mima_17F27(),
+// midboss4_19F52(), marisa_1AE98() below), and each init function clears it.
+// That is exactly [stone_hit_flash]'s shape one level up, which is where the
+// name comes from; th02/main/bullet/bullet.cpp held it for naming review
+// because none of its own three sites could show the read-then-clear half.
+// A kb/codegen/0123 alias rather than a rename, because 12 of the 13 accesses
+// are still in th02_main.asm.
+extern "C" bool boss_hit_flash;
+
+// th02/main/player/shot_hittest.cpp, which declares it the same way rather
+// than giving it a header. The number of frames a bomb damages what it covers
+// on is `(stage_frame & this) == 0`, so raising it thins the bomb's damage
+// rate rather than turning it off.
+extern "C" uint8_t bomb_damage_frame_mask;
 
 
 /// The angle accumulators the patterns below sweep their aim with
@@ -139,6 +156,340 @@ extern "C" uint8_t angle_26D88;
 // uses it. A kb/codegen/0123 alias rather than a rename, because marisa_init()
 // still writes the slot from th02_main.asm.
 extern "C" bool marisa_spray_is_first_run;
+
+
+// The per-frame hit test for Marisa's four orbs, and the only place the player
+// can collide with one. Every alive orb takes the damage of every player shot
+// that overlaps its MARISA_ORB_W x MARISA_ORB_H box, flashes white for that
+// frame, and is shot down at MARISA_ORB_DAMAGE_MAX - dropping a big power item
+// unless a [power]-weighted roll says otherwise, and 5000 points either way.
+//
+// [bomb_damage_frame_mask] is raised to 3 for the duration and dropped back to
+// 1 afterwards, so a bomb damages the orbs on every 4th frame rather than on
+// every 2nd one.
+extern "C" void near marisa_1AB35(void)
+{
+	register int i;
+
+	bomb_damage_frame_mask = 3;
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		if(marisa_orb_flag[i] == MOF_ALIVE) {
+			if(shots_hittest(
+				(*marisa_orb_left_on_back_page[i] + 4),
+				*marisa_orb_top_on_back_page[i],
+				MARISA_ORB_W,
+				MARISA_ORB_H
+			)) {
+				marisa_orb_hit_flash[i] = true;
+				marisa_orb_damage[i]++;
+				if(marisa_orb_damage[i] >= MARISA_ORB_DAMAGE_MAX) {
+					if((randring2_next8() % 80) >= power) {
+						items_add(
+							(*marisa_orb_left_on_back_page[i] + 8),
+							(*marisa_orb_top_on_back_page[i] + 8),
+							IT_BIGPOWER
+						);
+					}
+					snd_se_play(2);
+					marisa_orb_flag[i] = MOF_KILL_ANIM;
+					score_delta += 5000;
+				}
+			}
+			if(
+				(player_left_on_page[page_front] >
+					(*marisa_orb_left_on_back_page[i] - MARISA_ORB_PLAYER_HITBOX)
+				) &&
+				(player_left_on_page[page_front] <
+					(*marisa_orb_left_on_back_page[i] + MARISA_ORB_PLAYER_HITBOX)
+				) &&
+				(player_top_on_page[page_front] >
+					(*marisa_orb_top_on_back_page[i] - MARISA_ORB_PLAYER_HITBOX)
+				) &&
+				(player_top_on_page[page_front] <
+					(*marisa_orb_top_on_back_page[i] + MARISA_ORB_PLAYER_HITBOX)
+				)
+			) {
+				player_is_hit = PLAYER_HIT;
+			}
+		}
+	}
+	bomb_damage_frame_mask = 1;
+}
+
+
+// Marisa's defeat animation, and the transition out of the fight. Layers up to
+// three boss_explode_render() rings, 24 frames apart, then either keeps
+// blitting her regular two-pattern sprite or - from frame 32 on - hands her to
+// super_zoom() at a factor that grows by 1 every 16 frames. Returns true on
+// the frame the animation ends, at which point [boss_phase] is 3.
+extern "C" bool16 near marisa_1AC7B(void)
+{
+	register int zoom = 10;
+
+	boss_explode_render(
+		(marisa_topleft.x + MARISA_CENTER_OFFSET),
+		(marisa_topleft.y + MARISA_CENTER_OFFSET),
+		marisa_defeat_frame
+	);
+	if(marisa_defeat_frame >= 24) {
+		if(marisa_defeat_frame == 56) {
+			boss_explode_angle_offset = 32;
+		}
+		boss_explode_render(
+			(marisa_topleft.x + MARISA_CENTER_OFFSET),
+			(marisa_topleft.y + MARISA_CENTER_OFFSET),
+			(marisa_defeat_frame - 24)
+		);
+		if(marisa_defeat_frame >= 48) {
+			if(marisa_defeat_frame == 80) {
+				boss_explode_angle_offset = 0;
+			}
+			boss_explode_render(
+				(marisa_topleft.x + MARISA_CENTER_OFFSET),
+				(marisa_topleft.y + MARISA_CENTER_OFFSET),
+				(marisa_defeat_frame - 48)
+			);
+			if(marisa_defeat_frame >= 64) {
+				if(!(marisa_defeat_frame & 15)) {
+					sparks_add(
+						(marisa_topleft.x + (MARISA_W / 2)),
+						(marisa_topleft.y + (MARISA_W / 2)),
+						to_sp(8.5f),
+						24,
+						true
+					);
+				}
+			}
+		}
+	}
+	zoom += ((marisa_defeat_frame - 32) >> 4);
+	marisa_defeat_frame++;
+	if(marisa_defeat_frame < 32) {
+		super_put_rect(marisa_topleft.x, marisa_topleft.y, patnum_2064E);
+		super_put_rect(
+			(marisa_topleft.x + (MARISA_W / 2)),
+			marisa_topleft.y,
+			(patnum_2064E + 1)
+		);
+	} else {
+		super_zoom(marisa_topleft.x, marisa_topleft.y, zoom, 3);
+	}
+	if(marisa_defeat_frame >= MARISA_DEFEAT_FRAMES) {
+		marisa_defeat_frame = 0;
+		boss_phase = 3;
+		return true;
+	}
+	return false;
+}
+
+
+// One frame of orb [orb_i]'s removal animation: a small burst of sparks, and
+// an 8-cel sprite at MARISA_ORB_KILL_FRAMES_PER_CEL frames each. Returns true
+// on the frame the animation ends, which is also where the orb's sprite is
+// unblitted from the front page - the back page's copy is already gone by
+// then, because marisa_bg_render() clears the whole playfield there.
+extern "C" bool16 near marisa_1AD80(int orb_i)
+{
+	int patnum;
+	int vram_left;
+
+	sparks_add(
+		(*marisa_orb_left_on_back_page[orb_i] + 16),
+		(*marisa_orb_top_on_back_page[orb_i] + 16),
+		to_sp(3.75f),
+		2,
+		false
+	);
+	patnum = MARISA_ORB_KILL_PATNUM;
+	patnum += (marisa_orb_kill_frame[orb_i] / MARISA_ORB_KILL_FRAMES_PER_CEL);
+	marisa_orb_kill_frame[orb_i]++;
+	if(marisa_orb_kill_frame[orb_i] >= MARISA_ORB_KILL_FRAMES) {
+		marisa_orb_kill_frame[orb_i] = 0;
+		marisa_orb_flag[orb_i] = MOF_REMOVED;
+		graph_accesspage(page_front);
+		grcg_setcolor(GC_RMW, 0);
+		vram_left = (
+			marisa_orb_left_on_page[page_front][orb_i] >> BYTE_BITS
+		);
+		grcg_byteboxfill_x(
+			vram_left,
+			marisa_orb_top_on_page[page_front][orb_i],
+			(vram_left + 5),
+			(marisa_orb_top_on_page[page_front][orb_i] + 32)
+		);
+		grcg_off();
+		graph_accesspage(page_back);
+		marisa_orb_damage[orb_i] = 0;
+		return true;
+	}
+	super_put_rect(
+		*marisa_orb_left_on_back_page[orb_i],
+		*marisa_orb_top_on_back_page[orb_i],
+		patnum
+	);
+	return false;
+}
+
+
+// Blits Marisa herself, as the two 48x96 patterns she is drawn from. Regular
+// frames go through super_put_rect(); the one frame after she was hit is
+// instead blitted by hand into the GRCG, one 16-dot chunk at a time, from the
+// raw superimpose pattern data. `[measured]` Since the pattern data is shifted
+// by hand into each chunk, the loop can and does write to unaligned X
+// positions, which super_put_rect() would round down to a byte boundary - so
+// the flash is not just a recolor of the regular blit, it also sits at
+// Marisa's exact X position.
+//
+// ZUN bloat: The two halves are the same loop, differing only in the pattern
+// number, the VRAM column and the X coordinate they start at.
+extern "C" void near marisa_1AE98(void)
+{
+	register int col;
+	screen_x_t x;
+	int row;
+	vram_offset_t vram_offset;
+	vram_offset_t vram_offset_first;
+	screen_y_t y;
+	uint8_t shift_r;
+	dots8_t far *p;
+	uint8_t shift_l;
+	int chunk;
+
+	if(boss_hit_flash) {
+		shift_r = (marisa_topleft.x & (BYTE_DOTS - 1));
+		shift_l = (16 - shift_r);
+		boss_hit_flash = false;
+		vram_offset_first = vram_offset_shift(
+			marisa_topleft.x, marisa_topleft.y
+		);
+		vram_offset = vram_offset_first;
+		grcg_setcolor(GC_RMW, 4);
+		p = reinterpret_cast<dots8_t far *>(
+			MK_FP(super_patdata[patnum_2064E], 0)
+		);
+		row = 0;
+		y = marisa_topleft.y;
+		while(row < MARISA_H) {
+			if(y >= PLAYFIELD_BOTTOM) {
+				break;
+			}
+			col = 0;
+			x = marisa_topleft.x;
+			while(col < ((MARISA_W / 2) / BYTE_DOTS)) {
+				if(
+					(x > 0) && (x < PLAYFIELD_RIGHT) && (y >= PLAYFIELD_TOP)
+				) {
+					chunk = ((*p >> shift_r) + (*p << shift_l));
+					grcg_chunk(vram_offset + col, 16) = chunk;
+				}
+				col++;
+				x += BYTE_DOTS;
+				p++;
+			}
+			row++;
+			vram_offset += ROW_SIZE;
+			y++;
+		}
+		p = reinterpret_cast<dots8_t far *>(
+			MK_FP(super_patdata[patnum_2064E + 1], 0)
+		);
+		vram_offset = (vram_offset_first + ((MARISA_W / 2) / BYTE_DOTS));
+		row = 0;
+		y = marisa_topleft.y;
+		while(row < MARISA_H) {
+			if(y >= PLAYFIELD_BOTTOM) {
+				break;
+			}
+			col = 0;
+			x = (marisa_topleft.x + (MARISA_W / 2));
+			while(col < ((MARISA_W / 2) / BYTE_DOTS)) {
+				if(
+					(x > 0) && (x < PLAYFIELD_RIGHT) && (y >= PLAYFIELD_TOP)
+				) {
+					chunk = ((*p >> shift_r) + (*p << shift_l));
+					grcg_chunk(vram_offset + col, 16) = chunk;
+				}
+				col++;
+				x += BYTE_DOTS;
+				p++;
+			}
+			row++;
+			vram_offset += ROW_SIZE;
+			y++;
+		}
+		grcg_off();
+	} else {
+		super_put_rect(marisa_topleft.x, marisa_topleft.y, patnum_2064E);
+		super_put_rect(
+			(marisa_topleft.x + (MARISA_W / 2)),
+			marisa_topleft.y,
+			(patnum_2064E + 1)
+		);
+	}
+}
+
+
+// Renders the orb ring: first the lines that connect every still-alive orb to
+// the next one around the ring, then each orb's own sprite. Orbs that were hit
+// on this frame are blitted white instead, and clipped away entirely at the
+// playfield's edges rather than being clamped into them - which the regular
+// blit below does not do, so an orb can only leave the playfield while it is
+// not flashing.
+extern "C" void near marisa_1B025(void)
+{
+	register int i;
+	register int line_count;
+	int alive[MARISA_ORB_COUNT + 1];
+	int from;
+	int to;
+
+	grcg_setcolor(GC_RMW, 3);
+	for(i = 0, line_count = 0; i < MARISA_ORB_COUNT; i++) {
+		if(marisa_orb_flag[i] == MOF_ALIVE) {
+			alive[line_count] = i;
+			line_count++;
+		}
+	}
+	alive[line_count] = alive[0];
+	for(i = 0; i < line_count; i++) {
+		from = alive[i];
+		to = alive[i + 1];
+		grcg_line(
+			(*marisa_orb_left_on_back_page[from] + 16),
+			(*marisa_orb_top_on_back_page[from] + 16),
+			(*marisa_orb_left_on_back_page[to] + 16),
+			(*marisa_orb_top_on_back_page[to] + 16)
+		);
+	}
+	grcg_off();
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		if(marisa_orb_flag[i] < MOF_KILL_ANIM) {
+			if(marisa_orb_hit_flash[i]) {
+				if(
+					(*marisa_orb_left_on_back_page[i] > 0) &&
+					(*marisa_orb_left_on_back_page[i] < PLAYFIELD_RIGHT) &&
+					(*marisa_orb_top_on_back_page[i] >= 0) &&
+					(*marisa_orb_top_on_back_page[i] <= PLAYFIELD_H)
+				) {
+					super_put_1plane(
+						*marisa_orb_left_on_back_page[i],
+						*marisa_orb_top_on_back_page[i],
+						(MARISA_ORB_PATNUM + i),
+						0,
+						super_plane(V_WHITE)
+					);
+				}
+				marisa_orb_hit_flash[i] = false;
+			} else {
+				super_put_rect(
+					*marisa_orb_left_on_back_page[i],
+					*marisa_orb_top_on_back_page[i],
+					(MARISA_ORB_PATNUM + i)
+				);
+			}
+		}
+	}
+}
 
 
 // The other cast-cel stepper. Same job as marisa_1B665() below, but with the
