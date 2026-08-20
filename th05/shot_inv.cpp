@@ -108,11 +108,10 @@ extern "C" void near sub_E4FC(void);
 // declares it.
 unsigned char near gameover(void);
 
-// Frames from the end of the miss animation at which the palette stops
-// flashing. th04/main/player/player.inc defines the same number for the dump
-// under this same name; there is no C++ header that carries it, and both games'
-// only use is the `miss_time` compare below.
-static const uint8_t MISS_ANIM_FLASH_AT = 28;
+// MISS_ANIM_FLASH_AT now comes from th04/main/player/player.hpp, which this
+// object reaches. It was a local copy here only because that header did not
+// carry it when this body was lifted; a sibling parcel added it there and the
+// two definitions collided in this one TU.
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
 // `nop; push cs; call near ptr`, which no plain C++ far call reproduces.
