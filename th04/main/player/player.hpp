@@ -49,6 +49,11 @@ static const uint8_t MISS_ANIM_FRAMES = 32;
 // miss animation. (th04/main/player/player.inc)
 static const uint8_t MISS_ANIM_EXPLODE_UNTIL = 31;
 
+// The frame of the miss animation at which the palette starts flashing, so the
+// flash covers its last (MISS_ANIM_FRAMES - MISS_ANIM_FLASH_AT) frames. It is
+// skipped entirely on the last life. (th04/main/player/player.inc)
+static const uint8_t MISS_ANIM_FLASH_AT = 28;
+
 // Sprites placed on the ring of the miss explosion. The second half of them
 // is placed on a ring of half the radius, rotating the other way.
 // (th04/main/player/player.inc)
