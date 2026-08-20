@@ -14,6 +14,9 @@
 #define TH05_STAFF_HPP
 
 #include <stddef.h>
+// For dots8_t, which [verdict_bitmap] below is made of. Guarded (PLANAR_H), so
+// the three TUs that already pull it in ahead of this header are unaffected.
+#include "planar.h"
 #include "th01/math/dir.hpp"
 #include "th01/math/subpixel.hpp"
 
@@ -122,9 +125,17 @@ static const size_t VERDICT_SCREEN_SIZE = (
 	VERDICT_SCREEN_H * VERDICT_BITMAP_VRAM_W
 );
 
-// Both of these are still ASM, in th05/end/verdict_bitmap.asm, and both are
-// published there under their plain uppercased Pascal names rather than a
-// mangled C++ one — so both need C linkage here.
+// The buffer itself, defined in th05/staff.cpp beside the three entity arrays
+// above. It is declared here because two objects name it: staff.cpp defines
+// it, and th05/verd_bmp.cpp reads and writes it. The ASM module verd_bmp.cpp
+// replaced used to reach it through th05_maine.asm's own `extern` instead, so
+// this header never carried it before. The spelling below is staff.cpp's,
+// character for character.
+extern dots8_t verdict_bitmap[2][VERDICT_SCREEN_H][VERDICT_BITMAP_W / BYTE_DOTS];
+
+// Both of these live in th05/verd_bmp.cpp, and both keep the plain uppercased
+// Pascal name the deleted ASM module published for them — so both still need C
+// linkage here (kb/codegen 0081 + 0102).
 extern "C" {
 
 // Copies a single verdict screen from

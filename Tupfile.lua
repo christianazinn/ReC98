@@ -1250,15 +1250,18 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/cutscene.cpp",
 	"th05/allcast.cpp",
 	"th05/regist.cpp",
-	-- POSITION-CRITICAL: th05/space.cpp and th05/staffrol.cpp both contribute
-	-- to MAINE_01__TEXT, and TLINK concatenates a segment's contributions in
-	-- link order. space.cpp holds the head of the dump's block and has to stay
-	-- immediately before th05_maine.asm; staffrol.cpp holds its tail, which
-	-- follows th05/end/verdict_bitmap.asm and therefore has to stay
-	-- immediately after it. Swapping the two around the dump would move every
-	-- body of both.
+	-- POSITION-CRITICAL: th05/space.cpp, th05/verd_bmp.cpp and
+	-- th05/staffrol.cpp all contribute to MAINE_01__TEXT, and TLINK
+	-- concatenates a segment's contributions in link order. space.cpp holds
+	-- the head of the dump's block and has to stay immediately before
+	-- th05_maine.asm; verd_bmp.cpp holds what th05/end/verdict_bitmap.asm
+	-- used to contribute and has to stay immediately after it; staffrol.cpp
+	-- holds the tail and has to stay after that. th05_maine.asm itself now
+	-- contributes ZERO bytes here and sits between them only to keep that
+	-- order readable. Reordering any of the four moves every body below it.
 	"th05/space.cpp",
 	"th05_maine.asm",
+	"th05/verd_bmp.cpp",
 	"th05/staffrol.cpp",
 	"th05/staff.cpp",
 })
