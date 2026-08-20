@@ -32,6 +32,24 @@ typedef enum {
 	PAT_CLOUD_BULLET16_BLUE = 20,
 	PAT_CLOUD_BULLET16_BLUE_last = (PAT_CLOUD_BULLET16_BLUE + BULLET_CLOUD_CELS - 1),
 	PAT_CLOUD_BULLET16_RED,
+	// ------------------------
+	// reimu16.bft / mari16.bft
+	// ------------------------
+	// `[measured]` the whole 28-37 run at once, by a census of every
+	// [patnum_base] store in th04_main.asm's thirty-two shot control procs:
+	// 0x1C in all sixteen Reimu ones, 0x1E in shot_reimu_a_* alone, 0x20 in
+	// shot_reimu_b_* alone, 0x22 in all sixteen Marisa ones and 0x24 in
+	// shot_marisa_b_* alone. Five two-cel sprites, which is exactly the gap
+	// between this bank and PAT_OPTION_REIMU below. Marisa's two stay unnamed
+	// until the parcel that lifts her patterns has read them.
+	PAT_SHOT_REIMU = 28,
+	PAT_SHOT_REIMU_last = (PAT_SHOT_REIMU + SHOT_CELS - 1),
+	// Shottype A's option shot, which homes in on [homing_target].
+	PAT_SHOT_REIMU_SUB_A,
+	PAT_SHOT_REIMU_SUB_A_last = (PAT_SHOT_REIMU_SUB_A + SHOT_CELS - 1),
+	// Shottype B's option shot, fired at a fixed angle to either side.
+	PAT_SHOT_REIMU_SUB_B,
+	PAT_SHOT_REIMU_SUB_B_last = (PAT_SHOT_REIMU_SUB_B + SHOT_CELS - 1),
 	// ----------
 	// miko16.bft
 	// ----------

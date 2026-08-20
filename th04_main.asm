@@ -4107,583 +4107,69 @@ loc_FB1E:
 		retn
 shot_reimu_b_l4 endp
 
-; ---------------------------------------------------------------------------
-
-shot_reimu_b_l5	proc near
-
-@@angle_2	= byte ptr -4
-@@angle_1	= byte ptr -3
-@@x      	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 3
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jnz	short loc_FB37
-		mov	byte_256A2, 0
-
-loc_FB37:
-		mov	al, byte_256A2
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_FB49
-		add	di, 4
-
-loc_FB49:
-		inc	byte_256A2
-		mov	[bp+@@angle_1], -46h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_FBD9
-; ---------------------------------------------------------------------------
-
-loc_FB5E:
-		cmp	di, 3
-		jg	short loc_FB85
-		mov	[bp+@@x], 0
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_1]
-		mov	[si+shot_t.patnum_base], 1Ch
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle_1]
-		add	al, 07h
-		mov	[bp+@@angle_1], al
-		jmp	short loc_FBD0
-; ---------------------------------------------------------------------------
-
-loc_FB85:
-		cmp	di, 6
-		jl	short loc_FB91
-		mov	[bp+@@x], (-24 shl 4)
-		jmp	short loc_FB96
-; ---------------------------------------------------------------------------
-
-loc_FB91:
-		mov	[bp+@@x], (24 shl 4)
-
-loc_FB96:
-		mov	bx, di
-		sub	bx, 4
-		cmp	bx, 3
-		ja	short loc_FBBD
-		add	bx, bx
-		jmp	cs:off_FBE8[bx]
-
-loc_FBA7:
-		mov	[bp+@@angle_2], -4Eh
-		jmp	short loc_FBBD
-; ---------------------------------------------------------------------------
-
-loc_FBAD:
-		mov	[bp+@@angle_2], -47h
-		jmp	short loc_FBBD
-; ---------------------------------------------------------------------------
-
-loc_FBB3:
-		mov	[bp+@@angle_2], -32h
-		jmp	short loc_FBBD
-; ---------------------------------------------------------------------------
-
-loc_FBB9:
-		mov	[bp+@@angle_2], -39h
-
-loc_FBBD:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_2]
-		mov	[si+shot_t.patnum_base], 20h
-		mov	[si+shot_t.damage], 9
-
-loc_FBD0:
-		mov	ax, [bp+@@x]
-		add	[si+shot_t.pos.cur.x], ax
-		dec	di
-		jle	short loc_FBE4
-
-loc_FBD9:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_FB5E
-
-loc_FBE4:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_reimu_b_l5 endp
-
-; ---------------------------------------------------------------------------
-off_FBE8	dw offset loc_FBB9
-		dw offset loc_FBB3
-		dw offset loc_FBAD
-		dw offset loc_FBA7
-; ---------------------------------------------------------------------------
-
-shot_reimu_b_l6	proc near
-
-@@angle_2	= byte ptr -4
-@@angle_1	= byte ptr -3
-@@x      	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 3
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jnz	short loc_FC05
-		mov	byte_256A2, 0
-
-loc_FC05:
-		mov	al, byte_256A2
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_FC17
-		add	di, 4
-
-loc_FC17:
-		inc	byte_256A2
-		mov	[bp+@@angle_1], -46h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_FCA7
-; ---------------------------------------------------------------------------
-
-loc_FC2C:
-		cmp	di, 3
-		jg	short loc_FC53
-		mov	[bp+@@x], 0
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_1]
-		mov	[si+shot_t.patnum_base], 1Ch
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle_1]
-		add	al, 06h
-		mov	[bp+@@angle_1], al
-		jmp	short loc_FC9E
-; ---------------------------------------------------------------------------
-
-loc_FC53:
-		cmp	di, 6
-		jl	short loc_FC5F
-		mov	[bp+@@x], (-24 shl 4)
-		jmp	short loc_FC64
-; ---------------------------------------------------------------------------
-
-loc_FC5F:
-		mov	[bp+@@x], (24 shl 4)
-
-loc_FC64:
-		mov	bx, di
-		sub	bx, 4
-		cmp	bx, 3
-		ja	short loc_FC8B
-		add	bx, bx
-		jmp	cs:off_FCB6[bx]
-
-loc_FC75:
-		mov	[bp+@@angle_2], -4Eh
-		jmp	short loc_FC8B
-; ---------------------------------------------------------------------------
-
-loc_FC7B:
-		mov	[bp+@@angle_2], -47h
-		jmp	short loc_FC8B
-; ---------------------------------------------------------------------------
-
-loc_FC81:
-		mov	[bp+@@angle_2], -32h
-		jmp	short loc_FC8B
-; ---------------------------------------------------------------------------
-
-loc_FC87:
-		mov	[bp+@@angle_2], -39h
-
-loc_FC8B:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_2]
-		mov	[si+shot_t.patnum_base], 20h
-		mov	[si+shot_t.damage], 9
-
-loc_FC9E:
-		mov	ax, [bp+@@x]
-		add	[si+shot_t.pos.cur.x], ax
-		dec	di
-		jle	short loc_FCB2
-
-loc_FCA7:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_FC2C
-
-loc_FCB2:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_reimu_b_l6 endp
-
-; ---------------------------------------------------------------------------
-off_FCB6	dw offset loc_FC87
-		dw offset loc_FC81
-		dw offset loc_FC7B
-		dw offset loc_FC75
-; ---------------------------------------------------------------------------
-
-shot_reimu_b_l7	proc near
-
-@@angle_2	= byte ptr -4
-@@angle_1	= byte ptr -3
-@@x      	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 3
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jnz	short loc_FCD3
-		mov	byte_256A2, 0
-
-loc_FCD3:
-		mov	al, byte_256A2
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_FCE5
-		add	di, 4
-
-loc_FCE5:
-		inc	byte_256A2
-		mov	[bp+@@angle_1], -46h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_FD75
-; ---------------------------------------------------------------------------
-
-loc_FCFA:
-		cmp	di, 3
-		jg	short loc_FD21
-		mov	[bp+@@x], 0
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_1]
-		mov	[si+shot_t.patnum_base], 1Ch
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle_1]
-		add	al, 06h
-		mov	[bp+@@angle_1], al
-		jmp	short loc_FD6C
-; ---------------------------------------------------------------------------
-
-loc_FD21:
-		cmp	di, 6
-		jl	short loc_FD2D
-		mov	[bp+@@x], (-24 shl 4)
-		jmp	short loc_FD32
-; ---------------------------------------------------------------------------
-
-loc_FD2D:
-		mov	[bp+@@x], (24 shl 4)
-
-loc_FD32:
-		mov	bx, di
-		sub	bx, 4
-		cmp	bx, 3
-		ja	short loc_FD59
-		add	bx, bx
-		jmp	cs:off_FD84[bx]
-
-loc_FD43:
-		mov	[bp+@@angle_2], -4Eh
-		jmp	short loc_FD59
-; ---------------------------------------------------------------------------
-
-loc_FD49:
-		mov	[bp+@@angle_2], -47h
-		jmp	short loc_FD59
-; ---------------------------------------------------------------------------
-
-loc_FD4F:
-		mov	[bp+@@angle_2], -32h
-		jmp	short loc_FD59
-; ---------------------------------------------------------------------------
-
-loc_FD55:
-		mov	[bp+@@angle_2], -39h
-
-loc_FD59:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_2]
-		mov	[si+shot_t.patnum_base], 20h
-		mov	[si+shot_t.damage], 9
-
-loc_FD6C:
-		mov	ax, [bp+@@x]
-		add	[si+shot_t.pos.cur.x], ax
-		dec	di
-		jle	short loc_FD80
-
-loc_FD75:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_FCFA
-
-loc_FD80:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_reimu_b_l7 endp
-
-; ---------------------------------------------------------------------------
-off_FD84	dw offset loc_FD55
-		dw offset loc_FD4F
-		dw offset loc_FD49
-		dw offset loc_FD43
-; ---------------------------------------------------------------------------
-
-shot_reimu_b_l8	proc near
-
-@@angle_2	= byte ptr -4
-@@angle_1	= byte ptr -3
-@@x      	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 5
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jnz	short loc_FDA1
-		mov	byte_256A2, 0
-
-loc_FDA1:
-		mov	al, byte_256A2
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_FDB3
-		add	di, 4
-
-loc_FDB3:
-		inc	byte_256A2
-		mov	[bp+@@angle_1], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_FE43
-; ---------------------------------------------------------------------------
-
-loc_FDC8:
-		cmp	di, 5
-		jg	short loc_FDEF
-		mov	[bp+@@x], 0
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_1]
-		mov	[si+shot_t.patnum_base], 1Ch
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle_1]
-		add	al, 04h
-		mov	[bp+@@angle_1], al
-		jmp	short loc_FE3A
-; ---------------------------------------------------------------------------
-
-loc_FDEF:
-		cmp	di, 8
-		jl	short loc_FDFB
-		mov	[bp+@@x], (-24 shl 4)
-		jmp	short loc_FE00
-; ---------------------------------------------------------------------------
-
-loc_FDFB:
-		mov	[bp+@@x], (24 shl 4)
-
-loc_FE00:
-		mov	bx, di
-		sub	bx, 6
-		cmp	bx, 3
-		ja	short loc_FE27
-		add	bx, bx
-		jmp	cs:off_FE52[bx]
-
-loc_FE11:
-		mov	[bp+@@angle_2], -4Eh
-		jmp	short loc_FE27
-; ---------------------------------------------------------------------------
-
-loc_FE17:
-		mov	[bp+@@angle_2], -47h
-		jmp	short loc_FE27
-; ---------------------------------------------------------------------------
-
-loc_FE1D:
-		mov	[bp+@@angle_2], -32h
-		jmp	short loc_FE27
-; ---------------------------------------------------------------------------
-
-loc_FE23:
-		mov	[bp+@@angle_2], -39h
-
-loc_FE27:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_2]
-		mov	[si+shot_t.patnum_base], 20h
-		mov	[si+shot_t.damage], 9
-
-loc_FE3A:
-		mov	ax, [bp+@@x]
-		add	[si+shot_t.pos.cur.x], ax
-		dec	di
-		jle	short loc_FE4E
-
-loc_FE43:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_FDC8
-
-loc_FE4E:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_reimu_b_l8 endp
-
-; ---------------------------------------------------------------------------
-off_FE52	dw offset loc_FE23
-		dw offset loc_FE1D
-		dw offset loc_FE17
-		dw offset loc_FE11
-; ---------------------------------------------------------------------------
-
-shot_reimu_b_l9	proc near
-
-@@angle_2	= byte ptr -4
-@@angle_1	= byte ptr -3
-@@x      	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 7
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jnz	short loc_FE6F
-		mov	byte_256A2, 0
-
-loc_FE6F:
-		mov	al, byte_256A2
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_FE81
-		add	di, 4
-
-loc_FE81:
-		inc	byte_256A2
-		mov	[bp+@@angle_1], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	loc_FF19
-; ---------------------------------------------------------------------------
-
-loc_FE97:
-		cmp	di, 5
-		jg	short loc_FEBE
-		mov	[bp+@@x], 0
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_1]
-		mov	[si+shot_t.patnum_base], 1Ch
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle_1]
-		add	al, 04h
-		mov	[bp+@@angle_1], al
-		jmp	short loc_FF10
-; ---------------------------------------------------------------------------
-
-loc_FEBE:
-		mov	bx, di
-		sub	bx, 6
-		cmp	bx, 5
-		ja	short loc_FEEB
-		add	bx, bx
-		jmp	cs:off_FF28[bx]
-
-loc_FECF:
-		mov	[bp+@@angle_2], -40h
-		jmp	short loc_FEEB
-; ---------------------------------------------------------------------------
-
-loc_FED5:
-		mov	[bp+@@angle_2], -54h
-		jmp	short loc_FEEB
-; ---------------------------------------------------------------------------
-
-loc_FEDB:
-		mov	[bp+@@angle_2], -2Ch
-		jmp	short loc_FEEB
-; ---------------------------------------------------------------------------
-
-loc_FEE1:
-		mov	[bp+@@angle_2], -4Ah
-		jmp	short loc_FEEB
-; ---------------------------------------------------------------------------
-
-loc_FEE7:
-		mov	[bp+@@angle_2], -36h
-
-loc_FEEB:
-		test	di, 1
-		jz	short loc_FEF8
-		mov	[bp+@@x], (-24 shl 4)
-		jmp	short loc_FEFD
-; ---------------------------------------------------------------------------
-
-loc_FEF8:
-		mov	[bp+@@x], (24 shl 4)
-
-loc_FEFD:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle_2]
-		mov	[si+shot_t.patnum_base], 20h
-		mov	[si+shot_t.damage], 9
-
-loc_FF10:
-		mov	ax, [bp+@@x]
-		add	[si+shot_t.pos.cur.x], ax
-		dec	di
-		jle	short loc_FF24
-
-loc_FF19:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_FE97
-
-loc_FF24:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_reimu_b_l9 endp
-
-; ---------------------------------------------------------------------------
-off_FF28	dw offset loc_FEE7
-		dw offset loc_FEE1
-		dw offset loc_FEDB
-		dw offset loc_FED5
-		dw offset loc_FECF
-		dw offset loc_FECF
+	; Reimu's shottype B, levels 5 through 9 -- shot_reimu_b_l5 through
+	; shot_reimu_b_l9, five procs and their FIVE generated jump tables --
+	; were lifted out of here and are now
+	; th04/main/player/shot_reimu_b.cpp, which th04/player_b.cpp #includes
+	; at the very FRONT of its object, ahead of bb_playchar.cpp and
+	; bomb.cpp (kb/codegen/0129). That is the address order all of them have
+	; in PLAYER_B_TEXT: these five were the last thing this file
+	; contributed to the segment, so the object grows backwards into the
+	; hole and every byte above them keeps its address
+	; (kb/codegen 0099 + 0112 + 0114).
+	;
+	; No carve, no new segment, no group-list edit and no Tupfile.lua line.
+	; th04/player_b.cpp already carried `-zCPLAYER_B_TEXT -zPmain_01`, and
+	; that `-zP` is also what keeps the lifted tables' entries framed on the
+	; GROUP rather than on the segment -- kb/codegen/0104, whose failure
+	; mode is a byte-identical body with every table entry low by the group
+	; base.
+	;
+	; THE FIVE `dw offset` TABLES WENT WITH THE BODIES, and that is the
+	; whole point of the row. None of them is data this file owns: each is
+	; what one function's `switch` on its remaining shot count COMPILES TO,
+	; so the C++ emits it, and a copy left behind here would be emitted
+	; twice. Third row of state/re/JUMP_TABLE_TAILS.md's class to land in
+	; TH04, and the first that was a CHAIN rather than a single row --
+	; draining shot_reimu_b_l9 only uncovered shot_reimu_b_l8's own table,
+	; four times over.
+	;
+	; NO ALIGNMENT BYTE sat between any of these five epilogues and the
+	; table behind it, and the C++ reproduces that at the build's own
+	; alignment with no `-a` option at all. `[measured]` with tcc -S: adding
+	; -a2 to that object cannot reproduce this block at ANY object parity,
+	; which is a fact about a five-table object that kb/codegen/0157's
+	; two-table corollary does not cover. state/notes/th04-main-shot-reimu-b.md.
+	;
+	; kb/codegen/0121: none of the five carried an `assume`, so there is
+	; nothing to restore into the rest of this contribution.
+	;
+	; WHAT THEY DID, recorded here because the segment no longer shows it.
+	; Each one adds a fan of the player's own shots that walks a running
+	; angle by a fixed step, and then a pair of option shots -- one per side
+	; of the player -- whose angle comes out of the `switch`. l5 fires 3 own
+	; shots at a step of 7, l6 and l7 the same at a step of 6 (level 7 is
+	; byte-for-byte level 6), l8 five at a step of 4, and l9 five at a step
+	; of 4 with SIX option shots instead of four, alternating sides by the
+	; count's parity rather than splitting it in half. Every one of them
+	; doubles its option shots on the rounds where [byte_256A2] below is
+	; even, which is two of the three rounds in each shot cycle.
+	;
+	; None of the five was ever `public`, and nothing CALLS them: their only
+	; reference in this file is SHOT_FUNCS_REIMU_B further down, which
+	; installs them into [playchar_shot_func]. `extern "C"` + `pascal`, so
+	; the published symbols are undecorated and upper-case
+	; (kb/codegen 0081, 0103) -- the same spelling TH05's own lifted
+	; shot_reimu_l2 carries in th05_main.asm, where the data table likewise
+	; keeps the lower-case form. These procdescs exist only so that that
+	; table can take their offsets; declaring them here rather than beside
+	; the table keeps every line-anchored citation into the _DATA block
+	; where it was.
+	SHOT_REIMU_B_L5 procdesc pascal near
+	SHOT_REIMU_B_L6 procdesc pascal near
+	SHOT_REIMU_B_L7 procdesc pascal near
+	SHOT_REIMU_B_L8 procdesc pascal near
+	SHOT_REIMU_B_L9 procdesc pascal near
 
 	; bb_playchar_load() now lives in th04/formats/bb_playchar.cpp, which
 	; th04/player_b.cpp compiles into this segment ahead of bomb_reset()
@@ -26074,6 +25560,21 @@ _bit_center_y  	dw MARISA_BIT_COUNT dup(?)
 public _rank
 _rank	db ?
 include th04/main/score[bss].asm
+	; The count of shot rounds already fired within the current shot
+	; cycle -- 0, 1 or 2 -- which every one of Reimu's sixteen shot
+	; control procs resets at [shot_time] == SHOT_CYCLE_FRAMES, divides
+	; to decide whether its option shots join this round, and then
+	; increments. shot_reimu_b_l5 through l9 read it from C++ now, so it
+	; needs an underscore-prefixed alias (kb/codegen/0123); `label`
+	; emits nothing, so no offset moves and the 31 references left in
+	; this file keep IDA's spelling.
+	;
+	; The name is [inferred] and follows TH02's [shot_c_cycle], the
+	; identical construct in th02/main/player/shot.cpp. The role and the
+	; population behind it are [measured]:
+	; state/notes/th04-shot-cycle-counter.md.
+	public _shot_reimu_cycle
+_shot_reimu_cycle label byte
 byte_256A2	db ?
 		db ?
 include th04/main/player/shots_add[bss].asm
