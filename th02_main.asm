@@ -16441,6 +16441,8 @@ marisa_init	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AA60
+_marisa_1AA60 label near
 marisa_1AA60	proc near
 
 var_2		= word ptr -2
@@ -16527,6 +16529,8 @@ marisa_1AA60	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AB35
+_marisa_1AB35 label near
 marisa_1AB35	proc near
 		push	bp
 		mov	bp, sp
@@ -16660,6 +16664,8 @@ marisa_1AB35	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AC7B
+_marisa_1AC7B label near
 marisa_1AC7B	proc near
 		push	bp
 		mov	bp, sp
@@ -16767,6 +16773,8 @@ marisa_1AC7B	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AD80
+_marisa_1AD80 label near
 marisa_1AD80	proc near
 
 var_2		= word ptr -2
@@ -16883,6 +16891,8 @@ marisa_1AD80	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1AE98
+_marisa_1AE98 label near
 marisa_1AE98	proc near
 
 var_12		= word ptr -12h
@@ -17067,6 +17077,8 @@ marisa_1AE98	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B025
+_marisa_1B025 label near
 marisa_1B025	proc near
 
 var_E		= word ptr -0Eh
@@ -17320,6 +17332,8 @@ marisa_1B214	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B24A
+_marisa_1B24A label near
 marisa_1B24A	proc near
 		push	bp
 		mov	bp, sp
@@ -17398,6 +17412,8 @@ marisa_1B24A	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B2E9
+_marisa_1B2E9 label near
 marisa_1B2E9	proc near
 		push	bp
 		mov	bp, sp
@@ -17452,6 +17468,8 @@ marisa_1B2E9	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B35F
+_marisa_1B35F label near
 marisa_1B35F	proc near
 		push	bp
 		mov	bp, sp
@@ -17508,6 +17526,8 @@ marisa_1B35F	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B3DE
+_marisa_1B3DE label near
 marisa_1B3DE	proc near
 		push	bp
 		mov	bp, sp
@@ -17575,6 +17595,8 @@ marisa_1B3DE	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B477
+_marisa_1B477 label near
 marisa_1B477	proc near
 
 var_2		= word ptr -2
@@ -17674,6 +17696,8 @@ marisa_1B477	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B555
+_marisa_1B555 label near
 marisa_1B555	proc near
 		push	bp
 		mov	bp, sp
@@ -17852,6 +17876,8 @@ marisa_1B665	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B6DA
+_marisa_1B6DA label near
 marisa_1B6DA	proc near
 		push	bp
 		mov	bp, sp
@@ -17976,6 +18002,8 @@ marisa_1B6DA	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B7D3
+_marisa_1B7D3 label near
 marisa_1B7D3	proc near
 
 var_2		= word ptr -2
@@ -18175,6 +18203,8 @@ marisa_1B7D3	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B996
+_marisa_1B996 label near
 marisa_1B996	proc near
 
 @@angle = word ptr -4
@@ -18334,6 +18364,8 @@ marisa_1B996	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BAFF
+_marisa_1BAFF label near
 marisa_1BAFF	proc near
 
 @@speed		= word ptr -4
@@ -18468,6 +18500,8 @@ marisa_1BAFF	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BC43
+_marisa_1BC43 label near
 marisa_1BC43	proc near
 
 @@angle	= byte ptr -3
@@ -18693,6 +18727,8 @@ marisa_1BC43	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1BE72
+_marisa_1BE72 label near
 marisa_1BE72	proc near
 		push	bp
 		mov	bp, sp
@@ -18756,329 +18792,13 @@ loc_1BEC5:
 
 loc_1BEF0:
 		pop	bp
-		retn
+; This proc's final `retn` (0C3h) is emitted by th02/main/boss/b4.cpp
 marisa_1BE72	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_update
-_marisa_update label far
-marisa_update	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		xor	si, si
-		mov	word_26D4A, 0
-		jmp	short loc_1BF0E
-; ---------------------------------------------------------------------------
-
-loc_1BF01:
-		mov	bx, si
-		add	bx, bx
-		mov	ax, word_26D2A[bx]
-		add	word_26D4A, ax
-		inc	si
-
-loc_1BF0E:
-		cmp	si, 4
-		jl	short loc_1BF01
-		cmp	word_26D4A, 8
-		jnz	short loc_1BF2E
-		mov	ax, point_26D76.x
-		add	ax, 40
-		mov	word_205D8, ax
-		mov	ax, point_26D76.y
-		add	ax, 40
-		mov	word_205DA, ax
-		jmp	short loc_1BF3A
-; ---------------------------------------------------------------------------
-
-loc_1BF2E:
-		mov	word_205D8, 0FFFFh
-		mov	word_205DA, 0FFFFh
-
-loc_1BF3A:
-		inc	_boss_phase_frame
-		test	byte ptr _stage_frame, 1
-		jz	short loc_1BF78
-		cmp	_reduce_effects, 0
-		jz	short loc_1BF53
-		test	byte ptr _stage_frame, 3
-		jz	short loc_1BF78
-
-loc_1BF53:
-		call	@randring2_next16$qv
-		mov	bx, 384
-		xor	dx, dx
-		div	bx
-		add	dx, 20h	; ' '
-		mov	di, dx
-		push	dx
-		push	10h
-		mov	ax, 224
-		sub	ax, di
-		mov	bx, 3
-		cwd
-		idiv	bx
-		add	al, 40h
-		push	ax
-		call	@BG_PARTICLES_ADD$QIIUC
-
-loc_1BF78:
-		test	byte ptr _stage_frame, 1Fh
-		jnz	short loc_1BF9E
-		inc	byte_26D4C
-		mov	al, byte_26D4C
-		cbw
-		cmp	ax, 6
-		jl	short loc_1BF91
-		mov	byte_26D4C, 0
-
-loc_1BF91:
-		mov	al, byte_26D4C
-		cbw
-		mov	bx, ax
-		mov	al, byte_1EE90[bx]
-		mov	byte_1FFF8, al
-
-loc_1BF9E:
-		call	@bg_particles_update_and_render$qv
-		cmp	byte_2066A, 0
-		jnz	loc_1C11A
-		cmp	word_26CFC, 0
-		jnz	short loc_1BFC6
-		call	marisa_1B24A
-		cmp	_boss_phase_frame, 0
-		jnz	loc_1C11A
-		inc	word_26CFC
-		jmp	loc_1C11A
-; ---------------------------------------------------------------------------
-
-loc_1BFC6:
-		cmp	word_26CFC, 1
-		jnz	short loc_1BFEA
-		call	marisa_1B477
-		cmp	_boss_phase_frame, 0
-		jnz	loc_1C11A
-		inc	word_26CFC
-		mov	byte_26D4D, 1
-		mov	byte_26D92, 0
-		jmp	loc_1C11A
-; ---------------------------------------------------------------------------
-
-loc_1BFEA:
-		cmp	word_26CFC, 2
-		jnz	loc_1C11A
-		mov	al, byte_26D4D
-		cbw
-		cmp	ax, 2
-		jz	short loc_1C059
-		jg	short loc_1C011
-		sub	ax, 0FFFDh
-		mov	bx, ax
-		cmp	bx, 4
-		ja	loc_1C10E
-		add	bx, bx
-		jmp	cs:off_1C160[bx]
-; ---------------------------------------------------------------------------
-
-loc_1C011:
-		cmp	ax, 5
-		jz	short loc_1C074
-		jg	short loc_1C025
-		cmp	ax, 3
-		jz	short loc_1C062
-		cmp	ax, 4
-		jz	short loc_1C06B
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C025:
-		cmp	ax, 6
-		jz	short loc_1C07D
-		cmp	ax, 7Fh
-		jz	short loc_1C086
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C032:
-		call	marisa_1B35F
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C03B:
-		call	marisa_1B2E9
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C044:
-		call	marisa_1B24A
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C04D:
-		call	marisa_1B477
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C053:
-		call	marisa_1B555
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C059:
-		call	marisa_1B6DA
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C062:
-		call	marisa_1BAFF
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C06B:
-		call	marisa_1BC43
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C074:
-		call	marisa_1B7D3
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C07D:
-		call	marisa_1B996
-		call	marisa_1BE72
-		jmp	loc_1C10E
-; ---------------------------------------------------------------------------
-
-loc_1C086:
-		call	marisa_1BE72
-		cmp	_boss_phase_frame, 30
-		jle	short loc_1C10E
-		cmp	word_26D4A, 8
-		jge	short loc_1C0BC
-		cmp	byte_26D92, 4
-		jb	short loc_1C0A5
-		mov	byte_26D4D, 6
-		jmp	short loc_1C108
-; ---------------------------------------------------------------------------
-
-loc_1C0A5:
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 5
-		cwd
-		idiv	bx
-		inc	dl
-		mov	byte_26D4D, dl
-		inc	byte_26D92
-		jmp	short loc_1C108
-; ---------------------------------------------------------------------------
-
-loc_1C0BC:
-		mov	al, byte_26D4E
-		cbw
-		cmp	ax, 2
-		jl	short loc_1C0F2
-		mov	byte_26D92, 0
-		mov	byte_26D4D, 0
-		mov	byte_26D4E, 0
-		inc	byte_26D4F
-		cmp	byte_26D4F, 2
-		jb	short loc_1C0E4
-		mov	byte_1EE96, 1
-
-loc_1C0E4:
-		cmp	byte_26D4F, 7
-		jb	short loc_1C108
-		mov	byte_2066A, 1
-		jmp	short loc_1C108
-; ---------------------------------------------------------------------------
-
-loc_1C0F2:
-		inc	byte_26D4E
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	al, 255
-		sub	al, dl
-		mov	byte_26D4D, al
-
-loc_1C108:
-		mov	_boss_phase_frame, 1 ; Skip the initial movement
-
-loc_1C10E:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_1C11A
-		mov	byte_26D4D, 7Fh
-
-loc_1C11A:
-		call	marisa_1AA60
-		call	marisa_1AB35
-		cmp	byte_2066A, 0
-		jz	short loc_1C133
-		call	marisa_1AC7B
-		or	ax, ax
-		jz	short loc_1C136
-		mov	ax, 2
-		jmp	short loc_1C15B
-; ---------------------------------------------------------------------------
-
-loc_1C133:
-		call	marisa_1AE98
-
-loc_1C136:
-		xor	si, si
-		jmp	short loc_1C14D
-; ---------------------------------------------------------------------------
-
-loc_1C13A:
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26D2A[bx], 1
-		jnz	short loc_1C14C
-		push	si
-		call	marisa_1AD80
-		add	sp, 2
-
-loc_1C14C:
-		inc	si
-
-loc_1C14D:
-		cmp	si, 4
-		jl	short loc_1C13A
-		call	marisa_1B3DE
-		call	marisa_1B025
-		mov	ax, 1
-
-loc_1C15B:
-		pop	di
-		pop	si
-		pop	bp
-		retf
-marisa_update	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_1C160	dw offset loc_1C032
-		dw offset loc_1C03B
-		dw offset loc_1C044
-		dw offset loc_1C04D
-		dw offset loc_1C053
+; marisa_update() is th02/main/boss/b4.cpp, prepended into this segment
+; (kb/codegen/0099). Its `db 0` pad and its 5-entry jump table are part of
+; what that function compiles to, so they moved with it.
 
 main_03__TEXT	ends
 
@@ -20063,6 +19783,8 @@ aMima_m		db 'mima.m',0
 aMaine_0	db 'maine',0
 aMima2_bft	db 'mima2.bft',0
 		db 0
+public _MARISA_BG_PARTICLE_COLS
+_MARISA_BG_PARTICLE_COLS label byte
 byte_1EE90	label byte
 		db  0Ah
 		db  0Ch
@@ -20070,6 +19792,8 @@ byte_1EE90	label byte
 		db  0Dh
 		db  0Ch
 		db  0Ah
+public _marisa_damage_multiplier
+_marisa_damage_multiplier label byte
 byte_1EE96	db 0
 		db 0
 word_1EE98	dw 0
@@ -20884,6 +20608,8 @@ byte_26CF8	db ?
 byte_26CF9	db ?
 byte_26CFA	db ?
 		db ?
+public _marisa_intro_step
+_marisa_intro_step label word
 word_26CFC	dw ?
 word_26CFE	dw ?
 top_26D00	dw ?
@@ -20916,10 +20642,20 @@ word_26D42	dw ?
 word_26D44	dw ?
 word_26D46	dw ?
 word_26D48	dw ?
+public _marisa_orb_flag_sum
+_marisa_orb_flag_sum label word
 word_26D4A	dw ?
+public _marisa_bg_particle_col_i
+_marisa_bg_particle_col_i label byte
 byte_26D4C	db ?
+public _marisa_pattern
+_marisa_pattern label byte
 byte_26D4D	db ?
+public _marisa_orbless_patterns_seen
+_marisa_orbless_patterns_seen label byte
 byte_26D4E	db ?
+public _marisa_rounds_done
+_marisa_rounds_done label byte
 byte_26D4F	db ?
 byte_26D50	db 4 dup(?)
 word_26D54	dw ?
@@ -20929,6 +20665,8 @@ dword_26D56	dd 4 dup(?)
 public _marisa_orb_top_on_back_page
 _marisa_orb_top_on_back_page label dword
 dword_26D66	dd 4 dup(?)
+public _marisa_topleft
+_marisa_topleft label word
 point_26D76	Point <?>
 word_26D7A	dw ?
 byte_26D7C	db ?
@@ -20949,6 +20687,8 @@ byte_26D8C	db ?
 byte_26D8D	db ?
 word_26D8E	dw ?
 word_26D90	dw ?
+public _marisa_patterns_seen
+_marisa_patterns_seen label byte
 byte_26D92	db ?
 		db    ?	;
 
