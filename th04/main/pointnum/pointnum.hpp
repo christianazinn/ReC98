@@ -64,7 +64,11 @@ void pascal near pointnums_add_yellow(
 	subpixel_t center_x, subpixel_t center_y, uint16_t points
 );
 
-void pascal near pointnums_init(void);
+// th04/main/pointnum/inv_upd.asm publishes this as `public POINTNUMS_INIT`, so
+// the declaration needs `extern "C"` to reach the Pascal-cased name. It said
+// `void pascal near` alone until th04/main/stage/init.cpp became its first C++
+// caller and failed to link against the C++-mangled spelling.
+extern "C" void pascal near pointnums_init(void);
 void near pointnums_invalidate(void);
 void pascal near pointnums_update(void);
 /// ---------
