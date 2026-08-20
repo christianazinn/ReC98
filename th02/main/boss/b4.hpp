@@ -99,10 +99,13 @@ extern uint8_t marisa_orb_angle[MARISA_ORB_COUNT];
 // marisa_1B7D3() sets the one pair that is not symmetric.
 //
 // `[measured]` The dump still spells this array as four separate `word_26D42`
-// through `word_26D48` definitions, because eight sites in main_03__TEXT
-// address the elements by their own names; every indexed access
-// (`word_26D42[bx]`, bx = orb * 2) proves it is one four-element array, and
-// kb/codegen/0123's alias is what gives it this name.
+// through `word_26D48` definitions, because IDA only ever saw the one element
+// a given instruction addressed. What proved the four are a single
+// four-element array was that every *other* access scaled its index by the orb
+// number times two off the first of them, and kb/codegen/0123's alias at the
+// head of that extent is what gives the array this name. Since marisa_1B3DE()
+// and marisa_1B477() moved into b4.cpp, no access is left in the dump at all:
+// the four `dw` lines are definitions with no references.
 extern int marisa_orb_angle_delta[MARISA_ORB_COUNT];
 
 // Recomputed at the top of every marisa_update() as the plain sum of all four
@@ -124,6 +127,34 @@ extern int marisa_orb_flag_sum;
 extern uint8_t marisa_volleys_fired;
 extern uint8_t marisa_orb_volley_angle[MARISA_ORB_COUNT];
 /// ----
+
+/// The swoop
+/// ---------
+/// [marisa_pattern] case 1 flies Marisa around a circle of MARISA_SWOOP_RADIUS
+/// instead of letting marisa_1BE72() drift her, and these four slots are the
+/// whole of its state. All four are written on frame 10 of the pattern and
+/// touched by nothing else in th02_main.asm.
+
+// Which way around the circle this run of the pattern goes: +1 if the player
+// is to Marisa's right on frame 10, -1 otherwise. Added to
+// [marisa_swoop_angle] once per frame, so it is a rate as well as a direction
+// - one full turn takes 256 frames, and the pattern ends at 266.
+extern int8_t marisa_swoop_direction;
+
+// The center Marisa orbits, captured on frame 10 from where she happens to be.
+//
+// `[measured]` The + 112 on the y axis is exactly MARISA_SWOOP_RADIUS, and
+// [marisa_swoop_angle] starts at -0x40, i.e. straight up - so frame 10 places
+// her back at the position she was already in, and the swoop starts without a
+// jump. Nothing in the dump keeps the two 112s in a single constant.
+extern screen_x_t marisa_swoop_center_x;
+extern screen_y_t marisa_swoop_center_y;
+
+// Marisa's position along that circle, as a full-circle 0-255 byte.
+extern uint8_t marisa_swoop_angle;
+
+static const pixel_t MARISA_SWOOP_RADIUS = 112;
+/// ---------
 
 /// Fight progression
 /// -----------------
@@ -154,6 +185,19 @@ static const int8_t MP_UNSTARTED = 0x7F;
 // stars spawn on, and the ±22.5° the whole rain is angled by. Nothing resets
 // it between rounds, so the lean alternates across the entire fight.
 extern int8_t marisa_pattern_side;
+
+// The same alternating-sign idea for [marisa_pattern] case -3, and the slot
+// physically next to [marisa_pattern_side] in the dump's own initialized data.
+// marisa_1B35F() hands it to [bullet_special]'s drift angle on frame 50 and
+// then negates it, so every run of that pattern curves its star stream the
+// opposite way from the last one, for the whole fight.
+//
+// `[measured]` Read with `mov ah, 0` rather than a `cbw`, so the slot is
+// unsigned: the two values it alternates between are 2 and 0xFE, and 0xFE
+// reaches the 16-bit [bullet_special] field as 254 rather than as -2. That is
+// only harmless because bullets_update_and_render() adds it to an 8-bit
+// [bullet.angle], where +254 and -2 are the same step.
+extern uint8_t marisa_star_drift_angle;
 
 // Frames MP_UNSTARTED waits before picking the next pattern.
 static const int MARISA_PATTERN_GAP_FRAMES = 30;

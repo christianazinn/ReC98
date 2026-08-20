@@ -17252,6 +17252,8 @@ marisa_1B025	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1B19D
+_marisa_1B19D label near
 marisa_1B19D	proc near
 		push	bp
 		mov	bp, sp
@@ -17464,352 +17466,7 @@ loc_1B35D:
 marisa_1B2E9	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B35F
-_marisa_1B35F label near
-marisa_1B35F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	short loc_1B3DC
-		call	marisa_1B19D
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1B39A
-		call	@randring2_next8$qv
-		mov	angle_26D80, al
-		mov	al, byte_1EEA4
-		mov	ah, 0
-		mov	bullet_special_drift_angle, ax
-		mov	bullet_special_drift_speed, 2
-		mov	bullet_special_drift_frames, 128
-		mov	al, byte_1EEA4
-		mov	ah, 0
-		imul	ax, -1
-		mov	byte_1EEA4, al
-		jmp	short loc_1B3A8
-; ---------------------------------------------------------------------------
-
-loc_1B39A:
-		cmp	_boss_phase_frame, 130
-		jnz	short loc_1B3A8
-		mov	_boss_phase_frame, 0
-
-loc_1B3A8:
-		cmp	_boss_phase_frame, 100
-		jl	short loc_1B3DC
-		test	byte ptr _boss_phase_frame, 3
-		jnz	short loc_1B3DC
-		mov	ax, point_26D76.x
-		add	ax, 44
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 64
-		push	ax	; top
-		push	word ptr angle_26D80	; angle
-		push	BSM_DRIFT_ANGLE_AND_SPEED	; group
-		push	(PAT_BULLET16_STAR shl 16) or ((2 shl 4) + 8)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		mov	al, angle_26D80
-		add	al, 2Bh
-		mov	angle_26D80, al
-
-loc_1B3DC:
-		pop	bp
-		retn
-marisa_1B35F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B3DE
-_marisa_1B3DE label near
-marisa_1B3DE	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	loc_1B46D
-; ---------------------------------------------------------------------------
-
-loc_1B3E7:
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26D2A[bx], 0
-		jnz	short loc_1B46C
-		mov	al, byte_26D50[si]
-		mov	bx, si
-		add	bx, bx
-		add	al, byte ptr word_26D42[bx]
-		mov	byte_26D50[si], al
-		mov	bx, si
-		add	bx, bx
-		movsx	eax, word ptr word_26D3A[bx]
-		mov	dl, byte_26D50[si]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, point_26D76.x
-		add	ax, 32
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D56[bx]
-		mov	es:[bx], ax
-		mov	bx, si
-		add	bx, bx
-		movsx	eax, word ptr word_26D3A[bx]
-		mov	dl, byte_26D50[si]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, point_26D76.y
-		add	ax, 32
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D66[bx]
-		mov	es:[bx], ax
-
-loc_1B46C:
-		inc	si
-
-loc_1B46D:
-		cmp	si, 4
-		jl	loc_1B3E7
-		pop	si
-		pop	bp
-		retn
-marisa_1B3DE	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B477
-_marisa_1B477 label near
-marisa_1B477	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		cmp	_boss_phase_frame, 100
-		jl	loc_1B551
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_1B4A2
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 130
-		jmp	loc_1B52F
-; ---------------------------------------------------------------------------
-
-loc_1B4A2:
-		cmp	_boss_phase_frame, 130
-		jnz	short loc_1B51B
-		mov	ax, point_26D76.x
-		add	ax, 32
-		mov	si, ax
-		mov	ax, point_26D76.y
-		add	ax, 32
-		mov	di, ax
-		mov	[bp+var_2], 0
-		jmp	short loc_1B513
-; ---------------------------------------------------------------------------
-
-loc_1B4C1:
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word ptr word_26D2A[bx], 0
-		mov	bx, [bp+var_2]
-		mov	al, byte ptr [bp+var_2]
-		shl	al, 6
-		mov	byte_26D50[bx], al
-		add	bx, bx
-		mov	word ptr word_26D3A[bx], 8
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word ptr word_26D42[bx], 2
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word_26D02[bx], si
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word_26D0A[bx], si
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word_26D12[bx], di
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		mov	word_26D1A[bx], di
-		inc	[bp+var_2]
-
-loc_1B513:
-		cmp	[bp+var_2], 4
-		jl	short loc_1B4C1
-		jmp	short loc_1B52F
-; ---------------------------------------------------------------------------
-
-loc_1B51B:
-		cmp	_boss_phase_frame, 154
-		jnz	short loc_1B52F
-		mov	patnum_2064E, 128
-		mov	_boss_phase_frame, 0
-
-loc_1B52F:
-		cmp	_boss_phase_frame, 130
-		jle	short loc_1B551
-		mov	[bp+var_2], 0
-		jmp	short loc_1B54B
-; ---------------------------------------------------------------------------
-
-loc_1B53E:
-		mov	bx, [bp+var_2]
-		add	bx, bx
-		add	word ptr word_26D3A[bx], 2
-		inc	[bp+var_2]
-
-loc_1B54B:
-		cmp	[bp+var_2], 4
-		jl	short loc_1B53E
-
-loc_1B551:
-		pop	di
-		pop	si
-		leave
-		retn
-marisa_1B477	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1B555
-_marisa_1B555 label near
-marisa_1B555	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 10
-		jl	loc_1B662
-		cmp	_boss_phase_frame, 10
-		jnz	short loc_1B592
-		mov	ax, point_26D76.x
-		add	ax, 32
-		cmp	ax, _player_topleft.x
-		jge	short loc_1B579
-		mov	al, 1
-		jmp	short loc_1B57B
-; ---------------------------------------------------------------------------
-
-loc_1B579:
-		mov	al, -1
-
-loc_1B57B:
-		mov	byte_26D81, al
-		mov	ax, point_26D76.x
-		mov	word_26D82, ax
-		mov	ax, point_26D76.y
-		add	ax, 112
-		mov	word_26D84, ax
-		mov	angle_26D86, -40h
-
-loc_1B592:
-		mov	al, byte_26D81
-		add	angle_26D86, al
-		mov	al, angle_26D86
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _CosTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_26D82
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, angle_26D86
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _SinTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_26D84
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	point_26D76.x, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	point_26D76.y, ax
-		test	byte ptr _boss_phase_frame, 0Fh
-		jnz	short loc_1B654
-		call	@randring2_next8_and$quc pascal, 3
-		mov	ah, 0
-		mov	si, ax
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26D2A[bx], 0
-		jnz	short loc_1B631
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D56[bx]
-		mov	ax, es:[bx]
-		add	ax, 12
-		push	ax	; left
-		mov	bx, si
-		shl	bx, 2
-		les	bx, dword_26D66[bx]
-		mov	ax, es:[bx]
-		add	ax, 12
-		push	ax	; top
-		push	00h	; angle
-		push	BG_1_AIMED	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_1B631:
-		cmp	word_26D4A, 8
-		jnz	short loc_1B654
-		cmp	si, 1
-		jge	short loc_1B654
-		mov	ax, point_26D76.x
-		add	ax, 64
-		push	ax	; left
-		mov	ax, point_26D76.y
-		add	ax, 16
-		push	ax	; top
-		push	00h	; angle
-		push	BG_3_SPREAD_NARROW_AIMED	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_1B654:
-		cmp	_boss_phase_frame, 266
-		jl	short loc_1B662
-		mov	_boss_phase_frame, 0
-
-loc_1B662:
-		pop	si
-		pop	bp
-		retn
-marisa_1B555	endp
-
-
-; marisa_1B665() through marisa_1BAFF(), marisa_1BC43(), marisa_1BE72() and
+; marisa_1B35F() through marisa_1BAFF(), marisa_1BC43(), marisa_1BE72() and
 ; marisa_update() are th02/main/boss/b4.cpp, prepended into this segment in that
 ; order (kb/codegen/0099).  marisa_update()'s `db 0` pad and its 5-entry jump
 ; table are part of what that function compiles to, so they moved with it.
@@ -18821,7 +18478,8 @@ word_1EE9C	label word
 		db    0
 		db    0
 		db    0
-byte_1EEA4	db 2
+public _marisa_star_drift_angle
+_marisa_star_drift_angle	db 2
 public _marisa_pattern_side
 _marisa_pattern_side	db 1
 aMima_bft_0	db 'mima.bft',0
@@ -19697,11 +19355,15 @@ byte_26D7C	db ?
 byte_26D7D	db ?
 byte_26D7E	db ?
 angle_26D7F	db ?
-angle_26D80	db ?
-byte_26D81	db ?
-word_26D82	dw ?
-word_26D84	dw ?
-angle_26D86	db ?
+public _angle_26D80
+_angle_26D80	db ?
+public _marisa_swoop_direction
+_marisa_swoop_direction	db ?
+public _marisa_swoop_center_x, _marisa_swoop_center_y
+_marisa_swoop_center_x	dw ?
+_marisa_swoop_center_y	dw ?
+public _marisa_swoop_angle
+_marisa_swoop_angle	db ?
 public _angle_26D87
 _angle_26D87 label byte
 angle_26D87	db ?
