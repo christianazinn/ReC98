@@ -79,7 +79,11 @@ extern "C" void far sub_13671(void); // Stage 1, update and render
 extern "C" void far sub_140AE(void); // Stage 2, update and render
 extern "C" void far sub_10E4F(void); // Stage 3, invalidate
 extern "C" void far sub_10E95(void); // Stage 3, update and render
-extern "C" void far sub_19E2F(void); // Stage 4, update and render
+// th02/main/boss/b5.cpp. Named for the slot it is installed into below,
+// because that is the only thing about it Stage 4 chooses: the other four
+// stages' [stage_update_and_render] functions are still ASM and still spell
+// themselves by address.
+extern "C" void far stage4_update_and_render(void);
 
 #define BOSS_DEC(name) \
 	extern "C" void far name##_init(void); \
@@ -361,7 +365,7 @@ void near stage_init(void)
 		boss_bg_render_func = marisa_bg_render;
 		boss_update_func = marisa_update;
 		if(!reduce_effects) {
-			stage_update_and_render = sub_19E2F;
+			stage_update_and_render = stage4_update_and_render;
 		}
 		lasers_callbacks_set();
 		scroll_speed = 2;
