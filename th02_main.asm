@@ -12359,6 +12359,8 @@ mima_17F27	endp
 
 ; Attributes: bp-based frame
 
+public _mima_180AC
+_mima_180AC label near
 mima_180AC	proc near
 		push	bp
 		mov	bp, sp
@@ -14909,182 +14911,15 @@ BOSS_5_TEXT	ends
 
 main_03__TEXT	segment	byte public 'CODE' use16
 
-; marisa_1B214() is th02/main/boss/b4.cpp, prepended into this segment below.
-; marisa_init() is its only caller and is still in this dump, so the call has
-; to cross the object boundary. Both contributions are in this one segment,
-; so `near` resolves to the same 3-byte `E8 rel16` the original encodes.
-extrn _marisa_1B214:near
-
-; boss_entrance_animate() and boss_bg_rows_put() are th02/main/boss/b4.cpp
-; as well, and mima_init() below is the only caller either of them has left
-; in this dump.
-extrn _boss_entrance_animate:near
-extrn _boss_bg_rows_put:near
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_init
-_mima_init label far
-mima_init	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		call	_boss_playfield_reset
-		call	@dialog_pre$qv
-		call	super_clean pascal, (128 shl 16) or 192
-		call	super_entry_bfnt pascal, ds, offset aMima_bft ; "mima.bft"
-		call	@dialog_script_stage5_pre_intro_a$qv
-		mov	vsync_Count1, 0
-		call	@frame_delay$qi pascal, 10
-		call	_boss_entrance_animate
-		call	super_clean pascal, (128 shl 16) or 192
-		mov	super_patnum, 80h
-		call	super_entry_bfnt pascal, ds, offset aMima1_bft ; "mima1.bft"
-		call	super_entry_bfnt pascal, ds, offset aStage3_b_btt ; "stage3_b.btt"
-		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 80)
-		mov	ax, _boss_left_on_page[0 * word]
-		mov	_boss_left_on_page[1 * word], ax
-		mov	_boss_top_on_page[0 * word], (PLAYFIELD_TOP + 48)
-		mov	ax, _boss_top_on_page[0 * word]
-		mov	_boss_top_on_page[1 * word], ax
-		mov	patnum_2064E, 128
-		call	@dialog_script_stage5_pre_unseale$qv
-		push	1
-		call	palette_white_out
-		call	grc_setclip pascal, (PLAYFIELD_LEFT shl 16) or 0, (PLAYFIELD_RIGHT shl 16) or (RES_Y - 1)
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_fill
-		call	grcg_off
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_left_on_page[bx]
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		push	patnum_2064E
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 48
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 96
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		add	ax, 2
-		push	ax
-		call	super_put_rect
-		call	super_roll_put pascal, _player_topleft.x, _player_topleft.y, PAT_PLAYCHAR_STILL
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].x
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		add	ax, PLAYER_OPTION_TO_OPTION_DISTANCE
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		call	_snd_se_play stdcall, 10
-		call	_snd_se_update
-		call	_boss_bg_rows_put
-		push	3
-		call	palette_white_in
-		push	ds
-		push	offset aMima_m	; "mima.m"
-		nopcall	sub_13ABB
-		add	sp, 6
-		call	@dialog_script_stage5_pre_winged_$qv
-		call	@dialog_post$qv
-		call	@shots_free_all$qv
-		mov	_boss_damage, 0
-		mov	byte_2066A, 0
-		mov	_boss_phase_frame, 0
-		mov	byte_2066B, 0
-		mov	word_26C68, 0
-		mov	word_26C66, 0
-		mov	word_26CBE, 0
-		mov	_tile_mode, TM_NONE
-		mov	byte_26CC1, 0
-		mov	byte_26CC2, 0
-		mov	byte_26CC3, 0Dh
-		mov	byte_26CC5, 3
-		mov	byte_26CC4, 0Ch
-		graph_accesspage _page_front
-		call	graph_clear
-		graph_accesspage _page_back
-		call	graph_clear
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 11
-		call	grc_setclip pascal, (PLAYFIELD_RIGHT shl 16) or 0, ((RES_X - 1) shl 16) or (RES_Y - 1)
-		graph_accesspage _page_front
-		call	grcg_fill
-		graph_accesspage _page_back
-		call	grcg_fill
-		call	grcg_off
-		call	grc_setclip pascal, (PLAYFIELD_LEFT shl 16) or 0, (PLAYFIELD_RIGHT shl 16) or (RES_Y - 1)
-		mov	word_26C6A, 0
-		xor	si, si
-		jmp	short loc_19C0D
-; ---------------------------------------------------------------------------
-
-loc_19C02:
-		mov	bx, si
-		add	bx, bx
-		mov	word ptr word_26CAC[bx], 0
-		inc	si
-
-loc_19C0D:
-		cmp	si, 8
-		jl	short loc_19C02
-		mov	byte_26CC0, 0
-		call	mima_180AC
-		pop	si
-		pop	bp
-		retf
-mima_init	endp
+; THIS SEGMENT'S ROOT CONTRIBUTION IS EMPTY. mima_init() was the last of
+; it, and it is th02/main/boss/b5.cpp now, prepended below ahead of
+; th02/main/midboss/m4.cpp and th02/main/boss/b4.cpp (kb/codegen/0099).
+; The two b4.cpp entrance helpers this block declared went with it -- b5.cpp
+; reaches them as an ordinary C++ caller in the same segment -- and the
+; third declaration had had no call site here since marisa_init() landed.
+; Keep the `segment`/`ends` pair: it is what puts this segment in the
+; MAIN_03 group, and TLINK lays the three objects below out in link order
+; behind it.
 
 
 ; mima_init() above is the last thing this dump contributes to this
@@ -16101,9 +15936,15 @@ enemies_loop_bound db 0
 		db 0
 word_1EE54	dw 0
 word_1EE56	dw 0
-aMima_bft	db 'mima.bft',0
-aMima1_bft	db 'mima1.bft',0
+public _mima_bft
+_mima_bft	db 'mima.bft',0
+public _mima1_bft
+_mima1_bft	db 'mima1.bft',0
+public _aStage3_b_btt
+_aStage3_b_btt label byte
 aStage3_b_btt	db 'stage3_b.btt',0
+public _aMima_m
+_aMima_m	label byte
 aMima_m		db 'mima.m',0
 ; char aMaine_0[]
 public _aMaine_0
@@ -16895,8 +16736,14 @@ top_26C5E	dw ?
 word_26C60	dw ?
 top_26C62	dw ?
 y_26C64	dw ?
+public _mima_damage_multiplier
+_mima_damage_multiplier label word
 word_26C66	dw ?
+public _mima_phase
+_mima_phase label word
 word_26C68	dw ?
+public _mima_pattern
+_mima_pattern label word
 word_26C6A	dw ?
 
 ; Five 8-entry word arrays, 16 bytes apart, which is the whole 80-byte run.
@@ -16907,16 +16754,30 @@ word_26C6C	dw 8 dup(?)
 word_26C7C	dw 8 dup(?)
 word_26C8C	dw 8 dup(?)
 word_26C9C	dw 8 dup(?)
+public _mima_orb_flag
+_mima_orb_flag label word
 word_26CAC	dw 8 dup(?)
 word_26CBC	dw ?
+public _mima_patterns_this_phase
+_mima_patterns_this_phase label word
 word_26CBE	dw ?
 public _mima_all_patterns
 _mima_all_patterns label byte
 byte_26CC0	db ?
+public _mima_bg_ring_radius
+_mima_bg_ring_radius label byte
 byte_26CC1	db ?
+public _mima_bg_circle_radius
+_mima_bg_circle_radius label byte
 byte_26CC2	db ?
+public _mima_bg_ring_col_head
+_mima_bg_ring_col_head label byte
 byte_26CC3	db ?
+public _mima_bg_ring_col_tail
+_mima_bg_ring_col_tail label byte
 byte_26CC4	db ?
+public _mima_bg_circle_col
+_mima_bg_circle_col label byte
 byte_26CC5	db ?
 byte_26CC6	db ?
 byte_26CC7	db ?
