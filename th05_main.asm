@@ -901,36 +901,36 @@ sub_B55A	proc near
 sub_B55A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_B609
-_sub_B609 label near
-sub_B609	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	@bb_boss_free$qv
-		call	@dialog_free$qv
-		call	@std_free$qv
-		call	@map_free$qv
-		call	super_clean pascal, (180 shl 16) or 256
-		mov	si, CDG_PER_STAGE
-		jmp	short loc_B630
-; ---------------------------------------------------------------------------
-
-loc_B629:
-		call	cdg_free pascal, si
-		inc	si
-
-loc_B630:
-		cmp	si, (CDG_PER_STAGE_last + 1)
-		jl	short loc_B629
-		pop	si
-		pop	bp
-		retn
-sub_B609	endp
+	; stage_transition() -- the name th04/main/entry.cpp already used for
+	; this proc through a macro over IDA's placeholder -- was lifted out of
+	; here and is now th04/main/stage/transition.cpp, ONE body shared with
+	; TH04's twin at the tail of th04_main.asm's DEMO_TEXT. th05/demo.cpp
+	; #includes it ahead of th04/main/pause.cpp, which is the address it
+	; already had: this proc was the last thing this file contributed to the
+	; segment once pause() moved out, and that object is the next
+	; contribution behind it (kb/codegen 0099 + 0114). No carve, no new
+	; segment name, no group-list edit, no Tupfile.lua line.
+	;
+	; The zero-byte public label alias that used to sit above the proc went
+	; with it. It existed only so that th04/main/entry.cpp could name the
+	; placeholder from C++ (kb/codegen 0123); a real C++ definition exports
+	; the mangled @stage_transition$qv, which is the only spelling either
+	; side needs now. Nothing in this file ever called the proc --
+	; main_entry() is its one and only caller, and it is C++ too.
+	;
+	; Only two things separate the two games' bodies, and the shared file
+	; carries both under GAME == 5: the superimposition range this game
+	; clears starts at 180 rather than 128, and the .CDG slots it frees are
+	; the per-stage ones at the front of the array rather than TH04's boss
+	; facesets at its end.
+	;
+	; kb/codegen 0121: the body carried no assume of its own, and the
+	; segment's own assume line at its head still covers everything left
+	; above it, so there is nothing to restore.
+	;
+	; This block is written onto the lines the body vacated and is exactly
+	; as long, so no line-anchored citation into this file moves -- three
+	; same-count dump edits have now renumbered none.
 
 	; pause() is now th04/main/pause.cpp, at the head of th04/main/demo.cpp
 	@demo_load$qv procdesc near
@@ -4951,7 +4951,7 @@ sub_12842	endp
 	HUD_BAR_PUT procdesc near
 	HUD_SCORE_PUT procdesc near
 	@score_update_and_render$qv procdesc near
-	@bb_boss_free$qv procdesc near
+	; No procdesc for bb_boss_free() any more. The one that used to sit here was for the single call site at the head of the proc that was the tail of DEMO_TEXT, now th04/main/stage/transition.cpp, which calls it as C++.
 	@STAGE1_SETUP$QV procdesc near
 	@STAGE2_SETUP$QV procdesc near
 	@STAGE3_SETUP$QV procdesc near
