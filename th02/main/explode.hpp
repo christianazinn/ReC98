@@ -34,7 +34,7 @@ static const int EXPLODE_PHASE_2_FRAMES = 26;
 // the one of its X coordinate, turning the ring's circle into a slanted
 // ellipse. Written by the defeat animations, which use it to spin each ring
 // as it expands. (TH04 has the same field, as Explosion::angle_offset --
-// th04/main/boss/explode.cpp:32. The ASM-only TASM struc is spelled
+// th04/main/boss/explode.hpp:36. The ASM-only TASM struc is spelled
 // explosion_t, in th04/main/boss/explosions[bss].asm.)
 extern unsigned char boss_explode_angle_offset;
 

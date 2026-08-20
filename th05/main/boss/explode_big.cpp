@@ -24,25 +24,7 @@
 #include "pc98.h"
 #include "th02/snd/snd.h"
 #include "th04/main/boss/boss.hpp"
-
-// Explosion and [explosions_big] are declared in th04/main/boss/explode.cpp,
-// which is a .cpp rather than a header because it is the only other code that
-// touches them, and which is compiled into a different segment. Promoting the
-// struct into a header would renumber five line-anchored citations into that
-// file across four documents outside this parcel, so the layout is repeated
-// here instead. It is fixed by the original binary either way; the ASM-only
-// TASM `struc` is th04/main/boss/explosions[bss].asm.
-struct Explosion {
-	bool alive;
-	unsigned char age;
-	SPPoint center;
-	SPPoint radius_cur;
-	SPPoint radius_delta;
-	int8_t unused; // ZUN bloat
-	unsigned char angle_offset;
-};
-
-extern Explosion explosions_big;
+#include "th04/main/boss/explode.hpp"
 
 void near boss_explode_big_circle(void)
 {
