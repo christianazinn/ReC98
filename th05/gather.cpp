@@ -17,6 +17,12 @@
 // the front of this object (kb/codegen/0112 + 0114). It is deliberately not
 // #included from th05/main/stage/bonus.cpp below, which would work but would
 // bury a segment-order fact inside an unrelated file.
+// ... and boss_explode_big_circle(), the function it wraps, sat immediately
+// before *that*, as the new last item of the same root contribution once the
+// wrapper had left it. Same route, one module further up, so this line has to
+// stay above the one below it.
+#include "th05/main/boss/explode_big.cpp"
+
 #include "th05/main/boss/2_explode_big.cpp"
 
 #include "th05/main/stage/bonus.cpp"
