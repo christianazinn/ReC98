@@ -1,6 +1,7 @@
 /// Stage 4 Boss - Marisa
 /// ---------------------
-/// The per-frame update, the background renderer and the stage-end callback.
+/// The drift helper, the per-frame update, the background renderer and the
+/// stage-end callback.
 /// They are the last bodies of the nameless code segment that also holds
 /// Marisa's other callback and the Stage 5 boss, so it needs no split and no
 /// new segment - this translation unit just contributes to that same segment
@@ -22,6 +23,7 @@
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b4.hpp"
+#include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
@@ -51,7 +53,8 @@ extern "C" uint8_t boss_phase;
 /// --------------------------
 /// All of them are `proc near` in th02_main.asm's main_03__TEXT block, all sit
 /// above marisa_update() in the same segment, and marisa_update() is the only
-/// caller of every one of them. The spellings are the dump's own; they are
+/// caller of every one of them. marisa_1BE72() was the sixteenth and is now
+/// defined below. The spellings are the dump's own; they are
 /// address-suffixed rather than IDA placeholders, so naming them is a separate
 /// decision that this parcel does not make (`marisa_1AA60` is not matched by
 /// tools/re/naming_precheck.py's placeholder pattern, which is keyed on IDA's
@@ -77,15 +80,51 @@ extern "C" void near marisa_1B7D3(void);
 extern "C" void near marisa_1B996(void);
 extern "C" void near marisa_1BAFF(void);
 extern "C" void near marisa_1BC43(void);
-
-// Run after nine of the eleven patterns below, but not after MP_UNSTARTED's
-// own branch's pattern picks.
-extern "C" void near marisa_1BE72(void);
 /// --------------------------
 
 
-/// Why this function needs the one-byte prefix above
-/// -----------------------------------------------
+// marisa_1BC43()'s final `retn`, handed to this translation unit so that the
+// object's code contribution starts one byte before marisa_1BE72() and
+// therefore an ODD number of bytes before marisa_update(). That is the parity
+// under which -a2 pads marisa_update()'s generated jump table
+// (kb/codegen/0154); marisa_1BE72()'s own `retn` used to buy it, and now that
+// this object emits marisa_1BE72() the byte has to come from the proc above.
+// kb/codegen/0096's named escape hatch.
+#pragma codestring "\xC3"
+
+// Marisa's drift. Run after nine of the eleven patterns below, and by
+// MP_UNSTARTED's own branch as well. Picks a direction on frame 2 of the
+// pattern and then walks one pixel per axis per frame for the next 48.
+extern "C" void near marisa_1BE72(void)
+{
+	if(boss_phase_frame == 1) {
+		return;
+	}
+	if(boss_phase_frame == 2) {
+		marisa_velocity_x = (
+			((marisa_topleft.x + 32) < player_topleft.x) ? 1 : -1
+		);
+		// ZUN quirk: the vertical pick is not the mirror of the horizontal
+		// one. Inside the band it is random rather than player-seeking, and
+		// (1 - (n % 3)) can come out 0, so Marisa can spend a whole pattern
+		// drifting purely sideways.
+		marisa_velocity_y = (
+			(marisa_topleft.y <  72) ?  1 :
+			(marisa_topleft.y > 108) ? -1 :
+			(1 - (randring2_next8() % 3))
+		);
+	}
+	if(boss_phase_frame < 50) {
+		*boss_left_on_back_page += marisa_velocity_x;
+		*boss_top_on_back_page += marisa_velocity_y;
+		marisa_topleft.x = *boss_left_on_back_page;
+		marisa_topleft.y = *boss_top_on_back_page;
+	}
+}
+
+
+/// Why this function needs an ODD number of bytes ahead of it
+/// ---------------------------------------------------------
 /// The original has a single padding byte between this function's epilogue and
 /// its generated jump table. Reproducing it is kb/codegen/0070's shape, and the
 /// three measurements below are what decided the route. All of them were taken
@@ -97,6 +136,13 @@ extern "C" void near marisa_1BE72(void);
 /// all, and the listings for -a2, -a and no alignment option are byte-identical
 /// apart from their debug timestamp record. The natural table offset there is
 /// odd (0x26D).
+///
+/// `[measured]` The prefix is the whole of what this object emits ahead of
+/// marisa_update(), not just the codestring: marisa_1BE72() is 0x80 bytes, so
+/// the codestring above is what keeps the total odd. A lift of marisa_1BE72()
+/// with no codestring would be byte-identical in both function bodies and
+/// still lose the pad, which is kb/codegen/0119's failure mode exactly - diff
+/// the whole segment, never the two functions.
 ///
 /// `[measured]` With an ODD prefix and -a2, the same compiler emits the pad.
 /// Probed across prefixes of 0, 1 and 2 bytes: only the 1-byte prefix produces
@@ -120,11 +166,6 @@ extern "C" void near marisa_1BE72(void);
 // th02/main/stage/callback.hpp models the return as the enum anyway, which is
 // harmless because stage_loop()'s `stage_progression = boss_update();` only
 // ever stores the low byte.
-// marisa_1BE72()'s final `retn`, handed to this translation unit so that its
-// code contribution starts at an ODD offset before marisa_update(). That is
-// the parity under which -a2 pads the generated jump table, and the padding
-// byte is the whole residue otherwise. kb/codegen/0096's named escape hatch.
-#pragma codestring "\xC3"
 
 extern "C" int far marisa_update(void)
 {

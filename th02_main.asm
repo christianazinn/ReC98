@@ -18719,86 +18719,13 @@ loc_1BE69:
 loc_1BE6F:
 		pop	si
 		leave
-		retn
+; This proc's final `retn` (0C3h) is emitted by th02/main/boss/b4.cpp
 marisa_1BC43	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1BE72
-_marisa_1BE72 label near
-marisa_1BE72	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 1
-		jz	short loc_1BEF0
-		cmp	_boss_phase_frame, 2
-		jnz	short loc_1BEC5
-		mov	ax, point_26D76.x
-		add	ax, 32
-		cmp	ax, _player_topleft.x
-		jge	short loc_1BE94
-		mov	ax, 1
-		jmp	short loc_1BE97
-; ---------------------------------------------------------------------------
-
-loc_1BE94:
-		mov	ax, 0FFFFh
-
-loc_1BE97:
-		mov	word_26D8E, ax
-		cmp	point_26D76.y, 72
-		jge	short loc_1BEA6
-		mov	ax, 1
-		jmp	short loc_1BEC2
-; ---------------------------------------------------------------------------
-
-loc_1BEA6:
-		cmp	point_26D76.y, 108
-		jle	short loc_1BEB2
-		mov	ax, 0FFFFh
-		jmp	short loc_1BEC2
-; ---------------------------------------------------------------------------
-
-loc_1BEB2:
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	ax, 1
-		sub	ax, dx
-
-loc_1BEC2:
-		mov	word_26D90, ax
-
-loc_1BEC5:
-		cmp	_boss_phase_frame, 50
-		jge	short loc_1BEF0
-		mov	bx, _boss_left_on_back_page
-		mov	ax, word_26D8E
-		add	[bx], ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, word_26D90
-		add	[bx], ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	point_26D76.x, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	point_26D76.y, ax
-
-loc_1BEF0:
-		pop	bp
-; This proc's final `retn` (0C3h) is emitted by th02/main/boss/b4.cpp
-marisa_1BE72	endp
-
-
-; marisa_update() is th02/main/boss/b4.cpp, prepended into this segment
-; (kb/codegen/0099). Its `db 0` pad and its 5-entry jump table are part of
-; what that function compiles to, so they moved with it.
+; marisa_1BE72() and marisa_update() are th02/main/boss/b4.cpp, prepended into
+; this segment (kb/codegen/0099). marisa_update()'s `db 0` pad and its 5-entry
+; jump table are part of what that function compiles to, so they moved with it.
 
 main_03__TEXT	ends
 
@@ -20685,8 +20612,9 @@ byte_26D8A	db ?
 byte_26D8B	db ?
 byte_26D8C	db ?
 byte_26D8D	db ?
-word_26D8E	dw ?
-word_26D90	dw ?
+public _marisa_velocity_x, _marisa_velocity_y
+_marisa_velocity_x	dw ?
+_marisa_velocity_y	dw ?
 public _marisa_patterns_seen
 _marisa_patterns_seen label byte
 byte_26D92	db ?

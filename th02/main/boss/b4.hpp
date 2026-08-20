@@ -15,6 +15,16 @@
 // `marisa_` prefix names the half this header covers, not exclusive ownership.
 extern screen_point_t marisa_topleft;
 
+// The per-frame movement delta marisa_1BE72() adds to Marisa's position on
+// every frame of the first 50 of a pattern. Only ever -1, 0 or 1; picked once,
+// on frame 2, and then held for the rest of the drift.
+//
+// `[measured]` Both slots are `dw` and both are read back with a signed
+// compare, and nothing outside marisa_1BE72() touched either of them in
+// th02_main.asm, so this pair is the whole of Marisa's movement state.
+extern pixel_t marisa_velocity_x;
+extern pixel_t marisa_velocity_y;
+
 // `[measured]` from marisa_1AE98()'s hand-written flash blit, which walks
 // super_patdata[] linearly at 6 VRAM bytes (48 pixels) per row for 0x60 rows,
 // then repeats the same pattern at x + 48. So each of the two patterns is
@@ -26,8 +36,9 @@ static const pixel_t MARISA_H = 96;
 // point shottype B's homing shots aim at. Deliberately NOT (MARISA_W / 2):
 // `[measured]` marisa_1AC7B() passes the same +40 pair to
 // boss_explode_render(), whose parameters are named [center_x] / [center_y],
-// while marisa_1AA60()'s hitbox is centered on +48 instead. ZUN's three
-// notions of Marisa's center do not agree, so this one gets its own name.
+// while marisa_1AA60()'s hitbox is centered on +48 instead, and
+// marisa_1BE72()'s drift direction turns on +32. ZUN's four notions of
+// Marisa's center do not agree, so this one gets its own name.
 static const pixel_t MARISA_CENTER_OFFSET = 40;
 
 /// --------------
