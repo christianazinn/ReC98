@@ -3749,83 +3749,24 @@ sub_10F12	endp
 
 include th05/main/bullet/swords_render.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @YUMEKO_FG_RENDER$QV
-@yumeko_fg_render$qv	proc near
-
-var_6		= word ptr -6
-@@x		= word ptr -4
-@@patnum		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	di, ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_11001
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_11069
-; ---------------------------------------------------------------------------
-
-loc_11001:
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_11029
-		mov	ax, _boss2_pos.x
-		sar	ax, 4
-		mov	[bp+@@x], ax
-		mov	ax, _boss2_pos.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+var_6], ax
-		call	super_put_rect pascal, [bp+@@x], ax, 192
-
-loc_11029:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-		mov	dh, 0
-		mov	bx, 4
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	[bp+@@patnum], dx
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_11054
-		call	super_put pascal, si, di, dx
-		jmp	short loc_11064
-; ---------------------------------------------------------------------------
-
-loc_11054:
-		call	super_put_1plane pascal, si, di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-
-loc_11064:
-		mov	_boss_damage_this_frame, 0
-
-loc_11069:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@yumeko_fg_render$qv	endp
+	; yumeko_fg_render() now lives in th05/main/boss/b5_fg.cpp, at the
+	; front of the th05/b6cbull.cpp object -- the segment's next
+	; contribution, and this was the LAST proc of the root's block, so
+	; the C++ side simply grows backwards into the hole and every byte
+	; keeps its address (kb/codegen 0112 + 0114). No carve, no new
+	; segment and no Tupfile.lua line: that object already exists and
+	; already carries the -zCMIDBOSSX_TEXT -zPmain_01 pragmas.
+	;
+	; Nothing in this dump calls it -- th05/main/stage/setup.cpp installs
+	; it into [boss_fg_render_func] -- so no `procdesc` replaces it, and
+	; the upper-case `public` that exported it goes with the body.
+	;
+	; kb/codegen/0121: the body carried no `assume`, and neither does any
+	; other part of this segment, so there is nothing to restore.
+	;
+	; This contribution is INCLUDE-TAILED again: the item ahead is now
+	; th05/main/bullet/swords_render.asm, and its host would be this same
+	; th05/b6cbull.cpp object.
 
 	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
