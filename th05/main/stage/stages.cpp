@@ -1,10 +1,11 @@
 /// TH05-specific stage callbacks
 /// -----------------------------
-/// TH05 has exactly one: th05/main/stage/setup.cpp installs nullfunc_near into
-/// [stage_render] and [stage_invalidate] for every stage except Stage 2. So
-/// this file is the TH05 counterpart of th04/main/stage/stages.cpp, and not a
-/// `#if (GAME == 5)` arm of it — the two share no code, and TH04's set is
-/// already complete.
+/// TH05 has exactly one stage's worth: th05/main/stage/setup.cpp installs
+/// nullfunc_near into [stage_render] and [stage_invalidate] for every stage
+/// except Stage 2, and stage2_update() and stage2_invalidate() into those two
+/// slots for that one. So this file is the TH05 counterpart of
+/// th04/main/stage/stages.cpp, and not a `#if (GAME == 5)` arm of it — the two
+/// share no code, and TH04's set is already complete.
 ///
 /// Despite the name ZUN's `public` line fixes, stage2_update() is installed as
 /// [stage_render], not as an update function. It runs the Stage 2 entrance:
@@ -135,6 +136,44 @@ static const unsigned int S2PARTICLE_ZOOM_INITIAL = 8;
 // Jitter added to the respawn X, on top of the emitter's own.
 static const pixel_t S2PARTICLE_JITTER_W = 8;
 // ---------
+
+// See th04/main/tile/tile.hpp for why this declaration has to be repeated in
+// every translation unit that calls the function, and why the parameter list
+// is a per-TU choice. The original pushes [pos.prev]'s two words separately
+// here, so this is the same form th04/main/player/shots_inv.cpp takes, and not
+// the single-dword SPPoint one of th04/main/midboss/inv.cpp.
+extern "C" void pascal near tiles_invalidate_around(
+	subpixel_t center_y, subpixel_t center_x
+);
+
+// [stage_invalidate] for Stage 2, installed by th05/main/stage/setup.cpp
+// alongside stage2_update(). Marks the background under wherever every live
+// particle was on the previous frame — the half of the star field that
+// stage2_update() does not do itself.
+//
+// [inferred] The box is HALF the sprite in both dimensions, where every other
+// caller passes the whole of it: the original's two immediates are 8, and
+// PARTICLE_W and PARTICLE_H are both 16. A particle only fills its 16×16 cel
+// at the largest of its PARTICLE_CELS zoom steps, so the smaller box costs
+// nothing visible for most of a particle's life. `/ 2` rather than a literal
+// 8 is a reading of that intent and nothing the oracle can decide — the
+// constant folds to the same immediate either way.
+void pascal near stage2_invalidate(void)
+{
+	s2particle_t near *particle;
+	int i;
+
+	tile_invalidate_box.x = (PARTICLE_W / 2);
+	tile_invalidate_box.y = (PARTICLE_H / 2);
+	particle = s2particles;
+	for(i = 0; i < S2PARTICLE_COUNT; (i++, particle++)) {
+		if(particle->flag != 0) {
+			tiles_invalidate_around_xy(
+				particle->pos.prev.x, particle->pos.prev.y
+			);
+		}
+	}
+}
 
 // The two halves of "put this particle at the emitter": a random angle within
 // S2PARTICLE_ANGLE_RANGE of [angle_base], and the X that goes with the angle

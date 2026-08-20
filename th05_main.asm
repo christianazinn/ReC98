@@ -3948,20 +3948,20 @@ loc_1117A:
 		retn
 @shinki_fg_render$qv	endp
 
-include th05/main/stage/s2part.asm
-
-	; s2particle_respawn() now lives in th05/main/stage/stages.cpp too,
-	; ahead of stage2_update() in the same object, which is where it sat
-	; here. Nothing in this dump referenced it once its only caller left,
-	; so the zero-byte `public` the previous parcel added for it is gone
-	; again and no `procdesc` replaces it: the C++ side owns both the
-	; definition and the call.
+	; stage2_invalidate() now lives in th05/main/stage/stages.cpp, ahead
+	; of s2particle_respawn() in the same object, which is where its
+	; module sat here: th05/main/stage/s2part.asm was the last emitting
+	; item of this root contribution, and it is deleted. Nothing in this
+	; dump ever referenced the symbol -- th05/main/stage/setup.cpp
+	; installs it into [stage_invalidate] -- so no `public` and no
+	; `procdesc` replaces it: the C++ side owns definition and call.
 	;
-	; kb/codegen/0121: the body carried no `assume`, so there is nothing
-	; to restore. What is left of this root contribution ends at the
-	; th05/main/stage/s2part.asm include above, which is a MODULE and not
-	; a proc -- so this segment's carve-free seam closes with this lift,
-	; and that is why the two procs were taken one parcel at a time.
+	; That REOPENS this segment's carve-free seam, which the note this
+	; block replaces recorded as closed: the root's tail is
+	; shinki_fg_render() again, an ordinary proc and not a module.
+	;
+	; kb/codegen/0121: none of the three bodies lifted out of the tail of
+	; this contribution carried an `assume`, so nothing has to be restored.
 
 	; stage2_update() now lives in th05/main/stage/stages.cpp, compiled
 	; through the new object th05/stages.cpp, which Tupfile.lua lists
