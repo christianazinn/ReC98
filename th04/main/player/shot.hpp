@@ -1,3 +1,12 @@
+#ifndef TH04_MAIN_PLAYER_SHOT_HPP
+#define TH04_MAIN_PLAYER_SHOT_HPP
+
+// Guarded because th05/shot_inv.cpp reaches this file twice in one object:
+// once from the sub_1214A() lift at the front of it, and once through
+// th04/main/player/shots_inv.cpp further down. Same collision-set-of-one
+// that th04/main/player/player.hpp -- the other header that object reaches
+// twice -- was guarded for, and the same cheap fix (kb/codegen/0129).
+// Byte-inert: this file only declares.
 #if (GAME == 5)
 #include "th05/sprites/main_pat.h"
 #endif
@@ -101,6 +110,12 @@ static const int HITSHOT_COUNT = 24;
 
 extern HitShot near hitshots[HITSHOT_COUNT];
 #endif
+
+// Shots are always fired for multiples of this number of frames, even if
+// INPUT_SHOT is held for a shorter amount of time. Two further rounds are
+// fired at the ⅓ and ⅔ points of each cycle.
+// (th04/main/player/player.inc)
+static const uint8_t SHOT_CYCLE_FRAMES = 18;
 
 extern unsigned char shot_time;
 extern Shot near shots[SHOT_COUNT];
@@ -215,3 +230,5 @@ void __fastcall near shot_laser_put_raw(
 	screen_x_t left, vram_y_t top, shot_laser_cel_t cel
 );
 // ------------
+
+#endif /* TH04_MAIN_PLAYER_SHOT_HPP */

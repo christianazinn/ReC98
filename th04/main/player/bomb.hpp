@@ -1,5 +1,11 @@
 #include "th02/main/player/bomb.hpp"
 
+// Frames after a hit during which a bomb still takes the death back. Added on
+// top of MISS_ANIM_FRAMES when [miss_time] is set, so a [miss_time] above
+// MISS_ANIM_FRAMES means the miss animation has not started yet.
+// (th04/shared.inc)
+static const uint8_t DEATHBOMB_WINDOW = 8;
+
 extern bool bombing_disabled;
 extern unsigned char bomb_frame;
 
@@ -51,7 +57,9 @@ void near bomb_update_and_render(void);
 // th05_main.asm:1290) — the `public PLAYER_BOMB` lines that used to carry the
 // requirement were deleted when these bodies were lifted. What still pins the
 // undecorated name is the ASM references to it: `offset player_bomb` at
-// th04_main.asm:386 and :404, and `call player_bomb` at th05_main.asm:5847.
+// th04_main.asm:386 and :404. TH05's dump reference was a call inside
+// sub_1214A, and it went to C++ with that body on 2026-08-19, so th05_main.asm
+// no longer holds one at all.
 //
 // The re-declaration that used to sit here dropped that `extern "C"`, which
 // only ever compiled because th02's declaration came first. TH04's own note

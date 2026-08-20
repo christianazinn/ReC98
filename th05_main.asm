@@ -862,7 +862,7 @@ off_B552	dw offset loc_B33E
 sub_B55A	proc near
 		push	bp
 		mov	bp, sp
-		call	sub_EACE
+		call	@stage_state_reset$qv
 		mov	_stage_frame, 0
 		mov	_bombing_disabled, 0
 		mov	_scroll_line, 0
@@ -2424,6 +2424,22 @@ include th04/hardware/grcg_modecol.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+	; stage_state_reset() (th04/main/stage/reset.cpp) is this proc's
+	; only caller -- all eleven call sites moved there with it, so
+	; nothing in this file references it any more. A bare dump label
+	; is private to its object, so the zero-byte `label` alias below
+	; is the only thing making it reachable, and it costs no bytes
+	; (kb/codegen 0123). The C++ declaration is `extern "C" void
+	; pascal near dwords_clear(void near *dst, int dword_count)`, and
+	; a `pascal` symbol reaches the linker in UPPER case, which is
+	; what TASM must be told literally (kb/codegen 0081, 0086, 0103).
+	;
+	; The proc itself stays assembly: its `mov bx, sp` frame reads
+	; both parameters through SS:BX, which no C++ signature
+	; expresses. th04_main.asm's twin `sub_C34E` differs from it by
+	; one instruction, `xor ax, ax` against `xor eax, eax`.
+	public DWORDS_CLEAR
+	DWORDS_CLEAR label near
 sub_E708	proc near
 		mov	bx, sp
 		push	di
@@ -2462,72 +2478,19 @@ LASER_RH_TEXT	ends
 
 main_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_EACE	proc near
-		push	bp
-		mov	bp, sp
-		xor	ax, ax
-		mov	word_2D05E, ax
-		mov	_hitshot_next_free_id, ax
-		mov	_frames_unused, 0
-		mov	_stage_frame, 0
-		mov	_stage_frame_mod2, 0
-		mov	_stage_frame_mod4, 0
-		mov	_stage_frame_mod8, 0
-		mov	_stage_frame_mod16, 0
-		mov	_slowdown_factor, 1
-		mov	_slowdown_caused_by_bullets, 0
-		mov	_quit, Q_KEEP_RUNNING
-		mov	_palette_changed, 0
-		mov	_bullet_zap_active, 0
-		mov	_stage_graze, 0
-		mov	_circles_color, 13
-		call	grc_setclip pascal, large (PLAYFIELD_LEFT shl 16) or PLAYFIELD_TOP, large ((PLAYFIELD_RIGHT - 1) shl 16) or (PLAYFIELD_BOTTOM - 1)
-		push	offset _hitshots
-		push	size _hitshots / 4
-		call	sub_E708
-		push	offset _lasers
-		push	size _lasers / 4
-		call	sub_E708
-		push	offset _shots
-		push	size _shots / 4
-		call	sub_E708
-		push	offset _enemies
-		push	size _enemies / 4
-		call	sub_E708
-		push	offset _sparks
-		push	size _sparks / 4
-		call	sub_E708
-		push	offset _bullets
-		push	(size _pellets + size _bullets16) / 4
-		call	sub_E708
-		push	offset _custom_entities
-		push	size _custom_entities / 4
-		call	sub_E708
-		push	offset _circles
-		push	size _circles / 4
-		call	sub_E708
-		push	offset _items
-		push	size _items / 4
-		call	sub_E708
-		push	offset _pointnums
-		push	size _pointnums / 4
-		call	sub_E708
-		push	offset _gather_circles
-		push	size _gather_circles / 4
-		call	sub_E708
-		mov	_gather_template.GT_ring_points, 8
-		mov	_gather_template.GT_col, 9
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_velocity.x, 0
-		mov	_gather_template.GT_velocity.y, 0
-		pop	bp
-		retn
-sub_EACE	endp
+	; stage_state_reset() is now a C++ definition at the front of the
+	; th05/main011.cpp object -- th04/main/stage/reset.cpp, the body TH04
+	; has compiled since 2026-08-18, with the arm this game needs. It was
+	; the WHOLE of this dump's contribution to main_TEXT, and that object
+	; is the segment's only other contribution, so it lands at exactly the
+	; address this proc had and the root contribution here is now ZERO
+	; bytes (kb/codegen 0112 + 0114).
+	;
+	; The one call site, in sub_B55A, is respelled against this procdesc
+	; rather than qualified: only the GROUP of the declaring segment
+	; decides the call's frame, and main_TEXT is main_01 like DEMO_TEXT
+	; (kb/codegen 0064, 0082).
+	@stage_state_reset$qv procdesc near
 
 	; enemies_render() is now a C++ definition, the whole of the th05/main011.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it. The module th04/main/enemy/render.asm was shared with th04_main.asm, which stopped including it in bc058d53; with this line gone nothing references it any more and it IS DELETED. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 main_TEXT	ends
@@ -4001,6 +3964,16 @@ SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
 ; Attributes: bp-based frame
 
+	; sub_1214A() (th05/shot_inv.cpp) is this proc's only caller, and
+	; that call site moved into C++ with it, so the zero-byte `label`
+	; alias below is the only thing making it reachable and it costs
+	; no bytes (kb/codegen 0123). The alias is written under the
+	; placeholder's OWN spelling, which names nothing
+	; (kb/conventions/naming-precedents.md §3); the failed search for
+	; both symbols is recorded in
+	; state/notes/th05-main-tail-lifts.md
+	public _sub_12017
+	_sub_12017 label near
 sub_12017	proc near
 
 var_1		= byte ptr -1
@@ -4113,128 +4086,15 @@ locret_12148:
 sub_12017	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1214A
-_sub_1214A label near
-sub_1214A	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		push	si
-		cmp	_player_invincibility_time, 0
-		jz	short loc_12161
-		dec	_player_invincibility_time
-		mov	_player_is_hit, 0
-		jmp	short loc_12188
-; ---------------------------------------------------------------------------
-
-loc_12161:
-		cmp	_player_is_hit, 0
-		jz	short loc_12188
-		mov	_miss_time, MISS_ANIM_FRAMES + DEATHBOMB_WINDOW
-		mov	_player_is_hit, 0
-		mov	_player_invincibility_time, MISS_INVINCIBILITY_FRAMES
-		mov	byte_2CEBD, 48h	; 'H'
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-
-loc_12188:
-		cmp	byte_2CEBD, 0
-		jnz	loc_12224
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-		mov	ax, _key_det
-		and	ax, INPUT_MOVEMENT
-		mov	si, ax
-		mov	[bp+var_1], 1
-
-loc_121A9:
-		call	@player_move$qui pascal, si
-		or	al, al
-		jnz	short loc_121CA
-		cmp	[bp+var_1], 0
-		jz	short loc_121CA
-		cmp	word_2CE9E, si
-		jz	short loc_121CA
-		mov	ax, word_2CE9E
-		not	ax
-		and	si, ax
-		mov	[bp+var_1], 0
-		jmp	short loc_121A9
-; ---------------------------------------------------------------------------
-
-loc_121CA:
-		cmp	_shiftkey, 0
-		jz	short loc_121E7
-		mov	ax, _player_pos.velocity.x
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_player_pos.velocity.x, ax
-		mov	ax, _player_pos.velocity.y
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	_player_pos.velocity.y, ax
-
-loc_121E7:
-		call	@player_pos_update_and_clamp$qv
-		cmp	[bp+var_1], 0
-		jz	short loc_121F4
-		mov	word_2CE9E, si
-
-loc_121F4:
-		test	_key_det.lo, low INPUT_SHOT
-		jz	short loc_12207
-		cmp	_shot_time, 0
-		jnz	short loc_12207
-		mov	_shot_time, SHOT_CYCLE_FRAMES
-
-loc_12207:
-		cmp	_shot_time, SHOT_CYCLE_FRAMES
-		jbe	short loc_12213
-		mov	_shot_time, 0
-
-loc_12213:
-		cmp	_shot_time, 0
-		jz	short loc_1222E
-		call	_playchar_shot_func
-		dec	_shot_time
-		jmp	short loc_1222E
-; ---------------------------------------------------------------------------
-
-loc_12224:
-		push	offset _player_pos
-		call	@PlayfieldMotion@update_seg1$qv
-		dec	byte_2CEBD
-
-loc_1222E:
-		mov	eax, _player_option_pos_cur
-		mov	_player_option_pos_prev, eax
-		mov	eax, _player_pos.cur
-		mov	_player_option_pos_cur, eax
-		mov	ax, _player_pos.velocity.x
-		sub	_player_option_pos_cur.x, ax
-		mov	ax, _player_pos.velocity.y
-		sub	_player_option_pos_cur.y, ax
-		test	_key_det.lo, low INPUT_BOMB
-		jz	short loc_12256
-		call	player_bomb
-
-loc_12256:
-		cmp	_miss_time, 0
-		jz	short loc_12260
-		call	sub_12017
-
-loc_12260:
-		pop	si
-		leave
-		retn
-sub_1214A	endp
+	; sub_1214A() is now a C++ definition at the front of the
+	; th05/shot_inv.cpp object, which is this segment's only other
+	; contribution and therefore lands exactly where this proc ended. It
+	; keeps IDA's spelling: no name has been recovered for it, and the
+	; search that failed is recorded in
+	; state/notes/th05-main-tail-lifts.md
+	; (kb/conventions/naming-precedents.md §3). The `public` that used to
+	; sit here goes with the definition -- the stage loop's call site,
+	; th04/main/stage/loop.cpp, is unchanged either way.
 
 	; player_render() is now a C++ definition at the front of the th05/shot_inv.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. The module was shared with th04_main.asm, which stopped including it in a9e9c817; with this line gone nothing references it any more and it IS DELETED. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
@@ -16996,6 +16856,11 @@ _exalice_overlay_patnum	dw ?
 fp_2CE66	dw ?
 fp_2CE68	dw ?
 include th04/main/hud/overlay[bss].asm
+	; Read and written only by sub_1214A() (th05/shot_inv.cpp).
+	; Published under IDA's own spelling for the same reason the proc
+	; keeps it (kb/conventions/naming-precedents.md §3).
+	public _word_2CE9E
+_word_2CE9E label word
 word_2CE9E	dw ?
 include th04/main/player/pos[bss].asm
 include th05/main/player/speed[bss].asm
@@ -17025,6 +16890,13 @@ _playchar_shot_func	dw ?
 _playchar_shot_funcs	dw ?
 include th04/main/player/shots_alive[bss].asm
 include th05/main/player/hitshot_from[bss].asm
+	; Written to 0 by stage_state_reset() and read by nothing in this
+	; binary. Published under IDA's own spelling so that the C++ side
+	; can spell it too, exactly like _byte_2CEBD above -- a
+	; placeholder's own `public`/`label` pair names nothing
+	; (kb/conventions/naming-precedents.md §3).
+	public _word_2D05E
+_word_2D05E label word
 word_2D05E	dw ?
 byte_2D060	db ?
 		db ?
