@@ -5399,7 +5399,7 @@ loc_10BFA:
 		retn
 sub_10ABF	endp
 
-include th04/main/player/render.asm
+	; player_render() is now a C++ definition in the th04/main_0.cpp object, which is this segment's only other non-empty contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it -- its only caller is C++ -- so no declaration replaces it. The MODULE STILL EXISTS and th05_main.asm still includes it, mid-block inside SHOT_INV_TEXT. This line replaces the `include` rather than deleting it, so the file's length does not change and nothing below is renumbered.
 main_0_TEXT	ends
 
 HUD_OVRL_TEXT	segment	byte public 'CODE' use16
