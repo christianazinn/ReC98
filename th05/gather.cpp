@@ -29,6 +29,13 @@
 // first file in this object to emit a `switch` jump table of its own, which is
 // what the `-zPmain_03` above has always been for; its body is even-length, so
 // nothing below it moves within the object either (kb/codegen 0104 + 0119).
+// ... and explosions_small_reset() above all four, a fifth time — and this one
+// is 0xF bytes, ODD, which moves that jump table onto an odd object offset.
+// kb/codegen/0119 records exactly that combination as its open question; the
+// answer, measured here, is that it costs nothing, because no `-a2` is in
+// effect anywhere in this translation unit.
+#include "th04/main/boss/explosions_reset.cpp"
+
 #include "th04/main/boss/explode_small.cpp"
 
 #include "th05/main/boss/2_explode_small.cpp"
