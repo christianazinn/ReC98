@@ -3747,7 +3747,7 @@ loc_10F86:
 		retn
 sub_10F12	endp
 
-include th05/main/bullet/swords_render.asm
+	SWORDS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of yumeko_fg_render() and shinki_custombullets_render(), so all three keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's own `offset` site resolves against.
 
 	; yumeko_fg_render() now lives in th05/main/boss/b5_fg.cpp, at the
 	; front of the th05/b6cbull.cpp object -- the segment's next
@@ -3764,9 +3764,9 @@ include th05/main/bullet/swords_render.asm
 	; kb/codegen/0121: the body carried no `assume`, and neither does any
 	; other part of this segment, so there is nothing to restore.
 	;
-	; This contribution is INCLUDE-TAILED again: the item ahead is now
-	; th05/main/bullet/swords_render.asm, and its host would be this same
-	; th05/b6cbull.cpp object.
+	; That module is lifted too, so this contribution is CARVE-FREE-TAILED
+	; again: the item ahead is sub_10F12, an ordinary proc, and its host is
+	; this same th05/b6cbull.cpp object.
 
 	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
