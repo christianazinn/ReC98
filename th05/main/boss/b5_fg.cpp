@@ -26,7 +26,9 @@
 #include "th02/v_colors.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/boss/boss.hpp"
-#include "th05/main/boss/bosses.hpp"
+// th05/main/boss/bosses.hpp has no include guard and th05/b6cbull.cpp
+// compiles th05/main/boss/b4_fg.cpp ahead of this file, so that file owns
+// the include for the whole object (kb/codegen/0129).
 
 // Variables for the secondary on-screen boss, still ZUN's assembly
 // (th05/main/boss/vars2[bss].asm). Declared the same way in

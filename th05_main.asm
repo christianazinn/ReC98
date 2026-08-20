@@ -3680,72 +3680,7 @@ loc_10EAE:
 
 include th05/main/bullet/b4balls_render.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_10F12	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10F42
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_10F40:
-		jmp	short loc_10F86
-; ---------------------------------------------------------------------------
-
-loc_10F42:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	si, ax
-		cmp	_boss_sprite, 208
-		jz	short loc_10F57
-		cmp	_boss_sprite, 192
-		jnz	short loc_10F63
-
-loc_10F57:
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	si, ax
-
-loc_10F63:
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_10F76
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_10F40
-; ---------------------------------------------------------------------------
-
-loc_10F76:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-
-loc_10F86:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-sub_10F12	endp
+	B4_FG_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of swords_render(), yumeko_fg_render() and shinki_custombullets_render(), so all four keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST proc of this root contribution. The original published no symbol for it at all, so the name is this campaign's; kb/codegen/0102's UPPER case because the function is pascal, which is what the `offset` site below resolves against.
 
 	SWORDS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of yumeko_fg_render() and shinki_custombullets_render(), so all three keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's own `offset` site resolves against.
 
@@ -3764,9 +3699,9 @@ sub_10F12	endp
 	; kb/codegen/0121: the body carried no `assume`, and neither does any
 	; other part of this segment, so there is nothing to restore.
 	;
-	; That module is lifted too, so this contribution is CARVE-FREE-TAILED
-	; again: the item ahead is sub_10F12, an ordinary proc, and its host is
-	; this same th05/b6cbull.cpp object.
+	; That proc is lifted too (b4_fg_render(), the Stage 4 pair's foreground
+	; renderer), so the item ahead is now an `include` of
+	; th05/main/bullet/b4balls_render.asm: INCLUDE-TAILED once more.
 
 	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
@@ -10085,7 +10020,7 @@ loc_1AF85:
 		mov	_overlay1, offset @overlay_boss_bgm_update_and_rend$qv
 		mov	_boss_phase, PHASE_BOSS_HP_FILL
 		mov	_boss_phase_frame, 0
-		mov	_boss_fg_render, offset sub_10F12
+		mov	_boss_fg_render, offset B4_FG_RENDER
 		mov	_boss_hp, 7900
 
 loc_1AFA7:
