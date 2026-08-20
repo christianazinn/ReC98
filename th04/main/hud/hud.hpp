@@ -56,8 +56,9 @@ static const utram_y_t HUD_GRAZE_Y = 19;
 // ---------
 
 // Renders a HUD bar at ([HUD_LEFT], [y]), filled according to [value] out of
-// BAR_MAX, in the given attribute. Assembly in both games, and `extern "C"`
-// because both spell the export as an undecorated, uppercased `HUD_BAR_PUT`.
+// BAR_MAX, in the given attribute. Assembly in TH05 (th05/hud_bar.asm), C++ in
+// TH04 since th04/main/hud/bar_put.cpp was lifted, and `extern "C"` because
+// both games spell the export as an undecorated, uppercased `HUD_BAR_PUT`.
 #if (GAME == 5)
 extern "C" void pascal near hud_bar_put(
 	utram_y_t y,
