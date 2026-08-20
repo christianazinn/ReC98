@@ -609,7 +609,7 @@ loc_B2DD:
 		call	far ptr	palette_show
 		call	sub_CFEE
 		call	@overlay_wipe$qv
-		call	sub_B55A
+		call	@stage_init$qv
 		nopcall	hud_put
 		call	@eyecatch_animate$qv
 		call	@midboss_reset$qv
@@ -855,50 +855,50 @@ off_B552	dw offset loc_B33E
 		dw offset loc_B34A
 		dw offset loc_B350
 
-; =============== S U B	R O U T	I N E =======================================
+	; stage_init() -- the name a naming round gave TH04's twin sub_B1D0, after
+	; TH02's function in the same role -- was lifted out of here and is now ONE
+	; body shared with that twin, th04/main/stage/init.cpp, under GAME == 5.
+	; th05/demo.cpp #includes it ahead of th04/main/stage/transition.cpp, which
+	; is the address it already had: this proc was the last thing this file
+	; contributed to the segment once stage_transition() moved out, and that
+	; object is the next contribution behind it (kb/codegen 0099 + 0114). No
+	; carve, no new segment name, no group-list edit, no Tupfile.lua line.
+	;
+	; That file used to say the opposite -- that sharing the body "would need a
+	; kb/codegen/0080 carve first" because this proc "sits mid-segment". True
+	; when written and false when read: the two procs below it left in
+	; MATCH-TH05-MAIN-TAILS-1, which made this one the tail. Corrected there.
+	;
+	; IDA carried ZUN's own name for it through as the comment ;CStage::InitChara
+	; on the line directly above the proc -- a genuine artifact of the original
+	; object, and the strongest naming evidence in state/notes/sub_C5B0.md's
+	; dossier. It is RECORDED, not adopted: one shared body can carry only one
+	; name, TH04's half is already stage_init(), and re-opening a landed name is
+	; a naming round's parcel rather than a lift's.
+	;
+	; Four things separate the two games' bodies, and the shared file carries all
+	; four under GAME == 5. This game does not reset [dream_items_collected],
+	; does not call shot_reset() and does not call sub_15D74(); it resets
+	; [shot_time], where TH04 resets nothing; and it writes none of TH04's four
+	; write-only words. sub_16D67 stands in the same slot as TH04's sub_1DA1B
+	; and gains a zero-byte public label alias beside its own proc further down,
+	; so that the shared body can name it (kb/codegen 0123).
+	;
+	; kb/codegen 0121: the body carried no assume of its own, and the segment's
+	; own assume line at its head still covers everything left above it, so
+	; there is nothing to restore.
+	;
+	; The one call site, at the top of this segment, is respelled against the
+	; procdesc below. It stays a NEAR call: the C++ definition lands in this
+	; same segment, at this same address, and DEMO_TEXT is in group main_01.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long, so no line-anchored citation into this file moves -- four same-count
+	; dump edits have now renumbered none.
 
-; Attributes: bp-based frame
-;CStage::InitChara
-sub_B55A	proc near
-		push	bp
-		mov	bp, sp
-		call	@stage_state_reset$qv
-		mov	_stage_frame, 0
-		mov	_bombing_disabled, 0
-		mov	_scroll_line, 0
-		mov	_tile_ring_row_filled, 0
-		mov	_scroll_line_on_page[0 * 2], 0
-		mov	_scroll_line_on_page[1 * 2], 0
-		mov	_scroll_subpixel_line, 0
-		mov	_scroll_lines_pending, 0
-		mov	_scroll_lines_prev_frame, 0
-		mov	_playfield_shake_x, 0
-		mov	_playfield_shake_y, 0
-		mov	_player_pos.cur.x, 192 * 16
-		mov	_player_pos.cur.y, 320 * 16
-		mov	_player_pos.prev.x, 192 * 16
-		mov	_player_pos.prev.y, 320 * 16
-		mov	byte_2CEBD, 0
-		mov	_miss_time, 0
-		mov	_player_is_hit, 0
-		mov	_player_invincibility_time, STAGE_START_INVINCIBILITY_FRAMES
-		mov	_stage_point_items_collected, 0
-		mov	_shot_time, 0
-		mov	_std_update, offset @std_update_frames_then_animate_d$qv
-		mov	_scroll_active, 1
-		nopcall	sub_E4FC
-		call	@randring_fill$qv
-		call	sub_16D67
-		call	@bomb_reset$qv
-		call	_sparks_init
-		call	hud_score_put
-		call	pointnums_init
-		nopcall	hud_put
-		mov	_bg_render_bombing_func, offset @tiles_render_all$qv
-		call	@tiles_invalidate_reset$qv
-		pop	bp
-		retn
-sub_B55A	endp
+	@stage_init$qv procdesc near
+
+
 
 
 	; stage_transition() -- the name th04/main/entry.cpp already used for
@@ -2486,10 +2486,10 @@ main_TEXT	segment	word public 'CODE' use16
 	; address this proc had and the root contribution here is now ZERO
 	; bytes (kb/codegen 0112 + 0114).
 	;
-	; The one call site, in sub_B55A, is respelled against this procdesc
-	; rather than qualified: only the GROUP of the declaring segment
-	; decides the call's frame, and main_TEXT is main_01 like DEMO_TEXT
-	; (kb/codegen 0064, 0082).
+	; The one call site was in sub_B55A, which is itself C++ now; it was
+	; respelled against this procdesc rather than qualified, because only
+	; the GROUP of the declaring segment decides the call's frame, and
+	; main_TEXT is main_01 like DEMO_TEXT (kb/codegen 0064, 0082).
 	@stage_state_reset$qv procdesc near
 
 	; enemies_render() is now a C++ definition, the whole of the th05/main011.cpp object, which is this segment's only other contribution and therefore lands exactly where this `include` ended. Nothing in this dump calls it. The module th04/main/enemy/render.asm was shared with th04_main.asm, which stopped including it in bc058d53; with this line gone nothing references it any more and it IS DELETED. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
@@ -3960,131 +3960,26 @@ PLAYER_P_TEXT	ends
 ; as before, so nothing moves.
 SHOT_INV_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-	; sub_1214A() (th05/shot_inv.cpp) is this proc's only caller, and
-	; that call site moved into C++ with it, so the zero-byte `label`
-	; alias below is the only thing making it reachable and it costs
-	; no bytes (kb/codegen 0123). The alias is written under the
-	; placeholder's OWN spelling, which names nothing
-	; (kb/conventions/naming-precedents.md §3); the failed search for
-	; both symbols is recorded in
+	; sub_12017() is now a C++ definition at the FRONT of the
+	; th05/shot_inv.cpp object, ahead of sub_1214A() below it, which is the
+	; order the two had here. That object is this segment's only other
+	; contribution, so both land at exactly the addresses they had and the
+	; root contribution here is now ZERO bytes (kb/codegen 0112 + 0114).
+	;
+	; It keeps IDA's spelling: no name has been recovered for it, and the
+	; search that failed is recorded in
 	; state/notes/th05-main-tail-lifts.md
-	public _sub_12017
-	_sub_12017 label near
-sub_12017	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		dec	_miss_time
-		cmp	_miss_time, MISS_ANIM_FRAMES
-		ja	locret_12148
-		cmp	_miss_time, MISS_ANIM_FRAMES
-		jnz	short loc_12092
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-		mov	_power_overflow, 0
-		mov	_miss_explosion_radius, 0
-		call	items_miss_add
-		mov	al, _power
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 10h
-		jbe	short loc_12064
-		mov	[bp+var_1], 10h
-
-loc_12064:
-		mov	al, [bp+var_1]
-		sub	_power, al
-		nopcall	sub_E4FC
-		call	snd_se_play pascal, 2
-		cmp	_playperf, 38
-		jbe	short loc_12083
-		mov	_playperf, 38
-
-loc_12083:
-		push	4
-		nopcall	playperf_lower
-		les	bx, _resident
-		inc	es:[bx+resident_t.miss_count]
-
-loc_12092:
-		cmp	_dream, 2
-		jbe	short loc_120B1
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jz	short loc_120A7
-		cmp	_stage_frame_mod2, 0
-		jz	short loc_120B6
-
-loc_120A7:
-		mov	al, _dream
-		add	al, -2
-		mov	_dream, al
-		jmp	short loc_120B6
-; ---------------------------------------------------------------------------
-
-loc_120B1:
-		mov	_dream, 1
-
-loc_120B6:
-		nopcall	hud_dream_put
-		add	_miss_explosion_radius, MISS_EXPLOSION_RADIUS_VELOCITY
-		mov	al, _miss_explosion_angle
-		add	al, MISS_EXPLOSION_ANGLE_VELOCITY
-		mov	_miss_explosion_angle, al
-		cmp	_miss_time, MISS_ANIM_FRAMES - MISS_ANIM_FLASH_AT
-		jnb	short locret_12148
-		cmp	_lives, 1
-		jbe	short loc_120F0
-		test	_miss_time, 1
-		jz	short loc_120E5
-		mov	PaletteTone, 150
-		jmp	short loc_120EB
-; ---------------------------------------------------------------------------
-
-loc_120E5:
-		mov	PaletteTone, 100
-
-loc_120EB:
-		mov	_palette_changed, 1
-
-loc_120F0:
-		cmp	_miss_time, 0
-		jnz	short locret_12148
-		mov	_player_pos.cur.x, 192 * 16
-		mov	_player_pos.prev.x, 192 * 16
-		mov	_player_pos.cur.y, 368 * 16
-		mov	_player_pos.prev.y, 368 * 16
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, -32
-		cmp	_lives, 1
-		jbe	short loc_12142
-		dec	_lives
-		nopcall	hud_lives_put
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	_bombs, al
-		nopcall	hud_bombs_put
-		mov	_bullet_clear_time, 32
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12142:
-		call	@gameover$qv
-		mov	_quit, al
-
-locret_12148:
-		leave
-		retn
-sub_12017	endp
-
+	; (kb/conventions/naming-precedents.md section 3). The zero-byte public
+	; label alias that used to sit above the proc went with it -- it existed
+	; only so that sub_1214A() could name the placeholder from C++
+	; (kb/codegen 0123), and a real C++ definition exports _sub_12017
+	; itself. Nothing in this dump ever called it; sub_1214A() was and is
+	; its only caller, and that caller is C++ too.
+	;
+	; kb/codegen 0121: the body carried no assume of its own, and this
+	; segment has no other code left to cover, so there is nothing to
+	; restore.
 
 	; sub_1214A() is now a C++ definition at the front of the
 	; th05/shot_inv.cpp object, which is this segment's only other
@@ -5915,9 +5810,9 @@ main_033_TEXT	segment	byte public 'CODE' use16
 		target_x:word, target_y:word
 
 ; =============== S U B	R O U T	I N E =======================================
-
+		public _sub_16D67
 ; Attributes: bp-based frame
-
+_sub_16D67 label far
 sub_16D67	proc far
 		push	bp
 		mov	bp, sp

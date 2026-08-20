@@ -14,20 +14,42 @@
 /// th04/main/stage/reset.cpp, whose prose called this function "the per-stage
 /// initialization function" back while it was still assembly.
 ///
-/// TH05's twin is `sub_B55A`: the same body in the same order, minus
-/// [dream_items_collected], shot_reset() and the four write-only words below,
-/// and with a [shot_time] reset where TH04 has none. It is deliberately NOT
-/// shared -- it sits mid-segment in th05_main.asm and would need a
-/// kb/codegen/0080 carve first, and this file is compiled into TH04's MAIN.EXE
-/// alone, so a `#if (GAME == 5)` arm here would never be graded by the oracle.
-/// Same rule, and same reason, that th04/main/stage/reset.cpp states.
+/// TH05's twin is sub_B55A, and this file is now SHARED with it under
+/// `#if (GAME == 5)`: the same body in the same order, minus
+/// [dream_items_collected], shot_reset(), sub_15D74() and the four write-only
+/// words below, and with a [shot_time] reset where TH04 has none.
 ///
-/// (#included from th04/demo.cpp, AHEAD of th04/main/stage/transition.cpp,
-/// because this function is now the last thing th04_main.asm contributes to
-/// DEMO_TEXT. Growing that object backwards once more puts the body back at
-/// its original address and moves nothing else (kb/codegen 0099 + 0114); no
-/// carve, no new segment name, no Tupfile.lua line -- the third lift this one
-/// wrapper has absorbed on those terms, after pause() and stage_transition().)
+/// This paragraph used to say the opposite -- that the TH05 half was
+/// "deliberately NOT shared" because sub_B55A "sits mid-segment in
+/// th05_main.asm and would need a kb/codegen/0080 carve first", and because
+/// Tupfile.lua compiles this source for TH04 alone so a GAME == 5 arm "would
+/// never be graded by the oracle". Both halves expired without being
+/// re-measured. MATCH-TH05-MAIN-TAILS-1 lifted the two procs that followed
+/// sub_B55A out of DEMO_TEXT, which left it the carve-free TAIL of that root
+/// contribution rather than something mid-segment; and th05/demo.cpp #includes
+/// this file exactly the way th05/main011.cpp already #includes
+/// th04/main/stage/reset.cpp, which is what puts the TH05 arm in front of the
+/// oracle. Transferable, and the second time this rule has been paid for after
+/// sub_EACE (state/notes/th05-main-tail-lifts.md): a "needs a carve" verdict is
+/// a statement about what FOLLOWS a proc, and every lift in the same segment
+/// can retire it.
+///
+/// ZUN's own name for the TH05 half survives in th05_main.asm as an IDA comment
+/// spelling a CStage method, InitChara, immediately above the proc, and
+/// state/notes/sub_C5B0.md section 2 calls it the best naming evidence in its
+/// dossier. It is recorded, NOT adopted: stage_init() is the name a naming
+/// round already gave TH04's half from TH02's function in the same role, one
+/// shared body can only carry one name, and re-opening it is a naming round's
+/// parcel and not a lift's.
+///
+/// (#included from th04/demo.cpp and th05/demo.cpp, AHEAD of
+/// th04/main/stage/transition.cpp in both, because this function is now the
+/// last thing either dump contributes to DEMO_TEXT. Growing that object
+/// backwards once more puts the body back at its original address and moves
+/// nothing else (kb/codegen 0099 + 0114); no carve, no new segment name, no
+/// Tupfile.lua line -- the third lift the TH04 wrapper has absorbed on those
+/// terms, after pause() and stage_transition(), and the third the TH05 one
+/// has.)
 ///
 /// Being textually first in that translation unit, this file may only reach
 /// GUARDED headers, and owns every unguarded one it would pull. th04/main/
@@ -54,14 +76,32 @@ extern bool player_is_hit;
 extern unsigned char player_invincibility_time;
 extern bool bombing_disabled;
 extern int tile_ring_row_filled;
-extern unsigned char stage_point_items_collected;
-extern unsigned char dream_items_collected;
+// TH04 stores this in a single byte, TH05 in a word -- the same split
+// th04/main/item/item.hpp already carries, respelled here because this file may
+// not reach an unguarded header. Getting it wrong is not a warning: the reset
+// below is the ONLY use of the variable in this body, so the type shows up as
+// nothing but a word-store opcode against a byte-store one, and a one-byte
+// shift of every instruction after it. Measured, one build cycle.
+#if (GAME == 5)
+	extern unsigned int stage_point_items_collected;
+#else
+	extern unsigned char stage_point_items_collected;
+#endif
+#if (GAME == 4)
+	extern unsigned char dream_items_collected;
+#else
+	// TH05 resets this one where TH04 does not; th04/main/player/shot.hpp
+	// declares it for everyone else, and this file may not reach a header.
+	extern unsigned char shot_time;
+#endif
 extern bool (near* std_update)(void);
 extern nearfunc_t_near bg_render_bombing_func;
 
 bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 void near stage_state_reset(void);
-void near shot_reset(void);
+#if (GAME == 4)
+	void near shot_reset(void);
+#endif
 void near bomb_reset(void);
 void near tiles_invalidate_reset(void);
 void pascal near tiles_render_all(void);
@@ -82,42 +122,64 @@ extern "C" void pascal hud_put(void);
 // header that carries it.
 static const int STAGE_START_INVINCIBILITY_FRAMES = 64;
 
-// Four words that this function is the ONLY writer of, and that nothing in
-// either TH04 dump or anywhere in the tree ever reads. `[measured]` -- the
-// four assignments below and the `dw ?` definitions in th04_main.asm's _BSS
-// are their complete reference set.
-//
-// The name therefore records the only two facts the binary supports -- this
-// function writes them, nothing reads them -- and asserts nothing else. ZUN
-// bloat, named exactly as th04_main.asm's own [shot_unused] is named for
-// shot_reset(), which is TH02's [scroll_unused_2] device in turn.
-// ---------------------------------------------------------------------
-extern "C" uint16_t stage_init_unused_0;
-extern "C" uint16_t stage_init_unused_1;
-extern "C" uint16_t stage_init_unused_2;
-extern "C" uint16_t stage_init_unused_3;
+#if (GAME == 4)
+	// Four words that this function is the ONLY writer of, and that nothing in
+	// either TH04 dump or anywhere in the tree ever reads. `[measured]` -- the
+	// four assignments below and the `dw ?` definitions in th04_main.asm's _BSS
+	// are their complete reference set. TH05 does not have them at all.
+	//
+	// The name therefore records the only two facts the binary supports -- this
+	// function writes them, nothing reads them -- and asserts nothing else. ZUN
+	// bloat, named exactly as th04_main.asm's own [shot_unused] is named for
+	// shot_reset(), which is TH02's [scroll_unused_2] device in turn.
+	// ---------------------------------------------------------------------
+	extern "C" uint16_t stage_init_unused_0;
+	extern "C" uint16_t stage_init_unused_1;
+	extern "C" uint16_t stage_init_unused_2;
+	extern "C" uint16_t stage_init_unused_3;
+#endif
 // ---------------------------------------------------------------------
 
 // The frames during which a miss locks the player out of moving.
 // th04/main/player/bomb.cpp, which reads it, spells the same two lines and is
-// where this name comes from; th04_main.asm still names the variable itself
-// after its address, and publishes a zero-byte alias for both callers.
-extern "C" unsigned char byte_259A3;
-#define miss_move_lock_time byte_259A3
+// where this name comes from; each dump still names the variable itself after
+// its address and publishes a zero-byte alias for every caller. TH05's copy is
+// byte_2CEBD, and th05/shot_inv.cpp spells that half of the alias already.
+#if (GAME == 4)
+	extern "C" unsigned char byte_259A3;
+	#define miss_move_lock_time byte_259A3
+#else
+	extern "C" unsigned char byte_2CEBD;
+	#define miss_move_lock_time byte_2CEBD
+#endif
 
-// Two far functions that this body was the only ASM caller of in the whole
-// dump, reached through the zero-byte aliases th04_main.asm now publishes
-// beside them (kb/codegen/0123). Neither body was read for this parcel and
-// neither is named here, because a call site is not evidence of what a
-// function does; both keep the spelling the dump gives them.
-extern "C" void far sub_1DA1B(void);
-extern "C" void far sub_15D74(void);
+// Far functions that this body was the only ASM caller of in the whole dump,
+// reached through the zero-byte aliases each dump publishes beside them
+// (kb/codegen/0123). No body was read for this parcel and none is named here,
+// because a call site is not evidence of what a function does; all of them keep
+// the spelling their dump gives them. TH04 calls two, TH05 only one -- and
+// TH05's sub_16D67 sits in the same slot as TH04's sub_1DA1B, between
+// randring_fill() and bomb_reset().
+#if (GAME == 4)
+	extern "C" void far sub_1DA1B(void);
+	extern "C" void far sub_15D74(void);
+#else
+	extern "C" void far sub_16D67(void);
+#endif
 
 // Derives [shot_level] from [power], installs [playchar_shot_func] and
 // tail-calls hud_power_put(); still ASM, and still deliberately unnamed. The
-// failed search is recorded in state/notes/th04_continue_prompt.md, and
-// th04/main/continue.cpp spells this same declaration for the same reason.
-extern "C" void near sub_11DE6(void);
+// failed search is recorded in state/notes/th04_continue_prompt.md for TH04 and
+// in state/notes/th05_continue_prompt.md for TH05, and th04/main/continue.cpp
+// and th05/main/continue.cpp spell these same declarations for the same reason.
+// The two bodies are identical instruction for instruction
+// (state/notes/th04-main-sub-11DE6.md); naming them is one parcel covering both
+// games and every call site, and it is not this one.
+#if (GAME == 4)
+	extern "C" void near sub_11DE6(void);
+#else
+	extern "C" void near sub_E4FC(void);
+#endif
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
 // `nop; push cs; call near ptr`, which no plain C++ far call reproduces.
@@ -146,26 +208,40 @@ void near stage_init(void)
 	player_pos.cur.y.v = (320 * 16);
 	player_pos.prev.x.v = (192 * 16);
 	player_pos.prev.y.v = (320 * 16);
+#if (GAME == 4)
 	stage_init_unused_0 = 0x40;
 	stage_init_unused_1 = 0x40;
 	stage_init_unused_2 = 0x30;
 	stage_init_unused_3 = 0x30;
+#endif
 	miss_move_lock_time = 0;
 	miss_time = 0;
 	player_is_hit = false;
 	player_invincibility_time = STAGE_START_INVINCIBILITY_FRAMES;
 	stage_point_items_collected = 0;
+#if (GAME == 4)
 	dream_items_collected = 0;
+#else
+	shot_time = 0;
+#endif
 	std_update = std_update_frames_then_animate_dialog_and_activate_boss_if_done;
 	scroll_active = true;
+#if (GAME == 4)
 	shot_reset();
 	nopcall_same_group(sub_11DE6);
 	randring_fill();
 	sub_1DA1B();
+#else
+	nopcall_same_group(sub_E4FC);
+	randring_fill();
+	sub_16D67();
+#endif
 	bomb_reset();
 	sparks_init();
 	hud_score_put();
+#if (GAME == 4)
 	sub_15D74();
+#endif
 	pointnums_init();
 	nopcall_same_group(hud_put);
 	bg_render_bombing_func = tiles_render_all;
