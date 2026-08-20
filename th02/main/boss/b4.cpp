@@ -93,27 +93,227 @@ extern "C" bool16 near marisa_1AC7B(void);
 extern "C" void near marisa_1AD80(int orb_i);
 extern "C" void near marisa_1AE98(void);
 extern "C" void near marisa_1B025(void);
+
+// The other cast-cel stepper. Same job as marisa_1B665() below, but with the
+// five cel changes wired to fixed [boss_phase_frame] values instead of to a
+// parameter, and with the middle three playing a different sound. Called by
+// marisa_1B24A(), which is still in the dump, as well as by marisa_1B35F()
+// below.
+extern "C" void near marisa_1B19D(void);
+
 extern "C" void near marisa_1B24A(void);
 extern "C" void near marisa_1B2E9(void);
-extern "C" void near marisa_1B35F(void);
-extern "C" void near marisa_1B3DE(void);
-extern "C" void near marisa_1B477(void);
-extern "C" void near marisa_1B555(void);
 /// --------------------------
 
 
-/// The two angle accumulators the patterns below sweep their aim with
+/// The angle accumulators the patterns below sweep their aim with
 /// -------------------------------------------------------------------
-/// Both are `db` slots in th02_main.asm's own spelling, address-suffixed
+/// All three are `db` slots in th02_main.asm's own spelling, address-suffixed
 /// rather than IDA placeholders, and each is read and written by exactly one
-/// of the patterns below - [angle_26D87] by marisa_1B6DA(), [angle_26D88] by
-/// marisa_1B7D3(). Retiring the address suffix would be a rename of a slot no
-/// other function touches, which this parcel does not need to make in order to
-/// lift the two bodies.
+/// of the patterns below - [angle_26D80] by marisa_1B35F(), [angle_26D87] by
+/// marisa_1B6DA(), [angle_26D88] by marisa_1B7D3(). Retiring the address
+/// suffix would be a rename of a slot no other function touches, which this
+/// parcel does not need to make in order to lift the bodies.
+///
+/// [marisa_swoop_angle] is deliberately NOT in this class even though it is
+/// the same kind of `db` slot: it is not an aim accumulator but one of the
+/// four slots of a single mechanism whose other three are IDA placeholders,
+/// so this parcel has to rule on them anyway and leaving the fourth
+/// address-suffixed would split one decision across two spellings.
 
+extern "C" uint8_t angle_26D80;
 extern "C" uint8_t angle_26D87;
 extern "C" uint8_t angle_26D88;
 /// -------------------------------------------------------------------
+
+
+// [marisa_pattern] case -3, one of the three she only uses once all four orbs
+// are gone. Frame 50 arms the drifting-star motion and picks a random aim
+// angle; from frame 100, every 4th frame fires one star from her lower-left
+// corner and turns the aim by 0x2B. [boss_phase_frame] wraps at 130, so the
+// arming branch runs again on every wrap and the stream keeps curving the
+// other way.
+extern "C" void near marisa_1B35F(void)
+{
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	marisa_1B19D();
+	if(boss_phase_frame == 50) {
+		angle_26D80 = randring2_next8();
+		bullet_special.u1.drift_angle = marisa_star_drift_angle;
+		bullet_special.u2.drift_speed.v = 2;
+		bullet_special.u3.drift_frames = 128;
+		marisa_star_drift_angle = (marisa_star_drift_angle * -1);
+	} else if(boss_phase_frame == 130) {
+		boss_phase_frame = 0;
+	}
+	if(boss_phase_frame < 100) {
+		return;
+	}
+	if((boss_phase_frame & 3) != 0) {
+		return;
+	}
+	bullets_add_16x16(
+		(marisa_topleft.x + 44),
+		(marisa_topleft.y + 64),
+		angle_26D80,
+		BSM_DRIFT_ANGLE_AND_SPEED,
+		PAT_BULLET16_STAR,
+		((2 << 4) + 8)
+	);
+	angle_26D80 += 0x2B;
+}
+
+
+// Places every orb that is still alive at its current polar position around
+// Marisa's center, and advances its angle by that orb's own delta. Called from
+// marisa_bg_render() rather than from any pattern, so the ring keeps turning
+// through all eleven of them.
+extern "C" void near marisa_1B3DE(void)
+{
+	register int i;
+
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		if(marisa_orb_flag[i] == MOF_ALIVE) {
+			marisa_orb_angle[i] += marisa_orb_angle_delta[i];
+
+			// `[measured]` A 32-bit multiply, from `movsx eax` on both
+			// operands: the products reach 0x7F00 for a ring at radius 127 and
+			// would still fit in 16 bits, but ZUN wrote the same
+			// `(radius * table) >> 8` shape everywhere and Turbo C++ 4.0J
+			// widens both sides of it.
+			*marisa_orb_left_on_back_page[i] = (
+				(
+					((long)(marisa_orb_radius[i]) *
+					CosTable8[marisa_orb_angle[i]]) >> 8
+				) + marisa_topleft.x + 32
+			);
+			*marisa_orb_top_on_back_page[i] = (
+				(
+					((long)(marisa_orb_radius[i]) *
+					SinTable8[marisa_orb_angle[i]]) >> 8
+				) + marisa_topleft.y + 32
+			);
+		}
+	}
+}
+
+
+// [marisa_pattern] case 0, and also the whole of [marisa_intro_step] 1. Spawns
+// the four orbs at the cardinal directions on frame 130 and then grows the
+// ring outwards at 2 pixels per frame; the pattern itself ends at frame 154,
+// so only 24 frames of that growth happen here and every later pattern
+// inherits whatever radius it left behind.
+extern "C" void near marisa_1B477(void)
+{
+	int i;
+	register screen_x_t center_x;
+	register screen_y_t center_y;
+
+	if(boss_phase_frame < 100) {
+		return;
+	}
+	if(boss_phase_frame == 100) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+	} else if(boss_phase_frame == 130) {
+		center_x = (marisa_topleft.x + 32);
+		center_y = (marisa_topleft.y + 32);
+		for(i = 0; i < MARISA_ORB_COUNT; i++) {
+			marisa_orb_flag[i] = MOF_ALIVE;
+			marisa_orb_angle[i] = (i << 6);
+			marisa_orb_radius[i] = 8;
+			marisa_orb_angle_delta[i] = 2;
+
+			// Both pages, so that the first frame of the ring does not blit
+			// from an uninitialized front-page position.
+			marisa_orb_left_on_page[0][i] = center_x;
+			marisa_orb_left_on_page[1][i] = center_x;
+			marisa_orb_top_on_page[0][i] = center_y;
+			marisa_orb_top_on_page[1][i] = center_y;
+		}
+	} else if(boss_phase_frame == 154) {
+		patnum_2064E = 128;
+		boss_phase_frame = 0;
+	}
+	if(boss_phase_frame <= 130) {
+		return;
+	}
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		marisa_orb_radius[i] += 2;
+	}
+}
+
+
+// [marisa_pattern] case 1. Marisa flies one full circle around the point she
+// was standing on, firing a pellet every 16th frame - from a random orb while
+// any of them are alive, and from her own upper-right corner as well once they
+// are all gone. This is the one pattern marisa_update() does not run
+// marisa_1BE72() after, because the circle is her movement.
+extern "C" void near marisa_1B555(void)
+{
+	register int orb_i;
+
+	if(boss_phase_frame < 10) {
+		return;
+	}
+	if(boss_phase_frame == 10) {
+		marisa_swoop_direction = (
+			((marisa_topleft.x + 32) < player_topleft.x) ? 1 : -1
+		);
+		marisa_swoop_center_x = marisa_topleft.x;
+		marisa_swoop_center_y = (marisa_topleft.y + MARISA_SWOOP_RADIUS);
+		marisa_swoop_angle = -0x40;
+	}
+	marisa_swoop_angle += marisa_swoop_direction;
+
+	// Written through the page-indexed pointers and then read straight back
+	// into [marisa_topleft], the same two-step marisa_1BE72() uses.
+	*boss_left_on_back_page = (
+		((CosTable8[marisa_swoop_angle] * (long)(MARISA_SWOOP_RADIUS)) >> 8) +
+		marisa_swoop_center_x
+	);
+	*boss_top_on_back_page = (
+		((SinTable8[marisa_swoop_angle] * (long)(MARISA_SWOOP_RADIUS)) >> 8) +
+		marisa_swoop_center_y
+	);
+	marisa_topleft.x = *boss_left_on_back_page;
+	marisa_topleft.y = *boss_top_on_back_page;
+
+	if((boss_phase_frame & 0x0F) == 0) {
+		orb_i = randring2_next8_and(3);
+		if(marisa_orb_flag[orb_i] == MOF_ALIVE) {
+			bullets_add_pellet(
+				(*marisa_orb_left_on_back_page[orb_i] + 12),
+				(*marisa_orb_top_on_back_page[orb_i] + 12),
+				0,
+				BG_1_AIMED,
+				(5 << 4)
+			);
+		}
+
+		// ZUN quirk: the orb index decides whether Marisa fires as well, even
+		// though no orb is left to pick at this point. The random draw is
+		// still made, and still thrown away 3 times out of 4, so this shot
+		// comes out at a quarter of the rate the branch above it reads as.
+		if(
+			(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) &&
+			(orb_i < 1)
+		) {
+			bullets_add_pellet(
+				(marisa_topleft.x + 64),
+				(marisa_topleft.y + 16),
+				0,
+				BG_3_SPREAD_NARROW_AIMED,
+				(5 << 4)
+			);
+		}
+	}
+	if(boss_phase_frame >= 266) {
+		boss_phase_frame = 0;
+	}
+}
 
 
 // Steps [patnum_2064E] through Marisa's five cast cels at fixed offsets from
@@ -488,19 +688,24 @@ extern "C" void near marisa_1BAFF(void)
 // in the dump; it stopped being needed once marisa_1BC43() (0x22F) and
 // marisa_1BE72() (0x80) were both emitted here, for a prefix of 0x2AF.
 //
-// This parcel adds the five patterns above, and the parity is checked the same
-// way - by adding up the map's own lengths for the bodies this object emits
-// ahead of marisa_update(), never by counting dump bytes:
+// Every parcel that prepends a body here re-checks the parity the same way -
+// by adding up the map's own lengths for everything this object emits ahead of
+// marisa_update(), never by counting dump bytes:
 //
-//	0x075 marisa_1B665  0x0F9 marisa_1B6DA  0x1C3 marisa_1B7D3
-//	0x169 marisa_1B996  0x144 marisa_1BAFF  0x22F marisa_1BC43
-//	0x080 marisa_1BE72                      = 0x88D, odd.
+//	0x07F marisa_1B35F  0x099 marisa_1B3DE  0x0DE marisa_1B477
+//	0x110 marisa_1B555  0x075 marisa_1B665  0x0F9 marisa_1B6DA
+//	0x1C3 marisa_1B7D3  0x169 marisa_1B996  0x144 marisa_1BAFF
+//	0x22F marisa_1BC43  0x080 marisa_1BE72          = 0xB93, odd.
 //
-// Three of the five bodies are an odd number of bytes long, so the batch is
-// not parity-free at every depth: stopping after marisa_1B996 or after
-// marisa_1B6DA would have left an EVEN prefix and silently dropped the pad
-// under a function this parcel never edits. That failure is invisible to a
+// Six of the eleven bodies are an odd number of bytes long, so a chain of them
+// is not parity-free at every depth. Of the four this parcel adds, only the
+// depths after marisa_1B477() and after marisa_1B35F() are safe; stopping
+// after marisa_1B3DE() would have left an EVEN prefix and silently dropped the
+// pad under a function the parcel never edits. That failure is invisible to a
 // per-function funcdiff, which is kb/codegen/0119's whole point.
+//
+// The next body up, marisa_1B2E9(), is 0x076 and so lands on 0xC09, odd - the
+// next lane inherits a safe single step rather than a forced pair.
 
 
 // Marisa's star pattern, [marisa_pattern] case 4. Nothing happens for the first
