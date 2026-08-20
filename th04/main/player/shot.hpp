@@ -159,6 +159,16 @@ extern shot_alive_t near shots_alive[SHOT_COUNT];
 // more free ones.
 Shot near* near shots_add(void);
 
+#if (GAME == 4)
+// Moves every shot, frees the ones that left the playfield or finished their
+// decay animation, and caches the live ones into [shots_alive]. Also tracks
+// [shot_laser_bottomcenter] and counts [shot_laser_time] down. Same name as
+// TH03's function in the same role (th03/main/player/shot.cpp); TH05's
+// counterpart is the still-unnamed sub_1240B(), a bigger body that also
+// branches per shottype.
+void near shots_update(void);
+#endif
+
 // Processes collisions of all shots against the shot_hitbox, decays any
 // colliding shots, and returns the total amount of damage dealt.
 int shots_hittest(void);

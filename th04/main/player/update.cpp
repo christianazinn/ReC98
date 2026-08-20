@@ -42,7 +42,11 @@ extern "C" unsigned int word_2598C;
 // named pointer. Set from the shottype together with the movement speeds.
 extern "C" void (near *playchar_shot_func)(void);
 
-// The miss animation, still ASM ahead of this object in the same segment.
+// The miss animation. A C++ definition since MATCH-TH04-MAIN-CARVE-TAILS-2,
+// in th04/main/player/miss.cpp, which th04/main_0.cpp includes ahead of this
+// file -- so this declaration is now a re-declaration of something already
+// defined in the same object, kept because it is also what documents the
+// call below.
 extern "C" void near sub_10988(void);
 
 extern "C" void near sub_10ABF(void)

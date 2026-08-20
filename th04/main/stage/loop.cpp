@@ -155,7 +155,12 @@ extern "C" void pascal near bullets_render(void);
 	void near bomb_update_and_render(void);
 
 	extern "C" void near sub_10ABF(void);
-	extern "C" void near sub_104B6(void);
+
+	// Not from th04/main/player/shot.hpp, for the reason the block above
+	// gives: that header reaches th04/main/player/player.hpp, and this file
+	// declares rather than includes. TH05's counterpart in this slot is the
+	// still-unnamed sub_1240B() above.
+	void near shots_update(void);
 
 	// # of frames between two playperf_raise() calls at the lowest and the
 	// highest life count. TH05 uses a constant interval instead.
@@ -206,7 +211,7 @@ void near stage_loop(void)
 			lasers_update();
 		#else
 			sub_10ABF();
-			sub_104B6();
+			shots_update();
 		#endif
 		bullets_update();
 		enemies_update();

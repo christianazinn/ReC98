@@ -4847,92 +4847,92 @@ SHOT_INV_TEXT	ends
 ; `#pragma codestring` pad is needed either.
 main__TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_104B6
-_sub_104B6 label near
-sub_104B6	proc near
-
-@@i		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_shots_alive_count, 0
-		mov	si, offset _shots
-		mov	di, offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	short loc_1052D
-; ---------------------------------------------------------------------------
-
-loc_104CF:
-		cmp	[si+shot_t.flag], SF_REMOVE
-		jb	short loc_104D7
-		mov	[si+shot_t.flag], SF_FREE
-
-loc_104D7:
-		cmp	[si+shot_t.flag], SF_FREE
-		jz	short loc_10527
-		lea	ax, [si+shot_t.pos]
-		call	@PlayfieldMotion@update_seg1$qv pascal, ax
-		cmp	ax, (-(SHOT_W / 2) shl 4)
-		jle	short loc_104F8
-		cmp	ax, ((PLAYFIELD_W + (SHOT_W / 2)) shl 4)
-		jge	short loc_104F8
-		cmp	dx, (-(SHOT_H / 2) shl 4)
-		jle	short loc_104F8
-		cmp	dx, ((PLAYFIELD_H + (SHOT_H / 2)) shl 4)
-		jl	short loc_104FD
-
-loc_104F8:
-		mov	[si+shot_t.flag], SF_REMOVE
-		jmp	short loc_10527
-; ---------------------------------------------------------------------------
-
-loc_104FD:
-		cmp	[si+shot_t.flag], SF_ALIVE
-		jbe	short loc_10515
-		inc	[si+shot_t.flag]
-		mov	al, [si+shot_t.flag]
-		mov	ah, 0
-		and	ax, (HITSHOT_FRAMES_PER_CEL - 1)
-		cmp	ax, SF_HIT
-		jnz	short loc_10527
-		inc	[si+shot_t.patnum_base]
-		jmp	short loc_10527
-; ---------------------------------------------------------------------------
-
-loc_10515:
-		mov	[di+shot_alive_t.SA_pos.x], ax
-		mov	[di+shot_alive_t.SA_pos.y], dx
-		mov	[di+shot_alive_t.SA_shot], si
-		add	di, size shot_alive_t
-		inc	_shots_alive_count
-		inc	[si+shot_t.SHOT_age]
-
-loc_10527:
-		inc	[bp+@@i]
-		add	si, size shot_t
-
-loc_1052D:
-		cmp	[bp+@@i], SHOT_COUNT
-		jl	short loc_104CF
-		cmp	_shot_laser_time, 0
-		jz	short loc_1054E
-		mov	eax, _shot_laser_bottomcenter.cur
-		mov	_shot_laser_bottomcenter.prev, eax
-		mov	eax, _player_option_pos_cur
-		mov	_shot_laser_bottomcenter.cur, eax
-		dec	_shot_laser_time
-
-loc_1054E:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_104B6	endp
+	; shots_update() -- one frame of every shot -- was lifted out of here and
+	; is now th04/main/player/shots_update.cpp. th04/main_.cpp #includes it at
+	; the very FRONT, ahead of the shots_render() body an earlier parcel put
+	; there: this proc became main__TEXT's carve-free tail the moment
+	; shots_render() left, so the object grew backwards into the hole a third
+	; time and every byte above it kept its address (kb/codegen 0099 + 0112 +
+	; 0114). No carve, no new segment name, no group-list edit and no
+	; Tupfile.lua line.
+	;
+	; THE ROOT DUMP'S CONTRIBUTION TO main__TEXT IS NOW EMPTY. This block and
+	; the two below it emit nothing, and th04/main_.cpp is the segment's only
+	; remaining source of bytes. The segment BLOCK stays anyway: the
+	; @shots_hittest$qv procdesc below has to be declared inside the segment
+	; it describes (kb/codegen/0082), and TASM has nowhere else to put it.
+	;
+	; THE NAME IS UPSTREAM'S OWN, so no placeholder reached the C++ and
+	; kb/conventions/naming-precedents.md 3 owes nothing here. TH03's function
+	; in the identical role is shots_update() (th03/main/player/shot.cpp,
+	; published as @shots_update$qv by th03_main.asm) -- the top tier of that
+	; file's pin hierarchy, solved code in-tree. And
+	; th04/main/player/shots_hittest.cpp had ALREADY named it one parcel
+	; earlier, in "the [shots_alive] cache built by shots_update()": a comment
+	; naming a symbol that exists nowhere is the mirror-image defect that same
+	; section warns about, and this lift discharges it. TH05's counterpart,
+	; sub_1240B(), keeps IDA's spelling -- a bigger body, not carve-free, and
+	; naming it is the job of whichever parcel lifts it.
+	;
+	; The public _sub_104B6 and its kb/codegen/0123 zero-byte alias left with
+	; the body -- the C++ definition publishes @shots_update$qv itself.
+	; Nothing in this file ever called it, so no procdesc replaces the deleted
+	; public and no call site anywhere moved. th04/main/stage/loop.cpp, the
+	; only caller in either game, swapped its local extern "C" declaration of
+	; the placeholder for one of the real name.
+	;
+	; TWO SYMBOLS LOST THEIR ENTIRE REFERENCE SET IN THIS FILE when the body
+	; left: _shots_alive and _shots_alive_count were read and written here and
+	; nowhere else in th04_main.asm. Neither needed anything doing, because
+	; neither is DEFINED here -- th04/main/player/shots_alive[bss].asm owns
+	; both and has published them since before shots_hittest() went to C++.
+	; _shot_laser_bottomcenter, _player_option_pos_cur, _shot_laser_time and
+	; _shots all keep other references in this file and are untouched.
+	;
+	; WHAT THE BODY DID, measured here rather than left to the C++ to assert:
+	;
+	;   1) A shot whose [flag] has run past SF_REMOVE frees its slot at the
+	;      TOP of the next frame, not at the bottom of the one that ended its
+	;      decay animation. SF_REMOVE therefore survives one whole frame, and
+	;      shots_render() skips it for that frame while shots_hittest()
+	;      cannot see it at all.
+	;
+	;   2) The new position is read back out of AX and DX rather than from
+	;      the Shot: PlayfieldMotion::update_seg1() returns it in that pair,
+	;      and all four bounds compares are signed (jle/jge/jle/jl) against
+	;      the registers. th05/main/stage/stages.cpp's particle loop is the
+	;      same shape with the same _AX/_DX read-back, casts included.
+	;
+	;   3) A HITSHOT IS NEVER CACHED. [flag] doubles as the decay animation's
+	;      own frame counter, so the branch that advances it also skips the
+	;      [shots_alive] store -- which is what stops a hitshot from hitting
+	;      anything a second time. Its sprite advances every
+	;      HITSHOT_FRAMES_PER_CEL-th frame, tested as (flag & 3) == SF_HIT.
+	;
+	;   4) The option laser is tracked AFTER the loop and is not a Shot: it
+	;      has no slot in [shots], and [shot_laser_time] keeps counting down
+	;      through SHOT_LASER_COOLDOWN_FRAMES long after shots_render() has
+	;      stopped drawing it.
+	;
+	; THE FRAME IS ONE WORD AND TWO REGISTERS. [i] is the only stack local;
+	; SI holds the Shot pointer and DI the [shots_alive] write pointer, in
+	; that declaration order (kb/codegen/0146). The two 32-bit moves at the
+	; foot are a plain 4-byte struct assignment each -- the same shape
+	; th04/main/player/update.cpp already emits for player_option_pos_prev.
+	;
+	; kb/codegen/0094 DECIDED ONE INSTRUCTION HERE and would otherwise have
+	; cost a build cycle. The inc of [si+shot_t.flag] is the ++ spelling and
+	; only that one; assigning (flag + 1) back emits the three-instruction AL
+	; round trip instead, measured through tcc -S before any build ran. C++
+	; has no ++ for an enum, so the C++ casts the lvalue to unsigned char
+	; first, the way th04/main/bullet/update.cpp already does for [move_flag].
+	;
+	; kb/codegen/0121: the body carried no assume of its own.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long -- 86 lines -- so no line-anchored citation into this file moves.
+	; The count is asserted by the edit script rather than eyeballed; see
+	; state/notes/th04-main-carve-tails-2.md.
 
 
 	; shots_render() -- every live shot, plus the option laser ahead of them
@@ -5150,116 +5150,116 @@ PLAYER_P_TEXT	ends
 
 main_0_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-		public _sub_10988
-; Attributes: bp-based frame
-_sub_10988 label near
-sub_10988	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		dec	_miss_time
-		cmp	_miss_time, MISS_ANIM_FRAMES
-		ja	locret_10ABD
-		cmp	_miss_time, MISS_ANIM_FRAMES
-		jnz	loc_10A25
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, 0
-		mov	_power_overflow, 0
-		mov	_miss_explosion_radius, 0
-		call	items_miss_add
-		mov	al, _power
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+var_1], al
-		cmp	[bp+var_1], 10h
-		jbe	short loc_109D7
-		mov	[bp+var_1], 10h
-
-loc_109D7:
-		mov	al, [bp+var_1]
-		sub	_power, al
-		cmp	_dream_items_collected, 0
-		jz	short loc_109E9
-		dec	_dream_items_collected
-
-loc_109E9:
-		mov	al, _dream_items_collected
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _DREAM_SCORE_PER_ITEMS[bx]
-		mov	_dream_score, ax
-		nopcall	main_01:hud_dream_put
-		nopcall	main_01:sub_11DE6
-		call	snd_se_play pascal, 2
-		cmp	_playperf, 22
-		jb	short loc_10A16
-		mov	_playperf, 21
-
-loc_10A16:
-		push	4
-		nopcall	playperf_lower
-		les	bx, _resident
-		assume es:nothing
-		inc	es:[bx+resident_t.miss_count]
-
-loc_10A25:
-		add	_miss_explosion_radius, MISS_EXPLOSION_RADIUS_VELOCITY
-		mov	al, _miss_explosion_angle
-		add	al, MISS_EXPLOSION_ANGLE_VELOCITY
-		mov	_miss_explosion_angle, al
-		cmp	_miss_time, MISS_ANIM_FRAMES - MISS_ANIM_FLASH_AT
-		jnb	locret_10ABD
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_lives], 1
-		jbe	short loc_10A60
-		test	_miss_time, 1
-		jz	short loc_10A55
-		mov	PaletteTone, 150
-		jmp	short loc_10A5B
-; ---------------------------------------------------------------------------
-
-loc_10A55:
-		mov	PaletteTone, 100
-
-loc_10A5B:
-		mov	_palette_changed, 1
-
-loc_10A60:
-		cmp	_miss_time, 0
-		jnz	short locret_10ABD
-		mov	_player_pos.cur.x, 192 * 16
-		mov	_player_pos.prev.x, 192 * 16
-		mov	_player_pos.cur.y, 368 * 16
-		mov	_player_pos.prev.y, 368 * 16
-		mov	_player_pos.velocity.x, 0
-		mov	_player_pos.velocity.y, -32
-		les	bx, _resident
-		cmp	es:[bx+resident_t.rem_lives], 1
-		jbe	short loc_10AB7
-		dec	es:[bx+resident_t.rem_lives]
-		nopcall	main_01:hud_lives_put
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	es:[bx+resident_t.rem_bombs], al
-		nopcall	main_01:hud_bombs_put
-		mov	_bullet_clear_time, 32
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_10AB7:
-		call	@gameover$qv
-		mov	_quit, al
-
-locret_10ABD:
-		leave
-		retn
-sub_10988	endp
+	; sub_10988() -- one frame of the miss animation -- was lifted out of here
+	; and is now th04/main/player/miss.cpp. th04/main_0.cpp #includes it at the
+	; very FRONT, ahead of the sub_10ABF() body an earlier parcel put there:
+	; this proc became main_0_TEXT's carve-free tail the moment sub_10ABF()
+	; left, so the object grew backwards into the hole a second time and every
+	; byte above it kept its address (kb/codegen 0099 + 0112 + 0114). No carve,
+	; no new segment name, no group-list edit and no Tupfile.lua line.
+	;
+	; THE ROOT DUMP'S CONTRIBUTION TO main_0_TEXT IS NOW EMPTY, and so is
+	; th04\scoreupd.asm's, so th04/main_0.cpp is the segment's only bytes.
+	;
+	; IDA'S SPELLING IS KEPT and the alias that published it is GONE: the C++
+	; definition is extern "C" and publishes _sub_10988 itself, so the public
+	; and the kb/codegen/0123 zero-byte label the previous parcel wrote onto
+	; this banner both left with the body. The re-run failed name search is in
+	; state/notes/th04-main-carve-tails-2.md -- th04/main/player/update.cpp is
+	; the only caller in either dump, and TH05's counterpart in the identical
+	; role, sub_12017() in th05_main.asm's SHOT_INV_TEXT, is equally unnamed.
+	; Naming one without the other is what this lane declined one parcel ago.
+	;
+	; FIVE HAND-SPELLED ISLANDS, and they are the whole reason this row cost
+	; more than its 0x137 bytes suggest. hud_dream_put, sub_11DE6,
+	; playperf_lower, hud_lives_put and hud_bombs_put are all reached through
+	; nopcall, and kb/codegen/0083 measured that a C++ far call NEVER lowers
+	; to that encoding, whichever group the caller is compiled into. Each is
+	; therefore a nop + push cs + near call written out by hand. The census
+	; below came from the ORIGINAL'S BYTES, measured before any was written;
+	; three of the nine calls need no island at all:
+	;
+	;   0x109BA  9A        items_miss_add   ORDINARY far call, no island
+	;   0x109F9  90 0E E8  hud_dream_put    island
+	;   0x109FE  90 0E E8  sub_11DE6        island
+	;   0x10A03  6A 02 9A  snd_se_play      ORDINARY far call, no island
+	;   0x10A16  6A 04     playperf_lower's argument, ahead of its island
+	;   0x10A18  90 0E E8  playperf_lower   island
+	;   0x10A9A  90 0E E8  hud_lives_put    island
+	;   0x10AAC  90 0E E8  hud_bombs_put    island
+	;   0x10AB7  E8        gameover()       ORDINARY near call, no island
+	;
+	; playperf_lower's argument is the one that does not fit the macro: it is
+	; pushed AHEAD of the island, so the C++ spells it __emit__(0x6A, 4)
+	; rather than passing it as a call argument or letting the inline
+	; assembler pick the push encoding (kb/codegen 0083 + 0089).
+	;
+	; TWO DECLARATIONS WERE WRONG AND NOTHING HAD EVER GRADED THEM, the same
+	; class of defect the shots_render() lift turned up one parcel ago in this
+	; same binary:
+	;
+	;   * th04/main/item/item.hpp declared items_miss_add() near and without
+	;     extern "C". th04/main/item/miss_add.asm defines it proc far and
+	;     exports the undecorated, all-caps ITEMS_MISS_ADD, so both halves
+	;     were wrong, and the plain 9A call at 0x109BA settles the first from
+	;     the BYTES. No translation unit had ever both included that header
+	;     and made the call, so no build had graded it. Corrected here.
+	;
+	;   * MISS_ANIM_FLASH_AT had no C++ spelling at all, though
+	;     th04/main/player/player.inc has carried it from the beginning and
+	;     the compare at 0x10A32 is the only thing in either dump that reads
+	;     it. It is now in th04/main/player/player.hpp beside
+	;     MISS_ANIM_EXPLODE_UNTIL, keeping the .inc's value.
+	;
+	; kb/codegen/0094 DECIDED ONE INSTRUCTION and would otherwise have cost a
+	; build cycle. miss_explosion_angle += MISS_EXPLOSION_ANGLE_VELOCITY folds
+	; into a 5-byte ADD mem, imm8 because the header spells that constant
+	; uint8_t; the original's 7-byte AL round trip needs an INT-typed addend,
+	; so the C++ casts it back. The neighbouring radius line needs no such
+	; help: it is a word global, and its 83 06 mem imm8 is what a plain
+	; compound assignment already emits. Both were settled through tcc -S
+	; before any build ran (kb/codegen/0152).
+	;
+	; WHAT THE BODY DID, measured here rather than left to the C++ to assert:
+	;
+	;   1) The animation only starts once [miss_time] has fallen to
+	;      MISS_ANIM_FRAMES. Above that it is still the deathbomb window and
+	;      this function returns immediately, which is the half
+	;      th04/main/player/bomb.cpp owns.
+	;
+	;   2) THE TOP-OF-ANIMATION FRAME IS TESTED WITH A SECOND, SEPARATE
+	;      COMPARE against the same constant, not with an else. The one-shot
+	;      block under it spends the miss: it drops the item set, takes a
+	;      quarter of [power] capped at 16, gives back one point item's worth
+	;      of the dream bonus by RE-READING DREAM_SCORE_PER_ITEMS rather than
+	;      scaling, knocks rank down twice (a clamp to 21, then a flat lower
+	;      of 4), and counts the miss into [resident].
+	;
+	;   3) The explosion ring advances on EVERY frame including the first --
+	;      the radius and angle updates sit below the one-shot block.
+	;
+	;   4) The palette flash covers the last four frames only
+	;      (MISS_ANIM_FRAMES - MISS_ANIM_FLASH_AT), alternates 150/100 on the
+	;      parity of [miss_time], and is SKIPPED ENTIRELY on the last life --
+	;      the same rem_lives > 1 test that decides respawn-or-game-over
+	;      below. It is DEFERRED, which is why it writes PaletteTone and
+	;      [palette_changed] separately instead of palette_settone().
+	;
+	;   5) The respawn happens on the frame [miss_time] reaches 0, parks the
+	;      player at the bottom centre with an upward velocity, and clears
+	;      bullets for 32 frames. On the last life it calls gameover()
+	;      instead and stores that function's byte return into [quit].
+	;
+	; THE FRAME IS ONE BYTE AND NO REGISTERS. [bp-1] holds the capped power
+	; loss and [bp-2] is the padding kb/codegen/0010 leaves under an odd byte
+	; count; nothing wants a register variable, which is why the prologue has
+	; no push si. kb/codegen/0121: the body carried no assume of its own, and
+	; the assume es:nothing it DID carry, after its first les, went with it.
+	;
+	; This block is written onto the lines the body vacated and is exactly as
+	; long -- 110 lines -- as are the three rewrites in the sub_10ABF() block
+	; below it, so no line-anchored citation into this file moves. Every count
+	; here is asserted by the edit script rather than eyeballed.
 
 
 	; sub_10ABF() -- one frame of the player -- was lifted out of here and is
@@ -5287,12 +5287,12 @@ sub_10988	endp
 	; THREE SYMBOLS LOST THEIR LAST REFERENCE IN THIS FILE when the body left,
 	; and each is published by whichever device costs no line:
 	;
-	;   * sub_10988, the miss animation directly above, keeps IDA's spelling
-	;     and gains a kb/codegen/0123 zero-byte alias plus a public, both
-	;     written onto the blank lines of its own subroutine banner -- the
-	;     device this dump already uses for sub_11DE6, sub_15D74 and
-	;     sub_1DA1B. It is a NEAR proc and the C++ that calls it now sits in
-	;     the same segment, so the call stays a plain near call.
+	;   * sub_10988, the miss animation, kept IDA's spelling and gained a
+	;     kb/codegen/0123 zero-byte alias plus a public, written onto the
+	;     blank lines of its own subroutine banner. BOTH ARE GONE AGAIN as of
+	;     MATCH-TH04-MAIN-CARVE-TAILS-2, which lifted that body too: its C++
+	;     definition is extern "C" and publishes _sub_10988 itself. The call
+	;     from here was, and stays, a plain near call within one segment.
 	;
 	;   * playchar_shot_func in _BSS is RENAMED to _playchar_shot_func, which
 	;     is the spelling TH02's C++ has always exported for the identically
@@ -5368,28 +5368,28 @@ sub_10988	endp
 	; own, different value inside a `#if (GAME == 2)`, so the two never meet
 	; in one translation unit.
 	;
-	; WHAT THE NEXT LANE FACES IN THIS SEGMENT. sub_10988 above is the only
-	; thing this file still contributes to main_0_TEXT, and emptying the
-	; contribution therefore needs exactly that one body. It is NOT the same
-	; price as this one: it reaches five callees through `nopcall`
-	; (hud_dream_put, sub_11DE6, playperf_lower, hud_lives_put and
-	; hud_bombs_put), and kb/codegen/0083 measured that a C++ far call never
-	; lowers to that encoding no matter which group the caller is compiled
-	; into. Each of the five is therefore a hand-spelled inline-ASM island of
-	; the kb/codegen 0014 + 0122 shape, and playperf_lower's argument is
-	; pushed ahead of the island rather than by it. sub_11DE6 is separately
-	; recorded as attempted-and-unsolved in state/notes/th04-main-sub-11DE6.md,
-	; but only its BODY is blocked; calling it from C++ is not, because this
-	; dump already publishes _sub_11DE6 with a 0123 alias.
+	; WHAT THIS SEGMENT STILL HOLDS: NOTHING. This paragraph used to say that
+	; sub_10988 above was the only thing this file still contributed to
+	; main_0_TEXT, and to cost the five nopcall islands accordingly. That was
+	; right, and MATCH-TH04-MAIN-CARVE-TAILS-2 paid the price and lifted it,
+	; so the root's contribution to main_0_TEXT is EMPTY and this file
+	; contributes no bytes to it at all. The five islands are described where
+	; they now live, in the block that replaced that body above; the estimate
+	; held, and the row still took one build cycle, because tcc -S graded
+	; every shape first. sub_11DE6 remains separately recorded as
+	; attempted-and-unsolved in state/notes/th04-main-sub-11DE6.md -- only its
+	; BODY is blocked, and calling it from C++ never was, because this dump
+	; publishes _sub_11DE6 with a kb/codegen/0123 alias. That alias is now
+	; this dump's only remaining reason to publish the symbol.
 	;
 	; PLAYER_M_TEXT and PLAYER_P_TEXT above lost the only reference this file
 	; had to either of their procdescs, since player_move() and
 	; player_pos_update_and_clamp() were called from nowhere else here. Both
 	; declarations are left in place: an unreferenced procdesc emits nothing.
 	;
-	; kb/codegen/0121: the body carried no `assume` of its own, and the
-	; segment's own state at its head still covers sub_10988 above, so there
-	; is nothing to restore.
+	; kb/codegen/0121: the body carried no `assume` of its own, and with
+	; sub_10988 lifted as well there is no code left above it in this
+	; segment, so there is nothing to restore.
 	;
 	; This block is written onto the lines the body vacated and is exactly as
 	; long, and the six edits outside it -- two publications onto blank banner
