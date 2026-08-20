@@ -1,12 +1,18 @@
 /// Stage 4 Boss - Marisa
 /// ---------------------
-/// The drift helper, the per-frame update, the background renderer and the
-/// stage-end callback.
+/// Her init function, the drift helper, the per-frame update, the background
+/// renderer and the stage-end callback.
 /// They are the last bodies of the nameless code segment that also holds
 /// Marisa's other callback and the Stage 5 boss, so it needs no split and no
 /// new segment - this translation unit just contributes to that same segment
 /// after th02_main.asm's block.
 /// (kb/codegen/0099)
+///
+/// The four boss-entrance helpers at the top are NOT Marisa's. They sit
+/// directly below marisa_init() in the original's address order, and mima_init()
+/// and sigma_init() call three of them from the dump, so they live here because
+/// this is the object that reaches those addresses - not because they belong to
+/// the stage 4 boss.
 
 // -G, because the original's prologs are `push bp; mov bp, sp` with no locals
 // rather than an `ENTER`. (kb/codegen/0011)
@@ -20,7 +26,10 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/core/globals.hpp"
 #include "th02/hardware/pages.hpp"
+#include "th02/hardware/frmdelay.h"
 #include "th02/main/playfld.hpp"
+#include "th02/main/scroll.hpp"
+#include "th02/main/tile/tile.hpp"
 #include "th02/main/frames.hpp"
 #include "th02/math/randring.hpp"
 #include "th02/main/bg_particle.hpp"
@@ -48,6 +57,7 @@ void near dialog_pre(void);
 // th02/main/laser.cpp already declares it: snd.h has no include guard and
 // pulls in three more unguarded headers for the sake of one function.
 extern "C" void __cdecl snd_se_play(int new_se);
+extern "C" void __cdecl snd_se_update(void);
 
 // The sprite the boss and midboss renderers blit, shared by all of them and
 // written from ~150 sites across th02_main.asm. `patnum_2064E` is the dump's
@@ -92,16 +102,56 @@ extern "C" uint8_t boss_phase;
 
 /// Marisa's still-ASM helpers
 /// --------------------------
-/// One left: `proc near` in th02_main.asm's main_03__TEXT block, sitting above
-/// marisa_update() in the same segment, and marisa_update() is its only caller.
-/// The spelling is the dump's own; it is address-suffixed rather than an IDA
-/// placeholder, so naming it is a separate decision that this parcel does not
-/// make (`marisa_1AA60` is not matched by tools/re/naming_precheck.py's
-/// placeholder pattern, which is keyed on IDA's own kind prefixes).
-
-extern "C" void near marisa_1AA60(void);
-
+/// None left. marisa_1AA60() is defined below, and keeps the dump's own
+/// address-suffixed spelling: naming it is a separate decision that this parcel
+/// does not make, and it is not matched by tools/re/naming_precheck.py's
+/// placeholder pattern, which is keyed on IDA's own kind prefixes.
 /// --------------------------
+
+
+// th02/main/stage/init.cpp, which declares it identically - including the
+// non-const parameter, which is why [aBoss3_m] below is not const either.
+// `[measured]` Stops the current KAJA song, snd_load()s [fn] over it with
+// SND_LOAD_SONG, and starts it again; every boss init function in this binary
+// switches its BGM through it.
+extern "C" void far sub_13ABB(char *fn);
+
+// The four file names marisa_init() passes on, kept where th02_main.asm's own
+// `_DATA` contribution defines them rather than re-emitted as literals here:
+// this translation unit contributes no initialized data at all today, so a
+// literal would land after the dump's whole block and shift every byte between.
+// Declared exactly the way th02/main/stage/init.cpp already declares eleven of
+// the same string labels, which is where the kb/codegen/0123 alias pairs this
+// parcel adds for them come from as well.
+//
+// `[measured]` [aMima_bft_0] is a *second* copy of "mima.bft"; mima_init() uses
+// [aMima_bft] at a different address for the same eight bytes.
+extern "C" const char aMima_bft_0[];
+extern "C" const char aStage3_b_bft[];
+extern "C" const char aStage3_b_btt_0[];
+extern "C" char aBoss3_m[];
+
+// Which way the stage-4 midboss flies, and the slot physically after
+// [marisa_intro_step] - the same mechanism, one word up. 0 before her first
+// appearance, +1 or -1 afterwards.
+//
+// `[measured]` All 18 references left in th02_main.asm are in
+// @midboss4_update_and_render$qv and the five midboss4_1A*() patterns it
+// dispatches to, and every one of them uses the slot as a *signed multiplier*
+// rather than as a flag: it scales the horizontal step (`<< 3` during the
+// fly-in, `<< 2` during the sweep), offsets the muzzle of the pellet she fires
+// every 8th frame by `<< 4`, and picks the facing sprite (patnum 150 moving
+// right, 149 moving left). Each pattern switch negates it, so she reverses
+// direction every time, and she leaves the playfield with it at -1 so that her
+// next appearance enters from the opposite side to the first one.
+//
+// A kb/codegen/0123 alias rather than a rename, because marisa_init() below
+// holds the only reference that leaves the dump.
+extern "C" int marisa_intro_direction;
+
+// Defined further below, after the patterns it picks the rank-scaled parameters
+// for; marisa_init() is its only caller and comes first in this segment.
+extern "C" void near marisa_1B214(void);
 
 
 // The white flash every boss and midboss in this binary blits itself with for
@@ -156,6 +206,378 @@ extern "C" uint8_t angle_26D88;
 // uses it. A kb/codegen/0123 alias rather than a rename, because marisa_init()
 // still writes the slot from th02_main.asm.
 extern "C" bool marisa_spray_is_first_run;
+
+
+/// The boss entrance
+/// -----------------
+/// Shared by the Stage 4 and Stage 5 bosses, and - for the first of the four -
+/// by the Evil Eye Sigma as well. Only marisa_init() below reaches them from
+/// C++; mima_init() and sigma_init() still call them from th02_main.asm.
+
+
+// The 8x8 grid of 32x32 super patterns, starting at pattern 128, that
+// boss_entrance_animate() blits once the screen has been cleared.
+//
+// `[measured]` Both of that function's callers super_clean() patterns 128 to
+// 192 and super_entry_bfnt() "mima.bft" over them immediately beforehand, so
+// the 64 patterns this walks are one 256x256 image, and (96, 0) - its only call
+// site - centers that image over the 384-pixel-wide playfield.
+static void pascal near boss_portrait_put(screen_x_t left, screen_y_t top)
+{
+	register int patnum_offset = 0;
+	int row;
+	register int col;
+
+	for(row = 0; row < 8; row++) {
+		// The pattern counter is advanced in the increment clause rather than
+		// in the body: the original increments it *after* [col], which is the
+		// one place their order is observable.
+		for(col = 0; col < 8; col++, patnum_offset++) {
+			super_put(
+				((col * 32) + left),
+				((row * 32) + top),
+				(patnum_offset + 128)
+			);
+		}
+	}
+}
+
+
+// The two 32-pixel rows of background the boss fights keep underneath
+// everything else, re-blitted after any full-screen clear.
+//
+// `[measured]` 12 patterns wide at 32 pixels each, from PLAYFIELD_LEFT to
+// PLAYFIELD_RIGHT exactly, with distinct left-edge (34/35/36), repeated middle
+// (37) and right-edge (38) tiles, and the row below it using 42 to 46 the same
+// way. Both rows are placed relative to [scroll_line] and blitted with
+// super_roll_put(), so they wrap with the 400-line VRAM the way the scrolling
+// background does - but every one of the three call sites runs with
+// [scroll_line] already reset to 0, which puts them at screen y 320 and 352.
+extern "C" void near boss_bg_rows_put(void)
+{
+	vram_y_t row_1_top = 0;
+	int row_2_top = 0;
+	register int col;
+
+	// Split, because the original loads the constant into the register first
+	// and adds [scroll_line] to it; `(320 + scroll_line)` as one expression
+	// evaluates the variable first and needs a scratch register for it.
+	row_1_top = 320;
+	row_1_top += scroll_line;
+	if(row_1_top >= RES_Y) {
+		row_1_top -= RES_Y;
+	}
+	row_2_top += (row_1_top + 32);
+	if(row_2_top >= RES_Y) {
+		row_2_top -= RES_Y;
+	}
+	super_roll_put(32, row_1_top, 34);
+	super_roll_put(32, row_2_top, 42);
+	super_roll_put(64, row_1_top, 35);
+	super_roll_put(64, row_2_top, 43);
+	super_roll_put(96, row_1_top, 36);
+	super_roll_put(96, row_2_top, 44);
+	for(col = 0; col < 8; col++) {
+		super_roll_put(((col * 32) + 128), row_1_top, 37);
+		super_roll_put(((col * 32) + 128), row_2_top, 45);
+	}
+	super_roll_put(384, row_1_top, 38);
+	super_roll_put(384, row_2_top, 46);
+}
+
+
+// The animation that ends the pre-battle dialog and starts the fight: a filled
+// circle at the center of the playfield shrinking from a radius of 150 to
+// nothing over as many frames, with two thinner rings inside it cycling at
+// different rates, while the palette is driven from its neutral tone up to
+// almost white. The screen is then wiped black behind the flash, redrawn from
+// scratch, and faded back down to neutral over 10 frames.
+//
+// `[measured]` ZUN spends one local on both loops - the shrinking radius and
+// then the fade step - which is why this one is not named for either.
+extern "C" void near boss_entrance_animate(void)
+{
+	register int i;
+
+	grc_setclip(PLAYFIELD_LEFT, PLAYFIELD_TOP, PLAYFIELD_RIGHT, 320);
+	snd_se_play(9);
+	for(i = 150; i > 0; i--) {
+		grcg_setcolor(GC_RMW, 10);
+		grcg_circlefill(224, 144, i);
+		grcg_setcolor(GC_RMW, 13);
+		grcg_circle(224, 144, ((i % 50) * 4));
+		grcg_setcolor(GC_RMW, V_WHITE);
+		grcg_circle(224, 144, ((i % 30) * 7));
+		frame_delay(1);
+
+		// Unblitted by drawing all three again in black, rather than by
+		// clearing the area they covered.
+		grcg_setcolor(GC_RMW, 0);
+		grcg_circlefill(224, 144, i);
+		grcg_circle(224, 144, ((i % 50) * 4));
+		grcg_circle(224, 144, ((i % 30) * 7));
+
+		PaletteTone = ((((150 - i) / 3) * 2) + 100);
+		palette_show();
+		snd_se_update();
+	}
+	grcg_setcolor(GC_RMW, 0);
+	grcg_fill();
+	grcg_off();
+	boss_portrait_put(96, 0);
+	super_roll_put(player_topleft.x, player_topleft.y, PAT_PLAYCHAR_STILL);
+	super_roll_put_tiny(
+		player_option_left_topleft[page_back].x,
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	super_roll_put_tiny(
+		(player_option_left_topleft[page_back].x +
+			PLAYER_OPTION_TO_OPTION_DISTANCE
+		),
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	boss_bg_rows_put();
+	for(i = 0; i < 10; i++) {
+		PaletteTone = (200 - (i * 10));
+		palette_show();
+		frame_delay(3);
+	}
+	PaletteTone = 100;
+	palette_show();
+}
+
+
+// Clears both VRAM pages, puts the hardware scroll back to the top of VRAM, and
+// re-blits the player and both of her options onto the front page at the
+// positions they will hold for the whole fight. The first thing every one of
+// the three boss init functions that reach it does.
+//
+// `[measured]` The option positions are derived on [page_back] and then copied
+// across to [page_front], so both pages agree before the fight's first
+// invalidate pass runs.
+extern "C" void near boss_playfield_reset(void)
+{
+	player_top_on_page[page_front] = player_topleft.y;
+	scroll_line = 0;
+	scroll_sad = 0;
+	graph_accesspage(0);	graph_clear();
+	graph_accesspage(1);	graph_clear();
+	vsync_Count1 = 0;
+	frame_delay(1);
+	graph_scrollup(0);
+	graph_accesspage(page_front);
+	super_roll_put(player_topleft.x, player_topleft.y, PAT_PLAYCHAR_STILL);
+	player_option_left_topleft[page_back].x = (
+		player_topleft.x - PLAYER_LEFT_TO_OPTION_LEFT_LEFT
+	);
+	player_option_left_topleft[page_back].y = (
+		player_topleft.y + ((PLAYER_H / 2) - (PLAYER_OPTION_H / 2))
+	);
+	player_option_left_topleft[page_front].x = (
+		player_option_left_topleft[page_back].x
+	);
+	player_option_left_topleft[page_front].y = (
+		player_option_left_topleft[page_back].y
+	);
+	super_roll_put_tiny(
+		player_option_left_topleft[page_back].x,
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	super_roll_put_tiny(
+		(player_option_left_topleft[page_back].x +
+			PLAYER_OPTION_TO_OPTION_DISTANCE
+		),
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+}
+/// -----------------
+
+
+// Everything between the end of Stage 4 and Marisa's first pattern: the
+// pre-battle dialog with her portrait behind it, the entrance animation, the
+// swap from the portrait's sprites to her own, the BGM change, and then every
+// piece of per-fight state the patterns below read back.
+//
+// `[measured]` The whole sequence is blitted twice - once before
+// dialog_script_stage4_pre_marisa_animate() and once after graph_clear() wipes
+// it - and only then does graph_copy_page() give both pages the same content.
+extern "C" void far marisa_init(void)
+{
+	register int i;
+
+	boss_playfield_reset();
+	dialog_pre();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(aMima_bft_0);
+	dialog_script_stage4_pre_intro_animate();
+	vsync_Count1 = 0;
+	frame_delay(10);
+	boss_entrance_animate();
+	dialog_script_generic_part_animate(DS_PREBOSS);
+
+	// Marisa's own two 48x96 patterns replace the 256x256 portrait.
+	super_clean(128, 511);
+	super_patnum = 128;
+	super_entry_bfnt(aStage3_b_bft);
+	super_entry_bfnt(aStage3_b_btt_0);
+
+	boss_left_on_page[0] = (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 48);
+	boss_left_on_page[1] = boss_left_on_page[0];
+	boss_top_on_page[0] = (PLAYFIELD_TOP + 48);
+	boss_top_on_page[1] = boss_top_on_page[0];
+	marisa_topleft.x = (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 48);
+	marisa_topleft.y = (PLAYFIELD_TOP + 48);
+	patnum_2064E = 128;
+	palette_white_out(1);
+	grcg_setcolor(GC_RMW, 0);
+	grcg_fill();
+	grcg_off();
+	grc_setclip(PLAYFIELD_LEFT, 0, PLAYFIELD_RIGHT, (RES_Y - 1));
+	super_put_rect(marisa_topleft.x, marisa_topleft.y, patnum_2064E);
+	super_put_rect(
+		(marisa_topleft.x + 48), marisa_topleft.y, (patnum_2064E + 1)
+	);
+	super_roll_put(player_topleft.x, player_topleft.y, PAT_PLAYCHAR_STILL);
+	super_roll_put_tiny(
+		player_option_left_topleft[page_back].x,
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	super_roll_put_tiny(
+		(player_option_left_topleft[page_back].x +
+			PLAYER_OPTION_TO_OPTION_DISTANCE
+		),
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	// This whole run is hand-spelled, and only the last call is the reason.
+	// The original reaches sub_13ABB() through `nop; push cs; call near ptr`,
+	// and a C++ far call is always `9A seg:off` instead - the same 5 bytes in a
+	// different encoding, which kb/codegen/0083 says has to be written out.
+	//
+	// snd_se_play() is dragged in with it: its argument is cleaned by the
+	// `add sp, 6` at the bottom, four statements later, because Turbo C++
+	// defers a __cdecl cleanup until it needs the stack pointer and then merges
+	// it with the next one. `[measured]` The first inline-asm statement
+	// ANYWHERE in the function turns that off - the deferred `add sp, 2`
+	// reappears immediately after the call, three statements ahead of the
+	// island - so the only way to keep the merge is to push this argument by
+	// hand as well and let Turbo C++ account for neither.
+	//
+	// Nothing in here names a register, so [i] stays in SI. (kb/codegen/0083)
+	__emit__(0x6A, 0x0A);               // push 10
+	_asm { call far ptr snd_se_play; }
+	snd_se_update();
+	boss_bg_rows_put();
+	palette_white_in(1);
+	__emit__(0x1E);                     // push ds
+	_asm { push offset aBoss3_m; }
+	__emit__(0x90);                     // nop
+	__emit__(0x0E);                     // push cs
+	_asm { call near ptr sub_13ABB; }
+	__emit__(0x83, 0xC4, 0x06);         // add sp, 6
+
+	dialog_script_stage4_pre_marisa_animate();
+
+	graph_clear();
+	super_put_rect(marisa_topleft.x, marisa_topleft.y, patnum_2064E);
+	super_put_rect(
+		(marisa_topleft.x + 48), marisa_topleft.y, (patnum_2064E + 1)
+	);
+	super_roll_put(player_topleft.x, player_topleft.y, PAT_PLAYCHAR_STILL);
+	super_roll_put_tiny(
+		player_option_left_topleft[page_back].x,
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	super_roll_put_tiny(
+		(player_option_left_topleft[page_back].x +
+			PLAYER_OPTION_TO_OPTION_DISTANCE
+		),
+		player_option_left_topleft[page_back].y,
+		PAT_OPTION_A
+	);
+	graph_copy_page(page_front);
+	graph_accesspage(page_back);
+	graph_showpage(page_front);
+
+	tile_mode = TM_NONE;
+	shots_free_all();
+	boss_damage = 0;
+	boss_phase = 0;
+	boss_phase_frame = 0;
+	boss_hit_flash = false;
+	marisa_intro_step = 0;
+	marisa_damage_multiplier = 0;
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		marisa_orb_damage[i] = 0;
+		marisa_orb_flag[i] = MOF_REMOVED;
+		marisa_orb_hit_flash[i] = false;
+	}
+	marisa_spray_is_first_run = true;
+	bg_particle_col = 9;
+	bg_particle_edge_step = 24;
+	bg_particle_speed_initial = 24;
+	bg_particle_speed_delta = 4;
+	marisa_intro_direction = 0;
+	marisa_bg_particle_col_i = 0;
+	marisa_pattern = 0;
+	marisa_orbless_patterns_seen = 0;
+	marisa_rounds_done = 0;
+	boss_explode_angle_offset = 0xE0; // -32
+	marisa_1B214();
+}
+
+
+// Marisa's own per-frame hit test, and the only place the player can collide
+// with her. Her hitbox is 48x48 from [marisa_topleft] + 24 for shots, and a
+// smaller 64x64 box around that same corner for the player.
+//
+// `[measured]` Damage is [marisa_damage_multiplier] times the frame's total
+// only once all four orbs are gone ([marisa_orb_flag_sum] >= 8); before that
+// every hit still plays SE 11 but does nothing at all, so the orbs are not
+// merely optional. She is defeated at 900 damage, which is worth 20000 points
+// and BOSS_DEFEAT_INVINCIBILITY_FRAMES of invincibility.
+extern "C" void near marisa_1AA60(void)
+{
+	int damage;
+
+	if(boss_phase != 0) {
+		return;
+	}
+	// Assigned and tested in one expression, which is the difference between
+	// two references to [damage] and three: at three, Turbo C++ enregisters it
+	// into SI and the original keeps it on the frame. (kb/codegen/0143)
+	if((damage = shots_hittest(
+		(marisa_topleft.x + 24), (marisa_topleft.y + 24), 48, 48
+	)) != 0) {
+		if(marisa_orb_flag_sum >= (MARISA_ORB_COUNT * MOF_REMOVED)) {
+			snd_se_play(4);
+			boss_hit_flash = true;
+			boss_damage += (marisa_damage_multiplier * damage);
+		} else {
+			snd_se_play(11);
+		}
+		if(boss_damage >= 900) {
+			boss_phase = 1;
+			score_delta += 20000;
+			player_invincibility_time = BOSS_DEFEAT_INVINCIBILITY_FRAMES;
+		}
+	}
+	if(
+		(player_left_on_page[page_front] > (marisa_topleft.x - 16)) &&
+		(player_left_on_page[page_front] < (marisa_topleft.x + 48)) &&
+		(player_top_on_page[page_front] > (marisa_topleft.y - 16)) &&
+		(player_top_on_page[page_front] < (marisa_topleft.y + 48))
+	) {
+		player_is_hit = PLAYER_HIT;
+	}
+}
 
 
 // The per-frame hit test for Marisa's four orbs, and the only place the player
