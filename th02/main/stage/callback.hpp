@@ -89,6 +89,9 @@ extern void (far *boss_activate_if_scroll_done_func)(void);
 // with `or ax, ax`, and a `bool` return compiles to `or al, al` — a real
 // behavioral difference for any installed function that returns a nonzero
 // high byte. (kb/codegen/0090). nullfunc_false()'s own body agrees: it zeroes
-// the whole of AX. The one slot that DOES need the cast is now
-// [midboss_invalidate], which is byte-wide for its own reasons.
+// the whole of AX. TWO slots still need the cast, not the one this comment
+// used to claim: [midboss_invalidate], which is byte-wide for its own reasons,
+// and [boss_update], which returns [stage_progression_t]. Both casts are in
+// th02/main/stage/init.cpp; [stage_should_end_func] is the only one of the
+// three that takes nullfunc_false() unqualified.
 extern bool16 (far *stage_should_end_func)(void);

@@ -147,10 +147,16 @@ static const tram_y_t GAMEOVER_TRAM_Y = 12;
 // The last main stage. Dying there is the bad ending, and end_game_bad() does
 // not return, so Extra Stage is the only way past that branch into the sequence
 // below -- where continue_prompt() is the thing that refuses the continue.
-// th04/common.h would give this as (MAIN_STAGE_COUNT - 1) and is deliberately
-// NOT included: it also #defines STAGE_EXTRA, and th04/main/continue.cpp
-// declares a `static const uint8_t STAGE_EXTRA` that the macro would rewrite
-// into `static const uint8_t 6 = 6;` if the two ever shared a translation unit.
+// th04/common.h would give this as (MAIN_STAGE_COUNT - 1), and the reason this
+// file used to give for not including it -- that th04/main/continue.cpp
+// declares its own `static const uint8_t STAGE_EXTRA` which the header's macro
+// would rewrite into `static const uint8_t 6 = 6;` -- was already false when it
+// was written under this #if. That declaration was deleted, and the header
+// included there instead, twelve hours earlier; th04/common.h is now the only
+// place in the tree that spells STAGE_EXTRA. The clause was doubly false: under
+// the GAME == 5 arm this translation unit reaches th04/common.h anyway, through
+// th05/resident.hpp. The literal stays only because 5 is what the dump holds and
+// the derivation is not what this file is for.
 #if (GAME == 4)
 	static const uint8_t STAGE_FINAL = 5;
 #endif

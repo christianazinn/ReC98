@@ -238,10 +238,14 @@ bool near pattern_wait(void)
 	return false;
 }
 
-// The pattern phase 1 starts from, and the first of the four in address
-// order. Its address is taken by [midbossx_phase_1_pattern]'s initialiser
-// and by [MIDBOSSX_PATTERNS_PHASE_1], both still the dump's own data, so
-// this may not be `static` and th05_main.asm's BX_UPDATE_TEXT block
+// The first pattern [MIDBOSSX_PATTERNS_PHASE_1] holds, at [0][0], and the
+// SECOND of the four in address order — [pattern_wait] above is first, and
+// is also the one [midbossx_phase_1_pattern]'s initialiser actually holds.
+// This comment claimed both of those slots for this function until round 18
+// read the dump: th05_main.asm has `off_2285A dw offset @pattern_wait$qv`,
+// so the two headers were asserting one initialiser for two bodies. Its
+// address IS taken, by [MIDBOSSX_PATTERNS_PHASE_1] — still the dump's own
+// data, so this may not be `static` and th05_main.asm's BX_UPDATE_TEXT block
 // declares it as a `procdesc near`.
 //
 // On frame 94 it picks +1 or -1 and parks it in [boss_statebyte[13]]; on

@@ -1,11 +1,21 @@
 /// Single-color playfield fill for a boss backdrop
 /// -----------------------------------------------
 /// Kurumi's [boss_backdrop_colorfill] callback, and the entire root
-/// contribution to th04_main.asm's `main_TEXT`. Like every other member of that
-/// callback family it fills whole playfield rows through the GRCG's TDW mode,
-/// which is why it goes through th04/hardware/grcg_fill_rows.asm rather than
-/// any of master.lib's rectangle blitters, and like every other member it is
-/// called with the GRCG already set up.
+/// contribution to th04_main.asm's `main_TEXT`. It fills whole playfield rows
+/// through the GRCG's TDW mode, which is why it goes through
+/// th04/hardware/grcg_fill_rows.asm rather than any of master.lib's rectangle
+/// blitters — and like every other member of that callback family it is called
+/// with the GRCG already set up.
+///
+/// The row-fill half is NOT a family property, and saying it was is the one
+/// thing round 18 found wrong here. Of the 11 [boss_backdrop_colorfill]
+/// members across both games, four never reach grcg_fill_rows.asm's macro at
+/// all or reach it beside a hand-rolled `stosd` loop: reimu_marisa_ and
+/// mai_yuki_ share th04/hardware/fillm64-56_256-256.asm, which fills AROUND a
+/// 256x256 rect, and yuuka5_ and sara_ mix one GRCG_FILL_PLAYFIELD_ROWS with
+/// loops of their own. fillm64-56_256-256.asm is the same module this file's
+/// own note once cited as the reason kurumi_backdrop_colorfill could not be
+/// lifted, so the counter-example was already in view.
 ///
 /// TH05's twin is shinki_stage_backdrop_colorfill() in
 /// th05/main/boss/colorfill.cpp, matched 2026-08-15. The two are NOT written as

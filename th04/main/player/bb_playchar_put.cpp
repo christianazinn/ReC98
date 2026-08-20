@@ -14,29 +14,20 @@
 /// `-zC`/`-zP` pragmas rather than delegating them to the file they include,
 /// so 0112's trap 0 does not arise on either side.
 ///
-/// ## Only TH05 compiles this file today, and the TH04 half is PRE-WIRED
+/// ## BOTH games compile this file
 ///
-/// th04_main.asm's SHOT_INV_TEXT region is held by another lane's open
-/// parcel claim, so TH04 still `include`s the module
-/// and this body is currently reached only through th05/main010.cpp. Nothing
-/// here is TH05-shaped: the `#if (GAME == 4)` arm below is the TH04 body,
-/// already written and already correct.
+/// TH05 reaches it through th05/main010.cpp and TH04 through th04/shot_inv.cpp;
+/// the hand-written module both dumps used to `include` is gone from each.
 ///
-/// **Finish it as an ADOPTION, never as a second implementation.** The
-/// campaign has already paid for the alternative once: two lanes wrote rival
-/// wirings for enemies_invalidate(), and the two could not be merged into a
-/// third arrangement because their include topologies double-defined the body.
-/// The remaining TH04 step is exactly three things:
-///
-/// 1. `#include "th04/main/player/bb_playchar_put.cpp"` at the top of
-///    th04/shot_inv.cpp, ahead of th04/main/player/shots_inv.cpp;
-/// 2. replace `include th04/main/player/bb_playchar_put.asm` in
-///    th04_main.asm's `SHOT_INV_TEXT` with a one-line comment, and delete the
-///    module;
-/// 3. remove `#include "th02/v_colors.hpp"` from
-///    th04/main/player/shots_inv.cpp and update the "pulled in exactly once
-///    from here" comment there — that header is unguarded, this file takes it
-///    over, and TH04's object is the only one where both are present.
+/// **It was finished as an ADOPTION, never as a second implementation**, and
+/// that is the durable half of this note. The campaign has already paid for the
+/// alternative once: two lanes wrote rival wirings for enemies_invalidate(), and
+/// the two could not be merged into a third arrangement because their include
+/// topologies double-defined the body. So the second game's step was three
+/// mechanical things — include this file ahead of the segment's other half,
+/// replace the dump's `include` with a comment and delete the module, and hand
+/// the unguarded th02/v_colors.hpp over from
+/// th04/main/player/shots_inv.cpp — and nothing was rewritten.
 
 #if (GAME == 5)
 	#include "th05/playchar.h"
@@ -45,9 +36,9 @@
 #endif
 
 // For V_WHITE in the TH04 arm. Unguarded, and NOT in TH05's host object
-// closure, so it is listed unconditionally — but see step 3 above: the day
-// TH04 adopts this file, that game's object reaches it twice and
-// th04/main/player/shots_inv.cpp has to stop including it.
+// closure, so it is listed unconditionally — and it is listed HERE rather than
+// in th04/main/player/shots_inv.cpp, which shares TH04's object with this file
+// and would otherwise reach the same unguarded header twice.
 #include "th02/v_colors.hpp"
 
 // For bb_tiles8_t only. Unguarded, and in neither host's include closure.
