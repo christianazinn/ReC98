@@ -3681,6 +3681,13 @@ DIALOG_TEXT	ends
 
 BOSS_5_TEXT	segment	byte public 'CODE' use16
 
+; boss_playfield_reset() is th02/main/boss/b4.cpp, prepended into
+; main_03__TEXT below. sigma_init() in this segment and mima_init() in
+; main_03__TEXT are its two remaining callers here; both segments are in
+; group main_03, so `near` resolves to the same 3-byte `E8 rel16` the
+; original encodes, and one declaration in the earlier segment serves both.
+extrn _boss_playfield_reset:near
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -9656,7 +9663,7 @@ _sigma_init label far
 sigma_init	proc far
 		push	bp
 		mov	bp, sp
-		call	sub_1A6C5
+		call	_boss_playfield_reset
 		mov	_tile_mode, TM_NONE
 		call	@dialog_pre$qv
 		call	super_clean pascal, (128 shl 16) or 192
@@ -14896,6 +14903,12 @@ main_03__TEXT	segment	byte public 'CODE' use16
 ; so `near` resolves to the same 3-byte `E8 rel16` the original encodes.
 extrn _marisa_1B214:near
 
+; boss_entrance_animate() and boss_bg_rows_put() are th02/main/boss/b4.cpp
+; as well, and mima_init() below is the only caller either of them has left
+; in this dump.
+extrn _boss_entrance_animate:near
+extrn _boss_bg_rows_put:near
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -14906,14 +14919,14 @@ mima_init	proc far
 		push	bp
 		mov	bp, sp
 		push	si
-		call	sub_1A6C5
+		call	_boss_playfield_reset
 		call	@dialog_pre$qv
 		call	super_clean pascal, (128 shl 16) or 192
 		call	super_entry_bfnt pascal, ds, offset aMima_bft ; "mima.bft"
 		call	@dialog_script_stage5_pre_intro_a$qv
 		mov	vsync_Count1, 0
 		call	@frame_delay$qi pascal, 10
-		call	sub_1A529
+		call	_boss_entrance_animate
 		call	super_clean pascal, (128 shl 16) or 192
 		mov	super_patnum, 80h
 		call	super_entry_bfnt pascal, ds, offset aMima1_bft ; "mima1.bft"
@@ -15005,7 +15018,7 @@ mima_init	proc far
 		call	super_roll_put_tiny
 		call	_snd_se_play stdcall, 10
 		call	_snd_se_update
-		call	sub_1A46B
+		call	_boss_bg_rows_put
 		push	3
 		call	palette_white_in
 		push	ds
@@ -15938,602 +15951,20 @@ off_1A419	dw offset loc_1A38C
 		dw offset loc_1A39B
 		dw offset loc_1A3A0
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A423	proc near
-
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		xor	di, di
-		mov	[bp+var_2], 0
-		jmp	short loc_1A45F
-; ---------------------------------------------------------------------------
-
-loc_1A434:
-		xor	si, si
-		jmp	short loc_1A457
-; ---------------------------------------------------------------------------
-
-loc_1A438:
-		mov	ax, si
-		shl	ax, 5
-		add	ax, [bp+arg_2]
-		push	ax
-		mov	ax, [bp+var_2]
-		shl	ax, 5
-		add	ax, [bp+arg_0]
-		push	ax
-		lea	ax, [di+128]
-		push	ax
-		call	super_put
-		inc	si
-		inc	di
-
-loc_1A457:
-		cmp	si, 8
-		jl	short loc_1A438
-		inc	[bp+var_2]
-
-loc_1A45F:
-		cmp	[bp+var_2], 8
-		jl	short loc_1A434
-		pop	di
-		pop	si
-		leave
-		retn	4
-sub_1A423	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A46B	proc near
-
-@@y		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		xor	di, di
-		mov	[bp+@@y], 0
-		mov	di, 320
-		add	di, _scroll_line
-		cmp	di, RES_Y
-		jl	short loc_1A48B
-		sub	di, RES_Y
-
-loc_1A48B:
-		lea	ax, [di+32]
-		add	[bp+@@y], ax
-		cmp	[bp+@@y], RES_Y
-		jl	short loc_1A49D
-		sub	[bp+@@y], RES_Y
-
-loc_1A49D:
-		call	super_roll_put pascal, 32, di, 34
-		call	super_roll_put pascal, 32, [bp+@@y], 42
-		call	super_roll_put pascal, 64, di, 35
-		call	super_roll_put pascal, 64, [bp+@@y], 43
-		call	super_roll_put pascal, 96, di, 36
-		call	super_roll_put pascal, 96, [bp+@@y], 44
-		xor	si, si
-		jmp	short loc_1A508
-; ---------------------------------------------------------------------------
-
-loc_1A4E3:
-		mov	ax, si
-		shl	ax, 5
-		add	ax, 128
-		call	super_roll_put pascal, ax, di, 37
-		mov	ax, si
-		shl	ax, 5
-		add	ax, 128
-		call	super_roll_put pascal, ax, [bp+@@y], 45
-		inc	si
-
-loc_1A508:
-		cmp	si, 8
-		jl	short loc_1A4E3
-		call	super_roll_put pascal, 384, di, 38
-		call	super_roll_put pascal, 384, [bp+@@y], 46
-		pop	di
-		pop	si
-		leave
-		retn
-sub_1A46B	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A529	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	grc_setclip pascal, (PLAYFIELD_LEFT shl 16) or PLAYFIELD_TOP, (PLAYFIELD_RIGHT shl 16) or 320
-		call	_snd_se_play c, 9
-		mov	si, 150
-		jmp	loc_1A613
-; ---------------------------------------------------------------------------
-
-loc_1A54E:
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 10
-		call	grcg_circlefill pascal, (224 shl 16) or 144, si
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-		push	(224 shl 16) or 144
-		mov	ax, si
-		mov	bx, 50
-		cwd
-		idiv	bx
-		shl	dx, 2
-		push	dx
-		call	grcg_circle
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		push	(224 shl 16) or 144
-		mov	ax, si
-		mov	bx, 30
-		cwd
-		idiv	bx
-		imul	dx, 7
-		push	dx
-		call	grcg_circle
-		call	@frame_delay$qi pascal, 1
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_circlefill pascal, (224 shl 16) or 144, si
-		push	(224 shl 16) or 144
-		mov	ax, si
-		mov	bx, 50
-		cwd
-		idiv	bx
-		shl	dx, 2
-		push	dx
-		call	grcg_circle
-		push	(224 shl 16) or 144
-		mov	ax, si
-		mov	bx, 30
-		cwd
-		idiv	bx
-		imul	dx, 7
-		push	dx
-		call	grcg_circle
-		mov	ax, 150
-		sub	ax, si
-		mov	bx, 3
-		cwd
-		idiv	bx
-		add	ax, ax
-		add	ax, 100
-		mov	PaletteTone, ax
-		call	far ptr	palette_show
-		call	_snd_se_update
-		dec	si
-
-loc_1A613:
-		or	si, si
-		jg	loc_1A54E
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_fill
-		call	grcg_off
-		push	600000h
-		call	sub_1A423
-		call	super_roll_put pascal, _player_topleft.x, _player_topleft.y, PAT_PLAYCHAR_STILL
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].x
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		add	ax, PLAYER_OPTION_TO_OPTION_DISTANCE
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		call	sub_1A46B
-		xor	si, si
-		jmp	short loc_1A6B2
-; ---------------------------------------------------------------------------
-
-loc_1A697:
-		mov	ax, si
-		imul	ax, 10
-		mov	dx, 200
-		sub	dx, ax
-		mov	PaletteTone, dx
-		call	far ptr	palette_show
-		call	@frame_delay$qi pascal, 3
-		inc	si
-
-loc_1A6B2:
-		cmp	si, 10
-		jl	short loc_1A697
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		pop	si
-		pop	bp
-		retn
-sub_1A529	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A6C5	proc near
-		push	bp
-		mov	bp, sp
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, _player_topleft.y
-		mov	bx, ax
-		mov	_player_top_on_page[bx], dx
-		mov	_scroll_line, 0
-		mov	word_20348, 0
-		graph_accesspage 0
-		call	graph_clear
-		graph_accesspage 1
-		call	graph_clear
-		mov	vsync_Count1, 0
-		call	@frame_delay$qi pascal, 1
-		call	graph_scrollup pascal, 0
-		graph_accesspage _page_front
-		call	super_roll_put pascal, _player_topleft.x, _player_topleft.y, PAT_PLAYCHAR_STILL
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	dx, _player_topleft.x
-		add	dx, -PLAYER_LEFT_TO_OPTION_LEFT_LEFT
-		mov	bx, ax
-		mov	_player_option_left_topleft[bx].x, dx
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	dx, _player_topleft.y
-		add	dx, ((PLAYER_H / 2) - (PLAYER_OPTION_H / 2))
-		mov	bx, ax
-		mov	_player_option_left_topleft[bx].y, dx
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		mov	dl, _page_front
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	_player_option_left_topleft[bx].x, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].y
-		mov	dl, _page_front
-		mov	dh, 0
-		shl	dx, 2
-		mov	bx, dx
-		mov	_player_option_left_topleft[bx].y, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].x
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		add	ax, PLAYER_OPTION_TO_OPTION_DISTANCE
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		pop	bp
-		retn
-sub_1A6C5	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_init
-_marisa_init label far
-marisa_init	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		call	sub_1A6C5
-		call	@dialog_pre$qv
-		call	super_clean pascal, (128 shl 16) or 192
-		mov	super_patnum, 80h
-		call	super_entry_bfnt pascal, ds, offset aMima_bft_0 ; "mima.bft"
-		call	@dialog_script_stage4_pre_intro_a$qv
-		mov	vsync_Count1, 0
-		call	@frame_delay$qi pascal, 10
-		call	sub_1A529
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_PREBOSS
-		call	super_clean pascal, (128 shl 16) or 511
-		mov	super_patnum, 80h
-		call	super_entry_bfnt pascal, ds, offset aStage3_b_bft ; "stage3_b.bft"
-		call	super_entry_bfnt pascal, ds, offset aStage3_b_btt_0 ; "stage3_b.btt"
-		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 48)
-		mov	ax, _boss_left_on_page[0 * word]
-		mov	_boss_left_on_page[1 * word], ax
-		mov	_boss_top_on_page[0 * word], (PLAYFIELD_TOP + 48)
-		mov	ax, _boss_top_on_page[0 * word]
-		mov	_boss_top_on_page[1 * word], ax
-		mov	point_26D76.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 48)
-		mov	point_26D76.y, (PLAYFIELD_TOP + 48)
-		mov	patnum_2064E, 128
-		push	1
-		call	palette_white_out
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_fill
-		call	grcg_off
-		call	grc_setclip pascal, (PLAYFIELD_LEFT shl 16) or 0, (PLAYFIELD_RIGHT shl 16) or (RES_Y - 1)
-		call	super_put_rect pascal, point_26D76.x, point_26D76.y, patnum_2064E
-		mov	ax, point_26D76.x
-		add	ax, 48
-		push	ax
-		push	point_26D76.y
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		call	super_roll_put pascal, _player_topleft.x, _player_topleft.y, PAT_PLAYCHAR_STILL
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].x
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		add	ax, PLAYER_OPTION_TO_OPTION_DISTANCE
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		call	_snd_se_play stdcall, 10
-		call	_snd_se_update
-		call	sub_1A46B
-		push	1
-		call	palette_white_in
-		push	ds
-		push	offset aBoss3_m	; "boss3.m"
-		nopcall	sub_13ABB
-		add	sp, 6
-		call	@dialog_script_stage4_pre_marisa_$qv
-		call	graph_clear
-		call	super_put_rect pascal, point_26D76.x, point_26D76.y, patnum_2064E
-		mov	ax, point_26D76.x
-		add	ax, 48
-		push	ax
-		push	point_26D76.y
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		call	super_roll_put pascal, _player_topleft.x, _player_topleft.y, PAT_PLAYCHAR_STILL
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].x
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		mov	ax, _player_option_left_topleft[bx].x
-		add	ax, PLAYER_OPTION_TO_OPTION_DISTANCE
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		mov	bx, ax
-		push	_player_option_left_topleft[bx].y
-		push	PAT_OPTION_A
-		call	super_roll_put_tiny
-		mov	al, _page_front
-		mov	ah, 0
-		call	graph_copy_page pascal, ax
-		graph_accesspage _page_back
-		graph_showpage _page_front
-		mov	_tile_mode, TM_NONE
-		call	@shots_free_all$qv
-		mov	_boss_damage, 0
-		mov	byte_2066A, 0
-		mov	_boss_phase_frame, 0
-		mov	byte_2066B, 0
-		mov	word_26CFC, 0
-		mov	byte_1EE96, 0
-		xor	si, si
-		jmp	short loc_1AA1A
-; ---------------------------------------------------------------------------
-
-loc_1A9FB:
-		mov	bx, si
-		add	bx, bx
-		mov	word ptr word_26D22[bx], 0
-		mov	bx, si
-		add	bx, bx
-		mov	word ptr word_26D2A[bx], 2
-		mov	bx, si
-		add	bx, bx
-		mov	word ptr word_26D32[bx], 0
-		inc	si
-
-loc_1AA1A:
-		cmp	si, 4
-		jl	short loc_1A9FB
-		mov	byte_26D7E, 1
-		mov	byte_1FFF8, 9
-		mov	word_1FFF6, 18h
-		mov	word_1FFF0, 18h
-		mov	word_1FFF2, 4
-		mov	word_26CFE, 0
-		mov	byte_26D4C, 0
-		mov	byte_26D4D, 0
-		mov	byte_26D4E, 0
-		mov	byte_26D4F, 0
-		mov	_boss_explode_angle_offset, -20h
-		call	_marisa_1B214
-		pop	si
-		pop	bp
-		retf
-marisa_init	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _marisa_1AA60
-_marisa_1AA60 label near
-marisa_1AA60	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	byte_2066A, 0
-		jnz	locret_1AB33
-		mov	ax, point_26D76.x
-		add	ax, 24
-		push	ax
-		mov	ax, point_26D76.y
-		add	ax, 24
-		push	ax
-		push	300030h
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+var_2], ax
-		or	ax, ax
-		jz	short loc_1AAD6
-		cmp	word_26D4A, 8
-		jl	short loc_1AAB1
-		call	_snd_se_play c, 4
-		mov	byte_2066B, 1
-		mov	al, byte_1EE96
-		mov	ah, 0
-		imul	[bp+var_2]
-		add	_boss_damage, ax
-		jmp	short loc_1AABB
-; ---------------------------------------------------------------------------
-
-loc_1AAB1:
-		call	_snd_se_play c, 11
-
-loc_1AABB:
-		cmp	_boss_damage, 900
-		jl	short loc_1AAD6
-		mov	byte_2066A, 1
-		add	_score_delta, 20000
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-
-loc_1AAD6:
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_26D76.x
-		add	dx, -16
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jle	short locret_1AB33
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_26D76.x
-		add	dx, 48
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jge	short locret_1AB33
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_26D76.y
-		add	dx, -16
-		mov	bx, ax
-		cmp	_player_top_on_page[bx], dx
-		jle	short locret_1AB33
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_26D76.y
-		add	dx, 48
-		mov	bx, ax
-		cmp	_player_top_on_page[bx], dx
-		jge	short locret_1AB33
-		mov	_player_is_hit, 1
-
-locret_1AB33:
-		leave
-		retn
-marisa_1AA60	endp
-
-
-; marisa_1AB35() through marisa_1B2E9(), marisa_1B35F() through marisa_1BAFF(),
-; marisa_1BC43(), marisa_1BE72() and marisa_update() are th02/main/boss/b4.cpp,
-; prepended into this segment in that order (kb/codegen/0099).
+; boss_portrait_put(), boss_bg_rows_put(), boss_entrance_animate(),
+; boss_playfield_reset(), marisa_init(), marisa_1AA60(), marisa_1AB35()
+; through marisa_1B2E9(), marisa_1B35F() through marisa_1BAFF(),
+; marisa_1BC43(), marisa_1BE72() and marisa_update() are
+; th02/main/boss/b4.cpp, prepended into this segment in that order
+; (kb/codegen/0099).
+;
+; The first four are shared boss-entrance helpers rather than Marisa's
+; own - they only live in her object because it is the one that reaches
+; their addresses. mima_init() and sigma_init() above still call three of
+; them, through the `extrn` declarations at the head of BOSS_5_TEXT and of
+; this segment.
 ; marisa_update()'s `db 0` pad and its 5-entry jump
 ; table are part of what that function compiles to, so they moved with it.
 
@@ -17550,9 +16981,17 @@ public _marisa_star_drift_angle
 _marisa_star_drift_angle	db 2
 public _marisa_pattern_side
 _marisa_pattern_side	db 1
+public _aMima_bft_0
+_aMima_bft_0 label byte
 aMima_bft_0	db 'mima.bft',0
+public _aStage3_b_bft
+_aStage3_b_bft label byte
 aStage3_b_bft	db 'stage3_b.bft',0
+public _aStage3_b_btt_0
+_aStage3_b_btt_0 label byte
 aStage3_b_btt_0	db 'stage3_b.btt',0
+public _aBoss3_m
+_aBoss3_m label byte
 aBoss3_m	db 'boss3.m',0
 		db 0
 	.data?
@@ -18356,6 +17795,8 @@ byte_26CFA	db ?
 public _marisa_intro_step
 _marisa_intro_step label word
 word_26CFC	dw ?
+public _marisa_intro_direction
+_marisa_intro_direction label word
 word_26CFE	dw ?
 top_26D00	dw ?
 
