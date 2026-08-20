@@ -3617,217 +3617,44 @@ loc_10E1F:
 @mai_yuki_fg_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; midboss4_render() now lives in th05/main/midboss/m4.cpp, at the front
+	; of the th05/b6cbull.cpp object -- the segment's next contribution, and
+	; this was the LAST proc of the root's block, so the C++ side grows
+	; backwards into the hole and every byte keeps its address (kb/codegen
+	; 0112 + 0114). It is NOT a sibling of TH04's same-named renderer: that
+	; one clips through playfield_clip_point_yx_small_roll() and picks its
+	; cel from which half of the playfield the midboss is in.
+	;
+	; Nothing in this dump calls it -- th05/main/stage/setup.cpp installs it
+	; into [midboss_render_func] -- so no `procdesc` replaces it, and the
+	; mangled `public` that exported it goes with the body.
 
-; Attributes: bp-based frame
+		assume	es:nothing	; kb/codegen/0121: this was set inside b4balls_render(), which is now C++ and does not participate in TASM's assume state at all. It is restored at the module's own position, so every later contribution in this file is assembled under exactly the assumption it was before.
+	B4BALLS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of b4_solo_fg_render() and the three lifts below it, so all five keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's two `offset` sites resolve against.
+	B4_SOLO_FG_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of swords_render(), yumeko_fg_render() and shinki_custombullets_render(), so all four keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST proc of this root contribution. The original published no symbol for it at all, so the name is this campaign's; kb/codegen/0102's UPPER case because the function is pascal, which is what the `offset` site below resolves against.
 
-public @MIDBOSS4_RENDER$QV
-@midboss4_render$qv	proc near
+	SWORDS_RENDER procdesc pascal near	; now a C++ definition at the front of the th05/b6cbull.cpp object, ahead of yumeko_fg_render() and shinki_custombullets_render(), so all three keep this segment's address order (kb/codegen 0112 + 0114). It was the LAST thing this root contribution emitted. kb/codegen/0102: UPPER case because the function is pascal, which is the spelling its module PUBLISHed and the spelling this dump's own `offset` site resolves against.
 
-@@patnum		= word ptr -2
+	; yumeko_fg_render() now lives in th05/main/boss/b5_fg.cpp, at the
+	; front of the th05/b6cbull.cpp object -- the segment's next
+	; contribution, and this was the LAST proc of the root's block, so
+	; the C++ side simply grows backwards into the hole and every byte
+	; keeps its address (kb/codegen 0112 + 0114). No carve, no new
+	; segment and no Tupfile.lua line: that object already exists and
+	; already carries the -zCMIDBOSSX_TEXT -zPmain_01 pragmas.
+	;
+	; Nothing in this dump calls it -- th05/main/stage/setup.cpp installs
+	; it into [boss_fg_render_func] -- so no `procdesc` replaces it, and
+	; the upper-case `public` that exported it goes with the body.
+	;
+	; kb/codegen/0121: the body carried no `assume`, and neither does any
+	; other part of this segment, so there is nothing to restore.
+	;
 
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_10EA4
-		cmp	_midboss_pos.cur.y, 0
-		jl	short loc_10EAE
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	di, ax
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-		mov	dh, 0
-		mov	bx, 4
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	[bp+@@patnum], dx
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_10E8D
-		cmp	_boss_statebyte[15], 0
-		jz	short loc_10E8D
-		call	super_roll_put pascal, si, di, dx
-		jmp	short loc_10EAE
-; ---------------------------------------------------------------------------
+	; Everything below that proc is lifted too, so this contribution's tail
+	; is midboss4_render(): CARVE-FREE-TAILED, hosted by the same object.
 
-loc_10E8D:
-		call	super_roll_put_1plane pascal, si, di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-		jmp	short loc_10EAE
-; ---------------------------------------------------------------------------
-
-loc_10EA4:
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_10EAE
-		call	@midboss_defeat_render$qv
-
-loc_10EAE:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss4_render$qv	endp
-
-include th05/main/bullet/b4balls_render.asm
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_10F12	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10F42
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_10F40:
-		jmp	short loc_10F86
-; ---------------------------------------------------------------------------
-
-loc_10F42:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	si, ax
-		cmp	_boss_sprite, 208
-		jz	short loc_10F57
-		cmp	_boss_sprite, 192
-		jnz	short loc_10F63
-
-loc_10F57:
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	si, ax
-
-loc_10F63:
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_10F76
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_10F40
-; ---------------------------------------------------------------------------
-
-loc_10F76:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-
-loc_10F86:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-sub_10F12	endp
-
-include th05/main/bullet/swords_render.asm
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @YUMEKO_FG_RENDER$QV
-@yumeko_fg_render$qv	proc near
-
-var_6		= word ptr -6
-@@x		= word ptr -4
-@@patnum		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	di, ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_11001
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-		jmp	short loc_11069
-; ---------------------------------------------------------------------------
-
-loc_11001:
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_11029
-		mov	ax, _boss2_pos.x
-		sar	ax, 4
-		mov	[bp+@@x], ax
-		mov	ax, _boss2_pos.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+var_6], ax
-		call	super_put_rect pascal, [bp+@@x], ax, 192
-
-loc_11029:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-		mov	dh, 0
-		mov	bx, 4
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	[bp+@@patnum], dx
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_11054
-		call	super_put pascal, si, di, dx
-		jmp	short loc_11064
-; ---------------------------------------------------------------------------
-
-loc_11054:
-		call	super_put_1plane pascal, si, di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-
-loc_11064:
-		mov	_boss_damage_this_frame, 0
-
-loc_11069:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@yumeko_fg_render$qv	endp
-
-include th05/main/bullet/b6_custombullets_render.asm
+	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
 	; Shinki's foreground renderer now lives in
 	; th05/main/boss/b6_fg.cpp, at the front of the th05/stages.cpp
@@ -3845,11 +3672,11 @@ include th05/main/bullet/b6_custombullets_render.asm
 	; kb/codegen/0121: the body carried no `assume`, and neither does any
 	; other part of this segment, so there is nothing to restore.
 	;
-	; The seam does NOT stay open as a carve-free tail: the item ahead is
-	; an `include` of th05/main/bullet/b6_custombullets_render.asm, so
-	; this contribution goes back to being include-tailed. Its host is
-	; already th05/stages.cpp, though, so draining that module costs no
-	; new file either.
+	; That module is lifted too, and the seam it closed is OPEN again:
+	; shinki_custombullets_render() is th05/main/bullet/
+	; b6_custombullets_render.cpp, compiled as its OWN object rather
+	; than prepended to th05/stages.cpp -- that file says why -- and
+	; this block's tail proc is yumeko_fg_render() again.
 
 	; stage2_invalidate() now lives in th05/main/stage/stages.cpp, ahead
 	; of s2particle_respawn() in the same object, which is where its
@@ -10144,7 +9971,7 @@ loc_1AF85:
 		mov	_overlay1, offset @overlay_boss_bgm_update_and_rend$qv
 		mov	_boss_phase, PHASE_BOSS_HP_FILL
 		mov	_boss_phase_frame, 0
-		mov	_boss_fg_render, offset sub_10F12
+		mov	_boss_fg_render, offset B4_SOLO_FG_RENDER
 		mov	_boss_hp, 7900
 
 loc_1AFA7:

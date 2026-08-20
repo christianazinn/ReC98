@@ -40,4 +40,7 @@ struct sword_template_t {
 void pascal near swords_add(void);
 
 void pascal near swords_update(void);
-void pascal near swords_render(void);
+// `extern "C"` + `pascal`: the module published the undecorated
+// upper-case `SWORDS_RENDER`, and th05_main.asm resolves an `offset` against
+// that spelling (kb/codegen/0081 + 0102).
+extern "C" void pascal near swords_render(void);
