@@ -21647,247 +21647,247 @@ loc_1DAC8:
 
 include th04/main/item/miss_add.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_1DBAE
-sub_1DBAE	proc near
-
-@@yellow		= byte ptr -1
-arg_0		= word ptr  4
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, [bp+arg_0]
-		mov	[bp+@@yellow], 0
-		mov	al, [di+item_t.ITEM_type]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 6
-		ja	loc_1DD93
-		add	bx, bx
-		jmp	cs:off_1DDE9[bx]
-
-loc_1DBD0:
-		cmp	_power, POWER_MAX
-		jnb	short loc_1DC04
-		cmp	_power, (POWER_MAX - 1)
-		jnz	short loc_1DBF5
-		mov	_overlay_popup_id_new, POPUP_ID_FULL_POWERUP
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1DBF5
-		mov	_bullet_clear_time, 20
-
-loc_1DBF5:
-		inc	_power
-		call	sub_11DE6
-		mov	si, 1
-		jmp	loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DC04:
-		inc	_power_overflow
-		cmp	_power_overflow, POWER_OVERFLOW_MAX
-		jb	short loc_1DC19
-		mov	_power_overflow, POWER_OVERFLOW_MAX
-		mov	[bp+@@yellow], 1
-
-loc_1DC19:
-		mov	bx, _power_overflow
-		add	bx, bx
-		mov	si, _POWER_OVERFLOW_BONUS[bx]
-		cmp	_pointnum_times_2, 0
-		jz	loc_1DD93
-		inc	_item_playperf_raise
-		jmp	loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DC33:
-		cmp	[di+item_t.pos.cur.y], (52 shl 4)
-		jg	short loc_1DC58
-		mov	si, 5120
-		mov	al, _item_playperf_raise
-		add	al, 4
-		mov	_item_playperf_raise, al
-		inc	_total_max_valued_point_items_collected
-		mov	[bp+@@yellow], 1
-		cmp	_pointnum_times_2, 0
-		jz	short loc_1DC7B
-		add	al, 4
-		jmp	short loc_1DC78
-; ---------------------------------------------------------------------------
-
-loc_1DC58:
-		mov	ax, [di+item_t.pos.cur.y]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	dx, 3300
-		sub	dx, ax
-		mov	si, dx
-		mov	al, _item_playperf_raise
-		add	al, 2
-		mov	_item_playperf_raise, al
-		cmp	_pointnum_times_2, 0
-		jz	short loc_1DC7B
-		add	al, 2
-
-loc_1DC78:
-		mov	_item_playperf_raise, al
-
-loc_1DC7B:
-		inc	_total_point_items_collected
-		add	si, _dream_score
-		inc	_stage_point_items_collected
-		call	hud_point_items_put
-		jmp	loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DC8F:
-		cmp	_dream_items_collected, 6
-		ja	short loc_1DC9A
-		inc	_dream_items_collected
-
-loc_1DC9A:
-		mov	al, _dream_items_collected
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _DREAM_SCORE_PER_ITEMS[bx]
-		mov	_dream_score, ax
-		mov	si, _dream_score
-		call	hud_dream_put
-		mov	al, _item_playperf_raise
-		add	al, 2
-		mov	_item_playperf_raise, al
-		cmp	_pointnum_times_2, 0
-		jz	loc_1DD93
-		add	al, 2
-		mov	_item_playperf_raise, al
-		jmp	loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DCCC:
-		cmp	_power, POWER_MAX
-		jnb	short loc_1DD09
-		mov	al, _power
-		add	al, 10
-		mov	_power, al
-		cmp	_power, POWER_MAX
-		jb	short loc_1DCFE
-		mov	_power, POWER_MAX
-		mov	_overlay_popup_id_new, POPUP_ID_FULL_POWERUP
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1DCFE
-		mov	_bullet_clear_time, 20
-
-loc_1DCFE:
-		call	sub_11DE6
-		mov	si, 1
-		jmp	loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DD09:
-		add	_power_overflow, 5
-		mov	bx, _power_overflow
-		add	bx, bx
-		mov	si, _POWER_OVERFLOW_BONUS[bx]
-		cmp	_power_overflow, POWER_OVERFLOW_MAX
-		jbe	short loc_1DD25
-		mov	_power_overflow, POWER_OVERFLOW_MAX
-
-loc_1DD25:
-		cmp	_power_overflow, POWER_OVERFLOW_MAX
-		jnz	short loc_1DD93
-		mov	si, 2560
-		mov	[bp+@@yellow], 1
-		jmp	short loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DD35:
-		les	bx, _resident
-		inc	es:[bx+resident_t.rem_bombs]
-		mov	si, 100
-		call	hud_bombs_put
-		jmp	short loc_1DD93
-; ---------------------------------------------------------------------------
-
-loc_1DD47:
-		call	playperf_raise pascal, 3
-		les	bx, _resident
-		inc	es:[bx+resident_t.rem_lives]
-		call	hud_lives_put
-		call	snd_se_play pascal, 7
-		mov	_overlay_popup_id_new, POPUP_ID_EXTEND
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		jmp	short loc_1DD90	; jumptable 0001CCD9 case 696
-; ---------------------------------------------------------------------------
-
-loc_1DD6F:
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1DD7B
-		mov	_bullet_clear_time, 20
-
-loc_1DD7B:
-		mov	_overlay_popup_id_new, POPUP_ID_FULL_POWERUP
-		mov	_overlay2, offset @overlay_popup_update_and_render$qv
-		mov	_power, POWER_MAX
-		call	sub_11DE6
-
-loc_1DD90:
-		mov	si, 100	; jumptable 0001CCD9 case 696
-
-loc_1DD93:
-		cmp	_pointnum_times_2, 0
-		jnz	short loc_1DDA0
-		movzx	eax, si
-		jmp	short loc_1DDA8
-; ---------------------------------------------------------------------------
-
-loc_1DDA0:
-		mov	ax, si
-		add	ax, ax
-		movzx	eax, ax
-
-loc_1DDA8:
-		add	_score_delta, eax
-		cmp	[bp+@@yellow], 0
-		jnz	short loc_1DDBF
-		call	@pointnums_add_white$qiiui pascal, word ptr [di+2], word ptr [di+4], si
-		jmp	short loc_1DDC9
-; ---------------------------------------------------------------------------
-
-loc_1DDBF:
-		call	@pointnums_add_yellow$qiiui pascal, word ptr [di+2], word ptr [di+4], si
-
-loc_1DDC9:
-		cmp	_item_playperf_raise, 32
-		jb	short loc_1DDDF
-		mov	al, _item_playperf_raise
-		add	al, -32
-		mov	_item_playperf_raise, al
-		call	playperf_raise pascal, 1
-
-loc_1DDDF:
-		inc	_items_collected
-		pop	di
-		pop	si
-		leave
-		retn	2
-sub_1DBAE	endp
-
-; ---------------------------------------------------------------------------
-off_1DDE9	dw offset loc_1DBD0
-		dw offset loc_1DC33
-		dw offset loc_1DC8F
-		dw offset loc_1DCCC
-		dw offset loc_1DD35
-		dw offset loc_1DD47
-		dw offset loc_1DD6F
+	; sub_1DBAE -- what collecting an item does -- was lifted out of here and
+	; is now th04/main/item/collect.cpp, which th04/main/item/update.cpp
+	; #includes at the very FRONT of the th04/it_updt.cpp object, ahead of
+	; item_left_playfield() and items_update() (kb/codegen/0129). That is the
+	; address order all three have in IT_UPDT_TEXT.
+	;
+	;
+	; ITS SEVEN-ENTRY `dw offset` JUMP TABLE WENT WITH THE BODY. The table is
+	; not data this dump owns: it is what the `switch` on the item's [type]
+	; COMPILES TO, so the C++ emits it, and a copy left behind here would be
+	; emitted twice. This is the second row of state/re/JUMP_TABLE_TAILS.md's
+	; class to land in TH04, after score_extend_update_and_render() in
+	; HUD_PNT_TEXT one parcel earlier.
+	;
+	;
+	; No carve, no new segment, no group-list edit and no Tupfile.lua line:
+	; th04/it_updt.cpp is itself a kb/codegen/0080 carve that already appended
+	; directly after this block, so the object grows backwards into the hole
+	; and every byte above it keeps its address (kb/codegen 0099 + 0112 +
+	; 0114). Its `-zCIT_UPDT_TEXT -zPmain_03` pragma pair was already there
+	; and is what keeps the lifted table's entries framed on the GROUP rather
+	; than on the segment -- kb/codegen/0104, which that object's own header
+	; records as verified in both directions.
+	;
+	;
+	; THE NAME IS NO LONGER INFERRED, AND THAT IS THIS PARCEL'S ONE NAMING
+	; DECISION. th04/main/item/update.cpp has spelled the call site
+	; `item_collected()` since before either game's body was read, over a
+	; `#define` onto each game's placeholder, and state/notes/items_update.md
+	; recorded that spelling as `[inferred from call sites -- neither
+	; placeholder body has been read]`. The body has now been read and it
+	; confirms the inference outright: every one of the seven arms hands the
+	; player something and the shared tail spawns the pickup's point number.
+	; The TH04 half of that caveat is discharged in this parcel; TH05's
+	; sub_16F54() keeps its `#define` because its body is DIFFERENT, not
+	; merely unlifted -- same seven types, but its dream and power arms
+	; diverge and it has no [total_*_collected] counters at all, so the two
+	; are two lifts rather than one shared body (kb/codegen/0115).
+	;
+	;
+	; The `public SUB_1DBAE` this block carried is gone with it. Nothing in
+	; any dump ever called this proc -- its only caller is items_update(),
+	; which is C++ in the same object -- so no procdesc replaces it and no
+	; call site anywhere moved.
+	;
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore into the rest of this contribution.
+	;
+	;
+	; WHAT THE BODY DID. Recorded here rather than left to the C++ to assert,
+	; because this is the whole of TH04's item economy in one function.
+	;
+	;
+	;   The `switch` is dense over the seven non-negative values of
+	;   item_type_t and its bodies are in value order, so the table is indexed
+	;   directly. Each arm sets SI to what the pickup is worth; the tail then
+	;   banks SI, spawns a point number at the item's position, and drains the
+	;   rank accumulator if it has filled.
+	;
+	;
+	;   IT_POWER
+	;     Below the cap: +1 power, re-derive the shot level through
+	;     sub_11DE6, worth 1 point. The full-power popup fires on the frame
+	;     power REACHES the cap, which is why the test is `==` against one
+	;     below it rather than `>=` against the cap after the increment, and
+	;     that popup arms the 20-frame bullet clear as well.
+	;     At the cap: the pickup goes into [power_overflow] instead, and is
+	;     paid out of POWER_OVERFLOW_BONUS[] indexed by the new count. Filling
+	;     the overflow counter marks the number yellow.
+	;
+	;
+	;   IT_POINT
+	;     Height is the whole of a point item's value. Caught at or above the
+	;     52-subpixel line it is worth a flat 5120 and counts as a maximum
+	;     collection -- yellow, and +4 rank; below it, a linear falloff of
+	;     3300 minus half the item's Y, and +2 rank. Either way the current
+	;     dream bonus is added on top, three counters advance and the HUD row
+	;     is refreshed.
+	;
+	;
+	;   IT_DREAM
+	;     Advances [dream_items_collected], which saturates one past the last
+	;     index it can reach -- the `<= 6` test IS the clamp, which is why the
+	;     DREAM_SCORE_PER_ITEMS[] lookup below it needs none of its own. The
+	;     new per-item dream bonus is both stored and paid, and it is RE-READ
+	;     from the global rather than reused from the store: the original
+	;     loads AX, writes it, and then loads SI from memory again.
+	;
+	;
+	;   IT_BIGPOWER
+	;     Ten power at once, clamped at the cap, with the same popup and
+	;     bullet clear; worth 1 point, exactly as one power item is.
+	;     At the cap it adds FIVE to the overflow counter -- see the quirk
+	;     below.
+	;
+	;
+	;   IT_BOMB   +1 bomb in the resident structure, 100 points.
+	;   IT_1UP    +1 rank through playperf_raise(3), +1 life, the extend
+	;             jingle and the extend popup, 100 points.
+	;   IT_FULLPOWER
+	;             Power straight to the cap with the popup and bullet clear,
+	;             the shot level re-derived, 100 points. It shares that final
+	;             `mov si, 100` with IT_1UP, which is what the short jump out
+	;             of the IT_1UP arm is.
+	;
+	;
+	;   THE TAIL, on every path including the unreached default:
+	;     [score_delta] takes SI, doubled while [pointnum_times_2] is armed --
+	;     the flag items_update() sets for as long as the player is pulling
+	;     items in. The point number is yellow if the arm marked it and white
+	;     otherwise. Then [item_playperf_raise], which four of the seven arms
+	;     add to rather than raising rank directly, is drained in one step
+	;     once it reaches 32: unlike item_left_playfield()'s accumulator the
+	;     threshold and the drain ARE the same number here, so this one really
+	;     does return to a remainder below 32 instead of carrying 16 forward.
+	;     Both constants are literal in the dump, and the drain is written
+	;     as an addition of the negated constant, not as a subtraction.
+	;
+	;
+	; TWO ZUN QUIRKS, both preserved and both spelled out in the C++:
+	;
+	;
+	;   1) SI IS NEVER INITIALIZED. The `switch` has no default arm, so an
+	;      item whose [type] is above IT_FULLPOWER falls straight through to
+	;      the tail and banks whatever SI happened to hold -- there is no
+	;      initializing store anywhere above the dispatch. It is unreachable
+	;      in practice only because items_add() is the sole writer of [type]
+	;      in either game; nothing in this function defends against it.
+	;
+	;
+	;   2) IT_BIGPOWER READS THE BONUS TABLE BEFORE IT CLAMPS. At the power
+	;      cap the arm adds 5 to [power_overflow], indexes
+	;      POWER_OVERFLOW_BONUS[] with the new value, and only THEN clamps the
+	;      counter to POWER_OVERFLOW_MAX. A counter that has just run past the
+	;      cap therefore reads up to four entries off the end of a 42-entry
+	;      table, and whatever that memory holds is what the player is paid.
+	;      The clamp on the next line fixes the counter, not the payout.
+	;      Only the frame that lands EXACTLY on the cap pays the 2560 bonus,
+	;      so every later big-power item at full power falls through with the
+	;      out-of-bounds value instead. IT_POWER's own overflow arm has no
+	;      such window: it increments by one, so it can never step over the
+	;      cap.
+	;
+	;
+	; THREE THINGS THE C++ HAD TO SPELL DELIBERATELY, each measured with
+	; `tcc -S` before any build (kb/codegen/0152) rather than after a red one:
+	;
+	;
+	;   * BOTH TESTS AGAINST POWER_OVERFLOW_MAX ARE UNSIGNED here -- `JB` and
+	;     `JBE` over identical operands. th02/main/item/shared.hpp declares
+	;     the cap `int` and th02/main/player/player.hpp declares
+	;     [power_overflow] `int`, and left that way Turbo C++ takes the
+	;     operator literally (kb/codegen/0092) and emits `JL`/`JLE`: one bit
+	;     of one byte, in two places, and invisible to anything but funcdiff.
+	;     The lifted C++ casts the operand at both sites. TH05's counterpart
+	;     at th05_main.asm's sub_16F54 has the same `JB`, so this is a
+	;     property of ZUN's source rather than of this one function.
+	;
+	;
+	;   * [total_max_valued_point_items_collected] IS 38 CHARACTERS and TLINK
+	;     truncates a C identifier to 32, so the C++ cannot reference it at
+	;     all (kb/codegen/0060). It goes through the <= 32-character alias
+	;     th04/main/item/items[data].asm publishes at the same address, which
+	;     th04/main/execl.cpp already uses for exactly this reason.
+	;
+	;
+	;   * sub_11DE6 IS A PLAIN FAR CALL FROM HERE, where
+	;     th04/main/player/miss.cpp needs the `nop` + `push cs` island for the
+	;     same proc: that object is in group main_01 with it and this one is
+	;     in main_03, so there is no same-group lowering to reproduce
+	;     (kb/codegen 0014 + 0083).
+	;
+	;
+	; WHAT THIS SEGMENT'S TAIL IS NOW: @items_add$qii11item_type_t, and the
+	; block above it ends with `include th04/main/item/miss_add.asm`, so the
+	; row leaves the jump-table class and re-enters the include class rather
+	; than staying liftable. Re-run tools/pi-audit/carve_free_tails.py against
+	; a fresh build before costing anything here; a carve verdict is a claim
+	; about what FOLLOWS the proc, and this lift invalidated the old one.
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
 
 	; item_left_playfield() and items_update() now both live in
 	; th04/main/item/update.cpp, which the th04/it_updt.cpp object appends to

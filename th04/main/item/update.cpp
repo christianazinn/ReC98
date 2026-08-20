@@ -57,8 +57,11 @@
 	extern "C" void pascal near sub_16F54(item_t near *item);
 	#define item_collected(item)		sub_16F54(item)
 #else
-	extern "C" void pascal near sub_1DBAE(item_t near *item);
-	#define item_collected(item)		sub_1DBAE(item)
+	// TH04's half of that `#define` is gone: the body has been read, it
+	// confirms the inferred role, and it is now item_collected() itself, at
+	// the front of this object. TH05's stays a placeholder behind the macro
+	// until its own dump's sub_16F54() is lifted.
+	#include "th04/main/item/collect.cpp"
 #endif
 
 #if (GAME == 5)
