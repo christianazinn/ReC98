@@ -808,36 +808,36 @@ sub_B1D0	proc near
 sub_B1D0	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_B29E
-_sub_B29E label near
-sub_B29E	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	@bb_boss_free$qv
-		call	@dialog_free$qv
-		call	@std_free$qv
-		call	@map_free$qv
-		call	super_clean pascal, (128 shl 16) or 256
-		mov	si, CDG_FACESET_BOSS
-		jmp	short loc_B2C7
-; ---------------------------------------------------------------------------
-
-loc_B2C0:
-		call	cdg_free pascal, si
-		inc	si
-
-loc_B2C7:
-		cmp	si, (CDG_COUNT - 1)
-		jl	short loc_B2C0
-		pop	si
-		pop	bp
-		retn
-sub_B29E	endp
+	; stage_transition() -- the name th04/main/entry.cpp already used for
+	; this proc through a macro over IDA's placeholder -- was lifted out of
+	; here and is now th04/main/stage/transition.cpp, ONE body shared with
+	; TH05's twin at the tail of th05_main.asm's DEMO_TEXT. th04/demo.cpp
+	; #includes it ahead of th04/main/pause.cpp, which is the address it
+	; already had: this proc was the last thing this file contributed to the
+	; segment once pause() moved out, and that object is the next
+	; contribution behind it (kb/codegen 0099 + 0114). No carve, no new
+	; segment name, no group-list edit, no Tupfile.lua line.
+	;
+	; The zero-byte public label alias that used to sit above the proc went
+	; with it. It existed only so that th04/main/entry.cpp could name the
+	; placeholder from C++ (kb/codegen 0123); a real C++ definition exports
+	; the mangled @stage_transition$qv, which is the only spelling either
+	; side needs now. Nothing in this file ever called the proc --
+	; main_entry() is its one and only caller, and it is C++ too.
+	;
+	; The four frees the body opens with are all C++ already: bb_boss_free()
+	; in th04/formats/bb_boss.cpp, and dialog_free(), std_free() and
+	; map_free() in th04/formats/. The first of those was the only call site
+	; in this file that needed bb_boss_free declared at all, so its procdesc
+	; was dropped from the main_035_TEXT block below in the same change.
+	;
+	; kb/codegen 0121: the body carried no assume of its own, and the
+	; segment's own assume line at its head still covers everything left
+	; above it, so there is nothing to restore.
+	;
+	; This block is written onto the lines the body vacated and is exactly
+	; as long, so no line-anchored citation into this file moves -- three
+	; same-count dump edits have now renumbered none.
 
 	; pause() is now th04/main/pause.cpp, at the head of th04/main/demo.cpp
 	@demo_load$qv procdesc near
@@ -21929,28 +21929,28 @@ main_035_TEXT	segment	byte public 'CODE' use16
 
 	; bb_boss_load() and bb_boss_free() now live in
 	; th04/formats/bb_boss.cpp -- the SAME file TH05 has compiled for
-	; months, whose `if GAME eq 5` arms this module mirrored line for line.
+	; months, whose "if GAME eq 5" arms this module mirrored line for line.
 	; th04/main_035.cpp includes it ahead of the stage setups, which is the
 	; address it already had, because this module was the last thing this
 	; file contributed to the segment (kb/codegen 0099 + 0112 + 0114).
 	;
-	; The one dump call site, in sub_B29E in DEMO_TEXT, is a plain far call
-	; across GROUPS -- main_01 to main_03 -- so it needs no override and no
-	; `nopcall` relaxation, and it did not change (kb/codegen/0083).
-	; Lowercase because bb_boss_free() is NOT __pascal, unlike
-	; BB_BOSS_LOAD; the module published each under its own case and TASM
-	; applies no case rule of its own (kb/codegen 0081, 0103).
+	; NO procdesc for either any more. The one that used to sit here was
+	; for bb_boss_free, and it existed for exactly one dump call site: the
+	; plain far call across GROUPS -- main_01 to main_03 -- at the head of
+	; the proc that was the tail of DEMO_TEXT. That proc is now
+	; th04/main/stage/transition.cpp and calls bb_boss_free() as C++, so
+	; nothing in this file references the symbol and the house rule two
+	; blocks above -- no reference, no procdesc -- now applies to it too.
+	; Its callers are th04/main/stage/setup.cpp, th04/main/boss/boss.cpp
+	; and th04/main/stage/transition.cpp, all C++.
 	;
-	; Declared here, at the seam, rather than above that call site: the
-	; forward reference is what the module itself already was -- it defined
-	; the far proc ~21,600 lines BELOW the call -- and putting a block above
-	; line 821 instead would renumber every line-anchored citation into this
-	; file, one of which lives in a harness file another lane holds.
-	;
-	; bb_boss_load() gets no procdesc: nothing in this file references it.
-	; Its callers are th04/main/stage/setup.cpp and th04/main/boss/boss.cpp,
-	; both C++.
-	@bb_boss_free$qv procdesc far
+	; Worth keeping from the block that was here, because any future
+	; declaration has to get it right: bb_boss_free() is NOT __pascal,
+	; unlike BB_BOSS_LOAD. The module published each under its own case and
+	; TASM applies no case rule of its own (kb/codegen 0081, 0103), so the
+	; lower-case spelling was not a choice. Written onto the lines the
+	; block vacated and exactly as long, so no line-anchored citation into
+	; this file moves.
 
 	; ALL SEVEN stage setups -- stage1_setup() through stage6_setup(), and
 	; stagex_setup() -- now live in th04/main/stage/setup.cpp, which

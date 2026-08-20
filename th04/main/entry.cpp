@@ -58,19 +58,21 @@ void near ems_allocate_and_preload_eyecatch(void);
 
 void near stage_loop(void);
 
-// Per-stage setup, and the handoff between two stages. Both still ASM, both
-// still unnamed.
+// Per-stage setup, still ASM and still unnamed in both games.
 #if (GAME == 5)
 	extern "C" void near sub_B237(void);
-	extern "C" void near sub_B609(void);
 	#define stage_setup()   	sub_B237()
-	#define stage_transition()	sub_B609()
 #else
 	extern "C" void near sub_AED0(void);
-	extern "C" void near sub_B29E(void);
 	#define stage_setup()   	sub_AED0()
-	#define stage_transition()	sub_B29E()
 #endif
+
+// The handoff between two stages. Was the other half of the block above until
+// it became th04/main/stage/transition.cpp, one shared body for both games,
+// which is where the name this macro used to stand in for came from. Declared
+// rather than reached through a header because the function has exactly one
+// caller, right below, and heads no subsystem of its own.
+void near stage_transition(void);
 // ---------------------------------------------------------------------
 
 extern "C" void far main_entry(void)
