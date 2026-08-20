@@ -950,6 +950,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/hud_pwr.cpp",
 	"th04/player_b.cpp",
 	"th04/shot_inv.cpp",
+	"th04/main_.cpp",
 	"th04/player_m.cpp",
 	"th04/player_p.cpp",
 	"th04/main_0.cpp",

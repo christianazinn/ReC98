@@ -101,7 +101,12 @@ extern enemy_t near *enemy_cur;
 #define ENEMY_POS_RANDOM 999.0f
 
 void near enemies_invalidate(void);
-void pascal near enemies_render(void);
+// `extern "C"`, because th04/main/enemy/render.asm published the undecorated
+// upper-case ENEMIES_RENDER (kb/codegen/0102). Without it this declaration
+// asked for a C++-mangled symbol that nothing defines -- which never showed
+// up, because th04/main/stage/loop.cpp declared its own correct one and was
+// the function's only C++ caller until th04/main/enemy/render.cpp existed.
+extern "C" void pascal near enemies_render(void);
 
 #if (GAME != 5)
 // Advances [enemy_cur] along its velocity and clips it off the playfield along
@@ -134,7 +139,8 @@ extern "C" void pascal near enemy_velocity_set(void);
 // the plain enemy_velocity_set() above, and its enemy_angle_update() only
 // integrates [angle_speed] for the circular and sine moves.
 //
-// The dump called this one `sub_155AA`; the name is ours.
+// The dump carried this one under an IDA placeholder, i.e. no name at all;
+// the name here is ours.
 extern "C" void pascal near enemy_velocity_set_aimed(void);
 #endif
 
