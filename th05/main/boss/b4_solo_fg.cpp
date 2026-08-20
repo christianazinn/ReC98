@@ -1,10 +1,16 @@
-/// Stage 4 Bosses - Mai & Yuki, foreground rendering
-/// -------------------------------------------------
-/// One function for both of them: [boss] carries whichever of the two the
-/// fight has put there, and th05_main.asm installs this as [boss_fg_render]
-/// in the same block that assigns [boss.pos.cur] from [yuki_pos.cur].
-/// th05/main/boss/b4_both.cpp owns the game-logic half of the same pairing
-/// and spells that arrangement `#define mai boss` / `#define yuki boss2`.
+/// Stage 4 Bosses - Mai & Yuki, SOLO foreground rendering
+/// ------------------------------------------------------
+/// NOT the Stage 4 renderer: that is mai_yuki_fg_render(), which draws both
+/// of them and is what th05/main/stage/setup.cpp installs into
+/// [boss_fg_render_func]. This one draws ONE of them, and th05_main.asm
+/// installs it into the *other* global, the runtime [boss_fg_render], when
+/// the fight moves to its second phase — the block that loads _DM08.TX2 or
+/// _DM09.TX2, gives the survivor 7900 fresh HP, and either leaves Mai in
+/// [boss] or copies [yuki.pos.cur] into it and switches [boss_update] to
+/// yuki_update(). Whichever of the pair is left therefore arrives in [boss],
+/// which is why one body serves both. th05/main/boss/b4_both.cpp owns the
+/// game-logic half of the same pairing and spells the arrangement
+/// `#define mai boss` / `#define yuki boss2`.
 ///
 /// They keep the three-way [boss_fg_render] contract that
 /// th04/main/boss/fg.cpp documents for TH04's bosses, with two differences:
@@ -45,7 +51,7 @@ static const int B4_ANIM_FRAMES_PER_CEL = 2;
 // alone. Plain C++ linkage would emit a mangled name for that dump line to
 // spell, for no gain; the undecorated upper-case spelling is what every other
 // dump-referenced lift in this game uses (kb/codegen 0081 + 0102).
-extern "C" void pascal near b4_fg_render(void)
+extern "C" void pascal near b4_solo_fg_render(void)
 {
 	// Same frame as exalice_fg_render(): `ENTER 2, 0`, three 16-bit locals,
 	// two enregistered and one on the stack, running DI, SI, `[bp-2]`. So
