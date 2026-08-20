@@ -14,8 +14,10 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th01/rank.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/core/globals.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/frames.hpp"
@@ -97,28 +99,408 @@ extern "C" void near marisa_1B35F(void);
 extern "C" void near marisa_1B3DE(void);
 extern "C" void near marisa_1B477(void);
 extern "C" void near marisa_1B555(void);
+/// --------------------------
+
+
+/// The two angle accumulators the patterns below sweep their aim with
+/// -------------------------------------------------------------------
+/// Both are `db` slots in th02_main.asm's own spelling, address-suffixed
+/// rather than IDA placeholders, and each is read and written by exactly one
+/// of the patterns below - [angle_26D87] by marisa_1B6DA(), [angle_26D88] by
+/// marisa_1B7D3(). Retiring the address suffix would be a rename of a slot no
+/// other function touches, which this parcel does not need to make in order to
+/// lift the two bodies.
+
+extern "C" uint8_t angle_26D87;
+extern "C" uint8_t angle_26D88;
+/// -------------------------------------------------------------------
+
 
 // Steps [patnum_2064E] through Marisa's five cast cels at fixed offsets from
-// [frame]. `pascal` (`retn 2`), hence the C++ mangling rather than the
-// `extern "C"` the rest of this list uses; th02/formats/mpn.hpp declares
-// mpn_put_8() the same way.
-extern "C++" void pascal near marisa_1B665(int frame);
+// [frame], and plays the cast sound on the first of them. `pascal` (`retn 2`),
+// hence the C++ mangling rather than the `extern "C"` the rest of this file
+// uses; th02/formats/mpn.hpp declares mpn_put_8() the same way.
+//
+// The cel at [frame] and the one at ([frame] + 30) are the same one, so the
+// pose is held for 30 frames before the four-cel cast animation runs.
+extern "C++" void pascal near marisa_1B665(int frame)
+{
+	if(boss_phase_frame < frame) {
+		return;
+	}
+	if(boss_phase_frame == frame) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+	} else if((frame + 30) == boss_phase_frame) {
+		patnum_2064E = 130;
+	} else if((frame + 36) == boss_phase_frame) {
+		patnum_2064E = 132;
+	} else if((frame + 42) == boss_phase_frame) {
+		patnum_2064E = 134;
+	} else if((frame + 50) == boss_phase_frame) {
+		patnum_2064E = 136;
+	} else if((frame + 60) == boss_phase_frame) {
+		patnum_2064E = 128;
+	}
+}
 
-extern "C" void near marisa_1B6DA(void);
-extern "C" void near marisa_1B7D3(void);
-extern "C" void near marisa_1B996(void);
-extern "C" void near marisa_1BAFF(void);
-/// --------------------------
+
+// [marisa_pattern] case 2. The orb ring breathes - out for 230 frames, back in
+// for the next 230 - while Marisa fires a single slowly-turning pellet stream
+// from one of two muzzles. Which muzzle, and how fast the stream turns, is
+// decided by whether any orb is still alive.
+extern "C" void near marisa_1B6DA(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame < 280) {
+		for(i = 0; i < MARISA_ORB_COUNT; i++) {
+			marisa_orb_radius[i]++;
+		}
+	} else if(boss_phase_frame < 510) {
+		for(i = 0; i < MARISA_ORB_COUNT; i++) {
+			marisa_orb_radius[i]--;
+		}
+	} else {
+		boss_phase_frame = 0;
+		patnum_2064E = 128;
+	}
+	marisa_1B665(220);
+	if(boss_phase_frame == 220) {
+		angle_26D87 = 0;
+	}
+	if(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) {
+		patnum_2064E = 130;
+	}
+	// Once the orbs are gone the stream fires unconditionally and forever;
+	// while they are alive it only fires during a 20-frame window, and even
+	// then only on the frames the rank gate below lets through.
+	if(
+		((boss_phase_frame >= 250) && (boss_phase_frame < 270)) ||
+		(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED))
+	) {
+		if(marisa_orb_flag_sum != (MARISA_ORB_COUNT * MOF_REMOVED)) {
+			angle_26D87 += 0x0D;
+
+			// ZUN quirk: a difficulty gate written as an arithmetic compare
+			// against a parity bit. On RANK_EASY the stream fires on even
+			// [boss_phase_frame]s only, i.e. at half rate; on every other rank
+			// [rank] is >= 1 and the test can never fail, so the gate has no
+			// effect at all above Easy.
+			if(rank >= (boss_phase_frame & 1)) {
+				bullets_add_pellet(
+					(marisa_topleft.x + 44),
+					(marisa_topleft.y + 64),
+					angle_26D87,
+					BG_1,
+					((3 << 4) + 2)
+				);
+			}
+		} else {
+			angle_26D87 += 0x0A;
+			bullets_add_pellet(
+				(marisa_topleft.x + 64),
+				(marisa_topleft.y + 16),
+				angle_26D87,
+				BG_1,
+				((3 << 4) + 12)
+			);
+			if(boss_phase_frame > 270) {
+				boss_phase_frame = 0;
+				patnum_2064E = 128;
+			}
+		}
+	}
+}
+
+
+// [marisa_pattern] case 5. The two orb pairs are driven apart and back
+// together on different schedules, and every 4th frame of a 100-frame window
+// each orb of the first pair fires a pellet along its own ring angle.
+extern "C" void near marisa_1B7D3(void)
+{
+	register int i;
+	register screen_x_t left;
+	screen_y_t top;
+
+	if(boss_phase_frame == 10) {
+		// ZUN quirk: not a symmetric pair like every other write to this
+		// array. Orbs 0 and 2 turn at +3 while 1 and 3 turn at -2, so the two
+		// halves of the ring drift apart instead of counter-rotating evenly.
+		marisa_orb_angle_delta[0] = 3;
+		marisa_orb_angle_delta[2] = 3;
+		marisa_orb_angle_delta[1] = -2;
+		marisa_orb_angle_delta[3] = -2;
+	}
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame < 130) {
+		for(i = 0; i < MARISA_ORB_COUNT; i += 2) {
+			marisa_orb_radius[i] += 2;
+		}
+	} else if(boss_phase_frame >= 260) {
+		if(boss_phase_frame < 340) {
+			for(i = 0; i < MARISA_ORB_COUNT; i += 2) {
+				marisa_orb_radius[i] -= 2;
+			}
+			if(rank != RANK_EASY) {
+				for(i = 1; i < MARISA_ORB_COUNT; i += 2) {
+					marisa_orb_radius[i]++;
+				}
+			}
+		} else if(boss_phase_frame < 420) {
+			if(rank != RANK_EASY) {
+				for(i = 1; i < MARISA_ORB_COUNT; i += 2) {
+					marisa_orb_radius[i]--;
+				}
+			}
+		} else {
+			marisa_orb_angle_delta[0] = 2;
+			marisa_orb_angle_delta[2] = 2;
+			marisa_orb_angle_delta[1] = -2;
+			marisa_orb_angle_delta[3] = -2;
+			boss_phase_frame = 0;
+			patnum_2064E = 128;
+		}
+	}
+	marisa_1B665(140);
+	if(boss_phase_frame == 140) {
+		angle_26D88 = 0;
+	}
+	if(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) {
+		patnum_2064E = 130;
+
+		// Turns the other way from the orb version below, and faster on the
+		// higher ranks: 0x18 per frame on Easy down to 0x15 on Extra.
+		angle_26D88 -= (0x18 - rank);
+		bullets_add_16x16(
+			(marisa_topleft.x + 64),
+			(marisa_topleft.y + 16),
+			angle_26D88,
+			BSM_1,
+			PAT_BULLET16_STAR,
+			((3 << 4) + 12)
+		);
+		return;
+	}
+	if(boss_phase_frame < 150) {
+		return;
+	}
+	if(boss_phase_frame >= 250) {
+		return;
+	}
+	if((boss_phase_frame & 3) != 0) {
+		return;
+	}
+	angle_26D88 += 3;
+	snd_se_play(10);
+	for(i = 0; i < MARISA_ORB_COUNT; i += 2) {
+		if(marisa_orb_flag[i] == MOF_ALIVE) {
+			left = *marisa_orb_left_on_back_page[i];
+			top = *marisa_orb_top_on_back_page[i];
+
+			// ZUN quirk: the four bounds do not agree with each other or with
+			// the playfield. The x pair is screen-space and tested against 0
+			// rather than PLAYFIELD_LEFT, so an orb in the left margin still
+			// fires; the y pair is tested against PLAYFIELD_H, which is 16
+			// short of PLAYFIELD_BOTTOM in the same space. Three of the four
+			// are strict and the fourth is not.
+			if(
+				(left > 0) && (left < PLAYFIELD_RIGHT) &&
+				(top >= 0) && (top <= PLAYFIELD_H)
+			) {
+				bullets_add_pellet(
+					(left + 12),
+					(top + 12),
+					(marisa_orb_angle[i] + angle_26D88),
+					BG_1,
+					((4 << 4) + 6)
+				);
+			}
+		}
+	}
+}
+
+
+// [marisa_pattern] case 6, the one marisa_update() forces once
+// MARISA_PATTERNS_PER_ROUND regular patterns have been seen. Every surviving
+// orb fires a fan of 8 pellets on frame 100 and a wider fan of 12 on frame
+// 110, and is then shot down by the pattern itself - which is how a round
+// ends.
+extern "C" void near marisa_1B996(void)
+{
+	register int i;
+	register screen_x_t left;
+	screen_y_t top;
+	int angle;
+
+	if(boss_phase_frame == 10) {
+		marisa_orb_angle_delta[0] = -3;
+		marisa_orb_angle_delta[2] = -3;
+		marisa_orb_angle_delta[1] = -3;
+		marisa_orb_angle_delta[3] = -3;
+	}
+	if(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) {
+		patnum_2064E = 128;
+		boss_phase_frame = 0;
+	}
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame == 50) {
+		marisa_orb_angle_delta[0] = -4;
+		marisa_orb_angle_delta[2] = -4;
+		marisa_orb_angle_delta[1] = -4;
+		marisa_orb_angle_delta[3] = -4;
+		snd_se_play(9);
+		patnum_2064E = 130;
+	} else if(boss_phase_frame == 100) {
+		snd_se_play(3);
+		for(i = 0; i < MARISA_ORB_COUNT; i++) {
+			if(marisa_orb_flag[i] == MOF_ALIVE) {
+				left = (*marisa_orb_left_on_back_page[i] + 12);
+				top = (*marisa_orb_top_on_back_page[i] + 12);
+				for(angle = -0x40; angle < 0x40; angle += 0x10) {
+					bullets_add_pellet(
+						left,
+						top,
+						(marisa_orb_angle[i] + angle),
+						BG_1,
+						((4 << 4) + 6)
+					);
+				}
+			}
+		}
+	} else if(boss_phase_frame == 110) {
+		snd_se_play(3);
+		for(i = 0; i < MARISA_ORB_COUNT; i++) {
+			if(marisa_orb_flag[i] == MOF_ALIVE) {
+				left = (*marisa_orb_left_on_back_page[i] + 12);
+				top = (*marisa_orb_top_on_back_page[i] + 12);
+				for(angle = -0x46; angle < 0x46; angle += 12) {
+					bullets_add_pellet(
+						left,
+						top,
+						(marisa_orb_angle[i] + angle),
+						BG_1,
+						(randring2_next8_and(0x1F) + 0x10)
+					);
+				}
+				marisa_orb_flag[i] = MOF_KILL_ANIM;
+			}
+		}
+	}
+}
+
+
+// [marisa_pattern] case 3. From frame 71, every 5th frame, each surviving orb
+// fires one pellet along its own ring angle plus an offset that grows by twice
+// that orb's [marisa_orb_angle_delta] per volley - so the four streams sweep
+// away from the ring and spiral outwards. The volley speed grows with
+// [boss_phase_frame] too, and the whole thing reverses direction and restarts
+// at frame 300.
+extern "C" void near marisa_1BAFF(void)
+{
+	register int i;
+	register screen_x_t left;
+	screen_y_t top;
+	int speed;
+
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame >= 150) {
+		marisa_1B665(120);
+	}
+	if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 130;
+		marisa_volleys_fired = 0;
+		marisa_orb_volley_angle[0] = 0;
+		marisa_orb_volley_angle[1] = 0;
+		marisa_orb_volley_angle[2] = 0;
+		marisa_orb_volley_angle[3] = 0;
+	} else if(boss_phase_frame == 300) {
+		boss_phase_frame = 0;
+		// A compound multiply-assign rather than x = (x * -1), and that is
+		// kb/codegen/0052 rather than style: the compound form expands via AX as
+		// `mov ax, -1` / `imul [x]`, which is what the original has, while the
+		// expanded form gives the 386 two-operand `imul ax, ax, -1`. Both are
+		// four instructions and neither moves a branch displacement, so only
+		// an encoding-level comparison separates them. marisa_1BC43() below
+		// keeps its expanded spelling because [marisa_pattern_side] is a char,
+		// and the byte case emits the two-operand form either way.
+		marisa_orb_angle_delta[0] *= -1;
+		marisa_orb_angle_delta[1] *= -1;
+		marisa_orb_angle_delta[2] *= -1;
+		marisa_orb_angle_delta[3] *= -1;
+	}
+	if(boss_phase_frame <= 70) {
+		return;
+	}
+	if((boss_phase_frame % 5) != 0) {
+		return;
+	}
+	snd_se_play(10);
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		if(marisa_orb_flag[i] == MOF_ALIVE) {
+			left = (*marisa_orb_left_on_back_page[i] + 12);
+			top = (*marisa_orb_top_on_back_page[i] + 12);
+			speed = ((boss_phase_frame >> 2) + ((1 << 4) + 9));
+			bullets_add_pellet(
+				left,
+				top,
+				(marisa_orb_angle[i] + marisa_orb_volley_angle[i]),
+				BG_1,
+				speed
+			);
+			marisa_orb_volley_angle[i] += (marisa_orb_angle_delta[i] * 2);
+		}
+	}
+
+	// Marisa's own ring only exists once every orb has been shot down, and
+	// then only on every other volley.
+	if(
+		(marisa_orb_flag_sum == (MARISA_ORB_COUNT * MOF_REMOVED)) &&
+		((marisa_volleys_fired & 1) == 0)
+	) {
+		bullets_add_pellet(
+			(marisa_topleft.x + 44),
+			(marisa_topleft.y + 44),
+			boss_phase_frame,
+			BG_16_RING,
+			((3 << 4) + 2)
+		);
+	}
+	marisa_volleys_fired++;
+}
 
 
 // No `#pragma codestring` here any more, and that is arithmetic rather than
 // hope. marisa_update()'s generated jump table needs an ODD number of bytes
 // ahead of it inside this object (kb/codegen/0154, and the block above
-// marisa_update() below). Until this parcel that byte was marisa_1BC43()'s own
-// `retn`, borrowed as a one-byte codestring while the rest of the function was
-// still in the dump. marisa_1BC43() is 0x22F bytes and marisa_1BE72() is 0x80,
-// so emitting both leaves the prefix at 0x2AF - still odd, with nothing left to
-// borrow. The pragma is deleted rather than re-pointed at the proc above.
+// marisa_update() below). That byte used to be marisa_1BC43()'s own `retn`,
+// borrowed as a one-byte codestring while the rest of the function was still
+// in the dump; it stopped being needed once marisa_1BC43() (0x22F) and
+// marisa_1BE72() (0x80) were both emitted here, for a prefix of 0x2AF.
+//
+// This parcel adds the five patterns above, and the parity is checked the same
+// way - by adding up the map's own lengths for the bodies this object emits
+// ahead of marisa_update(), never by counting dump bytes:
+//
+//	0x075 marisa_1B665  0x0F9 marisa_1B6DA  0x1C3 marisa_1B7D3
+//	0x169 marisa_1B996  0x144 marisa_1BAFF  0x22F marisa_1BC43
+//	0x080 marisa_1BE72                      = 0x88D, odd.
+//
+// Three of the five bodies are an odd number of bytes long, so the batch is
+// not parity-free at every depth: stopping after marisa_1B996 or after
+// marisa_1B6DA would have left an EVEN prefix and silently dropped the pad
+// under a function this parcel never edits. That failure is invisible to a
+// per-function funcdiff, which is kb/codegen/0119's whole point.
 
 
 // Marisa's star pattern, [marisa_pattern] case 4. Nothing happens for the first

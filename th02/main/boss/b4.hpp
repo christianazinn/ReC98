@@ -63,23 +63,40 @@ extern marisa_orb_flag_t marisa_orb_flag[MARISA_ORB_COUNT];
 
 // Same page-indexed indirection as used for the boss itself (boss.hpp), except
 // that the cached pointers are far ones, and that the two arrays *are*
-// contiguous in memory. The remaining four per-orb arrays are still ASM-only:
+// contiguous in memory. Two of the remaining per-orb arrays are still ASM-only:
 // [marisa_orb_damage] (raised by 1 per frame in which any player shot overlaps
-// the orb, and the orb is removed at 110), [marisa_orb_hit_flash] (set on the
-// same frame, and cleared by the renderer after one white blit), and
-// [marisa_orb_radius] and its angle, which together place the orb relative to
-// Marisa's own center.
+// the orb, and the orb is removed at 110) and [marisa_orb_hit_flash] (set on
+// the same frame, and cleared by the renderer after one white blit).
 extern screen_x_t marisa_orb_left_on_page[PAGE_COUNT][MARISA_ORB_COUNT];
 extern screen_y_t marisa_orb_top_on_page[PAGE_COUNT][MARISA_ORB_COUNT];
 extern screen_x_t* marisa_orb_left_on_back_page[MARISA_ORB_COUNT];
 extern screen_y_t* marisa_orb_top_on_back_page[MARISA_ORB_COUNT];
 
-// How much the still-ASM per-orb angle (the `byte_26D50` array the comment
-// above calls [marisa_orb_radius]'s angle) advances per frame, per orb. Set in
-// ± pairs - orbs 0 and 2 one way, 1 and 3 the other - so the ring
+// Together with [marisa_orb_angle] below, the polar placement of each orb
+// relative to Marisa's own center. marisa_1B477() spawns the orbs at radius 8
+// and grows it by 2 per frame; three of the patterns then breathe the ring in
+// and out by walking this array directly.
+//
+// `[measured]` state/notes/marisa_bg_render.md already recorded the name and
+// the evidence - marisa_1B3DE() places each orb at
+// `(radius * _CosTable8[angle]) >> 8` from that center - and th02_main.asm
+// already carried the kb/codegen/0123 alias unpublished. This parcel only adds
+// the `public`.
+extern int marisa_orb_radius[MARISA_ORB_COUNT];
+
+// The angle half of that pair, as a full-circle 0-255 byte. marisa_1B477()
+// spawns orb `i` at `(i << 6)`, i.e. the four cardinal directions, and
+// marisa_1B3DE() advances each one by [marisa_orb_angle_delta] every frame.
+// Three patterns also fire *along* this angle, so it doubles as each orb's
+// muzzle direction.
+extern uint8_t marisa_orb_angle[MARISA_ORB_COUNT];
+
+// How much [marisa_orb_angle] advances per frame, per orb. Usually set in ±
+// pairs - orbs 0 and 2 one way, 1 and 3 the other - so the ring
 // counter-rotates against itself. marisa_1BC43() widens the pairs from ±2 to
-// ±4 over the first 30 frames of its pattern, and marisa_1BAFF() flips the
-// sign of all four at once.
+// ±4 over the first 30 frames of its pattern, marisa_1BAFF() flips the sign of
+// all four at once, marisa_1B996() drives all four the *same* way, and
+// marisa_1B7D3() sets the one pair that is not symmetric.
 //
 // `[measured]` The dump still spells this array as four separate `word_26D42`
 // through `word_26D48` definitions, because eight sites in main_03__TEXT
@@ -94,6 +111,18 @@ extern int marisa_orb_angle_delta[MARISA_ORB_COUNT];
 // test that ZUN spelled as an arithmetic one. Marisa has no hittable center
 // while any orb is left.
 extern int marisa_orb_flag_sum;
+
+// [marisa_pattern] case 3's own two slots, cleared together on frame 50 of
+// every run of it and touched by nothing else in th02_main.asm.
+//
+// [marisa_orb_volley_angle] is the offset that case 3 adds to each orb's
+// [marisa_orb_angle] to aim that orb's shot, and it grows by twice that orb's
+// [marisa_orb_angle_delta] on every volley - so each stream sweeps away from
+// the ring at double the ring's own rate. [marisa_volleys_fired] counts the
+// volleys, and is only ever read for its low bit, which halves the rate of the
+// ring Marisa fires herself once the orbs are gone.
+extern uint8_t marisa_volleys_fired;
+extern uint8_t marisa_orb_volley_angle[MARISA_ORB_COUNT];
 /// ----
 
 /// Fight progression
