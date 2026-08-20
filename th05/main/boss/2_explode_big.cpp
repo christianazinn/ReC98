@@ -3,9 +3,11 @@
 /// boss_explode_big_circle() spawns its explosion at whatever [boss.pos.cur]
 /// happens to be and takes no position, so [boss2]'s copy is a swap: save the
 /// primary boss's position, move the secondary one in, call, put the original
-/// back. th05/main/boss/2_explode_small.asm is the same body with a parameter,
-/// and is still ASM only because it is not the tail of this segment's root
-/// contribution. TH04 has neither: it has no secondary boss.
+/// back. th05/main/boss/2_explode_small.cpp is the same body with a parameter;
+/// it was still ASM when this file was written, because it was not yet the tail
+/// of this segment's root contribution, and it is the file directly above this
+/// one in th05/gather.cpp now that it is. TH04 has neither: it has no secondary
+/// boss.
 ///
 /// The restore is two word stores where the copy was one 32-bit move, and that
 /// asymmetry is in the original: ZUN saved X and Y into two separate locals
