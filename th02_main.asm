@@ -14871,7 +14871,7 @@ loc_198A8:
 loc_19924:
 		cmp	word_26C68, 0Ah
 		jnz	short loc_19930
-		nopcall	mima_end
+		nopcall	_mima_end
 
 loc_19930:
 		mov	ax, 1
@@ -14893,6 +14893,12 @@ off_19937	dw offset loc_19821
 		dw offset loc_19849
 
 	@skill_calculate$qv procdesc pascal near
+
+; mima_end() is th02/main/boss/b5.cpp, which contributes to main_03__TEXT
+; below. That segment and this one share one physical segment through the
+; MAIN_03 group, which is what lets mima_update() above reach the far
+; mima_end() with `nop; push cs; call near ptr`.
+extrn _mima_end:far
 BOSS_5_TEXT	ends
 
 main_03__TEXT	segment	byte public 'CODE' use16
@@ -15079,6 +15085,8 @@ mima_init	endp
 
 ; Attributes: bp-based frame
 
+public _mima_19C1D
+_mima_19C1D label near
 mima_19C1D	proc near
 		push	bp
 		mov	bp, sp
@@ -15204,158 +15212,10 @@ loc_19D48:
 mima_19C8D	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_end
-_mima_end label far
-mima_end	proc far
-		push	bp
-		mov	bp, sp
-
-		; ZUN bug: This renders Mima's sprite to [page_back] on top of the
-		; boss background rendered earlier, right before animating the defeat
-		; dialog on [page_front] and launching into MAINE.EXE, which means that
-		; none of this will ever show up. Given the fact that this code exists,
-		; it probably was ZUN's intention to render the defeat dialog on top of
-		; what's rendered here - i.e, before rendering any player shot, item,
-		; bullet, or spark sprites - rather than blindly printing the text on
-		; top of whatever white VRAM pixels that may have been in the text box
-		; area in the previous full frame.
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_left_on_page[bx]
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		push	patnum_2064E
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 48
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 96
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		add	ax, 2
-		push	ax
-		call	super_put_rect
-		call	@dialog_script_stage5_post_animat$qv
-		add	_score, 100000
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jnz	short loc_19E2A
-		call	@scoredat_cleared_set$qv
-
-loc_19E2A:
-		call	mima_19C1D
-		pop	bp
-		retf
-mima_end	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_19E2F
-_sub_19E2F label far
-sub_19E2F	proc far
-
-@@top       	= word ptr -4
-@@tile_image	= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		cmp	_page_back, 0
-		jnz	loc_19EEF
-		call	egc_on
-		outw2	EGC_ACTIVEPLANEREG, 0FFF7h
-		outw2	EGC_READPLANEREG, 1111111111b
-		outw2	EGC_MASKREG, 0FFFFh
-		outw2	EGC_ADDRRESSREG, 0
-		outw2	EGC_BITLENGTHREG, 0Fh
-		outw2	EGC_MODE_ROP_REG, (EGC_WS_PATREG or EGC_RL_MEMREAD)
-		call	@tiles_invalidate_rect$qiiii pascal, (176 shl 16) or 156, (96 shl 16) or 96
-		call	@tiles_egc_render$qv
-		outw2	EGC_MODE_ROP_REG, (EGC_WS_ROP or 11111100b)
-		mov	word_26D54, 152
-		mov	ax, _scroll_line
-		add	word_26D54, ax
-		cmp	word_26D54, RES_Y
-		jl	short loc_19EA7
-		sub	word_26D54, RES_Y
-
-loc_19EA7:
-		mov	ax, word_26D54
-		mov	[bp+@@top], ax
-		mov	[bp+@@tile_image], 0
-		jmp	short loc_19EE4
-; ---------------------------------------------------------------------------
-
-loc_19EB4:
-		mov	si, 176
-		mov	di, [bp+@@tile_image]
-		jmp	short loc_19ECA
-; ---------------------------------------------------------------------------
-
-loc_19EBC:
-		call	@tile_egc_roll_copy_8$qiii pascal, si, [bp+@@top], di
-		add	si, TILE_W
-		inc	di
-
-loc_19ECA:
-		cmp	si, 272
-		jl	short loc_19EBC
-		add	[bp+@@top], TILE_H
-		cmp	[bp+@@top], RES_Y
-		jl	short loc_19EE0
-		sub	[bp+@@top], RES_Y
-
-loc_19EE0:
-		add	[bp+@@tile_image], 10h
-
-loc_19EE4:
-		cmp	[bp+@@tile_image], 60h
-		jl	short loc_19EB4
-		call	egc_off
-
-loc_19EEF:
-		pop	di
-		pop	si
-		leave
-		retf
-sub_19E2F	endp
+; mima_end() and sub_19E2F() are th02/main/boss/b5.cpp, prepended into this
+; segment ahead of th02/main/midboss/m4.cpp and th02/main/boss/b4.cpp below
+; (kb/codegen/0099). mima_19C1D() above stays here because mima_19C8D() also
+; calls it, and both calls are plain near ones inside this one segment.
 
 
 ; midboss4_invalidate(), midboss4_19F52() through midboss4_1A1B6() and
@@ -17270,7 +17130,8 @@ byte_26D4F	db ?
 public _marisa_orb_angle
 _marisa_orb_angle label byte
 byte_26D50	db 4 dup(?)
-word_26D54	dw ?
+public _stage4_tile_top
+_stage4_tile_top	dw ?
 public _marisa_orb_left_on_back_page
 _marisa_orb_left_on_back_page label dword
 dword_26D56	dd 4 dup(?)
