@@ -1104,7 +1104,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/cdg_load.asm",
 	"th05/egcrect.cpp",
 	"th05/op_setup.cpp",
-	"th04/zunsoft.cpp",
+	"th05/zunsoft.cpp",
 	"th05/cfg.cpp",
 	"th05/op_title.cpp",
 	"th05/op_music.cpp",
