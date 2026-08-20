@@ -3827,7 +3827,7 @@ loc_11069:
 		retn
 @yumeko_fg_render$qv	endp
 
-include th05/main/bullet/b6_custombullets_render.asm
+	; Shinki's custom bullet renderer now lives in th05/b6cbull.cpp.
 
 	; Shinki's foreground renderer now lives in
 	; th05/main/boss/b6_fg.cpp, at the front of the th05/stages.cpp
@@ -3845,11 +3845,11 @@ include th05/main/bullet/b6_custombullets_render.asm
 	; kb/codegen/0121: the body carried no `assume`, and neither does any
 	; other part of this segment, so there is nothing to restore.
 	;
-	; The seam does NOT stay open as a carve-free tail: the item ahead is
-	; an `include` of th05/main/bullet/b6_custombullets_render.asm, so
-	; this contribution goes back to being include-tailed. Its host is
-	; already th05/stages.cpp, though, so draining that module costs no
-	; new file either.
+	; That module is lifted too, and the seam it closed is OPEN again:
+	; shinki_custombullets_render() is th05/main/bullet/
+	; b6_custombullets_render.cpp, compiled as its OWN object rather
+	; than prepended to th05/stages.cpp -- that file says why -- and
+	; this block's tail proc is yumeko_fg_render() again.
 
 	; stage2_invalidate() now lives in th05/main/stage/stages.cpp, ahead
 	; of s2particle_respawn() in the same object, which is where its
