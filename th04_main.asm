@@ -562,7 +562,7 @@ loc_AF4A:
 		call	far ptr	palette_show
 		call	main_01:sub_12024
 		call	@overlay_wipe$qv
-		call	main_01:sub_B1D0
+		call	@stage_init$qv
 		nopcall	main_01:hud_put
 		call	@eyecatch_animate$qv
 		call	@midboss_reset$qv
@@ -756,56 +756,56 @@ off_B1C2	dw offset loc_B003
 		dw offset loc_B0F9
 		dw offset loc_B11E
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-sub_B1D0	proc near
-		push	bp
-		mov	bp, sp
-		call	@stage_state_reset$qv
-		mov	_stage_frame, 0
-		mov	_bombing_disabled, 0
-		mov	_scroll_line, 0
-		mov	_tile_ring_row_filled, 0
-		mov	_scroll_line_on_page[0 * 2], 0
-		mov	_scroll_line_on_page[1 * 2], 0
-		mov	_scroll_subpixel_line, 0
-		mov	_scroll_lines_pending, 0
-		mov	_scroll_lines_prev_frame, 0
-		mov	_playfield_shake_x, 0
-		mov	_playfield_shake_y, 0
-		mov	_player_pos.cur.x, 192 * 16
-		mov	_player_pos.cur.y, 320 * 16
-		mov	_player_pos.prev.x, 192 * 16
-		mov	_player_pos.prev.y, 320 * 16
-		mov	word_2599A, 40h
-		mov	word_2599C, 40h
-		mov	word_2599E, 30h	; '0'
-		mov	word_259A0, 30h	; '0'
-		mov	byte_259A3, 0
-		mov	_miss_time, 0
-		mov	_player_is_hit, 0
-		mov	_player_invincibility_time, STAGE_START_INVINCIBILITY_FRAMES
-		mov	_stage_point_items_collected, 0
-		mov	_dream_items_collected, 0
-		mov	_std_update, offset @std_update_frames_then_animate_d$qv
-		mov	_scroll_active, 1
-		call	@shot_reset$qv
-		nopcall	main_01:sub_11DE6
-		call	@randring_fill$qv
-		call	sub_1DA1B
-		call	@bomb_reset$qv
-		call	_sparks_init
-		call	hud_score_put
-		call	sub_15D74
-		call	main_01:pointnums_init
-		nopcall	main_01:hud_put
-		mov	_bg_render_bombing_func, offset @tiles_render_all$qv
-		call	@tiles_invalidate_reset$qv
-		pop	bp
-		retn
-sub_B1D0	endp
+	; stage_init() -- the per-stage reset of everything the playfield
+	; simulation carries into a new stage -- was lifted out of here and is
+	; now th04/main/stage/init.cpp. th04/demo.cpp #includes it ahead of
+	; th04/main/stage/transition.cpp, which is the address it already had:
+	; this proc was the last thing this file contributed to the segment
+	; once stage_transition() moved out, and that object is the next
+	; contribution behind it (kb/codegen 0099 + 0114). No carve, no new
+	; segment name, no group-list edit, no Tupfile.lua line -- the third
+	; lift that one wrapper has absorbed on those terms.
+	;
+	; The name is TH02's, for th02/main/stage/init.cpp's function in the
+	; same role at the same place in its own call chain. This proc had
+	; already been described as "the per-stage initialization function" at
+	; the head of th04/main/stage/reset.cpp, whose stage_state_reset() it
+	; calls first thing.
+	;
+	; Its one call site, in sub_AED0 above, lost the main_01: group
+	; qualifier it used to carry. Every procdesc near in this file is
+	; called unqualified; only the three procdesc pascal far symbols
+	; (hud_put, hud_power_put, hud_dream_put) keep the group frame that a
+	; far call needs. The procdesc itself sits with the other two at the
+	; foot of this segment, which TASM resolves in its second pass exactly
+	; as it already does for @demo_load$qv, whose call site is three
+	; hundred lines above its own declaration.
+	;
+	; Six symbols lost their last -- in four cases their only -- reference
+	; in this file when the body left, so each is now published for the C++
+	; to reach, by whichever device costs no line. The far procs sub_15D74
+	; and sub_1DA1B keep IDA's spelling and gain a kb/codegen 0123
+	; zero-byte alias plus a public, both written onto blank lines above
+	; each proc -- the same device this dump already uses for sub_11DE6.
+	;
+	; The four words in _BSS are RENAMED instead, to
+	; _stage_init_unused_0 through _3, and added to the public line
+	; already below them. They are WRITE-ONLY: the four mov instructions
+	; that left with the body were their complete reference set in either
+	; TH04 dump, and nothing in the tree reads them. So the name records
+	; the only two things measured about them -- stage_init() writes them,
+	; nothing reads them -- and asserts no meaning beyond that. ZUN bloat,
+	; named exactly as _shot_unused below them is named for shot_reset().
+	;
+	; kb/codegen 0121: the body carried no assume of its own, and the
+	; segment's own assume line at its head still covers everything left
+	; above it, so there is nothing to restore.
+	;
+	; This block is written onto the lines the body vacated and is exactly
+	; as long, and the six publications consumed four blank lines and one
+	; existing public line, so no line-anchored citation into this file
+	; moves -- five same-count dump edits have now renumbered none.
 
 
 	; stage_transition() -- the name th04/main/entry.cpp already used for
@@ -838,8 +838,8 @@ sub_B1D0	endp
 	; This block is written onto the lines the body vacated and is exactly
 	; as long, so no line-anchored citation into this file moves -- three
 	; same-count dump edits have now renumbered none.
-
 	; pause() is now th04/main/pause.cpp, at the head of th04/main/demo.cpp
+	@stage_init$qv procdesc near
 	@demo_load$qv procdesc near
 	@DemoPlay$qv procdesc near
 DEMO_TEXT	ends
@@ -10077,9 +10077,9 @@ include th04/main/boss/explode_small.asm
 include th04/main/boss/explode_big.asm
 
 ; =============== S U B	R O U T	I N E =======================================
-
+		public _sub_15D74
 ; Attributes: bp-based frame
-
+_sub_15D74 label far
 sub_15D74	proc far
 		push	bp
 		mov	bp, sp
@@ -21547,9 +21547,9 @@ loc_1D9CE:
 
 
 ; =============== S U B	R O U T	I N E =======================================
-
+		public _sub_1DA1B
 ; Attributes: bp-based frame
-
+_sub_1DA1B label far
 sub_1DA1B	proc far
 		push	bp
 		mov	bp, sp
@@ -26100,11 +26100,11 @@ _stage_vm	dd ?
 _enemy_cur	dw ?
 word_2598C	dw ?
 include th04/main/player/pos[bss].asm
-word_2599A	dw ?
-word_2599C	dw ?
-word_2599E	dw ?
-word_259A0	dw ?
-public _player_invincibility_time, _power, _shot_level, _shot_time
+_stage_init_unused_0	dw ?
+_stage_init_unused_1	dw ?
+_stage_init_unused_2	dw ?
+_stage_init_unused_3	dw ?
+public _stage_init_unused_0, _stage_init_unused_1, _stage_init_unused_2, _stage_init_unused_3, _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
 	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
 	; unnamed global, exactly like th03/main/gba_exatt_bomb_bss.asm does

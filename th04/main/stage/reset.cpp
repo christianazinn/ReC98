@@ -6,11 +6,12 @@
 /// lands at the segment's tail by construction -- which is where this
 /// function already was. kb/codegen/0105 + 0112.)
 ///
-/// Called first thing by the per-stage initialization function that is still
-/// `sub_B1D0` in DEMO_TEXT, which resets the player, scroll, HUD and tile
-/// state around it. [inferred] The split between the two looks like a
-/// source-file boundary rather than a conceptual one: they live in different
-/// original objects.
+/// Called first thing by stage_init(), the per-stage initialization function
+/// in DEMO_TEXT, which resets the player, scroll, HUD and tile state around
+/// it. That one is C++ too since 2026-08-19 -- th04/main/stage/init.cpp, and
+/// this file's prose is where its name came from. [inferred] The split between
+/// the two looks like a source-file boundary rather than a conceptual one:
+/// they live in different original objects.
 ///
 /// TH05's twin is still ASM -- `sub_EACE`, at the *head* of th05_main.asm's
 /// main_TEXT, so lifting it needs a kb/codegen/0080 carve. It is this body
@@ -41,9 +42,12 @@
 
 // Zeroes [dword_count] doublewords starting at [dst], which has to point into
 // DGROUP. Still assembly (`sub_C34E` in th04_main.asm's CIRCLE_TEXT): it reads
-// both of its parameters through a `mov bx, sp` frame, which no C++ signature
-// expresses, so it is reached through the zero-byte `label` alias that dump
-// publishes for it (kb/codegen/0123). Every one of its call sites is below.
+// both of its parameters through a `mov bx, sp` frame, which lies outside what
+// a C++ signature can express, so dwords_clear() is reached through the
+// zero-byte `label` alias that dump publishes for it (kb/codegen/0123). Every
+// one of its call sites is below. (The sentence above is about dwords_clear()
+// alone, and says so explicitly because it sits directly above the definition
+// of stage_state_reset() as well.)
 extern "C" void pascal near dwords_clear(void near *dst, int dword_count);
 
 void near stage_state_reset(void)
