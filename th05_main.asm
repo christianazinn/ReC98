@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1236,7 +1236,7 @@ mai_TEXT	segment	byte public 'CODE' use16
 	@bomb_dream_decay$qv procdesc near
 mai_TEXT	ends
 
-MB_INV_TEXT	segment	byte public 'CODE' use16
+BOMBCHAR_TEXT	segment	byte public 'CODE' use16
 	@reimu_stars_update_and_render$qv procdesc near
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -1883,6 +1883,8 @@ yuuka_heart_update_and_render	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka_bomb_update_and_render
+_yuuka_bomb_update_and_render label near
 sub_CD1C	proc near
 		push	bp
 		mov	bp, sp
@@ -1935,93 +1937,16 @@ loc_CD92:
 		retn
 sub_CD1C	endp
 
+	BOMB_YUUKA procdesc pascal near	; now compiled from th05/main/player/bombchar.cpp
 
-; =============== S U B	R O U T	I N E =======================================
+BOMBCHAR_TEXT	ends
 
-; Attributes: bp-based frame
-public BOMB_YUUKA
-bomb_yuuka	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bomb_frame, 32
-		jnb	short loc_CDB4
-		mov	_tiles_bb_col, V_WHITE
-		mov	al, _bomb_frame
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		call	bb_playchar_put pascal, ax
-
-loc_CDB1:
-		jmp	loc_CE4F
-; ---------------------------------------------------------------------------
-
-loc_CDB4:
-		cmp	_bomb_frame, 32
-		jnz	short loc_CDCF
-		mov	_scroll_active, 0
-		call	graph_scrollup pascal, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		jmp	short loc_CDD6
-; ---------------------------------------------------------------------------
-
-loc_CDCF:
-		cmp	_bomb_frame, 160
-		jnb	short loc_CDDE
-
-loc_CDD6:
-		call	sub_CD1C
-		call	@bomb_dream_decay$qv
-		jmp	short loc_CE4F
-; ---------------------------------------------------------------------------
-
-loc_CDDE:
-		cmp	_bomb_frame, 160
-		jnz	short loc_CDFF
-		call	snd_se_play pascal, 15
-		cmp	_stage_id, 5
-		jz	short loc_CDF8
-		mov	_scroll_active, 1
-
-loc_CDF8:
-		mov	_items_pull_to_player, 0
-		jmp	short loc_CE06
-; ---------------------------------------------------------------------------
-
-loc_CDFF:
-		cmp	_bomb_frame, 192
-		jnb	short loc_CE3F
-
-loc_CE06:
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -160
-		imul	ax, 3
-		mov	dx, 192
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		cmp	_bomb_frame, 161
-		jnz	short loc_CE4F
-		cmp	_stage_id, 5
-		jz	short loc_CE4F
-		call	graph_scrollup pascal, _scroll_line
-		jmp	loc_CDB1
-; ---------------------------------------------------------------------------
-
-loc_CE3F:
-		mov	_bombing, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-
-loc_CE4F:
-		inc	_bomb_frame
-		pop	bp
-		retn
-bomb_yuuka	endp
+; kb/codegen/0080 carve: the head of this block is now its own segment so
+; that a C++ object can append to it. Everything from the `db 0` down --
+; the two `include`d modules, ZUN's six hand-written GRCG playfield fills,
+; and grcg_fill_playfield_rows() -- keeps the original name, so
+; th04/mb_inv.cpp is not re-pointed and every byte keeps its address.
+MB_INV_TEXT	segment	byte public 'CODE' use16
 
 ; ---------------------------------------------------------------------------
 		db    0

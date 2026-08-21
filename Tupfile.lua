@@ -1178,6 +1178,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/hud_drm.cpp",
 	"th05/hud_grz.cpp",
 	"th05/hud_pwr.cpp",
+	"th05/bombchar.cpp",
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",
