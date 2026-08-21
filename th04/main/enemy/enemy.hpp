@@ -114,18 +114,30 @@ extern enemy_t near *enemy_cur;
 
 void near enemies_invalidate(void);
 // `extern "C"`, because th04/main/enemy/render.asm published the undecorated
-// upper-case ENEMIES_RENDER (kb/codegen/0102). Without it this declaration
-// asked for a C++-mangled symbol that nothing defines -- which never showed
-// up, because th04/main/stage/loop.cpp declared its own correct one and was
-// the function's only C++ caller until th04/main/enemy/render.cpp existed.
+// upper-case ENEMIES_RENDER (kb/codegen/0102). Without it, THIS
+// enemies_render() declaration asked for a C++-mangled spelling of
+// enemies_render that no object defines -- which never showed up, because
+// th04/main/stage/loop.cpp declared its own correct one and was the
+// function's only C++ caller until th04/main/enemy/render.cpp existed.
 extern "C" void pascal near enemies_render(void);
 
 #if (GAME != 5)
 // Advances [enemy_cur] along its velocity and clips it off the playfield along
-// whichever axes it asked to be clipped on, returning `true` if it did. TH05's
-// function of the same name is hand-written assembly with an ABI no C++
-// declaration can express: it takes [enemy_cur] implicitly in SI and returns
-// the result in the carry flag. (kb/conventions/handwritten-asm-tells.md)
+// whichever axes it asked to be clipped on, returning `true` if it did.
+//
+// TH05's own function of this name is hand-written assembly, and THAT ONE has
+// an ABI this file deliberately does not declare: it takes [enemy_cur]
+// implicitly in SI and returns its result in the carry flag, which is why the
+// declaration below is inside `#if (GAME != 5)`.
+// (kb/conventions/handwritten-asm-tells.md)
+//
+// THERE IS NOW A THIRD FUNCTION OF THIS NAME, in TH02, declared in
+// th02/main/enemy/update.cpp, and its contract is deliberately NARROWER:
+// it only advances, and does not clip or return anything, because TH02 does
+// its clipping in enemies_update_and_render() instead. That name was adopted
+// from this pinned one rather than coined, with the difference disclosed
+// rather than hidden - the same treatment mpn_put_8() gets. The three never
+// meet: each game links only its own. (state/notes/th02-enemy-run.md)
 extern "C" bool pascal near enemy_pos_update(void);
 
 // Sets [enemy_cur]'s velocity to a vector with the enemy's own [angle] and

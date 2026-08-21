@@ -28,7 +28,7 @@
 /// -G for the `push bp; mov bp, sp; sub sp, N` prologs (kb/codegen/0011).
 /// -zPmain_03 for the near calls into the enemy helpers that are still ASM in
 /// the same segment. No -a2: nothing here emits a generated jump table.
-#pragma option -zCBOSS_5_TEXT -zPmain_03 -G
+#pragma option -zCBOSS_5_TEXT -zPmain_03 -G -a2
 
 #include "platform.h"
 #include "pc98.h"
@@ -47,6 +47,8 @@
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/spark.hpp"
+#include "th02/math/randring.hpp"
+#include "th02/main/tile/tile.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
 
@@ -92,6 +94,14 @@ extern "C" screen_y_t enemy_top;
 extern "C" pixel_delta_8_t near *enemy_velocity_x_p;
 extern "C" pixel_delta_8_t near *enemy_velocity_y_p;
 
+// The near half of [enemy_template_cur]'s far [script] pointer, re-derived at
+// the top of every enemy_run() call. TH03 publishes a `script_base` of exactly
+// this role (th03/main/enemy/enemy.cpp), which fixes the stem; the `enemy_`
+// prefix mirrors the cursor block above. NOT `script_p`: all 64 of those in
+// the tree are ADVANCING cursors, i.e. instruction pointers, and this one
+// never moves -- [enemy_t::script_ip] is the index into it.
+extern "C" const uint8_t near *enemy_script_base;
+
 /// Still ASM in th02_main.asm, directly above this file's contribution, and
 /// published for this object's sake (kb/codegen/0123).
 /// -----------------------------------------------------------------------
@@ -100,6 +110,31 @@ extern "C" pixel_delta_8_t near *enemy_velocity_y_p;
 // TH02's returns the same kind of status the loop below dispatches on:
 // 2 = this enemy is done for the frame, 1 = run another opcode.
 extern "C" int near enemy_run(void);
+
+// Adds this enemy's signed byte velocities to its position, and NOTHING else.
+// TH04 and TH05 publish enemy_pos_update() for the same step and this adopts
+// that name, with the difference disclosed rather than hidden: theirs also
+// clips against the playfield and returns whether the enemy left it, while
+// TH02 does the clipping in enemies_update_and_render() below.
+extern "C" void near enemy_pos_update(void);
+
+// The same advance, but pointed at the player first. `_AIMED` rather than
+// `_at_player` is naming-precedents.md's rule for a behaviour variant that
+// aims the original behaviour, over 35 upstream pairs.
+extern "C" void near enemy_pos_update_aimed(void);
+
+// Turns this enemy by [sign] every [operand]-th frame and then advances it.
+// COINAGE: no sibling game fuses turning and moving - TH04's .STD opcodes set
+// an angle delta inline and call enemy_velocity_set() - and there is no
+// in-tree precedent for either half of the `step`/`spin` distinction it draws
+// against the next declaration. Recorded as a coinage in
+// state/notes/th02-enemy-run.md, not adopted.
+extern "C" void pascal near enemy_angle_step_and_move(int operand, int sign);
+
+// Turns this enemy by a script-supplied amount EVERY frame and then advances
+// it - the per-frame counterpart of the one above, and a coinage for the same
+// reason.
+extern "C" void near enemy_angle_spin_and_move(void);
 
 // Fires one pellet from this enemy's bullet origin at the given angle.
 // PLACEHOLDER, DELIBERATELY: the bounded search is in
@@ -112,7 +147,284 @@ extern "C" int near enemy_run(void);
 // form, because `pascal` decorates UPPER CASE with no leading underscore
 // (kb/codegen/0086), so the `public` is `SUB_16AA7` and TASM's
 // case-insensitivity makes it the same symbol as the `proc` line.
-extern "C" void pascal near sub_16AA7(int angle);
+extern "C" void pascal near sub_16AA7(unsigned char angle);
+
+// sub_16D9B()'s final `retf`, which th02_main.asm no longer carries.
+//
+// This byte is not decoration: it is what puts enemy_run()'s three generated
+// jump tables at the original's addresses. Turbo C++ word-aligns a generated
+// table against the offset the object it emits starts at, and its OBJ writer
+// pads when that offset comes out ODD - which is kb/codegen/0096's rule, not
+// kb/codegen/0154's, and 0154's opposite reading was measured off `tcc -S`
+// listings. `[measured]` here on the OBJ itself: with enemy_run() at object
+// offset 0 its body ends at 0x6C2, even, and NO pad is emitted - the `-S`
+// listing shows a `db 1 dup (?)` that never reaches the object, and -a1/-a2/
+// -a4/no-`-a` all produce the identical short object. Handing this object one
+// byte of prefix moves the table to an odd offset and the pad appears.
+//
+// A file-scope codestring is emitted where it stands in source order
+// (kb/codegen/0161), so this one lands at the very top of the object's code,
+// one byte below enemy_run(). Same purchase th02/boss_5.cpp made for
+// mima_update()'s table while mima_19353() was still in the dump.
+#pragma codestring "\xCB"
+
+
+// One opcode of this enemy's script, which the caller runs in a loop.
+// Returns 2 when the enemy is finished for good, 1 when another opcode should
+// run this frame, and 0 when this one has consumed the frame.
+//
+// TH03 and TH04 both call theirs enemy_run() (th03/main/enemy/enemy.cpp,
+// th04/main/enemy/script.cpp), and TH02's has the same status-return shape.
+//
+// The three generated jump tables below this function, and the single -a2
+// alignment pad in front of them, are its own codegen. They only land at the
+// original's parity because enemy_run() is the FIRST thing in this object:
+// -a2 aligns the byte AFTER a table, so it pads exactly when the natural
+// table offset is even (kb/codegen/0154), and this body is 0x6C2 bytes.
+// Prepending anything ahead of it deletes the pad.
+//
+// The `case` order is ZUN's, not numeric, and it is load-bearing: Turbo C++
+// emits case bodies in source order, so writing them in numeric order moves
+// every handler and matches nothing.
+extern "C" int near enemy_run(void)
+{
+	int sign;
+	uint8_t angle;
+	uint8_t advance;
+	uint8_t speed;
+	uint8_t velocity_y;
+	uint8_t ip;
+	uint8_t opcode;
+	int8_t sign_a;
+	int8_t sign_b;
+	register screen_y_t top;
+
+	enemy_script_base = reinterpret_cast<const uint8_t near *>(
+		enemy_template_cur->script
+	);
+	ip = enemy_cur->script_ip;
+	opcode = enemy_script_base[ip];
+	switch(opcode) {
+	case 0:
+		advance = 2;
+		goto wait;
+	case 1:
+		*enemy_velocity_x_p = enemy_script_base[ip + 2];
+		velocity_y = enemy_script_base[ip + 3];
+		*enemy_velocity_y_p = velocity_y;
+		enemy_pos_update();
+		advance = 4;
+		goto wait;
+	case 10:
+		enemy_pos_update();
+		advance = 2;
+		goto wait;
+	case 170:
+		angle = randring2_next8();
+		speed = enemy_script_base[ip + 1];
+		*enemy_velocity_x_p = ((speed * CosTable8[angle]) >> 8);
+		*enemy_velocity_y_p = ((speed * SinTable8[angle]) >> 8);
+		advance = 2;
+		goto advance_and_run;
+	case 8:
+		sign = (!enemy_cur->spawned_in_left_half ? -1 : 1);
+		*enemy_velocity_x_p = (enemy_script_base[ip + 2] * sign);
+		*enemy_velocity_y_p = enemy_script_base[ip + 3];
+		enemy_pos_update();
+		advance = 4;
+		goto wait;
+	case 9:
+		enemy_pos_update_aimed();
+		advance = 3;
+		goto wait;
+	case 2:
+		*enemy_top_p += scroll_delta;
+		advance = 2;
+		goto wait;
+	case 3:
+		sign_a = (
+			!enemy_script_base[enemy_cur->script_ip + 2] ? -1 : 1
+		);
+		enemy_angle_step_and_move(3, sign_a);
+		advance = 6;
+		goto wait;
+	case 7:
+		sign_b = ((enemy_cur->spawned_in_left_half == 1) ? -1 : 1);
+		enemy_angle_step_and_move(2, sign_b);
+		advance = 5;
+		goto wait;
+	case 11:
+		enemy_angle_spin_and_move();
+		advance = 6;
+		goto wait;
+	case 4:
+		*enemy_left_p = (enemy_script_base[ip + 1] << 3);
+		*enemy_top_p = (enemy_script_base[ip + 2] << 3);
+		advance = 3;
+		goto advance_and_run;
+	case 5:
+		*enemy_left_p = (
+			(randring2_next16() % (enemy_script_base[ip + 2] << 3)) +
+			(enemy_script_base[ip + 1] << 3)
+		);
+		*enemy_top_p = (enemy_script_base[ip + 3] << 3);
+		enemy_cur->spawned_in_left_half = ((*enemy_left_p < 208) ? 1 : 0);
+		advance = 4;
+		goto advance_and_run;
+	case 6:
+		*enemy_top_p = (
+			(randring2_next16() % (enemy_script_base[ip + 2] << 3)) +
+			(enemy_script_base[ip + 1] << 3)
+		);
+		*enemy_left_p = (enemy_script_base[ip + 3] << 3);
+		advance = 4;
+		goto advance_and_run;
+	case 16:
+		enemy_cur->flag = F_REMOVE;
+		return 2;
+	case 17:
+		enemy_cur->age = 0;
+		snd_se_play(3);
+		enemy_cur->in_kill_anim = true;
+		return 2;
+	case 32:
+		sub_16AA7(0);
+		goto next;
+	case 33:
+		sub_16AA7(enemy_script_base[ip + 1]);
+		advance = 2;
+		goto advance_and_run;
+	case 34:
+		sub_16AA7(enemy_cur->angle);
+		enemy_cur->angle += enemy_script_base[ip + 1];
+		advance = 2;
+		goto advance_and_run;
+	case 37:
+		enemy_cur->pellet_group = enemy_script_base[ip + 1];
+		enemy_cur->pellet_speed = enemy_script_base[ip + 2];
+		advance = 3;
+		goto advance_and_run;
+	case 36:
+		bullets_add_16x16(
+			(enemy_template_cur->bullet_origin_x + *enemy_left_p),
+			(enemy_template_cur->bullet_origin_y + *enemy_top_p),
+			enemy_script_base[ip + 1],
+			enemy_cur->pellet_group,
+			enemy_script_base[ip + 2],
+			enemy_cur->pellet_speed
+		);
+		advance = 3;
+		goto advance_and_run;
+	case 38:
+		top = enemy_script_base[ip + 1];
+		top -= scroll_line;
+		if(top < 0) {
+			top += RES_Y;
+		}
+		bullets_add_pellet(
+			(enemy_template_cur->bullet_origin_x + *enemy_left_p),
+			top,
+			enemy_script_base[ip + 2],
+			enemy_script_base[ip + 3],
+			enemy_script_base[ip + 4]
+		);
+		advance = 5;
+		goto advance_and_run;
+	case 39:
+		top = enemy_script_base[ip + 1];
+		top -= scroll_line;
+		if(top < 0) {
+			top += RES_Y;
+		}
+		bullets_add_16x16(
+			(enemy_template_cur->bullet_origin_x + *enemy_left_p),
+			top,
+			enemy_script_base[ip + 2],
+			enemy_script_base[ip + 3],
+			enemy_script_base[ip + 4],
+			enemy_script_base[ip + 5]
+		);
+		advance = 6;
+		goto advance_and_run;
+	case 160:
+		enemy_cur->script_ip = enemy_script_base[ip + 1];
+		return 1;
+	case 161:
+		if(enemy_cur->angle++ < enemy_script_base[ip + 2]) {
+			enemy_cur->script_ip = enemy_script_base[ip + 1];
+		} else {
+			enemy_cur->script_ip += 3;
+		}
+		return 1;
+	case 167:
+		if(enemy_cur->loop_i++ < enemy_script_base[ip + 2]) {
+			enemy_cur->script_ip = enemy_script_base[ip + 1];
+		} else {
+			enemy_cur->loop_i = 0;
+			enemy_cur->script_ip += 3;
+		}
+		return 1;
+	case 162:
+		enemy_cur->angle = enemy_script_base[ip + 1];
+		advance = 2;
+		goto advance_and_run;
+	case 163:
+		enemy_cur->render_as = 0;
+		goto next;
+	case 164:
+		enemy_cur->render_as = 1;
+		goto next;
+	case 165:
+		enemy_cur->patnum_delta = enemy_script_base[ip + 1];
+		enemy_cur->render_as = 0;
+		advance = 2;
+		goto advance_and_run;
+	case 166:
+		enemy_cur->patnum_delta = enemy_script_base[ip + 1];
+		enemy_cur->render_as = 2;
+		advance = 2;
+		goto advance_and_run;
+	case 169:
+		enemy_cur->despawn_when_offscreen_vertically = true;
+		goto next;
+	case 168:
+		snd_se_play(enemy_script_base[ip + 1]);
+		advance = 2;
+		goto advance_and_run;
+	case 171:
+		enemy_cur->not_shootable = true;
+		goto next;
+	case 172:
+		enemy_cur->not_shootable = false;
+		goto next;
+	case 173:
+		enemy_cur->no_player_collision = true;
+		goto next;
+	case 174:
+		enemy_cur->no_player_collision = false;
+		goto next;
+	case 175:
+		tile_ring_set_and_put_both_8(
+			*enemy_left_p, enemy_script_base[ip + 1], enemy_script_base[ip + 2]
+		);
+		advance = 3;
+		goto advance_and_run;
+	}
+wait:
+	enemy_cur->age++;
+	if(enemy_script_base[ip + 1] <= enemy_cur->age) {
+		enemy_cur->script_ip += advance;
+		enemy_cur->age = 0;
+	}
+	return 0;
+advance_and_run:
+	enemy_cur->script_ip += advance;
+	return 1;
+next:
+	enemy_cur->script_ip++;
+	return 1;
+}
+
 
 // The box every hit test and unblit in this file uses, regardless of the
 // per-type [w] and [h] that enemy_stagedata_load() derives into each
