@@ -33,34 +33,14 @@
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/tile/bb.hpp"
 #include "th04/main/boss/boss.hpp"
+// vector2() and shots_hittest(), which only the boomerang driver needs. Both
+// appended at the END of this list rather than sorted into it: every function
+// below was matched against the declarations visible in the original order.
+#include "th04/math/vector.hpp"
+#include "th04/main/player/shot.hpp"
 
 /// Still ASM
 /// ---------
-// Elly's boomerang driver, in this same segment and private to ZUN's object,
-// so it needed a zero-byte `label` alias in th04_main.asm to become linkable
-// (kb/codegen/0123). Runs on every frame of the fight, before the phase
-// dispatch. The address-suffixed name is the dump's own.
-extern "C" void near elly_1B95C(void);
-
-// Elly's fight state, all of it th04_main.asm `.data?` with no `public` of
-// ZUN's. **A naming round is owed for all four.**
-extern "C" {
-	// Which of the five attack sets is running, 0…4. It indexes the dense
-	// table that decides how [boss.mode] cycles, doubles as the explosion
-	// type each set ends with, and sets the HP each set starts from.
-	// `[inferred]`, and the only one of the four whose every read and write
-	// is inside this function.
-	extern unsigned char elly_pattern_set;
-
-	// The other three keep the dump's address-suffixed spellings: this
-	// function only zeroes or bumps them, and everything that reads them is
-	// still ASM — `elly_1B95C` and the patterns for the first two, and a
-	// caller in another segment entirely for `elly_25A27`.
-	extern unsigned char elly_25A26;
-	extern unsigned char elly_25A27;
-	extern int elly_25A3A;
-}
-
 // Declared FAR here, and only here: th04/main/boss/bosses.hpp declares the
 // same function `near`, which is what it is, and that header is deliberately
 // not included. A near reference under this object's `-zPmain_03` frames its
@@ -81,6 +61,13 @@ static const int ELLY_FIGHT_START_FRAME = 9240;
 
 // Frames the scythe spin between two patterns lasts.
 static const int ELLY_SPIN_FRAMES = 32;
+
+// Elly's own animation, played forwards over the boomerang wind-up and
+// backwards while she catches it again. The first cel is also her idle pose.
+// [inferred] the naming only, on the same terms as b3_fg.cpp's
+// PAT_ELLY_BOOMERANG: nothing in the dump ties this patnum range to an asset.
+static const int PAT_ELLY = 134;
+static const int ELLY_CELS = 8;
 /// ---------
 
 /// Elly's patterns
@@ -92,21 +79,264 @@ static const int ELLY_SPIN_FRAMES = 32;
 /// gone with the bodies. They keep the dump's address-suffixed names;
 /// **a naming round is owed** for all fourteen.
 
-// Four more of Elly's `.data?` bytes, all of them still read by `elly_1B95C`
-// — the boomerang driver, which is still ASM two segments up — so all four
-// take zero-byte `label` aliases rather than renames (kb/codegen/0123). They
-// keep address-suffixed names on the same terms as [elly_25A26] beside them;
-// what the fourteen below show of them is:
-//
-// • [elly_25A34] and [elly_25A36] are the boomerang's flight: a frame counter
-//   and the angle elly_1BC3C() aims it at.
-// • [elly_25A37] and [elly_25A38] are its throw budget and its return state,
-//   both re-armed by elly_1BC3C() and consumed by elly_1B95C().
+/// Elly's fight state
+/// ------------------
+/// All of it th04_main.asm `.data?` with no `public` of ZUN's. With the
+/// boomerang driver below no longer ASM, **nothing in the dump reads any of
+/// these any more**, so the zero-byte `label` aliases kb/codegen/0123 needed
+/// for them are gone and the dump's own labels carry the names directly.
+/// **A naming round is owed** for every address-suffixed spelling here.
 extern "C" {
-	extern int elly_25A34;
+	// Which of the five attack sets is running, 0…4. It indexes the dense
+	// table that decides how [boss.mode] cycles, doubles as the explosion
+	// type each set ends with, and sets the HP each set starts from.
+	// `[inferred]`.
+	extern unsigned char elly_pattern_set;
+
+	// The boomerang driver's own state, 0…8. 0 is "no boomerang"; 1 and 2
+	// are the wind-up and the outward flight, 3…6 the four playfield edges
+	// it bounces off, 7 the flight back to Elly and 8 the catch animation.
+	extern unsigned char elly_25A26;
+
+	// Frames spent in the current [elly_25A26] state — but only states 1, 2
+	// and 8 count, which is what makes it the wind-up/catch animation's cel
+	// timer as well.
+	extern unsigned int elly_25A34;
+
+	// The boomerang's flight angle, and the ±1 the driver steers it by.
 	extern unsigned char elly_25A36;
-	extern unsigned char elly_25A37;
 	extern unsigned char elly_25A38;
+
+	// Its speed, in subpixels. Ticks up while it flies out, loses 4 on every
+	// edge bounce, and gains 8 per frame on the way back.
+	extern unsigned char elly_25A37;
+
+	// The scythe orbit's tick, advanced by every pattern that calls
+	// elly_1BC73().
+	extern int elly_25A3A;
+}
+
+/// Elly's boomerang
+/// ----------------
+/// b3_fg.cpp owns the naming rationale for both of these and for the enum;
+/// this is the driver every one of the behaviours it documents is measured
+/// out of.
+enum elly_boomerang_flag_t {
+	EBF_FREE = 0,
+	EBF_THROWN = 1,
+	// Blitted for one last frame, then back to EBF_FREE — see b3_fg.cpp.
+	EBF_CAUGHT = 2,
+};
+
+extern "C" unsigned char elly_boomerang_flag;
+extern "C" PlayfieldMotion elly_boomerang_pos;
+/// ----------------
+
+// Elly's boomerang, one frame. Runs on every frame of the fight, ahead of the
+// phase dispatch in elly_update(), and is the only writer of [elly_25A26].
+// `static`: elly_update() is its only caller, and it is the only one that ever
+// was, so the zero-byte `label` alias th04_main.asm carried for it is gone
+// with the body.
+static void near elly_1B95C(void)
+{
+	unsigned char angle_delta;
+
+	if(elly_boomerang_flag == EBF_CAUGHT) {
+		elly_boomerang_flag = EBF_FREE;
+	}
+	switch(elly_25A26 - 1) {
+	// The wind-up: four cels over 64 frames, with the throw itself on frame
+	// 0x38. Falls through into the outward flight on the frame it ends.
+	case 0:
+		if((elly_25A34 < 0x40) && ((elly_25A34 & 7) == 0)) {
+			boss.sprite = ((elly_25A34 >> 3) + PAT_ELLY);
+		}
+		if(elly_25A34 == 0) {
+			snd_se_play(8);
+			goto tick;
+		}
+		if(elly_25A34 == 0x38) {
+			snd_se_play(9);
+			elly_boomerang_flag = EBF_THROWN;
+			elly_boomerang_pos.cur.x.v = boss.pos.cur.x.v;
+			elly_boomerang_pos.cur.y.v = boss.pos.cur.y.v;
+			goto tick;
+		}
+		if(elly_25A34 < 0x40) {
+			goto tick;
+		}
+		boss.sprite = (PAT_ELLY + (ELLY_CELS - 1));
+		elly_25A26 = 2;
+		// fall through
+
+	// The outward flight: homes in on the player for the first 0x50 frames,
+	// then flies straight until it reaches a playfield edge.
+	case 1:
+		if(elly_25A34 < 0x50) {
+			angle_delta = iatan2(
+				(player_pos.cur.y.v - elly_boomerang_pos.cur.y.v),
+				(player_pos.cur.x.v - elly_boomerang_pos.cur.x.v)
+			);
+			angle_delta -= elly_25A36;
+			if((angle_delta < 0x80) && (angle_delta >= 0x10)) {
+				elly_25A38 = 1;
+			} else if((angle_delta >= 0x80) && (angle_delta <= 0xF0)) {
+				elly_25A38 = -1;
+			} else {
+				goto aimed;
+			}
+			elly_25A37 += stage_frame_mod2;
+			goto steered;
+aimed:
+			// Already aimed: no steering, and the speed ticks up by a full
+			// unit rather than by [stage_frame_mod2].
+			_AL = elly_25A37;
+			_AL++;
+			elly_25A37 = _AL;
+			elly_25A38 = 0;
+steered:
+			elly_25A36 += elly_25A38;
+		} else {
+			elly_25A37 += stage_frame_mod2;
+		}
+		if(elly_boomerang_pos.cur.x.v <= TO_SP(64)) {
+			elly_25A26 = 3;
+		} else if(elly_boomerang_pos.cur.x.v >= TO_SP(320)) {
+			elly_25A26 = 4;
+		} else if(elly_boomerang_pos.cur.y.v >= TO_SP(304)) {
+			elly_25A26 = 5;
+		} else if(elly_boomerang_pos.cur.y.v <= TO_SP(32)) {
+			elly_25A26 = 6;
+		}
+		goto tick;
+
+	// The four edge bounces. Each costs 4 units of speed, and the boomerang
+	// turns back once that has run it down to 4 or less. Only the right edge
+	// does anything else: it forces the turn to be clockwise.
+	case 2:
+		_AL = elly_25A37;
+		_AL += -4;
+		elly_25A37 = _AL;
+		elly_25A36 += elly_25A38;
+		if(elly_25A37 <= 4) {
+			goto turn_back;
+		}
+		break;
+
+	case 3:
+		_AL = elly_25A37;
+		_AL += -4;
+		elly_25A37 = _AL;
+		elly_25A36 += elly_25A38;
+		if(elly_25A38 != 0) {
+			// Through _AL because the original reloads it: `-Z` would
+			// otherwise reuse the copy the unconditional `+=` above left
+			// there, and drop this `mov` (kb/codegen/0152 probe, 4 shapes).
+			_AL = elly_25A38;
+			elly_25A36 += _AL;
+		} else {
+			elly_25A36++;
+		}
+		if(elly_25A37 <= 4) {
+			goto turn_back;
+		}
+		break;
+
+	case 4:
+		_AL = elly_25A37;
+		_AL += -4;
+		elly_25A37 = _AL;
+		elly_25A36 += elly_25A38;
+		if(elly_25A37 <= 4) {
+			goto turn_back;
+		}
+		break;
+
+	case 5:
+		_AL = elly_25A37;
+		_AL += -4;
+		elly_25A37 = _AL;
+		elly_25A36 += elly_25A38;
+		if(elly_25A37 <= 4) {
+			goto turn_back;
+		}
+		break;
+
+turn_back:
+		elly_25A26 = 7;
+		break;
+
+	// The flight back: re-aimed at Elly every frame, accelerating, and caught
+	// inside a ±16-pixel box around her.
+	case 6:
+		elly_25A36 = iatan2(
+			(boss.pos.cur.y.v - elly_boomerang_pos.cur.y.v),
+			(boss.pos.cur.x.v - elly_boomerang_pos.cur.x.v)
+		);
+		_AL = elly_25A37;
+		_AL += 8;
+		elly_25A37 = _AL;
+		if(
+			((boss.pos.cur.x.v + TO_SP(-16)) < elly_boomerang_pos.cur.x.v) &&
+			((boss.pos.cur.x.v + TO_SP(16)) > elly_boomerang_pos.cur.x.v) &&
+			((boss.pos.cur.y.v + TO_SP(-16)) < elly_boomerang_pos.cur.y.v) &&
+			((boss.pos.cur.y.v + TO_SP(16)) > elly_boomerang_pos.cur.y.v)
+		) {
+			elly_25A26 = 8;
+			elly_boomerang_flag = EBF_CAUGHT;
+			elly_25A34 = 0;
+		}
+		break;
+
+	// The catch animation: the same four cels, backwards, over 32 frames.
+	case 7:
+		if((elly_25A34 < 0x20) && ((elly_25A34 & 7) == 0)) {
+			boss.sprite = (((0x1F - elly_25A34) >> 2) + PAT_ELLY);
+		}
+		if(elly_25A34 >= 0x20) {
+			boss.sprite = PAT_ELLY;
+			elly_25A26 = 0;
+		}
+tick:
+		elly_25A34++;
+		break;
+	}
+
+	// Nothing above moves the boomerang: its velocity is rebuilt from the
+	// angle and speed bytes on every frame, so update_seg3() only integrates.
+	if(elly_boomerang_flag == EBF_THROWN) {
+		vector2(
+			elly_boomerang_pos.velocity.x.v,
+			elly_boomerang_pos.velocity.y.v,
+			elly_25A36,
+			elly_25A37
+		);
+
+		// Shots deflect the boomerang rather than destroying it. Spelled out
+		// rather than through shot.hpp's 3-argument overload: binding its
+		// `const subpixel_t&` radii to two literals materialises two stack
+		// temporaries, and the original's frame has room for neither.
+		shot_hitbox_radius.x.v = TO_SP(32);
+		shot_hitbox_radius.y.v = TO_SP(32);
+		shot_hitbox_center.x.v = elly_boomerang_pos.cur.x.v;
+		shot_hitbox_center.y.v = elly_boomerang_pos.cur.y.v;
+		// UNSIGNED, and that is what the original says rather than a
+		// convenience: a signed `>> 1` is `sar` and subtracts straight into
+		// memory, where the original shifts with `shr` and goes through DX.
+		elly_boomerang_pos.velocity.y.v -= (
+			static_cast<unsigned int>(shots_hittest()) >> 1
+		);
+		elly_boomerang_pos.update_seg3();
+
+		if(
+			((elly_boomerang_pos.cur.x.v + TO_SP(-24)) < player_pos.cur.x.v) &&
+			((elly_boomerang_pos.cur.x.v + TO_SP(24)) > player_pos.cur.x.v) &&
+			((elly_boomerang_pos.cur.y.v + TO_SP(-24)) < player_pos.cur.y.v) &&
+			((elly_boomerang_pos.cur.y.v + TO_SP(24)) > player_pos.cur.y.v)
+		) {
+			player_is_hit = true;
+		}
+	}
 }
 
 // Re-arms the boomerang: eight throws, aimed at the player, from this frame.
@@ -119,7 +349,7 @@ static void near elly_1BC3C(void)
 	);
 	elly_25A26 = 1;
 	elly_25A34 = 0;
-	elly_25A27 = 0;
+	elly_boomerang_flag = 0;
 	elly_25A38 = 0;
 }
 
@@ -579,7 +809,7 @@ void pascal far elly_update(void)
 
 	switch(boss.phase) {
 	case 0:
-		elly_25A27 = 0;
+		elly_boomerang_flag = 0;
 		elly_25A26 = 0;
 		boss.phase++;
 		boss.mode = 0;
@@ -785,7 +1015,7 @@ phase_over:
 			snd_se_play(12);
 			player_invincibility_time = BOSS_DEFEAT_INVINCIBILITY_FRAMES;
 			elly_25A26 = 0;
-			elly_25A27 = 0;
+			elly_boomerang_flag = 0;
 		}
 		break;
 

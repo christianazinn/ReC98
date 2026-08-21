@@ -10973,317 +10973,27 @@ off_1B938	dw offset loc_1B497
 		dw offset loc_1B84B
 		dw offset loc_1B894
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; The alias carries the NAME; the dump's own call sites keep the
-	; bare label. kb/codegen/0123. These twelve are Elly's patterns
-	; and her one per-frame helper, called from elly_update() and
-	; from nowhere outside this segment.
-public _elly_1B95C
-_elly_1B95C label near
-elly_1B95C	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		cmp	byte_25A27, 2
-		jnz	short loc_1B96C
-		mov	byte_25A27, 0
-
-loc_1B96C:
-		mov	al, byte_25A26
-		mov	ah, 0
-		dec	ax
-		mov	bx, ax
-		cmp	bx, 7
-		ja	loc_1BBA8
-		add	bx, bx
-		jmp	cs:off_1BC2C[bx]
-; ---------------------------------------------------------------------------
-
-loc_1B982:
-		cmp	word_25A34, 40h
-		jnb	short loc_1B99B
-		test	byte ptr word_25A34, 7
-		jnz	short loc_1B99B
-		mov	ax, word_25A34
-		shr	ax, 3
-		add	al, 134
-		mov	_boss_sprite, al
-
-loc_1B99B:
-		cmp	word_25A34, 0
-		jnz	short loc_1B9AC
-		call	snd_se_play pascal, 8
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1B9AC:
-		cmp	word_25A34, 38h	; '8'
-		jnz	short loc_1B9CE
-		call	snd_se_play pascal, 9
-		mov	byte_25A27, 1
-		mov	ax, _boss_pos.cur.x
-		mov	motion_25A28.cur.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	motion_25A28.cur.y, ax
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1B9CE:
-		cmp	word_25A34, 40h
-		jb	loc_1BBA4
-		mov	_boss_sprite, 141
-		mov	byte_25A26, 2
-
-loc_1B9E1:
-		cmp	word_25A34, 50h	; 'P'
-		jnb	short loc_1BA49
-		mov	ax, _player_pos.cur.y
-		sub	ax, motion_25A28.cur.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, motion_25A28.cur.x
-		push	ax
-		call	iatan2
-		mov	[bp+var_1], al
-		mov	al, angle_25A36
-		sub	[bp+var_1], al
-		cmp	[bp+var_1], 80h
-		jnb	short loc_1BA19
-		cmp	[bp+var_1], 10h
-		jb	short loc_1BA19
-		mov	byte_25A38, 1
-		jmp	short loc_1BA2A
-; ---------------------------------------------------------------------------
-
-loc_1BA19:
-		cmp	[bp+var_1], 80h
-		jb	short loc_1BA33
-		cmp	[bp+var_1], -10h
-		ja	short loc_1BA33
-		mov	byte_25A38, -1
-
-loc_1BA2A:
-		mov	al, _stage_frame_mod2
-		add	byte_25A37, al
-		jmp	short loc_1BA40
-; ---------------------------------------------------------------------------
-
-loc_1BA33:
-		mov	al, byte_25A37
-		inc	al
-		mov	byte_25A37, al
-		mov	byte_25A38, 0
-
-loc_1BA40:
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		jmp	short loc_1BA50
-; ---------------------------------------------------------------------------
-
-loc_1BA49:
-		mov	al, _stage_frame_mod2
-		add	byte_25A37, al
-
-loc_1BA50:
-		cmp	motion_25A28.cur.x, (64 shl 4)
-		jg	short loc_1BA60
-		mov	byte_25A26, 3
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1BA60:
-		cmp	motion_25A28.cur.x, (320 shl 4)
-		jl	short loc_1BA70
-		mov	byte_25A26, 4
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1BA70:
-		cmp	motion_25A28.cur.y, (304 shl 4)
-		jl	short loc_1BA80
-		mov	byte_25A26, 5
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1BA80:
-		cmp	motion_25A28.cur.y, (32 shl 4)
-		jg	loc_1BBA4
-		mov	byte_25A26, 6
-		jmp	loc_1BBA4
-; ---------------------------------------------------------------------------
-
-loc_1BA92:
-		mov	al, byte_25A37
-		add	al, -4
-		mov	byte_25A37, al
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		cmp	byte_25A37, 4
-		ja	loc_1BBA8
-		jmp	short loc_1BB0C
-; ---------------------------------------------------------------------------
-
-loc_1BAAC:
-		mov	al, byte_25A37
-		add	al, -4
-		mov	byte_25A37, al
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		cmp	byte_25A38, 0
-		jz	short loc_1BACB
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		jmp	short loc_1BACF
-; ---------------------------------------------------------------------------
-
-loc_1BACB:
-		inc	angle_25A36
-
-loc_1BACF:
-		cmp	byte_25A37, 4
-		ja	loc_1BBA8
-		jmp	short loc_1BB0C
-; ---------------------------------------------------------------------------
-
-loc_1BADA:
-		mov	al, byte_25A37
-		add	al, -4
-		mov	byte_25A37, al
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		cmp	byte_25A37, 4
-		ja	loc_1BBA8
-		jmp	short loc_1BB0C
-; ---------------------------------------------------------------------------
-
-loc_1BAF4:
-		mov	al, byte_25A37
-		add	al, -4
-		mov	byte_25A37, al
-		mov	al, byte_25A38
-		add	angle_25A36, al
-		cmp	byte_25A37, 4
-		ja	loc_1BBA8
-
-loc_1BB0C:
-		mov	byte_25A26, 7
-		jmp	loc_1BBA8
-; ---------------------------------------------------------------------------
-
-loc_1BB14:
-		mov	ax, _boss_pos.cur.y
-		sub	ax, motion_25A28.cur.y
-		push	ax
-		mov	ax, _boss_pos.cur.x
-		sub	ax, motion_25A28.cur.x
-		push	ax
-		call	iatan2
-		mov	angle_25A36, al
-		mov	al, byte_25A37
-		add	al, 8
-		mov	byte_25A37, al
-		mov	ax, _boss_pos.cur.x
-		add	ax, (-16 shl 4)
-		cmp	ax, motion_25A28.cur.x
-		jge	short loc_1BBA8
-		mov	ax, _boss_pos.cur.x
-		add	ax, (16 shl 4)
-		cmp	ax, motion_25A28.cur.x
-		jle	short loc_1BBA8
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-16 shl 4)
-		cmp	ax, motion_25A28.cur.y
-		jge	short loc_1BBA8
-		mov	ax, _boss_pos.cur.y
-		add	ax, (16 shl 4)
-		cmp	ax, motion_25A28.cur.y
-		jle	short loc_1BBA8
-		mov	byte_25A26, 8
-		mov	byte_25A27, 2
-		mov	word_25A34, 0
-		jmp	short loc_1BBA8
-; ---------------------------------------------------------------------------
-
-loc_1BB76:
-		cmp	word_25A34, 20h	; ' '
-		jnb	short loc_1BB93
-		test	byte ptr word_25A34, 7
-		jnz	short loc_1BB93
-		mov	ax, 1Fh
-		sub	ax, word_25A34
-		shr	ax, 2
-		add	al, 134
-		mov	_boss_sprite, al
-
-loc_1BB93:
-		cmp	word_25A34, 20h	; ' '
-		jb	short loc_1BBA4
-		mov	_boss_sprite, 134
-		mov	byte_25A26, 0
-
-loc_1BBA4:
-		inc	word_25A34
-
-loc_1BBA8:
-		cmp	byte_25A27, 1
-		jnz	short locret_1BC2A
-		push	ds
-		push	offset motion_25A28.velocity.x
-		push	ds
-		push	offset motion_25A28.velocity.y
-		push	word ptr angle_25A36
-		mov	al, byte_25A37
-		mov	ah, 0
-		push	ax
-		call	vector2
-		mov	_shot_hitbox_radius.x, (32 shl 4)
-		mov	_shot_hitbox_radius.y, (32 shl 4)
-		mov	ax, motion_25A28.cur.x
-		mov	_shot_hitbox_center.x, ax
-		mov	ax, motion_25A28.cur.y
-		mov	_shot_hitbox_center.y, ax
-		call	@shots_hittest$qv
-		shr	ax, 1
-		mov	dx, motion_25A28.velocity.y
-		sub	dx, ax
-		mov	motion_25A28.velocity.y, dx
-		call	@PlayfieldMotion@update_seg3$qv pascal, offset motion_25A28
-		mov	ax, motion_25A28.cur.x
-		add	ax, (-24 shl 4)
-		cmp	ax, _player_pos.cur.x
-		jge	short locret_1BC2A
-		mov	ax, motion_25A28.cur.x
-		add	ax, (24 shl 4)
-		cmp	ax, _player_pos.cur.x
-		jle	short locret_1BC2A
-		mov	ax, motion_25A28.cur.y
-		add	ax, (-24 shl 4)
-		cmp	ax, _player_pos.cur.y
-		jge	short locret_1BC2A
-		mov	ax, motion_25A28.cur.y
-		add	ax, (24 shl 4)
-		cmp	ax, _player_pos.cur.y
-		jle	short locret_1BC2A
-		mov	_player_is_hit, 1
-
-locret_1BC2A:
-		leave
-		retn
-elly_1B95C	endp
-
-; ---------------------------------------------------------------------------
-off_1BC2C	dw offset loc_1B982
-		dw offset loc_1B9E1
-		dw offset loc_1BA92
-		dw offset loc_1BAAC
-		dw offset loc_1BADA
-		dw offset loc_1BAF4
-		dw offset loc_1BB14
-		dw offset loc_1BB76
+	; elly_1B95C(), Elly's boomerang driver, now lives in
+	; th04/main/boss/b3_upd.cpp, prepended to the object below ahead of the
+	; fourteen patterns -- the address order it already held.
+	; th04/main_034.cpp compiles into THIS segment, so the seam between this
+	; contribution and that object was the only thing the lift had to move
+	; (kb/codegen/0099): no carve, no new segment name, no group-list edit
+	; and no Tupfile.lua line.
+	;
+	; The eight-entry `dw offset loc_...` run that used to end this
+	; contribution went with it. A `loc_XXXXX` label only exists INSIDE a
+	; proc body, so that run is not data this file owns -- it is what the
+	; driver's own dense `switch(elly_25A26 - 1)` compiles TO, and the C++
+	; emits it again (state/re/JUMP_TABLE_TAILS.md). There is no padding
+	; byte to reproduce: the body is 0x2D0 bytes, even, and the object sets
+	; no `-a2`.
+	;
+	; It is `static` there, in the same translation unit as elly_update(),
+	; its only caller, so the zero-byte `label` alias this file carried for
+	; it (kb/codegen/0123) is gone with the body -- and so are the seven the
+	; `.data?` block below carried for the state it was the last ASM reader
+	; of.
 
 	; Elly's fourteen pattern functions -- elly_1BC3C() and the thirteen
 	; behind it -- now live in th04/main/boss/b3_upd.cpp, prepended to the
@@ -11301,7 +11011,7 @@ off_1BC2C	dw offset loc_1B982
 	; references any of the fourteen.
 	;
 	; What is left of this contribution above is Yuuka's Phase 6 half of
-	; the segment and elly_1B95C(), the boomerang driver.
+	; the segment.
 
 
 	; elly_update() now lives in th04/main/boss/b3_upd.cpp, which
@@ -13285,49 +12995,33 @@ public _elly_pattern_set
 _elly_pattern_set label byte
 byte_25A24	db ?
 		db ?
+	; The boomerang driver's own state, 0...8, and the seven `.data?` slots
+	; below it. Every one of them used to carry a zero-byte `label` alias
+	; over an IDA name (kb/codegen 0123) because elly_1B95C() still read the
+	; bare label from this file. It does not exist here any more, and a
+	; census of this file finds no other reader, so the aliases are gone and
+	; the labels carry the names directly.
 public _elly_25A26
-_elly_25A26 label byte
-byte_25A26	db ?
-; Elly's single thrown entity and the byte that tracks it. Private dump
-; labels that the ASM in this file still references, so they take zero-byte
-; `label` aliases rather than a rename (kb/codegen 0123). elly_fg_render()
-; (th04/main/boss/b3_fg.cpp) is the only C++ reader of either.
+_elly_25A26	db ?
+; Elly's single thrown entity and the byte that tracks it. elly_fg_render()
+; (th04/main/boss/b3_fg.cpp) named both; b3_upd.cpp's driver is where the
+; behaviour they describe is measured out of.
 public _elly_boomerang_flag
-_elly_boomerang_flag label byte
-public _elly_25A27
-_elly_25A27 label byte
-byte_25A27	db ?
+_elly_boomerang_flag	db ?
 public _elly_boomerang_pos
-_elly_boomerang_pos label word
-motion_25A28	motion_t <?>
+_elly_boomerang_pos	motion_t <?>
 	; The boomerang's flight frame counter, re-armed to 0 by elly_1BC3C().
-	; A private dump label with no `public` of ZUN's, still read by
-	; elly_1B95C() above, so it takes a zero-byte `label` alias rather
-	; than a rename (kb/codegen 0123).
 public _elly_25A34
-_elly_25A34 label word
-word_25A34	dw ?
+_elly_25A34	dw ?
 	; The angle elly_1BC3C() aims the boomerang at.
-	; A private dump label with no `public` of ZUN's, still read by
-	; elly_1B95C() above, so it takes a zero-byte `label` alias rather
-	; than a rename (kb/codegen 0123).
 public _elly_25A36
-_elly_25A36 label byte
-angle_25A36	db ?
+_elly_25A36	db ?
 	; The throw budget elly_1BC3C() re-arms to 8.
-	; A private dump label with no `public` of ZUN's, still read by
-	; elly_1B95C() above, so it takes a zero-byte `label` alias rather
-	; than a rename (kb/codegen 0123).
 public _elly_25A37
-_elly_25A37 label byte
-byte_25A37	db ?
+_elly_25A37	db ?
 	; The boomerang's return state, re-armed to 0 by elly_1BC3C().
-	; A private dump label with no `public` of ZUN's, still read by
-	; elly_1B95C() above, so it takes a zero-byte `label` alias rather
-	; than a rename (kb/codegen 0123).
 public _elly_25A38
-_elly_25A38 label byte
-byte_25A38	db ?
+_elly_25A38	db ?
 		db ?
 public _elly_25A3A
 _elly_25A3A label word
