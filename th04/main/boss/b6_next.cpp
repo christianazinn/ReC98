@@ -42,6 +42,19 @@
 // TU with nothing.
 #include "th04/math/vector.hpp"
 #include "th04/main/player/shot.hpp"
+// MATCH-TH04-MAIN-034-CHAIN's five bodies, at the end of this file, need these
+// five as well. Appended rather than sorted in, for the reason the comment
+// above gives about the two before them: every function already in this object
+// was matched against the declarations visible in the original order, and all
+// five of these are guarded or declaration-only.
+#include "th03/math/polar.hpp"
+#include "th04/main/score.hpp"
+#include "th04/main/spark.hpp"
+#include "th04/main/item/item.hpp"
+// Yuuka's two [custom_entities] overlays, split out of th04/main/boss/b6.cpp
+// (which this object still cannot include -- it declares yuuka6_phase_next()
+// with C++ linkage and this object DEFINES it `extern "C"`).
+#include "th04/main/boss/b6ent.hpp"
 
 /// Still ASM
 /// ---------
@@ -57,6 +70,12 @@ extern "C" {
 	extern PlayfieldPoint yuuka6_25A0C;
 	extern unsigned char yuuka6_25A1E;
 	extern unsigned char yuuka6_25A1B;
+	extern unsigned char yuuka6_25A08;
+
+	// Which of PHASE2_FLY_PATHS Yuuka takes this fight; th04_main.asm still
+	// picks it, and yuuka6_phase2_fly() at the end of this file is its only
+	// reader now.
+	extern unsigned char yuuka6_phase2_fly_path;
 
 	// The safety circle Yuuka opens around the player on the one frame her
 	// forward-parasol phase starts. It sat ABOVE the b6_anim.asm `include`
@@ -82,6 +101,12 @@ extern "C" {
 	bool near yuuka6_anim_parasol_back_pull_left(void);
 	bool near yuuka6_anim_parasol_left_spin_back(void);
 	bool near yuuka6_anim_parasol_shield(void);
+
+	// The two the teleport at the end of this file drives. th04_main.asm used
+	// to call both from inside the bodies that are now down there, so neither
+	// was declared here before MATCH-TH04-MAIN-034-CHAIN.
+	bool near yuuka6_anim_vanish(void);
+	bool near yuuka6_anim_appear(void);
 
 	// Copies [thicklaser_template] into the first free slot and plays the
 	// spawn sound effect. It is still ASM, and in B4M_UPDATE_TEXT rather
@@ -114,6 +139,7 @@ void pascal near chasecrosses_add(
 // enumerators this file needs rather than included: that file declares
 // Yuuka's whole fight and is expanded by th04/main/boss/bg.cpp, another
 // object, in the same way th04/main/boss/b6_upd.cpp restates it.
+static const int Y6SF_VANISHED = 0;
 static const int Y6SF_PARASOL_BACK_OPEN = 1;
 static const int Y6SF_PARASOL_BACK_CLOSED = 2;
 static const int Y6SF_PARASOL_LEFT = 4;
@@ -988,3 +1014,331 @@ extern "C" void pascal near yuuka6_phase_next(
 	yuuka6_anim_frame = 0; // ZUN bloat
 	yuuka6_sprite_flag = Y6SF_PARASOL_BACK_OPEN;
 }
+
+
+/// The head of B6_SPAWN_TEXT's C++ half
+/// -----------------------------------
+/// Everything below is in a DIFFERENT code segment from everything above:
+/// B6_SPAWN_TEXT, the kb/codegen/0080 anchor MATCH-TH04-MAIN-034-HEAD carved
+/// off main_034_TEXT's head. One object contributing to two code segments is
+/// kb/codegen/0155, and it is what lets this whole chain land without a single
+/// new translation unit or Tupfile.lua line.
+///
+/// This object rather than th04/boss_bg.cpp's, which hosts the first two procs
+/// of that segment: yuuka6_customs_update() makes near calls into main_03 --
+/// items_add(), vector2_near(), vector2_at(), shots_hittest() -- and an object
+/// whose `-zP` names main_01 frames every one of them on the wrong group.
+/// `[measured]`: the items_add() fixup OVERFLOWED and the rest were silently
+/// within 16 bits, i.e. would have linked to garbage (kb/codegen/0104). This
+/// object is `-zPmain_03`, and TLINK already places its B6_SPAWN_TEXT block
+/// immediately after th04/boss_bg.cpp's -- which is also these five bodies'
+/// original address order.
+#pragma codeseg B6_SPAWN_TEXT main_03
+
+// Defined below, and called by yuuka6_phase2_fly() above it.
+extern "C" bool pascal near yuuka6_teleport_to(subpixel_t x, subpixel_t y);
+
+// One frame of everything Yuuka's Extra fight overlays on [custom_entities]:
+// every chasing cross, and then the safety circle. Called unconditionally out
+// of yuuka6_update()'s tail, after the phase dispatch.
+//
+// The two halves share ONE pointer. ZUN walks [si] across the chasing crosses
+// and then keeps using it for the safety circle, which works because the circle
+// occupies the slot immediately past the last cross -- so the loop leaves the
+// pointer aimed at it. [circle] is a cast of that same pointer rather than a
+// second variable, because a second one would not fit: SI and DI are already
+// the pointer and the counter, and the frame this function declares has no room
+// for a third.
+extern "C" void near yuuka6_customs_update(void)
+{
+	chasecross_t near *p;
+	int i;
+	unsigned int left;
+	unsigned int top;
+	unsigned char angle;
+	unsigned char angle_offset;
+
+	#define circle (reinterpret_cast<safetycircle_t near *>(p))
+
+	shot_hitbox_radius.x.v = TO_SP(12);
+	shot_hitbox_radius.y.v = TO_SP(12);
+	p = chasecrosses;
+	for(i = 0; i < CHASECROSS_COUNT; i++, p++) {
+		if(p->flag != CCF_ALIVE) {
+			continue;
+		}
+		vector2_near(p->velocity, p->angle, p->speed);
+		p->center.x.v += p->velocity.x.v;
+		p->center.y.v += p->velocity.y.v;
+
+		// ZUN bug, and the mirror of the one th04/main/boss/b4m_upd.cpp
+		// records for Marisa's bits: clipped 16 pixels too early at the right
+		// and bottom edges, because the box is biased into its top-left corner
+		// on one axis and not the other.
+		if(
+			(p->center.x.v <= TO_SP(-(CHASECROSS_W / 2))) ||
+			(p->center.x.v >= TO_SP(PLAYFIELD_W + (CHASECROSS_W / 2))) ||
+			(p->center.y.v >= TO_SP(PLAYFIELD_H + (CHASECROSS_H / 2))) ||
+			(p->center.y.v <= TO_SP(-(CHASECROSS_H / 2)))
+		) {
+			p->flag = CCF_FREE;
+		}
+
+		// The player hittest, biased into the top-left corner of the cross's
+		// box so that one UNSIGNED comparison per axis covers both directions.
+		// `jnb`, not `jge`, is what says these are unsigned.
+		left = (p->center.x.v + TO_SP(-12));
+		top = (p->center.y.v + TO_SP(-12));
+		if(
+			((player_pos.cur.x.v - left) < TO_SP(24)) &&
+			((player_pos.cur.y.v - top) < TO_SP(24))
+		) {
+			player_is_hit = true;
+		}
+
+		// Turns one angle unit per frame towards the player, for the first 56
+		// frames of its life only.
+		if(p->age < 56) {
+			angle = iatan2(
+				(player_pos.cur.y.v - p->center.y.v),
+				(player_pos.cur.x.v - p->center.x.v)
+			);
+			angle -= p->angle;
+			// ZUN bloat: the second test is the negation of the first.
+			if(angle < 0x80) {
+				p->angle++;
+			} else if(angle >= 0x80) {
+				p->angle--;
+			}
+		}
+
+		shot_hitbox_center.x.v = p->center.x.v;
+		shot_hitbox_center.y.v = p->center.y.v;
+		if(p->damage_this_frame = shots_hittest()) {
+			snd_se_play(4);
+		}
+		p->hp -= p->damage_this_frame;
+		if(p->hp <= 0) {
+			snd_se_play(3);
+			score_delta += 3000;
+			p->flag = CCF_KILL_ANIM;
+			p->age = 0;
+
+			// kb/codegen 0083 + 0122: the original reaches sparks_add_random()
+			// through a nopcall, which a C++ far call never becomes, and the
+			// two SI-relative pushes have to be `db`s as well -- naming SI to
+			// the inline assembler would move [p] out of it. Byte-for-byte the
+			// same island, and the same callee, as
+			// th04/main/boss/b4m_upd.cpp's; the two `db`ed pushes are even the
+			// same encodings, because [center] sits at offset 2 in both
+			// structures.
+			/* TODO: Replace with the decompiled call
+			 * 	sparks_add_random(p->center.x, p->center.y, TO_SP(4), 8);
+			 * once that function is part of the same segment */
+			_asm {
+				db  	0xFF, 0x74, 0x02;
+				db  	0xFF, 0x74, 0x04;
+				db  	0x66, 0x68, 8, 0x00, (4 * 16), 0x00;
+				nop;
+				push	cs;
+				call	near ptr sparks_add_random;
+			}
+			items_add(p->center.x.v, p->center.y.v, IT_BIGPOWER);
+		}
+		p->age++;
+	}
+
+	switch(circle->flag) {
+	case SCF_GROW:
+		if(circle->radius_filled <= 128) {
+			circle->radius_filled += 8;
+		} else {
+			circle->flag = SCF_SHRINK;
+		}
+		break;
+
+	case SCF_SHRINK:
+		if(circle->shrink_frame < 8) {
+			circle->radius_ring_distance -= 8;
+		} else if(circle->shrink_frame == 8) {
+			circle->col_ring = 9;
+		} else if(circle->shrink_frame < 16) {
+			circle->radius_ring_distance -= 2;
+		} else if(circle->shrink_frame < 160) {
+			if((circle->shrink_frame & 0x1F) < 16) {
+				circle->radius_ring_distance++;
+			} else {
+				circle->radius_ring_distance--;
+			}
+			if(stage_frame_mod2 != 0) {
+				circle->col_ring = 15;
+			} else {
+				circle->col_ring = 9;
+			}
+			if(circle->shrink_frame <= 104) {
+				circle->radius_filled--;
+			}
+			if((circle->shrink_frame & 0x0F) == 0) {
+				angle_offset = -0x40;
+				if((circle->shrink_frame & 0x1F) == 0) {
+					bullet_template.origin.x.v = boss.pos.cur.x.v;
+					bullet_template.origin.y.v = (
+						boss.pos.cur.y.v + TO_SP(32)
+					);
+					bullet_template.spawn_type = BST_BULLET16;
+					bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+					bullet_template.group = BG_RING_AIMED;
+					bullet_template.count = 32;
+					bullet_template.speed.v = TO_SP(1);
+					bullet_template.angle = 0;
+					bullet_template_tune();
+					bullets_add_regular();
+					angle_offset = 0x40;
+				}
+				bullet_template.spawn_type = BST_PELLET;
+				bullet_template.delta.spread_angle = 0x0C;
+				angle = (stage_frame / 5);
+				left = (circle->radius_filled + 4);
+				for(i = 0; i < 8; i++, angle += 0x20) {
+					bullet_template.angle = (angle + angle_offset);
+					vector2_at(
+						bullet_template.origin,
+						circle->center.x,
+						circle->center.y,
+						left,
+						angle
+					);
+					bullet_template.origin.x.v -= TO_SP(2);
+					bullet_template.origin.y.v -= TO_SP(1);
+					bullet_template.origin.x.v *= TO_SP(1);
+					bullet_template.origin.y.v *= TO_SP(1);
+					bullet_template.group = BG_STACK;
+					bullet_template.count = 8;
+					bullet_template.speed.v = TO_SP(1);
+					bullets_add_regular();
+					bullet_template.group = BG_SPREAD;
+					bullet_template.count = 4;
+					bullet_template.speed.v = TO_SP(3);
+					bullets_add_regular();
+				}
+				snd_se_play(3);
+			}
+		} else if(circle->shrink_frame < 176) {
+			circle->radius_ring_distance += 16;
+			circle->radius_filled -= 2;
+		} else {
+			circle->flag = SCF_FREE;
+		}
+		circle->shrink_frame++;
+		break;
+	}
+
+	#undef circle
+}
+
+// The one that is not `extern "C"`: the dump publishes it under the lower-case
+// C++ mangled name a non-`pascal` C++ function gets, which is the evidence for
+// its linkage. Defined ahead of yuuka6_teleport_to() because that is the
+// original address order, so it needs the forward declaration
+// th04/main/boss/b6.cpp already carries.
+bool near yuuka6_phase2_fly(void)
+{
+	if(
+		(boss.phase_state.patterns_seen % (PHASE2_FLY_NODES + 1)) <
+		PHASE2_FLY_NODES
+	) {
+		switch(boss.phase_frame) {
+		case 1:
+			vector2_near(
+				boss.pos.velocity,
+				YUUKA6_PHASE2_FLY_ANGLES[yuuka6_phase2_fly_path][
+					boss.phase_state.patterns_seen % (PHASE2_FLY_NODES + 1)
+				],
+				8
+			);
+			break;
+		case 112:
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen++;
+			return true;
+		}
+		boss.pos.cur.x.v += boss.pos.velocity.x.v;
+		boss.pos.cur.y.v += boss.pos.velocity.y.v;
+		return false;
+	}
+	// The leg after the last one: back to the top centre, and on to the next
+	// phase from there.
+	return yuuka6_teleport_to(TO_SP(PLAYFIELD_W / 2), TO_SP(80));
+}
+
+// `pascal`, so the dump's `public` is the bare UPPERCASE spelling and this one
+// needed no zero-byte alias to become linkable -- the same device
+// yuuka6_phase_next() uses.
+//
+// [yuuka6_25A1B] gates the mirror position [yuuka6_25A0C], which the patterns
+// in th04/main/boss/b6_next.cpp spawn their second half from. Setting it to 2
+// here is what tells them the mirror exists.
+bool pascal near yuuka6_teleport_to(subpixel_t x, subpixel_t y)
+{
+	if(boss.phase_frame < 64) {
+		if(yuuka6_sprite_flag != Y6SF_VANISHED) {
+			yuuka6_anim_vanish();
+		}
+	} else {
+		if(yuuka6_sprite_flag == Y6SF_VANISHED) {
+			yuuka6_anim_appear();
+		}
+	}
+	switch(boss.phase_frame) {
+	case 64:
+		boss.pos.cur.x.v = x;
+		boss.pos.cur.y.v = y;
+		if(yuuka6_25A1B != 0) {
+			yuuka6_25A1B = 2;
+			yuuka6_25A0C.x.v = (TO_SP(PLAYFIELD_W) - x);
+			yuuka6_25A0C.y.v = y;
+		}
+		break;
+	case 128:
+		boss.phase_frame = 0;
+		boss.phase_state.patterns_seen++;
+		return true;
+	}
+	return false;
+}
+
+extern "C" void near yuuka6_fly_sine(void)
+{
+	if(boss.phase_frame == 1) {
+		boss.pos.velocity.x.v = TO_SP(2);
+		boss.angle = 0;
+	}
+	boss.pos.cur.x.v += boss.pos.velocity.x.v;
+	if((boss.pos.cur.x.v <= TO_SP(48)) || (boss.pos.cur.x.v >= TO_SP(336))) {
+		// ZUN bloat: a negation spelled as a multiplication, which is why it
+		// comes out as an `imul` rather than a `neg`.
+		boss.pos.velocity.x.v *= -1;
+	}
+	boss.pos.cur.y.v = polar_y(TO_SP(80), TO_SP(48), boss.angle);
+	boss.angle += 2;
+}
+
+extern "C" bool near yuuka6_return_to_center(void)
+{
+	if(yuuka6_sprite_flag == Y6SF_VANISHED) {
+		yuuka6_anim_appear();
+	} else {
+		yuuka6_25A08 = 0;
+		if(boss.pos.cur.x.v < TO_SP(PLAYFIELD_W / 2)) {
+			boss.pos.cur.x.v += TO_SP(1);
+		} else if(boss.pos.cur.x.v >= TO_SP((PLAYFIELD_W / 2) + 1)) {
+			boss.pos.cur.x.v -= TO_SP(1);
+		} else {
+			return true;
+		}
+	}
+	return false;
+}
+
+
+#pragma codeseg
