@@ -965,6 +965,12 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/main_033.cpp",
 	"th04/main_034.cpp",
 	"th04/main_035.cpp",
+	-- POSITION-CRITICAL: main_36r.cpp is Reimu's half of main_036_TEXT and
+	-- must stay immediately before main_036.cpp, which is Gengetsu's. They
+	-- are two objects rather than one because the padding in front of their
+	-- two generated switch tables is unreachable otherwise; see
+	-- th04/main_36r.cpp.
+	"th04/main_36r.cpp",
 	"th04/main_036.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",

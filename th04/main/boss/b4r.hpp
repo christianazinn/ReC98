@@ -56,6 +56,11 @@ struct reimu_orb_t {
 // -----
 
 extern uint8_t orb_patnum_base; // ACTUAL TYPE: main_patnum_t
+
+// Defined by th04/main/boss/b4r.cpp and read by th04/main/boss/b4r_upd.cpp,
+// which is the other half of the same fight in a different segment.
+extern unsigned char reimu_pattern8_angle;
+extern int8_t reimu_bg_pulse_direction;
 extern reimu_orb_t orb_template;
 // -----
 
