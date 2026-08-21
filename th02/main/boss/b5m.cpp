@@ -1,0 +1,467 @@
+/// Stage 5 boss - Mima
+/// -------------------
+/// Her per-frame update, and the pattern-advance and vertical-drift helper it
+/// is the only caller of. Together they are the carve-free tail of
+/// th02_main.asm's BOSS_5_TEXT contribution, so this file needs no new segment
+/// - th02/boss_5.cpp includes it directly ahead of skill_calculate(), which is
+/// the one body at the address after mima_update()'s generated jump table.
+/// (kb/codegen/0099)
+///
+/// mima_193A4() is `static`: mima_update() is its only caller, and the dump no
+/// longer holds one.
+
+#include "platform.h"
+#include "pc98.h"
+#include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/math/randring.hpp"
+#include "th02/main/frames.hpp"
+#include "th02/main/bg_particle.hpp"
+#include "th02/main/boss/boss.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/main/stage/stage.hpp"
+
+// Declared the way th02/main/boss/b4.cpp already declares them, rather than by
+// including th02/resident.hpp and th02/core/globals.hpp - th02/main/boss/b5_.cpp
+// is included into this same translation unit below and owns those two
+// unguarded headers.
+extern "C" bool reduce_effects;
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
+
+// The sprite the boss and midboss renderers blit. Declared exactly the way
+// th02/main/boss/b4.cpp and th02/main/boss/b5.cpp already declare it.
+extern "C" int patnum_2064E;
+
+/// Mima's other procs
+/// ------------------
+/// Her patterns, her renderers, and the hit test. All near, all still ASM in
+/// BOSS_5_TEXT except mima_19C8D(), which is th02/main/boss/b5.cpp in
+/// main_03__TEXT; this object reaches it near through the MAIN_03 group.
+
+extern "C" void near mima_17C92(void);
+extern "C" void near mima_17D59(void);
+extern "C" void near mima_17F27(void);
+extern "C" void near mima_180EC(void);
+extern "C" void near mima_181B3(void);
+extern "C" void near mima_188AA(void);
+extern "C" void near mima_18905(void);
+extern "C" void near mima_18A1B(void);
+extern "C" void near mima_18B4B(void);
+extern "C" void near mima_18BA6(void);
+extern "C" void near mima_18C4A(void);
+extern "C" void near mima_18DE0(void);
+extern "C" void near mima_18EB8(void);
+extern "C" void near mima_19173(void);
+extern "C" void near mima_191CC(void);
+extern "C" void near mima_19353(void);
+extern "C" bool16 near mima_19C8D(void);
+
+// th02/main/boss/b5.cpp, in main_03__TEXT. Reached with the same
+// `nop; push cs; call near ptr` same-segment far call as everywhere else in
+// this group. (kb/codegen/0014)
+extern "C" void far mima_end(void);
+
+// Turbo C++ compiled ZUN's far calls to same-code-group functions as
+// `nop; push cs; call near ptr`; a plain C++ far call is `call far ptr`
+// instead, so only inline ASM still emits those bytes. Spelled exactly the way
+// th02/main/stage/init.cpp and th02/main/stage/loop.cpp already spell it, and
+// naming no register, so [i] below stays in SI. (kb/codegen/0014,
+// kb/codegen/0083)
+#define nopcall_same_group(func) _asm { \
+	nop; \
+	push	cs; \
+	call	near ptr func; \
+}
+/// ----------------------
+
+/// Mima's state
+/// ------------
+/// The six left_*/x_*/top_*/y_* slots below are the muzzle and anchor points
+/// her patterns fire from; they keep the hand names the dump already gave them.
+/// [mima_muzzle_left] and [mima_muzzle_top] are the pair mima_180EC() and
+/// mima_181B3() use, and are the only two of the eight this parcel renames.
+
+extern "C" screen_x_t left_26C56;
+extern "C" screen_x_t mima_muzzle_left;
+extern "C" screen_x_t left_26C5A;
+extern "C" screen_x_t x_26C5C;
+extern "C" screen_y_t top_26C5E;
+extern "C" screen_y_t mima_muzzle_top;
+extern "C" screen_y_t top_26C62;
+extern "C" screen_y_t y_26C64;
+
+// 0 until [mima_patterns_until_vulnerable] patterns of the current step have
+// run, 1 afterwards. mima_17C92() multiplies the frame's shot damage by it, so
+// Mima cannot be damaged during the opening patterns of any step.
+// [marisa_damage_multiplier]'s mechanism, one boss up.
+extern "C" int mima_damage_multiplier;
+
+// The eleven-step machine the whole fight runs on. Even steps are the
+// charge-ups, odd ones run patterns, 8 is her first defeat and 10 the end.
+extern "C" int mima_phase;
+
+// Which of her patterns is running, and how many have run in this step.
+extern "C" int mima_pattern;
+extern "C" int mima_patterns_this_phase;
+
+// Raised in step 7, and never lowered. Widens the pattern cycle from
+// [mima_pattern_count] to all 8, and switches six of the pattern functions to
+// their harder variant.
+extern "C" bool mima_all_patterns;
+
+// The ring and the filled circle mima_17A7F() draws behind her, and their
+// colors. th02/main/boss/b5.cpp named the ring's two colors _head and _tail;
+// only the lagging one is ever reassigned after mima_init().
+extern "C" uint8_t mima_bg_ring_radius;
+extern "C" uint8_t mima_bg_circle_radius;
+extern "C" uint8_t mima_bg_ring_col_tail;
+extern "C" uint8_t mima_bg_circle_col;
+
+// The four parameters each charge-up step hands the odd step that follows it.
+// The step ends on either [mima_phase_damage_max] damage or
+// [mima_patterns_max] patterns; steps 7 and 9 set the latter to 200 and so end
+// on damage alone.
+extern "C" int mima_phase_damage_max;
+extern "C" int mima_patterns_max;
+extern "C" int mima_pattern_count;
+extern "C" int mima_patterns_until_vulnerable;
+
+// The two expanding dot-square rings mima_update() blits itself, at this
+// radius and this radius + 128 around a fixed (224, 200).
+extern "C" uint8_t mima_ring_radius;
+
+// The circle's radius pulses down from this base on a 64-frame counter.
+extern "C" uint8_t mima_bg_circle_radius_base;
+extern "C" uint8_t mima_bg_circle_pulse_frame;
+
+// Her vertical drift, re-rolled once per pattern by mima_193A4().
+extern "C" int mima_velocity_y;
+/// ------------
+
+static const int MIMA_RING_CENTER_X = 224;
+static const int MIMA_RING_CENTER_Y = 200;
+static const int MIMA_RING_COUNT = 2;
+static const int MIMA_RING_ANGLE_STEP = 16;
+static const int MIMA_RING_DISTANCE = 128;
+
+static const int MIMA_CIRCLE_PULSE_FRAMES = 64;
+
+// How long each charge-up step's palette fade runs for.
+static const int MIMA_CHARGE_FRAMES = 100;
+
+// Her drift only re-aims while a pattern is this young, and only inside this
+// vertical band.
+static const int MIMA_DRIFT_FRAMES = 10;
+static const int MIMA_TOP_MIN = 48;
+static const int MIMA_TOP_MAX = 64;
+
+
+// Ends the current pattern: advances the step if it is over, and otherwise
+// picks the next pattern and re-rolls Mima's vertical drift.
+static void near mima_193A4(void)
+{
+	register int pattern_next;
+
+	if(boss_phase_frame == 0) {
+		if(
+			(boss_damage >= mima_phase_damage_max) ||
+			(mima_patterns_this_phase > mima_patterns_max)
+		) {
+			mima_phase++;
+			mima_damage_multiplier = 0;
+			mima_patterns_this_phase = 0;
+		} else {
+			mima_patterns_this_phase++;
+			if(mima_patterns_this_phase >= mima_patterns_until_vulnerable) {
+				mima_damage_multiplier = 1;
+			}
+			// The `+ 1` is one expression in each arm, because the original
+			// computes it in AX and moves it to SI - the opposite of
+			// kb/codegen/0146's split-statement case.
+			if(!mima_all_patterns) {
+				pattern_next = (mima_pattern + 1);
+				if(pattern_next >= mima_pattern_count) {
+					pattern_next = 0;
+				}
+			} else {
+				pattern_next = (mima_pattern + 1);
+				if(pattern_next > 7) {
+					pattern_next = 0;
+				}
+			}
+			mima_pattern = pattern_next;
+			if(*boss_top_on_back_page < MIMA_TOP_MIN) {
+				mima_velocity_y = 1;
+			} else if(*boss_top_on_back_page > MIMA_TOP_MAX) {
+				mima_velocity_y = -1;
+			} else {
+				mima_velocity_y = (1 - (randring2_next8() % 3));
+			}
+		}
+	}
+	if(boss_phase_frame < MIMA_DRIFT_FRAMES) {
+		*boss_top_on_back_page += mima_velocity_y;
+	}
+}
+
+
+// Her per-frame update. Installed into [boss_update] by stage_init().
+extern "C" int far mima_update(void)
+{
+	// [radius] first: Turbo C++ allocates stack locals in declaration order,
+	// and it is the original's only one, at [bp-1]. (kb/codegen/0010)
+	unsigned char radius;
+	register int i;
+
+	boss_phase_frame++;
+	boss_pos_x = (*boss_left_on_back_page + 72);
+	boss_pos_y = (*boss_top_on_back_page + 56);
+	left_26C56 = (*boss_left_on_back_page + 32);
+	mima_muzzle_left = (*boss_left_on_back_page + 40);
+	left_26C5A = (*boss_left_on_back_page + 64);
+	x_26C5C = (*boss_left_on_back_page + 64);
+	top_26C5E = (*boss_top_on_back_page + 96);
+	mima_muzzle_top = (*boss_top_on_back_page + 16);
+	top_26C62 = (*boss_top_on_back_page + 114);
+	y_26C64 = (*boss_top_on_back_page + 44);
+	if((stage_frame & 1) == 0) {
+		if(!reduce_effects) {
+			mima_ring_radius += 8;
+			grcg_setcolor(GC_RMW, 3);
+
+			// [i] is initialized ahead of [radius], and the increment is a
+			// statement of its own rather than a loop-header increment,
+			// because that is what puts `inc si` ahead of the radius update
+			// and lets -O merge both stores to [radius] into the shared test
+			// block, as the original has them.
+			i = 0;
+			radius = mima_ring_radius;
+			while(i < MIMA_RING_COUNT) {
+				dot_square_ring_put(
+					MIMA_RING_CENTER_X,
+					MIMA_RING_CENTER_Y,
+					radius,
+					MIMA_RING_ANGLE_STEP
+				);
+				i++;
+				radius += MIMA_RING_DISTANCE;
+			}
+			grcg_off();
+		}
+		if(mima_phase & 1) {
+			mima_bg_circle_pulse_frame++;
+			if(mima_bg_circle_pulse_frame >= MIMA_CIRCLE_PULSE_FRAMES) {
+				mima_bg_circle_pulse_frame = 0;
+			}
+			mima_bg_circle_radius = (
+				mima_bg_circle_radius_base - (mima_bg_circle_pulse_frame / 4)
+			);
+		}
+	}
+
+	if(mima_phase == 0) {
+		mima_bg_ring_radius = (boss_phase_frame / 2);
+		mima_bg_circle_radius = (boss_phase_frame / 3);
+		Palettes[0].c.r = (boss_phase_frame >> 1);
+		Palettes[0].c.g = 0;
+		Palettes[0].c.b = (boss_phase_frame >> 1);
+		palette_show();
+		if(boss_phase_frame > MIMA_CHARGE_FRAMES) {
+			mima_bg_circle_radius_base = mima_bg_circle_radius;
+			mima_bg_circle_pulse_frame = 0;
+			mima_phase = 1;
+			boss_phase_frame = 0;
+			mima_pattern = (randring2_next8() % 3);
+			mima_patterns_this_phase = 0;
+			mima_phase_damage_max = 600;
+			mima_patterns_until_vulnerable = 2;
+			mima_patterns_max = 10;
+			mima_pattern_count = 3;
+			boss_damage = 0;
+		}
+	} else if(mima_phase == 1) {
+		switch(mima_pattern) {
+		case 0:
+			mima_180EC();
+			break;
+		case 1:
+			mima_181B3();
+			break;
+		case 2:
+			mima_188AA();
+			break;
+		}
+		mima_193A4();
+	} else if(mima_phase == 2) {
+		mima_bg_ring_radius = ((boss_phase_frame / 4) + 50);
+		mima_bg_circle_radius = ((boss_phase_frame / 5) + 30);
+		mima_18BA6();
+		Palettes[0].c.r = (51 - (boss_phase_frame >> 1));
+		Palettes[0].c.g = (boss_phase_frame >> 1);
+		Palettes[0].c.b = 50;
+		palette_show();
+		if(boss_phase_frame > MIMA_CHARGE_FRAMES) {
+			mima_phase = 3;
+			boss_phase_frame = 0;
+			mima_pattern = (randring2_next8() % 3);
+			mima_patterns_this_phase = 0;
+			mima_bg_circle_radius_base = mima_bg_circle_radius;
+			mima_phase_damage_max = 700;
+			mima_patterns_until_vulnerable = 2;
+			mima_patterns_max = 12;
+			mima_pattern_count = 3;
+			boss_damage = 0;
+		}
+	} else if(mima_phase == 3) {
+		switch(mima_pattern) {
+		case 0:
+			mima_18905();
+			break;
+		case 1:
+			mima_18A1B();
+			break;
+		case 2:
+			mima_18B4B();
+			break;
+		}
+		mima_193A4();
+	} else if(mima_phase == 4) {
+		mima_bg_ring_radius = ((boss_phase_frame / 4) + 75);
+		mima_bg_circle_radius = ((boss_phase_frame / 5) + 50);
+		mima_18BA6();
+		Palettes[0].c.r = (boss_phase_frame >> 1);
+		Palettes[0].c.g = (51 - (boss_phase_frame >> 1));
+		Palettes[0].c.b = (51 - (boss_phase_frame >> 1));
+		palette_show();
+		if(boss_phase_frame > MIMA_CHARGE_FRAMES) {
+			mima_phase = 5;
+			boss_phase_frame = 0;
+			mima_pattern = (randring2_next8() % 3);
+			mima_bg_circle_radius_base = mima_bg_circle_radius;
+			mima_patterns_this_phase = 0;
+			mima_phase_damage_max = 800;
+			mima_patterns_until_vulnerable = 2;
+			mima_patterns_max = 12;
+			mima_pattern_count = 3;
+			boss_damage = 0;
+		}
+	} else if(mima_phase == 5) {
+		switch(mima_pattern) {
+		case 0:
+			mima_18C4A();
+			break;
+		case 1:
+			mima_18DE0();
+			break;
+		case 2:
+			mima_18EB8();
+			break;
+		}
+		mima_193A4();
+	} else if(mima_phase == 6) {
+		mima_bg_ring_radius = ((boss_phase_frame / 4) + 100);
+		mima_bg_circle_radius = ((boss_phase_frame / 5) + 70);
+		mima_18BA6();
+		Palettes[0].c.r = (51 - (boss_phase_frame >> 1));
+		Palettes[0].c.g = 0;
+		Palettes[0].c.b = 0;
+		palette_show();
+		if(boss_phase_frame > MIMA_CHARGE_FRAMES) {
+			mima_bg_circle_radius_base = mima_bg_circle_radius;
+			mima_phase = 7;
+			boss_phase_frame = 0;
+			mima_pattern = randring2_next8_and(7);
+			mima_patterns_this_phase = 0;
+			mima_phase_damage_max = 1500;
+			mima_patterns_until_vulnerable = 3;
+			mima_patterns_max = 200;
+			mima_pattern_count = 9;
+			mima_all_patterns = 1;
+			boss_damage = 0;
+			mima_bg_ring_col_tail = 2;
+		}
+	} else if(mima_phase == 7) {
+		switch(mima_pattern) {
+		case 0:
+			mima_18C4A();
+			break;
+		case 1:
+			mima_188AA();
+			break;
+		case 2:
+			mima_18905();
+			break;
+		case 3:
+			mima_181B3();
+			break;
+		case 4:
+			mima_18A1B();
+			break;
+		case 5:
+			mima_18B4B();
+			break;
+		case 6:
+			mima_180EC();
+			break;
+		case 7:
+			mima_18DE0();
+			break;
+		case 8:
+			mima_18EB8();
+			break;
+		}
+		mima_193A4();
+	} else if(mima_phase == 9) {
+		switch(mima_pattern) {
+		case 0:
+			mima_19173();
+			break;
+		case 1:
+			mima_191CC();
+			break;
+		case 2:
+			mima_19353();
+			break;
+		}
+		mima_193A4();
+		if(boss_phase_frame == 1) {
+			*boss_top_on_back_page = 64;
+		}
+		if(boss_phase_frame < 30) {
+			*boss_left_on_back_page += (
+				(x_26C5C < player_topleft.x) ? 1 : -1
+			);
+		}
+	}
+
+	mima_17C92();
+	mima_17F27();
+	mima_17D59();
+	if(mima_phase == 8) {
+		if(!mima_19C8D()) {
+			mima_phase++;
+			patnum_2064E = 128;
+			mima_patterns_this_phase = 0;
+			boss_phase_frame = 0;
+			mima_pattern = (randring2_next8() % 3);
+			mima_patterns_this_phase = 0;
+			boss_damage = 0;
+			mima_phase_damage_max = 1100;
+			mima_patterns_until_vulnerable = 2;
+			mima_patterns_max = 200;
+			mima_pattern_count = 3;
+			mima_bg_circle_col = 1;
+			mima_bg_ring_col_tail = 2;
+			mima_bg_ring_radius = 200;
+			mima_bg_circle_radius = 150;
+			mima_bg_circle_radius_base = mima_bg_circle_radius;
+		}
+	} else if(mima_phase == 10) {
+		nopcall_same_group(mima_end);
+	}
+	// Through an `int` rather than [stage_progression_t]: -b- sizes a
+	// three-value enum as a `char`, and the original returns in AX.
+	// th02/main/boss/b4.cpp declares marisa_update() the same way.
+	return SP_BOSS;
+}

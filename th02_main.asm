@@ -3638,12 +3638,6 @@ BOSS_5_TEXT	segment	byte public 'CODE' use16
 ; original encodes, and one declaration in the earlier segment serves both.
 extrn _boss_playfield_reset:near
 
-; mima_19C8D() is th02/main/boss/b5.cpp, prepended into main_03__TEXT
-; below. mima_update() below is its only caller here, and both segments
-; are in group main_03, so `near` resolves to the same 3-byte `E8 rel16`
-; the original encodes.
-extrn _mima_19C8D:near
-
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -11838,6 +11832,8 @@ mima_bg_render	endp
 
 ; Attributes: bp-based frame
 
+public _mima_17C92
+_mima_17C92 label near
 mima_17C92	proc near
 
 var_2		= word ptr -2
@@ -11918,6 +11914,8 @@ mima_17C92	endp
 
 ; Attributes: bp-based frame
 
+public _mima_17D59
+_mima_17D59 label near
 mima_17D59	proc near
 		push	bp
 		mov	bp, sp
@@ -12131,6 +12129,8 @@ mima_17E91	endp
 
 ; Attributes: bp-based frame
 
+public _mima_17F27
+_mima_17F27 label near
 mima_17F27	proc near
 
 var_12		= word ptr -12h
@@ -12340,6 +12340,8 @@ mima_180AC	endp
 
 ; Attributes: bp-based frame
 
+public _mima_180EC
+_mima_180EC label near
 mima_180EC	proc near
 		push	bp
 		mov	bp, sp
@@ -12424,6 +12426,8 @@ mima_180EC	endp
 
 ; Attributes: bp-based frame
 
+public _mima_181B3
+_mima_181B3 label near
 mima_181B3	proc near
 
 var_4		= word ptr -4
@@ -13100,6 +13104,8 @@ mima_183D0	endp
 
 ; Attributes: bp-based frame
 
+public _mima_188AA
+_mima_188AA label near
 mima_188AA	proc near
 
 @@y1		= word ptr -4
@@ -13140,6 +13146,8 @@ mima_188AA	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18905
+_mima_18905 label near
 mima_18905	proc near
 		push	bp
 		mov	bp, sp
@@ -13256,6 +13264,8 @@ mima_18905	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18A1B
+_mima_18A1B label near
 mima_18A1B	proc near
 		push	bp
 		mov	bp, sp
@@ -13377,6 +13387,8 @@ mima_18A1B	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18B4B
+_mima_18B4B label near
 mima_18B4B	proc near
 
 var_4		= word ptr -4
@@ -13417,6 +13429,8 @@ mima_18B4B	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18BA6
+_mima_18BA6 label near
 mima_18BA6	proc near
 		push	bp
 		mov	bp, sp
@@ -13483,6 +13497,8 @@ mima_18BA6	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18C4A
+_mima_18C4A label near
 mima_18C4A	proc near
 		push	bp
 		mov	bp, sp
@@ -13649,6 +13665,8 @@ mima_18C4A	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18DE0
+_mima_18DE0 label near
 mima_18DE0	proc near
 		push	bp
 		mov	bp, sp
@@ -13745,6 +13763,8 @@ mima_18DE0	endp
 
 ; Attributes: bp-based frame
 
+public _mima_18EB8
+_mima_18EB8 label near
 mima_18EB8	proc near
 
 @@angle		= byte ptr -4
@@ -14003,6 +14023,8 @@ mima_18EB8	endp
 
 ; Attributes: bp-based frame
 
+public _mima_19173
+_mima_19173 label near
 mima_19173	proc near
 		push	bp
 		mov	bp, sp
@@ -14046,6 +14068,8 @@ mima_19173	endp
 
 ; Attributes: bp-based frame
 
+public _mima_191CC
+_mima_191CC label near
 mima_191CC	proc near
 		push	bp
 		mov	bp, sp
@@ -14177,6 +14201,8 @@ mima_191CC	endp
 
 ; Attributes: bp-based frame
 
+public _mima_19353
+_mima_19353 label near
 mima_19353	proc near
 		push	bp
 		mov	bp, sp
@@ -14215,648 +14241,19 @@ loc_1939C:
 
 loc_193A2:
 		pop	bp
-		retn
+; The `retn` that belongs here is th02/boss_5.cpp's one-byte
+; `#pragma codestring`. That object's contribution to this segment starts
+; at the very next byte, and starting it one byte early is the only thing
+; that gives mima_update()'s generated jump table the odd prefix its `-a2`
+; pad needs. (kb/codegen/0070, kb/codegen/0154, kb/codegen/0159)
 mima_19353	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mima_193A4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 0
-		jnz	loc_19443
-		mov	ax, _boss_damage
-		cmp	ax, word_26CF0
-		jge	short loc_193C3
-		mov	ax, word_26CBE
-		cmp	ax, word_26CF2
-		jle	short loc_193D5
-
-loc_193C3:
-		inc	word_26C68
-		mov	word_26C66, 0
-		mov	word_26CBE, 0
-		jmp	short loc_19443
-; ---------------------------------------------------------------------------
-
-loc_193D5:
-		inc	word_26CBE
-		mov	ax, word_26CBE
-		cmp	ax, word_26CF6
-		jl	short loc_193E8
-		mov	word_26C66, 1
-
-loc_193E8:
-		cmp	byte_26CC0, 0
-		jnz	short loc_193FD
-		mov	ax, word_26C6A
-		inc	ax
-		mov	si, ax
-		cmp	si, word_26CF4
-		jl	short loc_1940A
-		jmp	short loc_19408
-; ---------------------------------------------------------------------------
-
-loc_193FD:
-		mov	ax, word_26C6A
-		inc	ax
-		mov	si, ax
-		cmp	si, 7
-		jle	short loc_1940A
-
-loc_19408:
-		xor	si, si
-
-loc_1940A:
-		mov	word_26C6A, si
-		mov	bx, _boss_top_on_back_page
-		cmp	word ptr [bx], 48
-		jge	short loc_1941F
-		mov	word_1EE56, 1
-		jmp	short loc_19443
-; ---------------------------------------------------------------------------
-
-loc_1941F:
-		mov	bx, _boss_top_on_back_page
-		cmp	word ptr [bx], 64
-		jle	short loc_19430
-		mov	word_1EE56, 0FFFFh
-		jmp	short loc_19443
-; ---------------------------------------------------------------------------
-
-loc_19430:
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	ax, 1
-		sub	ax, dx
-		mov	word_1EE56, ax
-
-loc_19443:
-		cmp	_boss_phase_frame, 10
-		jge	short loc_19453
-		mov	bx, _boss_top_on_back_page
-		mov	ax, word_1EE56
-		add	[bx], ax
-
-loc_19453:
-		pop	si
-		pop	bp
-		retn
-mima_193A4	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_update
-_mima_update label far
-mima_update	proc far
-
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		inc	_boss_phase_frame
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 72
-		mov	word_205D8, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 56
-		mov	word_205DA, ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		mov	left_26C56, ax
-		mov	ax, [bx]
-		add	ax, 40
-		mov	word_26C58, ax
-		mov	ax, [bx]
-		add	ax, 64
-		mov	left_26C5A, ax
-		mov	ax, [bx]
-		add	ax, 64
-		mov	x_26C5C, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 96
-		mov	top_26C5E, ax
-		mov	ax, [bx]
-		add	ax, 16
-		mov	word_26C60, ax
-		mov	ax, [bx]
-		add	ax, 114
-		mov	top_26C62, ax
-		mov	ax, [bx]
-		add	ax, 44
-		mov	y_26C64, ax
-		test	byte ptr _stage_frame, 1
-		jnz	short loc_1953B
-		cmp	_reduce_effects, 0
-		jnz	short loc_1950F
-		mov	al, byte_26CF8
-		add	al, 8
-		mov	byte_26CF8, al
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 3
-		xor	si, si
-		mov	al, byte_26CF8
-		jmp	short loc_19502
-; ---------------------------------------------------------------------------
-
-loc_194E9:
-		push	(224 shl 16) + 200
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	10h
-		call	@DOT_SQUARE_RING_PUT$QIIII
-		inc	si
-		mov	al, [bp+var_1]
-		add	al, 80h
-
-loc_19502:
-		mov	[bp+var_1], al
-		cmp	si, 2
-		jl	short loc_194E9
-		call	grcg_off
-
-loc_1950F:
-		test	byte ptr word_26C68, 1
-		jz	short loc_1953B
-		inc	byte_26CFA
-		cmp	byte_26CFA, 40h
-		jb	short loc_19526
-		mov	byte_26CFA, 0
-
-loc_19526:
-		mov	al, byte_26CFA
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	dl, byte_26CF9
-		sub	dl, al
-		mov	byte_26CC2, dl
-
-loc_1953B:
-		cmp	word_26C68, 0
-		jnz	loc_195CB
-		mov	ax, _boss_phase_frame
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	byte_26CC1, al
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	byte_26CC2, al
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	Palettes[0 * size rgb_t].b, al
-		call	far ptr	palette_show
-		cmp	_boss_phase_frame, 100
-		jle	loc_198A8
-		mov	al, byte_26CC2
-		mov	byte_26CF9, al
-		mov	byte_26CFA, 0
-		mov	word_26C68, 1
-		mov	_boss_phase_frame, 0
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	word_26C6A, dx
-		mov	word_26CBE, 0
-		mov	word_26CF0, 600
-		mov	word_26CF6, 2
-		mov	word_26CF2, 0Ah
-		mov	word_26CF4, 3
-		mov	_boss_damage, 0
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_195CB:
-		cmp	word_26C68, 1
-		jnz	short loc_195F8
-		mov	ax, word_26C6A
-		or	ax, ax
-		jz	short loc_195E5
-		cmp	ax, 1
-		jz	short loc_195EA
-		cmp	ax, 2
-		jz	short loc_195EF
-		jmp	short loc_195F2
-; ---------------------------------------------------------------------------
-
-loc_195E5:
-		call	mima_180EC
-		jmp	short loc_195F2
-; ---------------------------------------------------------------------------
-
-loc_195EA:
-		call	mima_181B3
-		jmp	short loc_195F2
-; ---------------------------------------------------------------------------
-
-loc_195EF:
-		call	mima_188AA
-
-loc_195F2:
-		call	mima_193A4
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_195F8:
-		cmp	word_26C68, 2
-		jnz	short loc_19676
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, 32h	; '2'
-		mov	byte_26CC1, al
-		mov	ax, _boss_phase_frame
-		mov	bx, 5
-		cwd
-		idiv	bx
-		add	al, 1Eh
-		mov	byte_26CC2, al
-		call	mima_18BA6
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	dl, 51
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].r, dl
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	Palettes[0 * size rgb_t].g, al
-		mov	Palettes[0 * size rgb_t].b, 50
-		call	far ptr	palette_show
-		cmp	_boss_phase_frame, 100
-		jle	loc_198A8
-		mov	word_26C68, 3
-		mov	_boss_phase_frame, 0
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	word_26C6A, dx
-		mov	word_26CBE, 0
-		mov	al, byte_26CC2
-		mov	byte_26CF9, al
-		mov	word_26CF0, 700
-		jmp	loc_19728
-; ---------------------------------------------------------------------------
-
-loc_19676:
-		cmp	word_26C68, 3
-		jnz	short loc_196A3
-		mov	ax, word_26C6A
-		or	ax, ax
-		jz	short loc_19690
-		cmp	ax, 1
-		jz	short loc_19695
-		cmp	ax, 2
-		jz	short loc_1969A
-		jmp	short loc_1969D
-; ---------------------------------------------------------------------------
-
-loc_19690:
-		call	mima_18905
-		jmp	short loc_1969D
-; ---------------------------------------------------------------------------
-
-loc_19695:
-		call	mima_18A1B
-		jmp	short loc_1969D
-; ---------------------------------------------------------------------------
-
-loc_1969A:
-		call	mima_18B4B
-
-loc_1969D:
-		call	mima_193A4
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_196A3:
-		cmp	word_26C68, 4
-		jnz	loc_19743
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, 4Bh	; 'K'
-		mov	byte_26CC1, al
-		mov	ax, _boss_phase_frame
-		mov	bx, 5
-		cwd
-		idiv	bx
-		add	al, 32h	; '2'
-		mov	byte_26CC2, al
-		call	mima_18BA6
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	dl, 51
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].g, dl
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	dl, 51
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].b, dl
-		call	far ptr	palette_show
-		cmp	_boss_phase_frame, 100
-		jle	loc_198A8
-		mov	word_26C68, 5
-		mov	_boss_phase_frame, 0
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	word_26C6A, dx
-		mov	al, byte_26CC2
-		mov	byte_26CF9, al
-		mov	word_26CBE, 0
-		mov	word_26CF0, 800
-
-loc_19728:
-		mov	word_26CF6, 2
-		mov	word_26CF2, 0Ch
-		mov	word_26CF4, 3
-		mov	_boss_damage, 0
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_19743:
-		cmp	word_26C68, 5
-		jnz	short loc_19770
-		mov	ax, word_26C6A
-		or	ax, ax
-		jz	short loc_1975D
-		cmp	ax, 1
-		jz	short loc_19762
-		cmp	ax, 2
-		jz	short loc_19767
-		jmp	short loc_1976A
-; ---------------------------------------------------------------------------
-
-loc_1975D:
-		call	mima_18C4A
-		jmp	short loc_1976A
-; ---------------------------------------------------------------------------
-
-loc_19762:
-		call	mima_18DE0
-		jmp	short loc_1976A
-; ---------------------------------------------------------------------------
-
-loc_19767:
-		call	mima_18EB8
-
-loc_1976A:
-		call	mima_193A4
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_19770:
-		cmp	word_26C68, 6
-		jnz	loc_1980A
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, 64h	; 'd'
-		mov	byte_26CC1, al
-		mov	ax, _boss_phase_frame
-		mov	bx, 5
-		cwd
-		idiv	bx
-		add	al, 46h	; 'F'
-		mov	byte_26CC2, al
-		call	mima_18BA6
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		mov	dl, 51
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].r, dl
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		call	far ptr	palette_show
-		cmp	_boss_phase_frame, 100
-		jle	loc_198A8
-		mov	al, byte_26CC2
-		mov	byte_26CF9, al
-		mov	word_26C68, 7
-		mov	_boss_phase_frame, 0
-		call	@randring2_next8_and$quc pascal, 7
-		mov	ah, 0
-		mov	word_26C6A, ax
-		mov	word_26CBE, 0
-		mov	word_26CF0, 1500
-		mov	word_26CF6, 3
-		mov	word_26CF2, 200
-		mov	word_26CF4, 9
-		mov	byte_26CC0, 1
-		mov	_boss_damage, 0
-		mov	byte_26CC4, 2
-		jmp	loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_1980A:
-		cmp	word_26C68, 7
-		jnz	short loc_19851
-		mov	bx, word_26C6A
-		cmp	bx, 8
-		ja	short loc_1984C
-		add	bx, bx
-		jmp	cs:off_19937[bx]
-
-loc_19821:
-		call	mima_18C4A
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_19826:
-		call	mima_188AA
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_1982B:
-		call	mima_18905
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_19830:
-		call	mima_181B3
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_19835:
-		call	mima_18A1B
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_1983A:
-		call	mima_18B4B
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_1983F:
-		call	mima_180EC
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_19844:
-		call	mima_18DE0
-		jmp	short loc_1984C
-; ---------------------------------------------------------------------------
-
-loc_19849:
-		call	mima_18EB8
-
-loc_1984C:
-		call	mima_193A4
-		jmp	short loc_198A8
-; ---------------------------------------------------------------------------
-
-loc_19851:
-		cmp	word_26C68, 9
-		jnz	short loc_198A8
-		mov	ax, word_26C6A
-		or	ax, ax
-		jz	short loc_1986B
-		cmp	ax, 1
-		jz	short loc_19870
-		cmp	ax, 2
-		jz	short loc_19875
-		jmp	short loc_19878
-; ---------------------------------------------------------------------------
-
-loc_1986B:
-		call	mima_19173
-		jmp	short loc_19878
-; ---------------------------------------------------------------------------
-
-loc_19870:
-		call	mima_191CC
-		jmp	short loc_19878
-; ---------------------------------------------------------------------------
-
-loc_19875:
-		call	mima_19353
-
-loc_19878:
-		call	mima_193A4
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1988A
-		mov	bx, _boss_top_on_back_page
-		mov	word ptr [bx], 64
-
-loc_1988A:
-		cmp	_boss_phase_frame, 30
-		jge	short loc_198A8
-		mov	ax, x_26C5C
-		cmp	ax, _player_topleft.x
-		jge	short loc_1989F
-		mov	ax, 1
-		jmp	short loc_198A2
-; ---------------------------------------------------------------------------
-
-loc_1989F:
-		mov	ax, -1
-
-loc_198A2:
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-
-loc_198A8:
-		call	mima_17C92
-		call	mima_17F27
-		call	mima_17D59
-		cmp	word_26C68, 8
-		jnz	short loc_19924
-		call	_mima_19C8D
-		or	ax, ax
-		jnz	short loc_19930
-		inc	word_26C68
-		mov	patnum_2064E, 128
-		mov	word_26CBE, 0
-		mov	_boss_phase_frame, 0
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		mov	word_26C6A, dx
-		mov	word_26CBE, 0
-		mov	_boss_damage, 0
-		mov	word_26CF0, 1100
-		mov	word_26CF6, 2
-		mov	word_26CF2, 200
-		mov	word_26CF4, 3
-		mov	byte_26CC5, 1
-		mov	byte_26CC4, 2
-		mov	byte_26CC1, 200
-		mov	byte_26CC2, 150
-		mov	al, byte_26CC2
-		mov	byte_26CF9, al
-		jmp	short loc_19930
-; ---------------------------------------------------------------------------
-
-loc_19924:
-		cmp	word_26C68, 0Ah
-		jnz	short loc_19930
-		nopcall	_mima_end
-
-loc_19930:
-		mov	ax, 1
-		pop	si
-		leave
-		retf
-mima_update	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_19937	dw offset loc_19821
-		dw offset loc_19826
-		dw offset loc_1982B
-		dw offset loc_19830
-		dw offset loc_19835
-		dw offset loc_1983A
-		dw offset loc_1983F
-		dw offset loc_19844
-		dw offset loc_19849
+; mima_193A4() and mima_update() are th02/main/boss/b5m.cpp. They were
+; this segment's carve-free tail, so th02_main.asm now contributes
+; nothing below mima_19353(), and th02/boss_5.cpp's object picks the
+; segment up from the byte after the one above.
 
 	@skill_calculate$qv procdesc pascal near
-
-; mima_end() is th02/main/boss/b5.cpp, which contributes to main_03__TEXT
-; below. That segment and this one share one physical segment through the
-; MAIN_03 group, which is what lets mima_update() above reach the far
-; mima_end() with `nop; push cs; call near ptr`.
-extrn _mima_end:far
 BOSS_5_TEXT	ends
 
 main_03__TEXT	segment	byte public 'CODE' use16
@@ -14872,16 +14269,14 @@ main_03__TEXT	segment	byte public 'CODE' use16
 ; behind it.
 
 
-; mima_init() above is the last thing this dump contributes to this
-; segment. mima_19C1D(), mima_19C8D(), mima_end() and sub_19E2F() are
+; mima_19C1D(), mima_19C8D(), mima_end() and sub_19E2F() are
 ; th02/main/boss/b5.cpp, prepended into this segment in that order, ahead
 ; of th02/main/midboss/m4.cpp and th02/main/boss/b4.cpp below
 ; (kb/codegen/0099).
 ;
-; mima_update() in BOSS_5_TEXT is mima_19C8D()'s only remaining caller in
-; this dump, and reaches it as a plain near call through the main_03 group
-; -- see the `extrn` at the head of that segment. mima_19C1D() has no
-; caller left here at all.
+; None of them has a caller left in this dump. mima_update() was
+; mima_19C8D()'s last one, and it is th02/main/boss/b5m.cpp now, which
+; reaches it as an ordinary near call through the MAIN_03 group.
 
 
 ; midboss4_invalidate(), midboss4_19F52() through midboss4_1A1B6() and
@@ -15885,7 +15280,8 @@ word_1EE50	dw 0
 enemies_loop_bound db 0
 		db 0
 word_1EE54	dw 0
-word_1EE56	dw 0
+public _mima_velocity_y
+_mima_velocity_y	dw 0
 public _mima_bft
 _mima_bft	db 'mima.bft',0
 public _mima1_bft
@@ -16694,13 +16090,29 @@ left_26C4E	dw ?
 top_26C50	dw ?
 word_26C52	dw ?
 word_26C54	dw ?
+public _left_26C56
+_left_26C56 label word
 left_26C56	dw ?
+public _mima_muzzle_left
+_mima_muzzle_left label word
 word_26C58	dw ?
+public _left_26C5A
+_left_26C5A label word
 left_26C5A	dw ?
+public _x_26C5C
+_x_26C5C label word
 x_26C5C	dw ?
+public _top_26C5E
+_top_26C5E label word
 top_26C5E	dw ?
+public _mima_muzzle_top
+_mima_muzzle_top label word
 word_26C60	dw ?
+public _top_26C62
+_top_26C62 label word
 top_26C62	dw ?
+public _y_26C64
+_y_26C64 label word
 y_26C64	dw ?
 public _mima_damage_multiplier
 _mima_damage_multiplier label word
@@ -16775,13 +16187,20 @@ angle_26CEC	db ?
 angle_26CED	db ?
 angle_26CEE	db ?
 byte_26CEF	db ?
-word_26CF0	dw ?
-word_26CF2	dw ?
-word_26CF4	dw ?
-word_26CF6	dw ?
-byte_26CF8	db ?
-byte_26CF9	db ?
-byte_26CFA	db ?
+public _mima_phase_damage_max
+_mima_phase_damage_max	dw ?
+public _mima_patterns_max
+_mima_patterns_max	dw ?
+public _mima_pattern_count
+_mima_pattern_count	dw ?
+public _mima_patterns_until_vulnerable
+_mima_patterns_until_vulnerable	dw ?
+public _mima_ring_radius
+_mima_ring_radius	db ?
+public _mima_bg_circle_radius_base
+_mima_bg_circle_radius_base	db ?
+public _mima_bg_circle_pulse_frame
+_mima_bg_circle_pulse_frame	db ?
 		db ?
 public _marisa_intro_step
 _marisa_intro_step label word
