@@ -17,6 +17,9 @@
 
 #include "platform.h"
 #include "pc98.h"
+// For mima_17F27()'s hand-shifted flash blit, in the same position
+// th02/main/boss/b4.cpp puts it for marisa_1AE98()'s.
+#include "planar.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/math/randring.hpp"
@@ -37,6 +40,7 @@
 // is included into this same translation unit below and owns those two
 // unguarded headers.
 extern "C" bool reduce_effects;
+extern "C" bool boss_hit_flash;
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
 extern char rank;
@@ -53,14 +57,13 @@ extern "C" int patnum_2064E;
 /// th02/main/boss/b5.cpp in main_03__TEXT, which this object reaches near
 /// through the MAIN_03 group; mima_18B4B() and the four below it are defined
 /// in this file, further down; the rest are still ASM in BOSS_5_TEXT.
-/// mima_181B3(), mima_183D0(), mima_188AA(), mima_18905() and mima_18A1B()
-/// are defined here too, ahead of those five, so they need no declaration at
-/// all.
+/// mima_17F27() through mima_18A1B() are defined here too, ahead of those
+/// five, so they need no declaration at all. mima_180AC() is the exception
+/// that stays `extern "C"` on merit rather than habit: th02/main/boss/b5.cpp
+/// is a different object and calls it near through the MAIN_03 group.
 
 extern "C" void near mima_17C92(void);
 extern "C" void near mima_17D59(void);
-extern "C" void near mima_17F27(void);
-extern "C" void near mima_180EC(void);
 extern "C" void near mima_18B4B(void);
 extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
@@ -223,6 +226,206 @@ static const int MIMA_ORB_COUNT = 4;
 
 // A quarter turn, so the four orbs sit on the corners of a square.
 static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
+
+
+/// Her renderer, her rank table, and her horizontal sweep
+/// ------------------------------------------------------
+
+// How many frames of the hit flash mima_17F27() actually blits: it counts
+// every frame [boss_hit_flash] is raised and hand-blits on every fourth one,
+// so three flash frames out of four fall back to the ordinary sprite.
+// `[measured]` This proc holds the last two ASM references to the slot, so it
+// is a rename rather than a kb/codegen/0123 alias.
+extern "C" uint8_t mima_flash_frame;
+
+// `[measured]` from mima_17F27()'s hand-written flash blit, which walks
+// super_patdata[] linearly at 6 VRAM bytes (48 pixels) per row for 0x80 rows
+// and then repeats that at x + 48 and x + 96. So she is drawn as three 48x128
+// patterns and is 144x128 in total - the same shape b4.hpp measures for
+// Marisa, who is two of them.
+static const int MIMA_PATTERN_COUNT = 3;
+static const pixel_t MIMA_PATTERN_W = 48;
+static const pixel_t MIMA_H = 128;
+
+// The three legs of her horizontal sweep, and the X each one stops at. Every
+// leg clamps by snapping [boss_phase_frame] forward to the next leg's first
+// frame rather than by clamping the position, so a leg that finishes early
+// simply hands its remaining frames to the one after it.
+static const int MIMA_SWEEP_LEG_2_FRAME = 66;
+static const int MIMA_SWEEP_LEG_3_FRAME = 178;
+static const int MIMA_SWEEP_END_FRAME = 234;
+static const screen_x_t MIMA_SWEEP_LEFT_1 = 32;
+static const screen_x_t MIMA_SWEEP_RIGHT = 256;
+static const screen_x_t MIMA_SWEEP_LEFT_2 = 144;
+static const int MIMA_SWEEP_SPEED = 2;
+static const int MIMA_SWEEP_INTERVAL = 32;
+
+
+// Blits Mima herself, as the three 48x128 patterns she is drawn from. Regular
+// frames go through super_put_rect(); every fourth frame she has been hit on
+// is instead blitted by hand into the GRCG, one 16-dot chunk at a time, from
+// the raw superimpose pattern data.
+//
+// This is marisa_1AE98() one boss down, and it is the same function: same
+// hand-shifted chunk, same three bounds tests, same fall back to
+// super_put_rect(). The differences are that Mima is three patterns rather
+// than two, that hers are driven by a loop rather than written out twice, and
+// that the flash only fires on one frame in four.
+extern "C" void near mima_17F27(void)
+{
+	register int col;
+	screen_x_t x;
+	int row;
+	screen_y_t y;
+	vram_offset_t vram_offset;
+	vram_offset_t vram_offset_first;
+	int i;
+	dots8_t far *p;
+	uint8_t shift_r;
+	int chunk;
+
+	if(boss_hit_flash) {
+		mima_flash_frame++;
+		// `== 0` rather than `!`: on a byte-sized global the explicit
+		// comparison keeps the mask test in memory, where the negation
+		// operator first loads the byte into AL and zero-extends it.
+		// (kb/codegen/0028)
+		if((mima_flash_frame & 3) == 0) {
+			shift_r = (*boss_left_on_back_page & (BYTE_DOTS - 1));
+			boss_hit_flash = false;
+			vram_offset_first = vram_offset_shift(
+				*boss_left_on_back_page, *boss_top_on_back_page
+			);
+			grcg_setcolor(GC_RMW, 4);
+			for(i = 0; i < MIMA_PATTERN_COUNT; i++) {
+				vram_offset = (
+					vram_offset_first + (i * (MIMA_PATTERN_W / BYTE_DOTS))
+				);
+				p = reinterpret_cast<dots8_t far *>(
+					MK_FP(super_patdata[patnum_2064E + i], 0)
+				);
+				row = 0;
+				y = *boss_top_on_back_page;
+				while(row < MIMA_H) {
+					if(y >= PLAYFIELD_BOTTOM) {
+						break;
+					}
+					col = 0;
+					x = ((i * MIMA_PATTERN_W) + *boss_left_on_back_page);
+					while(col < (MIMA_PATTERN_W / BYTE_DOTS)) {
+						if(
+							(x > 0) && (x < PLAYFIELD_RIGHT) &&
+							(y >= PLAYFIELD_TOP)
+						) {
+							// The two shifts, spelled out rather than reached
+							// for as a rotate: at shift_r == 0 the left half
+							// shifts by 16, which a 286 masks to 0, so the
+							// pair is NOT a rotate at every shift.
+							// marisa_1AE98() keeps its left shift in its own
+							// local; this frame has no room for one.
+							chunk = (
+								(*p << (16 - shift_r)) + (*p >> shift_r)
+							);
+							grcg_chunk(vram_offset + col, 16) = chunk;
+						}
+						col++;
+						x += BYTE_DOTS;
+						p++;
+					}
+					row++;
+					vram_offset += ROW_SIZE;
+					y++;
+				}
+			}
+			grcg_off();
+			return;
+		}
+	}
+	super_put_rect(
+		boss_left_on_page[page_back], boss_top_on_page[page_back],
+		patnum_2064E
+	);
+	super_put_rect(
+		(boss_left_on_page[page_back] + MIMA_PATTERN_W),
+		boss_top_on_page[page_back],
+		(patnum_2064E + 1)
+	);
+	super_put_rect(
+		(boss_left_on_page[page_back] + (MIMA_PATTERN_W * 2)),
+		boss_top_on_page[page_back],
+		(patnum_2064E + 2)
+	);
+}
+
+
+// The whole of [boss_rank_param] for her fight, in one of two sets. Easy gets
+// a 2-spread and slower, wider bullets; everything above it gets the 32-ring
+// mima_181B3() drops and a tighter aim.
+extern "C" void near mima_180AC(void)
+{
+	if(rank != RANK_EASY) {
+		boss_rank_param[0] = BG_16_RING;
+		boss_rank_param[1] = 0x17;
+		boss_rank_param[2] = BG_32_RING;
+		boss_rank_param[3] = 0x21;
+		boss_rank_param[4] = 6;
+		return;
+	}
+	boss_rank_param[0] = BG_16_RING;
+	boss_rank_param[1] = 0x19;
+	boss_rank_param[2] = BG_2_SPREAD_MEDIUM_AIMED;
+	boss_rank_param[3] = 0x22;
+	boss_rank_param[4] = 8;
+}
+
+
+// Her horizontal sweep: three legs - left to 32, right to 256, left again to
+// 144 - at 2 pixels a frame, firing two bullets every 32nd frame from her
+// muzzle. One is a random angle in the lower left quadrant, in
+// [boss_rank_param][0]'s group; the other goes straight down, in the group her
+// harder variant swaps for a different one.
+extern "C" void near mima_180EC(void)
+{
+	if(boss_phase_frame < 10) {
+		return;
+	}
+	if(boss_phase_frame == 10) {
+		bullets_set_stack_multiplier(0);
+		patnum_2064E = 131;
+	}
+	if(boss_phase_frame < MIMA_SWEEP_LEG_2_FRAME) {
+		*boss_left_on_back_page -= MIMA_SWEEP_SPEED;
+		if(*boss_left_on_back_page <= MIMA_SWEEP_LEFT_1) {
+			boss_phase_frame = MIMA_SWEEP_LEG_2_FRAME;
+		}
+	} else if(boss_phase_frame < MIMA_SWEEP_LEG_3_FRAME) {
+		*boss_left_on_back_page += MIMA_SWEEP_SPEED;
+		if(*boss_left_on_back_page >= MIMA_SWEEP_RIGHT) {
+			boss_phase_frame = MIMA_SWEEP_LEG_3_FRAME;
+		}
+	} else if(boss_phase_frame < MIMA_SWEEP_END_FRAME) {
+		*boss_left_on_back_page -= MIMA_SWEEP_SPEED;
+		if(*boss_left_on_back_page <= MIMA_SWEEP_LEFT_2) {
+			boss_phase_frame = MIMA_SWEEP_END_FRAME;
+		}
+	} else {
+		boss_phase_frame = 0;
+		patnum_2064E = 128;
+		bullets_set_stack_multiplier(1);
+	}
+	if((boss_phase_frame % MIMA_SWEEP_INTERVAL) != 0) {
+		return;
+	}
+	bullets_add_pellet(
+		mima_muzzle_left, mima_muzzle_top,
+		(randring2_next8_and(0x0F) + 0x38), boss_rank_param[0],
+		((3 << 4) + 12)
+	);
+	bullets_add_pellet(
+		mima_muzzle_left, mima_muzzle_top, 0x00,
+		boss_rank_param[1 + mima_all_patterns], ((2 << 4) + 8)
+	);
+}
 
 
 /// Her charge-and-column pattern
