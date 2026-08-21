@@ -16,3 +16,4 @@
 // (kb/codegen 0080 + 0099 + 0114.)
 #include "th04/main/player/p_marisa.cpp"
 #include "th04/main/player/shot_marisa_a.cpp"
+#include "th04/main/player/shot_marisa_b.cpp"
