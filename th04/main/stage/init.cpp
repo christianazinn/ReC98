@@ -155,17 +155,22 @@ static const int STAGE_START_INVINCIBILITY_FRAMES = 64;
 
 // Far functions that this body was the only ASM caller of in the whole dump,
 // reached through the zero-byte aliases each dump publishes beside them
-// (kb/codegen/0123). No body was read for this parcel and none is named here,
-// because a call site is not evidence of what a function does; all of them keep
-// the spelling their dump gives them. TH04 calls two, TH05 only one -- and
-// TH05's sub_16D67 sits in the same slot as TH04's sub_1DA1B, between
-// randring_fill() and bomb_reset().
+// (kb/codegen/0123). No body was read for the parcel that wrote this and none
+// was named here, because a call site is not evidence of what a function does.
+//
+// One of the two has since been read. The proc that stood between
+// randring_fill() and bomb_reset() in BOTH games -- TH04's sub_1DA1B and
+// TH05's sub_16D67, byte-identical apart from one address -- is now
+// items_init() in th04/main/item/init.cpp. It turned out to be a call site
+// whose position had told the truth: it sits with the other per-stage
+// subsystem resets because that is what it is. Respelled here rather than
+// reached through th04/main/item/item.hpp, which is one of the unguarded
+// headers this file may not pull; the declaration below is the one that
+// header carries.
 #if (GAME == 4)
-	extern "C" void far sub_1DA1B(void);
 	extern "C" void far thicklasers_reset(void);
-#else
-	extern "C" void far sub_16D67(void);
 #endif
+extern "C" void far items_init(void);
 
 // Derives [shot_level] from [power], installs [playchar_shot_func] and
 // tail-calls hud_power_put(); still ASM, and still deliberately unnamed. The
@@ -230,11 +235,11 @@ void near stage_init(void)
 	shot_reset();
 	nopcall_same_group(sub_11DE6);
 	randring_fill();
-	sub_1DA1B();
+	items_init();
 #else
 	nopcall_same_group(sub_E4FC);
 	randring_fill();
-	sub_16D67();
+	items_init();
 #endif
 	bomb_reset();
 	sparks_init();

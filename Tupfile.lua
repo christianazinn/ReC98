@@ -1027,6 +1027,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",
 	"th04/bullet_a.cpp",
+	"th04/itminit.cpp",
 	"th04/it_updt.cpp",
 	"th04/boss.cpp",
 	"th04/boss_4r.cpp",

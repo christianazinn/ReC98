@@ -33,4 +33,14 @@
 // once a TU has emitted any code (kb/codegen 0104 + 0138).
 #pragma option -zCmain_033_TEXT -zPmain_03
 
+// items_init() sat directly above items_add() in the dump and was the LAST
+// `proc` of this segment's root contribution, so this object now starts at the
+// segment itself -- group offset 0x1AE7, which is ODD. That is the
+// MATCH-TH05-MAIN-MIDBOSS2-OBJ case, and it is harmless here for the one
+// reason that matters: neither body in this object emits any `-a2`-aligned
+// data, so there is no table whose parity the odd base could flip. TH04's
+// half of the same lift could not join its own host for exactly the mirrored
+// reason and took a new object instead (th04/itminit.cpp).
+#include "th04/main/item/init.cpp"
+
 #include "th04/main/item/add.cpp"

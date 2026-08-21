@@ -784,10 +784,10 @@ off_B1C2	dw offset loc_B003
 	;
 	; Six symbols lost their last -- in four cases their only -- reference
 	; in this file when the body left, so each is now published for the C++
-	; to reach, by whichever device costs no line. The far proc sub_1DA1B
-	; keeps IDA's spelling and gains a kb/codegen 0123
-	; zero-byte alias plus a public, both written onto blank lines above
-	; each proc -- the same device this dump already uses for sub_11DE6.
+	; to reach, by whichever device costs no line. The far proc that used
+	; to be sub_1DA1B kept IDA's spelling and a kb/codegen 0123 zero-byte
+	; alias for as long as it was assembly; it is now items_init() and this
+	; dump publishes nothing for it. sub_11DE6 below still uses the device.
 	;
 	; The four words in _BSS are RENAMED instead, to
 	; _stage_init_unused_0 through _3, and added to the public line
@@ -10736,22 +10736,22 @@ loc_1D9CE:
 @stage_allclear_bonus$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-		public _sub_1DA1B
-; Attributes: bp-based frame
-_sub_1DA1B label far
-sub_1DA1B	proc far
-		push	bp
-		mov	bp, sp
-		call	IRand
-		and	al, 0Fh
-		mov	_enemy_drop_ring_p, al
-		call	@item_splashes_init$qv
-		mov	_items_pull_to_player, 0
-		mov	_dream_score, 0
-		pop	bp
-		retf
-sub_1DA1B	endp
+	; sub_1DA1B -- the per-stage reset of the item subsystem -- was lifted out
+	; of here and is now items_init() in th04/main/item/init.cpp, wrapped by
+	; th04/itminit.cpp, which Tupfile.lua lists immediately BEFORE
+	; th04/it_updt.cpp. ITS OWN OBJECT, not an #include at the front of that
+	; one: the body is 1Dh bytes, ODD, and it_updt.cpp emits `-a2`-aligned jump
+	; tables, so folding it in would flip their object-local parity and drop a
+	; pad byte under a function this parcel never touched (kb/codegen/0119,
+	; which cost the items_add() parcel a red cycle on the TH05 side one step
+	; earlier). A separate object leaves it_updt.cpp's start unmoved.
+	;
+	; ONE BODY FOR BOTH GAMES: th05_main.asm's sub_16D67 is these 1Dh bytes
+	; byte-for-byte apart from the address in the last `mov`, [dream_score].
+	;
+	; The `public` and the zero-byte far alias went with it; the C++ publishes
+	; _items_init itself, and th04/main/stage/init.cpp -- the only caller in
+	; either game, already C++ -- now names it, not the placeholder.
 
 
 	extern @ITEMS_ADD$QII11ITEM_TYPE_T:near

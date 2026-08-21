@@ -46,6 +46,13 @@ extern item_t items[ITEM_COUNT];
 
 extern const int ITEM_PATNUM[IT_COUNT];
 
+// Called once per stage, from stage_init(). Seeds [enemy_drop_ring_p], resets
+// the item splashes, and clears the two variables below it -- but does NOT
+// clear the item array, which is why this is not TH02's items_init_and_reset().
+// `far` and `extern "C"` because each dump published it undecorated beside a
+// `proc far`.
+extern "C" void far items_init(void);
+
 void pascal near items_add(subpixel_t x, subpixel_t y, item_type_t type);
 
 // The fixed ring of item types that IT_ENEMY_DROP_NEXT resolves to. Both games
@@ -65,6 +72,13 @@ extern unsigned char item_playperf_raise;
 extern unsigned char item_playperf_lower;
 
 #if GAME == 5
+// Cleared by items_init() and read by nothing, in this game or in our tree:
+// that single `mov` was its complete reference set in the dump. TH04 clears
+// [dream_score] in the same slot, so this is most likely its vestige -- but
+// the name records only what is measured, exactly as stage_init()'s own
+// [stage_init_unused_0..3] do. ZUN bloat.
+extern unsigned int items_init_unused;
+
 extern unsigned int item_point_score_at_full_dream;
 
 // The "dream" meter shown in the HUD, raised by collecting point items and

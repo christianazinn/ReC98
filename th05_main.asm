@@ -880,9 +880,9 @@ off_B552	dw offset loc_B33E
 	; four under GAME == 5. This game does not reset [dream_items_collected],
 	; does not call shot_reset() and does not call sub_15D74(); it resets
 	; [shot_time], where TH04 resets nothing; and it writes none of TH04's four
-	; write-only words. sub_16D67 stands in the same slot as TH04's sub_1DA1B
-	; and gains a zero-byte public label alias beside its own proc further down,
-	; so that the shared body can name it (kb/codegen 0123).
+	; write-only words. The proc that used to be sub_16D67 stood in the same
+	; slot as TH04's sub_1DA1B and needed a zero-byte alias for as long as it
+	; was assembly; both are now items_init() (kb/codegen 0123 no longer).
 	;
 	; kb/codegen 0121: the body carried no assume of its own, and the segment's
 	; own assume line at its head still covers everything left above it, so
@@ -4763,22 +4763,22 @@ main_033_TEXT	segment	byte public 'CODE' use16
 	@BOSS_FLYSTEP_TOWARDS$QII procdesc pascal near \
 		target_x:word, target_y:word
 
-; =============== S U B	R O U T	I N E =======================================
-		public _sub_16D67
-; Attributes: bp-based frame
-_sub_16D67 label far
-sub_16D67	proc far
-		push	bp
-		mov	bp, sp
-		call	IRand
-		and	al, 0Fh
-		mov	_enemy_drop_ring_p, al
-		call	@item_splashes_init$qv
-		mov	_items_pull_to_player, 0
-		mov	word_2C986, 0
-		pop	bp
-		retf
-sub_16D67	endp
+	; sub_16D67 -- the per-stage reset of the item subsystem -- was lifted out
+	; of here and is now items_init() in th04/main/item/init.cpp, at the FRONT
+	; of the th05/itmadd.cpp object that already follows this block. One body
+	; for both games: th04_main.asm's sub_1DA1B is these 1Dh bytes
+	; byte-for-byte apart from the address in the last `mov`.
+	;
+	; THIS EMPTIES THE ROOT CONTRIBUTION. main_033_TEXT's dump block now emits
+	; nothing at all, and the segment starts at the ODD group offset 1AE7h --
+	; MATCH-TH05-MAIN-MIDBOSS2-OBJ's case, where whatever object lands at a
+	; segment start puts its own `-a2` data on odd SEGMENT offsets and loses
+	; the pad under the first table. It is harmless here for one measured
+	; reason: neither body in th05/itmadd.cpp emits any `-a2`-aligned data.
+	; TH04's half could NOT join its own host for the mirrored reason and took
+	; a new object (kb/codegen/0119). Check the group offset before planning
+	; the last lift out of any root block; a per-function diff cannot see it.
+	; The `public` and the zero-byte far alias went with the body.
 
 
 	extern @ITEMS_ADD$QII11ITEM_TYPE_T:near
@@ -12601,8 +12601,8 @@ include th05/main/boss/sprites[bss].asm
 include th04/main/bullet/update[bss].asm
 include th04/main/bullet/pellet_r[bss].asm
 		db 6 dup(?)
-word_2C986	dw ?
-public _item_point_score_at_full_dream, _enemy_drop_ring_p
+_items_init_unused	dw ?
+public _item_point_score_at_full_dream, _enemy_drop_ring_p, _items_init_unused
 _item_point_score_at_full_dream	dw ?
 _enemy_drop_ring_p	db ?
 		db ?
