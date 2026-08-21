@@ -53,15 +53,14 @@ extern "C" int patnum_2064E;
 /// th02/main/boss/b5.cpp in main_03__TEXT, which this object reaches near
 /// through the MAIN_03 group; mima_18B4B() and the four below it are defined
 /// in this file, further down; the rest are still ASM in BOSS_5_TEXT.
-/// mima_18905() and mima_18A1B() are defined here too, ahead of those five,
-/// so they need no declaration at all.
+/// mima_181B3(), mima_183D0(), mima_188AA(), mima_18905() and mima_18A1B()
+/// are defined here too, ahead of those five, so they need no declaration at
+/// all.
 
 extern "C" void near mima_17C92(void);
 extern "C" void near mima_17D59(void);
 extern "C" void near mima_17F27(void);
 extern "C" void near mima_180EC(void);
-extern "C" void near mima_181B3(void);
-extern "C" void near mima_188AA(void);
 extern "C" void near mima_18B4B(void);
 extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
@@ -196,6 +195,452 @@ static const int MIMA_CHARGE_FIRST_FRAME = 50;
 static const int MIMA_CHARGE_LAST_FRAME = 80;
 static const int MIMA_CHARGE_RING_RADIUS_INITIAL = 30;
 static const int MIMA_SPRAY_LAST_FRAME = 200;
+
+
+/// Her four orbs
+/// -------------
+/// Shared by mima_183D0() below and by mima_18EB8() further down. Those two
+/// patterns keep SEPARATE centre, radius and angle slots; only the position
+/// arrays, the per-orb flag and the two shape constants are common, so they
+/// are declared up here and mima_18EB8()'s own state stays with that function.
+
+// The orbs' positions, per page. `[measured]` The same 80-byte run as
+// [mima_orb_flag], which th02/main/boss/b5.cpp already published: five 8-entry
+// word arrays 16 bytes apart, of which these two are the left/top pair. Only
+// the lower four slots are ever written. (kb/codegen/0123)
+extern "C" screen_x_t mima_orb_left_on_page[PAGE_COUNT][8];
+extern "C" screen_y_t mima_orb_top_on_page[PAGE_COUNT][8];
+extern "C" int16_t mima_orb_flag[8];
+
+// Which of two patterns mima_183D0() is running. `[measured]` mima_188AA()
+// clears it and mima_18B4B() sets it, and the flag picks between the two
+// halves of that function's body: the cleared one detonates each orb into two
+// 16-pellet rings once the formation has closed back in, the set one fires a
+// single 3-pellet fan out of each and then re-expands.
+extern "C" bool mima_orb_variant;
+
+static const int MIMA_ORB_COUNT = 4;
+
+// A quarter turn, so the four orbs sit on the corners of a square.
+static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
+
+
+/// Her charge-and-column pattern
+/// -----------------------------
+/// `[measured]` This proc held the LAST ASM references to all three slots
+/// below, so all three are renames rather than kb/codegen/0123 aliases. The
+/// [mima_charge_*] name family is NOT available for them: it already belongs
+/// to mima_191CC()'s own charge-up, further down this file.
+
+// `[measured]` Written 0x30 on the frame the charge starts, and read by
+// NOTHING in the binary - the census over th02_main.asm found exactly two
+// occurrences, this write and the `db ?`. Spelled the way the dump already
+// spells [boss_pos_x_unused] and [mima_aim_angle_unused].
+extern "C" unsigned char mima_ray_unused;
+
+// The base angle of the nine-ray fan, and the sole driver of its spread: the
+// step between rays is ((0x40 - this) >> 2) in 8-bit UNSIGNED arithmetic, so
+// once it walks past 0x40 the subtraction wraps and the fan turns into a
+// near-full circle.
+extern "C" unsigned char mima_ray_angle;
+
+// The palette tone this pattern drives, straight into master.lib's
+// [PaletteTone]. Starts at 100, climbs by 1 every other frame of the charge.
+extern "C" uint8_t mima_ray_tone;
+
+// The nine rays, and how far out they are drawn from her muzzle.
+static const int MIMA_RAY_COUNT = 9;
+static const int MIMA_RAY_LENGTH = 400;
+
+
+/// Her flying orb formation
+/// ------------------------
+/// mima_183D0()'s state. `[measured]` Six more renames on the same terms as
+/// the three above - every ASM reference to each was inside this proc.
+
+// Where the formation is, in 1/16th pixels. Both mima_188AA() and mima_18B4B()
+// seed it from her sprite and then let the velocity vector move it.
+extern "C" int mima_orb_flight_center_x;
+extern "C" int mima_orb_flight_center_y;
+
+// How far the four orbs sit from that centre, and the per-frame step applied
+// to it. The step is signed and gets rewritten by both halves of the pattern.
+extern "C" int mima_orb_flight_radius;
+extern "C" signed char mima_orb_flight_radius_step;
+
+// The angle of the first orb; the other three are [MIMA_ORB_ANGLE_STEP] apart.
+// Advances by 5 every frame the pattern does anything at all.
+extern "C" unsigned char mima_orb_flight_angle;
+
+// Raised by the [mima_orb_variant] half once its orbs have fired, so that the
+// formation's rotation reverses for the rest of the pattern.
+extern "C" bool mima_orb_flight_detonated;
+
+// The velocity vector each of the two callers owns. Both keep the dump's own
+// hand names: they are a matched pair whose only difference is which caller
+// writes them, and giving that pair a name needs a ruling about the two
+// patterns' identities that lifting them does not.
+extern "C" screen_point_t point_26CD6;
+extern "C" screen_point_t point_26CDE;
+
+
+// Her charge-and-column pattern: a nine-ray fan out of her muzzle for a
+// hundred frames while the palette brightens, then a vertical column at a
+// random offset beside her for 28 frames, and finally a drop back to the top
+// of the playfield that fires a ring every 16th frame on anything above Easy.
+extern "C" void near mima_181B3(void)
+{
+	register int i;
+
+	// One variable for the ray fan's end X and for the column's X: ZUN reused
+	// the slot, and the frame the original allocates has room for neither a
+	// second register variable nor a fourth stack local.
+	register int x;
+
+	// The same three-role reuse on the stack: the ray angle, then the column's
+	// random offset, then the bullet group of the ring at the bottom.
+	unsigned char angle;
+
+	unsigned char angle_step;
+	int ray_end_y;
+
+	if(boss_phase_frame < 20) {
+		return;
+	}
+	if(boss_phase_frame < 70) {
+		patnum_2064E = 128;
+		*boss_left_on_back_page += (
+			((*boss_left_on_back_page + 64) < player_topleft.x) ? 2 : -2
+		);
+		return;
+	}
+	if(boss_phase_frame == 70) {
+		snd_se_play(9);
+		patnum_2064E = 131;
+		mima_ray_unused = 0x30;
+		mima_ray_angle = 0;
+		mima_ray_tone = 100;
+		return;
+	}
+	if(boss_phase_frame < 170) {
+		grcg_setcolor(GC_RMW, 13);
+		angle_step = (0x40 - mima_ray_angle);
+		angle_step >>= 2;
+		for(
+			i = 0, angle = mima_ray_angle;
+			i < MIMA_RAY_COUNT;
+			angle += angle_step, i++
+		) {
+			x = (
+				(((long)(MIMA_RAY_LENGTH) * CosTable8[angle]) >> 8) +
+				mima_muzzle_left
+			);
+			ray_end_y = (
+				(((long)(MIMA_RAY_LENGTH) * SinTable8[angle]) >> 8) +
+				mima_muzzle_top
+			);
+			grcg_line(mima_muzzle_left, mima_muzzle_top, x, ray_end_y);
+		}
+		// ZUN quirk: this arm only runs from phase frame 71 onwards, so the
+		// test is always true and the angle always advances.
+		if(boss_phase_frame >= 36) {
+			mima_ray_angle++;
+		}
+		grcg_off();
+		if(boss_phase_frame & 1) {
+			mima_ray_tone++;
+		}
+		palette_settone(mima_ray_tone);
+		return;
+	}
+	if(boss_phase_frame == 170) {
+		snd_se_play(5);
+		patnum_2064E = 134;
+		return;
+	}
+	if(boss_phase_frame <= 198) {
+		*boss_top_on_back_page = (272 - ((boss_phase_frame & 3) * 60));
+		grcg_setcolor(GC_RMW, 13);
+		angle = randring2_next8_and(0x7F);
+		x = (angle + *boss_left_on_back_page + 8);
+		grcg_line(x, PLAYFIELD_TOP, x, (PLAYFIELD_BOTTOM - 1));
+		grcg_off();
+		// ZUN quirk: the column's hit test uses HER left edge rather than the
+		// column's X, so the hurtbox and the thing you can see are in
+		// different places for all 28 frames.
+		if(
+			((*boss_left_on_back_page + 16) < player_topleft.x) &&
+			((*boss_left_on_back_page + 96) > player_topleft.x)
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+		// ZUN quirk: the mask is ZERO, so the test can never be true and the
+		// 150 is unreachable. `[measured]` off the original's
+		// `test byte ptr _boss_phase_frame, 0`.
+		if(boss_phase_frame & 0) {
+			mima_ray_tone = 150;
+		} else {
+			mima_ray_tone = 100;
+		}
+		palette_settone(mima_ray_tone);
+		return;
+	}
+	if(boss_phase_frame <= 262) {
+		patnum_2064E = 128;
+		*boss_top_on_back_page -= 4;
+		if(*boss_top_on_back_page <= 64) {
+			boss_phase_frame = 263;
+		}
+		if(rank == RANK_EASY) {
+			return;
+		}
+		if((boss_phase_frame % 16) != 0) {
+			return;
+		}
+		// Two assignment statements rather than a conditional expression: the
+		// original stores each constant straight into the slot, where a
+		// ternary would compute it in AL and store once at the join. The same
+		// shape mima_18EB8()'s [pellet_angle] needs, further down.
+		if(!mima_all_patterns) {
+			angle = BG_16_RING;
+		} else {
+			angle = BG_32_RING;
+		}
+		bullets_add_pellet(
+			left_26C56, top_26C5E, 0x00, angle, ((3 << 4) + 12)
+		);
+		return;
+	}
+	boss_phase_frame = 0;
+}
+
+
+// The worker both of her flying-orb patterns hand their velocity vector to.
+// Seeds the four orbs on a square around her at phase frame 80, expands the
+// formation for 16 frames, and then flies it along the vector while the radius
+// walks by [mima_orb_flight_radius_step]. What happens once the formation has
+// closed back in is [mima_orb_variant]'s decision.
+//
+// `[measured]` ZUN quirk: the seeding pass at frame 80 divides the centre by
+// 16 twice - once into the array and once through the `>> 4` below - because
+// it runs on the same frame the centre is still in whole pixels. Every later
+// frame reads it as 1/16ths.
+static void pascal near mima_183D0(int *velocity_x, int *velocity_y)
+{
+	int i;
+
+	// Both a pellet counter and a pellet speed, in the two detonation loops.
+	int speed;
+
+	unsigned char angle;
+
+	// The orb being detonated, and later the formation's own centre.
+	register int left;
+	register int top;
+
+	if(boss_phase_frame == 40) {
+		snd_se_play(9);
+		patnum_2064E = 131;
+		mima_orb_flight_center_x = (*boss_left_on_back_page + 80);
+		mima_orb_flight_center_y = (*boss_top_on_back_page + 64);
+		mima_orb_flight_center_x <<= 4;
+		mima_orb_flight_center_y <<= 4;
+		mima_orb_flight_radius = 4;
+		mima_orb_flight_radius_step = -1;
+		mima_orb_flight_detonated = false;
+	} else if(boss_phase_frame < 80) {
+		return;
+	} else if(boss_phase_frame == 80) {
+		snd_se_play(10);
+		patnum_2064E = 134;
+		for(
+			i = 0, angle = mima_orb_flight_angle;
+			i < MIMA_ORB_COUNT;
+			i++, angle = (angle + MIMA_ORB_ANGLE_STEP)
+		) {
+			mima_orb_left_on_page[0][i] = mima_orb_left_on_page[1][i] = (
+				(((long)(mima_orb_flight_radius) * CosTable8[angle]) >> 8) +
+				(mima_orb_flight_center_x >> 4)
+			);
+			mima_orb_top_on_page[0][i] = mima_orb_top_on_page[1][i] = (
+				(((long)(mima_orb_flight_radius) * SinTable8[angle]) >> 8) +
+				(mima_orb_flight_center_y >> 4)
+			);
+			mima_orb_flag[i] = 1;
+		}
+	} else if(boss_phase_frame < 96) {
+		mima_orb_flight_radius += 4;
+		for(
+			i = 0, angle = mima_orb_flight_angle;
+			i < MIMA_ORB_COUNT;
+			i++, angle = (angle + MIMA_ORB_ANGLE_STEP)
+		) {
+			mima_orb_left_on_page[page_back][i] = (
+				(((long)(mima_orb_flight_radius) * CosTable8[angle]) >> 8) +
+				(mima_orb_flight_center_x >> 4)
+			);
+			mima_orb_top_on_page[page_back][i] = (
+				(((long)(mima_orb_flight_radius) * SinTable8[angle]) >> 8) +
+				(mima_orb_flight_center_y >> 4)
+			);
+		}
+	} else {
+		mima_orb_flight_center_x += *velocity_x;
+		mima_orb_flight_center_y += *velocity_y;
+		mima_orb_flight_radius += mima_orb_flight_radius_step;
+		// Two forward jumps rather than a conditional chain, because the
+		// original tests BOTH flags before any of the three arms and then
+		// emits them in the order below. `[measured]` with kb/codegen/0152's
+		// probe over four shapes: a three-armed conditional chain puts the
+		// [mima_orb_variant] arm FIRST, and hoisting the two tests into one
+		// conjunction re-tests [mima_orb_variant] at the join. Only this
+		// shape emits the two branches back to back and then the three arms
+		// in this order, with no re-test.
+		if(mima_orb_variant) {
+			goto orbs_flying_back;
+		}
+		if(!mima_all_patterns) {
+			goto radius_walk;
+		}
+		if(mima_orb_flight_radius == 196) {
+			boss_phase_frame = 0;
+		}
+		if(mima_orb_flight_radius < 20) {
+			mima_orb_flight_detonated = false;
+			snd_se_play(3);
+			bullets_set_stack_multiplier(0);
+			for(i = 0; i < MIMA_ORB_COUNT; i++) {
+				left = (mima_orb_left_on_page[page_back][i] + 12);
+				top = (mima_orb_top_on_page[page_back][i] + 12);
+				for(
+					speed = 0,
+					angle = ((i << 6) + mima_orb_flight_angle - 0x40);
+					speed < (1 << 4);
+					speed++, angle = (angle + 0x08)
+				) {
+					bullets_add_pellet(
+						left, top, angle, BG_1, ((2 << 4) + 3)
+					);
+				}
+				for(
+					speed = 0,
+					angle = ((i << 6) + mima_orb_flight_angle - 0x3C);
+					speed < (1 << 4);
+					speed++, angle = (angle + 0x08)
+				) {
+					bullets_add_pellet(
+						left, top, angle, BG_1, (((2 << 4) + 3) - speed)
+					);
+				}
+				mima_orb_flag[i] = 2;
+			}
+			bullets_set_stack_multiplier(1);
+			mima_orb_flight_radius = 320;
+			patnum_2064E = 128;
+		}
+		goto reposition;
+
+orbs_flying_back:
+		if(mima_orb_flight_detonated) {
+			mima_orb_flight_angle = (mima_all_patterns
+				? (mima_orb_flight_angle - 3)
+				: (mima_orb_flight_angle - 5)
+			);
+		}
+		if(mima_orb_flight_radius >= 400) {
+			goto retire;
+		}
+		if(mima_orb_flight_radius < 20) {
+			*velocity_x = 0;
+			*velocity_y = 0;
+			mima_orb_flight_detonated = true;
+			snd_se_play(3);
+			angle = (mima_orb_flight_angle + 0x08);
+			for(
+				i = 0;
+				i < MIMA_ORB_COUNT;
+				i++, angle = (angle + MIMA_ORB_ANGLE_STEP)
+			) {
+				left = (mima_orb_left_on_page[page_back][i] + 12);
+				top = (mima_orb_top_on_page[page_back][i] + 12);
+				for(speed = 0; speed < (3 << 4); speed += 12) {
+					bullets_add_pellet(
+						left, top, (angle + speed), BG_1,
+						(speed + ((2 << 4) + 3))
+					);
+				}
+			}
+			patnum_2064E = 128;
+			mima_orb_flight_radius_step = 5;
+		}
+		goto reposition;
+
+radius_walk:
+		if(mima_orb_flight_radius < 0x20) {
+			mima_orb_flight_radius_step = 2;
+		} else if(mima_orb_flight_radius > 0x80) {
+			mima_orb_flight_radius_step = -2;
+		}
+
+reposition:
+		left = (mima_orb_flight_center_x >> 4);
+		top = (mima_orb_flight_center_y >> 4);
+		if(
+			((left + mima_orb_flight_radius) < 0) ||
+			((left - mima_orb_flight_radius) > 416) ||
+			((top + mima_orb_flight_radius) < -16) ||
+			((top - mima_orb_flight_radius) > 386) ||
+			(boss_phase_frame > 500)
+		) {
+retire:
+			for(i = 0; i < MIMA_ORB_COUNT; i++) {
+				mima_orb_flag[i] = 2;
+			}
+			boss_phase_frame = 0;
+			patnum_2064E = 128;
+		}
+		for(
+			i = 0, angle = mima_orb_flight_angle;
+			i < MIMA_ORB_COUNT;
+			i++, angle = (angle + MIMA_ORB_ANGLE_STEP)
+		) {
+			mima_orb_left_on_page[page_back][i] = (
+				(((long)(mima_orb_flight_radius) * CosTable8[angle]) >> 8) +
+				(mima_orb_flight_center_x >> 4)
+			);
+			mima_orb_top_on_page[page_back][i] = (
+				(((long)(mima_orb_flight_radius) * SinTable8[angle]) >> 8) +
+				(mima_orb_flight_center_y >> 4)
+			);
+		}
+	}
+	mima_orb_flight_angle = (mima_orb_flight_angle + 5);
+}
+
+
+// The other half of her orb pattern's setup, and the one that leaves
+// [mima_orb_variant] clear: on phase frame 40, aim a 48-long vector from her
+// middle at the player and hand it to mima_183D0(). mima_18B4B() below is the
+// same function with 52 and a set flag.
+extern "C" void near mima_188AA(void)
+{
+	int x1;
+	int y1;
+
+	if(boss_phase_frame < 40) {
+		return;
+	}
+	if(boss_phase_frame == 40) {
+		mima_orb_variant = false;
+		x1 = (*boss_left_on_back_page + 80);
+		y1 = (*boss_top_on_back_page + 64);
+		vector2_between_plus(
+			x1, y1, player_topleft.x, player_topleft.y, 0,
+			point_26CD6.x, point_26CD6.y, 48
+		);
+	}
+	mima_183D0(&point_26CD6.x, &point_26CD6.y);
+}
 
 
 /// Her two pellet streams
@@ -355,21 +800,15 @@ extern "C" void near mima_18A1B(void)
 }
 
 
-/// Her four orbs, and the five patterns that were the tail of BOSS_5_TEXT
-/// ---------------------------------------------------------------------
+/// The five patterns that were the tail of BOSS_5_TEXT
+/// ---------------------------------------------------
 
-// The orbs' positions, per page. `[measured]` The same 80-byte run as
-// [mima_orb_flag], which th02/main/boss/b5.cpp already published: five 8-entry
-// word arrays 16 bytes apart, of which these two are the left/top pair. Only
-// the lower four slots are ever written. (kb/codegen/0123)
-extern "C" screen_x_t mima_orb_left_on_page[PAGE_COUNT][8];
-extern "C" screen_y_t mima_orb_top_on_page[PAGE_COUNT][8];
-extern "C" int16_t mima_orb_flag[8];
-
-// Where the orbs orbit, and how far out they are. `[measured]` ZUN quirk: the
-// seeding pass below divides the centre by 16 and the per-frame pass does not,
-// so the four orbs spend their first frame at a sixteenth of the distance from
-// the origin that every later frame puts them at.
+// Where mima_18EB8()'s orbs orbit, and how far out they are - a set of slots
+// separate from mima_183D0()'s [mima_orb_flight_*] above, even though both
+// patterns move the same four orbs. `[measured]` ZUN quirk: the seeding pass
+// below divides the centre by 16 and the per-frame pass does not, so the four
+// orbs spend their first frame at a sixteenth of the distance from the origin
+// that every later frame puts them at.
 extern "C" screen_x_t mima_orb_center_x;
 extern "C" screen_y_t mima_orb_center_y;
 extern "C" int16_t mima_orb_radius;
@@ -378,34 +817,12 @@ extern "C" int16_t mima_orb_radius;
 // back by 3 every frame, so the formation counter-rotates as it expands.
 extern "C" unsigned char mima_orb_angle;
 
-// Which of two patterns mima_183D0() - still ASM, and its only reader - is
-// running. `[measured]` mima_188AA() clears it and mima_18B4B() sets it, and
-// the flag picks between the two halves of that function's body: the cleared
-// one detonates each orb into two 16-pellet rings once the formation has
-// closed back in, the set one does not.
-extern "C" bool mima_orb_variant;
-
-// The worker both orb patterns hand their velocity vector to. Still ASM in
-// this segment, and published for this object's sake.
-extern "C" void pascal near mima_183D0(int *velocity_x, int *velocity_y);
-
-// mima_18B4B()'s half of that vector. Kept under the dump's own hand name,
-// because its twin [point_26CD6] belongs to mima_188AA(), which is still ASM:
-// renaming one of a matched pair and not the other reads worse than renaming
-// neither.
-extern "C" screen_point_t point_26CDE;
-
 // The aim angle of her bouncing-star pattern, and the direction it sweeps in.
 extern "C" unsigned char mima_star_angle;
 extern "C" signed char mima_star_direction;
 
 // The running angle of her symmetric pellet fan.
 extern "C" unsigned char mima_fan_angle;
-
-static const int MIMA_ORB_COUNT = 4;
-
-// A quarter turn, so the four orbs sit on the corners of a square.
-static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
 
 // One mirrored pair of her pellet fan, and the 10 steps the angle then walks.
 #define mima_fan_fire() { \
