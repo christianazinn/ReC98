@@ -24,7 +24,10 @@
 // named here. It has no include guard and th05/main/boss/b3puppet_render.cpp
 // already pulls it into this object ahead of us, so naming it again is a
 // compile error rather than a no-op.
-#include "th05/main/boss/bosses.hpp"
+// th05/main/boss/bosses.hpp, which declares alice_fg_render(), is NOT
+// named here either, for the same reason: th05/main/boss/b2_fg.cpp is now
+// the earliest file in this object that needs it, and it has no include
+// guard.
 
 // [inferred] Kept file-local for the same reason th05/main/boss/b4_solo_fg.cpp
 // keeps its own: what these cels depict has not been decided, only that the

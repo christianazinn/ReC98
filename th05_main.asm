@@ -3098,133 +3098,27 @@ loc_10A26:
 @midboss2_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @LOUISE_FG_RENDER$QV
-@louise_fg_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	di, ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10A59
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_10A57:
-		jmp	short loc_10A94
-; ---------------------------------------------------------------------------
-
-loc_10A59:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-		mov	dh, 0
-		mov	bx, 4
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	[bp-2],	dx
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_10A84
-		call	super_put pascal, si, di, dx
-		jmp	short loc_10A57
-; ---------------------------------------------------------------------------
-
-loc_10A84:
-		call	super_put_1plane pascal, si, di, [bp+@@y], large PLANE_PUT or GC_BRGI
-
-loc_10A94:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@louise_fg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSS3_RENDER$QV
-@midboss3_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_10B0F
-		cmp	_midboss_pos.cur.y, 0
-		jl	short loc_10B19
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	[bp+@@y], ax
-		cmp	_midboss_sprite, 208
-		jnz	short loc_10ADE
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 8
-		cwd
-		idiv	bx
-		add	ax, 208
-		jmp	short loc_10AE3
-; ---------------------------------------------------------------------------
-
-loc_10ADE:
-		mov	al, _midboss_sprite
-		mov	ah, 0
-
-loc_10AE3:
-		mov	si, ax
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_10AF8
-		call	super_roll_put pascal, di, [bp+@@y], si
-		jmp	short loc_10B19
-; ---------------------------------------------------------------------------
-
-loc_10AF8:
-		call	super_roll_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-		jmp	short loc_10B19
-; ---------------------------------------------------------------------------
-
-loc_10B0F:
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_10B19
-		call	@midboss_defeat_render$qv
-
-loc_10B19:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss3_render$qv	endp
+	; louise_fg_render() and midboss3_render() now live in
+	; th05/main/boss/b2_fg.cpp and th05/main/midboss/m3.cpp, in that order,
+	; at the FRONT of the th05/b34fg.cpp object -- ahead of the three
+	; bodies named below. That object is this segment's next contribution
+	; and these were the LAST two procs of the root's block, so the C++
+	; side grows backwards into the hole and every byte keeps its address
+	; (kb/codegen 0112 + 0114). No new object and no Tupfile.lua line.
+	;
+	; midboss3_render() is NOT TH04's function of the same name: that one
+	; clips on all four edges and blits through midboss_put_generic(),
+	; where this one has m4.cpp's single bottom-edge test and reaches
+	; super_roll_put_1plane() directly. th05/main/midboss/m4.cpp is the
+	; body it IS a sibling of.
+	;
+	; Nothing in this dump calls either -- th05/main/stage/setup.cpp
+	; installs them into [boss_fg_render_func] and [midboss_render_func]
+	; -- so no `procdesc` replaces them, and the mangled `public`s that
+	; exported them go with the bodies.
+	;
+	; kb/codegen/0121: neither body carried an `assume`, so there is
+	; nothing to restore at this position.
 
 
 	; puppets_render() now lives in th05/main/boss/b3puppet_render.cpp, at
