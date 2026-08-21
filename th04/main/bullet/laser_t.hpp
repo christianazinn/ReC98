@@ -11,6 +11,16 @@ enum thicklaser_flag_t {
 	TF_GROW = 2,
 	TF_STATIC = 3,
 	TF_SHRINK = 4,
+
+	// Forces the underlying type UNSIGNED, and it is load-bearing rather
+	// than tidy. `[measured]` Turbo C++ 4.02 gives an enum whose values are
+	// 0 to 4 a SIGNED char, and thicklasers_update_and_hittest()'s
+	// `flag <= TF_LINE` then comes out `CMP byte ptr [si], 1` / `JLE` where
+	// the original has `JBE`. Same instruction, same length -- so no length
+	// check can see it, which is kb/codegen/0163's lesson in a second
+	// currency. Every other reader compares with `==`, which is
+	// sign-agnostic, and `sizeof()` is 1 either way.
+	_thicklaser_flag_t_FORCE_UINT8 = 0xFF
 };
 
 struct thicklaser_t {
@@ -61,10 +71,16 @@ extern "C" void near thicklasers_render(void);
 // -- TF_LINE for [line_frames], then TF_GROW until [radius_cur] reaches
 // [radius_max], then TF_STATIC for [static_frames], then TF_SHRINK back to
 // TF_FREE -- and hittests the player against the ones that have a body, i.e.
-// everything past TF_LINE. Still th04_main.asm's sub_15DE8; the alias is
-// kb/codegen/0123.
+// everything past TF_LINE.
 //
 // [inferred] name: it is the only writer of every thicklaser_t field outside
 // the spawn path, and its second half sets [player_is_hit], which is what the
 // tree's other `_update_and_hittest` symbols do. A naming round is owed.
 extern "C" void near thicklasers_update_and_hittest(void);
+
+// Copies [thicklaser_template] over [thicklaser]. Private to ZUN's object --
+// thicklaser_add() is its only caller in either dump -- but NOT `static`,
+// because the original publishes the mangled name. Moved here from
+// th04/main/bullet/laser_t.cpp, which is upstream's structure-only RE file
+// and is in no Tupfile, so no compiled translation unit could see it there.
+void near pascal thicklaser_template_pull(thicklaser_t near& thicklaser);

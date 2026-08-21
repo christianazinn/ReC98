@@ -16,7 +16,7 @@
 ///
 /// TH05's twin is sub_B55A, and this file is now SHARED with it under
 /// `#if (GAME == 5)`: the same body in the same order, minus
-/// [dream_items_collected], shot_reset(), sub_15D74() and the four write-only
+/// [dream_items_collected], shot_reset(), thicklasers_reset() and the four write-only
 /// words below, and with a [shot_time] reset where TH04 has none.
 ///
 /// This paragraph used to say the opposite -- that the TH05 half was
@@ -162,7 +162,7 @@ static const int STAGE_START_INVINCIBILITY_FRAMES = 64;
 // randring_fill() and bomb_reset().
 #if (GAME == 4)
 	extern "C" void far sub_1DA1B(void);
-	extern "C" void far sub_15D74(void);
+	extern "C" void far thicklasers_reset(void);
 #else
 	extern "C" void far sub_16D67(void);
 #endif
@@ -240,7 +240,7 @@ void near stage_init(void)
 	sparks_init();
 	hud_score_put();
 #if (GAME == 4)
-	sub_15D74();
+	thicklasers_reset();
 #endif
 	pointnums_init();
 	nopcall_same_group(hud_put);

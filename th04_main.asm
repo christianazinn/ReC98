@@ -784,8 +784,8 @@ off_B1C2	dw offset loc_B003
 	;
 	; Six symbols lost their last -- in four cases their only -- reference
 	; in this file when the body left, so each is now published for the C++
-	; to reach, by whichever device costs no line. The far procs sub_15D74
-	; and sub_1DA1B keep IDA's spelling and gain a kb/codegen 0123
+	; to reach, by whichever device costs no line. The far proc sub_1DA1B
+	; keeps IDA's spelling and gains a kb/codegen 0123
 	; zero-byte alias plus a public, both written onto blank lines above
 	; each proc -- the same device this dump already uses for sub_11DE6.
 	;
@@ -6143,7 +6143,7 @@ word_14F64	dw	0,     1,     2,     3
 	; kb/codegen/0121 check: the deleted body ended with an
 	; `assume es:nothing` after its `pop es`, but the state entering it
 	; was ALREADY es:nothing: set inside bullets_render(), and not
-	; changed again until @thicklaser_template_pull$qr12thicklaser_t.
+	; changed again until the thick-laser API, which is C++ now.
 	; Anchored to symbols rather than line numbers on purpose -- the
 	; original form cited :12863, and two later lifts in this same file
 	; moved that position to :12844 and then :12798 within the hour.
@@ -6989,225 +6989,29 @@ include th04/main/boss/explosions_reset.asm
 include th04/main/boss/explode_small.asm
 include th04/main/boss/explode_big.asm
 
-; =============== S U B	R O U T	I N E =======================================
-		public _sub_15D74
-; Attributes: bp-based frame
-_sub_15D74 label far
-sub_15D74	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset _thicklasers
-		xor	ax, ax
-		jmp	short loc_15D86
-; ---------------------------------------------------------------------------
-
-loc_15D7F:
-		mov	[si+thicklaser_t.TL_flag], TF_FREE
-		inc	ax
-		add	si, size thicklaser_t
-
-loc_15D86:
-		cmp	ax, THICKLASER_COUNT
-		jl	short loc_15D7F
-		mov	_thicklaser_template.TL_cur_flag_frame, 0
-		mov	_thicklaser_template.TL_flag, 1
-		mov	_thicklaser_template.TL_radius_cur, 1
-		mov	_thicklaser_template.TL_radius_speed, 1
-		pop	si
-		pop	bp
-		retf
-sub_15D74	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @THICKLASER_TEMPLATE_PULL$QR12THICKLASER_T
-@thicklaser_template_pull$qr12thicklaser_t	proc near
-
-@@thicklaser	= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	cx, (size thicklaser_t / word)
-		push	ds
-		pop	es
-		assume es:_DATA
-		mov	si, offset _thicklaser_template
-		mov	di, [bp+@@thicklaser]
-		rep movsw
-		pop	di
-		pop	si
-		pop	bp
-		retn	2
-@thicklaser_template_pull$qr12thicklaser_t	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; The C++ name for this proc, which yuuka5_16389() (th04/main/boss/b4m.cpp)
-	; is the first caller of outside this file. It copies [thicklaser_template]
-	; into the first TF_FREE slot of [thicklasers] and does nothing at all if
-	; both are busy -- bullets_add_regular() one template over. Three ASM
-	; callers are left, so the bare label stays and the alias carries the
-	; name. kb/codegen/0123.
-public _thicklaser_add
-_thicklaser_add label near
-sub_15DBD	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset _thicklasers
-		xor	di, di
-		jmp	short loc_15DDF
-; ---------------------------------------------------------------------------
-
-loc_15DC9:
-		cmp	[si+thicklaser_t.TL_flag], TF_FREE
-		jnz	short loc_15DDB
-		call	@thicklaser_template_pull$qr12thicklaser_t pascal, si
-		call	snd_se_play pascal, 5
-		jmp	short loc_15DE4
-; ---------------------------------------------------------------------------
-
-loc_15DDB:
-		inc	di
-		add	si, size thicklaser_t
-
-loc_15DDF:
-		cmp	di, THICKLASER_COUNT
-		jl	short loc_15DC9
-
-loc_15DE4:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_15DBD	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; The alias carries the NAME; the dump's own call sites keep the bare
-	; label. kb/codegen/0123.
-public _thicklasers_update_and_hittest
-_thicklasers_update_and_hittest label near
-sub_15DE8	proc near
-
-@@i		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	si, offset _thicklasers
-		mov	[bp+@@i], 0
-		jmp	loc_15EC2
-; ---------------------------------------------------------------------------
-
-loc_15DFB:
-		cmp	[si+thicklaser_t.TL_flag], TF_FREE
-		jz	loc_15EBC
-		cmp	[si+thicklaser_t.TL_flag], TF_LINE
-		jnz	short loc_15E1F
-		mov	ax, [si+thicklaser_t.TL_cur_flag_frame]
-		cmp	ax, [si+thicklaser_t.TL_line_frames]
-		jl	short loc_15E6B
-		inc	[si+thicklaser_t.TL_flag]
-		mov	[si+thicklaser_t.TL_cur_flag_frame], 0
-		call	snd_se_play pascal, 6
-		jmp	short loc_15E6B
-; ---------------------------------------------------------------------------
-
-loc_15E1F:
-		cmp	[si+thicklaser_t.TL_flag], TF_GROW
-		jnz	short loc_15E41
-		mov	ax, [si+thicklaser_t.TL_radius_speed]
-		add	[si+thicklaser_t.TL_radius_cur], ax
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		cmp	ax, [si+thicklaser_t.TL_radius_max]
-		jl	short loc_15E6B
-		inc	[si+thicklaser_t.TL_flag]
-		mov	[si+thicklaser_t.TL_cur_flag_frame], 0
-		mov	ax, [si+thicklaser_t.TL_radius_max]
-		mov	[si+thicklaser_t.TL_radius_cur], ax
-		jmp	short loc_15E6B
-; ---------------------------------------------------------------------------
-
-loc_15E41:
-		cmp	[si+thicklaser_t.TL_flag], TF_STATIC
-		jnz	short loc_15E57
-		mov	ax, [si+thicklaser_t.TL_cur_flag_frame]
-		cmp	ax, [si+thicklaser_t.TL_static_frames]
-		jl	short loc_15E6B
-		inc	[si+thicklaser_t.TL_flag]
-		mov	[si+thicklaser_t.TL_cur_flag_frame], 0
-		jmp	short loc_15E6B
-; ---------------------------------------------------------------------------
-
-loc_15E57:
-		cmp	[si+thicklaser_t.TL_flag], TF_SHRINK
-		jnz	short loc_15E6B
-		mov	ax, [si+thicklaser_t.TL_radius_speed]
-		sub	[si+thicklaser_t.TL_radius_cur], ax
-		cmp	[si+thicklaser_t.TL_radius_cur], 1
-		jg	short loc_15E6B
-		mov	[si+thicklaser_t.TL_flag], TF_FREE
-
-loc_15E6B:
-		inc	[si+thicklaser_t.TL_cur_flag_frame]
-		cmp	[si+thicklaser_t.TL_flag], TF_LINE
-		jbe	short loc_15EBC
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		shl	ax, 3
-		mov	di, ax
-		mov	ax, [si+thicklaser_t.TL_origin.y]
-		add	ax, di
-		cmp	ax, _player_pos.cur.y
-		jg	short loc_15EBC
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		shl	ax, 2
-		mov	di, ax
-		cmp	di, (16 shl 4)
-		jl	short loc_15E97
-		mov	di, (16 shl 4)
-
-loc_15E97:
-		mov	ax, [si+thicklaser_t.TL_radius_cur]
-		shl	ax, 4
-		sub	ax, di
-		mov	di, ax
-		mov	ax, [si+thicklaser_t.TL_origin.x]
-		sub	ax, di
-		cmp	ax, _player_pos.cur.x
-		jg	short loc_15EBC
-		mov	ax, [si+thicklaser_t.TL_origin.x]
-		add	ax, di
-		cmp	ax, _player_pos.cur.x
-		jl	short loc_15EBC
-		mov	_player_is_hit, 1
-
-loc_15EBC:
-		inc	[bp+@@i]
-		add	si, size thicklaser_t
-
-loc_15EC2:
-		cmp	[bp+@@i], THICKLASER_COUNT
-		jl	loc_15DFB
-		pop	di
-		pop	si
-		leave
-		retn
-sub_15DE8	endp
+	; The thick-laser API -- thicklasers_reset(), thicklaser_template_pull(),
+	; thicklaser_add() and thicklasers_update_and_hittest(), which are
+	; th04_main.asm's sub_15D74, @thicklaser_template_pull$qr12thicklaser_t,
+	; sub_15DBD and sub_15DE8 -- now lives in th04/main/boss/b4m.cpp,
+	; prepended to the object below ahead of Yuuka's fight, which is the
+	; address order it already held (kb/codegen 0099 + 0112 + 0114). No
+	; carve, no new segment, no Tupfile.lua line.
+	;
+	; THREE zero-byte alias pairs left with the bodies, and so did the
+	; `public` on the fourth. What is left to declare is the two procs this
+	; file still CALLS, both from Yuuka's Extra fight in main_034_TEXT, and
+	; both by the same device this dump already uses for thicklasers_render()
+	; -- a procdesc plus the underscore spelling at the call site.
+	_thicklaser_add procdesc near
+	_thicklasers_update_and_hittest procdesc near
+	;
+	; thicklaser_t struc, _thicklaser_template and _thicklasers all STAY:
+	; they are data, and yuuka6_1AE8F still writes the template directly.
+	;
+	; thicklasers_reset() is `far` and has NO caller left in this file at
+	; all -- its alias pair existed only so th04/main/stage/init.cpp could
+	; reach the ASM body, and the C++ definition publishes _sub_15D74
+	; itself, so the pair is simply gone.
 
 
 	; Yuuka's eight pattern functions -- yuuka5_15ECE() and the seven
@@ -10130,13 +9934,13 @@ loc_1AF59:
 		mov	ax, _boss_pos.cur.y
 		add	ax, (32 shl 4)
 		mov	_thicklaser_template.TL_origin.y, ax
-		call	sub_15DBD
+		call	_thicklaser_add
 		mov	ax, point_25A0C.x
 		mov	_thicklaser_template.TL_origin.x, ax
 		mov	ax, point_25A0C.y
 		add	ax, (40 shl 4)
 		mov	_thicklaser_template.TL_origin.y, ax
-		call	sub_15DBD
+		call	_thicklaser_add
 
 loc_1AFA6:
 		pop	bp
@@ -11127,7 +10931,7 @@ loc_1B8EA:
 		mov	_homing_target.x, ax
 		mov	ax, _boss_pos.cur.y
 		mov	_homing_target.y, ax
-		call	sub_15DE8
+		call	_thicklasers_update_and_hittest
 		call	yuuka6_1A110
 		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 13300
 		leave

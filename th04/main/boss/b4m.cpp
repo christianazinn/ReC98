@@ -5,6 +5,7 @@
 
 // iatan2(), for the one Yuuka pattern that aims at the player.
 #include "libs/master.lib/master.hpp"
+#include "decomp.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/v_colors.hpp"
 #include "th03/hardware/palette.hpp"
@@ -34,6 +35,13 @@
 
 static const pixel_t BIT_W = 32;
 static const pixel_t BIT_H = 32;
+
+// The thick laser's two colored layers are this wide at most, and the
+// hittest in thicklasers_update_and_hittest() is against the white core
+// inside them rather than against the full radius.
+// th04/main/bullet/laser_render.cpp's own, repeated because that file is a
+// translation unit rather than a header.
+static const pixel_t THICKLASER_LAYER_W_MAX = 16;
 // ---------
 
 // Structures
@@ -52,6 +60,170 @@ static const pixel_t BIT_H = 32;
 
 // Game logic
 // ----------
+
+/// The thick-laser API
+/// --------------------
+/// The four procs that opened ZUN's contribution to B4M_UPDATE_TEXT, ahead of
+/// Yuuka's fight. Their spawner and their per-frame updater are reached from
+/// three different fights and from th04/main/stage/init.cpp, so none of them
+/// is `static`; th04/main/bullet/laser_t.hpp declares the two the rest of the
+/// tree calls.
+///
+/// `#pragma option -G` is scoped over thicklasers_update_and_hittest() alone
+/// below, and that scoping is EVIDENCE, not decoration: its original frame is
+/// the manual three-instruction one, where yuuka5_161D7() and yuuka5_16389()
+/// in this same object both open with the single-instruction form. `-G` is a
+/// per-translation-unit flag and two settings cannot coexist in one of ZUN's
+/// objects, so ZUN split his source at 0x15ECE, exactly where
+/// kb/codegen/0164 reads a segment's object boundaries off its table pads.
+/// The scoped pragma reproduces the bytes from inside this file either way;
+/// a lane that would rather have the split can move these four into their own
+/// `-zCB4M_UPDATE_TEXT` object linked immediately ahead of this one.
+
+// Frees both slots and re-seeds the four [thicklaser_template] fields a
+// spawner does not set, so that every laser spawned during the stage begins
+// as a 1-pixel telegraph line that grows by 1 pixel per frame until a
+// spawner overrides [radius_speed]. Called once per stage, from
+// stage_init(). `[inferred]` name pending: `thicklasers_reset()`, on the
+// model of TH02's lasers_reset() — see the naming note at the head of this
+// file.
+extern "C" void far thicklasers_reset(void)
+{
+	thicklaser_t near *tl = thicklasers;
+	int i;
+
+	for(i = 0; i < THICKLASER_COUNT; i++, tl++) {
+		tl->flag = TF_FREE;
+	}
+	thicklaser_template.cur_flag_frame = 0;
+	thicklaser_template.flag = TF_LINE;
+	thicklaser_template.radius_cur = 1;
+	thicklaser_template.radius_speed = 1;
+}
+
+// Copies [thicklaser_template] over [thicklaser].
+//
+// Spelled out with pseudo-registers rather than as `thicklaser =
+// thicklaser_template;`, which cannot reproduce it in either direction:
+// thicklaser_t is not trivially copyable to Turbo C++ (SPPoint has a base
+// class), so a plain copy assignment becomes a far call to the runtime's
+// structure-copy helper --
+// and even under `-G`, where it does inline, the six instructions come out
+// in the order SI, DI, ES, CX. The original's order is CX, ES, SI, DI,
+// which is kb/codegen/0109's second row. `decomp.hpp`'s
+// copy_near_struct_member() is exactly this sequence, but only in its
+// `GAME == 5` arm, so the four statements are written out here.
+void near pascal thicklaser_template_pull(thicklaser_t near& thicklaser)
+{
+	_CX = (sizeof(thicklaser_t) / sizeof(uint16_t));
+	asm { push ds; pop es; }
+	prepare_si_di(
+		FP_OFF(&thicklaser), 0, FP_OFF(&thicklaser_template), 0
+	);
+	asm { rep movsw; }
+}
+
+// Copies [thicklaser_template] into the first free slot and plays the spawn
+// sound effect. Does nothing at all if both slots are busy. `[inferred]`
+// name, on the model of bullets_add_regular() one template over; **a naming
+// round is owed**, together with the one for
+// thicklasers_update_and_hittest().
+extern "C" void near thicklaser_add(void)
+{
+	thicklaser_t near *tl = thicklasers;
+	int i;
+
+	for(i = 0; i < THICKLASER_COUNT; i++, tl++) {
+		if(tl->flag == TF_FREE) {
+			thicklaser_template_pull(*tl);
+			snd_se_play(5);
+			return;
+		}
+	}
+}
+
+// Advances every non-TF_FREE thick laser through one step of the flag state
+// machine, then hittests the player against the ones that have a body.
+//
+// The hitbox is the laser's WHITE CORE, not its full radius: the same
+// [radius_cur] / 4 layer width that th04/main/bullet/laser_render.cpp insets
+// the core by, capped at the same THICKLASER_LAYER_W_MAX, is subtracted from
+// the half-width here — in subpixels throughout, which is why the three
+// shifts are by 2, 4 and 3 rather than a TO_SP() of a pixel quantity. The
+// vertical half is one-sided and generous: only the top edge of the circle
+// is tested, at half the radius below the origin, and everything below it
+// down the beam counts as a hit.
+//
+// `#pragma option -G` for the manual three-instruction frame this one opens
+// with; kb/codegen/0011, and the note at the head of this file.
+#pragma option -G
+extern "C" void near thicklasers_update_and_hittest(void)
+{
+	int i;
+	thicklaser_t near *tl = thicklasers;
+
+	// DI. One variable for three quantities, exactly as the original does
+	// it: first the vertical offset of the circle's top edge, then the
+	// colored layers' width, then the half-width of the white core.
+	subpixel_t hitbox_half_w;
+
+	for(i = 0; i < THICKLASER_COUNT; i++, tl++) {
+		if(tl->flag == TF_FREE) {
+			continue;
+		}
+		if(tl->flag == TF_LINE) {
+			if(tl->cur_flag_frame >= tl->line_frames) {
+				tl->flag++; // -> TF_GROW
+				tl->cur_flag_frame = 0;
+				snd_se_play(6);
+			}
+		} else if(tl->flag == TF_GROW) {
+			tl->radius_cur += tl->radius_speed;
+			if(tl->radius_cur >= tl->radius_max) {
+				tl->flag++; // -> TF_STATIC
+				tl->cur_flag_frame = 0;
+				tl->radius_cur = tl->radius_max;
+			}
+		} else if(tl->flag == TF_STATIC) {
+			if(tl->cur_flag_frame >= tl->static_frames) {
+				tl->flag++; // -> TF_SHRINK
+				tl->cur_flag_frame = 0;
+			}
+		} else if(tl->flag == TF_SHRINK) {
+			tl->radius_cur -= tl->radius_speed;
+			if(tl->radius_cur <= 1) {
+				tl->flag = TF_FREE;
+			}
+		}
+		tl->cur_flag_frame++;
+
+		// A TF_LINE laser is a 1-pixel telegraph line and does not hit.
+		// UNSIGNED, which is what _thicklaser_flag_t_FORCE_UINT8 buys.
+		if(tl->flag <= TF_LINE) {
+			continue;
+		}
+
+		hitbox_half_w = (tl->radius_cur * 8);
+		if((tl->origin.y.v + hitbox_half_w) > player_pos.cur.y.v) {
+			continue;
+		}
+		hitbox_half_w = (tl->radius_cur * 4);
+		if(hitbox_half_w >= TO_SP(THICKLASER_LAYER_W_MAX)) {
+			hitbox_half_w = TO_SP(THICKLASER_LAYER_W_MAX);
+		}
+		hitbox_half_w = (TO_SP(tl->radius_cur) - hitbox_half_w);
+		if((tl->origin.x.v - hitbox_half_w) > player_pos.cur.x.v) {
+			continue;
+		}
+		if((tl->origin.x.v + hitbox_half_w) < player_pos.cur.x.v) {
+			continue;
+		}
+		player_is_hit = true;
+	}
+}
+#pragma option -G-
+/// ------------
+
 
 /// Stage 5 Boss - Yuuka
 /// --------------------
@@ -93,13 +265,6 @@ static const int YUUKA5_HP = 9000;
 /// `label` aliases th04_main.asm carried for them are gone with the bodies.
 /// They keep the dump's address-suffixed names; **a naming round is owed** for
 /// all eight and for the four state variables below.
-
-// The first free thick laser slot takes a copy of [thicklaser_template].
-// Does nothing at all if both slots are busy. Still ASM in th04_main.asm's
-// B4M_UPDATE_TEXT, with three remaining ASM callers, so it needed a zero-byte
-// `label` alias to become linkable (kb/codegen/0123). `[inferred]` name, on
-// the model of bullets_add_regular() one template over.
-extern "C" void near thicklaser_add(void);
 
 // Yuuka's four pattern-local state variables, all of them th04_main.asm
 // `.data?` with no `public` of ZUN's, and all of them read and written only by
