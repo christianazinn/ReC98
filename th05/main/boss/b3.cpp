@@ -52,7 +52,6 @@
 extern "C" void near sub_19B04(void);  // Alice's own gather + cloud attack
 extern "C" void near sub_19634(void);  // steps both puppets along a shrinking spiral
 extern "C" void near sub_19CB0(void);  // the barrier phase, driven by [word_2CE2E]
-extern "C" void near sub_1A005(void);  // the final phase's red spread
 
 // [measured] `bool pascal near f(puppet_t near *)`: one word parameter equate,
 // `retn 2`, and the result is read out of AL by puppets_update(), which
@@ -93,6 +92,19 @@ extern "C" const pattern_loop_func_t off_22770[4][3];
 // block yet and is shared with every other TU in this binary.
 static const int PAT_PUPPET = (PAT_STAGE + 10);
 
+// [measured] Alice's own two cels, from the same base, spelled after
+// PAT_SHINKI_STILL / PAT_SHINKI_CAST -- the attested formula for exactly this
+// pair one boss over. Kept file-local for the same reason PAT_PUPPET is.
+static const int PAT_ALICE_STILL = (PAT_STAGE + 0);
+static const int PAT_ALICE_CAST = (PAT_STAGE + 4);
+
+// The two gather circle colors every TH05 boss charges with; b1.cpp spells the
+// same two values under the same two names.
+enum alice_col_t {
+	COL_GATHER_1 = 9,
+	COL_GATHER_2 = 8,
+};
+
 enum alice_hp_t {
 	HP_TOTAL = 9600,
 
@@ -116,6 +128,106 @@ enum alice_phase_t {
 // The amount of patterns Alice survives before a phase ends on its own.
 static const int PATTERNS_PER_PHASE = 24;
 // ---------
+
+// Two of the twelve entries of [off_22770], Alice's danmaku pattern table. The
+// table itself and its other four distinct bodies are still in
+// th05_main.asm's _DATA and B4_UPDATE_TEXT contributions, so these two keep an
+// address-suffixed hand name rather than a descriptive one: the family's stem
+// is settled (`alice_…_pattern`) but which of the six bodies gets which
+// descriptive name is one decision over the whole table, and this parcel does
+// not make it. state/re/NAMING_REVIEW_VERDICTS_19.md §10.1 measured the
+// address-suffixed form against naming_precheck's own PLACEHOLDER_RE and it is
+// not a placeholder. The table reaches both through the two procdesc lines
+// this parcel adds to B4_UPDATE_TEXT.
+
+// Charges a 3-stack gather for 64 frames, then fires a mirrored pair of aimed
+// blue ball stacks every 4th frame, walking the pair's angle 5 units per shot.
+void near alice_pattern_19EDA(void)
+{
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		boss_statebyte[15] = 8;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_STACK_AIMED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+		bullet_template.set_stack(8, 0.4375f);
+		bullet_template.speed.set(1.5f);
+		bullet_template_tune();
+		bullet_template.angle = boss_statebyte[15];
+		bullets_add_regular();
+		bullet_template.angle = -bullet_template.angle;
+		bullets_add_regular();
+		boss_statebyte[15] += 5;
+		boss.sprite = PAT_ALICE_STILL;
+		snd_se_play(15);
+	}
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
+
+// The same charge, then a red ball ring every 4th frame, rotated 2 units per
+// ring.
+void near alice_pattern_19F75(void)
+{
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		boss_statebyte[15] = 0;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_RING;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+		bullet_template.set_spread(20, 7);
+		bullet_template.speed.set(2.5f);
+		bullet_template_tune();
+		bullet_template.angle = boss_statebyte[15];
+		bullets_add_regular();
+		boss_statebyte[15] += 2;
+		boss.sprite = PAT_ALICE_STILL;
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
+
+// Phase 14 only, and called directly rather than through [off_22770]: a
+// straight-down spread of red arrowheads, every 32nd frame. The template
+// writes ahead of the frame test are ZUN bloat -- they are re-done on every
+// frame and only read on every 32nd.
+void near pattern_red_spreads(void)
+{
+	bullet_template.spawn_type = BST_NO_DECELERATE;
+	bullet_template.group = BG_SPREAD;
+	bullet_template.angle = 0x40;
+	bullet_template.patnum = PAT_BULLET16_V_RED;
+	if((boss.phase_frame % 32) == 0) {
+		bullet_template.speed.set(2.0f);
+		bullet_template.set_spread(13, 10);
+		bullet_template_tune();
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+}
 
 #pragma option -a2
 
@@ -334,7 +446,7 @@ void pascal alice_update(void)
 		puppets[1].pos.prev.x.v = to_sp(320.0f);
 		puppets[1].pos.prev.y.v = to_sp(128.0f);
 		fp_2CE2A = fp_2CE2C = sub_19A84;
-		sub_1A005();
+		pattern_red_spreads();
 
 		// Timeout condition
 		if(boss.phase_frame < 1000) {

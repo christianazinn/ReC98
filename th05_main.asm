@@ -7416,149 +7416,27 @@ loc_19ED8:
 sub_19E12	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19EDA	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19F0E
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		mov	_boss_statebyte[15], 8
-		cmp	_boss_phase_frame, 40
-		jnz	short loc_19F73
-		call	snd_se_play pascal, 8
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19F0E:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_19F61
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	word ptr _bullet_template.BT_stack, (7 shl 8) or 8
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		call	_bullet_template_tune
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, _bullet_template.BT_angle
-		neg	al
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, _boss_statebyte[15]
-		add	al, 5
-		mov	_boss_statebyte[15], al
-		mov	_boss_sprite, 180
-		call	snd_se_play pascal, 15
-
-loc_19F61:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19F73
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_19F73:
-		pop	bp
-		retn
-sub_19EDA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19F75	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19FA9
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		mov	_boss_statebyte[15], 0
-		cmp	_boss_phase_frame, 40
-		jnz	short loc_1A003
-		call	snd_se_play pascal, 8
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19FA9:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_19FF1
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		mov	word ptr _bullet_template.spread, (7 shl 8) or 20
-		mov	_bullet_template.speed, (2 shl 4) + 8
-		call	_bullet_template_tune
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, _boss_statebyte[15]
-		add	al, 2
-		mov	_boss_statebyte[15], al
-		mov	_boss_sprite, 180
-		call	snd_se_play pascal, 3
-
-loc_19FF1:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_1A003
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_1A003:
-		pop	bp
-		retn
-sub_19F75	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public _sub_1A005
-	_sub_1A005 label near
-sub_1A005	proc near
-		push	bp
-		mov	bp, sp
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.BT_angle, 40h
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		mov	ax, _boss_phase_frame
-		mov	bx, 32
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A042
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 13
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1A042:
-		pop	bp
-		retn
-sub_1A005	endp
+; alice_pattern_19EDA(), alice_pattern_19F75() and pattern_red_spreads()
+; are th05/main/boss/b3.cpp, compiled into th05/boss_4.cpp ahead of
+; alice_update(). They were the root contribution's last three procs, and
+; the C++ object already began exactly where they ended (kb/codegen 0114),
+; so the lift is an ordinary carve-free tail: no carve, no new segment, no
+; Tupfile.lua line.
+;
+; They had to be lifted TOGETHER. th05/boss_4.cpp emits -a2-aligned data --
+; the one-byte pad under alice_update()'s jump table -- and that pad tracks
+; the parity of the table's object-relative offset (kb/codegen 0159), so an
+; odd number of bytes prepended to the object would add or drop the pad and
+; move every symbol behind it. 0x9B + 0x90 + 0x3F = 0x16A is even; the
+; object's own SEGDEF went 0x512 -> 0x67C, exactly +0x16A, which is what
+; says the pad survived (kb/codegen 0160 -- read the OBJ, not a tcc -S
+; listing).
+;
+; [off_22770] below still holds three pointers to the first and one to the
+; second, so both keep a procdesc at the end of this segment.
+; pattern_red_spreads() had exactly one caller, alice_update() itself, and
+; needs no declaration here; its zero-byte kb/codegen 0123 alias is gone
+; with it.
 
 
 ; alice_update() is th05/main/boss/b3.cpp, compiled into th05/boss_4.cpp
@@ -7578,8 +7456,9 @@ sub_1A005	endp
 	; because the item ahead of yuki_hittest_shots_damage() was a jump
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
-	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and the
-	; root's tail here is now sub_1A005.
+	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
+	; the three pattern bodies that followed them; the root's tail here
+	; is now sub_19E12.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -7588,6 +7467,11 @@ sub_1A005	endp
 	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
 	; A procdesc carrying an argument list is also spelled UPPERCASE:
 	; TASM uppercases the symbol on the CALLPROC path such a list selects.
+	; Two of the twelve entries of [off_22770] in _DATA below. Neither
+	; carries an argument list, so TASM leaves the case alone.
+	@alice_pattern_19EDA$qv procdesc near
+	@alice_pattern_19F75$qv procdesc near
+
 	@mai_yuki_hittest_shots$qv procdesc near
 	@YUKI_HITTEST_SHOTS_DAMAGE$QIII procdesc pascal near \
 		radius:Point, se_on_hit:word
@@ -14621,13 +14505,13 @@ off_22770	dw offset sub_19B9E
 		dw offset sub_19C34
 		dw offset sub_19BB8
 		dw offset sub_19C34
-		dw offset sub_19EDA
+		dw offset @alice_pattern_19EDA$qv
 		dw offset sub_19C34
 		dw offset sub_19E12
-		dw offset sub_19EDA
+		dw offset @alice_pattern_19EDA$qv
 		dw offset sub_19E12
-		dw offset sub_19EDA
-		dw offset sub_19F75
+		dw offset @alice_pattern_19EDA$qv
+		dw offset @alice_pattern_19F75$qv
 off_22788	dw offset sub_1A5EB
 		dw offset sub_1A6AB
 		dw offset sub_1A651
