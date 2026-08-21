@@ -25,13 +25,15 @@
 // header, so naming either of them here would be a compile error.
 #include "th04/main/player/shot.hpp"
 #include "th04/snd/snd.h"
-#include "th04/main/bg.hpp"
-// th04/main/gather.hpp, th04/main/homing.hpp and th04/main/hud/hud.hpp are NOT
-// named here any more, and neither is th04/main/bullet/clearzap.hpp below.
-// All four are unguarded, and th05/main/midboss/m3_updt.cpp now compiles ahead
-// of this file in the same object and needs all four itself, so the includes
-// moved to the earliest file that needs them (kb/codegen 0129). Naming any of
-// them here would be a redefinition rather than a no-op.
+// Seven headers this file used to name are gone: th04/main/gather.hpp,
+// th04/main/homing.hpp, th04/main/hud/hud.hpp, th04/main/bg.hpp and
+// th05/main/bullet/laser.hpp and th05/main/boss/bosses.hpp now come from
+// th05/main/boss/b2.cpp, and
+// th04/main/bullet/clearzap.hpp from th05/main/midboss/m3_updt.cpp. All six
+// are unguarded and both of those files compile ahead of this one in the same
+// object, so each include moved to the earliest file that needs it
+// (kb/codegen 0129); naming any of them here would be a redefinition rather
+// than a no-op.
 #include "th04/main/pattern.hpp"
 // Both unguarded and both new to this object: nothing b3.cpp or
 // th05/main/boss/b4_both.cpp already reaches declares either.
@@ -44,16 +46,6 @@
 // th02/main/score.hpp: that one re-includes the unguarded th02/score.h,
 // which this object already reaches.
 #include "th04/main/score.hpp"
-// Supplies th05/main/boss/boss.hpp, which b4_both.cpp used to include itself.
-// Unguarded, and this file compiles ahead of that one in the same object, so
-// the include moved to the earliest file that needs it (kb/codegen 0129).
-#include "th05/main/boss/bosses.hpp"
-// Unguarded, like every header here, and reached from nowhere else in this
-// object -- th05/main/boss/b4_both.cpp fires no lasers. It carries two
-// balanced `#pragma codeseg` pairs, each closed by a bare `#pragma codeseg`
-// that restores th05/boss_4.cpp's `-zC` default, so nothing below it moves
-// segment; b1.cpp and b6.cpp include it the same way.
-#include "th05/main/bullet/laser.hpp"
 #include "th05/main/boss/b3puppet.hpp"
 
 // What this file still reaches in th05_main.asm
