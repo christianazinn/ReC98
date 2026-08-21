@@ -20361,6 +20361,12 @@ word_1F96A	dw 30h
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the
+	; bare label. kb/codegen/0123. These fifteen are Gengetsu's
+	; patterns and per-frame helpers, called from gengetsu_update()
+	; and from each other, and from nowhere outside this segment.
+public _gengetsu_1F97A
+_gengetsu_1F97A label near
 gengetsu_1F97A	proc near
 		push	bp
 		mov	bp, sp
@@ -20408,6 +20414,8 @@ gengetsu_1F97A	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1F9C5
+_gengetsu_1F9C5 label near
 gengetsu_1F9C5	proc near
 		push	bp
 		mov	bp, sp
@@ -20546,6 +20554,8 @@ gengetsu_1FA33	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FAAA
+_gengetsu_1FAAA label near
 gengetsu_1FAAA	proc near
 		push	bp
 		mov	bp, sp
@@ -20585,6 +20595,8 @@ gengetsu_1FAAA	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FAF7
+_gengetsu_1FAF7 label near
 gengetsu_1FAF7	proc near
 		push	bp
 		mov	bp, sp
@@ -20654,6 +20666,8 @@ gengetsu_1FAF7	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FB86
+_gengetsu_1FB86 label near
 gengetsu_1FB86	proc near
 		push	bp
 		mov	bp, sp
@@ -20728,6 +20742,8 @@ gengetsu_1FB86	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FC46
+_gengetsu_1FC46 label near
 gengetsu_1FC46	proc near
 		push	bp
 		mov	bp, sp
@@ -20816,6 +20832,8 @@ gengetsu_1FC46	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FD30
+_gengetsu_1FD30 label near
 gengetsu_1FD30	proc near
 		push	bp
 		mov	bp, sp
@@ -20909,6 +20927,8 @@ off_1FDF4	dw offset loc_1FD49
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FDFE
+_gengetsu_1FDFE label near
 gengetsu_1FDFE	proc near
 		push	bp
 		mov	bp, sp
@@ -20965,6 +20985,8 @@ gengetsu_1FDFE	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FE6A
+_gengetsu_1FE6A label near
 gengetsu_1FE6A	proc near
 		push	bp
 		mov	bp, sp
@@ -21022,6 +21044,8 @@ gengetsu_1FE6A	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_1FEDF
+_gengetsu_1FEDF label near
 gengetsu_1FEDF	proc near
 
 var_1		= byte ptr -1
@@ -21176,6 +21200,8 @@ off_20048	dw offset loc_1FF44
 
 ; Attributes: bp-based frame
 
+public _gengetsu_20050
+_gengetsu_20050 label near
 gengetsu_20050	proc near
 		push	bp
 		mov	bp, sp
@@ -21214,6 +21240,8 @@ gengetsu_20050	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_200B6
+_gengetsu_200B6 label near
 gengetsu_200B6	proc near
 		push	bp
 		mov	bp, sp
@@ -21296,6 +21324,8 @@ gengetsu_200B6	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_20195
+_gengetsu_20195 label near
 gengetsu_20195	proc near
 		push	bp
 		mov	bp, sp
@@ -21341,6 +21371,8 @@ gengetsu_20195	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_20202
+_gengetsu_20202 label near
 gengetsu_20202	proc near
 		push	bp
 		mov	bp, sp
@@ -21374,6 +21406,8 @@ gengetsu_20202	endp
 
 ; Attributes: bp-based frame
 
+public _gengetsu_2023B
+_gengetsu_2023B label near
 gengetsu_2023B	proc near
 		push	bp
 		mov	bp, sp
@@ -21394,499 +21428,20 @@ loc_20268:
 gengetsu_2023B	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @GENGETSU_UPDATE$QV
-@gengetsu_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		cmp	_bombing, 0
-		jz	short loc_20279
-		mov	byte_259EF, 20h	; ' '
-
-loc_20279:
-		cmp	byte_259EF, 0
-		jz	short loc_20284
-		dec	byte_259EF
-
-loc_20284:
-		mov	ax, _boss_pos.cur.x
-		add	ax, (-13 shl 4)
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-48 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 9
-		ja	loc_206B1
-		add	bx, bx
-		jmp	cs:off_206D8[bx]
-
-loc_202B0:
-		call	gengetsu_20202
-		mov	_boss_hp, 18700
-		cmp	_boss_phase_frame, 128
-		jle	loc_206B6
-		mov	_boss_phase_end_hp, 14700
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_tiles_bb_col, V_WHITE
-		mov	_bg_render_bombing_func, offset @mugetsu_gengetsu_bg_render$qv
-		jmp	loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_202E8:
-		call	gengetsu_20202
-		cmp	_boss_phase_frame, 64
-		jl	loc_206B6
-		inc	_boss_phase
-		mov	_boss_mode, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_pos.velocity.x, 0
-		jmp	loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_20311:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_20326
-		cmp	ax, 1
-		jz	short loc_2032B
-		cmp	ax, (-1 and 255)
-		jz	short loc_20330
-		jmp	short loc_20389
-; ---------------------------------------------------------------------------
-
-loc_20326:
-		call	gengetsu_1FAAA
-		jmp	short loc_20389
-; ---------------------------------------------------------------------------
-
-loc_2032B:
-		call	gengetsu_1FAF7
-		jmp	short loc_20389
-; ---------------------------------------------------------------------------
-
-loc_20330:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_20370
-		test	_boss_phase_state, 1
-		jz	short loc_20364
-		mov	ax, _player_pos.cur.x
-		mov	_gengetsu_wave_target_x, ax
-		cmp	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jge	short loc_20354
-		mov	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jmp	short loc_20370
-; ---------------------------------------------------------------------------
-
-loc_20354:
-		cmp	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jle	short loc_20370
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jmp	short loc_20370
-; ---------------------------------------------------------------------------
-
-loc_20364:
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_W - (WAVE_TARGET_MARGIN * 4)) shl 4)
-		add	ax, ((WAVE_TARGET_MARGIN * 2) shl 4)
-		mov	_gengetsu_wave_target_x, ax
-
-loc_20370:
-		call	gengetsu_1F97A
-		or	al, al
-		jz	short loc_20389
-		inc	_boss_phase_state
-		mov	al, _boss_phase_state
-		and	al, 1
-		mov	_boss_mode, al
-		mov	_boss_phase_frame, 0
-
-loc_20389:
-		cmp	_boss_phase_state, 18
-		jb	short loc_2039A
-		cmp	_boss_mode, -1
-		jz	short loc_2039A
-		call	gengetsu_2023B
-
-loc_2039A:
-		cmp	_boss_phase_state, 22
-		jnb	short loc_203AF
-		call	gengetsu_20202
-		or	al, al
-		jz	loc_206B6
-		call	@boss_score_bonus$qui pascal, 100
-
-loc_203AF:
-		pushd	(0 shl 16) or 12700
-		jmp	loc_205AA
-; ---------------------------------------------------------------------------
-
-loc_203B8:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_203CD
-		cmp	ax, 1
-		jz	short loc_203D2
-		cmp	ax, (-1 and 255)
-		jz	short loc_203D7
-		jmp	short loc_20430
-; ---------------------------------------------------------------------------
-
-loc_203CD:
-		call	gengetsu_1FB86
-		jmp	short loc_20430
-; ---------------------------------------------------------------------------
-
-loc_203D2:
-		call	gengetsu_1FC46
-		jmp	short loc_20430
-; ---------------------------------------------------------------------------
-
-loc_203D7:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_20417
-		test	_boss_phase_state, 1
-		jz	short loc_2040B
-		mov	ax, _player_pos.cur.x
-		mov	_gengetsu_wave_target_x, ax
-		cmp	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jge	short loc_203FB
-		mov	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jmp	short loc_20417
-; ---------------------------------------------------------------------------
-
-loc_203FB:
-		cmp	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jle	short loc_20417
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jmp	short loc_20417
-; ---------------------------------------------------------------------------
-
-loc_2040B:
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_W - (WAVE_TARGET_MARGIN * 4)) shl 4)
-		add	ax, ((WAVE_TARGET_MARGIN * 2) shl 4)
-		mov	_gengetsu_wave_target_x, ax
-
-loc_20417:
-		call	gengetsu_1F97A
-		or	al, al
-		jz	short loc_20430
-		mov	al, _boss_phase_state
-		and	al, 1
-		mov	_boss_mode, al
-		inc	_boss_phase_state
-		mov	_boss_phase_frame, 0
-
-loc_20430:
-		cmp	_boss_phase_state, 18
-		jb	short loc_20441
-		cmp	_boss_mode, -1
-		jz	short loc_20441
-		call	gengetsu_2023B
-
-loc_20441:
-		cmp	_boss_phase_state, 22
-		jnb	short loc_20456
-		call	gengetsu_20202
-		or	al, al
-		jz	loc_206B6
-		call	@boss_score_bonus$qui pascal, 100
-
-loc_20456:
-		push	(ET_HORIZONTAL shl 16) or 8900
-		jmp	loc_205AA
-; ---------------------------------------------------------------------------
-
-loc_2045F:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_20474
-		cmp	ax, 1
-		jz	short loc_20479
-		cmp	ax, (-1 and 255)
-		jz	short loc_2047E
-		jmp	short loc_204D7
-; ---------------------------------------------------------------------------
-
-loc_20474:
-		call	gengetsu_1FD30
-		jmp	short loc_204D7
-; ---------------------------------------------------------------------------
-
-loc_20479:
-		call	gengetsu_1FDFE
-		jmp	short loc_204D7
-; ---------------------------------------------------------------------------
-
-loc_2047E:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_204BE
-		test	_boss_phase_state, 1
-		jz	short loc_204B2
-		mov	ax, _player_pos.cur.x
-		mov	_gengetsu_wave_target_x, ax
-		cmp	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jge	short loc_204A2
-		mov	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jmp	short loc_204BE
-; ---------------------------------------------------------------------------
-
-loc_204A2:
-		cmp	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jle	short loc_204BE
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jmp	short loc_204BE
-; ---------------------------------------------------------------------------
-
-loc_204B2:
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_W - (WAVE_TARGET_MARGIN * 4)) shl 4)
-		add	ax, ((WAVE_TARGET_MARGIN * 2) shl 4)
-		mov	_gengetsu_wave_target_x, ax
-
-loc_204BE:
-		call	gengetsu_1F97A
-		or	al, al
-		jz	short loc_204D7
-		mov	al, _boss_phase_state
-		and	al, 1
-		mov	_boss_mode, al
-		inc	_boss_phase_state
-		mov	_boss_phase_frame, 0
-
-loc_204D7:
-		cmp	_boss_phase_state, 18
-		jb	short loc_204E8
-		cmp	_boss_mode, -1
-		jz	short loc_204E8
-		call	gengetsu_2023B
-
-loc_204E8:
-		cmp	_boss_phase_state, 22
-		jnb	short loc_204FD
-		call	gengetsu_20202
-		or	al, al
-		jz	loc_206B6
-		call	@boss_score_bonus$qui pascal, 100
-
-loc_204FD:
-		push	(ET_HORIZONTAL shl 16) or 5500
-		jmp	loc_205AA
-; ---------------------------------------------------------------------------
-
-loc_20506:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_2051B
-		cmp	ax, 1
-		jz	short loc_20520
-		cmp	ax, (-1 and 255)
-		jz	short loc_20525
-		jmp	short loc_2057E
-; ---------------------------------------------------------------------------
-
-loc_2051B:
-		call	gengetsu_1FE6A
-		jmp	short loc_2057E
-; ---------------------------------------------------------------------------
-
-loc_20520:
-		call	gengetsu_1FEDF
-		jmp	short loc_2057E
-; ---------------------------------------------------------------------------
-
-loc_20525:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_20565
-		test	_boss_phase_state, 1
-		jz	short loc_20559
-		mov	ax, _player_pos.cur.x
-		mov	_gengetsu_wave_target_x, ax
-		cmp	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jge	short loc_20549
-		mov	_gengetsu_wave_target_x, (WAVE_TARGET_MARGIN shl 4)
-		jmp	short loc_20565
-; ---------------------------------------------------------------------------
-
-loc_20549:
-		cmp	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jle	short loc_20565
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W - WAVE_TARGET_MARGIN) shl 4)
-		jmp	short loc_20565
-; ---------------------------------------------------------------------------
-
-loc_20559:
-		call	@randring2_next16_mod$qui pascal, ((PLAYFIELD_W - (WAVE_TARGET_MARGIN * 4)) shl 4)
-		add	ax, ((WAVE_TARGET_MARGIN * 2) shl 4)
-		mov	_gengetsu_wave_target_x, ax
-
-loc_20565:
-		call	gengetsu_1F97A
-		or	al, al
-		jz	short loc_2057E
-		mov	al, _boss_phase_state
-		and	al, 1
-		mov	_boss_mode, al
-		inc	_boss_phase_state
-		mov	_boss_phase_frame, 0
-
-loc_2057E:
-		cmp	_boss_phase_state, 18
-		jb	short loc_2058F
-		cmp	_boss_mode, -1
-		jz	short loc_2058F
-		call	gengetsu_2023B
-
-loc_2058F:
-		cmp	_boss_phase_state, 22
-		jnb	short loc_205A4
-		call	gengetsu_20202
-		or	al, al
-		jz	loc_206B6
-		call	@boss_score_bonus$qui pascal, 100
-
-loc_205A4:
-		push	(ET_HORIZONTAL shl 16) or 3000
-
-loc_205AA:
-		call	@boss_phase_next$q16explosion_type_ti
-		mov	_boss_mode, -1
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W / 2) shl 4)
-		jmp	loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_205BB:
-		call	gengetsu_20202
-		call	gengetsu_1F9C5
-		or	al, al
-		jz	loc_206B6
-		inc	_boss_phase
-		mov	_boss_phase_frame, 32
-		jmp	loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_205D4:
-		call	gengetsu_20050
-		cmp	_boss_phase_frame, 1500
-		jge	short loc_205ED
-		call	gengetsu_20202
-		or	al, al
-		jz	loc_206B6
-		call	@boss_score_bonus$qui pascal, 100
-
-loc_205ED:
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_VERTICAL shl 16) or 0
-		mov	_boss_mode, -1
-		mov	_gengetsu_wave_target_x, ((PLAYFIELD_W / 2) shl 4)
-		mov	_boss_statebyte[15].BSB_origin_offset_x, 16
-		jmp	loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_20609:
-		cmp	_boss_phase_frame, 3000
-		jg	short loc_20616
-		call	gengetsu_200B6
-		jmp	short loc_20619
-; ---------------------------------------------------------------------------
-
-loc_20616:
-		call	gengetsu_20195
-
-loc_20619:
-		call	gengetsu_20202
-		or	al, al
-		jnz	short loc_2062A
-		cmp	_boss_phase_frame, 5000
-		jl	loc_206B6
-
-loc_2062A:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		inc	_boss_phase
-		cmp	_boss_phase_frame, 5000
-		jge	short loc_20642
-		mov	_boss_phase_state, 1
-		jmp	short loc_20647
-; ---------------------------------------------------------------------------
-
-loc_20642:
-		mov	_boss_phase_state, 0
-
-loc_20647:
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-		jmp	short loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_2065F:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_2066F
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_2066F:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_206B6
-		call	@boss_explode_big$qui pascal, ET_HORIZONTAL
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_20693
-		call	@boss_score_bonus$qui pascal, 200
-
-loc_20693:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	_palette_changed, 1
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_206B6
-; ---------------------------------------------------------------------------
-
-loc_206B1:
-		call	@boss_defeat_update$qv
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_206B6:
-		cmp	_gengetsu_wave_amp, 0
-		jnz	short loc_206C9
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-
-loc_206C9:
-		call	sub_15DE8
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 18700
-		pop	bp
-		retf
-@gengetsu_update$qv	endp
-
-; ---------------------------------------------------------------------------
-off_206D8	dw offset loc_202B0
-		dw offset loc_202E8
-		dw offset loc_20311
-		dw offset loc_203B8
-		dw offset loc_2045F
-		dw offset loc_20506
-		dw offset loc_205BB
-		dw offset loc_205D4
-		dw offset loc_20609
-		dw offset loc_2065F
+	; gengetsu_update() now lives in th04/main/boss/bx2_upd.cpp, which
+	; th04/main_036.cpp compiles into THIS segment: the wrapper leaves the
+	; code segment name to Turbo C++'s basename default, so the object is
+	; appended to the contribution above and lands at the tail position the
+	; proc already held (kb/codegen 0105 + 0112 + 0114). It was the LAST
+	; proc of the segment, so no carve, no new segment name and no
+	; group-list edit were needed -- only the one Tupfile.lua line the new
+	; object costs.
+	;
+	; Its dense `switch` over [boss.phase] is what the `dw offset loc_`
+	; table that used to end this segment compiles FROM, so the table left
+	; with the proc. There is no padding byte in front of it and no `-a2`.
+	;
+	; Nothing in this file references it; th04/main/stage/setup.cpp does.
 main_036_TEXT	ends
 
 ; ---------------------------------------------------------------------------
@@ -22668,6 +22223,10 @@ public _mugetsu_phase2_mode
 _mugetsu_phase2_mode	db ?
 public _mugetsu_gengetsu_shield_frames
 _mugetsu_gengetsu_shield_frames label byte
+	; Shared by both Extra Stage bosses' hittest helpers, and reached from
+	; nothing else. kb/codegen/0123.
+public _extra_boss_bomb_immunity
+_extra_boss_bomb_immunity label byte
 byte_259EF	db ?
 byte_259F0	db ?
 byte_259F1	db ?
