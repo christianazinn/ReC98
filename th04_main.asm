@@ -10482,145 +10482,145 @@ off_1D6B9	dw offset loc_1D688
 		dw offset loc_1D69C
 		dw offset loc_1D6A6
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @stage_clear_bonus$qv
-@stage_clear_bonus$qv	proc near
-
-var_8		= dword	ptr -8
-var_4		= dword	ptr -4
-
-		enter	8, 0
-		push	si
-		mov	PaletteTone, 60
-		call	far ptr	palette_show
-		call	gaiji_putsa pascal, (20 shl 16) + 4, ds, offset gpCLEAR_BONUS, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 7, ds, offset aBONUS_STAGE, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 9, ds, offset aPOWERX50, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 11, ds, offset aBONUS_DREAM, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 13, ds, offset aGRAZEX50, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 16, ds, offset aBONUS_POINT, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 21, ds, offset aBONUS_TOTAL, TX_WHITE
-		call	text_putsa pascal, (6 shl 16) + 22, ds, offset aBOMB_EXTEND, TX_YELLOW + TX_BLINK
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage]
-		mov	ah, 0
-		imul	ax, 100
-		add	ax, 100
-		mov	si, ax
-		movzx	eax, si
-		mov	[bp+var_4], eax
-		push	7
-		push	eax
-		call	sub_1D48E
-		mov	al, _power
-		mov	ah, 0
-		imul	ax, 5
-		mov	si, ax
-		movzx	eax, si
-		add	[bp+var_4], eax
-		push	9
-		push	eax
-		call	sub_1D48E
-		mov	si, _dream_score
-		movzx	eax, si
-		add	[bp+var_4], eax
-		push	0Bh
-		push	eax
-		call	sub_1D48E
-		mov	ax, _stage_graze
-		imul	ax, 5
-		mov	si, ax
-		movzx	eax, si
-		add	[bp+var_4], eax
-		push	0Dh
-		push	eax
-		call	sub_1D48E
-		mov	al, _stage_point_items_collected
-		mov	ah, 0
-		mov	si, ax
-		movzx	eax, si
-		imul	eax, [bp+var_4]
-		mov	[bp+var_4], eax
-		push	280010h
-		push	si
-		call	@hud_5_digit_put$quiuiui
-		mov	eax, [bp+var_4]
-		mov	[bp+var_8], eax
-		push	ss
-		lea	ax, [bp+var_4]
-		push	ax
-		call	sub_1D5E9
-		push	15h
-		pushd	[bp+var_4]
-		call	sub_1D48E
-		mov	eax, [bp+var_4]
-		add	_score_delta, eax
-		cmp	[bp+var_8], 1200000
-		jb	short loc_1D814
-		push	4
-		jmp	short loc_1D82E
-; ---------------------------------------------------------------------------
-
-loc_1D814:
-		cmp	[bp+var_8], 800000
-		jb	short loc_1D822
-		push	2
-		jmp	short loc_1D82E
-; ---------------------------------------------------------------------------
-
-loc_1D822:
-		cmp	[bp+var_8], 500000
-		jb	short loc_1D835
-		push	1
-
-loc_1D82E:
-		call	playperf_raise
-		jmp	short loc_1D854
-; ---------------------------------------------------------------------------
-
-loc_1D835:
-		cmp	[bp+var_8], 100000
-		ja	short loc_1D843
-		push	2
-		jmp	short loc_1D84F
-; ---------------------------------------------------------------------------
-
-loc_1D843:
-		cmp	[bp+var_8], 200000
-		ja	short loc_1D854
-		push	1
-
-loc_1D84F:
-		call	playperf_lower
-
-loc_1D854:
-		les	bx, _resident
-		inc	es:[bx+resident_t.rem_bombs]
-		call	hud_bombs_put
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.miss_count]
-		cmp	al, _stage_id
-		ja	short loc_1D876
-		call	playperf_raise pascal, 2
-
-loc_1D876:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.bombs_used]
-		mov	ah, 0
-		mov	dl, _stage_id
-		mov	dh, 0
-		add	dx, dx
-		cmp	ax, dx
-		jg	short loc_1D893
-		call	playperf_raise pascal, 2
-
-loc_1D893:
-		pop	si
-		leave
-		retn
-@stage_clear_bonus$qv	endp
+	; stage_clear_bonus() -- the tally shown after every stage but the last --
+	; was lifted out of here and is now the FIRST function of
+	; th04/main/stage/bonus.cpp, above stage_allclear_bonus(), which is the
+	; address order the two have in this segment. th04/itminit.cpp #includes
+	; that file ahead of th04/main/item/init.cpp, and this proc was the LAST
+	; thing this dump contributed to IT_UPDT_TEXT once the all-clear tally
+	; left, so the object grows backwards into the hole once more and every
+	; byte above it keeps its address (kb/codegen 0099 + 0112 + 0114). Fifth
+	; consecutive lift out of this one root block, and the fifth time the tail
+	; was somebody else's costing away.
+	;
+	; The `public` went with the body: every caller is C++ already, so no
+	; `procdesc` or `extern` replaces it and nothing in this dump reaches the
+	; name.
+	;
+	;
+	; NOT SHARED WITH TH05, on the same kb/codegen/0115 evidence that kept the
+	; all-clear tally unshared. th05/main/stage/bonus.cpp latches the previous
+	; stage's miss and bomb counts for two conditional bonus rows this game
+	; does not have, pays its no-miss award through the tally rather than
+	; through [rem_bombs], and reaches its printer through nine nopcalls where
+	; this reaches it through six plain near calls. What the two DO share is
+	; the playperf ladder below the tally, thresholds and all, including the
+	; gap that leaves a total between 200,001 and 499,999 moving nothing.
+	;
+	;
+	; SEVEN STRING LABELS AND gpCLEAR_BONUS lost their last reference here and
+	; are published beside the storage they already had, renamed in place from
+	; IDA's `a...` spellings with the public on ONE line and IDA's own type
+	; comment moved onto the data line. Same device, and the same reason, as
+	; the eight `_2` labels one parcel earlier: the three-line alias form this
+	; file uses further down would have added sixteen lines and renumbered
+	; every line-anchored citation below them.
+	;
+	; FOUR OF THE FOURTEEN STRINGS ARE BYTE-IDENTICAL PAIRS -- POWERX50,
+	; BONUS_DREAM, GRAZEX50 and BONUS_TOTAL each exist twice, once for this
+	; tally and once for the all-clear one, in separate storage. That is what
+	; IDA's `_2` suffixes on the other half record, and it is why they were
+	; kept rather than tidied away.
+	;
+	;
+	; sub_1D48E and sub_1D5E9 are unchanged by this parcel: both were already
+	; published, by the commit that lifted the all-clear tally, and this body
+	; is their other caller. They stay placeholders under the
+	; kb/conventions/naming-precedents.md section 3 record in
+	; state/notes/_stage_allclear_bonus_qv.md, which now covers both of their
+	; callers -- so the parcel that names them is the one that lifts THEM.
+	;
+	; sub_1D5E9's four-entry `dw offset` jump table sits directly above this
+	; block and is NOT data this dump owns any more than a proc's own table
+	; ever is -- it is what that proc's `switch` compiles to, and it goes when
+	; the proc goes. Leave both where they are.
+	;
+	;
+	; ONE INLINE-ASM FAMILY, all three shapes shared with the all-clear tally
+	; in the same C++ file: five `push eax` tally calls where the running
+	; total is still live in EAX, one `push dword ptr` call that reloads it
+	; deliberately, and hud_5_digit_put() as `push cs` + `call near` in FOUR
+	; bytes with no `nop`, because TASM shortens a far call to a proc in its
+	; own segment and Turbo C++ emits five however it is spelled
+	; (kb/codegen 0014 + 0082 + 0122).
+	;
+	;
+	; kb/codegen/0119 does not bite: the body is 01D5h = 469 bytes and ODD,
+	; but th04/itminit.cpp still emits no `-a2`-aligned data of any kind.
+	;
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore into the rest of this contribution.
+	;
+	;
+	; WHAT THIS SEGMENT'S TAIL IS NOW: sub_1D5E9 and its jump table, the
+	; setting-dependent multiplier pass -- a kb/codegen/0119 jump-table tail
+	; rather than a plain proc one, so read state/re/JUMP_TABLE_TAILS.md
+	; before costing it, and re-run tools/pi-audit/carve_free_tails.py against
+	; a fresh build rather than trusting this line.
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
+	;
 
 
 	; stage_allclear_bonus() -- the tally shown after the final stage -- was
@@ -11666,8 +11666,8 @@ _STAGE_CLEAR_BONUS_DESC label dword
 		dd aBONUS_NORMAL
 		dd aBONUS_HARD
 		dd aBONUS_LUNATIC
-; char gpCLEAR_BONUS[3]
-gpCLEAR_BONUS	db 4Dh,	4Eh, 4Fh, 2, 58h, 59h, 5Ah, 5Bh, 0
+public _gpCLEAR_BONUS, _BONUS_STAGE, _POWERX50, _BONUS_DREAM, _GRAZEX50, _BONUS_POINT, _BONUS_TOTAL, _BOMB_EXTEND
+_gpCLEAR_BONUS	db 4Dh,	4Eh, 4Fh, 2, 58h, 59h, 5Ah, 5Bh, 0	; char gpCLEAR_BONUS[3]
 public _gpCONGRATULATION, _ALL_CLEAR, _POWERX50_2, _BONUS_DREAM_2, _GRAZEX50_2, _PLAYER_REM_10000, _PLAYER_REM_30000, _BONUS_POINT_2, _BONUS_TOTAL_2
 _gpCONGRATULATION db 5Ch, 5Dh, 5Eh, 5Fh, 60h, 61h, 62h, 63h, 64h, 0	; char gpCONGRATULATION[]
 aBOSS_FINAL_TIMEOUT	db 'à´óÏÉ{ÉXëﬁé°é∏îsÅIÅIÅ@Å@Å@Å@Å@Å@Å@Å~Å@ÇOÅDÇO',0
@@ -11681,13 +11681,13 @@ aBONUS_EASY	db 'ìÔà’ìxÉ{Å[ÉiÉXÅiÇdÇÅÇìÇôÅjÅ@Å@Å@Å@Å~Å@ÇOÅDÇT',0
 aBONUS_NORMAL	db 'ìÔà’ìxÉ{Å[ÉiÉXÅiÇmÇèÇíÇçÇÅÇåÅjÅ@Å@Å~Å@ÇPÅDÇO',0
 aBONUS_HARD	db 'ìÔà’ìxÉ{Å[ÉiÉXÅiÇgÇÅÇíÇÑÅjÅ@Å@Å@Å@Å~Å@ÇPÅDÇQ',0
 aBONUS_LUNATIC	db 'ìÔà’ìxÉ{Å[ÉiÉXÅiÇkÇïÇéÇÅÇîÇâÇÉÅjÅ@Å~Å@ÇPÅDÇS',0
-aBONUS_STAGE	db 'ÇrÇsÇ`ÇfÇdÅ@ÇaÇèÇéÇïÇì',0
-aPOWERX50	db 'ÇoÇnÇvÇdÇqÅ@Å~Å@Å@ÇTÇO',0
-aBONUS_DREAM	db 'ÇcÇqÇdÇ`ÇlÅ@ÇaÇèÇéÇïÇì',0
-aGRAZEX50	db 'ÉJÉXÉäíeêîÅ@Å~Å@Å@ÇTÇO',0
-aBONUS_POINT	db 'ÇoÇnÇhÇmÇsÅ@ÇaÇèÇéÇïÇìÅ@Å@Å@Å@Å@Å@Å~',0
-aBONUS_TOTAL	db 'Å@Å@Å@ÇsÇnÇsÇ`Çk',0
-aBOMB_EXTEND	db 'Å@Å@Å@Å@Å@ÇaÇèÇçÇÇÅ@ÇdÇòÇîÇÖÇéÇÑÅIÅI',0
+_BONUS_STAGE	db 'ÇrÇsÇ`ÇfÇdÅ@ÇaÇèÇéÇïÇì',0
+_POWERX50	db 'ÇoÇnÇvÇdÇqÅ@Å~Å@Å@ÇTÇO',0
+_BONUS_DREAM	db 'ÇcÇqÇdÇ`ÇlÅ@ÇaÇèÇéÇïÇì',0
+_GRAZEX50	db 'ÉJÉXÉäíeêîÅ@Å~Å@Å@ÇTÇO',0
+_BONUS_POINT	db 'ÇoÇnÇhÇmÇsÅ@ÇaÇèÇéÇïÇìÅ@Å@Å@Å@Å@Å@Å~',0
+_BONUS_TOTAL	db 'Å@Å@Å@ÇsÇnÇsÇ`Çk',0
+_BOMB_EXTEND	db 'Å@Å@Å@Å@Å@ÇaÇèÇçÇÇÅ@ÇdÇòÇîÇÖÇéÇÑÅIÅI',0
 _ALL_CLEAR	db 'Ç`ÇkÇkÅ@ÇbÇåÇÖÇÅÇíÅ@Å@',0
 _POWERX50_2	db 'ÇoÇnÇvÇdÇqÅ@Å~Å@Å@ÇTÇO',0
 _BONUS_DREAM_2	db 'ÇcÇqÇdÇ`ÇlÅ@ÇaÇèÇéÇïÇì',0

@@ -30,9 +30,11 @@
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/item/item.hpp"
 #include "th04/main/player/player.hpp"
+#include "th04/main/playperf.hpp"
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/stage/bonus.hpp"
+#include "th04/main/stage/stage.hpp"
 #include "th04/resident.hpp"
 
 extern "C" {
@@ -52,6 +54,18 @@ extern "C" {
 	extern const char BONUS_POINT_2[];
 	extern const char BONUS_TOTAL_2[];
 
+	// The un-suffixed half of the same block, for the per-stage tally. Four of
+	// these are byte-identical to four above and are still separate storage,
+	// which is what IDA's `_2` suffixes up there record.
+	extern const char BONUS_STAGE[];
+	extern const char POWERX50[];
+	extern const char BONUS_DREAM[];
+	extern const char GRAZEX50[];
+	extern const char BONUS_POINT[];
+	extern const char BONUS_TOTAL[];
+	extern const char BOMB_EXTEND[];
+
+	extern const gaiji_th04_t gpCLEAR_BONUS[];
 	extern const gaiji_th04_t gpCONGRATULATION[];
 
 	// [placeholder names] Both stay in th04_main.asm and both keep IDA's
@@ -70,10 +84,12 @@ extern "C" {
 
 /// The tally printer takes the running total in EAX, which is where the term
 /// just added still is; a plain call reloads it from the frame instead, so the
-/// two pushes are emitted by hand. `66 50` is `push eax` -- Turbo C++ 4.02's
-/// inline assembler has no 32-bit register names and rejects `push eax`
-/// outright. `6A yy` is the `push` of the row's Y coordinate, which the
-/// original encodes as an imm8. (kb/codegen/0122, one game over.)
+/// two pushes are emitted by hand. `66 50` is the 32-bit push of the
+/// accumulator; Turbo C++ 4.02's inline assembler has no 32-bit register names
+/// at all and rejects any mention of one outright. `6A yy` is the `push` of the
+/// row's Y coordinate, which the original encodes as an imm8, and both bytes go
+/// in raw so that neither push is left to BASM. (kb/codegen/0122, one game
+/// over.)
 #define TALLY_PUT_EAX(y) _asm { \
 	db	0x6A, y; \
 	db	0x66, 0x50; \
@@ -104,6 +120,99 @@ extern "C" {
 	db	0x56; \
 	push	cs; \
 	call	near ptr hud_5_digit_put; \
+}
+
+/// The per-stage tally. Shares this file's opening, its accumulator idiom and
+/// its closing with stage_allclear_bonus() below and is otherwise its own
+/// function: the terms are one row lower, the stage number replaces the flat
+/// 1000, there is no lives term at all, and the whole playperf ladder and the
+/// bomb award below it have no counterpart down there.
+///
+/// TH05's function of this name is th05/main/stage/bonus.cpp's, and it is a
+/// different body again -- it latches the previous stage's miss and bomb counts
+/// for two conditional bonuses this game does not have, and pays its no-miss
+/// award through the tally instead of through [rem_bombs].
+void near stage_clear_bonus(void)
+{
+	unsigned long points;
+
+	// The playperf ladder below grades the tally BEFORE the setting-dependent
+	// multipliers are applied to it, so the total has to be copied first.
+	unsigned long points_before_multipliers;
+
+	unsigned int bonus;
+
+	PaletteTone = 60;
+	palette_show();
+
+	gaiji_putsa(
+		20, 4, reinterpret_cast<const char near *>(gpCLEAR_BONUS), TX_WHITE
+	);
+	text_putsa( 6,  7, BONUS_STAGE, TX_WHITE);
+	text_putsa( 6,  9, POWERX50,    TX_WHITE);
+	text_putsa( 6, 11, BONUS_DREAM, TX_WHITE);
+	text_putsa( 6, 13, GRAZEX50,    TX_WHITE);
+	text_putsa( 6, 16, BONUS_POINT, TX_WHITE);
+	text_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
+
+	// Unconditional, and printed before the bomb is actually awarded at the
+	// bottom of this function. Every stage clear grants one.
+	text_putsa( 6, 22, BOMB_EXTEND, (TX_YELLOW | TX_BLINK));
+
+	bonus = ((resident->stage * 100) + 100);
+	points = bonus;
+	TALLY_PUT_EAX(7);
+
+	bonus = (power * 5);
+	points += bonus;
+	TALLY_PUT_EAX(9);
+
+	bonus = dream_score;
+	points += bonus;
+	TALLY_PUT_EAX(11);
+
+	bonus = (stage_graze * 5);
+	points += bonus;
+	TALLY_PUT_EAX(13);
+
+	// ZUN bloat: the same multiply-rather-than-add that stage_allclear_bonus()
+	// does, with the same consequence -- a stage cleared without collecting a
+	// single point item pays nothing at all.
+	bonus = stage_point_items_collected;
+	points = (bonus * points);
+	HUD_5_DIGIT_PUT_SI(40, 16);
+
+	points_before_multipliers = points;
+	sub_1D5E9(&points);
+	TALLY_PUT_MEM(21);
+
+	score_delta += points;
+
+	// Note the gap, which TH05's copy of this ladder has as well: a tally
+	// between 200,001 and 499,999 moves playperf nowhere.
+	if(points_before_multipliers >= 1200000) {
+		playperf_raise(4);
+	} else if(points_before_multipliers >= 800000) {
+		playperf_raise(2);
+	} else if(points_before_multipliers >= 500000) {
+		playperf_raise(1);
+	} else if(points_before_multipliers <= 100000) {
+		playperf_lower(2);
+	} else if(points_before_multipliers <= 200000) {
+		playperf_lower(1);
+	}
+
+	resident->rem_bombs++;
+	hud_bombs_put();
+
+	// Both gates scale with the stage, so the same play is worth less of a
+	// raise later on: one miss per stage is tolerated, and two bombs per stage.
+	if(resident->miss_count <= stage_id) {
+		playperf_raise(2);
+	}
+	if(resident->bombs_used <= (stage_id * 2)) {
+		playperf_raise(2);
+	}
 }
 
 void near stage_allclear_bonus(void)
