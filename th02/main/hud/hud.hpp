@@ -1,3 +1,13 @@
+#ifndef TH02_MAIN_HUD_HUD_HPP
+#define TH02_MAIN_HUD_HUD_HPP
+
+// Guarded for the reason th04/main/player/shot.hpp states in full: two body
+// files that both include this one now meet in a single translation unit,
+// and Turbo C++ 4.02 rejects the second expansion of every `static const`
+// and every declaration below. Ordering the includes so only one of them
+// wins would work today and break at the next host; a guard is the
+// invariant. Byte-inert: this file only declares.
+
 #include "pc98.h"
 
 // Coordinates
@@ -42,3 +52,4 @@ void near hud_bombs_put(void);
 // Renders the entire HUD, reflecting all current values.
 void near hud_put(void);
 #endif
+#endif /* TH02_MAIN_HUD_HUD_HPP */
