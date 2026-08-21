@@ -6555,8 +6555,28 @@ off_15B4D	dw offset loc_159A4
 		dw offset loc_15A81
 		dw offset loc_15AD2
 
-include th04/main/boss/explosions_reset.asm
-include th04/main/boss/explode_small.asm
+	; explosions_small_reset() and boss_explode_small() -- the last two things
+	; this file contributed to B4M_UPDATE_TEXT -- now live in
+	; th04/main/boss/explosions_reset.cpp and th04/main/boss/explode_small.cpp,
+	; the two files TH05 was already compiling for the same two bodies. TH04
+	; was the only reason those two modules still existed, so both are gone,
+	; and with them the EXPLOSION_TYPED macro that the second one defined:
+	; nothing expands it any more in either dump.
+	;
+	; They are one object of their own, th04/expl_sm.cpp, linked immediately
+	; ahead of th04/boss_4m.cpp rather than folded into it. 0x8F bytes is ODD,
+	; and th04/main/boss/b4m.cpp generates two `-a2`-aligned switch tables
+	; whose padding would move (kb/codegen/0119). This root contribution and
+	; that object now only exchange bytes, so th04/boss_4m.cpp's base is
+	; pinned against every future lift out of here.
+	;
+	; explosions_small_reset() needs no declaration: nothing in this file
+	; calls it, and its only caller is C++. boss_explode_small() has three
+	; call sites in main_033_TEXT, the same main_03 group, so the call stays
+	; near. UPPER case because the function is `pascal` (kb/codegen/0102);
+	; TASM's /mx resolves that against the lower-case call sites.
+	@BOSS_EXPLODE_SMALL$Q16EXPLOSION_TYPE_T procdesc pascal near \
+		explosion_type:word
 	; boss_explode_big() now lives in th04/main/boss/explode_big.cpp, which
 	; th04/boss_4m.cpp #includes AHEAD of th04/main/boss/b4m.cpp: that object
 	; appends immediately after this contribution, so the lift moved the seam
@@ -6564,8 +6584,8 @@ include th04/main/boss/explode_small.asm
 	; group-list edit and no Tupfile.lua line (kb/codegen 0099 + 0112 + 0114).
 	;
 	; It was the last emitting item of this root contribution. The tail is now
-	; th04/main/boss/explode_small.asm, which still defines and expands the
-	; EXPLOSION_TYPED macro that the lifted body was the other expansion of --
+	; th04/main/boss/explode_small.cpp, which the object below now compiles
+	; from the same EXPLOSION_TYPED macro this body was the other half of --
 	; so the module stays, and this class's next question about this segment is
 	; about that module rather than about a proc.
 	;

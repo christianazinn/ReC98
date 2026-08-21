@@ -6,14 +6,13 @@
 /// (kb/codegen/0083, spelled out in th04/main/boss/reset.cpp).
 ///
 /// Like th04/main/boss/explode_small.cpp, this body is shared and identical in
-/// both games but only TH05 compiles it: in TH04 the same code is still
-/// assembled from th04/main/boss/explosions_reset.asm, which is not the tail of
-/// its segment's root contribution there, so the module stays in the tree and
-/// TH04's dump keeps including it.
+/// both games, and both now compile it. In TH04 the same code was assembled
+/// from a module of its own until the lift below it promoted that module to
+/// the tail of its segment's root contribution.
 ///
-/// Not compiled on its own: th05/gather.cpp #includes this file at the FRONT of
-/// its object, above everything lifted out of the same tail before it
-/// (kb/codegen/0112 + 0114).
+/// Not compiled on its own: th05/gather.cpp and th04/expl_sm.cpp both
+/// #include this file at the FRONT of their objects, above everything lifted
+/// out of the same tail before it (kb/codegen/0112 + 0114).
 
 #include "platform.h"
 #include "pc98.h"

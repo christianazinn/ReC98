@@ -122,10 +122,12 @@ inline void boss_explode_big(explosion_type_t type) {
 	boss_explode_big_circle();
 }
 #else
-// `unsigned int`, not `explosion_type_t`: th04/main/boss/explode_big.asm
-// publishes `@BOSS_EXPLODE_BIG$QUI`, and this declaration had never been
-// graded, because yuuka5_update() (th04/main/boss/b4m.cpp) is the first C++
-// caller TH04 has ever had for it. The value passed is still an
+// `unsigned int`, not `explosion_type_t`: the ASM module this function was
+// compiled from until recently published `@BOSS_EXPLODE_BIG$QUI`, and this
+// declaration had never been graded, because yuuka5_update()
+// (th04/main/boss/b4m.cpp) is the first C++ caller TH04 has ever had for it.
+// th04/main/boss/explode_big.cpp is the definition now, and it keeps the
+// signature the dump's remaining call site was assembled against. The value passed is still an
 // explosion_type_t; only the parameter this function was compiled with is not.
 void pascal near boss_explode_big(unsigned int type);
 #endif

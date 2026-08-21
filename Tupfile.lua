@@ -1024,6 +1024,12 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
 	"th04/enm_pos1.cpp",
 	"th04/enm_pos.cpp",
+	-- POSITION-CRITICAL: expl_sm.cpp is B4M_UPDATE_TEXT's two explosion
+	-- helpers and must stay immediately before boss_4m.cpp, whose object it
+	-- would otherwise shift by an odd number of bytes, moving the padding in
+	-- front of both switch tables b4m.cpp generates under `-a2`. See
+	-- th04/expl_sm.cpp.
+	"th04/expl_sm.cpp",
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",
 	"th04/bullet_a.cpp",

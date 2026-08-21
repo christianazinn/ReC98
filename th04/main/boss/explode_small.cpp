@@ -6,18 +6,18 @@
 /// ET_CIRCLE is not a case: it is what the `switch` falls out of, leaving the
 /// symmetric defaults set above it.
 ///
-/// This body is shared between the two games and identical in both, but only
-/// TH05 compiles it. In TH04 the same code is still assembled from
-/// th04/main/boss/explode_small.asm, which is NOT the tail of its segment's
-/// root contribution there -- th04/main/boss/explode_big.asm and four more
-/// items follow it -- so lifting it out of TH04 would move addresses. The
-/// module therefore stays in the tree, and TH04's dump keeps including it.
-/// That module also defines the TASM macro EXPLOSION_TYPED, which TH04's big
-/// explosion expands and which is the reason its `switch` and this one have the
-/// same body; nothing in TH05's dump expands it any more.
+/// This body is shared between the two games and identical in both, and BOTH
+/// now compile it. TH04 was the last holdout: the same code was assembled
+/// there from a module of its own for as long as that module was not the tail
+/// of its segment's root contribution, and the lift that took the big
+/// explosion out from under it is what promoted it. The module also defined
+/// the TASM macro EXPLOSION_TYPED, which is why TH04's big explosion has the
+/// same `switch` body as this one; with both expansions decompiled, the macro
+/// is gone from the tree.
 ///
-/// Not compiled on its own: th05/gather.cpp #includes this file at the FRONT of
-/// its object, above everything lifted out of the same tail before it, because
+/// Not compiled on its own: th05/gather.cpp and th04/expl_sm.cpp both
+/// #include this file near the FRONT of their objects, above everything
+/// lifted out of the same tail before it, because
 /// within one object code is emitted in source order (kb/codegen/0112 + 0114).
 ///
 /// kb/codegen/0104: the `switch` below is dense over 1..4 and compiles to a

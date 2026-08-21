@@ -5,8 +5,8 @@
 /// `switch` falls out of rather than a case of its own. Until this parcel it
 /// was assembled from a module of its own that th04_main.asm `include`d, and
 /// that module's whole body was one expansion of the TASM macro
-/// EXPLOSION_TYPED which th04/main/boss/explode_small.asm defines and still
-/// expands for its own function. So this file
+/// EXPLOSION_TYPED, whose only other expansion was boss_explode_small().
+/// So this file
 /// and th04/main/boss/explode_small.cpp are the same body twice, minus that
 /// one's "use the second slot if the first is taken" test -- which is
 /// precisely what a macro shared between two functions means.
