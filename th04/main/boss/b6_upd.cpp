@@ -102,8 +102,8 @@ extern "C" {
 	// th04/main/boss/b6_anim.asm.
 	bool near yuuka6_anim_vanish(void);
 
-	// th04/main/boss/b6.asm. `pascal`, and therefore already published as the
-	// bare uppercase name.
+	// th04/b6_next.cpp, its own object at the head of this segment's C++
+	// half. `pascal`, and therefore published as the bare uppercase name.
 	void pascal near yuuka6_phase_next(
 		explosion_type_t explosion_type, int next_end_hp
 	);

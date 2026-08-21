@@ -965,6 +965,11 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/scoreupd.asm",
 	"th04/main_012.cpp",
 	"th04/main_033.cpp",
+	-- POSITION-CRITICAL: b6_next.cpp is yuuka6_phase_next() alone and must
+	-- stay immediately before main_034.cpp, whose object it would otherwise
+	-- shift by an odd number of bytes, dropping the padding in front of
+	-- elly_1BDB4()'s generated switch table. See th04/b6_next.cpp.
+	"th04/b6_next.cpp",
 	"th04/main_034.cpp",
 	"th04/main_035.cpp",
 	-- POSITION-CRITICAL: main_36r.cpp is Reimu's half of main_036_TEXT and
