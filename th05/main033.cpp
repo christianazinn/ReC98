@@ -12,6 +12,13 @@
 // has emitted any code (kb/codegen/0138).
 #pragma option -zCmain_033_TEXT -zPmain_03
 
+// items_add() sits directly ahead of this object in MAIN_033_TEXT and is NOT
+// #included here. It is 165 bytes, odd, and item_collected() below emits an
+// `-a2`-aligned jump table, so folding it in would flip that table's
+// object-local parity and delete its pad (kb/codegen/0119, measured on this
+// object). It has its own object instead, th05/itmadd.cpp, listed before this
+// one in Tupfile.lua; that file carries the evidence.
+
 // items_miss_add() was the tail `include` of this segment's dump
 // contribution, and this object is the segment's only other contribution, so
 // it goes FIRST here and every byte keeps its address (kb/codegen/0114).

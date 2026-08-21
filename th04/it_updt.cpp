@@ -27,6 +27,13 @@
 // rejects `-zP` once a TU has emitted any code (kb/codegen/0138).
 #pragma option -zCIT_UPDT_TEXT -zPmain_03
 
+// items_add() was the carve-free `proc` tail of this segment's dump
+// contribution once items_miss_add() left it, so it goes ahead of everything
+// below and every byte keeps its address (kb/codegen 0099 + 0114). Shared
+// verbatim with th05/main033.cpp, which hosts the same body one binary over
+// at the same position for the same reason.
+#include "th04/main/item/add.cpp"
+
 // items_miss_add() was the tail `include` of this segment's dump
 // contribution, and this object is the segment's only other contribution, so
 // it goes FIRST here and every byte keeps its address (kb/codegen/0114).

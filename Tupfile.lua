@@ -1220,6 +1220,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/enemy_u.cpp",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
+	"th05/itmadd.cpp",
 	"th05/main033.cpp",
 	"th05/std_run.cpp",
 	"th05/enm_btpl.cpp",

@@ -4772,7 +4772,7 @@ sub_16D67	proc far
 		mov	bp, sp
 		call	IRand
 		and	al, 0Fh
-		mov	byte_2C98A, al
+		mov	_enemy_drop_ring_p, al
 		call	@item_splashes_init$qv
 		mov	_items_pull_to_player, 0
 		mov	word_2C986, 0
@@ -4781,92 +4781,92 @@ sub_16D67	proc far
 sub_16D67	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @ITEMS_ADD$QII11ITEM_TYPE_T
-@items_add$qii11item_type_t	proc near
-
-@@type		= byte ptr  4
-@@y		= word ptr  6
-@@x		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_items_pull_to_player, 0
-		jz	short loc_16DA0
-		cmp	[bp+@@type], IT_BIGPOWER
-		jb	short loc_16D9C
-		cmp	[bp+@@type], -1
-		jnz	short loc_16DA0
-
-loc_16D9C:
-		mov	[bp+@@type], IT_POWER
-
-loc_16DA0:
-		cmp	[bp+@@type], -1
-		jnz	short loc_16DCA
-		inc	byte_2C98A
-		test	byte_2C98A, 1
-		jnz	short loc_16E23
-		mov	al, byte_2C98A
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	bx, 64
-		cwd
-		idiv	bx
-		mov	bx, dx
-		mov	al, ENEMY_DROPS[bx]
-		mov	[bp+@@type], al
-
-loc_16DCA:
-		mov	si, offset _items
-		xor	di, di
-		jmp	short loc_16E1E
-; ---------------------------------------------------------------------------
-
-loc_16DD1:
-		cmp	byte ptr [si], 0
-		jnz	short loc_16E1A
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+0Fh], 0
-		mov	ax, [bp+@@x]
-		mov	[si+2],	ax
-		mov	ax, [bp+@@y]
-		mov	[si+4],	ax
-		mov	[si+item_t.pos.velocity.x], 0
-		mov	[si+item_t.pos.velocity.y], (-3 shl 4)
-		mov	al, [bp+@@type]
-		mov	[si+item_t.ITEM_type], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _ITEM_PATNUM[bx]
-		mov	[si+item_t.ITEM_patnum], ax
-		call	@item_splashes_add$q20%SubpixelBase$ti$ti%t1 pascal, [bp+@@x], [bp+@@y]
-		mov	word ptr [si+12h], 0
-		inc	_items_spawned
-		jmp	short loc_16E23
-; ---------------------------------------------------------------------------
-
-loc_16E1A:
-		inc	di
-		add	si, size item_t
-
-loc_16E1E:
-		cmp	di, ITEM_COUNT
-		jl	short loc_16DD1
-
-loc_16E23:
-		pop	di
-		pop	si
-		pop	bp
-		retn	6
-@items_add$qii11item_type_t	endp
+	extern @ITEMS_ADD$QII11ITEM_TYPE_T:near
+	; items_add() -- spawning a single item -- was lifted out of here and is
+	; now th04/main/item/add.cpp, wrapped by th05/itmadd.cpp, which
+	; Tupfile.lua lists immediately BEFORE th05/main033.cpp. This proc was the
+	; LAST thing this dump contributed to the segment, so that object lands
+	; exactly in the hole and every byte above it keeps its address
+	; (kb/codegen 0099 + 0105 + 0114). No carve and no new segment name; the
+	; one Tupfile.lua line is what kb/codegen/0119 costs, below.
+	;
+	;
+	;
+	; ONE BODY SERVES BOTH GAMES, and kb/codegen/0115 is what decided that --
+	; not the shared name, which mpn_load() is the standing warning about.
+	; This copy is 0A5h bytes against th04_main.asm's 96h, and a length
+	; difference is not by itself evidence of two functions any more than
+	; equal length would be evidence of one. The byte compare against the two
+	; original images puts the ranges instruction for instruction together
+	; from the enemy-drop ring lookup to the `retn 6`, and the whole 15-byte
+	; difference is this game's own two `#if (GAME == 5)` sites:
+	;
+	;   * THE BOMB-PULL CLAMP, 18h bytes at the top and TH05-only. While
+	;     [items_pull_to_player] is set, anything worth less than IT_BIGPOWER
+	;     -- and any still-undecided enemy drop -- is forced to IT_POWER, so a
+	;     bomb cannot be used to farm the higher-value drops.
+	;
+	;   * THE EVERY-OTHER-DROP TEST. This game tests bit 0 of the ring
+	;     position; TH04 divides it by 2 and looks at the remainder. Same
+	;     behaviour, different source, and the 15-byte total is what makes
+	;     that a complete account of the difference rather than a plausible
+	;     one.
+	;
+	;
+	; THE `public` IS GONE WITH THE BODY, and the `extern` above replaces it.
+	; Two call sites in this dump still reach the name, both BELOW this line.
+	; The spelling is upper case because the function is `pascal` and that is
+	; how Turbo C++ mangles a `pascal` name; TASM emits the EXTDEF under
+	; exactly the spelling written here and still matches the lower-case call
+	; sites, because `/mx` makes only globals case-sensitive
+	; (kb/codegen 0086 + 0103).
+	;
+	;
+	; TWO NAMES LEFT THIS DUMP WITH THE BODY, both published from the storage
+	; they already had rather than moved anywhere:
+	;
+	;   * ENEMY_DROPS, the 64-entry ring of item types that an undecided enemy
+	;     drop resolves to, in th05/main/item/enemy_drops[data].asm. It
+	;     already carried that name and only gained a `public` and the leading
+	;     underscore Turbo C++ decorates a C++ object with. This game's table
+	;     holds the same 64 entries as TH04's in a different order, which is
+	;     why the two remain separate modules.
+	;
+	;   * byte_2C98A -> _enemy_drop_ring_p, the position in that ring, in this
+	;     file's own BSS block. sub_16D67 directly above still writes it, so
+	;     that call site moved to the new spelling in the same commit. The
+	;     name is TH02's: th02/main/item/item.cpp spells the identical
+	;     construct -- a fixed ring of item types entered at a randomly seeded
+	;     position -- `semirandom_ring_p` over ITEM_SEMIRANDOM_RING. What is
+	;     NOT TH02's is the doubling. This counter advances once per
+	;     REQUESTED drop and the ring index is half of it, so every other
+	;     request spawns nothing at all and the caller cannot tell.
+	;
+	;
+	; kb/codegen/0119 WAS MEASURED HERE, IN BOTH DIRECTIONS, AND IT BIT.
+	; carve_free_tails.py flags this row: the body is 0A5h = 165 bytes, odd,
+	; and th05/main033.cpp emits an `-a2`-aligned jump table, the one
+	; item_collected() compiles to. Folding the body into the front of that
+	; object through kb/codegen/0112's wrapper #include moved the table to an
+	; odd object-local offset, deleted the pad the parcel above went out of
+	; its way to preserve, and gave MAIN_033_TEXT 0597h against the original's
+	; 0598h -- with the lifted body byte-perfect and the missing byte 04D6h
+	; further on. One red cycle, 14 ok 1 fail. th05/itmadd.cpp is the fix the
+	; entry prescribes. TH04's half is 96h = 150, even, and took the cheap
+	; route. Evidence: the map rows and funcdiffs in state/notes/items_add.md.
+	;
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore into the rest of this contribution.
+	;
+	;
+	; WHAT THIS SEGMENT'S ROOT CONTRIBUTION IS NOW: sub_16D67 alone, the
+	; 1Dh-byte `proc far` above, which resets the item subsystem at the start
+	; of a stage. th04_main.asm's sub_1DA1B is the same function apart from
+	; the two globals it clears. Lifting it EMPTIES this block, which is the
+	; case MATCH-TH05-MAIN-MIDBOSS2-OBJ measured and this parcel did not have
+	; to: the odd-group-offset rule applies to whichever parcel takes the
+	; LAST proc out of a root contribution, and that is now the next one.
 
 	; items_miss_add() is now th04/main/item/miss_add.cpp, #included at the FRONT of the th05/main033.cpp object -- the module was the LAST thing this dump contributed to main_033_TEXT and that object is the segment's only other contribution, so the C++ lands at exactly the address the module had (kb/codegen 0098 + 0112 + 0114). The same body serves th04_main.asm's IT_UPDT_TEXT. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
@@ -12602,9 +12602,9 @@ include th04/main/bullet/update[bss].asm
 include th04/main/bullet/pellet_r[bss].asm
 		db 6 dup(?)
 word_2C986	dw ?
-public _item_point_score_at_full_dream
+public _item_point_score_at_full_dream, _enemy_drop_ring_p
 _item_point_score_at_full_dream	dw ?
-byte_2C98A	db ?
+_enemy_drop_ring_p	db ?
 		db ?
 include th04/main/midboss/funcs[bss].asm
 public _gameover_fade

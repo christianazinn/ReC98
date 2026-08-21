@@ -48,6 +48,18 @@ extern const int ITEM_PATNUM[IT_COUNT];
 
 void pascal near items_add(subpixel_t x, subpixel_t y, item_type_t type);
 
+// The fixed ring of item types that IT_ENEMY_DROP_NEXT resolves to. Both games
+// have 64 entries, in a different order; TH02's ITEM_SEMIRANDOM_RING is the
+// same idea, down to the randomly seeded starting position.
+#define ENEMY_DROP_RING_SIZE 64
+extern const item_type_t ENEMY_DROPS[ENEMY_DROP_RING_SIZE];
+
+// Position in ENEMY_DROPS, seeded with a random value in [0, 15] when the item
+// subsystem is reset. Advanced once per REQUESTED enemy drop rather than once
+// per spawned one, so the ring index is half of it and every other request
+// spawns nothing.
+extern unsigned char enemy_drop_ring_p;
+
 // Increments or decrements [playperf] when reaching certain values.
 extern unsigned char item_playperf_raise;
 extern unsigned char item_playperf_lower;
