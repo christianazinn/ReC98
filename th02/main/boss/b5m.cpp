@@ -251,18 +251,6 @@ extern "C" uint8_t mima_bg_ring_phase;
 // The lead color of that ring; th02/main/boss/b5.cpp named the pair.
 extern "C" uint8_t mima_bg_ring_col_head;
 
-// The dot-square ring and the filled circle behind her. Still ASM in this
-// segment, and published for this object's sake. `[measured]` from its frame
-// equates and its body: [col] goes straight to grcg_setcolor(), [angle_skew]
-// is added between the cosine and the sine of every dot, [angle_step] is how
-// far the 0x80-wide sweep advances per dot, [with_circle] draws the filled
-// circle once at the top of the second sweep, and [angle_start] is where that
-// sweep begins.
-extern "C" void pascal near mima_17A7F(
-	int col, uint8_t angle_skew, int angle_step, uint8_t with_circle,
-	int angle_start
-);
-
 // The two sweeps mima_bg_render() runs the ring through, and the three passes
 // inside each: the lagging color twice, then the leading one.
 static const int MIMA_BG_SWEEP_1 = 0x80;
@@ -282,6 +270,66 @@ static const pixel_t MIMA_SHOTS_HITBOX_LEFT = 48;
 static const pixel_t MIMA_SHOTS_HITBOX_TOP = 32;
 static const pixel_t MIMA_SHOTS_HITBOX_W = 64;
 static const pixel_t MIMA_SHOTS_HITBOX_H = 64;
+
+
+// One pass of the dot-square ring behind her: a dot every [angle_step] over
+// the 0x80-wide sweep starting at [angle_start], on a circle of
+// [mima_bg_ring_radius] around her fixed centre, in [col]. [with_circle]
+// additionally fills the circle inside it, once, on the sweep that starts at
+// 256.
+//
+// `[measured]` The cosine is taken at the angle and the sine at [angle_skew]
+// past it, so what this draws is a rotating ELLIPSE rather than a turning
+// circle - the skew, not the start, is what makes it move. The dots also grow
+// with the radius, one pixel of edge per 64 of it.
+//
+// `static`: mima_bg_render() below is its only caller, and the dump no longer
+// holds one. `pascal` all the same, because the original is - five word
+// arguments and a `retn 0Ah`.
+static void pascal near mima_17A7F(
+	int col, uint8_t angle_skew, int angle_step, uint8_t with_circle,
+	int angle_start
+)
+{
+	unsigned angle_counter;
+	unsigned char angle;
+	uint8_t dot_edge;
+
+	dot_edge = ((mima_bg_ring_radius >> 6) + 1);
+	grcg_setcolor(GC_RMW, col);
+	for(
+		angle_counter = angle_start;
+		(angle_start + 0x80) > angle_counter;
+		angle_counter += angle_step
+	) {
+		angle = angle_counter;
+		dot_square_left = (
+			(((long)(mima_bg_ring_radius) * CosTable8[angle]) >> 8) +
+			MIMA_RING_CENTER_X
+		);
+		angle += angle_skew;
+		dot_square_top = (
+			(((long)(mima_bg_ring_radius) * SinTable8[angle]) >> 8) +
+			MIMA_RING_CENTER_Y
+		);
+		if(
+			(dot_square_left < PLAYFIELD_RIGHT) &&
+			(dot_square_left > 24) &&
+			(dot_square_top > 8) &&
+			(dot_square_top < PLAYFIELD_BOTTOM)
+		) {
+			grcg_dot_square_put(dot_edge);
+		}
+		if(with_circle && (angle_counter == MIMA_BG_SWEEP_2)) {
+			grcg_setcolor(GC_RMW, mima_bg_circle_col);
+			grcg_circlefill(
+				MIMA_RING_CENTER_X, MIMA_RING_CENTER_Y, mima_bg_circle_radius
+			);
+			grcg_setcolor(GC_RMW, col);
+		}
+	}
+	grcg_off();
+}
 
 
 // Redraws the entire playfield behind her: the orbs' invalidation pass, then

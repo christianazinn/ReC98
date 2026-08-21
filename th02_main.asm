@@ -8581,129 +8581,22 @@ loc_17A73:
 enemies_remove_all endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public MIMA_17A7F
-MIMA_17A7F label near
-mima_17A7F	proc near
-
-var_4		= byte ptr -4
-@@angle		= byte ptr -3
-var_2		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= byte ptr  6
-arg_4		= word ptr  8
-arg_6		= byte ptr  0Ah
-arg_8		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	si, [bp+arg_8]
-		mov	di, [bp+arg_0]
-		mov	al, byte_26CC1
-		mov	ah, 0
-		sar	ax, 6
-		inc	al
-		mov	[bp+var_4], al
-		call	grcg_setcolor pascal, GC_RMW, si
-		mov	[bp+var_2], di
-		jmp	loc_17B5F
-; ---------------------------------------------------------------------------
-
-loc_17AA9:
-		mov	al, byte ptr [bp+var_2]
-		mov	[bp+@@angle], al
-		movzx	eax, byte_26CC1
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, 224
-		mov	word_20164, ax
-		mov	al, [bp+arg_6]
-		add	[bp+@@angle], al
-		movzx	eax, byte_26CC1
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, 200
-		mov	word_20166, ax
-		cmp	word_20164, 416
-		jge	short loc_17B24
-		cmp	word_20164, 18h
-		jle	short loc_17B24
-		cmp	word_20166, 8
-		jle	short loc_17B24
-		cmp	word_20166, 384
-		jge	short loc_17B24
-		mov	al, [bp+var_4]
-		mov	ah, 0
-		push	ax
-		call	@GRCG_DOT_SQUARE_PUT$QI
-
-loc_17B24:
-		cmp	[bp+arg_2], 0
-		jz	short loc_17B59
-		cmp	[bp+var_2], 256
-		jnz	short loc_17B59
-		push	GC_RMW
-		mov	al, byte_26CC5
-		mov	ah, 0
-		push	ax
-		call	grcg_setcolor
-		push	(224 shl 16) or 200
-		mov	al, byte_26CC2
-		mov	ah, 0
-		push	ax
-		call	grcg_circlefill
-		call	grcg_setcolor pascal, GC_RMW, si
-
-loc_17B59:
-		mov	ax, [bp+arg_4]
-		add	[bp+var_2], ax
-
-loc_17B5F:
-		lea	ax, [di+80h]
-		cmp	ax, [bp+var_2]
-		ja	loc_17AA9
-		call	grcg_off
-		pop	di
-		pop	si
-		leave
-		retn	0Ah
-mima_17A7F	endp
-
-
-
-
-; mima_bg_render(), mima_17C92(), mima_17D59(), mima_17E91(),
-; mima_17F27(), mima_180AC(), mima_180EC(), mima_181B3(), mima_183D0(),
-; mima_188AA(), mima_18905(), mima_18A1B(), mima_18B4B(), mima_18BA6(),
-; mima_18C4A(), mima_18DE0(), mima_18EB8() and mima_19173() through
-; mima_update() are th02/main/boss/b5m.cpp, in that order. They were this
-; segment's carve-free tail chain, so th02_main.asm now contributes nothing
-; below mima_17A7F(), and th02/boss_5.cpp's object picks the segment up
-; from the byte after that proc's `retn 0Ah`.
+; mima_17A7F(), mima_bg_render(), mima_17C92(), mima_17D59(),
+; mima_17E91(), mima_17F27(), mima_180AC(), mima_180EC(), mima_181B3(),
+; mima_183D0(), mima_188AA(), mima_18905(), mima_18A1B(), mima_18B4B(),
+; mima_18BA6(), mima_18C4A(), mima_18DE0(), mima_18EB8() and mima_19173()
+; through mima_update() are th02/main/boss/b5m.cpp, in that order. They
+; were this segment's carve-free tail chain, so th02_main.asm now
+; contributes nothing below enemies_remove_all(), and th02/boss_5.cpp's
+; object picks the segment up from the byte after that proc's `retf`.
 ;
 ; Every lift out of this block has to leave the object's prefix ahead of
 ; mima_update()'s generated jump table at the parity it already has, or the
 ; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
 ; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
-; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, and
-; these two to 0x11D + 0xC7 = 0x1E4. Read the prefix from the OBJ's
-; PUBDEFs, never from a comment. (kb/codegen/0160)
+; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, the
+; next two to 0x1E4, and this one to 0xF6 on its own. Read the prefix from
+; the OBJ's PUBDEFs, never from a comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
