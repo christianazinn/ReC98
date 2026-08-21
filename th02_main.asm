@@ -536,260 +536,23 @@ BULLET16_W = 16
 	@LASERS_ADD$QIIII procdesc pascal near
 	extern _lasers_callbacks_set:proc
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-public _sub_10E4F
-_sub_10E4F label far
-sub_10E4F	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	short loc_10E8D
-; ---------------------------------------------------------------------------
-
-loc_10E57:
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 8
-		mov	dx, si
-		shl	dx, 2
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr byte_22DA6[bx]	; left
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 8
-		mov	dx, si
-		shl	dx, 2
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr byte_22DA8[bx]	; top
-		push	(1 shl 16) or 2	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		inc	si
-
-loc_10E8D:
-		cmp	si, 40h
-		jl	short loc_10E57
-		pop	si
-		pop	bp
-		retf
-sub_10E4F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_10E95
-_sub_10E95 label far
-sub_10E95	proc far
-
-@@angle		= byte ptr -3
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		inc	word_20686
-		cmp	word_20686, 168
-		jb	loc_110B3
-		cmp	word_20686, 168
-		jnz	short loc_10EC0
-		call	_snd_se_play c, 14
-		jmp	loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10EC0:
-		cmp	word_20686, 200
-		jnb	short loc_10F22
-		cmp	word_20686, 180
-		ja	short loc_10EE4
-		mov	ax, word_20686
-		and	ax, 1
-		imul	ax, 70
-		add	ax, 100
-		mov	PaletteTone, ax
-		call	far ptr	palette_show
-
-loc_10EE4:
-		mov	ax, word_20686
-		and	ax, 1
-		mov	di, ax
-		mov	ax, RES_Y
-		sub	ax, _scroll_line
-		push	ax
-		mov	ax, _scroll_line
-		imul	ax, 40
-		add	ax, di
-		push	ax
-		push	di
-		call	graph_scroll
-		mov	_slowdown_factor, 3
-		mov	word_22DA0, 224
-		mov	word_22DA2, 200
-		mov	word_22D9E, 0
-		mov	byte_22DA4, 0
-		jmp	loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10F22:
-		cmp	word_20686, 400
-		jnb	short loc_10F5E
-		cmp	word_20686, 200
-		jnz	short loc_10F37
-		mov	_slowdown_factor, 1
-
-loc_10F37:
-		mov	ax, word_20686
-		shr	ax, 1
-		mov	dl, 200
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].r, dl
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	ax, word_20686
-		sub	ax, 200
-		mov	word_22D9E, ax
-		inc	byte_22DA4
-		jmp	loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10F5E:
-		cmp	word_20686, 600
-		jnb	short loc_10F8C
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	ax, word_20686
-		shr	ax, 1
-		mov	dl, 44
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].g, dl
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	ax, word_20686
-		sub	ax, 400
-		mov	word_22D9E, ax
-		dec	byte_22DA4
-		jmp	short loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10F8C:
-		cmp	word_20686, 800
-		jnb	short loc_10FBA
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	ax, word_20686
-		shr	ax, 1
-		mov	dl, 144
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].b, dl
-		mov	ax, word_20686
-		sub	ax, 600
-		mov	word_22D9E, ax
-		inc	byte_22DA4
-		jmp	short loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10FBA:
-		cmp	word_20686, 1000
-		jnb	short loc_10FF0
-		mov	ax, word_20686
-		shr	ax, 1
-		mov	dl, 244
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].r, dl
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	ax, word_20686
-		shr	ax, 1
-		mov	dl, 244
-		sub	dl, al
-		mov	Palettes[0 * size rgb_t].b, dl
-		mov	ax, word_20686
-		sub	ax, 800
-		mov	word_22D9E, ax
-		dec	byte_22DA4
-		jmp	short loc_10FF6
-; ---------------------------------------------------------------------------
-
-loc_10FF0:
-		mov	word_20686, 200
-
-loc_10FF6:
-		call	far ptr	palette_show
-		call	egc_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 7
-		xor	di, di
-		mov	al, byte_22DA4
-		jmp	loc_110A4
-; ---------------------------------------------------------------------------
-
-loc_11013:
-		movsx	eax, word_22D9E
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _CosTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, word_22DA0
-		mov	[bp+var_2], ax
-		movsx	eax, word_22D9E
-		mov	dl, [bp+@@angle]
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		movsx	edx, _SinTable8[bx]
-		imul	eax, edx
-		sar	eax, 8
-		add	ax, word_22DA2
-		mov	si, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 8
-		mov	dx, di
-		shl	dx, 2
-		add	ax, dx
-		mov	dx, [bp+var_2]
-		mov	bx, ax
-		mov	word ptr byte_22DA6[bx], dx
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 8
-		mov	dx, di
-		shl	dx, 2
-		add	ax, dx
-		mov	bx, ax
-		mov	word ptr byte_22DA8[bx], si
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_11095
-		sub	si, RES_Y
-
-loc_11095:
-		push	[bp+var_2]
-		push	si
-		call	grcg_pset
-		inc	di
-		mov	al, [bp+@@angle]
-		add	al, 4
-
-loc_110A4:
-		mov	[bp+@@angle], al
-		cmp	di, 40h
-		jl	loc_11013
-		call	grcg_off
-
-loc_110B3:
-		pop	di
-		pop	si
-		leave
-		retf
-sub_10E95	endp
+; THIS SEGMENT'S ROOT CONTRIBUTION IS EMPTY. Stage 3's [stage_invalidate]
+; and [stage_update_and_render] were the last of it, and they are
+; th02/main/stage/stages.cpp now -- stage3_invalidate() and
+; stage3_update_and_render(), prepended below ahead of
+; th02/main/midboss/m3.cpp, th02/main/boss/b3.cpp and th02/dialog.cpp
+; (kb/codegen/0099). Keep the `segment`/`ends` pair: it is what puts this
+; segment in the MAIN_03 group, and TLINK lays the four objects below out
+; in link order behind it.
+;
+; The equates and `procdesc` declarations above are NOT this block's: TASM
+; scopes both to the FILE, and other segments still resolve BG_*, PAT_*,
+; @LASERS_ADD$QIIII, @SHOTS_HITTEST$QIIII and the dialog scripts against
+; them. `[measured]` 53 of the 89 declarations at this segment's head no
+; longer have a reference anywhere in the file, but none of the 53 was
+; retired by this carve -- they are the residue of earlier lifts, and
+; sweeping them is a parcel of its own.
 
 SF_DORMANT = 0
 SF_ACTIVE = 1
@@ -12866,13 +12629,16 @@ top_22D9A	dw ?
 public _y_22D9C
 _y_22D9C label word
 y_22D9C	dw ?
-word_22D9E	dw ?
-word_22DA0	dw ?
-word_22DA2	dw ?
-byte_22DA4	db ?
+public _stage3_ring_radius
+_stage3_ring_radius	dw ?
+public _stage3_ring_center_x, _stage3_ring_center_y
+_stage3_ring_center_x	dw ?
+_stage3_ring_center_y	dw ?
+public _stage3_ring_angle
+_stage3_ring_angle	db ?
 		db ?
-byte_22DA6	db 2 dup(?)
-byte_22DA8	db 510 dup(?)
+public _stage3_ring_dot
+_stage3_ring_dot	db 512 dup(?)
 public _midboss3_angle
 _midboss3_angle	db MIDBOSS3_COUNT dup(?)
 public _midboss3_loops

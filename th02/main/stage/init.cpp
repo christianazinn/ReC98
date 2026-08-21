@@ -77,8 +77,12 @@ extern "C" void far boss_activate_if_scroll_done(void);
 extern "C" void far sub_13513(void); // Stages 1 and 2, invalidate
 extern "C" void far sub_13671(void); // Stage 1, update and render
 extern "C" void far sub_140AE(void); // Stage 2, update and render
-extern "C" void far sub_10E4F(void); // Stage 3, invalidate
-extern "C" void far sub_10E95(void); // Stage 3, update and render
+// th02/main/stage/stages.cpp, which owns DIALOG_TEXT's head. Named for
+// the slots they are installed into below, the way stage4_update_and_render()
+// already is: the remaining three stages' effect functions are still ASM and
+// still spell themselves by address.
+extern "C" void far stage3_invalidate(void);
+extern "C" void far stage3_update_and_render(void);
 // th02/main/boss/b5.cpp. Named for the slot it is installed into below,
 // because that is the only thing about it Stage 4 chooses: the other four
 // stages' [stage_update_and_render] functions are still ASM and still spell
@@ -352,8 +356,8 @@ void near stage_init(void)
 		boss_end = stones_end;
 		boss_bg_render_func = stones_bg_render;
 		boss_update_func = stones_update;
-		stage_update_and_render = sub_10E95;
-		stage_invalidate = sub_10E4F;
+		stage_update_and_render = stage3_update_and_render;
+		stage_invalidate = stage3_invalidate;
 		break;
 
 	case 3:

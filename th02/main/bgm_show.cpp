@@ -200,10 +200,11 @@ extern "C" void far boss_activate_if_scroll_done(void)
 	// this is what removes it again.
 	//
 	// Stage 3 instead blacks out palette color 0. What fades it back in is
-	// sub_10E95 -- the proc stage_init()'s `case 2:` installs as Stage 3's own
-	// [stage_update_and_render] -- and NOT stones_init(), whose entire body is
-	// six calls and touches no palette register at all. The binary writes
-	// Palettes[0] from exactly two procs, sub_10E95 and mima_update.
+	// stage3_update_and_render() -- the proc stage_init()'s `case 2:` installs
+	// as Stage 3's own [stage_update_and_render] -- and NOT stones_init(),
+	// whose entire body is six calls and touches no palette register at all.
+	// The binary writes Palettes[0] from exactly two procs, that one and
+	// mima_update().
 	// [measured: both claims re-derived from th02_main.asm, 2026-08-19]
 	// [inferred: the stage IDs are ZUN's, the reason is ours]
 	if(stage_id == 3) {

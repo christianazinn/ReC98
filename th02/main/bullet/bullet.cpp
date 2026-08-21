@@ -109,7 +109,8 @@ extern int8_t easy_slow_skip_cycle;
 //   together, and th04_main.asm has a global [_boss_phase] compared against a
 //   PHASE_* family. TH02 already had the sibling [boss_phase_frame] and was
 //   missing exactly this one.
-// - [stage3_effect_frame] is referenced from nowhere but sub_10E95, which
+// - [stage3_effect_frame] is referenced from nowhere but
+//   stage3_update_and_render() (th02/main/stage/stages.cpp), which
 //   stage_init() installs as stage_update_and_render() for `stage_id == 2`.
 //   It is incremented once per frame and used purely as a timeline: SE at 168,
 //   a palette strobe over 168-200, gates at 400/600/800/1000, then a wrap back
