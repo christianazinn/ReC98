@@ -12,4 +12,8 @@
 // kb/codegen/0162's far declaration instead of dropping the pragma.
 #pragma option -zPmain_03
 
+// Yuuka's Extra fight sits BELOW Elly's inside this segment, and code is
+// emitted in source order within an object, so this #include order *is* the
+// original address order (kb/codegen/0112).
+#include "th04/main/boss/b6_upd.cpp"
 #include "th04/main/boss/b3_upd.cpp"

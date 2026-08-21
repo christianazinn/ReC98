@@ -1,3 +1,13 @@
+#ifndef TH04_MAIN_BULLET_CLEARZAP_HPP
+#define TH04_MAIN_BULLET_CLEARZAP_HPP
+
+// Guarded for the reason th04/main/player/shot.hpp states in full: two body
+// files that both include this one now meet in a single translation unit,
+// and Turbo C++ 4.02 rejects the second expansion of every `static const`
+// and every declaration below. Ordering the includes so only one of them
+// wins would work today and break at the next host; a guard is the
+// invariant. Byte-inert: this file only declares.
+
 #include "th04/sprites/cels.h"
 #include "platform.h"
 
@@ -25,3 +35,4 @@ extern unsigned char bullet_clear_time;
 		bullet_clear_time = 20; \
 	} \
 }
+#endif /* TH04_MAIN_BULLET_CLEARZAP_HPP */
