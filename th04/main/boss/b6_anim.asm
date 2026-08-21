@@ -141,6 +141,13 @@ _yuuka6_anim_parasol_back_open	endp
 
 
 public _yuuka6_anim_parasol_back_pull_forward
+; Turbo C++ 4.02 keeps 32 significant characters in an identifier, so a C++
+; caller emits its EXTDEF against the truncated spelling and TLINK cannot see
+; the full one. kb/codegen/0060 + kb/conventions/tcc-identifier-significance.md;
+; the alias allocates no bytes. Three of this file's eight names are over the
+; limit, and th04/main/boss/b6_next.cpp calls all three.
+public _yuuka6_anim_parasol_back_pull_fo
+_yuuka6_anim_parasol_back_pull_fo label near
 _yuuka6_anim_parasol_back_pull_forward	proc near
 
 @@frame		= word ptr -2
@@ -207,6 +214,8 @@ _yuuka6_anim_parasol_back_pull_forward	endp
 
 
 public _yuuka6_anim_parasol_back_pull_left
+public _yuuka6_anim_parasol_back_pull_le
+_yuuka6_anim_parasol_back_pull_le label near
 _yuuka6_anim_parasol_back_pull_left	proc near
 
 @@frame		= word ptr -2
@@ -267,6 +276,8 @@ _yuuka6_anim_parasol_back_pull_left	endp
 
 
 public _yuuka6_anim_parasol_left_spin_back
+public _yuuka6_anim_parasol_left_spin_ba
+_yuuka6_anim_parasol_left_spin_ba label near
 _yuuka6_anim_parasol_left_spin_back	proc near
 	push	bp
 	mov	bp, sp
