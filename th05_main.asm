@@ -7345,80 +7345,11 @@ locret_19E10:
 sub_19CB0	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19E12	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19E43
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		cmp	_boss_phase_frame, 40
-		jnz	loc_19ED8
-		call	snd_se_play pascal, 8
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19E43:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_19EC6
-		mov	_laser_template.LASER_color, 6
-		mov	_laser_template.coords.LASER_width, 8
-		mov	eax, _bullet_template.BT_origin
-		mov	_laser_template.coords.origin, eax
-		mov	_laser_template.grow_at_age, 40
-		mov	_laser_template.shootout_speed, (5 shl 4)
-		mov	ax, _player_pos.cur.y
-		sub	ax, _laser_template.coords.origin.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, _laser_template.coords.origin.x
-		push	ax
-		call	iatan2
-		mov	_laser_template.coords.angle, al
-		call	@lasers_shootout_add$qv
-		mov	al, _laser_template.coords.angle
-		add	al, 16
-		mov	_laser_template.coords.angle, al
-		call	@lasers_shootout_add$qv
-		mov	al, _laser_template.coords.angle
-		add	al, -32
-		mov	_laser_template.coords.angle, al
-		call	@lasers_shootout_add$qv
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RANDOM_ANGLE_AND_SPEED
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	word ptr _bullet_template.spread, (8 shl 8) or 20
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_boss_sprite, 180
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19EC6:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19ED8
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_19ED8:
-		pop	bp
-		retn
-sub_19E12	endp
 
 
-; alice_pattern_19EDA(), alice_pattern_19F75() and pattern_red_spreads()
-; are th05/main/boss/b3.cpp, compiled into th05/boss_4.cpp ahead of
-; alice_update(). They were the root contribution's last three procs, and
+; alice_pattern_19E12(), alice_pattern_19EDA(), alice_pattern_19F75() and
+; pattern_red_spreads() are th05/main/boss/b3.cpp, compiled into
+; th05/boss_4.cpp ahead of alice_update(). They were the root contribution's last three procs, and
 ; the C++ object already began exactly where they ended (kb/codegen 0114),
 ; so the lift is an ordinary carve-free tail: no carve, no new segment, no
 ; Tupfile.lua line.
@@ -7427,13 +7358,16 @@ sub_19E12	endp
 ; the one-byte pad under alice_update()'s jump table -- and that pad tracks
 ; the parity of the table's object-relative offset (kb/codegen 0159), so an
 ; odd number of bytes prepended to the object would add or drop the pad and
-; move every symbol behind it. 0x9B + 0x90 + 0x3F = 0x16A is even; the
-; object's own SEGDEF went 0x512 -> 0x67C, exactly +0x16A, which is what
-; says the pad survived (kb/codegen 0160 -- read the OBJ, not a tcc -S
-; listing).
+; move every symbol behind it. Both lifts kept the prefix even and both
+; read the object's own SEGDEF to prove it, per kb/codegen 0160 rather
+; than from a tcc -S listing: 0x9B + 0x90 + 0x3F = 0x16A took it from
+; 0x512 to 0x67C, and 0xC8 took it from 0x67C to 0x744. Each delta is
+; exact, which is what says the pad survived.
 ;
-; [off_22770] below still holds three pointers to the first and one to the
-; second, so both keep a procdesc at the end of this segment.
+; [off_22770] below still points at three of the four -- two entries to
+; alice_pattern_19E12(), three to alice_pattern_19EDA(), one to
+; alice_pattern_19F75() -- so those three keep a procdesc at the end of
+; this segment.
 ; pattern_red_spreads() had exactly one caller, alice_update() itself, and
 ; needs no declaration here; its zero-byte kb/codegen 0123 alias is gone
 ; with it.
@@ -7457,8 +7391,8 @@ sub_19E12	endp
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
-	; the three pattern bodies that followed them; the root's tail here
-	; is now sub_19E12.
+	; the four pattern bodies that followed them; the root's tail here
+	; is now sub_19CB0.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -7467,8 +7401,9 @@ sub_19E12	endp
 	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
 	; A procdesc carrying an argument list is also spelled UPPERCASE:
 	; TASM uppercases the symbol on the CALLPROC path such a list selects.
-	; Two of the twelve entries of [off_22770] in _DATA below. Neither
+	; Six of the twelve entries of [off_22770] in _DATA below. None
 	; carries an argument list, so TASM leaves the case alone.
+	@alice_pattern_19E12$qv procdesc near
 	@alice_pattern_19EDA$qv procdesc near
 	@alice_pattern_19F75$qv procdesc near
 
@@ -14507,9 +14442,9 @@ off_22770	dw offset sub_19B9E
 		dw offset sub_19C34
 		dw offset @alice_pattern_19EDA$qv
 		dw offset sub_19C34
-		dw offset sub_19E12
+		dw offset @alice_pattern_19E12$qv
 		dw offset @alice_pattern_19EDA$qv
-		dw offset sub_19E12
+		dw offset @alice_pattern_19E12$qv
 		dw offset @alice_pattern_19EDA$qv
 		dw offset @alice_pattern_19F75$qv
 off_22788	dw offset sub_1A5EB

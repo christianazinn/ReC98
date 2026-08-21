@@ -16,6 +16,10 @@
 /// compiles this file ahead of b4_both.cpp: only the first file compiled into
 /// an object may name its segment (kb/codegen/0112 trap 0).
 
+// For iatan2(). Guarded, unlike the rest of this block, so this is a hoist and
+// not a move; the OBJ was read before and after to confirm it changed no
+// codegen below it.
+#include "libs/master.lib/master.hpp"
 // Also supplies th04/math/randring.hpp and th05/sprites/main_pat.h, neither of
 // which has an include guard; b4_both.cpp reaches both through this same
 // header, so naming either of them here would be a compile error.
@@ -31,6 +35,12 @@
 // Unguarded, and this file compiles ahead of that one in the same object, so
 // the include moved to the earliest file that needs it (kb/codegen 0129).
 #include "th05/main/boss/bosses.hpp"
+// Unguarded, like every header here, and reached from nowhere else in this
+// object -- th05/main/boss/b4_both.cpp fires no lasers. It carries two
+// balanced `#pragma codeseg` pairs, each closed by a bare `#pragma codeseg`
+// that restores th05/boss_4.cpp's `-zC` default, so nothing below it moves
+// segment; b1.cpp and b6.cpp include it the same way.
+#include "th05/main/bullet/laser.hpp"
 #include "th05/main/boss/b3puppet.hpp"
 
 // ZUN's remaining assembly in this segment
@@ -129,16 +139,71 @@ enum alice_phase_t {
 static const int PATTERNS_PER_PHASE = 24;
 // ---------
 
-// Two of the twelve entries of [off_22770], Alice's danmaku pattern table. The
-// table itself and its other four distinct bodies are still in
-// th05_main.asm's _DATA and B4_UPDATE_TEXT contributions, so these two keep an
-// address-suffixed hand name rather than a descriptive one: the family's stem
-// is settled (`alice_…_pattern`) but which of the six bodies gets which
-// descriptive name is one decision over the whole table, and this parcel does
-// not make it. state/re/NAMING_REVIEW_VERDICTS_19.md §10.1 measured the
-// address-suffixed form against naming_precheck's own PLACEHOLDER_RE and it is
-// not a placeholder. The table reaches both through the two procdesc lines
-// this parcel adds to B4_UPDATE_TEXT.
+// Six of the twelve entries of [off_22770], Alice's danmaku pattern table,
+// across the three functions below. The table itself and its other three
+// distinct bodies are still in th05_main.asm's _DATA and B4_UPDATE_TEXT
+// contributions, so these three keep an address-suffixed hand name rather than
+// a descriptive one: the family's stem is settled (`alice_…_pattern`) but
+// which of the six bodies gets which descriptive name is one decision over the
+// whole table, and it is only payable once every body has landed.
+// state/re/NAMING_REVIEW_VERDICTS_19.md §10.1 measured the address-suffixed
+// form against naming_precheck's own PLACEHOLDER_RE and it is not a
+// placeholder. The table reaches all three through procdesc lines in
+// B4_UPDATE_TEXT.
+
+// Charges a 3-stack gather for 64 frames, then, on frame 64 alone, fires three
+// shoot-out lasers -- one aimed, one 16 units clockwise, one 16 counter-
+// clockwise -- together with a single random-angle blue ball spread.
+void near alice_pattern_19E12(void)
+{
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		laser_template.col = 6;
+		laser_template.coords.width.nonshrink = 8;
+		laser_template.coords.origin = bullet_template.origin;
+
+		// The dump spells this field `grow_at_age`, but `grow_at_age` and
+		// `moveout_at_age` are two labels on the same word of `laser_t`
+		// (th05/main/bullet/lasers[bss].asm), and it is the shoot-out reading
+		// that applies: lasers_shootout_add() is what consumes this template.
+		laser_template.active_at_age.moveout = 40;
+
+		laser_template.shootout_speed.set(5.0f);
+		laser_template.coords.angle = iatan2(
+			(player_pos.cur.y.v - laser_template.coords.origin.y.v),
+			(player_pos.cur.x.v - laser_template.coords.origin.x.v)
+		);
+		lasers_shootout_add();
+		laser_template.coords.angle += 0x10;
+		lasers_shootout_add();
+		laser_template.coords.angle -= 0x20;
+		lasers_shootout_add();
+
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_RANDOM_ANGLE_AND_SPEED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+		bullet_template.set_spread(20, 8);
+		bullet_template.speed.set(1.5f);
+		bullet_template.angle = 0x00;
+		bullet_template_tune();
+		bullets_add_regular();
+		boss.sprite = PAT_ALICE_STILL;
+		return;
+	}
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
 
 // Charges a 3-stack gather for 64 frames, then fires a mirrored pair of aimed
 // blue ball stacks every 4th frame, walking the pair's angle 5 units per shot.
