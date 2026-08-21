@@ -611,12 +611,12 @@ DIALOG_TEXT	ends
 
 BOSS_5_TEXT	segment	byte public 'CODE' use16
 
-; boss_playfield_reset() is th02/main/boss/b4.cpp, prepended into
-; main_03__TEXT below. sigma_init() in this segment and mima_init() in
-; main_03__TEXT are its two remaining callers here; both segments are in
-; group main_03, so `near` resolves to the same 3-byte `E8 rel16` the
-; original encodes, and one declaration in the earlier segment serves both.
-extrn _boss_playfield_reset:near
+; boss_playfield_reset() is th02/main/boss/b4.cpp; mima_17E91() is
+; th02/main/boss/b5m.cpp, prepended into this segment below. The callers
+; left here are sigma_init() and mima_init() for the first, and
+; mima_bg_render() for the second; every one of those is in group main_03,
+; so `near` resolves to the same 3-byte `E8 rel16` the originals encode.
+extrn _boss_playfield_reset:near, _mima_17E91:near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -8697,7 +8697,7 @@ var_1		= byte ptr -1
 		push	bp
 		mov	bp, sp
 		sub	sp, 2
-		call	mima_17E91
+		call	_mima_17E91
 		mov	al, _page_back
 		mov	ah, 0
 		add	ax, ax
@@ -8890,238 +8890,21 @@ locret_17D57:
 mima_17C92	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_17D59
-_mima_17D59 label near
-mima_17D59	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	word_26CBC, 0
-		xor	si, si
-		jmp	loc_17E87
-; ---------------------------------------------------------------------------
-
-loc_17D68:
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26CAC[bx], 1
-		jz	short loc_17D7A
-		inc	word_26CBC
-		jmp	loc_17E86
-; ---------------------------------------------------------------------------
-
-loc_17D7A:
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26C6C[bx]
-		add	ax, 4
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr word_26C8C[bx]
-		push	180020h
-		call	@SHOTS_HITTEST$QIIII
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26C6C[bx]
-		add	ax, 0FFF0h
-		mov	dl, _page_front
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		cmp	ax, _player_left_on_page[bx]
-		jge	short loc_17E50
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26C6C[bx]
-		add	ax, 10h
-		mov	dl, _page_front
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		cmp	ax, _player_left_on_page[bx]
-		jle	short loc_17E50
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26C8C[bx]
-		add	ax, 0FFF0h
-		mov	dl, _page_front
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		cmp	ax, _player_top_on_page[bx]
-		jge	short loc_17E50
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word_26C8C[bx]
-		add	ax, 10h
-		mov	dl, _page_front
-		mov	dh, 0
-		add	dx, dx
-		mov	bx, dx
-		cmp	ax, _player_top_on_page[bx]
-		jle	short loc_17E50
-		mov	_player_is_hit, 1
-
-loc_17E50:
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr word_26C6C[bx]
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr word_26C8C[bx]
-		mov	ax, si
-		and	ax, 3
-		add	ax, 89h
-		push	ax
-		call	super_put_rect
-
-loc_17E86:
-		inc	si
-
-loc_17E87:
-		cmp	si, 8
-		jl	loc_17D68
-		pop	si
-		pop	bp
-		retn
-mima_17D59	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mima_17E91	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		xor	si, si
-		jmp	loc_17F1D
-; ---------------------------------------------------------------------------
-
-loc_17E9A:
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26CAC[bx], 0
-		jz	short loc_17F1C
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		cmp	word ptr word_26C8C[bx], 0FFF0h
-		jle	short loc_17F1C
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		cmp	word ptr word_26C8C[bx], 382
-		jge	short loc_17F1C
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr word_26C6C[bx]	; left
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 4
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr word_26C8C[bx]	; top
-		push	(32 shl 16) or 32	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		mov	bx, si
-		add	bx, bx
-		cmp	word ptr word_26CAC[bx], 2
-		jnz	short loc_17F1C
-		mov	bx, si
-		add	bx, bx
-		mov	word ptr word_26CAC[bx], 0
-
-loc_17F1C:
-		inc	si
-
-loc_17F1D:
-		cmp	si, 8
-		jl	loc_17E9A
-		pop	si
-		pop	bp
-		retn
-mima_17E91	endp
-
-
-
-
-; mima_17F27(), mima_180AC(), mima_180EC(), mima_181B3(), mima_183D0(),
-; mima_188AA(), mima_18905(), mima_18A1B(), mima_18B4B(), mima_18BA6(),
-; mima_18C4A(), mima_18DE0(), mima_18EB8() and mima_19173() through
-; mima_update() are th02/main/boss/b5m.cpp, in that order. They were this
-; segment's carve-free tail chain, so th02_main.asm now contributes nothing
-; below mima_17E91(), and th02/boss_5.cpp's object picks the segment up
-; from the byte after that proc's `retn`.
+; mima_17D59(), mima_17E91(), mima_17F27(), mima_180AC(), mima_180EC(),
+; mima_181B3(), mima_183D0(), mima_188AA(), mima_18905(), mima_18A1B(),
+; mima_18B4B(), mima_18BA6(), mima_18C4A(), mima_18DE0(), mima_18EB8() and
+; mima_19173() through mima_update() are th02/main/boss/b5m.cpp, in that
+; order. They were this segment's carve-free tail chain, so th02_main.asm
+; now contributes nothing below mima_17C92(), and th02/boss_5.cpp's object
+; picks the segment up from the byte after that proc's `retn`.
 ;
 ; Every lift out of this block has to leave the object's prefix ahead of
 ; mima_update()'s generated jump table at the parity it already has, or the
 ; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
 ; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
-; above THOSE to 0x752, and these three to
-; 0x185 + 0x40 + 0xC7 = 0x28C. Read the prefix from the OBJ's PUBDEFs,
-; never from a comment. (kb/codegen/0160)
+; above THOSE to 0x752, the next three to 0x28C, and these two to
+; 0x138 + 0x96 = 0x1CE. Read the prefix from the OBJ's PUBDEFs, never from
+; a comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -11030,7 +10813,8 @@ word_26C9C	dw 8 dup(?)
 public _mima_orb_flag
 _mima_orb_flag label word
 word_26CAC	dw 8 dup(?)
-word_26CBC	dw ?
+public _mima_orbs_gone_unused
+_mima_orbs_gone_unused	dw ?
 public _mima_patterns_this_phase
 _mima_patterns_this_phase label word
 word_26CBE	dw ?

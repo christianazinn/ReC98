@@ -26,8 +26,10 @@
 #include "th02/main/frames.hpp"
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/tile/tile.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/shot.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/main/item/item.hpp"
@@ -63,7 +65,6 @@ extern "C" int patnum_2064E;
 /// is a different object and calls it near through the MAIN_03 group.
 
 extern "C" void near mima_17C92(void);
-extern "C" void near mima_17D59(void);
 extern "C" void near mima_18B4B(void);
 extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
@@ -226,6 +227,117 @@ static const int MIMA_ORB_COUNT = 4;
 
 // A quarter turn, so the four orbs sit on the corners of a square.
 static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
+
+
+/// Her orbs' renderer and their invalidation pass
+/// ----------------------------------------------
+/// Both walk all EIGHT slots of the shared arrays. `[measured]` Every pattern
+/// that fills them only ever writes the lower four, so the upper four are
+/// permanently flag 0 and get skipped - but they are still walked, twice, on
+/// every frame of the fight.
+
+// `[measured]` Counted up once per slot that is NOT alive, reset to 0 at the
+// top of every mima_17D59() call, and read by NOTHING in the binary - the
+// census over th02_main.asm found exactly two occurrences, both writes, plus
+// the `dw ?`. A dead store, and this proc holds its last two references, so
+// it is a rename rather than a kb/codegen/0123 alias.
+extern "C" int mima_orbs_gone_unused;
+
+static const int MIMA_ORB_SLOT_COUNT = 8;
+
+// The box mima_17D59() hands to shots_hittest() for each alive orb, offset by
+// 4 pixels to the right of that orb's own top-left corner. `[measured]` The
+// same box at the same offset b4.hpp measures for Marisa's orbs.
+static const pixel_t MIMA_ORB_HITTEST_W = 24;
+static const pixel_t MIMA_ORB_HITTEST_H = 32;
+
+// The sprite itself, which is also what mima_17E91() invalidates.
+static const pixel_t MIMA_ORB_W = 32;
+static const pixel_t MIMA_ORB_H = 32;
+
+// Half of that, on both axes, is the box mima_17D59() tests the player
+// against - centered on the orb's top-left CORNER rather than on the sprite.
+static const pixel_t MIMA_ORB_PLAYER_REACH = 16;
+
+// The four orb sprites, picked by the low two bits of the slot index, so the
+// upper four slots would repeat them.
+static const int MIMA_ORB_PATNUM = 137;
+
+
+// Blits the orbs, and runs both of their hit tests: shots against a 24x32 box
+// offset into the orb, and the player against a 32x32 box centered on its
+// top-left corner.
+//
+// `[measured]` ZUN quirk: the orb is read on the BACK page and the player on
+// the FRONT one, so the player collision is a frame stale relative to the
+// thing it is drawn against.
+extern "C" void near mima_17D59(void)
+{
+	register int i;
+
+	mima_orbs_gone_unused = 0;
+	for(i = 0; i < MIMA_ORB_SLOT_COUNT; i++) {
+		if(mima_orb_flag[i] != 1) {
+			mima_orbs_gone_unused++;
+			continue;
+		}
+		shots_hittest(
+			(mima_orb_left_on_page[page_back][i] + 4),
+			mima_orb_top_on_page[page_back][i],
+			MIMA_ORB_HITTEST_W,
+			MIMA_ORB_HITTEST_H
+		);
+		if(
+			((mima_orb_left_on_page[page_back][i] - MIMA_ORB_PLAYER_REACH) <
+				player_left_on_page[page_front]) &&
+			((mima_orb_left_on_page[page_back][i] + MIMA_ORB_PLAYER_REACH) >
+				player_left_on_page[page_front]) &&
+			((mima_orb_top_on_page[page_back][i] - MIMA_ORB_PLAYER_REACH) <
+				player_top_on_page[page_front]) &&
+			((mima_orb_top_on_page[page_back][i] + MIMA_ORB_PLAYER_REACH) >
+				player_top_on_page[page_front])
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+		super_put_rect(
+			mima_orb_left_on_page[page_back][i],
+			mima_orb_top_on_page[page_back][i],
+			((i & 3) + MIMA_ORB_PATNUM)
+		);
+	}
+}
+
+
+// Invalidates the tiles behind every orb that is on screen, and retires the
+// ones that were flagged for removal. th02/main/boss/b3.cpp's
+// stones_bg_render() is the same shape one boss down.
+//
+// `extern "C"` rather than static because mima_bg_render(), which is still ASM
+// in this segment, is its only caller and reaches it through an
+// `extrn _mima_17E91:near` - the same route th02_main.asm already uses for
+// boss_playfield_reset() at the top of this very segment.
+extern "C" void near mima_17E91(void)
+{
+	register int i;
+
+	for(i = 0; i < MIMA_ORB_SLOT_COUNT; i++) {
+		if(
+			(mima_orb_flag[i] != 0) &&
+			(mima_orb_top_on_page[page_back][i] > -MIMA_ORB_PLAYER_REACH) &&
+			(mima_orb_top_on_page[page_back][i] < (PLAYFIELD_BOTTOM - 2))
+		) {
+			tiles_invalidate_rect(
+				mima_orb_left_on_page[page_back][i],
+				mima_orb_top_on_page[page_back][i],
+				MIMA_ORB_W,
+				MIMA_ORB_H
+			);
+			if(mima_orb_flag[i] == 2) {
+				mima_orb_flag[i] = 0;
+			}
+		}
+	}
+}
 
 
 /// Her renderer, her rank table, and her horizontal sweep
