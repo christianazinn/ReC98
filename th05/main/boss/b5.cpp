@@ -91,15 +91,6 @@ extern "C" pattern_loop_func_t yumeko_pattern;
 extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_2[2];
 extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_5[2];
 
-// [measured] Flies the boss at a random angle and the given [speed], bouncing
-// it off a box of its own inside the playfield, and returns true once
-// [boss.phase_frame] has reached [frames]. `pascal`, therefore published and
-// declared UPPERCASE (kb/codegen/0102); the other five below are `near`
-// void(void) and carry the ordinary underscore alias.
-extern "C" bool pascal near yumeko_flystep_bounce(
-	subpixel_t speed, int frames
-);
-
 // ---------------------------------------------
 
 // Constants
@@ -147,6 +138,71 @@ enum yumeko_hp_t {
 
 // Game logic
 // ----------
+
+/// The shared flight step
+/// ----------------------
+
+// The box Yumeko bounces around inside during her phase 2 and 5 pattern
+// selection. Narrower and much shorter than Louise's, and not derived from
+// PLAYFIELD_* in the original either.
+enum yumeko_fly_box_t {
+	FLY_LEFT = 48,
+	FLY_RIGHT = 336,
+	FLY_TOP = 48,
+	FLY_BOTTOM = 128,
+};
+
+// Seeds a random angle on the first frame of the step, then walks [boss.pos]
+// along it, reflecting off each edge of the fly box. Returns whether [frames]
+// have passed since the phase last reset [boss.phase_frame].
+//
+// The structural twin of louise_flystep_random() in th05/main/boss/b2.cpp,
+// down to the parameter pair and the reflection idiom, and ported from it
+// rather than derived a second time. Two differences, both Yumeko's: the box
+// above, and the two cel changes -- she flies on PAT_YUMEKO_FLY and settles
+// back onto PAT_YUMEKO_STILL on the frame this returns true.
+// See boss_flystep_random(), which is a different function with a different
+// interface.
+static bool pascal near yumeko_flystep_bounce(subpixel_t speed, int frames)
+{
+	unsigned char angle;
+
+	if(boss.phase_frame == 1) {
+		angle = randring2_next16();
+		vector2(
+			boss.pos.velocity.x.v, boss.pos.velocity.y.v, angle, speed
+		);
+		boss.sprite = PAT_YUMEKO_FLY;
+	}
+	boss.pos.cur.x.v += boss.pos.velocity.x.v;
+	boss.pos.cur.y.v += boss.pos.velocity.y.v;
+	// kb/codegen/0053's shape, the other way round: the constant goes into AX
+	// and the memory word is the multiplicand, which is the one-operand
+	// `IMUL`. A plain `-1 * x` folds to the three-operand form instead, one
+	// byte shorter. b2.cpp reflects Louise the same way.
+	if(
+		(boss.pos.cur.x.v <= TO_SP(FLY_LEFT)) ||
+		(boss.pos.cur.x.v >= TO_SP(FLY_RIGHT))
+	) {
+		_AX = -1;
+		_asm imul word ptr [boss+8]
+		boss.pos.velocity.x.v = _AX;
+	}
+	if(
+		(boss.pos.cur.y.v <= TO_SP(FLY_TOP)) ||
+		(boss.pos.cur.y.v >= TO_SP(FLY_BOTTOM))
+	) {
+		_AX = -1;
+		_asm imul word ptr [boss+10]
+		boss.pos.velocity.y.v = _AX;
+	}
+	if(boss.phase_frame >= frames) {
+		boss.sprite = PAT_YUMEKO_STILL;
+		return true;
+	}
+	return false;
+}
+/// ----------------------
 
 // Yumeko's seven pattern bodies, in their original order. Address-suffixed
 // hand names, not placeholders: what each one shoots is measurable and is

@@ -8857,68 +8857,6 @@ off_1C816	dw offset loc_1C54D
 
 include th05/main/bullet/swords_add_update.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public YUMEKO_FLYSTEP_BOUNCE
-YUMEKO_FLYSTEP_BOUNCE	label near
-sub_1C9BE	proc near
-
-@@angle		= byte ptr -1
-arg_0		= word ptr  4
-@@length		= word ptr  6
-
-		enter	2, 0
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1C9E7
-		call	@randring2_next16$qv
-		mov	[bp+@@angle], al
-		call	vector2 pascal, ds, offset _boss_pos.velocity.x, ds, offset _boss_pos.velocity.y, word ptr [bp+@@angle], [bp+@@length]
-		mov	_boss_sprite, 188
-
-loc_1C9E7:
-		mov	ax, _boss_pos.velocity.x
-		add	_boss_pos.cur.x, ax
-		mov	ax, _boss_pos.velocity.y
-		add	_boss_pos.cur.y, ax
-		cmp	_boss_pos.cur.x, (48 shl 4)
-		jle	short loc_1CA05
-		cmp	_boss_pos.cur.x, (336 shl 4)
-		jl	short loc_1CA0F
-
-loc_1CA05:
-		mov	ax, -1
-		imul	_boss_pos.velocity.x
-		mov	_boss_pos.velocity.x, ax
-
-loc_1CA0F:
-		cmp	_boss_pos.cur.y, (48 shl 4)
-		jle	short loc_1CA1F
-		cmp	_boss_pos.cur.y, (128 shl 4)
-		jl	short loc_1CA29
-
-loc_1CA1F:
-		mov	ax, -1
-		imul	_boss_pos.velocity.y
-		mov	_boss_pos.velocity.y, ax
-
-loc_1CA29:
-		mov	ax, _boss_phase_frame
-		cmp	ax, [bp+arg_0]
-		jl	short loc_1CA3C
-		mov	_boss_sprite, 180
-		mov	al, 1
-		leave
-		retn	4
-; ---------------------------------------------------------------------------
-
-loc_1CA3C:
-		mov	al, 0
-		leave
-		retn	4
-sub_1C9BE	endp
-
 
 ; yumeko_update() is th05/main/boss/b5.cpp, compiled into th05/main035.cpp.
 ; That object exists only to name this segment: the root's contribution had
@@ -8934,8 +8872,9 @@ sub_1C9BE	endp
 ;
 ; Nothing else in this dump called it, so it leaves no procdesc behind.
 ;
-; Yumeko's seven pattern bodies and phase 10's are th05/main/boss/b5.cpp as
-; well, and with them she keeps only her flystep helper here. The seven had
+; Yumeko's eight pattern bodies and her flight step are th05/main/boss/b5.cpp
+; as well, and with them she keeps NO code in this dump at all. Seven of the
+; eight had
 ; to move TOGETHER: that object emits -a2-aligned data -- the one-byte pad
 ; under yumeko_update()'s jump table -- and the pad tracks the parity of the
 ; table's object-relative offset (kb/codegen 0159 + 0160), so an odd number
@@ -8945,11 +8884,16 @@ sub_1C9BE	endp
 ; tail sums even. Measured, not predicted: the OBJ SEGDEF went 0x374 ->
 ; 0xAF8, which is exactly the 0x784 that left this block.
 ;
-; What b5.cpp still reaches in here is four zero-byte kb/codegen 0123
-; aliases: [YUMEKO_FLYSTEP_BOUNCE] above, and [_yumeko_pattern],
-; [_YUMEKO_PATTERNS_PHASE_2] and [_YUMEKO_PATTERNS_PHASE_5] in _BSS and
-; _DATA below. The two pattern tables now point at four C++ bodies and none
-; of ZUN's assembly, which is what the procdesc block below is for.
+; The flight step went last and needed no cycle of its own: it is the
+; structural twin of louise_flystep_random() in th05/main/boss/b2.cpp, which
+; landed hours earlier, and 0x84 is even, so it was parity-safe alone.
+;
+; What b5.cpp still reaches in here is three zero-byte kb/codegen 0123
+; aliases, all of them DATA: [_yumeko_pattern] in _BSS, and
+; [_YUMEKO_PATTERNS_PHASE_2] and [_YUMEKO_PATTERNS_PHASE_5] in _DATA. The two
+; pattern tables now point at four C++ bodies and none of ZUN's assembly,
+; which is what the procdesc block below is for. This block's root tail is
+; now th05/main/bullet/swords_add_update.asm, an include.
 
 	; The four bodies [_YUMEKO_PATTERNS_PHASE_2] and
 	; [_YUMEKO_PATTERNS_PHASE_5] in _DATA reach. None carries an argument
