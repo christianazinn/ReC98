@@ -1257,89 +1257,33 @@ P_MARISA_TEXT	segment	byte public 'CODE' use16
 	; exist only so that those two tables can take the offsets.
 	SHOT_MARISA_L0 procdesc pascal near
 	SHOT_MARISA_L1 procdesc pascal near
+
+	; shot_laser_update() now lives in th04/main/player/p_marisa.cpp too,
+	; below the two levels above -- its original address order. Unlike them it
+	; is NOT `extern "C"`: the `public` this dump used to carry for it spells
+	; the C++-MANGLED name, in upper case because the function is `pascal`
+	; (kb/codegen 0081, 0102, 0103), so the C++ definition keeps the mangling
+	; and this declaration has to match that spelling rather than the proc's
+	; own lower-case one.
+	;
+	; The parameter list is load-bearing, unlike the two no-argument procdescs
+	; above: all eight call sites left in EXECL_TEXT use TASM's extended CALL
+	; (`call ... pascal, 64, SLS_2`), which needs the prototype to know what to
+	; push and in which order. Same shape as th05_main.asm's
+	; @BOSS_EXPLODE_SMALL$Q16EXPLOSION_TYPE_T. The enum argument is declared
+	; `word` because that is what the caller pushes; the body reads only its
+	; low byte, which is what the deleted `@@style = byte ptr 4` recorded.
+	@SHOT_LASER_UPDATE$QUI18SHOT_LASER_STYLE_T procdesc pascal near frames:word, style:word
 P_MARISA_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the head of the original
-; `main_TEXT` contribution once shot_marisa_l0() and shot_marisa_l1() moved
-; out of it into the P_MARISA_TEXT anchor above. A C++ object still appends
-; GameExecl() at its original address in the MIDDLE of this segment. Same
-; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
-; neither deleted body carried an `assume`, so there is nothing to restore.
+; `main_TEXT` contribution once shot_marisa_l0(), shot_marisa_l1() and
+; shot_laser_update() moved out of it into the P_MARISA_TEXT anchor above.
+; A C++ object still appends GameExecl() at its original address in the
+; MIDDLE of this segment. Same `byte public 'CODE'` alignment as before, so
+; nothing moves. kb/codegen/0121: none of the deleted bodies carried an
+; `assume`, so there is nothing to restore.
 EXECL_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @SHOT_LASER_UPDATE$QUI18SHOT_LASER_STYLE_T
-@shot_laser_update$qui18shot_laser_style_t	proc near
-
-@@style		= byte ptr  4
-@@frames	= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_shot_laser_time, 0
-		jnz	short loc_DADA
-		mov	ax, [bp+@@frames]
-		mov	_shot_laser_time, ax
-		mov	al, [bp+@@style]
-		mov	_shot_laser_style, al
-		mov	ax, _player_option_pos_cur.x
-		mov	_shot_laser_bottomcenter.cur.x, ax
-		mov	ax, _player_option_pos_cur.y
-		mov	_shot_laser_bottomcenter.cur.y, ax
-		mov	ax, _player_option_pos_cur.x
-		mov	_shot_laser_bottomcenter.prev.x, ax
-		mov	ax, _player_option_pos_cur.y
-		mov	_shot_laser_bottomcenter.prev.y, ax
-		mov	_shot_laser_ring_cycle, 0
-
-loc_DADA:
-		cmp	_shot_laser_time, (SHOT_LASER_COOLDOWN_FRAMES + 16)
-		jb	short loc_DB45
-		inc	_shot_laser_ring_cycle
-		cmp	_shot_laser_ring_cycle, 4
-		ja	short loc_DB39
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jz	short loc_DB17
-		mov	[si+shot_t.patnum_base], PAT_SHOT_LASER_RING
-		mov	[si+shot_t.damage], 9
-		mov	[si+shot_t.pos.velocity.y], (-18 shl 4)
-		mov	ax, _player_option_pos_cur.x
-		add	ax, (-24 shl 4)
-		mov	[si+shot_t.pos.cur.x], ax
-
-loc_DB17:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jz	short loc_DB45
-		mov	[si+shot_t.patnum_base], PAT_SHOT_LASER_RING
-		mov	[si+shot_t.damage], 9
-		mov	[si+shot_t.pos.velocity.y], (-18 shl 4)
-		mov	ax, _player_option_pos_cur.x
-		add	ax, (24 shl 4)
-		mov	[si+shot_t.pos.cur.x], ax
-		jmp	short loc_DB45
-; ---------------------------------------------------------------------------
-
-loc_DB39:
-		cmp	_shot_laser_ring_cycle, 8
-		jb	short loc_DB45
-		mov	_shot_laser_ring_cycle, 0
-
-loc_DB45:
-		pop	si
-		pop	bp
-		retn	4
-@shot_laser_update$qui18shot_laser_style_t	endp
-
-; ---------------------------------------------------------------------------
 
 shot_marisa_a_l2	proc near
 		push	bp
