@@ -265,8 +265,13 @@ void pascal alice_update(void)
 		// Both this phase and phase 13 fly back to the same point and end the
 		// same way, and the original shares that ending: the branch below
 		// jumps into phase 13's copy rather than carrying one of its own.
-		// `-O` is Turbo C++ 4.02's *jump* optimizer and does not cross-jump,
-		// so an `if` here compiles to a second copy and 10 bytes too many.
+		// [measured] An ordinary `if` here does NOT reach that shape -- it
+		// compiles to a second inline copy, ten bytes the original does not
+		// have. `-O` does cross-jump identical suffixes elsewhere (TH05
+		// MAIN's item_collected() is a landed case), so this is a fact about
+		// this shape and not a rule about the optimizer: measure, do not
+		// predict. A `goto` written where the optimizer needed none costs two
+		// instructions of its own somewhere else.
 		if(boss_flystep_towards(to_sp(PLAYFIELD_W / 2), to_sp(64.0f))) {
 			goto flystep_next_phase;
 		}
@@ -360,8 +365,13 @@ void pascal alice_update(void)
 	}
 }
 
-// NO `#pragma option` may follow: the `-a2` pad in front of the jump table
-// above only reaches the object if another function is emitted into the same
-// code segment after it, with no option pragma in between (kb/codegen/0159).
-// th05/main/boss/b4_both.cpp is that function, and it defines no structures of
-// its own, so leaving `-a2` in force for it changes nothing.
+// `-a2` is left in force past this point rather than restored, and that is a
+// non-change, not a requirement. It was originally written that way on
+// kb/codegen/0159's claim that an option pragma between the table and the next
+// function discards the pad; that model has since been refuted, twice and
+// independently (`state/notes/th05-main-item-collected.md` measures the
+// two-sided control). The pad depends on `-a2` and on the parity of the table's
+// object-relative offset, and on nothing else. What keeps the restore out is
+// simply that the GREEN build does not have one, and that nothing following in
+// this object -- th05/main/boss/b4_both.cpp -- defines a structure or emits
+// data, so `-a2` staying on changes nothing there either way.

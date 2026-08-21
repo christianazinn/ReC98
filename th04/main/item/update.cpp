@@ -33,34 +33,24 @@
 #include "th04/main/hud/hud.hpp"
 #endif
 
-// Still ASM, still unnamed, sitting directly above this function in their own
-// dump. Reached through a bare `public` line added to the dump: `extern "C"` +
-// `pascal` mangles to the all-uppercase, undecorated name (kb/codegen/0081),
-// and TASM's `/mx` leaves *local* symbols case-insensitive, so
-// `public SUB_16F54` over `sub_16F54 proc near` publishes exactly what TCC asks
-// for and costs zero bytes — kb/codegen/0123's two-line `label` form is only
-// needed when the C++ side is not `pascal`.
-// Naming follows th04/main/execl.cpp's precedent for this exact case.
-// The roles are [inferred from call sites]. These placeholder spellings are NOT
-// licensed by a failed search: every one of these bodies is present in the
-// dumps, directly above this function. They are retained only because naming
-// ASM bodies across two games is its own parcel, and it belongs to the naming
-// lane rather than to a codegen fix.
-// Recorded with evidence in `state/notes/items_update.md`.
+// The list of ASM bodies this file reached through a `#define` on a
+// placeholder is now EMPTY, and this is what it used to say.
 //
-// The list started at four, went to three, and is now two: both games'
-// off-playfield helpers have left it to become item_left_playfield() below,
-// each lifted out of its own dump. That role was [inferred from call sites]
-// when this list was written, and both bodies have since confirmed it — every
-// item type either of them reacts to is one whose loss is a *penalty*.
+// It started at four and went to three, then to two: both games' off-playfield
+// helpers left it to become item_left_playfield() below, each lifted out of
+// its own dump. Their role had been [inferred from call sites] when the list
+// was written, and both bodies confirmed it -- every item type either of them
+// reacts to is one whose loss is a *penalty*.
+//
+// The last two went the same way. Each game's pickup handler is now
+// item_collected() itself, and the call site below has spelled it that way
+// since before either body was read. TH04's sits at the front of THIS object;
+// TH05's sits at the front of th05/main033.cpp's, which is the same shape one
+// segment over. Evidence for both: `state/notes/items_update.md`,
+// `state/notes/th05-main-item-collected.md`.
 #if (GAME == 5)
-	extern "C" void pascal near sub_16F54(item_t near *item);
-	#define item_collected(item)		sub_16F54(item)
+	#include "th05/main/item/collect.cpp"
 #else
-	// TH04's half of that `#define` is gone: the body has been read, it
-	// confirms the inferred role, and it is now item_collected() itself, at
-	// the front of this object. TH05's stays a placeholder behind the macro
-	// until its own dump's sub_16F54() is lifted.
 	#include "th04/main/item/collect.cpp"
 #endif
 
