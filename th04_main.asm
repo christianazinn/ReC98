@@ -3580,8 +3580,8 @@ main_0_TEXT	segment	word public 'CODE' use16
 	; same binary:
 	;
 	;   * th04/main/item/item.hpp declared items_miss_add() near and without
-	;     extern "C". th04/main/item/miss_add.asm defines it proc far and
-	;     exports the undecorated, all-caps ITEMS_MISS_ADD, so both halves
+	;     extern "C". The module that then held it defines it proc far and
+	;     publishes the undecorated, all-caps decoration, so both halves
 	;     were wrong, and the plain 9A call at 0x109BA settles the first from
 	;     the BYTES. No translation unit had ever both included that header
 	;     and made the call, so no build had graded it. Corrected here.
@@ -10860,7 +10860,7 @@ loc_1DAC8:
 		retn	6
 @items_add$qii11item_type_t	endp
 
-include th04/main/item/miss_add.asm
+	; items_miss_add() is now th04/main/item/miss_add.cpp, #included at the FRONT of the th04/it_updt.cpp object -- the module was the LAST thing this dump contributed to IT_UPDT_TEXT and that object is the segment's only other contribution, so the C++ lands at exactly the address the module had (kb/codegen 0098 + 0112 + 0114). The same body serves th05_main.asm's main_033_TEXT. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
 	; sub_1DBAE -- what collecting an item does -- was lifted out of here and
 	; is now th04/main/item/collect.cpp, which th04/main/item/update.cpp
@@ -11036,12 +11036,12 @@ include th04/main/item/miss_add.asm
 	;     (kb/codegen 0014 + 0083).
 	;
 	;
-	; WHAT THIS SEGMENT'S TAIL IS NOW: @items_add$qii11item_type_t, and the
-	; block above it ends with `include th04/main/item/miss_add.asm`, so the
-	; row leaves the jump-table class and re-enters the include class rather
-	; than staying liftable. Re-run tools/pi-audit/carve_free_tails.py against
-	; a fresh build before costing anything here; a carve verdict is a claim
-	; about what FOLLOWS the proc, and this lift invalidated the old one.
+	; WHAT THIS SEGMENT'S TAIL IS NOW: @items_add$qii11item_type_t, and it is
+	; the last thing this root block emits again -- the `include` that used to
+	; sit under it is now C++ at the front of th04/it_updt.cpp, so the row is
+	; a plain carve-free tail again. Re-run tools/pi-audit/carve_free_tails.py
+	; against a fresh build before costing anything; a carve verdict is a claim
+	; about what FOLLOWS the proc, and both lifts invalidated the old one.
 	;
 	;
 	;

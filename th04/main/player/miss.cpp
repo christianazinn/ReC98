@@ -77,8 +77,8 @@ extern "C" const unsigned int DREAM_SCORE_PER_ITEMS[];
 
 // `far`, and NOT what th04/main/item/item.hpp used to say. That header
 // declared this one `near` and without `extern "C"`, which is wrong twice
-// over -- th04/main/item/miss_add.asm defines it `proc far` and exports the
-// undecorated, all-caps ITEMS_MISS_ADD (kb/codegen 0081 + 0086) -- and nothing
+// over -- the module that then held it defined it `proc far` and published the
+// undecorated, all-caps decoration (kb/codegen 0081 + 0086) -- and nothing
 // had ever graded it, because no translation unit both included that header
 // and called the function. The header is corrected in this parcel; this
 // declaration is the one the corrected version agrees with.

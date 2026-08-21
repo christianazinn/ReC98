@@ -12,4 +12,10 @@
 // has emitted any code (kb/codegen/0138).
 #pragma option -zCmain_033_TEXT -zPmain_03
 
+// items_miss_add() was the tail `include` of this segment's dump
+// contribution, and this object is the segment's only other contribution, so
+// it goes FIRST here and every byte keeps its address (kb/codegen/0114).
+// Shared verbatim with th04/it_updt.cpp, which hosts the same body one
+// binary over.
+#include "th04/main/item/miss_add.cpp"
 #include "th04/main/item/update.cpp"

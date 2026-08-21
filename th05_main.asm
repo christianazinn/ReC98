@@ -4868,7 +4868,7 @@ loc_16E23:
 		retn	6
 @items_add$qii11item_type_t	endp
 
-include th04/main/item/miss_add.asm
+	; items_miss_add() is now th04/main/item/miss_add.cpp, #included at the FRONT of the th05/main033.cpp object -- the module was the LAST thing this dump contributed to main_033_TEXT and that object is the segment's only other contribution, so the C++ lands at exactly the address the module had (kb/codegen 0098 + 0112 + 0114). The same body serves th04_main.asm's IT_UPDT_TEXT. This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
 	; item_collected() and the extend check directly above it are now
 	; th05/main/item/collect.cpp, at the FRONT of the th05/main033.cpp

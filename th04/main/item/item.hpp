@@ -77,10 +77,14 @@ typedef enum {
 // Yes, these have Y first and X second.
 extern const Subpixel ITEM_MISS_VELOCITIES[MISS_FIELD_COUNT][2][ITEM_MISS_COUNT];
 
-// `far` and `extern "C"`, both measured rather than chosen:
-// th04/main/item/miss_add.asm defines this one `proc far` and exports the
-// undecorated, all-caps `ITEMS_MISS_ADD`, which is Borland's spelling for a
-// pascal function with C linkage (kb/codegen 0081 + 0086). The declaration
+// `far` and `extern "C"`, both measured rather than chosen: the assembly
+// module that then held this body defined it `proc far` and published the
+// undecorated, all-caps spelling of this name, which is Borland's decoration
+// for a pascal function with C linkage (kb/codegen 0081 + 0086). It is C++
+// itself now, in th04/main/item/miss_add.cpp, and `tcc -S` on that file emits
+// the same `proc far` and the same public (kb/codegen/0152). No source file
+// spells that decorated form any more, which is why it is described here
+// rather than quoted. The declaration
 // said `near` and had no `extern "C"` until th04/main/player/miss.cpp became
 // the first C++ that ever called it; nothing had graded it before, because no
 // translation unit both included this header and made the call.
