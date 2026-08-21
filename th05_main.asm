@@ -6780,169 +6780,8 @@ loc_19923:
 sub_198B7	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public SUB_19928
-	SUB_19928 label near
-sub_19928	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 16
-		jnz	short loc_19940
-		call	@circles_add_shrinking$qii pascal, [si+puppet_t.pos.cur.x], [si+puppet_t.pos.cur.y]
-
-loc_19940:
-		cmp	[si+puppet_t.phase_frame], 32
-		jb	short loc_19993
-		mov	[si+puppet_t.PUPPET_patnum], 194
-		cmp	[si+puppet_t.phase_frame], 32
-		jnz	short loc_19984
-		mov	_bullet_template.patnum, 0
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_group, BG_SPREAD_STACK_AIMED
-		mov	dword ptr _bullet_template.spread, (5 shl 24) or (5 shl 16) or (18 shl 8) or 3
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		jmp	short loc_19993
-; ---------------------------------------------------------------------------
-
-loc_19984:
-		cmp	[si+puppet_t.phase_frame], 96
-		jb	short loc_19993
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	al, 1
-		jmp	short loc_19995
-; ---------------------------------------------------------------------------
-
-loc_19993:
-		mov	al, 0
-
-loc_19995:
-		pop	si
-		pop	bp
-		retn	2
-sub_19928	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1999A	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 16
-		jnz	short loc_199B2
-		call	@circles_add_shrinking$qii pascal, [si+puppet_t.pos.cur.x], [si+puppet_t.pos.cur.y]
-
-loc_199B2:
-		cmp	[si+puppet_t.phase_frame], 32
-		jb	short loc_19A08
-		mov	[si+puppet_t.PUPPET_patnum], 194
-		cmp	[si+puppet_t.phase_frame], 64
-		jnb	short loc_199F9
-		test	byte ptr [si+puppet_t.phase_frame], 7
-		jnz	short loc_199F9
-		mov	_bullet_template.patnum, 0
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	word ptr _bullet_template.spread, (16 shl 8) or 5
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		jmp	short loc_19A08
-; ---------------------------------------------------------------------------
-
-loc_199F9:
-		cmp	[si+puppet_t.phase_frame], 96
-		jb	short loc_19A08
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	al, 1
-		jmp	short loc_19A0A
-; ---------------------------------------------------------------------------
-
-loc_19A08:
-		mov	al, 0
-
-loc_19A0A:
-		pop	si
-		pop	bp
-		retn	2
-sub_1999A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19A0F	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 16
-		jnz	short loc_19A27
-		call	@circles_add_shrinking$qii pascal, [si+puppet_t.pos.cur.x], [si+puppet_t.pos.cur.y]
-
-loc_19A27:
-		cmp	[si+puppet_t.phase_frame], 32
-		jb	short loc_19A7D
-		mov	[si+puppet_t.PUPPET_patnum], 194
-		cmp	[si+puppet_t.phase_frame], 64
-		jnb	short loc_19A6E
-		test	byte ptr [si+puppet_t.phase_frame], 7
-		jnz	short loc_19A6E
-		mov	_bullet_template.patnum, 0
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	_bullet_template.BT_group, BG_RING_AIMED
-		mov	word ptr _bullet_template.spread, (8 shl 8) or 12
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		jmp	short loc_19A7D
-; ---------------------------------------------------------------------------
-
-loc_19A6E:
-		cmp	[si+puppet_t.phase_frame], 96
-		jb	short loc_19A7D
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	al, 1
-		jmp	short loc_19A7F
-; ---------------------------------------------------------------------------
-
-loc_19A7D:
-		mov	al, 0
-
-loc_19A7F:
-		pop	si
-		pop	bp
-		retn	2
-sub_19A0F	endp
+; alice_puppet_pattern_19928(), _1999A() and _19A0F() are th05/main/boss/b3.cpp
+; too. Three of [off_22768]'s four entries; only sub_198B7 above is left.
 
 
 ; alice_puppet_pattern_19A84(), _19AE3() and _19AFB() are th05/main/boss/b3.cpp
@@ -7011,8 +6850,8 @@ sub_19A0F	endp
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
-	; every one of Alice's pattern bodies, her barrier and three of her
-	; puppet callbacks; the root's tail here is now sub_19A0F.
+	; every one of Alice's pattern bodies, her barrier and six of her
+	; seven puppet callbacks; the root's tail here is now sub_198B7.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -7028,6 +6867,9 @@ sub_19A0F	endp
 	; TASM leaves the case alone -- and `pascal` has already
 	; upper-cased the mangled name anyway.
 	@ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T procdesc pascal near
+	@ALICE_PUPPET_PATTERN_19928$QP8PUPPET_T procdesc pascal near
+	@ALICE_PUPPET_PATTERN_1999A$QP8PUPPET_T procdesc pascal near
+	@ALICE_PUPPET_PATTERN_19A0F$QP8PUPPET_T procdesc pascal near
 
 	@alice_pattern_19B9E$qv procdesc near
 	@alice_pattern_19BB8$qv procdesc near
@@ -14059,9 +13901,9 @@ _SARA_PATTERNS_PHASE_2_3 label word
 		dw offset @pattern_accelerating_spirals_clo$qv
 		dw offset @pattern_accelerating_spirals_cou$qv
 off_22768	dw offset sub_198B7
-		dw offset sub_19928
-		dw offset sub_1999A
-		dw offset sub_19A0F
+		dw offset @ALICE_PUPPET_PATTERN_19928$QP8PUPPET_T
+		dw offset @ALICE_PUPPET_PATTERN_1999A$QP8PUPPET_T
+		dw offset @ALICE_PUPPET_PATTERN_19A0F$QP8PUPPET_T
 public _off_22770
 _off_22770	label word
 off_22770	dw offset @alice_pattern_19B9E$qv

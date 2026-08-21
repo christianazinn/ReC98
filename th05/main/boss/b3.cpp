@@ -86,7 +86,6 @@ extern "C" int far shots_hittest_revenge(void);
 typedef bool (pascal near *near puppet_func_t)(puppet_t near *puppet);
 
 extern "C" bool pascal near sub_198B7(puppet_t near *puppet);
-extern "C" bool pascal near sub_19928(puppet_t near *puppet);
 
 // [measured] puppets_update() calls [fp_2CE2A] for puppet 0 and [fp_2CE2C] for
 // puppet 1, selecting between them with an `if` on the loop index rather than
@@ -177,6 +176,86 @@ static const int PATTERNS_PER_PHASE = 24;
 //
 // [measured] The cel is PAT_PUPPET + 4, from the same base as PAT_PUPPET
 // itself; the tree has no name for it and one use in the binary.
+
+// [off_22768][1]: one aimed spread-stack of pellets on frame 32, then idle
+// until 96.
+bool pascal near alice_puppet_pattern_19928(puppet_t near *puppet)
+{
+	if(puppet->phase_frame == 16) {
+		circles_add_shrinking(puppet->pos.cur.x.v, puppet->pos.cur.y.v);
+	}
+	if(puppet->phase_frame >= 32) {
+		puppet->patnum = (PAT_PUPPET + 4);
+		if(puppet->phase_frame == 32) {
+			bullet_template.patnum = 0; // pellet
+			bullet_template.origin = puppet->pos.cur;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.speed.set(1.5f);
+			bullet_template.group = BG_SPREAD_STACK_AIMED;
+			bullet_template.set_spread_stack(3, 18, 5, 0.3125f);
+			bullet_template.angle = 0x00;
+			bullet_template_tune();
+			bullets_add_regular();
+		} else if(puppet->phase_frame >= 96) {
+			puppet->patnum = PAT_PUPPET;
+			return true;
+		}
+	}
+	return false;
+}
+
+// [off_22768][2]: an aimed spread of pellets every 8th of its own frames, from
+// 32 to 64.
+bool pascal near alice_puppet_pattern_1999A(puppet_t near *puppet)
+{
+	if(puppet->phase_frame == 16) {
+		circles_add_shrinking(puppet->pos.cur.x.v, puppet->pos.cur.y.v);
+	}
+	if(puppet->phase_frame >= 32) {
+		puppet->patnum = (PAT_PUPPET + 4);
+		if((puppet->phase_frame < 64) && ((puppet->phase_frame & 7) == 0)) {
+			bullet_template.patnum = 0; // pellet
+			bullet_template.origin = puppet->pos.cur;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.speed.set(2.0f);
+			bullet_template.group = BG_SPREAD_AIMED;
+			bullet_template.set_spread(5, 16);
+			bullet_template.angle = 0x00;
+			bullet_template_tune();
+			bullets_add_regular();
+		} else if(puppet->phase_frame >= 96) {
+			puppet->patnum = PAT_PUPPET;
+			return true;
+		}
+	}
+	return false;
+}
+
+// [off_22768][3]: the same, with an aimed ring instead of a spread.
+bool pascal near alice_puppet_pattern_19A0F(puppet_t near *puppet)
+{
+	if(puppet->phase_frame == 16) {
+		circles_add_shrinking(puppet->pos.cur.x.v, puppet->pos.cur.y.v);
+	}
+	if(puppet->phase_frame >= 32) {
+		puppet->patnum = (PAT_PUPPET + 4);
+		if((puppet->phase_frame < 64) && ((puppet->phase_frame & 7) == 0)) {
+			bullet_template.patnum = 0; // pellet
+			bullet_template.origin = puppet->pos.cur;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.speed.set(2.0f);
+			bullet_template.group = BG_RING_AIMED;
+			bullet_template.set_spread(12, 8);
+			bullet_template.angle = 0x00;
+			bullet_template_tune();
+			bullets_add_regular();
+		} else if(puppet->phase_frame >= 96) {
+			puppet->patnum = PAT_PUPPET;
+			return true;
+		}
+	}
+	return false;
+}
 
 // Adds a shrinking circle at frame 16, then, from frame 32 on, an aimed spread
 // of pellets every 32nd GLOBAL stage frame -- not the puppet's own. Never
@@ -774,8 +853,8 @@ void pascal alice_update(void)
 			puppets[1].pos.prev.x.v = to_sp(64.0f);
 			puppets[1].pos.prev.y.v = to_sp(96.0f);
 			puppets[0].phase_frame = puppets[1].phase_frame = 0;
-			fp_2CE2A = sub_19928;
-			fp_2CE2C = sub_19928;
+			fp_2CE2A = alice_puppet_pattern_19928;
+			fp_2CE2C = alice_puppet_pattern_19928;
 		}
 		break;
 
