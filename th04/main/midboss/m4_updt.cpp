@@ -11,7 +11,15 @@
 
 #include "platform.h"
 #include "pc98.h"
+// iatan2(), for the two patterns below that re-aim at the player.
+// th04/main/enemy/velocity.cpp, the third file in this object, includes this
+// same header; `[measured]` it survives the second expansion, unlike
+// th04/main/enemy/enemy.hpp two lines further down that file.
+#include "libs/master.lib/master.hpp"
 #include "th04/snd/snd.h"
+#include "th04/math/randring.hpp"
+#include "th04/sprites/main_pat.h"
+#include "th04/main/player/player.hpp"
 #include "th04/main/homing.hpp"
 #include "th04/main/scroll.hpp"
 #include "th04/main/spark.hpp"
@@ -34,26 +42,10 @@
 
 void pascal far midboss4_render(void);
 
-/// Still ASM
-/// ---------
-// The Stage 4 midboss's four bullet patterns, dispatched by [midboss4_pattern]
-// below and called from nowhere else. All four are in this same segment and
-// all four are private to ZUN's object, so each needed a zero-byte `label`
-// alias in th04_main.asm to become linkable (kb/codegen/0123). The
-// address-suffixed names are this parcel's, and are deliberately not semantic:
-// nothing here measures what any of the four fires, and naming them belongs to
-// whoever lifts them.
-extern "C" {
-	void near midboss4_14F78(void);  // [midboss4_pattern] 0
-	void near midboss4_1511D(void);  // 1
-	void near midboss4_15027(void);  // 2
-	void near midboss4_15202(void);  // 3
-}
-
-// The midboss's own state, both of them th04_main.asm `.data?` bytes with no
+// The midboss's own state, all of them th04_main.asm `.data?` bytes with no
 // `public` of ZUN's. `[inferred]`, and **a naming round is owed**: every read
-// and write of both is inside this function and the four patterns above, and
-// the four are what set [midboss4_pattern] back to 255.
+// and write of all three is inside this function and the four patterns below,
+// and the four are what set [midboss4_pattern] back to 255.
 extern "C" {
 	// Which of the four patterns is running, or 255 while the midboss is
 	// traversing the playfield between two of them.
@@ -70,6 +62,249 @@ extern "C" {
 }
 
 /// ---------
+
+/// The Stage 4 midboss's four bullet patterns
+/// ------------------------------------------
+/// All four sat directly above midboss4_update() in ZUN's object, and every
+/// one of them is reached from its `switch(midboss4_pattern)` and from nowhere
+/// else. They keep the address-suffixed names the previous parcel gave them
+/// (`state/notes/midboss4_update.md`); **a naming round is owed for all four**,
+/// together with [midboss4_pattern], [midboss4_passes] and [midboss4_22B9E].
+///
+/// All four share one three-arm skeleton, written out longhand in each because
+/// that is how the original emits it:
+///
+/// 1) frames 0…24, the wind-up: the sprite ramps up through cels 0…3, and the
+///    24th frame runs the pattern's own one-time setup;
+/// 2) the firing window, whose length and interval are the pattern's own;
+/// 3) a wind-DOWN ramp back through the same cels, and then
+///    [midboss4_pattern] = 255, which sends the midboss back to traversing.
+
+// A coin that is flipped once per activation of midboss4_15027(), and read
+// only by it: its low bit picks between re-aiming that pattern's stacks at the
+// player and walking them 8 units anticlockwise. th04_main.asm `.data`,
+// initialized to 1, and private to ZUN's object, so it needed a zero-byte
+// `label` alias to become linkable (kb/codegen/0123). `[measured]`: those two
+// sites are the only reads or writes of it in any of the five binaries.
+extern "C" unsigned char midboss4_22B9E;
+
+// Random pellet-and-ball spray: every 4th frame, one aimed 2-spread of pellets
+// and one 16×16 ball, both at a random speed and a random angle offset of
+// ±0x30 around the player.
+static void near midboss4_14F78(void)
+{
+	if(midboss.phase_frame <= 24) {
+		midboss.sprite = (midboss.phase_frame / 8);
+		if(midboss.phase_frame == 24) {
+			snd_se_play(6);
+		}
+	} else if(midboss.phase_frame < 128) {
+		if((midboss.phase_frame & 3) == 0) {
+			bullet_template.group = BG_SPREAD_AIMED;
+			bullet_template.count = 2;
+			bullet_template.delta.spread_angle = 6;
+
+			// kb/codegen/0032: the original adds the minimum to the returned
+			// byte in AL and then stores it. The `u` on the half-range is
+			// kb/codegen/0022 and is load-bearing: a signed `0x30` here
+			// emits `add al, 0xD0` where the original has `sub al, 0x30`.
+			// Same length, different bytes, so only a funcdiff sees it.
+			_AL = randring2_next16_mod(TO_SP(1) + 8);
+			_AL += TO_SP(2);
+			bullet_template.speed.v = _AL;
+			_AL = randring2_next16_mod(0x60);
+			_AL -= 0x30u;
+			bullet_template.angle = _AL;
+
+			bullet_template_tune();
+			bullets_add_regular();
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_YELLOW;
+			_AL = randring2_next16_mod(TO_SP(1) + 8);
+			_AL += TO_SP(2);
+			bullet_template.speed.v = _AL;
+			_AL = randring2_next16_mod(0x60);
+			_AL -= 0x30u;
+			bullet_template.angle = _AL;
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+	} else if(midboss.phase_frame < 152) {
+		midboss.sprite = ((159 - midboss.phase_frame) / 8);
+	} else {
+		midboss.phase_frame = 0;
+		midboss4_pattern = 255;
+	}
+}
+
+// Stacks of 12, fired every 16 frames and mirrored around the vertical center
+// line, with [midboss4_22B9E] deciding whether the volley is re-aimed at the
+// player or walked one step anticlockwise from the last one.
+static void near midboss4_15027(void)
+{
+	unsigned char angle_before_mirror;
+
+	if(midboss.phase_frame <= 24) {
+		midboss.sprite = (midboss.phase_frame / 8);
+		if(midboss.phase_frame == 24) {
+			snd_se_play(6);
+
+			// Away from the closer side wall. An `if`/`else` with two
+			// direct stores, not a ternary: a ternary picks the byte in AL
+			// and stores it once, which is 10 bytes where the original's two
+			// `mov [angle], imm8` are 12. The half with the LOWER angle is
+			// the one that has to be written first, or the branch inverts.
+			if(midboss.pos.cur.x.v < TO_SP(192)) {
+				bullet_template.angle = 0x36;
+			} else {
+				bullet_template.angle = 0x56;
+			}
+			midboss4_22B9E++;
+		}
+	} else if(midboss.phase_frame <= 136) {
+		if(((midboss.phase_frame - 25) & 0x0F) == 0) {
+			bullet_template.group = BG_STACK;
+			if(midboss4_22B9E & 1) {
+				_AL = iatan2(
+					(player_pos.cur.y.v - midboss.pos.cur.y.v),
+					(player_pos.cur.x.v - midboss.pos.cur.x.v)
+				);
+			} else {
+				_AL = bullet_template.angle;
+				_AL += -8;
+			}
+			bullet_template.angle = _AL;
+			angle_before_mirror = bullet_template.angle;
+			snd_se_play(3);
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_YELLOW;
+			bullet_template_tune();
+			bullet_template.speed.v = TO_SP(1);
+			bullet_template.count = 12;
+			bullet_template.delta.stack_speed.v = 7;
+			bullets_add_regular_fixedspeed();
+
+			// The mirror: reflect the volley's angle around whichever
+			// horizontal axis the midboss is NOT on the side of.
+			_AL = ((midboss.pos.cur.x.v > TO_SP(192)) ? -0x60 : 0x60);
+			_AL -= bullet_template.angle;
+			bullet_template.angle = _AL;
+			bullets_add_regular_fixedspeed();
+
+			bullet_template.angle = angle_before_mirror;
+		}
+	} else if(midboss.phase_frame < 160) {
+		midboss.sprite = ((165 - midboss.phase_frame) / 8);
+	} else {
+		midboss.phase_frame = 0;
+		midboss4_pattern = 255;
+	}
+}
+
+// Two interleaved streams: a random-width spread of pellets every 8th frame,
+// and a 32-frame volley of eight accelerating yellow bullets along one angle
+// that is re-aimed at the player at the start of each volley.
+static void near midboss4_1511D(void)
+{
+	int frame_in_volley;
+
+	if(midboss.phase_frame <= 24) {
+		midboss.sprite = (midboss.phase_frame / 8);
+		if(midboss.phase_frame == 24) {
+			snd_se_play(6);
+		}
+	} else if(midboss.phase_frame <= 120) {
+		if((midboss.phase_frame & 7) == 0) {
+			bullet_template.group = BG_SPREAD_AIMED;
+
+			// 1, 3, 5 or 7 bullets, 0x0A…0x11 apart.
+			_AL = randring2_next16_and(3);
+			_AL += _AL;
+			_AL++;
+			bullet_template.count = _AL;
+			_AL = randring2_next16_and(7);
+			_AL += 0x0A;
+			bullet_template.delta.spread_angle = _AL;
+
+			bullet_template.speed.v = (TO_SP(3) + 2);
+			bullet_template.angle = 0;
+			bullet_template_tune();
+			bullets_add_regular_fixedspeed();
+		}
+		frame_in_volley = ((midboss.phase_frame - 25) & 0x1F);
+		if(frame_in_volley == 0) {
+			midboss.angle = iatan2(
+				(player_pos.cur.y.v - midboss.pos.cur.y.v),
+				(player_pos.cur.x.v - midboss.pos.cur.x.v)
+			);
+		}
+		if((frame_in_volley & 3) == 0) {
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.group = BG_SINGLE;
+			bullet_template.patnum = PAT_BULLET16_D_YELLOW;
+
+			// Each of the volley's eight bullets is faster than the last, so
+			// the whole volley arrives as a line rather than a stream.
+			_AL = (frame_in_volley * 3);
+			_AL += (TO_SP(2) + 8);
+			bullet_template.speed.v = _AL;
+
+			bullet_template.angle = midboss.angle;
+			bullet_template_tune();
+			bullets_add_regular_fixedspeed();
+			snd_se_play(3);
+		}
+	} else if(midboss.phase_frame < 144) {
+		midboss.sprite = ((151 - midboss.phase_frame) / 8);
+	} else {
+		midboss.phase_frame = 0;
+		midboss4_pattern = 255;
+	}
+}
+
+// A 3-spread every other frame, walking 6 units clockwise per volley and
+// reflected around the vertical center line while the midboss is on the left
+// half of the playfield — twice, so the stored angle keeps walking in the same
+// direction either way.
+static void near midboss4_15202(void)
+{
+	if(midboss.phase_frame <= 24) {
+		midboss.sprite = (midboss.phase_frame / 8);
+		if(midboss.phase_frame == 24) {
+			snd_se_play(6);
+			bullet_template.angle = -0x20;
+		}
+	} else if(midboss.phase_frame < 128) {
+		if((midboss.phase_frame & 2) == 0) {
+			bullet_template.group = BG_SPREAD;
+			bullet_template.count = 3;
+			bullet_template.delta.spread_angle = 6;
+			bullet_template.speed.v = (TO_SP(3) + 12);
+			if(midboss.pos.cur.x.v < TO_SP(192)) {
+				_AL = 0x80;
+				_AL -= bullet_template.angle;
+				bullet_template.angle = _AL;
+			}
+			bullet_template_tune();
+			bullets_add_regular();
+			if(midboss.pos.cur.x.v < TO_SP(192)) {
+				_AL = 0x80;
+				_AL -= bullet_template.angle;
+				bullet_template.angle = _AL;
+			}
+			snd_se_play(3);
+			_AL = bullet_template.angle;
+			_AL += 6;
+			bullet_template.angle = _AL;
+		}
+	} else if(midboss.phase_frame < 152) {
+		midboss.sprite = ((159 - midboss.phase_frame) / 8);
+	} else {
+		midboss.phase_frame = 0;
+		midboss4_pattern = 255;
+	}
+}
+/// ------------------------------------------
 
 // Both halves of the fight test the same box.
 #define midboss4_hittest(se_on_hit) \
