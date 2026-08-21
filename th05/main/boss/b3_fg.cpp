@@ -20,7 +20,10 @@
 #include "th02/v_colors.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/boss/boss.hpp"
-#include "th05/main/boss/b3puppet.hpp"
+// th05/main/boss/b3puppet.hpp, which declares puppets_render(), is NOT
+// named here. It has no include guard and th05/main/boss/b3puppet_render.cpp
+// already pulls it into this object ahead of us, so naming it again is a
+// compile error rather than a no-op.
 #include "th05/main/boss/bosses.hpp"
 
 // [inferred] Kept file-local for the same reason th05/main/boss/b4_solo_fg.cpp

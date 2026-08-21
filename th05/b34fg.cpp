@@ -17,5 +17,6 @@
 // addresses they had.
 #pragma option -zCMIDBOSSX_TEXT -zPmain_01
 
+#include "th05/main/boss/b3puppet_render.cpp"
 #include "th05/main/boss/b3_fg.cpp"
 #include "th05/main/boss/b4_pair_fg.cpp"

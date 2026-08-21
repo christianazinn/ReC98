@@ -3227,160 +3227,24 @@ loc_10B19:
 @midboss3_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public PUPPETS_RENDER
-puppets_render	proc near
-
-@@x		= word ptr -0Ah
-@@y		= word ptr -8
-@@patnum		= word ptr -6
-@@left		= word ptr -4
-@@i		= word ptr -2
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	si, offset puppets
-		mov	[bp+@@i], 0
-		jmp	loc_10C3E
-; ---------------------------------------------------------------------------
-
-loc_10B2E:
-		cmp	[si+puppet_t.flag], F_FREE
-		jz	loc_10C38
-		mov	ax, [si+puppet_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (PUPPET_W / 2))
-		mov	[bp+@@left], ax
-		cmp	[bp+@@left], 0
-		jle	loc_10C38
-		cmp	[bp+@@left], (PLAYFIELD_W + PUPPET_W)
-		jge	loc_10C38
-		mov	ax, [si+puppet_t.pos.cur.y]
-		sar	ax, 4
-		mov	di, ax
-		cmp	di, (-PUPPET_H / 2)
-		jle	loc_10C38
-		cmp	di, (PLAYFIELD_H + (PUPPET_H / 2))
-		jge	loc_10C38
-		mov	ax, _stage_frame
-		and	ax, 1Fh
-		cmp	ax, 16
-		jnb	short loc_10B7B
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		jmp	short loc_10B87
-; ---------------------------------------------------------------------------
-
-loc_10B7B:
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		push	ax
-		mov	ax, 10h
-		pop	dx
-		sub	ax, dx
-
-loc_10B87:
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	di, ax
-		mov	ax, [si+puppet_t.PUPPET_patnum]
-		mov	[bp+@@patnum], ax
-		cmp	[si+puppet_t.flag], F_ALIVE
-		jnz	short loc_10BA1
-		mov	al, _stage_frame_mod2
-		mov	ah, 0
-		add	[bp+@@patnum], ax
-
-loc_10BA1:
-		cmp	[si+puppet_t.PUPPET_damage_this_frame], 0
-		jnz	short loc_10BB5
-		call	super_roll_put pascal, [bp+@@left], di, [bp+@@patnum]
-		jmp	short loc_10BC7
-; ---------------------------------------------------------------------------
-
-loc_10BB5:
-		call	super_put_1plane pascal, [bp+@@left], di, [bp+@@patnum], large PLANE_PUT or GC_BRGI
-
-loc_10BC7:
-		mov	ax, [si+puppet_t.pos.cur.y]
-		sar	ax, 4
-		add	ax, 10h
-		mov	di, ax
-		cmp	_boss_statebyte[9], 1
-		jnz	short loc_10BFD
-		cmp	_stage_frame_mod2, 0
-		jz	short loc_10C25
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, [bp+@@left]
-		add	ax, 16
-		call	grcg_circle pascal, ax, di, [si+puppet_t.radius_gather]
-		jmp	short loc_10C1F
-; ---------------------------------------------------------------------------
-
-loc_10BFD:
-		cmp	_boss_statebyte[9], 2
-		jnz	short loc_10C25
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, [bp+@@left]
-		add	ax, 16
-		call	grcg_circlefill pascal, ax, di, [si+puppet_t.radius_gather]
-
-loc_10C1F:
-		GRCG_OFF_CLOBBERING dx
-
-loc_10C25:
-		mov	bx, [bp+@@i]
-		add	bx, bx
-		lea	ax, [bp+@@x]
-		add	bx, ax
-		mov	ax, [bp+@@left]
-		add	ax, 16
-		mov	ss:[bx], ax
-
-loc_10C38:
-		inc	[bp+@@i]
-		add	si, size puppet_t
-
-loc_10C3E:
-		cmp	[bp+@@i], PUPPET_COUNT
-		jl	loc_10B2E
-		cmp	_boss_statebyte[9], 2
-		jnz	short loc_10C6C
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 9
-		call	grcg_hline pascal, [bp+@@x], [bp+@@y], di
-		GRCG_OFF_CLOBBERING dx
-		jmp	short loc_10C96
-; ---------------------------------------------------------------------------
-
-loc_10C6C:
-		cmp	_boss_statebyte[9], 3
-		jnz	short loc_10C96
-		push	[bp+@@x]
-		push	di
-		mov	al, _boss_statebyte[8]
-		mov	ah, 0
-		push	ax
-		call	super_put
-		mov	ax, [bp+@@x]
-		add	ax, 64
-		push	ax
-		push	di
-		mov	al, _boss_statebyte[8]
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	super_put
-
-loc_10C96:
-		pop	di
-		pop	si
-		leave
-		retn
-puppets_render	endp
+	; puppets_render() now lives in th05/main/boss/b3puppet_render.cpp, at
+	; the FRONT of the th05/b34fg.cpp object -- ahead of the two renderers
+	; named below, which the previous parcel put there. That object is this
+	; segment's next contribution and this was the LAST proc of the root's
+	; block, so the C++ side grows backwards into the hole and every byte
+	; keeps its address (kb/codegen 0112 + 0114). No new object and no
+	; Tupfile.lua line: th05/b34fg.cpp already exists and already carries
+	; the -zCMIDBOSSX_TEXT -zPmain_01 pragmas.
+	;
+	; Its only caller was alice_fg_render(), which is C++ in the same object
+	; and one file further down it, so nothing in this dump calls it any
+	; more and no `procdesc` replaces it. The undecorated `public` that
+	; exported it goes with the body: kb/codegen/0102, upper case because
+	; the function is `pascal`, and undecorated because it is `extern "C"`,
+	; which is what th05/main/boss/b3puppet.hpp now says it is.
+	;
+	; kb/codegen/0121: the body carried no `assume`, so there is nothing to
+	; restore at this position.
 
 
 	; alice_fg_render() and mai_yuki_fg_render() now live in
