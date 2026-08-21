@@ -461,6 +461,11 @@ BULLET_TEXT ends
 
 DIALOG_TEXT	segment	byte public 'CODE' use16
 
+; stones_12778() is th02/main/boss/b3.cpp, prepended into this segment
+; below. stones_init() below is its only caller, and both contributions
+; are in this one segment, so `near` resolves to the same 3-byte `E8 rel16`
+; the original encodes.
+extrn _stones_12778:near
 BG_NONE = 00h
 BG_1 = 20h
 BG_1_AIMED = 19h
@@ -1863,6 +1868,8 @@ stones_11877	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11997
+_stones_11997 label near
 stones_11997	proc near
 		push	bp
 		mov	bp, sp
@@ -3588,76 +3595,19 @@ stones_init	proc far
 		push	offset aBoss2_m	; "boss2.m"
 		nopcall	sub_13ABB
 		add	sp, 4
-		call	stones_12778
+		call	_stones_12778
 		nopcall	@lasers_callbacks_set$qv
 		pop	bp
 		retf
 stones_init	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stones_12778	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_boss_phase_frame, 0
-		xor	si, si
-		jmp	short loc_127A5
-; ---------------------------------------------------------------------------
-
-loc_12786:
-		mov	_stone_flag[si], SF_DORMANT
-		mov	bx, si
-		add	bx, bx
-		mov	_stone_damage[bx], 0
-		mov	bx, si
-		add	bx, bx
-		mov	word_22D4C[bx], 148
-		mov	byte ptr byte_20665[si], 0
-		inc	si
-
-loc_127A5:
-		cmp	si, STONE_COUNT
-		jl	short loc_12786
-		mov	_stone_left[STONE_INNER_WEST * word], (PLAYFIELD_LEFT + 16 + (1 * 80))
-		mov	_stone_top[STONE_INNER_WEST * word], (PLAYFIELD_TOP + 16)
-		mov	_stone_left[STONE_INNER_EAST * word], (PLAYFIELD_LEFT + 16 + (3 * 80))
-		mov	_stone_top[STONE_INNER_EAST * word], (PLAYFIELD_TOP + 16)
-		mov	_stone_left[STONE_OUTER_WEST * word], (PLAYFIELD_LEFT + 16 + (0 * 80))
-		mov	_stone_top[STONE_OUTER_WEST * word], (PLAYFIELD_TOP + 32)
-		mov	_stone_left[STONE_OUTER_EAST * word], (PLAYFIELD_LEFT + 16 + (4 * 80))
-		mov	_stone_top[STONE_OUTER_EAST * word], (PLAYFIELD_TOP + 32)
-		mov	_stone_left[STONE_NORTH * word], (PLAYFIELD_LEFT + 16 + (2 * 80))
-		mov	_stone_top[STONE_NORTH * word], (PLAYFIELD_TOP + 16)
-		mov	top_22D9A, (PLAYFIELD_TOP + 24)
-		mov	left_22D98, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - (PELLET_W / 2))
-		nopcall	enemies_remove_all
-		mov	byte_23A70, 0Ch
-		mov	word_22FAA, 0
-		mov	dword_22D58, 0
-		mov	byte_22D56, 0
-		mov	byte_22D57, 0
-		mov	_boss_explode_angle_offset, 20h
-		mov	y_22D9C, 96
-		mov	ax, _scroll_line
-		add	y_22D9C, ax
-		cmp	y_22D9C, RES_Y
-		jl	short loc_12835
-		sub	y_22D9C, RES_Y
-
-loc_12835:
-		call	stones_11997
-		pop	si
-		pop	bp
-		retn
-stones_12778	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-
+; stones_12778() is th02/main/boss/b3.cpp, prepended into this segment
+; between this block and th02/dialog.cpp's below (kb/codegen/0099).
+;
+; The `db 0` that used to stand here went with it. It is the padding
+; between two of the original's objects, not something the linker inserts,
+; so the object that reaches its address has to emit it - which b3.cpp does
+; with a trailing `#pragma codestring` (kb/codegen/0161).
 DS_PREBOSS = 0
 DS_POSTBOSS = 1
 
@@ -16494,12 +16444,20 @@ byte_22D4A	db ?
 public _byte_22D4B
 _byte_22D4B label byte
 byte_22D4B	db ?
+public _stone_patnum
+_stone_patnum label word
 word_22D4C	dw ?
 word_22D4E	dw ?
 		db 4 dup(?)
 patnum_22D54	dw ?
+public _stones_phase
+_stones_phase label byte
 byte_22D56	db ?
+public _stones_pattern
+_stones_pattern label byte
 byte_22D57	db ?
+public _stones_timeout_frame
+_stones_timeout_frame label dword
 dword_22D58	dd ?
 
 MIDBOSS3_COUNT = 2
@@ -16521,8 +16479,14 @@ public _stone_left, _stone_top
 _stone_left	dw STONE_COUNT dup(?)
 _stone_top 	dw STONE_COUNT dup(?)
 
+public _left_22D98
+_left_22D98 label word
 left_22D98	dw ?
+public _top_22D9A
+_top_22D9A label word
 top_22D9A	dw ?
+public _y_22D9C
+_y_22D9C label word
 y_22D9C	dw ?
 word_22D9E	dw ?
 word_22DA0	dw ?
@@ -16535,6 +16499,8 @@ byte_22FA6	db ?
 byte_22FA7	db ?
 byte_22FA8	db ?
 		db ?
+public _stones_phase_frame_unused
+_stones_phase_frame_unused label word
 word_22FAA	dw ?
 word_22FAC	dw ?
 byte_22FAE	db ?
