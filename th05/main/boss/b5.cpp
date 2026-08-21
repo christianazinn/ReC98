@@ -108,18 +108,12 @@ static const int PAT_YUMEKO_CAST = (PAT_STAGE + 4);
 // while yumeko_flystep_bounce() is carrying her.
 static const int PAT_YUMEKO_FLY = (PAT_STAGE + 8);
 
-// The sword sprites this fight blits through master.lib's *_tiny*() functions,
-// converted on the first frame of the HP fill because the dialog script did
-// not do it.
-//
-// [measured] The range is [PAT_SWORD, 229), one *below* the
-// PAT_DECAY_SWORD_last that th05/sprites/main_pat.h computes: its
-// `PAT_SWORD_last = (PAT_SWORD + BULLET_V_CELS)` line is missing the `- 1`
-// that every sibling `_last` in that file carries, which pushes PAT_DECAY_SWORD
-// and everything after it up by one. Spelled as a literal here rather than
-// reconciled, because moving PAT_DECAY_SWORD moves a patnum other code already
-// resolves, and that is not this parcel's call to make.
-static const int TINY_SWORD_END = 229;
+// The sword sprites this fight blits through master.lib's *_tiny*() functions.
+// ZUN converts them on the first frame of the HP fill because the dialog
+// script did not do it, exactly as b6balls_load() does one boss over. This
+// loop is what carries the third witness for the off-by-one that
+// th05/sprites/main_pat.h carried in PAT_SWORD_last: it runs to 228, which is
+// PAT_DECAY_SWORD_last only once that - 1 is there.
 
 // Always denotes the last phase that ends with that amount of HP, exactly as
 // shinki_hp_t in b6.cpp does. Phases 2/5, 3/6 and 4/7 share one arm each here,
@@ -705,7 +699,7 @@ void pascal yumeko_update(void)
 			gather_template.ring_points = 8;
 			boss.sprite = PAT_YUMEKO_STILL;
 			boss.pos.velocity.x.set(4.0f);
-			for(i = PAT_SWORD; i < TINY_SWORD_END; i++) {
+			for(i = TINY_SWORD_START; i < TINY_SWORD_END; i++) {
 				super_convert_tiny(i);
 			}
 			boss_sprite_left = PAT_YUMEKO_STILL;

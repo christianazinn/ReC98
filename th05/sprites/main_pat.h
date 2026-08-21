@@ -164,10 +164,22 @@ typedef enum {
 	/// =======
 	// st04.bb2
 	// --------
-	PAT_SWORD = 193,
-	PAT_SWORD_last = (PAT_SWORD + BULLET_V_CELS),
+	TINY_SWORD_START = 193,
+	PAT_SWORD = TINY_SWORD_START,
+
+	// [measured] The `- 1` here had been missing, which pushed PAT_DECAY_SWORD
+	// and its `_last` up by one and put this file one apart from its own ASM
+	// mirror, th05/sprites/main_pat.inc, which spells PAT_DECAY_SWORD = 225.
+	// Three witnesses agree with the .inc: the twirl in
+	// th05/main/bullet/swords_add_update.asm wraps at
+	// (PAT_SWORD + BULLET_V_CELS), so that value is the first cel that is NOT
+	// a sword; and yumeko_update() converts [TINY_SWORD_START, TINY_SWORD_END)
+	// to tiny format, which is 193..228 inclusive. The disagreement survived
+	// because no C++ had ever read either constant.
+	PAT_SWORD_last = (PAT_SWORD + BULLET_V_CELS - 1),
 	PAT_DECAY_SWORD,
 	PAT_DECAY_SWORD_last = (PAT_DECAY_SWORD + BULLET_DECAY_CELS - 1),
+	TINY_SWORD_END,
 	/// -------
 	/// =======
 
