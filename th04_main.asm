@@ -13033,6 +13033,11 @@ orange_195E4	endp
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the
+	; bare label. kb/codegen/0123. These six are Orange's patterns,
+	; dispatched by orange_update() and called from nowhere else.
+public _orange_19686
+_orange_19686 label near
 orange_19686	proc near
 		push	bp
 		mov	bp, sp
@@ -13105,6 +13110,8 @@ orange_19686	endp
 
 ; Attributes: bp-based frame
 
+public _orange_19720
+_orange_19720 label near
 orange_19720	proc near
 		push	bp
 		mov	bp, sp
@@ -13165,6 +13172,8 @@ orange_19720	endp
 
 ; Attributes: bp-based frame
 
+public _orange_197BB
+_orange_197BB label near
 orange_197BB	proc near
 		push	bp
 		mov	bp, sp
@@ -13202,6 +13211,8 @@ orange_197BB	endp
 
 ; Attributes: bp-based frame
 
+public _orange_19814
+_orange_19814 label near
 orange_19814	proc near
 		push	bp
 		mov	bp, sp
@@ -13243,6 +13254,8 @@ orange_19814	endp
 
 ; Attributes: bp-based frame
 
+public _orange_19878
+_orange_19878 label near
 orange_19878	proc near
 		push	bp
 		mov	bp, sp
@@ -13368,6 +13381,8 @@ orange_19878	endp
 
 ; Attributes: bp-based frame
 
+public _orange_1998B
+_orange_1998B label near
 orange_1998B	proc near
 		push	bp
 		mov	bp, sp
@@ -13474,407 +13489,20 @@ loc_19AA1:
 orange_1998B	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @ORANGE_UPDATE$QV
-@orange_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	ax, _boss_pos.cur.x
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_gather_template.GT_center.y, ax
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 5
-		ja	loc_19E88
-		add	bx, bx
-		jmp	cs:off_19EB0[bx]
-
-loc_19AC8:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_19AEF
-		mov	_boss_hp, 3050
-		mov	_boss_phase_end_hp, 1950
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 96
-		mov	_palette_changed, 1
-
-loc_19AEF:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 192
-		jnz	short loc_19B35
-		mov	al, _boss_sprite
-		add	al, 2
-		mov	_boss_sprite, al
-		call	snd_se_play pascal, 8
-		mov	ax, _boss_pos.cur.x
-		add	ax, (8 shl 4)
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-40 shl 4)
-		mov	_gather_template.GT_center.y, ax
-		mov	_gather_template.GT_radius, (320 shl 4)
-		mov	_gather_template.GT_ring_points, 32
-		mov	_gather_template.GT_angle_delta, 3
-		mov	_gather_template.GT_col, 7
-		jmp	loc_19C02
-; ---------------------------------------------------------------------------
-
-loc_19B35:
-		cmp	_boss_phase_frame, 320
-		jle	loc_19C02
-		cmp	_boss_phase_frame, 336
-		jnz	short loc_19B4C
-		mov	_gather_template.GT_col, 6
-
-loc_19B4C:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_19B56
-		call	@gather_add_only$qv
-
-loc_19B56:
-		cmp	_boss_phase_frame, 352
-		jl	loc_19C02
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_boss_statebyte[15].BSB_patterns_done, 0
-		mov	_boss_statebyte[14].BSB_pattern_num_prev, -1
-		mov	_bg_render_bombing_func, offset @orange_bg_render$qv
-		mov	_tiles_bb_col, 0
-		jmp	short loc_19C02
-; ---------------------------------------------------------------------------
-
-loc_19B88:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 32
-		jl	short loc_19C02
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_ring_points, 8
-		mov	_boss_phase, 2
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, _boss_sprite
-		add	al, 2
-		mov	_boss_sprite, al
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 16
-		mov	_bullet_template.speed, (4 shl 4)
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		xor	si, si
-		jmp	short loc_19BF6
-; ---------------------------------------------------------------------------
-
-loc_19BE9:
-		call	_bullets_add_regular
-		mov	al, _bullet_template.speed
-		add	al, (-1 shl 4)
-		mov	_bullet_template.speed, al
-		inc	si
-
-loc_19BF6:
-		cmp	si, 3
-		jl	short loc_19BE9
-		call	snd_se_play pascal, 6
-
-loc_19C02:
-		call	@boss_hittest_shots_damage$qiii pascal, (16 shl 4) or ((16 shl 4) shl 16), 10
-		jmp	loc_19E8D
-; ---------------------------------------------------------------------------
-
-loc_19C10:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	short loc_19C61
-		add	bx, bx
-		jmp	cs:off_19EA6[bx]
-
-loc_19C23:
-		mov	_boss_phase_frame, 0
-
-loc_19C29:
-		push	3
-		call	@randring2_next16_and$qui
-		inc	al
-		mov	_boss_mode, al
-		mov	al, _boss_statebyte[14].BSB_pattern_num_prev
-		cmp	al, _boss_mode
-		jz	short loc_19C29
-		mov	al, _boss_mode
-		mov	_boss_statebyte[14].BSB_pattern_num_prev, al
-		inc	_boss_statebyte[15].BSB_patterns_done
-		cmp	_boss_statebyte[15].BSB_patterns_done, 16
-		jb	short loc_19C61
-		jmp	short loc_19C6F
-; ---------------------------------------------------------------------------
-
-loc_19C4F:
-		call	orange_19686
-		jmp	short loc_19C61
-; ---------------------------------------------------------------------------
-
-loc_19C54:
-		call	orange_19720
-		jmp	short loc_19C61
-; ---------------------------------------------------------------------------
-
-loc_19C59:
-		call	orange_197BB
-		jmp	short loc_19C61
-; ---------------------------------------------------------------------------
-
-loc_19C5E:
-		call	orange_19814
-
-loc_19C61:
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_19E8D
-		call	@boss_score_bonus$qui pascal, 5
-
-loc_19C6F:
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NW_SE shl 16) or 450
-		mov	Palettes[0 * size rgb_t].r, 112
-		mov	Palettes[0 * size rgb_t].b, 112
-		mov	_palette_changed, 1
-		jmp	loc_19E8D
-; ---------------------------------------------------------------------------
-
-loc_19C8A:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_19C9A
-		cmp	ax, 1
-		jz	short loc_19CAF
-		jmp	short loc_19CB2
-; ---------------------------------------------------------------------------
-
-loc_19C9A:
-		cmp	_boss_phase_frame, 128
-		jle	short loc_19CB2
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		jmp	short loc_19CB2
-; ---------------------------------------------------------------------------
-
-loc_19CAF:
-		call	orange_19878
-
-loc_19CB2:
-		cmp	_boss_phase_frame, 1500
-		jg	short loc_19CC8
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_19E8D
-		call	@boss_score_bonus$qui pascal, 5
-
-loc_19CC8:
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NW_SE shl 16) or 0
-		mov	al, _boss_sprite
-		add	al, 4
-		mov	_boss_sprite, al
-		mov	Palettes[0 * size rgb_t].r, 144
-		mov	Palettes[0 * size rgb_t].b, 32
-		mov	_palette_changed, 1
-		mov	_gather_template.GT_col, 9
-		jmp	loc_19E8D
-; ---------------------------------------------------------------------------
-
-loc_19CF0:
-		mov	ax, _boss_pos.cur.x
-		add	ax, (8 shl 4)
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-16 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_19D15
-		cmp	ax, 1
-		jz	loc_19D9B
-		jmp	loc_19D9E
-; ---------------------------------------------------------------------------
-
-loc_19D15:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19D2B
-		mov	ax, _bullet_template.BT_origin.x
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _bullet_template.BT_origin.y
-		mov	_gather_template.GT_center.y, ax
-		call	@gather_add_only$qv
-
-loc_19D2B:
-		cmp	_boss_phase_frame, 112
-		jnz	short loc_19D44
-		call	@circles_add_shrinking$qii pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y
-		mov	_circles_color, V_WHITE
-
-loc_19D44:
-		cmp	_boss_phase_frame, 128
-		jle	short loc_19D57
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-
-loc_19D57:
-		cmp	_boss_pos.cur.x, (191 shl 4)
-		jge	short loc_19D67
-		mov	_boss_pos.velocity.x, 24
-		jmp	short loc_19D75
-; ---------------------------------------------------------------------------
-
-loc_19D67:
-		cmp	_boss_pos.cur.x, (193 shl 4)
-		jle	short loc_19D75
-		mov	_boss_pos.velocity.x, -24
-
-loc_19D75:
-		cmp	_boss_pos.cur.y, (79 shl 4)
-		jge	short loc_19D85
-		mov	_boss_pos.velocity.y, 12
-		jmp	short loc_19D93
-; ---------------------------------------------------------------------------
-
-loc_19D85:
-		cmp	_boss_pos.cur.y, (81 shl 4)
-		jle	short loc_19D93
-		mov	_boss_pos.velocity.y, -12
-
-loc_19D93:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		jmp	short loc_19D9E
-; ---------------------------------------------------------------------------
-
-loc_19D9B:
-		call	orange_1998B
-
-loc_19D9E:
-		cmp	_boss_phase_frame, 600
-		jg	short loc_19DAF
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_19E8D
-
-loc_19DAF:
-		cmp	_boss_phase_frame, 600
-		jg	short loc_19DBE
-		mov	_boss_phase_state, 1
-		jmp	short loc_19DC3
-; ---------------------------------------------------------------------------
-
-loc_19DBE:
-		mov	_boss_phase_state, 0
-
-loc_19DC3:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_HORIZONTAL
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _boss_pos.cur.x, _boss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		jmp	loc_19E8D
-; ---------------------------------------------------------------------------
-
-loc_19DEB:
-		cmp	_boss_pos.cur.x, (191 shl 4)
-		jge	short loc_19DFB
-		mov	_boss_pos.velocity.x, 24
-		jmp	short loc_19E09
-; ---------------------------------------------------------------------------
-
-loc_19DFB:
-		cmp	_boss_pos.cur.x, (193 shl 4)
-		jle	short loc_19E09
-		mov	_boss_pos.velocity.x, -24
-
-loc_19E09:
-		cmp	_boss_pos.cur.y, (79 shl 4)
-		jge	short loc_19E19
-		mov	_boss_pos.velocity.y, 12
-		jmp	short loc_19E27
-; ---------------------------------------------------------------------------
-
-loc_19E19:
-		cmp	_boss_pos.cur.y, (81 shl 4)
-		jle	short loc_19E27
-		mov	_boss_pos.velocity.y, -12
-
-loc_19E27:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_19E3D
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_19E3D:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_19E8D
-		call	@boss_explode_big$qui pascal, ET_CIRCLE
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_19E60
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_19E60:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_19E8D
-; ---------------------------------------------------------------------------
-
-loc_19E88:
-		call	@boss_defeat_update$qv
-		jmp	short loc_19EA3
-; ---------------------------------------------------------------------------
-
-loc_19E8D:
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 3050
-
-loc_19EA3:
-		pop	si
-		pop	bp
-		retf
-@orange_update$qv	endp
-
-; ---------------------------------------------------------------------------
-off_19EA6	dw offset loc_19C23
-		dw offset loc_19C4F
-		dw offset loc_19C54
-		dw offset loc_19C59
-		dw offset loc_19C5E
-off_19EB0	dw offset loc_19AC8
-		dw offset loc_19B88
-		dw offset loc_19C10
-		dw offset loc_19C8A
-		dw offset loc_19CF0
-		dw offset loc_19DEB
+	; orange_update() now lives in th04/main/boss/b1_updt.cpp, which
+	; th04/main_033.cpp compiles into THIS segment: the wrapper leaves the
+	; code segment name to Turbo C++'s basename default, so the object is
+	; appended to the contribution above and lands at the tail position the
+	; proc already held (kb/codegen 0105 + 0112 + 0114). It was the LAST
+	; proc of the segment, so no carve, no new segment name and no
+	; group-list edit were needed -- only the one Tupfile.lua line the new
+	; object costs.
+	;
+	; Its two dense `switch`es are what the two `dw offset loc_` tables
+	; that used to end this segment compile FROM, so both left with the
+	; proc. There is no padding byte in front of either and no `-a2`.
+	;
+	; Nothing in this file references it; th04/main/stage/setup.cpp does.
 main_033_TEXT	ends
 
 MIDBOSS_TEXT	segment	byte public 'CODE' use16

@@ -962,6 +962,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
 	"th04/main_012.cpp",
+	"th04/main_033.cpp",
 	"th04/main_035.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
