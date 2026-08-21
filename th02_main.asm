@@ -14197,61 +14197,10 @@ loc_19351:
 mima_191CC	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_19353
-_mima_19353 label near
-mima_19353	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	short loc_193A2
-		cmp	_boss_phase_frame, 190
-		jge	short loc_1939C
-		test	byte ptr _boss_phase_frame, 1Fh
-		jnz	short loc_1937A
-		push	x_26C5C	; left
-		push	y_26C64	; top
-		push	0	; angle
-		push	BG_5_SPREAD_MEDIUM_AIMED	; group
-		jmp	short loc_19391
-; ---------------------------------------------------------------------------
-
-loc_1937A:
-		mov	ax, _boss_phase_frame
-		and	ax, 31
-		cmp	ax, 16
-		jnz	short loc_193A2
-		push	x_26C5C	; left
-		push	y_26C64	; top
-		push	0	; angle
-		push	BG_4_SPREAD_MEDIUM_AIMED	; group
-
-loc_19391:
-		push	(PAT_BULLET16_BALL shl 16) or ((5 shl 4) + 10)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1939C:
-		mov	_boss_phase_frame, 0
-
-loc_193A2:
-		pop	bp
-; The `retn` that belongs here is th02/boss_5.cpp's one-byte
-; `#pragma codestring`. That object's contribution to this segment starts
-; at the very next byte, and starting it one byte early is the only thing
-; that gives mima_update()'s generated jump table the odd prefix its `-a2`
-; pad needs. (kb/codegen/0070, kb/codegen/0154, kb/codegen/0159)
-mima_19353	endp
-
-; mima_193A4() and mima_update() are th02/main/boss/b5m.cpp. They were
-; this segment's carve-free tail, so th02_main.asm now contributes
-; nothing below mima_19353(), and th02/boss_5.cpp's object picks the
-; segment up from the byte after the one above.
+; mima_19353(), mima_193A4() and mima_update() are th02/main/boss/b5m.cpp.
+; They were this segment's carve-free tail, so th02_main.asm now contributes
+; nothing below mima_191CC(), and th02/boss_5.cpp's object picks the segment
+; up from the byte after its `retn`.
 
 	@skill_calculate$qv procdesc pascal near
 BOSS_5_TEXT	ends

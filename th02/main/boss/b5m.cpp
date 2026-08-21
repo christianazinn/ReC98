@@ -17,6 +17,7 @@
 #include "th02/math/randring.hpp"
 #include "th02/main/frames.hpp"
 #include "th02/main/bg_particle.hpp"
+#include "th02/main/bullet/bullet.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/stage/stage.hpp"
@@ -54,7 +55,6 @@ extern "C" void near mima_18DE0(void);
 extern "C" void near mima_18EB8(void);
 extern "C" void near mima_19173(void);
 extern "C" void near mima_191CC(void);
-extern "C" void near mima_19353(void);
 extern "C" bool16 near mima_19C8D(void);
 
 // th02/main/boss/b5.cpp, in main_03__TEXT. Reached with the same
@@ -155,6 +155,59 @@ static const int MIMA_CHARGE_FRAMES = 100;
 static const int MIMA_DRIFT_FRAMES = 10;
 static const int MIMA_TOP_MIN = 48;
 static const int MIMA_TOP_MAX = 64;
+
+// mima_19353()'s window and cadence.
+static const int MIMA_SPREAD_FIRST_FRAME = 50;
+static const int MIMA_SPREAD_LAST_FRAME = 190;
+static const int MIMA_SPREAD_INTERVAL = 32;
+
+
+// One of her three step-9 patterns: a single aimed spread every 16 frames, on
+// a 32-frame cycle, alternating between the 5-bullet and the 4-bullet group.
+// The pattern only fires between phase frames 50 and 190, and restarts the
+// phase at 190.
+static void near mima_19353(void)
+{
+	if(boss_phase_frame < MIMA_SPREAD_FIRST_FRAME) {
+		return;
+	}
+	// `[measured]` The window is the OUTER `if` and the restart is what follows
+	// it, and each spread arm ends in an explicit `return`. Both shapes are
+	// load-bearing: with the restart written as an early return it lands ABOVE
+	// the spreads instead of between them and the epilogue, and without the
+	// `return` in the first arm -O hosts the two calls' merged tail at that
+	// arm and makes the second one jump BACKWARD into it. Five other spellings
+	// of the same control flow were screened; only this one reproduces the
+	// original's block order. (kb/codegen/0152)
+	if(boss_phase_frame < MIMA_SPREAD_LAST_FRAME) {
+		if((boss_phase_frame & (MIMA_SPREAD_INTERVAL - 1)) == 0) {
+			bullets_add_16x16(
+				x_26C5C,
+				y_26C64,
+				0,
+				BG_5_SPREAD_MEDIUM_AIMED,
+				PAT_BULLET16_BALL,
+				((5 << 4) + 10)
+			);
+			return;
+		}
+		if(
+			(boss_phase_frame & (MIMA_SPREAD_INTERVAL - 1)) ==
+			(MIMA_SPREAD_INTERVAL / 2)
+		) {
+			bullets_add_16x16(
+				x_26C5C,
+				y_26C64,
+				0,
+				BG_4_SPREAD_MEDIUM_AIMED,
+				PAT_BULLET16_BALL,
+				((5 << 4) + 10)
+			);
+		}
+		return;
+	}
+	boss_phase_frame = 0;
+}
 
 
 // Ends the current pattern: advances the step if it is over, and otherwise

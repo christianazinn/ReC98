@@ -1,17 +1,19 @@
 // mima_update()'s generated jump table needs an ODD number of bytes ahead of
-// it inside this object (kb/codegen/0154), and a plain lift leaves it at an
-// even 0x592. That one byte is mima_19353()'s own final `retn` - the proc
-// directly above mima_193A4() in the dump - handed to this object as a one-byte
-// codestring, which is how th02/main/boss/b4.cpp bought marisa_update()'s pad
-// while marisa_1BC43() was still in the dump. (kb/codegen/0070, kb/codegen/0159)
+// it inside this object (kb/codegen/0154). It gets them from the bodies
+// themselves: 0x51 (mima_19353) + 0xB2 (mima_193A4) + 0x4E0 = 0x5E3. While
+// mima_19353() was still in the dump, the same parity was bought by handing
+// this object that function's final `retn` as a one-byte `#pragma codestring`,
+// exactly as th02/main/boss/b4.cpp bought marisa_update()'s pad while
+// marisa_1BC43() was still in the dump. Any parcel that prepends a body here
+// re-checks the parity from the map's own lengths, never by counting dump
+// bytes. (kb/codegen/0070, kb/codegen/0159)
 //
-// -zPmain_03 for the sixteen near calls into Mima's still-ASM patterns and for
-// the `nop; push cs; call near ptr` far call into mima_end(); -G for
+// -zPmain_03 for the near calls into Mima's still-ASM patterns and for the
+// `nop; push cs; call near ptr` far call into mima_end(); -G for
 // mima_update()'s `push bp; mov bp, sp; sub sp, 2` prolog (kb/codegen/0011);
 // -a2 for the pad itself. The segment name still comes from this wrapper's own
 // basename. (kb/codegen/0105)
 #pragma option -zPmain_03 -G -a2
-#pragma codestring "\xC3"
 
 #include "th02/main/boss/b5m.cpp"
 
