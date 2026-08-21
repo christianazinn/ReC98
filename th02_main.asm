@@ -10124,258 +10124,19 @@ locret_18903:
 mima_188AA	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_18905
-_mima_18905 label near
-mima_18905	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 10
-		jl	loc_18A19
-		cmp	_boss_phase_frame, 70
-		jge	short loc_1893E
-		mov	patnum_2064E, 128
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 64
-		cmp	ax, _player_topleft.x
-		jge	short loc_18932
-		mov	ax, 2
-		jmp	short loc_18935
-; ---------------------------------------------------------------------------
-
-loc_18932:
-		mov	ax, -2
-
-loc_18935:
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		jmp	loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_1893E:
-		cmp	_boss_phase_frame, 70
-		jnz	short loc_1895D
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 131
-		mov	speed_26CDB, ((1 shl 4) + 4)
-		jmp	loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_1895D:
-		cmp	_boss_phase_frame, 100
-		jl	loc_18A19
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_18985
-		call	_snd_se_play c, 10
-		mov	patnum_2064E, 134
-		call	@randring2_next8$qv
-		mov	angle_26CDA, al
-		jmp	short loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_18985:
-		cmp	_boss_phase_frame, 160
-		jg	short loc_18993
-		dec	angle_26CDA
-		jmp	short loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_18993:
-		cmp	_boss_phase_frame, 240
-		jg	short loc_189A5
-		inc	angle_26CDA
-		inc	speed_26CDB
-		jmp	short loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_189A5:
-		cmp	byte_26CC0, 0
-		jz	short loc_189D0
-		cmp	_boss_phase_frame, 320
-		jg	short loc_189BE
-		inc	angle_26CDA
-		dec	speed_26CDB
-		jmp	short loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_189BE:
-		cmp	_boss_phase_frame, 400
-		jg	short loc_189D0
-		dec	angle_26CDA
-		inc	speed_26CDB
-		jmp	short loc_189DC
-; ---------------------------------------------------------------------------
-
-loc_189D0:
-		mov	_boss_phase_frame, 0
-		mov	patnum_2064E, 128
-
-loc_189DC:
-		cmp	_boss_phase_frame, 100
-		jle	short loc_18A19
-		mov	al, _rank
-		cbw
-		mov	bx, 8
-		sub	bx, ax
-		mov	ax, _boss_phase_frame
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_18A19
-		push	left_26C5A	; left
-		push	top_26C62	; top
-		push	word ptr angle_26CDA	; angle
-		push	word ptr byte_20671	; group
-		mov	al, speed_26CDB
-		mov	ah, 0
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-		call	_snd_se_play c, 3
-
-loc_18A19:
-		pop	bp
-		retn
-mima_18905	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_18A1B
-_mima_18A1B label near
-mima_18A1B	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 10
-		jl	loc_18B49
-		cmp	_boss_phase_frame, 70
-		jge	short loc_18A53
-		mov	patnum_2064E, 128
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 64
-		cmp	ax, _player_topleft.x
-		jge	short loc_18A48
-		mov	ax, 2
-		jmp	short loc_18A4B
-; ---------------------------------------------------------------------------
-
-loc_18A48:
-		mov	ax, -2
-
-loc_18A4B:
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18A53:
-		cmp	_boss_phase_frame, 70
-		jnz	short loc_18A71
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 131
-		mov	angle_26CDC, -28h
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18A71:
-		cmp	_boss_phase_frame, 100
-		jl	loc_18B49
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_18A93
-		call	_snd_se_play c, 10
-		mov	patnum_2064E, 134
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18A93:
-		cmp	_boss_phase_frame, 132
-		jg	short loc_18AB8
-		call	@bullets_add_pellet$qiiucuci pascal, left_26C5A, top_26C62, word ptr angle_26CDC, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC, ((5 shl 4) + 10)
-		mov	al, angle_26CDC
-		add	al, 03h
-		mov	angle_26CDC, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18AB8:
-		cmp	_boss_phase_frame, 150
-		jg	short loc_18ADD
-		call	@bullets_add_pellet$qiiucuci pascal, left_26C5A, top_26C62, word ptr angle_26CDC, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC, ((5 shl 4) + 10)
-		mov	al, angle_26CDC
-		add	al, -03h
-		mov	angle_26CDC, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18ADD:
-		cmp	_boss_phase_frame, 226
-		jg	short loc_18B3D
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		cmp	dx, 1
-		jnz	short loc_18B49
-		cmp	byte_26CC0, 0
-		jnz	short loc_18B0D
-		call	@bullets_add_pellet$qiiucuci pascal, left_26C5A, top_26C62, 40h, BG_3_SPREAD_NARROW, ((5 shl 4) + 10)
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18B0D:
-		push	left_26C5A	; left
-		push	top_26C62	; top
-		call	@randring2_next8_and$quc pascal, 3Fh
-		add	al, 20h
-		push	ax	; angle
-		push	BG_1	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		push	left_26C5A	; left
-		push	top_26C62	; top
-		call	@randring2_next8_and$quc pascal, 3Fh
-		add	al, 20h
-		push	ax	; angle
-		push	BG_1	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_18B3D:
-		mov	_boss_phase_frame, 0
-		mov	patnum_2064E, 128
-
-loc_18B49:
-		pop	bp
-		retn
-mima_18A1B	endp
-
-; mima_18B4B(), mima_18BA6(), mima_18C4A(), mima_18DE0(), mima_18EB8()
-; and mima_19173() through mima_update() are th02/main/boss/b5m.cpp, in
-; that order. They were this segment's carve-free tail chain, so
-; th02_main.asm now contributes nothing below mima_18A1B(), and
-; th02/boss_5.cpp's object picks the segment up from the byte after its
-; `retn`.
+; mima_18905(), mima_18A1B(), mima_18B4B(), mima_18BA6(), mima_18C4A(),
+; mima_18DE0(), mima_18EB8() and mima_19173() through mima_update() are
+; th02/main/boss/b5m.cpp, in that order. They were this segment's carve-free
+; tail chain, so th02_main.asm now contributes nothing below mima_188AA(),
+; and th02/boss_5.cpp's object picks the segment up from the byte after
+; that proc's `retn`.
 ;
-; The five were taken TOGETHER because their lengths sum to 0x628, an EVEN
-; number, and mima_update()'s generated jump table only gets its one-byte
-; -a2 pad while the object's prefix ahead of it stays even. Taking fewer
-; would have needed a `#pragma codestring` and this block's last `retn`.
-; (kb/codegen/0160)
+; Every lift out of this block has to leave the object's prefix ahead of
+; mima_update()'s generated jump table at the parity it already has, or the
+; table loses its one-byte -a2 pad. The five below mima_18A1B() were taken
+; TOGETHER for that reason - their lengths sum to 0x628, an EVEN number -
+; and the two above them add 0x116 + 0x130 = 0x246, even again. Read that
+; prefix from the OBJ's PUBDEFs, never from a comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -12322,9 +12083,10 @@ byte_26CD3	db ?
 byte_26CD4	db ?
 		db ?
 point_26CD6	Point <?>
-angle_26CDA	db ?
-speed_26CDB	db ?
-angle_26CDC	db ?
+public _mima_stream_angle, _mima_stream_speed, _mima_pair_angle
+_mima_stream_angle	db ?
+_mima_stream_speed	db ?
+_mima_pair_angle	db ?
 		db ?
 public _point_26CDE
 _point_26CDE	Point <?>
