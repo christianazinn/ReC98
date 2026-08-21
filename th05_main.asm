@@ -6425,368 +6425,24 @@ off_1962C	dw offset loc_19569
 		dw offset loc_19599
 		dw offset loc_1959E
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public _sub_19634
-	_sub_19634 label near
-sub_19634	proc near
-		push	bp
-		mov	bp, sp
-		push	(96 shl 4)
-		push	puppet0.radius_motion
-		mov	al, puppet0.PUPPET_angle
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		call	@polar$qiii
-		mov	puppet0.pos.cur.x, ax
-		push	(96 shl 4)
-		push	puppet0.radius_motion
-		mov	al, puppet0.PUPPET_angle
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	puppet0.pos.cur.y, ax
-		mov	al, puppet0.PUPPET_angle
-		add	al, -2
-		mov	puppet0.PUPPET_angle, al
-		sub	puppet0.radius_motion, (2 shl 4)
-		push	(288 shl 4)
-		push	puppet1.radius_motion
-		mov	al, puppet1.PUPPET_angle
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_CosTable8[bx]
-		call	@polar$qiii
-		mov	puppet1.pos.cur.x, ax
-		push	(96 shl 4)
-		push	puppet1.radius_motion
-		mov	al, puppet1.PUPPET_angle
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_SinTable8[bx]
-		call	@polar$qiii
-		mov	puppet1.pos.cur.y, ax
-		mov	al, puppet1.PUPPET_angle
-		add	al, 2
-		mov	puppet1.PUPPET_angle, al
-		sub	puppet1.radius_motion, (2 shl 4)
-		mov	eax, dword ptr puppet0.pos.cur
-		mov	dword ptr puppet0.pos.prev, eax
-		mov	eax, dword ptr puppet1.pos.cur
-		mov	dword ptr puppet1.pos.prev, eax
-		pop	bp
-		retn
-sub_19634	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public PUPPETS_UPDATE
-puppets_update	proc near
-
-@@i		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_shot_hitbox_radius.x, (20 shl 4)
-		mov	_shot_hitbox_radius.y, (20 shl 4)
-		mov	si, offset puppets
-		mov	[bp+@@i], 0
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+puppet_t.flag], F_FREE
-		jz	@@next
-		cmp	[si+puppet_t.flag], F_ALIVE
-		jnz	loc_19851
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		cmp	eax, dword ptr [si+puppet_t.pos.prev]
-		jz	short loc_19773
-		mov	ax, [si+puppet_t.pos.prev.x]
-		sub	ax, [si+puppet_t.pos.cur.x]
-		mov	di, ax
-		mov	bx, (2 shl 4)
-		cwd
-		idiv	bx
-		or	ax, ax
-		jz	short loc_1971E
-		mov	ax, di
-		jmp	short loc_1972C
-; ---------------------------------------------------------------------------
-
-loc_1971E:
-		mov	ax, di
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	ax, ax
-		jz	short loc_19734
-		mov	ax, di
-
-loc_1972C:
-		cwd
-		idiv	bx
-		add	[si+puppet_t.pos.cur.x], ax
-		jmp	short loc_1973A
-; ---------------------------------------------------------------------------
-
-loc_19734:
-		mov	ax, [si+puppet_t.pos.prev.x]
-		mov	[si+puppet_t.pos.cur.x], ax
-
-loc_1973A:
-		mov	ax, [si+puppet_t.pos.prev.y]
-		sub	ax, [si+puppet_t.pos.cur.y]
-		mov	di, ax
-		mov	bx, (2 shl 4)
-		cwd
-		idiv	bx
-		or	ax, ax
-		jz	short loc_19750
-		mov	ax, di
-		jmp	short loc_1975E
-; ---------------------------------------------------------------------------
-
-loc_19750:
-		mov	ax, di
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	ax, ax
-		jz	short loc_19766
-		mov	ax, di
-
-loc_1975E:
-		cwd
-		idiv	bx
-		add	[si+puppet_t.pos.cur.y], ax
-		jmp	short loc_1976C
-; ---------------------------------------------------------------------------
-
-loc_19766:
-		mov	ax, [si+puppet_t.pos.prev.y]
-		mov	[si+puppet_t.pos.cur.y], ax
-
-loc_1976C:
-		mov	[si+puppet_t.PUPPET_patnum], 192
-		jmp	short loc_197DC
-; ---------------------------------------------------------------------------
-
-loc_19773:
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		cmp	[bp+@@i], 0
-		jnz	short loc_19785
-		push	si
-		call	fp_2CE2A
-		jmp	short loc_1978A
-; ---------------------------------------------------------------------------
-
-loc_19785:
-		push	si
-		call	fp_2CE2C
-
-loc_1978A:
-		mov	ah, 0
-		mov	di, ax
-		or	di, di
-		jz	short loc_197D9
-		call	@randring2_next16_mod$qui pascal, (320 shl 4)
-		add	ax, (32 shl 4)
-		mov	[si+puppet_t.pos.prev.x], ax
-		call	@randring2_next16_mod$qui pascal, (160 shl 4)
-		add	ax, (16 shl 4)
-		mov	[si+puppet_t.pos.prev.y], ax
-		cmp	[bp+@@i], 0
-		jnz	short loc_197C2
-		push	3
-		call	@randring2_next16_and$qui
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_22768[bx]
-		mov	fp_2CE2A, ax
-		jmp	short loc_197D2
-; ---------------------------------------------------------------------------
-
-loc_197C2:
-		push	3
-		call	@randring2_next16_and$qui
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_22768[bx]
-		mov	fp_2CE2C, ax
-
-loc_197D2:
-		mov	[si+puppet_t.phase_frame], 0
-		jmp	short loc_197DC
-; ---------------------------------------------------------------------------
-
-loc_197D9:
-		inc	[si+puppet_t.phase_frame]
-
-loc_197DC:
-		mov	ax, [si+puppet_t.pos.cur.x]
-		sub	ax, _player_pos.cur.x
-		add	ax, 12 * 16
-		cmp	ax, 24 * 16
-		jnb	short loc_197FF
-		mov	ax, [si+puppet_t.pos.cur.y]
-		sub	ax, _player_pos.cur.y
-		add	ax, 12 * 16
-		cmp	ax, 24 * 16
-		jnb	short loc_197FF
-		mov	_player_is_hit, 1
-
-loc_197FF:
-		cmp	_boss_statebyte[9], 3
-		jz	short loc_1984A
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	dword ptr _shot_hitbox_center, eax
-		call	@shots_hittest$qv
-		mov	[si+puppet_t.PUPPET_damage_this_frame], ax
-		cmp	[si+puppet_t.PUPPET_damage_this_frame], 0
-		jz	short loc_19823
-		call	snd_se_play pascal, 4
-
-loc_19823:
-		mov	ax, [si+puppet_t.PUPPET_damage_this_frame]
-		sub	[si+puppet_t.PUPPET_hp_cur], ax
-		cmp	[si+puppet_t.PUPPET_hp_cur], 0
-		jge	short @@next
-		inc	[si+puppet_t.flag]
-		mov	[si+puppet_t.PUPPET_patnum], 4
-		mov	[si+puppet_t.PUPPET_damage_this_frame], 0
-		call	snd_se_play pascal, 12
-		add	_score_delta, 100
-		jmp	short @@next
-; ---------------------------------------------------------------------------
-
-loc_1984A:
-		mov	[si+puppet_t.PUPPET_damage_this_frame], 0
-		jmp	short @@next
-; ---------------------------------------------------------------------------
-
-loc_19851:
-		mov	al, [si+puppet_t.flag]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_198A3
-		inc	[si+puppet_t.PUPPET_patnum]
-		cmp	[si+puppet_t.PUPPET_patnum], 12
-		jl	short loc_198A3
-		mov	[si+puppet_t.flag], F_FREE
-		mov	[si+puppet_t.pos.cur.x], ((PLAYFIELD_W / 2) shl 4)
-		mov	[si+puppet_t.pos.cur.y], (-256 shl 4)
-		mov	[si+puppet_t.pos.prev.x], ((PLAYFIELD_W / 2) shl 4)
-		mov	[si+puppet_t.pos.prev.y], (-16 shl 4)
-		mov	[si+puppet_t.PUPPET_hp_cur], PUPPET_HP
-		mov	[si+puppet_t.PUPPET_patnum], 192
-		cmp	[bp+@@i], 0
-		jnz	short loc_19897
-		mov	fp_2CE2A, offset @ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T
-		jmp	short loc_1989D
-; ---------------------------------------------------------------------------
-
-loc_19897:
-		mov	fp_2CE2C, offset @ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T
-
-loc_1989D:
-		sub	_boss_hp, 300
-
-loc_198A3:
-		inc	[si+puppet_t.flag]
-
-@@next:
-		inc	[bp+@@i]
-		add	si, size puppet_t
-
-@@more?:
-		cmp	[bp+@@i], PUPPET_COUNT
-		jl	@@loop
-		pop	di
-		pop	si
-		leave
-		retn
-puppets_update	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public SUB_198B7
-	SUB_198B7 label near
-sub_198B7	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 16
-		jnz	short loc_198CF
-		call	@circles_add_shrinking$qii pascal, [si+puppet_t.pos.cur.x], [si+puppet_t.pos.cur.y]
-
-loc_198CF:
-		cmp	[si+puppet_t.phase_frame], 32
-		jb	short loc_19921
-		cmp	[si+puppet_t.phase_frame], 64
-		jnb	short loc_19912
-		cmp	_stage_frame_mod2, 0
-		jz	short loc_19912
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	[si+puppet_t.PUPPET_patnum], 194
-		jmp	short loc_19921
-; ---------------------------------------------------------------------------
-
-loc_19912:
-		cmp	[si+puppet_t.phase_frame], 96
-		jb	short loc_19921
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	al, 1
-		jmp	short loc_19923
-; ---------------------------------------------------------------------------
-
-loc_19921:
-		mov	al, 0
-
-loc_19923:
-		pop	si
-		pop	bp
-		retn	2
-sub_198B7	endp
+; puppets_spiral_in(), puppets_update() and alice_puppet_pattern_198B7()
+; are th05/main/boss/b3.cpp as well, and with them Alice keeps nothing in
+; this segment at all. The whole three had to move together: 0x9F and 0x71
+; are both odd and only their sum with puppets_update()'s 0x1E4 -- 0x2F4 --
+; is even, which is what the -a2 pad under alice_update()'s jump table
+; needs (kb/codegen 0159 + 0160). Measured, not predicted: the OBJ SEGDEF
+; went 0xC2E -> 0xF22.
 
 
 ; alice_puppet_pattern_19928(), _1999A() and _19A0F() are th05/main/boss/b3.cpp
-; too. Three of [off_22768]'s four entries; only sub_198B7 above is left.
+; too. ALICE_PUPPET_PATTERNS -- [off_22768] until this chain named it --
+; now points at four C++ bodies and none of ZUN's assembly.
 
 
 ; alice_puppet_pattern_19A84(), _19AE3() and _19AFB() are th05/main/boss/b3.cpp
-; as well. None of the three is an [off_22768] entry: alice_update() assigns
-; the first and the last directly, and puppets_update() just above assigns the
+; as well. None of the three is an ALICE_PUPPET_PATTERNS entry: alice_update()
+; assigns
+; the first and the last directly, and puppets_update() just above assigned the
 ; middle one, which is why only that one needs a procdesc below.
 
 
@@ -6851,7 +6507,8 @@ sub_198B7	endp
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
 	; every one of Alice's pattern bodies, her barrier and six of her
-	; seven puppet callbacks; the root's tail here is now sub_198B7.
+	; seven puppet callbacks, her puppet updater and her spiral-in;
+	; the root's tail here is now @midboss3_update$qv's jump table.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -6860,12 +6517,13 @@ sub_198B7	endp
 	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
 	; A procdesc carrying an argument list is also spelled UPPERCASE:
 	; TASM uppercases the symbol on the CALLPROC path such a list selects.
-	; ALL twelve entries of [off_22770] in _DATA below, across six
-	; distinct bodies. None
-	; carries an argument list, so TASM leaves the case alone.
-	; puppets_update() takes this one's address. No argument list, so
-	; TASM leaves the case alone -- and `pascal` has already
-	; upper-cased the mangled name anyway.
+	; The C++ bodies the two pattern tables in _DATA below reach: all
+	; twelve entries of [off_22770] across six distinct functions, and all
+	; four of ALICE_PUPPET_PATTERNS. puppets_update() used to take the
+	; address of one of the latter too. None carries an argument list, so
+	; TASM leaves the case alone -- and for the `pascal` half, mangling has
+	; upper-cased the name anyway.
+	@ALICE_PUPPET_PATTERN_198B7$QP8PUPPET_T procdesc pascal near
 	@ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T procdesc pascal near
 	@ALICE_PUPPET_PATTERN_19928$QP8PUPPET_T procdesc pascal near
 	@ALICE_PUPPET_PATTERN_1999A$QP8PUPPET_T procdesc pascal near
@@ -13900,7 +13558,17 @@ _SARA_PATTERNS_PHASE_2_3 label word
 		dw offset @pattern_random_red_rings$qv
 		dw offset @pattern_accelerating_spirals_clo$qv
 		dw offset @pattern_accelerating_spirals_cou$qv
-off_22768	dw offset sub_198B7
+; kb/codegen/0123, for puppets_update() in th05/main/boss/b3.cpp, which is
+; this table's only reader. [off_22770] beside it was already published;
+; this one never was, and it had no name either. ALICE_PUPPET_PATTERNS is
+; state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2's own formula for the
+; pattern tables one boss over -- SARA_PATTERNS_PHASE_2_3,
+; SHINKI_PATTERNS_PHASE_2_3, MIDBOSSX_PATTERNS_PHASE_1 -- with no phase
+; qualifier, because this table is drawn from on respawn rather than per
+; phase.
+public _ALICE_PUPPET_PATTERNS
+_ALICE_PUPPET_PATTERNS	label word
+ALICE_PUPPET_PATTERNS	dw offset @ALICE_PUPPET_PATTERN_198B7$QP8PUPPET_T
 		dw offset @ALICE_PUPPET_PATTERN_19928$QP8PUPPET_T
 		dw offset @ALICE_PUPPET_PATTERN_1999A$QP8PUPPET_T
 		dw offset @ALICE_PUPPET_PATTERN_19A0F$QP8PUPPET_T

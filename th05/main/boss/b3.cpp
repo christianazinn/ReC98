@@ -34,6 +34,13 @@
 // th05/main/boss/b4_both.cpp already reaches declares either.
 #include "th04/main/circle.hpp"
 #include "th04/main/frames.h"
+// polar_x() / polar_y(), for puppets_spiral_in(). Unguarded, and reached
+// from nowhere else in this object.
+#include "th03/math/polar.hpp"
+// score_delta, which puppets_update() adds to on a puppet death. NOT
+// th02/main/score.hpp: that one re-includes the unguarded th02/score.h,
+// which this object already reaches.
+#include "th04/main/score.hpp"
 #include "th04/main/bullet/clearzap.hpp"
 // Supplies th05/main/boss/boss.hpp, which b4_both.cpp used to include itself.
 // Unguarded, and this file compiles ahead of that one in the same object, so
@@ -47,23 +54,11 @@
 #include "th05/main/bullet/laser.hpp"
 #include "th05/main/boss/b3puppet.hpp"
 
-// ZUN's remaining assembly in this segment
-// ----------------------------------------
-// Every symbol below keeps IDA's address-derived spelling, and each one is
-// linkable through a zero-byte alias in th05_main.asm (kb/codegen 0123).
-//
-// THE SEARCH THAT FAILED, run once for the whole group: none of these is
-// published under any name by any of the five games (`git grep` over ReC98 for
-// each address and for every candidate spelling), none has a TH04 counterpart
-// -- TH04's Stage 3 boss is Marisa and shares no code with Alice -- and
-// `state/notes/` holds no prior naming ruling for the Alice module. Naming them
-// needs the bodies themselves classified, which is a naming round rather than
-// a lift; this parcel only makes them referenceable. What is measured about
-// each one is recorded beside it, and nothing here is a claim about intent.
-//
-// [measured] `void near f(void)`: `retn`, no parameter equates, no return
-// register live at any call site.
-extern "C" void near sub_19634(void);  // steps both puppets along a shrinking spiral
+// What this file still reaches in th05_main.asm
+// --------------------------------------------
+// Alice has no code left in that dump: every one of her bodies, her puppets'
+// updater and all seven of their callbacks are below. What remains is one
+// function in ANOTHER segment and the two data tables the dump still owns.
 
 // The barrier's revenge hittest: a second copy of shots_hittest() that also
 // spawns a bullet from every shot that lands. Still th05_main.asm's
@@ -85,7 +80,6 @@ extern "C" int far shots_hittest_revenge(void);
 // respawns the puppet and reseeds its callback whenever one returns true.
 typedef bool (pascal near *near puppet_func_t)(puppet_t near *puppet);
 
-extern "C" bool pascal near sub_198B7(puppet_t near *puppet);
 
 // [measured] puppets_update() calls [fp_2CE2A] for puppet 0 and [fp_2CE2C] for
 // puppet 1, selecting between them with an `if` on the loop index rather than
@@ -106,6 +100,16 @@ extern "C" unsigned int alice_barrier_fire_frames;
 // -- which counts pattern phases survived -- and a random number below 3.
 extern "C" pattern_loop_func_t fp_2CE32;
 extern "C" const pattern_loop_func_t off_22770[4][3];
+
+// [measured] The puppet callback table puppets_update() reseeds from, indexed
+// by randring2_next16_and(3). Four entries, one row. Named on
+// state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2's own formula for the
+// pattern tables one boss over -- SARA_PATTERNS_PHASE_2_3,
+// SHINKI_PATTERNS_PHASE_2_3, MIDBOSSX_PATTERNS_PHASE_1 -- with no phase
+// qualifier, because this table is drawn from on respawn rather than per
+// phase. Unlike [off_22770] the dump never published it; this parcel adds the
+// alias under the new name.
+extern "C" const puppet_func_t ALICE_PUPPET_PATTERNS[4];
 // ----------------------------------------
 
 // Constants
@@ -177,8 +181,202 @@ static const int PATTERNS_PER_PHASE = 24;
 // [measured] The cel is PAT_PUPPET + 4, from the same base as PAT_PUPPET
 // itself; the tree has no name for it and one use in the binary.
 
-// [off_22768][1]: one aimed spread-stack of pellets on frame 32, then idle
-// until 96.
+// state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2's verdict, `[inferred]`:
+// spirals both puppets inward to (96, 96) and (288, 96), counter-rotating,
+// shedding 2 pixels of radius a frame. Named for the plural actor plus the
+// verb, after orbs_add_moving, chasecrosses_add and puppets_update, and
+// deliberately not after the flystep family, whose members return a done flag
+// and this one does not.
+void near puppets_spiral_in(void)
+{
+	puppets[0].pos.cur.x.v = polar_x(
+		to_sp(96.0f), puppets[0].radius.motion, puppets[0].angle
+	);
+	puppets[0].pos.cur.y.v = polar_y(
+		to_sp(96.0f), puppets[0].radius.motion, puppets[0].angle
+	);
+	puppets[0].angle -= 2;
+	puppets[0].radius.motion -= to_sp(2.0f);
+
+	puppets[1].pos.cur.x.v = polar_x(
+		to_sp(288.0f), puppets[1].radius.motion, puppets[1].angle
+	);
+	puppets[1].pos.cur.y.v = polar_y(
+		to_sp(96.0f), puppets[1].radius.motion, puppets[1].angle
+	);
+	puppets[1].angle += 2;
+	puppets[1].radius.motion -= to_sp(2.0f);
+
+	puppets[0].pos.prev = puppets[0].pos.cur;
+	puppets[1].pos.prev = puppets[1].pos.cur;
+}
+
+// Defined below, in its own address order; puppets_update() reseeds a
+// respawned puppet to it and is emitted first.
+bool pascal near alice_puppet_pattern_19AE3(puppet_t near *puppet);
+
+// Moves both puppets toward [pos.prev], which is their TARGET rather than
+// their last position, runs the currently selected callback once each has
+// arrived, hittests them against the player and against shots, and plays out
+// the death animation of any that ran out of HP.
+void pascal near puppets_update(void)
+{
+	int i;
+	puppet_t near *puppet;
+
+	// ZUN reuses one slot for two unrelated values: the per-axis distance a
+	// moving puppet still has to cover, and the "pattern done" flag its
+	// callback returns once it has stopped. The two branches are mutually
+	// exclusive, and the original's `enter 2, 0` frame -- one word local,
+	// i.e. [i] alone, with [puppet] and this in SI and DI -- is what says
+	// there is no third local to spill.
+	int delta_or_done;
+
+	shot_hitbox_radius.x.v = to_sp(20.0f);
+	shot_hitbox_radius.y.v = to_sp(20.0f);
+	puppet = puppets;
+	for(i = 0; i < PUPPET_COUNT; i++, puppet++) {
+		if(puppet->flag == F_FREE) {
+			continue;
+		}
+		if(puppet->flag == F_ALIVE) {
+			if(
+				reinterpret_cast<uint32_t near &>(puppet->pos.cur) !=
+				reinterpret_cast<uint32_t near &>(puppet->pos.prev)
+			) {
+				delta_or_done = (
+					puppet->pos.prev.x.v - puppet->pos.cur.x.v
+				);
+				if((delta_or_done / to_sp(2.0f)) != 0) {
+					puppet->pos.cur.x.v += (delta_or_done / to_sp(2.0f));
+				} else if((delta_or_done / 4) != 0) {
+					puppet->pos.cur.x.v += (delta_or_done / 4);
+				} else {
+					puppet->pos.cur.x.v = puppet->pos.prev.x.v;
+				}
+
+				delta_or_done = (
+					puppet->pos.prev.y.v - puppet->pos.cur.y.v
+				);
+				if((delta_or_done / to_sp(2.0f)) != 0) {
+					puppet->pos.cur.y.v += (delta_or_done / to_sp(2.0f));
+				} else if((delta_or_done / 4) != 0) {
+					puppet->pos.cur.y.v += (delta_or_done / 4);
+				} else {
+					puppet->pos.cur.y.v = puppet->pos.prev.y.v;
+				}
+				puppet->patnum = (PAT_PUPPET + 2);
+			} else {
+				puppet->patnum = PAT_PUPPET;
+				if(i == 0) {
+					delta_or_done = fp_2CE2A(puppet);
+				} else {
+					delta_or_done = fp_2CE2C(puppet);
+				}
+				if(delta_or_done) {
+					puppet->pos.prev.x.v = (
+						randring2_next16_mod(to_sp(320.0f)) + to_sp(32.0f)
+					);
+					puppet->pos.prev.y.v = (
+						randring2_next16_mod(to_sp(160.0f)) + to_sp(16.0f)
+					);
+					if(i == 0) {
+						fp_2CE2A = ALICE_PUPPET_PATTERNS[randring2_next16_and(3)];
+					} else {
+						fp_2CE2C = ALICE_PUPPET_PATTERNS[randring2_next16_and(3)];
+					}
+					puppet->phase_frame = 0;
+				} else {
+					puppet->phase_frame++;
+				}
+			}
+
+			if(
+				static_cast<unsigned>(
+					(puppet->pos.cur.x.v - player_pos.cur.x.v) + to_sp(12.0f)
+				) < static_cast<unsigned>(to_sp(24.0f))
+			) {
+				if(
+					static_cast<unsigned>(
+						(puppet->pos.cur.y.v - player_pos.cur.y.v) +
+						to_sp(12.0f)
+					) < static_cast<unsigned>(to_sp(24.0f))
+				) {
+					player_is_hit = true;
+				}
+			}
+
+			// The barrier's third sub-state makes both puppets invincible.
+			if(boss_statebyte[9] != 3) {
+				shot_hitbox_center = puppet->pos.cur;
+				puppet->damage_this_frame = shots_hittest();
+				if(puppet->damage_this_frame != 0) {
+					snd_se_play(4);
+				}
+				puppet->hp -= puppet->damage_this_frame;
+				if(puppet->hp < 0) {
+					puppet->flag++;
+					puppet->patnum = PAT_ENEMY_KILL;
+					puppet->damage_this_frame = 0;
+					snd_se_play(12);
+					score_delta += 100;
+				}
+			} else {
+				puppet->damage_this_frame = 0;
+			}
+		} else {
+			// Death animation: one cel every 4th frame, then respawn.
+			if((puppet->flag % 4) == 0) {
+				puppet->patnum++;
+				if(puppet->patnum >= (PAT_ENEMY_KILL_last + 1)) {
+					puppet->flag = F_FREE;
+					puppet->pos.cur.x.v = to_sp(PLAYFIELD_W / 2);
+					puppet->pos.cur.y.v = to_sp(-256.0f);
+					puppet->pos.prev.x.v = to_sp(PLAYFIELD_W / 2);
+					puppet->pos.prev.y.v = to_sp(-16.0f);
+					puppet->hp = PUPPET_HP;
+					puppet->patnum = (PAT_PUPPET + 2);
+					if(i == 0) {
+						fp_2CE2A = alice_puppet_pattern_19AE3;
+					} else {
+						fp_2CE2C = alice_puppet_pattern_19AE3;
+					}
+					boss.hp -= 300;
+				}
+			}
+			puppet->flag++;
+		}
+	}
+}
+
+// ALICE_PUPPET_PATTERNS[0]: one random-angle pellet every other GLOBAL
+// frame, from 32 to 64.
+bool pascal near alice_puppet_pattern_198B7(puppet_t near *puppet)
+{
+	if(puppet->phase_frame == 16) {
+		circles_add_shrinking(puppet->pos.cur.x.v, puppet->pos.cur.y.v);
+	}
+	if(puppet->phase_frame >= 32) {
+		if((puppet->phase_frame < 64) && (stage_frame_mod2 != 0)) {
+			bullet_template.patnum = 0; // pellet
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.speed.set(2.0f);
+			bullet_template.group = BG_SINGLE;
+			bullet_template.origin = puppet->pos.cur;
+			bullet_template.angle = randring2_next16();
+			bullet_template_tune();
+			bullets_add_regular();
+			puppet->patnum = (PAT_PUPPET + 4);
+		} else if(puppet->phase_frame >= 96) {
+			puppet->patnum = PAT_PUPPET;
+			return true;
+		}
+	}
+	return false;
+}
+
+// ALICE_PUPPET_PATTERNS[1]: one aimed spread-stack of pellets on frame 32,
+// then idle until 96.
 bool pascal near alice_puppet_pattern_19928(puppet_t near *puppet)
 {
 	if(puppet->phase_frame == 16) {
@@ -204,8 +402,8 @@ bool pascal near alice_puppet_pattern_19928(puppet_t near *puppet)
 	return false;
 }
 
-// [off_22768][2]: an aimed spread of pellets every 8th of its own frames, from
-// 32 to 64.
+// ALICE_PUPPET_PATTERNS[2]: an aimed spread of pellets every 8th of its own
+// frames, from 32 to 64.
 bool pascal near alice_puppet_pattern_1999A(puppet_t near *puppet)
 {
 	if(puppet->phase_frame == 16) {
@@ -231,7 +429,7 @@ bool pascal near alice_puppet_pattern_1999A(puppet_t near *puppet)
 	return false;
 }
 
-// [off_22768][3]: the same, with an aimed ring instead of a spread.
+// ALICE_PUPPET_PATTERNS[3]: the same, with an aimed ring instead of a spread.
 bool pascal near alice_puppet_pattern_19A0F(puppet_t near *puppet)
 {
 	if(puppet->phase_frame == 16) {
@@ -734,10 +932,10 @@ void pascal alice_update(void)
 			puppet->angle = 0x20;
 			puppet->hp = PUPPET_HP;
 			puppet->pos.cur.x.v = Subpixel::None();
-			fp_2CE2A = sub_198B7;
-			fp_2CE2C = sub_198B7;
+			fp_2CE2A = alice_puppet_pattern_198B7;
+			fp_2CE2C = alice_puppet_pattern_198B7;
 		} else if(boss.phase_frame > 128) {
-			sub_19634();
+			puppets_spiral_in();
 
 			// Timeout condition
 			if(puppets[0].radius.motion == 0) {
