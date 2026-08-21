@@ -8889,6 +8889,10 @@ marisa_16C05	endp
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the
+	; bare label. kb/codegen/0123.
+public _marisa_16C6A
+_marisa_16C6A label near
 marisa_16C6A	proc near
 
 var_4		= word ptr -4
@@ -9079,6 +9083,8 @@ marisa_16DD7	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_16DFF
+_marisa_16DFF label near
 marisa_16DFF	proc near
 
 var_1		= byte ptr -1
@@ -9144,6 +9150,8 @@ marisa_16DFF	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_16E9D
+_marisa_16E9D label near
 marisa_16E9D	proc near
 
 var_2		= word ptr -2
@@ -9260,6 +9268,8 @@ marisa_bit_fire_16F24	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_16F61
+_marisa_16F61 label near
 marisa_16F61	proc near
 
 var_1		= byte ptr -1
@@ -9388,6 +9398,8 @@ marisa_bit_fire_17061	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_17079
+_marisa_17079 label near
 marisa_17079	proc near
 
 var_1		= byte ptr -1
@@ -9506,6 +9518,8 @@ marisa_17079	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1717D
+_marisa_1717D label near
 marisa_1717D	proc near
 
 var_1		= byte ptr -1
@@ -9696,6 +9710,8 @@ marisa_1717D	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_17335
+_marisa_17335 label near
 marisa_17335	proc near
 
 var_3		= byte ptr -3
@@ -9847,6 +9863,8 @@ marisa_17335	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_17491
+_marisa_17491 label near
 marisa_17491	proc near
 
 var_1		= byte ptr -1
@@ -10067,6 +10085,8 @@ marisa_17491	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_1769E
+_marisa_1769E label near
 marisa_1769E	proc near
 
 var_1		= byte ptr -1
@@ -10196,6 +10216,8 @@ marisa_1769E	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_17813
+_marisa_17813 label near
 marisa_17813	proc near
 
 var_1		= byte ptr -1
@@ -10258,6 +10280,10 @@ marisa_17813	endp
 
 ; Attributes: bp-based frame
 
+	; `proc far` is IDA's, and it is wrong: the body ends in `retn` and its
+	; one call site is `call near ptr`. The alias is near. kb/codegen/0123.
+public _marisa_1788E
+_marisa_1788E label near
 marisa_1788E	proc far
 
 var_1		= byte ptr -1
@@ -10381,6 +10407,8 @@ marisa_1788E	endp
 
 ; Attributes: bp-based frame
 
+public _marisa_179BC
+_marisa_179BC label near
 marisa_179BC	proc near
 		push	bp
 		mov	bp, sp
@@ -10411,323 +10439,19 @@ loc_179F0:
 marisa_179BC	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; marisa_update() now lives in th04/main/boss/b4m_upd.cpp, at the FRONT
+	; of the th04/std_run.cpp object, which is its original address order
+	; ahead of enemies_add() and std_run(). The object was already appended
+	; right here, so the lift is an ordinary seam handoff (kb/codegen/0099)
+	; with no carve and no Tupfile.lua line.
+	;
+	; Its two `switch`es -- one dense over [boss.phase] and one sparse over
+	; [boss.mode] -- are what the two tables that used to end this
+	; contribution compile FROM, so both left with the proc. There is no
+	; padding byte between them or in front of them, and no `-a2`.
+	;
+	; Nothing in this file references it; th04/main/stage/setup.cpp does.
 
-; Attributes: bp-based frame
-public @MARISA_UPDATE$QV
-@marisa_update$qv	proc far
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		mov	ax, _boss_pos.cur.x
-		add	ax, (-20 shl 4)
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	loc_17C9F
-		add	bx, bx
-		jmp	cs:off_17CEB[bx]
-
-loc_17A1F:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_17A31
-		mov	_boss_hp, 6000
-		mov	byte_25671, 2
-
-loc_17A31:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 96
-		jle	loc_17CA4
-		inc	_boss_phase
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 7
-		mov	_palette_changed, 1
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_bg_render_bombing_func, offset @reimu_marisa_bg_render$qv
-		mov	_tiles_bb_col, V_WHITE
-		mov	byte_25670, 0
-		jmp	loc_17CA4
-; ---------------------------------------------------------------------------
-
-loc_17A75:
-		inc	_boss_phase_frame
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 128
-		jl	loc_17CA4
-		inc	_boss_phase
-		mov	_boss_pos.velocity.x, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0Ah
-		mov	_boss_phase_frame, 0
-		mov	_boss_sprite, 129
-		mov	byte_25673, 1
-		mov	byte_25674, 0
-		mov	byte_2566E, 0Ah
-		mov	byte_2566F, 0
-		mov	_boss_statebyte[13].BSB_flystep_pointreflected_tick, 0
-		jmp	loc_17CA4
-; ---------------------------------------------------------------------------
-
-loc_17AC1:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	[bp+var_4], ax
-		mov	cx, 0Bh		; switch 11 cases
-		mov	bx, offset word_17CBF
-
-loc_17ACF:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_4]
-		jz	short loc_17ADF
-		add	bx, 2
-		loop	loc_17ACF
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17ADF:
-		jmp	word ptr cs:[bx+16h] ; switch jump
-
-loc_17AE3:
-		call	marisa_16E9D	; jumptable 00017ADF case 0
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17AE9:
-		call	marisa_16F61	; jumptable 00017ADF case 1
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17AEF:
-		call	marisa_17079	; jumptable 00017ADF case 2
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17AF5:
-		call	marisa_1717D	; jumptable 00017ADF case 3
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17AFB:
-		call	marisa_17335	; jumptable 00017ADF case 4
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B01:
-		call	marisa_17491	; jumptable 00017ADF case 5
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B07:
-		call	marisa_1769E	; jumptable 00017ADF case 6
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B0D:
-		call	near ptr marisa_1788E ; jumptable 00017ADF	case 7
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B13:
-		call	marisa_16DFF	; jumptable 00017ADF case 10
-		jmp	loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B19:
-		call	marisa_17813	; jumptable 00017ADF case 11
-		jmp	short loc_17B98	; default
-; ---------------------------------------------------------------------------
-
-loc_17B1E:
-		call	@marisa_flystep_random$qv ; jumptable 00017ADF case 255
-		cmp	_boss_phase_frame, 64
-		jl	short loc_17B98	; default
-		inc	_boss_phase_state
-		mov	_boss_statebyte[13].BSB_flystep_pointreflected_tick, 0
-		cmp	byte_2566F, 0
-		jnz	short loc_17B62
-		cmp	_bits_alive, 0
-		jnz	short loc_17B62
-		inc	byte_25673
-		cmp	byte_25673, 2
-		jb	short loc_17B56
-		mov	_boss_mode, 0
-		mov	byte_25673, 0
-		jmp	short loc_17B84
-; ---------------------------------------------------------------------------
-
-loc_17B56:
-		push	1
-		call	@randring2_next16_and$qui
-		add	al, 0Ah
-		mov	_boss_mode, al
-		jmp	short loc_17B84
-; ---------------------------------------------------------------------------
-
-loc_17B62:
-		push	7
-		call	@randring2_next16_mod$qui
-		inc	ax
-		mov	[bp+var_2], ax
-		mov	al, byte_2566E
-		mov	ah, 0
-		cmp	ax, [bp+var_2]
-		jz	short loc_17B62
-		mov	al, byte ptr [bp+var_2]
-		mov	_boss_mode, al
-		mov	byte_2566E, al
-		mov	al, _bits_alive
-		mov	byte_2566F, al
-
-loc_17B84:
-		mov	_boss_phase_frame, 0
-		cmp	_boss_phase_state, 52
-		jb	short loc_17B98	; default
-		mov	_boss_phase_state, 0
-		jmp	short loc_17BA4
-; ---------------------------------------------------------------------------
-
-loc_17B98:
-		call	marisa_179BC	; default
-		or	al, al
-		jz	short loc_17BB3
-		mov	_boss_phase_state, 1
-
-loc_17BA4:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_HORIZONTAL
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-
-loc_17BB3:
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_17BF0
-		cmp	byte_25670, 0
-		jnz	short loc_17BD7
-		mov	al, Palettes[0 * size rgb_t].b
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].b, al
-		cmp	Palettes[0 * size rgb_t].b, 192
-		jb	short loc_17BEB
-		mov	byte_25670, 1
-		jmp	short loc_17BEB
-; ---------------------------------------------------------------------------
-
-loc_17BD7:
-		mov	al, Palettes[0 * size rgb_t].b
-		add	al, -2
-		mov	Palettes[0 * size rgb_t].b, al
-		cmp	Palettes[0 * size rgb_t].b, 38
-		ja	short loc_17BEB
-		mov	byte_25670, 0
-
-loc_17BEB:
-		mov	_palette_changed, 1
-
-loc_17BF0:
-		cmp	_boss_hp, 4500
-		jg	short loc_17BFF
-		cmp	byte_25674, 0
-		jz	short loc_17C21
-
-loc_17BFF:
-		cmp	_boss_hp, 2500
-		jg	short loc_17C0E
-		cmp	byte_25674, 1
-		jz	short loc_17C21
-
-loc_17C0E:
-		cmp	_boss_hp, 1000
-		jg	loc_17CA4
-		cmp	byte_25674, 2
-		jnz	loc_17CA4
-
-loc_17C21:
-		call	@boss_items_drop$qv
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_17C30
-		mov	_bullet_clear_time, 20
-
-loc_17C30:
-		call	@boss_score_bonus$qui pascal, 10
-		mov	al, byte_25674
-		mov	ah, 0
-		call	@boss_explode_small$q16explosion_type_t pascal, ax
-		inc	byte_25674
-		jmp	short loc_17CA4
-; ---------------------------------------------------------------------------
-
-loc_17C44:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_17C54
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_17C54:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_17CA4
-		call	@boss_explode_big$qui pascal, ET_SW_NE
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_17C77
-		call	@boss_score_bonus$qui pascal, 40
-
-loc_17C77:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_17CA4
-; ---------------------------------------------------------------------------
-
-loc_17C9F:
-		call	@boss_defeat_update$qv
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_17CA4:
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		call	marisa_16C6A
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 6000
-		leave
-		retf
-@marisa_update$qv	endp
-
-; ---------------------------------------------------------------------------
-word_17CBF	dw	0,     1,     2,     3
-		dw	4,     5,     6,     7 ; value table for switch	statement
-		dw    0Ah,   0Bh,  0FFh
-		dw offset loc_17AE3	; jump table for switch	statement
-		dw offset loc_17AE9
-		dw offset loc_17AEF
-		dw offset loc_17AF5
-		dw offset loc_17AFB
-		dw offset loc_17B01
-		dw offset loc_17B07
-		dw offset loc_17B0D
-		dw offset loc_17B13
-		dw offset loc_17B19
-		dw offset loc_17B1E
-off_17CEB	dw offset loc_17A1F
-		dw offset loc_17A75
-		dw offset loc_17AC1
-		dw offset loc_17C44
 
 	; enemies_add() now lives in th04/main/enemy/add.cpp, which the
 	; th04/std_run.cpp object appends to this segment ahead of std_run()
@@ -23413,14 +23137,26 @@ public _carpet_light_level
 _carpet_light_level	db ?
 	evendata
 include th04/main/stage/funcs[bss].asm
+public _marisa_pattern_prev
+_marisa_pattern_prev label byte
 byte_2566E	db ?
+public _marisa_bits_at_pattern_start
+_marisa_bits_at_pattern_start label byte
 byte_2566F	db ?
+public _marisa_pulse_dimming
+_marisa_pulse_dimming label byte
 byte_25670	db ?
+public _marisa_25671
+_marisa_25671 label byte
 byte_25671	db ?
 
 public _bits_alive
 _bits_alive	db ?
+public _marisa_patterns_without_bits
+_marisa_patterns_without_bits label byte
 byte_25673	db ?
+public _marisa_explode_milestone
+_marisa_explode_milestone label byte
 byte_25674	db ?
 	evendata
 
