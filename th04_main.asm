@@ -1258,360 +1258,39 @@ P_MARISA_TEXT	segment	byte public 'CODE' use16
 	SHOT_MARISA_L0 procdesc pascal near
 	SHOT_MARISA_L1 procdesc pascal near
 
-	; shot_laser_update() now lives in th04/main/player/p_marisa.cpp too,
-	; below the two levels above -- its original address order. Unlike them it
-	; is NOT `extern "C"`: the `public` this dump used to carry for it spells
-	; the C++-MANGLED name, in upper case because the function is `pascal`
-	; (kb/codegen 0081, 0102, 0103), so the C++ definition keeps the mangling
-	; and this declaration has to match that spelling rather than the proc's
-	; own lower-case one.
+	; shot_laser_update() now lives in th04/main/player/p_marisa.cpp as well,
+	; below the two levels above -- its original address order -- and the eight
+	; shottype-A levels that were its ONLY callers went with it, into
+	; th04/main/player/shot_marisa_a.cpp. `[measured]` by a census, before the
+	; lift, of every call to it anywhere in this file: eight, all inside
+	; shot_marisa_a_l2..a_l9, none anywhere else.
+	; Marisa's shottype B never starts a laser, so nothing in this dump names
+	; that symbol any more and it needs no procdesc at all -- the parameter-
+	; carrying one the previous parcel added for TASM's extended CALL is gone
+	; with its last call site.
 	;
-	; The parameter list is load-bearing, unlike the two no-argument procdescs
-	; above: all eight call sites left in EXECL_TEXT use TASM's extended CALL
-	; (`call ... pascal, 64, SLS_2`), which needs the prototype to know what to
-	; push and in which order. Same shape as th05_main.asm's
-	; @BOSS_EXPLODE_SMALL$Q16EXPLOSION_TYPE_T. The enum argument is declared
-	; `word` because that is what the caller pushes; the body reads only its
-	; low byte, which is what the deleted `@@style = byte ptr 4` recorded.
-	@SHOT_LASER_UPDATE$QUI18SHOT_LASER_STYLE_T procdesc pascal near frames:word, style:word
+	; The eight A levels get one procdesc each, for the same reason the two
+	; levels above do: SHOT_FUNCS_MARISA_A further down takes their offsets,
+	; and that table keeps the lower-case spelling.
+	SHOT_MARISA_A_L2 procdesc pascal near
+	SHOT_MARISA_A_L3 procdesc pascal near
+	SHOT_MARISA_A_L4 procdesc pascal near
+	SHOT_MARISA_A_L5 procdesc pascal near
+	SHOT_MARISA_A_L6 procdesc pascal near
+	SHOT_MARISA_A_L7 procdesc pascal near
+	SHOT_MARISA_A_L8 procdesc pascal near
+	SHOT_MARISA_A_L9 procdesc pascal near
 P_MARISA_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the head of the original
-; `main_TEXT` contribution once shot_marisa_l0(), shot_marisa_l1() and
-; shot_laser_update() moved out of it into the P_MARISA_TEXT anchor above.
-; A C++ object still appends GameExecl() at its original address in the
-; MIDDLE of this segment. Same `byte public 'CODE'` alignment as before, so
-; nothing moves. kb/codegen/0121: none of the deleted bodies carried an
-; `assume`, so there is nothing to restore.
+; `main_TEXT` contribution once shot_marisa_l0(), shot_marisa_l1(),
+; shot_laser_update() and the eight shot_marisa_a_l2..a_l9 moved out of it
+; into the P_MARISA_TEXT anchor above. A C++ object still appends GameExecl()
+; at its original address in the MIDDLE of this segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
+; none of the deleted bodies carried an `assume`, so there is nothing to
+; restore.
 EXECL_TEXT	segment	byte public 'CODE' use16
-
-shot_marisa_a_l2	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 64, SLS_2
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DB7C
-; ---------------------------------------------------------------------------
-
-loc_DB62:
-		lea	ax, [si+shot_t.pos.velocity]
-		push	ax
-		push	7
-		call	@randring1_next16_and$qui
-		add	al, -44h
-		push	ax
-		call	@shot_velocity_set$qp7sppointuc
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 9
-		jmp	short loc_DB85
-; ---------------------------------------------------------------------------
-
-loc_DB7C:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DB62
-
-loc_DB85:
-		pop	si
-		pop	bp
-		retn
-shot_marisa_a_l2	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l3	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, 2
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 72, SLS_2
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DBC1
-; ---------------------------------------------------------------------------
-
-loc_DBA4:
-		cmp	di, 2
-		jnz	short loc_DBB0
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_DBB5
-; ---------------------------------------------------------------------------
-
-loc_DBB0:
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_DBB5:
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 9
-		dec	di
-		jle	short loc_DBCA
-
-loc_DBC1:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DBA4
-
-loc_DBCA:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-shot_marisa_a_l3	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, 2
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 88, SLS_4
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DC07
-; ---------------------------------------------------------------------------
-
-loc_DBEA:
-		cmp	di, 2
-		jnz	short loc_DBF6
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_DBFB
-; ---------------------------------------------------------------------------
-
-loc_DBF6:
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_DBFB:
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 9
-		dec	di
-		jle	short loc_DC10
-
-loc_DC07:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DBEA
-
-loc_DC10:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-shot_marisa_a_l4	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l5	proc near
-
-@@angle	= byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 3
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 104, SLS_4
-		mov	[bp+@@angle], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DC53
-; ---------------------------------------------------------------------------
-
-loc_DC35:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle]
-		add	al, 08h
-		mov	[bp+@@angle], al
-		dec	di
-		jle	short loc_DC5C
-
-loc_DC53:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DC35
-
-loc_DC5C:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_a_l5	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l6	proc near
-
-@@angle	= byte ptr - 1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 3
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 128, SLS_6
-		mov	[bp+@@angle], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DCA0
-; ---------------------------------------------------------------------------
-
-loc_DC82:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle]
-		add	al, 08h
-		mov	[bp+@@angle], al
-		dec	di
-		jle	short loc_DCA9
-
-loc_DCA0:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DC82
-
-loc_DCA9:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_a_l6	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l7	proc near
-
-@@angle	= byte ptr - 1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 3
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 144, SLS_1_4_1
-		mov	[bp+@@angle], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DCED
-; ---------------------------------------------------------------------------
-
-loc_DCCF:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle]
-		add	al, 08h
-		mov	[bp+@@angle], al
-		dec	di
-		jle	short loc_DCF6
-
-loc_DCED:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DCCF
-
-loc_DCF6:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_a_l7	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l8	proc near
-
-@@angle = byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 5
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 168, SLS_1_4_1
-		mov	[bp+@@angle], -4Ch
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DD3A
-; ---------------------------------------------------------------------------
-
-loc_DD1C:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 7
-		mov	al, [bp+@@angle]
-		add	al, 06h
-		mov	[bp+@@angle], al
-		dec	di
-		jle	short loc_DD43
-
-loc_DD3A:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DD1C
-
-loc_DD43:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_a_l8	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_a_l9	proc near
-
-@@angle = byte ptr -1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 5
-		call	@shot_laser_update$qui18shot_laser_style_t pascal, 192, SLS_8
-		mov	[bp+@@angle], -4Ch
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DD87
-; ---------------------------------------------------------------------------
-
-loc_DD69:
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 7
-		mov	al, [bp+@@angle]
-		add	al, 06h
-		mov	[bp+@@angle], al
-		dec	di
-		jle	short loc_DD90
-
-loc_DD87:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DD69
-
-loc_DD90:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_a_l9	endp
-
-; ---------------------------------------------------------------------------
 
 shot_marisa_b_l2	proc near
 		push	bp

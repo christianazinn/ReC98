@@ -3,8 +3,8 @@
 /// The head of what th04_main.asm contributed to EXECL_TEXT: the two levels
 /// that are the same for shottype A and B (SHOT_FUNCS_MARISA_A and
 /// SHOT_FUNCS_MARISA_B both point their first two entries here), and the
-/// option-laser starter that all sixteen of Marisa's shot control functions
-/// call. Both levels are byte-for-byte the same construct as Reimu's
+/// option-laser starter that her eight shottype-A levels call. Both levels
+/// are byte-for-byte the same construct as Reimu's
 /// shot_reimu_l0() and shot_reimu_l1() in th04/main/player/shot_reimu.cpp,
 /// with Marisa's sprite bank substituted -- the two shottypes only diverge
 /// from level 2 onwards.
@@ -53,10 +53,12 @@ void pascal near shot_marisa_l1(void)
 
 // Starts the option laser if it is not already out, and spawns the pair of
 // 16x16 ring shots that ride on top of it, one per option, on four out of
-// every eight frames the laser is up. Called by all sixteen of Marisa's shot
-// control functions, which is why it lives here rather than beside
-// shot_laser_render(). NOT `extern "C"`: the dump's own `public` spells the
-// C++-mangled name, so this definition has to stay mangled too.
+// every eight frames the laser is up. Called by Marisa's eight SHOTTYPE A
+// levels and by nothing else in either game -- `[measured]` by a census, before
+// the lift, of every call to it anywhere in th04_main.asm: eight, all inside
+// shot_marisa_a_l2..a_l9. Shottype B never starts a laser. NOT `extern "C"`:
+// the dump's own `public` spelled the C++-mangled name, so this definition
+// has to stay mangled too.
 void pascal near shot_laser_update(
 	unsigned int frames, shot_laser_style_t style
 )
