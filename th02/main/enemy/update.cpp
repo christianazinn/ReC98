@@ -1,6 +1,6 @@
 /// TH02's regular stage enemies, per-frame hit test, death and update
 /// ------------------------------------------------------------------
-/// The lowest three functions of the BOSS_5_TEXT block below Mima's fight,
+/// The bottom twelve functions of the BOSS_5_TEXT block below Mima's fight,
 /// in dump order, and together they are th02_main.asm's own carve-free tail
 /// chain there. th02/main/enemy/enemies.cpp next door holds the two procs at
 /// HIGHER addresses, and they are in th02/boss_5.cpp's object rather than
@@ -9,7 +9,7 @@
 ///
 /// THIS FILE IS ITS OWN OBJECT, NOT AN #include INTO th02/boss_5.cpp, and the
 /// next lift out of this block must keep it that way. Its contribution is
-/// 0x417 bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte
+/// 0xEEF bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte
 /// alignment pad under mima_update()'s generated jump table. Turbo C++
 /// word-aligns that table against the offset the object it emits starts at,
 /// which it necessarily treats as 0, so folding an odd contribution in ahead
@@ -20,14 +20,20 @@
 /// (kb/codegen/0105), and one Tupfile.lua line ahead of th02/boss_5.cpp so
 /// TLINK concatenates the two in dump order.
 ///
-/// The two bodies that joined enemies_update_and_render() here were 0x86 each
-/// - EVEN - and moved this object's start without re-rolling th02/boss_5.cpp's
-/// prefix by a byte, measured on that object's PUBDEFs both times. That is the
-/// pattern every further lift out of this block should follow.
+/// EVERY GROUP OF BODIES PREPENDED HERE HAS TO SUM TO AN EVEN NUMBER, for the
+/// two independent reasons above and below: an odd prefix re-rolls
+/// th02/boss_5.cpp's own start, and an odd prefix ahead of enemy_run() deletes
+/// the pad under its jump tables. Both have held for every lift so far - 0x86
+/// twice, then 0x1A7, then this parcel's 0x20C - and every one of them was
+/// measured on this object's PUBDEFs with tools/pi-audit/obj_probe.py before
+/// the build, never on a `tcc -S` listing.
 ///
 /// -G for the `push bp; mov bp, sp; sub sp, N` prologs (kb/codegen/0011).
-/// -zPmain_03 for the near calls into the enemy helpers that are still ASM in
-/// the same segment. -a2 for enemy_run()'s three generated jump tables and the
+/// -zPmain_03 so this object's near calls and near jump-table entries resolve
+/// against group main_03's base rather than the segment's, which is what the
+/// original encodes (kb/codegen/0104). Nothing in the segment's root block is
+/// a call target of this object any more.
+/// -a2 for enemy_run()'s three generated jump tables and the
 /// one pad in front of them, which only lands at the original's parity while
 /// the bytes emitted ahead of enemy_run() here sum to an ODD number.
 #pragma option -zCBOSS_5_TEXT -zPmain_03 -G -a2
@@ -51,6 +57,7 @@
 #include "th02/main/player/shot.hpp"
 #include "th02/main/spark.hpp"
 #include "th02/math/randring.hpp"
+#include "th02/math/vector.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
@@ -66,7 +73,8 @@ extern "C" uint8_t enemies_loop_bound;
 //
 // COINAGE, and it joins a family already under a standing rename:
 // state/re/NAMING_REVIEW_VERDICTS_9.md rules [spawn_grid], [spawn_rows] and
-// SPAWN_COLUMN_COUNT over to an `enemy_spawn_*` stem, unapplied so far. Named
+// SPAWN_COLUMN_COUNT over to an enemy_spawn_ stem, unapplied so far -- written
+// without a code span, because nothing in the tree carries that stem yet. Named
 // to match its two published siblings rather than pre-empting that rename, so
 // the family stays consistent in the interim — it makes that item four names,
 // not three. `_cur` is the tree's cursor suffix (enemy_cur, pattern_cur,
@@ -118,39 +126,40 @@ extern "C" pixel_delta_8_t near *enemy_velocity_y_p;
 // never moves -- [enemy_t::script_ip] is the index into it.
 extern "C" const uint8_t near *enemy_script_base;
 
-/// Still ASM in th02_main.asm, directly above this file's contribution, and
-/// published for this object's sake (kb/codegen/0123).
-/// -----------------------------------------------------------------------
-// One step of this enemy's script VM. TH03 and TH04 both call theirs
-// enemy_run() (th03/main/enemy/enemy.cpp, th04/main/enemy/script.cpp), and
-// TH02's returns the same kind of status the loop below dispatches on:
-// 2 = this enemy is done for the frame, 1 = run another opcode.
-extern "C" int near enemy_run(void);
+/// The BOSS_5_TEXT tail chain, in dump order
+/// -----------------------------------------
+/// Six bodies that were th02_main.asm's carve-free tail there until this
+/// parcel: the installer that shuts the stage enemies off for a boss fight,
+/// the one-pellet shot helper, and the four movement steps enemy_run() below
+/// dispatches to. Every name in this block was decided by an earlier parcel -
+/// state/notes/th02-enemy-run.md section 5 for the four movement steps,
+/// state/notes/th02-enemies-update-and-render.md section 3 for the placeholder
+/// - so this one only moves bodies.
 
-// Adds this enemy's signed byte velocities to its position, and NOTHING else.
-// TH04 and TH05 publish enemy_pos_update() for the same step and this adopts
-// that name, with the difference disclosed rather than hidden: theirs also
-// clips against the playfield and returns whether the enemy left it, while
-// TH02 does the clipping in enemies_update_and_render() below.
-extern "C" void near enemy_pos_update(void);
+// Still ASM in th02_main.asm, directly above this file's contribution: the
+// five-byte SECOND compiled copy of nullfunc_void() that ZUN left at the tail
+// of that block. It sits ABOVE the bytes this object now owns, so it cannot
+// come across with its only user, and th02_main.asm grew a `public` for it in
+// this parcel (kb/codegen/0123) - it had none before, because until now the
+// only reference to it was in the same dump.
+extern "C" void far nullfunc_void_2(void);
 
-// The same advance, but pointed at the player first. `_AIMED` rather than
-// `_at_player` is naming-precedents.md's rule for a behaviour variant that
-// aims the original behaviour, over 35 upstream pairs.
-extern "C" void near enemy_pos_update_aimed(void);
+// th02/main/stage/callback.hpp declares these two slots, but it needs
+// th02/main/stage/stage.hpp and neither header has an include guard. Declared
+// here in that header's exact spelling instead - the same call
+// th02/main/laser.cpp makes for the laser pair, and for the same reason.
+extern void (far *enemies_invalidate_func)(void);
+extern void (far *enemies_update_and_render_func)(void);
 
-// Turns this enemy by [sign] every [operand]-th frame and then advances it.
-// COINAGE: no sibling game fuses turning and moving - TH04's .STD opcodes set
-// an angle delta inline and call enemy_velocity_set() - and there is no
-// in-tree precedent for either half of the `step`/`spin` distinction it draws
-// against the next declaration. Recorded as a coinage in
-// state/notes/th02-enemy-run.md, not adopted.
-extern "C" void pascal near enemy_angle_step_and_move(int operand, int sign);
+// Disables the stage enemies for the rest of a boss fight, by pointing both
+// per-frame slots at that empty function. th02/main/bgm_show.cpp holds this
+// name's record and the only call site.
+extern "C" void far enemies_callbacks_null(void)
+{
+	enemies_invalidate_func = nullfunc_void_2;
+	enemies_update_and_render_func = nullfunc_void_2;
+}
 
-// Turns this enemy by a script-supplied amount EVERY frame and then advances
-// it - the per-frame counterpart of the one above, and a coinage for the same
-// reason.
-extern "C" void near enemy_angle_spin_and_move(void);
 
 // Fires one pellet from this enemy's bullet origin at the given angle.
 // PLACEHOLDER, DELIBERATELY: the bounded search is in
@@ -158,12 +167,129 @@ extern "C" void near enemy_angle_spin_and_move(void);
 // nmlgc has never named it, no sibling game has a one-pellet-per-enemy helper
 // to adopt from, and its four call sites (three script opcodes plus the
 // autofire gate below) rule out every candidate stem that fits only one of
-// them. th02_main.asm publishes it under this placeholder, exactly as it
-// already does for _left_26C56 two data blocks below -- but in the TWO-line
-// form, because `pascal` decorates UPPER CASE with no leading underscore
-// (kb/codegen/0086), so the `public` is `SUB_16AA7` and TASM's
-// case-insensitivity makes it the same symbol as the `proc` line.
-extern "C" void pascal near sub_16AA7(unsigned char angle);
+// them. th02_main.asm published it under this placeholder while it was ASM, in
+// the TWO-line form, because `pascal` decorates UPPER CASE with no leading
+// underscore (kb/codegen/0086) - so the `public` carried the upper-case
+// spelling of the name below, and TASM's case-insensitivity made it the same
+// symbol as the `proc` line. Turbo C++ emits that same upper-case PUBDEF for
+// the definition below, which is why no alias was needed to replace it.
+//
+// [angle] is `unsigned char`, not `int`: opcode 33 hands it `word ptr [bx+1]`
+// straight from the script, and an `int` parameter makes Borland zero-extend
+// the byte through `mov al` / `mov ah, 0` / `push ax` at all four call sites.
+extern "C" void pascal near sub_16AA7(unsigned char angle)
+{
+	bullets_add_pellet(
+		(enemy_template_cur->bullet_origin_x + *enemy_left_p),
+		(enemy_template_cur->bullet_origin_y + *enemy_top_p),
+		angle,
+		enemy_cur->pellet_group,
+		enemy_cur->pellet_speed
+	);
+}
+
+
+// Adds this enemy's signed byte velocities to its position, and NOTHING else.
+// TH04 and TH05 publish enemy_pos_update() for the same step and this adopts
+// that name, with the difference disclosed rather than hidden: theirs also
+// clips against the playfield and returns whether the enemy left it, while
+// TH02 does the clipping in enemies_update_and_render() below.
+extern "C" void near enemy_pos_update(void)
+{
+	*enemy_left_p += *enemy_velocity_x_p;
+	*enemy_top_p += *enemy_velocity_y_p;
+}
+
+
+// The same advance, but pointed at the player first. `_AIMED` rather than
+// `_at_player` is naming-precedents.md's rule for a behaviour variant that
+// aims the original behaviour, over 35 upstream pairs.
+//
+// ZUN quirk: the aim point is neither the player's top-left nor her center.
+// player_center_x() / player_center_y() are +(PLAYER_W / 2) = +16 and
+// +(PLAYER_H / 2) = +24; this function adds 24 to X and 16 to Y, i.e. the two
+// halves swapped, which aims 8 pixels right of and 8 pixels above her center.
+// Written as literals for that reason - the header's helpers would change the
+// bytes. [measured]
+extern "C" void near enemy_pos_update_aimed(void)
+{
+	int y2;
+	int vector_x;
+	int vector_y;
+
+	y2 = (player_topleft.y + 16);
+	vector2_between_plus(
+		*enemy_left_p, *enemy_top_p, (player_topleft.x + 24), y2, 0,
+		vector_x, vector_y, enemy_script_base[enemy_cur->script_ip + 2]
+	);
+	*enemy_velocity_x_p = vector_x;
+	*enemy_velocity_y_p = vector_y;
+	*enemy_left_p += vector_x;
+	*enemy_top_p += vector_y;
+}
+
+
+// Turns this enemy by [sign] every [operand]-th frame and then advances it.
+// COINAGE: no sibling game fuses turning and moving - TH04's .STD opcodes set
+// an angle delta inline and call enemy_velocity_set() - and there is no
+// in-tree precedent for either half of the `step`/`spin` distinction it draws
+// against the next function. Recorded as a coinage in
+// state/notes/th02-enemy-run.md, not adopted.
+//
+// [operand] is where in the script the three bytes this reads start, relative
+// to the opcode: opcode 3 passes 3 and opcode 7 passes 2, which is why the
+// same three reads serve two differently-shaped opcodes.
+extern "C" void pascal near enemy_angle_step_and_move(int operand, int sign)
+{
+	int vector_x;
+	int vector_y;
+	unsigned char angle;
+	register int ip;
+
+	ip = (enemy_cur->script_ip + operand);
+	if((enemy_cur->age % enemy_script_base[ip + 1]) == 0) {
+		enemy_cur->angle += sign;
+	}
+	angle = (enemy_script_base[ip] + enemy_cur->angle);
+	vector2(vector_x, vector_y, angle, enemy_script_base[ip + 2]);
+	*enemy_left_p += vector_x;
+	*enemy_top_p += vector_y;
+	*enemy_velocity_x_p = vector_x;
+	*enemy_velocity_y_p = vector_y;
+}
+
+
+// Turns this enemy by a script-supplied amount EVERY frame and then advances
+// it - the per-frame counterpart of the one above, and a coinage for the same
+// reason. Opcode 11, whose four operand bytes are read in order: the sign
+// flag, the base angle, the per-frame turn, and the speed.
+//
+// ZUN bloat: the two position writes go through FAR copies of the two near
+// cursor pointers, which costs the two `les` below plus the eight bytes of
+// frame they live in. Every other function in this block writes
+// [*enemy_left_p] and [*enemy_top_p] directly.
+extern "C" void near enemy_angle_spin_and_move(void)
+{
+	screen_x_t far *left_p;
+	screen_y_t far *top_p;
+	int vector_x;
+	int vector_y;
+	int sign;
+	unsigned char angle;
+	register int ip;
+
+	left_p = enemy_left_p;
+	top_p = enemy_top_p;
+	ip = (enemy_cur->script_ip + 2);
+	sign = (!enemy_script_base[ip++] ? -1 : 1);
+	angle = (enemy_script_base[ip++] + enemy_cur->angle);
+	enemy_cur->angle += (enemy_script_base[ip++] * sign);
+	vector2(vector_x, vector_y, angle, enemy_script_base[ip]);
+	*left_p += vector_x;
+	*top_p += vector_y;
+	*enemy_velocity_x_p = vector_x;
+	*enemy_velocity_y_p = vector_y;
+}
 
 // Fills in the already-chosen [enemies] slot from a spawn grid cell.
 //
@@ -233,10 +359,10 @@ extern "C" void pascal near enemy_add(
 // COINAGE. The role does not transfer: TH04's and TH05's stage spawner is
 // upstream's std_run(), a bytecode VM walking [std_ip], and TH03's is
 // enemy_formations_update_for(). Neither is a grid, so neither name is
-// adoptable. The `<plural array>_spawn` shape follows upstream TH01's
+// adoptable. The plural-array-then-_spawn shape follows upstream TH01's
 // birds_spawn() / flakes_spawn(), and `enemies_` is this binary's own
 // array-scope stem (enemies_invalidate, enemies_update_and_render,
-// enemies_loop_bound). NOT `stage_enemies_spawn`, which three harness notes
+// enemies_loop_bound). NOT the stage_enemies_spawn spelling three harness notes
 // still propose: `stage_` is a live subsystem prefix owned by
 // th02/main/stage/, and this body belongs to the enemy subsystem.
 extern "C" void far enemies_spawn(void)

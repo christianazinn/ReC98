@@ -6660,8 +6660,12 @@ sigma_end	endp
 ; ---------------------------------------------------------------------------
 
 ; A second compiled copy of the same empty far function that
-; th02/main/bgm_show.cpp publishes as @nullfunc_void$qv -- same five bytes,
-; different address, no `public`. Only enemies_callbacks_null uses it.
+; th02/main/bgm_show.cpp publishes as @nullfunc_void$qv -- same five bytes
+; at a different address. Its only user, enemies_callbacks_null(), is
+; th02/main/enemy/update.cpp now, so the copy needs a name that object can
+; reach (kb/codegen/0123). It had none while both lived in this dump.
+public _nullfunc_void_2
+_nullfunc_void_2 label far
 nullfunc_void_2:
 		push	bp
 		mov	bp, sp
@@ -6696,299 +6700,16 @@ loc_16A7D:
 sub_16A6B	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemies_callbacks_null
-_enemies_callbacks_null label far
-enemies_callbacks_null proc far
-		push	bp
-		mov	bp, sp
-		setfarfp	farfp_26C3C, nullfunc_void_2
-		setfarfp	farfp_26C40, nullfunc_void_2
-		pop	bp
-		retf
-enemies_callbacks_null endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public SUB_16AA7
-sub_16AA7	proc near
-
-@@angle		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		mov	bx, word_26C48
-		mov	ax, [bx+4]
-		mov	bx, word_26C4A
-		add	ax, [bx]
-		push	ax	; left
-		mov	bx, word_26C48
-		mov	ax, [bx+6]
-		mov	bx, word_26C4C
-		add	ax, [bx]
-		push	ax	; top
-		push	[bp+@@angle]	; angle
-		mov	bx, word_26C46
-		push	word ptr [bx+24h]	; group
-		mov	al, [bx+25h]
-		mov	ah, 0
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-		pop	bp
-		retn	2
-sub_16AA7	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemy_pos_update
-_enemy_pos_update label near
-sub_16ADD	proc near
-		push	bp
-		mov	bp, sp
-		mov	bx, word_26C52
-		mov	al, [bx]
-		cbw
-		mov	bx, word_26C4A
-		add	[bx], ax
-		mov	bx, word_26C54
-		mov	al, [bx]
-		cbw
-		mov	bx, word_26C4C
-		add	[bx], ax
-		pop	bp
-		retn
-sub_16ADD	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemy_pos_update_aimed
-_enemy_pos_update_aimed label near
-sub_16AFC	proc near
-
-@@vector_y		= word ptr -6
-@@vector_x		= word ptr -4
-@@y2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 6
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		mov	[bp+@@y2], ax
-		mov	bx, word_26C4A
-		push	word ptr [bx]
-		mov	bx, word_26C4C
-		push	word ptr [bx]
-		mov	ax, _player_topleft.x
-		add	ax, 24
-		push	ax
-		push	[bp+@@y2]
-		push	0
-		push	ss
-		lea	ax, [bp+@@vector_x]
-		push	ax
-		push	ss
-		lea	ax, [bp+@@vector_y]
-		push	ax
-		mov	bx, word_26C46
-		mov	bx, [bx+8]
-		add	bx, word_26C44
-		mov	al, [bx+2]
-		mov	ah, 0
-		push	ax
-		call	@vector2_between_plus$qiiiiucmit6i
-		mov	bx, word_26C52
-		mov	al, byte ptr [bp+@@vector_x]
-		mov	[bx], al
-		mov	bx, word_26C54
-		mov	al, byte ptr [bp+@@vector_y]
-		mov	[bx], al
-		mov	bx, word_26C4A
-		mov	ax, [bp+@@vector_x]
-		add	[bx], ax
-		mov	bx, word_26C4C
-		mov	ax, [bp+var_6]
-		add	[bx], ax
-		leave
-		retn
-sub_16AFC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public ENEMY_ANGLE_STEP_AND_MOVE
-ENEMY_ANGLE_STEP_AND_MOVE label near
-sub_16B69	proc near
-
-@@angle		= byte ptr -5
-@@vector_y		= word ptr -4
-@@vector_x		= word ptr -2
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 6
-		push	si
-		mov	bx, word_26C46
-		mov	ax, [bx+8]
-		add	ax, [bp+arg_2]
-		mov	si, ax
-		mov	bx, word_26C44
-		mov	al, [bx+si+1]
-		mov	ah, 0
-		mov	bx, word_26C46
-		push	ax
-		mov	ax, [bx+0Ah]
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_16B9F
-		mov	bx, word_26C46
-		mov	ax, [bp+arg_0]
-		add	[bx+16h], ax
-
-loc_16B9F:
-		mov	bx, word_26C44
-		mov	al, [bx+si]
-		mov	bx, word_26C46
-		add	al, [bx+16h]
-		mov	[bp+@@angle], al
-		push	ss
-		lea	ax, [bp+@@vector_x]
-		push	ax
-		push	ss
-		lea	ax, [bp+@@vector_y]
-		push	ax
-		push	word ptr [bp+@@angle]
-		mov	bx, word_26C44
-		mov	al, [bx+si+2]
-		mov	ah, 0
-		push	ax
-		call	@vector2$qmit1uci
-		mov	bx, word_26C4A
-		mov	ax, [bp+@@vector_x]
-		add	[bx], ax
-		mov	bx, word_26C4C
-		mov	ax, [bp+@@vector_y]
-		add	[bx], ax
-		mov	bx, word_26C52
-		mov	al, byte ptr [bp+@@vector_x]
-		mov	[bx], al
-		mov	bx, word_26C54
-		mov	al, byte ptr [bp+@@vector_y]
-		mov	[bx], al
-		pop	si
-		leave
-		retn	4
-sub_16B69	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemy_angle_spin_and_move
-_enemy_angle_spin_and_move label near
-sub_16BF4	proc near
-
-@@angle		= byte ptr -0Fh
-var_E		= word ptr -0Eh
-@@vector_y		= word ptr -0Ch
-@@vector_x		= word ptr -0Ah
-var_8		= dword	ptr -8
-var_4		= dword	ptr -4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 10h
-		push	si
-		mov	ax, word_26C4A
-		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], ax
-		mov	ax, word_26C4C
-		mov	word ptr [bp+var_8+2], ds
-		mov	word ptr [bp+var_8], ax
-		mov	bx, word_26C46
-		mov	ax, [bx+8]
-		add	ax, 2
-		mov	si, ax
-		mov	bx, si
-		inc	si
-		add	bx, word_26C44
-		cmp	byte ptr [bx], 0
-		jnz	short loc_16C2A
-		mov	ax, -1
-		jmp	short loc_16C2D
-; ---------------------------------------------------------------------------
-
-loc_16C2A:
-		mov	ax, 1
-
-loc_16C2D:
-		mov	[bp+var_E], ax
-		mov	bx, word_26C44
-		mov	al, [bx+si]
-		mov	bx, word_26C46
-		add	al, [bx+16h]
-		mov	[bp+@@angle], al
-		inc	si
-		mov	bx, word_26C44
-		mov	al, [bx+si]
-		mov	ah, 0
-		imul	[bp+var_E]
-		mov	bx, word_26C46
-		add	[bx+16h], ax
-		inc	si
-		push	ss
-		lea	ax, [bp+@@vector_x]
-		push	ax
-		push	ss
-		lea	ax, [bp+@@vector_y]
-		push	ax
-		push	word ptr [bp+@@angle]
-		mov	bx, word_26C44
-		mov	al, [bx+si]
-		mov	ah, 0
-		push	ax
-		call	@vector2$qmit1uci
-		les	bx, [bp+var_4]
-		mov	ax, [bp+@@vector_x]
-		add	es:[bx], ax
-		les	bx, [bp+var_8]
-		mov	ax, [bp+@@vector_y]
-		add	es:[bx], ax
-		mov	bx, word_26C52
-		mov	al, byte ptr [bp+@@vector_x]
-		mov	[bx], al
-		mov	bx, word_26C54
-		mov	al, byte ptr [bp+@@vector_y]
-		mov	[bx], al
-		pop	si
-		leave
-		retn
-sub_16BF4	endp
-
-
 ; THREE objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/enemy/update.cpp  enemy_add()
+;   th02/main/enemy/update.cpp  enemies_callbacks_null()
+;                               sub_16AA7()
+;                               enemy_pos_update()
+;                               enemy_pos_update_aimed()
+;                               enemy_angle_step_and_move()
+;                               enemy_angle_spin_and_move()
+;                               enemy_add()
 ;                               enemies_spawn()
 ;                               enemy_run()
 ;                               enemy_hittest()
@@ -6999,28 +6720,40 @@ sub_16BF4	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sub_16BF4(), and the first of
-; those objects picks the segment up from the byte after that proc's `retn`.
+; So th02_main.asm contributes nothing below sub_16A6B(), and the first of
+; those objects picks the segment up from the byte after that proc's `retf`.
+; nullfunc_void_2 is five bytes BELOW it, not after it.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
 ; original's parity only while everything th02/main/enemy/update.cpp emits
-; AHEAD of enemy_run() sums to an ODD number of bytes -- 0x1A7 today, from
-; enemy_add() at 0x105 and enemies_spawn() at 0xA2. Turbo C++'s OBJ writer
-; pads a generated table exactly when its natural OBJECT-LOCAL offset comes
-; out ODD. That is kb/codegen/0096's direction and NOT kb/codegen/0154's:
-; 0154 was measured off `tcc -S` listings, and the listing prints a
-; `db 1 dup (?)` that never reaches the object. Grade a generated table's
-; alignment on obj_probe.py against the OBJ, never on the -S listing.
+; AHEAD of enemy_run() sums to an ODD number of bytes -- 0x3B3 today, from the
+; six bodies at the front at 0x20C, enemy_add() at 0x105 and enemies_spawn()
+; at 0xA2. Turbo C++'s OBJ writer pads a generated table exactly when its
+; natural OBJECT-LOCAL offset comes out ODD. That is kb/codegen/0096's
+; direction and NOT kb/codegen/0154's: 0154 was measured off `tcc -S`
+; listings, and the listing prints a `db 1 dup (?)` that never reaches the
+; object. Grade a generated table's alignment on obj_probe.py against the OBJ,
+; never on the -S listing.
 ;
-; Lifting these two took back the `retf` that the enemy_run() parcel had
-; borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
-; same parity. 0x105 + 0xA2 is odd on its own, so the purchase is repaid
-; and the codestring is gone.
+; THAT PARITY IS WHY THE TAIL CHAIN IS LIFTED IN EVEN-SIZED GROUPS, and it is
+; the first thing to cost for the next lift out of this block. The six bodies
+; this parcel moved sum to 0x20C, EVEN, so the pad survived; any odd-sized
+; prefix would have deleted it and shifted every byte after it. Running sums
+; from the tail, at the time of writing: enemy_angle_spin_and_move() 0xA2,
+; +enemy_angle_step_and_move() 0x12D, +enemy_pos_update_aimed() 0x19A,
+; +enemy_pos_update() 0x1B9, +sub_16AA7() 0x1EF, +enemies_callbacks_null()
+; 0x20C. Only the 1st, 3rd and 6th of those were takeable. Above them,
+; sub_16A6B() is 0x1F and nullfunc_void_2 is 5, so that pair is 0x24 together
+; and even, and neither of the two is even on its own.
+;
+; Lifting the previous two took back the `retf` that the enemy_run() parcel
+; had borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
+; same parity, and nothing has needed one since.
 ;
 ; th02/main/enemy/update.cpp IS ITS OWN OBJECT ON PURPOSE, and a later lift
 ; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its
-; contribution is 0xCE3 bytes - ODD - and th02/boss_5.cpp sets -a2 for the
+; contribution is 0xEEF bytes - ODD - and th02/boss_5.cpp sets -a2 for the
 ; one-byte pad under mima_update()'s generated jump table, which Turbo C++
 ; aligns against the offset its OWN object starts at, so folding an odd
 ; contribution in front of it deletes that pad and shifts every byte after
