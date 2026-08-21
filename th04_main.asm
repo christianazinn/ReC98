@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -6359,100 +6359,41 @@ MB_DFT_TEXT	segment	byte public 'CODE' use16
 	@midboss_defeat_update$qv procdesc pascal near
 MB_DFT_TEXT	ends
 
+; Harness carve (kb/codegen/0080): an EMPTY anchor segment split out of the
+; HEAD of `main_034_TEXT`'s root contribution, so that a C++ object can append
+; the two spawners at the START of it. Declared where main_034_TEXT used to
+; open, because physical order follows first definition across the link. Same
+; `byte public 'CODE'` alignment as before, so nothing moves, and `byte`
+; alignment also means kb/codegen/0111's even-parity question does not arise.
+;
+; The head is the only reachable end of this segment: its tail is the
+; `include` of th04/main/boss/b6_anim.asm, which no decompilation removes, and
+; that include is what kept these seven procs out of reach of every tail lift
+; even after MATCH-TH04-MAIN-YUUKA6-PATTERNS emptied everything below it.
+;
+; UNLIKE every carve before it, this one costs NO new translation unit and no
+; Tupfile.lua line: the anchor is hosted by an object that already exists in
+; the link, through `#pragma codeseg` (kb/codegen/0155). th04/boss_bg.cpp was
+; already contributing zero bytes to MAI_TEXT and HUD_OVRL_TEXT by the same
+; mechanism, so this is the third segment it names and the first it fills.
+B6_SPAWN_TEXT	segment	byte public 'CODE' use16
+	; chasecrosses_add() and safetycircle_open() -- the latter was
+	; yuuka6_1A0D1() -- now live in th04/main/boss/b6_spawn.cpp, which
+	; th04/main/boss/bg.cpp compiles into this segment.
+	;
+	; NO procdesc, and that is measured rather than an omission: a census of
+	; every reference to either symbol in this file returns only their own
+	; `proc`, `endp` and `public` lines. Both are called from C++ in other
+	; objects and from nowhere in the dump, so the carve's whole cost here is
+	; the two `public` directives that leave with the bodies.
+B6_SPAWN_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of the head of the original
+; `main_034_TEXT` contribution once chasecrosses_add() and safetycircle_open()
+; moved out of it into the B6_SPAWN_TEXT anchor above. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
+; neither deleted body carried an `assume`, so there is nothing to restore.
 main_034_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @CHASECROSSES_ADD$QUCUC
-@chasecrosses_add$qucuc	proc near
-
-@@speed	= byte ptr  4
-@@angle	= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset yuuka6_chasecrosses
-		xor	dx, dx
-		jmp	short loc_1A0C7
-; ---------------------------------------------------------------------------
-
-loc_1A092:
-		cmp	[si+yuuka6_chasecross_t.B6C_flag], CCF_FREE
-		jnz	short loc_1A0C3
-		mov	[si+yuuka6_chasecross_t.B6C_flag], CCF_ALIVE
-		mov	[si+yuuka6_chasecross_t.B6C_damage_this_frame], 0
-		mov	[si+yuuka6_chasecross_t.B6C_age], 0
-		mov	al, [bp+@@angle]
-		mov	[si+yuuka6_chasecross_t.B6C_angle], al
-		mov	al, [bp+@@speed]
-		mov	[si+yuuka6_chasecross_t.B6C_speed], al
-		mov	[si+yuuka6_chasecross_t.B6C_hp], 100
-		mov	ax, _boss_pos.cur.x
-		mov	[si+yuuka6_chasecross_t.B6C_center.x], ax
-		mov	ax, _boss_pos.cur.y
-		mov	[si+yuuka6_chasecross_t.B6C_center.y], ax
-		jmp	short loc_1A0CC
-; ---------------------------------------------------------------------------
-
-loc_1A0C3:
-		inc	dx
-		add	si, size yuuka6_chasecross_t
-
-loc_1A0C7:
-		; ZUN landmine: This could possibly spawn a chasing cross bullet in the
-		; safety circle slot. Doesn't happen in the original game because
-		; there's only one pattern that spawns up to 24 chasing cross bullets,
-		; at a fast enough speed that all of them left the playfield by the
-		; time Yuuka fires the pattern again. And even if it did, it would not
-		; be observable: These bullets use Q12.4 coordinates for their position
-		; and assign these to structure fields that the safety circle
-		; interprets as raw pixels. Yuuka would therefore have to move near the
-		; top-left corner of the playfield for the circle to not be clipped.
-		cmp	dx, (YUUKA6_CHASECROSS_COUNT + 1)
-		jl	short loc_1A092
-
-loc_1A0CC:
-		pop	si
-		pop	bp
-		retn	4
-@chasecrosses_add$qucuc	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; kb/codegen/0123, for the same reason the aliases below it were added and
-	; then retired: yuuka6_1AD6F() calls this one and is now C++, while this
-	; function is above the b6_anim.asm include and cannot follow it out.
-public _yuuka6_1A0D1
-_yuuka6_1A0D1 label near
-yuuka6_1A0D1	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset yuuka6_safetycircle
-		mov	[si+yuuka6_safetycircle_t.B6S_flag], SCF_GROW
-		mov	[si+yuuka6_safetycircle_t.B6S_shrink_frame], 0
-		mov	[si+yuuka6_safetycircle_t.B6S_col_ring], 8
-		mov	ax, _player_pos.cur.x
-		sar	ax, 4
-		add	ax, PLAYFIELD_LEFT
-		mov	[si+yuuka6_safetycircle_t.B6S_center.x], ax
-		mov	ax, _player_pos.cur.y
-		sar	ax, 4
-		add	ax, PLAYFIELD_TOP
-		mov	[si+yuuka6_safetycircle_t.B6S_center.y], ax
-		mov	[si+yuuka6_safetycircle_t.B6S_radius_filled], 8
-		mov	[si+yuuka6_safetycircle_t.B6S_radius_ring_distance], 80
-		call	snd_se_play pascal, 8
-		pop	si
-		pop	bp
-		retn
-yuuka6_1A0D1	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 

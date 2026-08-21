@@ -59,12 +59,19 @@ extern "C" {
 	extern unsigned char yuuka6_25A1B;
 
 	// The safety circle Yuuka opens around the player on the one frame her
-	// forward-parasol phase starts. Still in main_034_TEXT, but ABOVE the
-	// b6_anim.asm `include` that ends the root's contribution, so it cannot
-	// follow the seventeen out; this parcel gave it the zero-byte `label
-	// near` alias that makes it linkable (kb/codegen/0123). It is private to
-	// ZUN's object and **a naming round is owed** for it.
-	void near yuuka6_1A0D1(void);
+	// forward-parasol phase starts. It sat ABOVE the b6_anim.asm `include`
+	// that ends the root's contribution, so it could not follow the seventeen
+	// out and the parcel that lifted them gave it a zero-byte `label near`
+	// alias to keep it linkable (kb/codegen/0123). It is C++ now, in
+	// th04/main/boss/b6_spawn.cpp, and the naming debt that alias recorded is
+	// discharged: the address-suffixed placeholder it carried is gone with the
+	// body it named. The `codeseg` pair is not
+	// decoration: MATCH-TH04-MAIN-034-HEAD carved it into B6_SPAWN_TEXT, and
+	// two declarations of one function under two different code segments is a
+	// defect that links, runs and shows up only in the map (kb/codegen/0155).
+#pragma codeseg B6_SPAWN_TEXT main_03
+	void near safetycircle_open(void);
+#pragma codeseg
 
 	// th04/main/boss/b6_anim.asm. Each runs one frame of the named sprite
 	// animation and returns `true` once it is over; the three whose result
@@ -90,13 +97,18 @@ extern "C" {
 	extern unsigned char bullet_special_speed_delta;
 }
 
-// The one that is not `extern "C"`: it sits at the head of this same segment
-// and the dump publishes it under the C++ mangled name that a `pascal`
-// function gets. th04/main/boss/b6.cpp declares it identically, and is not
-// included here for the reason th04/main/boss/b6_upd.cpp gives.
+// The one that is not `extern "C"`: the dump published it under the C++
+// mangled name that a `pascal` function gets, which is the whole evidence for
+// its calling convention. th04/main/boss/b6.cpp declares it identically and is
+// not included here for the reason th04/main/boss/b6_upd.cpp gives, so this
+// restatement has to carry b6.cpp's `codeseg` binding as well -- it was at the
+// head of THIS segment until MATCH-TH04-MAIN-034-HEAD carved that head off
+// into B6_SPAWN_TEXT (kb/codegen 0080 + 0155).
+#pragma codeseg B6_SPAWN_TEXT main_03
 void pascal near chasecrosses_add(
 	unsigned char angle, subpixel_length_8_t speed
 );
+#pragma codeseg
 
 // th04/main/boss/b6.cpp's yuuka6_sprite_flag_t, restated as the four
 // enumerators this file needs rather than included: that file declares
@@ -466,7 +478,7 @@ extern "C" void near yuuka6_1AD6F(void)
 gather:
 	yuuka6_1A9CA();
 	if(boss.phase_frame == 64) {
-		yuuka6_1A0D1();
+		safetycircle_open();
 	}
 }
 
