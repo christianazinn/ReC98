@@ -42,8 +42,17 @@
 #include "th04/main/homing.hpp"
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/custom.hpp"
+#include "th04/main/rank.hpp"
+#include "th04/math/randring.hpp"
+#include "th04/math/vector.hpp"
+#include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/player/shot.hpp"
 #include "th05/main/boss/bosses.hpp"
+#include "th05/main/player/player.hpp"
+// Carries balanced `#pragma codeseg` pairs of its own, each closed by a bare
+// one that restores this file's `-zC` default; b1.cpp, b3.cpp and b6.cpp all
+// include it the same way.
+#include "th05/main/bullet/laser.hpp"
 
 // The two near function pointers this file stores point OUT of group main_03,
 // and Turbo C++ frames every near code reference on the object's own `-zP`
@@ -91,20 +100,6 @@ extern "C" bool pascal near yumeko_flystep_bounce(
 	subpixel_t speed, int frames
 );
 
-// The four bodies this function assigns to [yumeko_pattern] directly. The two
-// that only the tables above reach keep no declaration here. Address-suffixed
-// hand names, not placeholders: what each one shoots is measurable, but
-// nothing in the fight names the patterns, and the parcel that lifts each body
-// is the one that can describe it.
-extern "C" void near yumeko_1CA42(void);
-extern "C" void near yumeko_1CB71(void);
-extern "C" void near yumeko_1CCD3(void);
-extern "C" void near yumeko_1CED9(void);
-
-// Phase 8's body, called directly rather than through [yumeko_pattern]. The
-// one name of the ten the dump already carried; phase 10's body is below,
-// because this object needed its length.
-extern "C" void near yumeko_1D085(void);
 // ---------------------------------------------
 
 // Constants
@@ -152,6 +147,438 @@ enum yumeko_hp_t {
 
 // Game logic
 // ----------
+
+// Yumeko's seven pattern bodies, in their original order. Address-suffixed
+// hand names, not placeholders: what each one shoots is measurable and is
+// described above it, but nothing in the fight names them and there is no
+// sibling boss to mirror a name off, so the address is the only thing that
+// distinguishes them without inventing a reading.
+//
+// All seven open the same way -- a 16-frame 3-stack gather, then a one-shot
+// setup on the frame the gather ends -- and all but the two that reset
+// [boss.mode] themselves run until yumeko_update() takes them off.
+
+// Phase 2's first pattern: a fan of swords sweeping across the playfield six
+// angle units at a time, mirrored around 0x80 on half the runs.
+void near yumeko_1CA42(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = PAT_YUMEKO_CAST;
+		sword_template.twirl_time = 48;
+		sword_template.speed.set(5.0f);
+		sword_template.angle = 0x70;
+		boss_statebyte[15] = randring2_next16_and(1);
+	} else if((boss.phase_frame > 32) && ((boss.phase_frame % 2) == 0)) {
+		if(boss_statebyte[15] != 0) {
+			sword_template.angle = (0x80 - sword_template.angle);
+		}
+		vector2_at(
+			sword_template.origin,
+			boss.pos.cur.x.v,
+			boss.pos.cur.y.v,
+			to_sp(48.0f),
+			sword_template.angle
+		);
+		swords_add();
+		if(boss_statebyte[15] != 0) {
+			sword_template.angle = (0x80 - sword_template.angle);
+		}
+		sword_template.angle -= 6;
+		if(sword_template.angle <= 0x0C) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Phase 2's second pattern: a ring of red balls, then one further ball every
+// 4th frame at a random angle and a random distance from Yumeko.
+void near yumeko_1CAD7(void)
+{
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 7, 6);
+		if(boss.phase_frame == 16) {
+			boss.sprite = PAT_YUMEKO_CAST;
+			bullet_template.spawn_type = (
+				BST_CLOUD_BACKWARDS | BST_NO_DECELERATE
+			);
+			bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+			bullet_template.group = BG_RING;
+			bullet_template.speed.set(3.75f);
+			bullet_template.spread = 16;
+			bullet_template_tune();
+			snd_se_play(8);
+		}
+	} else {
+		if((boss.phase_frame % 4) == 0) {
+			bullet_template.angle = randring2_next16();
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				randring2_next16_mod(to_sp(32.0f)),
+				bullet_template.angle
+			);
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+		if(boss.phase_frame == 80) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Phase 4: two aimed arrowheads from the left and right of Yumeko every other
+// 64-frame tick, plus one thrown sword every [yumeko_interval_phase4] frames.
+// 600 HP before the phase ends, the sword interval and the arrowhead window
+// both tighten by rank and a small explosion fires once.
+void near yumeko_1CB71(void)
+{
+	unsigned char angle;
+	int tick;
+
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 7, 6);
+		if(boss.phase_frame == 16) {
+			boss.sprite = PAT_YUMEKO_CAST;
+			bullet_template.spawn_type = (
+				BST_CLOUD_FORWARDS | BST_NO_DECELERATE
+			);
+			bullet_template.patnum = PAT_BULLET16_V_RED;
+			bullet_template.group = BG_SINGLE;
+			bullet_template.speed.set(6.0f);
+			bullet_template_tune();
+			snd_se_play(8);
+			sword_template.twirl_time = 32;
+			sword_template.speed.set(4.75f);
+			boss_statebyte[13] = 0;
+			boss_statebyte[12] = 0x20;
+		}
+	} else {
+		tick = (boss.phase_frame % 64);
+		if((boss_statebyte[12] > tick) && !(tick & 1)) {
+			bullet_template.origin.x.v -= to_sp(32.0f);
+			bullet_template.origin.y.v -= to_sp(16.0f);
+			if(tick == 0) {
+				boss_statebyte[15] = player_angle_from(
+					bullet_template.origin.x, bullet_template.origin.y, 0
+				);
+				boss_statebyte[14] = player_angle_from(
+					(bullet_template.origin.x.v + to_sp(64.0f)),
+					bullet_template.origin.y,
+					0
+				);
+			}
+			bullet_template.angle = boss_statebyte[15];
+			bullets_add_regular();
+			bullet_template.origin.x.v += to_sp(64.0f);
+			bullet_template.angle = boss_statebyte[14];
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+		if((boss.phase_frame % yumeko_interval_phase4) == 0) {
+			angle = (randring2_next16_and(0x1F) - 0x0F);
+			sword_template.origin.y.v = randring2_next16_mod(to_sp(96.0f));
+			sword_template.origin.x.v = (
+				randring2_next16_mod(to_sp(352.0f)) + to_sp(16.0f)
+			);
+			sword_template.angle = player_angle_from(
+				sword_template.origin.x, sword_template.origin.y, angle
+			);
+			swords_add();
+		}
+		if(
+			((boss.hp - boss.phase_end_hp) < 600) && (boss_statebyte[13] == 0)
+		) {
+			boss_statebyte[13] = 1;
+			yumeko_interval_phase4 = select_for_rank(16, 8, 4, 4);
+			boss_statebyte[12] = select_for_rank(40, 48, 52, 52);
+			boss_explode_small(ET_CIRCLE);
+			if(bullet_clear_time < 20) {
+				bullet_clear_time = 20;
+			}
+		}
+	}
+}
+
+// Phase 5's first pattern: two BSM_EXACT_LINEAR spread pairs every 8th frame,
+// one at a 48-pixel radius and one at 32, with the base angle negated between
+// the two pairs and walked back by 8 afterwards.
+void near yumeko_1CCD3(void)
+{
+	if(boss.phase_frame < 16) {
+		gather_add_only_3stack((boss.phase_frame - 1), 7, 6);
+		if(boss.phase_frame == 4) {
+			boss.sprite = PAT_YUMEKO_CAST;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.group = BG_SPREAD;
+			bullet_template.special_motion = BSM_EXACT_LINEAR;
+			bullet_template.speed.set(3.5f);
+			bullet_template.set_spread(5, 2);
+			snd_se_play(8);
+			boss_statebyte[15] = 0x60;
+			boss_statebyte[14] = 0x40;
+		}
+	} else {
+		if((boss.phase_frame % 8) == 0) {
+			bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(48.0f),
+				boss_statebyte[15]
+			);
+			bullet_template.angle = (boss_statebyte[15] + boss_statebyte[14]);
+			bullets_add_special();
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(48.0f),
+				static_cast<unsigned char>(boss_statebyte[15] + 0x80)
+			);
+			bullet_template.angle += 0x80;
+			bullets_add_special();
+
+			bullet_template.patnum = 0;
+			boss_statebyte[15] = -boss_statebyte[15];
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(32.0f),
+				boss_statebyte[15]
+			);
+			bullet_template.angle = (boss_statebyte[15] - boss_statebyte[14]);
+			bullets_add_special();
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(32.0f),
+				static_cast<unsigned char>(boss_statebyte[15] + 0x80)
+			);
+			bullet_template.angle += 0x80;
+			bullets_add_special();
+
+			boss_statebyte[15] = -boss_statebyte[15];
+			boss_statebyte[15] -= 8;
+			boss_statebyte[14] -= 6;
+			snd_se_play(3);
+		}
+		if(boss.phase_frame == 256) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Phase 5's second pattern: an aimed 5-spread and a mirrored 4-spread of green
+// arrowheads every 8th frame, the pair walking around Yumeko by 8 angle units
+// at a time.
+void near yumeko_1CE0D(void)
+{
+	if(boss.phase_frame < 16) {
+		gather_add_only_3stack((boss.phase_frame - 1), 7, 6);
+		if(boss.phase_frame == 4) {
+			boss.sprite = PAT_YUMEKO_CAST;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.group = BG_SPREAD_AIMED;
+			bullet_template.speed.set(3.5f);
+			bullet_template.spread_angle_delta = 20;
+			bullet_template.angle = 0;
+			bullet_template.patnum = PAT_BULLET16_D_GREEN;
+			bullet_template_tune();
+			snd_se_play(8);
+			boss_statebyte[15] = 0x80;
+		}
+	} else {
+		if((boss.phase_frame % 8) == 0) {
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(48.0f),
+				boss_statebyte[15]
+			);
+			bullet_template.spread = 5;
+			bullets_add_regular();
+			vector2_at(
+				bullet_template.origin,
+				boss.pos.cur.x.v,
+				boss.pos.cur.y.v,
+				to_sp(48.0f),
+				static_cast<unsigned char>(0x80 - boss_statebyte[15])
+			);
+			bullet_template.spread = 4;
+			bullets_add_regular();
+			boss_statebyte[15] += 8;
+			snd_se_play(3);
+		}
+		if(boss.phase_frame == 192) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Phase 7: yumeko_1CB71()'s arrowhead pair again, but with blue arrowheads,
+// one aimed shoot-out laser and TWO thrown swords per interval, and 500 HP
+// rather than 600 as the tightening point.
+void near yumeko_1CED9(void)
+{
+	unsigned char angle;
+	int i;
+	int tick;
+
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 7, 6);
+		if(boss.phase_frame == 16) {
+			boss.sprite = PAT_YUMEKO_CAST;
+			bullet_template.spawn_type = (
+				BST_CLOUD_FORWARDS | BST_NO_DECELERATE
+			);
+			bullet_template.patnum = PAT_BULLET16_V_BLUE;
+			bullet_template.group = BG_SINGLE;
+			bullet_template.speed.set(6.0f);
+			bullet_template_tune();
+			snd_se_play(8);
+			laser_template.age = 24;
+			laser_template.shootout_speed.set(6.25f);
+			laser_template.coords.width.nonshrink = 6;
+			laser_template.col = 8;
+
+			// The same union member th05/main/boss/b2.cpp spells [moveout]
+			// for its own shoot-out laser; th05_main.asm's equate for the
+			// offset is the fixed-laser reading of it.
+			laser_template.active_at_age.moveout = 28;
+
+			boss_statebyte[13] = 0;
+			boss_statebyte[12] = 0x20;
+			sword_template.twirl_time = 32;
+			sword_template.speed.set(4.75f);
+		}
+	} else {
+		tick = (boss.phase_frame % 64);
+		if((boss_statebyte[12] > tick) && !(tick & 1)) {
+			bullet_template.origin.x.v -= to_sp(32.0f);
+			bullet_template.origin.y.v -= to_sp(16.0f);
+			if(tick == 0) {
+				boss_statebyte[15] = player_angle_from(
+					bullet_template.origin.x, bullet_template.origin.y, 0
+				);
+				boss_statebyte[14] = player_angle_from(
+					(bullet_template.origin.x.v + to_sp(64.0f)),
+					bullet_template.origin.y,
+					0
+				);
+			}
+			bullet_template.angle = boss_statebyte[15];
+			bullets_add_regular();
+			bullet_template.origin.x.v += to_sp(64.0f);
+			bullet_template.angle = boss_statebyte[14];
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+		if((boss.phase_frame % yumeko_interval_phase7) == 0) {
+			laser_template.coords.origin.y.v = to_sp(32.0f);
+			laser_template.coords.origin.x.v = (
+				randring2_next16_mod(to_sp(256.0f)) + to_sp(64.0f)
+			);
+			laser_template.coords.angle = player_angle_from(
+				laser_template.coords.origin.x,
+				laser_template.coords.origin.y,
+				0
+			);
+			lasers_shootout_add();
+			for(i = 0; i < 2; i++) {
+				angle = (randring2_next16_and(0x1F) - 0x0F);
+				sword_template.origin.y.v = randring2_next16_mod(to_sp(96.0f));
+				sword_template.origin.x.v = (
+					randring2_next16_mod(to_sp(352.0f)) + to_sp(16.0f)
+				);
+				sword_template.angle = player_angle_from(
+					sword_template.origin.x, sword_template.origin.y, angle
+				);
+				swords_add();
+			}
+		}
+		if(
+			((boss.hp - boss.phase_end_hp) < 500) && (boss_statebyte[13] == 0)
+		) {
+			boss_statebyte[13] = 1;
+			yumeko_interval_phase7 = select_for_rank(34, 28, 20, 20);
+			boss_statebyte[12] = select_for_rank(40, 48, 52, 48);
+			boss_explode_small(ET_CIRCLE);
+			if(bullet_clear_time < 20) {
+				bullet_clear_time = 20;
+			}
+		}
+	}
+}
+
+// Phase 8: swords thrown in from alternating sides while a horizontal band
+// walks down the playfield, then five accelerating aimed volleys of blue
+// arrowheads. [boss2.pos.cur.y] is the band's height -- Yuki's leftover
+// coordinate reused as scratch state.
+void near yumeko_1D085(void)
+{
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 7, 6);
+		if(boss.phase_frame != 16) {
+			return;
+		}
+		boss.sprite = PAT_YUMEKO_CAST;
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.patnum = PAT_BULLET16_D_BLUE;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.spread = 5;
+		bullet_template.spread_angle_delta = select_for_rank(24, 16, 12, 10);
+		bullet_template.speed.set(8.0f);
+		snd_se_play(8);
+		sword_template.twirl_time = 32;
+		sword_template.speed.set(4.0f);
+		boss2.pos.cur.y.v = randring2_next16_mod(to_sp(32.0f));
+		boss_statebyte[15] = select_for_rank(0x28, 0x1E, 0x18, 0x10);
+		boss_statebyte[14] = 0;
+		boss_statebyte[13] = 0;
+	} else if(boss_statebyte[13] == 0) {
+		if((boss.phase_frame % 8) != 0) {
+			return;
+		}
+		sword_template.angle = boss_statebyte[14];
+		if(boss_statebyte[14] == 0) {
+			sword_template.origin.x.v = to_sp(16.0f);
+		} else {
+			sword_template.origin.x.v = to_sp(PLAYFIELD_W - 16);
+		}
+		sword_template.origin.y.v = boss2.pos.cur.y.v;
+		swords_add();
+		boss2.pos.cur.y.v += (boss_statebyte[15] << 4);
+		boss_statebyte[14] += 0x80;
+		if(boss2.pos.cur.y.v >= to_sp(376.0f)) {
+			boss2.pos.cur.y.v = randring2_next16_mod(to_sp(32.0f));
+			boss_statebyte[13]++;
+		}
+	} else if((boss.phase_frame % 4) == 0) {
+		if(bullet_template.speed.v > to_sp8(6.0f)) {
+			bullet_template.speed.v = 8;
+			snd_se_play(15);
+			boss_statebyte[13]++;
+			if(boss_statebyte[13] > 5) {
+				boss_statebyte[13] = 0;
+				return;
+			}
+			bullet_template.angle = player_angle_from(
+				bullet_template.origin.x, bullet_template.origin.y, 0
+			);
+		}
+		bullet_template.speed.v += 8;
+		bullets_add_regular();
+	}
+}
 
 // Phase 10: a 3-stack gather, then one BSM_DECELERATE_THEN_TURN ring every
 // 16th frame, alternately turning clockwise and counter-clockwise and mirroring
