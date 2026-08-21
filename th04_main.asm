@@ -15908,6 +15908,12 @@ off_1B938	dw offset loc_1B497
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the
+	; bare label. kb/codegen/0123. These twelve are Elly's patterns
+	; and her one per-frame helper, called from elly_update() and
+	; from nowhere outside this segment.
+public _elly_1B95C
+_elly_1B95C label near
 elly_1B95C	proc near
 
 var_1		= byte ptr -1
@@ -16239,6 +16245,8 @@ elly_1BC3C	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BC73
+_elly_1BC73 label near
 elly_1BC73	proc near
 		push	bp
 		mov	bp, sp
@@ -16317,6 +16325,8 @@ elly_1BC73	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BD23
+_elly_1BD23 label near
 elly_1BD23	proc near
 		push	bp
 		mov	bp, sp
@@ -16342,6 +16352,8 @@ elly_1BD23	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BD4B
+_elly_1BD4B label near
 elly_1BD4B	proc near
 		push	bp
 		mov	bp, sp
@@ -16491,6 +16503,8 @@ elly_1BE43	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BE78
+_elly_1BE78 label near
 elly_1BE78	proc near
 		push	bp
 		mov	bp, sp
@@ -16589,6 +16603,8 @@ elly_1BE78	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BF52
+_elly_1BF52 label near
 elly_1BF52	proc near
 		push	bp
 		mov	bp, sp
@@ -16630,6 +16646,8 @@ elly_1BF52	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1BFAB
+_elly_1BFAB label near
 elly_1BFAB	proc near
 		push	bp
 		mov	bp, sp
@@ -16705,6 +16723,8 @@ elly_1BFAB	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1C044
+_elly_1C044 label near
 elly_1C044	proc near
 		push	bp
 		mov	bp, sp
@@ -16754,6 +16774,8 @@ elly_1C044	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1C0BF
+_elly_1C0BF label near
 elly_1C0BF	proc near
 		push	bp
 		mov	bp, sp
@@ -16838,6 +16860,8 @@ elly_1C0BF	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1C164
+_elly_1C164 label near
 elly_1C164	proc near
 		push	bp
 		mov	bp, sp
@@ -16883,6 +16907,8 @@ elly_1C164	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1C1CF
+_elly_1C1CF label near
 elly_1C1CF	proc near
 
 		push	bp
@@ -16933,6 +16959,8 @@ elly_1C1CF	endp
 
 ; Attributes: bp-based frame
 
+public _elly_1C251
+_elly_1C251 label near
 elly_1C251	proc near
 		push	bp
 		mov	bp, sp
@@ -16985,435 +17013,21 @@ loc_1C2E3:
 elly_1C251	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @ELLY_UPDATE$QV
-@elly_update$qv	proc far
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		call	elly_1B95C
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	loc_1C675
-		add	bx, bx
-		jmp	cs:off_1C6C4[bx]
-
-loc_1C301:
-		mov	byte_25A27, 0
-		mov	byte_25A26, 0
-		inc	_boss_phase
-		mov	_boss_mode, 0
-		mov	Palettes[0 * size rgb_t].b, 128
-		mov	_palette_changed, 1
-		mov	_boss_hp, 6000
-		mov	_boss_phase_end_hp, 6000
-		jmp	loc_1C67A
-; ---------------------------------------------------------------------------
-
-loc_1C32D:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1C343
-		cmp	ax, (-1 and 255)
-		jz	short loc_1C348
-		jmp	short loc_1C39E
-; ---------------------------------------------------------------------------
-
-loc_1C343:
-		call	elly_1BD23
-		jmp	short loc_1C39E
-; ---------------------------------------------------------------------------
-
-loc_1C348:
-		cmp	_boss_phase_frame, 64
-		jg	short loc_1C37B
-		cmp	_boss_phase_state, 0
-		jz	short loc_1C35D
-		cmp	_boss_phase_state, 3
-		jnz	short loc_1C365
-
-loc_1C35D:
-		mov	_boss_pos.velocity.x, (-1 shl 4)
-		jmp	short loc_1C39E
-; ---------------------------------------------------------------------------
-
-loc_1C365:
-		cmp	_boss_phase_state, 1
-		jz	short loc_1C373
-		cmp	_boss_phase_state, 2
-		jnz	short loc_1C39E
-
-loc_1C373:
-		mov	_boss_pos.velocity.x, (1 shl 4)
-		jmp	short loc_1C39E
-; ---------------------------------------------------------------------------
-
-loc_1C37B:
-		cmp	_boss_phase_state, 3
-		jnb	short loc_1C388
-		inc	_boss_phase_state
-		jmp	short loc_1C38D
-; ---------------------------------------------------------------------------
-
-loc_1C388:
-		mov	_boss_phase_state, 0
-
-loc_1C38D:
-		mov	_boss_mode, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_pos.velocity.x, 0
-
-loc_1C39E:
-		inc	_boss_phase_frame
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_stage_frame, 9240
-		jb	loc_1C67A
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_boss_pos.velocity.y, 8
-		mov	_bg_render_bombing_func, offset @elly_bg_render$qv
-		mov	_tiles_bb_col, 0
-		jmp	loc_1C67A
-; ---------------------------------------------------------------------------
-
-loc_1C3D4:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		cmp	_boss_pos.cur.x, (192 shl 4)
-		jge	short loc_1C3EA
-		mov	_boss_pos.velocity.x, (2 shl 4)
-		jmp	short loc_1C400
-; ---------------------------------------------------------------------------
-
-loc_1C3EA:
-		cmp	_boss_pos.cur.x, (193 shl 4)
-		jl	short loc_1C3FA
-		mov	_boss_pos.velocity.x, (-2 shl 4)
-		jmp	short loc_1C400
-; ---------------------------------------------------------------------------
-
-loc_1C3FA:
-		mov	_boss_pos.velocity.x, 0
-
-loc_1C400:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 32
-		jl	loc_1C67A
-		mov	_boss_pos.velocity.x, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	word_25A3A, 0
-		mov	_boss_pos.cur.x, (192 shl 4)
-		mov	_boss_pos.cur.y, (96 shl 4)
-		mov	_boss_pos.prev.x, 0
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NONE shl 16) or 0
-		mov	byte_25A24, 0
-		jmp	loc_1C67A
-; ---------------------------------------------------------------------------
-
-loc_1C445:
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	cx, 0Ah		; switch 10 cases
-		mov	bx, offset word_1C69C
-
-loc_1C45F:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_2]
-		jz	short loc_1C46F
-		add	bx, 2
-		loop	loc_1C45F
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C46F:
-		jmp	word ptr cs:[bx+14h] ; switch jump
-; ---------------------------------------------------------------------------
-
-loc_1C473:
-		call	elly_1BD4B
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C479:
-		call	elly_1BE78
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C47F:
-		call	elly_1BF52
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C485:
-		call	elly_1BFAB
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C48B:
-		call	elly_1C044
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C491:
-		call	elly_1C0BF
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C497:
-		call	elly_1C164
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C49D:
-		call	elly_1C1CF
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C4A3:
-		call	elly_1C251
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C4A9:
-		cmp	_boss_phase_frame, 32
-		jge	short loc_1C4BA
-		call	elly_1BC73
-		inc	word_25A3A
-		jmp	loc_1C585	; default
-; ---------------------------------------------------------------------------
-
-loc_1C4BA:
-		inc	_boss_phase_state
-		mov	al, byte_25A24
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	loc_1C57F
-		add	bx, bx
-		jmp	cs:off_1C692[bx]
-
-loc_1C4D3:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		mov	_boss_mode, dl
-		cmp	_boss_phase_state, 8
-		jb	loc_1C57F
-
-loc_1C4EB:
-		mov	al, byte_25A24
-		mov	ah, 0
-		call	@boss_explode_small$q16explosion_type_t pascal, ax
-		mov	_boss_mode, -1
-		inc	byte_25A24
-		mov	al, byte_25A24
-		mov	ah, 0
-		imul	ax, 1500
-		mov	dx, 6000
-		sub	dx, ax
-		mov	_boss_hp, dx
-		jmp	short loc_1C57F
-; ---------------------------------------------------------------------------
-
-loc_1C511:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	_boss_mode, dl
-		cmp	_boss_phase_state, 16
-		jb	short loc_1C57F
-		jmp	short loc_1C4EB
-; ---------------------------------------------------------------------------
-
-loc_1C529:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	dl, 2
-		mov	_boss_mode, dl
-		cmp	_boss_phase_state, 24
-		jb	short loc_1C57F
-		jmp	short loc_1C4EB
-; ---------------------------------------------------------------------------
-
-loc_1C544:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	dl, 4
-		mov	_boss_mode, dl
-		cmp	_boss_phase_state, 32
-		jb	short loc_1C57F
-		jmp	short loc_1C4EB
-; ---------------------------------------------------------------------------
-
-loc_1C55F:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	dl, 5
-		mov	_boss_mode, dl
-		cmp	_boss_phase_state, 40
-		jb	short loc_1C57F
-		mov	_boss_phase_state, 0
-		jmp	short loc_1C591
-; ---------------------------------------------------------------------------
-
-loc_1C57F:
-		mov	_boss_phase_frame, 0
-
-loc_1C585:
-		call	@boss_hittest_shots$qv	; default
-		or	al, al
-		jz	short loc_1C5B1
-		mov	_boss_phase_state, 1
-
-loc_1C591:
-		inc	_boss_phase
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _boss_pos.cur.x, _boss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		mov	_boss_phase_frame, 0
-
-loc_1C5B1:
-		cmp	byte_25A24, 0
-		jnz	short loc_1C5C0
-		cmp	_boss_hp, 4700
-		jle	short loc_1C5F1
-
-loc_1C5C0:
-		cmp	byte_25A24, 1
-		jnz	short loc_1C5CF
-		cmp	_boss_hp, 3300
-		jle	short loc_1C5F1
-
-loc_1C5CF:
-		cmp	byte_25A24, 2
-		jnz	short loc_1C5DE
-		cmp	_boss_hp, 2100
-		jle	short loc_1C5F1
-
-loc_1C5DE:
-		cmp	byte_25A24, 3
-		jnz	loc_1C67A
-		cmp	_boss_hp, 700
-		jg	loc_1C67A
-
-loc_1C5F1:
-		call	@boss_items_drop$qv
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1C600
-		mov	_bullet_clear_time, 20
-
-loc_1C600:
-		call	@boss_score_bonus$qui pascal, 10
-		mov	al, byte_25A24
-		mov	ah, 0
-		call	@boss_explode_small$q16explosion_type_t pascal, ax
-		mov	_boss_mode, -1
-		mov	_boss_phase_frame, 0
-		inc	byte_25A24
-		jmp	short loc_1C67A
-; ---------------------------------------------------------------------------
-
-loc_1C61F:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_1C62F
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_1C62F:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_1C67A
-		call	@boss_explode_big$qui pascal, ET_HORIZONTAL
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_1C652
-		call	@boss_score_bonus$qui pascal, 40
-
-loc_1C652:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		mov	byte_25A26, 0
-		mov	byte_25A27, 0
-		jmp	short loc_1C67A
-; ---------------------------------------------------------------------------
-
-loc_1C675:
-		call	@boss_defeat_update$qv
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_1C67A:
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 6000
-		leave
-		retf
-@elly_update$qv	endp
-; ---------------------------------------------------------------------------
-
-off_1C692	dw offset loc_1C4D3
-		dw offset loc_1C511
-		dw offset loc_1C529
-		dw offset loc_1C544
-		dw offset loc_1C55F
-word_1C69C	dw 0
-		dw 1
-		dw 2
-		dw 3
-		dw 4
-		dw 5
-		dw 6
-		dw 7
-		dw 8
-		dw 0FFh
-		dw offset loc_1C473
-		dw offset loc_1C479
-		dw offset loc_1C47F
-		dw offset loc_1C485
-		dw offset loc_1C48B
-		dw offset loc_1C491
-		dw offset loc_1C497
-		dw offset loc_1C49D
-		dw offset loc_1C4A3
-		dw offset loc_1C4A9
-off_1C6C4	dw offset loc_1C301
-		dw offset loc_1C32D
-		dw offset loc_1C3D4
-		dw offset loc_1C445
-		dw offset loc_1C61F
+	; elly_update() now lives in th04/main/boss/b3_upd.cpp, which
+	; th04/main_034.cpp compiles into THIS segment: the wrapper leaves the
+	; code segment name to Turbo C++'s basename default, so the object is
+	; appended to the contribution above and lands at the tail position the
+	; proc already held (kb/codegen 0105 + 0112 + 0114). It was the LAST
+	; proc of the segment, so no carve, no new segment name and no
+	; group-list edit were needed -- only the one Tupfile.lua line the new
+	; object costs.
+	;
+	; Its three `switch`es -- two dense and one sparse -- are what the
+	; three tables that used to end this segment compile FROM, so all three
+	; left with the proc. There is no padding byte anywhere among them and
+	; no `-a2`.
+	;
+	; Nothing in this file references it; th04/main/stage/setup.cpp does.
 main_034_TEXT	ends
 
 BULLET_U_TEXT	segment	byte public 'CODE' use16
@@ -22248,8 +21862,12 @@ byte_25A1B	db ?
 		db 2 dup(?)
 byte_25A1E	db ?
 		db 5 dup(?)
+public _elly_pattern_set
+_elly_pattern_set label byte
 byte_25A24	db ?
 		db ?
+public _elly_25A26
+_elly_25A26 label byte
 byte_25A26	db ?
 ; Elly's single thrown entity and the byte that tracks it. Private dump
 ; labels that the ASM in this file still references, so they take zero-byte
@@ -22257,6 +21875,8 @@ byte_25A26	db ?
 ; (th04/main/boss/b3_fg.cpp) is the only C++ reader of either.
 public _elly_boomerang_flag
 _elly_boomerang_flag label byte
+public _elly_25A27
+_elly_25A27 label byte
 byte_25A27	db ?
 public _elly_boomerang_pos
 _elly_boomerang_pos label word
@@ -22266,6 +21886,8 @@ angle_25A36	db ?
 byte_25A37	db ?
 byte_25A38	db ?
 		db ?
+public _elly_25A3A
+_elly_25A3A label word
 word_25A3A	dw ?
 include th02/hardware/pages[bss].asm
 include th04/main/tile/tiles[bss].asm
