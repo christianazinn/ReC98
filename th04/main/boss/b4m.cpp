@@ -3,6 +3,8 @@
 
 #pragma option -zCB4M_UPDATE_TEXT -zPmain_03
 
+// iatan2(), for the one Yuuka pattern that aims at the player.
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/v_colors.hpp"
 #include "th03/hardware/palette.hpp"
@@ -10,11 +12,14 @@
 #include "th04/snd/snd.h"
 #include "th04/formats/std.hpp"
 #include "th04/math/randring.hpp"
+#include "th04/main/frames.h"
+#include "th04/main/rank.hpp"
 #include "th04/main/bg.hpp"
 #include "th04/main/circle.hpp"
 #include "th04/main/custom.hpp"
 #include "th04/main/gather.hpp"
 #include "th02/main/player/player.hpp"
+#include "th04/main/player/player.hpp"
 #include "th04/main/homing.hpp"
 #include "th04/main/null.hpp"
 #include "th04/main/hud/hud.hpp"
@@ -103,27 +108,6 @@ extern screen_x_t bit_center_y[BIT_COUNT];
 /// moved on to Marisa's (kb/codegen/0112, and the segment is named after the
 /// second half). These two functions are the bottom of that first half.
 
-// Still ASM, all of them in this same segment, and all of them private to
-// ZUN's object -- so each needed a zero-byte `label` alias in th04_main.asm to
-// become linkable at all (kb/codegen/0123). The address-suffixed names are the
-// dump's own; naming them is a separate decision from making them linkable,
-// and belongs to whoever lifts them.
-extern "C" {
-	// Runs Yuuka's four-state warp animation, and returns `true` on the one
-	// frame it completes on. The parameter picks the destination: `false` is a
-	// random point in the upper playfield, `true` is the fixed point the fight
-	// phases warp back to. `pascal`, hence the UPPER-case alias.
-	bool pascal near yuuka5_15ECE(bool to_fixed_point);
-
-	void near yuuka5_15F97(void);
-	void near yuuka5_160A5(void);
-	void near yuuka5_161D7(void);
-	void near yuuka5_162A3(void);
-	void near yuuka5_1630D(void);
-	void near yuuka5_16389(void);
-	void near yuuka5_1653D(void);
-}
-
 // th04/main/midboss/vars[bss].asm publishes it, but no TH04 header declares
 // it: the only two C++ functions that have ever needed it are this one and
 // yuuka6_update(), and the latter is still ASM.
@@ -149,6 +133,505 @@ void pascal far yuuka5_bg_render(void);
 // The HP Yuuka starts every one of her fights with, and the denominator the
 // HUD bar is drawn against.
 static const int YUUKA5_HP = 9000;
+
+/// Yuuka's patterns
+/// ----------------
+/// All eight of these sat directly above yuuka5_update() in ZUN's object, and
+/// every one of them is reached from its `switch(boss.mode)` dispatch and from
+/// nowhere else, so all eight are `static` here and the eight zero-byte
+/// `label` aliases th04_main.asm carried for them are gone with the bodies.
+/// They keep the dump's address-suffixed names; **a naming round is owed** for
+/// all eight and for the four state variables below.
+
+// The first free thick laser slot takes a copy of [thicklaser_template].
+// Does nothing at all if both slots are busy. Still ASM in th04_main.asm's
+// B4M_UPDATE_TEXT, with three remaining ASM callers, so it needed a zero-byte
+// `label` alias to become linkable (kb/codegen/0123). `[inferred]` name, on
+// the model of bullets_add_regular() one template over.
+extern "C" void near thicklaser_add(void);
+
+// Yuuka's four pattern-local state variables, all of them th04_main.asm
+// `.data?` with no `public` of ZUN's, and all of them read and written only by
+// the functions below (`[measured]`, over all five binaries). They keep
+// address-suffixed names on the same terms as the functions; the evidence for
+// naming them is:
+//
+// • [yuuka5_25662] is the x origin the 11-bullet fan in yuuka5_15F97() is
+//   fired from. It starts one half-screen left of Yuuka and then ping-pongs
+//   64 pixels either way on every volley.
+// • [yuuka5_25664] and [yuuka5_25665] are a rate and its accumulator:
+//   yuuka5_160A5() adds the first to the second every frame, fires a ring
+//   whenever the second reaches 0x10, and then subtracts 0x10 from it and
+//   BUMPS THE RATE — so the rings come faster and faster.
+// • [yuuka5_25666] is the palette tone yuuka5_16389() ramps up to and then
+//   back down from, written straight into master.lib's [PaletteTone].
+extern "C" {
+	extern subpixel_t yuuka5_25662;
+	extern unsigned char yuuka5_25664;
+	extern unsigned char yuuka5_25665;
+	extern unsigned char yuuka5_25666;
+}
+
+// The thick laser radius yuuka5_16389()'s last case reads, parked in the
+// state byte the rest of the fight does not use.
+#define yuuka5_thicklaser_radius boss_statebyte[0]
+
+// Runs Yuuka's four-state warp animation, and returns `true` on the one frame
+// it completes on. The parameter picks the destination: `false` is a random
+// point in the upper playfield, `true` is the fixed point the fight's later
+// phases warp back to. The declaration is `pascal`, which is why the alias
+// this replaces was spelled in upper case.
+//
+// The parameter is `bool16` and not `bool`: the original tests it with
+// `cmp word ptr [bp+4], 0`, and a 1-byte `bool` gives `cmp byte ptr` at the
+// same instruction length. The call site is unaffected — `pascal` pushes a
+// word for either — so this is invisible to every length check and shows up
+// only in a funcdiff. The `bool` RETURN is right as it stands; the original
+// homes it in AL.
+static bool pascal near yuuka5_15ECE(bool16 to_fixed_point)
+{
+	subpixel_t target_x;
+	subpixel_t target_y;
+
+	if(yuuka5_warp_phase == 0) {
+		yuuka5_warp_phase = 1;
+		boss.damage_this_frame = 0;
+		boss.pos.cur.y.v += TO_SP(16);
+	}
+	if(yuuka5_warp_phase == 1) {
+		if(boss.phase_frame < 32) {
+			return false;
+		}
+		boss.phase_frame = 0;
+		yuuka5_warp_phase = 2;
+		if(!to_fixed_point) {
+			target_x = (randring2_next16_mod(TO_SP(256)) + TO_SP(64));
+			target_y = (randring2_next16_mod(TO_SP(64)) + TO_SP(64));
+		} else {
+			target_x = TO_SP(PLAYFIELD_W / 2);
+			target_y = TO_SP(80);
+		}
+		boss.pos.velocity.x.v = ((target_x - boss.pos.cur.x.v) / 64);
+		boss.pos.velocity.y.v = ((target_y - boss.pos.cur.y.v) / 64);
+	} else if(yuuka5_warp_phase == 2) {
+		boss.pos.update_seg3();
+		if(boss.phase_frame < 64) {
+			return false;
+		}
+		boss.phase_frame = 0;
+		yuuka5_warp_phase = 3;
+	} else if(yuuka5_warp_phase == 3) {
+		if(boss.phase_frame < 8) {
+			return false;
+		}
+		boss.phase_frame = 0;
+		yuuka5_warp_phase = 0;
+		boss.mode = 254;
+		boss.pos.cur.y.v -= TO_SP(16);
+		return true;
+	}
+	return false;
+}
+
+// A 11-bullet spread every 16th frame, from an origin that walks half a screen
+// left and right of Yuuka while the spread's own angle steps through eight
+// hardcoded directions.
+static void near yuuka5_15F97(void)
+{
+	if(boss.phase_frame == 1) {
+		yuuka5_25662 = (boss.pos.cur.x.v + TO_SP(-32));
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_YELLOW;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 11;
+		bullet_template.delta.spread_angle = 5;
+		bullet_template.speed.v = (TO_SP(2) + 8);
+		bullet_template_tune();
+	} else if(boss.phase_frame == 15) {
+		bullet_template.angle = 0x00;
+	} else if(boss.phase_frame == 31) {
+		yuuka5_25662 += TO_SP(64);
+		bullet_template.angle = 0x80;
+	} else if(boss.phase_frame == 47) {
+		yuuka5_25662 -= TO_SP(64);
+		bullet_template.angle = 0x10;
+	} else if(boss.phase_frame == 63) {
+		yuuka5_25662 += TO_SP(64);
+		bullet_template.angle = 0x70;
+	} else if(boss.phase_frame == 79) {
+		yuuka5_25662 -= TO_SP(64);
+		bullet_template.angle = 0x20;
+	} else if(boss.phase_frame == 95) {
+		yuuka5_25662 += TO_SP(64);
+		bullet_template.angle = 0x60;
+	} else if(boss.phase_frame == 111) {
+		yuuka5_25662 -= TO_SP(64);
+		bullet_template.angle = 0x30;
+	} else if(boss.phase_frame == 127) {
+		yuuka5_25662 += TO_SP(64);
+		bullet_template.angle = 0x50;
+	} else if(boss.phase_frame == 140) {
+		boss.mode = 255;
+		boss.phase_frame = 0;
+	}
+	if((boss.phase_frame % 16) == 15) {
+		bullet_template.origin.x.v = yuuka5_25662;
+		bullet_template.origin.y.v = boss.pos.cur.y.v;
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+}
+
+// An accelerating stream of forward-cloud rings, sweeping clockwise for the
+// first 128 frames and anticlockwise for the next 128, with a 32-bullet
+// speed-up ring fired at each turn.
+static void near yuuka5_160A5(void)
+{
+	if(boss.phase_frame == 1) {
+		bullet_template.angle = 0;
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		bullet_template.patnum = PAT_BULLET16_D_BLUE;
+		bullet_template.group = BG_RING;
+		_AL = rank;
+		_AL++;
+		bullet_template.count = _AL;
+		bullet_template.speed.v = TO_SP(4);
+		yuuka5_25664 = 1;
+		yuuka5_25665 = 0;
+	} else if(boss.phase_frame < 128) {
+		if(yuuka5_25665 >= 0x10) {
+			_AL = bullet_template.angle;
+			_AL += 7;
+			bullet_template.angle = _AL;
+			bullets_add_regular();
+			snd_se_play(3);
+			yuuka5_25664++;
+			_AL = yuuka5_25665;
+			_AL += -0x10;
+			yuuka5_25665 = _AL;
+		}
+		yuuka5_25665 += yuuka5_25664;
+	} else if(boss.phase_frame == 128) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_YELLOW;
+		bullet_template.angle = 0x80;
+		bullet_template.speed.v = TO_SP(1);
+		bullet_template.special_motion = BSM_SPEEDUP;
+		bullet_special.speed_delta.v = 1;
+		bullet_template.count = 32;
+		bullet_template_tune();
+		bullets_add_special_fixedspeed();
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		bullet_template.speed.v = TO_SP(4);
+		_AL = rank;
+		_AL++;
+		bullet_template.count = _AL;
+		yuuka5_25664 = 1;
+		yuuka5_25665 = 0;
+		snd_se_play(9);
+		bullet_template.patnum = PAT_BULLET16_D_BLUE;
+	} else if(boss.phase_frame < 256) {
+		if(yuuka5_25665 >= 0x10) {
+			_AL = bullet_template.angle;
+			_AL += -7;
+			bullet_template.angle = _AL;
+			bullets_add_regular();
+			snd_se_play(3);
+			yuuka5_25664++;
+			_AL = yuuka5_25665;
+			_AL += -0x10;
+			yuuka5_25665 = _AL;
+		}
+		yuuka5_25665 += yuuka5_25664;
+	} else if(boss.phase_frame == 256) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_YELLOW;
+		bullet_template.angle = 0;
+		bullet_template.speed.v = TO_SP(1);
+		bullet_template.special_motion = BSM_SPEEDUP;
+		bullet_special.speed_delta.v = 1;
+		bullet_template.count = 32;
+		bullet_template_tune();
+		bullets_add_special_fixedspeed();
+		snd_se_play(9);
+	} else if(boss.phase_frame == 288) {
+		boss.mode = 255;
+		boss.phase_frame = 0;
+	}
+}
+
+// A three-circle gather that opens into a 7-way spread of bouncing bullets,
+// re-fired at a random angle every 16th frame. Its `switch` is sparse, which
+// is what the value/jump table pair and the one padding byte behind this
+// function are — see the `#pragma option -a2` note above yuuka5_update().
+#pragma option -a2
+static void near yuuka5_161D7(void)
+{
+	switch(boss.phase_frame) {
+	case 1:
+		gather_template.center.x.v = bullet_template.origin.x.v;
+		gather_template.center.y.v = bullet_template.origin.y.v;
+		gather_template.ring_points = 32;
+		gather_template.col = 11;
+		gather_template.radius.v = TO_SP(256);
+		gather_template.angle_delta = 3;
+		gather_add_only();
+		break;
+	case 3:
+		gather_template.col = 10;
+		gather_add_only();
+		break;
+	case 5:
+		gather_add_only();
+		break;
+	case 0x11:
+		circles_add_shrinking(
+			bullet_template.origin.x.v, bullet_template.origin.y.v
+		);
+		circles_color = V_WHITE;
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.speed.v = TO_SP(1);
+		bullet_template.special_motion = BSM_BOUNCE_LEFT_RIGHT_TOP;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 7;
+		bullet_template.delta.spread_angle = 8;
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_YELLOW;
+		bullet_template.speed.v = TO_SP(2);
+		bullet_template_tune();
+		bullet_special.turns_max = 1;
+		break;
+	}
+	if(boss.phase_frame >= 32) {
+		if((boss.phase_frame % 16) == 0) {
+			bullet_template.angle = randring2_next16();
+			bullets_add_special();
+			snd_se_play(9);
+		}
+	}
+}
+#pragma option -a1
+
+// One aimed speed-up ring every 16th frame, three bullets wider each time.
+static void near yuuka5_162A3(void)
+{
+	if(boss.phase_frame == 1) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_YELLOW;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.delta.spread_angle = 6;
+		bullet_template.speed.v = TO_SP(1);
+		bullet_template.special_motion = BSM_SPEEDUP;
+		bullet_template.count = 8;
+		bullet_special.speed_delta.v = 1;
+	} else if(boss.phase_frame == 170) {
+		boss.mode = 255;
+		boss.phase_frame = 0;
+	}
+	if((boss.phase_frame % 16) == 15) {
+		bullets_add_special();
+		_AL = bullet_template.count;
+		_AL += 3;
+		bullet_template.count = _AL;
+		snd_se_play(3);
+	}
+}
+
+// One aimed 5-way spread every 8th frame, narrowing by 4 units per volley
+// from a 0x42 fan that starts wider than a right angle.
+static void near yuuka5_1630D(void)
+{
+	if(boss.phase_frame == 1) {
+		bullet_template.angle = iatan2(
+			(player_pos.cur.y.v - bullet_template.origin.y.v),
+			(player_pos.cur.x.v - bullet_template.origin.x.v)
+		);
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 5;
+		bullet_template.delta.spread_angle = 0x42;
+		bullet_template.speed.v = TO_SP(5);
+		bullet_template_tune();
+	} else if(boss.phase_frame == 128) {
+		boss.mode = 255;
+		boss.phase_frame = 0;
+	}
+	if((boss.phase_frame % 8) == 7) {
+		_AL = bullet_template.delta.spread_angle;
+		_AL += -4;
+		bullet_template.delta.spread_angle = _AL;
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+}
+
+// Yuuka's last pattern: six alternating gather circles that whiten the whole
+// palette, a thick laser at frame 0x60, then rings every 32nd frame and a pair
+// of random-angle bullets on every other frame past frame 192.
+//
+// Its `switch` is the sparsest in the fight — 20 cases over seven blocks — and
+// the six repetitions differ only in which of the three blocks they enter. The
+// `goto` below is one of those entries written out: the arm that only recolors
+// the gather jumps BACKWARDS into the arm that adds it, which is emitted
+// ahead of it, so it cannot be a fall-through.
+static void near yuuka5_16389(void)
+{
+	switch(boss.phase_frame) {
+	case 0x10:
+		gather_template.angle_delta = 3;
+		break;
+
+	case 0x30:
+		bullet_template.angle = 0;
+		snd_se_play(8);
+		yuuka5_25666 = 100;
+		// fall through
+	case 0x38: case 0x40: case 0x48: case 0x50:
+		circles_color = V_WHITE;
+		circles_add_shrinking(
+			bullet_template.origin.x.v, bullet_template.origin.y.v
+		);
+		// fall through
+	case 0x28:
+		_AL = gather_template.angle_delta;
+		_AL = -_AL;
+		gather_template.angle_delta = _AL;
+		gather_template.center.x.v = bullet_template.origin.x.v;
+		gather_template.center.y.v = bullet_template.origin.y.v;
+		gather_template.ring_points = 8;
+		gather_template.col = 9;
+		gather_template.radius.v = TO_SP(256);
+		// fall through
+	case 0x2C: case 0x34: case 0x3C: case 0x44: case 0x4C: case 0x54:
+gather:
+		gather_add_only();
+		break;
+
+	case 0x2A: case 0x32: case 0x3A: case 0x42: case 0x4A: case 0x52:
+		gather_template.col = 8;
+		goto gather;
+
+	case 0x60:
+		thicklaser_template.origin.x.v = bullet_template.origin.x.v;
+		thicklaser_template.origin.y.v = bullet_template.origin.y.v;
+		thicklaser_template.radius_max = yuuka5_thicklaser_radius;
+		thicklaser_template.radius_speed = 6;
+		thicklaser_template.line_frames = 32;
+		thicklaser_template.static_frames = 144;
+		thicklaser_template.col_outline = 8;
+		thicklaser_add();
+		break;
+	}
+
+	// An early `return`, where the identical test 20 lines down is an `if`:
+	// the original's first `jl` is a NEAR jump to the function's one exit and
+	// the second is a near jump to the same place, while an
+	// `if(…>= 128) { … } if(… >= 128) { … }` pair makes the first one a SHORT
+	// jump to the second block and the function two bytes shorter.
+	if(boss.phase_frame < 128) {
+		return;
+	}
+	if(boss.phase_frame <= 160) {
+		_AL = yuuka5_25666;
+		_AL += 2;
+		yuuka5_25666 = _AL;
+		goto tone;
+	} else if(yuuka5_25666 > 100) {
+		// The ramp back down is half-speed, because it only subtracts on the
+		// odd frames.
+		_AL = boss.phase_frame;
+		_AL &= 1;
+		_DL = yuuka5_25666;
+		_DL -= _AL;
+		yuuka5_25666 = _DL;
+tone:
+		PaletteTone = yuuka5_25666;
+		palette_changed = true;
+	}
+	if(boss.phase_frame >= 128) {
+		if((boss.phase_frame % 32) == 0) {
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.group = BG_RING;
+			bullet_template.count = 32;
+			bullet_template.patnum = PAT_BULLET16_D_BLUE;
+			bullet_template.speed.v = (TO_SP(4) + 8);
+			bullet_template_tune();
+			bullets_add_regular();
+			_AL = bullet_template.angle;
+			_AL += 2;
+			bullet_template.angle = _AL;
+			snd_se_play(9);
+		}
+		if(boss.phase_frame >= 192) {
+			if(stage_frame_mod2) {
+				bullet_template.spawn_type = BST_BULLET16;
+				bullet_template.group = BG_RANDOM_ANGLE;
+				bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+				bullet_template.speed.v = TO_SP(2);
+				bullet_template.count = 2;
+				bullet_template_tune();
+				bullets_add_regular();
+			}
+		}
+	}
+}
+
+// Two mirrored pairs every 8th frame from 32 pixels either side of Yuuka: a
+// 5-way cloud spread walking 16 units anticlockwise, and a 3-way pellet spread
+// walking 9 units the other way.
+static void near yuuka5_1653D(void)
+{
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			bullet_template.origin.x.v, bullet_template.origin.y.v
+		);
+		circles_color = V_WHITE;
+		boss.angle = 16;
+		yuuka5_spread_angle = 0x10;
+		bullet_template.special_motion = BSM_NONE;
+		return;
+	}
+	if(boss.phase_frame >= 64) {
+		if((boss.phase_frame % 8) == 0) {
+			bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+			bullet_template.count = 5;
+			bullet_template.delta.spread_angle = 1;
+			bullet_template.group = BG_SPREAD;
+			bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+			bullet_template.speed.v = (TO_SP(2) + 8);
+			bullet_template_tune();
+
+			bullet_template.origin.x.v += TO_SP(32);
+			bullet_template.angle = boss.angle;
+			bullets_add_special();
+			bullet_template.origin.x.v -= TO_SP(64);
+			_AL = 0x80;
+			_AL -= boss.angle;
+			bullet_template.angle = _AL;
+			bullets_add_special();
+			_AL = boss.angle;
+			_AL += -16;
+			boss.angle = _AL;
+
+			bullet_template.spawn_type = BST_PELLET;
+			bullet_template.count = 3;
+			bullet_template.speed.v = (TO_SP(1) + 8);
+			bullet_template_tune();
+			bullet_template.angle = yuuka5_spread_angle;
+			bullets_add_special();
+			bullet_template.origin.x.v += TO_SP(64);
+			_AL = 0x80;
+			_AL -= yuuka5_spread_angle;
+			bullet_template.angle = _AL;
+			bullets_add_special();
+			_AL = yuuka5_spread_angle;
+			_AL += 9;
+			yuuka5_spread_angle = _AL;
+			snd_se_play(3);
+		}
+	}
+}
+/// ----------------
 
 // Yuuka's Stage 5 fight, all 19 phases of it. Three of them are the entrance
 // and the defeat; the other 16 are five repetitions of the same
