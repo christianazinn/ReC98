@@ -1223,6 +1223,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/bullet_u.cpp",
 	"th05/midboss1.cpp",
 	"th05/boss_1.cpp",
+	"th05/midboss2.cpp",
 	"th05/boss_4.cpp",
 	"th05/boss_6.cpp",
 	"th05/boss_x.cpp",
