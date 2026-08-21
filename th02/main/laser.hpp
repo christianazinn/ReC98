@@ -91,7 +91,16 @@ void far lasers_reset(void);
 // Installs the two per-frame functions below into their stage callback slots.
 // stage_init() calls this for Stage 4 and Extra, and two of the bosses call it
 // again from their own init function.
-void far lasers_callbacks_set(void);
+//
+// C linkage, for the same reason bullets_clear() has it: both of those boss
+// calls land in the caller's own physical segment, so the original reaches
+// this function through the linker-relaxed `nop; push cs; call near ptr` form
+// that no plain C++ far call reproduces (kb/codegen/0083) - and Turbo C++'s
+// inline assembler resolves the identifier in `call near ptr` as a *C* symbol
+// and rejects the `$` in a mangled one. stones_init() in
+// th02/main/boss/b3.cpp is the lifted one; rika_init(), still in
+// th02_main.asm, spells its `nopcall` the C way for the same reason.
+extern "C" void far lasers_callbacks_set(void);
 
 // Spawns a laser at ([left], [top]) in the first free slot, with the sound
 // effect that every spawn plays. Does nothing if [left] is outside the

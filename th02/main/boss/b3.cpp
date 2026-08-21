@@ -1,11 +1,15 @@
 /// Stage 3 Boss - Five Magic Stones
 /// --------------------------------
-/// Only the reset so far. It is the tail of th02_main.asm's contribution to
-/// DIALOG_TEXT, and its object is NOT th02/dialog.cpp's: the original has a
+/// The fight's two [boss_init]/[boss_end] entry points and the reset they
+/// share. Between them they are the tail of th02_main.asm's contribution to
+/// DIALOG_TEXT, and their object is NOT th02/dialog.cpp's: the original has a
 /// byte of padding between the two, and C++ objects link byte-aligned, so that
 /// byte is CONTENT and a contribution boundary is the only thing that explains
 /// it. So this is its own translation unit, linked between the dump and
 /// th02/dialog.cpp, and it carries the pad itself (kb/codegen/0161).
+///
+/// stones_update(), the nine-arm phase machine both of them bracket, is still
+/// in the dump directly above.
 
 // -zC, because the segment name would otherwise come from this file's own
 // basename (kb/codegen/0105). -G, because the prolog is `push bp; mov bp, sp`
@@ -21,6 +25,10 @@
 #include "th02/main/laser.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b3.hpp"
+#include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/bonus.hpp"
+#include "th02/main/dialog/dialog.hpp"
+#include "th02/main/hud/overlay.hpp"
 #include "th01/sprites/pellet.h"
 
 // Coordinates
@@ -42,6 +50,27 @@ extern "C" void far enemies_remove_all(void);
 // [boss_rank_param] behind a two-way branch on [rank]; the function below is
 // its only caller, and reaches it as a plain near call.
 extern "C" void near stones_11997(void);
+
+// th02/main/dialog/dialog.cpp. dialog.hpp declares every dialog_script_*
+// function but neither of these two, which is how th02/main/boss/b4.cpp and
+// b5.cpp already declare them.
+void near dialog_pre(void);
+void near dialog_post(void);
+
+// th02/main/stage/init.cpp, which declares it identically - including the
+// non-const parameter, which is why [aBoss2_m] below is not const either.
+// `[measured]` Stops the current KAJA song, snd_load()s [fn] over it with
+// SND_LOAD_SONG, and starts it again; every boss init function in this binary
+// switches its BGM through it.
+extern "C" void far sub_13ABB(char *fn);
+
+// The Stage 3 boss BGM's file name, kept where th02_main.asm's own `_DATA`
+// contribution defines it rather than re-emitted as a literal here: this
+// translation unit contributes no initialized data at all today, so a literal
+// would land after the dump's whole block and shift every byte between.
+// Declared exactly the way th02/main/boss/b4.cpp already declares [aBoss3_m]
+// for the same call one boss later.
+extern "C" char aBoss2_m[];
 
 // The sprite each stone is currently blitted with. `[measured]` one array of
 // STONE_COUNT words, not the four separate slots IDA saw: stones_116EC's
@@ -93,6 +122,61 @@ extern "C" int16_t stones_phase_frame_unused;
 extern "C" screen_x_t left_22D98;
 extern "C" screen_y_t top_22D9A;
 extern "C" vram_y_t y_22D9C;
+
+
+// Defined below, and reached from stones_init() as the plain 3-byte near call
+// the original encodes - both are in this one object now.
+extern "C" void near stones_12778(void);
+
+
+// Runs the stones' post-battle dialog and the stage clear bonus, then advances
+// to Stage 4. Installed into [boss_end] by stage_init(); marisa_end() in
+// th02/main/boss/b4.cpp is the same function one stage later, with the Stage 4
+// script in place of the generic one.
+extern "C" void far stones_end(void)
+{
+	dialog_pre();
+	dialog_script_generic_part_animate(DS_POSTBOSS);
+	stage_clear_bonus_animate();
+	overlay_stage_leave_animate();
+	stage_id++;
+}
+
+
+// Runs the stones' pre-battle dialog, switches to their BGM, resets the fight,
+// and turns the laser subsystem on for the rest of the stage. Installed into
+// [boss_init] by stage_init().
+extern "C" void far stones_init(void)
+{
+	dialog_pre();
+	dialog_script_generic_part_animate(DS_PREBOSS);
+	dialog_post();
+
+	// sub_13ABB() and lasers_callbacks_set() are both far, and both land in
+	// this same physical segment, so the original reaches them through the
+	// linker-relaxed `nop; push cs; call near ptr` form that no plain C++ far
+	// call reproduces. (kb/codegen/0083) That form cannot see the C++
+	// expressions either, so sub_13ABB()'s far pointer argument and its
+	// __cdecl cleanup are hand-spelled with it.
+	//
+	// `[measured]` The cleanup is this call's own 4 bytes and nothing else -
+	// dialog_pre() and dialog_post() take no arguments and
+	// dialog_script_generic_part_animate() is `pascal` and cleans itself - so
+	// the island does NOT have to reach backwards the way marisa_init()'s does
+	// (kb/codegen/0083's addendum).
+	__emit__(0x1E);	// push ds
+	_asm { push offset aBoss2_m; }
+	__emit__(0x90);	// nop
+	__emit__(0x0E);	// push cs
+	_asm { call near ptr sub_13ABB; }
+	__emit__(0x83, 0xC4, 0x04);	// add sp, 4
+
+	stones_12778();
+
+	__emit__(0x90);	// nop
+	__emit__(0x0E);	// push cs
+	_asm { call near ptr lasers_callbacks_set; }
+}
 
 
 // Resets every piece of Stage 3 boss state that survives a stage transition,

@@ -461,11 +461,6 @@ BULLET_TEXT ends
 
 DIALOG_TEXT	segment	byte public 'CODE' use16
 
-; stones_12778() is th02/main/boss/b3.cpp, prepended into this segment
-; below. stones_init() below is its only caller, and both contributions
-; are in this one segment, so `near` resolves to the same 3-byte `E8 rel16`
-; the original encodes.
-extrn _stones_12778:near
 BG_NONE = 00h
 BG_1 = 20h
 BG_1_AIMED = 19h
@@ -539,7 +534,7 @@ BULLET16_W = 16
 		v:byte
 
 	@LASERS_ADD$QIIIUC procdesc pascal near
-	extern @lasers_callbacks_set$qv:proc
+	extern _lasers_callbacks_set:proc
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -3560,51 +3555,16 @@ loc_12737:
 stones_update	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_end
-_stones_end label far
-stones_end	proc far
-		push	bp
-		mov	bp, sp
-		call	@dialog_pre$qv
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_POSTBOSS
-		call	@stage_clear_bonus_animate$qv
-		call	@overlay_stage_leave_animate$qv
-		inc	_stage_id
-		pop	bp
-		retf
-stones_end	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_init
-_stones_init label far
-stones_init	proc far
-		push	bp
-		mov	bp, sp
-		call	@dialog_pre$qv
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_PREBOSS
-		call	@dialog_post$qv
-		push	ds
-		push	offset aBoss2_m	; "boss2.m"
-		nopcall	sub_13ABB
-		add	sp, 4
-		call	_stones_12778
-		nopcall	@lasers_callbacks_set$qv
-		pop	bp
-		retf
-stones_init	endp
-
-; stones_12778() is th02/main/boss/b3.cpp, prepended into this segment
-; between this block and th02/dialog.cpp's below (kb/codegen/0099).
+; stones_end(), stones_init() and stones_12778() are th02/main/boss/b3.cpp,
+; prepended into this segment between this block and th02/dialog.cpp's
+; below (kb/codegen/0099). stones_init() reaches stones_12778() as a plain
+; near call inside that one object now, and lasers_callbacks_set() and
+; sub_13ABB() through the `nop; push cs; call near ptr` island the original
+; encodes (kb/codegen/0083) - which is why th02/main/laser.hpp gives
+; lasers_callbacks_set() C linkage, and why rika_init() below spells it the
+; C way too.
 ;
-; The `db 0` that used to stand here went with it. It is the padding
+; The `db 0` that used to stand here went with them. It is the padding
 ; between two of the original's objects, not something the linker inserts,
 ; so the object that reaches its address has to emit it - which b3.cpp does
 ; with a trailing `#pragma codestring` (kb/codegen/0161).
@@ -4361,7 +4321,7 @@ rika_init	proc far
 		mov	patnum_2064E, 150
 		mov	_stage_frame, 0
 		mov	word_24E80, 0
-		nopcall	@lasers_callbacks_set$qv
+		nopcall	_lasers_callbacks_set
 		mov	patnum_2064E, 150
 		mov	point_24E7C.y, 48
 		mov	ax, _scroll_line
@@ -14625,6 +14585,8 @@ byte_1EB35	label byte
 		db  0Eh
 		db  0Dh
 		db  0Ch
+public _aBoss2_m
+_aBoss2_m label byte
 aBoss2_m	db 'boss2.m',0
 		db 0
 public _shot_hit_damage
