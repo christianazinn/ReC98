@@ -1013,6 +1013,9 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/spark_a.asm",
 	"th04/grcg_3.cpp",
 	"th04/it_spl_u.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
+	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
+	"th04/enm_pos1.cpp",
 	"th04/enm_pos.cpp",
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",

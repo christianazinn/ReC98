@@ -5635,6 +5635,11 @@ include th04/main/gather_point_render.asm
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the bare
+	; label. kb/codegen/0123. These four are the Stage 2 midboss's bullet
+	; patterns, called from midboss2_update() and from nowhere else.
+public _midboss2_14AF2
+_midboss2_14AF2 label near
 sub_14AF2	proc near
 		push	bp
 		mov	bp, sp
@@ -5694,6 +5699,8 @@ sub_14AF2	endp
 
 ; Attributes: bp-based frame
 
+public _midboss2_14B76
+_midboss2_14B76 label near
 sub_14B76	proc near
 		push	bp
 		mov	bp, sp
@@ -5738,6 +5745,8 @@ sub_14B76	endp
 
 ; Attributes: bp-based frame
 
+public _midboss2_14BCD
+_midboss2_14BCD label near
 sub_14BCD	proc near
 		push	bp
 		mov	bp, sp
@@ -5791,6 +5800,8 @@ sub_14BCD	endp
 
 ; Attributes: bp-based frame
 
+public _midboss2_14C45
+_midboss2_14C45 label near
 sub_14C45	proc near
 		push	bp
 		mov	bp, sp
@@ -5864,239 +5875,27 @@ loc_14CFA:
 sub_14C45	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-public @MIDBOSS2_UPDATE$QV
-@midboss2_update$qv	proc far
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		mov	ax, _midboss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _midboss_pos.cur.y
-		mov	_homing_target.y, ax
-		cmp	_midboss_phase, 0
-		jnz	short loc_14D5D
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		inc	_midboss_phase_frame
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		mov	si, ax
-		cmp	_midboss_phase_frame, 96
-		jl	loc_14F57
-		inc	_midboss_phase
-		mov	_midboss_phase_frame, 0
-		mov	_midboss_pos.velocity.x, 0
-		mov	_midboss_pos.velocity.y, 0
-		mov	byte_255B2, 0
-		mov	byte_255B3, 1
-		mov	byte_255B4, 0
-		jmp	loc_14F57
-; ---------------------------------------------------------------------------
-
-loc_14D5D:
-		cmp	_midboss_phase, 1
-		jnz	loc_14F16
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		inc	_midboss_phase_frame
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	ax, _midboss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	al, byte_255B2
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	cx, 5		; switch 5 cases
-		mov	bx, offset word_14F64
-
-loc_14D92:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_2]
-		jz	short loc_14DA2
-		add	bx, 2
-		loop	loc_14D92
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DA2:
-		jmp	word ptr cs:[bx+0Ah] ; switch jump
-
-loc_14DA6:
-		call	sub_14AF2	; jumptable 00014DA2 case 0
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DAC:
-		call	sub_14B76	; jumptable 00014DA2 case 1
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DB2:
-		call	sub_14BCD	; jumptable 00014DA2 case 2
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DB8:
-		call	sub_14C45	; jumptable 00014DA2 case 3
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DBE:
-		mov	ax, _midboss_pos.cur.x ; jumptable 00014DA2 case 255
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _midboss_pos.cur.y
-		mov	_gather_template.GT_center.y, ax
-		mov	ax, _midboss_phase_frame
-		add	ax, -48
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (V_WHITE shl 16) or 7
-		mov	ax, _midboss_phase_frame
-		cmp	ax, 1
-		jz	short loc_14E20
-		cmp	ax, 48
-		jz	short loc_14DEF
-		cmp	ax, 52
-		jz	short loc_14DF8
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DEF:
-		mov	_midboss_pos.velocity.x, 0
-		jmp	loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14DF8:
-		mov	_midboss_phase_frame, 0
-		cmp	byte_255B3, 1
-		jnz	short loc_14E0A
-		mov	_midboss_sprite, 0
-
-loc_14E0A:
-		inc	byte_255B4
-		mov	al, byte_255B4
-		and	al, 3
-		mov	byte_255B2, al
-		cmp	byte_255B4, 10h
-		jbe	short loc_14E8E	; default
-		jmp	loc_14EE0
-; ---------------------------------------------------------------------------
-
-loc_14E20:
-		mov	_gather_template.GT_ring_points, 8
-		mov	_gather_template.GT_radius, (96 shl 4)
-		cmp	byte_255B3, 1
-		jnz	short loc_14E5E
-		call	@randring2_next16$qv
-		test	al, 1
-		jz	short loc_14E4C
-		mov	_midboss_sprite, 1
-		mov	byte_255B3, 0
-		mov	_midboss_pos.velocity.x, (-3 shl 4)
-		jmp	short loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14E4C:
-		mov	_midboss_sprite, 2
-		mov	byte_255B3, 2
-		mov	_midboss_pos.velocity.x, (3 shl 4)
-		jmp	short loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14E5E:
-		cmp	byte_255B3, 0
-		jnz	short loc_14E77
-		mov	byte_255B3, 1
-		mov	_midboss_pos.velocity.x, (3 shl 4)
-		mov	_midboss_sprite, 2
-		jmp	short loc_14E8E	; default
-; ---------------------------------------------------------------------------
-
-loc_14E77:
-		cmp	byte_255B3, 2
-		jnz	short loc_14E8E	; default
-		mov	byte_255B3, 1
-		mov	_midboss_pos.velocity.x, (-3 shl 4)
-		mov	_midboss_sprite, 1
-
-loc_14E8E:	; default
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		mov	si, ax
-		or	si, si
-		jz	loc_14F57
-		sub	_midboss_hp, si
-		cmp	_midboss_hp, 0
-		jle	short loc_14EB5
-		mov	_midboss_damage_this_frame, 1
-		push	4
-		jmp	short loc_14F0F
-; ---------------------------------------------------------------------------
-
-loc_14EB5:
-		mov	_midboss_damage_this_frame, 1
-		mov	_bullet_zap_active, 1
-		mov	al, byte_255B4
-		mov	ah, 0
-		mov	dx, 18
-		sub	dx, ax
-		call	@midboss_score_bonus$qui pascal, dx
-		call	@items_add$qii11item_type_t pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, IT_BOMB
-		mov	_playfield_shake_anim_time, 12
-
-loc_14EE0:
-		mov	_midboss_phase, 2
-		mov	_midboss_sprite, 0
-		mov	_midboss_phase_frame, 0
-		mov	_midboss_pos.velocity.x, 0
-		mov	_midboss_pos.velocity.y, (-1 shl 4)
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		push	12
-
-loc_14F0F:
-		call	snd_se_play
-		jmp	short loc_14F57
-; ---------------------------------------------------------------------------
-
-loc_14F16:
-		cmp	_midboss_phase, 2
-		jnz	short loc_14F52
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		inc	_midboss_phase_frame
-		cmp	_midboss_pos.cur.y, 0
-		jg	short loc_14F38
-		inc	_midboss_phase
-		mov	_midboss_hp, 0
-
-loc_14F38:
-		cmp	_stage_frame_mod16, 0
-		jnz	short loc_14F57
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, large (((8 shl 4) shl 16) or 16)
-		jmp	short loc_14F57
-; ---------------------------------------------------------------------------
-
-loc_14F52:
-		nopcall	@midboss_reset$qv
-
-loc_14F57:
-		call	@hud_hp_update_and_render$qii pascal, _midboss_hp, 750
-		pop	si
-		leave
-		retf
-@midboss2_update$qv	endp
-
-; ---------------------------------------------------------------------------
-word_14F64	dw	0,     1,     2,     3
-		dw   0FFh		; value	table for switch statement
-		dw offset loc_14DA6	; jump table for switch	statement
-		dw offset loc_14DAC
-		dw offset loc_14DB2
-		dw offset loc_14DB8
-		dw offset loc_14DBE
+	; midboss2_update() now lives in th04/main/midboss/m2_updt.cpp, which
+	; th04/enm_pos1.cpp compiles into THIS segment (kb/codegen/0099 + 0105 +
+	; 0112 + 0114). It was the LAST proc of this contribution, so no carve and
+	; no new segment name were needed -- but it does need a SECOND object,
+	; ahead of th04/enm_pos.cpp rather than inside it. That file explains why:
+	; the 0x27B bytes lifted here are ODD, and prepending them into
+	; th04/enm_pos.cpp would flip the `-a2` pad parity of midboss4_update()'s
+	; own table (kb/codegen/0119). Hence the one position-critical Tupfile.lua
+	; line.
+	;
+	; The five-entry value table and the five-entry jump table that used to
+	; end this contribution went with it. A `loc_XXXXX` label only exists
+	; INSIDE a proc body, so that run is not data this file owns -- it is what
+	; the function's own sparse `switch(midboss2_pattern)` compiles TO, and
+	; the C++ emits both tables again (state/re/JUMP_TABLE_TAILS.md). There is
+	; no padding byte between the epilogue and the pair, and the new object
+	; sets no `-a2`.
+	;
+	; What is left of this contribution above is the four patterns it
+	; dispatches to, which are its only callees in this file.
 
 	; The Stage 4 midboss's four bullet patterns -- midboss4_14F78(),
 	; midboss4_15027(), midboss4_1511D() and midboss4_15202() -- now live
@@ -12726,9 +12525,19 @@ public _midboss3_patterns_done
 _midboss3_patterns_done	db ?
 		db 5 dup(?)
 include th04/main/tile/inv[bss].asm
+	; The Stage 2 midboss's three state bytes, none of them `public` in
+	; ZUN's object. The four patterns above still read the first two from
+	; this file, so those take zero-byte `label` aliases rather than a
+	; rename (kb/codegen 0123); nothing in this file reads the third any
+	; more, so it carries its name directly.
+public _midboss2_pattern
+_midboss2_pattern label byte
 byte_255B2	db ?
+public _midboss2_255B3
+_midboss2_255B3 label byte
 byte_255B3	db ?
-byte_255B4	db ?
+public _midboss2_passes
+_midboss2_passes	db ?
 		db ?
 include th04/main/playfld[bss].asm
 public _midboss4_pattern
