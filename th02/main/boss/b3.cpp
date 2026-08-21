@@ -1,15 +1,18 @@
 /// Stage 3 Boss - Five Magic Stones
 /// --------------------------------
-/// The fight's two [boss_init]/[boss_end] entry points and the reset they
-/// share. Between them they are the tail of th02_main.asm's contribution to
-/// DIALOG_TEXT, and their object is NOT th02/dialog.cpp's: the original has a
-/// byte of padding between the two, and C++ objects link byte-aligned, so that
-/// byte is CONTENT and a contribution boundary is the only thing that explains
-/// it. So this is its own translation unit, linked between the dump and
+/// The fight's two [boss_init]/[boss_end] entry points, the reset they share,
+/// the nine-phase [boss_update] callback between them, and the animation that
+/// eats the stage background at each of the north stone's two take-overs.
+/// Together they are the tail of th02_main.asm's contribution to DIALOG_TEXT,
+/// and their object is NOT th02/dialog.cpp's: the original has a byte of
+/// padding between the two, and C++ objects link byte-aligned, so that byte is
+/// CONTENT and a contribution boundary is the only thing that explains it. So
+/// this is its own translation unit, linked between the dump and
 /// th02/dialog.cpp, and it carries the pad itself (kb/codegen/0161).
 ///
-/// stones_update(), the nine-arm phase machine both of them bracket, is still
-/// in the dump directly above.
+/// Everything stones_update() dispatches to - the per-frame movement, the
+/// eleven bullet patterns and the take-over animation - is still in the dump
+/// directly above, and published for this object's sake.
 
 // -zC, because the segment name would otherwise come from this file's own
 // basename (kb/codegen/0105). -G, because the prolog is `push bp; mov bp, sp`
@@ -19,8 +22,12 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/hardware/egc.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/scroll.hpp"
+#include "th02/main/tile/tile.hpp"
 #include "th02/main/explode.hpp"
 #include "th02/main/laser.hpp"
 #include "th02/main/boss/boss.hpp"
@@ -74,20 +81,10 @@ extern "C" void pascal near stones_11766(int stone);
 // over, which is what advances the fight to the next phase.
 extern "C" bool16 pascal near stones_120F7(int stone);
 
-// The two whole-fight predicates, both 0-or-1 in AX: whether the north stone
-// is ready to be attacked, and whether phase 5's roaming has finished.
-extern "C" bool16 near stones_122B5(void);
-extern "C" bool16 near stones_1232F(void);
-
 // Phase 1's per-frame movement, and phase 2's, the latter taking the number of
 // stones already removed.
 extern "C" void near stones_119CD(void);
 extern "C" void pascal near stones_11A87(int removed);
-
-// Picks phase 5's pattern. `[measured]` returns 0 or 1, and the value is used
-// as a [stones_pattern] index rather than as a truth value, which is why this
-// one is `int` and the two predicates above are not.
-extern "C" int near stones_121BA(void);
 
 // The bullet patterns, dispatched on [stones_pattern]. Phases 4 and 8 share
 // four of them; the first and third slot differ between the two.
@@ -109,6 +106,52 @@ extern "C" void near stones_1200F(void);
 // aim at.
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
+
+
+/// Eating the stage background
+/// ---------------------------
+/// Both take-over phases run the same animation over the single row of
+/// [tile_ring] tiles at [y_22D9C]: three passes across the playfield's
+/// TILES_X columns, each pass replacing every column's tile with the next of
+/// three images. `[measured]` The columns are taken in pairs from the two
+/// edges inwards, one pair per odd frame, so a pass is 12 frames and the whole
+/// animation 36 - after which every column has had the third image stamped and
+/// the phase may advance.
+///
+/// The two passes differ only in their three images: 41/42/43 going in,
+/// 42/41/40 coming back out.
+/// ---------------------------
+
+// Per column, which of the three images is still owed to it: 0 for none, 1, 2
+// or 3 for [tile_image_22FD2], [tile_image_22FD4] and [tile_image_22FD6].
+// stones_1223E() below both blits and clears them.
+extern "C" uint8_t stones_tile_pending[TILES_X];
+
+// Which of the three passes is running, 0 to 2. It is what decides the value
+// written into [stones_tile_pending], one higher than itself.
+extern "C" uint8_t stones_tile_pass;
+
+// How many column PAIRS of the current pass have been queued, 0 to 11. Also
+// the index into the two tables below.
+extern "C" uint8_t stones_tile_pair;
+
+// How many columns have had the third image stamped. The animation is over at
+// TILES_X, and unlike the two above it is never reset between passes.
+extern "C" uint8_t stones_tile_cols_done;
+
+// The three tile images of the pass currently running. The dump's own hand
+// names are kept: an address-suffixed hand name is not an IDA placeholder, and
+// these three are only ever the pass's first, second and third.
+extern "C" int tile_image_22FD2;
+extern "C" int tile_image_22FD4;
+extern "C" int tile_image_22FD6;
+
+// The column each pair covers, from the west edge and from the east one.
+// `[measured]` 0…11 and 23…12, i.e. exactly `i` and `(TILES_X - 1 - i)`,
+// written out as data rather than computed.
+static const int STONES_TILE_COL_PAIRS = (TILES_X / 2);
+extern "C" const uint8_t STONES_TILE_COLS_WEST[STONES_TILE_COL_PAIRS];
+extern "C" const uint8_t STONES_TILE_COLS_EAST[STONES_TILE_COL_PAIRS];
 
 // th02/main/dialog/dialog.cpp. dialog.hpp declares every dialog_script_*
 // function but neither of these two, which is how th02/main/boss/b4.cpp and
@@ -186,6 +229,154 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+// Phase 5's per-frame countdown on the north stone's sprite, which walks it
+// back from its take-over cel to its resting one and turns it dormant on the
+// way. `[measured]` returns 0 or 1 - 1 once the walk has reached cel 148 - and
+// stones_update() stores that into [stones_pattern] as a one-shot latch rather
+// than testing it.
+//
+// ZUN quirk: the first `if` decrements as well, so a cel of 160 or above
+// advances by two rather than one.
+extern "C" int near stones_121BA(void)
+{
+	if(stone_patnum[STONE_NORTH] >= 160) {
+		stone_patnum[STONE_NORTH]--;
+	}
+	if(stone_patnum[STONE_NORTH] == 159) {
+		stone_flag[STONE_NORTH] = SF_DORMANT;
+		stone_patnum[STONE_NORTH] = 151;
+	} else {
+		stone_patnum[STONE_NORTH]--;
+	}
+	if(stone_patnum[STONE_NORTH] <= 148) {
+		return 1;
+	}
+	return 0;
+}
+
+
+// Queues [image] onto the next column pair, on every other frame.
+extern "C" void pascal near stones_121F3(uint8_t image)
+{
+	if((boss_phase_frame & 1) != 0) {
+		stones_tile_pending[STONES_TILE_COLS_WEST[stones_tile_pair]] = image;
+		stones_tile_pending[STONES_TILE_COLS_EAST[stones_tile_pair]] = image;
+		stones_tile_pair++;
+		if(stones_tile_pair >= STONES_TILE_COL_PAIRS) {
+			stones_tile_pass++;
+			stones_tile_pair = 0;
+		}
+	}
+}
+
+
+// Blits every column's queued image and clears the queue.
+extern "C" void near stones_1223E(void)
+{
+	// `near`, because the original walks the array with a bare 16-bit SI.
+	// A large-model far pointer would not fit a register at all, and Turbo C++
+	// spills it to the frame and reaches it with `les bx` instead.
+	// (th02/main/bg_particle.cpp does the same for the same reason.)
+	register uint8_t near *pending;
+	register int i;
+	screen_x_t left;
+
+	pending = stones_tile_pending;
+	egc_start_copy_noframe();
+	i = 0;
+	left = PLAYFIELD_LEFT;
+	while(i < TILES_X) {
+		// ZUN quirk: the first two arms read the column through the walking
+		// pointer and the third through the index, for the same slot. Both
+		// spellings are kept, because they are what the original encodes.
+		if(pending[0] == 1) {
+			tile_ring_set_and_put_both_8(left, y_22D9C, tile_image_22FD2);
+			pending[0] = 0;
+		} else if(pending[0] == 2) {
+			tile_ring_set_and_put_both_8(left, y_22D9C, tile_image_22FD4);
+			pending[0] = 0;
+		} else if(stones_tile_pending[i] == 3) {
+			tile_ring_set_and_put_both_8(left, y_22D9C, tile_image_22FD6);
+			pending[0] = 0;
+			stones_tile_cols_done++;
+		}
+		i++;
+		left += TILE_W;
+		pending++;
+	}
+	egc_off();
+}
+
+
+// The animation itself, run once per frame from phase 3 and reset on the
+// frame the phase's 49th one comes round. Returns `true` once every column has
+// been eaten, which is what advances the phase.
+extern "C" bool16 near stones_122B5(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 49) {
+		return false;
+	}
+	if(boss_phase_frame == 49) {
+		for(i = 0; i < TILES_X; i++) {
+			stones_tile_pending[i] = 0;
+		}
+		stones_tile_pair = 0;
+		stones_tile_pass = 0;
+		stones_tile_cols_done = 0;
+		tile_image_22FD2 = 41;
+		tile_image_22FD4 = 42;
+		tile_image_22FD6 = 43;
+	} else if(stones_tile_pass == 0) {
+		stones_121F3(1);
+	} else if(stones_tile_pass == 1) {
+		stones_121F3(2);
+	} else if(stones_tile_pass == 2) {
+		stones_121F3(3);
+	}
+	stones_1223E();
+	if(stones_tile_cols_done >= TILES_X) {
+		return true;
+	}
+	return false;
+}
+
+
+// The same animation for phase 5, running the three images back the other way
+// so that the stage background returns.
+extern "C" bool16 near stones_1232F(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 49) {
+		return false;
+	}
+	if(boss_phase_frame == 49) {
+		for(i = 0; i < TILES_X; i++) {
+			stones_tile_pending[i] = 0;
+		}
+		stones_tile_pair = 0;
+		stones_tile_pass = 0;
+		stones_tile_cols_done = 0;
+		tile_image_22FD2 = 42;
+		tile_image_22FD4 = 41;
+		tile_image_22FD6 = 40;
+	} else if(stones_tile_pass == 0) {
+		stones_121F3(1);
+	} else if(stones_tile_pass == 1) {
+		stones_121F3(2);
+	} else if(stones_tile_pass == 2) {
+		stones_121F3(3);
+	}
+	stones_1223E();
+	if(stones_tile_cols_done >= TILES_X) {
+		return true;
+	}
+	return false;
+}
 
 
 // The stones' [boss_update] callback, installed by stage_init(). Nine phases,

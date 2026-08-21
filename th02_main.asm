@@ -2927,302 +2927,17 @@ loc_121B5:
 stones_120F7	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_121BA
-_stones_121BA label near
-stones_121BA	proc near
-		push	bp
-		mov	bp, sp
-		cmp	patnum_22D54, 160
-		jl	short loc_121C9
-		dec	patnum_22D54
-
-loc_121C9:
-		cmp	patnum_22D54, 159
-		jnz	short loc_121DE
-		mov	_stone_flag[STONE_NORTH], SF_DORMANT
-		mov	patnum_22D54, 151
-		jmp	short loc_121E2
-; ---------------------------------------------------------------------------
-
-loc_121DE:
-		dec	patnum_22D54
-
-loc_121E2:
-		cmp	patnum_22D54, 148
-		jg	short loc_121EF
-		mov	ax, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_121EF:
-		xor	ax, ax
-		pop	bp
-		retn
-stones_121BA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stones_121F3	proc near
-
-arg_0		= byte ptr  4
-
-		push	bp
-		mov	bp, sp
-		mov	cl, [bp+arg_0]
-		test	byte ptr _boss_phase_frame, 1
-		jz	short loc_1223A
-		mov	al, byte_22FCF
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1EB29[bx]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_22FB6[bx], cl
-		mov	al, byte_22FCF
-		mov	ah, 0
-		mov	bx, ax
-		mov	al, byte_1EB35[bx]
-		mov	ah, 0
-		mov	bx, ax
-		mov	byte_22FB6[bx], cl
-		inc	byte_22FCF
-		cmp	byte_22FCF, 0Ch
-		jb	short loc_1223A
-		inc	byte_22FCE
-		mov	byte_22FCF, 0
-
-loc_1223A:
-		pop	bp
-		retn	2
-stones_121F3	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-stones_1223E	proc near
-
-@@left		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	si, offset byte_22FB6
-		call	@egc_start_copy_noframe$qv
-		xor	di, di
-		mov	[bp+@@left], PLAYFIELD_LEFT
-		jmp	short loc_122A7
-; ---------------------------------------------------------------------------
-
-loc_12257:
-		cmp	byte ptr [si], 1
-		jnz	short loc_12269
-		push	[bp+@@left]
-		push	y_22D9C
-		push	tile_image_22FD2
-		jmp	short loc_12279
-; ---------------------------------------------------------------------------
-
-loc_12269:
-		cmp	byte ptr [si], 2
-		jnz	short loc_12283
-		push	[bp+@@left]
-		push	y_22D9C
-		push	tile_image_22FD4
-
-loc_12279:
-		call	@tile_ring_set_and_put_both_8$qiii
-		mov	byte ptr [si], 0
-		jmp	short loc_122A1
-; ---------------------------------------------------------------------------
-
-loc_12283:
-		cmp	byte ptr byte_22FB6[di], 3
-		jnz	short loc_122A1
-		call	@tile_ring_set_and_put_both_8$qiii pascal, [bp+@@left], y_22D9C, tile_image_22FD6
-		mov	byte ptr [si], 0
-		inc	byte_22FD0
-
-loc_122A1:
-		inc	di
-		add	[bp+@@left], TILE_W
-		inc	si
-
-loc_122A7:
-		cmp	di, TILES_X
-		jl	short loc_12257
-		call	egc_off
-		pop	di
-		pop	si
-		leave
-		retn
-stones_1223E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_122B5
-_stones_122B5 label near
-stones_122B5	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 49
-		jl	short loc_1232A
-		cmp	_boss_phase_frame, 49
-		jnz	short loc_122F9
-		xor	si, si
-		jmp	short loc_122D1
-; ---------------------------------------------------------------------------
-
-loc_122CB:
-		mov	byte ptr byte_22FB6[si], 0
-		inc	si
-
-loc_122D1:
-		cmp	si, 18h
-		jl	short loc_122CB
-		mov	byte_22FCF, 0
-		mov	byte_22FCE, 0
-		mov	byte_22FD0, 0
-		mov	tile_image_22FD2, 41
-		mov	tile_image_22FD4, 42
-		mov	tile_image_22FD6, 43
-		jmp	short loc_1231B
-; ---------------------------------------------------------------------------
-
-loc_122F9:
-		cmp	byte_22FCE, 0
-		jnz	short loc_12304
-		push	1
-		jmp	short loc_12318
-; ---------------------------------------------------------------------------
-
-loc_12304:
-		cmp	byte_22FCE, 1
-		jnz	short loc_1230F
-		push	2
-		jmp	short loc_12318
-; ---------------------------------------------------------------------------
-
-loc_1230F:
-		cmp	byte_22FCE, 2
-		jnz	short loc_1231B
-		push	3
-
-loc_12318:
-		call	stones_121F3
-
-loc_1231B:
-		call	stones_1223E
-		cmp	byte_22FD0, 18h
-		jb	short loc_1232A
-		mov	ax, 1
-		jmp	short loc_1232C
-; ---------------------------------------------------------------------------
-
-loc_1232A:
-		xor	ax, ax
-
-loc_1232C:
-		pop	si
-		pop	bp
-		retn
-stones_122B5	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_1232F
-_stones_1232F label near
-stones_1232F	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 49
-		jl	short loc_123A4
-		cmp	_boss_phase_frame, 49
-		jnz	short loc_12373
-		xor	si, si
-		jmp	short loc_1234B
-; ---------------------------------------------------------------------------
-
-loc_12345:
-		mov	byte ptr byte_22FB6[si], 0
-		inc	si
-
-loc_1234B:
-		cmp	si, 18h
-		jl	short loc_12345
-		mov	byte_22FCF, 0
-		mov	byte_22FCE, 0
-		mov	byte_22FD0, 0
-		mov	tile_image_22FD2, 42
-		mov	tile_image_22FD4, 41
-		mov	tile_image_22FD6, 40
-		jmp	short loc_12395
-; ---------------------------------------------------------------------------
-
-loc_12373:
-		cmp	byte_22FCE, 0
-		jnz	short loc_1237E
-		push	1
-		jmp	short loc_12392
-; ---------------------------------------------------------------------------
-
-loc_1237E:
-		cmp	byte_22FCE, 1
-		jnz	short loc_12389
-		push	2
-		jmp	short loc_12392
-; ---------------------------------------------------------------------------
-
-loc_12389:
-		cmp	byte_22FCE, 2
-		jnz	short loc_12395
-		push	3
-
-loc_12392:
-		call	stones_121F3
-
-loc_12395:
-		call	stones_1223E
-		cmp	byte_22FD0, 18h
-		jb	short loc_123A4
-		mov	ax, 1
-		jmp	short loc_123A6
-; ---------------------------------------------------------------------------
-
-loc_123A4:
-		xor	ax, ax
-
-loc_123A6:
-		pop	si
-		pop	bp
-		retn
-stones_1232F	endp
-
-
-; stones_update() is th02/main/boss/b3.cpp too, at the head of that
-; object's contribution. The twenty procs above that it dispatches to are
-; published for its sake and for no other reason; stones_121F3() and
-; stones_1223E() are deliberately NOT, because nothing outside this block
-; calls them.
+; The two take-over phases' background-eating animation -- stones_1232F(),
+; stones_122B5(), stones_1223E() and stones_121F3() -- and stones_121BA()
+; above it are th02/main/boss/b3.cpp, with stones_update() and the three
+; functions below its block. The four _BSS slots and the two 12-byte
+; column-order tables they own have no reference left in this file, so
+; they carry only their kb/codegen/0123 aliases now.
+;
+; The seventeen stones_* procs still above dispatch from stones_update() and
+; are published for that and for nothing else. Three of them are `pascal`,
+; so their aliases are UPPER case and carry no leading underscore
+; (kb/codegen/0102 + 0103).
 
 
 ; stones_end(), stones_init() and stones_12778() are th02/main/boss/b3.cpp,
@@ -14229,6 +13944,8 @@ word_1EB1E	label word
 		db    0
 word_1EB26	dw 0
 angle_1EB28	db 0
+public _STONES_TILE_COLS_WEST
+_STONES_TILE_COLS_WEST label byte
 byte_1EB29	label byte
 		db    0
 		db    1
@@ -14242,6 +13959,8 @@ byte_1EB29	label byte
 		db    9
 		db  0Ah
 		db  0Bh
+public _STONES_TILE_COLS_EAST
+_STONES_TILE_COLS_EAST label byte
 byte_1EB35	label byte
 		db  17h
 		db  16h
@@ -15306,13 +15025,27 @@ byte_22FAE	db ?
 angle_22FAF	db ?
 angle_22FB0	db ?
 angle_22FB1 db 5 dup(?)
+public _stones_tile_pending
+_stones_tile_pending label byte
 byte_22FB6	db 24 dup(?)
+public _stones_tile_pass
+_stones_tile_pass label byte
 byte_22FCE	db ?
+public _stones_tile_pair
+_stones_tile_pair label byte
 byte_22FCF	db ?
+public _stones_tile_cols_done
+_stones_tile_cols_done label byte
 byte_22FD0	db ?
 		db ?
+public _tile_image_22FD2
+_tile_image_22FD2 label word
 tile_image_22FD2	dw ?
+public _tile_image_22FD4
+_tile_image_22FD4 label word
 tile_image_22FD4	dw ?
+public _tile_image_22FD6
+_tile_image_22FD6 label word
 tile_image_22FD6	dw ?
 public _map_length
 _map_length	dw ?
