@@ -10070,9 +10070,9 @@ loc_1B42B:
 		retn
 yuuka6_1B3E2	endp
 
-include th04/main/boss/b6.asm
-
-
+	; yuuka6_phase_next() now lives in th04/b6_next.cpp, its own object at
+	; the head of this segment's C++ half; th04/main/boss/b6.asm is deleted.
+	;
 	; yuuka6_update() now lives in th04/main/boss/b6_upd.cpp, which
 	; th04/main_034.cpp compiles into THIS segment ahead of Elly's fight --
 	; the address order it already held (kb/codegen/0099 + 0112 + 0114). It was
