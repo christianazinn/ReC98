@@ -105,11 +105,24 @@ extern "C" void far lasers_callbacks_set(void);
 // Spawns a laser at ([left], [top]) in the first free slot, with the sound
 // effect that every spawn plays. Does nothing if [left] is outside the
 // playfield, or if all LASER_COUNT slots are taken.
+//
+// [patnum_base] is `int` even though the slot it is stored into is a
+// `uint8_t`, and the evidence is the ARGUMENT PACKER rather than the body.
+// `[measured]` With -3, Turbo C++ folds each adjacent pair of 16-bit `pascal`
+// arguments into one `66 68 imm32` push - but only when BOTH formals of the
+// pair are `int`. Five probe shapes (`int`/`unsigned char` literal, an
+// `(uint8_t)` cast, a `char` literal, a 255, a 300) confirm that an
+// `unsigned char` formal never packs with its neighbour. stones_11B5D() in
+// th02/main/boss/b3.cpp calls this with four literals and the original packs
+// BOTH pairs, which `uint8_t patnum_base` cannot produce. Widening it is
+// codegen-neutral for the body below - its `tcc -S` listing is line-identical
+// either way, because a `pascal` argument occupies a whole word on the stack
+// and the store reads only AL.
 void pascal near lasers_add(
 	screen_x_t left,
 	screen_y_t top,
 	int active_frames,
-	uint8_t patnum_base
+	int patnum_base
 );
 
 void far lasers_invalidate(void);

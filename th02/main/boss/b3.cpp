@@ -89,13 +89,6 @@ extern "C" void pascal near stones_11766(int stone);
 extern "C" void near stones_119CD(void);
 extern "C" void pascal near stones_11A87(int removed);
 
-// Phases 4 and 8's first and third pattern slots, the two that differ between
-// the two phases. (The four they share, and phase 6's three, are defined
-// below.)
-extern "C" void near stones_11B5D(void);
-extern "C" void near stones_11BFE(void);
-extern "C" void near stones_11C37(void);
-extern "C" void near stones_11C8A(void);
 /// ---------------------------
 
 // The four cells of the shared per-rank bullet parameters that stones_11997()
@@ -109,6 +102,12 @@ extern "C" uint8_t boss_rank_param[5];
 // placeholder prefix.
 extern "C" uint8_t angle_22FAF;
 extern "C" uint8_t angle_22FB0;
+
+// The angle the shared pattern-1 sweep counts UP by 8, in `_DATA` rather than
+// `_BSS` because it is the only one of the three with an initial value - and
+// the only one reset by the pattern that uses it rather than seeded by the
+// frame it starts on.
+extern "C" uint8_t angle_1EB28;
 
 // One aimed angle per stone, recomputed every 64th frame of phase 6's last
 // pattern. One array, not five slots: stones_1200F() indexes it with the same
@@ -264,12 +263,124 @@ extern "C" vram_y_t y_22D9C;
 extern "C" void near stones_12778(void);
 
 
-/// Phases 4 and 8's four shared bullet patterns
-/// --------------------------------------------
-/// [stones_pattern] slots 1, 3, 4 and 5 in both phases; slots 0 and 2 differ
-/// between them and are still in the dump. Each one zeroes [boss_phase_frame]
-/// when its cycle ends, which is what advances the index.
-/// --------------------------------------------
+/// Phases 4 and 8's bullet patterns
+/// --------------------------------
+/// Six [stones_pattern] slots each. Slots 1, 3, 4 and 5 are the same function
+/// in both phases; slots 0 and 2 differ, and the four below are those two
+/// pairs. Each pattern zeroes [boss_phase_frame] when its cycle ends, which is
+/// what advances the index.
+/// --------------------------------
+
+// Phase 4 slot 0: two rows of four fixed lasers, 30 frames apart.
+extern "C" void near stones_11B5D(void)
+{
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	if(boss_phase_frame == 50) {
+		laser_wait_frames = 36;
+		lasers_add(48, 96, 16, 103);
+		lasers_add(192, 96, 16, 103);
+		lasers_add(240, 96, 16, 103);
+		lasers_add(384, 96, 16, 103);
+		return;
+	}
+	if(boss_phase_frame == 80) {
+		lasers_add(80, 96, 16, 103);
+		lasers_add(160, 96, 16, 103);
+		lasers_add(272, 96, 16, 103);
+		lasers_add(352, 96, 16, 103);
+		boss_phase_frame = 0;
+	}
+}
+
+
+// Slot 1 in both phases: a horizontally symmetric pellet pair every 4th frame,
+// sweeping through a half-turn 8 angle units at a time.
+extern "C" void near stones_11BFE(void)
+{
+	if((boss_phase_frame & 3) == 0) {
+		bullets_add_pellet(
+			left_22D98,
+			top_22D9A,
+			angle_1EB28,
+			BG_2_SPREAD_HORIZONTALLY_SYMMETRIC,
+			((4 << 4) + 6)
+		);
+		angle_1EB28 += 8;
+		if(angle_1EB28 > 0x82) {
+			boss_phase_frame = 0;
+			angle_1EB28 = 0;
+		}
+	}
+}
+
+
+// Phase 4 slot 2: a laser straight down the player's own tile column, at an
+// interval that shortens with [rank] - every 28 frames on Easy, every 16 on
+// Lunatic.
+extern "C" void near stones_11C37(void)
+{
+	screen_x_t left;
+
+	if(boss_phase_frame < 24) {
+		return;
+	}
+	if((boss_phase_frame % (28 - (rank * 3))) == 0) {
+		laser_wait_frames = 30;
+		left = ((player_topleft.x + (PLAYER_W / 2)) & 0xFFF0);
+		lasers_add(left, 96, 16, 103);
+	}
+	if(boss_phase_frame >= 140) {
+		boss_phase_frame = 0;
+	}
+}
+
+
+// Phase 8 slot 2: a pellet pair straddling the aim by a spread that is random
+// for the first 40 frames and then narrows with the frame counter, so the
+// volley starts as a scatter and converges into an aimed stream.
+extern "C" void near stones_11C8A(void)
+{
+	unsigned char angle_1;
+	unsigned char angle_2;
+
+	if(boss_phase_frame < 40) {
+		if((boss_phase_frame % 6) == 0) {
+			angle_1 = iatan2(
+				(player_topleft.y - 32),
+				(player_topleft.x - stone_left[STONE_NORTH])
+			);
+			angle_2 = (randring2_next8_and(0x1F) + 0x10);
+			bullets_add_pellet(
+				left_22D98, top_22D9A, (angle_1 + angle_2), BG_1, (5 << 4)
+			);
+			bullets_add_pellet(
+				left_22D98, top_22D9A, (angle_1 - angle_2), BG_1, (5 << 4)
+			);
+		}
+	} else if(boss_phase_frame < 102) {
+		if((boss_phase_frame % 6) == 0) {
+			angle_1 = iatan2(
+				(player_topleft.y - 32),
+				(player_topleft.x - stone_left[STONE_NORTH])
+			);
+			angle_2 = (0x5F - boss_phase_frame);
+			bullets_add_pellet(
+				left_22D98, top_22D9A, (angle_1 + angle_2), BG_1, (5 << 4)
+			);
+			bullets_add_pellet(
+				left_22D98, top_22D9A, (angle_1 - angle_2), BG_1, (5 << 4)
+			);
+		}
+	} else {
+		boss_phase_frame = 0;
+	}
+}
+
+
+/// The four both phases share
+/// --------------------------
 
 // The east/west laser wall: a symmetric pair every 8th frame, marching out to
 // the playfield edges, pausing, and marching back.

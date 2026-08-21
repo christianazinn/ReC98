@@ -533,7 +533,7 @@ BULLET16_W = 16
 	@BULLETS_SET_STACK_MULTIPLIER$QUC procdesc pascal near \
 		v:byte
 
-	@LASERS_ADD$QIIIUC procdesc pascal near
+	@LASERS_ADD$QIIII procdesc pascal near
 	extern _lasers_callbacks_set:proc
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -2128,232 +2128,17 @@ loc_11B57:
 stones_11A87	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11B5D
-_stones_11B5D label near
-stones_11B5D	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_11BFC
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_11BB3
-		mov	byte_23A70, 24h	; '$'
-		push	300060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	0C00060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	0F00060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	1800060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_11BB3:
-		cmp	_boss_phase_frame, 80
-		jnz	short loc_11BFC
-		push	500060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	0A00060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	1100060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		push	1600060h
-		push	100067h
-		call	@LASERS_ADD$QIIIUC
-		mov	_boss_phase_frame, 0
-
-loc_11BFC:
-		pop	bp
-		retn
-stones_11B5D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11BFE
-_stones_11BFE label near
-stones_11BFE	proc near
-		push	bp
-		mov	bp, sp
-		test	byte ptr _boss_phase_frame, 3
-		jnz	short loc_11C35
-		call	@bullets_add_pellet$qiiucuci pascal, left_22D98, top_22D9A, word ptr angle_1EB28, BG_2_SPREAD_HORIZONTALLY_SYMMETRIC, ((4 shl 4) + 6)
-		mov	al, angle_1EB28
-		add	al, 8
-		mov	angle_1EB28, al
-		cmp	angle_1EB28, -7Eh
-		jbe	short loc_11C35
-		mov	_boss_phase_frame, 0
-		mov	angle_1EB28, 0
-
-loc_11C35:
-		pop	bp
-		retn
-stones_11BFE	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11C37
-_stones_11C37 label near
-stones_11C37	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	_boss_phase_frame, 24
-		jl	short locret_11C88
-		mov	al, _rank
-		cbw
-		mov	dx, ax
-		add	dx, dx
-		add	dx, ax
-		mov	bx, 28
-		sub	bx, dx
-		mov	ax, _boss_phase_frame
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_11C7A
-		mov	byte_23A70, 1Eh
-		mov	ax, _player_topleft.x
-		add	ax, (PLAYER_W / 2)
-		and	ax, 0FFF0h
-		mov	[bp+var_2], ax
-		push	ax
-		push	600010h
-		push	67h ; 'g'
-		call	@LASERS_ADD$QIIIUC
-
-loc_11C7A:
-		cmp	_boss_phase_frame, 140
-		jl	short locret_11C88
-		mov	_boss_phase_frame, 0
-
-locret_11C88:
-		leave
-		retn
-stones_11C37	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11C8A
-_stones_11C8A label near
-stones_11C8A	proc near
-
-@@angle_2	= byte ptr -2
-@@angle_1	= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	_boss_phase_frame, 40
-		jge	short loc_11CF5
-		mov	ax, _boss_phase_frame
-		mov	bx, 6
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	locret_11D2E
-		mov	ax, _player_topleft.y
-		add	ax, -32
-		push	ax
-		mov	ax, _player_topleft.x
-		sub	ax, _stone_left[STONE_NORTH * word]
-		push	ax
-		call	iatan2
-		mov	[bp+@@angle_1], al
-		call	@randring2_next8_and$quc pascal, 1Fh
-		add	al, 10h
-
-loc_11CC4:
-		mov	[bp+@@angle_2], al
-		push	left_22D98	; left
-		push	top_22D9A	; top
-		mov	al, [bp+@@angle_1]
-		add	al, [bp+@@angle_2]
-		push	ax	; angle
-		push	BG_1	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		push	left_22D98	; left
-		push	top_22D9A	; top
-		mov	al, [bp+@@angle_1]
-		sub	al, [bp+@@angle_2]
-		push	ax	; angle
-		push	BG_1	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_11CF5:
-		cmp	_boss_phase_frame, 102
-		jge	short loc_11D28
-		mov	ax, _boss_phase_frame
-		mov	bx, 6
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short locret_11D2E
-		mov	ax, _player_topleft.y
-		add	ax, -32
-		push	ax
-		mov	ax, _player_topleft.x
-		sub	ax, _stone_left[STONE_NORTH * word]
-		push	ax
-		call	iatan2
-		mov	[bp+@@angle_1], al
-		mov	al, 5Fh	; '_'
-		sub	al, byte ptr _boss_phase_frame
-		jmp	short loc_11CC4
-; ---------------------------------------------------------------------------
-
-loc_11D28:
-		mov	_boss_phase_frame, 0
-
-locret_11D2E:
-		leave
-		retn
-stones_11C8A	endp
-
-
-; Four of phases 4 and 8's shared bullet patterns -- stones_11D30(),
-; stones_11DF6(), stones_11E40() and stones_11E76() -- are
-; th02/main/boss/b3.cpp, together with phase 6's three patterns below
-; them, the take-over animation, the background-eating animation,
-; stones_121BA(), stones_update() and the three functions below this
-; block. `word_22FAC` and `byte_22FAE` went with them, under the names
-; `stones_laser_left` and `stones_laser_return_delay`; `angle_22FAF`,
-; `angle_22FB0` and the five-byte `angle_22FB1` carry kb/codegen/0123
-; aliases for the same reason. `boss_rank_param` needed nothing: the
-; dump's `byte_2066F`, `group_20670` and `byte_20671` are cells 1, 2 and
-; 3 of an extent that has been published all along.
+; Every one of the stones' eleven bullet patterns is now
+; th02/main/boss/b3.cpp, together with the take-over animation, the
+; background-eating animation, stones_121BA(), stones_update() and the
+; three functions below this block. `angle_1EB28` went with them and
+; carries a kb/codegen/0123 alias, as do `word_22FAC` / `byte_22FAE`
+; (now `stones_laser_left` / `stones_laser_return_delay`), `angle_22FAF`,
+; `angle_22FB0` and the five-byte `angle_22FB1`. `boss_rank_param` needed
+; nothing: the dump's `byte_2066F`, `group_20670` and `byte_20671` are
+; cells 1, 2 and 3 of an extent that has been published all along.
 ;
-; The nine stones_* procs still above dispatch from stones_update() and
+; The five stones_* procs still above dispatch from stones_update() and
 ; are published for that and for nothing else. Two of them are `pascal`,
 ; so their aliases are UPPER case and carry no leading underscore
 ; (kb/codegen/0102 + 0103).
@@ -3380,13 +3165,13 @@ loc_13DCD:
 		push	ax
 		push	(112 shl 16) + 160
 		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	ax, point_24E7C.x
 		add	ax, 46
 		push	ax
 		push	(112 shl 16) + 160
 		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		jmp	loc_13ECA
 ; ---------------------------------------------------------------------------
 
@@ -7562,33 +7347,33 @@ loc_161EE:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	byte_23A70, 30h	; '0'
 		mov	ax, point_254E6.x
 		add	ax, 44
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	ax, point_254E6.x
 		add	ax, 76
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	byte_23A70, 64h	; 'd'
 		mov	ax, point_254E6.x
 		add	ax, 28
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	ax, point_254E6.x
 		add	ax, 92
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	byte_23A70, 10h
 
 loc_162B2:
@@ -7661,7 +7446,7 @@ loc_16325:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 
 loc_1634B:
 		mov	al, byte_255A3
@@ -7676,7 +7461,7 @@ loc_1634B:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		jmp	loc_1641D
 ; ---------------------------------------------------------------------------
 
@@ -7697,7 +7482,7 @@ loc_1637C:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	al, byte_255A3
 		cbw
 		add	ax, ax
@@ -7709,7 +7494,7 @@ loc_1637C:
 		push	ax
 		push	top_253B8
 		push	1006Fh
-		call	@LASERS_ADD$QIIIUC
+		call	@LASERS_ADD$QIIII
 		mov	byte_255A3, 0
 		jmp	short loc_1641D
 ; ---------------------------------------------------------------------------
@@ -13362,6 +13147,8 @@ word_1EB1E	label word
 		db    0
 		db    0
 word_1EB26	dw 0
+public _angle_1EB28
+_angle_1EB28 label byte
 angle_1EB28	db 0
 public _STONES_TILE_COLS_WEST
 _STONES_TILE_COLS_WEST label byte

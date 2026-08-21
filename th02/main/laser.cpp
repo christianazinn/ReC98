@@ -120,7 +120,7 @@ void far lasers_callbacks_set(void)
 // Spawns a laser at ([left], [top]), unless [left] is outside the playfield or
 // every slot is taken.
 void pascal near lasers_add(
-	screen_x_t left, screen_y_t top, int active_frames, uint8_t patnum_base
+	screen_x_t left, screen_y_t top, int active_frames, int patnum_base
 )
 {
 	register laser_t near *laser = lasers;
