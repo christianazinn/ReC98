@@ -1,22 +1,24 @@
-/// Reimu's shottype B, levels 5 to 9
+/// Reimu's shottype B, levels 2 to 9
 /// ---------------------------------
-/// Five of the sixteen functions installed into [playchar_shot_func] out of
+/// Eight of the sixteen functions installed into [playchar_shot_func] out of
 /// [playchar_shot_funcs]; reached only through that pointer, which is why the
 /// dump publishes none of them.
 ///
-/// Every one of the five fires the same two kinds of shot in the same scan:
-/// a fan of the player's own shots that walks [angle_1] by a fixed step, and
-/// then a pair of option shots, one per side, whose angle comes out of a
-/// switch statement on the remaining count, and that statement is what
-/// compiles to the `dw offset loc_...` run behind each `endp` in the
-/// original.
+/// Levels 5 to 9 all fire the same two kinds of shot in the same scan: a fan
+/// of the player's own shots that walks [angle_1] by a fixed step, and then a
+/// pair of option shots, one per side, whose angle comes out of a switch
+/// statement on the remaining count -- and that statement is what compiles to
+/// the `dw offset loc_...` run behind each `endp` in the original. Levels 2 to
+/// 4 pick their option angle with a plain conditional instead, and compile no
+/// table at all.
 ///
-/// (#included from th04/player_b.cpp at the very FRONT of it, ahead of
-/// bb_playchar.cpp and bomb.cpp -- the address order all three bodies have in
-/// PLAYER_B_TEXT. These five procs and their five jump tables were the last
-/// thing th04_main.asm contributed to that segment, so the object grows
-/// backwards into the hole and every byte above it keeps its address
-/// (kb/codegen 0099 + 0112 + 0114).
+/// Where shottype A's option shots aim at [homing_target]
+/// (th04/main/player/shot_reimu_a.cpp), B's take a fixed angle. That is the
+/// whole difference between the two shottypes.
+///
+/// (#included from th04/player_b.cpp, last of the three shot_reimu*.cpp bodies
+/// and ahead of bb_playchar.cpp and bomb.cpp -- the address order all five
+/// bodies have in PLAYER_B_TEXT. kb/codegen 0099 + 0112 + 0114.)
 ///
 /// state/re/JUMP_TABLE_TAILS.md's class, third TH04 row and the first that is
 /// a CHAIN: draining shot_reimu_b_l9 only uncovers shot_reimu_b_l8's own
@@ -47,34 +49,17 @@
 // two-table corollary is in state/notes/th04-main-shot-reimu-b.md; it is
 // reported there rather than folded into the entry on one object's evidence.
 
-#include "th04/main/player/shot.hpp"
-#include "th04/sprites/main_pat.h"
+#include "th04/main/player/shot_reimu.hpp"
 
 extern "C" {
 
-// Counts the rounds of shots already fired within the current shot cycle: 0
-// on the round at [shot_time] == SHOT_CYCLE_FRAMES, which is where it is
-// reset, then 1 and 2 on the two further rounds at the cycle's ⅓ and ⅔ points.
-// Reimu's patterns divide it to fire their option shots less often than every
-// round -- `% 3` for once per cycle, `% 2` for twice.
-//
-// [inferred] name, [measured] role and population: the sixteen
-// shot_reimu_{a,b}_l{2..9} procs are the only code in either dump that touches
-// this byte, Marisa's sixteen use lasers instead, and the spelling follows
-// TH02's [shot_c_cycle] (th02/main/player/shot.cpp), the identical construct
-// -- a uint8_t bumped once per shot-control call and read `% N` to gate the
-// option half. Evidence and the full population: state/notes/th04-shot-cycle-counter.md.
-//
-// ZUN quirk, worth knowing before reading the other fifteen: shot_reimu_a_l8
-// increments this byte and neither resets nor reads it, so its rounds all fire
-// the same shots and it only shifts the phase the next pattern sees.
-extern uint8_t shot_reimu_cycle;
-
-// The x offset of an option shot from the player's center, which these
-// patterns apply only after the shot has been given its velocity.
+// The x offset of an option shot from the player's center, which levels 3 and
+// up apply only after the shot has been given its velocity -- so they hold it
+// in a local rather than calling the Shot member from_option_l() or
+// from_option_r() the way shottype A and level 2 do.
 static const subpixel_t SHOT_OPTION_X = TO_SP(PLAYER_OPTION_DISTANCE);
 
-#define shot_reimu_b_init(shot, i, count, cycle_divisor) \
+#define shot_reimu_b_init(shot, i, count, cycle_divisor, secondary) \
 	Shot near *shot; \
 	int i = count; \
 	subpixel_t x; \
@@ -85,13 +70,128 @@ static const subpixel_t SHOT_OPTION_X = TO_SP(PLAYER_OPTION_DISTANCE);
 		shot_reimu_cycle = 0; \
 	} \
 	if((shot_reimu_cycle % cycle_divisor) == 0) { \
-		i += 4; \
+		i += secondary; \
 	} \
 	shot_reimu_cycle++;
 
+// The two option shots' side, shared by every level that picks their angle
+// with a plain conditional rather than a switch statement. [i_left] is the
+// count at which the shot goes to the left option; anything else goes to the
+// right one.
+#define shot_reimu_b_option(i, i_left, x, angle) \
+	if(i == i_left) { \
+		x = -SHOT_OPTION_X; \
+		angle = -0x48; \
+	} else { \
+		x = SHOT_OPTION_X; \
+		angle = -0x38; \
+	}
+
+void pascal near shot_reimu_b_l2(void)
+{
+	Shot near *shot;
+	int i = 1;
+	unsigned char angle;
+
+	if(shot_time == SHOT_CYCLE_FRAMES) {
+		shot_reimu_cycle = 0;
+	}
+	if((shot_reimu_cycle % 3) == 0) {
+		i += 2;
+	}
+	shot_reimu_cycle++;
+	shot_ptr = shots;
+	shot_last_id = 0;
+	while(( shot = shots_add() ) != nullptr) {
+		if(i == 1) {
+			shot_velocity_set(
+				&shot->pos.velocity, randring1_next8_ge_lt(-0x48, -0x38)
+			);
+			shot->patnum_base = PAT_SHOT_REIMU;
+		} else {
+			if(i == 3) {
+				shot->from_option_l();
+				angle = -0x48;
+			} else {
+				shot->from_option_r();
+				angle = -0x38;
+			}
+			shot_velocity_set(&shot->pos.velocity, angle);
+			shot->patnum_base = PAT_SHOT_REIMU_SUB_B;
+		}
+		shot->damage = 10;
+		if(--i <= 0) {
+			break;
+		}
+	}
+}
+
+void pascal near shot_reimu_b_l3(void)
+{
+	Shot near *shot;
+	int i = 2;
+	subpixel_t x;
+	unsigned char angle;
+
+	if(shot_time == SHOT_CYCLE_FRAMES) {
+		shot_reimu_cycle = 0;
+	}
+	if((shot_reimu_cycle % 3) == 0) {
+		i += 2;
+	}
+	shot_reimu_cycle++;
+	shot_ptr = shots;
+	shot_last_id = 0;
+	while(( shot = shots_add() ) != nullptr) {
+		if(i <= 2) {
+			if(i == 2) {
+				x = -TO_SP(8);
+			} else {
+				x = TO_SP(8);
+			}
+			shot->patnum_base = PAT_SHOT_REIMU;
+		} else {
+			shot_reimu_b_option(i, 4, x, angle);
+			shot_velocity_set(&shot->pos.velocity, angle);
+			shot->patnum_base = PAT_SHOT_REIMU_SUB_B;
+		}
+		shot->damage = 9;
+		shot->pos.cur.x.v += x;
+		if(--i <= 0) {
+			break;
+		}
+	}
+}
+
+void pascal near shot_reimu_b_l4(void)
+{
+	shot_reimu_b_init(shot, i, 3, 2, 2);
+	angle_1 = -0x46;
+	shot_ptr = shots;
+	shot_last_id = 0;
+	while(( shot = shots_add() ) != nullptr) {
+		if(i <= 3) {
+			x = 0;
+			shot_velocity_set(&shot->pos.velocity, angle_1);
+			shot->patnum_base = PAT_SHOT_REIMU;
+			shot->damage = 9;
+			angle_1 += 0x06;
+		} else {
+			shot_reimu_b_option(i, 5, x, angle_2);
+			shot_velocity_set(&shot->pos.velocity, angle_2);
+			shot->patnum_base = PAT_SHOT_REIMU_SUB_B;
+			shot->damage = 9;
+		}
+		shot->pos.cur.x.v += x;
+		if(--i <= 0) {
+			break;
+		}
+	}
+}
+
 void pascal near shot_reimu_b_l5(void)
 {
-	shot_reimu_b_init(shot, i, 3, 2);
+	shot_reimu_b_init(shot, i, 3, 2, 4);
 	angle_1 = -0x46;
 	shot_ptr = shots;
 	shot_last_id = 0;
@@ -127,7 +227,7 @@ void pascal near shot_reimu_b_l5(void)
 
 void pascal near shot_reimu_b_l6(void)
 {
-	shot_reimu_b_init(shot, i, 3, 2);
+	shot_reimu_b_init(shot, i, 3, 2, 4);
 	angle_1 = -0x46;
 	shot_ptr = shots;
 	shot_last_id = 0;
@@ -167,7 +267,7 @@ void pascal near shot_reimu_b_l6(void)
 // has two separate procs with two separate jump tables.
 void pascal near shot_reimu_b_l7(void)
 {
-	shot_reimu_b_init(shot, i, 3, 2);
+	shot_reimu_b_init(shot, i, 3, 2, 4);
 	angle_1 = -0x46;
 	shot_ptr = shots;
 	shot_last_id = 0;
@@ -203,7 +303,7 @@ void pascal near shot_reimu_b_l7(void)
 
 void pascal near shot_reimu_b_l8(void)
 {
-	shot_reimu_b_init(shot, i, 5, 2);
+	shot_reimu_b_init(shot, i, 5, 2, 4);
 	angle_1 = -0x48;
 	shot_ptr = shots;
 	shot_last_id = 0;
@@ -242,7 +342,7 @@ void pascal near shot_reimu_b_l8(void)
 // it in half, and two of the six sharing an angle.
 void pascal near shot_reimu_b_l9(void)
 {
-	shot_reimu_b_init(shot, i, 7, 2);
+	shot_reimu_b_init(shot, i, 7, 2, 4);
 	angle_1 = -0x48;
 	shot_ptr = shots;
 	shot_last_id = 0;

@@ -12,6 +12,8 @@
 // (kb/codegen 0099 + 0112 + 0114). Reimu's shottype B levels 5-9 were the last
 // five procs of the root contribution, behind the .BB/.CDG lifecycle that
 // preceded them.
+#include "th04/main/player/shot_reimu.cpp"
+#include "th04/main/player/shot_reimu_a.cpp"
 #include "th04/main/player/shot_reimu_b.cpp"
 #include "th04/formats/bb_playchar.cpp"
 #include "th04/main/player/bomb.cpp"
