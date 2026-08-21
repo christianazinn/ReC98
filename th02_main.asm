@@ -8585,6 +8585,8 @@ enemies_remove_all endp
 
 ; Attributes: bp-based frame
 
+public MIMA_17A7F
+MIMA_17A7F label near
 mima_17A7F	proc near
 
 var_4		= byte ptr -4
@@ -8684,227 +8686,24 @@ loc_17B5F:
 mima_17A7F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_bg_render
-_mima_bg_render label far
-mima_bg_render	proc far
-
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		call	_mima_17E91
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		call	egc_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, (PLAYFIELD_VRAM_LEFT shl 16) or PLAYFIELD_TOP, ((PLAYFIELD_VRAM_RIGHT - 1) shl 16) or PLAYFIELD_BOTTOM - 1
-		mov	al, _reduce_effects
-		mov	ah, 0
-		mov	dx, ax
-		add	dx, dx
-		add	dx, ax
-		inc	dl
-		mov	[bp+var_1], dl
-		mov	al, byte_26CC4
-		mov	ah, 0
-		push	ax
-		mov	al, byte ptr word_1EE54
-		add	al, -16
-		push	ax
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	0
-		push	80h
-		call	mima_17A7F
-		mov	al, byte_26CC4
-		mov	ah, 0
-		push	ax
-		mov	al, byte ptr word_1EE54
-		add	al, -8
-		push	ax
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	0
-		push	80h
-		call	mima_17A7F
-		mov	al, byte_26CC3
-		mov	ah, 0
-		push	ax
-		push	word_1EE54
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	0
-		push	80h
-		call	mima_17A7F
-		mov	al, byte_26CC4
-		mov	ah, 0
-		push	ax
-		mov	al, byte ptr word_1EE54
-		add	al, -16
-		push	ax
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	1
-		push	256
-		call	mima_17A7F
-		mov	al, byte_26CC4
-		mov	ah, 0
-		push	ax
-		mov	al, byte ptr word_1EE54
-		add	al, -8
-		push	ax
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	0
-		push	256
-		call	mima_17A7F
-		mov	al, byte_26CC3
-		mov	ah, 0
-		push	ax
-		mov	al, byte ptr word_1EE54
-		inc	byte ptr word_1EE54
-		push	ax
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		push	0
-		push	256
-		call	mima_17A7F
-		call	grcg_off
-		leave
-		retf
-mima_bg_render	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_17C92
-_mima_17C92 label near
-mima_17C92	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	byte_2066A, 0
-		jnz	locret_17D57
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 48
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax
-		push	400040h
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+var_2], ax
-		or	ax, ax
-		jz	short loc_17CF9
-		mov	byte_2066B, 1
-		mov	ax, word_26C66
-		imul	[bp+var_2]
-		add	_boss_damage, ax
-		cmp	_boss_damage, 6000
-		jl	short loc_17CF9
-		call	_snd_se_play c, 2
-		mov	byte_2066A, 1
-		add	_score, 500000
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-
-loc_17CF9:
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, _boss_left_on_back_page
-		mov	dx, [bx]
-		add	dx, 16
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jle	short locret_17D57
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, _boss_left_on_back_page
-		mov	dx, [bx]
-		add	dx, 112
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jge	short locret_17D57
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		cmp	ax, [bx]
-		jle	short locret_17D57
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, [bx]
-		add	dx, 80
-		mov	bx, ax
-		cmp	_player_top_on_page[bx], dx
-		jge	short locret_17D57
-		mov	_player_is_hit, 1
-
-locret_17D57:
-		leave
-		retn
-mima_17C92	endp
-
-
-; mima_17D59(), mima_17E91(), mima_17F27(), mima_180AC(), mima_180EC(),
-; mima_181B3(), mima_183D0(), mima_188AA(), mima_18905(), mima_18A1B(),
-; mima_18B4B(), mima_18BA6(), mima_18C4A(), mima_18DE0(), mima_18EB8() and
-; mima_19173() through mima_update() are th02/main/boss/b5m.cpp, in that
-; order. They were this segment's carve-free tail chain, so th02_main.asm
-; now contributes nothing below mima_17C92(), and th02/boss_5.cpp's object
-; picks the segment up from the byte after that proc's `retn`.
+; mima_bg_render(), mima_17C92(), mima_17D59(), mima_17E91(),
+; mima_17F27(), mima_180AC(), mima_180EC(), mima_181B3(), mima_183D0(),
+; mima_188AA(), mima_18905(), mima_18A1B(), mima_18B4B(), mima_18BA6(),
+; mima_18C4A(), mima_18DE0(), mima_18EB8() and mima_19173() through
+; mima_update() are th02/main/boss/b5m.cpp, in that order. They were this
+; segment's carve-free tail chain, so th02_main.asm now contributes nothing
+; below mima_17A7F(), and th02/boss_5.cpp's object picks the segment up
+; from the byte after that proc's `retn 0Ah`.
 ;
 ; Every lift out of this block has to leave the object's prefix ahead of
 ; mima_update()'s generated jump table at the parity it already has, or the
 ; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
 ; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
-; above THOSE to 0x752, the next three to 0x28C, and these two to
-; 0x138 + 0x96 = 0x1CE. Read the prefix from the OBJ's PUBDEFs, never from
-; a comment. (kb/codegen/0160)
+; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, and
+; these two to 0x11D + 0xC7 = 0x1E4. Read the prefix from the OBJ's
+; PUBDEFs, never from a comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -9943,7 +9742,9 @@ word_1EE50	dw 0
 ; are still iterated.
 enemies_loop_bound db 0
 		db 0
-word_1EE54	dw 0
+public _mima_bg_ring_phase
+_mima_bg_ring_phase	db 0
+		db 0
 public _mima_velocity_y
 _mima_velocity_y	dw 0
 public _mima_bft
@@ -10285,8 +10086,7 @@ public _boss_phase
 _boss_phase label byte
 byte_2066A	db ?
 public _boss_hit_flash
-_boss_hit_flash label byte
-byte_2066B	db ?
+_boss_hit_flash	db ?
 public _reduce_effects, _slowdown_factor
 _reduce_effects	db ?
 _slowdown_factor	db ?

@@ -43,9 +43,16 @@
 // unguarded headers.
 extern "C" bool reduce_effects;
 extern "C" bool boss_hit_flash;
+extern "C" uint8_t boss_phase;
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
 extern char rank;
+
+// Spelled with the underlying type rather than by including th02/score.h,
+// which is UNGUARDED and which th02/main/boss/b5_.cpp already reaches through
+// th02/core/globals.hpp further down this same translation unit. C++ linkage,
+// because that is how globals.hpp declares it.
+extern int32_t score;
 extern "C" uint8_t boss_rank_param[5];
 extern "C" void __cdecl snd_se_play(int new_se);
 
@@ -64,7 +71,9 @@ extern "C" int patnum_2064E;
 /// that stays `extern "C"` on merit rather than habit: th02/main/boss/b5.cpp
 /// is a different object and calls it near through the MAIN_03 group.
 
-extern "C" void near mima_17C92(void);
+// Defined further down this file, but mima_bg_render() is above it.
+extern "C" void near mima_17E91(void);
+
 extern "C" void near mima_18B4B(void);
 extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
@@ -227,6 +236,141 @@ static const int MIMA_ORB_COUNT = 4;
 
 // A quarter turn, so the four orbs sit on the corners of a square.
 static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
+
+
+/// Her background, and her damage and hit test
+/// -------------------------------------------
+
+// The ring's rotation phase, advanced once per frame by mima_bg_render().
+// `[measured]` mima_17A7F() adds it to the angle BETWEEN the cosine and the
+// sine of each dot, so it skews the ring into a rotating ellipse rather than
+// simply turning a circle. This proc held its last six references, so it is a
+// rename rather than a kb/codegen/0123 alias.
+extern "C" uint8_t mima_bg_ring_phase;
+
+// The lead color of that ring; th02/main/boss/b5.cpp named the pair.
+extern "C" uint8_t mima_bg_ring_col_head;
+
+// The dot-square ring and the filled circle behind her. Still ASM in this
+// segment, and published for this object's sake. `[measured]` from its frame
+// equates and its body: [col] goes straight to grcg_setcolor(), [angle_skew]
+// is added between the cosine and the sine of every dot, [angle_step] is how
+// far the 0x80-wide sweep advances per dot, [with_circle] draws the filled
+// circle once at the top of the second sweep, and [angle_start] is where that
+// sweep begins.
+extern "C" void pascal near mima_17A7F(
+	int col, uint8_t angle_skew, int angle_step, uint8_t with_circle,
+	int angle_start
+);
+
+// The two sweeps mima_bg_render() runs the ring through, and the three passes
+// inside each: the lagging color twice, then the leading one.
+static const int MIMA_BG_SWEEP_1 = 0x80;
+static const int MIMA_BG_SWEEP_2 = 256;
+static const int MIMA_BG_PHASE_LAG_1 = 16;
+static const int MIMA_BG_PHASE_LAG_2 = 8;
+
+// Mima is defeated at this much damage, which is worth this many points.
+static const int MIMA_DAMAGE_MAX = 6000;
+static const int32_t MIMA_DEFEAT_SCORE = 500000;
+
+// Her hitbox, as an offset from her top-left corner and a size, and the
+// separate box the player is tested against. `[measured]` The two do not
+// agree: the shots box is 64x64 centered on (+48, +32), the player box runs
+// from (+16, +0) to (+112, +80). marisa_1AA60() has the same disagreement.
+static const pixel_t MIMA_SHOTS_HITBOX_LEFT = 48;
+static const pixel_t MIMA_SHOTS_HITBOX_TOP = 32;
+static const pixel_t MIMA_SHOTS_HITBOX_W = 64;
+static const pixel_t MIMA_SHOTS_HITBOX_H = 64;
+
+
+// Redraws the entire playfield behind her: the orbs' invalidation pass, then
+// a black fill, then the six passes of the dot-square ring.
+//
+// Also the one place [boss_left_on_back_page] and [boss_top_on_back_page] are
+// re-pointed at the back page, and where the front page's position is copied
+// forward into it - so every pattern in this file that moves her through
+// those pointers starts from where she was drawn last frame.
+extern "C" void far mima_bg_render(void)
+{
+	uint8_t angle_step;
+
+	mima_17E91();
+	boss_left_on_back_page = &boss_left_on_page[page_back];
+	boss_top_on_back_page = &boss_top_on_page[page_back];
+	*boss_left_on_back_page = boss_left_on_page[page_front];
+	*boss_top_on_back_page = boss_top_on_page[page_front];
+	egc_off();
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x(
+		PLAYFIELD_VRAM_LEFT,
+		PLAYFIELD_TOP,
+		(PLAYFIELD_VRAM_RIGHT - 1),
+		(PLAYFIELD_BOTTOM - 1)
+	);
+	angle_step = ((reduce_effects * 3) + 1);
+	mima_17A7F(
+		mima_bg_ring_col_tail, (mima_bg_ring_phase - MIMA_BG_PHASE_LAG_1),
+		angle_step, false, MIMA_BG_SWEEP_1
+	);
+	mima_17A7F(
+		mima_bg_ring_col_tail, (mima_bg_ring_phase - MIMA_BG_PHASE_LAG_2),
+		angle_step, false, MIMA_BG_SWEEP_1
+	);
+	mima_17A7F(
+		mima_bg_ring_col_head, mima_bg_ring_phase, angle_step, false,
+		MIMA_BG_SWEEP_1
+	);
+	mima_17A7F(
+		mima_bg_ring_col_tail, (mima_bg_ring_phase - MIMA_BG_PHASE_LAG_1),
+		angle_step, true, MIMA_BG_SWEEP_2
+	);
+	mima_17A7F(
+		mima_bg_ring_col_tail, (mima_bg_ring_phase - MIMA_BG_PHASE_LAG_2),
+		angle_step, false, MIMA_BG_SWEEP_2
+	);
+	mima_17A7F(
+		mima_bg_ring_col_head, mima_bg_ring_phase++, angle_step, false,
+		MIMA_BG_SWEEP_2
+	);
+	grcg_off();
+}
+
+
+// Her damage and hit test, and her defeat. marisa_1AA60() one boss up is the
+// same function against different constants, including the assign-and-test in
+// one expression that keeps [damage] on the frame (kb/codegen/0143).
+extern "C" void near mima_17C92(void)
+{
+	int damage;
+
+	if(boss_phase != 0) {
+		return;
+	}
+	if((damage = shots_hittest(
+		(*boss_left_on_back_page + MIMA_SHOTS_HITBOX_LEFT),
+		(*boss_top_on_back_page + MIMA_SHOTS_HITBOX_TOP),
+		MIMA_SHOTS_HITBOX_W,
+		MIMA_SHOTS_HITBOX_H
+	)) != 0) {
+		boss_hit_flash = true;
+		boss_damage += (mima_damage_multiplier * damage);
+		if(boss_damage >= MIMA_DAMAGE_MAX) {
+			snd_se_play(2);
+			boss_phase = 1;
+			score += MIMA_DEFEAT_SCORE;
+			player_invincibility_time = BOSS_DEFEAT_INVINCIBILITY_FRAMES;
+		}
+	}
+	if(
+		(player_left_on_page[page_front] > (*boss_left_on_back_page + 16)) &&
+		(player_left_on_page[page_front] < (*boss_left_on_back_page + 112)) &&
+		(player_top_on_page[page_front] > *boss_top_on_back_page) &&
+		(player_top_on_page[page_front] < (*boss_top_on_back_page + 80))
+	) {
+		player_is_hit = PLAYER_HIT;
+	}
+}
 
 
 /// Her orbs' renderer and their invalidation pass
