@@ -26,10 +26,13 @@
 #include "th04/main/player/shot.hpp"
 #include "th04/snd/snd.h"
 #include "th04/main/bg.hpp"
-#include "th04/main/gather.hpp"
-#include "th04/main/homing.hpp"
+// th04/main/gather.hpp, th04/main/homing.hpp and th04/main/hud/hud.hpp are NOT
+// named here any more, and neither is th04/main/bullet/clearzap.hpp below.
+// All four are unguarded, and th05/main/midboss/m3_updt.cpp now compiles ahead
+// of this file in the same object and needs all four itself, so the includes
+// moved to the earliest file that needs them (kb/codegen 0129). Naming any of
+// them here would be a redefinition rather than a no-op.
 #include "th04/main/pattern.hpp"
-#include "th04/main/hud/hud.hpp"
 // Both unguarded and both new to this object: nothing b3.cpp or
 // th05/main/boss/b4_both.cpp already reaches declares either.
 #include "th04/main/circle.hpp"
@@ -41,7 +44,6 @@
 // th02/main/score.hpp: that one re-includes the unguarded th02/score.h,
 // which this object already reaches.
 #include "th04/main/score.hpp"
-#include "th04/main/bullet/clearzap.hpp"
 // Supplies th05/main/boss/boss.hpp, which b4_both.cpp used to include itself.
 // Unguarded, and this file compiles ahead of that one in the same object, so
 // the include moved to the earliest file that needs it (kb/codegen 0129).
