@@ -2341,266 +2341,22 @@ locret_11D2E:
 stones_11C8A	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11D30
-_stones_11D30 label near
-stones_11D30	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 16
-		jl	loc_11DF4
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_11D4E
-		mov	word_22FAC, 20h	; ' '
-		mov	byte_22FAE, 0
-
-loc_11D4E:
-		cmp	byte_22FAE, 0
-		jnz	short loc_11D9A
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_11D9A
-		mov	byte_23A70, 10h
-		push	word_22FAC
-		push	600003h
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-		mov	ax, 432
-		sub	ax, word_22FAC
-		push	ax
-		push	600003h
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-		add	word_22FAC, 10h
-		cmp	word_22FAC, 176
-		jle	short loc_11D9A
-		mov	byte_22FAE, 1
-		add	word_22FAC, 10h
-
-loc_11D9A:
-		cmp	byte_22FAE, 24h	; '$'
-		jbe	short loc_11DE9
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_11DF4
-		push	word_22FAC
-		push	600001h
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-		mov	ax, 432
-		sub	ax, word_22FAC
-		push	ax
-		push	600001h
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-		sub	word_22FAC, 10h
-		cmp	word_22FAC, 40h
-		jge	short loc_11DF4
-		mov	byte_22FAE, 0
-		mov	_boss_phase_frame, 0
-		mov	word_22FAC, 20h	; ' '
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_11DE9:
-		cmp	byte_22FAE, 0
-		jz	short loc_11DF4
-		inc	byte_22FAE
-
-loc_11DF4:
-		pop	bp
-		retn
-stones_11D30	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11DF6
-_stones_11DF6 label near
-stones_11DF6	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		test	byte ptr _boss_phase_frame, 0Fh
-		jnz	short loc_11E30
-		mov	al, byte_2066F
-		mov	ah, 0
-		mov	si, ax
-		jmp	short loc_11E2B
-; ---------------------------------------------------------------------------
-
-loc_11E0A:
-		mov	bx, si
-		add	bx, bx
-		push	_stone_left[bx]	; left
-		mov	bx, si
-		add	bx, bx
-		push	_stone_top[bx]	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BSM_GRAVITY	; group
-		push	(PAT_BULLET16_OUTLINED_BALL_GREEN shl 16) or (2 shl 4)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		inc	si
-
-loc_11E2B:
-		cmp	si, STONE_NORTH
-		jl	short loc_11E0A
-
-loc_11E30:
-		cmp	_boss_phase_frame, 110
-		jle	short loc_11E3D
-		mov	_boss_phase_frame, 0
-
-loc_11E3D:
-		pop	si
-		pop	bp
-		retn
-stones_11DF6	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11E40
-_stones_11E40 label near
-stones_11E40	proc near
-		push	bp
-		mov	bp, sp
-		test	byte ptr _boss_phase_frame, 3
-		jnz	short loc_11E66
-		push	left_22D98	; left
-		push	top_22D9A	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	word ptr byte_20671	; group
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		add	ax, ((1 shl 4) + 14)
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_11E66:
-		cmp	_boss_phase_frame, 130
-		jle	short loc_11E74
-		mov	_boss_phase_frame, 0
-
-loc_11E74:
-		pop	bp
-		retn
-stones_11E40	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_11E76
-_stones_11E76 label near
-stones_11E76	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_boss_phase_frame, 16
-		jl	loc_11F2B
-		cmp	_boss_phase_frame, 80
-		jge	short loc_11EE5
-		mov	ax, _boss_phase_frame
-		mov	bx, 36
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_11EBE
-		mov	byte_23A70, 1Eh
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		add	dx, 2
-		mov	di, dx
-		mov	ax, di
-		shl	ax, 4
-		push	ax
-		push	60000Ch
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-
-loc_11EBE:
-		mov	ax, _boss_phase_frame
-		mov	bx, 40
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_11F2B
-		cmp	_rank, RANK_EASY
-		jz	short loc_11F2B
-		call	@bullets_add_pellet$qiiucuci pascal, left_22D98, top_22D9A, 00h, BG_1_AIMED, ((4 shl 4) + 6)
-		jmp	short loc_11F2B
-; ---------------------------------------------------------------------------
-
-loc_11EE5:
-		cmp	_boss_phase_frame, 120
-		jge	short loc_11F25
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_11F2B
-		mov	byte_23A70, 1Eh
-		xor	si, si
-		jmp	short loc_11F1E
-; ---------------------------------------------------------------------------
-
-loc_11EFC:
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	bx, 18h
-		cwd
-		idiv	bx
-		add	dx, 2
-		mov	di, dx
-		mov	ax, di
-		shl	ax, 4
-		push	ax
-		push	60000Ch
-		push	6Fh ; 'o'
-		call	@LASERS_ADD$QIIIUC
-		inc	si
-
-loc_11F1E:
-		cmp	si, 3
-		jl	short loc_11EFC
-		jmp	short loc_11F2B
-; ---------------------------------------------------------------------------
-
-loc_11F25:
-		mov	_boss_phase_frame, 0
-
-loc_11F2B:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-stones_11E76	endp
-
-
-; Phase 6's three bullet patterns -- stones_11F2F(), stones_11FB5() and
-; stones_1200F() -- and the take-over animation stones_120F7() below them
-; are th02/main/boss/b3.cpp, together with the two take-over phases'
-; background-eating animation, stones_121BA(), stones_update() and the
-; three functions below this block. `angle_22FAF`, `angle_22FB0` and the
-; five-byte `angle_22FB1` carry kb/codegen/0123 aliases for their sake;
-; `group_20670` needed none, because it is `boss_rank_param[2]` and that
-; extent has been published all along.
+; Four of phases 4 and 8's shared bullet patterns -- stones_11D30(),
+; stones_11DF6(), stones_11E40() and stones_11E76() -- are
+; th02/main/boss/b3.cpp, together with phase 6's three patterns below
+; them, the take-over animation, the background-eating animation,
+; stones_121BA(), stones_update() and the three functions below this
+; block. `word_22FAC` and `byte_22FAE` went with them, under the names
+; `stones_laser_left` and `stones_laser_return_delay`; `angle_22FAF`,
+; `angle_22FB0` and the five-byte `angle_22FB1` carry kb/codegen/0123
+; aliases for the same reason. `boss_rank_param` needed nothing: the
+; dump's `byte_2066F`, `group_20670` and `byte_20671` are cells 1, 2 and
+; 3 of an extent that has been published all along.
 ;
-; The thirteen stones_* procs still above dispatch from stones_update()
-; and are published for that and for nothing else. Two of them are
-; `pascal`, so their aliases are UPPER case and carry no leading
-; underscore (kb/codegen/0102 + 0103).
+; The nine stones_* procs still above dispatch from stones_update() and
+; are published for that and for nothing else. Two of them are `pascal`,
+; so their aliases are UPPER case and carry no leading underscore
+; (kb/codegen/0102 + 0103).
 
 
 ; stones_end(), stones_init() and stones_12778() are th02/main/boss/b3.cpp,
@@ -14683,7 +14439,11 @@ byte_22FA8	db ?
 public _stones_phase_frame_unused
 _stones_phase_frame_unused label word
 word_22FAA	dw ?
+public _stones_laser_left
+_stones_laser_left label word
 word_22FAC	dw ?
+public _stones_laser_return_delay
+_stones_laser_return_delay label byte
 byte_22FAE	db ?
 public _angle_22FAF
 _angle_22FAF label byte

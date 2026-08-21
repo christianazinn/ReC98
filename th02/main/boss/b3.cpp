@@ -25,6 +25,9 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/egc.hpp"
+#include "th01/rank.h"
+#include "th02/core/globals.hpp"
+#include "th02/math/randring.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/tile/tile.hpp"
@@ -86,17 +89,13 @@ extern "C" void pascal near stones_11766(int stone);
 extern "C" void near stones_119CD(void);
 extern "C" void pascal near stones_11A87(int removed);
 
-// Phases 4 and 8's bullet patterns, dispatched on [stones_pattern]. The two
-// phases share four of them; the first and third slot differ between them.
-// (Phase 6's three are defined below.)
+// Phases 4 and 8's first and third pattern slots, the two that differ between
+// the two phases. (The four they share, and phase 6's three, are defined
+// below.)
 extern "C" void near stones_11B5D(void);
 extern "C" void near stones_11BFE(void);
 extern "C" void near stones_11C37(void);
 extern "C" void near stones_11C8A(void);
-extern "C" void near stones_11D30(void);
-extern "C" void near stones_11DF6(void);
-extern "C" void near stones_11E40(void);
-extern "C" void near stones_11E76(void);
 /// ---------------------------
 
 // The four cells of the shared per-rank bullet parameters that stones_11997()
@@ -116,6 +115,24 @@ extern "C" uint8_t angle_22FB0;
 // [i] that walks [stone_left], and reaches cell 4 by constant index in its
 // other arm. (kb/codegen/0123's whole-extent case.)
 extern "C" uint8_t angle_22FB1[STONE_COUNT];
+
+// The west laser of the symmetric pair stones_11D30() marches across the
+// playfield; the east one is always spawned at (STONES_LASER_MIRROR - this).
+// `[measured]` The original encodes the mirror as a bare 432; the identity
+// below is the reading of it, not evidence for it - a 16-pixel-wide laser at
+// [left] has its mirror image at this distance.
+static const screen_x_t STONES_LASER_MIRROR = (
+	PLAYFIELD_LEFT + PLAYFIELD_RIGHT - 16
+);
+extern "C" screen_x_t stones_laser_left;
+
+// What stops that march from turning round the instant it reaches the far
+// side. `[measured]` 0 for the whole outward march; set to 1 the frame it
+// ends and then incremented once per frame; and once it passes 0x24 the
+// inward march runs and the slot stays above 0x24 for all of it, until the
+// pattern ends and resets it. So it is 0/counting/done rather than a plain
+// frame counter, and the `jbe` that reads it is unsigned.
+extern "C" uint8_t stones_laser_return_delay;
 
 // th02/main/boss/b4.cpp and b5m.cpp declare them identically. The point every
 // bullet-spawning subsystem aims at, set to (-1, -1) while there is nothing to
@@ -245,6 +262,134 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+/// Phases 4 and 8's four shared bullet patterns
+/// --------------------------------------------
+/// [stones_pattern] slots 1, 3, 4 and 5 in both phases; slots 0 and 2 differ
+/// between them and are still in the dump. Each one zeroes [boss_phase_frame]
+/// when its cycle ends, which is what advances the index.
+/// --------------------------------------------
+
+// The east/west laser wall: a symmetric pair every 8th frame, marching out to
+// the playfield edges, pausing, and marching back.
+extern "C" void near stones_11D30(void)
+{
+	if(boss_phase_frame < 16) {
+		return;
+	}
+	if(boss_phase_frame == 16) {
+		stones_laser_left = 32;
+		stones_laser_return_delay = 0;
+	}
+	if((stones_laser_return_delay == 0) && ((boss_phase_frame & 7) == 0)) {
+		laser_wait_frames = 16;
+		lasers_add(stones_laser_left, 96, 3, 111);
+		lasers_add((STONES_LASER_MIRROR - stones_laser_left), 96, 3, 111);
+		stones_laser_left += 16;
+		if(stones_laser_left > 176) {
+			stones_laser_return_delay = 1;
+
+			// ZUN quirk: the turn-round frame advances the march one extra
+			// step, so the pair comes back from 16 pixels further out than it
+			// ever fired at.
+			stones_laser_left += 16;
+		}
+	}
+	if(stones_laser_return_delay > 0x24) {
+		if((boss_phase_frame & 7) == 0) {
+			lasers_add(stones_laser_left, 96, 1, 111);
+			lasers_add((STONES_LASER_MIRROR - stones_laser_left), 96, 1, 111);
+			stones_laser_left -= 16;
+			if(stones_laser_left < 64) {
+				stones_laser_return_delay = 0;
+				boss_phase_frame = 0;
+				stones_laser_left = 32;
+			}
+		}
+	} else if(stones_laser_return_delay != 0) {
+		stones_laser_return_delay++;
+	}
+}
+
+
+// A gravity bullet from each of the outer stones every 16th frame - from as
+// many of them as [rank] allows, since the loop STARTS at a rank parameter.
+extern "C" void near stones_11DF6(void)
+{
+	register int i;
+
+	if((boss_phase_frame & 0x0F) == 0) {
+		for(i = boss_rank_param[1]; i < STONE_NORTH; i++) {
+			bullets_add_16x16(
+				stone_left[i],
+				stone_top[i],
+				randring2_next8(),
+				BSM_GRAVITY,
+				PAT_BULLET16_OUTLINED_BALL_GREEN,
+				(2 << 4)
+			);
+		}
+	}
+	if(boss_phase_frame > 110) {
+		boss_phase_frame = 0;
+	}
+}
+
+
+// A random-angle pellet from the fixed muzzle every 4th frame, at a speed that
+// climbs with the frame counter, so the volley accelerates as it goes.
+extern "C" void near stones_11E40(void)
+{
+	if((boss_phase_frame & 3) == 0) {
+		bullets_add_pellet(
+			left_22D98,
+			top_22D9A,
+			randring2_next8(),
+			boss_rank_param[3],
+			((boss_phase_frame >> 1) + ((1 << 4) + 14))
+		);
+	}
+	if(boss_phase_frame > 130) {
+		boss_phase_frame = 0;
+	}
+}
+
+
+// Lasers at random tile columns: one every 36th frame for the first stretch,
+// with an aimed pellet every 40th on anything above Easy, then three at once
+// on frame 100.
+extern "C" void near stones_11E76(void)
+{
+	register int i;
+	register int col;
+
+	if(boss_phase_frame < 16) {
+		return;
+	}
+	if(boss_phase_frame < 80) {
+		if((boss_phase_frame % 36) == 0) {
+			laser_wait_frames = 30;
+			col = ((randring2_next8() % 24) + 2);
+			lasers_add((col << 4), 96, 12, 111);
+		}
+		if(((boss_phase_frame % 40) == 0) && (rank != RANK_EASY)) {
+			bullets_add_pellet(
+				left_22D98, top_22D9A, 0, BG_1_AIMED, ((4 << 4) + 6)
+			);
+		}
+	} else if(boss_phase_frame < 120) {
+		if(boss_phase_frame == 100) {
+			laser_wait_frames = 30;
+			for(i = 0; i < 3; i++) {
+				col = ((randring2_next8() % 24) + 2);
+				lasers_add((col << 4), 96, 12, 111);
+			}
+		}
+	} else {
+		boss_phase_frame = 0;
+	}
+}
 
 
 /// Phase 6's three bullet patterns
