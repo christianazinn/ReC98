@@ -171,7 +171,7 @@ typedef enum {
 	// and its `_last` up by one and put this file one apart from its own ASM
 	// mirror, th05/sprites/main_pat.inc, which spells PAT_DECAY_SWORD = 225.
 	// Three witnesses agree with the .inc: the twirl in
-	// th05/main/bullet/swords_add_update.asm wraps at
+	// th05/main/bullet/swords_add_update.cpp wraps at
 	// (PAT_SWORD + BULLET_V_CELS), so that value is the first cel that is NOT
 	// a sword; and yumeko_update() converts [TINY_SWORD_START, TINY_SWORD_END)
 	// to tiny format, which is 193..228 inclusive. The disagreement survived

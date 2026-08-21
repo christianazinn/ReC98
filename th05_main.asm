@@ -8855,7 +8855,7 @@ off_1C816	dw offset loc_1C54D
 		dw offset loc_1C75B
 		dw offset loc_1C784
 
-include th05/main/bullet/swords_add_update.asm
+; swords_add() and swords_update() are now th05/main/bullet/swords_add_update.cpp, compiled into an object of their own (th05/swords.cpp, which carries the reason they are not an #include at the front of th05/main035.cpp). The module they replace was the LAST thing this dump contributed to main_035_TEXT and TLINK is handed this dump first, so that object lands at exactly the address the module had (kb/codegen 0112 + 0114). This line replaces the `include` rather than being deleted, so the file's length does not change and nothing below is renumbered.
 
 
 ; yumeko_update() is th05/main/boss/b5.cpp, compiled into th05/main035.cpp.
@@ -8893,7 +8893,7 @@ include th05/main/bullet/swords_add_update.asm
 ; [_YUMEKO_PATTERNS_PHASE_2] and [_YUMEKO_PATTERNS_PHASE_5] in _DATA. The two
 ; pattern tables now point at four C++ bodies and none of ZUN's assembly,
 ; which is what the procdesc block below is for. This block's root tail is
-; now th05/main/bullet/swords_add_update.asm, an include.
+; now the 10-entry jump table above, which sub_1C518 compiles to.
 
 	; The four bodies [_YUMEKO_PATTERNS_PHASE_2] and
 	; [_YUMEKO_PATTERNS_PHASE_5] in _DATA reach. None carries an argument
