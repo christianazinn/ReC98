@@ -1,7 +1,8 @@
 /// Stage 4 Boss - Mai & Yuki (both)
 /// --------------------------------
-
-#pragma option -zCB4_UPDATE_TEXT -zPmain_03
+/// The `-zCB4_UPDATE_TEXT -zPmain_03` pragma this file used to carry now
+/// lives in th05/boss_4.cpp, which compiles this file together with Alice's
+/// update function (kb/codegen/0112 trap 0).
 
 #include "th04/math/vector.hpp"
 #include "th04/snd/snd.h"
@@ -10,7 +11,9 @@
 // only come from one place; naming them here as well is a compile error, not a
 // no-op. th04/main/boss/boss.cpp reaches both the same way.
 #include "th04/main/player/shot.hpp"
-#include "th05/main/boss/boss.hpp"
+// th05/main/boss/boss.hpp is no longer named here either: th05/boss_4.cpp now
+// compiles th05/main/boss/b3.cpp ahead of this file, and that one reaches the
+// header through th05/main/boss/bosses.hpp (kb/codegen 0129).
 #include "th05/main/boss/impl.hpp"
 
 #define mai boss
