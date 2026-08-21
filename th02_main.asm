@@ -529,7 +529,7 @@ BULLET16_W = 16
 		left:word, top:word, angle:byte, group_or_special_motion:byte, patnum:byte, speed:word
 	extern @bullets_update_and_render$qv:proc
 	extern @bullets_invalidate$qv:proc
-	extern @bullets_clear$qv:proc
+	extern _bullets_clear:proc
 	@BULLETS_SET_STACK_MULTIPLIER$QUC procdesc pascal near \
 		v:byte
 
@@ -3687,6 +3687,12 @@ BOSS_5_TEXT	segment	byte public 'CODE' use16
 ; group main_03, so `near` resolves to the same 3-byte `E8 rel16` the
 ; original encodes, and one declaration in the earlier segment serves both.
 extrn _boss_playfield_reset:near
+
+; mima_19C8D() is th02/main/boss/b5.cpp, prepended into main_03__TEXT
+; below. mima_update() below is its only caller here, and both segments
+; are in group main_03, so `near` resolves to the same 3-byte `E8 rel16`
+; the original encodes.
+extrn _mima_19C8D:near
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -9683,7 +9689,7 @@ sigma_init	proc far
 		mov	patnum_2064E, 128
 		mov	byte_255B2, 0
 		mov	byte_2558C, 7
-		nopcall	@bullets_clear$qv
+		nopcall	_bullets_clear
 		call	@shots_free_all$qv
 		push	1
 		call	palette_white_out
@@ -14840,7 +14846,7 @@ loc_198A8:
 		call	mima_17D59
 		cmp	word_26C68, 8
 		jnz	short loc_19924
-		call	mima_19C8D
+		call	_mima_19C8D
 		or	ax, ax
 		jnz	short loc_19930
 		inc	word_26C68
@@ -15081,141 +15087,16 @@ loc_19C0D:
 mima_init	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_19C1D
-_mima_19C1D label near
-mima_19C1D	proc near
-		push	bp
-		mov	bp, sp
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		les	bx, _resident
-		mov	eax, es:[bx+mikoconfig_t.score_highest]
-		cmp	eax, _score
-		jnb	short loc_19C41
-		mov	eax, _score
-		jmp	short loc_19C4A
-; ---------------------------------------------------------------------------
-
-loc_19C41:
-		les	bx, _resident
-		mov	eax, es:[bx+mikoconfig_t.score_highest]
-
-loc_19C4A:
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.score_highest], eax
-		mov	eax, _score
-		imul	eax, 10
-		movzx	edx, es:[bx+mikoconfig_t.continues_used]
-		add	eax, edx
-		mov	es:[bx+mikoconfig_t.score], eax
-		mov	es:[bx+mikoconfig_t.stage], 7Fh
-		mov	al, _lives
-		mov	es:[bx+mikoconfig_t.rem_lives], al
-		mov	al, _bombs
-		mov	es:[bx+mikoconfig_t.rem_bombs], al
-		call	@skill_calculate$qv
-		call	@GameExecl$qnxc c, offset aMaine_0, ds	; "maine"
-		pop	bp
-		retn
-mima_19C1D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mima_19C8D	proc near
-		push	bp
-		mov	bp, sp
-		call	@shots_free_all$qv
-		nopcall	@bullets_clear$qv
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_left_on_page[bx]
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		push	patnum_2064E
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 48
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		add	ax, 96
-		push	ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		push	_boss_top_on_page[bx]
-		mov	ax, patnum_2064E
-		add	ax, 2
-		push	ax
-		call	super_put_rect
-		call	@dialog_pre$qv
-		call	@dialog_script_stage5_form1defeat$qv
-		les	bx, _resident
-		cmp	es:[bx+mikoconfig_t.continues_used], 0
-		jz	short loc_19D48
-		kajacall	KAJA_SONG_FADE, 10
-		pop	cx
-		push	0Ah
-		call	palette_white_out
-		call	@frame_delay$qi pascal, 50
-		add	_score, 50000
-		call	mima_19C1D
-		mov	ax, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19D48:
-		call	super_clean pascal, (128 shl 16) or 192
-		mov	super_patnum, 80h
-		call	super_entry_bfnt pascal, ds, offset aMima2_bft ; "mima2.bft"
-		call	@dialog_post$qv
-		graph_accesspage _page_front
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_fill
-		graph_accesspage _page_back
-		call	grcg_fill
-		call	grcg_off
-		mov	byte_26CC0, 0
-		xor	ax, ax
-		pop	bp
-		retn
-mima_19C8D	endp
-
-
-; mima_end() and sub_19E2F() are th02/main/boss/b5.cpp, prepended into this
-; segment ahead of th02/main/midboss/m4.cpp and th02/main/boss/b4.cpp below
-; (kb/codegen/0099). mima_19C1D() above stays here because mima_19C8D() also
-; calls it, and both calls are plain near ones inside this one segment.
+; mima_init() above is the last thing this dump contributes to this
+; segment. mima_19C1D(), mima_19C8D(), mima_end() and sub_19E2F() are
+; th02/main/boss/b5.cpp, prepended into this segment in that order, ahead
+; of th02/main/midboss/m4.cpp and th02/main/boss/b4.cpp below
+; (kb/codegen/0099).
+;
+; mima_update() in BOSS_5_TEXT is mima_19C8D()'s only remaining caller in
+; this dump, and reaches it as a plain near call through the main_03 group
+; -- see the `extrn` at the head of that segment. mima_19C1D() has no
+; caller left here at all.
 
 
 ; midboss4_invalidate(), midboss4_19F52() through midboss4_1A1B6() and
@@ -16225,8 +16106,11 @@ aMima1_bft	db 'mima1.bft',0
 aStage3_b_btt	db 'stage3_b.btt',0
 aMima_m		db 'mima.m',0
 ; char aMaine_0[]
+public _aMaine_0
+_aMaine_0	label byte
 aMaine_0	db 'maine',0
-aMima2_bft	db 'mima2.bft',0
+public _mima2_bft
+_mima2_bft	db 'mima2.bft',0
 		db 0
 public _MARISA_BG_PARTICLE_COLS
 _MARISA_BG_PARTICLE_COLS label byte
@@ -17026,6 +16910,8 @@ word_26C9C	dw 8 dup(?)
 word_26CAC	dw 8 dup(?)
 word_26CBC	dw ?
 word_26CBE	dw ?
+public _mima_all_patterns
+_mima_all_patterns label byte
 byte_26CC0	db ?
 byte_26CC1	db ?
 byte_26CC2	db ?
