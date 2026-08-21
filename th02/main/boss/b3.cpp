@@ -32,16 +32,21 @@
 #include "th02/main/scroll.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/explode.hpp"
+#include "th02/main/spark.hpp"
+#include "th02/main/score.hpp"
+#include "th02/main/item/item.hpp"
 #include "th02/main/laser.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b3.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/shot.hpp"
 #include "th02/snd/snd.h"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/v_colors.hpp"
 #include "th02/sprites/main_pat.h"
 #include "th01/sprites/pellet.h"
 
@@ -49,6 +54,7 @@
 // -----------
 
 static const pixel_t STONE_W = 32;
+static const pixel_t STONE_H = 32;
 
 extern "C" screen_x_t stone_left[STONE_COUNT];
 extern "C" screen_y_t stone_top[STONE_COUNT];
@@ -60,25 +66,14 @@ extern "C" uint8_t stone_hit_flash[STONE_COUNT];
 // th02/main/bgm_show.cpp declares it the same way.
 extern "C" void far enemies_remove_all(void);
 
-/// The fight's still-ASM parts
-/// ---------------------------
-/// Both are further up in DIALOG_TEXT, both are reached as plain near calls,
-/// and both keep the dump's own address-suffixed hand names: those are not IDA
-/// placeholders, and naming them is a separate decision from lifting what
-/// dispatches to them. Each got the ordinary three-line `public` in
-/// th02_main.asm and nothing else, and stones_11766()'s is UPPER case because
-/// it is `pascal` - measured from its `retn 2`, not assumed.
-/// ---------------------------
-
-// Per-frame housekeeping, run before anything else looks at the stones:
-// [stones_phase_frame_unused]'s increment lives in the first, and the five
-// stones' sprites are blitted by the second.
-extern "C" void near stones_11877(void);
-extern "C" void near stones_116EC(void);
-
-// Advances one stone's kill animation. Called for every stone in SF_KILL_ANIM.
-extern "C" void pascal near stones_11766(int stone);
-/// ---------------------------
+// How far each stone is into its kill animation, and the one array in this
+// fight the dump splits the way kb/codegen/0123's whole-extent case describes:
+// stones_11766() indexes it with `[stone]` in its ordinary arm and reaches the
+// north stone's cell by constant index in its own, which is why IDA saw
+// `word_1EB1E` (four words) and `word_1EB26` (one) rather than five.
+// `[measured]` `_midboss3_kill_frame` sits directly above it in `_DATA`, for
+// exactly the same job one fight earlier.
+extern "C" int16_t stone_kill_frame[STONE_COUNT];
 
 // The four cells of the shared per-rank bullet parameters that stones_11997()
 // fills. th02/main/boss/b4.cpp declares the extent identically; `[measured]`
@@ -250,6 +245,196 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+// Marks the tiles under every stone that is still on screen for redrawing,
+// and retires the ones that were flagged for removal on the previous frame -
+// after that final unblit, exactly the way lasers_invalidate() does. Installed
+// into [boss_bg_render] by stage_init().
+extern "C" void far stones_bg_render(void)
+{
+	register int i;
+
+	for(i = 0; i < STONE_COUNT; i++) {
+		if(stone_flag[i] < SF_REMOVED) {
+			tiles_invalidate_rect(
+				stone_left[i], stone_top[i], STONE_W, STONE_H
+			);
+			if(stone_flag[i] == SF_REMOVE) {
+				stone_flag[i] = SF_REMOVED;
+			}
+		}
+	}
+}
+
+
+// Blits every stone that is not being killed, at its scroll-wrapped row.
+extern "C" void near stones_116EC(void)
+{
+	register int i;
+	register vram_y_t y;
+
+	for(i = 0; i < STONE_COUNT; i++) {
+		if(stone_flag[i] < SF_KILL_ANIM) {
+			// One statement per instruction: the compound expression goes
+			// through AX and costs a `mov di, ax` on top.
+			y = stone_top[i];
+			y += scroll_line;
+			if(y >= RES_Y) {
+				y -= RES_Y;
+			}
+			if(stone_hit_flash[i] != 0) {
+				snd_se_play(4);
+				super_roll_put_1plane(
+					stone_left[i], y, stone_patnum[i], 0, super_plane(V_WHITE)
+				);
+				stone_hit_flash[i] = 0;
+			} else {
+				super_roll_put(stone_left[i], y, stone_patnum[i]);
+			}
+		}
+	}
+}
+
+
+// One frame of one stone's kill animation: sparks every frame, a sprite that
+// advances every 8th, and - for the north stone only - the boss explosion ring
+// on top. Returns `true` on the frame the stone reaches SF_REMOVE, which is
+// what stones_update() counts towards the end of the fight.
+extern "C" bool16 pascal near stones_11766(int stone)
+{
+	int patnum;
+	int kill_frames;
+	vram_y_t y;
+
+	kill_frames = 0x40;
+	sparks_add(
+		(stone_left[stone] + 16), (stone_top[stone] + 12), (5 << 4), 2, false
+	);
+	patnum = 10;
+	y = stone_top[stone];
+	y += scroll_line;
+	if(y >= RES_Y) {
+		y -= RES_Y;
+	}
+	if(stone == STONE_NORTH) {
+		kill_frames += 0x20;
+		boss_explode_render(
+			(stone_left[STONE_NORTH] + 8),
+			(stone_top[STONE_NORTH] + 8),
+			stone_kill_frame[STONE_NORTH]
+		);
+
+		// A second ring, 0x18 frames behind the first, once there is one.
+		if(stone_kill_frame[STONE_NORTH] >= 0x18) {
+			boss_explode_render(
+				(stone_left[STONE_NORTH] + 8),
+				(stone_top[STONE_NORTH] + 8),
+				(stone_kill_frame[STONE_NORTH] - 0x18)
+			);
+		}
+		if(stone_kill_frame[STONE_NORTH] < 0x20) {
+			super_roll_put(
+				stone_left[STONE_NORTH], y, stone_patnum[STONE_NORTH]
+			);
+			stone_kill_frame[STONE_NORTH]++;
+			return false;
+		}
+		if(stone_kill_frame[STONE_NORTH] == 0x38) {
+			boss_explode_angle_offset = 0xE0;
+		}
+		patnum += ((stone_kill_frame[STONE_NORTH] - 0x20) / 8);
+	} else {
+		patnum += (stone_kill_frame[stone] / 8);
+	}
+	stone_kill_frame[stone]++;
+	if(stone_kill_frame[stone] >= kill_frames) {
+		stone_kill_frame[stone] = 0;
+		stone_flag[stone] = SF_REMOVE;
+		return true;
+	}
+	super_put(stone_left[stone], y, patnum);
+	return false;
+}
+
+
+// The fight's per-frame housekeeping: the player's shots against every stone,
+// the aim point for everything that spawns bullets, and the one pattern that
+// runs regardless of phase.
+extern "C" void near stones_11877(void)
+{
+	register int i;
+	register int damage;
+
+	stones_phase_frame_unused++;
+	for(i = 0; i < STONE_COUNT; i++) {
+		if(stone_flag[i] <= SF_ACTIVE) {
+			// Assigned and tested in one expression: two statements make the
+			// test read DI back, where the original tests the AX the call
+			// returned in. (kb/codegen/0143, and b4.cpp says the same.)
+			if((damage = shots_hittest(
+				stone_left[i], stone_top[i], STONE_W, 40
+			)) != 0 && (stone_flag[i] == SF_ACTIVE)) {
+				stone_hit_flash[i] = 1;
+				stone_damage[i] += damage;
+
+				// The north stone takes more than the other four put
+				// together, and the inner pair a little more than the outer.
+				if(
+					stone_damage[i] >= ((i == STONE_NORTH)
+						? 930
+						: ((i <= STONE_INNER_EAST) ? 140 : 120)
+					)
+				) {
+					stone_flag[i] = SF_KILL_ANIM;
+					score_delta += 30000;
+					if(i <= STONE_OUTER_EAST) {
+						items_add(
+							(stone_left[i] + 8),
+							(stone_top[i] + 12),
+							// Every arm is cast, because [item_type_t] is
+							// byte-sized and the original loads the whole of AX.
+							((i == STONE_INNER_WEST)
+								? static_cast<int>(IT_BOMB)
+								: ((i <= IT_BOMB)
+									? static_cast<int>(IT_BIGPOWER)
+									: static_cast<int>(IT_BOMB)
+								)
+							)
+						);
+						snd_se_play(2);
+					} else {
+						// ZUN quirk: the item the north stone would drop is
+						// replaced by the invincibility every boss defeat
+						// grants, so the fight's last kill drops nothing.
+						player_invincibility_time =
+							BOSS_DEFEAT_INVINCIBILITY_FRAMES;
+					}
+				}
+			}
+		}
+	}
+
+	// Everything aims at the first stone still alive, in index order.
+	for(i = 0; i < STONE_COUNT; i++) {
+		if(stone_flag[i] == SF_ACTIVE) {
+			boss_pos_x = (stone_left[i] + 8);
+			boss_pos_y = (stone_top[i] + 8);
+			break;
+		}
+	}
+
+	// A punishment shot for standing in the top half of the playfield.
+	if(player_topleft.y < (PLAYFIELD_TOP + 80)) {
+		bullets_add_pellet(
+			left_22D98,
+			top_22D9A,
+			(randring2_next8_and(0x0F) - 7),
+			BG_1_AIMED,
+			((4 << 4) + 13)
+		);
+	}
+}
 
 
 // Seeds the four [boss_rank_param] cells the fight uses, once per fight, from
