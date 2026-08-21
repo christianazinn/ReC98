@@ -15,6 +15,13 @@
 // basename. (kb/codegen/0105)
 #pragma option -zPmain_03 -G -a2
 
+// The enemies' run-time procs sit BELOW Mima's in BOSS_5_TEXT, so they are
+// prepended here rather than given an object of their own - this wrapper's is
+// the only C++ object in that segment. Not a new segment, no group-list edit
+// and no Tupfile.lua line; the segment name still comes from this wrapper's
+// own basename. (kb/codegen/0099, kb/codegen/0105)
+#include "th02/main/enemy/enemies.cpp"
+
 #include "th02/main/boss/b5m.cpp"
 
 // skill_calculate() is NOT -G: the option strength-reduces both of its `* 3`

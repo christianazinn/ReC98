@@ -8547,56 +8547,21 @@ loc_17A49:
 sub_17979	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemies_remove_all
-_enemies_remove_all label far
-enemies_remove_all proc far
-		push	bp
-		mov	bp, sp
-		xor	ax, ax
-		jmp	short loc_17A73
-; ---------------------------------------------------------------------------
-
-loc_17A5C:
-		mov	bx, ax
-		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
-		jz	short loc_17A72
-		mov	bx, ax
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_REMOVE
-
-loc_17A72:
-		inc	ax
-
-loc_17A73:
-		cmp	ax, 19h
-		jl	short loc_17A5C
-		mov	enemies_loop_bound, 0
-		pop	bp
-		retf
-enemies_remove_all endp
-
-
-; mima_17A7F(), mima_bg_render(), mima_17C92(), mima_17D59(),
-; mima_17E91(), mima_17F27(), mima_180AC(), mima_180EC(), mima_181B3(),
-; mima_183D0(), mima_188AA(), mima_18905(), mima_18A1B(), mima_18B4B(),
-; mima_18BA6(), mima_18C4A(), mima_18DE0(), mima_18EB8() and mima_19173()
-; through mima_update() are th02/main/boss/b5m.cpp, in that order. They
-; were this segment's carve-free tail chain, so th02_main.asm now
-; contributes nothing below enemies_remove_all(), and th02/boss_5.cpp's
-; object picks the segment up from the byte after that proc's `retf`.
+; enemies_remove_all() is th02/main/enemy/enemies.cpp, and mima_17A7F()
+; through mima_update() are th02/main/boss/b5m.cpp - both included by
+; th02/boss_5.cpp, in that order, which is dump order. They were this
+; segment's carve-free tail chain, so th02_main.asm now contributes
+; nothing below sub_17979(), and th02/boss_5.cpp's object picks the
+; segment up from the byte after that proc's `retf`.
 ;
 ; Every lift out of this block has to leave the object's prefix ahead of
 ; mima_update()'s generated jump table at the parity it already has, or the
 ; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
 ; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
 ; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, the
-; next two to 0x1E4, and this one to 0xF6 on its own. Read the prefix from
-; the OBJ's PUBDEFs, never from a comment. (kb/codegen/0160)
+; next two to 0x1E4, then mima_17A7F() at 0xF6 and enemies_remove_all() at
+; 0x2A on their own. Read the prefix from the OBJ's PUBDEFs, never from a
+; comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -9633,6 +9598,8 @@ word_1EE50	dw 0
 ; enemies_update_and_render walks to. NOT a count: enemies_invalidate
 ; recomputes it as (highest non-F_FREE slot) + 1, so free slots below it
 ; are still iterated.
+public _enemies_loop_bound
+_enemies_loop_bound label byte
 enemies_loop_bound db 0
 		db 0
 public _mima_bg_ring_phase
