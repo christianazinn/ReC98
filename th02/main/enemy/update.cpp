@@ -27,7 +27,9 @@
 ///
 /// -G for the `push bp; mov bp, sp; sub sp, N` prologs (kb/codegen/0011).
 /// -zPmain_03 for the near calls into the enemy helpers that are still ASM in
-/// the same segment. No -a2: nothing here emits a generated jump table.
+/// the same segment. -a2 for enemy_run()'s three generated jump tables and the
+/// one pad in front of them, which only lands at the original's parity while
+/// the bytes emitted ahead of enemy_run() here sum to an ODD number.
 #pragma option -zCBOSS_5_TEXT -zPmain_03 -G -a2
 
 #include "platform.h"
@@ -44,6 +46,7 @@
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/entity.hpp"
 #include "th02/main/enemy/enemy.hpp"
+#include "th02/main/midboss/midboss.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/spark.hpp"
@@ -56,6 +59,19 @@
 // th02/main/enemy/enemies.cpp declares it there: that header belongs to the
 // loader's parcel. (Same for [enemy_cur] and its satellites below.)
 extern "C" uint8_t enemies_loop_bound;
+
+// The [spawn_grid] row enemies_spawn() will look at next. Reset to 0 by
+// sub_16A6B(), which also frees every [enemies] slot; nothing else writes it,
+// and nothing bounds-checks it beyond the [spawn_rows] test below.
+//
+// COINAGE, and it joins a family already under a standing rename:
+// state/re/NAMING_REVIEW_VERDICTS_9.md rules [spawn_grid], [spawn_rows] and
+// SPAWN_COLUMN_COUNT over to an `enemy_spawn_*` stem, unapplied so far. Named
+// to match its two published siblings rather than pre-empting that rename, so
+// the family stays consistent in the interim — it makes that item four names,
+// not three. `_cur` is the tree's cursor suffix (enemy_cur, pattern_cur,
+// enemy_template_cur); bare `cursor` as game state has zero precedent.
+extern "C" int spawn_row_cur;
 
 // th02/main/boss/b3.cpp, b4.cpp and b5m.cpp each declare these three the same
 // way. -1 means "no enemy is a homing target this frame"; the loop below
@@ -149,24 +165,133 @@ extern "C" void near enemy_angle_spin_and_move(void);
 // case-insensitivity makes it the same symbol as the `proc` line.
 extern "C" void pascal near sub_16AA7(unsigned char angle);
 
-// sub_16D9B()'s final `retf`, which th02_main.asm no longer carries.
+// Fills in the already-chosen [enemies] slot from a spawn grid cell.
 //
-// This byte is not decoration: it is what puts enemy_run()'s three generated
-// jump tables at the original's addresses. Turbo C++ word-aligns a generated
-// table against the offset the object it emits starts at, and its OBJ writer
-// pads when that offset comes out ODD - which is kb/codegen/0096's rule, not
-// kb/codegen/0154's, and 0154's opposite reading was measured off `tcc -S`
-// listings. `[measured]` here on the OBJ itself: with enemy_run() at object
-// offset 0 its body ends at 0x6C2, even, and NO pad is emitted - the `-S`
-// listing shows a `db 1 dup (?)` that never reaches the object, and -a1/-a2/
-// -a4/no-`-a` all produce the identical short object. Handing this object one
-// byte of prefix moves the table to an odd offset and the pad appears.
+// SINGULAR, and NOT an adoption of TH03/TH04/TH05's pinned enemies_add(). All
+// three of those find the free slot themselves (th03/main/enemy/enemy.cpp
+// walks [enemies] for EFF_FREE inside the function); this one is handed the
+// slot by enemies_spawn(). Taking the pinned name would give it two contracts
+// across the campaign. It MIRRORS shot_add() / shot_option_add() in this same
+// binary instead, whose header states exactly this split, and which are
+// singular for exactly this reason. Recorded in state/notes/th02-enemy-spawn.md.
 //
-// A file-scope codestring is emitted where it stands in source order
-// (kb/codegen/0161), so this one lands at the very top of the object's code,
-// one byte below enemy_run(). Same purchase th02/boss_5.cpp made for
-// mima_update()'s table while mima_19353() was still in the dump.
-#pragma codestring "\xCB"
+// [left] is a `register` parameter, which is why the prolog copies it into SI
+// rather than reading [bp+0Ah] at each of its three uses.
+extern "C" void pascal near enemy_add(
+	register screen_x_t left, screen_y_t top, int slot, int template_id
+)
+{
+	enemies[slot].flag = F_ALIVE;
+	enemies[slot].pos_on_page[page_back].x = left;
+	enemies[slot].pos_on_page[page_back].y = top;
+	enemies[slot].patnum_delta = 0;
+	enemies[slot].script_ip = 0;
+	enemies[slot].template_id = template_id;
+	enemies[slot].age = 0;
+
+	// Not 0 - two enemies of the same type spawned on the same frame would
+	// otherwise animate in lockstep.
+	enemies[slot].anim_frame = randring2_next8();
+
+	enemies[slot].angle = 0;
+	enemies[slot].not_shootable = false;
+	enemies[slot].no_player_collision = false;
+
+	// 208 is not the center of the playfield (which would be 192), and no
+	// other constant in this binary shares it.
+	//
+	// ZUN bloat: The `? 1 : 0` is redundant on a comparison - but it is not
+	// cosmetic, and it is the one thing in this function that cannot be
+	// inferred from the field's type. Written as a bare `(left < 208)`,
+	// Turbo C++ computes the [enemies] element address FIRST and spills BX
+	// across the comparison's two basic blocks (`push bx` / `pop bx`); the
+	// ternary makes it evaluate the value first and compute the address after,
+	// which is what the original does. `[measured]` on `tcc -S`, against five
+	// variants of this one statement.
+	enemies[slot].spawned_in_left_half = (left < 208) ? 1 : 0;
+
+	enemies[slot].loop_i = 0;
+	enemies[slot].despawn_when_offscreen_vertically = false;
+	enemies[slot].render_as = 1;
+	enemies[slot].in_kill_anim = false;
+	enemies[slot].damage = 0;
+
+	// ZUN landmine: `<`, not `<=`. Spawning into the slot that [enemies_
+	// loop_bound] already equals leaves the bound where it is, so that enemy
+	// is never updated or rendered until enemies_invalidate() recomputes the
+	// bound at the end of the frame.
+	if(enemies_loop_bound < slot) {
+		enemies_loop_bound = (slot + 1);
+	}
+}
+
+
+// Spawns every enemy the current [spawn_grid] row asks for, and advances to
+// the next row. Called from stage_loop(), on the frames where
+// [scroll_step_advanced] is set.
+//
+// COINAGE. The role does not transfer: TH04's and TH05's stage spawner is
+// upstream's std_run(), a bytecode VM walking [std_ip], and TH03's is
+// enemy_formations_update_for(). Neither is a grid, so neither name is
+// adoptable. The `<plural array>_spawn` shape follows upstream TH01's
+// birds_spawn() / flakes_spawn(), and `enemies_` is this binary's own
+// array-scope stem (enemies_invalidate, enemies_update_and_render,
+// enemies_loop_bound). NOT `stage_enemies_spawn`, which three harness notes
+// still propose: `stage_` is a live subsystem prefix owned by
+// th02/main/stage/, and this body belongs to the enemy subsystem.
+extern "C" void far enemies_spawn(void)
+{
+	int template_id;
+	screen_y_t top;
+	register int slot;
+	register int col;
+
+	// Two conditions in ONE expression, and every test below nested rather
+	// than `continue`d out of. Both are load-bearing under -Z, and neither is
+	// visible in a per-statement reading of the original:
+	//
+	// * Split into two `if(…) { return; }` statements, Turbo C++ reloads
+	//   [spawn_row_cur] for the second one; the `&&` lets the first test's AX
+	//   carry into the subscript.
+	// * With `if(… == -1) { continue; }`, the read below re-emits the whole
+	//   `les` for [spawn_grid][col]; nested inside `if(… != -1)`, the compiler
+	//   keeps ES and reloads only the offset, which is what the original does.
+	//
+	// `[measured]` on `tcc -S`: the `continue` shape and the early-return
+	// shape each cost exactly one of those two instructions.
+	//
+	// Column 0 holds the [scroll_step] the row fires at, as a word. Rows are
+	// walked in order and at most one is consumed per call, so a row whose
+	// trigger the scrolling skipped past stalls every row behind it.
+	if(
+		(spawn_row_cur < spawn_rows) &&
+		(spawn_grid[0][spawn_row_cur] == scroll_step)
+	) {
+		for(col = 1; col < SPAWN_COLUMN_COUNT; col++) {
+			if(spawn_grid[col][spawn_row_cur] != -1) {
+				template_id = spawn_grid[col][spawn_row_cur];
+				top = enemy_templates[template_id].spawn_top;
+
+				// ZUN bloat: Both of the above are dead if the midboss is
+				// active. Testing [midboss_active] first, or once outside the
+				// loop, would have been the same behavior.
+				if(!midboss_active) {
+					for(slot = 0; slot < ENEMY_COUNT; slot++) {
+						if(enemies[slot].flag == F_FREE) {
+							// The column *is* the X position: 0x31 columns,
+							// 8 pixels apart, from the left edge + 16.
+							enemy_add(
+								((col * 8) + 16), top, slot, template_id
+							);
+							break;
+						}
+					}
+				}
+			}
+		}
+		spawn_row_cur++;
+	}
+}
 
 
 // One opcode of this enemy's script, which the caller runs in a loop.
@@ -176,12 +301,14 @@ extern "C" void pascal near sub_16AA7(unsigned char angle);
 // TH03 and TH04 both call theirs enemy_run() (th03/main/enemy/enemy.cpp,
 // th04/main/enemy/script.cpp), and TH02's has the same status-return shape.
 //
-// The three generated jump tables below this function, and the single -a2
-// alignment pad in front of them, are its own codegen. They only land at the
-// original's parity because enemy_run() is the FIRST thing in this object:
-// -a2 aligns the byte AFTER a table, so it pads exactly when the natural
-// table offset is even (kb/codegen/0154), and this body is 0x6C2 bytes.
-// Prepending anything ahead of it deletes the pad.
+// The three generated jump tables below this function, and the single
+// alignment pad in front of them, are its own codegen. Turbo C++'s OBJ writer
+// pads when the table's natural OBJECT-LOCAL offset comes out ODD, so the pad
+// survives only while everything emitted ahead of enemy_run() in this object
+// sums to an odd number of bytes: 0x1A7 today, from enemy_add() and
+// enemies_spawn(). `tcc -S` disagrees with the object here and the object is
+// what links, so grade this on obj_probe.py, never on the listing
+// (kb/codegen/0154, corrected against its own evidence).
 //
 // The `case` order is ZUN's, not numeric, and it is load-bearing: Turbo C++
 // emits case bodies in source order, so writing them in numeric order moves

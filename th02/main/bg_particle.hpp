@@ -114,9 +114,19 @@ extern vc_t bg_particle_unput_col;
 void far bg_particles_reset(void);
 
 // Spawns a single particle at the given screen position, moving at [angle].
-// Plural like sparks_add() and items_add(), which also spawn into an array:
-// every *_add() in the tree is named after the array it writes to, never after
-// the one entity it adds.
+// Plural like sparks_add() and items_add(), which — like this function — walk
+// their array for a free slot themselves. That is what the plural marks here.
+//
+// It is NOT a tree-wide rule, and the earlier version of this comment claimed
+// one: "every *_add() in the tree is named after the array it writes to, never
+// after the one entity it adds" is false as measured. Singular-stem `*_add`
+// names are common (shot_add, shot_option_add, thicklaser_add, chargeshot_add,
+// exatt_add, combo_add, gauge_avail_add, and the item_add / mima_star_add
+// macros), and this very binary carries the counter-pair with its contract
+// written down: th02/main/player/shot.cpp's shottype spawners scan [shots] and
+// then call shot_add(), "which is why neither of those takes the slot".
+// th02/main/enemy/update.cpp's enemies_spawn() / enemy_add() is the second
+// instance of that split. Cite the slot-ownership contract, not a stem census.
 void pascal far bg_particles_add(
 	screen_x_t left, screen_y_t top, unsigned char angle
 );
