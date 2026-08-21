@@ -37,9 +37,16 @@ struct sword_template_t {
 
 // Spawns a new sword according to the [sword_template]. Reads all non-unused
 // fields of the sword_template_t structure.
-void pascal near swords_add(void);
+//
+// `extern "C"` for the same reason swords_render() below is: the module these
+// two are still assembled from publishes the undecorated upper-case
+// `SWORDS_ADD` and `SWORDS_UPDATE` (kb/codegen/0081 + 0102). Neither
+// declaration had ever been graded, because th05/main/bullet/swords_render.cpp
+// was this header's only reader and calls neither; th05/main/boss/b5.cpp is
+// the first C++ caller of swords_update() either game has had.
+extern "C" void pascal near swords_add(void);
 
-void pascal near swords_update(void);
+extern "C" void pascal near swords_update(void);
 // `extern "C"` + `pascal`: the module published the undecorated
 // upper-case `SWORDS_RENDER`, and th05_main.asm resolves an `offset` against
 // that spelling (kb/codegen/0081 + 0102).

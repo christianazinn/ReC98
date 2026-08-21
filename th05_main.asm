@@ -8861,6 +8861,8 @@ include th05/main/bullet/swords_add_update.asm
 
 ; Attributes: bp-based frame
 
+public YUMEKO_FLYSTEP_BOUNCE
+YUMEKO_FLYSTEP_BOUNCE	label near
 sub_1C9BE	proc near
 
 @@angle		= byte ptr -1
@@ -8922,6 +8924,8 @@ sub_1C9BE	endp
 
 ; Attributes: bp-based frame
 
+public _yumeko_1CA42
+_yumeko_1CA42	label near
 sub_1CA42	proc near
 		push	bp
 		mov	bp, sp
@@ -9048,6 +9052,8 @@ sub_1CAD7	endp
 
 ; Attributes: bp-based frame
 
+public _yumeko_1CB71
+_yumeko_1CB71	label near
 sub_1CB71	proc near
 
 @@angle		= byte ptr -1
@@ -9163,6 +9169,8 @@ sub_1CB71	endp
 
 ; Attributes: bp-based frame
 
+public _yumeko_1CCD3
+_yumeko_1CCD3	label near
 sub_1CCD3	proc near
 		push	bp
 		mov	bp, sp
@@ -9346,6 +9354,8 @@ sub_1CE0D	endp
 
 ; Attributes: bp-based frame
 
+public _yumeko_1CED9
+_yumeko_1CED9	label near
 sub_1CED9	proc near
 
 @@angle		= byte ptr -1
@@ -9486,6 +9496,8 @@ sub_1CED9	endp
 
 ; Attributes: bp-based frame
 
+public _yumeko_1D085
+_yumeko_1D085	label near
 yumeko_1D085	proc near
 		push	bp
 		mov	bp, sp
@@ -9592,348 +9604,30 @@ loc_1D1C4:
 yumeko_1D085	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1D1C6	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 32
-		jge	short loc_1D228
-		mov	ax, _boss_phase_frame
-		add	ax, -16
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (7 shl 16) or 6
-		cmp	_boss_phase_frame, 16
-		jnz	loc_1D269
-		mov	_boss_sprite, 184
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.patnum, PAT_BULLET16_V_BLUE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.spread, 18
-		mov	_bullet_template.BT_special_motion, BSM_DECELERATE_THEN_TURN
-		mov	_bullet_template.speed, (2 shl 4) + 6
-		call	_bullet_template_tune
-		call	snd_se_play pascal, 8
-		mov	_boss_statebyte[15], 0
-		mov	_bullet_special_turns_max, 2
-		mov	_boss_statebyte[14], 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1D228:
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1D269
-		mov	al, _boss_statebyte[14]
-		mov	_bullet_template.BT_angle, al
-		test	_boss_statebyte[15], 1
-		jz	short loc_1D252
-		mov	_bullet_template_special_angle.BSA_turn_by, 40h
-		mov	al, 80h
-		sub	al, _bullet_template.BT_angle
-		mov	_bullet_template.BT_angle, al
-		jmp	short loc_1D257
-; ---------------------------------------------------------------------------
-
-loc_1D252:
-		mov	_bullet_template_special_angle.BSA_turn_by, -40h
-
-loc_1D257:
-		call	_bullets_add_special_fixedspeed
-		inc	_boss_statebyte[14]
-		inc	_boss_statebyte[15]
-		call	snd_se_play pascal, 3
-
-loc_1D269:
-		pop	bp
-		retn
-sub_1D1C6	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @YUMEKO_UPDATE$QV
-@yumeko_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	eax, _boss_pos.cur
-		mov	_homing_target, eax
-		mov	_bullet_template.BT_origin, eax
-		mov	_gather_template.GT_center, eax
-		mov	sword_template.pos.cur, eax
-		inc	_boss_phase_frame
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 0Ah
-		ja	loc_1D50C
-		add	bx, bx
-		jmp	cs:off_1D524[bx]
-
-loc_1D29C:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1D2EF
-		mov	_boss_hp, 8300
-		mov	_boss_phase_end_hp, 7500
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_ring_points, 8
-		mov	_boss_sprite, 180
-		mov	_boss_pos.velocity.x, (4 shl 4)
-		mov	si, 193
-		jmp	short loc_1D2D7
-; ---------------------------------------------------------------------------
-
-loc_1D2D0:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_1D2D7:
-		cmp	si, 229
-		jl	short loc_1D2D0
-		mov	_boss_sprite_left, 180
-		mov	_boss_sprite_right, 180
-		mov	_boss_sprite_stay, 180
-
-loc_1D2EF:
-		cmp	_boss2_pos.cur.y, (-32 shl 4)
-		jl	short loc_1D320
-		sub	_boss2_pos.cur.y, (1 shl 4)
-		mov	_shot_hitbox_radius.x, (24 shl 4)
-		mov	_shot_hitbox_radius.y, (24 shl 4)
-		mov	eax, _boss2_pos.cur
-		mov	_shot_hitbox_center, eax
-		call	@shots_hittest$qv
-		or	ax, ax
-		jz	short loc_1D320
-		call	snd_se_play pascal, 10
-
-loc_1D320:
-		cmp	_boss_phase_frame, 64
-		jge	short loc_1D32D
-		call	@boss_hittest_shots_invincible$qv
-		jmp	loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D32D:
-		mov	_boss_sprite, 188
-		add	_boss_pos.cur.x, (2 shl 4)
-		cmp	_boss_pos.cur.x, (192 shl 4)
-		jl	loc_1D513
-		mov	_boss_sprite, 180
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_bg_render_bombing_func, offset @yumeko_bg_render$qv
-		jmp	loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D360:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 64
-		jl	loc_1D513
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		mov	_boss_phase_state, 0
-		mov	fp_2CE46, offset sub_1CA42
-		mov	_boss_custombullets_render, offset swords_render
-		jmp	loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D38F:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1D39F
-		cmp	ax, 1
-		jz	short loc_1D3EF
-		jmp	short loc_1D3F3
-; ---------------------------------------------------------------------------
-
-loc_1D39F:
-		push	(32 shl 16) or 64
-		call	sub_1C9BE
-		or	al, al
-		jz	short loc_1D3F3
-		mov	_boss_phase_frame, 0
-		inc	_boss_mode
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 20
-		jnb	short loc_1D40A
-		cmp	_boss_phase, 2
-		jnz	short loc_1D3DA
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 1
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_2282A[bx]
-		jmp	short loc_1D3EA
-; ---------------------------------------------------------------------------
-
-loc_1D3DA:
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 1
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_22832[bx]
-
-loc_1D3EA:
-		mov	fp_2CE46, ax
-		jmp	short loc_1D3F3
-; ---------------------------------------------------------------------------
-
-loc_1D3EF:
-		call	fp_2CE46
-
-loc_1D3F3:
-		cmp	_boss_mode, 0
-		jz	loc_1D513
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_1D513
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_1D40A:
-		cmp	_boss_phase, 2
-		jnz	short loc_1D41A
-		pushd	(0 shl 16) or 5700
-		jmp	loc_1D4B7
-; ---------------------------------------------------------------------------
-
-loc_1D41A:
-		push	(ET_HORIZONTAL shl 16) or 2700
-		jmp	loc_1D4B7
-; ---------------------------------------------------------------------------
-
-loc_1D423:
-		call	@boss_hittest_shots$qv
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or (64 shl 4)
-		call	@boss_flystep_towards$qii
-		or	al, al
-		jz	loc_1D513
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		cmp	_boss_phase, 4
-		jnz	short loc_1D44F
-		mov	fp_2CE46, offset sub_1CB71
-		jmp	loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D44F:
-		mov	fp_2CE46, offset sub_1CED9
-		jmp	loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D458:
-		call	fp_2CE46
-		cmp	_boss_phase_frame, 2000
-		jge	short loc_1D472
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_1D513
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_1D472:
-		cmp	_boss_phase, 4
-		jnz	short loc_1D48A
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NW_SE shl 16) or 4500
-		mov	fp_2CE46, offset sub_1CCD3
-		jmp	short loc_1D493
-; ---------------------------------------------------------------------------
-
-loc_1D48A:
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NW_SE shl 16) or 1200
-
-loc_1D493:
-		mov	_boss_mode, 1
-		jmp	short loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D49A:
-		call	yumeko_1D085
-		cmp	_boss_phase_frame, 2000
-		jge	short loc_1D4B1
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	short loc_1D513
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_1D4B1:
-		push	(ET_NW_SE shl 16) or 0
-
-loc_1D4B7:
-		call	@boss_phase_next$q16explosion_type_ti
-		jmp	short loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D4BC:
-		call	@boss_hittest_shots$qv
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or (96 shl 4)
-		call	@boss_flystep_towards$qii
-		or	al, al
-		jz	short loc_1D513
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		jmp	short loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D4DD:
-		call	sub_1D1C6
-		cmp	_boss_phase_frame, 1200
-		jge	short loc_1D4F4
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	short loc_1D513
-		mov	_boss_phase_state, 1
-
-loc_1D4F4:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		mov	_boss_custombullets_render, offset nullfunc_near
-		jmp	short loc_1D513
-; ---------------------------------------------------------------------------
-
-loc_1D50C:
-		call	@boss_defeat_update$qui pascal, 65
-		jmp	short loc_1D520
-; ---------------------------------------------------------------------------
-
-loc_1D513:
-		call	swords_update
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 8300
-
-loc_1D520:
-		pop	si
-		pop	bp
-		retf
-@yumeko_update$qv	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_1D524	dw offset loc_1D29C
-		dw offset loc_1D360
-		dw offset loc_1D38F
-		dw offset loc_1D423
-		dw offset loc_1D458
-		dw offset loc_1D38F
-		dw offset loc_1D423
-		dw offset loc_1D458
-		dw offset loc_1D49A
-		dw offset loc_1D4BC
-		dw offset loc_1D4DD
+; yumeko_update() is th05/main/boss/b5.cpp, compiled into th05/main035.cpp.
+; That object exists only to name this segment: the root's contribution had
+; no C++ successor here at all, and TLINK is handed this dump first, so a new
+; object naming main_035_TEXT lands at the segment's tail by construction
+; (kb/codegen 0112). No carve, no new segment name, no group-list edit -- one
+; translation unit and one Tupfile.lua line, and every later lift out of this
+; block grows that object backwards into the hole (kb/codegen 0099 + 0114).
+;
+; The one-byte alignment pad and the 11-entry jump table that used to follow
+; the function here are part of what it compiles to, so the C++ emits both
+; (kb/codegen 0104 + 0159 + 0160, state/re/JUMP_TABLE_TAILS.md).
+;
+; Nothing else in this dump called it, so it leaves no procdesc behind. What
+; it reaches back for is the ten zero-byte kb/codegen 0123 aliases this parcel
+; added: six in front of Yumeko's remaining bodies above, and
+; [_yumeko_pattern], [_YUMEKO_PATTERNS_PHASE_2] and
+; [_YUMEKO_PATTERNS_PHASE_5] in _BSS and _DATA below. Each one goes away again
+; with the body or table it names.
+;
+; Phase 10's body went with it and is th05/main/boss/b5.cpp too. It is 0xA5
+; bytes, and that ODD length is what gives the new object the prefix parity
+; yumeko_update()'s `-a2` pad needs (kb/codegen 0159 + 0160); at a zero
+; prefix the object came out one byte short and no per-function diff could
+; have seen it.
 main_035_TEXT	ends
 
 B6_UPDATE_TEXT	segment	byte public 'CODE' use16
@@ -12204,10 +11898,14 @@ off_22822	dw offset sub_1C194
 		dw offset sub_1C23D
 off_22826	dw offset sub_1BD2C
 		dw offset sub_1BDD0
+public _YUMEKO_PATTERNS_PHASE_2
+_YUMEKO_PATTERNS_PHASE_2	label word
 off_2282A	dw offset sub_1CA42
 		dw offset sub_1CAD7
 		dw 0
 		dw 0
+public _YUMEKO_PATTERNS_PHASE_5
+_YUMEKO_PATTERNS_PHASE_5	label word
 off_22832	dw offset sub_1CCD3
 		dw offset sub_1CE0D
 		dw 0
@@ -12648,6 +12346,8 @@ word_2CE3E	dw ?
 word_2CE40	dw ?
 fp_2CE42	dw ?
 fp_2CE44	dw ?
+public _yumeko_pattern
+_yumeko_pattern	label word
 fp_2CE46	dw ?
 public _shinki_phase_2_3_pattern, _shinki_wing_pattern
 _shinki_phase_2_3_pattern	dw ?
