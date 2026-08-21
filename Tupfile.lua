@@ -917,6 +917,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/slowdown.cpp",
 	"th04/entry.cpp",
 	"th04/stg_loop.cpp",
+	"th04/p_marisa.cpp",
 	"th04/laser_r.cpp",
 	"th04/gameover.cpp",
 	"th04/execl.cpp",
