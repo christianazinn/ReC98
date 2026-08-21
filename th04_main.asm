@@ -6557,7 +6557,24 @@ off_15B4D	dw offset loc_159A4
 
 include th04/main/boss/explosions_reset.asm
 include th04/main/boss/explode_small.asm
-include th04/main/boss/explode_big.asm
+	; boss_explode_big() now lives in th04/main/boss/explode_big.cpp, which
+	; th04/boss_4m.cpp #includes AHEAD of th04/main/boss/b4m.cpp: that object
+	; appends immediately after this contribution, so the lift moved the seam
+	; between the two and nothing else -- no carve, no new segment, no
+	; group-list edit and no Tupfile.lua line (kb/codegen 0099 + 0112 + 0114).
+	;
+	; It was the last emitting item of this root contribution. The tail is now
+	; th04/main/boss/explode_small.asm, which still defines and expands the
+	; EXPLOSION_TYPED macro that the lifted body was the other expansion of --
+	; so the module stays, and this class's next question about this segment is
+	; about that module rather than about a proc.
+	;
+	; The one remaining ASM call site is in main_033_TEXT, the same main_03
+	; group, so the call stays near. UPPER case because a `pascal` C++ function
+	; publishes that way; TASM's /mx resolves the case-only difference against
+	; the lower-case call site further down.
+	@BOSS_EXPLODE_BIG$QUI procdesc pascal near \
+		type:word
 
 	; The thick-laser API -- thicklasers_reset(), thicklaser_template_pull(),
 	; thicklaser_add() and thicklasers_update_and_hittest(), which are

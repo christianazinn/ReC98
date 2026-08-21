@@ -1,7 +1,10 @@
 /// Stage 4 Boss - Marisa
 /// ---------------------
-
-#pragma option -zCB4M_UPDATE_TEXT -zPmain_03
+/// (#included from th04/boss_4m.cpp, BELOW th04/main/boss/explode_big.cpp,
+/// which is the address order both had in the original. That wrapper now
+/// carries this object's `-zC`/`-zP` pragma, because `-zC` has to be seen
+/// before any code is generated and this file is no longer the first in the
+/// object — kb/codegen/0105.)
 
 // iatan2(), for the one Yuuka pattern that aims at the player.
 #include "libs/master.lib/master.hpp"
