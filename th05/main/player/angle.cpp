@@ -2,7 +2,7 @@
 #include "th05/main/player/player.hpp"
 
 unsigned char pascal near player_angle_from(
-	Subpixel x, Subpixel y, unsigned char plus_angle
+	subpixel_t x, subpixel_t y, unsigned char plus_angle
 )
 {
 	return (

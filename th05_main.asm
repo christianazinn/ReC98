@@ -3934,7 +3934,7 @@ enemy_velocity_set	endp
 
 sub_15330	proc near
 		push	es
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, [si+enemy_t.pos.cur.x], [si+enemy_t.pos.cur.y], word ptr [si+enemy_t.E_angle]
+		call	@player_angle_from$qiiuc pascal, [si+enemy_t.pos.cur.x], [si+enemy_t.pos.cur.y], word ptr [si+enemy_t.E_angle]
 		mov	[si+enemy_t.E_angle], al
 		pop	es
 		call	enemy_velocity_set
@@ -4376,7 +4376,7 @@ loc_15616:
 		add	ax, [si+enemy_t.E_bullet_template.BT_origin.y]
 		push	ax
 		push	word ptr es:[di+1]
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc
+		call	@player_angle_from$qiiuc
 		mov	[si+enemy_t.E_bullet_template.BT_angle], al
 		pop	es
 
@@ -4683,7 +4683,7 @@ PLAYER_A_TEXT	segment	byte public 'CODE' use16
 PLAYER_A_TEXT	ends
 
 BULLET_A_TEXT	segment	byte public 'CODE' use16
-	@PLAYER_ANGLE_FROM$Q20%SUBPIXELBASE$TI$TI%T1UC procdesc pascal near \
+	@PLAYER_ANGLE_FROM$QIIUC procdesc pascal near \
 		x:word, y:word, plus_angle:byte
 	@playperf_speedtune procdesc near
 	_bullets_add_regular procdesc near
@@ -5835,7 +5835,7 @@ loc_1AB53:
 		mov	[bp+@@angle], -40h
 
 loc_1AB57:
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
+		call	@player_angle_from$qiiuc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
 		mov	cheeto_template.CBTMPL_angle, al
 		call	@cheetos_add$qv
 		call	snd_se_play pascal, 15
@@ -5877,7 +5877,7 @@ loc_1ABAA:
 		mov	[bp+@@angle], -40h
 
 loc_1ABAE:
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
+		call	@player_angle_from$qiiuc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
 		mov	cheeto_template.CBTMPL_angle, al
 		call	@cheetos_add$qv
 		call	snd_se_play pascal, 15
@@ -7100,7 +7100,7 @@ loc_1B799:
 		add	al, (1 shl 4)
 		mov	_bullet_template.speed, al
 		call	_bullets_add_regular
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, b4ball_template.pos.cur.x, b4ball_template.pos.cur.y, 0
+		call	@player_angle_from$qiiuc pascal, b4ball_template.pos.cur.x, b4ball_template.pos.cur.y, 0
 		mov	b4ball_template.B4B_angle, al
 		call	b4balls_add
 		mov	al, b4ball_template.B4B_angle
@@ -8041,7 +8041,7 @@ loc_1C057:
 		idiv	bx
 		or	dx, dx
 		jnz	short loc_1C0AD
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, b4ball_template.pos.cur.x, b4ball_template.pos.cur.y, 20h
+		call	@player_angle_from$qiiuc pascal, b4ball_template.pos.cur.x, b4ball_template.pos.cur.y, 20h
 		mov	b4ball_template.B4B_angle, al
 		call	b4balls_add
 		mov	al, b4ball_template.B4B_angle
@@ -9097,11 +9097,11 @@ loc_1CBD2:
 		sub	_bullet_template.BT_origin.y, (16 shl 4)
 		or	si, si
 		jnz	short loc_1CC1F
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
+		call	@player_angle_from$qiiuc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
 		mov	_boss_statebyte[15], al
 		mov	ax, _bullet_template.BT_origin.x
 		add	ax, (64 shl 4)
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, ax, _bullet_template.BT_origin.y, 0
+		call	@player_angle_from$qiiuc pascal, ax, _bullet_template.BT_origin.y, 0
 		mov	_boss_statebyte[14], al
 
 loc_1CC1F:
@@ -9133,7 +9133,7 @@ loc_1CC3E:
 		call	@randring2_next16_mod$qui pascal, (352 shl 4)
 		add	ax, (16 shl 4)
 		mov	sword_template.pos.cur.x, ax
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, ax, sword_template.pos.cur.y, word ptr [bp+@@angle]
+		call	@player_angle_from$qiiuc pascal, ax, sword_template.pos.cur.y, word ptr [bp+@@angle]
 		mov	sword_template.SWORD_angle, al
 		call	swords_add
 
@@ -9405,11 +9405,11 @@ loc_1CF57:
 		sub	_bullet_template.BT_origin.y, (16 shl 4)
 		or	di, di
 		jnz	short loc_1CFA4
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
+		call	@player_angle_from$qiiuc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
 		mov	_boss_statebyte[15], al
 		mov	ax, _bullet_template.BT_origin.x
 		add	ax, (64 shl 4)
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, ax, _bullet_template.BT_origin.y, 0
+		call	@player_angle_from$qiiuc pascal, ax, _bullet_template.BT_origin.y, 0
 		mov	_boss_statebyte[14], al
 
 loc_1CFA4:
@@ -9437,7 +9437,7 @@ loc_1CFC3:
 		call	@randring2_next16_mod$qui
 		add	ax, (64 shl 4)
 		mov	_laser_template.coords.origin.x, ax
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, ax, _laser_template.coords.origin.y, 0
+		call	@player_angle_from$qiiuc pascal, ax, _laser_template.coords.origin.y, 0
 		mov	_laser_template.coords.angle, al
 		call	@lasers_shootout_add$qv
 		xor	si, si
@@ -9454,7 +9454,7 @@ loc_1CFFA:
 		call	@randring2_next16_mod$qui pascal, (352 shl 4)
 		add	ax, (16 shl 4)
 		mov	sword_template.pos.cur.x, ax
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, ax, sword_template.pos.cur.y, word ptr [bp+@@angle]
+		call	@player_angle_from$qiiuc pascal, ax, sword_template.pos.cur.y, word ptr [bp+@@angle]
 		mov	sword_template.SWORD_angle, al
 		call	swords_add
 		inc	si
@@ -9589,7 +9589,7 @@ loc_1D17C:
 		inc	_boss_statebyte[13]
 		cmp	_boss_statebyte[13], 5
 		ja	loc_1D110
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
+		call	@player_angle_from$qiiuc pascal, _bullet_template.BT_origin.x, _bullet_template.BT_origin.y, 0
 		mov	_bullet_template.BT_angle, al
 
 loc_1D1B9:
@@ -9923,7 +9923,7 @@ loc_1EAA9:
 		add	ax, _bullet_template.BT_origin.y
 		sub	ax, (32 shl 4)
 		mov	point_2CE52.y, ax
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, point_2CE52.x, ax, 0
+		call	@player_angle_from$qiiuc pascal, point_2CE52.x, ax, 0
 		mov	_boss_statebyte[15], al
 
 loc_1EAE3:
@@ -10172,7 +10172,7 @@ sub_1ECD4	proc near
 		jge	short loc_1ED67
 		or	di, di
 		jnz	short loc_1ED46
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, 30h
+		call	@player_angle_from$qiiuc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, 30h
 		mov	_laser_template.coords.angle, al
 		mov	ax, word_22870
 		inc	word_22870
@@ -10191,7 +10191,7 @@ sub_1ECD4	proc near
 loc_1ED46:
 		cmp	di, 8
 		jnz	short loc_1ED67
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, (-30h and 255)
+		call	@player_angle_from$qiiuc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, (-30h and 255)
 		mov	_laser_template.coords.angle, al
 		mov	ax, word_22870
 		inc	word_22870
@@ -10422,7 +10422,7 @@ loc_1EF54:
 		push	(-20h and 255)
 
 loc_1EF5F:
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc
+		call	@player_angle_from$qiiuc
 		mov	cheeto_template.CBTMPL_angle, al
 		call	@cheetos_add$qv
 		call	snd_se_play pascal, 15
@@ -10476,7 +10476,7 @@ loc_1EFB4:
 		push	(-40h and 255)
 
 loc_1EFBF:
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc
+		call	@player_angle_from$qiiuc
 		mov	cheeto_template.CBTMPL_angle, al
 		call	@cheetos_add$qv
 		call	snd_se_play pascal, 15
@@ -11220,7 +11220,7 @@ loc_1F72E:
 		inc	_midboss_sprite
 
 loc_1F732:
-		call	@player_angle_from$q20%SubpixelBase$ti$ti%t1uc pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, 0
+		call	@player_angle_from$qiiuc pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, 0
 		mov	_bullet_template.BT_angle, al
 		pop	bp
 		retn
