@@ -1,3 +1,13 @@
+#ifndef TH04_MAIN_ITEM_ITEM_HPP
+#define TH04_MAIN_ITEM_ITEM_HPP
+
+// Guarded because th04/enm_pos.cpp now reaches this file twice: once from the
+// midboss4_update() lift at its front, and once through
+// th04/main/enemy/enemy.hpp on the way to the two objects behind it. A second
+// expansion rejects every `static const` and every enumerator in it
+// (kb/codegen/0129). Byte-inert, and the same fix th04/main/phase.hpp already
+// carries for the same reason.
+
 #include "th04/main/playfld.hpp"
 #include "th02/main/entity.hpp"
 
@@ -106,3 +116,5 @@ extern unsigned int total_max_valued_point_items_collected;
 extern bool items_pull_to_player;
 
 void near items_invalidate();
+
+#endif /* TH04_MAIN_ITEM_ITEM_HPP */
