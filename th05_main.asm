@@ -3678,6 +3678,19 @@ loc_12833:
 
 ; Attributes: bp-based frame
 
+	; kb/codegen/0123, for alice_barrier_update() in B4_UPDATE_TEXT, which
+	; is this proc's only caller. The alias goes HERE, at the definition,
+	; and NOT as a procdesc in the caller's segment: a far procdesc binds
+	; the symbol to the segment block it is written in, and one written in
+	; B4_UPDATE_TEXT resolves the far fixup against group main_03 instead
+	; of main_01 (state/notes/sub_12842.md).
+	;
+	; The name is MATCH-TH05-MAIN-SHOTS-HITTEST-DAMAGE's, from the same
+	; note; that row is blocked on eight bytes of codegen, not on what this
+	; function is. The proc keeps IDA's spelling because the lift, when it
+	; lands, is that row's to make.
+	public _shots_hittest_revenge
+	_shots_hittest_revenge label far
 sub_12842	proc far
 
 var_B		= byte ptr -0Bh
@@ -7214,135 +7227,9 @@ loc_19CAE:
 sub_19C34	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public _sub_19CB0
-	_sub_19CB0 label near
-sub_19CB0	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		mov	eax, puppet0.pos.cur
-		cmp	eax, puppet0.pos.prev
-		jnz	locret_19E10
-		mov	eax, puppet1.pos.cur
-		cmp	eax, puppet1.pos.prev
-		jnz	locret_19E10
-		inc	word_2CE2E
-		cmp	word_2CE2E, 10h
-		jb	locret_19E10
-		cmp	word_2CE2E, 10h
-		jnz	short loc_19CFC
-		mov	_boss_statebyte[9], 1
-		mov	ax, 64
-		mov	puppet1.radius_gather, ax
-		mov	puppet0.radius_gather, ax
-		mov	_boss_statebyte[8], -3Ch
-		add	word_2CE30, 32
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19CFC:
-		cmp	word_2CE2E, 20h	; ' '
-		jb	locret_19E10
-		cmp	word_2CE2E, 40h
-		jnb	short loc_19D22
-		mov	_boss_statebyte[9], 2
-		mov	ax, 64
-		sub	ax, word_2CE2E
-		add	ax, ax
-		mov	puppet1.radius_gather, ax
-		mov	puppet0.radius_gather, ax
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19D22:
-		cmp	word_2CE2E, 50h	; 'P'
-		jnb	short loc_19D56
-		cmp	word_2CE2E, 40h
-		jnz	short loc_19D37
-		call	snd_se_play pascal, 8
-
-loc_19D37:
-		mov	_boss_statebyte[9], 3
-		cmp	word_2CE2E, 47h	; 'G'
-		jz	short loc_19D4C
-		cmp	word_2CE2E, 4Fh	; 'O'
-		jnz	locret_19E10
-
-loc_19D4C:
-		mov	al, _boss_statebyte[8]
-		add	al, 2
-		mov	_boss_statebyte[8], al
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19D56:
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_group, BG_SINGLE
-		call	_bullet_template_tune
-		mov	_shot_hitbox_radius.x, (56 shl 4)
-		mov	_shot_hitbox_radius.y, (8 shl 4)
-		mov	eax, puppet0.pos.cur
-		mov	_shot_hitbox_center, eax
-		add	_shot_hitbox_center.x, (64 shl 4)
-		call	sub_12842
-		mov	[bp+var_2], ax
-		cmp	[bp+var_2], 0
-		jz	short loc_19D9D
-		call	snd_se_play pascal, 9
-
-loc_19D9D:
-		mov	ax, _player_pos.cur.x
-		sub	ax, puppet0.pos.cur.x
-		cmp	ax, (128 shl 4)
-		jnb	short loc_19DBD
-		mov	ax, puppet0.pos.cur.y
-		sub	ax, _player_pos.cur.y
-		add	ax, (4 shl 4)
-		cmp	ax, (8 shl 4)
-		jnb	short loc_19DBD
-		mov	_player_is_hit, 1
-
-loc_19DBD:
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short locret_19E10
-		mov	ax, _boss_phase_frame
-		mov	bx, 256
-		cwd
-		idiv	bx
-		cmp	dx, word_2CE30
-		jnb	short locret_19E10
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.BT_stack, (6 shl 8) or 8
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-locret_19E10:
-		leave
-		retn
-sub_19CB0	endp
+; alice_barrier_update() is th05/main/boss/b3.cpp too, immediately ahead of
+; the four pattern bodies named below. Its two _BSS words went with it, as
+; alice_barrier_frame and alice_barrier_fire_frames.
 
 
 
@@ -7391,8 +7278,8 @@ sub_19CB0	endp
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
-	; the four pattern bodies that followed them; the root's tail here
-	; is now sub_19CB0.
+	; the four pattern bodies and the barrier that followed them; the
+	; root's tail here is now sub_19C34.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -14917,12 +14804,13 @@ fp_2CE2A	dw ?
 public _fp_2CE2C
 _fp_2CE2C	label word
 fp_2CE2C	dw ?
-public _word_2CE2E
-_word_2CE2E	label word
-word_2CE2E	dw ?
-public _word_2CE30
-_word_2CE30	label word
-word_2CE30	dw ?
+; state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2. Both lost their second,
+; ASM-internal label with alice_barrier_update(): nothing in this dump reads
+; either word any more.
+public _alice_barrier_frame
+_alice_barrier_frame	dw ?
+public _alice_barrier_fire_frames
+_alice_barrier_fire_frames	dw ?
 public _fp_2CE32
 _fp_2CE32	label word
 fp_2CE32	dw ?

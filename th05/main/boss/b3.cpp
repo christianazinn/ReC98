@@ -61,7 +61,21 @@
 // register live at any call site.
 extern "C" void near sub_19B04(void);  // Alice's own gather + cloud attack
 extern "C" void near sub_19634(void);  // steps both puppets along a shrinking spiral
-extern "C" void near sub_19CB0(void);  // the barrier phase, driven by [word_2CE2E]
+
+// The barrier's revenge hittest: a second copy of shots_hittest() that also
+// spawns a bullet from every shot that lands. Still th05_main.asm's
+// `sub_12842 proc far` in MAIN_01_TEXT, reached through a kb/codegen/0123
+// alias this parcel adds beside that definition -- `far`, and declared here
+// rather than beside shots_hittest() in th04/main/player/shot.hpp, because its
+// lift is the BLOCKED row MATCH-TH05-MAIN-SHOTS-HITTEST-DAMAGE and that row
+// owns where the function finally lands (state/notes/sub_12842.md).
+//
+// The name is not this parcel's invention and is not a placeholder: that row
+// chose it, its preserved branch is named for it, and the evidence is upstream's
+// own -- th04/main/bullet/bullet.hpp documents bullets_add_regular_far() as
+// used only for "the revenge bullets fired from Stage 3 Alice's barrier", and
+// this proc is its only call site in either game.
+extern "C" int far shots_hittest_revenge(void);
 
 // [measured] `bool pascal near f(puppet_t near *)`: one word parameter equate,
 // `retn 2`, and the result is read out of AL by puppets_update(), which
@@ -79,11 +93,12 @@ extern "C" bool pascal near sub_19AFB(puppet_t near *puppet);
 extern "C" puppet_func_t fp_2CE2A;
 extern "C" puppet_func_t fp_2CE2C;
 
-// [measured] Both are read by sub_19CB0() only. [word_2CE2E] counts frames
-// once both puppets have come to rest; [word_2CE30] widens the window inside
-// which the barrier phase adds bullets.
-extern "C" int word_2CE2E;
-extern "C" int word_2CE30;
+// state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2. Both are UNSIGNED: every one
+// of the barrier's five sub-state tests compiles to `jb`/`jnb`, and the
+// fire-window test compares a signed `%` result against the second of these,
+// which is what promotes it.
+extern "C" unsigned int alice_barrier_frame;
+extern "C" unsigned int alice_barrier_fire_frames;
 
 // [measured] The structural twin of [sara_phase_2_3_pattern] and
 // SARA_PATTERNS_PHASE_2_3 in b1.cpp: a currently selected pattern function,
@@ -150,6 +165,108 @@ static const int PATTERNS_PER_PHASE = 24;
 // form against naming_precheck's own PLACEHOLDER_RE and it is not a
 // placeholder. The table reaches all three through procdesc lines in
 // B4_UPDATE_TEXT.
+
+// Alice's barrier: the horizontal beam her two puppets hold between them.
+// Only advances while both puppets are standing still, and then steps through
+// five sub-states on [alice_barrier_frame] -- gather in, gather out, a pause
+// that walks the beam's angle, and finally the live beam, which hittests the
+// player, feeds the revenge hittest, and adds aimed stacks for the first
+// [alice_barrier_fire_frames] of every 256 [boss.phase_frame]s.
+void near alice_barrier_update(void)
+{
+	int damage;
+
+	if(
+		reinterpret_cast<uint32_t near &>(puppets[0].pos.cur) !=
+		reinterpret_cast<uint32_t near &>(puppets[0].pos.prev)
+	) {
+		return;
+	}
+	if(
+		reinterpret_cast<uint32_t near &>(puppets[1].pos.cur) !=
+		reinterpret_cast<uint32_t near &>(puppets[1].pos.prev)
+	) {
+		return;
+	}
+	alice_barrier_frame++;
+	if(alice_barrier_frame < 0x10) {
+		return;
+	}
+	if(alice_barrier_frame == 0x10) {
+		boss_statebyte[9] = 1;
+		puppets[0].radius.gather = puppets[1].radius.gather = 64;
+		boss_statebyte[8] = -0x3C;
+		alice_barrier_fire_frames += 32;
+		return;
+	}
+	if(alice_barrier_frame < 0x20) {
+		return;
+	}
+	if(alice_barrier_frame < 0x40) {
+		boss_statebyte[9] = 2;
+		puppets[0].radius.gather = puppets[1].radius.gather = (
+			(64 - alice_barrier_frame) * 2
+		);
+		return;
+	}
+	if(alice_barrier_frame < 0x50) {
+		if(alice_barrier_frame == 0x40) {
+			snd_se_play(8);
+		}
+		boss_statebyte[9] = 3;
+		if((alice_barrier_frame == 0x47) || (alice_barrier_frame == 0x4F)) {
+			boss_statebyte[8] += 2;
+		}
+		return;
+	}
+
+	// The beam is live from here on.
+	bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+	bullet_template.patnum = 0; // pellet
+	bullet_template.speed.set(1.5f);
+	bullet_template.group = BG_SINGLE;
+	bullet_template_tune();
+
+	shot_hitbox_radius.x.v = to_sp(56.0f);
+	shot_hitbox_radius.y.v = to_sp(8.0f);
+	shot_hitbox_center = puppets[0].pos.cur;
+	shot_hitbox_center.x.v += to_sp(64.0f);
+	damage = shots_hittest_revenge();
+	if(damage != 0) {
+		snd_se_play(9);
+	}
+
+	if(
+		static_cast<unsigned>(
+			player_pos.cur.x.v - puppets[0].pos.cur.x.v
+		) < static_cast<unsigned>(to_sp(128.0f))
+	) {
+		if(
+			static_cast<unsigned>(
+				(puppets[0].pos.cur.y.v - player_pos.cur.y.v) + to_sp(4.0f)
+			) < static_cast<unsigned>(to_sp(8.0f))
+		) {
+			player_is_hit = true;
+		}
+	}
+
+	if((boss.phase_frame % 16) != 0) {
+		return;
+	}
+	if((boss.phase_frame % 256) >= alice_barrier_fire_frames) {
+		return;
+	}
+	bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+	bullet_template.group = BG_STACK_AIMED;
+	bullet_template.angle = 0x00;
+	bullet_template.origin.x.v = boss.pos.cur.x.v;
+	bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+	bullet_template.set_stack(8, 0.375f);
+	bullet_template.speed.set(2.0f);
+	bullet_template_tune();
+	bullets_add_regular();
+	snd_se_play(3);
+}
 
 // Charges a 3-stack gather for 64 frames, then, on frame 64 alone, fires three
 // shoot-out lasers -- one aimed, one 16 units clockwise, one 16 counter-
@@ -375,7 +492,7 @@ void pascal alice_update(void)
 				boss.phase_frame = 0;
 				boss.phase_state.patterns_seen = 0;
 				boss_statebyte[7] = 0;
-				word_2CE30 = 160;
+				alice_barrier_fire_frames = 160;
 			}
 		}
 		break;
@@ -426,7 +543,7 @@ void pascal alice_update(void)
 		} else {
 			boss.phase_end_hp = 0;
 		}
-		word_2CE2E = 0;
+		alice_barrier_frame = 0;
 		break;
 
 	case (PHASE_PATTERN_1 + 1):
@@ -464,7 +581,7 @@ void pascal alice_update(void)
 		puppets[0].hp = PUPPET_HP;
 		puppets[1].hp = PUPPET_HP;
 		fp_2CE2A = fp_2CE2C = sub_19AFB;
-		sub_19CB0();
+		alice_barrier_update();
 		boss_hittest_shots();
 
 		// Timeout condition
