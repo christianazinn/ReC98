@@ -30,6 +30,10 @@
 #include "th04/main/homing.hpp"
 #include "th04/main/pattern.hpp"
 #include "th04/main/hud/hud.hpp"
+// Both unguarded and both new to this object: nothing b3.cpp or
+// th05/main/boss/b4_both.cpp already reaches declares either.
+#include "th04/main/circle.hpp"
+#include "th04/main/frames.h"
 #include "th04/main/bullet/clearzap.hpp"
 // Supplies th05/main/boss/boss.hpp, which b4_both.cpp used to include itself.
 // Unguarded, and this file compiles ahead of that one in the same object, so
@@ -83,8 +87,6 @@ typedef bool (pascal near *near puppet_func_t)(puppet_t near *puppet);
 
 extern "C" bool pascal near sub_198B7(puppet_t near *puppet);
 extern "C" bool pascal near sub_19928(puppet_t near *puppet);
-extern "C" bool pascal near sub_19A84(puppet_t near *puppet);
-extern "C" bool pascal near sub_19AFB(puppet_t near *puppet);
 
 // [measured] puppets_update() calls [fp_2CE2A] for puppet 0 and [fp_2CE2C] for
 // puppet 1, selecting between them with an `if` on the loop index rather than
@@ -164,6 +166,58 @@ static const int PATTERNS_PER_PHASE = 24;
 // form against naming_precheck's own PLACEHOLDER_RE and it is not a
 // placeholder. The table reaches all three through procdesc lines in
 // B4_UPDATE_TEXT.
+
+// The three puppet callbacks nothing else in the dump reaches by table.
+// state/re/NAMING_REVIEW_VERDICTS_19.md section 10.1 decided the
+// address-suffixed form for this whole set, precisely so that no two members
+// of it are spelled differently, and measured that form against
+// naming_precheck's own PLACEHOLDER_RE. It ruled on 19A84 and 19AFB by name;
+// 19AE3 is the same shape, the same signature and the same set, so it takes
+// the same form rather than a guess.
+//
+// [measured] The cel is PAT_PUPPET + 4, from the same base as PAT_PUPPET
+// itself; the tree has no name for it and one use in the binary.
+
+// Adds a shrinking circle at frame 16, then, from frame 32 on, an aimed spread
+// of pellets every 32nd GLOBAL stage frame -- not the puppet's own. Never
+// returns true, so a puppet running it never cycles to another.
+bool pascal near alice_puppet_pattern_19A84(puppet_t near *puppet)
+{
+	if(puppet->phase_frame == 16) {
+		circles_add_shrinking(puppet->pos.cur.x.v, puppet->pos.cur.y.v);
+	}
+	if(puppet->phase_frame >= 32) {
+		puppet->patnum = (PAT_PUPPET + 4);
+		if((stage_frame & 0x1F) == 0) {
+			bullet_template.patnum = 0; // pellet
+			bullet_template.origin = puppet->pos.cur;
+			bullet_template.spawn_type = BST_NO_DECELERATE;
+			bullet_template.speed.set(1.5f);
+			bullet_template.group = BG_SPREAD_AIMED;
+			bullet_template.set_spread(7, 12);
+			bullet_template.angle = 0x00;
+			bullet_template_tune();
+			bullets_add_regular();
+		}
+	}
+	return false;
+}
+
+// Fires nothing; just waits out 96 frames and then lets puppets_update()
+// reseed the puppet.
+bool pascal near alice_puppet_pattern_19AE3(puppet_t near *puppet)
+{
+	if(puppet->phase_frame >= 96) {
+		return true;
+	}
+	return false;
+}
+
+// The "do nothing, ever" member of the set: fires nothing and never ends.
+bool pascal near alice_puppet_pattern_19AFB(puppet_t near *puppet)
+{
+	return false;
+}
 
 // [measured] A third Alice cel, from the same base, and the only sprite this
 // one pattern shows. Nothing in the tree says what it depicts and it is used
@@ -677,7 +731,7 @@ void pascal alice_update(void)
 		puppets[1].pos.prev.y.v = to_sp(128.0f);
 		puppets[0].hp = PUPPET_HP;
 		puppets[1].hp = PUPPET_HP;
-		fp_2CE2A = fp_2CE2C = sub_19AFB;
+		fp_2CE2A = fp_2CE2C = alice_puppet_pattern_19AFB;
 		// Both this phase and phase 13 fly back to the same point and end the
 		// same way, and the original shares that ending: the branch below
 		// jumps into phase 13's copy rather than carrying one of its own.
@@ -702,7 +756,7 @@ void pascal alice_update(void)
 		puppets[1].pos.prev.y.v = to_sp(128.0f);
 		puppets[0].hp = PUPPET_HP;
 		puppets[1].hp = PUPPET_HP;
-		fp_2CE2A = fp_2CE2C = sub_19AFB;
+		fp_2CE2A = fp_2CE2C = alice_puppet_pattern_19AFB;
 		alice_barrier_update();
 		boss_hittest_shots();
 
@@ -732,7 +786,7 @@ void pascal alice_update(void)
 		puppets[1].pos.prev.y.v = to_sp(128.0f);
 		puppets[0].hp = PUPPET_HP;
 		puppets[1].hp = PUPPET_HP;
-		fp_2CE2A = fp_2CE2C = sub_19A84;
+		fp_2CE2A = fp_2CE2C = alice_puppet_pattern_19A84;
 		if(!boss_flystep_towards(to_sp(PLAYFIELD_W / 2), to_sp(64.0f))) {
 			goto flystep_hittest;
 		}
@@ -749,7 +803,7 @@ void pascal alice_update(void)
 		puppets[0].pos.prev.y.v = to_sp(128.0f);
 		puppets[1].pos.prev.x.v = to_sp(320.0f);
 		puppets[1].pos.prev.y.v = to_sp(128.0f);
-		fp_2CE2A = fp_2CE2C = sub_19A84;
+		fp_2CE2A = fp_2CE2C = alice_puppet_pattern_19A84;
 		pattern_red_spreads();
 
 		// Timeout condition

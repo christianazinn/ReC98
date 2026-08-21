@@ -6696,12 +6696,12 @@ loc_19851:
 		mov	[si+puppet_t.PUPPET_patnum], 192
 		cmp	[bp+@@i], 0
 		jnz	short loc_19897
-		mov	fp_2CE2A, offset sub_19AE3
+		mov	fp_2CE2A, offset @ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T
 		jmp	short loc_1989D
 ; ---------------------------------------------------------------------------
 
 loc_19897:
-		mov	fp_2CE2C, offset sub_19AE3
+		mov	fp_2CE2C, offset @ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T
 
 loc_1989D:
 		sub	_boss_hp, 300
@@ -6945,90 +6945,10 @@ loc_19A7F:
 sub_19A0F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public SUB_19A84
-	SUB_19A84 label near
-sub_19A84	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 16
-		jnz	short loc_19A9C
-		call	@circles_add_shrinking$qii pascal, [si+puppet_t.pos.cur.x], [si+puppet_t.pos.cur.y]
-
-loc_19A9C:
-		cmp	[si+puppet_t.phase_frame], 32
-		jb	short loc_19ADC
-		mov	[si+puppet_t.PUPPET_patnum], 194
-		test	byte ptr _stage_frame, 1Fh
-		jnz	short loc_19ADC
-		mov	_bullet_template.patnum, 0
-		mov	eax, dword ptr [si+puppet_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 7
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_19ADC:
-		mov	al, 0
-		pop	si
-		pop	bp
-		retn	2
-sub_19A84	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19AE3	proc near
-
-@@puppet		= word ptr  4
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+@@puppet]
-		cmp	[si+puppet_t.phase_frame], 96
-		jb	short loc_19AF4
-		mov	al, 1
-		jmp	short loc_19AF6
-; ---------------------------------------------------------------------------
-
-loc_19AF4:
-		mov	al, 0
-
-loc_19AF6:
-		pop	si
-		pop	bp
-		retn	2
-sub_19AE3	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public SUB_19AFB
-	SUB_19AFB label near
-sub_19AFB	proc near
-		push	bp
-		mov	bp, sp
-		mov	al, 0
-		pop	bp
-		retn	2
-sub_19AFB	endp
+; alice_puppet_pattern_19A84(), _19AE3() and _19AFB() are th05/main/boss/b3.cpp
+; as well. None of the three is an [off_22768] entry: alice_update() assigns
+; the first and the last directly, and puppets_update() just above assigns the
+; middle one, which is why only that one needs a procdesc below.
 
 
 
@@ -7091,8 +7011,8 @@ sub_19AFB	endp
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
-	; every one of Alice's pattern bodies and her barrier; the root's
-	; tail here is now sub_19AFB, the last of her four puppet callbacks.
+	; every one of Alice's pattern bodies, her barrier and three of her
+	; puppet callbacks; the root's tail here is now sub_19A0F.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -7104,6 +7024,11 @@ sub_19AFB	endp
 	; ALL twelve entries of [off_22770] in _DATA below, across six
 	; distinct bodies. None
 	; carries an argument list, so TASM leaves the case alone.
+	; puppets_update() takes this one's address. No argument list, so
+	; TASM leaves the case alone -- and `pascal` has already
+	; upper-cased the mangled name anyway.
+	@ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T procdesc pascal near
+
 	@alice_pattern_19B9E$qv procdesc near
 	@alice_pattern_19BB8$qv procdesc near
 	@alice_pattern_19C34$qv procdesc near
