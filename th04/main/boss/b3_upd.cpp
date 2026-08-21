@@ -11,11 +11,19 @@
 
 #include "platform.h"
 #include "pc98.h"
+// iatan2(), which four of Elly's patterns aim with.
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/v_colors.hpp"
 #include "th02/main/player/player.hpp"
 #include "th03/hardware/palette.hpp"
+#include "th03/math/polar.hpp"
 #include "th04/snd/snd.h"
 #include "th04/sprites/main_pat.h"
+#include "th04/math/randring.hpp"
+#include "th04/main/circle.hpp"
+#include "th04/main/gather.hpp"
+#include "th04/main/player/player.hpp"
 #include "th04/main/bg.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/homing.hpp"
@@ -28,33 +36,11 @@
 
 /// Still ASM
 /// ---------
-// Elly's patterns and her one per-frame helper, all of them in this same
-// segment and all private to ZUN's object, so each needed a zero-byte `label`
-// alias in th04_main.asm to become linkable (kb/codegen/0123). The
-// address-suffixed names are the dump's own; naming them belongs to whoever
-// lifts them.
-extern "C" {
-	// Runs on every frame of the fight, before the phase dispatch.
-	void near elly_1B95C(void);
-
-	// The scythe spin between two patterns.
-	void near elly_1BC73(void);
-
-	// Phase 1's only pattern.
-	void near elly_1BD23(void);
-
-	// The nine [boss.mode] patterns of the fight proper, in the order the
-	// sparse value table lists them.
-	void near elly_1BD4B(void);  // 0
-	void near elly_1BE78(void);  // 1
-	void near elly_1BF52(void);  // 2
-	void near elly_1BFAB(void);  // 3
-	void near elly_1C044(void);  // 4
-	void near elly_1C0BF(void);  // 5
-	void near elly_1C164(void);  // 6
-	void near elly_1C1CF(void);  // 7
-	void near elly_1C251(void);  // 8
-}
+// Elly's boomerang driver, in this same segment and private to ZUN's object,
+// so it needed a zero-byte `label` alias in th04_main.asm to become linkable
+// (kb/codegen/0123). Runs on every frame of the fight, before the phase
+// dispatch. The address-suffixed name is the dump's own.
+extern "C" void near elly_1B95C(void);
 
 // Elly's fight state, all of it th04_main.asm `.data?` with no `public` of
 // ZUN's. **A naming round is owed for all four.**
@@ -96,6 +82,496 @@ static const int ELLY_FIGHT_START_FRAME = 9240;
 // Frames the scythe spin between two patterns lasts.
 static const int ELLY_SPIN_FRAMES = 32;
 /// ---------
+
+/// Elly's patterns
+/// ---------------
+/// All fourteen of these sat directly above elly_update() in ZUN's object, and
+/// every one of them is reached from its `switch(boss.mode)` or from another
+/// of the fourteen and from nowhere else, so all fourteen are `static` here
+/// and the eleven zero-byte `label` aliases th04_main.asm carried for them are
+/// gone with the bodies. They keep the dump's address-suffixed names;
+/// **a naming round is owed** for all fourteen.
+
+// Four more of Elly's `.data?` bytes, all of them still read by `elly_1B95C`
+// — the boomerang driver, which is still ASM two segments up — so all four
+// take zero-byte `label` aliases rather than renames (kb/codegen/0123). They
+// keep address-suffixed names on the same terms as [elly_25A26] beside them;
+// what the fourteen below show of them is:
+//
+// • [elly_25A34] and [elly_25A36] are the boomerang's flight: a frame counter
+//   and the angle elly_1BC3C() aims it at.
+// • [elly_25A37] and [elly_25A38] are its throw budget and its return state,
+//   both re-armed by elly_1BC3C() and consumed by elly_1B95C().
+extern "C" {
+	extern int elly_25A34;
+	extern unsigned char elly_25A36;
+	extern unsigned char elly_25A37;
+	extern unsigned char elly_25A38;
+}
+
+// Re-arms the boomerang: eight throws, aimed at the player, from this frame.
+static void near elly_1BC3C(void)
+{
+	elly_25A37 = 8;
+	elly_25A36 = iatan2(
+		(player_pos.cur.y.v - boss.pos.cur.y.v),
+		(player_pos.cur.x.v - boss.pos.cur.x.v)
+	);
+	elly_25A26 = 1;
+	elly_25A34 = 0;
+	elly_25A27 = 0;
+	elly_25A38 = 0;
+}
+
+// One frame of Elly's scythe orbit. [elly_25A3A] is the tick every pattern
+// that calls this one advances; the six ranges below are the orbit's phases,
+// and [boss.pos.prev.x] is reused as its radius rather than as a position.
+static void near elly_1BC73(void)
+{
+	if(elly_25A3A < 128) {
+		boss.pos.prev.x.v += 8;
+		boss.angle = 96;
+	} else if(elly_25A3A < 256) {
+		boss.angle--;
+	} else if(elly_25A3A < 384) {
+		boss.pos.prev.x.v -= 8;
+	} else if(elly_25A3A < 512) {
+		boss.pos.prev.x.v += 8;
+		boss.angle = 32;
+	} else if(elly_25A3A < 640) {
+		boss.angle++;
+	} else if(elly_25A3A < 768) {
+		boss.pos.prev.x.v -= 8;
+	} else if(elly_25A3A >= 768) {
+		boss.pos.prev.x.v += 8;
+		boss.angle = 96;
+		elly_25A3A = 0;
+	}
+	boss.pos.cur.x.v = polar_x(TO_SP(192), boss.pos.prev.x.v, boss.angle);
+	boss.pos.cur.y.v = polar_y(TO_SP(96), boss.pos.prev.x.v, boss.angle);
+}
+
+// Phase 1: throw the boomerang once and wait for it to come back.
+static void near elly_1BD23(void)
+{
+	if(boss.phase_frame == 32) {
+		elly_1BC3C();
+	}
+	if(boss.phase_frame > 32) {
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+
+// [boss.mode] 0: the boomerang plus a 5-way spread every 16th stage frame,
+// walking one sixteenth of a turn anticlockwise per volley.
+static void near elly_1BD4B(void)
+{
+	elly_1BC73();
+	elly_25A3A++;
+	if(boss.phase_frame == 16) {
+		elly_1BC3C();
+		bullet_template.angle = -0x40;
+	}
+	if(boss.phase_frame > 16) {
+		if(stage_frame_mod16 == 0) {
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.patnum = PAT_BULLET16_D_YELLOW;
+			bullet_template.speed.v = TO_SP(3);
+			bullet_template.group = BG_SPREAD;
+			bullet_template.count = 5;
+			bullet_template.delta.spread_angle = 0x10;
+			bullet_template_tune();
+			bullets_add_regular();
+			_AL = bullet_template.angle;
+			_AL += -0x10;
+			bullet_template.angle = _AL;
+		}
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+
+// The four-frame gather animation that opens Elly's three big patterns, and
+// the schedule it hands them back: 0 once it is over, 1 while it is running,
+// and 2 on the one frame the pattern fires. Its `switch` is sparse, which is
+// what the value/jump table pair and the one padding byte behind this function
+// are (kb/codegen/0160).
+#pragma option -a2
+static unsigned char near elly_1BDB4(void)
+{
+	if(boss.phase_frame > 32) {
+		return 0;
+	}
+	switch(boss.phase_frame) {
+	case 1:
+		gather_template.center.x.v = boss.pos.cur.x.v;
+		gather_template.center.y.v = boss.pos.cur.y.v;
+		gather_template.ring_points = 8;
+		gather_template.radius.v = TO_SP(192);
+		gather_template.col = V_WHITE;
+gathers:
+		// One ring each way, so the two cross.
+		gather_template.angle_delta = -2;
+		gather_add_only();
+		gather_template.angle_delta = 2;
+		gather_add_only();
+		break;
+
+	case 0x10:
+		circles_add_shrinking(boss.pos.cur.x.v, boss.pos.cur.y.v);
+		circles_color = V_WHITE;
+		// fall through
+	case 8:
+		gather_template.col = 7;
+		goto gathers;
+
+	case 0x20:
+		return 2;
+	}
+	return 1;
+}
+#pragma option -a1
+
+// The 48-bullet backwards-cloud ring every one of those three patterns ends
+// with, and the only thing that ends them.
+static void near elly_1BE43(void)
+{
+	boss.mode = 255;
+	boss.phase_frame = 0;
+	bullet_template.angle = 0;
+	bullet_template.spawn_type = BST_BULLET16_CLOUD_BACKWARDS;
+	bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+	bullet_template.speed.v = TO_SP(2);
+	bullet_template.group = BG_RING_AIMED;
+	bullet_template.count = 48;
+	bullet_template_tune();
+	bullets_add_regular_fixedspeed();
+}
+
+// [boss.mode] 1: two sweeps of 2-way pellet spreads, the first walking
+// clockwise and the second anticlockwise from a quarter turn on.
+static void near elly_1BE78(void)
+{
+	_AX = elly_1BDB4();
+	if(_AX != 0) {
+		if(_AX != 2) {
+			return;
+		}
+		_AL = iatan2(
+			(player_pos.cur.y.v - boss.pos.cur.y.v),
+			(player_pos.cur.x.v - boss.pos.cur.x.v)
+		);
+		_AL += -0x40;
+		goto store_angle;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		snd_se_play(9);
+	}
+	if(boss.phase_frame < 72) {
+		if((boss.phase_frame % 2) != 0) {
+			return;
+		}
+		bullet_template.spawn_type = BST_PELLET;
+		bullet_template.speed.v = TO_SP(4);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 2;
+		bullet_template.delta.spread_angle = 0x0C;
+		bullet_template_tune();
+		bullets_add_regular();
+		_AL = bullet_template.angle;
+		_AL += 4;
+		goto store_angle;
+	}
+	if(boss.phase_frame == 72) {
+		_AL = bullet_template.angle;
+		_AL += 0x40;
+		goto store_angle;
+	}
+	if(boss.phase_frame < 144) {
+		if((boss.phase_frame % 2) != 0) {
+			return;
+		}
+		bullet_template.spawn_type = BST_PELLET;
+		bullet_template.speed.v = TO_SP(4);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 2;
+		bullet_template.delta.spread_angle = 0x0C;
+		bullet_template_tune();
+		bullets_add_regular();
+		_AL = bullet_template.angle;
+		_AL += -2;
+store_angle:
+		bullet_template.angle = _AL;
+		return;
+	}
+	if(boss.phase_frame >= 144) {
+		elly_1BE43();
+	}
+}
+
+// [boss.mode] 2: the boomerang plus an aimed 8-ring every 16th frame.
+static void near elly_1BF52(void)
+{
+	elly_1BC73();
+	elly_25A3A++;
+	if(boss.phase_frame == 16) {
+		elly_1BC3C();
+	}
+	if(boss.phase_frame > 16) {
+		if((boss.phase_frame % 16) == 0) {
+			bullet_template.angle = 0;
+			bullet_template.spawn_type = BST_PELLET;
+			bullet_template.speed.v = TO_SP(2);
+			bullet_template.group = BG_RING_AIMED;
+			bullet_template.count = 8;
+			bullets_add_regular();
+		}
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+
+// [boss.mode] 3: an accelerating fan of 4-way white spreads, walking 0x0B
+// clockwise per volley.
+static void near elly_1BFAB(void)
+{
+	_AX = elly_1BDB4();
+	if(_AX != 0) {
+		if(_AX != 2) {
+			return;
+		}
+		_AL = iatan2(
+			(player_pos.cur.y.v - boss.pos.cur.y.v),
+			(player_pos.cur.x.v - boss.pos.cur.x.v)
+		);
+		_AL += -0x40;
+		goto store_angle;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		snd_se_play(9);
+	}
+	if(boss.phase_frame < 80) {
+		if((boss.phase_frame % 4) != 0) {
+			return;
+		}
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		_AL = (boss.phase_frame / 8);
+		_AL += (TO_SP(2) + 12);
+		bullet_template.speed.v = _AL;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 4;
+		bullet_template.delta.spread_angle = 0x0C;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_WHITE;
+		bullet_template_tune();
+		bullets_add_regular();
+		_AL = bullet_template.angle;
+		_AL += 0x0B;
+store_angle:
+		bullet_template.angle = _AL;
+		return;
+	}
+	if(boss.phase_frame >= 80) {
+		elly_1BE43();
+	}
+}
+
+// [boss.mode] 4: two scythe steps per frame, and a mirrored pair of aimed
+// single bullets every 8th stage frame.
+static void near elly_1C044(void)
+{
+	elly_1BC73();
+	elly_25A3A++;
+	elly_1BC73();
+	elly_25A3A++;
+	if(boss.phase_frame == 16) {
+		elly_1BC3C();
+		bullet_template.angle = 0x40;
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		bullet_template.speed.v = TO_SP(4);
+		bullet_template.group = BG_SINGLE_AIMED;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template_tune();
+	}
+	if(boss.phase_frame > 16) {
+		if(stage_frame_mod8 == 0) {
+			bullets_add_regular();
+			_AL = bullet_template.angle;
+			_AL = -_AL;
+			bullet_template.angle = _AL;
+			bullets_add_regular();
+			_AL = bullet_template.angle;
+			_AL = -_AL;
+			_AL += -3;
+			bullet_template.angle = _AL;
+			snd_se_play(3);
+		}
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+
+// [boss.mode] 5: elly_1BFAB() mirrored — the fan walks the other way, and the
+// aimed frame adds a quarter turn instead of subtracting one.
+static void near elly_1C0BF(void)
+{
+	_AX = elly_1BDB4();
+	if(_AX != 0) {
+		if(_AX != 2) {
+			return;
+		}
+		_AL = iatan2(
+			(player_pos.cur.y.v - boss.pos.cur.y.v),
+			(player_pos.cur.x.v - boss.pos.cur.x.v)
+		);
+plus_quarter:
+		_AL += 0x40;
+		goto store_angle;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		snd_se_play(9);
+	}
+	if(boss.phase_frame < 80) {
+		if((boss.phase_frame % 4) != 0) {
+			return;
+		}
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		_AL = (boss.phase_frame / 8);
+		_AL += (TO_SP(2) + 12);
+		bullet_template.speed.v = _AL;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 4;
+		bullet_template.delta.spread_angle = 0x0C;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_WHITE;
+		bullet_template_tune();
+		bullets_add_regular();
+		_AL = bullet_template.angle;
+		_AL += -0x0B;
+store_angle:
+		bullet_template.angle = _AL;
+		return;
+	}
+
+	// The frame the fan ends on re-enters the quarter-turn block ABOVE with
+	// the stored angle instead of an aimed one, which is why that block
+	// carries a label rather than being duplicated.
+	if(boss.phase_frame == 80) {
+		_AL = bullet_template.angle;
+		goto plus_quarter;
+	}
+	if(boss.phase_frame >= 80) {
+		elly_1BE43();
+	}
+}
+
+// [boss.mode] 6: two scythe steps per frame and an aimed 16-ring every 16th.
+static void near elly_1C164(void)
+{
+	elly_1BC73();
+	elly_25A3A++;
+	elly_1BC73();
+	elly_25A3A++;
+	if(boss.phase_frame == 16) {
+		elly_1BC3C();
+		bullet_template.angle = 0;
+		bullet_template.spawn_type = BST_PELLET;
+		bullet_template.speed.v = TO_SP(2);
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 16;
+		bullet_template_tune();
+	}
+	if(boss.phase_frame > 16) {
+		if((boss.phase_frame % 16) == 0) {
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+
+// [boss.mode] 7: four random-angle 16-rings from the four corners of a 64×64
+// box around Elly, all on the one frame the gather ends.
+static void near elly_1C1CF(void)
+{
+	_AX = elly_1BDB4();
+	if(_AX != 0) {
+		if(_AX != 2) {
+			return;
+		}
+		bullet_template.spawn_type = BST_PELLET;
+		bullet_template.speed.v = TO_SP(2);
+		bullet_template.group = BG_RING;
+		bullet_template.count = 16;
+		bullet_template.angle = randring2_next16();
+		bullet_template.origin.x.v -= TO_SP(32);
+		bullet_template_tune();
+		bullets_add_regular();
+		bullet_template.angle = randring2_next16();
+		bullet_template.origin.x.v += TO_SP(64);
+		bullets_add_regular();
+		bullet_template.angle = randring2_next16();
+		bullet_template.origin.x.v -= TO_SP(32);
+		bullet_template.origin.y.v -= TO_SP(32);
+		bullets_add_regular();
+		bullet_template.angle = randring2_next16();
+		bullet_template.origin.y.v += TO_SP(64);
+		bullets_add_regular();
+		snd_se_play(9);
+	}
+	if(boss.phase_frame >= 80) {
+		elly_1BE43();
+	}
+}
+
+// [boss.mode] 8, the last one: two scythe steps per frame, an aimed 16-ring
+// every 16th, and — below 200 HP — two random-angle pellets on EVERY frame.
+static void near elly_1C251(void)
+{
+	elly_1BC73();
+	elly_25A3A++;
+	elly_1BC73();
+	elly_25A3A++;
+	if(boss.phase_frame == 16) {
+		elly_1BC3C();
+	}
+	if(boss.phase_frame > 16) {
+		if((boss.phase_frame % 16) == 0) {
+			bullet_template.spawn_type = BST_BULLET16;
+			bullet_template.patnum = PAT_BULLET16_D_BLUE;
+			bullet_template.speed.v = (TO_SP(3) + 8);
+			bullet_template.group = BG_RING_AIMED;
+			bullet_template.count = 16;
+			bullet_template.angle = 0;
+			bullet_template_tune();
+			bullets_add_regular();
+			snd_se_play(3);
+		}
+		if(boss.hp <= 200) {
+			bullet_template.spawn_type = BST_PELLET;
+			bullet_template.speed.v = TO_SP(2);
+			bullet_template.group = BG_RANDOM_ANGLE;
+			bullet_template.count = 2;
+			bullet_template_tune();
+			bullets_add_regular();
+		}
+		if(elly_25A26 == 0) {
+			boss.mode = 255;
+			boss.phase_frame = 0;
+		}
+	}
+}
+/// ---------------
 
 void pascal far elly_update(void)
 {
