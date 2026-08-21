@@ -68,18 +68,13 @@ extern "C" {
 	extern const gaiji_th04_t gpCLEAR_BONUS[];
 	extern const gaiji_th04_t gpCONGRATULATION[];
 
-	// [placeholder names] Both stay in th04_main.asm and both keep IDA's
-	// spelling, each published with the one-line `public` form
-	// (kb/codegen/0081). sub_1D48E prints one row of the tally and sub_1D5E9
-	// applies the setting-dependent multipliers to the finished total -- so
-	// TH05's counterpart of the second is already
-	// stage_clear_bonus_multipliers_apply(). Naming either means reading a
-	// body this parcel does not lift, and both are called by
-	// stage_clear_bonus() above as well, which is the parcel that should name
-	// them. Searched th04/ and every *.hpp for an existing name for either:
-	// none exists, and neither is referenced outside this dump.
-	void pascal near sub_1D48E(int y, unsigned long points);
-	void pascal near sub_1D5E9(unsigned long far *points);
+	// The two tally helpers this block used to declare under IDA placeholder
+	// names are lifted and named as of MATCH-TH04-MAIN-IT-UPDT-DRAIN: the row
+	// printer is hud_points_put() in th04/main/hud/number_p.cpp, declared in
+	// th04/main/hud/hud.hpp, and the multiplier pass is
+	// stage_clear_bonus_multipliers_apply() in th04/main/stage/bonus_m.cpp,
+	// declared in th04/main/stage/bonus.hpp. Both names came from TH05's
+	// same functions rather than being coined.
 }
 
 /// The tally printer takes the running total in EAX, which is where the term
@@ -93,7 +88,7 @@ extern "C" {
 #define TALLY_PUT_EAX(y) _asm { \
 	db	0x6A, y; \
 	db	0x66, 0x50; \
-	call	near ptr sub_1D48E; \
+	call	near ptr hud_points_put; \
 }
 
 /// The closing row reads the total back out of the frame instead, so a bare
@@ -104,7 +99,7 @@ extern "C" {
 	db	0x6A, y; \
 	db	0x66; \
 	push	word ptr points; \
-	call	near ptr sub_1D48E; \
+	call	near ptr hud_points_put; \
 }
 
 /// hud_5_digit_put() is a `far` proc that happens to live in THIS segment, so
@@ -183,7 +178,7 @@ void near stage_clear_bonus(void)
 	HUD_5_DIGIT_PUT_SI(40, 16);
 
 	points_before_multipliers = points;
-	sub_1D5E9(&points);
+	stage_clear_bonus_multipliers_apply(&points);
 	TALLY_PUT_MEM(21);
 
 	score_delta += points;
@@ -276,7 +271,7 @@ void near stage_allclear_bonus(void)
 	points = (bonus * points);
 	HUD_5_DIGIT_PUT_SI(40, 17);
 
-	sub_1D5E9(&points);
+	stage_clear_bonus_multipliers_apply(&points);
 	TALLY_PUT_MEM(21);
 
 	score_delta += points;

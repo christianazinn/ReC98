@@ -8157,340 +8157,36 @@ BULLET_A_TEXT	ends
 ; `items_update` at its original address in the MIDDLE of the segment.
 ; Same `byte public 'CODE'` alignment as before, so nothing moves.
 IT_UPDT_TEXT	segment	byte public 'CODE' use16
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-		public SUB_1D48E
-sub_1D48E	proc near
+	; THIS EMPTIES THE ROOT CONTRIBUTION. IT_UPDT_TEXT's dump block now emits
+	; nothing at all, and the segment's whole 0xAD3 is C++: th04/hudnum.cpp,
+	; then th04/itminit.cpp, then th04/it_updt.cpp, in that link order, which
+	; is the address order the seven bodies had here.
+	;
+	; The four procs this block used to hold left in one parcel
+	; (MATCH-TH04-MAIN-IT-UPDT-DRAIN), because each was the segment's
+	; carve-free tail once the one below it had gone:
+	;
+	;   sub_1D48E                 -> hud_points_put(), th04/main/hud/number_p.cpp
+	;   @hud_5_digit_put$quiuiui  -> hud_5_digit_put(), same file
+	;   sub_1D58F                 -> stage_clear_bonus_multiplier_apply_and_put(),
+	;                                th04/main/stage/bonus_m.cpp
+	;   sub_1D5E9 + off_1D6B9     -> stage_clear_bonus_multipliers_apply(), same
+	;                                file; the four-entry `dw offset` table is
+	;                                that function's own rank dispatch and the
+	;                                C++ emits it, so it goes with the body
+	;
+	; Two of the four names are TH05's own, from th05/main/stage/bonus.cpp,
+	; and hud_5_digit_put() was already published under its own name here.
+	; Only hud_points_put() was coined, by the mirror rule from TH05's
+	; function of that name in th05/main/hud/number_p.asm.
+	;
+	; No `procdesc` and no `public` survive: nothing in this dump references
+	; any of the four any more. The two tally macros in
+	; th04/main/stage/bonus.cpp reach hud_points_put() and hud_5_digit_put()
+	; from inline assembly, and both callees are now C++ in a sibling object of
+	; the same segment.
 
-var_12		= dword	ptr -12h
-var_E		= dword	ptr -0Eh
-var_A		= byte ptr -0Ah
-var_4		= byte ptr -4
-var_3		= byte ptr -3
-var_2		= byte ptr -2
-arg_0		= dword	ptr  4
-arg_4		= word ptr  8
-
-		enter	12h, 0
-		push	si
-		push	di
-		mov	[bp+var_E], 1000000
-		xor	si, si
-		xor	di, di
-		jmp	short loc_1D4EA
-; ---------------------------------------------------------------------------
-
-loc_1D4A2:
-		mov	eax, [bp+arg_0]
-		xor	edx, edx
-		div	[bp+var_E]
-		mov	[bp+var_12], eax
-		mov	eax, [bp+arg_0]
-		xor	edx, edx
-		div	[bp+var_E]
-		mov	[bp+arg_0], edx
-		or	di, word ptr [bp+var_12]
-		or	di, di
-		jz	short loc_1D4D1
-		mov	al, byte ptr [bp+var_12]
-		add	al, gb_0_
-		mov	[bp+si+var_A], al
-		jmp	short loc_1D4D5
-; ---------------------------------------------------------------------------
-
-loc_1D4D1:
-		mov	[bp+si+var_A], g_EMPTY
-
-loc_1D4D5:
-		mov	ebx, 10
-		mov	eax, [bp+var_E]
-		xor	edx, edx
-		div	ebx
-		mov	[bp+var_E], eax
-		inc	si
-
-loc_1D4EA:
-		cmp	[bp+var_E], 1
-		ja	short loc_1D4A2
-		mov	al, byte ptr [bp+arg_0]
-		add	al, gb_0_
-		mov	[bp+var_4], al
-		mov	[bp+var_3], gb_0_
-		mov	[bp+var_2], 0
-		push	34
-		push	[bp+arg_4]
-		push	ss
-		lea	ax, [bp+var_A]
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putsa
-		pop	di
-		pop	si
-		leave
-		retn	6
-sub_1D48E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Prints [val] using the bold gaiji font, right-aligned at
-; 	([left+8], [y]),
-; in white. Same job as TH05's 4-argument hud_5_digit_put(), but a
-; genuinely different routine: TH04 builds the digits in a stack buffer and
-; hardcodes TX_WHITE, while TH05 uses the shared [hud_gaiji_row] and takes
-; the attribute as a parameter.
-public @HUD_5_DIGIT_PUT$QUIUIUI
-@hud_5_digit_put$quiuiui	proc far
-
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= byte ptr -6
-var_2		= byte ptr -2
-var_1		= byte ptr -1
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-
-		enter	0Ah, 0
-		push	si
-		push	di
-		mov	si, 10000
-		xor	di, di
-		mov	[bp+var_A], 0
-		jmp	short loc_1D565
-; ---------------------------------------------------------------------------
-
-loc_1D52B:
-		mov	ax, [bp+arg_0]
-		xor	dx, dx
-		div	si
-		mov	[bp+var_8], ax
-		mov	ax, [bp+arg_0]
-		xor	dx, dx
-		div	si
-		mov	[bp+arg_0], dx
-		mov	ax, [bp+var_8]
-		or	[bp+var_A], ax
-		cmp	[bp+var_A], 0
-		jz	short loc_1D555
-		mov	al, byte ptr [bp+var_8]
-		add	al, gb_0_
-		mov	[bp+di+var_6], al
-		jmp	short loc_1D559
-; ---------------------------------------------------------------------------
-
-loc_1D555:
-		mov	[bp+di+var_6], g_EMPTY
-
-loc_1D559:
-		mov	bx, 10
-		mov	ax, si
-		xor	dx, dx
-		div	bx
-		mov	si, ax
-		inc	di
-
-loc_1D565:
-		cmp	si, 1
-		ja	short loc_1D52B
-		mov	al, byte ptr [bp+arg_0]
-		add	al, gb_0_
-		mov	[bp+var_2], al
-		mov	[bp+var_1], 0
-		push	[bp+arg_4]
-		push	[bp+arg_2]
-		push	ss
-		lea	ax, [bp+var_6]
-		push	ax
-		push	TX_WHITE
-		call	gaiji_putsa
-		pop	di
-		pop	si
-		leave
-		retf	6
-@hud_5_digit_put$quiuiui	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1D58F	proc near
-
-var_2		= word ptr -2
-arg_0		= dword	ptr  4
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-arg_8		= word ptr  0Ch
-
-		enter	2, 0
-		push	si
-		mov	si, [bp+arg_4]
-		movsx	eax, si
-		les	bx, [bp+arg_0]
-		assume es:nothing
-		imul	eax, es:[bx]
-		mov	es:[bx], eax
-		mov	eax, es:[bx]
-		mov	ebx, 10
-		xor	edx, edx
-		div	ebx
-		mov	bx, word ptr [bp+arg_0]
-		mov	es:[bx], eax
-		cmp	si, 0Ah
-		jge	short loc_1D5C8
-		mov	ax, TX_RED
-		jmp	short loc_1D5CB
-; ---------------------------------------------------------------------------
-
-loc_1D5C8:
-		mov	ax, TX_GREEN
-
-loc_1D5CB:
-		mov	[bp+var_2], ax
-		push	6
-		push	[bp+arg_8]
-		mov	bx, [bp+arg_6]
-		shl	bx, 2
-		pushd	_STAGE_CLEAR_BONUS_DESC[bx]
-		push	ax
-		call	text_putsa
-		pop	si
-		leave
-		retn	0Ah
-sub_1D58F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-		public SUB_1D5E9
-sub_1D5E9	proc near
-
-arg_0		= dword	ptr  4
-
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_state, 0
-		jnz	short loc_1D5FE
-		push	140000h
-		push	0
-		jmp	loc_1D6AE
-; ---------------------------------------------------------------------------
-
-loc_1D5FE:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	ah, 0
-		cmp	ax, 4
-		jz	short loc_1D62D
-		cmp	ax, 5
-		jz	short loc_1D623
-		cmp	ax, 6
-		jz	short loc_1D619
-		jmp	short loc_1D63C
-; ---------------------------------------------------------------------------
-
-loc_1D619:
-		push	120001h
-		push	3
-		jmp	short loc_1D635
-; ---------------------------------------------------------------------------
-
-loc_1D623:
-		push	120002h
-		push	5
-		jmp	short loc_1D635
-; ---------------------------------------------------------------------------
-
-loc_1D62D:
-		push	120003h
-		push	7
-
-loc_1D635:
-		pushd	[bp+arg_0]
-		call	sub_1D58F
-
-loc_1D63C:
-		mov	al, _continues_used
-		mov	ah, 0
-		cmp	ax, 1
-		jz	short loc_1D652
-		cmp	ax, 2
-		jz	short loc_1D65C
-		cmp	ax, 3
-		jz	short loc_1D666
-		jmp	short loc_1D675
-; ---------------------------------------------------------------------------
-
-loc_1D652:
-		push	130004h
-		push	8
-		jmp	short loc_1D66E
-; ---------------------------------------------------------------------------
-
-loc_1D65C:
-		push	130005h
-		push	6
-		jmp	short loc_1D66E
-; ---------------------------------------------------------------------------
-
-loc_1D666:
-		push	130006h
-		push	4
-
-loc_1D66E:
-		pushd	[bp+arg_0]
-		call	sub_1D58F
-
-loc_1D675:
-		mov	al, _rank
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, RANK_LUNATIC
-		ja	short loc_1D6B5
-		add	bx, bx
-		jmp	cs:off_1D6B9[bx]
-
-loc_1D688:
-		push	140007h
-		push	5
-		jmp	short loc_1D6AE
-; ---------------------------------------------------------------------------
-
-loc_1D692:
-		push	140008h
-		push	0Ah
-		jmp	short loc_1D6AE
-; ---------------------------------------------------------------------------
-
-loc_1D69C:
-		push	140009h
-		push	0Ch
-		jmp	short loc_1D6AE
-; ---------------------------------------------------------------------------
-
-loc_1D6A6:
-		push	14000Ah
-		push	0Eh
-
-loc_1D6AE:
-		pushd	[bp+arg_0]
-		call	sub_1D58F
-
-loc_1D6B5:
-		pop	bp
-		retn	4
-sub_1D5E9	endp
-
-; ---------------------------------------------------------------------------
-off_1D6B9	dw offset loc_1D688
-		dw offset loc_1D692
-		dw offset loc_1D69C
-		dw offset loc_1D6A6
 
 	; stage_clear_bonus() -- the tally shown after every stage but the last --
 	; was lifted out of here and is now the FIRST function of
@@ -8543,7 +8239,7 @@ off_1D6B9	dw offset loc_1D688
 	; sub_1D5E9's four-entry `dw offset` jump table sits directly above this
 	; block and is NOT data this dump owns any more than a proc's own table
 	; ever is -- it is what that proc's `switch` compiles to, and it goes when
-	; the proc goes. Leave both where they are.
+	; the proc goes. Both went together, in MATCH-TH04-MAIN-IT-UPDT-DRAIN.
 	;
 	;
 	; ONE INLINE-ASM FAMILY, all three shapes shared with the all-clear tally
@@ -8563,11 +8259,11 @@ off_1D6B9	dw offset loc_1D688
 	; restore into the rest of this contribution.
 	;
 	;
-	; WHAT THIS SEGMENT'S TAIL IS NOW: sub_1D5E9 and its jump table, the
-	; setting-dependent multiplier pass -- a kb/codegen/0119 jump-table tail
-	; rather than a plain proc one, so read state/re/JUMP_TABLE_TAILS.md
-	; before costing it, and re-run tools/pi-audit/carve_free_tails.py against
-	; a fresh build rather than trusting this line.
+	; WHAT THIS SEGMENT'S TAIL IS NOW: NOTHING. This paragraph named sub_1D5E9
+	; and its jump table until MATCH-TH04-MAIN-IT-UPDT-DRAIN lifted that proc
+	; and the three above it in one parcel. This dump's block is empty and the
+	; whole 0AD3h of IT_UPDT_TEXT is C++; the header at the top of the segment
+	; lists where the four went. Re-run carve_free_tails.py, not this line.
 	;
 	;
 	;
@@ -8693,8 +8389,8 @@ off_1D6B9	dw offset loc_1D688
 	; applies the setting-dependent multipliers, and TH05 counterpart of the
 	; second is already stage_clear_bonus_multipliers_apply() -- but naming
 	; either means reading a body this parcel does not lift, and
-	; state/notes/_stage_allclear_bonus_qv.md records that.
-	;
+	; state/notes/_stage_allclear_bonus_qv.md records that. Both are named and
+	; lifted as of MATCH-TH04-MAIN-IT-UPDT-DRAIN; see the segment header.
 	;
 	; ONE INLINE-ASM SITE, and kb/codegen 0014 + 0082 say why. The call to
 	; hud_5_digit_put() is `push cs` + `call near` and FOUR bytes, with no
@@ -8719,12 +8415,12 @@ off_1D6B9	dw offset loc_1D688
 	; restore into the rest of this contribution.
 	;
 	;
-	; WHAT THIS SEGMENT TAIL IS NOW: @stage_clear_bonus$qv, the per-stage
-	; tally directly above, which shares this one opening and closing and
-	; calls the same two helpers. Its own labels are the un-suffixed half of
-	; the string block below, so lifting it is the other half of this parcel
-	; naming work -- and re-run carve_free_tails.py first, because a carve
-	; verdict is a claim about what FOLLOWS a proc.
+	; WHAT THIS SEGMENT TAIL IS NOW: NOTHING. This named @stage_clear_bonus$qv
+	; when it was written; that proc left in the very next parcel, and
+	; MATCH-TH04-MAIN-IT-UPDT-DRAIN has since emptied this dump's whole
+	; contribution to IT_UPDT_TEXT. There is no tail here to cost any more,
+	; and the header at the top of the segment records where all seven bodies
+	; went. Re-run tools/pi-audit/carve_free_tails.py rather than this line.
 	;
 	;
 	;
@@ -9021,12 +8717,12 @@ off_1D6B9	dw offset loc_1D688
 	;     (kb/codegen 0014 + 0083).
 	;
 	;
-	; WHAT THIS SEGMENT'S TAIL IS NOW: sub_1DA1B, the 1Dh-byte `proc far`
-	; directly above the `extern` line, which resets the item subsystem at the
-	; start of a stage. th05_main.asm's sub_16D67 is the same function apart
-	; from the two globals it clears, so the one-parcel-two-binaries shape is
-	; available again -- but re-run tools/pi-audit/carve_free_tails.py against a
-	; fresh build first; a carve verdict is a claim about what FOLLOWS a proc.
+	; WHAT THIS SEGMENT'S TAIL IS NOW: NOTHING. This offered sub_1DA1B as the
+	; next row and was ALREADY stale before MATCH-TH04-MAIN-IT-UPDT-DRAIN --
+	; items_init() is that proc, lifted into th04/main/item/init.cpp by the
+	; parcel recorded above, and nothing re-read this. It is corrected here
+	; rather than deleted, because a tail claim that has gone stale once will
+	; go stale again: carve_free_tails.py decides this, never a dump comment.
 	;
 	;
 	;

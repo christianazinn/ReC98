@@ -103,6 +103,16 @@ void pascal hud_5_digit_put(
 	utram_x_t left, utram_y_t y, uint16_t val, tram_atrb2 atrb
 );
 #else
+// Prints [points] using the bold gaiji font, right-aligned at the fixed
+// column 34 of row [y], in white, using 7 digits plus a hardcoded trailing
+// `0` that makes every figure read as a multiple of 10. Shares nothing but
+// the name and the semantics with TH05's function above, and the split is the
+// same one hud_5_digit_put() has below: TH04 builds the digits in a stack
+// buffer, TH05 uses the shared [hud_gaiji_row]. It also takes no [left],
+// because the two stage bonus tallies are its only callers and both print in
+// the same column.
+extern "C" void pascal near hud_points_put(utram_y_t y, unsigned long points);
+
 // Prints [val] using the bold gaiji font, right-aligned at
 // 	([left+8], [y]),
 // in white. Shares nothing but the name and the semantics with TH05's

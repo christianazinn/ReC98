@@ -1034,6 +1034,11 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",
 	"th04/bullet_a.cpp",
+	-- POSITION-CRITICAL: these three are IT_UPDT_TEXT's whole contents in
+	-- address order, and hudnum.cpp is its head. The dump contributes nothing
+	-- to that segment any more, so link order alone decides where the two
+	-- gaiji number renderers and the bonus multipliers land.
+	"th04/hudnum.cpp",
 	"th04/itminit.cpp",
 	"th04/it_updt.cpp",
 	"th04/boss.cpp",
