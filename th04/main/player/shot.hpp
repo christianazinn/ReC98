@@ -125,6 +125,12 @@ extern HitShot near hitshots[HITSHOT_COUNT];
 // (th04/main/player/player.inc)
 static const uint8_t SHOT_CYCLE_FRAMES = 18;
 
+// Set [shot_time] to this value to block shots from being fired this frame.
+// (th04/main/player/player.inc, whose comment this is and which has carried
+// the name since long before any C++ needed it. TH05's
+// marisa_bomb_update_and_render() is the first decompiled writer.)
+static const uint8_t SHOT_BLOCKED_FOR_THIS_FRAME = 0xFF;
+
 extern unsigned char shot_time;
 extern Shot near shots[SHOT_COUNT];
 

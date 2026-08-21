@@ -1239,703 +1239,79 @@ mai_TEXT	ends
 BOMBCHAR_TEXT	segment	byte public 'CODE' use16
 	@reimu_stars_update_and_render$qv procdesc near
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C73A	proc near
-		push	bp
-		mov	bp, sp
-		call	cdg_put_noalpha_8 pascal, large (80 shl 16) or 16, 0
-		call	sub_CEC2
-		call	@reimu_stars_update_and_render$qv
-		mov	_circles_color, 9
-		cmp	_bomb_frame, 64
-		ja	short loc_C777
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -32
-		imul	ax, 3
-		mov	dx, 196
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C777:
-		cmp	_bomb_frame, 112
-		ja	short loc_C78C
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_C78C
-		call	snd_se_play pascal, 9
-
-loc_C78C:
-		pop	bp
-		retn
-sub_C73A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_REIMU
-bomb_reimu	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bomb_frame, 32
-		jnb	short loc_C7AE
-		mov	_tiles_bb_col, V_WHITE
-		mov	al, _bomb_frame
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		call	bb_playchar_put pascal, ax
-
-loc_C7AB:
-		jmp	loc_C849
-; ---------------------------------------------------------------------------
-
-loc_C7AE:
-		cmp	_bomb_frame, 32
-		jnz	short loc_C7C9
-		mov	_scroll_active, 0
-		call	graph_scrollup pascal, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-		jmp	short loc_C7D0
-; ---------------------------------------------------------------------------
-
-loc_C7C9:
-		cmp	_bomb_frame, 128
-		jnb	short loc_C7D8
-
-loc_C7D0:
-		call	sub_C73A
-		call	@bomb_dream_decay$qv
-		jmp	short loc_C849
-; ---------------------------------------------------------------------------
-
-loc_C7D8:
-		cmp	_bomb_frame, 128
-		jnz	short loc_C7F9
-		call	snd_se_play pascal, 15
-		cmp	_stage_id, 5
-		jz	short loc_C7F2
-		mov	_scroll_active, 1
-
-loc_C7F2:
-		mov	_items_pull_to_player, 0
-		jmp	short loc_C800
-; ---------------------------------------------------------------------------
-
-loc_C7F9:
-		cmp	_bomb_frame, 160
-		jnb	short loc_C839
-
-loc_C800:
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -128
-		imul	ax, 3
-		mov	dx, 192
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		cmp	_bomb_frame, 130
-		jnz	short loc_C849
-		cmp	_stage_id, 5
-		jz	short loc_C849
-		call	graph_scrollup pascal, _scroll_line
-		jmp	loc_C7AB
-; ---------------------------------------------------------------------------
-
-loc_C839:
-		mov	_bombing, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-
-loc_C849:
-		inc	_bomb_frame
-		pop	bp
-		retn
-bomb_reimu	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-marisa_lasers_update_and_render	proc near
-
-var_6		= word ptr -6
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		cmp	_bomb_frame, 16
-		jnz	short loc_C87C
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-		xor	di, di
-		jmp	short loc_C877
-; ---------------------------------------------------------------------------
-
-loc_C86B:
-		mov	bx, di
-		imul	bx, size marisa_laser_t
-		mov	_bomb_anim[bx+marisa_laser_t.BA_center.x], PIXEL_NONE
-		inc	di
-
-loc_C877:
-		cmp	di, MARISA_LASER_COUNT
-		jl	short loc_C86B
-
-loc_C87C:
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_C8CE
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -16
-		cwd
-		idiv	bx
-		and	ax, 7
-		mov	di, ax
-		imul	ax, size marisa_laser_t
-		add	ax, offset _bomb_anim
-		mov	si, ax
-		mov	eax, _player_pos.cur
-		mov	dword ptr [si+marisa_laser_t.BA_center], eax
-		call	@sparks_add_circle_at_player$qv
-		mov	ax, _player_pos.cur.x
-		mov	[si+marisa_laser_t.BA_center.x], ax
-		mov	ax, _player_pos.cur.y
-		mov	[si+marisa_laser_t.BA_center.y], ax
-		mov	[si+marisa_laser_t.BA_radius], 24
-		call	snd_se_play pascal, 15
-		mov	PaletteTone, 170
-		jmp	short loc_C8D4
-; ---------------------------------------------------------------------------
-
-loc_C8CE:
-		mov	PaletteTone, 100
-
-loc_C8D4:
-		call	far ptr	palette_show
-		call	@grcg_setmode_rmw$qv
-		mov	si, offset _bomb_anim
-		xor	di, di
-		jmp	loc_C98D
-; ---------------------------------------------------------------------------
-
-loc_C8E4:
-		cmp	[si+marisa_laser_t.BA_center.x], PIXEL_NONE
-		jz	loc_C989
-		mov	ax, [si+marisa_laser_t.BA_center.x]
-		mov	bx, 16
-		cwd
-		idiv	bx
-		add	ax, PLAYFIELD_LEFT
-		mov	[bp+@@x], ax
-		mov	ax, [si+marisa_laser_t.BA_center.y]
-		cwd
-		idiv	bx
-		add	ax, PLAYFIELD_TOP
-		mov	[bp+@@y], ax
-		mov	ah, 8
-		call	@grcg_setcolor_direct_raw$qv
-		mov	ax, [si+marisa_laser_t.BA_radius]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		mov	[bp+var_6], ax
-		mov	ax, [bp+@@x]
-		sub	ax, [bp+var_6]
-		push	ax
-		push	10h
-		mov	ax, [bp+@@x]
-		add	ax, [bp+var_6]
-		push	ax
-		push	[bp+@@y]
-		call	grcg_boxfill
-		mov	ah, 9
-		call	@grcg_setcolor_direct_raw$qv
-		dec	[bp+var_6]
-		mov	ax, [bp+@@x]
-		sub	ax, [bp+var_6]
-		push	ax
-		push	10h
-		mov	ax, [bp+@@x]
-		add	ax, [bp+var_6]
-		push	ax
-		push	[bp+@@y]
-		call	grcg_boxfill
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		dec	[bp+var_6]
-		mov	ax, [bp+@@x]
-		sub	ax, [bp+var_6]
-		push	ax
-		push	10h
-		mov	ax, [bp+@@x]
-		add	ax, [bp+var_6]
-		push	ax
-		push	[bp+@@y]
-		call	grcg_boxfill
-		call	grcg_circlefill pascal, [bp+@@x], [bp+@@y], [si+marisa_laser_t.BA_radius]
-		dec	[si+marisa_laser_t.BA_radius]
-		cmp	[si+marisa_laser_t.BA_radius], 4
-		jge	short loc_C989
-		mov	[si+marisa_laser_t.BA_center.x], PIXEL_NONE
-
-loc_C989:
-		inc	di
-		add	si, size marisa_laser_t
-
-loc_C98D:
-		cmp	di, MARISA_LASER_COUNT
-		jl	loc_C8E4
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		leave
-		retn
-marisa_lasers_update_and_render	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_C99E	proc near
-		push	bp
-		mov	bp, sp
-		call	cdg_put_noalpha_8 pascal, large (112 shl 16) or 16, 0
-		call	sub_CEF2
-		cmp	_bomb_frame, 16
-		jnb	short loc_C9D0
-		mov	al, _bomb_frame
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, 196
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_C9D0:
-		call	marisa_lasers_update_and_render
-		mov	_shot_time, SHOT_BLOCKED_FOR_THIS_FRAME
-		pop	bp
-		retn
-sub_C99E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_MARISA
-bomb_marisa	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bomb_frame, 80
-		jnb	short loc_CA05
-		cmp	_bomb_frame, 2
-		jnz	short loc_C9FD
-		mov	_scroll_active, 0
-		call	graph_scrollup pascal, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-
-loc_C9FD:
-		call	sub_C99E
-		call	@bomb_dream_decay$qv
-		jmp	short loc_CA75
-; ---------------------------------------------------------------------------
-
-loc_CA05:
-		cmp	_bomb_frame, 80
-		jnz	short loc_CA26
-		call	snd_se_play pascal, 15
-		cmp	_stage_id, 5
-		jz	short loc_CA1F
-		mov	_scroll_active, 1
-
-loc_CA1F:
-		mov	_items_pull_to_player, 0
-		jmp	short loc_CA2D
-; ---------------------------------------------------------------------------
-
-loc_CA26:
-		cmp	_bomb_frame, 96
-		jnb	short loc_CA65
-
-loc_CA2D:
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -80
-		imul	ax, 6
-		mov	dx, 192
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		cmp	_bomb_frame, 82
-		jnz	short loc_CA75
-		cmp	_stage_id, 5
-		jz	short loc_CA75
-		call	graph_scrollup pascal, _scroll_line
-		jmp	short loc_CA75
-; ---------------------------------------------------------------------------
-
-loc_CA65:
-		mov	_bombing, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-
-loc_CA75:
-		inc	_bomb_frame
-		pop	bp
-		retn
-bomb_marisa	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mima_circles_update_and_render	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	_bomb_frame, 1
-		jnz	short loc_CAA7
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-		xor	di, di
-		jmp	short loc_CAA2
-; ---------------------------------------------------------------------------
-
-loc_CA96:
-		mov	bx, di
-		imul	bx, size mima_circle_t
-		mov	_bomb_anim[bx+mima_circle_t.BA_center.x], PIXEL_NONE
-		inc	di
-
-loc_CAA2:
-		cmp	di, MIMA_CIRCLE_COUNT
-		jl	short loc_CA96
-
-loc_CAA7:
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_CAE0
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -16
-		cwd
-		idiv	bx
-		and	ax, (MIMA_CIRCLE_COUNT - 1)
-		mov	di, ax
-		imul	ax, size mima_circle_t
-		add	ax, offset _bomb_anim
-		mov	si, ax
-
-		; Just so that it's not PIXEL_NONE, given that it's overwritten
-		; immediately after anyway? Probably copy-pasted from Marisa.
-		mov	eax, _player_pos.cur
-		mov	dword ptr [si+mima_circle_t.BA_center], eax
-
-		mov	[si+mima_circle_t.BA_distance], 256
-		call	@randring1_next16$qv
-		mov	[si+mima_circle_t.BA_angle], al
-
-loc_CAE0:
-		mov	si, offset _bomb_anim
-		xor	di, di
-		jmp	short loc_CB27
-; ---------------------------------------------------------------------------
-
-loc_CAE7:
-		cmp	word ptr [si+mima_circle_t.BA_center.x], PIXEL_NONE
-		jz	short loc_CB23
-		push	si
-		push	(224 shl 16) or 117
-		push	[si+mima_circle_t.BA_distance]
-		mov	al, [si+mima_circle_t.BA_angle]
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-		push	[si+mima_circle_t.BA_center.x]
-		push	[si+mima_circle_t.BA_center.y]
-		mov	ax, [si+mima_circle_t.BA_distance]
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		push	ax
-		call	grcg_circlefill
-		sub	[si+mima_circle_t.BA_distance], 16
-		cmp	[si+mima_circle_t.BA_distance], 4
-		jge	short loc_CB23
-		mov	[si+mima_circle_t.BA_center.x], PIXEL_NONE
-
-loc_CB23:
-		inc	di
-		add	si, size mima_circle_t
-
-loc_CB27:
-		cmp	di, MIMA_CIRCLE_COUNT
-		jl	short loc_CAE7
-		pop	di
-		pop	si
-		pop	bp
-		retn
-mima_circles_update_and_render	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_CB30	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		call	cdg_put_noalpha_8 pascal, large (64 shl 16) or 64, 0
-		call	sub_CF50
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 7
-		call	grcg_vline pascal, (209 shl 16) or PLAYFIELD_TOP, PLAYFIELD_TOP + 47
-		call	grcg_vline pascal, (209 shl 16) or 336, PLAYFIELD_BOTTOM - 1
-		call	grcg_vline pascal, (238 shl 16) or PLAYFIELD_TOP, PLAYFIELD_TOP + 47
-		call	grcg_vline pascal, (238 shl 16) or 336, PLAYFIELD_BOTTOM - 1
-		mov	ah, 6
-		call	@grcg_setcolor_direct_raw$qv
-		call	grcg_vline pascal, (208 shl 16) or PLAYFIELD_TOP, PLAYFIELD_TOP + 47
-		call	grcg_vline pascal, (208 shl 16) or 336, PLAYFIELD_BOTTOM - 1
-		call	grcg_vline pascal, (239 shl 16) or PLAYFIELD_TOP, PLAYFIELD_TOP + 47
-		call	grcg_vline pascal, (239 shl 16) or 336, PLAYFIELD_BOTTOM - 1
-		mov	ah, V_WHITE
-		call	@grcg_setcolor_direct_raw$qv
-		call	mima_circles_update_and_render
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	dx, 224
-		sub	dx, ax
-		mov	si, dx
-		or	si, si
-		jle	short loc_CBE4
-		call	grcg_circle pascal, (224 shl 16) or 117, dx
-
-loc_CBE4:
-		GRCG_OFF_CLOBBERING dx
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, 100
-		mov	PaletteTone, ax
-		mov	_palette_changed, 1
-		pop	si
-		pop	bp
-		retn
-sub_CB30	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public BOMB_MIMA
-bomb_mima	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_bomb_frame, 64
-		jnb	short loc_CC28
-		cmp	_bomb_frame, 2
-		jnz	short loc_CC20
-		mov	_scroll_active, 0
-		call	graph_scrollup pascal, 0
-		mov	_bg_render_bombing, offset nullfunc_near
-
-loc_CC20:
-		call	sub_CB30
-		call	@bomb_dream_decay$qv
-		jmp	short loc_CC98
-; ---------------------------------------------------------------------------
-
-loc_CC28:
-		cmp	_bomb_frame, 64
-		jnz	short loc_CC49
-		call	snd_se_play pascal, 15
-		cmp	_stage_id, 5
-		jz	short loc_CC42
-		mov	_scroll_active, 1
-
-loc_CC42:
-		mov	_items_pull_to_player, 0
-		jmp	short loc_CC50
-; ---------------------------------------------------------------------------
-
-loc_CC49:
-		cmp	_bomb_frame, 80
-		jnb	short loc_CC88
-
-loc_CC50:
-		mov	ax, _bg_render_bombing_func
-		mov	_bg_render_bombing, ax
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -64
-		imul	ax, 6
-		mov	dx, 192
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		cmp	_bomb_frame, 66
-		jnz	short loc_CC98
-		cmp	_stage_id, 5
-		jz	short loc_CC98
-		call	graph_scrollup pascal, _scroll_line
-		jmp	short loc_CC98
-; ---------------------------------------------------------------------------
-
-loc_CC88:
-		mov	_bombing, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-
-loc_CC98:
-		inc	_bomb_frame
-		pop	bp
-		retn
-bomb_mima	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-yuuka_heart_update_and_render	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_bomb_frame, 32
-		jnz	short loc_CCAF
-		mov	_bomb_anim.BA_distance, 16
-
-loc_CCAF:
-		xor	si, si
-		jmp	short loc_CD07
-; ---------------------------------------------------------------------------
-
-loc_CCB3:
-		push	offset _bomb_anim.BA_topleft
-		push	(192 shl 16) or 160 ; No subpixels!
-		push	_bomb_anim.BA_distance
-		mov	al, _bomb_anim.BA_angle
-		mov	ah, 0
-		push	ax
-		call	vector2_at
-		cmp	_bomb_anim.BA_topleft.x, 0
-		jl	short loc_CCFE
-		cmp	_bomb_anim.BA_topleft.x, (PLAYFIELD_RIGHT - 32)
-		jg	short loc_CCFE
-		cmp	_bomb_anim.BA_topleft.y, 0
-		jl	short loc_CCFE
-		cmp	_bomb_anim.BA_topleft.y, (PLAYFIELD_BOTTOM - 48)
-		jg	short loc_CCFE
-		call	super_roll_put_1plane pascal, _bomb_anim.BA_topleft.x, _bomb_anim.BA_topleft.y, (179 shl 16) or 0, PLANE_PUT or GC_BRGI
-
-loc_CCFE:
-		inc	si
-		mov	al, _bomb_anim.BA_angle
-		add	al, 10h
-		mov	_bomb_anim.BA_angle, al
-
-loc_CD07:
-		cmp	si, 10h
-		jl	short loc_CCB3
-		mov	al, _bomb_anim.BA_angle
-		add	al, 2
-		mov	_bomb_anim.BA_angle, al
-		add	_bomb_anim.BA_distance, 2
-		pop	si
-		pop	bp
-		retn
-yuuka_heart_update_and_render	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuuka_bomb_update_and_render
-_yuuka_bomb_update_and_render label near
-sub_CD1C	proc near
-		push	bp
-		mov	bp, sp
-		call	cdg_put_noalpha_8 pascal, large (96 shl 16) or 16, 0
-		call	sub_CFBA
-		call	yuuka_heart_update_and_render
-		mov	_circles_color, 9
-		cmp	_bomb_frame, 64
-		ja	short loc_CD59
-		mov	al, _bomb_frame
-		mov	ah, 0
-		add	ax, -32
-		imul	ax, 3
-		mov	dx, 196
-		sub	dx, ax
-		mov	PaletteTone, dx
-		mov	_palette_changed, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_CD59:
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_CD77
-		call	snd_se_play pascal, 9
-		mov	PaletteTone, 150
-		jmp	short loc_CD8D
-; ---------------------------------------------------------------------------
-
-loc_CD77:
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		cmp	dx, 2
-		jnz	short loc_CD92
-		mov	PaletteTone, 100
-
-loc_CD8D:
-		call	far ptr	palette_show
-
-loc_CD92:
-		pop	bp
-		retn
-sub_CD1C	endp
+	; reimu_bomb_update_and_render(), bomb_reimu(),
+	; marisa_lasers_update_and_render(), marisa_bomb_update_and_render() and
+	; bomb_marisa() are now compiled from th05/main/player/bombchar.cpp, at
+	; the front of that file and in this same original order
+	; (kb/codegen/0129 + 0114).
+	;
+	; With these five gone, the root contributes NO BYTES to this segment at
+	; all -- the whole 0x71B is th05/bombchar.cpp's. The empty
+	; `segment`/`ends` pair stays, because physical order inside a group
+	; follows the order the segments are first defined and this object is
+	; the first one linked: deleting it would let MB_INV_TEXT open the
+	; group's tail first and move every byte from 0xC73A on. Map before:
+	; root 0x65A at MAIN_01:192A; after: 0 at MAIN_01:192A and 0x71B of
+	; th05/bombchar.cpp behind it.
+	;
+	; reimu_bomb_update_and_render() -- ZUN's sub_C73A -- and
+	; marisa_bomb_update_and_render() -- sub_C99E -- are named after
+	; state/notes/bomb_dream_decay.md's reading of this block's four call
+	; sites; neither had a `public`, and neither does
+	; marisa_lasers_update_and_render(), so nothing replaces the three of
+	; them and the C++ gives all three the mangled linkage
+	; @reimu_stars_update_and_render$qv above already carries. That
+	; `procdesc` itself stays: it is what says the function sits at the end
+	; of mai_TEXT's C++ contribution, immediately before this segment.
+	;
+	; bomb_reimu() and bomb_marisa() keep `procdesc`s, because main() still
+	; loads `offset bomb_reimu` and `offset bomb_marisa` into
+	; [playchar_bomb_func] above -- kb/codegen/0102's undecorated
+	; upper-case spelling, which the deleted `public`s used to pin.
+	;
+	; kb/codegen/0121: none of the five bodies carried an `assume`.
+
+	BOMB_REIMU procdesc pascal near	; now compiled from th05/main/player/bombchar.cpp
+	BOMB_MARISA procdesc pascal near	; now compiled from th05/main/player/bombchar.cpp
+
+
+	; mima_circles_update_and_render(), mima_bomb_update_and_render() and
+	; bomb_mima() are now compiled from th05/main/player/bombchar.cpp, at
+	; the front of that file and in this same original order
+	; (kb/codegen/0129 + 0114).
+	;
+	; The first two -- ZUN's sub_CB30 for the second, named after
+	; state/notes/bomb_dream_decay.md's reading of this block's four call
+	; sites -- had no `public` and, once bomb_mima() went to C++, no caller
+	; outside that object either, so nothing replaces them; the C++ gives
+	; both the mangled linkage @reimu_stars_update_and_render$qv at the top
+	; of this block already carries. bomb_mima() keeps a `procdesc`: main()
+	; still loads `offset bomb_mima` into [playchar_bomb_func] above, and
+	; kb/codegen/0102's undecorated upper-case spelling is what the deleted
+	; `public BOMB_MIMA` used to pin.
+	;
+	; kb/codegen/0121: none of the three bodies carried an `assume`.
+
+	BOMB_MIMA procdesc pascal near	; now compiled from th05/main/player/bombchar.cpp
+
+
+	; yuuka_heart_update_and_render() and yuuka_bomb_update_and_render() are
+	; now compiled from th05/main/player/bombchar.cpp, ahead of bomb_yuuka()
+	; in that file and in this same original order, so that all three keep
+	; their addresses (kb/codegen/0129 + 0114).
+	;
+	; Neither has a caller left in this dump -- bomb_yuuka() was the last
+	; one and is C++ in the same object -- so no `procdesc` replaces either.
+	; yuuka_heart_update_and_render() never had a `public` of its own, and
+	; the C++ side gives it the mangled linkage that
+	; @reimu_stars_update_and_render$qv at the top of this block already
+	; carries. The `public` on yuuka_bomb_update_and_render() was the
+	; kb/codegen/0123 zero-byte alias the previous parcel added so that
+	; bomb_yuuka() could call it from C++, and it goes with the body:
+	; kb/codegen/0102, C decoration for the project's default cdecl.
+	;
+	; kb/codegen/0121: neither body carried an `assume`, so there is
+	; nothing to restore at this position.
 
 	BOMB_YUUKA procdesc pascal near	; now compiled from th05/main/player/bombchar.cpp
 
@@ -1957,6 +1333,8 @@ include th04/main/tile/bb_put.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _bomb_bg_margins_fill_reimu
+_bomb_bg_margins_fill_reimu label near
 sub_CEC2	proc near
 		push	di
 		pushf
@@ -1990,6 +1368,8 @@ sub_CEC2	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _bomb_bg_margins_fill_marisa
+_bomb_bg_margins_fill_marisa label near
 sub_CEF2	proc near
 		push	di
 		pushf
@@ -2053,6 +1433,8 @@ sub_CF2C	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _bomb_bg_margins_fill_mima
+_bomb_bg_margins_fill_mima label near
 sub_CF50	proc near
 		push	di
 		pushf
@@ -2122,6 +1504,8 @@ sub_CF50	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
+public _bomb_bg_margins_fill_yuuka
+_bomb_bg_margins_fill_yuuka label near
 sub_CFBA	proc near
 		push	di
 		pushf
