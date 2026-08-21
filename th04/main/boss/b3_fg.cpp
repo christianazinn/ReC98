@@ -64,9 +64,10 @@
 enum elly_boomerang_flag_t {
 	EBF_FREE = 0,
 	EBF_THROWN = 1,
-	// One more tile invalidation, then transitions to EBF_FREE. `sub_12247`
-	// invalidates while the flag is *nonzero*, but this function only blits
-	// while it is EBF_THROWN, so this state exists to buy that one frame —
+	// One more tile invalidation, then transitions to EBF_FREE.
+	// elly_invalidate() (th04/main/boss/bg.cpp) invalidates while the flag
+	// is *nonzero*, but this function only blits while it is EBF_THROWN, so
+	// this state exists to buy that one frame —
 	// the mechanism th02/main/boss/b3.hpp's SF_REMOVE documents.
 	EBF_CAUGHT = 2,
 };

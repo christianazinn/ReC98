@@ -1,13 +1,12 @@
 /// Background rendering code for TH04's bosses
 /// -------------------------------------------
 /// ZUN's object for this code segment held every one of TH04's boss
-/// background renderers, in stage order, plus the two Stage 6 background
-/// shape helpers wedged in between (kb/codegen/0112). The last TWO of them are
-/// C++ so far — Yuuka's Phase 6 background and the one shared by both Extra
-/// Stage bosses; everything above them is still th04_main.asm's
-/// `BOSS_BG_TEXT` contribution, which this object is appended to. Later lifts
-/// extend this file upwards, one tail at a time, and cost nothing at all now
-/// that the object exists.
+/// background renderers, plus the two Stage 6 background shape helpers wedged
+/// in between and Elly's tile invalidator (kb/codegen/0112). **All of them
+/// are C++ now**, in ZUN's own address order, and th04_main.asm's
+/// `BOSS_BG_TEXT` contribution is empty — this object owns the whole segment.
+/// The order below is ZUN's, which is Stage 4, 2, 3, 1, 5, 6, Extra, and not
+/// stage order.
 ///
 /// TH05's counterpart is th05/main/boss/render.cpp, which holds that game's
 /// five macro-shaped renderers and its two hand-rolled ones.
@@ -45,6 +44,18 @@
 // GRCG; both are the caller's job.
 extern "C" void near playfield_fill(void);
 
+// See th04/main/tile/tile.hpp for the reason why this declaration is
+// necessary. elly_invalidate() below is an SPPoint caller.
+extern "C" void pascal near tiles_invalidate_around(const SPPoint center);
+
+// Elly's single thrown entity and the byte that tracks it, which
+// elly_invalidate() below is the second C++ reader of. Both are private
+// th04_main.asm `.data?` labels behind zero-byte `label` aliases
+// (kb/codegen/0123); th04/main/boss/b3_fg.cpp documents the flag's three
+// states.
+extern "C" unsigned char elly_boomerang_flag;
+extern "C" PlayfieldMotion elly_boomerang_pos;
+
 // That state machine's variables, reset in yuuka6_bg_render() and written
 // nowhere else outside it. [yuuka6_bg_state] is the state index, 0…0x11, and
 // bounds two `cs:` jump tables (`ja` at 0x0C, `jb` at 0x11);
@@ -74,6 +85,199 @@ extern "C" bool yuuka6_bg_fade_done;
 // these are the only TH04 functions that have needed it so far.
 static const int ENTRANCE_BB_FRAMES_PER_CEL = 4;
 
+
+/// Stages 1 – 4
+/// ------------
+// The four bosses below all transition into their backdrop through a .BB
+// animation whose cel index is `boss.phase_frame >> 1` — an arithmetic SHIFT,
+// not the `/ ENTRANCE_BB_TRANSITION_FRAMES_PER_CEL` division that
+// th04/main/boss/impl.hpp's macro and TH05's sara_bg_render() spell. Borland
+// C++ 4.0 strength-reduces a signed `/ 2` to `cwd` / `sub ax, dx` /
+// `sar ax, 1`, three instructions; every one of these functions has the bare
+// `sar ax, 1` alone. `[verified: ASM]`, and see kb/codegen/0134 for the same
+// distinction one factor up.
+static const int ENTRANCE_BB_TRANSITION_CEL_SHIFT = 1;
+
+/// Stage 4 — Orange
+/// ----------------
+// Position of ST04BK.CDG within the playfield.
+static const screen_x_t ORANGE_BACKDROP_LEFT = 32;
+static const vram_y_t ORANGE_BACKDROP_TOP = 136;
+
+// boss_bg_render_entrance_bb_transition_and_backdrop()
+// (th04/main/boss/impl.hpp) written out longhand, for the reasons
+// yuuka5_bg_render() below gives: the macro spells the phase constant
+// `PHASE_BOSS_EXPLODE_BIG`, which th04/main/phase.hpp only defines under
+// `#if (GAME == 5)`, and it divides where this game shifts.
+//
+// The HP-fill arm is the only one that differs from the macro: while Orange's
+// HP bar fills up, the tiles are rendered to both pages unconditionally for
+// the first 192 frames.
+void pascal near orange_bg_render(void)
+{
+	if(boss.phase == PHASE_HP_FILL) {
+		if(boss.phase_frame >= 192) {
+			tiles_render_all();
+		} else {
+			tiles_render_after_custom(boss.phase_frame);
+		}
+	} else if(boss.phase == PHASE_BOSS_ENTRANCE_BB) {
+		boss_backdrop_render(ORANGE_BACKDROP_LEFT, ORANGE_BACKDROP_TOP, 1);
+		tiles_bb_invalidate(
+			bb_boss_seg, (boss.phase_frame >> ENTRANCE_BB_TRANSITION_CEL_SHIFT)
+		);
+		tiles_redraw_invalidated();
+	} else if(boss.phase < PHASE_EXPLODE_BIG) {
+		boss_backdrop_render(ORANGE_BACKDROP_LEFT, ORANGE_BACKDROP_TOP, 1);
+	} else if(boss.phase == PHASE_EXPLODE_BIG) {
+		tiles_render_all();
+	} else /* if(boss.phase == PHASE_NONE) */ {
+		tiles_render_after_custom(boss.phase_frame);
+	}
+}
+/// ----------------
+
+/// Stage 2 — Kurumi
+/// ----------------
+// Position of ST02BK.CDG within the playfield.
+static const screen_x_t KURUMI_BACKDROP_LEFT = 32;
+static const vram_y_t KURUMI_BACKDROP_TOP = 96;
+
+// The same shape as orange_bg_render() above, with the plain
+// tiles_render_all() that the macro's `on_hp_fill` parameter was made for.
+void pascal near kurumi_bg_render(void)
+{
+	if(boss.phase == PHASE_HP_FILL) {
+		tiles_render_all();
+	} else if(boss.phase == PHASE_BOSS_ENTRANCE_BB) {
+		boss_backdrop_render(KURUMI_BACKDROP_LEFT, KURUMI_BACKDROP_TOP, 0);
+		tiles_bb_invalidate(
+			bb_boss_seg, (boss.phase_frame >> ENTRANCE_BB_TRANSITION_CEL_SHIFT)
+		);
+		tiles_redraw_invalidated();
+	} else if(boss.phase < PHASE_EXPLODE_BIG) {
+		boss_backdrop_render(KURUMI_BACKDROP_LEFT, KURUMI_BACKDROP_TOP, 0);
+	} else if(boss.phase == PHASE_EXPLODE_BIG) {
+		tiles_render_all();
+	} else /* if(boss.phase == PHASE_NONE) */ {
+		tiles_render_after_custom(boss.phase_frame);
+	}
+}
+/// ----------------
+
+/// Stage 3 — Elly
+/// --------------
+// Position of ST03BK.CDG within the playfield.
+static const screen_x_t ELLY_BACKDROP_LEFT = 32;
+static const vram_y_t ELLY_BACKDROP_TOP = 16;
+
+// Elly and her boomerang are the only entities drawn on top of the stage
+// tiles before the backdrop appears, so the tile-based background needs their
+// previous positions invalidated by hand on the frames where elly_bg_render()
+// below renders tiles at all. [elly_boomerang_flag] is tested against 0 and
+// not against EBF_THROWN, which is what buys EBF_CAUGHT its one extra
+// invalidation frame (th04/main/boss/b3_fg.cpp).
+//
+// The box is 64×64 screen pixels for both, wider and taller than either
+// sprite.
+static const pixel_t ELLY_INVALIDATE_W = 64;
+static const pixel_t ELLY_INVALIDATE_H = 64;
+
+void pascal near elly_invalidate(void)
+{
+	tile_invalidate_box.x = ELLY_INVALIDATE_W;
+	tile_invalidate_box.y = ELLY_INVALIDATE_H;
+	tiles_invalidate_around(boss.pos.prev);
+	if(elly_boomerang_flag) {
+		tiles_invalidate_around(elly_boomerang_pos.prev);
+	}
+}
+
+// Same shape as the two above, with two quirks of its own:
+//
+// 1) The .BB transition runs during phase 2 rather than during
+//    PHASE_BOSS_ENTRANCE_BB, which is why phases 0 and 1 share one arm here.
+//    `[verified: ASM]`: the original compares against PHASE_BOSS_ENTRANCE_BB
+//    with `ja` and then against a bare 2.
+// 2) That shared arm is tiles_render_after_custom() with elly_invalidate()
+//    wedged into its `else` branch rather than a call to the inline function
+//    — which is also why its two halves tail-merge into this function's
+//    shared tiles_render_all() and tiles_render() exits.
+void pascal near elly_bg_render(void)
+{
+	if(boss.phase <= PHASE_BOSS_ENTRANCE_BB) {
+		if(boss.phase_frame <= 2) {
+			tiles_render_all();
+		} else {
+			elly_invalidate();
+			tiles_render();
+		}
+	} else if(boss.phase == 2) {
+		boss_backdrop_render(ELLY_BACKDROP_LEFT, ELLY_BACKDROP_TOP, 0);
+		tiles_bb_invalidate(
+			bb_boss_seg, (boss.phase_frame >> ENTRANCE_BB_TRANSITION_CEL_SHIFT)
+		);
+		tiles_redraw_invalidated();
+	} else if(boss.phase < PHASE_EXPLODE_BIG) {
+		boss_backdrop_render(ELLY_BACKDROP_LEFT, ELLY_BACKDROP_TOP, 0);
+	} else if(boss.phase == PHASE_EXPLODE_BIG) {
+		tiles_render_all();
+	} else /* if(boss.phase == PHASE_NONE) */ {
+		tiles_render_after_custom(boss.phase_frame);
+	}
+}
+/// --------------
+
+/// Stage 1 — Reimu and Marisa
+/// --------------------------
+// Position of ST01BK.CDG within the playfield.
+static const screen_x_t REIMU_MARISA_BACKDROP_LEFT = 96;
+static const vram_y_t REIMU_MARISA_BACKDROP_TOP = 72;
+
+// Twice as slow as every other boss's, and the only .BB entrance in TH04 that
+// is not ENTRANCE_BB_FRAMES_PER_CEL. Still a real division in the original
+// (`mov bx, 8` / `cwd` / `idiv bx`), exactly like yuuka5_bg_render()'s /4.
+static const int REIMU_MARISA_ENTRANCE_BB_FRAMES_PER_CEL = 8;
+
+// boss_bg_render_entrance_bb_opaque_and_backdrop() written out longhand, for
+// the same two reasons yuuka5_bg_render() gives — the two are otherwise the
+// same code with different constants.
+void pascal near reimu_marisa_bg_render(void)
+{
+	if(boss.phase == PHASE_HP_FILL) {
+		tiles_render_after_custom(boss.phase_frame);
+	} else if(boss.phase == PHASE_BOSS_ENTRANCE_BB) {
+		unsigned char entrance_cel = (
+			boss.phase_frame / REIMU_MARISA_ENTRANCE_BB_FRAMES_PER_CEL
+		);
+		if(entrance_cel < (TILES_BB_CELS / 2)) {
+			tiles_render_all();
+		} else {
+			// A copy of boss_backdrop_render()…
+			grcg_setmode_tdw();
+			grcg_setcolor_direct(1);
+			// … that probably predated [boss_backdrop_colorfill]?
+			reimu_marisa_backdrop_colorfill();
+			grcg_off();
+
+			cdg_put_noalpha_8(
+				REIMU_MARISA_BACKDROP_LEFT,
+				REIMU_MARISA_BACKDROP_TOP,
+				CDG_BG_BOSS
+			);
+		}
+		tiles_bb_put(bb_boss_seg, entrance_cel);
+	} else if(boss.phase < PHASE_EXPLODE_BIG) {
+		boss_backdrop_render(
+			REIMU_MARISA_BACKDROP_LEFT, REIMU_MARISA_BACKDROP_TOP, 1
+		);
+	} else if(boss.phase == PHASE_EXPLODE_BIG) {
+		tiles_render_all();
+	} else /* if(boss.phase == PHASE_NONE) */ {
+		tiles_render_after_custom(boss.phase_frame);
+	}
+}
+/// --------------------------
 /// Stage 5 — Yuuka
 /// ---------------
 // Position of ST05BK.CDG within the playfield.

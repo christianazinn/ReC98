@@ -4314,261 +4314,30 @@ BOSS_BD_TEXT	ends
 
 BOSS_BG_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+	; orange_bg_render(), kurumi_bg_render(), elly_invalidate(),
+	; elly_bg_render() and reimu_marisa_bg_render() now live in
+	; th04/main/boss/bg.cpp, prepended to the object below in the address
+	; order they already held. th04/boss_bg.cpp compiles into THIS segment,
+	; so the seam between this contribution and that object was the only
+	; thing the lift had to move (kb/codegen/0099): no carve, no new segment
+	; name, no group-list edit and no Tupfile.lua line. With them gone, this
+	; contribution is EMPTY.
+	;
+	; `sub_12247` became elly_invalidate(). It widens [tile_invalidate_box]
+	; to 64x64 and invalidates the stage tiles under Elly's and her
+	; boomerang's PREVIOUS positions, which is what keeps the tiled
+	; background clean on the frames before her backdrop appears. Its only
+	; caller was elly_bg_render(), so nothing here declares it.
+	;
+	; Of the four renderers, only reimu_marisa_bg_render() is still
+	; referenced from this file -- main_036_TEXT points
+	; [bg_render_bombing_func] at it -- so it is the only one that needs a
+	; declaration, in upper case because it is `pascal`. The EXTRN is
+	; declared HERE, inside the segment the function used to be defined in,
+	; so that TASM frames its `offset` on group main_01; the reference
+	; itself sits in main_036_TEXT, which is group main_03.
+	@REIMU_MARISA_BG_RENDER$QV procdesc pascal near
 
-; Attributes: bp-based frame
-public @ORANGE_BG_RENDER$QV
-@orange_bg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_12199
-		cmp	_boss_phase_frame, 192
-		jge	short loc_121E1
-		cmp	_boss_phase_frame, 2
-		jg	short loc_121E6
-		jmp	short loc_121E1
-; ---------------------------------------------------------------------------
-
-loc_12199:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_121BF
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 136, 1
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		call	@tiles_bb_invalidate_raw$qi pascal, ax
-		call	@tiles_redraw_invalidated$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_121BF:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_121D3
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 136, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_121D3:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jz	short loc_121E1
-		cmp	_boss_phase_frame, 2
-		jg	short loc_121E6
-
-loc_121E1:
-		call	@tiles_render_all$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_121E6:
-		call	@tiles_render$qv
-		pop	bp
-		retn
-@orange_bg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @KURUMI_BG_RENDER$QV
-@kurumi_bg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jz	short loc_1223D
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_1221B
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 96, 0
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		call	@tiles_bb_invalidate_raw$qi pascal, ax
-		call	@tiles_redraw_invalidated$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1221B:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_1222F
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 96, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1222F:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jz	short loc_1223D
-		cmp	_boss_phase_frame, 2
-		jg	short loc_12242
-
-loc_1223D:
-		call	@tiles_render_all$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12242:
-		call	@tiles_render$qv
-		pop	bp
-		retn
-@kurumi_bg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_12247	proc near
-		push	bp
-		mov	bp, sp
-		mov	_tile_invalidate_box.x, 64
-		mov	_tile_invalidate_box.y, 64
-		call	main_01:tiles_invalidate_around pascal, large [_boss_pos.prev]
-		cmp	byte_25A27, 0
-		jz	short loc_1226D
-		call	main_01:tiles_invalidate_around pascal, large [motion_25A28.prev]
-
-loc_1226D:
-		pop	bp
-		retn
-sub_12247	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @ELLY_BG_RENDER$QV
-@elly_bg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		ja	short loc_12285
-		cmp	_boss_phase_frame, 2
-		jle	short loc_122CD
-		call	main_01:sub_12247
-		jmp	short loc_122D2
-; ---------------------------------------------------------------------------
-
-loc_12285:
-		cmp	_boss_phase, 2
-		jnz	short loc_122AB
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 16, 0
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	ax, _boss_phase_frame
-		sar	ax, 1
-		call	@tiles_bb_invalidate_raw$qi pascal, ax
-		call	@tiles_redraw_invalidated$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_122AB:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_122BF
-		call	@boss_backdrop_render$qiiuc pascal, (32 shl 16) or 16, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_122BF:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jz	short loc_122CD
-		cmp	_boss_phase_frame, 2
-		jg	short loc_122D2
-
-loc_122CD:
-		call	@tiles_render_all$qv
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_122D2:
-		call	@tiles_render$qv
-		pop	bp
-		retn
-@elly_bg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @REIMU_MARISA_BG_RENDER$QV
-@reimu_marisa_bg_render$qv	proc near
-
-@@entrance_cel		= byte ptr -1
-
-		enter	2, 0
-		cmp	_boss_phase, PHASE_BOSS_HP_FILL
-		jnz	short loc_122EB
-		cmp	_boss_phase_frame, 2
-		jg	short loc_1235F
-		jmp	short loc_1235A
-; ---------------------------------------------------------------------------
-
-loc_122EB:
-		cmp	_boss_phase, PHASE_BOSS_ENTRANCE_BB
-		jnz	short loc_12338
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		mov	[bp+@@entrance_cel], al
-		cmp	[bp+@@entrance_cel], 8
-		jnb	short loc_12309
-		call	@tiles_render_all$qv
-		jmp	short loc_12327
-; ---------------------------------------------------------------------------
-
-loc_12309:
-		call	@grcg_setmode_tdw$qv
-		mov	ah, 1
-		call	@grcg_setcolor_direct_raw$qv
-		call	@reimu_marisa_backdrop_colorfill$qv
-		GRCG_OFF_CLOBBERING dx
-		call	cdg_put_noalpha_8 pascal, large (96 shl 16) or 72, 16
-
-loc_12327:
-		mov	ax, _bb_boss_seg
-		mov	_tiles_bb_seg, ax
-		mov	al, [bp+@@entrance_cel]
-		mov	ah, 0
-		call	@tiles_bb_put_raw$qi pascal, ax
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_12338:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_1234C
-		call	@boss_backdrop_render$qiiuc pascal, (96 shl 16) or 72, 1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1234C:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jz	short loc_1235A
-		cmp	_boss_phase_frame, 2
-		jg	short loc_1235F
-
-loc_1235A:
-		call	@tiles_render_all$qv
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1235F:
-		call	@tiles_render$qv
-		leave
-		retn
-@reimu_marisa_bg_render$qv	endp
 
 
 
