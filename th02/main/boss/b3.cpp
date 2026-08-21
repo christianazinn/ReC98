@@ -32,10 +32,14 @@
 #include "th02/main/laser.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/boss/b3.hpp"
+#include "th02/main/bullet/bullet.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/snd/snd.h"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/sprites/main_pat.h"
 #include "th01/sprites/pellet.h"
 
 // Coordinates
@@ -77,17 +81,14 @@ extern "C" void near stones_116EC(void);
 // Advances one stone's kill animation. Called for every stone in SF_KILL_ANIM.
 extern "C" void pascal near stones_11766(int stone);
 
-// Returns `true` once the stone it is asked about has finished being taken
-// over, which is what advances the fight to the next phase.
-extern "C" bool16 pascal near stones_120F7(int stone);
-
 // Phase 1's per-frame movement, and phase 2's, the latter taking the number of
 // stones already removed.
 extern "C" void near stones_119CD(void);
 extern "C" void pascal near stones_11A87(int removed);
 
-// The bullet patterns, dispatched on [stones_pattern]. Phases 4 and 8 share
-// four of them; the first and third slot differ between the two.
+// Phases 4 and 8's bullet patterns, dispatched on [stones_pattern]. The two
+// phases share four of them; the first and third slot differ between them.
+// (Phase 6's three are defined below.)
 extern "C" void near stones_11B5D(void);
 extern "C" void near stones_11BFE(void);
 extern "C" void near stones_11C37(void);
@@ -96,10 +97,25 @@ extern "C" void near stones_11D30(void);
 extern "C" void near stones_11DF6(void);
 extern "C" void near stones_11E40(void);
 extern "C" void near stones_11E76(void);
-extern "C" void near stones_11F2F(void);
-extern "C" void near stones_11FB5(void);
-extern "C" void near stones_1200F(void);
 /// ---------------------------
+
+// The four cells of the shared per-rank bullet parameters that stones_11997()
+// fills. th02/main/boss/b4.cpp declares the extent identically; `[measured]`
+// the dump's `group_20670` IS cell 2, published all along under this name.
+extern "C" uint8_t boss_rank_param[5];
+
+// The angles the two phase-6 patterns sweep, one each, both counting DOWN by 3
+// and both restarting the phase once they pass -0x38 - one on `>`, the other
+// on `>=`. The dump's own hand names are kept; `angle_` is not an IDA
+// placeholder prefix.
+extern "C" uint8_t angle_22FAF;
+extern "C" uint8_t angle_22FB0;
+
+// One aimed angle per stone, recomputed every 64th frame of phase 6's last
+// pattern. One array, not five slots: stones_1200F() indexes it with the same
+// [i] that walks [stone_left], and reaches cell 4 by constant index in its
+// other arm. (kb/codegen/0123's whole-extent case.)
+extern "C" uint8_t angle_22FB1[STONE_COUNT];
 
 // th02/main/boss/b4.cpp and b5m.cpp declare them identically. The point every
 // bullet-spawning subsystem aims at, set to (-1, -1) while there is nothing to
@@ -229,6 +245,180 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+/// Phase 6's three bullet patterns
+/// -------------------------------
+/// [stones_pattern] 0 and 2 both run the first of these, 1 the second and 3
+/// the third; stones_update() advances the index whenever one of them zeroes
+/// [boss_phase_frame], which is how each pattern decides its own length.
+/// -------------------------------
+
+// A mirrored pair of aimed 16×16 bullets from each of the four outer stones,
+// every 30th frame, on the same downward sweep.
+extern "C" void near stones_11F2F(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 16) {
+		return;
+	}
+	if(boss_phase_frame == 16) {
+		angle_22FAF = 0x29;
+	}
+	if((boss_phase_frame % 30) == 0) {
+		for(i = 0; i < STONE_NORTH; i++) {
+			bullets_add_16x16(
+				stone_left[i],
+				stone_top[i],
+				angle_22FAF,
+				BG_1_AIMED,
+				PAT_BULLET16_OUTLINED_BALL_GREEN,
+				((3 << 4) + 12)
+			);
+			bullets_add_16x16(
+				stone_left[i],
+				stone_top[i],
+				-angle_22FAF,
+				BG_1_AIMED,
+				PAT_BULLET16_OUTLINED_BALL_GREEN,
+				((3 << 4) + 12)
+			);
+		}
+		angle_22FAF -= 3;
+	}
+	if(angle_22FAF >= 0xC8) {
+		boss_phase_frame = 0;
+	}
+}
+
+
+// A pair of pellets from the fixed muzzle every 8th frame, at mirrored angles
+// that sweep together by 3 per shot until they pass -0x38.
+extern "C" void near stones_11FB5(void)
+{
+	if(boss_phase_frame == 2) {
+		angle_22FB0 = 0x3E;
+	}
+	if((boss_phase_frame & 7) == 0) {
+		bullets_add_pellet(
+			left_22D98,
+			top_22D9A,
+			(0 - angle_22FB0),
+			boss_rank_param[2],
+			(4 << 4)
+		);
+		bullets_add_pellet(
+			left_22D98, top_22D9A, angle_22FB0, boss_rank_param[2], (4 << 4)
+		);
+		angle_22FB0 -= 3;
+
+		// ZUN quirk: `>` here, `>=` in stones_11F2F() below, for the same
+		// sweep against the same bound.
+		if(angle_22FB0 > 0xC8) {
+			boss_phase_frame = 0;
+		}
+	}
+}
+
+
+// The long one: every 64th frame all five stones re-aim at the player, and
+// every 4th frame after that they fire - pellets for the first six of the nine
+// volleys in a cycle, then a stack-multiplier-free 4-ring of 16×16 bullets
+// from frame 384 on, at the north stone's angle for all five.
+extern "C" void near stones_1200F(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 60) {
+		return;
+	}
+	if((boss_phase_frame % 64) == 0) {
+		for(i = 0; i < STONE_COUNT; i++) {
+			angle_22FB1[i] = iatan2(
+				(player_topleft.y - 32), (player_topleft.x - stone_left[i])
+			);
+		}
+	}
+	if((boss_phase_frame & 3) == 0) {
+		if(boss_phase_frame < 384) {
+			if(((boss_phase_frame % 64) >> 2) <= 8) {
+				for(i = 0; i < STONE_COUNT; i++) {
+					bullets_add_pellet(
+						(stone_left[i] + 12),
+						(stone_top[i] + 12),
+						angle_22FB1[i],
+						BG_1,
+						(7 << 4)
+					);
+				}
+				snd_se_play(3);
+			}
+		} else {
+			bullets_set_stack_multiplier(0);
+			for(i = 0; i < STONE_COUNT; i++) {
+				bullets_add_16x16(
+					(stone_left[i] + 8),
+					(stone_top[i] + 8),
+					angle_22FB1[STONE_NORTH],
+					BG_4_RING,
+					PAT_BULLET16_BALL,
+					(7 << 4)
+				);
+			}
+			snd_se_play(3);
+		}
+	}
+	if(boss_phase_frame >= 447) {
+		boss_phase_frame = 0;
+		bullets_set_stack_multiplier(1);
+	}
+}
+
+
+// One frame of a stone's take-over animation: advances its sprite towards the
+// taken-over cel and returns `true` on the frame it gets there, which is what
+// lets the phase move on. The inner pair, the outer pair and the north stone
+// each walk a different range - and the north stone's arm reaches its cells by
+// constant index where the other two use [stone], which is the evidence
+// kb/codegen/0123 cites for [stone_patnum] being one array.
+extern "C" bool16 pascal near stones_120F7(int stone)
+{
+	if((stone == STONE_INNER_WEST) || (stone == STONE_INNER_EAST)) {
+		stone_patnum[stone]++;
+		if(stone_patnum[stone] >= 155) {
+			stone_flag[stone] = SF_ACTIVE;
+			return true;
+		}
+	} else if((stone == STONE_OUTER_WEST) || (stone == STONE_OUTER_EAST)) {
+		if(stone_patnum[stone] < 152) {
+			stone_patnum[stone]++;
+		}
+		if(stone_patnum[stone] == 152) {
+			stone_patnum[stone] = 156;
+		} else {
+			stone_patnum[stone]++;
+		}
+		if(stone_patnum[stone] >= 159) {
+			stone_flag[stone] = SF_ACTIVE;
+			return true;
+		}
+	} else if(stone == STONE_NORTH) {
+		if(stone_patnum[STONE_NORTH] < 152) {
+			stone_patnum[STONE_NORTH]++;
+		}
+		if(stone_patnum[STONE_NORTH] == 152) {
+			stone_patnum[STONE_NORTH] = 160;
+		} else {
+			stone_patnum[STONE_NORTH]++;
+		}
+		if(stone_patnum[STONE_NORTH] >= 163) {
+			stone_flag[STONE_NORTH] = SF_ACTIVE;
+			return true;
+		}
+	}
+	return false;
+}
 
 
 // Phase 5's per-frame countdown on the north stone's sprite, which walks it
