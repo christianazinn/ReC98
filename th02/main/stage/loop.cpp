@@ -40,7 +40,7 @@
 extern long scroll_line_on_page_init;
 
 extern "C" void near bgm_show(void);
-extern "C" void sub_16D9B(void);
+extern "C" void enemies_spawn(void);
 extern "C" void pascal DemoPlay(void);
 
 // Instance #1 of the static egc_start_copy(), emitted into main_01_TEXT.
@@ -105,7 +105,7 @@ bool16 stage_loop(void)
 		sparks_invalidate();
 		bomb_invalidate();
 		if(scroll_step_advanced) {
-			sub_16D9B();
+			enemies_spawn();
 			scroll_step_advanced = false;
 		}
 

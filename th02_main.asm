@@ -6985,206 +6985,12 @@ loc_16C2D:
 sub_16BF4	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_16C96	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-arg_6		= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_6]
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_ALIVE
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x], si
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	ax, [bp+arg_4]
-		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y], ax
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_patnum_delta], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_script_ip], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	ax, [bp+arg_0]
-		mov	word ptr byte_255C0[bx+enemy_t.E_template_id], ax
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_age], 0
-		call	@randring2_next8$qv
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte_255C0[bx+enemy_t.E_anim_frame], al
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_angle], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_not_shootable], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_no_player_collision], 0
-		cmp	si, 208
-		jge	short loc_16D3E
-		mov	ax, 1
-		jmp	short loc_16D40
-; ---------------------------------------------------------------------------
-
-loc_16D3E:
-		xor	ax, ax
-
-loc_16D40:
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_spawned_in_left_half], ax
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_loop_i], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_despawn_when_offscreen_vertically], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_render_as], 1
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_in_kill_anim], 0
-		mov	bx, [bp+arg_2]
-		imul	bx, 26h
-		mov	word ptr byte_255C0[bx+enemy_t.E_damage], 0
-		mov	al, enemies_loop_bound
-		mov	ah, 0
-		cmp	ax, [bp+arg_2]
-		jge	short loc_16D96
-		mov	al, byte ptr [bp+arg_2]
-		inc	al
-		mov	enemies_loop_bound, al
-
-loc_16D96:
-		pop	si
-		pop	bp
-		retn	8
-sub_16C96	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_16D9B
-_sub_16D9B label far
-sub_16D9B	proc far
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	ax, word_1EE50
-		cmp	ax, word_26C3A
-		jge	loc_16E39
-		add	ax, ax
-		les	bx, dword_26B76
-		add	bx, ax
-		mov	ax, es:[bx]
-		cmp	ax, word_2034A
-		jnz	short loc_16E39
-		mov	di, 1
-		jmp	short loc_16E30
-; ---------------------------------------------------------------------------
-
-loc_16DC4:
-		mov	bx, di
-		shl	bx, 2
-		les	bx, dword_26B76[bx]
-		mov	ax, word_1EE50
-		add	ax, ax
-		add	bx, ax
-		cmp	word ptr es:[bx], 0FFFFh
-		jz	short loc_16E2F
-		mov	bx, di
-		shl	bx, 2
-		mov	bx, word ptr dword_26B76[bx]
-		mov	ax, word_1EE50
-		add	ax, ax
-		add	bx, ax
-		mov	ax, es:[bx]
-		mov	[bp+var_2], ax
-		mov	bx, [bp+var_2]
-		imul	bx, 24h
-		mov	ax, word ptr byte_25976[bx+enemy_template_t.ET_spawn_top]
-		mov	[bp+var_4], ax
-		cmp	_midboss_active, 0
-		jnz	short loc_16E2F
-		xor	si, si
-		jmp	short loc_16E2A
-; ---------------------------------------------------------------------------
-
-loc_16E08:
-		mov	bx, si
-		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
-		jnz	short loc_16E29
-		mov	ax, di
-		shl	ax, 3
-		add	ax, 10h
-		push	ax
-		push	[bp+var_4]
-		push	si
-		push	[bp+var_2]
-		call	sub_16C96
-		jmp	short loc_16E2F
-; ---------------------------------------------------------------------------
-
-loc_16E29:
-		inc	si
-
-loc_16E2A:
-		cmp	si, 19h
-		jl	short loc_16E08
-
-loc_16E2F:
-		inc	di
-
-loc_16E30:
-		cmp	di, 31h	; '1'
-		jl	short loc_16DC4
-		inc	word_1EE50
-
-loc_16E39:
-		pop	di
-		pop	si
-		leave
-sub_16D9B	endp
-
-
 ; THREE objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/enemy/update.cpp  enemy_run()
+;   th02/main/enemy/update.cpp  enemy_add()
+;                               enemies_spawn()
+;                               enemy_run()
 ;                               enemy_hittest()
 ;                               enemy_kill_update_and_render()
 ;                               enemies_update_and_render()
@@ -7193,28 +6999,32 @@ sub_16D9B	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sub_16D9B(), and the first of
-; those objects picks the segment up from the byte after that proc's `retf`.
+; So th02_main.asm contributes nothing below sub_16BF4(), and the first of
+; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
-; right parity for one reason only, and it is worth stating because it is
-; the opposite of what kb/codegen/0096 predicts: -a2 aligns the byte AFTER
-; a table, so it pads exactly when the NATURAL table offset is EVEN
-; (kb/codegen/0154). enemy_run() is the first thing in its object, its body
-; is 0x6C2 bytes, and 0x6C2 is even -- so the pad appears, at object offset
-; 0x6C2, which is where the original has it. Prepending ANYTHING ahead of
-; enemy_run() in that object changes that parity and deletes the pad.
+; original's parity only while everything th02/main/enemy/update.cpp emits
+; AHEAD of enemy_run() sums to an ODD number of bytes -- 0x1A7 today, from
+; enemy_add() at 0x105 and enemies_spawn() at 0xA2. Turbo C++'s OBJ writer
+; pads a generated table exactly when its natural OBJECT-LOCAL offset comes
+; out ODD. That is kb/codegen/0096's direction and NOT kb/codegen/0154's:
+; 0154 was measured off `tcc -S` listings, and the listing prints a
+; `db 1 dup (?)` that never reaches the object. Grade a generated table's
+; alignment on obj_probe.py against the OBJ, never on the -S listing.
+;
+; Lifting these two took back the `retf` that the enemy_run() parcel had
+; borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
+; same parity. 0x105 + 0xA2 is odd on its own, so the purchase is repaid
+; and the codestring is gone.
 ;
 ; th02/main/enemy/update.cpp IS ITS OWN OBJECT ON PURPOSE, and a later lift
 ; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its
-; contribution is 0x417 bytes - ODD - and th02/boss_5.cpp sets -a2 for the
-; one-byte pad under mima_update()'s generated jump table. Turbo C++ aligns
-; that table against the offset its OWN object starts at, so folding an odd
-; contribution in front of it deletes the pad and shifts every byte after it
-; (kb/codegen/0119). The two procs that were directly above it were 0x86 each
-; - EVEN - and prepended into that same object without re-rolling anything,
-; which is the pattern every further lift out of this block should follow.
+; contribution is 0xCE3 bytes - ODD - and th02/boss_5.cpp sets -a2 for the
+; one-byte pad under mima_update()'s generated jump table, which Turbo C++
+; aligns against the offset its OWN object starts at, so folding an odd
+; contribution in front of it deletes that pad and shifts every byte after
+; it (kb/codegen/0119).
 ;
 ; th02/boss_5.cpp's own prefix ahead of the jump table is unchanged by that
 ; split and still sums as it did: the five below mima_18A1B() to 0x628, the two
@@ -8254,6 +8064,11 @@ aStage5b2_bft	db 'stage5b2.bft',0
 aBoss5_m	db 'boss5.m',0
 ; char aMaine[]
 aMaine		db 'maine',0
+; The [spawn_grid] row enemies_spawn() will read next. Reset to 0 by
+; sub_16A6B(), which also frees every [enemies] slot. Nothing else writes
+; it, and the only bound it is ever tested against is [spawn_rows].
+public _spawn_row_cur
+_spawn_row_cur label word
 word_1EE50	dw 0
 ; Exclusive upper bound on the [enemies] slot index that
 ; enemies_update_and_render() walks to. NOT a count: enemies_invalidate()
