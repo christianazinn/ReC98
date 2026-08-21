@@ -112,13 +112,14 @@ extern "C" const pattern_loop_func_t MAI_LASER_BULLET_PATTERNS[3];
 // --------------------------------------------
 
 // Mai's HP thresholds, each spelled after the phase it ends, the way
-// th05/main/boss/b5.cpp spells Yumeko's. Yuki's total is 7900, and
-// mai_yuki_update() gives the survivor a fresh bar either way.
-static const int HP_TOTAL = 7800;
-static const int HP_PHASE_3_END = 5800;
-static const int HP_PHASE_5_END = 2800;
-static const int HP_PHASE_7_END = 1200;
-static const int HP_PHASE_9_END = 0;
+// th05/main/boss/b5.cpp spells Yumeko's. Yuki's five are in
+// th05/main/boss/b4_yuki.cpp, which shares this translation unit, which is why
+// both sets carry the character's name.
+static const int MAI_HP_TOTAL = 7800;
+static const int MAI_HP_PHASE_3_END = 5800;
+static const int MAI_HP_PHASE_5_END = 2800;
+static const int MAI_HP_PHASE_7_END = 1200;
+static const int MAI_HP_PHASE_9_END = 0;
 
 // Laser slots the phase-5 pattern can occupy. Only [mai_laser_count] of them
 // are ever spawned, but mai_update() stops all ten when the phase ends.
@@ -130,6 +131,14 @@ static const int MAI_LASER_SLOTS = 10;
 // b4_solo_fg.cpp gives for spelling the same number 192 there: what the cel
 // depicts has not been decided, only where it is.
 static const int PAT_MAI_ANIMATED = (PAT_MAI + 12);
+
+// Yuki's half of the solo fight, which sits AHEAD of Mai's in this segment and
+// therefore ahead of it in this object. Included from here rather than from
+// th05/b4mai.cpp because it needs [mai_yuki_pattern] above, and because this
+// file owns the object's unguarded headers (kb/codegen/0112 trap 0) -- moving
+// them into the wrapper to put that file first would reorder nothing and risk
+// the include-hoisting class for no gain.
+#include "th05/main/boss/b4_yuki.cpp"
 
 /// Danmaku patterns
 /// ----------------
@@ -616,8 +625,8 @@ void pascal mai_update(void)
 	switch(boss.phase) {
 	case PHASE_HP_FILL:
 		if(boss.phase_frame == 1) {
-			boss.hp = HP_TOTAL;
-			boss.phase_end_hp = HP_PHASE_3_END;
+			boss.hp = MAI_HP_TOTAL;
+			boss.phase_end_hp = MAI_HP_PHASE_3_END;
 			gather_template.radius.set(BOSS_W / 1.0f);
 			gather_template.angle_delta = 0x02;
 			gather_template.ring_points = 8;
@@ -706,7 +715,7 @@ void pascal mai_update(void)
 			boss_score_bonus(10);
 phase_3_timed_out:
 			// Next phase
-			boss_phase_next(ET_NW_SE, HP_PHASE_5_END);
+			boss_phase_next(ET_NW_SE, MAI_HP_PHASE_5_END);
 		}
 		break;
 
@@ -732,7 +741,7 @@ phase_3_timed_out:
 		for(i = 0; i < MAI_LASER_SLOTS; i++) {
 			laser_stop(i);
 		}
-		boss_phase_next(ET_HORIZONTAL, HP_PHASE_7_END);
+		boss_phase_next(ET_HORIZONTAL, MAI_HP_PHASE_7_END);
 		break;
 
 	case 6:
@@ -768,7 +777,7 @@ phase_3_timed_out:
 			boss_score_bonus(10);
 phase_7_timed_out:
 			// Next phase
-			boss_phase_next(ET_NW_SE, HP_PHASE_9_END);
+			boss_phase_next(ET_NW_SE, MAI_HP_PHASE_9_END);
 		}
 		break;
 
@@ -831,7 +840,7 @@ phase_9_defeated:
 	}
 
 	b4balls_update();
-	hud_hp_update_and_render(boss.hp, HP_TOTAL);
+	hud_hp_update_and_render(boss.hp, MAI_HP_TOTAL);
 }
 
 #pragma option -a1
