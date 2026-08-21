@@ -4,7 +4,9 @@
 /// lives in th05/boss_4.cpp, which compiles this file together with Alice's
 /// update function (kb/codegen/0112 trap 0).
 
-#include "th04/math/vector.hpp"
+// th04/math/vector.hpp is NOT named here any more: it is unguarded, and
+// th05/main/boss/b2.cpp -- which compiles first in this object -- needs
+// vector2() itself (kb/codegen 0129).
 #include "th04/snd/snd.h"
 // Also supplies th04/math/randring.hpp and th05/sprites/main_pat.h, which this
 // file used to include directly. Neither has an include guard, so each can

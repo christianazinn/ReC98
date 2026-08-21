@@ -14,12 +14,10 @@
 /// first file compiled into an object may name its segment, kb/codegen/0112
 /// trap 0.)
 ///
-/// Being the *first* file in that object, this one now owns the unguarded
-/// headers it shares with b3.cpp -- th04/main/gather.hpp,
-/// th04/main/homing.hpp, th04/main/hud/hud.hpp and
-/// th04/main/bullet/clearzap.hpp. b3.cpp reaches all four through this file
-/// and no longer names them; naming either of them there would be a
-/// redefinition rather than a no-op.
+/// This file owns th04/main/bullet/clearzap.hpp, which is unguarded and which
+/// b3.cpp used to name; b3.cpp reaches it through this file now. The other
+/// three it took off b3.cpp -- gather, homing and hud/hud -- moved on again to
+/// th05/main/boss/b2.cpp when that became the object's first file.
 
 #include "libs/master.lib/master.hpp"
 // Guarded, and the route b3.cpp already uses to reach th04/math/randring.hpp
@@ -32,10 +30,9 @@
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
 #include "th04/main/boss/boss.hpp"
-// The four taken over from b3.cpp, per the block comment above.
-#include "th04/main/gather.hpp"
-#include "th04/main/homing.hpp"
-#include "th04/main/hud/hud.hpp"
+// th04/main/gather.hpp, th04/main/homing.hpp and th04/main/hud/hud.hpp are NOT
+// named here: all three are unguarded and th05/main/boss/b2.cpp, which now
+// compiles ahead of this file in the same object, needs all three itself.
 #include "th04/main/bullet/clearzap.hpp"
 // Both unguarded and both new to this object: nothing else compiled into
 // th05/boss_4.cpp reaches either.
