@@ -6,33 +6,6 @@
 
 /// Still ASM
 /// ---------
-// Kurumi's patterns and the two helpers they share, all of them in this same
-// segment and all private to ZUN's object, so each needed a zero-byte `label`
-// alias in th04_main.asm to become linkable (kb/codegen/0123). The
-// address-suffixed names are the dump's own; naming them belongs to whoever
-// lifts them.
-extern "C" {
-	// Runs on every frame of the two phases that let Kurumi move freely.
-	void near kurumi_18A79(void);
-
-	// The between-patterns filler both pattern phases open with.
-	void near kurumi_18B68(void);
-
-	// Phase 2's three patterns…
-	void near kurumi_18BE6(void);
-	void near kurumi_18C76(void);
-	void near kurumi_18D04(void);
-
-	// …phase 3's one…
-	void near kurumi_18DB6(void);
-
-	// …phase 4's three…
-	void near kurumi_18E43(void);
-	void near kurumi_18EE7(void);
-	void near kurumi_18F8B(void);
-
-}
-
 // Written 0 exactly once, here, and read by nothing in any of the five
 // binaries. ZUN bloat, and the reason it keeps an address-suffixed name.
 // **A naming round is owed** if a reader ever turns up.
@@ -100,6 +73,445 @@ static const int KURUMI_VOLLEY_ARMS_MAX = 5;
 		bullet_template.angle += angle_delta; \
 	} \
 }
+
+/// Kurumi's patterns
+/// -----------------
+/// All ten of these sat directly above kurumi_1905A() in ZUN's object, and
+/// every one of them is reached from kurumi_update() or from another of the
+/// ten and from nowhere else, so all ten are `static` here and the nine
+/// zero-byte `label` aliases th04_main.asm carried for them are gone with the
+/// bodies. They keep the dump's address-suffixed names; **a naming round is
+/// owed** for all ten.
+
+// The coin kurumi_18DB6() flips on every volley and reads the low bit of: it
+// picks which way that pattern's decelerating ring turns. th04_main.asm
+// `.data?` with no `public` of ZUN's, and that function is its only reader in
+// any of the five binaries, so it takes a zero-byte `label` alias
+// (kb/codegen/0123).
+extern "C" unsigned char kurumi_259F0;
+
+// Arms the first free spawn ray at [angle], starting from a point
+// [distance_from_center_x] to the side of Kurumi and 10 pixels above her.
+// Does nothing at all if all six are busy.
+//
+// This one is in the parcel for a reason beyond being the next tail up:
+// kurumi_update()'s `-a2` pad is a function of this object's prefix parity
+// (kb/codegen/0160), the ten patterns below are `0x5E1` bytes — ODD — and this
+// function is the `0x61` that makes the prefix `0x642` and the pad come back.
+// An extra lift un-decompiles nothing, where kb/codegen/0154's
+// `#pragma codestring` would have to borrow a byte from a function that is
+// still ASM.
+void pascal near kurumi_spawnrays_add(
+	subpixel_t distance_from_center_x, unsigned char angle
+)
+{
+	kurumi_spawnray_t near *ray;
+	int i;
+
+	ray = kurumi_spawnrays;
+	i = 0;
+	while(i < KURUMI_SPAWNRAY_COUNT) {
+		if(ray->flag == B2SF_FREE) {
+			ray->flag = B2SF_GROW;
+			ray->target.x.v = (boss.pos.cur.x.v + distance_from_center_x);
+			ray->target.y.v = (boss.pos.cur.y.v + TO_SP(-10));
+			ray->origin.x.v = (boss.pos.cur.x.v + distance_from_center_x);
+			ray->origin.y.v = (boss.pos.cur.y.v + TO_SP(-10));
+			vector2(ray->velocity.x.v, ray->velocity.y.v, angle, TO_SP(16));
+			snd_se_play(5);
+			return;
+		}
+		i++;
+		ray++;
+	}
+}
+
+// Advances every spawn ray: a B2SF_GROW one walks its target end outwards
+// until it leaves the playfield, at which point it fires three accelerating
+// bullets back down its own line and becomes B2SF_SHRINK; a B2SF_SHRINK one
+// walks its origin end after it and frees the slot when that leaves too.
+//
+// Returns `true` on the frame every slot is free again, which is what ends
+// each of the patterns below.
+static bool near kurumi_18A79(void)
+{
+	kurumi_spawnray_t near *ray;
+	int i;
+	int free_rays;
+	int shot;
+
+	ray = kurumi_spawnrays;
+	i = 0;
+	free_rays = 0;
+	while(i < KURUMI_SPAWNRAY_COUNT) {
+		if(ray->flag == B2SF_FREE) {
+			free_rays++;
+		}
+		if(ray->flag == B2SF_GROW) {
+			if(
+				(ray->target.x.v < TO_SP(PLAYFIELD_W)) &&
+				(ray->target.y.v < TO_SP(PLAYFIELD_H)) &&
+				(ray->target.x.v > TO_SP(0)) &&
+				(ray->target.y.v > TO_SP(0))
+			) {
+				ray->target.x.v += ray->velocity.x.v;
+				ray->target.y.v += ray->velocity.y.v;
+			} else {
+				bullet_template.origin.x.v = (
+					ray->target.x.v - ray->velocity.x.v
+				);
+				bullet_template.origin.y.v = (
+					ray->target.y.v - ray->velocity.y.v
+				);
+				bullet_template.special_motion = BSM_SPEEDUP;
+				bullet_special.speed_delta.v = 1;
+				shot = 0;
+				bullet_template.speed.v = TO_SP(2);
+				while(shot < 3) {
+					bullets_add_regular_fixedspeed();
+					shot++;
+					_AL = bullet_template.speed.v;
+					_AL += 6;
+					bullet_template.speed.v = _AL;
+				}
+				ray->flag++; // = B2SF_SHRINK
+				snd_se_play(6);
+				circles_color = 9;
+				circles_add_growing(
+					bullet_template.origin.x.v, bullet_template.origin.y.v
+				);
+			}
+		} else if(ray->flag == B2SF_SHRINK) {
+			if(
+				(ray->origin.x.v < TO_SP(PLAYFIELD_W)) &&
+				(ray->origin.y.v < TO_SP(PLAYFIELD_H)) &&
+				(ray->origin.x.v > TO_SP(0)) &&
+				(ray->origin.y.v > TO_SP(0))
+			) {
+				ray->origin.x.v += ray->velocity.x.v;
+				ray->origin.y.v += ray->velocity.y.v;
+			} else {
+				ray->flag = B2SF_FREE;
+			}
+		}
+		i++;
+		ray++;
+	}
+	// Two `return`s and not one `return (free_rays == …);`: the comparison
+	// expression is an `int`, so Borland materializes it as `mov ax, 1` /
+	// `xor ax, ax` and the function comes out one byte long. Returning the
+	// two `bool` literals keeps it in AL, which is what the original does.
+	if(free_rays == KURUMI_SPAWNRAY_COUNT) {
+		return true;
+	}
+	return false;
+}
+
+// The two halves of Kurumi's ellipse flight, which differ only in which way
+// they walk [boss.angle]. Written out twice because the original does: the
+// two bodies are byte-identical apart from the `inc`/`dec`.
+static void near kurumi_18B68(void)
+{
+	boss.pos.cur.x.v = polar_x(TO_SP(192), TO_SP(64), boss.angle);
+	boss.pos.cur.y.v = polar_y(TO_SP(91), TO_SP(20), boss.angle);
+	boss.angle++;
+}
+
+static void near kurumi_18BA7(void)
+{
+	boss.pos.cur.x.v = polar_x(TO_SP(192), TO_SP(64), boss.angle);
+	boss.pos.cur.y.v = polar_y(TO_SP(91), TO_SP(20), boss.angle);
+	boss.angle--;
+}
+
+// Phase 2's three patterns, and phase 4's three below them, are the same
+// shape: a sprite change at frame 16, a shrinking circle and a sound at 48,
+// one or two spawn rays at 64, and then an aimed ring per frame until every
+// ray is home again. What differs is which side the rays come from, how many
+// of them there are, and how wide the ring is.
+
+// One ray from her left, at a random angle in the upper-left octant.
+static void near kurumi_18BE6(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = 8;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(-12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		kurumi_spawnrays_add(TO_SP(-12), (0x18 - randring2_next16_and(15)));
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 16;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// The same, mirrored to her right.
+static void near kurumi_18C76(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = 9;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		kurumi_spawnrays_add(TO_SP(12), (randring2_next16_and(15) + 0x68));
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 16;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Both sides at once, at mirrored angles and with half as wide a ring.
+static void near kurumi_18D04(void)
+{
+	unsigned char angle;
+
+	if(boss.phase_frame == 16) {
+		boss.sprite = 10;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(-12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		angle = (randring2_next16_and(15) + 0x68);
+		kurumi_spawnrays_add(TO_SP(12), angle);
+
+		// The mirrored angle is computed INSIDE the call and not into `_AL`
+		// beforehand: `pascal` evaluates and pushes left to right, so the
+		// original's `push 0xFF40` comes BEFORE the `mov al, 0x80` /
+		// `sub al, [bp-1]`. Hoisting it into two statements above the call
+		// reorders those three instructions and nothing else — same bytes,
+		// same length, three slots out of place.
+		kurumi_spawnrays_add(TO_SP(-12), (0x80 - angle));
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 8;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+// Phase 3's only pattern, and the only one that moves her: she flies the
+// ellipse backwards while firing a decelerating ring every 57th STAGE frame,
+// alternating which way the ring turns, plus a second slower one at a
+// different random angle.
+static void near kurumi_18DB6(void)
+{
+	kurumi_18BA7();
+	if(boss.angle > 128) {
+		boss.sprite = 4;
+	} else {
+		boss.sprite = 6;
+	}
+	if((stage_frame % 57) == 0) {
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.origin = boss.pos.cur;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 16;
+		bullet_template.special_motion = BSM_DECELERATE_THEN_TURN;
+		bullet_template.speed.v = TO_SP(3);
+		bullet_template.angle = randring2_next16();
+		bullet_special.turns_max = 1;
+		if(kurumi_259F0 & 1) {
+			_AL = 0x40;
+		} else {
+			_AL = -0x40;
+		}
+		bullet_template_special_angle.turn_by = _AL;
+		bullet_template_tune();
+		bullets_add_special();
+
+		// A half turn on top of whichever quarter turn the coin picked, so
+		// the second ring turns the opposite way from the first.
+		_AL = bullet_template_special_angle.turn_by;
+		_AL += 0x80;
+		bullet_template_special_angle.turn_by = _AL;
+
+		bullet_template.speed.v = TO_SP(2);
+		bullet_template.angle = randring2_next16();
+		bullets_add_special();
+		kurumi_259F0++;
+	}
+}
+
+// Phase 4's three, which add a second and third ray at fixed angles on frames
+// 80 and 96 instead of randomizing the first one's.
+static void near kurumi_18E43(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = 8;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(-12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		kurumi_spawnrays_add(TO_SP(-12), 0x18);
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		if(boss.phase_frame == 80) {
+			kurumi_spawnrays_add(TO_SP(-12), 0x10);
+		} else if(boss.phase_frame == 96) {
+			kurumi_spawnrays_add(TO_SP(-12), 0x08);
+		}
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 12;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+static void near kurumi_18EE7(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = 9;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		kurumi_spawnrays_add(TO_SP(12), 0x68);
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		if(boss.phase_frame == 80) {
+			kurumi_spawnrays_add(TO_SP(12), 0x70);
+		} else if(boss.phase_frame == 96) {
+			kurumi_spawnrays_add(TO_SP(12), 0x78);
+		}
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 12;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+
+static void near kurumi_18F8B(void)
+{
+	if(boss.phase_frame == 16) {
+		boss.sprite = 10;
+		return;
+	}
+	if(boss.phase_frame == 48) {
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(-12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_add_shrinking(
+			(boss.pos.cur.x.v + TO_SP(12)), (boss.pos.cur.y.v + TO_SP(-10))
+		);
+		circles_color = V_WHITE;
+		snd_se_play(8);
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		boss.sprite = 0;
+		kurumi_spawnrays_add(TO_SP(-12), 0x18);
+		kurumi_spawnrays_add(TO_SP(12), 0x68);
+		return;
+	}
+	if(boss.phase_frame > 64) {
+		if(boss.phase_frame == 80) {
+			kurumi_spawnrays_add(TO_SP(-12), 0x10);
+			kurumi_spawnrays_add(TO_SP(12), 0x70);
+		} else if(boss.phase_frame == 96) {
+			kurumi_spawnrays_add(TO_SP(-12), 0x08);
+			kurumi_spawnrays_add(TO_SP(12), 0x78);
+		}
+		bullet_template.spawn_type = BST_BULLET16;
+		bullet_template.patnum = PAT_BULLET16_N_OUTLINED_BALL_BLUE;
+		bullet_template.angle = 0;
+		bullet_template.group = BG_RING_AIMED;
+		bullet_template.count = 6;
+		bullet_template_tune();
+		if(kurumi_18A79()) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+		}
+	}
+}
+/// -----------------
 
 /// Kurumi's phase 5 pattern
 /// ------------------------

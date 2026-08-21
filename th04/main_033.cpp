@@ -36,6 +36,8 @@
 #include "th04/main/player/player.hpp"
 #include "th04/main/rank.hpp"
 #include "th03/math/polar.hpp"
+// vector2(), which kurumi_spawnrays_add() aims its rays with.
+#include "th04/math/vector.hpp"
 #include "th04/main/homing.hpp"
 #include "th04/main/spark.hpp"
 #include "th04/main/hud/hud.hpp"
