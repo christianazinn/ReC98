@@ -20,7 +20,9 @@
 #include "th02/v_colors.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/boss/boss.hpp"
-#include "th05/main/boss/bosses.hpp"
+// th05/main/boss/bosses.hpp, which declares louise_fg_render(), is NOT
+// named here: it has no include guard and th05/main/boss/b1_fg.cpp is now
+// the earliest file in this object that needs it.
 
 static const int LOUISE_FRAMES_PER_CEL = 4;
 

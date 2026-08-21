@@ -2854,248 +2854,33 @@ hud_put	endp
 
 ; ---------------------------------------------------------------------------
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSS1_RENDER$QV
-@midboss1_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnb	loc_108F6
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		add	ax, 16
-		mov	di, ax
-		call	scroll_subpixel_y_to_vram_seg1 pascal, _midboss_pos.cur.y
-		mov	[bp+@@y], ax
-		mov	al, _midboss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-		mov	dh, 0
-		mov	bx, 4
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	si, dx
-		call	super_roll_put pascal, di, [bp+@@y], dx
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	[bp+@@y], ax
-		cmp	_midboss_phase, 2
-		jnz	short loc_108C2
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, 208
-		mov	si, ax
-
-loc_108B6:
-		call	super_roll_put pascal, di, [bp+@@y], si
-		jmp	short loc_10900
-; ---------------------------------------------------------------------------
-
-loc_108C2:
-		cmp	_midboss_phase, 3
-		jnz	short loc_10900
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, 212
-		mov	si, ax
-		cmp	_midboss_damage_this_frame, 0
-		jz	short loc_108B6
-		call	super_roll_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-		jmp	short loc_10900
-; ---------------------------------------------------------------------------
-
-loc_108F6:
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_10900
-		call	@midboss_defeat_render$qv
-
-loc_10900:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss1_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @SARA_FG_RENDER$QV
-@sara_fg_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	[bp+@@y], ax
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnz	short loc_10934
-		push	di
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_10932:
-		jmp	short loc_10999
-; ---------------------------------------------------------------------------
-
-loc_10934:
-		cmp	_boss_sprite, PAT_SARA_RIGHT
-		jz	short loc_10942
-		cmp	_boss_sprite, PAT_SARA_LEFT
-		jnz	short loc_1094D
-
-loc_10942:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod8
-		jmp	short loc_1095D
-; ---------------------------------------------------------------------------
-
-loc_1094D:
-		cmp	_boss_sprite, PAT_SARA_STAY
-		jnz	short loc_1096F
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	dl, _stage_frame_mod16
-
-loc_1095D:
-		mov	dh, 0
-		mov	bx, WIND_STAY_CELS
-		push	ax
-		mov	ax, dx
-		cwd
-		idiv	bx
-		pop	dx
-		add	dx, ax
-		mov	si, dx
-		jmp	short loc_10976
-; ---------------------------------------------------------------------------
-
-loc_1096F:
-		mov	al, _boss_sprite
-		mov	ah, 0
-		mov	si, ax
-
-loc_10976:
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_10989
-		call	super_put pascal, di, [bp+@@y], si
-		jmp	short loc_10932
-; ---------------------------------------------------------------------------
-
-loc_10989:
-		call	super_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-
-loc_10999:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		leave
-		retn
-@sara_fg_render$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSS2_RENDER$QV
-@midboss2_render$qv	proc near
-
-@@y		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_10A1C
-		cmp	_midboss_pos.cur.y, 0
-		jl	short loc_10A26
-		mov	ax, _midboss_pos.cur.x
-		sar	ax, 4
-		mov	di, ax
-		mov	ax, _midboss_pos.cur.y
-		add	ax, (-16 shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	[bp+@@y], ax
-		cmp	_midboss_sprite, 202
-		jnz	short loc_109E3
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 202
-		jmp	short loc_109F0
-; ---------------------------------------------------------------------------
-
-loc_109E3:
-		mov	al, _stage_frame_mod8
-		mov	ah, 0
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	ax, 206
-
-loc_109F0:
-		mov	si, ax
-		cmp	_midboss_damage_this_frame, 0
-		jnz	short loc_10A05
-		call	super_roll_put pascal, di, [bp+@@y], si
-		jmp	short loc_10A26
-; ---------------------------------------------------------------------------
-
-loc_10A05:
-		call	super_roll_put_1plane pascal, di, [bp+@@y], si, large PLANE_PUT or GC_BRGI
-		mov	_midboss_damage_this_frame, 0
-		jmp	short loc_10A26
-; ---------------------------------------------------------------------------
-
-loc_10A1C:
-		cmp	_midboss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_10A26
-		call	@midboss_defeat_render$qv
-
-loc_10A26:
-		pop	di
-		pop	si
-		leave
-		retn
-@midboss2_render$qv	endp
+	; midboss1_render(), sara_fg_render() and midboss2_render() now live
+	; in th05/main/midboss/m1_render.cpp, th05/main/boss/b1_fg.cpp and
+	; th05/main/midboss/m2.cpp, in that order, at the FRONT of the
+	; th05/b34fg.cpp object. That object is this segment's next
+	; contribution and these were the LAST three procs of the root's block,
+	; so the C++ side grows backwards into the hole and every byte keeps
+	; its address (kb/codegen 0112 + 0114).
+	;
+	; With these gone the root's block ends at hud_put, whose own trailing
+	; `dw @@not_reimu` run is a switch table -- so the next tail here is a
+	; jump-table tail, not an ordinary proc, and it is hud_put that owns
+	; the table. Re-measure with carve_free_tails.py rather than reading
+	; that off this comment.
+	;
+	; midboss1_render() is the one that blits TWICE, with a 32-pixel extent
+	; for the first and a 64-pixel one for the second; the two
+	; th05/main/midboss/m1.cpp constants are subpixels and are NOT what it
+	; wants. Neither midboss1_render() nor midboss2_render() is TH04's
+	; function of the same name.
+	;
+	; Nothing in this dump calls any of the three -- th05/main/stage/
+	; setup.cpp installs them into [midboss_render_func] and
+	; [boss_fg_render_func] -- so no `procdesc` replaces them, and the
+	; mangled `public`s that exported them go with the bodies.
+	;
+	; kb/codegen/0121: none of the three carried an `assume`, so there is
+	; nothing to restore at this position.
 
 
 	; louise_fg_render() and midboss3_render() now live in
