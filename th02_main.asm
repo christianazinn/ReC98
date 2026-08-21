@@ -6716,6 +6716,7 @@ enemies_callbacks_null endp
 
 ; Attributes: bp-based frame
 
+public SUB_16AA7
 sub_16AA7	proc near
 
 @@angle		= word ptr  4
@@ -7177,6 +7178,8 @@ sub_16D9B	endp
 
 ; Attributes: bp-based frame
 
+public _enemy_run
+_enemy_run label near
 sub_16E3D	proc near
 
 var_A		= byte ptr -0Ah
@@ -8013,6 +8016,8 @@ off_17518	dw offset loc_16EDC
 
 ; Attributes: bp-based frame
 
+public _enemy_hittest
+_enemy_hittest label near
 sub_17562	proc near
 
 var_2		= word ptr -2
@@ -8071,6 +8076,8 @@ sub_17562	endp
 
 ; Attributes: bp-based frame
 
+public _enemy_kill_update_and_render
+_enemy_kill_update_and_render label near
 sub_175E8	proc near
 		push	bp
 		mov	bp, sp
@@ -8137,336 +8144,34 @@ loc_1766A:
 sub_175E8	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_1766E
-_sub_1766E label far
-sub_1766E	proc far
-
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 8
-		push	si
-		push	di
-		mov	[bp+var_2], 0
-		mov	[bp+var_4], 0
-		mov	word_205D8, 0FFFFh
-		mov	word_205DA, 0FFFFh
-		mov	word_26C46, offset byte_255C0
-		xor	di, di
-		jmp	loc_1796A
-; ---------------------------------------------------------------------------
-
-loc_17697:
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+0Eh], 1
-		jnz	loc_17964
-		mov	bx, word_26C46
-		mov	ax, [bx+0Ch]
-		imul	ax, 24h
-		add	ax, offset byte_25976
-		mov	word_26C48, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, word_26C46
-		mov	word_26C4A, ax
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, word_26C46
-		add	ax, 2
-		mov	word_26C4C, ax
-		mov	ax, word_26C46
-		add	ax, 1Ch
-		mov	word_26C52, ax
-		mov	ax, word_26C46
-		add	ax, 1Dh
-		mov	word_26C54, ax
-
-loc_176E6:
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+10h], 0
-		jnz	short loc_176F6
-		call	sub_16E3D
-		mov	[bp+var_2], ax
-
-loc_176F6:
-		cmp	[bp+var_2], 2
-		jz	loc_17964
-		cmp	[bp+var_2], 1
-		jz	short loc_176E6
-		mov	bx, word_26C4A
-		mov	ax, [bx]
-		mov	left_26C4E, ax
-		mov	bx, word_26C4C
-		mov	ax, [bx]
-		mov	top_26C50, ax
-		mov	si, top_26C50
-		cmp	left_26C4E, (PLAYFIELD_LEFT - 32)
-		jl	short loc_17729
-		cmp	left_26C4E, (PLAYFIELD_RIGHT + 2)
-		jle	short loc_17734
-
-loc_17729:
-		mov	bx, word_26C46
-		mov	byte ptr [bx+0Eh], 2
-		jmp	loc_17964
-; ---------------------------------------------------------------------------
-
-loc_17734:
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+1Eh], 0
-		jz	short loc_17758
-		cmp	top_26C50, PLAYFIELD_BOTTOM
-		jge	short loc_1774D
-		cmp	top_26C50, (PLAYFIELD_TOP - 32)
-		jg	short loc_17758
-
-loc_1774D:
-		mov	bx, word_26C46
-		mov	byte ptr [bx+0Eh], 2
-		jmp	loc_17964
-; ---------------------------------------------------------------------------
-
-loc_17758:
-		mov	bx, word_26C46
-		inc	byte ptr [bx+0Fh]
-		mov	bx, word_26C48
-		cmp	word ptr [bx+0Ah], 0
-		jz	short loc_177A0
-		mov	bx, word_26C46
-		cmp	word ptr [bx+14h], 1
-		jnz	short loc_177A0
-		mov	al, [bx+0Fh]
-		mov	ah, 0
-		mov	bx, word_26C48
-		cwd
-		idiv	word ptr [bx+0Ch]
-		or	dx, dx
-		jnz	short loc_177A0
-		mov	bx, word_26C46
-		inc	word ptr [bx+12h]
-		mov	ax, [bx+12h]
-		mov	bx, word_26C48
-		cmp	ax, [bx+0Ah]
-		jl	short loc_177A0
-		mov	bx, word_26C46
-		mov	word ptr [bx+12h], 0
-
-loc_177A0:
-		mov	bx, word_26C48
-		cmp	word ptr [bx+16h], 0FFFFh
-		jz	loc_178E9
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+22h], 0
-		jnz	loc_178E9
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+10h], 0
-		jz	short loc_177CE
-		call	sub_175E8
-		or	ax, ax
-		jz	loc_17964
-		jmp	loc_17964
-; ---------------------------------------------------------------------------
-
-loc_177CE:
-		cmp	si, 360
-		jge	short loc_177EB
-		cmp	si, [bp+var_4]
-		jle	short loc_177EB
-		mov	ax, left_26C4E
-		add	ax, 8
-		mov	word_205D8, ax
-		lea	ax, [si+8]
-		mov	word_205DA, ax
-		mov	[bp+var_4], si
-
-loc_177EB:
-		call	sub_17562
-		mov	[bp+var_6], ax
-		or	ax, ax
-		jz	loc_178E9
-		mov	bx, word_26C48
-		cmp	word ptr [bx+16h], 0FFFEh
-		jnz	short loc_1780E
-		call	_snd_se_play c, 4
-		jmp	loc_178E9
-; ---------------------------------------------------------------------------
-
-loc_1780E:
-		mov	bx, word_26C46
-		mov	ax, [bp+var_6]
-		add	[bx+20h], ax
-		mov	ax, [bx+20h]
-		mov	bx, word_26C48
-		cmp	ax, [bx+16h]
-		jl	loc_178A8
-		mov	bx, word_26C46
-		mov	word ptr [bx+0Ah], 0
-		mov	bx, word_26C48
-		cmp	byte ptr [bx+10h], 1
-		jbe	short loc_17854
-		mov	ax, left_26C4E
-		add	ax, 12
-		push	ax	; left
-		push	top_26C50	; top
-		mov	al, [bx+10h]
-		mov	ah, 0
-		add	ax, -IT_BOMB
-		push	ax	; type
-		call	@items_add$qiii
-		jmp	short loc_17864
-; ---------------------------------------------------------------------------
-
-loc_17854:
-		mov	ax, left_26C4E
-		add	ax, 12
-		call	@items_add_semirandom$qii pascal, ax, top_26C50
-
-loc_17864:
-		call	_snd_se_play c, 3
-		mov	bx, word_26C48
-		mov	eax, [bx+12h]
-		add	_score_delta, eax
-		mov	al, _rank
-		cbw
-		cmp	ax, RANK_LUNATIC
-		jnz	short loc_1789D
-		mov	ax, [bx+4]
-		add	ax, left_26C4E
-		push	ax	; left
-		mov	ax, [bx+6]
-		add	ax, top_26C50
-		push	ax	; top
-		push	00h	; angle
-		push	BG_1_AIMED	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_1789D:
-		mov	bx, word_26C46
-		mov	byte ptr [bx+10h], 1
-		jmp	loc_17964
-; ---------------------------------------------------------------------------
-
-loc_178A8:
-		call	_snd_se_play c, 4
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_178C0
-		sub	si, RES_Y
-
-loc_178C0:
-		or	si, si
-		jge	short loc_178C8
-		add	si, RES_Y
-
-loc_178C8:
-		push	left_26C4E
-		push	si
-		mov	bx, word_26C48
-		mov	ax, [bx+8]
-		mov	bx, word_26C46
-		add	ax, [bx+12h]
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_roll_put_1plane
-		jmp	short loc_17964
-; ---------------------------------------------------------------------------
-
-loc_178E9:
-		mov	si, top_26C50
-		mov	bx, word_26C48
-		cmp	word ptr [bx+1Ah], 1
-		jle	short loc_17913
-		mov	ax, [bx+1Ah]
-		mov	[bp+var_8], ax
-		mov	bx, word_26C46
-		mov	al, [bx+0Fh]
-		mov	ah, 0
-		cwd
-		idiv	[bp+var_8]
-		or	dx, dx
-		jnz	short loc_17913
-		call	sub_16AA7 pascal, 00h
-
-loc_17913:
-		mov	bx, word_26C48
-		cmp	word ptr [bx+8], 0
-		jz	short loc_17964
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_1792B
-		sub	si, RES_Y
-
-loc_1792B:
-		or	si, si
-		jge	short loc_17933
-		add	si, RES_Y
-
-loc_17933:
-		mov	bx, word_26C46
-		cmp	word ptr [bx+14h], 2
-		jz	short loc_17953
-		push	left_26C4E
-		push	si
-		mov	bx, word_26C48
-		mov	ax, [bx+8]
-		mov	bx, word_26C46
-		add	ax, [bx+12h]
-		push	ax
-		jmp	short loc_1795F
-; ---------------------------------------------------------------------------
-
-loc_17953:
-		push	left_26C4E
-		push	si
-		mov	bx, word_26C46
-		push	word ptr [bx+12h]
-
-loc_1795F:
-		call	super_roll_put
-
-loc_17964:
-		inc	di
-		add	word_26C46, 26h	; '&'
-
-loc_1796A:
-		mov	al, enemies_loop_bound
-		mov	ah, 0
-		cmp	ax, di
-		jg	loc_17697
-		pop	di
-		pop	si
-		leave
-		retf
-sub_1766E	endp
-
-
-; enemies_invalidate() and enemies_remove_all() are th02/main/enemy/enemies.cpp,
-; and mima_17A7F() through mima_update() are th02/main/boss/b5m.cpp - both
-; included by th02/boss_5.cpp, in that order, which is dump order. They were this
-; segment's carve-free tail chain, so th02_main.asm now contributes
-; nothing below sub_1766E(), and th02/boss_5.cpp's object picks the
-; segment up from the byte after that proc's `retf`.
+; THREE objects pick this segment up from here, in link order, and that order
+; is dump order:
 ;
-; Every lift out of this block has to leave the object's prefix ahead of
-; mima_update()'s generated jump table at the parity it already has, or the
-; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
-; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
-; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, the
-; next two to 0x1E4, then mima_17A7F() at 0xF6, enemies_remove_all() at 0x2A
-; and enemies_invalidate() at 0xDC on their own - the last of those is this
-; parcel's, and it is EVEN, so the prefix parity is where it was. Read the
-; prefix from the OBJ's PUBDEFs, never from a comment. (kb/codegen/0160)
+;   th02/main/enemy/update.cpp  enemies_update_and_render()
+;   th02/boss_5.cpp             th02/main/enemy/enemies.cpp   enemies_invalidate()
+;                                                             enemies_remove_all()
+;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
+;                               th02/main/boss/b5_.cpp        skill_calculate()
+;
+; So th02_main.asm contributes nothing below sub_175E8(), and the first of
+; those objects picks the segment up from the byte after that proc's `retn`.
+;
+; enemies_update_and_render() IS ITS OWN OBJECT ON PURPOSE, and a later lift
+; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its body is
+; 0x30B bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte pad under
+; mima_update()'s generated jump table. Turbo C++ aligns that table against the
+; offset its OWN object starts at, so folding an odd contribution in front of
+; it deletes the pad and shifts every byte after it (kb/codegen/0119). The two
+; procs directly above are 0x86 each - EVEN - so they prepend into
+; th02/main/enemy/update.cpp without re-rolling anything.
+;
+; th02/boss_5.cpp's own prefix ahead of the jump table is unchanged by that
+; split and still sums as it did: the five below mima_18A1B() to 0x628, the two
+; above them to 0x246, the three above THOSE to 0x752, the next three to 0x28C,
+; the next two to 0x1CE, the next two to 0x1E4, then mima_17A7F() at 0xF6,
+; enemies_remove_all() at 0x2A and enemies_invalidate() at 0xDC on their own.
+; Read the prefix from the OBJ's PUBDEFs, never from a comment.
+; (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -9500,7 +9205,7 @@ aBoss5_m	db 'boss5.m',0
 aMaine		db 'maine',0
 word_1EE50	dw 0
 ; Exclusive upper bound on the [enemies] slot index that
-; enemies_update_and_render walks to. NOT a count: enemies_invalidate()
+; enemies_update_and_render() walks to. NOT a count: enemies_invalidate()
 ; recomputes it as (highest non-F_FREE slot) + 1, so free slots below it
 ; are still iterated.
 public _enemies_loop_bound
@@ -10321,19 +10026,35 @@ word_26C3A	dw ?
 ; th02/main/enemy/enemies.cpp and publishes _enemies_invalidate itself, so
 ; this alias takes the `_func` suffix th02/main/stage/callback.hpp already
 ; gives every slot whose installed function shares its name.
-public _enemies_invalidate_func, _enemies_update_and_render
+public _enemies_invalidate_func, _enemies_update_and_render_func
 _enemies_invalidate_func label dword
 farfp_26C3C	dd ?
-_enemies_update_and_render label dword
+_enemies_update_and_render_func label dword
 farfp_26C40	dd ?
 word_26C44	dw ?
+public _enemy_cur
+_enemy_cur	label word
 word_26C46	dw ?
+public _enemy_template_cur
+_enemy_template_cur	label word
 word_26C48	dw ?
+public _enemy_left_p
+_enemy_left_p	label word
 word_26C4A	dw ?
+public _enemy_top_p
+_enemy_top_p	label word
 word_26C4C	dw ?
+public _enemy_left
+_enemy_left	label word
 left_26C4E	dw ?
+public _enemy_top
+_enemy_top	label word
 top_26C50	dw ?
+public _enemy_velocity_x_p
+_enemy_velocity_x_p	label word
 word_26C52	dw ?
+public _enemy_velocity_y_p
+_enemy_velocity_y_p	label word
 word_26C54	dw ?
 public _left_26C56
 _left_26C56 label word

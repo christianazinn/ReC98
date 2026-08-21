@@ -68,8 +68,8 @@ void far scroll_reset(void);
 // Callback defaults.
 // th02/main/enemy/enemies.cpp, under th02/boss_5.cpp.
 extern "C" void far enemies_invalidate(void);
-// Still ASM in th02_main.asm.
-extern "C" void far sub_1766E(void); // enemies_update_and_render
+// th02/main/enemy/update.cpp, its own object in the same segment.
+extern "C" void far enemies_update_and_render(void);
 
 // Now C++, in th02/main/bgm_show.cpp, which owns MAIN_01___TEXT's tail.
 extern "C" void far stage_title_unput(void);
@@ -317,7 +317,7 @@ void near stage_init(void)
 	lasers_invalidate_func = nullfunc_void;
 	lasers_update_and_render_func = nullfunc_void;
 	enemies_invalidate_func = enemies_invalidate;
-	enemies_update_and_render = sub_1766E;
+	enemies_update_and_render_func = enemies_update_and_render;
 	boss_activate_if_scroll_done_func = boss_activate_if_scroll_done;
 	stage_title_unput_func = stage_title_unput;
 	stage_should_end_func = nullfunc_false;

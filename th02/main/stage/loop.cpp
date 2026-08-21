@@ -139,7 +139,7 @@ bool16 stage_loop(void)
 
 		player_move_and_shoot();
 		bomb_update_and_render();
-		enemies_update_and_render();
+		enemies_update_and_render_func();
 		stage_progression = boss_update();
 		if(midboss_active) {
 			midboss_update_and_render();

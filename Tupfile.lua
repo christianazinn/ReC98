@@ -560,6 +560,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/midboss/m3.cpp",
 	"th02/main/boss/b3.cpp",
 	"th02/dialog.cpp",
+	"th02/main/enemy/update.cpp",
 	"th02/boss_5.cpp",
 	"th02/main/boss/b5.cpp",
 	"th02/main/midboss/m4.cpp",

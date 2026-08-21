@@ -46,12 +46,11 @@ extern void (far *stage_title_unput_func)(void);
 // `_enemies_invalidate`. TH04 and TH05 spell their own function of this name
 // the same way (th04/main/enemy/inv.cpp).
 //
-// [enemies_update_and_render] below keeps the bare name because nothing else
-// claims it yet: sub_1766E() is still ASM, so nothing is ambiguous and there
-// is nothing to collide with. The parcel that lifts it inherits this same
-// rename, one slot at a time.
+// [enemies_update_and_render_func] took the suffix one parcel later, for
+// exactly the reason predicted here: its function is now C++ too, in
+// th02/main/enemy/update.cpp.
 extern void (far *enemies_invalidate_func)(void);
-extern void (far *enemies_update_and_render)(void);
+extern void (far *enemies_update_and_render_func)(void);
 
 // Per-stage foreground/background effects. TH04 and TH05 declare the same pair
 // of per-stage slots as stage_invalidate / stage_render in
