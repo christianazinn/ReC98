@@ -14018,189 +14018,11 @@ locret_19171:
 		retn
 mima_18EB8	endp
 
+; mima_19173() through mima_update() are th02/main/boss/b5m.cpp. They were
+; this segment's carve-free tail, so th02_main.asm now contributes nothing
+; below mima_18EB8(), and th02/boss_5.cpp's object picks the segment up from
+; the byte after its `retn`.
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_19173
-_mima_19173 label near
-mima_19173	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	short loc_191CA
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1918B
-		mov	angle_26CED, 0
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1918B:
-		cmp	_boss_phase_frame, 150
-		jge	short loc_191C4
-		test	byte ptr _boss_phase_frame, 1
-		jz	short loc_191CA
-		call	_snd_se_play c, 3
-		push	x_26C5C	; left
-		push	y_26C64	; top
-		push	word ptr angle_26CED	; angle
-		push	BG_2_SPREAD_HORIZONTALLY_SYMMETRIC	; group
-		push	(PAT_BULLET16_BALL shl 16) or ((3 shl 4) + 2)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		mov	al, byte_20672
-		add	angle_26CED, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_191C4:
-		mov	_boss_phase_frame, 0
-
-loc_191CA:
-		pop	bp
-		retn
-mima_19173	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mima_191CC
-_mima_191CC label near
-mima_191CC	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_19351
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1920E
-		mov	ax, _player_topleft.y
-		add	ax, 12
-		sub	ax, y_26C64
-		push	ax
-		mov	ax, _player_topleft.x
-		add	ax, 12
-		sub	ax, x_26C5C
-		push	ax
-		call	iatan2
-		mov	angle_26CEE, al
-		mov	byte_26CEF, 1Eh
-		call	_snd_se_play c, 9
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1920E:
-		cmp	_boss_phase_frame, 80
-		jg	loc_192CA
-		test	byte ptr _boss_phase_frame, 1
-		jz	loc_19351
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		push	ax
-		call	grcg_circle
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		add	ax, ax
-		push	ax
-		call	grcg_circle
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		shl	ax, 2
-		push	ax
-		call	grcg_circle
-		mov	al, byte_26CEF
-		add	al, -2
-		mov	byte_26CEF, al
-		cmp	_boss_phase_frame, 80
-		jz	loc_19351
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 13
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		push	ax
-		call	grcg_circle
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		add	ax, ax
-		push	ax
-		call	grcg_circle
-		push	x_26C5C
-		push	y_26C64
-		mov	al, byte_26CEF
-		mov	ah, 0
-		shl	ax, 2
-		push	ax
-		call	grcg_circle
-		call	grcg_off
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_192CA:
-		cmp	_boss_phase_frame, 200
-		jge	short loc_1934B
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_192FF
-		push	x_26C5C	; left
-		push	y_26C64	; top
-		push	02h	; angle
-		push	BG_RANDOM_ANGLE_AND_SPEED	; group
-		push	(PAT_BULLET16_BALL shl 16) or ((3 shl 4) + 12)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		call	@bullets_add_pellet$qiiucuci pascal, x_26C5C, y_26C64, 02h, BG_RANDOM_ANGLE_AND_SPEED, ((3 shl 4) + 12)
-
-loc_192FF:
-		mov	al, _rank
-		cbw
-		or	ax, ax
-		jle	short loc_19338
-		mov	ax, _boss_phase_frame
-		and	ax, 7
-		cmp	ax, 4
-		jnz	short loc_19338
-		push	x_26C5C	; left
-		push	y_26C64	; top
-		push	02h	; angle
-		push	BG_RANDOM_ANGLE_AND_SPEED	; group
-		push	(PAT_BULLET16_BALL shl 16) or ((3 shl 4) + 12)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		call	@bullets_add_pellet$qiiucuci pascal, x_26C5C, y_26C64, 02h, BG_RANDOM_ANGLE_AND_SPEED, ((3 shl 4) + 12)
-
-loc_19338:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_19351
-		call	_snd_se_play c, 3
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1934B:
-		mov	_boss_phase_frame, 0
-
-loc_19351:
-		pop	bp
-		retn
-mima_191CC	endp
-
-
-; mima_19353(), mima_193A4() and mima_update() are th02/main/boss/b5m.cpp.
-; They were this segment's carve-free tail, so th02_main.asm now contributes
-; nothing below mima_191CC(), and th02/boss_5.cpp's object picks the segment
-; up from the byte after its `retn`.
 
 	@skill_calculate$qv procdesc pascal near
 BOSS_5_TEXT	ends
@@ -16049,8 +15871,7 @@ public _left_26C5A
 _left_26C5A label word
 left_26C5A	dw ?
 public _x_26C5C
-_x_26C5C label word
-x_26C5C	dw ?
+_x_26C5C	dw ?
 public _top_26C5E
 _top_26C5E label word
 top_26C5E	dw ?
@@ -16061,8 +15882,7 @@ public _top_26C62
 _top_26C62 label word
 top_26C62	dw ?
 public _y_26C64
-_y_26C64 label word
-y_26C64	dw ?
+_y_26C64	dw ?
 public _mima_damage_multiplier
 _mima_damage_multiplier label word
 word_26C66	dw ?
@@ -16133,9 +15953,12 @@ word_26CE6	dw ?
 word_26CE8	dw ?
 word_26CEA	dw ?
 angle_26CEC	db ?
-angle_26CED	db ?
-angle_26CEE	db ?
-byte_26CEF	db ?
+public _mima_spiral_angle
+_mima_spiral_angle	db ?
+public _mima_aim_angle_unused
+_mima_aim_angle_unused	db ?
+public _mima_charge_ring_radius
+_mima_charge_ring_radius	db ?
 public _mima_phase_damage_max
 _mima_phase_damage_max	dw ?
 public _mima_patterns_max

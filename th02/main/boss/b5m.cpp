@@ -29,6 +29,9 @@
 extern "C" bool reduce_effects;
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
+extern char rank;
+extern "C" uint8_t boss_rank_param[5];
+extern "C" void __cdecl snd_se_play(int new_se);
 
 // The sprite the boss and midboss renderers blit. Declared exactly the way
 // th02/main/boss/b4.cpp and th02/main/boss/b5.cpp already declare it.
@@ -53,8 +56,6 @@ extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
 extern "C" void near mima_18DE0(void);
 extern "C" void near mima_18EB8(void);
-extern "C" void near mima_19173(void);
-extern "C" void near mima_191CC(void);
 extern "C" bool16 near mima_19C8D(void);
 
 // th02/main/boss/b5.cpp, in main_03__TEXT. Reached with the same
@@ -137,6 +138,20 @@ extern "C" uint8_t mima_bg_circle_pulse_frame;
 
 // Her vertical drift, re-rolled once per pattern by mima_193A4().
 extern "C" int mima_velocity_y;
+
+// mima_19173()'s running spread angle, advanced by boss_rank_param[4] per shot.
+extern "C" unsigned char mima_spiral_angle;
+
+// `[measured]` mima_191CC() aims this at the player once, on the pattern's
+// frame 50, and NOTHING ever reads it - not this proc, not any other in the
+// binary. A dead store, spelled the way the dump already spells
+// [boss_pos_x_unused].
+extern "C" unsigned char mima_aim_angle_unused;
+
+// The radius of mima_191CC()'s charge-up rings. Starts at 30 and shrinks by 2
+// every other frame; the rings are blitted at this radius, twice it and four
+// times it.
+extern "C" unsigned char mima_charge_ring_radius;
 /// ------------
 
 static const int MIMA_RING_CENTER_X = 224;
@@ -161,8 +176,129 @@ static const int MIMA_SPREAD_FIRST_FRAME = 50;
 static const int MIMA_SPREAD_LAST_FRAME = 190;
 static const int MIMA_SPREAD_INTERVAL = 32;
 
+// mima_19173()'s.
+static const int MIMA_SPIRAL_FIRST_FRAME = 50;
+static const int MIMA_SPIRAL_LAST_FRAME = 150;
 
-// One of her three step-9 patterns: a single aimed spread every 16 frames, on
+// mima_191CC()'s two halves.
+static const int MIMA_CHARGE_FIRST_FRAME = 50;
+static const int MIMA_CHARGE_LAST_FRAME = 80;
+static const int MIMA_CHARGE_RING_RADIUS_INITIAL = 30;
+static const int MIMA_SPRAY_LAST_FRAME = 200;
+
+
+// The first of her three step-9 patterns: a symmetric spread every other frame
+// between phase frames 50 and 150, with the angle walking by
+// boss_rank_param[4] each time. The block-order shapes below are the same two
+// mima_19353() needed - the restart FOLLOWS the window if-statement, and every
+// arm ends in an explicit return statement.
+static void near mima_19173(void)
+{
+	if(boss_phase_frame < MIMA_SPIRAL_FIRST_FRAME) {
+		return;
+	}
+	if(boss_phase_frame == MIMA_SPIRAL_FIRST_FRAME) {
+		mima_spiral_angle = 0;
+		return;
+	}
+	if(boss_phase_frame < MIMA_SPIRAL_LAST_FRAME) {
+		if((boss_phase_frame & 1) != 0) {
+			snd_se_play(3);
+			bullets_add_16x16(
+				x_26C5C,
+				y_26C64,
+				mima_spiral_angle,
+				BG_2_SPREAD_HORIZONTALLY_SYMMETRIC,
+				PAT_BULLET16_BALL,
+				((3 << 4) + 2)
+			);
+			mima_spiral_angle += boss_rank_param[4];
+		}
+		return;
+	}
+	boss_phase_frame = 0;
+}
+
+
+// The second: a charge-up that shrinks three concentric rings around her for 30
+// frames, then sprays randomly aimed bullets and pellets for another 120.
+static void near mima_191CC(void)
+{
+	if(boss_phase_frame < MIMA_CHARGE_FIRST_FRAME) {
+		return;
+	}
+	if(boss_phase_frame == MIMA_CHARGE_FIRST_FRAME) {
+		// 12 on both axes, which is neither the player's center
+		// ((PLAYER_W / 2) is 16, (PLAYER_H / 2) is 24) nor any other named
+		// offset in this game - so it stays a literal, the way
+		// th02/main/player/shot.cpp keeps its own aiming offsets.
+		mima_aim_angle_unused = iatan2(
+			((player_topleft.y + 12) - y_26C64),
+			((player_topleft.x + 12) - x_26C5C)
+		);
+		mima_charge_ring_radius = MIMA_CHARGE_RING_RADIUS_INITIAL;
+		snd_se_play(9);
+		return;
+	}
+	if(boss_phase_frame <= MIMA_CHARGE_LAST_FRAME) {
+		if((boss_phase_frame & 1) == 0) {
+			return;
+		}
+		// Unblit at the old radius, shrink, blit at the new one - except on
+		// the last frame, which only unblits.
+		grcg_setcolor(GC_RMW, 0);
+		grcg_circle(x_26C5C, y_26C64, mima_charge_ring_radius);
+		grcg_circle(x_26C5C, y_26C64, (mima_charge_ring_radius * 2));
+		grcg_circle(x_26C5C, y_26C64, (mima_charge_ring_radius * 4));
+		mima_charge_ring_radius -= 2;
+		if(boss_phase_frame == MIMA_CHARGE_LAST_FRAME) {
+			return;
+		}
+		grcg_setcolor(GC_RMW, 13);
+		grcg_circle(x_26C5C, y_26C64, mima_charge_ring_radius);
+		grcg_circle(x_26C5C, y_26C64, (mima_charge_ring_radius * 2));
+		grcg_circle(x_26C5C, y_26C64, (mima_charge_ring_radius * 4));
+		grcg_off();
+		return;
+	}
+	if(boss_phase_frame < MIMA_SPRAY_LAST_FRAME) {
+		if((boss_phase_frame & 7) == 0) {
+			bullets_add_16x16(
+				x_26C5C,
+				y_26C64,
+				2,
+				BG_RANDOM_ANGLE_AND_SPEED,
+				PAT_BULLET16_BALL,
+				((3 << 4) + 12)
+			);
+			bullets_add_pellet(
+				x_26C5C, y_26C64, 2, BG_RANDOM_ANGLE_AND_SPEED, ((3 << 4) + 12)
+			);
+		}
+		// A second spray on the higher ranks, offset by half the interval.
+		if((rank > 0) && ((boss_phase_frame & 7) == 4)) {
+			bullets_add_16x16(
+				x_26C5C,
+				y_26C64,
+				2,
+				BG_RANDOM_ANGLE_AND_SPEED,
+				PAT_BULLET16_BALL,
+				((3 << 4) + 12)
+			);
+			bullets_add_pellet(
+				x_26C5C, y_26C64, 2, BG_RANDOM_ANGLE_AND_SPEED, ((3 << 4) + 12)
+			);
+		}
+		if((boss_phase_frame & 7) == 0) {
+			snd_se_play(3);
+		}
+		return;
+	}
+	boss_phase_frame = 0;
+}
+
+
+// The third of her step-9 patterns: a single aimed spread every 16 frames, on
 // a 32-frame cycle, alternating between the 5-bullet and the 4-bullet group.
 // The pattern only fires between phase frames 50 and 190, and restarts the
 // phase at 190.
@@ -171,14 +307,14 @@ static void near mima_19353(void)
 	if(boss_phase_frame < MIMA_SPREAD_FIRST_FRAME) {
 		return;
 	}
-	// `[measured]` The window is the OUTER `if` and the restart is what follows
-	// it, and each spread arm ends in an explicit `return`. Both shapes are
-	// load-bearing: with the restart written as an early return it lands ABOVE
-	// the spreads instead of between them and the epilogue, and without the
-	// `return` in the first arm -O hosts the two calls' merged tail at that
-	// arm and makes the second one jump BACKWARD into it. Five other spellings
-	// of the same control flow were screened; only this one reproduces the
-	// original's block order. (kb/codegen/0152)
+	// `[measured]` The window is the OUTER if-statement, the restart is what
+	// follows it, and each spread arm ends in an explicit return statement.
+	// Both are load-bearing: written as an early return, the restart lands
+	// ABOVE the spreads instead of between them and the epilogue; and without
+	// the explicit return in the first arm, -O hosts the two calls' merged
+	// tail at that arm and makes the second jump BACKWARD into it. Five other
+	// spellings of the same control flow were screened; only this one gives
+	// the original's block order. (kb/codegen/0152)
 	if(boss_phase_frame < MIMA_SPREAD_LAST_FRAME) {
 		if((boss_phase_frame & (MIMA_SPREAD_INTERVAL - 1)) == 0) {
 			bullets_add_16x16(
