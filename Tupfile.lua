@@ -1162,6 +1162,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/hud_bar.asm",
 	"th05/scoreupd.asm",
 	"th05/midboss5.cpp",
+	"th05/b34fg.cpp",
 	"th05/b6cbull.cpp",
 	"th05/stages.cpp",
 	"th05/midbossx.cpp",
