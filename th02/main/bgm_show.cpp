@@ -62,9 +62,10 @@ extern "C" uint8_t boss_bgm_title_id;
 extern "C" void far enemies_remove_all(void);
 
 // Disables the stage enemies for the rest of the fight, by pointing BOTH the
-// [enemies_invalidate] and [enemies_update_and_render] slots at one shared
-// empty far function. That function is a SECOND copy of nullfunc_void, which
-// ZUN compiled into a different segment of the same binary — five identical
+// [enemies_invalidate_func] and [enemies_update_and_render] slots at one
+// shared empty far function. That function is a SECOND copy of
+// nullfunc_void, which ZUN compiled into a different segment of the same
+// binary — five identical
 // bytes at a different address, spelled nullfunc_void_2 in th02_main.asm after
 // upstream's own frame_delay() / frame_delay_2() precedent for a duplicated
 // compiled body. The exact inverse of lasers_callbacks_set() in
@@ -74,10 +75,11 @@ extern "C" void far enemies_remove_all(void);
 // stylistic. The one upstream identifier of this exact shape is
 // vsync_callback_clear() (th01/hardware/vsync.cpp), which clears a FLAG --
 // i.e. stops the callback being invoked at all. That cannot be done here:
-// stage_loop() calls [enemies_invalidate] and [enemies_update_and_render]
-// unconditionally, with no null check, so a slot zeroed in bullets_clear()'s
-// sense would crash the game. `_null` names what actually happens -- the
-// slots keep being called, and what they now reach does nothing.
+// stage_loop() calls [enemies_invalidate_func] and
+// [enemies_update_and_render] unconditionally, with no null check, so a
+// slot zeroed in bullets_clear()'s sense would crash the game. `_null`
+// names what actually happens -- the slots keep being called, and what
+// they now reach does nothing.
 extern "C" void far enemies_callbacks_null(void);
 
 // 48 half-width spaces -- exactly the playfield's TRAM width -- reached

@@ -38,7 +38,19 @@ extern void (far *boss_end)(void);
 // lasers pair below already spells out.
 extern void (far *stage_title_unput_func)(void);
 
-extern void (far *enemies_invalidate)(void);
+// The slot for enemies_invalidate(), which is th02/main/enemy/enemies.cpp
+// under th02/boss_5.cpp. `_func` for the same reason [stage_title_unput_func]
+// has it: a function of the bare name now exists, and with C linkage on both
+// there is no spelling of the pair that does not collide -- the slot's alias
+// in th02_main.asm and the function's own `public` would both be
+// `_enemies_invalidate`. TH04 and TH05 spell their own function of this name
+// the same way (th04/main/enemy/inv.cpp).
+//
+// [enemies_update_and_render] below keeps the bare name because nothing else
+// claims it yet: sub_1766E() is still ASM, so nothing is ambiguous and there
+// is nothing to collide with. The parcel that lifts it inherits this same
+// rename, one slot at a time.
+extern void (far *enemies_invalidate_func)(void);
 extern void (far *enemies_update_and_render)(void);
 
 // Per-stage foreground/background effects. TH04 and TH05 declare the same pair

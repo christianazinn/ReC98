@@ -97,7 +97,7 @@ bool16 stage_loop(void)
 		if(midboss_active) {
 			midboss_active = midboss_invalidate();
 		}
-		enemies_invalidate();
+		enemies_invalidate_func();
 		player_invalidate();
 		bullets_invalidate();
 		lasers_invalidate_func();

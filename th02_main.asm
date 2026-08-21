@@ -8451,107 +8451,11 @@ loc_1796A:
 sub_1766E	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_17979
-_sub_17979 label far
-sub_17979	proc far
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		mov	enemies_loop_bound, 0
-		mov	[bp+var_2], 0
-		jmp	loc_17A49
-; ---------------------------------------------------------------------------
-
-loc_1798E:
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
-		jz	loc_17A46
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	si, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x]
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	di, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y]
-		call	@tiles_invalidate_rect$qiiii pascal, si, di, (32 shl 16) or 32
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		cmp	byte ptr byte_255C0[bx+enemy_t.E_flag], F_REMOVE
-		jnz	short loc_179EC
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
-		jmp	short loc_17A46
-; ---------------------------------------------------------------------------
-
-loc_179EC:
-		mov	al, byte ptr [bp+var_2]
-		inc	al
-		mov	enemies_loop_bound, al
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	ax, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x]
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	dl, _page_back
-		mov	dh, 0
-		shl	dx, 2
-		add	bx, dx
-		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.x], ax
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	al, _page_front
-		mov	ah, 0
-		shl	ax, 2
-		add	bx, ax
-		mov	ax, word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y]
-		mov	bx, [bp+var_2]
-		imul	bx, 26h
-		mov	dl, _page_back
-		mov	dh, 0
-		shl	dx, 2
-		add	bx, dx
-		mov	word ptr byte_255C0[bx+enemy_t.E_pos_on_page+Point.y], ax
-
-loc_17A46:
-		inc	[bp+var_2]
-
-loc_17A49:
-		cmp	[bp+var_2], 19h
-		jl	loc_1798E
-		pop	di
-		pop	si
-		leave
-		retf
-sub_17979	endp
-
-
-; enemies_remove_all() is th02/main/enemy/enemies.cpp, and mima_17A7F()
-; through mima_update() are th02/main/boss/b5m.cpp - both included by
-; th02/boss_5.cpp, in that order, which is dump order. They were this
+; enemies_invalidate() and enemies_remove_all() are th02/main/enemy/enemies.cpp,
+; and mima_17A7F() through mima_update() are th02/main/boss/b5m.cpp - both
+; included by th02/boss_5.cpp, in that order, which is dump order. They were this
 ; segment's carve-free tail chain, so th02_main.asm now contributes
-; nothing below sub_17979(), and th02/boss_5.cpp's object picks the
+; nothing below sub_1766E(), and th02/boss_5.cpp's object picks the
 ; segment up from the byte after that proc's `retf`.
 ;
 ; Every lift out of this block has to leave the object's prefix ahead of
@@ -8559,9 +8463,10 @@ sub_17979	endp
 ; table loses its one-byte -a2 pad. Every group taken so far sums EVEN: the
 ; five below mima_18A1B() to 0x628, the two above them to 0x246, the three
 ; above THOSE to 0x752, the next three to 0x28C, the next two to 0x1CE, the
-; next two to 0x1E4, then mima_17A7F() at 0xF6 and enemies_remove_all() at
-; 0x2A on their own. Read the prefix from the OBJ's PUBDEFs, never from a
-; comment. (kb/codegen/0160)
+; next two to 0x1E4, then mima_17A7F() at 0xF6, enemies_remove_all() at 0x2A
+; and enemies_invalidate() at 0xDC on their own - the last of those is this
+; parcel's, and it is EVEN, so the prefix parity is where it was. Read the
+; prefix from the OBJ's PUBDEFs, never from a comment. (kb/codegen/0160)
 
 
 	@skill_calculate$qv procdesc pascal near
@@ -9595,7 +9500,7 @@ aBoss5_m	db 'boss5.m',0
 aMaine		db 'maine',0
 word_1EE50	dw 0
 ; Exclusive upper bound on the [enemies] slot index that
-; enemies_update_and_render walks to. NOT a count: enemies_invalidate
+; enemies_update_and_render walks to. NOT a count: enemies_invalidate()
 ; recomputes it as (highest non-F_FREE slot) + 1, so free slots below it
 ; are still iterated.
 public _enemies_loop_bound
@@ -10412,8 +10317,12 @@ dword_26B76	dd SPAWN_COLUMN_COUNT dup(?)
 public _spawn_rows
 _spawn_rows	label word
 word_26C3A	dw ?
-public _enemies_invalidate, _enemies_update_and_render
-_enemies_invalidate label dword
+; The SLOT, not the function: enemies_invalidate() is C++ in
+; th02/main/enemy/enemies.cpp and publishes _enemies_invalidate itself, so
+; this alias takes the `_func` suffix th02/main/stage/callback.hpp already
+; gives every slot whose installed function shares its name.
+public _enemies_invalidate_func, _enemies_update_and_render
+_enemies_invalidate_func label dword
 farfp_26C3C	dd ?
 _enemies_update_and_render label dword
 farfp_26C40	dd ?
