@@ -9,30 +9,6 @@
 /// orange_bg_render() and orange_fg_render() are th04/main/boss/bg.cpp and
 /// th04/main/boss/render.cpp, both in main_01 and both different objects.
 
-#include "platform.h"
-#include "pc98.h"
-#include "libs/master.lib/master.hpp"
-#include "libs/master.lib/pc98_gfx.hpp"
-#include "th02/v_colors.hpp"
-#include "th02/main/player/player.hpp"
-#include "th03/hardware/palette.hpp"
-#include "th04/snd/snd.h"
-#include "th04/sprites/main_pat.h"
-#include "th04/math/randring.hpp"
-#include "th04/main/bg.hpp"
-#include "th04/main/circle.hpp"
-#include "th04/main/gather.hpp"
-#include "th04/main/frames.h"
-#include "th04/main/player/player.hpp"
-#include "th04/main/rank.hpp"
-#include "th03/math/polar.hpp"
-#include "th04/main/homing.hpp"
-#include "th04/main/spark.hpp"
-#include "th04/main/hud/hud.hpp"
-#include "th04/main/bullet/clearzap.hpp"
-#include "th04/main/tile/bb.hpp"
-#include "th04/main/boss/boss.hpp"
-
 // Declared FAR here, and only here: th04/main/boss/bosses.hpp declares the
 // same function `near`, which is what it is, and that header is deliberately
 // not included. A near reference under this object's `-zPmain_03` frames its

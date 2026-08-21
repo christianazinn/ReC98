@@ -11690,6 +11690,12 @@ loc_18A73:
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the
+	; bare label. kb/codegen/0123. These nine are Kurumi's patterns
+	; and the two helpers they share, called from kurumi_update() and
+	; from nowhere outside this segment.
+public _kurumi_18A79
+_kurumi_18A79 label near
 kurumi_18A79	proc near
 
 var_4		= word ptr -4
@@ -11807,6 +11813,8 @@ kurumi_18A79	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18B68
+_kurumi_18B68 label near
 kurumi_18B68	proc near
 		push	bp
 		mov	bp, sp
@@ -11865,6 +11873,8 @@ kurumi_18BA7	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18BE6
+_kurumi_18BE6 label near
 kurumi_18BE6	proc near
 		push	bp
 		mov	bp, sp
@@ -11930,6 +11940,8 @@ kurumi_18BE6	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18C76
+_kurumi_18C76 label near
 kurumi_18C76	proc near
 		push	bp
 		mov	bp, sp
@@ -11994,6 +12006,8 @@ kurumi_18C76	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18D04
+_kurumi_18D04 label near
 kurumi_18D04	proc near
 
 @@angle		= byte ptr -1
@@ -12072,6 +12086,8 @@ kurumi_18D04	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18DB6
+_kurumi_18DB6 label near
 kurumi_18DB6	proc near
 		push	bp
 		mov	bp, sp
@@ -12135,6 +12151,8 @@ kurumi_18DB6	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18E43
+_kurumi_18E43 label near
 kurumi_18E43	proc near
 		push	bp
 		mov	bp, sp
@@ -12211,6 +12229,8 @@ kurumi_18E43	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18EE7
+_kurumi_18EE7 label near
 kurumi_18EE7	proc near
 		push	bp
 		mov	bp, sp
@@ -12288,6 +12308,8 @@ kurumi_18EE7	endp
 
 ; Attributes: bp-based frame
 
+public _kurumi_18F8B
+_kurumi_18F8B label near
 kurumi_18F8B	proc near
 		push	bp
 		mov	bp, sp
@@ -12371,587 +12393,20 @@ loc_19058:
 kurumi_18F8B	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; kurumi_update() and kurumi_1905A(), the phase 5 pattern directly
+	; above it, now live in th04/main/boss/b2_updt.cpp, at the FRONT of the
+	; th04/main_033.cpp object -- which is their original address order,
+	; ahead of Orange's half of the segment.
+	;
+	; kurumi_update()'s three dense `switch`es are what the `db 0` and the
+	; three tables that used to sit here compile FROM, so all four left with
+	; the proc. kb/codegen/0160 for the padding byte: it needs an ODD prefix
+	; ahead of the function, which is exactly what lifting kurumi_1905A()
+	; (0x103 bytes) alongside it buys.
+	;
+	; Nothing in this file references either; th04/main/stage/setup.cpp
+	; installs kurumi_update().
 
-; Attributes: bp-based frame
-
-kurumi_1905A	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 16
-		jl	loc_1915B
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_1908E
-		push	0Fh
-		call	@randring2_next16_and$qui
-		mov	dl, -20h
-		sub	dl, al
-		mov	_boss_statebyte[15].BSB_stack_right_angle, dl
-		push	0Fh
-		call	@randring2_next16_and$qui
-		add	al, -60h
-		mov	_boss_statebyte[14].BSB_stack_left_angle, al
-		mov	_boss_statebyte[13].BSB_stacks_fired, 0
-		mov	_bullet_template.patnum, PAT_BULLET16_D_BLUE
-
-loc_1908E:
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_190DE
-		mov	_bullet_template.speed, (1 shl 4)
-		mov	al, _boss_statebyte[15].BSB_stack_right_angle
-		add	al, 10h
-		mov	_boss_statebyte[15].BSB_stack_right_angle, al
-		mov	al, _boss_statebyte[14].BSB_stack_left_angle
-		add	al, -10h
-		mov	_boss_statebyte[14].BSB_stack_left_angle, al
-		inc	_boss_statebyte[13].BSB_stacks_fired
-		cmp	_boss_statebyte[13].BSB_stacks_fired, 10
-		jbe	short loc_190D7
-		push	0Fh
-		call	@randring2_next16_and$qui
-		mov	dl, -20h
-		sub	dl, al
-		mov	_boss_statebyte[15].BSB_stack_right_angle, dl
-		push	0Fh
-		call	@randring2_next16_and$qui
-		add	al, -60h
-		mov	_boss_statebyte[14].BSB_stack_left_angle, al
-		mov	_boss_statebyte[13].BSB_stacks_fired, 0
-
-loc_190D7:
-		call	snd_se_play pascal, 15
-
-loc_190DE:
-		mov	_bullet_template.spawn_type, BST_BULLET16_CLOUD_FORWARDS
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-10 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	ax, _boss_pos.cur.x
-		add	ax, (12 shl 4)
-		mov	_bullet_template.BT_origin.x, ax
-		mov	al, _boss_statebyte[15].BSB_stack_right_angle
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular_fixedspeed
-		sub	_bullet_template.BT_origin.x, (24 shl 4)
-		mov	al, _boss_statebyte[14].BSB_stack_left_angle
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular_fixedspeed
-		mov	al, _bullet_template.speed
-		add	al, 10
-		mov	_bullet_template.speed, al
-		mov	al, _boss_statebyte[0].BSB_spread_interval
-		mov	ah, 0
-		push	ax
-		mov	ax, _boss_phase_frame
-		cwd
-		pop	bx
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1915B
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.count, 5
-		mov	_bullet_template.BT_delta.spread_angle, 9
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.spawn_type, BST_PELLET
-		call	@randring2_next16_and$qui pascal, 0Fh
-		add	al, (2 shl 4)
-		mov	_bullet_template.speed, al
-		mov	_bullet_template.BT_special_motion, BSM_NONE
-		call	_bullet_template_tune
-		call	_bullets_add_special
-
-loc_1915B:
-		pop	bp
-		retn
-kurumi_1905A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @KURUMI_UPDATE$QV
-@kurumi_update$qv	proc far
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 6
-		ja	loc_195A4
-		add	bx, bx
-		jmp	cs:off_195D6[bx]
-
-loc_19178:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_191DC
-		mov	_boss_hp, 4800
-		mov	_boss_phase_end_hp, 4800
-		mov	Palettes[0 * size rgb_t].r, 96
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	word ptr [bp-2], offset kurumi_spawnrays
-		xor	si, si
-		jmp	short loc_191B3
-; ---------------------------------------------------------------------------
-
-loc_191A8:
-		mov	bx, [bp-2]
-		mov	[bx+kurumi_spawnray_t.B2S_flag], B2SF_FREE
-		inc	si
-		add	word ptr [bp-2], size kurumi_spawnray_t
-
-loc_191B3:
-		cmp	si, KURUMI_SPAWNRAY_COUNT
-		jl	short loc_191A8
-		mov	ax, _boss_pos.cur.x
-		mov	_gather_template.GT_center.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_gather_template.GT_center.y, ax
-		mov	_gather_template.GT_ring_points, 32
-		mov	_gather_template.GT_radius, (320 shl 4)
-		mov	_gather_template.GT_angle_delta, -3
-		mov	_gather_template.GT_col, V_WHITE
-		jmp	short loc_19235
-; ---------------------------------------------------------------------------
-
-loc_191DC:
-		cmp	_boss_phase_frame, 288
-		jl	short loc_19226
-		cmp	_boss_phase_frame, 296
-		jnz	short loc_191F1
-		mov	_gather_template.GT_col, 9
-
-loc_191F1:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_191FB
-		call	@gather_add_only$qv
-
-loc_191FB:
-		cmp	_boss_phase_frame, 320
-		jl	short loc_19235
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	byte_259F1, 0
-		mov	_bg_render_bombing_func, offset @kurumi_bg_render$qv
-		mov	_tiles_bb_col, 0
-		jmp	short loc_19235
-; ---------------------------------------------------------------------------
-
-loc_19226:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_19235
-		call	snd_se_play pascal, 8
-
-loc_19235:
-		call	@boss_hittest_shots_invincible$qv
-		jmp	loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_1923B:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 32
-		jl	loc_195A9
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NONE shl 16) or 3300
-		mov	_boss_mode, 3
-		mov	_boss_angle, 192
-		call	snd_se_play pascal, 6
-		jmp	loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_19264:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	loc_19309
-		add	bx, bx
-		jmp	cs:off_195CC[bx]
-
-loc_19279:
-		call	kurumi_18B68
-		cmp	_boss_phase_frame, 96
-		jl	loc_19309
-		mov	_boss_phase_frame, 0
-		push	3
-		call	@randring2_next16_and$qui
-		inc	al
-		mov	_boss_mode, al
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 10
-		ja	short loc_19317
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.patnum, PAT_BULLET16_N_OUTLINED_BALL_BLUE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 22
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		mov	_bullet_template.speed, (1 shl 4)
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	di, ax
-		cmp	di, 5
-		jle	short loc_192DE
-		mov	di, 5
-
-loc_192DE:
-		xor	si, si
-		jmp	short loc_192F6
-; ---------------------------------------------------------------------------
-
-loc_192E2:
-		call	_bullets_add_regular_fixedspeed
-		inc	si
-		mov	al, _bullet_template.speed
-		add	al, 8
-		mov	_bullet_template.speed, al
-		mov	al, _bullet_template.BT_angle
-		add	al, -3
-		mov	_bullet_template.BT_angle, al
-
-loc_192F6:
-		cmp	si, di
-		jl	short loc_192E2
-		jmp	short loc_19309
-; ---------------------------------------------------------------------------
-
-loc_192FC:
-		call	kurumi_18BE6
-		jmp	short loc_19309
-; ---------------------------------------------------------------------------
-
-loc_19301:
-		call	kurumi_18C76
-		jmp	short loc_19309
-; ---------------------------------------------------------------------------
-
-loc_19306:
-		call	kurumi_18D04
-
-loc_19309:
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_195A9
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_19317:
-		call	@boss_phase_next$q16explosion_type_ti pascal, (ET_NW_SE shl 16) or 2050
-		mov	_bullet_template_special_angle.BSA_turn_by, 40h
-		jmp	loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_19328:
-		call	kurumi_18A79
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1933B
-		cmp	ax, 1
-		jz	short loc_19350
-		jmp	short loc_19353
-; ---------------------------------------------------------------------------
-
-loc_1933B:
-		cmp	_boss_phase_frame, 128
-		jl	short loc_19353
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		jmp	short loc_19353
-; ---------------------------------------------------------------------------
-
-loc_19350:
-		call	kurumi_18DB6
-
-loc_19353:
-		cmp	_boss_phase_frame, 2000
-		jg	short loc_19369
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_195A9
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_19369:
-		push	(ET_SW_NE shl 16) or 550
-		jmp	loc_1942B
-; ---------------------------------------------------------------------------
-
-loc_19372:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	loc_19417
-		add	bx, bx
-		jmp	cs:off_195C4[bx]
-
-loc_19387:
-		call	kurumi_18B68
-		cmp	_boss_phase_frame, 96
-		jl	loc_19417
-		mov	_boss_phase_frame, 0
-		push	3
-		call	@randring2_next16_mod$qui
-		inc	al
-		mov	_boss_mode, al
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 10
-		ja	short loc_19425
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.patnum, PAT_BULLET16_N_OUTLINED_BALL_BLUE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 22
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		mov	_bullet_template.speed, (1 shl 4)
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	di, ax
-		cmp	di, 5
-		jle	short loc_193EC
-		mov	di, 5
-
-loc_193EC:
-		xor	si, si
-		jmp	short loc_19404
-; ---------------------------------------------------------------------------
-
-loc_193F0:
-		call	_bullets_add_regular_fixedspeed
-		inc	si
-		mov	al, _bullet_template.speed
-		add	al, 8
-		mov	_bullet_template.speed, al
-		mov	al, _bullet_template.BT_angle
-		add	al, 3
-		mov	_bullet_template.BT_angle, al
-
-loc_19404:
-		cmp	si, di
-		jl	short loc_193F0
-		jmp	short loc_19417
-; ---------------------------------------------------------------------------
-
-loc_1940A:
-		call	kurumi_18E43
-		jmp	short loc_19417
-; ---------------------------------------------------------------------------
-
-loc_1940F:
-		call	kurumi_18EE7
-		jmp	short loc_19417
-; ---------------------------------------------------------------------------
-
-loc_19414:
-		call	kurumi_18F8B
-
-loc_19417:
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_195A9
-		call	@boss_score_bonus$qui pascal, 10
-
-loc_19425:
-		push	(ET_HORIZONTAL shl 16) or 0
-
-loc_1942B:
-		call	@boss_phase_next$q16explosion_type_ti
-		jmp	loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_19431:
-		call	kurumi_18A79
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_19444
-		cmp	ax, 1
-		jz	short loc_194BE
-		jmp	short loc_194C1
-; ---------------------------------------------------------------------------
-
-loc_19444:
-		cmp	_boss_phase_frame, 144
-		jnz	short loc_1945E
-		call	@circles_add_shrinking$qii pascal, _boss_pos.cur.x, _boss_pos.cur.y
-		mov	_circles_color, V_WHITE
-
-loc_1945E:
-		cmp	_boss_phase_frame, 64
-		jle	short loc_1947A
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		mov	_boss_sprite, 12
-		mov	_boss_angle, 128
-
-loc_1947A:
-		cmp	_boss_pos.cur.x, (191 shl 4)
-		jge	short loc_1948A
-		mov	_boss_pos.velocity.x, 24
-		jmp	short loc_19498
-; ---------------------------------------------------------------------------
-
-loc_1948A:
-		cmp	_boss_pos.cur.x, (193 shl 4)
-		jle	short loc_19498
-		mov	_boss_pos.velocity.x, -24
-
-loc_19498:
-		cmp	_boss_pos.cur.y, (79 shl 4)
-		jge	short loc_194A8
-		mov	_boss_pos.velocity.y, 12
-		jmp	short loc_194B6
-; ---------------------------------------------------------------------------
-
-loc_194A8:
-		cmp	_boss_pos.cur.y, (81 shl 4)
-		jle	short loc_194B6
-		mov	_boss_pos.velocity.y, -12
-
-loc_194B6:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		jmp	short loc_194C1
-; ---------------------------------------------------------------------------
-
-loc_194BE:
-		call	kurumi_1905A
-
-loc_194C1:
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jnz	short loc_194D2
-		cmp	_boss_phase_frame, 700
-		jl	loc_195A9
-
-loc_194D2:
-		inc	_boss_phase
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _boss_pos.cur.x, _boss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		cmp	_boss_phase_frame, 600
-		jge	short loc_194FB
-		mov	_boss_phase_state, 1
-		jmp	short loc_19500
-; ---------------------------------------------------------------------------
-
-loc_194FB:
-		mov	_boss_phase_state, 0
-
-loc_19500:
-		mov	_boss_phase_frame, 0
-		jmp	loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_19509:
-		call	kurumi_18A79
-		cmp	_boss_pos.cur.x, (191 shl 4)
-		jge	short loc_1951C
-		mov	_boss_pos.velocity.x, 24
-		jmp	short loc_1952A
-; ---------------------------------------------------------------------------
-
-loc_1951C:
-		cmp	_boss_pos.cur.x, (193 shl 4)
-		jle	short loc_1952A
-		mov	_boss_pos.velocity.x, -24
-
-loc_1952A:
-		cmp	_boss_pos.cur.y, (79 shl 4)
-		jge	short loc_1953A
-		mov	_boss_pos.velocity.y, 12
-		jmp	short loc_19548
-; ---------------------------------------------------------------------------
-
-loc_1953A:
-		cmp	_boss_pos.cur.y, (81 shl 4)
-		jle	short loc_19548
-		mov	_boss_pos.velocity.y, -12
-
-loc_19548:
-		push	offset _boss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_1955E
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_1955E:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_195A9
-		call	@boss_explode_big$qui pascal, ET_CIRCLE
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_19581
-		call	@boss_score_bonus$qui pascal, 20
-
-loc_19581:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	_palette_changed, 1
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_195A9
-; ---------------------------------------------------------------------------
-
-loc_195A4:
-		call	@boss_defeat_update$qv
-		jmp	short loc_195BF
-; ---------------------------------------------------------------------------
-
-loc_195A9:
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 4800
-
-loc_195BF:
-		pop	di
-		pop	si
-		leave
-		retf
-@kurumi_update$qv	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_195C4	dw offset loc_19387
-		dw offset loc_1940A
-		dw offset loc_1940F
-		dw offset loc_19414
-off_195CC	dw offset loc_19279
-		dw offset loc_192FC
-		dw offset loc_19301
-		dw offset loc_19306
-		dw offset loc_19306
-off_195D6	dw offset loc_19178
-		dw offset loc_1923B
-		dw offset loc_19264
-		dw offset loc_19328
-		dw offset loc_19372
-		dw offset loc_19431
-		dw offset loc_19509
 
 	; ...and so do all seven of the functions that used to sit between here
 	; and it: orange_195E4() and Orange's six patterns. They are `static`
@@ -21313,6 +20768,10 @@ public _extra_boss_bomb_immunity
 _extra_boss_bomb_immunity label byte
 byte_259EF	db ?
 byte_259F0	db ?
+	; Written 0 once by kurumi_update() and read by NOTHING. The alias
+	; exists only so that the lifted function can still write it.
+public _kurumi_259F1
+_kurumi_259F1 label byte
 byte_259F1	db ?
 include th04/main/midboss/funcs[bss].asm
 byte_25A02	db ?

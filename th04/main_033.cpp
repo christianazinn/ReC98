@@ -14,4 +14,37 @@
 // kb/codegen/0162's far declaration instead of dropping the pragma.
 #pragma option -zPmain_03
 
+
+// Neither included file is self-contained, exactly as th04/main_035.cpp's
+// three are not: the headers they share live here, because most of them
+// have no include guard and this object would otherwise expand them twice
+// (kb/codegen/0129).
+#include "platform.h"
+#include "pc98.h"
+#include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/v_colors.hpp"
+#include "th02/main/player/player.hpp"
+#include "th03/hardware/palette.hpp"
+#include "th04/snd/snd.h"
+#include "th04/sprites/main_pat.h"
+#include "th04/math/randring.hpp"
+#include "th04/main/bg.hpp"
+#include "th04/main/circle.hpp"
+#include "th04/main/gather.hpp"
+#include "th04/main/frames.h"
+#include "th04/main/player/player.hpp"
+#include "th04/main/rank.hpp"
+#include "th03/math/polar.hpp"
+#include "th04/main/homing.hpp"
+#include "th04/main/spark.hpp"
+#include "th04/main/hud/hud.hpp"
+#include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/tile/bb.hpp"
+#include "th04/main/boss/boss.hpp"
+#include "th04/main/boss/b2.cpp"
+
+// Address order inside main_033_TEXT, which is what TLINK reproduces from
+// the order of these #includes: Kurumi's fight, then Orange's.
+#include "th04/main/boss/b2_updt.cpp"
 #include "th04/main/boss/b1_updt.cpp"
