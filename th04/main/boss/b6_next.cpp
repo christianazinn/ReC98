@@ -12,10 +12,17 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th04/snd/snd.h"
 #include "th04/sprites/main_pat.h"
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/boss/explode.hpp"
+// shots_hittest(). Safe to include HERE, unlike in th04/main/boss/b6_upd.cpp:
+// that file shares a translation unit with th04/main/boss/b3_upd.cpp, which
+// includes this header LAST on purpose because every function below it was
+// matched against the declarations visible in that order. This object shares a
+// TU with nothing.
+#include "th04/main/player/shot.hpp"
 
 /// Still ASM
 /// ---------
@@ -24,6 +31,14 @@ extern "C" {
 	// and with th04/main/boss/b6_upd.cpp.
 	extern int yuuka6_anim_frame;
 	extern unsigned char yuuka6_sprite_flag;
+
+	// Also th04_main.asm `.data?`, and both still WRITTEN from ASM in
+	// another segment, so this parcel published them rather than retiring
+	// a publication (kb/codegen/0123). A naming round is owed for both;
+	// they keep the dump's address-suffixed spellings.
+	extern PlayfieldPoint yuuka6_25A0C;
+	extern unsigned char yuuka6_25A1E;
+	extern unsigned char yuuka6_25A1B;
 }
 
 // th04/main/boss/b6.cpp's yuuka6_sprite_flag_t, restated as the single
@@ -32,6 +47,45 @@ extern "C" {
 // object, in the same way th04/main/boss/b6_upd.cpp restates it.
 static const int Y6SF_PARASOL_BACK_OPEN = 1;
 /// ---------
+
+// Runs one frame of shot collision against the parasol shield, at the
+// shield's own position rather than the boss sprite's, and subtracts whatever
+// damage it took from Yuuka's HP.
+//
+// Returns whether that brought her HP below zero -- which is ZUN bloat here,
+// because the single caller in th04/main/boss/b6_upd.cpp discards it.
+extern "C" bool near yuuka6_1B3E2(void)
+{
+	if(yuuka6_25A1B != 2) {
+		return false;
+	}
+
+	// The hitbox is set field by field rather than through
+	// th04/main/player/shot.hpp's 3-argument shots_hittest() overload, and
+	// that is `[measured]`: that overload takes its radii by `const&`, so
+	// naming the two constants -- or even passing them as literals -- forces
+	// Turbo C++ to MATERIALISE them, and this object then contributes 4 bytes
+	// to _DATA that ZUN's never did. The symptom is not local: every DS
+	// offset after 0x248E shifts by 4, so every memory operand in this
+	// function reads as if it resolved to the wrong symbol. The original
+	// stores both radii as immediates, which is what this does.
+	shot_hitbox_radius.x.v = TO_SP(24);
+	shot_hitbox_radius.y.v = TO_SP(48);
+	shot_hitbox_center.x.v = yuuka6_25A0C.x.v;
+	shot_hitbox_center.y.v = yuuka6_25A0C.y.v;
+
+	// One expression, deliberately: written as a statement followed by a
+	// separate `if`, Turbo C++ reloads the byte it just stored, where the
+	// original tests the value still in AL.
+	if(yuuka6_25A1E = shots_hittest()) {
+		snd_se_play(4);
+	}
+	boss.hp -= yuuka6_25A1E;
+	if(boss.hp < 0) {
+		return true;
+	}
+	return false;
+}
 
 // Ends the current phase: starts a bullet clear if one is not already running,
 // plays the given explosion, and resets every piece of per-phase state. The

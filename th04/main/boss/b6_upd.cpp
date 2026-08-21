@@ -93,7 +93,10 @@ extern "C" {
 	void near yuuka6_1B22B(void);
 
 	void near yuuka6_1B282(void);
-	void near yuuka6_1B3E2(void);
+
+	// th04/main/boss/b6_next.cpp. Really returns whether the hit it
+	// processes took Yuuka's HP below zero; the call site below discards it.
+	bool near yuuka6_1B3E2(void);
 
 	// th04/main/boss/b4m.cpp, reached from this segment by the `procdesc`
 	// th04_main.asm still carries for it.
