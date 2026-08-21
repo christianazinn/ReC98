@@ -1527,6 +1527,8 @@ stones_bg_render	endp
 
 ; Attributes: bp-based frame
 
+public _stones_116EC
+_stones_116EC label near
 stones_116EC	proc near
 		push	bp
 		mov	bp, sp
@@ -1591,6 +1593,12 @@ stones_116EC	endp
 
 ; Attributes: bp-based frame
 
+	; `pascal`, so the alias is spelled in UPPER case and carries no
+	; leading underscore -- the case TASM's /mx puts in the EXTDEF, not
+	; the case at any call site. kb/codegen/0102 + 0103, and the same
+	; shape as th04_main.asm's YUUKA5_15ECE.
+public STONES_11766
+STONES_11766 label near
 stones_11766	proc near
 
 var_4		= word ptr -4
@@ -1715,6 +1723,8 @@ stones_11766	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11877
+_stones_11877 label near
 stones_11877	proc near
 		push	bp
 		mov	bp, sp
@@ -1892,6 +1902,8 @@ stones_11997	endp
 
 ; Attributes: bp-based frame
 
+public _stones_119CD
+_stones_119CD label near
 stones_119CD	proc near
 		push	bp
 		mov	bp, sp
@@ -1991,6 +2003,8 @@ stones_119CD	endp
 
 ; Attributes: bp-based frame
 
+public STONES_11A87
+STONES_11A87 label near
 stones_11A87	proc near
 
 arg_0		= word ptr  4
@@ -2118,6 +2132,8 @@ stones_11A87	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11B5D
+_stones_11B5D label near
 stones_11B5D	proc near
 		push	bp
 		mov	bp, sp
@@ -2169,6 +2185,8 @@ stones_11B5D	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11BFE
+_stones_11BFE label near
 stones_11BFE	proc near
 		push	bp
 		mov	bp, sp
@@ -2193,6 +2211,8 @@ stones_11BFE	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11C37
+_stones_11C37 label near
 stones_11C37	proc near
 
 var_2		= word ptr -2
@@ -2239,6 +2259,8 @@ stones_11C37	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11C8A
+_stones_11C8A label near
 stones_11C8A	proc near
 
 @@angle_2	= byte ptr -2
@@ -2323,6 +2345,8 @@ stones_11C8A	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11D30
+_stones_11D30 label near
 stones_11D30	proc near
 		push	bp
 		mov	bp, sp
@@ -2395,6 +2419,8 @@ stones_11D30	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11DF6
+_stones_11DF6 label near
 stones_11DF6	proc near
 		push	bp
 		mov	bp, sp
@@ -2441,6 +2467,8 @@ stones_11DF6	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11E40
+_stones_11E40 label near
 stones_11E40	proc near
 		push	bp
 		mov	bp, sp
@@ -2472,6 +2500,8 @@ stones_11E40	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11E76
+_stones_11E76 label near
 stones_11E76	proc near
 		push	bp
 		mov	bp, sp
@@ -2562,6 +2592,8 @@ stones_11E76	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11F2F
+_stones_11F2F label near
 stones_11F2F	proc near
 		push	bp
 		mov	bp, sp
@@ -2631,6 +2663,8 @@ stones_11F2F	endp
 
 ; Attributes: bp-based frame
 
+public _stones_11FB5
+_stones_11FB5 label near
 stones_11FB5	proc near
 		push	bp
 		mov	bp, sp
@@ -2667,6 +2701,8 @@ stones_11FB5	endp
 
 ; Attributes: bp-based frame
 
+public _stones_1200F
+_stones_1200F label near
 stones_1200F	proc near
 		push	bp
 		mov	bp, sp
@@ -2787,6 +2823,8 @@ stones_1200F	endp
 
 ; Attributes: bp-based frame
 
+public STONES_120F7
+STONES_120F7 label near
 stones_120F7	proc near
 
 @@i	= word ptr  4
@@ -2893,6 +2931,8 @@ stones_120F7	endp
 
 ; Attributes: bp-based frame
 
+public _stones_121BA
+_stones_121BA label near
 stones_121BA	proc near
 		push	bp
 		mov	bp, sp
@@ -3034,6 +3074,8 @@ stones_1223E	endp
 
 ; Attributes: bp-based frame
 
+public _stones_122B5
+_stones_122B5 label near
 stones_122B5	proc near
 		push	bp
 		mov	bp, sp
@@ -3106,6 +3148,8 @@ stones_122B5	endp
 
 ; Attributes: bp-based frame
 
+public _stones_1232F
+_stones_1232F label near
 stones_1232F	proc near
 		push	bp
 		mov	bp, sp
@@ -3174,385 +3218,11 @@ loc_123A6:
 stones_1232F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _stones_update
-_stones_update label far
-stones_update	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		xor	di, di
-		inc	_boss_phase_frame
-		inc	dword_22D58
-		call	stones_11877
-		call	stones_116EC
-		xor	si, si
-		jmp	short loc_123D9
-; ---------------------------------------------------------------------------
-
-loc_123C3:
-		cmp	_stone_flag[si], SF_KILL_ANIM
-		jnz	short loc_123D0
-		call	stones_11766 pascal, si
-		jmp	short loc_123D8
-; ---------------------------------------------------------------------------
-
-loc_123D0:
-		cmp	_stone_flag[si], SF_REMOVED
-		jnz	short loc_123D8
-		inc	di
-
-loc_123D8:
-		inc	si
-
-loc_123D9:
-		cmp	si, STONE_COUNT
-		jl	short loc_123C3
-		cmp	di, STONE_COUNT
-		jl	short loc_123E9
-		mov	ax, 2
-		jmp	loc_12737
-; ---------------------------------------------------------------------------
-
-loc_123E9:
-		cmp	byte_22D56, 0
-		jnz	short loc_12454
-		cmp	_boss_phase_frame, 50
-		jz	short loc_1241A
-		cmp	_boss_phase_frame, 52
-		jz	short loc_1241A
-		cmp	_boss_phase_frame, 54
-		jz	short loc_1241A
-		cmp	_boss_phase_frame, 58
-		jz	short loc_1241A
-		cmp	_boss_phase_frame, 60
-		jz	short loc_1241A
-		cmp	_boss_phase_frame, 62
-		jnz	short loc_12425
-
-loc_1241A:
-		inc	word_22D4C
-		inc	word_22D4E
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_12425:
-		cmp	_boss_phase_frame, 64
-		jnz	loc_12734
-		inc	word_22D4C
-		inc	word_22D4E
-		mov	_boss_phase_frame, 0
-		mov	_stone_flag[STONE_INNER_WEST], SF_ACTIVE
-		mov	_stone_flag[STONE_INNER_EAST], SF_ACTIVE
-		mov	byte_22D56, 1
-		mov	word_22FAA, 0
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_12454:
-		cmp	byte_22D56, 1
-		jnz	short loc_124C2
-		call	stones_119CD
-		cmp	dword_22D58, 1300
-		jle	short loc_12481
-		cmp	_stone_flag[STONE_INNER_WEST], SF_ACTIVE
-		jnz	short loc_12475
-		mov	_stone_flag[STONE_INNER_WEST], SF_KILL_ANIM
-
-loc_12475:
-		cmp	_stone_flag[STONE_INNER_EAST], SF_ACTIVE
-		jnz	short loc_12481
-		mov	_stone_flag[STONE_INNER_EAST], SF_KILL_ANIM
-
-loc_12481:
-		cmp	di, 2
-		jl	loc_12734
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_12734
-		call	stones_120F7 pascal, 2
-		call	stones_120F7 pascal, 3
-		or	ax, ax
-		jz	short loc_124B6
-		mov	byte_22D56, 2
-		mov	_boss_phase_frame, 0
-		mov	word_22FAA, 0
-
-loc_124B6:
-		mov	dword_22D58, 0
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_124C2:
-		cmp	byte_22D56, 2
-		jnz	short loc_12520
-		cmp	dword_22D58, 1300
-		jle	short loc_124EC
-		cmp	_stone_flag[STONE_OUTER_WEST], SF_ACTIVE
-		jnz	short loc_124E0
-		mov	_stone_flag[STONE_OUTER_WEST], SF_KILL_ANIM
-
-loc_124E0:
-		cmp	_stone_flag[STONE_OUTER_EAST], SF_ACTIVE
-		jnz	short loc_124EC
-		mov	_stone_flag[STONE_OUTER_EAST], SF_KILL_ANIM
-
-loc_124EC:
-		cmp	di, 4
-		jl	short loc_12519
-		mov	byte_22D56, 3
-		mov	_boss_phase_frame, 0
-		mov	byte_22D57, 0
-		mov	word_22FAA, 0
-		mov	ax, _stone_left[STONE_NORTH * word]
-		add	ax, 8
-		mov	word_205D8, ax
-		mov	word_205DA, 20h	; ' '
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_12519:
-		push	di
-		call	stones_11A87
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_12520:
-		cmp	byte_22D56, 3
-		jnz	short loc_12567
-		call	stones_122B5
-		or	ax, ax
-		jz	loc_12734
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_12734
-		call	stones_120F7 pascal, 4
-		or	ax, ax
-		jz	loc_12734
-		mov	byte_22D56, 4
-		mov	_boss_phase_frame, 0
-		mov	word_22FAA, 0
-		mov	dword_22D58, 0
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_12567:
-		cmp	byte_22D56, 4
-		jnz	short loc_125E9
-		cmp	byte_22D57, 0
-		jnz	short loc_1257A
-		call	stones_11B5D
-		jmp	short loc_125B4
-; ---------------------------------------------------------------------------
-
-loc_1257A:
-		cmp	byte_22D57, 1
-		jnz	short loc_12586
-		call	stones_11BFE
-		jmp	short loc_125B4
-; ---------------------------------------------------------------------------
-
-loc_12586:
-		cmp	byte_22D57, 2
-		jnz	short loc_12592
-		call	stones_11C37
-		jmp	short loc_125B4
-; ---------------------------------------------------------------------------
-
-loc_12592:
-		cmp	byte_22D57, 3
-		jnz	short loc_1259E
-		call	stones_11DF6
-		jmp	short loc_125B4
-; ---------------------------------------------------------------------------
-
-loc_1259E:
-		cmp	byte_22D57, 4
-		jnz	short loc_125AA
-		call	stones_11E40
-		jmp	short loc_125B4
-; ---------------------------------------------------------------------------
-
-loc_125AA:
-		cmp	byte_22D57, 5
-		jnz	short loc_125B4
-		call	stones_11E76
-
-loc_125B4:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_125D6
-		inc	byte_22D57
-		mov	word_22FAA, 0
-		cmp	byte_22D57, 5
-		jbe	short loc_125D6
-		mov	byte_22D56, 5
-		mov	byte_22D57, 0
-
-loc_125D6:
-		cmp	_stone_damage[STONE_NORTH * word], 500
-		jl	loc_12734
-		mov	_stone_damage[STONE_NORTH * word], 500
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_125E9:
-		cmp	byte_22D56, 5
-		jnz	short loc_1261B
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1260A
-		cmp	byte_22D57, 0
-		jnz	short loc_1260A
-		call	stones_121BA
-		mov	byte_22D57, al
-
-loc_1260A:
-		call	stones_1232F
-		or	ax, ax
-		jz	loc_12734
-		mov	byte_22D56, 6
-		jmp	loc_1269E
-; ---------------------------------------------------------------------------
-
-loc_1261B:
-		cmp	byte_22D56, 6
-		jnz	short loc_1266F
-		cmp	byte_22D57, 0
-		jz	short loc_1263C
-		cmp	byte_22D57, 1
-		jnz	short loc_12635
-		call	stones_11F2F
-		jmp	short loc_1264B
-; ---------------------------------------------------------------------------
-
-loc_12635:
-		cmp	byte_22D57, 2
-		jnz	short loc_12641
-
-loc_1263C:
-		call	stones_11FB5
-		jmp	short loc_1264B
-; ---------------------------------------------------------------------------
-
-loc_12641:
-		cmp	byte_22D57, 3
-		jnz	short loc_1264B
-		call	stones_1200F
-
-loc_1264B:
-		cmp	_boss_phase_frame, 0
-		jnz	loc_12734
-		inc	byte_22D57
-		mov	word_22FAA, 0
-		cmp	byte_22D57, 3
-		jbe	loc_12734
-		mov	byte_22D56, 7
-		jmp	loc_12734
-; ---------------------------------------------------------------------------
-
-loc_1266F:
-		cmp	byte_22D56, 7
-		jnz	short loc_126BA
-		call	stones_122B5
-		or	ax, ax
-		jz	loc_12734
-		mov	ax, _boss_phase_frame
-		mov	bx, 3
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_12734
-		call	stones_120F7 pascal, 4
-		or	ax, ax
-		jz	loc_12734
-		mov	byte_22D56, 8
-
-loc_1269E:
-		mov	_boss_phase_frame, 0
-		mov	word_22FAA, 0
-		mov	dword_22D58, 0
-		mov	byte_22D57, 0
-		jmp	short loc_12734
-; ---------------------------------------------------------------------------
-
-loc_126BA:
-		cmp	byte_22D56, 8
-		jnz	short loc_12734
-		cmp	byte_22D57, 0
-		jnz	short loc_126CD
-		call	stones_11D30
-		jmp	short loc_12707
-; ---------------------------------------------------------------------------
-
-loc_126CD:
-		cmp	byte_22D57, 1
-		jnz	short loc_126D9
-		call	stones_11BFE
-		jmp	short loc_12707
-; ---------------------------------------------------------------------------
-
-loc_126D9:
-		cmp	byte_22D57, 2
-		jnz	short loc_126E5
-		call	stones_11C8A
-		jmp	short loc_12707
-; ---------------------------------------------------------------------------
-
-loc_126E5:
-		cmp	byte_22D57, 3
-		jnz	short loc_126F1
-		call	stones_11DF6
-		jmp	short loc_12707
-; ---------------------------------------------------------------------------
-
-loc_126F1:
-		cmp	byte_22D57, 4
-		jnz	short loc_126FD
-		call	stones_11E40
-		jmp	short loc_12707
-; ---------------------------------------------------------------------------
-
-loc_126FD:
-		cmp	byte_22D57, 5
-		jnz	short loc_12707
-		call	stones_11E76
-
-loc_12707:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_12734
-		inc	byte_22D57
-		mov	word_22FAA, 0
-		cmp	byte_22D57, 5
-		jbe	short loc_12724
-		mov	byte_22D57, 1
-
-loc_12724:
-		cmp	dword_22D58, 2000
-		jle	short loc_12734
-		mov	_stone_flag[STONE_NORTH], SF_KILL_ANIM
-
-loc_12734:
-		mov	ax, 1
-
-loc_12737:
-		pop	di
-		pop	si
-		pop	bp
-		retf
-stones_update	endp
+; stones_update() is th02/main/boss/b3.cpp too, at the head of that
+; object's contribution. The twenty procs above that it dispatches to are
+; published for its sake and for no other reason; stones_121F3() and
+; stones_1223E() are deliberately NOT, because nothing outside this block
+; calls them.
 
 
 ; stones_end(), stones_init() and stones_12778() are th02/main/boss/b3.cpp,

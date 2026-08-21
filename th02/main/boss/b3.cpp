@@ -51,6 +51,65 @@ extern "C" void far enemies_remove_all(void);
 // its only caller, and reaches it as a plain near call.
 extern "C" void near stones_11997(void);
 
+/// The fight's still-ASM parts
+/// ---------------------------
+/// All of them are further up in DIALOG_TEXT, all are reached as plain near
+/// calls, and all keep the dump's own address-suffixed hand names: those are
+/// not IDA placeholders, and naming twenty functions is a separate decision
+/// from lifting the one that dispatches to them. Each one got the ordinary
+/// three-line `public` in th02_main.asm and nothing else.
+///
+/// The `pascal` ones are measured from their `retn 2`, not assumed.
+
+// Per-frame housekeeping, run before anything else looks at the stones:
+// [stones_phase_frame_unused]'s increment lives in the first, and the five
+// stones' sprites are blitted by the second.
+extern "C" void near stones_11877(void);
+extern "C" void near stones_116EC(void);
+
+// Advances one stone's kill animation. Called for every stone in SF_KILL_ANIM.
+extern "C" void pascal near stones_11766(int stone);
+
+// Returns `true` once the stone it is asked about has finished being taken
+// over, which is what advances the fight to the next phase.
+extern "C" bool16 pascal near stones_120F7(int stone);
+
+// The two whole-fight predicates, both 0-or-1 in AX: whether the north stone
+// is ready to be attacked, and whether phase 5's roaming has finished.
+extern "C" bool16 near stones_122B5(void);
+extern "C" bool16 near stones_1232F(void);
+
+// Phase 1's per-frame movement, and phase 2's, the latter taking the number of
+// stones already removed.
+extern "C" void near stones_119CD(void);
+extern "C" void pascal near stones_11A87(int removed);
+
+// Picks phase 5's pattern. `[measured]` returns 0 or 1, and the value is used
+// as a [stones_pattern] index rather than as a truth value, which is why this
+// one is `int` and the two predicates above are not.
+extern "C" int near stones_121BA(void);
+
+// The bullet patterns, dispatched on [stones_pattern]. Phases 4 and 8 share
+// four of them; the first and third slot differ between the two.
+extern "C" void near stones_11B5D(void);
+extern "C" void near stones_11BFE(void);
+extern "C" void near stones_11C37(void);
+extern "C" void near stones_11C8A(void);
+extern "C" void near stones_11D30(void);
+extern "C" void near stones_11DF6(void);
+extern "C" void near stones_11E40(void);
+extern "C" void near stones_11E76(void);
+extern "C" void near stones_11F2F(void);
+extern "C" void near stones_11FB5(void);
+extern "C" void near stones_1200F(void);
+/// ---------------------------
+
+// th02/main/boss/b4.cpp and b5m.cpp declare them identically. The point every
+// bullet-spawning subsystem aims at, set to (-1, -1) while there is nothing to
+// aim at.
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
+
 // th02/main/dialog/dialog.cpp. dialog.hpp declares every dialog_script_*
 // function but neither of these two, which is how th02/main/boss/b4.cpp and
 // b5.cpp already declare them.
@@ -127,6 +186,222 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+// The stones' [boss_update] callback, installed by stage_init(). Nine phases,
+// one `else if` arm each, and the fight ends when all five stones have reached
+// SF_REMOVED - not when a phase counter runs out, which is why the arms only
+// ever advance [stones_phase] and never return SP_CLEAR themselves.
+//
+// `int` rather than [stage_progression_t], for the reason marisa_update() in
+// th02/main/boss/b4.cpp records: the enum is byte-sized, but the original
+// returns its value in the whole of AX.
+extern "C" int far stones_update(void)
+{
+	register int i;
+	register int removed;
+
+	removed = 0;
+	boss_phase_frame++;
+	stones_timeout_frame++;
+	stones_11877();
+	stones_116EC();
+	for(i = 0; i < STONE_COUNT; i++) {
+		if(stone_flag[i] == SF_KILL_ANIM) {
+			stones_11766(i);
+		} else if(stone_flag[i] == SF_REMOVED) {
+			removed++;
+		}
+	}
+	if(removed >= STONE_COUNT) {
+		return SP_CLEAR;
+	}
+
+	// Phase 0: the two inner stones fade in over 14 frames, one sprite cel
+	// every second or fourth frame, and go active on frame 64.
+	if(stones_phase == 0) {
+		if(
+			(boss_phase_frame == 50) || (boss_phase_frame == 52) ||
+			(boss_phase_frame == 54) || (boss_phase_frame == 58) ||
+			(boss_phase_frame == 60) || (boss_phase_frame == 62)
+		) {
+			stone_patnum[STONE_INNER_WEST]++;
+			stone_patnum[STONE_INNER_EAST]++;
+		} else if(boss_phase_frame == 64) {
+			stone_patnum[STONE_INNER_WEST]++;
+			stone_patnum[STONE_INNER_EAST]++;
+			boss_phase_frame = 0;
+			stone_flag[STONE_INNER_WEST] = SF_ACTIVE;
+			stone_flag[STONE_INNER_EAST] = SF_ACTIVE;
+			stones_phase = 1;
+			stones_phase_frame_unused = 0;
+		}
+
+	// Phase 1: the inner pair. The 1300-frame deadline force-kills whichever
+	// of the two is still alive, and the outer pair is then taken over.
+	} else if(stones_phase == 1) {
+		stones_119CD();
+		if(stones_timeout_frame > 1300) {
+			if(stone_flag[STONE_INNER_WEST] == SF_ACTIVE) {
+				stone_flag[STONE_INNER_WEST] = SF_KILL_ANIM;
+			}
+			if(stone_flag[STONE_INNER_EAST] == SF_ACTIVE) {
+				stone_flag[STONE_INNER_EAST] = SF_KILL_ANIM;
+			}
+		}
+		if((removed >= 2) && ((boss_phase_frame % 3) == 0)) {
+			// ZUN quirk: only the second call's result is looked at. The west
+			// stone is taken over on the same frames regardless, and the two
+			// always finish together, so the phase never advances early.
+			stones_120F7(STONE_OUTER_WEST);
+			if(stones_120F7(STONE_OUTER_EAST)) {
+				stones_phase = 2;
+				boss_phase_frame = 0;
+				stones_phase_frame_unused = 0;
+			}
+			stones_timeout_frame = 0;
+		}
+
+	// Phase 2: the outer pair, on the same deadline. Once all four are gone,
+	// the north stone becomes the thing every bullet aims at.
+	} else if(stones_phase == 2) {
+		if(stones_timeout_frame > 1300) {
+			if(stone_flag[STONE_OUTER_WEST] == SF_ACTIVE) {
+				stone_flag[STONE_OUTER_WEST] = SF_KILL_ANIM;
+			}
+			if(stone_flag[STONE_OUTER_EAST] == SF_ACTIVE) {
+				stone_flag[STONE_OUTER_EAST] = SF_KILL_ANIM;
+			}
+		}
+		if(removed >= 4) {
+			stones_phase = 3;
+			boss_phase_frame = 0;
+			stones_pattern = 0;
+			stones_phase_frame_unused = 0;
+			boss_pos_x = (stone_left[STONE_NORTH] + 8);
+			boss_pos_y = 32;
+		} else {
+			stones_11A87(removed);
+		}
+
+	// Phase 3: the north stone's take-over.
+	} else if(stones_phase == 3) {
+		if(
+			stones_122B5() && ((boss_phase_frame % 3) == 0) &&
+			stones_120F7(STONE_NORTH)
+		) {
+			stones_phase = 4;
+			boss_phase_frame = 0;
+			stones_phase_frame_unused = 0;
+			stones_timeout_frame = 0;
+		}
+
+	// Phase 4: the north stone's first six patterns, in order. Each one zeroes
+	// [boss_phase_frame] when its cycle ends, which is what advances the index.
+	} else if(stones_phase == 4) {
+		if(stones_pattern == 0) {
+			stones_11B5D();
+		} else if(stones_pattern == 1) {
+			stones_11BFE();
+		} else if(stones_pattern == 2) {
+			stones_11C37();
+		} else if(stones_pattern == 3) {
+			stones_11DF6();
+		} else if(stones_pattern == 4) {
+			stones_11E40();
+		} else if(stones_pattern == 5) {
+			stones_11E76();
+		}
+		if(boss_phase_frame == 0) {
+			stones_pattern++;
+			stones_phase_frame_unused = 0;
+			if(stones_pattern > 5) {
+				stones_phase = 5;
+				stones_pattern = 0;
+			}
+		}
+		if(stone_damage[STONE_NORTH] >= 500) {
+			stone_damage[STONE_NORTH] = 500;
+		}
+
+	// Phase 5: the stone roams. Its destination is picked once, on the first
+	// multiple-of-3 frame, and [stones_pattern] latches it rather than
+	// indexing anything.
+	} else if(stones_phase == 5) {
+		if(((boss_phase_frame % 3) == 0) && (stones_pattern == 0)) {
+			stones_pattern = stones_121BA();
+		}
+		if(stones_1232F()) {
+			stones_phase = 6;
+			boss_phase_frame = 0;
+			stones_phase_frame_unused = 0;
+			stones_timeout_frame = 0;
+			stones_pattern = 0;
+		}
+
+	// Phase 6: four patterns, of which the first and third are the same one.
+	} else if(stones_phase == 6) {
+		if(stones_pattern == 0) {
+			stones_11FB5();
+		} else if(stones_pattern == 1) {
+			stones_11F2F();
+		} else if(stones_pattern == 2) {
+			stones_11FB5();
+		} else if(stones_pattern == 3) {
+			stones_1200F();
+		}
+		if(boss_phase_frame == 0) {
+			stones_pattern++;
+			stones_phase_frame_unused = 0;
+			if(stones_pattern > 3) {
+				stones_phase = 7;
+			}
+		}
+
+	// Phase 7: the second take-over, shape for shape the same as phase 3's.
+	} else if(stones_phase == 7) {
+		if(
+			stones_122B5() && ((boss_phase_frame % 3) == 0) &&
+			stones_120F7(STONE_NORTH)
+		) {
+			stones_phase = 8;
+			boss_phase_frame = 0;
+			stones_phase_frame_unused = 0;
+			stones_timeout_frame = 0;
+			stones_pattern = 0;
+		}
+
+	// Phase 8: the final loop. Its six patterns are phase 4's with two
+	// replaced, and the index wraps to 1 rather than 0, so the first one runs
+	// exactly once per fight. 2000 frames in it, the stone dies and the fight
+	// with it.
+	} else if(stones_phase == 8) {
+		if(stones_pattern == 0) {
+			stones_11D30();
+		} else if(stones_pattern == 1) {
+			stones_11BFE();
+		} else if(stones_pattern == 2) {
+			stones_11C8A();
+		} else if(stones_pattern == 3) {
+			stones_11DF6();
+		} else if(stones_pattern == 4) {
+			stones_11E40();
+		} else if(stones_pattern == 5) {
+			stones_11E76();
+		}
+		if(boss_phase_frame == 0) {
+			stones_pattern++;
+			stones_phase_frame_unused = 0;
+			if(stones_pattern > 5) {
+				stones_pattern = 1;
+			}
+			if(stones_timeout_frame > 2000) {
+				stone_flag[STONE_NORTH] = SF_KILL_ANIM;
+			}
+		}
+	}
+	return SP_BOSS;
+}
 
 
 // Runs the stones' post-battle dialog and the stage clear bonus, then advances
