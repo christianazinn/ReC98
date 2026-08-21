@@ -6695,6 +6695,8 @@ off_1962C	dw offset loc_19569
 
 ; Attributes: bp-based frame
 
+	public _sub_19634
+	_sub_19634 label near
 sub_19634	proc near
 		push	bp
 		mov	bp, sp
@@ -6991,6 +6993,8 @@ puppets_update	endp
 
 ; Attributes: bp-based frame
 
+	public SUB_198B7
+	SUB_198B7 label near
 sub_198B7	proc near
 
 @@puppet		= word ptr  4
@@ -7046,6 +7050,8 @@ sub_198B7	endp
 
 ; Attributes: bp-based frame
 
+	public SUB_19928
+	SUB_19928 label near
 sub_19928	proc near
 
 @@puppet		= word ptr  4
@@ -7209,6 +7215,8 @@ sub_19A0F	endp
 
 ; Attributes: bp-based frame
 
+	public SUB_19A84
+	SUB_19A84 label near
 sub_19A84	proc near
 
 @@puppet		= word ptr  4
@@ -7278,6 +7286,8 @@ sub_19AE3	endp
 
 ; Attributes: bp-based frame
 
+	public SUB_19AFB
+	SUB_19AFB label near
 sub_19AFB	proc near
 		push	bp
 		mov	bp, sp
@@ -7291,6 +7301,8 @@ sub_19AFB	endp
 
 ; Attributes: bp-based frame
 
+	public _sub_19B04
+	_sub_19B04 label near
 sub_19B04	proc near
 		push	bp
 		mov	bp, sp
@@ -7485,6 +7497,8 @@ sub_19C34	endp
 
 ; Attributes: bp-based frame
 
+	public _sub_19CB0
+	_sub_19CB0 label near
 sub_19CB0	proc near
 
 var_2		= word ptr -2
@@ -7799,6 +7813,8 @@ sub_19F75	endp
 
 ; Attributes: bp-based frame
 
+	public _sub_1A005
+	_sub_1A005 label near
 sub_1A005	proc near
 		push	bp
 		mov	bp, sp
@@ -7824,315 +7840,10 @@ loc_1A042:
 sub_1A005	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @ALICE_UPDATE$QV
-@alice_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		inc	_boss_phase_frame
-		mov	_bullet_template.spawn_type, BST_NORMAL
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	eax, _bullet_template.BT_origin
-		mov	_gather_template.GT_center, eax
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 0Eh
-		ja	loc_1A3AD
-		add	bx, bx
-		jmp	cs:off_1A3D1[bx]
-
-loc_1A089:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1A0AD
-		mov	_boss_hp, 9600
-		mov	_boss_phase_end_hp, 7400
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_ring_points, 8
-
-loc_1A0AD:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 128
-		jl	loc_1A3B2
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_bg_render_bombing_func, offset @alice_bg_render$qv
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A0D4:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 64
-		jl	loc_1A3B2
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		mov	_boss_phase_state, 0
-		mov	_boss_statebyte[10], 18h
-		mov	_boss_statebyte[9], 0
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A101:
-		call	sub_19B04
-		call	@boss_hittest_shots$qv
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1A15A
-		mov	si, offset puppets
-		mov	[si+puppet_t.flag], F_ALIVE
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	[si+puppet_t.radius_motion], (256 shl 4)
-		mov	[si+puppet_t.PUPPET_angle], 60h
-		mov	[si+puppet_t.PUPPET_hp_cur], PUPPET_HP
-		mov	[si+puppet_t.pos.cur.x], SUBPIXEL_NONE
-		add	si, size puppet_t
-		mov	[si+puppet_t.flag], F_ALIVE
-		mov	[si+puppet_t.PUPPET_patnum], 190
-		mov	[si+puppet_t.radius_motion], (256 shl 4)
-		mov	[si+puppet_t.PUPPET_angle], 20h
-		mov	[si+puppet_t.PUPPET_hp_cur], PUPPET_HP
-		mov	[si+puppet_t.pos.cur.x], SUBPIXEL_NONE
-		mov	fp_2CE2A, offset sub_198B7
-		mov	fp_2CE2C, offset sub_198B7
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A15A:
-		cmp	_boss_phase_frame, 128
-		jle	loc_1A3B2
-		call	sub_19634
-		cmp	puppet0.radius_motion, 0
-		jnz	loc_1A3B2
-		inc	_boss_phase
-		mov	_boss_mode, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_statebyte[7], 0
-		mov	word_2CE30, 160
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A192:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1A1A2
-		cmp	ax, 1
-		jz	short loc_1A1E3
-		jmp	short loc_1A1E7
-; ---------------------------------------------------------------------------
-
-loc_1A1A2:
-		mov	ax, _boss_phase_frame
-		add	ax, -8
-		call	@boss_flystep_random$qi pascal, ax
-		or	al, al
-		jz	short loc_1A1E7
-		mov	_boss_mode, 1
-		mov	_boss_phase_frame, 0
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 24
-		jnb	short loc_1A1F8
-		push	3
-		call	@randring2_next16_mod$qui
-		add	ax, ax
-		mov	dl, _boss_statebyte[7]
-		mov	dh, 0
-		imul	dx, 6
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, off_22770[bx]
-		mov	fp_2CE32, ax
-		jmp	short loc_1A1E7
-; ---------------------------------------------------------------------------
-
-loc_1A1E3:
-		call	fp_2CE32
-
-loc_1A1E7:
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_1A3B2
-		call	@boss_score_bonus$qui pascal, 7
-		call	@boss_items_drop$qv
-
-loc_1A1F8:
-		inc	_boss_statebyte[7]
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1A208
-		mov	_bullet_clear_time, 20
-
-loc_1A208:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0
-		mov	ax, _boss_phase_end_hp
-		mov	_boss_hp, ax
-		cmp	_boss_phase, 0Ch
-		jnb	short loc_1A236
-		sub	_boss_phase_end_hp, 2200
-		jmp	short loc_1A23C
-; ---------------------------------------------------------------------------
-
-loc_1A236:
-		mov	_boss_phase_end_hp, 0
-
-loc_1A23C:
-		mov	word_2CE2E, 0
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A245:
-		mov	puppet0.pos.prev.x, (128 shl 4)
-		mov	puppet0.pos.prev.y, (128 shl 4)
-		mov	puppet1.pos.prev.x, (256 shl 4)
-		mov	puppet1.pos.prev.y, (128 shl 4)
-		mov	puppet0.PUPPET_hp_cur, PUPPET_HP
-		mov	puppet1.PUPPET_hp_cur, PUPPET_HP
-		mov	ax, offset sub_19AFB
-		mov	fp_2CE2C, ax
-		mov	fp_2CE2A, ax
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or (64 shl 4)
-		call	@boss_flystep_towards$qii
-		or	al, al
-		jz	loc_1A359
-		jmp	loc_1A34F
-; ---------------------------------------------------------------------------
-
-loc_1A284:
-		mov	puppet0.pos.prev.x, (128 shl 4)
-		mov	puppet0.pos.prev.y, (128 shl 4)
-		mov	puppet1.pos.prev.x, (256 shl 4)
-		mov	puppet1.pos.prev.y, (128 shl 4)
-		mov	puppet0.PUPPET_hp_cur, PUPPET_HP
-		mov	puppet1.PUPPET_hp_cur, PUPPET_HP
-		mov	ax, offset sub_19AFB
-		mov	fp_2CE2C, ax
-		mov	fp_2CE2A, ax
-		call	sub_19CB0
-		call	@boss_hittest_shots$qv
-		cmp	_boss_phase_frame, 600
-		jl	loc_1A3B2
-		call	@boss_score_bonus$qui pascal, 5
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1A2D7
-		mov	_bullet_clear_time, 20
-
-loc_1A2D7:
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_statebyte[9], 0
-		mov	puppet0.pos.prev.x, (320 shl 4)
-		mov	puppet0.pos.prev.y, (96 shl 4)
-		mov	puppet1.pos.prev.x, (64 shl 4)
-		mov	puppet1.pos.prev.y, (96 shl 4)
-		xor	ax, ax
-		mov	puppet1.phase_frame, ax
-		mov	puppet0.phase_frame, ax
-		mov	fp_2CE2A, offset sub_19928
-		mov	fp_2CE2C, offset sub_19928
-		jmp	loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A315:
-		mov	puppet0.pos.prev.x, (64 shl 4)
-		mov	puppet0.pos.prev.y,	(128 shl 4)
-		mov	puppet1.pos.prev.x, (320 shl 4)
-		mov	puppet1.pos.prev.y, (128 shl 4)
-		mov	puppet0.PUPPET_hp_cur, PUPPET_HP
-		mov	puppet1.PUPPET_hp_cur, PUPPET_HP
-		mov	ax, offset sub_19A84
-		mov	fp_2CE2C, ax
-		mov	fp_2CE2A, ax
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or (64 shl 4)
-		call	@boss_flystep_towards$qii
-		or	al, al
-		jz	short loc_1A359
-
-loc_1A34F:
-		mov	_boss_phase_frame, 0
-		inc	_boss_phase
-
-loc_1A359:
-		call	@boss_hittest_shots$qv
-		jmp	short loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A35E:
-		mov	puppet0.pos.prev.x, (64 shl 4)
-		mov	puppet0.pos.prev.y, (128 shl 4)
-		mov	puppet1.pos.prev.x, (320 shl 4)
-		mov	puppet1.pos.prev.y, (128 shl 4)
-		mov	ax, offset sub_19A84
-		mov	fp_2CE2C, ax
-		mov	fp_2CE2A, ax
-		call	sub_1A005
-		cmp	_boss_phase_frame, 1000
-		jge	short loc_1A396
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	short loc_1A3B2
-		mov	_boss_phase_state, 1
-
-loc_1A396:
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		mov	puppet0.flag, F_REMOVE
-		mov	puppet1.flag, F_REMOVE
-		jmp	short loc_1A3B2
-; ---------------------------------------------------------------------------
-
-loc_1A3AD:
-		call	@boss_defeat_update$qui pascal, 10
-
-loc_1A3B2:
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 9600
-		cmp	_boss_phase, 3
-		jb	short loc_1A3CD
-		cmp	_boss_phase, PHASE_BOSS_EXPLODE_BIG
-		jnb	short loc_1A3CD
-		call	puppets_update
-
-loc_1A3CD:
-		pop	si
-		pop	bp
-		retf
-@alice_update$qv	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_1A3D1	dw offset loc_1A089
-		dw offset loc_1A0D4
-		dw offset loc_1A101
-		dw offset loc_1A192
-		dw offset loc_1A245
-		dw offset loc_1A284
-		dw offset loc_1A192
-		dw offset loc_1A245
-		dw offset loc_1A284
-		dw offset loc_1A192
-		dw offset loc_1A245
-		dw offset loc_1A284
-		dw offset loc_1A192
-		dw offset loc_1A315
-		dw offset loc_1A35E
+; alice_update() is th05/main/boss/b3.cpp, compiled into th05/boss_4.cpp
+; ahead of th05/main/boss/b4_both.cpp. The one-byte alignment pad and the
+; 15-entry jump table that used to follow it here are part of what that
+; function compiles to, so the C++ emits both (kb/codegen 0099 + 0104).
 
 	; The combined Mai/Yuki shot hittest and, ahead of it,
 	; yuki_hittest_shots_damage() now both live in
@@ -8142,9 +7853,12 @@ off_1A3D1	dw offset loc_1A089
 	; th05/boss_4.cpp already owned everything after it (kb/codegen 0114).
 	; No carve, no new segment, no Tupfile.lua line.
 	;
-	; This seam is now CLOSED. The item ahead of
-	; yuki_hittest_shots_damage() was off_1A3D1, a jump table, so the root
-	; contribution to B4_UPDATE_TEXT can take no further tail lift.
+	; An earlier revision of this comment declared the seam CLOSED,
+	; because the item ahead of yuki_hittest_shots_damage() was a jump
+	; table. That reading was wrong: the table was the switch codegen of
+	; the function above it, which a C++ lift emits along with the
+	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and the
+	; root's tail here is now sub_1A005.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -15179,6 +14893,8 @@ off_22768	dw offset sub_198B7
 		dw offset sub_19928
 		dw offset sub_1999A
 		dw offset sub_19A0F
+public _off_22770
+_off_22770	label word
 off_22770	dw offset sub_19B9E
 		dw offset sub_19BB8
 		dw offset sub_19C34
@@ -15655,10 +15371,20 @@ include th04/main/score[bss].asm
 public _sara_phase_2_3_pattern
 _sara_phase_2_3_pattern	dw ?
 sppoint_2CE26	Point <?>
+public _fp_2CE2A
+_fp_2CE2A	label word
 fp_2CE2A	dw ?
+public _fp_2CE2C
+_fp_2CE2C	label word
 fp_2CE2C	dw ?
+public _word_2CE2E
+_word_2CE2E	label word
 word_2CE2E	dw ?
+public _word_2CE30
+_word_2CE30	label word
 word_2CE30	dw ?
+public _fp_2CE32
+_fp_2CE32	label word
 fp_2CE32	dw ?
 include th05/main/boss/b4_both[bss].asm
 fp_2CE36	dw ?
