@@ -19,6 +19,10 @@
 #include "th04/main/item/item.hpp"
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
+// iatan2(), which the fourth pattern aims with.
+#include "libs/master.lib/master.hpp"
+#include "th04/sprites/main_pat.h"
+#include "th04/main/player/player.hpp"
 #include "th04/main/midboss/midboss.hpp"
 
 /// The midboss's own state
@@ -55,18 +59,158 @@ extern "C" {
 
 /// The Stage 2 midboss's four bullet patterns
 /// ------------------------------------------
-/// All four sit directly above this function in ZUN's object, and every one
-/// of them is reached from its `switch(midboss2_pattern)` and from nowhere
-/// else — so all four are still ASM here only because they are not the tail,
-/// and each needed a zero-byte `label` alias in th04_main.asm to become
-/// linkable (kb/codegen/0123). They keep the dump's address-suffixed names;
-/// **a naming round is owed for all four**, on the same terms as the Stage 4
-/// midboss's.
-extern "C" {
-	void near midboss2_14AF2(void);
-	void near midboss2_14B76(void);
-	void near midboss2_14BCD(void);
-	void near midboss2_14C45(void);
+/// All four sat directly above midboss2_update() in ZUN's object, and every
+/// one of them is reached from its `switch(midboss2_pattern)` and from nowhere
+/// else, so all four are `static` here and the four zero-byte `label` aliases
+/// th04_main.asm carried for them are gone with the bodies. They keep the
+/// dump's address-suffixed names; **a naming round is owed for all four**, on
+/// the same terms as the Stage 4 midboss's.
+///
+/// All four share one skeleton: a modulo on the phase frame gates the volley,
+/// and a compare against the pattern's own length hands control back to
+/// midboss2_update() by setting [midboss2_pattern] to 255. Three of them aim
+/// off [midboss2_255B3], the direction byte, rather than off the player.
+
+// A ball on every other volley and a 6-way spread on all of them, both aimed
+// away from whichever wall the midboss is heading for.
+static void near midboss2_14AF2(void)
+{
+	register int frame = midboss.phase_frame;
+
+	if((frame % 8) == 0) {
+		snd_se_play(3);
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x20;
+		bullet_template.angle = _AL;
+		if((frame / 8) & 1) {
+			bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+			bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+			bullet_template.group = BG_SINGLE;
+			bullet_template.speed.v = (TO_SP(2) + 10);
+			bullet_template_tune();
+			bullets_add_regular();
+			bullet_template.delta.spread_angle = 0x0F;
+		} else {
+			bullet_template.delta.spread_angle = 0x0A;
+		}
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 6;
+		bullet_template.speed.v = (TO_SP(2) + 4);
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	if(frame >= 64) {
+		midboss.phase_frame = 0;
+		midboss2_pattern = 255;
+	}
+}
+
+// A 32-way ring every 8th frame, each one faster than the last.
+static void near midboss2_14B76(void)
+{
+	register int frame = midboss.phase_frame;
+
+	if((frame % 8) == 0) {
+		snd_se_play(3);
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x20;
+		bullet_template.angle = _AL;
+		_AL = (frame / 2);
+		_AL += TO_SP(2);
+		bullet_template.speed.v = _AL;
+		bullet_template.group = BG_RING;
+		bullet_template.count = 32;
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	if(frame >= 32) {
+		midboss.phase_frame = 0;
+		midboss2_pattern = 255;
+	}
+}
+
+// Four single bullets every 4th frame, at four fixed angles off the direction
+// byte — two on each side of it, and the outer pair fired first.
+static void near midboss2_14BCD(void)
+{
+	register int frame = midboss.phase_frame;
+
+	if((frame % 4) == 0) {
+		snd_se_play(3);
+		bullet_template.speed.v = TO_SP(4);
+		bullet_template.group = BG_SINGLE;
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x08;
+		bullet_template.angle = _AL;
+		bullet_template_tune();
+		bullets_add_regular();
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x10;
+		bullet_template.angle = _AL;
+		bullets_add_regular();
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x38;
+		bullet_template.angle = _AL;
+		bullets_add_regular();
+		_AL = midboss2_255B3;
+		_AL <<= 5;
+		_AL += 0x30;
+		bullet_template.angle = _AL;
+		bullets_add_regular();
+	}
+	if(frame >= 32) {
+		midboss.phase_frame = 0;
+		midboss2_pattern = 255;
+	}
+}
+
+// The only one that aims at the player: a 5-way spread on the angle latched at
+// the start, an aimed ball beside it, and a cloud of specials over the last 8
+// frames of every 32.
+static void near midboss2_14C45(void)
+{
+	register int frame = (midboss.phase_frame - 1);
+
+	if(frame == 0) {
+		midboss.angle = iatan2(
+			(player_pos.cur.y.v - midboss.pos.cur.y.v),
+			(player_pos.cur.x.v - midboss.pos.cur.x.v)
+		);
+	}
+	if((frame % 8) == 0) {
+		snd_se_play(3);
+		bullet_template.speed.v = (TO_SP(2) + 8);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.count = 5;
+		bullet_template.delta.spread_angle = 0x10;
+		bullet_template.angle = midboss.angle;
+		bullet_template_tune();
+		bullets_add_regular();
+		bullet_template.speed.v = 10;
+		bullet_template.angle = iatan2(
+			(player_pos.cur.y.v - midboss.pos.cur.y.v),
+			(player_pos.cur.x.v - midboss.pos.cur.x.v)
+		);
+		bullet_template.patnum = PAT_BULLET16_D_BLUE;
+		bullet_template.group = BG_SINGLE;
+		bullet_template.special_motion = BSM_NONE;
+	}
+	if((frame % 32) >= 24) {
+		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
+		_AL = bullet_template.speed.v;
+		_AL += 10;
+		bullet_template.speed.v = _AL;
+		bullets_add_special();
+	}
+	if(frame >= 64) {
+		midboss.phase_frame = 0;
+		midboss2_pattern = 255;
+	}
 }
 /// ------------------------------------------
 

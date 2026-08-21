@@ -5631,248 +5631,19 @@ off_14A94	dw offset loc_14A4D
 
 include th04/main/gather_point_render.asm
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-	; The alias carries the NAME; the dump's own call sites keep the bare
-	; label. kb/codegen/0123. These four are the Stage 2 midboss's bullet
-	; patterns, called from midboss2_update() and from nowhere else.
-public _midboss2_14AF2
-_midboss2_14AF2 label near
-sub_14AF2	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _midboss_phase_frame
-		mov	ax, si
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14B63
-		call	snd_se_play pascal, 3
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 20h
-		mov	_bullet_template.BT_angle, al
-		mov	ax, si
-		mov	bx, 8
-		cwd
-		idiv	bx
-		test	al, 1
-		jz	short loc_14B47
-		mov	_bullet_template.spawn_type, BST_BULLET16_CLOUD_FORWARDS
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	_bullet_template.speed, (2 shl 4) + 10
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_bullet_template.BT_delta.spread_angle, 0Fh
-		jmp	short loc_14B4C
-; ---------------------------------------------------------------------------
-
-loc_14B47:
-		mov	_bullet_template.BT_delta.spread_angle, 0Ah
-
-loc_14B4C:
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.count, 6
-		mov	_bullet_template.speed, (2 shl 4) + 4
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_14B63:
-		cmp	si, 64
-		jl	short loc_14B73
-		mov	_midboss_phase_frame, 0
-		mov	byte_255B2, -1
-
-loc_14B73:
-		pop	si
-		pop	bp
-		retn
-sub_14AF2	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _midboss2_14B76
-_midboss2_14B76 label near
-sub_14B76	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _midboss_phase_frame
-		mov	ax, si
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14BBA
-		call	snd_se_play pascal, 3
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 20h
-		mov	_bullet_template.BT_angle, al
-		mov	ax, si
-		cwd
-		sub	ax, dx
-		sar	ax, 1
-		add	al, (2 shl 4)
-		mov	_bullet_template.speed, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 32
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_14BBA:
-		cmp	si, 20h	; ' '
-		jl	short loc_14BCA
-		mov	_midboss_phase_frame, 0
-		mov	byte_255B2, -1
-
-loc_14BCA:
-		pop	si
-		pop	bp
-		retn
-sub_14B76	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _midboss2_14BCD
-_midboss2_14BCD label near
-sub_14BCD	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, _midboss_phase_frame
-		mov	ax, si
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14C32
-		call	snd_se_play pascal, 3
-		mov	_bullet_template.speed, (4 shl 4)
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 8
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 10h
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 38h
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, byte_255B3
-		shl	al, 5
-		add	al, 30h
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-
-loc_14C32:
-		cmp	si, 20h	; ' '
-		jl	short loc_14C42
-		mov	_midboss_phase_frame, 0
-		mov	byte_255B2, -1
-
-loc_14C42:
-		pop	si
-		pop	bp
-		retn
-sub_14BCD	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _midboss2_14C45
-_midboss2_14C45 label near
-sub_14C45	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	ax, _midboss_phase_frame
-		dec	ax
-		mov	si, ax
-		or	si, si
-		jnz	short loc_14C6B
-		mov	ax, _player_pos.cur.y
-		sub	ax, _midboss_pos.cur.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, _midboss_pos.cur.x
-		push	ax
-		call	iatan2
-		mov	_midboss_angle, al
-
-loc_14C6B:
-		mov	ax, si
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14CCC
-		call	snd_se_play pascal, 3
-		mov	_bullet_template.speed, (2 shl 4) + 8
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.count, 5
-		mov	_bullet_template.BT_delta.spread_angle, 10h
-		mov	al, _midboss_angle
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_bullet_template.speed, 10
-		mov	ax, _player_pos.cur.y
-		sub	ax, _midboss_pos.cur.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, _midboss_pos.cur.x
-		push	ax
-		call	iatan2
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.patnum, PAT_BULLET16_D_BLUE
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	_bullet_template.BT_special_motion, BSM_NONE
-
-loc_14CCC:
-		mov	ax, si
-		mov	bx, 32
-		cwd
-		idiv	bx
-		cmp	dx, 24
-		jl	short loc_14CEA
-		mov	_bullet_template.spawn_type, BST_BULLET16_CLOUD_FORWARDS
-		mov	al, _bullet_template.speed
-		add	al, 10
-		mov	_bullet_template.speed, al
-		call	_bullets_add_special
-
-loc_14CEA:
-		cmp	si, 64
-		jl	short loc_14CFA
-		mov	_midboss_phase_frame, 0
-		mov	byte_255B2, -1
-
-loc_14CFA:
-		pop	si
-		pop	bp
-		retn
-sub_14C45	endp
+	; The Stage 2 midboss's four bullet patterns -- midboss2_14AF2(),
+	; midboss2_14B76(), midboss2_14BCD() and midboss2_14C45() -- now live in
+	; th04/main/midboss/m2_updt.cpp, prepended to the object below ahead of
+	; midboss2_update(), which is the address order they already held. They
+	; are `static` there, in the same translation unit as their only caller,
+	; so the four zero-byte `label` aliases this file carried for them
+	; (kb/codegen/0123) are gone again with the bodies -- and so are the two
+	; the `.data?` block below carried for [midboss2_pattern] and
+	; [midboss2_255B3], which these four were the last ASM readers of.
+	;
+	; What is left of this contribution above is the Stage 4 midboss's own
+	; half of the segment, whose tail is an include.
 
 
 
@@ -12526,16 +12297,13 @@ _midboss3_patterns_done	db ?
 		db 5 dup(?)
 include th04/main/tile/inv[bss].asm
 	; The Stage 2 midboss's three state bytes, none of them `public` in
-	; ZUN's object. The four patterns above still read the first two from
-	; this file, so those take zero-byte `label` aliases rather than a
-	; rename (kb/codegen 0123); nothing in this file reads the third any
-	; more, so it carries its name directly.
+	; ZUN's object. Nothing in this file reads any of the three any more,
+	; so all three carry their names directly and the zero-byte `label`
+	; aliases kb/codegen/0123 needed for the first two are gone.
 public _midboss2_pattern
-_midboss2_pattern label byte
-byte_255B2	db ?
+_midboss2_pattern	db ?
 public _midboss2_255B3
-_midboss2_255B3 label byte
-byte_255B3	db ?
+_midboss2_255B3	db ?
 public _midboss2_passes
 _midboss2_passes	db ?
 		db ?
