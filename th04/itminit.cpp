@@ -19,4 +19,11 @@
 // `-zP` once a TU has emitted any code (kb/codegen 0104 + 0138).
 #pragma option -zCIT_UPDT_TEXT -zPmain_03
 
+// stage_allclear_bonus() sat directly above items_init() in the dump and
+// became this segment's carve-free tail once items_init() left it, so it
+// grows this object backwards once more and goes FIRST here. The 2026-08-15
+// recon costed that row as needing a second kb/codegen/0080 carve; four lifts
+// out of this one root block have retired that verdict since.
+#include "th04/main/stage/bonus.cpp"
+
 #include "th04/main/item/init.cpp"
