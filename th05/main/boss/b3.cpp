@@ -59,7 +59,6 @@
 //
 // [measured] `void near f(void)`: `retn`, no parameter equates, no return
 // register live at any call site.
-extern "C" void near sub_19B04(void);  // Alice's own gather + cloud attack
 extern "C" void near sub_19634(void);  // steps both puppets along a shrinking spiral
 
 // The barrier's revenge hittest: a second copy of shots_hittest() that also
@@ -165,6 +164,129 @@ static const int PATTERNS_PER_PHASE = 24;
 // form against naming_precheck's own PLACEHOLDER_RE and it is not a
 // placeholder. The table reaches all three through procdesc lines in
 // B4_UPDATE_TEXT.
+
+// [measured] A third Alice cel, from the same base, and the only sprite this
+// one pattern shows. Nothing in the tree says what it depicts and it is used
+// exactly once in the binary, so it is spelled as an offset from the base
+// rather than named: naming it would be a guess.
+static const int PAT_ALICE_2 = (PAT_STAGE + 2);
+
+// state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2's decided verdict. Not an
+// [off_22770] entry -- alice_update() calls it directly for phase 2, and
+// alice_pattern_19B9E() below wraps it as the table's first row.
+void near pattern_random_balls_and_pellets(void)
+{
+	int i;
+
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		bullet_template.spawn_type = BST_CLOUD_FORWARDS;
+		bullet_template.group = BG_RANDOM_ANGLE_AND_SPEED;
+		bullet_template.spread = 2;
+		bullet_template_tune();
+		for(i = 0; i < 32; i++) {
+			bullet_template.patnum = (
+				(i & 1) ? PAT_BULLET16_N_BALL_BLUE : 0
+			);
+			bullet_template.speed.v = (randring2_next16_and(0x3F) + 12);
+			bullet_template.origin.x.v = (
+				randring2_next16_mod(to_sp(48.0f)) +
+				boss.pos.cur.x.v - to_sp(24.0f)
+			);
+			bullet_template.origin.y.v = (
+				randring2_next16_mod(to_sp(48.0f)) +
+				boss.pos.cur.y.v - to_sp(32.0f)
+			);
+			bullets_add_regular();
+		}
+		boss.sprite = PAT_ALICE_2;
+		snd_se_play(15);
+	}
+}
+
+// [off_22770][0]: the pattern above, plus the 96-frame cycle reset every other
+// table entry ends with.
+void near alice_pattern_19B9E(void)
+{
+	pattern_random_balls_and_pellets();
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
+
+// Charges, then on frame 64 alone fires one aimed ring of stacked red balls.
+void near alice_pattern_19BB8(void)
+{
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_RING_STACK_AIMED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+		bullet_template.set_spread_stack(28, 8, 4, 0.5f);
+		bullet_template.speed.set(1.5f);
+		bullet_template.angle = 0x00;
+		bullet_template_tune();
+		bullets_add_regular();
+		boss.sprite = PAT_ALICE_STILL;
+		snd_se_play(15);
+		return;
+	}
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
+
+// The same, with an aimed spread of stacked blue balls instead.
+void near alice_pattern_19C34(void)
+{
+	if(boss.phase_frame < 64) {
+		gather_add_only_3stack(
+			(boss.phase_frame - 40), COL_GATHER_1, COL_GATHER_2
+		);
+		boss.sprite = PAT_ALICE_CAST;
+		if(boss.phase_frame == 40) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if(boss.phase_frame == 64) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD_STACK_AIMED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_BLUE;
+		bullet_template.set_spread_stack(7, 8, 5, 0.4375f);
+		bullet_template.speed.set(1.5f);
+		bullet_template.angle = 0x00;
+		bullet_template_tune();
+		bullets_add_regular();
+		boss.sprite = PAT_ALICE_STILL;
+		snd_se_play(15);
+		return;
+	}
+	if(boss.phase_frame == 96) {
+		boss.phase_frame = 0;
+		boss.mode = 0;
+	}
+}
 
 // Alice's barrier: the horizontal beam her two puppets hold between them.
 // Only advances while both puppets are standing still, and then steps through
@@ -462,7 +584,7 @@ void pascal alice_update(void)
 	case 2: {
 		puppet_t near *puppet;
 
-		sub_19B04();
+		pattern_random_balls_and_pellets();
 		boss_hittest_shots();
 		if(boss.phase_frame == 128) {
 			puppet = puppets;

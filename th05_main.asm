@@ -7031,205 +7031,18 @@ sub_19AFB	proc near
 sub_19AFB	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	public _sub_19B04
-	_sub_19B04 label near
-sub_19B04	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19B2F
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		cmp	_boss_phase_frame, 40
-		jnz	short loc_19B9B
-		push	8
-		jmp	short loc_19B96
-; ---------------------------------------------------------------------------
-
-loc_19B2F:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_19B9B
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS
-		mov	_bullet_template.BT_group, BG_RANDOM_ANGLE_AND_SPEED
-		mov	_bullet_template.spread, 2
-		call	_bullet_template_tune
-		xor	si, si
-		jmp	short loc_19B8A
-; ---------------------------------------------------------------------------
-
-loc_19B4D:
-		test	si, 1
-		jz	short loc_19B57
-		mov	al, PAT_BULLET16_N_BALL_BLUE
-		jmp	short loc_19B59
-; ---------------------------------------------------------------------------
-
-loc_19B57:
-		mov	al, 0
-
-loc_19B59:
-		mov	_bullet_template.patnum, al
-		call	@randring2_next16_and$qui pascal, 3Fh
-		add	al, 12
-		mov	_bullet_template.speed, al
-		call	@randring2_next16_mod$qui pascal, (48 shl 4)
-		add	ax, _boss_pos.cur.x
-		sub	ax, (24 shl 4)
-		mov	_bullet_template.BT_origin.x, ax
-		call	@randring2_next16_mod$qui pascal, (48 shl 4)
-		add	ax, _boss_pos.cur.y
-		sub	ax, (32 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		call	_bullets_add_regular
-		inc	si
-
-loc_19B8A:
-		cmp	si, 20h	; ' '
-		jl	short loc_19B4D
-		mov	_boss_sprite, 182
-		push	15
-
-loc_19B96:
-		call	snd_se_play
-
-loc_19B9B:
-		pop	si
-		pop	bp
-		retn
-sub_19B04	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19B9E	proc near
-		push	bp
-		mov	bp, sp
-		call	sub_19B04
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19BB6
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_19BB6:
-		pop	bp
-		retn
-sub_19B9E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19BB8	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19BE2
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		cmp	_boss_phase_frame, 40
-		jnz	short loc_19C32
-		push	8
-		jmp	short loc_19C19
-; ---------------------------------------------------------------------------
-
-loc_19BE2:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_19C20
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING_STACK_AIMED
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		mov	dword ptr _bullet_template.spread, (8 shl 24) or (4 shl 16) or (8 shl 8) or 28
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_boss_sprite, 180
-		push	0Fh
-
-loc_19C19:
-		call	snd_se_play
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19C20:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19C32
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_19C32:
-		pop	bp
-		retn
-sub_19BB8	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_19C34	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jge	short loc_19C5E
-		mov	ax, _boss_phase_frame
-		add	ax, -40
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 184
-		cmp	_boss_phase_frame, 40
-		jnz	short loc_19CAE
-		push	8
-		jmp	short loc_19C95
-; ---------------------------------------------------------------------------
-
-loc_19C5E:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_19C9C
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD_STACK_AIMED
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	dword ptr _bullet_template.spread, (7 shl 24) or (5 shl 16) or (8 shl 8) or 7
-		mov	_bullet_template.speed, (1 shl 4) + 8
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_boss_sprite, 180
-		push	15
-
-loc_19C95:
-		call	snd_se_play
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_19C9C:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_19CAE
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-
-loc_19CAE:
-		pop	bp
-		retn
-sub_19C34	endp
-
-
-; alice_barrier_update() is th05/main/boss/b3.cpp too, immediately ahead of
-; the four pattern bodies named below. Its two _BSS words went with it, as
-; alice_barrier_frame and alice_barrier_fire_frames.
+; Alice has no pattern code left in this dump. alice_barrier_update() and,
+; above it, pattern_random_balls_and_pellets(), alice_pattern_19B9E(),
+; alice_pattern_19BB8() and alice_pattern_19C34() are all
+; th05/main/boss/b3.cpp now, together with the four bodies named below.
+; 
+; That empties [off_22770] of ASM: all SIX of its distinct targets are C++,
+; reached through the procdesc block at the end of this segment. The table
+; itself, and [fp_2CE32] beside it, are what is left, and lifting those is
+; also what makes the deferred descriptive naming round payable
+; (state/re/NAMING_REVIEW_VERDICTS_19.md section 10.2).
 
 
 
@@ -7278,8 +7091,8 @@ sub_19C34	endp
 	; table. That reading was wrong: the table was the switch codegen of
 	; the function above it, which a C++ lift emits along with the
 	; function (state/re/JUMP_TABLE_TAILS.md). Both are gone, and so are
-	; the four pattern bodies and the barrier that followed them; the
-	; root's tail here is now sub_19C34.
+	; every one of Alice's pattern bodies and her barrier; the root's
+	; tail here is now sub_19AFB, the last of her four puppet callbacks.
 	;
 	; main_035_TEXT calls both, so both keep a procdesc. The one for
 	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
@@ -7288,8 +7101,12 @@ sub_19C34	endp
 	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
 	; A procdesc carrying an argument list is also spelled UPPERCASE:
 	; TASM uppercases the symbol on the CALLPROC path such a list selects.
-	; Six of the twelve entries of [off_22770] in _DATA below. None
+	; ALL twelve entries of [off_22770] in _DATA below, across six
+	; distinct bodies. None
 	; carries an argument list, so TASM leaves the case alone.
+	@alice_pattern_19B9E$qv procdesc near
+	@alice_pattern_19BB8$qv procdesc near
+	@alice_pattern_19C34$qv procdesc near
 	@alice_pattern_19E12$qv procdesc near
 	@alice_pattern_19EDA$qv procdesc near
 	@alice_pattern_19F75$qv procdesc near
@@ -14322,13 +14139,13 @@ off_22768	dw offset sub_198B7
 		dw offset sub_19A0F
 public _off_22770
 _off_22770	label word
-off_22770	dw offset sub_19B9E
-		dw offset sub_19BB8
-		dw offset sub_19C34
-		dw offset sub_19BB8
-		dw offset sub_19C34
+off_22770	dw offset @alice_pattern_19B9E$qv
+		dw offset @alice_pattern_19BB8$qv
+		dw offset @alice_pattern_19C34$qv
+		dw offset @alice_pattern_19BB8$qv
+		dw offset @alice_pattern_19C34$qv
 		dw offset @alice_pattern_19EDA$qv
-		dw offset sub_19C34
+		dw offset @alice_pattern_19C34$qv
 		dw offset @alice_pattern_19E12$qv
 		dw offset @alice_pattern_19EDA$qv
 		dw offset @alice_pattern_19E12$qv
