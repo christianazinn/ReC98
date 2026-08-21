@@ -91,7 +91,8 @@ void near shots_update_and_render(void);
 // [score_delta]. Defined in th02/main/player/shot_hittest.cpp: ZUN's object put
 // it in front of the vertical boss lasers and the dialog code, so it is
 // compiled into th02/dialog.cpp's translation unit rather than into this
-// subsystem's own. Every caller is still ASM.
+// subsystem's own. th02/main/enemy/update.cpp's enemy_hittest() is the first
+// C++ caller; the rest are still ASM.
 int pascal near shots_hittest(
 	screen_x_t left, screen_y_t top, pixel_t w, pixel_t h
 );

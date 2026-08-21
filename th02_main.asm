@@ -8012,158 +8012,33 @@ off_17518	dw offset loc_16EDC
 		dw offset loc_174B0
 		dw offset loc_171D0
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemy_hittest
-_enemy_hittest label near
-sub_17562	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	bx, word_26C48
-		cmp	byte ptr [bx+18h], 0
-		jnz	short loc_175D1
-		mov	bx, word_26C46
-		cmp	byte ptr [bx+23h], 0
-		jnz	short loc_175D1
-		mov	si, top_26C50
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, left_26C4E
-		add	dx, -16
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jle	short loc_175D1
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, left_26C4E
-		add	dx, 16
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jge	short loc_175D1
-		lea	ax, [si-10h]
-		cmp	ax, _player_topleft.y
-		jge	short loc_175D1
-		lea	ax, [si+10h]
-		cmp	ax, _player_topleft.y
-		jle	short loc_175D1
-		mov	bx, word_26C46
-		mov	word ptr [bx+0Ah], 0
-		mov	_player_is_hit, 1
-		mov	byte ptr [bx+10h], 1
-
-loc_175D1:
-		push	left_26C4E
-		push	top_26C50
-		push	200020h
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+var_2], ax
-		pop	si
-		leave
-		retn
-sub_17562	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _enemy_kill_update_and_render
-_enemy_kill_update_and_render label near
-sub_175E8	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	bx, word_26C48
-		mov	di, [bx+0Eh]
-		or	di, di
-		jnz	short loc_175FD
-		mov	ax, 0Ah
-		jmp	short loc_175FF
-; ---------------------------------------------------------------------------
-
-loc_175FD:
-		xor	ax, ax
-
-loc_175FF:
-		mov	di, ax
-		mov	bx, word_26C46
-		mov	ax, [bx+0Ah]
-		mov	bx, 3
-		cwd
-		idiv	bx
-		add	di, ax
-		mov	bx, word_26C46
-		cmp	word ptr [bx+0Ah], 0
-		jnz	short loc_17635
-		mov	ax, left_26C4E
-		add	ax, 16
-		push	ax	; left
-		mov	ax, top_26C50
-		add	ax, 16
-		push	ax	; top
-		push	(((1 shl 4) + 4) shl 16) or 8	; (speed_base shl 16) or count
-		push	0	; as_sprite
-		call	@sparks_add$qiuiiii
-
-loc_17635:
-		mov	bx, word_26C46
-		inc	word ptr [bx+0Ah]
-		cmp	word ptr [bx+0Ah], 18h
-		jl	short loc_1764B
-		mov	byte ptr [bx+0Eh], 2
-		mov	ax, 1
-		jmp	short loc_1766A
-; ---------------------------------------------------------------------------
-
-loc_1764B:
-		mov	si, top_26C50
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_1765D
-		sub	si, RES_Y
-
-loc_1765D:
-		call	super_roll_put pascal, left_26C4E, si, di
-		xor	ax, ax
-
-loc_1766A:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_175E8	endp
-
 
 ; THREE objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/enemy/update.cpp  enemies_update_and_render()
+;   th02/main/enemy/update.cpp  enemy_hittest()
+;                               enemy_kill_update_and_render()
+;                               enemies_update_and_render()
 ;   th02/boss_5.cpp             th02/main/enemy/enemies.cpp   enemies_invalidate()
 ;                                                             enemies_remove_all()
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sub_175E8(), and the first of
-; those objects picks the segment up from the byte after that proc's `retn`.
+; So th02_main.asm contributes nothing below enemy_run()'s generated jump
+; table, and the first of those objects picks the segment up from the byte
+; after that table's last entry. The table IS enemy_run()'s own codegen, so
+; the row is now the jump-table-tail class rather than a proc tail: lifting
+; enemy_run() emits the table and its pad from the C++ side.
 ;
-; enemies_update_and_render() IS ITS OWN OBJECT ON PURPOSE, and a later lift
-; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its body is
-; 0x30B bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte pad under
-; mima_update()'s generated jump table. Turbo C++ aligns that table against the
-; offset its OWN object starts at, so folding an odd contribution in front of
-; it deletes the pad and shifts every byte after it (kb/codegen/0119). The two
-; procs directly above are 0x86 each - EVEN - so they prepend into
-; th02/main/enemy/update.cpp without re-rolling anything.
+; th02/main/enemy/update.cpp IS ITS OWN OBJECT ON PURPOSE, and a later lift
+; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its
+; contribution is 0x417 bytes - ODD - and th02/boss_5.cpp sets -a2 for the
+; one-byte pad under mima_update()'s generated jump table. Turbo C++ aligns
+; that table against the offset its OWN object starts at, so folding an odd
+; contribution in front of it deletes the pad and shifts every byte after it
+; (kb/codegen/0119). The two procs that were directly above it were 0x86 each
+; - EVEN - and prepended into that same object without re-rolling anything,
+; which is the pattern every further lift out of this block should follow.
 ;
 ; th02/boss_5.cpp's own prefix ahead of the jump table is unchanged by that
 ; split and still sums as it did: the five below mima_18A1B() to 0x628, the two

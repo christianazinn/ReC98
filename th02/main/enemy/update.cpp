@@ -1,28 +1,33 @@
-/// TH02's regular stage enemies, per-frame update and render
-/// --------------------------------------------------------
-/// The BOSS_5_TEXT block below Mima's fight opens with this function, and it
-/// is th02_main.asm's own carve-free tail there. th02/main/enemy/enemies.cpp
-/// next door holds the two procs at HIGHER addresses, and they are in
-/// th02/boss_5.cpp's object rather than this one.
+/// TH02's regular stage enemies, per-frame hit test, death and update
+/// ------------------------------------------------------------------
+/// The lowest three functions of the BOSS_5_TEXT block below Mima's fight,
+/// in dump order, and together they are th02_main.asm's own carve-free tail
+/// chain there. th02/main/enemy/enemies.cpp next door holds the two procs at
+/// HIGHER addresses, and they are in th02/boss_5.cpp's object rather than
+/// this one. Everything here is prepended in dump order, so a later lift out
+/// of the same block goes at the TOP of this file.
 ///
 /// THIS FILE IS ITS OWN OBJECT, NOT AN #include INTO th02/boss_5.cpp, and the
-/// next lift out of this block must keep it that way. The body is 0x30B bytes
-/// - ODD - and th02/boss_5.cpp sets -a2 for the one-byte alignment pad under
-/// mima_update()'s generated jump table. Turbo C++ word-aligns that table
-/// against the offset the object it emits starts at, which it necessarily
-/// treats as 0, so folding an odd contribution in ahead of it drops the pad
-/// and shifts every byte after it. kb/codegen/0119 measured exactly that on
-/// this binary, in this group, and prescribes this remedy: a separate object,
-/// named explicitly with -zC because the default segment name would otherwise
-/// come from this file's own basename (kb/codegen/0105), and one Tupfile.lua
-/// line ahead of th02/boss_5.cpp so TLINK concatenates the two in dump order.
+/// next lift out of this block must keep it that way. Its contribution is
+/// 0x417 bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte
+/// alignment pad under mima_update()'s generated jump table. Turbo C++
+/// word-aligns that table against the offset the object it emits starts at,
+/// which it necessarily treats as 0, so folding an odd contribution in ahead
+/// of it drops the pad and shifts every byte after it. kb/codegen/0119
+/// measured exactly that on this binary, in this group, and prescribes this
+/// remedy: a separate object, named explicitly with -zC because the default
+/// segment name would otherwise come from this file's own basename
+/// (kb/codegen/0105), and one Tupfile.lua line ahead of th02/boss_5.cpp so
+/// TLINK concatenates the two in dump order.
 ///
-/// sub_175E8() and sub_17562() directly above are 0x86 bytes each - EVEN - so
-/// they prepend into THIS file, at the top, with no parity consequence.
+/// The two bodies that joined enemies_update_and_render() here were 0x86 each
+/// - EVEN - and moved this object's start without re-rolling th02/boss_5.cpp's
+/// prefix by a byte, measured on that object's PUBDEFs both times. That is the
+/// pattern every further lift out of this block should follow.
 ///
-/// -G for the `push bp; mov bp, sp; sub sp, 8` prolog (kb/codegen/0011).
-/// -zPmain_03 for the near calls into the four enemy helpers that are still
-/// ASM in the same segment. No -a2: nothing here emits a generated jump table.
+/// -G for the `push bp; mov bp, sp; sub sp, N` prologs (kb/codegen/0011).
+/// -zPmain_03 for the near calls into the enemy helpers that are still ASM in
+/// the same segment. No -a2: nothing here emits a generated jump table.
 #pragma option -zCBOSS_5_TEXT -zPmain_03 -G
 
 #include "platform.h"
@@ -39,6 +44,9 @@
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/entity.hpp"
 #include "th02/main/enemy/enemy.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/main/player/shot.hpp"
+#include "th02/main/spark.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
 
@@ -93,18 +101,6 @@ extern "C" pixel_delta_8_t near *enemy_velocity_y_p;
 // 2 = this enemy is done for the frame, 1 = run another opcode.
 extern "C" int near enemy_run(void);
 
-// One frame of this enemy's death animation: advances [age] as the cel timer,
-// bursts sparks on the frame it starts, blits the cel, and returns `true` on
-// the frame it retires the slot to F_REMOVE. 24 frames over 3 frames per cel
-// is ENEMY_KILL_CELS (th02/sprites/cels.h), which is what fixes the stem;
-// TH04 and TH05 inline the same animation into their enemy update instead of
-// giving it a name.
-extern "C" bool16 near enemy_kill_update_and_render(void);
-
-// Collides this enemy with the player, then returns shots_hittest()'s damage
-// for it. Named after TH03's enemy_hittest() (th03/main/enemy/enemy.cpp).
-extern "C" int near enemy_hittest(void);
-
 // Fires one pellet from this enemy's bullet origin at the given angle.
 // PLACEHOLDER, DELIBERATELY: the bounded search is in
 // state/notes/th02-enemies-update-and-render.md section 3 and it FAILED.
@@ -117,6 +113,94 @@ extern "C" int near enemy_hittest(void);
 // (kb/codegen/0086), so the `public` is `SUB_16AA7` and TASM's
 // case-insensitivity makes it the same symbol as the `proc` line.
 extern "C" void pascal near sub_16AA7(int angle);
+
+// The box every hit test and unblit in this file uses, regardless of the
+// per-type [w] and [h] that enemy_stagedata_load() derives into each
+// [enemy_template_t]. Same spelling, same values and same reason as
+// th02/main/enemy/enemies.cpp's pair; promote them into
+// th02/main/enemy/enemy.hpp if a third file ever needs them.
+static const pixel_t ENEMY_W = 32;
+static const pixel_t ENEMY_H = 32;
+
+
+// Collides this enemy with the player - which starts its death animation and
+// hits the player, rather than damaging it - and then returns the damage the
+// player's shots did to it this frame. Named after TH03's enemy_hittest()
+// (th03/main/enemy/enemy.cpp), which does the same two jobs in one call.
+//
+// The player box is asymmetric on purpose: X is tested against
+// [player_left_on_page] for the page currently on screen, Y against the
+// single [player_topleft].
+extern "C" int near enemy_hittest(void)
+{
+	int damage;
+	register screen_y_t top;
+
+	if(
+		!enemy_template_cur->no_player_collision &&
+		!enemy_cur->no_player_collision
+	) {
+		top = enemy_top;
+		if(
+			(player_left_on_page[page_front] > (enemy_left - (ENEMY_W / 2))) &&
+			(player_left_on_page[page_front] < (enemy_left + (ENEMY_W / 2))) &&
+			((top - (ENEMY_H / 2)) < player_topleft.y) &&
+			((top + (ENEMY_H / 2)) > player_topleft.y)
+		) {
+			enemy_cur->age = 0;
+			player_is_hit = true;
+			enemy_cur->in_kill_anim = true;
+		}
+	}
+	damage = shots_hittest(enemy_left, enemy_top, ENEMY_W, ENEMY_H);
+	return damage;
+}
+
+
+// One frame of this enemy's death animation: bursts sparks on the frame it
+// starts, advances [age] as the cel timer, blits the cel, and returns `true`
+// on the frame it retires the slot to F_REMOVE. 24 frames over 3 frames per
+// cel is ENEMY_KILL_CELS (th02/sprites/cels.h) - which is what fixes this
+// name's stem - and the two animations start at patnum 0 and patnum 10.
+// TH04 and TH05 inline the same animation into their enemy update instead of
+// giving it a name.
+//
+// ZUN quirk, `[measured]`: [enemy_template_cur]'s [explode_sprite] is loaded
+// and then thrown away. It only chooses BETWEEN the two hardcoded bases, and
+// this is its only read in the whole binary - the field is a two-valued
+// selector rather than the patnum its name suggests. Preserved as written.
+extern "C" bool16 near enemy_kill_update_and_render(void)
+{
+	register int patnum;
+	register screen_y_t top_scrolled;
+
+	patnum = enemy_template_cur->explode_sprite;
+	patnum = (!patnum ? 10 : 0);
+	patnum += (enemy_cur->age / 3);
+	if(enemy_cur->age == 0) {
+		sparks_add(
+			(enemy_left + (ENEMY_W / 2)),
+			(enemy_top + (ENEMY_H / 2)),
+			((1 << 4) + 4),
+			8,
+			false
+		);
+	}
+	enemy_cur->age++;
+	if(enemy_cur->age >= 24) {
+		enemy_cur->flag = F_REMOVE;
+		return true;
+	}
+	// No negative wrap here, unlike every other blit in this file: this one
+	// only ever adds [scroll_line] to a [top] the clip test already bounded.
+	top_scrolled = enemy_top;
+	top_scrolled += scroll_line;
+	if(top_scrolled >= RES_Y) {
+		top_scrolled -= RES_Y;
+	}
+	super_roll_put(enemy_left, top_scrolled, patnum);
+	return false;
+}
 
 
 // Runs and draws every enemy up to [enemies_loop_bound] - the script VM, the
