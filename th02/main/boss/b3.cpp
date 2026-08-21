@@ -60,20 +60,15 @@ extern "C" uint8_t stone_hit_flash[STONE_COUNT];
 // th02/main/bgm_show.cpp declares it the same way.
 extern "C" void far enemies_remove_all(void);
 
-// Still ASM, further up in DIALOG_TEXT. It fills four cells of
-// [boss_rank_param] behind a two-way branch on [rank]; the function below is
-// its only caller, and reaches it as a plain near call.
-extern "C" void near stones_11997(void);
-
 /// The fight's still-ASM parts
 /// ---------------------------
-/// All of them are further up in DIALOG_TEXT, all are reached as plain near
-/// calls, and all keep the dump's own address-suffixed hand names: those are
-/// not IDA placeholders, and naming twenty functions is a separate decision
-/// from lifting the one that dispatches to them. Each one got the ordinary
-/// three-line `public` in th02_main.asm and nothing else.
-///
-/// The `pascal` ones are measured from their `retn 2`, not assumed.
+/// Both are further up in DIALOG_TEXT, both are reached as plain near calls,
+/// and both keep the dump's own address-suffixed hand names: those are not IDA
+/// placeholders, and naming them is a separate decision from lifting what
+/// dispatches to them. Each got the ordinary three-line `public` in
+/// th02_main.asm and nothing else, and stones_11766()'s is UPPER case because
+/// it is `pascal` - measured from its `retn 2`, not assumed.
+/// ---------------------------
 
 // Per-frame housekeeping, run before anything else looks at the stones:
 // [stones_phase_frame_unused]'s increment lives in the first, and the five
@@ -83,12 +78,6 @@ extern "C" void near stones_116EC(void);
 
 // Advances one stone's kill animation. Called for every stone in SF_KILL_ANIM.
 extern "C" void pascal near stones_11766(int stone);
-
-// Phase 1's per-frame movement, and phase 2's, the latter taking the number of
-// stones already removed.
-extern "C" void near stones_119CD(void);
-extern "C" void pascal near stones_11A87(int removed);
-
 /// ---------------------------
 
 // The four cells of the shared per-rank bullet parameters that stones_11997()
@@ -261,6 +250,122 @@ extern "C" vram_y_t y_22D9C;
 // Defined below, and reached from stones_init() as the plain 3-byte near call
 // the original encodes - both are in this one object now.
 extern "C" void near stones_12778(void);
+
+
+// Seeds the four [boss_rank_param] cells the fight uses, once per fight, from
+// stones_12778(). `[measured]` all four are bullet groups except cell 1, which
+// stones_11DF6() uses as the index its loop STARTS at, so Easy fires from two
+// fewer stones.
+extern "C" void near stones_11997(void)
+{
+	if(rank != RANK_EASY) {
+		boss_rank_param[0] = BG_5_SPREAD_WIDE_AIMED;
+		boss_rank_param[1] = 0;
+		boss_rank_param[2] = BG_8_RING;
+		boss_rank_param[3] = BG_4_RING;
+	} else {
+		boss_rank_param[0] = BG_3_SPREAD_WIDE_AIMED;
+		boss_rank_param[1] = 2;
+		boss_rank_param[2] = BG_4_RING;
+		boss_rank_param[3] = BG_2_RING;
+	}
+}
+
+
+// Phase 1's per-frame pattern: a rank-dependent spread from each of the two
+// inner stones every 24th frame for the first 150 frames, then an aimed 16×16
+// from each of the four outer ones every 16th frame, then a wait, then a
+// restart.
+extern "C" void near stones_119CD(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 30) {
+		return;
+	}
+	if(boss_phase_frame < 180) {
+		if((boss_phase_frame % 24) == 0) {
+			for(i = 0; i < 2; i++) {
+				if(stone_flag[i] == SF_ACTIVE) {
+					bullets_add_pellet(
+						(stone_left[i] + 12),
+						(stone_top[i] + 8),
+						0,
+						boss_rank_param[0],
+						((2 << 4) + 6)
+					);
+				}
+			}
+		}
+	} else if(boss_phase_frame >= 200) {
+		if(boss_phase_frame < 310) {
+			if((boss_phase_frame & 0x0F) == 0) {
+				for(i = 0; i < STONE_OUTER_WEST; i++) {
+					if(stone_flag[i] == SF_ACTIVE) {
+						bullets_add_16x16(
+							(stone_left[i] + 12),
+							(stone_top[i] + 8),
+							0,
+							BG_1_AIMED,
+							PAT_BULLET16_OUTLINED_BALL_RED,
+							(5 << 4)
+						);
+					}
+				}
+			}
+		} else if(boss_phase_frame > 350) {
+			boss_phase_frame = 0;
+		}
+	}
+}
+
+
+// Phase 2's per-frame pattern: a six-way decelerating ring from each of the
+// two outer stones. The interval shortens by 20 frames for every stone already
+// removed, and drops from 110 to 90 frames at the 200-frame mark, so the fight
+// speeds up both with progress and with time.
+extern "C" void pascal near stones_11A87(int removed)
+{
+	register int i;
+	register int stone;
+
+	if(boss_phase_frame < 30) {
+		return;
+	}
+	if(boss_phase_frame < 200) {
+		if((boss_phase_frame % (110 - (removed * 20))) == 0) {
+			for(stone = STONE_OUTER_WEST; stone < STONE_NORTH; stone++) {
+				if(stone_flag[stone] == SF_ACTIVE) {
+					for(i = 0; i < 6; i++) {
+						bullets_add_16x16(
+							(stone_left[stone] + 12),
+							(stone_top[stone] + 8),
+							(i * 0x2A),
+							BSM_DECELERATE_THEN_TURN_AIMED,
+							PAT_BULLET16_OUTLINED_BALL_GREEN,
+							((3 << 4) + 8)
+						);
+					}
+				}
+			}
+		}
+	} else if((boss_phase_frame % (90 - (removed * 20))) == 0) {
+		for(stone = STONE_OUTER_WEST; stone < STONE_NORTH; stone++) {
+			if(stone_flag[stone] == SF_ACTIVE) {
+				for(i = 0; i < 6; i++) {
+					bullets_add_16x16(
+						(stone_left[stone] + 12),
+						(stone_top[stone] + 8),
+						(i * 0x2A),
+						BSM_DECELERATE_THEN_TURN_AIMED,
+						PAT_BULLET16_OUTLINED_BALL_GREEN,
+						((3 << 4) + 8)
+					);
+				}
+			}
+		}
+	}
+}
 
 
 /// Phases 4 and 8's bullet patterns
