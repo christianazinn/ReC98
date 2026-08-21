@@ -10030,45 +10030,20 @@ loc_1B3DD:
 yuuka6_1B313	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuuka6_1B3E2
-_yuuka6_1B3E2 label near
-yuuka6_1B3E2	proc near
-		push	bp
-		mov	bp, sp
-		cmp	byte_25A1B, 2
-		jnz	short loc_1B42B
-		mov	_shot_hitbox_radius.x, (24 shl 4)
-		mov	_shot_hitbox_radius.y, (48 shl 4)
-		mov	ax, point_25A0C.x
-		mov	_shot_hitbox_center.x, ax
-		mov	ax, point_25A0C.y
-		mov	_shot_hitbox_center.y, ax
-		call	@shots_hittest$qv
-		mov	byte_25A1E, al
-		or	al, al
-		jz	short loc_1B417
-		call	snd_se_play pascal, 4
-
-loc_1B417:
-		mov	al, byte_25A1E
-		mov	ah, 0
-		sub	_boss_hp, ax
-		cmp	_boss_hp, 0
-		jge	short loc_1B42B
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B42B:
-		mov	al, 0
-		pop	bp
-		retn
-yuuka6_1B3E2	endp
+	; yuuka6_1B3E2() -- Yuuka's parasol-shield hittest -- now lives in
+	; th04/main/boss/b6_next.cpp, AHEAD of yuuka6_phase_next() in that object,
+	; which is the address order it already held. That object sits between this
+	; contribution and th04/main_034.cpp, so the only thing this lift moved is
+	; the seam between the two (kb/codegen/0099).
+	;
+	; The zero-byte `label near` alias this file carried for it
+	; (kb/codegen/0123) is gone with the body, and nothing here references it.
+	; It reads two `.data?` items that ARE still written from ASM elsewhere in
+	; this file, though, so both GAINED a public instead: yuuka6_25A0C and
+	; yuuka6_25A1E, below.
+	;
+	; What is left of this contribution above is the seventeen patterns and
+	; helpers.
 
 	; yuuka6_phase_next() now lives in th04/b6_next.cpp, its own object at
 	; the head of this segment's C++ half; th04/main/boss/b6.asm is deleted.
@@ -12119,6 +12094,9 @@ byte_25A08	db ?
 		db ?
 public _yuuka6_anim_frame
 _yuuka6_anim_frame	dw ?
+	; Where the parasol shield is, which is not where the boss sprite is.
+public _yuuka6_25A0C
+_yuuka6_25A0C label word
 point_25A0C	Point <?>
 		db 11 dup(?)
 	; True for the whole of each pattern phase, and read by the patterns.
@@ -12126,6 +12104,9 @@ public _yuuka6_25A1B
 _yuuka6_25A1B label byte
 byte_25A1B	db ?
 		db 2 dup(?)
+	; The damage Yuuka's parasol shield took this frame.
+public _yuuka6_25A1E
+_yuuka6_25A1E label byte
 byte_25A1E	db ?
 		db 5 dup(?)
 public _elly_pattern_set
