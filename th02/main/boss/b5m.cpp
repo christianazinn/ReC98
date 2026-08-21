@@ -1,11 +1,16 @@
 /// Stage 5 boss - Mima
 /// -------------------
-/// Her per-frame update, and the pattern-advance and vertical-drift helper it
-/// is the only caller of. Together they are the carve-free tail of
-/// th02_main.asm's BOSS_5_TEXT contribution, so this file needs no new segment
-/// - th02/boss_5.cpp includes it directly ahead of skill_calculate(), which is
-/// the one body at the address after mima_update()'s generated jump table.
-/// (kb/codegen/0099)
+/// Her per-frame update, the pattern-advance and vertical-drift helper it is
+/// the only caller of, and the seven patterns above them. Together they are
+/// the carve-free tail of th02_main.asm's BOSS_5_TEXT contribution, so this
+/// file needs no new segment - th02/boss_5.cpp includes it directly ahead of
+/// skill_calculate(), which is the one body at the address after
+/// mima_update()'s generated jump table. (kb/codegen/0099)
+///
+/// Everything here is prepended in dump order, so a later lift out of the same
+/// block goes at the TOP of this file, not the bottom. The parity that lift
+/// has to preserve is stated at the seam in th02_main.asm and measured off
+/// obj/th02/boss_5.obj's PUBDEFs. (kb/codegen/0160)
 ///
 /// mima_193A4() is `static`: mima_update() is its only caller, and the dump no
 /// longer holds one.
@@ -44,9 +49,12 @@ extern "C" int patnum_2064E;
 
 /// Mima's other procs
 /// ------------------
-/// Her patterns, her renderers, and the hit test. All near, all still ASM in
-/// BOSS_5_TEXT except mima_19C8D(), which is th02/main/boss/b5.cpp in
-/// main_03__TEXT; this object reaches it near through the MAIN_03 group.
+/// Her patterns, her renderers, and the hit test. All near. mima_19C8D() is
+/// th02/main/boss/b5.cpp in main_03__TEXT, which this object reaches near
+/// through the MAIN_03 group; mima_18B4B() and the four below it are defined
+/// in this file, further down; the rest are still ASM in BOSS_5_TEXT.
+/// mima_18905() and mima_18A1B() are defined here too, ahead of those five,
+/// so they need no declaration at all.
 
 extern "C" void near mima_17C92(void);
 extern "C" void near mima_17D59(void);
@@ -54,8 +62,6 @@ extern "C" void near mima_17F27(void);
 extern "C" void near mima_180EC(void);
 extern "C" void near mima_181B3(void);
 extern "C" void near mima_188AA(void);
-extern "C" void near mima_18905(void);
-extern "C" void near mima_18A1B(void);
 extern "C" void near mima_18B4B(void);
 extern "C" void near mima_18BA6(void);
 extern "C" void near mima_18C4A(void);
@@ -192,6 +198,163 @@ static const int MIMA_CHARGE_RING_RADIUS_INITIAL = 30;
 static const int MIMA_SPRAY_LAST_FRAME = 200;
 
 
+/// Her two pellet streams
+/// ----------------------
+/// Both open with the same 60-frame approach her bouncing stars and her
+/// pellet fan open with, then fire from the same muzzle on an angle they walk
+/// one step at a time. `[measured]` These two procs held the LAST ASM
+/// references to all three slots below, so all three are renames rather than
+/// kb/codegen/0123 aliases.
+
+// mima_18905()'s aim angle and its speed. The angle is seeded off the random
+// ring rather than aimed at the player, so where the stream starts depends on
+// what the ring happened to be at. Both walk together: the angle sweeps down
+// while the speed holds, then both climb.
+extern "C" unsigned char mima_stream_angle;
+extern "C" uint8_t mima_stream_speed;
+
+// mima_18A1B()'s. Starts a sixth of a turn below 0 and walks 3 steps a frame,
+// up for 32 frames and back down for 18.
+extern "C" unsigned char mima_pair_angle;
+
+
+// Her single-pellet stream: one pellet every (8 - [rank]) frames from phase
+// frame 100, on an angle that walks down to frame 160 and then back up to 240
+// while the speed ramps with it. Her harder variant gets a second sweep out
+// to frame 400; the easier one ends the pattern the moment frame 240 passes.
+//
+// ZUN quirk: the fire test below runs on the SAME frame that resets
+// [boss_phase_frame] to 0, and reads the angle and speed the resetting arm
+// left behind. The reset is what stops it firing, not a guard of its own.
+extern "C" void near mima_18905(void)
+{
+	if(boss_phase_frame < 10) {
+		return;
+	}
+	if(boss_phase_frame < 70) {
+		patnum_2064E = 128;
+		// The same conditional expression her other approaches use: the
+		// original picks the step in AX and adds it through the pointer once.
+		*boss_left_on_back_page += (
+			((*boss_left_on_back_page + 64) < player_topleft.x) ? 2 : -2
+		);
+	} else if(boss_phase_frame == 70) {
+		snd_se_play(9);
+		patnum_2064E = 131;
+		mima_stream_speed = ((1 << 4) + 4);
+	} else if(boss_phase_frame < 100) {
+		return;
+	} else if(boss_phase_frame == 100) {
+		snd_se_play(10);
+		patnum_2064E = 134;
+		mima_stream_angle = randring2_next8();
+	} else if(boss_phase_frame <= 160) {
+		mima_stream_angle--;
+	} else if(boss_phase_frame <= 240) {
+		mima_stream_angle++;
+		mima_stream_speed++;
+	} else if(mima_all_patterns) {
+		if(boss_phase_frame <= 320) {
+			mima_stream_angle++;
+			mima_stream_speed--;
+		} else if(boss_phase_frame <= 400) {
+			mima_stream_angle--;
+			mima_stream_speed++;
+		} else {
+			boss_phase_frame = 0;
+			patnum_2064E = 128;
+		}
+	} else {
+		boss_phase_frame = 0;
+		patnum_2064E = 128;
+	}
+	if(boss_phase_frame <= 100) {
+		return;
+	}
+	if((boss_phase_frame % (8 - rank)) != 0) {
+		return;
+	}
+	bullets_add_pellet(
+		left_26C5A, top_26C62, mima_stream_angle, boss_rank_param[3],
+		mima_stream_speed
+	);
+	snd_se_play(3);
+}
+
+
+// Her horizontally symmetric pellet pairs: one mirrored 2-spread every frame
+// from phase frame 100, on an angle that walks +3 out to frame 132 and -3 back
+// to 150. From there to 226 she fires one narrow 3-spread every 8th frame
+// instead - or, in her harder variant, two pellets on independent random
+// angles across the lower half of the turn.
+extern "C" void near mima_18A1B(void)
+{
+	if(boss_phase_frame < 10) {
+		return;
+	}
+	if(boss_phase_frame < 70) {
+		patnum_2064E = 128;
+		*boss_left_on_back_page += (
+			((*boss_left_on_back_page + 64) < player_topleft.x) ? 2 : -2
+		);
+		return;
+	}
+	if(boss_phase_frame == 70) {
+		snd_se_play(9);
+		patnum_2064E = 131;
+		mima_pair_angle = -0x28;
+		return;
+	}
+	if(boss_phase_frame < 100) {
+		return;
+	}
+	if(boss_phase_frame == 100) {
+		snd_se_play(10);
+		patnum_2064E = 134;
+		return;
+	}
+	if(boss_phase_frame <= 132) {
+		bullets_add_pellet(
+			left_26C5A, top_26C62, mima_pair_angle,
+			BG_2_SPREAD_HORIZONTALLY_SYMMETRIC, ((5 << 4) + 10)
+		);
+		mima_pair_angle += 0x03;
+		return;
+	}
+	if(boss_phase_frame <= 150) {
+		bullets_add_pellet(
+			left_26C5A, top_26C62, mima_pair_angle,
+			BG_2_SPREAD_HORIZONTALLY_SYMMETRIC, ((5 << 4) + 10)
+		);
+		mima_pair_angle -= 0x03;
+		return;
+	}
+	if(boss_phase_frame <= 226) {
+		if((boss_phase_frame % 8) != 1) {
+			return;
+		}
+		if(!mima_all_patterns) {
+			bullets_add_pellet(
+				left_26C5A, top_26C62, 0x40, BG_3_SPREAD_NARROW,
+				((5 << 4) + 10)
+			);
+			return;
+		}
+		bullets_add_pellet(
+			left_26C5A, top_26C62, (randring2_next8_and(0x3F) + 0x20), BG_1,
+			(5 << 4)
+		);
+		bullets_add_pellet(
+			left_26C5A, top_26C62, (randring2_next8_and(0x3F) + 0x20), BG_1,
+			(5 << 4)
+		);
+		return;
+	}
+	boss_phase_frame = 0;
+	patnum_2064E = 128;
+}
+
+
 /// Her four orbs, and the five patterns that were the tail of BOSS_5_TEXT
 /// ---------------------------------------------------------------------
 
@@ -245,7 +408,16 @@ static const int MIMA_ORB_COUNT = 4;
 static const unsigned char MIMA_ORB_ANGLE_STEP = 0x40;
 
 // One mirrored pair of her pellet fan, and the 10 steps the angle then walks.
-#define mima_fan_fire() { 	bullets_add_pellet( 		left_26C5A, top_26C62, (mima_fan_angle + 0x08), 		BG_3_SPREAD_NARROW, (5 << 4) 	); 	bullets_add_pellet( 		left_26C5A, top_26C62, (0x78 - mima_fan_angle), 		BG_3_SPREAD_NARROW, (5 << 4) 	); 	mima_fan_angle = (mima_fan_angle + 0x0A); }
+#define mima_fan_fire() { \
+	bullets_add_pellet( \
+		left_26C5A, top_26C62, (mima_fan_angle + 0x08), \
+		BG_3_SPREAD_NARROW, (5 << 4) \
+	); \
+	bullets_add_pellet( \
+		left_26C5A, top_26C62, (0x78 - mima_fan_angle), \
+		BG_3_SPREAD_NARROW, (5 << 4) \
+	); \
+	mima_fan_angle = (mima_fan_angle + 0x0A); }
 
 // One star of the bouncing-star pattern. Every one of the six is fired from
 // the same muzzle at the same speed, so only the angle differs.
