@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -1229,59 +1229,43 @@ BOSS_EXP_TEXT	segment	byte public 'CODE' use16
 	@explosions_big_update_and_render$qv procdesc near
 BOSS_EXP_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original `main_TEXT`
-; contribution, renamed so that a C++ object can append GameExecl() at its
-; original address in the MIDDLE of the segment. Same `byte public 'CODE'`
-; alignment as before, so nothing moves.
+; Harness carve (kb/codegen/0080): an EMPTY anchor segment split out of the
+; HEAD of `EXECL_TEXT`'s root contribution, so that a C++ object can append
+; Marisa's shot control functions at their original addresses at the START of
+; that contribution. Shape copied from `HUD_DRM_TEXT`; same `byte public
+; 'CODE'` alignment as before, so nothing moves, and `byte` alignment also
+; means kb/codegen/0111's even-parity question does not arise.
+;
+; This is the first carve into EXECL_TEXT, and the head is the only end of it
+; that is reachable. Its tail proc shot_laser_render() is blocked after ten
+; build cycles (state/notes/shot_laser_render.md), and that one body is what
+; kept the nineteen shot_marisa_* procs above it out of reach of every tail
+; lift: they are the exact mirror of the nineteen shot_reimu_* procs that
+; PLAYER_B_TEXT gave up for free once its own tail came out. Carving the head
+; costs one segment name and one group entry and reaches all nineteen through
+; kb/codegen/0114, because each lift leaves the next proc at the seam.
+P_MARISA_TEXT	segment	byte public 'CODE' use16
+	; shot_marisa_l0() and shot_marisa_l1() now live in
+	; th04/main/player/p_marisa.cpp, which th04/p_marisa.cpp compiles into this
+	; segment. They are reached only through [playchar_shot_func], installed
+	; out of SHOT_FUNCS_MARISA_A and SHOT_FUNCS_MARISA_B further down, which is
+	; why the dump publishes neither. `extern "C"` + `pascal`, so the published
+	; symbols are undecorated and upper-case (kb/codegen 0081, 0103) -- the same
+	; spelling the sixteen shot_reimu_* procdescs in PLAYER_B_TEXT carry, and
+	; the same one TH05's own lifted shot_marisa_l2 carries in th05_main.asm,
+	; where the data table likewise keeps the lower-case form. These procdescs
+	; exist only so that those two tables can take the offsets.
+	SHOT_MARISA_L0 procdesc pascal near
+	SHOT_MARISA_L1 procdesc pascal near
+P_MARISA_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of the head of the original
+; `main_TEXT` contribution once shot_marisa_l0() and shot_marisa_l1() moved
+; out of it into the P_MARISA_TEXT anchor above. A C++ object still appends
+; GameExecl() at its original address in the MIDDLE of this segment. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
+; neither deleted body carried an `assume`, so there is nothing to restore.
 EXECL_TEXT	segment	byte public 'CODE' use16
-
-shot_marisa_l0	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jz	short loc_DA70
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 10
-
-loc_DA70:
-		pop	si
-		pop	bp
-		retn
-shot_marisa_l0	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_l1	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jz	short loc_DAA3
-		add	ax, shot_t.pos.velocity
-		push	ax
-		push	7
-		call	@randring1_next16_and$qui
-		add	al, -44h
-		push	ax
-		call	@shot_velocity_set$qp7sppointuc
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 10
-
-loc_DAA3:
-		pop	si
-		pop	bp
-		retn
-shot_marisa_l1	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 

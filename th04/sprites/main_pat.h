@@ -50,6 +50,14 @@ typedef enum {
 	// Shottype B's option shot, fired at a fixed angle to either side.
 	PAT_SHOT_REIMU_SUB_B,
 	PAT_SHOT_REIMU_SUB_B_last = (PAT_SHOT_REIMU_SUB_B + SHOT_CELS - 1),
+	// 0x22, the value the census above found in all sixteen of Marisa's shot
+	// control procs. Named by MATCH-TH04-MAIN-SHOT-MARISA-HEAD, the parcel
+	// that lifted the first two of them. `[measured]` only that: the 0x24
+	// bank is reached by shot_marisa_b_* alone and stays unnamed until that
+	// half is lifted, and what shot_marisa_a_* puts there instead is a
+	// question for the parcel that reads those eight bodies.
+	PAT_SHOT_MARISA,
+	PAT_SHOT_MARISA_last = (PAT_SHOT_MARISA + SHOT_CELS - 1),
 	// ----------
 	// miko16.bft
 	// ----------
