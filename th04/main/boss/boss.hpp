@@ -122,7 +122,12 @@ inline void boss_explode_big(explosion_type_t type) {
 	boss_explode_big_circle();
 }
 #else
-void pascal near boss_explode_big(explosion_type_t type);
+// `unsigned int`, not `explosion_type_t`: th04/main/boss/explode_big.asm
+// publishes `@BOSS_EXPLODE_BIG$QUI`, and this declaration had never been
+// graded, because yuuka5_update() (th04/main/boss/b4m.cpp) is the first C++
+// caller TH04 has ever had for it. The value passed is still an
+// explosion_type_t; only the parameter this function was compiled with is not.
+void pascal near boss_explode_big(unsigned int type);
 #endif
 
 void near explosions_small_update_and_render(void);

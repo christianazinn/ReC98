@@ -7904,6 +7904,10 @@ sub_15DBD	endp
 
 ; Attributes: bp-based frame
 
+	; The alias carries the NAME; the dump's own call sites keep the bare
+	; label. kb/codegen/0123.
+public _thicklasers_update_and_hittest
+_thicklasers_update_and_hittest label near
 sub_15DE8	proc near
 
 @@i		= word ptr -2
@@ -8018,6 +8022,12 @@ sub_15DE8	endp
 
 ; Attributes: bp-based frame
 
+	; `pascal`, so the alias is spelled in UPPER case and carries no
+	; leading underscore -- the same shape as the two
+	; Z_SUPER_ROLL_PUT_TINY_*_RAW publics in
+	; th04/formats/z_super_roll_put_tiny.asm. kb/codegen/0123.
+public YUUKA5_15ECE
+YUUKA5_15ECE label near
 yuuka5_15ECE	proc near
 
 arg_0		= word ptr  4
@@ -8109,6 +8119,8 @@ yuuka5_15ECE	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka5_15F97
+_yuuka5_15F97 label near
 yuuka5_15F97	proc near
 		push	bp
 		mov	bp, sp
@@ -8220,6 +8232,8 @@ yuuka5_15F97	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka5_160A5
+_yuuka5_160A5 label near
 yuuka5_160A5	proc near
 		push	bp
 		mov	bp, sp
@@ -8331,6 +8345,8 @@ yuuka5_160A5	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka5_161D7
+_yuuka5_161D7 label near
 yuuka5_161D7	proc near
 
 var_2		= word ptr -2
@@ -8419,6 +8435,8 @@ word_16293	dw	1,     3,     5,   11h
 
 ; Attributes: bp-based frame
 
+public _yuuka5_162A3
+_yuuka5_162A3 label near
 yuuka5_162A3	proc near
 		push	bp
 		mov	bp, sp
@@ -8464,6 +8482,8 @@ yuuka5_162A3	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka5_1630D
+_yuuka5_1630D label near
 yuuka5_1630D	proc near
 		push	bp
 		mov	bp, sp
@@ -8518,6 +8538,8 @@ yuuka5_1630D	endp
 
 ; Attributes: bp-based frame
 
+public _yuuka5_16389
+_yuuka5_16389 label near
 yuuka5_16389	proc near
 
 var_2		= word ptr -2
@@ -8686,6 +8708,8 @@ word_164ED	dw    10h,   28h,   2Ah,   2Ch
 
 ; Attributes: bp-based frame
 
+public _yuuka5_1653D
+_yuuka5_1653D label near
 yuuka5_1653D	proc near
 		push	bp
 		mov	bp, sp
@@ -8751,420 +8775,21 @@ loc_1660E:
 yuuka5_1653D	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; yuuka5_update() now lives in th04/main/boss/b4m.cpp, at the FRONT of
+	; that file's object: ZUN's object for this segment opened with Yuuka's
+	; fight and only then moved on to Marisa's, and the object was already
+	; appended right here, so the lift is an ordinary seam handoff
+	; (kb/codegen/0099) with no carve and no Tupfile.lua line.
+	;
+	; Its three `switch`es are what the `db 0` and the three tables that
+	; used to end this contribution compile FROM -- two sparse value/jump
+	; pairs and one dense table -- so all four left with the proc.
+	; kb/codegen/0160 for the padding byte: this object's parity runs the
+	; OPPOSITE way from BOSS_BG_TEXT's, and a zero-length prefix is what
+	; emits it here.
+	;
+	; Nothing in this file references it; th04/main/stage/setup.cpp does.
 
-; Attributes: bp-based frame
-public @YUUKA5_UPDATE$QV
-@yuuka5_update$qv	proc far
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (16 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 12h
-		ja	loc_169B3
-		add	bx, bx
-		jmp	cs:off_169F4[bx]
-
-loc_16638:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_16651
-		setfarfp	_stage_vm, nullfunc_far
-		mov	_midboss_frames_until, 0
-
-loc_16651:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 128
-		jle	loc_169B8
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	byte_25667, 0
-		mov	_tiles_bb_col, V_WHITE
-		mov	_bg_render_bombing_func, offset @yuuka5_bg_render$qv
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_16682:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_166A0
-		mov	Palettes[0 * size rgb_t].r, 64
-		mov	Palettes[0 * size rgb_t].g, 64
-		mov	Palettes[0 * size rgb_t].b, 64
-		mov	_palette_changed, 1
-
-loc_166A0:
-		cmp	_boss_phase_frame, 64
-		jl	loc_169B8
-		inc	_boss_phase
-		mov	_boss_pos.velocity.x, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0
-		mov	_boss_hp, 9000
-		mov	_boss_phase_end_hp, 7900
-		mov	_boss_phase_frame, 0
-		sub	_boss_pos.cur.y, (16 shl 4)
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_166D8:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		mov	cx, 4		; switch 4 cases
-		mov	bx, offset word_169E4
-
-loc_166E6:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_2]
-		jz	short loc_166F5
-		add	bx, 2
-		loop	loc_166E6
-		jmp	short loc_16723	; default
-; ---------------------------------------------------------------------------
-
-loc_166F5:
-		jmp	word ptr cs:[bx+8] ; switch jump
-
-loc_166F9:
-		call	yuuka5_15F97	; jumptable 000166F5 case 0
-		jmp	short loc_16723	; default
-; ---------------------------------------------------------------------------
-
-loc_166FE:
-		call	yuuka5_160A5	; jumptable 000166F5 case 1
-		jmp	short loc_16723	; default
-; ---------------------------------------------------------------------------
-
-loc_16703:
-		mov	_boss_phase_frame, 0	; jumptable 000166F5 case 254
-		inc	_boss_phase_state
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		mov	_boss_mode, dl
-		jmp	short loc_16723	; default
-; ---------------------------------------------------------------------------
-
-loc_1671E:
-		push	0		; jumptable 000166F5 case 255
-		call	yuuka5_15ECE
-
-loc_16723:
-		cmp	byte_25667, 0	; default
-		jnz	short loc_16766
-		cmp	_boss_phase_state, 4
-		jnb	short loc_16742
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_169B8
-		call	@boss_score_bonus$qui pascal, 15
-		call	@boss_items_drop$qv
-
-loc_16742:
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1674E
-		mov	_bullet_clear_time, 20
-
-loc_1674E:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_CIRCLE
-		inc	_boss_phase
-		mov	ax, _boss_phase_end_hp
-		mov	_boss_hp, ax
-		sub	_boss_phase_end_hp, 800
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_16766:
-		inc	_boss_phase_frame
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_1676D:
-		inc	_boss_phase_frame
-		push	1
-		call	yuuka5_15ECE
-		or	al, al
-		jz	loc_169B8
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_16793:
-		call	yuuka5_161D7
-		cmp	_boss_phase_frame, 500
-		jge	short loc_167AF
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_169B8
-		call	@boss_score_bonus$qui pascal, 15
-		call	@boss_items_drop$qv
-
-loc_167AF:
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_167BB
-		mov	_bullet_clear_time, 20
-
-loc_167BB:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0
-		mov	ax, _boss_phase_end_hp
-		mov	_boss_hp, ax
-		cmp	_boss_phase, 0Ah
-		jnb	short loc_167EA
-		sub	_boss_phase_end_hp, 1100
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_167EA:
-		sub	_boss_phase_end_hp, 1200
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_167F3:
-		mov	al, _boss_mode
-		mov	ah, 0
-		mov	[bp+var_4], ax
-		mov	cx, 4		; switch 4 cases
-		mov	bx, offset word_169D4
-
-loc_16801:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_4]
-		jz	short loc_16810
-		add	bx, 2
-		loop	loc_16801
-		jmp	short loc_1683E	; default
-; ---------------------------------------------------------------------------
-
-loc_16810:
-		jmp	word ptr cs:[bx+8] ; switch jump
-
-loc_16814:
-		call	yuuka5_162A3	; jumptable 00016810 case 0
-		jmp	short loc_1683E	; default
-; ---------------------------------------------------------------------------
-
-loc_16819:
-		call	yuuka5_1630D	; jumptable 00016810 case 1
-		jmp	short loc_1683E	; default
-; ---------------------------------------------------------------------------
-
-loc_1681E:
-		mov	_boss_phase_frame, 0	; jumptable 00016810 case 254
-		inc	_boss_phase_state
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		mov	bx, 2
-		cwd
-		idiv	bx
-		mov	_boss_mode, dl
-		jmp	short loc_1683E	; default
-; ---------------------------------------------------------------------------
-
-loc_16839:
-		push	0		; jumptable 00016810 case 255
-		call	yuuka5_15ECE
-
-loc_1683E:
-		cmp	byte_25667, 0	; default
-		jnz	short loc_1687B
-		cmp	_boss_phase_state, 4
-		jnb	short loc_1685D
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jz	loc_169B8
-		call	@boss_score_bonus$qui pascal, 15
-		call	@boss_items_drop$qv
-
-loc_1685D:
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_16869
-		mov	_bullet_clear_time, 20
-
-loc_16869:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_CIRCLE
-		inc	_boss_phase
-		mov	ax, _boss_phase_end_hp
-		mov	_boss_hp, ax
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_1687B:
-		inc	_boss_phase_frame
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_16882:
-		inc	_boss_phase_frame
-		push	1
-		call	yuuka5_15ECE
-		or	al, al
-		jz	loc_169B8
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-		mov	_boss_mode, 0
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_168A8:
-		call	yuuka5_16389
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 288
-		jl	loc_169B8
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_168C9
-		mov	_bullet_clear_time, 20
-
-loc_168C9:
-		inc	_boss_phase
-		mov	ax, _boss_phase_end_hp
-		mov	_boss_hp, ax
-		cmp	_boss_phase, 11h
-		jnz	short loc_168F6
-		mov	_boss_phase_end_hp, 0
-		mov	Palettes[0 * size rgb_t].r, 128
-		mov	Palettes[0 * size rgb_t].g, 64
-		mov	Palettes[0 * size rgb_t].b, 64
-		mov	_palette_changed, 1
-		jmp	short loc_168FC
-; ---------------------------------------------------------------------------
-
-loc_168F6:
-		sub	_boss_phase_end_hp, 1200
-
-loc_168FC:
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 0
-
-loc_16907:
-		mov	_boss_mode, 0
-		mov	PaletteTone, 100
-		mov	_palette_changed, 1
-		jmp	loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_1691A:
-		call	yuuka5_1653D
-		call	@boss_hittest_shots$qv
-		or	al, al
-		jnz	short loc_1692E
-		cmp	_boss_phase_frame, 1000
-		jl	loc_169B8
-
-loc_1692E:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		inc	_boss_phase
-		cmp	_boss_phase_frame, 1000
-		jge	short loc_16946
-		mov	_boss_phase_state, 1
-		jmp	short loc_1694B
-; ---------------------------------------------------------------------------
-
-loc_16946:
-		mov	_boss_phase_state, 0
-
-loc_1694B:
-		mov	_boss_phase_frame, 0
-		jmp	short loc_16907
-; ---------------------------------------------------------------------------
-
-loc_16953:
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_16963
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-
-loc_16963:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_169B8
-		call	@boss_explode_big$qui pascal, ET_SW_NE
-		mov	_boss_phase, PHASE_EXPLODE_BIG
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		cmp	_boss_phase_state, 0
-		jz	short loc_16986
-		call	@boss_score_bonus$qui pascal, 60
-
-loc_16986:
-		mov	_boss_sprite, 4
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_169B8
-; ---------------------------------------------------------------------------
-
-loc_169B3:
-		call	@boss_defeat_update$qv
-		leave
-		retf
-; ---------------------------------------------------------------------------
-
-loc_169B8:
-		mov	ax, _boss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _boss_pos.cur.y
-		mov	_homing_target.y, ax
-		call	sub_15DE8
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 9000
-		leave
-		retf
-@yuuka5_update$qv	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-word_169D4	dw	0, 1, (-2 and 255), (-1 and 255)	; value table for switch statement
-		dw offset loc_16814	; jump table for switch	statement
-		dw offset loc_16819
-		dw offset loc_1681E
-		dw offset loc_16839
-word_169E4	dw	0, 1, (-2 and 255), (-1 and 255)	; value table for switch statement
-		dw offset loc_166F9	; jump table for switch	statement
-		dw offset loc_166FE
-		dw offset loc_16703
-		dw offset loc_1671E
-off_169F4	dw offset loc_16638
-		dw offset loc_16682
-		dw offset loc_166D8
-		dw offset loc_1676D
-		dw offset loc_16793
-		dw offset loc_166D8
-		dw offset loc_1676D
-		dw offset loc_16793
-		dw offset loc_166D8
-		dw offset loc_1676D
-		dw offset loc_16793
-		dw offset loc_167F3
-		dw offset loc_16882
-		dw offset loc_168A8
-		dw offset loc_167F3
-		dw offset loc_16882
-		dw offset loc_168A8
-		dw offset loc_1691A
-		dw offset loc_16953
 
 	; marisa_charge_animate() now lives in th04/main/boss/b4m.cpp, above
 	; marisa_flystep_random(), which is its original address order: it was

@@ -3,12 +3,25 @@
 
 #pragma option -zCB4M_UPDATE_TEXT -zPmain_03
 
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/v_colors.hpp"
+#include "th03/hardware/palette.hpp"
 #include "th04/sprites/main_pat.h"
 #include "th04/snd/snd.h"
+#include "th04/formats/std.hpp"
 #include "th04/math/randring.hpp"
+#include "th04/main/bg.hpp"
 #include "th04/main/circle.hpp"
 #include "th04/main/custom.hpp"
 #include "th04/main/gather.hpp"
+#include "th02/main/player/player.hpp"
+#include "th04/main/homing.hpp"
+#include "th04/main/null.hpp"
+#include "th04/main/hud/hud.hpp"
+#include "th04/main/bullet/bullet.hpp"
+#include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/bullet/laser_t.hpp"
+#include "th04/main/tile/bb.hpp"
 #include "th04/main/boss/boss.hpp"
 
 // Constants
@@ -83,6 +96,314 @@ extern screen_x_t bit_center_y[BIT_COUNT];
 
 // Game logic
 // ----------
+
+/// Stage 5 Boss - Yuuka
+/// --------------------
+/// ZUN's object for this code segment opened with Yuuka's fight and only then
+/// moved on to Marisa's (kb/codegen/0112, and the segment is named after the
+/// second half). These two functions are the bottom of that first half.
+
+// Still ASM, all of them in this same segment, and all of them private to
+// ZUN's object -- so each needed a zero-byte `label` alias in th04_main.asm to
+// become linkable at all (kb/codegen/0123). The address-suffixed names are the
+// dump's own; naming them is a separate decision from making them linkable,
+// and belongs to whoever lifts them.
+extern "C" {
+	// Runs Yuuka's four-state warp animation, and returns `true` on the one
+	// frame it completes on. The parameter picks the destination: `false` is a
+	// random point in the upper playfield, `true` is the fixed point the fight
+	// phases warp back to. `pascal`, hence the UPPER-case alias.
+	bool pascal near yuuka5_15ECE(bool to_fixed_point);
+
+	void near yuuka5_15F97(void);
+	void near yuuka5_160A5(void);
+	void near yuuka5_161D7(void);
+	void near yuuka5_162A3(void);
+	void near yuuka5_1630D(void);
+	void near yuuka5_16389(void);
+	void near yuuka5_1653D(void);
+}
+
+// th04/main/midboss/vars[bss].asm publishes it, but no TH04 header declares
+// it: the only two C++ functions that have ever needed it are this one and
+// yuuka6_update(), and the latter is still ASM.
+extern "C" int midboss_frames_until;
+
+// Yuuka's warp animation state, documented at length in
+// th04/main/boss/b5r.cpp, which is the only thing that reads it.
+extern "C" unsigned char yuuka5_warp_phase;
+
+// Declared FAR here, and only here: th04/main/boss/bosses.hpp declares the same
+// function `near`, which is what it is. Borland does not encode near/far in a
+// mangled name, so both declarations reach the same `@YUUKA5_BG_RENDER$QV` --
+// but a NEAR reference under this object's `-zPmain_03` frames its offset on
+// main_03, and this function lives in main_01. That is `Fixup overflow at
+// B4M_UPDATE_TEXT:006D`; declaring it far makes Turbo C++ frame the offset on
+// the target's own group instead, which is the 0x7874 the original stores.
+void pascal far yuuka5_bg_render(void);
+
+// Both of Yuuka's phase-2 patterns use this to carry the spread angle of the
+// pellet fan across frames, incremented by 9 on every volley.
+#define yuuka5_spread_angle boss_statebyte[15]
+
+// The HP Yuuka starts every one of her fights with, and the denominator the
+// HUD bar is drawn against.
+static const int YUUKA5_HP = 9000;
+
+// Yuuka's Stage 5 fight, all 19 phases of it. Three of them are the entrance
+// and the defeat; the other 16 are five repetitions of the same
+// pattern/warp/pattern triple, differing only in which two pattern functions
+// the [boss.mode] dispatch below reaches and in how much HP the phase costs.
+//
+// [boss.mode] is that dispatch's own state, and its two negative values are
+// not patterns: 254 advances to the next pattern of the pair, 255 runs the
+// warp. Both `switch`es over it are sparse, which is why this function's tail
+// carries a value/jump table PAIR for each of them on top of the dense one for
+// [boss.phase] -- three tables and one padding byte, all of which lifting the
+// function moves out of the dump with it.
+//
+// `#pragma option -a2` is that padding byte, and it needs this function to be
+// the FIRST thing the object emits. kb/codegen/0160 for the instrument -- read
+// the OBJ's PUBDEF offsets, never the `tcc -S` listing, which prints
+// `db 1 dup (?)` for the parity that emits nothing. `[measured]` here, both
+// ways: at a zero prefix the object is 0x40A bytes to the next function and
+// carries the pad; with one more byte ahead of it, 0x40A again but one of
+// those bytes is the prefix and the pad is gone. That is the OPPOSITE sign
+// from BOSS_BG_TEXT's yuuka6_bg_update_and_render(), which is why 0160 says to
+// probe both parities rather than to compute one.
+#pragma option -a2
+void pascal far yuuka5_update(void)
+{
+	bullet_template.origin.x.v = boss.pos.cur.x.v;
+	bullet_template.origin.y.v = (boss.pos.cur.y.v + TO_SP(16));
+
+	switch(boss.phase) {
+	case 0:
+		if(boss.phase_frame == 0) {
+			// Yuuka's fight ends the stage script, and pushes the midboss
+			// that will never come out of reach for good.
+			stage_vm = nullfunc_far;
+			midboss_frames_until = 0;
+		}
+		boss_hittest_shots_invincible();
+		if(boss.phase_frame > 128) {
+			boss.phase++;
+			boss.phase_frame = 0;
+			snd_se_play(13);
+			yuuka5_warp_phase = 0;
+			tiles_bb_col = V_WHITE;
+			_asm { mov word ptr bg_render_bombing_func, offset yuuka5_bg_render }
+		}
+		break;
+
+	case 1:
+		boss_hittest_shots_invincible();
+		if(boss.phase_frame == 32) {
+			Palettes[0].c.r = 64;
+			Palettes[0].c.g = 64;
+			Palettes[0].c.b = 64;
+			palette_changed = true;
+		}
+		if(boss.phase_frame >= 64) {
+			boss.phase++;
+			boss.pos.velocity.x.v = 0;
+			boss.phase_state.patterns_seen = 0;
+			boss.mode = 0;
+			boss.hp = YUUKA5_HP;
+			boss.phase_end_hp = 7900;
+			boss.phase_frame = 0;
+			boss.pos.cur.y.v -= TO_SP(16);
+		}
+		break;
+
+	case 2: case 5: case 8:
+		switch(boss.mode) {
+		case 0:
+			yuuka5_15F97();
+			break;
+		case 1:
+			yuuka5_160A5();
+			break;
+		case 254:
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen++;
+			boss.mode = (boss.phase_state.patterns_seen % 2);
+			break;
+		case 255:
+			yuuka5_15ECE(false);
+			break;
+		}
+		if(yuuka5_warp_phase == 0) {
+			if(boss.phase_state.patterns_seen < 4) {
+				if(!boss_hittest_shots()) {
+					break;
+				}
+				boss_score_bonus(15);
+				boss_items_drop();
+			}
+			bullets_clear();
+			boss_explode_small(ET_CIRCLE);
+			boss.phase++;
+			boss.hp = boss.phase_end_hp;
+			boss.phase_end_hp -= 800;
+		} else {
+			boss.phase_frame++;
+		}
+		break;
+
+	case 3: case 6: case 9:
+		boss.phase_frame++;
+		if(yuuka5_15ECE(true)) {
+			boss.phase++;
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen = 0;
+			boss.mode = 0;
+		}
+		break;
+
+	case 4: case 7: case 10:
+		yuuka5_161D7();
+		if(boss.phase_frame < 500) {
+			if(!boss_hittest_shots()) {
+				break;
+			}
+			boss_score_bonus(15);
+			boss_items_drop();
+		}
+		bullets_clear();
+		boss_explode_small(ET_NW_SE);
+		boss.phase++;
+		boss.phase_frame = 0;
+		boss.phase_state.patterns_seen = 0;
+		boss.mode = 0;
+		boss.hp = boss.phase_end_hp;
+		if(boss.phase < 10) {
+			boss.phase_end_hp -= 1100;
+		} else {
+			boss.phase_end_hp -= 1200;
+		}
+		break;
+
+	case 11: case 14:
+		switch(boss.mode) {
+		case 0:
+			yuuka5_162A3();
+			break;
+		case 1:
+			yuuka5_1630D();
+			break;
+		case 254:
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen++;
+			boss.mode = (boss.phase_state.patterns_seen % 2);
+			break;
+		case 255:
+			yuuka5_15ECE(false);
+			break;
+		}
+		if(yuuka5_warp_phase == 0) {
+			if(boss.phase_state.patterns_seen < 4) {
+				if(!boss_hittest_shots()) {
+					break;
+				}
+				boss_score_bonus(15);
+				boss_items_drop();
+			}
+			bullets_clear();
+			boss_explode_small(ET_CIRCLE);
+			boss.phase++;
+			boss.hp = boss.phase_end_hp;
+		} else {
+			boss.phase_frame++;
+		}
+		break;
+
+	case 12: case 15:
+		boss.phase_frame++;
+		if(yuuka5_15ECE(true)) {
+			boss.phase++;
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen = 0;
+			boss.mode = 0;
+		}
+		break;
+
+	case 13: case 16:
+		yuuka5_16389();
+		boss_hittest_shots_invincible();
+		if(boss.phase_frame >= 288) {
+			boss_explode_small(ET_VERTICAL);
+			bullets_clear();
+			boss.phase++;
+			boss.hp = boss.phase_end_hp;
+			if(boss.phase == 17) {
+				// The last phase is the one that has to end at 0 HP, and it
+				// is also the one that reddens the background.
+				boss.phase_end_hp = 0;
+				Palettes[0].c.r = 128;
+				Palettes[0].c.g = 64;
+				Palettes[0].c.b = 64;
+				palette_changed = true;
+			} else {
+				boss.phase_end_hp -= 1200;
+			}
+			boss.phase_frame = 0;
+			boss.phase_state.patterns_seen = 0;
+			boss.mode = 0;
+			PaletteTone = 100;
+			palette_changed = true;
+		}
+		break;
+
+	case 17:
+		yuuka5_1653D();
+		if(boss_hittest_shots() || (boss.phase_frame >= 1000)) {
+			boss_explode_small(ET_NW_SE);
+			boss.phase++;
+
+			// The defeat bonus is the one thing that distinguishes killing
+			// Yuuka from surviving her: the timeout takes the same branch.
+			if(boss.phase_frame < 1000) {
+				boss.phase_state.defeat_bonus = true;
+			} else {
+				boss.phase_state.defeat_bonus = false;
+			}
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			PaletteTone = 100;
+			palette_changed = true;
+		}
+		break;
+
+	case 18:
+		boss.phase_frame++;
+		if(boss.phase_frame == 16) {
+			boss_explode_small(ET_VERTICAL);
+		}
+		if(boss.phase_frame == 32) {
+			boss_defeat_explode_big(ET_SW_NE, 60);
+			snd_se_play(12);
+			Palettes[0].c.r = 0;
+			Palettes[0].c.g = 0;
+			Palettes[0].c.b = 0;
+			palette_changed = true;
+			player_invincibility_time = BOSS_DEFEAT_INVINCIBILITY_FRAMES;
+		}
+		break;
+
+	default:
+		boss_defeat_update();
+		return;
+	}
+
+	homing_target.x.v = boss.pos.cur.x.v;
+	homing_target.y.v = boss.pos.cur.y.v;
+	thicklasers_update_and_hittest();
+	hud_hp_update_and_render(boss.hp, YUUKA5_HP);
+}
+#pragma option -a1
+/// --------------------
+
 
 // The fixed 64-frame charge-up that every one of Marisa's patterns opens
 // with, and the only thing that tells the pattern when to fire. Advances

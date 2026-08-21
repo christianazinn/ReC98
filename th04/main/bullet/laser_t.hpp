@@ -56,3 +56,15 @@ extern thicklaser_t thicklasers[THICKLASER_COUNT];
 // than _update_and_render. Lifted, in th04/main/bullet/laser_render.cpp; the
 // one remaining ASM caller reaches it through a procdesc in th04_main.asm.
 extern "C" void near thicklasers_render(void);
+
+// Advances every non-TF_FREE thick laser through the flag state machine above
+// -- TF_LINE for [line_frames], then TF_GROW until [radius_cur] reaches
+// [radius_max], then TF_STATIC for [static_frames], then TF_SHRINK back to
+// TF_FREE -- and hittests the player against the ones that have a body, i.e.
+// everything past TF_LINE. Still th04_main.asm's sub_15DE8; the alias is
+// kb/codegen/0123.
+//
+// [inferred] name: it is the only writer of every thicklaser_t field outside
+// the spawn path, and its second half sets [player_is_hit], which is what the
+// tree's other `_update_and_hittest` symbols do. A naming round is owed.
+extern "C" void near thicklasers_update_and_hittest(void);
