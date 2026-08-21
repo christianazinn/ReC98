@@ -34,69 +34,20 @@
 
 static const pixel_t BIT_W = 32;
 static const pixel_t BIT_H = 32;
-static const int BIT_KILL_FRAMES_PER_CEL = 4;
 // ---------
 
 // Structures
 // ----------
-
-#define BIT_COUNT 4
-
-enum bit_flag_t {
-	BF_FREE = 0,
-	BF_MOVEOUT_SPIN = 1,
-	BF_SPIN = 2,
-	BF_KILL_ANIM = 0x80,
-	BF_KILL_ANIM_last = (
-		BF_KILL_ANIM + (ENEMY_KILL_CELS * BIT_KILL_FRAMES_PER_CEL) - 1
-	),
-
-	_bit_flag_t_FORCE_UINT8 = 0xFF
-};
-
-struct bit_t {
-	bit_flag_t flag;
-	unsigned char angle;	// input for [center]
-	PlayfieldPoint center;
-	main_patnum_t patnum;
-	/* ------------------------- */ int8_t unused_1[8];
-	Subpixel distance;	// input for [center]
-	Subpixel moveout_speed;
-	int hp;
-	int damage_this_frame;
-	/* ------------------------- */ int8_t unused_2;
-	char angle_speed;	// ACTUAL TYPE: unsigned char
-};
-
-#define bits (reinterpret_cast<bit_t *>(custom_entities))
-
-// What marisa_charge_animate() tells the pattern it opens. Deliberately a
-// byte-sized enum: the original returns these in AL alone, and every caller
-// homes the result in a byte local before testing it.
-enum marisa_charge_t {
-	// Still charging. The pattern must not fire yet.
-	MC_CHARGING = 0,
-
-	// The charge is over and the pattern has already fired; keep running it.
-	MC_RUNNING = 1,
-
-	// This one frame is the frame the pattern fires on.
-	MC_FIRE = 2,
-
-	_marisa_charge_t_FORCE_UINT8 = 0xFF
-};
+// Marisa's bits, her charge enum and everything around them moved to
+// th04/main/boss/b4m.hpp once th04/main/boss/b4m_upd.cpp -- the other half of
+// her fight, and a different segment and object -- grew to need them too.
+#include "th04/main/boss/b4m.hpp"
 // ----------
 
 // State
 // -----
 
 #define flystep_pointreflected_tick boss_statebyte[13]
-
-extern uint8_t bits_alive;
-
-extern void (near pascal *near bit_fire)(bit_t near& bit);
-extern screen_x_t bit_center_x[BIT_COUNT];
-extern screen_x_t bit_center_y[BIT_COUNT];
 // -----
 
 // Game logic
@@ -640,7 +591,7 @@ static void near yuuka5_1653D(void)
 //
 // [boss.mode] is that dispatch's own state, and its two negative values are
 // not patterns: 254 advances to the next pattern of the pair, 255 runs the
-// warp. Both `switch`es over it are sparse, which is why this function's tail
+// warp. Both of the dispatches over it are sparse, which is why this tail
 // carries a value/jump table PAIR for each of them on top of the dense one for
 // [boss.phase] -- three tables and one padding byte, all of which lifting the
 // function moves out of the dump with it.
