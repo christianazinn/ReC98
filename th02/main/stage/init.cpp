@@ -56,9 +56,12 @@
 // Defined at the end of th02/main/stage/loop.cpp, which owns STAGE_TEXT.
 void pascal near text_wipe(void);
 
+// Frees every [enemies] slot and rewinds the spawn grid.
+// th02/main/enemy/update.cpp, its own object in BOSS_5_TEXT.
+extern "C" void far enemies_reset(void);
+
 // Still ASM in th02_main.asm.
 // ---------------------------
-extern "C" void far sub_16A6B(void);
 extern "C" void far sub_13ABB(char *fn);
 
 // Resets the scrolling state. Called through a `nopcall` alias.
@@ -254,7 +257,7 @@ void near stage_init(void)
 	pi_palette_apply(0);
 	pi_put_8(96, 144, 0);
 	bullets_and_sparks_init();
-	sub_16A6B();
+	enemies_reset();
 	bg_particles_reset();
 	lasers_reset();
 	bomb_reset();

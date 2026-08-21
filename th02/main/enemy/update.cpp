@@ -1,6 +1,6 @@
 /// TH02's regular stage enemies, per-frame hit test, death and update
 /// ------------------------------------------------------------------
-/// The bottom twelve functions of the BOSS_5_TEXT block below Mima's fight,
+/// The bottom fourteen functions of the BOSS_5_TEXT block below Mima's fight,
 /// in dump order, and together they are th02_main.asm's own carve-free tail
 /// chain there. th02/main/enemy/enemies.cpp next door holds the two procs at
 /// HIGHER addresses, and they are in th02/boss_5.cpp's object rather than
@@ -9,7 +9,7 @@
 ///
 /// THIS FILE IS ITS OWN OBJECT, NOT AN #include INTO th02/boss_5.cpp, and the
 /// next lift out of this block must keep it that way. Its contribution is
-/// 0xEEF bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte
+/// 0xF13 bytes - ODD - and th02/boss_5.cpp sets -a2 for the one-byte
 /// alignment pad under mima_update()'s generated jump table. Turbo C++
 /// word-aligns that table against the offset the object it emits starts at,
 /// which it necessarily treats as 0, so folding an odd contribution in ahead
@@ -24,7 +24,7 @@
 /// two independent reasons above and below: an odd prefix re-rolls
 /// th02/boss_5.cpp's own start, and an odd prefix ahead of enemy_run() deletes
 /// the pad under its jump tables. Both have held for every lift so far - 0x86
-/// twice, then 0x1A7, then this parcel's 0x20C - and every one of them was
+/// twice, then 0x1A7, then 0x20C, then 0x24 - and every one of them was
 /// measured on this object's PUBDEFs with tools/pi-audit/obj_probe.py before
 /// the build, never on a `tcc -S` listing.
 ///
@@ -68,7 +68,7 @@
 extern "C" uint8_t enemies_loop_bound;
 
 // The [spawn_grid] row enemies_spawn() will look at next. Reset to 0 by
-// sub_16A6B(), which also frees every [enemies] slot; nothing else writes it,
+// enemies_reset(), which also frees every [enemies] slot; nothing else writes it,
 // and nothing bounds-checks it beyond the [spawn_rows] test below.
 //
 // COINAGE, and it joins a family already under a standing rename:
@@ -136,13 +136,41 @@ extern "C" const uint8_t near *enemy_script_base;
 /// state/notes/th02-enemies-update-and-render.md section 3 for the placeholder
 /// - so this one only moves bodies.
 
-// Still ASM in th02_main.asm, directly above this file's contribution: the
-// five-byte SECOND compiled copy of nullfunc_void() that ZUN left at the tail
-// of that block. It sits ABOVE the bytes this object now owns, so it cannot
-// come across with its only user, and th02_main.asm grew a `public` for it in
-// this parcel (kb/codegen/0123) - it had none before, because until now the
-// only reference to it was in the same dump.
-extern "C" void far nullfunc_void_2(void);
+// The five-byte SECOND compiled copy of nullfunc_void() that ZUN left in this
+// segment - identical bytes at a different address, which is upstream's own
+// frame_delay() / frame_delay_2() situation and the reason this carries a `_2`
+// rather than a role name. enemies_callbacks_null() below is its only user.
+//
+// It has to stay in THIS object and at THIS position, ahead of everything else
+// here: it is the lowest thing the segment's C++ side contributes, and it had
+// no `public` at all while it was ASM, because until the lift below its only
+// reference lived in the same dump.
+extern "C" void far nullfunc_void_2(void)
+{
+}
+
+
+// Frees every [enemies] slot and rewinds the spawn grid to its first row, once
+// per stage load. stage_init() is the only caller.
+//
+// MIRROR of lasers_reset() in this same binary (th02/main/laser.cpp): frees
+// every slot of one array at the start of a stage and restores one satellite
+// variable while it is there - the identical shape, satellite included. The
+// rename was argued and left pending in state/notes/enemies_loop_bound.md
+// section 4, which reserves the `_reset` verb for whole-array frees and names
+// this proc as its obvious holder; `enemies_` is this binary's own array-scope
+// stem. No identifier of this name exists anywhere in the tree, in any of the
+// five games, or in upstream master - bounded census in
+// state/notes/th02-enemies-reset.md.
+extern "C" void far enemies_reset(void)
+{
+	int i;
+
+	for(i = 0; i < ENEMY_COUNT; i++) {
+		enemies[i].flag = F_FREE;
+	}
+	spawn_row_cur = 0;
+}
 
 // th02/main/stage/callback.hpp declares these two slots, but it needs
 // th02/main/stage/stage.hpp and neither header has an include guard. Declared

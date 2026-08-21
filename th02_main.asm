@@ -6657,53 +6657,13 @@ sigma_end	proc far
 		retf
 sigma_end	endp
 
-; ---------------------------------------------------------------------------
-
-; A second compiled copy of the same empty far function that
-; th02/main/bgm_show.cpp publishes as @nullfunc_void$qv -- same five bytes
-; at a different address. Its only user, enemies_callbacks_null(), is
-; th02/main/enemy/update.cpp now, so the copy needs a name that object can
-; reach (kb/codegen/0123). It had none while both lived in this dump.
-public _nullfunc_void_2
-_nullfunc_void_2 label far
-nullfunc_void_2:
-		push	bp
-		mov	bp, sp
-		pop	bp
-		retf
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_16A6B
-_sub_16A6B label far
-sub_16A6B	proc far
-		push	bp
-		mov	bp, sp
-		xor	ax, ax
-		jmp	short loc_16A7D
-; ---------------------------------------------------------------------------
-
-loc_16A72:
-		mov	bx, ax
-		imul	bx, 26h
-		mov	byte ptr byte_255C0[bx+enemy_t.E_flag], F_FREE
-		inc	ax
-
-loc_16A7D:
-		cmp	ax, 19h
-		jl	short loc_16A72
-		mov	word_1EE50, 0
-		pop	bp
-		retf
-sub_16A6B	endp
-
 
 ; THREE objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/enemy/update.cpp  enemies_callbacks_null()
+;   th02/main/enemy/update.cpp  nullfunc_void_2
+;                               enemies_reset()
+;                               enemies_callbacks_null()
 ;                               sub_16AA7()
 ;                               enemy_pos_update()
 ;                               enemy_pos_update_aimed()
@@ -6720,15 +6680,14 @@ sub_16A6B	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sub_16A6B(), and the first of
+; So th02_main.asm contributes nothing below sigma_end(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retf`.
-; nullfunc_void_2 is five bytes BELOW it, not after it.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
 ; original's parity only while everything th02/main/enemy/update.cpp emits
-; AHEAD of enemy_run() sums to an ODD number of bytes -- 0x3B3 today, from the
-; six bodies at the front at 0x20C, enemy_add() at 0x105 and enemies_spawn()
+; AHEAD of enemy_run() sums to an ODD number of bytes -- 0x3D7 today, from the
+; eight bodies at the front at 0x230, enemy_add() at 0x105 and enemies_spawn()
 ; at 0xA2. Turbo C++'s OBJ writer pads a generated table exactly when its
 ; natural OBJECT-LOCAL offset comes out ODD. That is kb/codegen/0096's
 ; direction and NOT kb/codegen/0154's: 0154 was measured off `tcc -S`
@@ -6737,15 +6696,17 @@ sub_16A6B	endp
 ; never on the -S listing.
 ;
 ; THAT PARITY IS WHY THE TAIL CHAIN IS LIFTED IN EVEN-SIZED GROUPS, and it is
-; the first thing to cost for the next lift out of this block. The six bodies
-; this parcel moved sum to 0x20C, EVEN, so the pad survived; any odd-sized
-; prefix would have deleted it and shifted every byte after it. Running sums
-; from the tail, at the time of writing: enemy_angle_spin_and_move() 0xA2,
-; +enemy_angle_step_and_move() 0x12D, +enemy_pos_update_aimed() 0x19A,
-; +enemy_pos_update() 0x1B9, +sub_16AA7() 0x1EF, +enemies_callbacks_null()
-; 0x20C. Only the 1st, 3rd and 6th of those were takeable. Above them,
-; sub_16A6B() is 0x1F and nullfunc_void_2 is 5, so that pair is 0x24 together
-; and even, and neither of the two is even on its own.
+; the first thing to cost for the next lift out of this block -- before the
+; body, before the naming, before anything. Two parcels have taken it: six
+; bodies summing to 0x20C, then enemies_reset() 0x1F plus nullfunc_void_2 5
+; = 0x24. NEITHER of that second pair is even on its own, so neither could
+; have gone alone, and the running sums of the first six were 0xA2, 0x12D,
+; 0x19A, 0x1B9, 0x1EF, 0x20C -- only the 1st, 3rd and 6th admissible.
+;
+; The ladder from the CURRENT tail, for whoever takes the next one:
+; sigma_end() 0x45 ODD, +sigma_init() 0xB6 = 0xFB ODD, +sigma_update() 0x227
+; = 0x322 EVEN. So Sigma cannot be lifted a proc at a time from this end --
+; the shallowest admissible group is all three, 802 bytes.
 ;
 ; Lifting the previous two took back the `retf` that the enemy_run() parcel
 ; had borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
@@ -6753,7 +6714,7 @@ sub_16A6B	endp
 ;
 ; th02/main/enemy/update.cpp IS ITS OWN OBJECT ON PURPOSE, and a later lift
 ; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its
-; contribution is 0xEEF bytes - ODD - and th02/boss_5.cpp sets -a2 for the
+; contribution is 0xF13 bytes - ODD - and th02/boss_5.cpp sets -a2 for the
 ; one-byte pad under mima_update()'s generated jump table, which Turbo C++
 ; aligns against the offset its OWN object starts at, so folding an odd
 ; contribution in front of it deletes that pad and shifts every byte after
