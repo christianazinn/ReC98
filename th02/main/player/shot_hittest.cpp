@@ -123,8 +123,15 @@ static const uint8_t SHOT_POS_Y_OFFSET = 4;
 // access. Spelling the register explicitly is what pins that: Turbo C++ 4.0J
 // re-materialises `mov al, [page_offset] / mov ah, 0 / mov bx, ax` at every
 // access written in terms of the local. (kb/codegen/0130)
-#define shot_x_at_bx(shot) 	(*reinterpret_cast<subpixel_t near *>( 		reinterpret_cast<uint8_t near *>(shot) + _BX - 		(SHOT_POS_Y_OFFSET - SHOT_POS_X_OFFSET) 	))
-#define shot_y_at_bx(shot) 	(*reinterpret_cast<subpixel_t near *>( 		reinterpret_cast<uint8_t near *>(shot) + _BX 	))
+#define shot_x_at_bx(shot) \
+	(*reinterpret_cast<subpixel_t near *>( \
+		reinterpret_cast<uint8_t near *>(shot) + _BX - \
+		(SHOT_POS_Y_OFFSET - SHOT_POS_X_OFFSET) \
+	))
+#define shot_y_at_bx(shot) \
+	(*reinterpret_cast<subpixel_t near *>( \
+		reinterpret_cast<uint8_t near *>(shot) + _BX \
+	))
 
 // Reads one of the three damage tables at the already-scaled byte offset in
 // [_BX], the same byte-offset-into-a-word-table idiom as the two macros above.
