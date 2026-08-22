@@ -186,6 +186,104 @@ void near playfield_checkerboard_grcg_tdw_update_and_render(void)
 // _DI (kb/codegen 0050).
 #pragma codeseg main_013_TEXT main_01
 
+// The bomb backdrop's playfield fill, and the FIRST of this segment's three
+// C++ functions: it fills the 40 rows above and the 54 rows below the 274-row
+// band that th04/main/player/bombchar.cpp paints the bomb character portrait
+// into, which is what its hand name records. Both callers are already C++, in
+// bombchar.cpp, which is also where it is declared -- so the kb/codegen/0123
+// zero-byte alias the dump needed for the linker's underscore-decorated
+// spelling goes away with the body: `extern "C"` publishes exactly that name
+// from here.
+extern "C" void near playfield_fillm_0_40_384_274(void)
+{
+	grcg_fill_playfield_rows_at(  0, 40);
+	grcg_fill_playfield_rows_at(314, 54);
+}
+
+// Alignment padding after the function, in the original. main_013_TEXT is
+// `word public`, and this is the byte that kept the next function even. It has
+// to be emitted here rather than left to the assembler, and it lands in source
+// order (kb/codegen/0161) -- same device as th04/main/boss/colorfill.cpp.
+#pragma codestring "\x90"
+
+// The whole-screen fill that sub_AED0 -- still ASM, in DEMO_TEXT -- calls twice
+// while setting a stage up: once before the palette is loaded, once after it
+// has been faded to black. It is the TH04/TH05 answer to TH01-TH03's
+// graph_clear_both(): the same access-page-1-then-0 shape, but hand-rolled
+// through the GRCG's TDW mode instead of two graph_clear() calls, which is why
+// the color it leaves behind is 1 rather than 0.
+//
+// TH05's MAIN.EXE has a byte-identical twin at the end of its MB_INV_TEXT
+// (sub_CFEE in th05_main.asm), still ASM. Whoever lifts that one should hoist
+// this body into a shared file rather than copy it.
+
+// DI IS HIDDEN FROM THE COMPILER HERE, for the reason
+// th05/main/boss/colorfill.cpp spells out at length: the original saves DI
+// *after* its port writes, and any mention of DI or _DI makes Turbo C++ put its
+// own `PUSH DI` at the very top of the function instead (kb/codegen/0050). So
+// the save, the restore and both `XOR DI, DI`s are raw bytes.
+#define PUSH_DI() _asm { db 0x57; }
+#define POP_DI()  _asm { db 0x5F; }
+#define XOR_DI()  __emit__(0x33, 0xFF)
+
+// Turbo C++ 4.0J's inline assembler is 16-bit only and can spell neither of
+// these. th03/main/hitc_mrs.cpp emits the same `REP STOSD`.
+#define REP_STOSD()  __emit__(0xF3, 0x66, 0xAB)
+#define OUT_AX(port) __emit__(0xE7, port) /* OUT port, AX */
+
+// grcg_setcolor_direct_constant(1), with a GC_TDW mode switch inside the same
+// interrupt-free window. Neither of th04/hardware/grcg.hpp's helpers can be
+// composed into this shape: the mode `out` sits between the `cli` and the tile
+// register's port number, and grcg_setcolor_direct_constant() owns both the
+// `cli` and the `sti`. 0x80 is GC_TDW, hardcoded the way
+// grcg_setmode_rmw_inlined() hardcodes 0xC0 for GC_RMW -- naming it would mean
+// pulling libs/master.lib/pc98_gfx.hpp into this translation unit for one
+// constant.
+#define grcg_setmode_tdw_and_setcolor_1() { \
+	disable(); \
+	_outportb_(0x7C, 0x80); \
+	_DX = 0x7E; \
+	outportb(_DX, 0xFF); \
+	outportb(_DX, (_AL ^= _AL)); \
+	outportb(_DX, _AL); \
+	outportb(_DX, _AL); \
+	enable(); \
+}
+
+// GRCG off, in the four-byte inline spelling the target uses rather than a call
+// to master.lib's GRCG_OFF (kb/codegen/0061).
+#define GRCG_OFF_INLINE() _asm { \
+	db  	0x32, 0xC0; /* XOR AL, AL */ \
+	out 	0x7C, al; \
+}
+
+void near graph_both_pages_fill_col_1(void)
+{
+	grcg_setmode_tdw_and_setcolor_1();
+	PUSH_DI();
+	_ES = SEG_PLANE_B;
+
+	// A *word* OUT to a byte-wide port, in the original; the hardware ignores
+	// AH. [inferred] a plain `int` page number in ZUN's source, which is what
+	// master.lib's own graph_accesspage() macro takes.
+	_AX = 1;
+	OUT_AX(0xA6);
+	XOR_DI();
+	_CX = (PLANE_SIZE / 4);
+	REP_STOSD();
+
+	// The same two statements, in the other order -- ZUN wrote the page switch
+	// and the counter the other way round for page 0.
+	_AX ^= _AX;
+	OUT_AX(0xA6);
+	_CX = (PLANE_SIZE / 4);
+	XOR_DI();
+	REP_STOSD();
+
+	POP_DI();
+	GRCG_OFF_INLINE();
+}
+
 // Fills the entire playfield with the current GRCG tile register, assuming TDW
 // mode. Unlike TH05's boss_bg_fill_col_0(), it neither enables nor disables the
 // GRCG; both are the caller's job.

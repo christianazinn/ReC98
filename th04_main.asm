@@ -551,7 +551,7 @@ loc_AEF9:
 		mov	random_seed, 318
 
 loc_AF4A:
-		call	main_01:sub_12024
+		call	@graph_both_pages_fill_col_1$qv
 		graph_accesspage 0
 		graph_showpage al
 		push	ds
@@ -560,7 +560,7 @@ loc_AF4A:
 		call	far ptr	palette_show
 		mov	PaletteTone, 0
 		call	far ptr	palette_show
-		call	main_01:sub_12024
+		call	@graph_both_pages_fill_col_1$qv
 		call	@overlay_wipe$qv
 		call	@stage_init$qv
 		nopcall	main_01:hud_put
@@ -2931,72 +2931,72 @@ CFG_LRES_TEXT	ends
 main_013_TEXT	segment	word public 'CODE' use16
 include th04/main/tile/bb_put.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-
-	; A `near` helper with no `public` of its own, whose only two callers
-	; in this binary are bomb_reimu() and bomb_marisa(). Both are C++ now,
-	; and this dump no longer references it at all, so the zero-byte
-	; `label near` alias kb/codegen/0123 prescribes is the only thing
-	; making it reachable; it costs no bytes, and the bare lowercase name
-	; below stays because renaming a `proc` is not what a lift owes. The
-	; underscore is the project's default cdecl decoration, which is what
-	; the `extern "C" void near` declaration in
-	; th04/main/player/bombchar.cpp asks the linker for (kb/codegen/0086).
-	public _playfield_fillm_0_40_384_274
-	_playfield_fillm_0_40_384_274 label near
-playfield_fillm_0_40_384_274	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	  0, 40
-		GRCG_FILL_PLAYFIELD_ROWS	314, 54
-		pop	di
-		retn
-playfield_fillm_0_40_384_274	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-sub_12024	proc near
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		sti
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
+	; What this file still contributes to main_013_TEXT is the single
+	; `include` above. Everything that used to follow it -- two playfield
+	; fills, the alignment byte between them, and the whole-screen fill the
+	; two call sites in sub_AED0 reach -- is th04/main/checkerb.cpp now, in
+	; one #pragma codeseg main_013_TEXT main_01 block at the end of that
+	; file, in the order the original has (kb/codegen 0155 + 0161):
+	;
+	;   playfield_fillm_0_40_384_274()  the bomb backdrop's fill
+	;   the alignment byte              a #pragma codestring
+	;   graph_both_pages_fill_col_1()   what this dump still calls
+	;   playfield_fill()                lifted earlier, unmoved
+	;
+	; None of it needed a carve, a new segment name, a group-list edit or a
+	; Tupfile.lua line. th04/checkerb.cpp was already the next contribution
+	; to this segment, so it simply grows backwards into the hole and every
+	; byte keeps its address: this file's contribution 92h -> 5Ch -> 42h,
+	; the object's 0Eh -> 44h -> 5Eh, segment total unchanged at 0A0h
+	; (kb/codegen 0099 + 0112 + 0114).
+	;
+	; What made any of it possible is the kb/codegen/0148 boundary push that
+	; moved the th04/hardware/grcg_fill_rows.asm include out from behind
+	; playfield_fill() and into CHECKERB_TEXT below. Before that push the
+	; include was this block's tail, and nothing here could ever be lifted.
+	;
+	; The remaining `include` is the tail again, so this block is blocked as
+	; a tail lift -- and THAT IS ALL THAT MEANS. Whether the module itself
+	; can be decompiled turns on whether ZUN compiled it from C, which is a
+	; separate question; state/re/INCLUDE_TAIL_CLASSES.md owns it. Its own
+	; shape argues no: it takes its arguments in AX and DX through `equ`
+	; register aliases, which no C signature expresses.
+	;
+	; playfield_fillm_0_40_384_274()'s kb/codegen/0123 alias went with the
+	; body. Its only two callers, bomb_reimu() and bomb_marisa(), have been
+	; C++ for a while, and the `extern "C" void near` definition publishes
+	; exactly the underscore-decorated name the linker wants, so nothing
+	; here has to spell it any more (kb/codegen/0086).
+	;
+	; graph_both_pages_fill_col_1() is the one this dump still calls, through
+	; the procdesc at the bottom of this block. Both call sites lost their
+	; `main_01:` group override doing it, as every other procdesc'd near
+	; callee in this dump has: only the GROUP of the declaring segment
+	; decides the frame, and this one is main_01 like DEMO_TEXT
+	; (kb/codegen 0064, 0082).
+	;
+	; DI is kept invisible to Turbo C++ inside that function, the way
+	; th05/main/boss/colorfill.cpp keeps it invisible: the original saves DI
+	; AFTER its port writes, and the compiler's own register save would land
+	; at the very top of the function instead (kb/codegen/0050). Its
+	; rep stosd and its two word-wide out 0A6h, ax are raw bytes for a
+	; related reason -- Turbo C++ 4.0J's inline assembler is 16-bit only.
+	;
+	; TH05's MAIN.EXE holds a byte-identical twin of that function at the
+	; end of its MB_INV_TEXT (sub_CFEE in th05_main.asm), still ASM and
+	; still uncalled from C++ there. Whoever lifts it should hoist the C++
+	; body into a shared file rather than copy it.
+	;
+	; kb/codegen/0121, MEASURED rather than assumed: the assume es:nothing
+	; below is the one the deleted whole-screen fill set after its
+	; `mov es, ax`, and it was in force for the whole rest of this file. A
+	; block that no longer contains a body still has to leave that state
+	; behind for everything after it. th04/main/tile/bb_put.asm, still
+	; included above, sets the same assumption today, so the line is
+	; redundant right now -- and it stops being redundant the day that
+	; module is decompiled away.
 		assume es:nothing
-		mov	ax, 1
-		out	0A6h, ax
-		xor	di, di
-		mov	cx, (PLANE_SIZE / 4)
-		rep stosd
-		xor	ax, ax
-		out	0A6h, ax
-		mov	cx, (PLANE_SIZE / 4)
-		xor	di, di
-		rep stosd
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_12024	endp
-
-; playfield_fill() was this block tail, and is th04/main/checkerb.cpp now: a
-; single GRCG_FILL_PLAYFIELD_ROWS that th04/hardware/grcg.hpp already spells
-; as a macro, in a #pragma codeseg main_013_TEXT main_01 block at the end of
-; that file (kb/codegen 0155). No ASM references it any more, so it needs
-; neither a kb/codegen/0123 alias nor a procdesc here; th04/main/boss/bg.cpp
-; declares it for its own callers. The include that used to sit behind it,
-; and that blocked every proc here from ever being lifted, is now the head
-; of CHECKERB_TEXT below.
+	@graph_both_pages_fill_col_1$qv procdesc near
 main_013_TEXT	ends
 
 CHECKERB_TEXT	segment	byte public 'CODE' use16
