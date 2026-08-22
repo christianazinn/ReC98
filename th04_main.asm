@@ -3242,27 +3242,27 @@ sub_12024	proc near
 		retn
 sub_12024	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-; th04/main/boss/bg.cpp's yuuka6_bg_render() is the first C++ caller of
-; this proc, and a bare dump label is private to its object, so it needs
-; the same zero-byte alias its neighbour playfield_fillm_0_40_384_274
-; already carries (kb/codegen 0123).
-public _playfield_fill
-_playfield_fill label near
-playfield_fill	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	0, PLAYFIELD_H
-		pop	di
-		retn
-playfield_fill	endp
-
-include th04/hardware/grcg_fill_rows.asm
+; playfield_fill() was this block tail, and is th04/main/checkerb.cpp now: a
+; single GRCG_FILL_PLAYFIELD_ROWS that th04/hardware/grcg.hpp already spells
+; as a macro, in a #pragma codeseg main_013_TEXT main_01 block at the end of
+; that file (kb/codegen 0155). No ASM references it any more, so it needs
+; neither a kb/codegen/0123 alias nor a procdesc here; th04/main/boss/bg.cpp
+; declares it for its own callers. The include that used to sit behind it,
+; and that blocked every proc here from ever being lifted, is now the head
+; of CHECKERB_TEXT below.
 main_013_TEXT	ends
 
 CHECKERB_TEXT	segment	byte public 'CODE' use16
+; kb/codegen/0148 boundary push. This include was main_013_TEXT tail. This
+; segment is the next one in the same main_01 group and started exactly
+; where main_013_TEXT ended, so moving the include moves the BOUNDARY and
+; not one byte: main_013_TEXT loses the 0Eh bytes this emits, this segment
+; now starts 0Eh earlier, and th04/checkerb.cpp keeps the address it already
+; had. The assume cs:main_01 far above is what keeps every
+; GRCG_FILL_PLAYFIELD_ROWS call to _grcg_fill_playfield_rows near across the
+; new boundary. The push is PERMANENT: this contribution can never go back
+; to zero, which is the price 0148 charges for unblocking the segment.
+include th04/hardware/grcg_fill_rows.asm
 	@playfield_checkerboard_grcg_tdw_$qv procdesc near
 CHECKERB_TEXT	ends
 

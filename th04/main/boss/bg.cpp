@@ -34,16 +34,16 @@
 #include "th04/main/tile/bb.hpp"
 #include "th04/sprites/main_cdg.h"
 
-/// Still ASM
-/// ---------
-// Fills the entire playfield with the current GRCG tile register, assuming
-// TDW mode. th04_main.asm's main_013_TEXT, a GRCG_FILL_PLAYFIELD_ROWS pair
-// with an ES:DI __usercall callee — the same hand-written shape as its
-// neighbor playfield_fillm_0_40_384_274() (th04/main/player/bombchar.cpp).
-// Unlike TH05's boss_bg_fill_col_0(), it neither enables nor disables the
-// GRCG; both are the caller's job.
+// playfield_fill() fills the playfield with the current GRCG tile register,
+// assuming TDW mode; unlike TH05's boss_bg_fill_col_0() it neither enables
+// nor disables the GRCG, both being the caller's job. th04/main/checkerb.cpp
+// now, kept in main_013_TEXT by a #pragma codeseg block and declared HERE
+// rather than in th04/main/checkerb.hpp, whose inclusion at the head of that
+// TU would bind it to CHECKERB_TEXT and defeat the pragma (kb/codegen 0155).
 extern "C" void near playfield_fill(void);
 
+/// Still ASM
+/// ---------
 // See th04/main/tile/tile.hpp for the reason why this declaration is
 // necessary. elly_invalidate() below is an SPPoint caller.
 extern "C" void pascal near tiles_invalidate_around(const SPPoint center);

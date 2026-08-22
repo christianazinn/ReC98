@@ -164,3 +164,34 @@ void near playfield_checkerboard_grcg_tdw_update_and_render(void)
 	#undef loops
 	#undef loops_and_vo_x
 }
+
+// ZUN's object for this code segment also held the two playfield fills at the
+// end of main_013_TEXT, and this one is the segment's new tail (kb/codegen
+// 0148 pushed the th04/hardware/grcg_fill_rows.asm include that used to sit
+// behind it into CHECKERB_TEXT). #pragma codeseg puts it back into
+// main_013_TEXT from this object, which costs no new translation unit and no
+// Tupfile.lua line; the group has to be named because the call below is NEAR
+// into a segment this object does not otherwise touch.
+//
+// THIS FILE MUST NOT DECLARE playfield_fill() ABOVE THIS POINT, and must not
+// include a header that does: #pragma codeseg binds a function to a segment at
+// its FIRST DECLARATION, so a declaration read under the default CHECKERB_TEXT
+// would emit the definition 0xE bytes late, into CHECKERB_TEXT, and the build
+// would still link and run (kb/codegen 0155). th04/main/boss/bg.cpp declares
+// it locally for its own callers, which is a different translation unit.
+//
+// -k- is already in force from the top of this file: the original has no stack
+// frame at all, `push di` is its first instruction, and that push is Turbo
+// C++'s own, inserted because the grcg_fill_playfield_rows_at() macro writes
+// _DI (kb/codegen 0050).
+#pragma codeseg main_013_TEXT main_01
+
+// Fills the entire playfield with the current GRCG tile register, assuming TDW
+// mode. Unlike TH05's boss_bg_fill_col_0(), it neither enables nor disables the
+// GRCG; both are the caller's job.
+extern "C" void near playfield_fill(void)
+{
+	grcg_fill_playfield_rows_at(0, PLAYFIELD_H);
+}
+
+#pragma codeseg
