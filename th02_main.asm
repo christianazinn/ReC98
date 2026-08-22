@@ -6631,36 +6631,10 @@ sigma_init	proc far
 sigma_init	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_end
-_sigma_end label far
-sigma_end	proc far
-		push	bp
-		mov	bp, sp
-		call	@dialog_pre$qv
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_POSTBOSS
-		call	@stage_extra_clear_bonus_animate$qv
-		call	@key_delay$qv
-		les	bx, _resident
-		mov	es:[bx+mikoconfig_t.stage], 7Fh
-		mov	eax, _score
-		imul	eax, 10
-		movzx	edx, es:[bx+mikoconfig_t.continues_used]
-		add	eax, edx
-		mov	es:[bx+mikoconfig_t.score], eax
-		call	@scoredat_extra_cleared_set$qv
-		call	@GameExecl$qnxc c, offset aMaine, ds	; "maine"
-		pop	bp
-		retf
-sigma_end	endp
-
-
-; THREE objects pick this segment up from here, in link order, and that order
+; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
+;   th02/main/boss/b6.cpp       sigma_end()
 ;   th02/main/enemy/update.cpp  nullfunc_void_2
 ;                               enemies_reset()
 ;                               enemies_callbacks_null()
@@ -6680,8 +6654,9 @@ sigma_end	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_end(), and the first of
-; those objects picks the segment up from the byte after that proc's `retf`.
+; So th02_main.asm contributes nothing below sigma_update(), and the first of
+; those objects picks the segment up from the byte after that proc's `retf`,
+; which is 0FAC:6F61.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
@@ -6703,10 +6678,26 @@ sigma_end	endp
 ; have gone alone, and the running sums of the first six were 0xA2, 0x12D,
 ; 0x19A, 0x1B9, 0x1EF, 0x20C -- only the 1st, 3rd and 6th admissible.
 ;
-; The ladder from the CURRENT tail, for whoever takes the next one:
-; sigma_end() 0x45 ODD, +sigma_init() 0xB6 = 0xFB ODD, +sigma_update() 0x227
-; = 0x322 EVEN. So Sigma cannot be lifted a proc at a time from this end --
-; the shallowest admissible group is all three, 802 bytes.
+; THAT EVEN-SIZED GROUPING RULE BELONGS TO THE HOST OBJECT, NOT TO THIS
+; SEGMENT, and Sigma is the measurement that separates the two. The ladder
+; from her end reads sigma_end() 0x45 ODD, +sigma_init() 0xB6 = 0xFB still
+; ODD, +sigma_update() 0x227 = 0x322 EVEN -- so the shallowest group that
+; could be PREPENDED into th02/main/enemy/update.cpp was all three, 802
+; bytes. sigma_end() was lifted ALONE anyway, into a NEW object
+; (th02/main/boss/b6.cpp) inserted ahead of update.cpp in the link list, and
+; the whole segment came out IDENTICAL. `[measured 2026-08-21]` A new object
+; of exactly the length the root gives up has no parity to protect: every
+; BOSS_5_TEXT contribution in obj/th02/main.map carries ACBP=28, i.e. BYTE
+; segment alignment, so TLINK inserts nothing between contributions and the
+; odd 0x356B this root now ends at costs nothing; update.cpp's own
+; object-local offsets never move, so the pad under enemy_run()'s tables is
+; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
+; Cost a new object before you cost an 802-byte group.
+;
+; sigma_init() 0xB6 and sigma_update() 0x227 are the tail now. Either goes
+; alone at the TOP of b6.cpp, which is where Sigma belongs; prepending both
+; into update.cpp instead needs 0xB6 + 0x227 = 0x2DD, which is ODD and so
+; not admissible there at all. Read the lengths off obj_probe.py, never here.
 ;
 ; Lifting the previous two took back the `retf` that the enemy_run() parcel
 ; had borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
@@ -7757,6 +7748,8 @@ aStage5b1_bft	db 'stage5b1.bft',0
 aStage5b2_bft	db 'stage5b2.bft',0
 aBoss5_m	db 'boss5.m',0
 ; char aMaine[]
+public _aMaine
+_aMaine		label byte
 aMaine		db 'maine',0
 ; The [spawn_grid] row enemies_spawn() will read next. Reset to 0 by
 ; sub_16A6B(), which also frees every [enemies] slot. Nothing else writes
