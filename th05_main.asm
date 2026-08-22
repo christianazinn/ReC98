@@ -5763,608 +5763,6 @@ BX_UPDATE_TEXT	ends
 
 BX_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E8DA	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		add	ax, -48
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (6 shl 16) or 7
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1E900
-		mov	_boss_sprite, 181
-		call	snd_se_play pascal, 8
-
-loc_1E900:
-		cmp	_boss_phase_frame, 64
-		jl	short loc_1E91E
-		call	fp_2CE66
-		or	al, al
-		jz	short loc_1E91E
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1E91E:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1E8DA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E922	proc near
-		push	bp
-		mov	bp, sp
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (2 shl 4) + 8
-		mov	_bullet_template.speed, al
-		call	@randring2_next16_and$qui pascal, 7Fh
-		and	al, -8
-		sub	al, 40h
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 5
-		call	_bullets_add_regular
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1E967
-		call	snd_se_play pascal, 3
-
-loc_1E967:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1E974
-		mov	ax, 1
-		jmp	short loc_1E976
-; ---------------------------------------------------------------------------
-
-loc_1E974:
-		xor	ax, ax
-
-loc_1E976:
-		pop	bp
-		retn
-sub_1E922	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1E978	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1E98B
-		mov	al, 1
-		sub	al, _boss_statebyte[15]
-		mov	_boss_statebyte[15], al
-
-loc_1E98B:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1E9F9
-		mov	_bullet_template.spawn_type, BST_CLOUD_BACKWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.speed, (4 shl 4)
-		cmp	_boss_statebyte[15], 0
-		jz	short loc_1E9B0
-		mov	al, _bullet_template.BT_angle
-		add	al, 2
-		jmp	short loc_1E9B5
-; ---------------------------------------------------------------------------
-
-loc_1E9B0:
-		mov	al, _bullet_template.BT_angle
-		add	al, -2
-
-loc_1E9B5:
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_special_motion, BSM_DECELERATE_THEN_TURN_AIMED
-		mov	_bullet_special_turns_max, 1
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 12
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1E9E4
-		call	_bullets_add_regular
-		jmp	short loc_1E9F2
-; ---------------------------------------------------------------------------
-
-loc_1E9E4:
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 8
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		call	_bullets_add_special
-
-loc_1E9F2:
-		call	snd_se_play pascal, 3
-
-loc_1E9F9:
-		mov	ax, _boss_phase_frame
-		add	ax, -100
-		call	@boss_flystep_random$qi pascal, ax
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1EA10
-		mov	ax, 1
-		jmp	short loc_1EA12
-; ---------------------------------------------------------------------------
-
-loc_1EA10:
-		xor	ax, ax
-
-loc_1EA12:
-		pop	bp
-		retn
-sub_1E978	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1EA14	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1EA2E
-		mov	_boss_statebyte[14], 40h
-		mov	_boss_statebyte[13], 0
-		mov	_pellet_bottom_col, 7
-
-loc_1EA2E:
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1EB0C
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1EAE3
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	word ptr _bullet_template.spread, (6 shl 8) or 5
-		mov	_bullet_template.speed, (5 shl 4)
-		mov	al, _boss_statebyte[14]
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, _bullet_template.BT_angle
-		neg	al
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		cmp	_boss_statebyte[13], 0
-		jnz	short loc_1EA96
-		mov	al, _boss_statebyte[14]
-		add	al, -3
-		mov	_boss_statebyte[14], al
-		cmp	_boss_statebyte[14], 14h
-		ja	short loc_1EAA9
-		inc	_boss_statebyte[13]
-		jmp	short loc_1EAA9
-; ---------------------------------------------------------------------------
-
-loc_1EA96:
-		mov	al, _boss_statebyte[14]
-		add	al, 3
-		mov	_boss_statebyte[14], al
-		cmp	_boss_statebyte[14], 40h
-		jb	short loc_1EAA9
-		dec	_boss_statebyte[13]
-
-loc_1EAA9:
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EAE3
-		call	@randring2_next16_mod$qui pascal, (96 shl 4)
-		add	ax, _bullet_template.BT_origin.x
-		sub	ax, (48 shl 4)
-		mov	point_2CE52.x, ax
-		call	@randring2_next16_mod$qui pascal, (64 shl 4)
-		add	ax, _bullet_template.BT_origin.y
-		sub	ax, (32 shl 4)
-		mov	point_2CE52.y, ax
-		call	@player_angle_from$qiiuc pascal, point_2CE52.x, ax, 0
-		mov	_boss_statebyte[15], al
-
-loc_1EAE3:
-		mov	ax, point_2CE52.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, point_2CE52.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_SINGLE
-		mov	_bullet_template.speed, (6 shl 4)
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		call	_bullets_add_regular
-
-loc_1EB0C:
-		mov	ax, _boss_phase_frame
-		mov	bx, 128
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EB39
-		push	bx
-		mov	ax, _boss_phase_frame
-		mov	bx, 256		; amp
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EB2C
-		mov	ax, 1
-		jmp	short loc_1EB2E
-; ---------------------------------------------------------------------------
-
-loc_1EB2C:
-		xor	ax, ax
-
-loc_1EB2E:
-		push	ax	; is_right
-		call	@firewaves_add$qiuc
-		call	snd_se_play pascal, 13
-
-loc_1EB39:
-		cmp	_boss_phase_frame, 256
-		jl	short loc_1EB4E
-		mov	ax, _boss_phase_frame
-		and	ax, 7Fh
-		add	ax, -96
-		call	@boss_flystep_random$qi pascal, ax
-
-loc_1EB4E:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1EA14	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1EB52	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1EBF0
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, 12
-		mov	_bullet_template.speed, al
-		call	@randring2_next16_and$qui pascal, 7Fh
-		add	al, 80h
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.BT_special_motion, BSM_GRAVITY
-		mov	_bullet_special_speed_delta, 1
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_BLUE
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 3
-		call	_bullets_add_special
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EBF0
-		call	snd_se_play pascal, 3
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		call	@randring2_next16_mod$qui pascal, (96 shl 4)
-		sub	ax, (48 shl 4)
-		add	ax, _bullet_template.BT_origin.x
-		mov	_bullet_template.BT_origin.x, ax
-		call	@randring2_next16_mod$qui pascal, (64 shl 4)
-		sub	ax, (32 shl 4)
-		add	ax, _bullet_template.BT_origin.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		mov	_bullet_template.speed, (3 shl 4)
-		mov	word ptr _bullet_template.BT_stack, (6 shl 8) or 4
-		mov	_bullet_template.BT_angle, 0
-		call	_bullets_add_regular
-
-loc_1EBF0:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1EBFD
-		mov	ax, 1
-		jmp	short loc_1EBFF
-; ---------------------------------------------------------------------------
-
-loc_1EBFD:
-		xor	ax, ax
-
-loc_1EBFF:
-		pop	bp
-		retn
-sub_1EB52	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1EC01	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1EC14
-		mov	al, 1
-		sub	al, _boss_statebyte[15]
-		mov	_boss_statebyte[15], al
-
-loc_1EC14:
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EC5B
-		mov	_bullet_template.spawn_type, BST_CLOUD_BACKWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.speed, (5 shl 4) + 8
-		cmp	_boss_statebyte[15], 0
-		jz	short loc_1EC39
-		mov	al, _bullet_template.BT_angle
-		add	al, 3
-		jmp	short loc_1EC3E
-; ---------------------------------------------------------------------------
-
-loc_1EC39:
-		mov	al, _bullet_template.BT_angle
-		add	al, -3
-
-loc_1EC3E:
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.BT_group, BG_RING
-		mov	word ptr _bullet_template.spread, (8 shl 8) or 22
-		mov	_bullet_template.patnum, PAT_BULLET16_D_BLUE
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1EC5B:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1EC68
-		mov	ax, 1
-		jmp	short loc_1EC6A
-; ---------------------------------------------------------------------------
-
-loc_1EC68:
-		xor	ax, ax
-
-loc_1EC6A:
-		pop	bp
-		retn
-sub_1EC01	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1EC6C	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1EC7B
-		mov	_bullet_template.spread, 8
-
-loc_1EC7B:
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1ECD0
-		mov	_bullet_template.patnum, PAT_BULLET16_D_BLUE
-		mov	_bullet_template.spawn_type, BST_CLOUD_BACKWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_special_motion, BSM_BOUNCE_LEFT_RIGHT_TOP
-		mov	ax, _boss_phase_frame
-		mov	bx, 128
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1ECB9
-		cmp	_bullet_template.spread, 14
-		jnb	short loc_1ECB9
-		inc	_bullet_template.spread
-
-loc_1ECB9:
-		mov	_bullet_special_turns_max, 1
-		mov	al, _bullet_template.BT_angle
-		add	al, 2
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_special
-		call	snd_se_play pascal, 3
-
-loc_1ECD0:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1EC6C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1ECD4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		mov	di, dx
-		mov	_laser_template.LASER_color, 3
-		mov	_laser_template.coords.LASER_width, 8
-		mov	_laser_template.grow_at_age, 47
-		mov	_laser_template.shrink_at_age, 80
-		cmp	_boss_phase_frame, 144
-		jge	short loc_1ED67
-		or	di, di
-		jnz	short loc_1ED46
-		call	@player_angle_from$qiiuc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, 30h
-		mov	_laser_template.coords.angle, al
-		mov	ax, word_22870
-		inc	word_22870
-		call	@laser_fixed_spawn$qi pascal, ax
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.patnum, PAT_BULLET16_D_GREEN
-		mov	_bullet_template.BT_group, BG_RING
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.speed, (4 shl 4)
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 32
-		call	_bullets_add_regular
-		jmp	short loc_1ED67
-; ---------------------------------------------------------------------------
-
-loc_1ED46:
-		cmp	di, 8
-		jnz	short loc_1ED67
-		call	@player_angle_from$qiiuc pascal, _laser_template.coords.origin.x, _laser_template.coords.origin.y, (-30h and 255)
-		mov	_laser_template.coords.angle, al
-		mov	ax, word_22870
-		inc	word_22870
-		call	@laser_fixed_spawn$qi pascal, ax
-
-loc_1ED67:
-		and	word_22870, 0Fh
-		xor	si, si
-		jmp	short loc_1EDA4
-; ---------------------------------------------------------------------------
-
-loc_1ED70:
-		mov	bx, si
-		imul	bx, size laser_t
-		cmp	_lasers[bx].flag, LF_FIXED_WAIT_TO_GROW
-		jnz	short loc_1EDA3
-		test	si, 1
-		jz	short loc_1ED8F
-		mov	bx, si
-		imul	bx, size laser_t
-		mov	al, _lasers[bx].coords.angle
-		inc	al
-		jmp	short loc_1ED9A
-; ---------------------------------------------------------------------------
-
-loc_1ED8F:
-		mov	bx, si
-		imul	bx, size laser_t
-		mov	al, _lasers[bx].coords.angle
-		add	al, -1
-
-loc_1ED9A:
-		mov	bx, si
-		imul	bx, size laser_t
-		mov	_lasers[bx].coords.angle, al
-
-loc_1EDA3:
-		inc	si
-
-loc_1EDA4:
-		cmp	si, 10h
-		jl	short loc_1ED70
-		cmp	_boss_phase_frame, 208
-		jnz	short loc_1EDBB
-		mov	word_22870, 0
-		mov	al, 1
-		jmp	short loc_1EDBD
-; ---------------------------------------------------------------------------
-
-loc_1EDBB:
-		mov	al, 0
-
-loc_1EDBD:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-sub_1ECD4	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1EDC1	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1EE14
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.BT_special_motion, BSM_SPEEDUP
-		mov	_bullet_special_speed_delta, 2
-		mov	_bullet_template.speed, (4 shl 4)
-		mov	word ptr _bullet_template.spread, (9 shl 8) or 7
-		mov	_bullet_template.patnum, PAT_BULLET16_D_GREEN
-		call	@randring2_next16_mod$qui pascal, (48 shl 4)
-		sub	ax, (24 shl 4)
-		add	ax, _bullet_template.BT_origin.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	_bullet_template.BT_angle, 0
-		call	_bullets_add_special
-		call	snd_se_play pascal, 3
-
-loc_1EE14:
-		mov	ax, _boss_phase_frame
-		add	ax, -100
-		call	@boss_flystep_random$qi pascal, ax
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1EE2B
-		mov	ax, 1
-		jmp	short loc_1EE2D
-; ---------------------------------------------------------------------------
-
-loc_1EE2B:
-		xor	ax, ax
-
-loc_1EE2D:
-		pop	bp
-		retn
-sub_1EDC1	endp
-
 	EXALICE_PHASE_NEXT procdesc pascal near \
 		explosion_type_and_next_end_hp:dword
 	@exalice_hittest$qv procdesc far
@@ -6373,21 +5771,38 @@ sub_1EDC1	endp
 	@pattern_aimed_cheetos$qv procdesc near
 	@pattern_aimed_crosses$qv procdesc near
 	@pattern_pingpong_lasers$qv procdesc near
+	@pattern_speedup_spreads$qv procdesc near
+	@pattern_lasers_and_green_rings$qv procdesc near
+	@pattern_bouncing_blue_rings$qv procdesc near
+	@pattern_rotating_blue_rings$qv procdesc near
+	@pattern_gravity_balls_and_stacks$qv procdesc near
+	@pattern_spreads_and_firewaves$qv procdesc near
+	@pattern_rotating_red_rings$qv procdesc near
+	@pattern_random_red_spreads$qv procdesc near
+	@exalice_gather_and_pattern$qv procdesc near
 
 	; kb/codegen/0080's carve, so that a C++ object can append to the
 	; MIDDLE of this segment's original extent rather than to its end.
-	; What is left above is BX_TEXT; exalice_update() and its three jump
-	; tables keep main_036_TEXT; the `db 0` and the pointnum include
-	; below are POINTNUM_TEXT. All three are `byte public`.
+	; BX_TEXT now holds NO ASM at all: this parcel lifted the last nine
+	; procs of it, so the block below emits nothing but declarations and
+	; the object named there is the segment's only contributor.
+	; exalice_update() and its three jump tables keep main_036_TEXT; the
+	; `db 0` and the pointnum include below are POINTNUM_TEXT. All three
+	; are `byte public`.
 	;
 	; th05/main/boss/bx_updt.cpp, compiled through th05/exalice.cpp, is
-	; this segment's C++ contribution and it starts exactly where this
-	; block ends. exalice_phase_next() was the LAST thing the block
-	; contributed -- an `include` of th05/main/boss/bx.asm -- and
-	; exalice_hittest() the proc above it, so both were ordinary
-	; kb/codegen 0099 + 0112 + 0114 prepends, and the fourteen procs
-	; still above are the same. Renaming this segment is NO LONGER
-	; free: that object names it.
+	; that object, and it starts exactly where this block ends -- which
+	; is now the start of the segment. Every proc came out through the
+	; same kb/codegen 0099 + 0112 + 0114 prepend into the front of that
+	; file, starting from the `include` of th05/main/boss/bx.asm that
+	; used to be the last thing this block contributed. Renaming this
+	; segment is NOT free: that object names it.
+	;
+	; A `procdesc` binds its symbol to the segment block it is written
+	; in (kb/codegen 0123), which is why the whole list has to stay here
+	; even with no code left around it: exalice_update() reaches nine of
+	; those symbols through three `call`s and five `mov fp_2CE66, offset`
+	; stores, and [off_22874] in `_DATA` through six more `dw offset`.
 	;
 	; EXALICE_PHASE_NEXT is undecorated and upper-case because that is
 	; what its `public` was, and the packed `dword` is the one argument
@@ -6484,7 +5899,7 @@ loc_1F374:
 		mov	_boss_phase_frame, 0
 		mov	_boss_custombullets_render, offset exalice_custombullets_render
 		mov	_boss_statebyte[15], 0
-		mov	fp_2CE66, offset sub_1E922
+		mov	fp_2CE66, offset @pattern_random_red_spreads$qv
 		mov	_boss_statebyte[9], 0
 		jmp	loc_1F666
 ; ---------------------------------------------------------------------------
@@ -6525,7 +5940,7 @@ loc_1F3BD:
 ; ---------------------------------------------------------------------------
 
 loc_1F400:
-		call	sub_1E8DA
+		call	@exalice_gather_and_pattern$qv
 
 loc_1F403:
 		call	@exalice_hittest$qv
@@ -6544,13 +5959,13 @@ loc_1F412:
 
 loc_1F427:
 		call	exalice_phase_next pascal, large (0 shl 16) or 21000
-		mov	fp_2CE66, offset sub_1EA14
+		mov	fp_2CE66, offset @pattern_spreads_and_firewaves$qv
 		jmp	loc_1F666
 ; ---------------------------------------------------------------------------
 
 loc_1F439:
 		call	exalice_phase_next pascal, (ET_NW_SE shl 16) or 15100
-		mov	fp_2CE66, offset sub_1EC6C
+		mov	fp_2CE66, offset @pattern_bouncing_blue_rings$qv
 		jmp	loc_1F666
 ; ---------------------------------------------------------------------------
 
@@ -6597,7 +6012,7 @@ loc_1F4A6:
 		mov	_palette_changed, 1
 
 loc_1F4BA:
-		call	sub_1E8DA
+		call	@exalice_gather_and_pattern$qv
 		cmp	_boss_phase_frame, 4000
 		jg	short loc_1F4D4
 
@@ -6618,13 +6033,13 @@ loc_1F4D4:
 
 loc_1F4E7:
 		call	exalice_phase_next pascal, (ET_NW_SE shl 16) or 18100
-		mov	fp_2CE66, offset sub_1EB52
+		mov	fp_2CE66, offset @pattern_gravity_balls_and_stacks$qv
 		jmp	short loc_1F523
 ; ---------------------------------------------------------------------------
 
 loc_1F4F8:
 		call	exalice_phase_next pascal, (ET_SW_NE shl 16) or 12600
-		mov	fp_2CE66, offset sub_1ECD4
+		mov	fp_2CE66, offset @pattern_lasers_and_green_rings$qv
 		jmp	short loc_1F523
 ; ---------------------------------------------------------------------------
 
@@ -6697,7 +6112,7 @@ loc_1F5A4:
 ; ---------------------------------------------------------------------------
 
 loc_1F5B0:
-		call	sub_1E8DA
+		call	@exalice_gather_and_pattern$qv
 		or	al, al
 		jz	loc_1F4C5
 		inc	_boss_phase_state
@@ -7335,19 +6750,25 @@ byte_22868	db  10h
 		db 0F0h
 		db    0
 		db    0
-word_22870	dw 0
+; The [lasers] slot pattern_lasers_and_green_rings() spawns its next fixed
+; laser into, cycling 0-15. That pattern was this counter's last reader in
+; ASM, so it is renamed outright rather than aliased -- but the storage stays
+; here, because it is initialised at a fixed address and a definition in
+; th05/main/boss/bx_updt.cpp would move it. [inferred] name.
+public _exalice_laser_slot
+_exalice_laser_slot	dw 0
 ; The X that pattern_mirrored_crosses() spawns from, read and written
 ; from th05/main/boss/bx_updt.cpp through this zero-byte alias
 ; (kb/codegen 0123). Initialised storage, so it stays here.
 public _exalice_pattern_origin_x
 _exalice_pattern_origin_x label word
 word_22872	dw (192 shl 4)
-off_22874	dw offset sub_1E922
-		dw offset sub_1E978
-		dw offset sub_1EB52
-		dw offset sub_1EC01
-		dw offset sub_1ECD4
-		dw offset sub_1EDC1
+off_22874	dw offset @pattern_random_red_spreads$qv
+		dw offset @pattern_rotating_red_rings$qv
+		dw offset @pattern_gravity_balls_and_stacks$qv
+		dw offset @pattern_rotating_blue_rings$qv
+		dw offset @pattern_lasers_and_green_rings$qv
+		dw offset @pattern_speedup_spreads$qv
 		dw offset @pattern_aimed_crosses$qv
 		dw offset @pattern_aimed_cheetos$qv
 public _MIDBOSS5_PATTERNS_PHASE_1
@@ -7754,13 +7175,27 @@ _stage2_bg_pulse_direction label byte
 byte_2CE4C	db ?
 		db ?
 include th04/main/stage/funcs[bss].asm
-point_2CE52	Point <?>
+	; The point pattern_spreads_and_firewaves() aims from and spawns its
+	; single bullets at, re-picked every 16 frames. That pattern was this
+	; label's last reader in ASM, so it is renamed outright rather than
+	; aliased, the way _midboss2_center below is. Uninitialised storage at a
+	; fixed address, so it stays here rather than becoming a variable of
+	; th05/main/boss/bx_updt.cpp. [inferred] name.
+	public _exalice_random_origin
+_exalice_random_origin	Point <?>
 	public _exalice_invincibility_frames
 _exalice_invincibility_frames	db ?
 		evendata
 include th05/main/boss/bx[bss].asm
 	public _exalice_overlay_patnum
 _exalice_overlay_patnum	dw ?
+	; The pattern function exalice_gather_and_pattern() calls, in
+	; th05/main/boss/bx_updt.cpp. exalice_update() still writes it under
+	; IDA's own spelling, from five `mov` sites and out of [off_22874], so
+	; the placeholder stays and the C++ name is a zero-byte alias beside it
+	; (kb/codegen 0123). [inferred] name.
+	public _exalice_pattern
+_exalice_pattern label word
 fp_2CE66	dw ?
 	; The Stage 5 midboss's currently selected phase-1 pattern, read
 	; and written only from th05/main/midboss/m5_updt.cpp. The dump
