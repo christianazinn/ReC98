@@ -6042,7 +6042,7 @@ off_1B3BA	dw offset loc_1B2F7
 		dw offset loc_1B327
 		dw offset loc_1B32C
 
-include th05/main/bullet/b4balls_add.asm
+; B4BALLS_RESET and B4BALLS_ADD are th05/main/bullet/b4balls_add.cpp now.
 
 
 ; Both halves of the Stage 4 solo fight and the ball bullets they share are
@@ -6083,13 +6083,13 @@ include th05/main/bullet/b4balls_add.asm
 ; segment instead of sitting here, because that use comes earlier in the
 ; file than this point does.
 ;
-; This block's root tail is now the `include` of
-; th05/main/bullet/b4balls_add.asm above, so the segment has stopped being
-; carve-free: B4BALLS_RESET and B4BALLS_ADD are that module's content rather
-; than lift targets of their own, and th05/main/bullet/b4ball.hpp already
-; declares both. Lifting the module empties the tail again, and what is then
-; above it is the pair fight proper -- midboss4_update(), mai_yuki_update()
-; and the mai_yuki_* helper block.
+; With B4BALLS_RESET and B4BALLS_ADD gone from the tail above, all four of
+; the functions th05/main/bullet/b4ball.hpp declares are C++, and this
+; block's root tail is the four-entry jump table above that: it is part of
+; what @midboss4_update$qv compiles to, so lifting THAT proc emits the pad
+; and the table itself (kb/codegen 0104 + 0119,
+; state/re/JUMP_TABLE_TAILS.md). Above it, the pair fight proper --
+; mai_yuki_update() and the mai_yuki_* helper block, sub_1B1E5 first.
 
 	; Every body the seven pattern tables in _DATA reach. None carries an
 	; argument list, so TASM leaves the case alone (kb/codegen/0102) -- and

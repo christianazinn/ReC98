@@ -133,6 +133,13 @@ static const int MAI_LASER_SLOTS = 10;
 // depicts has not been decided, only where it is.
 static const int PAT_MAI_ANIMATED = (PAT_MAI + 12);
 
+// The ball bullets' reset and spawn functions, which sit above the state
+// update in this segment and are therefore the first two bodies this object
+// emits. They replace the assembly module th05_main.asm included at the end of
+// its main_035_TEXT contribution, so this include has to come before the one
+// below.
+#include "th05/main/bullet/b4balls_add.cpp"
+
 // The ball bullets' state update, which sits above Yuki's half in this segment
 // and is therefore the FIRST body this object emits. Included from here for
 // the same two reasons the Yuki include below carries: nothing above this line
