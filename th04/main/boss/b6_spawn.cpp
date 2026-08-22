@@ -43,8 +43,16 @@
 // this file is the LAST thing bg.cpp includes -- nothing in the object is
 // compiled after them, so they cannot change the codegen of a function that is
 // already matched. `[measured]`: both files are themselves guarded, and of
-// their unguarded members only th03/snd/snd.h is unguarded at all, which
-// nothing else in this translation unit reaches.
+// their members only th03/snd/snd.h is unguarded at all, which nothing else in
+// this translation unit reaches.
+//
+// The other five procs this segment holds are NOT here, and that is measured:
+// yuuka6_customs_update() makes near calls into main_03, and this object's
+// `-zP` names main_01, which frames them on the wrong group. One of those
+// fixups overflowed and the rest would have linked to silent garbage
+// (kb/codegen/0104). All five live in th04/main/boss/b6_next.cpp, whose object
+// is `-zPmain_03` and whose zero-byte B6_SPAWN_TEXT block TLINK already places
+// immediately after this one -- which is also their original address order.
 #include "th04/snd/snd.h"
 #include "th04/main/player/player.hpp"
 

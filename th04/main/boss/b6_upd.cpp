@@ -42,7 +42,7 @@ static const int YUUKA6_HP = 13300;
 // included for the reason at the top of this file.
 static const int PHASE2_FLY_PATHS = 2;
 
-// Where yuuka6_1A439() is asked to fly to, in every phase that asks.
+// Where yuuka6_teleport_to() is asked to fly to, in every phase that asks.
 static const int FLY_TARGET_Y = 80;
 /// ---------
 
@@ -50,27 +50,44 @@ static const int FLY_TARGET_Y = 80;
 /// ---------
 /// Everything below sat above this function in ZUN's object and is `static`
 /// there, so each one needed publishing to become linkable (kb/codegen/0123).
-/// The seventeen `yuuka6_1?????` names are the dump's own address-suffixed
-/// ones and **a naming round is owed for all of them**; every one of them is
-/// reached from the `switch(boss.mode)` chains below and from nowhere else.
+/// The remaining address-suffixed names are the dump's own and **a naming round
+/// is still owed for those**; every one of them is reached from the
+/// `switch(boss.mode)` chains below and from nowhere else. FIVE of the
+/// seventeen are named as of MATCH-TH04-MAIN-034-CHAIN, which lifted them.
 ///
 /// Two spellings, and the difference is the calling convention the dump's
-/// `public` records: a `pascal` function publishes as the bare UPPERCASE name,
-/// so `yuuka6_1A439` needed only a `public` line, while the `extern "C"` near
-/// ones publish as `_name` and each needed a zero-byte `label near` alias.
+/// `public` records: a `pascal` function publishes as the bare UPPERCASE name
+/// and so needed only a `public` line, while the `extern "C"` near ones publish
+/// as `_name` and each needed a zero-byte `label near` alias.
 extern "C" {
-	// Runs on every frame of the fight, after the phase dispatch: Yuuka's own
-	// sprite animation and everything she owns that moves.
-	void near yuuka6_1A110(void);
+	// The first five are C++ now, in th04/main/boss/b6_spawn.cpp, and named:
+	// MATCH-TH04-MAIN-034-CHAIN carved B6_SPAWN_TEXT out of the head of this
+	// segment and lifted every proc that used to sit above the b6_anim.asm
+	// `include`. The `codeseg` pair is what keeps this translation unit's view
+	// of them in that segment rather than in this one; two declarations of one
+	// function under two different code segments is a defect that links, runs
+	// and shows up only in the map (kb/codegen 0080 + 0155).
+	//
+	// One of the four names is a correction rather than a coinage. The
+	// declaration here used to say yuuka6_teleport_to() "flies Yuuka to the given
+	// point", which was never measured and is false: it VANISHES her, assigns
+	// the position in a single frame while she is invisible, and brings her
+	// back. Hence yuuka6_teleport_to().
+#pragma codeseg B6_SPAWN_TEXT main_03
+	// One frame of every chasing cross and of the safety circle. Runs on every
+	// frame of the fight, after the phase dispatch.
+	void near yuuka6_customs_update(void);
 
-	// Flies Yuuka to the given point, and returns `true` once she is there.
-	// The only one of the seventeen that takes arguments.
-	bool pascal near yuuka6_1A439(subpixel_t x, subpixel_t y);
+	// Vanishes Yuuka, moves her to the given point, and brings her back.
+	// `true` once that is over. The only one of the seventeen with arguments.
+	bool pascal near yuuka6_teleport_to(subpixel_t x, subpixel_t y);
 
-	void near yuuka6_1A4A8(void);
+	// Sweeps her left and right, with her y on a sine wave.
+	void near yuuka6_fly_sine(void);
 
-	// Returns `true` once whatever it is running has finished.
-	bool near yuuka6_1A503(void);
+	// Walks her back to the centre of the playfield. `true` once she is there.
+	bool near yuuka6_return_to_center(void);
+#pragma codeseg
 
 	// Phase 2's three patterns.
 	void near yuuka6_1AB5D(void);
@@ -128,8 +145,12 @@ extern "C" {
 }
 
 // The one that is not `extern "C"`: the dump spells it with a lower-case C++
-// mangled name, which is what a non-`pascal` C++ function publishes as.
+// mangled name, which is what a non-`pascal` C++ function publishes as. Also
+// in B6_SPAWN_TEXT now, so it takes the same `codeseg` binding as the four
+// above.
+#pragma codeseg B6_SPAWN_TEXT main_03
 bool near yuuka6_phase2_fly(void);
+#pragma codeseg
 
 // th04/main/boss/b6.cpp's yuuka6_sprite_flag_t, restated as the two
 // enumerators this function needs rather than included — see the top.
@@ -221,7 +242,7 @@ phase_2_over:
 
 	case 3:
 		boss.phase_frame++;
-		if(yuuka6_1A439(TO_SP(PLAYFIELD_W / 2), TO_SP(FLY_TARGET_Y))) {
+		if(yuuka6_teleport_to(TO_SP(PLAYFIELD_W / 2), TO_SP(FLY_TARGET_Y))) {
 			boss.phase++;
 			boss.phase_frame = 0;
 			boss.phase_state.patterns_seen = 0;
@@ -236,7 +257,7 @@ phase_2_over:
 			yuuka6_1AD6F();
 			break;
 		case 255:
-			if(yuuka6_1A439(
+			if(yuuka6_teleport_to(
 				(randring2_next16_mod(TO_SP(288)) + TO_SP(48)),
 				TO_SP(FLY_TARGET_Y)
 			)) {
@@ -279,7 +300,7 @@ phase_4_over:
 	case 10:
 		yuuka6_1ADDB();
 		boss.phase_frame++;
-		yuuka6_1A4A8();
+		yuuka6_fly_sine();
 		if(boss.phase_frame < 320) {
 			break;
 		}
@@ -298,7 +319,7 @@ phase_4_over:
 	case 7:
 	case 11:
 		boss_hittest_shots();
-		if(!yuuka6_1A503()) {
+		if(!yuuka6_return_to_center()) {
 			break;
 		}
 		boss.phase++;
@@ -326,7 +347,7 @@ phase_4_over:
 			yuuka6_1B313();
 			break;
 		case 255:
-			if(yuuka6_1A439(
+			if(yuuka6_teleport_to(
 				(randring2_next16_mod(TO_SP(144)) + TO_SP(48)),
 				TO_SP(FLY_TARGET_Y)
 			)) {
@@ -378,7 +399,7 @@ frame_only:
 
 	case 13:
 		boss_hittest_shots_invincible();
-		if(!yuuka6_1A503()) {
+		if(!yuuka6_return_to_center()) {
 			break;
 		}
 		boss.phase++;
@@ -472,6 +493,6 @@ phase_14_over:
 	homing_target.x.v = boss.pos.cur.x.v;
 	homing_target.y.v = boss.pos.cur.y.v;
 	thicklasers_update_and_hittest();
-	yuuka6_1A110();
+	yuuka6_customs_update();
 	hud_hp_update_and_render(boss.hp, YUUKA6_HP);
 }
