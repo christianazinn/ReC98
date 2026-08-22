@@ -33,9 +33,10 @@
 ///   two boss renderers don't.
 /// • There are no entrance circles. Instead, the fight is split across the
 ///   four states of Yuuka's warp animation, and two of those draw a circle.
-/// • The function ends by rendering the thick lasers, which no other
-///   [boss_fg_render] does from C++ – yuuka6_fg_render() and
-///   gengetsu_fg_render() are still ASM, and do the same thing.
+/// • The function ends by rendering the thick lasers, which only one other
+///   [boss_fg_render] does – yuuka6_fg_render(), C++ as of
+///   MATCH-TH04-MAIN-012-HEAD-CARVE (th04/main/boss/b6_fg.cpp).
+///   gengetsu_fg_render() is the third, and is still ASM.
 
 #include "platform.h"
 #include "pc98.h"

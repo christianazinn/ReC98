@@ -45,8 +45,9 @@ void pascal near yuuka5_fg_render(void);
 void pascal  far yuuka5_update(void);
 
 // Yuuka's Stage 6 fight. yuuka6_bg_render() is already C++
-// (th04/main/boss/bg.cpp); the other two are still in th04_main.asm, which
-// publishes them under their mangled UPPER-case spelling for this header.
+// (th04/main/boss/bg.cpp) and so is yuuka6_fg_render()
+// (th04/main/boss/b6_fg.cpp); yuuka6_update() is still in th04_main.asm, which
+// publishes it under its mangled UPPER-case spelling for this header.
 void pascal near yuuka6_bg_render(void);
 void pascal near yuuka6_fg_render(void);
 void pascal  far yuuka6_update(void);
