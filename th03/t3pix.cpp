@@ -305,12 +305,12 @@ static void t3pix_stream_header_fill(uint8_t far *header)
 	t3pix_u16_put(&header[20], 80);
 	t3pix_u32_put(&header[22], T3PIX_PLANE_RAW_SIZE);
 	t3pix_u16_put(&header[26], T3PIX_TRAM_RAW_SIZE);
-	t3pix_u32_put(&header[28], 0x33D35C50UL);
-	t3pix_u32_put(&header[32], 0x00000414UL);
+	t3pix_u32_put(&header[28], 0x43028F09UL);
+	t3pix_u32_put(&header[32], 0x00000415UL);
 	header[36] = 'R'; header[37] = 'e'; header[38] = 'p'; header[39] = 'l';
 	header[40] = 'a'; header[41] = 'y'; header[42] = '-'; header[43] = '0';
 	header[44] = '.'; header[45] = '4'; header[46] = '.'; header[47] = '1';
-	header[48] = '4';
+	header[48] = '5';
 	t3pix_u16_put(&header[50], T3PIX_GAIJI_RAW_SIZE);
 	t3pix_u32_put(&header[52], T3PIX_RAW_PAYLOAD_SIZE);
 }
