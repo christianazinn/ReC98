@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -1243,7 +1243,9 @@ BOSS_EXP_TEXT	ends
 ; lift: they are the exact mirror of the nineteen shot_reimu_* procs that
 ; PLAYER_B_TEXT gave up for free once its own tail came out. Carving the head
 ; costs one segment name and one group entry and reaches all nineteen through
-; kb/codegen/0114, because each lift leaves the next proc at the seam.
+; kb/codegen/0114, because each lift leaves the next proc at the seam. ALL
+; NINETEEN have now landed, over four parcels, none of which needed a second
+; carve.
 P_MARISA_TEXT	segment	byte public 'CODE' use16
 	; shot_marisa_l0() and shot_marisa_l1() now live in
 	; th04/main/player/p_marisa.cpp, which th04/p_marisa.cpp compiles into this
@@ -1269,9 +1271,10 @@ P_MARISA_TEXT	segment	byte public 'CODE' use16
 	; carrying one the previous parcel added for TASM's extended CALL is gone
 	; with its last call site.
 	;
-	; The eight A levels get one procdesc each, for the same reason the two
-	; levels above do: SHOT_FUNCS_MARISA_A further down takes their offsets,
-	; and that table keeps the lower-case spelling.
+	; The sixteen A and B levels get one procdesc each, for the same reason
+	; the two levels above do: SHOT_FUNCS_MARISA_A and SHOT_FUNCS_MARISA_B
+	; further down take their offsets, and both tables keep the lower-case
+	; spelling.
 	SHOT_MARISA_A_L2 procdesc pascal near
 	SHOT_MARISA_A_L3 procdesc pascal near
 	SHOT_MARISA_A_L4 procdesc pascal near
@@ -1280,676 +1283,29 @@ P_MARISA_TEXT	segment	byte public 'CODE' use16
 	SHOT_MARISA_A_L7 procdesc pascal near
 	SHOT_MARISA_A_L8 procdesc pascal near
 	SHOT_MARISA_A_L9 procdesc pascal near
+	SHOT_MARISA_B_L2 procdesc pascal near
+	SHOT_MARISA_B_L3 procdesc pascal near
+	SHOT_MARISA_B_L4 procdesc pascal near
+	SHOT_MARISA_B_L5 procdesc pascal near
+	SHOT_MARISA_B_L6 procdesc pascal near
+	SHOT_MARISA_B_L7 procdesc pascal near
+	SHOT_MARISA_B_L8 procdesc pascal near
+	SHOT_MARISA_B_L9 procdesc pascal near
 P_MARISA_TEXT	ends
 
 ; Harness carve (kb/codegen/0080): what is left of the head of the original
-; `main_TEXT` contribution once shot_marisa_l0(), shot_marisa_l1(),
-; shot_laser_update() and the eight shot_marisa_a_l2..a_l9 moved out of it
-; into the P_MARISA_TEXT anchor above. A C++ object still appends GameExecl()
-; at its original address in the MIDDLE of this segment. Same
+; `main_TEXT` contribution once ALL NINETEEN of Marisa's shot control procs
+; -- shot_marisa_l0(), shot_marisa_l1(), shot_laser_update(), the eight
+; shot_marisa_a_l2..a_l9 and the eight shot_marisa_b_l2..b_l9, together with
+; the four generated jump tables the last four of those compile to -- moved
+; out of it into the P_MARISA_TEXT anchor above. What is left of this block is
+; shot_laser_render() alone, which is blocked on its body rather than on
+; layout, plus the tail this segment always had. A C++ object still appends
+; GameExecl() at its original address in the MIDDLE of this segment. Same
 ; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
 ; none of the deleted bodies carried an `assume`, so there is nothing to
 ; restore.
 EXECL_TEXT	segment	byte public 'CODE' use16
-
-shot_marisa_b_l2	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, 3
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DDEA
-; ---------------------------------------------------------------------------
-
-loc_DDA9:
-		cmp	di, 1
-		jg	short loc_DDC8
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		push	ax
-		push	7
-		call	@randring1_next16_and$qui
-		add	al, -44h
-		push	ax
-		call	@shot_velocity_set$qp7sppointuc
-		mov	[si+shot_t.damage], 10
-		jmp	short loc_DDE7
-; ---------------------------------------------------------------------------
-
-loc_DDC8:
-		cmp	di, 3
-		jnz	short loc_DDD4
-		sub	[si+shot_t.pos.cur.x], (24 shl 4)
-		jmp	short loc_DDD9
-; ---------------------------------------------------------------------------
-
-loc_DDD4:
-		add	[si+shot_t.pos.cur.x], (24 shl 4)
-
-loc_DDD9:
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 6
-
-loc_DDE7:
-		dec	di
-		jle	short loc_DDF3
-
-loc_DDEA:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DDA9
-
-loc_DDF3:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-shot_marisa_b_l2	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_b_l3	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, 4
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DE4F
-; ---------------------------------------------------------------------------
-
-loc_DE0C:
-		cmp	di, 2
-		jg	short loc_DE2D
-		cmp	di, 2
-		jnz	short loc_DE1D
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_DE22
-; ---------------------------------------------------------------------------
-
-loc_DE1D:
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_DE22:
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 9
-		jmp	short loc_DE4C
-; ---------------------------------------------------------------------------
-
-loc_DE2D:
-		cmp	di, 4
-		jnz	short loc_DE39
-		sub	[si+shot_t.pos.cur.x], (24 shl 4)
-		jmp	short loc_DE3E
-; ---------------------------------------------------------------------------
-
-loc_DE39:
-		add	[si+shot_t.pos.cur.x], (24 shl 4)
-
-loc_DE3E:
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 6
-
-loc_DE4C:
-		dec	di
-		jle	short loc_DE58
-
-loc_DE4F:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DE0C
-
-loc_DE58:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-shot_marisa_b_l3	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_b_l4	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, 4
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DEC9
-; ---------------------------------------------------------------------------
-
-loc_DE71:
-		cmp	di, 2
-		jg	short loc_DE92
-		cmp	di, 2
-		jnz	short loc_DE82
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_DE87
-; ---------------------------------------------------------------------------
-
-loc_DE82:
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_DE87:
-		mov	[si+shot_t.patnum_base], 22h
-		mov	[si+shot_t.damage], 9
-		jmp	short loc_DEC6
-; ---------------------------------------------------------------------------
-
-loc_DE92:
-		cmp	di, 4
-		jnz	short loc_DE9E
-		sub	[si+shot_t.pos.cur.x], (24 shl 4)
-		jmp	short loc_DEA3
-; ---------------------------------------------------------------------------
-
-loc_DE9E:
-		add	[si+shot_t.pos.cur.x], (24 shl 4)
-
-loc_DEA3:
-		mov	[si+shot_t.patnum_base], 24h
-		push	ds
-		lea	ax, [si+shot_t.pos.velocity.x]
-		push	ax
-		push	ds
-		lea	ax, [si+shot_t.pos.velocity.y]
-		push	ax
-		call	@randring1_next16_and$qui pascal, 7
-		add	al, -44h
-		push	ax
-		push	(16 shl 4)
-		call	vector2
-		mov	[si+shot_t.damage], 6
-
-loc_DEC6:
-		dec	di
-		jle	short loc_DED2
-
-loc_DEC9:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DE71
-
-loc_DED2:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-shot_marisa_b_l4	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_b_l5	proc near
-
-@@angle	= byte ptr - 1
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	di, 5
-		mov	[bp+@@angle], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DF49
-; ---------------------------------------------------------------------------
-
-loc_DEF0:
-		cmp	di, 3
-		jg	short loc_DF12
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.damage], 9
-		mov	al, [bp+@@angle]
-		add	al, 08h
-		mov	[bp+@@angle], al
-		jmp	short loc_DF46
-; ---------------------------------------------------------------------------
-
-loc_DF12:
-		cmp	di, 5
-		jnz	short loc_DF1E
-		sub	[si+shot_t.pos.cur.x], (24 shl 4)
-		jmp	short loc_DF23
-; ---------------------------------------------------------------------------
-
-loc_DF1E:
-		add	[si+shot_t.pos.cur.x], (24 shl 4)
-
-loc_DF23:
-		push	ds
-		lea	ax, [si+shot_t.pos.velocity.x]
-		push	ax
-		push	ds
-		lea	ax, [si+shot_t.pos.velocity.y]
-		push	ax
-		call	@randring1_next16_and$qui pascal, 7
-		add	al, -44h
-		push	ax
-		push	(16 shl 4)
-		call	vector2
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.damage], 5
-
-loc_DF46:
-		dec	di
-		jle	short loc_DF52
-
-loc_DF49:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DEF0
-
-loc_DF52:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_b_l5	endp
-
-; ---------------------------------------------------------------------------
-
-shot_marisa_b_l6	proc near
-
-@@angle	= byte ptr -3
-@@x    	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 7
-		mov	byte ptr [bp+@@angle], -48h
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_DFD4
-; ---------------------------------------------------------------------------
-
-loc_DF70:
-		cmp	di, 3
-		jg	short loc_DF92
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.damage], 9
-		mov	al, [bp+@@angle]
-		add	al, 08h
-		mov	[bp+@@angle], al
-		jmp	short loc_DFD1
-; ---------------------------------------------------------------------------
-
-loc_DF92:
-		mov	bx, di
-		sub	bx, 4
-		cmp	bx, 3
-		ja	short loc_DFBD
-		add	bx, bx
-		jmp	cs:off_DFE2[bx]
-
-loc_DFA3:
-		mov	[bp+@@x], (-32 shl 4)
-		jmp	short loc_DFBD
-; ---------------------------------------------------------------------------
-
-loc_DFAA:
-		mov	[bp+@@x], (-16 shl 4)
-		jmp	short loc_DFBD
-; ---------------------------------------------------------------------------
-
-loc_DFB1:
-		mov	[bp+@@x], (32 shl 4)
-		jmp	short loc_DFBD
-; ---------------------------------------------------------------------------
-
-loc_DFB8:
-		mov	[bp+@@x], (16 shl 4)
-
-loc_DFBD:
-		mov	ax, [bp+@@x]
-		sub	[si+shot_t.pos.cur.x], ax
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 5
-
-loc_DFD1:
-		dec	di
-		jle	short loc_DFDD
-
-loc_DFD4:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_DF70
-
-loc_DFDD:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_b_l6	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_DFE2	dw offset loc_DFB8
-		dw offset loc_DFB1
-		dw offset loc_DFAA
-		dw offset loc_DFA3
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-shot_marisa_b_l7	proc near
-
-@@angle	= byte ptr -3
-@@x    	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 7
-		mov	[bp+@@angle], -4Ah
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	short loc_E068
-; ---------------------------------------------------------------------------
-
-loc_E004:
-		cmp	di, 3
-		jg	short loc_E026
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.damage], 8
-		mov	al, [bp+@@angle]
-		add	al, 0Ah
-		mov	[bp+@@angle], al
-		jmp	short loc_E065
-; ---------------------------------------------------------------------------
-
-loc_E026:
-		mov	bx, di
-		sub	bx, 4
-		cmp	bx, 3
-		ja	short loc_E051
-		add	bx, bx
-		jmp	cs:off_E076[bx]
-
-loc_E037:
-		mov	[bp+@@x], (-32 shl 4)
-		jmp	short loc_E051
-; ---------------------------------------------------------------------------
-
-loc_E03E:
-		mov	[bp+@@x], (-16 shl 4)
-		jmp	short loc_E051
-; ---------------------------------------------------------------------------
-
-loc_E045:
-		mov	[bp+@@x], (32 shl 4)
-		jmp	short loc_E051
-; ---------------------------------------------------------------------------
-
-loc_E04C:
-		mov	[bp+@@x], (16 shl 4)
-
-loc_E051:
-		mov	ax, [bp+@@x]
-		sub	[si+shot_t.pos.cur.x], ax
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 5
-
-loc_E065:
-		dec	di
-		jle	short loc_E071
-
-loc_E068:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	short loc_E004
-
-loc_E071:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_b_l7	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_E076	dw offset loc_E04C
-		dw offset loc_E045
-		dw offset loc_E03E
-		dw offset loc_E037
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-shot_marisa_b_l8	proc near
-
-@@angle	= byte ptr -3
-@@x    	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 8
-		mov	[bp+@@angle], -4Ah
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	loc_E118
-; ---------------------------------------------------------------------------
-
-loc_E099:
-		cmp	di, 4
-		jg	short loc_E0D6
-		cmp	di, 3
-		jnz	short loc_E0AA
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_E0B4
-; ---------------------------------------------------------------------------
-
-loc_E0AA:
-		cmp	di, 2
-		jnz	short loc_E0B4
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_E0B4:
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.damage], 8
-		cmp	di, 3
-		jz	short loc_E115
-		mov	al, [bp+@@angle]
-		add	al, 0Ah
-		mov	[bp+@@angle], al
-		jmp	short loc_E115
-; ---------------------------------------------------------------------------
-
-loc_E0D6:
-		mov	bx, di
-		sub	bx, 5
-		cmp	bx, 3
-		ja	short loc_E101
-		add	bx, bx
-		jmp	cs:off_E128[bx]
-
-loc_E0E7:
-		mov	[bp+@@x], (-32 shl 4)
-		jmp	short loc_E101
-; ---------------------------------------------------------------------------
-
-loc_E0EE:
-		mov	[bp+@@x], (-16 shl 4)
-		jmp	short loc_E101
-; ---------------------------------------------------------------------------
-
-loc_E0F5:
-		mov	[bp+@@x], (32 shl 4)
-		jmp	short loc_E101
-; ---------------------------------------------------------------------------
-
-loc_E0FC:
-		mov	[bp+@@x], (16 shl 4)
-
-loc_E101:
-		mov	ax, [bp+@@x]
-		sub	[si+shot_t.pos.cur.x], ax
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 5
-
-loc_E115:
-		dec	di
-		jle	short loc_E123
-
-loc_E118:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_E099
-
-loc_E123:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_b_l8	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_E128	dw offset loc_E0FC
-		dw offset loc_E0F5
-		dw offset loc_E0EE
-		dw offset loc_E0E7
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-shot_marisa_b_l9	proc near
-
-@@angle	= byte ptr -3
-@@x    	= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	di, 0Ah
-		mov	[bp+@@angle], -4Ah
-		mov	_shot_ptr, offset _shots
-		mov	_shot_last_id, 0
-		jmp	loc_E1D8
-; ---------------------------------------------------------------------------
-
-loc_E14B:
-		cmp	di, 4
-		jg	short loc_E188
-		cmp	di, 3
-		jnz	short loc_E15C
-		sub	[si+shot_t.pos.cur.x], (8 shl 4)
-		jmp	short loc_E166
-; ---------------------------------------------------------------------------
-
-loc_E15C:
-		cmp	di, 2
-		jnz	short loc_E166
-		add	[si+shot_t.pos.cur.x], (8 shl 4)
-
-loc_E166:
-		mov	[si+shot_t.patnum_base], 22h
-		lea	ax, [si+shot_t.pos.velocity]
-		call	@shot_velocity_set$qp7sppointuc pascal, ax, word ptr [bp+@@angle]
-		mov	[si+shot_t.damage], 8
-		cmp	di, 3
-		jz	short loc_E1D5
-		mov	al, [bp+@@angle]
-		add	al, 0Ah
-		mov	[bp+@@angle], al
-		jmp	short loc_E1D5
-; ---------------------------------------------------------------------------
-
-loc_E188:
-		mov	bx, di
-		sub	bx, 5
-		cmp	bx, 5
-		ja	short loc_E1C1
-		add	bx, bx
-		jmp	cs:off_E1E8[bx]
-
-loc_E199:
-		mov	[bp+@@x], (-48 shl 4)
-		jmp	short loc_E1C1
-; ---------------------------------------------------------------------------
-
-loc_E1A0:
-		mov	[bp+@@x], (-32 shl 4)
-		jmp	short loc_E1C1
-; ---------------------------------------------------------------------------
-
-loc_E1A7:
-		mov	[bp+@@x], (-16 shl 4)
-		jmp	short loc_E1C1
-; ---------------------------------------------------------------------------
-
-loc_E1AE:
-		mov	[bp+@@x], (48 shl 4)
-		jmp	short loc_E1C1
-; ---------------------------------------------------------------------------
-
-loc_E1B5:
-		mov	[bp+@@x], (32 shl 4)
-		jmp	short loc_E1C1
-; ---------------------------------------------------------------------------
-
-loc_E1BC:
-		mov	[bp+@@x], (16 shl 4)
-
-loc_E1C1:
-		mov	ax, [bp+@@x]
-		sub	[si+shot_t.pos.cur.x], ax
-		mov	[si+shot_t.patnum_base], 24h
-		mov	[si+shot_t.pos.velocity.y], (-16 shl 4)
-		mov	[si+shot_t.damage], 4
-
-loc_E1D5:
-		dec	di
-		jle	short loc_E1E3
-
-loc_E1D8:
-		call	@shots_add$qv
-		mov	si, ax
-		or	ax, ax
-		jnz	loc_E14B
-
-loc_E1E3:
-		pop	di
-		pop	si
-		leave
-		retn
-shot_marisa_b_l9	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_E1E8	dw offset loc_E1BC
-		dw offset loc_E1B5
-		dw offset loc_E1AE
-		dw offset loc_E1A7
-		dw offset loc_E1A0
-		dw offset loc_E199
 
 ; =============== S U B	R O U T	I N E =======================================
 		public _shot_laser_render
@@ -7003,100 +6359,41 @@ MB_DFT_TEXT	segment	byte public 'CODE' use16
 	@midboss_defeat_update$qv procdesc pascal near
 MB_DFT_TEXT	ends
 
+; Harness carve (kb/codegen/0080): an EMPTY anchor segment split out of the
+; HEAD of `main_034_TEXT`'s root contribution, so that a C++ object can append
+; the two spawners at the START of it. Declared where main_034_TEXT used to
+; open, because physical order follows first definition across the link. Same
+; `byte public 'CODE'` alignment as before, so nothing moves, and `byte`
+; alignment also means kb/codegen/0111's even-parity question does not arise.
+;
+; The head is the only reachable end of this segment: its tail is the
+; `include` of th04/main/boss/b6_anim.asm, which no decompilation removes, and
+; that include is what kept these seven procs out of reach of every tail lift
+; even after MATCH-TH04-MAIN-YUUKA6-PATTERNS emptied everything below it.
+;
+; UNLIKE every carve before it, this one costs NO new translation unit and no
+; Tupfile.lua line: the anchor is hosted by an object that already exists in
+; the link, through `#pragma codeseg` (kb/codegen/0155). th04/boss_bg.cpp was
+; already contributing zero bytes to MAI_TEXT and HUD_OVRL_TEXT by the same
+; mechanism, so this is the third segment it names and the first it fills.
+B6_SPAWN_TEXT	segment	byte public 'CODE' use16
+	; chasecrosses_add() and safetycircle_open() -- the latter was
+	; yuuka6_1A0D1() -- now live in th04/main/boss/b6_spawn.cpp, which
+	; th04/main/boss/bg.cpp compiles into this segment.
+	;
+	; NO procdesc, and that is measured rather than an omission: a census of
+	; every reference to either symbol in this file returns only their own
+	; `proc`, `endp` and `public` lines. Both are called from C++ in other
+	; objects and from nowhere in the dump, so the carve's whole cost here is
+	; the two `public` directives that leave with the bodies.
+B6_SPAWN_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of the head of the original
+; `main_034_TEXT` contribution once chasecrosses_add() and safetycircle_open()
+; moved out of it into the B6_SPAWN_TEXT anchor above. Same
+; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
+; neither deleted body carried an `assume`, so there is nothing to restore.
 main_034_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @CHASECROSSES_ADD$QUCUC
-@chasecrosses_add$qucuc	proc near
-
-@@speed	= byte ptr  4
-@@angle	= byte ptr  6
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset yuuka6_chasecrosses
-		xor	dx, dx
-		jmp	short loc_1A0C7
-; ---------------------------------------------------------------------------
-
-loc_1A092:
-		cmp	[si+yuuka6_chasecross_t.B6C_flag], CCF_FREE
-		jnz	short loc_1A0C3
-		mov	[si+yuuka6_chasecross_t.B6C_flag], CCF_ALIVE
-		mov	[si+yuuka6_chasecross_t.B6C_damage_this_frame], 0
-		mov	[si+yuuka6_chasecross_t.B6C_age], 0
-		mov	al, [bp+@@angle]
-		mov	[si+yuuka6_chasecross_t.B6C_angle], al
-		mov	al, [bp+@@speed]
-		mov	[si+yuuka6_chasecross_t.B6C_speed], al
-		mov	[si+yuuka6_chasecross_t.B6C_hp], 100
-		mov	ax, _boss_pos.cur.x
-		mov	[si+yuuka6_chasecross_t.B6C_center.x], ax
-		mov	ax, _boss_pos.cur.y
-		mov	[si+yuuka6_chasecross_t.B6C_center.y], ax
-		jmp	short loc_1A0CC
-; ---------------------------------------------------------------------------
-
-loc_1A0C3:
-		inc	dx
-		add	si, size yuuka6_chasecross_t
-
-loc_1A0C7:
-		; ZUN landmine: This could possibly spawn a chasing cross bullet in the
-		; safety circle slot. Doesn't happen in the original game because
-		; there's only one pattern that spawns up to 24 chasing cross bullets,
-		; at a fast enough speed that all of them left the playfield by the
-		; time Yuuka fires the pattern again. And even if it did, it would not
-		; be observable: These bullets use Q12.4 coordinates for their position
-		; and assign these to structure fields that the safety circle
-		; interprets as raw pixels. Yuuka would therefore have to move near the
-		; top-left corner of the playfield for the circle to not be clipped.
-		cmp	dx, (YUUKA6_CHASECROSS_COUNT + 1)
-		jl	short loc_1A092
-
-loc_1A0CC:
-		pop	si
-		pop	bp
-		retn	4
-@chasecrosses_add$qucuc	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; kb/codegen/0123, for the same reason the aliases below it were added and
-	; then retired: yuuka6_1AD6F() calls this one and is now C++, while this
-	; function is above the b6_anim.asm include and cannot follow it out.
-public _yuuka6_1A0D1
-_yuuka6_1A0D1 label near
-yuuka6_1A0D1	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, offset yuuka6_safetycircle
-		mov	[si+yuuka6_safetycircle_t.B6S_flag], SCF_GROW
-		mov	[si+yuuka6_safetycircle_t.B6S_shrink_frame], 0
-		mov	[si+yuuka6_safetycircle_t.B6S_col_ring], 8
-		mov	ax, _player_pos.cur.x
-		sar	ax, 4
-		add	ax, PLAYFIELD_LEFT
-		mov	[si+yuuka6_safetycircle_t.B6S_center.x], ax
-		mov	ax, _player_pos.cur.y
-		sar	ax, 4
-		add	ax, PLAYFIELD_TOP
-		mov	[si+yuuka6_safetycircle_t.B6S_center.y], ax
-		mov	[si+yuuka6_safetycircle_t.B6S_radius_filled], 8
-		mov	[si+yuuka6_safetycircle_t.B6S_radius_ring_distance], 80
-		call	snd_se_play pascal, 8
-		pop	si
-		pop	bp
-		retn
-yuuka6_1A0D1	endp
-
 
 ; =============== S U B	R O U T	I N E =======================================
 

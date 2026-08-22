@@ -814,3 +814,11 @@ void pascal near mugetsu_gengetsu_bg_render(void)
 		tiles_render_after_custom(boss.phase_frame);
 	}
 }
+
+// The two spawners at the head of Yuuka's OTHER segment, hosted here rather
+// than in a new translation unit of their own: this object already names two
+// code segments besides its default through the same `#pragma codeseg`
+// mechanism, and it is the only one with th04/main/boss/b6.cpp's closure.
+// Included LAST so that it renumbers no line-anchored citation into this file.
+// (kb/codegen 0080 + 0155; th04/main/boss/b6_spawn.cpp says the rest.)
+#include "th04/main/boss/b6_spawn.cpp"
