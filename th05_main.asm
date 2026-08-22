@@ -6258,476 +6258,56 @@ loc_1B624:
 yuki_1B557	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1B628	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 8
-		jnz	short loc_1B64D
-		mov	_bullet_template.BT_angle, 80h
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_boss_sprite, 208
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		jmp	short loc_1B6C0
-; ---------------------------------------------------------------------------
-
-loc_1B64D:
-		cmp	_boss_phase_frame, 8
-		jle	short loc_1B6C0
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B68E
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, 8
-		mov	_bullet_template.speed, al
-		push	7
-		call	@randring2_next16_and$qui
-		mov	_bullet_template.spread, al
-		mov	_bullet_template.spread_angle_delta, 6
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	al, _bullet_template.BT_angle
-		add	al, 6
-		mov	_bullet_template.BT_angle, al
-		call	snd_se_play pascal, 3
-
-loc_1B68E:
-		cmp	_boss_phase_frame, 256
-		jnz	short loc_1B6A5
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B6A5:
-		cmp	_boss_phase_state, 2
-		jb	short loc_1B6C0
-		cmp	_boss_phase_frame, 64
-		jl	short loc_1B6C0
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B6C0:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1B628	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuki_1B6C4
-_yuki_1B6C4 label near
-yuki_1B6C4	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 8
-		jnz	short loc_1B6ED
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.spread, 24
-		call	_bullet_template_tune
-		mov	_boss_sprite, 208
-		jmp	short loc_1B750
-; ---------------------------------------------------------------------------
-
-loc_1B6ED:
-		cmp	_boss_phase_frame, 8
-		jle	short loc_1B750
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B71B
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (2 shl 4)
-		mov	_bullet_template.speed, al
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 15
-
-loc_1B71B:
-		cmp	_boss_phase_frame, 160
-		jnz	short loc_1B732
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B732:
-		cmp	_boss_phase_state, 2
-		jb	short loc_1B750
-		cmp	_boss_phase_frame, 64
-		jl	short loc_1B750
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		add	dx, -32
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B750:
-		mov	al, 0
-		pop	bp
-		retn
-yuki_1B6C4	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1B754	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 32
-		jge	short loc_1B799
-		mov	ax, _boss_phase_frame
-		add	ax, -16
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 5
-		mov	_bullet_template.BT_angle, 0
-		call	_bullet_template_tune
-		mov	_boss_sprite, 208
-		mov	b4ball_template.B4B_speed, (4 shl 4)
-		jmp	loc_1B82E
-; ---------------------------------------------------------------------------
-
-loc_1B799:
-		mov	ax, _boss_phase_frame
-		mov	bx, 32
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B7F9
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (1 shl 4)
-		mov	_bullet_template.speed, al
-		call	_bullets_add_regular
-		call	@player_angle_from$qiiuc pascal, b4ball_template.pos.cur.x, b4ball_template.pos.cur.y, 0
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, -12
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, -12
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 36
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 12
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		call	snd_se_play pascal, 15
-
-loc_1B7F9:
-		cmp	_boss_phase_frame, 160
-		jnz	short loc_1B810
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B810:
-		cmp	_boss_phase_state, 2
-		jb	short loc_1B82E
-		cmp	_boss_phase_frame, 64
-		jl	short loc_1B82E
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		add	dx, -32
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B82E:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1B754	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuki_1B832
-_yuki_1B832 label near
-yuki_1B832	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 32
-		jge	short loc_1B858
-		mov	ax, _boss_phase_frame
-		add	ax, -16
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 208
-		mov	b4ball_template.B4B_speed, (2 shl 4)
-		jmp	short loc_1B8C4
-; ---------------------------------------------------------------------------
-
-loc_1B858:
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_1B866
-		call	snd_se_play pascal, 15
-
-loc_1B866:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B8A6
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 40h
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 40h
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 40h
-		mov	b4ball_template.B4B_angle, al
-		call	b4balls_add
-		mov	al, b4ball_template.B4B_angle
-		add	al, 40h
-		mov	b4ball_template.B4B_angle, al
-		mov	al, _boss_statebyte[13]
-		add	b4ball_template.B4B_angle, al
-
-loc_1B8A6:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1B8C4
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, _boss_statebyte[13]
-		neg	al
-		mov	_boss_statebyte[13], al
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B8C4:
-		mov	al, 0
-		pop	bp
-		retn
-yuki_1B832	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1B8C8	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 24
-		jnz	short loc_1B8FC
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_STACK
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		mov	word ptr _bullet_template.BT_stack, (6 shl 8) or 8
-		mov	_bullet_template.BT_angle, 10h
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullet_template_tune
-		mov	_boss_sprite, 208
-		jmp	short loc_1B96F
-; ---------------------------------------------------------------------------
-
-loc_1B8FC:
-		cmp	_boss_phase_frame, 24
-		jl	short loc_1B96F
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B927
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		mov	al, _boss_statebyte[14]
-		add	_boss_statebyte[15], al
-		call	snd_se_play pascal, 15
-
-loc_1B927:
-		cmp	_boss_phase_frame, 64
-		jnz	short loc_1B958
-		mov	al, _boss_statebyte[14]
-		neg	al
-		mov	_boss_statebyte[14], al
-		cmp	_boss_statebyte[14], 7Fh
-		jnb	short loc_1B944
-		mov	_boss_statebyte[15], 10h
-		jmp	short loc_1B949
-; ---------------------------------------------------------------------------
-
-loc_1B944:
-		mov	_boss_statebyte[15], 70h
-
-loc_1B949:
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B958:
-		cmp	_boss_phase_state, 2
-		jbe	short loc_1B96F
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		add	dx, -25
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B96F:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1B8C8	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuki_1B973
-_yuki_1B973 label near
-yuki_1B973	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 8
-		jnz	short loc_1B9AC
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RANDOM_ANGLE
-		mov	_bullet_template.BT_special_motion, BSM_SPEEDUP
-		mov	_bullet_special_speed_delta, 1
-		mov	_bullet_template.patnum, PAT_BULLET16_V_RED
-		mov	al, _rank
-		add	al, al
-		add	al, 4
-		mov	_bullet_template.spread, al
-		mov	_boss_sprite, 208
-		mov	_bullet_template.speed, (2 shl 4)
-		jmp	short loc_1B9EE
-; ---------------------------------------------------------------------------
-
-loc_1B9AC:
-		cmp	_boss_phase_frame, 8
-		jle	short loc_1B9EE
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B9C3
-		call	_bullets_add_special
-
-loc_1B9C3:
-		cmp	_boss_phase_frame, 128
-		jl	short loc_1B9EE
-		cmp	_boss_phase_frame, 320
-		jge	short loc_1B9E1
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		add	dx, -32
-		jmp	short loc_1B9EA
-; ---------------------------------------------------------------------------
-
-loc_1B9E1:
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-
-loc_1B9EA:
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B9EE:
-		mov	al, 0
-		pop	bp
-		retn
-yuki_1B973	endp
-
-
-; Both halves of the Stage 4 solo fight are C++ now: yuki_update() is
-; th05/main/boss/b4_yuki.cpp and Mai's ten patterns plus mai_update() are
-; th05/main/boss/b4_mai.cpp, all compiled into th05/b4mai.cpp in their
-; original address order. th05/swords.cpp is the segment's next
-; contribution and that object's Tupfile.lua line comes before it, so the
-; object lands at exactly the address this block ends at (kb/codegen
-; 0112 + 0114). Every later lift out of Yuki's pattern bodies above is an
-; `#include` at the front of that object -- no further Tupfile.lua line.
+; Both halves of the Stage 4 solo fight are C++ now: yuki_update() and six
+; of Yuki's seven patterns are th05/main/boss/b4_yuki.cpp, and Mai's ten
+; patterns plus mai_update() are th05/main/boss/b4_mai.cpp, all compiled
+; into th05/b4mai.cpp in their original address order. th05/swords.cpp is
+; the segment's next contribution and that object's Tupfile.lua line comes
+; before it, so the object lands at exactly the address this block ends at
+; (kb/codegen 0112 + 0114). Every later lift out of what is left above is
+; an `#include` at the front of that object -- no further Tupfile.lua line.
 ;
 ; TWO generated jump tables, and they take OPPOSITE pads. Each is part of
 ; what its function compiles to, so the C++ emits both (kb/codegen 0104 +
 ; 0154 + 0157 + 0160, state/re/JUMP_TABLE_TAILS.md), and both were read off
 ; the OBJ rather than a `tcc -S` listing, per 0154's own correction:
 ;
-; yuki_update()  0x326 bytes, table at object offset 0x326, EVEN -> no pad
-; mai_update()   table at 0x0B26 + 0x2FD = 0x0E23, ODD -> one-byte pad
+; yuki_update()  table at 0x03CA + 0x326 = 0x06F0, EVEN -> no pad
+; mai_update()   table at 0x0EF0 + 0x2FD = 0x11ED, ODD  -> one-byte pad
 ;
-; which is the original's arrangement exactly. yuki_update() shifts
-; everything behind it by 0x33A, an even amount, so it could not have
-; disturbed Mai's pad; any FURTHER run prepended to that object has to keep
-; the same parity (kb/codegen 0119 + 0159).
+; which is the original's arrangement exactly, and both offsets are the ones
+; tools/pi-audit/obj_probe.py reported off obj/th05/b4mai.obj rather than
+; anything derived. Every run prepended so far has been EVEN in total -- the
+; ten Mai patterns 0x7EC, yuki_update 0x33A, the six Yuki patterns 0x3CA --
+; which is the only reason both pads survived. Any FURTHER run has to keep
+; that parity (kb/codegen 0119 + 0159), and yuki_1B557() alone does NOT:
+; it is 209 bytes.
 ;
-; What the two files still reach in here is sixteen zero-byte
+; What the two files still reach in here is thirteen zero-byte
 ; kb/codegen/0123 aliases. TWELVE are DATA: [mai_yuki_pattern], the three
 ; YUKI_PATTERNS_PHASE_* and three MAI_PATTERNS_PHASE_* tables, and the
 ; phase-5 laser pattern's four words plus MAI_LASER_BULLET_PATTERNS. The
-; other FOUR are CODE -- yuki_1B557(), yuki_1B6C4(), yuki_1B832() and
-; yuki_1B973(), the pattern bodies b4_yuki.cpp stores or calls, still ZUN's
-; assembly above. The MAI_* tables and MAI_LASER_BULLET_PATTERNS point at
-; C++ bodies now, which is what the procdesc block below is for; the YUKI_*
-; ones still point at assembly in this file and need nothing. Both
-; declarations mai_yuki_update() needs head this segment instead of sitting
-; here, because that use comes earlier in the file than this point does.
+; thirteenth is CODE: yuki_1B557(), the one pattern body of the fourteen
+; that is still ZUN's assembly, and the only entry of the seven tables that
+; does not point into C++. Both declarations mai_yuki_update() needs head
+; this segment instead of sitting here, because that use comes earlier in
+; the file than this point does.
 ;
-; This block's root tail is now yuki_1B973(), Yuki's phase-7 pattern: a
-; plain CARVE-FREE `proc` with th05/b4mai.cpp as its in-segment host, and
-; the next link in this chain.
+; This block's root tail is now yuki_1B557(), Yuki's phase-3 pattern: a
+; plain CARVE-FREE `proc` with th05/b4mai.cpp as its in-segment host. It is
+; 209 bytes, ODD, so it cannot go on its own -- see the parity ledger in
+; state/notes/th05-main-mai-update.md; b4balls_update() above it is the
+; partner that makes a parcel sum even.
 
-	; The nine bodies the three MAI_PATTERNS_PHASE_* tables and
-	; MAI_LASER_BULLET_PATTERNS reach. None carries an argument list, so TASM
-	; leaves the case alone (kb/codegen/0102).
+	; Every body the seven pattern tables in _DATA reach, except the one that
+	; is still assembly. None carries an argument list, so TASM leaves the
+	; case alone (kb/codegen/0102).
+	@yuki_1B628$qv procdesc near
+	@yuki_1B6C4$qv procdesc near
+	@yuki_1B754$qv procdesc near
+	@yuki_1B832$qv procdesc near
+	@yuki_1B8C8$qv procdesc near
+
 	@mai_1BD2C$qv procdesc near
 	@mai_1BDD0$qv procdesc near
 	@mai_1BE96$qv procdesc near
@@ -9003,20 +8583,20 @@ aTH05_11	db 'ó†êÿÇËÇÃè≠èóÅ@Å` Judas Kiss',0
 public _YUKI_PATTERNS_PHASE_3
 _YUKI_PATTERNS_PHASE_3	label word
 off_22806	dw offset yuki_1B557
-		dw offset sub_1B628
+		dw offset @yuki_1B628$qv
 public _YUKI_PATTERNS_PHASE_5
 _YUKI_PATTERNS_PHASE_5	label word
-off_2280A	dw offset yuki_1B6C4
-		dw offset sub_1B754
+off_2280A	dw offset @yuki_1B6C4$qv
+		dw offset @yuki_1B754$qv
 ; FIVE entries, indexed `% 5` rather than `& 1`, and four of the five are
 ; the same function -- which is what sizes it, not the code.
 public _YUKI_PATTERNS_PHASE_9
 _YUKI_PATTERNS_PHASE_9	label word
-off_2280E	dw offset yuki_1B832
-		dw offset sub_1B8C8
-		dw offset sub_1B8C8
-		dw offset sub_1B8C8
-		dw offset sub_1B8C8
+off_2280E	dw offset @yuki_1B832$qv
+		dw offset @yuki_1B8C8$qv
+		dw offset @yuki_1B8C8$qv
+		dw offset @yuki_1B8C8$qv
+		dw offset @yuki_1B8C8$qv
 ; The three bullet patterns mai_1C34B() runs alongside its lasers, indexed
 ; by [boss_statebyte[10]] MOD 3 rather than AND. Zero-byte alias,
 ; kb/codegen/0123.

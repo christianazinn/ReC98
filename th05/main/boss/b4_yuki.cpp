@@ -55,17 +55,258 @@ extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_3[2];
 extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_5[2];
 extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_9[5];
 
-// The four of Yuki's seven pattern bodies this function names: three whose
-// address it stores and one it calls. The other three are reached only from
-// YUKI_PATTERNS_PHASE_5 and _9 and stay unnamed data. Address-suffixed for the
-// reason th05/main/boss/b4_mai.cpp gives for mai_1BD2C() and its siblings, and
-// each name goes away with the body when the chain above this one is lifted.
+// The first of Yuki's seven pattern bodies, and the only one left in
+// th05_main.asm: it is 209 bytes, an ODD length, so it cannot be prepended to
+// this object on its own without moving both jump tables' pads. It pairs with
+// b4balls_update() above it (273 bytes) for a parcel that sums even.
+// Address-suffixed for the reason th05/main/boss/b4_mai.cpp gives for
+// mai_1BD2C() and its siblings.
 extern "C" bool near yuki_1B557(void);
-extern "C" bool near yuki_1B6C4(void);
-extern "C" bool near yuki_1B832(void);
-extern "C" bool near yuki_1B973(void);
 
 // --------------------------------------------
+
+// [inferred] PAT_YUKI + 12, the one cel of Yuki's block that
+// th05/main/boss/b4_solo_fg.cpp animates over four frames -- the twin of
+// PAT_MAI_ANIMATED in th05/main/boss/b4_mai.cpp. Every one of the six patterns
+// below switches her to it, and b4_solo_fg.cpp spells the same number 208.
+static const int PAT_YUKI_ANIMATED = (PAT_YUKI + 12);
+
+/// Danmaku patterns
+/// ----------------
+/// Six of Yuki's seven, in their original address order, which is also the
+/// order YUKI_PATTERNS_PHASE_5 and _9 index them in. All are
+/// pattern_oneshot_func_t; yuki_1B973() is the exception that never returns
+/// `true`, exactly as Mai's phase-5 laser pattern never does, because its
+/// phase ends on the HP check in yuki_update() instead.
+///
+/// Four of the six close with the same tail: an exact [boss.phase_frame]
+/// equality that hands the phase back, and then a random flight step that only
+/// starts once the phase has seen a few patterns. **Note the odd one out** --
+/// yuki_1B8C8() gates that step on `> 2` where every other body in both halves
+/// of this fight uses `>= 2`.
+/// ----------------
+
+// Phase 3, pattern B: one random-width, random-speed spread every other frame,
+// walking around by 6 units a shot.
+bool near yuki_1B628(void)
+{
+	if(boss.phase_frame == 8) {
+		bullet_template.angle = 0x80;
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD;
+		boss.sprite = PAT_YUKI_ANIMATED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+	} else if(boss.phase_frame > 8) {
+		if((boss.phase_frame % 2) == 0) {
+			bullet_template.speed.v = (randring2_next16_and(0x1F) + 8);
+			bullet_template.spread = randring2_next16_and(7);
+			bullet_template.spread_angle_delta = 6;
+			bullet_template_tune();
+			bullets_add_regular();
+			bullet_template.angle += 6;
+			snd_se_play(3);
+		}
+		if(boss.phase_frame == 256) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			return true;
+		}
+		if(
+			(boss.phase_state.patterns_seen >= 2) && (boss.phase_frame >= 64)
+		) {
+			boss_flystep_random(boss.phase_frame % 64);
+		}
+	}
+	return false;
+}
+
+// Phase 5, pattern A: one 24-pellet ring every 16 frames, at a random angle
+// and a random speed.
+bool near yuki_1B6C4(void)
+{
+	if(boss.phase_frame == 8) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_RING;
+		bullet_template.patnum = 0;
+		bullet_template.spread = 24;
+		bullet_template_tune();
+		boss.sprite = PAT_YUKI_ANIMATED;
+	} else if(boss.phase_frame > 8) {
+		if((boss.phase_frame % 16) == 0) {
+			bullet_template.angle = randring2_next16();
+			bullet_template.speed.v = (
+				randring2_next16_and(0x1F) + to_sp8(2.0f)
+			);
+			bullets_add_regular();
+			snd_se_play(15);
+		}
+		if(boss.phase_frame == 160) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			return true;
+		}
+		if(
+			(boss.phase_state.patterns_seen >= 2) && (boss.phase_frame >= 64)
+		) {
+			boss_flystep_random((boss.phase_frame % 64) - 32);
+		}
+	}
+	return false;
+}
+
+// Phase 5, pattern B: an aimed 5-bullet spread plus a five-ball fan every 32
+// frames, behind a gathering animation.
+bool near yuki_1B754(void)
+{
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 9, 8);
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD_AIMED;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+		bullet_template.set_spread(5, 12);
+		bullet_template.angle = 0x00;
+		bullet_template_tune();
+		boss.sprite = PAT_YUKI_ANIMATED;
+		b4ball_template.speed.set(4.0f);
+	} else {
+		if((boss.phase_frame % 32) == 0) {
+			bullet_template.speed.v = (
+				randring2_next16_and(0x1F) + to_sp8(1.0f)
+			);
+			bullets_add_regular();
+			b4ball_template.angle = player_angle_from(
+				b4ball_template.origin.x, b4ball_template.origin.y
+			);
+			b4balls_add();
+			b4ball_template.angle -= 12;
+			b4balls_add();
+			b4ball_template.angle -= 12;
+			b4balls_add();
+			b4ball_template.angle += 36;
+			b4balls_add();
+			b4ball_template.angle += 12;
+			b4balls_add();
+			snd_se_play(15);
+		}
+		if(boss.phase_frame == 160) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			return true;
+		}
+		if(
+			(boss.phase_state.patterns_seen >= 2) && (boss.phase_frame >= 64)
+		) {
+			boss_flystep_random((boss.phase_frame % 64) - 32);
+		}
+	}
+	return false;
+}
+
+// Phase 9, pattern A: a four-way ball cross every 4 frames, the whole cross
+// rotating by [boss_statebyte[13]] a time and reversing when the pattern ends.
+bool near yuki_1B832(void)
+{
+	if(boss.phase_frame < 32) {
+		gather_add_only_3stack((boss.phase_frame - 16), 9, 8);
+		boss.sprite = PAT_YUKI_ANIMATED;
+		b4ball_template.speed.set(2.0f);
+	} else {
+		if(boss.phase_frame == 32) {
+			snd_se_play(15);
+		}
+		if((boss.phase_frame % 4) == 0) {
+			b4balls_add();
+			b4ball_template.angle += 0x40;
+			b4balls_add();
+			b4ball_template.angle += 0x40;
+			b4balls_add();
+			b4ball_template.angle += 0x40;
+			b4balls_add();
+			b4ball_template.angle += 0x40;
+			b4ball_template.angle += boss_statebyte[13];
+		}
+		if(boss.phase_frame == 64) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			boss_statebyte[13] = -boss_statebyte[13];
+			return true;
+		}
+	}
+	return false;
+}
+
+// Phase 9, pattern B, and four of YUKI_PATTERNS_PHASE_9's five entries: one
+// stack every other frame, sweeping in a direction that reverses each run.
+bool near yuki_1B8C8(void)
+{
+	if(boss.phase_frame == 24) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_STACK;
+		bullet_template.patnum = PAT_BULLET16_V_RED;
+		bullet_template.set_stack(8, 0.375f);
+		bullet_template.angle = 0x10;
+		bullet_template.speed.set(2.0f);
+		bullet_template_tune();
+		boss.sprite = PAT_YUKI_ANIMATED;
+	} else if(boss.phase_frame >= 24) {
+		if((boss.phase_frame % 2) == 0) {
+			bullet_template.angle = boss_statebyte[15];
+			bullets_add_regular();
+			boss_statebyte[15] += boss_statebyte[14];
+			snd_se_play(15);
+		}
+		if(boss.phase_frame == 64) {
+			boss_statebyte[14] = -boss_statebyte[14];
+			if(boss_statebyte[14] < 0x7F) {
+				boss_statebyte[15] = 0x10;
+			} else {
+				boss_statebyte[15] = 0x70;
+			}
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			return true;
+		}
+
+		// [measured] `> 2`, where every other pattern body in this fight uses
+		// `>= 2` in the same position. Preserved as ZUN wrote it: the effect is
+		// that this one pattern's random flight step only starts one pattern
+		// later than the others'.
+		if(boss.phase_state.patterns_seen > 2) {
+			boss_flystep_random((boss.phase_frame % 64) - 25);
+		}
+	}
+	return false;
+}
+
+// Phase 7: an accelerating random-angle cloud every 4 frames, with the flight
+// step changing shape halfway through. The one Yuki pattern that never returns
+// `true` -- yuki_update()'s own HP check ends this phase.
+bool near yuki_1B973(void)
+{
+	if(boss.phase_frame == 8) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_RANDOM_ANGLE;
+		bullet_template.special_motion = BSM_SPEEDUP;
+		bullet_special.speed_delta.v = 1;
+		bullet_template.patnum = PAT_BULLET16_V_RED;
+		bullet_template.spread = ((rank * 2) + 4);
+		boss.sprite = PAT_YUKI_ANIMATED;
+		bullet_template.speed.set(2.0f);
+	} else if(boss.phase_frame > 8) {
+		if((boss.phase_frame % 4) == 0) {
+			bullets_add_special();
+		}
+		if(boss.phase_frame >= 128) {
+			if(boss.phase_frame < 320) {
+				boss_flystep_random((boss.phase_frame % 64) - 32);
+			} else {
+				boss_flystep_random(boss.phase_frame % 64);
+			}
+		}
+	}
+	return false;
+}
+/// ----------------
 
 #pragma option -a2
 
