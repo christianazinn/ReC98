@@ -4380,6 +4380,13 @@ loc_155C0:
 
 ; Attributes: bp-based frame
 
+; UPPER CASE and no leading underscore because this proc is `pascal`, which
+; is what its `retn 6` says: Borland decorates a `pascal` name that way, so a
+; `_sigma_blasts_add` alias would not resolve (kb/codegen/0086, kb/codegen/0027).
+; Zero bytes, like every kb/codegen/0123 alias; the dump's own eight call sites
+; keep using the bare name.
+public SIGMA_BLASTS_ADD
+SIGMA_BLASTS_ADD label near
 sigma_155C5	proc near
 
 var_4		= dword	ptr -4
@@ -5376,6 +5383,12 @@ sigma_15E84	endp
 
 ; Attributes: bp-based frame
 
+; Lower case with a leading underscore, unlike SIGMA_BLASTS_ADD above: this
+; proc takes no arguments and cleans nothing, so it is __cdecl and Borland
+; does not upper-case its name. Zero bytes, like every kb/codegen/0123 alias.
+; Phase 7 paid for this one; phases 5, 3 and 1 get it free.
+public _sigma_move_weave
+_sigma_move_weave label near
 sigma_15EF7	proc near
 		push	bp
 		mov	bp, sp
@@ -5942,373 +5955,16 @@ loc_1641D:
 sigma_162D3	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16421
-_sigma_16421 label near
-sigma_16421	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	_boss_phase_frame, 50
-		jl	locret_16553
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_16441
-		call	_snd_se_play c, 9
-
-loc_16441:
-		cmp	_boss_phase_frame, 100
-		jge	short loc_16458
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, 128
-		mov	patnum_2064E, ax
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_16458:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_164AD
-		push	left_253B6
-		push	top_253B8
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	0
-		push	ds
-		push	offset point_255A4.x
-		push	ds
-		push	offset point_255A4.y
-		push	48
-		call	@vector2_between_plus$qiiiiucmit6i
-		mov	ax, point_255A4.x
-		neg	ax
-		mov	word_255AC, ax
-		mov	patnum_2064E, 128
-		mov	ax, left_253B6
-		mov	word_255A8, ax
-		mov	word_255AE, ax
-		mov	byte_2558D, -4
-		mov	byte_2558C, 3
-		mov	ax, top_253B8
-		mov	word_255AA, ax
-
-loc_164AD:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	locret_16553
-		push	word_255A8
-		push	word_255AA
-		push	30h ; '0'
-		call	sigma_155C5
-		mov	[bp+var_2], ax
-		push	word_255AE
-		push	word_255AA
-		push	30h ; '0'
-		call	sigma_155C5
-		or	ax, ax
-		jz	short loc_164E3
-		cmp	[bp+var_2], 0
-		jz	short loc_164E3
-		mov	_boss_phase_frame, 0
-
-loc_164E3:
-		mov	ax, point_255A4.x
-		add	word_255A8, ax
-		mov	ax, word_255AC
-		add	word_255AE, ax
-		mov	ax, point_255A4.y
-		add	word_255AA, ax
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255A8
-		jle	short loc_1650B
-		add	word_255A8, 10h
-		jmp	short loc_1651C
-; ---------------------------------------------------------------------------
-
-loc_1650B:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255A8
-		jge	short loc_1651C
-		sub	word_255A8, 10h
-
-loc_1651C:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255AE
-		jle	short loc_1652F
-		sub	word_255AE, 10h
-		jmp	short loc_16540
-; ---------------------------------------------------------------------------
-
-loc_1652F:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255AE
-		jge	short loc_16540
-		add	word_255AE, 10h
-
-loc_16540:
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_16_RING	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-locret_16553:
-		leave
-		retn
-sigma_16421	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16555
-_sigma_16555 label near
-sigma_16555	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_15EF7
-		or	ax, ax
-		jnz	short loc_165A3
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1656B
-		mov	byte_2558C, 7
-
-loc_1656B:
-		mov	ax, _boss_phase_frame
-		and	ax, 3Fh
-		cmp	ax, 32
-		jnz	short loc_16589
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	30h ; '0'
-		call	sigma_155C5
-
-loc_16589:
-		test	byte ptr _boss_phase_frame, 3Fh
-		jnz	short loc_165A3
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_32_RING	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_165A3:
-		pop	bp
-		retn
-sigma_16555	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sigma_165A5	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jge	short loc_165B4
-		mov	ax, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_165B4:
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_165CC
-		cmp	_player_topleft.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - (PLAYER_W / 2))
-		jge	short loc_165C7
-		mov	al, 2
-		jmp	short loc_165C9
-; ---------------------------------------------------------------------------
-
-loc_165C7:
-		mov	al, -2
-
-loc_165C9:
-		mov	byte_255B0, al
-
-loc_165CC:
-		cmp	_boss_phase_frame, 130
-		jl	short loc_165F0
-		cmp	_boss_phase_frame, 290
-		jge	short loc_165E8
-		mov	al, byte_255B0
-		cbw
-		mov	bx, _boss_left_on_back_page
-		sub	[bx], ax
-		jmp	short loc_16602
-; ---------------------------------------------------------------------------
-
-loc_165E8:
-		cmp	_boss_phase_frame, 370
-		jge	short loc_165FC
-
-loc_165F0:
-		mov	al, byte_255B0
-		cbw
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		jmp	short loc_16602
-; ---------------------------------------------------------------------------
-
-loc_165FC:
-		mov	_boss_phase_frame, 0
-
-loc_16602:
-		xor	ax, ax
-		pop	bp
-		retn
-sigma_165A5	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16606
-_sigma_16606 label near
-sigma_16606	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_165A5
-		or	ax, ax
-		jnz	short loc_1664E
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1661C
-		mov	byte_2558C, 7
-
-loc_1661C:
-		test	byte ptr _boss_phase_frame, 3Fh
-		jnz	short loc_16636
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	30h ; '0'
-		call	sigma_155C5
-
-loc_16636:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_1664E
-		call	@bullets_add_pellet$qiiucuci pascal, left_253B6, top_253B8, 00h, BG_2_SPREAD_ULTRAWIDE_AIMED, ((4 shl 4) + 6)
-
-loc_1664E:
-		pop	bp
-		retn
-sigma_16606	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16650
-_sigma_16650 label near
-sigma_16650	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_165A5
-		or	ax, ax
-		jnz	short loc_1668C
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_16666
-		mov	angle_255B1, 0
-
-loc_16666:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_1668C
-		push	left_253B6	; left
-		push	top_253B8	; top
-		push	word ptr angle_255B1	; angle
-		push	BG_8_RING	; group
-		push	(PAT_BULLET16_BALL shl 16) or (5 shl 4)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		mov	al, angle_255B1
-		add	al, 08h
-		mov	angle_255B1, al
-
-loc_1668C:
-		pop	bp
-		retn
-sigma_16650	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_1668E
-_sigma_1668E label near
-sigma_1668E	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_165A5
-		or	ax, ax
-		jnz	short loc_166DC
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_166A4
-		mov	byte_2558C, 7
-
-loc_166A4:
-		test	byte ptr _boss_phase_frame, 1Fh
-		jnz	short loc_166BE
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	30h ; '0'
-		call	sigma_155C5
-
-loc_166BE:
-		mov	ax, _boss_phase_frame
-		and	ax, 1Fh
-		cmp	ax, 16
-		jnz	short loc_166DC
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_16_RING	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_166DC:
-		pop	bp
-		retn
-sigma_1668E	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_166DE()
+;   th02/main/boss/b6.cpp       sigma_16421()
+;                               sigma_16555()
+;                               sigma_move_sweep()  [static]
+;                               sigma_16606()
+;                               sigma_16650()
+;                               sigma_1668E()
+;                               sigma_166DE()
 ;                               sigma_update()
 ;                               sigma_init()
 ;                               sigma_end()
@@ -6331,7 +5987,7 @@ sigma_1668E	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_1668E(), and the first of
+; So th02_main.asm contributes nothing below sigma_162D3(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -6376,28 +6032,39 @@ sigma_1668E	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_1668E() is the tail now - one of the three patterns her FINAL phase
-; installs, and a near proc, so the root now ends on a `retn`. Below it the
-; block is her eleven other pattern functions, the 16-slot expanding-blast
-; pool at 0x254EC with its spawn and its state-2 promoter, two movement
-; helpers, her hittest wrapper and her defeat animation - then Meira, Rika
-; and the three midbosses. state/notes/sigma_update.md characterises all of
-; them and is the map for that naming round.
+; sigma_162D3() is the tail now - phase 5 pattern 1, a near proc, so the root
+; still ends on a `retn`. Below it the block is her six other pattern
+; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
+; its state-2 promoter, one movement helper, her hittest wrapper and her
+; defeat animation - then Meira, Rika and the three midbosses.
+; state/notes/sigma_update.md characterises all of them, holds their lengths,
+; and is the map for that naming round.
 ;
 ; TWENTY-TWO sigma_* procs were left here when sigma_update() landed, not
-; the eight its own close-out recorded. Twelve of them are the patterns; the
-; other ten are the helpers this paragraph lists. Count them with
+; the eight its own close-out recorded. Count them with
 ; `grep -c 'sigma_.*proc'` before costing a chain length off a handoff.
+;
+; TAKE A HELPER WITH ITS CALLERS WHEN YOU CAN. sigma_165A5 went with the
+; three phase-9 patterns because ALL THREE of its callers were in that group,
+; so it became a plain `static` C++ function and needed no kb/codegen/0123
+; alias at all - whereas any shallower group would have had to publish it.
+;
+; sigma_move_weave, one proc below, is the counter-example: the same shape,
+; but its callers were spread over phases 1, 3, 5 and 7, so no group short of
+; the whole run from it down could take it along. Phase 7 therefore paid the
+; alias, and phases 5, 3 and 1 now get it for free. When a shared helper
+; cannot ride along, the FIRST group that needs it pays once for all of them.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x322 0x0 0x0 BEFORE
-; this lift and 0x388 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x4C1 0x0 0x0 BEFORE
+; this lift and 0x645 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
-; point of re-deriving it. The even-sized grouping rule above is update.cpp's,
-; and quoting it
+; point of re-deriving it. FOUR lifts have now re-derived it and all four
+; found a different number. The even-sized grouping rule above is
+; update.cpp's, and quoting it
 ; at a b6.cpp lift is quoting a running sum of bodies already lifted into a
 ; different object. Re-derive it from the HOST's own OBJ (kb/codegen/0160)
 ; before choosing a depth, and read the body lengths off obj_probe.py.
@@ -8234,6 +7901,8 @@ byte_254EC	db 160 dup(?)
 public _sigma_cel_interval_mask
 _sigma_cel_interval_mask	label byte
 byte_2558C	db ?
+public _sigma_blast_hitbox_margin
+_sigma_blast_hitbox_margin	label byte
 byte_2558D	db ?
 byte_2558E	db ?
 byte_2558F	db ?
@@ -8252,13 +7921,20 @@ angle_2559E	db ?
 left_255A0	dw ?
 byte_255A2	db ?
 byte_255A3	db ?
-point_255A4	Point <?>
-word_255A8	dw ?
-word_255AA	dw ?
-word_255AC	dw ?
-word_255AE	dw ?
-byte_255B0	db ?
-angle_255B1	db ?
+public _sigma_stream_velocity
+_sigma_stream_velocity	Point <?>
+public _sigma_stream_x
+_sigma_stream_x	dw ?
+public _sigma_stream_y
+_sigma_stream_y	dw ?
+public _sigma_stream_mirror_velocity_x
+_sigma_stream_mirror_velocity_x	dw ?
+public _sigma_stream_mirror_x
+_sigma_stream_mirror_x	dw ?
+public _sigma_sweep_velocity_x
+_sigma_sweep_velocity_x	db ?
+public _sigma_ball_ring_angle
+_sigma_ball_ring_angle	db ?
 public _sigma_phase
 _sigma_phase	label byte
 byte_255B2	db ?
