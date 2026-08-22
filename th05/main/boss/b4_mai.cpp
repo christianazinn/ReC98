@@ -10,10 +10,11 @@
 /// boss2`.
 ///
 /// yuki_update() is the same function with Yuki's cels, HP and ball colour,
-/// and is still ZUN assembly directly above this one in that dump. This body
-/// is the one the root's contribution to main_035_TEXT ended with, followed by
-/// the one-byte `-a2` pad and the ten-entry jump table that its ten-case
-/// dispatch compiles to (kb/codegen 0104 + 0154 + 0160,
+/// and is th05/main/boss/b4_yuki.cpp, which this file includes below because
+/// Yuki's half sits ahead of Mai's in the segment. This body is the one the
+/// root's contribution to main_035_TEXT ended with when it was lifted,
+/// followed by the one-byte `-a2` pad and the ten-entry jump table that its
+/// ten-case dispatch compiles to (kb/codegen 0104 + 0154 + 0160,
 /// state/re/JUMP_TABLE_TAILS.md).
 ///
 /// Compiled into th05/b4mai.cpp, an object of its own. th05/swords.cpp is the
@@ -131,6 +132,22 @@ static const int MAI_LASER_SLOTS = 10;
 // b4_solo_fg.cpp gives for spelling the same number 192 there: what the cel
 // depicts has not been decided, only where it is.
 static const int PAT_MAI_ANIMATED = (PAT_MAI + 12);
+
+// The ball bullets' reset and spawn functions, which sit above the state
+// update in this segment and are therefore the first two bodies this object
+// emits. They replace the assembly module th05_main.asm included at the end of
+// its main_035_TEXT contribution, so this include has to come before the one
+// below.
+#include "th05/main/bullet/b4balls_add.cpp"
+
+// The ball bullets' state update, which sits above Yuki's half in this segment
+// and is therefore the FIRST body this object emits. Included from here for
+// the same two reasons the Yuki include below carries: nothing above this line
+// emits code, and this file owns the object's unguarded headers
+// (kb/codegen/0112 trap 0). The one header b4balls_update() needs and this
+// file does not include is unguarded too, so that file includes it and no
+// later file in the object may (kb/codegen/0129).
+#include "th05/main/bullet/b4balls_update.cpp"
 
 // Yuki's half of the solo fight, which sits AHEAD of Mai's in this segment and
 // therefore ahead of it in this object. Included from here rather than from

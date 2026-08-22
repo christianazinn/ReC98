@@ -10,19 +10,21 @@
 /// PAT_B4BALL_SNOW, and the phases that carry patterns -- 3, 5 and 9 here
 /// against Mai's 3, 7 and 9.
 ///
-/// (#included from th05/b4mai.cpp, ahead of th05/main/boss/b4_mai.cpp, which
-/// owns the shared unguarded headers for the whole object (kb/codegen/0112
-/// trap 0). This body was the last `proc` of th05_main.asm's contribution to
-/// main_035_TEXT once Mai's block was lifted out from under it, and that object
-/// is the segment's next contribution, so the lift lands exactly where the
-/// root's block ended -- kb/codegen 0112 + 0114, no carve, no new segment, no
+/// (#included from th05/main/boss/b4_mai.cpp -- not from th05/b4mai.cpp -- so
+/// that it can reach [mai_yuki_pattern], and because b4_mai.cpp owns the shared
+/// unguarded headers for the whole object (kb/codegen/0112 trap 0). Yuki's half
+/// of the fight sits AHEAD of Mai's in this segment, so it is emitted first;
+/// only b4balls_update(), included immediately above the same `#include`, comes
+/// before it. Every lift out of the block that is left grows this object
+/// backwards -- kb/codegen 0112 + 0114, no carve, no new segment, no
 /// Tupfile.lua line.)
 ///
 /// The object's `-a2` pad arithmetic differs from Mai's and is the one thing to
-/// get right here: this body is 0x326 bytes, EVEN, so its own jump table lands
-/// on an even object offset and takes NO pad -- which is what the original has.
-/// It also shifts every table behind it by 0x33A, an even amount, so
-/// mai_update()'s pad is unaffected (kb/codegen 0154 + 0157 + 0160).
+/// get right here: yuki_update() is 0x326 bytes, EVEN, so its own jump table
+/// lands on an even object offset and takes NO pad -- which is what the
+/// original has. Every prefix prepended ahead of it has been even for the same
+/// reason, so mai_update()'s one-byte pad is unaffected as well
+/// (kb/codegen 0154 + 0157 + 0160).
 
 // Yuki's HP thresholds, each spelled after the phase it ends, the way
 // th05/main/boss/b4_mai.cpp spells Mai's.
@@ -55,36 +57,79 @@ extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_3[2];
 extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_5[2];
 extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_9[5];
 
-// The first of Yuki's seven pattern bodies, and the only one left in
-// th05_main.asm: it is 209 bytes, an ODD length, so it cannot be prepended to
-// this object on its own without moving both jump tables' pads. It pairs with
-// b4balls_update() above it (273 bytes) for a parcel that sums even.
-// Address-suffixed for the reason th05/main/boss/b4_mai.cpp gives for
-// mai_1BD2C() and its siblings.
-extern "C" bool near yuki_1B557(void);
-
 // --------------------------------------------
 
 // [inferred] PAT_YUKI + 12, the one cel of Yuki's block that
 // th05/main/boss/b4_solo_fg.cpp animates over four frames -- the twin of
-// PAT_MAI_ANIMATED in th05/main/boss/b4_mai.cpp. Every one of the six patterns
-// below switches her to it, and b4_solo_fg.cpp spells the same number 208.
+// PAT_MAI_ANIMATED in th05/main/boss/b4_mai.cpp. Every one of the seven
+// patterns below switches her to it, and b4_solo_fg.cpp spells the same
+// number 208.
 static const int PAT_YUKI_ANIMATED = (PAT_YUKI + 12);
 
 /// Danmaku patterns
 /// ----------------
-/// Six of Yuki's seven, in their original address order, which is also the
-/// order YUKI_PATTERNS_PHASE_5 and _9 index them in. All are
+/// All seven, in their original address order, which is also the order
+/// YUKI_PATTERNS_PHASE_3, _5 and _9 index them in. All are
 /// pattern_oneshot_func_t; yuki_1B973() is the exception that never returns
 /// `true`, exactly as Mai's phase-5 laser pattern never does, because its
 /// phase ends on the HP check in yuki_update() instead.
 ///
-/// Four of the six close with the same tail: an exact [boss.phase_frame]
+/// Five of the seven close with the same tail: an exact [boss.phase_frame]
 /// equality that hands the phase back, and then a random flight step that only
 /// starts once the phase has seen a few patterns. **Note the odd one out** --
 /// yuki_1B8C8() gates that step on `> 2` where every other body in both halves
 /// of this fight uses `>= 2`.
 /// ----------------
+
+// Phase 3, pattern A, and YUKI_PATTERNS_PHASE_3's first entry: one 16-way ring
+// every other frame, the ring's base angle walking by an amount that grows by
+// twelve steps every sixteenth frame and reverses at the halfway point.
+//
+// `extern "C"`, with no `pascal`, because the module this replaces PUBLISHed
+// the underscore-prefixed `_yuki_1B557` from a `label near` beside the `proc`
+// -- th05_main.asm stores the address in YUKI_PATTERNS_PHASE_3 and resolves it
+// against that spelling (kb/codegen 0081 + 0102 + 0104). Address-suffixed for
+// the reason th05/main/boss/b4_mai.cpp gives for mai_1BD2C() and its siblings.
+extern "C" bool near yuki_1B557(void)
+{
+	if(boss.phase_frame == 48) {
+		boss_statebyte[15] = randring2_next16();
+		boss_statebyte[14] = 1;
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_RING;
+		bullet_template.special_motion = BSM_EXACT_LINEAR;
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.spread = (rank + 5);
+		bullet_template.speed.set(3.375f);
+		boss.sprite = PAT_YUKI_ANIMATED;
+		bullet_template_tune();
+	} else if(boss.phase_frame > 48) {
+		if((boss.phase_frame % 2) == 0) {
+			bullet_template.angle = boss_statebyte[15];
+			boss_statebyte[15] += boss_statebyte[14];
+			bullets_add_special();
+			if((boss.phase_frame % 16) == 0) {
+				boss_statebyte[15] += (boss_statebyte[14] * 12);
+			}
+			snd_se_play(3);
+		}
+		if(boss.phase_frame == 160) {
+			boss_statebyte[14] = -boss_statebyte[14];
+		}
+		if(boss.phase_frame == 256) {
+			boss.phase_frame = 0;
+			boss.mode = 0;
+			return true;
+		}
+		if(
+			(boss.phase_state.patterns_seen >= 2) &&
+			(boss.phase_frame >= 64)
+		) {
+			boss_flystep_random(boss.phase_frame % 64);
+		}
+	}
+	return false;
+}
 
 // Phase 3, pattern B: one random-width, random-speed spread every other frame,
 // walking around by 6 units a shot.
