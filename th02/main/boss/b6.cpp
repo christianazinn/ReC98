@@ -103,6 +103,18 @@
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/bg_particle.hpp"
 #include "th02/main/boss/bosses.hpp"
+// And these three for her final phase's patterns, appended for the same reason
+// as the run above. th02/main/bullet/bullet.hpp is the one that needed a
+// decision: it has NO include guard, which is why every earlier parcel in this
+// file spelled a bullet symbol out by hand instead of including it
+// (bullets_clear() above). It is included ONCE, here, because these patterns
+// need two function declarations and four `bullet_group_or_special_motion_t`
+// enumerators from it and spelling an enum out by hand is not a saving. Nothing
+// else in this TU's include graph reaches it, so the single inclusion is safe;
+// a second `#include` of it anywhere in this object is not.
+#include "th02/main/bullet/bullet.hpp"
+#include "th02/main/player/player.hpp"
+#include "th02/math/randring.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -303,6 +315,45 @@ extern "C" int sigma_phase_damage_max;
 // (th02/main/boss/b5m.cpp), which is the same effect at the same centre.
 extern "C" uint8_t sigma_ring_radius;
 
+// The signed horizontal step sigma_move_sweep() latches on frame 50 and then
+// applies for three legs. [marisa_velocity_x] / [marisa_velocity_y]
+// (th02/main/boss/b4.hpp) is the structural twin, down to the latch-once-from-a-
+// player-compare rule, and `velocity_x` is the house concept
+// (enemy_t::velocity_x, ITEM_MISS_VELOCITY_X_CENTER). NOT a `_dx` suffix: in
+// this tree `dx` means the DX register (grcg_off_clobbering_dx).
+// `[measured]` Signed: every read is `mov al` + `cbw`.
+// Sigma-exclusive AND helper-exclusive -- all four references in th02_main.asm
+// were inside sigma_165A5, so this lift held the last of them and IDA's name is
+// RETIRED rather than aliased, the way [mima_velocity_y] in that same _BSS block
+// already is.
+//
+// `_x` although the sweep has no vertical component, because its twin
+// sigma_15EF7 latches the same shape and DOES move her on both axes; the pair
+// wants to read as a pair when that one lands.
+extern "C" int8_t sigma_sweep_velocity_x;
+
+// The angle sigma_16650() spawns its 8-way ring of 16x16 balls at, stepped by 8
+// per ring. `[measured]` All five references were inside sigma_16650, so this
+// name is retired rather than aliased too.
+//
+// `[measured 2026-08-22]` The shorter spelling without `ball` is not merely
+// vaguer, it COLLIDES: this file already holds SIGMA_RING_ANGLE_STEP and
+// SIGMA_RING_ANGLE_STEP_REDUCED, and `<x>_ring_angle` + `<X>_RING_ANGLE_STEP` is
+// an established pair idiom here (stage3_ring_angle in
+// th02/main/stage/stages.cpp, mima_ring_radius in b5m.cpp). Those two constants
+// belong to [sigma_ring_radius] above -- the two dot-square background rings
+// sigma_update() blits at a fixed centre, which have no angle of their own -- so
+// the short name would have falsely paired with them. Naming the projectile is
+// what keeps the two apart, and mima_spiral_angle, mima_ray_angle,
+// mima_stream_angle and mima_fan_angle are the <boss>_<what-rotates>_angle
+// family it joins.
+//
+// THAT COLLISION IS INVISIBLE TO A CASE-SENSITIVE CENSUS, which is how it was
+// nearly missed: TASM runs under `/mx` and resolves symbols case-insensitively
+// while publishing whatever the directive spells, so a name census in this
+// project has to be case-insensitive to be an instrument at all.
+extern "C" uint8_t sigma_ball_ring_angle;
+
 static const screen_x_t SIGMA_RING_CENTER_X = 224;
 static const screen_y_t SIGMA_RING_CENTER_Y = 200;
 static const int SIGMA_RING_COUNT = 2;
@@ -368,10 +419,226 @@ extern "C" void near sigma_1619C(void);
 extern "C" void near sigma_162D3(void);
 extern "C" void near sigma_16421(void);
 extern "C" void near sigma_16555(void);
-extern "C" void near sigma_16606(void);
-extern "C" void near sigma_16650(void);
-extern "C" void near sigma_1668E(void);
+
+// And the one still-ASM proc in her chain that the dump kept PRIVATE and this
+// object nevertheless has to reach: the spawn for her 16-slot pool of expanding
+// circular blasts at 0x254EC. Bounds-checks the point against the playfield,
+// takes the first free record, seeds it and plays SE 9.
+//
+// **RETURNS `true` WHEN THE REQUEST WAS REJECTED**, for either reason -- the
+// point outside `0 < x < 444` and `0 < y < 400`, or every record already in use.
+// That inverts the polarity every other `bool16` in this tree uses, and the
+// project's habit is to carry such an inversion in the doc comment rather than
+// in the name (midboss3_invalidate() does the same thing in this same binary),
+// which is why this sentence is shouting instead of the identifier. Seven of the
+// eight call sites ignore the value; sigma_16421 is the one that reads it, and
+// restarts its pattern when both of its two spawns are refused.
+//
+// Plural pool noun plus `_add`, which is the house shape by sixteen precedents
+// to one: bullets_add_pellet, items_add, lasers_add, sparks_add, enemies_add,
+// b4balls_add, swords_add, cheetos_add. (`shot_add` is the lone singular, and
+// `_spawn` is never a verb in this tree.)
+//
+// `pascal`, which is not a style choice but what the original's `retn 6` says,
+// and therefore what its new alias in the dump has to publish: Borland decorates
+// a `pascal` `extern "C"` name in UPPER CASE with no leading underscore, so the
+// dump grew `public SIGMA_BLASTS_ADD`; the lower-case underscore-prefixed form
+// every other alias in that dump uses would not have resolved
+// (kb/codegen/0086, kb/codegen/0027; `public MPN_PUT_8` in th04_main.asm and
+// `public MPN_FREE` in th05_main.asm are the in-tree idiom).
+//
+// [radius_max] is written verbatim into the record and is where each pattern's
+// blast stops growing -- see SIGMA_BLAST_RADIUS_MAX below for why it is an
+// argument rather than a constant.
+extern "C" bool16 pascal near sigma_blasts_add(
+	screen_x_t x, screen_y_t y, int radius_max
+);
 /// -------------------------------------------------
+
+/// Her final phase's three patterns, and the movement they share
+/// -------------------------------------------------------------
+/// [sigma_phase] 9's group, installed together by sigma_update() below. All
+/// three open by delegating to the same movement helper and doing nothing until
+/// it says she has finished her entrance hold, then each adds its own bullets on
+/// its own frame cadence.
+
+// The frame the two movement helpers hold until, and the frame on which each
+// latches its direction. `[measured]` The same 50 in both, and the same 50
+// SIGMA_INTRO_FRAMES uses for phase 0 -- but those are different counters
+// (phase 0 tests `>`, these test `<` and `==`), so this is its own constant.
+static const int SIGMA_MOVE_HOLD_FRAMES = 50;
+
+// Phase 9's sweep: 2 pixels per frame, latched signed once and then added,
+// subtracted and added again by the three legs below.
+static const pixel_t SIGMA_SWEEP_SPEED = 2;
+static const int SIGMA_SWEEP_LEG_1_END = 130;
+static const int SIGMA_SWEEP_LEG_2_END = 290;
+static const int SIGMA_SWEEP_LEG_3_END = 370;
+
+// The radius all three of these patterns cap their blasts at. `[measured]` NOT
+// a property of the pool: sigma_155C5's third argument is written straight into
+// the record and its eight call sites pass three different values -- 0x40 from
+// sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
+static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
+
+// Which of [sigma_cel_interval_mask]'s two values the phase-9 patterns want:
+// every 8th frame, i.e. the slow telegraph.
+static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
+
+/// Phase 9's shared movement, and the answer "not yet" for the 50 frames before
+/// it starts.
+///
+/// `static` and unnamed in the dump on purpose: this is the one proc in Sigma's
+/// chain whose every caller is in this group, so it needs no kb/codegen/0123
+/// alias and no `public` -- taking it in the same parcel as its three callers is
+/// strictly cheaper than lifting them without it.
+///
+/// Named boss-plus-move-plus-qualifier, after shinki_move_float()
+/// (th05/main/boss/b6.cpp) and midboss1_move() (th05/main/midboss/m1.cpp); the
+/// qualifier is "sweep" after reimu_sweep_angle_delta
+/// (th04/main/boss/b4r_upd.cpp), which establishes it as a boss-motion noun
+/// here. An axis-letter suffix has no precedent in this tree, and dropping the
+/// verb loses what every other movement helper carries.
+///
+/// `[measured]` sigma_15EF7, still ASM above, is its twin for phases 1, 3, 5 and
+/// 7: same hold, same latch-once-on-frame-50 rule, but 1 pixel per frame, a
+/// FOURTH leg, and a vertical component. It wants the same shape with a
+/// different qualifier when it lands, which is why this one is not simply the
+/// unqualified move.
+///
+/// The direction is latched AWAY from the player, not toward: she gets the
+/// positive step when the player is left of centre. Returning `true` while
+/// holding is what lets each pattern open with a bare early-out.
+static bool16 near sigma_move_sweep(void)
+{
+	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
+		return true;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		// A conditional EXPRESSION, not an `if`/`else` with a store in each
+		// arm, and that is 2 bytes rather than a style question: the original
+		// loads each candidate into AL, jumps to a join, and stores AL to this
+		// byte ONCE -- ten bytes, and what an assignment from a single
+		// expression compiles to. An `if`/`else` puts an immediate store in
+		// each arm instead, which is twelve. `tcc -S` reported exactly that
+		// difference before the first full build of this parcel.
+		sigma_sweep_velocity_x = ((player_topleft.x < PLAYER_LEFT_START)
+			? SIGMA_SWEEP_SPEED
+			: -SIGMA_SWEEP_SPEED
+		);
+	}
+
+	// Legs 1 and 3 are the same statement, and -O cross-jumps them into one
+	// copy by itself -- unlike the three arms of sigma_update()'s phase
+	// dispatch, which it could not merge because those are inline-ASM islands
+	// it cannot read. Written as four plain arms here, and the merge is the
+	// compiler's.
+	if(boss_phase_frame < SIGMA_SWEEP_LEG_1_END) {
+		*boss_left_on_back_page += sigma_sweep_velocity_x;
+	} else if(boss_phase_frame < SIGMA_SWEEP_LEG_2_END) {
+		*boss_left_on_back_page -= sigma_sweep_velocity_x;
+	} else if(boss_phase_frame < SIGMA_SWEEP_LEG_3_END) {
+		*boss_left_on_back_page += sigma_sweep_velocity_x;
+	} else {
+		// And THIS is what sigma_166DE() below reads as "the pattern finished
+		// its loop". The phase counter is untouched.
+		boss_phase_frame = 0;
+	}
+	return false;
+}
+
+/// Phase 9 pattern 0: a blast on the player every 64 frames, and an ultrawide
+/// aimed spread every 8.
+extern "C" void near sigma_16606(void)
+{
+	if(sigma_move_sweep()) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_SLOW;
+	}
+	if((boss_phase_frame & 0x3F) == 0) {
+		// `[measured]` +16 on BOTH axes, and PLAYER_H is 48, so the second one
+		// is NOT the player's centre -- player_center_y()
+		// (th02/main/player/player.hpp) would be +24. ZUN used half the WIDTH
+		// on both axes. Spelled out rather than routed through that helper so
+		// the quirk is visible at every one of the three call sites below.
+		sigma_blasts_add(
+			player_center_x(),
+			(player_topleft.y + (PLAYER_W / 2)),
+			SIGMA_BLAST_RADIUS_MAX
+		);
+	}
+	if((boss_phase_frame & 7) == 0) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			0,
+			BG_2_SPREAD_ULTRAWIDE_AIMED,
+			((4 << 4) + 6)
+		);
+	}
+}
+
+/// Phase 9 pattern 1: an 8-way ring of 16x16 balls every 8 frames, rotating an
+/// eighth of a turn per ring.
+extern "C" void near sigma_16650(void)
+{
+	if(sigma_move_sweep()) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		sigma_ball_ring_angle = 0;
+	}
+	if((boss_phase_frame & 7) == 0) {
+		bullets_add_16x16(
+			sigma_center_x,
+			sigma_center_y,
+			sigma_ball_ring_angle,
+			BG_8_RING,
+			PAT_BULLET16_BALL,
+			(5 << 4)
+		);
+
+		// 8 of the 256-step circle, i.e. exactly one gap of the 8-way ring
+		// divided by four, so the ring only lines up with itself every 4th
+		// spawn. th02/main/boss/b3.cpp's stones_11BFE() steps its own ring
+		// angle by the same 8 after the same call.
+		sigma_ball_ring_angle += 8;
+	}
+}
+
+/// Phase 9 pattern 2: a blast on the player every 32 frames, and a 16-way ring
+/// at a random angle on the frames exactly between them.
+extern "C" void near sigma_1668E(void)
+{
+	if(sigma_move_sweep()) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_SLOW;
+	}
+	if((boss_phase_frame & 0x1F) == 0) {
+		sigma_blasts_add(
+			player_center_x(),
+			(player_topleft.y + (PLAYER_W / 2)),
+			SIGMA_BLAST_RADIUS_MAX
+		);
+	}
+
+	// Interleaved with the blast rather than sharing its test: 16 is half of
+	// 0x20, so the ring always fires on the frame midway between two blasts.
+	if((boss_phase_frame & 0x1F) == 16) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			randring2_next8(),
+			BG_16_RING,
+			((3 << 4) + 12)
+		);
+	}
+}
+/// -------------------------------------------------------------
 
 /// Her pattern runner: one of the current phase's [sigma_pattern_func] slots
 /// per frame, then the two counters that end the pattern and end the phase.
