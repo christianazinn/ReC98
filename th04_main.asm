@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -2822,295 +2822,42 @@ MB_DFR_TEXT	segment	byte public 'CODE' use16
 	; GROUP of the declaring segment matters (kb/codegen 0064, 0082).
 MB_DFR_TEXT	ends
 
+; Harness carve (kb/codegen/0080): the head of the original `main_012_TEXT`
+; contribution -- Yuuka's Stage 6 foreground renderer and the
+; [custom_entities] overlay pass it called -- renamed so that a C++ object
+; can take it over without re-pointing th04/main_012.cpp, which already owns
+; the tail of the original segment. Both halves keep the original
+; `byte public 'CODE' use16`, so there is no pad byte to re-emit and
+; kb/codegen/0069 never comes up; nothing moves.
+Y6_FG_TEXT	segment	byte public 'CODE' use16
+
+	; yuuka6_customs_render() -- ZUN's sub_11B44 -- and yuuka6_fg_render()
+	; are now compiled from th04/main/boss/b6_fg.cpp, via th04/y6_fg.cpp, in
+	; this same original order. With both of them gone the root contributes
+	; NO BYTES to this segment at all, and the empty `segment`/`ends` pair
+	; stays: physical order inside a group follows the order the segments are
+	; first defined, and this object is the first one linked. Deleting the
+	; pair would let main_012_TEXT open the group's tail first and move every
+	; byte from 0x11B44 on. (kb/codegen/0080, "Draining the carve", step 4;
+	; the mechanism is 0085.)
+	;
+	; Neither body is replaced by a declaration. sub_11B44 never had a
+	; `public` of ZUN's and its only caller was yuuka6_fg_render(), which is
+	; C++ in the same object now. yuuka6_fg_render()'s own
+	; `public @YUUKA6_FG_RENDER$QV` went with the body, because the only
+	; thing that ever takes its address is stage6_setup()
+	; (th04/main/stage/setup.cpp), which is C++ too and reaches it through
+	; th04/main/boss/bosses.hpp.
+	;
+	; kb/codegen/0121: neither body carried an `assume`, so there is nothing
+	; to restore into the rest of this file.
+
+Y6_FG_TEXT	ends
+
+; The tail of that same original contribution, under the original name: the
+; two `include`d modules below, sub_11DE6, and th04/main_012.cpp's own
+; contribution behind them.
 main_012_TEXT	segment	byte public 'CODE' use16
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_11B44	proc near
-
-@@y		= word ptr -4
-@@x		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	si, offset yuuka6_chasecrosses
-		xor	di, di
-		jmp	loc_11BD1
-; ---------------------------------------------------------------------------
-
-loc_11B52:
-		cmp	[si+yuuka6_chasecross_t.B6C_flag], CCF_FREE
-		jz	short loc_11BCD
-		mov	ax, [si+yuuka6_chasecross_t.B6C_center.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (YUUKA6_CHASECROSS_W / 2))
-		mov	[bp+@@x], ax
-		mov	ax, [si+yuuka6_chasecross_t.B6C_center.y]
-		sar	ax, 4
-		mov	[bp+@@y], ax
-		cmp	[si+yuuka6_chasecross_t.B6C_flag], CCF_ALIVE
-		jnz	short loc_11BAD
-		cmp	[si+yuuka6_chasecross_t.B6C_damage_this_frame], 0
-		jnz	short loc_11B8E
-		push	[bp+@@x]
-		push	ax
-		mov	ax, [si+yuuka6_chasecross_t.B6C_age]
-		shr	ax, 1
-		and	ax, (YUUKA6_CHASECROSS_CELS - 1)
-		add	ax, PAT_YUUKA6_CHASECROSS
-		push	ax
-		call	super_put
-		jmp	short loc_11BCD
-; ---------------------------------------------------------------------------
-
-loc_11B8E:
-		push	[bp+@@x]
-		push	[bp+@@y]
-		mov	ax, [si+yuuka6_chasecross_t.B6C_age]
-		shr	ax, 1
-		and	ax, (YUUKA6_CHASECROSS_CELS - 1)
-		add	ax, PAT_YUUKA6_CHASECROSS
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		jmp	short loc_11BCD
-; ---------------------------------------------------------------------------
-
-loc_11BAD:
-		push	[bp+@@x]
-		push	[bp+@@y]
-		mov	al, [si+yuuka6_chasecross_t.B6C_flag]
-		mov	ah, 0
-		mov	bx, CHASECROSS_KILL_FRAMES_PER_CEL
-		cwd
-		idiv	bx
-		push	ax
-		call	super_put
-		inc	[si+yuuka6_chasecross_t.B6C_flag]
-		cmp	[si+yuuka6_chasecross_t.B6C_flag], CCF_KILL_ANIM_END
-		jb	short loc_11BCD
-		mov	[si+yuuka6_chasecross_t.B6C_flag], CCF_FREE
-
-loc_11BCD:
-		inc	di
-		add	si, size yuuka6_chasecross_t
-
-loc_11BD1:
-		cmp	di, YUUKA6_CHASECROSS_COUNT
-		jl	loc_11B52
-		cmp	[si+yuuka6_safetycircle_t.B6S_flag], SCF_FREE
-		jz	short loc_11C16
-		call	@grcg_setmode_rmw$qv
-		mov	ah, 2
-		call	@grcg_setcolor_direct_raw$qv
-		call	grcg_circlefill pascal, [si+yuuka6_safetycircle_t.B6S_center.x], [si+yuuka6_safetycircle_t.B6S_center.y], [si+yuuka6_safetycircle_t.B6S_radius_filled]
-		cmp	[si+yuuka6_safetycircle_t.B6S_flag], SCF_GROW
-		jz	short loc_11C16
-		mov	ah, [si+yuuka6_safetycircle_t.B6S_col_ring]
-		call	@grcg_setcolor_direct_raw$qv
-		push	[si+yuuka6_safetycircle_t.B6S_center.x]
-		push	[si+yuuka6_safetycircle_t.B6S_center.y]
-		mov	ax, [si+yuuka6_safetycircle_t.B6S_radius_ring_distance]
-		add	ax, [si+yuuka6_safetycircle_t.B6S_radius_filled]
-		push	ax
-		call	grcg_circle
-		GRCG_OFF_CLOBBERING dx
-
-loc_11C16:
-		pop	di
-		pop	si
-		leave
-		retn
-sub_11B44	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @YUUKA6_FG_RENDER$QV
-@yuuka6_fg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		add	ax, -16
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -32
-		mov	di, ax
-		cmp	_boss_phase, PHASE_NONE
-		jz	loc_11D92
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_11C57
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		push	3
-		call	super_zoom
-		jmp	loc_11D92
-; ---------------------------------------------------------------------------
-
-loc_11C57:
-		cmp	byte_25A08, 0
-		jz	short loc_11C7A
-		lea	ax, [si+24]
-		push	ax
-		lea	ax, [di+24]
-		push	ax
-		mov	al, _stage_frame_mod16
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	ax, 182
-		push	ax
-		call	super_put
-
-loc_11C7A:
-		cmp	_boss_sprite, 0
-		jz	loc_11D86
-		cmp	_boss_damage_this_frame, 0
-		jz	short loc_11C91
-		test	byte_25A03, 1
-		jz	short loc_11CB1
-
-loc_11C91:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	super_put
-		jmp	short loc_11CDB
-; ---------------------------------------------------------------------------
-
-loc_11CB1:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_R
-		call	super_put_1plane
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		pushd	PLANE_PUT or GC_R
-		call	super_put_1plane
-
-loc_11CDB:
-		cmp	_boss_damage_this_frame, 0
-		jz	short loc_11CE7
-		mov	ax, 1
-		jmp	short loc_11CE9
-; ---------------------------------------------------------------------------
-
-loc_11CE7:
-		xor	ax, ax
-
-loc_11CE9:
-		add	al, byte_25A03
-		mov	byte_25A03, al
-		mov	_boss_damage_this_frame, 0
-		cmp	byte_25A1B, 2
-		jnz	loc_11D86
-		mov	ax, point_25A0C.x
-		sar	ax, 4
-		add	ax, (-1 shl 4)
-		mov	si, ax
-		mov	ax, point_25A0C.y
-		sar	ax, 4
-		add	ax, (-2 shl 4)
-		mov	di, ax
-		cmp	byte_25A1E, 0
-		jz	short loc_11D22
-		test	byte_25A04, 1
-		jz	short loc_11D42
-
-loc_11D22:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		call	super_put
-		jmp	short loc_11D6C
-; ---------------------------------------------------------------------------
-
-loc_11D42:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_R
-		call	super_put_1plane
-		lea	ax, [si+48]
-		push	ax
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		inc	ax
-		push	ax
-		pushd	PLANE_PUT or GC_R
-		call	super_put_1plane
-
-loc_11D6C:
-		cmp	byte_25A1E, 0
-		jz	short loc_11D78
-		mov	ax, 1
-		jmp	short loc_11D7A
-; ---------------------------------------------------------------------------
-
-loc_11D78:
-		xor	ax, ax
-
-loc_11D7A:
-		add	al, byte_25A04
-		mov	byte_25A04, al
-		mov	byte_25A1E, 0
-
-loc_11D86:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		call	_thicklasers_render
-		call	main_01:sub_11B44
-
-loc_11D92:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@yuuka6_fg_render$qv	endp
 
 include th04/main/player/shots_add.asm
 include th04/main/player/shot_velocity.asm
@@ -8176,8 +7923,16 @@ include th04/main/midboss/funcs[bss].asm
 public _yuuka6_25A02
 _yuuka6_25A02 label byte
 byte_25A02	db ?
-byte_25A03	db ?
-byte_25A04	db ?
+	; The two frame counters Yuuka's two damage flashes blink off -- one for
+	; her own sprite, one for her mirror image -- each incremented on every
+	; frame its subject took damage, and never reset. Both are private dump
+	; labels with no `public` of ZUN's, and yuuka6_fg_render(), now
+	; th04/main/boss/b6_fg.cpp, was the only code that ever touched either,
+	; so both are RENAMED rather than given a zero-byte alias: no reader is
+	; left in this file (kb/codegen/0123).
+public _yuuka6_25A03, _yuuka6_25A04
+_yuuka6_25A03	db ?
+_yuuka6_25A04	db ?
 		db ?
 public _yuuka6_sprite_flag, _yuuka6_phase2_fly_path
 _yuuka6_sprite_flag	db ?

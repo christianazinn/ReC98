@@ -965,6 +965,13 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
 	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
+	-- Append-anywhere, and parked next to main_012.cpp only because it is the
+	-- other half of what used to be one segment: y6_fg.cpp is Y6_FG_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_01 comes from
+	-- th04_main.asm, which defines it (and main_012_TEXT behind it) and is the
+	-- first object linked.
+	"th04/y6_fg.cpp",
 	"th04/main_012.cpp",
 	"th04/main_033.cpp",
 	-- POSITION-CRITICAL: b6_next.cpp is yuuka6_phase_next() alone and must
