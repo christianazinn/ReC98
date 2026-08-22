@@ -5763,469 +5763,47 @@ BX_UPDATE_TEXT	ends
 
 BX_TEXT	segment	byte public 'CODE' use16
 
-	EXALICE_PHASE_NEXT procdesc pascal near \
-		explosion_type_and_next_end_hp:dword
-	@exalice_hittest$qv procdesc far
-	@exalice_spreads_and_sweep$qv procdesc near
-	@pattern_mirrored_crosses$qv procdesc near
 	@pattern_aimed_cheetos$qv procdesc near
 	@pattern_aimed_crosses$qv procdesc near
-	@pattern_pingpong_lasers$qv procdesc near
 	@pattern_speedup_spreads$qv procdesc near
 	@pattern_lasers_and_green_rings$qv procdesc near
-	@pattern_bouncing_blue_rings$qv procdesc near
 	@pattern_rotating_blue_rings$qv procdesc near
 	@pattern_gravity_balls_and_stacks$qv procdesc near
-	@pattern_spreads_and_firewaves$qv procdesc near
 	@pattern_rotating_red_rings$qv procdesc near
 	@pattern_random_red_spreads$qv procdesc near
-	@exalice_gather_and_pattern$qv procdesc near
 
-	; kb/codegen/0080's carve, so that a C++ object can append to the
-	; MIDDLE of this segment's original extent rather than to its end.
-	; BX_TEXT now holds NO ASM at all: this parcel lifted the last nine
-	; procs of it, so the block below emits nothing but declarations and
-	; the object named there is the segment's only contributor.
-	; exalice_update() and its three jump tables keep main_036_TEXT; the
+	; The head half of what the kb/codegen/0080 carve split main_036_TEXT
+	; into. NEITHER half holds any ASM now, and the boundary between them
+	; has stopped meaning anything: th05/exalice.cpp fills BX_TEXT with
+	; the EX-Alice fight AND exalice_update() behind it, because a
+	; `push cs` + near `call` to exalice_hittest() is only 4 bytes when
+	; caller and callee share one object and one segment
+	; (kb/codegen/0116). th05/main_036.cpp picks up in main_036_TEXT with
+	; the Stage 5 midboss's half, at the address it always had; the
 	; `db 0` and the pointnum include below are POINTNUM_TEXT. All three
-	; are `byte public`.
+	; segments are `byte public` and adjacent in group main_03, which is
+	; what lets one object cross the boundary with no byte moving.
 	;
-	; th05/main/boss/bx_updt.cpp, compiled through th05/exalice.cpp, is
-	; that object, and it starts exactly where this block ends -- which
-	; is now the start of the segment. Every proc came out through the
-	; same kb/codegen 0099 + 0112 + 0114 prepend into the front of that
-	; file, starting from the `include` of th05/main/boss/bx.asm that
-	; used to be the last thing this block contributed. Renaming this
-	; segment is NOT free: that object names it.
+	; Renaming this segment is NOT free: that object names it.
 	;
 	; A `procdesc` binds its symbol to the segment block it is written
-	; in (kb/codegen 0123), which is why the whole list has to stay here
-	; even with no code left around it: exalice_update() reaches nine of
-	; those symbols through three `call`s and five `mov fp_2CE66, offset`
-	; stores, and [off_22874] in `_DATA` through six more `dw offset`.
-	;
-	; EXALICE_PHASE_NEXT is undecorated and upper-case because that is
-	; what its `public` was, and the packed `dword` is the one argument
-	; exalice_update()'s eight call sites actually push (kb/codegen
-	; 0086 + 0008); a no-argument `procdesc` makes all eight of them
-	; `Too many arguments to procedure`. exalice_hittest() had no
-	; `public` of ZUN's at all, so it keeps a plain decorated C++
-	; symbol, and `far` is what -ml gives a declaration without `near`.
+	; in (kb/codegen 0123), which is why the eight below have to stay
+	; here with no code around them: [EXALICE_PATTERNS] in `_DATA` is
+	; what reaches them, one `dw offset` each. The eight that this
+	; segment's own code used to reach are gone with it; seven more, in
+	; six other segments' blocks, went unreferenced at the same time and
+	; are left for whoever next claims those regions.
 BX_TEXT	ends
 
 main_036_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @EXALICE_UPDATE$QV
-@exalice_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_exalice_invincibility_frames, 0
-		jz	short loc_1F298
-		dec	_exalice_invincibility_frames
-
-loc_1F298:
-		mov	eax, _boss_pos.cur
-		mov	_homing_target, eax
-		mov	_bullet_template.BT_origin, eax
-		mov	_gather_template.GT_center, eax
-		mov	_laser_template.coords.origin, eax
-		mov	cheeto_template.pos.cur, eax
-		inc	_boss_phase_frame
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 11h
-		ja	loc_1F660
-		add	bx, bx
-		jmp	cs:off_1F689[bx]
-
-loc_1F2C9:
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1F333
-		mov	_boss_hp, 26500
-		mov	_boss_phase_end_hp, 23800
-		mov	_gather_template.GT_radius, (128 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_ring_points, 8
-		mov	_boss_sprite, 180
-		mov	_boss_sprite_left, 186
-		mov	_boss_sprite_right, 184
-		mov	_boss_sprite_stay, 180
-		mov	_exalice_invincibility_frames, 0
-		mov	_boss_flystep_random_clamp.A_left, (BOSS_W shl 4)
-		mov	_boss_flystep_random_clamp.A_right, ((PLAYFIELD_W - BOSS_W) shl 4)
-		mov	_boss_flystep_random_clamp.A_top, (48 shl 4)
-		mov	_boss_flystep_random_clamp.A_bottom, (96 shl 4)
-		mov	si, 204
-		jmp	short loc_1F32D
-; ---------------------------------------------------------------------------
-
-loc_1F326:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_1F32D:
-		cmp	si, 220
-		jl	short loc_1F326
-
-loc_1F333:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 192
-		jl	loc_1F666
-		mov	_boss_phase_frame, 0
-		inc	_boss_phase
-		call	snd_se_play pascal, 13
-		mov	Palettes[0 * size rgb_t].r, 0
-		mov	Palettes[0 * size rgb_t].g, 0
-		mov	Palettes[0 * size rgb_t].b, 0
-		mov	_palette_changed, 1
-		mov	_exalice_overlay_patnum, 196
-		mov	_bg_render_bombing_func, offset @exalice_bg_render$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F374:
-		call	@boss_hittest_shots_invincible$qv
-		cmp	_boss_phase_frame, 64
-		jl	loc_1F666
-		inc	_boss_phase
-		mov	_boss_mode, 1
-		mov	_boss_phase_state, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_custombullets_render, offset exalice_custombullets_render
-		mov	_boss_statebyte[15], 0
-		mov	fp_2CE66, offset @pattern_random_red_spreads$qv
-		mov	_boss_statebyte[9], 0
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F3AD:
-		mov	al, _boss_mode
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1F3BD
-		cmp	ax, 1
-		jz	short loc_1F400
-		jmp	short loc_1F403
-; ---------------------------------------------------------------------------
-
-loc_1F3BD:
-		mov	ax, _boss_phase_frame
-		add	ax, -32
-		call	@boss_flystep_random$qi pascal, ax
-		or	al, al
-		jz	short loc_1F403
-		mov	_boss_phase_frame, 0
-		inc	_boss_phase_state
-		inc	_boss_mode
-		mov	al, _boss_statebyte[9]
-		mov	ah, 0
-		shl	ax, 2
-		mov	dl, _boss_phase_state
-		mov	dh, 0
-		and	dx, 1
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, off_22874[bx]
-		mov	fp_2CE66, ax
-		cmp	_boss_phase_state, 32
-		jb	short loc_1F403
-		jmp	short loc_1F412
-; ---------------------------------------------------------------------------
-
-loc_1F400:
-		call	@exalice_gather_and_pattern$qv
-
-loc_1F403:
-		call	@exalice_hittest$qv
-		or	ax, ax
-		jz	loc_1F666
-		call	@boss_score_bonus$qui pascal, 20
-
-loc_1F412:
-		mov	al, _boss_statebyte[9]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	loc_1F666
-		add	bx, bx
-		jmp	cs:off_1F681[bx]
-
-loc_1F427:
-		call	exalice_phase_next pascal, large (0 shl 16) or 21000
-		mov	fp_2CE66, offset @pattern_spreads_and_firewaves$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F439:
-		call	exalice_phase_next pascal, (ET_NW_SE shl 16) or 15100
-		mov	fp_2CE66, offset @pattern_bouncing_blue_rings$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F44B:
-		call	exalice_phase_next pascal, (ET_SW_NE shl 16) or 9600
-		mov	fp_2CE66, offset @pattern_pingpong_lasers$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F45D:
-		call	exalice_phase_next pascal, (ET_HORIZONTAL shl 16) or 3400
-		mov	fp_2CE66, offset @pattern_mirrored_crosses$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F46F:
-		cmp	Palettes[0 * size rgb_t].r, 96
-		jnb	short loc_1F483
-		mov	al, Palettes[0 * size rgb_t].r
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	_palette_changed, 1
-
-loc_1F483:
-		push	(((PLAYFIELD_W / 2) shl 4) shl 16) or (64 shl 4)
-		call	@boss_flystep_towards$qii
-		or	al, al
-		jz	short loc_1F49F
-		mov	_boss_phase_frame, 0
-		inc	_boss_phase
-		mov	_boss_mode, 1
-
-loc_1F49F:
-		call	@exalice_hittest$qv
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F4A6:
-		cmp	Palettes[0 * size rgb_t].r, 96
-		jnb	short loc_1F4BA
-		mov	al, Palettes[0 * size rgb_t].r
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	_palette_changed, 1
-
-loc_1F4BA:
-		call	@exalice_gather_and_pattern$qv
-		cmp	_boss_phase_frame, 4000
-		jg	short loc_1F4D4
-
-loc_1F4C5:
-		call	@exalice_hittest$qv
-		or	ax, ax
-		jz	loc_1F666
-		call	@boss_score_bonus$qui pascal, 20
-
-loc_1F4D4:
-		mov	al, _boss_statebyte[9]
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	short loc_1F523
-		add	bx, bx
-		jmp	cs:off_1F679[bx]
-
-loc_1F4E7:
-		call	exalice_phase_next pascal, (ET_NW_SE shl 16) or 18100
-		mov	fp_2CE66, offset @pattern_gravity_balls_and_stacks$qv
-		jmp	short loc_1F523
-; ---------------------------------------------------------------------------
-
-loc_1F4F8:
-		call	exalice_phase_next pascal, (ET_SW_NE shl 16) or 12600
-		mov	fp_2CE66, offset @pattern_lasers_and_green_rings$qv
-		jmp	short loc_1F523
-; ---------------------------------------------------------------------------
-
-loc_1F509:
-		call	exalice_phase_next pascal, (ET_HORIZONTAL shl 16) or 6800
-		mov	fp_2CE66, offset @pattern_aimed_crosses$qv
-		jmp	short loc_1F523
-; ---------------------------------------------------------------------------
-
-loc_1F51A:
-		call	exalice_phase_next pascal, (ET_VERTICAL shl 16) or 0
-
-loc_1F523:
-		mov	_pellet_bottom_col, 9
-		mov	_exalice_overlay_patnum, 200
-		inc	_boss_statebyte[9]
-		jmp	loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F536:
-		cmp	Palettes[0 * size rgb_t].b, 96
-		jnb	short loc_1F552
-		mov	al, Palettes[0 * size rgb_t].b
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].b, al
-		mov	al, Palettes
-		add	al, -2
-		mov	Palettes[0 * size rgb_t].r, al
-		mov	_palette_changed, 1
-
-loc_1F552:
-		cmp	_boss_phase, 5
-		jnz	loc_1F3AD
-		jmp	loc_1F483
-; ---------------------------------------------------------------------------
-
-loc_1F55E:
-		cmp	Palettes[0 * size rgb_t].r, 48
-		jnb	short loc_1F572
-		inc	Palettes[0 * size rgb_t].r
-		dec	Palettes[0 * size rgb_t].b
-		mov	_palette_changed, 1
-
-loc_1F572:
-		cmp	_boss_phase, 9
-		jnz	loc_1F3AD
-		jmp	loc_1F483
-; ---------------------------------------------------------------------------
-
-loc_1F57E:
-		cmp	Palettes[0 * size rgb_t].g, 64
-		jnb	short loc_1F5A4
-		cmp	Palettes[0 * size rgb_t].r, 0
-		jbe	short loc_1F590
-		dec	Palettes[0 * size rgb_t].r
-
-loc_1F590:
-		inc	Palettes[0 * size rgb_t].g
-		cmp	Palettes[0 * size rgb_t].b, 0
-		jbe	short loc_1F59F
-		dec	Palettes[0 * size rgb_t].b
-
-loc_1F59F:
-		mov	_palette_changed, 1
-
-loc_1F5A4:
-		cmp	_boss_phase, 0Dh
-		jnz	loc_1F3AD
-		jmp	loc_1F483
-; ---------------------------------------------------------------------------
-
-loc_1F5B0:
-		call	@exalice_gather_and_pattern$qv
-		or	al, al
-		jz	loc_1F4C5
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 8
-		jbe	loc_1F4C5
-		jmp	loc_1F4D4
-; ---------------------------------------------------------------------------
-
-loc_1F5C9:
-		cmp	_boss_statebyte[10], 0
-		jnz	short loc_1F5DD
-		cmp	Palettes[0 * size rgb_t].g, 0
-		jbe	short loc_1F621
-		dec	Palettes[0 * size rgb_t].g
-		jmp	short loc_1F626
-; ---------------------------------------------------------------------------
-
-loc_1F5DD:
-		cmp	_boss_statebyte[10], 1
-		jnz	short loc_1F606
-		mov	al, Palettes
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].r, al
-		inc	Palettes[0 * size rgb_t].g
-		mov	al, Palettes[0 * size rgb_t].b
-		add	al, 2
-		mov	Palettes[0 * size rgb_t].b, al
-		cmp	Palettes[0 * size rgb_t].r, 128
-		jb	short loc_1F626
-		mov	_boss_statebyte[10], 2
-		jmp	short loc_1F626
-; ---------------------------------------------------------------------------
-
-loc_1F606:
-		mov	al, Palettes[0 * size rgb_t].r
-		add	al, -2
-		mov	Palettes[0 * size rgb_t].r, al
-		dec	Palettes[0 * size rgb_t].g
-		mov	al, Palettes[0 * size rgb_t].b
-		add	al, -2
-		mov	Palettes[0 * size rgb_t].b, al
-		cmp	Palettes, 0
-		jnz	short loc_1F626
-
-loc_1F621:
-		mov	_boss_statebyte[10], 1
-
-loc_1F626:
-		mov	_palette_changed, 1
-		call	@exalice_spreads_and_sweep$qv
-		cmp	_boss_phase_frame, 5000
-		jg	short loc_1F643
-		call	@exalice_hittest$qv
-		or	ax, ax
-		jz	short loc_1F666
-		mov	_boss_phase_state, 1
-
-loc_1F643:
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		mov	_boss_custombullets_render, offset nullfunc_near
-		mov	_bullet_zap_drop_point_items, 0
-		jmp	short loc_1F666
-; ---------------------------------------------------------------------------
-
-loc_1F660:
-		call	@boss_defeat_update$qui pascal, 200
-
-loc_1F666:
-		call	@cheetos_update$qv
-		call	@firewaves_update$qv
-		call	@hud_hp_update_and_render$qii pascal, _boss_hp, 26500
-		pop	si
-		pop	bp
-		retf
-@exalice_update$qv	endp
-
-; ---------------------------------------------------------------------------
-off_1F679	dw offset loc_1F4E7
-		dw offset loc_1F4F8
-		dw offset loc_1F509
-		dw offset loc_1F51A
-off_1F681	dw offset loc_1F427
-		dw offset loc_1F439
-		dw offset loc_1F44B
-		dw offset loc_1F45D
-off_1F689	dw offset loc_1F2C9
-		dw offset loc_1F374
-		dw offset loc_1F3AD
-		dw offset loc_1F46F
-		dw offset loc_1F4A6
-		dw offset loc_1F536
-		dw offset loc_1F536
-		dw offset loc_1F483
-		dw offset loc_1F4BA
-		dw offset loc_1F55E
-		dw offset loc_1F55E
-		dw offset loc_1F483
-		dw offset loc_1F4BA
-		dw offset loc_1F57E
-		dw offset loc_1F57E
-		dw offset loc_1F483
-		dw offset loc_1F5B0
-		dw offset loc_1F5C9
-
-	; midboss5_update() and the five helpers above it now live in
-	; th05/main/midboss/m5_updt.cpp, compiled through
-	; th05/main_036.cpp. They were the tail of this segment's middle
-	; block, so the C++ object grows backwards into the hole and every
-	; byte keeps its address (kb/codegen 0099 + 0114).
-	; exalice_update() and the three `dw offset loc_...` tables its
-	; own `switch` statements compile to are what is left.
+	; EMPTY. midboss5_update() and the five helpers above it live in
+	; th05/main/midboss/m5_updt.cpp through th05/main_036.cpp, and
+	; exalice_update() with the three `dw offset loc_...` tables its own
+	; `switch` statements compile to went into th05/exalice.cpp -- which
+	; emits them into BX_TEXT rather than here, for the reason that
+	; block's comment gives. Both segments are byte-aligned and adjacent
+	; in group main_03, so this contribution being empty moves nothing.
 	;
 	; The three declarations below are what the `dw offset` run in
 	; _DATA resolves through -- a procdesc binds its symbol to the
@@ -6763,7 +6341,13 @@ _exalice_laser_slot	dw 0
 public _exalice_pattern_origin_x
 _exalice_pattern_origin_x label word
 word_22872	dw (192 shl 4)
-off_22874	dw offset @pattern_random_red_spreads$qv
+; The 4x2 table th05/main/boss/bx_upd.cpp picks EX-Alice's next pattern out
+; of, indexed by [boss_statebyte][9] and the parity of the patterns seen.
+; exalice_update() was its only reader and is C++ now, so the label is
+; renamed outright rather than aliased -- but the storage stays here,
+; because it is initialised at a fixed address (kb/codegen 0123).
+public _EXALICE_PATTERNS
+_EXALICE_PATTERNS	dw offset @pattern_random_red_spreads$qv
 		dw offset @pattern_rotating_red_rings$qv
 		dw offset @pattern_gravity_balls_and_stacks$qv
 		dw offset @pattern_rotating_blue_rings$qv
@@ -7190,13 +6774,12 @@ include th05/main/boss/bx[bss].asm
 	public _exalice_overlay_patnum
 _exalice_overlay_patnum	dw ?
 	; The pattern function exalice_gather_and_pattern() calls, in
-	; th05/main/boss/bx_updt.cpp. exalice_update() still writes it under
-	; IDA's own spelling, from five `mov` sites and out of [off_22874], so
-	; the placeholder stays and the C++ name is a zero-byte alias beside it
-	; (kb/codegen 0123). [inferred] name.
+	; th05/main/boss/bx_updt.cpp. exalice_update() was the only writer
+	; that ever spelled it IDA's way and it is C++ now, so the label is
+	; renamed outright; the storage stays here because it is at a fixed
+	; address. [inferred] name.
 	public _exalice_pattern
-_exalice_pattern label word
-fp_2CE66	dw ?
+_exalice_pattern	dw ?
 	; The Stage 5 midboss's currently selected phase-1 pattern, read
 	; and written only from th05/main/midboss/m5_updt.cpp. The dump
 	; has no other reference to it, so it is renamed outright rather

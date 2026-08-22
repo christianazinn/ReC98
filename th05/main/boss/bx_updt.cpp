@@ -66,12 +66,11 @@ extern "C" unsigned char exalice_invincibility_frames;
 extern "C" subpixel_t exalice_pattern_origin_x;
 
 // The pattern function exalice_gather_and_pattern() calls. Written only by
-// exalice_update(): once per pattern out of [off_22874], the 4×2 table still in
-// th05_main.asm's `_DATA`, and directly at the eight phase transitions that
-// pick one by hand. This file is that pointer's only reader, so the table needs
-// no C++ name and only the pointer gets a kb/codegen/0123 alias.
-// `pattern_oneshot_func_t` rather than the loop variant because the call site
-// tests the returned AL.
+// exalice_update(), in th05/main/boss/bx_upd.cpp: once per pattern out of
+// [EXALICE_PATTERNS], and directly at the eight phase transitions that pick one
+// by hand. th05_main.asm still holds the storage, at a fixed address, but has
+// no reference of its own left. `pattern_oneshot_func_t` rather than the loop
+// variant because the call site tests the returned AL.
 extern "C" pattern_oneshot_func_t exalice_pattern;
 
 // The point pattern_spreads_and_firewaves() aims from and spawns its single
@@ -471,8 +470,8 @@ bool near pattern_pingpong_lasers(void)
 // A 9-way aimed spread of cross bullets every 16 frames, with a curved laser
 // thrown in on every fourth of them, aimed an eighth of a turn to alternating
 // sides of the player. Runs for 256 frames. pattern_aimed_cheetos() below is
-// [off_22874]'s partner entry for this one, and shares its cheeto half almost
-// verbatim -- different angles, different interval, same shape.
+// [EXALICE_PATTERNS]'s partner entry for this one, and shares its cheeto half
+// almost verbatim -- different angles, different interval, same shape.
 int near pattern_aimed_crosses(void)
 {
 	if((boss.phase_frame % 16) == 0) {
@@ -704,9 +703,10 @@ int exalice_hittest(void)
 // steps through its color-fade phases without giving anything away.
 //
 // `extern "C"`, because that is the only spelling that reproduces the plain,
-// undecorated `public EXALICE_PHASE_NEXT` the dump used to export for this
-// function, and which exalice_update() still calls through a `procdesc` in
-// th05_main.asm. `pascal` alone does NOT suffice: C++ linkage upper-cases the
+// undecorated upper-case symbol ZUN's own `public` for this function exported,
+// and which th05_main.asm reached through a `procdesc` for as long as
+// exalice_update() was still assembly there. `pascal` alone does NOT suffice:
+// C++ linkage upper-cases the
 // name by the calling convention and then STILL appends the mangled argument
 // suffix (kb/codegen/0027, and th04/main/boss/b6_next.cpp says the same thing
 // about TH04's yuuka6_phase_next(), which is this function's counterpart).
