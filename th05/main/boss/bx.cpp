@@ -55,7 +55,12 @@ void near firewaves_update(void)
 	}
 }
 
-void pascal near exalice_phase_next(
+// Defined in th05/main/boss/bx_updt.cpp, which is BX_TEXT's object rather than
+// this one's. `extern "C"` because the dump's `public` for it was the plain,
+// undecorated upper-case spelling, and `pascal` alone still appends the mangled
+// argument suffix (kb/codegen/0027); the declaration this line replaced omitted
+// it and could therefore never have resolved against anything.
+extern "C" void pascal near exalice_phase_next(
 	explosion_type_t explosion_type, int next_end_hp
 );
 // ----------

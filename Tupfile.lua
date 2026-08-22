@@ -1265,6 +1265,13 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/b4mai.cpp",
 	"th05/swords.cpp",
 	"th05/main035.cpp",
+	-- Append-anywhere, and parked next to main_036.cpp only because it is the
+	-- head of what used to be one segment with it: exalice.cpp is BX_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_03 comes from
+	-- th05_main.asm, which defines it (and main_036_TEXT behind it) and is the
+	-- first object linked.
+	"th05/exalice.cpp",
 	-- Append-anywhere: main_036_TEXT has no other C++ contribution, so
 	-- TLINK puts this object at that segment's tail by construction.
 	"th05/main_036.cpp",
