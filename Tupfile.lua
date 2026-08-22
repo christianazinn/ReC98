@@ -1263,6 +1263,9 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/b4mai.cpp",
 	"th05/swords.cpp",
 	"th05/main035.cpp",
+	-- Append-anywhere: main_036_TEXT has no other C++ contribution, so
+	-- TLINK puts this object at that segment's tail by construction.
+	"th05/main_036.cpp",
 	"th05/boss_6.cpp",
 	"th05/boss_x.cpp",
 	"th05/hud_num.asm",

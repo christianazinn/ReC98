@@ -37,7 +37,7 @@ include th05/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
-main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
+main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
 
@@ -6391,7 +6391,7 @@ BX_UPDATE_TEXT	segment	byte public 'CODE' use16
 	@firewaves_update$qv procdesc pascal near
 BX_UPDATE_TEXT	ends
 
-main_036_TEXT	segment	byte public 'CODE' use16
+BX_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -7442,6 +7442,25 @@ sub_1F21A	endp
 
 include th05/main/boss/bx.asm
 
+	; kb/codegen/0080's carve, so that a C++ object can append to the
+	; MIDDLE of this segment's original extent rather than to its end.
+	; Everything above -- 15 procs and the exalice_phase_next()
+	; include -- becomes BX_TEXT; exalice_update() and its jump tables
+	; keep main_036_TEXT; the `db 0` and the pointnum include below
+	; become POINTNUM_TEXT. All three are `byte public`, so nothing
+	; pads and every byte keeps its address. Physical order inside a
+	; group follows the order its segments are first DEFINED, so the
+	; new head name has to open where main_036_TEXT used to.
+	;
+	; The head is named for the only thing measured about it: it ends
+	; in th05/main/boss/bx.asm, i.e. EX-Alice code. Its 15 procs are
+	; uncharacterised and deliberately keep their placeholder
+	; spellings; a parcel that characterises them may rename this
+	; segment, which is cheap while no C++ references it.
+BX_TEXT	ends
+
+main_036_TEXT	segment	byte public 'CODE' use16
+
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -7846,345 +7865,33 @@ off_1F689	dw offset loc_1F2C9
 		dw offset loc_1F5B0
 		dw offset loc_1F5C9
 
-; =============== S U B	R O U T	I N E =======================================
+	; midboss5_update() and the five helpers above it now live in
+	; th05/main/midboss/m5_updt.cpp, compiled through
+	; th05/main_036.cpp. They were the tail of this segment's middle
+	; block, so the C++ object grows backwards into the hole and every
+	; byte keeps its address (kb/codegen 0099 + 0114).
+	; exalice_update() and the three `dw offset loc_...` tables its
+	; own `switch` statements compile to are what is left.
+	;
+	; The three declarations below are what the `dw offset` run in
+	; _DATA resolves through -- a procdesc binds its symbol to the
+	; segment block it is written in (kb/codegen 0123, the same shape
+	; as BX_UPDATE_TEXT's four pattern procdescs above). All three are
+	; plain C++ `bool near`, so they keep their decorated lower-case
+	; symbols.
+	;
+	; kb/codegen/0121: none of the six bodies carried an `assume`.
+	@pattern_blue_spreads$qv procdesc near
+	@pattern_random_green_rings$qv procdesc near
+	@pattern_aimed_pellet_stacks$qv procdesc near
+main_036_TEXT	ends
 
-; Attributes: bp-based frame
-
-sub_1F6AD	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_midboss_phase_frame, 1
-		jnz	short loc_1F6DC
-		cmp	_boss_statebyte[15], 0
-		jz	short loc_1F6C5
-		cmp	_boss_statebyte[15], 3
-		jnz	short loc_1F6CD
-
-loc_1F6C5:
-		mov	_midboss_pos.velocity.x, (-2 shl 4)
-		jmp	short loc_1F6D3
-; ---------------------------------------------------------------------------
-
-loc_1F6CD:
-		mov	_midboss_pos.velocity.x, (2 shl 4)
-
-loc_1F6D3:
-		inc	_boss_statebyte[15]
-		and	_boss_statebyte[15], 3
-
-loc_1F6DC:
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		cmp	_midboss_phase_frame, 32
-		jl	short loc_1F6ED
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1F6ED:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1F6AD	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1F6F1	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_midboss_phase_frame, 32
-		jge	short loc_1F744
-		mov	ax, _midboss_phase_frame
-		add	ax, -16
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (3 shl 16) or 2
-		cmp	_midboss_phase_frame, 16
-		jnz	short loc_1F719
-		call	snd_se_play pascal, 8
-
-loc_1F719:
-		cmp	_midboss_phase_frame, 20
-		jz	short loc_1F72E
-		cmp	_midboss_phase_frame, 24
-		jz	short loc_1F72E
-		cmp	_midboss_phase_frame, 28
-		jnz	short loc_1F732
-
-loc_1F72E:
-		inc	_midboss_sprite
-
-loc_1F732:
-		call	@player_angle_from$qiiuc pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, 0
-		mov	_bullet_template.BT_angle, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1F744:
-		cmp	_midboss_sprite, 219
-		jnb	short loc_1F75C
-		mov	ax, _midboss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1F75C
-		inc	_midboss_sprite
-
-loc_1F75C:
-		call	fp_2CE68
-		or	al, al
-		jz	short loc_1F774
-		mov	_midboss_phase_frame, 0
-		mov	_boss_statebyte[14], 0
-		mov	_midboss_sprite, 212
-
-loc_1F774:
-		pop	bp
-		retn
-sub_1F6F1	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1F776	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _midboss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1F7AA
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.patnum, PAT_BULLET16_V_BLUE
-		mov	_bullet_template.speed, (5 shl 4) + 8
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	word ptr _bullet_template.spread, (7 shl 8) or 13
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1F7AA:
-		cmp	_midboss_phase_frame, 96
-		jl	short loc_1F7B6
-		mov	ax, 1
-		jmp	short loc_1F7B8
-; ---------------------------------------------------------------------------
-
-loc_1F7B6:
-		xor	ax, ax
-
-loc_1F7B8:
-		pop	bp
-		retn
-sub_1F776	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1F7BA	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _midboss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1F813
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.patnum, PAT_BULLET16_D_GREEN
-		mov	_bullet_template.speed, (2 shl 4)
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.spread, 16
-		call	@randring2_next16_mod$qui pascal, (64 shl 4)
-		sub	ax, (32 shl 4)
-		add	ax, _bullet_template.BT_origin.x
-		mov	_bullet_template.BT_origin.x, ax
-		call	@randring2_next16_mod$qui pascal, (64 shl 4)
-		sub	ax, (32 shl 4)
-		add	ax, _bullet_template.BT_origin.y
-		mov	_bullet_template.BT_origin.y, ax
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1F813:
-		cmp	_midboss_phase_frame, 96
-		jl	short loc_1F81F
-		mov	ax, 1
-		jmp	short loc_1F821
-; ---------------------------------------------------------------------------
-
-loc_1F81F:
-		xor	ax, ax
-
-loc_1F821:
-		pop	bp
-		retn
-sub_1F7BA	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1F823	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_midboss_phase_frame, 32
-		jnz	short loc_1F86B
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.patnum, 0
-		mov	_bullet_template.BT_group, BG_SPREAD_STACK_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	dword ptr _bullet_template.spread, (6 shl 24) or (5 shl 16) or (10 shl 8) or 5
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullets_add_regular
-		mov	_bullet_template.BT_group, BG_RING_STACK_AIMED
-		mov	_bullet_template.stack_speed_delta, 4
-		mov	_bullet_template.spread, 32
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 15
-
-loc_1F86B:
-		cmp	_midboss_phase_frame, 64
-		jl	short loc_1F877
-		mov	ax, 1
-		jmp	short loc_1F879
-; ---------------------------------------------------------------------------
-
-loc_1F877:
-		xor	ax, ax
-
-loc_1F879:
-		pop	bp
-		retn
-sub_1F823	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MIDBOSS5_UPDATE$QV
-@midboss5_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		mov	eax, _midboss_pos.cur
-		mov	_bullet_template.BT_origin, eax
-		mov	_gather_template.GT_center, eax
-		inc	_midboss_phase_frame
-		mov	al, _midboss_phase
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1F89F
-		cmp	ax, 1
-		jz	short loc_1F8E7
-		jmp	loc_1F992
-; ---------------------------------------------------------------------------
-
-loc_1F89F:
-		push	offset _midboss_pos
-		call	@PlayfieldMotion@update_seg3$qv
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		cmp	_midboss_phase_frame, 192
-		jl	loc_1F9A1
-		inc	_midboss_phase
-		mov	_midboss_phase_frame, 0
-		mov	_midboss_angle, 0
-		mov	_boss_statebyte[15], 0
-		mov	_boss_statebyte[14], 1
-		mov	_boss_statebyte[13], 0
-		mov	_midboss_pos.velocity.y, 0
-		mov	fp_2CE68, offset sub_1F776
-		jmp	loc_1F9A1
-; ---------------------------------------------------------------------------
-
-loc_1F8E7:
-		mov	eax, _midboss_pos.cur
-		mov	_midboss_pos.prev, eax
-		mov	al, _boss_statebyte[14]
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1F8FF
-		cmp	ax, 1
-		jz	short loc_1F933
-		jmp	short loc_1F936
-; ---------------------------------------------------------------------------
-
-loc_1F8FF:
-		call	sub_1F6AD
-		or	al, al
-		jz	short loc_1F936
-		mov	_midboss_phase_frame, 0
-		inc	_boss_statebyte[13]
-		mov	al, _boss_statebyte[13]
-		mov	ah, 0
-		mov	bx, 3
-		cwd
-		idiv	bx
-		add	dx, dx
-		mov	bx, dx
-		mov	ax, off_22884[bx]
-		mov	fp_2CE68, ax
-		inc	_boss_statebyte[14]
-		cmp	_boss_statebyte[13], 10h
-		jb	short loc_1F936
-		jmp	short loc_1F968
-; ---------------------------------------------------------------------------
-
-loc_1F933:
-		call	sub_1F6F1
-
-loc_1F936:
-		call	@midboss_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 4
-		mov	_midboss_damage_this_frame, al
-		mov	ah, 0
-		sub	_midboss_hp, ax
-		cmp	_midboss_hp, 0
-		jg	short loc_1F9A1
-		mov	_bullet_zap_active, 1
-		call	@midboss_score_bonus$qui pascal, 30
-		call	@items_add$qii11item_type_t pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, IT_1UP
-
-loc_1F968:
-		mov	_midboss_phase, PHASE_EXPLODE_BIG
-		mov	_midboss_sprite, 4
-		mov	_midboss_phase_frame, 0
-		call	@sparks_add_circle$q20%SubpixelBase$ti$ti%t1ii pascal, _midboss_pos.cur.x, _midboss_pos.cur.y, large (((8 shl 4) shl 16) or 48)
-		call	snd_se_play pascal, 12
-		jmp	short loc_1F9A1
-; ---------------------------------------------------------------------------
-
-loc_1F992:
-		call	@midboss_defeat_update$qv
-		call	@hud_hp_update_and_render$qii pascal, _midboss_hp, 1550
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_1F9A1:
-		call	@hud_hp_update_and_render$qii pascal, _midboss_hp, 1550
-		mov	ax, _midboss_pos.cur.x
-		mov	_homing_target.x, ax
-		mov	ax, _midboss_pos.cur.y
-		mov	_homing_target.y, ax
-		pop	bp
-		retf
-@midboss5_update$qv	endp
+POINTNUM_TEXT	segment	byte public 'CODE' use16
 
 ; ---------------------------------------------------------------------------
 		db 0
 include th05/main/pointnum/digits.asm
-main_036_TEXT	ends
+POINTNUM_TEXT	ends
 
 HUD_NUM_TEXT segment byte public 'CODE' use16
 	extern @HUD_5_DIGIT_PUT$QUIUIUIUI:proc
@@ -8699,9 +8406,11 @@ off_22874	dw offset sub_1E922
 		dw offset sub_1EDC1
 		dw offset sub_1EEF1
 		dw offset sub_1EF80
-off_22884	dw offset sub_1F776
-		dw offset sub_1F7BA
-		dw offset sub_1F823
+public _MIDBOSS5_PATTERNS_PHASE_1
+_MIDBOSS5_PATTERNS_PHASE_1 label word
+		dw offset @pattern_blue_spreads$qv
+		dw offset @pattern_random_green_rings$qv
+		dw offset @pattern_aimed_pellet_stacks$qv
 include th04/main/hud/overlay[data].asm
 	evendata
 _SHOT_FUNCS label word
@@ -9105,7 +8814,12 @@ include th05/main/boss/bx[bss].asm
 	public _exalice_overlay_patnum
 _exalice_overlay_patnum	dw ?
 fp_2CE66	dw ?
-fp_2CE68	dw ?
+	; The Stage 5 midboss's currently selected phase-1 pattern, read
+	; and written only from th05/main/midboss/m5_updt.cpp. The dump
+	; has no other reference to it, so it is renamed outright rather
+	; than aliased, the way _sara_phase_2_3_pattern above is.
+	public _midboss5_phase_1_pattern
+_midboss5_phase_1_pattern	dw ?
 include th04/main/hud/overlay[bss].asm
 	; Read and written only by sub_1214A() (th05/shot_inv.cpp).
 	; Published under IDA's own spelling for the same reason the proc
