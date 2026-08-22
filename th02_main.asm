@@ -611,13 +611,6 @@ DIALOG_TEXT	ends
 
 BOSS_5_TEXT	segment	byte public 'CODE' use16
 
-; boss_playfield_reset() is th02/main/boss/b4.cpp; mima_17E91() is
-; th02/main/boss/b5m.cpp, prepended into this segment below. The callers
-; left here are sigma_init() and mima_init() for the first, and
-; mima_bg_render() for the second; every one of those is in group main_03,
-; so `near` resolves to the same 3-byte `E8 rel16` the originals encode.
-extrn _boss_playfield_reset:near, _mima_17E91:near
-
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
@@ -4765,6 +4758,8 @@ sigma_1566F	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_put
+_sigma_put label near
 sigma_158DC	proc near
 		push	bp
 		mov	bp, sp
@@ -6584,57 +6579,11 @@ loc_16968:
 sigma_update	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_init
-_sigma_init label far
-sigma_init	proc far
-		push	bp
-		mov	bp, sp
-		call	_boss_playfield_reset
-		mov	_tile_mode, TM_NONE
-		call	@dialog_pre$qv
-		call	super_clean pascal, (128 shl 16) or 192
-		mov	super_patnum, 80h
-		call	super_entry_bfnt pascal, ds, offset aStage5b1_bft ; "stage5b1.bft"
-		call	super_entry_bfnt pascal, ds, offset aStage5b2_bft ; "stage5b2.bft"
-		call	grc_setclip pascal, (PLAYFIELD_LEFT shl 16) or 0, (PLAYFIELD_RIGHT shl 16) or (RES_Y - 1)
-		call	@dialog_script_extra_pre_intro_an$qv
-		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 64)
-		mov	_boss_left_on_page[1 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 64)
-		mov	point_254E6.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 64)
-		mov	_boss_top_on_page[0 * word], (PLAYFIELD_TOP + 32)
-		mov	_boss_top_on_page[1 * word], (PLAYFIELD_TOP + 32)
-		mov	point_254E6.y, (PLAYFIELD_TOP + 32)
-		mov	_boss_damage, 0
-		mov	_boss_phase_frame, 0
-		mov	patnum_2064E, 128
-		mov	byte_255B2, 0
-		mov	byte_2558C, 7
-		nopcall	_bullets_clear
-		call	@shots_free_all$qv
-		push	1
-		call	palette_white_out
-		call	sigma_158DC
-		push	ds
-		push	offset aBoss5_m	; "boss5.m"
-		nopcall	sub_13ABB
-		add	sp, 4
-		push	1
-		call	palette_white_in
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_PREBOSS
-		call	@dialog_post$qv
-		pop	bp
-		retf
-sigma_init	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_end()
+;   th02/main/boss/b6.cpp       sigma_init()
+;                               sigma_end()
 ;   th02/main/enemy/update.cpp  nullfunc_void_2
 ;                               enemies_reset()
 ;                               enemies_callbacks_null()
@@ -6656,7 +6605,13 @@ sigma_init	endp
 ;
 ; So th02_main.asm contributes nothing below sigma_update(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retf`,
-; which is 0FAC:6F61.
+; which is 0FAC:6EAB.
+;
+; `[measured 2026-08-22]` Those three lines named the right offset for the
+; WRONG proc for a day: 0FAC:6F61 was the byte after sigma_INIT's `retf`, and
+; sigma_init() was still in this dump, below sigma_update(). Derive the offset
+; from the map's root length (0FAC:39F6 + 0x34B5), never from whichever proc a
+; sentence like this one happens to name.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
@@ -6689,15 +6644,23 @@ sigma_init	endp
 ; of exactly the length the root gives up has no parity to protect: every
 ; BOSS_5_TEXT contribution in obj/th02/main.map carries ACBP=28, i.e. BYTE
 ; segment alignment, so TLINK inserts nothing between contributions and the
-; odd 0x356B this root now ends at costs nothing; update.cpp's own
+; odd length this root now ends at costs nothing; update.cpp's own
 ; object-local offsets never move, so the pad under enemy_run()'s tables is
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_init() 0xB6 and sigma_update() 0x227 are the tail now. Either goes
-; alone at the TOP of b6.cpp, which is where Sigma belongs; prepending both
-; into update.cpp instead needs 0xB6 + 0x227 = 0x2DD, which is ODD and so
-; not admissible there at all. Read the lengths off obj_probe.py, never here.
+; sigma_update() 0x227 is the tail now, and it goes at the TOP of b6.cpp,
+; which is where Sigma belongs.
+;
+; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
+; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
+; on the built obj/th02/b6.obj reports SEGDEF lengths 0x45 0x0 0x0 - the
+; object emits no _DATA and no _BSS at all, so it has no generated table and
+; nothing whose alignment an odd prefix could move. Every depth is admissible
+; there. The even-sized grouping rule above is update.cpp's, and quoting it
+; at a b6.cpp lift is quoting a running sum of bodies already lifted into a
+; different object. Re-derive it from the HOST's own OBJ (kb/codegen/0160)
+; before choosing a depth, and read the body lengths off obj_probe.py.
 ;
 ; Lifting the previous two took back the `retf` that the enemy_run() parcel
 ; had borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
@@ -6767,9 +6730,15 @@ main_03__TEXT	segment	byte public 'CODE' use16
 ;
 ; The first four are shared boss-entrance helpers rather than Marisa's
 ; own - they only live in her object because it is the one that reaches
-; their addresses. mima_init() and sigma_init() above still call three of
-; them, through the `extrn` declarations at the head of BOSS_5_TEXT and of
-; this segment.
+; their addresses. NOTHING IN THIS DUMP CALLS ANY OF THEM ANY MORE:
+; sigma_init() was the last one, and the head-of-segment extrn declaration
+; that used to reach boss_playfield_reset() and mima_17E91() from
+; BOSS_5_TEXT went with it. Both halves of that declaration had in fact
+; been dead since mima_bg_render() and mima_init() left - a dead extrn
+; costs no bytes and so nothing red ever pointed at it, which is why a
+; comment naming its callers is the only instrument that can catch one.
+; Grep for what a lift's body referenced before assuming a
+; head-of-segment declaration is still live.
 ; marisa_update()'s `db 0` pad and its 5-entry jump
 ; table are part of what that function compiles to, so they moved with it.
 
@@ -7744,8 +7713,12 @@ byte_1EE1E	label byte
 		db    0
 		db  5Ch
 		db    0
-aStage5b1_bft	db 'stage5b1.bft',0
-aStage5b2_bft	db 'stage5b2.bft',0
+public _stage5b1_bft
+_stage5b1_bft	db 'stage5b1.bft',0
+public _stage5b2_bft
+_stage5b2_bft	db 'stage5b2.bft',0
+public _aBoss5_m
+_aBoss5_m	label byte
 aBoss5_m	db 'boss5.m',0
 ; char aMaine[]
 public _aMaine
@@ -8504,10 +8477,14 @@ byte_253B4	db ?
 left_253B6	dw ?
 top_253B8	dw ?
 byte_253BA	db 300 dup(?)
+public _sigma_topleft
+_sigma_topleft	label word
 point_254E6	Point <?>
 byte_254EA	db ?
 		db ?
 byte_254EC	db 160 dup(?)
+public _sigma_cel_interval_mask
+_sigma_cel_interval_mask	label byte
 byte_2558C	db ?
 byte_2558D	db ?
 byte_2558E	db ?
@@ -8534,6 +8511,8 @@ word_255AC	dw ?
 word_255AE	dw ?
 byte_255B0	db ?
 angle_255B1	db ?
+public _sigma_phase
+_sigma_phase	label byte
 byte_255B2	db ?
 byte_255B3	db ?
 byte_255B4	db ?
