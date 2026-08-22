@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, main_036_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1587,11 +1587,11 @@ BOSS_BG_TEXT	segment	byte public 'CODE' use16
 	@EXALICE_BG_RENDER$QV procdesc pascal near
 BOSS_BG_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original `SCORE_TEXT`
-; contribution, renamed so that a C++ object can append `end_extra` at its
-; original address in the MIDDLE of the segment. Same `word public` alignment
-; as before, so nothing moves.
-END_EXT_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the head of the `END_EXT_TEXT` that an
+; earlier carve took out of the original `SCORE_TEXT` contribution, renamed so
+; that a C++ object can append Louise's and Alice's colorfills in the MIDDLE of
+; it. Head length 180h, EVEN, so the `word`-aligned tail reopens where it was.
+END_EXT_A_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -1627,26 +1627,26 @@ loc_DD61:
 include th04/main/player/shot_laser.asm
 include th05/formats/bb_cheeto.asm
 
-; =============== S U B	R O U T	I N E =======================================
+END_EXT_A_TEXT	ends
 
-public @LOUISE_BACKDROP_COLORFILL$QV
-@louise_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	192, 176
-		pop	di
-		retn
-@louise_backdrop_colorfill$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @ALICE_BACKDROP_COLORFILL$QV
-@alice_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	  0, 205
-		pop	di
-		retn
-@alice_backdrop_colorfill$qv	endp
+; Harness carve (kb/codegen/0080): what is left of `END_EXT_TEXT` once the
+; head above was renamed. Reopened under the ORIGINAL name so that the two
+; C++ objects that already append to it are never re-pointed, which is
+; 0080's "prefer the half with no C++ contribution".
+;
+; Louise's and Alice's [boss_backdrop_colorfill] callbacks used to sit right
+; here. They are now emitted from th05/main/boss/colorfill.cpp into
+; END_EXT_A_TEXT through `#pragma codeseg` (kb/codegen/0155), as the last
+; 1Ch bytes of that segment -- immediately ahead of this one, which is
+; where they were. No new translation unit and no Tupfile.lua line.
+;
+; The first module included below opens with the
+; @reimu_marisa_backdrop_colorfill$qv / @mai_yuki_backdrop_colorfill$qv
+; label pair, so the first byte of this segment is still 0DEC2h, the
+; address mai_yuki_backdrop_colorfill() had before the split.
+;
+; Same `word public 'CODE'` alignment as before; nothing else moves.
+END_EXT_TEXT	segment	word public 'CODE' use16
 
 include th04/hardware/fillm64-56_256-256.asm
 include th05/formats/bb_load.asm
