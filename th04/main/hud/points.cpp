@@ -32,9 +32,18 @@
 	// different function -- see that file's docblock.
 	#include "th05/main/score_highest.cpp"
 #else
-	// Ahead of score_reset() again, and the front of this object: it was the
-	// last thing th04_main.asm contributed to HUD_PNT_TEXT. TH05's proc in
-	// the same slot is a different body and is still assembly.
+	// The front of this object, ahead of score_extend() and everything below
+	// it: Marisa's foreground renderer, her bit renderer and Orange's
+	// backdrop fill were the FIRST three things th04_main.asm contributed to
+	// HUD_PNT_TEXT, and with them lifted its contribution to that segment is
+	// zero bytes. Two files rather than one because they are two bosses'
+	// code, and because only Orange's needs `-k-`.
+	#include "th04/main/boss/b4m_fg.cpp"
+	#include "th04/main/boss/b1_cfill.cpp"
+
+	// Was the last thing th04_main.asm contributed to HUD_PNT_TEXT, until the
+	// three bodies above joined it. TH05's proc in the same slot is a
+	// different body and is still assembly.
 	#include "th04/main/score_extend.cpp"
 
 	#include "th04/main/score_reset.cpp"

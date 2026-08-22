@@ -1551,194 +1551,194 @@ STAGES_TEXT	ends
 ; `byte public 'CODE'` alignment as before, so nothing moves.
 HUD_PNT_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_EC8E	proc near
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		call	@grcg_setmode_rmw$qv
-		mov	ah, 9
-		call	@grcg_setcolor_direct_raw$qv
-		mov	di, 1
-		jmp	short loc_ECC7
-; ---------------------------------------------------------------------------
-
-loc_ECA1:
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_x[bx-word]
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_y[bx-word]
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_x[bx]
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_y[bx]
-		call	grcg_line
-		inc	di
-
-loc_ECC7:
-		mov	al, _bits_alive
-		mov	ah, 0
-		cmp	ax, di
-		jg	short loc_ECA1
-		cmp	_bits_alive, 3
-		jb	short loc_ECF4
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_x[bx-word]
-		mov	bx, di
-		add	bx, bx
-		push	_bit_center_y[bx-word]
-		push	_bit_center_x[0]
-		push	_bit_center_y[0]
-		call	grcg_line
-
-loc_ECF4:
-		GRCG_OFF_CLOBBERING dx
-		mov	si, offset marisa_bits
-		xor	di, di
-		jmp	short loc_ED68
-; ---------------------------------------------------------------------------
-
-loc_ED01:
-		cmp	[si+marisa_bit_t.B4MB_flag], BF_FREE
-		jz	short loc_ED64
-
-		; ZUN bug: Clipped at the right and bottom edges 16 pixels too early.
-		cmp	[si+marisa_bit_t.B4MB_center.x], (-(MARISA_BIT_W / 2) shl 4)
-		jle	short loc_ED64
-		cmp	[si+marisa_bit_t.B4MB_center.x], (PLAYFIELD_W shl 4)
-		jge	short loc_ED64
-		cmp	[si+marisa_bit_t.B4MB_center.y], (-(MARISA_BIT_H / 2) shl 4)
-		jle	short loc_ED64
-		cmp	[si+marisa_bit_t.B4MB_center.y], (PLAYFIELD_H shl 4)
-		jge	short loc_ED64
-
-		mov	ax, [si+marisa_bit_t.B4MB_center.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (MARISA_BIT_W / 2))
-		mov	[bp+var_2], ax
-		mov	ax, [si+marisa_bit_t.B4MB_center.y]
-		sar	ax, 4
-		mov	[bp+var_4], ax
-		cmp	[si+marisa_bit_t.B4MB_damage_this_frame], 0
-		jnz	short loc_ED4B
-		call	super_roll_put pascal, [bp+var_2], ax, [si+marisa_bit_t.B4MB_patnum]
-		jmp	short loc_ED64
-; ---------------------------------------------------------------------------
-
-loc_ED4B:
-		call	super_roll_put_1plane pascal, [bp+var_2], [bp+var_4], [si+marisa_bit_t.B4MB_patnum], large PLANE_PUT or GC_BRGI
-		mov	[si+marisa_bit_t.B4MB_damage_this_frame], 0
-
-loc_ED64:
-		inc	di
-		add	si, size marisa_bit_t
-
-loc_ED68:
-		cmp	di, MARISA_BIT_COUNT
-		jl	short loc_ED01
-		pop	di
-		pop	si
-		leave
-		retn
-sub_EC8E	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MARISA_FG_RENDER$QV
-@marisa_fg_render$qv	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	ax, _boss_pos.cur.x
-		sar	ax, 4
-		mov	si, ax
-		mov	ax, _boss_pos.cur.y
-		sar	ax, 4
-		add	ax, -16
-		mov	di, ax
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnb	short loc_EDC3
-		cmp	_boss_damage_this_frame, 0
-		jnz	short loc_EDA6
-		push	si
-		push	ax
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_put
-		jmp	short loc_EDBE
-; ---------------------------------------------------------------------------
-
-loc_EDA6:
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		pushd	PLANE_PUT or GC_BRGI
-		call	super_put_1plane
-		mov	_boss_damage_this_frame, 0
-
-loc_EDBE:
-		call	main_01:sub_EC8E
-		jmp	short loc_EDD7
-; ---------------------------------------------------------------------------
-
-loc_EDC3:
-		cmp	_boss_phase, PHASE_EXPLODE_BIG
-		jnz	short loc_EDD7
-		push	si
-		push	di
-		mov	al, _boss_sprite
-		mov	ah, 0
-		push	ax
-		call	super_large_put
-
-loc_EDD7:
-		call	@explosions_small_update_and_rend$qv
-		call	@explosions_big_update_and_render$qv
-		pop	di
-		pop	si
-		pop	bp
-		retn
-@marisa_fg_render$qv	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-
-; =============== S U B	R O U T	I N E =======================================
-
-public @ORANGE_BACKDROP_COLORFILL$QV
-@orange_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	  0, 120, dx
-		cli
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		sti
-		GRCG_FILL_PLAYFIELD_ROWS	248, 120
-		pop	di
-		retn
-@orange_backdrop_colorfill$qv	endp
+	; Marisa's foreground renderer, her bit renderer and Orange's backdrop
+	; colorfill -- the WHOLE of this dump's contribution to HUD_PNT_TEXT -- were
+	; lifted out of here and are now th04/main/boss/b4m_fg.cpp and
+	; th04/main/boss/b1_cfill.cpp. th04/main/hud/points.cpp #includes both at the
+	; very FRONT, ahead of score_extend.cpp, score_reset.cpp, lives.cpp,
+	; bombs.cpp and its own function, so that all seven bodies land here in their
+	; original address order (kb/codegen/0129).
+	;
+	; THIS FILE'S CONTRIBUTION TO HUD_PNT_TEXT IS NOW ZERO BYTES, the same shape
+	; main_TEXT, ENM_BTPL_TEXT, main_035_TEXT, BOSS_5R_TEXT and MB_DFR_TEXT
+	; already have in this dump. The block stays for the four procdescs below,
+	; and the carve note above it stays true: the segment still exists, still
+	; carries the group membership every one of those procdescs needs, and still
+	; holds hud_point_items_put() at its original address in the MIDDLE of the
+	; C++ object.
+	;
+	; No carve, no new segment name, no group-list edit and no Tupfile.lua line:
+	; th04/hud_pnt.cpp's object already appended directly after this block, so it
+	; simply grows backwards into the hole and every byte above it keeps its
+	; address (kb/codegen 0099 + 0112 + 0114).
+	;
+	; kb/codegen/0121: none of the three bodies carried an `assume`, so there is
+	; nothing to restore into the rest of this contribution.
+	;
+	; THE NAMES ARE THE ONES THIS FILE ALREADY PUBLISHED, for two of the three.
+	; `public @MARISA_FG_RENDER$QV` and `public @ORANGE_BACKDROP_COLORFILL$QV`
+	; were mangled UPPER-case spellings, i.e. what th04/main/boss/bosses.hpp's
+	; `void pascal near` declarations of both have always compiled to
+	; (kb/codegen/0081 + 0123), and the C++ definitions publish them themselves,
+	; so both `public`s left with their bodies. No procdesc replaces either: this
+	; dump had no other reference to either symbol, because every caller of both
+	; is C++ already.
+	;
+	; sub_EC8E IS THE ONE NAMING DECISION THIS PARCEL OWED, and it is
+	; marisa_bits_render(). It is `static` in b4m_fg.cpp because
+	; @marisa_fg_render$qv was its only caller anywhere, so it needs no
+	; kb/codegen/0123 alias and publishes nothing. The stem is not invented:
+	; th04/main/boss/b4m_upd.cpp already carries marisa_bits_respawn(),
+	; marisa_bits_update_and_hittest() and marisa_bits_fire() for the other three
+	; things this fight does to the same four entities, all three of them
+	; `static` in the same way. Everything the body references was already named
+	; too -- th04/main/boss/b4m.hpp has the whole `bit_t` struct with named
+	; fields, BIT_COUNT, BF_FREE, `bits`, `bits_alive` and the two `bit_center_*`
+	; arrays; grcg_line() and super_roll_put[_1plane]() are master.lib's; [boss]
+	; and the two explosion renderers are C++.
+	;
+	; THE FRAMES AND THE LOCAL ORDER, which is what a retry gets wrong first.
+	; marisa_bits_render()'s frame is `enter 4, 0`, so NO -G (kb/codegen/0011),
+	; with [var_2] the screen X and [var_4] the VRAM Y -- declaration order
+	; (kb/codegen/0010). Its two register variables are the marisa_bits pointer in
+	; SI and the counter in DI, the pointer declared first because it earns SI by
+	; how often it is dereferenced as a base (kb/codegen/0117).
+	; @marisa_fg_render$qv opens `push bp` / `mov bp, sp` / `push si` / `push di`
+	; with no `sub sp` at all, i.e. it has no stack local for a third variable to
+	; live in. @orange_backdrop_colorfill$qv has no frame at all -- `push di` is
+	; its FIRST instruction -- which is -k-, BRACKETED in b1_cfill.cpp and
+	; restored at the end of that file so that the four bodies after it in the
+	; same object keep their standard frames (kb/codegen/0112 trap 1). And each of
+	; the two `super_*_put` calls the compiler reaches in a straight line pushes
+	; the Y coordinate out of AX rather than reloading it from its slot, which is
+	; kb/codegen/0126 and needs no source shape.
+	;
+	; TWO FILES RATHER THAN ONE, because they are two different bosses' code and
+	; only Orange's needs -k-: b4m_fg.cpp is Stage 4 Marisa's, beside
+	; th04/main/boss/b4m.cpp and b4m_upd.cpp, and b1_cfill.cpp is Stage 1
+	; Orange's, beside the Kurumi fill in th04/main/boss/colorfill.cpp. That an
+	; original object held several unrelated sources is kb/codegen/0112, and this
+	; one held three.
+	;
+	; WHAT THE THREE BODIES DID, recorded here rather than left to the C++:
+	;
+	;   1) marisa_bits_render() draws a closed ring of GRCG lines between the
+	;      live bits' centers and then blits every bit that is on screen. The two
+	;      halves are indexed DIFFERENTLY on purpose: the line loop walks the
+	;      packed _bit_center_x/_bit_center_y arrays that
+	;      marisa_bits_update_and_hittest() rebuilds every frame, so a dead bit
+	;      leaves no gap in the ring, while the blit loop walks the marisa_bits
+	;      slots themselves because it needs each bit's own flag, patnum and
+	;      damage byte.
+	;
+	;   2) The ring is only closed from THREE bits on. With two it would draw the
+	;      single line a second time, and with one it would draw a point. The
+	;      closing line reads the loop counter the FIRST loop left behind, which
+	;      is why the C++ has one function-scope [i] rather than two loop-local
+	;      ones.
+	;
+	;   3) ZUN bug, and it was already recorded in this block: the blit loop
+	;      clips at the right and bottom edges 16 pixels too early. It tests the
+	;      bit's center against 0 - (MARISA_BIT_W / 2) and 0 - (MARISA_BIT_H / 2)
+	;      on the near side but against a bare PLAYFIELD_W and PLAYFIELD_H on the
+	;      far side, where th02/main/playfld.hpp's playfield_encloses() adds half
+	;      the sprite extent to both. A bit leaving the playfield to the right or
+	;      the bottom therefore vanishes a whole 16 pixels before its sprite has
+	;      left the screen.
+	;
+	;   4) marisa_fg_render() is the [boss_fg_render] family's reduced form, the
+	;      same one elly_fg_render() uses: no entrance branch, and no cel
+	;      animation, so [boss.sprite] is blitted as-is. Like Reimu, Mugetsu and
+	;      Gengetsu -- and unlike Orange, Kurumi and Elly -- it clears
+	;      [boss.damage_this_frame] after the white flash.
+	;
+	;   5) orange_backdrop_colorfill() fills playfield rows 0..119 and 248..367
+	;      through th04/hardware/grcg_fill_rows.asm, leaving the 128 rows between
+	;      them for Orange's stage backdrop image, and re-zeroes all four GRCG
+	;      tile registers in between.
+	;
+	; THE HAND-WRITTEN SCREEN ON THIS ROW WAS WRONG, and that is the most
+	; expensive thing this parcel learned. tools/pi-audit/carve_free_tails.py
+	; filed HUD_PNT_TEXT `FREE !HANDWRITTEN` -- "NOT LIFTABLE, do not rank this
+	; row" -- and the previous parcel's note below repeated it as fact. The
+	; single tell that fired was "out to a port", and it fired on a MACRO
+	; EXPANSION: the `cli` / `mov dx, 126` / `xor al, al` / four `out dx, al` /
+	; `sti` block in the middle of orange_backdrop_colorfill() is
+	; character-for-character what th04/hardware/grcg.hpp's
+	; grcg_setcolor_direct_constant(0) emits, and the two
+	; GRCG_FILL_PLAYFIELD_ROWS are its grcg_fill_playfield_rows_at(). Both halves
+	; were ALREADY oracle-verified twice over, in kurumi_backdrop_colorfill()
+	; (th04/main/boss/colorfill.cpp) and in three functions in
+	; th05/main/boss/colorfill.cpp -- and th04/boss_5r.cpp carries a note about
+	; the same class of mistake stopping the Kurumi lift for as long as it stood.
+	; A port write is not a hand-written tell when the port write has a C++
+	; spelling the tree already uses. The screen's own instructions say silence
+	; is an ABSTENTION; this row says a single positive tell is not a verdict
+	; either.
+	;
+	; THE -a2 PARITY DOWNSTREAM SURVIVED, AND THAT IS ARITHMETIC RATHER THAN
+	; LUCK, which is worth spelling out because kb/codegen/0119's failure mode is
+	; exactly the one no per-function diff can see. The three bodies are 0E3h +
+	; 071h + 024h = 178h bytes, an EVEN prepend, so
+	; score_extend_update_and_render() moves from object offset 0 to object
+	; offset 178h and its generated jump table's natural offset moves from 09Fh
+	; to 217h -- both odd, so -a2 emits the same single `db 1 dup (0)` in front
+	; of it that it emitted before, and nothing below it moves. `[measured]` off
+	; the object's own PUBDEF/SEGDEF offsets before any build (kb/codegen/0160):
+	; the four published bodies came out at 0E3h, 154h, 178h and 222h, and the
+	; SEGDEF length came out 3ECh, which is this segment's whole original length.
+	;
+	; TWO BYTE-LEVEL TRAPS, BOTH INVISIBLE TO A LENGTH CHECK:
+	;
+	;   a) `GRCG_FILL_PLAYFIELD_ROWS 0, 120, dx` names DX as its scratch
+	;      register, where the C++ macro lets Turbo C++ pick and it picks AX.
+	;      `B8 imm16` / `8E C0` and `BA imm16` / `8E C2` are the same six bytes
+	;      long, so this diverges in BYTES with every function still the right
+	;      LENGTH. b1_cfill.cpp stages DX explicitly for the first fill; the
+	;      second keeps the macro's default AX, which is what the original has.
+	;
+	;   b) the `db 0` that used to sit between @marisa_fg_render$qv's `endp` and
+	;      @orange_backdrop_colorfill$qv's `proc` is alignment padding INSIDE the
+	;      contribution, and HUD_PNT_TEXT is `byte public`, so nothing pads it
+	;      automatically. It left with the bodies as a `#pragma codestring` at
+	;      the end of b4m_fg.cpp -- the same device th04/main/boss/colorfill.cpp
+	;      uses for its own one-byte pad.
+	;
+	; ONE HEADER CHANGE PAID FOR THE WHOLE LIFT: th04/gaiji/gaiji.h now has an
+	; include guard. Without it th04/main/boss/boss.hpp could not enter this
+	; object at all -- it reaches the unguarded th04/main/hud/overlay.hpp, which
+	; re-expands gaiji.h, and gaiji.h has a file-scope `typedef enum`
+	; (kb/codegen/0129 + 0110). That is also why th04/main/score_extend.cpp used
+	; to spell three overlay declarations by hand, and the comment below has been
+	; corrected accordingly. The guard is codegen-neutral by construction: a
+	; file-scope `typedef enum` means no translation unit that compiles today
+	; expands that header twice, so there is no second expansion for a guard to
+	; suppress.
+	;
+	; EPISTEMIC STATUS. Every byte figure and every register fact above is
+	; `[verified-by-oracle]`: this parcel's gate was the full oracle GREEN on all
+	; fifteen pairs, a byte residue of 0, and a whole-segment funcdiff of
+	; HUD_PNT_TEXT IDENTICAL at 3ECh bytes. The two `[inferred]` items are named
+	; where they stand -- marisa_bits_render()'s own stem, and what ZUN's source
+	; did to put the first fill's segment value in DX. The ZUN bug in item 3 is
+	; `[measured]` from the four comparisons alone: the 16 pixels are the
+	; difference between the constants the original tests and the ones
+	; playfield_encloses() would test, and nothing about how the bug LOOKS on
+	; screen was checked in an emulator.
+	;
+	; TWO THINGS THE COSTING GOT WRONG, recorded so the next lane does not repeat
+	; them. `hud_pnt_text` was said to need declaring in ledger.py's FILE_REGIONS
+	; table before `alloc` would accept it; that registry has been SUPERSEDED by a
+	; dump_segments() derivation that reads the region set out of the dump itself,
+	; so every segment that exists is already a valid region and no lane needs
+	; that file open. And a coster's artifacts are per-worktree: this lane's
+	; obj/th04/main.map was three and a half hours older than the tip it was being
+	; costed against, so the row had to be rebuilt and re-measured before any
+	; figure above could be trusted.
+	;
+	; WHAT THIS SEGMENT'S TAIL IS NOW: nothing. There is no `proc` left in this
+	; block at all, so HUD_PNT_TEXT is off the carve-free-tail board entirely and
+	; the next row of that class belongs to another segment.
 
 
 	; score_extend_update_and_render() -- one frame of the score-based extend
@@ -1777,12 +1777,12 @@ public @ORANGE_BACKDROP_COLORFILL$QV
 	; THE PAD IS -a2's, AND THE PARITY IS THE OPPOSITE WAY ROUND FROM WHAT
 	; COSTING THIS ROW FROM kb/codegen/0154 PREDICTS. `[measured]` with
 	; `tcc -S` over th04/hud_pnt.cpp, both parities probed: the body is 0x9F
-	; bytes and is the first thing the object emits, so the natural table
-	; offset is 0x9F and ODD -- 0154's table calls that the case -a2 leaves
+	; bytes and WAS the first thing the object emitted, so the natural table
+	; offset was 0x9F and ODD -- 0154's table calls that the case -a2 leaves
 	; alone. Here -a2 emits `db 1 dup (0)` at exactly that offset, and emits
 	; nothing once a one-byte `#pragma codestring` makes the offset even. So
-	; this lift needs no borrowed prefix byte and takes none; the `retn` of
-	; @orange_backdrop_colorfill$qv above is untouched. Whoever takes the next
+	; this lift needed no borrowed prefix byte and took none. The three procs
+	; prepended since add an EVEN 178h, so it still holds. Whoever takes the next
 	; row of this class should probe BOTH parities off its own object rather
 	; than predict one, which is kb/codegen/0119's standing warning: get it
 	; wrong and every body is still byte-identical while the pad evaporates
@@ -1820,15 +1820,15 @@ public @ORANGE_BACKDROP_COLORFILL$QV
 	;      rather than as a call argument (kb/codegen 0083 + 0089).
 	;
 	;   6) The popup is the same pair of stores th04/main/hud/overlay.hpp's
-	;      overlay_popup_show() inlines, but that header is unguarded and
-	;      re-expands two more headers points.cpp already pulls in, so the
-	;      lifted file spells the two variables itself (kb/codegen/0129).
+	;      overlay_popup_show() inlines. That header IS reachable now that
+	;      gaiji.h has an include guard, so this file takes POPUP_ID_EXTEND
+	;      from it and spells only [overlay2] itself (kb/codegen/0129).
 	;
-	; WHAT THIS SEGMENT'S TAIL IS NOW: @orange_backdrop_colorfill$qv, directly
-	; above, and it is NOT a further lift -- carve_free_tails.py screens it
-	; HAND-WRITTEN because it programs the GRCG tile register through `out`.
-	; HUD_PNT_TEXT yields exactly this one row, so the next parcel in this
-	; class belongs to another segment (state/notes/th04-main-score-extend.md).
+	; WHAT THIS SEGMENT'S TAIL IS NOW: nothing at all. The three procs that
+	; used to sit above this comment left in one parcel, and
+	; carve_free_tails.py's HAND-WRITTEN screen on the last of them was a
+	; FALSE POSITIVE -- see the block above. HUD_PNT_TEXT is drained, so the
+	; next parcel in this class belongs to another segment.
 
 	; score_reset() now lives in th04/main/score_reset.cpp, which
 	; th04/main/hud/points.cpp #includes ahead of lives.cpp, bombs.cpp and
@@ -4867,10 +4867,10 @@ ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 	; dump. The block stays for the three procdescs below.
 	;
 	; What did NOT leave: the equates and data these functions shared with
-	; the bit renderer, which is still ASM in ENM_POS_TEXT and still reads
-	; every one of them -- MARISA_BIT_COUNT, MARISA_BIT_W/H,
-	; MARISA_BIT_KILL_FRAMES_PER_CEL, marisa_bit_t, marisa_bits,
-	; _bit_center_x/_bit_center_y and _bits_alive. _MARISA_BIT_HP stays too,
+	; the bit renderer -- which is C++ now too, in HUD_PNT_TEXT. So the
+	; only ASM reader left is the _bit_center_x/_bit_center_y arrays' own
+	; MARISA_BIT_COUNT; MARISA_BIT_W/H, marisa_bit_t, marisa_bits and
+	; MARISA_BIT_KILL_FRAMES_PER_CEL are dead. _MARISA_BIT_HP stays too,
 	; mid-_DATA where ZUN's object put it: b4m_upd.cpp copies it into a
 	; stack local through a struct wrapper so that Turbo C++ emits the
 	; original's SCOPY@ against THIS symbol rather than emitting a second
