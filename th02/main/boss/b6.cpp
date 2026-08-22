@@ -115,6 +115,14 @@
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/math/randring.hpp"
+// And these two for phase 7's patterns. Both are unguarded, and both are
+// nothing but declarations -- four lines and fourteen -- so unlike
+// bullet.hpp above they are idempotent and a second inclusion would cost
+// nothing. Included rather than spelled out because vector2_between_plus() has
+// eight parameters, two of them references, and hand-copying that signature is
+// how a `far`/`near` mismatch gets in.
+#include "th02/hardware/pages.hpp"
+#include "th02/math/vector.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -126,6 +134,11 @@ void near dialog_pre(void);
 // has no include guard and defines fourteen unused `input_t` constants for the
 // sake of one call.
 void key_delay(void);
+
+// th02/snd/snd.h, spelled out for the same reason and in exactly the form
+// th02/main/boss/b5m.cpp already uses: that header has no include guard and
+// pulls in libs/kaja/kaja.h, game/pf.h and defconv.h for the sake of one call.
+extern "C" void __cdecl snd_se_play(int new_se);
 
 // "maine", as it already exists in the root ASM's _DATA. A C++ string literal
 // would add a second copy rather than reuse the one this call site owns, so
@@ -332,6 +345,64 @@ extern "C" uint8_t sigma_ring_radius;
 // wants to read as a pair when that one lands.
 extern "C" int8_t sigma_sweep_velocity_x;
 
+// Phase 7 pattern 0's two streams of expanding blasts. `[measured]`
+// sigma_16421() is the sole owner of all five of these -- every reference in
+// th02_main.asm was inside it -- so all five are renames rather than
+// kb/codegen/0123 aliases, and none of them needed a ruling about any other
+// pattern. th02/main/boss/b5m.cpp keeps [point_26CD6] under IDA's spelling for
+// the same role precisely because its two callers SHARE it and naming it would
+// have needed that ruling; this one does not.
+//
+// [sigma_stream_velocity] is the 48-pixel step from her centre toward the
+// player, computed once by vector2_between_plus() on the aim frame, and then
+// added to the first stream's spawn point every time it fires.
+//
+// `stream` after th02/main/boss/b5m.cpp's "Her two pellet streams", which is the
+// same shape one boss earlier: a muzzle that walks one step at a time.
+// The word "trail" was rejected: th01/main/boss/b15m.cpp already spends it on a
+// position HISTORY behind one moving sprite (TRAIL_COUNT and its three slots),
+// and these are a series of independent spawns instead. Symbol-clean, meaning
+// already taken.
+//
+// [sigma_stream_mirror_velocity_x] is 31 characters as an object symbol, one
+// under kb/codegen/0060's 32-character cliff, so this family cannot grow a
+// longer member.
+// [sigma_stream_mirror_velocity_x] is its negation, held in its own slot rather
+// than negated at each use because that is what the original stores.
+extern "C" screen_point_t sigma_stream_velocity;
+extern "C" int sigma_stream_mirror_velocity_x;
+
+// The two streams' current spawn points. `[measured]` The y is SHARED -- both
+// walk down the same rows, and only their x diverges, which is why there is no
+// mirrored y.
+//
+// `mirror` for the derived one, after STONES_LASER_MIRROR
+// (th02/main/boss/b3.cpp), which is the same game's word for the same
+// "symmetric pair" situation. NOT `symmetric`: this codebase uses that word for
+// the pair as a whole (BG_2_SPREAD_HORIZONTALLY_SYMMETRIC) and never to
+// distinguish one member of it.
+extern "C" screen_x_t sigma_stream_x;
+extern "C" screen_y_t sigma_stream_y;
+extern "C" screen_x_t sigma_stream_mirror_x;
+
+// How much sigma_1566F() shrinks an expanding blast's lethal square relative to
+// the circle it draws. `[measured]` SIGNED, and every read is `mov al` + `cbw`:
+// a positive value insets the hitbox, a negative one GROWS it past the drawn
+// radius, and the lethal shape is an axis-aligned square of half-extent
+// `radius - this` against the player's 32x32 box even though the visual is a
+// disc.
+//
+// This is the ONE symbol in Sigma's _BSS that more than one proc touches, which
+// is why it keeps a kb/codegen/0123 alias instead of being renamed: still-ASM
+// sigma_1566F() holds all four reads, and sigma_15E84() and sigma_15F95() write
+// it too.
+//
+// ZUN quirk, and it is load-bearing: sigma_init() never initialises this, and
+// neither phase 7's second pattern nor any of phase 9's three write it, so from
+// the moment sigma_16421() runs, every later blast in the fight inherits its
+// -4. Preserve that on a match branch.
+extern "C" int8_t sigma_blast_hitbox_margin;
+
 // The angle sigma_16650() spawns its 8-way ring of 16x16 balls at, stepped by 8
 // per ring. `[measured]` All five references were inside sigma_16650, so this
 // name is retired rather than aliased too.
@@ -417,8 +488,26 @@ extern "C" void near sigma_15F95(void);
 extern "C" void near sigma_16176(void);
 extern "C" void near sigma_1619C(void);
 extern "C" void near sigma_162D3(void);
-extern "C" void near sigma_16421(void);
-extern "C" void near sigma_16555(void);
+
+// The movement helper phases 1, 3, 5 and 7 share, and the twin of
+// sigma_move_sweep() below: the same 50-frame hold and the same
+// latch-once-on-frame-50 rule, but one pixel per frame, a FOURTH leg, and a
+// vertical component.
+//
+// "weave" is a COINAGE and is named as one. Unlike "sweep", which
+// th04/main/boss/b4r_upd.cpp attests as a boss-motion noun, it occurs nowhere
+// else in this tree. The attested alternative was rejected rather than
+// overlooked: "drift" is already spent in this same binary, on Marisa's own
+// drift helper in th02/main/boss/b4.cpp and on three `bullet_special` fields,
+// and four legs on two axes is not a drift.
+//
+// It has to be published where sigma_move_sweep() did not,
+// because its four callers are spread across those four phases rather than
+// sitting in one group -- so no group short of sigma_15F6F .. sigma_16555 could
+// have taken it along as a `static`. `__cdecl`, so its alias is the ordinary
+// lower-case underscore-prefixed form and not the upper case one
+// sigma_blasts_add() needed.
+extern "C" bool16 near sigma_move_weave(void);
 
 // And the one still-ASM proc in her chain that the dump kept PRIVATE and this
 // object nevertheless has to reach: the spawn for her 16-slot pool of expanding
@@ -455,6 +544,172 @@ extern "C" bool16 pascal near sigma_blasts_add(
 );
 /// -------------------------------------------------
 
+/// Constants her patterns share
+/// ----------------------------
+/// These live above the phase groups because the groups below reach across each
+/// other for them, and a `static const` emits nothing, so the placement is free.
+
+// The frame both movement helpers hold until, and the frame on which each
+// latches its direction. `[measured]` The same 50 in both, and the same 50
+// SIGMA_INTRO_FRAMES uses for phase 0 -- but those are different counters
+// (phase 0 tests `>`, these test `<` and `==`), so this is its own constant.
+static const int SIGMA_MOVE_HOLD_FRAMES = 50;
+
+// The radius most of her patterns cap their blasts at. `[measured]` NOT a
+// property of the pool: sigma_155C5's third argument is written straight into
+// the record and its eight call sites pass three different values -- 0x40 from
+// sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
+static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
+
+// The two values [sigma_cel_interval_mask] ever takes: 7 for a blast telegraph
+// that advances every 8th frame, 3 for every 4th.
+static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
+static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
+/// ----------------------------
+
+/// Phase 7's two patterns
+/// ----------------------
+/// [sigma_phase] 7's group. Both open by delegating to sigma_move_weave(), the
+/// still-ASM helper above, and doing nothing until it says her entrance hold is
+/// over.
+
+// The frame sigma_16421() aims its streams on, and the length of the step it
+// aims with.
+static const int SIGMA_STREAM_AIM_FRAME = 100;
+static const int SIGMA_STREAM_VELOCITY_LENGTH = 48;
+
+// How far each stream's spawn point is nudged horizontally after every step.
+//
+// `[measured 2026-08-22]` AND THE TWO STREAMS ARE NOT MIRROR IMAGES OF EACH
+// OTHER HERE, which is the surprise in this pattern and the reason this comment
+// exists. For the same comparison against the player's x, the first stream is
+// nudged TOWARD the player and the mirrored one AWAY from it -- `add` against
+// `sub` in the dump, at both of the four sites. So the pair is mirrored only in
+// its initial velocity; one homes and one flees, and the figure they draw is
+// not symmetric at all. `mirror` is kept because the velocity really is the
+// `neg` of the first, and the asymmetry is carried here rather than in the
+// name.
+static const pixel_t SIGMA_STREAM_CHASE_STEP = 16;
+
+// What sigma_16421() and sigma_15F95() inset the blast hitbox by while they run.
+static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
+
+/// Phase 7 pattern 0: a 50-frame charge flicker, then two streams of expanding
+/// blasts walking outward from her centre every 8 frames -- one chasing the
+/// player and one fleeing, see SIGMA_STREAM_CHASE_STEP -- plus a 16-way ring at
+/// a random angle on the same beat.
+extern "C" void near sigma_16421(void)
+{
+	// `bool16` and not `bool`, because it holds this function's own copy of
+	// sigma_blasts_add()'s inverted return and the original's local is a word.
+	bool16 stream_rejected;
+
+	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		snd_se_play(9);
+	}
+
+	// The charge flicker: 128 on one page and 132 on the other, so she strobes
+	// at the frame rate rather than animating. 128 is the base [patnum_2064E]
+	// sigma_init() sets, and this arm restores nothing -- the aim frame below
+	// puts it back.
+	if(boss_phase_frame < SIGMA_STREAM_AIM_FRAME) {
+		patnum_2064E = ((page_back * 4) + 128);
+		return;
+	}
+	if(boss_phase_frame == SIGMA_STREAM_AIM_FRAME) {
+		vector2_between_plus(
+			sigma_center_x,
+			sigma_center_y,
+			player_center_x(),
+			(player_topleft.y + (PLAYER_W / 2)),
+			0,
+			sigma_stream_velocity.x,
+			sigma_stream_velocity.y,
+			SIGMA_STREAM_VELOCITY_LENGTH
+		);
+		sigma_stream_mirror_velocity_x = -sigma_stream_velocity.x;
+		patnum_2064E = 128;
+
+		// Chained, and in this direction: the original loads her centre ONCE
+		// and stores it to the first stream and then to the mirror, which is
+		// what one expression assigned through two slots compiles to. Two
+		// statements would load it twice.
+		sigma_stream_mirror_x = sigma_stream_x = sigma_center_x;
+
+		sigma_blast_hitbox_margin = SIGMA_BLAST_HITBOX_MARGIN_WIDE;
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_FAST;
+		sigma_stream_y = sigma_center_y;
+	}
+	if((boss_phase_frame & 7) == 0) {
+		// BOTH spawns always happen; only the restart is conditional. The
+		// second one's result is tested first because it is the one still in AX
+		// -- which is why the first needs the local at all.
+		stream_rejected = sigma_blasts_add(
+			sigma_stream_x, sigma_stream_y, SIGMA_BLAST_RADIUS_MAX
+		);
+		if(sigma_blasts_add(
+			sigma_stream_mirror_x, sigma_stream_y, SIGMA_BLAST_RADIUS_MAX
+		) && stream_rejected) {
+			// Both refused, so the pool is full or both points left the
+			// playfield: restart the pattern rather than keep walking off
+			// screen.
+			boss_phase_frame = 0;
+		}
+		sigma_stream_x += sigma_stream_velocity.x;
+		sigma_stream_mirror_x += sigma_stream_mirror_velocity_x;
+		sigma_stream_y += sigma_stream_velocity.y;
+		if(player_center_x() > sigma_stream_x) {
+			sigma_stream_x += SIGMA_STREAM_CHASE_STEP;
+		} else if(player_center_x() < sigma_stream_x) {
+			sigma_stream_x -= SIGMA_STREAM_CHASE_STEP;
+		}
+		if(player_center_x() > sigma_stream_mirror_x) {
+			sigma_stream_mirror_x -= SIGMA_STREAM_CHASE_STEP;
+		} else if(player_center_x() < sigma_stream_mirror_x) {
+			sigma_stream_mirror_x += SIGMA_STREAM_CHASE_STEP;
+		}
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			randring2_next8(),
+			BG_16_RING,
+			((3 << 4) + 12)
+		);
+	}
+}
+
+/// Phase 7 pattern 1: a blast on the player on the frames halfway through each
+/// 64-frame cycle, and a 32-way ring at a random angle on the cycle boundary.
+extern "C" void near sigma_16555(void)
+{
+	if(sigma_move_weave()) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_SLOW;
+	}
+	if((boss_phase_frame & 0x3F) == 32) {
+		sigma_blasts_add(
+			player_center_x(),
+			(player_topleft.y + (PLAYER_W / 2)),
+			SIGMA_BLAST_RADIUS_MAX
+		);
+	}
+	if((boss_phase_frame & 0x3F) == 0) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			randring2_next8(),
+			BG_32_RING,
+			((3 << 4) + 12)
+		);
+	}
+}
+/// ----------------------
+
 /// Her final phase's three patterns, and the movement they share
 /// -------------------------------------------------------------
 /// [sigma_phase] 9's group, installed together by sigma_update() below. All
@@ -462,28 +717,12 @@ extern "C" bool16 pascal near sigma_blasts_add(
 /// it says she has finished her entrance hold, then each adds its own bullets on
 /// its own frame cadence.
 
-// The frame the two movement helpers hold until, and the frame on which each
-// latches its direction. `[measured]` The same 50 in both, and the same 50
-// SIGMA_INTRO_FRAMES uses for phase 0 -- but those are different counters
-// (phase 0 tests `>`, these test `<` and `==`), so this is its own constant.
-static const int SIGMA_MOVE_HOLD_FRAMES = 50;
-
 // Phase 9's sweep: 2 pixels per frame, latched signed once and then added,
 // subtracted and added again by the three legs below.
 static const pixel_t SIGMA_SWEEP_SPEED = 2;
 static const int SIGMA_SWEEP_LEG_1_END = 130;
 static const int SIGMA_SWEEP_LEG_2_END = 290;
 static const int SIGMA_SWEEP_LEG_3_END = 370;
-
-// The radius all three of these patterns cap their blasts at. `[measured]` NOT
-// a property of the pool: sigma_155C5's third argument is written straight into
-// the record and its eight call sites pass three different values -- 0x40 from
-// sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
-static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
-
-// Which of [sigma_cel_interval_mask]'s two values the phase-9 patterns want:
-// every 8th frame, i.e. the slow telegraph.
-static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 
 /// Phase 9's shared movement, and the answer "not yet" for the 50 frames before
 /// it starts.

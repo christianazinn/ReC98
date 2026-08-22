@@ -5383,6 +5383,12 @@ sigma_15E84	endp
 
 ; Attributes: bp-based frame
 
+; Lower case with a leading underscore, unlike SIGMA_BLASTS_ADD above: this
+; proc takes no arguments and cleans nothing, so it is __cdecl and Borland
+; does not upper-case its name. Zero bytes, like every kb/codegen/0123 alias.
+; Phase 7 paid for this one; phases 5, 3 and 1 get it free.
+public _sigma_move_weave
+_sigma_move_weave label near
 sigma_15EF7	proc near
 		push	bp
 		mov	bp, sp
@@ -5949,189 +5955,12 @@ loc_1641D:
 sigma_162D3	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16421
-_sigma_16421 label near
-sigma_16421	proc near
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		cmp	_boss_phase_frame, 50
-		jl	locret_16553
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_16441
-		call	_snd_se_play c, 9
-
-loc_16441:
-		cmp	_boss_phase_frame, 100
-		jge	short loc_16458
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, 128
-		mov	patnum_2064E, ax
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_16458:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_164AD
-		push	left_253B6
-		push	top_253B8
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	0
-		push	ds
-		push	offset point_255A4.x
-		push	ds
-		push	offset point_255A4.y
-		push	48
-		call	@vector2_between_plus$qiiiiucmit6i
-		mov	ax, point_255A4.x
-		neg	ax
-		mov	word_255AC, ax
-		mov	patnum_2064E, 128
-		mov	ax, left_253B6
-		mov	word_255A8, ax
-		mov	word_255AE, ax
-		mov	byte_2558D, -4
-		mov	byte_2558C, 3
-		mov	ax, top_253B8
-		mov	word_255AA, ax
-
-loc_164AD:
-		test	byte ptr _boss_phase_frame, 7
-		jnz	locret_16553
-		push	word_255A8
-		push	word_255AA
-		push	30h ; '0'
-		call	sigma_155C5
-		mov	[bp+var_2], ax
-		push	word_255AE
-		push	word_255AA
-		push	30h ; '0'
-		call	sigma_155C5
-		or	ax, ax
-		jz	short loc_164E3
-		cmp	[bp+var_2], 0
-		jz	short loc_164E3
-		mov	_boss_phase_frame, 0
-
-loc_164E3:
-		mov	ax, point_255A4.x
-		add	word_255A8, ax
-		mov	ax, word_255AC
-		add	word_255AE, ax
-		mov	ax, point_255A4.y
-		add	word_255AA, ax
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255A8
-		jle	short loc_1650B
-		add	word_255A8, 10h
-		jmp	short loc_1651C
-; ---------------------------------------------------------------------------
-
-loc_1650B:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255A8
-		jge	short loc_1651C
-		sub	word_255A8, 10h
-
-loc_1651C:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255AE
-		jle	short loc_1652F
-		sub	word_255AE, 10h
-		jmp	short loc_16540
-; ---------------------------------------------------------------------------
-
-loc_1652F:
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		cmp	ax, word_255AE
-		jge	short loc_16540
-		add	word_255AE, 10h
-
-loc_16540:
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_16_RING	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-locret_16553:
-		leave
-		retn
-sigma_16421	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16555
-_sigma_16555 label near
-sigma_16555	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_15EF7
-		or	ax, ax
-		jnz	short loc_165A3
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1656B
-		mov	byte_2558C, 7
-
-loc_1656B:
-		mov	ax, _boss_phase_frame
-		and	ax, 3Fh
-		cmp	ax, 32
-		jnz	short loc_16589
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		push	ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		push	ax
-		push	30h ; '0'
-		call	sigma_155C5
-
-loc_16589:
-		test	byte ptr _boss_phase_frame, 3Fh
-		jnz	short loc_165A3
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_32_RING	; group
-		push	((3 shl 4) + 12)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_165A3:
-		pop	bp
-		retn
-sigma_16555	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_move_sweep()  [static]
+;   th02/main/boss/b6.cpp       sigma_16421()
+;                               sigma_16555()
+;                               sigma_move_sweep()  [static]
 ;                               sigma_16606()
 ;                               sigma_16650()
 ;                               sigma_1668E()
@@ -6158,7 +5987,7 @@ sigma_16555	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_16555(), and the first of
+; So th02_main.asm contributes nothing below sigma_162D3(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -6203,11 +6032,11 @@ sigma_16555	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_16555() is the tail now - phase 7 pattern 1, a near proc, so the root
-; still ends on a `retn`. Below it the block is her eight other pattern
+; sigma_162D3() is the tail now - phase 5 pattern 1, a near proc, so the root
+; still ends on a `retn`. Below it the block is her six other pattern
 ; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
-; its state-2 promoter, the OTHER movement helper, her hittest wrapper and
-; her defeat animation - then Meira, Rika and the three midbosses.
+; its state-2 promoter, one movement helper, her hittest wrapper and her
+; defeat animation - then Meira, Rika and the three midbosses.
 ; state/notes/sigma_update.md characterises all of them, holds their lengths,
 ; and is the map for that naming round.
 ;
@@ -6219,14 +6048,17 @@ sigma_16555	endp
 ; three phase-9 patterns because ALL THREE of its callers were in that group,
 ; so it became a plain `static` C++ function and needed no kb/codegen/0123
 ; alias at all - whereas any shallower group would have had to publish it.
-; sigma_15EF7 is the same shape for phases 1, 3, 5 and 7, and its callers are
-; spread across all four, so it cannot be taken that way until the group
-; reaches sigma_15F6F.
+;
+; sigma_move_weave, one proc below, is the counter-example: the same shape,
+; but its callers were spread over phases 1, 3, 5 and 7, so no group short of
+; the whole run from it down could take it along. Phase 7 therefore paid the
+; alias, and phases 5, 3 and 1 now get it for free. When a shared helper
+; cannot ride along, the FIRST group that needs it pays once for all of them.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x388 0x0 0x0 BEFORE
-; this lift and 0x4C1 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x4C1 0x0 0x0 BEFORE
+; this lift and 0x645 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -8069,6 +7901,8 @@ byte_254EC	db 160 dup(?)
 public _sigma_cel_interval_mask
 _sigma_cel_interval_mask	label byte
 byte_2558C	db ?
+public _sigma_blast_hitbox_margin
+_sigma_blast_hitbox_margin	label byte
 byte_2558D	db ?
 byte_2558E	db ?
 byte_2558F	db ?
@@ -8087,11 +7921,16 @@ angle_2559E	db ?
 left_255A0	dw ?
 byte_255A2	db ?
 byte_255A3	db ?
-point_255A4	Point <?>
-word_255A8	dw ?
-word_255AA	dw ?
-word_255AC	dw ?
-word_255AE	dw ?
+public _sigma_stream_velocity
+_sigma_stream_velocity	Point <?>
+public _sigma_stream_x
+_sigma_stream_x	dw ?
+public _sigma_stream_y
+_sigma_stream_y	dw ?
+public _sigma_stream_mirror_velocity_x
+_sigma_stream_mirror_velocity_x	dw ?
+public _sigma_stream_mirror_x
+_sigma_stream_mirror_x	dw ?
 public _sigma_sweep_velocity_x
 _sigma_sweep_velocity_x	db ?
 public _sigma_ball_ring_angle
