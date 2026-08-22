@@ -109,3 +109,47 @@ void near shinki_bg_type_d_colorfill(void)
 	GRCG_OFF_INLINE();
 	POP_DI();
 }
+
+/// Louise's and Alice's callbacks live in ANOTHER SEGMENT
+/// -----------------------------------------------------
+/// Both are 14-byte one-liners of exactly the shape at the top of this file,
+/// but neither was ever part of LASER_RH_TEXT: they sit 164h bytes into what
+/// th05_main.asm carved as END_EXT_A_TEXT, with three `include`d ASM modules
+/// and Yumeko's own colorfill still following them under the reopened
+/// END_EXT_TEXT. A plain definition here would therefore land at the end of
+/// this object's LASER_RH_TEXT contribution, thousands of bytes late;
+/// `#pragma codeseg` emits it where the original is instead, and costs no new
+/// translation unit and no Tupfile.lua line (kb/codegen 0080 + 0155;
+/// th04/main/circle.cpp does exactly this for elly_backdrop_colorfill()).
+///
+/// THIS FILE MUST NOT INCLUDE th05/main/boss/bosses.hpp, which is where these
+/// two are declared for their callers in th05/main/stage/setup.cpp and
+/// th05/main/boss/render.cpp. `#pragma codeseg` binds a function to a segment
+/// at its FIRST DECLARATION: with that header included, both would be bound to
+/// this object's default segment before the pragma is ever read, the object
+/// would contribute ZERO bytes to END_EXT_A_TEXT, and the build would link and
+/// run with a map hundreds of bytes wrong (kb/codegen/0155). `[measured]`:
+/// neither this file nor th05/main/bullet/laser_rh.cpp reaches bosses.hpp.
+///
+/// The group has to be named in the pragma for the same reason the Elly one
+/// names it: the call to grcg_fill_playfield_rows() below is NEAR and its
+/// callee lives in MB_INV_TEXT, so the two segments must share main_01.
+///
+/// Source order is ADDRESS order -- Louise at 0DEA6h, Alice at 0DEB4h --
+/// because TLINK gives this object one contiguous contribution per segment and
+/// Turbo C++ emits into it in the order it reads the definitions.
+#pragma codeseg END_EXT_A_TEXT main_01
+
+// Louise's fight fills the bottom 176 rows of the playfield.
+void pascal near louise_backdrop_colorfill(void)
+{
+	grcg_fill_playfield_rows_at(192, 176);
+}
+
+// Alice's fills the top 205, leaving the rest for her backdrop image.
+void pascal near alice_backdrop_colorfill(void)
+{
+	grcg_fill_playfield_rows_at(  0, 205);
+}
+
+#pragma codeseg
