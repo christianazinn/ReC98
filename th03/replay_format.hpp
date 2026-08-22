@@ -6,8 +6,8 @@
 #include "th03/resident.hpp"
 
 #define T3_REPLAY_USER_VERSION_LEGACY 11
-#define T3_REPLAY_USER_VERSION 13
-#define T3_REPLAY_USER_INDEX_VERSION 8
+#define T3_REPLAY_USER_VERSION 14
+#define T3_REPLAY_USER_INDEX_VERSION 9
 #define T3_REPLAY_USER_PLAYER_COUNT 2
 #define T3_REPLAY_USER_STAGE_COUNT 9
 #define T3_REPLAY_USER_ROUND_SPLIT_COUNT 27
@@ -73,6 +73,19 @@
 	T3R_SUMMARY_SLOWDOWN \
 )
 #define T3_REPLAY_USER_SUMMARY_UNKNOWN 0xFF
+#define T3R_RULESET_STOCK 0
+#define T3R_RECORDING_FLAG_NETPLAY 0x01
+#define T3R_RECORDING_FLAGS_KNOWN T3R_RECORDING_FLAG_NETPLAY
+#define T3R_RECORDER_ROLE_UNKNOWN 0
+#define T3R_RECORDER_ROLE_P1 1
+#define T3R_RECORDER_ROLE_P2 2
+#define T3R_RECORDER_SOURCE_UNKNOWN 0
+#define T3R_RECORDER_SOURCE_PC98 1
+#define T3R_RECORDER_SOURCE_NATIVE 2
+#define T3R_RECORDER_SOURCE_IMPORTED 3
+#define T3R_ACCOUNT_UUID_SIZE 16
+#define T3R_MATCH_ID_SIZE 16
+#define T3R_IDENTITY_RESERVED_SIZE 94
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
 #define T3_REPLAY_USER_ROUND_VALUE_UNKNOWN 0x0F
 #define T3_REPLAY_SPLIT_VERSION 1
@@ -283,9 +296,25 @@ typedef char replay_user_summary_ext_size_check[
 	(sizeof(replay_user_summary_ext_t) == 494) ? 1 : -1
 ];
 
-// Keep OP's frequently accessed round rows compact and load the larger V13
+// V14 keeps the proven 622-byte V13 prefix byte-for-byte and appends all
+// product identity. Nametags remain account data and are never copied here.
+struct replay_user_identity_ext_t {
+	uint8_t ruleset;
+	uint8_t recording_flags;
+	uint8_t recorder_role;
+	uint8_t recorder_source;
+	uint8_t player_uuid[T3_REPLAY_USER_PLAYER_COUNT][T3R_ACCOUNT_UUID_SIZE];
+	uint8_t match_id[T3R_MATCH_ID_SIZE];
+	uint8_t reserved[T3R_IDENTITY_RESERVED_SIZE];
+};
+
+typedef char replay_user_identity_ext_size_check[
+	(sizeof(replay_user_identity_ext_t) == 146) ? 1 : -1
+];
+
+// Keep OP's frequently accessed round rows compact and load the larger V14
 // telemetry into separate far arrays. This avoids moving OP's original near
-// data while still exposing every V13 detail page.
+// data while still exposing every V14 detail page.
 struct replay_user_menu_round_split_t {
 	uint8_t stage_round;
 	uint8_t route_winner;
@@ -595,7 +624,9 @@ inline bool replay_user_version_has_round_carry(uint16_t version)
 inline uint16_t replay_user_header_size(uint16_t version)
 {
 	return static_cast<uint16_t>(
-		sizeof(replay_user_header_t) + replay_user_summary_ext_size(version)
+		sizeof(replay_user_header_t) + replay_user_summary_ext_size(version) +
+		((version == T3_REPLAY_USER_VERSION) ?
+		 sizeof(replay_user_identity_ext_t) : 0)
 	);
 }
 

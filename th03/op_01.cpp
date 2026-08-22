@@ -644,7 +644,7 @@ static bool replay_user_index_header_valid(
 		(header.magic[3] == 'I') &&
 		(header.magic[4] == 'D') &&
 		(header.magic[5] == 'X') &&
-		(header.magic[6] == '8') &&
+		(header.magic[6] == '9') &&
 		(header.version == T3_REPLAY_USER_INDEX_VERSION) &&
 		(header.header_size == sizeof(replay_user_index_header_t)) &&
 		(header.entry_size == sizeof(replay_user_index_entry_t)) &&
@@ -871,7 +871,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_menu_index_header.magic[3] = 'I';
 	replay_user_menu_index_header.magic[4] = 'D';
 	replay_user_menu_index_header.magic[5] = 'X';
-	replay_user_menu_index_header.magic[6] = '8';
+	replay_user_menu_index_header.magic[6] = '9';
 	replay_user_menu_index_header.magic[7] = '\0';
 	replay_user_menu_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_menu_index_header.header_size = (
@@ -4249,7 +4249,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x34312E34UL); // "4.14"
+	TITLE_CREDIT_QUAD(4, 0x35312E34UL); // "4.15"
 	TITLE_CREDIT_QUAD(5, 0x20796220UL); // " by "
 	TITLE_CREDIT_QUAD(6, 0x69726843UL); // "Chri"
 	TITLE_CREDIT_QUAD(7, 0x61697473UL); // "stia"

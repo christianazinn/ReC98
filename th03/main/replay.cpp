@@ -152,6 +152,7 @@ static replay_mode_t replay_mode;
 static replay_input_header_t replay_header;
 static replay_user_header_t replay_user_header;
 static replay_user_summary_ext_t replay_user_summary_ext;
+static replay_user_identity_ext_t replay_user_identity_ext;
 static replay_user_snapshot_t replay_user_snapshot;
 static replay_user_round_state_t replay_user_round_state;
 static replay_user_round_carry_t replay_user_round_carry;
@@ -2057,7 +2058,7 @@ static void replay_user_index_header_fill(uint8_t next_slot)
 	replay_user_index_header.magic[3] = 'I';
 	replay_user_index_header.magic[4] = 'D';
 	replay_user_index_header.magic[5] = 'X';
-	replay_user_index_header.magic[6] = '8';
+	replay_user_index_header.magic[6] = '9';
 	replay_user_index_header.magic[7] = '\0';
 	replay_user_index_header.version = T3_REPLAY_USER_INDEX_VERSION;
 	replay_user_index_header.header_size = sizeof(replay_user_index_header);
@@ -2745,6 +2746,9 @@ static void replay_user_header_fill(
 {
 	if(replay_user_header.version != T3_REPLAY_USER_VERSION) {
 		replay_memclear(&replay_user_header, sizeof(replay_user_header));
+		replay_memclear(
+			&replay_user_identity_ext, sizeof(replay_user_identity_ext)
+		);
 		replay_user_header.magic[0] = 'T';
 		replay_user_header.magic[1] = '3';
 		replay_user_header.magic[2] = 'R';
@@ -2752,7 +2756,7 @@ static void replay_user_header_fill(
 		replay_user_header.magic[4] = 'L';
 		replay_user_header.magic[5] = 'Y';
 		replay_user_header.magic[6] = '1';
-		replay_user_header.magic[7] = '3';
+		replay_user_header.magic[7] = '4';
 		replay_user_header.version = T3_REPLAY_USER_VERSION;
 		replay_user_header.header_size = replay_user_header_size(
 			T3_REPLAY_USER_VERSION
@@ -2793,6 +2797,8 @@ static void replay_user_header_fill(
 			replay_user_header.flags
 		);
 		replay_user_header.autofire = replay_user_snapshot.autofire;
+		replay_user_identity_ext.ruleset = T3R_RULESET_STOCK;
+		replay_user_identity_ext.recorder_source = T3R_RECORDER_SOURCE_PC98;
 	}
 	replay_user_header.status = status;
 	replay_user_header.end_reason = end_reason;
@@ -2900,6 +2906,13 @@ static bool replay_user_header_write(
 	}
 	if(!replay_write_bytes_checked(
 		&replay_user_summary_ext, sizeof(replay_user_summary_ext)
+	)) {
+		file_close();
+		replay_protect_detector_error_set();
+		return false;
+	}
+	if(!replay_write_bytes_checked(
+		&replay_user_identity_ext, sizeof(replay_user_identity_ext)
 	)) {
 		file_close();
 		replay_protect_detector_error_set();
@@ -3026,6 +3039,34 @@ static bool replay_user_header_valid(void)
 	);
 }
 
+static bool replay_user_identity_ext_valid(void)
+{
+	int i;
+	bool netplay = (
+		(replay_user_identity_ext.recording_flags &
+		 T3R_RECORDING_FLAG_NETPLAY) != 0
+	);
+	if(
+		(replay_user_identity_ext.ruleset != T3R_RULESET_STOCK) ||
+		((replay_user_identity_ext.recording_flags &
+		  ~T3R_RECORDING_FLAGS_KNOWN) != 0) ||
+		(replay_user_identity_ext.recorder_role > T3R_RECORDER_ROLE_P2) ||
+		(replay_user_identity_ext.recorder_source >
+		 T3R_RECORDER_SOURCE_IMPORTED) ||
+		(netplay != (replay_user_identity_ext.recorder_role !=
+		 T3R_RECORDER_ROLE_UNKNOWN)) ||
+		(netplay && (replay_user_header.game_mode != GM_VS_1P_2P))
+	) {
+		return false;
+	}
+	for(i = 0; i < T3R_IDENTITY_RESERVED_SIZE; i++) {
+		if(replay_user_identity_ext.reserved[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool replay_user_read_from(const char *fn)
 {
 	replay_user_fn = fn;
@@ -3048,6 +3089,15 @@ static bool replay_user_read_from(const char *fn)
 		replay_user_header.version
 	);
 	if(file_read(&replay_user_summary_ext, summary_size) != summary_size) {
+		file_close();
+		return false;
+	}
+	if(
+		(file_read(
+			&replay_user_identity_ext, sizeof(replay_user_identity_ext)
+		) != sizeof(replay_user_identity_ext)) ||
+		!replay_user_identity_ext_valid()
+	) {
 		file_close();
 		return false;
 	}
