@@ -107,8 +107,8 @@ void near circles_render(void)
 // line -- and Tupfile.lua is a whole-file claim that some other lane usually
 // holds. th03/main/enemy/enemy.cpp and th02/end/end.cpp show that one object
 // can contribute to several code segments instead. The group has to be named:
-// the call to grcg_fill_playfield_rows() below is NEAR and its callee lives in
-// main_013_TEXT, so the two segments must share main_01.
+// the call to grcg_fill_playfield_rows() below is NEAR and its callee lives
+// in CHECKERB_TEXT, so the two segments must share main_01.
 //
 // AND THIS FILE MUST NOT INCLUDE th04/main/boss/bosses.hpp, which is where
 // elly_backdrop_colorfill() is declared for its caller in
