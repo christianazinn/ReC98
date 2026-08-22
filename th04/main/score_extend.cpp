@@ -54,11 +54,7 @@
 
 // Every one of these is published by a root-dump BSS or data block, or by a
 // header this translation unit cannot reach, for the reason
-// th04/main/score_reset.cpp gives for its own such block. In particular
-// th04/main/hud/overlay.hpp is unguarded AND re-expands th04/gaiji/gaiji.h and
-// th02/main/hud/overlay.hpp, both of which points.cpp has already included, so
-// including it here would be a hard error rather than a style choice
-// (kb/codegen/0129).
+// th04/main/score_reset.cpp gives for its own such block.
 //
 // [score] itself needs nothing -- th04/score.h is already in points.cpp's
 // closure through th04/resident.hpp.
@@ -66,20 +62,24 @@
 extern unsigned char extends_gained;
 extern unsigned char bullet_clear_time;
 
-// th04/main/hud/overlay.hpp declares these three, and its
-// overlay_popup_show() is exactly the pair of stores at the end of the
-// function below. [overlay_popup_id_new] is that header's byte-sized
-// `popup_id_t` there and is spelled as its storage type here, because
-// respelling the enum in a shared translation unit would put a second
-// definition of every popup ID at file scope.
-extern unsigned char overlay_popup_id_new;
+// th04/main/hud/overlay.hpp IS in this translation unit now, ahead of this
+// file: MATCH-TH04-MAIN-HUD-PNT-DRAIN gave th04/gaiji/gaiji.h an include
+// guard, which is the only thing that made that header a hard error here, and
+// th04/main/boss/b4m_fg.cpp above reaches it through
+// th04/main/boss/boss.hpp. So [overlay_popup_id_new] is its real byte-sized
+// `popup_id_t` rather than the storage type this file used to spell, and
+// POPUP_ID_EXTEND below is the header's own enumerator rather than a mirrored
+// 1. The store is the same byte either way -- `_popup_id_t_FORCE_UINT8` is
+// what keeps the enum byte-sized.
+//
+// [overlay2] and overlay_popup_update_and_render() keep their declarations
+// here even so, DELIBERATELY: the header declares the function inside a
+// `#pragma codeseg HUD_OVRL_TEXT main_01` block, and whether that changes how
+// its address is taken is not something this parcel measured. The two
+// declarations are identical to the header's, so having both is legal and
+// costs nothing.
 extern nearfunc_t_near overlay2;
 void pascal near overlay_popup_update_and_render(void);
-
-// th04/main/hud/overlay.hpp's `popup_id_t` value, mirrored rather than
-// respelled as an enum, so the store below still reads as the popup it shows.
-// th04/main/hud/overlay.inc carries the same 1 for the dump's own sites.
-static const unsigned char SCORE_EXTEND_POPUP_ID = 1; // POPUP_ID_EXTEND
 
 // `extern "C"` because th04/main/playperf.asm exports the undecorated,
 // Pascal-cased PLAYPERF_RAISE, exactly as th04/main/playperf.hpp says --
@@ -178,7 +178,7 @@ extern "C" void pascal near score_extend_update_and_render(void)
 			bullet_clear_time = 20;
 		}
 		nopcall_same_group(hud_lives_put);
-		overlay_popup_id_new = SCORE_EXTEND_POPUP_ID;
+		overlay_popup_id_new = POPUP_ID_EXTEND;
 		overlay2 = overlay_popup_update_and_render;
 		snd_se_play(7);
 	}

@@ -2,6 +2,17 @@
 // -----
 // Gaiji available to TH04 and TH05
 
+// Guarded 2026-08-21 by MATCH-TH04-MAIN-HUD-PNT-DRAIN. The `typedef enum`
+// below made this header a hard error on its second expansion in one
+// translation unit, which is what stopped th04/main/score_extend.cpp from
+// including th04/main/hud/overlay.hpp and would have stopped the same object
+// from reaching th04/main/boss/boss.hpp at all (kb/codegen/0129). Adding the
+// guard cannot change any preprocessing outcome: a file-scope `typedef enum`
+// means no translation unit that compiles today expands this header twice, so
+// there is no second expansion for the guard to suppress.
+#ifndef TH04_GAIJI_GAIJI_H
+#define TH04_GAIJI_GAIJI_H
+
 #include "th02/gaiji/from_2.h"
 
 #define OVERLAY_FADE_CELS 8
@@ -76,3 +87,5 @@ typedef enum {
 	g_HISCORE_STAGE_EMPTY = 0xEF,
 	g_NONE = 0xFF,
 } gaiji_th04_t;
+
+#endif /* TH04_GAIJI_GAIJI_H */
