@@ -25,10 +25,12 @@ static const pixel_t MIDBOSS4_H = 64;
 
 static const int MIDBOSS4_FRAMES_PER_CEL = 4;
 
-// [inferred] Gates the ordinary blit: a zero here draws the midboss in solid
-// white on every frame, the same single-plane blit the damage flash uses, and
-// resets [damage_this_frame] with it. Which of the fight's states sets it is
-// still in ZUN's assembly, so it is spelled as the raw slot rather than named.
+// Gates the ordinary blit: a zero here draws the midboss in solid white on
+// every frame, the same single-plane blit the damage flash uses, and resets
+// [damage_this_frame] with it. th05/main/midboss/m4_updt.cpp is the state
+// machine that writes it, and names the same slot `midboss4_solid` for what it
+// gates there -- the midboss takes no damage while this is zero either, so the
+// white silhouette and the invulnerability are one state, not two.
 #define midboss4_blit_normally boss_statebyte[15]
 
 void pascal near midboss4_render(void)

@@ -133,6 +133,13 @@ static const int MAI_LASER_SLOTS = 10;
 // depicts has not been decided, only where it is.
 static const int PAT_MAI_ANIMATED = (PAT_MAI + 12);
 
+// The Stage 4 midboss's update function and its four helpers, which sit above
+// the ball bullets in this segment and are therefore the first five bodies
+// this object emits. Included from here rather than from th05/b4mai.cpp for
+// the same reason as everything below: this file owns the object's unguarded
+// headers (kb/codegen/0112 trap 0).
+#include "th05/main/midboss/m4_updt.cpp"
+
 // The ball bullets' reset and spawn functions, which sit above the state
 // update in this segment and are therefore the first two bodies this object
 // emits. They replace the assembly module th05_main.asm included at the end of
