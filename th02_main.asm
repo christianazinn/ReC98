@@ -184,74 +184,29 @@ include libs/master.lib/super_roll_put_tiny.asm
 include libs/master.lib/super_convert_tiny.asm
 include libs/master.lib/super_zoom.asm
 
-; =============== S U B	R O U T	I N E =======================================
+; THIS SEGMENT'S ROOT CONTRIBUTION ENDS HERE, at mpn_put_8()'s original
+; address. TWO objects pick _TEXT up from this point, in link order:
+;
+;   th02/mpn_put.cpp   th02/formats/mpn_put.cpp   mpn_put_8()
+;   th02/pf_i.asm      master.lib's .PF hook      PFSTART, PFEND, pfint21,
+;                                                 PFOPEN, SEEK, STR_IEQ
+;
+; The .PF hook is RELOCATED, not decompiled: th02/pf_i.asm carries the same
+; four lines that used to be right here -- pfint21.asm, its padding byte,
+; TH02's own pfopen.asm, and pf_str_ieq.asm -- in the same order, and its
+; _TEXT contribution measures the same 0x3D8 bytes they did. mpn_put_8() sat
+; immediately in FRONT of them, so kb/codegen/0098 does not apply: putting a
+; C++ object at that function's address requires everything behind it to move
+; into an object of its own as well. th03/maintext.asm is the same shape, and
+; is what this one was modelled on.
+;
+; The hook reaches PFCLOSE, PFREAD, PFSEEK, PFREWIND, PFGETX1, PFGETC1, the
+; HMEM_* and the B* procs above by NEAR call across the object boundary -- all
+; of them are already `public` through master.lib's `func` macro. Its DGROUP
+; variables were not, which is what the `public` directives next to
+; th02/formats/pfopen[data].asm and libs/master.lib/pfint21[bss].asm below are
+; for.
 
-; Attributes: bp-based frame
-public @MPN_PUT_8$QIII
-@mpn_put_8$qiii	proc far
-
-@@image	= word ptr  6
-@@top  	= word ptr  8
-@@left 	= word ptr  0Ah
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		push	ds
-		mov	di, [bp+@@top]
-		mov	ax, [bp+@@left]
-		sar	ax, 3
-		mov	dx, di
-		shl	dx, 6
-		add	ax, dx
-		shr	dx, 2
-		add	ax, dx
-		mov	di, ax
-		mov	ax, [bp+@@image]
-		shl	ax, 7
-		mov	dx, word ptr _mpn_images+2
-		mov	bx, word ptr _mpn_images
-		add	bx, ax
-		mov	ds, dx
-		mov	si, bx
-		mov	cx, TILE_H
-
-loc_39CC:
-		mov	ax, SEG_PLANE_B
-		mov	es, ax
-		assume es:nothing
-		mov	ax, [si]
-		mov	es:[di], ax
-		mov	ax, SEG_PLANE_R
-		mov	es, ax
-		assume es:nothing
-		mov	ax, [si+20h]
-		mov	es:[di], ax
-		mov	ax, SEG_PLANE_G
-		mov	es, ax
-		assume es:nothing
-		mov	ax, [si+40h]
-		mov	es:[di], ax
-		mov	ax, SEG_PLANE_E
-		mov	es, ax
-		assume es:nothing
-		mov	ax, [si+60h]
-		mov	es:[di], ax
-		add	di, ROW_SIZE
-		add	si, (TILE_W / 8)
-		loop	loc_39CC
-		pop	ds
-		pop	di
-		pop	si
-		pop	bp
-		retf	6
-@mpn_put_8$qiii	endp
-
-include libs/master.lib/pfint21.asm
-		db 0
-include th02/formats/pfopen.asm
-include libs/master.lib/pf_str_ieq.asm
 
 	extern @bg_particles_reset$qv:proc
 	extern @BG_PARTICLES_ADD$QIIUC:proc
@@ -6973,6 +6928,8 @@ include libs/master.lib/superpa[data].asm
 public _key_delay_groups
 _key_delay_groups	db 5, 3, 0
 		db 0
+; Referenced from th02/pf_i.asm, which now holds pfopen.asm.
+public pf_limit
 include th02/formats/pfopen[data].asm
 public _snd_active
 _snd_active	db 0
@@ -7899,6 +7856,8 @@ include libs/master.lib/superpa[bss].asm
 include libs/master.lib/super_put_rect[bss].asm
 include th01/hardware/vram_planes[bss].asm
 include th02/formats/pi_slots[bss].asm
+; Referenced from th02/pf_i.asm, which now holds pfint21.asm.
+public parfilename, pfint21_pf, pfint21_handle
 include libs/master.lib/pfint21[bss].asm
 include th02/hardware/input_sense[bss].asm
 include th02/snd/snd[bss].asm
