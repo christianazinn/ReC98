@@ -1,10 +1,12 @@
 /// Extra Stage boss - Evil Eye Σ
 /// -----------------------------
-/// Her fight-init and her defeat, in dump order. The defeat is also the last
-/// thing MAIN.EXE does on an Extra Stage clear: it commits the run to the
-/// resident structure and launches MAINE.EXE over this process. This is the
-/// bottom of th02_main.asm's BOSS_5_TEXT contribution, and the rest of her --
-/// sigma_update() and her patterns -- is still above it in that dump.
+/// Her pattern runner, her per-frame update, her fight-init and her defeat, in
+/// dump order. The defeat is also the last thing MAIN.EXE does on an Extra
+/// Stage clear: it commits the run to the resident structure and launches
+/// MAINE.EXE over this process. This is the bottom of th02_main.asm's
+/// BOSS_5_TEXT contribution, and the rest of her -- her twelve patterns, her
+/// expanding-blast pool, two movement helpers, her hittest wrapper and her
+/// defeat animation -- is still above it in that dump.
 ///
 /// THIS IS ITS OWN OBJECT, AND THAT IS THE WHOLE POINT OF THE FILE. The
 /// obvious host for a BOSS_5_TEXT tail lift is
@@ -65,9 +67,9 @@
 // no alignment to pin, and pinning one is what would re-roll the segment.
 // -G because sigma_update()'s prolog is `push bp; mov bp, sp; sub sp, 2`
 // rather than an `enter 2, 0` (kb/codegen/0011). It is the only function here
-// with a local at all: sigma_init() and sigma_end() have ZERO, so their
-// prologs are a bare `push bp; mov bp, sp` under either setting and the flag
-// does not move them.
+// with a local at all: sigma_166DE(), sigma_init() and sigma_end() have ZERO,
+// so their prologs are a bare `push bp; mov bp, sp` under either setting and
+// the flag does not move them.
 //
 // `[measured 2026-08-22]` This line read "No -G either" for one parcel, and
 // correctly so - -G- is this project's default and the two zero-local bodies
@@ -181,10 +183,17 @@ extern "C" void bullets_clear(void);
 // refactor and therefore its own parcel, not this one.
 extern "C" void far sub_13ABB(char *fn);
 
-// Still ASM, above sigma_update() in BOSS_5_TEXT: blits Sigma as her two
-// side-by-side 64-pixel-wide cels, at [patnum_2064E] and [patnum_2064E] + 1,
-// from [sigma_topleft]. It carries no state of its own, and the six pattern
-// functions plus sigma_15907() also call it. `near` resolves to the same
+// Still ASM, above this object's contribution in BOSS_5_TEXT: blits Sigma as
+// her two side-by-side 64-pixel-wide cels, at [patnum_2064E] and
+// [patnum_2064E] + 1, from [sigma_topleft]. It carries no state of its own.
+//
+// `[measured 2026-08-22]` THIS COMMENT USED TO SAY "the six pattern functions
+// plus sigma_15907() also call it", and NOT ONE PATTERN FUNCTION DOES. The
+// dump holds exactly seven call sites: one in sigma_15907() and SIX inside
+// sigma_15A25(), the defeat animation, which blits her at three cels through
+// three separate stages of it. Attributing a call count to a group of
+// functions is not the same as attributing each call to its enclosing proc,
+// and only the second is a measurement. `near` resolves to the same
 // 3-byte relative near call the original encodes, because it is in this very
 // segment; the dump publishes it under this name through a kb/codegen/0123
 // alias.
@@ -323,8 +332,8 @@ static const int SIGMA_DEFEAT_DAMAGE = 1300;
 static const long SIGMA_DEFEAT_SCORE = 300000;
 /// -----------------
 
-/// Her still-ASM code, all of it above sigma_update() in BOSS_5_TEXT, and all
-/// of it `near` because it is in this very segment.
+/// Her still-ASM code, all of it above this object's contribution in
+/// BOSS_5_TEXT, and all of it `near` because it is in this very segment.
 /// -------------------------------------------------
 /// EVERY ONE OF THESE KEEPS THE DUMP'S ADDRESS-SUFFIXED SPELLING, and that is
 /// a decision rather than an omission. An address-suffixed hand name is not an
@@ -336,11 +345,15 @@ static const long SIGMA_DEFEAT_SCORE = 300000;
 /// above was renamed only because the parcel that moved its caller read its
 /// twelve-instruction body.
 ///
-/// state/notes/sigma_update.md characterises all sixteen from measurement and
+/// state/notes/sigma_update.md characterises all of them from measurement and
 /// is the map for that naming round. In short: 1566F is the 16-slot
 /// expanding-blast pool's per-frame update, render and hittest; 15907 is her
-/// own hittest plus the blit; 15A25 is the defeat animation; 166DE is the
-/// pattern runner; and the twelve below are the patterns themselves.
+/// own hittest plus the blit; 15A25 is the defeat animation; and the twelve
+/// below are the patterns themselves. FOUR more procs are missing from this
+/// list on purpose: the dump publishes no alias for 155C5, 15645, 15EF7 or
+/// 165A5, and nothing in this object calls them. They are the blast pool's
+/// spawn, a helper of sigma_bg_render(), and the two movement helpers the
+/// patterns share. Publishing one is part of whichever parcel first needs it.
 
 extern "C" void near sigma_1566F(void);
 extern "C" void near sigma_15907(void);
@@ -358,11 +371,64 @@ extern "C" void near sigma_16555(void);
 extern "C" void near sigma_16606(void);
 extern "C" void near sigma_16650(void);
 extern "C" void near sigma_1668E(void);
-
-// `far`, and reached through the island below rather than called, so only the
-// symbol is needed.
-extern "C" void far sigma_166DE(int pattern_count);
 /// -------------------------------------------------
+
+/// Her pattern runner: one of the current phase's [sigma_pattern_func] slots
+/// per frame, then the two counters that end the pattern and end the phase.
+/// Reached only from sigma_update() below, and `far` only because the original
+/// declared it that way -- nothing outside this segment ever called it.
+///
+/// [pattern_count] is how many of the three slots the phase installed, and it
+/// is PASSED rather than read off a global, which is what makes the two-pattern
+/// and three-pattern phases share one runner. mima_18A1B()
+/// (th02/main/boss/b5m.cpp) is the same shape one boss earlier.
+extern "C" void far sigma_166DE(int pattern_count)
+{
+	// `switch` on the global with NO source local, because this function has
+	// zero stack locals -- its prolog is a bare `push bp; mov bp, sp` -- and a
+	// selector local would store the value a second time beside Turbo C++'s own
+	// hidden switch temp (kb/codegen/0076). Three dense cases is under the
+	// threshold for a generated table, so this emits a contiguous run of
+	// compares and no `-a2` data; that is what keeps this object's SEGDEF at
+	// `len 0x0` for `_DATA` and leaves the next lift into it free.
+	//
+	// And a `switch` rather than the shorter `sigma_pattern_func[sigma_pattern]()`,
+	// which is NOT what the original does: it holds three separate `call word
+	// ptr` instructions through the three slots by name. A computed index would
+	// have emitted one indexed indirect call through a register.
+	switch(sigma_pattern) {
+	case 0:
+		sigma_pattern_func[0]();
+		break;
+	case 1:
+		sigma_pattern_func[1]();
+		break;
+	case 2:
+		sigma_pattern_func[2]();
+		break;
+	}
+
+	// `[measured]` NOT "the phase just started": each pattern's own movement
+	// helper zeroes [boss_phase_frame] when its fixed frame schedule wraps, so
+	// this fires once per completed pattern loop and the whole block below is
+	// the end-of-pattern bookkeeping.
+	if(boss_phase_frame == 0) {
+		sigma_pattern++;
+		if(sigma_pattern >= pattern_count) {
+			sigma_pattern = 0;
+			sigma_pattern_looped_unused = 1;
+		}
+
+		// Nested inside the same test rather than beside it, which is what puts
+		// the damage compare after the wrap and lets both reach the single exit.
+		if(boss_damage >= sigma_phase_damage_max) {
+			boss_damage = 0;
+			sigma_phase++;
+			sigma_pattern = 0;
+			sigma_pattern_looped_unused = 0;
+		}
+	}
+}
 
 // sigma_166DE() is `far` and lands in this very segment, so TLINK relaxed the
 // original's plain `call` to it into `push cs; call near ptr` -- four bytes,

@@ -6305,72 +6305,11 @@ loc_166DC:
 sigma_1668E	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_166DE
-_sigma_166DE label far
-sigma_166DE	proc far
-
-arg_0		= word ptr  6
-
-		push	bp
-		mov	bp, sp
-		mov	al, byte_255B4
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_166F6
-		cmp	ax, 1
-		jz	short loc_166FC
-		cmp	ax, 2
-		jz	short loc_16702
-		jmp	short loc_16706
-; ---------------------------------------------------------------------------
-
-loc_166F6:
-		call	fp_255B6
-		jmp	short loc_16706
-; ---------------------------------------------------------------------------
-
-loc_166FC:
-		call	fp_255B8
-		jmp	short loc_16706
-; ---------------------------------------------------------------------------
-
-loc_16702:
-		call	fp_255BA
-
-loc_16706:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_16742
-		inc	byte_255B4
-		mov	al, byte_255B4
-		mov	ah, 0
-		cmp	ax, [bp+arg_0]
-		jl	short loc_16725
-		mov	byte_255B4, 0
-		mov	byte_255B3, 1
-
-loc_16725:
-		mov	ax, _boss_damage
-		cmp	ax, word_255BC
-		jl	short loc_16742
-		mov	_boss_damage, 0
-		inc	byte_255B2
-		mov	byte_255B4, 0
-		mov	byte_255B3, 0
-
-loc_16742:
-		pop	bp
-		retf
-sigma_166DE	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_update()
+;   th02/main/boss/b6.cpp       sigma_166DE()
+;                               sigma_update()
 ;                               sigma_init()
 ;                               sigma_end()
 ;   th02/main/enemy/update.cpp  nullfunc_void_2
@@ -6392,8 +6331,8 @@ sigma_166DE	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_166DE(), and the first of
-; those objects picks the segment up from the byte after that proc's `retf`.
+; So th02_main.asm contributes nothing below sigma_1668E(), and the first of
+; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
 ; contribution), NEVER from whichever proc a sentence like this one happens
@@ -6437,20 +6376,28 @@ sigma_166DE	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_166DE(), her per-frame pattern runner, is the tail now, and it goes
-; at the TOP of b6.cpp, which is where Sigma belongs. Below it the block is
-; her twelve pattern functions, the 16-slot expanding-blast pool at 0x254EC
-; with its spawn and its state-2 promoter, two movement helpers, her hittest
-; wrapper and her defeat animation - then Meira, Rika and the three
-; midbosses. state/notes/sigma_update.md characterises all of them and is
-; the map for that naming round.
+; sigma_1668E() is the tail now - one of the three patterns her FINAL phase
+; installs, and a near proc, so the root now ends on a `retn`. Below it the
+; block is her eleven other pattern functions, the 16-slot expanding-blast
+; pool at 0x254EC with its spawn and its state-2 promoter, two movement
+; helpers, her hittest wrapper and her defeat animation - then Meira, Rika
+; and the three midbosses. state/notes/sigma_update.md characterises all of
+; them and is the map for that naming round.
+;
+; TWENTY-TWO sigma_* procs were left here when sigma_update() landed, not
+; the eight its own close-out recorded. Twelve of them are the patterns; the
+; other ten are the helpers this paragraph lists. Count them with
+; `grep -c 'sigma_.*proc'` before costing a chain length off a handoff.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reports SEGDEF lengths 0x45 0x0 0x0 - the
-; object emits no _DATA and no _BSS at all, so it has no generated table and
-; nothing whose alignment an odd prefix could move. Every depth is admissible
-; there. The even-sized grouping rule above is update.cpp's, and quoting it
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x322 0x0 0x0 BEFORE
+; this lift and 0x388 0x0 0x0 after it - the object emits no _DATA and no
+; _BSS at all, so it has no generated table and nothing whose alignment an
+; odd prefix could move. Every depth is admissible there, and the number in
+; this sentence is stale the moment the next body lands, which is the whole
+; point of re-deriving it. The even-sized grouping rule above is update.cpp's,
+; and quoting it
 ; at a b6.cpp lift is quoting a running sum of bodies already lifted into a
 ; different object. Re-derive it from the HOST's own OBJ (kb/codegen/0160)
 ; before choosing a depth, and read the body lengths off obj_probe.py.
