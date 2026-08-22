@@ -6044,264 +6044,61 @@ off_1B3BA	dw offset loc_1B2F7
 
 include th05/main/bullet/b4balls_add.asm
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-public B4BALLS_UPDATE
-b4balls_update	proc near
-
-@@damage		= word ptr -2
-
-		enter	2, 0
-		push	si
-		push	di
-		mov	_shot_hitbox_radius.x, (8 shl 4)
-		mov	_shot_hitbox_radius.y, (8 shl 4)
-		mov	si, offset b4balls
-		mov	di, 1
-		jmp	@@more?
-; ---------------------------------------------------------------------------
-
-@@loop:
-		cmp	[si+b4ball_t.flag], 0
-		jz	@@next
-		inc	[si+b4ball_t.B4B_age]
-		lea	ax, [si+b4ball_t.pos]
-		call	@PlayfieldMotion@update_seg3$qv pascal, ax
-		cmp	ax, (-16 shl 4)
-		jle	short @@clip
-		cmp	ax, ((PLAYFIELD_W + 16) shl 4)
-		jge	short @@clip
-		cmp	dx, (-16 shl 4)
-		jle	short @@clip
-		cmp	dx, ((PLAYFIELD_H + 16) shl 4)
-		jl	short loc_1B48B
-
-@@clip:
-		jmp	@@remove
-; ---------------------------------------------------------------------------
-
-loc_1B48B:
-		cmp	[si+b4ball_t.flag], 2
-		jz	loc_1B535
-		sub	ax, _player_pos.cur.x
-		sub	dx, _player_pos.cur.y
-		add	ax, 8 * 16
-		cmp	ax, 16 * 16
-		ja	short loc_1B4B1
-		add	dx, 8 * 16
-		cmp	dx, 16 * 16
-		ja	short loc_1B4B1
-		mov	_player_is_hit, 1
-
-loc_1B4B1:
-		mov	eax, dword ptr [si+b4ball_t.pos.cur]
-		mov	dword ptr _shot_hitbox_center, eax
-		call	@shots_hittest$qv
-		mov	[bp+@@damage], ax
-		or	ax, ax
-		jz	@@next
-		cmp	[si+b4ball_t.B4B_patnum_tiny_base], PAT_B4BALL_SNOW
-		jz	short @@is_snow
-		push	10
-		jmp	short loc_1B52E
-; ---------------------------------------------------------------------------
-
-@@is_snow:
-		mov	[si+b4ball_t.B4B_damaged_this_frame], 1
-		mov	ax, [bp+@@damage]
-		sub	[si+b4ball_t.B4B_hp], ax
-		call	snd_se_play pascal, 4
-		cmp	[si+b4ball_t.B4B_hp], 0
-		jge	short @@next
-		inc	[si+b4ball_t.flag]
-		mov	[si+b4ball_t.B4B_age], 0
-		mov	[si+b4ball_t.B4B_patnum_tiny_base], PAT_DECAY_B4BALL
-		mov	ax, [si+b4ball_t.pos.velocity.x]
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[si+b4ball_t.pos.velocity.x], ax
-		mov	ax, [si+b4ball_t.pos.velocity.y]
-		cwd
-		idiv	bx
-		mov	[si+b4ball_t.pos.velocity.y], ax
-		add	_score_delta, 550
-		cmp	[si+b4ball_t.B4B_revenge], 0
-		jz	short loc_1B52C
-		cmp	[si+b4ball_t.pos.cur.y], (240 shl 4)
-		jg	short loc_1B52C
-		mov	eax, dword ptr [si+b4ball_t.pos.cur]
-		mov	_bullet_template.BT_origin, eax
-		call	_bullets_add_regular
-
-loc_1B52C:
-		push	3
-
-loc_1B52E:
-		call	snd_se_play
-		jmp	short @@next
-; ---------------------------------------------------------------------------
-
-loc_1B535:
-		test	byte ptr [si+b4ball_t.B4B_age], 3
-		jnz	short @@next
-		inc	[si+b4ball_t.B4B_patnum_tiny_base]
-		cmp	[si+b4ball_t.B4B_patnum_tiny_base], (PAT_DECAY_B4BALL + BULLET_DECAY_CELS)
-		jl	short @@next
-
-@@remove:
-		mov	[si+b4ball_t.flag], 0
-
-@@next:
-		inc	di
-		add	si, size b4ball_t
-
-@@more?:
-		cmp	di, 1 + B4BALL_COUNT
-		jl	@@loop
-		pop	di
-		pop	si
-		leave
-		retn
-b4balls_update	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _yuki_1B557
-_yuki_1B557 label near
-yuki_1B557	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1B599
-		call	@randring2_next16$qv
-		mov	_boss_statebyte[15], al
-		mov	_boss_statebyte[14], 1
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.BT_special_motion, BSM_EXACT_LINEAR
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	al, _rank
-		add	al, 5
-		mov	_bullet_template.spread, al
-		mov	_bullet_template.speed, (3 shl 4) + 6
-		mov	_boss_sprite, 208
-		call	_bullet_template_tune
-		jmp	loc_1B624
-; ---------------------------------------------------------------------------
-
-loc_1B599:
-		cmp	_boss_phase_frame, 48
-		jle	loc_1B624
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B5E2
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		mov	al, _boss_statebyte[14]
-		add	_boss_statebyte[15], al
-		call	_bullets_add_special
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1B5DB
-		mov	al, _boss_statebyte[14]
-		mov	ah, 0
-		imul	ax, 0Ch
-		add	al, _boss_statebyte[15]
-		mov	_boss_statebyte[15], al
-
-loc_1B5DB:
-		call	snd_se_play pascal, 3
-
-loc_1B5E2:
-		cmp	_boss_phase_frame, 160
-		jnz	short loc_1B5F2
-		mov	al, _boss_statebyte[14]
-		neg	al
-		mov	_boss_statebyte[14], al
-
-loc_1B5F2:
-		cmp	_boss_phase_frame, 256
-		jnz	short loc_1B609
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1B609:
-		cmp	_boss_phase_state, 2
-		jb	short loc_1B624
-		cmp	_boss_phase_frame, 64
-		jl	short loc_1B624
-		mov	ax, _boss_phase_frame
-		mov	bx, 64
-		cwd
-		idiv	bx
-		call	@boss_flystep_random$qi pascal, dx
-
-loc_1B624:
-		mov	al, 0
-		pop	bp
-		retn
-yuki_1B557	endp
-
-
-; Both halves of the Stage 4 solo fight are C++ now: yuki_update() and six
-; of Yuki's seven patterns are th05/main/boss/b4_yuki.cpp, and Mai's ten
-; patterns plus mai_update() are th05/main/boss/b4_mai.cpp, all compiled
-; into th05/b4mai.cpp in their original address order. th05/swords.cpp is
-; the segment's next contribution and that object's Tupfile.lua line comes
-; before it, so the object lands at exactly the address this block ends at
-; (kb/codegen 0112 + 0114). Every later lift out of what is left above is
-; an `#include` at the front of that object -- no further Tupfile.lua line.
+; Both halves of the Stage 4 solo fight and the ball bullets they share are
+; C++ now. In this segment's address order: b4balls_update() is
+; th05/main/bullet/b4balls_update.cpp, yuki_update() and all seven of Yuki's
+; patterns are th05/main/boss/b4_yuki.cpp, and Mai's ten patterns plus
+; mai_update() are th05/main/boss/b4_mai.cpp, all compiled into
+; th05/b4mai.cpp in that order. th05/swords.cpp is the segment's next
+; contribution and that object's Tupfile.lua line comes before it, so the
+; object lands at exactly the address this block ends at (kb/codegen 0112 +
+; 0114). Every later lift out of what is left above is an `#include` at the
+; front of that object -- no further Tupfile.lua line.
 ;
 ; TWO generated jump tables, and they take OPPOSITE pads. Each is part of
 ; what its function compiles to, so the C++ emits both (kb/codegen 0104 +
 ; 0154 + 0157 + 0160, state/re/JUMP_TABLE_TAILS.md), and both were read off
 ; the OBJ rather than a `tcc -S` listing, per 0154's own correction:
 ;
-; yuki_update()  table at 0x03CA + 0x326 = 0x06F0, EVEN -> no pad
-; mai_update()   table at 0x0EF0 + 0x2FD = 0x11ED, ODD  -> one-byte pad
+; yuki_update()  table at 0x05AC + 0x326 = 0x08D2, EVEN -> no pad
+; mai_update()   table at 0x10D2 + 0x2FD = 0x13CF, ODD  -> one-byte pad
 ;
 ; which is the original's arrangement exactly, and both offsets are the ones
 ; tools/pi-audit/obj_probe.py reported off obj/th05/b4mai.obj rather than
 ; anything derived. Every run prepended so far has been EVEN in total -- the
-; ten Mai patterns 0x7EC, yuki_update 0x33A, the six Yuki patterns 0x3CA --
-; which is the only reason both pads survived. Any FURTHER run has to keep
-; that parity (kb/codegen 0119 + 0159), and yuki_1B557() alone does NOT:
-; it is 209 bytes.
+; ten Mai patterns 0x7EC, yuki_update 0x33A, the six Yuki patterns 0x3CA,
+; and b4balls_update() together with yuki_1B557() 0x1E2 -- which is the only
+; reason both pads survived. 0x111 and 0xD1 are both ODD, which is why those
+; two had to land in ONE parcel; any FURTHER run has to keep that parity
+; (kb/codegen 0119 + 0159).
 ;
-; What the two files still reach in here is thirteen zero-byte
-; kb/codegen/0123 aliases. TWELVE are DATA: [mai_yuki_pattern], the three
-; YUKI_PATTERNS_PHASE_* and three MAI_PATTERNS_PHASE_* tables, and the
-; phase-5 laser pattern's four words plus MAI_LASER_BULLET_PATTERNS. The
-; thirteenth is CODE: yuki_1B557(), the one pattern body of the fourteen
-; that is still ZUN's assembly, and the only entry of the seven tables that
-; does not point into C++. Both declarations mai_yuki_update() needs head
-; this segment instead of sitting here, because that use comes earlier in
-; the file than this point does.
+; What the three files still reach in here is twelve zero-byte
+; kb/codegen/0123 aliases, and every one of them is DATA now:
+; [mai_yuki_pattern], the three YUKI_PATTERNS_PHASE_* and three
+; MAI_PATTERNS_PHASE_* tables, and the phase-5 laser pattern's four words
+; plus MAI_LASER_BULLET_PATTERNS. All fourteen pattern bodies the seven
+; tables reach are C++, so every entry of every table now points at a
+; `procdesc` below. Both declarations mai_yuki_update() needs head this
+; segment instead of sitting here, because that use comes earlier in the
+; file than this point does.
 ;
-; This block's root tail is now yuki_1B557(), Yuki's phase-3 pattern: a
-; plain CARVE-FREE `proc` with th05/b4mai.cpp as its in-segment host. It is
-; 209 bytes, ODD, so it cannot go on its own -- see the parity ledger in
-; state/notes/th05-main-mai-update.md; b4balls_update() above it is the
-; partner that makes a parcel sum even.
+; This block's root tail is now the `include` of
+; th05/main/bullet/b4balls_add.asm above, so the segment has stopped being
+; carve-free: B4BALLS_RESET and B4BALLS_ADD are that module's content rather
+; than lift targets of their own, and th05/main/bullet/b4ball.hpp already
+; declares both. Lifting the module empties the tail again, and what is then
+; above it is the pair fight proper -- midboss4_update(), mai_yuki_update()
+; and the mai_yuki_* helper block.
 
-	; Every body the seven pattern tables in _DATA reach, except the one that
-	; is still assembly. None carries an argument list, so TASM leaves the
-	; case alone (kb/codegen/0102).
+	; Every body the seven pattern tables in _DATA reach. None carries an
+	; argument list, so TASM leaves the case alone (kb/codegen/0102) -- and
+	; the first one is spelled with a leading underscore rather than mangled
+	; because its module PUBLISHed `_yuki_1B557` off a `label near` beside the
+	; `proc`, which is what YUKI_PATTERNS_PHASE_3 resolves against
+	; (kb/codegen 0081 + 0102 + 0104). Same form as _bullets_add_regular's
+	; declaration further up this dump.
+	_yuki_1B557 procdesc near
 	@yuki_1B628$qv procdesc near
 	@yuki_1B6C4$qv procdesc near
 	@yuki_1B754$qv procdesc near
@@ -8289,7 +8086,7 @@ aTH05_11	db 'ó†êÿÇËÇÃè≠èóÅ@Å` Judas Kiss',0
 ; kb/codegen/0123; th05/main/boss/b4_yuki.cpp carries the naming.
 public _YUKI_PATTERNS_PHASE_3
 _YUKI_PATTERNS_PHASE_3	label word
-off_22806	dw offset yuki_1B557
+off_22806	dw offset _yuki_1B557
 		dw offset @yuki_1B628$qv
 public _YUKI_PATTERNS_PHASE_5
 _YUKI_PATTERNS_PHASE_5	label word
