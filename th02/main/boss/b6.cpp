@@ -63,13 +63,20 @@
 // are.
 // No -a2: `[measured]` nothing here emits a generated jump table, so there is
 // no alignment to pin, and pinning one is what would re-roll the segment.
-// No -G either: sigma_end() and sigma_init() both have ZERO locals, so both
-// prologs are a bare
-// `push bp; mov bp, sp` under both settings, and -G- is the toolchain default
-// this project builds with (kb/codegen/0011 -- derive it from the target's own
-// prolog, never from a neighbouring TU; th02/boss_5.cpp next door needs -G for
-// mima_update()'s `sub sp, 2` and this file must not copy that).
-#pragma option -zCBOSS_5_TEXT -zPmain_03
+// -G because sigma_update()'s prolog is `push bp; mov bp, sp; sub sp, 2`
+// rather than an `enter 2, 0` (kb/codegen/0011). It is the only function here
+// with a local at all: sigma_init() and sigma_end() have ZERO, so their
+// prologs are a bare `push bp; mov bp, sp` under either setting and the flag
+// does not move them.
+//
+// `[measured 2026-08-22]` This line read "No -G either" for one parcel, and
+// correctly so - -G- is this project's default and the two zero-local bodies
+// did not need it. IT WENT RED THE MOMENT A BODY WITH A LOCAL LANDED HERE, at
+// instruction 0, for 2 bytes. A per-object flag is a property of the object's
+// CURRENT contents, so re-derive it from the incoming body's own prolog on
+// every lift into an existing object; the flag that was right for the object
+// yesterday is not evidence about today.
+#pragma option -zCBOSS_5_TEXT -zPmain_03 -G
 
 #include "platform.h"
 #include "th02/resident.hpp"
@@ -87,6 +94,13 @@
 #include "th02/main/playfld.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/boss/boss.hpp"
+// And these for sigma_update(). th02/main/stage/stage.hpp before
+// th02/main/stage/callback.hpp is this project's rule, but callback.hpp is not
+// needed here: this file only *defines* two of the slots' functions.
+#include "th02/main/frames.hpp"
+#include "th02/main/stage/stage.hpp"
+#include "th02/main/bg_particle.hpp"
+#include "th02/main/boss/bosses.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -119,6 +133,16 @@ extern "C" const char aMaine[];
 extern "C" const char stage5b1_bft[];
 extern "C" const char stage5b2_bft[];
 extern "C" const char aBoss5_m[];
+
+// The binary-wide boss alive/defeated flag, and the point shottype B's homing
+// shots aim at, set by whichever boss is on screen. All three are published in
+// th02_main.asm under these names and have no header; b3.cpp, b4.cpp, b5m.cpp
+// and th02/main/enemy/update.cpp all declare them exactly this way.
+//
+// [boss_phase] is NOT a per-boss progression counter - see [sigma_phase] below.
+extern "C" uint8_t boss_phase;
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
 
 // The sprite the boss and midboss renderers blit. Declared exactly the way
 // th02/main/boss/b4.cpp and b5.cpp already declare it; the address suffix is
@@ -196,11 +220,305 @@ extern "C" uint8_t sigma_phase;
 //
 // `[measured]` sigma_1566F() holds the only read: it walks a 16-entry array of
 // 10-byte records at 0x254EC and, for each one still in state 1, advances the
-// record's cel only when `(record->frame & this) == 0`. That array itself is
-// still un-analysed, which is why this name describes the gate rather than the
-// thing being gated. sigma_init() sets 7; six of her pattern functions set 3.
+// record's cel only when `(record->frame & this) == 0`. sigma_init() sets 7;
+// six of her pattern functions set 3.
+//
+// `[measured 2026-08-22]` The array is her 16-slot pool of expanding circular
+// blasts, so the cel this gates is a blast's 8-frame telegraph, drawn together
+// with a warning ring that shrinks 64 -> 0 on the same tick. That makes the
+// name right rather than merely mechanical - see state/notes/sigma_update.md,
+// which characterises the whole pool. The name is kept as it stands because
+// the fuller spelling would run into kb/codegen/0060's 32-character cliff.
 extern "C" uint8_t sigma_cel_interval_mask;
+
+// Where her patterns fire from: her sprite's top-left plus 60 on both axes.
+// sigma_update() re-derives both every frame and immediately copies them into
+// [boss_pos_x] / [boss_pos_y], so this pair is also what shottype B's homing
+// shots aim at while she is on screen.
+//
+// `[measured]` 60 is NOT half of either sprite extent - she is 128x64 from
+// [sigma_topleft] - and her hittest is centred on +36/+32 instead
+// (sigma_15907), so this offset gets its own name for the same reason
+// MARISA_CENTER_OFFSET does (th02/main/boss/b4.hpp): ZUN's notions of a boss's
+// centre do not agree with each other. Sigma-exclusive; all 13 read sites in
+// th02_main.asm are inside a sigma_* proc, and every one of them is a bullet,
+// laser or blast origin.
+extern "C" screen_x_t sigma_center_x;
+extern "C" screen_y_t sigma_center_y;
+static const pixel_t SIGMA_CENTER_OFFSET = 60;
+
+// Which of the current phase's patterns runs this frame. sigma_166DE() cycles
+// it and wraps it at the count sigma_update() passes in; every even phase
+// resets it to 0. Same role as [mima_pattern] (th02/main/boss/b5m.cpp) and
+// [marisa_pattern] (b4.hpp), and like them it is NOT [sigma_phase].
+extern "C" uint8_t sigma_pattern;
+
+// `[measured]` Raised by sigma_166DE() on the frame [sigma_pattern] wraps back
+// to 0, and cleared by every phase change - and then read by NOTHING, in this
+// dump or in any decompiled C++. A dead store, spelled the way
+// [mima_orbs_gone_unused] (th02/main/boss/b5m.cpp) and
+// [stones_phase_frame_unused] (b3.cpp) already spell theirs.
+extern "C" uint8_t sigma_pattern_looped_unused;
+
+// The patterns of the phase she is in. sigma_update() installs two or three of
+// them at every even phase and sigma_166DE() calls one per frame.
+//
+// `[measured]` THE EXTENT IS EXACTLY THREE SLOTS, and the _BSS layout is what
+// proves it rather than any access: the three words are gapless and
+// [sigma_phase_damage_max] begins immediately after the third, so a fourth
+// slot has nowhere to live. Only the phases that pass 3 install slot [2]; the
+// ones that pass 2 leave whatever the previous group put there, and it is
+// never called.
+//
+// `_func` on the slot rather than on the function, the convention
+// th02/main/stage/callback.hpp spells out for [boss_update_func].
+static const int SIGMA_PATTERN_SLOTS = 3;
+
+// The dump's pattern procs are `near` and parameterless, and their
+// kb/codegen/0123 aliases publish in Borland's __cdecl decoration, so
+// platform.h's nearfunc_t_near cannot type this array: that typedef is
+// `pascal`, which would ask the linker for an upper-cased symbol instead
+// (kb/codegen/0086). For a parameterless call the two conventions emit
+// identical bytes; only the decoration differs.
+typedef void (near *near sigma_pattern_func_t)(void);
+extern "C" sigma_pattern_func_t sigma_pattern_func[SIGMA_PATTERN_SLOTS];
+
+// How much [boss_damage] the current phase ends at. sigma_166DE() is the only
+// reader. [mima_phase_damage_max] (th02/main/boss/b5m.cpp) is the same-binary
+// precedent for both the role and the name.
+extern "C" int sigma_phase_damage_max;
+
+// The radius of the outer of the two expanding dot-square rings
+// sigma_update() blits behind her, the inner one being this radius plus 128,
+// both around a fixed (224, 200). Near-twin of [mima_ring_radius]
+// (th02/main/boss/b5m.cpp), which is the same effect at the same centre.
+extern "C" uint8_t sigma_ring_radius;
+
+static const screen_x_t SIGMA_RING_CENTER_X = 224;
+static const screen_y_t SIGMA_RING_CENTER_Y = 200;
+static const int SIGMA_RING_COUNT = 2;
+static const int SIGMA_RING_DISTANCE = 128;
+static const int SIGMA_RING_RADIUS_STEP = 8;
+static const vc_t SIGMA_RING_COL = 4;
+
+// `[measured]` Where Sigma differs from Mima: Mima skips her rings entirely if
+// [reduce_effects] is set, Sigma coarsens hers from a 2-step walk of the
+// 256-step circle to a 16-step one instead, so the ring stays but is drawn
+// from an eighth as many dots.
+static const int SIGMA_RING_ANGLE_STEP = 2;
+static const int SIGMA_RING_ANGLE_STEP_REDUCED = 16;
+
+// Frames phase 0 holds before the first pattern group is installed.
+static const int SIGMA_INTRO_FRAMES = 50;
+
+// [boss_damage] each of the first four pattern groups ends at.
+static const int SIGMA_PHASE_DAMAGE = 1800;
+
+// `[measured]` And the fifth's, which is DEAD: phase 9's own defeat test fires
+// at SIGMA_DEFEAT_DAMAGE, well below this, so sigma_166DE() can never reach
+// this threshold and phase 10 does not exist.
+static const int SIGMA_FINAL_PHASE_DAMAGE = 5000;
+
+static const int SIGMA_DEFEAT_DAMAGE = 1300;
+static const long SIGMA_DEFEAT_SCORE = 300000;
 /// -----------------
+
+/// Her still-ASM code, all of it above sigma_update() in BOSS_5_TEXT, and all
+/// of it `near` because it is in this very segment.
+/// -------------------------------------------------
+/// EVERY ONE OF THESE KEEPS THE DUMP'S ADDRESS-SUFFIXED SPELLING, and that is
+/// a decision rather than an omission. An address-suffixed hand name is not an
+/// IDA placeholder (tools/re/naming_precheck.py's pattern is keyed on IDA's
+/// own kind prefixes, and `sigma_15D56` matches none of them), and naming a
+/// pattern body means reading it and ruling on the whole table at once - which
+/// is what th02/main/boss/b3.cpp, b4.cpp and b5m.cpp all already say for
+/// stones', Marisa's and Mima's patterns in this same binary. sigma_put()
+/// above was renamed only because the parcel that moved its caller read its
+/// twelve-instruction body.
+///
+/// state/notes/sigma_update.md characterises all sixteen from measurement and
+/// is the map for that naming round. In short: 1566F is the 16-slot
+/// expanding-blast pool's per-frame update, render and hittest; 15907 is her
+/// own hittest plus the blit; 15A25 is the defeat animation; 166DE is the
+/// pattern runner; and the twelve below are the patterns themselves.
+
+extern "C" void near sigma_1566F(void);
+extern "C" void near sigma_15907(void);
+extern "C" bool16 near sigma_15A25(void);
+
+extern "C" void near sigma_15D56(void);
+extern "C" void near sigma_15E84(void);
+extern "C" void near sigma_15F6F(void);
+extern "C" void near sigma_15F95(void);
+extern "C" void near sigma_16176(void);
+extern "C" void near sigma_1619C(void);
+extern "C" void near sigma_162D3(void);
+extern "C" void near sigma_16421(void);
+extern "C" void near sigma_16555(void);
+extern "C" void near sigma_16606(void);
+extern "C" void near sigma_16650(void);
+extern "C" void near sigma_1668E(void);
+
+// `far`, and reached through the island below rather than called, so only the
+// symbol is needed.
+extern "C" void far sigma_166DE(int pattern_count);
+/// -------------------------------------------------
+
+// sigma_166DE() is `far` and lands in this very segment, so TLINK relaxed the
+// original's plain `call` to it into `push cs; call near ptr` -- four bytes,
+// and with NO `nop`, because the dump reaches it with a bare `call` rather
+// than through ReC98.inc's `nopcall` macro, which is what adds that byte. No
+// C++ far call emits either form (kb/codegen/0083), and inline ASM cannot see
+// C++ expressions, so the argument and the __cdecl cleanup are spelled with
+// it (kb/codegen/0122).
+//
+// __emit__() for the push rather than `_asm { push n }`, because the inline
+// assembler is free to pick the 3-byte `68 imm16` form; and this names no
+// register, so [i] in sigma_update() stays in SI, exactly as
+// nopcall_same_group() leaves mima_update()'s.
+#define call_same_group_cdecl_1(func, arg) { \
+	__emit__(0x6A, arg); \
+	__emit__(0x0E); \
+	_asm { call near ptr func; } \
+	__emit__(0x83, 0xC4, 0x02); \
+}
+
+/// Her per-frame update. Installed into [boss_update] by stage_init()
+/// (th02/main/stage/init.cpp). mima_update() in th02/main/boss/b5m.cpp is the
+/// same shape one boss earlier, down to the dot-square-ring loop.
+///
+/// Through an `int` rather than [stage_progression_t]: -b- sizes a three-value
+/// enum as a `char`, and the original returns in AX. mima_update() and
+/// marisa_update() are declared the same way.
+extern "C" int far sigma_update(void)
+{
+	// [radius] first: Turbo C++ allocates stack locals in declaration order,
+	// and it is the original's only one, at [bp-1]. (kb/codegen/0010)
+	unsigned char radius;
+	register int i;
+
+	sigma_topleft.x = *boss_left_on_back_page;
+	sigma_topleft.y = *boss_top_on_back_page;
+	sigma_center_x = (sigma_topleft.x + SIGMA_CENTER_OFFSET);
+	sigma_center_y = (sigma_topleft.y + SIGMA_CENTER_OFFSET);
+	boss_phase_frame++;
+	boss_pos_x = sigma_center_x;
+	boss_pos_y = sigma_center_y;
+	if((stage_frame & 1) == 0) {
+		sigma_ring_radius += SIGMA_RING_RADIUS_STEP;
+		grcg_setcolor(GC_RMW, SIGMA_RING_COL);
+
+		// [i] is initialized ahead of [radius], and the increment is a
+		// statement of its own rather than a loop-header increment, for the
+		// reason mima_update() spells out for the identical loop: that is what
+		// puts `inc si` ahead of the radius update and lets -O merge both
+		// stores to [radius] into the shared test block.
+		i = 0;
+		radius = sigma_ring_radius;
+		while(i < SIGMA_RING_COUNT) {
+			dot_square_ring_put(
+				SIGMA_RING_CENTER_X,
+				SIGMA_RING_CENTER_Y,
+				radius,
+				((reduce_effects *
+					(SIGMA_RING_ANGLE_STEP_REDUCED - SIGMA_RING_ANGLE_STEP)
+				) + SIGMA_RING_ANGLE_STEP)
+			);
+			i++;
+			radius += SIGMA_RING_DISTANCE;
+		}
+		grcg_off();
+	}
+	if(boss_phase) {
+		if(sigma_15A25()) {
+			return SP_CLEAR;
+		}
+	} else {
+		if(sigma_phase == 0) {
+			if(boss_phase_frame > SIGMA_INTRO_FRAMES) {
+				sigma_pattern = 0;
+				boss_phase_frame = 0;
+				sigma_phase++;
+				sigma_pattern_looped_unused = 0;
+				sigma_pattern_func[0] = sigma_15D56;
+				sigma_pattern_func[1] = sigma_15E84;
+				sigma_pattern_func[2] = sigma_15F6F;
+				sigma_phase_damage_max = SIGMA_PHASE_DAMAGE;
+			}
+		} else if(sigma_phase == 1) {
+			call_same_group_cdecl_1(sigma_166DE, 3);
+		} else if(sigma_phase == 2) {
+			sigma_pattern = 0;
+			boss_phase_frame = 0;
+			sigma_phase++;
+			sigma_pattern_looped_unused = 0;
+			sigma_pattern_func[0] = sigma_15F95;
+			sigma_pattern_func[1] = sigma_16176;
+			sigma_phase_damage_max = SIGMA_PHASE_DAMAGE;
+		// THE THREE `goto`s BELOW ARE A MERGE -O CANNOT PERFORM ITSELF, and
+		// they are the shape of this parcel's one build cycle.
+		//
+		// ZUN wrote ten plain arms, three of which run two patterns and are
+		// therefore identical; -O cross-jumped those three into one copy, kept
+		// the LAST of them, and reached it with two `je short`s from the
+		// earlier two. `[measured 2026-08-22]` Written as ten plain arms here,
+		// -O leaves all three copies standing and the function comes out
+		// 0x23F instead of 0x227: the bodies are inline-ASM islands
+		// (kb/codegen/0083), and the cross-jump optimiser will not merge
+		// blocks it cannot read. So the merge is spelled by hand, in the same
+		// direction -O chose - into the last of the three - and the arms stay
+		// in ZUN's order so that every `cmp` lands where the original has it.
+		} else if(sigma_phase == 3) {
+			goto run_two_patterns;
+		} else if(sigma_phase == 4) {
+			sigma_pattern = 0;
+			boss_phase_frame = 0;
+			sigma_phase++;
+			sigma_pattern_looped_unused = 0;
+			sigma_pattern_func[0] = sigma_1619C;
+			sigma_pattern_func[1] = sigma_162D3;
+			sigma_phase_damage_max = SIGMA_PHASE_DAMAGE;
+		} else if(sigma_phase == 5) {
+			goto run_two_patterns;
+		} else if(sigma_phase == 6) {
+			sigma_pattern = 0;
+			boss_phase_frame = 0;
+			sigma_phase++;
+			sigma_pattern_looped_unused = 0;
+			sigma_pattern_func[0] = sigma_16421;
+			sigma_pattern_func[1] = sigma_16555;
+			sigma_phase_damage_max = SIGMA_PHASE_DAMAGE;
+		} else if(sigma_phase == 7) {
+run_two_patterns:
+			call_same_group_cdecl_1(sigma_166DE, 2);
+		} else if(sigma_phase == 8) {
+			sigma_pattern = 0;
+			boss_phase_frame = 0;
+			sigma_phase++;
+			sigma_pattern_looped_unused = 0;
+			sigma_pattern_func[0] = sigma_16606;
+			sigma_pattern_func[1] = sigma_16650;
+			sigma_pattern_func[2] = sigma_1668E;
+			sigma_phase_damage_max = SIGMA_FINAL_PHASE_DAMAGE;
+		} else if(sigma_phase == 9) {
+			call_same_group_cdecl_1(sigma_166DE, 3);
+			if(boss_damage >= SIGMA_DEFEAT_DAMAGE) {
+				boss_phase = 1;
+				score += SIGMA_DEFEAT_SCORE;
+				boss_phase_frame = 0;
+			}
+		}
+
+		// Again, and from the same two pointers: the pattern that just ran may
+		// have moved her.
+		sigma_topleft.x = *boss_left_on_back_page;
+		sigma_topleft.y = *boss_top_on_back_page;
+		sigma_15907();
+		sigma_frame++;
+	}
+	sigma_1566F();
+	return SP_BOSS;
+}
 
 /// Her fight-init. Installed as [boss_init] by stage_init()
 /// (th02/main/stage/init.cpp), which is why it is `far`. mima_init() in

@@ -4484,6 +4484,8 @@ sigma_15645	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_1566F
+_sigma_1566F label near
 sigma_1566F	proc near
 
 var_4		= dword	ptr -4
@@ -4736,6 +4738,8 @@ sigma_158DC	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15907
+_sigma_15907 label near
 sigma_15907	proc near
 
 @@patnum		= word ptr -4
@@ -4859,6 +4863,8 @@ sigma_bg_render	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15A25
+_sigma_15A25 label near
 sigma_15A25	proc near
 		push	bp
 		mov	bp, sp
@@ -5167,6 +5173,8 @@ sigma_15A25	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15D56
+_sigma_15D56 label near
 sigma_15D56	proc near
 
 @@angle		= byte ptr -1
@@ -5314,6 +5322,8 @@ sigma_15D56	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15E84
+_sigma_15E84 label near
 sigma_15E84	proc near
 		push	bp
 		mov	bp, sp
@@ -5439,6 +5449,8 @@ sigma_15EF7	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15F6F
+_sigma_15F6F label near
 sigma_15F6F	proc near
 		push	bp
 		mov	bp, sp
@@ -5465,6 +5477,8 @@ sigma_15F6F	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_15F95
+_sigma_15F95 label near
 sigma_15F95	proc near
 
 @@angle		= byte ptr -1
@@ -5639,6 +5653,8 @@ sigma_15F95	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_16176
+_sigma_16176 label near
 sigma_16176	proc near
 		push	bp
 		mov	bp, sp
@@ -5665,6 +5681,8 @@ sigma_16176	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_1619C
+_sigma_1619C label near
 sigma_1619C	proc near
 		push	bp
 		mov	bp, sp
@@ -5776,6 +5794,8 @@ sigma_1619C	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_162D3
+_sigma_162D3 label near
 sigma_162D3	proc near
 
 var_E		= word ptr -0Eh
@@ -5926,6 +5946,8 @@ sigma_162D3	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_16421
+_sigma_16421 label near
 sigma_16421	proc near
 
 var_2		= word ptr -2
@@ -6056,6 +6078,8 @@ sigma_16421	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_16555
+_sigma_16555 label near
 sigma_16555	proc near
 		push	bp
 		mov	bp, sp
@@ -6164,6 +6188,8 @@ sigma_165A5	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_16606
+_sigma_16606 label near
 sigma_16606	proc near
 		push	bp
 		mov	bp, sp
@@ -6201,6 +6227,8 @@ sigma_16606	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_16650
+_sigma_16650 label near
 sigma_16650	proc near
 		push	bp
 		mov	bp, sp
@@ -6234,6 +6262,8 @@ sigma_16650	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_1668E
+_sigma_1668E label near
 sigma_1668E	proc near
 		push	bp
 		mov	bp, sp
@@ -6279,6 +6309,8 @@ sigma_1668E	endp
 
 ; Attributes: bp-based frame
 
+public _sigma_166DE
+_sigma_166DE label far
 sigma_166DE	proc far
 
 arg_0		= word ptr  6
@@ -6335,209 +6367,11 @@ loc_16742:
 sigma_166DE	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_update
-_sigma_update label far
-sigma_update	proc far
-
-var_1		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	point_254E6.x, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	point_254E6.y, ax
-		mov	ax, point_254E6.x
-		add	ax, 60
-		mov	left_253B6, ax
-		mov	ax, point_254E6.y
-		add	ax, 60
-		mov	top_253B8, ax
-		inc	_boss_phase_frame
-		mov	ax, left_253B6
-		mov	word_205D8, ax
-		mov	ax, top_253B8
-		mov	word_205DA, ax
-		test	byte ptr _stage_frame, 1
-		jnz	short loc_167D0
-		mov	al, byte_255BE
-		add	al, 8
-		mov	byte_255BE, al
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 4
-		xor	si, si
-		mov	al, byte_255BE
-		jmp	short loc_167C3
-; ---------------------------------------------------------------------------
-
-loc_167A0:
-		push	(224 shl 16) + 200
-		mov	al, [bp+var_1]
-		mov	ah, 0
-		push	ax
-		mov	al, _reduce_effects
-		mov	ah, 0
-		imul	ax, 0Eh
-		add	ax, 2
-		push	ax
-		call	@DOT_SQUARE_RING_PUT$QIIII
-		inc	si
-		mov	al, [bp+var_1]
-		add	al, 80h
-
-loc_167C3:
-		mov	[bp+var_1], al
-		cmp	si, 2
-		jl	short loc_167A0
-		call	grcg_off
-
-loc_167D0:
-		cmp	byte_2066A, 0
-		jz	short loc_167E6
-		call	sigma_15A25
-		or	ax, ax
-		jz	loc_16962
-		mov	ax, 2
-		jmp	loc_16968
-; ---------------------------------------------------------------------------
-
-loc_167E6:
-		cmp	byte_255B2, 0
-		jnz	short loc_16825
-		cmp	_boss_phase_frame, 50
-		jle	loc_16948
-		mov	byte_255B4, 0
-		mov	_boss_phase_frame, 0
-		inc	byte_255B2
-		mov	byte_255B3, 0
-		mov	fp_255B6, offset sigma_15D56
-		mov	fp_255B8, offset sigma_15E84
-		mov	fp_255BA, offset sigma_15F6F
-		mov	word_255BC, 1800
-		jmp	loc_16948
-; ---------------------------------------------------------------------------
-
-loc_16825:
-		cmp	byte_255B2, 1
-		jnz	short loc_16838
-		push	3
-		call	sigma_166DE
-		add	sp, 2
-		jmp	loc_16948
-; ---------------------------------------------------------------------------
-
-loc_16838:
-		cmp	byte_255B2, 2
-		jnz	short loc_16868
-		mov	byte_255B4, 0
-		mov	_boss_phase_frame, 0
-		inc	byte_255B2
-		mov	byte_255B3, 0
-		mov	fp_255B6, offset sigma_15F95
-		mov	fp_255B8, offset sigma_16176
-		mov	word_255BC, 1800
-		jmp	loc_16948
-; ---------------------------------------------------------------------------
-
-loc_16868:
-		cmp	byte_255B2, 3
-		jz	short loc_168DC
-		cmp	byte_255B2, 4
-		jnz	short loc_1689F
-		mov	byte_255B4, 0
-		mov	_boss_phase_frame, 0
-		inc	byte_255B2
-		mov	byte_255B3, 0
-		mov	fp_255B6, offset sigma_1619C
-		mov	fp_255B8, offset sigma_162D3
-		mov	word_255BC, 1800
-		jmp	loc_16948
-; ---------------------------------------------------------------------------
-
-loc_1689F:
-		cmp	byte_255B2, 5
-		jz	short loc_168DC
-		cmp	byte_255B2, 6
-		jnz	short loc_168D5
-		mov	byte_255B4, 0
-		mov	_boss_phase_frame, 0
-		inc	byte_255B2
-		mov	byte_255B3, 0
-		mov	fp_255B6, offset sigma_16421
-		mov	fp_255B8, offset sigma_16555
-		mov	word_255BC, 1800
-		jmp	short loc_16948
-; ---------------------------------------------------------------------------
-
-loc_168D5:
-		cmp	byte_255B2, 7
-		jnz	short loc_168E7
-
-loc_168DC:
-		push	2
-		call	sigma_166DE
-		add	sp, 2
-		jmp	short loc_16948
-; ---------------------------------------------------------------------------
-
-loc_168E7:
-		cmp	byte_255B2, 8
-		jnz	short loc_1691C
-		mov	byte_255B4, 0
-		mov	_boss_phase_frame, 0
-		inc	byte_255B2
-		mov	byte_255B3, 0
-		mov	fp_255B6, offset sigma_16606
-		mov	fp_255B8, offset sigma_16650
-		mov	fp_255BA, offset sigma_1668E
-		mov	word_255BC, 5000
-		jmp	short loc_16948
-; ---------------------------------------------------------------------------
-
-loc_1691C:
-		cmp	byte_255B2, 9
-		jnz	short loc_16948
-		push	3
-		call	sigma_166DE
-		add	sp, 2
-		cmp	_boss_damage, 1300
-		jl	short loc_16948
-		mov	byte_2066A, 1
-		add	_score, 300000
-		mov	_boss_phase_frame, 0
-
-loc_16948:
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	point_254E6.x, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	point_254E6.y, ax
-		call	sigma_15907
-		inc	_sigma_frame
-
-loc_16962:
-		call	sigma_1566F
-		mov	ax, 1
-
-loc_16968:
-		pop	si
-		leave
-		retf
-sigma_update	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_init()
+;   th02/main/boss/b6.cpp       sigma_update()
+;                               sigma_init()
 ;                               sigma_end()
 ;   th02/main/enemy/update.cpp  nullfunc_void_2
 ;                               enemies_reset()
@@ -6558,15 +6392,14 @@ sigma_update	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_update(), and the first of
-; those objects picks the segment up from the byte after that proc's `retf`,
-; which is 0FAC:6EAB.
+; So th02_main.asm contributes nothing below sigma_166DE(), and the first of
+; those objects picks the segment up from the byte after that proc's `retf`.
 ;
-; `[measured 2026-08-22]` Those three lines named the right offset for the
-; WRONG proc for a day: 0FAC:6F61 was the byte after sigma_INIT's `retf`, and
-; sigma_init() was still in this dump, below sigma_update(). Derive the offset
-; from the map's root length (0FAC:39F6 + 0x34B5), never from whichever proc a
-; sentence like this one happens to name.
+; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
+; contribution), NEVER from whichever proc a sentence like this one happens
+; to name. `[measured 2026-08-22]` This paragraph named the right offset for
+; the wrong proc for a day, and the mistake is byte-inert, so no oracle run
+; can ever catch one.
 ;
 ; enemy_run()'s three generated jump tables and their single alignment pad
 ; came across with it and are emitted from the C++ side. They land at the
@@ -6604,8 +6437,13 @@ sigma_update	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_update() 0x227 is the tail now, and it goes at the TOP of b6.cpp,
-; which is where Sigma belongs.
+; sigma_166DE(), her per-frame pattern runner, is the tail now, and it goes
+; at the TOP of b6.cpp, which is where Sigma belongs. Below it the block is
+; her twelve pattern functions, the 16-slot expanding-blast pool at 0x254EC
+; with its spawn and its state-2 promoter, two movement helpers, her hittest
+; wrapper and her defeat animation - then Meira, Rika and the three
+; midbosses. state/notes/sigma_update.md characterises all of them and is
+; the map for that naming round.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
@@ -8433,7 +8271,11 @@ public _hi
 _hi	scoredat_section_t <?>
 byte_253B4	db ?
 		db ?
+public _sigma_center_x
+_sigma_center_x	label word
 left_253B6	dw ?
+public _sigma_center_y
+_sigma_center_y	label word
 top_253B8	dw ?
 byte_253BA	db 300 dup(?)
 public _sigma_topleft
@@ -8473,13 +8315,23 @@ angle_255B1	db ?
 public _sigma_phase
 _sigma_phase	label byte
 byte_255B2	db ?
+public _sigma_pattern_looped_unused
+_sigma_pattern_looped_unused	label byte
 byte_255B3	db ?
+public _sigma_pattern
+_sigma_pattern	label byte
 byte_255B4	db ?
 		db ?
+public _sigma_pattern_func
+_sigma_pattern_func	label word
 fp_255B6	dw ?
 fp_255B8	dw ?
 fp_255BA	dw ?
+public _sigma_phase_damage_max
+_sigma_phase_damage_max	label word
 word_255BC	dw ?
+public _sigma_ring_radius
+_sigma_ring_radius	label byte
 byte_255BE	db ?
 		db ?
 
