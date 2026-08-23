@@ -52,6 +52,11 @@
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/main/tile/tile.hpp"
+#include "th02/math/randring.hpp"
+#include "th02/snd/snd.h"
+#include "th02/sprites/main_pat.h"
+#include "th02/v_colors.hpp"
 
 // th02/main/dialog/dialog.cpp. dialog.hpp declares every dialog_script_*
 // function but neither of these two, which is how th02/main/boss/b3.cpp, b4.cpp
@@ -133,6 +138,271 @@ extern "C" int16_t meira_250FE;
 /// -----------------------
 
 
+// Her sprite's extent, and it is derived rather than declared: meira_bg_render()
+// invalidates a 64x64 rect at her top-left, and the dash below keeps her whole
+// width inside the playfield by drawing its target from a range that is exactly
+// PLAYFIELD_W minus this.
+static const pixel_t MEIRA_W = 64;
+
+/// Her afterimage trail
+/// --------------------
+/// Three slots of past positions per VRAM page, pushed at every 8th frame of the
+/// teleport dash below and blitted as single-colour silhouettes. Only that one
+/// pattern writes them; meira_bg_render() unputs the back page's three and then
+/// copies the front page's over them, which is the same double-buffered history
+/// every TH02 renderer keeps.
+///
+/// `[measured]` TWO PARALLEL ARRAYS and not an array of points: every walker
+/// indexes them with `page * 6 + slot * 2` against two separate `offset`s, and a
+/// point array would be one `offset` and a stride of 4.
+
+static const int MEIRA_AFTERIMAGE_SLOTS = 3;
+
+// The silhouette's sprite and its plane. `[measured]` The original's plane
+// constant is 0xFFC1 - exactly one more than super_plane(V_WHITE), and
+// super_plane() puts the ONE'S COMPLEMENT of the colour in its low nibble - so
+// the colour index is 14. th02/v_colors.hpp names only V_WHITE, and naming 14
+// needs a look at the loaded palette rather than at this code, so it stays the
+// index it is.
+static const main_patnum_t MEIRA_AFTERIMAGE_PATNUM = 147;
+static const int MEIRA_AFTERIMAGE_COLOR = 14;
+
+extern "C" screen_x_t near meira_afterimage_left[PAGE_COUNT][
+	MEIRA_AFTERIMAGE_SLOTS
+];
+extern "C" screen_y_t near meira_afterimage_top[PAGE_COUNT][
+	MEIRA_AFTERIMAGE_SLOTS
+];
+/// --------------------
+
+// The group of the bursts her still-ASM patterns fire, written by four of them
+// and read through meira_1469C(). `[measured]` The byte directly after it is an
+// angle, written by three of the same patterns and pushed alongside this one; it
+// needs a label of its own once its readers are lifted, and it cannot get one
+// before then because the dump reserves the pair as a single `dw`.
+extern "C" uint8_t meira_burst_group; // ACTUAL TYPE: bullet_group_or_special_motion_t
+
+/// Her teleport dash
+/// -----------------
+/// Where she is going, where she came from, and how far along she is. All five
+/// are referenced only from the pattern that uses them, so all five are plain
+/// renames rather than kb/codegen/0123 aliases.
+
+// `[measured]` A FIXED STEP COUNT recomputed from the origin every frame, not an
+// accumulated velocity - so the dash eases in: step 1 covers a 64th of the
+// distance and step 64 covers all of it. The pattern gives it the 64 frames from
+// 51 to 114 inclusive, so the budget and the step count match exactly and she
+// always lands on her target.
+static const int MEIRA_DASH_STEPS = 64;
+
+extern "C" screen_x_t meira_dash_origin_x;
+extern "C" screen_y_t meira_dash_origin_y;
+extern "C" screen_x_t meira_dash_target_x;
+extern "C" screen_y_t meira_dash_target_y;
+extern "C" int meira_dash_step;
+/// -----------------
+
+
+// One burst of her second phase's third pattern, fired on three separate frames
+// of it. `static` because meira_14E30() below is its only caller anywhere - the
+// dump never published it either.
+static void near meira_14DFC(void)
+{
+	snd_se_play(3);
+	patnum_2064E = 143;
+	bullets_add_pellet(
+		(*boss_left_on_back_page + 24),
+		(*boss_top_on_back_page + 32),
+		0x00,
+		boss_rank_param[2],
+		((4 << 4) + 10)
+	);
+}
+
+
+// Phase 1 pattern 2: a wind-up, then three bursts of the rank-scaled spread 9
+// and 8 frames apart, then a reset. `[measured]` The sprite writes between the
+// bursts are not no-ops - each burst sets 143 and every frame after it sets 142
+// back - so she flickers between two frames for the whole pattern.
+static void near meira_14E30(void)
+{
+	if(boss_phase_frame < 50) {
+	} else if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 142;
+		meira_burst_group = BG_1_RANDOM_ANGLE;
+	} else if(boss_phase_frame < 99) {
+	} else if(boss_phase_frame == 99) {
+		meira_14DFC();
+	} else if(boss_phase_frame < 108) {
+		patnum_2064E = 142;
+	} else if(boss_phase_frame == 108) {
+		meira_14DFC();
+	} else if(boss_phase_frame < 116) {
+		patnum_2064E = 142;
+	} else if(boss_phase_frame == 116) {
+		meira_14DFC();
+	} else {
+		patnum_2064E = 141;
+		boss_phase_frame = 0;
+	}
+}
+
+
+// Phase 2 pattern 0, and the pattern that turns the afterimage trail ON: a
+// wind-up that also widens every special motion's turn limit, then three
+// bouncing billiard balls, then the reset that hands over to the dash below -
+// which is then the only pattern that ever runs again (see meira_update()).
+static void near meira_14E9D(void)
+{
+	register int i;
+
+	if(boss_phase_frame < 50) {
+	} else if(boss_phase_frame == 50) {
+		snd_se_play(9);
+		patnum_2064E = 142;
+
+		// AND NOBODY EVER PUTS IT BACK. meira_init() sets it to 2 for the whole
+		// fight and this raises it to 5 on the way into her last phase, so the
+		// bullets it is about to fire outlive the pattern that fired them.
+		bullet_special.u3.turns_max = 5;
+	} else if(boss_phase_frame >= 99) {
+		patnum_2064E = 146;
+		for(i = 0; i < 3; i++) {
+			bullets_add_16x16(
+				(*boss_left_on_back_page + 24),
+				(*boss_top_on_back_page + 24),
+				randring2_next8(),
+				BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM,
+				static_cast<main_patnum_t>(
+					(i & 1) + PAT_BULLET16_BILLIARD_BALL_RED
+				),
+				((3 << 4) + 6)
+			);
+		}
+		boss_phase_frame = 0;
+		meira_250FE = 1;
+	}
+}
+
+
+// Phase 2 pattern 1, and her last: a 64-step interpolated dash to a random point
+// of the playfield trailing three afterimages, a landing, then two more bouncing
+// billiard balls, then a restart. Nothing after this ever changes
+// [meira_pattern] again, so this is the pattern she dies in.
+static void near meira_14F16(void)
+{
+	int x;
+	int y;
+	screen_x_t near *afterimage_left;
+	screen_y_t near *afterimage_top;
+	register int i;
+
+	if(boss_phase_frame < 50) {
+		return;
+	}
+	afterimage_left = meira_afterimage_left[page_back];
+	afterimage_top = meira_afterimage_top[page_back];
+
+	// The trail's own clock, and it is NOT the dash's: the slots shift on every
+	// 8th frame of the whole pattern, which includes the wind-up frame and the
+	// 50 frames between the landing and the bullets.
+	if((boss_phase_frame & 7) == 0) {
+		afterimage_left[0] = afterimage_left[1];
+		afterimage_top[0] = afterimage_top[1];
+		afterimage_left[1] = afterimage_left[2];
+		afterimage_top[1] = afterimage_top[2];
+		afterimage_left[2] = *boss_left_on_back_page;
+		afterimage_top[2] = *boss_top_on_back_page;
+	}
+
+	if(boss_phase_frame == 50) {
+		// All three slots start on top of her, so the trail grows out of her
+		// rather than appearing behind her.
+		for(i = 0; i < MEIRA_AFTERIMAGE_SLOTS; i++) {
+			afterimage_left[i] = *boss_left_on_back_page;
+			afterimage_top[i] = *boss_top_on_back_page;
+		}
+
+		// `[measured]` The x range is PLAYFIELD_W minus her own width, so her
+		// whole sprite lands inside the playfield. The y range is whatever one
+		// byte of the ring gives, which is 256 of the playfield's 368 rows, so
+		// she never dashes into the bottom third of it.
+		meira_dash_target_x = (
+			(randring2_next16() % (PLAYFIELD_W - MEIRA_W)) + PLAYFIELD_LEFT
+		);
+		meira_dash_target_y = (randring2_next8() + PLAYFIELD_TOP);
+		meira_dash_origin_x = *boss_left_on_back_page;
+		meira_dash_origin_y = *boss_top_on_back_page;
+		meira_dash_step = 1;
+	} else if(boss_phase_frame <= 114) {
+		x = (
+			((meira_dash_target_x - meira_dash_origin_x) * meira_dash_step) /
+			MEIRA_DASH_STEPS
+		);
+		y = (
+			((meira_dash_target_y - meira_dash_origin_y) * meira_dash_step) /
+			MEIRA_DASH_STEPS
+		);
+		y += meira_dash_origin_y;
+		*boss_left_on_back_page = (x + meira_dash_origin_x);
+		*boss_top_on_back_page = y;
+		meira_dash_step++;
+	} else if(boss_phase_frame == 114) {
+		// ZUN BUG: UNREACHABLE, and the branch above is why - it already
+		// covers 114. So the landing sound effect never plays, and the arm is
+		// still in the binary, which is why it is still here.
+		snd_se_play(9);
+	} else if(boss_phase_frame >= 164) {
+		patnum_2064E = 146;
+		for(i = 0; i < 2; i++) {
+			bullets_add_16x16(
+				(*boss_left_on_back_page + 24),
+				(*boss_top_on_back_page + 24),
+				randring2_next8(),
+				BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM,
+				static_cast<main_patnum_t>(
+					i + PAT_BULLET16_BILLIARD_BALL_RED
+				),
+				((3 << 4) + 6)
+			);
+		}
+		boss_phase_frame = 0;
+	} else {
+		// The 49 frames between the landing and the bullets render nothing,
+		// which is what freezes the trail in place while she stands still.
+		return;
+	}
+
+	for(i = 0; i < MEIRA_AFTERIMAGE_SLOTS; i++) {
+		// A slot that still holds her CURRENT position is not drawn, which is
+		// what keeps the trail from stacking three silhouettes under her before
+		// the dash starts. `[measured]` EITHER axis matching is enough, so a
+		// purely horizontal or purely vertical dash draws no trail at all.
+		//
+		// NESTED `if`s AND NOT TWO `continue`s, which is kb/codegen/0140 read
+		// in the direction its 2026-08-22 amendment describes: the original
+		// re-uses the AX it loaded for the second comparison as the value it
+		// assigns to [y], and a `continue` discards that tracked fact and
+		// reloads. Both forms emit the same two `je`s to the same address,
+		// because the guarded block is the last thing in the loop body.
+		if(afterimage_left[i] != *boss_left_on_back_page) {
+			if(afterimage_top[i] != *boss_top_on_back_page) {
+				y = afterimage_top[i];
+				y += scroll_line;
+				if(y >= RES_Y) {
+					y -= RES_Y;
+				}
+				super_roll_put_1plane(
+					afterimage_left[i], y, MEIRA_AFTERIMAGE_PATNUM, 0,
+					super_plane(MEIRA_AFTERIMAGE_COLOR)
+				);
+			}
+		}
+	}
+}
+
+
 /// Her still-ASM patterns
 /// ----------------------
 /// The twelve procs meira_update() dispatches to, published for this object's
@@ -157,9 +427,6 @@ extern "C" void near meira_14A39(void);
 extern "C" void near meira_14B33(void);
 extern "C" void near meira_14BC2(void);
 extern "C" void near meira_14C76(void);
-extern "C" void near meira_14E30(void);
-extern "C" void near meira_14E9D(void);
-extern "C" void near meira_14F16(void);
 
 extern "C" void near meira_145E1(void);
 extern "C" void near meira_14726(void);

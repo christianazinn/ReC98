@@ -3405,371 +3405,14 @@ loc_14DFA:
 meira_14C76	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-meira_14DFC	proc near
-		push	bp
-		mov	bp, sp
-		call	_snd_se_play c, 3
-		mov	patnum_2064E, 143
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; top
-		push	00h	; angle
-		push	word ptr group_20670	; group
-		push	((4 shl 4) + 10)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		pop	bp
-		retn
-meira_14DFC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14E30
-_meira_14E30 label near
-meira_14E30	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	short loc_14E9B
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14E58
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		mov	byte ptr word_252E2, 1Ah
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14E58:
-		cmp	_boss_phase_frame, 99
-		jl	short loc_14E9B
-		cmp	_boss_phase_frame, 99
-		jz	short loc_14E8A
-		cmp	_boss_phase_frame, 108
-		jl	short loc_14E7B
-		cmp	_boss_phase_frame, 108
-		jz	short loc_14E8A
-		cmp	_boss_phase_frame, 116
-		jge	short loc_14E83
-
-loc_14E7B:
-		mov	patnum_2064E, 142
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14E83:
-		cmp	_boss_phase_frame, 116
-		jnz	short loc_14E8F
-
-loc_14E8A:
-		call	meira_14DFC
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14E8F:
-		mov	patnum_2064E, 141
-		mov	_boss_phase_frame, 0
-
-loc_14E9B:
-		pop	bp
-		retn
-meira_14E30	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14E9D
-_meira_14E9D label near
-meira_14E9D	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 50
-		jl	short loc_14F13
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14EC7
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		mov	bullet_special_turns_max, 5
-		jmp	short loc_14F13
-; ---------------------------------------------------------------------------
-
-loc_14EC7:
-		cmp	_boss_phase_frame, 99
-		jl	short loc_14F13
-		mov	patnum_2064E, 146
-		xor	si, si
-		jmp	short loc_14F02
-; ---------------------------------------------------------------------------
-
-loc_14ED8:
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM	; group
-		mov	ax, si
-		and	ax, 1
-		add	ax, PAT_BULLET16_BILLIARD_BALL_RED
-		push	ax	; patnum
-		push	(3 shl 4) + 6	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		inc	si
-
-loc_14F02:
-		cmp	si, 3
-		jl	short loc_14ED8
-		mov	_boss_phase_frame, 0
-		mov	word_250FE, 1
-
-loc_14F13:
-		pop	si
-		pop	bp
-		retn
-meira_14E9D	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14F16
-_meira_14F16 label near
-meira_14F16	proc near
-
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 8
-		push	si
-		push	di
-		cmp	_boss_phase_frame, 50
-		jl	loc_150F0
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset byte_250E6
-		mov	[bp+var_6], ax
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		add	ax, offset byte_250F2
-		mov	[bp+var_8], ax
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_14F84
-		mov	bx, [bp+var_6]
-		mov	ax, [bx+2]
-		mov	[bx], ax
-		mov	bx, [bp+var_8]
-		mov	ax, [bx+2]
-		mov	[bx], ax
-		mov	bx, [bp+var_6]
-		mov	ax, [bx+4]
-		mov	[bx+2],	ax
-		mov	bx, [bp+var_8]
-		mov	ax, [bx+4]
-		mov	[bx+2],	ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	bx, [bp+var_6]
-		mov	[bx+4],	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	bx, [bp+var_8]
-		mov	[bx+4],	ax
-
-loc_14F84:
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14FEA
-		xor	di, di
-		jmp	short loc_14FAE
-; ---------------------------------------------------------------------------
-
-loc_14F8F:
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_6]
-		mov	si, _boss_left_on_back_page
-		mov	ax, [si]
-		mov	[bx], ax
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_8]
-		mov	si, _boss_top_on_back_page
-		mov	ax, [si]
-		mov	[bx], ax
-		inc	di
-
-loc_14FAE:
-		cmp	di, 3
-		jl	short loc_14F8F
-		call	@randring2_next16$qv
-		mov	bx, 320
-		xor	dx, dx
-		div	bx
-		add	dx, 20h	; ' '
-		mov	word_252F0, dx
-		call	@randring2_next8$qv
-		mov	ah, 0
-		add	ax, 10h
-		mov	word_252F2, ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		mov	word_252EC, ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		mov	word_252EE, ax
-		mov	word_252F4, 1
-		jmp	loc_1508F
-; ---------------------------------------------------------------------------
-
-loc_14FEA:
-		cmp	_boss_phase_frame, 114
-		jg	short loc_15038
-		mov	ax, word_252F0
-		sub	ax, word_252EC
-		imul	word_252F4
-		mov	bx, 40h
-		cwd
-		idiv	bx
-		mov	[bp+var_2], ax
-		mov	ax, word_252F2
-		sub	ax, word_252EE
-		imul	word_252F4
-		cwd
-		idiv	bx
-		mov	[bp+var_4], ax
-		mov	ax, word_252EE
-		add	[bp+var_4], ax
-		mov	ax, [bp+var_2]
-		add	ax, word_252EC
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bp+var_4]
-		mov	[bx], ax
-		inc	word_252F4
-		jmp	short loc_1508F
-; ---------------------------------------------------------------------------
-
-loc_15038:
-		cmp	_boss_phase_frame, 114
-		jnz	short loc_1504B
-		call	_snd_se_play c, 9
-		jmp	short loc_1508F
-; ---------------------------------------------------------------------------
-
-loc_1504B:
-		cmp	_boss_phase_frame, 164
-		jl	loc_150F0
-		mov	patnum_2064E, 146
-		xor	di, di
-		jmp	short loc_15084
-; ---------------------------------------------------------------------------
-
-loc_1505F:
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM	; group
-		lea	ax, [di+PAT_BULLET16_BILLIARD_BALL_RED]
-		push	ax	; patnum
-		push	(3 shl 4) + 6	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		inc	di
-
-loc_15084:
-		cmp	di, 2
-		jl	short loc_1505F
-		mov	_boss_phase_frame, 0
-
-loc_1508F:
-		xor	di, di
-		jmp	short loc_150EB
-; ---------------------------------------------------------------------------
-
-loc_15093:
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_6]
-		mov	ax, [bx]
-		mov	bx, _boss_left_on_back_page
-		cmp	ax, [bx]
-		jz	short loc_150EA
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_8]
-		mov	ax, [bx]
-		mov	bx, _boss_top_on_back_page
-		cmp	ax, [bx]
-		jz	short loc_150EA
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_8]
-		mov	[bp+var_4], ax
-		mov	ax, _scroll_line
-		add	[bp+var_4], ax
-		cmp	[bp+var_4], RES_Y
-		jl	short loc_150D1
-		sub	[bp+var_4], RES_Y
-
-loc_150D1:
-		mov	bx, di
-		add	bx, bx
-		add	bx, [bp+var_6]
-		call	super_roll_put_1plane pascal, word ptr [bx], [bp+var_4], (147 shl 16) or 0, PLANE_PUT or GC_RGI
-
-loc_150EA:
-		inc	di
-
-loc_150EB:
-		cmp	di, 3
-		jl	short loc_15093
-
-loc_150F0:
-		pop	di
-		pop	si
-		leave
-		retn
-meira_14F16	endp
-
-
 ; SIX objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b2.cpp       meira_update()  [+ its pad and its jump table]
+;   th02/main/boss/b2.cpp       meira_14DFC()   [static]
+;                               meira_14E30()   [static]
+;                               meira_14E9D()   [static]
+;                               meira_14F16()   [static]
+;                               meira_update()  [+ its pad and its jump table]
 ;                               meira_end()
 ;                               meira_init()
 ;   th02/main/midboss/mx.cpp    midbossx_bursts_add()                [static]
@@ -3862,13 +3505,30 @@ meira_14F16	endp
 ; kb/codegen/0123 aliases and all twelve are refunded as this chain drains.
 ; Only meira_14519 returns anything.
 ;
-; SO THE TAIL OF THIS BLOCK IS meira_14F16, back to a `proc` and back in the
+; AND SO ARE HER LAST PHASE'S TWO PATTERNS, phase 1's third, and that pattern's
+; private burst helper: meira_14F16, meira_14E9D, meira_14E30 and meira_14DFC
+; are all th02/main/boss/b2.cpp. All four went across as `static` - the three
+; that meira_update() dispatches to had their `public` REFUNDED the moment their
+; caller landed in the same object, which is nine of the twelve near aliases
+; still to go. The five `_meira_dash_*` rows below are plain renames for the
+; same reason; `_meira_afterimage_left`, `_meira_afterimage_top` and
+; `_meira_burst_group` are still aliases, because meira_bg_render() and four
+; patterns above still read them.
+;
+; `[measured 2026-08-23]` THE ONE THING THAT COST A CYCLE was kb/codegen/0140,
+; read in the direction its 2026-08-22 amendment describes: meira_14F16's
+; render loop re-uses the AX it loaded for its second comparison, so the
+; original's two early exits are nested `if`s and NOT `continue`s. Two bytes,
+; and the OBJ screen caught it before any build - which is now the fourth
+; instance of that entry in this binary alone.
+;
+; SO THE TAIL OF THIS BLOCK IS meira_14C76, still a `proc` and still in the
 ; FREE class - and from here to the head of the block every tail is a plain
-; kb/codegen/0099 prepend into b2.cpp. b2.cpp's prefix is 0x21D today, ODD, and
-; it now carries `-a2`; RE-DERIVE BOTH FROM THE OBJ before the next lift, and
-; check whether the proc you are taking generates a table of its own, because
-; -a2 pads every table in an object against the running offset (kb/codegen/0157)
-; and this object already has one.
+; kb/codegen/0099 prepend into b2.cpp. No more Tupfile.lua edits for this
+; chain. b2.cpp's prefix is 0x515 today, ODD, and it carries `-a2` AND already
+; holds a generated table, so kb/codegen/0157 applies to the next one: `-a2`
+; pads every table in an object against the running offset. RE-DERIVE BOTH
+; FROM THE OBJ before the next lift.
 ;
 ; Then the rest of Meira back up the block, then Rika and the four numbered
 ; midbosses, then the four unnamed procs at the head.
@@ -5768,7 +5428,17 @@ angle_250DE	db ?
 word_250E0	dw ?
 word_250E2	dw ?
 word_250E4	dw ?
+; The three slots of past positions Meira's teleport dash leaves behind, per
+; VRAM page - 3 words each way for each of the 2 pages. TWO PARALLEL ARRAYS and
+; not an array of points: every walker indexes them with `page * 6 + slot * 2`
+; against two separate `offset`s, and a point array would be one `offset` and a
+; stride of 4. Still aliases rather than renames because meira_bg_render() is
+; still ASM and unputs and copies all six of them.
+public _meira_afterimage_left
+_meira_afterimage_left label word
 byte_250E6	db 12 dup(?)
+public _meira_afterimage_top
+_meira_afterimage_top label word
 byte_250F2	db 12 dup(?)
 ; Written only 0 and 1 - meira_14E9D() raises it, th02/main/boss/b2.cpp's
 ; meira_init() clears it - and read at exactly one site, where it gates
@@ -5781,16 +5451,31 @@ word_250FE	dw ?
 byte_25100	db 480 dup(?)
 byte_252E0	db ?
 byte_252E1	db ?
+; The group of the bursts Meira's patterns fire. THE BYTE AFTER IT IS AN ANGLE,
+; pushed alongside this one at the single site that reads the pair, and it
+; cannot get a label of its own until then because the dump reserves both as one
+; `dw` - so whoever lifts meira_1469C() splits this row.
+public _meira_burst_group
+_meira_burst_group label byte
 word_252E2	dw ?
 word_252E4	dw ?
 word_252E6	dw ?
 speed_252E8	dw ?
 speed_252EA	dw ?
-word_252EC	dw ?
-word_252EE	dw ?
-word_252F0	dw ?
-word_252F2	dw ?
-word_252F4	dw ?
+; Meira's teleport dash, and all five of these are PLAIN RENAMES rather than
+; kb/codegen/0123 aliases: every reference the dump ever had to them was inside
+; the one pattern that used them, and that pattern is th02/main/boss/b2.cpp now.
+; A fixed 64 steps of (target - origin) * step / 64 recomputed from the ORIGIN
+; every frame, which is why the dash eases in rather than moving at a constant
+; speed.
+public _meira_dash_origin_x, _meira_dash_origin_y
+_meira_dash_origin_x	dw ?
+_meira_dash_origin_y	dw ?
+public _meira_dash_target_x, _meira_dash_target_y
+_meira_dash_target_x	dw ?
+_meira_dash_target_y	dw ?
+public _meira_dash_step
+_meira_dash_step	dw ?
 ; Meira's fight progression, and the two are NOT the same thing: the phase is
 ; which of her three pattern groups is running, advanced by meira_update() as
 ; _boss_damage passes 700 and then 1500; the pattern is which of that group's
