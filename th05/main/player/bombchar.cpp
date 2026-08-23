@@ -79,10 +79,10 @@ extern "C" void pascal near bb_playchar_put(int cel);
 void near bomb_dream_decay(void);
 
 // The playfield rows and columns that each playchar's BOMB?.CDG background
-// does not cover, filled in that playchar's own color. Still ZUN's
-// hand-written GRCG code, in MB_INV_TEXT — the tail half of the block this
-// object's segment was carved out of (kb/codegen/0080) — and therefore in this
-// same group, which is what makes the calls `near`.
+// does not cover, filled in that playchar's own color. All four are defined at
+// the END of this file, in BOMB_BG_TEXT — the head half of the block this
+// object's own segment was carved out of (kb/codegen/0080) — and therefore in
+// this same group, which is what makes the calls below `near`.
 //
 //   …_reimu   48 columns down either edge, over every row, in white.
 //   …_marisa  80 columns down either edge, over every row, in 1.
@@ -92,15 +92,24 @@ void near bomb_dream_decay(void);
 //             then draws its beam into.
 //   …_yuuka   64 columns down either edge, over every row, in 14.
 //
-// The dump gave none of them a `public` of its own, so each lift needs the
-// zero-byte `label near` alias kb/codegen/0123 prescribes; `extern "C"` with
-// the project's default cdecl is what spells those aliases
-// `_bomb_bg_margins_fill_…` (kb/codegen/0086). Each has exactly one caller,
-// the …_bomb_update_and_render() that its BOMB?.CDG belongs to.
+// The dump gave none of them a `public` of its own, so each needed the
+// zero-byte `label near` alias kb/codegen/0123 prescribes while it was still
+// ASM. Those aliases went away with the bodies: `extern "C"` with the project's
+// default cdecl publishes exactly the same `_bomb_bg_margins_fill_…` spelling
+// (kb/codegen/0086). Each has exactly one caller, the
+// …_bomb_update_and_render() that its BOMB?.CDG belongs to.
+//
+// THE PRAGMA HAS TO BE HERE AS WELL AS AT THE DEFINITIONS, because it binds a
+// function to a segment at its FIRST DECLARATION (kb/codegen/0155). It is not
+// a precaution: without it all four were emitted at the end of BOMBCHAR_TEXT,
+// this object contributed nothing but three padding bytes to BOMB_BG_TEXT, and
+// the link succeeded. th04/main/scroll.hpp wraps a declaration the same way.
+#pragma codeseg BOMB_BG_TEXT main_01
 extern "C" void near bomb_bg_margins_fill_reimu(void);
 extern "C" void near bomb_bg_margins_fill_marisa(void);
 extern "C" void near bomb_bg_margins_fill_mima(void);
 extern "C" void near bomb_bg_margins_fill_yuuka(void);
+#pragma codeseg
 
 // Reimu's own playchar-specific animation, the only one of the four that is
 // already C++: th05/main/player/bombanim.cpp defines it in mai_TEXT, i.e. in
@@ -925,3 +934,282 @@ restore:
 
 #undef stage_scrolls
 #undef grcg_off_clobbering_dx
+
+// The whole-screen page fill, at the end of BOMB_BG_TEXT -- the head half of
+// what used to be MB_INV_TEXT's root contribution, split off by this parcel's
+// kb/codegen/0080 carve so that a C++ object can append to it. It is not part
+// of the bomb code at all; it is here because this object is the one that owns
+// the segment, and giving it a translation unit of its own would have cost a
+// Tupfile.lua line for one function (kb/codegen/0155).
+//
+// Bodies go into THIS block in original address order too, and this one is the
+// highest address in the carved head, so anything lifted out of the five GRCG
+// fills still above it in the dump goes AHEAD of it here.
+//
+// `-k-` because the original has no stack frame at all: its first instruction
+// is the GRCG mode `out`, and the `push di` in the body is raw bytes rather
+// than the compiler's own (kb/codegen/0050).
+#pragma codeseg BOMB_BG_TEXT main_01
+#pragma option -k-
+
+/// The playfield margins each BOMB?.CDG does not cover
+/// ---------------------------------------------------
+/// One per playchar, called from the …_bomb_update_and_render() above whose
+/// backdrop image it frames, and all four are kb/codegen/0050 BYTE ISLANDS:
+/// every instruction that names DI is raw bytes, because the target saves DI
+/// as its FIRST instruction and restores it BEFORE its four closing GRCG-off
+/// bytes. Turbo C++'s own save would be in the right place, but its own
+/// RESTORE always lands after the last statement of the function, i.e. after
+/// the GRCG-off — so the compiler cannot be allowed to know DI is used at all.
+/// What is left in readable inline assembly is exactly what kb/codegen/0050
+/// permits: the port writes, which name no index register, and the loops'
+/// backward branches, which need a label.
+///
+/// The 32-bit stores are raw bytes for the second reason that entry gives:
+/// Turbo C++ 4.0J's inline assembler is 16-bit only (kb/codegen/0133), so
+/// `MOV ES:[DI+disp], EAX` and `STOSD` have no spelling in it. EAX's upper
+/// half is never loaded, in any of them — in the GRCG's TDW mode the CPU's
+/// written data is ignored entirely and only the tile registers reach VRAM,
+/// so a 32-bit store is purely a way to advance four bytes at a time.
+///
+/// These five were the last of ZUN's code in BOMB_BG_TEXT.
+
+#define PUSH_DI() _asm { db 0x57; }
+#define POP_DI()  _asm { db 0x5F; }
+#define MOV_DI(imm) __emit__( \
+	0xBF, (uint8_t)((imm) & 0xFF), (uint8_t)(((imm) >> 8) & 0xFF) \
+)
+#define SUB_DI(imm) __emit__(0x83, 0xEF, (uint8_t)(imm))
+#define STOSD() __emit__(0x66, 0xAB)
+#define STOSW() __emit__(0xAB)
+#define REP_STOSD() __emit__(0xF3, 0x66, 0xAB)
+
+// MOV ES:[DI], AX and MOV ES:[DI + a signed byte displacement], AX, and their
+// 32-bit forms. ModR/M 05h addresses through DI with no displacement, 45h with
+// a one-byte one; the 66h prefix widens the AX operand to EAX and the 26h one
+// is the ES segment override.
+#define MOV_ES_DI_AX()          __emit__(      0x26, 0x89, 0x05)
+#define MOV_ES_DI_D_AX(disp)    __emit__(      0x26, 0x89, 0x45, (uint8_t)(disp))
+#define MOV_ES_DI_EAX()         __emit__(0x66, 0x26, 0x89, 0x05)
+#define MOV_ES_DI_D_EAX(disp)   __emit__(0x66, 0x26, 0x89, 0x45, (uint8_t)(disp))
+
+// GRCG on, in TDW mode, with all four tile registers set to one color, and
+// with the previous interrupt state restored rather than unconditionally
+// reenabled — which is why none of th04/hardware/grcg.hpp's helpers fits.
+// The color is not a parameter because the target writes the four tile
+// registers by REUSING one AL, so the instruction sequence is a function of
+// the color's bit pattern: 15 needs no second load at all, 1 and 14 need one
+// `NOT AL` after the first `OUT`, and 14's first value is the `32 C0` spelling
+// of zero rather than `MOV AL, 0` (kb/codegen 0037 + 0061). 80h is GC_TDW,
+// hardcoded the way grcg_setmode_rmw_inlined() hardcodes 0C0h.
+#define GRCG_TDW_NOINT_HEAD() _asm { \
+	pushf; \
+	cli; \
+	mov 	al, 0x80; /* GC_TDW */ \
+	out 	0x7C, al; \
+	mov 	dx, 0x7E; \
+}
+#define GRCG_TDW_COL_15_NOINT() { \
+	GRCG_TDW_NOINT_HEAD(); \
+	_asm { mov al, 0xFF; out dx, al; out dx, al; out dx, al; out dx, al; popf; } \
+}
+#define GRCG_TDW_COL_1_NOINT() { \
+	GRCG_TDW_NOINT_HEAD(); \
+	_asm { \
+		mov 	al, 0xFF; \
+		out 	dx, al; \
+		not 	al; \
+		out 	dx, al; \
+		out 	dx, al; \
+		out 	dx, al; \
+		popf; \
+	} \
+}
+#define GRCG_TDW_COL_14_NOINT() { \
+	GRCG_TDW_NOINT_HEAD(); \
+	_asm { \
+		db  	0x32, 0xC0; /* XOR AL, AL */ \
+		out 	dx, al; \
+		not 	al; \
+		out 	dx, al; \
+		out 	dx, al; \
+		out 	dx, al; \
+		popf; \
+	} \
+}
+
+// GRCG off, in the four-byte inline spelling the target uses rather than a
+// call to master.lib's GRCG_OFF (kb/codegen/0061).
+#define GRCG_OFF_INLINE() _asm { \
+	db  	0x32, 0xC0; /* XOR AL, AL */ \
+	out 	0x7C, al; \
+}
+
+// The VRAM segment for playfield row [y], as all five functions below spell it.
+#define PLAYFIELD_ROW_SEG(y) ( \
+	SEG_PLANE_B + ((((y) + PLAYFIELD_TOP) * ROW_SIZE) / 16) \
+)
+
+// 48 columns down either edge of the playfield, over every row, in white.
+extern "C" void near bomb_bg_margins_fill_reimu(void)
+{
+	PUSH_DI();
+	GRCG_TDW_COL_15_NOINT();
+	_ES = PLAYFIELD_ROW_SEG(0);
+	MOV_DI(((PLAYFIELD_H - 1) * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+row:
+	// The right edge first, then the left one via the STOSD/STOSW that also
+	// walk DI back to the start of this row's left margin.
+	MOV_ES_DI_D_EAX(352 / 8);
+	STOSD();
+	MOV_ES_DI_D_AX(304 / 8);
+	STOSW();
+	SUB_DI(ROW_SIZE + 6);
+	_asm { jge short row; }
+	POP_DI();
+	GRCG_OFF_INLINE();
+}
+
+// No pad after this one: its body is 30h bytes, an even length. The three
+// pads further down sit on exactly the three odd-length bodies.
+
+// 80 columns down either edge, over every row, in 1.
+extern "C" void near bomb_bg_margins_fill_marisa(void)
+{
+	PUSH_DI();
+	GRCG_TDW_COL_1_NOINT();
+	_ES = PLAYFIELD_ROW_SEG(0);
+	MOV_DI(((PLAYFIELD_H - 1) * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+row:
+	MOV_ES_DI_D_EAX(320 / 8);
+	MOV_ES_DI_D_EAX(352 / 8);
+	STOSD();
+	STOSD();
+	MOV_ES_DI_D_AX(240 / 8);
+	STOSW();
+	SUB_DI(ROW_SIZE + 10);
+	_asm { jge short row; }
+	POP_DI();
+	GRCG_OFF_INLINE();
+}
+
+#pragma codestring "\x90"
+
+// The 48 rows below ES:0000, filled in two 176-pixel-wide horizontal bands
+// with a 32-pixel gap between them — the gap that
+// mima_bomb_update_and_render() then draws its beam into. Mima's fill is the
+// only one of the four that needs a helper, because it is the only one that
+// runs the same pass over two different VRAM pages, and DI is both its input
+// and its scratch, which is why it takes no parameters and why the whole body
+// is bytes.
+//
+// [inferred] name, and it OWES A NAMING ROUND: the dump gave it no `public`
+// and no comment, its only two callers are inside bomb_bg_margins_fill_mima()
+// below, and nothing outside this file has ever referenced it.
+void near bomb_bg_mima_bands_fill_48(void)
+{
+	MOV_DI((47 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+left:
+	_CX = (160 / (4 * 8));
+	REP_STOSD();
+	MOV_ES_DI_AX();
+	SUB_DI((160 / 8) + ROW_SIZE);
+	_asm { jge short left; }
+
+	MOV_DI((47 * ROW_SIZE) + (PLAYFIELD_VRAM_LEFT + (208 / 8)));
+right:
+	_CX = (160 / (4 * 8));
+	REP_STOSD();
+	MOV_ES_DI_AX();
+	SUB_DI((160 / 8) + ROW_SIZE);
+	_asm { jge short right; }
+}
+
+#pragma codestring "\x90"
+
+// 48 rows along the top and bottom edges and 32 columns down either edge of
+// what is left, in 1 — plus the same 32-pixel gap in white, which is what the
+// second GRCG setup in the middle of this function is for.
+extern "C" void near bomb_bg_margins_fill_mima(void)
+{
+	PUSH_DI();
+	GRCG_TDW_COL_1_NOINT();
+
+	// The bottom 48 rows, then the top 48. Both on the same page as far as
+	// the CPU is concerned; the segment is what selects the band.
+	_ES = PLAYFIELD_ROW_SEG(320);
+	bomb_bg_mima_bands_fill_48();
+	_ES = PLAYFIELD_ROW_SEG(0);
+	bomb_bg_mima_bands_fill_48();
+
+	// The 32 columns down either edge of the 272 rows in between.
+	_ES = PLAYFIELD_ROW_SEG(48);
+	MOV_DI((271 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+side:
+	MOV_ES_DI_EAX();
+	MOV_ES_DI_D_EAX(352 / 8);
+	SUB_DI(ROW_SIZE);
+	_asm { jge short side; }
+
+	// Back to white, for the 32-pixel gap in the two horizontal bands. The
+	// GC_TDW mode `out` is not repeated, only the four tile registers.
+	_asm {
+		pushf;
+		cli;
+		mov 	dx, 0x7E;
+		mov 	al, 0xFF;
+		out 	dx, al;
+		out 	dx, al;
+		out 	dx, al;
+		out 	dx, al;
+		popf;
+	}
+	_ES = PLAYFIELD_ROW_SEG(320);
+	MOV_DI((47 * ROW_SIZE) + (208 / 8));
+gap_bottom:
+	STOSD();
+	SUB_DI(ROW_SIZE + 4);
+	_asm { jge short gap_bottom; }
+
+	_ES = PLAYFIELD_ROW_SEG(0);
+	MOV_DI((47 * ROW_SIZE) + (208 / 8));
+gap_top:
+	STOSD();
+	SUB_DI(ROW_SIZE + 4);
+	_asm { jge short gap_top; }
+
+	POP_DI();
+	GRCG_OFF_INLINE();
+}
+
+#pragma codestring "\x90"
+
+// 64 columns down either edge, over every row, in 14.
+extern "C" void near bomb_bg_margins_fill_yuuka(void)
+{
+	PUSH_DI();
+	GRCG_TDW_COL_14_NOINT();
+	_ES = PLAYFIELD_ROW_SEG(0);
+	MOV_DI(((PLAYFIELD_H - 1) * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+row:
+	MOV_ES_DI_D_EAX(320 / 8);
+	MOV_ES_DI_D_EAX(352 / 8);
+	STOSD();
+	STOSD();
+	SUB_DI(ROW_SIZE + 8);
+	_asm { jge short row; }
+	POP_DI();
+	GRCG_OFF_INLINE();
+}
+
+// The shared body below defines its own copies of these four, so they are
+// retired here rather than left to an identical redefinition.
+#undef PUSH_DI
+#undef POP_DI
+#undef REP_STOSD
+#undef GRCG_OFF_INLINE
+
+#include "th04/main/graph2pg.cpp"
+
+#pragma option -k.
+#pragma codeseg

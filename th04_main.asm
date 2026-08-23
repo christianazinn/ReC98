@@ -2982,10 +2982,12 @@ include th04/main/tile/bb_put.asm
 	; rep stosd and its two word-wide out 0A6h, ax are raw bytes for a
 	; related reason -- Turbo C++ 4.0J's inline assembler is 16-bit only.
 	;
-	; TH05's MAIN.EXE holds a byte-identical twin of that function at the
-	; end of its MB_INV_TEXT (sub_CFEE in th05_main.asm), still ASM and
-	; still uncalled from C++ there. Whoever lifts it should hoist the C++
-	; body into a shared file rather than copy it.
+	; TH05's MAIN.EXE held a byte-identical twin of that function at the
+	; end of its MB_INV_TEXT. It was taken on 2026-08-22, and the body is
+	; th04/main/graph2pg.cpp now -- one file included by both games rather
+	; than two copies of five inline-asm macros. TH05 could NOT use the
+	; kb/codegen/0148 push this block got, because th04/mb_inv.cpp follows
+	; its root contribution; it needed a kb/codegen/0080 head carve.
 	;
 	; kb/codegen/0121, MEASURED rather than assumed: the assume es:nothing
 	; below is the one the deleted whole-screen fill set after its
