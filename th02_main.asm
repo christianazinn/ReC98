@@ -5379,117 +5379,12 @@ loc_15EF5:
 sigma_15E84	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Lower case with a leading underscore, unlike SIGMA_BLASTS_ADD above: this
-; proc takes no arguments and cleans nothing, so it is __cdecl and Borland
-; does not upper-case its name. Zero bytes, like every kb/codegen/0123 alias.
-; Phase 7 paid for this one; phases 5, 3 and 1 get it free.
-public _sigma_move_weave
-_sigma_move_weave label near
-sigma_15EF7	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jge	short loc_15F06
-		mov	ax, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_15F06:
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_15F1E
-		cmp	_player_topleft.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - (PLAYER_W / 2))
-		jge	short loc_15F19
-		mov	al, 1
-		jmp	short loc_15F1B
-; ---------------------------------------------------------------------------
-
-loc_15F19:
-		mov	al, -1
-
-loc_15F1B:
-		mov	byte_25598, al
-
-loc_15F1E:
-		cmp	_boss_phase_frame, 114
-		jge	short loc_15F37
-		mov	al, byte_25598
-		cbw
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		mov	bx, _boss_top_on_back_page
-		inc	word ptr [bx]
-		jmp	short loc_15F6B
-; ---------------------------------------------------------------------------
-
-loc_15F37:
-		cmp	_boss_phase_frame, 242
-		jge	short loc_15F4B
-		mov	al, byte_25598
-		cbw
-		mov	bx, _boss_left_on_back_page
-		sub	[bx], ax
-		jmp	short loc_15F6B
-; ---------------------------------------------------------------------------
-
-loc_15F4B:
-		cmp	_boss_phase_frame, 306
-		jge	short loc_15F65
-		mov	al, byte_25598
-		cbw
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		mov	bx, _boss_top_on_back_page
-		dec	word ptr [bx]
-		jmp	short loc_15F6B
-; ---------------------------------------------------------------------------
-
-loc_15F65:
-		mov	_boss_phase_frame, 0
-
-loc_15F6B:
-		xor	ax, ax
-		pop	bp
-		retn
-sigma_15EF7	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15F6F
-_sigma_15F6F label near
-sigma_15F6F	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_15EF7
-		or	ax, ax
-		jnz	short loc_15F93
-		test	byte ptr _boss_phase_frame, 1Fh
-		jnz	short loc_15F93
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_32_RING	; group
-		push	((5 shl 4) + 5)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_15F93:
-		pop	bp
-		retn
-sigma_15F6F	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_15F95()
+;   th02/main/boss/b6.cpp       sigma_move_weave()  [static]
+;                               sigma_15F6F()
+;                               sigma_15F95()
 ;                               sigma_16176()
 ;                               sigma_1619C()
 ;                               sigma_162D3()
@@ -5522,7 +5417,7 @@ sigma_15F6F	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_15F6F(), and the first of
+; So th02_main.asm contributes nothing below sigma_15E84(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -5567,11 +5462,12 @@ sigma_15F6F	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_15F6F() is the tail now - phase 1 pattern slot 2, a near proc, so the
-; root still ends on a `retn`. Below it the block is her two other pattern
-; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
-; its state-2 promoter, one movement helper, her hittest wrapper and her
-; defeat animation - then Meira, Rika and the three midbosses.
+; sigma_15E84() is the tail now - phase 1 pattern slot 1, a near proc, so the
+; root still ends on a `retn`. Below it the block is ONE other pattern
+; function, the 16-slot expanding-blast pool at 0x254EC with its spawn and
+; its state-2 promoter, her hittest wrapper, her renderer and her defeat
+; animation - then Meira, Rika and the three midbosses. BOTH movement
+; helpers are C++ now.
 ; state/notes/sigma_update.md characterises all of them, holds their lengths,
 ; and is the map for that naming round.
 ;
@@ -5579,21 +5475,26 @@ sigma_15F6F	endp
 ; the eight its own close-out recorded. Count them with
 ; `grep -c 'sigma_.*proc'` before costing a chain length off a handoff.
 ;
-; TAKE A HELPER WITH ITS CALLERS WHEN YOU CAN. sigma_165A5 went with the
-; three phase-9 patterns because ALL THREE of its callers were in that group,
-; so it became a plain `static` C++ function and needed no kb/codegen/0123
-; alias at all - whereas any shallower group would have had to publish it.
+; TAKE A HELPER WITH ITS CALLERS WHEN YOU CAN, AND THE WHOLE ARC OF THAT RULE
+; HAS NOW BEEN RUN END TO END HERE, so the next block to face it can cost it
+; from a finished example instead of arguing. `[measured 2026-08-22]` Her two
+; movement helpers had the same shape and opposite caller distributions:
 ;
-; sigma_move_weave, ONE proc below this tail, is the counter-example: the
-; same shape, but its callers were spread over phases 1, 3, 5 and 7, so no
-; group short of the whole run from it down could take it along. Phase 7
-; therefore paid the alias, and phases 5, 3 and 1 now get it for free. When a
-; shared helper cannot ride along, the FIRST group that needs it pays once for
-; all of them. It is down to ONE caller here, sigma_15F6F, which is the tail
-; - so the next lift out of this block is exactly the pair that can finally
-; take it along as a plain `static`, and the alias phase 7 published for it
-; goes with them. That is the whole shape of the rule: phase 7 paid once,
-; phases 5, 3 and 1 spent nothing, and the last group gets to retire it.
+;   sigma_165A5 had ALL THREE of its callers inside the phase 9 group, so
+;   that group took it as a plain `static` C++ function and it never needed a
+;   kb/codegen/0123 alias at all. Any shallower group would have had to pay
+;   one.
+;
+;   sigma_15EF7 had its four callers spread one per phase over 1, 3, 5 and 7,
+;   so no group short of the whole run could take it. Phase 7, the first to
+;   need it, published `_sigma_move_weave`; phases 5 and 3 then reached it for
+;   FREE, spending nothing; and phase 1 pattern slot 2 - its last caller -
+;   lifted it along with itself and the alias left the dump with the body. It
+;   is a plain `static` in th02/main/boss/b6.cpp now, exactly like its twin.
+;
+; So the cost of a shared helper is ONE publish for the whole chain, charged
+; to whichever group reaches it first and refunded by whichever group empties
+; it. Cost the publishes, not the bytes, and never cost a helper twice.
 ;
 ; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
 ; parity check can see. sigma_162D3() read its five muzzle offsets out of a
@@ -5609,8 +5510,8 @@ sigma_15F6F	endp
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x8CA 0x0 0x0 BEFORE
-; this lift and 0xAD1 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0xAD1 0x0 0x0 BEFORE
+; this lift and 0xB6F 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7478,7 +7379,12 @@ word_25592	dw ?
 word_25594	dw ?
 byte_25596	db ?
 byte_25597	db ?
-byte_25598	db ?
+; The signed one-pixel step sigma_move_weave() latches on frame 50, twin of
+; _sigma_sweep_velocity_x below. Renamed rather than aliased: this lift took
+; the last of its four dump references - one write on the latch frame and one
+; read on each of the three legs.
+public _sigma_weave_velocity_x
+_sigma_weave_velocity_x	db ?
 		db ?
 ; Her phase 3 pattern 0's whole state, and this lift took the last dump read
 ; of all three. The centre it snapshots from the player on its aim frame and

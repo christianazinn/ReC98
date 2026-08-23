@@ -360,9 +360,22 @@ extern "C" uint8_t sigma_ring_radius;
 // already is.
 //
 // `_x` although the sweep has no vertical component, because its twin
-// sigma_15EF7 latches the same shape and DOES move her on both axes; the pair
-// wants to read as a pair when that one lands.
+// latches the same shape and DOES move her on both axes; the pair reads as a
+// pair now that it has landed, directly below.
 extern "C" int8_t sigma_sweep_velocity_x;
+
+// And that twin's own step, latched by sigma_move_weave() on the same frame from
+// the same comparison and applied for three legs. One pixel where the sweep gets
+// two, and this is the one of the pair that also moves her vertically -- by a
+// literal 1 in either direction rather than through a second latched byte, so
+// there is no `_y` member to name.
+//
+// `[measured]` Signed, on `mov al` + `cbw` at all three reads; Sigma-exclusive
+// and helper-exclusive, all four references in th02_main.asm -- one write on the
+// latch frame and one read on each of the three legs -- having been inside the
+// helper itself, so this lift held the last of them and IDA's name is RETIRED
+// rather than aliased.
+extern "C" int8_t sigma_weave_velocity_x;
 
 // Phase 7 pattern 0's two streams of expanding blasts. `[measured]`
 // sigma_16421() is the sole owner of all five of these -- every reference in
@@ -491,10 +504,11 @@ static const long SIGMA_DEFEAT_SCORE = 300000;
 /// expanding-blast pool's per-frame update, render and hittest; 15907 is her
 /// own hittest plus the blit; 15A25 is the defeat animation; and the twelve
 /// below are the patterns themselves. FOUR more procs are missing from this
-/// list on purpose: the dump publishes no alias for 155C5, 15645, 15EF7 or
-/// 165A5, and nothing in this object calls them. They are the blast pool's
-/// spawn, a helper of sigma_bg_render(), and the two movement helpers the
-/// patterns share. Publishing one is part of whichever parcel first needs it.
+/// list on purpose: the dump publishes no alias for the blast pool's spawn or
+/// for the helper of sigma_bg_render(), and nothing in this object calls the
+/// second of those. Publishing one is part of whichever parcel first needs it --
+/// and the two movement helpers that used to be named here are C++ now, both of
+/// them plain `static` functions below.
 
 extern "C" void near sigma_1566F(void);
 extern "C" void near sigma_15907(void);
@@ -502,27 +516,6 @@ extern "C" bool16 near sigma_15A25(void);
 
 extern "C" void near sigma_15D56(void);
 extern "C" void near sigma_15E84(void);
-extern "C" void near sigma_15F6F(void);
-
-// The movement helper phases 1, 3, 5 and 7 share, and the twin of
-// sigma_move_sweep() below: the same 50-frame hold and the same
-// latch-once-on-frame-50 rule, but one pixel per frame, a FOURTH leg, and a
-// vertical component.
-//
-// "weave" is a COINAGE and is named as one. Unlike "sweep", which
-// th04/main/boss/b4r_upd.cpp attests as a boss-motion noun, it occurs nowhere
-// else in this tree. The attested alternative was rejected rather than
-// overlooked: "drift" is already spent in this same binary, on Marisa's own
-// drift helper in th02/main/boss/b4.cpp and on three `bullet_special` fields,
-// and four legs on two axes is not a drift.
-//
-// It has to be published where sigma_move_sweep() did not,
-// because its four callers are spread across those four phases rather than
-// sitting in one group -- so no group short of sigma_15F6F .. sigma_16555 could
-// have taken it along as a `static`. `__cdecl`, so its alias is the ordinary
-// lower-case underscore-prefixed form and not the upper case one
-// sigma_blasts_add() needed.
-extern "C" bool16 near sigma_move_weave(void);
 
 // And the one still-ASM proc in her chain that the dump kept PRIVATE and this
 // object nevertheless has to reach: the spawn for her 16-slot pool of expanding
@@ -588,6 +581,103 @@ static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// The movement helper phases 1, 3, 5 and 7 share, and phase 1's third pattern
+/// ---------------------------------------------------------------------------
+/// The helper is the twin of sigma_move_sweep() at the bottom of this file: the
+/// same 50-frame hold, the same latch-once-on-frame-50 rule, the same
+/// zero-[boss_phase_frame] handshake with sigma_166DE(). It walks her one pixel
+/// per frame instead of two, over legs at different frames, and it is the one of
+/// the pair that moves her on BOTH axes.
+///
+/// "weave" is a COINAGE and is named as one. Unlike "sweep", which
+/// th04/main/boss/b4r_upd.cpp attests as a boss-motion noun, it occurs nowhere
+/// else in this tree. The attested alternative was rejected rather than
+/// overlooked: "drift" is already spent in this same binary, on Marisa's own
+/// drift helper in th02/main/boss/b4.cpp and on three `bullet_special` fields,
+/// and three legs on two axes is not a drift.
+///
+/// `[measured 2026-08-22]` **AND IT IS `static` NOW, WHICH IS THE POINT OF THIS
+/// PARCEL.** The phase 7 group had to publish it as a kb/codegen/0123 alias
+/// because its four callers were spread one per phase over 1, 3, 5 and 7, so no
+/// shorter group could take it along. Phases 5 and 3 then reached it for free.
+/// This parcel lifts its LAST ASM caller, sigma_15F6F() below, so the alias has
+/// no remaining reader and goes out of the dump with the body -- and the helper
+/// becomes exactly the plain `static` that sigma_move_sweep() has been since its
+/// own group landed. That is the whole arc of "when a shared helper cannot ride
+/// along, the FIRST group that needs it pays once for all of them": one publish,
+/// paid once, spent three times, then retired by the group that empties it.
+
+// One pixel per frame, against sigma_move_sweep()'s two.
+static const pixel_t SIGMA_WEAVE_SPEED = 1;
+
+// `[measured]` Three legs and then a reset, at frames the sweep does not share.
+// Legs 1 and 3 both step her x by +[sigma_weave_velocity_x] and differ only in
+// the SIGN of their one-pixel y step, so -O cannot cross-jump them the way it
+// merges the sweep's identical legs 1 and 3 -- which is why this body is 0x78
+// against that one's 0x61 for the same shape.
+static const int SIGMA_WEAVE_LEG_1_END = 114;
+static const int SIGMA_WEAVE_LEG_2_END = 242;
+static const int SIGMA_WEAVE_LEG_3_END = 306;
+
+static bool16 near sigma_move_weave(void)
+{
+	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
+		return true;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		// A conditional EXPRESSION and not an `if`/`else` with a store in each
+		// arm, for the same 2 bytes sigma_move_sweep() spells out at its own
+		// copy of this line: the original loads each candidate into AL, jumps to
+		// a join, and stores AL to this byte ONCE.
+		//
+		// `[measured]` And the latch is AWAY from the player: she gets the
+		// POSITIVE step when the player is to the LEFT of the playfield centre.
+		sigma_weave_velocity_x = ((player_topleft.x < PLAYER_LEFT_START)
+			? SIGMA_WEAVE_SPEED
+			: -SIGMA_WEAVE_SPEED
+		);
+	}
+
+	// `++` and `--` on the page-indexed y rather than `+= 1` / `-= 1`:
+	// kb/codegen/0094's first discriminator, and the original takes the
+	// dedicated `inc`/`dec word ptr [bx]` forms. The x steps go through the
+	// latched byte, so they are ordinary `add`/`sub` of a widened AL.
+	if(boss_phase_frame < SIGMA_WEAVE_LEG_1_END) {
+		*boss_left_on_back_page += sigma_weave_velocity_x;
+		(*boss_top_on_back_page)++;
+	} else if(boss_phase_frame < SIGMA_WEAVE_LEG_2_END) {
+		*boss_left_on_back_page -= sigma_weave_velocity_x;
+	} else if(boss_phase_frame < SIGMA_WEAVE_LEG_3_END) {
+		*boss_left_on_back_page += sigma_weave_velocity_x;
+		(*boss_top_on_back_page)--;
+	} else {
+		// What sigma_166DE() reads as "the pattern finished its loop". The phase
+		// counter is untouched.
+		boss_phase_frame = 0;
+	}
+	return false;
+}
+
+/// Phase 1 pattern 2: the weave, with a 32-way ring at a random angle every 32nd
+/// frame. Phase 3's pattern 1 is the same body with a 16-way ring every 8th
+/// frame and a slower one.
+extern "C" void near sigma_15F6F(void)
+{
+	if(sigma_move_weave()) {
+		return;
+	}
+	if((boss_phase_frame & 0x1F) == 0) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			randring2_next8(),
+			BG_32_RING,
+			((5 << 4) + 5)
+		);
+	}
+}
+/// ---------------------------------------------------------------------------
 
 /// Phase 3's two patterns
 /// ----------------------
@@ -1320,11 +1410,11 @@ static const int SIGMA_SWEEP_LEG_3_END = 370;
 /// here. An axis-letter suffix has no precedent in this tree, and dropping the
 /// verb loses what every other movement helper carries.
 ///
-/// `[measured]` sigma_15EF7, still ASM above, is its twin for phases 1, 3, 5 and
-/// 7: same hold, same latch-once-on-frame-50 rule, but 1 pixel per frame, a
-/// FOURTH leg, and a vertical component. It wants the same shape with a
-/// different qualifier when it lands, which is why this one is not simply the
-/// unqualified move.
+/// `[measured]` sigma_move_weave(), at the top of this file, is its twin for
+/// phases 1, 3, 5 and 7: same hold, same latch-once-on-frame-50 rule, but 1
+/// pixel per frame and a vertical component on two of its three legs. It got the
+/// same shape with a different qualifier when it landed, which is why this one
+/// is not simply the unqualified move.
 ///
 /// The direction is latched AWAY from the player, not toward: she gets the
 /// positive step when the player is left of centre. Returning `true` while
