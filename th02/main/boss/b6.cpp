@@ -1,12 +1,16 @@
 /// Extra Stage boss - Evil Eye Σ
 /// -----------------------------
-/// Her pattern runner, her per-frame update, her fight-init and her defeat, in
-/// dump order. The defeat is also the last thing MAIN.EXE does on an Extra
-/// Stage clear: it commits the run to the resident structure and launches
-/// MAINE.EXE over this process. This is the bottom of th02_main.asm's
-/// BOSS_5_TEXT contribution, and the rest of her -- her twelve patterns, her
-/// expanding-blast pool, two movement helpers, her hittest wrapper and her
-/// defeat animation -- is still above it in that dump.
+/// ALL of her, in dump order: her 16-slot pool of expanding blasts, her hittest
+/// wrapper, her background renderer, her defeat animation, her twelve patterns,
+/// two movement helpers, her pattern runner, her per-frame update, her
+/// fight-init and her defeat. The defeat is also the last thing MAIN.EXE does on
+/// an Extra Stage clear: it commits the run to the resident structure and
+/// launches MAINE.EXE over this process.
+///
+/// `[measured 2026-08-22]` THIS OBJECT NOW HOLDS EVERY SIGMA PROC THERE IS, and
+/// th02_main.asm's BOSS_5_TEXT contribution ends at Meira instead. What used to
+/// be the root's last instruction -- sigma_bg_render()'s `retf` -- is emitted
+/// from here.
 ///
 /// THIS IS ITS OWN OBJECT, AND THAT IS THE WHOLE POINT OF THE FILE. The
 /// obvious host for a BOSS_5_TEXT tail lift is
@@ -217,10 +221,15 @@ void near dialog_script_extra_pre_intro_animate(void);
 // naming sweep would then look for.
 extern "C" void near boss_playfield_reset(void);
 
-// th02/main/player/shot.hpp, spelled out rather than included: that header
-// pulls in th01/math/subpixel.hpp and th02/main/entity.hpp for the sake of one
-// call, and this object's include list is load-bearing (see above).
+// th02/main/player/shot.hpp, both spelled out rather than included: that header
+// pulls in th01/math/subpixel.hpp and th02/main/entity.hpp for the sake of two
+// calls, and this object's include list is load-bearing (see above). The second
+// one's `pascal` and its widened `pixel_t` formals are load-bearing too -- they
+// are what packs [w] and [h] into the single 32-bit push the original makes.
 void far shots_free_all(void);
+int pascal near shots_hittest(
+	screen_x_t left, screen_y_t top, pixel_t w, pixel_t h
+);
 
 // th02/main/bullet/bullet.cpp, reached through the island below rather than
 // called, so only the symbol is needed. Spelled out rather than included
@@ -234,34 +243,19 @@ extern "C" void bullets_clear(void);
 // refactor and therefore its own parcel, not this one.
 extern "C" void far sub_13ABB(char *fn);
 
-// Still ASM, above this object's contribution in BOSS_5_TEXT: blits Sigma as
-// her two side-by-side 64-pixel-wide cels, at [patnum_2064E] and
-// [patnum_2064E] + 1, from [sigma_topleft]. It carries no state of its own.
-//
-// `[measured 2026-08-22]` THIS COMMENT USED TO SAY "the six pattern functions
-// plus sigma_15907() also call it", and NOT ONE PATTERN FUNCTION DOES. The
-// dump holds exactly seven call sites: one in sigma_15907() and SIX inside
-// sigma_15A25(), the defeat animation, which blits her at three cels through
-// three separate stages of it. Attributing a call count to a group of
-// functions is not the same as attributing each call to its enclosing proc,
-// and only the second is a measurement. `near` resolves to the same
-// 3-byte relative near call the original encodes, because it is in this very
-// segment; the dump publishes it under this name through a kb/codegen/0123
-// alias.
-extern "C" void near sigma_put(void);
-
 /// Sigma's own state
 /// -----------------
 
 // Top-left corner of her sprite, in screen space, snapshotted from
 // [boss_left_on_back_page] / [boss_top_on_back_page] at the top of every
-// sigma_update() and seeded here. Every blit, hitbox and bullet origin in her
-// still-ASM code takes .x and .y directly.
+// sigma_update() and seeded there. sigma_put() and sigma_hittest_and_put()
+// below are its last two readers, so IDA's placeholder for it is RETIRED from
+// the dump by this lift rather than kept as an alias.
 //
 // `[measured]` Unlike [marisa_topleft] (th02/main/boss/b4.hpp), which the
-// stage-4 midboss shares, this one really is exclusive: every reference to the
-// address in th02_main.asm is inside a `sigma_*` proc, and no other entity
-// touches it.
+// stage-4 midboss shares, this one really was exclusive: every reference to the
+// address in th02_main.asm was inside a `sigma_*` proc, and no other entity
+// touched it.
 extern screen_point_t sigma_topleft;
 
 // Which of the ten steps of her fight she is in. NOT [boss_phase], which is
@@ -278,10 +272,11 @@ extern "C" uint8_t sigma_phase;
 // ANDed with a per-slot frame counter to decide whether that slot advances its
 // cel this frame, so 7 means every 8th frame and 3 means every 4th.
 //
-// `[measured]` sigma_1566F() holds the only read: it walks a 16-entry array of
-// 10-byte records at 0x254EC and, for each one still in state 1, advances the
-// record's cel only when `(record->frame & this) == 0`. sigma_init() sets 7;
-// six of her pattern functions set 3.
+// `[measured]` sigma_blasts_update_and_render() holds the only read, and it is
+// the last one in the dump, so this lift retires IDA's placeholder for it too:
+// the pool's updater advances a telegraphing blast's cel only when
+// `(blast->state_frame & this) == 0`. sigma_init() sets 7; six of her pattern
+// functions set 3.
 //
 // `[measured 2026-08-22]` The array is her 16-slot pool of expanding circular
 // blasts, so the cel this gates is a blast's 8-frame telegraph, drawn together
@@ -298,9 +293,10 @@ extern "C" uint8_t sigma_cel_interval_mask;
 //
 // `[measured]` 60 is NOT half of either sprite extent - she is 128x64 from
 // [sigma_topleft] - and her hittest is centred on +36/+32 instead
-// (sigma_15907), so this offset gets its own name for the same reason
-// MARISA_CENTER_OFFSET does (th02/main/boss/b4.hpp): ZUN's notions of a boss's
-// centre do not agree with each other. Sigma-exclusive; all 13 read sites in
+// (sigma_hittest_and_put()), so this offset gets its own name for the same
+// reason MARISA_CENTER_OFFSET does (th02/main/boss/b4.hpp): ZUN's notions of a
+// boss's centre do not agree with each other. Sigma-exclusive; all 13 read
+// sites in
 // th02_main.asm are inside a sigma_* proc, and every one of them is a bullet,
 // laser or blast origin.
 extern "C" screen_x_t sigma_center_x;
@@ -433,17 +429,18 @@ extern "C" screen_x_t sigma_stream_x;
 extern "C" screen_y_t sigma_stream_y;
 extern "C" screen_x_t sigma_stream_mirror_x;
 
-// How much sigma_1566F() shrinks an expanding blast's lethal square relative to
-// the circle it draws. `[measured]` SIGNED, and every read is `mov al` + `cbw`:
-// a positive value insets the hitbox, a negative one GROWS it past the drawn
-// radius, and the lethal shape is an axis-aligned square of half-extent
-// `radius - this` against the player's 32x32 box even though the visual is a
-// disc.
+// How much sigma_blasts_update_and_render() shrinks an expanding blast's lethal
+// square relative to the circle it draws. `[measured]` SIGNED, and every read is
+// `mov al` + `cbw`: a positive value insets the hitbox, a negative one GROWS it
+// past the drawn radius, and the lethal shape is an axis-aligned square of
+// half-extent `radius - this` against the player's 32x32 box even though the
+// visual is a disc.
 //
-// This is the ONE symbol in Sigma's _BSS that more than one proc touches, which
-// is why it keeps a kb/codegen/0123 alias instead of being renamed: still-ASM
-// sigma_1566F() holds all four reads, and sigma_15E84() and sigma_15F95() write
-// it too.
+// This was the ONE symbol in Sigma's _BSS that more than one proc touched, and
+// it kept a kb/codegen/0123 alias for exactly that reason until this lift, which
+// takes the last four references the dump had -- all of them reads, all of them
+// inside the pool's updater. Renamed outright now, like every other row of her
+// _BSS block.
 //
 // ZUN quirk, and it is load-bearing: sigma_init() never initialises this, and
 // neither phase 7's second pattern nor any of phase 9's three write it, so from
@@ -502,68 +499,169 @@ static const int SIGMA_DEFEAT_DAMAGE = 1300;
 static const long SIGMA_DEFEAT_SCORE = 300000;
 /// -----------------
 
-/// Her still-ASM code, all of it above this object's contribution in
-/// BOSS_5_TEXT, and all of it `near` because it is in this very segment.
-/// -------------------------------------------------
-/// EVERY ONE OF THESE KEEPS THE DUMP'S ADDRESS-SUFFIXED SPELLING, and that is
-/// a decision rather than an omission. An address-suffixed hand name is not an
-/// IDA placeholder (tools/re/naming_precheck.py's pattern is keyed on IDA's
-/// own kind prefixes, and `sigma_15D56` matches none of them), and naming a
-/// pattern body means reading it and ruling on the whole table at once - which
-/// is what th02/main/boss/b3.cpp, b4.cpp and b5m.cpp all already say for
-/// stones', Marisa's and Mima's patterns in this same binary. sigma_put()
-/// above was renamed only because the parcel that moved its caller read its
-/// twelve-instruction body.
+/// Her 16-slot pool of expanding blasts
+/// ------------------------------------
+/// Six of her twelve patterns spawn into this pool, and a slot is a five-state
+/// machine rather than a particle: **0** free -> **1** an 8-cel 32x32 telegraph
+/// sprite under a white outline circle that shrinks 64 -> 0 as those cels
+/// advance -> **2** idle for exactly one frame -> **3** a lethal white disc
+/// that grows 16 pixels per drawn frame to the slot's own cap -> **4** a
+/// thinning annulus that collapses back onto it -> 0 again.
 ///
-/// state/notes/sigma_update.md characterises all of them from measurement and
-/// is the map for that naming round. In short: 1566F is the 16-slot
-/// expanding-blast pool's per-frame update, render and hittest; 15907 is her
-/// own hittest plus the blit; 15A25 is the defeat animation; and the twelve
-/// below are the patterns themselves. FOUR more procs are missing from this
-/// list on purpose: the dump publishes no alias for the blast pool's spawn or
-/// for the helper of sigma_bg_render(), and nothing in this object calls the
-/// second of those. Publishing one is part of whichever parcel first needs it --
-/// and the two movement helpers that used to be named here are C++ now, both of
-/// them plain `static` functions below.
+/// `[measured]` STATE 2 IS A ONE-FRAME HANDSHAKE BETWEEN TWO CALLBACKS and
+/// nothing else. sigma_blasts_update_and_render() reaches it from state 1, and
+/// sigma_blasts_activate() -- its only consumer -- runs from sigma_bg_render(),
+/// which th02/main/stage/loop.cpp calls BEFORE boss_update(). So a blast that
+/// finishes its telegraph always stalls exactly one frame before it can expand,
+/// and that stall is a property of the callback ORDER rather than of the pool.
+/// `[inferred]` on the intent.
+///
+/// `[measured]` The lethal shape is an axis-aligned SQUARE of half-extent
+/// `radius - [sigma_blast_hitbox_margin]` against the player's box, even though
+/// what is drawn is a disc -- and the margin's sign decides whether that square
+/// sits inside the disc or outside it. See that variable above.
 
-extern "C" void near sigma_1566F(void);
-extern "C" void near sigma_15907(void);
+// The five states, in the order a slot walks them. `[measured]` Every access in
+// the original is an equality test against a byte or an `inc` of one, so
+// nothing there says the field is anything wider -- and only two of the four
+// transitions are spelled as an assignment: the spawn writes state 1 outright
+// and the collapse writes 0 outright, while 1 -> 2, 2 -> 3 and 3 -> 4 are all
+// `inc`s (kb/codegen/0094).
+static const uint8_t SIGMA_BLAST_FREE = 0;
+static const uint8_t SIGMA_BLAST_TELEGRAPH = 1;
+static const uint8_t SIGMA_BLAST_ACTIVATING = 2;
+static const uint8_t SIGMA_BLAST_EXPANDING = 3;
+static const uint8_t SIGMA_BLAST_COLLAPSING = 4;
 
+struct sigma_blast_t {
+	uint8_t state;
 
-// And the one still-ASM proc in her chain that the dump kept PRIVATE and this
-// object nevertheless has to reach: the spawn for her 16-slot pool of expanding
-// circular blasts at 0x254EC. Bounds-checks the point against the playfield,
-// takes the first free record, seeds it and plays SE 9.
+	// Frames since the last state change, `inc`ed once per frame in every state
+	// but 0 and zeroed by every transition. `[measured]` UNSIGNED: the state-3
+	// test is a `jbe`. In state 1 it is also the cel timer, reset to 0 on every
+	// tick [sigma_cel_interval_mask] lets through rather than only on the state
+	// change; in state 4 it is incremented and never read.
+	uint8_t state_frame;
+
+	// `[measured]` SIGNED, from the `jle`/`jge` pair each is bounds-checked
+	// with at the spawn.
+	screen_x_t center_x;
+	screen_y_t center_y;
+
+	// Where this slot's disc stops growing, written verbatim from the spawn's
+	// third argument -- so it is per-blast rather than a property of the pool,
+	// and the eight call sites pass three different values.
+	//
+	// `[measured]` THEN REUSED: on the frame state 3 ends, the radius actually
+	// reached is written back over it, and state 4 draws the annulus between
+	// that and [radius] instead. Nothing reads the cap again after that frame.
+	int radius_max;
+
+	// The telegraph's cel, blitted straight through super_put_rect() as a
+	// [super_patnum] and stepped from SIGMA_BLAST_CEL_FIRST once per cel tick.
+	// `[measured]` UNSIGNED: read as `mov al` + `mov ah, 0`, and the test that
+	// ends the telegraph is a `jb`.
+	uint8_t patnum;
+
+	// The radius of the circle drawn THIS frame -- the shrinking outline in
+	// state 1, the growing disc in state 3 and the growing hole in state 4.
+	// `[measured]` UNSIGNED, on the same widening shape.
+	uint8_t radius;
+};
+
+// Instruction-derived, and pinned by the walkers rather than by the 160-byte
+// `db` the dump reserves: all three functions below stride the pool with
+// `add word ptr [bp-4], 0Ah` and bound it with `cmp .., 10h` + `jl`.
+static const int SIGMA_BLAST_COUNT = 16;
+
+// `[measured]` Exclusive to the three functions below, which held every
+// reference the dump had to this address -- all three of them the `offset` a far
+// walk pointer is seeded from -- so IDA's placeholder is RETIRED here rather
+// than aliased. `near` for the same reason [shots] is: the pool lives in the
+// root dump's _BSS, i.e. in DGROUP, and the far pointer each walk keeps is built
+// from DS plus this offset.
+extern "C" sigma_blast_t near sigma_blasts[SIGMA_BLAST_COUNT];
+
+// The bounds sigma_blasts_add() rejects a spawn outside, tested against the
+// blast's CENTRE. `[measured]` Neither is a playfield edge -- PLAYFIELD_RIGHT
+// is 416 and PLAYFIELD_BOTTOM is 384 -- so both sit out in the margin
+// master.lib's unclipped blitters wrap around in: 4 pixels inside the 448 that
+// th02/main/playfld.hpp's own comment names as the first unusable column, and
+// exactly RES_Y on the other axis. Spelled as the literals they are, because
+// nothing in the function corroborates either relation.
+static const screen_x_t SIGMA_BLAST_X_MAX = 444;
+static const screen_y_t SIGMA_BLAST_Y_MAX = 400;
+
+// The 8 cels of the telegraph sprite, and the past-the-end value the pool
+// actually tests against.
+static const uint8_t SIGMA_BLAST_CEL_FIRST = 0x1A;
+static const uint8_t SIGMA_BLAST_CEL_PAST_LAST = 0x22;
+
+// And its extent, which the pool only ever needs as a half, so that a blast
+// stored by its centre can be blitted from a top-left corner.
+static const pixel_t SIGMA_BLAST_CEL_W = 32;
+static const pixel_t SIGMA_BLAST_CEL_H = 32;
+
+// The white outline circle drawn over the telegraph, which shrinks by the
+// second of these on every cel tick -- so 8 ticks take it to 0, exactly the 8
+// cels above.
 //
-// **RETURNS `true` WHEN THE REQUEST WAS REJECTED**, for either reason -- the
-// point outside `0 < x < 444` and `0 < y < 400`, or every record already in use.
-// That inverts the polarity every other `bool16` in this tree uses, and the
-// project's habit is to carry such an inversion in the doc comment rather than
-// in the name (midboss3_invalidate() does the same thing in this same binary),
-// which is why this sentence is shouting instead of the identifier. Seven of the
-// eight call sites ignore the value; sigma_16421 is the one that reads it, and
-// restarts its pattern when both of its two spawns are refused.
-//
-// Plural pool noun plus `_add`, which is the house shape by sixteen precedents
-// to one: bullets_add_pellet, items_add, lasers_add, sparks_add, enemies_add,
-// b4balls_add, swords_add, cheetos_add. (`shot_add` is the lone singular, and
-// `_spawn` is never a verb in this tree.)
-//
-// `pascal`, which is not a style choice but what the original's `retn 6` says,
-// and therefore what its new alias in the dump has to publish: Borland decorates
-// a `pascal` `extern "C"` name in UPPER CASE with no leading underscore, so the
-// dump grew `public SIGMA_BLASTS_ADD`; the lower-case underscore-prefixed form
-// every other alias in that dump uses would not have resolved
-// (kb/codegen/0086, kb/codegen/0027; `public MPN_PUT_8` in th04_main.asm and
-// `public MPN_FREE` in th05_main.asm are the in-tree idiom).
-//
-// [radius_max] is written verbatim into the record and is where each pattern's
-// blast stops growing -- see SIGMA_BLAST_RADIUS_MAX below for why it is an
-// argument rather than a constant.
-extern "C" bool16 pascal near sigma_blasts_add(
-	screen_x_t x, screen_y_t y, int radius_max
-);
-/// -------------------------------------------------
+// NEGATIVE, and `int`, and both halves of that are kb/codegen/0094: the
+// original steps the radius through the AL round trip, which a `uint8_t` addend
+// would have folded into a single add-to-memory, and it does so by ADDING a
+// negative immediate rather than by subtracting a positive one, which is two
+// different encodings of the same arithmetic.
+static const uint8_t SIGMA_BLAST_TELEGRAPH_RADIUS = 64;
+static const int SIGMA_BLAST_TELEGRAPH_RADIUS_STEP = -8;
+
+// What the disc grows by on every frame it is drawn -- in state 4 as well as in
+// state 3, where it is the hole that grows instead. `int` for the same
+// kb/codegen/0094 reason as the step above.
+static const int SIGMA_BLAST_RADIUS_STEP = 16;
+
+// How long state 3 lasts. `[measured]` The test is `>` on an unsigned byte, so
+// the disc is lethal for 33 frames rather than 32.
+static const uint8_t SIGMA_BLAST_EXPAND_FRAMES = 32;
+
+// Where the collapsing hole starts, i.e. the inner radius of the annulus on its
+// first frame.
+static const uint8_t SIGMA_BLAST_COLLAPSE_RADIUS = 8;
+
+// The player's box as the POOL tests it, and it is 32x32. `[measured]` The x
+// extent is PLAYER_W, but the y extent is NOT PLAYER_H, which is 48 -- ZUN quirk,
+// and one number rather than two, so it is named once and used on both axes. The
+// lethal window is therefore a third shorter than the player it is tested
+// against, and it is subtracted from the right/bottom bound because
+// [player_left_on_page] and [player_top_on_page] are the player's top-LEFT
+// corner rather than her centre.
+static const pixel_t SIGMA_BLAST_PLAYER_EXTENT = 32;
+
+// The SE the spawn plays, and the one the telegraph's last cel plays as the
+// blast arms itself.
+static const int SIGMA_BLAST_SPAWN_SE = 9;
+static const int SIGMA_BLAST_ARMED_SE = 3;
+/// ------------------------------------
+
+/// Her own hitboxes, and the cel that says she was hit
+/// --------------------------------------------------
+// The box she takes shot damage in, from [boss_left_on_back_page] /
+// [boss_top_on_back_page] rather than from [sigma_topleft]. `[measured]` It is
+// not centred on her 128x64 sprite and it is not centred on [sigma_center_x] /
+// [sigma_center_y] either: 36 + (56 / 2) is 64, so it IS horizontally centred on
+// her, while 32 + (32 / 2) is 48, which is 16 pixels below her bottom edge.
+// Same spelling as MIMA_SHOTS_HITBOX_LEFT and its three siblings
+// (th02/main/boss/b5m.cpp), which is the same box one boss earlier.
+static const pixel_t SIGMA_SHOTS_HITBOX_LEFT = 36;
+static const pixel_t SIGMA_SHOTS_HITBOX_TOP = 32;
+static const pixel_t SIGMA_SHOTS_HITBOX_W = 56;
+static const pixel_t SIGMA_SHOTS_HITBOX_H = 32;
+
+// The cel pair she is blitted at for one frame after a shot connects. Her cels
+// go in pairs, because sigma_put() blits two of them side by side: 128 is her at
+// rest, 132 is the charge flicker her phase 3 and phase 7 patterns alternate
+// into, this is the hit flash, and SIGMA_DEFEAT_PATNUM is 134.
+static const int SIGMA_HIT_PATNUM = 130;
+/// --------------------------------------------------
 
 /// Constants her patterns share
 /// ----------------------------
@@ -577,9 +675,9 @@ extern "C" bool16 pascal near sigma_blasts_add(
 static const int SIGMA_MOVE_HOLD_FRAMES = 50;
 
 // The radius most of her patterns cap their blasts at. `[measured]` NOT a
-// property of the pool: sigma_155C5's third argument is written straight into
-// the record and its eight call sites pass three different values -- 0x40 from
-// sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
+// property of the pool: sigma_blasts_add()'s third argument is written straight
+// into the slot, and its eight call sites pass three different values -- 0x40
+// from sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
 static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
 
 // What sigma_15F95() and sigma_16421() inset the blast hitbox by while they
@@ -594,6 +692,306 @@ static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// The pool itself, her hittest wrapper, and the background renderer that ended
+/// th02_main.asm's BOSS_5_TEXT contribution
+/// ----------------------------------------------------------------------------
+
+// Bounds-checks the point, takes the first free slot, seeds it into its
+// telegraph and plays the spawn SE.
+//
+// **RETURNS `true` WHEN THE REQUEST WAS REJECTED**, for either reason -- the
+// centre outside the two bounds above, or every slot already in use. That
+// inverts the polarity every other `bool16` in this tree uses, and the project's
+// habit is to carry such an inversion in the doc comment rather than in the name
+// (midboss3_invalidate() does the same thing in this same binary), which is why
+// this sentence is shouting instead of the identifier. Seven of the eight call
+// sites ignore the value; sigma_16421() is the one that reads it, and restarts
+// its pattern when both of its two spawns are refused.
+//
+// Plural pool noun plus `_add`, which is the house shape by sixteen precedents
+// to one: bullets_add_pellet, items_add, lasers_add, sparks_add, enemies_add,
+// b4balls_add, swords_add, cheetos_add. (`shot_add` is the lone singular, and
+// `_spawn` is never a verb in this tree.)
+//
+// `pascal`, which is not a style choice but what the original's `retn 6` says.
+// Until this lift the dump reached it through a kb/codegen/0123 alias published
+// in UPPER CASE with no leading underscore, because that is how Borland
+// decorates a `pascal` `extern "C"` name (kb/codegen/0086, kb/codegen/0027);
+// the lower-case underscore-prefixed form every other alias in that dump used
+// would not have resolved. That alias left the dump with this body, so nothing
+// publishes the upper-case spelling any more and the two live together nowhere.
+extern "C" bool16 pascal near sigma_blasts_add(
+	screen_x_t x, screen_y_t y, int radius_max
+)
+{
+	sigma_blast_t far *blast = sigma_blasts;
+	register int i;
+
+	if(
+		(x > 0) && (x < SIGMA_BLAST_X_MAX) &&
+		(y > 0) && (y < SIGMA_BLAST_Y_MAX)
+	) {
+		for(i = 0; i < SIGMA_BLAST_COUNT; i++, blast++) {
+			// `continue` rather than wrapping the seed below in the positive
+			// test, and it is worth 3 of this body's 0x80 bytes: a new
+			// statement after the `if` makes Turbo C++ re-`les` the walk
+			// pointer it already has in ES:BX, and the positive form reuses it.
+			// sigma_blasts_update_and_render() below opens its loop with the
+			// same idiom and shows the same reload.
+			if(blast->state != SIGMA_BLAST_FREE) {
+				continue;
+			}
+			blast->state = SIGMA_BLAST_TELEGRAPH;
+			blast->state_frame = 0;
+			blast->center_x = x;
+			blast->center_y = y;
+			blast->radius_max = radius_max;
+			blast->patnum = SIGMA_BLAST_CEL_FIRST;
+			blast->radius = SIGMA_BLAST_TELEGRAPH_RADIUS;
+			snd_se_play(SIGMA_BLAST_SPAWN_SE);
+			return false;
+		}
+	}
+	return true;
+}
+
+// Releases every blast that finished its telegraph into its lethal expansion,
+// i.e. state 2 -> state 3, and does nothing else at all.
+//
+// `_activate` after hitbox_orb_activate() (th01/main/boss/entity_a.hpp) and
+// tiles_activate() (th04/main/tile/tile.cpp), which is this tree's verb for
+// making an already-existing thing live. Nothing here spawns, moves or draws.
+//
+// `static`: sigma_bg_render() below is its only caller and the dump never
+// published it, so this is sigma_move_weave()'s and sigma_move_sweep()'s
+// situation rather than a kb/codegen/0123 alias's.
+static void near sigma_blasts_activate(void)
+{
+	int i;
+	sigma_blast_t far *blast = sigma_blasts;
+
+	for(i = 0; i < SIGMA_BLAST_COUNT; i++, blast++) {
+		if(blast->state == SIGMA_BLAST_ACTIVATING) {
+			blast->state++;
+		}
+	}
+}
+
+// The pool's entire per-frame everything: the state machine, all four of its
+// render passes and the player hittest. Called once per frame from the bottom of
+// sigma_update(), i.e. from the boss_update_func side of the frame rather than
+// from the background renderer.
+//
+// `[measured]` THE TWO DISC PASSES ARE PAGE-GATED AND THE HITTEST IS NOT. Both
+// are gated on `page_back == (i & 1)`, so an even slot only draws and only grows
+// on even pages and an odd slot only on odd ones -- which halves every disc's
+// effective growth rate against the 16 pixels per drawn frame below. The
+// hittest runs on every frame, for every expanding slot.
+extern "C" void near sigma_blasts_update_and_render(void)
+{
+	register int i;
+	sigma_blast_t far *blast = sigma_blasts;
+
+	for(i = 0; i < SIGMA_BLAST_COUNT; i++, blast++) {
+		if(blast->state == SIGMA_BLAST_FREE) {
+			continue;
+		}
+		blast->state_frame++;
+		if(blast->state == SIGMA_BLAST_TELEGRAPH) {
+			if((blast->state_frame & sigma_cel_interval_mask) == 0) {
+				blast->patnum++;
+				if(blast->patnum >= SIGMA_BLAST_CEL_PAST_LAST) {
+					blast->state++;
+					snd_se_play(SIGMA_BLAST_ARMED_SE);
+				}
+				blast->state_frame = 0;
+				blast->radius += SIGMA_BLAST_TELEGRAPH_RADIUS_STEP;
+				grcg_setcolor(GC_RMW, V_WHITE);
+				grcg_circle(blast->center_x, blast->center_y, blast->radius);
+				grcg_off();
+			}
+
+			// The second test on the same field, and it is load-bearing: the
+			// tick that promotes the blast to state 2 draws the outline circle
+			// above but NOT the sprite below, so the last of the eight cels is
+			// the one the player never sees.
+			if(blast->state == SIGMA_BLAST_TELEGRAPH) {
+				super_put_rect(
+					(blast->center_x - (SIGMA_BLAST_CEL_W / 2)),
+					(blast->center_y - (SIGMA_BLAST_CEL_H / 2)),
+					blast->patnum
+				);
+			}
+		} else if(blast->state == SIGMA_BLAST_EXPANDING) {
+			if(page_back == (i & 1)) {
+				grcg_setcolor(GC_RMW, V_WHITE);
+				grcg_circlefill(
+					blast->center_x, blast->center_y, blast->radius
+				);
+				grcg_off();
+				if(blast->radius < blast->radius_max) {
+					blast->radius += SIGMA_BLAST_RADIUS_STEP;
+				}
+			}
+			if(blast->state_frame > SIGMA_BLAST_EXPAND_FRAMES) {
+				blast->state++;
+				blast->state_frame = 0;
+				blast->radius_max = blast->radius;
+				blast->radius = SIGMA_BLAST_COLLAPSE_RADIUS;
+			}
+			if(
+				(
+					((blast->center_x - blast->radius) +
+					sigma_blast_hitbox_margin) <
+					player_left_on_page[page_front]
+				) && (
+					((blast->center_x + blast->radius) -
+					sigma_blast_hitbox_margin - SIGMA_BLAST_PLAYER_EXTENT) >
+					player_left_on_page[page_front]
+				) && (
+					((blast->center_y - blast->radius) +
+					sigma_blast_hitbox_margin) <
+					player_top_on_page[page_front]
+				) && (
+					((blast->center_y + blast->radius) -
+					sigma_blast_hitbox_margin - SIGMA_BLAST_PLAYER_EXTENT) >
+					player_top_on_page[page_front]
+				)
+			) {
+				player_is_hit = PLAYER_HIT;
+			}
+		} else if(blast->state == SIGMA_BLAST_COLLAPSING) {
+			if(page_back == (i & 1)) {
+				grcg_setcolor(GC_RMW, V_WHITE);
+				grcg_circlefill(
+					blast->center_x, blast->center_y, blast->radius_max
+				);
+				grcg_off();
+				grcg_setcolor(GC_RMW, 0);
+				grcg_circlefill(
+					blast->center_x, blast->center_y, blast->radius
+				);
+				grcg_off();
+				if(blast->radius >= blast->radius_max) {
+					blast->state = SIGMA_BLAST_FREE;
+				} else {
+					blast->radius += SIGMA_BLAST_RADIUS_STEP;
+				}
+			}
+		}
+	}
+}
+
+/// Sigma herself
+/// -------------
+
+// Blits her as her two side-by-side 64-pixel-wide cels, at [patnum_2064E] and
+// [patnum_2064E] + 1, from [sigma_topleft]. It carries no state of its own.
+//
+// `[measured 2026-08-22]` Eight call sites, and not one of them is a pattern:
+// one in sigma_hittest_and_put() below, SIX inside sigma_15A25() -- which blits
+// her at three different cels through three of its stages -- and one in
+// sigma_init().
+extern "C" void near sigma_put(void)
+{
+	super_put_rect(sigma_topleft.x, sigma_topleft.y, patnum_2064E);
+	super_put_rect(
+		(sigma_topleft.x + (SIGMA_W / 2)), sigma_topleft.y, (patnum_2064E + 1)
+	);
+}
+
+// Her damage, her body-vs-player collision and her blit, in that order, and the
+// hit flash is why the three are one function: the flash is applied by
+// overwriting [patnum_2064E], which every other renderer in the binary also
+// reads, so it has to be put back before the frame ends. Saving it here and
+// restoring it after the blit is what keeps the flash to one frame and to her
+// alone.
+//
+// mima_17C92() (th02/main/boss/b5m.cpp) and marisa_1AA60() (b4.cpp) are the same
+// function against different constants one and two bosses earlier, including the
+// assign-and-test in one expression that keeps [damage] on the frame
+// (kb/codegen/0143). Both of those keep the dump's address-suffixed spelling
+// because their parcels did not read them; this one is named because this parcel
+// did, which is the same ground sigma_put() above was renamed on. Naming those
+// two is theirs to do.
+//
+// `[measured]` Sigma has no defeat test of her own here -- unlike Mima, whose
+// twin raises [boss_phase] and pays out the score inside it. Her phase 9 arm in
+// sigma_update() does that instead, which is why she can only be killed while
+// her last pattern group is running.
+extern "C" void near sigma_hittest_and_put(void)
+{
+	// [damage] FIRST, and it is worth 3 bytes across this body's three
+	// references to the other one: Turbo C++ 4.02 gives the first local
+	// declared the slot CLOSEST to BP, so the original's [bp-4] for the saved
+	// cel and [bp-2] for the damage means the damage is declared above it.
+	// Nothing else in the function depends on the order, and the frame is
+	// `sub sp, 4` either way, so this is invisible outside the object.
+	int damage;
+	int patnum_prev;
+
+	patnum_prev = patnum_2064E;
+	if(boss_phase == 0) {
+		if((damage = shots_hittest(
+			(*boss_left_on_back_page + SIGMA_SHOTS_HITBOX_LEFT),
+			(*boss_top_on_back_page + SIGMA_SHOTS_HITBOX_TOP),
+			SIGMA_SHOTS_HITBOX_W,
+			SIGMA_SHOTS_HITBOX_H
+		)) != 0) {
+			patnum_2064E = SIGMA_HIT_PATNUM;
+			boss_damage += damage;
+		}
+		if(
+			(player_left_on_page[page_front] > (sigma_topleft.x + 8)) &&
+			(player_left_on_page[page_front] < (sigma_topleft.x + 88)) &&
+			(player_top_on_page[page_front] > sigma_topleft.y) &&
+			(player_top_on_page[page_front] < (sigma_topleft.y + SIGMA_H))
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+	}
+	sigma_put();
+	patnum_2064E = patnum_prev;
+}
+
+/// Installed as [boss_bg_render_func] by stage_init()
+/// (th02/main/stage/init.cpp), which is why it is `far` -- and it was the LAST
+/// thing th02_main.asm contributed to BOSS_5_TEXT, so the root dump's final
+/// instruction used to be this function's `retf`.
+///
+/// Sigma's background is nothing: she is fought over a black playfield with no
+/// tiles and no dot-square ring of her own, so this re-points the two back-page
+/// position pointers, carries the front page's position forward into them, fills
+/// the whole playfield black, and then runs the blast pool's state-2 handshake.
+/// marisa_bg_render() (th02/main/boss/b4.cpp) and mima_bg_render() (b5m.cpp) are
+/// the same four steps plus their own effects.
+extern "C" void far sigma_bg_render(void)
+{
+	// ZUN bloat: Assigned once, then never read -- and the only reason this
+	// function has a stack frame at all. The value happens to equal the pool's
+	// SIGMA_BLAST_COLLAPSE_RADIUS, and nothing in the function corroborates
+	// that, so it is spelled as the literal it is.
+	// th02/main/player/invalidate.cpp's player_invalidate() carries the same
+	// write-only local, documented the same way.
+	int unused = 8;
+
+	boss_left_on_back_page = &boss_left_on_page[page_back];
+	boss_top_on_back_page = &boss_top_on_page[page_back];
+	*boss_left_on_back_page = boss_left_on_page[page_front];
+	*boss_top_on_back_page = boss_top_on_page[page_front];
+	egc_off();
+	grcg_setcolor(GC_RMW, 0);
+	grcg_byteboxfill_x(
+		PLAYFIELD_VRAM_LEFT,
+		PLAYFIELD_TOP,
+		(PLAYFIELD_VRAM_RIGHT - 1),
+		(PLAYFIELD_BOTTOM - 1)
+	);
+	grcg_off();
+	sigma_blasts_activate();
+}
+/// ----------------------------------------------------------------------------
 
 /// Her defeat animation
 /// --------------------
@@ -1591,7 +1989,7 @@ extern "C" void near sigma_1619C(void)
 //
 // SCREAMING_CASE because it is const data, which is how _GAME_CLEAR_CONSTANTS
 // and _EXTRA_CLEAR_FLAGS are already published in that same _DATA block, four
-// labels above this one. sigma_1619C, still ASM one proc up, fires the same five
+// labels above this one. sigma_1619C(), one proc up, fires the same five
 // offsets from five separate immediates rather than from this table.
 static const int SIGMA_LASER_COUNT = 5;
 
@@ -1608,9 +2006,11 @@ extern "C" int8_t sigma_laser_i;
 // The frame the muzzle walk is re-armed on, before the first volley.
 //
 // `[measured]` 100 is also SIGMA_STREAM_AIM_FRAME (phase 7) and the setup frame
-// of sigma_15F95 and sigma_1619C, so four of her patterns share the number --
-// but folding them into one constant is a ruling over five call sites and three
-// of them are still ASM. Made once, when the last of those lands here.
+// of sigma_15F95() and sigma_1619C(), so four of her patterns share the number.
+// Folding them into one constant is a ruling over five call sites, and this
+// comment said three of those were still ASM -- `[measured 2026-08-22]` all five
+// are in this file now, so the fold is a decision a naming parcel can take
+// against nothing but this object.
 static const int SIGMA_LASER_ARM_FRAME = 100;
 
 // The six frames the two volleys fire on, and the counts are not laid out the
@@ -1762,9 +2162,9 @@ laser_2_and_rearm:
 
 /// Phase 7's two patterns
 /// ----------------------
-/// [sigma_phase] 7's group. Both open by delegating to sigma_move_weave(), the
-/// still-ASM helper above, and doing nothing until it says her entrance hold is
-/// over.
+/// [sigma_phase] 7's group. Both open by delegating to sigma_move_weave() --
+/// the `static` helper in phase 1's block above -- and doing nothing until it
+/// says her entrance hold is over.
 
 // The frame sigma_16421() aims its streams on, and the length of the step it
 // aims with.
@@ -2275,10 +2675,10 @@ run_two_patterns:
 		// have moved her.
 		sigma_topleft.x = *boss_left_on_back_page;
 		sigma_topleft.y = *boss_top_on_back_page;
-		sigma_15907();
+		sigma_hittest_and_put();
 		sigma_frame++;
 	}
-	sigma_1566F();
+	sigma_blasts_update_and_render();
 	return SP_BOSS;
 }
 

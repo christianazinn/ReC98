@@ -4376,500 +4376,16 @@ loc_155C0:
 @midbossx_update_and_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; UPPER CASE and no leading underscore because this proc is `pascal`, which
-; is what its `retn 6` says: Borland decorates a `pascal` name that way, so a
-; `_sigma_blasts_add` alias would not resolve (kb/codegen/0086, kb/codegen/0027).
-; Zero bytes, like every kb/codegen/0123 alias; the dump's own eight call sites
-; keep using the bare name.
-public SIGMA_BLASTS_ADD
-SIGMA_BLASTS_ADD label near
-sigma_155C5	proc near
-
-var_4		= dword	ptr -4
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= word ptr  8
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	di, [bp+arg_4]
-		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], offset byte_254EC
-		or	di, di
-		jle	short loc_1563C
-		cmp	di, 444
-		jge	short loc_1563C
-		cmp	[bp+arg_2], 0
-		jle	short loc_1563C
-		cmp	[bp+arg_2], 400
-		jge	short loc_1563C
-		xor	si, si
-		jmp	short loc_15637
-; ---------------------------------------------------------------------------
-
-loc_155F3:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 0
-		jnz	short loc_15632
-		les	bx, [bp+var_4]
-		mov	byte ptr es:[bx], 1
-		mov	byte ptr es:[bx+1], 0
-		mov	es:[bx+2], di
-		mov	ax, [bp+arg_2]
-		mov	es:[bx+4], ax
-		mov	ax, [bp+arg_0]
-		mov	es:[bx+6], ax
-		mov	byte ptr es:[bx+8], 1Ah
-		mov	byte ptr es:[bx+9], 40h
-		call	_snd_se_play c, 9
-		xor	ax, ax
-		jmp	short loc_1563F
-; ---------------------------------------------------------------------------
-
-loc_15632:
-		inc	si
-		add	word ptr [bp+var_4], 0Ah
-
-loc_15637:
-		cmp	si, 10h
-		jl	short loc_155F3
-
-loc_1563C:
-		mov	ax, 1
-
-loc_1563F:
-		pop	di
-		pop	si
-		leave
-		retn	6
-sigma_155C5	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sigma_15645	proc near
-
-var_4		= dword	ptr -4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], offset byte_254EC
-		xor	ax, ax
-		jmp	short loc_15668
-; ---------------------------------------------------------------------------
-
-loc_15657:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 2
-		jnz	short loc_15663
-		inc	byte ptr es:[bx]
-
-loc_15663:
-		inc	ax
-		add	word ptr [bp+var_4], 0Ah
-
-loc_15668:
-		cmp	ax, 10h
-		jl	short loc_15657
-		leave
-		retn
-sigma_15645	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_1566F
-_sigma_1566F label near
-sigma_1566F	proc near
-
-var_4		= dword	ptr -4
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		mov	word ptr [bp+var_4+2], ds
-		mov	word ptr [bp+var_4], offset byte_254EC
-		xor	si, si
-		jmp	loc_158D2
-; ---------------------------------------------------------------------------
-
-loc_15683:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 0
-		jz	loc_158CD
-		les	bx, [bp+var_4]
-		inc	byte ptr es:[bx+1]
-		cmp	byte ptr es:[bx], 1
-		jnz	loc_15721
-		mov	al, byte_2558C
-		test	es:[bx+1], al
-		jnz	short loc_156F7
-		inc	byte ptr es:[bx+8]
-		cmp	byte ptr es:[bx+8], 22h	; '"'
-		jb	short loc_156BE
-		inc	byte ptr es:[bx]
-		call	_snd_se_play c, 3
-
-loc_156BE:
-		les	bx, [bp+var_4]
-		mov	byte ptr es:[bx+1], 0
-		mov	al, es:[bx+9]
-		add	al, -8
-		mov	es:[bx+9], al
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		les	bx, [bp+var_4]
-		push	word ptr es:[bx+2]
-		push	word ptr es:[bx+4]
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		push	ax
-		call	grcg_circle
-		call	grcg_off
-
-loc_156F7:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 1
-		jnz	loc_158CD
-		mov	ax, es:[bx+2]
-		add	ax, -16
-		push	ax
-		mov	ax, es:[bx+4]
-		add	ax, -16
-		push	ax
-		mov	al, es:[bx+8]
-		mov	ah, 0
-		push	ax
-		call	super_put_rect
-		jmp	loc_158CD
-; ---------------------------------------------------------------------------
-
-loc_15721:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 3
-		jnz	loc_15849
-		mov	al, _page_back
-		mov	ah, 0
-		mov	dx, si
-		and	dx, 1
-		cmp	ax, dx
-		jnz	short loc_1577A
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		les	bx, [bp+var_4]
-		push	word ptr es:[bx+2]
-		push	word ptr es:[bx+4]
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		push	ax
-		call	grcg_circlefill
-		call	grcg_off
-		les	bx, [bp+var_4]
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		cmp	ax, es:[bx+6]
-		jge	short loc_1577A
-		mov	al, es:[bx+9]
-		add	al, 10h
-		mov	es:[bx+9], al
-
-loc_1577A:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx+1], 20h	; ' '
-		jbe	short loc_1579B
-		inc	byte ptr es:[bx]
-		mov	byte ptr es:[bx+1], 0
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		mov	es:[bx+6], ax
-		mov	byte ptr es:[bx+9], 8
-
-loc_1579B:
-		les	bx, [bp+var_4]
-		mov	ax, es:[bx+2]
-		mov	dl, es:[bx+9]
-		mov	dh, 0
-		sub	ax, dx
-		push	ax
-		mov	al, byte_2558D
-		cbw
-		pop	dx
-		add	dx, ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	dx, _player_left_on_page[bx]
-		jge	loc_158CD
-		mov	bx, word ptr [bp+var_4]
-		mov	ax, es:[bx+2]
-		mov	dl, es:[bx+9]
-		mov	dh, 0
-		add	ax, dx
-		push	ax
-		mov	al, byte_2558D
-		cbw
-		pop	dx
-		sub	dx, ax
-		add	dx, 0FFE0h
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	dx, _player_left_on_page[bx]
-		jle	loc_158CD
-		mov	bx, word ptr [bp+var_4]
-		mov	ax, es:[bx+4]
-		mov	dl, es:[bx+9]
-		mov	dh, 0
-		sub	ax, dx
-		push	ax
-		mov	al, byte_2558D
-		cbw
-		pop	dx
-		add	dx, ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	dx, _player_top_on_page[bx]
-		jge	loc_158CD
-		mov	bx, word ptr [bp+var_4]
-		mov	ax, es:[bx+4]
-		mov	dl, es:[bx+9]
-		mov	dh, 0
-		add	ax, dx
-		push	ax
-		mov	al, byte_2558D
-		cbw
-		pop	dx
-		sub	dx, ax
-		add	dx, 0FFE0h
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	dx, _player_top_on_page[bx]
-		jle	loc_158CD
-		mov	_player_is_hit, 1
-		jmp	loc_158CD
-; ---------------------------------------------------------------------------
-
-loc_15849:
-		les	bx, [bp+var_4]
-		cmp	byte ptr es:[bx], 4
-		jnz	short loc_158CD
-		mov	al, _page_back
-		mov	ah, 0
-		mov	dx, si
-		and	dx, 1
-		cmp	ax, dx
-		jnz	short loc_158CD
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		les	bx, [bp+var_4]
-		call	grcg_circlefill pascal, word ptr es:[bx+2], word ptr es:[bx+4], word ptr es:[bx+6]
-		call	grcg_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		les	bx, [bp+var_4]
-		push	word ptr es:[bx+2]
-		push	word ptr es:[bx+4]
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		push	ax
-		call	grcg_circlefill
-		call	grcg_off
-		les	bx, [bp+var_4]
-		mov	al, es:[bx+9]
-		mov	ah, 0
-		cmp	ax, es:[bx+6]
-		jl	short loc_158C0
-		mov	byte ptr es:[bx], 0
-		jmp	short loc_158CD
-; ---------------------------------------------------------------------------
-
-loc_158C0:
-		les	bx, [bp+var_4]
-		mov	al, es:[bx+9]
-		add	al, 10h
-		mov	es:[bx+9], al
-
-loc_158CD:
-		inc	si
-		add	word ptr [bp+var_4], 0Ah
-
-loc_158D2:
-		cmp	si, 10h
-		jl	loc_15683
-		pop	si
-		leave
-		retn
-sigma_1566F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_put
-_sigma_put label near
-sigma_158DC	proc near
-		push	bp
-		mov	bp, sp
-		call	super_put_rect pascal, point_254E6.x, point_254E6.y, patnum_2064E
-		mov	ax, point_254E6.x
-		add	ax, 64
-		push	ax
-		push	point_254E6.y
-		mov	ax, patnum_2064E
-		inc	ax
-		push	ax
-		call	super_put_rect
-		pop	bp
-		retn
-sigma_158DC	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15907
-_sigma_15907 label near
-sigma_15907	proc near
-
-@@patnum		= word ptr -4
-@@damage		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		mov	ax, patnum_2064E
-		mov	[bp+@@patnum], ax
-		cmp	byte_2066A, 0
-		jnz	loc_159A4
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 36
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax
-		push	380020h
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+@@damage], ax
-		or	ax, ax
-		jz	short loc_1594A
-		mov	patnum_2064E, 130
-		add	_boss_damage, ax
-
-loc_1594A:
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_254E6.x
-		add	dx, 8
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jle	short loc_159A4
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_254E6.x
-		add	dx, 88
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jge	short loc_159A4
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_top_on_page[bx]
-		cmp	ax, point_254E6.y
-		jle	short loc_159A4
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dx, point_254E6.y
-		add	dx, 64
-		mov	bx, ax
-		cmp	_player_top_on_page[bx], dx
-		jge	short loc_159A4
-		mov	_player_is_hit, 1
-
-loc_159A4:
-		call	sigma_158DC
-		mov	ax, [bp+@@patnum]
-		mov	patnum_2064E, ax
-		leave
-		retn
-sigma_15907	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_bg_render
-_sigma_bg_render label far
-sigma_bg_render	proc far
-
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		mov	[bp+var_2], 8
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		call	egc_off
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_byteboxfill_x pascal, (PLAYFIELD_VRAM_LEFT shl 16) or PLAYFIELD_TOP, ((PLAYFIELD_VRAM_RIGHT - 1) shl 16) or PLAYFIELD_BOTTOM - 1
-		call	grcg_off
-		call	sigma_15645
-		leave
-		retf
-sigma_bg_render	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_15A25()
+;   th02/main/boss/b6.cpp       sigma_blasts_add()
+;                               sigma_blasts_activate()  [static]
+;                               sigma_blasts_update_and_render()
+;                               sigma_put()
+;                               sigma_hittest_and_put()
+;                               sigma_bg_render()
+;                               sigma_15A25()
 ;                               sigma_15D56()
 ;                               sigma_15E84()
 ;                               sigma_move_weave()  [static]
@@ -4907,8 +4423,19 @@ sigma_bg_render	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_bg_render(), and the first
-; those objects picks the segment up from the byte after that proc's `retf`.
+; SIGMA IS GONE FROM THIS DUMP ENTIRELY. Every proc of hers - the blast pool
+; and its spawn, her hittest wrapper, her background renderer, all twelve
+; patterns, both movement helpers, the pattern runner, the per-frame update,
+; the fight init and the defeat - is th02/main/boss/b6.cpp now, and so is her
+; whole _BSS block: no `sigma_*` name in the data section below is an IDA
+; placeholder or a kb/codegen/0123 alias any more.
+;
+; SO THE TAIL OF THIS BLOCK IS @midbossx_update_and_render$qv, and it is still
+; a `proc` at the very end of the root's contribution with a non-empty C++
+; object immediately behind it - i.e. still FREE by both of
+; tools/pi-audit/carve_free_tails.py's tests, and still a plain
+; kb/codegen/0099 prepend into b6.cpp's head. Then Meira, Rika and the other
+; two midbosses, in that order back up the block.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
 ; contribution), NEVER from whichever proc a sentence like this one happens
@@ -4928,51 +4455,37 @@ sigma_bg_render	endp
 ; object. Grade a generated table's alignment on obj_probe.py against the OBJ,
 ; never on the -S listing.
 ;
-; THAT PARITY IS WHY THE TAIL CHAIN IS LIFTED IN EVEN-SIZED GROUPS, and it is
-; the first thing to cost for the next lift out of this block -- before the
-; body, before the naming, before anything. Two parcels have taken it: six
-; bodies summing to 0x20C, then enemies_reset() 0x1F plus nullfunc_void_2 5
-; = 0x24. NEITHER of that second pair is even on its own, so neither could
-; have gone alone, and the running sums of the first six were 0xA2, 0x12D,
-; 0x19A, 0x1B9, 0x1EF, 0x20C -- only the 1st, 3rd and 6th admissible.
+; THAT EVEN-SIZED GROUPING RULE BELONGS TO update.cpp, NOT TO THIS SEGMENT,
+; and it is why th02/main/boss/b6.cpp exists as its own object at all. A
+; prepend into update.cpp has to keep that object's prefix parity; a NEW
+; object of exactly the length the root gives up has no parity to protect,
+; because every BOSS_5_TEXT contribution in obj/th02/main.map carries
+; ACBP=28, i.e. BYTE segment alignment, so TLINK inserts nothing between
+; contributions. `[measured 2026-08-22]` Seven lifts into b6.cpp have now
+; proved it: update.cpp still starts at 0FAC:6FA6 with its 0xF13 and
+; th02/boss_5.cpp still at 0FAC:7EB9 with its 0x203A, every time. Cost a new
+; object before you cost an even-sized group.
 ;
-; THAT EVEN-SIZED GROUPING RULE BELONGS TO THE HOST OBJECT, NOT TO THIS
-; SEGMENT, and Sigma is the measurement that separates the two. The ladder
-; from her end reads sigma_end() 0x45 ODD, +sigma_init() 0xB6 = 0xFB still
-; ODD, +sigma_update() 0x227 = 0x322 EVEN -- so the shallowest group that
-; could be PREPENDED into th02/main/enemy/update.cpp was all three, 802
-; bytes. sigma_end() was lifted ALONE anyway, into a NEW object
-; (th02/main/boss/b6.cpp) inserted ahead of update.cpp in the link list, and
-; the whole segment came out IDENTICAL. `[measured 2026-08-21]` A new object
-; of exactly the length the root gives up has no parity to protect: every
-; BOSS_5_TEXT contribution in obj/th02/main.map carries ACBP=28, i.e. BYTE
-; segment alignment, so TLINK inserts nothing between contributions and the
-; odd length this root now ends at costs nothing; update.cpp's own
-; object-local offsets never move, so the pad under enemy_run()'s tables is
-; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
-; Cost a new object before you cost an 802-byte group.
+; RE-DERIVE b6.obj's OWN SEGDEF LENGTHS BEFORE CHOOSING A DEPTH, and do it
+; from the OBJ rather than from this sentence (kb/codegen/0160). `[measured
+; 2026-08-22]` obj_probe.py on the built obj/th02/b6.obj reads
+; `0x14A1 0x0 0x0` after this lift and read `0x1041 0x0 0x0` before it: the
+; object contributes to _TEXT and to NOTHING else, so it emits no generated
+; table and has no alignment an odd prefix could move, and every depth is
+; admissible. FIVE lifts have re-derived that number and all five found a
+; different one, which is the whole point of re-deriving it.
 ;
-; sigma_bg_render() is the tail now, and IT IS THE FIRST FAR PROC TO HOLD THAT
-; POSITION IN THIS BLOCK: the root's last instruction is a `retf` rather than
-; a `retn`, because this one is installed into the boss_bg_render_func slot
-; and called through a pointer. Everything above it in her chain is C++ - all
-; twelve patterns, both movement helpers, the pattern runner, the per-frame
-; update, the fight init, the defeat animation and the defeat itself - and
-; what is left is the SUBSYSTEM rather than the fight: this renderer and the
-; helper it calls, the 16-slot expanding-blast pool at 0x254EC with its spawn
-; and its state-2 promoter, and her hittest wrapper. Then Meira, Rika and the
-; three midbosses.
-;
-; `[measured 2026-08-22]` A far tail is a different cost from a near one and
-; the difference is not in the body: whatever lifts it has to reproduce the
-; slot install as well, and kb/codegen/0049 is the entry for a callback whose
-; offset is pinned by the segment it sits in. Read that before costing it.
-; state/notes/sigma_update.md characterises all of them, holds their lengths,
-; and is the map for that naming round.
-;
-; TWENTY-TWO sigma_* procs were left here when sigma_update() landed, not
-; the eight its own close-out recorded. Count them with
-; `grep -c 'sigma_.*proc'` before costing a chain length off a handoff.
+; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
+; parity check can see. sigma_162D3() read its five muzzle offsets out of a
+; local-array initializer template at 1DA7:13AE, and that template had to STAY
+; in _DATA and be published instead of coming across with the body - see
+; _SIGMA_LASER_X_OFFSETS there for the measurement. Check the _DATA map rows
+; for a template before costing a body that indexes an array of constants.
+; `[measured 2026-08-22]` A `grep -cE 'offset |rep movsw'` over the six procs
+; this lift took returned nothing but the `offset` of the blast pool's own
+; _BSS storage below, which is a variable this dump reserves rather than an
+; initializer it emits - so Sigma's _DATA debt really was that one body, and
+; no later lift out of this block has to re-cost hers.
 ;
 ; TAKE A HELPER WITH ITS CALLERS WHEN YOU CAN, AND THE WHOLE ARC OF THAT RULE
 ; HAS NOW BEEN RUN END TO END HERE, so the next block to face it can cost it
@@ -4988,42 +4501,26 @@ sigma_bg_render	endp
 ;   so no group short of the whole run could take it. Phase 7, the first to
 ;   need it, published `_sigma_move_weave`; phases 5 and 3 then reached it for
 ;   FREE, spending nothing; and phase 1 pattern slot 2 - its last caller -
-;   lifted it along with itself and the alias left the dump with the body. It
-;   is a plain `static` in th02/main/boss/b6.cpp now, exactly like its twin.
+;   lifted it along with itself and the alias left the dump with the body.
+;
+;   The blast pool's own private helper is the third instance and the cheapest
+;   of the three: the dump never published it at all, its only caller was
+;   sigma_bg_render() one proc down, and this lift took both together - so it
+;   went across as a `static` and cost nothing, exactly like sigma_165A5.
 ;
 ; So the cost of a shared helper is ONE publish for the whole chain, charged
 ; to whichever group reaches it first and refunded by whichever group empties
 ; it. Cost the publishes, not the bytes, and never cost a helper twice.
 ;
-; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
-; parity check can see. sigma_162D3() read its five muzzle offsets out of a
-; local-array initializer template at 1DA7:13AE, and that template had to STAY
-; in _DATA and be published instead of coming across with the body - see
-; _SIGMA_LASER_X_OFFSETS there for the measurement. Check the _DATA map rows
-; for a template before costing a body that indexes an array of constants.
-; sigma_1619C(), lifted right after it, fires THE SAME FIVE OFFSETS from five
-; `add ax, imm` immediates and therefore owed nothing - so the two halves of
-; one phase differ on this and the dump does not show which is which until you
-; read where the numbers come from. state/notes/sigma_16555.md had the two
-; procs the wrong way round for a day on exactly this point.
-;
-; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
-; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0xD10 0x0 0x0 BEFORE
-; this lift and 0x1041 0x0 0x0 after it - the object emits no _DATA and no
-; _BSS at all, so it has no generated table and nothing whose alignment an
-; odd prefix could move. Every depth is admissible there, and the number in
-; this sentence is stale the moment the next body lands, which is the whole
-; point of re-deriving it. FOUR lifts have now re-derived it and all four
-; found a different number. The even-sized grouping rule above is
-; update.cpp's, and quoting it
-; at a b6.cpp lift is quoting a running sum of bodies already lifted into a
-; different object. Re-derive it from the HOST's own OBJ (kb/codegen/0160)
-; before choosing a depth, and read the body lengths off obj_probe.py.
-;
-; Lifting the previous two took back the `retf` that the enemy_run() parcel
-; had borrowed from sub_16D9B as a one-byte `#pragma codestring` to buy that
-; same parity, and nothing has needed one since.
+; A DATA SYMBOL'S ALIAS IS REFUNDED THE SAME WAY, and Sigma's _BSS block is
+; now the worked example for that half too. `[measured 2026-08-22]`
+; _sigma_topleft, _sigma_cel_interval_mask and _sigma_blast_hitbox_margin
+; were all kb/codegen/0123 label aliases in front of an IDA placeholder,
+; because more than one still-ASM proc touched each of them; this lift held
+; the last dump reference to all three, so all three collapsed into an
+; ordinary `public` on a renamed definition. An alias in this dump is
+; therefore always a statement about WHAT IS STILL ASM, never about the name,
+; and the last lift out of a chain gets every one of them back.
 ;
 ; th02/main/enemy/update.cpp IS ITS OWN OBJECT ON PURPOSE, and a later lift
 ; must not fold it into th02/boss_5.cpp to save a Tupfile.lua line. Its
@@ -6858,18 +6355,26 @@ public _sigma_center_y
 _sigma_center_y	label word
 top_253B8	dw ?
 byte_253BA	db 300 dup(?)
+; The three rows below were kb/codegen/0123 label aliases until the blast
+; pool, sigma_put() and sigma_hittest_and_put() left this dump; each of them
+; had more than one still-ASM proc on it, which is what an alias here always
+; means. That lift held the last dump reference to all three, so all three are
+; ordinary renames now.
 public _sigma_topleft
-_sigma_topleft	label word
-point_254E6	Point <?>
+_sigma_topleft	Point <?>
 byte_254EA	db ?
 		db ?
-byte_254EC	db 160 dup(?)
+; The 16-slot pool of expanding blasts, 10 bytes a slot. Both numbers come
+; from the walkers rather than from this declaration: they stride it with
+; `add word ptr [bp-4], 0Ah` and bound it with `cmp .., 10h` + `jl`. All three
+; of them are th02/main/boss/b6.cpp now, so nothing in this dump takes the
+; address any more.
+public _sigma_blasts
+_sigma_blasts	db 160 dup(?)
 public _sigma_cel_interval_mask
-_sigma_cel_interval_mask	label byte
-byte_2558C	db ?
+_sigma_cel_interval_mask	db ?
 public _sigma_blast_hitbox_margin
-_sigma_blast_hitbox_margin	label byte
-byte_2558D	db ?
+_sigma_blast_hitbox_margin	db ?
 ; Her defeat animation's whole state, and this lift took the last dump read of
 ; all five. How far the beam reaches to either side of her centre column, and
 ; then the four values frame 100 FREEZES out of it: the beam's two VRAM byte
