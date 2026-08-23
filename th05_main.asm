@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -2345,7 +2345,18 @@ SHOT_INV_TEXT	ends
 ; `byte` alignment also means kb/codegen/0111's even-parity question does
 ; not arise at all. This segment contains no `even`, so no
 ; `#pragma codestring` pad is needed either.
-main_01_TEXT	segment	byte public 'CODE' use16
+; kb/codegen/0080 carve: the head of this block is its own segment now, so
+; that a C++ object can append to it. sub_1240B() and shots_render() stay
+; here, in assembly; hitshot_from() -- everything after them, and the
+; whole of what used to be an `include` below -- is compiled from
+; th05/p_common.cpp into the end of this segment, at its original 12647h.
+;
+; The head is what gets the new name, because the TAIL has NINE C++
+; contributions behind it (th05/p_common.cpp through th05/main014.cpp) and
+; renaming that half would mean re-pointing and re-proving every one of
+; them. The two procs the tail keeps, @shots_hittest$qv and sub_12842, are
+; both blocked on one eight-byte clamp; nothing here touches them.
+HITSHOT_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2658,7 +2669,30 @@ public @SHOTS_RENDER$QV
 		retn
 @shots_render$qv	endp
 
-include th05/main/player/hitshot_from.asm
+	; hitshot_from() was the whole of th05/main/player/hitshot_from.asm,
+	; included here, and it is th05/p_common.cpp now -- in a
+	; `#pragma codeseg HITSHOT_TEXT main_01` block at the end of that file,
+	; so the lift costs no new translation unit and no Tupfile.lua line
+	; (kb/codegen/0155). It is 6Ch bytes at 12647h and reads as ordinary
+	; compiler output: a standard frame, a `[bp+4]` pascal parameter, SI and
+	; DI as register variables, and `retn 2`.
+	;
+	; Its two call sites are both BELOW this line, inside the two procs the
+	; carve leaves in main_01_TEXT, so the procdesc is a backward reference
+	; for both. The module published the undecorated uppercase name, and
+	; `extern "C"` plus `pascal` publishes exactly that from C++
+	; (kb/codegen 0086 + 0102), so neither call site changes.
+	;
+	; The `[bss]` sibling module, which publishes _hitshot_next_free_id,
+	; stays: nothing about a code lift moves a global.
+	HITSHOT_FROM procdesc pascal near shot:word
+
+HITSHOT_TEXT	ends
+
+; The tail of what used to be one main_01_TEXT block. Both procs in it are
+; blocked on the same eight-byte clamp (state/notes/sub_12842.md), and the
+; nine C++ contributions that follow them are untouched by the carve above.
+main_01_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
