@@ -1,13 +1,15 @@
-/// Extra Stage Boss - Yuuka: her seventeen patterns, and ending a phase
-/// -------------------------------------------------------------------
+/// Extra Stage Boss - Yuuka: her animations, her seventeen patterns, and
+/// ending a phase
+/// ---------------------------------------------------------------------
 /// (#included from th04/b6_next.cpp, which is its own object for the reason
 /// that file gives.)
 ///
-/// Everything here sat in main_034_TEXT between the `include` of
-/// th04/main/boss/b6_anim.asm and yuuka6_update(), in exactly this order. The
-/// two functions at the bottom came first, in the parcels that opened this
-/// object; the seventeen above them are the rest of the dump's contribution to
-/// that segment, and with them lifted the root's tail is the `include` again.
+/// Everything here sat in main_034_TEXT, in exactly this order, and this file
+/// is now that segment's ENTIRE contents: the root dump contributes nothing to
+/// it at all. The two functions at the bottom came first, in the parcels that
+/// opened this object; the seventeen above them are the rest of the dump's
+/// contribution below the animation module; the eight at the top are that
+/// module, which was the root's last remaining block.
 ///
 /// The five `static` ones are Yuuka's shared gather animations, called only
 /// from the twelve patterns below them. The twelve are called from
@@ -78,8 +80,8 @@ extern "C" {
 	extern unsigned char yuuka6_phase2_fly_path;
 
 	// The safety circle Yuuka opens around the player on the one frame her
-	// forward-parasol phase starts. It sat ABOVE the b6_anim.asm `include`
-	// that ends the root's contribution, so it could not follow the seventeen
+	// forward-parasol phase starts. It sat ABOVE the animation `include` that
+	// used to end the root's contribution, so it could not follow the seventeen
 	// out and the parcel that lifted them gave it a zero-byte `label near`
 	// alias to keep it linkable (kb/codegen/0123). It is C++ now, in
 	// th04/main/boss/b6_spawn.cpp, and the naming debt that alias recorded is
@@ -91,22 +93,6 @@ extern "C" {
 #pragma codeseg B6_SPAWN_TEXT main_03
 	void near safetycircle_open(void);
 #pragma codeseg
-
-	// th04/main/boss/b6_anim.asm. Each runs one frame of the named sprite
-	// animation and returns `true` once it is over; the three whose result
-	// nothing here reads are the ones that end on a phase boundary anyway.
-	bool near yuuka6_anim_parasol_back_close(void);
-	bool near yuuka6_anim_parasol_back_open(void);
-	bool near yuuka6_anim_parasol_back_pull_forward(void);
-	bool near yuuka6_anim_parasol_back_pull_left(void);
-	bool near yuuka6_anim_parasol_left_spin_back(void);
-	bool near yuuka6_anim_parasol_shield(void);
-
-	// The two the teleport at the end of this file drives. th04_main.asm used
-	// to call both from inside the bodies that are now down there, so neither
-	// was declared here before MATCH-TH04-MAIN-034-CHAIN.
-	bool near yuuka6_anim_vanish(void);
-	bool near yuuka6_anim_appear(void);
 
 	// Copies [thicklaser_template] into the first free slot and plays the
 	// spawn sound effect. It is still ASM, and in B4M_UPDATE_TEXT rather
@@ -142,6 +128,7 @@ void pascal near chasecrosses_add(
 static const int Y6SF_VANISHED = 0;
 static const int Y6SF_PARASOL_BACK_OPEN = 1;
 static const int Y6SF_PARASOL_BACK_CLOSED = 2;
+static const int Y6SF_PARASOL_FORWARD = 3;
 static const int Y6SF_PARASOL_LEFT = 4;
 static const int Y6SF_PARASOL_SHIELD = 8;
 
@@ -151,6 +138,258 @@ static const int Y6SF_PARASOL_SHIELD = 8;
 #define yuuka6_spin_ring_points    boss_statebyte[1]
 #define yuuka6_spread_angle_range  boss_statebyte[15]
 /// ---------
+
+/// Yuuka's sprite animations
+/// -------------------------
+/// The eight functions the animation module under th04/main/boss/ used to be
+/// -- named here without a code span because this parcel deleted it -- in the
+/// order they had there. They were the whole of main_034_TEXT's remaining root
+/// contribution, so lifting them drains that block to nothing.
+///
+/// Each one advances [yuuka6_anim_frame] and picks the cel for the frame it
+/// just reached, returning `true` on the last one and resetting the counter.
+/// The `switch` is on the global rather than on a copy of it: seven of the
+/// eight compile to Borland's sparse-switch scan, which needs the selector in
+/// memory while the loop walks the value table through AX, so `enter 2, 0`
+/// allocates the compiler's own temporary and there is no local here to
+/// declare (kb/codegen/0132). yuuka6_anim_parasol_left_spin_back() is the one
+/// dense switch, and it takes a plain `push bp` / `mov bp, sp` frame for
+/// exactly that reason -- a jump table indexed straight off the selector never
+/// spills it.
+///
+/// [yuuka6_sprite_flag] is set to the state the animation is LEAVING on the
+/// two that have a state to leave, and to the state it reached on all eight.
+/// Nothing here reads it; th04/main/boss/b6_upd.cpp does.
+
+#pragma option -a2
+extern "C" bool near yuuka6_anim_parasol_back_close(void)
+{
+	yuuka6_sprite_flag = Y6SF_PARASOL_BACK_OPEN;
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_OPEN;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_HALFOPEN;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_HALFCLOSED;
+		break;
+	case 19:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_CLOSED;
+		break;
+	case 25:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_BACK_CLOSED;
+		return true;
+	}
+	return false;
+}
+
+extern "C" bool near yuuka6_anim_parasol_back_open(void)
+{
+	yuuka6_sprite_flag = Y6SF_PARASOL_BACK_CLOSED;
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_CLOSED;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_HALFCLOSED;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_HALFOPEN;
+		break;
+	case 19:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_OPEN;
+		break;
+	case 25:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_BACK_OPEN;
+		return true;
+	}
+	return false;
+}
+
+// The only one that leaves [yuuka6_sprite_flag] alone on the way in: the state
+// it comes from is always the closed-back one the caller just finished.
+extern "C" bool near yuuka6_anim_parasol_back_pull_forward(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_CLOSED;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT_PULL;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT_FORWARD_PULL;
+		break;
+	case 19:
+		boss.sprite = PAT_YUUKA6_PARASOL_FORWARD_CLOSED;
+		break;
+	case 25:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_FORWARD;
+		return true;
+	}
+	return false;
+}
+
+extern "C" bool near yuuka6_anim_parasol_back_pull_left(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_CLOSED;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT_PULL;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT;
+		break;
+	case 19:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_LEFT;
+		return true;
+	}
+	return false;
+}
+
+// The long one, and the only dense switch: 40 frames, a cel every third one,
+// so 27 of the jump table's 40 entries are the `default` label.
+extern "C" bool near yuuka6_anim_parasol_left_spin_back(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT;
+		break;
+	case 4:
+		boss.sprite = PAT_YUUKA6_PARASOL_LEFT_FORWARD_PULL;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_0;
+		break;
+	case 10:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_1;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_2;
+		break;
+	case 16:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_3;
+		break;
+	case 19:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_4;
+		break;
+	case 22:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_5;
+		break;
+	case 25:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_6;
+		break;
+	case 28:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_7;
+		break;
+	case 31:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_8;
+		break;
+	case 34:
+		boss.sprite = PAT_YUUKA6_PARASOL_SPIN_BACK_9;
+		break;
+	case 37:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_CLOSED;
+		break;
+	case 40:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_BACK_CLOSED;
+		return true;
+	}
+	return false;
+}
+
+extern "C" bool near yuuka6_anim_vanish(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_VANISH_0;
+		break;
+	case 8:
+		boss.sprite = PAT_YUUKA6_VANISH_1;
+		break;
+	case 15:
+		boss.sprite = PAT_YUUKA6_VANISH_2;
+		break;
+	case 22:
+		boss.sprite = PAT_YUUKA6_VANISH_3;
+		break;
+	case 29:
+		boss.sprite = 0;
+		break;
+	case 36:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_VANISHED;
+		return true;
+	}
+	return false;
+}
+
+// vanish() backwards, ending on the open parasol rather than on nothing.
+extern "C" bool near yuuka6_anim_appear(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_VANISH_3;
+		break;
+	case 8:
+		boss.sprite = PAT_YUUKA6_VANISH_2;
+		break;
+	case 15:
+		boss.sprite = PAT_YUUKA6_VANISH_1;
+		break;
+	case 22:
+		boss.sprite = PAT_YUUKA6_VANISH_0;
+		break;
+	case 29:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_OPEN;
+		break;
+	case 36:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_BACK_OPEN;
+		return true;
+	}
+	return false;
+}
+
+extern "C" bool near yuuka6_anim_parasol_shield(void)
+{
+	yuuka6_anim_frame++;
+	switch(yuuka6_anim_frame) {
+	case 1:
+		boss.sprite = PAT_YUUKA6_PARASOL_BACK_OPEN;
+		break;
+	case 7:
+		boss.sprite = PAT_YUUKA6_PARASOL_SHIELD_0;
+		break;
+	case 13:
+		boss.sprite = PAT_YUUKA6_PARASOL_SHIELD_1;
+		break;
+	case 19:
+		yuuka6_anim_frame = 0;
+		yuuka6_sprite_flag = Y6SF_PARASOL_SHIELD;
+		return true;
+	}
+	return false;
+}
+#pragma option -a1
+/// ---------
+
 
 /// Yuuka's shared gather animations
 /// --------------------------------

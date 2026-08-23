@@ -6142,20 +6142,20 @@ B6_SPAWN_TEXT	segment	byte public 'CODE' use16
 	; leave with the bodies.
 B6_SPAWN_TEXT	ends
 
-; Harness carve (kb/codegen/0080): what is left of the head of the original
+; Harness carve (kb/codegen/0080): what was left of the head of the original
 ; `main_034_TEXT` contribution once ALL SEVEN of the procs above the
-; b6_anim.asm `include` moved out of it into the B6_SPAWN_TEXT anchor above:
+; animation `include` moved out of it into the B6_SPAWN_TEXT anchor above --
 ; chasecrosses_add(), safetycircle_open(), yuuka6_customs_update(),
 ; yuuka6_phase2_fly(), yuuka6_teleport_to(), yuuka6_fly_sine() and
-; yuuka6_return_to_center(). The anchor has therefore returned this segment
-; everything a single carve could reach, and this contribution's head is now
-; the `include` that was always its tail. Same
-; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
-; none of the seven deleted bodies carried an `assume`, so there is nothing to
-; restore.
+; yuuka6_return_to_center() -- was that `include` alone.
+; MATCH-TH04-MAIN-YUUKA6-ANIM lifted its eight animation functions into
+; th04/main/boss/b6_next.cpp, AHEAD of the seventeen patterns that object
+; already held; this root contribution is now EMPTY (kb/codegen/0099). The
+; segment keeps its `byte public 'CODE'` alignment so nothing after it moves,
+; and the eight bodies carried no `assume` (kb/codegen/0121).
 main_034_TEXT	segment	byte public 'CODE' use16
 
-include th04/main/boss/b6_anim.asm
+	; The animation module that used to be included here is deleted.
 
 	; Yuuka's seventeen Extra-fight patterns and gather helpers -- everything
 	; from yuuka6_1A907() through yuuka6_1B313() -- now live in
@@ -6174,8 +6174,8 @@ include th04/main/boss/b6_anim.asm
 	;
 	; th04/b6_next.cpp compiles into THIS segment immediately behind this
 	; contribution, so the lift only moved the seam between the two
-	; (kb/codegen/0099). This contribution's tail is the b6_anim.asm
-	; `include` above once more.
+	; (kb/codegen/0099). That seam has since reached the segment start:
+	; nothing of this contribution is left.
 
 
 	; yuuka6_1B3E2() -- Yuuka's parasol-shield hittest -- now lives in
