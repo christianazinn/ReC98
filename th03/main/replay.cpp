@@ -3041,30 +3041,9 @@ static bool replay_user_header_valid(void)
 
 static bool replay_user_identity_ext_valid(void)
 {
-	int i;
-	bool netplay = (
-		(replay_user_identity_ext.recording_flags &
-		 T3R_RECORDING_FLAG_NETPLAY) != 0
+	return replay_user_identity_valid(
+		replay_user_identity_ext, replay_user_header.game_mode
 	);
-	if(
-		(replay_user_identity_ext.ruleset != T3R_RULESET_STOCK) ||
-		((replay_user_identity_ext.recording_flags &
-		  ~T3R_RECORDING_FLAGS_KNOWN) != 0) ||
-		(replay_user_identity_ext.recorder_role > T3R_RECORDER_ROLE_P2) ||
-		(replay_user_identity_ext.recorder_source >
-		 T3R_RECORDER_SOURCE_IMPORTED) ||
-		(netplay != (replay_user_identity_ext.recorder_role !=
-		 T3R_RECORDER_ROLE_UNKNOWN)) ||
-		(netplay && (replay_user_header.game_mode != GM_VS_1P_2P))
-	) {
-		return false;
-	}
-	for(i = 0; i < T3R_IDENTITY_RESERVED_SIZE; i++) {
-		if(replay_user_identity_ext.reserved[i] != 0) {
-			return false;
-		}
-	}
-	return true;
 }
 
 static bool replay_user_read_from(const char *fn)

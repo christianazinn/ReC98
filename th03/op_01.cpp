@@ -156,6 +156,7 @@ static uint8_t replay_cfg_checkpoint;
 replay_user_header_t replay_user_menu_header;
 replay_user_menu_summary_ext_t replay_user_menu_summary_ext;
 replay_user_snapshot_t replay_user_menu_snapshot;
+static replay_user_identity_ext_t replay_user_menu_identity_ext;
 static replay_user_index_header_t replay_user_menu_index_header;
 extern uint32_t far replay_user_menu_round_real_frames[
 	T3_REPLAY_USER_ROUND_SPLIT_COUNT
@@ -673,6 +674,18 @@ static bool replay_user_read_for_menu(const char *fn)
 	}
 	replay_user_summary_ext_init();
 	if(!replay_user_summary_ext_disk_read()) {
+		file_close();
+		return false;
+	}
+	if(
+		(file_read(
+			&replay_user_menu_identity_ext,
+			sizeof(replay_user_menu_identity_ext)
+		) != sizeof(replay_user_menu_identity_ext)) ||
+		!replay_user_identity_valid(
+			replay_user_menu_identity_ext, replay_user_menu_header.game_mode
+		)
+	) {
 		file_close();
 		return false;
 	}

@@ -318,6 +318,121 @@ struct replay_user_identity_ext_t {
 typedef char replay_user_identity_ext_size_check[
 	(sizeof(replay_user_identity_ext_t) == 274) ? 1 : -1
 ];
+typedef char replay_user_identity_ruleset_offset_check[
+	(offsetof(replay_user_identity_ext_t, ruleset) == 0) ? 1 : -1
+];
+typedef char replay_user_identity_uuid_offset_check[
+	(offsetof(replay_user_identity_ext_t, player_uuid) == 4) ? 1 : -1
+];
+typedef char replay_user_identity_match_id_offset_check[
+	(offsetof(replay_user_identity_ext_t, match_id) == 36) ? 1 : -1
+];
+typedef char replay_user_identity_nametag_length_offset_check[
+	(offsetof(replay_user_identity_ext_t, player_nametag_length) == 52) ? 1 : -1
+];
+typedef char replay_user_identity_nametag_offset_check[
+	(offsetof(replay_user_identity_ext_t, player_nametag) == 54) ? 1 : -1
+];
+typedef char replay_user_identity_reserved_offset_check[
+	(offsetof(replay_user_identity_ext_t, reserved) == 168) ? 1 : -1
+];
+typedef char replay_user_identity_nametag_size_check[
+	(T3R_NAMETAG_MAX_BYTES == 57) ? 1 : -1
+];
+typedef char replay_user_identity_reserved_size_check[
+	(T3R_IDENTITY_RESERVED_SIZE == 106) ? 1 : -1
+];
+
+inline bool replay_user_fallback_nametag_valid(
+	const char *nametag, uint8_t length
+)
+{
+	int i;
+	int word_start;
+	int word_length;
+	int line_length = 0;
+	int line_count = 1;
+
+	if(length > T3R_NAMETAG_MAX_BYTES) {
+		return false;
+	}
+	for(i = 0; i < T3R_NAMETAG_MAX_BYTES; i++) {
+		if(i < length) {
+			uint8_t value = static_cast<uint8_t>(nametag[i]);
+			if((value < 0x20) || (value > 0x7E)) {
+				return false;
+			}
+			if(
+				(value == ' ') &&
+				((i == 0) || (i == (length - 1)) || (nametag[i - 1] == ' '))
+			) {
+				return false;
+			}
+		} else if(nametag[i] != 0) {
+			return false;
+		}
+	}
+
+	word_start = 0;
+	while(word_start < length) {
+		word_length = 0;
+		while(
+			((word_start + word_length) < length) &&
+			(nametag[word_start + word_length] != ' ')
+		) {
+			word_length++;
+		}
+		if(word_length > 28) {
+			return false;
+		}
+		if(line_length == 0) {
+			line_length = word_length;
+		} else if((line_length + 1 + word_length) <= 28) {
+			line_length += (1 + word_length);
+		} else {
+			line_count++;
+			line_length = word_length;
+			if(line_count > 2) {
+				return false;
+			}
+		}
+		word_start += (word_length + 1);
+	}
+	return true;
+}
+
+inline bool replay_user_identity_valid(
+	const replay_user_identity_ext_t& identity, uint8_t game_mode
+)
+{
+	int i;
+	bool netplay = (
+		(identity.recording_flags & T3R_RECORDING_FLAG_NETPLAY) != 0
+	);
+	if(
+		(identity.ruleset != T3R_RULESET_STOCK) ||
+		((identity.recording_flags & ~T3R_RECORDING_FLAGS_KNOWN) != 0) ||
+		(identity.recorder_role > T3R_RECORDER_ROLE_P2) ||
+		(identity.recorder_source > T3R_RECORDER_SOURCE_IMPORTED) ||
+		(netplay != (identity.recorder_role != T3R_RECORDER_ROLE_UNKNOWN)) ||
+		(netplay && (game_mode != GM_VS_1P_2P))
+	) {
+		return false;
+	}
+	for(i = 0; i < T3_REPLAY_USER_PLAYER_COUNT; i++) {
+		if(!replay_user_fallback_nametag_valid(
+			identity.player_nametag[i], identity.player_nametag_length[i]
+		)) {
+			return false;
+		}
+	}
+	for(i = 0; i < T3R_IDENTITY_RESERVED_SIZE; i++) {
+		if(identity.reserved[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
 
 // Keep OP's frequently accessed round rows compact and load the larger V14
 // telemetry into separate far arrays. This avoids moving OP's original near
