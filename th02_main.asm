@@ -5803,162 +5803,12 @@ loc_162D1:
 sigma_1619C	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_162D3
-_sigma_162D3 label near
-sigma_162D3	proc near
-
-var_E		= word ptr -0Eh
-@@angle	= byte ptr -0Bh
-var_A	= word ptr -0Ah
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 0Eh
-		push	si
-		push	di
-		mov	si, offset byte_1EE1E
-		lea	di, [bp+var_A]
-		push	ss
-		pop	es
-		mov	cx, 5
-		rep movsw
-		call	sigma_15EF7
-		or	ax, ax
-		jnz	loc_1641D
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_16300
-		mov	byte_255A3, 0
-		jmp	loc_1641D
-; ---------------------------------------------------------------------------
-
-loc_16300:
-		cmp	_boss_phase_frame, 114
-		jz	short loc_1634B
-		cmp	_boss_phase_frame, 118
-		jz	short loc_16325
-		cmp	_boss_phase_frame, 122
-		jz	short loc_1637C
-		cmp	_boss_phase_frame, 242
-		jz	short loc_1634B
-		cmp	_boss_phase_frame, 246
-		jnz	short loc_16374
-
-loc_16325:
-		mov	al, byte_255A3
-		inc	byte_255A3
-		cbw
-		add	ax, ax
-		lea	dx, [bp+var_A]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		add	ax, point_254E6.x
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-
-loc_1634B:
-		mov	al, byte_255A3
-		inc	byte_255A3
-		cbw
-		add	ax, ax
-		lea	dx, [bp+var_A]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		add	ax, point_254E6.x
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		jmp	loc_1641D
-; ---------------------------------------------------------------------------
-
-loc_16374:
-		cmp	_boss_phase_frame, 250
-		jnz	short loc_163CB
-
-loc_1637C:
-		mov	al, byte_255A3
-		inc	byte_255A3
-		cbw
-		add	ax, ax
-		lea	dx, [bp+var_A]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		add	ax, point_254E6.x
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	al, byte_255A3
-		cbw
-		add	ax, ax
-		lea	dx, [bp+var_A]
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, ss:[bx]
-		add	ax, point_254E6.x
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	byte_255A3, 0
-		jmp	short loc_1641D
-; ---------------------------------------------------------------------------
-
-loc_163CB:
-		cmp	_boss_phase_frame, 120
-		jle	short loc_1641D
-		cmp	_boss_phase_frame, 240
-		jge	short loc_1641D
-		test	byte ptr _boss_phase_frame, 0Fh
-		jnz	short loc_1641D
-		mov	[bp+@@angle], -70h
-		mov	[bp+var_E], 0
-		jmp	short loc_16417
-; ---------------------------------------------------------------------------
-
-loc_163EC:
-		push	left_253B6	; left
-		push	top_253B8	; top
-		push	word ptr [bp+@@angle]	; angle
-		push	BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM	; group
-		mov	ax, [bp+var_E]
-		mov	bx, 2
-		cwd
-		idiv	bx
-		add	dx, PAT_BULLET16_BILLIARD_BALL_RED
-		push	dx	; patnum
-		push	(3 shl 4) + 12	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		mov	al, [bp+@@angle]
-		add	al, 10h
-		mov	[bp+@@angle], al
-		inc	[bp+var_E]
-
-loc_16417:
-		cmp	[bp+@@angle], -10h
-		jb	short loc_163EC
-
-loc_1641D:
-		pop	di
-		pop	si
-		leave
-		retn
-sigma_162D3	endp
-
 
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_16421()
+;   th02/main/boss/b6.cpp       sigma_162D3()
+;                               sigma_16421()
 ;                               sigma_16555()
 ;                               sigma_move_sweep()  [static]
 ;                               sigma_16606()
@@ -5987,7 +5837,7 @@ sigma_162D3	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_162D3(), and the first of
+; So th02_main.asm contributes nothing below sigma_1619C(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -6032,8 +5882,8 @@ sigma_162D3	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_162D3() is the tail now - phase 5 pattern 1, a near proc, so the root
-; still ends on a `retn`. Below it the block is her six other pattern
+; sigma_1619C() is the tail now - phase 5 pattern 0, a near proc, so the root
+; still ends on a `retn`. Below it the block is her five other pattern
 ; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
 ; its state-2 promoter, one movement helper, her hittest wrapper and her
 ; defeat animation - then Meira, Rika and the three midbosses.
@@ -6049,16 +5899,24 @@ sigma_162D3	endp
 ; so it became a plain `static` C++ function and needed no kb/codegen/0123
 ; alias at all - whereas any shallower group would have had to publish it.
 ;
-; sigma_move_weave, one proc below, is the counter-example: the same shape,
-; but its callers were spread over phases 1, 3, 5 and 7, so no group short of
-; the whole run from it down could take it along. Phase 7 therefore paid the
-; alias, and phases 5, 3 and 1 now get it for free. When a shared helper
-; cannot ride along, the FIRST group that needs it pays once for all of them.
+; sigma_move_weave, four procs below this tail, is the counter-example: the
+; same shape, but its callers were spread over phases 1, 3, 5 and 7, so no
+; group short of the whole run from it down could take it along. Phase 7
+; therefore paid the alias, and phases 5, 3 and 1 now get it for free. When a
+; shared helper cannot ride along, the FIRST group that needs it pays once for
+; all of them. Its callers here are down to sigma_15F6F and sigma_16176.
+;
+; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
+; parity check can see. sigma_162D3() read its five muzzle offsets out of a
+; local-array initializer template at 1DA7:13AE, and that template had to STAY
+; in _DATA and be published instead of coming across with the body - see
+; _SIGMA_LASER_X_OFFSETS there for the measurement. Check the _DATA map rows
+; for a template before costing a body that indexes an array of constants.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x4C1 0x0 0x0 BEFORE
-; this lift and 0x645 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x645 0x0 0x0 BEFORE
+; this lift and 0x793 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7111,7 +6969,21 @@ word_1EE18	dw 1002h
 word_1EE1A	dw 1211h
 byte_1EE1C	db 9
 		db 0
-byte_1EE1E	label byte
+; The five muzzle x offsets sigma_162D3() fires its lasers through, one per
+; laser. THE STORAGE STAYS HERE, and its own address is the reason: this is
+; the initializer template of a LOCAL aggregate (kb/codegen/0084), so the C++
+; side would ordinarily re-emit it and this copy would go - except that the
+; _DATA contribution of every C++ object in this binary is 0000 in
+; obj/th02/main.map, so the first byte any of them emitted would land at
+; 1DA7:1462, while this template is at 1DA7:13AE. Giving up these ten bytes
+; would shift 0xB4 bytes of live _DATA.
+;
+; Upper case with a leading underscore because it is `const` data reached
+; through an `extern "C"` declaration - the shape _GAME_CLEAR_CONSTANTS and
+; _EXTRA_CLEAR_FLAGS above already have. Zero bytes, like every
+; kb/codegen/0123 alias.
+public _SIGMA_LASER_X_OFFSETS
+_SIGMA_LASER_X_OFFSETS	label byte
 		db  3Ch	; <
 		db    0
 		db  2Ch	; ,
@@ -7920,7 +7792,8 @@ angle_2559E	db ?
 		db ?
 left_255A0	dw ?
 byte_255A2	db ?
-byte_255A3	db ?
+public _sigma_laser_i
+_sigma_laser_i	db ?
 public _sigma_stream_velocity
 _sigma_stream_velocity	Point <?>
 public _sigma_stream_x

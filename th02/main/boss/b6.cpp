@@ -123,6 +123,15 @@
 // how a `far`/`near` mismatch gets in.
 #include "th02/hardware/pages.hpp"
 #include "th02/math/vector.hpp"
+// And this one for phase 5 pattern 1. Guarded, and nothing but macros, one
+// struct, two extern declarations and five function declarations -- so unlike
+// th02/main/bullet/bullet.hpp above it is inert and idempotent, and unlike
+// lasers_add() it is not worth hand-copying a four-parameter `pascal`
+// signature whose `int patnum_base` is load-bearing (see that header: the
+// widened formal is what lets Turbo C++ pack the last two arguments into one
+// 32-bit push). It also already documents this proc as the one laser spawner
+// in the binary that writes no [laser_wait_frames] of its own.
+#include "th02/main/laser.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -487,7 +496,6 @@ extern "C" void near sigma_15F6F(void);
 extern "C" void near sigma_15F95(void);
 extern "C" void near sigma_16176(void);
 extern "C" void near sigma_1619C(void);
-extern "C" void near sigma_162D3(void);
 
 // The movement helper phases 1, 3, 5 and 7 share, and the twin of
 // sigma_move_sweep() below: the same 50-frame hold and the same
@@ -566,6 +574,201 @@ static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// Phase 5's second pattern
+/// ------------------------
+/// [sigma_phase] 5's slot 1, over sigma_move_weave()'s four-leg walk: two laser
+/// volleys through five fixed muzzles, with a bouncing billiard fan between
+/// them.
+
+// The five muzzle x offsets from her sprite's left edge, walked one per laser.
+//
+// THE TEMPLATE STAYS IN THE ROOT ASM'S _DATA, and this is kb/codegen/0084's
+// situation with the escape it usually leaves open closed off. It is the
+// initializer of a LOCAL aggregate, so Turbo C++ would re-emit it into this
+// object's own _DATA and copy it in from there -- except that `[measured
+// 2026-08-22]` EVERY C++ OBJECT IN TH02 MAIN CONTRIBUTES ZERO BYTES TO _DATA:
+// obj/th02/main.map gives th02_main.asm the whole `1DA7:0090 13D2` and each of
+// the objects after it `1DA7:1462 0000`. So the first object to emit any would
+// start at 1DA7:1462, while this template lives at 1DA7:13AE -- 0xB4 earlier,
+// inside the dump's own contribution, where giving up its ten bytes would shift
+// every later _DATA byte. Re-deriving this object's _TEXT parity
+// (kb/codegen/0160) says nothing about that: it is a _DATA placement, not an
+// alignment.
+//
+// So the storage keeps its address in the dump, gains a publish alias there,
+// and is copied in through the ordinary struct assignment below.
+//
+// SCREAMING_CASE because it is const data, which is how _GAME_CLEAR_CONSTANTS
+// and _EXTRA_CLEAR_FLAGS are already published in that same _DATA block, four
+// labels above this one. sigma_1619C, still ASM one proc up, fires the same five
+// offsets from five separate immediates rather than from this table.
+static const int SIGMA_LASER_COUNT = 5;
+
+struct sigma_laser_x_offsets_t {
+	pixel_t offset[SIGMA_LASER_COUNT];
+};
+extern "C" const sigma_laser_x_offsets_t SIGMA_LASER_X_OFFSETS;
+
+// Which muzzle the next laser of the current volley comes out of. `[measured]`
+// A SIGNED byte, and the array index is where it shows: all four reads are
+// `mov al` + `cbw`, not `mov ah, 0`.
+extern "C" int8_t sigma_laser_i;
+
+// The frame the muzzle walk is re-armed on, before the first volley.
+//
+// `[measured]` 100 is also SIGMA_STREAM_AIM_FRAME (phase 7) and the setup frame
+// of sigma_15F95 and sigma_1619C, so four of her patterns share the number --
+// but folding them into one constant is a ruling over five call sites and three
+// of them are still ASM. Made once, when the last of those lands here.
+static const int SIGMA_LASER_ARM_FRAME = 100;
+
+// The six frames the two volleys fire on, and the counts are not laid out the
+// way the code makes them look: 1, 2 and 2 lasers at 114, 118 and 122, then the
+// same counts again at 242, 246 and 250. `[measured]` The arms for 118 and 246
+// FALL THROUGH into the one-laser arm instead of duplicating it, and 122 and 250
+// share one body outright, so ten lasers come out of four lasers_add() call
+// sites.
+static const int SIGMA_LASER_VOLLEY_1_FRAME_1 = 114;
+static const int SIGMA_LASER_VOLLEY_1_FRAME_2 = 118;
+static const int SIGMA_LASER_VOLLEY_1_FRAME_3 = 122;
+static const int SIGMA_LASER_VOLLEY_2_FRAME_1 = 242;
+static const int SIGMA_LASER_VOLLEY_2_FRAME_2 = 246;
+static const int SIGMA_LASER_VOLLEY_2_FRAME_3 = 250;
+
+// `[measured]` This pattern writes [laser_wait_frames] NOWHERE, so its ten
+// lasers charge for however long the last entity to touch that variable left
+// behind -- and th02/main/laser.hpp's own census names this proc as the one
+// spawner that does exactly that. On any normal run the previous writer is
+// sigma_1619C, phase 5's OTHER pattern, which leaves 0x10 behind after setting
+// 0x20, 0x30, 0x30, 0x64 and 0x64 for its own five. A ZUN quirk to preserve,
+// and the reason the two halves of phase 5 are not independent even though they
+// share no variable of their own.
+static const int SIGMA_LASER_ACTIVE_FRAMES = 1;
+static const int SIGMA_LASER_PATNUM_BASE = 0x6F;
+
+// The bouncing billiard fan between the volleys: six balls an eighth of a turn
+// apart, alternating two sprites. `[measured]` The loop bound is an UNSIGNED
+// byte compare (`cmp` + `jb` against -10h), so 0xF0 is one step past the last
+// angle rather than a negative one.
+static const int SIGMA_FAN_FIRST_FRAME = 120;
+static const int SIGMA_FAN_LAST_FRAME = 240;
+static const uint8_t SIGMA_FAN_ANGLE_FIRST = 0x90;
+static const uint8_t SIGMA_FAN_ANGLE_PAST_LAST = 0xF0;
+// `int` and not the `uint8_t` this really is, and that is kb/codegen/0094's
+// second discriminator rather than a typo: for a compound assignment Turbo C++
+// folds a BYTE-typed addend into `add mem, imm8` and forces an AL round trip
+// for an int-typed one, and the original takes the round trip. Measured here
+// for a STACK LOCAL, which 0094 had only measured for a global and a struct
+// member; the fold cost 4 of this body's 0x14E bytes on the first screen.
+static const int SIGMA_FAN_ANGLE_STEP = 0x10;
+static const int SIGMA_FAN_PATNUMS = 2;
+
+/// Phase 5 pattern 1: two laser volleys through five fixed muzzles with a
+/// bouncing billiard fan between them, over sigma_move_weave()'s four-leg walk.
+extern "C" void near sigma_162D3(void)
+{
+	// Declared in the original's own order, which is what puts the ten-byte
+	// array at the TOP of the frame (kb/codegen/0010). [i] is last and is a
+	// plain `int` rather than a `register` one, because the original keeps it at
+	// [bp-0Eh]: SI and DI are both spoken for by the struct copy.
+	sigma_laser_x_offsets_t laser_x_offsets;
+	uint8_t angle;
+	int i;
+
+	// A plain copy assignment, and it has to be the FIRST statement: the
+	// original does the copy before anything else, in the SI / DI / ES / CX
+	// order that kb/codegen/0109's table attributes to exactly this -- `-G` plus
+	// a whole-struct assignment, which is also the one of that table's four
+	// orders no `decomp.hpp` macro spells. `-G` was already set on this object
+	// for sigma_update(), so nothing had to change for it. `push ss` rather than
+	// `push ds` for the ES half only because the DESTINATION is a stack local.
+	laser_x_offsets = SIGMA_LASER_X_OFFSETS;
+
+	if(sigma_move_weave()) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_LASER_ARM_FRAME) {
+		sigma_laser_i = 0;
+		return;
+	}
+
+	// ZUN wrote six arms and -O cross-jumped the duplicates, so the two
+	// two-laser arms share one body and the two one-laser arms share another.
+	// Written as the `goto`s -O chose rather than as six plain arms, in ZUN's
+	// frame order, so that every `cmp` lands where the original has it -- the
+	// same hand-merge sigma_update() needed three parcels earlier, and for the
+	// same reason: an arm that only falls through cannot be spelled any other
+	// way.
+	if(boss_phase_frame == SIGMA_LASER_VOLLEY_1_FRAME_1) {
+		goto laser_1;
+	} else if(boss_phase_frame == SIGMA_LASER_VOLLEY_1_FRAME_2) {
+		goto laser_2;
+	} else if(boss_phase_frame == SIGMA_LASER_VOLLEY_1_FRAME_3) {
+		goto laser_2_and_rearm;
+	} else if(boss_phase_frame == SIGMA_LASER_VOLLEY_2_FRAME_1) {
+		goto laser_1;
+	} else if(boss_phase_frame == SIGMA_LASER_VOLLEY_2_FRAME_2) {
+laser_2:
+		lasers_add(
+			(laser_x_offsets.offset[sigma_laser_i++] + sigma_topleft.x),
+			sigma_center_y,
+			SIGMA_LASER_ACTIVE_FRAMES,
+			SIGMA_LASER_PATNUM_BASE
+		);
+laser_1:
+		lasers_add(
+			(laser_x_offsets.offset[sigma_laser_i++] + sigma_topleft.x),
+			sigma_center_y,
+			SIGMA_LASER_ACTIVE_FRAMES,
+			SIGMA_LASER_PATNUM_BASE
+		);
+		return;
+	} else if(boss_phase_frame == SIGMA_LASER_VOLLEY_2_FRAME_3) {
+laser_2_and_rearm:
+		lasers_add(
+			(laser_x_offsets.offset[sigma_laser_i++] + sigma_topleft.x),
+			sigma_center_y,
+			SIGMA_LASER_ACTIVE_FRAMES,
+			SIGMA_LASER_PATNUM_BASE
+		);
+
+		// NO post-increment on this one, so the fifth muzzle is the last index
+		// the volley reaches and the re-arm below is what makes the second
+		// volley start from 0 again.
+		lasers_add(
+			(laser_x_offsets.offset[sigma_laser_i] + sigma_topleft.x),
+			sigma_center_y,
+			SIGMA_LASER_ACTIVE_FRAMES,
+			SIGMA_LASER_PATNUM_BASE
+		);
+		sigma_laser_i = 0;
+		return;
+	}
+	if(
+		(boss_phase_frame > SIGMA_FAN_FIRST_FRAME) &&
+		(boss_phase_frame < SIGMA_FAN_LAST_FRAME) &&
+		((boss_phase_frame & 0x0F) == 0)
+	) {
+		angle = SIGMA_FAN_ANGLE_FIRST;
+		i = 0;
+		while(angle < SIGMA_FAN_ANGLE_PAST_LAST) {
+			bullets_add_16x16(
+				sigma_center_x,
+				sigma_center_y,
+				angle,
+				BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM,
+				static_cast<main_patnum_t>(
+					PAT_BULLET16_BILLIARD_BALL_RED + (i % SIGMA_FAN_PATNUMS)
+				),
+				((3 << 4) + 12)
+			);
+			angle += SIGMA_FAN_ANGLE_STEP;
+			i++;
+		}
+	}
+}
+/// ------------------------
 
 /// Phase 7's two patterns
 /// ----------------------
