@@ -2584,90 +2584,27 @@ table_1259B	dw shots_update_homing
 		dw shots_update_missile_right
 		dw shots_update_missile_straight
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @SHOTS_RENDER$QV
-@shots_render$qv	proc near
-
-@@shot		= word ptr -4
-@@i		= word ptr -2
-
-		enter	4, 0
-		push	si
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
-		assume es:nothing
-		call	@grcg_setmode_rmw$qv
-		mov	di, offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	short @@shots_more?
-; ---------------------------------------------------------------------------
-
-@@shot_loop:
-		cmp	[di+shot_alive_t.SA_pos.x], SUBPIXEL_NONE
-		jz	short @@shot_next
-		mov	ax, [di+shot_alive_t.SA_shot]
-		mov	[bp+@@shot], ax
-		mov	ch, 0
-		mov	bx, [bp+@@shot]
-		mov	cl, [bx+shot_t.patnum_base]
-		mov	al, [bx+shot_t.SHOT_age]
-		and	al, 1
-		add	al, cl
-		mov	cl, al
-		mov	ax, [di+shot_alive_t.SA_pos.y]
-		add	ax, ((PLAYFIELD_TOP - (SHOT_H / 2)) shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [di+shot_alive_t.SA_pos.x]
-		sar	ax, 4
-		add	ax, (PLAYFIELD_LEFT - (SHOT_W / 2))
-		call	z_super_roll_put_tiny_16x16_raw pascal, cx
-
-@@shot_next:
-		inc	[bp+@@i]
-		add	di, size shot_alive_t
-
-@@shots_more?:
-		mov	ax, [bp+@@i]
-		cmp	ax, _shots_alive_count
-		jb	short @@shot_loop
-		mov	si, offset _hitshots
-		mov	[bp+@@i], 0
-		jmp	short @@hitshot_more?
-; ---------------------------------------------------------------------------
-
-@@hitshot_loop:
-		cmp	[si+hitshot_t.HITSHOT_age], (HITSHOT_FRAMES + 1)
-		jnb	short @@hitshot_next
-		cmp	[si+hitshot_t.HITSHOT_age], 0
-		jbe	short @@hitshot_next
-		mov	ch, 0
-		mov	cl, [si+hitshot_t.patnum]
-		mov	ax, [si+hitshot_t.pos.cur.y]
-		add	ax, ((PLAYFIELD_TOP - (HITSHOT_H / 2)) shl 4)
-		call	scroll_subpixel_y_to_vram_seg1 pascal, ax
-		mov	dx, ax
-		mov	ax, [si+hitshot_t.pos.cur.x]
-		sar	ax, 4
-		add	ax, PLAYFIELD_LEFT - (HITSHOT_W / 2)
-		call	z_super_roll_put_tiny_16x16_raw pascal, cx
-
-@@hitshot_next:
-		inc	[bp+@@i]
-		add	si, size hitshot_t
-
-@@hitshot_more?:
-		cmp	[bp+@@i], HITSHOT_COUNT
-		jl	short @@hitshot_loop
-		GRCG_OFF_CLOBBERING dx
-		pop	di
-		pop	si
-		leave
-		retn
-@shots_render$qv	endp
+	; shots_render() -- every live shot in the [shots_alive] cache the proc
+	; above builds, then every hitshot still inside its decay animation -- was
+	; lifted out of here and is th05/p_common.cpp now, at the FRONT of that
+	; file's `#pragma codeseg HITSHOT_TEXT main_01` block, ahead of the
+	; hitshot_from() body the previous parcel put there. 0A4h bytes at 125A3h:
+	; the object grows backwards into the hole, and every byte above it -- the
+	; jump table included -- keeps its address (kb/codegen 0099 + 0112 + 0114).
+	;
+	; TH04's shots_render() is a DIFFERENT function and stays in
+	; th04/main/player/shots_render.cpp. That game walks [shots] backwards
+	; instead of the alive cache, blits the option laser ahead of everything,
+	; and renders no hitshots at all, because a TH04 hitshot is a Shot inside
+	; its SF_HIT decay range.
+	;
+	; No procdesc replaces the deleted `public`: nothing in this dump has ever
+	; referenced this function. Its only caller is th04/main/stage/loop.cpp,
+	; which declares it itself, and the all-caps MANGLED @SHOTS_RENDER$QV that
+	; `public` carried is what `pascal` decoration looks like (kb/codegen/0086)
+	; -- so ordinary C++ linkage republishes the same spelling, and an
+	; `extern "C"` would have been wrong here.
+		assume	es:nothing	; kb/codegen/0121: this was set inside the deleted body, and it is restored at the body's own position so that every later contribution in this file is assembled under exactly the assumption it was before. Redundant today -- b4balls_render()'s own restore in MIDBOSSX_TEXT is the last one before it and says the same thing -- and kept anyway, because an edit at either position must not silently change the state at the other.
 
 	; hitshot_from() was the whole of th05/main/player/hitshot_from.asm,
 	; included here, and it is th05/p_common.cpp now -- in a
