@@ -1262,6 +1262,11 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/boss_1.cpp",
 	"th05/midboss2.cpp",
 	"th05/boss_4.cpp",
+	-- BEFORE th05/b4mai.cpp, and that order is load-bearing: b4pair.cpp is
+	-- its own object only because @mai_yuki_update$qv takes its `-a2` pad on
+	-- the opposite parity from the three jump tables inside b4mai.obj, and
+	-- TLINK lays a segment out in link order (kb/codegen 0112 + 0114).
+	"th05/b4pair.cpp",
 	"th05/b4mai.cpp",
 	"th05/swords.cpp",
 	"th05/main035.cpp",

@@ -4391,13 +4391,13 @@ B4_UPDATE_TEXT	segment	byte public 'CODE' use16
 	; seven puppet callbacks, her puppet updater and her spiral-in;
 	; the root's tail here is now @midboss3_update$qv's jump table.
 	;
-	; main_035_TEXT calls both, so both keep a procdesc. The one for
-	; yuki_hittest_shots_damage() takes the two radii as ONE `Point`
-	; argument rather than as two words, because that is how both call
-	; sites spell the packed 32-bit push -- the same shape the sibling
-	; @MIDBOSS_HITTEST_SHOTS_DAMAGE$QIII in BOSS_TEXT below already uses.
-	; A procdesc carrying an argument list is also spelled UPPERCASE:
-	; TASM uppercases the symbol on the CALLPROC path such a list selects.
+	; Nothing in this dump calls mai_yuki_hittest_shots(),
+	; yuki_hittest_shots_damage() or mai_yuki_flystep_random() any more:
+	; mai_yuki_update() in main_035_TEXT was the only caller of all three
+	; and it is th05/main/boss/b4_pair.cpp now, so the three procdescs
+	; that stood at the end of this block went with it. Nothing needed
+	; publishing -- each symbol was already exported by its own module.
+	;
 	; The C++ bodies the two pattern tables in _DATA below reach: all
 	; twelve entries of [off_22770] across six distinct functions, and all
 	; four of ALICE_PUPPET_PATTERNS. puppets_update() used to take the
@@ -4416,34 +4416,23 @@ B4_UPDATE_TEXT	segment	byte public 'CODE' use16
 	@alice_pattern_19E12$qv procdesc near
 	@alice_pattern_19EDA$qv procdesc near
 	@alice_pattern_19F75$qv procdesc near
-
-	@mai_yuki_hittest_shots$qv procdesc near
-	@YUKI_HITTEST_SHOTS_DAMAGE$QIII procdesc pascal near \
-		radius:Point, se_on_hit:word
-
-	@MAI_YUKI_FLYSTEP_RANDOM$QI procdesc pascal near \
-		frame:word
 B4_UPDATE_TEXT	ends
 
 main_035_TEXT	segment	byte public 'CODE' use16
-
-	; mai_update() is th05/main/boss/b4_mai.cpp now; the block at the end of
-	; this segment carries the reason and the measurements. mai_yuki_update()
-	; below stores its address with setfarfp, so the declaration has to precede
-	; that line rather than sit with the function's own comment. UPPER case
-	; because the function is `pascal`, which is the spelling its object
-	; PUBLISHes (kb/codegen/0102).
-	extern @MAI_UPDATE$QV:proc
-
-	; Same for yuki_update(), the other half of the pair. Its module
-	; PUBLISHed the UNDECORATED upper-case name, because it is `pascal` with
-	; C linkage rather than C++ (kb/codegen 0081 + 0102).
-	extern YUKI_UPDATE:proc
 
 ; =============== S U B	R O U T	I N E =======================================
 
 ; Attributes: bp-based frame
 
+; Zero-byte aliases (kb/codegen/0123) so that th05/main/boss/b4_pair.cpp can
+; name the five procs mai_yuki_update() used to reach from in here. Each is a
+; `public` on the underscored spelling off a `label near` beside the `proc`,
+; on _sub_B237's model at the top of this dump; the dump's own internal
+; references keep the bare name. These two are the per-character pattern
+; steps, called every frame while both characters are flying, and neither
+; ever loads AL before `retn`.
+public _mai_yuki_1A556
+_mai_yuki_1A556 label near
 mai_yuki_1A556	proc near
 		push	bp
 		mov	bp, sp
@@ -4463,7 +4452,7 @@ mai_yuki_1A556	proc near
 ; ---------------------------------------------------------------------------
 
 loc_1A58D:
-		call	fp_2CE36
+		call	_mai_pair_pattern
 		or	al, al
 		jnz	short loc_1A59C
 		mov	_boss_sprite, 184
@@ -4487,6 +4476,8 @@ mai_yuki_1A556	endp
 
 ; Attributes: bp-based frame
 
+public _mai_yuki_1A5B3
+_mai_yuki_1A5B3 label near
 mai_yuki_1A5B3	proc near
 		push	bp
 		mov	bp, sp
@@ -4503,7 +4494,7 @@ mai_yuki_1A5B3	proc near
 ; ---------------------------------------------------------------------------
 
 loc_1A5DC:
-		call	fp_2CE38
+		call	_yuki_pair_pattern
 		or	al, al
 		jnz	short loc_1A5E9
 		mov	_yuki_sprite, 184
@@ -4518,7 +4509,16 @@ mai_yuki_1A5B3	endp
 
 ; Attributes: bp-based frame
 
-sub_1A5EB	proc near
+; The three patterns mai_yuki_update() installs by NAME rather than through
+; one of the five band tables in _DATA: Mai's first, Mai's manual laser,
+; and Yuki's first. All three are table entries as well, so the bare name
+; still has _DATA readers in here. The two IDA `sub_` spellings the C++
+; reaches are renamed onto the address-suffixed form the other seventeen
+; bodies of this block already use; the rest of the block keeps its
+; spellings until the parcel that lifts it.
+public _mai_yuki_1A5EB
+_mai_yuki_1A5EB label near
+mai_yuki_1A5EB	proc near
 		push	bp
 		mov	bp, sp
 		mov	ax, _boss_phase_frame
@@ -4558,7 +4558,7 @@ loc_1A64D:
 		mov	al, 0
 		pop	bp
 		retn
-sub_1A5EB	endp
+mai_yuki_1A5EB	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4699,7 +4699,9 @@ sub_1A719	endp
 
 ; Attributes: bp-based frame
 
-sub_1A775	proc near
+public _mai_yuki_1A775
+_mai_yuki_1A775 label near
+mai_yuki_1A775	proc near
 
 var_1		= byte ptr -1
 
@@ -4784,7 +4786,7 @@ loc_1A82B:
 		mov	al, 0
 		leave
 		retn
-sub_1A775	endp
+mai_yuki_1A775	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4860,6 +4862,8 @@ sub_1A82F	endp
 
 ; Attributes: bp-based frame
 
+public _mai_yuki_1A8C9
+_mai_yuki_1A8C9 label near
 mai_yuki_1A8C9	proc near
 		push	bp
 		mov	bp, sp
@@ -5127,542 +5131,67 @@ loc_1AB1B:
 mai_yuki_1AA9B	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1AB1F	proc near
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		cmp	_boss_phase_frame, 48
-		jz	short loc_1AB31
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_1AB72
-
-loc_1AB31:
-		mov	eax, _yuki_pos.cur
-		mov	cheeto_template.pos.cur, eax
-		mov	cheeto_template.CBTMPL_col, 11
-		mov	cheeto_template.CBTMPL_speed, (2 shl 4)
-		mov	ax, _boss_pos.cur.x
-		cmp	ax, _yuki_pos.cur.x
-		jl	short loc_1AB53
-		mov	[bp+@@angle], 40h
-		jmp	short loc_1AB57
-; ---------------------------------------------------------------------------
-
-loc_1AB53:
-		mov	[bp+@@angle], -40h
-
-loc_1AB57:
-		call	@player_angle_from$qiiuc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
-		mov	cheeto_template.CBTMPL_angle, al
-		call	@cheetos_add$qv
-		call	snd_se_play pascal, 15
-
-loc_1AB72:
-		mov	al, 0
-		leave
-		retn
-mai_yuki_1AB1F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1AB76	proc near
-
-@@angle		= byte ptr -1
-
-		enter	2, 0
-		cmp	_boss_phase_frame, 48
-		jz	short loc_1AB88
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_1ABC9
-
-loc_1AB88:
-		mov	eax, _boss_pos.cur
-		mov	cheeto_template.pos.cur, eax
-		mov	cheeto_template.CBTMPL_col, 9
-		mov	cheeto_template.CBTMPL_speed, (2 shl 4)
-		mov	ax, _boss_pos.cur.x
-		cmp	ax, _yuki_pos.cur.x
-		jge	short loc_1ABAA
-		mov	[bp+@@angle], 40h
-		jmp	short loc_1ABAE
-; ---------------------------------------------------------------------------
-
-loc_1ABAA:
-		mov	[bp+@@angle], -40h
-
-loc_1ABAE:
-		call	@player_angle_from$qiiuc pascal, cheeto_template.pos.cur.x, cheeto_template.pos.cur.y, word ptr [bp+@@angle]
-		mov	cheeto_template.CBTMPL_angle, al
-		call	@cheetos_add$qv
-		call	snd_se_play pascal, 15
-
-loc_1ABC9:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1ABD6
-		mov	ax, 1
-		jmp	short locret_1ABD8
-; ---------------------------------------------------------------------------
-
-loc_1ABD6:
-		xor	ax, ax
-
-locret_1ABD8:
-		leave
-		retn
-mai_yuki_1AB76	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public @MAI_YUKI_UPDATE$QV
-@mai_yuki_update$qv	proc far
-
-var_4		= word ptr -4
-var_2		= word ptr -2
-
-		enter	4, 0
-		push	si
-		mov	ax, _boss_pos.cur.y
-		cmp	ax, _yuki_pos.cur.y
-		jle	short loc_1ABEE
-		mov	eax, _boss_pos.cur
-		jmp	short loc_1ABF2
-; ---------------------------------------------------------------------------
-
-loc_1ABEE:
-		mov	eax, _yuki_pos.cur
-
-loc_1ABF2:
-		mov	_homing_target, eax
-		inc	_boss_phase_frame
-		mov	al, _boss_phase
-		mov	ah, 0
-		mov	[bp+var_4], ax
-		mov	cx, 6		; switch 6 cases
-		mov	bx, offset word_1AFBC
-
-loc_1AC08:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_4]
-		jz	short loc_1AC18
-		add	bx, 2
-		loop	loc_1AC08
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1AC18:
-		jmp	word ptr cs:[bx+0Ch] ; switch jump
-
-loc_1AC1C:
-		cmp	_boss_phase_frame, 1	; jumptable 0001AC18 case 0
-		jnz	short loc_1AC5E
-		mov	_boss_hp, 4500
-		mov	_boss_phase_end_hp, 0
-		mov	_yuki_hp, 4500
-		mov	_yuki_phase_end_hp, 0
-		mov	_gather_template.GT_radius, (64 shl 4)
-		mov	_gather_template.GT_angle_delta, 2
-		mov	_gather_template.GT_ring_points, 8
-		mov	si, 212
-		jmp	short loc_1AC58
-; ---------------------------------------------------------------------------
-
-loc_1AC51:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_1AC58:
-		cmp	si, 228
-		jl	short loc_1AC51
-
-loc_1AC5E:
-		call	@boss_hittest_shots_invincible$qv
-		call	@yuki_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		cmp	_boss_phase_frame, 128
-		jl	loc_1AFA7	; default
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 13
-		mov	_bg_render_bombing_func, offset @mai_yuki_bg_render$qv
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1AC90:
-		call	@boss_hittest_shots_invincible$qv	; jumptable 0001AC18 case 1
-		call	@yuki_hittest_shots_damage$qiii pascal, (24 shl 4) or ((24 shl 4) shl 16), 10
-		cmp	_boss_phase_frame, 64
-		jl	loc_1AFA7	; default
-		inc	_boss_phase
-
-loc_1ACAB:
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 1
-		mov	_boss_phase_state, 0
-		mov	fp_2CE36, offset sub_1A5EB
-		mov	fp_2CE38, offset mai_yuki_1A8C9
-		mov	_boss_custombullets_render, offset cheetos_render
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1ACD0:
-		mov	al, _boss_mode	; jumptable 0001AC18 case 2
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_1ACE3
-		cmp	ax, 1
-		jz	loc_1ADC9
-		jmp	loc_1ADCF
-; ---------------------------------------------------------------------------
-
-loc_1ACE3:
-		cmp	_boss_phase_state, 9
-		jz	short loc_1ACF1
-		cmp	_boss_phase_state, 14
-		jnz	short loc_1AD20
-
-loc_1ACF1:
-		mov	ax, _boss_phase_frame
-		add	ax, -64
-		mov	[bp+var_2], ax
-		cmp	_boss_phase_frame, 16
-		jnz	short loc_1AD29
-		cmp	_bullet_clear_time, 20
-		jnb	short loc_1AD0D
-		mov	_bullet_clear_time, 20
-
-loc_1AD0D:
-		call	snd_se_play pascal, 15
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_NW_SE
-		call	@boss2_explode_small$qui pascal, 2
-		jmp	short loc_1AD29
-; ---------------------------------------------------------------------------
-
-loc_1AD20:
-		mov	ax, _boss_phase_frame
-		add	ax, -16
-		mov	[bp+var_2], ax
-
-loc_1AD29:
-		call	@mai_yuki_flystep_random$qi pascal, [bp+var_2]
-		or	al, al
-		jz	loc_1ADCF
-		mov	_boss_phase_frame, 0
-		inc	_boss_mode
-		inc	_boss_phase_state
-		cmp	_boss_phase_state, 10
-		jnb	short loc_1AD6F
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 3
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_22788[bx]
-		mov	fp_2CE36, ax
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 3
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_227A0[bx]
-		jmp	short loc_1ADB8
-; ---------------------------------------------------------------------------
-
-loc_1AD6F:
-		cmp	_boss_phase_state, 15
-		jnb	short loc_1AD8E
-		mov	fp_2CE36, offset sub_1A775
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 3
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_227A8[bx]
-		jmp	short loc_1ADB8
-; ---------------------------------------------------------------------------
-
-loc_1AD8E:
-		cmp	_boss_phase_state, 36
-		jnb	short loc_1ADBD
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 3
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_22790[bx]
-		mov	fp_2CE36, ax
-		mov	al, _boss_phase_state
-		mov	ah, 0
-		and	ax, 3
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, off_227B0[bx]
-
-loc_1ADB8:
-		mov	fp_2CE38, ax
-		jmp	short loc_1ADCF
-; ---------------------------------------------------------------------------
-
-loc_1ADBD:
-		mov	_boss_phase_state, 0
-		mov	[bp+var_2], 1
-		jmp	short loc_1AE2C
-; ---------------------------------------------------------------------------
-
-loc_1ADC9:
-		call	mai_yuki_1A556
-		call	mai_yuki_1A5B3
-
-loc_1ADCF:
-		mov	ax, _boss_hp
-		add	ax, _yuki_hp
-		cmp	ax, 5500
-		jge	short loc_1ADF4
-		cmp	_boss_phase_state, 9
-		jnb	short loc_1ADF4
-		mov	_boss_mode, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 9
-		jmp	short loc_1AE17
-; ---------------------------------------------------------------------------
-
-loc_1ADF4:
-		mov	ax, _boss_hp
-		add	ax, _yuki_hp
-		cmp	ax, 2250
-		jge	short loc_1AE17
-		cmp	_boss_phase_state, 14
-		jnb	short loc_1AE17
-		mov	_boss_mode, 0
-		mov	_boss_phase_frame, 0
-		mov	_boss_phase_state, 14
-
-loc_1AE17:
-		call	@mai_yuki_hittest_shots$qv
-		mov	ah, 0
-		mov	[bp+var_2], ax
-		cmp	[bp+var_2], 0
-		jz	loc_1AFA7	; default
-		mov	_boss_phase_state, 1
-
-loc_1AE2C:
-		mov	al, byte ptr [bp+var_2]
-		add	al, -1
-		mov	_boss2_phase_state, al
-		mov	_boss_phase, PHASE_BOSS_EXPLODE_SMALL
-		mov	_boss_phase_frame, 0
-		cmp	_lasers[0 * size laser_t].flag, LF_FREE
-		jz	loc_1AFA7	; default
-		call	@laser_stop$qi pascal, 0
-		jmp	short loc_1AE69
-; ---------------------------------------------------------------------------
-
-loc_1AE4F:
-		cmp	_boss_phase_frame, 16	; jumptable 0001AC18 case 253
-		jnz	short loc_1AE6C
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_1AE64
-		call	@boss_explode_small$q16explosion_type_t pascal, ET_VERTICAL
-		jmp	short loc_1AE69
-; ---------------------------------------------------------------------------
-
-loc_1AE64:
-		call	@boss2_explode_small$qui pascal, 4
-
-loc_1AE69:
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1AE6C:
-		cmp	_boss_phase_frame, 32
-		jnz	loc_1AFA7	; default
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_1AE8B
-		call	@boss_explode_big_circle$qv
-		mov	_boss_sprite, 4
-		mov	_yuki_sprite, 180
-		jmp	short loc_1AE98
-; ---------------------------------------------------------------------------
-
-loc_1AE8B:
-		call	@boss2_explode_big_circle$qv
-		mov	_yuki_sprite, 4
-		mov	_boss_sprite, 180
-
-loc_1AE98:
-		inc	_boss_phase
-		mov	al, _boss_phase_state
-		mov	_bullet_zap_active, al
-		mov	_boss_phase_frame, 0
-		call	snd_se_play pascal, 12
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1AEB7:
-		cmp	_boss_phase_frame, 12	; jumptable 0001AC18 case 254
-		jge	short loc_1AEE2
-		cmp	_stage_frame_mod2, 0
-		jnz	short loc_1AECA
-		mov	ax, 0FFFCh
-		jmp	short loc_1AECD
-; ---------------------------------------------------------------------------
-
-loc_1AECA:
-		mov	ax, 4
-
-loc_1AECD:
-		mov	_playfield_shake_x, ax
-		cmp	_stage_frame_mod4, 1
-		ja	short loc_1AEDC
-		mov	ax, -4
-		jmp	short loc_1AEDF
-; ---------------------------------------------------------------------------
-
-loc_1AEDC:
-		mov	ax, 4
-
-loc_1AEDF:
-		mov	_playfield_shake_y, ax
-
-loc_1AEE2:
-		mov	_bg_render_bombing_func, offset @tiles_render_all$qv
-		mov	_slowdown_factor, 2
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_1AFA7	; default
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_1AF0A
-		inc	_boss_sprite
-		jmp	short loc_1AF0E
-; ---------------------------------------------------------------------------
-
-loc_1AF0A:
-		inc	_yuki_sprite
-
-loc_1AF0E:
-		cmp	_boss_phase_frame, 64
-		jl	loc_1AFA7	; default
-		inc	_boss_phase
-		mov	_boss_phase_frame, 0
-		jmp	loc_1AFA7	; default
-; ---------------------------------------------------------------------------
-
-loc_1AF24:
-		mov	PaletteTone, 60 ; jumptable 0001AC18 case 255
-		mov	_palette_changed, 1
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1AFA7	; default
-		cmp	_boss2_phase_state, 0
-		jnz	short loc_1AF66
-		call	@dialog_load$qnxc pascal, ds, offset a_dm09_tx2 ; "_DM09.TX2"
-		mov	word ptr _boss_bgm_title+2, ds
-		mov	word ptr _boss_bgm_title, offset aTH05_10
-		mov	eax, _yuki_pos.cur
-		mov	_boss_pos.cur, eax
-		setfarfp	_boss_update, yuki_update
-		jmp	short loc_1AF85
-; ---------------------------------------------------------------------------
-
-loc_1AF66:
-		call	@dialog_load$qnxc pascal, ds, offset a_dm08_tx2 ; "_DM08.TX2"
-		mov	word ptr _boss_bgm_title+2, ds
-		mov	word ptr _boss_bgm_title, offset aTH05_11
-		setfarfp	_boss_update, @MAI_UPDATE$QV
-
-loc_1AF85:
-		call	@dialog_animate$qv
-		mov	_overlay1, offset @overlay_boss_bgm_update_and_rend$qv
-		mov	_boss_phase, PHASE_BOSS_HP_FILL
-		mov	_boss_phase_frame, 0
-		mov	_boss_fg_render, offset B4_SOLO_FG_RENDER
-		mov	_boss_hp, 7900
-
-loc_1AFA7:
-		call	@cheetos_update$qv	; default
-		mov	ax, _boss_hp
-		add	ax, _yuki_hp
-		call	@hud_hp_update_and_render$qii pascal, ax, 9000
-		pop	si
-		leave
-		retf
-@mai_yuki_update$qv	endp
-; ---------------------------------------------------------------------------
-		db 0
-word_1AFBC	dw	0,     1,     2,  0FDh
-		dw   0FEh,  0FFh	; value	table for switch statement
-		dw offset loc_1AC1C	; jump table for switch	statement
-		dw offset loc_1AC90
-		dw offset loc_1ACD0
-		dw offset loc_1AE4F
-		dw offset loc_1AEB7
-		dw offset loc_1AF24
-
-
 ; midboss4_update() and the four helpers only it called were the tail of
 ; this block, and B4BALLS_RESET and B4BALLS_ADD were below them:
 ; th05/main/midboss/m4_updt.cpp and th05/main/bullet/b4balls_add.cpp now.
 
 
-; Both halves of the Stage 4 solo fight and the ball bullets they share are
-; C++ now. In this segment's address order: b4balls_update() is
-; th05/main/bullet/b4balls_update.cpp, yuki_update() and all seven of Yuki's
-; patterns are th05/main/boss/b4_yuki.cpp, and Mai's ten patterns plus
-; mai_update() are th05/main/boss/b4_mai.cpp, all compiled into
-; th05/b4mai.cpp in that order. th05/swords.cpp is the segment's next
-; contribution and that object's Tupfile.lua line comes before it, so the
-; object lands at exactly the address this block ends at (kb/codegen 0112 +
-; 0114). Every later lift out of what is left above is an `#include` at the
-; front of that object -- no further Tupfile.lua line.
+; The whole Stage 4 fight is C++ now, in TWO objects. In this segment's
+; address order: mai_yuki_update() with the two cheeto patterns above it is
+; th05/main/boss/b4_pair.cpp, compiled into th05/b4pair.cpp; then the Stage
+; 4 midboss, b4balls_update(), yuki_update() with all seven of Yuki's
+; patterns, and Mai's ten patterns with mai_update(), all compiled into
+; th05/b4mai.cpp in that order. th05/b4pair.cpp's Tupfile.lua line comes
+; BEFORE th05/b4mai.cpp's, and that one before th05/swords.cpp's, so each
+; object lands at exactly the address its own block ended at (kb/codegen
+; 0112 + 0114).
 ;
-; TWO generated jump tables, and they take OPPOSITE pads. Each is part of
-; what its function compiles to, so the C++ emits both (kb/codegen 0104 +
-; 0154 + 0157 + 0160, state/re/JUMP_TABLE_TAILS.md), and both were read off
-; the OBJ rather than a `tcc -S` listing, per 0154's own correction:
+; b4pair.cpp is a SECOND object rather than another `#include` at the front
+; of b4mai.cpp, and that is the thing to understand before lifting anything
+; else out of here. FOUR generated jump tables are now in play across the
+; two objects. Each is part of what its own function compiles to, so the C++
+; emits the table and its one-byte `-a2` pad along with the body (kb/codegen
+; 0104 + 0154 + 0157 + 0160, state/re/JUMP_TABLE_TAILS.md), and every offset
+; below was read off the OBJ's own LEDATA image with
+; tools/pi-audit/obj_probe.py rather than off a `tcc -S` listing, per 0154's
+; own correction:
 ;
-; yuki_update()  table at 0x05AC + 0x326 = 0x08D2, EVEN -> no pad
-; mai_update()   table at 0x10D2 + 0x2FD = 0x13CF, ODD  -> one-byte pad
+;   b4mai.obj   midboss4_update()  table at an ODD  offset -> one-byte pad
+;   b4mai.obj   yuki_update()      table at an EVEN offset -> no pad
+;   b4mai.obj   mai_update()       table at an ODD  offset -> one-byte pad
+;   b4pair.obj  mai_yuki_update()  table at an EVEN offset -> one-byte pad
 ;
-; which is the original's arrangement exactly, and both offsets are the ones
-; tools/pi-audit/obj_probe.py reported off obj/th05/b4mai.obj rather than
-; anything derived. Every run prepended so far has been EVEN in total -- the
-; ten Mai patterns 0x7EC, yuki_update 0x33A, the six Yuki patterns 0x3CA,
-; and b4balls_update() together with yuki_1B557() 0x1E2 -- which is the only
-; reason both pads survived. 0x111 and 0xD1 are both ODD, which is why those
-; two had to land in ONE parcel; any FURTHER run has to keep that parity
-; (kb/codegen 0119 + 0159).
+; which is the original's arrangement exactly -- and the last row takes its
+; pad on the OPPOSITE sign from the three above it. The sign is a property
+; of the FUNCTION, not of the object or of the compiler flags: fourteen
+; scratch compiles swept b4mai.obj's prefix from 0 to 4 bytes at both body
+; parities, and mai_yuki_update() padded iff its own START offset was odd,
+; i.e. iff its table offset was EVEN. No single object can hold all four
+; pads, and this one keeps its own only while the two cheeto patterns
+; (0xBB, odd) sit in front of it. So a prepend into b4pair.cpp has to be
+; EVEN and so does one into b4mai.cpp; get either wrong and every body still
+; matches byte for byte while the segment shrinks by one, which no
+; per-function diff can see (kb/codegen 0119 + 0159). Do NOT re-derive the
+; ladder from this comment -- re-probe both OBJs, because every lift moves
+; both.
 ;
-; What the three files still reach in here is twelve zero-byte
-; kb/codegen/0123 aliases, and every one of them is DATA now:
-; [mai_yuki_pattern], the three YUKI_PATTERNS_PHASE_* and three
-; MAI_PATTERNS_PHASE_* tables, and the phase-5 laser pattern's four words
-; plus MAI_LASER_BULLET_PATTERNS. All fourteen pattern bodies the seven
-; tables reach are C++, so every entry of every table now points at a
-; `procdesc` below. Both declarations mai_yuki_update() needs head this
-; segment instead of sitting here, because that use comes earlier in the
-; file than this point does.
+; The root's tail here is now mai_yuki_1AA9B(), so the next lift out of this
+; block is the mai_yuki_* helper run above, prepended to th05/b4pair.cpp in
+; EVEN-sized runs.
 ;
-; All four of the functions th05/main/bullet/b4ball.hpp declares are C++,
-; and so is the Stage 4 midboss. midboss4_update() took its own pad and
-; jump table with it (kb/codegen 0104 + 0119,
-; state/re/JUMP_TABLE_TAILS.md), which is also why it could not be lifted
-; alone: the pad exists only while the table sits at an ODD offset in the
-; object, and only the four helpers together with it add up to one.
-; This block's root tail is now @mai_yuki_update$qv's own value table and
-; jump table, so the next lift out of here is that proc, with the
-; mai_yuki_* helper block above it.
+; What the two objects still reach in here emits no bytes either way.
+; Twelve zero-byte kb/codegen/0123 aliases belong to b4mai.cpp and are all
+; DATA: [mai_yuki_pattern], the three YUKI_PATTERNS_PHASE_* and three
+; MAI_PATTERNS_PHASE_* tables, the phase-5 laser pattern's four words, and
+; MAI_LASER_BULLET_PATTERNS. Sixteen more belong to b4pair.cpp, and only
+; four of those are aliases: the two dialog scripts and the two BGM titles
+; its last case loads, which keep IDA's spelling because nothing has read
+; them closely enough to name them. The other twelve are RENAMED, because
+; nothing in assembly reads any of them any more except through the C name
+; -- the five band tables and the two [_*_pair_pattern] slots outright, and
+; the five procs it calls through a `public` on the underscored spelling
+; off a `label near` beside the `proc`. Every entry of every one of those
+; tables now points at a `procdesc` below.
 
 	; Every body the seven pattern tables in _DATA reach. None carries an
 	; argument list, so TASM leaves the case alone (kb/codegen/0102) -- and
@@ -5687,6 +5216,14 @@ word_1AFBC	dw	0,     1,     2,  0FDh
 	@mai_1C0E4$qv procdesc near
 	@mai_1C194$qv procdesc near
 	@mai_1C23D$qv procdesc near
+
+	; The two cheeto patterns th05/main/boss/b4_pair.cpp took along with
+	; mai_yuki_update(). [_YUKI_PAIR_PATTERNS_3]'s and
+	; [_MAI_PAIR_PATTERNS_3]'s first entries are
+	; all that still reach them; neither carries an argument list, so TASM
+	; leaves the case alone (kb/codegen/0102).
+	@mai_yuki_1AB1F$qv procdesc near
+	@mai_yuki_1AB76$qv procdesc near
 
 	; The four bodies [_YUMEKO_PATTERNS_PHASE_2] and
 	; [_YUMEKO_PATTERNS_PHASE_5] in _DATA reach. None carries an argument
@@ -6188,11 +5725,23 @@ off_22770	dw offset @alice_pattern_19B9E$qv
 		dw offset @alice_pattern_19E12$qv
 		dw offset @alice_pattern_19EDA$qv
 		dw offset @alice_pattern_19F75$qv
-off_22788	dw offset sub_1A5EB
+; The five tables mai_yuki_update() (th05/main/boss/b4_pair.cpp) picks the
+; pair's patterns from. Its one big phase runs three BANDS of patterns,
+; separated by the two interlude warps at pattern 9 and pattern 14, and
+; each character draws from one table per band -- except that Mai's middle
+; band is the manual laser the update function installs by name, which is
+; why there is no MAI_PAIR_PATTERNS_2. All five are indexed by
+; [patterns_seen] & 3, which is what sizes them at four; the third one
+; carries four more zero words behind its four entries and nothing reads
+; them. Renamed rather than aliased: after the lift no assembly reads any
+; of the five (kb/codegen/0123).
+public _MAI_PAIR_PATTERNS_1, _MAI_PAIR_PATTERNS_3
+public _YUKI_PAIR_PATTERNS_1, _YUKI_PAIR_PATTERNS_2, _YUKI_PAIR_PATTERNS_3
+_MAI_PAIR_PATTERNS_1	dw offset mai_yuki_1A5EB
 		dw offset sub_1A6AB
 		dw offset sub_1A651
 		dw offset sub_1A719
-off_22790	dw offset mai_yuki_1AB76
+_MAI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB76$qv
 		dw offset sub_1A6AB
 		dw offset sub_1A82F
 		dw offset sub_1A82F
@@ -6200,21 +5749,32 @@ off_22790	dw offset mai_yuki_1AB76
 		dw 0
 		dw 0
 		dw 0
-off_227A0	dw offset mai_yuki_1A8C9
+_YUKI_PAIR_PATTERNS_1	dw offset mai_yuki_1A8C9
 		dw offset sub_1A96A
 		dw offset sub_1A921
 		dw offset mai_yuki_1A9B3
-off_227A8	dw offset sub_1A921
+_YUKI_PAIR_PATTERNS_2	dw offset sub_1A921
 		dw offset mai_yuki_1AA4C
 		dw offset mai_yuki_1AA03
 		dw offset mai_yuki_1A8C9
-off_227B0	dw offset mai_yuki_1AB1F
+_YUKI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB1F$qv
 		dw offset mai_yuki_1AA9B
 		dw offset mai_yuki_1AA9B
 		dw offset sub_1A96A
+; The dialog script and the BGM title for each of the two survivors, loaded
+; by mai_yuki_update()'s last case. Zero-byte aliases, kb/codegen/0123, on
+; _aSt00_map's model further up this dump.
+public _a_dm09_tx2
+_a_dm09_tx2	label byte
 a_dm09_tx2	db '_DM09.TX2',0
+public _aTH05_10
+_aTH05_10	label byte
 aTH05_10	db 'ê^çgÇÃè≠èóÅ@Å` Crimson Dead!!',0
+public _a_dm08_tx2
+_a_dm08_tx2	label byte
 a_dm08_tx2	db '_DM08.TX2',0
+public _aTH05_11
+_aTH05_11	label byte
 aTH05_11	db 'ó†êÿÇËÇÃè≠èóÅ@Å` Judas Kiss',0
 ; The three tables Yuki's phases 3, 5 and 9 pick [mai_yuki_pattern] from,
 ; the twins of the MAI_PATTERNS_PHASE_* run below. Zero-byte aliases,
@@ -6718,8 +6278,17 @@ public _fp_2CE32
 _fp_2CE32	label word
 fp_2CE32	dw ?
 include th05/main/boss/b4_both[bss].asm
-fp_2CE36	dw ?
-fp_2CE38	dw ?
+; Mai's and Yuki's currently selected danmaku pattern in the PAIR phase,
+; one slot each -- distinct from [mai_yuki_pattern] below, which is the
+; SOLO half's single shared slot. Both are assigned only by
+; mai_yuki_update() (th05/main/boss/b4_pair.cpp) and stepped by the two
+; per-character steps still in main_035_TEXT above. Structural twins of
+; [fp_2CE2A] / [fp_2CE2C] one boss over. Renamed rather than aliased,
+; because the C++ is the only thing that assigns them and the two ASM
+; readers can spell the C name (kb/codegen/0123).
+public _mai_pair_pattern, _yuki_pair_pattern
+_mai_pair_pattern	dw ?
+_yuki_pair_pattern	dw ?
 ; The x th05/main/midboss/m4_updt.cpp centers the Stage 4 midboss's warp
 ; vibration on. Nothing in assembly reads it any more, so it is renamed
 ; rather than aliased.
