@@ -1032,8 +1032,12 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/spark_a.asm",
 	"th04/grcg_3.cpp",
 	"th04/it_spl_u.cpp",
-	-- The only C++ contribution to MB_UPD_TEXT, the kb/codegen/0080 head carve
-	-- off ENM_POS_TEXT, so its position is free; listed here for address order.
+	-- POSITION-CRITICAL: these two are the whole of MB_UPD_TEXT, the
+	-- kb/codegen/0080 head carve off ENM_POS_TEXT, whose root contribution is
+	-- now empty. mb_upd1.cpp must stay immediately before mb_upd.cpp: it is
+	-- 0x33F bytes of prefix, and folding it into that object instead flips the
+	-- parity of midboss3_update()'s `-a2` jump-table pad. See th04/mb_upd1.cpp.
+	"th04/mb_upd1.cpp",
 	"th04/mb_upd.cpp",
 	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
 	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
