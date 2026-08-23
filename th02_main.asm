@@ -3905,104 +3905,12 @@ off_15210	dw offset loc_15145
 		dw offset loc_1514F
 		dw offset loc_15154
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-public _meira_end
-_meira_end label far
-meira_end	proc far
-		push	bp
-		mov	bp, sp
-		call	@dialog_pre$qv
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_POSTBOSS
-		call	@stage_clear_bonus_animate$qv
-		call	@key_delay$qv
-		call	@overlay_stage_leave_animate$qv
-		inc	_stage_id
-		mov	_spark_accel_x, 0
-		pop	bp
-		retf
-meira_end	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_init
-_meira_init label far
-meira_init	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	patnum_2064E, 141
-		call	@dialog_pre$qv
-		call	@dialog_script_stage2_pre_intro_a$qv
-		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 32)
-		mov	ax, _boss_left_on_page[0 * word]
-		mov	_boss_left_on_page[1 * word], ax
-		mov	_boss_top_on_page[0 * word], (PLAYFIELD_TOP + 32)
-		mov	_boss_top_on_page[1 * word], (PLAYFIELD_TOP + 32)
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		push	1
-		call	palette_white_out
-		mov	si, 48
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_15296
-		sub	si, RES_Y
-
-loc_15296:
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put pascal, word ptr [bx], si, patnum_2064E
-		push	ds
-		push	offset aBoss4_m	; "boss4.m"
-		nopcall	sub_13ABB
-		add	sp, 4
-		push	1
-		call	palette_white_in
-		call	@dialog_script_generic_part_anima$q17dialog_sequence_t pascal, DS_PREBOSS
-		call	@dialog_post$qv
-		mov	_boss_damage, 0
-		mov	byte_2066A, 0
-		mov	bullet_special_turns_max, 2
-		mov	_boss_explode_angle_offset, 0
-		mov	byte_252F6, 0
-		mov	byte_252F7, 0
-		mov	word_250FE, 0
-		cmp	_rank, RANK_EASY
-		jz	short loc_152FF
-		mov	byte_2066E, 1Ah
-		mov	byte_2066F, 15h
-		mov	group_20670, BG_5_SPREAD_MEDIUM_AIMED
-		jmp	short loc_1530E
-; ---------------------------------------------------------------------------
-
-loc_152FF:
-		mov	byte_2066E, 1Ah
-		mov	byte_2066F, 9
-		mov	group_20670, BG_3_SPREAD_MEDIUM_AIMED
-
-loc_1530E:
-		pop	si
-		pop	bp
-		retf
-meira_init	endp
-
-
-; FIVE objects pick this segment up from here, in link order, and that order
+; SIX objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
+;   th02/main/boss/b2.cpp       meira_end()
+;                               meira_init()
 ;   th02/main/midboss/mx.cpp    midbossx_bursts_add()                [static]
 ;                               midbossx_bursts_update_and_render()  [static]
 ;                               midbossx_invalidate()
@@ -4067,11 +3975,39 @@ meira_init	endp
 ; that were word_1EE16..byte_1EE1C in _DATA, now the one published label
 ; _MIDBOSSX_BURST_TILE_IMAGES.
 ;
-; SO THE TAIL OF THIS BLOCK IS meira_init, and it is still a `proc` at the very
-; end of the root's contribution with a non-empty C++ object immediately behind
-; it - i.e. still FREE by both of tools/pi-audit/carve_free_tails.py's tests,
-; and still a plain kb/codegen/0099 prepend, now into mx.cpp's head. Then the
-; rest of Meira back up the block, then Rika and the four numbered midbosses.
+; MEIRA'S TWO ENTRY POINTS ARE GONE TOO. meira_init() and meira_end() are
+; th02/main/boss/b2.cpp, a new object of her own at the th02/dialog.cpp /
+; th02/main/midboss/mx.cpp seam, and _aBoss4_m in _DATA below is published for
+; it. Three of her fight-state rows became kb/codegen/0123 aliases rather than
+; renames, because meira_update() and meira_bg_render() still hold references
+; to all three: _meira_phase, _meira_pattern and _meira_250FE. The last of
+; those KEEPS ITS ADDRESS SUFFIX on purpose - it is a two-valued flag with one
+; reader, and that reader is a renderer this parcel did not lift, so naming it
+; would be a guess.
+;
+; SO THE TAIL OF THIS BLOCK IS NO LONGER A `proc`: it is `off_15210`,
+; meira_update()'s own generated jump table, plus the `db 0` above it that is
+; that table's `-a2` pad. The block therefore leaves
+; tools/pi-audit/carve_free_tails.py's FREE class and enters its JUMP-TABLE
+; TAILS class, which is a liftable class and not a blocked one - the pad and
+; the table come across as meira_update()'s own codegen. Two consequences for
+; whoever takes it:
+;
+;   th02/main/boss/b2.cpp WILL NEED `-a2` to emit that pad, and the pad's
+;   parity is then a function of b2.cpp's OWN prefix rather than of anything in
+;   this dump (kb/codegen/0119 + 0096 + 0160). Its prefix today is 0xF9 - ODD -
+;   from meira_end() at 0x24 and meira_init() at 0xD5. Re-derive it from the
+;   OBJ, never from this sentence.
+;
+;   meira_update() dispatches to TWELVE still-ASM near procs - meira_14519,
+;   meira_1483B, meira_148FD, meira_14A39, meira_14B33, meira_14BC2,
+;   meira_14C76, meira_14E30, meira_14E9D, meira_14F16, meira_145E1 and
+;   meira_14726 - so lifting it alone costs twelve publishes that the rest of
+;   the chain then refunds. Taking it together with the patterns it calls costs
+;   none of them, but the contiguity rule makes that the whole of Meira.
+;
+; Then the rest of Meira back up the block, then Rika and the four numbered
+; midbosses, then the four unnamed procs at the head.
 ;
 ; A POOL'S STRIDE NEEDS `-a2`, AND NO LENGTH CHECK CAN SEE IT.
 ; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot; the same fields
@@ -5199,6 +5135,11 @@ byte_1EDA6	db 1
 		db 0
 word_1EDA8	dw 0
 word_1EDAA	dw 0
+; The Stage 2 boss BGM's file name, published for th02/main/boss/b2.cpp the way
+; _aBoss2_m and _aBoss3_m already are for b3.cpp and b4.cpp. `label byte` keeps
+; IDA's row and its bytes untouched, which is what makes this edit free.
+public _aBoss4_m
+_aBoss4_m label byte
 aBoss4_m	db 'boss4.m',0
 public _SCOREDAT_FN_PTR
 _SCOREDAT_FN_PTR dd aHuuhi_dat
@@ -5965,6 +5906,13 @@ word_250E2	dw ?
 word_250E4	dw ?
 byte_250E6	db 12 dup(?)
 byte_250F2	db 12 dup(?)
+; Written only 0 and 1 - meira_14E9D() raises it, th02/main/boss/b2.cpp's
+; meira_init() clears it - and read at exactly one site, where it gates
+; meira_bg_render()'s pass over three per-page background slots. THE ADDRESS
+; SUFFIX IS DELIBERATE: naming it needs that renderer and that pattern, and
+; neither has been lifted.
+public _meira_250FE
+_meira_250FE label word
 word_250FE	dw ?
 byte_25100	db 480 dup(?)
 byte_252E0	db ?
@@ -5979,7 +5927,17 @@ word_252EE	dw ?
 word_252F0	dw ?
 word_252F2	dw ?
 word_252F4	dw ?
+; Meira's fight progression, and the two are NOT the same thing: the phase is
+; which of her three pattern groups is running, advanced by meira_update() as
+; _boss_damage passes 700 and then 1500; the pattern is which of that group's
+; patterns runs this frame, wrapped at four, three and two and reset to 0 at
+; every phase change. Neither is _boss_phase, which is the binary-wide defeat
+; flag. Same split as _stones_phase, _mima_phase and _sigma_phase.
+public _meira_phase
+_meira_phase label byte
 byte_252F6	db ?
+public _meira_pattern
+_meira_pattern label byte
 byte_252F7	db ?
 public _hiscore, _hiscore_continues
 _hiscore	dd ?
