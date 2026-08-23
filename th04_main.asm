@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -3230,11 +3230,11 @@ IT_SPL_U_TEXT	segment	word public 'CODE' use16
 	@item_splashes_update$qv procdesc pascal near
 IT_SPL_U_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original
-; `B4M_UPDATE_TEXT` contribution, renamed so that a C++ object can append
-; `enemy_pos_update` at its original address in the MIDDLE of the segment.
-; Same `word public 'CODE'` alignment as before, so nothing moves.
-ENM_POS_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080), the SECOND on this block: the head of what
+; an earlier carve had already split off `B4M_UPDATE_TEXT` and named
+; ENM_POS_TEXT -- the midboss 1 and 3 updates and their pattern helpers --
+; renamed again. Same `word public 'CODE'` alignment, so nothing moves.
+MB_UPD_TEXT	segment	word public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -4060,34 +4060,34 @@ loc_14826:
 sub_147DB	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
+	; sub_14828 -- the two-ring bullet pattern @midbossx_update$qv fires on
+	; every sixteenth stage frame -- is now midbossx_14828() in
+	; th04/main/midboss/m13_pat.cpp, via th04/mb_upd.cpp, which compiles into
+	; THIS segment immediately behind this contribution. It was the last
+	; emitting item of the root's block, so the lift only moved the seam
+	; between the two (kb/codegen/0099) and every byte keeps its address.
+	;
+	; kb/codegen/0121: the body carried no `assume`, and neither does anything
+	; else in this block. Its one and only call site is in the tail segment
+	; below and reaches it through the `procdesc` there: both segments are in
+	; the main_03 group, so the near call's encoding is unchanged and the
+	; qualifier it never carried is still not needed (kb/codegen/0104).
+MB_UPD_TEXT	ends
 
-; Attributes: bp-based frame
+; The TAIL of that same contribution, under the name the earlier carve gave
+; it: sub_1486E, @midbossx_update$qv, the two sparse `switch` value/jump
+; table pairs that are those two functions' own codegen, and the
+; th04/main/gather_point_render.asm `include` that ends the block and screens
+; HAND-WRITTEN on its `equ <ax>`/`equ <dx>` register parameters. Behind all
+; of that sit BOTH of this segment's C++ contributions -- th04/enm_pos1.cpp,
+; which appends enemy_pos_update() at its original address in the MIDDLE of
+; the segment, and th04/enm_pos.cpp after it. Renaming the HEAD rather than
+; the tail is exactly what keeps those two un-repointed, which is
+; kb/codegen/0080's tiebreak decided rather than guessed. Same
+; `word public 'CODE'` alignment, and 1486Eh is EVEN, so no pad either.
+ENM_POS_TEXT	segment	word public 'CODE' use16
+	_midbossx_14828 procdesc near
 
-sub_14828	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_stage_frame_mod16, 0
-		jnz	short loc_1486C
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 32
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 16
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.speed, (3 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_1486C:
-		pop	bp
-		retn
-sub_14828	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -4290,7 +4290,7 @@ loc_14A31:
 		call	sub_14700
 		cmp	_midboss_phase_frame, 160
 		jl	short loc_14A3F
-		call	sub_14828
+		call	_midbossx_14828
 
 loc_14A3F:
 		inc	_midboss_phase_frame

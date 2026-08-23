@@ -1032,6 +1032,9 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/spark_a.asm",
 	"th04/grcg_3.cpp",
 	"th04/it_spl_u.cpp",
+	-- The only C++ contribution to MB_UPD_TEXT, the kb/codegen/0080 head carve
+	-- off ENM_POS_TEXT, so its position is free; listed here for address order.
+	"th04/mb_upd.cpp",
 	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
 	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
 	"th04/enm_pos1.cpp",
