@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1317,26 +1317,51 @@ BOMBCHAR_TEXT	segment	byte public 'CODE' use16
 
 BOMBCHAR_TEXT	ends
 
-; kb/codegen/0080 carve, the SECOND one out of this block: BOMBCHAR_TEXT
-; above took the four playchars' bomb drivers, and this one takes
-; everything from the `db 0` down to the last of ZUN's GRCG playfield
-; fills, so that a C++ object can append to THAT. What keeps the original
-; name is now only the grcg_fill_playfield_rows() include below, which is
-; why th04/mb_inv.cpp is still not re-pointed and every byte still keeps
-; its address.
+; kb/codegen/0080 carve, the THIRD one out of what used to be a single
+; MB_INV_TEXT block. BOMBCHAR_TEXT above took the four playchars' bomb
+; drivers; BOMB_BG_TEXT below took the GRCG playfield fills; and this one
+; is the smallest possible head -- the single alignment `db 0` at 0CE55h,
+; split off so that a C++ object can append at 0CE56h, which is where the
+; playchar .BB lifecycle was. Everything else keeps the name it had, so
+; th04/mb_inv.cpp is still not re-pointed and every byte still keeps its
+; address. `MATCH-TH04-MAIN-SHOT-MARISA-HEAD` split an anchor this small
+; off EXECL_TEXT first.
 ;
-; The head is the segment a lift has to append to, so it gets the name of
-; the C++ that appends: th05/main/player/bombchar.cpp reaches it through a
-; `#pragma codeseg BOMB_BG_TEXT main_01` block at the end of that file, in
-; the same object that owns BOMBCHAR_TEXT. No new translation unit, and
-; therefore no Tupfile.lua line -- the same route e7c2612b took for TH04's
-; B6_SPAWN_TEXT.
-BOMB_BG_TEXT	segment	byte public 'CODE' use16
+; A head carve puts the new name where the old segment opened, because
+; physical order follows first definition across the link. All three heads
+; are hosted from the SAME object -- th05/bombchar.cpp and the file it
+; includes -- so none of the three cost a translation unit or a
+; Tupfile.lua line (kb/codegen/0155; the route e7c2612b took for TH04's
+; B6_SPAWN_TEXT).
+BB_PCHAR_TEXT	segment	byte public 'CODE' use16
 
 ; ---------------------------------------------------------------------------
 		db    0
 
-include th05/formats/bb_playchar.asm
+	; bb_playchar_load() and bb_playchar_free() were the whole of
+	; th05/formats/bb_playchar.asm, included here, and they are
+	; th05/formats/bb_pchar.cpp now -- 0CE56h and 0CE68h, with the module's
+	; trailing 90h as a `#pragma codestring` after them. TH04 lifted its own
+	; copy of this pair in a26bff58; the two games needed two files because
+	; TH05 keeps one filename, loads no .CDG, and reaches bb_load() instead
+	; of opening the file itself.
+	;
+	; bb_playchar_free() needs no procdesc -- nothing in this dump has ever
+	; referenced it. bb_playchar_load() has exactly one call site, in
+	; DEMO_TEXT, and it is unchanged: the module published the undecorated
+	; uppercase name, `extern "C"` plus `pascal` publishes the same spelling
+	; from C++ (kb/codegen 0086 + 0102), and the site never carried a
+	; `main_01:` override to lose.
+	BB_PLAYCHAR_LOAD procdesc pascal near
+
+BB_PCHAR_TEXT	ends
+
+; The GRCG playfield fills' segment. Its own root contribution is now just
+; the one hand-written include below: th04/main/tile/bb_put.asm takes its
+; arguments in AX and DX through `equ` register aliases, the
+; register-parameter interface no C signature expresses.
+BOMB_BG_TEXT	segment	byte public 'CODE' use16
+
 include th04/main/tile/bb_put.asm
 
 	; ZUN's five GRCG playfield fills used to be here, from 0CEC2h to
