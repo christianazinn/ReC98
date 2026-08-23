@@ -149,7 +149,12 @@ typedef enum {
 
 	// st03.bb3
 	// --------
-	PAT_B4BALL_SNOW = 212,
+	// mai_yuki_update() (th05/main/boss/b4_pair.cpp) converts
+	// [TINY_B4BALL_START, TINY_B4BALL_END) to tiny format on the frame the
+	// Stage 4 HP bar starts filling, the same way yumeko_update() does for
+	// TINY_SWORD_* below.
+	TINY_B4BALL_START = 212,
+	PAT_B4BALL_SNOW = TINY_B4BALL_START,
 	PAT_B4BALL_SNOW_last = (PAT_B4BALL_SNOW + B4BALL_CELS - 1),
 	PAT_B4BALL_FIRE,
 	PAT_B4BALL_FIRE_last = (PAT_B4BALL_FIRE + B4BALL_CELS - 1),
@@ -157,6 +162,7 @@ typedef enum {
 	PAT_B4BALL_SNOW_HIT_last = (PAT_B4BALL_SNOW_HIT + B4BALL_CELS - 1),
 	PAT_DECAY_B4BALL,
 	PAT_DECAY_B4BALL_last = (PAT_DECAY_B4BALL + BULLET_DECAY_CELS - 1),
+	TINY_B4BALL_END,
 	// --------
 	/// =======
 
