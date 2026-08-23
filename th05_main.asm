@@ -4789,348 +4789,6 @@ loc_1A82B:
 mai_yuki_1A775	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A82F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1A843
-		mov	_boss_statebyte[15], 20h
-		mov	_boss_statebyte[12], -4
-
-loc_1A843:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A8B9
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		mov	al, _boss_statebyte[12]
-		add	_boss_statebyte[15], al
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_BLUE
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spread, 4
-		mov	_bullet_template.speed, (2 shl 4) + 6
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A8B2
-		push	7
-		call	@randring2_next16_and$qui
-		add	al, 10h
-		mov	dl, _boss_statebyte[15]
-		sub	dl, al
-		mov	_boss_statebyte[15], dl
-		mov	al, _boss_statebyte[12]
-		neg	al
-		mov	_boss_statebyte[12], al
-
-loc_1A8B2:
-		call	snd_se_play pascal, 3
-
-loc_1A8B9:
-		cmp	_boss_phase_frame, 256
-		jnz	short loc_1A8C5
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A8C5:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A82F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mai_yuki_1A8C9
-_mai_yuki_1A8C9 label near
-mai_yuki_1A8C9	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A91D
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		call	@randring2_next16_and$qui pascal, 3Fh
-		sub	al, 20h
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (5 shl 8) or 7
-		mov	_bullet_template.BT_special_motion, BSM_EXACT_LINEAR
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (1 shl 4)
-		mov	_bullet_template.speed, al
-		call	_bullet_template_tune
-		call	_bullets_add_special
-
-loc_1A91D:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1A8C9	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A921	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A966
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spread, 32
-		mov	_bullet_template.speed, (2 shl 4) + 8
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_1A966:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A921	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A96A	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A9AF
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.BT_stack, (4 shl 8) or 8
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_1A9AF:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A96A	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1A9B3	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A9FF
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.BT_angle, 40h
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 8
-		mov	_bullet_template.speed, (4 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1A9FF:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1A9B3	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1AA03	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1AA48
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.BT_stack, (6 shl 8) or 8
-		mov	_bullet_template.speed, (2 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_1AA48:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1AA03	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1AA4C	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 2
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1AA97
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.patnum, 0
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (2 shl 8) or 2
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (1 shl 4) + 8
-		mov	_bullet_template.speed, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_1AA97:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1AA4C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-mai_yuki_1AA9B	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1AAAF
-		mov	_boss_statebyte[14], 0
-		mov	_boss_statebyte[13], 4
-
-loc_1AAAF:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1AB1B
-		mov	_bullet_template.spawn_type, BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	al, _boss_statebyte[14]
-		mov	_bullet_template.BT_angle, al
-		mov	al, _boss_statebyte[13]
-		add	_boss_statebyte[14], al
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_RED
-		mov	ax, _yuki_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _yuki_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spread, 4
-		mov	_bullet_template.speed, (2 shl 4) + 6
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1AB1B
-		push	7
-		call	@randring2_next16_and$qui
-		add	al, _boss_statebyte[14]
-		add	al, 10h
-		mov	_boss_statebyte[14], al
-		mov	al, _boss_statebyte[13]
-		neg	al
-		mov	_boss_statebyte[13], al
-
-loc_1AB1B:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1AA9B	endp
-
-
 ; midboss4_update() and the four helpers only it called were the tail of
 ; this block, and B4BALLS_RESET and B4BALLS_ADD were below them:
 ; th05/main/midboss/m4_updt.cpp and th05/main/bullet/b4balls_add.cpp now.
@@ -5175,23 +4833,24 @@ mai_yuki_1AA9B	endp
 ; ladder from this comment -- re-probe both OBJs, because every lift moves
 ; both.
 ;
-; The root's tail here is now mai_yuki_1AA9B(), so the next lift out of this
-; block is the mai_yuki_* helper run above, prepended to th05/b4pair.cpp in
-; EVEN-sized runs.
+; The root's tail here is now mai_yuki_1A775(), Mai's manual tracking
+; laser, and it is the ONE proc of this block that has not matched yet.
+; That is also why the six procs below it are still here: th05_main.asm is
+; this segment's first object, so a C++ contribution can only ever be a
+; SUFFIX of the block, and nothing under an unmatched proc can leave ahead
+; of it. The tracking block that resists is nine instructions long and the
+; measurement is in state/notes/th05-main-mai-update.md; when it goes, all
+; six go with it, in one parcel, and the run has to be EVEN.
 ;
 ; What the two objects still reach in here emits no bytes either way.
 ; Twelve zero-byte kb/codegen/0123 aliases belong to b4mai.cpp and are all
 ; DATA: [mai_yuki_pattern], the three YUKI_PATTERNS_PHASE_* and three
 ; MAI_PATTERNS_PHASE_* tables, the phase-5 laser pattern's four words, and
-; MAI_LASER_BULLET_PATTERNS. Sixteen more belong to b4pair.cpp, and only
-; four of those are aliases: the two dialog scripts and the two BGM titles
-; its last case loads, which keep IDA's spelling because nothing has read
-; them closely enough to name them. The other twelve are RENAMED, because
-; nothing in assembly reads any of them any more except through the C name
-; -- the five band tables and the two [_*_pair_pattern] slots outright, and
-; the five procs it calls through a `public` on the underscored spelling
-; off a `label near` beside the `proc`. Every entry of every one of those
-; tables now points at a `procdesc` below.
+; MAI_LASER_BULLET_PATTERNS. Thirteen more belong to b4pair.cpp: the four
+; dialog-script and BGM-title strings, which keep IDA's spelling because
+; nothing has read them closely enough to name them, and the five band
+; tables, the two [_*_pair_pattern] slots and the four procs it still
+; calls by name, all RENAMED rather than aliased.
 
 	; Every body the seven pattern tables in _DATA reach. None carries an
 	; argument list, so TASM leaves the case alone (kb/codegen/0102) -- and
@@ -5217,11 +4876,20 @@ mai_yuki_1AA9B	endp
 	@mai_1C194$qv procdesc near
 	@mai_1C23D$qv procdesc near
 
-	; The two cheeto patterns th05/main/boss/b4_pair.cpp took along with
-	; mai_yuki_update(). [_YUKI_PAIR_PATTERNS_3]'s and
-	; [_MAI_PAIR_PATTERNS_3]'s first entries are
-	; all that still reach them; neither carries an argument list, so TASM
-	; leaves the case alone (kb/codegen/0102).
+	; The ten bodies of this block that th05/main/boss/b4_pair.cpp has
+	; taken so far, in address order: the bottom eight of the pair
+	; phase's fourteen danmaku patterns, and the two cheeto patterns
+	; that went with mai_yuki_update(). All ten are entries of the five
+	; band tables in _DATA and nothing else reaches them; none carries
+	; an argument list, so TASM leaves the case alone (kb/codegen/0102).
+	@mai_yuki_1A82F$qv procdesc near
+	@mai_yuki_1A8C9$qv procdesc near
+	@mai_yuki_1A921$qv procdesc near
+	@mai_yuki_1A96A$qv procdesc near
+	@mai_yuki_1A9B3$qv procdesc near
+	@mai_yuki_1AA03$qv procdesc near
+	@mai_yuki_1AA4C$qv procdesc near
+	@mai_yuki_1AA9B$qv procdesc near
 	@mai_yuki_1AB1F$qv procdesc near
 	@mai_yuki_1AB76$qv procdesc near
 
@@ -5743,24 +5411,24 @@ _MAI_PAIR_PATTERNS_1	dw offset mai_yuki_1A5EB
 		dw offset sub_1A719
 _MAI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB76$qv
 		dw offset sub_1A6AB
-		dw offset sub_1A82F
-		dw offset sub_1A82F
+		dw offset @mai_yuki_1A82F$qv
+		dw offset @mai_yuki_1A82F$qv
 		dw 0
 		dw 0
 		dw 0
 		dw 0
-_YUKI_PAIR_PATTERNS_1	dw offset mai_yuki_1A8C9
-		dw offset sub_1A96A
-		dw offset sub_1A921
-		dw offset mai_yuki_1A9B3
-_YUKI_PAIR_PATTERNS_2	dw offset sub_1A921
-		dw offset mai_yuki_1AA4C
-		dw offset mai_yuki_1AA03
-		dw offset mai_yuki_1A8C9
+_YUKI_PAIR_PATTERNS_1	dw offset @mai_yuki_1A8C9$qv
+		dw offset @mai_yuki_1A96A$qv
+		dw offset @mai_yuki_1A921$qv
+		dw offset @mai_yuki_1A9B3$qv
+_YUKI_PAIR_PATTERNS_2	dw offset @mai_yuki_1A921$qv
+		dw offset @mai_yuki_1AA4C$qv
+		dw offset @mai_yuki_1AA03$qv
+		dw offset @mai_yuki_1A8C9$qv
 _YUKI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB1F$qv
-		dw offset mai_yuki_1AA9B
-		dw offset mai_yuki_1AA9B
-		dw offset sub_1A96A
+		dw offset @mai_yuki_1AA9B$qv
+		dw offset @mai_yuki_1AA9B$qv
+		dw offset @mai_yuki_1A96A$qv
 ; The dialog script and the BGM title for each of the two survivors, loaded
 ; by mai_yuki_update()'s last case. Zero-byte aliases, kb/codegen/0123, on
 ; _aSt00_map's model further up this dump.
