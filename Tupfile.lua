@@ -1198,6 +1198,13 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/hud_drm.cpp",
 	"th05/hud_grz.cpp",
 	"th05/hud_pwr.cpp",
+	-- hud_hp_put(), into the MIDBOSSX_A_TEXT that a kb/codegen/0080 head carve
+	-- split off MIDBOSSX_TEXT for it. Position-free: it is that segment's only
+	-- contribution, and the segment's own place in the layout comes from
+	-- th05_main.asm's `group` and `segment` directives, which the dump declares
+	-- first. Listed with the other HUD objects rather than with MIDBOSSX_TEXT's
+	-- four, because it shares nothing with them.
+	"th05/hud_hp.cpp",
 	"th05/bombchar.cpp",
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
