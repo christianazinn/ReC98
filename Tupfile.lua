@@ -1209,6 +1209,11 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",
+	-- shots_add(), into the SCORE_A_TEXT that a kb/codegen/0080 head carve
+	-- split off SCORE_TEXT for it. Ahead of score_rm.cpp because that is the
+	-- order the two segments have, though neither position is load-bearing:
+	-- each object is the only contribution to its own segment.
+	"th05/shotsadd.cpp",
 	"th05/score_rm.cpp",
 	"th05/gameover.cpp",
 	"th05/laser_rh.cpp",
