@@ -2800,6 +2800,14 @@ meira_1483B	endp
 
 ; Attributes: bp-based frame
 
+; UPPER CASE AND NO LEADING UNDERSCORE, and that is the calling convention
+; talking rather than a style choice: th02/main/boss/b2m.cpp reaches this proc
+; through `extern "C" void pascal near`, and Turbo C++ decorates a `pascal`
+; `extern "C"` symbol as the bare upper-cased identifier. `_meira_1489C` links
+; as `Undefined symbol MEIRA_1489C`. Same shape as th05_main.asm's
+; DWORDS_CLEAR.
+public MEIRA_1489C
+MEIRA_1489C label near
 meira_1489C	proc near
 
 arg_0		= word ptr  4
@@ -2840,8 +2848,8 @@ loc_148CA:
 		add	ax, 12
 		push	ax
 		push	0
-		push	word_252E2
-		push	word_252E2+1
+		push	word ptr _meira_burst_group
+		push	word ptr _meira_burst_angle
 		push	word_252E4
 		call	meira_1469C
 		pop	si
@@ -2887,8 +2895,8 @@ loc_1492D:
 		mov	al, 79h	; 'y'
 		sub	al, byte ptr word_252E6
 		mov	byte_252E0, al
-		mov	byte ptr word_252E2, 19h
-		mov	byte ptr word_252E2+1, 40h
+		mov	_meira_burst_group, 19h
+		mov	_meira_burst_angle, 40h
 		jmp	loc_14A36
 ; ---------------------------------------------------------------------------
 
@@ -2991,423 +2999,13 @@ loc_14A36:
 meira_148FD	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14A39
-_meira_14A39 label near
-meira_14A39	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_14B31
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14A64
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		mov	al, byte_2066E
-		mov	byte ptr word_252E2, al
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14A64:
-		cmp	_boss_phase_frame, 99
-		jl	loc_14B31
-		cmp	_boss_phase_frame, 99
-		jnz	short loc_14A9C
-		call	_snd_se_play c, 3
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		mov	dx, 149
-		sub	dx, ax
-		mov	patnum_2064E, dx
-		mov	al, byte ptr word_252E6
-		add	al, 78h	; 'x'
-		mov	byte_252E0, al
-		mov	word_252E4, 50h	; 'P'
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14A9C:
-		cmp	_boss_phase_frame, 120
-		jge	short loc_14AAF
-		push	word_252E6
-		push	0FFF80008h
-		jmp	short loc_14AFB
-; ---------------------------------------------------------------------------
-
-loc_14AAF:
-		cmp	_boss_phase_frame, 136
-		jge	short loc_14AE9
-		mov	patnum_2064E, 142
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		add	ax, 144
-		mov	patnum_2064E, ax
-		mov	al, 79h	; 'y'
-		sub	al, byte ptr word_252E6
-		mov	byte_252E0, al
-		dec	word_252E4
-		cmp	_boss_phase_frame, 135
-		jnz	short loc_14B31
-		call	_snd_se_play c, 3
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14AE9:
-		cmp	_boss_phase_frame, 156
-		jge	short loc_14B04
-		push	word_252E6
-		push	0FFF8FFF8h
-
-loc_14AFB:
-		call	meira_1489C
-		dec	word_252E4
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14B04:
-		mov	bx, _boss_left_on_back_page
-		cmp	word ptr [bx], 192
-		jz	short loc_14B2B
-		mov	patnum_2064E, 141
-		cmp	byte ptr word_252E6, 0
-		jnz	short loc_14B20
-		mov	ax, 2
-		jmp	short loc_14B23
-; ---------------------------------------------------------------------------
-
-loc_14B20:
-		mov	ax, -2
-
-loc_14B23:
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14B2B:
-		mov	_boss_phase_frame, 0
-
-loc_14B31:
-		pop	bp
-		retn
-meira_14A39	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14B33
-_meira_14B33 label near
-meira_14B33	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_14BC0
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14B58
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14B58:
-		cmp	_boss_phase_frame, 99
-		jl	short loc_14BC0
-		cmp	_boss_phase_frame, 99
-		jnz	short loc_14B7E
-		call	_snd_se_play c, 3
-		mov	patnum_2064E, 143
-		mov	speed_252E8, (2 shl 4)
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14B7E:
-		cmp	_boss_phase_frame, 116
-		jge	short loc_14BB4
-		test	byte ptr _boss_phase_frame, 1
-		jz	short loc_14BC0
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; top
-		push	40h	; angle
-		push	word ptr byte_2066F	; group
-		push	speed_252E8	; speed
-		call	@bullets_add_pellet$qiiucuci
-		add	speed_252E8, 11
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14BB4:
-		mov	patnum_2064E, 141
-		mov	_boss_phase_frame, 0
-
-loc_14BC0:
-		pop	bp
-		retn
-meira_14B33	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14BC2
-_meira_14BC2 label near
-meira_14BC2	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_14C74
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14BEC
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		mov	byte ptr word_252E2, 1Ah
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14BEC:
-		cmp	_boss_phase_frame, 99
-		jl	loc_14C74
-		cmp	_boss_phase_frame, 99
-		jnz	short loc_14C14
-		call	_snd_se_play c, 3
-		mov	patnum_2064E, 143
-		mov	speed_252EA, (2 shl 4)
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14C14:
-		cmp	_boss_phase_frame, 120
-		jge	short loc_14C68
-		test	byte ptr _boss_phase_frame, 1
-		jz	short loc_14C48
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; top
-		push	00h	; angle
-		push	word ptr group_20670	; group
-		push	speed_252EA	; speed
-		call	@bullets_add_pellet$qiiucuci
-		add	speed_252EA, 11
-
-loc_14C48:
-		mov	bx, _boss_left_on_back_page
-		cmp	word ptr [bx], 192
-		jz	short loc_14C74
-		cmp	word ptr [bx], 192
-		jge	short loc_14C5D
-		mov	ax, 8
-		jmp	short loc_14C60
-; ---------------------------------------------------------------------------
-
-loc_14C5D:
-		mov	ax, -8
-
-loc_14C60:
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14C68:
-		mov	patnum_2064E, 141
-		mov	_boss_phase_frame, 0
-
-loc_14C74:
-		pop	bp
-		retn
-meira_14BC2	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14C76
-_meira_14C76 label near
-meira_14C76	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_14DFA
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_14CBE
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 16
-		cmp	ax, _player_topleft.x
-		jge	short loc_14C9D
-		mov	ax, 1
-		jmp	short loc_14C9F
-; ---------------------------------------------------------------------------
-
-loc_14C9D:
-		xor	ax, ax
-
-loc_14C9F:
-		mov	byte ptr word_252E6, al
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		mov	byte ptr word_252E2, 1Ah
-		mov	byte ptr word_252E2+1, 30h ; '0'
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14CBE:
-		cmp	_boss_phase_frame, 99
-		jl	loc_14DFA
-		cmp	_boss_phase_frame, 99
-		jnz	short loc_14CF3
-		call	_snd_se_play c, 3
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		add	ax, 148
-		mov	patnum_2064E, ax
-		mov	al, byte ptr word_252E6
-		add	al, 78h	; 'x'
-		mov	byte_252E0, al
-		mov	word_252E4, 14h
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14CF3:
-		cmp	_boss_phase_frame, 116
-		jge	short loc_14D07
-		push	word_252E6
-		push	0FFF80008h
-		jmp	loc_14DE4
-; ---------------------------------------------------------------------------
-
-loc_14D07:
-		cmp	_boss_phase_frame, 136
-		jge	short loc_14D3F
-		mov	patnum_2064E, 142
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		mov	dx, 149
-		sub	dx, ax
-		mov	patnum_2064E, dx
-		mov	al, 79h	; 'y'
-		sub	al, byte ptr word_252E6
-		mov	byte_252E0, al
-		mov	word_252E4, 14h
-		cmp	_boss_phase_frame, 135
-		jnz	loc_14DFA
-		jmp	loc_14DC8
-; ---------------------------------------------------------------------------
-
-loc_14D3F:
-		cmp	_boss_phase_frame, 152
-		jge	short loc_14D54
-		push	word_252E6
-		push	80008h
-		jmp	loc_14DE4
-; ---------------------------------------------------------------------------
-
-loc_14D54:
-		cmp	_boss_phase_frame, 172
-		jge	short loc_14D88
-		mov	patnum_2064E, 142
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		mov	dx, 145
-		sub	dx, ax
-		mov	patnum_2064E, dx
-		mov	al, byte ptr word_252E6
-		add	al, 78h	; 'x'
-		mov	byte_252E0, al
-		mov	word_252E4, 14h
-		cmp	_boss_phase_frame, 171
-		jnz	short loc_14DFA
-		jmp	short loc_14DC8
-; ---------------------------------------------------------------------------
-
-loc_14D88:
-		cmp	_boss_phase_frame, 188
-		jge	short loc_14D98
-		push	word_252E6
-		push	8
-		jmp	short loc_14DE2
-; ---------------------------------------------------------------------------
-
-loc_14D98:
-		cmp	_boss_phase_frame, 208
-		jge	short loc_14DD4
-		mov	patnum_2064E, 142
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		add	ax, 144
-		mov	patnum_2064E, ax
-		mov	al, 79h	; 'y'
-		sub	al, byte ptr word_252E6
-		mov	byte_252E0, al
-		mov	word_252E4, 14h
-		cmp	_boss_phase_frame, 207
-		jnz	short loc_14DFA
-
-loc_14DC8:
-		call	_snd_se_play c, 3
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14DD4:
-		cmp	_boss_phase_frame, 224
-		jge	short loc_14DEE
-		push	word_252E6
-		push	0FFF8h
-
-loc_14DE2:
-		push	0FFF8h
-
-loc_14DE4:
-		call	meira_1489C
-		add	word_252E4, 2
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_14DEE:
-		mov	patnum_2064E, 141
-		mov	_boss_phase_frame, 0
-
-loc_14DFA:
-		pop	bp
-		retn
-meira_14C76	endp
-
-
 ; SIX objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
+;   th02/main/boss/b2m.cpp      meira_14A39()
+;                               meira_14B33()
+;                               meira_14BC2()
+;                               meira_14C76()
 ;   th02/main/boss/b2.cpp       meira_14DFC()   [static]
 ;                               meira_14E30()   [static]
 ;                               meira_14E9D()   [static]
@@ -3522,13 +3120,38 @@ meira_14C76	endp
 ; and the OBJ screen caught it before any build - which is now the fourth
 ; instance of that entry in this binary alone.
 ;
-; SO THE TAIL OF THIS BLOCK IS meira_14C76, still a `proc` and still in the
-; FREE class - and from here to the head of the block every tail is a plain
-; kb/codegen/0099 prepend into b2.cpp. No more Tupfile.lua edits for this
-; chain. b2.cpp's prefix is 0x515 today, ODD, and it carries `-a2` AND already
-; holds a generated table, so kb/codegen/0157 applies to the next one: `-a2`
-; pads every table in an object against the running offset. RE-DERIVE BOTH
-; FROM THE OBJ before the next lift.
+; AND SO ARE PHASE 1'S THREE PATTERNS AND PHASE 0'S THIRD - meira_14C76,
+; meira_14BC2, meira_14B33 and meira_14A39 - BUT NOT INTO b2.cpp. They are
+; th02/main/boss/b2m.cpp, a SECOND object of Meira's, and the reason is one pad
+; byte:
+;
+; `[measured 2026-08-23]` The `db 0` under meira_update()'s jump table is `-a2`'s
+; pad, and Turbo C++ emits it exactly when the table's natural offset in its OWN
+; object is ODD (kb/codegen/0096 + 0154 + 0160). These four procs are 0x3C3
+; bytes - ODD - so prepending them into b2.cpp moved that offset from odd to
+; even, the pad vanished, and every byte after it came out one early:
+; obj_probe.py read `SEGDEF 0x8D7` against a target of 0x8D8 and meira_update's
+; own PUBDEF span shrank from 0x124 to 0x123. That is the whole diagnosis, and
+; it took no build cycle.
+;
+; SO THE PAD PROVES WHERE ZUN'S OBJECT BOUNDARY WAS, kb/codegen/0164 read
+; forwards: an odd table offset is impossible under `-a2`, therefore
+; meira_update()'s prefix in ZUN's own object was EVEN, therefore something ends
+; between meira_14C76 and meira_update. b2.cpp's prefix is 0x2F8 today and that
+; is the parity it has to keep - so THE NEXT GROUP OUT OF THIS BLOCK GOES INTO
+; b2m.cpp, which has no parity to protect because it emits no generated table
+; at all. Check that before adding a fifth pattern to it.
+;
+; The four procs' `public` / `label near` alias pairs left the dump with them and
+; are `extern "C"` definitions in b2m.cpp now, because meira_update() calls all
+; four across the object boundary. Five aliases remain on the near procs, and
+; the burst parameter pair below was SPLIT into two labelled bytes so its angle
+; half could be published too - byte-neutral, and the four operands still
+; reaching the pair were respelled with it.
+;
+; SO THE TAIL OF THIS BLOCK IS meira_148FD, still a `proc` and still in the FREE
+; class. Every tail from here to the head of the block is a plain
+; kb/codegen/0099 prepend into b2m.cpp.
 ;
 ; Then the rest of Meira back up the block, then Rika and the four numbered
 ; midbosses, then the four unnamed procs at the head.
@@ -5449,19 +5072,37 @@ public _meira_250FE
 _meira_250FE label word
 word_250FE	dw ?
 byte_25100	db 480 dup(?)
+; THREE OF meira_1469C()'s POOL PARAMETERS - _meira_252E0, _meira_252E4 and
+; _meira_252E6 - and all three keep address-suffixed hand names on purpose:
+; naming them needs that 40-slot pool and whatever renders it, neither is
+; contiguous with this block's tail, and every candidate name would be a guess
+; about a record no lift has reached. What IS measured about each of them is
+; written down in th02/main/boss/b2m.cpp. Still aliases because four patterns
+; above still read all three.
+public _meira_252E0
+_meira_252E0 label byte
 byte_252E0	db ?
 byte_252E1	db ?
-; The group of the bursts Meira's patterns fire. THE BYTE AFTER IT IS AN ANGLE,
-; pushed alongside this one at the single site that reads the pair, and it
-; cannot get a label of its own until then because the dump reserves both as one
-; `dw` - so whoever lifts meira_1469C() splits this row.
-public _meira_burst_group
-_meira_burst_group label byte
-word_252E2	dw ?
+; The group and the angle of the bursts Meira's patterns fire, which go into
+; meira_1469C()'s pool record as its group and angle fields. SPLIT INTO TWO
+; LABELLED BYTES by the parcel that lifted the three patterns writing the angle
+; half; the split is byte-neutral, and the four operands above that still reach
+; the pair were respelled with it.
+public _meira_burst_group, _meira_burst_angle
+_meira_burst_group	db ?
+_meira_burst_angle	db ?
+public _meira_252E4
+_meira_252E4 label word
 word_252E4	dw ?
+public _meira_252E6
+_meira_252E6 label byte
 word_252E6	dw ?
-speed_252E8	dw ?
-speed_252EA	dw ?
+; The two ramping pellet speeds, one per pattern, both PLAIN RENAMES: every
+; reference the dump had to either of them was inside the one pattern that used
+; it, and both of those are th02/main/boss/b2m.cpp now.
+public _meira_252E8, _meira_252EA
+_meira_252E8	dw ?
+_meira_252EA	dw ?
 ; Meira's teleport dash, and all five of these are PLAIN RENAMES rather than
 ; kb/codegen/0123 aliases: every reference the dump ever had to them was inside
 ; the one pattern that used them, and that pattern is th02/main/boss/b2.cpp now.

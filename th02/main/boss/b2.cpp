@@ -107,6 +107,10 @@ extern "C" uint8_t boss_phase;
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
 
+// The group of the bursts her patterns fire. Also declared in
+// th02/main/boss/b2m.cpp, which holds three more of its writers.
+extern "C" uint8_t meira_burst_group; // ACTUAL TYPE: bullet_group_or_special_motion_t
+
 /// Meira's own fight state
 /// -----------------------
 /// All three are kb/codegen/0123 label aliases for now, because meira_update()
@@ -174,13 +178,6 @@ extern "C" screen_y_t near meira_afterimage_top[PAGE_COUNT][
 	MEIRA_AFTERIMAGE_SLOTS
 ];
 /// --------------------
-
-// The group of the bursts her still-ASM patterns fire, written by four of them
-// and read through meira_1469C(). `[measured]` The byte directly after it is an
-// angle, written by three of the same patterns and pushed alongside this one; it
-// needs a label of its own once its readers are lifted, and it cannot get one
-// before then because the dump reserves the pair as a single `dw`.
-extern "C" uint8_t meira_burst_group; // ACTUAL TYPE: bullet_group_or_special_motion_t
 
 /// Her teleport dash
 /// -----------------
@@ -423,6 +420,9 @@ extern "C" bool16 near meira_14519(void);
 
 extern "C" void near meira_1483B(void);
 extern "C" void near meira_148FD(void);
+
+// These four are th02/main/boss/b2m.cpp, NOT this object - see the head of
+// this file for why they had to be split off.
 extern "C" void near meira_14A39(void);
 extern "C" void near meira_14B33(void);
 extern "C" void near meira_14BC2(void);
