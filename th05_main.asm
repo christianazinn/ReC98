@@ -1320,12 +1320,12 @@ BOMBCHAR_TEXT	ends
 ; kb/codegen/0080 carve, the THIRD one out of what used to be a single
 ; MB_INV_TEXT block. BOMBCHAR_TEXT above took the four playchars' bomb
 ; drivers; BOMB_BG_TEXT below took the GRCG playfield fills; and this one
-; is the smallest possible head -- the single alignment `db 0` at 0CE55h,
+; is the smallest possible head -- the single alignment byte at 0CE55h,
 ; split off so that a C++ object can append at 0CE56h, which is where the
-; playchar .BB lifecycle was. Everything else keeps the name it had, so
-; th04/mb_inv.cpp is still not re-pointed and every byte still keeps its
-; address. `MATCH-TH04-MAIN-SHOT-MARISA-HEAD` split an anchor this small
-; off EXECL_TEXT first.
+; playchar .BB lifecycle was and which now emits that byte too. Everything
+; else keeps the name it had, so th04/mb_inv.cpp is still not re-pointed and
+; every byte keeps its address. `MATCH-TH04-MAIN-SHOT-MARISA-HEAD` split an
+; anchor this small off EXECL_TEXT first.
 ;
 ; A head carve puts the new name where the old segment opened, because
 ; physical order follows first definition across the link. All three heads
@@ -1335,8 +1335,18 @@ BOMBCHAR_TEXT	ends
 ; B6_SPAWN_TEXT).
 BB_PCHAR_TEXT	segment	byte public 'CODE' use16
 
-; ---------------------------------------------------------------------------
-		db    0
+	; THE ROOT OF THIS SEGMENT IS NOW EMPTY. The single alignment byte at
+	; 0CE55h that the carve above split off -- the whole of what this dump
+	; contributed here -- is emitted by th05/formats/bb_pchar.cpp instead, as a
+	; leading `#pragma codestring` ahead of the pair (kb/codegen/0161: a
+	; file-scope codestring lands where it stands in source order). Nothing
+	; referenced it: it carried no symbol and no `public`, and the instruction
+	; above it is bomb_yuuka()'s `retn` at the end of BOMBCHAR_TEXT.
+	;
+	; The `segment`/`ends` pair STAYS. TLINK lays a segment's contributions out
+	; in link order and this dump is the first object it is handed, so an empty
+	; block here is what keeps BB_PCHAR_TEXT ordered between BOMBCHAR_TEXT and
+	; BOMB_BG_TEXT. SHOT_INV_TEXT already reads 0000 for this dump in the map.
 
 	; bb_playchar_load() and bb_playchar_free() were the whole of
 	; th05/formats/bb_playchar.asm, included here, and they are
