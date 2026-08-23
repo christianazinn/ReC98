@@ -4000,385 +4000,13 @@ loc_1530E:
 meira_init	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-midbossx_15311	proc near
-
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-arg_4		= byte ptr  8
-arg_6		= word ptr  0Ah
-arg_8		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	di, [bp+arg_8]
-		mov	dx, [bp+arg_6]
-		or	dx, dx
-		jge	short loc_15326
-		add	dx, 400
-		jmp	short loc_15330
-; ---------------------------------------------------------------------------
-
-loc_15326:
-		cmp	dx, 400
-		jl	short loc_15330
-		sub	dx, 400
-
-loc_15330:
-		mov	si, offset byte_253BA
-		xor	cx, cx
-		jmp	short loc_15361
-; ---------------------------------------------------------------------------
-
-loc_15337:
-		cmp	byte ptr [si], 0
-		jnz	short loc_1535D
-		mov	byte ptr [si], 1
-		mov	byte ptr [si+1], 0
-		mov	[si+2],	di
-		mov	[si+4],	dx
-		mov	al, [bp+arg_4]
-		mov	[si+6],	al
-		mov	al, [bp+arg_2]
-		mov	[si+7],	al
-		mov	al, [bp+arg_0]
-		mov	[si+8],	al
-		jmp	short loc_15366
-; ---------------------------------------------------------------------------
-
-loc_1535D:
-		inc	cx
-		add	si, 0Ah
-
-loc_15361:
-		cmp	cx, 1Eh
-		jl	short loc_15337
-
-loc_15366:
-		pop	di
-		pop	si
-		pop	bp
-		retn	0Ah
-midbossx_15311	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-midbossx_1536C	proc near
-
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-var_2		= byte ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 8
-		push	si
-		push	di
-		mov	ax, word_1EE16
-		mov	[bp+var_8], ax
-		mov	ax, word_1EE18
-		mov	[bp+var_6], ax
-		mov	ax, word_1EE1A
-		mov	[bp+var_4], ax
-		mov	al, byte_1EE1C
-		mov	[bp+var_2], al
-		mov	si, offset byte_253BA
-		xor	di, di
-		jmp	short loc_153F9
-; ---------------------------------------------------------------------------
-
-loc_15393:
-		cmp	byte ptr [si], 0
-		jz	short loc_153F5
-		inc	byte ptr [si+1]
-		test	byte ptr [si+1], 7
-		jnz	short loc_153F5
-		push	word ptr [si+2]	; left
-		push	word ptr [si+4]	; y
-		mov	al, [si]
-		mov	ah, 0
-		lea	dx, [bp+var_8]
-		add	ax, dx
-		mov	bx, ax
-		mov	al, ss:[bx]
-		mov	ah, 0
-		push	ax	; image
-		call	@tile_ring_set_and_put_both_8$qiii
-		inc	byte ptr [si]
-		cmp	byte ptr [si], 7
-		jb	short loc_153F5
-		mov	ax, _scroll_line
-		sub	[si+4],	ax
-		cmp	word ptr [si+4], 0
-		jge	short loc_153D5
-		add	word ptr [si+4], RES_Y
-
-loc_153D5:
-		mov	ax, [si+2]
-		add	ax, 4
-		push	ax	; left
-		mov	ax, [si+4]
-		add	ax, 4
-		push	ax	; top
-		push	word ptr [si+7]	; angle
-		push	word ptr [si+6]	; group
-		mov	al, [si+8]
-		mov	ah, 0
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-		mov	byte ptr [si], 0
-
-loc_153F5:
-		inc	di
-		add	si, 0Ah
-
-loc_153F9:
-		cmp	di, 1Eh
-		jl	short loc_15393
-		pop	di
-		pop	si
-		leave
-		retn
-midbossx_1536C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @midbossx_invalidate$qv
-@midbossx_invalidate$qv	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, byte_253B4
-		mov	ah, 0
-		pop	bp
-		retf
-@midbossx_invalidate$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @midbossx_update_and_render$qv
-@midbossx_update_and_render$qv	proc far
-		push	bp
-		mov	bp, sp
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_15427
-		mov	byte_254EA, 0
-		mov	byte_253B4, 1
-		jmp	loc_155AD
-; ---------------------------------------------------------------------------
-
-loc_15427:
-		cmp	_boss_phase_frame, 96
-		jge	short loc_154A0
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_155AD
-		cmp	byte_254EA, 0
-		jnz	short loc_1544C
-		push	800080h
-		jmp	short loc_1549B
-; ---------------------------------------------------------------------------
-
-loc_1544C:
-		mov	al, byte_254EA
-		mov	ah, 0
-		mov	dx, 80h
-		sub	dx, ax
-		push	dx
-		push	80h
-		push	21h ; '!'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	80h
-		mov	al, byte_254EA
-		mov	ah, 0
-		mov	dx, 80h
-		sub	dx, ax
-		push	dx
-		push	21h ; '!'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		mov	al, byte_254EA
-		mov	ah, 0
-		add	ax, 80h
-		push	ax
-		push	80h
-		push	21h ; '!'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	80h
-		mov	al, byte_254EA
-		mov	ah, 0
-		add	ax, 80h
-		push	ax
-
-loc_1549B:
-		push	21h ; '!'
-		jmp	loc_1559E
-; ---------------------------------------------------------------------------
-
-loc_154A0:
-		cmp	_boss_phase_frame, 96
-		jz	short loc_15521
-		cmp	_boss_phase_frame, 192
-		jge	short loc_15519
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_155AD
-		cmp	byte_254EA, 0
-		jnz	short loc_154CD
-		push	1300000h
-		jmp	short loc_15514
-; ---------------------------------------------------------------------------
-
-loc_154CD:
-		mov	al, byte_254EA
-		mov	ah, 0
-		mov	dx, 304
-		sub	dx, ax
-		push	dx
-		push	0
-		push	24h ; '$'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	304
-		mov	al, byte_254EA
-		mov	ah, 0
-		neg	ax
-		push	ax
-		push	24h ; '$'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		mov	al, byte_254EA
-		mov	ah, 0
-		add	ax, 304
-		push	ax
-		push	0
-		push	24h ; '$'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	304
-		mov	al, byte_254EA
-		mov	ah, 0
-		push	ax
-
-loc_15514:
-		push	24h ; '$'
-		jmp	loc_1559E
-; ---------------------------------------------------------------------------
-
-loc_15519:
-		cmp	_boss_phase_frame, 192
-		jnz	short loc_15529
-
-loc_15521:
-		mov	byte_254EA, 0
-		jmp	loc_155AD
-; ---------------------------------------------------------------------------
-
-loc_15529:
-		cmp	_boss_phase_frame, 288
-		jge	short loc_155AD
-		mov	ax, _boss_phase_frame
-		mov	bx, 16
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_155AD
-		cmp	byte_254EA, 0
-		jnz	short loc_1554D
-		push	(192 shl 16) + 336
-		jmp	short loc_1559C
-; ---------------------------------------------------------------------------
-
-loc_1554D:
-		mov	al, byte_254EA
-		mov	ah, 0
-		mov	dx, 192
-		sub	dx, ax
-		push	dx
-		push	336
-		push	25h ; '%'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	192
-		mov	al, byte_254EA
-		mov	ah, 0
-		mov	dx, 336
-		sub	dx, ax
-		push	dx
-		push	25h ; '%'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		mov	al, byte_254EA
-		mov	ah, 0
-		add	ax, 192
-		push	ax
-		push	336
-		push	25h ; '%'
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		push	192
-		mov	al, byte_254EA
-		mov	ah, 0
-		add	ax, 336
-		push	ax
-
-loc_1559C:
-		push	25h ; '%'
-
-loc_1559E:
-		push	0
-		push	64h ; 'd'
-		call	midbossx_15311
-		mov	al, byte_254EA
-		add	al, 10h
-		mov	byte_254EA, al
-
-loc_155AD:
-		cmp	_boss_phase_frame, 420
-		jle	short loc_155C0
-		mov	_boss_phase_frame, 0
-		mov	byte_253B4, 0
-
-loc_155C0:
-		call	midbossx_1536C
-		pop	bp
-		retf
-@midbossx_update_and_render$qv	endp
-
-
-; FOUR objects pick this segment up from here, in link order, and that order
+; FIVE objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
+;   th02/main/midboss/mx.cpp    midbossx_bursts_add()                [static]
+;                               midbossx_bursts_update_and_render()  [static]
+;                               midbossx_invalidate()
+;                               midbossx_update_and_render()
 ;   th02/main/boss/b6.cpp       sigma_blasts_add()
 ;                               sigma_blasts_activate()  [static]
 ;                               sigma_blasts_update_and_render()
@@ -4430,12 +4058,37 @@ loc_155C0:
 ; whole _BSS block: no `sigma_*` name in the data section below is an IDA
 ; placeholder or a kb/codegen/0123 alias any more.
 ;
-; SO THE TAIL OF THIS BLOCK IS @midbossx_update_and_render$qv, and it is still
-; a `proc` at the very end of the root's contribution with a non-empty C++
-; object immediately behind it - i.e. still FREE by both of
-; tools/pi-audit/carve_free_tails.py's tests, and still a plain
-; kb/codegen/0099 prepend into b6.cpp's head. Then Meira, Rika and the other
-; two midbosses, in that order back up the block.
+; AND SO IS THE EXTRA STAGE MIDBOSS. Its 30-slot queue of telegraphed pellet
+; rings, that queue's spawn and its per-frame pass, the invalidate slot and the
+; 421-frame event itself are th02/main/midboss/mx.cpp now. All SEVEN of the IDA
+; placeholders that lift touched were exclusive to those four procs, so all
+; seven are plain renames rather than kb/codegen/0123 aliases: _midbossx_active,
+; _midbossx_bursts and _midbossx_cross_distance in _BSS below, and the four rows
+; that were word_1EE16..byte_1EE1C in _DATA, now the one published label
+; _MIDBOSSX_BURST_TILE_IMAGES.
+;
+; SO THE TAIL OF THIS BLOCK IS meira_init, and it is still a `proc` at the very
+; end of the root's contribution with a non-empty C++ object immediately behind
+; it - i.e. still FREE by both of tools/pi-audit/carve_free_tails.py's tests,
+; and still a plain kb/codegen/0099 prepend, now into mx.cpp's head. Then the
+; rest of Meira back up the block, then Rika and the four numbered midbosses.
+;
+; A POOL'S STRIDE NEEDS `-a2`, AND NO LENGTH CHECK CAN SEE IT.
+; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot; the same fields
+; pack to 9 under this tree's default byte alignment, and `add si, 9` and
+; `add si, 0Ah` are the SAME THREE BYTES. So obj_probe.py reported that object's
+; SEGDEF at exactly the 0x2B4 the root gave up, both walkers strode the wrong
+; distance, and only the LEDATA disassembly caught it. Every `-a2` entry in
+; kb/codegen (0096, 0154, 0157, 0159, 0160, 0164, 0168) is about a generated
+; jump table; this is the flag's other job, and it is kb/codegen/0170.
+;
+; BUT `-a2` CANNOT BE FILE-WIDE WHEN THE SAME OBJECT COPIES AN ALL-BYTE
+; AGGREGATE. `[measured 2026-08-23]` The telegraph's seven tile images are a
+; local copy of _MIDBOSSX_BURST_TILE_IMAGES, and the original moves them as
+; three words and a byte. Under a file-wide `-a2` Turbo C++ rounds that 7-byte
+; struct up to 8 and moves four words - again the same instruction count and
+; again the same total length. The pragma has to be scoped to the pool struct's
+; own declaration.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
 ; contribution), NEVER from whichever proc a sentence like this one happens
@@ -5555,10 +5208,25 @@ _GAME_CLEAR_CONSTANTS	dw 318, 118, 218
 _EXTRA_CLEAR_FLAGS   	db 1, 2, 4
 aHuuhi_dat	db 'huuhi.dat',0
 		db 0
-word_1EE16	dw 100h
-word_1EE18	dw 1002h
-word_1EE1A	dw 1211h
-byte_1EE1C	db 9
+; The seven tile images the Extra Stage midboss's telegraph animates through,
+; entry [0] of which its cel-doubles-as-flag encoding leaves permanently
+; unread. THE STORAGE STAYS HERE for exactly the reason _SIGMA_LASER_X_OFFSETS
+; below does: this is the initializer template of a LOCAL aggregate
+; (kb/codegen/0084), the _DATA contribution of every C++ object in this binary
+; is 0000 in obj/th02/main.map, so re-emitting it from mx.cpp would put the
+; first C++ _DATA byte at the END of this block and shift every live byte
+; after it.
+;
+; Upper case with a leading underscore because it is `const` data reached
+; through an `extern "C"` declaration, and the rows below are left exactly as
+; IDA dumped them - the label is byte-neutral, a rewrite into `db` rows would
+; not be.
+public _MIDBOSSX_BURST_TILE_IMAGES
+_MIDBOSSX_BURST_TILE_IMAGES	label byte
+		dw 100h
+		dw 1002h
+		dw 1211h
+		db 9
 		db 0
 ; The five muzzle x offsets sigma_162D3() fires its lasers through, one per
 ; laser. THE STORAGE STAYS HERE, and its own address is the reason: this is
@@ -6346,7 +6014,13 @@ scoredat_section_t ends
 
 public _hi
 _hi	scoredat_section_t <?>
-byte_253B4	db ?
+; Raised on the Extra Stage midboss event's first frame and cleared on its
+; last, and nothing else ever writes it. NOT a liveness flag for an entity:
+; that midboss has no sprite, no position, no hitbox and no HP, so what this
+; buys is the stage-enemy spawn suppression stage_loop() drives off
+; [midboss_active]. th02/main/midboss/mx.cpp holds the only references.
+public _midbossx_active
+_midbossx_active	db ?
 		db ?
 public _sigma_center_x
 _sigma_center_x	label word
@@ -6354,7 +6028,13 @@ left_253B6	dw ?
 public _sigma_center_y
 _sigma_center_y	label word
 top_253B8	dw ?
-byte_253BA	db 300 dup(?)
+; The 30-slot queue of telegraphed pellet rings, 10 bytes a slot. Both numbers
+; come from the walkers rather than from this declaration: they stride it with
+; `add si, 0Ah` and bound it with `cmp .., 1Eh` + `jl`, and the C++ struct
+; needs a scoped `-a2` to reach that stride at all (kb/codegen/0170). `near`,
+; because the original walks it with a bare 16-bit SI.
+public _midbossx_bursts
+_midbossx_bursts	db 300 dup(?)
 ; The three rows below were kb/codegen/0123 label aliases until the blast
 ; pool, sigma_put() and sigma_hittest_and_put() left this dump; each of them
 ; had more than one still-ASM proc on it, which is what an alias here always
@@ -6362,7 +6042,13 @@ byte_253BA	db 300 dup(?)
 ; ordinary renames now.
 public _sigma_topleft
 _sigma_topleft	Point <?>
-byte_254EA	db ?
+; How far the four points of the Extra Stage midboss's current cross sit from
+; its centre, stepped after every burst and reset to 0 at the start of each
+; cross. Unsigned, and the zero case is a branch of its own rather than a
+; degenerate cross: at distance 0 the four points coincide, so the original
+; fires ONE burst at the centre instead of four on top of each other.
+public _midbossx_cross_distance
+_midbossx_cross_distance	db ?
 		db ?
 ; The 16-slot pool of expanding blasts, 10 bytes a slot. Both numbers come
 ; from the walkers rather than from this declaration: they stride it with
