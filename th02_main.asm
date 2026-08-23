@@ -2363,6 +2363,8 @@ meira_bg_render	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14519
+_meira_14519 label near
 meira_14519	proc near
 		push	bp
 		mov	bp, sp
@@ -2451,6 +2453,8 @@ meira_14519	endp
 
 ; Attributes: bp-based frame
 
+public _meira_145E1
+_meira_145E1 label near
 meira_145E1	proc near
 
 @@damage		= word ptr -2
@@ -2617,6 +2621,8 @@ meira_146EF	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14726
+_meira_14726 label near
 meira_14726	proc near
 
 @@patnum		= word ptr -4
@@ -2745,6 +2751,8 @@ meira_14726	endp
 
 ; Attributes: bp-based frame
 
+public _meira_1483B
+_meira_1483B label near
 meira_1483B	proc near
 		push	bp
 		mov	bp, sp
@@ -2846,6 +2854,8 @@ meira_1489C	endp
 
 ; Attributes: bp-based frame
 
+public _meira_148FD
+_meira_148FD label near
 meira_148FD	proc near
 		push	bp
 		mov	bp, sp
@@ -2985,6 +2995,8 @@ meira_148FD	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14A39
+_meira_14A39 label near
 meira_14A39	proc near
 		push	bp
 		mov	bp, sp
@@ -3093,6 +3105,8 @@ meira_14A39	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14B33
+_meira_14B33 label near
 meira_14B33	proc near
 		push	bp
 		mov	bp, sp
@@ -3154,6 +3168,8 @@ meira_14B33	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14BC2
+_meira_14BC2 label near
 meira_14BC2	proc near
 		push	bp
 		mov	bp, sp
@@ -3233,6 +3249,8 @@ meira_14BC2	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14C76
+_meira_14C76 label near
 meira_14C76	proc near
 		push	bp
 		mov	bp, sp
@@ -3417,6 +3435,8 @@ meira_14DFC	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14E30
+_meira_14E30 label near
 meira_14E30	proc near
 		push	bp
 		mov	bp, sp
@@ -3473,6 +3493,8 @@ meira_14E30	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14E9D
+_meira_14E9D label near
 meira_14E9D	proc near
 		push	bp
 		mov	bp, sp
@@ -3532,6 +3554,8 @@ meira_14E9D	endp
 
 ; Attributes: bp-based frame
 
+public _meira_14F16
+_meira_14F16 label near
 meira_14F16	proc near
 
 var_8		= word ptr -8
@@ -3742,174 +3766,11 @@ loc_150F0:
 meira_14F16	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_update
-_meira_update label far
-meira_update	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		inc	_boss_phase_frame
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		add	si, 40
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 40
-		mov	word_205D8, ax
-		mov	word_205DA, si
-		cmp	byte_2066A, 0
-		jz	short loc_1512B
-		call	meira_14519
-		or	ax, ax
-		jz	loc_15206
-		mov	ax, 2
-		jmp	loc_1520C
-; ---------------------------------------------------------------------------
-
-loc_1512B:
-		cmp	byte_252F6, 0
-		jnz	short loc_15185
-		mov	al, byte_252F7
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	short loc_15157
-		add	bx, bx
-		jmp	cs:off_15210[bx]
-
-loc_15145:
-		call	meira_1483B
-		jmp	short loc_15157
-; ---------------------------------------------------------------------------
-
-loc_1514A:
-		call	meira_148FD
-		jmp	short loc_15157
-; ---------------------------------------------------------------------------
-
-loc_1514F:
-		call	meira_14A39
-		jmp	short loc_15157
-; ---------------------------------------------------------------------------
-
-loc_15154:
-		call	meira_14B33
-
-loc_15157:
-		cmp	_boss_phase_frame, 0
-		jnz	loc_15203
-		inc	byte_252F7
-		cmp	byte_252F7, 3
-		jbe	short loc_15170
-		mov	byte_252F7, 0
-
-loc_15170:
-		cmp	_boss_damage, 700
-		jle	loc_15203
-		cmp	byte_252F7, 1
-		jz	loc_15203
-		jmp	short loc_151CD
-; ---------------------------------------------------------------------------
-
-loc_15185:
-		cmp	byte_252F6, 1
-		jnz	short loc_151D8
-		mov	al, byte_252F7
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_151A1
-		cmp	ax, 1
-		jz	short loc_151A6
-		cmp	ax, 2
-		jz	short loc_151AB
-		jmp	short loc_151AE
-; ---------------------------------------------------------------------------
-
-loc_151A1:
-		call	meira_14BC2
-		jmp	short loc_151AE
-; ---------------------------------------------------------------------------
-
-loc_151A6:
-		call	meira_14C76
-		jmp	short loc_151AE
-; ---------------------------------------------------------------------------
-
-loc_151AB:
-		call	meira_14E30
-
-loc_151AE:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_15203
-		inc	byte_252F7
-		cmp	byte_252F7, 2
-		jbe	short loc_151C5
-		mov	byte_252F7, 0
-
-loc_151C5:
-		cmp	_boss_damage, 1500
-		jle	short loc_15203
-
-loc_151CD:
-		inc	byte_252F6
-		mov	byte_252F7, 0
-		jmp	short loc_15203
-; ---------------------------------------------------------------------------
-
-loc_151D8:
-		cmp	byte_252F6, 2
-		jnz	short loc_15203
-		mov	al, byte_252F7
-		mov	ah, 0
-		or	ax, ax
-		jz	short loc_151EF
-		cmp	ax, 1
-		jz	short loc_151F4
-		jmp	short loc_151F7
-; ---------------------------------------------------------------------------
-
-loc_151EF:
-		call	meira_14E9D
-		jmp	short loc_151F7
-; ---------------------------------------------------------------------------
-
-loc_151F4:
-		call	meira_14F16
-
-loc_151F7:
-		cmp	_boss_phase_frame, 0
-		jnz	short loc_15203
-		mov	byte_252F7, 1
-
-loc_15203:
-		call	meira_145E1
-
-loc_15206:
-		call	meira_14726
-		mov	ax, 1
-
-loc_1520C:
-		pop	si
-		pop	bp
-		retf
-meira_update	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_15210	dw offset loc_15145
-		dw offset loc_1514A
-		dw offset loc_1514F
-		dw offset loc_15154
-
-
 ; SIX objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b2.cpp       meira_end()
+;   th02/main/boss/b2.cpp       meira_update()  [+ its pad and its jump table]
+;                               meira_end()
 ;                               meira_init()
 ;   th02/main/midboss/mx.cpp    midbossx_bursts_add()                [static]
 ;                               midbossx_bursts_update_and_render()  [static]
@@ -3985,26 +3846,29 @@ off_15210	dw offset loc_15145
 ; reader, and that reader is a renderer this parcel did not lift, so naming it
 ; would be a guess.
 ;
-; SO THE TAIL OF THIS BLOCK IS NO LONGER A `proc`: it is `off_15210`,
-; meira_update()'s own generated jump table, plus the `db 0` above it that is
-; that table's `-a2` pad. The block therefore leaves
-; tools/pi-audit/carve_free_tails.py's FREE class and enters its JUMP-TABLE
-; TAILS class, which is a liftable class and not a blocked one - the pad and
-; the table come across as meira_update()'s own codegen. Two consequences for
-; whoever takes it:
+; AND SO IS meira_update(), THE PATTERN DISPATCHER, TOGETHER WITH THE PAD AND
+; THE JUMP TABLE UNDER IT. That table was the tail of this contribution for one
+; parcel, which put the block in tools/pi-audit/carve_free_tails.py's JUMP-TABLE
+; TAILS class rather than its FREE class; the C++ side emits both, so both are
+; gone. `[measured 2026-08-23]` th02/main/boss/b2.cpp needed `-a2` for the pad
+; and NOTHING else: with meira_update() prepended its object-local table offset
+; is 0x11C, the natural one was 0x11B, and the four entries came out at
+; 0x5634+0x51/0x56/0x5B/0x60, which is the group-relative prediction exactly.
 ;
-;   th02/main/boss/b2.cpp WILL NEED `-a2` to emit that pad, and the pad's
-;   parity is then a function of b2.cpp's OWN prefix rather than of anything in
-;   this dump (kb/codegen/0119 + 0096 + 0160). Its prefix today is 0xF9 - ODD -
-;   from meira_end() at 0x24 and meira_init() at 0xD5. Re-derive it from the
-;   OBJ, never from this sentence.
+; THE TWELVE PROCS IT DISPATCHED TO ARE PUBLISHED FOR b2.cpp's SAKE and for
+; nothing else - none of them has a second caller anywhere in this dump, and
+; every one of them takes no argument and ends in a bare `retn`. They are the
+; twelve `public _meira_1*` / `label near` pairs above. All twelve are
+; kb/codegen/0123 aliases and all twelve are refunded as this chain drains.
+; Only meira_14519 returns anything.
 ;
-;   meira_update() dispatches to TWELVE still-ASM near procs - meira_14519,
-;   meira_1483B, meira_148FD, meira_14A39, meira_14B33, meira_14BC2,
-;   meira_14C76, meira_14E30, meira_14E9D, meira_14F16, meira_145E1 and
-;   meira_14726 - so lifting it alone costs twelve publishes that the rest of
-;   the chain then refunds. Taking it together with the patterns it calls costs
-;   none of them, but the contiguity rule makes that the whole of Meira.
+; SO THE TAIL OF THIS BLOCK IS meira_14F16, back to a `proc` and back in the
+; FREE class - and from here to the head of the block every tail is a plain
+; kb/codegen/0099 prepend into b2.cpp. b2.cpp's prefix is 0x21D today, ODD, and
+; it now carries `-a2`; RE-DERIVE BOTH FROM THE OBJ before the next lift, and
+; check whether the proc you are taking generates a table of its own, because
+; -a2 pads every table in an object against the running offset (kb/codegen/0157)
+; and this object already has one.
 ;
 ; Then the rest of Meira back up the block, then Rika and the four numbered
 ; midbosses, then the four unnamed procs at the head.

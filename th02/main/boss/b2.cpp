@@ -32,7 +32,7 @@
 // (kb/codegen/0011). No -a2: neither body here emits a generated jump table,
 // and neither declares a struct whose stride an alignment could change
 // (kb/codegen/0170).
-#pragma option -zCBOSS_5_TEXT -zPmain_03 -G
+#pragma option -zCBOSS_5_TEXT -zPmain_03 -G -a2
 
 #include "platform.h"
 #include "pc98.h"
@@ -96,6 +96,12 @@ extern "C" uint8_t boss_rank_param[5];
 // turns 1.
 extern "C" uint8_t boss_phase;
 
+// The point shottype B's homing shots aim at, set by whichever boss is on
+// screen. Declared here the way th02/main/boss/b4.cpp, th02/main/player/shot.cpp
+// and th02/main/player/reset.cpp already declare them; no header owns them.
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
+
 /// Meira's own fight state
 /// -----------------------
 /// All three are kb/codegen/0123 label aliases for now, because meira_update()
@@ -125,6 +131,150 @@ extern "C" uint8_t meira_pattern;
 // it from the gate alone would be a guess about what those three slots are.
 extern "C" int16_t meira_250FE;
 /// -----------------------
+
+
+/// Her still-ASM patterns
+/// ----------------------
+/// The twelve procs meira_update() dispatches to, published for this object's
+/// sake and nothing else - none of them has a second caller anywhere in the
+/// dump. Every one takes no argument and ends in a bare `retn`; only the first
+/// returns anything. They keep the dump's address-suffixed hand names, exactly
+/// the way b3.cpp's stones_1*() and b4.cpp's marisa_1AA60() do: naming a
+/// pattern needs the pattern, and none of these has been lifted.
+///
+/// The two at the bottom are NOT patterns. meira_update() calls them
+/// unconditionally on every frame of the fight, past every phase branch, so
+/// they are her movement and her render halves.
+
+// Her defeat animation, and the only one of the twelve with a result: two
+// explosion rings, a spark burst and either her still sprite or a zoom of it,
+// returning true on the frame the animation runs out.
+extern "C" bool16 near meira_14519(void);
+
+extern "C" void near meira_1483B(void);
+extern "C" void near meira_148FD(void);
+extern "C" void near meira_14A39(void);
+extern "C" void near meira_14B33(void);
+extern "C" void near meira_14BC2(void);
+extern "C" void near meira_14C76(void);
+extern "C" void near meira_14E30(void);
+extern "C" void near meira_14E9D(void);
+extern "C" void near meira_14F16(void);
+
+extern "C" void near meira_145E1(void);
+extern "C" void near meira_14726(void);
+/// ----------------------
+
+// How far into her sprite the point shottype B's homing shots aim at sits.
+// `[measured]` The same 40 on both axes, and her sprite is 64x64, so it really
+// is her centre - unlike the Extra Stage midboss's pellet offsets, which are a
+// quarter of a tile.
+static const pixel_t MEIRA_CENTER_OFFSET = 40;
+
+// The [boss_damage] each of her first two phases ends at. `[measured]` Both
+// tests are `>`, and both are only reached on a frame that also ends a pattern,
+// so she always finishes the pattern she is in.
+static const int MEIRA_PHASE_0_DAMAGE_MAX = 700;
+static const int MEIRA_PHASE_1_DAMAGE_MAX = 1500;
+
+// The LAST pattern index of each of the first two phases, and the spelling is
+// measured rather than chosen: the original wraps with a `jbe` against the last
+// index, not a `jb` against the count, so a `>= COUNT` test is the same two
+// bytes with the wrong branch sense. Phase 2 wraps at neither - see below.
+// The first phase is a dense `switch` and compiles to a jump table; the other
+// two are compare chains, which is what Turbo C++ emits below four cases
+// (kb/codegen/0043).
+static const uint8_t MEIRA_PHASE_0_PATTERN_MAX = 3;
+static const uint8_t MEIRA_PHASE_1_PATTERN_MAX = 2;
+
+
+// Her per-frame [boss_update] callback: the aim point, then one pattern of the
+// current phase, then the phase and pattern bookkeeping, then her movement and
+// her render. Returns SP_CLEAR on the frame her defeat animation finishes.
+// Installed into [boss_update_func] by stage_init().
+//
+// `int` rather than [stage_progression_t], for the reason b3.cpp's
+// stones_update() and b4.cpp's marisa_update() already record: the enum is
+// byte-sized under -b-, but the original returns its value in the whole of AX.
+extern "C" int far meira_update(void)
+{
+	register screen_y_t center_y;
+
+	boss_phase_frame++;
+
+	// TWO STATEMENTS, and the split is what keeps [center_y] in SI: written as
+	// one expression, Turbo C++ accumulates in AX and adds a `mov si, ax`.
+	// [boss_pos_x] below needs no such care - it has no register to stay in.
+	center_y = *boss_top_on_back_page;
+	center_y += MEIRA_CENTER_OFFSET;
+	boss_pos_x = (*boss_left_on_back_page + MEIRA_CENTER_OFFSET);
+	boss_pos_y = center_y;
+
+	if(boss_phase != 0) {
+		if(meira_14519()) {
+			return SP_CLEAR;
+		}
+	} else {
+		if(meira_phase == 0) {
+			switch(meira_pattern) {
+			case 0:	meira_1483B();	break;
+			case 1:	meira_148FD();	break;
+			case 2:	meira_14A39();	break;
+			case 3:	meira_14B33();	break;
+			}
+			if(boss_phase_frame == 0) {
+				meira_pattern++;
+				if(meira_pattern > MEIRA_PHASE_0_PATTERN_MAX) {
+					meira_pattern = 0;
+				}
+
+				// `[measured]` The extra condition is this phase's alone, and
+				// it is a pattern number rather than a frame: she will not
+				// leave phase 0 on the pattern that follows pattern 0, so the
+				// phase change always happens after one of the other three.
+				if(
+					(boss_damage > MEIRA_PHASE_0_DAMAGE_MAX) &&
+					(meira_pattern != 1)
+				) {
+					meira_phase++;
+					meira_pattern = 0;
+				}
+			}
+		} else if(meira_phase == 1) {
+			switch(meira_pattern) {
+			case 0:	meira_14BC2();	break;
+			case 1:	meira_14C76();	break;
+			case 2:	meira_14E30();	break;
+			}
+			if(boss_phase_frame == 0) {
+				meira_pattern++;
+				if(meira_pattern > MEIRA_PHASE_1_PATTERN_MAX) {
+					meira_pattern = 0;
+				}
+				if(boss_damage > MEIRA_PHASE_1_DAMAGE_MAX) {
+					meira_phase++;
+					meira_pattern = 0;
+				}
+			}
+		} else if(meira_phase == 2) {
+			switch(meira_pattern) {
+			case 0:	meira_14E9D();	break;
+			case 1:	meira_14F16();	break;
+			}
+
+			// AND THE LAST PHASE NEVER WRAPS BACK TO 0: pattern 0 runs once,
+			// and every pattern after it is pattern 1 forever. So her final
+			// phase is an opening move followed by one attack on a loop, and
+			// there is no phase 3 to escalate into.
+			if(boss_phase_frame == 0) {
+				meira_pattern = 1;
+			}
+		}
+		meira_145E1();
+	}
+	meira_14726();
+	return SP_BOSS;
+}
 
 
 // Runs Meira's post-battle dialog and the stage clear bonus, then advances to
