@@ -5176,213 +5176,12 @@ loc_15D53:
 sigma_15A25	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15D56
-_sigma_15D56 label near
-sigma_15D56	proc near
-
-@@angle		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		cmp	_boss_phase_frame, 20
-		jl	loc_15E81
-		cmp	_boss_phase_frame, 20
-		jnz	short loc_15D83
-		mov	byte_25596, 0
-		cmp	_player_topleft.x, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - (PLAYER_W / 2))
-		jge	short loc_15D7E
-		mov	al, 1
-		jmp	short loc_15D80
-; ---------------------------------------------------------------------------
-
-loc_15D7E:
-		mov	al, -1
-
-loc_15D80:
-		mov	byte_25597, al
-
-loc_15D83:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_15D9A
-		call	_snd_se_play c, 3
-
-loc_15D9A:
-		cmp	_boss_phase_frame, 148
-		jge	short loc_15DB7
-		mov	al, byte_25597
-		cbw
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		test	byte ptr _boss_phase_frame, 1
-		jz	loc_15E81
-		jmp	short loc_15DF2
-; ---------------------------------------------------------------------------
-
-loc_15DB7:
-		cmp	_boss_phase_frame, 212
-		jge	short loc_15DD7
-		mov	al, byte_25597
-		cbw
-		shl	ax, 2
-		mov	bx, _boss_left_on_back_page
-		sub	[bx], ax
-		test	byte ptr _boss_phase_frame, 1
-		jz	loc_15E81
-		jmp	short loc_15DF2
-; ---------------------------------------------------------------------------
-
-loc_15DD7:
-		cmp	_boss_phase_frame, 340
-		jge	short loc_15E19
-		mov	al, byte_25597
-		cbw
-		mov	bx, _boss_left_on_back_page
-		add	[bx], ax
-		test	byte ptr _boss_phase_frame, 1
-		jz	loc_15E81
-
-loc_15DF2:
-		call	@randring2_next8_and$quc pascal, 7Fh
-		mov	ah, 0
-		add	ax, point_254E6.x
-		push	ax	; left
-		mov	ax, point_254E6.y
-		add	ax, 64
-		push	ax	; top
-		push	40h	; angle
-		push	BG_1	; group
-		call	@randring2_next8_and$quc pascal, 1Fh
-		mov	ah, 0
-		add	ax, ((1 shl 4) + 14)
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-		jmp	short loc_15E81
-; ---------------------------------------------------------------------------
-
-loc_15E19:
-		cmp	_boss_phase_frame, 440
-		jge	short loc_15E7B
-		inc	byte_25596
-		call	@randring2_next8$qv
-		mov	ah, 0
-		mov	dl, byte_25596
-		mov	dh, 0
-		add	dx, dx
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		mov	al, 40h
-		sub	al, byte_25596
-		add	dl, al
-		mov	[bp+@@angle], dl
-		test	byte ptr _boss_phase_frame, 3
-		jnz	short loc_15E81
-		xor	si, si
-		jmp	short loc_15E74
-; ---------------------------------------------------------------------------
-
-loc_15E4D:
-		call	@randring2_next8_and$quc pascal, 7Fh
-		mov	ah, 0
-		add	ax, point_254E6.x
-		push	ax	; left
-		mov	ax, point_254E6.y
-		add	ax, 64
-		push	ax	; top
-		push	word ptr [bp+@@angle]	; angle
-		push	BG_1	; group
-		call	@randring2_next8_and$quc pascal, 1Fh
-		mov	ah, 0
-		add	ax, ((1 shl 4) + 14)
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-		inc	si
-
-loc_15E74:
-		cmp	si, 3
-		jl	short loc_15E4D
-		jmp	short loc_15E81
-; ---------------------------------------------------------------------------
-
-loc_15E7B:
-		mov	_boss_phase_frame, 0
-
-loc_15E81:
-		pop	si
-		leave
-		retn
-sigma_15D56	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15E84
-_sigma_15E84 label near
-sigma_15E84	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 100
-		jl	short loc_15EF5
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_15EAD
-		mov	byte_2558C, 7
-		mov	byte_2558D, 4
-		push	80h
-
-loc_15EA2:
-		push	1400040h
-		call	sigma_155C5
-		jmp	short loc_15EE7
-; ---------------------------------------------------------------------------
-
-loc_15EAD:
-		cmp	_boss_phase_frame, 120
-		jnz	short loc_15EB9
-		push	320
-		jmp	short loc_15EA2
-; ---------------------------------------------------------------------------
-
-loc_15EB9:
-		cmp	_boss_phase_frame, 130
-		jle	short loc_15EE7
-		cmp	_boss_phase_frame, 150
-		jge	short loc_15EE7
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_15EE7
-		call	@bullets_add_pellet$qiiucuci pascal, left_253B6, top_253B8, 00h, BG_5_SPREAD_MEDIUM_AIMED, ((7 shl 4) + 8)
-
-loc_15EE7:
-		cmp	_boss_phase_frame, 200
-		jle	short loc_15EF5
-		mov	_boss_phase_frame, 0
-
-loc_15EF5:
-		pop	bp
-		retn
-sigma_15E84	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_move_weave()  [static]
+;   th02/main/boss/b6.cpp       sigma_15D56()
+;                               sigma_15E84()
+;                               sigma_move_weave()  [static]
 ;                               sigma_15F6F()
 ;                               sigma_15F95()
 ;                               sigma_16176()
@@ -5417,7 +5216,7 @@ sigma_15E84	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_15E84(), and the first of
+; So th02_main.asm contributes nothing below sigma_15A25(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -5462,12 +5261,13 @@ sigma_15E84	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_15E84() is the tail now - phase 1 pattern slot 1, a near proc, so the
-; root still ends on a `retn`. Below it the block is ONE other pattern
-; function, the 16-slot expanding-blast pool at 0x254EC with its spawn and
-; its state-2 promoter, her hittest wrapper, her renderer and her defeat
-; animation - then Meira, Rika and the three midbosses. BOTH movement
-; helpers are C++ now.
+; sigma_15A25() is the tail now - her defeat animation, 0x331 and the longest
+; body left in her chain, a near proc, so the root still ends on a `retn`.
+; ALL TWELVE OF HER PATTERNS AND BOTH MOVEMENT HELPERS ARE C++ NOW, and what
+; is left below this tail is the subsystem rather than the fight: the 16-slot
+; expanding-blast pool at 0x254EC with its spawn and its state-2 promoter, her
+; hittest wrapper, her renderer and its far background callback - then Meira,
+; Rika and the three midbosses.
 ; state/notes/sigma_update.md characterises all of them, holds their lengths,
 ; and is the map for that naming round.
 ;
@@ -5510,8 +5310,8 @@ sigma_15E84	endp
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0xAD1 0x0 0x0 BEFORE
-; this lift and 0xB6F 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0xB6F 0x0 0x0 BEFORE
+; this lift and 0xD10 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7377,8 +7177,16 @@ byte_25590	db ?
 		db ?
 word_25592	dw ?
 word_25594	dw ?
-byte_25596	db ?
-byte_25597	db ?
+; Her phase 1 pattern 0's whole state, and this lift took the last dump read of
+; both. Half the angular width of the pellet spray its last stage fires,
+; widened by one every frame of that stage; and the signed horizontal step it
+; latches on its own hold frame, third member of the _sigma_sweep_velocity_x /
+; _sigma_weave_velocity_x family, applied at 1x on legs 1 and 3 and at 4x
+; backwards on leg 2.
+public _sigma_spray_half_angle
+_sigma_spray_half_angle	db ?
+public _sigma_dash_velocity_x
+_sigma_dash_velocity_x	db ?
 ; The signed one-pixel step sigma_move_weave() latches on frame 50, twin of
 ; _sigma_sweep_velocity_x below. Renamed rather than aliased: this lift took
 ; the last of its four dump references - one write on the latch frame and one

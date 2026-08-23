@@ -514,8 +514,6 @@ extern "C" void near sigma_1566F(void);
 extern "C" void near sigma_15907(void);
 extern "C" bool16 near sigma_15A25(void);
 
-extern "C" void near sigma_15D56(void);
-extern "C" void near sigma_15E84(void);
 
 // And the one still-ASM proc in her chain that the dump kept PRIVATE and this
 // object nevertheless has to reach: the spawn for her 16-slot pool of expanding
@@ -581,6 +579,256 @@ static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// Phase 1's first two patterns
+/// ---------------------------
+/// [sigma_phase] 1's slots 0 and 1, and with them all twelve of her patterns.
+/// Slot 0 is the only pattern in her fight that moves her WITHOUT either
+/// movement helper: it carries its own three-leg schedule inline, on its own
+/// frames, with a 4x dash on the middle leg.
+
+// Her sprite's extents, which slot 0 needs because it fires from a random column
+// across her whole width and from her bottom edge. `[measured]` The file's own
+// comment on SIGMA_CENTER_OFFSET already records 128x64 from [sigma_topleft];
+// this is the same measurement spelled as constants, and the mask below is
+// SIGMA_W - 1 rather than a bare 0x7F because 128 is a real extent rather than a
+// convenient power of two.
+static const pixel_t SIGMA_W = 128;
+static const pixel_t SIGMA_H = 64;
+
+// The signed horizontal step slot 0 latches on its own hold frame, third member
+// of the [sigma_sweep_velocity_x] / [sigma_weave_velocity_x] family and latched
+// by the same comparison against the playfield centre.
+//
+// Named for the ONE leg that makes it distinctive, which is the middle one:
+// legs 1 and 3 drift her by this at 1x, and leg 2 dashes her BACK at 4x. Two of
+// the three legs are therefore not a dash, and this sentence rather than the
+// identifier is where that lives -- the same way [sigma_blasts_add]'s inverted
+// return is carried in prose above.
+//
+// `[measured]` Signed, on `mov al` + `cbw` at all three reads.
+extern "C" int8_t sigma_dash_velocity_x;
+
+// Half the angular width of the pellet spray slot 0's last stage fires, in
+// 256ths of a turn, and it WIDENS BY ONE EVERY FRAME of that stage rather than
+// per volley -- the counter runs every frame and only the volley is gated.
+//
+// `[measured]` The window is `[SIGMA_SPRAY_ANGLE_CENTER - this,
+// SIGMA_SPRAY_ANGLE_CENTER + this - 1]`, from
+// `(randring2_next8() % (this * 2)) + (SIGMA_SPRAY_ANGLE_CENTER - this)`. It is
+// also zeroed on the hold frame, 320 frames before the stage that reads it.
+//
+// "spray" is attested for a boss pellet stream in this same game family --
+// MIMA_SPRAY_LAST_FRAME and [marisa_spray_is_first_run] -- and TH01 has
+// pattern_pellet_arcs_at_expanding_random_angles for this exact effect. NOT
+// `spread`: th04/main/bullet/types.h spends `spread_angle` on the angle BETWEEN
+// adjacent bullets of a group, which is a different quantity.
+extern "C" uint8_t sigma_spray_half_angle;
+
+// Slot 0's own schedule. `[measured]` Its hold is 20 frames rather than the
+// helpers' 50, and every one of these frames is its own: the drift out ends at
+// 148, the 4x dash back at 212, the second drift at 340, and the spray stage
+// runs from there to 440.
+static const int SIGMA_DASH_HOLD_FRAMES = 20;
+static const int SIGMA_DASH_LEG_1_END = 148;
+static const int SIGMA_DASH_LEG_2_END = 212;
+static const int SIGMA_DASH_LEG_3_END = 340;
+static const int SIGMA_SPRAY_PAST_LAST_FRAME = 440;
+static const int SIGMA_DASH_SPEED_MULTIPLIER = 4;
+
+// SE 3 every 4th frame for the whole pattern, hold included, and it is the same
+// SE the blast pool plays when a telegraph finishes -- so this pattern ticks
+// audibly all the way through.
+static const int SIGMA_DASH_SE_INTERVAL = 4;
+
+// Straight down, and the centre the spray widens around.
+static const uint8_t SIGMA_SPRAY_ANGLE_CENTER = 0x40;
+
+// One pellet on every ODD frame of the three drift legs, and three per volley on
+// every 4th frame of the spray stage.
+static const int SIGMA_SPRAY_VOLLEY_PELLETS = 3;
+
+// The random speed jitter both stages add to their pellet speed.
+static const int SIGMA_SPRAY_SPEED_BASE = ((1 << 4) + 14);
+static const uint8_t SIGMA_SPRAY_SPEED_JITTER_MASK = 0x1F;
+
+/// Phase 1 pattern 0: her own three-leg walk -- drift out, dash back at 4x,
+/// drift out again -- dropping one pellet from a random column on every odd
+/// frame, and then 100 frames of three-pellet volleys through a spray that
+/// widens by one angle unit per frame.
+extern "C" void near sigma_15D56(void)
+{
+	// The volley counter, `register` because the original keeps it in SI. Only
+	// one register local here against sigma_15F95()'s two, and the frame is
+	// `sub sp, 2` for the one-byte angle below either way.
+	register int i;
+
+	// The spray's angle for this volley, and a local for the same reason
+	// sigma_15F95()'s antipode is: the original computes it into [bp-1] once and
+	// then reads it back inside the loop.
+	uint8_t angle;
+
+	if(boss_phase_frame < SIGMA_DASH_HOLD_FRAMES) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_DASH_HOLD_FRAMES) {
+		sigma_spray_half_angle = 0;
+
+		// A conditional EXPRESSION and not an `if`/`else` with a store in each
+		// arm, for the 2 bytes both movement helpers spell out at their own copy
+		// of this line -- and latched AWAY from the player, same as those two.
+		sigma_dash_velocity_x = ((player_topleft.x < PLAYER_LEFT_START)
+			? 1
+			: -1
+		);
+	}
+
+	// `%` and not `& 3`, and the original's `cwd` + `idiv` is what says so.
+	if((boss_phase_frame % SIGMA_DASH_SE_INTERVAL) == 0) {
+		snd_se_play(3);
+	}
+
+	// The pellet spawn is written out in all three legs and `-O` cross-jumps the
+	// three identical copies into ONE, which is what the original has: three
+	// `test`s, three `jz`s, and a single call sequence they all reach. The odd
+	// frames are the same beat in every leg, so a reader would factor this out
+	// below the chain -- and that compiles to ONE `test` instead of three.
+	if(boss_phase_frame < SIGMA_DASH_LEG_1_END) {
+		*boss_left_on_back_page += sigma_dash_velocity_x;
+		if((boss_phase_frame & 1) != 0) {
+			bullets_add_pellet(
+				(randring2_next8_and(SIGMA_W - 1) + sigma_topleft.x),
+				(sigma_topleft.y + SIGMA_H),
+				SIGMA_SPRAY_ANGLE_CENTER,
+				BG_1,
+				(randring2_next8_and(SIGMA_SPRAY_SPEED_JITTER_MASK) +
+					SIGMA_SPRAY_SPEED_BASE)
+			);
+		}
+	} else if(boss_phase_frame < SIGMA_DASH_LEG_2_END) {
+		*boss_left_on_back_page -= (
+			sigma_dash_velocity_x * SIGMA_DASH_SPEED_MULTIPLIER
+		);
+		if((boss_phase_frame & 1) != 0) {
+			bullets_add_pellet(
+				(randring2_next8_and(SIGMA_W - 1) + sigma_topleft.x),
+				(sigma_topleft.y + SIGMA_H),
+				SIGMA_SPRAY_ANGLE_CENTER,
+				BG_1,
+				(randring2_next8_and(SIGMA_SPRAY_SPEED_JITTER_MASK) +
+					SIGMA_SPRAY_SPEED_BASE)
+			);
+		}
+	} else if(boss_phase_frame < SIGMA_DASH_LEG_3_END) {
+		*boss_left_on_back_page += sigma_dash_velocity_x;
+		if((boss_phase_frame & 1) != 0) {
+			bullets_add_pellet(
+				(randring2_next8_and(SIGMA_W - 1) + sigma_topleft.x),
+				(sigma_topleft.y + SIGMA_H),
+				SIGMA_SPRAY_ANGLE_CENTER,
+				BG_1,
+				(randring2_next8_and(SIGMA_SPRAY_SPEED_JITTER_MASK) +
+					SIGMA_SPRAY_SPEED_BASE)
+			);
+		}
+	} else if(boss_phase_frame < SIGMA_SPRAY_PAST_LAST_FRAME) {
+		// She stops moving for this stage. The widening and the angle roll
+		// happen EVERY frame; only the volley is gated to every 4th, so 3 of
+		// every 4 rolls are thrown away.
+		sigma_spray_half_angle++;
+		angle = ((randring2_next8() % (sigma_spray_half_angle * 2)) +
+			(SIGMA_SPRAY_ANGLE_CENTER - sigma_spray_half_angle)
+		);
+		if((boss_phase_frame & 3) != 0) {
+			return;
+		}
+		for(i = 0; i < SIGMA_SPRAY_VOLLEY_PELLETS; i++) {
+			bullets_add_pellet(
+				(randring2_next8_and(SIGMA_W - 1) + sigma_topleft.x),
+				(sigma_topleft.y + SIGMA_H),
+				angle,
+				BG_1,
+				(randring2_next8_and(SIGMA_SPRAY_SPEED_JITTER_MASK) +
+					SIGMA_SPRAY_SPEED_BASE)
+			);
+		}
+	} else {
+		boss_phase_frame = 0;
+	}
+}
+
+// What sigma_15E84() insets the blast hitbox by, and it is the sibling
+// SIGMA_BLAST_HITBOX_MARGIN_WIDE needed: this is the ONE writer in her whole
+// fight that makes the lethal square SMALLER than the drawn circle. The other
+// two writers set the negative value, which grows it past what the player can
+// see -- and phases 7 and 9 write it at all, so they inherit whichever of the
+// two ran last.
+static const int8_t SIGMA_BLAST_HITBOX_MARGIN_NARROW = 4;
+
+// Where slot 1 drops its two blasts, and both at the same y. `[measured]` The
+// two x values are 128 and 320, which are NOT symmetric about the playfield
+// centre (PLAYFIELD_LEFT is 16 and PLAYFIELD_W is 384, so the centre column is
+// 208): the pair is off to the left by 80 pixels.
+static const screen_x_t SIGMA_TRAP_1_X = 128;
+static const screen_x_t SIGMA_TRAP_2_X = 320;
+static const screen_y_t SIGMA_TRAP_Y = 320;
+
+// And its own frames. The two blasts land 20 frames apart, the aimed spread runs
+// for the 19 frames after that, and the pattern restarts past 200.
+static const int SIGMA_TRAP_1_FRAME = 100;
+static const int SIGMA_TRAP_2_FRAME = 120;
+static const int SIGMA_TRAP_SPREAD_FIRST_FRAME = 130;
+static const int SIGMA_TRAP_SPREAD_PAST_LAST = 150;
+static const int SIGMA_TRAP_SPREAD_INTERVAL = 4;
+static const int SIGMA_TRAP_PAST_LAST_FRAME = 200;
+
+// The radius these two stop growing at, and the largest any of her blasts
+// reaches -- SIGMA_BLAST_RADIUS_MAX above is 0x30 and phase 3's are 0x18.
+static const int SIGMA_TRAP_BLAST_RADIUS_MAX = 0x40;
+
+/// Phase 1 pattern 1: two big slow blasts dropped at fixed points near the
+/// bottom of the playfield 20 frames apart, then five frames of a medium aimed
+/// spread. She does not move at all.
+extern "C" void near sigma_15E84(void)
+{
+	if(boss_phase_frame < SIGMA_TRAP_1_FRAME) {
+		return;
+	}
+
+	// Two arms whose only difference is the x, and `-O` cross-jumps everything
+	// they share -- the y, the radius and the call -- into one copy, which is
+	// what the original has: each arm pushes only its own x and then jumps to a
+	// single shared tail that pushes the other two arguments as one packed
+	// 32-bit immediate and makes the call. Written as two plain arms; the merge
+	// is the compiler's.
+	if(boss_phase_frame == SIGMA_TRAP_1_FRAME) {
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_SLOW;
+		sigma_blast_hitbox_margin = SIGMA_BLAST_HITBOX_MARGIN_NARROW;
+		sigma_blasts_add(SIGMA_TRAP_1_X, SIGMA_TRAP_Y,
+			SIGMA_TRAP_BLAST_RADIUS_MAX
+		);
+	} else if(boss_phase_frame == SIGMA_TRAP_2_FRAME) {
+		sigma_blasts_add(SIGMA_TRAP_2_X, SIGMA_TRAP_Y,
+			SIGMA_TRAP_BLAST_RADIUS_MAX
+		);
+	} else if(
+		(boss_phase_frame > SIGMA_TRAP_SPREAD_FIRST_FRAME) &&
+		(boss_phase_frame < SIGMA_TRAP_SPREAD_PAST_LAST) &&
+		((boss_phase_frame % SIGMA_TRAP_SPREAD_INTERVAL) == 0)
+	) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			0,
+			BG_5_SPREAD_MEDIUM_AIMED,
+			((7 << 4) + 8)
+		);
+	}
+	if(boss_phase_frame > SIGMA_TRAP_PAST_LAST_FRAME) {
+		boss_phase_frame = 0;
+	}
+}
+/// ---------------------------
 
 /// The movement helper phases 1, 3, 5 and 7 share, and phase 1's third pattern
 /// ---------------------------------------------------------------------------
