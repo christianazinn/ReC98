@@ -4866,320 +4866,11 @@ var_2		= word ptr -2
 sigma_bg_render	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15A25
-_sigma_15A25 label near
-sigma_15A25	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 10
-		jge	short loc_15A38
-		call	sigma_158DC
-		xor	ax, ax
-		jmp	loc_15D53
-; ---------------------------------------------------------------------------
-
-loc_15A38:
-		cmp	_boss_phase_frame, 10
-		jnz	short loc_15A54
-		mov	byte_2558E, 8
-		call	sigma_158DC
-		call	_snd_se_play c, 9
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15A54:
-		cmp	_boss_phase_frame, 90
-		jge	short loc_15AD0
-		call	sigma_158DC
-		cmp	_page_back, 0
-		jnz	short loc_15A8A
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, point_254E6.x
-		add	ax, 64
-		push	ax
-		mov	ax, point_254E6.y
-		add	ax, 64
-		push	ax
-		push	24
-		call	grcg_circlefill
-		call	grcg_off
-
-loc_15A8A:
-		cmp	_boss_phase_frame, 50
-		jl	short loc_15ABA
-		cmp	_page_back, 0
-		jz	short loc_15ABA
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	ax, point_254E6.x
-		add	ax, 64
-		call	grcg_vline pascal, ax, (PLAYFIELD_TOP shl 16) or PLAYFIELD_BOTTOM - 1
-		call	grcg_off
-
-loc_15ABA:
-		cmp	_boss_phase_frame, 89
-		jnz	loc_15D51
-		call	_snd_se_play c, 3
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15AD0:
-		cmp	_boss_phase_frame, 100
-		jge	loc_15B65
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	al, byte_2558E
-		mov	ah, 0
-		push	ax
-		mov	ax, point_254E6.x
-		add	ax, 64
-		pop	dx
-		sub	ax, dx
-		mov	bx, 8
-		cwd
-		idiv	bx
-		push	ax
-		push	10h
-		mov	al, byte_2558E
-		mov	ah, 0
-		add	ax, point_254E6.x
-		add	ax, 64
-		cwd
-		idiv	bx
-		push	ax
-		push	PLAYFIELD_BOTTOM - 1
-		call	grcg_byteboxfill_x
-		call	grcg_off
-		mov	al, byte_2558E
-		mov	ah, 0
-		mov	dx, point_254E6.x
-		add	dx, 56
-		sub	dx, ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		cmp	dx, _player_left_on_page[bx]
-		jge	short loc_15B57
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	dl, byte_2558E
-		mov	dh, 0
-		add	dx, point_254E6.x
-		add	dx, 40
-		mov	bx, ax
-		cmp	_player_left_on_page[bx], dx
-		jge	short loc_15B57
-		mov	_player_is_hit, 1
-
-loc_15B57:
-		mov	al, byte_2558E
-		add	al, 8
-		mov	byte_2558E, al
-		call	sigma_158DC
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15B65:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_15BC2
-		mov	al, byte_2558E
-		mov	ah, 0
-		mov	dx, point_254E6.x
-		add	dx, 56
-		sub	dx, ax
-		mov	word_25592, dx
-		mov	al, byte_2558E
-		mov	ah, 0
-		add	ax, point_254E6.x
-		add	ax, 40
-		mov	word_25594, ax
-		mov	al, byte_2558E
-		mov	ah, 0
-		push	ax
-		mov	ax, point_254E6.x
-		add	ax, 64
-		pop	dx
-		sub	ax, dx
-		mov	bx, 8
-		cwd
-		idiv	bx
-		mov	byte_2558F, al
-		mov	al, byte_2558E
-		mov	ah, 0
-		add	ax, point_254E6.x
-		add	ax, 64
-		cwd
-		idiv	bx
-		add	al, -1
-		mov	byte_25590, al
-		mov	patnum_2064E, 134
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15BC2:
-		cmp	_boss_phase_frame, 140
-		jg	short loc_15C25
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	al, byte_2558F
-		mov	ah, 0
-		push	ax
-		push	10h
-		mov	al, byte_25590
-		mov	ah, 0
-		push	ax
-		push	PLAYFIELD_BOTTOM - 1
-		call	grcg_byteboxfill_x
-		call	grcg_off
-		call	sigma_158DC
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25592
-		jle	loc_15D51
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25594
-		jge	loc_15D51
-		mov	_player_is_hit, 1
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15C25:
-		cmp	_boss_phase_frame, 180
-		jge	loc_15CBC
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	al, byte_2558F
-		mov	ah, 0
-		push	ax
-		push	10h
-		mov	al, byte_25590
-		mov	ah, 0
-		push	ax
-		push	PLAYFIELD_BOTTOM - 1
-		call	grcg_byteboxfill_x
-		call	grcg_off
-		mov	ax, _boss_phase_frame
-		mov	bx, 10
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_15C67
-		add	patnum_2064E, 2
-
-loc_15C67:
-		call	sigma_158DC
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25592
-		jle	short loc_15C95
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25594
-		jge	short loc_15C95
-		mov	_player_is_hit, 1
-
-loc_15C95:
-		mov	ax, _boss_phase_frame
-		and	ax, 1
-		mov	si, ax
-		mov	ax, RES_Y
-		sub	ax, _scroll_line
-		push	ax
-		mov	ax, _scroll_line
-		imul	ax, 40
-		add	ax, si
-		push	ax
-		push	si
-		call	graph_scroll
-		mov	_slowdown_factor, 2
-		jmp	loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15CBC:
-		cmp	_boss_phase_frame, 220
-		jg	short loc_15D1C
-		mov	_slowdown_factor, 1
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		mov	al, byte_2558F
-		mov	ah, 0
-		push	ax
-		push	10h
-		mov	al, byte_25590
-		mov	ah, 0
-		push	ax
-		push	PLAYFIELD_BOTTOM - 1
-		call	grcg_byteboxfill_x
-		call	grcg_off
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25592
-		jle	short loc_15D51
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _player_left_on_page[bx]
-		cmp	ax, word_25594
-		jge	short loc_15D51
-		mov	_player_is_hit, 1
-		jmp	short loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15D1C:
-		cmp	_boss_phase_frame, 224
-		jge	short loc_15D4C
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		mov	al, byte_2558F
-		mov	ah, 0
-		push	ax
-		push	10h
-		mov	al, byte_25590
-		mov	ah, 0
-		push	ax
-		push	PLAYFIELD_BOTTOM - 1
-		call	grcg_byteboxfill_x
-		call	grcg_off
-		jmp	short loc_15D51
-; ---------------------------------------------------------------------------
-
-loc_15D4C:
-		mov	ax, 1
-		jmp	short loc_15D53
-; ---------------------------------------------------------------------------
-
-loc_15D51:
-		xor	ax, ax
-
-loc_15D53:
-		pop	si
-		pop	bp
-		retn
-sigma_15A25	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_15D56()
+;   th02/main/boss/b6.cpp       sigma_15A25()
+;                               sigma_15D56()
 ;                               sigma_15E84()
 ;                               sigma_move_weave()  [static]
 ;                               sigma_15F6F()
@@ -5216,8 +4907,8 @@ sigma_15A25	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_15A25(), and the first of
-; those objects picks the segment up from the byte after that proc's `retn`.
+; So th02_main.asm contributes nothing below sigma_bg_render(), and the first
+; those objects picks the segment up from the byte after that proc's `retf`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
 ; contribution), NEVER from whichever proc a sentence like this one happens
@@ -5261,13 +4952,21 @@ sigma_15A25	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_15A25() is the tail now - her defeat animation, 0x331 and the longest
-; body left in her chain, a near proc, so the root still ends on a `retn`.
-; ALL TWELVE OF HER PATTERNS AND BOTH MOVEMENT HELPERS ARE C++ NOW, and what
-; is left below this tail is the subsystem rather than the fight: the 16-slot
-; expanding-blast pool at 0x254EC with its spawn and its state-2 promoter, her
-; hittest wrapper, her renderer and its far background callback - then Meira,
-; Rika and the three midbosses.
+; sigma_bg_render() is the tail now, and IT IS THE FIRST FAR PROC TO HOLD THAT
+; POSITION IN THIS BLOCK: the root's last instruction is a `retf` rather than
+; a `retn`, because this one is installed into the boss_bg_render_func slot
+; and called through a pointer. Everything above it in her chain is C++ - all
+; twelve patterns, both movement helpers, the pattern runner, the per-frame
+; update, the fight init, the defeat animation and the defeat itself - and
+; what is left is the SUBSYSTEM rather than the fight: this renderer and the
+; helper it calls, the 16-slot expanding-blast pool at 0x254EC with its spawn
+; and its state-2 promoter, and her hittest wrapper. Then Meira, Rika and the
+; three midbosses.
+;
+; `[measured 2026-08-22]` A far tail is a different cost from a near one and
+; the difference is not in the body: whatever lifts it has to reproduce the
+; slot install as well, and kb/codegen/0049 is the entry for a callback whose
+; offset is pinned by the segment it sits in. Read that before costing it.
 ; state/notes/sigma_update.md characterises all of them, holds their lengths,
 ; and is the map for that naming round.
 ;
@@ -5310,8 +5009,8 @@ sigma_15A25	endp
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0xB6F 0x0 0x0 BEFORE
-; this lift and 0xD10 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0xD10 0x0 0x0 BEFORE
+; this lift and 0x1041 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7171,12 +6870,23 @@ byte_2558C	db ?
 public _sigma_blast_hitbox_margin
 _sigma_blast_hitbox_margin	label byte
 byte_2558D	db ?
-byte_2558E	db ?
-byte_2558F	db ?
-byte_25590	db ?
+; Her defeat animation's whole state, and this lift took the last dump read of
+; all five. How far the beam reaches to either side of her centre column, and
+; then the four values frame 100 FREEZES out of it: the beam's two VRAM byte
+; columns and its two hitbox bounds. Every stage after that frame reads the
+; frozen copies and never touches the half-width again, which is why the beam
+; stops following her while she is still being blitted.
+public _sigma_beam_half_w
+_sigma_beam_half_w	db ?
+public _sigma_beam_vram_left
+_sigma_beam_vram_left	db ?
+public _sigma_beam_vram_right
+_sigma_beam_vram_right	db ?
 		db ?
-word_25592	dw ?
-word_25594	dw ?
+public _sigma_beam_hitbox_left
+_sigma_beam_hitbox_left	dw ?
+public _sigma_beam_hitbox_right
+_sigma_beam_hitbox_right	dw ?
 ; Her phase 1 pattern 0's whole state, and this lift took the last dump read of
 ; both. Half the angular width of the pellet spray its last stage fires,
 ; widened by one every frame of that stage; and the signed horizontal step it

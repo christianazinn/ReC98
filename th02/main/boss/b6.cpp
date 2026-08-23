@@ -142,6 +142,13 @@
 // And this one for phase 3 pattern 0, the only pattern in her fight that draws
 // into VRAM itself. Guarded, and one enum of one enumerator.
 #include "th02/v_colors.hpp"
+// And these two for her defeat animation, which shakes the screen through the
+// GDC scroll origin and halves the frame rate while it does. Both are
+// unguarded and both are nothing but declarations and macros, so a second
+// inclusion anywhere in this object stays inert -- th02/main/explode.cpp,
+// which does the same two things, includes exactly this pair.
+#include "th02/main/scroll.hpp"
+#include "th02/main/slowdown.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -299,6 +306,15 @@ extern "C" uint8_t sigma_cel_interval_mask;
 extern "C" screen_x_t sigma_center_x;
 extern "C" screen_y_t sigma_center_y;
 static const pixel_t SIGMA_CENTER_OFFSET = 60;
+
+// And the extents that comment measures, as constants. `[measured 2026-08-22]`
+// MOVED UP HERE from phase 1's block by the defeat parcel, which is the second
+// user: her defeat beam and core are both at half her WIDTH from
+// [sigma_topleft] and at her full HEIGHT below its y, and phase 1 pattern 0
+// fires from a random column across the same width. A `static const` emits
+// nothing, so a constant two bodies share belongs above both of them.
+static const pixel_t SIGMA_W = 128;
+static const pixel_t SIGMA_H = 64;
 
 // Which of the current phase's patterns runs this frame. sigma_166DE() cycles
 // it and wraps it at the count sigma_update() passes in; every even phase
@@ -512,7 +528,6 @@ static const long SIGMA_DEFEAT_SCORE = 300000;
 
 extern "C" void near sigma_1566F(void);
 extern "C" void near sigma_15907(void);
-extern "C" bool16 near sigma_15A25(void);
 
 
 // And the one still-ASM proc in her chain that the dump kept PRIVATE and this
@@ -580,6 +595,266 @@ static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
 
+/// Her defeat animation
+/// --------------------
+/// Nine stages over 224 frames, and the return value is the point: it stays
+/// `false` until the last one is over and then goes `true`, which is what makes
+/// sigma_update() yield SP_CLEAR and hand the Extra Stage clear to sigma_end().
+///
+/// `[measured]` The beam it fires straight down through her own centre column is
+/// drawn TWICE, in two different coordinate systems, and the handover between
+/// them is the whole reason this body needs five variables. Frames 90-99 widen
+/// it live, deriving both its VRAM columns and its hitbox from
+/// [sigma_beam_half_w] every frame; frame 100 FREEZES all four derived values
+/// into their own variables; and every stage after that reads the frozen copies
+/// and never touches the half-width again. She keeps being blitted through all
+/// of it, so her sprite walks out from under a beam that no longer follows her.
+
+// How far the beam reaches to either side of her centre column, in pixels, and
+// only frames 90-99 ever read it -- after that its four derivatives are frozen.
+extern "C" uint8_t sigma_beam_half_w;
+
+// The beam's VRAM byte columns, frozen on frame 100 and drawn every frame after
+// it. `[measured]` The right one is stored one column SHORT, because
+// grcg_byteboxfill_x() takes an inclusive right edge.
+extern "C" uint8_t sigma_beam_vram_left;
+extern "C" uint8_t sigma_beam_vram_right;
+
+// And its hitbox, frozen on the same frame and tested against the PLAYER'S LEFT
+// EDGE rather than her centre -- which is why the two bounds are not symmetric
+// about the beam: see SIGMA_BEAM_HITBOX_LEFT_OFFSET below.
+extern "C" screen_x_t sigma_beam_hitbox_left;
+extern "C" screen_x_t sigma_beam_hitbox_right;
+
+// The stage boundaries, and every one of them is its own frame rather than a
+// multiple of anything.
+static const int SIGMA_DEFEAT_BLIT_ONLY_FRAMES = 10;
+static const int SIGMA_DEFEAT_VLINE_FIRST_FRAME = 50;
+static const int SIGMA_DEFEAT_CORE_LAST_FRAME = 89;
+static const int SIGMA_DEFEAT_CORE_PAST_LAST = 90;
+static const int SIGMA_DEFEAT_FREEZE_FRAME = 100;
+static const int SIGMA_DEFEAT_BEAM_LAST_FRAME = 140;
+static const int SIGMA_DEFEAT_SHAKE_PAST_LAST = 180;
+static const int SIGMA_DEFEAT_HOLD_LAST_FRAME = 220;
+static const int SIGMA_DEFEAT_ERASE_PAST_LAST = 224;
+
+// The beam starts 8 pixels to either side of her centre column and widens by
+// that same 8 every frame of the widening stage, so it is 88 wide by the time it
+// freezes.
+//
+// `int` and not `uint8_t` for the step, per kb/codegen/0094's second
+// discriminator: the original takes the AL round trip, which a byte-typed addend
+// would fold into `add mem, imm8`.
+static const uint8_t SIGMA_BEAM_HALF_W_INITIAL = 8;
+static const int SIGMA_BEAM_WIDEN_STEP = 8;
+
+// The white ball she collapses into, at her sprite's centre column and one
+// sprite height down from her top -- i.e. her bottom edge, not her middle.
+static const int SIGMA_DEFEAT_CORE_RADIUS = 24;
+
+// The offsets the beam's hitbox is built from, and they are NOT symmetric:
+// [player_left_on_page] is the player's LEFT edge, so a window on it has to be
+// shifted left by the player's own width to describe an overlap. `[measured]`
+// The two really are 56 and 40 rather than one number and its mirror, and 56 -
+// 40 is 16, half of PLAYER_W -- so the lethal window is offset from the drawn
+// beam by half a player rather than centred on it.
+static const pixel_t SIGMA_BEAM_HITBOX_LEFT_OFFSET = 56;
+static const pixel_t SIGMA_BEAM_HITBOX_RIGHT_OFFSET = 40;
+
+// Her defeat cel, and the three it steps through while the screen shakes.
+static const int SIGMA_DEFEAT_PATNUM = 134;
+static const int SIGMA_DEFEAT_CEL_INTERVAL = 10;
+static const int SIGMA_DEFEAT_CEL_STEP = 2;
+
+// VRAM words per row, which is what graph_scroll() wants its addresses in.
+static const int SIGMA_SHAKE_VRAM_ROW_WORDS = 40;
+
+// Not declared in libs/master.lib/pc98_gfx.hpp, which only has the
+// graph_scrollup() convenience wrapper around it. Declared exactly the way
+// th02/main/explode.cpp and th02/main/stage/stages.cpp already declare it.
+extern "C" {
+	void MASTER_RET graph_scroll(unsigned line1, unsigned adr1, unsigned adr2);
+}
+
+/// Her defeat animation, and the last thing her fight does before sigma_end().
+/// Returns `true` on the frame it is over, and `false` on every frame before
+/// that.
+extern "C" bool16 near sigma_15A25(void)
+{
+	// The shake's offset for this frame, `register` because the original keeps
+	// it in SI -- and it is used THREE times in one call, which is what makes a
+	// register worth spending on a value that is only ever 0 or 1.
+	register int shake_offset;
+
+	if(boss_phase_frame < SIGMA_DEFEAT_BLIT_ONLY_FRAMES) {
+		sigma_put();
+		return false;
+	}
+
+	if(boss_phase_frame == SIGMA_DEFEAT_BLIT_ONLY_FRAMES) {
+		sigma_beam_half_w = SIGMA_BEAM_HALF_W_INITIAL;
+		sigma_put();
+		snd_se_play(9);
+	} else if(boss_phase_frame < SIGMA_DEFEAT_CORE_PAST_LAST) {
+		sigma_put();
+
+		// The core, on page 0 only.
+		if(page_back == 0) {
+			grcg_setcolor(GC_RMW, V_WHITE);
+			grcg_circlefill(
+				(sigma_topleft.x + (SIGMA_W / 2)),
+				(sigma_topleft.y + SIGMA_H),
+				SIGMA_DEFEAT_CORE_RADIUS
+			);
+			grcg_off();
+		}
+
+		// And the telegraph line for the beam, on the OTHER page only, so the
+		// two flicker against each other for the last 40 frames of this stage.
+		if((boss_phase_frame >= SIGMA_DEFEAT_VLINE_FIRST_FRAME) &&
+			(page_back != 0)
+		) {
+			grcg_setcolor(GC_RMW, V_WHITE);
+			grcg_vline(
+				(sigma_topleft.x + (SIGMA_W / 2)),
+				PLAYFIELD_TOP,
+				(PLAYFIELD_BOTTOM - 1)
+			);
+			grcg_off();
+		}
+		if(boss_phase_frame == SIGMA_DEFEAT_CORE_LAST_FRAME) {
+			snd_se_play(3);
+		}
+	} else if(boss_phase_frame < SIGMA_DEFEAT_FREEZE_FRAME) {
+		// The beam, widening, with everything derived from the half-width on
+		// every frame -- and drawn on BOTH pages, unlike everything above.
+		grcg_setcolor(GC_RMW, V_WHITE);
+		grcg_byteboxfill_x(
+			(((sigma_topleft.x + (SIGMA_W / 2)) - sigma_beam_half_w) /
+				BYTE_DOTS),
+			PLAYFIELD_TOP,
+			((sigma_beam_half_w + sigma_topleft.x + (SIGMA_W / 2)) / BYTE_DOTS),
+			(PLAYFIELD_BOTTOM - 1)
+		);
+		grcg_off();
+
+		// The live hittest, against the same two offsets frame 100 will freeze.
+		if(
+			(((sigma_topleft.x + SIGMA_BEAM_HITBOX_LEFT_OFFSET) -
+				sigma_beam_half_w) < player_left_on_page[page_front]) &&
+			(player_left_on_page[page_front] < (sigma_beam_half_w +
+				sigma_topleft.x + SIGMA_BEAM_HITBOX_RIGHT_OFFSET))
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+		sigma_beam_half_w += SIGMA_BEAM_WIDEN_STEP;
+		sigma_put();
+	} else if(boss_phase_frame == SIGMA_DEFEAT_FREEZE_FRAME) {
+		// THE HANDOVER. Every one of these four is the expression the stage
+		// above evaluated live, stored once -- and from here on she is blitted
+		// but the beam is not re-derived, so it stays where she was on this
+		// frame.
+		sigma_beam_hitbox_left = (
+			(sigma_topleft.x + SIGMA_BEAM_HITBOX_LEFT_OFFSET) -
+			sigma_beam_half_w
+		);
+		sigma_beam_hitbox_right = (
+			sigma_beam_half_w + sigma_topleft.x +
+			SIGMA_BEAM_HITBOX_RIGHT_OFFSET
+		);
+		sigma_beam_vram_left = (
+			((sigma_topleft.x + (SIGMA_W / 2)) - sigma_beam_half_w) / BYTE_DOTS
+		);
+		sigma_beam_vram_right = ((
+			(sigma_beam_half_w + sigma_topleft.x + (SIGMA_W / 2)) / BYTE_DOTS
+		) - 1);
+		patnum_2064E = SIGMA_DEFEAT_PATNUM;
+	} else if(boss_phase_frame <= SIGMA_DEFEAT_BEAM_LAST_FRAME) {
+		grcg_setcolor(GC_RMW, V_WHITE);
+		grcg_byteboxfill_x(
+			sigma_beam_vram_left,
+			PLAYFIELD_TOP,
+			sigma_beam_vram_right,
+			(PLAYFIELD_BOTTOM - 1)
+		);
+		grcg_off();
+		sigma_put();
+
+		// The frozen hittest, and it reads [player_left_on_page] TWICE rather
+		// than once into a local -- as do both of its copies below.
+		if((player_left_on_page[page_front] > sigma_beam_hitbox_left) &&
+			(player_left_on_page[page_front] < sigma_beam_hitbox_right)
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+	} else if(boss_phase_frame < SIGMA_DEFEAT_SHAKE_PAST_LAST) {
+		grcg_setcolor(GC_RMW, V_WHITE);
+		grcg_byteboxfill_x(
+			sigma_beam_vram_left,
+			PLAYFIELD_TOP,
+			sigma_beam_vram_right,
+			(PLAYFIELD_BOTTOM - 1)
+		);
+		grcg_off();
+		if((boss_phase_frame % SIGMA_DEFEAT_CEL_INTERVAL) == 0) {
+			patnum_2064E += SIGMA_DEFEAT_CEL_STEP;
+		}
+		sigma_put();
+		if((player_left_on_page[page_front] > sigma_beam_hitbox_left) &&
+			(player_left_on_page[page_front] < sigma_beam_hitbox_right)
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+
+		// The shake: the GDC scroll origin is nudged by one line on alternate
+		// frames, and [slowdown_factor] 2 halves the frame rate for the whole
+		// stage so that it reads as a jolt rather than as flicker. `[measured]`
+		// The same 0-or-1 goes into BOTH addresses and into the line count, so
+		// the offset is applied to the split point and to the second region's
+		// start together.
+		shake_offset = (boss_phase_frame & 1);
+		graph_scroll(
+			(RES_Y - scroll_line),
+			((scroll_line * SIGMA_SHAKE_VRAM_ROW_WORDS) + shake_offset),
+			shake_offset
+		);
+		slowdown_factor = 2;
+	} else if(boss_phase_frame <= SIGMA_DEFEAT_HOLD_LAST_FRAME) {
+		// And the shake ends by putting the frame rate back, first thing.
+		slowdown_factor = 1;
+		grcg_setcolor(GC_RMW, V_WHITE);
+		grcg_byteboxfill_x(
+			sigma_beam_vram_left,
+			PLAYFIELD_TOP,
+			sigma_beam_vram_right,
+			(PLAYFIELD_BOTTOM - 1)
+		);
+		grcg_off();
+
+		// She is NOT blitted in this stage or the next, so the beam outlives her
+		// sprite by 40 frames.
+		if((player_left_on_page[page_front] > sigma_beam_hitbox_left) &&
+			(player_left_on_page[page_front] < sigma_beam_hitbox_right)
+		) {
+			player_is_hit = PLAYER_HIT;
+		}
+	} else if(boss_phase_frame < SIGMA_DEFEAT_ERASE_PAST_LAST) {
+		// Four frames of erasing the beam in black, and no hittest.
+		grcg_setcolor(GC_RMW, 0);
+		grcg_byteboxfill_x(
+			sigma_beam_vram_left,
+			PLAYFIELD_TOP,
+			sigma_beam_vram_right,
+			(PLAYFIELD_BOTTOM - 1)
+		);
+		grcg_off();
+	} else {
+		return true;
+	}
+	return false;
+}
+/// --------------------
+
 /// Phase 1's first two patterns
 /// ---------------------------
 /// [sigma_phase] 1's slots 0 and 1, and with them all twelve of her patterns.
@@ -587,14 +862,10 @@ static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// movement helper: it carries its own three-leg schedule inline, on its own
 /// frames, with a 4x dash on the middle leg.
 
-// Her sprite's extents, which slot 0 needs because it fires from a random column
-// across her whole width and from her bottom edge. `[measured]` The file's own
-// comment on SIGMA_CENTER_OFFSET already records 128x64 from [sigma_topleft];
-// this is the same measurement spelled as constants, and the mask below is
-// SIGMA_W - 1 rather than a bare 0x7F because 128 is a real extent rather than a
-// convenient power of two.
-static const pixel_t SIGMA_W = 128;
-static const pixel_t SIGMA_H = 64;
+// Slot 0's random-column mask is SIGMA_W - 1 rather than a bare 0x7F because 128
+// is a real extent rather than a convenient power of two; both extents are
+// declared with SIGMA_CENTER_OFFSET above, where her defeat animation reaches
+// them too.
 
 // The signed horizontal step slot 0 latches on its own hold frame, third member
 // of the [sigma_sweep_velocity_x] / [sigma_weave_velocity_x] family and latched
