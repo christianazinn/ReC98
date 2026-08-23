@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -598,7 +598,7 @@ loc_B2CE:
 		mov	random_seed, 318
 
 loc_B2DD:
-		call	sub_CFEE
+		call	@graph_both_pages_fill_col_1$qv
 		graph_accesspage 0
 		graph_showpage al
 		push	ds
@@ -607,7 +607,7 @@ loc_B2DD:
 		call	far ptr	palette_show
 		mov	PaletteTone, 0
 		call	far ptr	palette_show
-		call	sub_CFEE
+		call	@graph_both_pages_fill_col_1$qv
 		call	@overlay_wipe$qv
 		call	@stage_init$qv
 		nopcall	hud_put
@@ -1317,12 +1317,21 @@ BOMBCHAR_TEXT	segment	byte public 'CODE' use16
 
 BOMBCHAR_TEXT	ends
 
-; kb/codegen/0080 carve: the head of this block is now its own segment so
-; that a C++ object can append to it. Everything from the `db 0` down --
-; the two `include`d modules, ZUN's six hand-written GRCG playfield fills,
-; and grcg_fill_playfield_rows() -- keeps the original name, so
-; th04/mb_inv.cpp is not re-pointed and every byte keeps its address.
-MB_INV_TEXT	segment	byte public 'CODE' use16
+; kb/codegen/0080 carve, the SECOND one out of this block: BOMBCHAR_TEXT
+; above took the four playchars' bomb drivers, and this one takes
+; everything from the `db 0` down to the last of ZUN's GRCG playfield
+; fills, so that a C++ object can append to THAT. What keeps the original
+; name is now only the grcg_fill_playfield_rows() include below, which is
+; why th04/mb_inv.cpp is still not re-pointed and every byte still keeps
+; its address.
+;
+; The head is the segment a lift has to append to, so it gets the name of
+; the C++ that appends: th05/main/player/bombchar.cpp reaches it through a
+; `#pragma codeseg BOMB_BG_TEXT main_01` block at the end of that file, in
+; the same object that owns BOMBCHAR_TEXT. No new translation unit, and
+; therefore no Tupfile.lua line -- the same route e7c2612b took for TH04's
+; B6_SPAWN_TEXT.
+BOMB_BG_TEXT	segment	byte public 'CODE' use16
 
 ; ---------------------------------------------------------------------------
 		db    0
@@ -1535,39 +1544,36 @@ loc_CFD5:
 		retn
 sub_CFBA	endp
 
+	; graph_both_pages_fill_col_1() -- the whole-screen page fill that the
+	; stage setup in DEMO_TEXT calls twice -- used to be here, at 0CFEEh.
+	; It is compiled from th04/main/graph2pg.cpp now, through
+	; th05/main/player/bombchar.cpp, which owns this segment's only C++
+	; contribution. The body is BYTE-IDENTICAL to TH04's, which was matched
+	; first, at th04_main.asm's main_013_TEXT 12024h -- so the two games
+	; share one file rather than two copies of five inline-asm macros.
+	;
+	; Both `call` sites are in DEMO_TEXT and reach it through the procdesc
+	; below. A procdesc binds the symbol to the GROUP of the segment block
+	; it is written in, so it belongs in the segment the function lives in;
+	; that group is main_01, the same as DEMO_TEXT (kb/codegen 0064, 0082).
+	; Neither call site carried a group override to lose.
+	@graph_both_pages_fill_col_1$qv procdesc near
 
-; =============== S U B	R O U T	I N E =======================================
+BOMB_BG_TEXT	ends
 
+; The tail of what used to be one MB_INV_TEXT block, keeping the original
+; name: one include, and nothing that can ever be lifted out of it. The
+; module takes its arguments in AX and DX through `equ` register aliases,
+; the register-parameter interface no C signature expresses.
+MB_INV_TEXT	segment	byte public 'CODE' use16
 
-sub_CFEE	proc near
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		sti
-		push	di
-		mov	ax, GRAM_400
-		mov	es, ax
-		assume es:nothing
-		mov	ax, 1
-		out	0A6h, ax
-		xor	di, di
-		mov	cx, (PLANE_SIZE / 4)
-		rep stosd
-		xor	ax, ax
-		out	0A6h, ax
-		mov	cx, (PLANE_SIZE / 4)
-		xor	di, di
-		rep stosd
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_CFEE	endp
+	; kb/codegen/0121: the deleted body set `assume es:nothing` after its
+	; `mov es, ax`, and a TASM `assume` is positional file state rather than
+	; proc scope, so it was in force for the whole rest of this file.
+	; Restated here. MEASURED rather than assumed: it is redundant TODAY,
+	; because sub_CF50 above sets the same assumption and stays -- and it
+	; stops being redundant the day that proc is lifted too.
+	assume es:nothing
 
 include th04/hardware/grcg_fill_rows.asm
 

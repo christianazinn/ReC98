@@ -925,3 +925,25 @@ restore:
 
 #undef stage_scrolls
 #undef grcg_off_clobbering_dx
+
+// The whole-screen page fill, at the end of BOMB_BG_TEXT -- the head half of
+// what used to be MB_INV_TEXT's root contribution, split off by this parcel's
+// kb/codegen/0080 carve so that a C++ object can append to it. It is not part
+// of the bomb code at all; it is here because this object is the one that owns
+// the segment, and giving it a translation unit of its own would have cost a
+// Tupfile.lua line for one function (kb/codegen/0155).
+//
+// Bodies go into THIS block in original address order too, and this one is the
+// highest address in the carved head, so anything lifted out of the five GRCG
+// fills still above it in the dump goes AHEAD of it here.
+//
+// `-k-` because the original has no stack frame at all: its first instruction
+// is the GRCG mode `out`, and the `push di` in the body is raw bytes rather
+// than the compiler's own (kb/codegen/0050).
+#pragma codeseg BOMB_BG_TEXT main_01
+#pragma option -k-
+
+#include "th04/main/graph2pg.cpp"
+
+#pragma option -k.
+#pragma codeseg
