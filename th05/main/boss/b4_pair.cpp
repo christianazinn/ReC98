@@ -60,6 +60,8 @@ extern "C" void pascal near b4_solo_fg_render(void);
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/dialog/dialog.hpp"
 #include "th05/formats/dialog.hpp"
+#include "th04/math/randring.hpp"
+#include "th04/main/bullet/bullet.hpp"
 #include "th05/main/boss/bosses.hpp"
 #include "th05/main/bullet/cheeto.hpp"
 #include "th05/main/bullet/laser.hpp"
@@ -96,17 +98,17 @@ extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_1[4];
 extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_2[4];
 extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_3[4];
 
-// The two per-character pattern steps mai_yuki_update() calls once both are
-// flying, and the three patterns it installs by name rather than through a
-// table: Mai's first, Mai's laser, and Yuki's first. The two steps return
-// nothing at all -- neither ever loads AL before `retn` -- while all three
-// patterns are `pattern_oneshot_func_t`, which is what the tables above are
-// made of.
+// The two per-character pattern steps mai_yuki_update() calls once both
+// are flying, and two of the three patterns it installs by name rather
+// than through a band table: Mai's first and Mai's manual laser. The two
+// steps return nothing at all -- neither ever loads AL before `retn` --
+// while both patterns are `pattern_oneshot_func_t`, which is what the
+// tables above are made of. Yuki's first pattern was the third; it is
+// mai_yuki_1A8C9() below now, with C++ linkage.
 extern "C" void near mai_yuki_1A556(void);
 extern "C" void near mai_yuki_1A5B3(void);
 extern "C" bool near mai_yuki_1A5EB(void);
 extern "C" bool near mai_yuki_1A775(void);
-extern "C" bool near mai_yuki_1A8C9(void);
 
 // The two dialog scripts and the two BGM titles the last case picks between,
 // all four still in the dump's _DATA.
@@ -162,6 +164,221 @@ static const int MAI_YUKI_PATTERNS_TIMEOUT = 36;
 // candidate on a match branch.
 static const int B4_SOLO_HP_TOTAL = 7900;
 
+/// Danmaku patterns
+/// ----------------
+/// The BOTTOM EIGHT of the pair phase's fourteen, in their original address
+/// order, which is also the order the five band tables index them in. Eight
+/// rather than fourteen because this object has to stay CONTIGUOUS behind the
+/// root's own contribution -- th05_main.asm is the segment's first object, so
+/// a lift out of this block can only ever be a SUFFIX of it -- and
+/// mai_yuki_1A775(), the manual laser six procs up, does not match yet. Its
+/// one unsolved instruction and everything measured about it are in
+/// state/notes/th05-main-mai-update.md; the six bodies below this run go with
+/// it, in one parcel, when it does.
+///
+/// Every one of the eight is a pattern_oneshot_func_t that never returns
+/// anything but `false`: their bands end on mai_yuki_update()'s own HP check
+/// rather than on a frame count. They share a shape the solo halves do NOT
+/// have -- no gathering animation, no [boss.sprite] assignment and no
+/// boss_flystep_random() tail, because in the pair phase the flying is
+/// mai_yuki_update()'s job through mai_yuki_flystep_random(). Mai's spawn from
+/// [boss], Yuki's from [yuki], and all of them 8 pixels above the character
+/// rather than at her center.
+/// ----------------
+
+// Both characters spend the first 48 frames of every pattern slot
+// charging a gather animation, then run the pattern until it returns
+// `true`. Two of the eight reset their state bytes on exactly that
+// frame.
+static const int MAI_YUKI_GATHER_FRAMES = 48;
+
+// Mai, band 3: a 4-wide ring of small blue balls every 4 frames, its base
+// angle walking one way and then, every 16 frames, jumping back by a random
+// amount and reversing.
+bool near mai_yuki_1A82F(void)
+{
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		boss_statebyte[15] = 0x20;
+		boss_statebyte[12] = -4;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_RING;
+		bullet_template.angle = boss_statebyte[15];
+		boss_statebyte[15] += boss_statebyte[12];
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_BLUE;
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.spread = 4;
+		bullet_template.speed.set(2.375f);
+		bullet_template_tune();
+		bullets_add_regular();
+		if((boss.phase_frame % 16) == 0) {
+			boss_statebyte[15] -= (randring2_next16_and(7) + 0x10);
+			boss_statebyte[12] = -boss_statebyte[12];
+		}
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 256) {
+		return true;
+	}
+	return false;
+}
+
+// Yuki, band 1: a 7-wide aimed spread of exactly-linear small red balls every
+// 16 frames, at a random angle within a quarter turn of the player and a
+// random speed. YUKI_PAIR_PATTERNS_1's first entry, and the one
+// mai_yuki_update() installs by name when the phase starts. Never hands the
+// phase back on its own -- the whole first band ends on the HP check.
+bool near mai_yuki_1A8C9(void)
+{
+	if((boss.phase_frame % 16) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_SPREAD_AIMED;
+		bullet_template.angle = (randring2_next16_and(0x3F) - 0x20);
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(7, 5);
+		bullet_template.special_motion = BSM_EXACT_LINEAR;
+		bullet_template.speed.v = (
+			randring2_next16_and(0x1F) + to_sp8(1.0f)
+		);
+		bullet_template_tune();
+		bullets_add_special();
+	}
+	return false;
+}
+
+// Yuki, bands 1 and 2: a full 32-way ring of small red balls at a random base
+// angle every 16 frames.
+bool near mai_yuki_1A921(void)
+{
+	if((boss.phase_frame % 16) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_RING;
+		bullet_template.angle = randring2_next16();
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.spread = 32;
+		bullet_template.speed.set(2.5f);
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	return false;
+}
+
+// Yuki, bands 1 and 3: an aimed 8-stack of small red balls every 16 frames.
+bool near mai_yuki_1A96A(void)
+{
+	if((boss.phase_frame % 16) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_STACK_AIMED;
+		bullet_template.angle = 0x00;
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_stack(8, 0.25f);
+		bullet_template.speed.set(2.0f);
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	return false;
+}
+
+// Yuki, band 1: an 8-wide downward spread of small red balls every 8 frames --
+// the twin of sub_1A719() six procs up, which is still ZUN's assembly: same
+// body in her colour and out of her position, and with no frame count that
+// ends it.
+bool near mai_yuki_1A9B3(void)
+{
+	if((boss.phase_frame % 8) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.angle = 0x40;
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(8, 12);
+		bullet_template.speed.set(4.0f);
+		bullet_template_tune();
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+	return false;
+}
+
+// Yuki, band 2: an aimed 8-stack of the big red balls every 8 frames.
+bool near mai_yuki_1AA03(void)
+{
+	if((boss.phase_frame % 8) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_STACK_AIMED;
+		bullet_template.angle = 0x00;
+		bullet_template.patnum = PAT_BULLET16_N_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_stack(8, 0.375f);
+		bullet_template.speed.set(2.0f);
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	return false;
+}
+
+// Yuki, band 2: a 2-wide pellet spread at a random angle and a random speed,
+// every OTHER frame -- the densest thing either character throws.
+bool near mai_yuki_1AA4C(void)
+{
+	if((boss.phase_frame % 2) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_SPREAD;
+		bullet_template.angle = randring2_next16();
+		bullet_template.patnum = 0;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(2, 2);
+		bullet_template.speed.v = (
+			randring2_next16_and(0x1F) + to_sp8(1.5f)
+		);
+		bullet_template_tune();
+		bullets_add_regular();
+	}
+	return false;
+}
+
+// Yuki, band 3: mai_yuki_1A82F()'s twin -- a 4-wide ring every 4 frames whose
+// base angle walks and then reverses every 16 -- except that hers ADDS the
+// random jump where Mai's subtracts it, and it uses the other two state bytes
+// so that both can run at once.
+bool near mai_yuki_1AA9B(void)
+{
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		boss_statebyte[14] = 0;
+		boss_statebyte[13] = 4;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		bullet_template.spawn_type = BST_NO_DECELERATE;
+		bullet_template.group = BG_RING;
+		bullet_template.angle = boss_statebyte[14];
+		boss_statebyte[14] += boss_statebyte[13];
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_RED;
+		bullet_template.origin.x.v = yuki.pos.cur.x.v;
+		bullet_template.origin.y.v = (yuki.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.spread = 4;
+		bullet_template.speed.set(2.375f);
+		bullet_template_tune();
+		bullets_add_regular();
+		if((boss.phase_frame % 16) == 0) {
+			boss_statebyte[14] = (
+				randring2_next16_and(7) + boss_statebyte[14] + 0x10
+			);
+			boss_statebyte[13] = -boss_statebyte[13];
+		}
+	}
+	return false;
+}
 // One curved cheeto out of each character every 48 frames, aimed a quarter
 // turn to the side of the player that the OTHER character is not on. Yuki's
 // third-block pattern and Mai's third-block one are the same body with the
