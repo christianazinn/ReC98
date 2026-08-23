@@ -1339,224 +1339,60 @@ BOMB_BG_TEXT	segment	byte public 'CODE' use16
 include th05/formats/bb_playchar.asm
 include th04/main/tile/bb_put.asm
 
-; =============== S U B	R O U T	I N E =======================================
-
-
-public _bomb_bg_margins_fill_reimu
-_bomb_bg_margins_fill_reimu label near
-sub_CEC2	proc near
-		push	di
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (PLAYFIELD_H - 1) * ROW_SIZE + PLAYFIELD_VRAM_LEFT
-
-loc_CEDB:
-		mov	es:[di+(352 / 8)], eax
-		stosd
-		mov	es:[di+(304 / 8)], ax
-		stosw
-		sub	di, ROW_SIZE + 6
-		jge	short loc_CEDB
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_CEC2	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-public _bomb_bg_margins_fill_marisa
-_bomb_bg_margins_fill_marisa label near
-sub_CEF2	proc near
-		push	di
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		not	al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		mov	di, (PLAYFIELD_H - 1) * ROW_SIZE + PLAYFIELD_VRAM_LEFT
-
-loc_CF0D:
-		mov	es:[di+(320 / 8)], eax
-		mov	es:[di+(352 / 8)], eax
-		stosd
-		stosd
-		mov	es:[di+(240 / 8)], ax
-		stosw
-		sub	di, ROW_SIZE + 10
-		jge	short loc_CF0D
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_CEF2	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-sub_CF2C	proc near
-		mov	di, ((47 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT)
-
-loc_CF2F:
-		mov	cx, (160 / (dword * 8))
-		rep stosd
-		mov	es:[di], ax
-		sub	di, ((160 / 8) + ROW_SIZE)
-		jge	short loc_CF2F
-		mov	di, ((47 * ROW_SIZE) + (PLAYFIELD_VRAM_LEFT + (208 / 8)))
-
-loc_CF40:
-		mov	cx, (160 / (dword * 8))
-		rep stosd
-		mov	es:[di], ax
-		sub	di, ((160 / 8) + ROW_SIZE)
-		jge	short loc_CF40
-		retn
-sub_CF2C	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-public _bomb_bg_margins_fill_mima
-_bomb_bg_margins_fill_mima label near
-sub_CF50	proc near
-		push	di
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		not	al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		mov	ax, GRAM_400 + ((320 + PLAYFIELD_TOP) * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		call	sub_CF2C
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		call	sub_CF2C
-		mov	ax, GRAM_400 + ((48 + PLAYFIELD_TOP) * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (271 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT
-
-loc_CF7B:
-		mov	es:[di], eax
-		mov	es:[di+(352 / 8)], eax
-		sub	di, ROW_SIZE
-		jge	short loc_CF7B
-		pushf
-		cli
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		mov	al, 11111111b
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		mov	ax, GRAM_400 + ((320 + PLAYFIELD_TOP) * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (47 * ROW_SIZE) + (208 / 8)
-
-loc_CF9D:
-		stosd
-		sub	di, ROW_SIZE + 4
-		jge	short loc_CF9D
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (47 * ROW_SIZE) + (208 / 8)
-
-loc_CFAC:
-		stosd
-		sub	di, ROW_SIZE + 4
-		jge	short loc_CFAC
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_CF50	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-public _bomb_bg_margins_fill_yuuka
-_bomb_bg_margins_fill_yuuka label near
-sub_CFBA	proc near
-		push	di
-		pushf
-		cli
-		GRCG_SETMODE_VIA_MOV al, GC_TDW
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		not	al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		popf
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		mov	di, (PLAYFIELD_H - 1) * ROW_SIZE + PLAYFIELD_VRAM_LEFT
-
-loc_CFD5:
-		mov	es:[di+(320 / 8)], eax
-		mov	es:[di+(352 / 8)], eax
-		stosd
-		stosd
-		sub	di, ROW_SIZE + 8
-		jge	short loc_CFD5
-		pop	di
-		GRCG_OFF_VIA_XOR al
-		retn
-sub_CFBA	endp
-
-	; graph_both_pages_fill_col_1() -- the whole-screen page fill that the
-	; stage setup in DEMO_TEXT calls twice -- used to be here, at 0CFEEh.
-	; It is compiled from th04/main/graph2pg.cpp now, through
-	; th05/main/player/bombchar.cpp, which owns this segment's only C++
-	; contribution. The body is BYTE-IDENTICAL to TH04's, which was matched
-	; first, at th04_main.asm's main_013_TEXT 12024h -- so the two games
-	; share one file rather than two copies of five inline-asm macros.
+	; ZUN's five GRCG playfield fills used to be here, from 0CEC2h to
+	; 0CFEEh, and they are th05/main/player/bombchar.cpp now -- in a
+	; `#pragma codeseg BOMB_BG_TEXT main_01` block at the end of that file,
+	; in the object that already owned BOMBCHAR_TEXT above. So this carve
+	; still costs no translation unit and no Tupfile.lua line. In original
+	; address order, which is source order in that file (kb/codegen 0114 +
+	; 0129 + 0161):
 	;
-	; Both `call` sites are in DEMO_TEXT and reach it through the procdesc
-	; below. A procdesc binds the symbol to the GROUP of the segment block
-	; it is written in, so it belongs in the segment the function lives in;
-	; that group is main_01, the same as DEMO_TEXT (kb/codegen 0064, 0082).
-	; Neither call site carried a group override to lose.
+	;   bomb_bg_margins_fill_reimu()    0CEC2h  Reimu's bomb backdrop
+	;   bomb_bg_margins_fill_marisa()   0CEF2h  Marisa's, and a 90h pad
+	;   bomb_bg_mima_bands_fill_48()    0CF2Ch  Mima's helper, and a pad
+	;   bomb_bg_margins_fill_mima()     0CF50h  Mima's, and a pad
+	;   bomb_bg_margins_fill_yuuka()    0CFBAh  Yuuka's
+	;   graph_both_pages_fill_col_1()   0CFEEh  the whole-screen page fill,
+	;                                           shared with TH04 through
+	;                                           th04/main/graph2pg.cpp
+	;
+	; All five fills are kb/codegen/0050 BYTE ISLANDS. Each saves DI as its
+	; FIRST instruction and restores it BEFORE its closing GRCG-off bytes,
+	; and Turbo C++'s own restore always lands after the last statement of
+	; the function instead -- so every instruction naming DI is emitted as
+	; raw bytes and the compiler is never told DI is used at all. The 32-bit
+	; stores are bytes for the second reason 0050 gives: TCC 4.0J's inline
+	; assembler is 16-bit only (kb/codegen/0133).
+	;
+	; The three 90h pads are `#pragma codestring`, the same device
+	; th04/main/checkerb.cpp uses. They sit on exactly the three odd-length
+	; bodies, and TCC does NOT align functions by itself -- measured on this
+	; very object, whose BOMBCHAR_TEXT contribution puts a 0C1h-byte body at
+	; an odd offset with no pad after it.
+	;
+	; The four `public _bomb_bg_margins_fill_...` aliases that kb/codegen/0123
+	; needed while these were ASM went with the bodies: `extern "C"` plus the
+	; project's default cdecl publishes exactly the same spelling from C++
+	; (kb/codegen 0086 + 0102). bomb_bg_mima_bands_fill_48() never had a
+	; `public` -- its only two callers were the two `call`s inside
+	; bomb_bg_margins_fill_mima(), and both are C++ now.
+	;
+	; Both `call` sites of graph_both_pages_fill_col_1() are in DEMO_TEXT and
+	; reach it through the procdesc below. A procdesc binds the symbol to the
+	; GROUP of the segment block it is written in, so it belongs in the
+	; segment the function lives in; that group is main_01, the same as
+	; DEMO_TEXT (kb/codegen 0064, 0082). Neither call site carried a group
+	; override to lose.
+	;
+	; kb/codegen/0121: the deleted bodies set `assume es:nothing` after their
+	; `mov es, ax`, and a TASM `assume` is positional file state rather than
+	; proc scope, so it was in force for the whole rest of this file. It is
+	; restated here, and MEASURED redundant today --
+	; th04/main/tile/bb_put.asm, still included above, sets the same
+	; assumption. It stops being redundant the day that module is decompiled
+	; away.
+	assume es:nothing
+
 	@graph_both_pages_fill_col_1$qv procdesc near
 
 BOMB_BG_TEXT	ends
@@ -1567,12 +1403,10 @@ BOMB_BG_TEXT	ends
 ; the register-parameter interface no C signature expresses.
 MB_INV_TEXT	segment	byte public 'CODE' use16
 
-	; kb/codegen/0121: the deleted body set `assume es:nothing` after its
-	; `mov es, ax`, and a TASM `assume` is positional file state rather than
-	; proc scope, so it was in force for the whole rest of this file.
-	; Restated here. MEASURED rather than assumed: it is redundant TODAY,
-	; because sub_CF50 above sets the same assumption and stays -- and it
-	; stops being redundant the day that proc is lifted too.
+	; kb/codegen/0121: the same restated `assume es:nothing` as in the
+	; block above, for the same reason, and redundant on the same terms.
+	; This one used to cite the proc directly above it; that proc is C++
+	; now, and th04/main/tile/bb_put.asm is what still sets the assumption.
 	assume es:nothing
 
 include th04/hardware/grcg_fill_rows.asm
