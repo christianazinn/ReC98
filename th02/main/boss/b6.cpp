@@ -132,6 +132,13 @@
 // 32-bit push). It also already documents this proc as the one laser spawner
 // in the binary that writes no [laser_wait_frames] of its own.
 #include "th02/main/laser.hpp"
+// And this one for phase 5 pattern 0, which mirrors a 16x16 bullet around
+// the right edge of the playfield and needs the sprite width to do it. Two
+// `#define`s and nothing else -- unguarded, but a redefinition to the same
+// token sequence is legal, so a second inclusion anywhere in this object
+// would still be inert. th02/main/boss/b4.cpp and th02/main/midboss/m4.cpp
+// reach it the same way.
+#include "th02/sprites/bullet16.h"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -495,7 +502,6 @@ extern "C" void near sigma_15E84(void);
 extern "C" void near sigma_15F6F(void);
 extern "C" void near sigma_15F95(void);
 extern "C" void near sigma_16176(void);
-extern "C" void near sigma_1619C(void);
 
 // The movement helper phases 1, 3, 5 and 7 share, and the twin of
 // sigma_move_sweep() below: the same 50-frame hold and the same
@@ -574,6 +580,153 @@ static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// Phase 5's first pattern
+/// -----------------------
+/// [sigma_phase] 5's slot 0, and the other half of the phase sigma_162D3()
+/// closes. This one moves nothing: she holds still for it, and the pattern is
+/// carried entirely by a pair of bouncing 16x16 billiard balls walking inward
+/// from the two edges of the playfield.
+
+// The x of the LEFT ball of the mirrored pair, walked one bullet width to the
+// right every 16 frames from PLAYFIELD_LEFT. The right ball's x is derived from
+// it at the spawn site rather than stored, which is why only one of the two has
+// a variable at all -- `mirror` is this tree's word for the derived member of a
+// symmetric pair (after STONES_LASER_MIRROR in th02/main/boss/b3.cpp) and there
+// is nothing here to name with it.
+extern "C" screen_x_t sigma_billiard_left;
+
+// Which of the two walks is on screen, 0 then 1, and it is also the SPRITE: the
+// spawn adds it to PAT_BULLET16_BILLIARD_BALL_RED, whose successor in
+// th02/sprites/main_pat.h is PAT_BULLET16_BILLIARD_BALL_PURPLE. So the first
+// walk is red and the second purple, from one counter.
+//
+// "volley" rather than "sweep", and that is a collision the census caught rather
+// than a preference: [sigma_sweep_velocity_x] already spends `sweep` on her
+// horizontal MOVEMENT in phase 9, one variable away in the same _BSS block, and
+// `<x>_sweep` twice in one boss with two unrelated meanings is exactly the trap
+// state/notes/sigma_update.md's own naming census records for her ball ring's
+// angle, where the shorter name it rejected would have paired itself with the
+// SIGMA_RING_ANGLE_STEP constants of a completely different effect. `volley` is
+// attested for a burst of shots in this tree by marisa_volleys_fired,
+// kurumi_volley and KURUMI_VOLLEY_ARMS_MAX.
+//
+// `uint8_t` and not `int8_t`, which is measurable rather than a habit: the two
+// reads are `mov al` + `mov ah, 0`, and the bound test is `cmp` + `jb`
+// (kb/codegen/0029).
+extern "C" uint8_t sigma_billiard_volley;
+
+// The frame the walk is seeded on, and see SIGMA_LASER_ARM_FRAME above for why
+// this is its own constant and not that one.
+static const int SIGMA_BILLIARD_SEED_FRAME = 100;
+
+// How many walks the pattern runs before restarting the phase's cycle. Also the
+// number of billiard-ball sprites it steps through; see
+// [sigma_billiard_volley].
+static const int SIGMA_BILLIARD_VOLLEYS = 2;
+
+/// Phase 5 pattern 0: a 50-frame charge flicker, then a mirrored pair of
+/// bouncing billiard balls every 16 frames, walking inward from the playfield
+/// edges -- and, on the single frame the left one reaches the playfield centre,
+/// the five-laser volley her other phase-5 pattern fires from a table.
+extern "C" void near sigma_1619C(void)
+{
+	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		snd_se_play(9);
+	}
+
+	// The same charge flicker sigma_16421() opens with, down to the 128 base and
+	// the missing restore -- the seed frame below is what puts [patnum_2064E]
+	// back.
+	if(boss_phase_frame < SIGMA_BILLIARD_SEED_FRAME) {
+		patnum_2064E = ((page_back * 4) + 128);
+		return;
+	}
+	if(boss_phase_frame == SIGMA_BILLIARD_SEED_FRAME) {
+		patnum_2064E = 128;
+		sigma_billiard_left = PLAYFIELD_LEFT;
+		sigma_billiard_volley = 0;
+
+		// So each ball bounces exactly TWICE before it expires
+		// (th02/main/bullet/bullet.hpp: BSM_BOUNCE_* resets to BG_NONE after
+		// [turns_max] + 1 turns). Global rather than per-bullet, and never
+		// restored, so it is still 1 for whatever spawns next -- one of the two
+		// reasons phase 5's patterns are not independent of each other.
+		bullet_special.u3.turns_max = 1;
+	}
+	if((boss_phase_frame & 0x0F) != 0) {
+		return;
+	}
+	bullets_add_16x16(
+		sigma_billiard_left,
+		(PLAYFIELD_TOP + 8),
+		0x40,
+		BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM,
+		static_cast<main_patnum_t>(
+			PAT_BULLET16_BILLIARD_BALL_RED + sigma_billiard_volley
+		),
+		(4 << 4)
+	);
+
+	// The mirror, derived rather than stored. `[measured]` The reflection axis
+	// is PLAYFIELD_RIGHT + BULLET16_W and not PLAYFIELD_RIGHT: the ball is
+	// spawned by its LEFT edge, so mirroring the left edge of a 16-pixel sprite
+	// needs the extra width to put its RIGHT edge where the left one started.
+	bullets_add_16x16(
+		((PLAYFIELD_RIGHT + BULLET16_W) - sigma_billiard_left),
+		(PLAYFIELD_TOP + 8),
+		0x40,
+		BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM,
+		static_cast<main_patnum_t>(
+			PAT_BULLET16_BILLIARD_BALL_RED + sigma_billiard_volley
+		),
+		(4 << 4)
+	);
+	sigma_billiard_left += BULLET16_W;
+
+	// The five vertical lasers, on the ONE frame the left ball's x is exactly
+	// the playfield centre -- an equality test on a walk that steps BULLET16_W
+	// at a time, so it fires only because PLAYFIELD_W / 2 happens to be a
+	// multiple of that step. The same five muzzle offsets sigma_162D3() reads
+	// out of _SIGMA_LASER_X_OFFSETS, in the same order, but spelled as five
+	// immediates here, so this half of phase 5 owes that _DATA template nothing.
+	//
+	// [laser_wait_frames] is a spawn-time template rather than an argument
+	// (th02/main/laser.hpp), so each write covers every lasers_add() after it
+	// until the next one: 0x20 for the first, 0x30 for the second and third,
+	// 0x64 for the fourth and fifth. `[measured]` The 0x10 at the end is NOT the
+	// value lasers_reset() restores by coincidence -- it is the same 16 -- but
+	// this pattern restores it by hand and sigma_162D3() writes the variable
+	// nowhere at all, so the four lasers IT spawns charge for whatever this
+	// left behind. Bare literals rather than named constants, which is how
+	// th02/main/boss/b3.cpp already spells the stones' six writes of the same
+	// variable in this same binary.
+	if(sigma_billiard_left == (PLAYFIELD_LEFT + (PLAYFIELD_W / 2))) {
+		laser_wait_frames = 0x20;
+		lasers_add((sigma_topleft.x + 60), sigma_center_y, 1, 0x6F);
+		laser_wait_frames = 0x30;
+		lasers_add((sigma_topleft.x + 44), sigma_center_y, 1, 0x6F);
+		lasers_add((sigma_topleft.x + 76), sigma_center_y, 1, 0x6F);
+		laser_wait_frames = 0x64;
+		lasers_add((sigma_topleft.x + 28), sigma_center_y, 1, 0x6F);
+		lasers_add((sigma_topleft.x + 92), sigma_center_y, 1, 0x6F);
+		laser_wait_frames = 0x10;
+	}
+	if(sigma_billiard_left >= (PLAYFIELD_RIGHT + BULLET16_W)) {
+		sigma_billiard_left = PLAYFIELD_LEFT;
+
+		// `++` and not `+= 1`: kb/codegen/0094's first discriminator, and the
+		// original takes the dedicated `inc mem` form.
+		sigma_billiard_volley++;
+		if(sigma_billiard_volley >= SIGMA_BILLIARD_VOLLEYS) {
+			boss_phase_frame = 0;
+		}
+	}
+}
+/// -----------------------
 
 /// Phase 5's second pattern
 /// ------------------------

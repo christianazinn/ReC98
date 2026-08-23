@@ -5690,124 +5690,11 @@ loc_1619A:
 sigma_16176	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_1619C
-_sigma_1619C label near
-sigma_1619C	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 50
-		jl	loc_162D1
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_161B9
-		call	_snd_se_play c, 9
-
-loc_161B9:
-		cmp	_boss_phase_frame, 100
-		jge	short loc_161D0
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, 128
-		mov	patnum_2064E, ax
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_161D0:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_161EE
-		mov	patnum_2064E, 128
-		mov	left_255A0, PLAYFIELD_LEFT
-		mov	byte_255A2, 0
-		mov	bullet_special_turns_max, 1
-
-loc_161EE:
-		test	byte ptr _boss_phase_frame, 0Fh
-		jnz	loc_162D1
-		push	left_255A0	; left
-		push	(PLAYFIELD_TOP + 8)	; top
-		push	40h	; angle
-		push	BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM	; group
-		mov	al, byte_255A2
-		mov	ah, 0
-		add	ax, PAT_BULLET16_BILLIARD_BALL_RED
-		push	ax	; patnum
-		push	(4 shl 4)	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		mov	ax, (PLAYFIELD_RIGHT + BULLET16_W)
-		sub	ax, left_255A0
-		push	ax	; left
-		push	(PLAYFIELD_TOP + 8)	; top
-		push	40h	; angle
-		push	BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM	; group
-		mov	al, byte_255A2
-		mov	ah, 0
-		add	ax, PAT_BULLET16_BILLIARD_BALL_RED
-		push	ax	; patnum
-		push	(4 shl 4)	; speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-		add	left_255A0, BULLET16_W
-		cmp	left_255A0, (PLAYFIELD_LEFT + (PLAYFIELD_W / 2))
-		jnz	short loc_162B2
-		mov	byte_23A70, 20h	; ' '
-		mov	ax, point_254E6.x
-		add	ax, 60
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	byte_23A70, 30h	; '0'
-		mov	ax, point_254E6.x
-		add	ax, 44
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	ax, point_254E6.x
-		add	ax, 76
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	byte_23A70, 64h	; 'd'
-		mov	ax, point_254E6.x
-		add	ax, 28
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	ax, point_254E6.x
-		add	ax, 92
-		push	ax
-		push	top_253B8
-		push	1006Fh
-		call	@LASERS_ADD$QIIII
-		mov	byte_23A70, 10h
-
-loc_162B2:
-		cmp	left_255A0, (PLAYFIELD_RIGHT + BULLET16_W)
-		jl	short loc_162D1
-		mov	left_255A0, PLAYFIELD_LEFT
-		inc	byte_255A2
-		cmp	byte_255A2, 2
-		jb	short loc_162D1
-		mov	_boss_phase_frame, 0
-
-loc_162D1:
-		pop	bp
-		retn
-sigma_1619C	endp
-
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_162D3()
+;   th02/main/boss/b6.cpp       sigma_1619C()
+;                               sigma_162D3()
 ;                               sigma_16421()
 ;                               sigma_16555()
 ;                               sigma_move_sweep()  [static]
@@ -5837,7 +5724,7 @@ sigma_1619C	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_1619C(), and the first of
+; So th02_main.asm contributes nothing below sigma_16176(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -5882,8 +5769,8 @@ sigma_1619C	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_1619C() is the tail now - phase 5 pattern 0, a near proc, so the root
-; still ends on a `retn`. Below it the block is her five other pattern
+; sigma_16176() is the tail now - phase 3 pattern 1, a near proc, so the root
+; still ends on a `retn`. Below it the block is her four other pattern
 ; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
 ; its state-2 promoter, one movement helper, her hittest wrapper and her
 ; defeat animation - then Meira, Rika and the three midbosses.
@@ -5899,12 +5786,14 @@ sigma_1619C	endp
 ; so it became a plain `static` C++ function and needed no kb/codegen/0123
 ; alias at all - whereas any shallower group would have had to publish it.
 ;
-; sigma_move_weave, four procs below this tail, is the counter-example: the
+; sigma_move_weave, three procs below this tail, is the counter-example: the
 ; same shape, but its callers were spread over phases 1, 3, 5 and 7, so no
 ; group short of the whole run from it down could take it along. Phase 7
 ; therefore paid the alias, and phases 5, 3 and 1 now get it for free. When a
 ; shared helper cannot ride along, the FIRST group that needs it pays once for
-; all of them. Its callers here are down to sigma_15F6F and sigma_16176.
+; all of them. Its callers here are down to sigma_15F6F and sigma_16176 --
+; and sigma_16176 is the tail, so the group that finally takes it along is
+; sigma_15F6F .. sigma_16176 and nothing shorter.
 ;
 ; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
 ; parity check can see. sigma_162D3() read its five muzzle offsets out of a
@@ -5912,11 +5801,16 @@ sigma_1619C	endp
 ; in _DATA and be published instead of coming across with the body - see
 ; _SIGMA_LASER_X_OFFSETS there for the measurement. Check the _DATA map rows
 ; for a template before costing a body that indexes an array of constants.
+; sigma_1619C(), lifted right after it, fires THE SAME FIVE OFFSETS from five
+; `add ax, imm` immediates and therefore owed nothing - so the two halves of
+; one phase differ on this and the dump does not show which is which until you
+; read where the numbers come from. state/notes/sigma_16555.md had the two
+; procs the wrong way round for a day on exactly this point.
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x645 0x0 0x0 BEFORE
-; this lift and 0x793 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x793 0x0 0x0 BEFORE
+; this lift and 0x8CA 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7790,8 +7684,15 @@ word_2559A	dw ?
 word_2559C	dw ?
 angle_2559E	db ?
 		db ?
-left_255A0	dw ?
-byte_255A2	db ?
+; Her phase 5 pattern 0's whole state, and this lift took the last dump read
+; of either, so both are renamed rather than aliased. The x of the LEFT ball
+; of a mirrored pair walked one bullet width right every 16 frames, and which
+; of the two walks is running -- which is also the ball's sprite, since the
+; spawn adds it to PAT_BULLET16_BILLIARD_BALL_RED.
+public _sigma_billiard_left
+_sigma_billiard_left	dw ?
+public _sigma_billiard_volley
+_sigma_billiard_volley	db ?
 public _sigma_laser_i
 _sigma_laser_i	db ?
 public _sigma_stream_velocity
