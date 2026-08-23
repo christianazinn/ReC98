@@ -11,6 +11,10 @@
 // th04/enm_pos1.cpp and th04/enm_pos.cpp, that segment's two existing C++
 // contributions, are not re-pointed and every byte keeps its address.
 //
+// This is the SECOND of the segment's two objects, and th04/mb_upd1.cpp is the
+// first; the root dump contributes nothing here any more. That file records why
+// the Stage 1 midboss's half cannot simply be folded in ahead of this one.
+//
 // WHY THIS ROW EXISTS AT ALL. `state/progress/th04.md` recorded these thirteen
 // procs, and main_033_TEXT's seventeen, as blocked because their kb/codegen/0148
 // boundary pushes are blocked -- the root is not the last contribution in either
