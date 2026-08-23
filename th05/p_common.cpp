@@ -109,9 +109,11 @@ void pascal near shot_l1(void)
 /// already matched, and an `#include` or a pragma ahead of matched code can
 /// move it. The three headers below are here for the same reason, after every
 /// matched body in the file rather than at the top of it.
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/formats/super.h"
 #include "th04/hardware/grcg.hpp"
+#include "th04/main/homing.hpp"
 
 #pragma codeseg HITSHOT_TEXT main_01
 
@@ -119,6 +121,206 @@ void pascal near shot_l1(void)
 // instead of using the immediate-port form that _outportb_() would emit. Same
 // spelling as th04/main/player/shots_render.cpp and th04/main/stage/loop.cpp.
 #define grcg_off_clobbering_dx() outportb(0x7C, GC_OFF)
+
+// TH05's counterpart of TH04's shots_update(), in the same slot of the same
+// frame loop -- th04/main/stage/loop.cpp calls it there, under IDA's spelling,
+// and that spelling stays: naming round 16 left the identity of this proc and
+// its three siblings in that loop explicitly open
+// (state/re/DETERMINISTIC_STATE_TH05.md), and TH04's counterpart in the
+// adjacent slot, sub_10ABF(), reached the same verdict independently.
+//
+// One frame of every shot: retires the ones whose removal was requested last
+// frame, runs the per-shottype homing and missile steering, moves the rest,
+// drops the ones that left the playfield, and caches the survivors into
+// [shots_alive] for shots_hittest() and shots_render(). Then one frame of every
+// hitshot: its own clipping, its age, and the cel its age selects.
+//
+// `#pragma option -a1`, and it is not cosmetic. The four-entry jump table this
+// function's `switch` compiles to sits immediately after the body at 1259Bh
+// with ZERO pad bytes, and `-a2` -- which this file turns on for the three
+// matched bodies above -- would pad it to an even offset. kb/codegen/0168: read
+// the pad count before believing an odd table offset means anything else. The
+// pragma is restored below rather than left off, because everything after it
+// here was matched with `-a2` in force.
+#pragma option -a1
+
+extern "C" void near sub_1240B(void)
+{
+	// [shot] and [hitshot] take SI and DI. The third pointer, [sa], is
+	// dereferenced three times against those two's dozen-odd and loses, so it
+	// joins [i] and the homing delta on the frame -- [i] at [bp-2], [sa] at
+	// [bp-4] and [delta] as a BYTE at [bp-5], in declaration order
+	// (kb/codegen/0010, including its byte/word variant).
+	Shot near *shot;
+	HitShot near *hitshot;
+	int i;
+	shot_alive_t near *sa;
+	unsigned char delta;
+
+	// The new position is read back out of the registers the call returns it
+	// in, exactly as th04/main/player/shots_update.cpp does for TH04's body.
+	// The casts are load-bearing: the pseudo-registers are `unsigned`, and all
+	// eight comparisons below are signed in the original.
+	#define cur_x	static_cast<subpixel_t>(_AX)
+	#define cur_y	static_cast<subpixel_t>(_DX)
+
+	shots_alive_count = 0;
+	shot = shots;
+	sa = shots_alive;
+	for(i = 0; i < SHOT_COUNT; (i++, shot++)) {
+		// A removal requested last frame frees its slot here, one frame later
+		// than it visually ended.
+		if(shot->flag == F_REMOVE) {
+			shot->flag = F_FREE;
+			continue;
+		}
+		if(shot->flag == F_FREE) {
+			continue;
+		}
+		if(shot->flag == F_ALIVE) {
+			// THE CAST IS THE ZERO EXTENSION: [type] is a signed `char`, so a
+			// bare `switch` on it promotes through `cbw` where the original
+			// has `mov ah, 0`. Same device as hitshot_from()'s sprite compare
+			// one block below, and kb/codegen/0142's on an add.
+			switch(static_cast<unsigned char>(shot->type)) {
+			case ST_HOMING:
+				// Homing expires with age rather than on arrival, and the
+				// shot keeps flying as an ordinary one afterwards.
+				if(static_cast<unsigned char>(shot->age) >= 0x10) {
+					shot->type = ST_NORMAL;
+				}
+				if(homing_target.x.v == Subpixel::None()) {
+					break;
+				}
+
+				// How far the current heading is from the target's, as a
+				// signed 8-bit turn: >= 0x80 means the target is to the left.
+				delta = (shot->angle - iatan2(
+					(homing_target.y - shot->pos.cur.y),
+					(homing_target.x - shot->pos.cur.x)
+				));
+				// BOTH arms spell the iatan2() snap out, and `-O`'s
+				// cross-jumping merges the two copies -- which is what turns the
+				// first arm's `else` into a `jmp` into the second arm's copy of
+				// it, and leaves the conditional above it un-inverted
+				// (kb/codegen/0097). A `goto` is the WRONG reconstruction of that
+				// `jmp`: it compiles to a single folded conditional branch and
+				// comes out three bytes short. 0144's bound does not bite -- the
+				// shared tail is one call and no conditional branch.
+				if(delta >= 0x80) {
+					delta = ((256 - delta) / 4);
+					if(delta < 3) {
+						shot->angle = iatan2(
+							(homing_target.y - shot->pos.cur.y),
+							(homing_target.x - shot->pos.cur.x)
+						);
+					} else {
+						// THE CAST IS THE INSTRUCTION ORDER, not a readability
+						// choice, and it is hitshot_from()'s three-byte lesson on
+						// an ADD this time (kb/codegen/0142). Without it Turbo C++
+						// loads the DESTINATION into AL first and adds the local to
+						// it, three instructions and three bytes over; narrowing the
+						// right-hand side to `char` instead loads the LOCAL and adds
+						// AL straight into the field, which is what the original does.
+						shot->angle += static_cast<char>(delta);
+					}
+				} else {
+					delta = (delta / 4);
+					if(delta < 3) {
+						shot->angle = iatan2(
+							(homing_target.y - shot->pos.cur.y),
+							(homing_target.x - shot->pos.cur.x)
+						);
+					} else {
+						shot->angle -= static_cast<char>(delta);
+					}
+				}
+				shot_velocity_set(
+					reinterpret_cast<SPPoint near *>(&shot->pos.velocity),
+					shot->angle
+				);
+				break;
+
+			// The missiles accelerate upwards; the left and right ones also
+			// drift sideways by one subpixel per frame. The upward
+			// acceleration is spelled out in all three arms and `-O` merges
+			// the three copies, which is where the original's `jmp` out of
+			// the left arm and the right arm's fallthrough both come from
+			// (kb/codegen/0097 again).
+			case ST_MISSILE_LEFT:
+				shot->pos.velocity.x.v++;
+				shot->pos.velocity.y.v -= 4;
+				break;
+
+			case ST_MISSILE_RIGHT:
+				shot->pos.velocity.x.v--;
+				shot->pos.velocity.y.v -= 4;
+				break;
+
+			case ST_MISSILE_STRAIGHT:
+				shot->pos.velocity.y.v -= 4;
+				break;
+			}
+		}
+
+		/* _DX:_AX = */ shot->pos.update_seg1();
+		if(!(
+			(cur_x > TO_SP(-(SHOT_W / 2))) &&
+			(cur_x < TO_SP(PLAYFIELD_W + (SHOT_W / 2))) &&
+			(cur_y > TO_SP(-(SHOT_H / 2))) &&
+			(cur_y < TO_SP(PLAYFIELD_H + (SHOT_H / 2)))
+		)) {
+			// Not freed immediately: F_REMOVE is retired at the top of the
+			// next frame, by the branch above.
+			shot->flag = F_REMOVE;
+			continue;
+		}
+		sa->pos.x.v = cur_x;
+		sa->pos.y.v = cur_y;
+		sa->shot = shot;
+		sa++;
+		shots_alive_count++;
+		shot->age++;
+	}
+
+	hitshot = hitshots;
+	for(i = 0; i < HITSHOT_COUNT; (i++, hitshot++)) {
+		// The out-of-range value the clipping branch below writes is retired
+		// here, one frame later, exactly as F_REMOVE is for a shot.
+		if(hitshot->age >= (HITSHOT_FRAMES + 1)) {
+			hitshot->age = 0;
+		}
+		if(hitshot->age == 0) {
+			continue;
+		}
+
+		/* _DX:_AX = */ hitshot->pos.update_seg1();
+		if(!(
+			(cur_x > TO_SP(-(HITSHOT_W / 2))) &&
+			(cur_x < TO_SP(PLAYFIELD_W + (HITSHOT_W / 2))) &&
+			(cur_y > TO_SP(-(HITSHOT_H / 2))) &&
+			(cur_y < TO_SP(PLAYFIELD_H + (HITSHOT_H / 2)))
+		)) {
+			// ZUN bloat: A relic from TH04, where SF_DONE was equal to this
+			// value: hitshots were still integrated into the regular `Shot`
+			// structure, their flags started at 2, and HITSHOT_FRAMES_PER_CEL
+			// was 3 rather than 4 in that game. (The dump's own comment.)
+			hitshot->age = (HITSHOT_FRAMES + HITSHOT_CELS + 2);
+			continue;
+		}
+		hitshot->age++;
+		// A real modulo, unlike TH04's `& (HITSHOT_FRAMES_PER_CEL - 1)`:
+		// TH05's cel length is 3, not a power of two.
+		if((hitshot->age % HITSHOT_FRAMES_PER_CEL) == 1) {
+			hitshot->patnum++;
+		}
+	}
+
+	#undef cur_y
+	#undef cur_x
+}
+
+#pragma option -a2
 
 // Blits every shot in the [shots_alive] cache that sub_1240B() built earlier
 // this frame, then every hitshot still inside its decay animation.

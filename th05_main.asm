@@ -2368,239 +2368,44 @@ SHOT_INV_TEXT	ends
 ; both blocked on one eight-byte clamp; nothing here touches them.
 HITSHOT_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+	; THE ROOT OF THIS SEGMENT IS NOW EMPTY, and the `segment`/`ends` pair is
+	; all that is left of it. TLINK lays a segment's contributions out in link
+	; order and this dump is the first object it is handed, so the empty block
+	; is what still orders HITSHOT_TEXT between SHOT_INV_TEXT and
+	; main_01_TEXT. SHOT_INV_TEXT and BB_PCHAR_TEXT read 0000 for this dump
+	; for the same reason.
+	;
+	; sub_1240B() -- TH05's counterpart of shots_update(), in the same slot of
+	; the same frame loop -- was the last thing here, 190h at 1240Bh, together
+	; with the four-word `cs:` jump table its per-shottype `switch` compiles to
+	; at 1259Bh. Both are th05/p_common.cpp now, at the FRONT of that file's
+	; `#pragma codeseg HITSHOT_TEXT main_01` block, ahead of shots_render() and
+	; hitshot_from(): the C++ emits the table itself, so leaving it behind here
+	; would have emitted it twice.
+	;
+	; The `public` and the `label` above it were the kb/codegen/0123 zero-byte
+	; alias that let th04/main/stage/loop.cpp call this proc from C++ under
+	; IDA's own spelling, and they go with the body -- `extern "C"` publishes
+	; the same undecorated `_sub_1240B` from the definition (kb/codegen/0102).
+	; NO procdesc replaces them: nothing in this dump has ever called it.
+	;
+	; The name STAYS IDA's. Naming round 16 left the identity of this proc and
+	; its three siblings in that loop explicitly open
+	; (state/re/DETERMINISTIC_STATE_TH05.md), and TH04's counterpart in the
+	; adjacent slot, sub_10ABF(), reached the same verdict independently. The
+	; four `shots_update_*` labels the table pointed at were local to the body
+	; and are `case` arms of the C++ `switch` now.
+	;
+	; kb/codegen/0121: the body carried no `assume` of its own. The one below
+	; belonged to shots_render() and is still restored at that body's position.
 
-; Attributes: bp-based frame
-
-public _sub_1240B
-_sub_1240B label near
-sub_1240B	proc near
-
-var_5		= byte ptr -5
-@@sa		= word ptr -4
-@@i		= word ptr -2
-
-		enter	6, 0
-		push	si
-		push	di
-		mov	_shots_alive_count, 0
-		mov	si, offset _shots
-		mov	[bp+@@sa], offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	loc_12537
-; ---------------------------------------------------------------------------
-
-loc_12427:
-		cmp	byte ptr [si], 2
-		jnz	short loc_12432
-		mov	byte ptr [si], 0
-		jmp	loc_12531
-; ---------------------------------------------------------------------------
-
-loc_12432:
-		cmp	byte ptr [si], 0
-		jz	loc_12531
-		cmp	byte ptr [si], 1
-		jnz	loc_124FA
-		mov	al, [si+shot_t.SHOT_type]
-		mov	ah, 0
-		dec	ax
-		mov	bx, ax
-		cmp	bx, 3
-		ja	loc_124FA
-		add	bx, bx
-		jmp	word ptr cs:table_1259B[bx]
-
-shots_update_homing:
-		cmp	byte ptr [si+1], 10h
-		jb	short loc_12460
-		mov	[si+shot_t.SHOT_type], ST_NORMAL
-
-loc_12460:
-		cmp	_homing_target.x, SUBPIXEL_NONE
-		jz	loc_124FA
-		mov	ax, _homing_target.y
-		sub	ax, [si+4]
-		push	ax
-		mov	ax, _homing_target.x
-		sub	ax, [si+2]
-		push	ax
-		call	iatan2
-		mov	dl, [si+shot_t.SHOT_angle]
-		sub	dl, al
-		mov	[bp+var_5], dl
-		cmp	[bp+var_5], 80h
-		jb	short loc_124B0
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		push	ax
-		mov	ax, 256
-		pop	dx
-		sub	ax, dx
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+var_5], al
-		cmp	[bp+var_5], 3
-		jnb	short loc_124A8
-		jmp	short loc_124C4
-; ---------------------------------------------------------------------------
-
-loc_124A8:
-		mov	al, [bp+var_5]
-		add	[si+11h], al
-		jmp	short loc_124E2
-; ---------------------------------------------------------------------------
-
-loc_124B0:
-		mov	al, [bp+var_5]
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		mov	[bp+var_5], al
-		cmp	[bp+var_5], 3
-		jnb	short loc_124DC
-
-loc_124C4:
-		mov	ax, _homing_target.y
-		sub	ax, [si+4]
-		push	ax
-		mov	ax, _homing_target.x
-		sub	ax, [si+2]
-		push	ax
-		call	iatan2
-		mov	[si+11h], al
-		jmp	short loc_124E2
-; ---------------------------------------------------------------------------
-
-loc_124DC:
-		mov	al, [bp+var_5]
-		sub	[si+11h], al
-
-loc_124E2:
-		lea	ax, [si+0Ah]
-		push	ax
-		push	word ptr [si+11h]
-		call	@shot_velocity_set$qp7sppointuc
-		jmp	short loc_124FA
-; ---------------------------------------------------------------------------
-
-shots_update_missile_left:
-		inc	word ptr [si+0Ah]
-		jmp	short shots_update_missile_straight
-; ---------------------------------------------------------------------------
-
-shots_update_missile_right:
-		dec	word ptr [si+0Ah]
-
-shots_update_missile_straight:
-		sub	word ptr [si+0Ch], 4
-
-loc_124FA:
-		lea	ax, [si+2]
-		call	@PlayfieldMotion@update_seg1$qv pascal, ax
-		cmp	ax, (-(SHOT_W / 2) shl 4)
-		jle	short loc_12516
-		cmp	ax, ((PLAYFIELD_W + (SHOT_W / 2)) shl 4)
-		jge	short loc_12516
-		cmp	dx, (-(SHOT_H / 2) shl 4)
-		jle	short loc_12516
-		cmp	dx, ((PLAYFIELD_H + (SHOT_H / 2)) shl 4)
-		jl	short loc_1251B
-
-loc_12516:
-		mov	byte ptr [si], 2
-		jmp	short loc_12531
-; ---------------------------------------------------------------------------
-
-loc_1251B:
-		mov	bx, [bp+@@sa]
-		mov	[bx+shot_alive_t.SA_pos.x], ax
-		mov	[bx+shot_alive_t.SA_pos.y], dx
-		mov	[bx+shot_alive_t.SA_shot], si
-		add	[bp+@@sa], size shot_alive_t
-		inc	_shots_alive_count
-		inc	byte ptr [si+1]
-
-loc_12531:
-		inc	[bp+@@i]
-		add	si, size shot_t
-
-loc_12537:
-		cmp	[bp+@@i], SHOT_COUNT
-		jl	loc_12427
-		mov	di, offset _hitshots
-		mov	[bp+@@i], 0
-		jmp	short @@hitshot_more?
-; ---------------------------------------------------------------------------
-
-@@hitshot_loop:
-		cmp	[di+hitshot_t.HITSHOT_age], (HITSHOT_FRAMES + 1)
-		jb	short @@hitshot_active?
-		mov	[di+hitshot_t.HITSHOT_age], 0
-
-@@hitshot_active?:
-		cmp	[di+hitshot_t.HITSHOT_age], 0
-		jz	short @@hitshot_next
-		lea	ax, [di+hitshot_t.pos]
-		push	ax
-		call	@PlayfieldMotion@update_seg1$qv
-		cmp	ax, -(HITSHOT_W / 2) shl 4
-		jle	short @@hitshot_clipped
-		cmp	ax, (PLAYFIELD_W + (HITSHOT_W / 2)) shl 4
-		jge	short @@hitshot_clipped
-		cmp	dx, -(HITSHOT_H / 2) shl 4
-		jle	short @@hitshot_clipped
-		cmp	dx, (PLAYFIELD_H + (HITSHOT_H / 2)) shl 4
-		jl	short @@hitshot_update
-
-@@hitshot_clipped:
-		; ZUN bloat: A relic from TH04, where SF_DONE was equal to this value:
-		; Hitshots were still integrated into the regular `Shot` structure,
-		; their flags started at 2, and HITSHOT_FRAMES_PER_CEL was 3 rather
-		; than 4 in that game.
-		mov	[di+hitshot_t.HITSHOT_age], (HITSHOT_FRAMES + HITSHOT_CELS + 2)
-		jmp	short @@hitshot_next
-; ---------------------------------------------------------------------------
-
-@@hitshot_update:
-		inc	[di+hitshot_t.HITSHOT_age]
-		mov	al, [di+hitshot_t.HITSHOT_age]
-		mov	ah, 0
-		mov	bx, HITSHOT_FRAMES_PER_CEL
-		cwd
-		idiv	bx
-		cmp	dx, 1
-		jnz	short @@hitshot_next
-		inc	[di+hitshot_t.patnum]
-
-@@hitshot_next:
-		inc	[bp+@@i]
-		add	di, size hitshot_t
-
-@@hitshot_more?:
-		cmp	[bp+@@i], HITSHOT_COUNT
-		jl	short @@hitshot_loop
-		pop	di
-		pop	si
-		leave
-		retn
-sub_1240B	endp
-
-; ---------------------------------------------------------------------------
-table_1259B	dw shots_update_homing
-		dw shots_update_missile_left
-		dw shots_update_missile_right
-		dw shots_update_missile_straight
-
-	; shots_render() -- every live shot in the [shots_alive] cache the proc
-	; above builds, then every hitshot still inside its decay animation -- was
-	; lifted out of here and is th05/p_common.cpp now, at the FRONT of that
-	; file's `#pragma codeseg HITSHOT_TEXT main_01` block, ahead of the
-	; hitshot_from() body the previous parcel put there. 0A4h bytes at 125A3h:
-	; the object grows backwards into the hole, and every byte above it -- the
-	; jump table included -- keeps its address (kb/codegen 0099 + 0112 + 0114).
+	; shots_render() -- every live shot in the [shots_alive] cache sub_1240B()
+	; builds, then every hitshot still inside its decay animation -- was
+	; lifted out of here and is th05/p_common.cpp now, in that file's
+	; `#pragma codeseg HITSHOT_TEXT main_01` block, between sub_1240B() and the
+	; hitshot_from() body the parcel before it put there. 0A4h bytes at
+	; 125A3h, so the C++ side simply continues where sub_1240B()'s own jump
+	; table ends (kb/codegen 0099 + 0112 + 0114).
 	;
 	; TH04's shots_render() is a DIFFERENT function and stays in
 	; th04/main/player/shots_render.cpp. That game walks [shots] backwards
