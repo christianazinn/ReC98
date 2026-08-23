@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
-main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
+main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, MUGETSU_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
 
@@ -3913,10 +3913,37 @@ ENM_BTPL_TEXT	segment	byte public 'CODE' use16
 		enemy:word
 ENM_BTPL_TEXT	ends
 
-; Harness carve (kb/codegen/0080): what is left of the original
-; `main_033_TEXT` contribution once enemy_bullet_template_push() moved out
-; of it. Same `byte public 'CODE'` alignment as before, so nothing moves.
-main_033_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080), the SECOND on this block: the HEAD of what
+; an earlier carve had already split off ENM_BTPL_TEXT and left under the name
+; `main_033_TEXT` -- enemies_update(), the whole of Mugetsu's phase-2 fight,
+; the three `switch` tables three of those functions compile to, and the
+; `include` of th04/main/boss/bx1.asm -- renamed.
+;
+; WHY THE HEAD TAKES THE NAME, and it is decided rather than preferred. The
+; tail carries this segment's only C++ contribution, th04/main_033.cpp's
+; 0x14A8, and that object names its segment through Turbo C++'s basename
+; default (kb/codegen/0105). Renaming the tail would mean re-pointing it with
+; an explicit `-zC` and re-proving Kurumi's and Orange's whole fight; renaming
+; the head touches neither, and the map confirms that contribution unmoved.
+;
+; WHAT IT BUYS. The tail of this block was the hand-written
+; th04/main/pointnum/digits.asm `include`, which no tail lift can cross and no
+; kb/codegen/0148 push can move (the root is not the last contribution in the
+; segment -- th04/main_033.cpp follows it). Split the `include` off into the
+; reopened tail and the head's last emitting item becomes `off_189DE`, the
+; dense jump table @mugetsu_update$qv compiles to -- a jump-table tail, which
+; is an ordinary lift target (state/re/JUMP_TABLE_TAILS.md). Fifteen procs go
+; from unreachable to reachable, and the second `include` inside this block,
+; th04/main/boss/bx1.asm, screens UNDECIDED rather than HAND-WRITTEN, so it
+; does not stop the chain either.
+;
+; Same `byte public 'CODE'` alignment on both halves, so kb/codegen/0111's
+; even-parity question does not arise and nothing moves. kb/codegen/0121: the
+; block's only `assume` is the one below, which stays with the head and
+; therefore stays in force for everything after it exactly as before -- TASM's
+; assume is positional assembler state, and the head still physically precedes
+; the reopened tail.
+MUGETSU_TEXT	segment	byte public 'CODE' use16
 		assume es:_DATA
 
 
@@ -5283,6 +5310,16 @@ off_189DE	dw offset loc_1872F
 		dw offset loc_188E3
 		dw offset loc_188F6
 		dw offset loc_1894A
+MUGETSU_TEXT	ends
+
+; What is left of the original `main_033_TEXT` contribution once the carve
+; above took the head: the hand-written th04/main/pointnum/digits.asm
+; `include` alone. That module is TH04's twin of the recorded TH05 `arg_bx`
+; module -- `@@bp equ <bx>` plus `mov bx, sp`, with `ss:[bx+n]` parameters --
+; so it is not a lift at any price, and it is the whole of this contribution.
+; th04/main_033.cpp still compiles into THIS segment behind it and keeps both
+; its name and its address (kb/codegen/0105 + 0114).
+main_033_TEXT	segment	byte public 'CODE' use16
 
 include th04/main/pointnum/digits.asm
 
