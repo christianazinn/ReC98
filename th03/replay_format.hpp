@@ -85,7 +85,8 @@
 #define T3R_RECORDER_SOURCE_IMPORTED 3
 #define T3R_ACCOUNT_UUID_SIZE 16
 #define T3R_MATCH_ID_SIZE 16
-#define T3R_IDENTITY_RESERVED_SIZE 94
+#define T3R_NAMETAG_MAX_BYTES 57
+#define T3R_IDENTITY_RESERVED_SIZE 106
 #define T3_REPLAY_USER_ROUND_STAGE_VS 0x0F
 #define T3_REPLAY_USER_ROUND_VALUE_UNKNOWN 0x0F
 #define T3_REPLAY_SPLIT_VERSION 1
@@ -296,8 +297,10 @@ typedef char replay_user_summary_ext_size_check[
 	(sizeof(replay_user_summary_ext_t) == 494) ? 1 : -1
 ];
 
-// V14 keeps the proven 622-byte V13 prefix byte-for-byte and appends all
-// product identity. Nametags remain account data and are never copied here.
+// V14 keeps the proven 622-byte V13 prefix byte-for-byte and appends portable
+// product identity. Account UUIDs remain authoritative; these match-time
+// nametags are only offline fallbacks for viewers without profile-service
+// access. A zero length means that no fallback was available.
 struct replay_user_identity_ext_t {
 	uint8_t ruleset;
 	uint8_t recording_flags;
@@ -305,11 +308,15 @@ struct replay_user_identity_ext_t {
 	uint8_t recorder_source;
 	uint8_t player_uuid[T3_REPLAY_USER_PLAYER_COUNT][T3R_ACCOUNT_UUID_SIZE];
 	uint8_t match_id[T3R_MATCH_ID_SIZE];
+	uint8_t player_nametag_length[T3_REPLAY_USER_PLAYER_COUNT];
+	char player_nametag[
+		T3_REPLAY_USER_PLAYER_COUNT
+	][T3R_NAMETAG_MAX_BYTES];
 	uint8_t reserved[T3R_IDENTITY_RESERVED_SIZE];
 };
 
 typedef char replay_user_identity_ext_size_check[
-	(sizeof(replay_user_identity_ext_t) == 146) ? 1 : -1
+	(sizeof(replay_user_identity_ext_t) == 274) ? 1 : -1
 ];
 
 // Keep OP's frequently accessed round rows compact and load the larger V14
