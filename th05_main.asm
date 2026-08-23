@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1935,14 +1935,40 @@ HUD_PWR_TEXT	segment	byte public 'CODE' use16
 	HUD_POWER_PUT procdesc pascal far
 HUD_PWR_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the original
-; `main_0_TEXT` contribution, renamed so that a C++ object can append
-; `midbossx_render` at its original address in the MIDDLE of the
-; segment. Same `byte public 'CODE'` alignment as before, so nothing
-; moves.
-MIDBOSSX_TEXT	segment	byte public 'CODE' use16
+; Harness carve (kb/codegen/0080), the second one out of this block: the
+; head of the segment below, which was the
+; `th04/main/hud/element_put.asm` include and nothing else, renamed so
+; that a C++ object can supply hud_hp_put() at the address the include
+; had. Head length 98h; both halves keep `byte public 'CODE'`, so no
+; alignment pad exists on either side of the seam and nothing moves.
+MIDBOSSX_A_TEXT	segment	byte public 'CODE' use16
+	; hud_hp_put() now lives in C++, compiled into this segment by
+	; th05/hud_hp.cpp, which includes th04/main/hud/hp_put.cpp -- one
+	; body for both games since MATCH-TH05-MAIN-HUD-HP-PUT, differing in
+	; the one instruction that reaches hud_bar_put(). TLINK lays a
+	; segment's contributions out in link order with the root dump
+	; first, and this block is empty, so that object begins exactly
+	; where the `include` did (kb/codegen 0099 + 0105 + 0114).
+	;
+	; The procdesc is declared HERE, inside a main_01 segment, for the
+	; same kb/codegen/0082 reason HUD_PWR_TEXT's is: that is what keeps
+	; hud_put()'s call to it a `push cs` + near call rather than a
+	; 5-byte far one. Its spelling is UPPER case because a `pascal`
+	; symbol reaches the linker that way and TASM has to be told
+	; literally (kb/codegen 0081, 0086, 0103), which is why the one call
+	; site below was re-spelled in the same 1-for-1 way.
+	;
+	; **THIS BLOCK IS NOW EMPTY.** Nothing may be added here.
+	@HUD_HP_PUT$QI procdesc pascal far bar_value:word
+MIDBOSSX_A_TEXT	ends
 
-include th04/main/hud/element_put.asm
+; Harness carve (kb/codegen/0080): what is left of the head of the
+; original `main_0_TEXT` contribution once the `include` above it was
+; renamed away. Reopened under the ORIGINAL name so that the four C++
+; objects already appending to it are never re-pointed, which is 0080's
+; "prefer the half with no C++ contribution"; `midbossx_render` still
+; lands at its original address in the MIDDLE of it.
+MIDBOSSX_TEXT	segment	byte public 'CODE' use16
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -2026,7 +2052,7 @@ loc_1082A:
 loc_1082D:
 		push	ax
 		call	gaiji_putsa
-		call	@hud_hp_put$qi pascal, 0
+		call	@HUD_HP_PUT$QI pascal, 0
 		pop	bp
 		retf
 

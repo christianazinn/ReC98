@@ -11,13 +11,15 @@
 /// the headers below reach unguarded files, so bar_put.cpp can no longer
 /// include them for itself. kb/codegen/0129.)
 ///
-/// Because this file shares a translation unit with bar_put.cpp, its
-/// file-scope names are NOT file-local.
+/// Because this file shares a translation unit with bar_put.cpp in TH04, its
+/// file-scope names are NOT file-local there.
 ///
-/// TH04 only. TH05 keeps this function in assembly, in
-/// th04/main/hud/element_put.asm, which its MIDBOSSX_TEXT includes at the
-/// HEAD of the segment rather than the tail — so lifting it there needs a
-/// carve (kb/codegen/0080) rather than this seam, and the module stays.
+/// BOTH GAMES, from one body, since MATCH-TH05-MAIN-HUD-HP-PUT. TH05 reaches
+/// this file through th05/hud_hp.cpp, an object of its own: the function sat at
+/// the HEAD of MIDBOSSX_TEXT rather than at a tail, so that half needed a
+/// kb/codegen/0080 carve rather than this seam, and it cannot share a TU with
+/// the object it carved out of. The two dumps differed in exactly one
+/// instruction and it is pure link topology; see the #if below.
 
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/gaiji/gaiji.h"
@@ -65,6 +67,22 @@ void pascal hud_hp_put(int bar_value)
 	if(bar_value) {
 		gaiji_putsa((HUD_LEFT + 5), HUD_HP_CAPTION_Y, gsENEMY, TX_YELLOW);
 
+#if (GAME == 5)
+		// TH05's hud_bar_put() is a NEAR proc in an object of its own
+		// (th05/hud_bar.asm), so an ordinary pascal call is the whole
+		// instruction sequence and the hand-pushed island below is not
+		// needed. That difference is the ONLY one between the two games'
+		// bodies -- the element_put module this file replaced spelled it
+		// `if GAME eq 4 / nop / endif` around the one byte that turns a
+		// 3-byte near `call` into the 5-byte `nop` + `push cs` +
+		// `call near ptr` form. Same shape as th04/main/hud/power.cpp,
+		// whose TH05 branch already reached the same callee this way.
+		hud_bar_put(
+			HUD_HP_BAR_Y,
+			bar_value,
+			COLORS.x[bar_value / (BAR_MAX / (HUD_HP_COLOR_COUNT - 1))]
+		);
+#else
 		// The original reached TH04's same-segment far hud_bar_put() through
 		// `nop; push cs; call near ptr`, and no plain C++ far call reproduces
 		// that (kb/codegen 0014 + 0083), so the arguments are pushed by hand
@@ -83,6 +101,7 @@ void pascal hud_hp_put(int bar_value)
 		_AX = COLORS.x[bar_value / (BAR_MAX / (HUD_HP_COLOR_COUNT - 1))];
 		__emit__(0x50); // push ax
 		_asm { nop; push cs; call near ptr hud_bar_put; }
+#endif
 	} else {
 		// The caption is blanked with the tail of the same row: 3 gaiji plus
 		// the terminator, which is exactly what [gsENEMY] occupies.

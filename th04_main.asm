@@ -1929,9 +1929,10 @@ HUD_PUT_TEXT	segment	byte public 'CODE' use16
 	; call island that kb/codegen/0083 requires instead, so nothing in this
 	; dump names that symbol any more.
 	;
-	; TH05 still includes th04/main/hud/element_put.asm, at the HEAD of its
-	; own MIDBOSSX_TEXT, where the same lift would need a carve rather than
-	; this seam. The module stays for that game.
+	; TH05 had the same function at the HEAD of its own MIDBOSSX_TEXT, so
+	; its half needed the carve this seam avoided. Landed by
+	; MATCH-TH05-MAIN-HUD-HP-PUT; the module is gone and hp_put.cpp is
+	; now shared, reached from th05/hud_hp.cpp.
 	;
 	; **THIS BLOCK IS NOW EMPTY.** Nothing may be added here.
 
