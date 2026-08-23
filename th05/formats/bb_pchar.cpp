@@ -36,6 +36,20 @@ extern bb_tiles8_t __seg *bb_playchar_seg;
 // subscript rather than a store through a far load.
 extern char bb_playchar_fn[];
 
+// The alignment byte at 0CE55h, ahead of the pair. It is the whole of what
+// th05_main.asm used to contribute to BB_PCHAR_TEXT -- the previous parcel
+// carved the segment around exactly this byte so that this object could append
+// behind it -- and moving it here empties that root contribution. Nothing
+// reaches it: it carries no symbol, no `public` names it, and the last
+// instruction above it is bomb_yuuka()'s `retn` at the end of BOMBCHAR_TEXT,
+// so it is inter-function padding and not code.
+//
+// The escape below really does emit one 00 byte rather than being swallowed as
+// a string terminator, and a file-scope codestring lands where it stands in
+// SOURCE ORDER, which is what puts this one ahead of both functions
+// (kb/codegen/0161, probes B and D). Same device as the trailing 90h below.
+#pragma codestring "\x00"
+
 extern "C" void pascal near bb_playchar_load(void)
 {
 	// ADDS the playchar, rather than assigning its ASCII digit the way TH04
