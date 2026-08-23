@@ -3976,93 +3976,40 @@ loc_14749:
 sub_14700	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1476F	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_stage_frame_mod16, 0
-		jnz	short loc_14796
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 32
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.speed, (3 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-
-loc_14796:
-		pop	bp
-		retn
-sub_1476F	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_14798	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_stage_frame_mod16, 0
-		jnz	short loc_147D9
-		mov	_bullet_template.spawn_type, BST_BULLET16_CLOUD_BACKWARDS
-		mov	_bullet_template.patnum, PAT_BULLET16_N_BALL_BLUE
-		mov	_bullet_template.BT_group, BG_RING
-		mov	_bullet_template.count, 32
-		call	@randring2_next16$qv
-		mov	_bullet_template.BT_angle, al
-		mov	ax, _midboss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		add	al, 10
-		mov	_bullet_template.speed, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_147D9:
-		pop	bp
-		retn
-sub_14798	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_147DB	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_stage_frame_mod16, 0
-		jnz	short loc_14826
-		mov	_bullet_template.spawn_type, BST_BULLET16
-		mov	_bullet_template.BT_special_motion, BSM_BOUNCE_LEFT_RIGHT_TOP
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.count, 5
-		mov	_bullet_template.BT_delta.spread_angle, 0Ch
-		mov	_bullet_template.patnum, PAT_BULLET16_N_CROSS_YELLOW
-		mov	_bullet_template.speed, (2 shl 4)
-		call	@randring2_next16_and$qui pascal, 0Fh
-		add	al, -048h
-		mov	_bullet_template.BT_angle, al
-		call	_bullet_template_tune
-		mov	_bullet_special_turns_max, 2
-		call	_bullets_add_special
-		call	snd_se_play pascal, 9
-
-loc_14826:
-		pop	bp
-		retn
-sub_147DB	endp
+	; The three Extra-Stage-midboss bullet patterns that used to sit here --
+	; ZUN's sub_1476F, sub_14798 and sub_147DB, in that order -- are now
+	; midbossx_1476F(), midbossx_14798() and midbossx_147DB() in
+	; th04/main/midboss/mb_upd.cpp, ahead of midbossx_14828() in the same
+	; object, which is the address order they had here. All three fire on
+	; every sixteenth stage frame: a 32-bullet ring, a backwards cloud ring
+	; whose speed ramps with [midboss_phase_frame], and a five-way bouncing
+	; cross spread.
+	;
+	; They were the bottom three of the root's block, so this is an ordinary
+	; kb/codegen/0099 prepend: the object already existed, it emits no
+	; `-a2`-aligned data, and extending it needed no Tupfile.lua line and no
+	; carve. kb/codegen/0121: none of the three carried an `assume`.
+	;
+	; @midbossx_update$qv, in the tail segment below, is the ONLY caller of
+	; any of them -- four call sites between the three -- so each is reached
+	; through a `procdesc near` there rather than a `public` here. Both
+	; segments are in the main_03 group, so every one of those near calls
+	; assembles to the same bytes it always did (kb/codegen/0104).
+	;
+	; What is left of this contribution above is eleven procs: the two
+	; midboss motion helpers sub_14700 and sub_146AF, which drive
+	; [midboss_pos] through polar() and are a different shape from these,
+	; then @midboss3_update$qv with its own sparse `switch` value/jump table
+	; pair, four more of its pattern helpers, @midboss1_update$qv and
+	; sub_13FB2. The tail is sub_147DB's old predecessor now, so the next
+	; link in this chain is another plain 0099 prepend -- until that table
+	; pair arrives, which is where this object's `-a2` parity starts
+	; mattering and has to be read out of the map (kb/codegen/0119).
 
 
 	; sub_14828 -- the two-ring bullet pattern @midbossx_update$qv fires on
 	; every sixteenth stage frame -- is now midbossx_14828() in
-	; th04/main/midboss/m13_pat.cpp, via th04/mb_upd.cpp, which compiles into
+	; th04/main/midboss/mb_upd.cpp, via th04/mb_upd.cpp, which compiles into
 	; THIS segment immediately behind this contribution. It was the last
 	; emitting item of the root's block, so the lift only moved the seam
 	; between the two (kb/codegen/0099) and every byte keeps its address.
@@ -4086,6 +4033,9 @@ MB_UPD_TEXT	ends
 ; kb/codegen/0080's tiebreak decided rather than guessed. Same
 ; `word public 'CODE'` alignment, and 1486Eh is EVEN, so no pad either.
 ENM_POS_TEXT	segment	word public 'CODE' use16
+	_midbossx_1476F procdesc near
+	_midbossx_14798 procdesc near
+	_midbossx_147DB procdesc near
 	_midbossx_14828 procdesc near
 
 
@@ -4224,7 +4174,7 @@ loc_14989:
 
 loc_1498F:
 		jl	loc_14A87	; jumptable 0001CCD9 case 17022
-		call	sub_1476F
+		call	_midbossx_1476F
 		cmp	_midboss_phase_frame, 320
 		jl	loc_14A87
 		jmp	loc_14A29
@@ -4240,7 +4190,7 @@ loc_149A3:
 loc_149B7:
 		cmp	_midboss_phase_frame, 128
 		jl	loc_14A87
-		call	sub_1476F
+		call	_midbossx_1476F
 		cmp	_midboss_phase_frame, 320
 		jl	loc_14A87
 		jmp	short loc_14A29
@@ -4256,7 +4206,7 @@ loc_149D0:
 loc_149E4:
 		cmp	_midboss_phase_frame, 128
 		jl	loc_14A87
-		call	sub_14798
+		call	_midbossx_14798
 		cmp	_midboss_phase_frame, 320
 		jl	loc_14A87
 		jmp	short loc_14A29
@@ -4271,7 +4221,7 @@ loc_149FD:
 
 loc_14A0A:
 		call	sub_14700
-		call	sub_147DB
+		call	_midbossx_147DB
 		cmp	_midboss_hp, 768
 		jge	short loc_14A1D
 		add	_midboss_hp, 8
