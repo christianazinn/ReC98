@@ -5486,214 +5486,12 @@ loc_15F93:
 sigma_15F6F	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_15F95
-_sigma_15F95 label near
-sigma_15F95	proc near
-
-@@angle		= byte ptr -1
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		push	di
-		cmp	_boss_phase_frame, 50
-		jl	loc_16172
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_15FB7
-		call	_snd_se_play c, 9
-
-loc_15FB7:
-		cmp	_boss_phase_frame, 100
-		jge	short loc_15FCF
-		mov	al, _page_back
-		mov	ah, 0
-		shl	ax, 2
-		add	ax, 128
-		mov	patnum_2064E, ax
-		jmp	loc_16172
-; ---------------------------------------------------------------------------
-
-loc_15FCF:
-		cmp	_boss_phase_frame, 100
-		jnz	short loc_15FFD
-		mov	ax, _player_topleft.x
-		add	ax, 16
-		mov	word_2559A, ax
-		mov	ax, _player_topleft.y
-		add	ax, 16
-		mov	word_2559C, ax
-		mov	byte_2558C, 3
-		mov	byte_2558D, -4
-		mov	angle_2559E, 0
-		mov	patnum_2064E, 128
-
-loc_15FFD:
-		cmp	_boss_phase_frame, 130
-		jge	short loc_1604A
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1601A
-		push	(GC_RMW shl 16) + V_WHITE
-		jmp	short loc_1602E
-; ---------------------------------------------------------------------------
-
-loc_1601A:
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		cmp	dx, 2
-		jnz	short loc_16042
-		push	(GC_RMW shl 16) + 0
-
-loc_1602E:
-		call	grcg_setcolor
-		call	grcg_circle pascal, word_2559A, word_2559C, 112
-
-loc_16042:
-		call	grcg_off
-		jmp	loc_16172
-; ---------------------------------------------------------------------------
-
-loc_1604A:
-		cmp	_boss_phase_frame, 450
-		jge	loc_16146
-		cmp	_page_back, 0
-		jnz	short loc_1607A
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + V_WHITE
-		call	grcg_circle pascal, word_2559A, word_2559C, 112
-		call	grcg_off
-
-loc_1607A:
-		cmp	_boss_phase_frame, 150
-		jl	loc_16172
-		mov	ax, _boss_phase_frame
-		mov	bx, 12
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	loc_16122
-		mov	al, angle_2559E
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _CosTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_2559A
-		mov	si, ax
-		mov	al, angle_2559E
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _SinTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_2559C
-		mov	di, ax
-		push	si
-		push	ax
-		push	18h
-		call	sigma_155C5
-		mov	al, angle_2559E
-		add	al, 80h
-		mov	[bp+@@angle], al
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _CosTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_2559A
-		mov	si, ax
-		mov	al, [bp+@@angle]
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		movsx	eax, _SinTable8[bx]
-		imul	eax, 70h
-		sar	eax, 8
-		add	ax, word_2559C
-		mov	di, ax
-		push	si
-		push	ax
-		push	18h
-		call	sigma_155C5
-		mov	al, angle_2559E
-		add	al, -10h
-		mov	angle_2559E, al
-
-loc_16122:
-		cmp	_boss_phase_frame, 200
-		jl	short loc_16172
-		test	byte ptr _boss_phase_frame, 0Fh
-		jnz	short loc_16172
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_32_RING	; group
-		push	(5 shl 4)	; speed
-		call	@bullets_add_pellet$qiiucuci
-		jmp	short loc_16172
-; ---------------------------------------------------------------------------
-
-loc_16146:
-		cmp	_page_back, 0
-		jnz	short loc_16172
-		call	grcg_setcolor pascal, (GC_RMW shl 16) + 0
-		call	grcg_circle pascal, word_2559A, word_2559C, 112
-		call	grcg_off
-		mov	_boss_phase_frame, 0
-
-loc_16172:
-		pop	di
-		pop	si
-		leave
-		retn
-sigma_15F95	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sigma_16176
-_sigma_16176 label near
-sigma_16176	proc near
-		push	bp
-		mov	bp, sp
-		call	sigma_15EF7
-		or	ax, ax
-		jnz	short loc_1619A
-		test	byte ptr _boss_phase_frame, 7
-		jnz	short loc_1619A
-		push	left_253B6	; left
-		push	top_253B8	; top
-		call	@randring2_next8$qv
-		push	ax	; angle
-		push	BG_16_RING	; group
-		push	((3 shl 4) + 2)	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_1619A:
-		pop	bp
-		retn
-sigma_16176	endp
-
-
 ; FOUR objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
-;   th02/main/boss/b6.cpp       sigma_1619C()
+;   th02/main/boss/b6.cpp       sigma_15F95()
+;                               sigma_16176()
+;                               sigma_1619C()
 ;                               sigma_162D3()
 ;                               sigma_16421()
 ;                               sigma_16555()
@@ -5724,7 +5522,7 @@ sigma_16176	endp
 ;                               th02/main/boss/b5m.cpp        mima_17A7F() .. mima_update()
 ;                               th02/main/boss/b5_.cpp        skill_calculate()
 ;
-; So th02_main.asm contributes nothing below sigma_16176(), and the first of
+; So th02_main.asm contributes nothing below sigma_15F6F(), and the first of
 ; those objects picks the segment up from the byte after that proc's `retn`.
 ;
 ; DERIVE THAT OFFSET FROM THE MAP'S OWN ROOT LENGTH (0FAC:39F6 + the root's
@@ -5769,8 +5567,8 @@ sigma_16176	endp
 ; untouched; and th02/boss_5.cpp still starts at 0FAC:7EB9 with its 0x203A.
 ; Cost a new object before you cost an 802-byte group.
 ;
-; sigma_16176() is the tail now - phase 3 pattern 1, a near proc, so the root
-; still ends on a `retn`. Below it the block is her four other pattern
+; sigma_15F6F() is the tail now - phase 1 pattern slot 2, a near proc, so the
+; root still ends on a `retn`. Below it the block is her two other pattern
 ; functions, the 16-slot expanding-blast pool at 0x254EC with its spawn and
 ; its state-2 promoter, one movement helper, her hittest wrapper and her
 ; defeat animation - then Meira, Rika and the three midbosses.
@@ -5786,14 +5584,16 @@ sigma_16176	endp
 ; so it became a plain `static` C++ function and needed no kb/codegen/0123
 ; alias at all - whereas any shallower group would have had to publish it.
 ;
-; sigma_move_weave, three procs below this tail, is the counter-example: the
+; sigma_move_weave, ONE proc below this tail, is the counter-example: the
 ; same shape, but its callers were spread over phases 1, 3, 5 and 7, so no
 ; group short of the whole run from it down could take it along. Phase 7
 ; therefore paid the alias, and phases 5, 3 and 1 now get it for free. When a
 ; shared helper cannot ride along, the FIRST group that needs it pays once for
-; all of them. Its callers here are down to sigma_15F6F and sigma_16176 --
-; and sigma_16176 is the tail, so the group that finally takes it along is
-; sigma_15F6F .. sigma_16176 and nothing shorter.
+; all of them. It is down to ONE caller here, sigma_15F6F, which is the tail
+; - so the next lift out of this block is exactly the pair that can finally
+; take it along as a plain `static`, and the alias phase 7 published for it
+; goes with them. That is the whole shape of the rule: phase 7 paid once,
+; phases 5, 3 and 1 spent nothing, and the last group gets to retire it.
 ;
 ; A LIFT OUT OF THIS BLOCK CAN STILL OWE THE _DATA BLOCK, which no _TEXT
 ; parity check can see. sigma_162D3() read its five muzzle offsets out of a
@@ -5809,8 +5609,8 @@ sigma_16176	endp
 ;
 ; THERE IS NO PARITY LADDER ON THAT ROUTE AND THE ONE THAT USED TO BE QUOTED
 ; HERE WAS A PROPERTY OF THE OTHER HOST. `[measured 2026-08-22]` obj_probe.py
-; on the built obj/th02/b6.obj reported SEGDEF lengths 0x793 0x0 0x0 BEFORE
-; this lift and 0x8CA 0x0 0x0 after it - the object emits no _DATA and no
+; on the built obj/th02/b6.obj reported SEGDEF lengths 0x8CA 0x0 0x0 BEFORE
+; this lift and 0xAD1 0x0 0x0 after it - the object emits no _DATA and no
 ; _BSS at all, so it has no generated table and nothing whose alignment an
 ; odd prefix could move. Every depth is admissible there, and the number in
 ; this sentence is stale the moment the next body lands, which is the whole
@@ -7680,9 +7480,18 @@ byte_25596	db ?
 byte_25597	db ?
 byte_25598	db ?
 		db ?
-word_2559A	dw ?
-word_2559C	dw ?
-angle_2559E	db ?
+; Her phase 3 pattern 0's whole state, and this lift took the last dump read
+; of all three. The centre it snapshots from the player on its aim frame and
+; then never moves, and where on the circle around it the next antipodal PAIR
+; of blasts goes. `orbit` and not `ring`: `ring` is already spent in
+; th02/main/boss/b6.cpp on sigma_ring_radius and its two step constants, which
+; are the dot-square background rings and a different effect.
+public _sigma_orbit_center_x
+_sigma_orbit_center_x	dw ?
+public _sigma_orbit_center_y
+_sigma_orbit_center_y	dw ?
+public _sigma_orbit_angle
+_sigma_orbit_angle	db ?
 		db ?
 ; Her phase 5 pattern 0's whole state, and this lift took the last dump read
 ; of either, so both are renamed rather than aliased. The x of the LEFT ball

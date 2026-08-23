@@ -139,6 +139,9 @@
 // would still be inert. th02/main/boss/b4.cpp and th02/main/midboss/m4.cpp
 // reach it the same way.
 #include "th02/sprites/bullet16.h"
+// And this one for phase 3 pattern 0, the only pattern in her fight that draws
+// into VRAM itself. Guarded, and one enum of one enumerator.
+#include "th02/v_colors.hpp"
 
 // th02/main/dialog/dialog.hpp declares every dialog_script_* function but not
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
@@ -500,8 +503,6 @@ extern "C" bool16 near sigma_15A25(void);
 extern "C" void near sigma_15D56(void);
 extern "C" void near sigma_15E84(void);
 extern "C" void near sigma_15F6F(void);
-extern "C" void near sigma_15F95(void);
-extern "C" void near sigma_16176(void);
 
 // The movement helper phases 1, 3, 5 and 7 share, and the twin of
 // sigma_move_sweep() below: the same 50-frame hold and the same
@@ -575,11 +576,238 @@ static const int SIGMA_MOVE_HOLD_FRAMES = 50;
 // sigma_15E84, 0x18 twice from sigma_15F95, and this one everywhere else.
 static const int SIGMA_BLAST_RADIUS_MAX = 0x30;
 
+// What sigma_15F95() and sigma_16421() inset the blast hitbox by while they
+// run, and the only value either of them ever writes there. `[measured
+// 2026-08-22]` MOVED UP HERE from phase 7's own block by the phase 3 parcel,
+// which is the second group to need it: a `static const` emits nothing, so a
+// constant two groups share belongs above both of them and the move is free.
+static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
+
 // The two values [sigma_cel_interval_mask] ever takes: 7 for a blast telegraph
 // that advances every 8th frame, 3 for every 4th.
 static const uint8_t SIGMA_CEL_INTERVAL_SLOW = 7;
 static const uint8_t SIGMA_CEL_INTERVAL_FAST = 3;
 /// ----------------------------
+
+/// Phase 3's two patterns
+/// ----------------------
+/// [sigma_phase] 3's group. The first is the only pattern in her fight that
+/// draws anything of its own into VRAM; the second is the shortest body in the
+/// whole chain.
+
+// Where phase 3 pattern 0 puts its circle, snapshotted ONCE from the player's
+// centre on the aim frame and then never moved -- so dodging after that frame is
+// what the pattern is about.
+//
+// "orbit" because the two blasts it spawns walk around this point at a fixed
+// radius, and it is attested for exactly that in
+// th05/main/midboss/m2_updt.cpp's `orbit_radius`. NOT `ring`: this file already
+// spends that on [sigma_ring_radius] and its two SIGMA_RING_ANGLE_STEP
+// constants, which are the dot-square background rings and a different effect
+// entirely -- the same collision state/notes/sigma_update.md's census caught
+// once already for her ball ring's angle.
+extern "C" screen_x_t sigma_orbit_center_x;
+extern "C" screen_y_t sigma_orbit_center_y;
+
+// Where on that circle the next PAIR of blasts goes. `[measured]` A full-circle
+// 0-255 byte read with `mov ah, 0`, so unsigned, and the pair is antipodal:
+// the second blast is spawned at this plus half a turn.
+extern "C" uint8_t sigma_orbit_angle;
+
+// The radius of the circle, and it is ONE number doing two jobs: the outline is
+// drawn with it and the blasts are placed on it, so what the player sees really
+// is where the blasts will be. `[measured]` The drawn radius is the literal 112
+// and the placement scale is 0x70; SIGMA_ORBIT_RADIUS is both.
+static const int SIGMA_ORBIT_RADIUS = 112;
+
+// The frame the circle is aimed and fixed on. Her fourth pattern to use 100 for
+// that; see SIGMA_LASER_ARM_FRAME below.
+static const int SIGMA_ORBIT_AIM_FRAME = 100;
+
+// The blink runs from the aim frame to here, the blasts start here, and the
+// ring joins in here -- the pattern layers itself on rather than switching
+// between stages.
+static const int SIGMA_ORBIT_BLINK_PAST_LAST = 130;
+static const int SIGMA_ORBIT_BLAST_FIRST_FRAME = 150;
+static const int SIGMA_ORBIT_RING_FIRST_FRAME = 200;
+static const int SIGMA_ORBIT_PAST_LAST_FRAME = 450;
+
+// The blink: drawn on `frame % 8 == 0` and erased on `frame % 8 == 2`, so it is
+// on for two frames out of eight rather than half the time.
+static const int SIGMA_ORBIT_BLINK_INTERVAL = 8;
+static const int SIGMA_ORBIT_BLINK_ERASE_AT = 2;
+
+// One antipodal PAIR of blasts every 12 frames, each capped well below
+// SIGMA_BLAST_RADIUS_MAX -- these are the small ones.
+static const int SIGMA_ORBIT_BLAST_INTERVAL = 12;
+static const int SIGMA_ORBIT_BLAST_RADIUS_MAX = 0x18;
+
+// Half of the 256-step circle. `[measured]` Added to a COPY of the angle rather
+// than to the angle itself, which is why this pattern has a stack local at all.
+static const int SIGMA_ORBIT_ANTIPODE = 0x80;
+
+// An eighth of a turn BACKWARDS per pair, so the two blasts sweep clockwise
+// around the circle and meet where they started after four pairs.
+//
+// `int` and not `uint8_t`, and negative rather than a `-=`: kb/codegen/0094's
+// second discriminator says a byte-typed addend folds the step into
+// `add mem, imm8` while an int-typed one forces the AL round trip the original
+// takes, and 0094's scope note leaves `-=` unmeasured, so `+=` with a negative
+// int is the spelling with evidence behind it.
+static const int SIGMA_ORBIT_ANGLE_STEP = -0x10;
+
+/// Phase 3 pattern 0: a 50-frame charge flicker, then a white outline circle
+/// blinked at wherever the player was on the aim frame, and from 50 frames after
+/// that a pair of antipodal expanding blasts walking around that circle every 12
+/// frames, plus a 32-way ring on every 16th frame from frame 200.
+extern "C" void near sigma_15F95(void)
+{
+	// The two blast coordinates, `register` because the original keeps them in
+	// SI and DI -- which is worth 14 of this body's 0x1E1 bytes and is invisible
+	// in the source's meaning, so it gets counted here. Passing the two
+	// expressions straight into sigma_blasts_add() instead compiles to
+	// `push ax` twice; the originals's registers cost `mov si, ax` + `mov di, ax`
+	// + `push si` + `push ax` at each of the two spawns (8), `push si` +
+	// `push di` + `pop di` + `pop si` around the body (4), and 1 byte each in the
+	// two arms above that return early, because a four-instruction epilogue is
+	// long enough that Turbo C++ jumps to the shared one rather than repeat it
+	// (2). DI is then never READ: the peephole notices AX still holds it and
+	// pushes AX, so the original carries a dead register store that only appears
+	// if the source really has the variable.
+	//
+	// Declared before the byte below because SI goes to the first `register`
+	// declaration; the byte's own [bp-1] slot is unaffected either way, since a
+	// register variable takes no frame space.
+	register screen_x_t blast_x;
+	register screen_y_t blast_y;
+
+	// The antipode of [sigma_orbit_angle], and a local because the original
+	// computes it into [bp-1] and then reads it back for the second lookup
+	// rather than recomputing it. Its declaration is what makes the frame
+	// `sub sp, 2` for one byte.
+	uint8_t angle_antipodal;
+
+	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
+		return;
+	}
+	if(boss_phase_frame == SIGMA_MOVE_HOLD_FRAMES) {
+		snd_se_play(9);
+	}
+
+	// The same charge flicker phase 5 and phase 7 open with.
+	if(boss_phase_frame < SIGMA_ORBIT_AIM_FRAME) {
+		patnum_2064E = ((page_back * 4) + 128);
+		return;
+	}
+	if(boss_phase_frame == SIGMA_ORBIT_AIM_FRAME) {
+		// +16 on BOTH axes, which is half her sprite's WIDTH twice over and not
+		// the player's centre on y -- the same ZUN quirk phase 9's three
+		// patterns spell out.
+		sigma_orbit_center_x = player_center_x();
+		sigma_orbit_center_y = (player_topleft.y + (PLAYER_W / 2));
+
+		sigma_cel_interval_mask = SIGMA_CEL_INTERVAL_FAST;
+		sigma_blast_hitbox_margin = SIGMA_BLAST_HITBOX_MARGIN_WIDE;
+		sigma_orbit_angle = 0;
+		patnum_2064E = 128;
+	}
+
+	// The blink, on both pages and therefore visible for two frames out of
+	// eight. Two arms with two literal colours rather than one arm with a colour
+	// variable: -O cross-jumps the shared tail down to one `call` and one
+	// grcg_circle(), which is what the original has, while a variable would turn
+	// the packed 32-bit argument push into a register push.
+	if(boss_phase_frame < SIGMA_ORBIT_BLINK_PAST_LAST) {
+		if((boss_phase_frame % SIGMA_ORBIT_BLINK_INTERVAL) == 0) {
+			grcg_setcolor(GC_RMW, V_WHITE);
+			grcg_circle(
+				sigma_orbit_center_x, sigma_orbit_center_y, SIGMA_ORBIT_RADIUS
+			);
+		} else if(
+			(boss_phase_frame % SIGMA_ORBIT_BLINK_INTERVAL) ==
+			SIGMA_ORBIT_BLINK_ERASE_AT
+		) {
+			grcg_setcolor(GC_RMW, 0);
+			grcg_circle(
+				sigma_orbit_center_x, sigma_orbit_center_y, SIGMA_ORBIT_RADIUS
+			);
+		}
+		grcg_off();
+		return;
+	}
+	if(boss_phase_frame < SIGMA_ORBIT_PAST_LAST_FRAME) {
+		// Held on page 0 only from here on, so it stops blinking and just sits
+		// there for the rest of the pattern.
+		if(page_back == 0) {
+			grcg_setcolor(GC_RMW, V_WHITE);
+			grcg_circle(
+				sigma_orbit_center_x, sigma_orbit_center_y, SIGMA_ORBIT_RADIUS
+			);
+			grcg_off();
+		}
+		if(boss_phase_frame < SIGMA_ORBIT_BLAST_FIRST_FRAME) {
+			return;
+		}
+		if((boss_phase_frame % SIGMA_ORBIT_BLAST_INTERVAL) == 0) {
+			// The polar placement idiom this binary already matched at
+			// th02/main/boss/b4.cpp for Marisa's swoop: the table entry is
+			// widened to `long` FIRST, so the multiply is 32-bit and the shift
+			// is an arithmetic one.
+			blast_x = (((CosTable8[sigma_orbit_angle] *
+				(long)(SIGMA_ORBIT_RADIUS)) >> 8) + sigma_orbit_center_x);
+			blast_y = (((SinTable8[sigma_orbit_angle] *
+				(long)(SIGMA_ORBIT_RADIUS)) >> 8) + sigma_orbit_center_y);
+			sigma_blasts_add(blast_x, blast_y, SIGMA_ORBIT_BLAST_RADIUS_MAX);
+
+			angle_antipodal = (sigma_orbit_angle + SIGMA_ORBIT_ANTIPODE);
+			blast_x = (((CosTable8[angle_antipodal] *
+				(long)(SIGMA_ORBIT_RADIUS)) >> 8) + sigma_orbit_center_x);
+			blast_y = (((SinTable8[angle_antipodal] *
+				(long)(SIGMA_ORBIT_RADIUS)) >> 8) + sigma_orbit_center_y);
+			sigma_blasts_add(blast_x, blast_y, SIGMA_ORBIT_BLAST_RADIUS_MAX);
+			sigma_orbit_angle += SIGMA_ORBIT_ANGLE_STEP;
+		}
+		if(boss_phase_frame < SIGMA_ORBIT_RING_FIRST_FRAME) {
+			return;
+		}
+		if((boss_phase_frame & 0x0F) == 0) {
+			bullets_add_pellet(
+				sigma_center_x,
+				sigma_center_y,
+				randring2_next8(),
+				BG_32_RING,
+				(5 << 4)
+			);
+		}
+	} else if(page_back == 0) {
+		// The one erase that sticks, and the pattern's own restart.
+		grcg_setcolor(GC_RMW, 0);
+		grcg_circle(
+			sigma_orbit_center_x, sigma_orbit_center_y, SIGMA_ORBIT_RADIUS
+		);
+		grcg_off();
+		boss_phase_frame = 0;
+	}
+}
+
+/// Phase 3 pattern 1: sigma_move_weave()'s walk with a 16-way ring at a random
+/// angle every 8th frame, and nothing else. The shortest body in her chain.
+extern "C" void near sigma_16176(void)
+{
+	if(sigma_move_weave()) {
+		return;
+	}
+	if((boss_phase_frame & 7) == 0) {
+		bullets_add_pellet(
+			sigma_center_x,
+			sigma_center_y,
+			randring2_next8(),
+			BG_16_RING,
+			((3 << 4) + 2)
+		);
+	}
+}
+/// ----------------------
 
 /// Phase 5's first pattern
 /// -----------------------
@@ -946,9 +1174,6 @@ static const int SIGMA_STREAM_VELOCITY_LENGTH = 48;
 // `neg` of the first, and the asymmetry is carried here rather than in the
 // name.
 static const pixel_t SIGMA_STREAM_CHASE_STEP = 16;
-
-// What sigma_16421() and sigma_15F95() inset the blast hitbox by while they run.
-static const int8_t SIGMA_BLAST_HITBOX_MARGIN_WIDE = -4;
 
 /// Phase 7 pattern 0: a 50-frame charge flicker, then two streams of expanding
 /// blasts walking outward from her centre every 8 frames -- one chasing the
