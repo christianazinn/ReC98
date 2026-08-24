@@ -75,7 +75,7 @@ FACE_EXRIKA_SMILE = 153
 FACE_EXRIKA_FROWN = 156
 FACE_COL_0 = 255
 
-main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, SHOT_TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, PLAYER_B_TEXT, PLAYER_TEXT
+main_01 group main_01_TEXT, STAGE_INIT_TEXT, MENU_TEXT, STAGE_TEXT, main_01___TEXT, DEMO_TEXT, RANDRING_FILL_TEXT, main_01____TEXT, POINTNUM_TEXT, main_01_____TEXT, SCROLL_TEXT, SHOT_TEXT, ITEM_TEXT, HUD_TEXT, BOMB_TEXT, PLAYER_B_TEXT, PLAYER_TEXT
 main_03 group main_03_TEXT, BULLET_TEXT, DIALOG_TEXT, BOSS_5_TEXT, main_03__TEXT
 main_06 group REGIST_M_TEXT
 
@@ -288,10 +288,13 @@ EGC_START_COPY_DEF 1, near
 	extern @demo_load$qv:proc
 DEMO_TEXT	ends
 
+RANDRING_FILL_TEXT	segment	byte public 'CODE' use16
+RANDRING_FILL_TEXT	ends
+
 main_01____TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
-include th02/math/randring_fill.asm
+
 RANDRING_NEXT_DEF 1
 
 main_01____TEXT	ends

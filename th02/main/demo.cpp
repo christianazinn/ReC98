@@ -74,3 +74,5 @@ extern "C" void pascal DemoPlay(void)
 	quit = true;
 	snd_se_reset();
 }
+
+#include "th02/main/randfill.cpp"
