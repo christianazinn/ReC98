@@ -37,7 +37,7 @@ include th05/main/enemy/enemy.inc
 	extern _execl:proc
 	extern NULLFUNC_NEAR:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_R_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1700,7 +1700,9 @@ GRCG_MC_TEXT	segment	word public 'CODE' use16
 ; grcg_setmode_rmw() and grcg_setmode_tdw() append here from C++.
 GRCG_MC_TEXT	ends
 
-SCORE_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080): the root prefix before select_for_rank().
+; th05/selectr.cpp appends that function at its original address.
+SCORE_R_TEXT	segment	word public 'CODE' use16
 
 ; grcg_setcolor_direct_raw() remains hand-written assembly.
 include th04/hardware/grcg_modecol.asm
@@ -1742,7 +1744,12 @@ sub_E708	endp
 		nop
 include th04/main/playperf.asm
 include th05/main/select_for_playchar.asm
-include th04/main/select_for_rank.asm
+
+; select_for_rank() is compiled by th05/selectr.cpp.
+SCORE_R_TEXT ends
+
+; The tail keeps the original name because th05/score_rm.cpp contributes to it.
+SCORE_TEXT	segment	word public 'CODE' use16
 include th04/formats/scoredat_code_asm.asm
 
 	@hiscore_continue_enter$qv procdesc near

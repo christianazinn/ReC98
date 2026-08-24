@@ -942,6 +942,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/it_spl_d.cpp",
 	"th04/null.cpp",
 	"th04/pn_inv.cpp",
+	"th04/selectr.cpp",
 	"th04/circle.cpp",
 	"th04/bul_ginv.cpp",
 	"th04/tile.cpp",
@@ -1249,6 +1250,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- order the two segments have, though neither position is load-bearing:
 	-- each object is the only contribution to its own segment.
 	"th05/shotsadd.cpp",
+	"th05/selectr.cpp",
 	"th05/score_rm.cpp",
 	"th05/gameover.cpp",
 	"th05/laser_rh.cpp",
