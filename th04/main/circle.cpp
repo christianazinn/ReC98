@@ -182,6 +182,13 @@ void pascal near mugetsu_gengetsu_backdrop_colorfill(void)
 	grcg_fill_playfield_rows_at(192, 176);
 }
 
+#pragma codeseg IT_SPL_R_TEXT main_01
+
+// The root contributes grcg_modecol.asm ahead of this body. Keeping that
+// prefix in a separate segment lets CIRCLE_TEXT reopen at spark_render().
+#include "th04/main/item/splashes_render.cpp"
+#pragma codestring "\x00"
+
 #pragma codeseg
 #pragma option -k
 #endif

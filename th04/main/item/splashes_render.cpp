@@ -5,16 +5,11 @@
 /// and every dot is clipped against the playfield in *subpixels* before it is
 /// blitted — the circle can and does grow past the playfield edge.
 ///
-/// TH05 ONLY, for now. There, th04/main/item/splashes_render.asm was the last
-/// emitting item of th05_main.asm's PLAYFLD_TEXT root contribution, so this
-/// object simply grows backwards into the hole and every byte keeps its
-/// address: no carve, no new segment, no group-list edit and no Tupfile.lua
-/// line (kb/codegen 0098 + 0114). TH04 includes the very same module from
-/// *mid*-segment, inside CIRCLE_TEXT with a one-byte `db 0` pad and five
-/// further includes behind it, so the TH04 half needs a kb/codegen/0080 carve
-/// and that module therefore STAYS. Adopting it there is a three-step change,
-/// spelled out in state/notes/item_splashes_render.md; it is not a second
-/// implementation.
+/// TH05 emits this body at the front of playfld.cpp's PLAYFLD_TEXT
+/// contribution. TH04 emits it from circle.cpp after the 26h-byte
+/// grcg_modecol.asm prefix in IT_SPL_R_TEXT. CIRCLE_TEXT then reopens at
+/// spark_render(), preserving the original one-byte pad through `codestring`
+/// (kb/codegen 0080 + 0114 + 0161).
 ///
 /// The two games' bodies differ only in ITEM_SPLASH_DOTS (32 against 64),
 /// which th04/main/item/splash.hpp already supplies per game.
@@ -27,9 +22,9 @@
 // bare `call vector2_at` needs.
 #include "th04/math/vector.hpp"
 
-// `extern "C"` and `pascal`, because the module published the undecorated
-// upper-case `ITEM_SPLASHES_RENDER`; th04/main/item/splash.hpp already
-// declares it that way and says why.
+// `extern "C"` and `pascal`, because the original module's export was
+// undecorated and upper-case; th04/main/item/splash.hpp already declares it
+// that way and says why.
 extern "C" void pascal near item_splashes_render(void)
 {
 	item_splash_t near *splash;
