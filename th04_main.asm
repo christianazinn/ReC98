@@ -889,7 +889,9 @@ CIRCLE_C_TEXT segment word public 'CODE' use16
 
 include th04/formats/z_super_put_16x16_mono.asm
 include th04/formats/bb_txt_put.asm
-include th04/main/item/invalidate.asm
+; items_invalidate() now lives in th04/main/item/invalidate.cpp, emitted
+; from th04/main/circle.cpp ahead of mugetsu_gengetsu_backdrop_colorfill().
+; TH05 still includes the shared assembly module at its own interior position.
 
 ; mugetsu_gengetsu_backdrop_colorfill() is C++ now. Turbo C++ exports the
 ; original 32-character-truncated symbol and appends the 0Eh-byte body here.
