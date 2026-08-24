@@ -1288,6 +1288,8 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/bullet_1.asm",
 	"th05/bullet_c.cpp",
 	"th05/bullet.asm",
+	"th05/main/bullet/add_far.cpp",
+	"th05/main/bullet/tune.asm",
 	"th05/bullet_t.cpp",
 	"th03/vector.cpp",
 	"th03/hfliplut.cpp",
