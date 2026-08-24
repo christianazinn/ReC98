@@ -148,8 +148,8 @@ TUNE_FOR_HARD	label near
 
 	even
 @@hard_group_table	label word
-	dw offset @@hard_stack
 	dw offset @@hard_ring
+	dw offset @@hard_stack
 	dw offset @@hard_spread_stack
 	dw offset @@hard_ring_stack
 	dw offset @@hard_random
