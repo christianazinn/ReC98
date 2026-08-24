@@ -1257,6 +1257,9 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/null.cpp",
 	"th05/player_b.cpp",
 	"th05/shot_inv.cpp",
+	-- Preserve the original object boundary before p_common.cpp. Its first
+	-- function has a word-aligned compiler-generated switch table.
+	"th05/main/player/shot_hit.cpp",
 	"th05/p_common.cpp",
 	"th05/p_reimu.cpp",
 	"th05/p_marisa.cpp",
