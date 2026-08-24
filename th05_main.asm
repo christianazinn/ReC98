@@ -1678,7 +1678,8 @@ BUL_GINV_TEXT	ends
 ; appended to, so 0080's "prefer the half with no C++ contribution" and the
 ; ruling's "the name follows the content that justifies it" agree here.
 SCORE_I_TEXT	segment	word public 'CODE' use16
-include th04/main/item/invalidate.asm
+; items_invalidate() now appends here from th04/main/item/invalidate.cpp
+; through th05/null.cpp, preserving TH05's 32-of-40 ZUN bug.
 SCORE_I_TEXT	ends
 
 GRCG_MC_TEXT	segment	word public 'CODE' use16
