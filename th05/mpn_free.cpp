@@ -7,7 +7,7 @@ void far mpn_free(void)
 {
 	if(mpn_images) {
 		hmem_free(reinterpret_cast<void __seg *>(mpn_images));
-		mpn_images = reinterpret_cast<mpn_image_t __seg *>(1);
+		mpn_images = nullptr;
 	}
 }
 
