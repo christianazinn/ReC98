@@ -122,8 +122,9 @@ int shots_hittest(void)
 	return _SI;
 }
 
-// Alice's barrier uses this version to fire a revenge bullet from every shot
-// that lands. Its caller initializes both the hitbox and bullet template.
+// Alice's barrier uses this version to fire revenge bullets from landed shots:
+// every one outside Easy rank, and only those landing on every fourth stage
+// frame on Easy. Its caller initializes both the hitbox and bullet template.
 extern "C" int far shots_hittest_revenge(void)
 {
 	unsigned int i;
