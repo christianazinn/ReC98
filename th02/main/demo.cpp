@@ -38,7 +38,7 @@ void demo_load(void)
 	resident->frame = 18;
 	if(resident->demo_num == 1) {
 		stage_id = 3;
-		file_ropen(demo_fn_1);
+		file_ropen(demo_fn_2);
 		resident->shottype = 0;
 	} else if(resident->demo_num == 2) {
 		stage_id = 2;
