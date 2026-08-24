@@ -88,7 +88,7 @@ static const unsigned char ITEM_POPUP_ID_EXTEND = 1;       // POPUP_ID_EXTEND
 // same fix, and the same wording as th04/main/item/collect.cpp, because it is
 // the same two tests in the same two arms.
 static const unsigned int POWER_OVERFLOW_MAX = 42;
-extern "C" int16_t POWER_OVERFLOW_BONUS[POWER_OVERFLOW_MAX];
+extern "C" int16_t POWER_OVERFLOW_BONUS[POWER_OVERFLOW_MAX + 1];
 
 // [total_max_valued_point_items_collected] under the <= 32-character alias
 // th04/main/item/items[data].asm publishes at the same address, because TLINK
@@ -155,7 +155,7 @@ void pascal near item_collected(item_t near *item)
 	// SI, and DELIBERATELY UNINITIALIZED, exactly as in TH04. The `switch`
 	// below has no default, so an item whose [type] is above IT_FULLPOWER
 	// falls straight through to the tail and spends whatever SI happened to
-	// hold. ZUN quirk, preserved: the original has no initializing store
+	// hold. ZUN landmine, preserved: the original has no initializing store
 	// either, and items_add() is the only writer of [type] in either game.
 	//
 	// `register` is load-bearing and [measured], not decoration. Turbo C++
@@ -280,10 +280,10 @@ void pascal near item_collected(item_t near *item)
 		} else {
 			// ZUN quirk, and TH04 has the identical one: the bonus is looked
 			// up BEFORE the clamp, so an overflow counter that has just run
-			// past POWER_OVERFLOW_MAX indexes POWER_OVERFLOW_BONUS[] out of
-			// bounds by up to 4 entries, and the value it reads is the one the
-			// player is paid. The clamp on the next line only fixes the
-			// counter.
+			// past POWER_OVERFLOW_MAX indexes POWER_OVERFLOW_BONUS[] at 43..47,
+			// up to five entries beyond its valid 0..42 range. The value it reads
+			// is the one the player is paid; the clamp on the next line only fixes
+			// the counter.
 			power_overflow += 5;
 			score = POWER_OVERFLOW_BONUS[power_overflow];
 			if(static_cast<unsigned int>(power_overflow) > POWER_OVERFLOW_MAX) {

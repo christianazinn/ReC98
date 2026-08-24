@@ -2,8 +2,8 @@
 /// ----------------------
 /// TH05 only. TH04's function of the same name is a different body: it walks
 /// [shot_ptr] through memory and counts [shot_last_id], reloading BX from the
-/// global on every iteration, and it is still assembly in
-/// th04/main/player/shots_add.asm.
+/// global on every iteration. It now compiles from
+/// th04/main/player/shots_add.cpp.
 ///
 /// This one keeps the cursor in BX for the whole loop and writes it back to
 /// [shot_ptr] only on success, which is why it needs the `_BX`
@@ -55,12 +55,13 @@
 static const unsigned long SHOT_VELOCITY_UP_12 = 0xFF400000UL;
 static const int SHOT_PATNUM_BASE = 20;
 
-// Searches for a free shot slot from [shot_ptr] onwards and returns it, or
-// nullptr if there is none. ZUN bug, preserved: the slot actually tested is
-// the one AFTER the cursor, because the increment happens before the flag
-// test, so [shots][0] can only ever be allocated after the cursor has wrapped
-// past it. The bound check uses the pre-increment cursor as well, so the
-// element one past the end is never touched.
+// Searches for a free shot slot after [shot_ptr] and returns it, or nullptr if
+// there is none. ZUN landmine: The increment happens after the bound check but
+// before the flag test. shot_cycle_init(), the cursor's only initializer,
+// points at [shots][0], and no path wraps the cursor, so slot 0 is never
+// allocated. If the cursor reaches the final slot, the pre-increment check
+// also permits the one-past-end element to be read and potentially initialized
+// in the 72-byte padding after [shots].
 Shot near* near shots_add(void)
 {
 	_AX = 0;
