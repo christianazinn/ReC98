@@ -1043,6 +1043,18 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- parity of midboss3_update()'s `-a2` jump-table pad. See th04/mb_upd1.cpp.
 	"th04/mb_upd1.cpp",
 	"th04/mb_upd.cpp",
+	-- POSITION-CRITICAL: these four are MUGETSU_TEXT's whole C++ half, in
+	-- address order behind the root dump's enemies_update(). bx1_pose.cpp must
+	-- be its own object because a translation unit that reaches
+	-- th04/main/bullet/bullet.hpp compiles the two pose drivers' dense
+	-- `switch` heads through AX instead of BX, length-neutrally; bx1_upd.cpp
+	-- must be its own because mugetsu_update()'s `-a2` table pad only appears
+	-- at an even object offset, which a zero prefix gives it and the 0x3D7 of
+	-- bx1_ptn.cpp ahead of it does not. See th04/bx1_gath.cpp.
+	"th04/bx1_gath.cpp",
+	"th04/bx1_pose.cpp",
+	"th04/bx1_ptn.cpp",
+	"th04/bx1_upd.cpp",
 	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
 	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
 	"th04/enm_pos1.cpp",
