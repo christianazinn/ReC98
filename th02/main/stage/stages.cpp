@@ -7,7 +7,8 @@
 ///
 /// The effect is a ring of 64 dots expanding out of the middle of the
 /// playfield, over a palette colour 0 that walks red -> green -> blue ->
-/// magenta and back, on a 200-frame cycle that restarts forever. It is what
+/// magenta and back over four 200-frame phases, for an 800-frame cycle that
+/// restarts forever. It is what
 /// th02/main/bgm_show.cpp's `stage_id == 2` arm blacks out again, and what
 /// [stage3_effect_frame] - reset from bosses_reset() in
 /// th02/main/bullet/bullet.cpp - is the timeline of.
@@ -66,7 +67,7 @@ static const uint8_t STAGE3_RING_ANGLE_STEP = 4;
 // bosses_reset(); see th02/main/bullet/bullet.cpp for why it lives there.
 extern "C" uint16_t stage3_effect_frame;
 
-// How far the ring has expanded, 0 to 200, restarted at every colour change.
+// How far the ring has expanded, 0 to 199, restarted at every colour change.
 extern "C" int16_t stage3_ring_radius;
 
 // The angle the ring's first dot is drawn at, which walks one step per frame

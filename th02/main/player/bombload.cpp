@@ -35,15 +35,11 @@ extern "C" const char aBomb3_pi[];
 extern "C" const char aBomb2_pi[];
 extern "C" const char aBomb1_bft[];
 
-// The shottype-specific bomb animations, all still ASM in th02_main.asm, which
-// publishes them with __pascal *and* `extern "C"` name decoration
-// (`public BOMB_REIMU_A`, not `@BOMB_REIMU_A$QV`). See kb/codegen/0086 and
-// kb/codegen/0103. Their actual return type is [playchar_bomb_func]'s bool16;
-// the reinterpret_cast below is only needed because th02_main.asm gives us no
-// prototype to confirm that with.
-extern "C" void pascal near bomb_reimu_a(void);
-extern "C" void pascal near bomb_reimu_b(void);
-extern "C" void pascal near bomb_reimu_c(void);
+// The shottype-specific bomb animations, defined in bomb.cpp. All three return
+// true once their animation is over, matching [playchar_bomb_func].
+extern "C" bool16 pascal near bomb_reimu_a(void);
+extern "C" bool16 pascal near bomb_reimu_b(void);
+extern "C" bool16 pascal near bomb_reimu_c(void);
 
 // 15 cels of 72 bytes, read past a 32-byte header.
 static const unsigned BOMB_BFT_SIZE = 1080;
@@ -65,16 +61,12 @@ void near bomb_load(void)
 	file_close();
 	if(resident->shottype == 0) {
 		pi_load(1, aBomb1_pi);
-		playchar_bomb_func = reinterpret_cast<playchar_bomb_func_t>(
-			bomb_reimu_a
-		);
+		playchar_bomb_func = bomb_reimu_a;
 		return;
 	}
 	if(resident->shottype == 2) {
 		pi_load(1, aBomb3_pi);
-		playchar_bomb_func = reinterpret_cast<playchar_bomb_func_t>(
-			bomb_reimu_c
-		);
+		playchar_bomb_func = bomb_reimu_c;
 		return;
 	}
 	if(resident->shottype == 1) {
@@ -86,9 +78,7 @@ void near bomb_load(void)
 		);
 		file_read(bomb1_bft, BOMB1_BFT_SIZE);
 		file_close();
-		playchar_bomb_func = reinterpret_cast<playchar_bomb_func_t>(
-			bomb_reimu_b
-		);
+		playchar_bomb_func = bomb_reimu_b;
 	}
 }
 

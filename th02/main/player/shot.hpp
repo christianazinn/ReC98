@@ -39,13 +39,14 @@ extern "C" int shot_slot_i;
 // volley by shot_a()/shot_b()/shot_c().
 extern "C" subpixel_t shot_spawn_top;
 
-// ZUN quirk: The three functions below write [flag]/[decay_cel] and
+// ZUN bloat: The three functions below write [flag]/[decay_cel] and
 // [patnum]/[from_option] as two single 16-bit stores rather than four byte
 // ones. Turbo C++ 4.0J does not fuse adjacent byte stores — sparks_add()
 // compiles the same pair of adjacent constant byte fields into
 // `mov byte ptr [si], 1` + `mov byte ptr [si+1], 0` — so ZUN's source really
 // does name a 16-bit lvalue at both addresses. shots_hittest() also *reads*
-// [patnum] 16 bits wide.
+// [patnum] 16 bits wide. The wider accesses produce the same field values and
+// therefore have no observable effect.
 #define shot_flag_and_decay_cel(p) \
 	(*reinterpret_cast<int16_t near *>(&(p)->flag))
 #define shot_patnum_and_from_option(p) \

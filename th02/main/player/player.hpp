@@ -67,7 +67,7 @@ extern screen_y_t near* player_option_left_top_on_back_page;
 inline screen_x_t player_center_x(void) {
 	return (player_topleft.x + (PLAYER_W / 2));
 }
-inline screen_x_t player_center_y(void) {
+inline screen_y_t player_center_y(void) {
 	return (player_topleft.y + (PLAYER_H / 2));
 }
 // ----------------

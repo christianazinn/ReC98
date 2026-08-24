@@ -236,12 +236,10 @@ int pascal near shots_hittest(
 // because th02/main/bullet/bullet.hpp has no include guard.
 extern "C" void bullets_clear(void);
 
-// Still ASM. `[measured]` Stops the current KAJA song, snd_load()s [fn] over it
+// th02/main/boss/b1.cpp. Stops the current KAJA song, snd_load()s [fn] over it
 // with SND_LOAD_SONG, and starts it again; every boss init function in this
-// binary switches its BGM through it. Declared identically in b3.cpp, b4.cpp,
-// b5.cpp and th02/main/stage/init.cpp -- renaming it is a five-declaration
-// refactor and therefore its own parcel, not this one.
-extern "C" void far sub_13ABB(char *fn);
+// binary switches its BGM through it.
+extern "C" void far boss_bgm_load(char *fn);
 
 /// Sigma's own state
 /// -----------------
@@ -2728,7 +2726,7 @@ extern "C" void far sigma_init(void)
 	palette_white_out(1);
 	sigma_put();
 
-	// The same island again for sub_13ABB(), which does take an argument, so
+	// The same island again for boss_bgm_load(), which does take an argument, so
 	// its far pointer and its __cdecl cleanup are hand-spelled with it -
 	// statement for statement th02/main/boss/b3.cpp's stones_init(), down to
 	// the `add sp, 4`. palette_white_out() above is `pascal`, so again nothing
@@ -2737,7 +2735,7 @@ extern "C" void far sigma_init(void)
 	_asm { push offset aBoss5_m; }
 	__emit__(0x90);	// nop
 	__emit__(0x0E);	// push cs
-	_asm { call near ptr sub_13ABB; }
+	_asm { call near ptr boss_bgm_load; }
 	__emit__(0x83, 0xC4, 0x04);	// add sp, 4
 
 	palette_white_in(1);

@@ -537,7 +537,7 @@ SF_REMOVED = 4
 ; prepended into this segment between this block and th02/dialog.cpp's
 ; below (kb/codegen/0099). stones_init() reaches stones_12778() as a plain
 ; near call inside that one object now, and lasers_callbacks_set() and
-; sub_13ABB() through the `nop; push cs; call near ptr` island the original
+; boss_bgm_load() through the `nop; push cs; call near ptr` island the original
 ; encodes (kb/codegen/0083) - which is why th02/main/laser.hpp gives
 ; lasers_callbacks_set() C linkage, and why rika_init() below spells it the
 ; C way too.
@@ -569,13 +569,13 @@ DIALOG_TEXT	ends
 
 BOSS_5_TEXT	segment	byte public 'CODE' use16
 
-extrn _boss_bgm_load:far
-alias <_sub_13ABB> = <_boss_bgm_load>
+; No root code remains in this segment.
+
 
 ; The former 0xC54-byte head of this segment is now emitted by four C++
 ; objects, in dump order: stage/s1.cpp, midboss/m1.cpp, boss/b1.cpp,
-; and stage/s2.cpp. The alias preserves older C++ callers of the shared
-; boss BGM loader without emitting bytes.
+; and stage/s2.cpp. All C++ callers name the shared boss BGM loader
+; directly; no compatibility alias remains.
 
 
 
@@ -773,12 +773,12 @@ alias <_sub_13ABB> = <_boss_bgm_load>
 ; mangled C++ spellings, so the two entry points were pre-paid; the two near
 ; helpers had no `public` at all and went across as `static`.
 ;
-; TWO OF ITS THREE DATA ROWS ARE PLAIN RENAMES - _midboss2_active in _BSS and
-; _midboss2_defeat_frame in _DATA, every reference this dump had to either
-; having been inside these four procs - and the third is a kb/codegen/0123
-; ALIAS: _bg_flash_frame, the Stage 1 and 2 scenery's lightning clock, which
-; sub_13671(), rika_end() and sub_1403E() still reach. Read that alias as a
-; countdown - sub_1403E is the next proc up this block.
+; ALL THREE DATA ROWS NOW HAVE SEMANTIC STORAGE NAMES: _midboss2_active in
+; _BSS, plus _midboss2_defeat_frame and _bg_flash_frame in _DATA. Every
+; address reference to all three is now in C++, so none needs an address
+; alias. _bg_flash_frame is the Stage 1 and 2 scenery's lightning clock;
+; stage1_update_and_render(), rika_end(), and stage_bg_flash_update() reach it.
+
 ;
 ; `[measured 2026-08-24]` THE TWO THINGS THAT WERE WRONG IN THE FIRST DRAFT OF
 ; THAT OBJECT WERE BOTH LENGTH-NEUTRAL, which is the whole reason a length
@@ -790,15 +790,15 @@ alias <_sub_13ABB> = <_boss_bgm_load>
 ; so the source is `(boss_damage <= 380) || (vram_y >= 304)`, and `<` there is
 ; a `jge` of exactly the same two bytes.
 ;
-; SO THE TAIL OF THIS BLOCK IS sub_140AE, and it is a `proc` in the FREE class
-; like every tail before it. It is Stage 2's [stage_update_and_render], and
-; sub_1403E directly above it is the scenery flash it calls - so those two are
-; the next parcel, and they are the last of the Stage 1 and 2 SCENERY rather
-; than anything to do with a boss.
+; stage2_update_and_render() and stage_bg_flash_update() are now in
+; stage/s2.cpp. Together with stage/s1.cpp, midboss/m1.cpp, and boss/b1.cpp,
+; that lift removed all remaining root procedures from BOSS_5_TEXT.
+; The segment declaration remains to anchor the C++ contributions in the
+; original group and link order.
 ;
-; Then Rika's eight, sub_13ABB, midboss1's four, and the four unnamed procs at
-; the head of the block. NINETEEN procs left in this segment after this parcel,
-; and every other segment in this binary has ZERO.
+
+
+
 ;
 ; A POOL'S STRIDE NEEDS `-a2`, AND NO LENGTH CHECK CAN SEE IT.
 ; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot and Meira's
@@ -1279,11 +1279,11 @@ _miss_active	db 0
 public _shot_option_decay_interval
 _shot_option_decay_interval label byte
 byte_1E518	db 4
-public _byte_1E519
-_byte_1E519 label byte
+public _shot_patnum
+_shot_patnum label byte
 byte_1E519	db 40h
-public _byte_1E51A
-_byte_1E51A label byte
+public _shot_option_patnum
+_shot_option_patnum label byte
 byte_1E51A	db 4Ch
 public _player_option_patnum, _power_overflow
 _player_option_patnum	db PAT_OPTION_A
@@ -1480,11 +1480,11 @@ include th02/sprites/sparks.asp
 public _spark_accel_x, _total_miss_count, _POWER_RESET_FOR
 _spark_accel_x	dw 0
 _total_miss_count	db 0
-public _byte_1EB0D
-_byte_1EB0D label byte
+public _shot_stream_a_phase
+_shot_stream_a_phase label byte
 byte_1EB0D	db -1
-public _byte_1EB0E
-_byte_1EB0E label byte
+public _shot_stream_b_phase
+_shot_stream_b_phase label byte
 byte_1EB0E	db -1
 _POWER_RESET_FOR	db 1, 1, 4, 8, 16, 24, 32, 40, 52, 64
 	evendata
@@ -2325,14 +2325,14 @@ _quit	db ?
 _stage_miss_count	db ?
 _miss_frame	db ?
 include th02/main/player/speed[bss].asm
-public _byte_2060E
-_byte_2060E label byte
+public _shot_patnum_powered
+_shot_patnum_powered label byte
 byte_2060E	db ?
-public _byte_2060F
-_byte_2060F label byte
+public _shot_option_patnum_powered
+_shot_option_patnum_powered label byte
 byte_2060F	db ?
-public _byte_20610
-_byte_20610 label byte
+public _shot_a_spread_angle_delta
+_shot_a_spread_angle_delta label byte
 byte_20610	db ?
 public _player_unused
 _player_unused label byte
@@ -2577,11 +2577,11 @@ _tile_dirty	db TILE_COUNT dup(?)
 _tile_column_dirty	db TILES_X dup(?)
 _tiles_egc_render_all	db ?
 	evendata
-public _byte_22D4A
-_byte_22D4A label byte
+public _shot_stream_a_cooldown_time
+_shot_stream_a_cooldown_time label byte
 byte_22D4A	db ?
-public _byte_22D4B
-_byte_22D4B label byte
+public _shot_stream_b_cooldown_time
+_shot_stream_b_cooldown_time label byte
 byte_22D4B	db ?
 public _stone_patnum
 _stone_patnum label word

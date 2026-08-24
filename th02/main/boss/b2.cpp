@@ -69,7 +69,7 @@ void near dialog_post(void);
 // `[measured]` Stops the current KAJA song, snd_load()s [fn] over it with
 // SND_LOAD_SONG, and starts it again; every boss init function in this binary
 // switches its BGM through it.
-extern "C" void far sub_13ABB(char *fn);
+extern "C" void far boss_bgm_load(char *fn);
 
 // The Stage 2 boss BGM's file name, kept where th02_main.asm's own `_DATA`
 // contribution defines it rather than re-emitted as a literal here: this
@@ -600,7 +600,7 @@ extern "C" void far meira_init(void)
 	}
 	super_roll_put(*boss_left_on_back_page, vram_y, patnum_2064E);
 
-	// sub_13ABB() is far and lands in this same physical segment, so the
+	// boss_bgm_load() is far and lands in this same physical segment, so the
 	// original reaches it through the linker-relaxed `nop; push cs; call near
 	// ptr` form that no plain C++ far call reproduces (kb/codegen/0083). That
 	// form cannot see the C++ expressions either, so its far pointer argument
@@ -615,7 +615,7 @@ extern "C" void far meira_init(void)
 	_asm { push offset aBoss4_m; }
 	__emit__(0x90);	// nop
 	__emit__(0x0E);	// push cs
-	_asm { call near ptr sub_13ABB; }
+	_asm { call near ptr boss_bgm_load; }
 	__emit__(0x83, 0xC4, 0x04);	// add sp, 4
 
 	palette_white_in(1);
