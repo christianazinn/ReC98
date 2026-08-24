@@ -37,7 +37,7 @@ include th05/main/enemy/enemy.inc
 	extern _execl:proc
 	extern NULLFUNC_NEAR:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, RANDRING_FILL_TEXT, RANDRING_NEXT_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_B_TEXT, YUMEKO_COLORFILL_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_R_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, RANDRING_FILL_TEXT, RANDRING_NEXT_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_H_TEXT, END_EXT_A_TEXT, END_EXT_B_TEXT, YUMEKO_COLORFILL_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_R_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1003,15 +1003,15 @@ BOSS_BG_TEXT	segment	byte public 'CODE' use16
 	@EXALICE_BG_RENDER$QV procdesc pascal near
 BOSS_BG_TEXT	ends
 
-; Harness carve (kb/codegen/0080): the head of the `END_EXT_TEXT` that an
-; earlier carve took out of the original `SCORE_TEXT` contribution, renamed so
-; that a C++ object can append Louise's and Alice's colorfills in the MIDDLE of
-; it. Head length 180h, EVEN, so the `word`-aligned tail reopens where it was.
-END_EXT_A_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080): END_EXT_H_TEXT keeps the 64h-byte ASM
+; head so bb_cheeto_load() can append at 2FC6h. Its explicit 90h pad makes the
+; contribution even; END_EXT_A_TEXT then reopens for the hand-written blitter
+; and the existing C++ colorfills without moving either contribution.
+END_EXT_H_TEXT	segment	word public 'CODE' use16
 
 ; sara_backdrop_colorfill() is compiled from th05/main/boss/b1_cfill.cpp
 
-; and appended to BOSS_BG_TEXT by th05/boss_bg.cpp. END_EXT_A_TEXT
+; and appended to BOSS_BG_TEXT by th05/boss_bg.cpp. END_EXT_H_TEXT
 ; therefore begins with the following include at the original next address.
 ; Head-absorb route: kb/codegen/0148.
 
@@ -1041,8 +1041,14 @@ END_EXT_A_TEXT	segment	word public 'CODE' use16
 
 
 include th04/main/player/shot_laser.asm
-include th05/formats/bb_cheeto.asm
+; bb_cheeto_load() and its trailing pad are compiled in th05/bbcheeto.cpp.
+END_EXT_H_TEXT	ends
 
+extrn BB_CHEETO_LOAD:near
+alias <bb_cheeto_load> = <BB_CHEETO_LOAD>
+
+END_EXT_A_TEXT	segment	word public 'CODE' use16
+include th05/formats/bb_cheeto.asm
 END_EXT_A_TEXT	ends
 
 ; Harness carve (kb/codegen/0080 + 0085): the remaining original END_EXT_TEXT
