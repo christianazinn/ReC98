@@ -3103,12 +3103,9 @@ MB_UPD_TEXT	segment	word public 'CODE' use16
 	; @midboss3_update$qv was its only reference anywhere in this file, and
 	; th04/main/midboss/m3_updt.cpp carries the constant now.
 	;
-	; The two flight helpers keep a `procdesc near` in the tail segment below,
-	; because @midbossx_update$qv is still ASM there and calls them eight times
-	; between them. Both segments are in the main_03 group, so every one of
-	; those near calls assembles to the same bytes it always did
-	; (kb/codegen/0104).
-
+	; The two flight helpers and midbossx_update() now share one C++ object.
+	; Their former cross-segment procdesc declarations left with the ASM body;
+	; all calls remain near and at their original addresses.
 
 	; The three Extra-Stage-midboss bullet patterns that used to sit here --
 	; ZUN's sub_1476F, sub_14798 and sub_147DB, in that order -- are now
@@ -3124,11 +3121,8 @@ MB_UPD_TEXT	segment	word public 'CODE' use16
 	; `-a2`-aligned data, and extending it needed no Tupfile.lua line and no
 	; carve. kb/codegen/0121: none of the three carried an `assume`.
 	;
-	; @midbossx_update$qv, in the tail segment below, is the ONLY caller of
-	; any of them -- four call sites between the three -- so each is reached
-	; through a `procdesc near` there rather than a `public` here. Both
-	; segments are in the main_03 group, so every one of those near calls
-	; assembles to the same bytes it always did (kb/codegen/0104).
+	; midbossx_update() is now in the same C++ translation unit and is still
+	; the only caller of these three patterns. No dump declarations remain.
 	;
 	; Nothing is left of this contribution above. The eleven procs that
 	; were still here when this paragraph was written -- the two midboss
@@ -3145,284 +3139,24 @@ MB_UPD_TEXT	segment	word public 'CODE' use16
 	; emitting item of the root's block, so the lift only moved the seam
 	; between the two (kb/codegen/0099) and every byte keeps its address.
 	;
-	; kb/codegen/0121: the body carried no `assume`, and neither does anything
-	; else in this block. Its one and only call site is in the tail segment
-	; below and reaches it through the `procdesc` there: both segments are in
-	; the main_03 group, so the near call's encoding is unchanged and the
-	; qualifier it never carried is still not needed (kb/codegen/0104).
+	; kb/codegen/0121: the body carried no assume directive. Its only call
+	; site moved into this same C++ object with midbossx_update(), so its
+	; procdesc left too.
 MB_UPD_TEXT	ends
 
-; The TAIL of that same contribution, under the name the earlier carve gave
-; it: sub_1486E, @midbossx_update$qv, the two sparse `switch` value/jump
-; table pairs that are those two functions' own codegen, and the
-; th04/main/gather_point_render.asm `include` that ends the block and screens
-; HAND-WRITTEN on its `equ <ax>`/`equ <dx>` register parameters. Behind all
-; of that sit BOTH of this segment's C++ contributions -- th04/enm_pos1.cpp,
-; which appends enemy_pos_update() at its original address in the MIDDLE of
-; the segment, and th04/enm_pos.cpp after it. Renaming the HEAD rather than
-; the tail is exactly what keeps those two un-repointed, which is
-; kb/codegen/0080's tiebreak decided rather than guessed. Same
-; `word public 'CODE'` alignment, and 1486Eh is EVEN, so no pad either.
+; The tail segment from the earlier carve now starts with the hand-written
+; th04/main/gather_point_render.asm include. Behind it sit both existing C++
+; contributions, th04/enm_pos1.cpp and th04/enm_pos.cpp. Absorbing the two
+; compiler-shaped head functions into MB_UPD_TEXT moved only this segment
+; boundary and left those objects at their original addresses.
 ENM_POS_TEXT	segment	word public 'CODE' use16
-	_midbossx_146AF procdesc near
-	_midbossx_14700 procdesc near
-	_midbossx_1476F procdesc near
-	_midbossx_14798 procdesc near
-	_midbossx_147DB procdesc near
-	_midbossx_14828 procdesc near
-
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1486E	proc near
-
-var_2		= word ptr -2
-
-		enter	2, 0
-		mov	ax, _midboss_phase_frame
-		mov	[bp+var_2], ax
-		mov	cx, 15h		; switch 21 cases
-		mov	bx, offset word_148F8
-
-loc_1487E:
-		mov	ax, cs:[bx]
-		cmp	ax, [bp+var_2]
-		jz	short loc_1488D
-		add	bx, 2
-		loop	loc_1487E
-		jmp	short locret_148F5 ; default
-; ---------------------------------------------------------------------------
-
-loc_1488D:
-		jmp	word ptr cs:[bx+2Ah] ; switch jump
-
-loc_14891:
-		call	snd_se_play pascal, 9		; jumptable 0001488D cases 250,258,266,274
-		push	_midboss_pos.cur.x
-		push	_midboss_pos.cur.y
-		push	2
-		jmp	short loc_148F2
-; ---------------------------------------------------------------------------
-
-loc_148A4:
-		call	snd_se_play pascal, 3		; jumptable 0001488D cases 290,298,306,314,390,398,406,414,490,498,506,514
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.count, 5
-		mov	_bullet_template.BT_delta.spread_angle, 6
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.speed, (4 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_148CE:
-		push	9		; jumptable 0001488D cases 350,358,366,374
-
-loc_148D0:
-		call	snd_se_play
-		push	_midboss_pos.cur.x
-		push	_midboss_pos.cur.y
-		push	IT_BIGPOWER
-		jmp	short loc_148F2
-; ---------------------------------------------------------------------------
-
-loc_148E1:
-		call	snd_se_play pascal, 9		; jumptable 0001488D case 450
-		push	_midboss_pos.cur.x
-		push	_midboss_pos.cur.y
-		push	IT_1UP
-
-loc_148F2:
-		call	@items_add$qii11item_type_t
-
-locret_148F5:
-		leave			; default
-		retn
-sub_1486E	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-word_148F8	dw   0FAh,  102h,  10Ah,  112h
-		dw   122h,  12Ah,  132h,  13Ah ; value table for switch	statement
-		dw   15Eh,  166h,  16Eh,  176h
-		dw   186h,  18Eh,  196h,  19Eh
-		dw   1C2h,  1EAh,  1F2h,  1FAh
-		dw   202h
-		dw offset loc_14891	; jump table for switch	statement
-		dw offset loc_14891
-		dw offset loc_14891
-		dw offset loc_14891
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148CE
-		dw offset loc_148CE
-		dw offset loc_148CE
-		dw offset loc_148CE
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148E1
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-		dw offset loc_148A4
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @MIDBOSSX_UPDATE$QV
-@midbossx_update$qv	proc far
-		push	bp
-		mov	bp, sp
-		mov	ax, _midboss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _midboss_pos.cur.y
-		mov	_bullet_template.BT_origin.y, ax
-		mov	_bullet_template.spawn_type, BST_PELLET
-		mov	al, _midboss_phase
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 6
-		ja	loc_14A87
-		add	bx, bx
-		jmp	cs:off_14A8A[bx]
-
-loc_14975:
-		call	_midbossx_146AF
-		inc	_midboss_phase_frame
-		cmp	_midboss_hp, 128
-		jle	short loc_14989
-		sub	_midboss_hp, 32
-
-loc_14989:
-		cmp	_midboss_phase_frame, 128
-
-loc_1498F:
-		jl	loc_14A87	; jumptable 0001CCD9 case 17022
-		call	_midbossx_1476F
-		cmp	_midboss_phase_frame, 320
-		jl	loc_14A87
-		jmp	loc_14A29
-; ---------------------------------------------------------------------------
-
-loc_149A3:
-		call	_midbossx_146AF
-		inc	_midboss_phase_frame
-		cmp	_midboss_hp, 896
-		jge	short loc_149B7
-		add	_midboss_hp, 8
-
-loc_149B7:
-		cmp	_midboss_phase_frame, 128
-		jl	loc_14A87
-		call	_midbossx_1476F
-		cmp	_midboss_phase_frame, 320
-		jl	loc_14A87
-		jmp	short loc_14A29
-; ---------------------------------------------------------------------------
-
-loc_149D0:
-		call	_midbossx_146AF
-		inc	_midboss_phase_frame
-		cmp	_midboss_hp, 128
-		jle	short loc_149E4
-		sub	_midboss_hp, 32
-
-loc_149E4:
-		cmp	_midboss_phase_frame, 128
-		jl	loc_14A87
-		call	_midbossx_14798
-		cmp	_midboss_phase_frame, 320
-		jl	loc_14A87
-		jmp	short loc_14A29
-; ---------------------------------------------------------------------------
-
-loc_149FD:
-		cmp	_midboss_phase_frame, 128
-		jge	short loc_14A0A
-		call	_midbossx_146AF
-		jmp	short loc_14A1D
-; ---------------------------------------------------------------------------
-
-loc_14A0A:
-		call	_midbossx_14700
-		call	_midbossx_147DB
-		cmp	_midboss_hp, 768
-		jge	short loc_14A1D
-		add	_midboss_hp, 8
-
-loc_14A1D:
-		inc	_midboss_phase_frame
-		cmp	_midboss_phase_frame, 640
-		jl	short loc_14A87
-
-loc_14A29:
-		mov	_midboss_phase_frame, 0
-		jmp	short loc_14A65
-; ---------------------------------------------------------------------------
-
-loc_14A31:
-		call	_midbossx_14700
-		cmp	_midboss_phase_frame, 160
-		jl	short loc_14A3F
-		call	_midbossx_14828
-
-loc_14A3F:
-		inc	_midboss_phase_frame
-		cmp	_midboss_phase_frame, 440
-		jl	short loc_14A87
-		jmp	short loc_14A5F
-; ---------------------------------------------------------------------------
-
-loc_14A4D:
-		call	_midbossx_14700
-		call	sub_1486E
-		inc	_midboss_phase_frame
-		cmp	_midboss_phase_frame, 520
-		jl	short loc_14A87
-
-loc_14A5F:
-		mov	_midboss_phase_frame, 2
-
-loc_14A65:
-		inc	_midboss_phase
-		pop	bp
-		retf
-; ---------------------------------------------------------------------------
-
-loc_14A6B:
-		call	_midbossx_14700
-		inc	_midboss_phase_frame
-		cmp	_midboss_pos.cur.x, (-16 shl 4)
-		jle	short loc_14A82
-		cmp	_midboss_pos.cur.x, (400 shl 4)
-		jl	short loc_14A87
-
-loc_14A82:
-		nopcall	@midboss_reset$qv
-
-loc_14A87:
-		pop	bp
-		retf
-@midbossx_update$qv	endp
-
-; ---------------------------------------------------------------------------
-		db    0
-off_14A8A	dw offset loc_14975
-		dw offset loc_149A3
-		dw offset loc_149D0
-		dw offset loc_149FD
-		dw offset loc_14A31
-off_14A94	dw offset loc_14A4D
-		dw offset loc_14A6B
+	; midbossx_phase_5_pattern(), midbossx_update(), and both generated
+	; sparse-switch table regions are now C++ at the tail of
+	; th04/main/midboss/mb_upd.cpp. Growing the preceding MB_UPD_TEXT
+	; object by their complete 0x22A-byte extent and removing the same extent
+	; here only moves the segment boundary; every emitted byte keeps its
+	; original address. The gather-point renderer below remains hand-written
+	; ASM and is now the complete ENM_POS_TEXT root contribution.
 
 include th04/main/gather_point_render.asm
 
