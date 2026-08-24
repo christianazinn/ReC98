@@ -230,9 +230,9 @@ static void near midbossx_phase_5_pattern(void)
 	case 514:
 		snd_se_play(3);
 		bullet_template.group = BG_SPREAD_AIMED;
-		bullet_template.count = 5;
-		bullet_template.delta.spread_angle = 6;
 		bullet_template.angle = 0;
+		bullet_template.delta.spread_angle = 6;
+		bullet_template.count = 5;
 		bullet_template.speed.v = TO_SP(4);
 		bullet_template_tune();
 		bullets_add_regular();
