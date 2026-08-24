@@ -342,250 +342,10 @@ DEMO_TEXT	segment	word public 'CODE' use16
 ; appended after stage_loop() in th04/stg_loop.cpp. Its 0x1CD-byte object
 ; tail absorbs this former head of DEMO_TEXT without moving sub_AED0.
 
-; =============== S U B	R O U T	I N E =======================================
+; stage_setup() now lives in th04/main/stage/setup_main.cpp. th04/demo.cpp
+; includes it first, growing the following C++ contribution backwards over this
+; complete 0x300-byte body and its generated switch table.
 
-; Attributes: bp-based frame
-
-public _sub_AED0
-_sub_AED0 label near
-sub_AED0	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	word_213DE, 0
-		mov	vsync_Count2, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage]
-		mov	_stage_id, al
-		cmp	_stage_id, 0
-		jz	short loc_AEF9
-		cmp	_stage_id, 6
-		jnz	short loc_AF4A
-
-loc_AEF9:
-		mov	word_213DE, 1
-		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		mov	_demo_update, offset nullfunc_near
-		call	main_01:@gameplay_init$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jz	short loc_AF4A
-		call	@demo_load$qv
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.demo_stage]
-		mov	es:[bx+resident_t.stage], al
-		mov	_stage_id, al
-		mov	_power, POWER_MAX
-		add	al, '0'
-		mov	es:[bx+resident_t.stage_ascii], al
-		mov	_demo_update, offset @DemoPlay$qv
-		mov	random_seed, 318
-
-loc_AF4A:
-		call	@graph_both_pages_fill_col_1$qv
-		graph_accesspage 0
-		graph_showpage al
-		push	ds
-		push	offset aEye_rgb	; "eye.rgb"
-		call	palette_entry_rgb
-		call	far ptr	palette_show
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@graph_both_pages_fill_col_1$qv
-		call	@overlay_wipe$qv
-		call	@stage_init$qv
-		nopcall	main_01:hud_put
-		call	@eyecatch_animate$qv
-		call	@midboss_reset$qv
-		cmp	word_213DE, 0
-		jz	short loc_AFD5
-		call	@bomb_bg_load__ems_preload_playch$qv
-		call	bb_playchar_load
-		cmp	_playchar, PLAYCHAR_REIMU
-		jnz	short loc_AFA0
-		push	ds
-		push	offset aMiko_bft ; "miko.bft"
-		jmp	short loc_AFA4
-; ---------------------------------------------------------------------------
-
-loc_AFA0:
-		push	ds
-		push	offset aMari_bft ; "mari.bft"
-
-loc_AFA4:
-		call	super_entry_bfnt
-		call	super_entry_bfnt pascal, ds, offset aMikod_bft ; "mikod.bft"
-		call	super_entry_bfnt pascal, ds, offset aMiko32_bft ; "miko32.bft"
-		call	super_entry_bfnt pascal, ds, offset aMiko16_bft ; "miko16.bft"
-		mov	si, 20
-		jmp	short loc_AFD0
-; ---------------------------------------------------------------------------
-
-loc_AFC9:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_AFD0:
-		cmp	si, 120
-		jl	short loc_AFC9
-
-loc_AFD5:
-		les	bx, off_213E0
-		mov	byte ptr es:[bx+2], '0'
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage_ascii]
-		les	bx, off_213E0
-		mov	es:[bx+3], al
-		mov	al, _stage_id
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 6
-		ja	loc_B144
-		add	bx, bx
-		jmp	cs:off_B1C2[bx]
-
-loc_B003:
-		mov	word_2CFF4, 9
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss0_cd2
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.playchar_ascii]
-		les	bx, off_213E0
-		mov	es:[bx+2], al
-		call	super_entry_bfnt pascal, ds, offset aSt00_bft ; "st00.bft"
-		call	@stage1_setup$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_REIMU
-		jnz	short loc_B044
-		push	ds
-		push	offset aSt00_mpn ; "st00.mpn"
-		jmp	loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B044:
-		push	ds
-		push	offset aSt10_mpn ; "st10.mpn"
-		jmp	loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B04B:
-		mov	word_2CFF4, 9
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss1_cd2
-		call	super_entry_bfnt pascal, ds, offset aSt01_bft ; "st01.bft"
-		call	@stage2_setup$qv
-		push	ds
-		push	offset aSt01_mpn ; "st01.mpn"
-		jmp	loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B071:
-		mov	word_2CFF4, 9
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss2_cd2
-		call	super_entry_bfnt pascal, ds, offset aSt02_bft ; "st02.bft"
-		call	@stage3_setup$qv
-		push	ds
-		push	offset aSt02_mpn ; "st02.mpn"
-		jmp	loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B097:
-		mov	word_2CFF4, 9
-		cmp	_playchar, PLAYCHAR_REIMU
-		jnz	short loc_B0AC
-		push	CDG_FACESET_BOSS
-		push	ds
-		push	offset aKao3_cd2 ; "KAO3.CD2"
-		jmp	short loc_B0B2
-; ---------------------------------------------------------------------------
-
-loc_B0AC:
-		push	CDG_FACESET_BOSS
-		push	ds
-		push	offset aKao2_cd2 ; "KAO2.CD2"
-
-loc_B0B2:
-		call	cdg_load_all
-		call	super_entry_bfnt pascal, ds, offset aSt03_bft ; "st03.bft"
-		call	@stage4_setup$qv
-		call	mpn_load pascal, ds, offset aSt03_mpn ; "st03.mpn"
-		mov	_stage_render, offset @stage4_render$qv
-		jmp	short loc_B144
-; ---------------------------------------------------------------------------
-
-loc_B0D4:
-		mov	word_2CFF4, 9
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss4_cd2
-		call	super_entry_bfnt pascal, ds, offset aSt04_bft ; "st04.bft"
-		call	@stage5_setup$qv
-		push	ds
-		push	offset aSt04_mpn ; "st04.mpn"
-		jmp	short loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B0F9:
-		mov	word_2CFF4, 9
-		call	super_entry_bfnt pascal, ds, offset aSt05_bft ; "st05.bft"
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss5_cd2
-		call	@stage6_setup$qv
-		push	ds
-		push	offset aSt05_mpn ; "st05.mpn"
-		jmp	short loc_B141
-; ---------------------------------------------------------------------------
-
-loc_B11E:
-		mov	word_2CFF4, 9
-		call	super_entry_bfnt pascal, ds, offset aSt06_bft ; "st06.bft"
-		call	cdg_load_all pascal, CDG_FACESET_BOSS, ds, offset aBss6_cd2
-		call	@stagex_setup$qv
-		push	ds
-		push	offset aSt06_mpn ; "st06.mpn"
-
-loc_B141:
-		call	mpn_load
-
-loc_B144:
-		call	@map_load$qv
-		call	@std_load$qv
-		call	@dialog_load$qv
-		call	tiles_fill_initial
-		graph_accesspage 0
-
-loc_B156:
-		cmp	vsync_Count2, 80h
-		jb	short loc_B156
-		push	1
-		call	palette_black_out
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		call	@overlay_black$qv
-		call	@tiles_render_all$qv
-		mov	_page_back, 1
-		mov	_page_front, 0
-		graph_accesspage 1
-		graph_showpage 0
-		call	@tiles_render_all$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jnz	short loc_B1AE
-		call	snd_load pascal, [off_213E0], SND_LOAD_SONG
-		kajacall	KAJA_SONG_PLAY
-
-loc_B1AE:
-		nopcall	@tiles_activate$qv
-		mov	_overlay1, offset @overlay_stage_enter_update_and_r$qv
-		mov	_overlay2, offset nullfunc_near
-		pop	si
-		pop	bp
-		retn
-sub_AED0	endp
-
-; ---------------------------------------------------------------------------
-off_B1C2	dw offset loc_B003
-		dw offset loc_B04B
-		dw offset loc_B071
-		dw offset loc_B097
-		dw offset loc_B0D4
-		dw offset loc_B0F9
-		dw offset loc_B11E
 
 
 	; stage_init() -- the per-stage reset of everything the playfield
@@ -4568,10 +4328,21 @@ main_036_TEXT	ends
 
 include th04/gaiji/pause[data].asm
 	evendata
-public _eyename, _bbname
+public _eyename, _stage_is_first, _bgmname, _bbname
+public _EYE_RGB_FN, _PLAYCHAR_REIMU_BFNT_FN, _PLAYCHAR_MARISA_BFNT_FN
+public _MIKOD_BFNT_FN, _MIKO32_BFNT_FN, _MIKO16_BFNT_FN
+public _STAGE1_BOSS_FACESET_FN, _STAGE1_BFNT_FN
+public _STAGE1_REIMU_MPN_FN, _STAGE1_MARISA_MPN_FN
+public _STAGE2_BOSS_FACESET_FN, _STAGE2_BFNT_FN, _STAGE2_MPN_FN
+public _STAGE3_BOSS_FACESET_FN, _STAGE3_BFNT_FN, _STAGE3_MPN_FN
+public _STAGE4_REIMU_FACESET_FN, _STAGE4_MARISA_FACESET_FN
+public _STAGE4_BFNT_FN, _STAGE4_MPN_FN
+public _STAGE5_BOSS_FACESET_FN, _STAGE5_BFNT_FN, _STAGE5_MPN_FN
+public _STAGE6_BOSS_FACESET_FN, _STAGE6_BFNT_FN, _STAGE6_MPN_FN
+public _STAGEX_BOSS_FACESET_FN, _STAGEX_BFNT_FN, _STAGEX_MPN_FN
 _eyename	dd _EYECATCH_FN_FORMAT	; ZUN symbol [MAGNet2010]
-word_213DE	dw 0
-off_213E0	dd aSt00
+_stage_is_first	dw 0
+_bgmname	dd aSt00
 					; "ST00"
 _bbname	dd aBb0_cdg_0	; original ZUN variable name
 _EYECATCH_FN_FORMAT	db 'eye0.cdg',0
@@ -4586,35 +4357,35 @@ aMiko		db 'miko',0
 _arg0		label byte
 arg0		db 'op',0
 aSt00		db 'ST00',0
-aEye_rgb	db 'eye.rgb',0
-aMiko_bft	db 'miko.bft',0
-aMari_bft	db 'mari.bft',0
-aMikod_bft	db 'mikod.bft',0
-aMiko32_bft	db 'miko32.bft',0
-aMiko16_bft	db 'miko16.bft',0
-aBss0_cd2	db 'BSS0.CD2',0
-aSt00_bft	db 'st00.bft',0
-aSt00_mpn	db 'st00.mpn',0
-aSt10_mpn	db 'st10.mpn',0
-aBss1_cd2	db 'BSS1.CD2',0
-aSt01_bft	db 'st01.bft',0
-aSt01_mpn	db 'st01.mpn',0
-aBss2_cd2	db 'BSS2.CD2',0
-aSt02_bft	db 'st02.bft',0
-aSt02_mpn	db 'st02.mpn',0
-aKao3_cd2	db 'KAO3.CD2',0
-aKao2_cd2	db 'KAO2.CD2',0
-aSt03_bft	db 'st03.bft',0
-aSt03_mpn	db 'st03.mpn',0
-aBss4_cd2	db 'BSS4.CD2',0
-aSt04_bft	db 'st04.bft',0
-aSt04_mpn	db 'st04.mpn',0
-aSt05_bft	db 'st05.bft',0
-aBss5_cd2	db 'BSS5.CD2',0
-aSt05_mpn	db 'st05.mpn',0
-aSt06_bft	db 'st06.bft',0
-aBss6_cd2	db 'BSS6.CD2',0
-aSt06_mpn	db 'st06.mpn',0
+_EYE_RGB_FN	db 'eye.rgb',0
+_PLAYCHAR_REIMU_BFNT_FN	db 'miko.bft',0
+_PLAYCHAR_MARISA_BFNT_FN	db 'mari.bft',0
+_MIKOD_BFNT_FN	db 'mikod.bft',0
+_MIKO32_BFNT_FN	db 'miko32.bft',0
+_MIKO16_BFNT_FN	db 'miko16.bft',0
+_STAGE1_BOSS_FACESET_FN	db 'BSS0.CD2',0
+_STAGE1_BFNT_FN	db 'st00.bft',0
+_STAGE1_REIMU_MPN_FN	db 'st00.mpn',0
+_STAGE1_MARISA_MPN_FN	db 'st10.mpn',0
+_STAGE2_BOSS_FACESET_FN	db 'BSS1.CD2',0
+_STAGE2_BFNT_FN	db 'st01.bft',0
+_STAGE2_MPN_FN	db 'st01.mpn',0
+_STAGE3_BOSS_FACESET_FN	db 'BSS2.CD2',0
+_STAGE3_BFNT_FN	db 'st02.bft',0
+_STAGE3_MPN_FN	db 'st02.mpn',0
+_STAGE4_REIMU_FACESET_FN	db 'KAO3.CD2',0
+_STAGE4_MARISA_FACESET_FN	db 'KAO2.CD2',0
+_STAGE4_BFNT_FN	db 'st03.bft',0
+_STAGE4_MPN_FN	db 'st03.mpn',0
+_STAGE5_BOSS_FACESET_FN	db 'BSS4.CD2',0
+_STAGE5_BFNT_FN	db 'st04.bft',0
+_STAGE5_MPN_FN	db 'st04.mpn',0
+_STAGE6_BFNT_FN	db 'st05.bft',0
+_STAGE6_BOSS_FACESET_FN	db 'BSS5.CD2',0
+_STAGE6_MPN_FN	db 'st05.mpn',0
+_STAGEX_BFNT_FN	db 'st06.bft',0
+_STAGEX_BOSS_FACESET_FN	db 'BSS6.CD2',0
+_STAGEX_MPN_FN	db 'st06.mpn',0
 include th04/main/pause[data].asm
 include th04/main/demo[data].asm
 public _EMS_NAME
@@ -5734,7 +5505,8 @@ include th04/formats/scoredat[bss].asm
 public _entered_place
 _entered_place	db ?
 	evendata
-word_2CFF4	dw ?
+public _stage_setup_unused
+_stage_setup_unused	dw ?
 public _group_i_spread_angle
 _group_i_spread_angle	db ?
 include th04/main/bullet/update[bss].asm

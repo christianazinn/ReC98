@@ -347,514 +347,26 @@ alias <_main> = <_main_entry>
 
 ; The two C++ contributions to STAGE_TEXT go here: th05/entry.cpp at the
 ; original address of main(), then th05/stg_loop.cpp at the original address
-; of the frame loop.
+; of the frame loop. That wrapper also includes the contiguous gameplay_init()
+; and stage_setup() chain, extending this segment through their original bytes.
 STAGE_TEXT	ends
 
 ; ===========================================================================
 
-; The tail of the original `DEMO_TEXT` contribution, reopened under its
-; original name. `byte` rather than the original `word` alignment, because
-; the C++ prefix above ends at an odd offset (kb/codegen/0069); the address
-; is the original one either way.
+; The remaining tail of the original `DEMO_TEXT` contribution, reopened
+; after the C++ chain above. The earlier carve's `byte` alignment remains; the
+; extended prefix now ends at the even B55A boundary, where byte and word
+; alignment select the same address.
 DEMO_TEXT	segment	byte public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 
 
-; =============== S U B	R O U T	I N E =======================================
+; gameplay_init() and stage_setup() now live in th04/main/stage/gameplay_init.cpp
+; and setup_main.cpp. th05/stg_loop.cpp includes them after stage_loop() in
+; original order, extending STAGE_TEXT over this complete 0x4F7-byte chain.
 
-; Attributes: bp-based frame
-
-sub_B063	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		les	bx, _resident
-		mov	es:[bx+resident_t.graze], 0
-		mov	es:[bx+resident_t.miss_count], 0
-		mov	es:[bx+resident_t.bombs_used], 0
-		mov	es:[bx+resident_t.end_sequence], ES_INGAME
-		mov	al, es:[bx+resident_t.playchar]
-		mov	_playchar, al
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	_bombs, al
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	_lives, al
-		xor	si, si
-		jmp	short loc_B09F
-; ---------------------------------------------------------------------------
-
-loc_B099:
-		mov	_score[si], 0
-		inc	si
-
-loc_B09F:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_B099
-		mov	_power, POWER_MIN
-		mov	_dream, 1
-		call	BB_TXT_LOAD
-		mov	al, _playchar
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 3
-		ja	short loc_B112
-		add	bx, bx
-		jmp	cs:off_B22F[bx]
-
-@@reimu:
-		mov	_playchar_speed_aligned, 56
-		mov	_playchar_speed_diagonal, 40
-		mov	_playchar_bomb_func, offset bomb_reimu
-		jmp	short loc_B112
-; ---------------------------------------------------------------------------
-
-@@marisa:
-		mov	_playchar_speed_aligned, 64
-		mov	_playchar_speed_diagonal, 48
-		mov	_playchar_bomb_func, offset bomb_marisa
-		jmp	short loc_B112
-; ---------------------------------------------------------------------------
-
-@@mima:
-		mov	_playchar_speed_aligned, 72
-		mov	_playchar_speed_diagonal, 52
-		mov	_playchar_bomb_func, offset bomb_mima
-		jmp	short loc_B112
-; ---------------------------------------------------------------------------
-
-@@yuuka:
-		mov	_playchar_speed_aligned, 56
-		mov	_playchar_speed_diagonal, 40
-		mov	_playchar_bomb_func, offset bomb_yuuka
-
-loc_B112:
-		mov	al, _playchar
-		mov	ah, 0
-		imul	ax, 20
-		add	ax, offset _SHOT_FUNCS
-		mov	_playchar_shot_funcs, ax
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jz	short loc_B145
-		cmp	es:[bx+resident_t.demo_num], 5
-		jnb	short loc_B13E
-		mov	_playperf, 40
-		mov	_rank, RANK_LUNATIC
-		jmp	short loc_B156
-; ---------------------------------------------------------------------------
-
-loc_B13E:
-		mov	_playperf, 32
-		jmp	short loc_B151
-; ---------------------------------------------------------------------------
-
-loc_B145:
-		mov	_playperf, 32
-		cmp	_stage_id, 6
-		jnz	short loc_B15D
-
-loc_B151:
-		mov	_rank, RANK_EXTRA
-
-loc_B156:
-		mov	_turbo_mode, 1
-		jmp	short loc_B16F
-; ---------------------------------------------------------------------------
-
-loc_B15D:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rank]
-		mov	_rank, al
-		mov	al, es:[bx+resident_t.turbo_mode]
-		mov	_turbo_mode, al
-
-loc_B16F:
-		call	_score_highest_update_and_reset
-		call	@hiscore_load$qv
-		mov	al, _rank
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, RANK_EXTRA
-		ja	@@ret
-		add	bx, bx
-		jmp	cs:off_B225[bx]
-
-@@easy:
-		mov	_item_point_score_at_full_dream, 6000
-		mov	_graze_score, 25
-		mov	_playperf_min, 16
-		mov	_playperf_max, 32
-		mov	_bullet_template_tune, offset bullet_template_tune_easy
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@normal:
-		mov	_item_point_score_at_full_dream, 10000
-		mov	_graze_score, 50
-		mov	_playperf_min, 24
-		mov	_playperf_max, 40
-		jmp	short @@tune_normal
-; ---------------------------------------------------------------------------
-
-@@hard:
-		mov	_item_point_score_at_full_dream, 15000
-		mov	_playperf, 44
-		mov	_graze_score, 100
-		mov	_playperf_min, 44
-		mov	_playperf_max, 54
-		mov	_bullet_template_tune, offset bullet_template_tune_hard
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@lunatic:
-		mov	_item_point_score_at_full_dream, 20000
-		mov	_graze_score, 200
-		mov	_playperf, 48
-		mov	_playperf_min, 48
-		mov	_playperf_max, 58
-		mov	_bullet_template_tune, offset bullet_template_tune_lunatic
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@extra:
-		mov	_item_point_score_at_full_dream, 40000
-		mov	_graze_score, 500
-		mov	_playperf_min, 32
-		mov	_playperf_max, 36
-
-@@tune_normal:
-		mov	_bullet_template_tune, offset bullet_template_tune_normal
-
-@@ret:
-		pop	si
-		pop	bp
-		retn
-
-; ---------------------------------------------------------------------------
-off_B225	dw offset @@easy
-		dw offset @@normal
-		dw offset @@hard
-		dw offset @@lunatic
-		dw offset @@extra
-off_B22F	dw offset @@reimu
-		dw offset @@marisa
-		dw offset @@mima
-		dw offset @@yuuka
-sub_B063	endp
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _sub_B237
-_sub_B237 label near
-sub_B237	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	word_20A84, 0
-		mov	vsync_Count2, 0
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.stage]
-		mov	_stage_id, al
-		cmp	_stage_id, 0
-		jz	short loc_B260
-		cmp	_stage_id, 6
-		jnz	short loc_B2DD
-
-loc_B260:
-		mov	word_20A84, 1
-		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
-		mov	_demo_update, offset nullfunc_near
-		call	sub_B063
-		les	bx, _resident
-		cmp	es:[bx+resident_t.debug_mode], 0
-		jz	short loc_B2A5
-		mov	al, es:[bx+resident_t.debug_stage]
-		mov	es:[bx+resident_t.stage], al
-		mov	al, es:[bx+resident_t.stage]
-		mov	_stage_id, al
-		mov	al, es:[bx+resident_t.debug_power]
-		mov	_power, al
-		mov	es:[bx+resident_t.debug_mode], 0
-		mov	_debug_mode_active, 1
-
-loc_B2A5:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jz	short loc_B2DD
-		call	@demo_load$qv
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.demo_stage]
-		mov	es:[bx+resident_t.stage], al
-		mov	_stage_id, al
-		cmp	es:[bx+resident_t.demo_num], 5
-		jz	short loc_B2CE
-		mov	_power, POWER_MAX
-
-loc_B2CE:
-		mov	_demo_update, offset @DemoPlay$qv
-		mov	random_seed, 318
-
-loc_B2DD:
-		call	@graph_both_pages_fill_col_1$qv
-		graph_accesspage 0
-		graph_showpage al
-		push	ds
-		push	offset aEye_rgb	; "eye.rgb"
-		call	palette_entry_rgb
-		call	far ptr	palette_show
-		mov	PaletteTone, 0
-		call	far ptr	palette_show
-		call	@graph_both_pages_fill_col_1$qv
-		call	@overlay_wipe$qv
-		call	@stage_init$qv
-		nopcall	hud_put
-		call	@eyecatch_animate$qv
-		call	@midboss_reset$qv
-		cmp	word_20A84, 0
-		jz	loc_B3CA
-		call	bb_cheeto_load
-		call	@bomb_bg_load__ems_preload_playch$qv
-		call	bb_playchar_load
-		mov	al, _playchar
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, PLAYCHAR_COUNT - 1
-		ja	short loc_B359
-		add	bx, bx
-		jmp	cs:off_B552[bx]
-
-loc_B33E:
-		push	ds
-		push	offset aReimu_bft ; "reimu.bft"
-		jmp	short loc_B354
-; ---------------------------------------------------------------------------
-
-loc_B344:
-		push	ds
-		push	offset aMari_bft ; "mari.bft"
-		jmp	short loc_B354
-; ---------------------------------------------------------------------------
-
-loc_B34A:
-		push	ds
-		push	offset aMima_bft ; "mima.bft"
-		jmp	short loc_B354
-; ---------------------------------------------------------------------------
-
-loc_B350:
-		push	ds
-		push	offset aYuka_bft ; "yuka.bft"
-
-loc_B354:
-		call	super_entry_bfnt
-
-loc_B359:
-		call	super_entry_bfnt pascal, ds, offset aMikod_bft ; "mikod.bft"
-		call	super_entry_bfnt pascal, ds, offset aMiko32_bft ; "miko32.bft"
-		mov	al, _playchar
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, PLAYCHAR_COUNT - 1
-		ja	short loc_B399
-		add	bx, bx
-		jmp	cs:off_B54A[bx]
-
-loc_B37E:
-		push	ds
-		push	offset aReimu16_bft ; "reimu16.bft"
-		jmp	short loc_B394
-; ---------------------------------------------------------------------------
-
-loc_B384:
-		push	ds
-		push	offset aMari16_bft ; "mari16.bft"
-		jmp	short loc_B394
-; ---------------------------------------------------------------------------
-
-loc_B38A:
-		push	ds
-		push	offset aMima16_bft ; "mima16.bft"
-		jmp	short loc_B394
-; ---------------------------------------------------------------------------
-
-loc_B390:
-		push	ds
-		push	offset aYuka16_bft ; "yuka16.bft"
-
-loc_B394:
-		call	super_entry_bfnt
-
-loc_B399:
-		call	super_entry_bfnt pascal, ds, offset aMiko16_bft ; "miko16.bft"
-		mov	si, 12
-		jmp	short loc_B3AE
-; ---------------------------------------------------------------------------
-
-loc_B3A7:
-		call	super_convert_tiny pascal, si
-		inc	si
-
-loc_B3AE:
-		cmp	si, TINY_MIKO16_END
-		jl	short loc_B3A7
-		cmp	_playchar, PLAYCHAR_YUUKA
-		jnz	short loc_B3C1
-		push	ds
-		push	offset _BOMB_SHAPE_YUUKA_FN ; "bomb3.bft"
-		jmp	short loc_B3C5
-; ---------------------------------------------------------------------------
-
-loc_B3C1:
-		push	ds
-		push	offset _BOMB_SHAPE_FN ; "bomb0.bft"
-
-loc_B3C5:
-		call	super_entry_bfnt
-
-loc_B3CA:
-		nopcall	@tiles_activate$qv
-		mov	_pellet_bottom_col, 9
-		mov	al, _stage_id
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 6
-		ja	loc_B4A9
-		add	bx, bx
-		jmp	cs:off_B53C[bx]
-
-loc_B3EA:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss0_cd2 ; "BSS0.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt00_bft ; "st00.bft"
-		call	@stage1_setup$qv
-		push	ds
-		push	offset aSt00_mpn ; "st00.mpn"
-		jmp	loc_B4A6
-; ---------------------------------------------------------------------------
-
-loc_B404:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss1_cd2 ; "BSS1.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt01_bft ; "st01.bft"
-		call	@stage2_setup$qv
-		push	ds
-		push	offset aSt01_mpn ; "st01.mpn"
-		jmp	loc_B4A6
-; ---------------------------------------------------------------------------
-
-loc_B41E:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss2_cd2 ; "BSS2.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt02_bft ; "st02.bft"
-		call	@stage3_setup$qv
-		push	ds
-		push	offset aSt02_mpn ; "st02.mpn"
-		jmp	short loc_B4A6
-; ---------------------------------------------------------------------------
-
-loc_B437:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss3_cd2 ; "BSS3.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt03_bft ; "st03.bft"
-		call	@stage4_setup$qv
-		push	ds
-		push	offset aSt03_mpn ; "st03.mpn"
-		jmp	short loc_B4A6
-; ---------------------------------------------------------------------------
-
-loc_B450:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss4_cd2 ; "BSS4.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt04_bft ; "st04.bft"
-		call	@stage5_setup$qv
-		push	ds
-		push	offset aSt04_mpn ; "st04.mpn"
-		jmp	short loc_B4A6
-; ---------------------------------------------------------------------------
-
-loc_B469:
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss4_cd2_0 ; "BSS4.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt04_bft_0 ; "st04.bft"
-		call	@stage6_setup$qv
-		mov	_bg_render_not_bombing, offset @shinki_bg_render$qv
-		mov	_bg_render_bombing_func, offset @shinki_bg_render$qv
-		jmp	short loc_B4A9
-; ---------------------------------------------------------------------------
-
-loc_B48A:
-		nopcall	_player_shot_level_update
-		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss6_cd2 ; "BSS6.CD2"
-		call	super_entry_bfnt pascal, ds, offset aSt06_bft ; "st06.bft"
-		call	@stagex_setup$qv
-		push	ds
-		push	offset aSt06_mpn ; "st06.mpn"
-
-loc_B4A6:
-		call	mpn_load
-
-loc_B4A9:
-		call	@map_load$qv
-		call	@std_load$qv
-		call	@dialog_load$qv
-		call	tiles_fill_initial
-		graph_accesspage 0
-
-loc_B4BB:
-		cmp	vsync_Count2, 80h
-		jb	short loc_B4BB
-		push	1
-		call	palette_black_out
-		mov	PaletteTone, 100
-		call	far ptr	palette_show
-		call	@overlay_black$qv
-		call	@tiles_render_all$qv
-		mov	_page_back, 1
-		mov	_page_front, 0
-		graph_accesspage 1
-		graph_showpage 0
-		call	@tiles_render_all$qv
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jz	short loc_B506
-		cmp	es:[bx+resident_t.demo_num], 5
-		jnz	short loc_B52C
-
-loc_B506:
-		les	bx, off_20A86
-		mov	byte ptr es:[bx+2], 30h	; '0'
-		mov	al, _stage_id
-		add	al, 30h	; '0'
-		mov	es:[bx+3], al
-		push	word ptr off_20A86+2
-		push	bx
-		push	SND_LOAD_SONG
-		call	snd_load
-		kajacall	KAJA_SONG_PLAY
-
-loc_B52C:
-		mov	_overlay1, offset @overlay_stage_enter_update_and_r$qv
-		mov	_overlay2, offset nullfunc_near
-		pop	si
-		pop	bp
-		retn
-sub_B237	endp
-
-; ---------------------------------------------------------------------------
-		db 0
-off_B53C	dw offset loc_B3EA
-		dw offset loc_B404
-		dw offset loc_B41E
-		dw offset loc_B437
-		dw offset loc_B450
-		dw offset loc_B469
-		dw offset loc_B48A
-off_B54A	dw offset loc_B37E
-		dw offset loc_B384
-		dw offset loc_B38A
-		dw offset loc_B390
-off_B552	dw offset loc_B33E
-		dw offset loc_B344
-		dw offset loc_B34A
-		dw offset loc_B350
 
 	; stage_init() -- the name a naming round gave TH04's twin sub_B1D0, after
 	; TH02's function in the same role -- was lifted out of here and is now ONE
@@ -4495,10 +4007,22 @@ _debug_mode_active	db 0
 		dd aVersion1_01		; "version 1.01"
 include th04/gaiji/pause[data].asm
 	evendata
-public _eyename, _bbname
+public _eyename, _stage_is_first, _bgmname, _bbname
+public _EYE_RGB_FN, _PLAYCHAR_REIMU_BFNT_FN, _PLAYCHAR_MARISA_BFNT_FN
+public _PLAYCHAR_MIMA_BFNT_FN, _PLAYCHAR_YUUKA_BFNT_FN
+public _MIKOD_BFNT_FN, _MIKO32_BFNT_FN, _MIKO16_BFNT_FN
+public _REIMU16_BFNT_FN, _MARISA16_BFNT_FN, _MIMA16_BFNT_FN
+public _YUUKA16_BFNT_FN
+public _STAGE1_BOSS_FACESET_FN, _STAGE1_BFNT_FN, _STAGE1_MPN_FN
+public _STAGE2_BOSS_FACESET_FN, _STAGE2_BFNT_FN, _STAGE2_MPN_FN
+public _STAGE3_BOSS_FACESET_FN, _STAGE3_BFNT_FN, _STAGE3_MPN_FN
+public _STAGE4_BOSS_FACESET_FN, _STAGE4_BFNT_FN, _STAGE4_MPN_FN
+public _STAGE5_BOSS_FACESET_FN, _STAGE5_BFNT_FN, _STAGE5_MPN_FN
+public _STAGE6_BOSS_FACESET_FN, _STAGE6_BFNT_FN
+public _STAGEX_BOSS_FACESET_FN, _STAGEX_BFNT_FN, _STAGEX_MPN_FN
 _eyename	dd _EYECATCH_FN
-word_20A84	dw 0
-off_20A86	dd aSt00
+_stage_is_first	dw 0
+_bgmname	dd aSt00
 					; "ST00"
 _bbname	dd aBb0_cdg_0	; ZUN symbol [MAGNet2010]
 aVersion1_01	db 'version 1.01',0
@@ -4512,41 +4036,41 @@ aMiko		db 'miko',0
 _arg0	label byte
 arg0		db 'op',0
 aSt00		db 'ST00',0
-aEye_rgb	db 'eye.rgb',0
-aReimu_bft	db 'reimu.bft',0
-aMari_bft	db 'mari.bft',0
-aMima_bft	db 'mima.bft',0
-aYuka_bft	db 'yuka.bft',0
-aMikod_bft	db 'mikod.bft',0
-aMiko32_bft	db 'miko32.bft',0
-aReimu16_bft	db 'reimu16.bft',0
-aMari16_bft	db 'mari16.bft',0
-aMima16_bft	db 'mima16.bft',0
-aYuka16_bft	db 'yuka16.bft',0
-aMiko16_bft	db 'miko16.bft',0
+_EYE_RGB_FN	db 'eye.rgb',0
+_PLAYCHAR_REIMU_BFNT_FN	db 'reimu.bft',0
+_PLAYCHAR_MARISA_BFNT_FN	db 'mari.bft',0
+_PLAYCHAR_MIMA_BFNT_FN	db 'mima.bft',0
+_PLAYCHAR_YUUKA_BFNT_FN	db 'yuka.bft',0
+_MIKOD_BFNT_FN	db 'mikod.bft',0
+_MIKO32_BFNT_FN	db 'miko32.bft',0
+_REIMU16_BFNT_FN	db 'reimu16.bft',0
+_MARISA16_BFNT_FN	db 'mari16.bft',0
+_MIMA16_BFNT_FN	db 'mima16.bft',0
+_YUUKA16_BFNT_FN	db 'yuka16.bft',0
+_MIKO16_BFNT_FN	db 'miko16.bft',0
 public _BOMB_SHAPE_YUUKA_FN, _BOMB_SHAPE_FN
 _BOMB_SHAPE_YUUKA_FN	db 'bomb3.bft',0
 _BOMB_SHAPE_FN	    	db 'bomb0.bft',0
-aBss0_cd2	db 'BSS0.CD2',0
-aSt00_bft	db 'st00.bft',0
-aSt00_mpn	db 'st00.mpn',0
-aBss1_cd2	db 'BSS1.CD2',0
-aSt01_bft	db 'st01.bft',0
-aSt01_mpn	db 'st01.mpn',0
-aBss2_cd2	db 'BSS2.CD2',0
-aSt02_bft	db 'st02.bft',0
-aSt02_mpn	db 'st02.mpn',0
-aBss3_cd2	db 'BSS3.CD2',0
-aSt03_bft	db 'st03.bft',0
-aSt03_mpn	db 'st03.mpn',0
-aBss4_cd2	db 'BSS4.CD2',0
-aSt04_bft	db 'st04.bft',0
-aSt04_mpn	db 'st04.mpn',0
-aBss4_cd2_0	db 'BSS4.CD2',0
-aSt04_bft_0	db 'st04.bft',0
-aBss6_cd2	db 'BSS6.CD2',0
-aSt06_bft	db 'st06.bft',0
-aSt06_mpn	db 'st06.mpn',0
+_STAGE1_BOSS_FACESET_FN	db 'BSS0.CD2',0
+_STAGE1_BFNT_FN	db 'st00.bft',0
+_STAGE1_MPN_FN	db 'st00.mpn',0
+_STAGE2_BOSS_FACESET_FN	db 'BSS1.CD2',0
+_STAGE2_BFNT_FN	db 'st01.bft',0
+_STAGE2_MPN_FN	db 'st01.mpn',0
+_STAGE3_BOSS_FACESET_FN	db 'BSS2.CD2',0
+_STAGE3_BFNT_FN	db 'st02.bft',0
+_STAGE3_MPN_FN	db 'st02.mpn',0
+_STAGE4_BOSS_FACESET_FN	db 'BSS3.CD2',0
+_STAGE4_BFNT_FN	db 'st03.bft',0
+_STAGE4_MPN_FN	db 'st03.mpn',0
+_STAGE5_BOSS_FACESET_FN	db 'BSS4.CD2',0
+_STAGE5_BFNT_FN	db 'st04.bft',0
+_STAGE5_MPN_FN	db 'st04.mpn',0
+_STAGE6_BOSS_FACESET_FN	db 'BSS4.CD2',0
+_STAGE6_BFNT_FN	db 'st04.bft',0
+_STAGEX_BOSS_FACESET_FN	db 'BSS6.CD2',0
+_STAGEX_BFNT_FN	db 'st06.bft',0
+_STAGEX_MPN_FN	db 'st06.mpn',0
 include th04/main/pause[data].asm
 include th04/main/demo[data].asm
 public _EMS_NAME
@@ -5027,6 +4551,7 @@ _MIDBOSS5_PATTERNS_PHASE_1 label word
 		dw offset @pattern_aimed_pellet_stacks$qv
 include th04/main/hud/overlay[data].asm
 	evendata
+public _SHOT_FUNCS
 _SHOT_FUNCS label word
 	; Reimu
 	dw @shot_l0$qv
