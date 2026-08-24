@@ -21,7 +21,7 @@
 // The filename template lives in the original's `_DATA` and is mutated in
 // place with the stage number, so it can't be a string literal here — that
 // would grow `_DATA` and shift everything after it. (kb/codegen/0084)
-extern "C" char aStage_dt1[];
+extern "C" char stage_data_fn[];
 
 // th02/main/enemy/enemy.inc is the mirror the oracle grades: every field name
 // it defines was substituted into th02_main.asm in place of the displacement
@@ -65,7 +65,7 @@ void far enemy_stagedata_load(void)
 	enemy_template_t near *p;
 	uint8_t far *src;
 
-	fn = aStage_dt1;
+	fn = stage_data_fn;
 	fn[5] = ('0' + stage_id);
 	file_ropen(fn);
 	file_read(&file_size, sizeof(file_size));

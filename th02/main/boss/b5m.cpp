@@ -62,14 +62,13 @@ extern "C" int patnum_2064E;
 
 /// Mima's other procs
 /// ------------------
-/// Her patterns, her renderers, and the hit test. All near. mima_19C8D() is
-/// th02/main/boss/b5.cpp in main_03__TEXT, which this object reaches near
-/// through the MAIN_03 group; mima_18B4B() and the four below it are defined
-/// in this file, further down; the rest are still ASM in BOSS_5_TEXT.
-/// mima_17F27() through mima_18A1B() are defined here too, ahead of those
-/// five, so they need no declaration at all. mima_180AC() is the exception
-/// that stays `extern "C"` on merit rather than habit: th02/main/boss/b5.cpp
-/// is a different object and calls it near through the MAIN_03 group.
+/// Her patterns, renderers, hit test, and update are all C++ now. The only
+/// forward declaration needed for this file's own source order is
+/// mima_17E91(), called by mima_bg_render() before its definition. mima_19C8D()
+/// and mima_end() are defined in th02/main/boss/b5.cpp and therefore require
+/// cross-object declarations here. mima_180AC() goes the other direction: its
+/// definition below retains C linkage because b5.cpp calls it near through the
+/// MAIN_03 group.
 
 // Defined further down this file, but mima_bg_render() is above it.
 extern "C" void near mima_17E91(void);
@@ -284,8 +283,8 @@ static const pixel_t MIMA_SHOTS_HITBOX_H = 64;
 // with the radius, one pixel of edge per 64 of it.
 //
 // `static`: mima_bg_render() below is its only caller, and the dump no longer
-// holds one. `pascal` all the same, because the original is - five word
-// arguments and a `retn 0Ah`.
+// holds one. It remains `pascal`: before the lift, its five word arguments
+// ended in `retn 0Ah` (`b718d36d:th02_main.asm:8685`).
 static void pascal near mima_17A7F(
 	int col, uint8_t angle_skew, int angle_step, uint8_t with_circle,
 	int angle_start
@@ -504,10 +503,9 @@ extern "C" void near mima_17D59(void)
 // ones that were flagged for removal. th02/main/boss/b3.cpp's
 // stones_bg_render() is the same shape one boss down.
 //
-// `extern "C"` rather than static because mima_bg_render(), which is still ASM
-// in this segment, is its only caller and reaches it through an
-// `extrn _mima_17E91:near` - the same route th02_main.asm already uses for
-// boss_playfield_reset() at the top of this very segment.
+// mima_bg_render() above is its only caller now. The forward declaration keeps
+// this source order; before that caller's lift, the root reached this body via
+// `extrn _mima_17E91:near` (`4c235f13:th02_main.asm:619`).
 extern "C" void near mima_17E91(void)
 {
 	register int i;
@@ -882,8 +880,9 @@ extern "C" void near mima_181B3(void)
 			player_is_hit = PLAYER_HIT;
 		}
 		// ZUN quirk: the mask is ZERO, so the test can never be true and the
-		// 150 is unreachable. `[measured]` off the original's
-		// `test byte ptr _boss_phase_frame, 0`.
+		// 150 is unreachable. Before the lift, the listing used
+		// `test byte ptr _boss_phase_frame, 0`
+		// (`0c59da76:th02_main.asm:9549`).
 		if(boss_phase_frame & 0) {
 			mima_ray_tone = 150;
 		} else {

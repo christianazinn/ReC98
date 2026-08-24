@@ -10,9 +10,9 @@
 /// this is its own translation unit, linked between the dump and
 /// th02/dialog.cpp, and it carries the pad itself (kb/codegen/0161).
 ///
-/// Everything stones_update() dispatches to - the per-frame movement, the
-/// eleven bullet patterns and the take-over animation - is still in the dump
-/// directly above, and published for this object's sake.
+/// The earlier lifts were prepended in dump order, so everything
+/// stones_update() dispatches to - the per-frame movement, the eleven bullet
+/// patterns and the take-over animation - is now above it in this same file.
 
 // -zC, because the segment name would otherwise come from this file's own
 // basename (kb/codegen/0105). -G, because the prolog is `push bp; mov bp, sp`
@@ -62,8 +62,8 @@ extern "C" screen_y_t stone_top[STONE_COUNT];
 
 extern "C" uint8_t stone_hit_flash[STONE_COUNT];
 
-// Still ASM, in th02_main.asm's own MAIN_03 block, and already published there.
-// th02/main/bgm_show.cpp declares it the same way.
+// th02/main/enemy/enemies.cpp, retaining C linkage because this is a different
+// object. th02/main/bgm_show.cpp declares it the same way.
 extern "C" void far enemies_remove_all(void);
 
 // How far each stone is into its kill animation, and the one array in this

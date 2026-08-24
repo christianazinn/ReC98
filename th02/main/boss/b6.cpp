@@ -363,7 +363,8 @@ extern "C" uint8_t sigma_ring_radius;
 // player-compare rule, and `velocity_x` is the house concept
 // (enemy_t::velocity_x, ITEM_MISS_VELOCITY_X_CENTER). NOT a `_dx` suffix: in
 // this tree `dx` means the DX register (grcg_off_clobbering_dx).
-// `[measured]` Signed: every read is `mov al` + `cbw`.
+// `[measured]` Signed: before the lift, every read used `mov al` + `cbw`
+// (`e6e849d7:th02_main.asm:6159`).
 // Sigma-exclusive AND helper-exclusive -- all four references in th02_main.asm
 // were inside sigma_165A5, so this lift held the last of them and IDA's name is
 // RETIRED rather than aliased, the way [mima_velocity_y] in that same _BSS block
@@ -380,7 +381,8 @@ extern "C" int8_t sigma_sweep_velocity_x;
 // literal 1 in either direction rather than through a second latched byte, so
 // there is no `_y` member to name.
 //
-// `[measured]` Signed, on `mov al` + `cbw` at all three reads; Sigma-exclusive
+// `[measured]` Signed: before the lift, all three reads used `mov al` + `cbw`
+// (`351a6285:th02_main.asm:5223`). Sigma-exclusive
 // and helper-exclusive, all four references in th02_main.asm -- one write on the
 // latch frame and one read on each of the three legs -- having been inside the
 // helper itself, so this lift held the last of them and IDA's name is RETIRED
@@ -428,8 +430,9 @@ extern "C" screen_y_t sigma_stream_y;
 extern "C" screen_x_t sigma_stream_mirror_x;
 
 // How much sigma_blasts_update_and_render() shrinks an expanding blast's lethal
-// square relative to the circle it draws. `[measured]` SIGNED, and every read is
-// `mov al` + `cbw`: a positive value insets the hitbox, a negative one GROWS it
+// square relative to the circle it draws. `[measured]` SIGNED: before the lift,
+// every read used `mov al` + `cbw` (`6848edb1:th02_main.asm:4607`). A positive
+// value insets the hitbox, a negative one GROWS it
 // past the drawn radius, and the lethal shape is an axis-aligned square of
 // half-extent `radius - this` against the player's 32x32 box even though the
 // visual is a disc.
@@ -541,8 +544,8 @@ struct sigma_blast_t {
 	// change; in state 4 it is incremented and never read.
 	uint8_t state_frame;
 
-	// `[measured]` SIGNED, from the `jle`/`jge` pair each is bounds-checked
-	// with at the spawn.
+	// `[measured]` SIGNED: before the lift, each coordinate was bounds-checked
+	// with a `jle`/`jge` pair (`6848edb1:th02_main.asm:4406`).
 	screen_x_t center_x;
 	screen_y_t center_y;
 
@@ -924,8 +927,9 @@ extern "C" void near sigma_hittest_and_put(void)
 	// references to the other one: Turbo C++ 4.02 gives the first local
 	// declared the slot CLOSEST to BP, so the original's [bp-4] for the saved
 	// cel and [bp-2] for the damage means the damage is declared above it.
-	// Nothing else in the function depends on the order, and the frame is
-	// `sub sp, 4` either way, so this is invisible outside the object.
+	// Nothing else in the function depends on the order. Before the lift, the
+	// frame was `sub sp, 4` (`e6e849d7:th02_main.asm:4750`) either way, so this
+	// is invisible outside the object.
 	int damage;
 	int patnum_prev;
 
@@ -1273,7 +1277,8 @@ extern "C" bool16 near sigma_15A25(void)
 // identifier is where that lives -- the same way [sigma_blasts_add]'s inverted
 // return is carried in prose above.
 //
-// `[measured]` Signed, on `mov al` + `cbw` at all three reads.
+// `[measured]` Signed: before the lift, all three reads used `mov al` + `cbw`
+// (`9916fed0:th02_main.asm:5223`).
 extern "C" int8_t sigma_dash_velocity_x;
 
 // Half the angular width of the pellet spray slot 0's last stage fires, in
@@ -1326,8 +1331,9 @@ static const uint8_t SIGMA_SPRAY_SPEED_JITTER_MASK = 0x1F;
 extern "C" void near sigma_15D56(void)
 {
 	// The volley counter, `register` because the original keeps it in SI. Only
-	// one register local here against sigma_15F95()'s two, and the frame is
-	// `sub sp, 2` for the one-byte angle below either way.
+	// one register local here against sigma_15F95()'s two. Before the lift, the
+	// frame was `sub sp, 2` (`351a6285:th02_main.asm:5186`) for the one-byte
+	// angle below either way.
 	register int i;
 
 	// The spray's angle for this volley, and a local for the same reason
@@ -1555,8 +1561,9 @@ static bool16 near sigma_move_weave(void)
 	}
 
 	// `++` and `--` on the page-indexed y rather than `+= 1` / `-= 1`:
-	// kb/codegen/0094's first discriminator, and the original takes the
-	// dedicated `inc`/`dec word ptr [bx]` forms. The x steps go through the
+	// kb/codegen/0094's first discriminator. Before the lift, these used the
+	// dedicated `inc`/`dec word ptr [bx]` forms
+	// (`351a6285:th02_main.asm:5425`). The x steps go through the
 	// latched byte, so they are ordinary `add`/`sub` of a widened AL.
 	if(boss_phase_frame < SIGMA_WEAVE_LEG_1_END) {
 		*boss_left_on_back_page += sigma_weave_velocity_x;
@@ -1688,8 +1695,8 @@ extern "C" void near sigma_15F95(void)
 
 	// The antipode of [sigma_orbit_angle], and a local because the original
 	// computes it into [bp-1] and then reads it back for the second lookup
-	// rather than recomputing it. Its declaration is what makes the frame
-	// `sub sp, 2` for one byte.
+	// rather than recomputing it. Before the lift, its declaration made the
+	// frame `sub sp, 2` for one byte (`090d7a19:th02_main.asm:5501`).
 	uint8_t angle_antipodal;
 
 	if(boss_phase_frame < SIGMA_MOVE_HOLD_FRAMES) {
@@ -1997,18 +2004,18 @@ struct sigma_laser_x_offsets_t {
 extern "C" const sigma_laser_x_offsets_t SIGMA_LASER_X_OFFSETS;
 
 // Which muzzle the next laser of the current volley comes out of. `[measured]`
-// A SIGNED byte, and the array index is where it shows: all four reads are
-// `mov al` + `cbw`, not `mov ah, 0`.
+// A SIGNED byte, and the array index is where it shows: before the lift, all
+// four reads used `mov al` + `cbw`, not `mov ah, 0`
+// (`ce85cffc:th02_main.asm:5853`).
 extern "C" int8_t sigma_laser_i;
 
 // The frame the muzzle walk is re-armed on, before the first volley.
 //
 // `[measured]` 100 is also SIGMA_STREAM_AIM_FRAME (phase 7) and the setup frame
 // of sigma_15F95() and sigma_1619C(), so four of her patterns share the number.
-// Folding them into one constant is a ruling over five call sites, and this
-// comment said three of those were still ASM -- `[measured 2026-08-22]` all five
-// are in this file now, so the fold is a decision a naming parcel can take
-// against nothing but this object.
+// Folding them into one constant is a ruling over five call sites. All five
+// have been in this file since 2026-08-22, so the fold is a decision a naming
+// parcel can take against nothing but this object.
 static const int SIGMA_LASER_ARM_FRAME = 100;
 
 // The six frames the two volleys fire on, and the counts are not laid out the

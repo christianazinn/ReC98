@@ -106,14 +106,14 @@ PFOPEN_2:
 
 	; ターゲットファイルまでシーク
 	lea	DI,[BP+@@header]
-	;call	SEEK Pascal,DI,SI,[BP+parfile],[BP+file]
+	;call	PF_HEADER_SEEK Pascal,DI,SI,[BP+parfile],[BP+file]
 	push	DI		; _ss * header
 	push	SI		; pf
 	push	word ptr [BP+@@parfile+2]
 	push	word ptr [BP+@@parfile]
 	push	word ptr [BP+@@file+2]
 	push	word ptr [BP+@@file]
-	call	near ptr SEEK
+	call	near ptr PF_HEADER_SEEK
 
 	or	AX,AX
 	jnz	short PFOPEN_close
@@ -189,7 +189,9 @@ endfunc	; }
 ;-----------------------------------------------------------------------------
 ; seek(pfHeader _ss *header, pf_t pf, const char MASTER_PTR *parfile,const char MASTER_PTR *file)
 ;-----------------------------------------------------------------------------
-SEEK	proc near	; {
+public PF_HEADER_SEEK
+PF_HEADER_SEEK label near
+SEEK	proc near	; Original master.lib private name. {
 	enter	size exeHeader,0
 	push	SI
 	push	DI

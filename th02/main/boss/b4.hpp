@@ -6,8 +6,8 @@
 /// Marisa herself
 /// --------------
 
-// Top-left corner of the sprite, in screen space. Every blit in Marisa's
-// still-ASM code takes .x and .y directly.
+// Top-left corner of the sprite, in screen space. Every blit in
+// th02/main/boss/b4.cpp takes .x and .y directly.
 //
 // `[measured]` The same storage is *also* the stage-4 midboss's top-left:
 // midboss4_19F52() and midboss4_19FAF() blit from it too, and derive their own
@@ -104,7 +104,9 @@ extern screen_y_t* marisa_orb_top_on_back_page[MARISA_ORB_COUNT];
 // and out by walking this array directly.
 //
 // `[measured]` state/notes/marisa_bg_render.md already recorded the name and
-// the evidence - marisa_1B3DE() places each orb at
+// the evidence. Before the lift, each indexed access used
+// `word_26D42[bx]` (`56b74410:th02_main.asm:17547`); marisa_1B3DE() places each
+// orb at
 // `(radius * _CosTable8[angle]) >> 8` from that center - and th02_main.asm
 // already carried the kb/codegen/0123 alias unpublished. This parcel only adds
 // the `public`.
@@ -188,10 +190,10 @@ static const pixel_t MARISA_SWOOP_RADIUS = 112;
 // Which of the three stages of the fight Marisa is in. Not [boss_phase],
 // which stays 0 for all three of these and only turns 1 once she is defeated.
 //
-// `[measured]` Reused as its own 0/1 state by the still-ASM stage-4 midboss
-// (@midboss4_update_and_render$qv), the same way [marisa_topleft] is. Every
-// access in either is an equality test, so nothing in the dump says whether
-// the slot is signed.
+// `[measured]` Reused as its own 0/1 state by
+// midboss4_update_and_render() in th02/main/midboss/m4.cpp, the same way
+// [marisa_topleft] is. Every access in either is an equality test, so the
+// pre-lift listing does not establish whether the slot is signed.
 extern int marisa_intro_step;
 
 // The pattern marisa_update() dispatches on, as a *signed* char: 1 to 6 are

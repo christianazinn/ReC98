@@ -11,11 +11,11 @@
 #include "platform.h"
 
 // Every function TH02 installs into these is __cdecl, unlike TH03-TH05's
-// __pascal callbacks (platform.h's farfunc_t_near): the defaults publish as
-// `@nullfunc_void$qv` / `@nullfunc_false$qv` in lower case, which is
-// Borland's __cdecl decoration (kb/codegen/0086). They were
-// th02/main/null.asm until MAIN_01___TEXT went fully C++; the decoration
-// is now what th02/main/bgm_show.cpp's own definitions emit.
+// __pascal callbacks (platform.h's farfunc_t_near). Before MAIN_01___TEXT went
+// fully C++, the default symbols in the module included at
+// `6654b796:th02_main.asm:323` used Borland's lower-case __cdecl decoration
+// (kb/codegen/0086); that is also what
+// th02/main/bgm_show.cpp's definitions emit now.
 //
 // For a parameterless call the two conventions emit identical bytes, so
 // declaring these as farfunc_t_near also builds, links, and matches — which is

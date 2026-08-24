@@ -59,7 +59,7 @@ void pascal sparks_add(
 	TO_SP_INPLACE(left);
 	TO_SP_INPLACE(top);
 
-	// ZUN bloat: `p = &sparks[sparks_ring_i];`
+	// ZUN bloat: `p = &sparks[spark_ring_i];`
 	p = unneeded_copy = sparks;
 	slot_i = _AX = spark_ring_i;
 	_CL = sizeof(spark_t);

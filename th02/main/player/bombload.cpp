@@ -29,11 +29,11 @@
 
 // The filenames still live in th02_main.asm's own _DATA contribution, so they
 // have to be referenced rather than re-emitted. (kb/codegen/0084)
-extern "C" const char aBombs_bft[];
-extern "C" const char aBomb1_pi[];
-extern "C" const char aBomb3_pi[];
-extern "C" const char aBomb2_pi[];
-extern "C" const char aBomb1_bft[];
+extern "C" const char bomb_bft_fn[];
+extern "C" const char bomb_reimu_a_pi_fn[];
+extern "C" const char bomb_reimu_c_pi_fn[];
+extern "C" const char bomb_reimu_b_pi_fn[];
+extern "C" const char bomb_reimu_b_bft_fn[];
 
 // The shottype-specific bomb animations, defined in bomb.cpp. All three return
 // true once their animation is over, matching [playchar_bomb_func].
@@ -52,7 +52,7 @@ extern uint8_t *bomb_bft;
 
 void near bomb_load(void)
 {
-	file_ropen(aBombs_bft);
+	file_ropen(bomb_bft_fn);
 	file_seek(0x20, SEEK_SET);
 	bomb_bft = reinterpret_cast<uint8_t __seg *>(
 		hmem_allocbyte(BOMB_BFT_SIZE)
@@ -60,18 +60,18 @@ void near bomb_load(void)
 	file_read(bomb_bft, BOMB_BFT_SIZE);
 	file_close();
 	if(resident->shottype == 0) {
-		pi_load(1, aBomb1_pi);
+		pi_load(1, bomb_reimu_a_pi_fn);
 		playchar_bomb_func = bomb_reimu_a;
 		return;
 	}
 	if(resident->shottype == 2) {
-		pi_load(1, aBomb3_pi);
+		pi_load(1, bomb_reimu_c_pi_fn);
 		playchar_bomb_func = bomb_reimu_c;
 		return;
 	}
 	if(resident->shottype == 1) {
-		pi_load(1, aBomb2_pi);
-		file_ropen(aBomb1_bft);
+		pi_load(1, bomb_reimu_b_pi_fn);
+		file_ropen(bomb_reimu_b_bft_fn);
 		file_seek(0x50, SEEK_SET);
 		bomb1_bft = reinterpret_cast<uint8_t __seg *>(
 			hmem_allocbyte(BOMB1_BFT_SIZE)

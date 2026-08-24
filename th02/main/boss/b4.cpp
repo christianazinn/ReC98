@@ -100,13 +100,13 @@ extern "C" int boss_pos_y;
 // animation.
 extern "C" uint8_t boss_phase;
 
-/// Marisa's still-ASM helpers
-/// --------------------------
-/// None left. marisa_1AA60() is defined below, and keeps the dump's own
+/// Marisa's former ASM helpers
+/// ---------------------------
+/// All are C++ now. marisa_1AA60() is defined below and keeps the dump's own
 /// address-suffixed spelling: naming it is a separate decision that this parcel
 /// does not make, and it is not matched by tools/re/naming_precheck.py's
 /// placeholder pattern, which is keyed on IDA's own kind prefixes.
-/// --------------------------
+/// ---------------------------
 
 
 // th02/main/stage/init.cpp, which declares it identically - including the
@@ -1101,8 +1101,9 @@ extern "C" void near marisa_1B3DE(void)
 		if(marisa_orb_flag[i] == MOF_ALIVE) {
 			marisa_orb_angle[i] += marisa_orb_angle_delta[i];
 
-			// `[measured]` A 32-bit multiply, from `movsx eax` on both
-			// operands: the products reach 0x7F00 for a ring at radius 127 and
+			// `[measured]` A 32-bit multiply: before the lift, both operands
+			// used `movsx eax` (`291959a1:th02_main.asm:17551`). The products
+			// reach 0x7F00 for a ring at radius 127 and
 			// would still fit in 16 bits, but ZUN wrote the same
 			// `(radius * table) >> 8` shape everywhere and Turbo C++ 4.0J
 			// widens both sides of it.
@@ -1240,8 +1241,9 @@ extern "C" void near marisa_1B555(void)
 
 
 // Steps [patnum_2064E] through Marisa's five cast cels at fixed offsets from
-// [frame], and plays the cast sound on the first of them. `pascal` (`retn 2`),
-// hence the C++ mangling rather than the `extern "C"` the rest of this file
+// [frame], and plays the cast sound on the first of them. Its pre-lift body was
+// `pascal`, ending in `retn 2` (`56b74410:th02_main.asm:17873`), hence the C++
+// mangling rather than the `extern "C"` the rest of this file
 // uses; th02/formats/mpn.hpp declares mpn_put_8() the same way.
 //
 // The cel at [frame] and the one at ([frame] + 30) are the same one, so the
@@ -1550,8 +1552,9 @@ extern "C" void near marisa_1BAFF(void)
 	} else if(boss_phase_frame == 300) {
 		boss_phase_frame = 0;
 		// A compound multiply-assign rather than x = (x * -1), and that is
-		// kb/codegen/0052 rather than style: the compound form expands via AX as
-		// `mov ax, -1` / `imul [x]`, which is what the original has, while the
+		// kb/codegen/0052 rather than style. Before the lift, the compound form
+		// expanded via AX as `mov ax, -1` / `imul [x]`
+		// (`56b74410:th02_main.asm:18405`), while the
 		// expanded form gives the 386 two-operand `imul ax, ax, -1`. Both are
 		// four instructions and neither moves a branch displacement, so only
 		// an encoding-level comparison separates them. marisa_1BC43() below

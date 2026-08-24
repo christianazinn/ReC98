@@ -53,9 +53,9 @@ extern "C" int near shot_option_hit_damage[SHOT_LEVEL_MAX + 1];
 extern "C" int near shot_hit_damage_large[SHOT_LEVEL_MAX + 1];
 
 // ANDed with [stage_frame] to gate the one point of damage a bomb deals per
-// call. The still-ASM boss code sets it to 3 and to 1, i.e. every 4th and every
-// 2nd frame respectively; the dump's initializer is 1. Compared byte-wide
-// against a uint32_t [stage_frame], which is what pins it to uint8_t.
+// call. Marisa's code in th02/main/boss/b4.cpp sets it to 3 and then back to
+// 1, i.e. every 4th and every 2nd frame respectively; the initializer is 1.
+// Compared byte-wide against a uint32_t [stage_frame], which pins it to uint8_t.
 extern "C" uint8_t bomb_damage_frame_mask;
 
 // ZUN quirk: The hit test covers 35 of the SHOT_COUNT == 38 slots, so shots in
@@ -95,8 +95,9 @@ static const int SHOT_PATNUM_HIT_LARGE = 0x78;
 
 // Byte offsets of [pos_on_page][0].x and .y within a shot_t, and the stride
 // between the two pages. uint8_t rather than int, and spelled out rather than
-// as `sizeof(SPPoint)`: the original computes the hoisted page offset entirely
-// in 8-bit registers (`mov al, _page_back` / `shl al, 2` / `add al, 4`), which
+// as `sizeof(SPPoint)`: before the lift, the hoisted page offset was computed
+// entirely in 8-bit registers (`mov al, _page_back` / `shl al, 2` /
+// `add al, 4`; `fbb96bba:th02_main.asm:3700`), which
 // Turbo C++ 4.0J only does when every operand and the destination are
 // byte-sized, and `sizeof` would be a size_t. (kb/codegen/0029)
 static const uint8_t SHOT_POS_PAGE_STRIDE = 4;

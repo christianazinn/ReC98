@@ -136,11 +136,11 @@ extern "C" const char aMap[];
 extern "C" const char aMpn[];
 extern "C" const char aM[];
 extern "C" const char aMiko_k_mpn[];
-extern "C" const char aHuuma_efc[];
-extern "C" const char aEye_pi[];
-extern "C" const char aMiko_bft[];
-extern "C" const char aMiko32_bft[];
-extern "C" const char aMiko16_bft[];
+extern "C" const char huuma_efc_fn[];
+extern "C" const char eye_pi_fn[];
+extern "C" const char miko_bft_fn[];
+extern "C" const char miko32_bft_fn[];
+extern "C" const char miko16_bft_fn[];
 
 // The [farfp_1F4A4] slot: main() calls the per-stage gameplay loop through
 // it, and gameplay_init() is the only thing that ever writes it.
@@ -171,12 +171,12 @@ bool16 stage_loop(void);
 // outlives a stage transition.
 void near gameplay_init(void)
 {
-	snd_load(aHuuma_efc, SND_LOAD_SE);
+	snd_load(huuma_efc_fn, SND_LOAD_SE);
 	hiscore_get();
-	pi_load(0, aEye_pi);
-	super_entry_bfnt(aMiko_bft);
-	super_entry_bfnt(aMiko32_bft);
-	super_entry_bfnt(aMiko16_bft);
+	pi_load(0, eye_pi_fn);
+	super_entry_bfnt(miko_bft_fn);
+	super_entry_bfnt(miko32_bft_fn);
+	super_entry_bfnt(miko16_bft_fn);
 	for(int i = 48; i < 128; i++) {
 		super_convert_tiny(i);
 	}
