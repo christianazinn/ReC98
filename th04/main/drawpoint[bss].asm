@@ -1,5 +1,5 @@
 ; A random shared point variable used for drawing various things.
-; 
+;
 ; TH04's player_invalidate() proves that ZUN's source had the two halves as
 ; SEPARATE 16-bit variables at least at one call site, not as members of one
 ; struct: it passes them to tiles_invalidate_around() as TWO word pushes,
