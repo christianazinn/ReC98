@@ -153,8 +153,8 @@ void pascal near alice_backdrop_colorfill(void)
 }
 
 // Mai's and Yuki's, at 0DEC2h, immediately after Alice's — which is what makes
-// it reachable from here. It was th05_main.asm's
-// `include th04/hardware/fillm64-56_256-256.asm`, the FIRST item of
+// it reachable from here. It was the ASM module later compiled as
+// th04/hardware/fillm64.cpp, the FIRST item of
 // END_EXT_TEXT's root contribution, and it is the SAME BODY TH04 holds at
 // 0BEDAh under its own boss's name. The two carves above left END_EXT_A_TEXT
 // ending with this object's contribution and END_EXT_TEXT beginning at the very
@@ -162,5 +162,26 @@ void pascal near alice_backdrop_colorfill(void)
 // boundary DOWN past the module (kb/codegen/0148, in the head direction) and
 // the body appends here, still inside the same `#pragma codeseg` block.
 #include "th04/hardware/fillm64.cpp"
+
+/// Yumeko's callback lives in a segment between two ASM blocks
+/// -----------------------------------------------------------
+/// The two modules at the head of the original END_EXT_TEXT remain in ASM, as
+/// does everything after this callback. th05_main.asm splits the segment into
+/// three adjacent pieces so this body can keep its original address while the
+/// tail retains the END_EXT_TEXT name required by th05/end_ext.cpp.
+#pragma codeseg YUMEKO_COLORFILL_TEXT main_01
+
+// Yumeko's backdrop occupies the top 192 rows, leaving the bottom 176 rows to
+// be filled with the color already programmed by boss_backdrop_render().
+void pascal near yumeko_backdrop_colorfill(void)
+{
+	_ES = (
+		SEG_PLANE_B + (((192 + PLAYFIELD_TOP) * ROW_SIZE) / 16)
+	);
+	_DI = (((176 - 1) * ROW_SIZE) + PLAYFIELD_VRAM_LEFT);
+	grcg_fill_playfield_rows();
+}
+
+#pragma codeseg
 
 #pragma codeseg
