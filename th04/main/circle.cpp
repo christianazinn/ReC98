@@ -175,19 +175,23 @@ left_rect:
 	grcg_fill_playfield_rows_at(0, 112);
 }
 
-#pragma codeseg CIRCLE_C_TEXT main_01
-
-void pascal near mugetsu_gengetsu_backdrop_colorfill(void)
-{
-	grcg_fill_playfield_rows_at(192, 176);
-}
-
 #pragma codeseg IT_SPL_R_TEXT main_01
 
 // The root contributes grcg_modecol.asm ahead of this body. Keeping that
 // prefix in a separate segment lets CIRCLE_TEXT reopen at spark_render().
 #include "th04/main/item/splashes_render.cpp"
 #pragma codestring "\x00"
+
+#pragma codeseg CIRCLE_C_TEXT main_01
+
+// splashes_render.cpp must be seen first: splash.hpp declares its renderer,
+// and a function's first declaration fixes its segment in Turbo C++ 4.0J.
+#include "th04/main/item/invalidate.cpp"
+
+void pascal near mugetsu_gengetsu_backdrop_colorfill(void)
+{
+	grcg_fill_playfield_rows_at(192, 176);
+}
 
 #pragma codeseg
 #pragma option -k

@@ -1,3 +1,9 @@
+#ifndef TH04_MAIN_ITEM_SPLASH_HPP
+#define TH04_MAIN_ITEM_SPLASH_HPP
+
+// Guarded because th04/circle.cpp reaches this header through both the item
+// invalidator and the item splash renderer in the same translation unit.
+
 #include "th04/main/playfld.hpp"
 #include "th02/main/entity.hpp"
 
@@ -35,3 +41,5 @@ void near item_splashes_update(void);
 // caller; the same class of defect th04/formats/super.h records for
 // z_super_put_16x16_mono().
 extern "C" void pascal near item_splashes_render(void);
+
+#endif /* TH04_MAIN_ITEM_SPLASH_HPP */
