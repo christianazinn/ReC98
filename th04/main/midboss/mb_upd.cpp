@@ -63,9 +63,8 @@
 /// second push is the radius. No label is assigned; the taxonomy lane owns
 /// that call for this family (th04/main/midboss/mx.cpp).
 ///
-/// midbossx_update(), still ASM in the TAIL segment, is the only caller of
-/// either, and reaches both through a `procdesc near` there -- both segments
-/// are in the main_03 group, so those near calls' encodings never changed.
+/// midbossx_update() below is the only caller of either. All three functions
+/// now share this translation unit in their original address order.
 /// **A naming round is owed** for both address-suffixed spellings.
 
 // The full circle, counter-clockwise.
@@ -115,7 +114,7 @@ extern "C" void near midbossx_14700(void)
 /// ----------------------------------------------------------
 /// All four run one frame of a pattern on every sixteenth stage frame and do
 /// nothing on the other fifteen; that one guard is the whole of each function.
-/// Reached from midbossx_update() the same way the two helpers above are.
+/// Reached from midbossx_update() below.
 ///
 /// **A naming round is owed** for all four address-suffixed spellings.
 
@@ -195,3 +194,180 @@ extern "C" void near midbossx_14828(void)
 	}
 }
 /// ----------------------------------------------------------
+
+/// Extra Stage midboss - phase 5 event pattern
+/// --------------------------------------------
+/// Drops the phase's bonus items and fires its aimed spreads at exact frame
+/// values. This is the only caller-independent part of phase 5; movement and
+/// the phase timeout remain in midbossx_update().
+
+// Both generated table regions below carry one alignment byte in ZUN's
+// object. The linked binary, not the compiler listing, decides whether this
+// object prefix reproduces them (kb/codegen/0160).
+#pragma option -a2
+static void near midbossx_phase_5_pattern(void)
+{
+	switch(midboss.phase_frame) {
+	case 250:
+	case 258:
+	case 266:
+	case 274:
+		snd_se_play(9);
+		items_add(midboss.pos.cur.x.v, midboss.pos.cur.y.v, IT_DREAM);
+		break;
+
+	case 290:
+	case 298:
+	case 306:
+	case 314:
+	case 390:
+	case 398:
+	case 406:
+	case 414:
+	case 490:
+	case 498:
+	case 506:
+	case 514:
+		snd_se_play(3);
+		bullet_template.group = BG_SPREAD_AIMED;
+		bullet_template.count = 5;
+		bullet_template.delta.spread_angle = 6;
+		bullet_template.angle = 0;
+		bullet_template.speed.v = TO_SP(4);
+		bullet_template_tune();
+		bullets_add_regular();
+		break;
+
+	case 350:
+	case 358:
+	case 366:
+	case 374:
+		snd_se_play(9);
+		items_add(midboss.pos.cur.x.v, midboss.pos.cur.y.v, IT_BIGPOWER);
+		break;
+
+	case 450:
+		snd_se_play(9);
+		items_add(midboss.pos.cur.x.v, midboss.pos.cur.y.v, IT_1UP);
+		break;
+	}
+}
+/// --------------------------------------------
+
+/// Extra Stage midboss - update function
+/// -------------------------------------
+void pascal far midbossx_update(void)
+{
+	bullet_template.origin.x.v = midboss.pos.cur.x.v;
+	bullet_template.origin.y.v = midboss.pos.cur.y.v;
+	bullet_template.spawn_type = BST_PELLET;
+
+	switch(midboss.phase) {
+	case 0:
+		midbossx_146AF();
+		midboss.phase_frame++;
+		if(midboss.hp > 128) {
+			midboss.hp -= 32;
+		}
+		if(midboss.phase_frame < 128) {
+			break;
+		}
+		midbossx_1476F();
+		if(midboss.phase_frame < 320) {
+			break;
+		}
+		midboss.phase_frame = 0;
+		midboss.phase++;
+		return;
+
+	case 1:
+		midbossx_146AF();
+		midboss.phase_frame++;
+		if(midboss.hp < 896) {
+			midboss.hp += 8;
+		}
+		if(midboss.phase_frame < 128) {
+			break;
+		}
+		midbossx_1476F();
+		if(midboss.phase_frame < 320) {
+			break;
+		}
+		midboss.phase_frame = 0;
+		midboss.phase++;
+		return;
+
+	case 2:
+		midbossx_146AF();
+		midboss.phase_frame++;
+		if(midboss.hp > 128) {
+			midboss.hp -= 32;
+		}
+		if(midboss.phase_frame < 128) {
+			break;
+		}
+		midbossx_14798();
+		if(midboss.phase_frame < 320) {
+			break;
+		}
+		midboss.phase_frame = 0;
+		midboss.phase++;
+		return;
+
+	case 3:
+		if(midboss.phase_frame < 128) {
+			midbossx_146AF();
+		} else {
+			midbossx_14700();
+			midbossx_147DB();
+			if(midboss.hp < 768) {
+				midboss.hp += 8;
+			}
+		}
+		midboss.phase_frame++;
+		if(midboss.phase_frame < 640) {
+			break;
+		}
+		midboss.phase_frame = 0;
+		midboss.phase++;
+		return;
+
+	case 4:
+		midbossx_14700();
+		if(midboss.phase_frame >= 160) {
+			midbossx_14828();
+		}
+		midboss.phase_frame++;
+		if(midboss.phase_frame < 440) {
+			break;
+		}
+		midboss.phase_frame = 2;
+		midboss.phase++;
+		return;
+
+	case 5:
+		midbossx_14700();
+		midbossx_phase_5_pattern();
+		midboss.phase_frame++;
+		if(midboss.phase_frame < 520) {
+			break;
+		}
+		midboss.phase_frame = 2;
+		midboss.phase++;
+		return;
+
+	case 6:
+		midbossx_14700();
+		midboss.phase_frame++;
+		if(
+			(midboss.pos.cur.x.v <= TO_SP(-16)) ||
+			(midboss.pos.cur.x.v >= TO_SP(400))
+		) {
+			// Same-group far call (kb/codegen/0014).
+			_asm { nop; push cs; call near ptr midboss_reset }
+		}
+		break;
+	}
+}
+#pragma option -a1
+/// -------------------------------------
