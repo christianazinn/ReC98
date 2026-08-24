@@ -55,9 +55,9 @@ void pascal mpn_put_8(screen_x_t left, vram_y_t top, int slot, int image)
 		_AX = mpn_line(-2);
 		// Turbo C++'s inline assembler cannot spell FS/GS prefixes, and its
 		// pseudoregister dereferences emit the wrong bytes (codegen.hpp).
-		__emit__(0x64, 0x89, 0x05); // mov fs:[di], ax
-		_AX = mpn_line(-1);
 		__emit__(0x65, 0x89, 0x05); // mov gs:[di], ax
+		_AX = mpn_line(-1);
+		__emit__(0x64, 0x89, 0x05); // mov fs:[di], ax
 		asm { movsw; }
 		_DI += (ROW_SIZE - sizeof(mpn_line_dots_t));
 		asm { loop color_planes; }
