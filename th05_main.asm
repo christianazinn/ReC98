@@ -1482,36 +1482,36 @@ BOSS_BG_TEXT	ends
 ; it. Head length 180h, EVEN, so the `word`-aligned tail reopens where it was.
 END_EXT_A_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+; sara_backdrop_colorfill() is compiled from th05/main/boss/b1_cfill.cpp
 
-public @SARA_BACKDROP_COLORFILL$QV
-@sara_backdrop_colorfill$qv	proc near
-		push	di
-		cli
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		sti
-		GRCG_FILL_PLAYFIELD_ROWS	192, 176, dx
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (191 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT
+; and appended to BOSS_BG_TEXT by th05/boss_bg.cpp. END_EXT_A_TEXT
+; therefore begins with the following include at the original next address.
+; Head-absorb route: kb/codegen/0148.
 
-loc_DD61:
-		mov	es:[di], eax
-		mov	es:[di+(352 / 8)], eax
-		sub	di, ROW_SIZE
-		jge	short loc_DD61
-		pop	di
-		retn
-@sara_backdrop_colorfill$qv	endp
 
-; ---------------------------------------------------------------------------
-		nop
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 include th04/main/player/shot_laser.asm
 include th05/formats/bb_cheeto.asm
