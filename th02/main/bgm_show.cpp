@@ -47,8 +47,9 @@ extern "C" shiftjis_t near *BGM_TITLES[];
 // way th02/main/stage/init.cpp declares it.
 extern "C" uint8_t boss_bgm_title_id;
 
-// Both are defined in th02/main/enemy/enemies.cpp and retain C linkage for
-// calls from this object. Both are called once from
+// enemies_remove_all() is defined in th02/main/enemy/enemies.cpp;
+// enemies_callbacks_null() is defined in th02/main/enemy/update.cpp. Both
+// retain C linkage for calls from this object and are called once from
 // boss_activate_if_scroll_done() below.
 // ---------------------------------------------------------------------------
 // Retires every live stage enemy: each [enemies] slot whose flag is not F_FREE
