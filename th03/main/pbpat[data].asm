@@ -301,4 +301,3 @@ yumemi_group_1DCF2 label byte
 	db BG_5_SPREAD_NARROW
 	db BG_1
 	evendata
-
