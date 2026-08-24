@@ -1,3 +1,8 @@
+#pragma codeseg GRCG_MC_TEXT main_01
+void near grcg_setmode_rmw(void);
+void near grcg_setmode_tdw(void);
+#pragma codeseg CIRCLE_TEXT main_01
+
 #include "th04/main/circle.hpp"
 #include "th04/hardware/grcg.hpp"
 #include "th04/main/playfld.hpp"
@@ -179,8 +184,11 @@ left_rect:
 
 #pragma codeseg IT_SPL_R_TEXT main_01
 
-// The root contributes grcg_modecol.asm ahead of this body. Keeping that
-// prefix in a separate segment lets CIRCLE_TEXT reopen at spark_render().
+// The root contributes the direct-color ASM body ahead of this renderer.
+// The two mode setters retain their preceding addresses in GRCG_MC_TEXT.
+#pragma codeseg GRCG_MC_TEXT main_01
+#include "th04/hardware/grcg_modecol.cpp"
+#pragma codeseg IT_SPL_R_TEXT main_01
 #include "th04/main/item/splashes_render.cpp"
 #pragma codestring "\x00"
 

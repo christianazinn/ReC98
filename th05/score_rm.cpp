@@ -48,6 +48,9 @@ extern "C" void pascal near bb_txt_load(void);
 extern "C" void pascal near bb_txt_free(void);
 #pragma codeseg BUL_GINV_TEXT main_01
 void near bullets_and_gather_invalidate(void);
+#pragma codeseg GRCG_MC_TEXT main_01
+void near grcg_setmode_rmw(void);
+void near grcg_setmode_tdw(void);
 #pragma codeseg SCORE_TEXT main_01
 
 // The two lifted bodies. bullets_gather_inv.cpp goes LAST because it ends on
@@ -75,3 +78,9 @@ void near bullets_and_gather_invalidate(void);
 #pragma codeseg SCORE_TEXT main_01
 
 #include "th04/main/bullets_gather_inv.cpp"
+
+#pragma option -k-
+#pragma codeseg GRCG_MC_TEXT main_01
+#include "th04/hardware/grcg_modecol.cpp"
+#pragma codeseg SCORE_TEXT main_01
+#pragma option -k.

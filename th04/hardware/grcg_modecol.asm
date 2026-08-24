@@ -1,15 +1,3 @@
-public @grcg_setmode_rmw$qv
-@grcg_setmode_rmw$qv proc near
-	GRCG_SETMODE_VIA_MOV al, GC_RMW
-	ret
-@grcg_setmode_rmw$qv endp
-	even
-
-public @grcg_setmode_tdw$qv
-@grcg_setmode_tdw$qv proc near
-	GRCG_SETMODE_VIA_MOV al, GC_TDW
-	ret
-@grcg_setmode_tdw$qv endp
-	even
-
+; The two mode setters are emitted from grcg_modecol.cpp immediately before
+; this retained hand-written direct-color routine in both MAIN.EXEs.
 GRCG_SETCOLOR_DIRECT_DEF
