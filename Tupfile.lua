@@ -1212,6 +1212,8 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th05/mpn_free.cpp",
+	"th05/maintext_tail.asm",
 	"th05/bbcheeto.cpp",
 	"th04/slowdown.cpp",
 	"th05/entry.cpp",
