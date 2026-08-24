@@ -153,7 +153,7 @@ extern "C" void pascal near enemy_velocity_set(void);
 //
 // That first step is upstream's player_angle_from() (th05/main/player/angle.cpp)
 // open-coded — TH04 has no such helper, so the dump inlines the expression.
-// TH05's counterpart is the still-unlifted sub_15330 in the hand-written
+// TH05's counterpart is the hand-written enemy_velocity_set_aimed() in the
 // main_031_TEXT cluster, which calls that helper and then enemy_velocity_set():
 // this function in two steps, and the true cross-game equivalent.
 //

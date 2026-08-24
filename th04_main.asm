@@ -2917,9 +2917,8 @@ B4M_UPDATE_TEXT	segment	byte public 'CODE' use16
 	; `switch` statement's own codegen.
 	;
 	; The name is `[inferred]` by the mirror rule, from TH03's enemy_run() in
-	; the same slot of the same loop. This file had no name for it at all, and
-	; neither does th05_main.asm for its twin sub_1535A. **A naming round is
-	; owed** for both.
+	; the same slot of the same loop. TH05's hand-written twin now uses the
+	; same inferred name. The opcode numbers remain unnamed.
 	;
 	; The one call site is in main_033_TEXT, the same main_03 group, so the
 	; call stays near. LOWER case because the function is not `pascal` and so

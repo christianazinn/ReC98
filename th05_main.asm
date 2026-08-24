@@ -291,6 +291,7 @@ include libs/master.lib/super_put_8.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 public MPN_LOAD_INNER
+; ZUN landmine: No error handling for the DOS open/read calls or hmem_allocbyte.
 mpn_load_inner	proc far
 		call	_mpn_free
 		mov	bx, sp
@@ -1270,8 +1271,7 @@ include th04/hardware/grcg_modecol.asm
 	; th04_main.asm's DWORDS_CLEAR twin differs by one instruction,
 	; `xor ax, ax` against `xor eax, eax`.
 	public DWORDS_CLEAR
-	DWORDS_CLEAR label near
-sub_E708	proc near
+DWORDS_CLEAR	proc near
 		mov	bx, sp
 		push	di
 		mov	di, ss:[bx+4]
@@ -1283,7 +1283,7 @@ sub_E708	proc near
 		rep stosd
 		pop	di
 		retn	4
-sub_E708	endp
+DWORDS_CLEAR	endp
 
 ; ---------------------------------------------------------------------------
 		nop
@@ -2266,20 +2266,21 @@ enemy_velocity_set	endp
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_15330	proc near
+; ZUN bloat: player_angle_from() does not touch ES.
+enemy_velocity_set_aimed	proc near
 		push	es
 		call	@player_angle_from$qiiuc pascal, [si+enemy_t.pos.cur.x], [si+enemy_t.pos.cur.y], word ptr [si+enemy_t.E_angle]
 		mov	[si+enemy_t.E_angle], al
 		pop	es
 		call	enemy_velocity_set
 		retn
-sub_15330	endp
+enemy_velocity_set_aimed	endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
 
 
-sub_15345	proc near
+enemy_bullet_template_push_from_current	proc near
 		push	si
 		push	di
 		mov	cx, size _bullet_template / 2
@@ -2295,15 +2296,15 @@ sub_15345	proc near
 		pop	di
 		pop	si
 		retn
-sub_15345	endp
+enemy_bullet_template_push_from_current	endp
 
 ; ---------------------------------------------------------------------------
 		nop
 
 ; =============== S U B	R O U T	I N E =======================================
-	public _sub_1535A
-	_sub_1535A label near
-sub_1535A	proc near
+	public _enemy_run
+	_enemy_run label near
+enemy_run	proc near
 		push	si
 		push	di
 		mov	si, _enemy_cur
@@ -2511,7 +2512,7 @@ loc_154E5:
 		mov	ax, es:[di+1]
 		mov	[si+enemy_t.E_angle], al
 		mov	[si+enemy_t.E_speed], ah
-		call	sub_15330
+		call	enemy_velocity_set_aimed
 		mov	al, 3
 		jmp	loc_15740
 ; ---------------------------------------------------------------------------
@@ -2547,7 +2548,7 @@ loc_15516:
 
 loc_15518:
 		mov	word_23F60, dx
-		call	sub_15345
+		call	enemy_bullet_template_push_from_current
 		mov	ax, [si+enemy_t.pos.cur.x]
 		add	_bullet_template.BT_origin.x, ax
 		mov	ax, [si+enemy_t.pos.cur.y]
@@ -2905,7 +2906,7 @@ loc_1575C:
 		pop	di
 		pop	si
 		retn
-sub_1535A	endp
+enemy_run	endp
 
 ; ---------------------------------------------------------------------------
 off_1575F	dw offset loc_15388
@@ -3358,7 +3359,7 @@ B4_UPDATE_TEXT	segment	byte public 'CODE' use16
 ; above it, pattern_random_balls_and_pellets(), alice_pattern_19B9E(),
 ; alice_pattern_19BB8() and alice_pattern_19C34() are all
 ; th05/main/boss/b3.cpp now, together with the four bodies named below.
-; 
+;
 ; That empties [off_22770] of ASM: all SIX of its distinct targets are C++,
 ; reached through the procdesc block at the end of this segment. The table
 ; itself, and [fp_2CE32] beside it, are what is left, and lifting those is

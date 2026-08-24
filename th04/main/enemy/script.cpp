@@ -15,10 +15,9 @@
 ///
 /// [inferred] name, by the mirror rule: TH03's `enemy_run()`
 /// (th03/main/enemy/enemy.cpp) is the same function in the same slot of the
-/// same per-enemy update loop, and returns the same `bool`. The dump carries
-/// this one under an IDA placeholder, i.e. no name at all, and so does TH05's
-/// twin `sub_1535A`. **A naming round is owed** for both, and for the opcode
-/// numbers, which no header names either.
+/// same per-enemy update loop, and returns the same `bool`. TH05's hand-written
+/// twin now uses the same inferred name. The opcode numbers remain unnamed;
+/// no header or source history provides names for them.
 ///
 /// Not compiled on its own: th04/enm_scr.cpp is its object, for the reason
 /// that file gives.
