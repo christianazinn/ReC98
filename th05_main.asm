@@ -1264,10 +1264,11 @@ include th04/hardware/grcg_modecol.asm
 	; a `pascal` symbol reaches the linker in UPPER case, which is
 	; what TASM must be told literally (kb/codegen 0081, 0086, 0103).
 	;
-	; The proc itself stays assembly: its `mov bx, sp` frame reads
-	; both parameters through SS:BX, which no C++ signature
-	; expresses. th04_main.asm's twin `sub_C34E` differs from it by
-	; one instruction, `xor ax, ax` against `xor eax, eax`.
+	; The proc itself stays assembly: Turbo C++ saves DI before the body,
+	; while this function snapshots SP in BX first and only then saves DI.
+	; Its Pascal ABI is expressible; the obstacle is instruction ordering.
+	; th04_main.asm's DWORDS_CLEAR twin differs by one instruction,
+	; `xor ax, ax` against `xor eax, eax`.
 	public DWORDS_CLEAR
 	DWORDS_CLEAR label near
 sub_E708	proc near
@@ -3858,9 +3859,9 @@ include th05/hardware/vram_planes[data].asm
 include th03/formats/cdg[data].asm
 include th04/formats/cfg_lres[data].asm
 		db 0
-public _aSt00_map
-_aSt00_map	label byte
-aSt00_map	db  'st00.map',0
+public _map_filename
+_map_filename	label byte
+map_filename	db  'st00.map',0
 	evendata
 include th04/main/tile/section[data].asm
 include th04/formats/std[data].asm
@@ -4134,7 +4135,7 @@ _YUKI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB1F$qv
 		dw offset @mai_yuki_1A96A$qv
 ; The dialog script and the BGM title for each of the two survivors, loaded
 ; by mai_yuki_update()'s last case. Zero-byte aliases, kb/codegen/0123, on
-; _aSt00_map's model further up this dump.
+; _map_filename's model further up this dump.
 public _a_dm09_tx2
 _a_dm09_tx2	label byte
 a_dm09_tx2	db '_DM09.TX2',0
@@ -4739,12 +4740,12 @@ include th05/main/player/speed[bss].asm
 include th04/main/player/option[bss].asm
 public _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
-	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
-	; unnamed global, exactly like th03/main/gba_exatt_bomb_bss.asm does
-	; for its own byte_202B8.
-	public _byte_2CEBD
-_byte_2CEBD label byte
-byte_2CEBD	db ?
+	; Cleared at stage start and by a deathbomb; while nonzero, player
+	; movement input is locked and the miss momentum continues.
+	; [measured] All readers and writers agree on this countdown role.
+	public _miss_move_lock_time
+_miss_move_lock_time label byte
+miss_move_lock_time	db ?
 _power	db ?
 _shot_level	db ?
 _shot_time	db ?
@@ -4764,7 +4765,7 @@ include th04/main/player/shots_alive[bss].asm
 include th05/main/player/hitshot_from[bss].asm
 	; Written to 0 by stage_state_reset() and read by nothing in this
 	; binary. Published under IDA's own spelling so that the C++ side
-	; can spell it too, exactly like _byte_2CEBD above -- a
+	; can spell it too, beside _miss_move_lock_time above -- a
 	; placeholder's own `public`/`label` pair names nothing
 	; (kb/conventions/naming-precedents.md §3).
 	public _word_2D05E

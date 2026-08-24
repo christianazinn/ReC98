@@ -2,8 +2,8 @@
 /// ---------------------------------------
 /// (#included from th04/main_.cpp, behind th04/main/enemy/render.cpp and
 /// therefore in its original address order. TH04-only: TH05's function of the
-/// same name is a different, hand-written body in th05/player.asm, which is
-/// why th04/main/player/invalidate.asm can be deleted outright.)
+/// same name remains a different, hand-written body in th05/player.asm. The
+/// TH04 body is the C++ implementation in this file.)
 ///
 /// Either the player and its two options, or -- while the miss animation is
 /// running -- the eight points of the miss explosion, which are placed on the

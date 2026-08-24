@@ -170,8 +170,8 @@ extern "C" void pascal near enemy_velocity_set_aimed(void);
 
 // Spawns the enemies described by one .STD stage instruction. TH04 takes the
 // spawn record's fields from its caller; TH05 reads them off [std_ip] itself.
-// The dump still spells the first and last parameters `arg_6` and `arg_0`;
-// they index [std_enemy_scripts] and initialize [item] respectively.
+// The first and last parameters select [std_enemy_scripts] and initialize
+// [item], respectively.
 #if (GAME == 5)
 extern "C" void pascal near enemies_add(void);
 #else

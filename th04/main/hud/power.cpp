@@ -39,8 +39,9 @@ extern "C" void pascal hud_power_put(void)
 #else
 	// The original object reached TH04's same-segment far hud_bar_put()
 	// through `nop; push cs; call near ptr`, and no plain C++ far call
-	// reproduces that: Turbo C++ emits a real 5-byte `lcall` even when the
-	// callee ends up in the same group. (kb/codegen 0014; upstream's own TODO
+	// reproduces that: Turbo C++ emits a real five-byte far-call instruction
+	// even when the callee ends up in the same group. (kb/codegen 0014;
+	// upstream's own TODO
 	// in th04/main/demo.hpp says the same thing about GameExecl().) So the
 	// arguments are pushed by hand, in pascal order.
 	__emit__(0x6A, HUD_POWER_Y);

@@ -28,10 +28,8 @@
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/bomb.hpp"
 
-// Zero-byte alias in th04_main.asm's _BSS, exactly like the one
-// th04/main/player/bomb.cpp and th04/main/stage/init.cpp already use for it.
-extern "C" unsigned char byte_259A3;
-#define miss_move_lock_time byte_259A3
+// Shared with the deathbomb and stage-start reset paths.
+extern "C" unsigned char miss_move_lock_time;
 
 // The movement input this function last managed to apply. If the current
 // frame's input is rejected, it is retried once with these directions masked

@@ -336,7 +336,7 @@ void pascal near orbs_add_spinning(unsigned char angle_offset, int count)
 	// SI and DI are taken by the walk below, so the third variable can only
 	// reach a register by being asked for one -- and Turbo C++ 4.0J answers
 	// with CX rather than a stack home. Without `register` it lands at [bp-2]
-	// and the function opens `enter 2, 0` instead of a bare `push bp`.
+	// and the function gains a two-byte local frame instead of a bare frame.
 	// `[measured]`; th04/main/boss/b4m_upd.cpp measured the same thing from
 	// the other side, where `register` moved two locals into CX that were
 	// wanted on the stack.

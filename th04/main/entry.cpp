@@ -36,7 +36,7 @@
 	extern "C" const unsigned char aUmx[];
 	#define MAIN_PF_FN aUmx
 
-	extern "C" const char aGameft_bft[];
+	extern "C" const char GAIJI_FN[];
 #endif
 
 extern "C" const char aMiko[];
@@ -92,7 +92,7 @@ extern "C" void far main_entry(void)
 	text_clear();
 	#if (GAME != 5)
 		gaiji_backup();
-		gaiji_entry_bfnt(aGameft_bft);
+		gaiji_entry_bfnt(GAIJI_FN);
 	#endif
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 	snd_load(aMiko, SND_LOAD_SE);

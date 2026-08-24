@@ -65,9 +65,8 @@ static const int PAT_BOMB_STAR = 120;
 extern "C" void pascal near bomb_stars_update_and_render_for(int playchar)
 {
 	// [star] is the SI iterator and [i] the DI counter (kb/codegen/0003);
-	// [vector_x] and [vector_y] are the two words of the frame, and both are
-	// reused as scratch further down, which is why the frame is `enter 4, 0`
-	// and not larger.
+	// [vector_x] and [vector_y] are the two words of the four-byte frame, and
+	// both are reused as scratch further down, which is why it is not larger.
 	bomb_star_t near *star;
 	int i;
 	subpixel_t vector_x;

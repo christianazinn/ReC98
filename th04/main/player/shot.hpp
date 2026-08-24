@@ -100,9 +100,8 @@ static const int SHOT_COUNT = ((GAME == 5) ? 64 : 68);
 #if (GAME == 5)
 // Decay animation played where a shot hit a stage enemy or boss. TH04 runs the
 // same animation inside the Shot itself, via SF_HIT and SF_REMOVE.
-// (The dump's struc still spells [age] `HITSHOT_age`, to keep it from colliding
-// with the `age` of the dump's `shot_t` struc inside th05_main.asm — that one
-// really is spelled `shot_t`, unlike the C++ struct above.)
+// The ASM layout gives this field a game-specific prefix to keep it distinct
+// from the `age` field of the dump's `shot_t` layout inside th05_main.asm.
 struct HitShot {
 	unsigned char age;
 

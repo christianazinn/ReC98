@@ -137,8 +137,8 @@ extern "C" void near sub_10988(void)
 		items_miss_add();
 
 		// A quarter of the current power, capped at 16. Both operands are
-		// bytes but the division is signed against a 16-bit divisor, which is
-		// what the `mov bx, 4` / `cwd` / `idiv bx` in the original is.
+		// bytes but the original performs signed 16-bit division by a divisor
+		// loaded into BX.
 		power_lost = (power / 4);
 		if(power_lost > 16) {
 			power_lost = 16;

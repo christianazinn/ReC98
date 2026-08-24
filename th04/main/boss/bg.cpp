@@ -92,10 +92,10 @@ static const int ENTRANCE_BB_FRAMES_PER_CEL = 4;
 // animation whose cel index is `boss.phase_frame >> 1` — an arithmetic SHIFT,
 // not the `/ ENTRANCE_BB_TRANSITION_FRAMES_PER_CEL` division that
 // th04/main/boss/impl.hpp's macro and TH05's sara_bg_render() spell. Borland
-// C++ 4.0 strength-reduces a signed `/ 2` to `cwd` / `sub ax, dx` /
-// `sar ax, 1`, three instructions; every one of these functions has the bare
-// `sar ax, 1` alone. `[verified: ASM]`, and see kb/codegen/0134 for the same
-// distinction one factor up.
+// C++ 4.0 strength-reduces a signed `/ 2` to a three-instruction,
+// sign-corrected sequence; every one of these functions has only the direct
+// arithmetic right shift. `[verified: ASM]`, and see kb/codegen/0134 for the
+// same distinction one factor up.
 static const int ENTRANCE_BB_TRANSITION_CEL_SHIFT = 1;
 
 /// Stage 4 — Orange
@@ -235,8 +235,8 @@ static const screen_x_t REIMU_MARISA_BACKDROP_LEFT = 96;
 static const vram_y_t REIMU_MARISA_BACKDROP_TOP = 72;
 
 // Twice as slow as every other boss's, and the only .BB entrance in TH04 that
-// is not ENTRANCE_BB_FRAMES_PER_CEL. Still a real division in the original
-// (`mov bx, 8` / `cwd` / `idiv bx`), exactly like yuuka5_bg_render()'s /4.
+// is not ENTRANCE_BB_FRAMES_PER_CEL. This remains a signed 16-bit division by
+// 8 in the original, exactly like yuuka5_bg_render()'s division by 4.
 static const int REIMU_MARISA_ENTRANCE_BB_FRAMES_PER_CEL = 8;
 
 // boss_bg_render_entrance_bb_opaque_and_backdrop() written out longhand, for

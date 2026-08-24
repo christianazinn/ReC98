@@ -140,8 +140,8 @@ extern pattern_oneshot_func_t midbossx_phase_1_pattern;
 // (0 before the score bonus below, 1 after) and by the low bit of the cycle
 // counter [boss_statebyte[14]]. Same shape as SHINKI_PATTERNS_PHASE_2_3 in
 // th05/main/boss/b6.cpp — but note that the column index is spelled `% 2`
-// rather than `& 1`, because [boss_statebyte] promotes to a *signed* int and
-// only the remainder emits the original's `cwd`/`idiv` pair.
+// rather than `& 1`, because [boss_statebyte] promotes to a signed int and
+// only the remainder emits the original's signed 16-bit division sequence.
 extern const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 
 // [midboss.angle] for each of the first 8 phase-1 cycles, indexed by

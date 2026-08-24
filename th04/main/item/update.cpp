@@ -147,8 +147,8 @@ void pascal near item_left_playfield(item_t near *item)
 		// So the accumulator keeps a remainder of at least 16 across a drain
 		// instead of returning to 0, and the next drain therefore needs only
 		// 48 further points rather than 64. Both constants are literal in the
-		// dump — the test is `cmp` against 40h and the drain is encoded in the
-		// assembler's `add al, -48` direction, not as a subtraction — and
+		// dump: the test compares against 40h and the drain is encoded as an
+		// addition of the two's-complement -48 immediate, not as a subtraction;
 		// neither is a symbol. As the removed dump said in as many words:
 		// and that's why we don't declare symbols for the increment and
 		// decrement periods of these... The asymmetry is preserved exactly as

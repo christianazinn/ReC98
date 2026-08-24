@@ -2,7 +2,8 @@
 /// ---------------------------------------------------
 /// (#included from th04/main_01.cpp, ahead of th04/main/boss/shield.cpp and
 /// therefore in its original address order. ZUN's object for main_01_TEXT
-/// held th04/formats/bb_txt_load.asm, this renderer, and then the barrier;
+/// held the loader now in th04/formats/bb_txt_load.cpp, this renderer, and
+/// then the barrier;
 /// that an original object held several unrelated sources is
 /// kb/codegen/0112. th04/main_01.cpp also explains why that object's
 /// Tupfile.lua line is position-critical.)

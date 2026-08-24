@@ -7,10 +7,10 @@
 /// own #includes and this file adds no unguarded header to that translation
 /// unit.)
 ///
-/// TH04 only. TH05's th05/formats/bb_txt_load.asm shares the two names and
-/// nothing else: it is frameless, reads through `int 21h` directly instead of
-/// master.lib, and rewrites its own filename string in place, so there is no
-/// shared body here to fence with `#if (GAME == 5)`.
+/// TH04 only. TH05's implementation in th05/formats/bb_txt_load.cpp shares
+/// the two names and nothing else: it is frameless, reads through DOS directly
+/// instead of master.lib, and rewrites its own filename string in place, so
+/// there is no shared body here to fence with `#if (GAME == 5)`.
 
 #include "libs/master.lib/master.hpp"
 #include "th04/formats/bb.h"

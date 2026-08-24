@@ -62,9 +62,10 @@ static const int FLY_TARGET_Y = 80;
 extern "C" {
 	// The first five are C++ now, in th04/main/boss/b6_spawn.cpp, and named:
 	// MATCH-TH04-MAIN-034-CHAIN carved B6_SPAWN_TEXT out of the head of this
-	// segment and lifted every proc that used to sit above the b6_anim.asm
-	// `include`. The `codeseg` pair is what keeps this translation unit's view
-	// of them in that segment rather than in this one; two declarations of one
+	// segment and lifted every proc that used to sit above the animation
+	// bodies now in b6_next.cpp. The `codeseg` pair keeps this translation
+	// unit's view of them in that segment rather than in this one; two
+	// declarations of one
 	// function under two different code segments is a defect that links, runs
 	// and shows up only in the map (kb/codegen 0080 + 0155).
 	//
@@ -119,7 +120,7 @@ extern "C" {
 	// th04_main.asm still carries for it.
 	void near thicklasers_update_and_hittest(void);
 
-	// th04/main/boss/b6_anim.asm.
+	// th04/main/boss/b6_next.cpp.
 	bool near yuuka6_anim_vanish(void);
 
 	// th04/b6_next.cpp, its own object at the head of this segment's C++
@@ -377,8 +378,9 @@ phase_4_over:
 		boss_items_drop();
 phase_8_over:
 		// TWO calls, not one with a conditional argument: `pascal` packs two
-		// constant arguments into a single `pushd`, and a ternary picks the
-		// second one in AX instead, which is a different instruction stream.
+		// constant arguments into a single 32-bit stack write, and a ternary
+		// picks the second one in AX instead, which is a different instruction
+		// stream.
 		// Turbo C++ then merges the two `call`s itself.
 		if(boss.phase == 8) {
 			yuuka6_phase_next(ET_CIRCLE, 3400);

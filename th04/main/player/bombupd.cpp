@@ -30,9 +30,10 @@ extern "C" {
 	void MASTER_RET graph_scrollup(unsigned line);
 }
 
-// `extern "C"` and `pascal`, because th04/main/player/bb_playchar_put.asm
-// publishes the UNDECORATED, all-uppercase `BB_PLAYCHAR_PUT`
-// (kb/codegen/0086 + 0102); `near`, because it ends in `retn 2`. No header
+// `extern "C"` and `pascal`, because th04/main/player/bb_playchar_put.cpp
+// publishes the undecorated, all-uppercase linker name
+// (kb/codegen/0086 + 0102); `near`, because the function removes its argument.
+// No header
 // declares it -- this is its first C++ caller in the tree, and a header would
 // have to be shared with TH05, which calls the same proc from its own dump.
 extern "C" void pascal near bb_playchar_put(int cel);

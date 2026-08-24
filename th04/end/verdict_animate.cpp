@@ -94,8 +94,7 @@ void near verdict_animate(void)
 	// `[measured]` TH04 does this pair at the top of its own screen body
 	// instead. `graph_showpage()` re-reads the AL that `graph_accesspage()`
 	// just loaded, because both are `outportb` macros and `out` leaves it
-	// alone — which is why the dump renders the second one as
-	// `graph_showpage al`.
+	// alone, so the second macro consumes the value already left in AL.
 	graph_accesspage(0);
 	graph_showpage(0);
 	verdict_stats_put();

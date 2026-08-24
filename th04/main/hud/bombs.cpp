@@ -64,8 +64,8 @@ extern "C" void pascal hud_bombs_put(void)
 		}
 	} else {
 		// kb/codegen/0002: this arm is a separate basic block, so TH04's
-		// original RELOADS `les bx, _resident` here rather than reusing the
-		// pointer the guard left live. Spelling the three reads as three
+		// original reloads [resident] here instead of reusing the far pointer
+		// the guard left live. Spelling the three reads as three
 		// separate counter expressions is what reproduces the reuse above and
 		// the reload here; one accessor cannot. (TH05 has no pointer to reuse
 		// or reload, so its three reads are three identical direct byte loads.)

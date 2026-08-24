@@ -93,7 +93,7 @@ extern "C" void pascal near bomb_reimu(void)
 		ANGLE_MIRROR = 0x80,
 	};
 
-	// A byte local at [bp-1], and `enter 2, 0` rounds the frame up to a word.
+	// A byte local at [bp-1], with the frame rounded up to one word.
 	// kb/codegen/0131: byte-sized, so no amount of use would have put it in a
 	// register — which is also why the two inline-ASM islands below cannot
 	// demote anything (kb/codegen/0143).
@@ -217,8 +217,8 @@ extern "C" void pascal near bomb_marisa(void)
 		Y_BOTTOM = 40,
 	};
 
-	// [x] is the SI register variable and [y] the single word of the frame
-	// (`enter 2, 0`), which is what four C-level references against two buys
+	// [x] is the SI register variable and [y] the single word of the frame,
+	// which is what four C-level references against two buys
 	// here. kb/codegen/0143: the two `push ax` statements below are inline
 	// ASM and therefore invisible to that count, but [x] still has enough
 	// references left to keep SI.
@@ -273,7 +273,7 @@ extern "C" void pascal near bomb_marisa(void)
 		// same-frame relaxation, `90 0E E8` — same length, wrong bytes. The
 		// arguments therefore have to be pushed by hand too
 		// (kb/codegen/0122), and the call names the C identifier rather than
-		// the decorated `@circles_add_growing$qii` (kb/codegen/0014).
+		// its C++-decorated linker spelling (kb/codegen/0014).
 		// th05/main/player/bombanim.cpp hand-spells the identical call.
 		_AX = TO_SP(x);
 		_asm { push ax; }
