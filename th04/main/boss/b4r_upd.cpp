@@ -207,11 +207,10 @@ static void near reimu_1E9B1(void)
 
 // The 46-frame charge schedule seven of Reimu's patterns open with, and the
 // only thing that animates her during them. Its role is exactly that of
-// marisa_charge_animate() (th04/main/boss/b4m_upd.cpp) and gengetsu_1FA33()
-// (th04/main/boss/bx2_upd.cpp) -- a per-pattern charge-up whose return value
-// IS the pattern's own schedule -- so a name should come from the mirror rule
-// on that family. **A naming round is owed.** Kept address-suffixed here
-// because its seven callers are still ASM.
+// marisa_charge_animate() (th04/main/boss/b4m_upd.cpp) and
+// gengetsu_charge_animate() (th04/main/boss/bx2_upd.cpp): a per-pattern
+// charge-up whose return value IS the pattern's own schedule. [inferred] Name
+// by that mirror rule; all seven callers are in this translation unit.
 //
 // Returns 0 while the charge is running, 2 on the single frame the pattern
 // fires (46), and 1 on every frame after that.
@@ -234,7 +233,7 @@ static void near reimu_1E9B1(void)
 // starts -- kb/codegen/0160 -- so re-probe it if anything is ever added ahead
 // of reimu_1E917().
 #pragma option -a2
-static unsigned char near reimu_1EA4B(void)
+static unsigned char near reimu_charge_animate(void)
 {
 	switch(boss.phase_frame) {
 	case 14:
@@ -501,7 +500,7 @@ static void near reimu_1ED15(void)
 	// `unsigned char`, not the `enum` that would document it better: the
 	// original homes the returned stage at [bp-1], and a byte enum local would
 	// home at [bp-2] with every instruction the same length. kb/codegen/0163.
-	unsigned char stage = reimu_1EA4B();
+	unsigned char stage = reimu_charge_animate();
 
 	// Two independent `if`s, not an `if`/`else if`: the first arm falls
 	// through into the second test rather than jumping past it.
@@ -556,7 +555,7 @@ static void near reimu_1EDBC(void)
 	// `unsigned char` rather than the three-valued state this really is:
 	// kb/codegen/0163 -- an enum local would home at [bp-2], and the original
 	// homes it at [bp-1] with every instruction length unchanged.
-	unsigned char stage = reimu_1EA4B();
+	unsigned char stage = reimu_charge_animate();
 
 	if(stage == 2) {
 		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
@@ -607,7 +606,7 @@ static void near reimu_1EE21(void)
 // 288 frames in.
 static void near reimu_1EE73(void)
 {
-	unsigned char stage = reimu_1EA4B();
+	unsigned char stage = reimu_charge_animate();
 	int i;
 
 	if(stage == 1) {
@@ -682,7 +681,7 @@ static void near reimu_1EE73(void)
 // 192 frames in.
 static void near reimu_1EF87(void)
 {
-	unsigned char stage = reimu_1EA4B();
+	unsigned char stage = reimu_charge_animate();
 
 	if(stage == 1) {
 		if((boss.phase_frame % 4) == 0) {
@@ -737,7 +736,7 @@ static void near reimu_1EF87(void)
 // pattern in everything but [boss.mode].
 static void near reimu_1F04E(void)
 {
-	unsigned char charge = reimu_1EA4B();
+	unsigned char charge = reimu_charge_animate();
 
 	if(charge == 2) {
 		bullet_template.spawn_type = BST_PELLET;
@@ -878,7 +877,7 @@ static void near reimu_1F17C(void)
 // box the pattern above uses.
 static void near reimu_1F22A(void)
 {
-	unsigned char charge = reimu_1EA4B();
+	unsigned char charge = reimu_charge_animate();
 
 	if(charge == 2) {
 		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
@@ -949,7 +948,7 @@ static void near reimu_1F2F3(void)
 	unsigned char charge;
 	int i;
 
-	charge = reimu_1EA4B();
+	charge = reimu_charge_animate();
 	if(charge == 2) {
 		bullet_template.spawn_type = BST_BULLET16_CLOUD_FORWARDS;
 		bullet_template.group = BG_STACK_AIMED;

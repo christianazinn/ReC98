@@ -314,14 +314,10 @@ static bool near gengetsu_1F9C5(void)
 // • 4 — frame 144 and up: the pattern is over, and every caller answers this
 //   by resetting [boss.phase_frame] and handing back to the teleport.
 //
-// **A naming round is owed.** Its role is exactly that of
-// marisa_charge_animate() (th04/main/boss/b4m_upd.cpp) — a per-pattern
-// charge-up whose return value IS the pattern's own schedule — so the mirror
-// rule on that family is where a name should come from. Kept address-suffixed
-// here only because
-// its five remaining callers are still ASM and would have to keep the dump's
-// spelling anyway.
-static unsigned char near gengetsu_1FA33(void)
+// [inferred] Name by the mirror rule from marisa_charge_animate()
+// (th04/main/boss/b4m_upd.cpp): its return value is likewise the pattern's
+// complete charge schedule. All callers are in this translation unit.
+static unsigned char near gengetsu_charge_animate(void)
 {
 	gengetsu_1F903();
 	if(boss.phase_frame < 8) {
@@ -361,7 +357,7 @@ static unsigned char near gengetsu_1FA33(void)
 // frames.
 static void near gengetsu_1FAAA(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		bullet_template.spawn_type = BST_BULLET16_CLOUD_BACKWARDS;
 		bullet_template.patnum = PAT_BULLET16_N_HEART_BALL_RED;
@@ -388,7 +384,7 @@ static void near gengetsu_1FAAA(void)
 // away from each other.
 static void near gengetsu_1FAF7(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		bullet_template.group = BG_SPREAD;
 		bullet_template.delta.spread_angle = 8;
@@ -430,7 +426,7 @@ static void near gengetsu_1FAF7(void)
 // bullets on top, which are regular bullets and therefore do not bounce.
 static void near gengetsu_1FB86(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		bullet_template.special_motion = BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM;
 		bullet_special.turns_max = 4;
@@ -476,7 +472,7 @@ static void near gengetsu_1FB86(void)
 /// Gengetsu's patterns
 /// -------------------
 /// Four of the eight that [boss.mode] 0 and 1 alternate between during phases
-/// 2 to 5. Every one of them is nothing but a dispatch over gengetsu_1FA33()'s
+/// 2 to 5. Every one of them is a dispatch over gengetsu_charge_animate()'s
 /// stage, and every one of them ends the same way: stage 4 rewinds
 /// [boss.phase_frame] and hands [boss.mode] back to gengetsu_update()'s
 /// teleport arm.
@@ -487,7 +483,7 @@ static void near gengetsu_1FB86(void)
 // a gather circle somewhere across the playfield on every 4th frame.
 static void near gengetsu_1FC46(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		// One direction change per bullet, and only one.
 		bullet_special.turns_max = 1;
@@ -559,7 +555,7 @@ static void near gengetsu_1FD30(void)
 {
 	int i;
 
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 0:
 		bullet_template.patnum = PAT_BULLET16_N_HEART_BALL_RED;
 		bullet_template.group = BG_SPREAD_AIMED;
@@ -624,7 +620,7 @@ static void near gengetsu_1FD30(void)
 // frame -- so the fan grows for as long as the pattern runs, and never re-aims.
 static void near gengetsu_1FDFE(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		bullet_template.speed.v = TO_SP(5);
 		bullet_template.group = BG_SPREAD;
@@ -663,7 +659,7 @@ static void near gengetsu_1FDFE(void)
 // around 0x3C, which nets the whole thing 8 units backwards per frame pair.
 static void near gengetsu_1FE6A(void)
 {
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 2:
 		bullet_template.patnum = PAT_BULLET16_D_BLUE;
 		bullet_template.group = BG_SPREAD;
@@ -699,7 +695,7 @@ static void near gengetsu_1FE6A(void)
 // a single coin flip deciding for all of them at once whether they sit
 // exactly on a 24-pixel grid or anywhere within 12 pixels of each grid cell.
 //
-// The switch below is then the four stages of gengetsu_1FA33()'s schedule:
+// The switch below is the four stages of gengetsu_charge_animate()'s schedule:
 // the charge fires a five-way spread of white 16x16 balls at a fixed 0xC0 on
 // every frame while continuously re-aiming [pellet_stack_angle] at the
 // player, the fire frame spawns a thick laser down her own column, and the 63
@@ -729,7 +725,7 @@ static void near gengetsu_1FEDF(void)
 			column->pos.y.v = 0;
 		}
 	}
-	switch(gengetsu_1FA33()) {
+	switch(gengetsu_charge_animate()) {
 	case 1:
 		bullet_template.spawn_type = BST_BULLET16;
 		bullet_template.group = BG_SPREAD;

@@ -18,9 +18,9 @@
 ///   TH04 MAIN.EXE  main_013_TEXT, group main_01, 0x12024  (th04/main/checkerb.cpp)
 ///   TH05 MAIN.EXE  BOMB_BG_TEXT,  group main_01, 0xCFEE   (th05/main/player/bombchar.cpp)
 ///
-/// Its callers are the two `call` sites in the stage-setup function that is
-/// still ASM in DEMO_TEXT in BOTH dumps -- sub_AED0 in TH04, sub_B237 in TH05 --
-/// which reach it through a `procdesc near` in the segment above. It runs once
+/// Its callers are the two call sites in the shared stage_setup() compiled from
+/// th04/main/stage/setup_main.cpp for both games. They reach it through a
+/// `procdesc near` in the segment above. It runs once
 /// before the stage's palette is loaded and once after it has been faded to
 /// black.
 

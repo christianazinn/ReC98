@@ -235,8 +235,8 @@ extern "C" void near thicklasers_update_and_hittest(void)
 /// second half). These two functions are the bottom of that first half.
 
 // th04/main/midboss/vars[bss].asm publishes it, but no TH04 header declares
-// it: the only two C++ functions that have ever needed it are this one and
-// yuuka6_update(), and the latter is still ASM.
+// it: the only two C++ functions that need it are this one and
+// yuuka6_update() in th04/main/boss/b6_upd.cpp.
 extern "C" int midboss_frames_until;
 
 // Yuuka's warp animation state, documented at length in

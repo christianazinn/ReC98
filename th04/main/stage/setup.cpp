@@ -104,7 +104,7 @@ void pascal far stage1_setup(void)
 
 	// [inferred] Alone among the five setups that have a midboss at all, this
 	// one does not clear [midboss.sprite]. The only other writer for this
-	// midboss is midboss1_update() (still ASM), which seeds it during the
+	// midboss is midboss1_update() in th04/main/midboss/m1_updt.cpp, which seeds it during the
 	// battle; nothing in the binary says whether the omission is deliberate.
 
 	boss_reset();
@@ -174,8 +174,8 @@ void pascal far stage2_setup(void)
 	bb_boss_load(st01_bb);
 
 	// The only per-rank parameter Kurumi takes, and it is a frame interval:
-	// kurumi_1905A() — one of her still-ASM patterns, called from
-	// kurumi_update() — fires a spread of aimed pellets on every frame where
+	// kurumi_1905A() in th04/main/boss/b2_updt.cpp fires a spread of aimed
+	// pellets on every frame where
 	// [boss.phase_frame] divides evenly by it. 255 on Easy against 8 on
 	// Lunatic.
 	#define spread_interval	boss_statebyte[0]
@@ -191,7 +191,7 @@ void pascal far stage2_setup(void)
 /// -------
 
 // Elly's resting pose. elly_fg_render() blits [boss.sprite] as a single cel,
-// and elly_update() — still ASM in th04_main.asm — animates forward from this
+// and elly_update() in th04/main/boss/b3_upd.cpp animates forward from this
 // patnum through the seven cels above it during her cast, then stores this
 // value back when the animation ends. So it is both the still cel and the base
 // of that range; only the former is what stage3_setup() means by it.
@@ -259,7 +259,7 @@ void pascal far stage4_setup(void)
 		//
 		// [4] and [5] are BOTH BSB_spread_delta_angle in boss_statebyte_t —
 		// the union names the field, not the slot — and they are read back
-		// from two different still-ASM patterns. Nothing in the binary
+		// from two different patterns in th04/main/boss/b4r_upd.cpp. Nothing in the binary
 		// distinguishes them, so they stay bare indices rather than taking
 		// an invented discriminator, the same call
 		// th04/main/midboss/mx_update.cpp made for its own slots.
@@ -395,7 +395,7 @@ void pascal far stage6_setup(void)
 	stage_invalidate = nullfunc_near;
 
 	// Both slots are named by th04/main/boss/boss[bss].asm's boss_statebyte_t
-	// union, and both are read back from still-ASM Yuuka code. Spelled here the
+	// union, and both are read back from th04/main/boss/b4m.cpp. Spelled here the
 	// way gengetsu_started is below: a function-local #define off the union
 	// member name, since the array itself is a bare unsigned char[16].
 	#define thicklaser_radius	boss_statebyte[0]

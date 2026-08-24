@@ -207,15 +207,10 @@ static const unsigned char MODE_BITLESS_FIRST = 10;
 /// of her patterns. Every one of them walks all four [bits] the same way: a
 /// near pointer in SI and a separate counter, never the pointer alone.
 ///
-/// `static` is correct only for marisa_bits_update_and_hittest(), whose one
-/// caller is marisa_update() in this same file. The other two are reached
-/// exclusively from patterns that are STILL ASM — marisa_bits_respawn() once
-/// from `marisa_16E9D` (pattern 0), marisa_bits_fire() from seven sites — so
-/// until those are lifted, both have to drop the `static` and th04_main.asm
-/// needs `extrn @marisa_bits_respawn$qv:near` /
-/// `extrn @marisa_bits_fire$qv:near` with its `call`s respelled. Dropping
-/// `static` does not change a single byte of any of the three bodies
-/// (`[measured]`), so this is purely a linkage decision.
+/// `static` is correct for all three: marisa_bits_update_and_hittest() is only
+/// called by marisa_update(), marisa_bits_respawn() is only called by pattern
+/// 0, and marisa_bits_fire() has seven callers among the patterns below. All of
+/// those callers now live in this translation unit.
 
 // Brings all four bits back at once, evenly spread around Marisa and moving
 // outwards. Each one starts at zero distance with the same speed, and
@@ -224,7 +219,7 @@ static const unsigned char MODE_BITLESS_FIRST = 10;
 // random and each further one is a quarter turn ahead of it, so the spread is
 // fixed and only its rotation is not.
 //
-// Called from pattern 0 (`marisa_16E9D`, still ASM) and from nowhere else,
+// Called from pattern 0 (marisa_16E9D() below) and from nowhere else,
 // which is why marisa_update() forces that pattern after two bit-less
 // intervals.
 static void near marisa_bits_respawn(void)

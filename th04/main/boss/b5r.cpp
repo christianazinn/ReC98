@@ -36,7 +36,7 @@
 /// • The function ends by rendering the thick lasers, which only one other
 ///   [boss_fg_render] does – yuuka6_fg_render(), C++ as of
 ///   MATCH-TH04-MAIN-012-HEAD-CARVE (th04/main/boss/b6_fg.cpp).
-///   gengetsu_fg_render() is the third, and is still ASM.
+///   gengetsu_fg_render() in th04/main/boss/fg.cpp is the third.
 
 #include "platform.h"
 #include "pc98.h"
@@ -54,8 +54,8 @@
 /// --------------------
 
 // Yuuka's warp animation, cycled 0 → 1 → 2 → 3 → 0 by her update function.
-// [verified: ASM] Every write to this variable lives in B4M_UPDATE_TEXT, in
-// `yuuka5_15ECE` and yuuka5_update(); the frame counts below are the
+// [verified] Every write to this variable lives in B4M_UPDATE_TEXT, in
+// yuuka5_15ECE() and yuuka5_update() in th04/main/boss/b4m.cpp; the frame counts below are the
 // [boss.phase_frame] thresholds those writes compare against, and each
 // transition resets [boss.phase_frame] to 0.
 //
@@ -65,8 +65,7 @@
 // 	                      which PlayfieldMotion actually moves Yuuka
 // 	YUUKA5_WARP_IN         8 frames; sprite plus a growing circle
 //
-// Declared here rather than in a header because this is the only place that
-// reads it; the writers are still ASM.
+// Declared here rather than in a header because this is its only reader.
 extern "C" unsigned char yuuka5_warp_phase;
 
 static const unsigned char YUUKA5_WARP_NONE = 0;

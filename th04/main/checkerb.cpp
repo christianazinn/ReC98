@@ -206,8 +206,8 @@ extern "C" void near playfield_fillm_0_40_384_274(void)
 // order (kb/codegen/0161) -- same device as th04/main/boss/colorfill.cpp.
 #pragma codestring "\x90"
 
-// The whole-screen fill that sub_AED0 -- still ASM, in DEMO_TEXT -- calls
-// twice while setting a stage up. Its body, and the five macros it needs,
+// The whole-screen fill that stage_setup() in th04/main/stage/setup_main.cpp
+// calls twice while setting a stage up. Its body, and the five macros it needs,
 // are shared with TH05 verbatim: the same function sits at 0xCFEE in
 // th05_main.asm's BOMB_BG_TEXT, byte-identical, and is compiled from this
 // same file by th05/main/player/bombchar.cpp. Nothing here selects a game.

@@ -6,8 +6,8 @@
 /// this afterwards.
 ///
 /// TH04-only, and deliberately NOT part of th04/main/execl.cpp: th05/execl.cpp
-/// #includes that file as a shared body for both games, and TH05's counterpart
-/// to this function is still ASM in th05_main.asm. th04/execl.cpp #includes
+/// #includes that file as a shared body for both games, while TH05's counterpart
+/// is C++ in th05/main/continue.cpp. th04/execl.cpp #includes
 /// this file ahead of it, which is what puts this body back at its original
 /// address, before score_last_commit() and GameExecl(). (kb/codegen/0129)
 

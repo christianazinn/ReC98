@@ -95,10 +95,9 @@ extern "C" {
 #pragma codeseg
 
 	// Copies [thicklaser_template] into the first free slot and plays the
-	// spawn sound effect. It is still ASM, and in B4M_UPDATE_TEXT rather
-	// than this segment -- but the same main_03 group, so the call stays
-	// near. th04/main/boss/bx2_upd.cpp gave it its alias and records the
-	// naming debt for it.
+	// spawn sound effect. Defined in th04/main/boss/b4m.cpp under
+	// B4M_UPDATE_TEXT rather than this segment, but in the same main_03 group,
+	// so the call stays near.
 	void near thicklaser_add(void);
 
 	// th04/main/bullet/update[bss].asm, where it is one of three `label byte`
