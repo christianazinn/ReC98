@@ -37,10 +37,10 @@ void near tiles_scroll_and_egc_render(void);
 // starting at [scroll_line] and wrapping through the [tile_ring] as it goes.
 // Assumes the EGC to be active and initialized for a copy — the caller above
 // is the one that does that. Still ZUN's hand-written assembly, in
-// th04_main.asm's CIRCLE_TEXT and th05_main.asm's STD_TEXT: it pushes BP and
-// then uses it as the scratch register for the tile word being copied without
-// ever establishing a frame (kb/conventions/handwritten-asm-tells.md). TH05's
-// twin is instruction-for-instruction the same proc, so th05_main.asm now
+// th04_main.asm's CIRCLE_TEXT and th05_main.asm's carved STD_B_TEXT: it pushes
+// BP and then uses it as the scratch register for the tile word being copied
+// without ever establishing a frame (kb/conventions/handwritten-asm-tells.md).
+// TH05's twin is instruction-for-instruction the same proc, so th05_main.asm
 // publishes it under this same name.
 extern "C" void near tiles_egc_copy_scrolled_lines(void);
 

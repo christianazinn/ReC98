@@ -1,7 +1,8 @@
 // The code segment name is left to Turbo C++'s basename default, which makes
-// this object append to th04_main.asm's mai_TEXT contribution — the original
-// object's own segment, and the position midboss2_render() already occupied
-// at its tail. carve_free_tails.py offers PLAYFLD_TEXT / th04/playfld.cpp as
+// this object append to th04_main.asm's mai_TEXT contribution - the original
+// object's own segment. ZUN's object began with the tile renderer and ended
+// with midboss2_render(). carve_free_tails.py offers PLAYFLD_TEXT /
+// th04/playfld.cpp as
 // a neighbour host instead, and that route works (MATCH-TH04-MAIN-SCROLL-
 // UPDATE took it for this very segment), but it would put a midboss renderer
 // at the front of the playfield object, in a segment that is not ZUN's. A new
@@ -17,4 +18,5 @@
 // effect before any code is generated. (kb/codegen/0112, trap 0)
 #pragma option -zPmain_01
 
+#include "th04/main/tile/render_a.cpp"
 #include "th04/main/midboss/m2.cpp"

@@ -1,10 +1,9 @@
 /// Stage 2 midboss
 /// ---------------
 /// (#included from th04/mai.cpp. ZUN's object for this code segment held
-/// th04/main/tile/render_a.asm and then this renderer — that an original
-/// object held several unrelated sources is kb/codegen/0112 — and the ASM
-/// half stays in the dump, so this file is appended to it rather than
-/// replacing it.)
+/// the shared tile renderer and then this renderer - that an original object
+/// held several unrelated sources is kb/codegen/0112. Both now compile from
+/// C++ into the same replacement object.)
 
 #include "platform.h"
 #include "pc98.h"

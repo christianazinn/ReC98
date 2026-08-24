@@ -5,13 +5,11 @@
 /// lookup array – see tiles_fill_initial() for details. The rest of the format
 /// is identical to TH04.
 
-#pragma option -zPmain_01 -k-
+#pragma option -k-
 
 #include "th04/formats/std.hpp"
 #include "th04/main/hud/overlay.hpp"
 #include "th04/main/stage/stage.hpp"
-#include "th04/main/tile/tile.hpp"
-#include "th04/main/playfld.hpp"
 #include "libs/master.lib/master.hpp"
 #include "platform/x86real/flags.hpp"
 #include "x86real.h"
@@ -24,9 +22,10 @@
 // function in END_TEXT and #includes the same file from
 // th04/main/tile/mpn_load.cpp.
 //
-// The three headers that file expects from its host TU -- tile.hpp,
-// stage.hpp, and (TH04 only) map.hpp -- are all above, or forward-declared
-// there.
+// The headers that file expects from its host TU - tile.hpp, stage.hpp, and
+// (TH04 only) map.hpp - are all above, or forward-declared there. TH05's
+// wrapper gets tile.hpp from the shared tile renderer compiled immediately
+// ahead of this source.
 #include "th04/main/tile/scroll.cpp"
 
 void near std_load(void)

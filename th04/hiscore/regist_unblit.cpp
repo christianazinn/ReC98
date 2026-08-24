@@ -28,8 +28,8 @@
 #include "th01/hardware/egc_impl.hpp"
 
 /// master.lib's egc_on(), inlined into its only caller, followed by
-/// egc_setup_copy() — i.e. th01/hardware/egc.inc's EGC_START_COPY_INLINED,
-/// which th04/main/tile/render_a.asm still spells as that macro.
+/// egc_setup_copy() - i.e. th01/hardware/egc.inc's EGC_START_COPY_INLINED,
+/// matching the body now decompiled in th04/main/tile/render_a.cpp.
 ///
 /// `[measured]` Every write here needs the two-byte immediate `OUT` form, so
 /// `_outportb_()` rather than master.lib's `grcg_setmode()` /
