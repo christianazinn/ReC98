@@ -1003,7 +1003,9 @@ include th04/main/bullet/pellet_r.asm
 TILE_TEXT	ends
 
 mai_TEXT	segment	word public 'CODE' use16
-include th04/main/tile/render_a.asm
+	; Both procedures now compile from th04/main/tile/render_a.cpp.
+	@TILES_RENDER_ALL$QV procdesc pascal near
+	@egc_start_copy_noframe$qv procdesc near
 
 	; midboss2_render() now lives in th04/main/midboss/m2.cpp, which
 	; th04/mai.cpp compiles into THIS segment: the wrapper leaves the code
@@ -1011,7 +1013,7 @@ include th04/main/tile/render_a.asm
 	; MAI_TEXT (kb/codegen 0105 + 0112). It was the LAST proc of the segment,
 	; so the object lands exactly where it was and no carve, no new segment
 	; name and no group-list edit were needed -- only the one Tupfile.lua
-	; line. The include above it stays here.
+	; line. The shared tile renderer now precedes it in that same object.
 	; Upper case because the function is `pascal`; TASM emits the EXTRN under
 	; exactly the spelling written here and does not apply the language rule.
 	@MIDBOSS2_RENDER$QV procdesc pascal near
