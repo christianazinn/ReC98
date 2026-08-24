@@ -37,7 +37,7 @@ include th05/main/enemy/enemy.inc
 	extern _execl:proc
 	extern NULLFUNC_NEAR:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_R_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, IT_SPL_D_TEXT, PLAYER_B_TEXT, PN_INV_TEXT, PLAYER_B1_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, STD_B_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_B_TEXT, YUMEKO_COLORFILL_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_I_TEXT, GRCG_MC_TEXT, SCORE_R_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -1490,46 +1490,46 @@ BOSS_BG_TEXT	ends
 ; it. Head length 180h, EVEN, so the `word`-aligned tail reopens where it was.
 END_EXT_A_TEXT	segment	word public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
+; sara_backdrop_colorfill() is compiled from th05/main/boss/b1_cfill.cpp
 
-public @SARA_BACKDROP_COLORFILL$QV
-@sara_backdrop_colorfill$qv	proc near
-		push	di
-		cli
-		mov	dx, 126	; Port 007Eh: GRCG tile register
-		xor	al, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		out	dx, al
-		sti
-		GRCG_FILL_PLAYFIELD_ROWS	192, 176, dx
-		mov	ax, GRAM_400 + (PLAYFIELD_TOP * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (191 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT
+; and appended to BOSS_BG_TEXT by th05/boss_bg.cpp. END_EXT_A_TEXT
+; therefore begins with the following include at the original next address.
+; Head-absorb route: kb/codegen/0148.
 
-loc_DD61:
-		mov	es:[di], eax
-		mov	es:[di+(352 / 8)], eax
-		sub	di, ROW_SIZE
-		jge	short loc_DD61
-		pop	di
-		retn
-@sara_backdrop_colorfill$qv	endp
 
-; ---------------------------------------------------------------------------
-		nop
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 include th04/main/player/shot_laser.asm
 include th05/formats/bb_cheeto.asm
 
 END_EXT_A_TEXT	ends
 
-; Harness carve (kb/codegen/0080): what is left of `END_EXT_TEXT` once the
-; head above was renamed. Reopened under the ORIGINAL name so that the two
-; C++ objects that already append to it are never re-pointed, which is
-; 0080's "prefer the half with no C++ contribution".
+; Harness carve (kb/codegen/0080 + 0085): the remaining original END_EXT_TEXT
+; is now split three ways. END_EXT_B_TEXT keeps the two prefix includes;
+; YUMEKO_COLORFILL_TEXT anchors the C++ callback; and the suffix keeps
+; END_EXT_TEXT so its existing th05/end_ext.cpp contribution stays put.
 ;
 ; Louise's and Alice's [boss_backdrop_colorfill] callbacks used to sit right
 ; here, and Mai's and Yuki's right after them. All three are emitted from
@@ -1544,20 +1544,20 @@ END_EXT_A_TEXT	ends
 ; kb/codegen 0148 in the head direction. kb/codegen 0121: the deleted body
 ; set `assume es:nothing`, and the state entering it already was -- measured.
 ; Same `word public 'CODE'` alignment as before; nothing else moves.
-END_EXT_TEXT	segment	word public 'CODE' use16
+END_EXT_B_TEXT	segment	word public 'CODE' use16
 
 include th05/formats/bb_load.asm
 include th04/main/tile/bb_put_a.asm
 
-; =============== S U B	R O U T	I N E =======================================
+END_EXT_B_TEXT	ends
 
-public @YUMEKO_BACKDROP_COLORFILL$QV
-@yumeko_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	192, 176
-		pop	di
-		retn
-@yumeko_backdrop_colorfill$qv	endp
+; Compiled from th05/main/boss/colorfill.cpp at this original address.
+YUMEKO_COLORFILL_TEXT	segment	word public 'CODE' use16
+	@YUMEKO_BACKDROP_COLORFILL$QV procdesc pascal near
+YUMEKO_COLORFILL_TEXT	ends
+
+; Original name retained on the suffix for th05/end_ext.cpp.
+END_EXT_TEXT	segment	word public 'CODE' use16
 
 include th04/formats/z_super_roll_put_tiny.asm
 include th04/main/tile/inv.asm
@@ -4200,377 +4200,42 @@ B4_UPDATE_TEXT	segment	byte public 'CODE' use16
 	@alice_pattern_19E12$qv procdesc near
 	@alice_pattern_19EDA$qv procdesc near
 	@alice_pattern_19F75$qv procdesc near
+; mai_yuki_1A556() is compiled at this original address from
+; th05/main/boss/b4_both.cpp, the final body in th05/boss_4.cpp.
+; Head absorb route: state/re/HEAD_ABSORB_SWEEP.md.
 B4_UPDATE_TEXT	ends
 
 main_035_TEXT	segment	byte public 'CODE' use16
 
-; =============== S U B	R O U T	I N E =======================================
 
-; Attributes: bp-based frame
-
-; Zero-byte aliases (kb/codegen/0123) so that th05/main/boss/b4_pair.cpp can
-; name the five procs mai_yuki_update() used to reach from in here. Each is a
-; `public` on the underscored spelling off a `label near` beside the `proc`,
-; on _sub_B237's model at the top of this dump; the dump's own internal
-; references keep the bare name. These two are the per-character pattern
-; steps, called every frame while both characters are flying, and neither
-; ever loads AL before `retn`.
-public _mai_yuki_1A556
-_mai_yuki_1A556 label near
-mai_yuki_1A556	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jge	short loc_1A58D
-		mov	eax, _boss_pos.cur
-		mov	_gather_template.GT_center, eax
-		mov	ax, _boss_phase_frame
-		add	ax, -24
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_boss_sprite, 183
-		cmp	_boss_phase_frame, 32
-		jnz	short loc_1A5B1
-		call	snd_se_play pascal, 8
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A58D:
-		call	_mai_pair_pattern
-		or	al, al
-		jnz	short loc_1A59C
-		mov	_boss_sprite, 184
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A59C:
-		mov	_boss_phase_frame, 0
-		mov	_boss_mode, 0
-		mov	_boss_sprite, 180
-		mov	_yuki_sprite, 180
-
-loc_1A5B1:
-		pop	bp
-		retn
-mai_yuki_1A556	endp
+; mai_yuki_1A5B3() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mai_yuki_1A5B3
-_mai_yuki_1A5B3 label near
-mai_yuki_1A5B3	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jge	short loc_1A5DC
-		mov	eax, _yuki_pos.cur
-		mov	_gather_template.GT_center, eax
-		mov	ax, _boss_phase_frame
-		add	ax, -24
-		call	@gather_add_only_3stack$qiuiui pascal, ax, large (9 shl 16) or 8
-		mov	_yuki_sprite, 183
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A5DC:
-		call	_yuki_pair_pattern
-		or	al, al
-		jnz	short loc_1A5E9
-		mov	_yuki_sprite, 184
-
-loc_1A5E9:
-		pop	bp
-		retn
-mai_yuki_1A5B3	endp
+; mai_yuki_1A5EB() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; The three patterns mai_yuki_update() installs by NAME rather than through
-; one of the five band tables in _DATA: Mai's first, Mai's manual laser,
-; and Yuki's first. All three are table entries as well, so the bare name
-; still has _DATA readers in here. The two IDA `sub_` spellings the C++
-; reaches are renamed onto the address-suffixed form the other seventeen
-; bodies of this block already use; the rest of the block keeps its
-; spellings until the parcel that lifts it.
-public _mai_yuki_1A5EB
-_mai_yuki_1A5EB label near
-mai_yuki_1A5EB	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 6
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A641
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_STACK_AIMED
-		call	@randring2_next16_and$qui pascal, 3Fh
-		sub	al, 20h
-		mov	_bullet_template.BT_angle, al
-		mov	_bullet_template.patnum, PAT_BULLET16_N_CROSS_BLUE
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.BT_stack, (6 shl 8) or 2
-		call	@randring2_next16_and$qui pascal, 1Fh
-		add	al, (1 shl 4)
-		mov	_bullet_template.speed, al
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1A641:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1A64D
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A64D:
-		mov	al, 0
-		pop	bp
-		retn
-mai_yuki_1A5EB	endp
+; mai_yuki_1A651() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A651	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1A69C
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD_AIMED
-		mov	_bullet_template.BT_special_motion, BSM_DECELERATE_THEN_TURN_AIMED
-		mov	_bullet_template.BT_angle, 0
-		mov	_bullet_template.patnum, PAT_BULLET16_V_BLUE
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (8 shl 8) or 16
-		mov	_bullet_template.speed, (3 shl 4) + 12
-		call	_bullet_template_tune
-		call	_bullets_add_special_fixedspeed
-		call	snd_se_play pascal, 3
-
-loc_1A69C:
-		cmp	_boss_phase_frame, 96
-		jnz	short loc_1A6A7
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A6A7:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A651	endp
+; mai_yuki_1A6AB() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A6AB	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1A6BA
-		mov	_boss_statebyte[15], -10h
-
-loc_1A6BA:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A709
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	al, _boss_statebyte[15]
-		mov	_bullet_template.BT_angle, al
-		add	al, 5
-		mov	_boss_statebyte[15], al
-		mov	_bullet_template.patnum, 0
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (10 shl 8) or 5
-		mov	_bullet_template.speed, (3 shl 4) + 2
-		call	_bullet_template_tune
-		call	_bullets_add_regular_fixedspeed
-		call	snd_se_play pascal, 3
-
-loc_1A709:
-		cmp	_boss_phase_frame, 160
-		jnz	short loc_1A715
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A715:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A6AB	endp
+; mai_yuki_1A719() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A719	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A765
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.BT_angle, 40h
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_BLUE
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 8
-		mov	_bullet_template.speed, (4 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1A765:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1A771
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A771:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A719	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _mai_yuki_1A775
-_mai_yuki_1A775 label near
-mai_yuki_1A775	proc near
-
-var_1		= byte ptr -1
-
-		enter	2, 0
-		cmp	_boss_phase_frame, 48
-		jnz	short loc_1A7AF
-		mov	eax, _boss_pos.cur
-		mov	_laser_template.coords.origin, eax
-		mov	ax, _player_pos.cur.y
-		sub	ax, _laser_template.coords.origin.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, _laser_template.coords.origin.x
-		push	ax
-		call	iatan2
-		mov	_laser_template.coords.angle, al
-		mov	_laser_template.LASER_color, 8
-		mov	_laser_template.coords.LASER_width, 8
-		call	@laser_manual_fixed_spawn$qi pascal, 0
-
-loc_1A7AF:
-		cmp	_boss_phase_frame, 80
-		jnz	short loc_1A7BB
-		call	@laser_manual_grow$qi pascal, 0
-
-loc_1A7BB:
-		mov	ax, _boss_phase_frame
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A81A
-		cmp	_boss_phase_frame, 80
-		jl	short loc_1A7D7
-		cmp	_boss_phase_frame, 144
-		jl	short loc_1A7E4
-
-loc_1A7D7:
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A81A
-
-loc_1A7E4:
-		mov	ax, _player_pos.cur.y
-		sub	ax, _laser_template.coords.origin.y
-		push	ax
-		mov	ax, _player_pos.cur.x
-		sub	ax, _laser_template.coords.origin.x
-		push	ax
-		call	iatan2
-		mov	[bp-1],	al
-		mov	al, _lasers[0 * size laser_t].coords.angle
-		sub	[bp-1],	al
-		cmp	byte ptr [bp-1], 0
-		jle	short loc_1A80C
-		inc	al
-		jmp	short loc_1A817
-; ---------------------------------------------------------------------------
-
-loc_1A80C:
-		cmp	byte ptr [bp-1], 0
-		jge	short loc_1A81A
-		mov	al, _lasers[0 * size laser_t].coords.angle
-		add	al, -1
-
-loc_1A817:
-		mov	_lasers[0 * size laser_t].coords.angle, al
-
-loc_1A81A:
-		cmp	_boss_phase_frame, 160
-		jnz	short loc_1A82B
-		call	@laser_stop$qi pascal, 0
-		mov	al, 1
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A82B:
-		mov	al, 0
-		leave
-		retn
-mai_yuki_1A775	endp
+; mai_yuki_1A775() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the second body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
 ; midboss4_update() and the four helpers only it called were the tail of
@@ -4617,24 +4282,22 @@ mai_yuki_1A775	endp
 ; ladder from this comment -- re-probe both OBJs, because every lift moves
 ; both.
 ;
-; The root's tail here is now mai_yuki_1A775(), Mai's manual tracking
-; laser, and it is the ONE proc of this block that has not matched yet.
-; That is also why the six procs below it are still here: th05_main.asm is
-; this segment's first object, so a C++ contribution can only ever be a
-; SUFFIX of the block, and nothing under an unmatched proc can leave ahead
-; of it. The tracking block that resists is nine instructions long and the
-; measurement is in state/notes/th05-main-mai-update.md; when it goes, all
-; six go with it, in one parcel, and the run has to be EVEN.
+; The root contribution to MAIN_035_TEXT now emits no bytes. Its boundary
+; moved down by the head-absorbed 0x5D-byte mai_yuki_1A556(), so the segment
+; begins at original 0x1A5B3 with th05/main/boss/b4_pair.cpp.
+;
+; Every prepend into either Stage 4 object still has to preserve all generated
+; table padding; the whole-segment diff, not a parity slogan, is the gate.
 ;
 ; What the two objects still reach in here emits no bytes either way.
 ; Twelve zero-byte kb/codegen/0123 aliases belong to b4mai.cpp and are all
 ; DATA: [mai_yuki_pattern], the three YUKI_PATTERNS_PHASE_* and three
 ; MAI_PATTERNS_PHASE_* tables, the phase-5 laser pattern's four words, and
-; MAI_LASER_BULLET_PATTERNS. Thirteen more belong to b4pair.cpp: the four
-; dialog-script and BGM-title strings, which keep IDA's spelling because
-; nothing has read them closely enough to name them, and the five band
-; tables, the two [_*_pair_pattern] slots and the four procs it still
-; calls by name, all RENAMED rather than aliased.
+; MAI_LASER_BULLET_PATTERNS. Eleven DATA symbols belong to b4pair.cpp: the
+; four dialog-script and BGM-title strings, which keep IDA's spelling because
+; nothing has read them closely enough to name them, the five band tables, and
+; the two [_*_pair_pattern] slots. The procdescs below let those tables resolve
+; their C++ bodies; none emits code in this root contribution.
 
 	; Every body the seven pattern tables in _DATA reach. None carries an
 	; argument list, so TASM leaves the case alone (kb/codegen/0102) -- and
@@ -4660,12 +4323,16 @@ mai_yuki_1A775	endp
 	@mai_1C194$qv procdesc near
 	@mai_1C23D$qv procdesc near
 
-	; The ten bodies of this block that th05/main/boss/b4_pair.cpp has
-	; taken so far, in address order: the bottom eight of the pair
-	; phase's fourteen danmaku patterns, and the two cheeto patterns
-	; that went with mai_yuki_update(). All ten are entries of the five
-	; band tables in _DATA and nothing else reaches them; none carries
-	; an argument list, so TASM leaves the case alone (kb/codegen/0102).
+	; The fourteen bodies of this block that the tables in _DATA reach from
+	; th05/main/boss/b4_pair.cpp, in address order: Mai's first, aimed, rotating,
+	; and downward patterns, the bottom eight table-backed patterns, and the two
+	; cheeto patterns that went with mai_yuki_update(). All fourteen are entries
+	; of the five band tables in _DATA and nothing else reaches them; none
+	; carries an argument list, so TASM leaves the case alone (kb/codegen/0102).
+	_mai_yuki_1A5EB procdesc near
+	@mai_yuki_1A651$qv procdesc near
+	@mai_yuki_1A6AB$qv procdesc near
+	@mai_yuki_1A719$qv procdesc near
 	@mai_yuki_1A82F$qv procdesc near
 	@mai_yuki_1A8C9$qv procdesc near
 	@mai_yuki_1A921$qv procdesc near
@@ -5189,12 +4856,12 @@ off_22770	dw offset @alice_pattern_19B9E$qv
 ; of the five (kb/codegen/0123).
 public _MAI_PAIR_PATTERNS_1, _MAI_PAIR_PATTERNS_3
 public _YUKI_PAIR_PATTERNS_1, _YUKI_PAIR_PATTERNS_2, _YUKI_PAIR_PATTERNS_3
-_MAI_PAIR_PATTERNS_1	dw offset mai_yuki_1A5EB
-		dw offset sub_1A6AB
-		dw offset sub_1A651
-		dw offset sub_1A719
+_MAI_PAIR_PATTERNS_1	dw offset _mai_yuki_1A5EB
+		dw offset @mai_yuki_1A6AB$qv
+		dw offset @mai_yuki_1A651$qv
+		dw offset @mai_yuki_1A719$qv
 _MAI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB76$qv
-		dw offset sub_1A6AB
+		dw offset @mai_yuki_1A6AB$qv
 		dw offset @mai_yuki_1A82F$qv
 		dw offset @mai_yuki_1A82F$qv
 		dw 0

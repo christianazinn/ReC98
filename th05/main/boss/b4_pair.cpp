@@ -46,6 +46,7 @@ void pascal near tiles_render_all(void);
 extern "C" void pascal near b4_solo_fg_render(void);
 #pragma codeseg
 
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th03/hardware/palette.hpp"
 #include "th04/main/pattern.hpp"
@@ -70,20 +71,16 @@ extern "C" void pascal near b4_solo_fg_render(void);
 
 // What this file still reaches in th05_main.asm
 // ---------------------------------------------
-// Zero-byte kb/codegen/0123 aliases, every one of them published off a
-// `label` beside ZUN's own definition, on the model of [fp_2CE32] and
-// [off_22770] one boss over (th05/main/boss/b3.cpp). The dump's own names are
-// kept: everything here is either still ZUN's assembly, or a table pointing
-// into assembly that is still there, so all of it belongs to the parcel that
-// lifts the block above -- not to this one.
+// Only _DATA remains: two selected-pattern pointers, five pattern tables, two
+// dialog scripts, and two BGM titles. The code bodies reached through those
+// pointers and tables are all C++ now.
 
 // The two currently selected danmaku patterns, one per character. ZUN's
-// assembly right above this block calls them -- mai_yuki_1A556() steps
-// [mai_pair_pattern] with Mai's gather animation, mai_yuki_1A5B3() steps [yuki_pair_pattern]
-// with Yuki's -- and mai_yuki_update() is the only thing that ever assigns
-// them. Two variables rather than a two-element array: every assignment below
-// names one of them directly. Structural twin of [fp_2CE2A] / [fp_2CE2C] in
-// b3.cpp.
+// mai_yuki_1A556() steps [mai_pair_pattern] with Mai's gather animation,
+// mai_yuki_1A5B3() steps [yuki_pair_pattern] with Yuki's, and
+// mai_yuki_update() is the only thing that ever assigns them. Two variables
+// rather than a two-element array: every assignment below names one of them
+// directly. Structural twin of [fp_2CE2A] / [fp_2CE2C] in b3.cpp.
 extern "C" pattern_oneshot_func_t mai_pair_pattern;
 extern "C" pattern_oneshot_func_t yuki_pair_pattern;
 
@@ -98,17 +95,9 @@ extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_1[4];
 extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_2[4];
 extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_3[4];
 
-// The two per-character pattern steps mai_yuki_update() calls once both
-// are flying, and two of the three patterns it installs by name rather
-// than through a band table: Mai's first and Mai's manual laser. The two
-// steps return nothing at all -- neither ever loads AL before `retn` --
-// while both patterns are `pattern_oneshot_func_t`, which is what the
-// tables above are made of. Yuki's first pattern was the third; it is
-// mai_yuki_1A8C9() below now, with C++ linkage.
+// Mai's per-character step is the head-absorbed final body of
+// th05/main/boss/b4_both.cpp, in the preceding B4_UPDATE_TEXT segment.
 extern "C" void near mai_yuki_1A556(void);
-extern "C" void near mai_yuki_1A5B3(void);
-extern "C" bool near mai_yuki_1A5EB(void);
-extern "C" bool near mai_yuki_1A775(void);
 
 // The two dialog scripts and the two BGM titles the last case picks between,
 // all four still in the dump's _DATA.
@@ -166,21 +155,17 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 
 /// Danmaku patterns
 /// ----------------
-/// The BOTTOM EIGHT of the pair phase's fourteen, in their original address
-/// order, which is also the order the five band tables index them in. Eight
-/// rather than fourteen because this object has to stay CONTIGUOUS behind the
-/// root's own contribution -- th05_main.asm is the segment's first object, so
-/// a lift out of this block can only ever be a SUFFIX of it -- and
-/// mai_yuki_1A775(), the manual laser six procs up, does not match yet. Its
-/// one unsolved instruction and everything measured about it are in
-/// state/notes/th05-main-mai-update.md; the six bodies below this run go with
-/// it, in one parcel, when it does.
+/// The BOTTOM TEN of the pair phase's fourteen, in their original address
+/// order, which is also the order the five band tables index them in. This
+/// object stays CONTIGUOUS behind the root's own contribution -- th05_main.asm
+/// is the segment's first object, so a lift out of this block can only ever be
+/// a SUFFIX of it.
 ///
-/// Every one of the eight is a pattern_oneshot_func_t that never returns
-/// anything but `false`: their bands end on mai_yuki_update()'s own HP check
-/// rather than on a frame count. They share a shape the solo halves do NOT
-/// have -- no gathering animation, no [boss.sprite] assignment and no
-/// boss_flystep_random() tail, because in the pair phase the flying is
+/// The eight after the manual laser are pattern_oneshot_func_t bodies that
+/// never return anything but `false`: their bands end on mai_yuki_update()'s
+/// own HP check rather than on a frame count. They share a shape the solo
+/// halves do NOT have -- no gathering animation, no [boss.sprite] assignment
+/// and no boss_flystep_random() tail, because in the pair phase the flying is
 /// mai_yuki_update()'s job through mai_yuki_flystep_random(). Mai's spawn from
 /// [boss], Yuki's from [yuki], and all of them 8 pixels above the character
 /// rather than at her center.
@@ -191,6 +176,176 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 // `true`. Two of the eight reset their state bytes on exactly that
 // frame.
 static const int MAI_YUKI_GATHER_FRAMES = 48;
+static const int PAT_B4_GATHER = (PAT_MAI + 3);
+static const int PAT_B4_CAST = (PAT_MAI + 4);
+
+// Yuki's half of the pair-pattern step: gather first, then keep her casting
+// cel selected until the installed pattern reports completion.
+extern "C" void near mai_yuki_1A5B3(void)
+{
+	if(boss.phase_frame < MAI_YUKI_GATHER_FRAMES) {
+		gather_template.center = yuki.pos.cur;
+		gather_add_only_3stack((boss.phase_frame - 24), 9, 8);
+		yuki.sprite = PAT_B4_GATHER;
+		return;
+	}
+	if(!yuki_pair_pattern()) {
+		yuki.sprite = PAT_B4_CAST;
+	}
+}
+
+// Mai, band 1: a randomly aimed two-bullet stack of blue crosses every 6
+// frames, with both a random base speed and a fixed speed delta.
+extern "C" bool near mai_yuki_1A5EB(void)
+{
+	if((boss.phase_frame % 6) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_STACK_AIMED;
+		bullet_template.angle = (randring2_next16_and(0x3F) - 0x20);
+		bullet_template.patnum = PAT_BULLET16_N_CROSS_BLUE;
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_stack(2, 0.375f);
+		bullet_template.speed.v = (
+			randring2_next16_and(0x1F) + to_sp8(1.0f)
+		);
+		bullet_template_tune();
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 128) {
+		return true;
+	}
+	return false;
+}
+
+// Mai, band 1: one aimed 16-wide spread whose bullets decelerate and then
+// turn toward the player. The spread is fired once, as the gather ends.
+bool near mai_yuki_1A651(void)
+{
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD_AIMED;
+		bullet_template.special_motion = BSM_DECELERATE_THEN_TURN_AIMED;
+		bullet_template.angle = 0x00;
+		bullet_template.patnum = PAT_BULLET16_V_BLUE;
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(16, 8);
+		bullet_template.speed.set(3.75f);
+		bullet_template_tune();
+		bullets_add_special_fixedspeed();
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 96) {
+		return true;
+	}
+	return false;
+}
+
+// Mai, bands 1 and 3: a rotating 5-way pellet spread every 4 frames. The
+// third-band table deliberately reuses this first-band pattern.
+bool near mai_yuki_1A6AB(void)
+{
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		boss_statebyte[15] = -0x10;
+	}
+	if((boss.phase_frame % 4) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.angle = boss_statebyte[15];
+		boss_statebyte[15] += 5;
+		bullet_template.patnum = 0; // pellet
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(5, 10);
+		bullet_template.speed.v = (TO_SP(3) + 2);
+		bullet_template_tune();
+		bullets_add_regular_fixedspeed();
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 160) {
+		return true;
+	}
+	return false;
+}
+
+// Mai, band 1: an 8-wide downward spread of small blue balls every 8 frames.
+// Unlike its Yuki twin below, this pattern ends its slot on frame 128.
+bool near mai_yuki_1A719(void)
+{
+	if((boss.phase_frame % 8) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.angle = 0x40;
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_BLUE;
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(8, 12);
+		bullet_template.speed.set(4.0f);
+		bullet_template_tune();
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 128) {
+		return true;
+	}
+	return false;
+}
+
+// Mai, band 2: one manually controlled fixed laser, spawned aimed at the
+// player and then kept turning toward them by one angle step. It turns every
+// 4 frames while active, and every 8 frames before growing and after the
+// 64-frame active interval. The checks on frames 48, 80 and 160 deliberately
+// remain independent: those frames also run the steering block before the
+// function returns.
+bool near mai_yuki_1A775(void)
+{
+	signed char angle_delta;
+
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		laser_template.coords.origin = boss.pos.cur;
+		laser_template.coords.angle = iatan2(
+			(player_pos.cur.y.v - laser_template.coords.origin.y.v),
+			(player_pos.cur.x.v - laser_template.coords.origin.x.v)
+		);
+		laser_template.col = 8;
+		laser_template.coords.width.nonshrink = 8;
+		laser_manual_fixed_spawn(0);
+	}
+	if(boss.phase_frame == 80) {
+		laser_manual_grow(0);
+	}
+	if((boss.phase_frame % 4) == 0) {
+		if(
+			((boss.phase_frame >= 80) && (boss.phase_frame < 144)) ||
+			((boss.phase_frame % 8) == 0)
+		) {
+			angle_delta = iatan2(
+				(player_pos.cur.y.v - laser_template.coords.origin.y.v),
+				(player_pos.cur.x.v - laser_template.coords.origin.x.v)
+			);
+			// The signed byte wrap selects the shorter direction. An exact
+			// half-turn becomes -128 and therefore takes the negative arm.
+			angle_delta -= static_cast<signed char>(lasers[0].coords.angle);
+			if(angle_delta > 0) {
+				_AL++;
+			} else if(angle_delta < 0) {
+				_AL = lasers[0].coords.angle;
+				_AL += -1;
+			} else {
+				goto no_turn;
+			}
+			lasers[0].coords.angle = _AL;
+		no_turn:
+		}
+	}
+	if(boss.phase_frame == 160) {
+		laser_stop(0);
+		return true;
+	}
+	return false;
+}
 
 // Mai, band 3: a 4-wide ring of small blue balls every 4 frames, its base
 // angle walking one way and then, every 16 frames, jumping back by a random
@@ -288,9 +443,8 @@ bool near mai_yuki_1A96A(void)
 }
 
 // Yuki, band 1: an 8-wide downward spread of small red balls every 8 frames --
-// the twin of sub_1A719() six procs up, which is still ZUN's assembly: same
-// body in her colour and out of her position, and with no frame count that
-// ends it.
+// the twin of mai_yuki_1A719() six procs up: same body in her colour and out
+// of her position, and with no frame count that ends it.
 bool near mai_yuki_1A9B3(void)
 {
 	if((boss.phase_frame % 8) == 0) {
