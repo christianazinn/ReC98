@@ -167,7 +167,7 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 
 /// Danmaku patterns
 /// ----------------
-/// The BOTTOM NINE of the pair phase's fourteen, in their original address
+/// The BOTTOM TEN of the pair phase's fourteen, in their original address
 /// order, which is also the order the five band tables index them in. This
 /// object stays CONTIGUOUS behind the root's own contribution -- th05_main.asm
 /// is the segment's first object, so a lift out of this block can only ever be
@@ -188,6 +188,29 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 // `true`. Two of the eight reset their state bytes on exactly that
 // frame.
 static const int MAI_YUKI_GATHER_FRAMES = 48;
+
+// Mai, band 1: an 8-wide downward spread of small blue balls every 8 frames.
+// Unlike its Yuki twin below, this pattern ends its slot on frame 128.
+bool near mai_yuki_1A719(void)
+{
+	if((boss.phase_frame % 8) == 0) {
+		bullet_template.spawn_type = (BST_CLOUD_FORWARDS | BST_NO_DECELERATE);
+		bullet_template.group = BG_SPREAD;
+		bullet_template.angle = 0x40;
+		bullet_template.patnum = PAT_BULLET16_N_SMALL_BALL_BLUE;
+		bullet_template.origin.x.v = boss.pos.cur.x.v;
+		bullet_template.origin.y.v = (boss.pos.cur.y.v + to_sp(-8.0f));
+		bullet_template.set_spread(8, 12);
+		bullet_template.speed.set(4.0f);
+		bullet_template_tune();
+		bullets_add_regular();
+		snd_se_play(3);
+	}
+	if(boss.phase_frame == 128) {
+		return true;
+	}
+	return false;
+}
 
 // Mai, band 2: one manually controlled fixed laser, spawned aimed at the
 // player and then kept turning toward them by one angle step. It turns every
@@ -339,9 +362,8 @@ bool near mai_yuki_1A96A(void)
 }
 
 // Yuki, band 1: an 8-wide downward spread of small red balls every 8 frames --
-// the twin of sub_1A719() six procs up, which is still ZUN's assembly: same
-// body in her colour and out of her position, and with no frame count that
-// ends it.
+// the twin of mai_yuki_1A719() six procs up: same body in her colour and out
+// of her position, and with no frame count that ends it.
 bool near mai_yuki_1A9B3(void)
 {
 	if((boss.phase_frame % 8) == 0) {
