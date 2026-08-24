@@ -4429,51 +4429,13 @@ loc_1A715:
 sub_1A6AB	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_1A719	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_1A765
-		mov	_bullet_template.spawn_type, BST_CLOUD_FORWARDS or BST_NO_DECELERATE
-		mov	_bullet_template.BT_group, BG_SPREAD
-		mov	_bullet_template.BT_angle, 40h
-		mov	_bullet_template.patnum, PAT_BULLET16_N_SMALL_BALL_BLUE
-		mov	ax, _boss_pos.cur.x
-		mov	_bullet_template.BT_origin.x, ax
-		mov	ax, _boss_pos.cur.y
-		add	ax, (-8 shl 4)
-		mov	_bullet_template.BT_origin.y, ax
-		mov	word ptr _bullet_template.spread, (12 shl 8) or 8
-		mov	_bullet_template.speed, (4 shl 4)
-		call	_bullet_template_tune
-		call	_bullets_add_regular
-		call	snd_se_play pascal, 3
-
-loc_1A765:
-		cmp	_boss_phase_frame, 128
-		jnz	short loc_1A771
-		mov	al, 1
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1A771:
-		mov	al, 0
-		pop	bp
-		retn
-sub_1A719	endp
+; mai_yuki_1A719() is compiled at this original address from
+; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; Tail absorb route: kb/codegen/0112 + 0114.
 
 
 ; mai_yuki_1A775() is compiled at this original address from
-; th05/main/boss/b4_pair.cpp, the first body in th05/b4pair.cpp.
+; th05/main/boss/b4_pair.cpp, the second body in th05/b4pair.cpp.
 ; Tail absorb route: kb/codegen/0112 + 0114.
 
 
@@ -4521,14 +4483,14 @@ sub_1A719	endp
 ; ladder from this comment -- re-probe both OBJs, because every lift moves
 ; both.
 ;
-; The root's tail here is now mai_yuki_1A775(), Mai's manual tracking
-; laser, and it is the ONE proc of this block that has not matched yet.
-; That is also why the six procs below it are still here: th05_main.asm is
-; this segment's first object, so a C++ contribution can only ever be a
-; SUFFIX of the block, and nothing under an unmatched proc can leave ahead
-; of it. The tracking block that resists is nine instructions long and the
-; measurement is in state/notes/th05-main-mai-update.md; when it goes, all
-; six go with it, in one parcel, and the run has to be EVEN.
+; The root's tail here is now sub_1A6AB, Mai's rotating blue spread.
+; It is reached from both MAI_PAIR_PATTERNS_1 and
+; MAI_PAIR_PATTERNS_3. The current map and its address-suffixed neighbors
+; bound it to 0x1A6AB-0x1A719, 0x6E bytes. Re-derive that range after
+; every lift rather than trusting this comment: th05_main.asm is the
+; segment's first object, so only the live root suffix can move into C++.
+;
+; Every prepend into either Stage 4 object still has to be EVEN.
 ;
 ; What the two objects still reach in here emits no bytes either way.
 ; Twelve zero-byte kb/codegen/0123 aliases belong to b4mai.cpp and are all
@@ -4564,12 +4526,13 @@ sub_1A719	endp
 	@mai_1C194$qv procdesc near
 	@mai_1C23D$qv procdesc near
 
-	; The ten bodies of this block that th05/main/boss/b4_pair.cpp has
-	; taken so far, in address order: the bottom eight of the pair
-	; phase's fourteen danmaku patterns, and the two cheeto patterns
-	; that went with mai_yuki_update(). All ten are entries of the five
-	; band tables in _DATA and nothing else reaches them; none carries
-	; an argument list, so TASM leaves the case alone (kb/codegen/0102).
+	; The eleven bodies of this block that the tables in _DATA reach from
+	; th05/main/boss/b4_pair.cpp, in address order: Mai's downward
+	; spread, the bottom eight table-backed patterns, and the two cheeto
+	; patterns that went with mai_yuki_update(). All eleven are entries of
+	; the five band tables in _DATA and nothing else reaches them; none
+	; carries an argument list, so TASM leaves the case alone (kb/codegen/0102).
+	@mai_yuki_1A719$qv procdesc near
 	@mai_yuki_1A82F$qv procdesc near
 	@mai_yuki_1A8C9$qv procdesc near
 	@mai_yuki_1A921$qv procdesc near
@@ -5096,7 +5059,7 @@ public _YUKI_PAIR_PATTERNS_1, _YUKI_PAIR_PATTERNS_2, _YUKI_PAIR_PATTERNS_3
 _MAI_PAIR_PATTERNS_1	dw offset mai_yuki_1A5EB
 		dw offset sub_1A6AB
 		dw offset sub_1A651
-		dw offset sub_1A719
+		dw offset @mai_yuki_1A719$qv
 _MAI_PAIR_PATTERNS_3	dw offset @mai_yuki_1AB76$qv
 		dw offset sub_1A6AB
 		dw offset @mai_yuki_1A82F$qv
