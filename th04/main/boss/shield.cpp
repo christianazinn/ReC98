@@ -1,8 +1,9 @@
 /// Extra Stage boss barrier
 /// ------------------------
 /// (#included from th04/main_01.cpp, after th04/main/boss/bx1_fg.cpp. ZUN's
-/// object for this code segment held th04/formats/bb_txt_load.asm,
-/// mugetsu_fg_render() and then this function; that an original object held
+/// object for this code segment held the loader now in
+/// th04/formats/bb_txt_load.cpp, mugetsu_fg_render() and then this function;
+/// that an original object held
 /// several unrelated sources is kb/codegen/0112. The first of the three stays
 /// in the dump, so this object is spliced *between* th04_main.asm and
 /// th04\scoreupd.asm in the link list rather than appended after both — see

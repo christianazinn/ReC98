@@ -87,7 +87,7 @@ extern "C" void near safetycircle_open(void)
 // these return true once the animation is finished.
 //
 // `extern "C"`, and that is a correction rather than a decoration: every one of
-// these publishes an undecorated name out of th04/main/boss/b6_anim.asm, and
+// these publishes an undecorated name from th04/main/boss/b6_next.cpp, and
 // yuuka6_phase_next() publishes the bare UPPERCASE spelling a `pascal` function
 // gets. Declared with C++ linkage, as they were until
 // MATCH-TH04-MAIN-034-CHAIN, they resolve against nothing at all -- which is

@@ -19,11 +19,12 @@
 /// group rather than on MAINE_01_TEXT, and it is already set by the
 /// th04/staff.cpp wrapper.
 ///
-/// TH05 has the same screen at `0A54:255B` (`sub_CA9B`, 0x6D4) — same label
-/// list in the same order, same five percentage rows — but it reads every
-/// coordinate and colour out of `_DATA` where TH04 hardcodes immediates, and
-/// its scoring constants and clamps differ throughout. Left as ASM here; a
-/// shared body is the pairing to try when that copy is lifted.
+/// TH05's counterpart is verdict_stats_put() in
+/// th05/end/verdict_stats.cpp. It has the same label list in the same order
+/// and the same five percentage rows, but reads every coordinate and colour
+/// out of `_DATA` where TH04 hardcodes immediates, and its scoring constants
+/// and clamps differ throughout. Those differences keep the two C++ bodies
+/// separate.
 
 #include "th01/rank.h"
 #include "th02/v_colors.hpp"

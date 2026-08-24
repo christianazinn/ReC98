@@ -129,9 +129,9 @@ void near regist_menu(void)
 	/// spends SI on [cursor] and DI on [col], leaving [row] to spill;
 	/// dropping [cursor] for TH05 shifts SI to [col] and DI to [row], which
 	/// is exactly what that dump does. Everything that spills then lands in
-	/// declaration order from bp-2 downwards, words before bytes:
-	/// TH04 `enter 0Ah` = row/input_locked/i/j/input_delay/glyph, TH05
-	/// `enter 8` = the same list minus [row].
+	/// declaration order from bp-2 downwards, words before bytes. TH04's frame
+	/// is 10 bytes for row/input_locked/i/j/input_delay/glyph; TH05's is 8
+	/// bytes for the same list minus [row].
 #if (GAME != 5)
 	int cursor = 0;
 #endif
@@ -197,9 +197,8 @@ void near regist_menu(void)
 
 	// With only two characters, "every other one" is a single subtraction.
 	// [measured] The cast is not decoration: the original does this one in
-	// *byte* width (`mov al, 1` / `sub al, playchar`) because the parameter is
-	// a 1-byte enum, and the places_put() line right below it in word width
-	// (`mov dx, 1` / `sub dx, ax`) because that parameter is an `int`.
+	// byte width because the parameter is a 1-byte enum, and the places_put()
+	// line right below it in word width because that parameter is an `int`.
 	hiscore_scoredat_load_for(static_cast<playchar_t>(1 - playchar));
 	places_put((_AL = playchar, _AH = 0, _DX = 1, _DX -= _AX, _DX));
 	hiscore_scoredat_load_for(playchar);

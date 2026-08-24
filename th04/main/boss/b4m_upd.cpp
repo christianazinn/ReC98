@@ -1122,8 +1122,8 @@ static void near marisa_1769E(void)
 	// load-bearing: [measured] a lone `marisa_charge_t` local is homed at
 	// `[bp-2]` -- Turbo C++ still reserves a word for the enum under `-b-`,
 	// even though every access to it is byte-wide -- while a lone
-	// `unsigned char` gets the `[bp-1]` the original uses. Same `enter 2, 0`
-	// and the same length either way, so only a disassembly catches it.
+	// `unsigned char` gets the `[bp-1]` the original uses. Both variants retain
+	// the same two-byte frame and total length, so only a disassembly catches it.
 	unsigned char charge = marisa_charge_animate();
 
 	if(charge == MC_FIRE) {

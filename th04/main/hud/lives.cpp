@@ -81,10 +81,10 @@ extern "C" void pascal hud_lives_put(void)
 	// Turbo C++ makes plain `char` signed (kb/codegen/0142). Measured on this
 	// function, with the constants left `int` throughout:
 	//
-	//   signed char   `cmp byte ptr [bp-1], 6` / `jge`  <- the original
-	//   char          `cbw` + `cmp ax, 6` / `jge`       <- widened, +2 bytes
-	//   unsigned char `cmp byte ptr [bp-1], 6` / `jae`  <- unsigned branch,
-	//                 and `add al, 0FFh` for the decrement below
+	//   signed char   direct byte compare and signed branch <- the original
+	//   char          sign-extension and word compare       <- widened, +2 bytes
+	//   unsigned char direct byte compare, unsigned branch, and a different
+	//                 decrement encoding
 	signed char count;
 	signed char i;
 	int x;

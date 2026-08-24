@@ -41,8 +41,8 @@ bool near enemy_run(void)
 {
 	// Frame budget of a blocking instruction, its length, and the scratch the
 	// autofire-interval opcode needs. Declared in this order because that is
-	// the order the original's frame allocates them: `enter 4, 0` with the
-	// two bytes at [bp-1] and [bp-2] and the word at [bp-4].
+	// the order the original's four-byte frame allocates them: the two bytes
+	// at [bp-1] and [bp-2], followed by the word at [bp-4].
 	unsigned char frames;
 	unsigned char len;
 	volatile int interval;

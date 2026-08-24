@@ -138,18 +138,10 @@ static const int STAGE_START_INVINCIBILITY_FRAMES = 64;
 #endif
 // ---------------------------------------------------------------------
 
-// The frames during which a miss locks the player out of moving.
-// th04/main/player/bomb.cpp, which reads it, spells the same two lines and is
-// where this name comes from; each dump still names the variable itself after
-// its address and publishes a zero-byte alias for every caller. TH05's copy is
-// byte_2CEBD, and th05/shot_inv.cpp spells that half of the alias already.
-#if (GAME == 4)
-	extern "C" unsigned char byte_259A3;
-	#define miss_move_lock_time byte_259A3
-#else
-	extern "C" unsigned char byte_2CEBD;
-	#define miss_move_lock_time byte_2CEBD
-#endif
+// The frames during which a miss locks the player out of moving. Both games
+// place this byte between player invincibility and power and use it through the
+// same stage-start, deathbomb, and per-frame update paths.
+extern "C" unsigned char miss_move_lock_time;
 
 // Far functions that this body was the only ASM caller of in the whole dump,
 // reached through the zero-byte aliases each dump publishes beside them
@@ -242,5 +234,4 @@ void near stage_init(void)
 
 // Undefined again because this file is textually first in its translation
 // unit, and the three files behind it are not this function's business.
-#undef miss_move_lock_time
 #undef nopcall_same_group

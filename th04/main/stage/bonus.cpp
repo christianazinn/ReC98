@@ -81,7 +81,7 @@ extern "C" {
 /// just added still is; a plain call reloads it from the frame instead, so the
 /// two pushes are emitted by hand. `66 50` is the 32-bit push of the
 /// accumulator; Turbo C++ 4.02's inline assembler has no 32-bit register names
-/// at all and rejects any mention of one outright. `6A yy` is the `push` of the
+/// at all and rejects any such register operand outright. `6A yy` pushes the
 /// row's Y coordinate, which the original encodes as an imm8, and both bytes go
 /// in raw so that neither push is left to BASM. (kb/codegen/0122, one game
 /// over.)

@@ -54,9 +54,8 @@ void near bomb_update_and_render(void);
 // player_bomb() is declared in th02/main/player/bomb.hpp above, for all games
 // and with the `extern "C"` linkage the dumps require (kb/codegen/0086). Both
 // dumps now spell it `PLAYER_BOMB procdesc pascal near` (th04_main.asm:6014,
-// th05_main.asm:1290) — the `public PLAYER_BOMB` lines that used to carry the
-// requirement were deleted when these bodies were lifted. What still pins the
-// undecorated name is the ASM references to it: `offset player_bomb` at
+// th05_main.asm:1290). What still pins the undecorated name is the ASM
+// references to it: `offset player_bomb` at
 // th04_main.asm:386 and :404. TH05's dump reference was a call inside
 // sub_1214A, and it went to C++ with that body on 2026-08-19, so th05_main.asm
 // no longer holds one at all.

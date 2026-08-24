@@ -53,18 +53,12 @@
 #endif
 
 // Zeroes [dword_count] doublewords starting at [dst], which has to point into
-// DGROUP. Still assembly in both games (`sub_C34E` in th04_main.asm's
-// CIRCLE_TEXT; th05_main.asm's copy sits in SCORE_TEXT, is likewise still
-// under IDA's spelling, and differs from TH04's by one instruction --
-// `xor ax, ax` against `xor eax, eax`). The Pascal declaration below expresses
-// the caller ABI and parameter types. The compiler limitation is codegen: each
-// body reads both parameters through a nonstandard `mov bx, sp` frame before
-// saving DI, an instruction order Turbo C++ cannot emit for a C++ function
-// that uses DI. Therefore, dwords_clear() is reached through the zero-byte
-// `label` alias each dump publishes for it (kb/codegen/0123). Every one of its
-// call sites in either binary is below. (The sentence above is about
-// dwords_clear() alone, and says so explicitly because it sits directly above
-// the definition of stage_state_reset() as well.)
+// DGROUP. TH04's named assembly body is in CIRCLE_TEXT; TH05's one-instruction
+// variant remains in SCORE_TEXT. The Pascal declaration expresses the ABI and
+// parameter types. The compiler limitation is instruction ordering: both
+// bodies snapshot SP in BX before saving DI, while Turbo C++ saves DI first for
+// every tested C++ function that uses it. Every call site in either binary is
+// below.
 extern "C" void pascal near dwords_clear(void near *dst, int dword_count);
 
 #if (GAME == 5)

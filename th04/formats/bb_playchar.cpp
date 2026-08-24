@@ -5,9 +5,9 @@
 /// one addition: both filenames are patched in place with the playchar's ASCII
 /// digit before either is opened.
 ///
-/// TH04 only. TH05 keeps one filename instead of two, loads no .CDG here at
-/// all, and reaches bb_load() rather than opening the file itself
-/// (th05/formats/bb_playchar.asm).
+/// TH04 only. TH05's bb_playchar_load() in th05/formats/bb_pchar.cpp keeps one
+/// filename instead of two, loads no .CDG here at all, and reaches bb_load()
+/// rather than opening the file itself.
 ///
 /// No segment pragma here: this file is #included first, so `-zC`/`-zP` have to
 /// be set by the wrapper before it, in th04/player_b.cpp. Repeating them here

@@ -1084,9 +1084,9 @@ extern "C" void near yuuka6_1B282(void)
 	_AL &= 0x1F;
 	subframe = _AL;
 	boss.sprite = (((stage_frame_mod4 / 2) * 2) + PAT_YUUKA6_PARASOL_SHIELD_2);
-	// `& 3`, not `% 4`: [subframe] promotes to a SIGNED int, so the modulo
-	// cannot become a mask and Turbo C++ emits a full `idiv` -- nine bytes
-	// where the original has one `test byte ptr [bp-1], 3`.
+	// `& 3`, not `% 4`: [subframe] promotes to a signed int, so the modulo
+	// becomes a nine-byte signed division where the original directly tests
+	// the low two bits of [subframe].
 	if((subframe & 3) == 0) {
 		bullet_template.origin.x.v = boss.pos.cur.x.v;
 		bullet_template.origin.y.v = boss.pos.cur.y.v;

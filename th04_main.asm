@@ -605,11 +605,11 @@ CIRCLE_R_TEXT segment word public 'CODE' use16
 	; linker in UPPER case, which is what TASM must be told literally
 	; (kb/codegen 0081, 0086, 0103).
 	;
-	; The proc itself stays assembly: its `mov bx, sp` frame reads both
-	; parameters through SS:BX, which no C++ signature expresses.
+	; The proc itself stays assembly: Turbo C++ saves DI before the body,
+	; while this function snapshots SP in BX first and only then saves DI.
 	public DWORDS_CLEAR
-	DWORDS_CLEAR label near
-sub_C34E	proc near
+	; The Pascal ABI is expressed by the C++ declaration at each call site.
+DWORDS_CLEAR	proc near
 		mov	bx, sp
 		push	di
 		mov	di, ss:[bx+4]
@@ -621,7 +621,7 @@ sub_C34E	proc near
 		rep stosd
 		pop	di
 		retn	4
-sub_C34E	endp
+DWORDS_CLEAR	endp
 
 include th04/main/playperf.asm
 
@@ -2187,7 +2187,7 @@ main_0_TEXT	segment	word public 'CODE' use16
 	;      shot_laser_time at (SHOT_LASER_COOLDOWN_FRAMES + 1), ending a laser
 	;      that is still being fired, and parks the movement lock at 48h.
 	;
-	;   5) The movement lock. While byte_259A3 is non-zero the whole input
+	;   5) The movement lock. While miss_move_lock_time is non-zero the input
 	;      block above is skipped: the player coasts on the velocity the miss
 	;      left, through one PlayfieldMotion::update_seg1(), and the lock
 	;      counts down. th04/main/stage/init.cpp clears it at stage start and
@@ -3258,10 +3258,10 @@ MB_DFT_TEXT	ends
 ; `byte public 'CODE'` alignment as before, so nothing moves, and `byte`
 ; alignment also means kb/codegen/0111's even-parity question does not arise.
 ;
-; The head is the only reachable end of this segment: its tail is the
-; `include` of th04/main/boss/b6_anim.asm, which no decompilation removes, and
-; that include is what kept these seven procs out of reach of every tail lift
-; even after MATCH-TH04-MAIN-YUUKA6-PATTERNS emptied everything below it.
+; The head is the only reachable end of this segment: its tail formerly began
+; at the `include` now lifted to th04/main/boss/b6_next.cpp. That include kept
+; these seven procs out of reach of every tail lift until
+; MATCH-TH04-MAIN-YUUKA6-PATTERNS emptied everything below it.
 ;
 ; UNLIKE every carve before it, this one costs NO new translation unit and no
 ; Tupfile.lua line: the anchor is hosted by an object that already exists in
@@ -3959,8 +3959,8 @@ IT_UPDT_TEXT	segment	byte public 'CODE' use16
 	;      cap the arm adds 5 to [power_overflow], indexes
 	;      POWER_OVERFLOW_BONUS[] with the new value, and only THEN clamps the
 	;      counter to POWER_OVERFLOW_MAX. A counter that has just run past the
-	;      cap therefore reads up to four entries off the end of a 42-entry
-	;      table, and whatever that memory holds is what the player is paid.
+	;      cap therefore reads indices 43 through 47, up to five words past
+	;      the valid 0..42 range of the 43-word table. That memory is the payout.
 	;      The clamp on the next line fixes the counter, not the payout.
 	;      Only the frame that lands EXACTLY on the cap pays the 2560 bonus,
 	;      so every later big-power item at full power falls through with the
@@ -4248,11 +4248,11 @@ _bgmname	dd aSt00
 					; "ST00"
 _bbname	dd aBb0_cdg_0	; original ZUN variable name
 _EYECATCH_FN_FORMAT	db 'eye0.cdg',0
-public _aUmx, _aGameft_bft, _aMiko, _arg0
+public _aUmx, _GAIJI_FN, _aMiko, _arg0
 _aUmx		label byte
 aUmx		db '“Œ•ûŒ¶‘z.‹½',0
-_aGameft_bft	label byte
-aGameft_bft	db 'GAMEFT.bft',0
+_GAIJI_FN	label byte
+GAIJI_FN	db 'GAMEFT.bft',0
 _aMiko		label byte
 aMiko		db 'miko',0
 ; char arg0[]
@@ -4348,11 +4348,11 @@ public _aMaine_1
 _aMaine_1	label byte
 aMaine_1	db 'maine',0
 include th04/main/tile/section[data].asm
-public _off_21CBA
-_off_21CBA	label dword
-off_21CBA	dd aSt00_map
-					; "ST00.MAP"
-aSt00_map	db 'ST00.MAP',0
+public _mapname
+_mapname	label dword
+mapname	dd map_filename
+					; Patched to "ST0<n>.MAP" before each load.
+map_filename	db 'ST00.MAP',0
 		db 0
 include th04/main/pointnum/pointnum[data].asm
 include th04/sprites/pointnum.asp
@@ -5034,17 +5034,17 @@ _stage_init_unused_2	dw ?
 _stage_init_unused_3	dw ?
 public _stage_init_unused_0, _stage_init_unused_1, _stage_init_unused_2, _stage_init_unused_3, _player_invincibility_time, _power, _shot_level, _shot_time
 _player_invincibility_time	db ?
-	; Zero-byte alias so th04/main/player/bomb.cpp can reach this still-
-	; unnamed global, exactly like th03/main/gba_exatt_bomb_bss.asm does
-	; for its own byte_202B8.
-	public _byte_259A3
-_byte_259A3 label byte
-byte_259A3	db ?
+	; Cleared at stage start and by a deathbomb; while nonzero, player
+	; movement input is locked and the miss momentum continues.
+	; [measured] All readers and writers agree on this countdown role.
+	public _miss_move_lock_time
+_miss_move_lock_time label byte
+miss_move_lock_time	db ?
 _power	db ?
 _shot_level	db ?
 _shot_time	db ?
 	; Zero-byte alias so th04/main/player/shots_inv.cpp can reach this
-	; still-unnamed global, like the alias five lines up for byte_259A3.
+	; still-unnamed global, beside miss_move_lock_time above.
 	; Named for what was MEASURED about it rather than for what it might
 	; have meant: shot_reset() is its only writer and nothing in the tree
 	; reads it. Exactly TH02's device and TH02's spelling for the same

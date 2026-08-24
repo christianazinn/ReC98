@@ -49,7 +49,7 @@
 
 // ZUN compiled this as its own object, and it wants the opposite speed/size
 // setting from the two functions after it in this one: the original's prolog
-// is `55 8B EC 83 EC 02` (`push bp; mov bp, sp; sub sp, 2`), which is `-G`,
+// is `55 8B EC 83 EC 02`, a manual BP frame with two bytes of locals under `-G`,
 // while th04/main/scroll.cpp and playfield_shake_update_and_render() below
 // both come out of the command line's `-G-` as `ENTER`. Bracketed and
 // restored at the bottom of this file (kb/codegen/0011 + 0112 trap 1).

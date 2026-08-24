@@ -22,12 +22,12 @@
 // The .MAP filename, still owned by the dump's data segment: TH04 reaches the
 // string through a far pointer of its own, TH05 addresses it directly.
 #if (GAME == 5)
-	extern char aSt00_map[];
+	extern char map_filename[];
 
 	// Read straight into place by the DOS call below, so it can't be a local.
 	extern map_header_t map_header;
 #else
-	extern char *off_21CBA;
+	extern char *mapname;
 #endif
 
 void near map_load(void)
@@ -36,11 +36,11 @@ void near map_load(void)
 		register int handle;
 
 		map_free();
-		aSt00_map[3] = ('0' + stage_id);
+		map_filename[3] = ('0' + stage_id);
 
 		// DOS file open
 		_AX = 0x3D00;
-		reinterpret_cast<const char near *>(_DX) = aSt00_map;
+		reinterpret_cast<const char near *>(_DX) = map_filename;
 		geninterrupt(0x21);
 		_BX = _AX;
 		handle = _AX;
@@ -78,8 +78,8 @@ void near map_load(void)
 	#else
 		map_header_t mh;
 
-		off_21CBA[3] = resident->stage_ascii;
-		file_ropen(off_21CBA);
+		mapname[3] = resident->stage_ascii;
+		file_ropen(mapname);
 		file_read(&mh, sizeof(mh));
 		map_free();
 		map_seg = reinterpret_cast<map_section_tiles_t __seg *>(

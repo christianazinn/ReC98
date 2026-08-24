@@ -29,11 +29,10 @@
 #include "th04/main/phase.hpp"   // PHASE_HP_FILL
 #include "th05/resident.hpp"     // resident_t, and [resident] itself
 
-// The miss knock-back's move lock, counted down in the `else` branch below.
-// Same TU-local alias th04/main/player/bomb.cpp declares, for the same byte and
-// for the reason recorded there; TH04 spells it `byte_259A3`.
-extern "C" unsigned char byte_2CEBD;
-#define miss_move_lock_time byte_2CEBD
+// The post-miss movement lock, counted down in the `else` branch below.
+// Shared with the stage-start and deathbomb reset paths; TH04 exports the same
+// semantic name for the corresponding byte.
+extern "C" unsigned char miss_move_lock_time;
 
 // The movement subset of [key_det] that the previous frame's move actually
 // accepted. Read and written by nothing else in MAIN.EXE, so its only evidence
@@ -313,7 +312,6 @@ extern "C" void near sub_1214A(void)
 	}
 }
 
-#undef miss_move_lock_time
 #undef nopcall_same_group
 #undef nopcall_same_group_1
 

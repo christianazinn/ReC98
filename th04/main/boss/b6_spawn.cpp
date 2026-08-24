@@ -1,9 +1,10 @@
 /// Extra Stage Boss - Yuuka: the two spawners at the head of her segment
 /// ---------------------------------------------------------------------
 /// The first two procs of main_034_TEXT's root contribution, and the only two
-/// above the `include` of th04/main/boss/b6_anim.asm that anything outside
-/// ZUN's own object ever calls. They spawn the two entity kinds Yuuka's Extra
-/// fight overlays on [custom_entities]: her chasing crosses, and the single
+/// above the animation bodies now in th04/main/boss/b6_next.cpp that anything
+/// outside ZUN's own object ever calls. They spawn the two entity kinds
+/// Yuuka's Extra fight overlays on [custom_entities]: her chasing crosses, and
+/// the single
 /// safety circle she opens around the player.
 ///
 /// (#included from th04/main/boss/bg.cpp, at the END of it, and therefore

@@ -45,13 +45,12 @@ extern "C" int far pascal iatan2(int y, int x);
 
 extern "C" {
 	// Copies [thicklaser_template] into the first TF_FREE slot and plays the
-	// spawn sound effect. th04_main.asm's `sub_15DBD`, which is in
-	// B4M_UPDATE_TEXT rather than this segment -- but the same main_03 group,
-	// so the call stays near. It is private to ZUN's object, so this parcel
-	// gave it the zero-byte `label` alias that makes it linkable at all
-	// (kb/codegen/0123); the name is `[inferred]` from the body, which is the
-	// sole caller of thicklaser_template_pull() and the counterpart of
-	// thicklasers_update_and_hittest(). **A naming round is owed for it.**
+	// spawn sound effect. The body is now thicklaser_add() in
+	// th04/main/boss/b4m.cpp, compiled into B4M_UPDATE_TEXT rather than this
+	// segment. Both segments belong to main_03, so this call stays near. The
+	// semantic name follows from the complete body: it is the sole caller of
+	// thicklaser_template_pull() and the counterpart of
+	// thicklasers_update_and_hittest().
 	void near thicklaser_add(void);
 }
 

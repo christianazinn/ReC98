@@ -196,10 +196,10 @@ typedef enum {
 
 /// [measured] score_put()'s player character parameter is NOT [playchar2]. It
 /// is a full `int` in TH05, as [playchar2] would be — but TH04's original
-/// zero-extends it (`mov dl, [bp+4]` / `mov dh, 0`) every time it reads it
-/// back, and th04/playchar.h's `playchar_t` has no forced-unsigned member, so
-/// Turbo C++ types that enum as `signed char` and would sign-extend with
-/// `cbw`. Widening th04/playchar.h to fix that would re-lower every TH04
+/// zero-extends the low argument byte every time it reads it back, and
+/// th04/playchar.h's `playchar_t` has no forced-unsigned member, so Turbo C++
+/// types that enum as `signed char` and would sign-extend it. Widening
+/// th04/playchar.h to fix that would re-lower every TH04
 /// translation unit in the campaign for one function, so the unsigned byte
 /// lives here instead. stage_put() is unaffected: both games pass it an `int`.
 #if (GAME == 5)

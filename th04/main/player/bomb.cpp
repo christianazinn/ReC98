@@ -5,7 +5,8 @@
 /// count in [resident] and hardcodes both durations, while TH05 keeps it in a
 /// plain global, picks both durations per playchar, and lowers [playperf].
 
-// The segment and group pragma moved to both wrappers; state/notes/bb_playchar_load.md says why. One line, so nothing below it moves.
+// Both wrappers carry the segment/group pragma; see
+// state/notes/bb_playchar_load.md.
 
 #include "platform.h"
 #include "pc98.h"
@@ -30,28 +31,23 @@
 // Same reason as th04/main/execl.cpp and th04/main/stage/loop.cpp.
 extern bool items_pull_to_player;
 
-// Still unnamed in the dump, in both games, so the placeholder is what the
-// linker sees; the alias below is ours. Set to 72 together with [miss_time]
-// when the player is hit, counted down once per frame while nonzero, and while
-// it *is* nonzero the player keeps drifting on the momentum they had rather
-// than responding to input. Cleared both at stage start and here, so a
-// deathbomb also returns control immediately.
+// Set to 72 together with [miss_time] when the player is hit, counted down once
+// per frame while nonzero, and while it *is* nonzero the player keeps drifting
+// on the momentum they had rather than responding to input. Cleared both at
+// stage start and here, so a deathbomb also returns control immediately.
 //
-// The alias is `move_lock_time` because that is TH03's own word for exactly
+// The name follows TH03's `move_lock_time`, its own word for exactly
 // this: th03/main/player/stuff.hpp:36 declares `unsigned char move_lock_time;`
 // — same width, same role, counted down the same way
 // (th03/main/player/bomb.cpp:209-210, :290). TH03 sets it alongside a
 // *separate* [knockback_time] (bomb.cpp:450-452), and its knockback is a
 // directional shove that also stores a [knockback_angle] (:572-581). This byte
 // stores no angle and applies no velocity, so it is TH03's move lock and not
-// TH03's knockback — which is why an earlier miss_knockback spelling (named
-// here without backticks on purpose: it is a rejected spelling, not a symbol
-// this tree defines) is not used here. It named the one construct the evidence
-// rules out.
-#if (GAME == 5)
-	extern "C" unsigned char byte_2CEBD;
-	#define miss_move_lock_time byte_2CEBD
+// TH03's knockback. An earlier knockback-timer interpretation named the one
+// construct this evidence rules out, so it is not retained.
+extern "C" unsigned char miss_move_lock_time;
 
+#if (GAME == 5)
 	// TH05's bomb count is a plain global rather than [resident]'s field.
 	extern unsigned char bombs;
 
@@ -77,9 +73,6 @@ extern bool items_pull_to_player;
 		__emit__(0x66, 0x68, for_yuuka, 0, for_mima, 0); \
 		asm { nop; push cs; call near ptr select_for_playchar; } \
 	}
-#else
-	extern "C" unsigned char byte_259A3;
-	#define miss_move_lock_time byte_259A3
 #endif
 
 // Cancels any bomb still in progress and unhooks its background renderer.

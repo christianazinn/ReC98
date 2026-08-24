@@ -60,8 +60,8 @@ bool near enemy_run(void);
 
 extern "C" void pascal enemies_update(void)
 {
-	// The original allocates one byte at [bp-1] in an `enter 2, 0` frame and
-	// reuses it for the kill animation's patnum.
+	// The original allocates one byte at [bp-1] in a two-byte frame and reuses
+	// it for the kill animation's patnum.
 	unsigned char damage;
 
 	// SI and DI, in that order.
