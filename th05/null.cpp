@@ -13,3 +13,8 @@ void near items_invalidate(void);
 #pragma codeseg RANDRING_NEXT_TEXT main_01
 
 #include "th04/main/null.cpp"
+
+// END_EXT_B_TEXT's 0x38-byte root loader precedes these shared C++ bodies.
+#pragma codeseg END_EXT_B_TEXT main_01
+#include "th04/main/tile/bb_put_a.cpp"
+#pragma codeseg RANDRING_NEXT_TEXT main_01

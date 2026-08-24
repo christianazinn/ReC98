@@ -896,10 +896,10 @@ CIRCLE_A1_TEXT ends
 
 CIRCLE_B_TEXT segment word public 'CODE' use16
 
-include th04/main/tile/bb_put_a.asm
+; Shared tile .BB bodies are C++ now, emitted from th04/main/circle.cpp.
 
-; yuuka5_backdrop_colorfill() is C++ now. circle.cpp appends its exact
-; 22h-byte body to this E2h-byte root prefix.
+; yuuka5_backdrop_colorfill() is C++ now. circle.cpp emits its exact
+; 22h-byte body after the E2h-byte shared tile .BB bodies.
 CIRCLE_B_TEXT ends
 
 CIRCLE_C_TEXT segment word public 'CODE' use16

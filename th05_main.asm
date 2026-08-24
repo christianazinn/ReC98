@@ -1554,7 +1554,7 @@ END_EXT_A_TEXT	ends
 END_EXT_B_TEXT	segment	word public 'CODE' use16
 
 include th05/formats/bb_load.asm
-include th04/main/tile/bb_put_a.asm
+; Shared tile .BB bodies are C++ now, emitted from th05/null.cpp.
 
 END_EXT_B_TEXT	ends
 
