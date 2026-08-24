@@ -37,8 +37,8 @@ void pascal near tiles_bb_put_raw(int cel)
 	top = PLAYFIELD_TOP;
 
 row_loop:
-		left = PLAYFIELD_LEFT;
 		row_tiles_left = TILES_X;
+		left = PLAYFIELD_LEFT;
 
 bb_byte_loop:
 			// Turbo C++ emits 0x46 instead of the FS prefix 0x64 for memory
