@@ -41,7 +41,7 @@ include th04/main/enemy/enemy.inc
 	extern _execl:proc
 	extern NULLFUNC_NEAR:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, PN_INV_TEXT, CIRCLE_A1_TEXT, CIRCLE_B_TEXT, CIRCLE_C_TEXT, GRCG_MC_TEXT, IT_SPL_R_TEXT, IT_SPL_D_TEXT, CIRCLE_R_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, MAIN_012_A_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, RANDRING_FILL_TEXT, RANDRING_NEXT_TEXT, PN_INV_TEXT, CIRCLE_A1_TEXT, CIRCLE_B_TEXT, CIRCLE_C_TEXT, GRCG_MC_TEXT, IT_SPL_R_TEXT, IT_SPL_D_TEXT, CIRCLE_R_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, MAIN_012_A_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, MUGETSU_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -860,12 +860,19 @@ _tiles_egc_copy_scrolled_lines	endp
 include th04/main/tile/redraw.asm
 include th04/main/scroll_y_1.asm
 MOTION_UPDATE_DEF 1
-include th03/math/randring_fill.asm
+CIRCLE_A_TEXT ends
+
+RANDRING_FILL_TEXT segment byte public 'CODE' use16
+; randring_fill() now appends here from th03/math/randring_fill.cpp through
+; th04/null.cpp.
+RANDRING_FILL_TEXT ends
+
+RANDRING_NEXT_TEXT segment word public 'CODE' use16
 RANDRING_NEXT_DEF 1
 	even
 ; nullfunc_near() and nullfunc_far() now append here from
-; th04/main/null.cpp through th04/circle.cpp.
-CIRCLE_A_TEXT ends
+; th04/main/null.cpp through th04/null.cpp.
+RANDRING_NEXT_TEXT ends
 
 ; Harness carve (kb/codegen/0080): PN_INV_TEXT replaces the point-number
 ; module at the head of CIRCLE_A1_TEXT without moving the untouched suffix.
@@ -889,10 +896,10 @@ CIRCLE_A1_TEXT ends
 
 CIRCLE_B_TEXT segment word public 'CODE' use16
 
-include th04/main/tile/bb_put_a.asm
+; Shared tile .BB bodies are C++ now, emitted from th04/main/circle.cpp.
 
-; yuuka5_backdrop_colorfill() is C++ now. circle.cpp appends its exact
-; 22h-byte body to this E2h-byte root prefix.
+; yuuka5_backdrop_colorfill() is C++ now. circle.cpp emits its exact
+; 22h-byte body after the E2h-byte shared tile .BB bodies.
 CIRCLE_B_TEXT ends
 
 CIRCLE_C_TEXT segment word public 'CODE' use16

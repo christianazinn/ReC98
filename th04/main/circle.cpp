@@ -167,6 +167,8 @@ void pascal near elly_backdrop_colorfill(void)
 
 #pragma codeseg CIRCLE_B_TEXT main_01
 
+#include "th04/main/tile/bb_put_a.cpp"
+
 void pascal near yuuka5_backdrop_colorfill(void)
 {
 	_ES = FILLM64_PLAYFIELD_SEG(112);

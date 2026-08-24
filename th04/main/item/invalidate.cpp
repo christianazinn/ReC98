@@ -1,13 +1,17 @@
 /// Item tile invalidation
 /// ----------------------
-/// TH04 emits this body from circle.cpp at the end of that file's
-/// CIRCLE_C_TEXT root prefix. TH05 still includes invalidate.asm at a different
-/// interior position and therefore keeps using the assembly copy.
+/// TH04 emits this body from circle.cpp into CIRCLE_C_TEXT. TH05 emits it from
+/// null.cpp into SCORE_I_TEXT.
 
 #include "platform.h"
 #include "th04/main/item/item.hpp"
 #include "th04/main/item/splash.hpp"
 #include "th04/main/tile/tile.hpp"
+
+#if (GAME == 5)
+// scroll.hpp restores the default segment after its inline functions.
+#pragma codeseg SCORE_I_TEXT main_01
+#endif
 
 // See th04/main/tile/tile.hpp for why this declaration is a per-TU choice.
 // Both call sites pass an SPPoint as one packed dword.
@@ -29,7 +33,12 @@ void near items_invalidate(void)
 		);
 
 		item = items;
+		#if (GAME == 5)
+		// ZUN bug: TH05 has 40 item slots, but only invalidates the first 32.
+		i = 32;
+		#else
 		i = ITEM_COUNT;
+		#endif
 		do {
 			if(item->flag != F_FREE) {
 				tiles_invalidate_around(item->pos.prev);
