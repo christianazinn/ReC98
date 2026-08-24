@@ -115,8 +115,9 @@ void pascal far bg_particles_add(
 
 void pascal far grcg_dot_square_put(int edge)
 {
-	// Rows still to be blitted, counted down from [edge]. Not `edge_left`:
-	// every other `edge` in the tree means "boundary of a region"
+	// Rows still to be blitted, counted down from [edge]. An earlier candidate
+	// used `edge_left` (`ec571c60:th02/main/bg_particle.cpp:115`), but every
+	// other `edge` in the tree means "boundary of a region"
 	// (x_edge_offset, bullet_bounce_edge_t, …), which would read this as the
 	// square's *left* edge.
 	#define rows_remaining	_SI

@@ -48,8 +48,9 @@ void near bomb_invalidate(void);
 #endif
 
 // Drops a bomb, if possible.
-// TH02's root dump published this one with __pascal *and* `extern "C"` name
-// decoration (`public PLAYER_BOMB`, not `@PLAYER_BOMB$QV`), so the lift has to
+// Before the lift, TH02's root dump published this one with __pascal *and*
+// `extern "C"` name decoration as `public PLAYER_BOMB`
+// (`fc5d259e:th02_main.asm:3362`), not `@PLAYER_BOMB$QV`, so the lift has to
 // keep both. See kb/codegen/0086.
 extern "C" void pascal near player_bomb(void);
 

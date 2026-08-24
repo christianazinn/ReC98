@@ -287,8 +287,8 @@ extern "C" int16_t meira_slash_trail_frames;
 // `[measured]` Incremented once per slash that reaches its fire frame and never
 // reset, and the gate is `(this & 1) <= rank` - so on RANK_EASY every other
 // burst is dropped and on every other rank all of them fire. Signed on the
-// right of that comparison, because [rank] is a `char` and the original
-// sign-extends it with `cbw`.
+// right of that comparison, because [rank] is a `char`; before the lift, its
+// read was sign-extended with `cbw` (`2cac6ace:th02_main.asm:2715`).
 extern "C" uint8_t meira_slash_burst_i;
 
 // The group and the speed of the bursts her patterns fire, written by five of
@@ -486,8 +486,9 @@ extern "C" bool16 near meira_14519(void)
 		false
 	);
 	// TWO STATEMENTS, and the base is NOT an initializer on the declaration
-	// above: the original emits `mov di, 0Ah` HERE, after the three calls, and
-	// then `add di, ax`. An initializer emits it in the prolog, which is 3 bytes
+	// above. Before the lift, `mov di, 0Ah` came HERE, after the three calls,
+	// followed by `add di, ax` (`5d16a538:th02_main.asm:2410`). An initializer
+	// emits it in the prolog, which is 3 bytes
 	// in the wrong place and shifts the whole body. (th02/main/boss/b4.cpp's
 	// marisa_1AC7B() does declare its copy with an initializer, and its original
 	// wants it there - so this is per-function and not a rule.)
@@ -547,8 +548,9 @@ extern "C" void near meira_145E1(void)
 	// same shape th02/main/boss/b4.cpp's marisa_1AA60() needs for the identical
 	// call: at TWO mentions of [damage] Turbo C++ leaves it on the frame, and at
 	// three it enregisters it - here into DI, since [vram_y] already holds SI.
-	// The original is `sub sp, 2` / `push si`, so the frame slot is what it
-	// wants; the three-mention spelling came out 2 bytes short.
+	// Before the lift, the prolog was `sub sp, 2` / `push si`
+	// (`5d16a538:th02_main.asm:2468`), so the frame slot is what it wants; the
+	// three-mention spelling came out 2 bytes short.
 	//
 	// NOT [vram_y] for the top, either, and this is the one place in her fight
 	// where the difference is observable: the shot hitbox is tested in SCREEN

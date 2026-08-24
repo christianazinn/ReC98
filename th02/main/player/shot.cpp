@@ -43,16 +43,17 @@ extern "C" int8_t shot_a_spread_angle_delta;
 // clears it.
 extern "C" uint8_t option_shots_alive;
 
-// The point shottype B's homing shots aim at. Every writer is still-ASM boss
-// or midboss code publishing its own position, and both axes are set to 0xFFFF
+// The point shottype B's homing shots aim at. Boss, midboss, and enemy update
+// code publishes its current target position, and both axes are set to 0xFFFF
 // while no boss is on screen — which is exactly what shot_b()'s `> 0` guard on
 // [boss_pos_y] tests, since 0xFFFF read as a signed int is -1.
 extern "C" int boss_pos_x;
 extern "C" int boss_pos_y;
 
 // ZUN bloat: [boss_pos_x] again, but only while the shot is fully powered.
-// Written by shot_b() and by the still-ASM per-shottype player reset, and read
-// by nothing at all — the dump census over the whole binary is closed. It looks
+// Written by shot_b() and by the per-shottype reset in
+// th02/main/player/reset.cpp, and read by nothing at all - the whole-binary
+// census is closed. It looks
 // like the homing target of a cut feature that would have let the OPTION shots
 // home too. Reproducing the writes is required for the match; do not delete it.
 extern "C" int boss_pos_x_unused;
@@ -711,8 +712,8 @@ void near shot_c(void)
 	}
 }
 
-// Frees every shot slot at once. Called only from the still-ASM boss code, at
-// the four points where a boss transition should clear the playfield.
+// Frees every shot slot at once. Called at the four boss-transition points
+// where the playfield should be cleared.
 void far shots_free_all(void)
 {
 	int i;
@@ -805,8 +806,9 @@ void near shots_invalidate(void)
 extern "C" uint8_t shot_anim_frame[SHOT_COUNT];
 
 // Frames per cel of an option shot's decay animation. 4 by default; the
-// still-ASM per-shottype player reset lowers it to 3 for shottype C. Signed,
-// and the modulo below is what proves it: `cbw` / `movsx` before the DIV.
+// per-shottype reset in th02/main/player/reset.cpp lowers it to 3 for
+// shottype C. Signed, and the modulo below proves it: before the lift, the
+// divide used `cbw` / `movsx` (`efe10a17:th02_main.asm:1134`).
 extern "C" int8_t shot_option_decay_interval;
 
 // The last cel of a player shot's decay animation; the shot is removed once

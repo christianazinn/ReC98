@@ -24,10 +24,10 @@
 
 // Gaiji string literals, still owned by the dump's data segment and reached
 // through the `public` line th02/gaiji/gameover[data].asm now carries.
-// [gCONTINUE_PROMPT] used to end in a question mark instead, which TASM accepts
-// in an identifier and C++ does not; the _PROMPT suffix also keeps it apart
-// from the gCONTINUE that TH04 and TH05 publish, which is the unrelated
-// scoredat name-entry string.
+// [gCONTINUE_PROMPT] used to have the TASM-only `gCONTINUE?` spelling
+// (`4377e6a6:th02/gaiji/gameover[data].asm:2`). The _PROMPT suffix also keeps
+// it apart from the gCONTINUE that TH04 and TH05 publish, which is the
+// unrelated scoredat name-entry string.
 extern "C" const char gGAMEOVER[];
 extern "C" const char gCONTINUE_PROMPT[];
 extern "C" const char gYES[];

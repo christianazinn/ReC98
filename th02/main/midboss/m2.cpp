@@ -208,8 +208,9 @@ static void near midboss2_14169(void)
 		);
 	}
 
-	// TWO STATEMENTS, and the base is NOT an initializer: the original emits
-	// `mov di, 0Ah` here, after the spark burst. th02/main/midboss/m4.cpp's
+	// TWO STATEMENTS, and the base is NOT an initializer. Before the lift,
+	// `mov di, 0Ah` came here after the spark burst
+	// (`d9491e25:th02_main.asm:1997`). th02/main/midboss/m4.cpp's
 	// midboss4_19FAF() spells its copy of this the same way.
 	zoom_patnum = MIDBOSS2_DEFEAT_ZOOM_PATNUM;
 	zoom_patnum += (
@@ -358,8 +359,9 @@ void midboss2_update_and_render(void)
 			)) != 0) {
 				boss_damage += damage;
 				// `>=` ON THE SECOND ARM, and no length check can see the
-				// difference. The original `jle`s into the flash on the damage
-				// test and then `jl`s into the DEFEAT on the row test, i.e. it
+				// difference. Before the lift, `jle` entered the flash on the
+				// damage test and `jl` entered DEFEAT on the row test
+				// (`d9491e25:th02_main.asm:2192`), i.e. it
 				// falls into the flash when the row is >= 304 - so the row half
 				// of this `||` is the survivor's condition, and spelling it
 				// `<` emits a `jge` of exactly the same two bytes.

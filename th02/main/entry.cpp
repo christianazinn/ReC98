@@ -30,9 +30,10 @@
 #include "th02/snd/snd.h"
 
 // Declared here rather than through th02/formats/cfg.hpp: that header declares
-// the __cdecl `cfg_load()` that MAINE.EXE and OP.EXE compile from C++, but
-// MAIN.EXE's copy is still ASM and is published under the byte-neutral
-// `_cfg_load` alias next to its IDA name.
+// the __cdecl far cfg_load() compiled into MAINE.EXE, while MAIN.EXE compiles
+// this near C-linkage variant from th02/main/cfg_load.cpp. Before that lift,
+// the root dump exposed the same C symbol through a zero-byte alias
+// (`e3ef0149:th02_main.asm:488`).
 // ---------------------------------------------------------------------
 extern "C" int near cfg_load(void);
 

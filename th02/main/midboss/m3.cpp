@@ -230,7 +230,8 @@ static void pascal near midboss3_11308(int i)
 	// None of these is `register`: the original keeps the *parameter* in SI and
 	// puts [top] in DI, which is kb/codegen/0146's plain
 	// `near f(int p)` + `int q` row. Marking [top] `register` moves it to SI
-	// and pushes [i] the other way, at every `mov bx, si` in the body.
+	// and pushes [i] the other way; before the lift, every access used
+	// `mov bx, si` (`0fc3dbd0:th02_main.asm:3287`).
 	int step;
 	uint8_t group;
 	screen_y_t top;

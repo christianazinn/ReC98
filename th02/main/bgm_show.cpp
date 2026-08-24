@@ -47,15 +47,16 @@ extern "C" shiftjis_t near *BGM_TITLES[];
 // way th02/main/stage/init.cpp declares it.
 extern "C" uint8_t boss_bgm_title_id;
 
-// Still ASM in th02_main.asm, reached through the kb/codegen/0123 aliases it
-// carries. Both are called once, from boss_activate_if_scroll_done() below.
+// Both are defined in th02/main/enemy/enemies.cpp and retain C linkage for
+// calls from this object. Both are called once from
+// boss_activate_if_scroll_done() below.
 // ---------------------------------------------------------------------------
 // Retires every live stage enemy: each [enemies] slot whose flag is not F_FREE
 // becomes F_REMOVE — not F_FREE, so the enemies' own update pass is what
 // actually reclaims them — and [enemies_loop_bound] is zeroed, which stops
 // enemies_update_and_render() dead on the same frame. Also reached, through
-// a nopcall, from the Stage 3 boss's own still-ASM setup routine, the one that
-// arms stone_flag[] and that stones_init() belongs to. `_all` mirrors
+// a nopcall, from stones_init() in th02/main/boss/b3.cpp, which arms
+// stone_flag[]. `_all` mirrors
 // shots_free_all() (th02/main/player/shot.cpp), the same shape for the shot
 // array; the verb is F_REMOVE's own, because this pass does not free.
 // [inferred from the ASM]
@@ -120,9 +121,10 @@ static const int STAGE_TITLE_TOP = 12;
 static const int STAGE_TITLE_FRAMES = 160;
 
 // The two empty callback defaults that stage_init() installs, at the very
-// front of the segment because that is where they have always been: they were
-// th02/main/null.asm, an `include` that was the whole of this segment's root
-// contribution. Replacing the module rather than appending after it is what
+// front of the segment because that is where they have always been. Before
+// their C++ lift they were the whole of the included module shown at
+// `6654b796:th02_main.asm:323`. Replacing that module rather than appending
+// after it is what
 // lets this object grow BACKWARDS over those 12 bytes, the same seam a
 // kb/codegen/0099 tail lift uses; MENU_TEXT and STAGE_TEXT already show what a
 // root contribution that has reached zero looks like in the map. Upstream's
