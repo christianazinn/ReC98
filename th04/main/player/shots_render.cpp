@@ -22,13 +22,11 @@
 #include "th04/formats/super.h"
 #include "th04/main/player/shot.hpp"
 
-// Marisa's option laser, blitted once per option. Still ASM at the tail of
-// EXECL_TEXT -- its body is an attempted and unsolved match, see
-// state/notes/shot_laser_render.md -- and reached by a same-group near call
-// from here. This was its only reference in the dump once this body left, so
-// th04_main.asm publishes it with a kb/codegen/0123 zero-byte alias, and that
-// alias carries the name that note already adjudicated. The proc itself keeps
-// IDA's placeholder spelling until its own body lands.
+// Marisa's option laser, blitted once per option. Its exact semantic C++ body
+// cannot reproduce the original post-epilogue switch-table pad without moving
+// bytes outside the function, so the proven-undecompilable body remains ASM at
+// the tail of EXECL_TEXT; see state/notes/shot_laser_render.md. This same-group
+// near call reaches the zero-byte C-linkage label published by th04_main.asm.
 extern "C" void near shot_laser_render(void);
 
 // master.lib's GRCG_OFF_CLOBBERING macro, which spills the port number to DX
