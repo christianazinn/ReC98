@@ -18,5 +18,10 @@
 // effect before any code is generated. (kb/codegen/0112, trap 0)
 #pragma option -zPmain_01
 
+void near egc_start_copy_noframe(void);
+#pragma codeseg TILE_REDRAW_TEXT main_01
+#include "th04/main/tile/redraw.cpp"
+#pragma codeseg MAI_TEXT main_01
+
 #include "th04/main/tile/render_a.cpp"
 #include "th04/main/midboss/m2.cpp"
