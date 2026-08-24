@@ -187,6 +187,8 @@ loc_1E5:
 sub_1AE endp
 
 ; ---------------------------------------------------------------------------
+public _zun_resident_signature
+_zun_resident_signature label word
 ZUNP	dw 'ZU', 'NP'
 dword_1EE	dd 0
 dword_1F2	dd 0
@@ -202,25 +204,34 @@ byte_2EB	db 0
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_2EC proc near
-		mov	dx, offset aIntvectorSetPr ; "\r\nINTvector set program  zuninit.com   "...
-		mov	ah, 9
-		int	21h		; DOS - PRINT STRING
-					; DS:DX -> string terminated by "$"
-		mov	ax, 3506h
-		int	21h		; DOS - 2+ - GET INTERRUPT VECTOR
-					; AL = interrupt number
-					; Return: ES:BX = value of interrupt vector
-		xor	ax, ax
-		cmp	es:ZUNP+0, 'ZU'
-		jnz	short locret_30D
-		cmp	es:ZUNP+2, 'NP'
-		jnz	short locret_30D
-		inc	ax
+_TEXT ends
 
-locret_30D:
-		retn
-sub_2EC endp
+DGROUP group ZUN_RES_TEXT, ZUN_TAIL_TEXT
+
+ZUN_RES_TEXT segment byte public 'CODE' use16
+ZUN_RES_TEXT ends
+
+ZUN_TAIL_TEXT segment byte public 'CODE' use16
+	assume cs:DGROUP, ds:DGROUP
+	extrn _zun_resident_check:near
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ; =============== S U B R O U T I N E =======================================
@@ -240,7 +251,7 @@ loc_311:
 		jbe	short loc_311
 
 loc_322:
-		call	sub_2EC
+		call	_zun_resident_check
 		test	ax, ax
 		jz	short loc_344
 		jmp	loc_3B0
@@ -253,7 +264,7 @@ loc_32C:
 		and	al, 0DFh
 		cmp	al, 'R'
 		jnz	loc_3BA
-		call	sub_2EC
+		call	_zun_resident_check
 		test	ax, ax
 		jnz	short loc_381
 		jmp	short loc_3B5
@@ -286,7 +297,7 @@ loc_344:
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
-		mov	dx, offset sub_2EC
+		mov	dx, offset _zun_resident_check
 		shr	dx, 4
 		inc	dx
 		mov	ax, 3100h
@@ -345,6 +356,8 @@ loc_3BD:
 start_0 endp			; AL = exit code
 
 ; ---------------------------------------------------------------------------
+public _zun_resident_banner
+_zun_resident_banner label byte
 aIntvectorSetPr	db 0Dh,0Ah
 		db 'INTvector set program  zuninit.com                      Version1.02 (c)zun 1998',0Dh,0Ah,'$'
 aVVxvVVVixfiovi	db 'ちょこっとお部屋かりるね☆',0Dh,0Ah
@@ -359,5 +372,7 @@ aVVBapatuvVVVvv	db 'まだ、常駐してないです',0Dh,0Ah
 aICbxscVGigvgvg	db '意味不明なオプションよぉ（オプションは -R : 解放 のみ）',0Dh,0Ah,'$'
 
 aGbgvgki	db 'メモリ解放エラーです',0Dh,0Ah,'$'
+
+ZUN_TAIL_TEXT ends
 
 		end start
