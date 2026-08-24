@@ -1135,9 +1135,16 @@ local th05_sprites = Sprites({
 	{ "th05/sprites/piano_l.bmp", "asm", "sPIANO_LABEL_FONT", 8, 8 },
 })
 
+local th05_zuninit_resident = th05:branch(MODEL_TINY):build({
+	"th05/zuninit/resident.cpp",
+})[1]
+
 local th05_zuncom = th05:zungen("obj/th05/zuncom.bin", {
 	{ "-O", "libs/kaja/ongchk.com" },
-	{ "-I", th05:branch(MODEL_ASM):link("zuninit", { "th05_zuninit.asm" }) },
+	{ "-I", th05:branch(MODEL_ASM):link("zuninit", {
+		"th05_zuninit.asm",
+		th05_zuninit_resident,
+	}) },
 	{ "-S", th05:branch(MODEL_TINY):link("res_kso", {
 		"th05/res_kso.cpp",
 		"bin/masters.lib",

@@ -264,11 +264,11 @@ echo -c -s -E c0l.obj obj\th04\maine_e.obj obj\th04\mainem.obj obj\th04\score_d.
 tlink @obj\th04\maine.@l
 bin\Pipeline\bmp2arr.com -q -i th05/sprites/gaiji.bmp -o th05/sprites/gaiji.asp -sym _sGAIJI -of asm -sw 16 -sh 16
 bin\Pipeline\bmp2arr.com -q -i th05/sprites/piano_l.bmp -o th05/sprites/piano_l.asp -sym _sPIANO_LABEL_FONT -of asm -sw 8 -sh 8
-tasm32 /m /mx /kh32768 /t /dGAME=5 th05_zuninit.asm obj\th05\zuninit.obj
-echo -c -s -t -3  obj\th05\zuninit.obj, bin\th05\zuninit.com, obj\th05\zuninit.map, >obj\th05\zuninit.@l
-tlink @obj\th05\zuninit.@l
-echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=5  -mt  -nobj/th05/  th05/res_kso.cpp>obj\batch017.@c
+echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=5  -mt  -nobj/th05/  th05/zuninit/resident.cpp  th05/res_kso.cpp>obj\batch017.@c
 tcc @obj/batch017.@c
+tasm32 /m /mx /kh32768 /t /dGAME=5 th05_zuninit.asm obj\th05\zuninit.obj
+echo -c -s -t -3  obj\th05\zuninit.obj obj\th05\resident.obj, bin\th05\zuninit.com, obj\th05\zuninit.map, >obj\th05\zuninit.@l
+tlink @obj\th05\zuninit.@l
 echo -c -s -t c0t.obj obj\th05\res_kso.obj, bin\th05\res_kso.com, obj\th05\res_kso.map, bin\masters.lib emu.lib maths.lib ct.lib>obj\th05\res_kso.@l
 tlink @obj\th05\res_kso.@l
 tasm32 /m /mx /kh32768 /t /dGAME=5 th05_gjinit.asm obj\th05\gjinit.obj
