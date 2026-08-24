@@ -19,6 +19,7 @@
 #include "th04/gaiji/gaiji.h"
 #include "th04/hardware/input.h"
 #include "th04/main/quit.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/resident.hpp"
 
 // Gaiji string literals, still owned by the dump's data segment and reached
@@ -126,10 +127,10 @@ unsigned char near continue_prompt(void)
 	gaiji_putsa(25, 15, gNO, TX_WHITE);
 	gaiji_putsa(19, 22, gCREDIT, TX_GREEN);
 	gaiji_putca(33, 22, (credits_left + gb_0), TX_GREEN);
-	input_reset_sense();
+	replay_input_reset_sense_interstitial();
 
 	while(1) {
-		input_sense();
+		replay_input_sense_interstitial();
 		if(!held) {
 			held = key_det;
 			if((held & INPUT_UP) || (held & INPUT_DOWN)) {
@@ -160,7 +161,7 @@ unsigned char near continue_prompt(void)
 		} else {
 			held = key_det;
 		}
-		input_reset_sense();
+		replay_input_reset_sense_interstitial();
 		frame_delay(1);
 	}
 

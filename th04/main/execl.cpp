@@ -15,6 +15,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/main/execl.hpp"
 #include "th04/main/frames.h"
+#include "th04/main/replay.hpp"
 #if (GAME == 5)
 	#include "th05/resident.hpp"
 #else
@@ -22,6 +23,8 @@
 #endif
 #include <process.h>
 #include <stddef.h>
+
+extern "C" const char arg0[];
 
 // Declared here rather than through th04/main/item/item.hpp,
 // th04/main/enemy/enemy.hpp and th04/formats/{std,map}.hpp, none of which can
@@ -99,6 +102,9 @@ void game_exit(void);
 
 int pascal GameExecl(const char *binary_fn)
 {
+	if(replay_process_end()) {
+		binary_fn = arg0;
+	}
 	score_last_commit();
 	if(Ems) {
 		ems_free(Ems);

@@ -50,6 +50,7 @@
 	#include "th04/main/end.hpp"
 #endif
 #include "th04/main/null.hpp"
+#include "th04/main/replay.hpp"
 // Also the only include of th04/gaiji/gaiji.h, which has no include guard;
 // naming it again above is the one collision this TU's include closure has.
 #include "th04/main/hud/overlay.hpp"
@@ -274,7 +275,7 @@ unsigned char near gameover(void)
 		i += GAIJI_TRAM_W;
 	}
 	gaiji_putsa(GAMEOVER_TRAM_LEFT, GAMEOVER_TRAM_Y, gGAMEOVER, TX_WHITE);
-	input_wait_for_change(0);
+	replay_input_wait_for_change(0);
 	overlay_wipe();
 
 	i = continue_prompt();

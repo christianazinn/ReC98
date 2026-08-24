@@ -20,6 +20,7 @@
 #include "th02/main/execl.hpp"
 #include "th03/core/initexit.h"
 #include "th04/main/quit.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/snd/snd.h"
 #if (GAME == 5)
 	#include "th05/resident.hpp"
@@ -99,6 +100,7 @@ extern "C" void far main_entry(void)
 
 	while(1) {
 		stage_setup();
+		replay_stage_start();
 		stage_loop();
 		if(quit != Q_NEXT_STAGE) {
 			break;

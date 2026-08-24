@@ -18,6 +18,7 @@
 #endif
 #include "th04/main/ems.hpp"
 #include "th04/main/oracle.hpp" // ORACLE MOD
+#include "th04/main/replay.hpp"
 
 extern char *eyename;	/* ZUN symbol [MAGNet2010] */
 extern char *bbname; 	/* ZUN symbol [MAGNet2010] */
@@ -65,6 +66,7 @@ void near ems_allocate_and_preload_eyecatch(void)
 	// the very next lines below are the first such derivation. Pins or applies
 	// the case's scenario; a no-op unless T?CASE.CFG exists.
 	oracle_entry();
+	replay_entry();
 
 	// Luckily, these assignments are also done later, and the game doesn't
 	// rely on them inbetween.

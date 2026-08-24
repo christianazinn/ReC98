@@ -14,6 +14,7 @@ void near main_pat_exalice_override_and_super_clean_stage(void);
 #include "th04/main/dialog/shared.cpp"
 #include "th04/main/demo.hpp"
 #include "th04/main/ems.hpp"
+#include "th04/main/replay.hpp"
 #include "th05/resident.hpp"
 #include "th05/formats/dialog.hpp"
 #include "th05/main/dialog/dialog.hpp"
@@ -197,12 +198,12 @@ void near dialog_run(void)
 				// example. Y'know, just to ensure that held keys are always
 				// recognized as such, and don't cause a sporadic 2-frame delay
 				// before the text is displayed completely after all.
-				input_reset_sense();
+				replay_input_reset_sense_interstitial();
 
 				c = *(dialog_p++);
 				// End of text box?
 				if(c == 0xFF) {
-					input_wait_for_change(0);
+					replay_input_wait_for_change(0);
 					break;
 				} else if(!dialog_op(c)) {
 					// Regular kanji
@@ -220,7 +221,7 @@ void near dialog_run(void)
 					// if this box loop happens to run on a particularly
 					// unlucky UART cycle where the value *did* change in the
 					// meantime.
-					input_sense();
+					replay_input_sense_interstitial();
 
 					dialog_delay(speedup_cycle);
 				}

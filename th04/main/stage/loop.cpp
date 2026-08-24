@@ -36,6 +36,7 @@
 #include "th04/main/playfld.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/quit.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/slowdown.hpp"
 #include "th04/main/stage/stage.hpp"
@@ -187,6 +188,7 @@ void near stage_loop(void)
 	do {
 		input_sense();
 		demo_update();
+		replay_gameplay_input();
 		if(key_det & INPUT_CANCEL) {
 			if(pause()) {
 				quit = Q_QUIT_TO_OP;
@@ -247,7 +249,7 @@ void near stage_loop(void)
 		overlay1();
 		overlay2();
 		playfield_shake_update_and_render();
-		input_reset_sense();
+		replay_input_reset_sense_tail();
 
 		total_slow_frames += (
 			#if (GAME == 5)

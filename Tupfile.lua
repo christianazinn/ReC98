@@ -1096,8 +1096,10 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_x2.cpp",
 
 	-- ORACLE MOD: validation-only code in an isolated ORACLE_TEXT segment.
-	-- Must stay LAST: OMF concatenates same-named segments in link order.
 	"th04/oracle.cpp",
+	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
+	-- Keep mod-only segments at the tail of the link list.
+	"th04/replay.cpp",
 })
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/maine_e.cpp",
@@ -1360,8 +1362,10 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/main014.cpp",
 
 	-- ORACLE MOD: validation-only code in an isolated ORACLE_TEXT segment.
-	-- Must stay LAST: OMF concatenates same-named segments in link order.
 	"th05/oracle.cpp",
+	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
+	-- Keep mod-only segments at the tail of the link list.
+	"th05/replay.cpp",
 })
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/maine_e.cpp",

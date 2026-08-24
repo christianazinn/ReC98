@@ -33,6 +33,7 @@
 #include "th04/gaiji/gaiji.h"
 #include "th05/hardware/input.h"
 #include "th04/main/quit.hpp"
+#include "th04/main/replay.hpp"
 #include "th05/resident.hpp"
 
 // Gaiji string literals, still owned by the dump's data segment and reached
@@ -150,7 +151,7 @@ unsigned char near continue_prompt(void)
 	// input_reset_sense() at the bottom; TH05's held-key variant does both
 	// halves in one call, so the prompt is a single statement shorter here.
 	while(1) {
-		input_reset_sense_held();
+		replay_input_reset_sense_held_interstitial();
 		if(!held) {
 			held = key_det;
 			if((held & INPUT_UP) || (held & INPUT_DOWN)) {
