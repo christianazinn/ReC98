@@ -400,37 +400,42 @@ static void near meira_14F16(void)
 }
 
 
-/// Her still-ASM patterns
-/// ----------------------
-/// The twelve procs meira_update() dispatches to, published for this object's
-/// sake and nothing else - none of them has a second caller anywhere in the
-/// dump. Every one takes no argument and ends in a bare `retn`; only the first
-/// returns anything. They keep the dump's address-suffixed hand names, exactly
-/// the way b3.cpp's stones_1*() and b4.cpp's marisa_1AA60() do: naming a
-/// pattern needs the pattern, and none of these has been lifted.
+/// What meira_update() dispatches to, and where each of them lives
+/// ---------------------------------------------------------------
+/// The nine remaining procs meira_update() reaches across an object boundary.
+/// Every one takes no argument and ends in a bare `retn`; only the first
+/// returns anything. The seven patterns keep the dump's address-suffixed hand
+/// names, exactly the way b3.cpp's stones_1*() and b4.cpp's marisa_1AA60() do:
+/// naming a pattern needs the pattern, and this object holds none of these.
 ///
 /// The two at the bottom are NOT patterns. meira_update() calls them
 /// unconditionally on every frame of the fight, past every phase branch, so
 /// they are her movement and her render halves.
 
-// Her defeat animation, and the only one of the twelve with a result: two
-// explosion rings, a spark burst and either her still sprite or a zoom of it,
-// returning true on the frame the animation runs out.
+// Her defeat animation, and the only one with a result: two explosion rings, a
+// spark burst and either her still sprite or a zoom of it, returning true on
+// the frame the animation runs out. STILL ASM in th02_main.asm, and still a
+// kb/codegen/0123 alias published for this object's sake.
 extern "C" bool16 near meira_14519(void);
 
+// These six are th02/main/boss/b2m.cpp, NOT this object - see the head of this
+// file for the one pad byte that forced the split.
 extern "C" void near meira_1483B(void);
 extern "C" void near meira_148FD(void);
-
-// These four are th02/main/boss/b2m.cpp, NOT this object - see the head of
-// this file for why they had to be split off.
 extern "C" void near meira_14A39(void);
 extern "C" void near meira_14B33(void);
 extern "C" void near meira_14BC2(void);
 extern "C" void near meira_14C76(void);
 
+// Her hittest-and-render half, still ASM and still an alias.
 extern "C" void near meira_145E1(void);
-extern "C" void near meira_14726(void);
-/// ----------------------
+
+// Her slash pool's per-frame pass, th02/main/boss/b2m.cpp. Was meira_14726,
+// and the pool is what made it nameable: the 40 slots it walks are her dash
+// slashes, lethal for as long as their trail lasts and then blooming into a
+// burst of bullets.
+extern "C" void near meira_slashes_update_and_render(void);
+/// ---------------------------------------------------------------
 
 // How far into her sprite the point shottype B's homing shots aim at sits.
 // `[measured]` The same 40 on both axes, and her sprite is 64x64, so it really
@@ -539,7 +544,7 @@ extern "C" int far meira_update(void)
 		}
 		meira_145E1();
 	}
-	meira_14726();
+	meira_slashes_update_and_render();
 	return SP_BOSS;
 }
 
