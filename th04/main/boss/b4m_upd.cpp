@@ -675,9 +675,10 @@ static void pascal near marisa_bit_fire_17061(bit_t near& bit)
 // way the volley speeds up by 0.25 pixels each time. The pattern closes by
 // halving the bits' angular speed again, undoing the fire frame's doubling.
 //
-// ZUN bug [inferred, from the arithmetic alone]: [last_frame_with_bits_alive]
-// is always a multiple of 4, so a last bit dying between frames 148 and 151
-// makes the duration below exactly 12 -- the one value
+// Candidate divide-by-zero [inferred from the arithmetic alone; reachability
+// and observable failure unverified]: [last_frame_with_bits_alive] is always a
+// multiple of 4, so a last bit dying between frames 148 and 151 makes the
+// duration below exactly 12 -- the one value
 // marisa_flystep_pointreflected() divides by zero on.
 static void near marisa_17079(void)
 {

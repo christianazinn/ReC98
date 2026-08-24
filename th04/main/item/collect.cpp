@@ -20,10 +20,9 @@
 /// read]`. This lift reads TH04's, and it confirms the inference outright:
 /// every arm awards the player something and the shared tail spawns the pickup
 /// point number. That note's caveat is discharged for TH04 in this parcel.
-/// TH05's counterpart, sub_16F54() in th05_main.asm's main_033_TEXT, is a
-/// DIFFERENT body -- same seven types, but the dream and power arms diverge and
-/// it has no [total_*_collected] counters -- so it stays ASM behind the same
-/// `#define`, and naming it belongs to whichever parcel lifts it.
+/// TH05's item_collected() counterpart is a DIFFERENT body -- same seven types,
+/// but the dream and power arms diverge and it has no [total_*_collected]
+/// counters.
 ///
 /// Assembly in TH05 means the two are two lifts, not one shared body
 /// (kb/codegen/0115).
@@ -104,7 +103,9 @@ extern unsigned int total_max_valued_point_items;
 // signed, Turbo C++ takes the operator literally (kb/codegen/0092) and emits
 // `JL`/`JLE` over identical operands -- one bit of one byte, in two places.
 static const unsigned int POWER_OVERFLOW_MAX = 42;
-extern "C" int16_t POWER_OVERFLOW_BONUS[POWER_OVERFLOW_MAX];
+// The backing data has one entry for every inclusive value from 0 through the
+// cap.
+extern "C" int16_t POWER_OVERFLOW_BONUS[POWER_OVERFLOW_MAX + 1];
 // ---------------------------------------------------------------------
 
 // The two counters this function hands out live in the resident structure, so
@@ -121,9 +122,9 @@ void pascal near item_collected(item_t near *item)
 
 	// SI, and DELIBERATELY UNINITIALIZED. The `switch` below has no default,
 	// so an item whose [type] is above IT_FULLPOWER falls straight through to
-	// the tail and spends whatever SI happened to hold. ZUN quirk, preserved:
-	// the original has no initializing store either, and items_add() is the
-	// only writer of [type] in either game.
+	// the tail and spends whatever SI happened to hold. ZUN landmine: the
+	// original has no initializing store either, but all original item writers
+	// assign one of the handled types.
 	unsigned int score;
 
 	yellow = 0;
@@ -216,9 +217,9 @@ void pascal near item_collected(item_t near *item)
 		} else {
 			// ZUN quirk: the bonus is looked up BEFORE the clamp, so an
 			// overflow counter that has just run past POWER_OVERFLOW_MAX
-			// indexes POWER_OVERFLOW_BONUS[] out of bounds by up to 4 entries,
-			// and the value it reads is the one the player is paid. The clamp
-			// on the next line only fixes the counter.
+			// can index POWER_OVERFLOW_BONUS[] five entries past the final
+			// valid index 42, at index 47. The value it reads is the one the
+			// player is paid; the clamp on the next line only fixes the counter.
 			power_overflow += 5;
 			score = POWER_OVERFLOW_BONUS[power_overflow];
 			if(static_cast<unsigned int>(power_overflow) > POWER_OVERFLOW_MAX) {
