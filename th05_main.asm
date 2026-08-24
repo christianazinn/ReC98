@@ -781,7 +781,7 @@ loc_B469:
 ; ---------------------------------------------------------------------------
 
 loc_B48A:
-		nopcall	sub_E4FC
+		nopcall	_player_shot_level_update
 		call	@ems_preload_boss_faceset$qnxc pascal, ds, offset aBss6_cd2 ; "BSS6.CD2"
 		call	super_entry_bfnt pascal, ds, offset aSt06_bft ; "st06.bft"
 		call	@stagex_setup$qv
@@ -1607,9 +1607,9 @@ SCORE_A_TEXT	ends
 ; take modules from the MIDDLE of the include list, so the block that gets
 ; renamed is the one AHEAD of the module rather than the module's own.
 ;
-; This block keeps th04/main/player/shot_velocity.asm and the hand-written
-; `sub_E4FC`, and th05/score_rm.cpp appends bb_txt_load() and bb_txt_free()
-; behind them -- which is exactly where the deleted ASM module sat.
+; This block keeps th04/main/player/shot_velocity.asm. th05/score_rm.cpp
+; appends player_shot_level_update(), bb_txt_load(), and bb_txt_free(),
+; preserving the original order at the root/C++ contribution boundary.
 ;
 ; The name is the integrator's 2026-08-23 ruling in
 ; state/re/NAMING_PRECHECK_ADJUDICATIONS.md: `SCORE_TEXT` stays on the block
@@ -1628,33 +1628,11 @@ include th04/main/player/shot_velocity.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
-; Zero-byte alias (kb/codegen/0123) so that th05/main/continue.cpp can name
-; this proc in the `nop` + `push cs` + near call it has to hand-spell for
-; the `nopcall` above. The dump's own call sites keep the bare spelling.
-public _sub_E4FC
-_sub_E4FC label near
-sub_E4FC	proc far
-		xor	bx, bx
-		xor	ax, ax
-		mov	al, _power
-		mov	cx, SHOT_LEVEL_MAX
-
-loc_E506:
-		cmp	ax, _SHOT_LEVEL_TO_POWER[bx]
-		jb	short loc_E511
-		add	bx, 2
-		loop	loc_E506
-
-loc_E511:
-		mov	dx, bx
-		shr	dx, 1
-		mov	_shot_level, dl
-		add	bx, _playchar_shot_funcs
-		mov	ax, [bx]
-		mov	_playchar_shot_func, ax
-		nopcall	hud_power_put
-		retf
-sub_E4FC	endp
+; player_shot_level_update() now lives in
+; th04/main/player/shot_level.cpp, included by th05/score_rm.cpp as the first
+; C++ body in BB_TXT_TEXT. This far declaration keeps the earlier root call
+; in main_01 lowered as the original same-group nopcall.
+_player_shot_level_update procdesc far
 
 	; bb_txt_load() and bb_txt_free() now live in
 	; th05/formats/bb_txt_load.cpp, which th05/score_rm.cpp compiles into
@@ -2038,7 +2016,7 @@ HUD_PWR_TEXT	segment	byte public 'CODE' use16
 	; hud_power_put() now lives in th04/main/hud/power.cpp, which appends to
 	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
 	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
-	; and sub_E4FC's `nopcall`, with no call-site edits.
+	; and player_shot_level_update's `nopcall`, with no call-site edits.
 	HUD_POWER_PUT procdesc pascal far
 HUD_PWR_TEXT	ends
 

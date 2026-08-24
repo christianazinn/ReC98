@@ -2,12 +2,12 @@
 /// ------------------------------------------
 /// (#included from th04/y6_fg.cpp, which owns the Y6_FG_TEXT segment this
 /// kb/codegen/0080 carve split off the head of main_012_TEXT. ZUN's object for
-/// that segment held these two functions, then th04/main/player/shots_add.asm
-/// and th04/main/player/shot_velocity.asm, then sub_11DE6, then
-/// elly_fg_render() and stage_state_reset() -- that an original object held
-/// several unrelated sources is kb/codegen/0112. The four in the middle stay in
-/// the dump, so main_012_TEXT keeps its name and th04/main_012.cpp, which owns
-/// the tail, is not re-pointed.)
+/// that segment held these two functions, then shots_add(),
+/// th04/main/player/shot_velocity.asm, player_shot_level_update(),
+/// elly_fg_render(), and stage_state_reset() -- that an original object held
+/// several unrelated sources is kb/codegen/0112. Only shot_velocity_set()
+/// remains in the root contribution; the C++ wrappers preserve the original
+/// order around it without re-pointing main_012_TEXT.)
 ///
 /// Yuuka is the sixth member of the [boss_fg_render] family to land in C++, and
 /// the only one that renders a second, fully independent copy of the boss: the

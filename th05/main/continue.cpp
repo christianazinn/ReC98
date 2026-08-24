@@ -74,18 +74,9 @@ extern "C" void pascal near hud_score_put(void);
 extern "C" void pascal hud_bombs_put(void);
 extern "C" void pascal hud_lives_put(void);
 
-// Derives [shot_level] from [power] against the SHOT_LEVEL_TO_POWER
-// thresholds, installs [playchar_shot_func] out of [playchar_shot_funcs], and
-// tail-calls hud_power_put(). Still ASM, as sub_E4FC in th05_main.asm's
-// SCORE_TEXT, which now publishes a zero-byte `_sub_E4FC` alias for this
-// reference (kb/codegen/0123).
-//
-// The placeholder spelling matches TH04's sub_11DE6, which is the same
-// function in that game and whose failed name search is recorded in
-// state/notes/th04_continue_prompt.md, per section 3 of
-// kb/conventions/naming-precedents.md. Nothing in either dump, any header,
-// ReC98's history or upstream/master ever named it.
-extern "C" void near sub_E4FC(void);
+// Derives [shot_level] from [power], installs [playchar_shot_func], and
+// redraws the power row. Shared with TH04 in th04/main/player/shot_level.cpp.
+extern "C" void near player_shot_level_update(void);
 // ---------------------------------------------------------------------
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
@@ -202,7 +193,7 @@ unsigned char near continue_prompt(void)
 	dream = 1;
 	bombs = resident->credit_bombs;
 	lives = resident->credit_lives;
-	nopcall_same_group(sub_E4FC);
+	nopcall_same_group(player_shot_level_update);
 	nopcall_same_group(hud_lives_put);
 	nopcall_same_group(hud_bombs_put);
 	continues_used++;

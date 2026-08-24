@@ -56,14 +56,8 @@ extern "C" unsigned char bombs;
 // constant in a header four other binaries compile.
 static const unsigned int POINT_ITEMS_MAX = 999;
 
-// Still ASM, still unnamed, in th05_main.asm's SCORE_TEXT, and already
-// reachable: `public _sub_E4FC` sits above it for th05/main/continue.cpp and
-// th05/shot_inv.cpp, which both `nopcall_same_group()` it. This is the first
-// C++ that really calls it, and the proc is `far`, so the declaration is too.
-// NOT licensed by a failed search: the body is right there in the dump, and
-// naming it belongs to whichever parcel lifts SCORE_TEXT. Same reasoning
-// th04/main/item/update.cpp records for its own placeholder list.
-extern "C" void far sub_E4FC(void);
+// Far from this main_03 object; same-group callers use a nopcall island.
+extern "C" void far player_shot_level_update(void);
 
 // th04/main/hud/overlay.hpp declares these three; it is unguarded AND
 // re-expands headers this closure already carries, so spelling them here is the
@@ -167,9 +161,9 @@ void pascal near item_collected(item_t near *item)
 	// `register` is load-bearing and [measured], not decoration. Turbo C++
 	// hands out SI and DI to two candidates, and left to itself it gives SI
 	// to [item] and DI to this -- the swap of what the original does. TH04's
-	// twin needs no hint for the same shape, so whatever tips the choice is
-	// not the declaration order: all six orderings of the three locals were
-	// compiled and every one of them put [item] in SI.
+	// twin emits the same assignment without the `register` qualifier, so
+	// whatever tips the choice is not local-variable order: all six orderings
+	// were compiled and every one of them put [item] in SI.
 	register unsigned int score;
 
 	yellow = 0;
@@ -187,7 +181,7 @@ void pascal near item_collected(item_t near *item)
 				}
 			}
 			power++;
-			sub_E4FC();
+			player_shot_level_update();
 			score = 1;
 		} else {
 			power_overflow++;
@@ -281,7 +275,7 @@ void pascal near item_collected(item_t near *item)
 					bullet_clear_time = 20;
 				}
 			}
-			sub_E4FC();
+			player_shot_level_update();
 			score = 1;
 		} else {
 			// ZUN quirk, and TH04 has the identical one: the bonus is looked
@@ -324,7 +318,7 @@ void pascal near item_collected(item_t near *item)
 		// so: `-O` cross-jumps this arm into the next one by itself.
 		// [measured] Writing the `goto` explicitly is actively WRONG -- it
 		// hands the optimizer a second merge it then also takes, and
-		// IT_BIGPOWER loses its own `sub_E4FC(); score = 1;` to IT_POWER's
+		// IT_BIGPOWER loses its own update call and `score = 1;` to IT_POWER's
 		// copy. Two instructions short, and nothing about the `goto` arm
 		// itself looks wrong in the listing.
 		score = 100;
@@ -337,7 +331,7 @@ void pascal near item_collected(item_t near *item)
 		overlay_popup_id_new = ITEM_POPUP_ID_FULL_POWERUP;
 				overlay2 = overlay_popup_update_and_render;
 		power = POWER_MAX;
-		sub_E4FC();
+		player_shot_level_update();
 		score = 100;
 		break;
 	}
