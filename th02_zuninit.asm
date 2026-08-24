@@ -30,7 +30,7 @@ _TEXT		segment use16
 		public start, _zuninit_entry
 _zuninit_entry	label near
 start		proc near
-		jmp	_zuninit_main
+		jmp	zuninit_main
 start		endp
 
 
@@ -39,7 +39,7 @@ start		endp
 
 		public _zun_error_interrupt_handler
 _zun_error_interrupt_handler label far
-sub_103		proc far
+zun_error_interrupt_handler proc far
 		pushf
 		push	ax
 		push	bx
@@ -52,10 +52,10 @@ sub_103		proc far
 		shl	bx, 1
 		xor	ax, ax
 		mov	dx, cs:off_312[bx]
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 0A0h
 		mov	dx, offset aGkgBGuglbV ; "リターンキーを押してね$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 
 loc_122:
 		mov	ah, 4
@@ -74,7 +74,7 @@ loc_122:
 		pop	ax
 		popf
 		iret
-sub_103		endp
+zun_error_interrupt_handler endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -82,15 +82,15 @@ sub_103		endp
 
 		public _zun_stop_interrupt_handler
 _zun_stop_interrupt_handler label far
-sub_136		proc far
+zun_stop_interrupt_handler proc far
 		cmp	cs:byte_24D, 0
 		jnz	short locret_147
 		mov	cs:byte_24D, 1
-		call	_stop_copy_key_warning
+		call	stop_copy_key_warning
 
 locret_147:
 		iret
-sub_136		endp
+zun_stop_interrupt_handler endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -98,15 +98,15 @@ sub_136		endp
 
 		public _zun_copy_interrupt_handler
 _zun_copy_interrupt_handler label far
-sub_148		proc far
+zun_copy_interrupt_handler proc far
 		cmp	cs:byte_24D, 0
 		jnz	short locret_159
 		mov	cs:byte_24D, 2
-		call	_stop_copy_key_warning
+		call	stop_copy_key_warning
 
 locret_159:
 		iret
-sub_148		endp
+zun_copy_interrupt_handler endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -114,7 +114,7 @@ sub_148		endp
 
 		public _stop_copy_key_warning
 _stop_copy_key_warning label near
-sub_15A		proc near
+stop_copy_key_warning proc near
 		pushf
 		push	ax
 		push	bx
@@ -131,13 +131,13 @@ sub_15A		proc near
 		jz	short loc_18D
 		mov	ax, 650h
 		mov	dx, offset aVVtvVVrvsvnvog ; "むやみにＳＴＯＰキー押したりしない$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 6F0h
 		mov	dx, offset asc_341 ; "方がいいと思うの。（ゲーム中はね）$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 790h
 		mov	dx, offset aBivrvsvnvoglbV ; "（ＳＴＯＰキーで戻れるよ、ねっ）　$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	bl, 1
 		jmp	short loc_1AA
 ; ---------------------------------------------------------------------------
@@ -145,13 +145,13 @@ sub_15A		proc near
 loc_18D:
 		mov	ax, 650h
 		mov	dx, offset aVV	; "なんでＣＯＰＹキー押したりしてるの$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 6F0h
 		mov	dx, offset aVivBBbvVVmbBbb ; "かな～。ふしぎ～。　　（もう一度、$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 790h
 		mov	dx, offset aVbvnvovxglbIqv ; "ＣＯＰＹキー押せば戻れるよ、ねっ）$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	bl, 2
 
 loc_1AA:
@@ -177,13 +177,13 @@ loc_1B4:
 					; often	reboots	a compatible; often has	no effect at all
 		mov	ax, 650h
 		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 6F0h
 		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ax, 790h
 		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	@zuninit_message_put
+		call	zuninit_message_put
 		mov	ah, 6
 		int	18h		; TRANSFER TO ROM BASIC
 					; causes transfer to ROM-based BASIC (IBM-PC)
@@ -198,7 +198,7 @@ loc_1B4:
 		popf
 		mov	cs:byte_24D, 0
 		retn
-sub_15A		endp
+stop_copy_key_warning endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -206,8 +206,8 @@ sub_15A		endp
 
 		public @zuninit_shiftjis_to_jis
 @zuninit_shiftjis_to_jis label near
-shiftjis_to_jis label near
-sub_1F0		proc near
+
+shiftjis_to_jis proc near
 		shl	ah, 1
 		cmp	al, 9Fh
 		jnb	short loc_1FB
@@ -218,7 +218,7 @@ loc_1FB:
 		sbb	ax, 0DFFEh
 		and	ax, 7F7Fh
 		retn
-sub_1F0		endp
+shiftjis_to_jis endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -226,7 +226,7 @@ sub_1F0		endp
 
 		public @zuninit_message_put
 @zuninit_message_put label near
-sub_202		proc near
+zuninit_message_put proc near
 		mov	bx, dx
 		mov	di, 0A000h
 		mov	es, di
@@ -270,7 +270,7 @@ loc_236:
 
 locret_23C:
 		retn
-sub_202		endp
+zuninit_message_put endp
 
 ; ---------------------------------------------------------------------------
 ZUNP		dw 'ZU', 'NP'
@@ -304,7 +304,7 @@ aVbvnvovxglbIqv	db 'ＣＯＰＹキー押せば戻れるよ、ねっ）$'
 
 		public _zun_resident_check
 _zun_resident_check label near
-sub_413		proc near
+zun_resident_check proc near
 		mov	dx, offset aIntvectorSetPr ; "\r\n\r\nINTvector	set program  zuninit.com "...
 		mov	ah, 9
 		int	21h		; DOS -	PRINT STRING
@@ -326,7 +326,7 @@ loc_436:
 
 locret_439:
 		retn
-sub_413		endp
+zun_resident_check endp
 
 
 ; =============== S U B	R O U T	I N E =======================================
@@ -335,7 +335,7 @@ sub_413		endp
 
 		public _zuninit_main
 _zuninit_main	label near
-start_0		proc near
+zuninit_main	proc near
 		mov	si, 81h
 
 loc_43D:
@@ -350,7 +350,7 @@ loc_43D:
 		jbe	short loc_43D
 
 loc_44E:
-		call	_zun_resident_check
+		call	zun_resident_check
 		test	ax, ax
 		jz	short loc_473
 		jmp	loc_515
@@ -371,7 +371,7 @@ loc_460:
 ; ---------------------------------------------------------------------------
 
 loc_469:
-		call	_zun_resident_check
+		call	zun_resident_check
 		test	ax, ax
 		jnz	short loc_4C9
 		jmp	loc_51E
@@ -380,7 +380,7 @@ loc_469:
 loc_473:
 		mov	word ptr cs:dword_241, bx
 		mov	word ptr cs:dword_241+2, es
-		mov	dx, offset _zun_error_interrupt_handler
+		mov	dx, offset zun_error_interrupt_handler
 		mov	ax, 2559h
 		int	21h		; DOS -	SET INTERRUPT VECTOR
 					; AL = interrupt number
@@ -392,7 +392,7 @@ loc_473:
 					; Return: ES:BX	= value	of interrupt vector
 		mov	word ptr cs:dword_249, bx
 		mov	word ptr cs:dword_249+2, es
-		mov	dx, offset _zun_stop_interrupt_handler
+		mov	dx, offset zun_stop_interrupt_handler
 		mov	ax, 2506h
 		int	21h		; DOS -	SET INTERRUPT VECTOR
 					; AL = interrupt number
@@ -404,7 +404,7 @@ loc_473:
 					; Return: ES:BX	= value	of interrupt vector
 		mov	word ptr cs:dword_245, bx
 		mov	word ptr cs:dword_245+2, es
-		mov	dx, offset _zun_copy_interrupt_handler
+		mov	dx, offset zun_copy_interrupt_handler
 		mov	ax, 2505h
 		int	21h		; DOS -	SET INTERRUPT VECTOR
 					; AL = interrupt number
@@ -413,7 +413,7 @@ loc_473:
 		mov	ah, 9
 		int	21h		; DOS -	PRINT STRING
 					; DS:DX	-> string terminated by	"$"
-		mov	dx, offset _zun_resident_check
+		mov	dx, offset zun_resident_check
 		mov	cl, 4
 		shr	dx, cl
 		inc	dx
@@ -490,7 +490,7 @@ loc_527:
 loc_530:
 		mov	ax, 4C00h
 		int	21h		; DOS -	2+ - QUIT WITH EXIT CODE (EXIT)
-start_0		endp			; AL = exit code
+zuninit_main	endp			; AL = exit code
 
 ; ---------------------------------------------------------------------------
 aIntvectorSetPr	db 0Dh,0Ah
