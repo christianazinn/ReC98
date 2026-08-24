@@ -3,7 +3,7 @@
 
 void near grcg_setmode_rmw(void)
 {
-	_outportb_(0x7C, 0xC1);
+	_outportb_(0x7C, GC_RMW);
 }
 #pragma codestring "\x90"
 
