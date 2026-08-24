@@ -29,7 +29,7 @@
 // access, and therefore *must* be called with [velocity] pointing inside a
 // Shot structure! (The struct was `shot_t` until upstream's 456768a4 renamed it;
 // the dump's own struc keeps the old spelling, see HitShot below.)
-SPPoint pascal near shot_velocity_set(
+void pascal near shot_velocity_set(
 	SPPoint near* velocity, unsigned char angle
 );
 

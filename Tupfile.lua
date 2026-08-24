@@ -986,6 +986,9 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- th04_main.asm, which defines it (and main_012_TEXT behind it) and is the
 	-- first object linked.
 	"th04/y6_fg.cpp",
+	-- shots_add(), into the MAIN_012_A_TEXT head carve immediately before the
+	-- remaining main_012_TEXT root contribution. Its object needs -k-.
+	"th04/shotsadd.cpp",
 	"th04/main_012.cpp",
 	"th04/main_033.cpp",
 	-- POSITION-CRITICAL: b6_next.cpp is yuuka6_phase_next() alone and must
