@@ -144,8 +144,7 @@ void pascal near elly_backdrop_colorfill(void)
 }
 
 // Reimu's and Marisa's callback, at 0xBEDA, immediately after Elly's — which is
-// why it can be here at all. It was th04_main.asm's
-// `include th04/hardware/fillm64-56_256-256.asm`, the FIRST item of
+// why it can be here at all. The 56-to-256 fill module was the FIRST item of
 // CIRCLE_TEXT's root contribution, so lifting it looked like a second
 // kb/codegen/0080 head carve out of this same pair. It is not: CIRCLE_A_TEXT
 // ENDS with this object's contribution and CIRCLE_TEXT began at the very next
@@ -158,6 +157,30 @@ void pascal near elly_backdrop_colorfill(void)
 // th05/main/boss/colorfill.cpp, so an unguarded include here would define it
 // twice in that binary.
 #include "th04/hardware/fillm64.cpp"
+
+#pragma codeseg CIRCLE_B_TEXT main_01
+
+void pascal near yuuka5_backdrop_colorfill(void)
+{
+	_ES = FILLM64_PLAYFIELD_SEG(112);
+	_DI = FILLM64_BOTTOM_LEFT(256);
+	asm { nop; }
+
+left_rect:
+	FILLM64_STOSD();
+	FILLM64_STOSD();
+	FILLM64_STOSD();
+	FILLM64_SUB_DI_8(ROW_SIZE + 12);
+	asm { jge short left_rect; }
+	grcg_fill_playfield_rows_at(0, 112);
+}
+
+#pragma codeseg CIRCLE_C_TEXT main_01
+
+void pascal near mugetsu_gengetsu_backdrop_colorfill(void)
+{
+	grcg_fill_playfield_rows_at(192, 176);
+}
 
 #pragma codeseg
 #pragma option -k
