@@ -10,10 +10,10 @@
 /// Called first thing by stage_init(), the per-stage initialization function
 /// in DEMO_TEXT, which resets the player, scroll, HUD and tile state around
 /// it. TH04's is C++ since 2026-08-19 -- th04/main/stage/init.cpp, and this
-/// file's prose is where its name came from; TH05's twin of that one is still
-/// `sub_B55A` in th05_main.asm. [inferred] The split between the two looks
-/// like a source-file boundary rather than a conceptual one: they live in
-/// different original objects.
+/// file's prose is where its name came from. TH05's twin is now compiled from
+/// that same shared source through th05/demo.cpp. [inferred] The split between
+/// stage_init() and this reset looks like a source-file boundary rather than a
+/// conceptual one: they lived in different original objects.
 ///
 /// TH05's arm was written on 2026-08-19, when the proc IDA had left unnamed
 /// became the *tail* of main_TEXT's root contribution as well as its head, and
@@ -56,13 +56,15 @@
 // DGROUP. Still assembly in both games (`sub_C34E` in th04_main.asm's
 // CIRCLE_TEXT; th05_main.asm's copy sits in SCORE_TEXT, is likewise still
 // under IDA's spelling, and differs from TH04's by one instruction --
-// `xor ax, ax` against `xor eax, eax`): each reads both of its parameters
-// through a `mov bx, sp` frame, which lies outside what a C++ signature can
-// express, so dwords_clear() is reached through the zero-byte `label` alias
-// each dump publishes for it (kb/codegen/0123). Every one of its call sites in
-// either binary is below. (The sentence above is about dwords_clear() alone,
-// and says so explicitly because it sits directly above the definition of
-// stage_state_reset() as well.)
+// `xor ax, ax` against `xor eax, eax`). The Pascal declaration below expresses
+// the caller ABI and parameter types. The compiler limitation is codegen: each
+// body reads both parameters through a nonstandard `mov bx, sp` frame before
+// saving DI, an instruction order Turbo C++ cannot emit for a C++ function
+// that uses DI. Therefore, dwords_clear() is reached through the zero-byte
+// `label` alias each dump publishes for it (kb/codegen/0123). Every one of its
+// call sites in either binary is below. (The sentence above is about
+// dwords_clear() alone, and says so explicitly because it sits directly above
+// the definition of stage_state_reset() as well.)
 extern "C" void pascal near dwords_clear(void near *dst, int dword_count);
 
 #if (GAME == 5)

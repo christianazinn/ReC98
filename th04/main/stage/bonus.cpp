@@ -170,9 +170,9 @@ void near stage_clear_bonus(void)
 	points += bonus;
 	TALLY_PUT_EAX(13);
 
-	// ZUN bloat: the same multiply-rather-than-add that stage_allclear_bonus()
-	// does, with the same consequence -- a stage cleared without collecting a
-	// single point item pays nothing at all.
+	// The same multiply-rather-than-add that stage_allclear_bonus() does, with
+	// the same consequence -- a stage cleared without collecting a single point
+	// item pays nothing at all.
 	bonus = stage_point_items_collected;
 	points = (bonus * points);
 	HUD_5_DIGIT_PUT_SI(40, 16);
@@ -264,9 +264,9 @@ void near stage_allclear_bonus(void)
 	points += bonus;
 	TALLY_PUT_EAX(14);
 
-	// ZUN bloat: the point item count *multiplies* the running total rather
-	// than adding to it, so an all-clear that collected no point items at all
-	// scores nothing whatever the terms above came to.
+	// The point item count *multiplies* the running total rather than adding to
+	// it, so an all-clear that collected no point items at all scores nothing
+	// whatever the terms above came to.
 	bonus = stage_point_items_collected;
 	points = (bonus * points);
 	HUD_5_DIGIT_PUT_SI(40, 17);

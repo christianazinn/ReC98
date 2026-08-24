@@ -76,8 +76,8 @@ void pascal near items_add(subpixel_t x, subpixel_t y, item_type_t type)
 	if(type == IT_ENEMY_DROP_NEXT) {
 		enemy_drop_ring_p++;
 
-		// ZUN bloat: Half of all enemy drops are silently thrown away. The
-		// caller has no way of knowing, and the ring still advances.
+		// Half of all enemy drops are silently thrown away. The caller has no
+		// way of knowing, and the ring still advances.
 		#if (GAME == 5)
 			if(enemy_drop_ring_p & 1) {
 				return;
