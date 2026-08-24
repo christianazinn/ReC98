@@ -1,8 +1,10 @@
 /// Stage 2 Boss - Meira, her second object
 /// ---------------------------------------
-/// Her 40-slot slash pool, the four dash patterns that feed it, and phase 0's
-/// and phase 1's remaining danmaku. Her two entry points, her [boss_update]
-/// callback and her last two phases are th02/main/boss/b2.cpp.
+/// Thirteen of her twenty procs: her background renderer, her defeat animation,
+/// her hittest-and-render half, her 40-slot slash pool with the four dash
+/// patterns that feed it, and phase 0's and phase 1's remaining danmaku. Her two
+/// entry points, her [boss_update] callback and her last two phases are
+/// th02/main/boss/b2.cpp, and nothing of hers is left in th02_main.asm.
 ///
 /// AND THE ONLY REASON THIS IS NOT th02/main/boss/b2.cpp IS ONE PAD BYTE.
 /// `[measured 2026-08-23]` meira_update() over there compiles to a body plus a
@@ -21,9 +23,9 @@
 /// ends between meira_14C76() and meira_update(). b2.cpp's prefix is `0x2F8`
 /// today and that is the parity it has to keep.
 ///
-/// A consequence for whoever lifts the next group out of this block: it goes
+/// A consequence for whoever lifts the next group out of BOSS_5_TEXT: it goes
 /// HERE, not into b2.cpp, and this object has no parity to protect because it
-/// emits no generated table at all. Check that before adding a pattern with a
+/// emits no generated table at all. Check that before adding a body with a
 /// `switch` in it - four or more dense cases would give this object a table,
 /// and then kb/codegen/0157 starts applying to it too.
 
@@ -45,15 +47,21 @@
 #include "th01/rank.h"
 #include "th01/math/subpixel.hpp"
 #include "th02/core/globals.hpp"
+#include "th02/hardware/pages.hpp"
 #include "th02/main/entity.hpp"
+#include "th02/main/explode.hpp"
+#include "th02/main/score.hpp"
+#include "th02/main/spark.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/shot.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/snd/snd.h"
 #include "th02/sprites/main_pat.h"
+#include "th02/v_colors.hpp"
 
 // The sprite the boss and midboss renderers blit, shared by all of them and
 // written from ~150 sites across th02_main.asm. `patnum_2064E` is the dump's own
@@ -66,6 +74,18 @@ extern "C" int patnum_2064E;
 // th02/main/boss/b4.cpp and state/notes/th02-boss-rank-param.md.
 extern "C" uint8_t boss_rank_param[5];
 
+// th02/main/bullet/bullet.cpp, which owns the `[inferred]` licence for this
+// name: the binary-wide "the boss on screen has been defeated" flag, still a
+// kb/codegen/0123 alias because ~20 dump sites read and write it.
+// meira_145E1() below is what raises it for Meira.
+extern "C" uint8_t boss_phase;
+
+// Her defeat animation's own clock, and a PLAIN RENAME: every reference the
+// dump had to it was inside meira_14519() below. It is a `dw 0` in
+// th02_main.asm's _DATA rather than _BSS, so the storage stays there.
+// th02/main/boss/b4.cpp calls Marisa's [marisa_defeat_frame].
+extern "C" int meira_defeat_frame;
+
 // Where she stands when she is not attacking, and the same expression
 // meira_init() seeds [boss_left_on_page] and [boss_top_on_page] with. Two of
 // the patterns below walk her back to [MEIRA_HOME_X] a few pixels a frame and
@@ -75,12 +95,14 @@ static const screen_x_t MEIRA_HOME_X = (
 );
 static const screen_y_t MEIRA_HOME_Y = (PLAYFIELD_TOP + 32);
 
-// Her sprite's width. Also derived rather than declared in
-// th02/main/boss/b2.cpp, where the teleport dash draws its target from a range
-// of exactly PLAYFIELD_W minus this; here it is the right-hand bound
+// Her sprite's extent, and BOTH are derived rather than declared:
+// meira_bg_render() below invalidates a 64x64 rect at her top-left, and the
+// teleport dash in th02/main/boss/b2.cpp draws its target from a range of
+// exactly PLAYFIELD_W minus the width. The width is also the right-hand bound
 // meira_148FD() stops dash-slashing at, so her whole sprite stays inside the
 // playfield either way.
 static const pixel_t MEIRA_W = 64;
+static const pixel_t MEIRA_H = 64;
 
 /// Her four dash-slash sprites, and they are DIRECTIONAL
 /// -----------------------------------------------------
@@ -296,6 +318,264 @@ extern "C" subpixel_t meira_252EA;
 /// -----------------------------
 
 
+/// Her afterimage trail, from the renderer's side
+/// ----------------------------------------------
+/// Three slots of past positions per VRAM page, pushed at every 8th frame of
+/// her teleport dash (th02/main/boss/b2.cpp) and blitted there as single-colour
+/// silhouettes. THIS is the half that keeps them: the renderer below unputs the
+/// back page's three and then copies the front page's over them, which is the
+/// same double-buffered history every TH02 renderer keeps.
+///
+/// `[measured]` TWO PARALLEL ARRAYS and not an array of points: every walker
+/// indexes them with `page * 6 + slot * 2` against two separate `offset`s, and a
+/// point array would be one `offset` and a stride of 4.
+///
+/// AND THE RENDERER DOES NOT HOIST THE ROW, where b2.cpp's dash does: the dash
+/// takes `meira_afterimage_left[page_back]` into a near pointer once, and this
+/// one recomputes `page * 6 + slot * 2` at every single one of its eight reads.
+/// So the subscripts have to be written out in full here.
+
+static const int MEIRA_AFTERIMAGE_SLOTS = 3;
+
+extern "C" screen_x_t near meira_afterimage_left[PAGE_COUNT][
+	MEIRA_AFTERIMAGE_SLOTS
+];
+extern "C" screen_y_t near meira_afterimage_top[PAGE_COUNT][
+	MEIRA_AFTERIMAGE_SLOTS
+];
+
+// NAMED AT LAST, and this parcel is what made it nameable rather than a
+// judgement call: it carried an address suffix for four parcels, on the stated
+// grounds that its one reader was a renderer nobody had lifted. That reader is
+// meira_bg_render() below. `[measured]` meira_14E9D() raises it on the
+// way into her last phase - the phase whose only remaining pattern is the
+// teleport dash - and meira_init() clears it, and nothing else writes it. So it
+// is exactly "the trail is on", and the six slots above are stale for the whole
+// of phases 0 and 1.
+extern "C" bool16 meira_afterimages_active;
+/// ----------------------------------------------
+
+// How far into her sprite her defeat animation centres its explosion rings and
+// its sparks. `[measured]` 24 for the rings and 48 for the sparks, and her
+// sprite is 64x64, so NEITHER is her centre - the rings sit up and left of it
+// and the sparks down and right.
+static const pixel_t MEIRA_EXPLODE_OFFSET = 24;
+static const pixel_t MEIRA_SPARK_OFFSET = 48;
+
+// How long her defeat animation runs, and the two numbers the zoom is built
+// from. `[measured]` The zoomed sprite is a PATTERN NUMBER and not a zoom
+// factor: it is super_zoom()'s third argument, which both
+// libs/master.lib/pc98_gfx.hpp and libs/master.lib/super_zoom.asm's own header
+// comment call `num`, with the factor fourth and fixed at 2 here. (th02/main/
+// boss/b4.cpp's marisa_1AC7B() calls its copy of this local `zoom`; that is a
+// comment defect over there, not a match defect, and it should not be ported.)
+static const int MEIRA_DEFEAT_FRAMES = 96;
+static const int MEIRA_DEFEAT_ZOOM_PATNUM = 10;
+static const int MEIRA_DEFEAT_ZOOM_FRAMES_PER_PATNUM = 10;
+
+// The frame her defeat animation switches from her still sprite to the zoom.
+// `[measured]` [boss_phase_frame] and NOT the defeat counter the zoom's own
+// pattern number is derived from, so the two clocks that drive this one
+// animation are unrelated: nothing resets [boss_phase_frame] when she is
+// defeated, so which of the two branches the first frames take depends on where
+// in her last pattern she died.
+static const int MEIRA_DEFEAT_ZOOM_FROM_PHASE_FRAME = 32;
+
+// The [boss_damage] her fight ends at, and what it is worth. Spelled as the
+// literals the original holds, the way th02/main/boss/b4.cpp spells Marisa's
+// 900 and 20000.
+static const int MEIRA_DAMAGE_MAX = 2400;
+
+// Her hitbox against the player, and it is neither her sprite nor a square:
+// `[measured]` 32 wide against 48 tall, and the tall axis starts 16 pixels
+// ABOVE her top edge. Her sprite is 64x64, so the right half of her cannot
+// touch the player at all.
+static const pixel_t MEIRA_PLAYER_HITBOX_W = 32;
+static const pixel_t MEIRA_PLAYER_HITBOX_TOP = 16;
+static const pixel_t MEIRA_PLAYER_HITBOX_BOTTOM = 32;
+
+// The box her own shots are tested against, and the offset it sits at. Same
+// 48x48 as Marisa's, but 8 pixels in from her left edge rather than 24.
+static const pixel_t MEIRA_SHOT_HITBOX_LEFT = 8;
+static const pixel_t MEIRA_SHOT_HITBOX_W = 48;
+static const pixel_t MEIRA_SHOT_HITBOX_H = 48;
+
+// Defined below, and reached from above: meira_bg_render() is the pool's only
+// invalidate caller and sits at a lower address than the pool itself.
+static void near meira_slashes_invalidate(void);
+
+
+// Her [boss_bg_render] callback: re-point the two back-page indirections at
+// this frame's back page, hand her own rect and her trail's three back to the
+// tile layer, roll the trail's history forward a page, copy her position over
+// from the front page, and then do the same for the slash pool. Installed into
+// [boss_bg_render_func] by stage_init().
+extern "C" void far meira_bg_render(void)
+{
+	register int i;
+
+	boss_left_on_back_page = &boss_left_on_page[page_back];
+	boss_top_on_back_page = &boss_top_on_page[page_back];
+	tiles_invalidate_rect(
+		*boss_left_on_back_page, *boss_top_on_back_page, MEIRA_W, MEIRA_H
+	);
+	if(meira_afterimages_active) {
+		for(i = 0; i < MEIRA_AFTERIMAGE_SLOTS; i++) {
+			// A slot that still holds her CURRENT position is not unput,
+			// because her own rect above already covers it. `[measured]`
+			// EITHER axis matching is enough, which is the same test the dash
+			// uses to decide not to DRAW that slot.
+			if(
+				(meira_afterimage_left[page_back][i] !=
+					*boss_left_on_back_page) &&
+				(meira_afterimage_top[page_back][i] !=
+					*boss_top_on_back_page)
+			) {
+				tiles_invalidate_rect(
+					meira_afterimage_left[page_back][i],
+					meira_afterimage_top[page_back][i],
+					MEIRA_W,
+					MEIRA_H
+				);
+			}
+			meira_afterimage_left[page_back][i] =
+				meira_afterimage_left[page_front][i];
+			meira_afterimage_top[page_back][i] =
+				meira_afterimage_top[page_front][i];
+		}
+	}
+	*boss_left_on_back_page = boss_left_on_page[page_front];
+	*boss_top_on_back_page = boss_top_on_page[page_front];
+	meira_slashes_invalidate();
+}
+
+
+// One frame of her defeat animation: two explosion rings 24 frames apart, one
+// spark, and either her still sprite or a growing zoom of it. Returns true on
+// the frame the animation runs out, which is where meira_update() leaves the
+// fight with SP_CLEAR.
+//
+// `[measured]` NEITHER RING NOR SPARK IS GUARDED, unlike marisa_1AC7B()'s three
+// - the second ring is simply handed a negative frame number for the first 24
+// frames and boss_explode_render() documents that it does nothing with one. So
+// the second ring is 24 frames behind the first for the whole animation, and one
+// spark is added on every single frame of it.
+extern "C" bool16 near meira_14519(void)
+{
+	register int zoom_patnum;
+	register vram_y_t vram_y;
+
+	boss_explode_render(
+		(*boss_left_on_back_page + MEIRA_EXPLODE_OFFSET),
+		(*boss_top_on_back_page + MEIRA_EXPLODE_OFFSET),
+		meira_defeat_frame
+	);
+	boss_explode_render(
+		(*boss_left_on_back_page + MEIRA_EXPLODE_OFFSET),
+		(*boss_top_on_back_page + MEIRA_EXPLODE_OFFSET),
+		// 24, the spacing th02/main/explode.hpp documents and the literal
+		// b4.cpp's marisa_1AC7B() also spells - it is NOT
+		// EXPLODE_PHASE_1_FRAMES, which is 30.
+		(meira_defeat_frame - 24)
+	);
+	sparks_add(
+		(*boss_left_on_back_page + MEIRA_SPARK_OFFSET),
+		(*boss_top_on_back_page + MEIRA_SPARK_OFFSET),
+		((3 << 4) + 12),
+		1,
+		false
+	);
+	// TWO STATEMENTS, and the base is NOT an initializer on the declaration
+	// above: the original emits `mov di, 0Ah` HERE, after the three calls, and
+	// then `add di, ax`. An initializer emits it in the prolog, which is 3 bytes
+	// in the wrong place and shifts the whole body. (th02/main/boss/b4.cpp's
+	// marisa_1AC7B() does declare its copy with an initializer, and its original
+	// wants it there - so this is per-function and not a rule.)
+	zoom_patnum = MEIRA_DEFEAT_ZOOM_PATNUM;
+	zoom_patnum += (
+		(meira_defeat_frame - MEIRA_DEFEAT_ZOOM_FROM_PHASE_FRAME) /
+		MEIRA_DEFEAT_ZOOM_FRAMES_PER_PATNUM
+	);
+	meira_defeat_frame++;
+	if(meira_defeat_frame >= MEIRA_DEFEAT_FRAMES) {
+		meira_defeat_frame = 0;
+		return true;
+	}
+	vram_y = *boss_top_on_back_page;
+	vram_y += scroll_line;
+	if(vram_y >= RES_Y) {
+		vram_y -= RES_Y;
+	}
+	if(boss_phase_frame < MEIRA_DEFEAT_ZOOM_FROM_PHASE_FRAME) {
+		super_roll_put(*boss_left_on_back_page, vram_y, patnum_2064E);
+	} else {
+		super_zoom(*boss_left_on_back_page, vram_y, zoom_patnum, 2);
+	}
+	return false;
+}
+
+
+// Her hittest-and-render half, called by meira_update() on every frame she is
+// alive: the player's collision, then her own, then her sprite - flashed white
+// on the frames she was hit. Ends the fight at [MEIRA_DAMAGE_MAX].
+extern "C" void near meira_145E1(void)
+{
+	int damage;
+
+	// `register` EXPLICITLY, because it has to outrank [damage]: the original
+	// keeps the y in SI and [damage] on the frame, and kb/codegen/0143 measured
+	// that a `damage` with three references takes SI on its own if nothing
+	// claims it first.
+	register vram_y_t vram_y;
+
+	vram_y = *boss_top_on_back_page;
+	if(
+		(*boss_left_on_back_page <= player_topleft.x) &&
+		((*boss_left_on_back_page + MEIRA_PLAYER_HITBOX_W) >
+			player_topleft.x) &&
+		((vram_y - MEIRA_PLAYER_HITBOX_TOP) < player_topleft.y) &&
+		((vram_y + MEIRA_PLAYER_HITBOX_BOTTOM) > player_topleft.y)
+	) {
+		player_is_hit = PLAYER_HIT;
+	}
+	vram_y += scroll_line;
+	if(vram_y >= RES_Y) {
+		vram_y -= RES_Y;
+	}
+
+	// ASSIGNED AND TESTED IN ONE EXPRESSION, which is kb/codegen/0143 and the
+	// same shape th02/main/boss/b4.cpp's marisa_1AA60() needs for the identical
+	// call: at TWO mentions of [damage] Turbo C++ leaves it on the frame, and at
+	// three it enregisters it - here into DI, since [vram_y] already holds SI.
+	// The original is `sub sp, 2` / `push si`, so the frame slot is what it
+	// wants; the three-mention spelling came out 2 bytes short.
+	//
+	// NOT [vram_y] for the top, either, and this is the one place in her fight
+	// where the difference is observable: the shot hitbox is tested in SCREEN
+	// space while the sprite two lines down is blitted at the FOLDED row.
+	if((damage = shots_hittest(
+		(*boss_left_on_back_page + MEIRA_SHOT_HITBOX_LEFT),
+		*boss_top_on_back_page,
+		MEIRA_SHOT_HITBOX_W,
+		MEIRA_SHOT_HITBOX_H
+	)) != 0) {
+		boss_damage += damage;
+		snd_se_play(4);
+		super_roll_put_1plane(
+			*boss_left_on_back_page, vram_y, patnum_2064E, 0,
+			super_plane(V_WHITE)
+		);
+		if(boss_damage >= MEIRA_DAMAGE_MAX) {
+			boss_phase = 1;
+			score_delta += 30000;
+			player_invincibility_time = BOSS_DEFEAT_INVINCIBILITY_FRAMES;
+		}
+	} else {
+		super_roll_put(*boss_left_on_back_page, vram_y, patnum_2064E);
+	}
+}
+
+
 // Claims the first free slot for a slash at (left, top). Silently does nothing
 // if all 40 are busy, and no caller could tell either way: this returns
 // nothing.
@@ -340,10 +620,10 @@ static void pascal near meira_slashes_add(
 // Marks the tiles behind every claimed slash for redrawing, and frees the ones
 // that meira_slashes_update_and_render() flagged on the previous frame.
 //
-// `extern "C"` and NOT `static`, and that is the one publish this parcel pays:
-// its only caller is meira_bg_render(), which is still ASM above, so the dump
-// has to reach it by name. Refunded by the parcel that lifts that renderer.
-extern "C" void near meira_slashes_invalidate(void)
+// `static` again: the slash pool parcel had to publish this for the still-ASM
+// meira_bg_render(), and that renderer is above in this same object now, so the
+// publish and the head-of-segment `extrn` that reached it are both refunded.
+static void near meira_slashes_invalidate(void)
 {
 	register meira_slash_t near *slash;
 	register int i;

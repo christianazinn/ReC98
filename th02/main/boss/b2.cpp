@@ -131,14 +131,14 @@ extern "C" uint8_t meira_phase;
 // [marisa_pattern], and like them it is NOT [meira_phase].
 extern "C" uint8_t meira_pattern;
 
-// KEEPS ITS ADDRESS SUFFIX ON PURPOSE, which is the shape b4.cpp's
-// [marisa_1AA60] already uses for a symbol whose name is a separate decision.
-// `[measured]` It is a `dw` written only 0 and 1 - meira_14E9D() raises it and
-// meira_init() below clears it - and read at exactly one site, where it gates
-// meira_bg_render()'s pass over three per-page background slots. Naming it
-// needs that renderer and that pattern, and neither is in this parcel; naming
-// it from the gate alone would be a guess about what those three slots are.
-extern "C" int16_t meira_250FE;
+// Whether her afterimage trail is on. `[measured]` A `dw` written only 0 and 1
+// - meira_14E9D() below raises it on the way into her last phase and
+// meira_init() clears it - and read at exactly one site, meira_bg_render()'s
+// pass over the six trail slots. It carried an address suffix for four parcels
+// on the stated grounds that naming it needed that renderer;
+// th02/main/boss/b2m.cpp
+// holds the renderer now, so it is retired.
+extern "C" bool16 meira_afterimages_active;
 /// -----------------------
 
 
@@ -278,7 +278,7 @@ static void near meira_14E9D(void)
 			);
 		}
 		boss_phase_frame = 0;
-		meira_250FE = 1;
+		meira_afterimages_active = true;
 	}
 }
 
@@ -412,14 +412,16 @@ static void near meira_14F16(void)
 /// unconditionally on every frame of the fight, past every phase branch, so
 /// they are her movement and her render halves.
 
+// EVERY ONE OF THESE IS th02/main/boss/b2m.cpp AND NOTHING BELOW IS STILL ASM -
+// see the head of this file for the one pad byte that forced the split. The
+// dump's `public` / `label near` alias pairs left with the bodies, so this
+// declaration block is the whole of what crosses the object boundary now.
+
 // Her defeat animation, and the only one with a result: two explosion rings, a
 // spark burst and either her still sprite or a zoom of it, returning true on
-// the frame the animation runs out. STILL ASM in th02_main.asm, and still a
-// kb/codegen/0123 alias published for this object's sake.
+// the frame the animation runs out.
 extern "C" bool16 near meira_14519(void);
 
-// These six are th02/main/boss/b2m.cpp, NOT this object - see the head of this
-// file for the one pad byte that forced the split.
 extern "C" void near meira_1483B(void);
 extern "C" void near meira_148FD(void);
 extern "C" void near meira_14A39(void);
@@ -427,7 +429,7 @@ extern "C" void near meira_14B33(void);
 extern "C" void near meira_14BC2(void);
 extern "C" void near meira_14C76(void);
 
-// Her hittest-and-render half, still ASM and still an alias.
+// Her hittest-and-render half: the player's collision, her own, and her sprite.
 extern "C" void near meira_145E1(void);
 
 // Her slash pool's per-frame pass, th02/main/boss/b2m.cpp. Was meira_14726,
@@ -630,7 +632,7 @@ extern "C" void far meira_init(void)
 	boss_explode_angle_offset = 0;
 	meira_phase = 0;
 	meira_pattern = 0;
-	meira_250FE = 0;
+	meira_afterimages_active = false;
 
 	// `[measured]` Cell 0 is rank-INVARIANT, so the difficulty of her fight is
 	// carried entirely by the two spreads: five bullets wide and medium-aimed
