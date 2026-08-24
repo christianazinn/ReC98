@@ -143,6 +143,22 @@ void pascal near elly_backdrop_colorfill(void)
 	grcg_fill_playfield_rows_at(112, 256);
 }
 
+// Reimu's and Marisa's callback, at 0xBEDA, immediately after Elly's — which is
+// why it can be here at all. It was th04_main.asm's
+// `include th04/hardware/fillm64-56_256-256.asm`, the FIRST item of
+// CIRCLE_TEXT's root contribution, so lifting it looked like a second
+// kb/codegen/0080 head carve out of this same pair. It is not: CIRCLE_A_TEXT
+// ENDS with this object's contribution and CIRCLE_TEXT began at the very next
+// byte, so th04_main.asm moves the boundary DOWN past the module instead
+// (kb/codegen/0148, in the head direction) and the body appends here. No new
+// segment name, no `group` edit, no new translation unit, no Tupfile.lua line.
+//
+// Guarded with everything else Elly-specific for the reason above: TH05 holds
+// the same body at its own address and emits it from
+// th05/main/boss/colorfill.cpp, so an unguarded include here would define it
+// twice in that binary.
+#include "th04/hardware/fillm64.cpp"
+
 #pragma codeseg
 #pragma option -k
 #endif

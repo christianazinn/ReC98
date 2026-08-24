@@ -1510,20 +1510,20 @@ END_EXT_A_TEXT	ends
 ; 0080's "prefer the half with no C++ contribution".
 ;
 ; Louise's and Alice's [boss_backdrop_colorfill] callbacks used to sit right
-; here. They are now emitted from th05/main/boss/colorfill.cpp into
-; END_EXT_A_TEXT through `#pragma codeseg` (kb/codegen/0155), as the last
-; 1Ch bytes of that segment -- immediately ahead of this one, which is
-; where they were. No new translation unit and no Tupfile.lua line.
+; here, and Mai's and Yuki's right after them. All three are emitted from
+; th05/main/boss/colorfill.cpp into END_EXT_A_TEXT through `#pragma codeseg`
+; (kb/codegen/0155), as the last 58h bytes of that segment -- immediately
+; ahead of this one, which is where they were. No new translation unit and
+; no Tupfile.lua line.
 ;
-; The first module included below opens with the
-; @reimu_marisa_backdrop_colorfill$qv / @mai_yuki_backdrop_colorfill$qv
-; label pair, so the first byte of this segment is still 0DEC2h, the
-; address mai_yuki_backdrop_colorfill() had before the split.
-;
+; The third of them is the 3Bh-byte fill module this segment used to open
+; with, the same body TH04 holds under Reimu's and Marisa's names. It did
+; not need a third carve: this boundary just moved 3Ch bytes DOWN over it,
+; kb/codegen 0148 in the head direction. kb/codegen 0121: the deleted body
+; set `assume es:nothing`, and the state entering it already was -- measured.
 ; Same `word public 'CODE'` alignment as before; nothing else moves.
 END_EXT_TEXT	segment	word public 'CODE' use16
 
-include th04/hardware/fillm64-56_256-256.asm
 include th05/formats/bb_load.asm
 include th04/main/tile/bb_put_a.asm
 
