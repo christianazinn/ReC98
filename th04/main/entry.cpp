@@ -58,14 +58,8 @@ void near ems_allocate_and_preload_eyecatch(void);
 
 void near stage_loop(void);
 
-// Per-stage setup, still ASM and still unnamed in both games.
-#if (GAME == 5)
-	extern "C" void near sub_B237(void);
-	#define stage_setup()   	sub_B237()
-#else
-	extern "C" void near sub_AED0(void);
-	#define stage_setup()   	sub_AED0()
-#endif
+// Loads all assets and initializes the selected stage.
+void near stage_setup(void);
 
 // The handoff between two stages. Was the other half of the block above until
 // it became th04/main/stage/transition.cpp, one shared body for both games,

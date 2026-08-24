@@ -1,5 +1,6 @@
 ; void pascal near bb_cheeto_load(void);
 public bb_cheeto_load
+alias <BB_CHEETO_LOAD> = <bb_cheeto_load>
 bb_cheeto_load proc near
 	mov	ax, 3D00h
 	mov	dx, offset aLs00_bb

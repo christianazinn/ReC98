@@ -1,3 +1,6 @@
+#ifndef TH05_RESIDENT_HPP
+#define TH05_RESIDENT_HPP
+
 #include "th04/score.h"
 #include "th04/common.h"
 
@@ -54,3 +57,5 @@ struct resident_t {
 };
 
 extern resident_t far *resident;
+
+#endif /* TH05_RESIDENT_HPP */
