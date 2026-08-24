@@ -36,7 +36,7 @@ include th05/main/enemy/enemy.inc
 
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_A_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_TEXT, PLAYER_B_TEXT, mai_TEXT, CFG_LRES_TEXT, END_TEXT, STD_TEXT, BOMBCHAR_TEXT, BB_PCHAR_TEXT, BOMB_BG_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, END_EXT_A_TEXT, END_EXT_TEXT, SCORE_A_TEXT, BB_TXT_TEXT, BUL_GINV_TEXT, SCORE_TEXT, LASER_RH_TEXT, main_TEXT, CIRCLE_TEXT, F_DIALOG_TEXT, EXECL_TEXT, MB_DFR_TEXT, main__TEXT, PLAYFLD_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, MIDBOSSX_A_TEXT, MIDBOSSX_TEXT, main_0_TEXT, HUD_OVRL_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, PLAYER_P_TEXT, SHOT_INV_TEXT, HITSHOT_TEXT, main_01_TEXT
 main_03 group SCROLLY3_TEXT, MOTION_3_TEXT, main_031_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, BULLET_P_TEXT, GRCG_3_TEXT, PLAYER_A_TEXT, BULLET_A_TEXT, ENM_BTPL_TEXT, main_032_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, LASER_SC_TEXT, CHEETO_U_TEXT, IT_SPL_U_TEXT, BULLET_U_TEXT, MIDBOSS1_TEXT, B1_UPDATE_TEXT, B4_UPDATE_TEXT, main_035_TEXT, B6_UPDATE_TEXT, BX_UPDATE_TEXT, BX_TEXT, main_036_TEXT, POINTNUM_TEXT, HUD_NUM_TEXT, BOSS_TEXT
 
 ; ===========================================================================
@@ -393,7 +393,7 @@ loc_B09F:
 		jl	short loc_B099
 		mov	_power, POWER_MIN
 		mov	_dream, 1
-		call	bb_txt_load
+		call	BB_TXT_LOAD
 		mov	al, _playchar
 		mov	ah, 0
 		mov	bx, ax
@@ -1579,11 +1579,27 @@ SCORE_A_TEXT	segment	word public 'CODE' use16
 	; **THIS BLOCK IS NOW EMPTY.** Nothing may be added here.
 SCORE_A_TEXT	ends
 
-; Harness carve (kb/codegen/0080): what is left of `SCORE_TEXT` once the
-; include at its head was renamed into the segment above. Reopened under the
-; ORIGINAL name so that th05/score_rm.cpp, which appends to it, is never
-; re-pointed -- 0080's "prefer the half with no C++ contribution".
-SCORE_TEXT	segment	word public 'CODE' use16
+; Harness carve (kb/codegen/0080), the FIRST of two INTERIOR carves of what
+; the shots_add carve left of the original `SCORE_TEXT` contribution. Every
+; carve in this dump before these two took a module off a seam; these two
+; take modules from the MIDDLE of the include list, so the block that gets
+; renamed is the one AHEAD of the module rather than the module's own.
+;
+; This block keeps th04/main/player/shot_velocity.asm and the hand-written
+; `sub_E4FC`, and th05/score_rm.cpp appends bb_txt_load() and bb_txt_free()
+; behind them -- which is exactly where the deleted ASM module sat.
+;
+; The name is the integrator's 2026-08-23 ruling in
+; state/re/NAMING_PRECHECK_ADJUDICATIONS.md: `SCORE_TEXT` stays on the block
+; that keeps th04/formats/scoredat_code_asm.asm, because that module is what
+; makes the name true, and each carved block is named for the module it
+; hosts. That deliberately differs from the `main_036_TEXT` split, which
+; kept the name on the block being decompiled.
+;
+; Root length 4Ah plus the 64h the C++ object supplies is 0AEh, EVEN, so the
+; `word`-aligned block below reopens at 0E58Ch where it always was, with no
+; pad of TLINK's own. Same `word public` alignment on all three blocks.
+BB_TXT_TEXT	segment	word public 'CODE' use16
 
 include th04/main/player/shot_velocity.asm
 
@@ -1618,9 +1634,44 @@ loc_E511:
 		retf
 sub_E4FC	endp
 
-include th05/formats/bb_txt_load.asm
+	; bb_txt_load() and bb_txt_free() now live in
+	; th05/formats/bb_txt_load.cpp, which th05/score_rm.cpp compiles into
+	; THIS segment through `#pragma codeseg` (kb/codegen/0155) -- so this
+	; block needs no new object and no Tupfile.lua line, which is what
+	; 0155 buys over 0080's usual one-object-per-carved-head cost.
+	;
+	; The `procdesc` is what the include line used to be, so the swap is
+	; line-for-line at the seam. The call at the top of DEMO_TEXT is a
+	; near call inside group main_01 and TASM pass 1 sizes it the same
+	; whether the declaration precedes it or not; its spelling is
+	; uppercased to match the `pascal` symbol the C++ now publishes.
+	BB_TXT_LOAD procdesc near
+BB_TXT_TEXT	ends
+
+; Harness carve (kb/codegen/0080), the SECOND interior carve. This block
+; keeps th04/formats/bb_txt_put.asm, and th05/score_rm.cpp appends
+; bullets_and_gather_invalidate() behind it -- again the address the lifted
+; module had. Named for that module in the spelling th04/bul_ginv.cpp
+; already uses, per the same ruling.
+;
+; Root length 62h plus the 0A8h the C++ object supplies is 10Ah, EVEN, so
+; `SCORE_TEXT` reopens at 0E696h where it always was. Nothing in this dump
+; calls the invalidator -- th04/main/tile/tile.cpp does, and that one object
+; is linked into both binaries -- so there is no `procdesc` to leave behind.
+BUL_GINV_TEXT	segment	word public 'CODE' use16
+
 include th04/formats/bb_txt_put.asm
-include th04/main/bullets_gather_inv.asm
+
+BUL_GINV_TEXT	ends
+
+; Harness carve (kb/codegen/0080): what is left of `SCORE_TEXT` once the two
+; blocks above were taken off its head. Reopened under the ORIGINAL name
+; because this is the half that holds th04/formats/scoredat_code_asm.asm --
+; the module the name denotes -- and also the half th05/score_rm.cpp already
+; appended to, so 0080's "prefer the half with no C++ contribution" and the
+; ruling's "the name follows the content that justifies it" agree here.
+SCORE_TEXT	segment	word public 'CODE' use16
+
 include th04/main/item/invalidate.asm
 include th04/hardware/grcg_modecol.asm
 

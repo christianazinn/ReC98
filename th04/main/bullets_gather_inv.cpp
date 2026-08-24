@@ -128,11 +128,46 @@ void near bullets_and_gather_invalidate(void)
 		register int i;
 
 		bullet = bullets;
-		i = BULLET_COUNT;
 
 		// While a bomb or a bullet-clearing item is decaying every bullet on
 		// screen, the pellets are drawn at BULLET16 size too, so the whole
 		// array takes a single pass with the larger box.
+#if (GAME == 5)
+		// TH05 reaches the same place by arithmetic rather than by a second
+		// constant, and that is what fixes the shape of this arm. The counter
+		// is loaded with PELLET_COUNT and the box is set BEFORE the test, so
+		// the skip path arrives at the second loop with the counter still
+		// whole; `i +=` then makes it the entire array, and ONE `shl` of the
+		// packed box turns 8x8 into 16x16 because doubling
+		// ((PELLET_W << 16) | PELLET_H) is exactly ((BULLET16_W << 16) |
+		// BULLET16_H). The fallthrough path arrives with the counter at 0, so
+		// the same `add` yields BULLET16_COUNT. `i +=` rather than `i =` is
+		// therefore load-bearing: it is the only shape that emits the
+		// original's `add di, BULLET16_COUNT` instead of a `mov`.
+		i = PELLET_COUNT;
+		tile_invalidate_box_set(PELLET_W, PELLET_H);
+		if(!bullet_zap.active && !bullet_clear_time) {
+			do {
+				if(bullet->flag != F_FREE) {
+					// TH05 grazes pellets too, so this loop carries the same
+					// halo widening the BULLET16 loop below does. TH04's does
+					// not, which is the whole reason the two arms exist.
+					if(bullet->spawn_flag > BSF_GRAZED) {
+						tile_invalidate_box_double();
+						tiles_invalidate_around(bullet->pos.prev);
+						tile_invalidate_box_halve();
+					} else {
+						tiles_invalidate_around(bullet->pos.prev);
+					}
+				}
+				bullet++;
+			} while(--i);
+		}
+
+		i += BULLET16_COUNT;
+		tile_invalidate_box_double();
+#else
+		i = BULLET_COUNT;
 		if(!bullet_zap.active && !bullet_clear_time) {
 			tile_invalidate_box_set(PELLET_W, PELLET_H);
 			i = PELLET_COUNT;
@@ -146,6 +181,7 @@ void near bullets_and_gather_invalidate(void)
 		}
 
 		tile_invalidate_box_set(BULLET16_W, BULLET16_H);
+#endif
 		do {
 			if(bullet->flag != F_FREE) {
 				// A grazed bullet is rendered with its graze halo, which is
@@ -185,13 +221,21 @@ void near bullets_and_gather_invalidate(void)
 	}
 }
 
-// The `even` that closed th04/main/bullets_gather_inv.asm. The body is 0x95
+// The `even` that closed the ASM module this file replaced. TH04's body is 0x95
 // bytes -- odd -- so it padded the module to a word boundary with one `nop`,
 // and that byte belonged to the dump's contribution. With the module gone it
 // has to come from here. A per-function funcdiff over the body reports
 // IDENTICAL and stops one byte early; only the map's contribution row shows
 // it. (kb/codegen/0111, and state/notes/enemies_invalidate.md, which paid for
 // this lesson one parcel earlier.)
+//
+// TH05's arm is 0x0A8 bytes -- EVEN -- so its own `even` emitted NOTHING and
+// this pad must not be assembled for it. [measured] obj_probe over the GAME=5
+// object: 0x0A9 with the codestring unconditional, 0x0A8 with this fence, and
+// 0x0A8 is exactly the length of the module's row in th05_main.asm's map.
+// Getting this wrong is a one-byte overrun that shifts every later segment.
+#if (GAME != 5)
 #pragma codestring "\x90"
+#endif
 
 #pragma option -k.
