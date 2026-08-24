@@ -316,200 +316,30 @@ STAGE_TEXT	segment	word public 'CODE' use16
 extrn _main_entry:far
 alias <_main> = <_main_entry>
 
-; The two C++ contributions to STAGE_TEXT go here: th04/entry.cpp at the
-; original address of main(), then th04/stg_loop.cpp at the original address
-; of the frame loop.
+; gameplay_init() now follows stage_loop() in th04/stg_loop.cpp's object.
+; The procdesc keeps sub_AED0's same-group near call linked to the C++ body.
+	@gameplay_init$qv procdesc near
+
+; The three C++ contributions to STAGE_TEXT go here: th04/entry.cpp at the
+; original address of main(), then th04/stg_loop.cpp's stage_loop() and
+; gameplay_init() at their original addresses.
 STAGE_TEXT	ends
 
 ; ===========================================================================
 
-; The tail of the original `DEMO_TEXT` contribution, reopened under its
-; original name. `byte` rather than the original `word` alignment, because
-; the C++ prefix above ends at an odd offset (kb/codegen/0069); the address
-; is the original one either way.
-DEMO_TEXT	segment	byte public 'CODE' use16
+; The remaining tail of the original `DEMO_TEXT` contribution, reopened
+; under its original name after gameplay_init() moved into STAGE_TEXT. The
+; absorbed C++ prefix now ends at an even offset, restoring the original word
+; alignment without emitting padding.
+DEMO_TEXT	segment	word public 'CODE' use16
 		assume cs:main_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-sub_AD03	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		les	bx, _resident
-		mov	es:[bx+resident_t.graze], 0
-		mov	es:[bx+resident_t.miss_count], 0
-		mov	es:[bx+resident_t.bombs_used], 0
-		mov	es:[bx+resident_t.end_sequence], ES_INGAME
-		cmp	es:[bx+resident_t.playchar_ascii], '0' + PLAYCHAR_MARISA
-		jnz	short loc_AD2C
-		mov	ax, PLAYCHAR_MARISA
-		jmp	short loc_AD2E
-; ---------------------------------------------------------------------------
-
-loc_AD2C:
-		xor	ax, ax
-
-loc_AD2E:
-		mov	_playchar, al
-		xor	si, si
-		jmp	short loc_AD3B
-; ---------------------------------------------------------------------------
-
-loc_AD35:
-		mov	_score[si], 0
-		inc	si
-
-loc_AD3B:
-		cmp	si, SCORE_DIGITS
-		jl	short loc_AD35
-		mov	_power, POWER_MIN
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.credit_bombs]
-		mov	es:[bx+resident_t.rem_bombs], al
-		mov	al, es:[bx+resident_t.credit_lives]
-		mov	es:[bx+resident_t.rem_lives], al
-		call	main_01:BB_TXT_LOAD
-		cmp	_playchar, PLAYCHAR_REIMU
-		jnz	short loc_AD90
-		mov	_player_option_patnum, PAT_OPTION_REIMU
-		les	bx, _resident
-		cmp	es:[bx+resident_t.shottype], SHOTTYPE_A
-		jnz	short loc_AD7C
-		mov	playchar_shot_funcs, offset SHOT_FUNCS_REIMU_A
-		jmp	short loc_AD82
-; ---------------------------------------------------------------------------
-
-loc_AD7C:
-		mov	playchar_shot_funcs, offset SHOT_FUNCS_REIMU_B
-
-loc_AD82:
-		mov	_player_bomb_func, offset player_bomb
-		mov	_playchar_bomb_func, offset bomb_reimu
-		jmp	short loc_ADBB
-; ---------------------------------------------------------------------------
-
-loc_AD90:
-		mov	_player_option_patnum, PAT_OPTION_MARISA
-		les	bx, _resident
-		cmp	es:[bx+resident_t.shottype], SHOTTYPE_A
-		jnz	short loc_ADA9
-		mov	playchar_shot_funcs, offset SHOT_FUNCS_MARISA_A
-		jmp	short loc_ADAF
-; ---------------------------------------------------------------------------
-
-loc_ADA9:
-		mov	playchar_shot_funcs, offset SHOT_FUNCS_MARISA_B
-
-loc_ADAF:
-		mov	_player_bomb_func, offset player_bomb
-		mov	_playchar_bomb_func, offset bomb_marisa
-
-loc_ADBB:
-		les	bx, _resident
-		cmp	es:[bx+resident_t.demo_num], 0
-		jz	short loc_ADD7
-		mov	_playperf, 28
-		mov	_rank, RANK_HARD
-
-loc_ADD0:
-		mov	_turbo_mode, 1
-		jmp	short loc_ADFC
-; ---------------------------------------------------------------------------
-
-loc_ADD7:
-		mov	_playperf, 16
-		cmp	_stage_id, 6
-		jnz	short loc_ADEA
-		mov	_rank, RANK_EXTRA
-		jmp	short loc_ADD0
-; ---------------------------------------------------------------------------
-
-loc_ADEA:
-		les	bx, _resident
-		mov	al, es:[bx+resident_t.rank]
-		mov	_rank, al
-		mov	al, es:[bx+resident_t.turbo_mode]
-		mov	_turbo_mode, al
-
-loc_ADFC:
-		call	@score_reset$qv
-		call	@hiscore_load$qv
-		mov	al, _rank
-		mov	ah, 0
-		mov	bx, ax
-		cmp	bx, 4
-		ja	@@ret
-		add	bx, bx
-		jmp	cs:off_AEC6[bx]
-
-@@easy:
-		mov	_graze_score, 100
-		mov	_playperf_min, 4
-		mov	_playperf_max, 16
-		mov	_bullets_add_regular, offset bullets_add_regular_easy
-		mov	_bullets_add_special, offset bullets_add_special_easy
-		mov	_bullet_template_tune, offset bullet_template_tune_easy
-		jmp	@@ret
-; ---------------------------------------------------------------------------
-
-@@normal:
-		mov	_graze_score, 250
-		mov	_playperf_min, 11
-		mov	_playperf_max, 24
-		jmp	short @@tune_normal
-; ---------------------------------------------------------------------------
-
-@@hard:
-		mov	_playperf, 20
-		mov	_graze_score, 400
-		mov	_playperf_min, 20
-		mov	_playperf_max, 32
-		mov	_bullets_add_regular, offset bullets_add_regular_hard_lunatic
-		mov	_bullets_add_special, offset bullets_add_special_hard_lunatic
-		mov	_bullet_template_tune, offset bullet_template_tune_hard
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@lunatic:
-		mov	_graze_score, 500
-		mov	_playperf, 22
-		mov	_playperf_min, 22
-		mov	_playperf_max, 34
-		mov	_bullets_add_regular, offset bullets_add_regular_hard_lunatic
-		mov	_bullets_add_special, offset bullets_add_special_hard_lunatic
-		mov	_bullet_template_tune, offset bullet_template_tune_lunatic
-		jmp	short @@ret
-; ---------------------------------------------------------------------------
-
-@@extra:
-		mov	_graze_score, 2560
-		mov	_playperf_min, 16
-		mov	_playperf_max, 20
-
-@@tune_normal:
-		mov	_bullets_add_regular, offset bullets_add_regular_normal
-		mov	_bullets_add_special, offset bullets_add_special_normal
-		mov	_bullet_template_tune, offset bullet_template_tune_normal
-
-@@ret:
-		pop	si
-		pop	bp
-		retn
-
-; ---------------------------------------------------------------------------
-		db 0
-off_AEC6	dw offset @@easy
-		dw offset @@normal
-		dw offset @@hard
-		dw offset @@lunatic
-		dw offset @@extra
-sub_AD03	endp
+; gameplay_init() now lives in th04/main/stage/gameplay_init.cpp and is
+; appended after stage_loop() in th04/stg_loop.cpp. Its 0x1CD-byte object
+; tail absorbs this former head of DEMO_TEXT without moving sub_AED0.
 
 ; =============== S U B	R O U T	I N E =======================================
 
@@ -535,7 +365,7 @@ loc_AEF9:
 		mov	word_213DE, 1
 		call	text_fillca pascal, (' ' shl 16) + TX_BLACK + TX_REVERSE
 		mov	_demo_update, offset nullfunc_near
-		call	main_01:sub_AD03
+		call	main_01:@gameplay_init$qv
 		les	bx, _resident
 		cmp	es:[bx+resident_t.demo_num], 0
 		jz	short loc_AF4A
@@ -5275,6 +5105,11 @@ public _HUD_BOMBS_OVERFLOW
 _HUD_BOMBS_OVERFLOW	label byte
 aB@b@bB@b@_0	db '　　×　　',0
 include th04/formats/bb_playchar[data].asm
+; gameplay_init() selects one of these four private shot tables from C++.
+; The underscore-prefixed public aliases emit no bytes.
+public _shot_funcs_reimu_a, _shot_funcs_reimu_b
+public _shot_funcs_marisa_a, _shot_funcs_marisa_b
+_shot_funcs_reimu_a label word
 SHOT_FUNCS_REIMU_A label word
 	dw shot_reimu_l0
 	dw shot_reimu_l1
@@ -5286,6 +5121,7 @@ SHOT_FUNCS_REIMU_A label word
 	dw shot_reimu_a_l7
 	dw shot_reimu_a_l8
 	dw shot_reimu_a_l9
+_shot_funcs_reimu_b label word
 SHOT_FUNCS_REIMU_B label word
 	dw shot_reimu_l0
 	dw shot_reimu_l1
@@ -5297,6 +5133,7 @@ SHOT_FUNCS_REIMU_B label word
 	dw shot_reimu_b_l7
 	dw shot_reimu_b_l8
 	dw shot_reimu_b_l9
+_shot_funcs_marisa_a label word
 SHOT_FUNCS_MARISA_A label word
 	dw shot_marisa_l0
 	dw shot_marisa_l1
@@ -5308,6 +5145,7 @@ SHOT_FUNCS_MARISA_A label word
 	dw shot_marisa_a_l7
 	dw shot_marisa_a_l8
 	dw shot_marisa_a_l9
+_shot_funcs_marisa_b label word
 SHOT_FUNCS_MARISA_B label word
 	dw shot_marisa_l0
 	dw shot_marisa_l1
@@ -5755,6 +5593,10 @@ _bomb_col14_backup label byte
 rgb_257D6	rgb_t <?>
 		db ?
 _playchar_shot_func	dw ?
+; gameplay_init() publishes the selected table through this private word.
+; The C++ alias emits no bytes.
+public _playchar_shot_funcs
+_playchar_shot_funcs label word
 playchar_shot_funcs	dw ?
 include th04/main/player/shots_alive[bss].asm
 _byte_25980	db ?
