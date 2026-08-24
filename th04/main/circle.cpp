@@ -189,6 +189,8 @@ left_rect:
 #pragma codeseg GRCG_MC_TEXT main_01
 #include "th04/hardware/grcg_modecol.cpp"
 #pragma codeseg IT_SPL_R_TEXT main_01
+// Keeping this renderer in its own segment lets the following IT_SPL_D_TEXT
+// start at spark_render().
 #include "th04/main/item/splashes_render.cpp"
 #pragma codestring "\x00"
 

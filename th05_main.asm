@@ -1176,8 +1176,6 @@ IT_SPL_D_TEXT ends
 PLAYER_B_TEXT segment word public 'CODE' use16
 
 include th04/main/bullet/pellet_r.asm
-include th04/main/spark_render.asm
-include th04/main/sparks.asm
 ; item_splash_dot_render() is C++ in th05/it_spl_d.cpp.
 PLAYER_B_TEXT ends
 ; Harness carve (kb/codegen/0080): PN_INV_TEXT replaces the point-number

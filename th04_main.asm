@@ -917,8 +917,6 @@ IT_SPL_R_TEXT segment word public 'CODE' use16
 include th04/hardware/grcg_modecol.asm
 IT_SPL_R_TEXT ends
 IT_SPL_D_TEXT segment word public 'CODE' use16
-include th04/main/spark_render.asm
-include th04/main/sparks.asm
 ; item_splash_dot_render() is C++ in th04/it_spl_d.cpp.
 IT_SPL_D_TEXT ends
 CIRCLE_TEXT segment word public 'CODE' use16
