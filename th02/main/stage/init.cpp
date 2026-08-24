@@ -60,9 +60,8 @@ void pascal near text_wipe(void);
 // th02/main/enemy/update.cpp, its own object in BOSS_5_TEXT.
 extern "C" void far enemies_reset(void);
 
-// Still ASM in th02_main.asm.
-// ---------------------------
-extern "C" void far sub_13ABB(char *fn);
+// th02/main/boss/b1.cpp
+extern "C" void far boss_bgm_load(char *fn);
 
 // Resets the scrolling state. Called through a `nopcall` alias.
 // th02/main/scroll.cpp
@@ -79,13 +78,11 @@ extern "C" void far stage_title_unput(void);
 extern "C" void far boss_activate_if_scroll_done(void);
 
 // Per-stage effect functions.
-extern "C" void far sub_13513(void); // Stages 1 and 2, invalidate
-extern "C" void far sub_13671(void); // Stage 1, update and render
-extern "C" void far sub_140AE(void); // Stage 2, update and render
-// th02/main/stage/stages.cpp, which owns DIALOG_TEXT's head. Named for
-// the slots they are installed into below, the way stage4_update_and_render()
-// already is: the remaining three stages' effect functions are still ASM and
-// still spell themselves by address.
+extern "C" void far stage_scenery_invalidate(void); // Stages 1 and 2
+extern "C" void far stage1_update_and_render(void);
+extern "C" void far stage2_update_and_render(void);
+// th02/main/stage/stages.cpp owns DIALOG_TEXT's head. The remaining three
+// stages' effect functions are still ASM and still spell themselves by address.
 extern "C" void far stage3_invalidate(void);
 extern "C" void far stage3_update_and_render(void);
 // th02/main/boss/b5.cpp. Named for the slot it is installed into below,
@@ -337,8 +334,8 @@ void near stage_init(void)
 		boss_end = rika_end;
 		boss_bg_render_func = rika_bg_render;
 		boss_update_func = rika_update;
-		stage_update_and_render = sub_13671;
-		stage_invalidate = sub_13513;
+		stage_update_and_render = stage1_update_and_render;
+		stage_invalidate = stage_scenery_invalidate;
 		break;
 
 	case 1:
@@ -349,8 +346,8 @@ void near stage_init(void)
 		boss_end = meira_end;
 		boss_bg_render_func = meira_bg_render;
 		boss_update_func = meira_update;
-		stage_update_and_render = sub_140AE;
-		stage_invalidate = sub_13513;
+		stage_update_and_render = stage2_update_and_render;
+		stage_invalidate = stage_scenery_invalidate;
 		break;
 
 	case 2:
@@ -426,7 +423,7 @@ void near stage_init(void)
 	mpn_free();
 	mpn_load(aMiko_k_mpn);
 	if(!resident->demo_num) {
-		sub_13ABB(fn);
+		boss_bgm_load(fn);
 	}
 	grc_setclip(0, 0, (RES_X - 1), (RES_Y - 1));
 	grcg_setcolor(GC_RMW, 11);
