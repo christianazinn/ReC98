@@ -4,6 +4,7 @@
 #include "th04/playchar.h"
 #include "th04/hardware/input.h"
 #include "th04/op/op.hpp"
+#include "th04/op/replay.hpp"
 #include "th04/op/start.hpp"
 
 void near start_game(void)
@@ -21,6 +22,9 @@ void near start_game(void)
 		return;
 	}
 	resident->demo_num = 0;
+	if(!resident->debug) {
+		replay_record_next_prepare();
+	}
 	op_exit_into_main(true, true);
 }
 
@@ -38,6 +42,7 @@ void near start_extra(void)
 		return;
 	}
 	resident->demo_num = 0;
+	replay_record_next_prepare();
 	op_exit_into_main(true, false);
 }
 

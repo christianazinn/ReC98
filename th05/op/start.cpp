@@ -5,6 +5,7 @@
 #include "th05/formats/pi.hpp"
 #include "th05/op/op.hpp"
 #include "th05/hardware/input.h"
+#include "th04/op/replay.hpp"
 #include "th04/op/start.hpp"
 
 #define resident_reset_last_highest_and_stage_scores() \
@@ -37,6 +38,9 @@ void near start_game(void)
 		return;
 	}
 	resident_reset_last_highest_and_stage_scores();
+	if(!resident->debug) {
+		replay_record_next_prepare();
+	}
 	op_exit_into_main(true, true);
 }
 
@@ -51,6 +55,7 @@ void near start_extra(void)
 		return;
 	}
 	resident_reset_last_highest_and_stage_scores();
+	replay_record_next_prepare();
 	op_exit_into_main(true, false);
 }
 

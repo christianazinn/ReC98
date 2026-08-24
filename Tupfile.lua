@@ -918,6 +918,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/hi_view.cpp",
 	"th04/op_title.cpp",
 	"th04/m_char.cpp",
+	"th04/rpyop.cpp",
 })
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	{ "th04_main.asm", extra_inputs = {
@@ -1210,6 +1211,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th05/score_e.cpp",
 	"th05/hi_view.cpp",
 	"th05/m_char.cpp",
+	"th05/rpyop.cpp",
 })
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	{ "th05_main.asm", extra_inputs = {

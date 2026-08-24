@@ -18,6 +18,7 @@
 #include "th03/core/initexit.h"
 #include "th04/hardware/grppsafx.h"
 #include "th04/formats/cdg.h"
+#include "th04/op/replay.hpp"
 #include "th04/shiftjis/m_main.hpp"
 #include "th04/sprites/op_cdg.hpp"
 
@@ -28,6 +29,7 @@ enum main_choice_t {
 	MC_EXTRA,
 	MC_REGIST_VIEW,
 	MC_MUSICROOM,
+	MC_REPLAY,
 	MC_OPTION,
 	MC_QUIT,
 	MC_COUNT,
@@ -160,6 +162,7 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 	egc_copy_rect_1_to_0_16(MENU_MAIN_LEFT, top, MENU_MAIN_W, LABEL_H);
 	grcg_setcolor(GC_RMW, col);
 	int desc_id = sel;
+	bool replay_label = false;
 
 	// ZUN bloat: Could have been deduplicated.
 	switch(sel) {
@@ -179,19 +182,33 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 	case MC_MUSICROOM:
 		command_put(main_choice_top(MC_MUSICROOM), CDG_MAIN_MUSICROOM);
 		break;
+	case MC_REPLAY:
+		replay_label = true;
+		desc_id = -1;
+		break;
 	case MC_OPTION:
 		command_put(main_choice_top(MC_OPTION), CDG_MAIN_OPTION);
+		desc_id = 4;
 		break;
 	case MC_QUIT:
 		command_put(main_choice_top(MC_QUIT), CDG_QUIT);
+		desc_id = 5;
 		break;
 	}
 	grcg_off();
+	if(replay_label) {
+		replay_title_label_put(top, col);
+	}
 
 	if(col == COL_ACTIVE) {
 		cdg_put_8(COMMAND_CURSOR_LEFT_LEFT,  top, CDG_CURSOR_LEFT);
 		cdg_put_8(COMMAND_CURSOR_RIGHT_LEFT, top, CDG_CURSOR_RIGHT);
-		desc_unput_and_put(desc_id);
+		if(desc_id >= 0) {
+			desc_unput_and_put(desc_id);
+		} else {
+			egc_copy_rect_1_to_0_16(0, DESC_TOP, RES_X, GLYPH_H);
+			replay_title_desc_put();
+		}
 	}
 }
 
@@ -389,6 +406,13 @@ void near main_update_and_render(void)
 			return_from_other_screen_to_main(
 				initialized, ((GAME == 5) ? MC_MUSICROOM : MC_GAME)
 			);
+			return;
+		case MC_REPLAY:
+			if(replay_browser()) {
+				resident->demo_num = 0;
+				op_exit_into_main(true, false);
+			}
+			return_from_other_screen_to_main(initialized, MC_REPLAY);
 			return;
 		case MC_OPTION:
 			initialized = false;
