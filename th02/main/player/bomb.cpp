@@ -95,7 +95,7 @@ extern "C" uint8_t bomb_b_cel;
 
 // The two spaces that shottype B's TRAM effect prints per 16×16 cell.
 // (kb/codegen/0084 again — a string literal in the dump's own _DATA.)
-extern "C" const char asc_1E6DF[];
+extern "C" const char bomb_reimu_b_tram_spaces[];
 
 // The original's prologs down to bomb_reimu_b() are all
 // `push bp; mov bp, sp; sub sp, N`, which is -G. bomb_update_and_render() and
@@ -403,14 +403,14 @@ void pascal near bomb_b_tram_put(int cel)
 			} else {
 				atrb = TX_WHITE;
 			}
-			text_putsa(x, y, asc_1E6DF, atrb);
+			text_putsa(x, y, bomb_reimu_b_tram_spaces, atrb);
 			x += 2;
 			if(bomb1_bft[cel] & 0x0F) {
 				atrb = (TX_RED | TX_REVERSE);
 			} else {
 				atrb = TX_WHITE;
 			}
-			text_putsa(x, y, asc_1E6DF, atrb);
+			text_putsa(x, y, bomb_reimu_b_tram_spaces, atrb);
 			x += 2;
 			cel++;
 		}

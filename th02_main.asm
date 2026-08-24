@@ -1104,20 +1104,20 @@ aEXTRA_TITLE		db '異空　～for Lunatic Gamers',0
 public _arg0
 _arg0 label byte
 arg0		db 'op',0
-public _aHuuma_efc
-_aHuuma_efc label byte
+public _huuma_efc_fn
+_huuma_efc_fn label byte
 aHuuma_efc	db 'huuma.efc',0
-public _aEye_pi
-_aEye_pi label byte
+public _eye_pi_fn
+_eye_pi_fn label byte
 aEye_pi		db 'EYE.PI',0
-public _aMiko_bft
-_aMiko_bft label byte
+public _miko_bft_fn
+_miko_bft_fn label byte
 aMiko_bft	db 'miko.bft',0
-public _aMiko32_bft
-_aMiko32_bft label byte
+public _miko32_bft_fn
+_miko32_bft_fn label byte
 aMiko32_bft	db 'miko32.bft',0
-public _aMiko16_bft
-_aMiko16_bft label byte
+public _miko16_bft_fn
+_miko16_bft_fn label byte
 aMiko16_bft	db 'miko16.bft',0
 public _aBmt
 _aBmt label byte
@@ -1147,14 +1147,14 @@ aB@b@vVvbavtvVV	db '　　はい、やめます。　',0
 public _aEMPTY
 _aEMPTY label byte
 aEMPTY	db '                                                ',0
-public _aDemo1_rec
-_aDemo1_rec label byte
+public _demo_fn_1
+_demo_fn_1 label byte
 aDemo1_rec	db 'DEMO1.REC',0
-public _aDemo2_rec
-_aDemo2_rec label byte
+public _demo_fn_2
+_demo_fn_2 label byte
 aDemo2_rec	db 'DEMO2.REC',0
-public _aDemo3_rec
-_aDemo3_rec label byte
+public _demo_fn_3
+_demo_fn_3 label byte
 aDemo3_rec	db 'DEMO3.REC',0
 include libs/master.lib/atan8[data].asm
 include libs/master.lib/bfnt_id[data].asm
@@ -1457,23 +1457,23 @@ byte_1E650	label byte
 		db    0
 		db    4
 		db    0
-public _aBombs_bft
-_aBombs_bft label byte
+public _bomb_bft_fn
+_bomb_bft_fn label byte
 aBombs_bft	db 'bombs.bft',0
-public _aBomb1_pi
-_aBomb1_pi label byte
+public _bomb_reimu_a_pi_fn
+_bomb_reimu_a_pi_fn label byte
 aBomb1_pi	db 'bomb1.pi',0
-public _aBomb3_pi
-_aBomb3_pi label byte
+public _bomb_reimu_c_pi_fn
+_bomb_reimu_c_pi_fn label byte
 aBomb3_pi	db 'bomb3.pi',0
-public _aBomb2_pi
-_aBomb2_pi label byte
+public _bomb_reimu_b_pi_fn
+_bomb_reimu_b_pi_fn label byte
 aBomb2_pi	db 'bomb2.pi',0
-public _aBomb1_bft
-_aBomb1_bft label byte
+public _bomb_reimu_b_bft_fn
+_bomb_reimu_b_bft_fn label byte
 aBomb1_bft	db 'bomb1.bft',0
-public _asc_1E6DF
-_asc_1E6DF label byte
+public _bomb_reimu_b_tram_spaces
+_bomb_reimu_b_tram_spaces label byte
 asc_1E6DF	db '  ',0
 include th02/sprites/bombpart.asp
 include th02/sprites/sparks.asp
@@ -1612,8 +1612,8 @@ _shot_hit_damage_large	label word
 public _bomb_damage_frame_mask
 _bomb_damage_frame_mask	db 1
 		db 0
-public _aStage_dt1
-_aStage_dt1	label byte
+public _stage_data_fn
+_stage_data_fn	label byte
 aStage_dt1	db 'STAGE .DT1',0
 		db 0
 public _LINE_BLANK, _clear_bytes

@@ -21,9 +21,9 @@
 
 // The recording filenames still live in th02_main.asm's own _DATA
 // contribution, so they have to be referenced rather than re-emitted.
-extern "C" const char aDemo1_rec[];
-extern "C" const char aDemo2_rec[];
-extern "C" const char aDemo3_rec[];
+extern "C" const char demo_fn_1[];
+extern "C" const char demo_fn_2[];
+extern "C" const char demo_fn_3[];
 
 // Allocates [DemoBuf] and reads the recording selected by
 // [resident->demo_num] into it, along with the run's fixed starting state.
@@ -38,15 +38,15 @@ void demo_load(void)
 	resident->frame = 18;
 	if(resident->demo_num == 1) {
 		stage_id = 3;
-		file_ropen(aDemo1_rec);
+		file_ropen(demo_fn_1);
 		resident->shottype = 0;
 	} else if(resident->demo_num == 2) {
 		stage_id = 2;
-		file_ropen(aDemo2_rec);
+		file_ropen(demo_fn_2);
 		resident->shottype = 2;
 	} else if(resident->demo_num == 3) {
 		stage_id = 1;
-		file_ropen(aDemo3_rec);
+		file_ropen(demo_fn_3);
 		resident->shottype = 1;
 	}
 	file_read(DemoBuf, (DEMO_N * sizeof(input_t)));
