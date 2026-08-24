@@ -926,6 +926,8 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th04/mpn_put.cpp",
+	"th04/maintext_tail.asm",
 	"th04/slowdown.cpp",
 	"th04/entry.cpp",
 	"th04/stg_loop.cpp",

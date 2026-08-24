@@ -163,107 +163,9 @@ include libs/master.lib/pf_str_ieq.asm
 include libs/master.lib/js_sense.asm
 		db    0
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; Called from C++ as mpn_put_8(), which is what TH02 already calls the
-; same routine (th02/formats/mpn.hpp); this one just takes an extra .MPN
-; [slot]. The alias emits no bytes and leaves the dump label alone
-; (kb/codegen 0123).
-public MPN_PUT_8
-MPN_PUT_8 label far
-sub_3680	proc far
-
-arg_0		= word ptr  6
-arg_2		= word ptr  8
-arg_4		= word ptr  0Ah
-arg_6		= word ptr  0Ch
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		push	ds
-		mov	ax, [bp+arg_6]
-		sar	ax, 3
-		mov	dx, [bp+arg_4]
-		shl	dx, 6
-		add	ax, dx
-		shr	dx, 2
-		add	ax, dx
-		mov	di, ax
-		mov	bx, [bp+arg_2]
-		shl	bx, 6
-		mov	ax, [bp+arg_0]
-		cmp	ax, _mpn_slots[bx].MPN_count
-		ja	short loc_36EE
-		shl	ax, 7
-		mov	si, ax
-		add	si, 40h
-		mov	dx, word ptr _mpn_slots[bx].MPN_images+2
-		mov	ds, dx
-		mov	ax, SEG_PLANE_B
-		mov	fs, ax
-		assume fs:nothing
-		mov	ax, SEG_PLANE_R
-		mov	gs, ax
-		assume gs:nothing
-		mov	ax, SEG_PLANE_G
-		mov	es, ax
-		assume es:nothing
-		mov	cx, TILE_H
-
-loc_36CA:
-		mov	ax, [si-40h]
-		mov	fs:[di], ax
-		mov	ax, [si-20h]
-		mov	gs:[di], ax
-		movsw
-		add	di, (ROW_SIZE - word)
-		loop	loc_36CA
-		sub	di, (TILE_H * ROW_SIZE)
-		mov	ax, SEG_PLANE_E
-		mov	es, ax
-		assume es:nothing
-		mov	cx, TILE_H
-
-loc_36E8:
-		movsw
-		add	di, (ROW_SIZE - word)
-		loop	loc_36E8
-
-loc_36EE:
-		pop	ds
-		pop	di
-		pop	si
-		pop	bp
-		retf	8
-sub_3680	endp
-	even
-include libs/master.lib/bgm_bell_org.asm
-include libs/master.lib/bgm_mget.asm
-include libs/master.lib/bgm_read_sdata.asm
-include libs/master.lib/bgm_timer.asm
-include libs/master.lib/bgm_pinit.asm
-include libs/master.lib/bgm_timerhook.asm
-include libs/master.lib/bgm_play.asm
-include libs/master.lib/bgm_sound.asm
-include libs/master.lib/bgm_effect_sound.asm
-include libs/master.lib/bgm_stop_play.asm
-include libs/master.lib/bgm_set_tempo.asm
-include libs/master.lib/bgm_init_finish.asm
-include libs/master.lib/bgm_stop_sound.asm
-include libs/master.lib/super_wave_put.asm
-include libs/master.lib/ems_read.asm
-include libs/master.lib/ems_allocate.asm
-include libs/master.lib/ems_enablepageframe.asm
-include libs/master.lib/ems_exist.asm
-include libs/master.lib/ems_free.asm
-include libs/master.lib/ems_movememoryregion.asm
-include libs/master.lib/ems_setname.asm
-include libs/master.lib/ems_write.asm
-include libs/master.lib/ems_space.asm
+; mpn_put_8() now lives in th04/mpn_put.cpp. The following master.lib
+; modules moved unchanged to th04/maintext_tail.asm so all three _TEXT object
+; contributions retain their original order and addresses.
 _TEXT		ends
 
 ; ===========================================================================
@@ -4895,6 +4797,9 @@ public _mpn_slots
 _mpn_slots	mpn_t	8 dup(?)
 include th04/snd/interrupt[bss].asm
 include libs/master.lib/bgm[bss].asm
+; The relocated th04/maintext_tail.asm object needs these private labels.
+; Publishing them is byte-neutral and leaves their storage in this contribution.
+public wave_address, wave_shift, wave_mask, superwav_count
 include libs/master.lib/super_wave_put[bss].asm
 include th02/snd/load[bss].asm
 include th04/mem[bss].asm
