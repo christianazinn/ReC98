@@ -1923,310 +1923,13 @@ loc_140F2:
 sub_140AE	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @midboss2_invalidate$qv
-@midboss2_invalidate$qv	proc far
-		push	bp
-		mov	bp, sp
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		mov	bx, _boss_left_on_back_page
-		push	word ptr [bx]	; left
-		mov	bx, _boss_top_on_back_page
-		push	word ptr [bx]	; top
-		push	(64 shl 16) or 64	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		mov	ax, word_250E2
-		pop	bp
-		retf
-@midboss2_invalidate$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-midboss2_14169	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		cmp	word_1EDA8, 30h	; '0'
-		jge	short loc_141A1
-		mov	ax, word_1EDA8
-		and	ax, 0Fh
-		cmp	ax, 5
-		jnz	short loc_141A1
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; top
-		push	((8 shl 4) shl 16) or 24	; (speed_base shl 16) or count
-		push	1	; as_sprite
-		call	@sparks_add$qiuiiii
-
-loc_141A1:
-		mov	di, 0Ah
-		mov	ax, word_1EDA8
-		sar	ax, 3
-		add	di, ax
-		inc	word_1EDA8
-		cmp	word_1EDA8, 40h
-		jl	short loc_141DC
-		mov	word_1EDA8, 0
-		mov	_boss_phase_frame, 0
-		mov	byte_2066A, 0
-		mov	word_250E2, 0
-		mov	word_205D8, 0FFFFh
-		mov	word_205DA, 0FFFFh
-		jmp	short loc_141FF
-; ---------------------------------------------------------------------------
-
-loc_141DC:
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_141F0
-		sub	si, RES_Y
-
-loc_141F0:
-		mov	bx, _boss_left_on_back_page
-		call	super_zoom pascal, word ptr [bx], si, di, 2
-
-loc_141FF:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-midboss2_14169	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-midboss2_14203	proc near
-		push	bp
-		mov	bp, sp
-		mov	ax, _boss_phase_frame
-		mov	bx, 8
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_14248
-		mov	ax, _boss_phase_frame
-		mov	bx, 192
-		cwd
-		idiv	bx
-		cmp	dx, 64
-		jge	short loc_14248
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 28
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 32
-		push	ax	; top
-		mov	al, byte ptr _boss_phase_frame
-		shl	al, 2
-		push	ax	; angle
-		push	BSM_CHASE	; group
-		push	(PAT_BULLET16_NOROI shl 16) or ((1 shl 4) + 14)	; (patnum shl 16) or speed
-		call	@bullets_add_16x16$qiiuc32bullet_group_or_special_motion_t13main_patnum_ti
-
-loc_14248:
-		pop	bp
-		retn
-midboss2_14203	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @midboss2_update_and_render$qv
-@midboss2_update_and_render$qv	proc far
-
-@@damage		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		xor	di, di
-		mov	word_205D8, 216
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		mov	word_205DA, ax
-		inc	_boss_phase_frame
-		cmp	_boss_phase_frame, 1
-		jnz	short loc_1429E
-		mov	_boss_left_on_page[0 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 32)
-		mov	_boss_left_on_page[1 * word], (PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - 32)
-		mov	_boss_top_on_page[0 * word], (PLAYFIELD_TOP - 32)
-		mov	_boss_top_on_page[1 * word], (PLAYFIELD_TOP - 32)
-		mov	_boss_damage, 0
-		mov	word_250E2, 1
-		mov	word_1EDA4, 1
-		jmp	loc_143E1
-; ---------------------------------------------------------------------------
-
-loc_1429E:
-		cmp	_boss_phase_frame, 320
-		jge	short loc_14321
-		mov	ax, _scroll_line
-		sar	ax, 1
-		and	ax, 3
-		mov	[bp+var_2], ax
-		add	ax, 89h
-		mov	di, ax
-		test	byte ptr _boss_phase_frame, 3
-		jnz	short loc_142C3
-		mov	bx, _boss_top_on_back_page
-		inc	word ptr [bx]
-
-loc_142C3:
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		add	si, _scroll_line
-		or	si, si
-		jge	short loc_142D7
-		add	si, RES_Y
-		jmp	short loc_142E1
-; ---------------------------------------------------------------------------
-
-loc_142D7:
-		cmp	si, RES_Y
-		jl	short loc_142E1
-		sub	si, RES_Y
-
-loc_142E1:
-		mov	bx, _boss_left_on_back_page
-		push	word ptr [bx]
-		mov	bx, _boss_top_on_back_page
-		push	word ptr [bx]
-		push	40003Ah
-		call	@SHOTS_HITTEST$QIIII
-		or	ax, ax
-		jz	loc_143D4
-		call	_snd_se_play c, 4
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put_1plane pascal, word ptr [bx], si, (136 shl 16) or 0, PLANE_PUT or GC_BRGI
-		inc	_boss_damage
-		jmp	loc_143E1
-; ---------------------------------------------------------------------------
-
-loc_14321:
-		mov	ax, _scroll_line
-		sar	ax, 1
-		and	ax, 3
-		mov	[bp+var_2], ax
-		add	ax, 89h
-		mov	di, ax
-		cmp	byte_2066A, 0
-		jz	short loc_1433E
-		call	midboss2_14169
-		jmp	loc_143E1
-; ---------------------------------------------------------------------------
-
-loc_1433E:
-		call	midboss2_14203
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		add	si, _scroll_line
-		or	si, si
-		jge	short loc_14355
-		add	si, RES_Y
-		jmp	short loc_1435F
-; ---------------------------------------------------------------------------
-
-loc_14355:
-		cmp	si, RES_Y
-		jl	short loc_1435F
-		sub	si, RES_Y
-
-loc_1435F:
-		mov	bx, _boss_left_on_back_page
-		push	word ptr [bx]
-		mov	bx, _boss_top_on_back_page
-		push	word ptr [bx]
-		push	40003Ah
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+@@damage], ax
-		or	ax, ax
-		jz	short loc_143C7
-		add	_boss_damage, ax
-		cmp	_boss_damage, 380
-		jle	short loc_1438D
-		cmp	si, 304
-		jl	short loc_143AD
-
-loc_1438D:
-		call	_snd_se_play c, 4
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put_1plane pascal, word ptr [bx], si, (136 shl 16) or 0, PLANE_PUT or GC_BRGI
-		jmp	short loc_143E1
-; ---------------------------------------------------------------------------
-
-loc_143AD:
-		call	_snd_se_play c, 2
-		mov	byte_2066A, 1
-		add	_score_delta, 20000
-		jmp	short loc_143E1
-; ---------------------------------------------------------------------------
-
-loc_143C7:
-		cmp	_boss_phase_frame, 1600
-		jle	short loc_143D4
-		mov	byte_2066A, 1
-
-loc_143D4:
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put pascal, word ptr [bx], si, di
-
-loc_143E1:
-		pop	di
-		pop	si
-		leave
-		retf
-@midboss2_update_and_render$qv	endp
-
-
-; SIX objects pick this segment up from here, in link order, and that order
+; SEVEN objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
+;   th02/main/midboss/m2.cpp    midboss2_invalidate()
+;                               midboss2_14169()  [static]
+;                               midboss2_14203()  [static]
+;                               midboss2_update_and_render()
 ;   th02/main/boss/b2m.cpp      meira_14A39()
 ;                               meira_14B33()
 ;                               meira_14BC2()
@@ -2399,13 +2102,43 @@ loc_143E1:
 ; pool parcel had to add for meira_slashes_invalidate() is refunded with
 ; them - that function is `static` again.
 ;
-; SO THE TAIL OF THIS BLOCK IS @midboss2_update_and_render$qv, and it is a
-; `proc` in the FREE class like every tail before it. Every tail from here
-; to the head of the block is a plain
-; kb/codegen/0099 prepend into b2m.cpp.
+; AND SO IS THE STAGE 2 MIDBOSS. All four of its procs - the invalidate slot,
+; the defeat zoom-out, its one pattern, and the per-frame update that is also
+; its hit test and its renderer - are th02/main/midboss/m2.cpp, a NEW object at
+; the th02/dialog.cpp / th02/main/boss/b2m.cpp seam rather than a prepend into
+; b2m.cpp, for the same reason th02/main/midboss/mx.cpp is not part of
+; th02/main/boss/b6.cpp next door: one file would be about two unrelated things,
+; and a new object exactly as long as the bytes the root gives up costs one
+; Tupfile.lua line and nothing else. Both `public` directives were ALREADY the
+; mangled C++ spellings, so the two entry points were pre-paid; the two near
+; helpers had no `public` at all and went across as `static`.
 ;
-; Then the rest of Meira back up the block, then Rika and the four numbered
-; midbosses, then the four unnamed procs at the head.
+; TWO OF ITS THREE DATA ROWS ARE PLAIN RENAMES - _midboss2_active in _BSS and
+; _midboss2_defeat_frame in _DATA, every reference this dump had to either
+; having been inside these four procs - and the third is a kb/codegen/0123
+; ALIAS: _bg_flash_frame, the Stage 1 and 2 scenery's lightning clock, which
+; sub_13671(), rika_end() and sub_1403E() still reach. Read that alias as a
+; countdown - sub_1403E is the next proc up this block.
+;
+; `[measured 2026-08-24]` THE TWO THINGS THAT WERE WRONG IN THE FIRST DRAFT OF
+; THAT OBJECT WERE BOTH LENGTH-NEUTRAL, which is the whole reason a length
+; check is not a gate. The defeat zoom's patnum step is a bare `sar ax, 3`,
+; i.e. `>> 3` and NOT `/ 8` - a signed divide by 8 emits its negative-operand
+; correction ahead of the shift. And the defeat's second condition is spelled
+; as the SURVIVOR's: the original `jle`s into the flash on
+; `boss_damage <= 380` and then `jl`s into the DEFEAT on the wrapped VRAM row,
+; so the source is `(boss_damage <= 380) || (vram_y >= 304)`, and `<` there is
+; a `jge` of exactly the same two bytes.
+;
+; SO THE TAIL OF THIS BLOCK IS sub_140AE, and it is a `proc` in the FREE class
+; like every tail before it. It is Stage 2's [stage_update_and_render], and
+; sub_1403E directly above it is the scenery flash it calls - so those two are
+; the next parcel, and they are the last of the Stage 1 and 2 SCENERY rather
+; than anything to do with a boss.
+;
+; Then Rika's eight, sub_13ABB, midboss1's four, and the four unnamed procs at
+; the head of the block. NINETEEN procs left in this segment after this parcel,
+; and every other segment in this binary has ZERO.
 ;
 ; A POOL'S STRIDE NEEDS `-a2`, AND NO LENGTH CHECK CAN SEE IT.
 ; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot and Meira's
@@ -3529,10 +3262,25 @@ word_1ED96	dw 0
 word_1ED98	dw 0
 aBoss1_m	db 'boss1.m',0
 word_1EDA2	dw 0
+; The Stage 1 and 2 scenery's lightning-flash clock. A kb/codegen/0123
+; ALIAS, not a rename: sub_13671() (Stage 1's [stage_update_and_render]) and
+; th02/main/midboss/m2.cpp's midboss2_update_and_render() arm it, sub_1403E()
+; counts it up and drives the palette from it, and rika_end() clears it - so
+; three of its four reference sites are still in this dump. The ADDRESS SUFFIX
+; IS RETIRED ANYWAY, because sub_1403E()'s body is what the name is read off
+; and it needs no further lift to settle.
+public _bg_flash_frame
+_bg_flash_frame	label word
 word_1EDA4	dw 0
 byte_1EDA6	db 1
 		db 0
-word_1EDA8	dw 0
+; How far the Stage 2 midboss has zoomed out of the playfield after being
+; shot down: one per frame from 0 to 64, and the only thing its defeat
+; animation runs on. A PLAIN RENAME - every reference this dump had to it was
+; inside midboss2_14169(), which is th02/main/midboss/m2.cpp now. Same role
+; and same `dw 0` in _DATA as [midboss4_defeat_frame].
+public _midboss2_defeat_frame
+_midboss2_defeat_frame	dw 0
 ; Meira's defeat-animation clock, and a PLAIN RENAME: every reference
 ; this dump had to it was inside meira_14519(), which is
 ; th02/main/boss/b2m.cpp now. th02/main/boss/b4.cpp calls Marisa's
@@ -4309,7 +4057,14 @@ byte_24E86	db 600 dup(?)
 angle_250DE	db ?
 		db ?
 word_250E0	dw ?
-word_250E2	dw ?
+; Whether the Stage 2 midboss is still on screen. Raised on its first frame,
+; lowered when its defeat animation ends, and returned unchanged by
+; midboss2_invalidate(), which is what stage_loop() copies into
+; [midboss_active]. A PLAIN RENAME: all three references this dump had to it
+; were inside the four procs th02/main/midboss/m2.cpp now holds. Same role and
+; same `dw` width as [midboss4_active].
+public _midboss2_active
+_midboss2_active	dw ?
 word_250E4	dw ?
 ; The three slots of past positions Meira's teleport dash leaves behind, per
 ; VRAM page - 3 words each way for each of the 2 pages. TWO PARALLEL ARRAYS and
