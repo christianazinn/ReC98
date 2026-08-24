@@ -47,6 +47,11 @@ _TEXT		segment	word public 'CODE' use16
 		assume cs:_TEXT
 		assume es:nothing, ds:_DATA, fs:nothing, gs:nothing
 
+	_mpn_free procdesc far
+	MPN_PUT_8 procdesc far
+	public word_23A5A, word_23A5C
+	public parfilename, pfint21_pf, pfint21_handle, pfint21_entries
+
 include libs/master.lib/bfnt_entry_pat.asm
 include libs/master.lib/bfnt_header_read.asm
 include libs/master.lib/bfnt_header_analysis.asm
@@ -176,7 +181,7 @@ include libs/master.lib/super_put_8.asm
 
 public MPN_LOAD_INNER
 mpn_load_inner	proc far
-		call	mpn_free
+		call	_mpn_free
 		mov	bx, sp
 		push	si
 		push	di
@@ -228,84 +233,8 @@ mpn_load_inner	proc far
 		retf	4
 mpn_load_inner	endp
 
-
-; =============== S U B	R O U T	I N E =======================================
-
-public MPN_FREE
-mpn_free	proc far
-		cmp	word_23A5A, 0
-		jz	short locret_4224
-		push	word_23A5A
-		nopcall	hmem_free
-		mov	word_23A5A, 0
-
-locret_4224:
-		retf
-mpn_free	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-sub_4226	proc far
-		mov	bx, sp
-		push	si
-		mov	si, ss:[bx+4]
-		cmp	si, word_23A5C
-		ja	short loc_426D
-		shl	si, 7
-		push	di
-		mov	ax, ss:[bx+8]
-		mov	di, ss:[bx+6]
-		mov	dx, di
-		sar	ax, 3
-		shl	di, 2
-		add	di, dx
-		shl	di, 4
-		add	di, ax
-		push	ds
-		mov	ds, word_23A5A
-		mov	ax, SEG_PLANE_B
-		call	sub_4272
-		mov	ax, SEG_PLANE_R
-		call	sub_4272
-		mov	ax, SEG_PLANE_G
-		call	sub_4272
-		mov	ax, SEG_PLANE_E
-		call	sub_4272
-		pop	ds
-		pop	di
-
-loc_426D:
-		pop	si
-		retf	6
-sub_4226	endp
-
-; ---------------------------------------------------------------------------
-		nop
-
-; =============== S U B	R O U T	I N E =======================================
-
-
-sub_4272	proc near
-		mov	es, ax
-		assume es:nothing
-		mov	cx, 16
-
-loc_4277:
-		movsw
-		add	di, (ROW_SIZE - word)
-		loop	loc_4277
-		sub	di, (16 * ROW_SIZE)
-		retn
-sub_4272	endp
-
-include libs/master.lib/pfint21.asm
-		db 0
-include th03/formats/pfopen.asm
-include libs/master.lib/pf_str_ieq.asm
+; mpn_free() now lives in th05/mpn_free.cpp. The remaining hand-written
+; .MPN blitter and .PF hook move unchanged to th05/maintext_tail.asm.
 _TEXT		ends
 
 ; ===========================================================================
@@ -493,7 +422,7 @@ loc_BB12:
 		push	si
 		push	di
 		push	bp
-		call	sub_4226
+		call	MPN_PUT_8
 		inc	bp
 		add	di, TILE_H
 		cmp	di, RES_Y
@@ -504,7 +433,7 @@ loc_BB12:
 		pop	ax
 		dec	al
 		jz	short loc_BB08
-		call	mpn_free
+		call	_mpn_free
 		pop	di
 		pop	si
 		pop	bp
