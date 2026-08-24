@@ -39,13 +39,12 @@ extern "C" uint8_t shot_unused;
 extern "C" uint8_t shot_unused_2;
 extern "C" uint8_t player_unused;
 
-// Two of the shot-stream placeholders th02/main/player/player.cpp documents and
-// deliberately leaves unnamed until the shot spawners are lifted; this function
-// is where the shottype's fully powered patnums come from. [byte_20610] is
-// int8_t there, and stays int8_t here - shot_b()/shot_c() clamp it signed.
-extern "C" uint8_t byte_2060E;
-extern "C" uint8_t byte_2060F;
-extern "C" int8_t byte_20610;
+// This function selects the fully powered shot patnums for the current
+// shottype and resets shottype A's spread-angle delta. The delta stays signed:
+// player_move_and_shoot() clamps it after both increasing and decreasing it.
+extern "C" uint8_t shot_patnum_powered;
+extern "C" uint8_t shot_option_patnum_powered;
+extern "C" int8_t shot_a_spread_angle_delta;
 
 void near player_reset(void)
 {
@@ -69,7 +68,7 @@ void near player_reset(void)
 	boss_pos_x = -1;
 	boss_pos_x_unused = -1;
 	boss_pos_y = -1;
-	byte_20610 = 0;
+	shot_a_spread_angle_delta = 0;
 	player_unused = 0;
 
 	switch(resident->shottype) {
@@ -79,7 +78,7 @@ void near player_reset(void)
 		playchar_speed_aligned_y = 5;
 		playchar_speed_diagonal_x = 4;
 		playchar_speed_diagonal_y = 4;
-		byte_2060E = 0x30;
+		shot_patnum_powered = 0x30;
 		break;
 
 	case 1:
@@ -88,8 +87,8 @@ void near player_reset(void)
 		playchar_speed_aligned_y = 4;
 		playchar_speed_diagonal_x = 3;
 		playchar_speed_diagonal_y = 3;
-		byte_2060E = 0x34;
-		byte_2060F = 0x37;
+		shot_patnum_powered = 0x34;
+		shot_option_patnum_powered = 0x37;
 
 		// `++`, not `+= 1`: the increment operator gets the dedicated
 		// `INC byte ptr [mem]` form, while the compound assignment round-trips
@@ -107,8 +106,8 @@ void near player_reset(void)
 		playchar_speed_diagonal_x = 3;
 		playchar_speed_diagonal_y = 3;
 		shot_option_decay_interval = 3;
-		byte_2060E = 0x7D;
-		byte_2060F = 0x3B;
+		shot_patnum_powered = 0x7D;
+		shot_option_patnum_powered = 0x3B;
 
 		// `+= 2` here, and the AL round trip it emits is what the original
 		// does - the two spellings are not interchangeable in either

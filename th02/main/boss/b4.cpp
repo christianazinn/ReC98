@@ -114,7 +114,7 @@ extern "C" uint8_t boss_phase;
 // `[measured]` Stops the current KAJA song, snd_load()s [fn] over it with
 // SND_LOAD_SONG, and starts it again; every boss init function in this binary
 // switches its BGM through it.
-extern "C" void far sub_13ABB(char *fn);
+extern "C" void far boss_bgm_load(char *fn);
 
 // The four file names marisa_init() passes on, kept where th02_main.asm's own
 // `_DATA` contribution defines them rather than re-emitted as literals here:
@@ -456,7 +456,7 @@ extern "C" void far marisa_init(void)
 		PAT_OPTION_A
 	);
 	// This whole run is hand-spelled, and only the last call is the reason.
-	// The original reaches sub_13ABB() through `nop; push cs; call near ptr`,
+	// The original reaches boss_bgm_load() through `nop; push cs; call near ptr`,
 	// and a C++ far call is always `9A seg:off` instead - the same 5 bytes in a
 	// different encoding, which kb/codegen/0083 says has to be written out.
 	//
@@ -479,7 +479,7 @@ extern "C" void far marisa_init(void)
 	_asm { push offset aBoss3_m; }
 	__emit__(0x90);                     // nop
 	__emit__(0x0E);                     // push cs
-	_asm { call near ptr sub_13ABB; }
+	_asm { call near ptr boss_bgm_load; }
 	__emit__(0x83, 0xC4, 0x06);         // add sp, 6
 
 	dialog_script_stage4_pre_marisa_animate();

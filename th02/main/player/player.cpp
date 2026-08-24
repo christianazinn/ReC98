@@ -27,31 +27,27 @@ static const screen_y_t PLAYER_TOP_MAX = (PLAYFIELD_BOTTOM - (PLAYER_H - 8));
 
 extern int player_patnum; // ACTUAL TYPE: main_patnum_t
 
-// The two shot streams. Both are still ASM-private and unnamed:
-//
-// * [byte_1EB0D] / [byte_1EB0E] are shot counters, 0xFF while the respective
-//   stream is inactive. Stream A restarts on the frame [INPUT_SHOT] is
-//   pressed, stream B on the next frame; releasing the key ends whichever one
-//   has fired enough rounds.
-// * [byte_22D4A] / [byte_22D4B] are the frames left until each stream may fire
-//   again.
-// * [byte_1E519] / [byte_1E51A] are the patnums the shot spawners write into
-//   the entity they create; [byte_2060E] / [byte_2060F] hold the shottype's
-//   fully powered replacements for them.
-// * [byte_20610] ramps between 0 and 26 while the player holds or releases a
-//   direction, and is read by shot_b()/shot_c().
-//
-// Naming all of these needs the shot spawners (sub_CA62, sub_CAD2) and the
-// entity structure they write to, which are separate parcels.
-extern "C" uint8_t byte_1EB0D;
-extern "C" uint8_t byte_1EB0E;
-extern "C" uint8_t byte_22D4A;
-extern "C" uint8_t byte_22D4B;
-extern "C" uint8_t byte_1E519;
-extern "C" uint8_t byte_1E51A;
-extern "C" uint8_t byte_2060E;
-extern "C" uint8_t byte_2060F;
-extern "C" int8_t byte_20610;
+// Two interleaved shot streams. Each phase starts at 0, advances after every
+// volley, and uses 0xFF as its inactive value. Stream A starts on the frame
+// [INPUT_SHOT] is pressed and stream B on the next frame.
+extern "C" uint8_t shot_stream_a_phase;
+extern "C" uint8_t shot_stream_b_phase;
+
+// Frames left before the respective stream may fire its next volley.
+extern "C" uint8_t shot_stream_a_cooldown_time;
+extern "C" uint8_t shot_stream_b_cooldown_time;
+
+// Patnums copied into regular and option shots by shot_add() and
+// shot_option_add(). The powered values are selected by player_reset() for
+// the current shottype and copied here before each fully powered volley.
+extern "C" uint8_t shot_patnum;
+extern "C" uint8_t shot_option_patnum;
+extern "C" uint8_t shot_patnum_powered;
+extern "C" uint8_t shot_option_patnum_powered;
+
+// The angular offset of shottype A's two outermost fully powered shots. This
+// function ramps it between 0 and 26; shot_a() is its only reader.
+extern "C" int8_t shot_a_spread_angle_delta;
 
 static const uint8_t SHOT_STREAM_INACTIVE = 0xFF;
 static const uint8_t SHOT_COOLDOWN = 8;
@@ -400,73 +396,73 @@ void near player_move_and_shoot(void)
 	);
 
 	if(key_det & INPUT_SHOT) {
-		if(byte_1EB0D == SHOT_STREAM_INACTIVE) {
-			byte_1EB0D = 0;
-			byte_22D4A = 0;
-		} else if(byte_1EB0E == SHOT_STREAM_INACTIVE) {
-			byte_1EB0E = 0;
-			byte_22D4B = 0;
+		if(shot_stream_a_phase == SHOT_STREAM_INACTIVE) {
+			shot_stream_a_phase = 0;
+			shot_stream_a_cooldown_time = 0;
+		} else if(shot_stream_b_phase == SHOT_STREAM_INACTIVE) {
+			shot_stream_b_phase = 0;
+			shot_stream_b_cooldown_time = 0;
 		}
 	} else {
-		if(byte_1EB0D >= 3) {
-			byte_1EB0D = SHOT_STREAM_INACTIVE;
-			byte_1EB0E = 4;
-		} else if(byte_1EB0E >= 2) {
-			byte_1EB0E = SHOT_STREAM_INACTIVE;
+		if(shot_stream_a_phase >= 3) {
+			shot_stream_a_phase = SHOT_STREAM_INACTIVE;
+			shot_stream_b_phase = 4;
+		} else if(shot_stream_b_phase >= 2) {
+			shot_stream_b_phase = SHOT_STREAM_INACTIVE;
 		}
 	}
 
-	if(byte_1EB0D != SHOT_STREAM_INACTIVE) {
-		if(byte_22D4A == 0) {
+	if(shot_stream_a_phase != SHOT_STREAM_INACTIVE) {
+		if(shot_stream_a_cooldown_time == 0) {
 			if(shot_level == SHOT_LEVEL_MAX) {
-				byte_1E519 = byte_2060E;
-				byte_1E51A = byte_2060F;
+				shot_patnum = shot_patnum_powered;
+				shot_option_patnum = shot_option_patnum_powered;
 			} else {
-				byte_1E519 = SHOT_PATNUM_A_UNPOWERED;
-				byte_1E51A = SHOT_PATNUM_B_UNPOWERED;
+				shot_patnum = SHOT_PATNUM_A_UNPOWERED;
+				shot_option_patnum = SHOT_PATNUM_B_UNPOWERED;
 			}
 			playchar_shot_func();
 			snd_se_play(1);
-			byte_22D4A = SHOT_COOLDOWN;
-			byte_1EB0D++;
+			shot_stream_a_cooldown_time = SHOT_COOLDOWN;
+			shot_stream_a_phase++;
 
 			// Only one stream may fire per frame.
 			goto bomb;
 		}
-		byte_22D4A--;
+		shot_stream_a_cooldown_time--;
 	}
-	if(byte_1EB0E < 2) {
-		if(byte_22D4B == 0) {
+	if(shot_stream_b_phase < 2) {
+		if(shot_stream_b_cooldown_time == 0) {
 			if(shot_level == SHOT_LEVEL_MAX) {
-				byte_1E519 = byte_2060E;
-				byte_1E51A = byte_2060F;
+				shot_patnum = shot_patnum_powered;
+				shot_option_patnum = shot_option_patnum_powered;
 				if(key_det & (
 					INPUT_DOWN | INPUT_DOWN_LEFT | INPUT_DOWN_RIGHT
 				)) {
-					byte_20610 += 5;
-					if(byte_20610 > 26) {
-						byte_20610 = 26;
+					shot_a_spread_angle_delta += 5;
+					if(shot_a_spread_angle_delta > 26) {
+						shot_a_spread_angle_delta = 26;
 					}
 				} else if(!(key_det & (
 					INPUT_MOVEMENT_ALIGNED | INPUT_MOVEMENT_DIAGONAL
 				))) {
-					byte_20610 -= 5;
-					if(byte_20610 < 0) {
-						byte_20610 = 0;
+					shot_a_spread_angle_delta -= 5;
+					if(shot_a_spread_angle_delta < 0) {
+						shot_a_spread_angle_delta = 0;
 					}
 				}
 			} else {
-				byte_1E519 = SHOT_PATNUM_A_UNPOWERED;
-				byte_1E51A = SHOT_PATNUM_B_UNPOWERED;
+				shot_patnum = SHOT_PATNUM_A_UNPOWERED;
+				shot_option_patnum = SHOT_PATNUM_B_UNPOWERED;
 			}
 			playchar_shot_func();
-			byte_22D4B = SHOT_COOLDOWN;
-			byte_1EB0E++;
+			shot_stream_b_cooldown_time = SHOT_COOLDOWN;
+			shot_stream_b_phase++;
 		} else {
 			// Note the asymmetry with the first stream, which plays this sound
 			// when it *fires*, not while it waits.
 			snd_se_play(1);
-			byte_22D4B--;
+			shot_stream_b_cooldown_time--;
 		}
 	}
 

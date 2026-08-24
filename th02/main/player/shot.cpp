@@ -1,8 +1,7 @@
 /* ReC98
  * -----
- * TH02's player shot subsystem. The three shottype spawners (shot_a() below,
- * shot_b() and shot_c() still in ASM in the rest of this segment) scan [shots]
- * for a free slot and then call shot_add() / shot_option_add(), which is why
+ * TH02's player shot subsystem. The three shottype spawners scan [shots] for
+ * a free slot and then call shot_add() / shot_option_add(), which is why
  * neither of those takes the slot or the spawn Y as a parameter.
  */
 
@@ -25,18 +24,16 @@
 #include "th02/main/player/shot.hpp"
 #include "th02/main/tile/tile.hpp"
 
-// The patnum the player-shot spawner writes into the shot it creates.
-// player_move_and_shoot() sets it from the shottype before each volley; naming
-// it needs that function's shottype table, not this one.
-extern "C" uint8_t byte_1E519;
+// The patnum shot_add() writes into the regular shot it creates.
+extern "C" uint8_t shot_patnum;
 
 // The same, for option shots.
-extern "C" uint8_t byte_1E51A;
+extern "C" uint8_t shot_option_patnum;
 
 // Ramps between 0 and 26 while the player holds or releases a movement key;
 // shot_a() fans its two outermost SHOT_LEVEL_MAX shots out by this much.
 // Signed, and player_move_and_shoot() relies on that when it ramps back down.
-extern "C" int8_t byte_20610;
+extern "C" int8_t shot_a_spread_angle_delta;
 
 // Latches that an option volley is currently on screen. shot_b() and shot_c()
 // set it once their volley completes and skip the option loop while it is 1;
@@ -88,7 +85,7 @@ void pascal near shot_add(pixel_t left_offset, unsigned char angle)
 	p->velocity.x.v = ((CosTable8[_DL] * SHOT_VELOCITY) >> SUBPIXEL_BITS);
 	p->velocity.y.v = ((SinTable8[_DL] * SHOT_VELOCITY) >> SUBPIXEL_BITS);
 
-	shot_patnum_and_from_option(p) = byte_1E519;
+	shot_patnum_and_from_option(p) = shot_patnum;
 }
 
 void pascal near shot_option_add(
@@ -118,7 +115,7 @@ void pascal near shot_option_add(
 	p->velocity.y.v = velocity_y;
 
 	// The high byte is [from_option].
-	shot_patnum_and_from_option(p) = (byte_1E51A + (1 << 8));
+	shot_patnum_and_from_option(p) = (shot_option_patnum + (1 << 8));
 }
 
 // The distance from the player's top edge to the Y every shot spawns at.
@@ -239,18 +236,18 @@ void near shot_a(void)
 				// 0x34 is player_move_and_shoot()'s
 				// SHOT_PATNUM_A_UNPOWERED: the two angled shots keep the
 				// unpowered sprite even though the volley is fully powered.
-				byte_1E519 = 0x34;
+				shot_patnum = 0x34;
 				tmp = 179;
 				shot_add(8, tmp);
 			} else if(volley_i == 3) {
 				tmp = 205;
 				shot_add(8, tmp);
 			} else if(volley_i == 4) {
-				byte_1E519 = 0x36;
-				tmp = (192 - byte_20610);
+				shot_patnum = 0x36;
+				tmp = (192 - shot_a_spread_angle_delta);
 				shot_add(-24, tmp);
 			} else {
-				tmp = (byte_20610 + 192);
+				tmp = (shot_a_spread_angle_delta + 192);
 				shot_add(40, tmp);
 			}
 			volley_last = 5;
@@ -387,7 +384,7 @@ void near shot_b(void)
 					// 0x32 is player_move_and_shoot()'s powered shottype B
 					// patnum; the two homing shots keep it for the rest of
 					// the volley.
-					byte_1E519 = 0x32;
+					shot_patnum = 0x32;
 					if(boss_pos_y > 0) {
 						tmp = iatan2(
 							((boss_pos_y - player_topleft.y) - 32),
@@ -527,7 +524,7 @@ void near shot_c(void)
 	shot_c_cycle++;
 	shot_spawn_top = TO_SP(player_topleft.y + SHOT_SPAWN_TOP_OFFSET);
 	if(shot_level >= 2) {
-		byte_1E519 = 0x7C;
+		shot_patnum = 0x7C;
 	}
 	for(shot_slot_i = 0; shot_slot_i < SHOT_COUNT; shot_slot_i++) {
 		if(shots[shot_slot_i].flag != F_FREE) {
@@ -562,7 +559,7 @@ void near shot_c(void)
 
 						// The second shot of the volley switches the whole
 						// rest of it to a different sprite.
-						byte_1E519 = 0x31;
+						shot_patnum = 0x31;
 					} else if(volley_i == 2) {
 						tmp = 32;
 					} else if(volley_i == 3) {
@@ -863,11 +860,9 @@ static const int SHOT_DECAY_PATNUM = 74;
 static const uint8_t SHOT_OPTION_DECAY_CELS = 4;
 
 // The one option-shot patnum that is exempt from the constant upward
-// acceleration below. The still-ASM per-shottype player reset installs 3Bh into
-// the second of its two patnum globals for shottype C and for no other
-// shottype (`mov byte_2060F, 3Bh`), so this exempts exactly one shottype —
-// but which of those two globals reaches an option shot's [patnum] needs
-// player_move_and_shoot(), which is still ASM. [inferred]
+// acceleration below. player_reset() installs 3Bh into
+// [shot_option_patnum_powered] for shottype C and for no other shottype, so
+// this exempts exactly one shottype.
 static const uint8_t SHOT_OPTION_PATNUM_UNACCELERATED = 0x3B;
 
 // Subpixels per frame that an option shot's upward velocity grows by while its

@@ -81,14 +81,10 @@ extern "C" void far boss_activate_if_scroll_done(void);
 extern "C" void far stage_scenery_invalidate(void); // Stages 1 and 2
 extern "C" void far stage1_update_and_render(void);
 extern "C" void far stage2_update_and_render(void);
-// th02/main/stage/stages.cpp owns DIALOG_TEXT's head. The remaining three
-// stages' effect functions are still ASM and still spell themselves by address.
+// th02/main/stage/stages.cpp owns DIALOG_TEXT's head.
 extern "C" void far stage3_invalidate(void);
 extern "C" void far stage3_update_and_render(void);
-// th02/main/boss/b5.cpp. Named for the slot it is installed into below,
-// because that is the only thing about it Stage 4 chooses: the other four
-// stages' [stage_update_and_render] functions are still ASM and still spell
-// themselves by address.
+// th02/main/boss/b5.cpp. Named for the slot it is installed into below.
 extern "C" void far stage4_update_and_render(void);
 
 #define BOSS_DEC(name) \

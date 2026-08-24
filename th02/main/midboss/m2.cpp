@@ -20,7 +20,8 @@
 /// object it is handed, so that slot is the seam this lift needs.
 ///
 /// Below this block in the dump are the Stage 2 scenery's two remaining procs
-/// (sub_1403E, the lightning flash, and sub_140AE, stage 2's
+/// (stage_bg_flash_update(), the lightning flash, and
+/// stage2_update_and_render(), Stage 2's
 /// [stage_update_and_render]); above it is the whole of Meira. Neither belongs
 /// here.
 
@@ -75,14 +76,12 @@ extern "C" int boss_pos_y;
 
 // The Stage 1 and 2 scenery's lightning-flash clock, which
 // midboss2_update_and_render() below arms on its first frame and nothing else
-// here touches. `[measured]` sub_1403E() counts it up and, over the eight
-// frames from whichever frame it is due, alternates [PaletteTone] between 140
-// and 100 before restoring 100 and drawing the next due frame from
-// randring2_next16(); sub_13671() (Stage 1's [stage_update_and_render]) arms it
-// the same way and rika_end() clears it. A kb/codegen/0123 ALIAS, because all
-// three of those are still ASM - and the ADDRESS SUFFIX IS RETIRED anyway,
-// because sub_1403E()'s body is what the name is read off and it needs no
-// further lift to settle.
+// here touches. `[measured]` stage_bg_flash_update() counts it up and, over
+// the eight frames from whichever frame it is due, alternates [PaletteTone]
+// between 140 and 100 before restoring 100 and drawing the next due frame from
+// randring2_next16(); stage1_update_and_render() arms it the same way and
+// rika_end() clears it. All three readers are now C++, so the storage is a
+// plain semantic name rather than an address alias.
 extern "C" int16_t bg_flash_frame;
 
 /// State

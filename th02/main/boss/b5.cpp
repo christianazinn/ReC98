@@ -70,8 +70,8 @@ extern "C" void near mima_180AC(void);
 extern "C" void __cdecl snd_se_play(int new_se);
 extern "C" void __cdecl snd_se_update(void);
 
-// Still ASM. th02/main/boss/b4.cpp declares it identically for its own call.
-extern "C" void far sub_13ABB(char *fn);
+// th02/main/boss/b1.cpp. b4.cpp declares it identically for its own call.
+extern "C" void far boss_bgm_load(char *fn);
 
 // th02/main/boss/b5_.cpp. It has no header of its own; this and mima_19C1D()
 // below are the only two functions that reach it.
@@ -235,7 +235,7 @@ extern "C" void far mima_init(void)
 	);
 
 	// The same hand-spelled run marisa_init() carries, for the same two
-	// reasons: sub_13ABB() is reached through `nop; push cs; call near ptr`,
+	// reasons: boss_bgm_load() is reached through `nop; push cs; call near ptr`,
 	// which no C++ far call reproduces, and snd_se_play()'s __cdecl cleanup is
 	// deferred four statements down into the `add sp, 6` at the bottom. The
 	// first inline-asm statement anywhere in the function turns that deferral
@@ -252,7 +252,7 @@ extern "C" void far mima_init(void)
 	_asm { push offset aMima_m; }
 	__emit__(0x90);                     // nop
 	__emit__(0x0E);                     // push cs
-	_asm { call near ptr sub_13ABB; }
+	_asm { call near ptr boss_bgm_load; }
 	__emit__(0x83, 0xC4, 0x06);         // add sp, 6
 
 	dialog_script_stage5_pre_winged_animate();
