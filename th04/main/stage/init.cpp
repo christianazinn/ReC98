@@ -105,11 +105,9 @@ void near stage_state_reset(void);
 void near bomb_reset(void);
 void near tiles_invalidate_reset(void);
 void pascal near tiles_render_all(void);
-// th04/main/pointnum/inv_upd.asm publishes this one as `public POINTNUMS_INIT`
-// -- upper case, i.e. `extern "C"` + `pascal`, not the C++-mangled name that
-// th04/main/pointnum/pointnum.hpp declared for it. That declaration had never
-// been compiled against, because this is its first C++ caller; the header is
-// corrected in the same change.
+// Defined in th04/main/pointnum/inv_upd.cpp and exported with the original
+// C/Pascal ABI. Kept local because this shared stage-init translation unit
+// cannot safely include the point-number header's full closure.
 extern "C" void pascal near pointnums_init(void);
 void near randring_fill(void);
 extern "C" void near sparks_init(void);
@@ -172,19 +170,8 @@ static const int STAGE_START_INVINCIBILITY_FRAMES = 64;
 #endif
 extern "C" void far items_init(void);
 
-// Derives [shot_level] from [power], installs [playchar_shot_func] and
-// tail-calls hud_power_put(); still ASM, and still deliberately unnamed. The
-// failed search is recorded in state/notes/th04_continue_prompt.md for TH04 and
-// in state/notes/th05_continue_prompt.md for TH05, and th04/main/continue.cpp
-// and th05/main/continue.cpp spell these same declarations for the same reason.
-// The two bodies are identical instruction for instruction
-// (state/notes/th04-main-sub-11DE6.md); naming them is one parcel covering both
-// games and every call site, and it is not this one.
-#if (GAME == 4)
-	extern "C" void near sub_11DE6(void);
-#else
-	extern "C" void near sub_E4FC(void);
-#endif
+// Shared, byte-identical in both games.
+extern "C" void near player_shot_level_update(void);
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
 // `nop; push cs; call near ptr`, which no plain C++ far call reproduces.
@@ -233,11 +220,11 @@ void near stage_init(void)
 	scroll_active = true;
 #if (GAME == 4)
 	shot_reset();
-	nopcall_same_group(sub_11DE6);
+	nopcall_same_group(player_shot_level_update);
 	randring_fill();
 	items_init();
 #else
-	nopcall_same_group(sub_E4FC);
+	nopcall_same_group(player_shot_level_update);
 	randring_fill();
 	items_init();
 #endif

@@ -76,14 +76,8 @@ extern "C" void pascal hud_dream_put(void);
 extern "C" void pascal hud_bombs_put(void);
 extern "C" void pascal hud_lives_put(void);
 
-// Derives [shot_level] from [power] and installs [playchar_shot_func]; still
-// ASM, as sub_11DE6 in th04_main.asm's main_012_TEXT, which publishes a
-// zero-byte `_sub_11DE6` alias for references like this one (kb/codegen/0123).
-// `far` and a plain call here, where th04/main/player/miss.cpp needs the
-// `nop` + `push cs` island for the same proc: that object is in main_01 with
-// it, and this one is not. Its body is an attempted and unsolved match; see
-// state/notes/th04-main-sub-11DE6.md.
-extern "C" void far sub_11DE6(void);
+// Far from this main_03 object; same-group callers use a nopcall island.
+extern "C" void far player_shot_level_update(void);
 
 // [total_max_valued_point_items_collected] under the <= 32-character alias
 // th04/main/item/items[data].asm publishes at the same address, because TLINK
@@ -142,7 +136,7 @@ void pascal near item_collected(item_t near *item)
 				}
 			}
 			power++;
-			sub_11DE6();
+			player_shot_level_update();
 			score = 1;
 		} else {
 			power_overflow++;
@@ -212,7 +206,7 @@ void pascal near item_collected(item_t near *item)
 					bullet_clear_time = 20;
 				}
 			}
-			sub_11DE6();
+			player_shot_level_update();
 			score = 1;
 		} else {
 			// ZUN quirk: the bonus is looked up BEFORE the clamp, so an
@@ -258,7 +252,7 @@ void pascal near item_collected(item_t near *item)
 		overlay_popup_id_new = ITEM_POPUP_ID_FULL_POWERUP;
 		overlay2 = overlay_popup_update_and_render;
 		power = POWER_MAX;
-		sub_11DE6();
+		player_shot_level_update();
 		score = 100;
 		break;
 	}

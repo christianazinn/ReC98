@@ -46,6 +46,12 @@
 #pragma codeseg BB_TXT_TEXT main_01
 extern "C" void pascal near bb_txt_load(void);
 extern "C" void pascal near bb_txt_free(void);
+
+// This far cdecl definition must physically appear under the pragma. Unlike
+// the two Pascal loaders below, a forward declaration here did not preserve
+// its segment once its definition appeared after the SCORE_TEXT restore.
+#include "th04/main/player/shot_level.cpp"
+
 #pragma codeseg BUL_GINV_TEXT main_01
 void near bullets_and_gather_invalidate(void);
 #pragma codeseg GRCG_MC_TEXT main_01
@@ -53,7 +59,10 @@ void near grcg_setmode_rmw(void);
 void near grcg_setmode_tdw(void);
 #pragma codeseg SCORE_TEXT main_01
 
-// The two lifted bodies. bullets_gather_inv.cpp goes LAST because it ends on
+// The remaining lifted bodies. player_shot_level_update() was emitted above
+// as the first body in BB_TXT_TEXT; these two BB loaders follow it in that
+// segment. This object is already under -k- from hiscore.cpp.
+// bullets_gather_inv.cpp goes LAST because it ends on
 // `#pragma option -k.`, which restores frames to the command-line default;
 // anything after it would silently gain a stack frame that none of this
 // object's bodies may have.

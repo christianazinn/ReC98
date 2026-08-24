@@ -91,12 +91,7 @@ extern "C" void pascal hud_dream_put(void);
 extern "C" void pascal hud_lives_put(void);
 extern "C" void pascal hud_bombs_put(void);
 
-// Derives [shot_level] from [power] and installs [playchar_shot_func]. Still
-// ASM, as sub_11DE6 in th04_main.asm's main_012_TEXT, which publishes a
-// zero-byte `_sub_11DE6` alias for references like this one (kb/codegen/0123).
-// Its own body is an attempted and unsolved match; see
-// state/notes/th04-main-sub-11DE6.md.
-extern "C" void near sub_11DE6(void);
+extern "C" void near player_shot_level_update(void);
 
 // The Game Over sequence, in th04/main/gameover.cpp. Declared by no header,
 // and this is a plain near call in the original because both bodies end up in
@@ -157,7 +152,7 @@ extern "C" void near sub_10988(void)
 		}
 		dream_score = DREAM_SCORE_PER_ITEMS[dream_items_collected];
 		nopcall_same_group(hud_dream_put);
-		nopcall_same_group(sub_11DE6);
+		nopcall_same_group(player_shot_level_update);
 		snd_se_play(2);
 
 		// Rank is knocked down twice: clamped to 21 if it was at or above 22,

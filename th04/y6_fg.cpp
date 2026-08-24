@@ -6,9 +6,10 @@
 // Y6_FG_TEXT is th04_main.asm's own new name for the head of what used to be
 // main_012_TEXT's root contribution (kb/codegen/0080): Yuuka's Stage 6
 // foreground renderer and the [custom_entities] overlay pass it calls.
-// main_012_TEXT keeps the tail -- two `include`d modules and sub_11DE6 -- so
-// th04/main_012.cpp, which already owned that segment's C++ contribution, is
-// not re-pointed and every byte keeps its address.
+// main_012_TEXT keeps the tail: the root contributes shot_velocity_set(), and
+// th04/main_012.cpp contributes player_shot_level_update(), elly_fg_render(),
+// and stage_state_reset() in that order. The object was not re-pointed, and
+// every byte keeps its address.
 //
 // The `-zC` rather than a `#pragma codeseg` block inside the included file is
 // deliberate, and kb/codegen/0155 is written about exactly this hazard:

@@ -618,7 +618,7 @@ off_B1C2	dw offset loc_B003
 	; to reach, by whichever device costs no line. The far proc that used
 	; to be sub_1DA1B kept IDA's spelling and a kb/codegen 0123 zero-byte
 	; alias for as long as it was assembly; it is now items_init() and this
-	; dump publishes nothing for it. sub_11DE6 below still uses the device.
+	; dump publishes nothing for either function.
 	;
 	; The four words in _BSS are RENAMED instead, to
 	; _stage_init_unused_0 through _3, and added to the public line
@@ -1736,7 +1736,7 @@ HUD_PWR_TEXT	segment	byte public 'CODE' use16
 	; hud_power_put() now lives in th04/main/hud/power.cpp, which appends to
 	; this segment. Declared inside a main_01 segment on purpose (kb/codegen
 	; 0082): that is what reproduces BOTH hud_put()'s `push cs` + near call
-	; and sub_11DE6's `nopcall`, with no call-site edits.
+	; and player_shot_level_update's `nopcall`, with no call-site edits.
 	HUD_POWER_PUT procdesc pascal far
 HUD_PWR_TEXT	ends
 
@@ -2345,7 +2345,7 @@ main_0_TEXT	segment	word public 'CODE' use16
 	; Naming one without the other is what this lane declined one parcel ago.
 	;
 	; FIVE HAND-SPELLED ISLANDS, and they are the whole reason this row cost
-	; more than its 0x137 bytes suggest. hud_dream_put, sub_11DE6,
+	; more than its 0x137 bytes suggest. hud_dream_put, player_shot_level_update,
 	; playperf_lower, hud_lives_put and hud_bombs_put are all reached through
 	; nopcall, and kb/codegen/0083 measured that a C++ far call NEVER lowers
 	; to that encoding, whichever group the caller is compiled into. Each is
@@ -2355,7 +2355,7 @@ main_0_TEXT	segment	word public 'CODE' use16
 	;
 	;   0x109BA  9A        items_miss_add   ORDINARY far call, no island
 	;   0x109F9  90 0E E8  hud_dream_put    island
-	;   0x109FE  90 0E E8  sub_11DE6        island
+	;   0x109FE  90 0E E8  player_shot_level_update        island
 	;   0x10A03  6A 02 9A  snd_se_play      ORDINARY far call, no island
 	;   0x10A16  6A 04     playperf_lower's argument, ahead of its island
 	;   0x10A18  90 0E E8  playperf_lower   island
@@ -2471,7 +2471,7 @@ main_0_TEXT	segment	word public 'CODE' use16
 	;   * playchar_shot_func in _BSS is RENAMED to _playchar_shot_func, which
 	;     is the spelling TH02's C++ has always exported for the identically
 	;     named pointer (th02/main/player/player.hpp). It had exactly one
-	;     other reference in this file, the store in sub_11DE6, so the rename
+	;     other reference in this file, the store in player_shot_level_update, so the rename
 	;     costs one edited line instead of the alias pair's two added ones,
 	;     and the name is not a placeholder that a rename could misrepresent.
 	;
@@ -2550,11 +2550,10 @@ main_0_TEXT	segment	word public 'CODE' use16
 	; contributes no bytes to it at all. The five islands are described where
 	; they now live, in the block that replaced that body above; the estimate
 	; held, and the row still took one build cycle, because tcc -S graded
-	; every shape first. sub_11DE6 remains separately recorded as
-	; attempted-and-unsolved in state/notes/th04-main-sub-11DE6.md -- only its
-	; BODY is blocked, and calling it from C++ never was, because this dump
-	; publishes _sub_11DE6 with a kb/codegen/0123 alias. That alias is now
-	; this dump's only remaining reason to publish the symbol.
+	; every shape first. player_shot_level_update() is now C++ as well; its
+	; complete failed-search and eventual matching history is preserved in
+	; state/notes/th04-main-sub-11DE6.md. Its C linkage publishes the final
+	; symbol directly, so the former placeholder alias is gone.
 	;
 	; PLAYER_M_TEXT and PLAYER_P_TEXT above lost the only reference this file
 	; had to either of their procdescs, since player_move() and
@@ -2697,33 +2696,10 @@ include th04/main/player/shot_velocity.asm
 ; =============== S U B	R O U T	I N E =======================================
 
 
-; Zero-byte alias (kb/codegen/0123) so that th04/main/continue.cpp can name
-; this proc in the `nop` + `push cs` + near call it has to hand-spell for
-; the `nopcall` above. The dump's own call sites keep the bare spelling.
-public _sub_11DE6
-_sub_11DE6 label near
-sub_11DE6	proc far
-		xor	bx, bx
-		xor	ax, ax
-		mov	al, _power
-		mov	cx, SHOT_LEVEL_MAX
-
-loc_11DF0:
-		cmp	ax, _SHOT_LEVEL_TO_POWER[bx]
-		jb	short loc_11DFB
-		add	bx, 2
-		loop	loc_11DF0
-
-loc_11DFB:
-		mov	dx, bx
-		shr	dx, 1
-		mov	_shot_level, dl
-		add	bx, playchar_shot_funcs
-		mov	ax, [bx]
-		mov	_playchar_shot_func, ax
-		nopcall	main_01:hud_power_put
-		retf
-sub_11DE6	endp
+; player_shot_level_update() now lives in
+; th04/main/player/shot_level.cpp. th04/main_012.cpp includes it as the first
+; C++ body in this segment, immediately after the root contribution. The
+; body is shared with TH05 and publishes _player_shot_level_update.
 
 
 	; elly_fg_render() now lives in th04/main/boss/b3_fg.cpp, which
@@ -4242,7 +4218,7 @@ IT_UPDT_TEXT	segment	byte public 'CODE' use16
 	;
 	;   IT_POWER
 	;     Below the cap: +1 power, re-derive the shot level through
-	;     sub_11DE6, worth 1 point. The full-power popup fires on the frame
+	;     player_shot_level_update, worth 1 point. The full-power popup fires on the frame
 	;     power REACHES the cap, which is why the test is `==` against one
 	;     below it rather than `>=` against the cap after the increment, and
 	;     that popup arms the 20-frame bullet clear as well.
@@ -4346,7 +4322,7 @@ IT_UPDT_TEXT	segment	byte public 'CODE' use16
 	;     th04/main/execl.cpp already uses for exactly this reason.
 	;
 	;
-	;   * sub_11DE6 IS A PLAIN FAR CALL FROM HERE, where
+	;   * player_shot_level_update IS A PLAIN FAR CALL FROM HERE, where
 	;     th04/main/player/miss.cpp needs the `nop` + `push cs` island for the
 	;     same proc: that object is in group main_01 with it and this one is
 	;     in main_03, so there is no same-group lowering to reproduce

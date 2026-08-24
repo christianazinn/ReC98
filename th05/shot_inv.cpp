@@ -43,10 +43,8 @@ extern "C" input_t word_2CE9E;
 
 // Fires one round of the current shottype's shot, installed from the shottype.
 // Declared here rather than in a header because the two games disagree about
-// its linkage: TH05 publishes `_playchar_shot_func`, TH04 keeps the same symbol
-// private, and th02/main/player/player.hpp's declaration is fenced inside
-// `#if (GAME == 2)`. state/notes/th04_continue_prompt.md records that
-// divergence as one of the things blocking a name for sub_E4FC.
+// its linkage: both games now publish the same C-visible symbol, while
+// th02/main/player/player.hpp's declaration is fenced inside `#if (GAME == 2)`.
 extern "C" nearfunc_t_near playchar_shot_func;
 
 // ---------------------------------------------------------------------
@@ -96,12 +94,7 @@ extern "C" void pascal hud_lives_put(void);
 extern "C" void pascal hud_bombs_put(void);
 extern "C" void pascal snd_se_play(int new_se);
 
-// Derives [shot_level] from [power], installs [playchar_shot_func] and
-// tail-calls hud_power_put(). Still ASM, in SCORE_TEXT, and reached through the
-// zero-byte alias that dump publishes for it (kb/codegen/0123). The failed name
-// search is state/notes/th05_continue_prompt.md's, and th05/main/continue.cpp
-// spells this same declaration for the same reason.
-extern "C" void near sub_E4FC(void);
+extern "C" void near player_shot_level_update(void);
 
 // Returns the player's answer to the continue prompt, which is why the store
 // below is a byte out of AL. C++ since MATCH-TH05-MAIN-GAMEOVER; no header
@@ -169,7 +162,7 @@ extern "C" void near sub_12017(void)
 			power_lost = 0x10;
 		}
 		power -= power_lost;
-		nopcall_same_group(sub_E4FC);
+		nopcall_same_group(player_shot_level_update);
 		snd_se_play(2);
 		if(playperf > 38) {
 			playperf = 38;

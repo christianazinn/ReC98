@@ -49,20 +49,9 @@ extern "C" void pascal near hud_score_put(void);
 extern "C" void pascal hud_bombs_put(void);
 extern "C" void pascal hud_lives_put(void);
 
-// Derives [shot_level] from [power] against the SHOT_LEVEL_TO_POWER
-// thresholds, installs [playchar_shot_func] out of [playchar_shot_funcs], and
-// tail-calls hud_power_put(). Still ASM, as sub_11DE6 in th04_main.asm's
-// main_012_TEXT, which now publishes a zero-byte `_sub_11DE6` alias for this
-// reference (kb/codegen/0123).
-//
-// The placeholder spelling is deliberate and the search that failed is
-// recorded in state/notes/th04_continue_prompt.md, per section 3 of
-// kb/conventions/naming-precedents.md. In short: nothing in either dump,
-// any header, ReC98's history or upstream/master ever named it, and TH02's
-// player_shot_level_update_and_hud_power_put() is a near-analogue whose body
-// differs (direct POWER_TO_SHOT_LEVEL lookup, inline bar, no shot-function
-// install), so reusing its name would assert an equivalence that is false.
-extern "C" void near sub_11DE6(void);
+// Derives [shot_level] from [power], installs [playchar_shot_func], and
+// redraws the power row. Shared with TH05 in th04/main/player/shot_level.cpp.
+extern "C" void near player_shot_level_update(void);
 // ---------------------------------------------------------------------
 
 // Turbo C++ compiled ZUN's far calls to same-code-group functions as
@@ -184,7 +173,7 @@ unsigned char near continue_prompt(void)
 	dream_items_collected = 0;
 	resident->rem_bombs = resident->credit_bombs;
 	resident->rem_lives = resident->credit_lives;
-	nopcall_same_group(sub_11DE6);
+	nopcall_same_group(player_shot_level_update);
 	nopcall_same_group(hud_lives_put);
 	nopcall_same_group(hud_bombs_put);
 	continues_used++;
