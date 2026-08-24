@@ -15,7 +15,7 @@ extern "C" bb_tiles8_t near bb_cheeto[BB_SIZE];
 extern "C" void pascal near bb_cheeto_load(void)
 {
 	// DOS file open
-	_AX = 0x3D00;
+	_AX = 0x3D01;
 	_DX = FP_OFF(BB_CHEETO_FN);
 	geninterrupt(0x21);
 	_BX = _AX; // ZUN landmine: No error handling.
