@@ -1,3 +1,8 @@
+; The [dream] value that the last hud_dream_put() call rendered. Only used
+; to detect the frame on which the meter reaches BAR_MAX.
+public _dream_prev
+_dream_prev	db 0
+
 ; Colors for the dream bars.
 public _HUD_DREAM_COLORS
 _HUD_DREAM_COLORS label byte

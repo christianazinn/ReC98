@@ -1,4 +1,6 @@
-#pragma option -zPmain_01
+// -zPmain_01 is set by th05/laser_rh.cpp, the wrapper that compiles this file.
+// It has to be: Turbo C++ rejects -zP once the TU has emitted any code, and
+// the wrapper now includes th05/main/boss/colorfill.cpp ahead of this file.
 
 #include <stddef.h>
 #include "codegen.hpp"

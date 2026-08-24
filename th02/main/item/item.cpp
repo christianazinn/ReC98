@@ -30,7 +30,7 @@ static const pixel_t ITEM_H = 16;
 #define SEMIRANDOM_RING	ITEM_SEMIRANDOM_RING
 
 extern const item_type_t SEMIRANDOM_RING[10];
-extern const main_patnum_t ITEM_PATNUM[IT_COUNT];
+extern const uint8_t ITEM_PATNUM[IT_COUNT]; // ACTUAL TYPE: main_patnum_t
 
 static const uint8_t SEMIRANDOM_RING_SIZE = (
 	sizeof(SEMIRANDOM_RING) / sizeof(SEMIRANDOM_RING[0])

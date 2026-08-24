@@ -1,5 +1,3 @@
-#pragma option -zPmain_01 -G
-
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
 #include "th02/v_colors.hpp"

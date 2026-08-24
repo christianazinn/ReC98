@@ -64,9 +64,11 @@ void pascal near pointnums_add_yellow(
 	subpixel_t center_x, subpixel_t center_y, uint16_t points
 );
 
-void pascal near pointnums_init(void);
+// These declarations need `extern "C"` to preserve the Pascal-cased names
+// used by their original callers.
+extern "C" void pascal near pointnums_init(void);
 void near pointnums_invalidate(void);
-void pascal near pointnums_update(void);
+extern "C" void pascal near pointnums_update(void);
 /// ---------
 
 /// Rendering

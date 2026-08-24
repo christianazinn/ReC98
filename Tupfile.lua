@@ -555,12 +555,24 @@ obj = {
 		th02_sprites["sparks"],
 		th02_sprites["pointnum"],
 	} },
+	"th02/entrym.cpp",
+	"th02/mpn_put.cpp",
+	"th02/pf_i.asm",
 	"th02/spark.cpp",
 	"th02/spark_i.asm",
 	"th02/tile.cpp",
+	"th02/main/stage/init.cpp",
+	"th02/main/hud/menu.cpp",
+	"th02/main/scroll.cpp",
+	"th02/main/player/shot.cpp",
+	"th02/main/bgm_show.cpp",
+	"th02/main/demo.cpp",
+	"th02/main/stage/loop.cpp",
+	"th02/main/cfg_load.cpp",
 	"th02/pointnum.cpp",
 	"th02/item.cpp",
 	"th02/hud.cpp",
+	"th02/main/player/bombload.cpp",
 	"th02/player_b.cpp",
 	"th02/player.cpp",
 	"th02/zunerror.cpp",
@@ -586,9 +598,28 @@ obj = {
 	"th02/snd_se.cpp",
 	"th02/main_03.cpp",
 	"th02/hud_ovrl.cpp",
+	"th02/explode.cpp",
 	"th02/bullet.cpp",
+	"th02/main/stage/stages.cpp",
+	"th02/main/midboss/m3.cpp",
+	"th02/main/boss/b3.cpp",
 	"th02/dialog.cpp",
+	"th02/main/stage/s1.cpp",
+	"th02/main/midboss/m1.cpp",
+	"th02/main/boss/b1.cpp",
+	"th02/main/stage/s2.cpp",
+	"th02/main/midboss/m2.cpp",
+	"th02/main/boss/b2m.cpp",
+	"th02/main/boss/b2.cpp",
+	"th02/main/midboss/mx.cpp",
+	"th02/main/boss/b6.cpp",
+	"th02/main/enemy/update.cpp",
 	"th02/boss_5.cpp",
+	"th02/main/boss/b5.cpp",
+	"th02/main/midboss/m4.cpp",
+	"th02/main/boss/b4.cpp",
+	"th02/main_04.cpp",
+	"th02/main_05.cpp",
 	"th02/regist_m.cpp",
 }
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("debloatm", obj)
@@ -839,7 +870,14 @@ local th04_zuncom = th04:zungen("obj/th04/zuncom.bin", {
 		"th04/res_huma.cpp",
 		"bin/masters.lib",
 	}) },
-	{ "-M", th04:branch(MODEL_TINY):link("memchk", { "th04_memchk.asm" }) },
+	-- `th04/memchka.cpp`, not `memchk.cpp`: the object basename must be unique
+	-- across obj/th04/, and `th04_memchk.asm` already claims `memchk.obj`
+	-- (kb/codegen/0071). It MUST stay ahead of the dump -- it carries main(),
+	-- which is the first thing both the _TEXT and the _DATA contribution emit.
+	{ "-M", th04:branch(MODEL_TINY):link("memchk", {
+		"th04/memchka.cpp",
+		"th04_memchk.asm",
+	}) },
 })
 th04:comcstm("zun.com", "th04/zun.txt", th04_zuncom, 621381155)
 
@@ -859,10 +897,12 @@ obj += {
 	"th04/zunsoft.cpp",
 	"th04/op_music.cpp",
 	"th04/scoredat.cpp",
+	"th04/regist.cpp",
 	"th04/hi_view.cpp",
 	"th04/op_title.cpp",
 	"th04/m_char.cpp",
 	"th04/maine_e.cpp",
+	"th04/staffrol.cpp",
 	"th04/staff.cpp",
 
 	-- SHARED
@@ -905,22 +945,88 @@ obj += {
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th04/mpn_put.cpp",
+	"th04/maintext_tail.asm",
 	"th04/slowdown.cpp",
+	"th04/entrym.cpp",
+	"th04/stg_loop.cpp",
+	"th04/p_marisa.cpp",
+	"th04/laser_r.cpp",
+	"th04/gameover.cpp",
+	"th04/execl.cpp",
 	"th04/demo.cpp",
 	"th04/ems.cpp",
 	"th04/tile_set.cpp",
 	"th04/std.cpp",
+	"th04/end_ext.cpp",
+	"th04/map.cpp",
+	"th04/it_spl_d.cpp",
+	"th04/null.cpp",
+	"th04/pn_inv.cpp",
+	"th04/selectr.cpp",
 	"th04/circle.cpp",
+	"th04/bul_ginv.cpp",
 	"th04/tile.cpp",
 	"th04/playfld.cpp",
 	"th04/midboss4.cpp",
+	"th04/midbossx.cpp",
 	"th04/f_dialog.cpp",
 	"th04/dialog.cpp",
 	"th04/boss_exp.cpp",
+	"th04/boss_5r.cpp",
+	"th04/boss_bg.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/boss_fg.cpp. Both
+	-- contribute to BOSS_FG_TEXT, and TLINK lays a segment's contributions out
+	-- in link order; bullets_render() precedes items_render() in the original.
+	"th04/bullet_r.cpp",
+	"th04/boss_fg.cpp",
+	"th04/mai.cpp",
 	"th04/stages.cpp",
+	"th04/hud_pnt.cpp",
+	"th04/hud_drm.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/hud_put.cpp. Both
+	-- contribute to HUD_PUT_TEXT, and TLINK lays a segment's contributions
+	-- out in link order; hud_bar_put() precedes hud_put() in the original.
+	"th04/hud_bar.cpp",
+	"th04/hud_put.cpp",
+	"th04/hud_grz.cpp",
+	"th04/hud_pwr.cpp",
+	"th04/player_b.cpp",
+	"th04/shot_inv.cpp",
+	"th04/main_.cpp",
 	"th04/player_m.cpp",
 	"th04/player_p.cpp",
+	"th04/main_0.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/scoreupd.asm, which
+	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
+	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
+	-- Append-anywhere, and parked next to main_012.cpp only because it is the
+	-- other half of what used to be one segment: y6_fg.cpp is Y6_FG_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_01 comes from
+	-- th04_main.asm, which defines it (and main_012_TEXT behind it) and is the
+	-- first object linked.
+	"th04/y6_fg.cpp",
+	-- shots_add(), into the MAIN_012_A_TEXT head carve immediately before the
+	-- remaining main_012_TEXT root contribution. Its object needs -k-.
+	"th04/shotsadd.cpp",
+	"th04/main_012.cpp",
+	"th04/main_033.cpp",
+	-- POSITION-CRITICAL: b6_next.cpp is yuuka6_phase_next() alone and must
+	-- stay immediately before main_034.cpp, whose object it would otherwise
+	-- shift by an odd number of bytes, dropping the padding in front of
+	-- elly_1BDB4()'s generated switch table. See th04/b6_next.cpp.
+	"th04/b6_next.cpp",
+	"th04/main_034.cpp",
+	"th04/main_035.cpp",
+	-- POSITION-CRITICAL: main_36r.cpp is Reimu's half of main_036_TEXT and
+	-- must stay immediately before main_036.cpp, which is Gengetsu's. They
+	-- are two objects rather than one because the padding in front of their
+	-- two generated switch tables is unreachable otherwise; see
+	-- th04/main_36r.cpp.
+	"th04/main_36r.cpp",
+	"th04/main_036.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
 	"th04/checkerb.cpp",
@@ -929,18 +1035,60 @@ obj += {
 	"th04/scoredat.cpp",
 	"th04/score_rm.cpp",
 	"th04/gather.cpp",
+	"th04/std_run.cpp",
+	"th04/enm_btpl.cpp",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
 	"th04/midboss.cpp",
 	"th04/hud_hp.cpp",
 	"th04/mb_dft.cpp",
+	"th04/mb_dfr.cpp",
 	"th04/vector2n.asm",
 	"th04/spark_a.asm",
 	"th04/grcg_3.cpp",
 	"th04/it_spl_u.cpp",
+	-- POSITION-CRITICAL: these two are the whole of MB_UPD_TEXT, the
+	-- kb/codegen/0080 head carve off ENM_POS_TEXT, whose root contribution is
+	-- now empty. mb_upd1.cpp must stay immediately before mb_upd.cpp: it is
+	-- 0x33F bytes of prefix, and folding it into that object instead flips the
+	-- parity of midboss3_update()'s `-a2` jump-table pad. See th04/mb_upd1.cpp.
+	"th04/mb_upd1.cpp",
+	"th04/mb_upd.cpp",
+	-- POSITION-CRITICAL: enemy_u.cpp is MUGETSU_TEXT's first C++ object and
+	-- replaces the root dump's former enemies_update() contribution. The four
+	-- Mugetsu boss objects follow in address order. bx1_pose.cpp must
+	-- be its own object because a translation unit that reaches
+	-- th04/main/bullet/bullet.hpp compiles the two pose drivers' dense
+	-- `switch` heads through AX instead of BX, length-neutrally; bx1_upd.cpp
+	-- must be its own because mugetsu_update()'s `-a2` table pad only appears
+	-- at an even object offset, which a zero prefix gives it and the 0x3D7 of
+	-- bx1_ptn.cpp ahead of it does not. See th04/bx1_gath.cpp.
+	"th04/enemy_u.cpp",
+	"th04/bx1_gath.cpp",
+	"th04/bx1_pose.cpp",
+	"th04/bx1_ptn.cpp",
+	"th04/bx1_upd.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
+	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
+	"th04/enm_pos1.cpp",
+	"th04/enm_pos.cpp",
+	-- POSITION-CRITICAL: these three are B4M_UPDATE_TEXT's C++ half in
+	-- address order, and enm_scr.cpp is its head. expl_sm.cpp must stay
+	-- immediately before boss_4m.cpp, whose object it would otherwise shift
+	-- by an odd number of bytes, moving the padding in front of both switch
+	-- tables b4m.cpp generates under `-a2`. See th04/expl_sm.cpp.
+	"th04/enm_scr.cpp",
+	"th04/expl_sm.cpp",
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",
 	"th04/bullet_a.cpp",
+	-- POSITION-CRITICAL: these three are IT_UPDT_TEXT's whole contents in
+	-- address order, and hudnum.cpp is its head. The dump contributes nothing
+	-- to that segment any more, so link order alone decides where the two
+	-- gaiji number renderers and the bonus multipliers land.
+	"th04/hudnum.cpp",
+	"th04/itminit.cpp",
+	"th04/it_updt.cpp",
 	"th04/boss.cpp",
 	"th04/boss_4r.cpp",
 	"th04/boss_x2.cpp",
@@ -980,9 +1128,16 @@ local th05_sprites = Sprites({
 	{ "th05/sprites/piano_l.bmp", "asm", "sPIANO_LABEL_FONT", 8, 8 },
 })
 
+local th05_zuninit_resident = th05:branch(MODEL_TINY):build({
+	"th05/zuninit/resident.cpp",
+})[1]
+
 local th05_zuncom = th05:zungen("obj/th05/zuncom.bin", {
 	{ "-O", "libs/kaja/ongchk.com" },
-	{ "-I", th05:branch(MODEL_ASM):link("zuninit", { "th05_zuninit.asm" }) },
+	{ "-I", th05:branch(MODEL_ASM):link("zuninit", {
+		"th05_zuninit.asm",
+		th05_zuninit_resident,
+	}) },
 	{ "-S", th05:branch(MODEL_TINY):link("res_kso", {
 		"th05/res_kso.cpp",
 		"bin/masters.lib",
@@ -1014,6 +1169,9 @@ obj += {
 	"th05/m_char.cpp",
 	"th05/cutscene.cpp",
 	"th05/maine_e.cpp",
+	"th05/space.cpp",
+	"th05/verd_bmp.cpp",
+	"th05/staffrol.cpp",
 	"th05/staff.cpp",
 	"th05/allcast.cpp",
 	"th05/regist.cpp",
@@ -1058,23 +1216,59 @@ obj += {
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th05/mpn_free.cpp",
+	"th05/maintext_tail.asm",
+	"th05/bbcheeto.cpp",
 	"th04/slowdown.cpp",
+	"th05/entrym.cpp",
+	"th05/stg_loop.cpp",
+	"th05/execl.cpp",
 	"th05/demo.cpp",
 	"th05/ems.cpp",
 	"th05/cfg_lres.cpp",
 	"th05/std.cpp",
+	"th05/map.cpp",
+	"th05/end_ext.cpp",
 	"th04/tile.cpp",
 	"th05/main010.cpp",
+	"th05/main011.cpp",
+	"th05/it_spl_d.cpp",
+	"th05/pn_inv.cpp",
 	"th05/circle.cpp",
 	"th05/f_dialog.cpp",
 	"th05/dialog.cpp",
 	"th05/boss_exp.cpp",
 	"th05/playfld.cpp",
+	"th05/hud_pnt.cpp",
+	"th05/hud_drm.cpp",
+	"th05/hud_grz.cpp",
+	"th05/hud_pwr.cpp",
+	-- hud_hp_put(), into the MIDBOSSX_A_TEXT that a kb/codegen/0080 head carve
+	-- split off MIDBOSSX_TEXT for it. Position-free: it is that segment's only
+	-- contribution, and the segment's own place in the layout comes from
+	-- th05_main.asm's `group` and `segment` directives, which the dump declares
+	-- first. Listed with the other HUD objects rather than with MIDBOSSX_TEXT's
+	-- four, because it shares nothing with them.
+	"th05/hud_hp.cpp",
+	"th05/bombchar.cpp",
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",
+	-- shots_add(), into the SCORE_A_TEXT that a kb/codegen/0080 head carve
+	-- split off SCORE_TEXT for it. Ahead of score_rm.cpp because that is the
+	-- order the two segments have, though neither position is load-bearing:
+	-- each object is the only contribution to its own segment.
+	"th05/shotsadd.cpp",
+	"th05/selectr.cpp",
 	"th05/score_rm.cpp",
+	"th05/gameover.cpp",
 	"th05/laser_rh.cpp",
+	"th05/null.cpp",
+	"th05/player_b.cpp",
+	"th05/shot_inv.cpp",
+	-- Preserve the original object boundary before p_common.cpp. Its first
+	-- function has a word-aligned compiler-generated switch table.
+	"th05/main/player/shot_hit.cpp",
 	"th05/p_common.cpp",
 	"th05/p_reimu.cpp",
 	"th05/p_marisa.cpp",
@@ -1084,6 +1278,10 @@ obj += {
 	"th05/hud_bar.asm",
 	"th05/scoreupd.asm",
 	"th05/midboss5.cpp",
+	"th05/b34fg.cpp",
+	"th05/b6cbull.cpp",
+	"th05/stages.cpp",
+	"th05/midbossx.cpp",
 	"th05/hud_ovrl.cpp",
 	"th04/player_p.cpp",
 	"th04/vector2n.asm",
@@ -1094,21 +1292,49 @@ obj += {
 	"th05/bullet_1.asm",
 	"th05/bullet_c.cpp",
 	"th05/bullet.asm",
+	"th05/main/bullet/add_far.cpp",
+	"th05/main/bullet/tune.asm",
 	"th05/bullet_t.cpp",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
+	"th05/main031.cpp",
+	"th05/enemy_u.cpp",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
+	"th05/itmadd.cpp",
+	"th05/main033.cpp",
+	"th05/std_run.cpp",
+	"th05/enm_btpl.cpp",
 	"th05/midboss.cpp",
 	"th04/hud_hp.cpp",
 	"th05/mb_dft.cpp",
+	"th05/mb_dfr.cpp",
 	"th05/laser.cpp",
 	"th05/cheeto_u.cpp",
 	"th04/it_spl_u.cpp",
 	"th05/bullet_u.cpp",
 	"th05/midboss1.cpp",
 	"th05/boss_1.cpp",
+	"th05/midboss2.cpp",
 	"th05/boss_4.cpp",
+	-- BEFORE th05/b4mai.cpp, and that order is load-bearing: b4pair.cpp is
+	-- its own object only because @mai_yuki_update$qv takes its `-a2` pad on
+	-- the opposite parity from the three jump tables inside b4mai.obj, and
+	-- TLINK lays a segment out in link order (kb/codegen 0112 + 0114).
+	"th05/b4pair.cpp",
+	"th05/b4mai.cpp",
+	"th05/swords.cpp",
+	"th05/main035.cpp",
+	-- Append-anywhere, and parked next to main_036.cpp only because it is the
+	-- head of what used to be one segment with it: exalice.cpp is BX_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_03 comes from
+	-- th05_main.asm, which defines it (and main_036_TEXT behind it) and is the
+	-- first object linked.
+	"th05/exalice.cpp",
+	-- Append-anywhere: main_036_TEXT has no other C++ contribution, so
+	-- TLINK puts this object at that segment's tail by construction.
+	"th05/main_036.cpp",
 	"th05/boss_6.cpp",
 	"th05/boss_x.cpp",
 	"th05/hud_num.asm",

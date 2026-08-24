@@ -1,3 +1,13 @@
+#ifndef TH04_MAIN_TILE_BB_HPP
+#define TH04_MAIN_TILE_BB_HPP
+
+// Guarded for the reason th04/main/player/shot.hpp states in full: two body
+// files that both include this one now meet in a single translation unit,
+// and Turbo C++ 4.02 rejects the second expansion of every `static const`
+// and every declaration below. Ordering the includes so only one of them
+// wins would work today and break at the next host; a guard is the
+// invariant. Byte-inert: this file only declares.
+
 // The monochrome animations loaded from the ST*.BB and BB*.BB files, shown as
 // one colored 16×16 tile per bit. Used for the flashy transitions from regular
 // stage backgrounds to the bomb and boss backgrounds.
@@ -19,7 +29,9 @@ extern bb_tiles8_t __seg *tiles_bb_seg;
 
 // Fills the playfield tile starting at (⌊left/8⌋*8, top) with the current
 // GRCG tile. Assumes that the GRCG is set to TDW mode.
-void __fastcall near grcg_tile_bb_put_8(screen_x_t left, vram_y_t top);
+extern "C" void __fastcall near grcg_tile_bb_put_8(
+	screen_x_t left, vram_y_t top
+);
 
 // Renders the given animation [cel] in [seg] to the playfield area in VRAM.
 // All tiles with a corresponding 1 bit are filled with the [tiles_bb_col].
@@ -30,11 +42,13 @@ void __fastcall near grcg_tile_bb_put_8(screen_x_t left, vram_y_t top);
 	tiles_bb_put_raw(cel); \
 }
 
-// Interprets the given animation [cel] in [seg] as a mask, and marks all stage
-// background tiles with a corresponding 1 bit for redrawing.
+// Interprets the given animation [cel] in [seg] as a foreground mask, and marks
+// all stage background tiles with a corresponding 0 bit for redrawing.
 #define tiles_bb_invalidate(seg, cel) { \
 	void pascal near tiles_bb_invalidate_raw(int); \
 	\
+	/* ZUN bloat: The raw function reads [bb_boss_seg] instead. */ \
 	tiles_bb_seg = seg; \
 	tiles_bb_invalidate_raw(cel); \
 }
+#endif /* TH04_MAIN_TILE_BB_HPP */

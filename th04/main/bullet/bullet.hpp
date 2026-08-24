@@ -1,3 +1,6 @@
+#ifndef TH04_MAIN_BULLET_BULLET_HPP
+#define TH04_MAIN_BULLET_BULLET_HPP
+
 /// Everything here needs to be kept in sync with the ASM versions in
 /// bullet.inc!
 
@@ -59,7 +62,7 @@ enum bullet_move_flag_t {
 	/// Hitbox is active
 	/// ----------------
 
-	// Slows down from BMF_DECELERATE_BASE_SPEED to [final_speed]
+	// Slows down from BMF_DECELERATE_BASE_SPEED to [speed_final]
 	BMF_DECELERATE = 0,
 	// Special processing according to [special_motion]
 	BMF_SPECIAL = 1,
@@ -368,3 +371,5 @@ void near bullets_add_special_fixedspeed(void);
 
 // ZUN bloat: Should be separate functions.
 void near bullets_and_gather_invalidate(void);
+
+#endif /* TH04_MAIN_BULLET_BULLET_HPP */

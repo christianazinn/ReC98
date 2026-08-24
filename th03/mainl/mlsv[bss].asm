@@ -4,7 +4,7 @@ byte_106B0	db ?
 
 flake_t struc
 	FLAKE_alive   	db ?
-	              	db ?
+			db ?
 	FLAKE_left    	dw ?
 	FLAKE_top     	dw ?
 	FLAKE_velocity	Point <?>

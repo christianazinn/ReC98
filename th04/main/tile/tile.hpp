@@ -15,6 +15,44 @@ extern vram_offset_t tile_ring[TILES_Y][TILES_MEMORY_X];
 
 extern int8_t tile_row_in_section;
 
+// The [tile_ring] row most recently refilled from [map_seg], as a
+// [scroll_line] divided by [TILE_H]. Guards the refill in
+// tiles_scroll_and_egc_render() so that it runs once per crossed tile row
+// rather than once per frame. [inferred]: the binary only shows the
+// comparison. TH05 has the same variable, and th05_main.asm now publishes it
+// under this same name.
+extern int tile_ring_row_filled;
+
+// Advances the map cursor by one tile row whenever [scroll_line] has crossed
+// into a new one, refills the [tile_ring] row that exposed, and EGC-copies
+// the lines that scrolled in since the page currently being drawn was last
+// rendered. Assumes nothing about the EGC; it starts and stops the copy
+// itself. Called once per frame, from scroll_update_and_render() in both
+// games (th04/main/scroll.cpp). TH05 shares this C++ body; see
+// th04/main/tile/scroll.cpp for the three places the two games differ.
+void near tiles_scroll_and_egc_render(void);
+
+// Copies the topmost [scroll_lines_pending] lines of every one of the
+// [TILES_X] playfield columns from the tile source area to the playfield,
+// starting at [scroll_line] and wrapping through the [tile_ring] as it goes.
+// Assumes the EGC to be active and initialized for a copy — the caller above
+// is the one that does that. Still ZUN's hand-written assembly, in
+// th04_main.asm's CIRCLE_TEXT and th05_main.asm's carved STD_B_TEXT: it pushes
+// BP and then uses it as the scratch register for the tile word being copied
+// without ever establishing a frame (kb/conventions/handwritten-asm-tells.md).
+// TH05's twin is instruction-for-instruction the same proc, so th05_main.asm
+// publishes it under this same name.
+extern "C" void near tiles_egc_copy_scrolled_lines(void);
+
+// Loads the .MPN file with the given [fn] into slot 0, blits all of its tile
+// images to the tile area in VRAM on both pages, and frees the slot again.
+// (TH02 splits this into mpn_load() and tile_area_init_and_put_both().)
+// TH05's is hand-written assembly and has no C++ body; see
+// th04/main/tile/mpn_load.cpp.
+#if (GAME != 5)
+extern "C" void pascal near mpn_load(const char *fn);
+#endif
+
 // Completely fills [tile_ring] with the initial screen of a stage, by loading
 // the section IDs from [std_seg], and the tiles themselves from [map_seg].
 void pascal near tiles_fill_initial(void);

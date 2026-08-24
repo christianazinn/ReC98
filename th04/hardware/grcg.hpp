@@ -1,3 +1,6 @@
+#ifndef TH04_HARDWARE_GRCG_HPP
+#define TH04_HARDWARE_GRCG_HPP
+
 #include "pc98.h"
 #include "x86real.h"
 
@@ -50,4 +53,22 @@ inline void grcg_setcolor_direct_constant(vc_t col) {
 	outportb(_DX, ((col & 0x8) ? 0xFF : ((col & 0x4) ? (_AL ^= _AL) : _AL)));
 	enable();
 }
+
+// C++ spelling of the GRCG_FILL_PLAYFIELD_ROWS macro in th04/hardware/grcg.inc.
+// The callee is th04/hardware/grcg_fill_rows.asm, a __usercall function that
+// takes the playfield's bottom-left VRAM byte in ES:DI and fills upwards to
+// ES:0000 with the current GRCG tile. It assumes that the GRCG is already in
+// TDW mode, and clobbers CX and DI.
+// The caller is responsible for preserving DI; see the note in
+// th05/main/boss/colorfill.cpp for why that cannot be left to Turbo C++.
+extern "C" void near grcg_fill_playfield_rows(void);
+
+// Requires PLAYFIELD_TOP and PLAYFIELD_VRAM_LEFT at the point of use.
+#define grcg_fill_playfield_rows_at(y, num_rows) { \
+	_ES = (SEG_PLANE_B + ((((y) + PLAYFIELD_TOP) * ROW_SIZE) / 16)); \
+	_DI = ((((num_rows) - 1) * ROW_SIZE) + PLAYFIELD_VRAM_LEFT); \
+	grcg_fill_playfield_rows(); \
+}
 // ---------------------
+
+#endif /* TH04_HARDWARE_GRCG_HPP */

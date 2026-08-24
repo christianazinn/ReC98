@@ -1350,7 +1350,7 @@ void bullets_update(void)
 		// the quirk, regardless of the mixed-up positions.
 
 		coord_next = p->center.x;
-		coord_prev = coord_next;
+		asm { mov	cx, ax; } // coord_prev = coord_next;
 		coord_next += p->velocity.x.v;
 
 		if(p->flag != BF_PELLET_TRANSFER) {
@@ -1414,7 +1414,8 @@ void bullets_update(void)
 				clamp_done:
 
 				coord_max.v = CENTER_X_MAX;
-				_BX = offsetof(bullet_trail_t, center_x);
+				// _BX = offsetof(bullet_trail_t, center_x), which is 0.
+				asm { xor	bx, bx; }
 				bullet_trail_update_and_clip(
 					_AX,
 					_DX,
@@ -1443,7 +1444,11 @@ void bullets_update(void)
 			// the expected horizontal movement direction.
 			static_assert(PLAYER_COUNT == 2);
 			_BL = p->pid;
-			if(_BL == 0) {
+			// Branch on the origin player. The comparison against 0 has to
+			// be spelled out to get the assembler direction (kb/codegen/0037);
+			// the JNE still comes from C++.
+			asm { or	bl, bl; }
+			if(FLAGS_ZERO) {
 				if(coord_next >= p->target_center_x_for_origin_pid.v) {
 					goto transfer;
 				} else {
@@ -1484,7 +1489,7 @@ void bullets_update(void)
 		// ------------
 
 		coord_next = p->center.y;
-		coord_prev = coord_next;
+		asm { mov	cx, ax; } // coord_prev = coord_next;
 		coord_next += p->velocity.y.v;
 
 		if(p->has_trail) {
@@ -1545,7 +1550,9 @@ void bullets_update(void)
 			 * 	explosions_hittest();
 			 * once the segmentation allows us to, if ever */
 			asm { push cs; call near ptr explosions_hittest; }
-			if(_AL != 0) {
+			// Test the hit result, spelled out for the same reason as above.
+			asm { or	al, al; }
+			if(!FLAGS_ZERO) {
 				static_assert(PLAYER_COUNT == 2);
 				// ZUN bloat: `if(gba_flag_active[p->pid ^ 1] == GBAF_NONE)`
 				_BH = 0;
@@ -1702,14 +1709,18 @@ void bullets_render(void)
 			#define top static_cast<int>(_BX)
 
 			left = (playfield_fg_x_to_screen(
-				pellet_p->center.x, (_AL = pellet_p->pid, _AH ^= _AH, _AX)
+				// Widening the PID to AX, in the assembler direction. An
+				// `asm` statement cannot appear in the comma expression that
+				// orders these pushes, so this one is an `__emit__()` pin.
+				pellet_p->center.x,
+				(_AL = pellet_p->pid, __emit__(0x30, 0xE4), _AX)
 			) - (PELLET_W / 2));
 			top = pellet_p->center.y;
 			top >>= (SUBPIXEL_BITS + 1); // Subpixel screen space → VRAM
 			top += ((PLAYFIELD_BORDER / 2) - (PELLET_VRAM_H / 2));
 
 			// Already counted as bloat inside that function.
-			_DX = C_PELLET;
+			asm { xor	dx, dx; } // _DX = C_PELLET;
 			if(pellet_p->flag != BF_PELLET) {
 				_DH = C_PELLET_TRANSFER;
 			}

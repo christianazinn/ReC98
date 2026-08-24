@@ -1,4 +1,5 @@
-public _bullet_special, _bullet_template_special_angle
+public _bullet_special, _bullet_special_speed_delta
+public _bullet_template_special_angle
 _bullet_special_turns_max	label byte
 _bullet_special_speed_delta	label byte
 _bullet_special	db ?
