@@ -46,6 +46,7 @@ void pascal near tiles_render_all(void);
 extern "C" void pascal near b4_solo_fg_render(void);
 #pragma codeseg
 
+#include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th03/hardware/palette.hpp"
 #include "th04/main/pattern.hpp"
@@ -166,21 +167,17 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 
 /// Danmaku patterns
 /// ----------------
-/// The BOTTOM EIGHT of the pair phase's fourteen, in their original address
-/// order, which is also the order the five band tables index them in. Eight
-/// rather than fourteen because this object has to stay CONTIGUOUS behind the
-/// root's own contribution -- th05_main.asm is the segment's first object, so
-/// a lift out of this block can only ever be a SUFFIX of it -- and
-/// mai_yuki_1A775(), the manual laser six procs up, does not match yet. Its
-/// one unsolved instruction and everything measured about it are in
-/// state/notes/th05-main-mai-update.md; the six bodies below this run go with
-/// it, in one parcel, when it does.
+/// The BOTTOM NINE of the pair phase's fourteen, in their original address
+/// order, which is also the order the five band tables index them in. This
+/// object stays CONTIGUOUS behind the root's own contribution -- th05_main.asm
+/// is the segment's first object, so a lift out of this block can only ever be
+/// a SUFFIX of it.
 ///
-/// Every one of the eight is a pattern_oneshot_func_t that never returns
-/// anything but `false`: their bands end on mai_yuki_update()'s own HP check
-/// rather than on a frame count. They share a shape the solo halves do NOT
-/// have -- no gathering animation, no [boss.sprite] assignment and no
-/// boss_flystep_random() tail, because in the pair phase the flying is
+/// The eight after the manual laser are pattern_oneshot_func_t bodies that
+/// never return anything but `false`: their bands end on mai_yuki_update()'s
+/// own HP check rather than on a frame count. They share a shape the solo
+/// halves do NOT have -- no gathering animation, no [boss.sprite] assignment
+/// and no boss_flystep_random() tail, because in the pair phase the flying is
 /// mai_yuki_update()'s job through mai_yuki_flystep_random(). Mai's spawn from
 /// [boss], Yuki's from [yuki], and all of them 8 pixels above the character
 /// rather than at her center.
@@ -191,6 +188,60 @@ static const int B4_SOLO_HP_TOTAL = 7900;
 // `true`. Two of the eight reset their state bytes on exactly that
 // frame.
 static const int MAI_YUKI_GATHER_FRAMES = 48;
+
+// Mai, band 2: one manually controlled fixed laser, spawned aimed at the
+// player and then kept turning toward them by one angle step. It turns every
+// 4 frames while active, and every 8 frames before growing and after the
+// 64-frame active interval. The checks on frames 48, 80 and 160 deliberately
+// remain independent: those frames also run the steering block before the
+// function returns.
+bool near mai_yuki_1A775(void)
+{
+	signed char angle_delta;
+
+	if(boss.phase_frame == MAI_YUKI_GATHER_FRAMES) {
+		laser_template.coords.origin = boss.pos.cur;
+		laser_template.coords.angle = iatan2(
+			(player_pos.cur.y.v - laser_template.coords.origin.y.v),
+			(player_pos.cur.x.v - laser_template.coords.origin.x.v)
+		);
+		laser_template.col = 8;
+		laser_template.coords.width.nonshrink = 8;
+		laser_manual_fixed_spawn(0);
+	}
+	if(boss.phase_frame == 80) {
+		laser_manual_grow(0);
+	}
+	if((boss.phase_frame % 4) == 0) {
+		if(
+			((boss.phase_frame >= 80) && (boss.phase_frame < 144)) ||
+			((boss.phase_frame % 8) == 0)
+		) {
+			angle_delta = iatan2(
+				(player_pos.cur.y.v - laser_template.coords.origin.y.v),
+				(player_pos.cur.x.v - laser_template.coords.origin.x.v)
+			);
+			// The signed byte wrap selects the shorter direction. An exact
+			// half-turn becomes -128 and therefore takes the negative arm.
+			angle_delta -= static_cast<signed char>(lasers[0].coords.angle);
+			if(angle_delta > 0) {
+				_AL++;
+			} else if(angle_delta < 0) {
+				_AL = lasers[0].coords.angle;
+				_AL += -1;
+			} else {
+				goto no_turn;
+			}
+			lasers[0].coords.angle = _AL;
+		no_turn:
+		}
+	}
+	if(boss.phase_frame == 160) {
+		laser_stop(0);
+		return true;
+	}
+	return false;
+}
 
 // Mai, band 3: a 4-wide ring of small blue balls every 4 frames, its base
 // angle walking one way and then, every 16 frames, jumping back by a random
