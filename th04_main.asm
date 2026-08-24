@@ -1128,8 +1128,8 @@ P_MARISA_TEXT	ends
 ; shot_marisa_a_l2..a_l9 and the eight shot_marisa_b_l2..b_l9, together with
 ; the four generated jump tables the last four of those compile to -- moved
 ; out of it into the P_MARISA_TEXT anchor above. What is left of this block is
-; shot_laser_render() alone, which is blocked on its body rather than on
-; layout, plus the tail this segment always had. A C++ object still appends
+; shot_laser_render() alone, retained after a proven compiler table-padding
+; limit, plus the tail this segment always had. A C++ object still appends
 ; GameExecl() at its original address in the MIDDLE of this segment. Same
 ; `byte public 'CODE'` alignment as before, so nothing moves. kb/codegen/0121:
 ; none of the deleted bodies carried an `assume`, so there is nothing to
@@ -1139,7 +1139,7 @@ EXECL_TEXT	segment	byte public 'CODE' use16
 ; =============== S U B	R O U T	I N E =======================================
 		public _shot_laser_render
 ; Attributes: bp-based frame
-_shot_laser_render label near
+; Proven undecompilable: state/notes/shot_laser_render.md.
 SHOT_LASER_W = 8
 SHOT_LASER_CEL_0 = 0
 SHOT_LASER_CEL_1 = 1
@@ -1147,7 +1147,7 @@ SHOT_LASER_CEL_2 = 2
 SHOT_LASER_CEL_3 = 3
 SHOT_LASER_CEL_4 = 4
 
-sub_E1F4	proc near
+_shot_laser_render	proc near
 		push	bp
 		mov	bp, sp
 		push	si
@@ -1268,7 +1268,7 @@ off_E2B9	dw offset @@style_2
 		dw offset @@style_6
 		dw offset @@style_1_4_1
 		dw offset @@style_8
-sub_E1F4	endp
+_shot_laser_render	endp
 
 
 
@@ -2131,15 +2131,15 @@ main__TEXT	segment	byte public 'CODE' use16
 	; since it was the one that was right. TH05's own body, still ASM below in
 	; its own dump, publishes the same upper-case spelling.
 	;
-	; sub_E1F4 -- the option laser renderer -- lost its ONLY reference in this
-	; file when this body left, so it is published for the C++ to reach with a
-	; kb/codegen/0123 zero-byte alias plus a public, both written onto the two
-	; blank lines of its own subroutine banner. The ALIAS carries the name
-	; state/notes/shot_laser_render.md already adjudicated for it, exactly as
-	; _shot_unused does for byte_259A7 below; the proc keeps IDA's spelling
-	; because only its BODY is blocked, and the parcel that finally lifts it
-	; deletes this alias with it. Both procs are near and in group main_01, so
-	; the call is a plain same-group near call with no call-site edit anywhere.
+	; shot_laser_render() remains ASM after a function-specific compiler proof:
+	; its semantic C++ emits every instruction exactly, but Turbo C++ cannot
+	; emit the original byte between this first EXECL_TEXT body and its dense
+	; switch table without an out-of-range prefix carve or a raw table island.
+	; state/notes/shot_laser_render.md records the OBJ and oracle evidence.
+	; The proc itself now carries the adjudicated `_shot_laser_render` name;
+	; it and this C++ caller are near and in main_01, so the call remains a
+	; plain same-group near call. This is an undecompilable layout construct,
+	; not a bug, quirk, landmine, or bloat classification.
 	;
 	; THE SPRITE NUMBER LIVES IN CX AND CANNOT BE A LOCAL. It is computed
 	; before the two coordinates and stays live across the
