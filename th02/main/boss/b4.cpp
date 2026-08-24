@@ -76,7 +76,7 @@ extern "C" int patnum_2064E;
 // It is named as the ARRAY rather than cell by cell because no per-cell name
 // is true across bosses: sixteen of the reads hand a cell straight to
 // bullets_add_*() as a [group], but the others use one as a stone index
-// (stones_11DF6()), a frame-period mask (rika_13C91()), an angle delta
+// (stones_11DF6()), a frame-period mask (rika_pattern()), an angle delta
 // (mima_19173()) and a bullet count (marisa_1BC43(), below). `[measured]`
 // mima_180EC() also spells `byte_2066F[bx]` with [bx] a 0-or-1 phase flag,
 // which is an access no set of scalar names can express at all. The

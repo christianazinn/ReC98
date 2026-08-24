@@ -75,7 +75,7 @@ extern laser_t lasers[LASER_COUNT];
 // 	stones     	`stones_11B5D` 24h, `stones_11C37` 1Eh, `stones_11D30` 10h,
 // 	           	`stones_11E76` 1Eh twice, plus `stones_12778` 0Ch, which
 // 	           	writes the value without spawning anything
-// 	rika       	`rika_13C91` 40h
+// 	rika       	`rika_pattern()` 40h
 // 	sigma      	`sigma_1619C` 20h, 30h, 64h, 10h; `sigma_162D3` writes nothing
 // 	           	at all and spawns four lasers on whatever was left behind
 // 	midboss4   	`midboss4_1A17E` 10h
