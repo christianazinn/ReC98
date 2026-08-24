@@ -40,7 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 
-main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
+main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, CIRCLE_B_TEXT, CIRCLE_C_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, MUGETSU_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
 
 ; ===========================================================================
@@ -1047,52 +1047,25 @@ include th04/main/player/shot_laser.asm
 ; head direction). 0121: ES was already `assume es:nothing` -- measured.
 CIRCLE_A_TEXT ends
 
-CIRCLE_TEXT segment word public 'CODE' use16
+CIRCLE_B_TEXT segment word public 'CODE' use16
 
 include th04/main/tile/bb_put_a.asm
 
-; =============== S U B	R O U T	I N E =======================================
+; yuuka5_backdrop_colorfill() is C++ now. circle.cpp appends its exact
+; 22h-byte body to this E2h-byte root prefix.
+CIRCLE_B_TEXT ends
 
-public @YUUKA5_BACKDROP_COLORFILL$QV
-@yuuka5_backdrop_colorfill$qv	proc near
-		push	di
-		mov	ax, GRAM_400 + ((112 + PLAYFIELD_TOP) * ROW_SIZE) shr 4
-		mov	es, ax
-		assume es:nothing
-		mov	di, (255 * ROW_SIZE) + PLAYFIELD_VRAM_LEFT
-		nop
-
-@@left_rect:
-		stosd
-		stosd
-		stosd
-		sub	di, ROW_SIZE + 12
-		jge	short @@left_rect
-		GRCG_FILL_PLAYFIELD_ROWS	0, 112
-		pop	di
-		retn
-@yuuka5_backdrop_colorfill$qv	endp
+CIRCLE_C_TEXT segment word public 'CODE' use16
 
 include th04/formats/z_super_put_16x16_mono.asm
 include th04/formats/bb_txt_put.asm
 include th04/main/item/invalidate.asm
 
-; =============== S U B	R O U T	I N E =======================================
+; mugetsu_gengetsu_backdrop_colorfill() is C++ now. Turbo C++ exports the
+; original 32-character-truncated symbol and appends the 0Eh-byte body here.
+CIRCLE_C_TEXT ends
 
-; Turbo C++ only keeps 32 significant characters of an identifier before it
-; mangles the name, so a C++ caller of mugetsu_gengetsu_backdrop_colorfill()
-; asks TLINK for `@MUGETSU_GENGETSU_BACKDROP_COLORF$QV`, three characters
-; shorter than the name this file publishes. The zero-byte `label` alias
-; below makes the proc linkable under both spellings (kb/codegen 0123).
-public @MUGETSU_GENGETSU_BACKDROP_COLORFILL$QV
-public @MUGETSU_GENGETSU_BACKDROP_COLORF$QV
-@mugetsu_gengetsu_backdrop_colorf$qv label near
-@mugetsu_gengetsu_backdrop_colorfill$qv	proc near
-		push	di
-		GRCG_FILL_PLAYFIELD_ROWS	192, 176
-		pop	di
-		retn
-@mugetsu_gengetsu_backdrop_colorfill$qv	endp
+CIRCLE_TEXT segment word public 'CODE' use16
 
 include th04/hardware/grcg_modecol.asm
 include th04/main/item/splashes_render.asm
