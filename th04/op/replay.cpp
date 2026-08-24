@@ -236,6 +236,126 @@ static void replay_op_slot_set(uint8_t slot)
 	replay_op_slot_fn[5] = ('0' + (slot % 10));
 }
 
+static bool replay_op_bytes_zero(const uint8_t far *p, unsigned size)
+{
+	while(size != 0) {
+		if(*p++ != 0) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static uint8_t replay_op_native_playperf(uint8_t start_rank)
+{
+	#if (GAME == 5)
+		if(start_rank == RANK_HARD) {
+			return 44;
+		}
+		if(start_rank == RANK_LUNATIC) {
+			return 48;
+		}
+		return 32;
+	#else
+		if(start_rank == RANK_HARD) {
+			return 20;
+		}
+		if(start_rank == RANK_LUNATIC) {
+			return 22;
+		}
+		return 16;
+	#endif
+}
+
+static bool replay_op_playperf_valid(uint8_t start_rank, uint8_t value)
+{
+	uint8_t min;
+	uint8_t max;
+
+	#if (GAME == 5)
+		switch(start_rank) {
+		case RANK_EASY: min = 16; max = 32; break;
+		case RANK_NORMAL: min = 24; max = 40; break;
+		case RANK_HARD: min = 44; max = 54; break;
+		case RANK_LUNATIC: min = 48; max = 58; break;
+		default: min = 32; max = 36; break;
+		}
+	#else
+		switch(start_rank) {
+		case RANK_EASY: min = 4; max = 16; break;
+		case RANK_NORMAL: min = 11; max = 24; break;
+		case RANK_HARD: min = 20; max = 32; break;
+		case RANK_LUNATIC: min = 22; max = 34; break;
+		default: min = 16; max = 20; break;
+		}
+	#endif
+	return ((value >= min) && (value <= max));
+}
+
+static bool replay_op_start_valid(
+	const replay_start_config_t far *start, bool practice
+)
+{
+	if(
+		(start->schema != REPLAY_START_SCHEMA) ||
+		(start->kind != (practice ? RSK_STAGE : RSK_NATIVE)) ||
+		(start->stage > STAGE_EXTRA) ||
+		(start->section != 0) || (start->phase != 0) ||
+		(start->rank > RANK_EXTRA) ||
+		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
+		(start->lives > 9) || (start->bombs > 9) ||
+		(start->power < 1) || (start->power > 128) ||
+		(start->continues_used > 9) || (start->extends_gained > 10) ||
+		(start->turbo_mode > 1) ||
+		((start->stage == STAGE_EXTRA) && !start->turbo_mode) ||
+		(start->score > 99999990UL) || ((start->score % 10UL) != 0) ||
+		(start->credit_lives < 1) || (start->credit_lives > 6) ||
+		(start->credit_bombs > ((GAME == 5) ? 3 : 2)) ||
+		(start->stage_graze > 999) || (start->power_overflow > 42) ||
+		!replay_op_playperf_valid(start->rank, start->playperf) ||
+		!replay_op_bytes_zero(start->reserved, sizeof(start->reserved))
+	) {
+		return false;
+	}
+	#if (GAME == 5)
+		if(
+			(start->playchar > 3) || start->shottype || (start->dream > 128) ||
+			(start->stage_point_items_collected > 999)
+		) {
+			return false;
+		}
+	#else
+		if(
+			(start->playchar > 1) || (start->shottype > 1) ||
+			(start->dream > 7) || (start->stage_point_items_collected > 255)
+		) {
+			return false;
+		}
+	#endif
+	if(!practice && (
+		((start->stage != 0) && (start->stage != STAGE_EXTRA)) ||
+		(start->score != 0) ||
+		(start->lives != start->credit_lives) ||
+		(start->bombs != start->credit_bombs) ||
+		(start->power != 1) ||
+		(start->dream != ((GAME == 5) ? 1 : 0)) ||
+		(start->continues_used != 0) || (start->extends_gained != 0) ||
+		(start->graze != 0) || (start->std_frames != 0) ||
+		(start->items_spawned != 0) || (start->items_collected != 0) ||
+		(start->point_items_collected != 0) ||
+		(start->max_valued_point_items_collected != 0) ||
+		(start->enemies_gone != 0) || (start->enemies_killed != 0) ||
+		(start->miss_count != 0) || (start->bombs_used != 0) ||
+		(start->stage_point_items_collected != 0) ||
+		(start->stage_graze != 0) || (start->power_overflow != 0) ||
+		(start->playperf != replay_op_native_playperf(start->rank))
+	)) {
+		return false;
+	}
+	return true;
+}
+
 static bool replay_op_header_valid(uint32_t file_size)
 {
 	uint32_t stored = replay_op_header.header_checksum;
@@ -248,18 +368,22 @@ static bool replay_op_header_valid(uint32_t file_size)
 		(replay_op_header.magic[2] != 'R') ||
 		(replay_op_header.magic[3] != 'P') ||
 		(replay_op_header.magic[4] != 'Y') ||
-		(replay_op_header.magic[5] != '1') ||
+		(replay_op_header.magic[5] != '2') ||
 		(replay_op_header.magic[6] != '\0') ||
 		(replay_op_header.magic[7] != '\0') ||
 		(replay_op_header.version != REPLAY_USER_VERSION) ||
 		(replay_op_header.header_size != REPLAY_USER_HEADER_SIZE) ||
 		(replay_op_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
-		(replay_op_header.flags !=
+		((replay_op_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
+		((replay_op_header.flags & (REPLAY_USER_FLAG_RLE_INPUT |
+		 REPLAY_USER_FLAG_SHIFT_INPUT)) !=
 		 (REPLAY_USER_FLAG_RLE_INPUT | REPLAY_USER_FLAG_SHIFT_INPUT)) ||
 		(replay_op_header.status != RUS_FINALIZED) ||
 		(replay_op_header.game_id != GAME) ||
 		(replay_op_header.ruleset != REPLAY_USER_RULESET_STOCK) ||
-		(replay_op_header.mode != RUM_STORY) ||
+		(replay_op_header.mode > RUM_PRACTICE) ||
+		((replay_op_header.mode == RUM_PRACTICE) !=
+		 ((replay_op_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_op_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
 		(replay_op_header.input_offset != REPLAY_USER_HEADER_SIZE) ||
 		(replay_op_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
@@ -268,32 +392,22 @@ static bool replay_op_header_valid(uint32_t file_size)
 		(replay_op_header.input_size !=
 		 (replay_op_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
 		(file_size !=
-		 (REPLAY_USER_HEADER_SIZE + replay_op_header.input_size)) ||
+		 (replay_op_header.input_offset + replay_op_header.input_size)) ||
 		(replay_op_header.checkpoint_offset != 0) ||
 		(replay_op_header.checkpoint_size != 0) ||
-		((replay_op_header.start_stage != 0) &&
-		 (replay_op_header.start_stage != STAGE_EXTRA)) ||
-		(replay_op_header.start_section != 0) ||
-		(replay_op_header.rank > RANK_LUNATIC) ||
-		(replay_op_header.score_start != 0) ||
-		(replay_op_header.lives_start != replay_op_header.credit_lives) ||
-		(replay_op_header.bombs_start != replay_op_header.credit_bombs) ||
-		(replay_op_header.power_start != 1) ||
-		(replay_op_header.dream_start != ((GAME == 5) ? 1 : 0)) ||
-		(replay_op_header.turbo_mode > 1)
+		(replay_op_header.checkpoint_checksum != 0) ||
+		(replay_op_header.checkpoint_schema != 0) ||
+		((replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) ||
+		(replay_op_header.source_fingerprint != 0) ||
+		(replay_op_header.state_digest != 0) ||
+		(replay_op_header.stage_reached > STAGE_EXTRA) ||
+		!replay_op_start_valid(
+			&replay_op_header.start,
+			(replay_op_header.mode == RUM_PRACTICE)
+		)
 	) {
 		return false;
 	}
-	#if (GAME == 5)
-		if((replay_op_header.playchar > 3) || replay_op_header.shottype) {
-			return false;
-		}
-	#else
-		if((replay_op_header.playchar > 1) ||
-		   (replay_op_header.shottype > 1)) {
-			return false;
-		}
-	#endif
 	for(i = 0; i < sizeof(replay_op_header.reserved); i++) {
 		if(replay_op_header.reserved[i] != 0) {
 			return false;
@@ -342,7 +456,7 @@ static bool replay_op_command_write(replay_command_mode_t mode, uint8_t slot)
 	command.magic[0] = 'T'; command.magic[1] = ('0' + GAME);
 	command.magic[2] = 'R'; command.magic[3] = 'C';
 	command.magic[4] = 'F'; command.magic[5] = 'G';
-	command.magic[6] = '1'; command.magic[7] = '\0';
+	command.magic[6] = '2'; command.magic[7] = '\0';
 	command.mode = mode;
 	command.slot = slot;
 	fh = replay_op_dos_create(replay_op_cfg_fn);
@@ -479,7 +593,8 @@ static replay_op_word_t replay_op_rank_word(uint8_t rank)
 	case RANK_EASY: return ROW_EASY;
 	case RANK_NORMAL: return ROW_NORMAL;
 	case RANK_HARD: return ROW_HARD;
-	default: return ROW_LUNATIC;
+	case RANK_LUNATIC: return ROW_LUNATIC;
+	default: return ROW_EXTRA;
 	}
 }
 
@@ -527,25 +642,25 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 		return;
 	}
 	p = replay_op_word_padded_append(
-		p, replay_op_playchar_word(replay_op_header.playchar), 11
+		p, replay_op_playchar_word(replay_op_header.start.playchar), 11
 	);
 	#if (GAME == 4)
-		*p++ = (replay_op_header.shottype ? 'B' : 'A');
+		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#else
 		*p++ = '-';
 	#endif
 	p = replay_op_spaces_append(p, 5);
 	p = replay_op_word_padded_append(
-		p, replay_op_rank_word(replay_op_header.rank), 10
+		p, replay_op_rank_word(replay_op_header.start.rank), 10
 	);
 	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
 	p = replay_op_spaces_append(p, 2);
-	if(replay_op_header.start_stage == STAGE_EXTRA) {
+	if(replay_op_header.start.stage == STAGE_EXTRA) {
 		p = replay_op_word_append(p, ROW_EXTRA);
 	} else {
 		p = replay_op_word_append(p, ROW_STAGE);
 		*p++ = ' ';
-		*p++ = '1';
+		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
 	}
 	replay_op_line_put(
 		REPLAY_OP_LINE_LEFT, top,

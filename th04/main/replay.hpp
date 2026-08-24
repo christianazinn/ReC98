@@ -8,6 +8,18 @@
 // semantic start before native stage setup derives any state from it.
 void replay_entry(void);
 
+// True only while a direct Practice start still needs the first-run native
+// initialization path. Ordinary stage progression never takes this branch.
+bool replay_practice_run_start_requested(void);
+
+// Applies the portable Practice resources after stage_init() has reset
+// per-stage state and before shot-level and HUD derivation consume them.
+void replay_practice_start_apply_after_reset(void);
+
+// Finishes fields reset by items_init() and consumes the one-shot Practice
+// startup request.
+void replay_practice_items_ready(void);
+
 // Called after native stage setup and before the first frame. Emits or checks
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);

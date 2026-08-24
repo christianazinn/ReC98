@@ -9,6 +9,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th03/formats/cdg.h"
 #include "th04/main/null.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/snd/snd.h"
 #include "th04/sprites/main_cdg.h"
 #if (GAME == 5)
@@ -149,7 +150,10 @@ void near stage_setup(void)
 	stage_is_first = false;
 	vsync_Count2 = 0;
 	stage_id = resident->stage;
-	if((stage_id == 0) || (stage_id == 6)) {
+	if(
+		(stage_id == 0) || (stage_id == 6) ||
+		replay_practice_run_start_requested()
+	) {
 		stage_is_first = true;
 		text_fillca(' ', (TX_BLACK | TX_REVERSE));
 		demo_update = nullfunc_near;

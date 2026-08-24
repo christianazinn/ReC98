@@ -41,13 +41,35 @@ enum replay_runtime_mode_t {
 
 extern unsigned char stage_id;
 extern unsigned char power;
+extern unsigned char rank;
+extern unsigned char playperf;
+extern bool turbo_mode;
 extern unsigned char continues_used;
+extern unsigned char extends_gained;
+extern unsigned long score_delta;
+extern unsigned long score_delta_frame;
+extern unsigned int stage_graze;
+extern int power_overflow;
+extern unsigned int total_std_frames;
+extern unsigned int items_spawned;
+extern unsigned int items_collected;
+extern unsigned int total_point_items_collected;
+// TLINK truncates identifiers past 32 characters. Use the published short
+// alias for total_max_valued_point_items_collected (kb/codegen/0060).
+extern unsigned int total_max_valued_point_items;
+extern unsigned int enemies_gone;
+extern unsigned int enemies_killed;
 #if (GAME == 5)
 	extern unsigned char lives;
 	extern unsigned char bombs;
 	extern unsigned char dream;
+	extern unsigned int stage_point_items_collected;
+	extern unsigned int extend_point_items_collected;
 #else
 	extern unsigned char dream_items_collected;
+	extern unsigned int dream_score;
+	extern unsigned char stage_point_items_collected;
+	extern "C" const unsigned int DREAM_SCORE_PER_ITEMS[];
 #endif
 
 static char replay_cfg_fn[11];
@@ -70,6 +92,8 @@ static bool replay_failed;
 static bool replay_finished;
 static bool replay_stage_seen;
 static uint8_t replay_last_stage;
+static bool replay_practice_start_pending;
+static replay_start_config_t replay_practice_start;
 
 static int replay_dos_open(const char far *fn, unsigned char access)
 {
@@ -375,7 +399,7 @@ static bool replay_buffer_flush(void)
 	}
 	if(
 		!replay_dos_seek(
-			fh, (REPLAY_USER_HEADER_SIZE + replay_payload_written)
+			fh, (replay_header.input_offset + replay_payload_written)
 		) ||
 		(replay_dos_write(fh, replay_buffer, len) != len)
 	) {
@@ -468,6 +492,141 @@ static bool replay_record_control(uint8_t opcode, uint16_t arg, uint8_t arg8)
 	return replay_packet_commit(&packet);
 }
 
+static bool replay_bytes_zero(const uint8_t far *p, unsigned size)
+{
+	while(size != 0) {
+		if(*p++ != 0) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static uint8_t replay_native_playperf(uint8_t start_rank)
+{
+	#if (GAME == 5)
+		if(start_rank == RANK_HARD) {
+			return 44;
+		}
+		if(start_rank == RANK_LUNATIC) {
+			return 48;
+		}
+		return 32;
+	#else
+		if(start_rank == RANK_HARD) {
+			return 20;
+		}
+		if(start_rank == RANK_LUNATIC) {
+			return 22;
+		}
+		return 16;
+	#endif
+}
+
+static bool replay_playperf_valid(uint8_t start_rank, uint8_t value)
+{
+	uint8_t min;
+	uint8_t max;
+
+	#if (GAME == 5)
+		switch(start_rank) {
+		case RANK_EASY: min = 16; max = 32; break;
+		case RANK_NORMAL: min = 24; max = 40; break;
+		case RANK_HARD: min = 44; max = 54; break;
+		case RANK_LUNATIC: min = 48; max = 58; break;
+		default: min = 32; max = 36; break;
+		}
+	#else
+		switch(start_rank) {
+		case RANK_EASY: min = 4; max = 16; break;
+		case RANK_NORMAL: min = 11; max = 24; break;
+		case RANK_HARD: min = 20; max = 32; break;
+		case RANK_LUNATIC: min = 22; max = 34; break;
+		default: min = 16; max = 20; break;
+		}
+	#endif
+	return ((value >= min) && (value <= max));
+}
+
+static bool replay_start_config_valid(
+	const replay_start_config_t far *start, bool practice
+)
+{
+	if(
+		(start->schema != REPLAY_START_SCHEMA) ||
+		(start->kind != (practice ? RSK_STAGE : RSK_NATIVE)) ||
+		(start->stage > STAGE_EXTRA) ||
+		(start->section != 0) ||
+		(start->phase != 0) ||
+		(start->rank > RANK_EXTRA) ||
+		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
+		(start->lives > 9) ||
+		(start->bombs > 9) ||
+		(start->power < 1) ||
+		(start->power > 128) ||
+		(start->continues_used > 9) ||
+		(start->extends_gained > 10) ||
+		(start->turbo_mode > 1) ||
+		((start->stage == STAGE_EXTRA) && !start->turbo_mode) ||
+		(start->score > 99999990UL) ||
+		((start->score % 10UL) != 0) ||
+		(start->credit_lives < 1) ||
+		(start->credit_lives > 6) ||
+		(start->credit_bombs > ((GAME == 5) ? 3 : 2)) ||
+		(start->stage_graze > 999) ||
+		(start->power_overflow > 42) ||
+		!replay_playperf_valid(start->rank, start->playperf) ||
+		!replay_bytes_zero(start->reserved, sizeof(start->reserved))
+	) {
+		return false;
+	}
+	#if (GAME == 5)
+		if(
+			(start->playchar > 3) || (start->shottype != 0) ||
+			(start->dream > 128) ||
+			(start->stage_point_items_collected > 999)
+		) {
+			return false;
+		}
+	#else
+		if(
+			(start->playchar > 1) || (start->shottype > 1) ||
+			(start->dream > 7) ||
+			(start->stage_point_items_collected > 255)
+		) {
+			return false;
+		}
+	#endif
+	if(!practice && (
+		((start->stage != 0) && (start->stage != STAGE_EXTRA)) ||
+		(start->score != 0) ||
+		(start->lives != start->credit_lives) ||
+		(start->bombs != start->credit_bombs) ||
+		(start->power != 1) ||
+		(start->dream != ((GAME == 5) ? 1 : 0)) ||
+		(start->continues_used != 0) ||
+		(start->extends_gained != 0) ||
+		(start->graze != 0) ||
+		(start->std_frames != 0) ||
+		(start->items_spawned != 0) ||
+		(start->items_collected != 0) ||
+		(start->point_items_collected != 0) ||
+		(start->max_valued_point_items_collected != 0) ||
+		(start->enemies_gone != 0) ||
+		(start->enemies_killed != 0) ||
+		(start->miss_count != 0) ||
+		(start->bombs_used != 0) ||
+		(start->stage_point_items_collected != 0) ||
+		(start->stage_graze != 0) ||
+		(start->power_overflow != 0) ||
+		(start->playperf != replay_native_playperf(start->rank))
+	)) {
+		return false;
+	}
+	return true;
+}
+
 static bool replay_header_read(void)
 {
 	uint32_t stored;
@@ -495,7 +654,7 @@ static bool replay_header_read(void)
 		(replay_header.magic[2] != 'R') ||
 		(replay_header.magic[3] != 'P') ||
 		(replay_header.magic[4] != 'Y') ||
-		(replay_header.magic[5] != '1') ||
+		(replay_header.magic[5] != '2') ||
 		(replay_header.magic[6] != '\0') ||
 		(replay_header.magic[7] != '\0')
 	) {
@@ -505,12 +664,16 @@ static bool replay_header_read(void)
 		(replay_header.version != REPLAY_USER_VERSION) ||
 		(replay_header.header_size != REPLAY_USER_HEADER_SIZE) ||
 		(replay_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
-		(replay_header.flags !=
-			(REPLAY_USER_FLAG_RLE_INPUT | REPLAY_USER_FLAG_SHIFT_INPUT)) ||
+		((replay_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
+		((replay_header.flags & (REPLAY_USER_FLAG_RLE_INPUT |
+		 REPLAY_USER_FLAG_SHIFT_INPUT)) !=
+		 (REPLAY_USER_FLAG_RLE_INPUT | REPLAY_USER_FLAG_SHIFT_INPUT)) ||
 		(replay_header.status != RUS_FINALIZED) ||
 		(replay_header.game_id != GAME) ||
 		(replay_header.ruleset != REPLAY_USER_RULESET_STOCK) ||
-		(replay_header.mode != RUM_STORY) ||
+		(replay_header.mode > RUM_PRACTICE) ||
+		((replay_header.mode == RUM_PRACTICE) !=
+		 ((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
 		(replay_header.input_offset != REPLAY_USER_HEADER_SIZE) ||
 		(replay_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
@@ -518,31 +681,21 @@ static bool replay_header_read(void)
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
 		(replay_header.input_size !=
 			(replay_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
-		(file_size != (REPLAY_USER_HEADER_SIZE + replay_header.input_size)) ||
+		(file_size != (replay_header.input_offset + replay_header.input_size)) ||
 		(replay_header.checkpoint_offset != 0) ||
 		(replay_header.checkpoint_size != 0) ||
-		((replay_header.start_stage != 0) &&
-		 (replay_header.start_stage != STAGE_EXTRA)) ||
-		(replay_header.start_section != 0) ||
-		(replay_header.rank > RANK_LUNATIC) ||
-		(replay_header.score_start != 0) ||
-		(replay_header.lives_start != replay_header.credit_lives) ||
-		(replay_header.bombs_start != replay_header.credit_bombs) ||
-		(replay_header.power_start != 1) ||
-		(replay_header.dream_start != ((GAME == 5) ? 1 : 0)) ||
-		(replay_header.turbo_mode > 1)
+		(replay_header.checkpoint_checksum != 0) ||
+		(replay_header.checkpoint_schema != 0) ||
+		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) ||
+		(replay_header.source_fingerprint != 0) ||
+		(replay_header.state_digest != 0) ||
+		(replay_header.stage_reached > STAGE_EXTRA) ||
+		!replay_start_config_valid(
+			&replay_header.start, (replay_header.mode == RUM_PRACTICE)
+		)
 	) {
 		return false;
 	}
-	#if (GAME == 5)
-		if((replay_header.playchar > 3) || (replay_header.shottype != 0)) {
-			return false;
-		}
-	#else
-		if((replay_header.playchar > 1) || (replay_header.shottype > 1)) {
-			return false;
-		}
-	#endif
 	for(i = 0; i < sizeof(replay_header.reserved); i++) {
 		if(replay_header.reserved[i] != 0) {
 			return false;
@@ -579,7 +732,7 @@ static bool replay_packet_read(replay_user_packet_t far *packet)
 		if(
 			!replay_dos_seek(
 				fh,
-				(REPLAY_USER_HEADER_SIZE +
+				(replay_header.input_offset +
 				 (replay_packet_cursor * REPLAY_USER_PACKET_SIZE))
 			) ||
 			(replay_dos_read(fh, replay_buffer, len) != len)
@@ -702,7 +855,7 @@ static void replay_header_capture(void)
 	replay_header.magic[2] = 'R';
 	replay_header.magic[3] = 'P';
 	replay_header.magic[4] = 'Y';
-	replay_header.magic[5] = '1';
+	replay_header.magic[5] = '2';
 	replay_header.version = REPLAY_USER_VERSION;
 	replay_header.header_size = REPLAY_USER_HEADER_SIZE;
 	replay_header.packet_size = REPLAY_USER_PACKET_SIZE;
@@ -713,28 +866,31 @@ static void replay_header_capture(void)
 	replay_header.game_id = GAME;
 	replay_header.ruleset = REPLAY_USER_RULESET_STOCK;
 	replay_header.mode = RUM_STORY;
-	replay_header.rank = resident->rank;
-	#if (GAME == 5)
-		replay_header.playchar = resident->playchar;
-		replay_header.shottype = 0;
-	#else
-		replay_header.playchar = (resident->playchar_ascii - '0');
-		replay_header.shottype = resident->shottype;
-	#endif
-	replay_header.start_stage = resident->stage;
-	replay_header.stage_reached = resident->stage;
 	replay_header.input_semantics = REPLAY_USER_INPUT_SEMANTICS;
 	replay_header.input_offset = REPLAY_USER_HEADER_SIZE;
-	replay_header.resident_rand = resident->rand;
-	replay_header.random_seed = random_seed;
-	replay_header.score_start = 0;
-	replay_header.credit_lives = resident->credit_lives;
-	replay_header.credit_bombs = resident->credit_bombs;
-	replay_header.lives_start = resident->credit_lives;
-	replay_header.bombs_start = resident->credit_bombs;
-	replay_header.power_start = 1;
-	replay_header.dream_start = ((GAME == 5) ? 1 : 0);
-	replay_header.turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
+	replay_header.start.schema = REPLAY_START_SCHEMA;
+	replay_header.start.kind = RSK_NATIVE;
+	replay_header.start.stage = resident->stage;
+	replay_header.start.rank = (
+		(resident->stage == STAGE_EXTRA) ? RANK_EXTRA : resident->rank
+	);
+	#if (GAME == 5)
+		replay_header.start.playchar = resident->playchar;
+		replay_header.start.shottype = 0;
+	#else
+		replay_header.start.playchar = (resident->playchar_ascii - '0');
+		replay_header.start.shottype = resident->shottype;
+	#endif
+	replay_header.stage_reached = resident->stage;
+	replay_header.start.resident_rand = resident->rand;
+	replay_header.start.random_seed = random_seed;
+	replay_header.start.credit_lives = resident->credit_lives;
+	replay_header.start.credit_bombs = resident->credit_bombs;
+	replay_header.start.lives = resident->credit_lives;
+	replay_header.start.bombs = resident->credit_bombs;
+	replay_header.start.power = 1;
+	replay_header.start.dream = ((GAME == 5) ? 1 : 0);
+	replay_header.start.turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
 	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
 		replay_header.name[i] = ' ';
 	}
@@ -763,33 +919,158 @@ static void replay_header_capture(void)
 	);
 }
 
-static void replay_header_apply(void)
+static void replay_start_capture_live(void)
 {
-	resident->rand = replay_header.resident_rand;
-	random_seed = replay_header.random_seed;
-	resident->rank = replay_header.rank;
-	resident->stage = replay_header.start_stage;
-	resident->credit_lives = replay_header.credit_lives;
-	resident->credit_bombs = replay_header.credit_bombs;
-	resident->cfg_lives = replay_header.credit_lives;
-	resident->cfg_bombs = replay_header.credit_bombs;
-	resident->turbo_mode = (replay_header.turbo_mode != 0);
-	resident->demo_num = 0;
-	resident->debug = false;
+	replay_start_config_t far *start = &replay_header.start;
+
+	start->stage = stage_id;
+	start->rank = rank;
+	start->lives = replay_lives();
+	start->bombs = replay_bombs();
+	start->power = power;
+	start->dream = replay_dream();
+	start->playperf = playperf;
+	start->turbo_mode = static_cast<uint8_t>(turbo_mode);
+	start->continues_used = continues_used;
+	start->extends_gained = extends_gained;
+	start->score = replay_score_points();
+	start->graze = resident->graze;
+	start->std_frames = total_std_frames;
+	start->items_spawned = items_spawned;
+	start->items_collected = items_collected;
+	start->point_items_collected = total_point_items_collected;
+	start->max_valued_point_items_collected =
+		total_max_valued_point_items;
+	start->enemies_gone = enemies_gone;
+	start->enemies_killed = enemies_killed;
+	start->miss_count = resident->miss_count;
+	start->bombs_used = resident->bombs_used;
+	start->stage_point_items_collected = stage_point_items_collected;
+	start->stage_graze = stage_graze;
+	start->power_overflow = static_cast<uint16_t>(power_overflow);
+}
+
+static void replay_score_apply(uint32_t points, uint8_t continues)
+{
+	unsigned i;
+
+	points /= 10UL;
+	score.digits[0] = continues;
+	for(i = 1; i < SCORE_DIGITS; i++) {
+		score.digits[i] = static_cast<uint8_t>(points % 10UL);
+		points /= 10UL;
+	}
+	score_delta = 0;
+	score_delta_frame = 0;
+}
+
+static void replay_practice_start_apply(void)
+{
+	const replay_start_config_t far *start;
+
+	if(!replay_practice_start_pending) {
+		return;
+	}
+	start = &replay_practice_start;
+	replay_score_apply(start->score, start->continues_used);
+	playperf = start->playperf;
+	extends_gained = start->extends_gained;
+	power = start->power;
+	power_overflow = start->power_overflow;
+	stage_graze = start->stage_graze;
+	stage_point_items_collected = start->stage_point_items_collected;
+	total_std_frames = start->std_frames;
+	items_spawned = start->items_spawned;
+	items_collected = start->items_collected;
+	total_point_items_collected = start->point_items_collected;
+	total_max_valued_point_items =
+		start->max_valued_point_items_collected;
+	enemies_gone = start->enemies_gone;
+	enemies_killed = start->enemies_killed;
+	resident->graze = start->graze;
+	resident->std_frames = start->std_frames;
+	resident->items_spawned = start->items_spawned;
+	resident->items_collected = start->items_collected;
+	resident->point_items_collected = start->point_items_collected;
+	resident->max_valued_point_items_collected =
+		start->max_valued_point_items_collected;
+	resident->enemies_gone = start->enemies_gone;
+	resident->enemies_killed = start->enemies_killed;
+	resident->miss_count = start->miss_count;
+	resident->bombs_used = start->bombs_used;
 	#if (GAME == 5)
-		resident->playchar = replay_header.playchar;
-		resident->debug_stage = 0;
-		resident->debug_power = 0;
+		lives = start->lives;
+		bombs = start->bombs;
+		dream = start->dream;
+		extend_point_items_collected = start->point_items_collected;
 	#else
-		resident->playchar_ascii = ('0' + replay_header.playchar);
-		resident->stage_ascii = ('0' + replay_header.start_stage);
-		resident->shottype = replay_header.shottype;
+		resident->rem_lives = start->lives;
+		resident->rem_bombs = start->bombs;
+		dream_items_collected = start->dream;
 	#endif
 }
 
-static replay_command_mode_t replay_command_load(uint8_t far *slot)
+bool replay_practice_run_start_requested(void)
+{
+	return replay_practice_start_pending;
+}
+
+void replay_practice_start_apply_after_reset(void)
+{
+	replay_practice_start_apply();
+}
+
+void replay_practice_items_ready(void)
+{
+	if(!replay_practice_start_pending) {
+		return;
+	}
+	#if (GAME == 4)
+		dream_score = DREAM_SCORE_PER_ITEMS[dream_items_collected];
+	#endif
+	replay_practice_start_pending = false;
+}
+
+static void replay_header_apply(void)
+{
+	const replay_start_config_t far *start = &replay_header.start;
+
+	resident->rand = start->resident_rand;
+	random_seed = start->random_seed;
+	// Extra is selected through [resident->stage]. [resident->rank] remains the
+	// configured Story rank and must never receive the semantic Extra rank.
+	if(start->stage != STAGE_EXTRA) {
+		resident->rank = start->rank;
+	}
+	resident->stage = start->stage;
+	resident->credit_lives = start->credit_lives;
+	resident->credit_bombs = start->credit_bombs;
+	resident->cfg_lives = start->credit_lives;
+	resident->cfg_bombs = start->credit_bombs;
+	resident->turbo_mode = (start->turbo_mode != 0);
+	resident->demo_num = 0;
+	resident->debug = false;
+	#if (GAME == 5)
+		resident->playchar = start->playchar;
+		resident->debug_stage = 0;
+		resident->debug_power = 0;
+	#else
+		resident->playchar_ascii = ('0' + start->playchar);
+		resident->stage_ascii = ('0' + start->stage);
+		resident->shottype = start->shottype;
+	#endif
+	if(replay_header.mode == RUM_PRACTICE) {
+		replay_copy(&replay_practice_start, start, sizeof(*start));
+		replay_practice_start_pending = true;
+	}
+}
+
+static replay_command_mode_t replay_command_load(
+	uint8_t far *slot, uint8_t far *flags, replay_start_config_t far *start
+)
 {
 	replay_command_t command;
+	uint32_t file_size;
 	int fh;
 	unsigned i;
 
@@ -799,9 +1080,12 @@ static replay_command_mode_t replay_command_load(uint8_t far *slot)
 	}
 	replay_memclear(&command, sizeof(command));
 	i = replay_dos_read(fh, &command, sizeof(command));
+	if(!replay_dos_size(fh, &file_size)) {
+		file_size = 0;
+	}
 	replay_dos_close(fh);
 	replay_dos_delete(replay_cfg_fn);
-	if(i != sizeof(command)) {
+	if((i != sizeof(command)) || (file_size != sizeof(command))) {
 		return RCM_NONE;
 	}
 	if(
@@ -811,9 +1095,11 @@ static replay_command_mode_t replay_command_load(uint8_t far *slot)
 		(command.magic[3] != 'C') ||
 		(command.magic[4] != 'F') ||
 		(command.magic[5] != 'G') ||
-		(command.magic[6] != '1') ||
+		(command.magic[6] != '2') ||
 		(command.magic[7] != '\0') ||
-		(command.slot >= REPLAY_USER_SLOT_COUNT)
+		(command.slot >= REPLAY_USER_SLOT_COUNT) ||
+		((command.flags & ~REPLAY_COMMAND_KNOWN_FLAGS) != 0) ||
+		(command.reserved_0 != 0)
 	) {
 		return RCM_NONE;
 	}
@@ -825,7 +1111,29 @@ static replay_command_mode_t replay_command_load(uint8_t far *slot)
 	if((command.mode != RCM_RECORD) && (command.mode != RCM_PLAYBACK)) {
 		return RCM_NONE;
 	}
+	if(command.mode == RCM_PLAYBACK) {
+		if(
+			(command.flags != 0) ||
+			!replay_bytes_zero(
+				reinterpret_cast<const uint8_t far *>(&command.start),
+				sizeof(command.start)
+			)
+		) {
+			return RCM_NONE;
+		}
+	} else if(command.flags & REPLAY_COMMAND_FLAG_PRACTICE) {
+		if(!replay_start_config_valid(&command.start, true)) {
+			return RCM_NONE;
+		}
+	} else if(!replay_bytes_zero(
+		reinterpret_cast<const uint8_t far *>(&command.start),
+		sizeof(command.start)
+	)) {
+		return RCM_NONE;
+	}
 	*slot = command.slot;
+	*flags = command.flags;
+	replay_copy(start, &command.start, sizeof(command.start));
 	return static_cast<replay_command_mode_t>(command.mode);
 }
 
@@ -833,6 +1141,8 @@ void replay_entry(void)
 {
 	replay_command_mode_t command_mode;
 	uint8_t slot;
+	uint8_t command_flags;
+	replay_start_config_t command_start;
 
 	if(replay_mode != RRM_DISABLED) {
 		return;
@@ -844,7 +1154,7 @@ void replay_entry(void)
 		replay_dos_delete(replay_cfg_fn);
 		return;
 	}
-	command_mode = replay_command_load(&slot);
+	command_mode = replay_command_load(&slot, &command_flags, &command_start);
 	if(command_mode == RCM_NONE) {
 		return;
 	}
@@ -861,10 +1171,24 @@ void replay_entry(void)
 	replay_failed = false;
 	replay_finished = false;
 	replay_stage_seen = false;
+	replay_practice_start_pending = false;
 
 	if(command_mode == RCM_RECORD) {
 		replay_mode = RRM_RECORD;
 		replay_header_capture();
+		if(command_flags & REPLAY_COMMAND_FLAG_PRACTICE) {
+			replay_header.flags |= REPLAY_USER_FLAG_PRACTICE;
+			replay_header.mode = RUM_PRACTICE;
+			replay_copy(
+				&replay_header.start, &command_start, sizeof(command_start)
+			);
+			replay_header.stage_reached = command_start.stage;
+			replay_copy(
+				&replay_practice_start, &command_start, sizeof(command_start)
+			);
+			replay_practice_start_pending = true;
+			replay_header_apply();
+		}
 		if(!replay_header_write(true)) {
 			replay_fail();
 			replay_mode = RRM_DISABLED;
@@ -892,11 +1216,7 @@ void replay_stage_start(void)
 				replay_score_points();
 		}
 		if(!replay_stage_seen) {
-			replay_header.start_stage = stage_id;
-			replay_header.lives_start = replay_lives();
-			replay_header.bombs_start = replay_bombs();
-			replay_header.power_start = power;
-			replay_header.dream_start = replay_dream();
+			replay_start_capture_live();
 		}
 		replay_header.stage_reached = stage_id;
 		if(
@@ -1060,6 +1380,8 @@ bool replay_process_end(void)
 		replay_header.score_final = replay_score_points();
 		replay_header.lives_final = replay_lives();
 		replay_header.bombs_final = replay_bombs();
+		replay_header.power_final = power;
+		replay_header.dream_final = replay_dream();
 		if(!replay_failed) {
 			if(
 				!replay_record_control(

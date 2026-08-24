@@ -61,6 +61,7 @@
 #include "platform.h"
 #include "pc98.h"
 #include "th04/main/playfld.hpp"
+#include "th04/main/replay.hpp"
 
 // Declarations for the unguarded headers this file cannot reach:
 // th04/main/frames.h, th04/main/player/player.hpp, th02/main/player/player.hpp,
@@ -208,6 +209,7 @@ void near stage_init(void)
 #else
 	shot_time = 0;
 #endif
+	replay_practice_start_apply_after_reset();
 	std_update = std_update_frames_then_animate_dialog_and_activate_boss_if_done;
 	scroll_active = true;
 #if (GAME == 4)
@@ -215,10 +217,12 @@ void near stage_init(void)
 	nopcall_same_group(player_shot_level_update);
 	randring_fill();
 	items_init();
+	replay_practice_items_ready();
 #else
 	nopcall_same_group(player_shot_level_update);
 	randring_fill();
 	items_init();
+	replay_practice_items_ready();
 #endif
 	bomb_reset();
 	sparks_init();
