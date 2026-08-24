@@ -4,6 +4,7 @@
 #include "th04/hardware/inputvar.h"
 #include "th04/main/frames.h"
 #include "th04/main/demo.hpp"
+#include "th04/main/oracle.hpp"
 #if (GAME == 5)
 #include "th05/resident.hpp"
 #else
@@ -42,6 +43,20 @@ void near DemoPlay(void)
 #else
 	#define shift_offset DEMO_N
 #endif
+
+	// ORACLE MOD: the injection seam. The per-frame demo callback already
+	// points here on the demo path, so no ASM edit is needed anywhere.
+	//
+	// The oracle deliberately does NOT reproduce the abort-on-keypress guard
+	// below: it would make playback depend on the host keyboard, which is the
+	// opposite of an oracle. Recorded as a deviation in the delta index.
+	if(oracle_active()) {
+		if(oracle_frame(shift_offset)) {
+			return;
+		}
+		demo_end();
+		return;
+	}
 
 	// In TH04, replay playback ends by pressing anything. In TH05, only the
 	// non-movement inputs (shot, bomb, cancel, OK, and Q) work.

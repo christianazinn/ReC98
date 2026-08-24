@@ -17,6 +17,7 @@
 #include "th04/shiftjis/fns.hpp"
 #endif
 #include "th04/main/ems.hpp"
+#include "th04/main/oracle.hpp" // ORACLE MOD
 
 extern char *eyename;	/* ZUN symbol [MAGNet2010] */
 extern char *bbname; 	/* ZUN symbol [MAGNet2010] */
@@ -58,6 +59,12 @@ void near ems_allocate_and_preload_eyecatch(void)
 {
 	#undef EMS_NAME
 	extern const char EMS_NAME[];
+
+	// ORACLE MOD: the earliest hook in MAIN at which the packfile is open, the
+	// resident structure exists, and nothing has been derived from it yet --
+	// the very next lines below are the first such derivation. Pins or applies
+	// the case's scenario; a no-op unless T?CASE.CFG exists.
+	oracle_entry();
 
 	// Luckily, these assignments are also done later, and the game doesn't
 	// rely on them inbetween.
