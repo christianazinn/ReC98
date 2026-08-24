@@ -355,9 +355,10 @@ bool near yuki_1B973(void)
 
 #pragma option -a2
 
-// `extern "C"` + `pascal`: the module published the undecorated upper-case
-// `YUKI_UPDATE`, and th05_main.asm's mai_yuki_update() resolves its
-// `setfarfp _boss_update` against that spelling (kb/codegen 0081 + 0102).
+// `extern "C"` + `pascal` makes yuki_update() publish an undecorated,
+// upper-case OMF name. th05_main.asm's mai_yuki_update() resolves its
+// `setfarfp _boss_update` against that generated spelling
+// (kb/codegen 0081 + 0102).
 extern "C" void pascal yuki_update(void)
 {
 	homing_target = boss.pos.cur;

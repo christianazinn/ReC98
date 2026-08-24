@@ -100,8 +100,8 @@ void pascal exalice_update(void)
 	bullet_template.origin = boss.pos.cur;
 	gather_template.center = boss.pos.cur;
 	laser_template.coords.origin = boss.pos.cur;
-	// th05_main.asm spells this one `cheeto_template.pos.cur`, over its own
-	// cheeto_head_t-shaped overlay of the same four bytes.
+	// The former dump addressed these four bytes through its own
+	// cheeto_head_t-shaped overlay; the C++ template names them [origin].
 	cheeto_template.origin = boss.pos.cur;
 	boss.phase_frame++;
 

@@ -63,11 +63,10 @@ extern unsigned int enemies_killed;
 // The enemy .STD script interpreter, still ASM in th05_main.asm's
 // main_031_TEXT and reached with an ordinary near call from here because both
 // segments are in the MAIN_03 group. The dump gave it no `public` of its own,
-// so this lift added the zero-byte `label near` alias kb/codegen/0123
-// prescribes; the dump's own call sites keep the bare spelling. Nothing in
-// either dump, any header, ReC98's history or upstream/master ever named it,
-// so the placeholder stays (kb/conventions/naming-precedents.md section 3).
-extern "C" void near sub_1535A(void);
+// so the root exposes the zero-byte `label near` alias kb/codegen/0123
+// prescribes. [inferred] Name by the mirror rule: TH03 and TH04 use enemy_run()
+// for the interpreter in this same slot of the per-enemy update loop.
+extern "C" void near enemy_run(void);
 
 /// Box extents
 /// -----------
@@ -142,7 +141,7 @@ extern "C" void pascal enemies_update(void)
 		enemy_cur = enemy;
 
 		if(enemy->flag < EF_KILL_ANIM) {
-			sub_1535A();
+			enemy_run();
 
 			if(
 				(enemy->kills_player_on_collision) &&

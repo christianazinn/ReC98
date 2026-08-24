@@ -159,7 +159,8 @@ void pascal near stage_clear_bonus_multipliers_apply(unsigned long far *points)
 /// leaving the term in EAX, which is exactly what -Z does and what the
 /// original's bytes show. They also have to be spelled as bytes: Turbo C++
 /// 4.02's inline assembler has no 32-bit register names, and rejects `push eax`
-/// with `Undefined symbol 'eax'`. `66 50` is `push eax`; a bare `66` operand-
+/// with the diagnostic "Undefined symbol 'eax'". `66 50` is `push eax`; a bare
+/// `66` operand-
 /// size prefix in front of a 16-bit memory push widens it to `push dword ptr`,
 /// which keeps BASM computing [points]'s own frame offset instead of us
 /// hardcoding one.

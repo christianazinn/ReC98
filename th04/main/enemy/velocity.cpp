@@ -52,8 +52,9 @@ extern "C" void pascal near enemy_velocity_set_aimed(void)
 	// TH05, but never with the same scope: TH03's
 	// enemy_velocity_set_from_angle_and_speed() (th03/main/enemy/enemy.cpp:423,
 	// upstream-labelled "ZUN bloat: Yes, no point to this at all…") wraps only
-	// its vector2() call, TH05's sub_15330 wraps only the aiming call and
-	// leaves enemy_velocity_set() outside, and this one wraps both. It is a
+	// its vector2() call, TH05's enemy_velocity_set_aimed() wraps only the
+	// aiming call and leaves enemy_velocity_set() outside, and this one wraps
+	// both. It is a
 	// habit ZUN carried between games, not a body that was copied across.
 	asm { push es; }
 	p->angle = (iatan2(

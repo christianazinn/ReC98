@@ -9,7 +9,7 @@
 /// is below the flash cel set, i.e. the two ordinary colours. A ball already
 /// showing a flash cel is blitted as it is.
 ///
-/// (#included from th05/b6cbull.cpp, ahead of th05/main/boss/b4_fg.cpp. The
+/// (#included from th05/b6cbull.cpp, ahead of th05/main/boss/b4_solo_fg.cpp. The
 /// module this replaces was the last thing th05_main.asm contributed to
 /// MIDBOSSX_TEXT, and this object is the segment's next contribution, so the
 /// C++ side grows backwards into the hole and every byte above it keeps its

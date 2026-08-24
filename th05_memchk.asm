@@ -51,10 +51,10 @@ loc_131:
 		mov	cx, 10000
 		div	cx
 		mov	cx, 10
-		call	sub_15F
+		call	dos_put_decimal_places
 		mov	ax, dx
 		mov	cx, 1000
-		call	sub_15F
+		call	dos_put_decimal_places
 		mov	dx, offset aGogcggvVV ; " バイトですの\r\n$"
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
@@ -72,7 +72,7 @@ start endp			; AL = exit code
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_15F proc near
+dos_put_decimal_places proc near
 		pushf
 		pusha
 		mov	bx, ax
@@ -102,7 +102,7 @@ loc_17B:
 		popa
 		popf
 		retn
-sub_15F endp
+dos_put_decimal_places endp
 
 ; ---------------------------------------------------------------------------
 aVavVVGbgcgugbg	db 'あなたのメインメモリ空き容量は $'

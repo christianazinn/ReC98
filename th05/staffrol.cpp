@@ -4,12 +4,10 @@
 /// that dump: with this body gone, th05_maine.asm contributes zero bytes of
 /// code to TH05's MAINE.EXE.
 ///
-/// It cannot go into th05/space.cpp, which took the head of the same block:
-/// th05/end/verdict_bitmap.asm sits between the two and stays in the dump, so
-/// this object has to contribute AFTER the dump rather than before it. Its
-/// Tupfile.lua line is therefore POSITION-CRITICAL in the opposite direction
-/// from that one's — immediately AFTER "th05_maine.asm", or this body would
-/// land in front of verdict_bitmap.asm instead of behind it
+/// It cannot go into th05/space.cpp, which took the head of the same block.
+/// th05/verd_bmp.cpp now contributes the middle bytes that formerly came from
+/// the verdict-bitmap ASM module, so this object still has to follow both the
+/// dump and that object. Their Tupfile.lua order is POSITION-CRITICAL
 /// (kb/codegen/0099 + 0112 + 0114).
 ///
 /// Both pragmas have to precede every emitted byte (kb/codegen/0138), and both
