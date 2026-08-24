@@ -2224,781 +2224,6 @@ loc_143E1:
 @midboss2_update_and_render$qv	endp
 
 
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_bg_render
-_meira_bg_render label far
-meira_bg_render	proc far
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_left_on_page
-		mov	_boss_left_on_back_page, ax
-		mov	al, _page_back
-		mov	ah, 0
-		add	ax, ax
-		add	ax, offset _boss_top_on_page
-		mov	_boss_top_on_back_page, ax
-		mov	bx, _boss_left_on_back_page
-		push	word ptr [bx]	; left
-		mov	bx, _boss_top_on_back_page
-		push	word ptr [bx]	; top
-		push	(64 shl 16) or 64	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-		cmp	word_250FE, 0
-		jz	loc_144ED
-		xor	si, si
-		jmp	loc_144E6
-; ---------------------------------------------------------------------------
-
-loc_14428:
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word ptr byte_250E6[bx]
-		mov	bx, _boss_left_on_back_page
-		cmp	ax, [bx]
-		jz	short loc_14493
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word ptr byte_250F2[bx]
-		mov	bx, _boss_top_on_back_page
-		cmp	ax, [bx]
-		jz	short loc_14493
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr byte_250E6[bx]	; left
-		mov	al, _page_back
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		push	word ptr byte_250F2[bx]	; top
-		push	(64 shl 16) or 64	; (w shl 16) or h
-		call	@tiles_invalidate_rect$qiiii
-
-loc_14493:
-		mov	al, _page_front
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word ptr byte_250E6[bx]
-		mov	dl, _page_back
-		mov	dh, 0
-		imul	dx, 6
-		mov	bx, si
-		add	bx, bx
-		add	dx, bx
-		mov	bx, dx
-		mov	word ptr byte_250E6[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		imul	ax, 6
-		mov	dx, si
-		add	dx, dx
-		add	ax, dx
-		mov	bx, ax
-		mov	ax, word ptr byte_250F2[bx]
-		mov	dl, _page_back
-		mov	dh, 0
-		imul	dx, 6
-		mov	bx, si
-		add	bx, bx
-		add	dx, bx
-		mov	bx, dx
-		mov	word ptr byte_250F2[bx], ax
-		inc	si
-
-loc_144E6:
-		cmp	si, 3
-		jl	loc_14428
-
-loc_144ED:
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_left_on_page[bx]
-		mov	bx, _boss_left_on_back_page
-		mov	[bx], ax
-		mov	al, _page_front
-		mov	ah, 0
-		add	ax, ax
-		mov	bx, ax
-		mov	ax, _boss_top_on_page[bx]
-		mov	bx, _boss_top_on_back_page
-		mov	[bx], ax
-		call	meira_146EF
-		pop	si
-		pop	bp
-		retf
-meira_bg_render	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14519
-_meira_14519 label near
-meira_14519	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax
-		push	word_1EDAA
-		call	@BOSS_EXPLODE_RENDER$QIII
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 24
-		push	ax
-		mov	ax, word_1EDAA
-		add	ax, 0FFE8h
-		push	ax
-		call	@BOSS_EXPLODE_RENDER$QIII
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 48
-		push	ax	; left
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 48
-		push	ax	; top
-		push	(((3 shl 4) + 12) shl 16) or 1	; (speed_base shl 16) or count
-		push	0	; as_sprite
-		call	@sparks_add$qiuiiii
-		mov	di, 0Ah
-		mov	ax, word_1EDAA
-		add	ax, 0FFE0h
-		mov	bx, 0Ah
-		cwd
-		idiv	bx
-		add	di, ax
-		inc	word_1EDAA
-		cmp	word_1EDAA, 60h
-		jl	short loc_1459F
-		mov	word_1EDAA, 0
-		mov	ax, 1
-		jmp	short loc_145DD
-; ---------------------------------------------------------------------------
-
-loc_1459F:
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_145B3
-		sub	si, RES_Y
-
-loc_145B3:
-		cmp	_boss_phase_frame, 32
-		jge	short loc_145CC
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put pascal, word ptr [bx], si, patnum_2064E
-		jmp	short loc_145DB
-; ---------------------------------------------------------------------------
-
-loc_145CC:
-		mov	bx, _boss_left_on_back_page
-		call	super_zoom pascal, word ptr [bx], si, di, 2
-
-loc_145DB:
-		xor	ax, ax
-
-loc_145DD:
-		pop	di
-		pop	si
-		pop	bp
-		retn
-meira_14519	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_145E1
-_meira_145E1 label near
-meira_145E1	proc near
-
-@@damage		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 2
-		push	si
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		cmp	ax, _player_topleft.x
-		jg	short loc_1461A
-		add	ax, 32
-		cmp	ax, _player_topleft.x
-		jle	short loc_1461A
-		lea	ax, [si-16]
-		cmp	ax, _player_topleft.y
-		jge	short loc_1461A
-		lea	ax, [si+32]
-		cmp	ax, _player_topleft.y
-		jle	short loc_1461A
-		mov	_player_is_hit, 1
-
-loc_1461A:
-		add	si, _scroll_line
-		cmp	si, RES_Y
-		jl	short loc_14628
-		sub	si, RES_Y
-
-loc_14628:
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 8
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		push	word ptr [bx]
-		push	300030h
-		call	@SHOTS_HITTEST$QIIII
-		mov	[bp+@@damage], ax
-		or	ax, ax
-		jz	short loc_14689
-		add	_boss_damage, ax
-		call	_snd_se_play c, 4
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put_1plane pascal, word ptr [bx], si, patnum_2064E, large PLANE_PUT or GC_BRGI
-		cmp	_boss_damage, 2400
-		jl	short loc_14699
-		mov	byte_2066A, 1
-		add	_score_delta, 30000
-		mov	_player_invincibility_time, BOSS_DEFEAT_INVINCIBILITY_FRAMES
-		jmp	short loc_14699
-; ---------------------------------------------------------------------------
-
-loc_14689:
-		mov	bx, _boss_left_on_back_page
-		call	super_roll_put pascal, word ptr [bx], si, patnum_2064E
-
-loc_14699:
-		pop	si
-		leave
-		retn
-meira_145E1	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-meira_1469C	proc near
-
-arg_0		= byte ptr  4
-arg_2		= byte ptr  6
-arg_4		= byte ptr  8
-arg_6		= byte ptr  0Ah
-arg_8		= word ptr  0Ch
-arg_A		= word ptr  0Eh
-
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	cx, [bp+arg_A]
-		mov	di, [bp+arg_8]
-		mov	si, offset byte_25100
-		xor	dx, dx
-		jmp	short loc_146E4
-; ---------------------------------------------------------------------------
-
-loc_146AE:
-		cmp	byte ptr [si], 0
-		jnz	short loc_146E0
-		mov	byte ptr [si], 1
-		mov	al, [bp+arg_4]
-		mov	[si+1],	al
-		mov	[si+2],	cx
-		mov	[si+4],	di
-		mov	al, [bp+arg_6]
-		mov	[si+6],	al
-		mov	byte ptr [si+7], 0
-		mov	al, [bp+arg_2]
-		mov	[si+8],	al
-		mov	al, byte_252E0
-		mov	[si+9],	al
-		mov	al, [bp+arg_0]
-		mov	[si+0Ah], al
-		jmp	short loc_146E9
-; ---------------------------------------------------------------------------
-
-loc_146E0:
-		inc	dx
-		add	si, 0Ch
-
-loc_146E4:
-		cmp	dx, 28h	; '('
-		jl	short loc_146AE
-
-loc_146E9:
-		pop	di
-		pop	si
-		pop	bp
-		retn	0Ch
-meira_1469C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-meira_146EF	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		push	di
-		mov	si, offset byte_25100
-		xor	di, di
-		jmp	short loc_1471D
-; ---------------------------------------------------------------------------
-
-loc_146FB:
-		cmp	byte ptr [si], 0
-		jz	short loc_14719
-		call	@tiles_invalidate_rect$qiiii pascal, word ptr [si+2], word ptr [si+4], (32 shl 16) or 32
-		cmp	byte ptr [si], 2
-		jnz	short loc_14719
-		mov	byte ptr [si], 0
-
-loc_14719:
-		inc	di
-		add	si, 0Ch
-
-loc_1471D:
-		cmp	di, 28h	; '('
-		jl	short loc_146FB
-		pop	di
-		pop	si
-		pop	bp
-		retn
-meira_146EF	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_14726
-_meira_14726 label near
-meira_14726	proc near
-
-@@patnum		= word ptr -4
-var_2		= word ptr -2
-
-		push	bp
-		mov	bp, sp
-		sub	sp, 4
-		push	si
-		push	di
-		mov	si, offset byte_25100
-		mov	[bp+var_2], 0
-		jmp	loc_1482F
-; ---------------------------------------------------------------------------
-
-loc_14739:
-		cmp	byte ptr [si], 1
-		jnz	loc_14829
-		cmp	byte ptr [si+0Ah], 0
-		jbe	short loc_147A3
-		mov	di, [si+4]
-		add	di, _scroll_line
-		cmp	di, RES_Y
-		jl	short loc_14757
-		sub	di, RES_Y
-
-loc_14757:
-		push	word ptr [si+2]
-		push	di
-		mov	al, [si+9]
-		mov	ah, 0
-		push	ax
-		call	super_roll_put_tiny
-		dec	byte ptr [si+0Ah]
-		mov	ax, [si+2]
-		add	ax, -16
-		cmp	ax, _player_topleft.x
-		jg	loc_14829
-		mov	ax, [si+2]
-		cmp	ax, _player_topleft.x
-		jl	loc_14829
-		mov	ax, [si+4]
-		add	ax, -16
-		cmp	ax, _player_topleft.y
-		jge	loc_14829
-		mov	ax, [si+4]
-		cmp	ax, _player_topleft.y
-		jle	loc_14829
-		mov	_player_is_hit, 1
-		jmp	loc_14829
-; ---------------------------------------------------------------------------
-
-loc_147A3:
-		cmp	byte ptr [si+7], 0
-		jnz	short loc_147BD
-		call	_snd_se_play c, 10
-		sub	word ptr [si+2], 8
-		sub	word ptr [si+4], 8
-		jmp	short loc_147C3
-; ---------------------------------------------------------------------------
-
-loc_147BD:
-		cmp	byte ptr [si+7], 20h ; ' '
-		jnb	short loc_147F3
-
-loc_147C3:
-		mov	al, [si+7]
-		mov	ah, 0
-		sar	ax, 2
-		add	ax, 26
-		mov	[bp+@@patnum], ax
-		mov	di, [si+4]
-		add	di, _scroll_line
-		cmp	di, RES_Y
-		jl	short loc_147E2
-		sub	di, RES_Y
-
-loc_147E2:
-		call	super_roll_put pascal, word ptr [si+2], di, [bp+@@patnum]
-		inc	byte ptr [si+7]
-		jmp	short loc_14829
-; ---------------------------------------------------------------------------
-
-loc_147F3:
-		mov	al, byte_252E1
-		mov	ah, 0
-		and	ax, 1
-		push	ax
-		mov	al, _rank
-		cbw
-		pop	dx
-		cmp	dx, ax
-		jg	short loc_14822
-		mov	di, [si+4]
-		add	di, 12
-		mov	ax, [si+2]
-		add	ax, 12
-		push	ax	; left
-		push	di	; top
-		push	word ptr [si+6]	; angle
-		push	word ptr [si+1]	; group
-		mov	al, [si+8]
-		mov	ah, 0
-		push	ax	; speed
-		call	@bullets_add_pellet$qiiucuci
-
-loc_14822:
-		inc	byte_252E1
-		mov	byte ptr [si], 2
-
-loc_14829:
-		inc	[bp+var_2]
-		add	si, 0Ch
-
-loc_1482F:
-		cmp	[bp+var_2], 28h	; '('
-		jl	loc_14739
-		pop	di
-		pop	si
-		leave
-		retn
-meira_14726	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_1483B
-_meira_1483B label near
-meira_1483B	proc near
-		push	bp
-		mov	bp, sp
-		cmp	_boss_phase_frame, 10
-		jl	short loc_1489A
-		cmp	_boss_phase_frame, 10
-		jnz	short loc_1485E
-		call	_snd_se_play c, 9
-		mov	patnum_2064E, 142
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1485E:
-		cmp	_boss_phase_frame, 50
-		jl	short loc_1489A
-		cmp	_boss_phase_frame, 50
-		jnz	short loc_1487E
-		call	_snd_se_play c, 3
-		mov	patnum_2064E, 143
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1487E:
-		cmp	_boss_phase_frame, 90
-		jg	short loc_1488E
-		mov	bx, _boss_top_on_back_page
-		add	word ptr [bx], 6
-		pop	bp
-		retn
-; ---------------------------------------------------------------------------
-
-loc_1488E:
-		mov	patnum_2064E, 141
-		mov	_boss_phase_frame, 0
-
-loc_1489A:
-		pop	bp
-		retn
-meira_1483B	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-; UPPER CASE AND NO LEADING UNDERSCORE, and that is the calling convention
-; talking rather than a style choice: th02/main/boss/b2m.cpp reaches this proc
-; through `extern "C" void pascal near`, and Turbo C++ decorates a `pascal`
-; `extern "C"` symbol as the bare upper-cased identifier. `_meira_1489C` links
-; as `Undefined symbol MEIRA_1489C`. Same shape as th05_main.asm's
-; DWORDS_CLEAR.
-public MEIRA_1489C
-MEIRA_1489C label near
-meira_1489C	proc near
-
-arg_0		= word ptr  4
-arg_2		= word ptr  6
-arg_4		= byte ptr  8
-
-		push	bp
-		mov	bp, sp
-		push	si
-		mov	si, [bp+arg_2]
-		cmp	[bp+arg_4], 0
-		jnz	short loc_148BB
-		mov	bx, _boss_left_on_back_page
-		add	[bx], si
-		cmp	word ptr [bx], (PLAYFIELD_RIGHT - 48)
-		jle	short loc_148CA
-		mov	word ptr [bx], (PLAYFIELD_RIGHT - 48)
-		jmp	short loc_148CA
-; ---------------------------------------------------------------------------
-
-loc_148BB:
-		mov	bx, _boss_left_on_back_page
-		sub	[bx], si
-		cmp	word ptr [bx], (PLAYFIELD_LEFT - 16)
-		jge	short loc_148CA
-		mov	word ptr [bx], (PLAYFIELD_LEFT - 16)
-
-loc_148CA:
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bp+arg_0]
-		add	[bx], ax
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 12
-		push	ax
-		mov	bx, _boss_top_on_back_page
-		mov	ax, [bx]
-		add	ax, 12
-		push	ax
-		push	0
-		push	word ptr _meira_burst_group
-		push	word ptr _meira_burst_angle
-		push	word_252E4
-		call	meira_1469C
-		pop	si
-		pop	bp
-		retn	6
-meira_1489C	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-public _meira_148FD
-_meira_148FD label near
-meira_148FD	proc near
-		push	bp
-		mov	bp, sp
-		push	si
-		cmp	_boss_phase_frame, 20
-		jl	loc_14A36
-		mov	bx, _boss_top_on_back_page
-		mov	si, [bx]
-		cmp	_boss_phase_frame, 20
-		jnz	short loc_14954
-		mov	bx, _boss_left_on_back_page
-		mov	ax, [bx]
-		add	ax, 16
-		cmp	ax, _player_topleft.x
-		jge	short loc_1492B
-		mov	ax, 1
-		jmp	short loc_1492D
-; ---------------------------------------------------------------------------
-
-loc_1492B:
-		xor	ax, ax
-
-loc_1492D:
-		mov	byte ptr word_252E6, al
-		mov	ah, 0
-		add	ax, 144
-		mov	patnum_2064E, ax
-		mov	word_252E4, 10h
-		mov	al, 79h	; 'y'
-		sub	al, byte ptr word_252E6
-		mov	byte_252E0, al
-		mov	_meira_burst_group, 19h
-		mov	_meira_burst_angle, 40h
-		jmp	loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_14954:
-		cmp	_boss_phase_frame, 32
-		jg	short loc_14968
-		push	word_252E6
-		push	0FFF8FFF8h
-		jmp	loc_14A12
-; ---------------------------------------------------------------------------
-
-loc_14968:
-		cmp	_boss_phase_frame, 56
-		jge	short loc_14978
-		mov	patnum_2064E, 141
-		jmp	loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_14978:
-		cmp	_boss_phase_frame, 56
-		jnz	short loc_1499E
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		mov	dx, 145
-		sub	dx, ax
-		mov	patnum_2064E, dx
-		mov	al, byte ptr word_252E6
-		add	al, 78h	; 'x'
-		mov	byte_252E0, al
-		mov	word_252E4, 10h
-		jmp	loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_1499E:
-		cmp	_boss_phase_frame, 57
-		jnz	short loc_149C4
-		push	word_252E6
-		push	8FFF8h
-		call	meira_1489C
-		add	word_252E4, 2
-		cmp	si, 30h	; '0'
-		jle	short loc_14A36
-		mov	_boss_phase_frame, 56 ; Ensures the intended movement?
-		jmp	short loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_149C4:
-		cmp	_boss_phase_frame, 80
-		jge	short loc_149D3
-		mov	patnum_2064E, 141
-		jmp	short loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_149D3:
-		cmp	_boss_phase_frame, 80
-		jnz	short loc_149F9
-		mov	al, byte ptr word_252E6
-		mov	ah, 0
-		mov	dx, 149
-		sub	dx, ax
-		mov	patnum_2064E, dx
-		mov	al, 79h	; 'y'
-		sub	al, byte ptr word_252E6
-		mov	byte_252E0, al
-		mov	word_252E4, 10h
-		jmp	short loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_149F9:
-		mov	bx, _boss_left_on_back_page
-		cmp	word ptr [bx], 32
-		jle	short loc_14A1C
-		cmp	word ptr [bx], 352
-		jge	short loc_14A1C
-		push	word_252E6
-		push	80008h
-
-loc_14A12:
-		call	meira_1489C
-		add	word_252E4, 2
-		jmp	short loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_14A1C:
-		cmp	si, 30h	; '0'
-		jle	short loc_14A30
-		mov	bx, _boss_top_on_back_page
-		sub	word ptr [bx], 2
-		mov	patnum_2064E, 141
-		jmp	short loc_14A36
-; ---------------------------------------------------------------------------
-
-loc_14A30:
-		mov	_boss_phase_frame, 0
-
-loc_14A36:
-		pop	si
-		pop	bp
-		retn
-meira_148FD	endp
-
-
 ; SIX objects pick this segment up from here, in link order, and that order
 ; is dump order:
 ;
@@ -3080,12 +2305,9 @@ meira_148FD	endp
 ; MEIRA'S TWO ENTRY POINTS ARE GONE TOO. meira_init() and meira_end() are
 ; th02/main/boss/b2.cpp, a new object of her own at the th02/dialog.cpp /
 ; th02/main/midboss/mx.cpp seam, and _aBoss4_m in _DATA below is published for
-; it. Three of her fight-state rows became kb/codegen/0123 aliases rather than
-; renames, because meira_update() and meira_bg_render() still hold references
-; to all three: _meira_phase, _meira_pattern and _meira_250FE. The last of
-; those KEEPS ITS ADDRESS SUFFIX on purpose - it is a two-valued flag with one
-; reader, and that reader is a renderer this parcel did not lift, so naming it
-; would be a guess.
+; it. Three of her fight-state rows were kb/codegen/0123 aliases for four
+; parcels, because meira_update() and meira_bg_render() held references to
+; all three; both are C++ now and all three are plain renames.
 ;
 ; AND SO IS meira_update(), THE PATTERN DISPATCHER, TOGETHER WITH THE PAD AND
 ; THE JUMP TABLE UNDER IT. That table was the tail of this contribution for one
@@ -3109,9 +2331,9 @@ meira_148FD	endp
 ; that meira_update() dispatches to had their `public` REFUNDED the moment their
 ; caller landed in the same object, which is nine of the twelve near aliases
 ; still to go. The five `_meira_dash_*` rows below are plain renames for the
-; same reason; `_meira_afterimage_left`, `_meira_afterimage_top` and
-; `_meira_burst_group` are still aliases, because meira_bg_render() and four
-; patterns above still read them.
+; same reason. `_meira_afterimage_left`, `_meira_afterimage_top` and
+; `_meira_burst_group` were aliases for as long as meira_bg_render() and four
+; patterns above still read them, i.e. until the two parcels below.
 ;
 ; `[measured 2026-08-23]` THE ONE THING THAT COST A CYCLE was kb/codegen/0140,
 ; read in the direction its 2026-08-22 amendment describes: meira_14F16's
@@ -3149,19 +2371,49 @@ meira_148FD	endp
 ; half could be published too - byte-neutral, and the four operands still
 ; reaching the pair were respelled with it.
 ;
-; SO THE TAIL OF THIS BLOCK IS meira_148FD, still a `proc` and still in the FREE
-; class. Every tail from here to the head of the block is a plain
+; AND SO IS HER SLASH POOL, WITH THE TWO PATTERNS THAT DRIVE IT. Six more
+; procs went into b2m.cpp: the pool's pascal spawn, its invalidate, its
+; per-frame pass, phase 0's pattern 0 and pattern 1, and the shared dash
+; step every dash pattern in her fight calls. Four of them are `static` -
+; the spawn and the step were never published at all - and the two `public
+; _meira_1*` pairs that went with them plus MEIRA_1489C are three more of
+; the twelve near aliases refunded.
+;
+; TWO OF THE POOL'S DATA NAMES WERE WRONG, and both were `[inferred]` and
+; marked so. _meira_burst_angle is a SPEED (see the _DATA rows below). And
+; _meira_252E6's polarity was recorded as inconsistent across its three
+; uses; it is not. `[measured 2026-08-23]` The ten sites that mirror on it
+; resolve to four directional dash sprites (144 up-left, 145 up-right, 148
+; down-left, 149 down-right) and two diagonal trail sprites (120 and 121)
+; with a single polarity throughout. The one site that disagrees is
+; meira_14A39()'s, which picks the mirror of what meira_14C76() picks for
+; the same dash step - a ZUN bug in one pattern, not an ambiguity in the
+; flag.
+;
+; AND MEIRA IS GONE FROM THIS DUMP ENTIRELY. The last three procs -
+; meira_bg_render, her defeat animation meira_14519 and her
+; hittest-and-render half meira_145E1 - are th02/main/boss/b2m.cpp, which
+; now holds thirteen of her twenty and b2.cpp the other seven. NO
+; `meira_*` NAME IN THE DATA SECTIONS BELOW IS AN IDA PLACEHOLDER OR A
+; kb/codegen/0123 ALIAS ANY MORE, and the head-of-segment `extrn` the slash
+; pool parcel had to add for meira_slashes_invalidate() is refunded with
+; them - that function is `static` again.
+;
+; SO THE TAIL OF THIS BLOCK IS @midboss2_update_and_render$qv, and it is a
+; `proc` in the FREE class like every tail before it. Every tail from here
+; to the head of the block is a plain
 ; kb/codegen/0099 prepend into b2m.cpp.
 ;
 ; Then the rest of Meira back up the block, then Rika and the four numbered
 ; midbosses, then the four unnamed procs at the head.
 ;
 ; A POOL'S STRIDE NEEDS `-a2`, AND NO LENGTH CHECK CAN SEE IT.
-; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot; the same fields
-; pack to 9 under this tree's default byte alignment, and `add si, 9` and
-; `add si, 0Ah` are the SAME THREE BYTES. So obj_probe.py reported that object's
-; SEGDEF at exactly the 0x2B4 the root gave up, both walkers strode the wrong
-; distance, and only the LEDATA disassembly caught it. Every `-a2` entry in
+; `[measured 2026-08-23]` mx.cpp's queue is 10 bytes a slot and Meira's
+; pool 12; the same fields pack to 9 and 11 under this tree's default byte
+; alignment, and `add si, 9` and `add si, 0Ah` are the SAME THREE BYTES. So
+; obj_probe.py reported mx.cpp's SEGDEF at exactly the 0x2B4 the root gave
+; up, both walkers strode the wrong distance, and only the LEDATA
+; disassembly caught it. Every `-a2` entry in
 ; kb/codegen (0096, 0154, 0157, 0159, 0160, 0164, 0168) is about a generated
 ; jump table; this is the flag's other job, and it is kb/codegen/0170.
 ;
@@ -4281,7 +3533,15 @@ word_1EDA4	dw 0
 byte_1EDA6	db 1
 		db 0
 word_1EDA8	dw 0
-word_1EDAA	dw 0
+; Meira's defeat-animation clock, and a PLAIN RENAME: every reference
+; this dump had to it was inside meira_14519(), which is
+; th02/main/boss/b2m.cpp now. th02/main/boss/b4.cpp calls Marisa's
+; [marisa_defeat_frame]. An initialized `dw 0` in _DATA rather than a
+; reservation in _BSS, so the storage stays here: no C++ object in this
+; binary contributes a byte of _DATA, and the first one that did would
+; land at the end of this block and shift every byte after it.
+public _meira_defeat_frame
+_meira_defeat_frame	dw 0
 ; The Stage 2 boss BGM's file name, published for th02/main/boss/b2.cpp the way
 ; _aBoss2_m and _aBoss3_m already are for b3.cpp and b4.cpp. `label byte` keeps
 ; IDA's row and its bytes untouched, which is what makes this edit free.
@@ -5055,48 +4315,62 @@ word_250E4	dw ?
 ; VRAM page - 3 words each way for each of the 2 pages. TWO PARALLEL ARRAYS and
 ; not an array of points: every walker indexes them with `page * 6 + slot * 2`
 ; against two separate `offset`s, and a point array would be one `offset` and a
-; stride of 4. Still aliases rather than renames because meira_bg_render() is
-; still ASM and unputs and copies all six of them.
+; stride of 4. PLAIN RENAMES now: meira_bg_render() held the last six
+; references and it is th02/main/boss/b2m.cpp.
 public _meira_afterimage_left
-_meira_afterimage_left label word
-byte_250E6	db 12 dup(?)
+_meira_afterimage_left	db 12 dup(?)
 public _meira_afterimage_top
-_meira_afterimage_top label word
-byte_250F2	db 12 dup(?)
-; Written only 0 and 1 - meira_14E9D() raises it, th02/main/boss/b2.cpp's
-; meira_init() clears it - and read at exactly one site, where it gates
-; meira_bg_render()'s pass over three per-page background slots. THE ADDRESS
-; SUFFIX IS DELIBERATE: naming it needs that renderer and that pattern, and
-; neither has been lifted.
-public _meira_250FE
-_meira_250FE label word
-word_250FE	dw ?
-byte_25100	db 480 dup(?)
-; THREE OF meira_1469C()'s POOL PARAMETERS - _meira_252E0, _meira_252E4 and
-; _meira_252E6 - and all three keep address-suffixed hand names on purpose:
-; naming them needs that 40-slot pool and whatever renders it, neither is
-; contiguous with this block's tail, and every candidate name would be a guess
-; about a record no lift has reached. What IS measured about each of them is
-; written down in th02/main/boss/b2m.cpp. Still aliases because four patterns
-; above still read all three.
-public _meira_252E0
-_meira_252E0 label byte
-byte_252E0	db ?
-byte_252E1	db ?
-; The group and the angle of the bursts Meira's patterns fire, which go into
-; meira_1469C()'s pool record as its group and angle fields. SPLIT INTO TWO
-; LABELLED BYTES by the parcel that lifted the three patterns writing the angle
-; half; the split is byte-neutral, and the four operands above that still reach
-; the pair were respelled with it.
-public _meira_burst_group, _meira_burst_angle
+_meira_afterimage_top	db 12 dup(?)
+; Whether her afterimage trail is on. Written only 0 and 1 - meira_14E9D()
+; raises it on the way into her last phase and meira_init() clears it - and
+; read at exactly one site, meira_bg_render()'s pass over the six slots
+; above. THE ADDRESS SUFFIX IS RETIRED, because that renderer is now in the
+; same object as the pattern that raises the flag: it was _meira_250FE, kept
+; suffixed on the stated grounds that naming it needed both.
+public _meira_afterimages_active
+_meira_afterimages_active	dw ?
+; Her 40-slot slash pool, 12 bytes a slot. Both numbers come from the
+; walkers rather than from this declaration: they stride it with
+; `add si, 0Ch` and bound it with `cmp .., 28h` + `jl`, and the C++ struct
+; needs a scoped `-a2` to reach that stride at all (kb/codegen/0170).
+; `near`, because the original walks it with a bare 16-bit SI.
+public _meira_slashes
+_meira_slashes	db 480 dup(?)
+; THE FIVE GLOBALS A SLASH SPAWN READS INSTEAD OF TAKING AS ARGUMENTS, and
+; ALL FIVE ARE PLAIN RENAMES NOW: every reference this dump had to any of
+; them was inside the six procs th02/main/boss/b2m.cpp just took. Three of
+; them used to keep address-suffixed hand names on the stated grounds that
+; naming them needed the 40-slot pool and its renderer; that parcel holds
+; both, so the grounds are gone.
+public _meira_slash_trail_patnum
+_meira_slash_trail_patnum	db ?
+; Which slash burst this is, and it exists only to halve the bullets on
+; Easy: the fire gate is `(this & 1) <= rank`, with [rank] sign-extended.
+public _meira_slash_burst_i
+_meira_slash_burst_i	db ?
+; The group and the SPEED of the bursts her patterns fire, which go into
+; the pool record's group and speed fields. SPLIT INTO TWO LABELLED BYTES
+; by the parcel that lifted the three patterns writing the second half;
+; the split is byte-neutral.
+;
+; _meira_burst_angle WAS THE WRONG NAME, and the pool is what decided it:
+; the byte lands in the record slot that
+; meira_slashes_update_and_render() passes to bullets_add_pellet() as its
+; [speed], and the record's angle slot takes the literal 0 that
+; meira_slash_step() passes. The old name was marked `[inferred]` for
+; exactly the reason that no proc then lifted could check it.
+public _meira_burst_group, _meira_burst_speed
 _meira_burst_group	db ?
-_meira_burst_angle	db ?
-public _meira_252E4
-_meira_252E4 label word
-word_252E4	dw ?
-public _meira_252E6
-_meira_252E6 label byte
-word_252E6	dw ?
+_meira_burst_speed	db ?
+; How long the next spawn's lethal trail lasts.
+public _meira_slash_trail_frames
+_meira_slash_trail_frames	dw ?
+; Which side of her the player is standing on, and the sign every one of
+; her dash sprites, trail sprites and x steps is mirrored on. A `dw` whose
+; high byte is never touched, so the published label is byte-typed.
+public _meira_player_is_right
+_meira_player_is_right label byte
+		dw ?
 ; The two ramping pellet speeds, one per pattern, both PLAIN RENAMES: every
 ; reference the dump had to either of them was inside the one pattern that used
 ; it, and both of those are th02/main/boss/b2m.cpp now.
@@ -5123,12 +4397,12 @@ _meira_dash_step	dw ?
 ; patterns runs this frame, wrapped at four, three and two and reset to 0 at
 ; every phase change. Neither is _boss_phase, which is the binary-wide defeat
 ; flag. Same split as _stones_phase, _mima_phase and _sigma_phase.
+; PLAIN RENAMES as of the parcel that lifted her renderer: those were the
+; last two procs holding a reference to either.
 public _meira_phase
-_meira_phase label byte
-byte_252F6	db ?
+_meira_phase	db ?
 public _meira_pattern
-_meira_pattern label byte
-byte_252F7	db ?
+_meira_pattern	db ?
 public _hiscore, _hiscore_continues
 _hiscore	dd ?
 _hiscore_continues	db ?

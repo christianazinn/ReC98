@@ -131,14 +131,14 @@ extern "C" uint8_t meira_phase;
 // [marisa_pattern], and like them it is NOT [meira_phase].
 extern "C" uint8_t meira_pattern;
 
-// KEEPS ITS ADDRESS SUFFIX ON PURPOSE, which is the shape b4.cpp's
-// [marisa_1AA60] already uses for a symbol whose name is a separate decision.
-// `[measured]` It is a `dw` written only 0 and 1 - meira_14E9D() raises it and
-// meira_init() below clears it - and read at exactly one site, where it gates
-// meira_bg_render()'s pass over three per-page background slots. Naming it
-// needs that renderer and that pattern, and neither is in this parcel; naming
-// it from the gate alone would be a guess about what those three slots are.
-extern "C" int16_t meira_250FE;
+// Whether her afterimage trail is on. `[measured]` A `dw` written only 0 and 1
+// - meira_14E9D() below raises it on the way into her last phase and
+// meira_init() clears it - and read at exactly one site, meira_bg_render()'s
+// pass over the six trail slots. It carried an address suffix for four parcels
+// on the stated grounds that naming it needed that renderer;
+// th02/main/boss/b2m.cpp
+// holds the renderer now, so it is retired.
+extern "C" bool16 meira_afterimages_active;
 /// -----------------------
 
 
@@ -278,7 +278,7 @@ static void near meira_14E9D(void)
 			);
 		}
 		boss_phase_frame = 0;
-		meira_250FE = 1;
+		meira_afterimages_active = true;
 	}
 }
 
@@ -400,37 +400,44 @@ static void near meira_14F16(void)
 }
 
 
-/// Her still-ASM patterns
-/// ----------------------
-/// The twelve procs meira_update() dispatches to, published for this object's
-/// sake and nothing else - none of them has a second caller anywhere in the
-/// dump. Every one takes no argument and ends in a bare `retn`; only the first
-/// returns anything. They keep the dump's address-suffixed hand names, exactly
-/// the way b3.cpp's stones_1*() and b4.cpp's marisa_1AA60() do: naming a
-/// pattern needs the pattern, and none of these has been lifted.
+/// What meira_update() dispatches to, and where each of them lives
+/// ---------------------------------------------------------------
+/// The nine remaining procs meira_update() reaches across an object boundary.
+/// Every one takes no argument and ends in a bare `retn`; only the first
+/// returns anything. The seven patterns keep the dump's address-suffixed hand
+/// names, exactly the way b3.cpp's stones_1*() and b4.cpp's marisa_1AA60() do:
+/// naming a pattern needs the pattern, and this object holds none of these.
 ///
 /// The two at the bottom are NOT patterns. meira_update() calls them
 /// unconditionally on every frame of the fight, past every phase branch, so
 /// they are her movement and her render halves.
 
-// Her defeat animation, and the only one of the twelve with a result: two
-// explosion rings, a spark burst and either her still sprite or a zoom of it,
-// returning true on the frame the animation runs out.
+// EVERY ONE OF THESE IS th02/main/boss/b2m.cpp AND NOTHING BELOW IS STILL ASM -
+// see the head of this file for the one pad byte that forced the split. The
+// dump's `public` / `label near` alias pairs left with the bodies, so this
+// declaration block is the whole of what crosses the object boundary now.
+
+// Her defeat animation, and the only one with a result: two explosion rings, a
+// spark burst and either her still sprite or a zoom of it, returning true on
+// the frame the animation runs out.
 extern "C" bool16 near meira_14519(void);
 
 extern "C" void near meira_1483B(void);
 extern "C" void near meira_148FD(void);
-
-// These four are th02/main/boss/b2m.cpp, NOT this object - see the head of
-// this file for why they had to be split off.
 extern "C" void near meira_14A39(void);
 extern "C" void near meira_14B33(void);
 extern "C" void near meira_14BC2(void);
 extern "C" void near meira_14C76(void);
 
+// Her hittest-and-render half: the player's collision, her own, and her sprite.
 extern "C" void near meira_145E1(void);
-extern "C" void near meira_14726(void);
-/// ----------------------
+
+// Her slash pool's per-frame pass, th02/main/boss/b2m.cpp. Was meira_14726,
+// and the pool is what made it nameable: the 40 slots it walks are her dash
+// slashes, lethal for as long as their trail lasts and then blooming into a
+// burst of bullets.
+extern "C" void near meira_slashes_update_and_render(void);
+/// ---------------------------------------------------------------
 
 // How far into her sprite the point shottype B's homing shots aim at sits.
 // `[measured]` The same 40 on both axes, and her sprite is 64x64, so it really
@@ -539,7 +546,7 @@ extern "C" int far meira_update(void)
 		}
 		meira_145E1();
 	}
-	meira_14726();
+	meira_slashes_update_and_render();
 	return SP_BOSS;
 }
 
@@ -625,7 +632,7 @@ extern "C" void far meira_init(void)
 	boss_explode_angle_offset = 0;
 	meira_phase = 0;
 	meira_pattern = 0;
-	meira_250FE = 0;
+	meira_afterimages_active = false;
 
 	// `[measured]` Cell 0 is rank-INVARIANT, so the difficulty of her fight is
 	// carried entirely by the two spreads: five bullets wide and medium-aimed
