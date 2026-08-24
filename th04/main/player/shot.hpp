@@ -179,6 +179,11 @@ void near shots_update(void);
 // colliding shots, and returns the total amount of damage dealt.
 int shots_hittest(void);
 
+#if (GAME == 5)
+// Alice's barrier variant, which fires a revenge bullet from every hit.
+extern "C" int far shots_hittest_revenge(void);
+#endif
+
 inline int shots_hittest(
 	const PlayfieldPoint &center,
 	const subpixel_t &radius_x,

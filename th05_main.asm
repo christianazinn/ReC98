@@ -2474,17 +2474,12 @@ SHOT_INV_TEXT	ends
 ; `byte` alignment also means kb/codegen/0111's even-parity question does
 ; not arise at all. This segment contains no `even`, so no
 ; `#pragma codestring` pad is needed either.
-; kb/codegen/0080 carve: the head of this block is its own segment now, so
-; that a C++ object can append to it. sub_1240B() and shots_render() stay
-; here, in assembly; hitshot_from() -- everything after them, and the
-; whole of what used to be an `include` below -- is compiled from
-; th05/p_common.cpp into the end of this segment, at its original 12647h.
-;
-; The head is what gets the new name, because the TAIL has NINE C++
-; contributions behind it (th05/p_common.cpp through th05/main014.cpp) and
-; renaming that half would mean re-pointing and re-proving every one of
-; them. The two procs the tail keeps, @shots_hittest$qv and sub_12842, are
-; both blocked on one eight-byte clamp; nothing here touches them.
+; kb/codegen/0080 carve: the head of this block is its own segment so C++
+; can append sub_1240B(), its switch table, shots_render(), and
+; hitshot_from() at their original addresses. The following main_01_TEXT
+; root is now empty as well: shots_hittest() and
+; shots_hittest_revenge() are the first two procedures in
+; th05/main/player/shot_hit.cpp's standalone contribution.
 HITSHOT_TEXT	segment	byte public 'CODE' use16
 
 	; THE ROOT OF THIS SEGMENT IS NOW EMPTY, and the `segment`/`ends` pair is
@@ -2548,322 +2543,23 @@ HITSHOT_TEXT	segment	byte public 'CODE' use16
 	; compiler output: a standard frame, a `[bp+4]` pascal parameter, SI and
 	; DI as register variables, and `retn 2`.
 	;
-	; Its two call sites are both BELOW this line, inside the two procs the
-	; carve leaves in main_01_TEXT, so the procdesc is a backward reference
-	; for both. The module published the undecorated uppercase name, and
-	; `extern "C"` plus `pascal` publishes exactly that from C++
-	; (kb/codegen 0086 + 0102), so neither call site changes.
+	; Its two call sites are now in th05/main/player/shot_hit.cpp. That TU
+	; declares the undecorated uppercase name through `extern "C"` plus
+	; `pascal` (kb/codegen 0086 + 0102); no dump procdesc remains necessary.
+
+
 	;
 	; The `[bss]` sibling module, which publishes _hitshot_next_free_id,
 	; stays: nothing about a code lift moves a global.
-	HITSHOT_FROM procdesc pascal near shot:word
+
 
 HITSHOT_TEXT	ends
 
-; The tail of what used to be one main_01_TEXT block. Both procs in it are
-; blocked on the same eight-byte clamp (state/notes/sub_12842.md), and the
-; nine C++ contributions that follow them are untouched by the carve above.
+; The root of main_01_TEXT is now empty. Keeping this segment declaration
+; preserves its order between HITSHOT_TEXT and the C++ contributions.
+; th05/main/player/shot_hit.cpp contributes shots_hittest() and
+; shots_hittest_revenge(), exactly covering 126B3h..12914h.
 main_01_TEXT	segment	byte public 'CODE' use16
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-public @shots_hittest$qv
-@shots_hittest$qv	proc far
-
-var_B		= byte ptr -0Bh
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-@@i		= word ptr -2
-
-		enter	0Ch, 0
-		push	si
-		push	di
-		mov	ax, _shot_hitbox_center.x
-		sub	ax, _shot_hitbox_radius.x
-		mov	[bp+var_4], ax
-		mov	ax, _shot_hitbox_center.y
-		sub	ax, _shot_hitbox_radius.y
-		mov	[bp+var_6], ax
-		mov	ax, _shot_hitbox_radius.x
-		add	ax, ax
-		mov	[bp+var_8], ax
-		mov	ax, _shot_hitbox_radius.y
-		add	ax, ax
-		mov	[bp+var_A], ax
-		xor	si, si
-		mov	[bp+var_B], 0
-		mov	di, offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	short @@shots_more?
-; ---------------------------------------------------------------------------
-
-@@shot_loop:
-		mov	ax, [di+shot_alive_t.SA_pos.x]
-		sub	ax, [bp+var_4]
-		cmp	ax, [bp+var_8]
-		ja	short @@shot_next
-		mov	ax, [di+shot_alive_t.SA_pos.y]
-		sub	ax, [bp+var_6]
-		cmp	ax, [bp+var_A]
-		ja	short @@shot_next
-		inc	[bp+var_B]
-		mov	bx, [di+shot_alive_t.SA_shot]
-		mov	al, [bx+shot_t.damage]
-		mov	ah, 0
-		mov	dl, [bp+var_B]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	ax, ax
-		jnz	short loc_1271E
-		mov	ax, 1
-
-loc_1271E:
-		add	si, ax
-		inc	byte_2D060
-		test	byte_2D060, 1
-		jz	short loc_1273B
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii pascal, [di+shot_alive_t.SA_pos.x], [di+shot_alive_t.SA_pos.y], large (((8 shl 4) shl 16) or 1)
-
-loc_1273B:
-		call	hitshot_from pascal, [di+shot_alive_t.SA_shot]
-		mov	[di+shot_alive_t.SA_pos.x], SUBPIXEL_NONE
-
-@@shot_next:
-		inc	[bp+@@i]
-		add	di, size shot_alive_t
-
-@@shots_more?:
-		mov	ax, [bp+@@i]
-		cmp	ax, _shots_alive_count
-		jb	short @@shot_loop
-		cmp	_bombing, 0
-		jz	short loc_127BD
-		cmp	_shots_hittest_against_boss, 0
-		jz	short loc_12769
-		mov	ax, si
-		shr	ax, 2
-		mov	si, ax
-
-loc_12769:
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_12783
-		push	( 3 shl 16) or  4
-		push	(15 shl 16) or  3
-		nopcall	@select_for_playchar$qiiii
-		add	si, ax
-
-loc_12783:
-		cmp	_playchar, PLAYCHAR_MARISA
-		jnz	short loc_127BD
-		cmp	_bomb_frame, 16
-		jb	short loc_127BD
-		cmp	_bomb_frame, 80
-		jnb	short loc_127BD
-		mov	al, _bomb_frame
-		mov	ah, 0
-		mov	bx, 4
-		cwd
-		idiv	bx
-		or	dx, dx
-		jnz	short loc_127BD
-		mov	ax, _player_pos.cur.x
-		sub	ax, [bp+var_4]
-		cmp	ax, [bp+var_8]
-		ja	short loc_127BD
-		mov	ax, _player_pos.cur.y
-		cmp	ax, [bp+var_6]
-		jb	short loc_127BD
-		add	si, 22
-
-loc_127BD:
-		cmp	_shots_hittest_against_boss, 0
-		jz	short loc_127FA
-		cmp	_playchar, PLAYCHAR_REIMU
-		jbe	short loc_127D2
-		cmp	_playchar, PLAYCHAR_YUUKA
-		jb	short loc_12821
-
-loc_127D2:
-		cmp	_stage_id, 6
-		jnz	short loc_127E7
-		mov	ax, 5
-		imul	si
-		mov	si, ax
-		mov	ax, si
-		shr	ax, 2
-		jmp	short loc_12831
-; ---------------------------------------------------------------------------
-
-loc_127E7:
-		cmp	_playchar, PLAYCHAR_REIMU
-		jnz	short loc_12833
-		mov	ax, 8
-		imul	si
-		mov	si, ax
-		mov	bx, 7
-		jmp	short loc_1282B
-; ---------------------------------------------------------------------------
-
-loc_127FA:
-		cmp	_stage_id, 6
-		jnz	short loc_1281A
-		cmp	_playchar, PLAYCHAR_REIMU
-		jnz	short loc_1281A
-		mov	ax, 4
-		imul	si
-		mov	si, ax
-		mov	bx, 5
-		mov	ax, si
-		xor	dx, dx
-		div	bx
-		mov	si, ax
-
-loc_1281A:
-		cmp	_playchar, PLAYCHAR_YUUKA
-		jnz	short loc_12833
-
-loc_12821:
-		mov	ax, 4
-		imul	si
-		mov	si, ax
-		mov	bx, 5
-
-loc_1282B:
-		mov	ax, si
-		xor	dx, dx
-		div	bx
-
-loc_12831:
-		mov	si, ax
-
-loc_12833:
-		movzx	eax, si
-		add	_score_delta, eax
-		mov	ax, si
-		pop	di
-		pop	si
-		leave
-		retf
-@shots_hittest$qv	endp
-
-
-; =============== S U B	R O U T	I N E =======================================
-
-; Attributes: bp-based frame
-
-	; kb/codegen/0123, for alice_barrier_update() in B4_UPDATE_TEXT, which
-	; is this proc's only caller. The alias goes HERE, at the definition,
-	; and NOT as a procdesc in the caller's segment: a far procdesc binds
-	; the symbol to the segment block it is written in, and one written in
-	; B4_UPDATE_TEXT resolves the far fixup against group main_03 instead
-	; of main_01 (state/notes/sub_12842.md).
-	;
-	; The name is MATCH-TH05-MAIN-SHOTS-HITTEST-DAMAGE's, from the same
-	; note; that row is blocked on eight bytes of codegen, not on what this
-	; function is. The proc keeps IDA's spelling because the lift, when it
-	; lands, is that row's to make.
-	public _shots_hittest_revenge
-	_shots_hittest_revenge label far
-sub_12842	proc far
-
-var_B		= byte ptr -0Bh
-var_A		= word ptr -0Ah
-var_8		= word ptr -8
-var_6		= word ptr -6
-var_4		= word ptr -4
-@@i		= word ptr -2
-
-		enter	0Ch, 0
-		push	si
-		push	di
-		mov	ax, _shot_hitbox_center.x
-		sub	ax, _shot_hitbox_radius.x
-		mov	[bp+var_4], ax
-		mov	ax, _shot_hitbox_center.y
-		sub	ax, _shot_hitbox_radius.y
-		mov	[bp+var_6], ax
-		mov	ax, _shot_hitbox_radius.x
-		add	ax, ax
-		mov	[bp+var_8], ax
-		mov	ax, _shot_hitbox_radius.y
-		add	ax, ax
-		mov	[bp+var_A], ax
-		xor	di, di
-		mov	[bp+var_B], 0
-		mov	si, offset _shots_alive
-		mov	[bp+@@i], 0
-		jmp	short @@shots_more?
-; ---------------------------------------------------------------------------
-
-@@shot_loop:
-		mov	ax, [si+shot_alive_t.SA_pos.x]
-		sub	ax, [bp+var_4]
-		cmp	ax, [bp+var_8]
-		ja	short @@shot_next
-		mov	ax, [si+shot_alive_t.SA_pos.y]
-		sub	ax, [bp+var_6]
-		cmp	ax, [bp+var_A]
-		ja	short @@shot_next
-		inc	[bp+var_B]
-		mov	bx, [si+shot_alive_t.SA_shot]
-		mov	al, [bx+shot_t.damage]
-		mov	ah, 0
-		mov	dl, [bp+var_B]
-		mov	dh, 0
-		push	dx
-		cwd
-		pop	bx
-		idiv	bx
-		or	ax, ax
-		jnz	short loc_128AD
-		mov	ax, 1
-
-loc_128AD:
-		add	di, ax
-		inc	byte_2D060
-		test	byte_2D060, 1
-		jz	short loc_128CA
-		call	@sparks_add_random$q20%SubpixelBase$ti$ti%t1ii pascal, [si+shot_alive_t.SA_pos.x], [si+shot_alive_t.SA_pos.y], large (((8 shl 4) shl 16) or 1)
-
-loc_128CA:
-		cmp	_rank, RANK_EASY
-		jnz	short loc_128D8
-		cmp	_stage_frame_mod4, 0
-		jnz	short loc_128EA
-
-loc_128D8:
-		mov	eax, dword ptr [si+shot_alive_t.SA_pos]
-		mov	_bullet_template.BT_origin, eax
-		call	@randring1_next16$qv
-		mov	_bullet_template.BT_angle, al
-		call	_bullets_add_regular_far
-
-loc_128EA:
-		call	hitshot_from pascal, [si+shot_alive_t.SA_shot]
-		mov	[si+shot_alive_t.SA_pos.x], SUBPIXEL_NONE
-
-@@shot_next:
-		inc	[bp+@@i]
-		add	si, size shot_alive_t
-
-@@shots_more?:
-		mov	ax, [bp+@@i]
-		cmp	ax, _shots_alive_count
-		jb	@@shot_loop
-		movzx	eax, di
-		add	_score_delta, eax
-		mov	ax, di
-		pop	di
-		pop	si
-		leave
-		retf
-sub_12842	endp
 
 	@SHOT_L0$QV procdesc pascal near
 	@SHOT_L1$QV procdesc pascal near
@@ -5503,7 +5199,8 @@ include th05/main/player/hitshot_from[bss].asm
 	public _word_2D05E
 _word_2D05E label word
 word_2D05E	dw ?
-byte_2D060	db ?
+public _shot_hit_spark_parity
+_shot_hit_spark_parity	db ?
 		db ?
 include th04/main/player/shots_add[bss].asm
 include th04/main/boss/boss[bss].asm

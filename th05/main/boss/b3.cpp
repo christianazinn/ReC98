@@ -54,20 +54,9 @@
 // updater and all seven of their callbacks are below. What remains is one
 // function in ANOTHER segment and the two data tables the dump still owns.
 
-// The barrier's revenge hittest: a second copy of shots_hittest() that also
-// spawns a bullet from every shot that lands. Still th05_main.asm's
-// `sub_12842 proc far` in MAIN_01_TEXT, reached through a kb/codegen/0123
-// alias this parcel adds beside that definition -- `far`, and declared here
-// rather than beside shots_hittest() in th04/main/player/shot.hpp, because its
-// lift is the BLOCKED row MATCH-TH05-MAIN-SHOTS-HITTEST-DAMAGE and that row
-// owns where the function finally lands (state/notes/sub_12842.md).
-//
-// The name is not this parcel's invention and is not a placeholder: that row
-// chose it, its preserved branch is named for it, and the evidence is upstream's
-// own -- th04/main/bullet/bullet.hpp documents bullets_add_regular_far() as
-// used only for "the revenge bullets fired from Stage 3 Alice's barrier", and
-// this proc is its only call site in either game.
-extern "C" int far shots_hittest_revenge(void);
+// The barrier's revenge hittest is declared beside shots_hittest() in
+// th04/main/player/shot.hpp. It is a second copy that also spawns one bullet
+// from every shot that lands.
 
 // [measured] `bool pascal near f(puppet_t near *)`: one word parameter equate,
 // `retn 2`, and the result is read out of AL by puppets_update(), which

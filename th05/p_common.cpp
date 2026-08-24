@@ -62,7 +62,6 @@ char near shot_cycle_init(void)
 	shot_last_id = 0;
 	return cycle;
 }
-
 void pascal near shot_l0(void)
 {
 	if( (shot_cycle_init() & SC_3X) == 0) {
@@ -87,18 +86,15 @@ void pascal near shot_l1(void)
 		shot->damage = 10;
 	}
 }
-
-
 /// shots_render() and hitshot_from(), in the head half of main_01_TEXT
 /// -------------------------------------------------------------------
 /// HITSHOT_TEXT is th05_main.asm's own new name for the head of that block,
 /// split off by a kb/codegen/0080 carve so that this object can append to it.
-/// The two procs BELOW it in the original block, @shots_hittest$qv and
-/// sub_12842, are both blocked on the same eight-byte clamp
-/// (state/notes/sub_12842.md) and the carve does not touch them: they keep the
-/// original segment name, together with the nine C++ contributions that follow
-/// them. What the root block still holds above these two bodies is sub_1240B()
-/// -- TH05's counterpart of shots_update() -- and the four-entry jump table its
+/// The following main_01_TEXT root is empty. Its former two hittest procedures
+/// are compiled from th05/main/player/shot_hit.cpp as a standalone object
+/// immediately before this one, preserving this object's switch-table parity.
+/// What the root block still holds above this segment is sub_1240B() -- TH05's
+/// counterpart of shots_update() -- and the four-entry jump table its
 /// per-shottype switch compiles to.
 ///
 /// `#pragma codeseg` rather than a new translation unit, so this costs no
