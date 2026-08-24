@@ -16,4 +16,4 @@ if (GAME eq 5)
 else
 	SPARK_COUNT = 96
 endif
-SPARK_COUNT_BUG = 96
+SPARK_COUNT_TH04 = 96

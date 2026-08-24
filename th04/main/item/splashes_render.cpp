@@ -7,8 +7,8 @@
 ///
 /// TH05 emits this body at the front of playfld.cpp's PLAYFLD_TEXT
 /// contribution. TH04 emits it from circle.cpp after the 26h-byte
-/// grcg_modecol.asm prefix in IT_SPL_R_TEXT. CIRCLE_TEXT then reopens at
-/// spark_render(), preserving the original one-byte pad through `codestring`
+/// grcg_modecol.asm prefix in IT_SPL_R_TEXT. The following IT_SPL_D_TEXT starts
+/// at spark_render(), preserving the original one-byte pad through `codestring`
 /// (kb/codegen 0080 + 0114 + 0161).
 ///
 /// The two games' bodies differ only in ITEM_SPLASH_DOTS (32 against 64),

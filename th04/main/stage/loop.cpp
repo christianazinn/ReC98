@@ -77,10 +77,10 @@ extern nearfunc_t_near boss_fg_render;
 extern bool bombing;
 extern bool player_is_hit;
 
-// th04/main/spark.hpp and th04/main/pointnum/pointnum.hpp do declare the four
-// below, but without the `extern "C"` that their `public _sparks_update` /
-// `public POINTNUMS_UPDATE` exports need. Fixing those headers would be a
-// naming parcel's job; nothing else calls any of them from C++ yet.
+// The unguarded spark and point-number headers declare the four functions
+// below, but cannot be included here for the collision described above.
+// pointnums_render() also still lacks the `extern "C"` required by its dump
+// export; correcting that unrelated declaration remains a naming parcel.
 extern "C" void near sparks_update(void);
 extern "C" void near sparks_render(void);
 extern "C" void pascal near pointnums_update(void);
@@ -94,8 +94,8 @@ extern "C" void pascal near player_render(void);
 void bullets_update(void);
 
 // `pascal`, not because the no-argument call needs it, but because both dumps
-// export this one as the all-uppercase `@SHOTS_RENDER$QV` — which is how
-// Turbo C++ spells a __pascal C++ function. (kb/codegen/0081)
+// export this one with the all-uppercase linker spelling @SHOTS_RENDER$QV,
+// which is how Turbo C++ spells a __pascal C++ function. (kb/codegen/0081)
 void pascal near shots_render(void);
 
 // `pascal` for the same reason: while the dumps still owned this function they
