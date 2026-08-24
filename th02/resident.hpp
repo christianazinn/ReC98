@@ -13,9 +13,22 @@ struct resident_t {
 	unsigned int continues_used;
 	char rem_bombs;
 	char rem_lives;
-	char rank;
+
+	// [uint8_t] rather than [char] for the same reason as [bgm_mode] and
+	// [demo_num] below: MAINE.EXE's main() compares it against RANK_EXTRA, and
+	// Turbo C++ only keeps that as a direct memory-byte compare for an unsigned
+	// type (kb/codegen/0029). Signed [char] costs 3 extra bytes there
+	// (`MOV AL` + `CBW` + `CMP AX`). Every other reference in TH02 is a store
+	// or a byte-to-byte copy, both of which are signedness-neutral.
+	uint8_t rank;
+
 	char start_power;
-	char bgm_mode;
+
+	// [uint8_t] rather than [char] for the same reason as [demo_num] below:
+	// main() compares it against 1 and 2, and Turbo C++ only keeps those as
+	// direct memory-byte compares for an unsigned type (kb/codegen/0029).
+	// Every other reference in TH02 is a store, which is signedness-neutral.
+	uint8_t bgm_mode;
 	uint8_t start_bombs;
 	uint8_t start_lives;
 	int8_t padding_2;
@@ -26,10 +39,18 @@ struct resident_t {
 	bool reduce_effects;
 	char unused_3;
 	uint8_t shottype;
-	char demo_num;
+
+	// The demo to replay, 1-3, or 0 for a regular game. [uint8_t] rather than
+	// [char] because demo_load() compares it against 1/2/3 and Turbo C++ only
+	// keeps those as direct memory-byte compares for an unsigned type
+	// (kb/codegen/0029).
+	uint8_t demo_num;
 	int skill;
 	int unused_4;
-	long score_highest;
+	// [unsigned] on the oracle's evidence: continue_prompt() compares this
+	// field against the signed [score] with JAE, which only an unsigned
+	// operand produces. [score] itself has to stay signed (th02/score.h).
+	unsigned long score_highest;
 };
 
 extern resident_t far *resident;

@@ -1,3 +1,6 @@
+#ifndef TH05_MAIN_ENEMY_ENEMY_HPP
+#define TH05_MAIN_ENEMY_ENEMY_HPP
+
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
 
@@ -48,3 +51,5 @@ struct enemy_t {
 };
 
 #include "th04/main/enemy/enemy.hpp"
+
+#endif /* TH05_MAIN_ENEMY_ENEMY_HPP */

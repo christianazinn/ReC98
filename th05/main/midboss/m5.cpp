@@ -1,11 +1,17 @@
 /// Stage 5 midboss
 /// ---------------
 
-#pragma option -zCmain_0_TEXT
+// The `-zCmain_0_TEXT` pragma this file used to carry now lives in
+// th05/midboss5.cpp, which compiles this file together with EX-Alice's
+// foreground renderer -- and a pragma only takes effect before any code is
+// generated, so it has to precede both. (kb/codegen/0112, trap 0)
 
 #include "libs/master.lib/pc98_gfx.hpp"
-#include "th02/v_colors.hpp"
-#include "th04/main/phase.hpp"
+// th02/v_colors.hpp is likewise unguarded and likewise already supplied by
+// th05/main/boss/bx_fg.cpp above.
+// th04/main/phase.hpp is NOT included here: it has no include guard, and
+// th04/main/boss/boss.hpp already supplies it to this object through
+// th05/main/boss/bx_fg.cpp above. Naming it again is a compile error.
 #include "th04/main/scroll.hpp"
 #include "th04/main/midboss/midboss.hpp"
 

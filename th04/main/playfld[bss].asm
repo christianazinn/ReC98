@@ -1,4 +1,5 @@
 public _scroll_subpixel_line, _scroll_speed, _scroll_line, _scroll_active
+public _scroll_last_delta
 _scroll_subpixel_line	db ?
 _scroll_speed	db ?
 _scroll_line	dw ?

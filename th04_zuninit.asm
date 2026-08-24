@@ -23,42 +23,42 @@
 
 public start
 start proc near
-		jmp	start_0
+		jmp	zuninit_main
 start endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_103 proc far
-		cmp	cs:byte_216, 0
+zun_stop_interrupt_handler proc far
+		cmp	cs:zun_stop_copy_key, 0
 		jnz	short locret_114
-		mov	cs:byte_216, 1
-		call	sub_127
+		mov	cs:zun_stop_copy_key, 1
+		call	stop_copy_key_warning
 
 locret_114:
 		iret
-sub_103 endp
+zun_stop_interrupt_handler endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_115 proc far
-		cmp	cs:byte_216, 0
+zun_copy_interrupt_handler proc far
+		cmp	cs:zun_stop_copy_key, 0
 		jnz	short locret_126
-		mov	cs:byte_216, 2
-		call	sub_127
+		mov	cs:zun_stop_copy_key, 2
+		call	stop_copy_key_warning
 
 locret_126:
 		iret
-sub_115 endp
+zun_copy_interrupt_handler endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_127 proc near
+stop_copy_key_warning proc near
 		pushf
 		push	ax
 		push	bx
@@ -69,31 +69,31 @@ sub_127 proc near
 		push	es
 		mov	ah, 41h
 		int	18h
-		cmp	cs:byte_216, 2
+		cmp	cs:zun_stop_copy_key, 2
 		jz	short loc_15A
 		mov	ax, 650h
-		mov	dx, offset aVVtvVVrvsvnvog ; "むやみにＳＴＯＰキー押したりしない$"
-		call	sub_1CF
+		mov	dx, offset STOP_MESSAGE_1 ; "むやみにＳＴＯＰキー押したりしない$"
+		call	zuninit_message_put
 		mov	ax, 6F0h
-		mov	dx, offset asc_23A ; "方がいいと思うの。（ゲーム中はね）$"
-		call	sub_1CF
+		mov	dx, offset STOP_MESSAGE_2 ; "方がいいと思うの。（ゲーム中はね）$"
+		call	zuninit_message_put
 		mov	ax, 790h
-		mov	dx, offset aBivrvsvnvoglbV ; "（ＳＴＯＰキーで戻れるよ、ねっ）　$"
-		call	sub_1CF
+		mov	dx, offset STOP_MESSAGE_3 ; "（ＳＴＯＰキーで戻れるよ、ねっ）　$"
+		call	zuninit_message_put
 		mov	bl, 1
 		jmp	short loc_177
 ; ---------------------------------------------------------------------------
 
 loc_15A:
 		mov	ax, 650h
-		mov	dx, offset aVV	; "なんでＣＯＰＹキー押したりしてるの$"
-		call	sub_1CF
+		mov	dx, offset COPY_MESSAGE_1	; "なんでＣＯＰＹキー押したりしてるの$"
+		call	zuninit_message_put
 		mov	ax, 6F0h
-		mov	dx, offset aVivBBbvVVmbBbb ; "かな～。ふしぎ～。　　（もう一度、$"
-		call	sub_1CF
+		mov	dx, offset COPY_MESSAGE_2 ; "かな～。ふしぎ～。　　（もう一度、$"
+		call	zuninit_message_put
 		mov	ax, 790h
-		mov	dx, offset aVbvnvovxglbIqv ; "ＣＯＰＹキー押せば戻れるよ、ねっ）$"
-		call	sub_1CF
+		mov	dx, offset COPY_MESSAGE_3 ; "ＣＯＰＹキー押せば戻れるよ、ねっ）$"
+		call	zuninit_message_put
 		mov	bl, 2
 
 loc_177:
@@ -112,14 +112,14 @@ loc_181:
 		mov	ah, 40h
 		int	18h
 		mov	ax, 650h
-		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	sub_1CF
+		mov	dx, offset WARNING_MESSAGE_BLANK ; "　　　　　　　　　　　　　　　　　$"
+		call	zuninit_message_put
 		mov	ax, 6F0h
-		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	sub_1CF
+		mov	dx, offset WARNING_MESSAGE_BLANK ; "　　　　　　　　　　　　　　　　　$"
+		call	zuninit_message_put
 		mov	ax, 790h
-		mov	dx, offset aB@b@b@b@b@b@b@ ; "　　　　　　　　　　　　　　　　　$"
-		call	sub_1CF
+		mov	dx, offset WARNING_MESSAGE_BLANK ; "　　　　　　　　　　　　　　　　　$"
+		call	zuninit_message_put
 		mov	ah, 6
 		int	18h
 		pop	es
@@ -130,15 +130,15 @@ loc_181:
 		pop	bx
 		pop	ax
 		popf
-		mov	cs:byte_216, 0
+		mov	cs:zun_stop_copy_key, 0
 		retn
-sub_127 endp
+stop_copy_key_warning endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_1BD proc near
+shiftjis_to_jis proc near
 		shl	ah, 1
 		cmp	al, 9Fh
 		jnb	short loc_1C8
@@ -149,13 +149,13 @@ loc_1C8:
 		sbb	ax, 0DFFEh
 		and	ax, 7F7Fh
 		retn
-sub_1BD endp
+shiftjis_to_jis endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_1CF proc near
+zuninit_message_put proc near
 		mov	bx, dx
 		mov	di, 0A000h
 		mov	es, di
@@ -170,7 +170,7 @@ loc_1DE:
 		cmp	al, 24h
 		jz	short loc_1F9
 		xchg	ah, al
-		call	sub_1BD
+		call	shiftjis_to_jis
 		xchg	ah, al
 		sub	al, 20h
 		stosw
@@ -199,26 +199,26 @@ loc_203:
 
 locret_209:
 		retn
-sub_1CF endp
+zuninit_message_put endp
 
 ; ---------------------------------------------------------------------------
-ZUNP	dw 'ZU', 'NP'
-dword_20E	dd 0
-dword_212	dd 0
-byte_216	db 0
-aVVtvVVrvsvnvog	db 'むやみにＳＴＯＰキー押したりしない$'
-asc_23A	db '方がいいと思うの。（ゲーム中はね）$'
-aBivrvsvnvoglbV	db '（ＳＴＯＰキーで戻れるよ、ねっ）　$'
-aB@b@b@b@b@b@b@	db '　　　　　　　　　　　　　　　　　$'
-aVV	db 'なんでＣＯＰＹキー押したりしてるの$'
-aVivBBbvVVmbBbb	db 'かな～。ふしぎ～。　　（もう一度、$'
-aVbvnvovxglbIqv	db 'ＣＯＰＹキー押せば戻れるよ、ねっ）$'
+zun_resident_signature	dw 'ZU', 'NP'
+zun_prior_copy_interrupt_vector	dd 0
+zun_prior_stop_interrupt_vector	dd 0
+zun_stop_copy_key	db 0
+STOP_MESSAGE_1	db 'むやみにＳＴＯＰキー押したりしない$'
+STOP_MESSAGE_2	db '方がいいと思うの。（ゲーム中はね）$'
+STOP_MESSAGE_3	db '（ＳＴＯＰキーで戻れるよ、ねっ）　$'
+WARNING_MESSAGE_BLANK	db '　　　　　　　　　　　　　　　　　$'
+COPY_MESSAGE_1	db 'なんでＣＯＰＹキー押したりしてるの$'
+COPY_MESSAGE_2	db 'かな～。ふしぎ～。　　（もう一度、$'
+COPY_MESSAGE_3	db 'ＣＯＰＹキー押せば戻れるよ、ねっ）$'
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_30C proc near
-		mov	dx, offset aIntvectorSetPr ; "\r\n\r\nINTvector set program  zuninit.com "...
+zun_resident_check proc near
+		mov	dx, offset ZUNINIT_BANNER ; "\r\n\r\nINTvector set program  zuninit.com "...
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
@@ -226,9 +226,9 @@ sub_30C proc near
 		int	21h		; DOS - 2+ - GET INTERRUPT VECTOR
 					; AL = interrupt number
 					; Return: ES:BX = value of interrupt vector
-		cmp	es:ZUNP+0, 'ZU'
+		cmp	es:zun_resident_signature+0, 'ZU'
 		jnz	short loc_32F
-		cmp	es:ZUNP+2, 'NP'
+		cmp	es:zun_resident_signature+2, 'NP'
 		jnz	short loc_32F
 		mov	ax, 1
 		jmp	short locret_332
@@ -239,12 +239,12 @@ loc_32F:
 
 locret_332:
 		retn
-sub_30C endp
+zun_resident_check endp
 
 
 ; =============== S U B R O U T I N E =======================================
 
-start_0 proc near
+zuninit_main proc near
 		mov	si, 81h
 
 loc_336:
@@ -259,7 +259,7 @@ loc_336:
 		jbe	short loc_336
 
 loc_347:
-		call	sub_30C
+		call	zun_resident_check
 		test	ax, ax
 		jz	short loc_36C
 		jmp	loc_3ED
@@ -280,7 +280,7 @@ loc_359:
 ; ---------------------------------------------------------------------------
 
 loc_362:
-		call	sub_30C
+		call	zun_resident_check
 		test	ax, ax
 		jnz	short loc_3B0
 		jmp	loc_3F6
@@ -292,9 +292,9 @@ loc_36C:
 		int	21h		; DOS - 2+ - GET INTERRUPT VECTOR
 					; AL = interrupt number
 					; Return: ES:BX = value of interrupt vector
-		mov	word ptr cs:dword_212+0, bx
-		mov	word ptr cs:dword_212+2, es
-		mov	dx, offset sub_103
+		mov	word ptr cs:zun_prior_stop_interrupt_vector+0, bx
+		mov	word ptr cs:zun_prior_stop_interrupt_vector+2, es
+		mov	dx, offset zun_stop_interrupt_handler
 		mov	ax, 2506h
 		int	21h		; DOS - SET INTERRUPT VECTOR
 					; AL = interrupt number
@@ -304,18 +304,18 @@ loc_36C:
 		int	21h		; DOS - 2+ - GET INTERRUPT VECTOR
 					; AL = interrupt number
 					; Return: ES:BX = value of interrupt vector
-		mov	word ptr cs:dword_20E+0, bx
-		mov	word ptr cs:dword_20E+2, es
-		mov	dx, offset sub_115
+		mov	word ptr cs:zun_prior_copy_interrupt_vector+0, bx
+		mov	word ptr cs:zun_prior_copy_interrupt_vector+2, es
+		mov	dx, offset zun_copy_interrupt_handler
 		mov	ax, 2505h
 		int	21h		; DOS - SET INTERRUPT VECTOR
 					; AL = interrupt number
 					; DS:DX = new vector to be used for specified interrupt
-		mov	dx, offset aVVxvVVGbgvgkvi ; "ちょこっとメモリかりるね\r\n\r\n$"
+		mov	dx, offset ZUNINIT_INSTALLING_MESSAGE ; "ちょこっとメモリかりるね\r\n\r\n$"
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
-		mov	dx, offset sub_30C
+		mov	dx, offset zun_resident_check
 		mov	cl, 4
 		shr	dx, cl
 		inc	dx
@@ -326,14 +326,14 @@ loc_36C:
 
 loc_3B0:
 		push	ds
-		mov	dx, word ptr es:dword_212+0
-		mov	ds, word ptr es:dword_212+2
+		mov	dx, word ptr es:zun_prior_stop_interrupt_vector+0
+		mov	ds, word ptr es:zun_prior_stop_interrupt_vector+2
 		mov	ax, 2506h
 		int	21h		; DOS - SET INTERRUPT VECTOR
 					; AL = interrupt number
 					; DS:DX = new vector to be used for specified interrupt
-		mov	dx, word ptr es:dword_20E+0
-		mov	ds, word ptr es:dword_20E+2
+		mov	dx, word ptr es:zun_prior_copy_interrupt_vector+0
+		mov	ds, word ptr es:zun_prior_copy_interrupt_vector+2
 		mov	ax, 2505h
 		int	21h		; DOS - SET INTERRUPT VECTOR
 					; AL = interrupt number
@@ -349,9 +349,9 @@ loc_3B0:
 		mov	ah, 49h
 		int	21h		; DOS - 2+ - FREE MEMORY
 					; ES = segment address of area to be freed
-		mov	dx, offset aGbgvgkvivcpVjv ; "メモリから消えてなくなっちゃったけど、?"...
+		mov	dx, offset ZUNINIT_UNINSTALLED_MESSAGE ; "メモリから消えてなくなっちゃったけど、?"...
 		jnb	short loc_3E7
-		mov	dx, offset aGbgvgki ; "メモリ解放エラーです。 : zuninit.com\r\n$"...
+		mov	dx, offset ZUNINIT_FREE_ERROR_MESSAGE ; "メモリ解放エラーです。 : zuninit.com\r\n$"...
 
 loc_3E7:
 		mov	ah, 9
@@ -361,7 +361,7 @@ loc_3E7:
 ; ---------------------------------------------------------------------------
 
 loc_3ED:
-		mov	dx, offset aVVVPatuvVVsv ; "すでに常駐してるの\r\n\r\n$"
+		mov	dx, offset ZUNINIT_ALREADY_RESIDENT_MESSAGE ; "すでに常駐してるの\r\n\r\n$"
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
@@ -369,7 +369,7 @@ loc_3ED:
 ; ---------------------------------------------------------------------------
 
 loc_3F6:
-		mov	dx, offset aVVBapatuvVVVvv ; "まだ、常駐してないわぁ\r\n\r\n$"
+		mov	dx, offset ZUNINIT_NOT_RESIDENT_MESSAGE ; "まだ、常駐してないわぁ\r\n\r\n$"
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
@@ -377,7 +377,7 @@ loc_3F6:
 ; ---------------------------------------------------------------------------
 
 loc_3FF:
-		mov	dx, offset aICbxscVGigvgvg ; "意味不明なオプションよぉ（オプションは "...
+		mov	dx, offset ZUNINIT_INVALID_OPTION_MESSAGE ; "意味不明なオプションよぉ（オプションは "...
 		mov	ah, 9
 		int	21h		; DOS - PRINT STRING
 					; DS:DX -> string terminated by "$"
@@ -386,23 +386,23 @@ loc_3FF:
 loc_408:
 		mov	ax, 4C00h
 		int	21h		; DOS - 2+ - QUIT WITH EXIT CODE (EXIT)
-start_0 endp			; AL = exit code
+zuninit_main endp			; AL = exit code
 
 ; ---------------------------------------------------------------------------
-aIntvectorSetPr	db 0Dh,0Ah
+ZUNINIT_BANNER	db 0Dh,0Ah
 		db 0Dh,0Ah
 		db 'INTvector set program  zuninit.com Version1.01              (c)zun 1998',0Dh,0Ah,'$'
-aVVxvVVGbgvgkvi	db 'ちょこっとメモリかりるね',0Dh,0Ah
+ZUNINIT_INSTALLING_MESSAGE	db 'ちょこっとメモリかりるね',0Dh,0Ah
 		db 0Dh,0Ah,'$'
-aVVVPatuvVVsv	db 'すでに常駐してるの',0Dh,0Ah
+ZUNINIT_ALREADY_RESIDENT_MESSAGE	db 'すでに常駐してるの',0Dh,0Ah
 		db 0Dh,0Ah,'$'
-aGbgvgkvivcpVjv	db 'メモリから消えてなくなっちゃったけど、きっとまたあえるよ、ねっ',0Dh,0Ah
+ZUNINIT_UNINSTALLED_MESSAGE	db 'メモリから消えてなくなっちゃったけど、きっとまたあえるよ、ねっ',0Dh,0Ah
 		db 0Dh,0Ah,'$'
-aVVBapatuvVVVvv	db 'まだ、常駐してないわぁ',0Dh,0Ah
+ZUNINIT_NOT_RESIDENT_MESSAGE	db 'まだ、常駐してないわぁ',0Dh,0Ah
 		db 0Dh,0Ah,'$'
-aICbxscVGigvgvg	db '意味不明なオプションよぉ（オプションは -Rのみ）',0Dh,0Ah,'$'
+ZUNINIT_INVALID_OPTION_MESSAGE	db '意味不明なオプションよぉ（オプションは -Rのみ）',0Dh,0Ah,'$'
 
-aGbgvgki	db 'メモリ解放エラーです。 : zuninit.com',0Dh,0Ah
+ZUNINIT_FREE_ERROR_MESSAGE	db 'メモリ解放エラーです。 : zuninit.com',0Dh,0Ah
 		db '$メインメモリは５６０Ｋ以上空けといて下さいね',0Dh,0Ah,'$'
 
 		end start

@@ -18,8 +18,10 @@ struct spark_t {
 
 static const int SPARK_COUNT = ((GAME == 5) ? 64 : 96);
 
-// sparks_invalidate() and sparks_init() accidentally still this value in TH05.
-#define SPARK_COUNT_BUG 96
+// ZUN quirk: sparks_invalidate() and sparks_init() retain TH04's count in
+// TH05. In particular, sparks_init() advances IRand 32 extra times, making the
+// resulting out-of-bounds loop part of TH05's replay-relevant RNG sequence.
+#define SPARK_COUNT_TH04 96
 
 extern spark_t sparks[SPARK_COUNT];
 
@@ -45,9 +47,13 @@ void pascal near sparks_add_circle(
 	Subpixel center_x, Subpixel center_y, subpixel_t distance, int count
 );
 
+extern "C" {
+
 // Initializes all sparks with a random angle.
 void near sparks_init(void);
 
 void near sparks_update(void);
 void near sparks_render(void);
+
+}
 void near sparks_invalidate(void);

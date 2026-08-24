@@ -13,43 +13,7 @@
 #include "th04/sprites/main_pat.h"
 #endif
 
-// Structures
-// ----------
-
-#define EXPLOSION_SMALL_COUNT 2
-
-struct Explosion {
-	bool alive;
-	unsigned char age;
-	SPPoint center;
-	SPPoint radius_cur;
-	SPPoint radius_delta;
-	int8_t unused; // ZUN bloat
-
-	// Offset to add to the angle for the Y coordinate, turning the circle
-	// into a slanted ellipse. See https://www.desmos.com/calculator/faeefi6w1u
-	// for a plot of the effect.
-	unsigned char angle_offset;
-
-	// A method is the most idiomatic way for this to compile into ZUN's
-	// original three instructions, believe it or not.
-	unsigned char angle_y(const unsigned char& angle_base) {
-		return (angle_offset + angle_base);
-	}
-};
-
-#define explosion_update(p) { \
-	(p).radius_cur.x.v += (p).radius_delta.x.v; \
-	(p).radius_cur.y.v += (p).radius_delta.y.v; \
-	(p).age++; \
-	if((p).age >= 32) { \
-		(p).alive = false; \
-	} \
-}
-
-extern Explosion explosions_small[EXPLOSION_SMALL_COUNT];
-extern Explosion explosions_big;
-// ----------
+#include "th04/main/boss/explode.hpp"
 
 void near explosions_small_update_and_render(void)
 {

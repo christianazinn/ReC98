@@ -9,4 +9,4 @@ _vsync_Delay	dw	0
 	public vsync_OldMask,_vsync_OldMask
 _vsync_OldMask label byte
 vsync_OldMask	db	0
-	EVEN
+	db	90h	; word alignment

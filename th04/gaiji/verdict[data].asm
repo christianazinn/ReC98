@@ -1,6 +1,11 @@
 public _skill_subtract
 _skill_subtract	db 0
 
+; kb/codegen/0123: a zero-byte alias so th04/end/verdict_stats.cpp can index
+; these five 7-cell, right-aligned rank names as one array. `label` emits
+; nothing, and th05_maine.asm's own reference keeps the `grEASY` spelling.
+public _gbRANKS
+_gbRANKS	label byte
 grEASY		db 2, 2, 2, 0AEh, 0AAh,	0BCh, 0C2h, 0
 grNORMAL	db 2, 0B7h, 0B8h, 0BBh,	0B6h, 0AAh, 0B5h, 0
 grHARD		db 2, 2, 2, 0B1h, 0AAh,	0BBh, 0ADh, 0

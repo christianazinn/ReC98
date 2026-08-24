@@ -8,6 +8,44 @@
 
 extern int8_t playfield_shake_redraw_time;
 
+#if (GAME == 5)
+// ... and ahead of even THAT: the cheeto bullet renderer, which was the first
+// thing th05_main.asm's PLAYFLD_TEXT root contribution emitted and is now the
+// front of this object. With it lifted, that contribution is zero bytes.
+// TH04 has no cheeto bullets, so nothing is wired there.
+#include "th05/main/bullet/cheetos_render.cpp"
+#endif
+
+#if (GAME == 5)
+// ... and ahead of even that: the item splash renderer, which sat immediately
+// before the bullet renderer in th05_main.asm's PLAYFLD_TEXT root
+// contribution and is therefore the front of this object. TH04 emits the same
+// source from circle.cpp into its carved IT_SPL_R_TEXT segment.
+#include "th04/main/item/splashes_render.cpp"
+#endif
+
+#if (GAME == 5)
+// TH05's bullet renderer was the last proc of th05_main.asm's PLAYFLD_TEXT
+// root contribution, so it belongs at the very front of this object — ahead of
+// the scroll advance below (kb/codegen/0114 + 0129). No carve, no new segment,
+// no group-list edit and no Tupfile.lua line. TH04 keeps its own copy in
+// BOSS_FG_TEXT, a different segment with a different host, so it is not
+// #included here.
+#include "th04/main/bullet/render.cpp"
+#endif
+
+// ZUN's object for this code segment also held the per-frame scroll advance,
+// immediately ahead of playfield_shake_update_and_render(), so this #include
+// is the original address order and needs neither a carve nor a Tupfile.lua
+// line (kb/codegen/0114 + 0129).
+// • TH05: it was the last proc of th05_main.asm's PLAYFLD_TEXT root
+//   contribution, and this object already owned everything after it.
+// • TH04: it was the last proc of th04_main.asm's *mai_TEXT*, the segment
+//   immediately before this one in main_01, and this object owns all of
+//   PLAYFLD_TEXT. Lifting it to the front of this object therefore moved only
+//   the segment boundary, not a single byte of the image.
+#include "th04/main/scroll.cpp"
+
 inline void shift(
 	egc_shift_func_t *func,
 	vram_y_t top,

@@ -1,6 +1,31 @@
+#ifndef TH04_MAIN_ENEMY_ENEMY_HPP
+#define TH04_MAIN_ENEMY_ENEMY_HPP
+
+// TH05's enemy_t has to be declared before this file's `extern enemies[]`, so
+// th05/main/enemy/enemy.hpp includes these two itself and then includes this
+// file. Neither of those two carries an include guard, so they have to be
+// skipped in that case — the guard above only protects this file.
+// (Guards are the exception in ReC98 rather than the rule: CONTRIBUTING.md asks
+// for them "only if the code structure necessitates it", and 45 of the tree's
+// 459 headers have one. This is a case that necessitates it, which is why this
+// file and th05/main/enemy/enemy.hpp gained theirs together.)
+#if (GAME != 5)
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/item/item.hpp"
+#endif
+// The game's OWN patnum table, the way every other shared TU spells this pair
+// (th04/main/boss/explode.cpp:10-14). It used to be TH04's unconditionally,
+// which no TU noticed because the only name taken from it below is
+// PAT_ENEMY_KILL, whose value is 4 in both games and whose one consumer,
+// EF_KILL_ANIM_last, is read by nothing. It stops being invisible the moment
+// one object reaches this header and th04/main/player/shot.hpp — which pulls
+// th05/sprites/main_pat.h under GAME == 5 — because the two tables declare the
+// same enumerator names.
+#if (GAME == 5)
+#include "th05/sprites/main_pat.h"
+#else
 #include "th04/sprites/main_pat.h"
+#endif
 
 enum enemy_flag_t {
 	EF_FREE = 0,
@@ -88,4 +113,85 @@ extern enemy_t near *enemy_cur;
 #define ENEMY_POS_RANDOM 999.0f
 
 void near enemies_invalidate(void);
-void pascal near enemies_render(void);
+// `extern "C"`, because th04/main/enemy/render.asm published the undecorated
+// upper-case ENEMIES_RENDER (kb/codegen/0102). Without it, THIS
+// enemies_render() declaration asked for a C++-mangled spelling of
+// enemies_render that no object defines -- which never showed up, because
+// th04/main/stage/loop.cpp declared its own correct one and was the
+// function's only C++ caller until th04/main/enemy/render.cpp existed.
+extern "C" void pascal near enemies_render(void);
+
+#if (GAME != 5)
+// Advances [enemy_cur] along its velocity and clips it off the playfield along
+// whichever axes it asked to be clipped on, returning `true` if it did.
+//
+// TH05's own function of this name is hand-written assembly, and THAT ONE has
+// an ABI this file deliberately does not declare: it takes [enemy_cur]
+// implicitly in SI and returns its result in the carry flag, which is why the
+// declaration below is inside `#if (GAME != 5)`.
+// (kb/conventions/handwritten-asm-tells.md)
+//
+// THERE IS NOW A THIRD FUNCTION OF THIS NAME, in TH02, declared in
+// th02/main/enemy/update.cpp, and its contract is deliberately NARROWER:
+// it only advances, and does not clip or return anything, because TH02 does
+// its clipping in enemies_update_and_render() instead. That name was adopted
+// from this pinned one rather than coined, with the difference disclosed
+// rather than hidden - the same treatment mpn_put_8() gets. The three never
+// meet: each game links only its own. (state/notes/th02-enemy-run.md)
+extern "C" bool pascal near enemy_pos_update(void);
+
+// Sets [enemy_cur]'s velocity to a vector with the enemy's own [angle] and
+// [speed]. TH05's function of the same name is hand-written assembly from the
+// same cluster, with the same implicit-SI ABI as its enemy_pos_update().
+extern "C" void pascal near enemy_velocity_set(void);
+
+// enemy_velocity_set(), but first adds the angle from the enemy to the player
+// onto the enemy's own [angle]. So [angle] is an *offset* onto the player
+// direction here, not a heading: the .STD script writes it from its own operand
+// immediately before the call, which is how a script picks a spread offset and
+// still has the shot aimed.
+//
+// That first step is upstream's player_angle_from() (th05/main/player/angle.cpp)
+// open-coded — TH04 has no such helper, so the dump inlines the expression.
+// TH05's counterpart is the hand-written enemy_velocity_set_aimed() in the
+// main_031_TEXT cluster, which calls that helper and then enemy_velocity_set():
+// this function in two steps, and the true cross-game equivalent.
+//
+// TH03 has NO equivalent — its enemies never aim (th03/formats/enedat.hpp has no
+// aimed-move opcode, and th03/main/enemy/enemy.cpp never calls iatan2). Despite
+// the name, TH03's enemy_velocity_set_from_angle_and_speed() is the analogue of
+// the plain enemy_velocity_set() above, and its enemy_angle_update() only
+// integrates [angle_speed] for the circular and sine moves.
+//
+// The dump carried this one under an IDA placeholder, i.e. no name at all;
+// the name here is ours.
+extern "C" void pascal near enemy_velocity_set_aimed(void);
+#endif
+
+// Spawns the enemies described by one .STD stage instruction. TH04 takes the
+// spawn record's fields from its caller; TH05 reads them off [std_ip] itself.
+// The first and last parameters select [std_enemy_scripts] and initialize
+// [item], respectively.
+#if (GAME == 5)
+extern "C" void pascal near enemies_add(void);
+#else
+extern "C" void pascal near enemies_add(
+	unsigned int script_id, subpixel_t center_x, subpixel_t center_y,
+	unsigned int item // ACTUAL TYPE: item_type_t
+);
+#endif
+
+// Copies an enemy's bullet template into the global [bullet_template], ready
+// for bullet_template_tune() and bullets_add_regular(). TH04 resolves the
+// member itself, TH05 expects the caller to have done it.
+// (The dump spells TH05's parameter `tmpl`; `src` here, because
+// th04/main/bullet/add.cpp's `tmpl` is the destination global instead.)
+#if (GAME == 5)
+extern "C" void pascal near enemy_bullet_template_push(
+	BulletTemplate near &src
+);
+#else
+extern "C" void pascal near enemy_bullet_template_push(enemy_t near &enemy);
+#endif
+
+#endif /* TH04_MAIN_ENEMY_ENEMY_HPP */

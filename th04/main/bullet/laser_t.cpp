@@ -3,5 +3,5 @@
 
 #include "th04/main/bullet/laser_t.hpp"
 
-void near pascal thicklaser_template_pull(thicklaser_t near& thicklaser)
-;
+// thicklaser_template_pull() moved to th04/main/bullet/laser_t.hpp, where a
+// compiled translation unit can actually see it: this file is in no Tupfile.

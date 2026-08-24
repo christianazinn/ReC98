@@ -30,6 +30,11 @@ endif
 
 public _total_point_items_collected, _total_max_valued_point_items_collected
 _total_point_items_collected	dw 0
+; TLINK truncates a C identifier to 32 characters, so C++ cannot reference
+; the 38-character name below at all (kb/codegen/0060). Same address, same
+; bytes, just a spelling C++ can link against.
+public _total_max_valued_point_items
+_total_max_valued_point_items label word
 _total_max_valued_point_items_collected	dw 0
 
 public _items_pull_to_player

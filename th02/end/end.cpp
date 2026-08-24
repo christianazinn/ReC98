@@ -3,11 +3,17 @@
 #include "game/bgimage.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th01/rank.h"
+#include "th01/hardware/egc.h"
 #include "th01/hardware/grppsafx.h"
+#include "th01/pc98/entry.hpp"
 #include "th02/score.h"
 #include "th02/v_colors.hpp"
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
+#include "th02/core/initexit.h"
+#include "th02/formats/cfg.hpp"
+#include "th02/shiftjis/fns.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/formats/end.hpp"
@@ -25,7 +31,6 @@
 // Constants
 // ---------
 
-static const int CUTSCENE_PIC_SLOT = 0;
 static const int ENDFT_CELS = 11;
 
 enum end_text_colors_t {
@@ -1028,3 +1033,125 @@ void near staffroll_and_verdict_animate(void)
 	graph_clear();
 	/// -------
 }
+
+// MAINE.EXE's second code segment
+// -------------------------------
+// ZUN kept these in the same translation unit as the verdict sequence above,
+// and the .PI filename literals prove it: "all.pi" occupied the last 7 bytes of
+// this object's `_DATA` contribution, immediately before "but.pi", which used
+// to be th02_maine.asm's first `.data` byte. The dump reached backwards into
+// those 7 bytes with a `$`-relative equate, and this object had to pad its
+// copyright string with them to keep the layout; both of those hacks are gone
+// now that the literal is spelled here, where it belongs. `-d` (merge
+// duplicate strings) makes the second use free. [verified-by-oracle]
+//
+// The call site above still needs its hand-written `push cs`: these functions
+// are `far` and in a DIFFERENT segment of the same group, which is the one case
+// Turbo C++ will not fold into a near call by itself (kb/codegen/0014).
+
+// Defined in th02/maine_04.cpp; no header declares either of them yet.
+int scoredat_is_extra_unlocked(void);
+void regist_menu(void);
+
+#pragma codeseg maine_01_TEXT maine_01
+
+/// Shown after the regular ending, to reveal that the Extra Stage is now
+/// unlocked. Requires a no-continue clear on top of the all-shot-type clear
+/// that scoredat_is_extra_unlocked() checks for.
+void extra_unlock_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	if(resident->continues_used != 0) {
+		return;
+	}
+	GrpSurface_BlitBackgroundPI(&Palettes, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	GrpSurface_BlitBackgroundPI(&Palettes, "but.pi");
+	palette_show();
+	key_delay();
+	palette_black_out(5);
+}
+
+/// The Extra Stage's own ending, and the third alternative to
+/// end_bad_animate() / end_good_animate(). Unlike those two, it is skipped
+/// entirely for a player who has not cleared with every shot type.
+void end_extra_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	palette_settone(0);
+	palette_show();
+	GrpSurface_BlitBackgroundPI(&Palettes, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	GrpSurface_BlitBackgroundPI(&Palettes, "extra.pi");
+	palette_show();
+	key_delay();
+	palette_black_out(5);
+}
+
+/// MAINE.EXE entry point
+/// ---------------------
+/// Brings up the sound driver and the two fonts, plays whichever ending the
+/// rank and continue count select, shows the high score registration menu, and
+/// finally hands the process back to OP.EXE.
+///
+/// The merged executable calls this entrypoint directly rather than exposing
+/// a second C runtime main(). Neither argument is used by the original body.
+int main_cutscene(int, const char *[])
+{
+	int ret = cfg_load();
+
+	// 127 is STAGE_ALL, from th02/formats/scoredat/scoredat.hpp. That header
+	// cannot be included here: it re-includes the unguarded th02/score.h.
+	if(ret && (resident->stage == 127)) {
+		game_init_main();
+		gaiji_backup();
+		gaiji_entry_bfnt("MIKOFT.bft");
+		snd_pmd_resident();
+		snd_mmd_resident();
+
+		// ZUN bloat: SND_BGM_OFF and SND_BGM_FM do the same thing apart from
+		// the snd_determine_mode() call, which SND_BGM_OFF skips.
+		if(resident->bgm_mode == SND_BGM_OFF) {
+			snd_midi_active = false;
+		} else if(resident->bgm_mode == SND_BGM_FM) {
+			snd_midi_active = false;
+			snd_determine_mode();
+		} else if(resident->bgm_mode == SND_BGM_MIDI) {
+			snd_midi_active = snd_midi_possible;
+			snd_determine_mode();
+		}
+
+		graph_accesspage(0);
+		graph_showpage(0);
+		super_entry_bfnt("endft.bft");
+		frame_delay(100);
+
+		if(resident->rank != RANK_EXTRA) {
+			if(resident->continues_used != 0) {
+				end_bad_animate();
+			} else {
+				end_good_animate();
+			}
+			staffroll_and_verdict_animate();
+		} else {
+			end_extra_animate();
+		}
+
+		palette_settone(50);
+		regist_menu();
+		palette_settone(0);
+		gaiji_restore();
+		game_exit();
+		entrypoint_exec(EP_OP);
+	}
+	// Matches the value the former root-dump body left in AX on either early
+	// return. The normal path does not return if entrypoint_exec() succeeds.
+	return ret;
+}
+// -------------------------------

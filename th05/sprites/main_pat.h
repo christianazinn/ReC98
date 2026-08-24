@@ -1,3 +1,6 @@
+#ifndef TH05_SPRITES_MAIN_PAT_H
+#define TH05_SPRITES_MAIN_PAT_H
+
 #include "th02/formats/bfnt.h"
 #include "th04/sprites/cels.h"
 #include "pc98.h"
@@ -146,7 +149,12 @@ typedef enum {
 
 	// st03.bb3
 	// --------
-	PAT_B4BALL_SNOW = 212,
+	// mai_yuki_update() (th05/main/boss/b4_pair.cpp) converts
+	// [TINY_B4BALL_START, TINY_B4BALL_END) to tiny format on the frame the
+	// Stage 4 HP bar starts filling, the same way yumeko_update() does for
+	// TINY_SWORD_* below.
+	TINY_B4BALL_START = 212,
+	PAT_B4BALL_SNOW = TINY_B4BALL_START,
 	PAT_B4BALL_SNOW_last = (PAT_B4BALL_SNOW + B4BALL_CELS - 1),
 	PAT_B4BALL_FIRE,
 	PAT_B4BALL_FIRE_last = (PAT_B4BALL_FIRE + B4BALL_CELS - 1),
@@ -154,6 +162,7 @@ typedef enum {
 	PAT_B4BALL_SNOW_HIT_last = (PAT_B4BALL_SNOW_HIT + B4BALL_CELS - 1),
 	PAT_DECAY_B4BALL,
 	PAT_DECAY_B4BALL_last = (PAT_DECAY_B4BALL + BULLET_DECAY_CELS - 1),
+	TINY_B4BALL_END,
 	// --------
 	/// =======
 
@@ -161,10 +170,22 @@ typedef enum {
 	/// =======
 	// st04.bb2
 	// --------
-	PAT_SWORD = 193,
-	PAT_SWORD_last = (PAT_SWORD + BULLET_V_CELS),
+	TINY_SWORD_START = 193,
+	PAT_SWORD = TINY_SWORD_START,
+
+	// [measured] The `- 1` here had been missing, which pushed PAT_DECAY_SWORD
+	// and its `_last` up by one and put this file one apart from its own ASM
+	// mirror, th05/sprites/main_pat.inc, which spells PAT_DECAY_SWORD = 225.
+	// Three witnesses agree with the .inc: the twirl in
+	// th05/main/bullet/swords_add_update.cpp wraps at
+	// (PAT_SWORD + BULLET_V_CELS), so that value is the first cel that is NOT
+	// a sword; and yumeko_update() converts [TINY_SWORD_START, TINY_SWORD_END)
+	// to tiny format, which is 193..228 inclusive. The disagreement survived
+	// because no C++ had ever read either constant.
+	PAT_SWORD_last = (PAT_SWORD + BULLET_V_CELS - 1),
 	PAT_DECAY_SWORD,
 	PAT_DECAY_SWORD_last = (PAT_DECAY_SWORD + BULLET_DECAY_CELS - 1),
+	TINY_SWORD_END,
 	/// -------
 	/// =======
 
@@ -217,3 +238,5 @@ typedef enum {
 
 	_main_patnum_t_FORCE_INT16 = 0x7FFF,
 } main_patnum_t;
+
+#endif /* TH05_SPRITES_MAIN_PAT_H */

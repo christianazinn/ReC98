@@ -1,6 +1,9 @@
-#pragma option -G
+#pragma option -zCPLAYER_TEXT -zPmain_01 -G
 
+#include "th02/hardware/input.hpp"
+#include "th02/hardware/pages.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/player/bomb.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/hud/hud.hpp"
 #include "th02/main/item/item.hpp"
@@ -23,6 +26,35 @@ static const screen_y_t PLAYER_TOP_MAX = (PLAYFIELD_BOTTOM - (PLAYER_H - 8));
 // -----------
 
 extern int player_patnum; // ACTUAL TYPE: main_patnum_t
+
+// Two interleaved shot streams. Each phase starts at 0, advances after every
+// volley, and uses 0xFF as its inactive value. Stream A starts on the frame
+// [INPUT_SHOT] is pressed and stream B on the next frame.
+extern "C" uint8_t shot_stream_a_phase;
+extern "C" uint8_t shot_stream_b_phase;
+
+// Frames left before the respective stream may fire its next volley.
+extern "C" uint8_t shot_stream_a_cooldown_time;
+extern "C" uint8_t shot_stream_b_cooldown_time;
+
+// Patnums copied into regular and option shots by shot_add() and
+// shot_option_add(). The powered values are selected by player_reset() for
+// the current shottype and copied here before each fully powered volley.
+extern "C" uint8_t shot_patnum;
+extern "C" uint8_t shot_option_patnum;
+extern "C" uint8_t shot_patnum_powered;
+extern "C" uint8_t shot_option_patnum_powered;
+
+// The angular offset of shottype A's two outermost fully powered shots. This
+// function ramps it between 0 and 26; shot_a() is its only reader.
+extern "C" int8_t shot_a_spread_angle_delta;
+
+static const uint8_t SHOT_STREAM_INACTIVE = 0xFF;
+static const uint8_t SHOT_COOLDOWN = 8;
+
+// Patnums used while the shot is not fully powered.
+static const uint8_t SHOT_PATNUM_A_UNPOWERED = 0x34;
+static const uint8_t SHOT_PATNUM_B_UNPOWERED = 0x3F;
 
 // Function ordering fails
 // -----------------------
@@ -244,3 +276,199 @@ void near player_miss_update_and_render(void)
 		player_is_hit = PLAYER_NOT_HIT;
 	}
 }
+
+// The sparse `switch` below generates a jump table, and the original pads it
+// to a word boundary with a single 0 byte. That padding is what `-a2` does;
+// the rest of this file compiles identically either way. (kb/codegen/0043)
+#pragma option -a2
+// Reads the player's input for this frame: movement, the option positions,
+// the two shot streams, and the bomb key. Called from stage_loop().
+void near player_move_and_shoot(void)
+{
+	register pixel_t delta_x;
+	register pixel_t delta_y;
+
+	negate_hits_if_invincible();
+	if(player_is_hit) {
+		return;
+	}
+
+	// Diagonals have their own input bits, but are also recognized as a
+	// combination of the two aligned ones. Both paths do the same thing.
+	switch(key_det & INPUT_MOVEMENT_DIAGONAL) {
+	case INPUT_UP_LEFT:
+		delta_y = -playchar_speed_diagonal_y;
+		delta_x = -playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_LEFT;
+		break;
+	case INPUT_UP_RIGHT:
+		delta_y = -playchar_speed_diagonal_y;
+		delta_x = playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_RIGHT;
+		break;
+	case INPUT_DOWN_LEFT:
+		delta_y = playchar_speed_diagonal_y;
+		delta_x = -playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_LEFT;
+		break;
+	case INPUT_DOWN_RIGHT:
+		delta_y = playchar_speed_diagonal_y;
+		delta_x = playchar_speed_diagonal_x;
+		player_patnum = PAT_PLAYCHAR_RIGHT;
+		break;
+	default:
+		switch(key_det & INPUT_MOVEMENT_ALIGNED) {
+		case INPUT_UP:
+			delta_y = -playchar_speed_aligned_y;
+			delta_x = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		case INPUT_DOWN:
+			delta_y = playchar_speed_aligned_y;
+			delta_x = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		case INPUT_LEFT:
+			delta_x = -playchar_speed_aligned_x;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case INPUT_RIGHT:
+			delta_x = playchar_speed_aligned_x;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		case (INPUT_UP | INPUT_LEFT):
+			delta_y = -playchar_speed_diagonal_y;
+			delta_x = -playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case (INPUT_UP | INPUT_RIGHT):
+			delta_y = -playchar_speed_diagonal_y;
+			delta_x = playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		case (INPUT_DOWN | INPUT_LEFT):
+			delta_y = playchar_speed_diagonal_y;
+			delta_x = -playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_LEFT;
+			break;
+		case (INPUT_DOWN | INPUT_RIGHT):
+			delta_y = playchar_speed_diagonal_y;
+			delta_x = playchar_speed_diagonal_x;
+			player_patnum = PAT_PLAYCHAR_RIGHT;
+			break;
+		default:
+			delta_x = 0;
+			delta_y = 0;
+			player_patnum = PAT_PLAYCHAR_STILL;
+			break;
+		}
+	}
+
+	// [static] Half-pixel movement for the shottype whose aligned speed is 5:
+	// the delta is pulled one pixel back towards 0 on every other frame, since
+	// [page_back] alternates between 0 and 1. The effective speed is therefore
+	// 4.5 pixels per frame.
+	if(playchar_speed_aligned_x == 5) {
+		if(delta_x < 0) {
+			delta_x += page_back;
+		} else if(delta_x > 0) {
+			delta_x -= page_back;
+		}
+		if(delta_y < 0) {
+			delta_y += page_back;
+		} else if(delta_y > 0) {
+			delta_y -= page_back;
+		}
+	}
+
+	player_move(delta_x, delta_y);
+
+	// player_move() has already applied the delta to [player_topleft], so
+	// subtracting it again places the options at the player's *previous*
+	// position, one frame behind.
+	*player_option_left_left_on_back_page = (
+		(player_topleft.x - PLAYER_LEFT_TO_OPTION_LEFT_LEFT) - delta_x
+	);
+	*player_option_left_top_on_back_page = (
+		(player_topleft.y + ((PLAYER_H / 2) - (PLAYER_OPTION_H / 2))) - delta_y
+	);
+
+	if(key_det & INPUT_SHOT) {
+		if(shot_stream_a_phase == SHOT_STREAM_INACTIVE) {
+			shot_stream_a_phase = 0;
+			shot_stream_a_cooldown_time = 0;
+		} else if(shot_stream_b_phase == SHOT_STREAM_INACTIVE) {
+			shot_stream_b_phase = 0;
+			shot_stream_b_cooldown_time = 0;
+		}
+	} else {
+		if(shot_stream_a_phase >= 3) {
+			shot_stream_a_phase = SHOT_STREAM_INACTIVE;
+			shot_stream_b_phase = 4;
+		} else if(shot_stream_b_phase >= 2) {
+			shot_stream_b_phase = SHOT_STREAM_INACTIVE;
+		}
+	}
+
+	if(shot_stream_a_phase != SHOT_STREAM_INACTIVE) {
+		if(shot_stream_a_cooldown_time == 0) {
+			if(shot_level == SHOT_LEVEL_MAX) {
+				shot_patnum = shot_patnum_powered;
+				shot_option_patnum = shot_option_patnum_powered;
+			} else {
+				shot_patnum = SHOT_PATNUM_A_UNPOWERED;
+				shot_option_patnum = SHOT_PATNUM_B_UNPOWERED;
+			}
+			playchar_shot_func();
+			snd_se_play(1);
+			shot_stream_a_cooldown_time = SHOT_COOLDOWN;
+			shot_stream_a_phase++;
+
+			// Only one stream may fire per frame.
+			goto bomb;
+		}
+		shot_stream_a_cooldown_time--;
+	}
+	if(shot_stream_b_phase < 2) {
+		if(shot_stream_b_cooldown_time == 0) {
+			if(shot_level == SHOT_LEVEL_MAX) {
+				shot_patnum = shot_patnum_powered;
+				shot_option_patnum = shot_option_patnum_powered;
+				if(key_det & (
+					INPUT_DOWN | INPUT_DOWN_LEFT | INPUT_DOWN_RIGHT
+				)) {
+					shot_a_spread_angle_delta += 5;
+					if(shot_a_spread_angle_delta > 26) {
+						shot_a_spread_angle_delta = 26;
+					}
+				} else if(!(key_det & (
+					INPUT_MOVEMENT_ALIGNED | INPUT_MOVEMENT_DIAGONAL
+				))) {
+					shot_a_spread_angle_delta -= 5;
+					if(shot_a_spread_angle_delta < 0) {
+						shot_a_spread_angle_delta = 0;
+					}
+				}
+			} else {
+				shot_patnum = SHOT_PATNUM_A_UNPOWERED;
+				shot_option_patnum = SHOT_PATNUM_B_UNPOWERED;
+			}
+			playchar_shot_func();
+			shot_stream_b_cooldown_time = SHOT_COOLDOWN;
+			shot_stream_b_phase++;
+		} else {
+			// Note the asymmetry with the first stream, which plays this sound
+			// when it *fires*, not while it waits.
+			snd_se_play(1);
+			shot_stream_b_cooldown_time--;
+		}
+	}
+
+bomb:
+	if(key_det & INPUT_BOMB) {
+		player_bomb();
+	}
+}
+#pragma option -a1
