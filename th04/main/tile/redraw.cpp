@@ -30,7 +30,7 @@ dirty:
 			FP_OFF(tile_ring) + _SI
 		);
 		asm {
-			test dh, 1;
+			test dh, 2;
 			jnz redraw;
 		}
 		_SI += (TILE_FLAG_H * ROW_SIZE);
