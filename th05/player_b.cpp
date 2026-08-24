@@ -1,8 +1,8 @@
 // Moved here out of th04/main/player/bomb.cpp, which is shared with TH04 and
 // is no longer the first file in TH04's object. Same two values it always set.
-#pragma option -zCPLAYER_B_TEXT -zPmain_01
+#pragma option -zCPLAYER_B1_TEXT -zPmain_01
 
-// Address order inside PLAYER_B_TEXT, which is what TLINK reproduces from the
+// Address order inside PLAYER_B1_TEXT, which is what TLINK reproduces from the
 // order of these #includes: tile_ring_set_vo() was the last thing
 // th05_main.asm contributed to this segment, so lifting it puts it at the
 // FRONT of this object, ahead of the two functions that were already here

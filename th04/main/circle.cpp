@@ -100,7 +100,8 @@ void near circles_render(void)
 // therefore land after the entire root contribution, 0x77E bytes late.
 // th04_main.asm splits the segment at that point instead (kb/codegen 0080,
 // head-rename form), and this function is emitted into the head from THIS
-// source rather than from an object of its own.
+// source rather than from an object of its own. CIRCLE_A1_TEXT is the carved
+// suffix because CIRCLE_A_TEXT now ends with the two null callbacks.
 //
 // `#pragma codeseg` is what makes that free. kb/codegen 0080 assumes the head
 // gets a new object declaring `-zC<HEAD>`, which would mean a new Tupfile.lua
@@ -131,7 +132,7 @@ void near circles_render(void)
 // option keeps applying to everything generated after it and the four circle
 // functions below are already matched WITH frames (kb/codegen 0011).
 #pragma option -k-
-#pragma codeseg CIRCLE_A_TEXT main_01
+#pragma codeseg CIRCLE_A1_TEXT main_01
 
 // Elly's fight fills the playfield from row 112 down. The single fill is what
 // distinguishes this from the rest of the [boss_backdrop_colorfill] family;
@@ -146,11 +147,12 @@ void pascal near elly_backdrop_colorfill(void)
 // Reimu's and Marisa's callback, at 0xBEDA, immediately after Elly's — which is
 // why it can be here at all. The 56-to-256 fill module was the FIRST item of
 // CIRCLE_TEXT's root contribution, so lifting it looked like a second
-// kb/codegen/0080 head carve out of this same pair. It is not: CIRCLE_A_TEXT
+// kb/codegen/0080 head carve out of this same pair. It is not: CIRCLE_A1_TEXT
 // ENDS with this object's contribution and CIRCLE_TEXT began at the very next
 // byte, so th04_main.asm moves the boundary DOWN past the module instead
-// (kb/codegen/0148, in the head direction) and the body appends here. No new
-// segment name, no `group` edit, no new translation unit, no Tupfile.lua line.
+// (kb/codegen/0148, in the head direction) and the body appends here. The later
+// null callback lift renamed this suffix; the body still needs no translation
+// unit or Tupfile.lua line of its own.
 //
 // Guarded with everything else Elly-specific for the reason above: TH05 holds
 // the same body at its own address and emits it from
