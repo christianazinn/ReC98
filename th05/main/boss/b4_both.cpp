@@ -47,8 +47,8 @@ extern y_direction_t yuki_flystep_random_next_y_direction;
 // from [yuki.pos.cur] — the shape midboss_hittest_shots_damage() uses — and it
 // never calls boss_hittest_player(), because the Mai half of the same frame's
 // hittest already did. [inferred; the dump left this function unnamed]
-// Also called twice from ZUN's remaining assembly in main_035_TEXT, with the
-// invincibility sound effect.
+// Called from mai_yuki_update() in the following main_035_TEXT object, with
+// the invincibility sound effect.
 int pascal near yuki_hittest_shots_damage(
 	subpixel_t radius_x, subpixel_t radius_y, int se_on_hit
 )
@@ -105,5 +105,35 @@ bool pascal near mai_yuki_flystep_random(int frame)
 {
 	/*  */ flystep_random(mai,  frame, mai_flystep_random_next_y_direction);
 	return flystep_random(yuki, frame, yuki_flystep_random_next_y_direction);
+}
+
+// Mai's half of the pair-pattern step: gather first, then return both
+// characters to their still cels once the installed pattern completes.
+// This is the head of MAIN_035_TEXT in ZUN's object and is absorbed into the
+// tail of this preceding B4_UPDATE_TEXT object.
+extern "C" pattern_oneshot_func_t mai_pair_pattern;
+static const int MAI_YUKI_GATHER_FRAMES = 48;
+static const int PAT_B4_GATHER = (PAT_MAI + 3);
+static const int PAT_B4_CAST = (PAT_MAI + 4);
+
+extern "C" void near mai_yuki_1A556(void)
+{
+	if(boss.phase_frame < MAI_YUKI_GATHER_FRAMES) {
+		gather_template.center = boss.pos.cur;
+		gather_add_only_3stack((boss.phase_frame - 24), 9, 8);
+		boss.sprite = PAT_B4_GATHER;
+		if(boss.phase_frame == 32) {
+			snd_se_play(8);
+		}
+		return;
+	}
+	if(!mai_pair_pattern()) {
+		boss.sprite = PAT_B4_CAST;
+		return;
+	}
+	boss.phase_frame = 0;
+	boss.mode = 0;
+	boss.sprite = PAT_B4_STILL;
+	yuki.sprite = PAT_B4_STILL;
 }
 // ----------
