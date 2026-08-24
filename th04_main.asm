@@ -1038,17 +1038,17 @@ include th04/main/pointnum/render.asm
 include th04/main/pointnum/num_put.asm
 include th04/main/player/shot_laser.asm
 
-; elly_backdrop_colorfill() is C++ now. It is emitted into this segment
-; from th04/main/circle.cpp with a `#pragma codeseg`, so that it keeps its
-; original address instead of landing after the whole root contribution.
-; CIRCLE_TEXT is therefore split here in the head-rename form of
-; kb/codegen 0080: the head above becomes CIRCLE_A_TEXT and the tail below
-; keeps the old name, which leaves the tail's existing th04/main/circle.cpp
+; elly_backdrop_colorfill() and reimu_marisa_backdrop_colorfill() are both
+; C++ now, emitted from th04/main/circle.cpp through a `#pragma codeseg` so
+; that they keep their original addresses. kb/codegen 0080 first split
+; CIRCLE_TEXT here by renaming the head, leaving circle.cpp's existing tail
+; contribution unmoved; the second body then moved this boundary 3Ch bytes
+; DOWN over the fill module that used to open the tail (kb/codegen 0148,
+; head direction). 0121: ES was already `assume es:nothing` -- measured.
 CIRCLE_A_TEXT ends
 
 CIRCLE_TEXT segment word public 'CODE' use16
 
-include th04/hardware/fillm64-56_256-256.asm
 include th04/main/tile/bb_put_a.asm
 
 ; =============== S U B	R O U T	I N E =======================================

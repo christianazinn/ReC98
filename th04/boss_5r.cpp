@@ -3,8 +3,10 @@
 // several unrelated sources.)
 //
 // BOTH are C++ now. This comment used to say the second one was "the same
-// hand-written shape as th04/hardware/fillm64-56_256-256.asm" and had to stay
-// in the dump; that was wrong, and it stopped a lift for as long as it stood.
+// hand-written shape as" the fill module that opened CIRCLE_TEXT and had to
+// stay in the dump; that was wrong twice over, and it stopped a lift for as
+// long as it stood. The module it appealed to is th04/hardware/fillm64.cpp
+// today, so neither half of the claim survives.
 // A GRCG_FILL_PLAYFIELD_ROWS pair whose callee takes its arguments in ES:DI is
 // exactly what th04/hardware/grcg.hpp's grcg_fill_playfield_rows_at() macro
 // compiles to, register-passed interface and all —

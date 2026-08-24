@@ -152,4 +152,15 @@ void pascal near alice_backdrop_colorfill(void)
 	grcg_fill_playfield_rows_at(  0, 205);
 }
 
+// Mai's and Yuki's, at 0DEC2h, immediately after Alice's — which is what makes
+// it reachable from here. It was th05_main.asm's
+// `include th04/hardware/fillm64-56_256-256.asm`, the FIRST item of
+// END_EXT_TEXT's root contribution, and it is the SAME BODY TH04 holds at
+// 0BEDAh under its own boss's name. The two carves above left END_EXT_A_TEXT
+// ending with this object's contribution and END_EXT_TEXT beginning at the very
+// next byte, so nothing has to be carved a third time: th05_main.asm moves the
+// boundary DOWN past the module (kb/codegen/0148, in the head direction) and
+// the body appends here, still inside the same `#pragma codeseg` block.
+#include "th04/hardware/fillm64.cpp"
+
 #pragma codeseg

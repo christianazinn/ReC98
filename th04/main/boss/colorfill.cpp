@@ -11,11 +11,13 @@
 /// thing round 18 found wrong here. Of the 11 [boss_backdrop_colorfill]
 /// members across both games, four never reach grcg_fill_rows.asm's macro at
 /// all or reach it beside a hand-rolled `stosd` loop: reimu_marisa_ and
-/// mai_yuki_ share th04/hardware/fillm64-56_256-256.asm, which fills AROUND a
-/// 256x256 rect, and yuuka5_ and sara_ mix one GRCG_FILL_PLAYFIELD_ROWS with
-/// loops of their own. fillm64-56_256-256.asm is the same module this file's
-/// own note once cited as the reason kurumi_backdrop_colorfill could not be
-/// lifted, so the counter-example was already in view.
+/// mai_yuki_ share the one body in th04/hardware/fillm64.cpp, which fills
+/// AROUND a 256x256 rect, and yuuka5_ and sara_ mix one
+/// GRCG_FILL_PLAYFIELD_ROWS with loops of their own. That shared body was the
+/// ASM module this file's own note once cited as the reason
+/// kurumi_backdrop_colorfill could not be lifted, so the counter-example was
+/// already in view — and it is C++ itself now, which retires the citation
+/// rather than merely refuting it.
 ///
 /// TH05's twin is shinki_stage_backdrop_colorfill() in
 /// th05/main/boss/colorfill.cpp, matched 2026-08-15. The two are NOT written as
