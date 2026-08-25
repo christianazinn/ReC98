@@ -46,6 +46,61 @@
 //                                <- th04/main/player/shot.hpp
 //                                     -> th04/math/randring.hpp
 #include "platform.h"
+
+#if (GAME == 5)
+	// First declarations fix the frame of near callback addresses outside
+	// ORACLE_TEXT. The oracle compares identities but never calls these.
+	#pragma codeseg PLAYFLD_TEXT
+	extern "C" void pascal near cheetos_render(void);
+	#pragma codeseg
+
+	#pragma codeseg MIDBOSSX_TEXT
+	void pascal near midboss1_render(void);
+	void pascal near midboss2_render(void);
+	void pascal near midboss3_render(void);
+	void pascal near midboss4_render(void);
+	void pascal near midbossx_render(void);
+	void pascal near sara_fg_render(void);
+	void pascal near louise_fg_render(void);
+	void pascal near alice_fg_render(void);
+	void pascal near mai_yuki_fg_render(void);
+	void pascal near yumeko_fg_render(void);
+	void pascal near shinki_fg_render(void);
+	extern "C" void pascal near b4balls_render(void);
+	extern "C" void pascal near b4_solo_fg_render(void);
+	extern "C" void pascal near swords_render(void);
+	void pascal near shinki_custombullets_render(void);
+	#pragma codeseg
+
+	#pragma codeseg main_0_TEXT
+	void pascal near midboss5_render(void);
+	void pascal near exalice_fg_render(void);
+	extern "C" void pascal near exalice_custombullets_render(void);
+	#pragma codeseg
+
+	#pragma codeseg PLAYER_B_TEXT
+	extern "C" void pascal near nullfunc_near(void);
+	#pragma codeseg
+
+	#pragma codeseg BOSS_BG_TEXT main_01
+	void pascal near sara_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg END_EXT_A_TEXT main_01
+	void pascal near louise_backdrop_colorfill(void);
+	void pascal near alice_backdrop_colorfill(void);
+	void pascal near mai_yuki_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg YUMEKO_COLORFILL_TEXT main_01
+	void pascal near yumeko_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg LASER_RH_TEXT main_01
+	void pascal near shinki_stage_backdrop_colorfill(void);
+	#pragma codeseg
+#endif
+
 #include "libs/master.lib/master.hpp"
 #include "th04/common.h"
 #include "th04/end/end.h"
@@ -64,6 +119,7 @@
 #include "th04/main/midboss/midboss.hpp"
 #include "th04/main/null.hpp"
 #include "th04/main/oracle.hpp"
+#include "th04/main/pattern.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/player/bomb.hpp"
 #include "th04/main/player/move.hpp"
@@ -71,24 +127,65 @@
 #include "th04/main/pointnum/pointnum.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/rank.hpp"
+#include "th04/main/replay_checkpoint.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/spark.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/oracle_build.hpp"
 #if (GAME == 5)
-	#include "th05/main/boss/boss.hpp"
+	#include "th05/main/boss/bosses.hpp"
+	#include "th05/main/bullet/cheeto.hpp"
+	#include "th05/main/bullet/laser.hpp"
 	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
 	#include "th04/main/boss/boss.hpp"
+	#include "th04/main/bullet/laser_t.hpp"
 	#include "th04/main/enemy/enemy.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
 #endif
 #include "th04/main/boss/backdrop.hpp"
 #include "th04/main/boss/explode.hpp"
+
+#if (GAME == 5)
+	struct puppet_t;
+	typedef bool (pascal near *near oracle_puppet_func_t)(
+		puppet_t near *puppet
+	);
+
+	#pragma codeseg B4_UPDATE_TEXT main_03
+	bool pascal near alice_puppet_pattern_19A84(puppet_t near *puppet);
+	bool pascal near alice_puppet_pattern_19AE3(puppet_t near *puppet);
+	bool pascal near alice_puppet_pattern_19AFB(puppet_t near *puppet);
+	#pragma codeseg
+
+	#pragma codeseg main_035_TEXT main_03
+	bool near mai_yuki_1A775(void);
+	void near yumeko_1CB71(void);
+	void near yumeko_1CED9(void);
+	#pragma codeseg
+
+	#pragma codeseg B6_UPDATE_TEXT main_03
+	void near pattern_random_rain_and_spreads_from_wings(void);
+	void near pattern_cheetos_within_spread_walls(void);
+	void near pattern_aimed_b6balls_and_symmetric_spreads(void);
+	void near pattern_devil(void);
+	#pragma codeseg
+
+	#pragma codeseg BX_UPDATE_TEXT main_03
+	bool near pattern_wait(void);
+	#pragma codeseg
+
+	#pragma codeseg BX_TEXT main_03
+	bool near pattern_spreads_and_firewaves(void);
+	bool near pattern_bouncing_blue_rings(void);
+	bool near pattern_pingpong_lasers(void);
+	bool near pattern_mirrored_crosses(void);
+	#pragma codeseg
+#endif
 
 // `th02/math/randring[bss].asm:10-15`: a *word*-sized cursor whose low byte
 // alone is incremented by the TH04/TH05 accessors
@@ -125,6 +222,10 @@ extern unsigned char hiscore_popup_shown;
 // `th04/main/playfld[data].asm`. Unlike the VRAM page and dirty-tile caches,
 // this countdown decides how long the logical shake remains active.
 extern int8_t playfield_shake_redraw_time;
+
+// Shared homing destination. It can survive between the update that selects a
+// target and the next player-shot update, so it is simulation state.
+extern SPPoint homing_target;
 
 // The callback slots themselves are pointer-shaped. Schema 4 records only
 // stable installed facts here; callback identities belong to the later
@@ -196,6 +297,74 @@ bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 	extern bool shinki_bg_type_c_initialized;
 	extern bool shinki_bg_type_d_initialized;
 	extern bool slowdown_caused_by_bullets;
+	extern "C" SPPoint midboss2_center;
+	extern "C" unsigned int alice_barrier_frame;
+	extern "C" unsigned int alice_barrier_fire_frames;
+	extern subpixel_t midboss4_warp_x;
+	extern y_direction_t mai_flystep_random_next_y_direction;
+	extern y_direction_t yuki_flystep_random_next_y_direction;
+	extern "C" int mai_laser_count;
+	extern "C" int mai_laser_angle_speed;
+	extern "C" int mai_laser_angle_progress;
+	extern unsigned int shinki_devil_laser_grow_delay;
+	extern unsigned char shinki_float_direction;
+	extern "C" unsigned char exalice_invincibility_frames;
+	extern "C" PlayfieldPoint exalice_random_origin;
+	extern "C" subpixel_t exalice_pattern_origin_x;
+	extern "C" int exalice_laser_slot;
+	extern "C" unsigned int exalice_overlay_patnum;
+
+	struct near oracle_firewave_t {
+		bool alive;
+		bool is_right;
+		vram_y_t bottom;
+		pixel_t amp;
+	};
+	extern oracle_firewave_t firewaves[2];
+
+	extern int s2particles_spawned;
+	extern unsigned char stage2_bg_pulse;
+	extern unsigned char stage2_flash_tone;
+	extern int8_t stage2_bg_pulse_direction;
+
+	extern pattern_loop_func_t sara_phase_2_3_pattern;
+	extern const pattern_loop_func_t SARA_PATTERNS_PHASE_2_3[2][4];
+	extern "C" oracle_puppet_func_t fp_2CE2A;
+	extern "C" oracle_puppet_func_t fp_2CE2C;
+	extern "C" pattern_loop_func_t fp_2CE32;
+	extern "C" const oracle_puppet_func_t ALICE_PUPPET_PATTERNS[4];
+	extern "C" const pattern_loop_func_t off_22770[4][3];
+	extern "C" pattern_oneshot_func_t mai_pair_pattern;
+	extern "C" pattern_oneshot_func_t yuki_pair_pattern;
+	extern "C" pattern_oneshot_func_t mai_yuki_pattern;
+	extern "C" const pattern_oneshot_func_t MAI_PAIR_PATTERNS_1[4];
+	extern "C" const pattern_oneshot_func_t MAI_PAIR_PATTERNS_3[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_1[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_2[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_3[4];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_3[2];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_7[2];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_9[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_3[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_5[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_9[5];
+	extern "C" pattern_loop_func_t mai_laser_bullet_pattern;
+	extern "C" const pattern_loop_func_t MAI_LASER_BULLET_PATTERNS[3];
+	extern pattern_oneshot_func_t midboss5_phase_1_pattern;
+	extern "C" const pattern_oneshot_func_t MIDBOSS5_PATTERNS_PHASE_1[3];
+	extern "C" pattern_loop_func_t yumeko_pattern;
+	extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_2[2];
+	extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_5[2];
+	extern pattern_oneshot_func_t shinki_phase_2_3_pattern;
+	extern pattern_loop_func_t shinki_wing_pattern;
+	extern "C" const pattern_oneshot_func_t SHINKI_PATTERNS_PHASE_2_3[4];
+	extern pattern_oneshot_func_t midbossx_phase_1_pattern;
+	extern "C" const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
+	extern "C" pattern_oneshot_func_t exalice_pattern;
+	extern "C" const pattern_oneshot_func_t EXALICE_PATTERNS[4][2];
+	extern y_direction_t boss_flystep_random_next_y_direction;
+	void pascal mai_update(void);
+	extern "C" void pascal yuki_update(void);
 
 	struct oracle_dialog_cursor_t {
 		int16_t x;
@@ -779,6 +948,7 @@ static void oracle_hash_group_player(oracle_split_hash_t far *out)
 
 	oracle_hash_init();
 	oracle_hash_motion(&player_pos);
+	oracle_hash_sppoint(&homing_target);
 	oracle_hash_u8(static_cast<uint8_t>(player_is_hit));
 	oracle_hash_u8(player_invincibility_time);
 	oracle_hash_u8(power);
@@ -870,13 +1040,55 @@ static void oracle_hash_group_player(oracle_split_hash_t far *out)
 //     frame, and the latter is 180 raw `bullet_t near *`. `pellets_render`
 //     begins on the byte immediately after the last bullet, so the loop below
 //     must stop exactly at BULLET_COUNT.
-//   * `thicklasers[]` / `thicklaser_template` (TH04) and `lasers[]` /
-//     `laser_template` (TH05) -- `[open]`, deferred to schema 3.
-//     `th04/main/bullet/laser_t.hpp:16-42` declares a 21-byte `thicklaser_t`,
-//     but `th04_main.asm:30046-30062` assembles 24: the header carries one
-//     filler byte where the structure has four. Indexing the array through the
-//     header would read misaligned elements, i.e. garbage that happens to be
-//     reproducible. Fix the header before hashing the family.
+// Laser and TH05 cheeto-trail simulation state follows the custom-entity block
+// below. Native padding remains excluded.
+#if (GAME == 5)
+static void oracle_hash_laser(const Laser near *laser)
+{
+	oracle_hash_u8(static_cast<uint8_t>(laser->flag));
+	oracle_hash_u8(laser->col);
+	oracle_hash_playfield_point(&laser->coords.origin);
+	oracle_hash_u16(static_cast<uint16_t>(
+		laser->coords.starts_at_distance.v
+	));
+	oracle_hash_u16(static_cast<uint16_t>(
+		laser->coords.ends_at_distance.v
+	));
+	oracle_hash_u8(laser->coords.angle);
+	oracle_hash_u8(laser->coords.width.nonshrink);
+	oracle_hash_u16(static_cast<uint16_t>(laser->shootout_speed.v));
+	oracle_hash_u16(static_cast<uint16_t>(laser->age));
+	oracle_hash_u16(static_cast<uint16_t>(laser->active_at_age.grow));
+	oracle_hash_u16(static_cast<uint16_t>(laser->shrink_at_age));
+	oracle_hash_u8(laser->grow_to_width);
+}
+
+static void oracle_hash_cheeto_trail(const cheeto_trail_t near *trail)
+{
+	int i;
+
+	oracle_hash_u8(static_cast<uint8_t>(trail->flag));
+	oracle_hash_u8(static_cast<uint8_t>(trail->col));
+	for(i = 0; i < CHEETO_TRAIL_NODE_COUNT; i++) {
+		oracle_hash_playfield_point(&trail->node_pos[i]);
+		oracle_hash_u8(trail->node_sprite[i]);
+	}
+}
+#else
+static void oracle_hash_thicklaser(const thicklaser_t near *laser)
+{
+	oracle_hash_u8(static_cast<uint8_t>(laser->flag));
+	oracle_hash_sppoint(&laser->origin);
+	oracle_hash_u16(static_cast<uint16_t>(laser->cur_flag_frame));
+	oracle_hash_u16(static_cast<uint16_t>(laser->line_frames));
+	oracle_hash_u16(static_cast<uint16_t>(laser->static_frames));
+	oracle_hash_u8(laser->col_outline);
+	oracle_hash_u16(static_cast<uint16_t>(laser->radius_max));
+	oracle_hash_u16(static_cast<uint16_t>(laser->radius_cur));
+	oracle_hash_u16(static_cast<uint16_t>(laser->radius_speed));
+}
+#endif
+
 static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 {
 	uint16_t alive = 0;
@@ -986,6 +1198,20 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 		oracle_hash_u8(custom_entities[i].angle_speed);
 #endif
 	}
+#if (GAME == 5)
+	oracle_hash_laser(&laser_template);
+	for(i = 0; i < LASER_COUNT; i++) {
+		oracle_hash_laser(&lasers[i]);
+	}
+	for(i = 0; i < (CHEETO_COUNT + 1); i++) {
+		oracle_hash_cheeto_trail(&cheeto_trails[i]);
+	}
+#else
+	oracle_hash_thicklaser(&thicklaser_template);
+	for(i = 0; i < THICKLASER_COUNT; i++) {
+		oracle_hash_thicklaser(&thicklasers[i]);
+	}
+#endif
 	oracle_hash_store(out);
 	return alive;
 }
@@ -1096,14 +1322,309 @@ static void oracle_hash_explosion(const Explosion far *explosion)
 	oracle_hash_u8(explosion->angle_offset);
 }
 
-// Group 5 -- common actor core. Stage-specific boss locals are intentionally
-// not claimed by this first actor schema; the boundary catalog and subsequent
-// additive schema will enumerate them. This group already catches actor
-// lifecycle, phase, HP, position, callback activation, hitbox, and explosion
-// divergence across every stage.
+#if (GAME == 5)
+struct oracle_actor_ids_t {
+	uint8_t common[6];
+	uint8_t stage[4];
+};
+
+static uint8_t oracle_oneshot_id(
+	pattern_oneshot_func_t value,
+	const pattern_oneshot_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t i;
+	if(value == 0) { return 0; }
+	for(i = 0; i < count; i++) {
+		if(value == table[i]) { return (i + 1); }
+	}
+	return 0xFF;
+}
+
+static uint8_t oracle_loop_id(
+	pattern_loop_func_t value,
+	const pattern_loop_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t i;
+	if(value == 0) { return 0; }
+	for(i = 0; i < count; i++) {
+		if(value == table[i]) { return (i + 1); }
+	}
+	return 0xFF;
+}
+
+static uint8_t oracle_midboss_setup_id(void)
+{
+	if((midboss_update_func == nullfunc_far) &&
+	   (midboss_render_func == nullfunc_near)) { return 0; }
+	if((midboss_update_func == midboss1_update) &&
+	   (midboss_render_func == midboss1_render)) { return 1; }
+	if((midboss_update_func == midboss2_update) &&
+	   (midboss_render_func == midboss2_render)) { return 2; }
+	if((midboss_update_func == midboss3_update) &&
+	   (midboss_render_func == midboss3_render)) { return 3; }
+	if((midboss_update_func == midboss4_update) &&
+	   (midboss_render_func == midboss4_render)) { return 4; }
+	if((midboss_update_func == midboss5_update) &&
+	   (midboss_render_func == midboss5_render)) { return 5; }
+	if((midboss_update_func == midbossx_update) &&
+	   (midboss_render_func == midbossx_render)) { return 6; }
+	return 0xFF;
+}
+
+#define ORACLE_BOSS_SETUP_CASE(id, bg, update, fg, backdrop) \
+	if( \
+		(boss_bg_render_func == bg) && (boss_update_func == update) && \
+		(boss_fg_render_func == fg) && \
+		(boss_backdrop_colorfill == backdrop) \
+	) { return id; }
+
+static uint8_t oracle_boss_setup_id(void)
+{
+	ORACLE_BOSS_SETUP_CASE(
+		1, sara_bg_render, sara_update, sara_fg_render,
+		sara_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		2, louise_bg_render, louise_update, louise_fg_render,
+		louise_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		3, alice_bg_render, alice_update, alice_fg_render,
+		alice_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		4, mai_yuki_bg_render, mai_yuki_update, mai_yuki_fg_render,
+		mai_yuki_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		5, yumeko_bg_render, yumeko_update, yumeko_fg_render,
+		yumeko_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		6, shinki_bg_render, shinki_update, shinki_fg_render,
+		shinki_stage_backdrop_colorfill
+	);
+	ORACLE_BOSS_SETUP_CASE(
+		7, exalice_bg_render, exalice_update, exalice_fg_render,
+		shinki_stage_backdrop_colorfill
+	);
+	return 0xFF;
+}
+
+#undef ORACLE_BOSS_SETUP_CASE
+
+static uint8_t oracle_midboss_live_id(void)
+{
+	if((midboss_invalidate == nullfunc_near) &&
+	   (midboss_update == nullfunc_far) &&
+	   (midboss_render == nullfunc_near)) { return 0; }
+	if((midboss_invalidate == midboss_invalidate_func) &&
+	   (midboss_update == midboss_update_func) &&
+	   (midboss_render == midboss_render_func)) { return 1; }
+	return 0xFF;
+}
+
+static uint8_t oracle_boss_live_id(void)
+{
+	if((boss_update == nullfunc_far) &&
+	   (boss_fg_render == nullfunc_near)) { return 0; }
+	if((boss_update == boss_update_func) &&
+	   (boss_fg_render == boss_fg_render_func)) { return 1; }
+	if((boss_update == yuki_update) &&
+	   (boss_fg_render == b4_solo_fg_render)) { return 2; }
+	if((boss_update == mai_update) &&
+	   (boss_fg_render == b4_solo_fg_render)) { return 3; }
+	return 0xFF;
+}
+
+static uint8_t oracle_custom_render_id(void)
+{
+	if(boss_custombullets_render == nullfunc_near) { return 0; }
+	if(boss_custombullets_render == cheetos_render) { return 1; }
+	if(boss_custombullets_render == b4balls_render) { return 2; }
+	if(boss_custombullets_render == swords_render) { return 3; }
+	if(boss_custombullets_render == shinki_custombullets_render) { return 4; }
+	if(boss_custombullets_render == exalice_custombullets_render) { return 5; }
+	return 0xFF;
+}
+
+static uint8_t oracle_puppet_id(oracle_puppet_func_t value)
+{
+	uint8_t i;
+	if(value == 0) { return 0; }
+	for(i = 0; i < 4; i++) {
+		if(value == ALICE_PUPPET_PATTERNS[i]) { return (i + 1); }
+	}
+	if(value == alice_puppet_pattern_19A84) { return 5; }
+	if(value == alice_puppet_pattern_19AE3) { return 6; }
+	if(value == alice_puppet_pattern_19AFB) { return 7; }
+	return 0xFF;
+}
+
+static uint8_t oracle_mai_pair_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = oracle_oneshot_id(value, MAI_PAIR_PATTERNS_1, 4);
+	if(id != 0xFF) { return id; }
+	if(value == mai_yuki_1A775) { return 5; }
+	id = oracle_oneshot_id(value, MAI_PAIR_PATTERNS_3, 4);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 5));
+}
+
+static uint8_t oracle_yuki_pair_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = oracle_oneshot_id(value, YUKI_PAIR_PATTERNS_1, 4);
+	if(id != 0xFF) { return id; }
+	id = oracle_oneshot_id(value, YUKI_PAIR_PATTERNS_2, 4);
+	if(id != 0xFF) { return (id + 4); }
+	id = oracle_oneshot_id(value, YUKI_PAIR_PATTERNS_3, 4);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 8));
+}
+
+static uint8_t oracle_solo_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = oracle_oneshot_id(value, MAI_PATTERNS_PHASE_3, 2);
+	if(id != 0xFF) { return id; }
+	id = oracle_oneshot_id(value, MAI_PATTERNS_PHASE_7, 2);
+	if(id != 0xFF) { return (id + 2); }
+	id = oracle_oneshot_id(value, MAI_PATTERNS_PHASE_9, 2);
+	if(id != 0xFF) { return (id + 4); }
+	id = oracle_oneshot_id(value, YUKI_PATTERNS_PHASE_3, 2);
+	if(id != 0xFF) { return (id + 6); }
+	id = oracle_oneshot_id(value, YUKI_PATTERNS_PHASE_5, 2);
+	if(id != 0xFF) { return (id + 8); }
+	id = oracle_oneshot_id(value, YUKI_PATTERNS_PHASE_9, 5);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 10));
+}
+
+static uint8_t oracle_yumeko_id(pattern_loop_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = oracle_loop_id(value, YUMEKO_PATTERNS_PHASE_2, 2);
+	if(id != 0xFF) { return id; }
+	id = oracle_loop_id(value, YUMEKO_PATTERNS_PHASE_5, 2);
+	if(id != 0xFF) { return (id + 2); }
+	if(value == yumeko_1CB71) { return 5; }
+	if(value == yumeko_1CED9) { return 6; }
+	return 0xFF;
+}
+
+static uint8_t oracle_wing_id(pattern_loop_func_t value)
+{
+	if(value == 0) { return 0; }
+	if(value == pattern_random_rain_and_spreads_from_wings) { return 1; }
+	if(value == pattern_cheetos_within_spread_walls) { return 2; }
+	if(value == pattern_aimed_b6balls_and_symmetric_spreads) { return 3; }
+	if(value == pattern_devil) { return 4; }
+	return 0xFF;
+}
+
+static uint8_t oracle_midbossx_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	if(value == pattern_wait) { return 1; }
+	id = oracle_oneshot_id(value, &MIDBOSSX_PATTERNS_PHASE_1[0][0], 4);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 1));
+}
+
+static uint8_t oracle_exalice_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = oracle_oneshot_id(value, &EXALICE_PATTERNS[0][0], 8);
+	if(id != 0xFF) { return id; }
+	if(value == pattern_spreads_and_firewaves) { return 9; }
+	if(value == pattern_bouncing_blue_rings) { return 10; }
+	if(value == pattern_pingpong_lasers) { return 11; }
+	if(value == pattern_mirrored_crosses) { return 12; }
+	return 0xFF;
+}
+
+static bool oracle_actor_ids(oracle_actor_ids_t far *ids)
+{
+	int i;
+	if(ids == 0) { return false; }
+	ids->common[0] = oracle_midboss_setup_id();
+	ids->common[1] = oracle_midboss_live_id();
+	ids->common[2] = oracle_boss_setup_id();
+	ids->common[3] = oracle_boss_live_id();
+	ids->common[4] = oracle_custom_render_id();
+	ids->common[5] = static_cast<uint8_t>(
+		boss_flystep_random_next_y_direction
+	);
+	for(i = 0; i < 4; i++) { ids->stage[i] = 0; }
+	switch(stage_id) {
+	case 0:
+		ids->stage[0] = oracle_loop_id(
+			sara_phase_2_3_pattern, &SARA_PATTERNS_PHASE_2_3[0][0], 8
+		);
+		break;
+	case 1:
+		break;
+	case 2:
+		ids->stage[0] = oracle_puppet_id(fp_2CE2A);
+		ids->stage[1] = oracle_puppet_id(fp_2CE2C);
+		ids->stage[2] = oracle_loop_id(fp_2CE32, &off_22770[0][0], 12);
+		break;
+	case 3:
+		ids->stage[0] = oracle_mai_pair_id(mai_pair_pattern);
+		ids->stage[1] = oracle_yuki_pair_id(yuki_pair_pattern);
+		ids->stage[2] = oracle_solo_id(mai_yuki_pattern);
+		ids->stage[3] = oracle_loop_id(
+			mai_laser_bullet_pattern, MAI_LASER_BULLET_PATTERNS, 3
+		);
+		break;
+	case 4:
+		ids->stage[0] = oracle_oneshot_id(
+			midboss5_phase_1_pattern, MIDBOSS5_PATTERNS_PHASE_1, 3
+		);
+		ids->stage[1] = oracle_yumeko_id(yumeko_pattern);
+		break;
+	case 5:
+		ids->stage[0] = oracle_oneshot_id(
+			shinki_phase_2_3_pattern, SHINKI_PATTERNS_PHASE_2_3, 4
+		);
+		ids->stage[1] = oracle_wing_id(shinki_wing_pattern);
+		break;
+	case STAGE_EXTRA:
+		ids->stage[0] = oracle_midbossx_id(midbossx_phase_1_pattern);
+		ids->stage[1] = oracle_exalice_id(exalice_pattern);
+		break;
+	default:
+		return false;
+	}
+	for(i = 0; i < 6; i++) {
+		if(ids->common[i] == 0xFF) { return false; }
+	}
+	for(i = 0; i < 4; i++) {
+		if(ids->stage[i] == 0xFF) { return false; }
+	}
+	return true;
+}
+#endif
+
+// Group 5 -- actor core, semantic callback identities and stage-local tails.
+// Callback addresses never enter the trace. TH05 derives closed IDs from an
+// oracle-local registry and independently hashes every scalar that those
+// callbacks consume; TH04 retains its prior common-core oracle schema below.
 static void oracle_hash_group_actors(oracle_split_hash_t far *out)
 {
 	int i;
+#if (GAME == 5)
+	oracle_actor_ids_t callback_ids;
+	bool callback_ids_valid;
+#endif
 
 	oracle_hash_init();
 	oracle_hash_motion(&midboss.pos);
@@ -1147,6 +1668,61 @@ static void oracle_hash_group_actors(oracle_split_hash_t far *out)
 		oracle_hash_explosion(&explosions_small[i]);
 	}
 	oracle_hash_explosion(&explosions_big);
+#if (GAME == 5)
+	callback_ids_valid = oracle_actor_ids(&callback_ids);
+	oracle_hash_u8(static_cast<uint8_t>(callback_ids_valid));
+	for(i = 0; i < 6; i++) {
+		oracle_hash_u8(
+			callback_ids_valid ? callback_ids.common[i] : 0xFF
+		);
+	}
+	for(i = 0; i < 4; i++) {
+		oracle_hash_u8(
+			callback_ids_valid ? callback_ids.stage[i] : 0xFF
+		);
+	}
+	switch(stage_id) {
+	case 0:
+	case 4:
+		break;
+	case 1:
+		oracle_hash_sppoint(&midboss2_center);
+		break;
+	case 2:
+		oracle_hash_u16(alice_barrier_frame);
+		oracle_hash_u16(alice_barrier_fire_frames);
+		break;
+	case 3:
+		oracle_hash_u16(static_cast<uint16_t>(midboss4_warp_x));
+		oracle_hash_u8(static_cast<uint8_t>(
+			mai_flystep_random_next_y_direction
+		));
+		oracle_hash_u8(static_cast<uint8_t>(
+			yuki_flystep_random_next_y_direction
+		));
+		oracle_hash_u16(static_cast<uint16_t>(mai_laser_count));
+		oracle_hash_u16(static_cast<uint16_t>(mai_laser_angle_speed));
+		oracle_hash_u16(static_cast<uint16_t>(mai_laser_angle_progress));
+		break;
+	case 5:
+		oracle_hash_u16(shinki_devil_laser_grow_delay);
+		oracle_hash_u8(static_cast<uint8_t>(shinki_float_direction));
+		break;
+	case STAGE_EXTRA:
+		oracle_hash_u8(exalice_invincibility_frames);
+		oracle_hash_playfield_point(&exalice_random_origin);
+		oracle_hash_u16(static_cast<uint16_t>(exalice_pattern_origin_x));
+		oracle_hash_u16(static_cast<uint16_t>(exalice_laser_slot));
+		for(i = 0; i < 2; i++) {
+			oracle_hash_u8(static_cast<uint8_t>(firewaves[i].alive));
+			oracle_hash_u8(static_cast<uint8_t>(firewaves[i].is_right));
+			oracle_hash_u16(static_cast<uint16_t>(firewaves[i].bottom));
+			oracle_hash_u16(static_cast<uint16_t>(firewaves[i].amp));
+		}
+		oracle_hash_u16(exalice_overlay_patnum);
+		break;
+	}
+#endif
 	oracle_hash_store(out);
 }
 
@@ -1301,14 +1877,21 @@ static void oracle_hash_group_field(oracle_split_hash_t far *out)
 	oracle_hash_u8(static_cast<uint8_t>(tile_row_in_section));
 	oracle_hash_u16(static_cast<uint16_t>(tile_ring_row_filled));
 
-	// Do not serialize callback addresses. The installed facts are stable
-	// across lineages; exact callback IDs are reserved for the fail-closed
-	// checkpoint registry, where they are needed for restoration.
+	// Do not serialize callback addresses. These installed facts remain useful
+	// for the shared field schema; TH05's Stage 2 controller tail follows them.
 	oracle_hash_u8(oracle_hook_installed(stage_render));
 	oracle_hash_u8(oracle_hook_installed(stage_invalidate));
 	oracle_hash_u8(oracle_hook_installed(bg_render_not_bombing));
 	oracle_hash_u8(oracle_hook_installed(bg_render_bombing));
 	oracle_hash_u8(oracle_hook_installed(bg_render_bombing_func));
+#if (GAME == 5)
+	if(stage_id == 1) {
+		oracle_hash_u16(static_cast<uint16_t>(s2particles_spawned));
+		oracle_hash_u8(stage2_bg_pulse);
+		oracle_hash_u8(stage2_flash_tone);
+		oracle_hash_u8(static_cast<uint8_t>(stage2_bg_pulse_direction));
+	}
+#endif
 	oracle_hash_store(out);
 }
 

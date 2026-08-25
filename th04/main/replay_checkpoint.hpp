@@ -5,7 +5,9 @@
 
 // Internal field-codec and container interface. Container restore validates
 // every byte before mutating live state, applies groups in dependency order,
-// restores RNG last, and verifies the resulting semantic digest.
+// restores RNG last, and verifies the resulting semantic digest. A failure
+// after mutation is an internal restore defect and must abort the run; this
+// real-mode implementation cannot retain a second full container for rollback.
 enum replay_ck_mode_t {
 	RCK_ENCODE = 0,
 	RCK_VALIDATE = 1,
@@ -41,9 +43,8 @@ void replay_ck_apply_init(
 );
 bool replay_ck_finish(const replay_ck_stream_t far *stream);
 
-// Groups 0 through 4 and 6 through 11 are independently available for both
-// games. TH05 additionally provides group 12. TH04 also provides group 5;
-// TH05 keeps it unavailable until its stage-local actor inventory is complete.
+// Groups 0 through 11 are independently available for both games. TH05
+// additionally provides group 12.
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 );

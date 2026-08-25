@@ -6,6 +6,62 @@
 // malformed group cannot partially mutate live gameplay state.
 
 #include "platform.h"
+
+#if (GAME == 5)
+	// Turbo C++ frames near code addresses from the first declaration seen in
+	// a translation unit. These callbacks live outside REPLAY_CK_TEXT, so their
+	// real segments must be declared before the plain shared-header declarations.
+	#pragma codeseg PLAYFLD_TEXT
+	extern "C" void pascal near cheetos_render(void);
+	#pragma codeseg
+
+	#pragma codeseg MIDBOSSX_TEXT
+	void pascal near midboss1_render(void);
+	void pascal near midboss2_render(void);
+	void pascal near midboss3_render(void);
+	void pascal near midboss4_render(void);
+	void pascal near midbossx_render(void);
+	void pascal near sara_fg_render(void);
+	void pascal near louise_fg_render(void);
+	void pascal near alice_fg_render(void);
+	void pascal near mai_yuki_fg_render(void);
+	void pascal near yumeko_fg_render(void);
+	void pascal near shinki_fg_render(void);
+	extern "C" void pascal near b4balls_render(void);
+	extern "C" void pascal near b4_solo_fg_render(void);
+	extern "C" void pascal near swords_render(void);
+	void pascal near shinki_custombullets_render(void);
+	#pragma codeseg
+
+	#pragma codeseg main_0_TEXT
+	void pascal near midboss5_render(void);
+	void pascal near exalice_fg_render(void);
+	extern "C" void pascal near exalice_custombullets_render(void);
+	#pragma codeseg
+
+	#pragma codeseg PLAYER_B_TEXT
+	extern "C" void pascal near nullfunc_near(void);
+	#pragma codeseg
+
+	#pragma codeseg BOSS_BG_TEXT main_01
+	void pascal near sara_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg END_EXT_A_TEXT main_01
+	void pascal near louise_backdrop_colorfill(void);
+	void pascal near alice_backdrop_colorfill(void);
+	void pascal near mai_yuki_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg YUMEKO_COLORFILL_TEXT main_01
+	void pascal near yumeko_backdrop_colorfill(void);
+	#pragma codeseg
+
+	#pragma codeseg LASER_RH_TEXT main_01
+	void pascal near shinki_stage_backdrop_colorfill(void);
+	#pragma codeseg
+#endif
+
 #include "x86real.h"
 #include "libs/master.lib/master.hpp"
 #include "th02/hardware/pages.hpp"
@@ -25,6 +81,7 @@
 #include "th04/main/item/splash.hpp"
 #include "th04/main/midboss/midboss.hpp"
 #include "th04/main/null.hpp"
+#include "th04/main/pattern.hpp"
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/shot.hpp"
 #include "th04/main/pointnum/pointnum.hpp"
@@ -43,8 +100,12 @@
 #include "th04/score.h"
 #if (GAME == 5)
 	#include "th05/main/boss/bosses.hpp"
+	#include "th05/main/boss/b3puppet.hpp"
+	#include "th04/main/boss/backdrop.hpp"
+	#include "th05/main/bullet/b4ball.hpp"
 	#include "th05/main/bullet/cheeto.hpp"
 	#include "th05/main/bullet/laser.hpp"
+	#include "th05/main/bullet/sword.hpp"
 	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/main/player/bomb.hpp"
 	#include "th05/main/player/bombanim.hpp"
@@ -98,6 +159,7 @@ extern "C" uint8_t miss_move_lock_time;
 extern uint8_t shot_level;
 extern nearfunc_t_near near *playchar_shot_funcs;
 extern nearfunc_t_near playchar_shot_func;
+extern SPPoint homing_target;
 
 #if (GAME == 5)
 	#define RCK_BOSS_PARTICLE_COUNT 64
@@ -146,6 +208,107 @@ extern nearfunc_t_near playchar_shot_func;
 	extern "C" uint8_t shot_hit_spark_parity;
 	extern uint16_t hitshot_next_free_id;
 	extern "C" nearfunc_t_near SHOT_FUNCS[PLAYCHAR_COUNT][10];
+
+	typedef bool (pascal near *near rck_puppet_func_t)(puppet_t near *puppet);
+
+	struct near rck_firewave_t {
+		bool alive;
+		bool is_right;
+		vram_y_t bottom;
+		pixel_t amp;
+	};
+
+	extern pattern_loop_func_t sara_phase_2_3_pattern;
+	extern const pattern_loop_func_t SARA_PATTERNS_PHASE_2_3[2][4];
+	extern "C" SPPoint midboss2_center;
+	extern "C" rck_puppet_func_t fp_2CE2A;
+	extern "C" rck_puppet_func_t fp_2CE2C;
+	extern "C" unsigned int alice_barrier_frame;
+	extern "C" unsigned int alice_barrier_fire_frames;
+	extern "C" pattern_loop_func_t fp_2CE32;
+	extern "C" const rck_puppet_func_t ALICE_PUPPET_PATTERNS[4];
+	extern "C" const pattern_loop_func_t off_22770[4][3];
+	#pragma codeseg B4_UPDATE_TEXT main_03
+	bool pascal near alice_puppet_pattern_19A84(puppet_t near *puppet);
+	bool pascal near alice_puppet_pattern_19AE3(puppet_t near *puppet);
+	bool pascal near alice_puppet_pattern_19AFB(puppet_t near *puppet);
+	#pragma codeseg
+
+	extern subpixel_t midboss4_warp_x;
+	extern y_direction_t mai_flystep_random_next_y_direction;
+	extern y_direction_t yuki_flystep_random_next_y_direction;
+	extern "C" pattern_oneshot_func_t mai_pair_pattern;
+	extern "C" pattern_oneshot_func_t yuki_pair_pattern;
+	extern "C" pattern_oneshot_func_t mai_yuki_pattern;
+	extern "C" const pattern_oneshot_func_t MAI_PAIR_PATTERNS_1[4];
+	extern "C" const pattern_oneshot_func_t MAI_PAIR_PATTERNS_3[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_1[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_2[4];
+	extern "C" const pattern_oneshot_func_t YUKI_PAIR_PATTERNS_3[4];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_3[2];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_7[2];
+	extern "C" const pattern_oneshot_func_t MAI_PATTERNS_PHASE_9[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_3[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_5[2];
+	extern "C" const pattern_oneshot_func_t YUKI_PATTERNS_PHASE_9[5];
+	extern "C" const pattern_loop_func_t MAI_LASER_BULLET_PATTERNS[3];
+	extern "C" int mai_laser_count;
+	extern "C" int mai_laser_angle_speed;
+	extern "C" int mai_laser_angle_progress;
+	extern "C" pattern_loop_func_t mai_laser_bullet_pattern;
+	#pragma codeseg main_035_TEXT main_03
+	bool near mai_yuki_1A775(void);
+	#pragma codeseg
+	void pascal mai_update(void);
+	extern "C" void pascal yuki_update(void);
+
+	extern pattern_oneshot_func_t midboss5_phase_1_pattern;
+	extern "C" const pattern_oneshot_func_t MIDBOSS5_PATTERNS_PHASE_1[3];
+	extern "C" pattern_loop_func_t yumeko_pattern;
+	extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_2[2];
+	extern "C" const pattern_loop_func_t YUMEKO_PATTERNS_PHASE_5[2];
+	#pragma codeseg main_035_TEXT main_03
+	void near yumeko_1CB71(void);
+	void near yumeko_1CED9(void);
+	#pragma codeseg
+
+	extern pattern_oneshot_func_t shinki_phase_2_3_pattern;
+	extern pattern_loop_func_t shinki_wing_pattern;
+	extern "C" const pattern_oneshot_func_t SHINKI_PATTERNS_PHASE_2_3[4];
+	extern unsigned int shinki_devil_laser_grow_delay;
+	extern unsigned char shinki_float_direction;
+	#pragma codeseg B6_UPDATE_TEXT main_03
+	void near pattern_random_rain_and_spreads_from_wings(void);
+	void near pattern_cheetos_within_spread_walls(void);
+	void near pattern_aimed_b6balls_and_symmetric_spreads(void);
+	void near pattern_devil(void);
+	#pragma codeseg
+
+	extern pattern_oneshot_func_t midbossx_phase_1_pattern;
+	extern "C" const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
+	#pragma codeseg BX_UPDATE_TEXT main_03
+	bool near pattern_wait(void);
+	#pragma codeseg
+	extern "C" pattern_oneshot_func_t exalice_pattern;
+	extern "C" const pattern_oneshot_func_t EXALICE_PATTERNS[4][2];
+	extern "C" unsigned char exalice_invincibility_frames;
+	extern "C" PlayfieldPoint exalice_random_origin;
+	extern "C" subpixel_t exalice_pattern_origin_x;
+	extern "C" int exalice_laser_slot;
+	extern "C" unsigned int exalice_overlay_patnum;
+	extern rck_firewave_t firewaves[2];
+	#pragma codeseg BX_TEXT main_03
+	bool near pattern_spreads_and_firewaves(void);
+	bool near pattern_bouncing_blue_rings(void);
+	bool near pattern_pingpong_lasers(void);
+	bool near pattern_mirrored_crosses(void);
+	#pragma codeseg
+
+	extern y_direction_t boss_flystep_random_next_y_direction;
+	extern int s2particles_spawned;
+	extern unsigned char stage2_bg_pulse;
+	extern unsigned char stage2_flash_tone;
+	extern int8_t stage2_bg_pulse_direction;
 #else
 	#define RCK_CHECKERBOARD_H 32
 	#define RCK_CHECKERBOARD_SPEED 4
@@ -1017,6 +1180,34 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 		bg_render_bombing = rck_bg_render_func(bg_bombing_id);
 		bg_render_bombing_func = rck_bg_render_func(bg_bombing_func_id);
 	}
+#if (GAME == 5)
+	if(stage_id == 1) {
+		uint16_t particles_spawned = static_cast<uint16_t>(
+			s2particles_spawned
+		);
+		uint8_t pulse_direction = static_cast<uint8_t>(
+			stage2_bg_pulse_direction
+		);
+		if(
+			!rck_u16(stream, &particles_spawned) ||
+			(particles_spawned > 64)
+		) {
+			return false;
+		}
+		RCK_U8_MAX(stage2_bg_pulse, 0x3F);
+		RCK_U8(stage2_flash_tone);
+		if(
+			!rck_u8(stream, &pulse_direction) ||
+			(pulse_direction > 1)
+		) {
+			return false;
+		}
+		if(rck_applying(stream)) {
+			s2particles_spawned = particles_spawned;
+			stage2_bg_pulse_direction = pulse_direction;
+		}
+	}
+#endif
 	return true;
 }
 
@@ -2051,6 +2242,10 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	uint16_t prev_move;
 	uint8_t hit_spark;
 
+	if(!rck_sppoint(stream, &homing_target)) {
+		return false;
+	}
+
 	if(!rck_motion(stream, &player_pos)) {
 		return false;
 	}
@@ -2990,9 +3185,8 @@ static bool rck_explosion(
 	return true;
 }
 
-// Canonical actor storage shared by both games. TH04 combines this with its
-// complete callback registry and stage-local programs below. TH05 remains
-// unavailable until its corresponding stage-local inventory is complete.
+// Canonical actor storage shared by both games. Each game combines this prefix
+// with a closed callback registry and stage-local program below.
 static bool rck_group_actors_common(replay_ck_stream_t far *stream)
 {
 	int i;
@@ -4017,6 +4211,909 @@ static bool rck_group_actors(replay_ck_stream_t far *stream)
 	}
 	return false;
 }
+#else
+enum rck_th05_midboss_setup_t {
+	RCK5MS_NONE = 0,
+	RCK5MS_STAGE1,
+	RCK5MS_STAGE2,
+	RCK5MS_STAGE3,
+	RCK5MS_STAGE4,
+	RCK5MS_STAGE5,
+	RCK5MS_EXTRA,
+};
+
+enum rck_th05_boss_setup_t {
+	RCK5BS_SARA = 1,
+	RCK5BS_LOUISE,
+	RCK5BS_ALICE,
+	RCK5BS_MAI_YUKI,
+	RCK5BS_YUMEKO,
+	RCK5BS_SHINKI,
+	RCK5BS_EXALICE,
+};
+
+enum rck_th05_boss_live_t {
+	RCK5BL_NONE = 0,
+	RCK5BL_SETUP,
+	RCK5BL_YUKI,
+	RCK5BL_MAI,
+};
+
+enum rck_th05_custom_render_t {
+	RCK5CR_NONE = 0,
+	RCK5CR_CHEETOS,
+	RCK5CR_B4BALLS,
+	RCK5CR_SWORDS,
+	RCK5CR_SHINKI,
+	RCK5CR_EXALICE,
+};
+
+static uint8_t rck_th05_midboss_setup_id(void)
+{
+	if(
+		(midboss_update_func == nullfunc_far) &&
+		(midboss_render_func == nullfunc_near)
+	) {
+		return RCK5MS_NONE;
+	}
+	if((midboss_update_func == midboss1_update) &&
+	   (midboss_render_func == midboss1_render)) {
+		return RCK5MS_STAGE1;
+	}
+	if((midboss_update_func == midboss2_update) &&
+	   (midboss_render_func == midboss2_render)) {
+		return RCK5MS_STAGE2;
+	}
+	if((midboss_update_func == midboss3_update) &&
+	   (midboss_render_func == midboss3_render)) {
+		return RCK5MS_STAGE3;
+	}
+	if((midboss_update_func == midboss4_update) &&
+	   (midboss_render_func == midboss4_render)) {
+		return RCK5MS_STAGE4;
+	}
+	if((midboss_update_func == midboss5_update) &&
+	   (midboss_render_func == midboss5_render)) {
+		return RCK5MS_STAGE5;
+	}
+	if((midboss_update_func == midbossx_update) &&
+	   (midboss_render_func == midbossx_render)) {
+		return RCK5MS_EXTRA;
+	}
+	return 0xFF;
+}
+
+static bool rck_th05_midboss_stage_valid(uint8_t id)
+{
+	switch(stage_id) {
+	case 0: return (id == RCK5MS_STAGE1);
+	case 1: return (id == RCK5MS_STAGE2);
+	case 2: return (id == RCK5MS_STAGE3);
+	case 3: return (id == RCK5MS_STAGE4);
+	case 4: return (id == RCK5MS_STAGE5);
+	case 5: return (id == RCK5MS_NONE);
+	case STAGE_EXTRA: return (id == RCK5MS_EXTRA);
+	}
+	return false;
+}
+
+static bool rck_th05_midboss_setup_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK5MS_NONE:
+		midboss_update_func = nullfunc_far;
+		midboss_render_func = nullfunc_near;
+		break;
+	case RCK5MS_STAGE1:
+		midboss_update_func = midboss1_update;
+		midboss_render_func = midboss1_render;
+		break;
+	case RCK5MS_STAGE2:
+		midboss_update_func = midboss2_update;
+		midboss_render_func = midboss2_render;
+		break;
+	case RCK5MS_STAGE3:
+		midboss_update_func = midboss3_update;
+		midboss_render_func = midboss3_render;
+		break;
+	case RCK5MS_STAGE4:
+		midboss_update_func = midboss4_update;
+		midboss_render_func = midboss4_render;
+		break;
+	case RCK5MS_STAGE5:
+		midboss_update_func = midboss5_update;
+		midboss_render_func = midboss5_render;
+		break;
+	case RCK5MS_EXTRA:
+		midboss_update_func = midbossx_update;
+		midboss_render_func = midbossx_render;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+#define RCK5_BOSS_SETUP_CASE(id, bg, update, fg, backdrop) \
+	if( \
+		(boss_bg_render_func == bg) && \
+		(boss_update_func == update) && \
+		(boss_fg_render_func == fg) && \
+		(boss_backdrop_colorfill == backdrop) \
+	) { return id; }
+
+static uint8_t rck_th05_boss_setup_id(void)
+{
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_SARA, sara_bg_render, sara_update, sara_fg_render,
+		sara_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_LOUISE, louise_bg_render, louise_update, louise_fg_render,
+		louise_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_ALICE, alice_bg_render, alice_update, alice_fg_render,
+		alice_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_MAI_YUKI, mai_yuki_bg_render, mai_yuki_update,
+		mai_yuki_fg_render, mai_yuki_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_YUMEKO, yumeko_bg_render, yumeko_update, yumeko_fg_render,
+		yumeko_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_SHINKI, shinki_bg_render, shinki_update, shinki_fg_render,
+		shinki_stage_backdrop_colorfill
+	);
+	RCK5_BOSS_SETUP_CASE(
+		RCK5BS_EXALICE, exalice_bg_render, exalice_update,
+		exalice_fg_render, shinki_stage_backdrop_colorfill
+	);
+	return 0xFF;
+}
+
+#undef RCK5_BOSS_SETUP_CASE
+
+static bool rck_th05_boss_stage_valid(uint8_t id)
+{
+	return (id == (RCK5BS_SARA + stage_id));
+}
+
+static bool rck_th05_boss_setup_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK5BS_SARA:
+		boss_bg_render_func = sara_bg_render;
+		boss_update_func = sara_update;
+		boss_fg_render_func = sara_fg_render;
+		boss_backdrop_colorfill = sara_backdrop_colorfill;
+		break;
+	case RCK5BS_LOUISE:
+		boss_bg_render_func = louise_bg_render;
+		boss_update_func = louise_update;
+		boss_fg_render_func = louise_fg_render;
+		boss_backdrop_colorfill = louise_backdrop_colorfill;
+		break;
+	case RCK5BS_ALICE:
+		boss_bg_render_func = alice_bg_render;
+		boss_update_func = alice_update;
+		boss_fg_render_func = alice_fg_render;
+		boss_backdrop_colorfill = alice_backdrop_colorfill;
+		break;
+	case RCK5BS_MAI_YUKI:
+		boss_bg_render_func = mai_yuki_bg_render;
+		boss_update_func = mai_yuki_update;
+		boss_fg_render_func = mai_yuki_fg_render;
+		boss_backdrop_colorfill = mai_yuki_backdrop_colorfill;
+		break;
+	case RCK5BS_YUMEKO:
+		boss_bg_render_func = yumeko_bg_render;
+		boss_update_func = yumeko_update;
+		boss_fg_render_func = yumeko_fg_render;
+		boss_backdrop_colorfill = yumeko_backdrop_colorfill;
+		break;
+	case RCK5BS_SHINKI:
+		boss_bg_render_func = shinki_bg_render;
+		boss_update_func = shinki_update;
+		boss_fg_render_func = shinki_fg_render;
+		boss_backdrop_colorfill = shinki_stage_backdrop_colorfill;
+		break;
+	case RCK5BS_EXALICE:
+		boss_bg_render_func = exalice_bg_render;
+		boss_update_func = exalice_update;
+		boss_fg_render_func = exalice_fg_render;
+		boss_backdrop_colorfill = shinki_stage_backdrop_colorfill;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+static uint8_t rck_th05_midboss_live_id(void)
+{
+	if((midboss_invalidate == nullfunc_near) &&
+	   (midboss_update == nullfunc_far) &&
+	   (midboss_render == nullfunc_near)) {
+		return 0;
+	}
+	if((midboss_invalidate == midboss_invalidate_func) &&
+	   (midboss_update == midboss_update_func) &&
+	   (midboss_render == midboss_render_func)) {
+		return 1;
+	}
+	return 0xFF;
+}
+
+static uint8_t rck_th05_boss_live_id(void)
+{
+	if((boss_update == nullfunc_far) && (boss_fg_render == nullfunc_near)) {
+		return RCK5BL_NONE;
+	}
+	if((boss_update == boss_update_func) &&
+	   (boss_fg_render == boss_fg_render_func)) {
+		return RCK5BL_SETUP;
+	}
+	if((boss_update == yuki_update) &&
+	   (boss_fg_render == b4_solo_fg_render)) {
+		return RCK5BL_YUKI;
+	}
+	if((boss_update == mai_update) &&
+	   (boss_fg_render == b4_solo_fg_render)) {
+		return RCK5BL_MAI;
+	}
+	return 0xFF;
+}
+
+static uint8_t rck_th05_custom_render_id(void)
+{
+	if(boss_custombullets_render == nullfunc_near) { return RCK5CR_NONE; }
+	if(boss_custombullets_render == cheetos_render) { return RCK5CR_CHEETOS; }
+	if(boss_custombullets_render == b4balls_render) { return RCK5CR_B4BALLS; }
+	if(boss_custombullets_render == swords_render) { return RCK5CR_SWORDS; }
+	if(boss_custombullets_render == shinki_custombullets_render) {
+		return RCK5CR_SHINKI;
+	}
+	if(boss_custombullets_render == exalice_custombullets_render) {
+		return RCK5CR_EXALICE;
+	}
+	return 0xFF;
+}
+
+static bool rck_th05_custom_render_compatible(uint8_t id)
+{
+	switch(stage_id) {
+	case 0: case 1: case 2:
+		return (id == RCK5CR_NONE);
+	case 3:
+		return (
+			(id == RCK5CR_NONE) || (id == RCK5CR_CHEETOS) ||
+			(id == RCK5CR_B4BALLS)
+		);
+	case 4:
+		return ((id == RCK5CR_NONE) || (id == RCK5CR_SWORDS));
+	case 5:
+		return ((id == RCK5CR_NONE) || (id == RCK5CR_SHINKI));
+	case STAGE_EXTRA:
+		return ((id == RCK5CR_NONE) || (id == RCK5CR_EXALICE));
+	}
+	return false;
+}
+
+static bool rck_th05_custom_render_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK5CR_NONE: boss_custombullets_render = nullfunc_near; break;
+	case RCK5CR_CHEETOS: boss_custombullets_render = cheetos_render; break;
+	case RCK5CR_B4BALLS: boss_custombullets_render = b4balls_render; break;
+	case RCK5CR_SWORDS: boss_custombullets_render = swords_render; break;
+	case RCK5CR_SHINKI:
+		boss_custombullets_render = shinki_custombullets_render;
+		break;
+	case RCK5CR_EXALICE:
+		boss_custombullets_render = exalice_custombullets_render;
+		break;
+	default: return false;
+	}
+	return true;
+}
+
+static bool rck_th05_actor_callbacks(replay_ck_stream_t far *stream)
+{
+	uint8_t midboss_setup = rck_th05_midboss_setup_id();
+	uint8_t midboss_live = rck_th05_midboss_live_id();
+	uint8_t boss_setup = rck_th05_boss_setup_id();
+	uint8_t boss_live = rck_th05_boss_live_id();
+	uint8_t custom_render = rck_th05_custom_render_id();
+	uint8_t random_y = static_cast<uint8_t>(
+		boss_flystep_random_next_y_direction
+	);
+
+	if(
+		!rck_u8(stream, &midboss_setup) ||
+		!rck_th05_midboss_stage_valid(midboss_setup) ||
+		!rck_u8(stream, &midboss_live) || (midboss_live > 1) ||
+		((midboss_setup == RCK5MS_NONE) && midboss_live) ||
+		!rck_u8(stream, &boss_setup) ||
+		!rck_th05_boss_stage_valid(boss_setup) ||
+		!rck_u8(stream, &boss_live) || (boss_live > RCK5BL_MAI) ||
+		((boss_live >= RCK5BL_YUKI) && (stage_id != 3)) ||
+		!rck_u8(stream, &custom_render) ||
+		!rck_th05_custom_render_compatible(custom_render) ||
+		!rck_u8(stream, &random_y) || (random_y > Y_DOWN)
+	) {
+		return false;
+	}
+	if(!rck_applying(stream)) {
+		return true;
+	}
+	if(
+		!rck_th05_midboss_setup_apply(midboss_setup) ||
+		!rck_th05_boss_setup_apply(boss_setup) ||
+		!rck_th05_custom_render_apply(custom_render)
+	) {
+		return false;
+	}
+	midboss_invalidate = midboss_live
+		? midboss_invalidate_func : nullfunc_near;
+	midboss_update = midboss_live ? midboss_update_func : nullfunc_far;
+	midboss_render = midboss_live ? midboss_render_func : nullfunc_near;
+	switch(boss_live) {
+	case RCK5BL_NONE:
+		boss_update = nullfunc_far;
+		boss_fg_render = nullfunc_near;
+		break;
+	case RCK5BL_SETUP:
+		boss_update = boss_update_func;
+		boss_fg_render = boss_fg_render_func;
+		break;
+	case RCK5BL_YUKI:
+		boss_update = yuki_update;
+		boss_fg_render = b4_solo_fg_render;
+		break;
+	case RCK5BL_MAI:
+		boss_update = mai_update;
+		boss_fg_render = b4_solo_fg_render;
+		break;
+	}
+	boss_flystep_random_next_y_direction = static_cast<y_direction_t>(random_y);
+	return true;
+}
+
+static uint8_t rck_th05_oneshot_table_id(
+	pattern_oneshot_func_t value,
+	const pattern_oneshot_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t i;
+	if(value == 0) {
+		return 0;
+	}
+	for(i = 0; i < count; i++) {
+		if(value == table[i]) {
+			return (i + 1);
+		}
+	}
+	return 0xFF;
+}
+
+static pattern_oneshot_func_t rck_th05_oneshot_table_func(
+	uint8_t id,
+	const pattern_oneshot_func_t near *table,
+	uint8_t count
+)
+{
+	if(id == 0) {
+		return 0;
+	}
+	if(id > count) {
+		return 0;
+	}
+	return table[id - 1];
+}
+
+static bool rck_th05_oneshot_table_codec(
+	replay_ck_stream_t far *stream,
+	pattern_oneshot_func_t near *value,
+	const pattern_oneshot_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t id = rck_th05_oneshot_table_id(*value, table, count);
+	pattern_oneshot_func_t decoded;
+	if(!rck_u8(stream, &id)) {
+		return false;
+	}
+	decoded = rck_th05_oneshot_table_func(id, table, count);
+	if(rck_th05_oneshot_table_id(decoded, table, count) != id) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*value = decoded;
+	}
+	return true;
+}
+
+static uint8_t rck_th05_loop_table_id(
+	pattern_loop_func_t value,
+	const pattern_loop_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t i;
+	if(value == 0) {
+		return 0;
+	}
+	for(i = 0; i < count; i++) {
+		if(value == table[i]) {
+			return (i + 1);
+		}
+	}
+	return 0xFF;
+}
+
+static pattern_loop_func_t rck_th05_loop_table_func(
+	uint8_t id,
+	const pattern_loop_func_t near *table,
+	uint8_t count
+)
+{
+	if(id == 0) {
+		return 0;
+	}
+	if(id > count) {
+		return 0;
+	}
+	return table[id - 1];
+}
+
+static bool rck_th05_loop_table_codec(
+	replay_ck_stream_t far *stream,
+	pattern_loop_func_t near *value,
+	const pattern_loop_func_t near *table,
+	uint8_t count
+)
+{
+	uint8_t id = rck_th05_loop_table_id(*value, table, count);
+	pattern_loop_func_t decoded;
+	if(!rck_u8(stream, &id)) {
+		return false;
+	}
+	decoded = rck_th05_loop_table_func(id, table, count);
+	if(rck_th05_loop_table_id(decoded, table, count) != id) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*value = decoded;
+	}
+	return true;
+}
+
+static uint8_t rck_th05_puppet_id(rck_puppet_func_t value)
+{
+	uint8_t i;
+	if(value == 0) { return 0; }
+	for(i = 0; i < 4; i++) {
+		if(value == ALICE_PUPPET_PATTERNS[i]) {
+			return (i + 1);
+		}
+	}
+	if(value == alice_puppet_pattern_19A84) { return 5; }
+	if(value == alice_puppet_pattern_19AE3) { return 6; }
+	if(value == alice_puppet_pattern_19AFB) { return 7; }
+	return 0xFF;
+}
+
+static rck_puppet_func_t rck_th05_puppet_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if((id >= 1) && (id <= 4)) {
+		return ALICE_PUPPET_PATTERNS[id - 1];
+	}
+	switch(id) {
+	case 5: return alice_puppet_pattern_19A84;
+	case 6: return alice_puppet_pattern_19AE3;
+	case 7: return alice_puppet_pattern_19AFB;
+	}
+	return 0;
+}
+
+static bool rck_th05_puppet_codec(
+	replay_ck_stream_t far *stream, rck_puppet_func_t near *value
+)
+{
+	uint8_t id = rck_th05_puppet_id(*value);
+	rck_puppet_func_t decoded;
+	if(!rck_u8(stream, &id)) {
+		return false;
+	}
+	decoded = rck_th05_puppet_func(id);
+	if(rck_th05_puppet_id(decoded) != id) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*value = decoded;
+	}
+	return true;
+}
+
+static bool rck_th05_actor_stage1(replay_ck_stream_t far *stream)
+{
+	return rck_th05_loop_table_codec(
+		stream,
+		&sara_phase_2_3_pattern,
+		&SARA_PATTERNS_PHASE_2_3[0][0],
+		8
+	);
+}
+
+static bool rck_th05_actor_stage2(replay_ck_stream_t far *stream)
+{
+	return rck_sppoint(stream, &midboss2_center);
+}
+
+static bool rck_th05_actor_stage3(replay_ck_stream_t far *stream)
+{
+	if(
+		!rck_th05_puppet_codec(stream, &fp_2CE2A) ||
+		!rck_th05_puppet_codec(stream, &fp_2CE2C)
+	) {
+		return false;
+	}
+	RCK_U16(alice_barrier_frame);
+	RCK_U16(alice_barrier_fire_frames);
+	return rck_th05_loop_table_codec(
+		stream, &fp_2CE32, &off_22770[0][0], 12
+	);
+}
+
+static uint8_t rck_th05_mai_pair_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = rck_th05_oneshot_table_id(value, MAI_PAIR_PATTERNS_1, 4);
+	if(id != 0xFF) { return id; }
+	if(value == mai_yuki_1A775) { return 5; }
+	id = rck_th05_oneshot_table_id(value, MAI_PAIR_PATTERNS_3, 4);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 5));
+}
+
+static pattern_oneshot_func_t rck_th05_mai_pair_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id <= 4) { return MAI_PAIR_PATTERNS_1[id - 1]; }
+	if(id == 5) { return mai_yuki_1A775; }
+	if(id <= 9) { return MAI_PAIR_PATTERNS_3[id - 6]; }
+	return 0;
+}
+
+static uint8_t rck_th05_yuki_pair_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = rck_th05_oneshot_table_id(value, YUKI_PAIR_PATTERNS_1, 4);
+	if(id != 0xFF) { return id; }
+	id = rck_th05_oneshot_table_id(value, YUKI_PAIR_PATTERNS_2, 4);
+	if(id != 0xFF) { return (id + 4); }
+	id = rck_th05_oneshot_table_id(value, YUKI_PAIR_PATTERNS_3, 4);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 8));
+}
+
+static pattern_oneshot_func_t rck_th05_yuki_pair_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id <= 4) { return YUKI_PAIR_PATTERNS_1[id - 1]; }
+	if(id <= 8) { return YUKI_PAIR_PATTERNS_2[id - 5]; }
+	if(id <= 12) { return YUKI_PAIR_PATTERNS_3[id - 9]; }
+	return 0;
+}
+
+static uint8_t rck_th05_solo_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = rck_th05_oneshot_table_id(value, MAI_PATTERNS_PHASE_3, 2);
+	if(id != 0xFF) { return id; }
+	id = rck_th05_oneshot_table_id(value, MAI_PATTERNS_PHASE_7, 2);
+	if(id != 0xFF) { return (id + 2); }
+	id = rck_th05_oneshot_table_id(value, MAI_PATTERNS_PHASE_9, 2);
+	if(id != 0xFF) { return (id + 4); }
+	id = rck_th05_oneshot_table_id(value, YUKI_PATTERNS_PHASE_3, 2);
+	if(id != 0xFF) { return (id + 6); }
+	id = rck_th05_oneshot_table_id(value, YUKI_PATTERNS_PHASE_5, 2);
+	if(id != 0xFF) { return (id + 8); }
+	id = rck_th05_oneshot_table_id(value, YUKI_PATTERNS_PHASE_9, 5);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 10));
+}
+
+static pattern_oneshot_func_t rck_th05_solo_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id <= 2) { return MAI_PATTERNS_PHASE_3[id - 1]; }
+	if(id <= 4) { return MAI_PATTERNS_PHASE_7[id - 3]; }
+	if(id <= 6) { return MAI_PATTERNS_PHASE_9[id - 5]; }
+	if(id <= 8) { return YUKI_PATTERNS_PHASE_3[id - 7]; }
+	if(id <= 10) { return YUKI_PATTERNS_PHASE_5[id - 9]; }
+	if(id <= 15) { return YUKI_PATTERNS_PHASE_9[id - 11]; }
+	return 0;
+}
+
+static bool rck_th05_direction_codec(
+	replay_ck_stream_t far *stream, y_direction_t near *direction
+)
+{
+	uint8_t value = static_cast<uint8_t>(*direction);
+	if(!rck_u8(stream, &value) || (value > Y_DOWN)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*direction = static_cast<y_direction_t>(value);
+	}
+	return true;
+}
+
+static bool rck_th05_actor_stage4(replay_ck_stream_t far *stream)
+{
+	uint8_t mai_id = rck_th05_mai_pair_id(mai_pair_pattern);
+	uint8_t yuki_id = rck_th05_yuki_pair_id(yuki_pair_pattern);
+	uint8_t solo_id = rck_th05_solo_id(mai_yuki_pattern);
+	uint8_t laser_id = rck_th05_loop_table_id(
+		mai_laser_bullet_pattern, MAI_LASER_BULLET_PATTERNS, 3
+	);
+	pattern_oneshot_func_t decoded_oneshot;
+	pattern_loop_func_t decoded_loop;
+
+	RCK_S16(midboss4_warp_x);
+	if(
+		!rck_th05_direction_codec(
+			stream, &mai_flystep_random_next_y_direction
+		) ||
+		!rck_th05_direction_codec(
+			stream, &yuki_flystep_random_next_y_direction
+		) ||
+		!rck_u8(stream, &mai_id)
+	) {
+		return false;
+	}
+	decoded_oneshot = rck_th05_mai_pair_func(mai_id);
+	if(rck_th05_mai_pair_id(decoded_oneshot) != mai_id) {
+		return false;
+	}
+	if(rck_applying(stream)) { mai_pair_pattern = decoded_oneshot; }
+	if(!rck_u8(stream, &yuki_id)) { return false; }
+	decoded_oneshot = rck_th05_yuki_pair_func(yuki_id);
+	if(rck_th05_yuki_pair_id(decoded_oneshot) != yuki_id) {
+		return false;
+	}
+	if(rck_applying(stream)) { yuki_pair_pattern = decoded_oneshot; }
+	if(!rck_u8(stream, &solo_id)) { return false; }
+	decoded_oneshot = rck_th05_solo_func(solo_id);
+	if(rck_th05_solo_id(decoded_oneshot) != solo_id) {
+		return false;
+	}
+	if(rck_applying(stream)) { mai_yuki_pattern = decoded_oneshot; }
+	RCK_U16_MAX(mai_laser_count, 10);
+	RCK_U16_MAX(mai_laser_angle_speed, 0x80);
+	RCK_U16_MAX(mai_laser_angle_progress, 0x0F);
+	if(!rck_u8(stream, &laser_id)) { return false; }
+	decoded_loop = rck_th05_loop_table_func(
+		laser_id, MAI_LASER_BULLET_PATTERNS, 3
+	);
+	if(
+		rck_th05_loop_table_id(
+			decoded_loop, MAI_LASER_BULLET_PATTERNS, 3
+		) != laser_id
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) { mai_laser_bullet_pattern = decoded_loop; }
+	return true;
+}
+
+static uint8_t rck_th05_yumeko_id(pattern_loop_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = rck_th05_loop_table_id(value, YUMEKO_PATTERNS_PHASE_2, 2);
+	if(id != 0xFF) { return id; }
+	id = rck_th05_loop_table_id(value, YUMEKO_PATTERNS_PHASE_5, 2);
+	if(id != 0xFF) { return (id + 2); }
+	if(value == yumeko_1CB71) { return 5; }
+	if(value == yumeko_1CED9) { return 6; }
+	return 0xFF;
+}
+
+static pattern_loop_func_t rck_th05_yumeko_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id <= 2) { return YUMEKO_PATTERNS_PHASE_2[id - 1]; }
+	if(id <= 4) { return YUMEKO_PATTERNS_PHASE_5[id - 3]; }
+	if(id == 5) { return yumeko_1CB71; }
+	if(id == 6) { return yumeko_1CED9; }
+	return 0;
+}
+
+static bool rck_th05_actor_stage5(replay_ck_stream_t far *stream)
+{
+	uint8_t yumeko_id = rck_th05_yumeko_id(yumeko_pattern);
+	pattern_loop_func_t decoded;
+	if(!rck_th05_oneshot_table_codec(
+		stream,
+		&midboss5_phase_1_pattern,
+		MIDBOSS5_PATTERNS_PHASE_1,
+		3
+	)) {
+		return false;
+	}
+	if(!rck_u8(stream, &yumeko_id)) {
+		return false;
+	}
+	decoded = rck_th05_yumeko_func(yumeko_id);
+	if(rck_th05_yumeko_id(decoded) != yumeko_id) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		yumeko_pattern = decoded;
+	}
+	return true;
+}
+
+static uint8_t rck_th05_wing_id(pattern_loop_func_t value)
+{
+	if(value == 0) { return 0; }
+	if(value == pattern_random_rain_and_spreads_from_wings) { return 1; }
+	if(value == pattern_cheetos_within_spread_walls) { return 2; }
+	if(value == pattern_aimed_b6balls_and_symmetric_spreads) { return 3; }
+	if(value == pattern_devil) { return 4; }
+	return 0xFF;
+}
+
+static pattern_loop_func_t rck_th05_wing_func(uint8_t id)
+{
+	switch(id) {
+	case 0: return 0;
+	case 1: return pattern_random_rain_and_spreads_from_wings;
+	case 2: return pattern_cheetos_within_spread_walls;
+	case 3: return pattern_aimed_b6balls_and_symmetric_spreads;
+	case 4: return pattern_devil;
+	}
+	return 0;
+}
+
+static bool rck_th05_actor_stage6(replay_ck_stream_t far *stream)
+{
+	uint8_t wing_id = rck_th05_wing_id(shinki_wing_pattern);
+	pattern_loop_func_t decoded;
+	if(!rck_th05_oneshot_table_codec(
+		stream,
+		&shinki_phase_2_3_pattern,
+		SHINKI_PATTERNS_PHASE_2_3,
+		4
+	)) {
+		return false;
+	}
+	if(!rck_u8(stream, &wing_id)) {
+		return false;
+	}
+	decoded = rck_th05_wing_func(wing_id);
+	if(rck_th05_wing_id(decoded) != wing_id) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		shinki_wing_pattern = decoded;
+	}
+	RCK_U16(shinki_devil_laser_grow_delay);
+	RCK_BOOL(shinki_float_direction);
+	return true;
+}
+
+static uint8_t rck_th05_midbossx_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	if(value == pattern_wait) { return 1; }
+	id = rck_th05_oneshot_table_id(
+		value, &MIDBOSSX_PATTERNS_PHASE_1[0][0], 4
+	);
+	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 1));
+}
+
+static pattern_oneshot_func_t rck_th05_midbossx_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id == 1) { return pattern_wait; }
+	if(id <= 5) { return (&MIDBOSSX_PATTERNS_PHASE_1[0][0])[id - 2]; }
+	return 0;
+}
+
+static uint8_t rck_th05_exalice_id(pattern_oneshot_func_t value)
+{
+	uint8_t id;
+	if(value == 0) { return 0; }
+	id = rck_th05_oneshot_table_id(value, &EXALICE_PATTERNS[0][0], 8);
+	if(id != 0xFF) { return id; }
+	if(value == pattern_spreads_and_firewaves) { return 9; }
+	if(value == pattern_bouncing_blue_rings) { return 10; }
+	if(value == pattern_pingpong_lasers) { return 11; }
+	if(value == pattern_mirrored_crosses) { return 12; }
+	return 0xFF;
+}
+
+static pattern_oneshot_func_t rck_th05_exalice_func(uint8_t id)
+{
+	if(id == 0) { return 0; }
+	if(id <= 8) { return (&EXALICE_PATTERNS[0][0])[id - 1]; }
+	switch(id) {
+	case 9: return pattern_spreads_and_firewaves;
+	case 10: return pattern_bouncing_blue_rings;
+	case 11: return pattern_pingpong_lasers;
+	case 12: return pattern_mirrored_crosses;
+	}
+	return 0;
+}
+
+static bool rck_th05_firewave(
+	replay_ck_stream_t far *stream, rck_firewave_t far *firewave
+)
+{
+	RCK_BOOL(firewave->alive);
+	RCK_BOOL(firewave->is_right);
+	RCK_S16(firewave->bottom);
+	RCK_S16(firewave->amp);
+	return true;
+}
+
+static bool rck_th05_actor_extra(replay_ck_stream_t far *stream)
+{
+	uint8_t midboss_id = rck_th05_midbossx_id(midbossx_phase_1_pattern);
+	uint8_t exalice_id = rck_th05_exalice_id(exalice_pattern);
+	pattern_oneshot_func_t decoded;
+	int i;
+
+	if(!rck_u8(stream, &midboss_id)) { return false; }
+	decoded = rck_th05_midbossx_func(midboss_id);
+	if(rck_th05_midbossx_id(decoded) != midboss_id) { return false; }
+	if(rck_applying(stream)) { midbossx_phase_1_pattern = decoded; }
+	if(!rck_u8(stream, &exalice_id)) { return false; }
+	decoded = rck_th05_exalice_func(exalice_id);
+	if(rck_th05_exalice_id(decoded) != exalice_id) { return false; }
+	if(rck_applying(stream)) { exalice_pattern = decoded; }
+	RCK_U8_MAX(exalice_invincibility_frames, 39);
+	if(!rck_pfpoint(stream, &exalice_random_origin)) { return false; }
+	RCK_S16(exalice_pattern_origin_x);
+	RCK_U16_MAX(exalice_laser_slot, 15);
+	for(i = 0; i < 2; i++) {
+		if(!rck_th05_firewave(stream, &firewaves[i])) {
+			return false;
+		}
+	}
+	RCK_U16(exalice_overlay_patnum);
+	return true;
+}
+
+static bool rck_group_actors(replay_ck_stream_t far *stream)
+{
+	if(
+		!rck_group_actors_common(stream) ||
+		!rck_th05_actor_callbacks(stream)
+	) {
+		return false;
+	}
+	switch(stage_id) {
+	case 0: return rck_th05_actor_stage1(stream);
+	case 1: return rck_th05_actor_stage2(stream);
+	case 2: return rck_th05_actor_stage3(stream);
+	case 3: return rck_th05_actor_stage4(stream);
+	case 4: return rck_th05_actor_stage5(stream);
+	case 5: return rck_th05_actor_stage6(stream);
+	case STAGE_EXTRA: return rck_th05_actor_extra(stream);
+	}
+	return false;
+}
 #endif
 
 bool replay_ck_group_codec(
@@ -4037,10 +5134,8 @@ bool replay_ck_group_codec(
 		return rck_group_bullets(stream);
 	case RCGI_ENEMIES:
 		return rck_group_enemies(stream);
-#if (GAME == 4)
 	case RCGI_ACTORS:
 		return rck_group_actors(stream);
-#endif
 	case RCGI_ITEMS:
 		return rck_group_items(stream);
 	case RCGI_SCORING:
@@ -4273,7 +5368,10 @@ bool replay_ck_container_measure(
 	uint32_t decoded_size;
 	uint32_t total;
 
-	if((total_size == 0) || (state_digest == 0) || !rck_identity_valid(identity)) {
+	if(
+		(total_size == 0) || (state_digest == 0) ||
+		!rck_identity_valid(identity) || (identity->stage != stage_id)
+	) {
 		return false;
 	}
 	if(!rck_groups_measure(sizes, checksums, &decoded_size, state_digest)) {
@@ -4313,7 +5411,7 @@ bool replay_ck_container_encode(
 
 	if(
 		(data == 0) || (total_size == 0) || (state_digest == 0) ||
-		!rck_identity_valid(identity) ||
+		!rck_identity_valid(identity) || (identity->stage != stage_id) ||
 		!rck_groups_measure(sizes, checksums, &decoded_size, &digest)
 	) {
 		return false;
@@ -4409,7 +5507,7 @@ static bool rck_container_prefix_valid(
 	);
 }
 
-bool replay_ck_container_validate(
+static bool rck_container_validate(
 	const replay_ck_identity_t far *identity,
 	const void far *data_in,
 	uint16_t total_size,
@@ -4496,6 +5594,27 @@ bool replay_ck_container_validate(
 	}
 	*state_digest = digest;
 	return true;
+}
+
+bool replay_ck_container_validate(
+	const replay_ck_identity_t far *identity,
+	const void far *data,
+	uint16_t total_size,
+	uint32_t far *state_digest
+)
+{
+	uint8_t previous_stage = stage_id;
+	bool valid;
+
+	// Compatibility codecs are intentionally shared with live capture. Frame
+	// them on the identity while validating, then restore the ambient byte on
+	// every exit; no other gameplay state is touched before apply.
+	if(identity != 0) {
+		stage_id = identity->stage;
+	}
+	valid = rck_container_validate(identity, data, total_size, state_digest);
+	stage_id = previous_stage;
+	return valid;
 }
 
 static bool rck_group_apply(
