@@ -15,4 +15,8 @@ bool16 far practice_spawn_row_upper_bound(
 // constructed here.
 bool16 far practice_chapter_field_build(int target_scroll_step);
 
+// Constructs the final legal map field and marks scrolling complete. Actor,
+// callback, enemy, BGM, and presentation state remain owned by the caller.
+bool16 far practice_terminal_field_build(void);
+
 #endif /* TH02_MAIN_PRACTICE_HPP */

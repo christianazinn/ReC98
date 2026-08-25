@@ -25,6 +25,7 @@
 #include "th02/main/frames.hpp"
 #include "th02/main/main.hpp"
 #include "th02/main/midboss/midboss.hpp"
+#include "th02/main/s1_actor.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -103,6 +104,13 @@ extern "C" int spawn_row_cur;
 extern "C" uint8_t bgm_show_timer;
 extern "C" uint8_t bgm_title_id;
 extern "C" uint8_t boss_bgm_title_id;
+extern "C" char rika_bgm_fn[];
+
+extern "C" void far boss_bgm_load(char *fn);
+extern "C" void far enemies_remove_all(void);
+extern "C" void far enemies_callbacks_null(void);
+extern "C" void far stage_title_unput(void);
+extern "C" bool16 far stage_should_end(void);
 
 // Stable callback vocabulary for the first common-world codec. These IDs are
 // intentionally captured and validated even though schema 4 has no apply
@@ -2235,6 +2243,12 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_EXTRA_CHAPTER2:
 		practice_target_valid = (start->stage == 5);
 		break;
+	case T2RPT_STAGE1_MIDBOSS:
+	case T2RPT_STAGE1_BOSS_PHASE1:
+	case T2RPT_STAGE1_BOSS_PHASE2:
+	case T2RPT_STAGE1_BOSS_PHASE3:
+		practice_target_valid = (start->stage == 0);
+		break;
 	default:
 		break;
 	}
@@ -2858,10 +2872,38 @@ void replay_entry(void)
 	}
 }
 
+static bool16 near t2replay_stage1_rika_activate_clean(
+	th02_s1_rika_clean_target_t target
+)
+{
+	if(!th02_s1_rika_clean_init(target)) {
+		return false;
+	}
+
+	stage_progression = SP_BOSS;
+	midboss_active = false;
+	enemies_remove_all();
+	enemies_callbacks_null();
+	boss_activate_if_scroll_done_func = nullfunc_void;
+	boss_bg_render = boss_bg_render_func;
+	boss_update = boss_update_func;
+	stage_should_end_func = stage_should_end;
+	scroll_cycle = -1;
+
+	stage_frame = 160;
+	stage_title_unput();
+	stage_frame = 0;
+	boss_bgm_load(rika_bgm_fn);
+	bgm_show_timer = 1;
+	bgm_title_id = boss_bgm_title_id;
+	return true;
+}
+
 bool16 replay_practice_target_apply(void)
 {
 	uint8_t target = t2replay_practice_target;
 	int target_scroll_step;
+	th02_s1_rika_clean_target_t rika_target;
 
 	if(target == T2RPT_STAGE_START) {
 		return true;
@@ -2903,6 +2945,29 @@ bool16 replay_practice_target_apply(void)
 		}
 		target_scroll_step = 239;
 		break;
+	case T2RPT_STAGE1_MIDBOSS:
+		if(stage_id != 0) {
+			return false;
+		}
+		target_scroll_step = 116;
+		break;
+	case T2RPT_STAGE1_BOSS_PHASE1:
+	case T2RPT_STAGE1_BOSS_PHASE2:
+	case T2RPT_STAGE1_BOSS_PHASE3:
+		if(stage_id != 0) {
+			return false;
+		}
+		rika_target = static_cast<th02_s1_rika_clean_target_t>(
+			target - T2RPT_STAGE1_BOSS_PHASE1
+		);
+		if(
+			!practice_terminal_field_build() ||
+			!t2replay_stage1_rika_activate_clean(rika_target)
+		) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
 	default:
 		return false;
 	}

@@ -211,3 +211,24 @@ bool16 far practice_chapter_field_build(int target_scroll_step)
 	graph_accesspage(page_back);
 	return true;
 }
+
+bool16 far practice_terminal_field_build(void)
+{
+	int map_rows;
+	int target_scroll_step;
+
+	if((map_length <= 0) || (map_length > MAP_LENGTH_MAX)) {
+		return false;
+	}
+	map_rows = (map_length * MAP_ROWS_PER_SECTION);
+	target_scroll_step = (
+		(map_rows - ((PLAYFIELD_H / TILE_H) + 1)) * 2
+	);
+	if(!practice_chapter_field_build(target_scroll_step)) {
+		return false;
+	}
+	scroll_done = true;
+	scroll_delta = 0;
+	scroll_step_advanced = false;
+	return true;
+}
