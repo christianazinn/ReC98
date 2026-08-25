@@ -29,6 +29,7 @@
 #include "th02/main/s1_actor.hpp"
 #include "th02/main/s2_actor.hpp"
 #include "th02/main/s3_actor.hpp"
+#include "th02/main/s4_actor.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -110,6 +111,9 @@ extern "C" uint8_t boss_bgm_title_id;
 extern "C" char rika_bgm_fn[];
 extern "C" char aBoss4_m[];
 extern "C" char aBoss2_m[];
+extern "C" char aBoss3_m[];
+extern "C" const char aStage3_b_bft[];
+extern "C" const char aStage3_b_btt_0[];
 extern Palette8 __cdecl Palettes;
 extern void far pascal palette_show(void);
 
@@ -2266,6 +2270,11 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE3_BOSS_START:
 		practice_target_valid = (start->stage == 2);
 		break;
+	case T2RPT_STAGE4_MIDBOSS_FIRST:
+	case T2RPT_STAGE4_MIDBOSS_SECOND:
+	case T2RPT_STAGE4_BOSS_START:
+		practice_target_valid = (start->stage == 3);
+		break;
 	default:
 		break;
 	}
@@ -2932,6 +2941,36 @@ static bool16 near t2replay_stage2_meira_activate_clean(
 	return true;
 }
 
+static bool16 near t2replay_stage4_midboss_activate_clean(
+	th02_s4_midboss_clean_target_t target, int target_scroll_step
+)
+{
+	if(
+		!practice_chapter_field_build(target_scroll_step) ||
+		!th02_s4_midboss_clean_init(target)
+	) {
+		return false;
+	}
+	midboss_active = true;
+	return true;
+}
+
+static bool16 near t2replay_stage4_marisa_activate_clean(void)
+{
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	super_clean(128, 511);
+	super_patnum = 128;
+	super_entry_bfnt(aStage3_b_bft);
+	super_entry_bfnt(aStage3_b_btt_0);
+	tile_mode = TM_NONE;
+	shots_free_all();
+	th02_s4_marisa_clean_init();
+	t2replay_boss_promote_clean(aBoss3_m);
+	return true;
+}
+
 bool16 replay_practice_target_apply(void)
 {
 	uint8_t target = t2replay_practice_target;
@@ -3047,6 +3086,34 @@ bool16 replay_practice_target_apply(void)
 		palette_show();
 		th02_s3_stones_clean_init();
 		t2replay_boss_promote_clean(aBoss2_m);
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE4_MIDBOSS_FIRST:
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_midboss_activate_clean(
+				T2S4_MIDBOSS_FIRST, 944
+			)
+		) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE4_MIDBOSS_SECOND:
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_midboss_activate_clean(
+				T2S4_MIDBOSS_SECOND, 1632
+			)
+		) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE4_BOSS_START:
+		if((stage_id != 3) || !t2replay_stage4_marisa_activate_clean()) {
+			return false;
+		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
 	default:

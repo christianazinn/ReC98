@@ -216,6 +216,11 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE3_BOSS_START:
 		practice_target_valid = (start->stage == 2);
 		break;
+	case T2RPT_STAGE4_MIDBOSS_FIRST:
+	case T2RPT_STAGE4_MIDBOSS_SECOND:
+	case T2RPT_STAGE4_BOSS_START:
+		practice_target_valid = (start->stage == 3);
+		break;
 	default:
 		break;
 	}
@@ -735,15 +740,23 @@ static uint8_t t2op_practice_target_step(
 		}
 	case 3:
 		if(direction < 0) {
-			return ((target == T2RPT_STAGE_START)
-				? T2RPT_STAGE4_CHAPTER3
-				: ((target == T2RPT_STAGE4_CHAPTER3)
-					? T2RPT_STAGE4_CHAPTER2 : T2RPT_STAGE_START));
+			switch(target) {
+			case T2RPT_STAGE_START: return T2RPT_STAGE4_BOSS_START;
+			case T2RPT_STAGE4_MIDBOSS_FIRST: return T2RPT_STAGE_START;
+			case T2RPT_STAGE4_CHAPTER2: return T2RPT_STAGE4_MIDBOSS_FIRST;
+			case T2RPT_STAGE4_MIDBOSS_SECOND: return T2RPT_STAGE4_CHAPTER2;
+			case T2RPT_STAGE4_CHAPTER3: return T2RPT_STAGE4_MIDBOSS_SECOND;
+			default: return T2RPT_STAGE4_CHAPTER3;
+			}
 		}
-		return ((target == T2RPT_STAGE_START)
-			? T2RPT_STAGE4_CHAPTER2
-			: ((target == T2RPT_STAGE4_CHAPTER2)
-				? T2RPT_STAGE4_CHAPTER3 : T2RPT_STAGE_START));
+		switch(target) {
+		case T2RPT_STAGE_START: return T2RPT_STAGE4_MIDBOSS_FIRST;
+		case T2RPT_STAGE4_MIDBOSS_FIRST: return T2RPT_STAGE4_CHAPTER2;
+		case T2RPT_STAGE4_CHAPTER2: return T2RPT_STAGE4_MIDBOSS_SECOND;
+		case T2RPT_STAGE4_MIDBOSS_SECOND: return T2RPT_STAGE4_CHAPTER3;
+		case T2RPT_STAGE4_CHAPTER3: return T2RPT_STAGE4_BOSS_START;
+		default: return T2RPT_STAGE_START;
+		}
 	case 5:
 		return ((target == T2RPT_STAGE_START)
 			? T2RPT_EXTRA_CHAPTER2 : T2RPT_STAGE_START);
@@ -933,6 +946,16 @@ static void t2op_practice_render(void)
 			case T2RPT_STAGE3_MIDBOSS:
 				p = t2op_word_append(p, T2OW_MIDBOSS);
 				break;
+			case T2RPT_STAGE4_MIDBOSS_FIRST:
+				p = t2op_word_append(p, T2OW_MIDBOSS);
+				*p++ = ' ';
+				*p++ = '1';
+				break;
+			case T2RPT_STAGE4_MIDBOSS_SECOND:
+				p = t2op_word_append(p, T2OW_MIDBOSS);
+				*p++ = ' ';
+				*p++ = '2';
+				break;
 			case T2RPT_STAGE1_BOSS_PHASE1:
 			case T2RPT_STAGE2_BOSS_PHASE1:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_1);
@@ -946,6 +969,7 @@ static void t2op_practice_render(void)
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_3);
 				break;
 			case T2RPT_STAGE3_BOSS_START:
+			case T2RPT_STAGE4_BOSS_START:
 				p = t2op_word_append(p, T2OW_BOSS_START);
 				break;
 			default:
