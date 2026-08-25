@@ -51,6 +51,7 @@
 	#include "th05/main/stage/stages.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
+	#include "th05/formats/dialog.hpp"
 #else
 	#include "th04/main/boss/boss.hpp"
 	#include "th04/main/boss/backdrop.hpp"
@@ -127,6 +128,14 @@ extern nearfunc_t_near playchar_shot_func;
 	extern uint16_t shinki_bg_spinline_frame;
 	extern bool shinki_bg_type_c_initialized;
 	extern bool shinki_bg_type_d_initialized;
+
+	struct rck_dialog_cursor_t {
+		int16_t x;
+		int16_t y;
+	};
+	extern rck_dialog_cursor_t dialog_cursor;
+	extern int dialog_side;
+	extern int8_t dialog_sequence_id;
 
 	extern uint8_t byte_22274;
 	extern uint8_t byte_22275;
@@ -1525,6 +1534,207 @@ static bool rck_group_stage_vm(replay_ck_stream_t far *stream)
 	}
 	return true;
 }
+
+#if (GAME == 5)
+#define RCK_DIALOG_OP_06_SIZE 6
+#define RCK_DIALOG_CURSOR_X_MAX (RES_X / GLYPH_HALF_W)
+#define RCK_DIALOG_CURSOR_Y_MAX (RES_Y / GLYPH_H)
+
+struct rck_dialog_source_t {
+	uint16_t end;
+	uint32_t checksum;
+};
+
+static uint8_t rck_dialog_source_u8(uint16_t segment, uint16_t offset)
+{
+	return *reinterpret_cast<uint8_t far *>(MK_FP(segment, offset));
+}
+
+static bool rck_dialog_skip_string(uint16_t segment, uint32_t *cursor)
+{
+	while(*cursor <= 0xFFFFUL) {
+		if(rck_dialog_source_u8(segment, static_cast<uint16_t>(*cursor)) == 0) {
+			(*cursor)++;
+			return (*cursor <= 0xFFFFUL);
+		}
+		(*cursor)++;
+	}
+	return false;
+}
+
+static bool rck_dialog_skip_operation(
+	uint16_t segment,
+	uint32_t *cursor,
+	uint8_t operation,
+	bool *allowed_in_box
+)
+{
+	uint8_t parameter_size = 0;
+
+	*allowed_in_box = false;
+	switch(operation) {
+	case 0x02:
+		parameter_size = 1;
+		break;
+	case 0x03:
+	case 0x05:
+		return rck_dialog_skip_string(segment, cursor);
+	case 0x06:
+		parameter_size = RCK_DIALOG_OP_06_SIZE;
+		break;
+	case 0x09:
+	case 0x0A:
+		parameter_size = 1;
+		break;
+	case 0x0B:
+	case 0x0D:
+		*allowed_in_box = true;
+		break;
+	case 0x0C:
+		parameter_size = 1;
+		*allowed_in_box = true;
+		break;
+	}
+	*cursor += parameter_size;
+	return (*cursor <= 0xFFFFUL);
+}
+
+static bool rck_dialog_sequence_end(uint16_t segment, uint32_t *cursor)
+{
+	while(*cursor <= 0xFFFFUL) {
+		uint8_t operation = rck_dialog_source_u8(
+			segment, static_cast<uint16_t>(*cursor)
+		);
+		bool allowed_in_box;
+
+		(*cursor)++;
+		if(operation == 0xFF) {
+			return true;
+		}
+		if(operation != 0x0D) {
+			if(!rck_dialog_skip_operation(
+				segment, cursor, operation, &allowed_in_box
+			)) {
+				return false;
+			}
+			continue;
+		}
+
+		while(*cursor <= 0xFFFFUL) {
+			operation = rck_dialog_source_u8(
+				segment, static_cast<uint16_t>(*cursor)
+			);
+			(*cursor)++;
+			if(operation == 0xFF) {
+				break;
+			}
+			if(!rck_dialog_skip_operation(
+				segment, cursor, operation, &allowed_in_box
+			)) {
+				return false;
+			}
+			if(!allowed_in_box) {
+				(*cursor)++;
+				if(*cursor > 0xFFFFUL) {
+					return false;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+static bool rck_dialog_source_info(
+	uint16_t segment, rck_dialog_source_t *source
+)
+{
+	uint32_t cursor = 0;
+	uint8_t sequence_count = ((stage_id == 5) ? 1 : 2);
+	uint32_t i;
+
+	for(i = 0; i < sequence_count; i++) {
+		if(!rck_dialog_sequence_end(segment, &cursor)) {
+			return false;
+		}
+	}
+	if((cursor == 0) || (cursor > 0xFFFFUL)) {
+		return false;
+	}
+	source->end = static_cast<uint16_t>(cursor);
+	source->checksum = REPLAY_FNV1A_BASIS;
+	for(i = 0; i < source->end; i++) {
+		source->checksum ^= rck_dialog_source_u8(
+			segment, static_cast<uint16_t>(i)
+		);
+		source->checksum *= REPLAY_FNV1A_PRIME;
+	}
+	return true;
+}
+
+static bool rck_group_dialog(replay_ck_stream_t far *stream)
+{
+	bool loaded = (dialog_p != 0);
+	bool live_loaded = loaded;
+	uint16_t source_segment = (loaded ? FP_SEG(dialog_p) : 0);
+	uint16_t cursor_offset = (loaded ? FP_OFF(dialog_p) : 0);
+	rck_dialog_source_t source;
+	uint16_t source_end;
+	uint32_t source_checksum;
+	uint16_t cursor_x = static_cast<uint16_t>(dialog_cursor.x);
+	uint16_t cursor_y = static_cast<uint16_t>(dialog_cursor.y);
+	uint8_t side = static_cast<uint8_t>(dialog_side);
+	uint8_t sequence_id = static_cast<uint8_t>(dialog_sequence_id);
+
+	RCK_BOOL(loaded);
+	if(loaded != live_loaded) {
+		return false;
+	}
+	if(loaded) {
+		if(!rck_dialog_source_info(source_segment, &source)) {
+			return false;
+		}
+		source_end = source.end;
+		source_checksum = source.checksum;
+		if(
+			!rck_u16(stream, &source_end) ||
+			!rck_u32(stream, &source_checksum) ||
+			(source_end != source.end) ||
+			(source_checksum != source.checksum) ||
+			!rck_u16(stream, &cursor_offset) ||
+			(cursor_offset > source.end)
+		) {
+			return false;
+		}
+	}
+	if(!rck_u16(stream, &cursor_x) || !rck_u16(stream, &cursor_y)) {
+		return false;
+	}
+	if(
+		(static_cast<int16_t>(cursor_x) < 0) ||
+		(static_cast<int16_t>(cursor_x) > RCK_DIALOG_CURSOR_X_MAX) ||
+		(static_cast<int16_t>(cursor_y) < 0) ||
+		(static_cast<int16_t>(cursor_y) > RCK_DIALOG_CURSOR_Y_MAX) ||
+		!rck_u8(stream, &side) ||
+		(side > 1) ||
+		!rck_u8(stream, &sequence_id) ||
+		(sequence_id > 1)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		if(loaded) {
+			dialog_p = reinterpret_cast<uint8_t far *>(MK_FP(
+				source_segment, cursor_offset
+			));
+		}
+		dialog_cursor.x = static_cast<int16_t>(cursor_x);
+		dialog_cursor.y = static_cast<int16_t>(cursor_y);
+		dialog_side = side;
+		dialog_sequence_id = sequence_id;
+	}
+	return true;
+}
+#endif
 
 enum rck_std_update_t {
 	RCKSU_DIALOG = 0,
@@ -3843,6 +4053,10 @@ bool replay_ck_group_codec(
 		return rck_group_stage_vm(stream);
 	case RCGI_PACING:
 		return rck_group_pacing(stream);
+#if (GAME == 5)
+	case RCGI_DIALOG:
+		return rck_group_dialog(stream);
+#endif
 	}
 	stream->failed = true;
 	return false;
