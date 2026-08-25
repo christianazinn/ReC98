@@ -272,7 +272,7 @@ typedef char oracle_record_size_check[
 // v1 artifact stays readable forever. A reader keyed on the version REJECTS a
 // file whose `row_size` disagrees rather than reinterpreting fields under a
 // schema that does not describe them, as required by the harness contract.
-#define ORACLE_SPLIT_VERSION       3
+#define ORACLE_SPLIT_VERSION       4
 #define ORACLE_SPLIT_HEADER_SIZE   16
 #define ORACLE_SPLIT_PREFIX_SIZE   16
 #define ORACLE_SPLIT_CRITICAL_SIZE 32
@@ -284,11 +284,12 @@ typedef char oracle_record_size_check[
 //
 // Group 2 is the player (position, shots, bomb state); group 3 is the bullet
 // array plus the custom-entity block; groups 4-6 are enemies, the shared actor
-// core, and item-related entities. Groups 7-11 remain to be added; each bumps
-// this version again. Group 5 deliberately says "core": stage-specific boss
-// state remains part of the next additive inventory rather than being hidden
-// behind native memory dumps here.
-#define ORACLE_SPLIT_HASH_COUNT 7
+// core, and item-related entities. Schema 4 adds scoring/rank, logical field
+// state, and gameplay effects as groups 7-9. Groups 10-11 remain to be added;
+// each bumps this version again. Group 5 deliberately says "core":
+// stage-specific boss state remains part of the next additive inventory rather
+// than being hidden behind native memory dumps here.
+#define ORACLE_SPLIT_HASH_COUNT 10
 #define ORACLE_HASH_GROUP_RNG     0
 #define ORACLE_HASH_GROUP_RUN     1
 #define ORACLE_HASH_GROUP_PLAYER  2
@@ -296,6 +297,9 @@ typedef char oracle_record_size_check[
 #define ORACLE_HASH_GROUP_ENEMIES 4
 #define ORACLE_HASH_GROUP_ACTORS  5
 #define ORACLE_HASH_GROUP_ITEMS   6
+#define ORACLE_HASH_GROUP_SCORING 7
+#define ORACLE_HASH_GROUP_FIELD   8
+#define ORACLE_HASH_GROUP_EFFECTS 9
 #define ORACLE_SPLIT_ROW_SIZE ( \
 	ORACLE_SPLIT_PREFIX_SIZE + \
 	ORACLE_SPLIT_CRITICAL_SIZE + \
