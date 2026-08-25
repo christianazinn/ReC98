@@ -816,7 +816,6 @@ static void t2op_main_exec(void)
 	pi_fn[3] = '.'; pi_fn[4] = 'p'; pi_fn[5] = 'i'; pi_fn[6] = '\0';
 	main_fn[0] = 'm'; main_fn[1] = 'a'; main_fn[2] = 'i'; main_fn[3] = 'n';
 	main_fn[4] = '\0';
-	cfg_save();
 	pi_load(0, pi_fn);
 	text_clear();
 	snd_kaja_func(KAJA_SONG_FADE, 15);
@@ -828,24 +827,11 @@ static void t2op_main_exec(void)
 
 static void t2op_playback_start(uint8_t slot)
 {
-	t2replay_start_t start;
-
-	start_init();
-	t2op_memclear(&start, sizeof(start));
-	start.resident_frame = static_cast<uint32_t>(resident->frame);
-	start.random_seed = start.resident_frame;
-	start.stage = 0;
-	start.rank = RANK_NORMAL;
-	start.rem_lives = lives;
-	start.rem_bombs = bombs;
-	start.start_lives = lives;
-	start.start_bombs = bombs;
-	start.start_power = 1;
-	start.shottype = 0;
-	start.bgm_mode = snd_bgm_mode;
-	start.reduce_effects = (resident->reduce_effects ? 1 : 0);
-	t2op_resident_apply(&start);
+	// Playback owns its launch state in the replay header. Preserve the user's
+	// title options before start_init() writes the transient resident fields.
+	cfg_save();
 	if(t2op_command_write(T2REPLAY_COMMAND_PLAYBACK, slot, 0, 0)) {
+		start_init();
 		t2op_main_exec();
 	}
 }
@@ -854,19 +840,24 @@ static void t2op_practice_start(void)
 {
 	uint8_t slot;
 
-	if(!t2op_first_free_slot(&slot)) {
-		return;
-	}
+	// Keep the selected title options persistent. The Practice payload is a
+	// one-run resident override consumed by MAIN, never a new configuration.
+	cfg_save();
 	start_init();
 	t2op_resident_apply(&t2op_practice);
-	if(t2op_command_write(
-		T2REPLAY_COMMAND_RECORD,
-		slot,
-		T2REPLAY_COMMAND_FLAG_PRACTICE,
-		&t2op_practice
-	)) {
-		t2op_main_exec();
+	if(t2op_first_free_slot(&slot)) {
+		t2op_command_write(
+			T2REPLAY_COMMAND_RECORD,
+			slot,
+			T2REPLAY_COMMAND_FLAG_PRACTICE,
+			&t2op_practice
+		);
+	} else {
+		// A full replay directory must not prevent a legitimate Practice run.
+		// MAIN discards this invalid command before using the resident start.
+		t2op_command_write(0, 0, 0, 0);
 	}
+	t2op_main_exec();
 }
 
 static void t2op_record_then_start(bool extra)
