@@ -463,6 +463,22 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	return true;
 }
 
+static bool t2replay_stage_scores_valid(void)
+{
+	uint8_t first_stage = static_cast<uint8_t>(t2replay_header.start.stage);
+	uint8_t stage;
+
+	for(stage = 0; stage < T2REPLAY_STAGE_COUNT; stage++) {
+		if(
+			((stage < first_stage) || (stage > t2replay_header.stage_reached)) &&
+			(t2replay_header.stage_scores[stage] != 0)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool t2replay_packet_is_valid(
 	const t2replay_packet_t far *packet, uint32_t far *samples,
 	bool far *terminal_seen
@@ -634,6 +650,7 @@ static bool t2replay_header_read(void)
 		 (t2replay_header.packet_count * T2REPLAY_PACKET_SIZE)) ||
 		(stored_checksum != computed_checksum) ||
 		!t2replay_start_valid(&t2replay_header.start) ||
+		!t2replay_stage_scores_valid() ||
 		!t2replay_bytes_zero(t2replay_header.reserved, sizeof(t2replay_header.reserved))
 	) {
 		t2replay_dos_close(fd);
@@ -726,6 +743,26 @@ static bool t2replay_playback_control(uint8_t opcode, uint16_t value, uint8_t ar
 		(packet.input_low == static_cast<uint8_t>(value & 0xFF)) &&
 		(packet.input_high == static_cast<uint8_t>(value >> 8)) &&
 		(packet.arg == arg)
+	);
+}
+
+static bool t2replay_stage_score_matches(uint8_t stage)
+{
+	return (
+		(stage < T2REPLAY_STAGE_COUNT) &&
+		(static_cast<uint32_t>(score) == t2replay_header.stage_scores[stage])
+	);
+}
+
+static bool t2replay_terminal_state_matches(void)
+{
+	return (
+		t2replay_stage_score_matches(t2replay_header.terminal_stage) &&
+		(score == t2replay_header.score_final) &&
+		(lives == t2replay_header.lives_final) &&
+		(bombs == t2replay_header.bombs_final) &&
+		(power == t2replay_header.power_final) &&
+		(stage_id == static_cast<char>(t2replay_header.terminal_stage))
 	);
 }
 
@@ -886,6 +923,7 @@ static void t2replay_finalize(uint8_t end_reason)
 				end_reason,
 				static_cast<uint8_t>(stage_id)
 			) ||
+			!t2replay_terminal_state_matches() ||
 			(t2replay_decode_run != 0) ||
 			(t2replay_packet_cursor != t2replay_header.packet_count) ||
 			(t2replay_sample_cursor != t2replay_header.sample_count)
@@ -953,9 +991,10 @@ void replay_stage_start(void)
 		)) {
 			t2replay_failed = true;
 		}
-	} else if(!t2replay_playback_control(
-		T2REPLAY_CONTROL_STAGE_START, stage_id, 0
-	)) {
+	} else if(
+		!t2replay_playback_control(T2REPLAY_CONTROL_STAGE_START, stage_id, 0) ||
+		(t2replay_stage_seen && !t2replay_stage_score_matches(t2replay_last_stage))
+	) {
 		t2replay_fail();
 	}
 	t2replay_last_stage = static_cast<uint8_t>(stage_id);
