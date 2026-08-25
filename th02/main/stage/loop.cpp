@@ -75,14 +75,10 @@ bool16 stage_loop(void)
 	int gdc_lines_upper;
 	int gdc_sad_upper;
 
-	union {
-		long init;
-		vram_y_t line[PAGE_COUNT];
-	} scroll_line_on_page;
-
 	register vram_y_t scroll_line_saved;
 
-	scroll_line_on_page.init = scroll_line_on_page_init;
+	replay_scroll_pages_reset(scroll_line_on_page_init);
+	replay_checkpoint_capture_validate();
 
 	while(!quit) {
 		snd_se_update();
@@ -92,7 +88,7 @@ bool16 stage_loop(void)
 		// The unblitting pass has to use the [scroll_line] that the back page
 		// was last blitted with, not the current one.
 		scroll_line_saved = scroll_line;
-		scroll_line = scroll_line_on_page.line[page_back];
+		scroll_line = replay_scroll_page_line_get(page_back);
 
 		boss_bg_render();
 		if(midboss_active) {
@@ -131,7 +127,7 @@ bool16 stage_loop(void)
 				scroll_delta = scroll_speed;
 			}
 		}
-		scroll_line_on_page.line[page_back] = scroll_line;
+		replay_scroll_page_line_set(page_back, scroll_line);
 
 		input_reset_sense();
 		if(resident->demo_num) {

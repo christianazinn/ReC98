@@ -12,6 +12,17 @@ void replay_entry(void);
 // consume input. Emits or verifies the stage boundary control packet.
 void replay_stage_start(void);
 
+// Owns TH02's two physical-page scroll-line values. The source loop starts
+// both from its original packed initializer and continues to address them by
+// the physical back-page index.
+void replay_scroll_pages_reset(long packed_initial_lines);
+int16_t replay_scroll_page_line_get(uint8_t page);
+void replay_scroll_page_line_set(uint8_t page, int16_t line);
+
+// Captures and validates the narrow checkpoint vocabulary at the first frame
+// of a stage loop. It deliberately has no restore or file-write behavior.
+void replay_checkpoint_capture_validate(void);
+
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
