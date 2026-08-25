@@ -595,7 +595,13 @@ void regist_name_enter(int entered_place)
 			(entered_place * SCOREDAT_NAME_BYTES) + i
 		] = entered_name.ubyte[i];
 	}
+#if (BINARY == 'E')
+	if(!t1replay_fuuin_playback()) {
+		scoredat_save();
+	}
+#else
 	scoredat_save();
+#endif
 }
 
 static const int PLACE_NONE = (SCOREDAT_PLACES + 20);

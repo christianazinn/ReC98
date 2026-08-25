@@ -388,10 +388,12 @@ static bool t1replay_packet_is_valid(
 	} else {
 		return false;
 	}
-	if(state->processes == 0xFFFFFFFFUL) {
-		return false;
+	if(control != T1REPLAY_CONTROL_PHASE) {
+		if(state->processes == 0xFFFFFFFFUL) {
+			return false;
+		}
+		state->processes++;
 	}
-	state->processes++;
 	return true;
 }
 
@@ -1094,6 +1096,11 @@ void far t1replay_fuuin_terminal(void)
 bool16 far t1replay_fuuin_active(void)
 {
 	return (t1replay_mode != T1RM_DISABLED);
+}
+
+bool16 far t1replay_fuuin_playback(void)
+{
+	return (t1replay_mode == T1RM_PLAYBACK);
 }
 
 #pragma codeseg

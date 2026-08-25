@@ -16,5 +16,6 @@ void far t1replay_fuuin_frame_io(void);
 int far t1replay_fuuin_key_sense(int keygroup);
 void far t1replay_fuuin_terminal(void);
 bool16 far t1replay_fuuin_active(void);
+bool16 far t1replay_fuuin_playback(void);
 
 #endif /* TH01_REPLAY_FUUIN_HPP */

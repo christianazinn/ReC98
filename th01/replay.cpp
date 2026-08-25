@@ -985,10 +985,12 @@ static bool t1replay_packet_is_valid(
 	} else {
 		return false;
 	}
-	if(state->processes == 0xFFFFFFFFUL) {
-		return false;
+	if(control != T1REPLAY_CONTROL_PHASE) {
+		if(state->processes == 0xFFFFFFFFUL) {
+			return false;
+		}
+		state->processes++;
 	}
-	state->processes++;
 	return true;
 }
 
