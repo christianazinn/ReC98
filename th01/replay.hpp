@@ -28,10 +28,13 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
 void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out);
 void t1replay_input_checkpoint_import(const t1replay_checkpoint_input_t *in);
 
-// Called immediately before REIIDEN hands control to another executable. A
-// nonterminal handoff is always REIIDEN-to-REIIDEN; terminal paths remain
-// native after their final replay control has been validated or written.
-void far t1replay_process_end(bool16 terminal, uint8_t end_reason);
+// Called immediately before REIIDEN hands control to another executable.
+// Source and target are encoded explicitly in both stream and carrier.
+bool16 far t1replay_process_handoff(uint8_t target_process);
+
+// REIIDEN owns only the menu-return terminal. Clear finalization belongs to
+// FUUIN after its deterministic input phases have completed.
+void far t1replay_terminal(uint8_t end_reason);
 
 bool16 far t1replay_active(void);
 

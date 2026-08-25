@@ -586,6 +586,7 @@ void verdict_animate_and_regist_menu(void)
 
 	int timeout = 0;
 	frame_delay(100);
+	t1replay_fuuin_phase_begin(T1REPLAY_FUUIN_PHASE_VERDICT);
 	input_reset_sense();
 	while(!(((timeout++) >= 2000) || input_ok || input_shot)) {
 		input_sense(false);

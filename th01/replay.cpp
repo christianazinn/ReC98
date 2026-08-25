@@ -30,38 +30,12 @@
 #define T1REPLAY_DOS_ACCESS_RW 2
 #define T1REPLAY_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define T1REPLAY_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
-#define T1REPLAY_RES_ID "T1ReplayState"
-#define T1REPLAY_RES_VERSION 1
-
-enum t1replay_mode_t {
-	T1RM_DISABLED = 0,
-	T1RM_RECORD = 1,
-	T1RM_PLAYBACK = 2,
-};
-
 extern bool timer_initialized;
 extern bool first_stage_in_scene;
 extern bool stage_wait_for_shot_to_begin;
 extern bool16 mode_test;
 extern uint32_t bomb_frame;
 extern uint32_t frame_since_start_of_binary;
-
-// A separate resident block is necessary: resident_t has no sufficiently large
-// unused region, and its canonical layout must remain untouched.
-struct t1replay_res_t {
-	char id[sizeof(T1REPLAY_RES_ID)];
-	char magic[4];
-	uint8_t version;
-	uint8_t mode;
-	uint8_t slot;
-	uint8_t process_seq;
-	uint32_t sample_count;
-	uint32_t packet_count;
-	uint32_t input_size;
-	uint32_t payload_checksum;
-	uint32_t start_checksum;
-	uint32_t checksum;
-};
 
 typedef char t1replay_res_id_size_check[
 	(sizeof(T1REPLAY_RES_ID) == sizeof(reinterpret_cast<t1replay_res_t *>(0)->id)) ? 1 : -1
@@ -344,6 +318,27 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 		size--;
 	}
 	return hash;
+}
+
+static uint32_t t1replay_fuuin_handoff_checksum(void)
+{
+	t1replay_fuuin_handoff_t handoff;
+	int i;
+
+	t1replay_memclear(&handoff, sizeof(handoff));
+	handoff.resident_rand = resident->rand;
+	handoff.score = resident->score;
+	handoff.score_highest = resident->score_highest;
+	handoff.continues_total = resident->continues_total;
+	for(i = 0; i < SCENE_COUNT; i++) {
+		handoff.continues_per_scene[i] = resident->continues_per_scene[i];
+	}
+	handoff.rank = resident->rank;
+	handoff.credit_lives_extra = resident->credit_lives_extra;
+	handoff.end_flag = static_cast<int8_t>(resident->end_flag);
+	return t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &handoff, sizeof(handoff)
+	);
 }
 
 static bool t1replay_bytes_zero(const uint8_t far *p, unsigned size)
@@ -876,74 +871,137 @@ static bool t1replay_header_write(bool create)
 	return true;
 }
 
+struct t1replay_stream_state_t {
+	uint32_t samples;
+	uint32_t processes;
+	uint8_t process;
+	uint8_t process_seq;
+	uint8_t source_process;
+	uint8_t fuuin_phase;
+	uint8_t terminal_reason;
+	bool terminal_seen;
+};
+
+static void t1replay_stream_state_reset(t1replay_stream_state_t far *state)
+{
+	t1replay_memclear(state, sizeof(*state));
+	state->process = T1REPLAY_PROCESS_REIIDEN;
+}
+
+static bool t1replay_fuuin_keys_valid(const uint8_t far *keys)
+{
+	return (
+		!(keys[T1RFIG_0] & ~T1REPLAY_INPUT_MASK_0) &&
+		!(keys[T1RFIG_3] & ~T1REPLAY_INPUT_MASK_3) &&
+		!(keys[T1RFIG_5] & ~T1REPLAY_INPUT_MASK_5) &&
+		!(keys[T1RFIG_7] & ~T1REPLAY_INPUT_MASK_7) &&
+		(keys[4] == 0) && (keys[5] == 0) && (keys[6] == 0)
+	);
+}
+
 static bool t1replay_packet_is_valid(
-	const t1replay_packet_t far *packet, uint32_t far *samples,
-	uint32_t far *controls, bool far *terminal_seen,
-	uint8_t far *terminal_reason
+	const t1replay_packet_t far *packet, t1replay_stream_state_t far *state
 )
 {
 	uint8_t i;
 	uint8_t control;
+	uint8_t value;
 
-	if(*terminal_seen) {
+	if(state->terminal_seen) {
 		return false;
 	}
 	if(!(packet->tag & T1REPLAY_PACKET_CONTROL)) {
-		for(i = 0; i < T1REPLAY_INPUT_GROUP_COUNT; i++) {
-			if(packet->keys[i] & ~t1replay_group_mask(i)) {
-				return false;
+		if(state->process == T1REPLAY_PROCESS_REIIDEN) {
+			for(i = 0; i < T1REPLAY_INPUT_GROUP_COUNT; i++) {
+				if(packet->keys[i] & ~t1replay_group_mask(i)) {
+					return false;
+				}
 			}
-		}
-		if(*samples > (0xFFFFFFFFUL -
-			static_cast<uint32_t>((packet->tag & T1REPLAY_PACKET_RUN_MASK) + 1))) {
+		} else if(
+			(state->process != T1REPLAY_PROCESS_FUUIN) ||
+			(state->fuuin_phase == T1REPLAY_FUUIN_PHASE_NONE) ||
+			!t1replay_fuuin_keys_valid(packet->keys)
+		) {
 			return false;
 		}
-		*samples += static_cast<uint32_t>(
+		value = static_cast<uint8_t>(
 			(packet->tag & T1REPLAY_PACKET_RUN_MASK) + 1
 		);
+		if(state->samples > (0xFFFFFFFFUL - static_cast<uint32_t>(value))) {
+			return false;
+		}
+		state->samples += value;
 		return true;
 	}
 	control = static_cast<uint8_t>(packet->tag & T1REPLAY_PACKET_RUN_MASK);
 	if(
-		((control != T1REPLAY_CONTROL_PROCESS_END) &&
-		 (control != T1REPLAY_CONTROL_TERMINAL)) ||
-		(packet->keys[0] != T1REPLAY_PROCESS_REIIDEN) ||
-		(packet->keys[1] != static_cast<uint8_t>(*controls)) ||
+		(packet->keys[0] != state->process) ||
+		(packet->keys[1] != state->process_seq) ||
 		(packet->keys[3] != 0) || (packet->keys[4] != 0) ||
 		(packet->keys[5] != 0) || (packet->keys[6] != 0)
 	) {
 		return false;
 	}
 	if(control == T1REPLAY_CONTROL_PROCESS_END) {
-		if(packet->keys[2] != T1REPLAY_PROCESS_REIIDEN) {
+		if(
+			(state->process != T1REPLAY_PROCESS_REIIDEN) ||
+			((packet->keys[2] != T1REPLAY_PROCESS_REIIDEN) &&
+			 (packet->keys[2] != T1REPLAY_PROCESS_FUUIN)) ||
+			(state->process_seq == 0xFF)
+		) {
 			return false;
 		}
+		state->source_process = state->process;
+		state->process = packet->keys[2];
+		state->process_seq++;
+		state->fuuin_phase = T1REPLAY_FUUIN_PHASE_NONE;
+	} else if(control == T1REPLAY_CONTROL_PHASE) {
+		value = packet->keys[2];
+		if(
+			(state->process != T1REPLAY_PROCESS_FUUIN) ||
+			!(((state->fuuin_phase == T1REPLAY_FUUIN_PHASE_NONE) &&
+			   (value == T1REPLAY_FUUIN_PHASE_VERDICT)) ||
+			  ((state->fuuin_phase == T1REPLAY_FUUIN_PHASE_VERDICT) &&
+			   ((value == T1REPLAY_FUUIN_PHASE_SCORE_NAME) ||
+				(value == T1REPLAY_FUUIN_PHASE_SCORE_RELEASE))))
+		) {
+			return false;
+		}
+		state->fuuin_phase = value;
+		return true;
+	} else if(control == T1REPLAY_CONTROL_TERMINAL) {
+		value = packet->keys[2];
+		if(
+			!(((state->process == T1REPLAY_PROCESS_REIIDEN) &&
+			   (value == T1REPLAY_END_MENU)) ||
+			  ((state->process == T1REPLAY_PROCESS_FUUIN) &&
+			   (state->fuuin_phase != T1REPLAY_FUUIN_PHASE_NONE) &&
+			   (value == T1REPLAY_END_CLEAR)))
+		) {
+			return false;
+		}
+		state->terminal_seen = true;
+		state->terminal_reason = value;
 	} else {
-		if((packet->keys[2] != T1REPLAY_END_MENU) &&
-			(packet->keys[2] != T1REPLAY_END_CLEAR)) {
-			return false;
-		}
-		*terminal_seen = true;
-		*terminal_reason = packet->keys[2];
-	}
-	if(*controls == 0xFFFFFFFFUL) {
 		return false;
 	}
-	(*controls)++;
+	if(state->processes == 0xFFFFFFFFUL) {
+		return false;
+	}
+	state->processes++;
 	return true;
 }
 
 static bool t1replay_stream_validate(int fd, bool finalized)
 {
 	uint32_t packets_seen = 0;
-	uint32_t samples = 0;
-	uint32_t controls = 0;
 	uint32_t hash = T1REPLAY_FNV1A_BASIS;
+	t1replay_stream_state_t state;
 	unsigned want;
 	unsigned len;
 	unsigned i;
-	bool terminal_seen = false;
-	uint8_t terminal_reason = 0;
+
+	t1replay_stream_state_reset(&state);
 
 	if(!t1replay_dos_seek(fd, t1replay_header.input_offset)) {
 		return false;
@@ -961,10 +1019,7 @@ static bool t1replay_stream_validate(int fd, bool finalized)
 		}
 		hash = t1replay_fnv1a(hash, t1replay_buffer, len);
 		for(i = 0; i < want; i++) {
-			if(!t1replay_packet_is_valid(
-				&t1replay_buffer[i], &samples, &controls, &terminal_seen,
-				&terminal_reason
-			)) {
+			if(!t1replay_packet_is_valid(&t1replay_buffer[i], &state)) {
 				return false;
 			}
 		}
@@ -972,11 +1027,12 @@ static bool t1replay_stream_validate(int fd, bool finalized)
 	}
 	return (
 		(hash == t1replay_header.payload_checksum) &&
-		(samples == t1replay_header.sample_count) &&
-		(controls == t1replay_header.process_count) &&
+		(state.samples == t1replay_header.sample_count) &&
+		(state.processes == t1replay_header.process_count) &&
 		(finalized ?
-			(terminal_seen && (terminal_reason == t1replay_header.end_reason)) :
-			!terminal_seen)
+			(state.terminal_seen &&
+			 (state.terminal_reason == t1replay_header.end_reason)) :
+			!state.terminal_seen)
 	);
 }
 
@@ -1002,7 +1058,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '1') ||
+		!t1replay_magic_matches(t1replay_header.magic, '2') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -1038,17 +1094,22 @@ static bool t1replay_header_read(bool finalized)
 	return true;
 }
 
-static bool t1replay_payload_prefix_valid(uint32_t length, uint32_t expected)
+static bool t1replay_payload_prefix_valid(
+	uint32_t length, uint32_t expected, t1replay_stream_state_t far *state
+)
 {
 	uint32_t hash = T1REPLAY_FNV1A_BASIS;
 	uint32_t left = length;
 	unsigned want;
+	unsigned packets;
+	unsigned i;
 	int fd;
 
 	if((length > t1replay_header.input_size) ||
 		((length % T1REPLAY_PACKET_SIZE) != 0)) {
 		return false;
 	}
+	t1replay_stream_state_reset(state);
 	fd = t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_READ);
 	if(fd < 0 || !t1replay_dos_seek(fd, t1replay_header.input_offset)) {
 		if(fd >= 0) {
@@ -1065,6 +1126,13 @@ static bool t1replay_payload_prefix_valid(uint32_t length, uint32_t expected)
 			return false;
 		}
 		hash = t1replay_fnv1a(hash, t1replay_buffer, want);
+		packets = (want / T1REPLAY_PACKET_SIZE);
+		for(i = 0; i < packets; i++) {
+			if(!t1replay_packet_is_valid(&t1replay_buffer[i], state)) {
+				t1replay_dos_close(fd);
+				return false;
+			}
+		}
 		left -= want;
 	}
 	t1replay_dos_close(fd);
@@ -1134,7 +1202,7 @@ static void t1replay_header_capture(void)
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '1';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '2';
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
@@ -1254,7 +1322,14 @@ static bool t1replay_res_valid(void)
 		(t1replay_res->version != T1REPLAY_RES_VERSION) ||
 		((t1replay_res->mode != T1RM_RECORD) &&
 		 (t1replay_res->mode != T1RM_PLAYBACK)) ||
-		(t1replay_res->slot >= T1REPLAY_SLOT_COUNT)) {
+		(t1replay_res->slot >= T1REPLAY_SLOT_COUNT) ||
+		!t1replay_bytes_zero(
+			t1replay_res->reserved, sizeof(t1replay_res->reserved)
+		) ||
+		((t1replay_res->source_process != T1REPLAY_PROCESS_NONE) &&
+		 (t1replay_res->source_process != T1REPLAY_PROCESS_REIIDEN)) ||
+		((t1replay_res->target_process != T1REPLAY_PROCESS_REIIDEN) &&
+		 (t1replay_res->target_process != T1REPLAY_PROCESS_FUUIN))) {
 		return false;
 	}
 	stored = t1replay_res->checksum;
@@ -1301,32 +1376,43 @@ static void t1replay_res_store(void)
 
 static bool t1replay_res_matches_header(void)
 {
+	t1replay_stream_state_t state;
+
 	if(
 		(t1replay_res->packet_count >
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_res->input_size !=
 			(t1replay_res->packet_count * T1REPLAY_PACKET_SIZE)) ||
-		(t1replay_res->start_checksum != t1replay_header.start_checksum)
+		(t1replay_res->start_checksum != t1replay_header.start_checksum) ||
+		(t1replay_res->target_process != T1REPLAY_PROCESS_REIIDEN) ||
+		(t1replay_res->handoff_checksum != 0)
 	) {
 		return false;
 	}
 	if(t1replay_mode == T1RM_RECORD) {
-		return (
-			(t1replay_res->sample_count == t1replay_header.sample_count) &&
-			(t1replay_res->packet_count == t1replay_header.packet_count) &&
-			(t1replay_res->input_size == t1replay_header.input_size) &&
-			t1replay_payload_prefix_valid(
-				t1replay_res->input_size, t1replay_res->payload_checksum
-			)
-		);
+		if(
+			(t1replay_res->sample_count != t1replay_header.sample_count) ||
+			(t1replay_res->packet_count != t1replay_header.packet_count) ||
+			(t1replay_res->input_size != t1replay_header.input_size)
+		) {
+			return false;
+		}
+	} else if(
+		(t1replay_res->sample_count > t1replay_header.sample_count) ||
+		(t1replay_res->packet_count > t1replay_header.packet_count) ||
+		(t1replay_res->input_size > t1replay_header.input_size)
+	) {
+		return false;
 	}
 	return (
-		(t1replay_res->sample_count <= t1replay_header.sample_count) &&
-		(t1replay_res->packet_count <= t1replay_header.packet_count) &&
-		(t1replay_res->input_size <= t1replay_header.input_size) &&
 		t1replay_payload_prefix_valid(
-			t1replay_res->input_size, t1replay_res->payload_checksum
-		)
+			t1replay_res->input_size, t1replay_res->payload_checksum, &state
+		) &&
+		!state.terminal_seen &&
+		(state.samples == t1replay_res->sample_count) &&
+		(state.process == t1replay_res->target_process) &&
+		(state.process_seq == t1replay_res->process_seq) &&
+		(state.source_process == t1replay_res->source_process)
 	);
 }
 
@@ -1534,7 +1620,7 @@ static bool t1replay_playback_sample(void)
 	return true;
 }
 
-static bool t1replay_control_commit(uint8_t control, uint8_t end_reason)
+static bool t1replay_control_commit(uint8_t control, uint8_t value)
 {
 	t1replay_packet_t packet;
 
@@ -1545,10 +1631,7 @@ static bool t1replay_control_commit(uint8_t control, uint8_t end_reason)
 	packet.tag = static_cast<uint8_t>(T1REPLAY_PACKET_CONTROL | control);
 	packet.keys[0] = T1REPLAY_PROCESS_REIIDEN;
 	packet.keys[1] = t1replay_res->process_seq;
-	packet.keys[2] = (
-		(control == T1REPLAY_CONTROL_PROCESS_END) ?
-		T1REPLAY_PROCESS_REIIDEN : end_reason
-	);
+	packet.keys[2] = value;
 	if(!t1replay_packet_commit(&packet)) {
 		return false;
 	}
@@ -1556,7 +1639,7 @@ static bool t1replay_control_commit(uint8_t control, uint8_t end_reason)
 	return true;
 }
 
-static bool t1replay_control_playback(uint8_t control, uint8_t end_reason)
+static bool t1replay_control_playback(uint8_t control, uint8_t value)
 {
 	t1replay_packet_t packet;
 
@@ -1567,10 +1650,7 @@ static bool t1replay_control_playback(uint8_t control, uint8_t end_reason)
 		(packet.tag == static_cast<uint8_t>(T1REPLAY_PACKET_CONTROL | control)) &&
 		(packet.keys[0] == T1REPLAY_PROCESS_REIIDEN) &&
 		(packet.keys[1] == t1replay_res->process_seq) &&
-		(packet.keys[2] == (
-			(control == T1REPLAY_CONTROL_PROCESS_END) ?
-			T1REPLAY_PROCESS_REIIDEN : end_reason
-		)) &&
+		(packet.keys[2] == value) &&
 		(packet.keys[3] == 0) && (packet.keys[4] == 0) &&
 		(packet.keys[5] == 0) && (packet.keys[6] == 0)
 	);
@@ -1694,6 +1774,8 @@ void far t1replay_entry(void)
 		t1replay_res->magic[2] = 'R'; t1replay_res->magic[3] = 'S';
 		t1replay_res->version = T1REPLAY_RES_VERSION;
 		t1replay_res->slot = slot;
+		t1replay_res->source_process = T1REPLAY_PROCESS_NONE;
+		t1replay_res->target_process = T1REPLAY_PROCESS_REIIDEN;
 		t1replay_res_store();
 	}
 }
@@ -1825,55 +1907,74 @@ int far t1replay_key_sense(int keygroup)
 	return key_sense(keygroup);
 }
 
-void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
+static bool t1replay_process_control(uint8_t control, uint8_t value)
 {
-	uint8_t control;
-
 	if(t1replay_mode == T1RM_DISABLED) {
-		return;
+		return false;
 	}
-	control = (terminal ? T1REPLAY_CONTROL_TERMINAL :
-		T1REPLAY_CONTROL_PROCESS_END);
 	if(t1replay_mode == T1RM_RECORD) {
 		if(!t1replay_pending_commit() ||
-			!t1replay_control_commit(control, end_reason) ||
+			!t1replay_control_commit(control, value) ||
 			!t1replay_buffer_flush()) {
 			t1replay_fail();
-			return;
+			return false;
 		}
-	} else if(!t1replay_control_playback(control, end_reason)) {
+	} else if(!t1replay_control_playback(control, value)) {
 		t1replay_fail_and_abort_if_playback();
-		return;
+		return false;
 	}
-	if(terminal) {
-		if(t1replay_mode == T1RM_RECORD) {
-			t1replay_header.status = T1REPLAY_STATUS_FINALIZED;
-			t1replay_header.end_reason = end_reason;
-			if(!t1replay_header_write(false)) {
-				t1replay_fail();
-				return;
-			}
-#if T1REPLAY_CHECKPOINT_EMIT
-			t1replay_checkpoint_flush_if_enabled();
-#endif
-		} else if(
-			(t1replay_packet_cursor != t1replay_header.packet_count) ||
-			(t1replay_sample_cursor != t1replay_header.sample_count) ||
-			(t1replay_payload_written != t1replay_header.input_size) ||
-			(t1replay_payload_checksum != t1replay_header.payload_checksum)
-		) {
-			t1replay_fail_and_abort_if_playback();
-			return;
-		}
-		t1replay_res_clear();
-		t1replay_mode = T1RM_DISABLED;
-		return;
+	return true;
+}
+
+bool16 far t1replay_process_handoff(uint8_t target_process)
+{
+	if(
+		((target_process != T1REPLAY_PROCESS_REIIDEN) &&
+		 (target_process != T1REPLAY_PROCESS_FUUIN)) ||
+		!t1replay_process_control(T1REPLAY_CONTROL_PROCESS_END, target_process)
+	) {
+		return false;
 	}
 	t1replay_res->process_seq++;
+	t1replay_res->source_process = T1REPLAY_PROCESS_REIIDEN;
+	t1replay_res->target_process = target_process;
+	t1replay_res->handoff_checksum = (
+		(target_process == T1REPLAY_PROCESS_FUUIN) ?
+		t1replay_fuuin_handoff_checksum() : 0
+	);
 	t1replay_res_store();
 #if T1REPLAY_CHECKPOINT_EMIT
 	t1replay_checkpoint_flush_if_enabled();
 #endif
+	return true;
+}
+
+void far t1replay_terminal(uint8_t end_reason)
+{
+	if(!t1replay_process_control(T1REPLAY_CONTROL_TERMINAL, end_reason)) {
+		return;
+	}
+	if(t1replay_mode == T1RM_RECORD) {
+		t1replay_header.status = T1REPLAY_STATUS_FINALIZED;
+		t1replay_header.end_reason = end_reason;
+		if(!t1replay_header_write(false)) {
+			t1replay_fail();
+			return;
+		}
+#if T1REPLAY_CHECKPOINT_EMIT
+	t1replay_checkpoint_flush_if_enabled();
+#endif
+	} else if(
+		(t1replay_packet_cursor != t1replay_header.packet_count) ||
+		(t1replay_sample_cursor != t1replay_header.sample_count) ||
+		(t1replay_payload_written != t1replay_header.input_size) ||
+		(t1replay_payload_checksum != t1replay_header.payload_checksum)
+	) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
+	t1replay_res_clear();
+	t1replay_mode = T1RM_DISABLED;
 }
 
 bool16 far t1replay_active(void)

@@ -2,15 +2,14 @@
 #define TH01_REPLAY_FORMAT_HPP
 
 /*
- * TH01's first user replay format. This is a compact, deliberately narrow
- * container for a full REIIDEN run. It has no in-game UI or seek support yet;
- * those need separate, measured control-flow work.
+ * TH01's user replay format. V2 carries a run from REIIDEN into FUUIN while
+ * retaining the original compact header and packet geometry.
  */
 
 #include "platform.h"
 #include <stddef.h>
 
-#define T1REPLAY_VERSION 1
+#define T1REPLAY_VERSION 2
 #define T1REPLAY_HEADER_SIZE 128
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_PACKET_SIZE 8
@@ -18,7 +17,7 @@
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY1. The OP reader admits only the V1 header's all-zero reserved tail;
+// T1RPY2. The OP reader admits only the V2 header's all-zero reserved tail;
 // changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
 #define T1REPLAY_CHECKPOINT_SCHEMA 2
@@ -68,11 +67,22 @@
 #define T1REPLAY_PACKET_RUN_MAX (T1REPLAY_PACKET_RUN_MASK + 1)
 #define T1REPLAY_CONTROL_PROCESS_END 1
 #define T1REPLAY_CONTROL_TERMINAL 2
+#define T1REPLAY_CONTROL_PHASE 3
 
 #define T1REPLAY_END_MENU 1
 #define T1REPLAY_END_CLEAR 2
 
+#define T1REPLAY_PROCESS_NONE 0
 #define T1REPLAY_PROCESS_REIIDEN 1
+#define T1REPLAY_PROCESS_FUUIN 2
+
+#define T1REPLAY_FUUIN_PHASE_NONE 0
+#define T1REPLAY_FUUIN_PHASE_VERDICT 1
+#define T1REPLAY_FUUIN_PHASE_SCORE_NAME 2
+#define T1REPLAY_FUUIN_PHASE_SCORE_RELEASE 3
+
+#define T1REPLAY_RES_ID "T1ReplayState"
+#define T1REPLAY_RES_VERSION 2
 
 #define T1REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T1REPLAY_FNV1A_PRIME 0x01000193UL
@@ -86,6 +96,20 @@ enum t1replay_input_group_t {
 	T1RIG_8,
 	T1RIG_9,
 	T1REPLAY_INPUT_GROUP_COUNT,
+};
+
+enum t1replay_fuuin_input_index_t {
+	T1RFIG_0 = 0,
+	T1RFIG_3,
+	T1RFIG_5,
+	T1RFIG_7,
+	T1REPLAY_FUUIN_INPUT_GROUP_COUNT,
+};
+
+enum t1replay_mode_t {
+	T1RM_DISABLED = 0,
+	T1RM_RECORD = 1,
+	T1RM_PLAYBACK = 2,
 };
 
 enum t1replay_checkpoint_group_id_t {
@@ -143,7 +167,7 @@ struct t1replay_start_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY1\\0\\0"
+	char magic[8]; // "T1RPY2\\0\\0"
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -175,6 +199,41 @@ struct t1replay_command_t {
 	uint8_t mode;
 	uint8_t slot;
 	uint8_t reserved[6];
+};
+
+// Cross-process replay state. [source_process] owns the committed handoff at
+// the replay prefix, while [target_process] is the only executable permitted
+// to resume it. No process pointers or interrupt-visible state cross this ABI.
+struct t1replay_res_t {
+	char id[sizeof(T1REPLAY_RES_ID)];
+	char magic[4];
+	uint8_t version;
+	uint8_t mode;
+	uint8_t slot;
+	uint8_t process_seq;
+	uint8_t source_process;
+	uint8_t target_process;
+	uint8_t reserved[2];
+	uint32_t sample_count;
+	uint32_t packet_count;
+	uint32_t input_size;
+	uint32_t payload_checksum;
+	uint32_t start_checksum;
+	uint32_t handoff_checksum;
+	uint32_t checksum;
+};
+
+// Exactly the resident fields FUUIN consumes before end_init() destroys them.
+struct t1replay_fuuin_handoff_t {
+	uint32_t resident_rand;
+	int32_t score;
+	int32_t score_highest;
+	int32_t continues_total;
+	uint16_t continues_per_scene[4];
+	int8_t rank;
+	int8_t credit_lives_extra;
+	int8_t end_flag;
+	uint8_t reserved;
 };
 
 // This envelope is a capture and validation substrate only. It never stores
@@ -515,6 +574,12 @@ typedef char t1replay_packet_size_check[
 ];
 typedef char t1replay_command_size_check[
 	(sizeof(t1replay_command_t) == 16) ? 1 : -1
+];
+typedef char t1replay_res_size_check[
+	(sizeof(t1replay_res_t) == 54) ? 1 : -1
+];
+typedef char t1replay_fuuin_handoff_size_check[
+	(sizeof(t1replay_fuuin_handoff_t) == 28) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_header_size_check[
 	(sizeof(t1replay_checkpoint_header_t) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

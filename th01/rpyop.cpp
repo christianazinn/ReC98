@@ -131,7 +131,7 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 	uint32_t start_checksum;
 
 	if(
-		!t1replay_op_magic_matches(header->magic, '1') ||
+		!t1replay_op_magic_matches(header->magic, '2') ||
 		(header->version != T1REPLAY_VERSION) ||
 		(header->header_size != T1REPLAY_HEADER_SIZE) ||
 		(header->packet_size != T1REPLAY_PACKET_SIZE) ||

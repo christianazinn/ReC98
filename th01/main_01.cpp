@@ -528,6 +528,8 @@ int main(void)
 	int pellet_speed_raise_cycle;
 	int stage_id_copy;
 	char bgm_fn[16];
+	char replay_fuuin_arg[2];
+	bool16 replay_fuuin;
 
 	if(!mdrv2_resident()) {
 		error_resident_invalid();
@@ -961,9 +963,16 @@ int main(void)
 						resident->score_highest = score;
 					}
 					frame_delay(120);
-					t1replay_process_end(true, T1REPLAY_END_CLEAR);
+					replay_fuuin = t1replay_process_handoff(
+						T1REPLAY_PROCESS_FUUIN
+					);
+					replay_fuuin_arg[0] = 'r';
+					replay_fuuin_arg[1] = '\0';
 					game_switch_binary();
-					execl(BINARY_END, BINARY_END, nullptr);
+					execl(
+						BINARY_END, BINARY_END,
+						(replay_fuuin ? replay_fuuin_arg : nullptr), nullptr
+					);
 				}
 
 				// ZUN quirk: Placing this after the [game_cleared] branch robs
@@ -1027,7 +1036,7 @@ int main(void)
 				resident->route = route;
 				mdrv2_bgm_fade_out_nonblock();
 				resident->rem_bombs = rem_bombs;
-				t1replay_process_end(false, 0);
+				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
 				game_switch_binary();
 				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 			}
@@ -1071,7 +1080,7 @@ int main(void)
 op:
 	graphics_free_redundant_and_incomplete();
 	boss_free();
-	t1replay_process_end(true, T1REPLAY_END_MENU);
+	t1replay_terminal(T1REPLAY_END_MENU);
 	game_switch_binary();
 	key_end();
 	arc_free();

@@ -40,13 +40,15 @@ void input_sense(bool16 reset_repeat)
 		input_prev[7] = 0;
 		input_prev[8] = 0;
 		input_prev[9] = 0;
+		t1replay_fuuin_input_reset();
 		return;
 	}
 
-	group_1 = key_sense(7);
-	group_2 = key_sense(5);
-	group_1 |= key_sense(7);
-	group_2 |= key_sense(5);
+	t1replay_fuuin_frame_io();
+	group_1 = input_key_sense(7);
+	group_2 = input_key_sense(5);
+	group_1 |= input_key_sense(7);
+	group_2 |= input_key_sense(5);
 
 	input_onchange_bool(0, input_up, (group_1 & K7_ARROW_UP));
 	input_onchange_bool(1, input_down, (group_1 & K7_ARROW_DOWN));

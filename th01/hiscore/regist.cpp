@@ -565,6 +565,9 @@ void regist_name_enter(int entered_place)
 	}
 	entered_name.ubyte[SCOREDAT_NAME_BYTES] = '\0';
 
+#if (BINARY == 'E')
+	t1replay_fuuin_phase_begin(T1REPLAY_FUUIN_PHASE_SCORE_NAME);
+#endif
 	input_reset_sense();
 	while(1) {
 		input_sense(false);
@@ -687,6 +690,9 @@ void regist_menu(
 	regist_put_initial(
 		PLACE_NONE, score, stage_num_or_scoredat_constant, route, names
 	);
+#if (BINARY == 'E')
+	t1replay_fuuin_phase_begin(T1REPLAY_FUUIN_PHASE_SCORE_RELEASE);
+#endif
 	input_ok = true;
 	input_shot = true;
 	while(1) {

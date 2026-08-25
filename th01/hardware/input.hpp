@@ -85,11 +85,14 @@ inline void input_reset_menu_related(void) {
 		cur_sensed_1, cur_sensed_2, input_func_flag(var, flag) \
 )
 
-// TH01 replay core: REIIDEN latches each of the seven key groups once at the
-// measured input_sense(false) seam. FUUIN keeps the stock master.lib reader.
+// TH01 replay core: Each process latches its canonical raw groups once at the
+// measured input_sense(false) seam.
 #if (BINARY == 'M')
 	int far t1replay_key_sense(int keygroup);
 	#define input_key_sense(group) t1replay_key_sense(group)
+#elif (BINARY == 'E')
+	#include "th01/rpyfuuin.hpp"
+	#define input_key_sense(group) t1replay_fuuin_key_sense(group)
 #else
 	#define input_key_sense(group) key_sense(group)
 #endif

@@ -239,7 +239,7 @@ bool16 continue_menu(void)
 		if((input_ok == true) || (input_shot == true)) {
 			if(sel == true) {
 				resident->snd_need_init = false;
-				t1replay_process_end(false, 0);
+				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
 				game_switch_binary();
 				resident->point_value = 0;
 				execl(BINARY_MAIN_CAPS, BINARY_MAIN_CAPS, nullptr);
