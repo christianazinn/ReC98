@@ -1,0 +1,105 @@
+// TH02 generic boss and midboss checkpoint ownership. This patch-only segment
+// follows the stage-specific actor tails and does not move native code.
+#pragma option -zCT2ACTCORE_TEXT -G-
+
+#include "platform.h"
+#include "pc98.h"
+#include "th02/main/actor_core.hpp"
+#include "th02/main/boss/boss.hpp"
+#include "th02/main/explode.hpp"
+#include "th02/hardware/pages.hpp"
+
+extern "C" int patnum_2064E;
+extern "C" uint8_t boss_phase;
+extern "C" bool boss_hit_flash;
+extern "C" uint8_t boss_rank_param[5];
+extern "C" uint8_t bomb_damage_frame_mask;
+
+static bool16 near th02_actor_core_coord_valid(int value, int extent)
+{
+	return ((value >= -512) && (value < (extent + 512)));
+}
+
+static bool16 near th02_actor_core_state_validate(
+	const th02_actor_core_state_t *state
+)
+{
+	int page;
+
+	if(
+		(state == 0) ||
+		(state->patnum < 0) ||
+		(state->patnum >= 512) ||
+		(state->phase_frame < 0) ||
+		(state->damage < 0) ||
+		(state->phase > 31) ||
+		!((state->hit_flash == false) || (state->hit_flash == true)) ||
+		!((state->bomb_damage_frame_mask == 1) ||
+		  (state->bomb_damage_frame_mask == 3))
+	) {
+		return false;
+	}
+	for(page = 0; page < PAGE_COUNT; page++) {
+		if(
+			!th02_actor_core_coord_valid(state->left_on_page[page], RES_X) ||
+			!th02_actor_core_coord_valid(state->top_on_page[page], RES_Y)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool16 far th02_actor_core_state_capture(th02_actor_core_state_t *state)
+{
+	th02_actor_core_state_t captured;
+	int i;
+
+	captured.patnum = patnum_2064E;
+	captured.phase_frame = boss_phase_frame;
+	for(i = 0; i < PAGE_COUNT; i++) {
+		captured.left_on_page[i] = boss_left_on_page[i];
+		captured.top_on_page[i] = boss_top_on_page[i];
+	}
+	captured.damage = boss_damage;
+	captured.phase = boss_phase;
+	captured.hit_flash = boss_hit_flash;
+	for(i = 0; i < 5; i++) {
+		captured.rank_param[i] = boss_rank_param[i];
+	}
+	captured.explode_angle_offset = boss_explode_angle_offset;
+	captured.bomb_damage_frame_mask = bomb_damage_frame_mask;
+	if(!th02_actor_core_state_validate(&captured) || (state == 0)) {
+		return false;
+	}
+	*state = captured;
+	return true;
+}
+
+bool16 far th02_actor_core_state_apply(
+	const th02_actor_core_state_t *state
+)
+{
+	int i;
+
+	if(!th02_actor_core_state_validate(state)) {
+		return false;
+	}
+	patnum_2064E = state->patnum;
+	boss_phase_frame = state->phase_frame;
+	for(i = 0; i < PAGE_COUNT; i++) {
+		boss_left_on_page[i] = state->left_on_page[i];
+		boss_top_on_page[i] = state->top_on_page[i];
+	}
+	boss_left_on_back_page = &boss_left_on_page[page_back];
+	boss_top_on_back_page = &boss_top_on_page[page_back];
+	boss_damage = state->damage;
+	boss_phase = state->phase;
+	boss_hit_flash = state->hit_flash;
+	for(i = 0; i < 5; i++) {
+		boss_rank_param[i] = state->rank_param[i];
+	}
+	boss_explode_angle_offset = state->explode_angle_offset;
+	bomb_damage_frame_mask = state->bomb_damage_frame_mask;
+	return true;
+}
