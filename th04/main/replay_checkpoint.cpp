@@ -4062,6 +4062,523 @@ bool replay_ck_group_codec(
 	return false;
 }
 
+#define RCK_CONTAINER_SIZE_MAX 0xFFF0u
+#define RCK_HEADER_CHECKSUM_OFFSET 0x24u
+#define RCK_GROUP_ID_OFFSET 0x00u
+#define RCK_GROUP_SCHEMA_OFFSET 0x01u
+#define RCK_GROUP_CODEC_OFFSET 0x02u
+#define RCK_GROUP_FLAGS_OFFSET 0x03u
+#define RCK_GROUP_DATA_OFFSET 0x04u
+#define RCK_GROUP_STORED_SIZE_OFFSET 0x08u
+#define RCK_GROUP_DECODED_SIZE_OFFSET 0x0Cu
+#define RCK_GROUP_CHECKSUM_OFFSET 0x10u
+
+static uint8_t rck_group_count(void)
+{
+	#if (GAME == 5)
+		return REPLAY_CKPT_GROUPS_TH05;
+	#else
+		return REPLAY_CKPT_GROUPS_TH04;
+	#endif
+}
+
+static bool rck_identity_valid(const replay_ck_identity_t far *identity)
+{
+	uint8_t section_max;
+
+	if(
+		(identity == 0) ||
+		(identity->stage > STAGE_EXTRA) ||
+		(identity->source_fingerprint == 0)
+	) {
+		return false;
+	}
+	switch(identity->start_kind) {
+	case RSK_CHAPTER:
+		return ((identity->section >= RCS_CHAPTER_2) && (identity->phase == 0));
+	case RSK_MIDBOSS:
+		return (
+			(identity->section <= RCS_MIDBOSS_SECONDARY) &&
+			(identity->phase == 0)
+		);
+	case RSK_BOSS_PHASE:
+		section_max = 0;
+		#if (GAME == 5)
+			if(identity->stage == 3) {
+				section_max = RCS_TH05_YUKI;
+			}
+		#else
+			if(identity->stage == STAGE_EXTRA) {
+				section_max = RCS_TH04_GENGETSU;
+			}
+		#endif
+		return (identity->section <= section_max);
+	}
+	return false;
+}
+
+static uint16_t rck_directory_offset(uint8_t group_id)
+{
+	return static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(group_id) * REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+}
+
+static uint8_t rck_get_u8(const uint8_t far *data, uint16_t offset)
+{
+	return data[offset];
+}
+
+static uint16_t rck_get_u16(const uint8_t far *data, uint16_t offset)
+{
+	return static_cast<uint16_t>(
+		static_cast<uint16_t>(data[offset]) |
+		(static_cast<uint16_t>(data[offset + 1]) << 8)
+	);
+}
+
+static uint32_t rck_get_u32(const uint8_t far *data, uint16_t offset)
+{
+	return (
+		static_cast<uint32_t>(data[offset]) |
+		(static_cast<uint32_t>(data[offset + 1]) << 8) |
+		(static_cast<uint32_t>(data[offset + 2]) << 16) |
+		(static_cast<uint32_t>(data[offset + 3]) << 24)
+	);
+}
+
+static void rck_put_u8(uint8_t far *data, uint16_t offset, uint8_t value)
+{
+	data[offset] = value;
+}
+
+static void rck_put_u16(uint8_t far *data, uint16_t offset, uint16_t value)
+{
+	data[offset] = static_cast<uint8_t>(value);
+	data[offset + 1] = static_cast<uint8_t>(value >> 8);
+}
+
+static void rck_put_u32(uint8_t far *data, uint16_t offset, uint32_t value)
+{
+	int shift;
+
+	for(shift = 0; shift < 32; shift += 8) {
+		data[offset++] = static_cast<uint8_t>(value >> shift);
+	}
+}
+
+static uint32_t rck_hash_u8(uint32_t hash, uint8_t value)
+{
+	hash ^= static_cast<uint32_t>(value);
+	return (hash * REPLAY_FNV1A_PRIME);
+}
+
+static uint32_t rck_hash_u32(uint32_t hash, uint32_t value)
+{
+	int shift;
+
+	for(shift = 0; shift < 32; shift += 8) {
+		hash = rck_hash_u8(hash, static_cast<uint8_t>(value >> shift));
+	}
+	return hash;
+}
+
+static uint32_t rck_hash_buffer(
+	uint32_t hash, const uint8_t far *data, uint16_t size
+)
+{
+	while(size != 0) {
+		hash = rck_hash_u8(hash, *data++);
+		size--;
+	}
+	return hash;
+}
+
+static uint32_t rck_container_checksum(
+	const uint8_t far *data, uint16_t size
+)
+{
+	uint32_t hash = REPLAY_FNV1A_BASIS;
+	uint16_t offset;
+
+	for(offset = 0; offset < size; offset++) {
+		hash = rck_hash_u8(
+			hash,
+			((offset >= RCK_HEADER_CHECKSUM_OFFSET) &&
+			 (offset < (RCK_HEADER_CHECKSUM_OFFSET + 4)))
+				? 0
+				: data[offset]
+		);
+	}
+	return hash;
+}
+
+static bool rck_groups_measure(
+	uint16_t far *sizes,
+	uint32_t far *checksums,
+	uint32_t far *decoded_size,
+	uint32_t far *state_digest
+)
+{
+	replay_ck_stream_t stream;
+	uint32_t decoded = 0;
+	uint32_t digest = REPLAY_FNV1A_BASIS;
+	uint8_t count = rck_group_count();
+	uint8_t group_id;
+
+	for(group_id = 0; group_id < count; group_id++) {
+		replay_ck_measure_init(&stream);
+		if(
+			!replay_ck_group_codec(group_id, &stream) ||
+			!replay_ck_finish(&stream) ||
+			(stream.pos == 0) ||
+			(stream.pos > RCK_CONTAINER_SIZE_MAX)
+		) {
+			return false;
+		}
+		sizes[group_id] = static_cast<uint16_t>(stream.pos);
+		checksums[group_id] = stream.checksum;
+		decoded += stream.pos;
+		digest = rck_hash_u8(digest, group_id);
+		digest = rck_hash_u8(digest, REPLAY_CHECKPOINT_GROUP_SCHEMA);
+		digest = rck_hash_u32(digest, stream.pos);
+
+		// Re-run the field codec with the digest as its initial FNV state. This
+		// hashes live semantic bytes without allocating a second container.
+		replay_ck_measure_init(&stream);
+		stream.checksum = digest;
+		if(
+			!replay_ck_group_codec(group_id, &stream) ||
+			!replay_ck_finish(&stream) ||
+			(stream.pos != sizes[group_id])
+		) {
+			return false;
+		}
+		digest = stream.checksum;
+	}
+	*decoded_size = decoded;
+	*state_digest = digest;
+	return true;
+}
+
+bool replay_ck_container_measure(
+	const replay_ck_identity_t far *identity,
+	uint16_t far *total_size,
+	uint32_t far *state_digest
+)
+{
+	uint16_t sizes[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t checksums[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t decoded_size;
+	uint32_t total;
+
+	if((total_size == 0) || (state_digest == 0) || !rck_identity_valid(identity)) {
+		return false;
+	}
+	if(!rck_groups_measure(sizes, checksums, &decoded_size, state_digest)) {
+		return false;
+	}
+	total = (
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint32_t>(rck_group_count()) * REPLAY_CHECKPOINT_GROUP_SIZE) +
+		decoded_size
+	);
+	if(total > RCK_CONTAINER_SIZE_MAX) {
+		return false;
+	}
+	*total_size = static_cast<uint16_t>(total);
+	return true;
+}
+
+bool replay_ck_container_encode(
+	const replay_ck_identity_t far *identity,
+	void far *data_in,
+	uint16_t capacity,
+	uint16_t far *total_size,
+	uint32_t far *state_digest
+)
+{
+	uint8_t far *data = reinterpret_cast<uint8_t far *>(data_in);
+	uint16_t sizes[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t checksums[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t decoded_size;
+	uint32_t digest;
+	uint32_t total;
+	uint16_t offset;
+	uint16_t entry;
+	uint8_t count = rck_group_count();
+	uint8_t group_id;
+	replay_ck_stream_t stream;
+
+	if(
+		(data == 0) || (total_size == 0) || (state_digest == 0) ||
+		!rck_identity_valid(identity) ||
+		!rck_groups_measure(sizes, checksums, &decoded_size, &digest)
+	) {
+		return false;
+	}
+	total = (
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint32_t>(count) * REPLAY_CHECKPOINT_GROUP_SIZE) +
+		decoded_size
+	);
+	if((total > capacity) || (total > RCK_CONTAINER_SIZE_MAX)) {
+		return false;
+	}
+	for(offset = 0; offset < static_cast<uint16_t>(total); offset++) {
+		data[offset] = 0;
+	}
+	data[0] = 'T'; data[1] = ('0' + GAME); data[2] = 'C'; data[3] = 'K';
+	data[4] = 'P'; data[5] = '1'; data[6] = '\0'; data[7] = '\0';
+	rck_put_u16(data, 0x08, REPLAY_CHECKPOINT_SCHEMA);
+	rck_put_u16(data, 0x0A, REPLAY_CHECKPOINT_HEADER_SIZE);
+	rck_put_u8(data, 0x0C, GAME);
+	rck_put_u8(data, 0x0D, identity->start_kind);
+	rck_put_u8(data, 0x0E, identity->stage);
+	rck_put_u8(data, 0x0F, identity->section);
+	rck_put_u8(data, 0x10, identity->phase);
+	rck_put_u8(data, 0x11, count);
+	rck_put_u32(data, 0x14, total);
+	rck_put_u32(data, 0x18, identity->source_fingerprint);
+	rck_put_u32(data, 0x1C, digest);
+	rck_put_u32(data, 0x20, decoded_size);
+
+	offset = static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(count) * REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	for(group_id = 0; group_id < count; group_id++) {
+		entry = rck_directory_offset(group_id);
+		rck_put_u8(data, entry + RCK_GROUP_ID_OFFSET, group_id);
+		rck_put_u8(
+			data, entry + RCK_GROUP_SCHEMA_OFFSET,
+			REPLAY_CHECKPOINT_GROUP_SCHEMA
+		);
+		rck_put_u8(data, entry + RCK_GROUP_CODEC_OFFSET, RCC_RAW);
+		rck_put_u32(data, entry + RCK_GROUP_DATA_OFFSET, offset);
+		rck_put_u32(data, entry + RCK_GROUP_STORED_SIZE_OFFSET, sizes[group_id]);
+		rck_put_u32(data, entry + RCK_GROUP_DECODED_SIZE_OFFSET, sizes[group_id]);
+		rck_put_u32(data, entry + RCK_GROUP_CHECKSUM_OFFSET, checksums[group_id]);
+
+		replay_ck_encode_init(&stream, data + offset, sizes[group_id]);
+		if(
+			!replay_ck_group_codec(group_id, &stream) ||
+			!replay_ck_finish(&stream) ||
+			(stream.checksum != checksums[group_id])
+		) {
+			return false;
+		}
+		offset += sizes[group_id];
+	}
+	if(offset != static_cast<uint16_t>(total)) {
+		return false;
+	}
+	rck_put_u32(data, RCK_HEADER_CHECKSUM_OFFSET, rck_container_checksum(data, offset));
+	*total_size = offset;
+	*state_digest = digest;
+	return true;
+}
+
+static bool rck_container_prefix_valid(
+	const replay_ck_identity_t far *identity,
+	const uint8_t far *data,
+	uint16_t total_size
+)
+{
+	return (
+		(data != 0) && rck_identity_valid(identity) &&
+		(total_size <= RCK_CONTAINER_SIZE_MAX) &&
+		(total_size >= (REPLAY_CHECKPOINT_HEADER_SIZE +
+		 (rck_group_count() * REPLAY_CHECKPOINT_GROUP_SIZE))) &&
+		(data[0] == 'T') && (data[1] == ('0' + GAME)) &&
+		(data[2] == 'C') && (data[3] == 'K') &&
+		(data[4] == 'P') && (data[5] == '1') &&
+		(data[6] == 0) && (data[7] == 0) &&
+		(rck_get_u16(data, 0x08) == REPLAY_CHECKPOINT_SCHEMA) &&
+		(rck_get_u16(data, 0x0A) == REPLAY_CHECKPOINT_HEADER_SIZE) &&
+		(rck_get_u8(data, 0x0C) == GAME) &&
+		(rck_get_u8(data, 0x0D) == identity->start_kind) &&
+		(rck_get_u8(data, 0x0E) == identity->stage) &&
+		(rck_get_u8(data, 0x0F) == identity->section) &&
+		(rck_get_u8(data, 0x10) == identity->phase) &&
+		(rck_get_u8(data, 0x11) == rck_group_count()) &&
+		(rck_get_u16(data, 0x12) == 0) &&
+		(rck_get_u32(data, 0x14) == total_size) &&
+		(rck_get_u32(data, 0x18) == identity->source_fingerprint)
+	);
+}
+
+bool replay_ck_container_validate(
+	const replay_ck_identity_t far *identity,
+	const void far *data_in,
+	uint16_t total_size,
+	uint32_t far *state_digest
+)
+{
+	const uint8_t far *data = reinterpret_cast<const uint8_t far *>(data_in);
+	uint32_t digest = REPLAY_FNV1A_BASIS;
+	uint32_t decoded_size = 0;
+	uint32_t stored_size;
+	uint32_t stored_checksum;
+	uint16_t next_offset;
+	uint16_t entry;
+	uint16_t offset;
+	uint8_t count = rck_group_count();
+	uint8_t group_id;
+	replay_ck_stream_t stream;
+
+	if((state_digest == 0) || !rck_container_prefix_valid(identity, data, total_size)) {
+		return false;
+	}
+	next_offset = static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(count) * REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	for(group_id = 0; group_id < count; group_id++) {
+		entry = rck_directory_offset(group_id);
+		stored_size = rck_get_u32(data, entry + RCK_GROUP_STORED_SIZE_OFFSET);
+		if(
+			(rck_get_u8(data, entry + RCK_GROUP_ID_OFFSET) != group_id) ||
+			(rck_get_u8(data, entry + RCK_GROUP_SCHEMA_OFFSET) !=
+			 REPLAY_CHECKPOINT_GROUP_SCHEMA) ||
+			(rck_get_u8(data, entry + RCK_GROUP_CODEC_OFFSET) != RCC_RAW) ||
+			(rck_get_u8(data, entry + RCK_GROUP_FLAGS_OFFSET) != 0) ||
+			(stored_size == 0) ||
+			(stored_size > RCK_CONTAINER_SIZE_MAX) ||
+			(rck_get_u32(data, entry + RCK_GROUP_DECODED_SIZE_OFFSET) !=
+			 stored_size) ||
+			(rck_get_u32(data, entry + RCK_GROUP_DATA_OFFSET) != next_offset) ||
+			((static_cast<uint32_t>(next_offset) + stored_size) > total_size)
+		) {
+			return false;
+		}
+		offset = next_offset;
+		stored_checksum = rck_get_u32(data, entry + RCK_GROUP_CHECKSUM_OFFSET);
+		if(rck_hash_buffer(
+			REPLAY_FNV1A_BASIS, data + offset, static_cast<uint16_t>(stored_size)
+		) != stored_checksum) {
+			return false;
+		}
+		digest = rck_hash_u8(digest, group_id);
+		digest = rck_hash_u8(digest, REPLAY_CHECKPOINT_GROUP_SCHEMA);
+		digest = rck_hash_u32(digest, stored_size);
+		digest = rck_hash_buffer(
+			digest, data + offset, static_cast<uint16_t>(stored_size)
+		);
+		decoded_size += stored_size;
+		next_offset = static_cast<uint16_t>(next_offset + stored_size);
+	}
+	if(
+		(next_offset != total_size) ||
+		(decoded_size != rck_get_u32(data, 0x20)) ||
+		(digest != rck_get_u32(data, 0x1C)) ||
+		(rck_container_checksum(data, total_size) !=
+		 rck_get_u32(data, RCK_HEADER_CHECKSUM_OFFSET))
+	) {
+		return false;
+	}
+	for(group_id = 0; group_id < count; group_id++) {
+		entry = rck_directory_offset(group_id);
+		offset = static_cast<uint16_t>(
+			rck_get_u32(data, entry + RCK_GROUP_DATA_OFFSET)
+		);
+		stored_size = rck_get_u32(data, entry + RCK_GROUP_STORED_SIZE_OFFSET);
+		replay_ck_validate_init(&stream, data + offset, stored_size);
+		if(
+			!replay_ck_group_codec(group_id, &stream) ||
+			!replay_ck_finish(&stream) ||
+			(stream.checksum !=
+			 rck_get_u32(data, entry + RCK_GROUP_CHECKSUM_OFFSET))
+		) {
+			return false;
+		}
+	}
+	*state_digest = digest;
+	return true;
+}
+
+static bool rck_group_apply(
+	uint8_t group_id, const uint8_t far *data
+)
+{
+	uint16_t entry = rck_directory_offset(group_id);
+	uint16_t offset = static_cast<uint16_t>(
+		rck_get_u32(data, entry + RCK_GROUP_DATA_OFFSET)
+	);
+	uint32_t size = rck_get_u32(data, entry + RCK_GROUP_STORED_SIZE_OFFSET);
+	replay_ck_stream_t stream;
+
+	replay_ck_apply_init(&stream, data + offset, size);
+	return (
+		replay_ck_group_codec(group_id, &stream) &&
+		replay_ck_finish(&stream)
+	);
+}
+
+bool replay_ck_container_apply(
+	const replay_ck_identity_t far *identity,
+	const void far *data_in,
+	uint16_t total_size
+)
+{
+	const uint8_t far *data = reinterpret_cast<const uint8_t far *>(data_in);
+	uint16_t sizes[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t checksums[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t decoded_size;
+	uint32_t expected_digest;
+	uint32_t live_digest;
+
+	if(!replay_ck_container_validate(
+		identity, data, total_size, &expected_digest
+	)) {
+		return false;
+	}
+	if(
+		!rck_group_apply(RCGI_RUN, data) ||
+		!rck_group_apply(RCGI_STAGE_VM, data) ||
+		!rck_group_apply(RCGI_PLAYER, data) ||
+		!rck_group_apply(RCGI_BULLETS, data) ||
+		!rck_group_apply(RCGI_ENEMIES, data) ||
+		!rck_group_apply(RCGI_ACTORS, data) ||
+		!rck_group_apply(RCGI_ITEMS, data) ||
+		!rck_group_apply(RCGI_SCORING, data) ||
+		!rck_group_apply(RCGI_FIELD, data) ||
+		!rck_group_apply(RCGI_EFFECTS, data) ||
+		!rck_group_apply(RCGI_PACING, data)
+	) {
+		return false;
+	}
+	#if (GAME == 5)
+		if(!rck_group_apply(RCGI_DIALOG, data)) {
+			return false;
+		}
+	#endif
+	if(!rck_group_apply(RCGI_RNG, data)) {
+		return false;
+	}
+	if(!rck_groups_measure(
+		sizes, checksums, &decoded_size, &live_digest
+	)) {
+		return false;
+	}
+	return (
+		(decoded_size == rck_get_u32(data, 0x20)) &&
+		(live_digest == expected_digest)
+	);
+}
+
+#undef RCK_CONTAINER_SIZE_MAX
+#undef RCK_HEADER_CHECKSUM_OFFSET
+#undef RCK_GROUP_ID_OFFSET
+#undef RCK_GROUP_SCHEMA_OFFSET
+#undef RCK_GROUP_CODEC_OFFSET
+#undef RCK_GROUP_FLAGS_OFFSET
+#undef RCK_GROUP_DATA_OFFSET
+#undef RCK_GROUP_STORED_SIZE_OFFSET
+#undef RCK_GROUP_DECODED_SIZE_OFFSET
+#undef RCK_GROUP_CHECKSUM_OFFSET
+
 #undef RCK_U8
 #undef RCK_U8_RANGE
 #undef RCK_U8_MAX

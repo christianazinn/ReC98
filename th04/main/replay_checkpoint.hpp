@@ -3,9 +3,9 @@
 
 #include "platform.h"
 
-// Internal field-codec interface. A complete user checkpoint is not emitted
-// until every mandatory group has a codec and the restore transaction passes
-// its oracle gate.
+// Internal field-codec and container interface. Container restore validates
+// every byte before mutating live state, applies groups in dependency order,
+// restores RNG last, and verifies the resulting semantic digest.
 enum replay_ck_mode_t {
 	RCK_ENCODE = 0,
 	RCK_VALIDATE = 1,
@@ -21,6 +21,14 @@ struct replay_ck_stream_t {
 	bool failed;
 };
 
+struct replay_ck_identity_t {
+	uint8_t start_kind;
+	uint8_t stage;
+	uint8_t section;
+	uint8_t phase;
+	uint32_t source_fingerprint;
+};
+
 void replay_ck_measure_init(replay_ck_stream_t far *stream);
 void replay_ck_encode_init(
 	replay_ck_stream_t far *stream, void far *data, uint32_t size
@@ -34,12 +42,36 @@ void replay_ck_apply_init(
 bool replay_ck_finish(const replay_ck_stream_t far *stream);
 
 // Groups 0 through 4 and 6 through 11 are independently available for both
-// games. TH05 additionally provides group 12.
-// TH04 also provides group 5; TH05 keeps it unavailable until its stage-local
-// actor inventory is complete. All later groups fail. This function does not build
-// a checkpoint container, so it cannot expose an incomplete restore to the game.
+// games. TH05 additionally provides group 12. TH04 also provides group 5;
+// TH05 keeps it unavailable until its stage-local actor inventory is complete.
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
+);
+
+// All sizes are below one real-mode segment. [capacity] may exceed the
+// measured size; the encoded container itself remains tightly packed.
+bool replay_ck_container_measure(
+	const replay_ck_identity_t far *identity,
+	uint16_t far *total_size,
+	uint32_t far *state_digest
+);
+bool replay_ck_container_encode(
+	const replay_ck_identity_t far *identity,
+	void far *data,
+	uint16_t capacity,
+	uint16_t far *total_size,
+	uint32_t far *state_digest
+);
+bool replay_ck_container_validate(
+	const replay_ck_identity_t far *identity,
+	const void far *data,
+	uint16_t total_size,
+	uint32_t far *state_digest
+);
+bool replay_ck_container_apply(
+	const replay_ck_identity_t far *identity,
+	const void far *data,
+	uint16_t total_size
 );
 
 #endif /* TH04_MAIN_REPLAY_CHECKPOINT_HPP */
