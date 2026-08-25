@@ -267,12 +267,16 @@ typedef char oracle_record_size_check[
 //              the bullet array for group 3's hash.
 //   version 3  adds groups 4 (enemies), 5 (actor core), and 6 (items,
 //              gather circles, and point numbers). row_size is 104.
+//   version 4  adds groups 7 (scoring/rank), 8 (logical field), and 9
+//              (gameplay effects). row_size is 128.
+//   version 5  adds groups 10 (.STD VM) and 11 (pacing/phase). TH05 also adds
+//              group 12 (dialogue). row_size is 144 (TH04) / 152 (TH05).
 //
 // The prefix and the first 30 bytes of the critical block are unchanged, so a
 // v1 artifact stays readable forever. A reader keyed on the version REJECTS a
 // file whose `row_size` disagrees rather than reinterpreting fields under a
 // schema that does not describe them, as required by the harness contract.
-#define ORACLE_SPLIT_VERSION       4
+#define ORACLE_SPLIT_VERSION       5
 #define ORACLE_SPLIT_HEADER_SIZE   16
 #define ORACLE_SPLIT_PREFIX_SIZE   16
 #define ORACLE_SPLIT_CRITICAL_SIZE 32
@@ -285,11 +289,16 @@ typedef char oracle_record_size_check[
 // Group 2 is the player (position, shots, bomb state); group 3 is the bullet
 // array plus the custom-entity block; groups 4-6 are enemies, the shared actor
 // core, and item-related entities. Schema 4 adds scoring/rank, logical field
-// state, and gameplay effects as groups 7-9. Groups 10-11 remain to be added;
-// each bumps this version again. Group 5 deliberately says "core":
+// state, and gameplay effects as groups 7-9. Schema 5 adds the `.STD` VM and
+// pacing/phase state as groups 10-11, plus TH05's dialogue state as group 12.
+// Group 5 deliberately says "core":
 // stage-specific boss state remains part of the next additive inventory rather
 // than being hidden behind native memory dumps here.
-#define ORACLE_SPLIT_HASH_COUNT 10
+#if (GAME == 5)
+	#define ORACLE_SPLIT_HASH_COUNT 13
+#else
+	#define ORACLE_SPLIT_HASH_COUNT 12
+#endif
 #define ORACLE_HASH_GROUP_RNG     0
 #define ORACLE_HASH_GROUP_RUN     1
 #define ORACLE_HASH_GROUP_PLAYER  2
@@ -300,6 +309,11 @@ typedef char oracle_record_size_check[
 #define ORACLE_HASH_GROUP_SCORING 7
 #define ORACLE_HASH_GROUP_FIELD   8
 #define ORACLE_HASH_GROUP_EFFECTS 9
+#define ORACLE_HASH_GROUP_STAGE_VM 10
+#define ORACLE_HASH_GROUP_PACING  11
+#if (GAME == 5)
+	#define ORACLE_HASH_GROUP_DIALOG 12
+#endif
 #define ORACLE_SPLIT_ROW_SIZE ( \
 	ORACLE_SPLIT_PREFIX_SIZE + \
 	ORACLE_SPLIT_CRITICAL_SIZE + \

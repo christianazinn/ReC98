@@ -62,6 +62,7 @@
 #include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
 #include "th04/main/midboss/midboss.hpp"
+#include "th04/main/null.hpp"
 #include "th04/main/oracle.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/player/bomb.hpp"
@@ -131,6 +132,14 @@ extern int8_t playfield_shake_redraw_time;
 extern nearfunc_t_near stage_render;
 extern nearfunc_t_near stage_invalidate;
 
+// Runtime selectors and pacing state. Pointer-shaped selectors are reduced to
+// stable IDs by schema 5; their linked addresses never enter the trace.
+extern bool turbo_mode;
+extern unsigned int slowdown_factor;
+extern bool (near* std_update)(void);
+bool near std_update_done(void);
+bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
+
 #if (GAME == 4)
 	struct oracle_checkerboard_t {
 		int16_t seg_bottom;
@@ -186,6 +195,18 @@ extern nearfunc_t_near stage_invalidate;
 	extern unsigned int shinki_bg_spinline_frame;
 	extern bool shinki_bg_type_c_initialized;
 	extern bool shinki_bg_type_d_initialized;
+	extern bool slowdown_caused_by_bullets;
+
+	struct oracle_dialog_cursor_t {
+		int16_t x;
+		int16_t y;
+	};
+
+	// Private in the shared dialog implementation. The script pointer's
+	// segment is the allocated buffer base, so its offset is a portable cursor.
+	extern unsigned char far *dialog_p;
+	extern oracle_dialog_cursor_t dialog_cursor;
+	extern int dialog_side;
 #endif
 
 #if (GAME == 5)
@@ -647,6 +668,42 @@ static uint32_t oracle_std_ip_offset(void)
 		) << 4) +
 		static_cast<uint32_t>(ORACLE_FP_OFF(std_ip))
 	);
+}
+
+enum oracle_stage_vm_id_t {
+	ORACLE_STAGE_VM_NONE = 0,
+	ORACLE_STAGE_VM_RUN = 1,
+	ORACLE_STAGE_VM_UNKNOWN = 0xFF
+};
+
+static uint8_t oracle_stage_vm_id(void)
+{
+	if(stage_vm == nullfunc_far) {
+		return ORACLE_STAGE_VM_NONE;
+	}
+	if(stage_vm == std_run) {
+		return ORACLE_STAGE_VM_RUN;
+	}
+	return ORACLE_STAGE_VM_UNKNOWN;
+}
+
+enum oracle_std_update_id_t {
+	ORACLE_STD_UPDATE_DIALOG = 0,
+	ORACLE_STD_UPDATE_DONE = 1,
+	ORACLE_STD_UPDATE_UNKNOWN = 0xFF
+};
+
+static uint8_t oracle_std_update_id(void)
+{
+	if(std_update ==
+		std_update_frames_then_animate_dialog_and_activate_boss_if_done
+	) {
+		return ORACLE_STD_UPDATE_DIALOG;
+	}
+	if(std_update == std_update_done) {
+		return ORACLE_STD_UPDATE_DONE;
+	}
+	return ORACLE_STD_UPDATE_UNKNOWN;
 }
 
 // Group 1 — run and scenario counters.
@@ -1337,6 +1394,81 @@ static void oracle_hash_group_effects(oracle_split_hash_t far *out)
 #endif
 	oracle_hash_store(out);
 }
+
+static void oracle_hash_group_stage_vm(oracle_split_hash_t far *out)
+{
+	int i;
+	bool loaded = (std_seg != 0);
+
+	oracle_hash_init();
+	oracle_hash_u8(static_cast<uint8_t>(loaded));
+	if(loaded) {
+#if (GAME == 5)
+		// TH05 stores twice the semantic section ID for direct word indexing.
+		oracle_hash_u16(static_cast<uint16_t>(std_map_section_p / 2));
+#else
+		oracle_hash_u16(static_cast<uint16_t>(std_map_section_id));
+#endif
+		oracle_hash_u16(
+			(std_scroll_speed != 0)
+				? reinterpret_cast<uint16_t>(std_scroll_speed)
+				: 0xFFFFu
+		);
+		for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+			oracle_hash_u16(
+				(std_enemy_scripts[i] != 0)
+					? reinterpret_cast<uint16_t>(std_enemy_scripts[i])
+					: 0xFFFFu
+			);
+		}
+		oracle_hash_u32(oracle_std_ip_offset());
+	} else {
+		// Normalize stale near offsets left behind by std_free().
+		oracle_hash_u16(0xFFFFu);
+		oracle_hash_u16(0xFFFFu);
+		for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+			oracle_hash_u16(0xFFFFu);
+		}
+		oracle_hash_u32(0xFFFFFFFFUL);
+	}
+	oracle_hash_u8(oracle_stage_vm_id());
+	oracle_hash_store(out);
+}
+
+static void oracle_hash_group_pacing(oracle_split_hash_t far *out)
+{
+	oracle_hash_init();
+	oracle_hash_u8(static_cast<uint8_t>(turbo_mode));
+	oracle_hash_u8(static_cast<uint8_t>(resident->turbo_mode));
+	oracle_hash_u16(slowdown_factor);
+#if (GAME == 5)
+	oracle_hash_u8(static_cast<uint8_t>(slowdown_caused_by_bullets));
+#else
+	oracle_hash_u8(0);
+#endif
+	oracle_hash_u8(static_cast<uint8_t>(quit));
+	oracle_hash_u8(oracle_std_update_id());
+	oracle_hash_store(out);
+}
+
+#if (GAME == 5)
+static void oracle_hash_group_dialog(oracle_split_hash_t far *out)
+{
+	oracle_hash_init();
+	if(dialog_p == 0) {
+		oracle_hash_u8(0);
+		oracle_hash_u16(0xFFFFu);
+	} else {
+		oracle_hash_u8(1);
+		oracle_hash_u16(ORACLE_FP_OFF(dialog_p));
+	}
+	oracle_hash_u16(static_cast<uint16_t>(dialog_cursor.x));
+	oracle_hash_u16(static_cast<uint16_t>(dialog_cursor.y));
+	oracle_hash_u16(static_cast<uint16_t>(dialog_side));
+	oracle_hash_u8(static_cast<uint8_t>(dialog_sequence_id));
+	oracle_hash_store(out);
+}
+#endif
 /// --------------------
 
 /// Status and diagnostics
@@ -1550,6 +1682,11 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	oracle_hash_group_scoring(&row.hashes[ORACLE_HASH_GROUP_SCORING]);
 	oracle_hash_group_field(&row.hashes[ORACLE_HASH_GROUP_FIELD]);
 	oracle_hash_group_effects(&row.hashes[ORACLE_HASH_GROUP_EFFECTS]);
+	oracle_hash_group_stage_vm(&row.hashes[ORACLE_HASH_GROUP_STAGE_VM]);
+	oracle_hash_group_pacing(&row.hashes[ORACLE_HASH_GROUP_PACING]);
+#if (GAME == 5)
+	oracle_hash_group_dialog(&row.hashes[ORACLE_HASH_GROUP_DIALOG]);
+#endif
 
 	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
 	if(fh < 0) {
