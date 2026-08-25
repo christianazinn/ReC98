@@ -48,13 +48,14 @@ bool replay_private_test_active(void);
 void replay_stage_start(void);
 
 // Called after input_sense() and demo_update() at the canonical gameplay
-// input seam. Record mode stores the resulting full input_t plus Shift;
-// playback mode replaces them from the stream.
+// input seam. Playback replaces the resulting full input_t plus Shift before
+// Pause or gameplay can consume them. Recording is deferred to the frame-tail
+// hook below so it captures the post-Pause input that gameplay actually used.
 void replay_gameplay_input(void);
 
-// The frame-loop tail samples the keyboard a second time for TH05's debug
-// fast-forward toggle. It is not a logical replay sample, but playback must
-// prevent host input from leaking through it.
+// Records the gameplay input after Pause has drained its own controls, then
+// performs the native frame-tail keyboard sample. The latter is not a logical
+// replay sample, and playback must prevent host input from leaking through it.
 void replay_input_reset_sense_tail(void);
 
 // Replay-aware forms for MAIN's blocking dialog and continue input. They

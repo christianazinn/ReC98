@@ -2034,6 +2034,8 @@ void replay_entry(void)
 		return;
 	}
 	if(!replay_header_read()) {
+		replay_mode = RRM_PLAYBACK;
+		replay_fail();
 		return;
 	}
 	replay_mode = RRM_PLAYBACK;
@@ -2046,6 +2048,10 @@ void replay_stage_start(void)
 	uint8_t arg8;
 
 	if(replay_mode == RRM_DISABLED) {
+		return;
+	}
+	if(replay_failed) {
+		quit = Q_QUIT_TO_OP;
 		return;
 	}
 	if(
@@ -2092,33 +2098,45 @@ void replay_gameplay_input(void)
 	if(replay_mode == RRM_DISABLED) {
 		return;
 	}
+	if(replay_practice_preroll_pending) {
+		replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+		return;
+	}
+	if(replay_mode != RRM_PLAYBACK) {
+		return;
+	}
 	host_input = key_det;
-	replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
 	if(
-		(replay_mode == RRM_RECORD) && replay_private_test &&
-		(replay_header.sample_count >= REPLAY_PRIVATE_SAMPLE_LIMIT)
+		(replay_header.end_reason == RUER_MENU_RETURN) &&
+		(replay_sample_cursor >= replay_header.sample_count)
 	) {
+		key_det = INPUT_NONE;
+		shiftkey = false;
+		quit = Q_QUIT_TO_OP;
+		return;
+	}
+	replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+	key_det &= ~INPUT_CANCEL;
+	if(host_input & INPUT_CANCEL) {
+		key_det = INPUT_NONE;
 		quit = Q_QUIT_TO_OP;
 	}
-	if(replay_mode == RRM_PLAYBACK) {
-		key_det &= ~INPUT_CANCEL;
-		if(host_input & INPUT_CANCEL) {
-			key_det = INPUT_NONE;
-			quit = Q_QUIT_TO_OP;
-		} else if(
-			(replay_header.end_reason == RUER_MENU_RETURN) &&
-			(replay_sample_cursor >= replay_header.sample_count)
-		) {
-			quit = Q_QUIT_TO_OP;
-		}
-		if(replay_failed) {
-			quit = Q_QUIT_TO_OP;
-		}
+	if(replay_failed) {
+		quit = Q_QUIT_TO_OP;
 	}
 }
 
 void replay_input_reset_sense_tail(void)
 {
+	if(replay_mode == RRM_RECORD) {
+		replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+		if(
+			replay_private_test &&
+			(replay_header.sample_count >= REPLAY_PRIVATE_SAMPLE_LIMIT)
+		) {
+			quit = Q_QUIT_TO_OP;
+		}
+	}
 	input_reset_sense();
 	if(replay_mode == RRM_PLAYBACK) {
 		key_det = INPUT_NONE;
