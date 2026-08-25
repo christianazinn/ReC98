@@ -664,22 +664,11 @@ static bool rck_bullet_special_motion(
 {
 	uint8_t value = static_cast<uint8_t>(*motion);
 
+	// The update switch has a no-op default, and ordinary TH04 bullets can
+	// carry zero here. Every byte value is deterministic and memory-safe.
 	if(!rck_u8(stream, &value)) {
 		return false;
 	}
-#if (GAME == 5)
-	if((value > BSM_EXACT_LINEAR) && (value != BSM_NONE)) {
-		return false;
-	}
-#else
-	if(
-		((value < BSM_DECELERATE_THEN_TURN_AIMED) ||
-		(value > BSM_GRAVITY)) &&
-		(value != BSM_NONE)
-	) {
-		return false;
-	}
-#endif
 	if(rck_applying(stream)) {
 		*motion = static_cast<bullet_special_motion_t>(value);
 	}
@@ -740,7 +729,7 @@ static bool rck_bullet_spawn_type_valid(uint8_t value)
 }
 
 static bool rck_bullet_template(
-	replay_ck_stream_t far *stream, BulletTemplate far *tmpl
+	replay_ck_stream_t far *stream, BulletTemplate far *tmpl, bool validate
 )
 {
 	uint8_t spawn_type = tmpl->spawn_type;
@@ -748,7 +737,7 @@ static bool rck_bullet_template(
 
 	if(
 		!rck_u8(stream, &spawn_type) ||
-		!rck_bullet_spawn_type_valid(spawn_type)
+		(validate && !rck_bullet_spawn_type_valid(spawn_type))
 	) {
 		return false;
 	}
@@ -757,7 +746,10 @@ static bool rck_bullet_template(
 		return false;
 	}
 #if (GAME == 5)
-	if(!rck_u8(stream, &group) || !rck_bullet_group_valid(group)) {
+	if(
+		!rck_u8(stream, &group) ||
+		(validate && !rck_bullet_group_valid(group))
+	) {
 		return false;
 	}
 	if(!rck_bullet_special_motion(stream, &tmpl->special_motion)) {
@@ -773,7 +765,10 @@ static bool rck_bullet_template(
 	if(!rck_pfpoint(stream, &tmpl->velocity)) {
 		return false;
 	}
-	if(!rck_u8(stream, &group) || !rck_bullet_group_valid(group)) {
+	if(
+		!rck_u8(stream, &group) ||
+		(validate && !rck_bullet_group_valid(group))
+	) {
 		return false;
 	}
 	RCK_U8(tmpl->angle);
@@ -2480,13 +2475,18 @@ static bool rck_bullet(
 	replay_ck_stream_t far *stream, bullet_t near *bullet
 )
 {
+	uint16_t index = (replay_ck_failure_field_value & 0x0FFF);
+	bool active;
 	uint8_t spawn_flag = static_cast<uint8_t>(bullet->spawn_flag);
 	uint8_t move_flag = static_cast<uint8_t>(bullet->move_flag);
 
+	replay_ck_failure_field_value = (0x1000 | index);
 	if(!rck_entity_flag(stream, &bullet->flag)) {
 		return false;
 	}
+	active = (bullet->flag != F_FREE);
 	RCK_S8(bullet->age);
+	replay_ck_failure_field_value = (0x2000 | index);
 	if(!rck_motion(stream, &bullet->pos)) {
 		return false;
 	}
@@ -2494,12 +2494,16 @@ static bool rck_bullet(
 	RCK_S8(bullet->unused);
 	RCK_U8(bullet->speed_cur.v);
 	RCK_U8(bullet->angle);
-	if(
-		!rck_u8(stream, &spawn_flag) || (spawn_flag > BSF_CLOUD_END) ||
-		!rck_u8(stream, &move_flag) || (move_flag > BMF_DECAY_END)
+	replay_ck_failure_field_value = (0x3000 | index);
+	if(!rck_u8(stream, &spawn_flag) || !rck_u8(stream, &move_flag)) {
+		return false;
+	}
+	if(active &&
+		((spawn_flag > BSF_CLOUD_END) || (move_flag > BMF_DECAY_END))
 	) {
 		return false;
 	}
+	replay_ck_failure_field_value = (0x4000 | index);
 	if(!rck_bullet_special_motion(stream, &bullet->special_motion)) {
 		return false;
 	}
@@ -2718,15 +2722,18 @@ static bool rck_group_bullets(replay_ck_stream_t far *stream)
 	uint8_t tune_id = rck_bullet_tune_id();
 
 	for(i = 0; i < BULLET_COUNT; i++) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(0x1000 + i);
 		if(!rck_bullet(stream, &bullets[i])) {
 			return false;
 		}
 	}
 	RCK_U8(bullet_special.turns_max);
 	RCK_S8(bullet_template_special_angle.v);
-	if(!rck_bullet_template(stream, &bullet_template)) {
+	replay_ck_failure_field_value = 0x2000;
+	if(!rck_bullet_template(stream, &bullet_template, true)) {
 		return false;
 	}
+	replay_ck_failure_field_value = 0x2100;
 	if(!rck_u8(stream, &tune_id) || (tune_id > 3)) {
 		return false;
 	}
@@ -2740,6 +2747,7 @@ static bool rck_group_bullets(replay_ck_stream_t far *stream)
 		uint8_t regular_id = rck_bullet_add_id(bullets_add_regular, false);
 		uint8_t special_id = rck_bullet_add_id(bullets_add_special, true);
 
+		replay_ck_failure_field_value = 0x2200;
 		if(
 			!rck_u8(stream, &regular_id) || (regular_id > 2) ||
 			!rck_u8(stream, &special_id) || (special_id > 2)
@@ -2756,6 +2764,7 @@ static bool rck_group_bullets(replay_ck_stream_t far *stream)
 	RCK_U8(bullet_clear_time);
 
 	for(i = 0; i < CUSTOM_COUNT; i++) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(0x3000 + i);
 		if(!rck_custom(stream, &custom_entities[i])) {
 			return false;
 		}
@@ -2776,10 +2785,12 @@ static bool rck_group_bullets(replay_ck_stream_t far *stream)
 		}
 	}
 #else
+	replay_ck_failure_field_value = 0x3F00;
 	if(!rck_thicklaser(stream, &thicklaser_template)) {
 		return false;
 	}
 	for(i = 0; i < THICKLASER_COUNT; i++) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(0x4000 + i);
 		if(!rck_thicklaser(stream, &thicklasers[i])) {
 			return false;
 		}
@@ -2862,9 +2873,14 @@ static bool rck_enemy(
 {
 	uint8_t script_id = rck_enemy_script_id(enemy->script);
 	uint8_t item = static_cast<uint8_t>(enemy->item);
+	bool active;
 
 	if(!rck_enemy_flag(stream, &enemy->flag)) {
 		return false;
+	}
+	active = (enemy->flag != EF_FREE);
+	if(!active && !rck_applying(stream)) {
+		script_id = 0xFF;
 	}
 	RCK_U8(enemy->age);
 	if(!rck_motion(stream, &enemy->pos)) {
@@ -2910,7 +2926,10 @@ static bool rck_enemy(
 	RCK_BOOL(enemy->clip_x);
 	RCK_BOOL(enemy->clip_y);
 #endif
-	if(!rck_u8(stream, &item) || !rck_item_type_valid(item)) {
+	if(
+		!rck_u8(stream, &item) ||
+		(active && !rck_item_type_valid(item))
+	) {
 		return false;
 	}
 	RCK_BOOL(enemy->damaged_this_frame);
@@ -2923,7 +2942,7 @@ static bool rck_enemy(
 #if (GAME == 5)
 	RCK_U8(enemy->subtype);
 #endif
-	if(!rck_bullet_template(stream, &enemy->bullet_template)) {
+	if(!rck_bullet_template(stream, &enemy->bullet_template, active)) {
 		return false;
 	}
 	if(rck_applying(stream)) {
@@ -3022,7 +3041,9 @@ static bool rck_gather(
 	RCK_S16(gather->ring_points);
 	RCK_U8(gather->angle_cur);
 	RCK_U8(gather->angle_delta);
-	if(!rck_bullet_template(stream, &gather->bullet_template)) {
+	if(!rck_bullet_template(
+		stream, &gather->bullet_template, (gather->flag != F_FREE)
+	)) {
 		return false;
 	}
 	RCK_S16(gather->radius_prev.v);
@@ -5127,6 +5148,10 @@ bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe)
 	probe->midboss_active = midboss_active;
 	probe->midboss_finished = (midboss.phase == PHASE_NONE);
 	probe->boss_phase = boss.phase;
+	if(boss.phase == PHASE_NONE) {
+		probe->boss_section = REPLAY_CK_BOSS_SECTION_NONE;
+		return true;
+	}
 	#if (GAME == 5)
 		live_id = rck_th05_boss_live_id();
 		switch(live_id) {
@@ -5337,6 +5362,16 @@ static uint32_t rck_container_checksum(
 	return hash;
 }
 
+uint8_t replay_ck_failure_group(void)
+{
+	return replay_ck_failure_group_value;
+}
+
+uint16_t replay_ck_failure_field(void)
+{
+	return replay_ck_failure_field_value;
+}
+
 static bool rck_groups_measure(
 	uint16_t far *sizes,
 	uint32_t far *checksums,
@@ -5350,7 +5385,11 @@ static bool rck_groups_measure(
 	uint8_t count = rck_group_count();
 	uint8_t group_id;
 
+	replay_ck_failure_group_value = 0xFF;
+	replay_ck_failure_field_value = 0;
 	for(group_id = 0; group_id < count; group_id++) {
+		replay_ck_failure_group_value = group_id;
+		replay_ck_failure_field_value = 0;
 		replay_ck_measure_init(&stream);
 		if(
 			!replay_ck_group_codec(group_id, &stream) ||
@@ -5380,6 +5419,7 @@ static bool rck_groups_measure(
 		}
 		digest = stream.checksum;
 	}
+	replay_ck_failure_group_value = 0xFF;
 	*decoded_size = decoded;
 	*state_digest = digest;
 	return true;

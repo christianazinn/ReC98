@@ -863,7 +863,8 @@ bool replay_private_record_command_start(
 		(command.magic[6] != '2') || (command.magic[7] != '\0') ||
 		(command.mode != RCM_RECORD) ||
 		(command.slot >= REPLAY_USER_SLOT_COUNT) ||
-		(command.flags != REPLAY_COMMAND_FLAG_PRACTICE) ||
+		(command.flags != (REPLAY_COMMAND_FLAG_PRACTICE |
+		 REPLAY_COMMAND_FLAG_PRIVATE_TEST)) ||
 		(command.reserved_0 != 0) ||
 		(command.start.kind <= RSK_STAGE) ||
 		!replay_op_start_valid(&command.start, true, true)

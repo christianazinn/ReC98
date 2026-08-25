@@ -57,6 +57,10 @@ bool replay_ck_finish(const replay_ck_stream_t far *stream);
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 );
+extern uint8_t replay_ck_failure_group_value;
+extern uint16_t replay_ck_failure_field_value;
+uint8_t replay_ck_failure_group(void);
+uint16_t replay_ck_failure_field(void);
 
 // Returns normalized live actor ownership for hidden-Practice boundary
 // detection. An unknown callback tuple fails instead of guessing a section.

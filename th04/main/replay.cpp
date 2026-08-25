@@ -93,6 +93,11 @@ static bool replay_pending_valid;
 static bool replay_failed;
 static bool replay_finished;
 static bool replay_stage_seen;
+static bool replay_private_test;
+static uint32_t replay_private_diagnostic;
+#define REPLAY_PRIVATE_SAMPLE_LIMIT 600UL
+uint8_t replay_ck_failure_group_value;
+uint16_t replay_ck_failure_field_value;
 static uint8_t replay_last_stage;
 static bool replay_practice_start_pending;
 static replay_start_config_t replay_practice_start;
@@ -333,6 +338,64 @@ static void replay_checkpoint_temp_delete(void)
 
 	replay_checkpoint_fn_set(fn);
 	replay_dos_delete(fn);
+}
+
+struct replay_private_result_t {
+	char magic[8];
+	uint8_t mode;
+	uint8_t ok;
+	uint8_t end_reason;
+	uint8_t end_sequence;
+	uint32_t sample_count;
+	uint32_t packet_count;
+	uint32_t payload_checksum;
+	uint32_t state_digest;
+	uint32_t diagnostic;
+};
+
+typedef char replay_private_result_size_check[
+	(sizeof(replay_private_result_t) == 32) ? 1 : -1
+];
+
+static void replay_private_result_write(uint8_t end_reason)
+{
+	replay_private_result_t result;
+	char fn[11];
+	int fh;
+
+	if(!replay_private_test) {
+		return;
+	}
+	replay_memclear(&result, sizeof(result));
+	result.magic[0] = 'T'; result.magic[1] = ('0' + GAME);
+	result.magic[2] = 'R'; result.magic[3] = 'S';
+	result.magic[4] = 'L'; result.magic[5] = 'T';
+	result.magic[6] = '1'; result.magic[7] = '\0';
+	result.mode = replay_mode;
+	result.ok = static_cast<uint8_t>(!replay_failed);
+	result.end_reason = end_reason;
+	result.end_sequence = resident->end_sequence;
+	result.sample_count = (
+		(replay_mode == RRM_RECORD)
+		? replay_header.sample_count
+		: replay_sample_cursor
+	);
+	result.packet_count = (
+		(replay_mode == RRM_RECORD)
+		? replay_header.packet_count
+		: replay_packet_cursor
+	);
+	result.payload_checksum = replay_payload_checksum;
+	result.state_digest = replay_header.state_digest;
+	result.diagnostic = replay_private_diagnostic;
+	fn[0] = 'T'; fn[1] = ('0' + GAME); fn[2] = 'R'; fn[3] = 'S';
+	fn[4] = 'L'; fn[5] = 'T'; fn[6] = '.'; fn[7] = 'B';
+	fn[8] = 'I'; fn[9] = 'N'; fn[10] = '\0';
+	fh = replay_dos_create(fn);
+	if(fh >= 0) {
+		replay_dos_write(fh, &result, sizeof(result));
+		replay_dos_close(fh);
+	}
 }
 
 static uint32_t replay_score_points(void)
@@ -1273,24 +1336,37 @@ bool replay_practice_checkpoint_capture(void)
 		(replay_header.sample_count != 0) ||
 		(replay_buffer_len != 0) || (replay_payload_written != 0)
 	) {
+		replay_private_diagnostic = (0x20UL << 24);
 		return false;
 	}
 	replay_practice_config_apply(&replay_practice_start);
 	player_shot_level_update();
 	replay_checkpoint_identity_fill(&identity);
+	if(!replay_start_config_valid(&replay_header.start, true, true)) {
+		replay_private_diagnostic = (0x21UL << 24);
+		return false;
+	}
+	if(!replay_ck_container_measure(
+		&identity, &measured_size, &measured_digest
+	)) {
+		replay_private_diagnostic = (
+			(0x22UL << 24) |
+			(static_cast<uint32_t>(replay_ck_failure_group()) << 16) |
+			replay_ck_failure_field()
+		);
+		return false;
+	}
 	if(
-		!replay_start_config_valid(&replay_header.start, true, true) ||
-		!replay_ck_container_measure(
-			&identity, &measured_size, &measured_digest
-		) ||
 		(measured_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
 		(measured_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
 		(measured_digest == 0)
 	) {
+		replay_private_diagnostic = (0x23UL << 24) | measured_size;
 		return false;
 	}
 	data = reinterpret_cast<uint8_t far *>(hmem_allocbyte(measured_size));
 	if(data == 0) {
+		replay_private_diagnostic = (0x24UL << 24) | measured_size;
 		return false;
 	}
 	if(
@@ -1312,6 +1388,12 @@ bool replay_practice_checkpoint_capture(void)
 	}
 	hmem_free(reinterpret_cast<void __seg *>(data));
 	if(!ok) {
+		if(replay_private_diagnostic == 0) {
+			replay_private_diagnostic = (
+				(0x25UL << 24) |
+				(static_cast<uint32_t>(replay_ck_failure_group()) << 16)
+			);
+		}
 		replay_checkpoint_temp_delete();
 		return false;
 	}
@@ -1322,6 +1404,7 @@ bool replay_practice_checkpoint_capture(void)
 	replay_header.source_fingerprint = REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
 	replay_header.state_digest = encoded_digest;
 	if(!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)) {
+		replay_private_diagnostic = (0x27UL << 24);
 		replay_fail();
 		return false;
 	}
@@ -1343,6 +1426,7 @@ bool replay_practice_preroll_boundary(void)
 		return false;
 	}
 	if(!replay_ck_actor_probe(&probe)) {
+		replay_private_diagnostic = (0x01UL << 24) | replay_sample_cursor;
 		replay_fail();
 		quit = Q_QUIT_TO_OP;
 		return true;
@@ -1393,6 +1477,9 @@ bool replay_practice_preroll_boundary(void)
 		return false;
 	}
 	if(!replay_practice_checkpoint_capture()) {
+		if(replay_private_diagnostic == 0) {
+			replay_private_diagnostic = (0x02UL << 24);
+		}
 		replay_fail();
 		quit = Q_QUIT_TO_OP;
 	}
@@ -1568,7 +1655,7 @@ static replay_command_mode_t replay_command_load(
 	}
 	if(command.mode == RCM_PLAYBACK) {
 		if(
-			(command.flags != 0) ||
+			((command.flags & ~REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0) ||
 			!replay_bytes_zero(
 				reinterpret_cast<const uint8_t far *>(&command.start),
 				sizeof(command.start)
@@ -1582,10 +1669,13 @@ static replay_command_mode_t replay_command_load(
 		)) {
 			return RCM_NONE;
 		}
-	} else if(!replay_bytes_zero(
-		reinterpret_cast<const uint8_t far *>(&command.start),
-		sizeof(command.start)
-	)) {
+	} else if(
+		(command.flags != 0) ||
+		!replay_bytes_zero(
+			reinterpret_cast<const uint8_t far *>(&command.start),
+			sizeof(command.start)
+		)
+	) {
 		return RCM_NONE;
 	}
 	*slot = command.slot;
@@ -1628,6 +1718,10 @@ void replay_entry(void)
 	replay_failed = false;
 	replay_finished = false;
 	replay_stage_seen = false;
+	replay_private_test = (
+		(command_flags & REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0
+	);
+	replay_private_diagnostic = 0;
 	replay_practice_start_pending = false;
 	replay_preroll_midboss_active = false;
 	replay_preroll_midboss_entries = 0;
@@ -1696,6 +1790,7 @@ void replay_stage_start(void)
 			!replay_failed &&
 			!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)
 		) {
+			replay_private_diagnostic = (0x03UL << 24) | replay_sample_cursor;
 			replay_fail();
 		}
 	} else if(
@@ -1718,6 +1813,12 @@ void replay_gameplay_input(void)
 	}
 	host_input = key_det;
 	replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+	if(
+		(replay_mode == RRM_RECORD) && replay_private_test &&
+		(replay_header.sample_count >= REPLAY_PRIVATE_SAMPLE_LIMIT)
+	) {
+		quit = Q_QUIT_TO_OP;
+	}
 	if(replay_mode == RRM_PLAYBACK) {
 		key_det &= ~INPUT_CANCEL;
 		if(host_input & INPUT_CANCEL) {
@@ -1856,6 +1957,7 @@ bool replay_process_end(void)
 		replay_header.power_final = power;
 		replay_header.dream_final = replay_dream();
 		if(!replay_failed && replay_ck_capture_pending()) {
+			replay_private_diagnostic = (0x04UL << 24) | replay_sample_cursor;
 			replay_fail();
 		}
 		if(!replay_failed) {
@@ -1876,6 +1978,7 @@ bool replay_process_end(void)
 			replay_failed = true;
 		}
 		replay_checkpoint_temp_delete();
+		replay_private_result_write(end_reason);
 		return false;
 	}
 	if(
@@ -1890,6 +1993,7 @@ bool replay_process_end(void)
 	) {
 		replay_fail();
 	}
+	replay_private_result_write(end_reason);
 	return true;
 }
 
