@@ -1,6 +1,7 @@
 #include "th01/hardware/grp2xscs.hpp"
 #include "th01/math/clamp.hpp"
 #include "th01/main/hud/menu.hpp"
+#include "th01/replay.hpp"
 #include "th01/shiftjis/hud.hpp"
 
 // Pause menu
@@ -238,6 +239,7 @@ bool16 continue_menu(void)
 		if((input_ok == true) || (input_shot == true)) {
 			if(sel == true) {
 				resident->snd_need_init = false;
+				t1replay_process_end(false, 0);
 				game_switch_binary();
 				resident->point_value = 0;
 				execl(BINARY_MAIN_CAPS, BINARY_MAIN_CAPS, nullptr);

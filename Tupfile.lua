@@ -430,6 +430,9 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	} },
 	"th01/main_37.cpp",
 	{ "th01/main_38.cpp", extra_inputs = th01_sprites["pellet"] },
+	-- Must stay last: T1REPLAY_TEXT and its BSS are mod-only trailing
+	-- contributions, preserving every original REIIDEN data/BSS offset.
+	"th01/replay.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

@@ -12,6 +12,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/core/resstuff.hpp"
+#include "th01/replay.hpp"
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/palette.h"
@@ -177,17 +178,20 @@ void input_sense(bool16 reset_repeat)
 		input_bomb = 0;
 		return;
 	}
+	// The replay stream advances once for every ordinary input pass, before the
+	// original edge detector reads its key groups. Reset passes consume nothing.
+	t1replay_frame_io();
 	#define bomb_doubletap_shot input_prev[12]
 	#define bomb_doubletap_strike input_prev[13]
 
-	group_1 = key_sense(7);
-	group_2 = key_sense(5);
-	group_3 = key_sense(8);
-	group_4 = key_sense(9);
-	group_1 |= key_sense(7);
-	group_2 |= key_sense(5);
-	group_3 |= key_sense(8);
-	group_4 |= key_sense(9);
+	group_1 = input_key_sense(7);
+	group_2 = input_key_sense(5);
+	group_3 = input_key_sense(8);
+	group_4 = input_key_sense(9);
+	group_1 |= input_key_sense(7);
+	group_2 |= input_key_sense(5);
+	group_3 |= input_key_sense(8);
+	group_4 |= input_key_sense(9);
 
 	input_onchange_bool_2(0, 8,
 		input_up, (group_1 & K7_ARROW_UP), (group_3 & K8_NUM_8)
@@ -226,8 +230,8 @@ void input_sense(bool16 reset_repeat)
 	}
 
 	if(mode_test == true) {
-		group_1 = key_sense(6);
-		group_1 |= key_sense(6);
+		group_1 = input_key_sense(6);
+		group_1 |= input_key_sense(6);
 
 		// ZUN bug: debug_mem() itself renders a sub-screen in a blocking way,
 		// and senses input after a 3-frame delay, thus recursing back into
@@ -469,6 +473,9 @@ int main(void)
 		error_resident_invalid();
 		return 1;
 	}
+	// Must run before resident_stuff_get(): first-process playback restores the
+	// exact resident start block before REIIDEN derives globals and RNG state.
+	t1replay_entry();
 	if(resident_stuff_get(
 		rank,
 		bgm_mode,
@@ -889,6 +896,7 @@ int main(void)
 						resident->score_highest = score;
 					}
 					frame_delay(120);
+					t1replay_process_end(true, T1REPLAY_END_CLEAR);
 					game_switch_binary();
 					execl(BINARY_END, BINARY_END, nullptr);
 				}
@@ -954,6 +962,7 @@ int main(void)
 				resident->route = route;
 				mdrv2_bgm_fade_out_nonblock();
 				resident->rem_bombs = rem_bombs;
+				t1replay_process_end(false, 0);
 				game_switch_binary();
 				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 			}
@@ -997,6 +1006,7 @@ int main(void)
 op:
 	graphics_free_redundant_and_incomplete();
 	boss_free();
+	t1replay_process_end(true, T1REPLAY_END_MENU);
 	game_switch_binary();
 	key_end();
 	arc_free();
