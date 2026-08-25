@@ -31,6 +31,15 @@ struct replay_ck_identity_t {
 	uint32_t source_fingerprint;
 };
 
+#define REPLAY_CK_BOSS_SECTION_NONE 0xFF
+
+struct replay_ck_actor_probe_t {
+	bool midboss_active;
+	bool midboss_finished;
+	uint8_t boss_section;
+	uint8_t boss_phase;
+};
+
 void replay_ck_measure_init(replay_ck_stream_t far *stream);
 void replay_ck_encode_init(
 	replay_ck_stream_t far *stream, void far *data, uint32_t size
@@ -48,6 +57,10 @@ bool replay_ck_finish(const replay_ck_stream_t far *stream);
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 );
+
+// Returns normalized live actor ownership for hidden-Practice boundary
+// detection. An unknown callback tuple fails instead of guessing a section.
+bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe);
 
 // All sizes are below one real-mode segment. [capacity] may exceed the
 // measured size; the encoded container itself remains tightly packed.

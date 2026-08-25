@@ -182,10 +182,19 @@ void near stage_loop(void)
 	#endif
 
 	slowdown_factor = 1;
+	if(replay_practice_preroll_active()) {
+		_asm { mov ah, 41h; int 18h; }
+	}
 	frame_delay(1);
 	input_reset_sense();
 
 	do {
+		if(replay_practice_preroll_boundary()) {
+			_asm { mov ah, 40h; int 18h; }
+			if(quit != Q_KEEP_RUNNING) {
+				break;
+			}
+		}
 		input_sense();
 		demo_update();
 		replay_gameplay_input();
@@ -260,7 +269,9 @@ void near stage_loop(void)
 		total_frames++;
 
 		#if (GAME == 5)
-			if(debug_mode_active) {
+			if(replay_practice_preroll_active()) {
+				player_is_hit = false;
+			} else if(debug_mode_active) {
 				if(key_det & INPUT_Q) {
 					if(debug_fast_forward == DEBUG_FF_OFF) {
 						debug_fast_forward = DEBUG_FF_TURNING_ON;
@@ -276,13 +287,20 @@ void near stage_loop(void)
 					}
 				}
 			}
-			if(debug_fast_forward == DEBUG_FF_OFF) {
+			if(
+				!replay_practice_preroll_active() &&
+				(debug_fast_forward == DEBUG_FF_OFF)
+			) {
 				slowdown_frame_delay();
-			} else {
+			} else if(debug_fast_forward != DEBUG_FF_OFF) {
 				player_is_hit = false;
 			}
 		#else
-			slowdown_frame_delay();
+			if(replay_practice_preroll_active()) {
+				player_is_hit = false;
+			} else {
+				slowdown_frame_delay();
+			}
 		#endif
 
 		if(palette_changed) {
@@ -338,4 +356,7 @@ void near stage_loop(void)
 		}
 		score_update_and_render();
 	} while(quit == Q_KEEP_RUNNING);
+	if(replay_practice_preroll_active()) {
+		_asm { mov ah, 40h; int 18h; }
+	}
 }

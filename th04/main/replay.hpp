@@ -25,6 +25,11 @@ void replay_practice_items_ready(void);
 // recording begins only after this succeeds.
 bool replay_practice_checkpoint_capture(void);
 
+// Hidden native preroll state and its next-frame target detector. The stage
+// loop masks video, bypasses pacing, and suppresses hits only while active.
+bool replay_practice_preroll_active(void);
+bool replay_practice_preroll_boundary(void);
+
 // Called after native stage setup and before the first frame. Emits or checks
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);

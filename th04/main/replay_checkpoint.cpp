@@ -5116,6 +5116,49 @@ static bool rck_group_actors(replay_ck_stream_t far *stream)
 }
 #endif
 
+bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe)
+{
+	uint8_t live_id;
+
+	if(probe == 0) {
+		return false;
+	}
+	probe->midboss_active = midboss_active;
+	probe->midboss_finished = (midboss.phase == PHASE_NONE);
+	probe->boss_phase = boss.phase;
+	#if (GAME == 5)
+		live_id = rck_th05_boss_live_id();
+		switch(live_id) {
+		case RCK5BL_NONE:
+			probe->boss_section = REPLAY_CK_BOSS_SECTION_NONE;
+			break;
+		case RCK5BL_SETUP:
+			probe->boss_section = RCS_TH05_PAIR;
+			break;
+		case RCK5BL_MAI:
+			probe->boss_section = RCS_TH05_MAI;
+			break;
+		case RCK5BL_YUKI:
+			probe->boss_section = RCS_TH05_YUKI;
+			break;
+		default:
+			return false;
+		}
+	#else
+		live_id = rck_th04_boss_update_id();
+		if(live_id == 0) {
+			probe->boss_section = REPLAY_CK_BOSS_SECTION_NONE;
+		} else if(live_id == 1) {
+			probe->boss_section = RCS_TH04_MUGETSU;
+		} else if(live_id == 2) {
+			probe->boss_section = RCS_TH04_GENGETSU;
+		} else {
+			return false;
+		}
+	#endif
+	return true;
+}
+
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 )
