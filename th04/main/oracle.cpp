@@ -52,8 +52,11 @@
 #include "th04/formats/std.hpp"
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/bg.hpp"
+#include "th04/main/circle.hpp"
 #include "th04/main/custom.hpp"
 #include "th04/main/demo.hpp"
+#include "th04/main/drawp.hpp"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/gather.hpp"
@@ -68,7 +71,9 @@
 #include "th04/main/quit.hpp"
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
+#include "th04/main/spark.hpp"
 #include "th04/main/stage/stage.hpp"
+#include "th04/main/tile/tile.hpp"
 #include "th04/oracle_build.hpp"
 #if (GAME == 5)
 	#include "th05/main/boss/boss.hpp"
@@ -108,6 +113,80 @@ extern unsigned int total_max_valued_point_items;
 // until another runtime consumer needed it. The oracle serializes the ring
 // cursor because it decides which splash slot the next item spawn reuses.
 extern unsigned char item_splash_last_id;
+
+// `th04/main/score[bss].asm` and `th04/score[data].asm`. These variables are
+// part of the live score pipeline even though their declarations remain local
+// to the original users.
+extern unsigned long score_delta_frame;
+extern unsigned char score_unused;
+extern unsigned char hiscore_popup_shown;
+
+// `th04/main/playfld[data].asm`. Unlike the VRAM page and dirty-tile caches,
+// this countdown decides how long the logical shake remains active.
+extern int8_t playfield_shake_redraw_time;
+
+// The callback slots themselves are pointer-shaped. Schema 4 records only
+// stable installed facts here; callback identities belong to the later
+// checkpoint registry and must never leak addresses into a portable trace.
+extern nearfunc_t_near stage_render;
+extern nearfunc_t_near stage_invalidate;
+
+#if (GAME == 4)
+	struct oracle_checkerboard_t {
+		int16_t seg_bottom;
+		uint16_t off_bottom;
+		uint16_t off_top;
+		union {
+			struct {
+				uint8_t vo_x_of_dark;
+				uint8_t loops;
+			} var;
+			uint16_t both;
+		} u1;
+	};
+
+	// Private in `th04/main/checkerb.cpp`, public as `_checkerboard` in
+	// `th04_main.asm`. The mirror exists solely for fieldwise serialization.
+	extern oracle_checkerboard_t checkerboard;
+	typedef char oracle_checkerboard_size_check[
+		(sizeof(oracle_checkerboard_t) == 8) ? 1 : -1
+	];
+#else
+	// TH05's stage-clear bonus latches (`th05_main.asm:3951-3956`).
+	extern uint8_t byte_22274;
+	extern uint8_t byte_22275;
+
+	static const int ORACLE_BOSS_PARTICLE_COUNT = 64;
+	static const int ORACLE_LINESET_LINE_COUNT = 20;
+	static const int ORACLE_LINESET_COUNT = 4;
+
+	struct oracle_boss_particle_t {
+		PlayfieldPoint pos;
+		PlayfieldPoint origin;
+		SPPoint velocity;
+		int age;
+		unsigned char angle;
+		unsigned char patnum;
+	};
+
+	struct oracle_lineset_t {
+		SPPoint center[ORACLE_LINESET_LINE_COUNT];
+		Subpixel velocity_y;
+		Subpixel radius[ORACLE_LINESET_LINE_COUNT];
+		unsigned char angle[ORACLE_LINESET_LINE_COUNT];
+	};
+
+	// Private in `th05/main/boss/render.cpp`, public in its BSS module. As
+	// above, serialize fields rather than these native structures.
+	extern oracle_boss_particle_t boss_particles[ORACLE_BOSS_PARTICLE_COUNT];
+	extern oracle_lineset_t linesets[ORACLE_LINESET_COUNT];
+	extern unsigned char shinki_bg_linesets_zoomed_out;
+	extern int shinki_bg_type_a_particles_alive;
+	extern bool shinki_bg_type_b_initialized;
+	extern unsigned int shinki_bg_spinline_frame;
+	extern bool shinki_bg_type_c_initialized;
+	extern bool shinki_bg_type_d_initialized;
+#endif
 
 #if (GAME == 5)
 	// `th05_main.asm:19959-19960`. TH05 has no `rem_lives` / `rem_bombs` in
@@ -1097,6 +1176,167 @@ static void oracle_hash_group_items(oracle_split_hash_t far *out)
 	oracle_hash_u8(static_cast<uint8_t>(pointnum_times_2));
 	oracle_hash_store(out);
 }
+
+static void oracle_hash_group_scoring(oracle_split_hash_t far *out)
+{
+	int i;
+
+	oracle_hash_init();
+	for(i = 0; i < SCORE_DIGITS; i++) {
+		oracle_hash_u8(score.digits[i]);
+	}
+	for(i = 0; i < SCORE_DIGITS; i++) {
+		oracle_hash_u8(hiscore.digits[i]);
+	}
+	oracle_hash_u32(score_delta);
+	oracle_hash_u32(score_delta_frame);
+#if (GAME == 4)
+	oracle_hash_u8(score_unused);
+#else
+	// TH05 links the shared byte but never uses it in its score pipeline.
+	oracle_hash_u8(0);
+#endif
+	oracle_hash_u8(hiscore_popup_shown);
+	oracle_hash_u16(stage_graze);
+	oracle_hash_u16(graze_score);
+	oracle_hash_u8(extends_gained);
+	oracle_hash_u8(rank);
+	oracle_hash_u8(playperf);
+	oracle_hash_u8(playperf_max);
+	oracle_hash_u8(static_cast<uint8_t>(playperf_min));
+	oracle_hash_u16(resident->std_frames);
+	oracle_hash_u16(resident->items_spawned);
+	oracle_hash_u16(resident->items_collected);
+	oracle_hash_u16(resident->point_items_collected);
+	oracle_hash_u16(resident->max_valued_point_items_collected);
+	oracle_hash_u16(resident->enemies_gone);
+	oracle_hash_u16(resident->enemies_killed);
+	oracle_hash_u16(resident->graze);
+	oracle_hash_u8(resident->miss_count);
+	oracle_hash_u8(resident->bombs_used);
+	oracle_hash_u32(resident->slow_frames);
+#if (GAME == 5)
+	oracle_hash_u8(byte_22274);
+	oracle_hash_u8(byte_22275);
+#else
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+#endif
+	oracle_hash_store(out);
+}
+
+static void oracle_hash_group_field(oracle_split_hash_t far *out)
+{
+	int y;
+	int x;
+
+	oracle_hash_init();
+	oracle_hash_u8(scroll_subpixel_line.v);
+	oracle_hash_u8(scroll_speed.v);
+	oracle_hash_u16(static_cast<uint16_t>(scroll_line));
+	oracle_hash_u16(static_cast<uint16_t>(scroll_last_delta.v));
+	oracle_hash_u8(static_cast<uint8_t>(scroll_active));
+	for(y = 0; y < TILES_Y; y++) {
+		for(x = 0; x < TILES_MEMORY_X; x++) {
+			oracle_hash_u16(static_cast<uint16_t>(tile_ring[y][x]));
+		}
+	}
+	oracle_hash_u8(static_cast<uint8_t>(tile_row_in_section));
+	oracle_hash_u16(static_cast<uint16_t>(tile_ring_row_filled));
+
+	// Do not serialize callback addresses. The installed facts are stable
+	// across lineages; exact callback IDs are reserved for the fail-closed
+	// checkpoint registry, where they are needed for restoration.
+	oracle_hash_u8(oracle_hook_installed(stage_render));
+	oracle_hash_u8(oracle_hook_installed(stage_invalidate));
+	oracle_hash_u8(oracle_hook_installed(bg_render_not_bombing));
+	oracle_hash_u8(oracle_hook_installed(bg_render_bombing));
+	oracle_hash_u8(oracle_hook_installed(bg_render_bombing_func));
+	oracle_hash_store(out);
+}
+
+static void oracle_hash_group_effects(oracle_split_hash_t far *out)
+{
+	int i;
+#if (GAME == 5)
+	int j;
+#endif
+
+	oracle_hash_init();
+	for(i = 0; i < SPARK_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(sparks[i].flag));
+		oracle_hash_u8(sparks[i].age);
+		oracle_hash_motion(&sparks[i].center);
+		oracle_hash_u16(static_cast<uint16_t>(sparks[i].angle));
+	}
+	oracle_hash_u16(spark_ring_offset);
+	for(i = 0; i < CIRCLE_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(circles[i].flag));
+		oracle_hash_u8(circles[i].age);
+		oracle_hash_u16(static_cast<uint16_t>(circles[i].center.x));
+		oracle_hash_u16(static_cast<uint16_t>(circles[i].center.y));
+		oracle_hash_u16(static_cast<uint16_t>(circles[i].radius_cur));
+		oracle_hash_u16(static_cast<uint16_t>(circles[i].radius_delta));
+	}
+	oracle_hash_u8(circles_color);
+	oracle_hash_playfield_point(&drawpoint);
+	oracle_hash_u16(static_cast<uint16_t>(miss_explosion_radius));
+	oracle_hash_u8(miss_explosion_angle);
+	oracle_hash_u16(static_cast<uint16_t>(playfield_shake_x));
+	oracle_hash_u16(static_cast<uint16_t>(playfield_shake_y));
+	oracle_hash_u16(static_cast<uint16_t>(playfield_shake_anim_time));
+	oracle_hash_u8(static_cast<uint8_t>(playfield_shake_redraw_time));
+
+#if (GAME == 4)
+	oracle_hash_u16(static_cast<uint16_t>(checkerboard.seg_bottom));
+	oracle_hash_u16(checkerboard.off_bottom);
+	oracle_hash_u16(checkerboard.off_top);
+	oracle_hash_u8(checkerboard.u1.var.vo_x_of_dark);
+	oracle_hash_u8(checkerboard.u1.var.loops);
+	// Keep the TH05-only tail positionally explicit.
+	oracle_hash_u8(0);
+	oracle_hash_u16(0);
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+#else
+	// Keep the TH04-only checkerboard positionally explicit.
+	oracle_hash_u16(0);
+	oracle_hash_u16(0);
+	oracle_hash_u16(0);
+	oracle_hash_u8(0);
+	oracle_hash_u8(0);
+
+	for(i = 0; i < ORACLE_BOSS_PARTICLE_COUNT; i++) {
+		oracle_hash_playfield_point(&boss_particles[i].pos);
+		oracle_hash_playfield_point(&boss_particles[i].origin);
+		oracle_hash_sppoint(&boss_particles[i].velocity);
+		oracle_hash_u16(static_cast<uint16_t>(boss_particles[i].age));
+		oracle_hash_u8(boss_particles[i].angle);
+		oracle_hash_u8(boss_particles[i].patnum);
+	}
+	for(i = 0; i < ORACLE_LINESET_COUNT; i++) {
+		for(j = 0; j < ORACLE_LINESET_LINE_COUNT; j++) {
+			oracle_hash_sppoint(&linesets[i].center[j]);
+		}
+		oracle_hash_u16(static_cast<uint16_t>(linesets[i].velocity_y.v));
+		for(j = 0; j < ORACLE_LINESET_LINE_COUNT; j++) {
+			oracle_hash_u16(static_cast<uint16_t>(linesets[i].radius[j].v));
+		}
+		for(j = 0; j < ORACLE_LINESET_LINE_COUNT; j++) {
+			oracle_hash_u8(linesets[i].angle[j]);
+		}
+	}
+	oracle_hash_u8(shinki_bg_linesets_zoomed_out);
+	oracle_hash_u16(static_cast<uint16_t>(shinki_bg_type_a_particles_alive));
+	oracle_hash_u8(static_cast<uint8_t>(shinki_bg_type_b_initialized));
+	oracle_hash_u16(shinki_bg_spinline_frame);
+	oracle_hash_u8(static_cast<uint8_t>(shinki_bg_type_c_initialized));
+	oracle_hash_u8(static_cast<uint8_t>(shinki_bg_type_d_initialized));
+#endif
+	oracle_hash_store(out);
+}
 /// --------------------
 
 /// Status and diagnostics
@@ -1307,6 +1547,9 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	oracle_hash_group_enemies(&row.hashes[ORACLE_HASH_GROUP_ENEMIES]);
 	oracle_hash_group_actors(&row.hashes[ORACLE_HASH_GROUP_ACTORS]);
 	oracle_hash_group_items(&row.hashes[ORACLE_HASH_GROUP_ITEMS]);
+	oracle_hash_group_scoring(&row.hashes[ORACLE_HASH_GROUP_SCORING]);
+	oracle_hash_group_field(&row.hashes[ORACLE_HASH_GROUP_FIELD]);
+	oracle_hash_group_effects(&row.hashes[ORACLE_HASH_GROUP_EFFECTS]);
 
 	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
 	if(fh < 0) {
