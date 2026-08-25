@@ -968,7 +968,6 @@ static bool t1replay_packet_is_valid(
 			return false;
 		}
 		state->fuuin_phase = value;
-		return true;
 	} else if(control == T1REPLAY_CONTROL_TERMINAL) {
 		value = packet->keys[2];
 		if(
