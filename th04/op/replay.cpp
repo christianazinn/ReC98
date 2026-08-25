@@ -1425,14 +1425,14 @@ static uint8_t practice_target_index(
 			return 0;
 		}
 		return static_cast<uint8_t>(
-			1 + start->section - RCS_CHAPTER_2
+			2 + ((start->section - RCS_CHAPTER_2) * 2)
 		);
 	}
 	if(start->kind == RSK_MIDBOSS) {
 		if(start->section >= midbosses) {
 			return 0;
 		}
-		return static_cast<uint8_t>(1 + chapters + start->section);
+		return static_cast<uint8_t>(1 + (start->section * 2));
 	}
 	if(
 		(start->kind != RSK_BOSS_PHASE) ||
@@ -1462,20 +1462,20 @@ static void practice_target_set(
 		return;
 	}
 	index--;
-	count = practice_chapter_count(start);
-	if(index < count) {
-		start->kind = RSK_CHAPTER;
-		start->section = static_cast<uint8_t>(RCS_CHAPTER_2 + index);
-		return;
-	}
-	index = static_cast<uint8_t>(index - count);
 	count = practice_midboss_count(start);
-	if(index < count) {
-		start->kind = RSK_MIDBOSS;
-		start->section = index;
+	if(index < (count * 2)) {
+		start->section = static_cast<uint8_t>(index / 2);
+		if((index & 1) == 0) {
+			start->kind = RSK_MIDBOSS;
+		} else {
+			start->kind = RSK_CHAPTER;
+			start->section = static_cast<uint8_t>(
+				RCS_CHAPTER_2 + start->section
+			);
+		}
 		return;
 	}
-	index = static_cast<uint8_t>(index - count);
+	index = static_cast<uint8_t>(index - (count * 2));
 	for(section = 0; section < practice_boss_section_count(start); section++) {
 		count = static_cast<uint8_t>(
 			practice_boss_phase_max(start, section) + 1
