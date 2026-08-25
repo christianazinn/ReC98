@@ -138,7 +138,19 @@ extern nearfunc_t_near playchar_shot_func;
 		extern PlayfieldPoint yuuka6_25A0C;
 		extern uint8_t yuuka6_25A1B;
 		extern uint8_t yuuka6_25A1E;
+		extern int mugetsu_gather_frame_offset;
+		extern uint8_t (near *mugetsu_pose_func)(void);
+		extern SPPoint mugetsu_gather_center;
+		extern uint8_t mugetsu_phase2_mode;
+		extern uint8_t mugetsu_damage_frames;
+		extern uint8_t gengetsu_damage_frames;
+		extern uint8_t extra_boss_bomb_immunity;
 	}
+	extern uint8_t gengetsu_wave_amp;
+	extern Subpixel gengetsu_wave_target_x;
+	uint8_t near mugetsu_180BB(void);
+	uint8_t near mugetsu_1812A(void);
+	uint8_t near mugetsu_1821E(void);
 
 	struct bg_shape_t {
 		SPPoint pos;
@@ -2722,6 +2734,126 @@ static bool rck_th04_actor_stage6(replay_ck_stream_t far *stream)
 	RCK_U8(yuuka6_25A1E);
 	if(rck_applying(stream)) {
 		return rck_th04_bg_clip_apply(clip_id);
+	}
+	return true;
+}
+
+static uint8_t rck_th04_mugetsu_pose_id(void)
+{
+	if(mugetsu_pose_func == 0) {
+		return 0;
+	}
+	if(mugetsu_pose_func == mugetsu_180BB) {
+		return 1;
+	}
+	if(mugetsu_pose_func == mugetsu_1812A) {
+		return 2;
+	}
+	if(mugetsu_pose_func == mugetsu_1821E) {
+		return 3;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_mugetsu_pose_apply(uint8_t id)
+{
+	switch(id) {
+	case 0: mugetsu_pose_func = 0; break;
+	case 1: mugetsu_pose_func = mugetsu_180BB; break;
+	case 2: mugetsu_pose_func = mugetsu_1812A; break;
+	case 3: mugetsu_pose_func = mugetsu_1821E; break;
+	default: return false;
+	}
+	return true;
+}
+
+static bool rck_th04_mugetsu_offset(
+	replay_ck_stream_t far *stream, int *value_out
+)
+{
+	uint16_t encoded = static_cast<uint16_t>(mugetsu_gather_frame_offset);
+	int value;
+
+	if(!rck_u16(stream, &encoded)) {
+		return false;
+	}
+	value = static_cast<int16_t>(encoded);
+	if((value != 0x10) && (value != 0) && (value != -0x50)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		mugetsu_gather_frame_offset = value;
+	}
+	*value_out = value;
+	return true;
+}
+
+static bool rck_th04_mugetsu_pose_compatible(
+	uint8_t id, int offset
+)
+{
+	uint8_t update_id = rck_th04_boss_update_id();
+
+	if(update_id == 0) {
+		return (id <= 3);
+	}
+	if(update_id == 2) {
+		return (id != 0) && (id <= 3);
+	}
+	if(update_id != 1) {
+		return false;
+	}
+	if(boss.phase <= 1) {
+		return (id == 1) && (offset == 0x10);
+	}
+	if((boss.phase == 2) || (boss.phase == 3)) {
+		if((boss.phase == 2) && (boss.phase_frame == 0)) {
+			return (
+				((id == 1) || (id == 2)) &&
+				((offset == 0x10) || (offset == 0))
+			);
+		}
+		return (
+			((id == 1) && (offset == 0x10)) ||
+			((id == 2) && (offset == 0))
+		);
+	}
+	if((boss.phase == 4) && (boss.phase_frame == 0)) {
+		return (
+			(id == 3) &&
+			((offset == 0x10) || (offset == 0) || (offset == -0x50))
+		);
+	}
+	return (id == 3) && (offset == -0x50);
+}
+
+static bool rck_th04_actor_extra(replay_ck_stream_t far *stream)
+{
+	uint8_t pose_id;
+	int gather_offset;
+
+	if(stage_id != STAGE_EXTRA) {
+		return false;
+	}
+	pose_id = rck_th04_mugetsu_pose_id();
+	if(
+		!rck_u8(stream, &pose_id) ||
+		!rck_th04_mugetsu_offset(stream, &gather_offset) ||
+		!rck_th04_mugetsu_pose_compatible(pose_id, gather_offset)
+	) {
+		return false;
+	}
+	if(!rck_sppoint(stream, &mugetsu_gather_center)) {
+		return false;
+	}
+	RCK_U8_MAX(mugetsu_phase2_mode, 36);
+	RCK_U8(mugetsu_damage_frames);
+	RCK_U8(gengetsu_damage_frames);
+	RCK_U8_MAX(extra_boss_bomb_immunity, 32);
+	RCK_U8(gengetsu_wave_amp);
+	RCK_S16(gengetsu_wave_target_x.v);
+	if(rck_applying(stream)) {
+		return rck_th04_mugetsu_pose_apply(pose_id);
 	}
 	return true;
 }
