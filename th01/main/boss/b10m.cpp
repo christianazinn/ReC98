@@ -16,6 +16,7 @@
 #include "th01/sprites/pellet.h"
 #include "th01/main/particle.hpp"
 #include "th01/main/boss/defeat.hpp"
+#include "th01/main/boss/b10m.hpp"
 #include "th01/main/boss/entity_a.hpp"
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/bullet/laser_s.hpp"
@@ -490,7 +491,7 @@ static const int MISSILE_INTERVAL = 8;
 // into a single immediate argument, so these can't be defined in terms of
 // CEyeEntity's cur_center_x() and cur_center_y() helpers.
 
-// (cur_center_x() + 4) kind of corresponds to the right edge of C_DOWN.
+// (cur_center_x() + 4) only approximately matches C_DOWN's visual alignment.
 static const pixel_t MISSILE_OFFSET_LEFT = ((EYE_W / 2) + 4 - (MISSILE_W / 2));
 
 // (pupil_bottom() - (MISSILE_H / 2))
@@ -759,8 +760,9 @@ inline void laser_unput(const pixel_t& x_edge_offset, x_direction_t dir) {
 	);
 }
 
-// Separate function to work around the `Condition is always true/false` and
-// `Unreachable code` warnings. Should really be done unconditionally, though.
+// Separate function to work around compiler diagnostics about conditions that
+// are always true/false and unreachable code. Should really be done
+// unconditionally, though.
 inline void conditionally_reset(pixel_t& x_edge_offset, bool cond) {
 	if(cond) {
 		x_edge_offset = 0;
@@ -1130,7 +1132,7 @@ struct Pentagram {
 	} \
 }
 
-// The next two are forced to be used inside an `if` statement, returning a
+// The next two are forced to be used inside an if statement, returning a
 // non-zero value if the phase is done.
 #define pentagram_spin_unput_update_render(pentagram_, dir) \
 	(boss_phase_frame % PENTAGRAM_INTERVAL) == 0) { \
@@ -1182,8 +1184,9 @@ void eyes_toggle_and_yokoshima_recolor(
 );
 // -----------------------
 
-// Separate function to work around the `Condition is always true/false` and
-// `Unreachable code` warnings. (It's unnecessary anyway, though.)
+// Separate function to work around compiler diagnostics about conditions that
+// are always true/false and unreachable code. (It's unnecessary anyway,
+// though.)
 inline void conditionally_reset_missiles(bool cond) {
 	if(cond) {
 		Missiles.reset();
@@ -1209,135 +1212,138 @@ inline void conditionally_reset_missiles(bool cond) {
 	} \
 }
 
+// Originally function-local statics. Keeping every continuation-relevant
+// value in this translation unit gives the checkpoint owner semantic access
+// without treating b10m's BSS layout as a serializable format.
+static int invincibility_frame;
+
+static union {
+	int missile_pairs_fired_in_subphase;
+	int subphase_frame;
+
+	// Always increasing, even when going right-to-left.
+	pixel_t x_edge_offset;
+
+	pixel_t distance;
+	int unused;
+} u1;
+
+static union {
+	int subphase;
+	int yokoshima_comp_dec;
+	int unused;
+} u2;
+
+static screen_x_t target_left;
+static pixel_t unused_distance;
+
+// Compared to just reusing [invincibility_frame], this "copy" has the
+// advantage of not being reset every 40 frames, and thus lasting the full
+// EYE_TOGGLE_FRAMES.
+static int after_hit_frame;
+
+static Pentagram pentagram_;
+
+static union {
+	int8_t iterations_done;
+	int8_t yokoshima_comp_inc;
+	eye_flag_t eyes_open;
+	int8_t unused;
+} u3;
+
+static struct {
+	bool initial_hp_rendered;
+
+	void frame_common(void) {
+		boss_phase_frame++;
+		invincibility_frame++;
+	}
+
+	void next(int phase_new) {
+		boss_phase = phase_new;
+		boss_phase_frame = 0;
+		invincibility_frame = 0;
+	}
+
+	void next(int phase_new, int& u2_element_to_reset) {
+		boss_phase = phase_new;
+		u2_element_to_reset = 0;
+		boss_phase_frame = 0;
+		invincibility_frame = 0;
+	}
+
+	void next(
+		int phase_new,
+		int& u2_element_to_reset,
+		int8_t& u3_element_to_reset,
+		int8_t new_value_for_u3 = 0
+	) {
+		boss_phase = phase_new;
+		u2_element_to_reset = 0;
+		u3_element_to_reset = new_value_for_u3;
+		boss_phase_frame = 0;
+		invincibility_frame = 0;
+	}
+
+	// Respawns the pentagram.
+	void back_from_13_to_10(pentagram_attack_phase_t pentagram_phase_new) {
+		if(pentagram_phase_new == PAP_PREPARE_1) {
+			pentagram_.phase = pentagram_phase_new;
+		}
+		boss_phase_frame = 0;
+		boss_phase = 10;
+		u2.yokoshima_comp_dec = COMPONENT_COUNT;
+		u3.yokoshima_comp_inc = COMPONENT_COUNT;
+		if(pentagram_phase_new == PAP_PREPARE_2) {
+			pentagram_.phase = pentagram_phase_new;
+		}
+		invincibility_frame = 0;
+		u1.unused = 0;
+		pentagram.unput();
+	}
+} phase;
+
+static union {
+	unsigned char missile_southwest;
+	unsigned char pellet_east;
+	unsigned char tmp; // MODDERS: Turn into a scope-local variable
+} angle;
+
+static unsigned char angle_missile_southeast;
+
+static struct {
+	bool16 invincible;
+
+	void update_and_render(const vc_t (&flash_colors)[2]) {
+		#define hittest(eye) ( \
+			(eye.hittest_orb() == true) && (eye.image() != C_HIDDEN) \
+		)
+
+		boss_hit_update_and_render(
+			invincibility_frame,
+			invincible,
+			boss_hp,
+			flash_colors,
+			(sizeof(flash_colors) / sizeof(flash_colors[0])),
+			5000,
+			boss_nop,
+			(
+				hittest(eye_west) ||
+				hittest(eye_east) ||
+				hittest(eye_southwest) ||
+				hittest(eye_southeast) ||
+				hittest(eye_north)
+			)
+		);
+
+		#undef hittest
+	}
+} hit = { false };
+
 void yuugenmagan_main(void)
 {
 	const vc_t flash_colors[2] = { 1, 11 };
 	int i;
-
-	static int invincibility_frame;
-
-	static union {
-		int missile_pairs_fired_in_subphase;
-		int subphase_frame;
-
-		// Always increasing, even when going right-to-left.
-		pixel_t x_edge_offset;
-
-		pixel_t distance;
-		int unused;
-	} u1;
-
-	static union {
-		int subphase;
-		int yokoshima_comp_dec;
-		int unused;
-	} u2;
-
-	static screen_x_t target_left;
-	static pixel_t unused_distance;
-
-	// Compared to just reusing [invincibility_frame], this "copy" has the
-	// advantage of not being reset every 40 frames, and thus lasting the full
-	// EYE_TOGGLE_FRAMES.
-	static int after_hit_frame;
-
-	static Pentagram pentagram_;
-
-	static union {
-		int8_t iterations_done;
-		int8_t yokoshima_comp_inc;
-		eye_flag_t eyes_open;
-		int8_t unused;
-	} u3;
-
-	static struct {
-		bool initial_hp_rendered;
-
-		void frame_common(void) {
-			boss_phase_frame++;
-			invincibility_frame++;
-		}
-
-		void next(int phase_new) {
-			boss_phase = phase_new;
-			boss_phase_frame = 0;
-			invincibility_frame = 0;
-		}
-
-		void next(int phase_new, int& u2_element_to_reset) {
-			boss_phase = phase_new;
-			u2_element_to_reset = 0;
-			boss_phase_frame = 0;
-			invincibility_frame = 0;
-		}
-
-		void next(
-			int phase_new,
-			int& u2_element_to_reset,
-			int8_t& u3_element_to_reset,
-			int8_t new_value_for_u3 = 0
-		) {
-			boss_phase = phase_new;
-			u2_element_to_reset = 0;
-			u3_element_to_reset = new_value_for_u3;
-			boss_phase_frame = 0;
-			invincibility_frame = 0;
-		}
-
-		// Respawns the pentagram.
-		void back_from_13_to_10(pentagram_attack_phase_t pentagram_phase_new) {
-			if(pentagram_phase_new == PAP_PREPARE_1) {
-				pentagram_.phase = pentagram_phase_new;
-			}
-			boss_phase_frame = 0;
-			boss_phase = 10;
-			u2.yokoshima_comp_dec = COMPONENT_COUNT;
-			u3.yokoshima_comp_inc = COMPONENT_COUNT;
-			if(pentagram_phase_new == PAP_PREPARE_2) {
-				pentagram_.phase = pentagram_phase_new;
-			}
-			invincibility_frame = 0;
-			u1.unused = 0;
-			pentagram.unput();
-		}
-	} phase;
-
-	static union {
-		unsigned char missile_southwest;
-		unsigned char pellet_east;
-		unsigned char tmp; // MODDERS: Turn into a scope-local variable
-	} angle;
-
-	static unsigned char angle_missile_southeast;
-
-	static struct {
-		bool16 invincible;
-
-		void update_and_render(const vc_t (&flash_colors)[2]) {
-			#define hittest(eye) ( \
-				(eye.hittest_orb() == true) && (eye.image() != C_HIDDEN) \
-			)
-
-			boss_hit_update_and_render(
-				invincibility_frame,
-				invincible,
-				boss_hp,
-				flash_colors,
-				(sizeof(flash_colors) / sizeof(flash_colors[0])),
-				5000,
-				boss_nop,
-				(
-					hittest(eye_west) ||
-					hittest(eye_east) ||
-					hittest(eye_southwest) ||
-					hittest(eye_southeast) ||
-					hittest(eye_north)
-				)
-			);
-
-			#undef hittest
-		}
-	} hit = { false };
 
 	Missiles.unput_update_render();
 
@@ -2064,3 +2070,355 @@ void eyes_toggle_and_yokoshima_recolor(
 	#undef eye_should_be_opened
 	#undef eye_is_toggled
 }
+
+#pragma codeseg T1B10OWN_TEXT
+
+static bool16 t1boss_yuugenmagan_checkpoint_phase_is_safe(int8_t phase_id)
+{
+	return (
+		(phase_id == 1) ||
+		(phase_id == 3) ||
+		(phase_id == 5) ||
+		(phase_id == 7) ||
+		(phase_id == 9) ||
+		(phase_id == 11) ||
+		(phase_id == 13)
+	);
+}
+
+static bool16 t1boss_yuugenmagan_checkpoint_pattern_interval_is_valid(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	if(checkpoint->phase == 1) {
+		return (
+			(checkpoint->pattern_interval == 350) ||
+			(checkpoint->pattern_interval == 300) ||
+			(checkpoint->pattern_interval == 200) ||
+			(checkpoint->pattern_interval == 130)
+		);
+	}
+	if((checkpoint->phase == 3) || (checkpoint->phase == 5)) {
+		return (
+			(checkpoint->pattern_interval == 2) ||
+			(checkpoint->pattern_interval == 4) ||
+			(checkpoint->pattern_interval == 8) ||
+			(checkpoint->pattern_interval == 12) ||
+			(checkpoint->pattern_interval == 16) ||
+			(checkpoint->pattern_interval == 20)
+		);
+	}
+	if((checkpoint->phase == 7) || (checkpoint->phase == 9) ||
+		(checkpoint->phase == 11)) {
+		return (
+			(checkpoint->pattern_interval == 10) ||
+			(checkpoint->pattern_interval == 16) ||
+			(checkpoint->pattern_interval == 20) ||
+			(checkpoint->pattern_interval == 24)
+		);
+	}
+	return (
+		(checkpoint->pattern_interval == 8) ||
+		(checkpoint->pattern_interval == 10) ||
+		(checkpoint->pattern_interval == 14) ||
+		(checkpoint->pattern_interval == 24)
+	);
+}
+
+static bool16 t1boss_yuugenmagan_checkpoint_phase_state_is_valid(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	if(checkpoint->phase == 3) {
+		return (
+			(checkpoint->u1 >= 0) &&
+			(checkpoint->u1 <= 11) &&
+			(checkpoint->u2 >= 0) &&
+			(checkpoint->u2 <= 11) &&
+			(checkpoint->u3 >= 0) &&
+			(checkpoint->u3 <= 5)
+		);
+	}
+	if(checkpoint->phase == 5) {
+		return (
+			(checkpoint->u1 >= -15) &&
+			(checkpoint->u1 <= SUBPHASE_TIMEOUT_FRAMES) &&
+			(checkpoint->u2 >= 0) &&
+			(checkpoint->u2 <= 3) &&
+			(checkpoint->u3 >= 0) &&
+			(checkpoint->u3 <= 5)
+		);
+	}
+	if(checkpoint->phase == 7) {
+		return (
+			(checkpoint->u1 >= 0) &&
+			(checkpoint->u1 <= 11) &&
+			(checkpoint->u2 >= 0) &&
+			(checkpoint->u2 <= 7) &&
+			(checkpoint->u3 >= 0) &&
+			(checkpoint->u3 <= 5)
+		);
+	}
+	if(checkpoint->phase == 9) {
+		return (
+			(checkpoint->u1 >= 0) &&
+			(checkpoint->u1 <= PLAYFIELD_W) &&
+			(checkpoint->u2 >= 0) &&
+			(checkpoint->u2 <= laser_subphase(2, LSP_DONE))
+		);
+	}
+	if(checkpoint->phase == 11) {
+		return (
+			(checkpoint->u1 >= 0) &&
+			(checkpoint->u1 <= (PENTAGRAM_SHRINK_DISTANCE + 8)) &&
+			(checkpoint->u2 >= 0) &&
+			(checkpoint->u2 <= 3)
+		);
+	}
+	if(checkpoint->phase == 13) {
+		return (
+			(checkpoint->u1 >= 0) &&
+			(checkpoint->u1 <= SUBPHASE_TIMEOUT_FRAMES) &&
+			(checkpoint->u2 == 0) &&
+			(
+				(checkpoint->u3 == EF_WEST) ||
+				(checkpoint->u3 == EF_EAST) ||
+				(checkpoint->u3 == EF_SOUTHWEST) ||
+				(checkpoint->u3 == EF_SOUTHEAST) ||
+				(checkpoint->u3 == EF_NORTH)
+			) &&
+			(checkpoint->after_hit_frame == 0)
+		);
+	}
+	return true;
+}
+
+static bool16 t1boss_yuugenmagan_checkpoint_geometry_is_valid(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	for(int i = 0; i < PENTAGRAM_POINTS; i++) {
+		if(
+			(checkpoint->line_x[i] < -RES_X) ||
+			(checkpoint->line_x[i] > (RES_X * 2)) ||
+			(checkpoint->line_y[i] < -RES_Y) ||
+			(checkpoint->line_y[i] > (RES_Y * 2))
+		) {
+			return false;
+		}
+	}
+	return (
+		(checkpoint->line_radius >= 0) &&
+		(checkpoint->line_radius <= RES_X) &&
+		(checkpoint->line_center_x >= -RES_X) &&
+		(checkpoint->line_center_x <= (RES_X * 2)) &&
+		(checkpoint->line_center_y >= -RES_Y) &&
+		(checkpoint->line_center_y <= (RES_Y * 2)) &&
+		(checkpoint->line_velocity_x >= -RES_X) &&
+		(checkpoint->line_velocity_x <= RES_X) &&
+		(checkpoint->line_velocity_y >= -RES_Y) &&
+		(checkpoint->line_velocity_y <= RES_Y)
+	);
+}
+
+bool16 t1boss_yuugenmagan_checkpoint_validate(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_YUUGENMAGAN_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_YUUGENMAGAN_CHECKPOINT_SCHEMA) ||
+		(checkpoint->reserved_0 != 0) ||
+		(checkpoint->reserved[0] != 0) ||
+		!t1boss_yuugenmagan_checkpoint_phase_is_safe(checkpoint->phase) ||
+		(checkpoint->phase_frame < 0) ||
+		(checkpoint->hp <= HP_PHASE_13_END) ||
+		(checkpoint->hp > HP_TOTAL) ||
+		(checkpoint->invincibility_frame < 0) ||
+		(checkpoint->invincibility_frame >= BOSS_HIT_INVINCIBILITY_FRAMES) ||
+		(checkpoint->initial_hp_rendered > 1) ||
+		(checkpoint->hit_invincible > 1) ||
+		(checkpoint->pentagram_phase < PAP_PREPARE_1) ||
+		(checkpoint->pentagram_phase > PAP_SLAM_INTO_PLAYER_2) ||
+		(checkpoint->pentagram_angle < 0) ||
+		(checkpoint->pentagram_angle > 0xFF) ||
+		!t1boss_yuugenmagan_checkpoint_pattern_interval_is_valid(checkpoint) ||
+		!t1boss_yuugenmagan_checkpoint_phase_state_is_valid(checkpoint) ||
+		!t1boss_yuugenmagan_checkpoint_geometry_is_valid(checkpoint)
+	) {
+		return false;
+	}
+	for(int i = 0; i < EYE_COUNT; i++) {
+		if(
+			(checkpoint->eye_image[i] > C_AHEAD) ||
+			(checkpoint->eye_hitbox_inactive[i] > 1) ||
+			(checkpoint->eye_lock_frame[i] < 0) ||
+			(checkpoint->eye_lock_frame[i] > 3)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static CEyeEntity &t1boss_yuugenmagan_checkpoint_eye(int i)
+{
+	if(i == 0) {
+		return eye_west;
+	} else if(i == 1) {
+		return eye_east;
+	} else if(i == 2) {
+		return eye_southwest;
+	} else if(i == 3) {
+		return eye_southeast;
+	}
+	return eye_north;
+}
+
+static void t1boss_yuugenmagan_checkpoint_capture_eye(
+	t1boss_yuugenmagan_checkpoint_t *checkpoint,
+	int i,
+	const CEyeEntity &eye
+)
+{
+	checkpoint->eye_image[i] = eye.image();
+	checkpoint->eye_hitbox_inactive[i] = eye.hitbox_orb_inactive;
+	checkpoint->eye_lock_frame[i] = eye.lock_frame;
+}
+
+bool16 t1boss_yuugenmagan_checkpoint_capture(
+	t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	t1boss_yuugenmagan_checkpoint_t live;
+	int i;
+
+	if(!checkpoint) {
+		return false;
+	}
+	live.owner = T1BOSS_YUUGENMAGAN_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_YUUGENMAGAN_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.reserved_0 = 0;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.invincibility_frame = invincibility_frame;
+	live.pattern_interval = pattern_interval;
+	live.u1 = u1.unused;
+	live.u2 = u2.unused;
+	live.target_left = target_left;
+	live.unused_distance = unused_distance;
+	live.after_hit_frame = after_hit_frame;
+	live.u3 = u3.unused;
+	live.initial_hp_rendered = phase.initial_hp_rendered;
+	live.angle = angle.tmp;
+	live.angle_missile_southeast = angle_missile_southeast;
+	live.hit_invincible = hit.invincible;
+	live.pentagram_phase = pentagram_.phase;
+	live.pentagram_angle = pentagram_.angle;
+	for(i = 0; i < PENTAGRAM_POINTS; i++) {
+		live.line_x[i] = pentagram.x[i];
+		live.line_y[i] = pentagram.y[i];
+	}
+	live.line_radius = pentagram.radius;
+	live.line_center_x = pentagram.center.x;
+	live.line_center_y = pentagram.center.y;
+	live.line_velocity_x = pentagram.velocity_x;
+	live.line_velocity_y = pentagram.velocity_y;
+	for(i = 0; i < EYE_COUNT; i++) {
+		t1boss_yuugenmagan_checkpoint_capture_eye(
+			&live, i, t1boss_yuugenmagan_checkpoint_eye(i)
+		);
+	}
+	live.reserved[0] = 0;
+	if(!t1boss_yuugenmagan_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+static void t1boss_yuugenmagan_checkpoint_restore_eye(
+	CEyeEntity &eye,
+	int i,
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	if(i == 0) {
+		eye.pos_set(EYE_WEST_LEFT, EYE_LATERAL_TOP);
+	} else if(i == 1) {
+		eye.pos_set(EYE_EAST_LEFT, EYE_LATERAL_TOP);
+	} else if(i == 2) {
+		eye.pos_set(EYE_SOUTHWEST_LEFT, EYE_SOUTH_TOP);
+	} else if(i == 3) {
+		eye.pos_set(EYE_SOUTHEAST_LEFT, EYE_SOUTH_TOP);
+	} else {
+		eye.pos_set(EYE_NORTH_LEFT, EYE_NORTH_TOP);
+	}
+	eye.prev_left = eye.cur_left;
+	eye.prev_top = eye.cur_top;
+	eye.prev_delta_x = 0;
+	eye.prev_delta_y = 0;
+	eye.hitbox_orb_set(-4, -4, (EYE_W + 4), EYE_H);
+	eye.set_image(checkpoint->eye_image[i]);
+	eye.lock_frame = checkpoint->eye_lock_frame[i];
+	if(checkpoint->eye_hitbox_inactive[i]) {
+		eye.hitbox_orb_deactivate();
+	} else {
+		eye.hitbox_orb_activate();
+	}
+}
+
+bool16 t1boss_yuugenmagan_checkpoint_apply(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(!t1boss_yuugenmagan_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+
+	// Rebuild pointer-backed .BOS/.PTN resources. The checkpoint contains only
+	// stable sprite IDs, eye flags, and line geometry applied below.
+	yuugenmagan_ent_load();
+	Missiles.load(PTN_SLOT_MISSILE);
+	for(i = 0; i < EYE_COUNT; i++) {
+		t1boss_yuugenmagan_checkpoint_restore_eye(
+			t1boss_yuugenmagan_checkpoint_eye(i), i, checkpoint
+		);
+	}
+
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	invincibility_frame = checkpoint->invincibility_frame;
+	pattern_interval = checkpoint->pattern_interval;
+	u1.unused = checkpoint->u1;
+	u2.unused = checkpoint->u2;
+	target_left = checkpoint->target_left;
+	unused_distance = checkpoint->unused_distance;
+	after_hit_frame = checkpoint->after_hit_frame;
+	u3.unused = checkpoint->u3;
+	phase.initial_hp_rendered = checkpoint->initial_hp_rendered;
+	angle.tmp = checkpoint->angle;
+	angle_missile_southeast = checkpoint->angle_missile_southeast;
+	hit.invincible = checkpoint->hit_invincible;
+	pentagram_.phase = static_cast<pentagram_attack_phase_t>(
+		checkpoint->pentagram_phase
+	);
+	pentagram_.angle = checkpoint->pentagram_angle;
+	for(i = 0; i < PENTAGRAM_POINTS; i++) {
+		pentagram.x[i] = checkpoint->line_x[i];
+		pentagram.y[i] = checkpoint->line_y[i];
+	}
+	pentagram.radius = checkpoint->line_radius;
+	pentagram.center.x = checkpoint->line_center_x;
+	pentagram.center.y = checkpoint->line_center_y;
+	pentagram.velocity_x = checkpoint->line_velocity_x;
+	pentagram.velocity_y = checkpoint->line_velocity_y;
+	return true;
+}
+
+#pragma codeseg
