@@ -56,23 +56,33 @@
 #include "th04/main/demo.hpp"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
+#include "th04/main/gather.hpp"
+#include "th04/main/item/splash.hpp"
+#include "th04/main/midboss/midboss.hpp"
 #include "th04/main/oracle.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/player/bomb.hpp"
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/shot.hpp"
+#include "th04/main/pointnum/pointnum.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/oracle_build.hpp"
 #if (GAME == 5)
+	#include "th05/main/boss/boss.hpp"
+	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
+	#include "th04/main/boss/boss.hpp"
+	#include "th04/main/enemy/enemy.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
 #endif
+#include "th04/main/boss/backdrop.hpp"
+#include "th04/main/boss/explode.hpp"
 
 // `th02/math/randring[bss].asm:10-15`: a *word*-sized cursor whose low byte
 // alone is incremented by the TH04/TH05 accessors
@@ -88,6 +98,16 @@ extern uint16_t stage_graze;
 
 // `th04/score[data].asm:1-2`.
 extern uint8_t extends_gained;
+
+// The linked BSS spelling; `item.hpp`'s longer declaration has no definition.
+// Existing runtime users (`item/collect.cpp`, `execl.cpp`, `replay.cpp`) all
+// publish and consume this spelling.
+extern unsigned int total_max_valued_point_items;
+
+// `th04/main/item/splash_u.cpp`; intentionally absent from the public header
+// until another runtime consumer needed it. The oracle serializes the ring
+// cursor because it decides which splash slot the next item spawn reuses.
+extern unsigned char item_splash_last_id;
 
 #if (GAME == 5)
 	// `th05_main.asm:19959-19960`. TH05 has no `rem_lives` / `rem_bombs` in
@@ -470,6 +490,36 @@ static void oracle_hash_sppoint(const SPPoint far *p)
 	oracle_hash_u16(static_cast<uint16_t>(p->y.v));
 }
 
+static void oracle_hash_playfield_point(const PlayfieldPoint far *p)
+{
+	oracle_hash_u16(static_cast<uint16_t>(p->x.v));
+	oracle_hash_u16(static_cast<uint16_t>(p->y.v));
+}
+
+// Embedded bullet templates occur in enemies and gather circles as well as in
+// the global spawn template. This helper serializes only the template itself;
+// the global callback slots and special parameters remain in group 3.
+static void oracle_hash_bullet_template(const BulletTemplate far *tmpl)
+{
+	oracle_hash_u8(tmpl->spawn_type);
+	oracle_hash_u8(tmpl->patnum);
+	oracle_hash_playfield_point(&tmpl->origin);
+	oracle_hash_u8(static_cast<uint8_t>(tmpl->group));
+	oracle_hash_u8(static_cast<uint8_t>(tmpl->special_motion));
+	oracle_hash_u8(tmpl->angle);
+	oracle_hash_u8(tmpl->speed.v);
+#if (GAME == 5)
+	oracle_hash_u8(tmpl->spread);
+	oracle_hash_u8(tmpl->spread_angle_delta);
+	oracle_hash_u8(tmpl->stack);
+	oracle_hash_u8(tmpl->stack_speed_delta.v);
+#else
+	oracle_hash_playfield_point(&tmpl->velocity);
+	oracle_hash_u8(tmpl->count);
+	oracle_hash_u8(tmpl->delta.spread_angle);
+#endif
+}
+
 // A near function pointer is pointer-shaped state and is NEVER hashed as an
 // address (see the harness trace and TH04 deterministic-state contracts). None of
 // these slots has a stable cross-lineage enum -- the debloated lineage relinks
@@ -803,6 +853,250 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 	oracle_hash_store(out);
 	return alive;
 }
+
+// The enemy script pointer always denotes one of the 32 bases loaded from the
+// current `.STD`. Serialize that table index, never the linked near address.
+// 0xFE means a non-null value outside the table; 0xFF means no script.
+static uint8_t oracle_enemy_script_id(const unsigned char near *script)
+{
+	int i;
+
+	if(script == 0) {
+		return 0xFF;
+	}
+	for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+		if(script == reinterpret_cast<unsigned char near *>(std_enemy_scripts[i])) {
+			return static_cast<uint8_t>(i);
+		}
+	}
+	return 0xFE;
+}
+
+// Group 4 -- enemies. Declaration order differs between TH04 and TH05, so the
+// schema uses one semantic order and emits zero for fields absent in one game.
+// Native padding and the three explicitly unused members are excluded.
+static void oracle_hash_group_enemies(oracle_split_hash_t far *out)
+{
+	int i;
+
+	oracle_hash_init();
+	for(i = 0; i < ENEMY_COUNT; i++) {
+		enemy_t far *enemy = &enemies[i];
+
+		oracle_hash_u8(enemy->flag);
+		oracle_hash_u8(enemy->age);
+		oracle_hash_motion(&enemy->pos);
+		oracle_hash_u16(static_cast<uint16_t>(enemy->hp));
+		oracle_hash_u16(static_cast<uint16_t>(enemy->score));
+		oracle_hash_u8(oracle_enemy_script_id(enemy->script));
+		oracle_hash_u16(static_cast<uint16_t>(enemy->script_ip));
+		oracle_hash_u8(enemy->cur_instr_frame);
+		oracle_hash_u8(enemy->loop_i);
+#if (GAME == 5)
+		oracle_hash_u8(enemy->speed.v);
+#else
+		oracle_hash_u16(static_cast<uint16_t>(enemy->speed.v));
+#endif
+		oracle_hash_u8(enemy->angle);
+		oracle_hash_u8(enemy->angle_delta);
+		oracle_hash_u8(enemy->patnum_base);
+		oracle_hash_u8(enemy->anim_cels);
+		oracle_hash_u8(enemy->anim_frames_per_cel);
+		oracle_hash_u8(enemy->anim_cur_cel);
+#if (GAME == 5)
+		oracle_hash_u8((enemy->clip & ENEMY_CLIP_X) ? 1 : 0);
+		oracle_hash_u8((enemy->clip & ENEMY_CLIP_Y) ? 1 : 0);
+#else
+		oracle_hash_u8(static_cast<uint8_t>(enemy->clip_x));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->clip_y));
+#endif
+		oracle_hash_u8(static_cast<uint8_t>(enemy->item));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->damaged_this_frame));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->can_be_damaged));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->autofire));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->kills_player_on_collision));
+		oracle_hash_u8(static_cast<uint8_t>(enemy->spawned_in_left_half));
+		oracle_hash_u8(enemy->autofire_cur_frame);
+		oracle_hash_u8(enemy->autofire_interval);
+#if (GAME == 5)
+		oracle_hash_u8(enemy->subtype);
+#else
+		oracle_hash_u8(0);
+#endif
+		oracle_hash_bullet_template(&enemy->bullet_template);
+	}
+	// `enemy_cur` is update scratch and always points into `enemies[]` while
+	// active. Its normalized index catches loop-order divergence without
+	// serializing the linked address.
+	oracle_hash_u16(
+		(enemy_cur != 0)
+			? static_cast<uint16_t>(enemy_cur - enemies)
+			: 0xFFFFu
+	);
+	oracle_hash_store(out);
+}
+
+static void oracle_hash_boss(const boss_stuff_t far *actor)
+{
+	oracle_hash_motion(&actor->pos);
+	oracle_hash_u16(static_cast<uint16_t>(actor->hp));
+	oracle_hash_u8(actor->sprite);
+	oracle_hash_u8(actor->phase);
+	oracle_hash_u16(static_cast<uint16_t>(actor->phase_frame));
+	oracle_hash_u8(actor->damage_this_frame);
+	oracle_hash_u8(actor->mode);
+	oracle_hash_u8(actor->angle);
+	oracle_hash_u8(actor->phase_state.patterns_seen);
+	oracle_hash_u16(static_cast<uint16_t>(actor->phase_end_hp));
+}
+
+static void oracle_hash_explosion(const Explosion far *explosion)
+{
+	oracle_hash_u8(static_cast<uint8_t>(explosion->alive));
+	oracle_hash_u8(explosion->age);
+	oracle_hash_sppoint(&explosion->center);
+	oracle_hash_sppoint(&explosion->radius_cur);
+	oracle_hash_sppoint(&explosion->radius_delta);
+	oracle_hash_u8(explosion->angle_offset);
+}
+
+// Group 5 -- common actor core. Stage-specific boss locals are intentionally
+// not claimed by this first actor schema; the boundary catalog and subsequent
+// additive schema will enumerate them. This group already catches actor
+// lifecycle, phase, HP, position, callback activation, hitbox, and explosion
+// divergence across every stage.
+static void oracle_hash_group_actors(oracle_split_hash_t far *out)
+{
+	int i;
+
+	oracle_hash_init();
+	oracle_hash_motion(&midboss.pos);
+	oracle_hash_u16(midboss.frames_until);
+	oracle_hash_u16(static_cast<uint16_t>(midboss.hp));
+	oracle_hash_u8(midboss.sprite);
+	oracle_hash_u8(midboss.phase);
+	oracle_hash_u16(static_cast<uint16_t>(midboss.phase_frame));
+	oracle_hash_u8(midboss.damage_this_frame);
+	oracle_hash_u8(midboss.angle);
+	oracle_hash_u8(oracle_hook_installed(midboss_invalidate));
+	oracle_hash_u8((midboss_update != 0) ? 1 : 0);
+	oracle_hash_u8(oracle_hook_installed(midboss_render));
+	oracle_hash_u8((midboss_update_func != 0) ? 1 : 0);
+	oracle_hash_u8(oracle_hook_installed(midboss_render_func));
+
+	oracle_hash_boss(&boss);
+	for(i = 0; i < 16; i++) {
+		oracle_hash_u8(boss_statebyte[i]);
+	}
+	oracle_hash_sppoint(&boss_hitbox_radius);
+	oracle_hash_u8(static_cast<uint8_t>(boss_phase_timed_out));
+	oracle_hash_u8((boss_update != 0) ? 1 : 0);
+	oracle_hash_u8(oracle_hook_installed(boss_fg_render));
+	oracle_hash_u8((boss_update_func != 0) ? 1 : 0);
+	oracle_hash_u8(oracle_hook_installed(boss_bg_render_func));
+	oracle_hash_u8(oracle_hook_installed(boss_fg_render_func));
+	oracle_hash_u8(oracle_hook_installed(boss_backdrop_colorfill));
+#if (GAME == 5)
+	oracle_hash_boss(&boss2);
+	oracle_hash_u8(oracle_hook_installed(boss_custombullets_render));
+	oracle_hash_u16(static_cast<uint16_t>(boss_sprite_left));
+	oracle_hash_u16(static_cast<uint16_t>(boss_sprite_right));
+	oracle_hash_u16(static_cast<uint16_t>(boss_sprite_stay));
+	oracle_hash_u16(static_cast<uint16_t>(boss_flystep_random_clamp.left.v));
+	oracle_hash_u16(static_cast<uint16_t>(boss_flystep_random_clamp.right.v));
+	oracle_hash_u16(static_cast<uint16_t>(boss_flystep_random_clamp.top.v));
+	oracle_hash_u16(static_cast<uint16_t>(boss_flystep_random_clamp.bottom.v));
+#endif
+	for(i = 0; i < EXPLOSION_SMALL_COUNT; i++) {
+		oracle_hash_explosion(&explosions_small[i]);
+	}
+	oracle_hash_explosion(&explosions_big);
+	oracle_hash_store(out);
+}
+
+static void oracle_hash_group_items(oracle_split_hash_t far *out)
+{
+	int i;
+	int digit;
+
+	oracle_hash_init();
+	for(i = 0; i < ITEM_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(items[i].flag));
+		oracle_hash_motion(&items[i].pos);
+		oracle_hash_u8(items[i].type);
+		oracle_hash_u8(static_cast<uint8_t>(items[i].unknown));
+		oracle_hash_u16(static_cast<uint16_t>(items[i].patnum));
+		oracle_hash_u16(static_cast<uint16_t>(items[i].pulled_to_player));
+	}
+	for(i = 0; i < ITEM_SPLASH_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(item_splashes[i].flag));
+		oracle_hash_u8(static_cast<uint8_t>(item_splashes[i].time));
+		oracle_hash_sppoint(&item_splashes[i].center);
+		oracle_hash_u16(static_cast<uint16_t>(item_splashes[i].radius_cur.v));
+		oracle_hash_u16(static_cast<uint16_t>(item_splashes[i].radius_prev.v));
+	}
+	oracle_hash_u8(item_splash_last_id);
+	oracle_hash_u8(enemy_drop_ring_p);
+	oracle_hash_u8(item_playperf_raise);
+	oracle_hash_u8(item_playperf_lower);
+	oracle_hash_u8(static_cast<uint8_t>(items_pull_to_player));
+	oracle_hash_u16(items_spawned);
+	oracle_hash_u16(items_collected);
+	oracle_hash_u16(total_point_items_collected);
+	oracle_hash_u16(total_max_valued_point_items);
+#if (GAME == 5)
+	oracle_hash_u16(stage_point_items_collected);
+	oracle_hash_u16(extend_point_items_collected);
+	oracle_hash_u16(item_point_score_at_full_dream);
+	oracle_hash_u8(dream);
+#else
+	oracle_hash_u8(stage_point_items_collected);
+	oracle_hash_u16(dream_score);
+	// Defined in the original BSS and consumed by item collection and miss
+	// logic; declared locally because it has no public owner header yet.
+	{
+		extern unsigned char dream_items_collected;
+		oracle_hash_u8(dream_items_collected);
+	}
+#endif
+
+	for(i = 0; i < GATHER_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(gather_circles[i].flag));
+		oracle_hash_u8(static_cast<uint8_t>(gather_circles[i].col));
+		oracle_hash_motion(&gather_circles[i].center);
+		oracle_hash_u16(static_cast<uint16_t>(gather_circles[i].radius_cur.v));
+		oracle_hash_u16(static_cast<uint16_t>(gather_circles[i].ring_points));
+		oracle_hash_u8(gather_circles[i].angle_cur);
+		oracle_hash_u8(gather_circles[i].angle_delta);
+		oracle_hash_bullet_template(&gather_circles[i].bullet_template);
+		oracle_hash_u16(static_cast<uint16_t>(gather_circles[i].radius_prev.v));
+		oracle_hash_u16(static_cast<uint16_t>(gather_circles[i].radius_delta.v));
+	}
+	oracle_hash_playfield_point(&gather_template.center);
+	oracle_hash_playfield_point(&gather_template.velocity);
+	oracle_hash_u16(static_cast<uint16_t>(gather_template.radius.v));
+	oracle_hash_u16(static_cast<uint16_t>(gather_template.ring_points));
+	oracle_hash_u8(static_cast<uint8_t>(gather_template.col));
+	oracle_hash_u8(gather_template.angle_delta);
+
+	for(i = 0; i < POINTNUM_COUNT; i++) {
+		oracle_hash_u8(static_cast<uint8_t>(pointnums[i].flag));
+		oracle_hash_u8(pointnums[i].age);
+		oracle_hash_sppoint(&pointnums[i].center_cur);
+		oracle_hash_u16(static_cast<uint16_t>(pointnums[i].center_prev_y.v));
+		oracle_hash_u16(static_cast<uint16_t>(pointnums[i].width));
+		for(digit = 0; digit < POINTNUM_DIGITS; digit++) {
+			oracle_hash_u8(pointnums[i].digits_lebcd[digit]);
+		}
+#if (GAME == 4)
+		oracle_hash_u8(static_cast<uint8_t>(pointnums[i].times_2));
+#endif
+	}
+	oracle_hash_u8(pointnum_yellow_p);
+	oracle_hash_u8(pointnum_white_p);
+	oracle_hash_u8(static_cast<uint8_t>(pointnum_times_2));
+	oracle_hash_store(out);
+}
 /// --------------------
 
 /// Status and diagnostics
@@ -1010,6 +1304,9 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	row.bullets_alive = oracle_hash_group_bullets(
 		&row.hashes[ORACLE_HASH_GROUP_BULLETS]
 	);
+	oracle_hash_group_enemies(&row.hashes[ORACLE_HASH_GROUP_ENEMIES]);
+	oracle_hash_group_actors(&row.hashes[ORACLE_HASH_GROUP_ACTORS]);
+	oracle_hash_group_items(&row.hashes[ORACLE_HASH_GROUP_ITEMS]);
 
 	fh = oracle_dos_open_rw(ORACLE_SPLIT_FN);
 	if(fh < 0) {
