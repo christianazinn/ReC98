@@ -33,10 +33,11 @@ void replay_ck_apply_init(
 );
 bool replay_ck_finish(const replay_ck_stream_t far *stream);
 
-// Groups 0 through 4 and group 6 are independently available for round-trip
-// validation. The incomplete actor group and all later groups fail. This
-// function does not build a checkpoint container and therefore cannot expose
-// an incomplete restore to the game.
+// Groups 0 through 6 are independently available for TH04 round-trip
+// validation. TH05 keeps group 5 unavailable until its stage-local actor
+// inventory is complete. All later groups fail. This function does not build
+// a checkpoint container and therefore cannot expose an incomplete restore to
+// the game.
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 );

@@ -1853,9 +1853,9 @@ static bool rck_explosion(
 	return true;
 }
 
-// Canonical actor storage only. This function deliberately remains outside
-// replay_ck_group_codec() until both games' stage-local programs and callback
-// registries are complete.
+// Canonical actor storage shared by both games. TH04 combines this with its
+// complete callback registry and stage-local programs below. TH05 remains
+// unavailable until its corresponding stage-local inventory is complete.
 static bool rck_group_actors_common(replay_ck_stream_t far *stream)
 {
 	int i;
@@ -2857,6 +2857,29 @@ static bool rck_th04_actor_extra(replay_ck_stream_t far *stream)
 	}
 	return true;
 }
+
+static bool rck_group_actors(replay_ck_stream_t far *stream)
+{
+	if(
+		!rck_group_actors_common(stream) ||
+		!rck_th04_actor_callbacks(stream)
+	) {
+		return false;
+	}
+	switch(stage_id) {
+	case 0: case 1: case 2:
+		return rck_th04_actor_stages_1_to_3(stream);
+	case 3:
+		return rck_th04_actor_stage4(stream);
+	case 4:
+		return rck_th04_actor_stage5(stream);
+	case 5:
+		return rck_th04_actor_stage6(stream);
+	case STAGE_EXTRA:
+		return rck_th04_actor_extra(stream);
+	}
+	return false;
+}
 #endif
 
 bool replay_ck_group_codec(
@@ -2877,6 +2900,10 @@ bool replay_ck_group_codec(
 		return rck_group_bullets(stream);
 	case RCGI_ENEMIES:
 		return rck_group_enemies(stream);
+#if (GAME == 4)
+	case RCGI_ACTORS:
+		return rck_group_actors(stream);
+#endif
 	case RCGI_ITEMS:
 		return rck_group_items(stream);
 	}
