@@ -586,10 +586,11 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main_05.cpp",
 	"th02/regist_m.cpp",
 	-- Must stay last: These patch-only segments and their BSS contributions
-	-- preserve every original MAIN.EXE data/BSS offset. T2PRACT_TEXT follows
-	-- the replay seam so this parcel cannot move existing replay code either.
+	-- preserve every original MAIN.EXE data/BSS offset. Each patch segment
+	-- follows the previous seam so later parcels cannot move existing code.
 	"th02/main/replay.cpp",
 	"th02/main/practice.cpp",
+	"th02/main/s1_actor.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
