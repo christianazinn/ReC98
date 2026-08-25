@@ -5,7 +5,7 @@
 #include "th02/replay_format.hpp"
 
 // Invoked after MAIN has loaded OP's resident block and before gameplay_init()
-// derives any state from it. Consumes one strict, one-shot T2RPY.CFG command.
+// derives any state from it. Consumes one strict, one-shot T2RCFG2 command.
 void replay_entry(void);
 
 // Called after stage_init() has fixed [stage_id] and before any frame can

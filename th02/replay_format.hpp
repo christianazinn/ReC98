@@ -8,6 +8,7 @@
 #define T2REPLAY_HEADER_SIZE 128
 #define T2REPLAY_PACKET_SIZE 4
 #define T2REPLAY_START_SIZE 36
+#define T2REPLAY_COMMAND_SIZE 52
 #define T2REPLAY_STAGE_COUNT 6
 #define T2REPLAY_SLOT_COUNT 100
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
@@ -22,6 +23,8 @@
 
 #define T2REPLAY_COMMAND_RECORD 1
 #define T2REPLAY_COMMAND_PLAYBACK 2
+#define T2REPLAY_COMMAND_FLAG_PRACTICE 0x01
+#define T2REPLAY_COMMAND_KNOWN_FLAGS T2REPLAY_COMMAND_FLAG_PRACTICE
 
 #define T2REPLAY_INPUT_SEMANTICS_KEY_DET 1
 #define T2REPLAY_RULESET_STOCK 0
@@ -105,7 +108,10 @@ struct t2replay_command_t {
 	char magic[8];
 	uint8_t mode;
 	uint8_t slot;
-	uint8_t reserved[6];
+	uint8_t flags;
+	uint8_t reserved_0;
+	t2replay_start_t start;
+	uint8_t reserved[4];
 };
 
 typedef char t2replay_start_size_check[
@@ -118,7 +124,7 @@ typedef char t2replay_packet_size_check[
 	(sizeof(t2replay_packet_t) == T2REPLAY_PACKET_SIZE) ? 1 : -1
 ];
 typedef char t2replay_command_size_check[
-	(sizeof(t2replay_command_t) == 16) ? 1 : -1
+	(sizeof(t2replay_command_t) == T2REPLAY_COMMAND_SIZE) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1

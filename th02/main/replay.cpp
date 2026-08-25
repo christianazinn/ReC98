@@ -14,6 +14,7 @@
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
 #include "th01/rank.h"
+#include "th02/common.h"
 #include "th02/replay_format.hpp"
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
@@ -302,6 +303,20 @@ static bool t2replay_magic_matches(const char far *magic, char last)
 	);
 }
 
+static bool t2replay_command_magic_matches(const char far *magic)
+{
+	return (
+		(magic[0] == 'T') &&
+		(magic[1] == '2') &&
+		(magic[2] == 'R') &&
+		(magic[3] == 'C') &&
+		(magic[4] == 'F') &&
+		(magic[5] == 'G') &&
+		(magic[6] == '2') &&
+		(magic[7] == '\0')
+	);
+}
+
 static void t2replay_header_checksum_set(void)
 {
 	t2replay_header.header_checksum = 0;
@@ -452,7 +467,7 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(start->start_power < 0) ||
 		(start->start_power > 80) ||
 		(start->random_seed != start->resident_frame) ||
-		(start->shottype > 3) ||
+		(start->shottype >= SHOTTYPE_COUNT) ||
 		(start->bgm_mode > SND_BGM_MIDI) ||
 		(start->reduce_effects > 1) ||
 		(start->debug != 0) ||
@@ -461,6 +476,19 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		return false;
 	}
 	return true;
+}
+
+static bool t2replay_practice_start_valid(const t2replay_start_t far *start)
+{
+	return (
+		t2replay_start_valid(start) &&
+		(start->score >= 0) &&
+		(start->score_highest >= static_cast<uint32_t>(start->score)) &&
+		(start->continues_used == 0) &&
+		(start->rem_lives == static_cast<int8_t>(start->start_lives)) &&
+		(start->rem_bombs == static_cast<int8_t>(start->start_bombs)) &&
+		(start->start_power >= POWER_MIN)
+	);
 }
 
 static bool t2replay_stage_scores_valid(void)
@@ -812,10 +840,11 @@ static void t2replay_header_capture(void)
 	t2replay_header.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
 }
 
-static void t2replay_header_apply(void)
+// cfg_load() has already copied these fields into MAIN globals when replay_entry()
+// consumes a command. Apply the same portable start to both owners before
+// gameplay_init() and stage_init() derive their native state.
+static void t2replay_start_apply(const t2replay_start_t far *start)
 {
-	const t2replay_start_t far *start = &t2replay_header.start;
-
 	resident->frame = static_cast<long>(start->resident_frame);
 	resident->score = start->score;
 	resident->score_highest = start->score_highest;
@@ -833,16 +862,32 @@ static void t2replay_header_apply(void)
 	resident->reduce_effects = (start->reduce_effects != 0);
 	resident->debug = false;
 	resident->demo_num = 0;
+	stage_id = start->stage;
+	lives = start->start_lives;
+	bombs = start->start_bombs;
+	rank = start->rank;
+	power = start->start_power;
+	if(power == 0) {
+		power++;
+	}
+	score = start->score;
+}
+
+static void t2replay_header_apply(void)
+{
+	t2replay_start_apply(&t2replay_header.start);
 }
 
 static bool t2replay_command_valid(const t2replay_command_t far *command)
 {
 	unsigned i;
 
-	if(!t2replay_magic_matches(command->magic, 'C') ||
+	if(!t2replay_command_magic_matches(command->magic) ||
 		((command->mode != T2REPLAY_COMMAND_RECORD) &&
 		 (command->mode != T2REPLAY_COMMAND_PLAYBACK)) ||
-		(command->slot >= T2REPLAY_SLOT_COUNT)) {
+		(command->slot >= T2REPLAY_SLOT_COUNT) ||
+		((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) != 0) ||
+		(command->reserved_0 != 0)) {
 		return false;
 	}
 	for(i = 0; i < sizeof(command->reserved); i++) {
@@ -850,10 +895,27 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 			return false;
 		}
 	}
-	return true;
+	if(command->mode == T2REPLAY_COMMAND_PLAYBACK) {
+		return (
+			(command->flags == 0) &&
+			t2replay_bytes_zero(
+				reinterpret_cast<const uint8_t far *>(&command->start),
+				sizeof(command->start)
+			)
+		);
+	}
+	if(command->flags == 0) {
+		return t2replay_bytes_zero(
+			reinterpret_cast<const uint8_t far *>(&command->start),
+			sizeof(command->start)
+		);
+	}
+	return t2replay_practice_start_valid(&command->start);
 }
 
-static t2replay_mode_t t2replay_command_load(uint8_t far *slot)
+static t2replay_mode_t t2replay_command_load(
+	uint8_t far *slot, uint8_t far *flags, t2replay_start_t far *start
+)
 {
 	t2replay_command_t command;
 	uint32_t size;
@@ -875,6 +937,8 @@ static t2replay_mode_t t2replay_command_load(uint8_t far *slot)
 		return T2RM_DISABLED;
 	}
 	*slot = command.slot;
+	*flags = command.flags;
+	*start = command.start;
 	return static_cast<t2replay_mode_t>(command.mode);
 }
 
@@ -937,13 +1001,15 @@ static void t2replay_finalize(uint8_t end_reason)
 void replay_entry(void)
 {
 	uint8_t slot;
+	uint8_t command_flags;
 	t2replay_mode_t command_mode;
+	t2replay_start_t command_start;
 
 	if(t2replay_mode != T2RM_DISABLED) {
 		return;
 	}
 	t2replay_paths_init();
-	command_mode = t2replay_command_load(&slot);
+	command_mode = t2replay_command_load(&slot, &command_flags, &command_start);
 	if(command_mode == T2RM_DISABLED) {
 		return;
 	}
@@ -964,6 +1030,10 @@ void replay_entry(void)
 	if(command_mode == T2RM_RECORD) {
 		t2replay_mode = T2RM_RECORD;
 		t2replay_header_capture();
+		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
+			t2replay_header.start = command_start;
+			t2replay_header_apply();
+		}
 		if(!t2replay_start_valid(&t2replay_header.start) ||
 			!t2replay_header_write(true)) {
 			t2replay_mode = T2RM_DISABLED;
