@@ -19,6 +19,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/main/hud/menu.hpp"
+#include "th02/main/replay.hpp"
 
 // Menu data
 // ---------
@@ -122,6 +123,7 @@ bool16 near pause_menu(void)
 			gaiji_putsa(PAUSE_TITLE_LEFT, PAUSE_TITLE_Y, g11SPACES, TX_WHITE);
 		}
 		input_reset_sense();
+		replay_input_sample(T2REPLAY_PHASE_PAUSE);
 		frame++;
 
 		if((state == STATE_PAUSE_RELEASE) && (key_det == INPUT_NONE)) {

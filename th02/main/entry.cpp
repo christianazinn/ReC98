@@ -25,6 +25,7 @@
 // therefore not be included directly alongside this one.
 #include "th02/main/demo.h"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/resident.hpp"
 #include "th02/snd/snd.h"
@@ -83,6 +84,7 @@ extern "C" int far main_entry(void)
 	if(!cfg_load()) {
 		return 1;
 	}
+	replay_entry();
 	if(game_init_main()) {
 		zun_error(ERROR_OUT_OF_MEMORY);
 		return 1;
@@ -107,6 +109,7 @@ extern "C" int far main_entry(void)
 stage:
 	random_seed = resident->frame;
 	stage_init();
+	replay_stage_start();
 	nopcall_same_group(overlay_stage_enter_animate);
 
 	if(!resident->demo_num) {
@@ -144,7 +147,7 @@ frame:
 	}
 
 	if(!resident->demo_num) {
-		if(continue_prompt()) {
+		if(!replay_gameover() && continue_prompt()) {
 			continue_resume();
 			goto frame;
 		}

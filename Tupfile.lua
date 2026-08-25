@@ -579,6 +579,9 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main_04.cpp",
 	"th02/main_05.cpp",
 	"th02/regist_m.cpp",
+	-- Must stay last: T2REPLAY_TEXT and its BSS are mod-only trailing
+	-- contributions, preserving every original MAIN.EXE data/BSS offset.
+	"th02/main/replay.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },

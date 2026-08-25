@@ -19,6 +19,7 @@
 #include "th02/main/frames.hpp"
 #include "th02/main/main.hpp"
 #include "th02/main/playperf.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -136,6 +137,7 @@ bool16 stage_loop(void)
 		if(resident->demo_num) {
 			nopcall_same_group(DemoPlay);
 		}
+		replay_input_sample(T2REPLAY_PHASE_GAMEPLAY);
 
 		player_move_and_shoot();
 		bomb_update_and_render();

@@ -5,6 +5,7 @@
 #include "th02/resident.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
 #include "th02/formats/dialog.hpp"
@@ -358,6 +359,7 @@ void pascal near dialog_box_animate_and_advance(
 	int box = dialog_box_cur;
 	while(box_cursor <= ((DIALOG_BOX_LINES * DIALOG_LINE_LENGTH) + 8)) {
 		input_reset_sense();
+		replay_input_sample(T2REPLAY_PHASE_DIALOG);
 		dialog_face_put(face_topleft_id); // ZUN bloat: Every frame?
 
 		static_assert(DIALOG_BOX_LINES == 2);
