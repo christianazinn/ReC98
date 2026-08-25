@@ -833,6 +833,52 @@ static bool replay_op_command_write(
 	return ok;
 }
 
+bool replay_private_record_command_start(
+	replay_start_config_t far *start
+)
+{
+	replay_command_t command;
+	uint32_t file_size;
+	int fh;
+	unsigned size;
+	unsigned i;
+
+	replay_op_paths_init();
+	fh = replay_op_dos_open(replay_op_cfg_fn);
+	if(fh < 0) {
+		return false;
+	}
+	replay_op_memclear(&command, sizeof(command));
+	size = replay_op_dos_read(fh, &command, sizeof(command));
+	if(!replay_op_dos_size(fh, &file_size)) {
+		file_size = 0;
+	}
+	replay_op_dos_close(fh);
+	if(
+		(size != sizeof(command)) || (file_size != sizeof(command)) ||
+		(command.magic[0] != 'T') ||
+		(command.magic[1] != ('0' + GAME)) ||
+		(command.magic[2] != 'R') || (command.magic[3] != 'C') ||
+		(command.magic[4] != 'F') || (command.magic[5] != 'G') ||
+		(command.magic[6] != '2') || (command.magic[7] != '\0') ||
+		(command.mode != RCM_RECORD) ||
+		(command.slot >= REPLAY_USER_SLOT_COUNT) ||
+		(command.flags != REPLAY_COMMAND_FLAG_PRACTICE) ||
+		(command.reserved_0 != 0) ||
+		(command.start.kind <= RSK_STAGE) ||
+		!replay_op_start_valid(&command.start, true, true)
+	) {
+		return false;
+	}
+	for(i = 0; i < sizeof(command.reserved); i++) {
+		if(command.reserved[i] != 0) {
+			return false;
+		}
+	}
+	replay_op_copy(start, &command.start, sizeof(command.start));
+	return true;
+}
+
 static char *replay_op_word_append(char *p, replay_op_word_t word)
 {
 	#define P(c) *p++ = c

@@ -13,6 +13,11 @@ bool replay_practice_setup(replay_start_config_t far *start);
 bool replay_practice_record_prepare(
 	const replay_start_config_t far *start
 );
+// Private emulator-test bootstrap. Accepts only an externally staged,
+// arbitrary-target Practice record command and leaves it for MAIN to consume.
+bool replay_private_record_command_start(
+	replay_start_config_t far *start
+);
 void replay_record_next_prepare(void);
 
 #endif /* TH04_OP_REPLAY_HPP */

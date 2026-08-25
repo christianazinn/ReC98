@@ -82,6 +82,20 @@ void near start_practice(void)
 	op_exit_into_main(true, false);
 }
 
+void near start_practice_private_command(
+	const replay_start_config_t far *start
+)
+{
+	resident->end_sequence = ES_SCORE;
+	resident->demo_num = 0;
+	resident->stage = start->stage;
+	resident->credit_lives = start->credit_lives;
+	resident->credit_bombs = start->credit_bombs;
+	resident->playchar = start->playchar;
+	resident_reset_last_highest_and_stage_scores();
+	op_exit_into_main(true, false);
+}
+
 void near start_demo(void)
 {
 	resident->end_sequence = ES_SCORE;

@@ -70,6 +70,20 @@ void near start_practice(void)
 	op_exit_into_main(true, false);
 }
 
+void near start_practice_private_command(
+	const replay_start_config_t far *start
+)
+{
+	resident->stage = start->stage;
+	resident->credit_lives = start->credit_lives;
+	resident->credit_bombs = start->credit_bombs;
+	resident->playchar_ascii = ('0' + start->playchar);
+	resident->stage_ascii = ('0' + start->stage);
+	resident->shottype = start->shottype;
+	resident->demo_num = 0;
+	op_exit_into_main(true, false);
+}
+
 inline void resident_set_demo(
 	int stage, playchar_t playchar, shottype_t shottype
 ) {

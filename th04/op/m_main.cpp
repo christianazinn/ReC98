@@ -606,6 +606,7 @@ void near option_update_and_render(void)
 void main(void)
 {
 	int idle_frame = 0;
+	replay_start_config_t private_start;
 
 	text_clear();
 	respal_create(); // ZUN bloat: These games don't use resident palettes.
@@ -666,6 +667,9 @@ void main(void)
 	cleardata_and_regist_view_sprites_load();
 	main_cdg_load();
 #endif
+	if(replay_private_record_command_start(&private_start)) {
+		start_practice_private_command(&private_start);
+	}
 	in_option = false;
 	quit = false;
 	menu_sel = 0;
