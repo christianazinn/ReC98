@@ -102,7 +102,7 @@ extern "C" uint8_t bgm_title_id;
 extern "C" uint8_t boss_bgm_title_id;
 
 // Stable callback vocabulary for the first common-world codec. These IDs are
-// intentionally captured and validated even though schema 3 has no apply
+// intentionally captured and validated even though schema 4 has no apply
 // path. A future restorer must reject an unrecognized ID before touching live
 // callback slots; it must never deserialize a far code pointer.
 enum t2replay_checkpoint_callback_id_t {
