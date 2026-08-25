@@ -24,6 +24,48 @@ void replay_scroll_page_line_set(uint8_t page, int16_t line);
 // behavior until every actor and world group has an exact codec.
 void replay_checkpoint_capture_validate(void);
 
+enum t2rec_reject_t {
+	T2REC_DEFERRED_CODECS = 0,
+	T2REC_NULL_ENVELOPE,
+	T2REC_BOUNDARY_NOT_LOOP_TOP,
+	T2REC_BOUNDARY_STAGE_INIT,
+	T2REC_BOUNDARY_INPUT_SAMPLED,
+	T2REC_BOUNDARY_PAUSE,
+	T2REC_BOUNDARY_PRESENTATION,
+	T2REC_BOUNDARY_RESTORE_OR_REDRAW,
+	T2REC_BOUNDARY_STAGE_PROGRESSION,
+	T2REC_HEADER,
+	T2REC_DIRECTORY,
+	T2REC_TAG,
+	T2REC_CHECKSUM,
+};
+
+// The future exact hook constructs this descriptor at the top of a normal
+// stage_loop() iteration. It is intentionally caller-owned here: this parcel
+// must not turn the diagnostic stage_loop() entry capture into a live seek
+// boundary.
+struct t2rec_boundary_t {
+	uint8_t at_ordinary_stage_loop_top;
+	uint8_t stage_init_complete;
+	uint8_t input_sampled;
+	uint8_t pause_or_debounce_active;
+	uint8_t blocking_presentation_active;
+	uint8_t restore_or_redraw_active;
+	uint8_t stage_progression;
+};
+
+bool replay_exact_checkpoint_boundary_available(
+	const struct t2rec_boundary_t *boundary,
+	enum t2rec_reject_t *reason
+);
+
+// Validation is transactional: it reads only [envelope] and [boundary], never
+// changes gameplay state, and always rejects schema 1 as codec work is absent.
+enum t2rec_reject_t replay_exact_checkpoint_validate(
+	const uint8_t *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);

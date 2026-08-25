@@ -35,6 +35,7 @@
 #include "th02/main/player/shot.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/bullet/state.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/laser.hpp"
 #include "th02/main/enemy/enemy.hpp"
 #include "th02/main/item/item.hpp"
@@ -1763,6 +1764,289 @@ static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
 		size--;
 	}
 	return true;
+}
+
+// Exact-restore schema 1 is a deliberately non-applying admission gate. Its
+// directory contains every future group, but no actor payload is emitted or
+// consumed before the owning codecs and redraw hooks exist.
+#define T2REC_HEADER_TOTAL_SIZE 0x10
+#define T2REC_HEADER_SOURCE_FINGERPRINT 0x14
+#define T2REC_HEADER_GROUP_MASK 0x18
+#define T2REC_HEADER_BOUNDARY_GENERATION 0x1C
+#define T2REC_HEADER_RULESET 0x1D
+#define T2REC_HEADER_STAGE_ID 0x1E
+#define T2REC_HEADER_SHOTTYPE 0x1F
+#define T2REC_HEADER_RANK 0x20
+#define T2REC_HEADER_REDUCE_EFFECTS 0x21
+#define T2REC_HEADER_ACTOR_TAG 0x22
+#define T2REC_HEADER_ACTOR_MODE 0x23
+#define T2REC_HEADER_STAGE_FX_TAG 0x24
+#define T2REC_HEADER_CALLBACK_PROFILE 0x25
+#define T2REC_HEADER_RESOURCE_ID 0x26
+#define T2REC_HEADER_INPUT_SEMANTICS 0x27
+#define T2REC_HEADER_DECODED_SIZE 0x28
+#define T2REC_HEADER_CONTAINER_CHECKSUM 0x2C
+
+static bool t2replay_exact_checkpoint_magic_matches(const uint8_t far *magic)
+{
+	return (
+		(magic[0] == 'T') &&
+		(magic[1] == '2') &&
+		(magic[2] == 'X') &&
+		(magic[3] == 'C') &&
+		(magic[4] == 'K') &&
+		(magic[5] == '1') &&
+		(magic[6] == '\0') &&
+		(magic[7] == '\0')
+	);
+}
+
+static uint32_t t2replay_exact_checkpoint_checksum(
+	const uint8_t far *data, uint32_t size
+)
+{
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	uint32_t offset;
+	uint8_t byte;
+
+	for(offset = 0; offset < size; offset++) {
+		byte = (
+			(offset >= T2REC_HEADER_CONTAINER_CHECKSUM) &&
+			(offset < (T2REC_HEADER_CONTAINER_CHECKSUM + 4))
+		) ? 0 : data[offset];
+		hash = t2replay_fnv1a(hash, &byte, sizeof(byte));
+	}
+	return hash;
+}
+
+static bool t2replay_exact_actor_stage_valid(uint8_t stage, uint8_t actor)
+{
+	switch(actor) {
+	case T2REAT_NONE:
+		return true;
+	case T2REAT_S1_MIDBOSS:
+	case T2REAT_S1_RIKA:
+		return (stage == 0);
+	case T2REAT_S2_MIDBOSS:
+	case T2REAT_S2_MEIRA:
+		return (stage == 1);
+	case T2REAT_S3_MIDBOSS:
+	case T2REAT_S3_STONES:
+		return (stage == 2);
+	case T2REAT_S4_MIDBOSS:
+	case T2REAT_S4_MARISA:
+		return (stage == 3);
+	case T2REAT_S5_MIMA:
+		return (stage == 4);
+	case T2REAT_EX_MIDBOSS:
+	case T2REAT_EX_SIGMA:
+		return (stage == 5);
+	default:
+		return false;
+	}
+}
+
+static bool t2replay_exact_stage_fx_valid(uint8_t stage, uint8_t stage_fx)
+{
+	switch(stage_fx) {
+	case T2RESFT_NONE:
+		return true;
+	case T2RESFT_S1_SCENERY:
+		return (stage == 0);
+	case T2RESFT_S2_SCENERY:
+		return (stage == 1);
+	case T2RESFT_S3_RING:
+		return (stage == 2);
+	case T2RESFT_S4_MARISA_FIELD:
+		return (stage == 3);
+	case T2RESFT_S5_MIMA_FIELD:
+		return (stage == 4);
+	case T2RESFT_EX_SIGMA_FIELD:
+		return (stage == 5);
+	default:
+		return false;
+	}
+}
+
+static uint8_t t2replay_exact_callback_profile_expected(
+	uint8_t stage, uint8_t actor
+)
+{
+	switch(actor) {
+	case T2REAT_NONE:
+		switch(stage) {
+		case 0: return T2RECP_S1_SCROLL;
+		case 1: return T2RECP_S2_SCROLL;
+		case 2: return T2RECP_S3_SCROLL;
+		case 3: return T2RECP_S4_SCROLL;
+		case 4: return T2RECP_S5_SCROLL;
+		case 5: return T2RECP_EX_SCROLL;
+		}
+		break;
+	case T2REAT_S1_MIDBOSS: return T2RECP_S1_MIDBOSS;
+	case T2REAT_S1_RIKA: return T2RECP_S1_RIKA;
+	case T2REAT_S2_MIDBOSS: return T2RECP_S2_MIDBOSS;
+	case T2REAT_S2_MEIRA: return T2RECP_S2_MEIRA;
+	case T2REAT_S3_MIDBOSS: return T2RECP_S3_MIDBOSS;
+	case T2REAT_S3_STONES: return T2RECP_S3_STONES;
+	case T2REAT_S4_MIDBOSS: return T2RECP_S4_MIDBOSS;
+	case T2REAT_S4_MARISA: return T2RECP_S4_MARISA;
+	case T2REAT_S5_MIMA: return T2RECP_S5_MIMA;
+	case T2REAT_EX_MIDBOSS: return T2RECP_EX_MIDBOSS;
+	case T2REAT_EX_SIGMA: return T2RECP_EX_SIGMA;
+	}
+	return 0xFF;
+}
+
+static bool t2replay_exact_checkpoint_tags_valid(const uint8_t far *data)
+{
+	uint8_t stage = data[T2REC_HEADER_STAGE_ID];
+	uint8_t actor = data[T2REC_HEADER_ACTOR_TAG];
+	uint8_t actor_mode = data[T2REC_HEADER_ACTOR_MODE];
+
+	if(
+		(stage >= T2REPLAY_STAGE_COUNT) ||
+		(data[T2REC_HEADER_SHOTTYPE] >= SHOTTYPE_COUNT) ||
+		(data[T2REC_HEADER_RANK] > RANK_EXTRA) ||
+		((stage == (T2REPLAY_STAGE_COUNT - 1)) !=
+		 (data[T2REC_HEADER_RANK] == RANK_EXTRA)) ||
+		(data[T2REC_HEADER_REDUCE_EFFECTS] > 1) ||
+		(data[T2REC_HEADER_RULESET] != T2REPLAY_RULESET_STOCK) ||
+		(data[T2REC_HEADER_INPUT_SEMANTICS] !=
+		 T2REPLAY_INPUT_SEMANTICS_KEY_DET) ||
+		(data[T2REC_HEADER_RESOURCE_ID] != stage) ||
+		!t2replay_exact_actor_stage_valid(stage, actor) ||
+		!t2replay_exact_stage_fx_valid(
+			stage, data[T2REC_HEADER_STAGE_FX_TAG]
+		) ||
+		(data[T2REC_HEADER_CALLBACK_PROFILE] !=
+		 t2replay_exact_callback_profile_expected(stage, actor))
+	) {
+		return false;
+	}
+	if(actor == T2REAT_NONE) {
+		return (actor_mode == T2REAM_SCROLL);
+	}
+	return (
+		(actor_mode == T2REAM_ACTIVE) ||
+		(actor_mode == T2REAM_DEFEAT)
+	);
+}
+
+bool replay_exact_checkpoint_boundary_available(
+	const struct t2rec_boundary_t *boundary,
+	enum t2rec_reject_t *reason
+)
+{
+	enum t2rec_reject_t result = T2REC_DEFERRED_CODECS;
+
+	if(boundary == 0) {
+		result = T2REC_BOUNDARY_NOT_LOOP_TOP;
+	} else if(!boundary->at_ordinary_stage_loop_top) {
+		result = T2REC_BOUNDARY_NOT_LOOP_TOP;
+	} else if(!boundary->stage_init_complete) {
+		result = T2REC_BOUNDARY_STAGE_INIT;
+	} else if(boundary->input_sampled) {
+		result = T2REC_BOUNDARY_INPUT_SAMPLED;
+	} else if(boundary->pause_or_debounce_active) {
+		result = T2REC_BOUNDARY_PAUSE;
+	} else if(boundary->blocking_presentation_active) {
+		result = T2REC_BOUNDARY_PRESENTATION;
+	} else if(boundary->restore_or_redraw_active) {
+		result = T2REC_BOUNDARY_RESTORE_OR_REDRAW;
+	} else if(
+		(boundary->stage_progression != SP_STAGE) &&
+		(boundary->stage_progression != SP_BOSS)
+	) {
+		result = T2REC_BOUNDARY_STAGE_PROGRESSION;
+	}
+	if(reason != 0) {
+		*reason = result;
+	}
+	return (result == T2REC_DEFERRED_CODECS);
+}
+
+enum t2rec_reject_t replay_exact_checkpoint_validate(
+	const uint8_t *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	enum t2rec_reject_t result;
+	unsigned payload_offset;
+	unsigned group_offset;
+	uint8_t group_id;
+	const uint8_t far *group;
+
+	if(envelope == 0) {
+		return T2REC_NULL_ENVELOPE;
+	}
+	if(!replay_exact_checkpoint_boundary_available(boundary, &result)) {
+		return result;
+	}
+	if(
+		(envelope_size != T2REPLAY_EXACT_CHECKPOINT_SIZE) ||
+		!t2replay_exact_checkpoint_magic_matches(envelope) ||
+		(t2replay_checkpoint_get_u16(envelope, 8) !=
+		 T2REPLAY_EXACT_CHECKPOINT_SCHEMA) ||
+		(t2replay_checkpoint_get_u16(envelope, 10) !=
+		 T2REPLAY_EXACT_HEADER_SIZE) ||
+		(envelope[12] != 2) ||
+		(envelope[13] != T2REPLAY_EXACT_GROUP_COUNT) ||
+		(envelope[14] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
+		(envelope[15] != 0) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_TOTAL_SIZE) !=
+		 T2REPLAY_EXACT_CHECKPOINT_SIZE) ||
+		(t2replay_checkpoint_get_u32(
+			envelope, T2REC_HEADER_SOURCE_FINGERPRINT
+		) != T2REPLAY_EXACT_CHECKPOINT_SOURCE_FINGERPRINT) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_GROUP_MASK) !=
+		 T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK) ||
+		(envelope[T2REC_HEADER_BOUNDARY_GENERATION] !=
+		 T2REPLAY_EXACT_BOUNDARY_GENERATION) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_DECODED_SIZE) != 0)
+	) {
+		return T2REC_HEADER;
+	}
+	if(!t2replay_exact_checkpoint_tags_valid(envelope)) {
+		return T2REC_TAG;
+	}
+	payload_offset = (
+		T2REPLAY_EXACT_HEADER_SIZE +
+		(T2REPLAY_EXACT_GROUP_COUNT * T2REPLAY_EXACT_GROUP_SIZE)
+	);
+	for(group_id = 0; group_id < T2REPLAY_EXACT_GROUP_COUNT;
+		group_id++) {
+		group_offset = (
+			T2REPLAY_EXACT_HEADER_SIZE +
+			(static_cast<unsigned>(group_id) *
+			 T2REPLAY_EXACT_GROUP_SIZE)
+		);
+		group = envelope + group_offset;
+		if(
+			(group[T2RCK_GROUP_ID] != group_id) ||
+			(group[T2RCK_GROUP_SCHEMA] !=
+			 T2REPLAY_EXACT_GROUP_SCHEMA) ||
+			(group[T2RCK_GROUP_CODEC] != T2RCC_RAW) ||
+			(group[T2RCK_GROUP_FLAGS] != 0) ||
+			(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_OFFSET) !=
+			 payload_offset) ||
+			(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_STORED_SIZE) != 0) ||
+			(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_DECODED_SIZE) != 0) ||
+			(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_CHECKSUM) !=
+			 T2REPLAY_FNV1A_BASIS)
+		) {
+			return T2REC_DIRECTORY;
+		}
+	}
+	if(t2replay_checkpoint_get_u32(
+		envelope, T2REC_HEADER_CONTAINER_CHECKSUM
+	) != t2replay_exact_checkpoint_checksum(envelope, envelope_size)) {
+		return T2REC_CHECKSUM;
+	}
+
+	// No state has been written. A typed-codec/apply parcel may replace only
+	// this final rejection after it has validated every payload and dependency.
+	return T2REC_DEFERRED_CODECS;
 }
 
 static bool t2replay_magic_matches(const char far *magic, char last)

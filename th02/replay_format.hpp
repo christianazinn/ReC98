@@ -37,6 +37,20 @@
 #define T2REPLAY_CHECKPOINT_GROUP_MASK 0x00000FFFUL
 #define T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0xC5E6F39DUL
 
+// Private exact-restore envelope. This is intentionally distinct from the
+// schema-4 capture-only common-world container above: the exact decoder must
+// never accept a partly extended schema-4 record as an exact checkpoint.
+// Schema 1 has a complete zero-payload directory and is validation-only.
+#define T2REPLAY_EXACT_CHECKPOINT_SCHEMA 1
+#define T2REPLAY_EXACT_GROUP_SCHEMA 1
+#define T2REPLAY_EXACT_HEADER_SIZE 48
+#define T2REPLAY_EXACT_GROUP_SIZE 20
+#define T2REPLAY_EXACT_GROUP_COUNT 19
+#define T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK 0x0007FFFFUL
+#define T2REPLAY_EXACT_CHECKPOINT_SIZE (T2REPLAY_EXACT_HEADER_SIZE + (T2REPLAY_EXACT_GROUP_COUNT * T2REPLAY_EXACT_GROUP_SIZE))
+#define T2REPLAY_EXACT_CHECKPOINT_SOURCE_FINGERPRINT 0xE2C5A401UL
+#define T2REPLAY_EXACT_BOUNDARY_GENERATION 1
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_KNOWN_FLAGS (T2REPLAY_FLAG_RLE_INPUT | T2REPLAY_FLAG_FULL_INPUT)
@@ -87,6 +101,93 @@ enum t2replay_checkpoint_group_id_t {
 
 enum t2replay_checkpoint_codec_t {
 	T2RCC_RAW = 0,
+};
+
+// These values are persistent exact-checkpoint wire IDs. In particular, they
+// are never function, data, allocator, or graphics-memory addresses.
+enum t2replay_exact_group_id_t {
+	T2RXGI_IDENTITY = T2RCGI_IDENTITY,
+	T2RXGI_RNG = T2RCGI_RNG,
+	T2RXGI_RUN = T2RCGI_RUN,
+	T2RXGI_FIELD = T2RCGI_FIELD,
+	T2RXGI_STAGE_VM = T2RCGI_STAGE_VM,
+	T2RXGI_PACING = T2RCGI_PACING,
+	T2RXGI_PLAYER = T2RCGI_PLAYER,
+	T2RXGI_BOMB = T2RCGI_BOMB,
+	T2RXGI_BULLET = T2RCGI_BULLET,
+	T2RXGI_LASER = T2RCGI_LASER,
+	T2RXGI_ENEMY = T2RCGI_ENEMY,
+	T2RXGI_EFFECT = T2RCGI_EFFECT,
+	T2RXGI_ACTOR_CORE = 12,
+	T2RXGI_ACTOR_STAGE = 13,
+	T2RXGI_STAGE_FX = 14,
+	T2RXGI_TILE_LOGIC = 15,
+	T2RXGI_PALETTE = 16,
+	T2RXGI_CALLBACKS = 17,
+	T2RXGI_REDRAW = 18,
+};
+
+enum t2replay_exact_actor_tag_t {
+	T2REAT_NONE = 0,
+	T2REAT_S1_MIDBOSS = 1,
+	T2REAT_S1_RIKA = 2,
+	T2REAT_S2_MIDBOSS = 3,
+	T2REAT_S2_MEIRA = 4,
+	T2REAT_S3_MIDBOSS = 5,
+	T2REAT_S3_STONES = 6,
+	T2REAT_S4_MIDBOSS = 7,
+	T2REAT_S4_MARISA = 8,
+	T2REAT_S5_MIMA = 9,
+	T2REAT_EX_MIDBOSS = 10,
+	T2REAT_EX_SIGMA = 11,
+};
+
+enum t2replay_exact_actor_mode_t {
+	T2REAM_SCROLL = 0,
+	T2REAM_ACTIVE = 1,
+	T2REAM_DEFEAT = 2,
+	T2REAM_TRANSITION = 3,
+};
+
+enum t2replay_exact_stage_fx_tag_t {
+	T2RESFT_NONE = 0,
+	T2RESFT_S1_SCENERY = 1,
+	T2RESFT_S2_SCENERY = 2,
+	T2RESFT_S3_RING = 3,
+	T2RESFT_S4_MARISA_FIELD = 4,
+	T2RESFT_S5_MIMA_FIELD = 5,
+	T2RESFT_EX_SIGMA_FIELD = 6,
+};
+
+// A profile names one validated set of stage callback slots. Individual
+// pointer rebinding is deliberately deferred to the common-apply parcel.
+enum t2replay_exact_callback_profile_t {
+	T2RECP_S1_SCROLL = 0,
+	T2RECP_S1_MIDBOSS = 1,
+	T2RECP_S1_RIKA = 2,
+	T2RECP_S2_SCROLL = 3,
+	T2RECP_S2_MIDBOSS = 4,
+	T2RECP_S2_MEIRA = 5,
+	T2RECP_S3_SCROLL = 6,
+	T2RECP_S3_MIDBOSS = 7,
+	T2RECP_S3_STONES = 8,
+	T2RECP_S4_SCROLL = 9,
+	T2RECP_S4_MIDBOSS = 10,
+	T2RECP_S4_MARISA = 11,
+	T2RECP_S5_SCROLL = 12,
+	T2RECP_S5_MIMA = 13,
+	T2RECP_EX_SCROLL = 14,
+	T2RECP_EX_MIDBOSS = 15,
+	T2RECP_EX_SIGMA = 16,
+};
+
+enum t2replay_exact_resource_id_t {
+	T2RERI_STAGE_1 = 0,
+	T2RERI_STAGE_2 = 1,
+	T2RERI_STAGE_3 = 2,
+	T2RERI_STAGE_4 = 3,
+	T2RERI_STAGE_5 = 4,
+	T2RERI_EXTRA = 5,
 };
 
 struct t2replay_start_t {
@@ -186,6 +287,9 @@ typedef char t2rck_capture_size_check[
 		T2REPLAY_CHECKPOINT_ENEMY_SIZE +
 		T2REPLAY_CHECKPOINT_EFFECT_SIZE
 	)) ? 1 : -1
+];
+typedef char t2rec_envelope_size_check[
+	(T2REPLAY_EXACT_CHECKPOINT_SIZE == 428) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
