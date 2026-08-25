@@ -591,6 +591,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/replay.cpp",
 	"th02/main/practice.cpp",
 	"th02/main/s1_actor.cpp",
+	"th02/main/s2_actor.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
