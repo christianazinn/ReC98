@@ -30,6 +30,7 @@
 #include "th02/main/s2_actor.hpp"
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s4_actor.hpp"
+#include "th02/main/s5_actor.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -114,6 +115,9 @@ extern "C" char aBoss2_m[];
 extern "C" char aBoss3_m[];
 extern "C" const char aStage3_b_bft[];
 extern "C" const char aStage3_b_btt_0[];
+extern "C" char aMima_m[];
+extern "C" const char mima1_bft[];
+extern "C" const char aStage3_b_btt[];
 extern Palette8 __cdecl Palettes;
 extern void far pascal palette_show(void);
 
@@ -2275,6 +2279,9 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE4_BOSS_START:
 		practice_target_valid = (start->stage == 3);
 		break;
+	case T2RPT_STAGE5_BOSS_START:
+		practice_target_valid = (start->stage == 4);
+		break;
 	default:
 		break;
 	}
@@ -2955,11 +2962,21 @@ static bool16 near t2replay_stage4_midboss_activate_clean(
 	return true;
 }
 
+static void near t2replay_boss_scroll_reset_clean(void)
+{
+	scroll_line = 0;
+	scroll_sad = 0;
+	replay_scroll_page_line_set(0, 0);
+	replay_scroll_page_line_set(1, 0);
+	graph_scrollup(0);
+}
+
 static bool16 near t2replay_stage4_marisa_activate_clean(void)
 {
 	if(!practice_terminal_field_build()) {
 		return false;
 	}
+	t2replay_boss_scroll_reset_clean();
 	super_clean(128, 511);
 	super_patnum = 128;
 	super_entry_bfnt(aStage3_b_bft);
@@ -2968,6 +2985,38 @@ static bool16 near t2replay_stage4_marisa_activate_clean(void)
 	shots_free_all();
 	th02_s4_marisa_clean_init();
 	t2replay_boss_promote_clean(aBoss3_m);
+	return true;
+}
+
+static bool16 near t2replay_stage5_mima_activate_clean(void)
+{
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(mima1_bft);
+	super_entry_bfnt(aStage3_b_btt);
+	tile_mode = TM_NONE;
+	shots_free_all();
+	if(!th02_s5_mima_clean_init(T2S5_MIMA_BOSS_START)) {
+		return false;
+	}
+	graph_accesspage(page_front);
+	graph_clear();
+	graph_accesspage(page_back);
+	graph_clear();
+	grcg_setcolor(GC_RMW, 11);
+	grc_setclip(PLAYFIELD_RIGHT, 0, (RES_X - 1), (RES_Y - 1));
+	graph_accesspage(page_front);
+	grcg_fill();
+	graph_accesspage(page_back);
+	grcg_fill();
+	grcg_off();
+	grc_setclip(PLAYFIELD_LEFT, 0, PLAYFIELD_RIGHT, (RES_Y - 1));
+	palette_settone(100);
+	t2replay_boss_promote_clean(aMima_m);
 	return true;
 }
 
@@ -3112,6 +3161,12 @@ bool16 replay_practice_target_apply(void)
 		return true;
 	case T2RPT_STAGE4_BOSS_START:
 		if((stage_id != 3) || !t2replay_stage4_marisa_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE5_BOSS_START:
+		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;

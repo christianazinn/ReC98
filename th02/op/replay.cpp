@@ -221,6 +221,9 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE4_BOSS_START:
 		practice_target_valid = (start->stage == 3);
 		break;
+	case T2RPT_STAGE5_BOSS_START:
+		practice_target_valid = (start->stage == 4);
+		break;
 	default:
 		break;
 	}
@@ -757,6 +760,9 @@ static uint8_t t2op_practice_target_step(
 		case T2RPT_STAGE4_CHAPTER3: return T2RPT_STAGE4_BOSS_START;
 		default: return T2RPT_STAGE_START;
 		}
+	case 4:
+		return ((target == T2RPT_STAGE_START)
+			? T2RPT_STAGE5_BOSS_START : T2RPT_STAGE_START);
 	case 5:
 		return ((target == T2RPT_STAGE_START)
 			? T2RPT_EXTRA_CHAPTER2 : T2RPT_STAGE_START);
@@ -970,6 +976,7 @@ static void t2op_practice_render(void)
 				break;
 			case T2RPT_STAGE3_BOSS_START:
 			case T2RPT_STAGE4_BOSS_START:
+			case T2RPT_STAGE5_BOSS_START:
 				p = t2op_word_append(p, T2OW_BOSS_START);
 				break;
 			default:
