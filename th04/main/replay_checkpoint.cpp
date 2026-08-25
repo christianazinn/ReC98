@@ -9,19 +9,31 @@
 #include "x86real.h"
 #include "libs/master.lib/master.hpp"
 #include "th04/common.h"
+#include "th04/formats/std.hpp"
+#include "th04/main/bullet/bullet.hpp"
+#include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/custom.hpp"
 #include "th04/main/frames.h"
+#include "th04/main/gather.hpp"
+#include "th04/main/item/splash.hpp"
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/shot.hpp"
+#include "th04/main/pointnum/pointnum.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay_checkpoint.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
+	#include "th05/main/bullet/cheeto.hpp"
+	#include "th05/main/bullet/laser.hpp"
+	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/main/player/bomb.hpp"
 	#include "th05/main/player/bombanim.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
+	#include "th04/main/bullet/laser_t.hpp"
+	#include "th04/main/enemy/enemy.hpp"
 	#include "th04/main/player/bomb.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
@@ -40,6 +52,8 @@ extern uint32_t score_delta_frame;
 extern uint16_t stage_graze;
 extern uint8_t continues_used;
 extern uint8_t power;
+extern unsigned int total_max_valued_point_items;
+extern unsigned char item_splash_last_id;
 
 extern bool player_is_hit;
 extern uint8_t player_invincibility_time;
@@ -58,6 +72,7 @@ extern nearfunc_t_near playchar_shot_func;
 	extern uint16_t hitshot_next_free_id;
 	extern "C" nearfunc_t_near SHOT_FUNCS[PLAYCHAR_COUNT][10];
 #else
+	extern unsigned char dream_items_collected;
 	extern "C" input_t word_2598C;
 	extern "C" uint8_t byte_25980;
 	extern uint8_t shot_reimu_cycle;
@@ -301,6 +316,156 @@ static bool rck_motion(
 		return false;
 	}
 	return rck_pfpoint(stream, &motion->velocity);
+}
+
+static bool rck_entity_flag(
+	replay_ck_stream_t far *stream, entity_flag_t far *flag
+)
+{
+	uint8_t value = static_cast<uint8_t>(*flag);
+
+	if(!rck_u8(stream, &value) || (value > F_REMOVE)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*flag = static_cast<entity_flag_t>(value);
+	}
+	return true;
+}
+
+static bool rck_bullet_special_motion(
+	replay_ck_stream_t far *stream, bullet_special_motion_t far *motion
+)
+{
+	uint8_t value = static_cast<uint8_t>(*motion);
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+#if (GAME == 5)
+	if((value > BSM_EXACT_LINEAR) && (value != BSM_NONE)) {
+		return false;
+	}
+#else
+	if(
+		((value < BSM_DECELERATE_THEN_TURN_AIMED) ||
+		(value > BSM_GRAVITY)) &&
+		(value != BSM_NONE)
+	) {
+		return false;
+	}
+#endif
+	if(rck_applying(stream)) {
+		*motion = static_cast<bullet_special_motion_t>(value);
+	}
+	return true;
+}
+
+static bool rck_bullet_group_valid(uint8_t value)
+{
+	switch(value) {
+	case BG_SINGLE:
+	case BG_SINGLE_AIMED:
+	case BG_RANDOM_ANGLE:
+	case BG_RANDOM_ANGLE_AND_SPEED:
+	case BG_SPREAD:
+	case BG_SPREAD_AIMED:
+	case BG_RING:
+	case BG_RING_AIMED:
+	case BG_STACK:
+	case BG_STACK_AIMED:
+	case BG_FORCESINGLE:
+#if (GAME == 5)
+	case BG_SPREAD_STACK:
+	case BG_SPREAD_STACK_AIMED:
+	case BG_RING_STACK:
+	case BG_RING_STACK_AIMED:
+	case BG_FORCESINGLE_AIMED:
+#else
+	case BG_RANDOM_CONSTRAINED_ANGLE_AIMED:
+	case BG_FORCESINGLE_RANDOM_ANGLE:
+#endif
+		return true;
+	}
+	return false;
+}
+
+static bool rck_bullet_spawn_type_valid(uint8_t value)
+{
+#if (GAME == 5)
+	switch(value) {
+	case BST_NORMAL:
+	case BST_GATHER_PELLET:
+	case BST_CLOUD_FORWARDS:
+	case BST_CLOUD_BACKWARDS:
+	case (BST_NORMAL | BST_NO_DECELERATE):
+	case (BST_GATHER_PELLET | BST_NO_DECELERATE):
+	case (BST_CLOUD_FORWARDS | BST_NO_DECELERATE):
+	case (BST_CLOUD_BACKWARDS | BST_NO_DECELERATE):
+	case BST_GATHER_NORMAL_SPECIAL_MOVE:
+	case BST_GATHER_ONLY:
+		return true;
+	}
+#else
+	if(value <= BST_BULLET16_CLOUD_BACKWARDS) {
+		return true;
+	}
+#endif
+	return false;
+}
+
+static bool rck_bullet_template(
+	replay_ck_stream_t far *stream, BulletTemplate far *tmpl
+)
+{
+	uint8_t spawn_type = tmpl->spawn_type;
+	uint8_t group = static_cast<uint8_t>(tmpl->group);
+
+	if(
+		!rck_u8(stream, &spawn_type) ||
+		!rck_bullet_spawn_type_valid(spawn_type)
+	) {
+		return false;
+	}
+	RCK_U8(tmpl->patnum);
+	if(!rck_pfpoint(stream, &tmpl->origin)) {
+		return false;
+	}
+#if (GAME == 5)
+	if(!rck_u8(stream, &group) || !rck_bullet_group_valid(group)) {
+		return false;
+	}
+	if(!rck_bullet_special_motion(stream, &tmpl->special_motion)) {
+		return false;
+	}
+	RCK_U8(tmpl->spread);
+	RCK_U8(tmpl->spread_angle_delta);
+	RCK_U8(tmpl->stack);
+	RCK_U8(tmpl->stack_speed_delta.v);
+	RCK_U8(tmpl->angle);
+	RCK_U8(tmpl->speed.v);
+#else
+	if(!rck_pfpoint(stream, &tmpl->velocity)) {
+		return false;
+	}
+	if(!rck_u8(stream, &group) || !rck_bullet_group_valid(group)) {
+		return false;
+	}
+	RCK_U8(tmpl->angle);
+	RCK_U8(tmpl->speed.v);
+	RCK_U8(tmpl->count);
+	RCK_U8(tmpl->delta.spread_angle);
+	RCK_U8(tmpl->unused_1);
+	if(!rck_bullet_special_motion(stream, &tmpl->special_motion)) {
+		return false;
+	}
+	RCK_U8(tmpl->unused_2);
+#endif
+	if(rck_applying(stream)) {
+		tmpl->spawn_type = spawn_type;
+		tmpl->group = static_cast<bullet_group_t>(group);
+	}
+	return true;
 }
 
 static bool rck_group_rng(replay_ck_stream_t far *stream)
@@ -895,6 +1060,663 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	return true;
 }
 
+static bool rck_bullet(
+	replay_ck_stream_t far *stream, bullet_t near *bullet
+)
+{
+	uint8_t spawn_flag = static_cast<uint8_t>(bullet->spawn_flag);
+	uint8_t move_flag = static_cast<uint8_t>(bullet->move_flag);
+
+	if(!rck_entity_flag(stream, &bullet->flag)) {
+		return false;
+	}
+	RCK_S8(bullet->age);
+	if(!rck_motion(stream, &bullet->pos)) {
+		return false;
+	}
+	RCK_U8(bullet->from_group);
+	RCK_S8(bullet->unused);
+	RCK_U8(bullet->speed_cur.v);
+	RCK_U8(bullet->angle);
+	if(
+		!rck_u8(stream, &spawn_flag) || (spawn_flag > BSF_CLOUD_END) ||
+		!rck_u8(stream, &move_flag) || (move_flag > BMF_DECAY_END)
+	) {
+		return false;
+	}
+	if(!rck_bullet_special_motion(stream, &bullet->special_motion)) {
+		return false;
+	}
+	RCK_U8(bullet->speed_final.v);
+	RCK_U8(bullet->u1.decelerate_time);
+	RCK_U8(bullet->u2.decelerate_speed_delta.v);
+	RCK_S16(bullet->patnum);
+#if (GAME == 5)
+	if(!rck_sppoint(stream, &bullet->origin)) {
+		return false;
+	}
+	RCK_S16(bullet->distance.v);
+#endif
+	if(rck_applying(stream)) {
+		bullet->spawn_flag = static_cast<bullet_spawn_flag_t>(spawn_flag);
+		bullet->move_flag = static_cast<bullet_move_flag_t>(move_flag);
+	}
+	return true;
+}
+
+static uint8_t rck_bullet_tune_id(void)
+{
+	if(bullet_template_tune == bullet_template_tune_easy) {
+		return 0;
+	}
+	if(bullet_template_tune == bullet_template_tune_normal) {
+		return 1;
+	}
+	if(bullet_template_tune == bullet_template_tune_hard) {
+		return 2;
+	}
+	if(bullet_template_tune == bullet_template_tune_lunatic) {
+		return 3;
+	}
+	return 0xFF;
+}
+
+static nearfunc_t_near rck_bullet_tune_func(uint8_t id)
+{
+	switch(id) {
+	case 0: return bullet_template_tune_easy;
+	case 1: return bullet_template_tune_normal;
+	case 2: return bullet_template_tune_hard;
+	case 3: return bullet_template_tune_lunatic;
+	}
+	return 0;
+}
+
+#if (GAME == 4)
+static uint8_t rck_bullet_add_id(nearfunc_t_near func, bool special)
+{
+	if(special) {
+		if(func == bullets_add_special_easy) {
+			return 0;
+		}
+		if(func == bullets_add_special_normal) {
+			return 1;
+		}
+		if(func == bullets_add_special_hard_lunatic) {
+			return 2;
+		}
+	} else {
+		if(func == bullets_add_regular_easy) {
+			return 0;
+		}
+		if(func == bullets_add_regular_normal) {
+			return 1;
+		}
+		if(func == bullets_add_regular_hard_lunatic) {
+			return 2;
+		}
+	}
+	return 0xFF;
+}
+
+static nearfunc_t_near rck_bullet_add_func(uint8_t id, bool special)
+{
+	if(special) {
+		switch(id) {
+		case 0: return bullets_add_special_easy;
+		case 1: return bullets_add_special_normal;
+		case 2: return bullets_add_special_hard_lunatic;
+		}
+	} else {
+		switch(id) {
+		case 0: return bullets_add_regular_easy;
+		case 1: return bullets_add_regular_normal;
+		case 2: return bullets_add_regular_hard_lunatic;
+		}
+	}
+	return 0;
+}
+#endif
+
+static bool rck_custom(
+	replay_ck_stream_t far *stream, custom_t near *custom
+)
+{
+	RCK_U8(custom->flag);
+	RCK_U8(custom->angle);
+#if (GAME == 5)
+	if(!rck_motion(stream, &custom->pos)) {
+		return false;
+	}
+	RCK_U16(custom->val1);
+	RCK_U16(custom->val2);
+	RCK_S16(custom->sprite);
+	RCK_S16(custom->val3);
+	RCK_S16(custom->damage);
+	RCK_U8(custom->speed.v);
+	RCK_S8(custom->padding);
+#else
+	RCK_S16(custom->center.x);
+	RCK_S16(custom->center.y);
+	RCK_S16(custom->val1);
+	RCK_S16(custom->origin_y.v);
+	if(!rck_pfpoint(stream, &custom->velocity)) {
+		return false;
+	}
+	RCK_U16(custom->val2);
+	RCK_S16(custom->distance);
+	RCK_S16(custom->val3);
+	RCK_S16(custom->hp);
+	RCK_S16(custom->damage_this_frame);
+	RCK_U8(custom->val4);
+	RCK_U8(custom->angle_speed);
+#endif
+	return true;
+}
+
+#if (GAME == 5)
+static bool rck_laser(
+	replay_ck_stream_t far *stream, Laser near *laser
+)
+{
+	uint8_t flag = static_cast<uint8_t>(laser->flag);
+	uint8_t width = laser->coords.width.nonshrink;
+
+	if(!rck_u8(stream, &flag) || (flag > LF_SHOOTOUT_DECAY)) {
+		return false;
+	}
+	RCK_U8_MAX(laser->col, 15);
+	if(!rck_pfpoint(stream, &laser->coords.origin)) {
+		return false;
+	}
+	RCK_S16(laser->coords.starts_at_distance.v);
+	RCK_S16(laser->coords.ends_at_distance.v);
+	RCK_U8(laser->coords.angle);
+	if(!rck_u8(stream, &width)) {
+		return false;
+	}
+	RCK_S16(laser->shootout_speed.v);
+	RCK_S16(laser->age);
+	RCK_S16(laser->active_at_age.grow);
+	RCK_S16(laser->shrink_at_age);
+	RCK_U8(laser->grow_to_width);
+	if(rck_applying(stream)) {
+		laser->flag = static_cast<laser_flag_t>(flag);
+		laser->coords.width.nonshrink = width;
+	}
+	return true;
+}
+
+static bool rck_cheeto_trail(
+	replay_ck_stream_t far *stream, cheeto_trail_t near *trail
+)
+{
+	int i;
+	uint8_t flag = static_cast<uint8_t>(trail->flag);
+
+	if(!rck_u8(stream, &flag) || (flag > CF_SPEEDUP)) {
+		return false;
+	}
+	RCK_S8(trail->col);
+	for(i = 0; i < CHEETO_TRAIL_NODE_COUNT; i++) {
+		if(!rck_pfpoint(stream, &trail->node_pos[i])) {
+			return false;
+		}
+		RCK_U8(trail->node_sprite[i]);
+	}
+	if(rck_applying(stream)) {
+		trail->flag = static_cast<cheeto_flag_t>(flag);
+	}
+	return true;
+}
+#else
+static bool rck_thicklaser(
+	replay_ck_stream_t far *stream, thicklaser_t near *laser
+)
+{
+	uint8_t flag = static_cast<uint8_t>(laser->flag);
+
+	if(!rck_u8(stream, &flag) || (flag > TF_SHRINK)) {
+		return false;
+	}
+	if(!rck_sppoint(stream, &laser->origin)) {
+		return false;
+	}
+	RCK_S16(laser->cur_flag_frame);
+	RCK_S16(laser->line_frames);
+	RCK_S16(laser->static_frames);
+	RCK_U8_MAX(laser->col_outline, 15);
+	RCK_S16(laser->radius_max);
+	RCK_S16(laser->radius_cur);
+	RCK_S16(laser->radius_speed);
+	if(rck_applying(stream)) {
+		laser->flag = static_cast<thicklaser_flag_t>(flag);
+	}
+	return true;
+}
+#endif
+
+static bool rck_group_bullets(replay_ck_stream_t far *stream)
+{
+	int i;
+	uint8_t tune_id = rck_bullet_tune_id();
+
+	for(i = 0; i < BULLET_COUNT; i++) {
+		if(!rck_bullet(stream, &bullets[i])) {
+			return false;
+		}
+	}
+	RCK_U8(bullet_special.turns_max);
+	RCK_S8(bullet_template_special_angle.v);
+	if(!rck_bullet_template(stream, &bullet_template)) {
+		return false;
+	}
+	if(!rck_u8(stream, &tune_id) || (tune_id > 3)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		bullet_template_tune = rck_bullet_tune_func(tune_id);
+	}
+#if (GAME == 5)
+	RCK_BOOL(bullet_zap_drop_point_items);
+#else
+	{
+		uint8_t regular_id = rck_bullet_add_id(bullets_add_regular, false);
+		uint8_t special_id = rck_bullet_add_id(bullets_add_special, true);
+
+		if(
+			!rck_u8(stream, &regular_id) || (regular_id > 2) ||
+			!rck_u8(stream, &special_id) || (special_id > 2)
+		) {
+			return false;
+		}
+		if(rck_applying(stream)) {
+			bullets_add_regular = rck_bullet_add_func(regular_id, false);
+			bullets_add_special = rck_bullet_add_func(special_id, true);
+		}
+	}
+#endif
+	RCK_U8_MAX(bullet_zap.frame, BULLET_ZAP_FRAMES);
+	RCK_U8(bullet_clear_time);
+
+	for(i = 0; i < CUSTOM_COUNT; i++) {
+		if(!rck_custom(stream, &custom_entities[i])) {
+			return false;
+		}
+	}
+
+#if (GAME == 5)
+	if(!rck_laser(stream, &laser_template)) {
+		return false;
+	}
+	for(i = 0; i < LASER_COUNT; i++) {
+		if(!rck_laser(stream, &lasers[i])) {
+			return false;
+		}
+	}
+	for(i = 0; i < (CHEETO_COUNT + 1); i++) {
+		if(!rck_cheeto_trail(stream, &cheeto_trails[i])) {
+			return false;
+		}
+	}
+#else
+	if(!rck_thicklaser(stream, &thicklaser_template)) {
+		return false;
+	}
+	for(i = 0; i < THICKLASER_COUNT; i++) {
+		if(!rck_thicklaser(stream, &thicklasers[i])) {
+			return false;
+		}
+	}
+#endif
+	return true;
+}
+
+static bool rck_enemy_flag(
+	replay_ck_stream_t far *stream, unsigned char far *flag
+)
+{
+	uint8_t value = *flag;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	if(
+		(value > EF_ALIVE_FIRST_FRAME) &&
+		((value < EF_KILL_ANIM) || (value > EF_KILL_ANIM_last))
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*flag = value;
+	}
+	return true;
+}
+
+static bool rck_item_type_valid(uint8_t value)
+{
+	if(value <= IT_FULLPOWER || value == static_cast<uint8_t>(IT_ENEMY_DROP_NEXT)) {
+		return true;
+	}
+#if (GAME == 5)
+	if(value == static_cast<uint8_t>(IT_NONE)) {
+		return true;
+	}
+#endif
+	return false;
+}
+
+static uint8_t rck_enemy_script_id(const unsigned char near *script)
+{
+	int i;
+
+	if(script == 0) {
+		return 0xFF;
+	}
+	for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+		if(
+			script == reinterpret_cast<unsigned char near *>(
+				std_enemy_scripts[i]
+			)
+		) {
+			return static_cast<uint8_t>(i);
+		}
+	}
+	return 0xFE;
+}
+
+static uint16_t rck_enemy_cur_id(void)
+{
+	int i;
+
+	if(enemy_cur == 0) {
+		return 0xFFFFu;
+	}
+	for(i = 0; i < ENEMY_COUNT; i++) {
+		if(enemy_cur == &enemies[i]) {
+			return static_cast<uint16_t>(i);
+		}
+	}
+	return 0xFFFEu;
+}
+
+static bool rck_enemy(
+	replay_ck_stream_t far *stream, enemy_t near *enemy
+)
+{
+	uint8_t script_id = rck_enemy_script_id(enemy->script);
+	uint8_t item = static_cast<uint8_t>(enemy->item);
+
+	if(!rck_enemy_flag(stream, &enemy->flag)) {
+		return false;
+	}
+	RCK_U8(enemy->age);
+	if(!rck_motion(stream, &enemy->pos)) {
+		return false;
+	}
+	RCK_S16(enemy->hp);
+	RCK_S16(enemy->score);
+	if(
+		!rck_u8(stream, &script_id) ||
+		((script_id != 0xFF) && (script_id >= STD_ENEMY_SCRIPT_COUNT))
+	) {
+		return false;
+	}
+	RCK_S16(enemy->script_ip);
+	RCK_U8(enemy->cur_instr_frame);
+	RCK_U8(enemy->loop_i);
+#if (GAME == 5)
+	RCK_U8(enemy->speed.v);
+#else
+	RCK_S16(enemy->speed.v);
+#endif
+	RCK_U8(enemy->angle);
+	RCK_U8(enemy->angle_delta);
+	RCK_U8(enemy->patnum_base);
+	RCK_U8(enemy->anim_cels);
+	RCK_U8(enemy->anim_frames_per_cel);
+	RCK_U8(enemy->anim_cur_cel);
+#if (GAME == 5)
+	{
+		bool clip_x = ((enemy->clip & ENEMY_CLIP_X) != 0);
+		bool clip_y = ((enemy->clip & ENEMY_CLIP_Y) != 0);
+
+		RCK_BOOL(clip_x);
+		RCK_BOOL(clip_y);
+		if(rck_applying(stream)) {
+			enemy->clip = (
+				(clip_x ? ENEMY_CLIP_X : 0) |
+				(clip_y ? ENEMY_CLIP_Y : 0)
+			);
+		}
+	}
+#else
+	RCK_BOOL(enemy->clip_x);
+	RCK_BOOL(enemy->clip_y);
+#endif
+	if(!rck_u8(stream, &item) || !rck_item_type_valid(item)) {
+		return false;
+	}
+	RCK_BOOL(enemy->damaged_this_frame);
+	RCK_BOOL(enemy->can_be_damaged);
+	RCK_BOOL(enemy->autofire);
+	RCK_BOOL(enemy->kills_player_on_collision);
+	RCK_BOOL(enemy->spawned_in_left_half);
+	RCK_U8(enemy->autofire_cur_frame);
+	RCK_U8(enemy->autofire_interval);
+#if (GAME == 5)
+	RCK_U8(enemy->subtype);
+#endif
+	if(!rck_bullet_template(stream, &enemy->bullet_template)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		enemy->script = (
+			(script_id == 0xFF)
+				? 0
+				: reinterpret_cast<unsigned char near *>(
+					std_enemy_scripts[script_id]
+				)
+		);
+		enemy->item = static_cast<item_type_t>(item);
+	}
+	return true;
+}
+
+static bool rck_group_enemies(replay_ck_stream_t far *stream)
+{
+	int i;
+	uint16_t enemy_cur_id = rck_enemy_cur_id();
+
+	for(i = 0; i < ENEMY_COUNT; i++) {
+		if(!rck_enemy(stream, &enemies[i])) {
+			return false;
+		}
+	}
+	if(!rck_u16(stream, &enemy_cur_id)) {
+		return false;
+	}
+	if((enemy_cur_id != 0xFFFFu) && (enemy_cur_id >= ENEMY_COUNT)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		enemy_cur = (
+			(enemy_cur_id == 0xFFFFu)
+				? 0
+				: reinterpret_cast<enemy_t near *>(
+					FP_OFF(&enemies[enemy_cur_id])
+				)
+		);
+	}
+	return true;
+}
+
+static bool rck_item(
+	replay_ck_stream_t far *stream, item_t near *item
+)
+{
+	uint8_t type = item->type;
+
+	if(!rck_entity_flag(stream, &item->flag)) {
+		return false;
+	}
+	if(!rck_motion(stream, &item->pos)) {
+		return false;
+	}
+	if(!rck_u8(stream, &type) || (type > IT_FULLPOWER)) {
+		return false;
+	}
+	RCK_S8(item->unknown);
+	RCK_S16(item->patnum);
+	RCK_BOOL(item->pulled_to_player);
+	if(rck_applying(stream)) {
+		item->type = type;
+	}
+	return true;
+}
+
+static bool rck_item_splash(
+	replay_ck_stream_t far *stream, item_splash_t near *splash
+)
+{
+	if(!rck_entity_flag(stream, &splash->flag)) {
+		return false;
+	}
+	RCK_S8(splash->time);
+	if(!rck_sppoint(stream, &splash->center)) {
+		return false;
+	}
+	RCK_S16(splash->radius_cur.v);
+	RCK_S16(splash->radius_prev.v);
+	return true;
+}
+
+static bool rck_gather(
+	replay_ck_stream_t far *stream, gather_t near *gather
+)
+{
+	if(!rck_entity_flag(stream, &gather->flag)) {
+		return false;
+	}
+	RCK_U8_MAX(gather->col, 15);
+	if(!rck_motion(stream, &gather->center)) {
+		return false;
+	}
+	RCK_S16(gather->radius_cur.v);
+	RCK_S16(gather->ring_points);
+	RCK_U8(gather->angle_cur);
+	RCK_U8(gather->angle_delta);
+	if(!rck_bullet_template(stream, &gather->bullet_template)) {
+		return false;
+	}
+	RCK_S16(gather->radius_prev.v);
+	RCK_S16(gather->radius_delta.v);
+	return true;
+}
+
+static bool rck_gather_template(
+	replay_ck_stream_t far *stream, gather_template_t far *tmpl
+)
+{
+	if(
+		!rck_pfpoint(stream, &tmpl->center) ||
+		!rck_pfpoint(stream, &tmpl->velocity)
+	) {
+		return false;
+	}
+	RCK_S16(tmpl->radius.v);
+	RCK_S16(tmpl->ring_points);
+	RCK_U8_MAX(tmpl->col, 15);
+	RCK_U8(tmpl->angle_delta);
+	return true;
+}
+
+static bool rck_pointnum(
+	replay_ck_stream_t far *stream, pointnum_t near *pointnum
+)
+{
+	int digit;
+	uint8_t flag = static_cast<uint8_t>(pointnum->flag);
+
+	if(!rck_u8(stream, &flag) || (flag > F_REMOVE)) {
+		return false;
+	}
+	RCK_U8(pointnum->age);
+	if(!rck_sppoint(stream, &pointnum->center_cur)) {
+		return false;
+	}
+	RCK_S16(pointnum->center_prev_y.v);
+	RCK_U16(pointnum->width);
+	for(digit = 0; digit < POINTNUM_DIGITS; digit++) {
+		RCK_U8_MAX(pointnum->digits_lebcd[digit], 9);
+	}
+#if (GAME == 4)
+	RCK_BOOL(pointnum->times_2);
+#endif
+	if(rck_applying(stream)) {
+		pointnum->flag = static_cast<char>(flag);
+	}
+	return true;
+}
+
+static bool rck_group_items(replay_ck_stream_t far *stream)
+{
+	int i;
+
+	for(i = 0; i < ITEM_COUNT; i++) {
+		if(!rck_item(stream, &items[i])) {
+			return false;
+		}
+	}
+	for(i = 0; i < ITEM_SPLASH_COUNT; i++) {
+		if(!rck_item_splash(stream, &item_splashes[i])) {
+			return false;
+		}
+	}
+	RCK_U8_MAX(item_splash_last_id, ITEM_SPLASH_COUNT - 1);
+	RCK_U8(enemy_drop_ring_p);
+	RCK_U8(item_playperf_raise);
+	RCK_U8(item_playperf_lower);
+	RCK_BOOL(items_pull_to_player);
+	RCK_U16(items_spawned);
+	RCK_U16(items_collected);
+	RCK_U16(total_point_items_collected);
+	RCK_U16(total_max_valued_point_items);
+#if (GAME == 5)
+	RCK_U16(stage_point_items_collected);
+	RCK_U16(extend_point_items_collected);
+	RCK_U16(item_point_score_at_full_dream);
+	RCK_U8(dream);
+#else
+	RCK_U8(stage_point_items_collected);
+	RCK_U16(dream_score);
+	RCK_U8(dream_items_collected);
+#endif
+
+	for(i = 0; i < GATHER_COUNT; i++) {
+		if(!rck_gather(stream, &gather_circles[i])) {
+			return false;
+		}
+	}
+	if(!rck_gather_template(stream, &gather_template)) {
+		return false;
+	}
+
+	for(i = 0; i < POINTNUM_COUNT; i++) {
+		if(!rck_pointnum(stream, &pointnums[i])) {
+			return false;
+		}
+	}
+	RCK_U8_MAX(pointnum_yellow_p, POINTNUM_YELLOW_COUNT - 1);
+	RCK_U8_MAX(pointnum_white_p, POINTNUM_WHITE_COUNT - 1);
+	RCK_BOOL(pointnum_times_2);
+	if(rck_applying(stream)) {
+		pointnums_alive[0] = 0;
+		pointnum_first_yellow_alive = 0;
+	}
+	return true;
+}
+
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
 )
@@ -909,6 +1731,12 @@ bool replay_ck_group_codec(
 		return rck_group_run(stream);
 	case RCGI_PLAYER:
 		return rck_group_player(stream);
+	case RCGI_BULLETS:
+		return rck_group_bullets(stream);
+	case RCGI_ENEMIES:
+		return rck_group_enemies(stream);
+	case RCGI_ITEMS:
+		return rck_group_items(stream);
 	}
 	stream->failed = true;
 	return false;
