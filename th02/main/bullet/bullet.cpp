@@ -1,6 +1,7 @@
 #pragma option -zPmain_03 -G
 
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/bullet/state.hpp"
 #include "th02/main/bullet/impl.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"

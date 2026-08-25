@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "platform.h"
 #include "pc98.h"
 #include "th02/main/tile/tile.hpp"
@@ -6,10 +7,21 @@ static const unsigned char BOMB_CIRCLE_FRAMES = 32;
 static const int BOMB_PARTICLE_COUNT = 32;
 static const int BOMB_SMEAR_COLUMNS = 48;
 
+// bomb.cpp declared the native smear record under default -a1.
+#pragma pack(push, 1)
 struct bomb_smear_t {
 	screen_y_t bottom;
 	int unused;
 };
+#pragma pack(pop)
+
+// This was originally declared in bomb.cpp before any local packing pragma.
+// Retain that exact four-byte slot regardless of a caller's pragma state.
+typedef char bomb_smear_t_layout_check[(
+	(sizeof(bomb_smear_t) == 0x04) &&
+	(offsetof(bomb_smear_t, bottom) == 0x00) &&
+	(offsetof(bomb_smear_t, unused) == 0x02)
+) ? 1 : -1];
 
 extern bool bombing;
 

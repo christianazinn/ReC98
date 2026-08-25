@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "pc98.h"
 #include "th01/math/subpixel.hpp"
 #include "th02/main/entity.hpp"
@@ -16,6 +17,10 @@ enum item_type_t {
 
 #define ITEM_COUNT 20
 
+// Both native records were originally declared under the default -a1 in
+// item.cpp. The push/pop prevents an include from inheriting a caller's local
+// -a2 and restores that caller's state immediately afterwards.
+#pragma pack(push, 1)
 struct item_pos_t {
 	screen_x_t screen_left;
 	Subpixel screen_top;
@@ -29,6 +34,24 @@ struct item_t {
 	pixel_t velocity_x_during_bounce;
 	int age;
 };
+#pragma pack(pop)
+
+// Kept next to the shared declaration so an include before a local -a2
+// pragma cannot silently alter the native slot layout.
+typedef char item_pos_t_layout_check[(
+	(sizeof(item_pos_t) == 0x04) &&
+	(offsetof(item_pos_t, screen_left) == 0x00) &&
+	(offsetof(item_pos_t, screen_top) == 0x02)
+) ? 1 : -1];
+typedef char item_t_layout_check[(
+	(sizeof(item_t) == 0x10) &&
+	(offsetof(item_t, flag) == 0x00) &&
+	(offsetof(item_t, type) == 0x01) &&
+	(offsetof(item_t, pos) == 0x02) &&
+	(offsetof(item_t, velocity_y) == 0x0A) &&
+	(offsetof(item_t, velocity_x_during_bounce) == 0x0C) &&
+	(offsetof(item_t, age) == 0x0E)
+) ? 1 : -1];
 
 extern item_t items[ITEM_COUNT];
 

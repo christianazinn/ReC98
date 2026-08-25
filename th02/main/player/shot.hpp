@@ -1,11 +1,15 @@
 #ifndef TH02_MAIN_PLAYER_SHOT_HPP
 #define TH02_MAIN_PLAYER_SHOT_HPP
 
+#include <stddef.h>
 #include "th01/math/subpixel.hpp"
 #include "th02/main/entity.hpp"
 
 // The player's shots. The first 16 bytes of this structure are byte-for-byte
 // identical to spark_t's, down to the page-indexed position pair.
+// This record's original shared declaration was under default -a1. Preserve
+// that footprint independently of a caller's local packing pragma.
+#pragma pack(push, 1)
 struct shot_t {
 	entity_flag_t flag;
 
@@ -24,6 +28,20 @@ struct shot_t {
 	uint8_t patnum; // ACTUAL TYPE: main_patnum_t
 	bool from_option;
 };
+#pragma pack(pop)
+
+// [shot_t] was already public, but the checkpoint codec depends on its exact
+// native source representation. Keep this assertion at the include boundary
+// so a future local packing pragma cannot make replay.cpp see another ABI.
+typedef char shot_t_layout_check[(
+	(sizeof(shot_t) == 0x10) &&
+	(offsetof(shot_t, flag) == 0x00) &&
+	(offsetof(shot_t, decay_cel) == 0x01) &&
+	(offsetof(shot_t, pos_on_page) == 0x02) &&
+	(offsetof(shot_t, velocity) == 0x0A) &&
+	(offsetof(shot_t, patnum) == 0x0E) &&
+	(offsetof(shot_t, from_option) == 0x0F)
+) ? 1 : -1];
 
 // Instruction-derived, not an extent ceiling: seven independent loops over
 // [shots] bound at 26h, and 38 * sizeof(shot_t) is exactly the _BSS extent.

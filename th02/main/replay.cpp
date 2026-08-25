@@ -34,6 +34,7 @@
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/shot.hpp"
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/bullet/state.hpp"
 #include "th02/main/laser.hpp"
 #include "th02/main/enemy/enemy.hpp"
 #include "th02/main/item/item.hpp"
@@ -562,10 +563,12 @@ static bool t2replay_checkpoint_bomb_capture(uint8_t far *data)
 		}
 		data[offset++] = bomb_b_cel;
 	} else {
-		offset = (T2REPLAY_CHECKPOINT_BOMB_SIZE - 2);
+		offset = (T2REPLAY_CHECKPOINT_BOMB_SIZE - 4);
 	}
 	data[offset++] = stage_miss_count;
 	data[offset++] = stage_bombs_used;
+	data[offset++] = total_miss_count;
+	data[offset++] = total_bombs_used;
 	return (offset == T2REPLAY_CHECKPOINT_BOMB_SIZE);
 }
 
@@ -721,6 +724,10 @@ static bool t2replay_checkpoint_effect_capture(uint8_t far *data)
 	);
 	offset += 4;
 	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(item_skill)
+	);
+	offset += 2;
+	t2replay_checkpoint_put_u16(
 		data, offset, static_cast<uint16_t>(point_items_collected)
 	);
 	offset += 2;
@@ -865,12 +872,16 @@ static bool t2replay_checkpoint_group_capture(
 		data[24] = resident->demo_num;
 		t2replay_checkpoint_put_u32(data, 25, static_cast<uint32_t>(score));
 		t2replay_checkpoint_put_u32(data, 29, static_cast<uint32_t>(hiscore));
-		t2replay_checkpoint_put_u32(data, 33, static_cast<uint32_t>(score_delta));
-		t2replay_checkpoint_put_u16(data, 37, extends_gained);
-		data[39] = static_cast<uint8_t>(lives);
-		data[40] = static_cast<uint8_t>(bombs);
-		data[41] = power;
-		data[42] = (quit ? 1 : 0);
+		data[33] = hiscore_continues;
+		t2replay_checkpoint_put_u32(data, 34, static_cast<uint32_t>(score_delta));
+		t2replay_checkpoint_put_u16(
+			data, 38, score_delta_transferred_prev
+		);
+		t2replay_checkpoint_put_u16(data, 40, extends_gained);
+		data[42] = static_cast<uint8_t>(lives);
+		data[43] = static_cast<uint8_t>(bombs);
+		data[44] = power;
+		data[45] = (quit ? 1 : 0);
 		return true;
 
 	case T2RCGI_FIELD:
@@ -1007,7 +1018,7 @@ static bool t2replay_checkpoint_bomb_payload_valid(
 	}
 	if(data[0] == 0) {
 		return t2replay_bytes_zero(data + 1,
-			(T2REPLAY_CHECKPOINT_BOMB_SIZE - 3));
+			(T2REPLAY_CHECKPOINT_BOMB_SIZE - 5));
 	}
 	if(
 		(static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 1)) < 0) ||
@@ -1125,7 +1136,8 @@ static bool t2replay_checkpoint_enemy_payload_valid(
 		if(
 			(value < 0) || (value >= ENEMY_TEMPLATE_COUNT) ||
 			!t2replay_checkpoint_entity_flag_valid(data[offset + 14]) ||
-			(data[offset + 16] > 1) || (data[offset + 20] > 2) ||
+			(data[offset + 16] > 1) ||
+			(t2replay_checkpoint_get_u16(data, offset + 19) > 2) ||
 			(t2replay_checkpoint_get_u16(data, offset + 23) > 1) ||
 			(data[offset + 29] > 1) || (data[offset + 32] > 1) ||
 			(data[offset + 33] > 1) ||
@@ -1141,7 +1153,10 @@ static bool t2replay_checkpoint_effect_payload_valid(
 	const uint8_t far *data
 )
 {
-	unsigned offset = 13;
+	// item_skill is a native signed 16-bit accumulator at bytes 11..12.
+	// Every bit pattern is a representable native value, so it has no narrower
+	// semantic range than its ABI representation. Item records follow it.
+	unsigned offset = 15;
 	unsigned i;
 
 	if((data[2] > 1) || (data[3] >= 10)) {
@@ -1245,11 +1260,12 @@ static bool t2replay_checkpoint_group_payload_valid(
 			(static_cast<int8_t>(data[20]) <= POWER_MAX) &&
 			(data[21] <= SND_BGM_MIDI) && (data[22] <= 1) &&
 			(data[24] <= 3) &&
-			(static_cast<int8_t>(data[39]) >= -1) &&
-			(static_cast<int8_t>(data[39]) <= 5) &&
-			(static_cast<int8_t>(data[40]) >= -1) &&
-			(static_cast<int8_t>(data[40]) <= 5) &&
-			(data[41] <= POWER_MAX) && (data[42] <= 1)
+			(data[33] <= 9) &&
+			(static_cast<int8_t>(data[42]) >= -1) &&
+			(static_cast<int8_t>(data[42]) <= 5) &&
+			(static_cast<int8_t>(data[43]) >= -1) &&
+			(static_cast<int8_t>(data[43]) <= 5) &&
+			(data[44] <= POWER_MAX) && (data[45] <= 1)
 		);
 
 	case T2RCGI_FIELD:

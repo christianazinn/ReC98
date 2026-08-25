@@ -154,38 +154,6 @@ enum bullet_group_or_special_motion_t {
 	// --------------------
 };
 
-// The common world checkpoint codec uses this declaration to serialize each
-// semantic member rather than copying the native BSS record. The definition
-// belongs here because this is the pool owner's public vocabulary; the record
-// remains laid out by th02_main.asm.
-enum bullet_size_type_t {
-	BST_PELLET = 1,
-	BST_BULLET16 = 2,
-};
-
-struct bullet_t {
-	entity_flag_t flag;
-	bullet_size_type_t size_type;
-	SPPoint screen_topleft[PAGE_COUNT];
-	SPPoint velocity;
-	uint8_t patnum;
-	bullet_group_or_special_motion_t group_or_special_motion;
-	unsigned char angle;
-	SubpixelLength8 speed;
-	union {
-		uint8_t special_frame;
-		uint8_t turns_done;
-		uint8_t v;
-	} u1;
-	int8_t padding;
-};
-
-extern bullet_t bullets[BULLET_COUNT];
-extern Subpixel8 rank_base_speed;
-extern uint8_t rank_base_stack;
-extern uint8_t bullet_stack;
-extern int8_t easy_slow_skip_cycle;
-
 // ZUN bloat: Should be separate.
 void bullets_and_sparks_init(void);
 

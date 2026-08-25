@@ -3,11 +3,6 @@
 // State
 // -----
 
-// Amount of points transferred from [score_delta] to [score] during the
-// previous frame.
-extern unsigned int score_delta_transferred_prev;
-// -----
-
 void near score_extend_init(void)
 {
 	extends_gained = 0;
