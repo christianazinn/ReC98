@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 2
+#define REPLAY_USER_VERSION 3
 #define REPLAY_USER_HEADER_SIZE 192
 #define REPLAY_USER_PACKET_SIZE 4
 #define REPLAY_USER_INPUT_SIZE_MAX 0x00400000UL
@@ -13,6 +13,13 @@
 #define REPLAY_USER_SLOT_COUNT 100
 #define REPLAY_START_CONFIG_SIZE 64
 #define REPLAY_COMMAND_SIZE 80
+#define REPLAY_CHECKPOINT_SCHEMA 1
+#define REPLAY_CHECKPOINT_HEADER_SIZE 40
+#define REPLAY_CHECKPOINT_GROUP_SIZE 20
+#define REPLAY_CHECKPOINT_GROUP_SCHEMA 1
+#define REPLAY_CKPT_GROUPS_TH04 12
+#define REPLAY_CKPT_GROUPS_TH05 13
+#define REPLAY_CKPT_GROUPS_MAX 13
 
 #define REPLAY_USER_FLAG_RLE_INPUT 0x0001
 #define REPLAY_USER_FLAG_SHIFT_INPUT 0x0002
@@ -73,6 +80,37 @@ enum replay_start_kind_t {
 	RSK_CHAPTER = 2,
 	RSK_MIDBOSS = 3,
 	RSK_BOSS_PHASE = 4,
+};
+
+enum replay_checkpoint_group_id_t {
+	RCGI_RNG = 0,
+	RCGI_RUN = 1,
+	RCGI_PLAYER = 2,
+	RCGI_BULLETS = 3,
+	RCGI_ENEMIES = 4,
+	RCGI_ACTORS = 5,
+	RCGI_ITEMS = 6,
+	RCGI_SCORING = 7,
+	RCGI_FIELD = 8,
+	RCGI_EFFECTS = 9,
+	RCGI_STAGE_VM = 10,
+	RCGI_PACING = 11,
+	RCGI_DIALOG = 12,
+};
+
+enum replay_checkpoint_codec_t {
+	RCC_RAW = 0,
+};
+
+enum replay_checkpoint_section_t {
+	RCS_CHAPTER_2 = 2,
+	RCS_MIDBOSS_PRIMARY = 0,
+	RCS_MIDBOSS_SECONDARY = 1,
+	RCS_TH04_MUGETSU = 0,
+	RCS_TH04_GENGETSU = 1,
+	RCS_TH05_PAIR = 0,
+	RCS_TH05_MAI = 1,
+	RCS_TH05_YUKI = 2,
 };
 
 enum replay_command_mode_t {
@@ -174,6 +212,35 @@ struct replay_command_t {
 	uint8_t reserved[4];
 };
 
+struct replay_checkpoint_header_t {
+	char magic[8];
+	uint16_t schema;
+	uint16_t header_size;
+	uint8_t game_id;
+	uint8_t start_kind;
+	uint8_t stage;
+	uint8_t section;
+	uint8_t phase;
+	uint8_t group_count;
+	uint16_t flags;
+	uint32_t total_size;
+	uint32_t source_fingerprint;
+	uint32_t state_digest;
+	uint32_t decoded_size;
+	uint32_t container_checksum;
+};
+
+struct replay_checkpoint_group_t {
+	uint8_t id;
+	uint8_t schema;
+	uint8_t codec;
+	uint8_t flags;
+	uint32_t offset;
+	uint32_t stored_size;
+	uint32_t decoded_size;
+	uint32_t checksum;
+};
+
 typedef char replay_start_config_size_check[
 	(sizeof(replay_start_config_t) == REPLAY_START_CONFIG_SIZE) ? 1 : -1
 ];
@@ -185,6 +252,12 @@ typedef char replay_user_packet_size_check[
 ];
 typedef char replay_command_size_check[
 	(sizeof(replay_command_t) == REPLAY_COMMAND_SIZE) ? 1 : -1
+];
+typedef char replay_checkpoint_header_size_check[
+	(sizeof(replay_checkpoint_header_t) == REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
+];
+typedef char replay_checkpoint_group_size_check[
+	(sizeof(replay_checkpoint_group_t) == REPLAY_CHECKPOINT_GROUP_SIZE) ? 1 : -1
 ];
 typedef char replay_user_header_checksum_offset_check[
 	(offsetof(replay_user_header_t, header_checksum) == 0x38) ? 1 : -1
@@ -203,6 +276,15 @@ typedef char replay_start_stage_points_offset_check[
 ];
 typedef char replay_start_stage_graze_offset_check[
 	(offsetof(replay_start_config_t, stage_graze) == 0x32) ? 1 : -1
+];
+typedef char replay_checkpoint_total_size_offset_check[
+	(offsetof(replay_checkpoint_header_t, total_size) == 0x14) ? 1 : -1
+];
+typedef char replay_checkpoint_checksum_offset_check[
+	(offsetof(replay_checkpoint_header_t, container_checksum) == 0x24) ? 1 : -1
+];
+typedef char replay_checkpoint_group_offset_check[
+	(offsetof(replay_checkpoint_group_t, offset) == 0x04) ? 1 : -1
 ];
 
 #endif /* TH04_REPLAY_FORMAT_HPP */
