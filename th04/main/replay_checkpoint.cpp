@@ -6232,6 +6232,10 @@ bool replay_ck_container_apply(
 	)) {
 		return false;
 	}
+	#if (GAME == 5)
+		// Preserve the runtime segment's original byte phase.
+		__emit__(0x90);
+	#endif
 	return (
 		(decoded_size == rck_get_u32(data, 0x20)) &&
 		(live_digest == expected_digest)
@@ -6259,3 +6263,12 @@ bool replay_ck_container_apply(
 #undef RCK_U32
 #undef RCK_S32
 #undef RCK_BOOL
+
+// Keep the Borland runtime code that follows the replay segments on its stock
+// paragraph phase. This value is derived from the complete MAIN map, not from
+// the source length of this translation unit in isolation.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90"
+#endif

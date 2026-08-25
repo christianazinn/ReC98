@@ -369,3 +369,11 @@ void near stage_loop(void)
 		_asm { mov ah, 40h; int 18h; }
 	}
 }
+
+// Preserve the paragraph phase of every original segment after STAGE_TEXT.
+// The replay hooks grow this segment by 91 bytes in TH04 and 117 in TH05.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif

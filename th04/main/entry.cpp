@@ -100,6 +100,10 @@ extern "C" void far main_entry(void)
 
 	while(1) {
 		stage_setup();
+		#if (GAME == 5)
+			// Preserve the following native STAGE_TEXT byte phase.
+			_asm { nop }
+		#endif
 		replay_stage_start();
 		stage_loop();
 		if(quit != Q_NEXT_STAGE) {

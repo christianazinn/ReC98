@@ -14,3 +14,7 @@
 #include "th04/main/stage/transition.cpp"
 #include "th04/main/pause.cpp"
 #include "th04/main/demo.cpp"
+
+// The replay/oracle hooks add 56 bytes to DEMO_TEXT. Keep the following
+// original segments on their stock paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"

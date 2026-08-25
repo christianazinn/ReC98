@@ -27,10 +27,8 @@
 enum main_choice_t {
 	MC_GAME,
 	MC_EXTRA,
-	MC_PRACTICE,
 	MC_REGIST_VIEW,
 	MC_MUSICROOM,
-	MC_REPLAY,
 	MC_OPTION,
 	MC_QUIT,
 	MC_COUNT,
@@ -64,9 +62,7 @@ static const pixel_t LABEL_H = 16;
 
 static const pixel_t CURSOR_W = 32;
 
-// The Replay Patch adds Practice and Replay to the six stock entries. Keep the
-// final TH05 row at the stock position, clear of the description strip.
-static const screen_y_t MENU_TOP = ((GAME == 5) ? 210 : 214);
+static const screen_y_t MENU_TOP = ((GAME == 5) ? 250 : 224);
 
 static const screen_x_t COMMAND_LEFT = ((RES_X / 2) - (LABEL_W / 2));
 
@@ -165,7 +161,6 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 	egc_copy_rect_1_to_0_16(MENU_MAIN_LEFT, top, MENU_MAIN_W, LABEL_H);
 	grcg_setcolor(GC_RMW, col);
 	int desc_id = sel;
-	int custom_label = 0;
 
 	// ZUN bloat: Could have been deduplicated.
 	switch(sel) {
@@ -179,51 +174,25 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 		}
 		command_put(main_choice_top(MC_EXTRA), CDG_MAIN_EXTRA);
 		break;
-	case MC_PRACTICE:
-		custom_label = 1;
-		desc_id = -1;
-		break;
 	case MC_REGIST_VIEW:
 		command_put(main_choice_top(MC_REGIST_VIEW), CDG_MAIN_REGIST_VIEW);
-		desc_id = 2;
 		break;
 	case MC_MUSICROOM:
 		command_put(main_choice_top(MC_MUSICROOM), CDG_MAIN_MUSICROOM);
-		desc_id = 3;
-		break;
-	case MC_REPLAY:
-		custom_label = 2;
-		desc_id = -1;
 		break;
 	case MC_OPTION:
 		command_put(main_choice_top(MC_OPTION), CDG_MAIN_OPTION);
-		desc_id = 4;
 		break;
 	case MC_QUIT:
 		command_put(main_choice_top(MC_QUIT), CDG_QUIT);
-		desc_id = 5;
 		break;
 	}
 	grcg_off();
-	if(custom_label == 1) {
-		replay_practice_title_label_put(top, col);
-	} else if(custom_label == 2) {
-		replay_title_label_put(top, col);
-	}
 
 	if(col == COL_ACTIVE) {
 		cdg_put_8(COMMAND_CURSOR_LEFT_LEFT,  top, CDG_CURSOR_LEFT);
 		cdg_put_8(COMMAND_CURSOR_RIGHT_LEFT, top, CDG_CURSOR_RIGHT);
-		if(desc_id >= 0) {
-			desc_unput_and_put(desc_id);
-		} else {
-			egc_copy_rect_1_to_0_16(0, DESC_TOP, RES_X, GLYPH_H);
-			if(custom_label == 1) {
-				replay_practice_title_desc_put();
-			} else {
-				replay_title_desc_put();
-			}
-		}
+		desc_unput_and_put(desc_id);
 	}
 }
 
@@ -370,87 +339,55 @@ inline void return_from_other_screen_to_main(bool& main_initialized, int sel) {
 	menu_sel = sel;
 }
 
+// Keep the stock updater's two static bytes in their original DATA/BSS
+// contributions even though its implementation now lives in the patch tail.
+static bool replay_stock_main_initialized = false;
+static bool replay_stock_main_input_allowed;
+
 void near main_update_and_render(void)
 {
-	static bool initialized = false;
-	static bool input_allowed;
-
-	if(!initialized) {
-		main_menu_unused_1 = 0;
-
-		// ZUN bloat: Way too wide.
-		menu_init(
-			initialized,
-			input_allowed,
-			MC_COUNT,
-			main_unput_and_put,
-			(MENU_OPTION_LEFT - 32),
-			(MENU_OPTION_W + 64),
-			option_choice_top(OC_COUNT)
-		);
-	}
-
-	if(!key_det) {
-		input_allowed = true;
-	}
-	if(!input_allowed) {
-		return;
-	}
-	menu_update_vertical(key_det, MC_COUNT);
-
-	if((key_det & INPUT_OK) || (key_det & INPUT_SHOT)) {
-		snd_se_play_force(11);
-		switch(menu_sel) {
-		case MC_GAME:
-			start_game();
-			return_from_other_screen_to_main(initialized, MC_GAME);
-			return;
-		case MC_EXTRA:
-			start_extra();
-			return_from_other_screen_to_main(initialized, MC_EXTRA);
-			return;
-		case MC_PRACTICE:
-			start_practice();
-			return_from_other_screen_to_main(initialized, MC_PRACTICE);
-			return;
-		case MC_REGIST_VIEW:
-			regist_view_menu();
-			initialized = false;
-			break;
-		case MC_MUSICROOM:
-			musicroom_menu();
-			main_cdg_load();
-
-			// ZUN quirk: Moving to MC_GAME in TH04?
-			return_from_other_screen_to_main(
-				initialized, ((GAME == 5) ? MC_MUSICROOM : MC_GAME)
-			);
-			return;
-		case MC_REPLAY:
-			if(replay_browser()) {
-				resident->demo_num = 0;
-				op_exit_into_main(true, false);
-			}
-			return_from_other_screen_to_main(initialized, MC_REPLAY);
-			return;
-		case MC_OPTION:
-			initialized = false;
-			in_option = true;
-			menu_sel = OC_RANK;
-			break;
-		case MC_QUIT:
-			initialized = false; // We're quitting anyway...
-			quit = true;
-			break;
-		}
-	}
-	if(key_det & INPUT_CANCEL) {
-		quit = true;
-	}
-	if(key_det) {
-		input_allowed = false;
-	}
+	replay_main_update_and_render(MENU_MAIN_BG_FN);
 }
+
+// Keep the remainder of OP_MAIN_TEXT at its original offsets. The full patched
+// title implementation lives in REPLAY_OP_TEXT; these bytes occupy the exact
+// span vacated by the stock updater after replacing it with the far-call
+// trampoline above.
+#if (GAME == 4)
+	// 13 * 32 + 11 = 427 bytes.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	// 15 * 32 + 8 = 488 bytes.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 #define snd_redetermine_modes_and_reload_se() { \
 	snd_determine_modes(resident->bgm_mode, resident->se_mode); \
@@ -608,7 +545,6 @@ void near option_update_and_render(void)
 void main(void)
 {
 	int idle_frame = 0;
-	replay_start_config_t private_start;
 
 	text_clear();
 	respal_create(); // ZUN bloat: These games don't use resident palettes.
@@ -669,9 +605,6 @@ void main(void)
 	cleardata_and_regist_view_sprites_load();
 	main_cdg_load();
 #endif
-	if(replay_private_record_command_start(&private_start)) {
-		start_practice_private_command(&private_start);
-	}
 	in_option = false;
 	quit = false;
 	menu_sel = 0;

@@ -4,7 +4,6 @@
 #include "th04/playchar.h"
 #include "th04/hardware/input.h"
 #include "th04/op/op.hpp"
-#include "th04/op/replay.hpp"
 #include "th04/op/start.hpp"
 
 void near start_game(void)
@@ -22,11 +21,6 @@ void near start_game(void)
 		return;
 	}
 	resident->demo_num = 0;
-	if(!resident->debug) {
-		replay_record_next_prepare();
-	} else {
-		replay_command_clear();
-	}
 	op_exit_into_main(true, true);
 }
 
@@ -44,45 +38,6 @@ void near start_extra(void)
 		return;
 	}
 	resident->demo_num = 0;
-	if(!resident->debug) {
-		replay_record_next_prepare();
-	} else {
-		replay_command_clear();
-	}
-	op_exit_into_main(true, false);
-}
-
-void near start_practice(void)
-{
-	replay_start_config_t start;
-
-	if(!replay_practice_setup(&start)) {
-		return;
-	}
-	resident->stage = start.stage;
-	resident->credit_lives = start.credit_lives;
-	resident->credit_bombs = start.credit_bombs;
-	resident->playchar_ascii = ('0' + start.playchar);
-	resident->stage_ascii = ('0' + start.stage);
-	resident->shottype = start.shottype;
-	resident->demo_num = 0;
-	if(!replay_practice_record_prepare(&start)) {
-		return;
-	}
-	op_exit_into_main(true, false);
-}
-
-void near start_practice_private_command(
-	const replay_start_config_t far *start
-)
-{
-	resident->stage = start->stage;
-	resident->credit_lives = start->credit_lives;
-	resident->credit_bombs = start->credit_bombs;
-	resident->playchar_ascii = ('0' + start->playchar);
-	resident->stage_ascii = ('0' + start->stage);
-	resident->shottype = start->shottype;
-	resident->demo_num = 0;
 	op_exit_into_main(true, false);
 }
 
@@ -97,8 +52,6 @@ inline void resident_set_demo(
 
 void near start_demo(void)
 {
-	replay_command_clear();
-
 	// ZUN bloat: This is reassigned to [resident->demo_stage] shortly after
 	// the start of MAIN.EXE. Would be cleaner to do it here, which would even
 	// avoid the need for a distinct demo stage field altogether.

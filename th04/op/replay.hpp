@@ -20,5 +20,6 @@ bool replay_private_record_command_start(
 );
 void replay_command_clear(void);
 void replay_record_next_prepare(void);
+void far replay_main_update_and_render(const char *main_bg_fn);
 
 #endif /* TH04_OP_REPLAY_HPP */

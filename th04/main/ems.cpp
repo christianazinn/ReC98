@@ -159,3 +159,6 @@ void near eyecatch_animate(void)
 	cdg_free(CDG_EYECATCH);
 	palette_black_in(1);
 }
+
+// Round the 10-byte replay entry hook to one paragraph.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

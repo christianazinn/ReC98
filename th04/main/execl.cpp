@@ -140,3 +140,6 @@ int pascal GameExecl(const char *binary_fn)
 		nullptr
 	);
 }
+
+// Round the 17-byte replay finalization hook to two paragraphs.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
