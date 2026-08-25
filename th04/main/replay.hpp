@@ -20,6 +20,11 @@ void replay_practice_start_apply_after_reset(void);
 // startup request.
 void replay_practice_items_ready(void);
 
+// Captures the current arbitrary Practice boundary into the normalized
+// checkpoint sidecar. The caller must still be in hidden native preroll; input
+// recording begins only after this succeeds.
+bool replay_practice_checkpoint_capture(void);
+
 // Called after native stage setup and before the first frame. Emits or checks
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);

@@ -314,6 +314,21 @@ static void replay_slot_set(uint8_t slot)
 	replay_slot_fn[5] = ('0' + (slot % 10));
 }
 
+static void replay_checkpoint_fn_set(char far *fn)
+{
+	fn[0] = 'T'; fn[1] = ('0' + GAME); fn[2] = 'R'; fn[3] = 'C';
+	fn[4] = 'K'; fn[5] = '.'; fn[6] = 'T'; fn[7] = 'M'; fn[8] = 'P';
+	fn[9] = '\0';
+}
+
+static void replay_checkpoint_temp_delete(void)
+{
+	char fn[10];
+
+	replay_checkpoint_fn_set(fn);
+	replay_dos_delete(fn);
+}
+
 static uint32_t replay_score_points(void)
 {
 	uint32_t value = 0;
@@ -411,6 +426,90 @@ static bool replay_buffer_flush(void)
 	replay_payload_written += len;
 	replay_buffer_len = 0;
 	return replay_header_write(false);
+}
+
+static bool replay_checkpoint_append(void)
+{
+	char checkpoint_fn[10];
+	uint8_t far *buffer;
+	uint32_t hash = REPLAY_FNV1A_BASIS;
+	uint32_t remaining = replay_header.checkpoint_size;
+	uint32_t file_size;
+	uint32_t offset = (
+		replay_header.input_offset + replay_header.input_size
+	);
+	unsigned len;
+	int source_fh;
+	int replay_fh;
+	bool ok = false;
+
+	if((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) == 0) {
+		return true;
+	}
+	if(
+		(replay_header.checkpoint_schema != REPLAY_CHECKPOINT_SCHEMA) ||
+		(replay_header.checkpoint_offset != 0) ||
+		(replay_header.checkpoint_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
+		(replay_header.checkpoint_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
+		(replay_header.checkpoint_checksum == 0) ||
+		(replay_header.source_fingerprint !=
+		 REPLAY_CHECKPOINT_SOURCE_FINGERPRINT) ||
+		(replay_header.state_digest == 0)
+	) {
+		return false;
+	}
+	replay_checkpoint_fn_set(checkpoint_fn);
+	source_fh = replay_dos_open(checkpoint_fn, REPLAY_ACCESS_READ);
+	if(source_fh < 0) {
+		return false;
+	}
+	if(
+		!replay_dos_size(source_fh, &file_size) ||
+		(file_size != replay_header.checkpoint_size) ||
+		!replay_dos_seek(source_fh, 0)
+	) {
+		replay_dos_close(source_fh);
+		return false;
+	}
+	replay_fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_RW);
+	if(replay_fh < 0) {
+		replay_dos_close(source_fh);
+		return false;
+	}
+	buffer = reinterpret_cast<uint8_t far *>(hmem_allocbyte(1024));
+	if((buffer == 0) || !replay_dos_seek(replay_fh, offset)) {
+		if(buffer != 0) {
+			hmem_free(reinterpret_cast<void __seg *>(buffer));
+		}
+		replay_dos_close(replay_fh);
+		replay_dos_close(source_fh);
+		return false;
+	}
+	while(remaining != 0) {
+		len = ((remaining > 1024UL)
+			? 1024
+			: static_cast<unsigned>(remaining)
+		);
+		if(
+			(replay_dos_read(source_fh, buffer, len) != len) ||
+			(replay_dos_write(replay_fh, buffer, len) != len)
+		) {
+			break;
+		}
+		hash = replay_fnv1a(hash, buffer, len);
+		remaining -= len;
+	}
+	if(
+		(remaining == 0) &&
+		(hash == replay_header.checkpoint_checksum)
+	) {
+		replay_header.checkpoint_offset = offset;
+		ok = true;
+	}
+	hmem_free(reinterpret_cast<void __seg *>(buffer));
+	replay_dos_close(replay_fh);
+	replay_dos_close(source_fh);
+	return ok;
 }
 
 static bool replay_packet_commit(const replay_user_packet_t far *packet)
@@ -927,6 +1026,13 @@ static void replay_sample_current(uint8_t phase)
 		if(replay_failed) {
 			return;
 		}
+		if(
+			(replay_header.mode == RUM_PRACTICE) &&
+			(replay_header.start.kind > RSK_STAGE) &&
+			((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) == 0)
+		) {
+			return;
+		}
 		if(!replay_record_sample(phase, key_det, shiftkey)) {
 			replay_fail();
 		}
@@ -1054,6 +1160,83 @@ static void replay_start_capture_live(void)
 	start->stage_point_items_collected = stage_point_items_collected;
 	start->stage_graze = stage_graze;
 	start->power_overflow = static_cast<uint16_t>(power_overflow);
+}
+
+bool replay_practice_checkpoint_capture(void)
+{
+	char checkpoint_fn[10];
+	replay_ck_identity_t identity;
+	uint8_t far *data;
+	uint16_t measured_size;
+	uint16_t encoded_size;
+	uint32_t measured_digest;
+	uint32_t encoded_digest;
+	uint32_t checksum;
+	int fh;
+	bool ok = false;
+
+	if(
+		(replay_mode != RRM_RECORD) || replay_failed ||
+		(replay_header.mode != RUM_PRACTICE) ||
+		(replay_header.start.kind <= RSK_STAGE) ||
+		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) ||
+		!replay_stage_seen || (stage_id != replay_header.start.stage) ||
+		(replay_header.packet_count != 0) ||
+		(replay_header.sample_count != 0) ||
+		(replay_buffer_len != 0) || (replay_payload_written != 0)
+	) {
+		return false;
+	}
+	replay_start_capture_live();
+	replay_checkpoint_identity_fill(&identity);
+	if(
+		!replay_start_config_valid(&replay_header.start, true, true) ||
+		!replay_ck_container_measure(
+			&identity, &measured_size, &measured_digest
+		) ||
+		(measured_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
+		(measured_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
+		(measured_digest == 0)
+	) {
+		return false;
+	}
+	data = reinterpret_cast<uint8_t far *>(hmem_allocbyte(measured_size));
+	if(data == 0) {
+		return false;
+	}
+	if(
+		replay_ck_container_encode(
+			&identity, data, measured_size, &encoded_size, &encoded_digest
+		) &&
+		(encoded_size == measured_size) &&
+		(encoded_digest == measured_digest)
+	) {
+		checksum = replay_fnv1a(REPLAY_FNV1A_BASIS, data, encoded_size);
+		replay_checkpoint_fn_set(checkpoint_fn);
+		fh = replay_dos_create(checkpoint_fn);
+		if(fh >= 0) {
+			if(replay_dos_write(fh, data, encoded_size) == encoded_size) {
+				ok = true;
+			}
+			replay_dos_close(fh);
+		}
+	}
+	hmem_free(reinterpret_cast<void __seg *>(data));
+	if(!ok) {
+		replay_checkpoint_temp_delete();
+		return false;
+	}
+	replay_header.flags |= REPLAY_USER_FLAG_CHECKPOINT;
+	replay_header.checkpoint_schema = REPLAY_CHECKPOINT_SCHEMA;
+	replay_header.checkpoint_size = encoded_size;
+	replay_header.checkpoint_checksum = checksum;
+	replay_header.source_fingerprint = REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
+	replay_header.state_digest = encoded_digest;
+	if(!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)) {
+		replay_fail();
+		return false;
+	}
+	return true;
 }
 
 static void replay_score_apply(uint32_t points, uint8_t continues)
@@ -1280,6 +1463,7 @@ void replay_entry(void)
 	replay_practice_start_pending = false;
 
 	if(command_mode == RCM_RECORD) {
+		replay_checkpoint_temp_delete();
 		replay_mode = RRM_RECORD;
 		replay_header_capture();
 		if(command_flags & REPLAY_COMMAND_FLAG_PRACTICE) {
@@ -1330,11 +1514,18 @@ void replay_stage_start(void)
 			replay_header.stage_scores[replay_last_stage] =
 				replay_score_points();
 		}
-		if(!replay_stage_seen) {
+		if(
+			!replay_stage_seen &&
+			!((replay_header.mode == RUM_PRACTICE) &&
+			  (replay_header.start.kind > RSK_STAGE))
+		) {
 			replay_start_capture_live();
 		}
 		replay_header.stage_reached = stage_id;
 		if(
+			!((replay_header.mode == RUM_PRACTICE) &&
+			  (replay_header.start.kind > RSK_STAGE) &&
+			  ((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) == 0)) &&
 			!replay_failed &&
 			!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)
 		) {
@@ -1497,6 +1688,14 @@ bool replay_process_end(void)
 		replay_header.bombs_final = replay_bombs();
 		replay_header.power_final = power;
 		replay_header.dream_final = replay_dream();
+		if(
+			!replay_failed &&
+			(replay_header.mode == RUM_PRACTICE) &&
+			(replay_header.start.kind > RSK_STAGE) &&
+			((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) == 0)
+		) {
+			replay_fail();
+		}
 		if(!replay_failed) {
 			if(
 				!replay_record_control(
@@ -1504,7 +1703,8 @@ bool replay_process_end(void)
 					end_reason,
 					resident->end_sequence
 				) ||
-				!replay_buffer_flush()
+				!replay_buffer_flush() ||
+				!replay_checkpoint_append()
 			) {
 				replay_fail();
 			}
@@ -1513,6 +1713,7 @@ bool replay_process_end(void)
 		if(!replay_header_write(false)) {
 			replay_failed = true;
 		}
+		replay_checkpoint_temp_delete();
 		return false;
 	}
 	if(
