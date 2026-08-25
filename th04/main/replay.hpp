@@ -2,6 +2,14 @@
 #define TH04_MAIN_REPLAY_HPP
 
 #include "platform.h"
+#include "th04/replay_format.hpp"
+
+// Validates one semantic checkpoint target against the complete per-game
+// chapter, actor, and phase domain. Checkpoint decode shares this validator
+// with replay-header and command admission.
+bool replay_checkpoint_identity_valid(
+	const replay_start_config_t far *start
+);
 
 // Called immediately after the validation oracle's early MAIN hook. Consumes
 // the one-shot OP command, opens the selected replay, and applies playback's

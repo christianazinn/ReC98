@@ -411,21 +411,87 @@ static bool replay_op_checkpoint_identity_valid(
 )
 {
 	if(start->kind == RSK_CHAPTER) {
-		return ((start->section >= RCS_CHAPTER_2) && (start->phase == 0));
+		if(start->phase != 0) {
+			return false;
+		}
+		#if (GAME == 5)
+			return (
+				(start->section == RCS_CHAPTER_2) &&
+				(start->stage != 5)
+			);
+		#else
+			if(start->stage == 3) {
+				return (
+					(start->section == RCS_CHAPTER_2) ||
+					(start->section == RCS_CHAPTER_3)
+				);
+			}
+			return (
+				(start->section == RCS_CHAPTER_2) &&
+				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
+			);
+		#endif
 	}
 	if(start->kind == RSK_MIDBOSS) {
-		return (
-			(start->section <= RCS_MIDBOSS_SECONDARY) && (start->phase == 0)
-		);
+		if(start->phase != 0) {
+			return false;
+		}
+		#if (GAME == 5)
+			return (
+				(start->section == RCS_MIDBOSS_PRIMARY) &&
+				(start->stage != 5)
+			);
+		#else
+			if(start->stage == 3) {
+				return (start->section <= RCS_MIDBOSS_SECONDARY);
+			}
+			return (
+				(start->section == RCS_MIDBOSS_PRIMARY) &&
+				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
+			);
+		#endif
 	}
 	if(start->kind == RSK_BOSS_PHASE) {
-		if((GAME == 4) && (start->stage == STAGE_EXTRA)) {
-			return (start->section <= RCS_TH04_GENGETSU);
-		}
-		if((GAME == 5) && (start->stage == 3)) {
-			return (start->section <= RCS_TH05_YUKI);
-		}
-		return (start->section == 0);
+		#if (GAME == 5)
+			switch(start->stage) {
+			case 0: return ((start->section == 0) && (start->phase <= 4));
+			case 1: return ((start->section == 0) && (start->phase <= 7));
+			case 2: return ((start->section == 0) && (start->phase <= 14));
+			case 3:
+				if(start->section == RCS_TH05_PAIR) {
+					return (start->phase <= 2);
+				}
+				return (
+					(start->section <= RCS_TH05_YUKI) &&
+					(start->phase <= 9)
+				);
+			case 4: return ((start->section == 0) && (start->phase <= 10));
+			case 5: return ((start->section == 0) && (start->phase <= 12));
+			case STAGE_EXTRA:
+				return ((start->section == 0) && (start->phase <= 17));
+			}
+		#else
+			switch(start->stage) {
+			case 0: return ((start->section == 0) && (start->phase <= 5));
+			case 1: return ((start->section == 0) && (start->phase <= 6));
+			case 2: return ((start->section == 0) && (start->phase <= 4));
+			case 3:
+				return (
+					(start->section == 0) &&
+					(start->phase <= ((start->playchar == 0) ? 3 : 12))
+				);
+			case 4: return ((start->section == 0) && (start->phase <= 18));
+			case 5: return ((start->section == 0) && (start->phase <= 17));
+			case STAGE_EXTRA:
+				if(start->section == RCS_TH04_MUGETSU) {
+					return (start->phase <= 7);
+				}
+				return (
+					(start->section == RCS_TH04_GENGETSU) &&
+					(start->phase <= 9)
+				);
+			}
+		#endif
 	}
 	return false;
 }

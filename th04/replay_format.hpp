@@ -109,6 +109,7 @@ enum replay_checkpoint_codec_t {
 
 enum replay_checkpoint_section_t {
 	RCS_CHAPTER_2 = 2,
+	RCS_CHAPTER_3 = 3,
 	RCS_MIDBOSS_PRIMARY = 0,
 	RCS_MIDBOSS_SECONDARY = 1,
 	RCS_TH04_MUGETSU = 0,

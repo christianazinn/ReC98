@@ -87,6 +87,7 @@
 #include "th04/main/pointnum/pointnum.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay_checkpoint.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/playfld.hpp"
 #include "th04/main/player/player.hpp"
@@ -3462,8 +3463,8 @@ static bool rck_th04_boss_stage_valid(uint8_t id)
 	case 2: return (id == RCK4BS_ELLY);
 	case 3:
 		return (
-			((playchar == PLAYCHAR_REIMU) && (id == RCK4BS_REIMU)) ||
-			((playchar == PLAYCHAR_MARISA) && (id == RCK4BS_MARISA))
+			((playchar == PLAYCHAR_REIMU) && (id == RCK4BS_MARISA)) ||
+			((playchar == PLAYCHAR_MARISA) && (id == RCK4BS_REIMU))
 		);
 	case 4: return (id == RCK4BS_YUUKA5);
 	case 5: return (id == RCK4BS_YUUKA6);
@@ -3822,7 +3823,7 @@ static bool rck_th04_actor_stage4(replay_ck_stream_t far *stream)
 	RCK_U8_MAX(midboss4_passes, 8);
 	RCK_U8(midboss4_22B9E);
 
-	if(playchar == PLAYCHAR_REIMU) {
+	if(playchar == PLAYCHAR_MARISA) {
 		RCK_BOOL(reimu_afterimage);
 		RCK_U8(reimu_sweep_angle_delta);
 		if(!rck_th04_orb_patnum(stream, &orb_patnum_base)) {
@@ -3832,7 +3833,7 @@ static bool rck_th04_actor_stage4(replay_ck_stream_t far *stream)
 		RCK_BOOL(reimu_bg_pulse_direction);
 		return rck_th04_orb_template(stream, &orb_template);
 	}
-	if(playchar != PLAYCHAR_MARISA) {
+	if(playchar != PLAYCHAR_REIMU) {
 		return false;
 	}
 
@@ -5222,7 +5223,7 @@ static uint8_t rck_group_count(void)
 
 static bool rck_identity_valid(const replay_ck_identity_t far *identity)
 {
-	uint8_t section_max;
+	replay_start_config_t start;
 
 	if(
 		(identity == 0) ||
@@ -5231,28 +5232,12 @@ static bool rck_identity_valid(const replay_ck_identity_t far *identity)
 	) {
 		return false;
 	}
-	switch(identity->start_kind) {
-	case RSK_CHAPTER:
-		return ((identity->section >= RCS_CHAPTER_2) && (identity->phase == 0));
-	case RSK_MIDBOSS:
-		return (
-			(identity->section <= RCS_MIDBOSS_SECONDARY) &&
-			(identity->phase == 0)
-		);
-	case RSK_BOSS_PHASE:
-		section_max = 0;
-		#if (GAME == 5)
-			if(identity->stage == 3) {
-				section_max = RCS_TH05_YUKI;
-			}
-		#else
-			if(identity->stage == STAGE_EXTRA) {
-				section_max = RCS_TH04_GENGETSU;
-			}
-		#endif
-		return (identity->section <= section_max);
-	}
-	return false;
+	start.kind = identity->start_kind;
+	start.stage = identity->stage;
+	start.section = identity->section;
+	start.phase = identity->phase;
+	start.playchar = playchar;
+	return replay_checkpoint_identity_valid(&start);
 }
 
 static uint16_t rck_directory_offset(uint8_t group_id)
