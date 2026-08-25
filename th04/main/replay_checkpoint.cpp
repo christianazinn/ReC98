@@ -36,8 +36,11 @@
 	#include "th05/resident.hpp"
 #else
 	#include "th04/main/boss/boss.hpp"
+	#include "th04/main/boss/backdrop.hpp"
+	#include "th04/main/boss/bosses.hpp"
 	#include "th04/main/bullet/laser_t.hpp"
 	#include "th04/main/enemy/enemy.hpp"
+	#include "th04/main/null.hpp"
 	#include "th04/main/player/bomb.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
@@ -1819,6 +1822,390 @@ static bool rck_group_actors_common(replay_ck_stream_t far *stream)
 	}
 	return rck_explosion(stream, &explosions_big);
 }
+
+#if (GAME == 4)
+enum rck_th04_midboss_setup_t {
+	RCK4MS_NONE = 0,
+	RCK4MS_STAGE1,
+	RCK4MS_STAGE2,
+	RCK4MS_STAGE3,
+	RCK4MS_STAGE4,
+	RCK4MS_EXTRA,
+};
+
+enum rck_th04_boss_setup_t {
+	RCK4BS_ORANGE = 1,
+	RCK4BS_KURUMI,
+	RCK4BS_ELLY,
+	RCK4BS_REIMU,
+	RCK4BS_MARISA,
+	RCK4BS_YUUKA5,
+	RCK4BS_YUUKA6,
+	RCK4BS_EXTRA,
+};
+
+enum rck_th04_backdrop_t {
+	RCK4BD_ORANGE = 1,
+	RCK4BD_KURUMI,
+	RCK4BD_ELLY,
+	RCK4BD_REIMU_MARISA,
+	RCK4BD_YUUKA5,
+	RCK4BD_EXTRA,
+};
+
+static uint8_t rck_th04_midboss_setup_id(void)
+{
+	if(
+		(midboss_update_func == nullfunc_far) &&
+		(midboss_render_func == nullfunc_near)
+	) {
+		return RCK4MS_NONE;
+	}
+	if(
+		(midboss_update_func == midboss1_update) &&
+		(midboss_render_func == midboss1_render)
+	) {
+		return RCK4MS_STAGE1;
+	}
+	if(
+		(midboss_update_func == midboss2_update) &&
+		(midboss_render_func == midboss2_render)
+	) {
+		return RCK4MS_STAGE2;
+	}
+	if(
+		(midboss_update_func == midboss3_update) &&
+		(midboss_render_func == midboss3_render)
+	) {
+		return RCK4MS_STAGE3;
+	}
+	if(
+		(midboss_update_func == midboss4_update) &&
+		(midboss_render_func == midboss4_render)
+	) {
+		return RCK4MS_STAGE4;
+	}
+	if(
+		(midboss_update_func == midbossx_update) &&
+		(midboss_render_func == midbossx_render)
+	) {
+		return RCK4MS_EXTRA;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_midboss_setup_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK4MS_NONE:
+		midboss_update_func = nullfunc_far;
+		midboss_render_func = nullfunc_near;
+		break;
+	case RCK4MS_STAGE1:
+		midboss_update_func = midboss1_update;
+		midboss_render_func = midboss1_render;
+		break;
+	case RCK4MS_STAGE2:
+		midboss_update_func = midboss2_update;
+		midboss_render_func = midboss2_render;
+		break;
+	case RCK4MS_STAGE3:
+		midboss_update_func = midboss3_update;
+		midboss_render_func = midboss3_render;
+		break;
+	case RCK4MS_STAGE4:
+		midboss_update_func = midboss4_update;
+		midboss_render_func = midboss4_render;
+		break;
+	case RCK4MS_EXTRA:
+		midboss_update_func = midbossx_update;
+		midboss_render_func = midbossx_render;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+static uint8_t rck_th04_midboss_live_id(void)
+{
+	if(
+		(midboss_invalidate == nullfunc_near) &&
+		(midboss_update == nullfunc_far) &&
+		(midboss_render == nullfunc_near)
+	) {
+		return 0;
+	}
+	if(
+		(midboss_invalidate == midboss_invalidate_func) &&
+		(midboss_update == midboss_update_func) &&
+		(midboss_render == midboss_render_func)
+	) {
+		return 1;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_midboss_stage_valid(uint8_t id)
+{
+	switch(stage_id) {
+	case 0: return (id == RCK4MS_STAGE1);
+	case 1: return (id == RCK4MS_STAGE2);
+	case 2: return (id == RCK4MS_STAGE3);
+	case 3: return (id == RCK4MS_STAGE4);
+	case 4:
+	case 5: return (id == RCK4MS_NONE);
+	case 6: return (id == RCK4MS_EXTRA);
+	}
+	return false;
+}
+
+#define RCK4_BOSS_SETUP_CASE(id, bg, update, fg) \
+	if( \
+		(boss_bg_render_func == bg) && \
+		(boss_update_func == update) && \
+		(boss_fg_render_func == fg) \
+	) { return id; }
+
+static uint8_t rck_th04_boss_setup_id(void)
+{
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_ORANGE, orange_bg_render, orange_update, orange_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_KURUMI, kurumi_bg_render, kurumi_update, kurumi_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_ELLY, elly_bg_render, elly_update, elly_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_REIMU, reimu_marisa_bg_render, reimu_update, reimu_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_MARISA, reimu_marisa_bg_render, marisa_update, marisa_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_YUUKA5, yuuka5_bg_render, yuuka5_update, yuuka5_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_YUUKA6, yuuka6_bg_render, yuuka6_update, yuuka6_fg_render
+	);
+	RCK4_BOSS_SETUP_CASE(
+		RCK4BS_EXTRA, mugetsu_gengetsu_bg_render,
+		mugetsu_update, mugetsu_fg_render
+	);
+	return 0xFF;
+}
+
+#undef RCK4_BOSS_SETUP_CASE
+
+static bool rck_th04_boss_setup_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK4BS_ORANGE:
+		boss_bg_render_func = orange_bg_render;
+		boss_update_func = orange_update;
+		boss_fg_render_func = orange_fg_render;
+		break;
+	case RCK4BS_KURUMI:
+		boss_bg_render_func = kurumi_bg_render;
+		boss_update_func = kurumi_update;
+		boss_fg_render_func = kurumi_fg_render;
+		break;
+	case RCK4BS_ELLY:
+		boss_bg_render_func = elly_bg_render;
+		boss_update_func = elly_update;
+		boss_fg_render_func = elly_fg_render;
+		break;
+	case RCK4BS_REIMU:
+		boss_bg_render_func = reimu_marisa_bg_render;
+		boss_update_func = reimu_update;
+		boss_fg_render_func = reimu_fg_render;
+		break;
+	case RCK4BS_MARISA:
+		boss_bg_render_func = reimu_marisa_bg_render;
+		boss_update_func = marisa_update;
+		boss_fg_render_func = marisa_fg_render;
+		break;
+	case RCK4BS_YUUKA5:
+		boss_bg_render_func = yuuka5_bg_render;
+		boss_update_func = yuuka5_update;
+		boss_fg_render_func = yuuka5_fg_render;
+		break;
+	case RCK4BS_YUUKA6:
+		boss_bg_render_func = yuuka6_bg_render;
+		boss_update_func = yuuka6_update;
+		boss_fg_render_func = yuuka6_fg_render;
+		break;
+	case RCK4BS_EXTRA:
+		boss_bg_render_func = mugetsu_gengetsu_bg_render;
+		boss_update_func = mugetsu_update;
+		boss_fg_render_func = mugetsu_fg_render;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+static bool rck_th04_boss_stage_valid(uint8_t id)
+{
+	switch(stage_id) {
+	case 0: return (id == RCK4BS_ORANGE);
+	case 1: return (id == RCK4BS_KURUMI);
+	case 2: return (id == RCK4BS_ELLY);
+	case 3:
+		return (
+			((playchar == PLAYCHAR_REIMU) && (id == RCK4BS_REIMU)) ||
+			((playchar == PLAYCHAR_MARISA) && (id == RCK4BS_MARISA))
+		);
+	case 4: return (id == RCK4BS_YUUKA5);
+	case 5: return (id == RCK4BS_YUUKA6);
+	case 6: return (id == RCK4BS_EXTRA);
+	}
+	return false;
+}
+
+static uint8_t rck_th04_boss_update_id(void)
+{
+	if(boss_update == nullfunc_far) {
+		return 0;
+	}
+	if(boss_update == boss_update_func) {
+		return 1;
+	}
+	if(boss_update == gengetsu_update) {
+		return 2;
+	}
+	return 0xFF;
+}
+
+static uint8_t rck_th04_boss_fg_id(void)
+{
+	if(boss_fg_render == nullfunc_near) {
+		return 0;
+	}
+	if(boss_fg_render == boss_fg_render_func) {
+		return 1;
+	}
+	if(boss_fg_render == gengetsu_fg_render) {
+		return 2;
+	}
+	return 0xFF;
+}
+
+static uint8_t rck_th04_backdrop_id(void)
+{
+	if(boss_backdrop_colorfill == orange_backdrop_colorfill) {
+		return RCK4BD_ORANGE;
+	}
+	if(boss_backdrop_colorfill == kurumi_backdrop_colorfill) {
+		return RCK4BD_KURUMI;
+	}
+	if(boss_backdrop_colorfill == elly_backdrop_colorfill) {
+		return RCK4BD_ELLY;
+	}
+	if(boss_backdrop_colorfill == reimu_marisa_backdrop_colorfill) {
+		return RCK4BD_REIMU_MARISA;
+	}
+	if(boss_backdrop_colorfill == yuuka5_backdrop_colorfill) {
+		return RCK4BD_YUUKA5;
+	}
+	if(boss_backdrop_colorfill == mugetsu_gengetsu_backdrop_colorfill) {
+		return RCK4BD_EXTRA;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_backdrop_apply(uint8_t id)
+{
+	switch(id) {
+	case RCK4BD_ORANGE:
+		boss_backdrop_colorfill = orange_backdrop_colorfill;
+		break;
+	case RCK4BD_KURUMI:
+		boss_backdrop_colorfill = kurumi_backdrop_colorfill;
+		break;
+	case RCK4BD_ELLY:
+		boss_backdrop_colorfill = elly_backdrop_colorfill;
+		break;
+	case RCK4BD_REIMU_MARISA:
+		boss_backdrop_colorfill = reimu_marisa_backdrop_colorfill;
+		break;
+	case RCK4BD_YUUKA5:
+		boss_backdrop_colorfill = yuuka5_backdrop_colorfill;
+		break;
+	case RCK4BD_EXTRA:
+		boss_backdrop_colorfill = mugetsu_gengetsu_backdrop_colorfill;
+		break;
+	default:
+		return false;
+	}
+	return true;
+}
+
+static bool rck_th04_backdrop_stage_valid(uint8_t id)
+{
+	switch(stage_id) {
+	case 0: return (id == RCK4BD_ORANGE);
+	case 1: return (id == RCK4BD_KURUMI);
+	case 2: return (id == RCK4BD_ELLY);
+	case 3: return (id == RCK4BD_REIMU_MARISA);
+	case 4:
+	case 5: return (id == RCK4BD_YUUKA5);
+	case 6: return (id == RCK4BD_EXTRA);
+	}
+	return false;
+}
+
+static bool rck_th04_actor_callbacks(replay_ck_stream_t far *stream)
+{
+	uint8_t midboss_setup = rck_th04_midboss_setup_id();
+	uint8_t midboss_live = rck_th04_midboss_live_id();
+	uint8_t boss_setup = rck_th04_boss_setup_id();
+	uint8_t boss_update_id = rck_th04_boss_update_id();
+	uint8_t boss_fg_id = rck_th04_boss_fg_id();
+	uint8_t backdrop = rck_th04_backdrop_id();
+
+	if(
+		!rck_u8(stream, &midboss_setup) ||
+		!rck_th04_midboss_stage_valid(midboss_setup) ||
+		!rck_u8(stream, &midboss_live) || (midboss_live > 1) ||
+		((midboss_setup == RCK4MS_NONE) && midboss_live) ||
+		!rck_u8(stream, &boss_setup) ||
+		!rck_th04_boss_stage_valid(boss_setup) ||
+		!rck_u8(stream, &boss_update_id) || (boss_update_id > 2) ||
+		((boss_update_id == 2) && (boss_setup != RCK4BS_EXTRA)) ||
+		!rck_u8(stream, &boss_fg_id) || (boss_fg_id > 2) ||
+		((boss_fg_id == 2) && (boss_setup != RCK4BS_EXTRA)) ||
+		!rck_u8(stream, &backdrop) ||
+		!rck_th04_backdrop_stage_valid(backdrop)
+	) {
+		return false;
+	}
+	if(!rck_applying(stream)) {
+		return true;
+	}
+	if(
+		!rck_th04_midboss_setup_apply(midboss_setup) ||
+		!rck_th04_boss_setup_apply(boss_setup) ||
+		!rck_th04_backdrop_apply(backdrop)
+	) {
+		return false;
+	}
+	midboss_invalidate = midboss_live
+		? midboss_invalidate_func : nullfunc_near;
+	midboss_update = midboss_live ? midboss_update_func : nullfunc_far;
+	midboss_render = midboss_live ? midboss_render_func : nullfunc_near;
+	boss_update = (boss_update_id == 0)
+		? nullfunc_far
+		: ((boss_update_id == 1) ? boss_update_func : gengetsu_update);
+	boss_fg_render = (boss_fg_id == 0)
+		? nullfunc_near
+		: ((boss_fg_id == 1) ? boss_fg_render_func : gengetsu_fg_render);
+	return true;
+}
+#endif
 
 bool replay_ck_group_codec(
 	uint8_t group_id, replay_ck_stream_t far *stream
