@@ -21,6 +21,7 @@
 #include "th01/hardware/palette.h"
 #include "th01/formats/cfg.hpp"
 #include "th01/formats/grp.h"
+#include "th01/replay_op.hpp"
 #include "th01/snd/mdrv2.h"
 #include "th01/shiftjis/debug.hpp"
 #include "th01/shiftjis/fns.hpp"
@@ -127,11 +128,14 @@ enum menu_id_t {
 	MID_MAIN,
 	MID_OPTION,
 	MID_MUSIC,
+	MID_REPLAY,
+	MID_PRACTICE,
 	MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN,
 	MID_DELAY__SWITCH_TO_OPTION,
+	MID_DELAY__SWITCH_TO_MAIN,
 };
 
-static const int MAIN_CHOICE_COUNT = 4;
+static const int MAIN_CHOICE_COUNT = 6;
 static const int OPTION_CHOICE_COUNT = 5;
 static const int MUSIC_CHOICE_COUNT = 2;
 
@@ -395,6 +399,76 @@ void start_game(void)
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
 
+static bool replay_carrier_create(void)
+{
+	resident_create_and_stuff_set(
+		opts.rank,
+		opts.bgm_mode,
+		opts.credit_bombs,
+		opts.credit_lives_extra,
+		frame_rand
+	);
+	return (resident != 0);
+}
+
+static void replay_playback_start(void)
+{
+	if(!replay_carrier_create()) {
+		t1replay_op_command_clear();
+		return;
+	}
+	cfg_save();
+	title_exit();
+	mdrv2_bgm_fade_out_nonblock();
+	game_switch_binary();
+	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+}
+
+static bool practice_start(void)
+{
+	t1replay_practice_start_t start;
+	int i;
+
+	t1replay_op_practice_start_get(start);
+	if(!replay_carrier_create()) {
+		t1replay_op_command_clear();
+		return false;
+	}
+	cfg_save();
+	resident->rank = start.rank;
+	resident->bgm_mode = opts.bgm_mode;
+	resident->rem_bombs = start.bombs;
+	resident->credit_lives_extra = opts.credit_lives_extra;
+	resident->end_flag = ES_NONE;
+	resident->unused_1 = 0;
+	resident->route = start.route;
+	resident->rem_lives = start.lives;
+	resident->snd_need_init = true;
+	resident->unused_2 = 0;
+	resident->debug_mode = DM_OFF;
+	resident->pellet_speed = start.pellet_speed;
+	resident->rand = start.rand;
+	resident->score = start.score;
+	resident->continues_total = 0;
+	for(i = 0; i < SCENE_COUNT; i++) {
+		resident->continues_per_scene[i] = 0;
+	}
+	for(i = 0; i < (STAGES_PER_SCENE - 1); i++) {
+		resident->bonus_per_stage[i] = 0;
+	}
+	resident->stage_id = static_cast<unsigned int>(
+		(start.scene * STAGES_PER_SCENE) + start.chapter
+	);
+	resident->hiscore = 0;
+	resident->score_highest = 0;
+	resident->point_value = start.point_value;
+	title_exit();
+	mdrv2_bgm_fade_out_nonblock();
+	game_switch_binary();
+	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+	return true;
+}
+
 void start_continue(void)
 {
 	cfg_save();
@@ -442,7 +516,7 @@ static const screen_y_t MENU_CENTER_Y = 316;
 static const pixel_t MENU_W = 176;
 
 static const pixel_t CHOICE_PADDED_H = 20;
-static const int CHOICE_COUNT_MAX = 5;
+static const int CHOICE_COUNT_MAX = 6;
 
 static const int TRACK_COUNT = 15;
 
@@ -504,13 +578,23 @@ void title_hit_key_put(int frame)
 
 void main_choice_unput_and_put(int choice, vc2 col)
 {
-	const shiftjis_t* CHOICES[MAIN_CHOICE_COUNT] = MAIN_CHOICES;
+	const shiftjis_t* CHOICES[4] = MAIN_CHOICES;
+	const char *choice_str;
 
-	screen_x_t left = (MENU_CENTER_X - (MAIN_CHOICE_W / 2));
+	screen_x_t left;
 	screen_y_t top = choice_top(choice, MAIN_CHOICE_COUNT);
 
+	if(choice == 3) {
+		choice_str = " PRACTICE ";
+	} else if(choice == 4) {
+		choice_str = "  REPLAY  ";
+	} else {
+		choice_str = CHOICES[(choice < 3) ? choice : 3];
+	}
+	left = (MENU_CENTER_X - (shiftjis_w(choice_str) / 2));
+
 	// No unblitting necessary here, as only the colors change.
-	graph_putsa_fx(left, top, (col | FX), CHOICES[choice]);
+	graph_putsa_fx(left, top, (col | FX), choice_str);
 }
 
 void option_choice_unput_and_put(int choice, vc2 col)
@@ -589,6 +673,8 @@ void main_update_and_render(void)
 		main_choice_unput_and_put(1, COL_INACTIVE);
 		main_choice_unput_and_put(2, COL_INACTIVE);
 		main_choice_unput_and_put(3, COL_INACTIVE);
+		main_choice_unput_and_put(4, COL_INACTIVE);
+		main_choice_unput_and_put(5, COL_INACTIVE);
 
 		main_choice_unput_and_put(menu_sel, COL_ACTIVE);
 		in_this_menu = true;
@@ -609,6 +695,21 @@ void main_update_and_render(void)
 			in_this_menu = false;
 			break;
 		case 3:
+			menu_id = MID_PRACTICE;
+			t1replay_op_practice_enter(
+				opts.rank,
+				static_cast<int8_t>(opts.credit_lives_extra + 2),
+				opts.credit_bombs,
+				frame_rand
+			);
+			in_this_menu = false;
+			break;
+		case 4:
+			menu_id = MID_REPLAY;
+			t1replay_op_replay_enter();
+			in_this_menu = false;
+			break;
+		case 5:
 			quit = true;
 			break;
 		}
@@ -828,6 +929,27 @@ void main(int argc, const char *argv[])
 		} else if(menu_id == MID_MUSIC) {
 			option_input_sense();
 			music_update_and_render();
+		} else if(menu_id == MID_REPLAY) {
+			t1replay_op_result_t result = t1replay_op_replay_update();
+			if(result.action == T1ROA_RETURN) {
+				t1replay_op_restore();
+				menu_sel = 4;
+				menu_id = MID_DELAY__SWITCH_TO_MAIN;
+			} else if(result.action == T1ROA_PLAYBACK) {
+				replay_playback_start();
+			}
+		} else if(menu_id == MID_PRACTICE) {
+			t1replay_op_result_t result = t1replay_op_practice_update();
+			if(result.action == T1ROA_RETURN) {
+				t1replay_op_restore();
+				menu_sel = 3;
+				menu_id = MID_DELAY__SWITCH_TO_MAIN;
+			} else if(
+				(result.action == T1ROA_PRACTICE_RECORD) ||
+				(result.action == T1ROA_PRACTICE_UNRECORDED)
+			) {
+				practice_start();
+			}
 		} else if(menu_id == MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN) {
 			if(opts.bgm_mode != bgm_mode_cur) {
 				if(opts.bgm_mode == BGM_MODE_OFF) {
@@ -850,6 +972,9 @@ void main(int argc, const char *argv[])
 			// ZUN quirk: Same here.
 			frame_delay(15);
 			menu_id = MID_OPTION;
+		} else if(menu_id == MID_DELAY__SWITCH_TO_MAIN) {
+			frame_delay(15);
+			menu_id = MID_MAIN;
 		}
 
 		// Clear the PC-98 BIOS keyboard buffer… yeah, this is not a proper

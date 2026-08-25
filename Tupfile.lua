@@ -374,6 +374,9 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/resstuff.cpp",
 	"th01/mdrv2.cpp",
 	"th01/pf.cpp",
+	-- Keep patch-owned title state after every original OP object so new BSS
+	-- cannot move original resident variables.
+	"th01/rpyop.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	piloadc,
