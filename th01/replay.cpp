@@ -265,10 +265,11 @@ static unsigned t1replay_dos_write(int fh, const void far *buf, unsigned size)
 	return result;
 }
 
-static void t1replay_dos_delete(const char far *fn)
+static bool t1replay_dos_delete(const char far *fn)
 {
 	unsigned fn_seg = T1REPLAY_FP_SEG(fn);
 	unsigned fn_off = T1REPLAY_FP_OFF(fn);
+	unsigned result;
 
 	_asm {
 		push ds
@@ -277,7 +278,11 @@ static void t1replay_dos_delete(const char far *fn)
 		mov ah, 41h
 		int 21h
 		pop ds
+		sbb ax, ax
+		not ax
+		mov result, ax
 	}
+	return (result != 0);
 }
 
 static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size)
@@ -717,9 +722,17 @@ static void t1replay_res_clear(void)
 static void t1replay_res_store(void)
 {
 	t1replay_res->mode = static_cast<uint8_t>(t1replay_mode);
-	t1replay_res->sample_count = t1replay_sample_cursor;
-	t1replay_res->packet_count = t1replay_packet_cursor;
-	t1replay_res->input_size = t1replay_payload_written;
+	if(t1replay_mode == T1RM_RECORD) {
+		// A record-mode handoff is immediately after buffer_flush(). The file
+		// header, not the unused playback cursors, is the durable total.
+		t1replay_res->sample_count = t1replay_header.sample_count;
+		t1replay_res->packet_count = t1replay_header.packet_count;
+		t1replay_res->input_size = t1replay_header.input_size;
+	} else {
+		t1replay_res->sample_count = t1replay_sample_cursor;
+		t1replay_res->packet_count = t1replay_packet_cursor;
+		t1replay_res->input_size = t1replay_payload_written;
+	}
 	t1replay_res->payload_checksum = t1replay_payload_checksum;
 	t1replay_res->start_checksum = t1replay_header.start_checksum;
 	t1replay_res_checksum();
@@ -727,13 +740,29 @@ static void t1replay_res_store(void)
 
 static bool t1replay_res_matches_header(void)
 {
+	if(
+		(t1replay_res->packet_count >
+			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
+		(t1replay_res->input_size !=
+			(t1replay_res->packet_count * T1REPLAY_PACKET_SIZE)) ||
+		(t1replay_res->start_checksum != t1replay_header.start_checksum)
+	) {
+		return false;
+	}
+	if(t1replay_mode == T1RM_RECORD) {
+		return (
+			(t1replay_res->sample_count == t1replay_header.sample_count) &&
+			(t1replay_res->packet_count == t1replay_header.packet_count) &&
+			(t1replay_res->input_size == t1replay_header.input_size) &&
+			t1replay_payload_prefix_valid(
+				t1replay_res->input_size, t1replay_res->payload_checksum
+			)
+		);
+	}
 	return (
 		(t1replay_res->sample_count <= t1replay_header.sample_count) &&
 		(t1replay_res->packet_count <= t1replay_header.packet_count) &&
-		(t1replay_res->input_size ==
-			(t1replay_res->packet_count * T1REPLAY_PACKET_SIZE)) &&
 		(t1replay_res->input_size <= t1replay_header.input_size) &&
-		(t1replay_res->start_checksum == t1replay_header.start_checksum) &&
 		t1replay_payload_prefix_valid(
 			t1replay_res->input_size, t1replay_res->payload_checksum
 		)
@@ -766,7 +795,9 @@ static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 	) {
 		return T1RM_DISABLED;
 	}
-	t1replay_dos_delete(t1replay_command_fn);
+	if(!t1replay_dos_delete(t1replay_command_fn)) {
+		return T1RM_DISABLED;
+	}
 	*slot = command.slot;
 	return static_cast<t1replay_mode_t>(command.mode);
 }
