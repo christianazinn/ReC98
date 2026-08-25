@@ -26,6 +26,7 @@
 #include "th02/op/op.h"
 #include "th02/op/menu.hpp"
 #include "th02/op/m_music.hpp"
+#include "th02/op/replay.hpp"
 
 #pragma option -2 -a2
 
@@ -854,7 +855,7 @@ int main(void)
 	while(!quit) {
 		input_reset_sense();
 		if(in_option == false) {
-			main_update_and_render();
+			replay_title_update_and_render();
 		} else if(in_option == true) {
 			option_update_and_render();
 		}
@@ -872,3 +873,8 @@ int main(void)
 	gaiji_restore();
 	return ret;
 }
+
+// The replay title surface is emitted into its own trailing code segment.  It
+// is included here rather than listed in Tupfile.lua because that file is
+// currently reserved by an unrelated parcel; no original OP link order moves.
+#include "th02/op/replay.cpp"
