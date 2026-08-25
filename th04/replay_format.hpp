@@ -20,6 +20,11 @@
 #define REPLAY_CKPT_GROUPS_TH04 12
 #define REPLAY_CKPT_GROUPS_TH05 13
 #define REPLAY_CKPT_GROUPS_MAX 13
+#define REPLAY_CHECKPOINT_SIZE_MAX 0xFFF0u
+
+// ASCII `f7d5`, the source foundation shared by the normalized TH04/TH05
+// checkpoint schemas. Change this only when checkpoint interpretation changes.
+#define REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0x35643766UL
 
 #define REPLAY_USER_FLAG_RLE_INPUT 0x0001
 #define REPLAY_USER_FLAG_SHIFT_INPUT 0x0002

@@ -315,6 +315,25 @@ static bool replay_op_dos_size(int fh, uint32_t *size)
 	return (failed == 0);
 }
 
+static bool replay_op_dos_seek(int fh, uint32_t pos)
+{
+	unsigned pos_hi = static_cast<unsigned>(pos >> 16);
+	unsigned pos_lo = static_cast<unsigned>(pos & 0xFFFFUL);
+	unsigned failed;
+
+	_asm {
+		mov	bx, fh
+		mov	cx, pos_hi
+		mov	dx, pos_lo
+		mov	ax, 4200h
+		int	21h
+		sbb	ax, ax
+		neg	ax
+		mov	failed, ax
+	}
+	return (failed == 0);
+}
+
 static void replay_op_memclear(void far *buf, unsigned size)
 {
 	uint8_t far *p = reinterpret_cast<uint8_t far *>(buf);
@@ -385,6 +404,30 @@ static bool replay_op_bytes_zero(const uint8_t far *p, unsigned size)
 		size--;
 	}
 	return true;
+}
+
+static bool replay_op_checkpoint_identity_valid(
+	const replay_start_config_t far *start
+)
+{
+	if(start->kind == RSK_CHAPTER) {
+		return ((start->section >= RCS_CHAPTER_2) && (start->phase == 0));
+	}
+	if(start->kind == RSK_MIDBOSS) {
+		return (
+			(start->section <= RCS_MIDBOSS_SECONDARY) && (start->phase == 0)
+		);
+	}
+	if(start->kind == RSK_BOSS_PHASE) {
+		if((GAME == 4) && (start->stage == STAGE_EXTRA)) {
+			return (start->section <= RCS_TH04_GENGETSU);
+		}
+		if((GAME == 5) && (start->stage == 3)) {
+			return (start->section <= RCS_TH05_YUKI);
+		}
+		return (start->section == 0);
+	}
+	return false;
 }
 
 static uint8_t replay_op_playperf_min(uint8_t start_rank)
@@ -459,14 +502,21 @@ static bool replay_op_playperf_valid(uint8_t start_rank, uint8_t value)
 }
 
 static bool replay_op_start_valid(
-	const replay_start_config_t far *start, bool practice
+	const replay_start_config_t far *start, bool practice, bool checkpoint
 )
 {
+	bool kind_valid = (
+		practice
+			? (checkpoint
+				? replay_op_checkpoint_identity_valid(start)
+				: (start->kind == RSK_STAGE))
+			: (start->kind == RSK_NATIVE)
+	);
 	if(
 		(start->schema != REPLAY_START_SCHEMA) ||
-		(start->kind != (practice ? RSK_STAGE : RSK_NATIVE)) ||
+		!kind_valid ||
 		(start->stage > STAGE_EXTRA) ||
-		(start->section != 0) || (start->phase != 0) ||
+		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
 		(start->rank > RANK_EXTRA) ||
 		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
 		(start->lives > 9) || (start->bombs > 9) ||
@@ -525,7 +575,42 @@ static bool replay_op_header_valid(uint32_t file_size)
 {
 	uint32_t stored = replay_op_header.header_checksum;
 	uint32_t computed;
+	uint32_t input_end;
+	uint32_t expected_file_size;
+	bool checkpoint;
 	unsigned i;
+
+	checkpoint = (
+		(replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0
+	);
+	input_end = (
+		replay_op_header.input_offset + replay_op_header.input_size
+	);
+	expected_file_size = input_end;
+	if(checkpoint) {
+		if(
+			(replay_op_header.checkpoint_schema != REPLAY_CHECKPOINT_SCHEMA) ||
+			(replay_op_header.checkpoint_offset != input_end) ||
+			(replay_op_header.checkpoint_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
+			(replay_op_header.checkpoint_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
+			(replay_op_header.checkpoint_checksum == 0) ||
+			(replay_op_header.source_fingerprint !=
+			 REPLAY_CHECKPOINT_SOURCE_FINGERPRINT) ||
+			(replay_op_header.state_digest == 0)
+		) {
+			return false;
+		}
+		expected_file_size += replay_op_header.checkpoint_size;
+	} else if(
+		(replay_op_header.checkpoint_schema != 0) ||
+		(replay_op_header.checkpoint_offset != 0) ||
+		(replay_op_header.checkpoint_size != 0) ||
+		(replay_op_header.checkpoint_checksum != 0) ||
+		(replay_op_header.source_fingerprint != 0) ||
+		(replay_op_header.state_digest != 0)
+	) {
+		return false;
+	}
 
 	if(
 		(replay_op_header.magic[0] != 'T') ||
@@ -556,19 +641,11 @@ static bool replay_op_header_valid(uint32_t file_size)
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
 		(replay_op_header.input_size !=
 		 (replay_op_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
-		(file_size !=
-		 (replay_op_header.input_offset + replay_op_header.input_size)) ||
-		(replay_op_header.checkpoint_offset != 0) ||
-		(replay_op_header.checkpoint_size != 0) ||
-		(replay_op_header.checkpoint_checksum != 0) ||
-		(replay_op_header.checkpoint_schema != 0) ||
-		((replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) ||
-		(replay_op_header.source_fingerprint != 0) ||
-		(replay_op_header.state_digest != 0) ||
+		(file_size != expected_file_size) ||
 		(replay_op_header.stage_reached > STAGE_EXTRA) ||
 		!replay_op_start_valid(
 			&replay_op_header.start,
-			(replay_op_header.mode == RUM_PRACTICE)
+			(replay_op_header.mode == RUM_PRACTICE), checkpoint
 		)
 	) {
 		return false;
@@ -586,10 +663,46 @@ static bool replay_op_header_valid(uint32_t file_size)
 	return (stored == computed);
 }
 
-static bool replay_op_header_read(uint8_t slot)
+static bool replay_op_extent_checksum(
+	int fh, uint32_t offset, uint32_t size, uint32_t expected
+)
+{
+	uint32_t hash = REPLAY_FNV1A_BASIS;
+	uint32_t remaining = size;
+	uint8_t far *buffer;
+	unsigned len;
+	bool ok = false;
+
+	buffer = reinterpret_cast<uint8_t far *>(hmem_allocbyte(1024));
+	if((buffer == 0) || !replay_op_dos_seek(fh, offset)) {
+		if(buffer != 0) {
+			hmem_free(reinterpret_cast<void __seg *>(buffer));
+		}
+		return false;
+	}
+	while(remaining != 0) {
+		len = ((remaining > 1024UL)
+			? 1024
+			: static_cast<unsigned>(remaining)
+		);
+		if(replay_op_dos_read(fh, buffer, len) != len) {
+			break;
+		}
+		hash = replay_op_fnv1a(hash, buffer, len);
+		remaining -= len;
+	}
+	if((remaining == 0) && (hash == expected)) {
+		ok = true;
+	}
+	hmem_free(reinterpret_cast<void __seg *>(buffer));
+	return ok;
+}
+
+static bool replay_op_header_read(uint8_t slot, bool deep)
 {
 	uint32_t file_size;
 	int fh;
+	bool valid;
 
 	replay_op_paths_init();
 	replay_op_slot_set(slot);
@@ -606,8 +719,20 @@ static bool replay_op_header_read(uint8_t slot)
 		replay_op_dos_close(fh);
 		return false;
 	}
+	valid = replay_op_header_valid(file_size);
+	if(
+		valid && deep &&
+		((replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0)
+	) {
+		valid = replay_op_extent_checksum(
+			fh,
+			replay_op_header.checkpoint_offset,
+			replay_op_header.checkpoint_size,
+			replay_op_header.checkpoint_checksum
+		);
+	}
 	replay_op_dos_close(fh);
-	return replay_op_header_valid(file_size);
+	return valid;
 }
 
 static bool replay_op_command_write(
@@ -823,7 +948,7 @@ static void replay_browser_header_put(void)
 static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 {
 	char *p = replay_op_line;
-	bool valid = replay_op_header_read(slot);
+	bool valid = replay_op_header_read(slot, false);
 
 	*p++ = (selected ? '>' : ' ');
 	*p++ = ' ';
@@ -1334,7 +1459,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 				replay_op_screen_end(previous_func, previous_spacing);
 				return false;
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
-				if(replay_op_start_valid(start, true)) {
+				if(replay_op_start_valid(start, true, false)) {
 					palette_black_out(4);
 					replay_op_screen_end(previous_func, previous_spacing);
 					return true;
@@ -1359,11 +1484,11 @@ bool replay_practice_record_prepare(
 	replay_op_copy(&start, start_in, sizeof(start));
 	start.resident_rand = resident->rand;
 	start.random_seed = resident->rand;
-	if(!replay_op_start_valid(&start, true)) {
+	if(!replay_op_start_valid(&start, true, false)) {
 		return false;
 	}
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
-		if(!replay_op_header_read(slot)) {
+		if(!replay_op_header_read(slot, false)) {
 			return replay_op_command_write(
 				RCM_RECORD, slot, REPLAY_COMMAND_FLAG_PRACTICE, &start
 			);
@@ -1413,7 +1538,7 @@ bool replay_browser(void)
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				if(
-					replay_op_header_read(sel) &&
+					replay_op_header_read(sel, true) &&
 					replay_op_command_write(RCM_PLAYBACK, sel, 0, NULL)
 				) {
 					palette_black_out(4);
@@ -1434,7 +1559,7 @@ void replay_record_next_prepare(void)
 	uint8_t slot;
 
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
-		if(!replay_op_header_read(slot)) {
+		if(!replay_op_header_read(slot, false)) {
 			replay_op_command_write(RCM_RECORD, slot, 0, NULL);
 			return;
 		}

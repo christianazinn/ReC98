@@ -13,6 +13,7 @@
 #include "th04/main/oracle.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
+#include "th04/main/replay_checkpoint.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
@@ -503,6 +504,30 @@ static bool replay_bytes_zero(const uint8_t far *p, unsigned size)
 	return true;
 }
 
+static bool replay_checkpoint_identity_valid(
+	const replay_start_config_t far *start
+)
+{
+	if(start->kind == RSK_CHAPTER) {
+		return ((start->section >= RCS_CHAPTER_2) && (start->phase == 0));
+	}
+	if(start->kind == RSK_MIDBOSS) {
+		return (
+			(start->section <= RCS_MIDBOSS_SECONDARY) && (start->phase == 0)
+		);
+	}
+	if(start->kind == RSK_BOSS_PHASE) {
+		if((GAME == 4) && (start->stage == STAGE_EXTRA)) {
+			return (start->section <= RCS_TH04_GENGETSU);
+		}
+		if((GAME == 5) && (start->stage == 3)) {
+			return (start->section <= RCS_TH05_YUKI);
+		}
+		return (start->section == 0);
+	}
+	return false;
+}
+
 static uint8_t replay_native_playperf(uint8_t start_rank)
 {
 	#if (GAME == 5)
@@ -550,15 +575,21 @@ static bool replay_playperf_valid(uint8_t start_rank, uint8_t value)
 }
 
 static bool replay_start_config_valid(
-	const replay_start_config_t far *start, bool practice
+	const replay_start_config_t far *start, bool practice, bool checkpoint
 )
 {
+	bool kind_valid = (
+		practice
+			? (checkpoint
+				? replay_checkpoint_identity_valid(start)
+				: (start->kind == RSK_STAGE))
+			: (start->kind == RSK_NATIVE)
+	);
 	if(
 		(start->schema != REPLAY_START_SCHEMA) ||
-		(start->kind != (practice ? RSK_STAGE : RSK_NATIVE)) ||
+		!kind_valid ||
 		(start->stage > STAGE_EXTRA) ||
-		(start->section != 0) ||
-		(start->phase != 0) ||
+		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
 		(start->rank > RANK_EXTRA) ||
 		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
 		(start->lives > 9) ||
@@ -632,6 +663,9 @@ static bool replay_header_read(void)
 	uint32_t stored;
 	uint32_t computed;
 	uint32_t file_size;
+	uint32_t input_end;
+	uint32_t expected_file_size;
+	bool checkpoint;
 	unsigned i;
 	int fh;
 
@@ -660,6 +694,35 @@ static bool replay_header_read(void)
 	) {
 		return false;
 	}
+	checkpoint = (
+		(replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0
+	);
+	input_end = (replay_header.input_offset + replay_header.input_size);
+	expected_file_size = input_end;
+	if(checkpoint) {
+		if(
+			(replay_header.checkpoint_schema != REPLAY_CHECKPOINT_SCHEMA) ||
+			(replay_header.checkpoint_offset != input_end) ||
+			(replay_header.checkpoint_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
+			(replay_header.checkpoint_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
+			(replay_header.checkpoint_checksum == 0) ||
+			(replay_header.source_fingerprint !=
+			 REPLAY_CHECKPOINT_SOURCE_FINGERPRINT) ||
+			(replay_header.state_digest == 0)
+		) {
+			return false;
+		}
+		expected_file_size += replay_header.checkpoint_size;
+	} else if(
+		(replay_header.checkpoint_schema != 0) ||
+		(replay_header.checkpoint_offset != 0) ||
+		(replay_header.checkpoint_size != 0) ||
+		(replay_header.checkpoint_checksum != 0) ||
+		(replay_header.source_fingerprint != 0) ||
+		(replay_header.state_digest != 0)
+	) {
+		return false;
+	}
 	if(
 		(replay_header.version != REPLAY_USER_VERSION) ||
 		(replay_header.header_size != REPLAY_USER_HEADER_SIZE) ||
@@ -681,17 +744,11 @@ static bool replay_header_read(void)
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
 		(replay_header.input_size !=
 			(replay_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
-		(file_size != (replay_header.input_offset + replay_header.input_size)) ||
-		(replay_header.checkpoint_offset != 0) ||
-		(replay_header.checkpoint_size != 0) ||
-		(replay_header.checkpoint_checksum != 0) ||
-		(replay_header.checkpoint_schema != 0) ||
-		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) ||
-		(replay_header.source_fingerprint != 0) ||
-		(replay_header.state_digest != 0) ||
+		(file_size != expected_file_size) ||
 		(replay_header.stage_reached > STAGE_EXTRA) ||
 		!replay_start_config_valid(
-			&replay_header.start, (replay_header.mode == RUM_PRACTICE)
+			&replay_header.start, (replay_header.mode == RUM_PRACTICE),
+			((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0)
 		)
 	) {
 		return false;
@@ -706,6 +763,55 @@ static bool replay_header_read(void)
 	computed = replay_header.header_checksum;
 	replay_header.header_checksum = stored;
 	return (stored == computed);
+}
+
+static void replay_checkpoint_identity_fill(
+	replay_ck_identity_t far *identity
+)
+{
+	identity->start_kind = replay_header.start.kind;
+	identity->stage = replay_header.start.stage;
+	identity->section = replay_header.start.section;
+	identity->phase = replay_header.start.phase;
+	identity->source_fingerprint = REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
+}
+
+static bool replay_checkpoint_restore(void)
+{
+	replay_ck_identity_t identity;
+	uint32_t validated_digest;
+	uint16_t size = static_cast<uint16_t>(replay_header.checkpoint_size);
+	uint8_t far *data;
+	int fh;
+	bool ok = false;
+
+	data = reinterpret_cast<uint8_t far *>(hmem_allocbyte(size));
+	if(data == 0) {
+		return false;
+	}
+	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
+	if(fh >= 0) {
+		if(
+			replay_dos_seek(fh, replay_header.checkpoint_offset) &&
+			(replay_dos_read(fh, data, size) == size) &&
+			(replay_fnv1a(REPLAY_FNV1A_BASIS, data, size) ==
+			 replay_header.checkpoint_checksum)
+		) {
+			replay_checkpoint_identity_fill(&identity);
+			if(
+				replay_ck_container_validate(
+					&identity, data, size, &validated_digest
+				) &&
+				(validated_digest == replay_header.state_digest) &&
+				replay_ck_container_apply(&identity, data, size)
+			) {
+				ok = true;
+			}
+		}
+		replay_dos_close(fh);
+	}
+	hmem_free(reinterpret_cast<void __seg *>(data));
+	return ok;
 }
 
 static bool replay_packet_read(replay_user_packet_t far *packet)
@@ -1122,7 +1228,7 @@ static replay_command_mode_t replay_command_load(
 			return RCM_NONE;
 		}
 	} else if(command.flags & REPLAY_COMMAND_FLAG_PRACTICE) {
-		if(!replay_start_config_valid(&command.start, true)) {
+		if(!replay_start_config_valid(&command.start, true, false)) {
 			return RCM_NONE;
 		}
 	} else if(!replay_bytes_zero(
@@ -1208,6 +1314,15 @@ void replay_stage_start(void)
 	uint8_t arg8;
 
 	if(replay_mode == RRM_DISABLED) {
+		return;
+	}
+	if(
+		(replay_mode == RRM_PLAYBACK) && !replay_stage_seen &&
+		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) &&
+		!replay_checkpoint_restore()
+	) {
+		replay_fail();
+		quit = Q_QUIT_TO_OP;
 		return;
 	}
 	if(replay_mode == RRM_RECORD) {
