@@ -18,6 +18,7 @@ bool replay_practice_record_prepare(
 bool replay_private_record_command_start(
 	replay_start_config_t far *start
 );
+void replay_command_clear(void);
 void replay_record_next_prepare(void);
 
 #endif /* TH04_OP_REPLAY_HPP */

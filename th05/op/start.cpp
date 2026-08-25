@@ -40,6 +40,8 @@ void near start_game(void)
 	resident_reset_last_highest_and_stage_scores();
 	if(!resident->debug) {
 		replay_record_next_prepare();
+	} else {
+		replay_command_clear();
 	}
 	op_exit_into_main(true, true);
 }
@@ -55,7 +57,11 @@ void near start_extra(void)
 		return;
 	}
 	resident_reset_last_highest_and_stage_scores();
-	replay_record_next_prepare();
+	if(!resident->debug) {
+		replay_record_next_prepare();
+	} else {
+		replay_command_clear();
+	}
 	op_exit_into_main(true, false);
 }
 
@@ -95,6 +101,8 @@ void near start_practice_private_command(
 
 void near start_demo(void)
 {
+	replay_command_clear();
+
 	resident->end_sequence = ES_SCORE;
 	resident->stage = 0;
 	resident->credit_lives = 3;

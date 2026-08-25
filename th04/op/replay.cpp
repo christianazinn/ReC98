@@ -248,6 +248,21 @@ static void replay_op_dos_close(int fh)
 	}
 }
 
+static void replay_op_dos_delete(const char far *fn)
+{
+	unsigned fn_seg = REPLAY_OP_FP_SEG(fn);
+	unsigned fn_off = REPLAY_OP_FP_OFF(fn);
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 41h
+		int	21h
+		pop	ds
+	}
+}
+
 static unsigned replay_op_dos_read(int fh, void far *buf, unsigned len)
 {
 	unsigned buf_seg = REPLAY_OP_FP_SEG(buf);
@@ -816,7 +831,7 @@ static bool replay_op_command_write(
 	int fh;
 	bool ok;
 
-	replay_op_paths_init();
+	replay_command_clear();
 	replay_op_memclear(&command, sizeof(command));
 	command.magic[0] = 'T'; command.magic[1] = ('0' + GAME);
 	command.magic[2] = 'R'; command.magic[3] = 'C';
@@ -836,7 +851,16 @@ static bool replay_op_command_write(
 		replay_op_dos_write(fh, &command, sizeof(command)) == sizeof(command)
 	);
 	replay_op_dos_close(fh);
+	if(!ok) {
+		replay_command_clear();
+	}
 	return ok;
+}
+
+void replay_command_clear(void)
+{
+	replay_op_paths_init();
+	replay_op_dos_delete(replay_op_cfg_fn);
 }
 
 bool replay_private_record_command_start(
@@ -1968,6 +1992,7 @@ bool replay_practice_record_prepare(
 	replay_start_config_t start;
 	uint8_t slot;
 
+	replay_command_clear();
 	replay_op_copy(&start, start_in, sizeof(start));
 	start.resident_rand = resident->rand;
 	start.random_seed = resident->rand;
@@ -1976,12 +2001,13 @@ bool replay_practice_record_prepare(
 	}
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
 		if(!replay_op_header_read(slot, false)) {
-			return replay_op_command_write(
+			replay_op_command_write(
 				RCM_RECORD, slot, REPLAY_COMMAND_FLAG_PRACTICE, &start
 			);
+			return true;
 		}
 	}
-	return false;
+	return true;
 }
 
 bool replay_browser(void)
@@ -2045,6 +2071,7 @@ void replay_record_next_prepare(void)
 {
 	uint8_t slot;
 
+	replay_command_clear();
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
 		if(!replay_op_header_read(slot, false)) {
 			replay_op_command_write(RCM_RECORD, slot, 0, NULL);

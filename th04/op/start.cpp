@@ -24,6 +24,8 @@ void near start_game(void)
 	resident->demo_num = 0;
 	if(!resident->debug) {
 		replay_record_next_prepare();
+	} else {
+		replay_command_clear();
 	}
 	op_exit_into_main(true, true);
 }
@@ -42,7 +44,11 @@ void near start_extra(void)
 		return;
 	}
 	resident->demo_num = 0;
-	replay_record_next_prepare();
+	if(!resident->debug) {
+		replay_record_next_prepare();
+	} else {
+		replay_command_clear();
+	}
 	op_exit_into_main(true, false);
 }
 
@@ -91,6 +97,8 @@ inline void resident_set_demo(
 
 void near start_demo(void)
 {
+	replay_command_clear();
+
 	// ZUN bloat: This is reassigned to [resident->demo_stage] shortly after
 	// the start of MAIN.EXE. Would be cleaner to do it here, which would even
 	// avoid the need for a distinct demo stage field altogether.
