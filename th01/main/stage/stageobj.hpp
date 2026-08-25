@@ -163,6 +163,17 @@ extern CObstacles obstacles;
 // portals, and handles turret firing on difficulties above Easy. Note that any
 // resetting happens after the regular update and rendering code.
 void obstacles_update_and_render(bool16 reset);
+
+struct t1replay_checkpoint_stage_t;
+
+// The exported slots are pointer-free. Import intentionally fails until the
+// page-background allocation and reconstruction path has a round-trip proof.
+bool16 t1replay_stage_checkpoint_export(
+	t1replay_checkpoint_stage_t *checkpoint
+);
+bool16 t1replay_stage_checkpoint_import(
+	const t1replay_checkpoint_stage_t *checkpoint
+);
 // -----------
 
 // Initialization

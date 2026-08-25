@@ -21,11 +21,23 @@
 // T1RPY1. The OP reader admits only the V1 header's all-zero reserved tail;
 // changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
-#define T1REPLAY_CHECKPOINT_SCHEMA 1
+#define T1REPLAY_CHECKPOINT_SCHEMA 2
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
-#define T1REPLAY_CHECKPOINT_GROUP_COUNT 4
-#define T1REPLAY_CHECKPOINT_SIZE 236
+#define T1REPLAY_CHECKPOINT_GROUP_COUNT 13
+#define T1REPLAY_CHECKPOINT_SIZE 10932
+// Measured from every shipped STAGE?.DAT by th01_stageobj_capacity.py:
+// STAGE7 has 76 cards, STAGE4 has 25 obstacles. Capture rejects larger
+// modded/live owners rather than silently truncating them.
+#define T1REPLAY_CHECKPOINT_CARD_COUNT_MAX 76
+#define T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX 25
+#define T1REPLAY_CHECKPOINT_PELLET_COUNT 100
+#define T1REPLAY_CHECKPOINT_SHOT_COUNT 8
+#define T1REPLAY_CHECKPOINT_MISSILE_COUNT 50
+#define T1REPLAY_CHECKPOINT_LASER_COUNT 10
+#define T1REPLAY_CHECKPOINT_PARTICLE_COUNT 40
+#define T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT 4
+#define T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT 10
 #define T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY 0x0001
 #define T1REPLAY_CHECKPOINT_FLAGS_KNOWN T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY
 #define T1REPLAY_CHECKPOINT_PROCESS_MAX 99
@@ -81,6 +93,15 @@ enum t1replay_checkpoint_group_id_t {
 	T1RCGI_RNG = 1,
 	T1RCGI_INPUT = 2,
 	T1RCGI_PACING = 3,
+	T1RCGI_PLAYER = 4,
+	T1RCGI_ORB = 5,
+	T1RCGI_STAGE = 6,
+	T1RCGI_ITEMS = 7,
+	T1RCGI_PELLETS = 8,
+	T1RCGI_SHOTS = 9,
+	T1RCGI_MISSILES = 10,
+	T1RCGI_LASERS = 11,
+	T1RCGI_PARTICLES = 12,
 };
 
 // Only bits consumed by TH01's REIIDEN input path are replayed. Keeping the
@@ -259,6 +280,212 @@ struct t1replay_checkpoint_pacing_t {
 	uint8_t reserved;
 };
 
+// Player animation resource handles, heap pointers, and VRAM are deliberately
+// absent. This is the scalar state consumed at the next gameplay-loop update.
+struct t1replay_checkpoint_player_t {
+	int16_t player_left;
+	int16_t player_invincibility_time;
+	int16_t cardcombo_cur;
+	int16_t cardcombo_max;
+	int8_t swing_deflection_frames;
+	int8_t dash_cycle;
+	int8_t mode_frame;
+	int8_t mode;
+	int8_t dash_direction;
+	int8_t bomb_flag;
+	int8_t bombing;
+	int8_t combo_enabled;
+	int8_t submode;
+	int8_t ptn_id_prev;
+	uint8_t player_deflecting;
+	uint8_t player_sliding;
+	uint8_t player_is_hit;
+	uint8_t player_invincible;
+	uint8_t player_invincible_against_orb;
+	uint8_t bomb_damaging;
+	uint8_t reserved[2];
+};
+
+struct t1replay_checkpoint_orb_t {
+	int16_t cur_left;
+	int16_t cur_top;
+	int16_t prev_left;
+	int16_t prev_top;
+	int16_t frames_outside_portal;
+	int16_t rotation_frame;
+	int16_t force_frame;
+	int16_t velocity_x;
+	uint16_t in_portal;
+	double force;
+	double velocity_y;
+	uint8_t reserved[2];
+};
+
+// Heap-backed stage objects are encoded as stable slots. Their page-1 VRAM
+// snapshots and backing allocations are intentionally not part of this codec.
+struct t1replay_checkpoint_card_t {
+	int16_t left;
+	int16_t top;
+	int16_t flip_frame;
+	uint32_t score;
+	int8_t hp;
+	uint8_t flag;
+};
+
+struct t1replay_checkpoint_obstacle_t {
+	int16_t left;
+	int16_t top;
+	int16_t frame;
+	uint8_t type;
+	uint8_t turret_flag;
+};
+
+struct t1replay_checkpoint_stage_t {
+	uint16_t cards_count;
+	uint16_t obstacles_count;
+	int16_t entered_portal_slot;
+	int16_t portal_dst_left;
+	int16_t portal_dst_top;
+	uint8_t vertical_bars_blocked;
+	uint8_t portals_blocked;
+	uint8_t reserved[2];
+	t1replay_checkpoint_card_t cards[T1REPLAY_CHECKPOINT_CARD_COUNT_MAX];
+	t1replay_checkpoint_obstacle_t obstacles[
+		T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX
+	];
+};
+
+struct t1replay_checkpoint_item_t {
+	int16_t left;
+	int16_t top;
+	int16_t unknown_zero;
+	int16_t velocity_y;
+	uint8_t flag;
+	uint8_t state;
+};
+
+struct t1replay_checkpoint_items_t {
+	t1replay_checkpoint_item_t bombs[T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT];
+	t1replay_checkpoint_item_t points[T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT];
+};
+
+struct t1replay_checkpoint_pellet_t {
+	int32_t cur_left;
+	int32_t cur_top;
+	int32_t spin_center_left;
+	int32_t spin_center_top;
+	int32_t prev_left;
+	int32_t prev_top;
+	int32_t velocity_x;
+	int32_t velocity_y;
+	int32_t spin_velocity_x;
+	int32_t spin_velocity_y;
+	int32_t speed;
+	int16_t from_group;
+	int16_t age;
+	int16_t decay_frame;
+	int16_t cloud_frame;
+	int16_t cloud_left;
+	int16_t cloud_top;
+	int16_t angle;
+	int16_t sling_direction;
+	uint8_t moving;
+	uint8_t motion_type;
+	uint16_t not_rendered;
+};
+
+struct t1replay_checkpoint_pellets_t {
+	int16_t alive_count_excluding_cloud_pellets_after_reset;
+	int16_t unknown_seven;
+	uint16_t interlace_field;
+	uint8_t spawn_with_cloud;
+	uint8_t reserved;
+	t1replay_checkpoint_pellet_t pellets[T1REPLAY_CHECKPOINT_PELLET_COUNT];
+};
+
+struct t1replay_checkpoint_shot_t {
+	int16_t left;
+	int16_t top;
+	int16_t unknown;
+	uint8_t moving;
+	uint8_t decay_frame;
+};
+
+struct t1replay_checkpoint_shots_t {
+	t1replay_checkpoint_shot_t shots[T1REPLAY_CHECKPOINT_SHOT_COUNT];
+};
+
+struct t1replay_checkpoint_missile_t {
+	int32_t cur_left;
+	int32_t cur_top;
+	int32_t prev_left;
+	int32_t prev_top;
+	int32_t velocity_x;
+	int32_t velocity_y;
+	int8_t unknown;
+	uint8_t flag;
+};
+
+struct t1replay_checkpoint_missiles_t {
+	uint8_t ptn_id_base;
+	uint8_t reserved[3];
+	t1replay_checkpoint_missile_t missiles[
+		T1REPLAY_CHECKPOINT_MISSILE_COUNT
+	];
+};
+
+struct t1replay_checkpoint_laser_t {
+	int32_t origin_left;
+	int32_t origin_y;
+	int32_t ray_start_left;
+	int32_t ray_start_y;
+	int32_t ray_i_left;
+	int32_t ray_i_y;
+	int16_t ray_length;
+	int16_t ray_moveout_speed;
+	int16_t target_left;
+	int16_t target_y;
+	int16_t unknown;
+	int32_t velocity_y;
+	int32_t step_y;
+	int32_t velocity_x;
+	int32_t step_x;
+	int16_t ray_extend_speed;
+	uint16_t alive;
+	int16_t age;
+	int16_t moveout_at_age;
+	uint8_t col;
+	uint8_t width_cel;
+	uint8_t damaging;
+	uint8_t id;
+	uint8_t put_flag;
+	uint8_t reserved;
+};
+
+struct t1replay_checkpoint_lasers_t {
+	t1replay_checkpoint_laser_t lasers[T1REPLAY_CHECKPOINT_LASER_COUNT];
+};
+
+struct t1replay_checkpoint_particle_t {
+	int32_t x;
+	int32_t y;
+	int32_t velocity_x;
+	int32_t velocity_y;
+	uint8_t alive;
+	uint8_t velocity_base;
+	uint8_t reserved[2];
+};
+
+struct t1replay_checkpoint_particles_t {
+	int16_t spawn_interval;
+	int16_t velocity_base_max;
+	uint8_t spawn_cycle;
+	uint8_t reserved[3];
+	t1replay_checkpoint_particle_t particles[
+		T1REPLAY_CHECKPOINT_PARTICLE_COUNT
+	];
+};
+
 struct t1replay_checkpoint_t {
 	t1replay_checkpoint_header_t header;
 	t1replay_checkpoint_group_t groups[T1REPLAY_CHECKPOINT_GROUP_COUNT];
@@ -266,6 +493,15 @@ struct t1replay_checkpoint_t {
 	t1replay_checkpoint_rng_t rng;
 	t1replay_checkpoint_input_t input;
 	t1replay_checkpoint_pacing_t pacing;
+	t1replay_checkpoint_player_t player;
+	t1replay_checkpoint_orb_t orb;
+	t1replay_checkpoint_stage_t stage;
+	t1replay_checkpoint_items_t items;
+	t1replay_checkpoint_pellets_t pellets;
+	t1replay_checkpoint_shots_t shots;
+	t1replay_checkpoint_missiles_t missiles;
+	t1replay_checkpoint_lasers_t lasers;
+	t1replay_checkpoint_particles_t particles;
 };
 
 typedef char t1replay_start_size_check[
@@ -297,6 +533,57 @@ typedef char t1replay_checkpoint_input_size_check[
 ];
 typedef char t1replay_checkpoint_pacing_size_check[
 	(sizeof(t1replay_checkpoint_pacing_t) == 20) ? 1 : -1
+];
+typedef char t1replay_checkpoint_player_size_check[
+	(sizeof(t1replay_checkpoint_player_t) == 26) ? 1 : -1
+];
+typedef char t1replay_checkpoint_orb_size_check[
+	(sizeof(t1replay_checkpoint_orb_t) == 36) ? 1 : -1
+];
+typedef char t1replay_checkpoint_card_size_check[
+	(sizeof(t1replay_checkpoint_card_t) == 12) ? 1 : -1
+];
+typedef char t1replay_checkpoint_obstacle_size_check[
+	(sizeof(t1replay_checkpoint_obstacle_t) == 8) ? 1 : -1
+];
+typedef char t1replay_checkpoint_stage_size_check[
+	(sizeof(t1replay_checkpoint_stage_t) == 1126) ? 1 : -1
+];
+typedef char t1replay_checkpoint_item_size_check[
+	(sizeof(t1replay_checkpoint_item_t) == 10) ? 1 : -1
+];
+typedef char t1replay_checkpoint_items_size_check[
+	(sizeof(t1replay_checkpoint_items_t) == 140) ? 1 : -1
+];
+typedef char t1replay_checkpoint_pellet_size_check[
+	(sizeof(t1replay_checkpoint_pellet_t) == 64) ? 1 : -1
+];
+typedef char t1replay_checkpoint_pellets_size_check[
+	(sizeof(t1replay_checkpoint_pellets_t) == 6408) ? 1 : -1
+];
+typedef char t1replay_checkpoint_shot_size_check[
+	(sizeof(t1replay_checkpoint_shot_t) == 8) ? 1 : -1
+];
+typedef char t1replay_checkpoint_shots_size_check[
+	(sizeof(t1replay_checkpoint_shots_t) == 64) ? 1 : -1
+];
+typedef char t1replay_checkpoint_missile_size_check[
+	(sizeof(t1replay_checkpoint_missile_t) == 26) ? 1 : -1
+];
+typedef char t1replay_checkpoint_missiles_size_check[
+	(sizeof(t1replay_checkpoint_missiles_t) == 1304) ? 1 : -1
+];
+typedef char t1replay_checkpoint_laser_size_check[
+	(sizeof(t1replay_checkpoint_laser_t) == 64) ? 1 : -1
+];
+typedef char t1replay_checkpoint_lasers_size_check[
+	(sizeof(t1replay_checkpoint_lasers_t) == 640) ? 1 : -1
+];
+typedef char t1replay_checkpoint_particle_size_check[
+	(sizeof(t1replay_checkpoint_particle_t) == 20) ? 1 : -1
+];
+typedef char t1replay_checkpoint_particles_size_check[
+	(sizeof(t1replay_checkpoint_particles_t) == 808) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_size_check[
 	(sizeof(t1replay_checkpoint_t) == T1REPLAY_CHECKPOINT_SIZE) ? 1 : -1

@@ -148,6 +148,8 @@ struct Pellet {
 	pellet_sling_direction_t sling_direction;
 };
 
+struct t1replay_checkpoint_pellets_t;
+
 class CPellets {
 	Pellet near pellets[PELLET_COUNT];
 
@@ -230,6 +232,9 @@ public:
 
 	void unput_and_reset_nonclouds(void);
 	void reset_nonclouds(void);
+
+	void checkpoint_export(t1replay_checkpoint_pellets_t *checkpoint) const;
+	void checkpoint_import(const t1replay_checkpoint_pellets_t *checkpoint);
 };
 
 /// Globals
@@ -259,4 +264,11 @@ extern CPellets Pellets;
 extern bool pellet_interlace;
 
 extern unsigned int pellet_destroy_score_delta;
+
+void t1replay_pellets_checkpoint_export(
+	t1replay_checkpoint_pellets_t *checkpoint
+);
+void t1replay_pellets_checkpoint_import(
+	const t1replay_checkpoint_pellets_t *checkpoint
+);
 /// -------

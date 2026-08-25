@@ -10,6 +10,7 @@
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/stages.hpp"
 #include "th01/main/stage/stageobj.hpp"
+#include "th01/replay_format.hpp"
 
 // Globals
 // -------
@@ -60,6 +61,11 @@ unsigned long stageobj_bgs_size;
 CCards cards;
 CObstacles obstacles;
 uscore_t *cards_score;
+static bool t1replay_stage_vertical_bars_blocked;
+static int t1replay_stage_entered_portal_slot;
+static screen_x_t t1replay_stage_portal_dst_left;
+static screen_y_t t1replay_stage_portal_dst_top;
+static bool16 t1replay_stage_portals_blocked;
 // -------
 
 // Byte-wise iterators for STAGE?.DAT arrays
@@ -626,10 +632,8 @@ void obstacles_update_and_render(bool16 reset)
 	// Stage 17, and watch how this flag contributes to the Orb gradually
 	// rising up to the top of the playfield. Without it, the Orb would simply
 	// oscillate between a fixed set of bumper bars.)
-	static bool vertical_bars_blocked;
-
 	if(reset == true) {
-		vertical_bars_blocked = false;
+		t1replay_stage_vertical_bars_blocked = false;
 	}
 
 	for(unsigned int i = 0; i < obstacles.count; i++) {
@@ -768,7 +772,7 @@ void obstacles_update_and_render(bool16 reset)
 				(delta_abs_y < STAGEOBJ_H),
 				((obstacles.left[i] - orb_cur_left) <= STAGEOBJ_W),
 				((obstacles.left[i] - orb_cur_left) >= 0),
-				vertical_bars_blocked
+				t1replay_stage_vertical_bars_blocked
 			)) {
 				break;
 			}
@@ -780,7 +784,7 @@ void obstacles_update_and_render(bool16 reset)
 				(delta_abs_y < STAGEOBJ_H),
 				((obstacles.left[i] - orb_cur_left) <= 0),
 				((obstacles.left[i] - orb_cur_left) >= -STAGEOBJ_W),
-				vertical_bars_blocked
+				t1replay_stage_vertical_bars_blocked
 			)) {
 				break;
 			}
@@ -794,7 +798,7 @@ void obstacles_update_and_render(bool16 reset)
 			obstacles.frame[i].since_collision++;
 			if(obstacles.frame[i].since_collision >= BLOCK_FRAMES) {
 				obstacles.frame[i].since_collision = 0;
-				vertical_bars_blocked = false;
+				t1replay_stage_vertical_bars_blocked = false;
 			}
 		}
 		if(reset == true) {
@@ -815,28 +819,28 @@ enum turret_flag_t {
 	_turret_flag_t_FORCE_INT16 = 0x7FFF
 };
 
+static turret_flag_t *t1replay_stage_turret_flag;
+
 void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 {
-	static turret_flag_t *turret_flag;
-
 	if(reset == true) {
-		if(turret_flag) {
-			delete[] turret_flag;
-			turret_flag = nullptr;
+		if(t1replay_stage_turret_flag) {
+			delete[] t1replay_stage_turret_flag;
+			t1replay_stage_turret_flag = nullptr;
 		}
 		if(obstacles.count != 0) {
-			turret_flag = new turret_flag_t[obstacles.count];
+			t1replay_stage_turret_flag = new turret_flag_t[obstacles.count];
 		}
 		for(
 			obstacle_slot = 0;
 			obstacle_slot < obstacles.count;
 			obstacle_slot++
 		) {
-			turret_flag[obstacle_slot] = TF_READY;
+			t1replay_stage_turret_flag[obstacle_slot] = TF_READY;
 		}
 		return;
 	}
-	if(turret_flag[obstacle_slot] == TF_READY) {
+	if(t1replay_stage_turret_flag[obstacle_slot] == TF_READY) {
 		// MODDERS: This assumes that PTN_TURRET_FIRING only adds or changes
 		// pixels compared to PTN_TURRET, and doesn't remove any. Unblit the
 		// previous portal sprite to ensure this.
@@ -846,12 +850,12 @@ void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 		graph_accesspage_func(0);
 		stageobj_put_8(obstacles, obstacle_slot, PTN_TURRET_FIRING);
 
-		turret_flag[obstacle_slot] = TF_WARMUP;
-	} else if(turret_flag[obstacle_slot] == TF_WARMUP) {
+		t1replay_stage_turret_flag[obstacle_slot] = TF_WARMUP;
+	} else if(t1replay_stage_turret_flag[obstacle_slot] == TF_WARMUP) {
 		if((obstacles.frame[obstacle_slot].fire_cycle % 10) == 9) {
-			turret_flag[obstacle_slot] = TF_FIRE;
+			t1replay_stage_turret_flag[obstacle_slot] = TF_FIRE;
 		}
-	} else if(turret_flag[obstacle_slot] == TF_FIRE) {
+	} else if(t1replay_stage_turret_flag[obstacle_slot] == TF_FIRE) {
 		uint8_t group; // ACTUAL TYPE: pellet_group_t
 		switch(obstacles.type[obstacle_slot]) {
 			case OT_TURRET_SLOW_1_AIMED:
@@ -897,16 +901,16 @@ void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 		// (Also, same lazy blitting issue as we've had the first time.)
 		stageobj_put_8(obstacles, obstacle_slot, PTN_TURRET_FIRING);
 
-		turret_flag[obstacle_slot] = TF_COOLDOWN;
+		t1replay_stage_turret_flag[obstacle_slot] = TF_COOLDOWN;
 	} else {
-		reinterpret_cast<int &>(turret_flag[obstacle_slot])++;
-		if(turret_flag[obstacle_slot] >= TF_DONE) {
+		reinterpret_cast<int &>(t1replay_stage_turret_flag[obstacle_slot])++;
+		if(t1replay_stage_turret_flag[obstacle_slot] >= TF_DONE) {
 			graph_accesspage_func(1);
 			stageobj_put_8(obstacles, obstacle_slot, PTN_TURRET);
 			graph_accesspage_func(0);
 			stageobj_put_8(obstacles, obstacle_slot, PTN_TURRET);
 
-			turret_flag[obstacle_slot] = TF_READY;
+			t1replay_stage_turret_flag[obstacle_slot] = TF_READY;
 			obstacles.frame[obstacle_slot].fire_cycle = 0;
 		}
 	}
@@ -914,29 +918,20 @@ void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 
 void portal_enter_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 {
-	// Necessary to continue executing this function for the entered portal
-	// while all others are blocked.
-	static int obstacle_slot_of_entered_portal;
-
-	static screen_x_t dst_left;
-	static screen_y_t dst_top;
-
-	// Additional flag on top of [orb_in_portal]. Left `true` for a few more
-	// frames after the orb has exited the destination portal, to prevent it
-	// from immediately re-entering into the same one.
-	static bool16 portals_blocked;
-
 	int dst_slot;
 	int completed_loops_over_all_obstacles;
 
 	if(reset == true) {
-		obstacle_slot_of_entered_portal = 0; // (redundant)
-		portals_blocked = false;
+		t1replay_stage_entered_portal_slot = 0; // (redundant)
+		t1replay_stage_portals_blocked = false;
 		if(orb_in_portal) {
 			// ZUN bug: Missing an unblitting call. This just blits the regular
 			// portal sprite on top of an animated one. Very noticeable when
 			// losing a life while a PTN_PORTAL_ANIM sprite is in VRAM.
-			ptn_put_8(dst_left, dst_top, PTN_PORTAL);
+			ptn_put_8(
+				t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top,
+				PTN_PORTAL
+			);
 
 			orb_in_portal = false;
 		}
@@ -944,8 +939,8 @@ void portal_enter_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 	}
 
 	if(
-		(portals_blocked == true) &&
-		(obstacle_slot_of_entered_portal != obstacle_slot)
+		(t1replay_stage_portals_blocked == true) &&
+		(t1replay_stage_entered_portal_slot != obstacle_slot)
 	) {
 		return;
 	}
@@ -956,8 +951,8 @@ void portal_enter_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 	if(obstacles.frame[obstacle_slot].since_collision == 0) {
 		orb_in_portal = true;
 		obstacles.frame[obstacle_slot].since_collision = 1;
-		obstacle_slot_of_entered_portal = obstacle_slot;
-		portals_blocked = true;
+		t1replay_stage_entered_portal_slot = obstacle_slot;
+		t1replay_stage_portals_blocked = true;
 
 		ptn_sloppy_unput_16(orb_prev_left, orb_prev_top);
 
@@ -999,26 +994,93 @@ void portal_enter_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 			}
 		}
 
-		dst_left = obstacles.left[dst_slot];
-		dst_top = obstacles.top[dst_slot];
-		ptn_sloppy_unput_16(dst_left, dst_top);
-		ptn_put_8(dst_left, dst_top, (PTN_PORTAL_ANIM + 1));
+		t1replay_stage_portal_dst_left = obstacles.left[dst_slot];
+		t1replay_stage_portal_dst_top = obstacles.top[dst_slot];
+		ptn_sloppy_unput_16(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top
+		);
+		ptn_put_8(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top,
+			(PTN_PORTAL_ANIM + 1)
+		);
 	} else if(obstacles.frame[obstacle_slot].since_collision == 30) {
-		ptn_sloppy_unput_16(dst_left, dst_top);
-		ptn_put_8(dst_left, dst_top, (PTN_PORTAL_ANIM + 0));
+		ptn_sloppy_unput_16(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top
+		);
+		ptn_put_8(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top,
+			(PTN_PORTAL_ANIM + 0)
+		);
 	} else if(obstacles.frame[obstacle_slot].since_collision == 40) {
-		ptn_sloppy_unput_16(dst_left, dst_top);
-		ptn_put_8(dst_left, dst_top, PTN_PORTAL);
+		ptn_sloppy_unput_16(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top
+		);
+		ptn_put_8(
+			t1replay_stage_portal_dst_left, t1replay_stage_portal_dst_top,
+			PTN_PORTAL
+		);
 
 		orb_velocity_x = static_cast<orb_velocity_x_t>(irand() % OVX_COUNT);
 		orb_force_new(((irand() % 19) - 9), OF_IMMEDIATE);
-		orb_cur_left = dst_left;
-		orb_cur_top = dst_top;
+		orb_cur_left = t1replay_stage_portal_dst_left;
+		orb_cur_top = t1replay_stage_portal_dst_top;
 		orb_in_portal = false;
 	} else if(obstacles.frame[obstacle_slot].since_collision == 60) {
 		obstacles.frame[obstacle_slot].since_collision = 0;
-		portals_blocked = false;
+		t1replay_stage_portals_blocked = false;
 	}
 }
 
 static int8_t unused[4]; // ZUN bloat
+
+bool16 t1replay_stage_checkpoint_export(t1replay_checkpoint_stage_t *checkpoint)
+{
+	int i;
+
+	if(
+		(cards.count < 0) ||
+		(cards.count > T1REPLAY_CHECKPOINT_CARD_COUNT_MAX) ||
+		(obstacles.count < 0) ||
+		(obstacles.count > T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX)
+	) {
+		return false;
+	}
+	checkpoint->cards_count = cards.count;
+	checkpoint->obstacles_count = obstacles.count;
+	checkpoint->entered_portal_slot = t1replay_stage_entered_portal_slot;
+	checkpoint->portal_dst_left = t1replay_stage_portal_dst_left;
+	checkpoint->portal_dst_top = t1replay_stage_portal_dst_top;
+	checkpoint->vertical_bars_blocked = t1replay_stage_vertical_bars_blocked;
+	checkpoint->portals_blocked = t1replay_stage_portals_blocked;
+
+	for(i = 0; i < cards.count; i++) {
+		checkpoint->cards[i].left = cards.left[i];
+		checkpoint->cards[i].top = cards.top[i];
+		checkpoint->cards[i].flip_frame = cards.flip_frame[i];
+		checkpoint->cards[i].score = cards_score[i];
+		checkpoint->cards[i].hp = cards.hp[i];
+		checkpoint->cards[i].flag = cards.flag[i];
+	}
+	for(i = 0; i < obstacles.count; i++) {
+		checkpoint->obstacles[i].left = obstacles.left[i];
+		checkpoint->obstacles[i].top = obstacles.top[i];
+		checkpoint->obstacles[i].frame = obstacles.frame[i].v;
+		checkpoint->obstacles[i].type = obstacles.type[i];
+		checkpoint->obstacles[i].turret_flag = (
+			t1replay_stage_turret_flag ? t1replay_stage_turret_flag[i] : TF_READY
+		);
+	}
+	return true;
+}
+
+bool16 t1replay_stage_checkpoint_import(
+	const t1replay_checkpoint_stage_t *checkpoint
+)
+{
+	// No restore may mutate heap-backed cards/obstacles until it can recreate
+	// their page-1 backgrounds from native scene data. A stable slot record is
+	// useful to capture and validate now, but applying it without those images
+	// would leave stale VRAM and invalid far allocations.
+	checkpoint;
+	return false;
+}

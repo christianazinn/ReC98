@@ -78,3 +78,14 @@ void player_miss_animate_and_update(void);
 
 extern int cardcombo_cur;
 extern int cardcombo_max;
+
+struct t1replay_checkpoint_player_t;
+
+// Exports only semantic player state. Sprite resources and page contents are
+// deliberately reconstructed by their native owners, never checkpointed.
+void t1replay_player_checkpoint_export(
+	t1replay_checkpoint_player_t *checkpoint
+);
+void t1replay_player_checkpoint_import(
+	const t1replay_checkpoint_player_t *checkpoint
+);

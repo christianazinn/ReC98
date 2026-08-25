@@ -34,3 +34,10 @@ inline void items_unput_update_render(void) {
 	items_bomb_unput_update_render();
 	items_point_unput_update_render();
 }
+
+struct t1replay_checkpoint_items_t;
+
+void t1replay_items_checkpoint_export(t1replay_checkpoint_items_t *checkpoint);
+void t1replay_items_checkpoint_import(
+	const t1replay_checkpoint_items_t *checkpoint
+);

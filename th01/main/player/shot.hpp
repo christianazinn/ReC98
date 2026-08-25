@@ -73,6 +73,13 @@ extern bool16 unused_boss_stage_flag;
 
 extern CShots Shots;
 
+struct t1replay_checkpoint_shots_t;
+
+void t1replay_shots_checkpoint_export(t1replay_checkpoint_shots_t *checkpoint);
+void t1replay_shots_checkpoint_import(
+	const t1replay_checkpoint_shots_t *checkpoint
+);
+
 // Converts a visual on-screen hitbox to the shot sprite-excluding format
 // expected by CShots::hittest_boss(). This allows hitboxes to be specified
 // like this instead:

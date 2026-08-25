@@ -12,7 +12,17 @@
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
 #include "th01/resident.hpp"
+#include "th01/math/dir.hpp"
 #include "th01/main/stage/timer.hpp"
+#include "th01/main/player/player.hpp"
+#include "th01/main/player/orb.hpp"
+#include "th01/main/player/shot.hpp"
+#include "th01/main/bullet/pellet.hpp"
+#include "th01/main/bullet/missile.hpp"
+#include "th01/main/bullet/laser_s.hpp"
+#include "th01/main/stage/stageobj.hpp"
+#include "th01/main/stage/item.hpp"
+#include "th01/main/particle.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
@@ -494,6 +504,208 @@ static bool t1replay_checkpoint_pacing_valid(
 	);
 }
 
+static bool t1replay_checkpoint_player_valid(
+	const t1replay_checkpoint_player_t far *player
+)
+{
+	return (
+		(player->mode >= 0) && (player->mode <= 5) &&
+		(player->dash_direction >= X_RIGHT) &&
+			(player->dash_direction <= X_LEFT) &&
+		((player->bomb_flag == 0) ||
+		 (player->bomb_flag == 2) ||
+		 (player->bomb_flag == 3)) &&
+		(player->bombing <= 1) &&
+		(player->combo_enabled <= 1) &&
+		(player->player_deflecting <= 1) &&
+		(player->player_sliding <= 1) &&
+		(player->player_is_hit <= 1) &&
+		(player->player_invincible <= 1) &&
+		(player->player_invincible_against_orb <= 1) &&
+		(player->bomb_damaging <= 1) &&
+		t1replay_bytes_zero(player->reserved, sizeof(player->reserved))
+	);
+}
+
+static bool t1replay_checkpoint_orb_valid(
+	const t1replay_checkpoint_orb_t far *orb
+)
+{
+	return (
+		(orb->velocity_x >= OVX_0) && (orb->velocity_x < OVX_COUNT) &&
+		(orb->in_portal <= 1) &&
+		t1replay_bytes_zero(orb->reserved, sizeof(orb->reserved))
+	);
+}
+
+static bool t1replay_checkpoint_stage_valid(
+	const t1replay_checkpoint_stage_t far *stage
+)
+{
+	uint16_t i;
+
+	if(
+		(stage->cards_count > T1REPLAY_CHECKPOINT_CARD_COUNT_MAX) ||
+		(stage->obstacles_count > T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX) ||
+		(stage->vertical_bars_blocked > 1) ||
+		(stage->portals_blocked > 1) ||
+		!t1replay_bytes_zero(stage->reserved, sizeof(stage->reserved))
+	) {
+		return false;
+	}
+	for(i = 0; i < stage->cards_count; i++) {
+		if(stage->cards[i].flag > 2) {
+			return false;
+		}
+	}
+	for(i = 0; i < stage->obstacles_count; i++) {
+		if(
+			(stage->obstacles[i].type < OT_BUMPER) ||
+			(stage->obstacles[i].type > OT_BAR_RIGHT) ||
+			(stage->obstacles[i].turret_flag > 9)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_item_valid(
+	const t1replay_checkpoint_item_t far *item
+)
+{
+	return (
+		(item->flag == 0) || (item->flag == 1) || (item->flag == 2) ||
+		(item->flag == 3) || (item->flag == 99) || (item->flag == 100)
+	);
+}
+
+static bool t1replay_checkpoint_items_valid(
+	const t1replay_checkpoint_items_t far *items
+)
+{
+	uint8_t i;
+
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT; i++) {
+		if(!t1replay_checkpoint_item_valid(&items->bombs[i])) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT; i++) {
+		if(!t1replay_checkpoint_item_valid(&items->points[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_pellets_valid(
+	const t1replay_checkpoint_pellets_t far *pellets
+)
+{
+	uint16_t i;
+
+	if(
+		(pellets->interlace_field > 1) ||
+		(pellets->spawn_with_cloud > 1) ||
+		(pellets->reserved != 0)
+	) {
+		return false;
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PELLET_COUNT; i++) {
+		const t1replay_checkpoint_pellet_t far *pellet = &pellets->pellets[i];
+
+		if(
+			(pellet->moving > 1) ||
+			(pellet->motion_type > PM_CHASE) ||
+			(pellet->not_rendered > 1) ||
+			(pellet->from_group < PG_NONE) ||
+			(pellet->from_group > PG_1_RANDOM_WIDE) ||
+			(pellet->sling_direction < PSD_NONE) ||
+			(pellet->sling_direction > PSD_COUNTERCLOCKWISE)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_shots_valid(
+	const t1replay_checkpoint_shots_t far *shots
+)
+{
+	uint8_t i;
+
+	for(i = 0; i < T1REPLAY_CHECKPOINT_SHOT_COUNT; i++) {
+		if(
+			(shots->shots[i].moving > 1) ||
+			(shots->shots[i].decay_frame > 7)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_missiles_valid(
+	const t1replay_checkpoint_missiles_t far *missiles
+)
+{
+	uint8_t i;
+
+	if(!t1replay_bytes_zero(missiles->reserved, sizeof(missiles->reserved))) {
+		return false;
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_MISSILE_COUNT; i++) {
+		if(missiles->missiles[i].flag > MF_HIT_last) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_lasers_valid(
+	const t1replay_checkpoint_lasers_t far *lasers
+)
+{
+	uint8_t i;
+
+	for(i = 0; i < T1REPLAY_CHECKPOINT_LASER_COUNT; i++) {
+		const t1replay_checkpoint_laser_t far *laser = &lasers->lasers[i];
+
+		if(
+			(laser->alive > 1) || (laser->damaging > 1) ||
+			(laser->put_flag > 1) || (laser->reserved != 0)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1replay_checkpoint_particles_valid(
+	const t1replay_checkpoint_particles_t far *particles
+)
+{
+	uint8_t i;
+
+	if(!t1replay_bytes_zero(particles->reserved, sizeof(particles->reserved))) {
+		return false;
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PARTICLE_COUNT; i++) {
+		if(
+			(particles->particles[i].alive > 1) ||
+			!t1replay_bytes_zero(
+				particles->particles[i].reserved,
+				sizeof(particles->particles[i].reserved)
+			)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool t1replay_checkpoint_valid(
 	const t1replay_checkpoint_t far *checkpoint
 )
@@ -519,48 +731,60 @@ static bool t1replay_checkpoint_valid(
 			t1replay_header.start_checksum) ||
 		!t1replay_checkpoint_scenario_valid(&checkpoint->scenario) ||
 		!t1replay_checkpoint_input_valid(&checkpoint->input) ||
-		!t1replay_checkpoint_pacing_valid(&checkpoint->pacing)
+		!t1replay_checkpoint_pacing_valid(&checkpoint->pacing) ||
+		!t1replay_checkpoint_player_valid(&checkpoint->player) ||
+		!t1replay_checkpoint_orb_valid(&checkpoint->orb) ||
+		!t1replay_checkpoint_stage_valid(&checkpoint->stage) ||
+		!t1replay_checkpoint_items_valid(&checkpoint->items) ||
+		!t1replay_checkpoint_pellets_valid(&checkpoint->pellets) ||
+		!t1replay_checkpoint_shots_valid(&checkpoint->shots) ||
+		!t1replay_checkpoint_missiles_valid(&checkpoint->missiles) ||
+		!t1replay_checkpoint_lasers_valid(&checkpoint->lasers) ||
+		!t1replay_checkpoint_particles_valid(&checkpoint->particles)
 	) {
 		return false;
 	}
-	if(
-		!t1replay_checkpoint_group_valid(
-			&checkpoint->groups[T1RCGI_SCENARIO], T1RCGI_SCENARIO,
-			offsetof(t1replay_checkpoint_t, scenario),
-			sizeof(checkpoint->scenario), &checkpoint->scenario
-		) ||
-		!t1replay_checkpoint_group_valid(
-			&checkpoint->groups[T1RCGI_RNG], T1RCGI_RNG,
-			offsetof(t1replay_checkpoint_t, rng), sizeof(checkpoint->rng),
-			&checkpoint->rng
-		) ||
-		!t1replay_checkpoint_group_valid(
-			&checkpoint->groups[T1RCGI_INPUT], T1RCGI_INPUT,
-			offsetof(t1replay_checkpoint_t, input), sizeof(checkpoint->input),
-			&checkpoint->input
-		) ||
-		!t1replay_checkpoint_group_valid(
-			&checkpoint->groups[T1RCGI_PACING], T1RCGI_PACING,
-			offsetof(t1replay_checkpoint_t, pacing), sizeof(checkpoint->pacing),
-			&checkpoint->pacing
+	#define checkpoint_group_valid(id, field) \
+		!t1replay_checkpoint_group_valid( \
+			&checkpoint->groups[id], id, offsetof(t1replay_checkpoint_t, field), \
+			sizeof(checkpoint->field), &checkpoint->field \
 		)
+	if(
+		checkpoint_group_valid(T1RCGI_SCENARIO, scenario) ||
+		checkpoint_group_valid(T1RCGI_RNG, rng) ||
+		checkpoint_group_valid(T1RCGI_INPUT, input) ||
+		checkpoint_group_valid(T1RCGI_PACING, pacing) ||
+		checkpoint_group_valid(T1RCGI_PLAYER, player) ||
+		checkpoint_group_valid(T1RCGI_ORB, orb) ||
+		checkpoint_group_valid(T1RCGI_STAGE, stage) ||
+		checkpoint_group_valid(T1RCGI_ITEMS, items) ||
+		checkpoint_group_valid(T1RCGI_PELLETS, pellets) ||
+		checkpoint_group_valid(T1RCGI_SHOTS, shots) ||
+		checkpoint_group_valid(T1RCGI_MISSILES, missiles) ||
+		checkpoint_group_valid(T1RCGI_LASERS, lasers) ||
+		checkpoint_group_valid(T1RCGI_PARTICLES, particles)
 	) {
 		return false;
 	}
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_SCENARIO, &checkpoint->scenario,
-		sizeof(checkpoint->scenario)
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_RNG, &checkpoint->rng, sizeof(checkpoint->rng)
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_INPUT, &checkpoint->input, sizeof(checkpoint->input)
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_PACING, &checkpoint->pacing,
-		sizeof(checkpoint->pacing)
-	);
+	#undef checkpoint_group_valid
+	#define checkpoint_digest(id, field) \
+		digest = t1replay_checkpoint_group_digest( \
+			digest, id, &checkpoint->field, sizeof(checkpoint->field) \
+		)
+	checkpoint_digest(T1RCGI_SCENARIO, scenario);
+	checkpoint_digest(T1RCGI_RNG, rng);
+	checkpoint_digest(T1RCGI_INPUT, input);
+	checkpoint_digest(T1RCGI_PACING, pacing);
+	checkpoint_digest(T1RCGI_PLAYER, player);
+	checkpoint_digest(T1RCGI_ORB, orb);
+	checkpoint_digest(T1RCGI_STAGE, stage);
+	checkpoint_digest(T1RCGI_ITEMS, items);
+	checkpoint_digest(T1RCGI_PELLETS, pellets);
+	checkpoint_digest(T1RCGI_SHOTS, shots);
+	checkpoint_digest(T1RCGI_MISSILES, missiles);
+	checkpoint_digest(T1RCGI_LASERS, lasers);
+	checkpoint_digest(T1RCGI_PARTICLES, particles);
+	#undef checkpoint_digest
 	return (
 		(checkpoint->header.state_digest == digest) &&
 		(checkpoint->header.container_checksum ==
@@ -1516,40 +1740,42 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	checkpoint->pacing.stage_wait_for_shot_to_begin =
 		stage_wait_for_shot_to_begin;
 	t1replay_timer_checkpoint_export(&checkpoint->pacing);
-	t1replay_checkpoint_group_set(
-		&checkpoint->groups[T1RCGI_SCENARIO], T1RCGI_SCENARIO,
-		offsetof(t1replay_checkpoint_t, scenario), sizeof(checkpoint->scenario),
-		&checkpoint->scenario
-	);
-	t1replay_checkpoint_group_set(
-		&checkpoint->groups[T1RCGI_RNG], T1RCGI_RNG,
-		offsetof(t1replay_checkpoint_t, rng), sizeof(checkpoint->rng),
-		&checkpoint->rng
-	);
-	t1replay_checkpoint_group_set(
-		&checkpoint->groups[T1RCGI_INPUT], T1RCGI_INPUT,
-		offsetof(t1replay_checkpoint_t, input), sizeof(checkpoint->input),
-		&checkpoint->input
-	);
-	t1replay_checkpoint_group_set(
-		&checkpoint->groups[T1RCGI_PACING], T1RCGI_PACING,
-		offsetof(t1replay_checkpoint_t, pacing), sizeof(checkpoint->pacing),
-		&checkpoint->pacing
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_SCENARIO, &checkpoint->scenario,
-		sizeof(checkpoint->scenario)
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_RNG, &checkpoint->rng, sizeof(checkpoint->rng)
-	);
-	digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_INPUT, &checkpoint->input, sizeof(checkpoint->input)
-	);
-	checkpoint->header.state_digest = t1replay_checkpoint_group_digest(
-		digest, T1RCGI_PACING, &checkpoint->pacing,
-		sizeof(checkpoint->pacing)
-	);
+	t1replay_player_checkpoint_export(&checkpoint->player);
+	t1replay_orb_checkpoint_export(&checkpoint->orb);
+	if(!t1replay_stage_checkpoint_export(&checkpoint->stage)) {
+		return;
+	}
+	t1replay_items_checkpoint_export(&checkpoint->items);
+	t1replay_pellets_checkpoint_export(&checkpoint->pellets);
+	t1replay_shots_checkpoint_export(&checkpoint->shots);
+	t1replay_missiles_checkpoint_export(&checkpoint->missiles);
+	t1replay_lasers_checkpoint_export(&checkpoint->lasers);
+	t1replay_particles_checkpoint_export(&checkpoint->particles);
+
+	#define checkpoint_group_set_and_digest(id, field) { \
+		t1replay_checkpoint_group_set( \
+			&checkpoint->groups[id], id, offsetof(t1replay_checkpoint_t, field), \
+			sizeof(checkpoint->field), &checkpoint->field \
+		); \
+		digest = t1replay_checkpoint_group_digest( \
+			digest, id, &checkpoint->field, sizeof(checkpoint->field) \
+		); \
+	}
+	checkpoint_group_set_and_digest(T1RCGI_SCENARIO, scenario);
+	checkpoint_group_set_and_digest(T1RCGI_RNG, rng);
+	checkpoint_group_set_and_digest(T1RCGI_INPUT, input);
+	checkpoint_group_set_and_digest(T1RCGI_PACING, pacing);
+	checkpoint_group_set_and_digest(T1RCGI_PLAYER, player);
+	checkpoint_group_set_and_digest(T1RCGI_ORB, orb);
+	checkpoint_group_set_and_digest(T1RCGI_STAGE, stage);
+	checkpoint_group_set_and_digest(T1RCGI_ITEMS, items);
+	checkpoint_group_set_and_digest(T1RCGI_PELLETS, pellets);
+	checkpoint_group_set_and_digest(T1RCGI_SHOTS, shots);
+	checkpoint_group_set_and_digest(T1RCGI_MISSILES, missiles);
+	checkpoint_group_set_and_digest(T1RCGI_LASERS, lasers);
+	checkpoint_group_set_and_digest(T1RCGI_PARTICLES, particles);
+	#undef checkpoint_group_set_and_digest
+	checkpoint->header.state_digest = digest;
 	checkpoint->header.container_checksum = t1replay_checkpoint_checksum(
 		checkpoint
 	);

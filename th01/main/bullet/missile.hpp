@@ -40,6 +40,8 @@ enum missile_flag_t {
 	_missile_flag_t_FORCE_UINT8 = 0xFF
 };
 
+struct t1replay_checkpoint_missiles_t;
+
 class CMissiles {
 	Subpixel cur_left[MISSILE_COUNT];
 	Subpixel cur_top[MISSILE_COUNT];
@@ -73,6 +75,15 @@ public:
 
 	void reset(void);
 	void unput_update_render(void);
+	void checkpoint_export(t1replay_checkpoint_missiles_t *checkpoint) const;
+	void checkpoint_import(const t1replay_checkpoint_missiles_t *checkpoint);
 };
 
 extern CMissiles Missiles;
+
+void t1replay_missiles_checkpoint_export(
+	t1replay_checkpoint_missiles_t *checkpoint
+);
+void t1replay_missiles_checkpoint_import(
+	const t1replay_checkpoint_missiles_t *checkpoint
+);

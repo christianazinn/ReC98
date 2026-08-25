@@ -18,3 +18,12 @@ enum particle_origin_t {
 // random position on the [origin] edge(s) and flying into the opposite
 // direction. Must be called with [origin] == PO_INITIALIZE first!
 void particles_unput_update_render(particle_origin_t origin, vc2 col);
+
+struct t1replay_checkpoint_particles_t;
+
+void t1replay_particles_checkpoint_export(
+	t1replay_checkpoint_particles_t *checkpoint
+);
+void t1replay_particles_checkpoint_import(
+	const t1replay_checkpoint_particles_t *checkpoint
+);

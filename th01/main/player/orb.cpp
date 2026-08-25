@@ -1,3 +1,6 @@
+#include "th01/main/player/orb.hpp"
+#include "th01/replay_format.hpp"
+
 extern int orb_frames_outside_portal; // unused
 extern double orb_velocity_y;
 
@@ -68,6 +71,38 @@ void orb_move_x(orb_velocity_x_t velocity_x)
 			orb_velocity_x = OVX_8_LEFT;
 		}
 	}
+}
+
+void t1replay_orb_checkpoint_export(t1replay_checkpoint_orb_t *checkpoint)
+{
+	checkpoint->cur_left = orb_cur_left;
+	checkpoint->cur_top = orb_cur_top;
+	checkpoint->prev_left = orb_prev_left;
+	checkpoint->prev_top = orb_prev_top;
+	checkpoint->frames_outside_portal = orb_frames_outside_portal;
+	checkpoint->rotation_frame = orb_rotation_frame;
+	checkpoint->force_frame = orb_force_frame;
+	checkpoint->velocity_x = orb_velocity_x;
+	checkpoint->in_portal = orb_in_portal;
+	checkpoint->force = orb_force;
+	checkpoint->velocity_y = orb_velocity_y;
+}
+
+void t1replay_orb_checkpoint_import(
+	const t1replay_checkpoint_orb_t *checkpoint
+)
+{
+	orb_cur_left = checkpoint->cur_left;
+	orb_cur_top = checkpoint->cur_top;
+	orb_prev_left = checkpoint->prev_left;
+	orb_prev_top = checkpoint->prev_top;
+	orb_frames_outside_portal = checkpoint->frames_outside_portal;
+	orb_rotation_frame = checkpoint->rotation_frame;
+	orb_force_frame = checkpoint->force_frame;
+	orb_velocity_x = static_cast<orb_velocity_x_t>(checkpoint->velocity_x);
+	orb_in_portal = checkpoint->in_portal;
+	orb_force = checkpoint->force;
+	orb_velocity_y = checkpoint->velocity_y;
 }
 
 inline main_ptn_id_t orb_anim_cel(void) {

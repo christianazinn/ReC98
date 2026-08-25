@@ -2,6 +2,7 @@
 #include "th01/hardware/graph.h"
 #include "th01/main/player/player.hpp"
 #include "th01/main/bullet/laser_s.hpp"
+#include "th01/replay_format.hpp"
 
 #include "th01/sprites/laser_s.csp"
 
@@ -47,6 +48,66 @@ void CShootoutLaser::spawn(
 	col = _col;
 	ray_moveout_speed = ray_extend_speed;
 	ray_length = 0;
+}
+
+void CShootoutLaser::checkpoint_export(
+	t1replay_checkpoint_laser_t *checkpoint
+) const
+{
+	checkpoint->origin_left = origin_left.v;
+	checkpoint->origin_y = origin_y.v;
+	checkpoint->ray_start_left = ray_start_left.v;
+	checkpoint->ray_start_y = ray_start_y.v;
+	checkpoint->ray_i_left = ray_i_left.v;
+	checkpoint->ray_i_y = ray_i_y.v;
+	checkpoint->ray_length = ray_length;
+	checkpoint->ray_moveout_speed = ray_moveout_speed;
+	checkpoint->target_left = target_left;
+	checkpoint->target_y = target_y;
+	checkpoint->unknown = unknown;
+	checkpoint->velocity_y = velocity_y.v;
+	checkpoint->step_y = step_y.v;
+	checkpoint->velocity_x = velocity_x.v;
+	checkpoint->step_x = step_x.v;
+	checkpoint->ray_extend_speed = ray_extend_speed;
+	checkpoint->alive = alive;
+	checkpoint->age = age;
+	checkpoint->moveout_at_age = moveout_at_age;
+	checkpoint->col = col;
+	checkpoint->width_cel = width_cel;
+	checkpoint->damaging = damaging;
+	checkpoint->id = id;
+	checkpoint->put_flag = put_flag;
+}
+
+void CShootoutLaser::checkpoint_import(
+	const t1replay_checkpoint_laser_t *checkpoint
+)
+{
+	origin_left.v = checkpoint->origin_left;
+	origin_y.v = checkpoint->origin_y;
+	ray_start_left.v = checkpoint->ray_start_left;
+	ray_start_y.v = checkpoint->ray_start_y;
+	ray_i_left.v = checkpoint->ray_i_left;
+	ray_i_y.v = checkpoint->ray_i_y;
+	ray_length = checkpoint->ray_length;
+	ray_moveout_speed = checkpoint->ray_moveout_speed;
+	target_left = checkpoint->target_left;
+	target_y = checkpoint->target_y;
+	unknown = checkpoint->unknown;
+	velocity_y.v = checkpoint->velocity_y;
+	step_y.v = checkpoint->step_y;
+	velocity_x.v = checkpoint->velocity_x;
+	step_x.v = checkpoint->step_x;
+	ray_extend_speed = checkpoint->ray_extend_speed;
+	alive = checkpoint->alive;
+	age = checkpoint->age;
+	moveout_at_age = checkpoint->moveout_at_age;
+	col = checkpoint->col;
+	width_cel = checkpoint->width_cel;
+	damaging = checkpoint->damaging;
+	id = checkpoint->id;
+	put_flag = checkpoint->put_flag ? SL_RAY_PUT : SL_RAY_UNPUT;
 }
 
 void CShootoutLaser::hittest_and_render(void)
@@ -156,4 +217,22 @@ void CShootoutLaser::update_hittest_and_render(void)
 
 	put_flag = SL_RAY_PUT;
 	hittest_and_render();
+}
+
+void t1replay_lasers_checkpoint_export(
+	t1replay_checkpoint_lasers_t *checkpoint
+)
+{
+	for(int i = 0; i < SHOOTOUT_LASER_COUNT; i++) {
+		shootout_lasers[i].checkpoint_export(&checkpoint->lasers[i]);
+	}
+}
+
+void t1replay_lasers_checkpoint_import(
+	const t1replay_checkpoint_lasers_t *checkpoint
+)
+{
+	for(int i = 0; i < SHOOTOUT_LASER_COUNT; i++) {
+		shootout_lasers[i].checkpoint_import(&checkpoint->lasers[i]);
+	}
 }

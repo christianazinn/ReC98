@@ -1,4 +1,5 @@
 #include "th01/main/bullet/pellet.hpp"
+#include "th01/replay_format.hpp"
 
 /// Constants
 /// ---------
@@ -46,6 +47,99 @@ CPellets::CPellets(void)
 	for(i = 0; i < sizeof(unknown_zero) / sizeof(unknown_zero[0]); i++) {
 		unknown_zero[i] = 0;
 	}
+}
+
+void CPellets::checkpoint_export(
+	t1replay_checkpoint_pellets_t *checkpoint
+) const
+{
+	for(int i = 0; i < PELLET_COUNT; i++) {
+		const Pellet &src = pellets[i];
+		t1replay_checkpoint_pellet_t &dst = checkpoint->pellets[i];
+
+		dst.cur_left = src.cur_left.v;
+		dst.cur_top = src.cur_top.v;
+		dst.spin_center_left = src.spin_center.x.v;
+		dst.spin_center_top = src.spin_center.y.v;
+		dst.prev_left = src.prev_left.v;
+		dst.prev_top = src.prev_top.v;
+		dst.velocity_x = src.velocity.x.v;
+		dst.velocity_y = src.velocity.y.v;
+		dst.spin_velocity_x = src.spin_velocity.x.v;
+		dst.spin_velocity_y = src.spin_velocity.y.v;
+		dst.speed = src.speed.v;
+		dst.from_group = src.from_group;
+		dst.age = src.age;
+		dst.decay_frame = src.decay_frame;
+		dst.cloud_frame = src.cloud_frame;
+		dst.cloud_left = src.cloud_left;
+		dst.cloud_top = src.cloud_top;
+		dst.angle = src.angle;
+		dst.sling_direction = src.sling_direction;
+		dst.moving = src.moving;
+		dst.motion_type = src.motion_type;
+		dst.not_rendered = src.not_rendered;
+	}
+	checkpoint->alive_count_excluding_cloud_pellets_after_reset =
+		alive_count_excluding_cloud_pellets_after_reset;
+	checkpoint->unknown_seven = unknown_seven;
+	checkpoint->interlace_field = interlace_field;
+	checkpoint->spawn_with_cloud = spawn_with_cloud;
+}
+
+void CPellets::checkpoint_import(
+	const t1replay_checkpoint_pellets_t *checkpoint
+)
+{
+	for(int i = 0; i < PELLET_COUNT; i++) {
+		Pellet &dst = pellets[i];
+		const t1replay_checkpoint_pellet_t &src = checkpoint->pellets[i];
+
+		dst.cur_left.v = src.cur_left;
+		dst.cur_top.v = src.cur_top;
+		dst.spin_center.x.v = src.spin_center_left;
+		dst.spin_center.y.v = src.spin_center_top;
+		dst.prev_left.v = src.prev_left;
+		dst.prev_top.v = src.prev_top;
+		dst.velocity.x.v = src.velocity_x;
+		dst.velocity.y.v = src.velocity_y;
+		dst.spin_velocity.x.v = src.spin_velocity_x;
+		dst.spin_velocity.y.v = src.spin_velocity_y;
+		dst.speed.v = src.speed;
+		dst.from_group = static_cast<pellet_group_t>(src.from_group);
+		dst.age = src.age;
+		dst.decay_frame = src.decay_frame;
+		dst.cloud_frame = src.cloud_frame;
+		dst.cloud_left = src.cloud_left;
+		dst.cloud_top = src.cloud_top;
+		dst.angle = src.angle;
+		dst.sling_direction = static_cast<pellet_sling_direction_t>(
+		src.sling_direction
+	);
+		dst.moving = src.moving;
+		dst.motion_type = src.motion_type;
+		dst.not_rendered = src.not_rendered;
+	}
+	alive_count_excluding_cloud_pellets_after_reset =
+		checkpoint->alive_count_excluding_cloud_pellets_after_reset;
+	unknown_seven = checkpoint->unknown_seven;
+	interlace_field = checkpoint->interlace_field;
+	spawn_with_cloud = checkpoint->spawn_with_cloud;
+	p = iteration_start();
+}
+
+void t1replay_pellets_checkpoint_export(
+	t1replay_checkpoint_pellets_t *checkpoint
+)
+{
+	Pellets.checkpoint_export(checkpoint);
+}
+
+void t1replay_pellets_checkpoint_import(
+	const t1replay_checkpoint_pellets_t *checkpoint
+)
+{
+	Pellets.checkpoint_import(checkpoint);
 }
 
 void vector2_to_player_from(
