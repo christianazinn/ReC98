@@ -150,10 +150,7 @@ void near stage_setup(void)
 	stage_is_first = false;
 	vsync_Count2 = 0;
 	stage_id = resident->stage;
-	if(
-		(stage_id == 0) || (stage_id == 6) ||
-		replay_practice_run_start_requested()
-	) {
+	if(replay_stage_is_first(stage_id)) {
 		stage_is_first = true;
 		text_fillca(' ', (TX_BLACK | TX_REVERSE));
 		demo_update = nullfunc_near;
@@ -420,5 +417,6 @@ void near stage_setup(void)
 }
 
 #pragma option -a1
+
 
 #undef nopcall_same_group

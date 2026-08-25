@@ -19,10 +19,12 @@ void replay_entry(void);
 // True only while a direct Practice start still needs the first-run native
 // initialization path. Ordinary stage progression never takes this branch.
 bool replay_practice_run_start_requested(void);
+bool replay_stage_is_first(uint8_t stage);
 
 // Applies the portable Practice resources after stage_init() has reset
 // per-stage state and before shot-level and HUD derivation consume them.
 void replay_practice_start_apply_after_reset(void);
+void replay_practice_start_apply_and_stage_activate(void);
 
 // Finishes fields reset by items_init() and consumes the one-shot Practice
 // startup request.
@@ -46,6 +48,13 @@ bool replay_private_test_active(void);
 // Called after native stage setup and before the first frame. Emits or checks
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);
+
+// Tail helpers that make room for replay hooks without growing position-
+// critical stock MAIN segments.
+void replay_main_entry_setup(void);
+bool replay_frame_pacing_should_delay(void);
+bool replay_stage_frame_advance_should_raise(void);
+void replay_metrics_commit(void);
 
 // Called after input_sense() and demo_update() at the canonical gameplay
 // input seam. Playback replaces the resulting full input_t plus Shift before

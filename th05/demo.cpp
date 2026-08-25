@@ -15,6 +15,8 @@
 #include "th04/main/pause.cpp"
 #include "th04/main/demo.cpp"
 
-// The replay/oracle hooks add 56 bytes to DEMO_TEXT. Keep the following
-// original segments on their stock paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+// Fill the exact stock DEMO_TEXT extent after moving demo policy to the tail.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"

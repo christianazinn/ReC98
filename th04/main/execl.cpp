@@ -110,15 +110,7 @@ int pascal GameExecl(const char *binary_fn)
 		ems_free(Ems);
 	}
 
-	resident->std_frames = total_std_frames;
-	resident->items_spawned = items_spawned;
-	resident->items_collected = items_collected;
-	resident->point_items_collected = total_point_items_collected;
-	resident->max_valued_point_items_collected = total_max_valued_point_items;
-	resident->enemies_gone = enemies_gone;
-	resident->enemies_killed = enemies_killed;
-	resident->slow_frames = total_slow_frames;
-	resident->frames = total_frames;
+	replay_metrics_commit();
 
 	bb_txt_free();
 	cdg_free_all();
@@ -141,5 +133,7 @@ int pascal GameExecl(const char *binary_fn)
 	);
 }
 
-// Round the 17-byte replay finalization hook to two paragraphs.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"

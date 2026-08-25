@@ -181,6 +181,7 @@ void near stage_loop(void)
 		register int playperf_interval;
 	#endif
 
+	replay_stage_start();
 	slowdown_factor = 1;
 	if(replay_practice_preroll_active()) {
 		_asm { mov ah, 41h; int 18h; }
@@ -262,55 +263,9 @@ void near stage_loop(void)
 		overlay2();
 		playfield_shake_update_and_render();
 		replay_input_reset_sense_tail();
-
-		total_slow_frames += (
-			#if (GAME == 5)
-				slowdown_caused_by_bullets |
-			#endif
-			(vsync_Count1 >= slowdown_factor)
-		);
-		total_frames++;
-
-		#if (GAME == 5)
-			if(
-				replay_practice_preroll_active() ||
-				replay_private_test_active()
-			) {
-				player_is_hit = false;
-			} else if(debug_mode_active) {
-				if(key_det & INPUT_Q) {
-					if(debug_fast_forward == DEBUG_FF_OFF) {
-						debug_fast_forward = DEBUG_FF_TURNING_ON;
-					} else if(debug_fast_forward == DEBUG_FF_ON) {
-						debug_fast_forward = DEBUG_FF_TURNING_OFF;
-					}
-				} else {
-					if(debug_fast_forward == DEBUG_FF_TURNING_OFF) {
-						debug_fast_forward = DEBUG_FF_OFF;
-					} else if(debug_fast_forward == DEBUG_FF_TURNING_ON) {
-						debug_fast_forward = DEBUG_FF_ON;
-						__emit__(0xEB, 0x00); // JMP SHORT $+2
-					}
-				}
-			}
-			if(
-				!replay_practice_preroll_active() &&
-				(debug_fast_forward == DEBUG_FF_OFF)
-			) {
-				slowdown_frame_delay();
-			} else if(debug_fast_forward != DEBUG_FF_OFF) {
-				player_is_hit = false;
-			}
-		#else
-			if(
-				replay_practice_preroll_active() ||
-				replay_private_test_active()
-			) {
-				player_is_hit = false;
-			} else {
-				slowdown_frame_delay();
-			}
-		#endif
+		if(replay_frame_pacing_should_delay()) {
+			slowdown_frame_delay();
+		}
 
 		if(palette_changed) {
 			palette_show();
@@ -325,40 +280,7 @@ void near stage_loop(void)
 		page_back ^= 1;
 
 		snd_se_update();
-		frames_unused++;
-
-		// Pinned to pseudo-registers the same way th03/main/rndloop.cpp pins
-		// the identical [round_frame] chain. Two details resist every plain
-		// C++ spelling of `stage_frame++` measured for kb/codegen/0097: the
-		// dead copy of the *pre*-increment value into DX, and the 16-bit
-		// `AND AX` on a value that is only ever stored as a byte.
-		_AX = stage_frame;
-		_DX = _AX;
-		_AX++;
-		stage_frame = _AX;
-		_AX &= 0x000F;
-		stage_frame_mod16 = _AL;
-		_AL &= 7;
-		stage_frame_mod8 = _AL;
-		_AL &= 3;
-		stage_frame_mod4 = _AL;
-		_AL &= 1;
-		stage_frame_mod2 = _AL;
-
-		#if (GAME == 5)
-			#define playperf_interval 4096
-		#else
-			// Every 6000 frames at 0 remaining lives, down to every 1000 at
-			// 10 or more.
-			playperf_interval = resident->rem_lives;
-			playperf_interval = ((playperf_interval >= PLAYPERF_LIVES_MAX)
-				? PLAYPERF_INTERVAL_MIN
-				: (PLAYPERF_INTERVAL_BASE
-					- (playperf_interval * PLAYPERF_INTERVAL_PER_LIFE)
-				)
-			);
-		#endif
-		if((stage_frame % playperf_interval) == 0) {
+		if(replay_stage_frame_advance_should_raise()) {
 			__emit__(0x6A, 1); // push 1
 			_asm { nop; push cs; call near ptr playperf_raise; }
 			__emit__(0xEB, 0x00); // JMP SHORT $+2
@@ -370,10 +292,15 @@ void near stage_loop(void)
 	}
 }
 
-// Preserve the paragraph phase of every original segment after STAGE_TEXT.
-// The replay hooks grow this segment by 91 bytes in TH04 and 117 in TH05.
+// Keep the following stock [main_01] code at its original raw offsets.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90"
 #endif

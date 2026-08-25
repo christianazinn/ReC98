@@ -430,6 +430,11 @@ bool oracle_active(void);
 // Returns false when the run has reached its terminal boundary and the caller
 // should invoke `demo_end()`.
 bool oracle_frame(uint16_t shift_offset);
+
+// Returns true while either the validation oracle or the stock demo has a
+// frame to consume. Keeping this policy in ORACLE_TEXT leaves DemoPlay() at
+// its original position and size.
+bool oracle_or_demo_frame(uint16_t shift_offset);
 /// --------------------------------------
 
 #endif /* TH04_MAIN_ORACLE_HPP */

@@ -6270,5 +6270,5 @@ bool replay_ck_container_apply(
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90"
 #endif

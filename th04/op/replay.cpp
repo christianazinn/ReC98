@@ -477,8 +477,7 @@ static void replay_op_paths_init(void)
 static void replay_op_exit_into_main(bool fade_out_bgm, bool allow_debug)
 {
 	replay_op_paths_init();
-	main_cdg_free();
-	cfg_save();
+	replay_op_bridge(ROBF_EXIT_PREPARE);
 	#if (GAME == 4)
 		gaiji_restore();
 	#endif
@@ -2533,7 +2532,7 @@ static void replay_main_start_game(void)
 		resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);
 		resident->stage_ascii = ('0' + 0);
 	#endif
-	if(playchar_menu()) {
+	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
 		return;
 	}
 	#if (GAME == 5)
@@ -2563,7 +2562,7 @@ static void replay_main_start_extra(void)
 		resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);
 		resident->stage_ascii = ('0' + STAGE_EXTRA);
 	#endif
-	if(playchar_menu()) {
+	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
 		return;
 	}
 	#if (GAME == 5)
@@ -2623,7 +2622,7 @@ static void replay_main_start_practice(void)
 		resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);
 		resident->stage_ascii = ('0' + 0);
 	#endif
-	if(playchar_menu()) {
+	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
 		return;
 	}
 	if(!replay_practice_setup(&start)) {
@@ -2665,6 +2664,10 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 			replay_main_start_practice_apply(&private_start, false);
 			return;
 		}
+		// MAIN consumes valid commands before returning to OP. Anything left
+		// here is stale or malformed and must not turn an attract demo into a
+		// replay/recording handoff.
+		replay_command_clear();
 	}
 	if(replay_main_returning_from_option && !in_option) {
 		replay_main_returning_from_option = false;
@@ -2703,12 +2706,12 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 			replay_main_return(RMC_PRACTICE);
 			return;
 		case RMC_REGIST_VIEW:
-			regist_view_menu();
+			replay_op_bridge(ROBF_REGIST_VIEW_MENU);
 			replay_main_initialized = false;
 			break;
 		case RMC_MUSICROOM:
-			musicroom_menu();
-			main_cdg_load();
+			replay_op_bridge(ROBF_MUSICROOM_MENU);
+			replay_op_bridge(ROBF_MAIN_CDG_LOAD);
 			replay_main_return((GAME == 5) ? RMC_MUSICROOM : RMC_GAME);
 			return;
 		case RMC_REPLAY:
@@ -2752,9 +2755,9 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 
 // Preserve the paragraph phase of the following stock runtime segment.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

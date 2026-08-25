@@ -10,10 +10,12 @@
 #include "th02/hardware/frmdelay.h"
 #include "th04/common.h"
 #include "th04/end/end.h"
+#include "th04/main/frames.h"
 #include "th04/main/oracle.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
 #include "th04/main/replay_checkpoint.hpp"
+#include "th04/main/slowdown.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
@@ -71,6 +73,11 @@ extern unsigned int total_point_items_collected;
 extern unsigned int total_max_valued_point_items;
 extern unsigned int enemies_gone;
 extern unsigned int enemies_killed;
+extern bool player_is_hit;
+extern char *eyename;
+extern bool scroll_active;
+extern bool (near* std_update)(void);
+bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 extern "C" void far player_shot_level_update(void);
 #if (GAME == 5)
 	extern unsigned char lives;
@@ -78,6 +85,8 @@ extern "C" void far player_shot_level_update(void);
 	extern unsigned char dream;
 	extern unsigned int stage_point_items_collected;
 	extern unsigned int extend_point_items_collected;
+	extern bool debug_mode_active;
+	extern unsigned char debug_fast_forward;
 #else
 	extern unsigned char dream_items_collected;
 	extern unsigned int dream_score;
@@ -1823,9 +1832,25 @@ bool replay_practice_run_start_requested(void)
 	return replay_practice_start_pending;
 }
 
+bool replay_stage_is_first(uint8_t stage)
+{
+	return (
+		(stage == 0) ||
+		(stage == 6) ||
+		replay_practice_run_start_requested()
+	);
+}
+
 void replay_practice_start_apply_after_reset(void)
 {
 	replay_practice_start_apply();
+}
+
+void replay_practice_start_apply_and_stage_activate(void)
+{
+	replay_practice_start_apply();
+	std_update = std_update_frames_then_animate_dialog_and_activate_boss_if_done;
+	scroll_active = true;
 }
 
 void replay_practice_items_ready(void)
@@ -2089,6 +2114,110 @@ void replay_stage_start(void)
 	}
 	replay_last_stage = stage_id;
 	replay_stage_seen = true;
+}
+
+void replay_main_entry_setup(void)
+{
+	oracle_entry();
+	replay_entry();
+
+	stage_id = resident->stage;
+	if(stage_id == STAGE_EXTRA) {
+		rank = RANK_EXTRA;
+	} else {
+		rank = resident->rank;
+	}
+	#if (GAME == 4)
+		eyename[3] = ('0' + rank);
+	#endif
+}
+
+bool replay_frame_pacing_should_delay(void)
+{
+	total_slow_frames += (
+		#if (GAME == 5)
+			slowdown_caused_by_bullets |
+		#endif
+		(vsync_Count1 >= slowdown_factor)
+	);
+	total_frames++;
+
+	#if (GAME == 5)
+		#define DEBUG_FF_OFF 0x00
+		#define DEBUG_FF_TURNING_ON 0xFE
+		#define DEBUG_FF_ON 0xFF
+		#define DEBUG_FF_TURNING_OFF 0x01
+
+		if(replay_practice_preroll_active() || replay_private_test_active()) {
+			player_is_hit = false;
+		} else if(debug_mode_active) {
+			if(key_det & INPUT_Q) {
+				if(debug_fast_forward == DEBUG_FF_OFF) {
+					debug_fast_forward = DEBUG_FF_TURNING_ON;
+				} else if(debug_fast_forward == DEBUG_FF_ON) {
+					debug_fast_forward = DEBUG_FF_TURNING_OFF;
+				}
+			} else {
+				if(debug_fast_forward == DEBUG_FF_TURNING_OFF) {
+					debug_fast_forward = DEBUG_FF_OFF;
+				} else if(debug_fast_forward == DEBUG_FF_TURNING_ON) {
+					debug_fast_forward = DEBUG_FF_ON;
+				}
+			}
+		}
+		if(
+			!replay_practice_preroll_active() &&
+			(debug_fast_forward == DEBUG_FF_OFF)
+		) {
+			return true;
+		}
+		if(debug_fast_forward != DEBUG_FF_OFF) {
+			player_is_hit = false;
+		}
+		return false;
+	#else
+		if(replay_practice_preroll_active() || replay_private_test_active()) {
+			player_is_hit = false;
+			return false;
+		}
+		return true;
+	#endif
+}
+
+bool replay_stage_frame_advance_should_raise(void)
+{
+	unsigned int playperf_interval;
+
+	frames_unused++;
+	stage_frame++;
+	stage_frame_mod16 = (stage_frame & 0x0F);
+	stage_frame_mod8 = (stage_frame & 0x07);
+	stage_frame_mod4 = (stage_frame & 0x03);
+	stage_frame_mod2 = (stage_frame & 0x01);
+
+	#if (GAME == 5)
+		playperf_interval = 4096;
+	#else
+		playperf_interval = resident->rem_lives;
+		playperf_interval = ((playperf_interval >= 10)
+			? 1000
+			: (6000 - (playperf_interval * 500))
+		);
+	#endif
+	return ((stage_frame % playperf_interval) == 0);
+}
+
+void replay_metrics_commit(void)
+{
+	resident->std_frames = total_std_frames;
+	resident->items_spawned = items_spawned;
+	resident->items_collected = items_collected;
+	resident->point_items_collected = total_point_items_collected;
+	resident->max_valued_point_items_collected = total_max_valued_point_items;
+	resident->enemies_gone = enemies_gone;
+	resident->enemies_killed = enemies_killed;
+	resident->slow_frames = total_slow_frames;
+	resident->frames = total_frames;
 }
 
 void replay_gameplay_input(void)
