@@ -17,6 +17,7 @@
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/boss/explode.hpp"
 #include "th04/main/custom.hpp"
+#include "th04/main/dialog/dialog.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
@@ -30,6 +31,7 @@
 #include "th04/main/playperf.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/scroll.hpp"
+#include "th04/main/slowdown.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/replay_format.hpp"
@@ -76,6 +78,8 @@ extern uint8_t power;
 extern unsigned int total_max_valued_point_items;
 extern unsigned char item_splash_last_id;
 extern uint8_t midboss_defeat_angle;
+extern bool (near* std_update)(void);
+bool near std_update_done(void);
 
 extern bool player_is_hit;
 extern uint8_t player_invincibility_time;
@@ -952,6 +956,66 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 		bg_render_not_bombing = rck_bg_render_func(bg_not_bombing_id);
 		bg_render_bombing = rck_bg_render_func(bg_bombing_id);
 		bg_render_bombing_func = rck_bg_render_func(bg_bombing_func_id);
+	}
+	return true;
+}
+
+enum rck_std_update_t {
+	RCKSU_DIALOG = 0,
+	RCKSU_DONE = 1,
+};
+
+static uint8_t rck_std_update_id(void)
+{
+	if(std_update ==
+		std_update_frames_then_animate_dialog_and_activate_boss_if_done
+	) {
+		return RCKSU_DIALOG;
+	}
+	if(std_update == std_update_done) {
+		return RCKSU_DONE;
+	}
+	return 0xFF;
+}
+
+static bool (near* rck_std_update_func(uint8_t id))(void)
+{
+	switch(id) {
+	case RCKSU_DIALOG:
+		return std_update_frames_then_animate_dialog_and_activate_boss_if_done;
+	case RCKSU_DONE:
+		return std_update_done;
+	}
+	return 0;
+}
+
+static bool rck_group_pacing(replay_ck_stream_t far *stream)
+{
+	uint16_t factor = slowdown_factor;
+	uint8_t std_update_id = rck_std_update_id();
+
+	RCK_BOOL(turbo_mode);
+	RCK_BOOL(resident->turbo_mode);
+	if(
+		!rck_u16(stream, &factor) ||
+		(factor < 1) || (factor > 2)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		slowdown_factor = factor;
+	}
+#if (GAME == 5)
+	RCK_BOOL(slowdown_caused_by_bullets);
+#endif
+	if(
+		!rck_u8(stream, &std_update_id) ||
+		(rck_std_update_func(std_update_id) == 0)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		std_update = rck_std_update_func(std_update_id);
 	}
 	return true;
 }
@@ -3207,6 +3271,8 @@ bool replay_ck_group_codec(
 		return rck_group_scoring(stream);
 	case RCGI_FIELD:
 		return rck_group_field(stream);
+	case RCGI_PACING:
+		return rck_group_pacing(stream);
 	}
 	stream->failed = true;
 	return false;

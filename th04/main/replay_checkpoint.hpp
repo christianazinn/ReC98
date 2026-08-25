@@ -33,7 +33,8 @@ void replay_ck_apply_init(
 );
 bool replay_ck_finish(const replay_ck_stream_t far *stream);
 
-// Groups 0 through 4 and 6 through 8 are independently available for both games.
+// Groups 0 through 4, 6 through 8, and 11 are independently available for both
+// games.
 // TH04 also provides group 5; TH05 keeps it unavailable until its stage-local
 // actor inventory is complete. All later groups fail. This function does not build
 // a checkpoint container, so it cannot expose an incomplete restore to the game.
