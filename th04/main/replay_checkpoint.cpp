@@ -23,6 +23,8 @@
 #include "th04/main/pointnum/pointnum.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay_checkpoint.hpp"
+#include "th04/main/playperf.hpp"
+#include "th04/main/score.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
@@ -61,6 +63,7 @@ extern uint32_t score_delta;
 extern uint32_t score_delta_frame;
 extern uint16_t stage_graze;
 extern uint8_t continues_used;
+extern uint8_t hiscore_popup_shown;
 extern uint8_t power;
 extern unsigned int total_max_valued_point_items;
 extern unsigned char item_splash_last_id;
@@ -75,6 +78,8 @@ extern nearfunc_t_near near *playchar_shot_funcs;
 extern nearfunc_t_near playchar_shot_func;
 
 #if (GAME == 5)
+	extern uint8_t byte_22274;
+	extern uint8_t byte_22275;
 	extern uint8_t lives;
 	extern uint8_t bombs;
 	extern uint8_t dream;
@@ -83,6 +88,7 @@ extern nearfunc_t_near playchar_shot_func;
 	extern uint16_t hitshot_next_free_id;
 	extern "C" nearfunc_t_near SHOT_FUNCS[PLAYCHAR_COUNT][10];
 #else
+	extern uint8_t score_unused;
 	extern unsigned char dream_items_collected;
 	extern "C" input_t word_2598C;
 	extern "C" uint8_t byte_25980;
@@ -656,6 +662,31 @@ static bool rck_group_run(replay_ck_stream_t far *stream)
 	if((current_lives > 9) || (current_bombs > 9)) {
 		return false;
 	}
+	return true;
+}
+
+static bool rck_group_scoring(replay_ck_stream_t far *stream)
+{
+	int i;
+
+	for(i = 0; i < SCORE_DIGITS; i++) {
+		RCK_U8_MAX(score.digits[i], 9);
+	}
+	for(i = 0; i < SCORE_DIGITS; i++) {
+		RCK_U8_MAX(hiscore.digits[i], 9);
+	}
+#if (GAME == 4)
+	RCK_U8(score_unused);
+#endif
+	RCK_BOOL(hiscore_popup_shown);
+	RCK_U16(graze_score);
+	RCK_U8(playperf_max);
+	RCK_S8(playperf_min);
+	RCK_U32(resident->slow_frames);
+#if (GAME == 5)
+	RCK_U8(byte_22274);
+	RCK_U8(byte_22275);
+#endif
 	return true;
 }
 
@@ -2906,6 +2937,8 @@ bool replay_ck_group_codec(
 #endif
 	case RCGI_ITEMS:
 		return rck_group_items(stream);
+	case RCGI_SCORING:
+		return rck_group_scoring(stream);
 	}
 	stream->failed = true;
 	return false;
