@@ -13,6 +13,7 @@
 
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
 #include "th02/common.h"
 #include "th02/replay_format.hpp"
@@ -27,6 +28,7 @@
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/s1_actor.hpp"
 #include "th02/main/s2_actor.hpp"
+#include "th02/main/s3_actor.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -107,6 +109,9 @@ extern "C" uint8_t bgm_title_id;
 extern "C" uint8_t boss_bgm_title_id;
 extern "C" char rika_bgm_fn[];
 extern "C" char aBoss4_m[];
+extern "C" char aBoss2_m[];
+extern Palette8 __cdecl Palettes;
+extern void far pascal palette_show(void);
 
 extern "C" void far boss_bgm_load(char *fn);
 extern "C" void far enemies_remove_all(void);
@@ -2257,6 +2262,10 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE2_BOSS_PHASE3:
 		practice_target_valid = (start->stage == 1);
 		break;
+	case T2RPT_STAGE3_MIDBOSS:
+	case T2RPT_STAGE3_BOSS_START:
+		practice_target_valid = (start->stage == 2);
+		break;
 	default:
 		break;
 	}
@@ -2950,6 +2959,7 @@ bool16 replay_practice_target_apply(void)
 		if(stage_id != 2) {
 			return false;
 		}
+		th02_s3_field_clean_init();
 		target_scroll_step = 151;
 		break;
 	case T2RPT_STAGE4_CHAPTER2:
@@ -3014,6 +3024,29 @@ bool16 replay_practice_target_apply(void)
 		) {
 			return false;
 		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE3_MIDBOSS:
+		if(stage_id != 2) {
+			return false;
+		}
+		th02_s3_field_clean_init();
+		target_scroll_step = 103;
+		break;
+	case T2RPT_STAGE3_BOSS_START:
+		if(stage_id != 2) {
+			return false;
+		}
+		if(!practice_terminal_field_build()) {
+			return false;
+		}
+		th02_s3_field_clean_init();
+		Palettes[0].v[0] = 0;
+		Palettes[0].v[1] = 0;
+		Palettes[0].v[2] = 0;
+		palette_show();
+		th02_s3_stones_clean_init();
+		t2replay_boss_promote_clean(aBoss2_m);
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
 	default:

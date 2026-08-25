@@ -67,8 +67,10 @@ bool16 far th02_s3_field_state_apply(const th02_s3_field_state_t *state);
 bool16 far th02_s3_stones_state_capture(th02_s3_stones_state_t *state);
 bool16 far th02_s3_stones_state_apply(const th02_s3_stones_state_t *state);
 
-// These constructors run only after stage_init(). They own actor state, not
-// field construction, callback promotion, BGM/dialog, or the first redraw.
+// These constructors run only after stage_init(). Each owns its named
+// actor/effect state, not tile construction, callback promotion, BGM/dialog,
+// or the first redraw.
+void far th02_s3_field_clean_init(void);
 void far th02_s3_midboss_clean_init(void);
 void far th02_s3_stones_clean_init(void);
 

@@ -601,6 +601,25 @@ static void near th02_s3_rank_params_set(void)
 	}
 }
 
+void far th02_s3_field_clean_init(void)
+{
+	int page;
+	int i;
+
+	// The next native update enters the stable repeating ring cycle at 200.
+	stage3_effect_frame = 199;
+	stage3_ring_radius = 0;
+	stage3_ring_angle = 0;
+	stage3_ring_center_x = 224;
+	stage3_ring_center_y = 200;
+	for(page = 0; page < PAGE_COUNT; page++) {
+		for(i = 0; i < TH02_S3_RING_DOTS; i++) {
+			stage3_ring_dot[page][i].x = stage3_ring_center_x;
+			stage3_ring_dot[page][i].y = stage3_ring_center_y;
+		}
+	}
+}
+
 void far th02_s3_midboss_clean_init(void)
 {
 	int i;
