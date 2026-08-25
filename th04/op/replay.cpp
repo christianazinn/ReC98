@@ -166,16 +166,14 @@ static bool replay_op_background_load(replay_op_background_t background)
 
 static bool replay_op_screen_begin(
 	replay_op_background_t background,
-	graph_putsa_fx_func_t& previous_func, pixel_t& previous_spacing
+	graph_putsa_fx_func_t& previous_func
 )
 {
 	previous_func = graph_putsa_fx_func;
-	previous_spacing = graph_putsa_fx_spacing;
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
 	palette_black_out(4);
 	if(!replay_op_background_load(background)) {
 		graph_putsa_fx_func = previous_func;
-		graph_putsa_fx_spacing = previous_spacing;
 		return false;
 	}
 	pi_palette_apply(0);
@@ -190,12 +188,66 @@ static bool replay_op_screen_begin(
 }
 
 static void replay_op_screen_end(
-	graph_putsa_fx_func_t previous_func, pixel_t previous_spacing
+	graph_putsa_fx_func_t previous_func
 )
 {
 	pi_free(0);
 	graph_putsa_fx_func = previous_func;
-	graph_putsa_fx_spacing = previous_spacing;
+
+	// The only native layout is an 8-pixel ANK advance (16 before the renderer
+	// halves it). Restoring a stale zero repeats the one-cell menu regression.
+	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+}
+
+// Keep the accepted replay OP data/BSS addresses stable after removing the
+// stale-spacing restore path above. This is deliberately never called.
+static void replay_op_layout_pad(void)
+{
+	_asm {
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+	}
 }
 
 static int replay_op_dos_open(const char far *fn)
@@ -1924,10 +1976,9 @@ bool replay_practice_setup(replay_start_config_t far *start)
 	practice_field_t field;
 	bool input_allowed = false;
 	graph_putsa_fx_func_t previous_func;
-	pixel_t previous_spacing;
 
 	practice_defaults(start);
-	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func, previous_spacing)) {
+	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func)) {
 		return false;
 	}
 	practice_render(start, page, sel);
@@ -1967,12 +2018,12 @@ bool replay_practice_setup(replay_start_config_t far *start)
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_CANCEL) {
 				palette_black_out(4);
-				replay_op_screen_end(previous_func, previous_spacing);
+				replay_op_screen_end(previous_func);
 				return false;
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
 				if(practice_start_valid(start)) {
 					palette_black_out(4);
-					replay_op_screen_end(previous_func, previous_spacing);
+					replay_op_screen_end(previous_func);
 					return true;
 				}
 			}
@@ -2015,9 +2066,8 @@ bool replay_browser(void)
 	uint8_t sel = 0;
 	bool input_allowed = false;
 	graph_putsa_fx_func_t previous_func;
-	pixel_t previous_spacing;
 
-	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, previous_spacing)) {
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func)) {
 		return false;
 	}
 	replay_browser_render(sel);
@@ -2047,7 +2097,7 @@ bool replay_browser(void)
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_CANCEL) {
 				palette_black_out(4);
-				replay_op_screen_end(previous_func, previous_spacing);
+				replay_op_screen_end(previous_func);
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				if(
@@ -2055,7 +2105,7 @@ bool replay_browser(void)
 					replay_op_command_write(RCM_PLAYBACK, sel, 0, NULL)
 				) {
 					palette_black_out(4);
-					replay_op_screen_end(previous_func, previous_spacing);
+					replay_op_screen_end(previous_func);
 					return true;
 				}
 			}
