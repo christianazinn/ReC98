@@ -119,6 +119,11 @@ extern nearfunc_t_near playchar_shot_func;
 		extern uint8_t marisa_25671;
 		extern uint8_t marisa_patterns_without_bits;
 		extern uint8_t marisa_explode_milestone;
+		extern subpixel_t yuuka5_25662;
+		extern uint8_t yuuka5_25664;
+		extern uint8_t yuuka5_25665;
+		extern uint8_t yuuka5_25666;
+		extern uint8_t yuuka5_warp_phase;
 	}
 
 	struct replay_bomb_star_t {
@@ -2482,6 +2487,19 @@ static bool rck_th04_actor_stage4(replay_ck_stream_t far *stream)
 	if(rck_applying(stream)) {
 		return rck_th04_bit_fire_apply(bit_fire_id);
 	}
+	return true;
+}
+
+static bool rck_th04_actor_stage5(replay_ck_stream_t far *stream)
+{
+	if(stage_id != 4) {
+		return false;
+	}
+	RCK_U8_MAX(yuuka5_warp_phase, 3);
+	RCK_S16(yuuka5_25662);
+	RCK_U8(yuuka5_25664);
+	RCK_U8(yuuka5_25665);
+	RCK_U8(yuuka5_25666);
 	return true;
 }
 #endif
