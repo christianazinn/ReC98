@@ -446,7 +446,7 @@ static bool t2replay_checkpoint_group_payload_valid(
 		return (
 			(data[0] <= 1) && (data[1] <= 1) && (data[0] != data[1]) &&
 			(data[2] <= 1) && (data[3] <= TM_NONE) &&
-			(data[8] != 0) && (data[12] <= 1) &&
+			(data[8] != 0) && (data[12] <= 1) && (data[13] == 0) &&
 			(value >= 0) && (value < RES_Y) &&
 			(data[18] <= 1) && (data[19] == 0)
 		);
