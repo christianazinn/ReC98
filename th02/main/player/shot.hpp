@@ -39,6 +39,26 @@ extern "C" int shot_slot_i;
 // volley by shot_a()/shot_b()/shot_c().
 extern "C" subpixel_t shot_spawn_top;
 
+// Persistent stream and pool controls. Their per-frame values affect the
+// next volley, so the checkpoint codec names them explicitly rather than
+// treating the contiguous BSS span as a serializable object.
+extern "C" uint8_t shot_stream_a_phase;
+extern "C" uint8_t shot_stream_b_phase;
+extern "C" uint8_t shot_stream_a_cooldown_time;
+extern "C" uint8_t shot_stream_b_cooldown_time;
+extern "C" uint8_t shot_patnum;
+extern "C" uint8_t shot_option_patnum;
+extern "C" uint8_t shot_patnum_powered;
+extern "C" uint8_t shot_option_patnum_powered;
+extern "C" int8_t shot_a_spread_angle_delta;
+extern "C" uint8_t option_shots_alive;
+extern "C" int boss_pos_x;
+extern "C" int boss_pos_y;
+extern "C" int boss_pos_x_unused;
+extern "C" uint8_t shot_c_cycle;
+extern "C" uint8_t shot_anim_frame[SHOT_COUNT];
+extern "C" int8_t shot_option_decay_interval;
+
 // ZUN bloat: The three functions below write [flag]/[decay_cel] and
 // [patnum]/[from_option] as two single 16-bit stores rather than four byte
 // ones. Turbo C++ 4.0J does not fuse adjacent byte stores — sparks_add()

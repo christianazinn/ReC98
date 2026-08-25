@@ -32,7 +32,20 @@
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/bomb.hpp"
+#include "th02/main/player/shot.hpp"
+#include "th02/main/bullet/bullet.hpp"
+#include "th02/main/laser.hpp"
+#include "th02/main/enemy/enemy.hpp"
+#include "th02/main/item/item.hpp"
+#include "th02/main/item/shared.hpp"
+#include "th02/main/spark.hpp"
+#include "th02/main/pointnum/pointnum.hpp"
+#include "th02/sprites/pointnum.h"
+#include "th02/sprites/bombpart.h"
+#include "th02/v_colors.hpp"
 #include "th02/main/tile/tile.hpp"
+#include "th02/main/stage/callback.hpp"
+#include "th02/main/null.hpp"
 
 #define T2REPLAY_BUFFER_PACKET_COUNT 256
 #define T2REPLAY_BUFFER_SIZE (T2REPLAY_BUFFER_PACKET_COUNT * T2REPLAY_PACKET_SIZE)
@@ -86,6 +99,19 @@ extern "C" int spawn_row_cur;
 extern "C" uint8_t bgm_show_timer;
 extern "C" uint8_t bgm_title_id;
 extern "C" uint8_t boss_bgm_title_id;
+
+// Stable callback vocabulary for the first common-world codec. These IDs are
+// intentionally captured and validated even though schema 3 has no apply
+// path. A future restorer must reject an unrecognized ID before touching live
+// callback slots; it must never deserialize a far code pointer.
+enum t2replay_checkpoint_callback_id_t {
+	T2RCCB_DISABLED = 0,
+	T2RCCB_LIVE = 1,
+};
+
+extern "C" void far enemies_invalidate(void);
+extern "C" void far enemies_update_and_render(void);
+extern "C" void far nullfunc_void_2(void);
 
 static void t2replay_memclear(void far *buf, unsigned size)
 {
@@ -179,9 +205,35 @@ static unsigned t2replay_checkpoint_group_size(uint8_t id)
 		return T2REPLAY_CHECKPOINT_STAGE_VM_SIZE;
 	case T2RCGI_PACING:
 		return T2REPLAY_CHECKPOINT_PACING_SIZE;
+	case T2RCGI_PLAYER:
+		return T2REPLAY_CHECKPOINT_PLAYER_SIZE;
+	case T2RCGI_BOMB:
+		return T2REPLAY_CHECKPOINT_BOMB_SIZE;
+	case T2RCGI_BULLET:
+		return T2REPLAY_CHECKPOINT_BULLET_SIZE;
+	case T2RCGI_LASER:
+		return T2REPLAY_CHECKPOINT_LASER_SIZE;
+	case T2RCGI_ENEMY:
+		return T2REPLAY_CHECKPOINT_ENEMY_SIZE;
+	case T2RCGI_EFFECT:
+		return T2REPLAY_CHECKPOINT_EFFECT_SIZE;
 	default:
 		return 0;
 	}
+}
+
+static unsigned t2replay_checkpoint_payload_offset(uint8_t id)
+{
+	unsigned offset = (
+		T2REPLAY_CHECKPOINT_HEADER_SIZE +
+		(T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	uint8_t group_id;
+
+	for(group_id = 0; group_id < id; group_id++) {
+		offset += t2replay_checkpoint_group_size(group_id);
+	}
+	return offset;
 }
 
 static uint32_t t2replay_checkpoint_digest_u32(
@@ -244,6 +296,516 @@ static void t2replay_checkpoint_group_set(
 		t2replay_fnv1a(T2REPLAY_FNV1A_BASIS,
 			container + payload_offset, payload_size)
 	);
+}
+
+static void t2replay_checkpoint_put_point(
+	uint8_t far *data, unsigned& offset, const screen_point_t& point
+)
+{
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(point.x));
+	offset += 2;
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(point.y));
+	offset += 2;
+}
+
+static void t2replay_checkpoint_put_spoint(
+	uint8_t far *data, unsigned& offset, const SPPoint& point
+)
+{
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(point.x.v));
+	offset += 2;
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(point.y.v));
+	offset += 2;
+}
+
+static bool t2replay_checkpoint_entity_flag_valid(uint8_t value)
+{
+	return (value <= F_REMOVE);
+}
+
+static bool t2replay_checkpoint_bullet_motion_valid(uint8_t value)
+{
+	switch(value) {
+	case BG_NONE:
+	case BG_1:
+	case BG_1_AIMED:
+	case BG_2_SPREAD_NARROW:
+	case BG_2_SPREAD_MEDIUM:
+	case BG_2_SPREAD_WIDE:
+	case BG_2_SPREAD_NARROW_AIMED:
+	case BG_2_SPREAD_MEDIUM_AIMED:
+	case BG_2_SPREAD_WIDE_AIMED:
+	case BG_2_SPREAD_ULTRAWIDE_AIMED:
+	case BG_3_SPREAD_NARROW:
+	case BG_3_SPREAD_MEDIUM:
+	case BG_3_SPREAD_WIDE:
+	case BG_3_SPREAD_NARROW_AIMED:
+	case BG_3_SPREAD_MEDIUM_AIMED:
+	case BG_3_SPREAD_WIDE_AIMED:
+	case BG_4_SPREAD_NARROW:
+	case BG_4_SPREAD_MEDIUM:
+	case BG_4_SPREAD_WIDE:
+	case BG_4_SPREAD_NARROW_AIMED:
+	case BG_4_SPREAD_MEDIUM_AIMED:
+	case BG_4_SPREAD_WIDE_AIMED:
+	case BG_5_SPREAD_NARROW:
+	case BG_5_SPREAD_MEDIUM:
+	case BG_5_SPREAD_WIDE:
+	case BG_5_SPREAD_NARROW_AIMED:
+	case BG_5_SPREAD_MEDIUM_AIMED:
+	case BG_5_SPREAD_WIDE_AIMED:
+	case BG_2_RING:
+	case BG_4_RING:
+	case BG_8_RING:
+	case BG_16_RING:
+	case BG_32_RING:
+	case BG_1_RANDOM_ANGLE:
+	case BG_RANDOM_ANGLE:
+	case BG_RANDOM_ANGLE_AND_SPEED:
+	case BG_2_SPREAD_HORIZONTALLY_SYMMETRIC:
+	case BSM_CHASE:
+	case BSM_HOMING:
+	case BSM_DECELERATE_THEN_TURN_AIMED:
+	case BSM_GRAVITY:
+	case BSM_DRIFT_ANGLE_AND_SPEED:
+	case BSM_DRIFT_ANGLE_CHASE:
+	case BSM_BOUNCE_LEFT_RIGHT_TOP_BOTTOM:
+	case BSM_BOUNCE_TOP_BOTTOM:
+	case BSM_1:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool t2replay_checkpoint_laser_callbacks_capture(uint8_t far *data)
+{
+	if(
+		(lasers_invalidate_func == nullfunc_void) &&
+		(lasers_update_and_render_func == nullfunc_void)
+	) {
+		data[0] = T2RCCB_DISABLED;
+		data[1] = T2RCCB_DISABLED;
+		return true;
+	}
+	if(
+		(lasers_invalidate_func == lasers_invalidate) &&
+		(lasers_update_and_render_func == lasers_update_and_render)
+	) {
+		data[0] = T2RCCB_LIVE;
+		data[1] = T2RCCB_LIVE;
+		return true;
+	}
+	return false;
+}
+
+static bool t2replay_checkpoint_enemy_callbacks_capture(uint8_t far *data)
+{
+	if(
+		(enemies_invalidate_func == nullfunc_void_2) &&
+		(enemies_update_and_render_func == nullfunc_void_2)
+	) {
+		data[0] = T2RCCB_DISABLED;
+		data[1] = T2RCCB_DISABLED;
+		return true;
+	}
+	if(
+		(enemies_invalidate_func == enemies_invalidate) &&
+		(enemies_update_and_render_func == enemies_update_and_render)
+	) {
+		data[0] = T2RCCB_LIVE;
+		data[1] = T2RCCB_LIVE;
+		return true;
+	}
+	return false;
+}
+
+static bool t2replay_checkpoint_player_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+	const shot_t near *shot;
+
+	for(i = 0; i < PAGE_COUNT; i++) {
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(player_left_on_page[i])
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(player_top_on_page[i])
+		);
+		offset += 2;
+	}
+	for(i = 0; i < PAGE_COUNT; i++) {
+		t2replay_checkpoint_put_point(
+			data, offset, player_option_left_topleft[i]
+		);
+	}
+	data[offset++] = player_option_patnum;
+	data[offset++] = static_cast<uint8_t>(playchar_speed_aligned_x);
+	data[offset++] = static_cast<uint8_t>(playchar_speed_aligned_y);
+	data[offset++] = static_cast<uint8_t>(playchar_speed_diagonal_x);
+	data[offset++] = static_cast<uint8_t>(playchar_speed_diagonal_y);
+	data[offset++] = static_cast<uint8_t>(player_is_hit);
+	data[offset++] = player_invincibility_time;
+	data[offset++] = (player_invincible_via_bomb ? 1 : 0);
+	data[offset++] = miss_frame;
+	data[offset++] = (miss_active ? 1 : 0);
+	data[offset++] = power;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(power_overflow)
+	);
+	offset += 2;
+	data[offset++] = shot_level;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(player_patnum)
+	);
+	offset += 2;
+	data[offset++] = shot_stream_a_phase;
+	data[offset++] = shot_stream_b_phase;
+	data[offset++] = shot_stream_a_cooldown_time;
+	data[offset++] = shot_stream_b_cooldown_time;
+	data[offset++] = shot_patnum;
+	data[offset++] = shot_option_patnum;
+	data[offset++] = shot_patnum_powered;
+	data[offset++] = shot_option_patnum_powered;
+	data[offset++] = static_cast<uint8_t>(shot_a_spread_angle_delta);
+	data[offset++] = option_shots_alive;
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(boss_pos_x));
+	offset += 2;
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(boss_pos_y));
+	offset += 2;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(boss_pos_x_unused)
+	);
+	offset += 2;
+	data[offset++] = shot_c_cycle;
+	for(i = 0; i < SHOT_COUNT; i++) {
+		data[offset++] = (shots[i].flag == F_FREE) ? 0 : shot_anim_frame[i];
+	}
+	data[offset++] = (resident->shottype == 0) ? 0 :
+		static_cast<uint8_t>(shot_option_decay_interval);
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(shot_slot_i));
+	offset += 2;
+	t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(shot_spawn_top));
+	offset += 2;
+	for(i = 0; i < SHOT_COUNT; i++) {
+		shot = &shots[i];
+		if(shot->flag == F_FREE) {
+			t2replay_memclear(data + offset, 16);
+			offset += 16;
+			continue;
+		}
+		data[offset++] = static_cast<uint8_t>(shot->flag);
+		data[offset++] = shot->decay_cel;
+		t2replay_checkpoint_put_spoint(data, offset, shot->pos_on_page[0]);
+		t2replay_checkpoint_put_spoint(data, offset, shot->pos_on_page[1]);
+		t2replay_checkpoint_put_spoint(data, offset, shot->velocity);
+		data[offset++] = shot->patnum;
+		data[offset++] = (shot->from_option ? 1 : 0);
+	}
+	return (offset == T2REPLAY_CHECKPOINT_PLAYER_SIZE);
+}
+
+static bool t2replay_checkpoint_bomb_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+
+	data[offset++] = (bombing ? 1 : 0);
+	if(bombing) {
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(bomb_frame));
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(bomb_circle_center.x)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(bomb_circle_center.y)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(bomb_circle_frame)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(bomb_circle_done)
+		);
+		offset += 2;
+		for(i = 0; i < BOMB_PARTICLE_COUNT; i++) {
+			t2replay_checkpoint_put_u16(
+				data, offset, static_cast<uint16_t>(bomb_particle_pos[i].x)
+			);
+			offset += 2;
+			t2replay_checkpoint_put_u16(
+				data, offset, static_cast<uint16_t>(bomb_particle_pos[i].y)
+			);
+			offset += 2;
+		}
+		for(i = 0; i < BOMB_PARTICLE_COUNT; i++) {
+			data[offset++] = bomb_particle_cel[i];
+		}
+		for(i = 0; i < BOMB_SMEAR_COLUMNS; i++) {
+			t2replay_checkpoint_put_u16(
+				data, offset, static_cast<uint16_t>(bomb_smears[i].bottom)
+			);
+			offset += 2;
+		}
+		data[offset++] = static_cast<uint8_t>(tile_mode_before_bomb_a);
+		data[offset++] = static_cast<uint8_t>(tile_mode_before_bomb_b);
+		data[offset++] = static_cast<uint8_t>(tile_mode_before_bomb_c);
+		for(i = 0; i < COMPONENT_COUNT; i++) {
+			data[offset++] = col0_before_bomb_a.v[i];
+		}
+		for(i = 0; i < COMPONENT_COUNT; i++) {
+			data[offset++] = col3_before_bomb_a.v[i];
+		}
+		data[offset++] = bomb_b_cel;
+	} else {
+		offset = (T2REPLAY_CHECKPOINT_BOMB_SIZE - 2);
+	}
+	data[offset++] = stage_miss_count;
+	data[offset++] = stage_bombs_used;
+	return (offset == T2REPLAY_CHECKPOINT_BOMB_SIZE);
+}
+
+static bool t2replay_checkpoint_bullet_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+	const bullet_t near *bullet;
+
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(bullet_special.u1.chase_speed.v)
+	);
+	offset += 2;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(bullet_special.u2.homing_frames)
+	);
+	offset += 2;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(bullet_special.u3.turns_max)
+	);
+	offset += 2;
+	data[offset++] = static_cast<uint8_t>(rank_base_speed.v);
+	data[offset++] = rank_base_stack;
+	data[offset++] = bullet_stack;
+	data[offset++] = static_cast<uint8_t>(easy_slow_skip_cycle);
+	for(i = 0; i < BULLET_COUNT; i++) {
+		bullet = &bullets[i];
+		if(bullet->flag == F_FREE) {
+			t2replay_memclear(data + offset, 19);
+			offset += 19;
+			continue;
+		}
+		data[offset++] = static_cast<uint8_t>(bullet->flag);
+		data[offset++] = static_cast<uint8_t>(bullet->size_type);
+		t2replay_checkpoint_put_spoint(data, offset, bullet->screen_topleft[0]);
+		t2replay_checkpoint_put_spoint(data, offset, bullet->screen_topleft[1]);
+		t2replay_checkpoint_put_spoint(data, offset, bullet->velocity);
+		data[offset++] = bullet->patnum;
+		data[offset++] = static_cast<uint8_t>(bullet->group_or_special_motion);
+		data[offset++] = bullet->angle;
+		data[offset++] = bullet->speed.v;
+		data[offset++] = bullet->u1.v;
+	}
+	return (offset == T2REPLAY_CHECKPOINT_BULLET_SIZE);
+}
+
+static bool t2replay_checkpoint_laser_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+	const laser_t near *laser;
+
+	if(!t2replay_checkpoint_laser_callbacks_capture(data + offset)) {
+		return false;
+	}
+	offset += 2;
+	data[offset++] = laser_wait_frames;
+	for(i = 0; i < LASER_COUNT; i++) {
+		laser = &lasers[i];
+		if(laser->flag == F_FREE) {
+			t2replay_memclear(data + offset, 12);
+			offset += 12;
+			continue;
+		}
+		data[offset++] = static_cast<uint8_t>(laser->flag);
+		data[offset++] = laser->phase;
+		t2replay_checkpoint_put_point(data, offset, laser->origin);
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(laser->wait_frames)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(laser->active_frames)
+		);
+		offset += 2;
+		data[offset++] = laser->charge_cel;
+		data[offset++] = laser->patnum_base;
+	}
+	return (offset == T2REPLAY_CHECKPOINT_LASER_SIZE);
+}
+
+static bool t2replay_checkpoint_enemy_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+	const enemy_t near *enemy;
+
+	data[offset++] = enemy_scripts_used;
+	data[offset++] = enemies_loop_bound;
+	if(!t2replay_checkpoint_enemy_callbacks_capture(data + offset)) {
+		return false;
+	}
+	offset += 2;
+	for(i = 0; i < ENEMY_COUNT; i++) {
+		enemy = &enemies[i];
+		if(enemy->flag == F_FREE) {
+			t2replay_memclear(data + offset, 36);
+			offset += 36;
+			continue;
+		}
+		t2replay_checkpoint_put_point(data, offset, enemy->pos_on_page[0]);
+		t2replay_checkpoint_put_point(data, offset, enemy->pos_on_page[1]);
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->script_ip));
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->age));
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->template_id));
+		offset += 2;
+		data[offset++] = static_cast<uint8_t>(enemy->flag);
+		data[offset++] = enemy->anim_frame;
+		data[offset++] = (enemy->in_kill_anim ? 1 : 0);
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->patnum_delta));
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->render_as));
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->angle));
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(enemy->spawned_in_left_half)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->loop_i));
+		offset += 2;
+		data[offset++] = static_cast<uint8_t>(enemy->velocity_x);
+		data[offset++] = static_cast<uint8_t>(enemy->velocity_y);
+		data[offset++] = (enemy->despawn_when_offscreen_vertically ? 1 : 0);
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(enemy->damage));
+		offset += 2;
+		data[offset++] = (enemy->not_shootable ? 1 : 0);
+		data[offset++] = (enemy->no_player_collision ? 1 : 0);
+		data[offset++] = enemy->pellet_group;
+		data[offset++] = enemy->pellet_speed;
+	}
+	return (offset == T2REPLAY_CHECKPOINT_ENEMY_SIZE);
+}
+
+static bool t2replay_checkpoint_effect_capture(uint8_t far *data)
+{
+	unsigned offset = 0;
+	unsigned i;
+	const item_t near *item;
+	const spark_t near *spark;
+
+	t2replay_checkpoint_put_u16(data, offset, item_bigpower_override);
+	offset += 2;
+	data[offset++] = (items_miss_add_gameover ? 1 : 0);
+	data[offset++] = item_semirandom_ring_p;
+	data[offset++] = item_semirandom_cycle;
+	data[offset++] = item_drop_cycle;
+	data[offset++] = item_collect_skill;
+	t2replay_checkpoint_put_u32(
+		data, offset, static_cast<uint32_t>(item_score_this_frame)
+	);
+	offset += 4;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(point_items_collected)
+	);
+	offset += 2;
+	for(i = 0; i < ITEM_COUNT; i++) {
+		item = &items[i];
+		if(item->flag == F_FREE) {
+			t2replay_memclear(data + offset, 16);
+			offset += 16;
+			continue;
+		}
+		data[offset++] = static_cast<uint8_t>(item->flag);
+		data[offset++] = static_cast<uint8_t>(item->type);
+		for(unsigned page = 0; page < PAGE_COUNT; page++) {
+			t2replay_checkpoint_put_u16(
+				data, offset, static_cast<uint16_t>(item->pos[page].screen_left)
+			);
+			offset += 2;
+			t2replay_checkpoint_put_u16(
+				data, offset, static_cast<uint16_t>(item->pos[page].screen_top.v)
+			);
+			offset += 2;
+		}
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(item->velocity_y.v)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(item->velocity_x_during_bounce)
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, static_cast<uint16_t>(item->age));
+		offset += 2;
+	}
+	for(i = 0; i < SPARK_COUNT; i++) {
+		spark = &sparks[i];
+		if(spark->flag == F_FREE) {
+			t2replay_memclear(data + offset, 18);
+			offset += 18;
+			continue;
+		}
+		data[offset++] = static_cast<uint8_t>(spark->flag);
+		data[offset++] = spark->age;
+		t2replay_checkpoint_put_spoint(data, offset, spark->screen_topleft[0]);
+		t2replay_checkpoint_put_spoint(data, offset, spark->screen_topleft[1]);
+		t2replay_checkpoint_put_spoint(data, offset, spark->velocity);
+		data[offset++] = static_cast<uint8_t>(spark->render_as);
+		data[offset++] = spark->angle;
+		data[offset++] = spark->speed_base.v;
+		data[offset++] = static_cast<uint8_t>(spark->default_render_as);
+	}
+	t2replay_checkpoint_put_u16(data, offset, spark_ring_i);
+	offset += 2;
+	data[offset++] = spark_sprite_interval;
+	data[offset++] = spark_age_max;
+	t2replay_checkpoint_put_u16(
+		data, offset, static_cast<uint16_t>(spark_accel_x.v)
+	);
+	offset += 2;
+	data[offset++] = pointnums.col;
+	for(i = 0; i < POINTNUM_COUNT; i++) {
+		if(pointnums.flag[i] == F_FREE) {
+			t2replay_memclear(data + offset, 10);
+			offset += 10;
+			continue;
+		}
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(pointnums.left[i])
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(pointnums.top[i][0])
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(
+			data, offset, static_cast<uint16_t>(pointnums.top[i][1])
+		);
+		offset += 2;
+		t2replay_checkpoint_put_u16(data, offset, pointnums.points[i]);
+		offset += 2;
+		data[offset++] = static_cast<uint8_t>(pointnums.flag[i]);
+		data[offset++] = pointnums.age[i];
+	}
+	data[offset++] = static_cast<uint8_t>(pointnums.op);
+	data[offset++] = static_cast<uint8_t>(pointnums.operand);
+	return (offset == T2REPLAY_CHECKPOINT_EFFECT_SIZE);
 }
 
 static bool t2replay_checkpoint_group_capture(
@@ -367,9 +929,278 @@ static bool t2replay_checkpoint_group_capture(
 		data[11] = 0;
 		return true;
 
+	case T2RCGI_PLAYER:
+		return t2replay_checkpoint_player_capture(data);
+
+	case T2RCGI_BOMB:
+		return t2replay_checkpoint_bomb_capture(data);
+
+	case T2RCGI_BULLET:
+		return t2replay_checkpoint_bullet_capture(data);
+
+	case T2RCGI_LASER:
+		return t2replay_checkpoint_laser_capture(data);
+
+	case T2RCGI_ENEMY:
+		return t2replay_checkpoint_enemy_capture(data);
+
+	case T2RCGI_EFFECT:
+		return t2replay_checkpoint_effect_capture(data);
+
 	default:
 		return false;
 	}
+}
+
+static bool t2replay_checkpoint_player_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset = 92;
+	unsigned i;
+	int16_t value;
+
+	if(
+		(data[21] != PLAYER_NOT_HIT) &&
+		(data[21] != PLAYER_HIT) &&
+		(data[21] != PLAYER_HIT_GAMEOVER)
+	) {
+		return false;
+	}
+	value = static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 27));
+	if(
+		(data[23] > 1) || (data[25] > 1) || (data[26] > POWER_MAX) ||
+		(value < 0) || (value > POWER_OVERFLOW_MAX) ||
+		(data[29] > SHOT_LEVEL_MAX) || (data[41] > 1) ||
+		(data[87] > 16) ||
+		(static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 88)) < 0) ||
+		(static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 88)) > SHOT_COUNT)
+	) {
+		return false;
+	}
+	for(i = 0; i < SHOT_COUNT; i++, offset += 16) {
+		if(data[offset] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 16)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			!t2replay_checkpoint_entity_flag_valid(data[offset]) ||
+			(data[offset + 15] > 1)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t2replay_checkpoint_bomb_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset;
+	unsigned i;
+
+	if(data[0] > 1) {
+		return false;
+	}
+	if(data[0] == 0) {
+		return t2replay_bytes_zero(data + 1,
+			(T2REPLAY_CHECKPOINT_BOMB_SIZE - 3));
+	}
+	if(
+		(static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 1)) < 0) ||
+		(static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 1)) > 184) ||
+		(t2replay_checkpoint_get_u16(data, 9) > 1)
+	) {
+		return false;
+	}
+	offset = 11 + (BOMB_PARTICLE_COUNT * 4);
+	for(i = 0; i < BOMB_PARTICLE_COUNT; i++) {
+		if(data[offset + i] > BOMB_PARTICLE_CELS) {
+			return false;
+		}
+	}
+	offset += BOMB_PARTICLE_COUNT + (BOMB_SMEAR_COLUMNS * 2);
+	return (
+		(data[offset + 0] <= TM_NONE) &&
+		(data[offset + 1] <= TM_NONE) &&
+		(data[offset + 2] <= TM_NONE) &&
+		(data[offset + 9] < 18)
+	);
+}
+
+static bool t2replay_checkpoint_bullet_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset = 10;
+	unsigned i;
+
+	if(data[7] > 1) {
+		return false;
+	}
+	for(i = 0; i < BULLET_COUNT; i++, offset += 19) {
+		if(data[offset] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 19)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			!t2replay_checkpoint_entity_flag_valid(data[offset]) ||
+			((data[offset + 1] != BST_PELLET) &&
+				(data[offset + 1] != BST_BULLET16)) ||
+			!t2replay_checkpoint_bullet_motion_valid(data[offset + 15])
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t2replay_checkpoint_laser_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset = 3;
+	unsigned i;
+
+	if(
+		(data[0] > T2RCCB_LIVE) || (data[1] > T2RCCB_LIVE) ||
+		(data[0] != data[1])
+	) {
+		return false;
+	}
+	for(i = 0; i < LASER_COUNT; i++, offset += 12) {
+		if(data[offset] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 12)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			!t2replay_checkpoint_entity_flag_valid(data[offset]) ||
+			(data[offset + 1] < LASER_PHASE_WAIT) ||
+			(data[offset + 1] > LASER_PHASE_DONE)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t2replay_checkpoint_enemy_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset = 4;
+	unsigned i;
+	int16_t value;
+
+	if(
+		(data[0] > ENEMY_SCRIPT_COUNT) || (data[1] > ENEMY_COUNT) ||
+		(data[2] > T2RCCB_LIVE) || (data[3] > T2RCCB_LIVE) ||
+		(data[2] != data[3])
+	) {
+		return false;
+	}
+	for(i = 0; i < ENEMY_COUNT; i++, offset += 36) {
+		if(data[offset + 14] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 36)) {
+				return false;
+			}
+			continue;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, offset + 8)
+		);
+		if((value < 0) || (value >= ENEMY_SCRIPT_SIZE)) {
+			return false;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, offset + 12)
+		);
+		if(
+			(value < 0) || (value >= ENEMY_TEMPLATE_COUNT) ||
+			!t2replay_checkpoint_entity_flag_valid(data[offset + 14]) ||
+			(data[offset + 16] > 1) || (data[offset + 20] > 2) ||
+			(t2replay_checkpoint_get_u16(data, offset + 23) > 1) ||
+			(data[offset + 29] > 1) || (data[offset + 32] > 1) ||
+			(data[offset + 33] > 1) ||
+			!t2replay_checkpoint_bullet_motion_valid(data[offset + 34])
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t2replay_checkpoint_effect_payload_valid(
+	const uint8_t far *data
+)
+{
+	unsigned offset = 13;
+	unsigned i;
+
+	if((data[2] > 1) || (data[3] >= 10)) {
+		return false;
+	}
+	for(i = 0; i < ITEM_COUNT; i++, offset += 16) {
+		if(data[offset] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 16)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			!t2replay_checkpoint_entity_flag_valid(data[offset]) ||
+			(data[offset + 1] >= IT_COUNT)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < SPARK_COUNT; i++, offset += 18) {
+		if(data[offset] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 18)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			!t2replay_checkpoint_entity_flag_valid(data[offset]) ||
+			((data[offset + 14] != SRA_DOT) &&
+				(data[offset + 14] != SRA_SPRITE)) ||
+			((data[offset + 17] != SRA_DOT) &&
+				(data[offset + 17] != SRA_SPRITE))
+		) {
+			return false;
+		}
+	}
+	if(
+		(t2replay_checkpoint_get_u16(data, offset) >= SPARK_COUNT) ||
+		(data[offset + 2] == 0) || (data[offset + 3] == 0) ||
+		(data[offset + 6] > V_WHITE)
+	) {
+		return false;
+	}
+	offset += 7;
+	for(i = 0; i < POINTNUM_COUNT; i++, offset += 10) {
+		if(data[offset + 8] == F_FREE) {
+			if(!t2replay_bytes_zero(data + offset, 10)) {
+				return false;
+			}
+			continue;
+		}
+		if(!t2replay_checkpoint_entity_flag_valid(data[offset + 8])) {
+			return false;
+		}
+	}
+	return (
+		(data[offset + 0] < POINTNUM_CELS) &&
+		(data[offset + 1] < POINTNUM_CELS)
+	);
 }
 
 static bool t2replay_checkpoint_group_payload_valid(
@@ -479,6 +1310,24 @@ static bool t2replay_checkpoint_group_payload_valid(
 			(data[11] == 0)
 		);
 
+	case T2RCGI_PLAYER:
+		return t2replay_checkpoint_player_payload_valid(data);
+
+	case T2RCGI_BOMB:
+		return t2replay_checkpoint_bomb_payload_valid(data);
+
+	case T2RCGI_BULLET:
+		return t2replay_checkpoint_bullet_payload_valid(data);
+
+	case T2RCGI_LASER:
+		return t2replay_checkpoint_laser_payload_valid(data);
+
+	case T2RCGI_ENEMY:
+		return t2replay_checkpoint_enemy_payload_valid(data);
+
+	case T2RCGI_EFFECT:
+		return t2replay_checkpoint_effect_payload_valid(data);
+
 	default:
 		return false;
 	}
@@ -564,6 +1413,14 @@ static bool t2replay_checkpoint_valid(
 		);
 		payload_offset += group_size;
 		decoded_size += group_size;
+	}
+	if(
+		(container[t2replay_checkpoint_payload_offset(T2RCGI_LASER)] ==
+			T2RCCB_LIVE) &&
+		(container[t2replay_checkpoint_payload_offset(T2RCGI_IDENTITY)] != 3) &&
+		(container[t2replay_checkpoint_payload_offset(T2RCGI_IDENTITY)] != 5)
+	) {
+		return false;
 	}
 	return (
 		(payload_offset == total_size) &&

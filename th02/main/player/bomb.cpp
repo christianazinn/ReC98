@@ -52,11 +52,7 @@ static const unsigned BOMB_BFT_CEL_SIZE = 72;
 #define BOMB1_BFT_CELS 18
 
 // Shottype A's and B's sparkles. (The cel count comes from bombpart.h.)
-static const int BOMB_PARTICLE_COUNT = 32;
-
 // Shottype C's vertical smear columns, 8 pixels wide each.
-#define BOMB_SMEAR_COLUMNS 48
-
 // ZUN bloat: Write-only. bomb_circle_update_and_render() stores [scroll_line]
 // here once per page, and nothing in the binary ever reads it back.
 extern "C" vram_y_t bomb_circle_scroll_line_unused[PAGE_COUNT];
@@ -67,31 +63,12 @@ extern "C" point_t bomb_particle_pos[BOMB_PARTICLE_COUNT];
 extern "C" uint8_t bomb_particle_cel[BOMB_PARTICLE_COUNT];
 
 // One of shottype C's downward-growing smear columns.
-struct bomb_smear_t {
-	screen_y_t bottom;
-
-	// ZUN bloat: Never written and never read. Only the 4-byte stride it
-	// creates is observable.
-	int unused;
-};
-extern "C" bomb_smear_t bomb_smears[BOMB_SMEAR_COLUMNS];
-
 // How far each of shottype C's smear columns grows per frame. (kb/codegen/0084:
 // this initializer template has to stay in th02_main.asm's own _DATA.)
 extern "C" const int BOMB_SMEAR_SPEEDS[BOMB_SMEAR_COLUMNS];
 
 // [tile_mode] as it was before a shottype's bomb animation blanked the
 // playfield. One slot per shottype, none of them shared.
-extern "C" tile_mode_t tile_mode_before_bomb_a;
-extern "C" tile_mode_t tile_mode_before_bomb_c;
-extern "C" tile_mode_t tile_mode_before_bomb_b;
-
-// Shottype A flashes colors 0 and 3, and puts back what it found here.
-extern "C" RGB8 col0_before_bomb_a;
-extern "C" RGB8 col3_before_bomb_a;
-
-// Shottype B's BOMB1.BFT cel, 0 to BOMB1_BFT_CELS - 1.
-extern "C" uint8_t bomb_b_cel;
 
 // The two spaces that shottype B's TRAM effect prints per 16×16 cell.
 // (kb/codegen/0084 again — a string literal in the dump's own _DATA.)

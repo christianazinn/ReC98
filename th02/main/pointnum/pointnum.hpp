@@ -1,8 +1,24 @@
 #include "pc98.h"
+#include "th02/main/entity.hpp"
 
 // Significant, internal digits. An additional 0 is appended to the on-screen
 // representation.
 static const int POINTNUM_DIGITS = 4;
+static const int POINTNUM_COUNT = 20;
+
+struct CPointnums {
+	vc_t col;
+	int8_t unused;
+	screen_x_t left[POINTNUM_COUNT];
+	screen_y_t top[POINTNUM_COUNT][PAGE_COUNT];
+	uint16_t points[POINTNUM_COUNT];
+	entity_flag_t flag[POINTNUM_COUNT];
+	uint8_t age[POINTNUM_COUNT];
+	uint8_t op;
+	uint8_t operand;
+};
+
+extern CPointnums pointnums;
 
 // ZUN landmine: [points] is not limited to POINTNUM_DIGITS. Larger values will
 // be truncated to their least significant POINTNUM_DIGITS, with their first

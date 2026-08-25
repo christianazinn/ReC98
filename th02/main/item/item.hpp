@@ -1,4 +1,7 @@
 #include "pc98.h"
+#include "th01/math/subpixel.hpp"
+#include "th02/main/entity.hpp"
+#include "th02/main/score.hpp"
 
 enum item_type_t {
 	IT_POWER = 0,
@@ -13,6 +16,22 @@ enum item_type_t {
 
 #define ITEM_COUNT 20
 
+struct item_pos_t {
+	screen_x_t screen_left;
+	Subpixel screen_top;
+};
+
+struct item_t {
+	entity_flag_t flag;
+	item_type_t type;
+	item_pos_t pos[PAGE_COUNT];
+	Subpixel velocity_y;
+	pixel_t velocity_x_during_bounce;
+	int age;
+};
+
+extern item_t items[ITEM_COUNT];
+
 // Turns the next N power or point items spawned via items_add() into big power
 // items. Used for recharging power after using a continue after a Game Over.
 extern unsigned int item_bigpower_override;
@@ -21,6 +40,12 @@ extern unsigned int item_bigpower_override;
 // ZUN bloat: Both turning this into a parameter or hardcoding the condition
 // (as TH04 and TH05 do it) would have been better than this.
 extern bool items_miss_add_gameover;
+
+extern "C" uint8_t item_semirandom_ring_p;
+extern "C" uint8_t item_semirandom_cycle;
+extern "C" uint8_t item_drop_cycle;
+extern "C" uint8_t item_collect_skill;
+extern score_t item_score_this_frame;
 
 // Also picks a new starting point inside the hardcoded randomized item cycle
 // used by items_add_semirandom().

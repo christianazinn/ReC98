@@ -1,7 +1,15 @@
 #include "platform.h"
 #include "pc98.h"
+#include "th02/main/tile/tile.hpp"
 
 static const unsigned char BOMB_CIRCLE_FRAMES = 32;
+static const int BOMB_PARTICLE_COUNT = 32;
+static const int BOMB_SMEAR_COLUMNS = 48;
+
+struct bomb_smear_t {
+	screen_y_t bottom;
+	int unused;
+};
 
 extern bool bombing;
 
@@ -18,6 +26,16 @@ extern int bomb_frame;
 extern point_t bomb_circle_center;
 extern int bomb_circle_frame;
 extern bool16 bomb_circle_done;
+
+extern "C" point_t bomb_particle_pos[BOMB_PARTICLE_COUNT];
+extern "C" uint8_t bomb_particle_cel[BOMB_PARTICLE_COUNT];
+extern "C" bomb_smear_t bomb_smears[BOMB_SMEAR_COLUMNS];
+extern "C" tile_mode_t tile_mode_before_bomb_a;
+extern "C" tile_mode_t tile_mode_before_bomb_b;
+extern "C" tile_mode_t tile_mode_before_bomb_c;
+extern "C" RGB8 col0_before_bomb_a;
+extern "C" RGB8 col3_before_bomb_a;
+extern "C" uint8_t bomb_b_cel;
 
 // The [resident->shottype]-specific bomb animation, selected by bomb_load().
 // Returns true once the bomb is over.

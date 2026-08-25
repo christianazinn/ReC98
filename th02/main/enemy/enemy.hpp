@@ -78,6 +78,10 @@ static const int ENEMY_COUNT = 25;
 
 extern enemy_t enemies[ENEMY_COUNT];
 
+// The upper exclusive slot bound for the live enemy pass. This is a semantic
+// loop cursor, not an array capacity.
+extern "C" uint8_t enemies_loop_bound;
+
 /// Templates
 /// ---------
 /// One per enemy *type*, not per spawned enemy. The first 0x1C bytes of each
