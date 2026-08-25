@@ -19,14 +19,20 @@
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
 #include "th02/hardware/input.hpp"
+#include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
 #include "th02/snd/snd.h"
+#include "th02/main/frames.hpp"
 #include "th02/main/main.hpp"
+#include "th02/main/midboss/midboss.hpp"
+#include "th02/main/playperf.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
+#include "th02/main/slowdown.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/bomb.hpp"
+#include "th02/main/tile/tile.hpp"
 
 #define T2REPLAY_BUFFER_PACKET_COUNT 256
 #define T2REPLAY_BUFFER_SIZE (T2REPLAY_BUFFER_PACKET_COUNT * T2REPLAY_PACKET_SIZE)
@@ -70,12 +76,16 @@ union t2replay_scroll_pages_t {
 };
 
 static t2replay_scroll_pages_t t2replay_scroll_pages;
-static t2replay_checkpoint_t t2replay_checkpoint_capture;
+static uint8_t t2replay_checkpoint_capture[T2REPLAY_CHECKPOINT_CAPTURE_SIZE];
+static uint16_t t2replay_checkpoint_capture_size;
 static bool t2replay_checkpoint_capture_is_valid;
 
 // Owned by the native stage loader and enemy spawn VM. This narrow replay
 // module reads them only while forming the capture-only checkpoint identity.
 extern "C" int spawn_row_cur;
+extern "C" uint8_t bgm_show_timer;
+extern "C" uint8_t bgm_title_id;
+extern "C" uint8_t boss_bgm_title_id;
 
 static void t2replay_memclear(void far *buf, unsigned size)
 {
@@ -90,126 +100,484 @@ static void t2replay_memclear(void far *buf, unsigned size)
 static bool t2replay_bytes_zero(const uint8_t far *buf, unsigned size);
 static uint32_t t2replay_fnv1a(uint32_t hash, const void far *buf, unsigned size);
 
-static uint32_t t2replay_checkpoint_group_digest(
-	uint32_t digest, uint8_t id, const void far *data, unsigned size
+#define T2RCK_HEADER_TOTAL_SIZE 0x10
+#define T2RCK_HEADER_SOURCE_FINGERPRINT 0x14
+#define T2RCK_HEADER_SEMANTIC_DIGEST 0x18
+#define T2RCK_HEADER_DECODED_SIZE 0x1C
+#define T2RCK_HEADER_CONTAINER_CHECKSUM 0x20
+#define T2RCK_HEADER_GROUP_MASK 0x24
+
+#define T2RCK_GROUP_ID 0
+#define T2RCK_GROUP_SCHEMA 1
+#define T2RCK_GROUP_CODEC 2
+#define T2RCK_GROUP_FLAGS 3
+#define T2RCK_GROUP_OFFSET 4
+#define T2RCK_GROUP_STORED_SIZE 8
+#define T2RCK_GROUP_DECODED_SIZE 12
+#define T2RCK_GROUP_CHECKSUM 16
+
+static uint16_t t2replay_checkpoint_get_u16(
+	const uint8_t far *data, unsigned offset
 )
 {
-	digest = t2replay_fnv1a(digest, &id, sizeof(id));
-	return t2replay_fnv1a(digest, data, size);
+	return static_cast<uint16_t>(
+		static_cast<uint16_t>(data[offset + 0]) |
+		(static_cast<uint16_t>(data[offset + 1]) << 8)
+	);
 }
 
-static void t2replay_checkpoint_group_set(
-	t2replay_checkpoint_group_t far *group, uint8_t id, uint32_t offset,
-	uint16_t size, const void far *data
-)
-{
-	group->id = id;
-	group->schema = T2REPLAY_CHECKPOINT_SCHEMA;
-	group->codec = T2RCC_RAW;
-	group->flags = 0;
-	group->offset = offset;
-	group->stored_size = size;
-	group->decoded_size = size;
-	group->checksum = t2replay_fnv1a(T2REPLAY_FNV1A_BASIS, data, size);
-}
-
-static bool t2replay_checkpoint_group_valid(
-	const t2replay_checkpoint_group_t far *group, uint8_t id, uint32_t offset,
-	uint16_t size, const void far *data
+static uint32_t t2replay_checkpoint_get_u32(
+	const uint8_t far *data, unsigned offset
 )
 {
 	return (
-		(group->id == id) &&
-		(group->schema == T2REPLAY_CHECKPOINT_SCHEMA) &&
-		(group->codec == T2RCC_RAW) &&
-		(group->flags == 0) &&
-		(group->offset == offset) &&
-		(group->stored_size == size) &&
-		(group->decoded_size == size) &&
-		(group->checksum == t2replay_fnv1a(T2REPLAY_FNV1A_BASIS, data, size))
+		static_cast<uint32_t>(data[offset + 0]) |
+		(static_cast<uint32_t>(data[offset + 1]) << 8) |
+		(static_cast<uint32_t>(data[offset + 2]) << 16) |
+		(static_cast<uint32_t>(data[offset + 3]) << 24)
 	);
 }
 
-static bool t2replay_checkpoint_valid(const t2replay_checkpoint_t far *checkpoint)
+static void t2replay_checkpoint_put_u16(
+	uint8_t far *data, unsigned offset, uint16_t value
+)
 {
-	uint32_t state_digest = T2REPLAY_FNV1A_BASIS;
-	uint32_t container_checksum;
-	uint32_t zero = 0;
+	data[offset + 0] = static_cast<uint8_t>(value);
+	data[offset + 1] = static_cast<uint8_t>(value >> 8);
+}
+
+static void t2replay_checkpoint_put_u32(
+	uint8_t far *data, unsigned offset, uint32_t value
+)
+{
+	data[offset + 0] = static_cast<uint8_t>(value);
+	data[offset + 1] = static_cast<uint8_t>(value >> 8);
+	data[offset + 2] = static_cast<uint8_t>(value >> 16);
+	data[offset + 3] = static_cast<uint8_t>(value >> 24);
+}
+
+static unsigned t2replay_checkpoint_group_offset(uint8_t id)
+{
+	return (
+		T2REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<unsigned>(id) * T2REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+}
+
+static unsigned t2replay_checkpoint_group_size(uint8_t id)
+{
+	switch(id) {
+	case T2RCGI_IDENTITY:
+		return T2REPLAY_CHECKPOINT_IDENTITY_SIZE;
+	case T2RCGI_RNG:
+		return T2REPLAY_CHECKPOINT_RNG_SIZE;
+	case T2RCGI_RUN:
+		return T2REPLAY_CHECKPOINT_RUN_SIZE;
+	case T2RCGI_FIELD:
+		return T2REPLAY_CHECKPOINT_FIELD_SIZE;
+	case T2RCGI_STAGE_VM:
+		return T2REPLAY_CHECKPOINT_STAGE_VM_SIZE;
+	case T2RCGI_PACING:
+		return T2REPLAY_CHECKPOINT_PACING_SIZE;
+	default:
+		return 0;
+	}
+}
+
+static uint32_t t2replay_checkpoint_digest_u32(
+	uint32_t digest, uint32_t value
+)
+{
+	uint8_t bytes[4];
+
+	t2replay_checkpoint_put_u32(bytes, 0, value);
+	return t2replay_fnv1a(digest, bytes, sizeof(bytes));
+}
+
+static uint32_t t2replay_checkpoint_group_digest(
+	uint32_t digest, uint8_t id, const uint8_t far *data, unsigned size
+)
+{
+	digest = t2replay_fnv1a(digest, &id, sizeof(id));
+	id = T2REPLAY_CHECKPOINT_GROUP_SCHEMA;
+	digest = t2replay_fnv1a(digest, &id, sizeof(id));
+	digest = t2replay_checkpoint_digest_u32(digest, size);
+	return t2replay_fnv1a(digest, data, size);
+}
+
+static uint32_t t2replay_checkpoint_container_checksum(
+	const uint8_t far *data, unsigned size
+)
+{
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	unsigned offset;
+	uint8_t byte;
+
+	for(offset = 0; offset < size; offset++) {
+		byte = (
+			(offset >= T2RCK_HEADER_CONTAINER_CHECKSUM) &&
+			(offset < (T2RCK_HEADER_CONTAINER_CHECKSUM + 4))
+		) ? 0 : data[offset];
+		hash = t2replay_fnv1a(hash, &byte, sizeof(byte));
+	}
+	return hash;
+}
+
+static void t2replay_checkpoint_group_set(
+	uint8_t far *container, uint8_t id, unsigned payload_offset,
+	unsigned payload_size
+)
+{
+	uint8_t far *group = (
+		container + t2replay_checkpoint_group_offset(id)
+	);
+
+	group[T2RCK_GROUP_ID] = id;
+	group[T2RCK_GROUP_SCHEMA] = T2REPLAY_CHECKPOINT_GROUP_SCHEMA;
+	group[T2RCK_GROUP_CODEC] = T2RCC_RAW;
+	group[T2RCK_GROUP_FLAGS] = 0;
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_OFFSET, payload_offset);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_STORED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_DECODED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(
+		group, T2RCK_GROUP_CHECKSUM,
+		t2replay_fnv1a(T2REPLAY_FNV1A_BASIS,
+			container + payload_offset, payload_size)
+	);
+}
+
+static bool t2replay_checkpoint_group_capture(
+	uint8_t id, uint8_t far *data
+)
+{
+	unsigned i;
+
+	switch(id) {
+	case T2RCGI_IDENTITY:
+		data[0] = static_cast<uint8_t>(stage_id);
+		data[1] = resident->shottype;
+		data[2] = static_cast<uint8_t>(rank);
+		data[3] = (reduce_effects ? 1 : 0);
+		data[4] = T2REPLAY_INPUT_SEMANTICS_KEY_DET;
+		data[5] = T2REPLAY_RULESET_STOCK;
+		data[6] = 0;
+		data[7] = 0;
+		t2replay_checkpoint_put_u32(
+			data, 8, T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT
+		);
+		return true;
+
+	case T2RCGI_RNG:
+		t2replay_checkpoint_put_u32(
+			data, 0, static_cast<uint32_t>(random_seed)
+		);
+		for(i = 0; i < RANDRING_SIZE; i++) {
+			data[4 + i] = randring[i];
+		}
+		data[260] = randring_p;
+		data[261] = 0;
+		data[262] = 0;
+		data[263] = 0;
+		return true;
+
+	case T2RCGI_RUN:
+		t2replay_checkpoint_put_u32(
+			data, 0, static_cast<uint32_t>(resident->frame)
+		);
+		t2replay_checkpoint_put_u32(
+			data, 4, static_cast<uint32_t>(resident->score)
+		);
+		t2replay_checkpoint_put_u32(data, 8, resident->score_highest);
+		t2replay_checkpoint_put_u16(data, 12, resident->continues_used);
+		t2replay_checkpoint_put_u16(
+			data, 14, static_cast<uint16_t>(resident->skill)
+		);
+		data[16] = static_cast<uint8_t>(resident->rem_lives);
+		data[17] = static_cast<uint8_t>(resident->rem_bombs);
+		data[18] = resident->start_lives;
+		data[19] = resident->start_bombs;
+		data[20] = static_cast<uint8_t>(resident->start_power);
+		data[21] = resident->bgm_mode;
+		data[22] = static_cast<uint8_t>(resident->debug);
+		data[23] = resident->op_main_retval;
+		data[24] = resident->demo_num;
+		t2replay_checkpoint_put_u32(data, 25, static_cast<uint32_t>(score));
+		t2replay_checkpoint_put_u32(data, 29, static_cast<uint32_t>(hiscore));
+		t2replay_checkpoint_put_u32(data, 33, static_cast<uint32_t>(score_delta));
+		t2replay_checkpoint_put_u16(data, 37, extends_gained);
+		data[39] = static_cast<uint8_t>(lives);
+		data[40] = static_cast<uint8_t>(bombs);
+		data[41] = power;
+		data[42] = (quit ? 1 : 0);
+		return true;
+
+	case T2RCGI_FIELD:
+		data[0] = static_cast<uint8_t>(page_front);
+		data[1] = static_cast<uint8_t>(page_back);
+		data[2] = (scroll_done ? 1 : 0);
+		data[3] = static_cast<uint8_t>(tile_mode);
+		t2replay_checkpoint_put_u16(
+			data, 4, static_cast<uint16_t>(scroll_line)
+		);
+		data[6] = static_cast<uint8_t>(scroll_speed);
+		data[7] = scroll_cycle;
+		data[8] = scroll_interval;
+		data[9] = static_cast<uint8_t>(scroll_delta);
+		t2replay_checkpoint_put_u16(
+			data, 10, static_cast<uint16_t>(scroll_step)
+		);
+		t2replay_checkpoint_put_u16(
+			data, 12, static_cast<uint16_t>(scroll_step_advanced)
+		);
+		t2replay_checkpoint_put_u16(
+			data, 14,
+			static_cast<uint16_t>(t2replay_scroll_pages.line[0])
+		);
+		t2replay_checkpoint_put_u16(
+			data, 16,
+			static_cast<uint16_t>(t2replay_scroll_pages.line[1])
+		);
+		data[18] = (tiles_egc_render_all ? 1 : 0);
+		data[19] = 0;
+		return true;
+
+	case T2RCGI_STAGE_VM:
+		data[0] = static_cast<uint8_t>(stage_id);
+		data[1] = static_cast<uint8_t>(stage_progression);
+		data[2] = (midboss_active ? 1 : 0);
+		data[3] = 0;
+		t2replay_checkpoint_put_u16(
+			data, 4, static_cast<uint16_t>(spawn_row_cur)
+		);
+		t2replay_checkpoint_put_u16(
+			data, 6, static_cast<uint16_t>(midboss_scroll_step)
+		);
+		return true;
+
+	case T2RCGI_PACING:
+		t2replay_checkpoint_put_u32(data, 0, stage_frame);
+		data[4] = slowdown_factor;
+		t2replay_checkpoint_put_u16(
+			data, 5, static_cast<uint16_t>(playperf)
+		);
+		data[7] = playperf_max;
+		data[8] = bgm_show_timer;
+		data[9] = bgm_title_id;
+		data[10] = boss_bgm_title_id;
+		data[11] = 0;
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+static bool t2replay_checkpoint_group_payload_valid(
+	uint8_t id, const uint8_t far *data
+)
+{
+	int16_t value;
+
+	switch(id) {
+	case T2RCGI_IDENTITY:
+		return (
+			(data[0] < T2REPLAY_STAGE_COUNT) &&
+			(data[1] < 3) &&
+			(data[2] <= RANK_EXTRA) &&
+			((data[0] == (T2REPLAY_STAGE_COUNT - 1)) ==
+				(data[2] == RANK_EXTRA)) &&
+			(data[3] <= 1) &&
+			(data[4] == T2REPLAY_INPUT_SEMANTICS_KEY_DET) &&
+			(data[5] == T2REPLAY_RULESET_STOCK) &&
+			(data[6] == 0) && (data[7] == 0) &&
+			(t2replay_checkpoint_get_u32(data, 8) ==
+				T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT)
+		);
+
+	case T2RCGI_RNG:
+		return (
+			(data[261] == 0) && (data[262] == 0) && (data[263] == 0)
+		);
+
+	case T2RCGI_RUN:
+		value = static_cast<int8_t>(data[16]);
+		if((value < -1) || (value > 5)) {
+			return false;
+		}
+		value = static_cast<int8_t>(data[17]);
+		if((value < -1) || (value > 5)) {
+			return false;
+		}
+		return (
+			(data[18] <= 5) && (data[19] <= 5) &&
+			(static_cast<int8_t>(data[20]) >= 0) &&
+			(static_cast<int8_t>(data[20]) <= POWER_MAX) &&
+			(data[21] <= SND_BGM_MIDI) && (data[22] <= 1) &&
+			(data[24] <= 3) &&
+			(static_cast<int8_t>(data[39]) >= -1) &&
+			(static_cast<int8_t>(data[39]) <= 5) &&
+			(static_cast<int8_t>(data[40]) >= -1) &&
+			(static_cast<int8_t>(data[40]) <= 5) &&
+			(data[41] <= POWER_MAX) && (data[42] <= 1)
+		);
+
+	case T2RCGI_FIELD:
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 4)
+		);
+		if((value < 0) || (value >= RES_Y)) {
+			return false;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 10)
+		);
+		if(value < 0) {
+			return false;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 14)
+		);
+		if((value < 0) || (value >= RES_Y)) {
+			return false;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 16)
+		);
+		return (
+			(data[0] <= 1) && (data[1] <= 1) && (data[0] != data[1]) &&
+			(data[2] <= 1) && (data[3] <= TM_NONE) &&
+			(data[8] != 0) && (data[12] <= 1) &&
+			(value >= 0) && (value < RES_Y) &&
+			(data[18] <= 1) && (data[19] == 0)
+		);
+
+	case T2RCGI_STAGE_VM:
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 4)
+		);
+		if(value < 0) {
+			return false;
+		}
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 6)
+		);
+		return (
+			(data[0] < T2REPLAY_STAGE_COUNT) &&
+			(data[1] <= SP_CLEAR) && (data[2] <= 1) && (data[3] == 0) &&
+			(value >= -1)
+		);
+
+	case T2RCGI_PACING:
+		value = static_cast<int16_t>(
+			t2replay_checkpoint_get_u16(data, 5)
+		);
+		return (
+			(data[4] != 0) &&
+			(value >= playperf_min) && (value <= 16) &&
+			(data[7] <= 16) && (value <= data[7]) &&
+			(data[8] <= 160) && (data[9] < 12) && (data[10] < 12) &&
+			(data[11] == 0)
+		);
+
+	default:
+		return false;
+	}
+}
+
+static bool t2replay_checkpoint_valid(
+	const uint8_t far *container, unsigned total_size
+)
+{
+	uint32_t digest = T2REPLAY_FNV1A_BASIS;
+	uint32_t decoded_size = 0;
+	unsigned payload_offset;
+	unsigned group_offset;
+	unsigned group_size;
+	uint8_t group_id;
 
 	if(
-		(checkpoint->header.magic[0] != 'T') ||
-		(checkpoint->header.magic[1] != '2') ||
-		(checkpoint->header.magic[2] != 'C') ||
-		(checkpoint->header.magic[3] != 'K') ||
-		(checkpoint->header.magic[4] != 'P') ||
-		(checkpoint->header.magic[5] != '1') ||
-		(checkpoint->header.magic[6] != '\0') ||
-		(checkpoint->header.magic[7] != '\0') ||
-		(checkpoint->header.schema != T2REPLAY_CHECKPOINT_SCHEMA) ||
-		(checkpoint->header.header_size != T2REPLAY_CHECKPOINT_HEADER_SIZE) ||
-		(checkpoint->header.game_id != 2) ||
-		(checkpoint->header.group_count != T2REPLAY_CHECKPOINT_GROUP_COUNT) ||
-		(checkpoint->header.flags != 0) ||
-		(checkpoint->header.total_size != T2REPLAY_CHECKPOINT_SIZE) ||
-		(checkpoint->header.source_fingerprint !=
-			T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT) ||
-		(checkpoint->stage_vm.stage >= T2REPLAY_STAGE_COUNT) ||
-		(checkpoint->stage_vm.scroll_step < 0) ||
-		(checkpoint->stage_vm.spawn_row_cur < 0) ||
-		!t2replay_bytes_zero(
-			checkpoint->rng_identity.reserved,
-			sizeof(checkpoint->rng_identity.reserved)
-		) ||
-		(checkpoint->stage_vm.reserved_0 != 0) ||
-		(checkpoint->stage_vm.reserved_1 != 0)
+		(container == 0) ||
+		(total_size != T2REPLAY_CHECKPOINT_CAPTURE_SIZE) ||
+		(container[0] != 'T') || (container[1] != '2') ||
+		(container[2] != 'C') || (container[3] != 'K') ||
+		(container[4] != 'P') || (container[5] != '1') ||
+		(container[6] != '\0') || (container[7] != '\0') ||
+		(t2replay_checkpoint_get_u16(container, 8) !=
+			T2REPLAY_CHECKPOINT_SCHEMA) ||
+		(t2replay_checkpoint_get_u16(container, 10) !=
+			T2REPLAY_CHECKPOINT_HEADER_SIZE) ||
+		(container[12] != 2) ||
+		(container[13] != T2REPLAY_CHECKPOINT_GROUP_COUNT) ||
+		(t2replay_checkpoint_get_u16(container, 14) != 0) ||
+		(t2replay_checkpoint_get_u32(container, T2RCK_HEADER_TOTAL_SIZE) !=
+			T2REPLAY_CHECKPOINT_CAPTURE_SIZE) ||
+		(t2replay_checkpoint_get_u32(
+			container, T2RCK_HEADER_SOURCE_FINGERPRINT
+		) != T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT) ||
+		(t2replay_checkpoint_get_u32(container, T2RCK_HEADER_DECODED_SIZE) !=
+			(T2REPLAY_CHECKPOINT_CAPTURE_SIZE -
+				T2REPLAY_CHECKPOINT_HEADER_SIZE -
+				(T2REPLAY_CHECKPOINT_GROUP_COUNT *
+					T2REPLAY_CHECKPOINT_GROUP_SIZE))) ||
+		(t2replay_checkpoint_get_u32(container, T2RCK_HEADER_GROUP_MASK) !=
+			T2REPLAY_CHECKPOINT_GROUP_MASK)
 	) {
 		return false;
 	}
-	if(
-		!t2replay_checkpoint_group_valid(
-			&checkpoint->groups[T2RCGI_RNG_IDENTITY], T2RCGI_RNG_IDENTITY,
-			offsetof(t2replay_checkpoint_t, rng_identity),
-			sizeof(checkpoint->rng_identity), &checkpoint->rng_identity
-		) ||
-		!t2replay_checkpoint_group_valid(
-			&checkpoint->groups[T2RCGI_STAGE_VM], T2RCGI_STAGE_VM,
-			offsetof(t2replay_checkpoint_t, stage_vm),
-			sizeof(checkpoint->stage_vm), &checkpoint->stage_vm
-		) ||
-		!t2replay_checkpoint_group_valid(
-			&checkpoint->groups[T2RCGI_SCROLL_PAGES], T2RCGI_SCROLL_PAGES,
-			offsetof(t2replay_checkpoint_t, scroll_pages),
-			sizeof(checkpoint->scroll_pages), &checkpoint->scroll_pages
-		)
-	) {
-		return false;
+	payload_offset = (
+		T2REPLAY_CHECKPOINT_HEADER_SIZE +
+		(T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	for(group_id = 0; group_id < T2REPLAY_CHECKPOINT_GROUP_COUNT; group_id++) {
+		group_offset = t2replay_checkpoint_group_offset(group_id);
+		group_size = t2replay_checkpoint_group_size(group_id);
+		if(
+			(group_size == 0) ||
+			(container[group_offset + T2RCK_GROUP_ID] != group_id) ||
+			(container[group_offset + T2RCK_GROUP_SCHEMA] !=
+				T2REPLAY_CHECKPOINT_GROUP_SCHEMA) ||
+			(container[group_offset + T2RCK_GROUP_CODEC] != T2RCC_RAW) ||
+			(container[group_offset + T2RCK_GROUP_FLAGS] != 0) ||
+			(t2replay_checkpoint_get_u32(
+				container, group_offset + T2RCK_GROUP_OFFSET
+			) != payload_offset) ||
+			(t2replay_checkpoint_get_u32(
+				container, group_offset + T2RCK_GROUP_STORED_SIZE
+			) != group_size) ||
+			(t2replay_checkpoint_get_u32(
+				container, group_offset + T2RCK_GROUP_DECODED_SIZE
+			) != group_size) ||
+			(t2replay_checkpoint_get_u32(
+				container, group_offset + T2RCK_GROUP_CHECKSUM
+			) != t2replay_fnv1a(
+				T2REPLAY_FNV1A_BASIS,
+				container + payload_offset, group_size
+			)) ||
+			!t2replay_checkpoint_group_payload_valid(
+				group_id, container + payload_offset
+			)
+		) {
+			return false;
+		}
+		digest = t2replay_checkpoint_group_digest(
+			digest, group_id, container + payload_offset, group_size
+		);
+		payload_offset += group_size;
+		decoded_size += group_size;
 	}
-	state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_RNG_IDENTITY,
-		&checkpoint->rng_identity, sizeof(checkpoint->rng_identity)
+	return (
+		(payload_offset == total_size) &&
+		(decoded_size == t2replay_checkpoint_get_u32(
+			container, T2RCK_HEADER_DECODED_SIZE
+		)) &&
+		(digest == t2replay_checkpoint_get_u32(
+			container, T2RCK_HEADER_SEMANTIC_DIGEST
+		)) &&
+		(t2replay_checkpoint_container_checksum(container, total_size) ==
+			t2replay_checkpoint_get_u32(
+				container, T2RCK_HEADER_CONTAINER_CHECKSUM
+			))
 	);
-	state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_STAGE_VM,
-		&checkpoint->stage_vm, sizeof(checkpoint->stage_vm)
-	);
-	state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_SCROLL_PAGES,
-		&checkpoint->scroll_pages, sizeof(checkpoint->scroll_pages)
-	);
-	if(checkpoint->header.state_digest != state_digest) {
-		return false;
-	}
-	container_checksum = checkpoint->header.container_checksum;
-	state_digest = t2replay_fnv1a(
-		T2REPLAY_FNV1A_BASIS, checkpoint,
-		offsetof(t2replay_checkpoint_header_t, container_checksum)
-	);
-	state_digest = t2replay_fnv1a(state_digest, &zero, sizeof(zero));
-	state_digest = t2replay_fnv1a(
-		state_digest, checkpoint->groups,
-		sizeof(*checkpoint) - offsetof(t2replay_checkpoint_t, groups)
-	);
-	return (container_checksum == state_digest);
 }
 
 void replay_scroll_pages_reset(long packed_initial_lines)
@@ -230,64 +598,82 @@ void replay_scroll_page_line_set(uint8_t page, int16_t line)
 
 void replay_checkpoint_capture_validate(void)
 {
-	t2replay_checkpoint_t far *checkpoint = &t2replay_checkpoint_capture;
+	uint8_t far *checkpoint = t2replay_checkpoint_capture;
 	uint32_t state_digest = T2REPLAY_FNV1A_BASIS;
+	unsigned payload_offset;
+	unsigned group_size;
+	uint8_t group_id;
 
 	if(t2replay_mode == T2RM_DISABLED) {
 		return;
 	}
-	t2replay_memclear(checkpoint, sizeof(*checkpoint));
-	checkpoint->header.magic[0] = 'T';
-	checkpoint->header.magic[1] = '2';
-	checkpoint->header.magic[2] = 'C';
-	checkpoint->header.magic[3] = 'K';
-	checkpoint->header.magic[4] = 'P';
-	checkpoint->header.magic[5] = '1';
-	checkpoint->header.schema = T2REPLAY_CHECKPOINT_SCHEMA;
-	checkpoint->header.header_size = T2REPLAY_CHECKPOINT_HEADER_SIZE;
-	checkpoint->header.game_id = 2;
-	checkpoint->header.group_count = T2REPLAY_CHECKPOINT_GROUP_COUNT;
-	checkpoint->header.total_size = T2REPLAY_CHECKPOINT_SIZE;
-	checkpoint->header.source_fingerprint =
-		T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
-	checkpoint->rng_identity.random_seed = static_cast<uint32_t>(random_seed);
-	checkpoint->rng_identity.randring_p = randring_p;
-	checkpoint->stage_vm.stage = static_cast<uint8_t>(stage_id);
-	checkpoint->stage_vm.scroll_step = scroll_step;
-	checkpoint->stage_vm.spawn_row_cur = spawn_row_cur;
-	checkpoint->scroll_pages.line[0] = t2replay_scroll_pages.line[0];
-	checkpoint->scroll_pages.line[1] = t2replay_scroll_pages.line[1];
-	t2replay_checkpoint_group_set(
-		&checkpoint->groups[T2RCGI_RNG_IDENTITY], T2RCGI_RNG_IDENTITY,
-		offsetof(t2replay_checkpoint_t, rng_identity),
-		sizeof(checkpoint->rng_identity), &checkpoint->rng_identity
+	t2replay_checkpoint_capture_is_valid = false;
+	t2replay_checkpoint_capture_size = 0;
+	t2replay_memclear(checkpoint, T2REPLAY_CHECKPOINT_CAPTURE_SIZE);
+	checkpoint[0] = 'T'; checkpoint[1] = '2'; checkpoint[2] = 'C';
+	checkpoint[3] = 'K'; checkpoint[4] = 'P'; checkpoint[5] = '1';
+	t2replay_checkpoint_put_u16(checkpoint, 8, T2REPLAY_CHECKPOINT_SCHEMA);
+	t2replay_checkpoint_put_u16(
+		checkpoint, 10, T2REPLAY_CHECKPOINT_HEADER_SIZE
 	);
-	t2replay_checkpoint_group_set(
-		&checkpoint->groups[T2RCGI_STAGE_VM], T2RCGI_STAGE_VM,
-		offsetof(t2replay_checkpoint_t, stage_vm),
-		sizeof(checkpoint->stage_vm), &checkpoint->stage_vm
+	checkpoint[12] = 2;
+	checkpoint[13] = T2REPLAY_CHECKPOINT_GROUP_COUNT;
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_TOTAL_SIZE,
+		T2REPLAY_CHECKPOINT_CAPTURE_SIZE
 	);
-	t2replay_checkpoint_group_set(
-		&checkpoint->groups[T2RCGI_SCROLL_PAGES], T2RCGI_SCROLL_PAGES,
-		offsetof(t2replay_checkpoint_t, scroll_pages),
-		sizeof(checkpoint->scroll_pages), &checkpoint->scroll_pages
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_SOURCE_FINGERPRINT,
+		T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT
 	);
-	state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_RNG_IDENTITY,
-		&checkpoint->rng_identity, sizeof(checkpoint->rng_identity)
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_DECODED_SIZE,
+		(T2REPLAY_CHECKPOINT_CAPTURE_SIZE -
+			T2REPLAY_CHECKPOINT_HEADER_SIZE -
+			(T2REPLAY_CHECKPOINT_GROUP_COUNT *
+				T2REPLAY_CHECKPOINT_GROUP_SIZE))
 	);
-	state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_STAGE_VM,
-		&checkpoint->stage_vm, sizeof(checkpoint->stage_vm)
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_GROUP_MASK, T2REPLAY_CHECKPOINT_GROUP_MASK
 	);
-	checkpoint->header.state_digest = t2replay_checkpoint_group_digest(
-		state_digest, T2RCGI_SCROLL_PAGES,
-		&checkpoint->scroll_pages, sizeof(checkpoint->scroll_pages)
+	payload_offset = (
+		T2REPLAY_CHECKPOINT_HEADER_SIZE +
+		(T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE)
 	);
-	checkpoint->header.container_checksum = t2replay_fnv1a(
-		T2REPLAY_FNV1A_BASIS, checkpoint, sizeof(*checkpoint)
+	for(group_id = 0; group_id < T2REPLAY_CHECKPOINT_GROUP_COUNT; group_id++) {
+		group_size = t2replay_checkpoint_group_size(group_id);
+		if(
+			(group_size == 0) ||
+			!t2replay_checkpoint_group_capture(
+				group_id, checkpoint + payload_offset
+			)
+		) {
+			return;
+		}
+		t2replay_checkpoint_group_set(
+			checkpoint, group_id, payload_offset, group_size
+		);
+		state_digest = t2replay_checkpoint_group_digest(
+			state_digest, group_id, checkpoint + payload_offset, group_size
+		);
+		payload_offset += group_size;
+	}
+	if(payload_offset != T2REPLAY_CHECKPOINT_CAPTURE_SIZE) {
+		return;
+	}
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_SEMANTIC_DIGEST, state_digest
 	);
-	t2replay_checkpoint_capture_is_valid = t2replay_checkpoint_valid(checkpoint);
+	t2replay_checkpoint_put_u32(
+		checkpoint, T2RCK_HEADER_CONTAINER_CHECKSUM,
+		t2replay_checkpoint_container_checksum(
+			checkpoint, T2REPLAY_CHECKPOINT_CAPTURE_SIZE
+		)
+	);
+	t2replay_checkpoint_capture_size = T2REPLAY_CHECKPOINT_CAPTURE_SIZE;
+	t2replay_checkpoint_capture_is_valid = t2replay_checkpoint_valid(
+		checkpoint, t2replay_checkpoint_capture_size
+	);
 }
 
 static void t2replay_paths_init(void)

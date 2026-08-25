@@ -19,8 +19,9 @@ void replay_scroll_pages_reset(long packed_initial_lines);
 int16_t replay_scroll_page_line_get(uint8_t page);
 void replay_scroll_page_line_set(uint8_t page, int16_t line);
 
-// Captures and validates the narrow checkpoint vocabulary at the first frame
-// of a stage loop. It deliberately has no restore or file-write behavior.
+// Captures and validates the private semantic checkpoint vocabulary at the
+// first frame of a stage loop. It deliberately has no restore or file-write
+// behavior until every actor and world group has an exact codec.
 void replay_checkpoint_capture_validate(void);
 
 // Called immediately after one of MAIN's native input_reset_sense() calls.

@@ -13,13 +13,22 @@
 #define T2REPLAY_SLOT_COUNT 100
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
-// Capture-only foundation for later exact TH02 checkpoints. This does not
-// change the T2RPY1 user replay payload yet.
-#define T2REPLAY_CHECKPOINT_SCHEMA 1
-#define T2REPLAY_CHECKPOINT_HEADER_SIZE 32
-#define T2REPLAY_CHECKPOINT_GROUP_SIZE 16
-#define T2REPLAY_CHECKPOINT_GROUP_COUNT 3
-#define T2REPLAY_CHECKPOINT_SIZE 100
+// Private semantic-checkpoint vocabulary for later exact TH02 seeks. This
+// does not change the T2RPY1 user replay payload yet. Groups append by ID;
+// a reader only accepts the complete vocabulary it implements.
+#define T2REPLAY_CHECKPOINT_SCHEMA 2
+#define T2REPLAY_CHECKPOINT_GROUP_SCHEMA 1
+#define T2REPLAY_CHECKPOINT_HEADER_SIZE 40
+#define T2REPLAY_CHECKPOINT_GROUP_SIZE 20
+#define T2REPLAY_CHECKPOINT_GROUP_COUNT 6
+#define T2REPLAY_CHECKPOINT_IDENTITY_SIZE 12
+#define T2REPLAY_CHECKPOINT_RNG_SIZE 264
+#define T2REPLAY_CHECKPOINT_RUN_SIZE 43
+#define T2REPLAY_CHECKPOINT_FIELD_SIZE 20
+#define T2REPLAY_CHECKPOINT_STAGE_VM_SIZE 8
+#define T2REPLAY_CHECKPOINT_PACING_SIZE 12
+#define T2REPLAY_CHECKPOINT_CAPTURE_SIZE 519
+#define T2REPLAY_CHECKPOINT_GROUP_MASK 0x0000003FUL
 #define T2REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0x35643766UL
 
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
@@ -56,9 +65,12 @@
 #define T2REPLAY_FNV1A_PRIME 0x01000193UL
 
 enum t2replay_checkpoint_group_id_t {
-	T2RCGI_RNG_IDENTITY = 0,
-	T2RCGI_STAGE_VM = 1,
-	T2RCGI_SCROLL_PAGES = 2,
+	T2RCGI_IDENTITY = 0,
+	T2RCGI_RNG = 1,
+	T2RCGI_RUN = 2,
+	T2RCGI_FIELD = 3,
+	T2RCGI_STAGE_VM = 4,
+	T2RCGI_PACING = 5,
 };
 
 enum t2replay_checkpoint_codec_t {
@@ -133,59 +145,6 @@ struct t2replay_command_t {
 	uint8_t reserved[4];
 };
 
-// The checkpoint envelope intentionally contains no pointers, page addresses,
-// or VRAM. It is a capture/validation contract only until all required world
-// and actor groups have explicit codecs.
-struct t2replay_checkpoint_header_t {
-	char magic[8];
-	uint16_t schema;
-	uint16_t header_size;
-	uint8_t game_id;
-	uint8_t group_count;
-	uint16_t flags;
-	uint32_t total_size;
-	uint32_t source_fingerprint;
-	uint32_t state_digest;
-	uint32_t container_checksum;
-};
-
-struct t2replay_checkpoint_group_t {
-	uint8_t id;
-	uint8_t schema;
-	uint8_t codec;
-	uint8_t flags;
-	uint32_t offset;
-	uint16_t stored_size;
-	uint16_t decoded_size;
-	uint32_t checksum;
-};
-
-struct t2replay_checkpoint_rng_identity_t {
-	uint32_t random_seed;
-	uint8_t randring_p;
-	uint8_t reserved[3];
-};
-
-struct t2replay_checkpoint_stage_vm_t {
-	uint8_t stage;
-	uint8_t reserved_0;
-	int16_t scroll_step;
-	int16_t spawn_row_cur;
-	uint16_t reserved_1;
-};
-
-struct t2replay_checkpoint_scroll_pages_t {
-	int16_t line[2];
-};
-
-struct t2replay_checkpoint_t {
-	t2replay_checkpoint_header_t header;
-	t2replay_checkpoint_group_t groups[T2REPLAY_CHECKPOINT_GROUP_COUNT];
-	t2replay_checkpoint_rng_identity_t rng_identity;
-	t2replay_checkpoint_stage_vm_t stage_vm;
-	t2replay_checkpoint_scroll_pages_t scroll_pages;
-};
-
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -198,23 +157,17 @@ typedef char t2replay_packet_size_check[
 typedef char t2replay_command_size_check[
 	(sizeof(t2replay_command_t) == T2REPLAY_COMMAND_SIZE) ? 1 : -1
 ];
-typedef char t2rck_header_size_check[
-	(sizeof(t2replay_checkpoint_header_t) == T2REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
-];
-typedef char t2rck_group_size_check[
-	(sizeof(t2replay_checkpoint_group_t) == T2REPLAY_CHECKPOINT_GROUP_SIZE) ? 1 : -1
-];
-typedef char t2rck_rng_size_check[
-	(sizeof(t2replay_checkpoint_rng_identity_t) == 8) ? 1 : -1
-];
-typedef char t2rck_stage_vm_size_check[
-	(sizeof(t2replay_checkpoint_stage_vm_t) == 8) ? 1 : -1
-];
-typedef char t2rck_scroll_size_check[
-	(sizeof(t2replay_checkpoint_scroll_pages_t) == 4) ? 1 : -1
-];
-typedef char t2rck_size_check[
-	(sizeof(t2replay_checkpoint_t) == T2REPLAY_CHECKPOINT_SIZE) ? 1 : -1
+typedef char t2rck_capture_size_check[
+	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (
+		T2REPLAY_CHECKPOINT_HEADER_SIZE +
+		(T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE) +
+		T2REPLAY_CHECKPOINT_IDENTITY_SIZE +
+		T2REPLAY_CHECKPOINT_RNG_SIZE +
+		T2REPLAY_CHECKPOINT_RUN_SIZE +
+		T2REPLAY_CHECKPOINT_FIELD_SIZE +
+		T2REPLAY_CHECKPOINT_STAGE_VM_SIZE +
+		T2REPLAY_CHECKPOINT_PACING_SIZE
+	)) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
@@ -222,11 +175,4 @@ typedef char t2replay_header_checksum_offset_check[
 typedef char t2replay_header_start_offset_check[
 	(offsetof(t2replay_header_t, start) == 0x30) ? 1 : -1
 ];
-typedef char t2rck_groups_offset_check[
-	(offsetof(t2replay_checkpoint_t, groups) == T2REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
-];
-typedef char t2rck_rng_offset_check[
-	(offsetof(t2replay_checkpoint_t, rng_identity) == 80) ? 1 : -1
-];
-
 #endif /* TH02_REPLAY_FORMAT_HPP */
