@@ -215,8 +215,7 @@ struct ptn_t;
 //
 // Planar<ptn_plane_t> would have been enough though, since there's no alpha
 // plane to be snapped from VRAM anyway... Assumed by everything to contain
-// [card_count] card backgrounds first, followed by [obstacle_count] obstacle
-// backgrounds.
+// card backgrounds first, followed by obstacle backgrounds.
 extern ptn_t *stageobj_bgs;
 
 extern unsigned long stageobj_bgs_size;

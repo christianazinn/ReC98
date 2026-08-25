@@ -839,7 +839,7 @@ bool16 CPellets::hittest_player_for_cur(void)
 		(p->cur_left.to_pixel() >= (player_left + 4)) &&
 		(p->cur_left.to_pixel() <= (player_left + 20)) &&
 		(p->cur_top.to_pixel() >= (player_top + (player_sliding * 8))) &&
-		// Yup, <, not <= as in the overlap_point_le_ge() macro.
+		// Yup, <, not <= as in the inclusive collision helpers.
 		(p->cur_top.to_pixel() < (player_top + PLAYER_H - PELLET_H))
 	) {
 		player_is_hit = true;
