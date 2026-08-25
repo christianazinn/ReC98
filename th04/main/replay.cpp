@@ -1577,7 +1577,9 @@ static replay_command_mode_t replay_command_load(
 			return RCM_NONE;
 		}
 	} else if(command.flags & REPLAY_COMMAND_FLAG_PRACTICE) {
-		if(!replay_start_config_valid(&command.start, true, false)) {
+		if(!replay_start_config_valid(
+			&command.start, true, (command.start.kind > RSK_STAGE)
+		)) {
 			return RCM_NONE;
 		}
 	} else if(!replay_bytes_zero(
