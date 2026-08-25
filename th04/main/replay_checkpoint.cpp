@@ -46,6 +46,7 @@
 	#include "th04/main/player/bomb.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
+	#include "th04/sprites/main_pat.h"
 #endif
 
 #define RCK_SHOT_LEVEL_COUNT 9
@@ -124,7 +125,32 @@ extern nearfunc_t_near playchar_shot_func;
 		extern uint8_t yuuka5_25665;
 		extern uint8_t yuuka5_25666;
 		extern uint8_t yuuka5_warp_phase;
+		extern uint8_t yuuka6_bg_state;
+		extern uint8_t yuuka6_bg_state_frame;
+		extern bool yuuka6_bg_fade_done;
+		extern int yuuka6_anim_frame;
+		extern uint8_t yuuka6_sprite_flag;
+		extern uint8_t yuuka6_phase2_fly_path;
+		extern uint8_t yuuka6_25A02;
+		extern uint8_t yuuka6_25A03;
+		extern uint8_t yuuka6_25A04;
+		extern uint8_t yuuka6_25A08;
+		extern PlayfieldPoint yuuka6_25A0C;
+		extern uint8_t yuuka6_25A1B;
+		extern uint8_t yuuka6_25A1E;
 	}
+
+	struct bg_shape_t {
+		SPPoint pos;
+		uint8_t angle;
+		SubpixelLength8 speed;
+	};
+	extern bg_shape_t bg_shapes[57];
+	extern main_patnum_t bg_shape_patnum;
+	extern Subpixel bg_shape_flyout_speed;
+	extern void (near pascal *near bg_shape_clip)(bg_shape_t near& shape);
+	void pascal near bg_shape_clip_and_respawn_in_cen(bg_shape_t near& shape);
+	void pascal near bg_shape_clip_and_wrap(bg_shape_t near& shape);
 
 	struct replay_bomb_star_t {
 		SPPoint center;
@@ -2500,6 +2526,203 @@ static bool rck_th04_actor_stage5(replay_ck_stream_t far *stream)
 	RCK_U8(yuuka5_25664);
 	RCK_U8(yuuka5_25665);
 	RCK_U8(yuuka5_25666);
+	return true;
+}
+
+static uint8_t rck_th04_bg_clip_id(void)
+{
+	if(bg_shape_clip == 0) {
+		return 0;
+	}
+	if(bg_shape_clip == bg_shape_clip_and_wrap) {
+		return 1;
+	}
+	if(bg_shape_clip == bg_shape_clip_and_respawn_in_cen) {
+		return 2;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_bg_clip_compatible(
+	uint8_t id, uint8_t state, uint8_t state_frame
+)
+{
+	if(id == 0) {
+		return (
+			(state == 0) &&
+			(boss.phase <= PHASE_BOSS_ENTRANCE_BB)
+		);
+	}
+	if(id == 1) {
+		return (
+			(state <= 5) ||
+			(state == 8) || (state == 9) ||
+			(state >= 0xC) ||
+			(((state == 6) || (state == 0xA)) && (state_frame == 0))
+		);
+	}
+	if(id == 2) {
+		return (
+			(state == 6) || (state == 7) ||
+			(state == 0xA) || (state == 0xB) ||
+			(((state == 8) || (state == 0xC)) && (state_frame == 0))
+		);
+	}
+	return false;
+}
+
+static bool rck_th04_bg_clip_apply(uint8_t id)
+{
+	switch(id) {
+	case 0: bg_shape_clip = 0; break;
+	case 1: bg_shape_clip = bg_shape_clip_and_wrap; break;
+	case 2: bg_shape_clip = bg_shape_clip_and_respawn_in_cen; break;
+	default: return false;
+	}
+	return true;
+}
+
+static bool rck_th04_bg_patnum(
+	replay_ck_stream_t far *stream, uint8_t state
+)
+{
+	uint16_t encoded = static_cast<uint16_t>(bg_shape_patnum);
+	bool valid;
+
+	if(!rck_u16(stream, &encoded)) {
+		return false;
+	}
+	if((encoded == 0) && (state == 0)) {
+		valid = (boss.phase <= PHASE_BOSS_ENTRANCE_BB);
+	} else if(state <= 3) {
+		valid = (encoded == (120 + state));
+	} else if(state <= 0xF) {
+		valid = (encoded == 120);
+	} else if(state == 0x10) {
+		valid = (encoded == 124);
+	} else {
+		valid = (encoded == 125);
+	}
+	if(!valid) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		bg_shape_patnum = static_cast<main_patnum_t>(encoded);
+	}
+	return true;
+}
+
+static bool rck_th04_yuuka6_sprite_flag(
+	replay_ck_stream_t far *stream
+)
+{
+	uint8_t value = yuuka6_sprite_flag;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	switch(value) {
+	case 0: case 1: case 2: case 3: case 4: case 8:
+		break;
+	default:
+		return false;
+	}
+	if(rck_applying(stream)) {
+		yuuka6_sprite_flag = value;
+	}
+	return true;
+}
+
+static bool rck_th04_yuuka6_anim_frame(
+	replay_ck_stream_t far *stream
+)
+{
+	uint16_t encoded = static_cast<uint16_t>(yuuka6_anim_frame);
+	int value;
+
+	if(!rck_u16(stream, &encoded)) {
+		return false;
+	}
+	value = static_cast<int16_t>(encoded);
+	if((value < 0) || (value > 39)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		yuuka6_anim_frame = value;
+	}
+	return true;
+}
+
+static bool rck_th04_yuuka6_pattern_prev(
+	replay_ck_stream_t far *stream
+)
+{
+	uint8_t value = yuuka6_25A02;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	if((value > 2) && (value != 0xFF)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		yuuka6_25A02 = value;
+	}
+	return true;
+}
+
+static bool rck_th04_actor_stage6(replay_ck_stream_t far *stream)
+{
+	uint8_t clip_id;
+	int i;
+
+	if(stage_id != 5) {
+		return false;
+	}
+	RCK_U8_MAX(yuuka6_bg_state, 0x11);
+	RCK_U8(yuuka6_bg_state_frame);
+	RCK_BOOL(yuuka6_bg_fade_done);
+	if(!rck_th04_bg_patnum(stream, yuuka6_bg_state)) {
+		return false;
+	}
+	RCK_S16(bg_shape_flyout_speed.v);
+	clip_id = rck_th04_bg_clip_id();
+	if(
+		!rck_u8(stream, &clip_id) ||
+		!rck_th04_bg_clip_compatible(
+			clip_id, yuuka6_bg_state, yuuka6_bg_state_frame
+		)
+	) {
+		return false;
+	}
+	for(i = 0; i < 56; i++) {
+		if(!rck_sppoint(stream, &bg_shapes[i].pos)) {
+			return false;
+		}
+		RCK_U8(bg_shapes[i].angle);
+		RCK_U8(bg_shapes[i].speed.v);
+	}
+	if(
+		!rck_th04_yuuka6_anim_frame(stream) ||
+		!rck_th04_yuuka6_sprite_flag(stream)
+	) {
+		return false;
+	}
+	RCK_U8_MAX(yuuka6_phase2_fly_path, 1);
+	if(!rck_th04_yuuka6_pattern_prev(stream)) {
+		return false;
+	}
+	RCK_U8(yuuka6_25A03);
+	RCK_U8(yuuka6_25A04);
+	RCK_BOOL(yuuka6_25A08);
+	if(!rck_pfpoint(stream, &yuuka6_25A0C)) {
+		return false;
+	}
+	RCK_U8_MAX(yuuka6_25A1B, 2);
+	RCK_U8(yuuka6_25A1E);
+	if(rck_applying(stream)) {
+		return rck_th04_bg_clip_apply(clip_id);
+	}
 	return true;
 }
 #endif
