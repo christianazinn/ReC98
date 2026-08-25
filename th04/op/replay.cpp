@@ -8,6 +8,7 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
+#include "th03/formats/pi.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/v_colors.hpp"
 #include "th04/common.h"
@@ -34,8 +35,14 @@
 #define REPLAY_OP_LINE_TOP 88
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
+#define REPLAY_OP_TEXT_SPACING 16
 #define PRACTICE_CORE_ROWS 12
 #define PRACTICE_HISTORY_ROWS 14
+
+enum replay_op_background_t {
+	ROB_REPLAY,
+	ROB_PRACTICE,
+};
 
 enum replay_op_word_t {
 	ROW_REPLAY,
@@ -100,6 +107,90 @@ static char replay_op_line[REPLAY_OP_LINE_CAPACITY + 1];
 static replay_user_header_t replay_op_header;
 static bool replay_op_paths_ready;
 static uint8_t replay_op_page_shown;
+
+static void replay_op_patch_archive_name_set(char *fn)
+{
+	fn[0] = 'P'; fn[1] = 'A'; fn[2] = 'T'; fn[3] = 'C'; fn[4] = 'H';
+	fn[5] = '0'; fn[6] = ('0' + GAME); fn[7] = '.';
+	fn[8] = 'D'; fn[9] = 'A'; fn[10] = 'T'; fn[11] = '\0';
+}
+
+static void replay_op_stock_archive_name_set(char *fn)
+{
+	#if (GAME == 5)
+		fn[0] = 0x89; fn[1] = 0xF6; fn[2] = 0xE3; fn[3] = 0x59;
+		fn[4] = 0x92; fn[5] = 0x6B; fn[6] = '1'; fn[7] = '.';
+		fn[8] = 'd'; fn[9] = 'a'; fn[10] = 't'; fn[11] = '\0';
+	#else
+		fn[0] = 0x8C; fn[1] = 0xB6; fn[2] = 0x91; fn[3] = 0x7A;
+		fn[4] = 0x8B; fn[5] = 0xBD; fn[6] = 'e'; fn[7] = 'd';
+		fn[8] = '.'; fn[9] = 'd'; fn[10] = 'a'; fn[11] = 't'; fn[12] = '\0';
+	#endif
+}
+
+static void replay_op_background_name_set(
+	char *fn, replay_op_background_t background
+)
+{
+	fn[0] = 'S'; fn[1] = 'L'; fn[2] = 'B'; fn[3] = '1';
+	if(background == ROB_PRACTICE) {
+		fn[4] = 'B'; fn[5] = '.'; fn[6] = 'P'; fn[7] = 'I'; fn[8] = '\0';
+	} else {
+		fn[4] = '.'; fn[5] = 'P'; fn[6] = 'I'; fn[7] = '\0';
+	}
+}
+
+static bool replay_op_background_load(replay_op_background_t background)
+{
+	char archive_fn[12];
+	char background_fn[9];
+	char stock_archive_fn[13];
+	bool loaded;
+
+	replay_op_patch_archive_name_set(archive_fn);
+	replay_op_background_name_set(background_fn, background);
+	replay_op_stock_archive_name_set(stock_archive_fn);
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(archive_fn));
+	loaded = (pi_load(0, background_fn) == 0);
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(stock_archive_fn));
+	return loaded;
+}
+
+static bool replay_op_screen_begin(
+	replay_op_background_t background,
+	graph_putsa_fx_func_t& previous_func, pixel_t& previous_spacing
+)
+{
+	previous_func = graph_putsa_fx_func;
+	previous_spacing = graph_putsa_fx_spacing;
+	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+	palette_black_out(4);
+	if(!replay_op_background_load(background)) {
+		graph_putsa_fx_func = previous_func;
+		graph_putsa_fx_spacing = previous_spacing;
+		return false;
+	}
+	pi_palette_apply(0);
+	graph_accesspage(0);
+	pi_put_8(0, 0, 0);
+	graph_accesspage(1);
+	pi_put_8(0, 0, 0);
+	graph_showpage(0);
+	graph_accesspage(0);
+	replay_op_page_shown = 0;
+	return true;
+}
+
+static void replay_op_screen_end(
+	graph_putsa_fx_func_t previous_func, pixel_t previous_spacing
+)
+{
+	pi_free(0);
+	graph_putsa_fx_func = previous_func;
+	graph_putsa_fx_spacing = previous_spacing;
+}
 
 static int replay_op_dos_open(const char far *fn)
 {
@@ -805,9 +896,8 @@ static void replay_browser_render(uint8_t sel)
 	int i;
 
 	graph_accesspage(page_drawn);
-	graph_clear();
+	pi_put_8(0, 0, 0);
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	graph_putsa_fx_spacing = 0;
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_REPLAY);
 	replay_op_line_put(((RES_X - (6 * 8)) / 2), 24, REPLAY_OP_COL_ACTIVE, p);
@@ -1156,9 +1246,8 @@ static void practice_render(
 	int i;
 
 	graph_accesspage(page_drawn);
-	graph_clear();
+	pi_put_8(0, 0, 0);
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	graph_putsa_fx_spacing = 0;
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PRACTICE_SETUP);
 	replay_op_line_put(((RES_X - (14 * 8)) / 2), 16, REPLAY_OP_COL_ACTIVE, p);
@@ -1198,15 +1287,13 @@ bool replay_practice_setup(replay_start_config_t far *start)
 	uint8_t rows;
 	practice_field_t field;
 	bool input_allowed = false;
+	graph_putsa_fx_func_t previous_func;
+	pixel_t previous_spacing;
 
 	practice_defaults(start);
-	palette_black_out(4);
-	graph_accesspage(0);
-	graph_clear();
-	graph_accesspage(1);
-	graph_clear();
-	graph_showpage(0);
-	replay_op_page_shown = 0;
+	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func, previous_spacing)) {
+		return false;
+	}
 	practice_render(start, page, sel);
 	palette_100();
 	while(1) {
@@ -1244,10 +1331,12 @@ bool replay_practice_setup(replay_start_config_t far *start)
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_CANCEL) {
 				palette_black_out(4);
+				replay_op_screen_end(previous_func, previous_spacing);
 				return false;
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
 				if(replay_op_start_valid(start, true)) {
 					palette_black_out(4);
+					replay_op_screen_end(previous_func, previous_spacing);
 					return true;
 				}
 			}
@@ -1287,14 +1376,12 @@ bool replay_browser(void)
 {
 	uint8_t sel = 0;
 	bool input_allowed = false;
+	graph_putsa_fx_func_t previous_func;
+	pixel_t previous_spacing;
 
-	palette_black_out(4);
-	graph_accesspage(0);
-	graph_clear();
-	graph_accesspage(1);
-	graph_clear();
-	graph_showpage(0);
-	replay_op_page_shown = 0;
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, previous_spacing)) {
+		return false;
+	}
 	replay_browser_render(sel);
 	palette_100();
 
@@ -1322,6 +1409,7 @@ bool replay_browser(void)
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_CANCEL) {
 				palette_black_out(4);
+				replay_op_screen_end(previous_func, previous_spacing);
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				if(
@@ -1329,6 +1417,7 @@ bool replay_browser(void)
 					replay_op_command_write(RCM_PLAYBACK, sel, 0, NULL)
 				) {
 					palette_black_out(4);
+					replay_op_screen_end(previous_func, previous_spacing);
 					return true;
 				}
 			}
