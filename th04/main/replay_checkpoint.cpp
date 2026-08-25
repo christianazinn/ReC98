@@ -16,8 +16,10 @@
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/boss/explode.hpp"
+#include "th04/main/circle.hpp"
 #include "th04/main/custom.hpp"
 #include "th04/main/dialog/dialog.hpp"
+#include "th04/main/drawp.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
@@ -29,9 +31,12 @@
 #include "th04/main/quit.hpp"
 #include "th04/main/replay_checkpoint.hpp"
 #include "th04/main/playperf.hpp"
+#include "th04/main/playfld.hpp"
+#include "th04/main/player/player.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/scroll.hpp"
 #include "th04/main/slowdown.hpp"
+#include "th04/main/spark.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/replay_format.hpp"
@@ -63,6 +68,8 @@
 
 #define RCK_SHOT_LEVEL_COUNT 9
 #define RCK_BOMB_STAR_COUNT 48
+#define RCK_SHAKE_ANIM_TIME_MAX 16
+#define RCK_SPARK_SIZE 16
 
 extern uint16_t randring_p;
 extern uint8_t stage_id;
@@ -80,6 +87,7 @@ extern unsigned char item_splash_last_id;
 extern uint8_t midboss_defeat_angle;
 extern bool (near* std_update)(void);
 bool near std_update_done(void);
+extern int8_t playfield_shake_redraw_time;
 
 extern bool player_is_hit;
 extern uint8_t player_invincibility_time;
@@ -90,6 +98,35 @@ extern nearfunc_t_near near *playchar_shot_funcs;
 extern nearfunc_t_near playchar_shot_func;
 
 #if (GAME == 5)
+	#define RCK_BOSS_PARTICLE_COUNT 64
+	#define RCK_LINESET_LINE_COUNT 20
+	#define RCK_LINESET_COUNT 4
+
+	struct rck_boss_particle_t {
+		PlayfieldPoint pos;
+		PlayfieldPoint origin;
+		SPPoint velocity;
+		int age;
+		uint8_t angle;
+		uint8_t patnum;
+	};
+
+	struct rck_lineset_t {
+		SPPoint center[RCK_LINESET_LINE_COUNT];
+		Subpixel velocity_y;
+		Subpixel radius[RCK_LINESET_LINE_COUNT];
+		uint8_t angle[RCK_LINESET_LINE_COUNT];
+	};
+
+	extern rck_boss_particle_t boss_particles[RCK_BOSS_PARTICLE_COUNT];
+	extern rck_lineset_t linesets[RCK_LINESET_COUNT];
+	extern uint8_t shinki_bg_linesets_zoomed_out;
+	extern int shinki_bg_type_a_particles_alive;
+	extern bool shinki_bg_type_b_initialized;
+	extern uint16_t shinki_bg_spinline_frame;
+	extern bool shinki_bg_type_c_initialized;
+	extern bool shinki_bg_type_d_initialized;
+
 	extern uint8_t byte_22274;
 	extern uint8_t byte_22275;
 	extern uint8_t lives;
@@ -100,6 +137,19 @@ extern nearfunc_t_near playchar_shot_func;
 	extern uint16_t hitshot_next_free_id;
 	extern "C" nearfunc_t_near SHOT_FUNCS[PLAYCHAR_COUNT][10];
 #else
+	#define RCK_CHECKERBOARD_H 32
+	#define RCK_CHECKERBOARD_SPEED 4
+	#define RCK_CHECKERBOARD_OFF_MAX ((RCK_CHECKERBOARD_H - 1) * ROW_SIZE)
+
+	struct rck_checkerboard_t {
+		int16_t seg_bottom;
+		uint16_t off_bottom;
+		uint16_t off_top;
+		uint8_t vo_x_of_dark;
+		uint8_t loops;
+	};
+	extern rck_checkerboard_t checkerboard;
+
 	extern uint8_t score_unused;
 	extern unsigned char dream_items_collected;
 	extern "C" input_t word_2598C;
@@ -957,6 +1007,233 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 		bg_render_bombing = rck_bg_render_func(bg_bombing_id);
 		bg_render_bombing_func = rck_bg_render_func(bg_bombing_func_id);
 	}
+	return true;
+}
+
+static bool rck_spark(
+	replay_ck_stream_t far *stream, spark_t far *spark
+)
+{
+	if(!rck_entity_flag(stream, &spark->flag)) {
+		return false;
+	}
+	RCK_U8(spark->age);
+	if(!rck_motion(stream, &spark->center)) {
+		return false;
+	}
+	RCK_U16(spark->angle);
+	return true;
+}
+
+static bool rck_circle(
+	replay_ck_stream_t far *stream, circle_t far *circle
+)
+{
+	if(!rck_entity_flag(stream, &circle->flag)) {
+		return false;
+	}
+	RCK_U8(circle->age);
+	RCK_S16(circle->center.x);
+	RCK_S16(circle->center.y);
+	RCK_S16(circle->radius_cur);
+	RCK_S16(circle->radius_delta);
+	return true;
+}
+
+#if (GAME == 5)
+static bool rck_boss_particle(
+	replay_ck_stream_t far *stream, rck_boss_particle_t far *particle
+)
+{
+	if(
+		!rck_pfpoint(stream, &particle->pos) ||
+		!rck_pfpoint(stream, &particle->origin) ||
+		!rck_sppoint(stream, &particle->velocity)
+	) {
+		return false;
+	}
+	RCK_S16(particle->age);
+	RCK_U8(particle->angle);
+	RCK_U8(particle->patnum);
+	return true;
+}
+
+static bool rck_lineset(
+	replay_ck_stream_t far *stream, rck_lineset_t far *set
+)
+{
+	int i;
+
+	for(i = 0; i < RCK_LINESET_LINE_COUNT; i++) {
+		if(!rck_sppoint(stream, &set->center[i])) {
+			return false;
+		}
+	}
+	RCK_S16(set->velocity_y.v);
+	for(i = 0; i < RCK_LINESET_LINE_COUNT; i++) {
+		RCK_S16(set->radius[i].v);
+	}
+	for(i = 0; i < RCK_LINESET_LINE_COUNT; i++) {
+		RCK_U8(set->angle[i]);
+	}
+	return true;
+}
+#else
+static uint8_t rck_checkerboard_phase(void)
+{
+	uint16_t segment = static_cast<uint16_t>(checkerboard.seg_bottom);
+	uint16_t segment_delta;
+	uint16_t y;
+	uint16_t bottom_delta;
+
+	if(segment < SEG_PLANE_B) {
+		return 0xFF;
+	}
+	segment_delta = (segment - SEG_PLANE_B);
+	if((segment_delta % (ROW_SIZE / 16)) != 0) {
+		return 0xFF;
+	}
+	y = (segment_delta / (ROW_SIZE / 16));
+	if(y >= PLAYFIELD_BOTTOM) {
+		return 0xFF;
+	}
+	bottom_delta = (PLAYFIELD_BOTTOM - y);
+	if(
+		(bottom_delta < RCK_CHECKERBOARD_SPEED) ||
+		(bottom_delta > RCK_CHECKERBOARD_H) ||
+		((bottom_delta % RCK_CHECKERBOARD_SPEED) != 0)
+	) {
+		return 0xFF;
+	}
+	return (bottom_delta / RCK_CHECKERBOARD_SPEED);
+}
+
+static bool rck_checkerboard(replay_ck_stream_t far *stream)
+{
+	uint8_t phase = rck_checkerboard_phase();
+	uint16_t off_bottom = checkerboard.off_bottom;
+	uint16_t off_top = checkerboard.off_top;
+	uint8_t vo_x_of_dark = checkerboard.vo_x_of_dark;
+
+	if(
+		!rck_u8(stream, &phase) ||
+		(phase < 1) ||
+		(phase > (RCK_CHECKERBOARD_H / RCK_CHECKERBOARD_SPEED))
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		uint16_t y = (
+			PLAYFIELD_BOTTOM - (phase * RCK_CHECKERBOARD_SPEED)
+		);
+		checkerboard.seg_bottom = static_cast<int16_t>(
+			SEG_PLANE_B + ((y * ROW_SIZE) / 16)
+		);
+	}
+	if(!rck_u16(stream, &off_bottom) || !rck_u16(stream, &off_top)) {
+		return false;
+	}
+	if(
+		(off_bottom > RCK_CHECKERBOARD_OFF_MAX) ||
+		((off_bottom % ROW_SIZE) != 0) ||
+		(off_top > RCK_CHECKERBOARD_OFF_MAX) ||
+		((off_top % ROW_SIZE) != 0) ||
+		!rck_u8(stream, &vo_x_of_dark) ||
+		((vo_x_of_dark != PLAYFIELD_VRAM_LEFT) &&
+		 (vo_x_of_dark != (
+			PLAYFIELD_VRAM_LEFT + (RCK_CHECKERBOARD_H / BYTE_DOTS)
+		)))
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		checkerboard.off_bottom = off_bottom;
+		checkerboard.off_top = off_top;
+		checkerboard.vo_x_of_dark = vo_x_of_dark;
+		checkerboard.loops = 2;
+	}
+	return true;
+}
+#endif
+
+static bool rck_group_effects(replay_ck_stream_t far *stream)
+{
+	int i;
+	uint16_t ring_offset = spark_ring_offset;
+	uint8_t shake_redraw_time = playfield_shake_redraw_time;
+
+	for(i = 0; i < SPARK_COUNT; i++) {
+		if(!rck_spark(stream, &sparks[i])) {
+			return false;
+		}
+	}
+	if(
+		!rck_u16(stream, &ring_offset) ||
+		(ring_offset >= (SPARK_COUNT * RCK_SPARK_SIZE)) ||
+		((ring_offset % RCK_SPARK_SIZE) != 0)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		spark_ring_offset = ring_offset;
+	}
+	for(i = 0; i < CIRCLE_COUNT; i++) {
+		if(!rck_circle(stream, &circles[i])) {
+			return false;
+		}
+	}
+	RCK_U8_MAX(circles_color, 15);
+	if(!rck_pfpoint(stream, &drawpoint)) {
+		return false;
+	}
+	RCK_S16(miss_explosion_radius);
+	RCK_U8(miss_explosion_angle);
+	RCK_S16(playfield_shake_x);
+	RCK_S16(playfield_shake_y);
+	RCK_U16_MAX(playfield_shake_anim_time, RCK_SHAKE_ANIM_TIME_MAX);
+	if(
+		!rck_u8(stream, &shake_redraw_time) ||
+		(shake_redraw_time > PAGE_COUNT)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		playfield_shake_redraw_time = shake_redraw_time;
+	}
+#if (GAME == 5)
+	for(i = 0; i < RCK_BOSS_PARTICLE_COUNT; i++) {
+		if(!rck_boss_particle(stream, &boss_particles[i])) {
+			return false;
+		}
+	}
+	for(i = 0; i < RCK_LINESET_COUNT; i++) {
+		if(!rck_lineset(stream, &linesets[i])) {
+			return false;
+		}
+	}
+	RCK_U8(shinki_bg_linesets_zoomed_out);
+	{
+		uint16_t particles_alive = shinki_bg_type_a_particles_alive;
+		if(
+			!rck_u16(stream, &particles_alive) ||
+			((particles_alive > RCK_BOSS_PARTICLE_COUNT) &&
+			 (particles_alive != 0xFF))
+		) {
+			return false;
+		}
+		if(rck_applying(stream)) {
+			shinki_bg_type_a_particles_alive = particles_alive;
+		}
+	}
+	RCK_BOOL(shinki_bg_type_b_initialized);
+	RCK_U16(shinki_bg_spinline_frame);
+	RCK_BOOL(shinki_bg_type_c_initialized);
+	RCK_BOOL(shinki_bg_type_d_initialized);
+#else
+	if(!rck_checkerboard(stream)) {
+		return false;
+	}
+#endif
 	return true;
 }
 
@@ -3271,6 +3548,8 @@ bool replay_ck_group_codec(
 		return rck_group_scoring(stream);
 	case RCGI_FIELD:
 		return rck_group_field(stream);
+	case RCGI_EFFECTS:
+		return rck_group_effects(stream);
 	case RCGI_PACING:
 		return rck_group_pacing(stream);
 	}
