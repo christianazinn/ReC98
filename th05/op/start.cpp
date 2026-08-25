@@ -71,11 +71,8 @@ void near start_practice(void)
 	resident->stage = start.stage;
 	resident->credit_lives = start.credit_lives;
 	resident->credit_bombs = start.credit_bombs;
-	if(playchar_menu()) {
-		return;
-	}
+	resident->playchar = start.playchar;
 	resident_reset_last_highest_and_stage_scores();
-	start.playchar = resident->playchar;
 	if(!replay_practice_record_prepare(&start)) {
 		return;
 	}

@@ -56,14 +56,10 @@ void near start_practice(void)
 	resident->stage = start.stage;
 	resident->credit_lives = start.credit_lives;
 	resident->credit_bombs = start.credit_bombs;
-	resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);
+	resident->playchar_ascii = ('0' + start.playchar);
 	resident->stage_ascii = ('0' + start.stage);
-	if(playchar_menu()) {
-		return;
-	}
+	resident->shottype = start.shottype;
 	resident->demo_num = 0;
-	start.playchar = (resident->playchar_ascii - '0');
-	start.shottype = resident->shottype;
 	if(!replay_practice_record_prepare(&start)) {
 		return;
 	}
