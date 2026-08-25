@@ -4,10 +4,12 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th01/rank.h"
 #include "th02/core/globals.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/boss/boss.hpp"
+#include "th02/main/bullet/bullet.hpp"
 #include "th02/main/s5_actor.hpp"
 
 extern "C" int patnum_2064E;
@@ -15,6 +17,7 @@ extern "C" int boss_damage;
 extern "C" uint8_t boss_phase;
 extern "C" int boss_phase_frame;
 extern "C" bool boss_hit_flash;
+extern "C" uint8_t boss_rank_param[5];
 
 extern "C" screen_x_t left_26C56;
 extern "C" screen_x_t mima_muzzle_left;
@@ -76,7 +79,27 @@ extern "C" unsigned char mima_fan_angle;
 extern "C" screen_point_t point_26CD6;
 extern "C" screen_point_t point_26CDE;
 extern "C" vram_y_t stage4_tile_top;
-extern "C" void near mima_180AC(void);
+
+// mima_180AC() is a near BOSS_5_TEXT routine. This patch tail cannot call it
+// without overflowing TLINK's near relocation, so the clean-only constructor
+// spells its audited two-rank result directly. Exact capture/apply continues
+// to treat this generic block as actor-core state.
+static void near th02_s5_mima_clean_rank_parameters_set(void)
+{
+	if(rank != RANK_EASY) {
+		boss_rank_param[0] = BG_16_RING;
+		boss_rank_param[1] = 0x17;
+		boss_rank_param[2] = BG_32_RING;
+		boss_rank_param[3] = 0x21;
+		boss_rank_param[4] = 6;
+		return;
+	}
+	boss_rank_param[0] = BG_16_RING;
+	boss_rank_param[1] = 0x19;
+	boss_rank_param[2] = BG_2_SPREAD_MEDIUM_AIMED;
+	boss_rank_param[3] = 0x22;
+	boss_rank_param[4] = 8;
+}
 
 static bool16 near th02_s5_mima_phase_valid(
 	int16_t phase, int16_t pattern, uint8_t all_patterns
@@ -456,6 +479,6 @@ bool16 far th02_s5_mima_clean_init(th02_s5_mima_clean_target_t target)
 	mima_fan_angle = 0;
 	point_26CD6.x = point_26CD6.y = 0;
 	point_26CDE.x = point_26CDE.y = 0;
-	mima_180AC();
+	th02_s5_mima_clean_rank_parameters_set();
 	return true;
 }
