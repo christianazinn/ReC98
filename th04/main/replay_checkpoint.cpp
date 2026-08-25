@@ -88,6 +88,25 @@ extern nearfunc_t_near playchar_shot_func;
 	extern nearfunc_t_near shot_funcs_reimu_b[];
 	extern nearfunc_t_near shot_funcs_marisa_a[];
 	extern nearfunc_t_near shot_funcs_marisa_b[];
+	extern "C" {
+		extern uint8_t midboss1_25594;
+		extern uint8_t midboss2_pattern;
+		extern uint8_t midboss2_255B3;
+		extern uint8_t midboss2_passes;
+		extern uint8_t midboss3_pattern;
+		extern uint8_t midboss3_25599;
+		extern uint8_t midboss3_patterns_done;
+		extern uint8_t kurumi_259F0;
+		extern uint8_t elly_pattern_set;
+		extern uint8_t elly_25A26;
+		extern unsigned int elly_25A34;
+		extern uint8_t elly_25A36;
+		extern uint8_t elly_25A37;
+		extern uint8_t elly_25A38;
+		extern int elly_25A3A;
+		extern uint8_t elly_boomerang_flag;
+		extern PlayfieldMotion elly_boomerang_pos;
+	}
 
 	struct replay_bomb_star_t {
 		SPPoint center;
@@ -2203,6 +2222,109 @@ static bool rck_th04_actor_callbacks(replay_ck_stream_t far *stream)
 	boss_fg_render = (boss_fg_id == 0)
 		? nullfunc_near
 		: ((boss_fg_id == 1) ? boss_fg_render_func : gengetsu_fg_render);
+	return true;
+}
+
+static bool rck_th04_pattern4(
+	replay_ck_stream_t far *stream, uint8_t *pattern
+)
+{
+	uint8_t value = *pattern;
+
+	if(
+		!rck_u8(stream, &value) ||
+		((value > 3) && (value != 0xFF))
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*pattern = value;
+	}
+	return true;
+}
+
+static bool rck_th04_elly_steering(
+	replay_ck_stream_t far *stream, uint8_t *steering
+)
+{
+	uint8_t value = *steering;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	if((value != 0) && (value != 1) && (value != 0xFF)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*steering = value;
+	}
+	return true;
+}
+
+static bool rck_th04_elly_orbit(
+	replay_ck_stream_t far *stream, int *orbit_frame
+)
+{
+	uint16_t encoded = static_cast<uint16_t>(*orbit_frame);
+	int value;
+
+	if(!rck_u16(stream, &encoded)) {
+		return false;
+	}
+	value = static_cast<int16_t>(encoded);
+	if((value < 0) || (value > 768)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*orbit_frame = value;
+	}
+	return true;
+}
+
+static bool rck_th04_actor_stages_1_to_3(
+	replay_ck_stream_t far *stream
+)
+{
+	switch(stage_id) {
+	case 0:
+		RCK_U8(midboss1_25594);
+		break;
+
+	case 1:
+		if(!rck_th04_pattern4(stream, &midboss2_pattern)) {
+			return false;
+		}
+		RCK_U8_MAX(midboss2_255B3, 2);
+		RCK_U8_MAX(midboss2_passes, 17);
+		RCK_U8(kurumi_259F0);
+		break;
+
+	case 2:
+		if(!rck_th04_pattern4(stream, &midboss3_pattern)) {
+			return false;
+		}
+		RCK_BOOL(midboss3_25599);
+		RCK_U8_MAX(midboss3_patterns_done, 12);
+		RCK_U8_MAX(elly_pattern_set, 4);
+		RCK_U8_MAX(elly_25A26, 8);
+		RCK_U16(elly_25A34);
+		RCK_U8(elly_25A36);
+		RCK_U8(elly_25A37);
+		if(!rck_th04_elly_steering(stream, &elly_25A38)) {
+			return false;
+		}
+		if(!rck_th04_elly_orbit(stream, &elly_25A3A)) {
+			return false;
+		}
+		RCK_U8_MAX(elly_boomerang_flag, 2);
+		if(!rck_motion(stream, &elly_boomerang_pos)) {
+			return false;
+		}
+		break;
+
+	default:
+		return false;
+	}
 	return true;
 }
 #endif
