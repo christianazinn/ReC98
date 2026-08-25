@@ -70,6 +70,7 @@
 #define RCK_BOMB_STAR_COUNT 48
 #define RCK_SHAKE_ANIM_TIME_MAX 16
 #define RCK_SPARK_SIZE 16
+#define RCK_STD_OFFSET_NONE 0xFFFFu
 
 extern uint16_t randring_p;
 extern uint8_t stage_id;
@@ -1234,6 +1235,294 @@ static bool rck_group_effects(replay_ck_stream_t far *stream)
 		return false;
 	}
 #endif
+	return true;
+}
+
+struct rck_std_source_t {
+	uint16_t end;
+	uint16_t ip_initial;
+	uint16_t ip_terminal;
+	uint8_t script_count;
+	uint32_t checksum;
+};
+
+static uint8_t rck_std_source_u8(uint16_t offset)
+{
+	return *reinterpret_cast<uint8_t far *>(MK_FP(
+		reinterpret_cast<uint16_t>(std_seg), offset
+	));
+}
+
+static uint16_t rck_std_source_u16(uint16_t offset)
+{
+	return (
+		static_cast<uint16_t>(rck_std_source_u8(offset)) |
+		(static_cast<uint16_t>(rck_std_source_u8(offset + 1)) << 8)
+	);
+}
+
+static uint16_t rck_std_near_offset(const void near *pointer)
+{
+	if(pointer == 0) {
+		return RCK_STD_OFFSET_NONE;
+	}
+	return reinterpret_cast<uint16_t>(pointer);
+}
+
+static bool rck_std_source_info(rck_std_source_t *source)
+{
+	uint16_t script_offset;
+	uint16_t script_size;
+	uint32_t event_offset;
+	uint32_t next_offset;
+	uint32_t i;
+
+	if(std_seg == 0 || std_enemy_scripts[0] == 0) {
+		return false;
+	}
+	script_offset = rck_std_near_offset(std_enemy_scripts[0]);
+	if(script_offset < 2) {
+		return false;
+	}
+	source->script_count = rck_std_source_u8(script_offset - 2);
+	if(
+		(source->script_count < 1) ||
+		(source->script_count > STD_ENEMY_SCRIPT_COUNT)
+	) {
+		return false;
+	}
+	for(i = 0; i < source->script_count; i++) {
+		if(rck_std_near_offset(std_enemy_scripts[i]) != script_offset) {
+			return false;
+		}
+		script_size = rck_std_source_u8(script_offset - 1);
+		if(script_size == 0) {
+			return false;
+		}
+		next_offset = (
+			static_cast<uint32_t>(script_offset) + script_size + 1
+		);
+		if(next_offset > 0xFFFFUL) {
+			return false;
+		}
+		script_offset = static_cast<uint16_t>(next_offset);
+	}
+	source->ip_initial = script_offset;
+	event_offset = source->ip_initial;
+	while(event_offset <= 0xFFFDUL) {
+		uint16_t event_frame = rck_std_source_u16(
+			static_cast<uint16_t>(event_offset)
+		);
+		uint8_t spawn_count;
+
+		if(event_frame == 0) {
+			source->ip_terminal = static_cast<uint16_t>(event_offset);
+			source->end = static_cast<uint16_t>(event_offset + 2);
+			source->checksum = REPLAY_FNV1A_BASIS;
+			for(i = 0; i < source->end; i++) {
+				source->checksum ^= rck_std_source_u8(
+					static_cast<uint16_t>(i)
+				);
+				source->checksum *= REPLAY_FNV1A_PRIME;
+			}
+			return true;
+		}
+		if(event_offset > 0xFFFCUL) {
+			return false;
+		}
+		spawn_count = rck_std_source_u8(
+			static_cast<uint16_t>(event_offset + 2)
+		);
+		if(spawn_count == 0) {
+			return false;
+		}
+		next_offset = (
+			event_offset + 3 +
+			(static_cast<uint32_t>(spawn_count) * STD_ENEMY_SPAWN_SIZE)
+		);
+		if((next_offset <= event_offset) || (next_offset > 0xFFFFUL)) {
+			return false;
+		}
+		event_offset = next_offset;
+	}
+	return false;
+}
+
+static uint32_t rck_std_ip_offset(void)
+{
+	uint16_t base_segment = reinterpret_cast<uint16_t>(std_seg);
+	uint16_t pointer_segment;
+
+	if(std_ip == 0 || base_segment == 0) {
+		return 0xFFFFFFFFUL;
+	}
+	pointer_segment = FP_SEG(std_ip);
+	if(pointer_segment < base_segment) {
+		return 0xFFFFFFFFUL;
+	}
+	return (
+		(static_cast<uint32_t>(pointer_segment - base_segment) << 4) +
+		FP_OFF(std_ip)
+	);
+}
+
+static bool rck_std_ip_valid(
+	const rck_std_source_t *source, uint32_t wanted
+)
+{
+	uint32_t event_offset = source->ip_initial;
+
+	while(event_offset <= source->ip_terminal) {
+		uint8_t spawn_count;
+
+		if(event_offset == wanted) {
+			return true;
+		}
+		if(event_offset == source->ip_terminal) {
+			return false;
+		}
+		spawn_count = rck_std_source_u8(
+			static_cast<uint16_t>(event_offset + 2)
+		);
+		event_offset += (
+			3 + (static_cast<uint32_t>(spawn_count) * STD_ENEMY_SPAWN_SIZE)
+		);
+	}
+	return false;
+}
+
+enum rck_stage_vm_t {
+	RCKSVM_NONE = 0,
+	RCKSVM_RUN = 1,
+};
+
+static uint8_t rck_stage_vm_id(void)
+{
+	if(stage_vm == nullfunc_far) {
+		return RCKSVM_NONE;
+	}
+	if(stage_vm == std_run) {
+		return RCKSVM_RUN;
+	}
+	return 0xFF;
+}
+
+static func_t_near rck_stage_vm_func(uint8_t id)
+{
+	switch(id) {
+	case RCKSVM_NONE: return nullfunc_far;
+	case RCKSVM_RUN: return std_run;
+	}
+	return 0;
+}
+
+static bool rck_group_stage_vm(replay_ck_stream_t far *stream)
+{
+	bool loaded = (std_seg != 0);
+	bool live_loaded = loaded;
+	uint8_t stage_vm_id = rck_stage_vm_id();
+	rck_std_source_t source;
+	uint16_t source_end;
+	uint32_t source_checksum;
+	uint16_t map_offset;
+	uint16_t scroll_offset;
+	uint16_t script_offsets[STD_ENEMY_SCRIPT_COUNT];
+	uint32_t ip_offset;
+	int i;
+
+	RCK_BOOL(loaded);
+	if(loaded != live_loaded) {
+		return false;
+	}
+	if(!loaded) {
+		if(
+			!rck_u8(stream, &stage_vm_id) ||
+			(stage_vm_id != RCKSVM_NONE)
+		) {
+			return false;
+		}
+		if(rck_applying(stream)) {
+			stage_vm = nullfunc_far;
+		}
+		return true;
+	}
+	if(!rck_std_source_info(&source)) {
+		return false;
+	}
+	source_end = source.end;
+	source_checksum = source.checksum;
+	if(
+		!rck_u16(stream, &source_end) ||
+		!rck_u32(stream, &source_checksum) ||
+		(source_end != source.end) ||
+		(source_checksum != source.checksum)
+	) {
+		return false;
+	}
+#if (GAME == 5)
+	map_offset = static_cast<uint16_t>(std_map_section_p);
+#else
+	map_offset = static_cast<uint16_t>(std_map_section_id);
+#endif
+	scroll_offset = rck_std_near_offset(std_scroll_speed);
+	if(
+		!rck_u16(stream, &map_offset) ||
+		(map_offset >= source.end) ||
+		!rck_u16(stream, &scroll_offset) ||
+		((scroll_offset != RCK_STD_OFFSET_NONE) &&
+		 (scroll_offset >= source.end))
+	) {
+		return false;
+	}
+	for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+		script_offsets[i] = rck_std_near_offset(std_enemy_scripts[i]);
+		if(!rck_u16(stream, &script_offsets[i])) {
+			return false;
+		}
+		if(
+			((script_offsets[i] != RCK_STD_OFFSET_NONE) &&
+			 (script_offsets[i] >= source.end)) ||
+			((i < source.script_count) &&
+			 (script_offsets[i] != rck_std_near_offset(std_enemy_scripts[i])))
+		) {
+			return false;
+		}
+	}
+	ip_offset = rck_std_ip_offset();
+	if(
+		!rck_u32(stream, &ip_offset) ||
+		!rck_std_ip_valid(&source, ip_offset) ||
+		!rck_u8(stream, &stage_vm_id) ||
+		(rck_stage_vm_func(stage_vm_id) == 0) ||
+		((stage_vm_id == RCKSVM_RUN) &&
+		 (ip_offset == source.ip_terminal))
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+#if (GAME == 5)
+		std_map_section_p = map_offset;
+#else
+		std_map_section_id = map_offset;
+#endif
+		std_scroll_speed = (
+			(scroll_offset == RCK_STD_OFFSET_NONE)
+				? 0
+				: reinterpret_cast<SubpixelLength8 near *>(scroll_offset)
+		);
+		for(i = 0; i < STD_ENEMY_SCRIPT_COUNT; i++) {
+			std_enemy_scripts[i] = (
+				(script_offsets[i] == RCK_STD_OFFSET_NONE)
+					? 0
+					: reinterpret_cast<void near *>(script_offsets[i])
+			);
+		}
+		std_ip = MK_FP(
+			reinterpret_cast<uint16_t>(std_seg),
+			static_cast<uint16_t>(ip_offset)
+		);
+		stage_vm = rck_stage_vm_func(stage_vm_id);
+	}
 	return true;
 }
 
@@ -3550,6 +3839,8 @@ bool replay_ck_group_codec(
 		return rck_group_field(stream);
 	case RCGI_EFFECTS:
 		return rck_group_effects(stream);
+	case RCGI_STAGE_VM:
+		return rck_group_stage_vm(stream);
 	case RCGI_PACING:
 		return rck_group_pacing(stream);
 	}
