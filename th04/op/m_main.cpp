@@ -64,7 +64,9 @@ static const pixel_t LABEL_H = 16;
 
 static const pixel_t CURSOR_W = 32;
 
-static const screen_y_t MENU_TOP = ((GAME == 5) ? 240 : 214);
+// The Replay Patch adds Practice and Replay to the six stock entries. Keep the
+// final TH05 row at the stock position, clear of the description strip.
+static const screen_y_t MENU_TOP = ((GAME == 5) ? 210 : 214);
 
 static const screen_x_t COMMAND_LEFT = ((RES_X / 2) - (LABEL_W / 2));
 
