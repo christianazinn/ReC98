@@ -1104,6 +1104,8 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th04/replay.cpp",
+	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
+	"th04/rp_ckpt.cpp",
 })
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/maine_e.cpp",
@@ -1371,6 +1373,8 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th05/replay.cpp",
+	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
+	"th05/rp_ckpt.cpp",
 })
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/maine_e.cpp",
