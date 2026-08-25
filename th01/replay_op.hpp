@@ -43,6 +43,10 @@ void t1replay_op_practice_enter(
 );
 void t1replay_op_restore(void);
 void t1replay_op_command_clear(void);
+bool t1replay_op_record_prepare(void);
+void t1replay_op_main_choice_put(
+	int choice, int center_x, int top, int col, int fx
+);
 t1replay_op_result_t t1replay_op_replay_update(void);
 t1replay_op_result_t t1replay_op_practice_update(void);
 void t1replay_op_practice_start_get(t1replay_practice_start_t& start);

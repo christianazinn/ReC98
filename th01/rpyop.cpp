@@ -240,6 +240,27 @@ static int t1replay_op_first_empty_slot(void)
 	return -1;
 }
 
+bool t1replay_op_record_prepare(void)
+{
+	int slot;
+
+	// The command is one-shot process control, never durable replay state.
+	// Remove a stale request before selecting a slot or reporting unrecorded
+	// fallback, so a normal Start can never consume an earlier command.
+	t1replay_op_command_clear();
+	slot = t1replay_op_first_empty_slot();
+	if(slot < 0) {
+		return false;
+	}
+	if(!t1replay_op_command_write(
+		T1REPLAY_COMMAND_RECORD, static_cast<uint8_t>(slot)
+	)) {
+		t1replay_op_command_clear();
+		return false;
+	}
+	return true;
+}
+
 static void t1replay_op_backing_restore(void)
 {
 	egc_copy_rect_1_to_0_16(
@@ -252,7 +273,7 @@ static void t1replay_op_backing_restore(void)
  * module's private code path. */
 enum t1replay_op_word_t {
 	T1ROW_REPLAY_BROWSER,
-	T1ROW_SLOT_STATUS_SCORE_STAGE_RANK,
+	T1ROW_SLOT_STATUS_START_STAGE_RANK,
 	T1ROW_EMPTY,
 	T1ROW_INVALID,
 	T1ROW_CLEAR,
@@ -260,6 +281,7 @@ enum t1replay_op_word_t {
 	T1ROW_PAGE,
 	T1ROW_ESC_RETURN,
 	T1ROW_PRACTICE,
+	T1ROW_REPLAY,
 	T1ROW_SCENE,
 	T1ROW_ROUTE,
 	T1ROW_SECTION,
@@ -300,8 +322,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
-	case T1ROW_SLOT_STATUS_SCORE_STAGE_RANK:
-		T1ROW_WORD4('S', 'L', 'O', 'T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'T'); T1ROW_WORD2('U', 'S'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'C', 'O', 'R'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
+	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
+		T1ROW_WORD4('S', 'L', 'O', 'T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'T'); T1ROW_WORD2('U', 'S'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
 	case T1ROW_EMPTY: T1ROW_WORD4('E', 'M', 'P', 'T'); T1ROW_WORD1('Y'); break;
 	case T1ROW_INVALID: T1ROW_WORD4('I', 'N', 'V', 'A'); T1ROW_WORD3('L', 'I', 'D'); break;
 	case T1ROW_CLEAR: T1ROW_WORD4('C', 'L', 'E', 'A'); T1ROW_WORD1('R'); break;
@@ -309,6 +331,7 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_PAGE: T1ROW_WORD4('P', 'A', 'G', 'E'); break;
 	case T1ROW_ESC_RETURN: T1ROW_WORD3('E', 'S', 'C'); T1ROW_PUTC(':'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'T', 'U'); T1ROW_WORD2('R', 'N'); break;
 	case T1ROW_PRACTICE: T1ROW_WORD4('P', 'R', 'A', 'C'); T1ROW_WORD4('T', 'I', 'C', 'E'); break;
+	case T1ROW_REPLAY: T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SCENE: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); break;
 	case T1ROW_ROUTE: T1ROW_WORD4('R', 'O', 'U', 'T'); T1ROW_WORD1('E'); break;
 	case T1ROW_SECTION: T1ROW_WORD4('S', 'E', 'C', 'T'); T1ROW_WORD3('I', 'O', 'N'); break;
@@ -434,6 +457,28 @@ static void t1replay_op_text_value(screen_y_t y, vc_t col, char *end)
 	);
 }
 
+void t1replay_op_main_choice_put(
+	int choice, int center_x, int top, int col, int fx
+)
+{
+	char *p = t1replay_op_text;
+
+	if(choice == 3) {
+		*p++ = ' ';
+		p = t1replay_op_word_append(p, T1ROW_PRACTICE);
+		*p++ = ' ';
+	} else {
+		*p++ = ' '; *p++ = ' ';
+		p = t1replay_op_word_append(p, T1ROW_REPLAY);
+		*p++ = ' '; *p++ = ' ';
+	}
+	*p = '\0';
+	graph_putsa_fx(
+		static_cast<screen_x_t>(center_x - (shiftjis_w(t1replay_op_text) / 2)),
+		static_cast<screen_y_t>(top), (col | fx), t1replay_op_text
+	);
+}
+
 static char *t1replay_op_rank_append(char *p, int8_t rank)
 {
 	t1replay_op_word_t word = T1ROW_EASY;
@@ -555,7 +600,7 @@ static void t1replay_op_replay_render(void)
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_BROWSER);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
-	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SLOT_STATUS_SCORE_STAGE_RANK);
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SLOT_STATUS_START_STAGE_RANK);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_LABEL, p);
 	y += T1REPLAY_OP_LINE_H;
 	for(row = 0; row < T1REPLAY_OP_ROWS_PER_PAGE; row++) {
@@ -841,8 +886,6 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 {
 	t1replay_op_input_t input;
 	t1replay_op_result_t result;
-	int slot;
-
 	result.action = T1ROA_NONE;
 	result.slot = 0;
 
@@ -873,12 +916,8 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 	}
 	if(input.ok) {
 		if(t1replay_op_sel == 11) {
-			slot = t1replay_op_first_empty_slot();
-			if((slot >= 0) && t1replay_op_command_write(
-				T1REPLAY_COMMAND_RECORD, static_cast<uint8_t>(slot)
-			)) {
+			if(t1replay_op_record_prepare()) {
 				result.action = T1ROA_PRACTICE_RECORD;
-				result.slot = static_cast<uint8_t>(slot);
 			} else {
 				result.action = T1ROA_PRACTICE_UNRECORDED;
 			}

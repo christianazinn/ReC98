@@ -395,6 +395,7 @@ void start_game(void)
 	resident->unused_1 = 0;
 	resident->snd_need_init = true;
 	resident->pellet_speed = PELLET_SPEED_DEFAULT;
+	t1replay_op_record_prepare();
 
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
@@ -579,18 +580,15 @@ void title_hit_key_put(int frame)
 void main_choice_unput_and_put(int choice, vc2 col)
 {
 	const shiftjis_t* CHOICES[4] = MAIN_CHOICES;
-	const char *choice_str;
-
+	const shiftjis_t *choice_str;
 	screen_x_t left;
 	screen_y_t top = choice_top(choice, MAIN_CHOICE_COUNT);
 
-	if(choice == 3) {
-		choice_str = " PRACTICE ";
-	} else if(choice == 4) {
-		choice_str = "  REPLAY  ";
-	} else {
-		choice_str = CHOICES[(choice < 3) ? choice : 3];
+	if((choice == 3) || (choice == 4)) {
+		t1replay_op_main_choice_put(choice, MENU_CENTER_X, top, col, FX);
+		return;
 	}
+	choice_str = CHOICES[(choice < 3) ? choice : 3];
 	left = (MENU_CENTER_X - (shiftjis_w(choice_str) / 2));
 
 	// No unblitting necessary here, as only the colors change.
