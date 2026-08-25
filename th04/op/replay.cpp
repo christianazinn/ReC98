@@ -35,6 +35,7 @@
 #define REPLAY_OP_LINE_TOP 88
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
+#define REPLAY_OP_COL_LOCKED ((GAME == 5) ? 2 : 12)
 #define REPLAY_OP_TEXT_SPACING 16
 #define PRACTICE_PAGE_COUNT 3
 #define PRACTICE_TARGET_ROWS_TH04 13
@@ -204,16 +205,6 @@ static void replay_op_screen_end(
 static void replay_op_layout_pad(void)
 {
 	_asm {
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
 		nop
 		nop
 		nop
@@ -1153,7 +1144,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 		p = replay_op_word_append(p, ROW_NONE);
 		replay_op_line_put(
 			REPLAY_OP_LINE_LEFT, top,
-			(selected ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+			(selected ? REPLAY_OP_COL_LOCKED : V_WHITE), p
 		);
 		return;
 	}
@@ -2052,13 +2043,16 @@ bool replay_practice_record_prepare(
 	}
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
 		if(!replay_op_header_read(slot, false)) {
-			replay_op_command_write(
+			return replay_op_command_write(
 				RCM_RECORD, slot, REPLAY_COMMAND_FLAG_PRACTICE, &start
 			);
-			return true;
 		}
 	}
-	return true;
+	return replay_op_command_write(
+		RCM_RECORD, 0,
+		(REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_NO_RECORD),
+		&start
+	);
 }
 
 bool replay_browser(void)

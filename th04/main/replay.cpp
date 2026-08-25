@@ -47,6 +47,7 @@ enum replay_runtime_mode_t {
 	RRM_DISABLED = 0,
 	RRM_RECORD = 1,
 	RRM_PLAYBACK = 2,
+	RRM_PRACTICE = 3,
 };
 
 extern unsigned char stage_id;
@@ -118,6 +119,7 @@ static uint8_t replay_preroll_midboss_completions;
 static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
+static bool replay_practice_preroll_pending;
 
 static int replay_dos_open(const char far *fn, unsigned char access)
 {
@@ -856,10 +858,7 @@ static bool replay_ck_capture_pending(void)
 {
 	return (
 		(replay_mode == RRM_RECORD) &&
-		!replay_failed &&
-		(replay_header.mode == RUM_PRACTICE) &&
-		(replay_header.start.kind > RSK_STAGE) &&
-		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) == 0)
+		replay_practice_preroll_pending
 	);
 }
 
@@ -1381,23 +1380,23 @@ static void replay_sample_current(uint8_t phase)
 	input_t input;
 	bool shift;
 
+	if(replay_practice_preroll_pending) {
+		if(phase == REPLAY_PACKET_PHASE_GAMEPLAY) {
+			key_det = static_cast<input_t>(
+				INPUT_SHOT |
+				((stage_frame & 0x80) ? INPUT_LEFT : INPUT_RIGHT)
+			);
+		} else {
+			replay_preroll_interstitial_cycle++;
+			key_det = ((replay_preroll_interstitial_cycle & 1) != 0)
+				? INPUT_NONE
+				: static_cast<input_t>(INPUT_SHOT | INPUT_OK);
+		}
+		shiftkey = false;
+		return;
+	}
 	if(replay_mode == RRM_RECORD) {
 		if(replay_failed) {
-			return;
-		}
-		if(replay_ck_capture_pending()) {
-			if(phase == REPLAY_PACKET_PHASE_GAMEPLAY) {
-				key_det = static_cast<input_t>(
-					INPUT_SHOT |
-					((stage_frame & 0x80) ? INPUT_LEFT : INPUT_RIGHT)
-				);
-			} else {
-				replay_preroll_interstitial_cycle++;
-				key_det = ((replay_preroll_interstitial_cycle & 1) != 0)
-					? INPUT_NONE
-					: static_cast<input_t>(INPUT_SHOT | INPUT_OK);
-			}
-			shiftkey = false;
 			return;
 		}
 		if(!replay_record_sample(phase, key_det, shiftkey)) {
@@ -1663,12 +1662,13 @@ bool replay_practice_checkpoint_capture(void)
 		replay_fail();
 		return false;
 	}
+	replay_practice_preroll_pending = false;
 	return true;
 }
 
 bool replay_practice_preroll_active(void)
 {
-	return replay_ck_capture_pending();
+	return replay_practice_preroll_pending;
 }
 
 bool replay_private_test_active(void)
@@ -1682,7 +1682,7 @@ bool replay_practice_preroll_boundary(void)
 	uint8_t section;
 	bool reached = false;
 
-	if(!replay_ck_capture_pending()) {
+	if(!replay_practice_preroll_pending) {
 		return false;
 	}
 	if(!replay_ck_actor_probe(&probe)) {
@@ -1736,12 +1736,18 @@ bool replay_practice_preroll_boundary(void)
 	if(!reached) {
 		return false;
 	}
-	if(!replay_practice_checkpoint_capture()) {
-		if(replay_private_diagnostic == 0) {
-			replay_private_diagnostic = (0x02UL << 24);
+	if(replay_mode == RRM_RECORD) {
+		if(!replay_practice_checkpoint_capture()) {
+			if(replay_private_diagnostic == 0) {
+				replay_private_diagnostic = (0x02UL << 24);
+			}
+			replay_fail();
+			quit = Q_QUIT_TO_OP;
 		}
-		replay_fail();
-		quit = Q_QUIT_TO_OP;
+	} else {
+		replay_practice_config_apply(&replay_practice_start);
+		player_shot_level_update();
+		replay_practice_preroll_pending = false;
 	}
 	return true;
 }
@@ -1924,6 +1930,12 @@ static replay_command_mode_t replay_command_load(
 			return RCM_NONE;
 		}
 	} else if(command.flags & REPLAY_COMMAND_FLAG_PRACTICE) {
+		if(
+			((command.flags & REPLAY_COMMAND_FLAG_NO_RECORD) != 0) &&
+			((command.flags & REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0)
+		) {
+			return RCM_NONE;
+		}
 		if(!replay_start_config_valid(
 			&command.start, true, (command.start.kind > RSK_STAGE)
 		)) {
@@ -1989,10 +2001,14 @@ void replay_entry(void)
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
 	replay_preroll_boss_phase = 0xFF;
 	replay_preroll_interstitial_cycle = 0;
+	replay_practice_preroll_pending = false;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
-		replay_mode = RRM_RECORD;
+		replay_mode = ((command_flags & REPLAY_COMMAND_FLAG_NO_RECORD)
+			? RRM_PRACTICE
+			: RRM_RECORD
+		);
 		replay_header_capture();
 		if(command_flags & REPLAY_COMMAND_FLAG_PRACTICE) {
 			replay_header.flags |= REPLAY_USER_FLAG_PRACTICE;
@@ -2004,8 +2020,12 @@ void replay_entry(void)
 			replay_copy(
 				&replay_practice_start, &command_start, sizeof(command_start)
 			);
-				replay_practice_start_pending = true;
+			replay_practice_start_pending = true;
+			replay_practice_preroll_pending = (command_start.kind > RSK_STAGE);
 			replay_header_apply();
+		}
+		if(replay_mode == RRM_PRACTICE) {
+			return;
 		}
 		if(!replay_header_write(true)) {
 			replay_fail();
@@ -2054,10 +2074,10 @@ void replay_stage_start(void)
 			replay_private_diagnostic = (0x03UL << 24) | replay_sample_cursor;
 			replay_fail();
 		}
-	} else if(
+	} else if((replay_mode == RRM_PLAYBACK) && (
 		!replay_playback_control(REPLAY_CONTROL_STAGE_START, &arg, &arg8) ||
 		(arg != stage_id) || (arg8 != 0)
-	) {
+	)) {
 		replay_fail();
 		quit = Q_QUIT_TO_OP;
 	}
@@ -2203,6 +2223,9 @@ bool replay_process_end(void)
 	}
 	replay_finished = true;
 	if(replay_mode == RRM_DISABLED) {
+		return false;
+	}
+	if(replay_mode == RRM_PRACTICE) {
 		return false;
 	}
 	end_reason = replay_end_reason();
