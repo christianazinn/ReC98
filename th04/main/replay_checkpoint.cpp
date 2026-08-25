@@ -8,8 +8,11 @@
 #include "platform.h"
 #include "x86real.h"
 #include "libs/master.lib/master.hpp"
+#include "th02/hardware/pages.hpp"
+#include "th02/main/scroll.hpp"
 #include "th04/common.h"
 #include "th04/formats/std.hpp"
+#include "th04/main/bg.hpp"
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/boss/explode.hpp"
@@ -18,6 +21,7 @@
 #include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
 #include "th04/main/midboss/midboss.hpp"
+#include "th04/main/null.hpp"
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/shot.hpp"
 #include "th04/main/pointnum/pointnum.hpp"
@@ -25,15 +29,19 @@
 #include "th04/main/replay_checkpoint.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/score.hpp"
+#include "th04/main/scroll.hpp"
+#include "th04/main/stage/stage.hpp"
+#include "th04/main/tile/tile.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
-	#include "th05/main/boss/boss.hpp"
+	#include "th05/main/boss/bosses.hpp"
 	#include "th05/main/bullet/cheeto.hpp"
 	#include "th05/main/bullet/laser.hpp"
 	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/main/player/bomb.hpp"
 	#include "th05/main/player/bombanim.hpp"
+	#include "th05/main/stage/stages.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
@@ -44,8 +52,8 @@
 	#include "th04/main/boss/bosses.hpp"
 	#include "th04/main/bullet/laser_t.hpp"
 	#include "th04/main/enemy/enemy.hpp"
-	#include "th04/main/null.hpp"
 	#include "th04/main/player/bomb.hpp"
+	#include "th04/main/stage/stages.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
 	#include "th04/sprites/main_pat.h"
@@ -687,6 +695,264 @@ static bool rck_group_scoring(replay_ck_stream_t far *stream)
 	RCK_U8(byte_22274);
 	RCK_U8(byte_22275);
 #endif
+	return true;
+}
+
+enum rck_stage_render_t {
+	RCKSR_NULL = 0,
+	RCKSR_STAGE_2_OR_4 = 1,
+	RCKSR_STAGE_5 = 2,
+};
+
+enum rck_stage_invalidate_t {
+	RCKSI_NULL = 0,
+	RCKSI_STAGE_2_OR_5 = 1,
+};
+
+enum rck_bg_render_t {
+	RCKBG_NULL = 0,
+	RCKBG_TILES = 1,
+	RCKBG_TILES_ALL = 2,
+	RCKBG_TILES_ALL_TIMED = 3,
+	RCKBG_STAGE_1 = 4,
+	RCKBG_STAGE_2 = 5,
+	RCKBG_STAGE_3 = 6,
+	RCKBG_STAGE_4 = 7,
+	RCKBG_STAGE_5 = 8,
+	RCKBG_STAGE_6 = 9,
+	RCKBG_STAGE_EXTRA = 10,
+};
+
+static uint8_t rck_stage_render_id(void)
+{
+	if(stage_render == nullfunc_near) {
+		return RCKSR_NULL;
+	}
+#if (GAME == 5)
+	if(stage_render == stage2_update) {
+		return RCKSR_STAGE_2_OR_4;
+	}
+#else
+	if(stage_render == stage4_render) {
+		return RCKSR_STAGE_2_OR_4;
+	}
+	if(stage_render == stage5_render) {
+		return RCKSR_STAGE_5;
+	}
+#endif
+	return 0xFF;
+}
+
+static nearfunc_t_near rck_stage_render_func(uint8_t id)
+{
+	switch(id) {
+	case RCKSR_NULL:
+		return nullfunc_near;
+	case RCKSR_STAGE_2_OR_4:
+#if (GAME == 5)
+		return stage2_update;
+#else
+		return stage4_render;
+#endif
+#if (GAME == 4)
+	case RCKSR_STAGE_5:
+		return stage5_render;
+#endif
+	}
+	return 0;
+}
+
+static bool rck_stage_render_compatible(uint8_t id)
+{
+	if(id == RCKSR_NULL) {
+		return true;
+	}
+#if (GAME == 5)
+	return ((id == RCKSR_STAGE_2_OR_4) && (stage_id == 1));
+#else
+	return (
+		((id == RCKSR_STAGE_2_OR_4) && (stage_id == 3)) ||
+		((id == RCKSR_STAGE_5) && (stage_id == 4))
+	);
+#endif
+}
+
+static uint8_t rck_stage_invalidate_id(void)
+{
+	if(stage_invalidate == nullfunc_near) {
+		return RCKSI_NULL;
+	}
+#if (GAME == 5)
+	if(stage_invalidate == stage2_invalidate) {
+#else
+	if(stage_invalidate == stage5_invalidate) {
+#endif
+		return RCKSI_STAGE_2_OR_5;
+	}
+	return 0xFF;
+}
+
+static nearfunc_t_near rck_stage_invalidate_func(uint8_t id)
+{
+	switch(id) {
+	case RCKSI_NULL:
+		return nullfunc_near;
+	case RCKSI_STAGE_2_OR_5:
+#if (GAME == 5)
+		return stage2_invalidate;
+#else
+		return stage5_invalidate;
+#endif
+	}
+	return 0;
+}
+
+static bool rck_stage_invalidate_compatible(uint8_t id)
+{
+	if(id == RCKSI_NULL) {
+		return true;
+	}
+	return (
+		(id == RCKSI_STAGE_2_OR_5) &&
+		(stage_id == ((GAME == 5) ? 1 : 4))
+	);
+}
+
+static uint8_t rck_bg_render_id(nearfunc_t_near callback)
+{
+	if(callback == nullfunc_near) {
+		return RCKBG_NULL;
+	}
+	if(callback == tiles_render) {
+		return RCKBG_TILES;
+	}
+	if(callback == tiles_render_all) {
+		return RCKBG_TILES_ALL;
+	}
+	if(callback == tiles_render_all_timed) {
+		return RCKBG_TILES_ALL_TIMED;
+	}
+#if (GAME == 5)
+	if(callback == sara_bg_render) { return RCKBG_STAGE_1; }
+	if(callback == louise_bg_render) { return RCKBG_STAGE_2; }
+	if(callback == alice_bg_render) { return RCKBG_STAGE_3; }
+	if(callback == mai_yuki_bg_render) { return RCKBG_STAGE_4; }
+	if(callback == yumeko_bg_render) { return RCKBG_STAGE_5; }
+	if(callback == shinki_bg_render) { return RCKBG_STAGE_6; }
+	if(callback == exalice_bg_render) { return RCKBG_STAGE_EXTRA; }
+#else
+	if(callback == orange_bg_render) { return RCKBG_STAGE_1; }
+	if(callback == kurumi_bg_render) { return RCKBG_STAGE_2; }
+	if(callback == elly_bg_render) { return RCKBG_STAGE_3; }
+	if(callback == reimu_marisa_bg_render) { return RCKBG_STAGE_4; }
+	if(callback == yuuka5_bg_render) { return RCKBG_STAGE_5; }
+	if(callback == yuuka6_bg_render) { return RCKBG_STAGE_6; }
+	if(callback == mugetsu_gengetsu_bg_render) {
+		return RCKBG_STAGE_EXTRA;
+	}
+#endif
+	return 0xFF;
+}
+
+static nearfunc_t_near rck_bg_render_func(uint8_t id)
+{
+	switch(id) {
+	case RCKBG_NULL: return nullfunc_near;
+	case RCKBG_TILES: return tiles_render;
+	case RCKBG_TILES_ALL: return tiles_render_all;
+	case RCKBG_TILES_ALL_TIMED: return tiles_render_all_timed;
+#if (GAME == 5)
+	case RCKBG_STAGE_1: return sara_bg_render;
+	case RCKBG_STAGE_2: return louise_bg_render;
+	case RCKBG_STAGE_3: return alice_bg_render;
+	case RCKBG_STAGE_4: return mai_yuki_bg_render;
+	case RCKBG_STAGE_5: return yumeko_bg_render;
+	case RCKBG_STAGE_6: return shinki_bg_render;
+	case RCKBG_STAGE_EXTRA: return exalice_bg_render;
+#else
+	case RCKBG_STAGE_1: return orange_bg_render;
+	case RCKBG_STAGE_2: return kurumi_bg_render;
+	case RCKBG_STAGE_3: return elly_bg_render;
+	case RCKBG_STAGE_4: return reimu_marisa_bg_render;
+	case RCKBG_STAGE_5: return yuuka5_bg_render;
+	case RCKBG_STAGE_6: return yuuka6_bg_render;
+	case RCKBG_STAGE_EXTRA: return mugetsu_gengetsu_bg_render;
+#endif
+	}
+	return 0;
+}
+
+static bool rck_bg_render_compatible(uint8_t id)
+{
+	if(id < RCKBG_STAGE_1) {
+		return (id <= RCKBG_TILES_ALL_TIMED);
+	}
+	return (id == (RCKBG_STAGE_1 + stage_id));
+}
+
+static bool rck_group_field(replay_ck_stream_t far *stream)
+{
+	int y;
+	int x;
+	int i;
+	uint8_t stage_render_id = rck_stage_render_id();
+	uint8_t stage_invalidate_id = rck_stage_invalidate_id();
+	uint8_t bg_not_bombing_id = rck_bg_render_id(bg_render_not_bombing);
+	uint8_t bg_bombing_id = rck_bg_render_id(bg_render_bombing);
+	uint8_t bg_bombing_func_id = rck_bg_render_id(bg_render_bombing_func);
+
+	RCK_U8_MAX(scroll_subpixel_line.v, SUBPIXEL_FACTOR - 1);
+	RCK_U8(scroll_speed.v);
+	RCK_U16_MAX(scroll_line, RES_Y - 1);
+	RCK_S16(scroll_last_delta.v);
+	RCK_BOOL(scroll_active);
+	for(i = 0; i < PAGE_COUNT; i++) {
+		RCK_U16_MAX(scroll_line_on_page[i], RES_Y - 1);
+	}
+	RCK_U8(scroll_lines_pending);
+	RCK_U8(scroll_lines_prev_frame);
+	for(y = 0; y < TILES_Y; y++) {
+		for(x = 0; x < TILES_MEMORY_X; x++) {
+			RCK_U16(tile_ring[y][x]);
+		}
+	}
+	RCK_S8(tile_row_in_section);
+	RCK_S16(tile_ring_row_filled);
+	RCK_U8_MAX(tile_render_all_time, PAGE_COUNT);
+	if(
+		!rck_u8(stream, &stage_render_id) ||
+		!rck_u8(stream, &stage_invalidate_id) ||
+		!rck_u8(stream, &bg_not_bombing_id) ||
+		!rck_u8(stream, &bg_bombing_id) ||
+		!rck_u8(stream, &bg_bombing_func_id) ||
+		(rck_stage_render_func(stage_render_id) == 0) ||
+		!rck_stage_render_compatible(stage_render_id) ||
+		(rck_stage_invalidate_func(stage_invalidate_id) == 0) ||
+		!rck_stage_invalidate_compatible(stage_invalidate_id) ||
+		(rck_bg_render_func(bg_not_bombing_id) == 0) ||
+		(rck_bg_render_func(bg_bombing_id) == 0) ||
+		(rck_bg_render_func(bg_bombing_func_id) == 0) ||
+		!rck_bg_render_compatible(bg_not_bombing_id) ||
+		!rck_bg_render_compatible(bg_bombing_id) ||
+		!rck_bg_render_compatible(bg_bombing_func_id) ||
+		(
+			(bg_not_bombing_id == RCKBG_TILES_ALL_TIMED) &&
+			(tile_render_all_time == 0)
+		) ||
+		(
+			(bg_bombing_id != RCKBG_NULL) &&
+			(bg_bombing_id != bg_bombing_func_id)
+		)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		stage_render = rck_stage_render_func(stage_render_id);
+		stage_invalidate = rck_stage_invalidate_func(stage_invalidate_id);
+		bg_render_not_bombing = rck_bg_render_func(bg_not_bombing_id);
+		bg_render_bombing = rck_bg_render_func(bg_bombing_id);
+		bg_render_bombing_func = rck_bg_render_func(bg_bombing_func_id);
+	}
 	return true;
 }
 
@@ -2939,6 +3205,8 @@ bool replay_ck_group_codec(
 		return rck_group_items(stream);
 	case RCGI_SCORING:
 		return rck_group_scoring(stream);
+	case RCGI_FIELD:
+		return rck_group_field(stream);
 	}
 	stream->failed = true;
 	return false;

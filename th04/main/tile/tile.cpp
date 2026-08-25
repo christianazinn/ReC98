@@ -58,7 +58,7 @@ void pascal near tiles_render(void)
 	tiles_redraw_invalidated();
 }
 
-static void pascal near tiles_render_all_timed(void)
+void pascal near tiles_render_all_timed(void)
 {
 	tiles_render_all();
 	render_all_time--;

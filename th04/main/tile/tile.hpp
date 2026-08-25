@@ -60,6 +60,11 @@ void pascal near tiles_fill_initial(void);
 // Blits all tiles in the ring buffer to the playfield in VRAM.
 void pascal near tiles_render_all(void);
 
+// Full redraw callback and remaining-frame count installed by
+// tiles_activate_and_render_all_for_next_N_frames().
+void pascal near tiles_render_all_timed(void);
+extern uint8_t tile_render_all_time;
+
 // Sets the [tile_ring] tile at (x, y) to the given VRAM offset.
 void pascal tile_ring_set_vo(
 	subpixel_t x, subpixel_t y, vram_offset_t image_vo
