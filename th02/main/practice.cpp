@@ -109,19 +109,25 @@ bool16 far practice_spawn_row_upper_bound(
 	if(previous_trigger < 0) {
 		return false;
 	}
-	first_after_target = ((previous_trigger <= target_scroll_step) ? 1 : 0);
+	first_after_target = 0;
+	if(previous_trigger > target_scroll_step) {
+		*spawn_row = first_after_target;
+		return true;
+	}
 	for(i = 1; i < spawn_rows; i++) {
 		trigger = spawn_grid[0][i];
 		if((trigger < 0) || (trigger < previous_trigger)) {
 			return false;
 		}
-		if(trigger <= target_scroll_step) {
-			first_after_target = (i + 1);
+		if(trigger > target_scroll_step) {
+			first_after_target = i;
+			*spawn_row = first_after_target;
+			return true;
 		}
 		previous_trigger = trigger;
 	}
 
-	*spawn_row = first_after_target;
+	*spawn_row = spawn_rows;
 	return true;
 }
 

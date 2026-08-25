@@ -33,6 +33,7 @@ enum t2op_word_t {
 	T2OW_SECTION,
 	T2OW_STAGE_START,
 	T2OW_CHAPTER_2,
+	T2OW_CHAPTER_3,
 	T2OW_SCORE,
 	T2OW_HIGH_SCORE,
 	T2OW_POWER,
@@ -186,6 +187,13 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 		break;
 	case T2RPT_STAGE3_CHAPTER2:
 		practice_target_valid = (start->stage == 2);
+		break;
+	case T2RPT_STAGE4_CHAPTER2:
+	case T2RPT_STAGE4_CHAPTER3:
+		practice_target_valid = (start->stage == 3);
+		break;
+	case T2RPT_EXTRA_CHAPTER2:
+		practice_target_valid = (start->stage == 5);
 		break;
 	default:
 		break;
@@ -373,6 +381,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_SECTION: P('S'); P('e'); P('c'); P('t'); P('i'); P('o'); P('n'); break;
 	case T2OW_STAGE_START: P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('S'); P('t'); P('a'); P('r'); P('t'); break;
 	case T2OW_CHAPTER_2: P('C'); P('h'); P('a'); P('p'); P('t'); P('e'); P('r'); P(' '); P('2'); break;
+	case T2OW_CHAPTER_3: P('C'); P('h'); P('a'); P('p'); P('t'); P('e'); P('r'); P(' '); P('3'); break;
 	case T2OW_SCORE: P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_HIGH_SCORE: P('H'); P('i'); P('g'); P('h'); P(' '); P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_POWER: P('P'); P('o'); P('w'); P('e'); P('r'); break;
@@ -640,10 +649,33 @@ static void t2op_practice_rank_set(uint8_t value)
 	}
 }
 
+static uint8_t t2op_practice_target_first(int8_t stage)
+{
+	switch(stage) {
+	case 0: return T2RPT_STAGE1_CHAPTER2;
+	case 1: return T2RPT_STAGE2_CHAPTER2;
+	case 2: return T2RPT_STAGE3_CHAPTER2;
+	case 3: return T2RPT_STAGE4_CHAPTER2;
+	case 5: return T2RPT_EXTRA_CHAPTER2;
+	default: return T2RPT_STAGE_START;
+	}
+}
+
+static uint8_t t2op_practice_target_last(int8_t stage)
+{
+	return ((stage == 3)
+		? T2RPT_STAGE4_CHAPTER3
+		: t2op_practice_target_first(stage)
+	);
+}
+
 static void t2op_practice_value_step(int8_t direction)
 {
 	uint32_t seed;
 	uint32_t score_highest;
+	uint8_t practice_target;
+	uint8_t practice_target_first;
+	uint8_t practice_target_last;
 
 	switch(t2op_practice_sel) {
 	case T2OPC_STAGE:
@@ -659,14 +691,35 @@ static void t2op_practice_value_step(int8_t direction)
 		}
 		break;
 	case T2OPC_SECTION:
-		if(t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] !=
-			T2RPT_STAGE_START) {
-			t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
-				T2RPT_STAGE_START;
-		} else if(t2op_practice.stage <= 2) {
-			t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
-				static_cast<uint8_t>(t2op_practice.stage + 1);
+		practice_target = t2op_practice.reserved[
+			T2REPLAY_PRACTICE_TARGET_OFFSET
+		];
+		practice_target_first = t2op_practice_target_first(
+			t2op_practice.stage
+		);
+		practice_target_last = t2op_practice_target_last(
+			t2op_practice.stage
+		);
+		if(practice_target_first == T2RPT_STAGE_START) {
+			break;
 		}
+		if(direction < 0) {
+			practice_target = ((practice_target == T2RPT_STAGE_START)
+				? practice_target_last
+				: ((practice_target == practice_target_first)
+					? T2RPT_STAGE_START
+					: (practice_target - 1))
+			);
+		} else {
+			practice_target = ((practice_target == T2RPT_STAGE_START)
+				? practice_target_first
+				: ((practice_target == practice_target_last)
+					? T2RPT_STAGE_START
+					: (practice_target + 1))
+			);
+		}
+		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+			practice_target;
 		break;
 	case T2OPC_RANK:
 		if(direction < 0) {
@@ -806,10 +859,16 @@ static void t2op_practice_render(void)
 		switch(row) {
 		case T2OPC_STAGE: p = t2op_stage_append(p, t2op_practice.stage); break;
 		case T2OPC_SECTION:
-			p = t2op_word_append(p,
-				(t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] ==
-				 T2RPT_STAGE_START) ? T2OW_STAGE_START : T2OW_CHAPTER_2
-			);
+			if(t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] ==
+				T2RPT_STAGE_START) {
+				p = t2op_word_append(p, T2OW_STAGE_START);
+			} else if(t2op_practice.reserved[
+				T2REPLAY_PRACTICE_TARGET_OFFSET
+			] == T2RPT_STAGE4_CHAPTER3) {
+				p = t2op_word_append(p, T2OW_CHAPTER_3);
+			} else {
+				p = t2op_word_append(p, T2OW_CHAPTER_2);
+			}
 			break;
 		case T2OPC_RANK: p = t2op_rank_append(p, t2op_practice.rank); break;
 		case T2OPC_CHARACTER: p = t2op_character_append(p, t2op_practice.shottype); break;

@@ -2228,6 +2228,13 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE3_CHAPTER2:
 		practice_target_valid = (start->stage == 2);
 		break;
+	case T2RPT_STAGE4_CHAPTER2:
+	case T2RPT_STAGE4_CHAPTER3:
+		practice_target_valid = (start->stage == 3);
+		break;
+	case T2RPT_EXTRA_CHAPTER2:
+		practice_target_valid = (start->stage == 5);
+		break;
 	default:
 		break;
 	}
@@ -2878,11 +2885,34 @@ bool16 replay_practice_target_apply(void)
 		}
 		target_scroll_step = 151;
 		break;
+	case T2RPT_STAGE4_CHAPTER2:
+		if(stage_id != 3) {
+			return false;
+		}
+		target_scroll_step = 1327;
+		break;
+	case T2RPT_STAGE4_CHAPTER3:
+		if(stage_id != 3) {
+			return false;
+		}
+		target_scroll_step = 2008;
+		break;
+	case T2RPT_EXTRA_CHAPTER2:
+		if(stage_id != 5) {
+			return false;
+		}
+		target_scroll_step = 239;
+		break;
 	default:
 		return false;
 	}
 	if(!practice_chapter_field_build(target_scroll_step)) {
 		return false;
+	}
+	if((target == T2RPT_STAGE4_CHAPTER2) ||
+	   (target == T2RPT_STAGE4_CHAPTER3)) {
+		// The first Stage 4 midboss appearance owns this re-arm in native play.
+		midboss_scroll_step = 1632;
 	}
 	t2replay_practice_target = T2RPT_STAGE_START;
 	return true;
