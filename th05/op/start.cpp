@@ -59,6 +59,29 @@ void near start_extra(void)
 	op_exit_into_main(true, false);
 }
 
+void near start_practice(void)
+{
+	replay_start_config_t start;
+
+	if(!replay_practice_setup(&start)) {
+		return;
+	}
+	resident->end_sequence = ES_SCORE;
+	resident->demo_num = 0;
+	resident->stage = start.stage;
+	resident->credit_lives = start.credit_lives;
+	resident->credit_bombs = start.credit_bombs;
+	if(playchar_menu()) {
+		return;
+	}
+	resident_reset_last_highest_and_stage_scores();
+	start.playchar = resident->playchar;
+	if(!replay_practice_record_prepare(&start)) {
+		return;
+	}
+	op_exit_into_main(true, false);
+}
+
 void near start_demo(void)
 {
 	resident->end_sequence = ES_SCORE;

@@ -4,6 +4,7 @@ extern bool extra_unlocked;
 
 void near start_game(void);
 void near start_extra(void);
+void near start_practice(void);
 void near start_demo(void);
 
 void near setup_menu(void);

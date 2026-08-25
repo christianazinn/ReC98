@@ -46,6 +46,30 @@ void near start_extra(void)
 	op_exit_into_main(true, false);
 }
 
+void near start_practice(void)
+{
+	replay_start_config_t start;
+
+	if(!replay_practice_setup(&start)) {
+		return;
+	}
+	resident->stage = start.stage;
+	resident->credit_lives = start.credit_lives;
+	resident->credit_bombs = start.credit_bombs;
+	resident->playchar_ascii = ('0' + PLAYCHAR_REIMU);
+	resident->stage_ascii = ('0' + start.stage);
+	if(playchar_menu()) {
+		return;
+	}
+	resident->demo_num = 0;
+	start.playchar = (resident->playchar_ascii - '0');
+	start.shottype = resident->shottype;
+	if(!replay_practice_record_prepare(&start)) {
+		return;
+	}
+	op_exit_into_main(true, false);
+}
+
 inline void resident_set_demo(
 	int stage, playchar_t playchar, shottype_t shottype
 ) {

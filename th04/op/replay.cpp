@@ -12,13 +12,16 @@
 #include "th02/v_colors.hpp"
 #include "th04/common.h"
 #include "th04/hardware/grppsafx.h"
+#include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/snd/snd.h"
 #if (GAME == 5)
 	#include "th05/hardware/input.h"
+	#include "th05/resident.hpp"
 #else
 	#include "th04/hardware/input.h"
+	#include "th04/resident.hpp"
 #endif
 
 #define REPLAY_OP_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
@@ -31,9 +34,14 @@
 #define REPLAY_OP_LINE_TOP 88
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
+#define PRACTICE_CORE_ROWS 12
+#define PRACTICE_HISTORY_ROWS 14
 
 enum replay_op_word_t {
 	ROW_REPLAY,
+	ROW_PRACTICE,
+	ROW_PRACTICE_SETUP,
+	ROW_CONFIGURE_PRACTICE,
 	ROW_VIEW_RECORDED_RUNS,
 	ROW_SLOT,
 	ROW_CHARACTER,
@@ -56,6 +64,34 @@ enum replay_op_word_t {
 	ROW_LEFT_RIGHT_PAGE,
 	ROW_Z_PLAY,
 	ROW_ESC_BACK,
+};
+
+enum practice_field_t {
+	PF_STAGE,
+	PF_RANK,
+	PF_LIVES,
+	PF_BOMBS,
+	PF_POWER,
+	PF_DREAM,
+	PF_PLAYPERF,
+	PF_SCORE,
+	PF_CONTINUES,
+	PF_EXTENDS,
+	PF_TURBO,
+	PF_START,
+	PF_GRAZE,
+	PF_STD_FRAMES,
+	PF_ITEMS_SPAWNED,
+	PF_ITEMS_COLLECTED,
+	PF_POINT_ITEMS,
+	PF_MAX_POINT_ITEMS,
+	PF_ENEMIES_GONE,
+	PF_ENEMIES_KILLED,
+	PF_MISSES,
+	PF_BOMBS_USED,
+	PF_STAGE_ITEMS,
+	PF_STAGE_GRAZE,
+	PF_POWER_OVERFLOW,
 };
 
 static char replay_op_cfg_fn[11];
@@ -197,6 +233,19 @@ static void replay_op_memclear(void far *buf, unsigned size)
 	}
 }
 
+static void replay_op_copy(
+	void far *dst, const void far *src, unsigned size
+)
+{
+	uint8_t far *d = reinterpret_cast<uint8_t far *>(dst);
+	const uint8_t far *s = reinterpret_cast<const uint8_t far *>(src);
+
+	while(size != 0) {
+		*d++ = *s++;
+		size--;
+	}
+}
+
 static uint32_t replay_op_fnv1a(
 	uint32_t hash, const void far *buf, unsigned size
 )
@@ -247,6 +296,48 @@ static bool replay_op_bytes_zero(const uint8_t far *p, unsigned size)
 	return true;
 }
 
+static uint8_t replay_op_playperf_min(uint8_t start_rank)
+{
+	#if (GAME == 5)
+		switch(start_rank) {
+		case RANK_EASY: return 16;
+		case RANK_NORMAL: return 24;
+		case RANK_HARD: return 44;
+		case RANK_LUNATIC: return 48;
+		default: return 32;
+		}
+	#else
+		switch(start_rank) {
+		case RANK_EASY: return 4;
+		case RANK_NORMAL: return 11;
+		case RANK_HARD: return 20;
+		case RANK_LUNATIC: return 22;
+		default: return 16;
+		}
+	#endif
+}
+
+static uint8_t replay_op_playperf_max(uint8_t start_rank)
+{
+	#if (GAME == 5)
+		switch(start_rank) {
+		case RANK_EASY: return 32;
+		case RANK_NORMAL: return 40;
+		case RANK_HARD: return 54;
+		case RANK_LUNATIC: return 58;
+		default: return 36;
+		}
+	#else
+		switch(start_rank) {
+		case RANK_EASY: return 16;
+		case RANK_NORMAL: return 24;
+		case RANK_HARD: return 32;
+		case RANK_LUNATIC: return 34;
+		default: return 20;
+		}
+	#endif
+}
+
 static uint8_t replay_op_native_playperf(uint8_t start_rank)
 {
 	#if (GAME == 5)
@@ -270,27 +361,10 @@ static uint8_t replay_op_native_playperf(uint8_t start_rank)
 
 static bool replay_op_playperf_valid(uint8_t start_rank, uint8_t value)
 {
-	uint8_t min;
-	uint8_t max;
-
-	#if (GAME == 5)
-		switch(start_rank) {
-		case RANK_EASY: min = 16; max = 32; break;
-		case RANK_NORMAL: min = 24; max = 40; break;
-		case RANK_HARD: min = 44; max = 54; break;
-		case RANK_LUNATIC: min = 48; max = 58; break;
-		default: min = 32; max = 36; break;
-		}
-	#else
-		switch(start_rank) {
-		case RANK_EASY: min = 4; max = 16; break;
-		case RANK_NORMAL: min = 11; max = 24; break;
-		case RANK_HARD: min = 20; max = 32; break;
-		case RANK_LUNATIC: min = 22; max = 34; break;
-		default: min = 16; max = 20; break;
-		}
-	#endif
-	return ((value >= min) && (value <= max));
+	return (
+		(value >= replay_op_playperf_min(start_rank)) &&
+		(value <= replay_op_playperf_max(start_rank))
+	);
 }
 
 static bool replay_op_start_valid(
@@ -445,7 +519,10 @@ static bool replay_op_header_read(uint8_t slot)
 	return replay_op_header_valid(file_size);
 }
 
-static bool replay_op_command_write(replay_command_mode_t mode, uint8_t slot)
+static bool replay_op_command_write(
+	replay_command_mode_t mode, uint8_t slot, uint8_t flags,
+	const replay_start_config_t far *start
+)
 {
 	replay_command_t command;
 	int fh;
@@ -459,6 +536,10 @@ static bool replay_op_command_write(replay_command_mode_t mode, uint8_t slot)
 	command.magic[6] = '2'; command.magic[7] = '\0';
 	command.mode = mode;
 	command.slot = slot;
+	command.flags = flags;
+	if(start != NULL) {
+		replay_op_copy(&command.start, start, sizeof(command.start));
+	}
 	fh = replay_op_dos_create(replay_op_cfg_fn);
 	if(fh < 0) {
 		return false;
@@ -476,6 +557,16 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 	switch(word) {
 	case ROW_REPLAY:
 		P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); break;
+	case ROW_PRACTICE:
+		P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e');
+		break;
+	case ROW_PRACTICE_SETUP:
+		P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e'); P(' ');
+		P('S'); P('e'); P('t'); P('u'); P('p'); break;
+	case ROW_CONFIGURE_PRACTICE:
+		P('C'); P('o'); P('n'); P('f'); P('i'); P('g'); P('u'); P('r'); P('e');
+		P(' '); P('a'); P(' '); P('p'); P('r'); P('a'); P('c'); P('t'); P('i');
+		P('c'); P('e'); P(' '); P('r'); P('u'); P('n'); break;
 	case ROW_VIEW_RECORDED_RUNS:
 		P('V'); P('i'); P('e'); P('w'); P(' '); P('r'); P('e'); P('c');
 		P('o'); P('r'); P('d'); P('e'); P('d'); P(' '); P('r'); P('u');
@@ -612,6 +703,20 @@ void replay_title_desc_put(void)
 	replay_op_line_put((RES_X - 16 - (18 * 8)), (RES_Y - 16), V_WHITE, p);
 }
 
+void replay_practice_title_label_put(screen_y_t top, vc2 col)
+{
+	char *p = replay_op_line;
+	p = replay_op_word_append(p, ROW_PRACTICE);
+	replay_op_line_put(((RES_X - (8 * 8)) / 2), top, col, p);
+}
+
+void replay_practice_title_desc_put(void)
+{
+	char *p = replay_op_line;
+	p = replay_op_word_append(p, ROW_CONFIGURE_PRACTICE);
+	replay_op_line_put((RES_X - 16 - (24 * 8)), (RES_Y - 16), V_WHITE, p);
+}
+
 static void replay_browser_header_put(void)
 {
 	char *p = replay_op_line;
@@ -720,6 +825,464 @@ static void replay_browser_render(uint8_t sel)
 	replay_op_page_shown = page_drawn;
 }
 
+static uint8_t practice_row_count(uint8_t page)
+{
+	return (page ? PRACTICE_HISTORY_ROWS : PRACTICE_CORE_ROWS);
+}
+
+static practice_field_t practice_field(uint8_t page, uint8_t sel)
+{
+	if(!page) {
+		return static_cast<practice_field_t>(sel);
+	}
+	if(sel == (PRACTICE_HISTORY_ROWS - 1)) {
+		return PF_START;
+	}
+	return static_cast<practice_field_t>(PF_GRAZE + sel);
+}
+
+static char *practice_field_append(char *p, practice_field_t field)
+{
+	#define P(c) *p++ = c
+	switch(field) {
+	case PF_STAGE:
+		P('S'); P('t'); P('a'); P('g'); P('e'); break;
+	case PF_RANK:
+		P('R'); P('a'); P('n'); P('k'); break;
+	case PF_LIVES:
+		P('L'); P('i'); P('f'); P('e'); P(' '); P('S'); P('t'); P('o'); P('c'); P('k');
+		break;
+	case PF_BOMBS:
+		P('B'); P('o'); P('m'); P('b'); P(' '); P('S'); P('t'); P('o'); P('c'); P('k');
+		break;
+	case PF_POWER:
+		P('P'); P('o'); P('w'); P('e'); P('r'); break;
+	case PF_DREAM:
+		P('D'); P('r'); P('e'); P('a'); P('m'); break;
+	case PF_PLAYPERF:
+		P('D'); P('y'); P('n'); P('a'); P('m'); P('i'); P('c'); P(' ');
+		P('R'); P('a'); P('n'); P('k'); break;
+	case PF_SCORE:
+		P('S'); P('c'); P('o'); P('r'); P('e'); break;
+	case PF_CONTINUES:
+		P('C'); P('o'); P('n'); P('t'); P('i'); P('n'); P('u'); P('e'); P('s');
+		break;
+	case PF_EXTENDS:
+		P('E'); P('x'); P('t'); P('e'); P('n'); P('d'); P('s'); break;
+	case PF_TURBO:
+		P('T'); P('u'); P('r'); P('b'); P('o'); P(' '); P('M'); P('o'); P('d'); P('e');
+		break;
+	case PF_START:
+		P('S'); P('t'); P('a'); P('r'); P('t'); P(' '); P('P'); P('r');
+		P('a'); P('c'); P('t'); P('i'); P('c'); P('e'); break;
+	case PF_GRAZE:
+		P('T'); P('o'); P('t'); P('a'); P('l'); P(' '); P('G'); P('r'); P('a'); P('z'); P('e');
+		break;
+	case PF_STD_FRAMES:
+		P('S'); P('T'); P('D'); P(' '); P('F'); P('r'); P('a'); P('m'); P('e'); P('s');
+		break;
+	case PF_ITEMS_SPAWNED:
+		P('I'); P('t'); P('e'); P('m'); P('s'); P(' '); P('S'); P('p'); P('a');
+		P('w'); P('n'); P('e'); P('d'); break;
+	case PF_ITEMS_COLLECTED:
+		P('I'); P('t'); P('e'); P('m'); P('s'); P(' '); P('C'); P('o'); P('l');
+		P('l'); P('e'); P('c'); P('t'); P('e'); P('d'); break;
+	case PF_POINT_ITEMS:
+		P('P'); P('o'); P('i'); P('n'); P('t'); P(' '); P('I'); P('t'); P('e'); P('m'); P('s');
+		break;
+	case PF_MAX_POINT_ITEMS:
+		P('M'); P('a'); P('x'); P(' '); P('P'); P('o'); P('i'); P('n'); P('t');
+		P(' '); P('I'); P('t'); P('e'); P('m'); P('s'); break;
+	case PF_ENEMIES_GONE:
+		P('E'); P('n'); P('e'); P('m'); P('i'); P('e'); P('s'); P(' '); P('G'); P('o'); P('n'); P('e');
+		break;
+	case PF_ENEMIES_KILLED:
+		P('E'); P('n'); P('e'); P('m'); P('i'); P('e'); P('s'); P(' '); P('K');
+		P('i'); P('l'); P('l'); P('e'); P('d'); break;
+	case PF_MISSES:
+		P('M'); P('i'); P('s'); P('s'); P('e'); P('s'); break;
+	case PF_BOMBS_USED:
+		P('B'); P('o'); P('m'); P('b'); P('s'); P(' '); P('U'); P('s'); P('e'); P('d');
+		break;
+	case PF_STAGE_ITEMS:
+		P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('P'); P('o'); P('i');
+		P('n'); P('t'); P(' '); P('I'); P('t'); P('e'); P('m'); P('s'); break;
+	case PF_STAGE_GRAZE:
+		P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('G'); P('r'); P('a'); P('z'); P('e');
+		break;
+	case PF_POWER_OVERFLOW:
+		P('P'); P('o'); P('w'); P('e'); P('r'); P(' '); P('O'); P('v'); P('e');
+		P('r'); P('f'); P('l'); P('o'); P('w'); break;
+	}
+	#undef P
+	return p;
+}
+
+static char *practice_value_append(
+	char *p, practice_field_t field, const replay_start_config_t far *start
+)
+{
+	switch(field) {
+	case PF_STAGE:
+		if(start->stage == STAGE_EXTRA) {
+			return replay_op_word_append(p, ROW_EXTRA);
+		}
+		return replay_op_uint_append(p, (start->stage + 1), 1);
+	case PF_RANK:
+		return replay_op_word_append(p, replay_op_rank_word(start->rank));
+	case PF_LIVES: return replay_op_uint_append(p, start->lives, 1);
+	case PF_BOMBS: return replay_op_uint_append(p, start->bombs, 1);
+	case PF_POWER: return replay_op_uint_append(p, start->power, 3);
+	case PF_DREAM: return replay_op_uint_append(p, start->dream, 3);
+	case PF_PLAYPERF: return replay_op_uint_append(p, start->playperf, 2);
+	case PF_SCORE: return replay_op_uint_append(p, start->score, 8);
+	case PF_CONTINUES: return replay_op_uint_append(p, start->continues_used, 1);
+	case PF_EXTENDS: return replay_op_uint_append(p, start->extends_gained, 2);
+	case PF_TURBO:
+		if(start->turbo_mode) {
+			*p++ = 'O'; *p++ = 'n';
+		} else {
+			*p++ = 'O'; *p++ = 'f'; *p++ = 'f';
+		}
+		return p;
+	case PF_GRAZE: return replay_op_uint_append(p, start->graze, 5);
+	case PF_STD_FRAMES: return replay_op_uint_append(p, start->std_frames, 5);
+	case PF_ITEMS_SPAWNED: return replay_op_uint_append(p, start->items_spawned, 5);
+	case PF_ITEMS_COLLECTED: return replay_op_uint_append(p, start->items_collected, 5);
+	case PF_POINT_ITEMS: return replay_op_uint_append(p, start->point_items_collected, 5);
+	case PF_MAX_POINT_ITEMS:
+		return replay_op_uint_append(p, start->max_valued_point_items_collected, 5);
+	case PF_ENEMIES_GONE: return replay_op_uint_append(p, start->enemies_gone, 5);
+	case PF_ENEMIES_KILLED: return replay_op_uint_append(p, start->enemies_killed, 5);
+	case PF_MISSES: return replay_op_uint_append(p, start->miss_count, 3);
+	case PF_BOMBS_USED: return replay_op_uint_append(p, start->bombs_used, 3);
+	case PF_STAGE_ITEMS:
+		return replay_op_uint_append(p, start->stage_point_items_collected, 3);
+	case PF_STAGE_GRAZE: return replay_op_uint_append(p, start->stage_graze, 3);
+	case PF_POWER_OVERFLOW:
+		return replay_op_uint_append(p, start->power_overflow, 2);
+	default: return p;
+	}
+}
+
+static void practice_defaults(replay_start_config_t far *start)
+{
+	replay_op_memclear(start, sizeof(*start));
+	start->schema = REPLAY_START_SCHEMA;
+	start->kind = RSK_STAGE;
+	start->rank = resident->rank;
+	start->lives = resident->cfg_lives;
+	start->bombs = resident->cfg_bombs;
+	start->power = 1;
+	start->dream = ((GAME == 5) ? 1 : 0);
+	start->playperf = replay_op_native_playperf(start->rank);
+	start->turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
+	start->credit_lives = resident->cfg_lives;
+	start->credit_bombs = resident->cfg_bombs;
+}
+
+static void practice_u8_change(
+	uint8_t far *value, uint8_t min, uint8_t max, uint8_t delta, bool right
+)
+{
+	if(right) {
+		*value = ((*value > (max - delta)) ? max : (*value + delta));
+	} else {
+		*value = ((*value < (min + delta)) ? min : (*value - delta));
+	}
+}
+
+static void practice_u16_change(
+	uint16_t far *value, uint16_t max, uint16_t delta, bool right
+)
+{
+	if(right) {
+		*value = ((*value > (max - delta)) ? max : (*value + delta));
+	} else {
+		*value = ((*value < delta) ? 0 : (*value - delta));
+	}
+}
+
+static void practice_score_change(
+	uint32_t far *value, uint32_t delta, bool right
+)
+{
+	const uint32_t max = 99999990UL;
+	if(right) {
+		*value = ((*value > (max - delta)) ? max : (*value + delta));
+	} else {
+		*value = ((*value < delta) ? 0 : (*value - delta));
+	}
+}
+
+static void practice_field_change(
+	replay_start_config_t far *start, practice_field_t field, bool right,
+	bool fast
+)
+{
+	uint8_t rank;
+
+	switch(field) {
+	case PF_STAGE:
+		practice_u8_change(
+			&start->stage, 0,
+			static_cast<uint8_t>(extra_unlocked ? STAGE_EXTRA : (STAGE_EXTRA - 1)),
+			1, right
+		);
+		if(start->stage == STAGE_EXTRA) {
+			start->rank = RANK_EXTRA;
+			start->turbo_mode = 1;
+		} else if(start->rank == RANK_EXTRA) {
+			start->rank = resident->rank;
+			start->turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
+		}
+		start->playperf = replay_op_native_playperf(start->rank);
+		break;
+	case PF_RANK:
+		if(start->stage != STAGE_EXTRA) {
+			rank = start->rank;
+			practice_u8_change(&rank, RANK_EASY, RANK_LUNATIC, 1, right);
+			start->rank = rank;
+			start->playperf = replay_op_native_playperf(rank);
+		}
+		break;
+	case PF_LIVES: practice_u8_change(&start->lives, 0, 9, 1, right); break;
+	case PF_BOMBS: practice_u8_change(&start->bombs, 0, 9, 1, right); break;
+	case PF_POWER:
+		practice_u8_change(&start->power, 1, 128, (fast ? 16 : 1), right);
+		break;
+	case PF_DREAM:
+		practice_u8_change(
+			&start->dream, 0, ((GAME == 5) ? 128 : 7),
+			(fast ? ((GAME == 5) ? 16 : 2) : 1), right
+		);
+		break;
+	case PF_PLAYPERF:
+		practice_u8_change(
+			&start->playperf, replay_op_playperf_min(start->rank),
+			replay_op_playperf_max(start->rank), (fast ? 4 : 1), right
+		);
+		break;
+	case PF_SCORE:
+		practice_score_change(&start->score, (fast ? 1000000UL : 10UL), right);
+		break;
+	case PF_CONTINUES:
+		practice_u8_change(&start->continues_used, 0, 9, 1, right); break;
+	case PF_EXTENDS:
+		practice_u8_change(&start->extends_gained, 0, 10, 1, right); break;
+	case PF_TURBO:
+		if(start->stage != STAGE_EXTRA) {
+			start->turbo_mode = (1 - start->turbo_mode);
+		}
+		break;
+	case PF_GRAZE:
+		practice_u16_change(&start->graze, 65535, (fast ? 100 : 1), right); break;
+	case PF_STD_FRAMES:
+		practice_u16_change(&start->std_frames, 65535, (fast ? 1000 : 1), right); break;
+	case PF_ITEMS_SPAWNED:
+		practice_u16_change(&start->items_spawned, 65535, (fast ? 100 : 1), right); break;
+	case PF_ITEMS_COLLECTED:
+		practice_u16_change(&start->items_collected, 65535, (fast ? 100 : 1), right); break;
+	case PF_POINT_ITEMS:
+		practice_u16_change(
+			&start->point_items_collected, 65535, (fast ? 100 : 1), right
+		); break;
+	case PF_MAX_POINT_ITEMS:
+		practice_u16_change(
+			&start->max_valued_point_items_collected, 65535,
+			(fast ? 100 : 1), right
+		); break;
+	case PF_ENEMIES_GONE:
+		practice_u16_change(&start->enemies_gone, 65535, (fast ? 100 : 1), right); break;
+	case PF_ENEMIES_KILLED:
+		practice_u16_change(&start->enemies_killed, 65535, (fast ? 100 : 1), right); break;
+	case PF_MISSES:
+		practice_u8_change(&start->miss_count, 0, 255, (fast ? 10 : 1), right); break;
+	case PF_BOMBS_USED:
+		practice_u8_change(&start->bombs_used, 0, 255, (fast ? 10 : 1), right); break;
+	case PF_STAGE_ITEMS:
+		practice_u16_change(
+			&start->stage_point_items_collected, ((GAME == 5) ? 999 : 255),
+			(fast ? 10 : 1), right
+		); break;
+	case PF_STAGE_GRAZE:
+		practice_u16_change(&start->stage_graze, 999, (fast ? 10 : 1), right); break;
+	case PF_POWER_OVERFLOW:
+		practice_u16_change(&start->power_overflow, 42, (fast ? 5 : 1), right); break;
+	default: break;
+	}
+}
+
+static void practice_page_name_put(uint8_t page)
+{
+	char *p = replay_op_line;
+	#define P(c) *p++ = c
+	if(page) {
+		P('H'); P('i'); P('s'); P('t'); P('o'); P('r'); P('y');
+	} else {
+		P('C'); P('o'); P('r'); P('e');
+	}
+	P(' '); P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s');
+	P(' '); P('('); P('1' + page); P('/'); P('2'); P(')');
+	#undef P
+	replay_op_line_put((page ? 224 : 232), 44, V_WHITE, p);
+}
+
+static void practice_footer_put(void)
+{
+	char *p = replay_op_line;
+	#define P(c) *p++ = c
+	P('U'); P('p'); P('/'); P('D'); P('o'); P('w'); P('n'); P(' '); P('S'); P('e'); P('l'); P('e'); P('c'); P('t');
+	P(' '); P(' '); P('L'); P('e'); P('f'); P('t'); P('/'); P('R'); P('i'); P('g'); P('h'); P('t'); P(' '); P('C'); P('h'); P('a'); P('n'); P('g'); P('e');
+	#undef P
+	replay_op_line_put(112, 356, V_WHITE, p);
+	p = replay_op_line;
+	#define P(c) *p++ = c
+	P('X'); P(' '); P('P'); P('a'); P('g'); P('e'); P('/'); P('F'); P('a'); P('s'); P('t');
+	P(' '); P(' '); P('Z'); P(' '); P('S'); P('t'); P('a'); P('r'); P('t');
+	P(' '); P(' '); P('E'); P('s'); P('c'); P(' '); P('B'); P('a'); P('c'); P('k');
+	#undef P
+	replay_op_line_put(176, 376, V_WHITE, p);
+}
+
+static void practice_render(
+	const replay_start_config_t far *start, uint8_t page, uint8_t sel
+)
+{
+	uint8_t rows = practice_row_count(page);
+	uint8_t page_drawn = (1 - replay_op_page_shown);
+	practice_field_t field;
+	char *p;
+	int i;
+
+	graph_accesspage(page_drawn);
+	graph_clear();
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	graph_putsa_fx_spacing = 0;
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_PRACTICE_SETUP);
+	replay_op_line_put(((RES_X - (14 * 8)) / 2), 16, REPLAY_OP_COL_ACTIVE, p);
+	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
+	practice_page_name_put(page);
+	for(i = 0; i < rows; i++) {
+		field = practice_field(page, i);
+		p = replay_op_line;
+		*p++ = ((i == sel) ? '>' : ' ');
+		replay_op_line_put(80, (68 + (i * 20)),
+			((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+		p = replay_op_line;
+		p = practice_field_append(p, field);
+		if(field == PF_START) {
+			replay_op_line_put(
+				((RES_X - (14 * 8)) / 2), (68 + (i * 20)),
+				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+			);
+		} else {
+			replay_op_line_put(104, (68 + (i * 20)),
+				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+			p = replay_op_line;
+			p = practice_value_append(p, field, start);
+			replay_op_line_put(384, (68 + (i * 20)),
+				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+		}
+	}
+	practice_footer_put();
+	graph_showpage(page_drawn);
+	replay_op_page_shown = page_drawn;
+}
+
+bool replay_practice_setup(replay_start_config_t far *start)
+{
+	uint8_t page = 0;
+	uint8_t sel = 0;
+	uint8_t rows;
+	practice_field_t field;
+	bool input_allowed = false;
+
+	practice_defaults(start);
+	palette_black_out(4);
+	graph_accesspage(0);
+	graph_clear();
+	graph_accesspage(1);
+	graph_clear();
+	graph_showpage(0);
+	replay_op_page_shown = 0;
+	practice_render(start, page, sel);
+	palette_100();
+	while(1) {
+		input_reset_sense_interface();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			rows = practice_row_count(page);
+			field = practice_field(page, sel);
+			if(key_det & INPUT_UP) {
+				sel = ((sel == 0) ? (rows - 1) : (sel - 1));
+				practice_render(start, page, sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_DOWN) {
+				sel = ((sel == (rows - 1)) ? 0 : (sel + 1));
+				practice_render(start, page, sel);
+				snd_se_play_force(1);
+			} else if(key_det & (INPUT_LEFT | INPUT_RIGHT)) {
+				if(field != PF_START) {
+					practice_field_change(
+						start, field, ((key_det & INPUT_RIGHT) != 0),
+						((key_det & INPUT_BOMB) != 0)
+					);
+					practice_render(start, page, sel);
+					snd_se_play_force(1);
+				}
+			} else if(key_det & INPUT_BOMB) {
+				page = (1 - page);
+				rows = practice_row_count(page);
+				if(sel >= rows) {
+					sel = (rows - 1);
+				}
+				practice_render(start, page, sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_CANCEL) {
+				palette_black_out(4);
+				return false;
+			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
+				if(replay_op_start_valid(start, true)) {
+					palette_black_out(4);
+					return true;
+				}
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		resident->rand++;
+		frame_delay(1);
+	}
+}
+
+bool replay_practice_record_prepare(
+	const replay_start_config_t far *start_in
+)
+{
+	replay_start_config_t start;
+	uint8_t slot;
+
+	replay_op_copy(&start, start_in, sizeof(start));
+	start.resident_rand = resident->rand;
+	start.random_seed = resident->rand;
+	if(!replay_op_start_valid(&start, true)) {
+		return false;
+	}
+	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
+		if(!replay_op_header_read(slot)) {
+			return replay_op_command_write(
+				RCM_RECORD, slot, REPLAY_COMMAND_FLAG_PRACTICE, &start
+			);
+		}
+	}
+	return false;
+}
+
 bool replay_browser(void)
 {
 	uint8_t sel = 0;
@@ -763,7 +1326,7 @@ bool replay_browser(void)
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				if(
 					replay_op_header_read(sel) &&
-					replay_op_command_write(RCM_PLAYBACK, sel)
+					replay_op_command_write(RCM_PLAYBACK, sel, 0, NULL)
 				) {
 					palette_black_out(4);
 					return true;
@@ -783,7 +1346,7 @@ void replay_record_next_prepare(void)
 
 	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
 		if(!replay_op_header_read(slot)) {
-			replay_op_command_write(RCM_RECORD, slot);
+			replay_op_command_write(RCM_RECORD, slot, 0, NULL);
 			return;
 		}
 	}

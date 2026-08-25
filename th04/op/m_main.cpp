@@ -27,6 +27,7 @@
 enum main_choice_t {
 	MC_GAME,
 	MC_EXTRA,
+	MC_PRACTICE,
 	MC_REGIST_VIEW,
 	MC_MUSICROOM,
 	MC_REPLAY,
@@ -63,7 +64,7 @@ static const pixel_t LABEL_H = 16;
 
 static const pixel_t CURSOR_W = 32;
 
-static const screen_y_t MENU_TOP = ((GAME == 5) ? 250 : 224);
+static const screen_y_t MENU_TOP = ((GAME == 5) ? 240 : 214);
 
 static const screen_x_t COMMAND_LEFT = ((RES_X / 2) - (LABEL_W / 2));
 
@@ -162,7 +163,7 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 	egc_copy_rect_1_to_0_16(MENU_MAIN_LEFT, top, MENU_MAIN_W, LABEL_H);
 	grcg_setcolor(GC_RMW, col);
 	int desc_id = sel;
-	bool replay_label = false;
+	int custom_label = 0;
 
 	// ZUN bloat: Could have been deduplicated.
 	switch(sel) {
@@ -176,14 +177,20 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 		}
 		command_put(main_choice_top(MC_EXTRA), CDG_MAIN_EXTRA);
 		break;
+	case MC_PRACTICE:
+		custom_label = 1;
+		desc_id = -1;
+		break;
 	case MC_REGIST_VIEW:
 		command_put(main_choice_top(MC_REGIST_VIEW), CDG_MAIN_REGIST_VIEW);
+		desc_id = 2;
 		break;
 	case MC_MUSICROOM:
 		command_put(main_choice_top(MC_MUSICROOM), CDG_MAIN_MUSICROOM);
+		desc_id = 3;
 		break;
 	case MC_REPLAY:
-		replay_label = true;
+		custom_label = 2;
 		desc_id = -1;
 		break;
 	case MC_OPTION:
@@ -196,7 +203,9 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 		break;
 	}
 	grcg_off();
-	if(replay_label) {
+	if(custom_label == 1) {
+		replay_practice_title_label_put(top, col);
+	} else if(custom_label == 2) {
 		replay_title_label_put(top, col);
 	}
 
@@ -207,7 +216,11 @@ void pascal near main_unput_and_put(int sel, vc2 col)
 			desc_unput_and_put(desc_id);
 		} else {
 			egc_copy_rect_1_to_0_16(0, DESC_TOP, RES_X, GLYPH_H);
-			replay_title_desc_put();
+			if(custom_label == 1) {
+				replay_practice_title_desc_put();
+			} else {
+				replay_title_desc_put();
+			}
 		}
 	}
 }
@@ -393,6 +406,10 @@ void near main_update_and_render(void)
 		case MC_EXTRA:
 			start_extra();
 			return_from_other_screen_to_main(initialized, MC_EXTRA);
+			return;
+		case MC_PRACTICE:
+			start_practice();
+			return_from_other_screen_to_main(initialized, MC_PRACTICE);
 			return;
 		case MC_REGIST_VIEW:
 			regist_view_menu();
