@@ -2,6 +2,7 @@
 #define TH04_MAIN_REPLAY_CHECKPOINT_HPP
 
 #include "platform.h"
+#include "th04/replay_format.hpp"
 
 // Internal field-codec and container interface. Container restore validates
 // every byte before mutating live state, applies groups in dependency order,
@@ -14,6 +15,10 @@ enum replay_ck_mode_t {
 	RCK_APPLY = 2,
 };
 
+typedef bool (pascal far *replay_ck_io_func_t)(
+	uint16_t context, void far *data, uint16_t size
+);
+
 struct replay_ck_stream_t {
 	uint8_t far *data;
 	uint32_t limit;
@@ -21,6 +26,11 @@ struct replay_ck_stream_t {
 	uint32_t checksum;
 	replay_ck_mode_t mode;
 	bool failed;
+	replay_ck_io_func_t io_func;
+	uint16_t io_context;
+	uint16_t window_capacity;
+	uint16_t window_pos;
+	uint16_t window_len;
 };
 
 struct replay_ck_identity_t {
@@ -29,6 +39,19 @@ struct replay_ck_identity_t {
 	uint8_t section;
 	uint8_t phase;
 	uint32_t source_fingerprint;
+};
+
+// Runtime-only description of one serialized container. Keeping this separate
+// from the on-disk structs lets MAIN stream one group at a time without
+// requiring a contiguous copy of the full checkpoint.
+struct replay_ck_plan_t {
+	uint16_t total_size;
+	uint16_t prefix_size;
+	uint32_t decoded_size;
+	uint32_t state_digest;
+	uint32_t container_checksum;
+	uint16_t group_sizes[REPLAY_CKPT_GROUPS_MAX];
+	uint32_t group_checksums[REPLAY_CKPT_GROUPS_MAX];
 };
 
 #define REPLAY_CK_BOSS_SECTION_NONE 0xFF
@@ -50,7 +73,7 @@ void replay_ck_validate_init(
 void replay_ck_apply_init(
 	replay_ck_stream_t far *stream, const void far *data, uint32_t size
 );
-bool replay_ck_finish(const replay_ck_stream_t far *stream);
+bool replay_ck_finish(replay_ck_stream_t far *stream);
 
 // Groups 0 through 11 are independently available for both games. TH05
 // additionally provides group 12.
@@ -90,6 +113,85 @@ bool replay_ck_container_apply(
 	const replay_ck_identity_t far *identity,
 	const void far *data,
 	uint16_t total_size
+);
+
+// Streaming container interface. Capture writes the prefix followed by each
+// encoded group. Restore validates every group before a second, dependency-
+// ordered apply pass, preserving the full-container validate-before-mutation
+// contract without a 30 KiB conventional-memory allocation.
+bool replay_ck_container_plan(
+	const replay_ck_identity_t far *identity,
+	replay_ck_plan_t far *plan
+);
+bool replay_ck_container_prefix_encode(
+	const replay_ck_identity_t far *identity,
+	const replay_ck_plan_t far *plan,
+	void far *data,
+	uint16_t capacity
+);
+bool replay_ck_container_prefix_validate(
+	const replay_ck_identity_t far *identity,
+	const void far *data,
+	uint16_t prefix_size,
+	uint16_t total_size,
+	replay_ck_plan_t far *plan
+);
+void replay_ck_container_prefix_checksum_set(
+	void far *data, uint32_t checksum
+);
+bool replay_ck_group_encode(
+	uint8_t group_id,
+	void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+);
+bool replay_ck_group_validate(
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+);
+bool replay_ck_group_apply(
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+);
+bool replay_ck_group_encode_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t write_func,
+	uint16_t context
+);
+bool replay_ck_group_validate_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t read_func,
+	uint16_t context
+);
+bool replay_ck_group_apply_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t read_func,
+	uint16_t context
+);
+uint32_t replay_ck_group_digest_begin(
+	uint32_t digest, uint8_t group_id, uint16_t size
+);
+uint32_t replay_ck_group_digest(
+	uint32_t digest,
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size
 );
 
 #endif /* TH04_MAIN_REPLAY_CHECKPOINT_HPP */

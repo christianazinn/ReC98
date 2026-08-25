@@ -38,6 +38,11 @@ bool replay_practice_checkpoint_capture(void);
 bool replay_practice_preroll_active(void);
 bool replay_practice_preroll_boundary(void);
 
+// Private emulator-test runs use a fixed gameplay suffix. Suppressing player
+// hits keeps late-stage targets from entering post-game input polling before
+// that suffix reaches its deterministic terminal.
+bool replay_private_test_active(void);
+
 // Called after native stage setup and before the first frame. Emits or checks
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);

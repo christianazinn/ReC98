@@ -27,6 +27,15 @@
 #define REPLAY_BUFFER_PACKET_COUNT 256
 #define REPLAY_BUFFER_SIZE \
 	(REPLAY_BUFFER_PACKET_COUNT * REPLAY_USER_PACKET_SIZE)
+#if (GAME == 5)
+	#define REPLAY_CHECKPOINT_GROUP_COUNT REPLAY_CKPT_GROUPS_TH05
+#else
+	#define REPLAY_CHECKPOINT_GROUP_COUNT REPLAY_CKPT_GROUPS_TH04
+#endif
+#define REPLAY_CHECKPOINT_PREFIX_SIZE ( \
+	REPLAY_CHECKPOINT_HEADER_SIZE + \
+	(REPLAY_CHECKPOINT_GROUP_COUNT * REPLAY_CHECKPOINT_GROUP_SIZE) \
+)
 
 #define REPLAY_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define REPLAY_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
@@ -47,6 +56,7 @@ extern unsigned char playperf;
 extern bool turbo_mode;
 extern unsigned char continues_used;
 extern unsigned char extends_gained;
+extern unsigned int stage_frame;
 extern unsigned long score_delta;
 extern unsigned long score_delta_frame;
 extern unsigned int stage_graze;
@@ -95,6 +105,7 @@ static bool replay_finished;
 static bool replay_stage_seen;
 static bool replay_private_test;
 static uint32_t replay_private_diagnostic;
+static uint8_t replay_checkpoint_prefix[REPLAY_CHECKPOINT_PREFIX_SIZE];
 #define REPLAY_PRIVATE_SAMPLE_LIMIT 600UL
 uint8_t replay_ck_failure_group_value;
 uint16_t replay_ck_failure_field_value;
@@ -106,6 +117,7 @@ static uint8_t replay_preroll_midboss_entries;
 static uint8_t replay_preroll_midboss_completions;
 static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
+static uint8_t replay_preroll_interstitial_cycle;
 
 static int replay_dos_open(const char far *fn, unsigned char access)
 {
@@ -202,6 +214,20 @@ static unsigned replay_dos_write(int fh, const void far *buf, unsigned len)
 		mov	result, ax
 	}
 	return result;
+}
+
+bool pascal far replay_checkpoint_dos_read(
+	uint16_t context, void far *data, uint16_t size
+)
+{
+	return (replay_dos_read(context, data, size) == size);
+}
+
+bool pascal far replay_checkpoint_dos_write(
+	uint16_t context, void far *data, uint16_t size
+)
+{
+	return (replay_dos_write(context, data, size) == size);
 }
 
 static bool replay_dos_seek(int fh, uint32_t pos)
@@ -338,6 +364,76 @@ static void replay_checkpoint_temp_delete(void)
 
 	replay_checkpoint_fn_set(fn);
 	replay_dos_delete(fn);
+}
+
+static bool replay_dos_hash_continue(
+	int fh,
+	uint32_t offset,
+	uint32_t size,
+	uint32_t hash,
+	uint32_t far *hash_out
+)
+{
+	unsigned len;
+
+	if((hash_out == 0) || !replay_dos_seek(fh, offset)) {
+		return false;
+	}
+	while(size != 0) {
+		len = ((size > REPLAY_BUFFER_SIZE)
+			? REPLAY_BUFFER_SIZE
+			: static_cast<unsigned>(size)
+		);
+		if(replay_dos_read(fh, replay_buffer, len) != len) {
+			return false;
+		}
+		hash = replay_fnv1a(hash, replay_buffer, len);
+		size -= len;
+	}
+	*hash_out = hash;
+	return true;
+}
+
+static bool replay_dos_hash(
+	int fh, uint32_t offset, uint32_t size, uint32_t far *hash_out
+)
+{
+	return replay_dos_hash_continue(
+		fh, offset, size, REPLAY_FNV1A_BASIS, hash_out
+	);
+}
+
+static bool replay_dos_hash_three_continue(
+	int fh,
+	uint32_t offset,
+	uint32_t size,
+	uint32_t far *hash_a,
+	uint32_t far *hash_b,
+	uint32_t far *hash_c
+)
+{
+	unsigned len;
+
+	if(
+		(hash_a == 0) || (hash_b == 0) || (hash_c == 0) ||
+		!replay_dos_seek(fh, offset)
+	) {
+		return false;
+	}
+	while(size != 0) {
+		len = ((size > REPLAY_BUFFER_SIZE)
+			? REPLAY_BUFFER_SIZE
+			: static_cast<unsigned>(size)
+		);
+		if(replay_dos_read(fh, replay_buffer, len) != len) {
+			return false;
+		}
+		*hash_a = replay_fnv1a(*hash_a, replay_buffer, len);
+		*hash_b = replay_fnv1a(*hash_b, replay_buffer, len);
+		*hash_c = replay_fnv1a(*hash_c, replay_buffer, len);
+		size -= len;
+	}
+	return true;
 }
 
 struct replay_private_result_t {
@@ -500,7 +596,6 @@ static bool replay_buffer_flush(void)
 static bool replay_checkpoint_append(void)
 {
 	char checkpoint_fn[10];
-	uint8_t far *buffer;
 	uint32_t hash = REPLAY_FNV1A_BASIS;
 	uint32_t remaining = replay_header.checkpoint_size;
 	uint32_t file_size;
@@ -545,27 +640,23 @@ static bool replay_checkpoint_append(void)
 		replay_dos_close(source_fh);
 		return false;
 	}
-	buffer = reinterpret_cast<uint8_t far *>(hmem_allocbyte(1024));
-	if((buffer == 0) || !replay_dos_seek(replay_fh, offset)) {
-		if(buffer != 0) {
-			hmem_free(reinterpret_cast<void __seg *>(buffer));
-		}
+	if(!replay_dos_seek(replay_fh, offset)) {
 		replay_dos_close(replay_fh);
 		replay_dos_close(source_fh);
 		return false;
 	}
 	while(remaining != 0) {
-		len = ((remaining > 1024UL)
-			? 1024
+		len = ((remaining > REPLAY_BUFFER_SIZE)
+			? REPLAY_BUFFER_SIZE
 			: static_cast<unsigned>(remaining)
 		);
 		if(
-			(replay_dos_read(source_fh, buffer, len) != len) ||
-			(replay_dos_write(replay_fh, buffer, len) != len)
+			(replay_dos_read(source_fh, replay_buffer, len) != len) ||
+			(replay_dos_write(replay_fh, replay_buffer, len) != len)
 		) {
 			break;
 		}
-		hash = replay_fnv1a(hash, buffer, len);
+		hash = replay_fnv1a(hash, replay_buffer, len);
 		remaining -= len;
 	}
 	if(
@@ -575,7 +666,6 @@ static bool replay_checkpoint_append(void)
 		replay_header.checkpoint_offset = offset;
 		ok = true;
 	}
-	hmem_free(reinterpret_cast<void __seg *>(buffer));
 	replay_dos_close(replay_fh);
 	replay_dos_close(source_fh);
 	return ok;
@@ -1021,41 +1111,164 @@ static void replay_checkpoint_identity_fill(
 	identity->source_fingerprint = REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
 }
 
+static uint32_t replay_checkpoint_group_offset(
+	const replay_ck_plan_t far *plan, uint8_t group_id
+)
+{
+	uint32_t offset = (
+		replay_header.checkpoint_offset + plan->prefix_size
+	);
+	uint8_t i;
+
+	for(i = 0; i < group_id; i++) {
+		offset += plan->group_sizes[i];
+	}
+	return offset;
+}
+
+static uint8_t replay_checkpoint_apply_group_id(uint8_t index)
+{
+	switch(index) {
+	case 0: return RCGI_RUN;
+	case 1: return RCGI_STAGE_VM;
+	case 2: return RCGI_PLAYER;
+	case 3: return RCGI_BULLETS;
+	case 4: return RCGI_ENEMIES;
+	case 5: return RCGI_ACTORS;
+	case 6: return RCGI_ITEMS;
+	case 7: return RCGI_SCORING;
+	case 8: return RCGI_FIELD;
+	case 9: return RCGI_EFFECTS;
+	case 10: return RCGI_PACING;
+	#if (GAME == 5)
+		case 11: return RCGI_DIALOG;
+	#endif
+	}
+	return RCGI_RNG;
+}
+
 static bool replay_checkpoint_restore(void)
 {
 	replay_ck_identity_t identity;
-	uint32_t validated_digest;
+	replay_ck_plan_t plan;
+	uint32_t checkpoint_hash;
+	uint32_t container_hash;
+	uint32_t state_digest = REPLAY_FNV1A_BASIS;
+	uint32_t stored_container_hash;
+	uint32_t group_offset;
+	uint32_t live_digest;
+	uint16_t live_size;
 	uint16_t size = static_cast<uint16_t>(replay_header.checkpoint_size);
-	uint8_t far *data;
+	uint8_t group_id;
+	uint8_t apply_index;
 	int fh;
-	bool ok = false;
+	bool ok = true;
 
-	data = reinterpret_cast<uint8_t far *>(hmem_allocbyte(size));
-	if(data == 0) {
+	if(size < REPLAY_CHECKPOINT_PREFIX_SIZE) {
 		return false;
 	}
 	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
-	if(fh >= 0) {
-		if(
-			replay_dos_seek(fh, replay_header.checkpoint_offset) &&
-			(replay_dos_read(fh, data, size) == size) &&
-			(replay_fnv1a(REPLAY_FNV1A_BASIS, data, size) ==
-			 replay_header.checkpoint_checksum)
-		) {
-			replay_checkpoint_identity_fill(&identity);
-			if(
-				replay_ck_container_validate(
-					&identity, data, size, &validated_digest
-				) &&
-				(validated_digest == replay_header.state_digest) &&
-				replay_ck_container_apply(&identity, data, size)
-			) {
-				ok = true;
-			}
-		}
-		replay_dos_close(fh);
+	if(fh < 0) {
+		return false;
 	}
-	hmem_free(reinterpret_cast<void __seg *>(data));
+	replay_checkpoint_identity_fill(&identity);
+	if(
+		!replay_dos_seek(fh, replay_header.checkpoint_offset) ||
+		(replay_dos_read(
+			fh, replay_checkpoint_prefix, REPLAY_CHECKPOINT_PREFIX_SIZE
+		) != REPLAY_CHECKPOINT_PREFIX_SIZE) ||
+		!replay_ck_container_prefix_validate(
+			&identity, replay_checkpoint_prefix,
+			REPLAY_CHECKPOINT_PREFIX_SIZE, size, &plan
+		)
+	) {
+		replay_dos_close(fh);
+		return false;
+	}
+	checkpoint_hash = replay_fnv1a(
+		REPLAY_FNV1A_BASIS, replay_checkpoint_prefix,
+		REPLAY_CHECKPOINT_PREFIX_SIZE
+	);
+	stored_container_hash = plan.container_checksum;
+	replay_ck_container_prefix_checksum_set(replay_checkpoint_prefix, 0);
+	container_hash = replay_fnv1a(
+		REPLAY_FNV1A_BASIS, replay_checkpoint_prefix,
+		REPLAY_CHECKPOINT_PREFIX_SIZE
+	);
+	replay_ck_container_prefix_checksum_set(
+		replay_checkpoint_prefix, stored_container_hash
+	);
+
+	// First pass: validate every group without mutating gameplay state.
+	for(group_id = 0; group_id < REPLAY_CHECKPOINT_GROUP_COUNT; group_id++) {
+		group_offset = replay_checkpoint_group_offset(&plan, group_id);
+		state_digest = replay_ck_group_digest_begin(
+			state_digest, group_id, plan.group_sizes[group_id]
+		);
+		if(
+			(state_digest == 0) ||
+			!replay_dos_hash_three_continue(
+				fh, group_offset, plan.group_sizes[group_id],
+				&checkpoint_hash, &container_hash, &state_digest
+			) ||
+			!replay_dos_seek(fh, group_offset) ||
+			!replay_ck_group_validate_stream(
+				group_id, replay_buffer, REPLAY_BUFFER_SIZE,
+				plan.group_sizes[group_id],
+				plan.group_checksums[group_id],
+				replay_checkpoint_dos_read,
+				static_cast<uint16_t>(fh)
+			)
+		) {
+			ok = false;
+		}
+		if(!ok) {
+			break;
+		}
+	}
+	if(
+		!ok || (checkpoint_hash != replay_header.checkpoint_checksum) ||
+		(container_hash != stored_container_hash) ||
+		(state_digest != plan.state_digest) ||
+		(plan.state_digest != replay_header.state_digest)
+	) {
+		replay_dos_close(fh);
+		return false;
+	}
+
+	// Second pass: apply only after the complete container has validated.
+	for(
+		apply_index = 0;
+		apply_index < REPLAY_CHECKPOINT_GROUP_COUNT;
+		apply_index++
+	) {
+		group_id = replay_checkpoint_apply_group_id(apply_index);
+		group_offset = replay_checkpoint_group_offset(&plan, group_id);
+		if(
+			!replay_dos_seek(fh, group_offset) ||
+			!replay_ck_group_apply_stream(
+				group_id, replay_buffer, REPLAY_BUFFER_SIZE,
+				plan.group_sizes[group_id],
+				plan.group_checksums[group_id],
+				replay_checkpoint_dos_read,
+				static_cast<uint16_t>(fh)
+			)
+		) {
+			ok = false;
+		}
+		if(!ok) {
+			break;
+		}
+	}
+	if(
+		ok && replay_ck_container_measure(&identity, &live_size, &live_digest) &&
+		(live_size == plan.total_size) && (live_digest == plan.state_digest)
+	) {
+		ok = true;
+	} else {
+		ok = false;
+	}
+	replay_dos_close(fh);
 	return ok;
 }
 
@@ -1173,10 +1386,17 @@ static void replay_sample_current(uint8_t phase)
 			return;
 		}
 		if(replay_ck_capture_pending()) {
-			key_det = ((phase == REPLAY_PACKET_PHASE_GAMEPLAY)
-				? INPUT_SHOT
-				: static_cast<input_t>(INPUT_SHOT | INPUT_OK)
-			);
+			if(phase == REPLAY_PACKET_PHASE_GAMEPLAY) {
+				key_det = static_cast<input_t>(
+					INPUT_SHOT |
+					((stage_frame & 0x80) ? INPUT_LEFT : INPUT_RIGHT)
+				);
+			} else {
+				replay_preroll_interstitial_cycle++;
+				key_det = ((replay_preroll_interstitial_cycle & 1) != 0)
+					? INPUT_NONE
+					: static_cast<input_t>(INPUT_SHOT | INPUT_OK);
+			}
 			shiftkey = false;
 			return;
 		}
@@ -1317,12 +1537,10 @@ bool replay_practice_checkpoint_capture(void)
 {
 	char checkpoint_fn[10];
 	replay_ck_identity_t identity;
-	uint8_t far *data;
-	uint16_t measured_size;
-	uint16_t encoded_size;
-	uint32_t measured_digest;
-	uint32_t encoded_digest;
+	replay_ck_plan_t plan;
+	uint32_t container_checksum;
 	uint32_t checksum;
+	uint8_t group_id;
 	int fh;
 	bool ok = false;
 
@@ -1346,9 +1564,7 @@ bool replay_practice_checkpoint_capture(void)
 		replay_private_diagnostic = (0x21UL << 24);
 		return false;
 	}
-	if(!replay_ck_container_measure(
-		&identity, &measured_size, &measured_digest
-	)) {
+	if(!replay_ck_container_plan(&identity, &plan)) {
 		replay_private_diagnostic = (
 			(0x22UL << 24) |
 			(static_cast<uint32_t>(replay_ck_failure_group()) << 16) |
@@ -1357,36 +1573,75 @@ bool replay_practice_checkpoint_capture(void)
 		return false;
 	}
 	if(
-		(measured_size < REPLAY_CHECKPOINT_HEADER_SIZE) ||
-		(measured_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
-		(measured_digest == 0)
+		(plan.total_size < REPLAY_CHECKPOINT_PREFIX_SIZE) ||
+		(plan.total_size > REPLAY_CHECKPOINT_SIZE_MAX) ||
+		(plan.prefix_size != REPLAY_CHECKPOINT_PREFIX_SIZE) ||
+		(plan.state_digest == 0)
 	) {
-		replay_private_diagnostic = (0x23UL << 24) | measured_size;
-		return false;
-	}
-	data = reinterpret_cast<uint8_t far *>(hmem_allocbyte(measured_size));
-	if(data == 0) {
-		replay_private_diagnostic = (0x24UL << 24) | measured_size;
+		replay_private_diagnostic = (0x23UL << 24) | plan.total_size;
 		return false;
 	}
 	if(
-		replay_ck_container_encode(
-			&identity, data, measured_size, &encoded_size, &encoded_digest
-		) &&
-		(encoded_size == measured_size) &&
-		(encoded_digest == measured_digest)
+		!replay_ck_container_prefix_encode(
+			&identity, &plan, replay_checkpoint_prefix,
+			REPLAY_CHECKPOINT_PREFIX_SIZE
+		)
 	) {
-		checksum = replay_fnv1a(REPLAY_FNV1A_BASIS, data, encoded_size);
-		replay_checkpoint_fn_set(checkpoint_fn);
-		fh = replay_dos_create(checkpoint_fn);
-		if(fh >= 0) {
-			if(replay_dos_write(fh, data, encoded_size) == encoded_size) {
-				ok = true;
+		replay_private_diagnostic = (0x25UL << 24);
+		return false;
+	}
+	replay_checkpoint_fn_set(checkpoint_fn);
+	fh = replay_dos_create(checkpoint_fn);
+	if(
+		(fh >= 0) &&
+		(replay_dos_write(
+			fh, replay_checkpoint_prefix, REPLAY_CHECKPOINT_PREFIX_SIZE
+		) == REPLAY_CHECKPOINT_PREFIX_SIZE)
+	) {
+		ok = true;
+		for(
+			group_id = 0;
+			group_id < REPLAY_CHECKPOINT_GROUP_COUNT;
+			group_id++
+		) {
+			if(
+				!replay_ck_group_encode_stream(
+					group_id, replay_buffer, REPLAY_BUFFER_SIZE,
+					plan.group_sizes[group_id],
+					plan.group_checksums[group_id],
+					replay_checkpoint_dos_write,
+					static_cast<uint16_t>(fh)
+				)) {
+				ok = false;
+				break;
 			}
-			replay_dos_close(fh);
+		}
+		if(ok) {
+			if(!replay_dos_hash(
+				fh, 0, plan.total_size, &container_checksum
+			)) {
+				ok = false;
+			}
+		}
+		if(ok) {
+			replay_ck_container_prefix_checksum_set(
+				replay_checkpoint_prefix, container_checksum
+			);
+			if(
+				!replay_dos_seek(fh, 0) ||
+				(replay_dos_write(
+					fh, replay_checkpoint_prefix,
+					REPLAY_CHECKPOINT_PREFIX_SIZE
+				) != REPLAY_CHECKPOINT_PREFIX_SIZE) ||
+				!replay_dos_hash(fh, 0, plan.total_size, &checksum)
+			) {
+				ok = false;
+			}
 		}
 	}
-	hmem_free(reinterpret_cast<void __seg *>(data));
+	if(fh >= 0) {
+		replay_dos_close(fh);
+	}
 	if(!ok) {
 		if(replay_private_diagnostic == 0) {
 			replay_private_diagnostic = (
@@ -1399,10 +1654,10 @@ bool replay_practice_checkpoint_capture(void)
 	}
 	replay_header.flags |= REPLAY_USER_FLAG_CHECKPOINT;
 	replay_header.checkpoint_schema = REPLAY_CHECKPOINT_SCHEMA;
-	replay_header.checkpoint_size = encoded_size;
+	replay_header.checkpoint_size = plan.total_size;
 	replay_header.checkpoint_checksum = checksum;
 	replay_header.source_fingerprint = REPLAY_CHECKPOINT_SOURCE_FINGERPRINT;
-	replay_header.state_digest = encoded_digest;
+	replay_header.state_digest = plan.state_digest;
 	if(!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)) {
 		replay_private_diagnostic = (0x27UL << 24);
 		replay_fail();
@@ -1414,6 +1669,11 @@ bool replay_practice_checkpoint_capture(void)
 bool replay_practice_preroll_active(void)
 {
 	return replay_ck_capture_pending();
+}
+
+bool replay_private_test_active(void)
+{
+	return replay_private_test;
 }
 
 bool replay_practice_preroll_boundary(void)
@@ -1728,6 +1988,7 @@ void replay_entry(void)
 	replay_preroll_midboss_completions = 0;
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
 	replay_preroll_boss_phase = 0xFF;
+	replay_preroll_interstitial_cycle = 0;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
@@ -1743,7 +2004,7 @@ void replay_entry(void)
 			replay_copy(
 				&replay_practice_start, &command_start, sizeof(command_start)
 			);
-			replay_practice_start_pending = true;
+				replay_practice_start_pending = true;
 			replay_header_apply();
 		}
 		if(!replay_header_write(true)) {

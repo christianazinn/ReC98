@@ -129,7 +129,7 @@
 	#include "th04/sprites/main_pat.h"
 #endif
 
-#define RCK_SHOT_LEVEL_COUNT 9
+#define RCK_SHOT_LEVEL_COUNT 10
 #define RCK_BOMB_STAR_COUNT 48
 #define RCK_SHAKE_ANIM_TIME_MAX 16
 #define RCK_SPARK_SIZE 16
@@ -437,6 +437,27 @@ static void rck_stream_init(
 	stream->checksum = REPLAY_FNV1A_BASIS;
 	stream->mode = mode;
 	stream->failed = false;
+	stream->io_func = 0;
+	stream->io_context = 0;
+	stream->window_capacity = 0;
+	stream->window_pos = 0;
+	stream->window_len = 0;
+}
+
+static void rck_stream_io_init(
+	replay_ck_stream_t far *stream,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint32_t size,
+	replay_ck_mode_t mode,
+	replay_ck_io_func_t io_func,
+	uint16_t context
+)
+{
+	rck_stream_init(stream, buffer, size, mode);
+	stream->io_func = io_func;
+	stream->io_context = context;
+	stream->window_capacity = buffer_size;
 }
 
 void replay_ck_measure_init(replay_ck_stream_t far *stream)
@@ -467,13 +488,25 @@ void replay_ck_apply_init(
 	rck_stream_init(stream, const_cast<void far *>(data), size, RCK_APPLY);
 }
 
-bool replay_ck_finish(const replay_ck_stream_t far *stream)
+bool replay_ck_finish(replay_ck_stream_t far *stream)
 {
 	if(stream->failed) {
 		return false;
 	}
 	if((stream->data != 0) && (stream->pos != stream->limit)) {
 		return false;
+	}
+	if(
+		(stream->io_func != 0) && !rck_reading(stream) &&
+		(stream->window_pos != 0)
+	) {
+		if(!stream->io_func(
+			stream->io_context, stream->data, stream->window_pos
+		)) {
+			stream->failed = true;
+			return false;
+		}
+		stream->window_pos = 0;
 	}
 	return true;
 }
@@ -487,11 +520,45 @@ static bool rck_u8(replay_ck_stream_t far *stream, uint8_t *value)
 		return false;
 	}
 	if(rck_reading(stream)) {
-		encoded = stream->data[static_cast<uint16_t>(stream->pos)];
+		if(stream->io_func != 0) {
+			if(stream->window_pos >= stream->window_len) {
+				stream->window_len = static_cast<uint16_t>(
+					((stream->limit - stream->pos) > stream->window_capacity)
+					? stream->window_capacity
+					: (stream->limit - stream->pos)
+				);
+				stream->window_pos = 0;
+				if(
+					(stream->window_len == 0) ||
+					!stream->io_func(
+						stream->io_context, stream->data,
+						stream->window_len
+					)
+				) {
+					stream->failed = true;
+					return false;
+				}
+			}
+			encoded = stream->data[stream->window_pos++];
+		} else {
+			encoded = stream->data[static_cast<uint16_t>(stream->pos)];
+		}
 		*value = encoded;
 	} else {
 		encoded = *value;
-		if(stream->data != 0) {
+		if(stream->io_func != 0) {
+			if(stream->window_pos >= stream->window_capacity) {
+				if(!stream->io_func(
+					stream->io_context, stream->data,
+					stream->window_pos
+				)) {
+					stream->failed = true;
+					return false;
+				}
+				stream->window_pos = 0;
+			}
+			stream->data[stream->window_pos++] = encoded;
+		} else if(stream->data != 0) {
 			stream->data[static_cast<uint16_t>(stream->pos)] = encoded;
 		}
 	}
@@ -698,6 +765,7 @@ static bool rck_bullet_group_valid(uint8_t value)
 #else
 	case BG_RANDOM_CONSTRAINED_ANGLE_AIMED:
 	case BG_FORCESINGLE_RANDOM_ANGLE:
+	case BG_FORCESINGLE_AIMED:
 #endif
 		return true;
 	}
@@ -2238,6 +2306,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	uint16_t prev_move;
 	uint8_t hit_spark;
 
+	replay_ck_failure_field_value = 0x1000;
 	if(!rck_sppoint(stream, &homing_target)) {
 		return false;
 	}
@@ -2261,14 +2330,18 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 		}
 	}
 #endif
+	replay_ck_failure_field_value = 0x2000;
 	RCK_BOOL(player_is_hit);
 	RCK_U8(player_invincibility_time);
 	RCK_U8(miss_time);
 	RCK_U8(miss_move_lock_time);
+	replay_ck_failure_field_value = 0x2100;
 	RCK_U8_RANGE(power, 1, POWER_MAX);
 	RCK_S16(power_overflow);
+	replay_ck_failure_field_value = static_cast<uint16_t>(0x2200 | shot_level);
 	RCK_U8_MAX(shot_level, RCK_SHOT_LEVEL_COUNT - 1);
 	RCK_U8(shot_time);
+	replay_ck_failure_field_value = 0x2300;
 	RCK_BOOL(bombing);
 	RCK_BOOL(bombing_disabled);
 	RCK_U8(bomb_frame);
@@ -2312,6 +2385,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	) {
 		return false;
 	}
+	replay_ck_failure_field_value = 0x3000;
 	if(
 		(shot_table != rck_expected_shot_table()) ||
 		(shot_func >= RCK_SHOT_LEVEL_COUNT) ||
@@ -2332,6 +2406,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	}
 
 #if (GAME == 5)
+	replay_ck_failure_field_value = 0x4000;
 	RCK_S16(playchar_speed_aligned);
 	RCK_S16(playchar_speed_diagonal);
 #else
@@ -2350,6 +2425,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 #endif
 
 #if (GAME == 4)
+	replay_ck_failure_field_value = 0x5000;
 	{
 		uint8_t player_bomb_id = (
 			(player_bomb_func == player_bomb) ? 1 :
@@ -2373,6 +2449,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 
 	{
 		uint8_t last_id = static_cast<uint8_t>(shot_last_id);
+		replay_ck_failure_field_value = 0x6000;
 		if(
 			!rck_u8(stream, &last_id) ||
 			((last_id != 0xFF) && (last_id >= SHOT_COUNT))
@@ -2406,6 +2483,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	}
 
 #if (GAME == 4)
+	replay_ck_failure_field_value = 0x7000;
 	RCK_U16(shot_laser_time);
 	{
 		uint8_t style = static_cast<uint8_t>(shot_laser_style);
@@ -2441,6 +2519,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 #endif
 
 	for(i = 0; i < SHOT_COUNT; i++) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(0x8000 | i);
 		if(!rck_shot(stream, &shots[i])) {
 			return false;
 		}
@@ -2464,6 +2543,7 @@ static bool rck_group_player(replay_ck_stream_t far *stream)
 	}
 #endif
 
+	replay_ck_failure_field_value = 0x9000;
 	if(!rck_bomb_anim(stream, variant)) {
 		return false;
 	}
@@ -2808,9 +2888,12 @@ static bool rck_enemy_flag(
 	if(!rck_u8(stream, &value)) {
 		return false;
 	}
+	// The update loop keeps each of the three kill cels for four frames.
+	// EF_KILL_ANIM_last is unused and does not describe that live range.
 	if(
 		(value > EF_ALIVE_FIRST_FRAME) &&
-		((value < EF_KILL_ANIM) || (value > EF_KILL_ANIM_last))
+		((value < EF_KILL_ANIM) ||
+		 (value >= (EF_KILL_ANIM + (ENEMY_KILL_CELS * 4))))
 	) {
 		return false;
 	}
@@ -2871,23 +2954,30 @@ static bool rck_enemy(
 	replay_ck_stream_t far *stream, enemy_t near *enemy
 )
 {
+	uint16_t index = (replay_ck_failure_field_value & 0x00FF);
 	uint8_t script_id = rck_enemy_script_id(enemy->script);
 	uint8_t item = static_cast<uint8_t>(enemy->item);
-	bool active;
+	bool running;
 
+	replay_ck_failure_field_value = (0x1000 | index);
 	if(!rck_enemy_flag(stream, &enemy->flag)) {
 		return false;
 	}
-	active = (enemy->flag != EF_FREE);
-	if(!active && !rck_applying(stream)) {
+	running = (
+		(enemy->flag == EF_ALIVE) ||
+		(enemy->flag == EF_ALIVE_FIRST_FRAME)
+	);
+	if(!running && !rck_applying(stream)) {
 		script_id = 0xFF;
 	}
 	RCK_U8(enemy->age);
+	replay_ck_failure_field_value = (0x2000 | index);
 	if(!rck_motion(stream, &enemy->pos)) {
 		return false;
 	}
 	RCK_S16(enemy->hp);
 	RCK_S16(enemy->score);
+	replay_ck_failure_field_value = (0x3000 | index);
 	if(
 		!rck_u8(stream, &script_id) ||
 		((script_id != 0xFF) && (script_id >= STD_ENEMY_SCRIPT_COUNT))
@@ -2926,9 +3016,10 @@ static bool rck_enemy(
 	RCK_BOOL(enemy->clip_x);
 	RCK_BOOL(enemy->clip_y);
 #endif
+	replay_ck_failure_field_value = (0x4000 | index);
 	if(
 		!rck_u8(stream, &item) ||
-		(active && !rck_item_type_valid(item))
+		(running && !rck_item_type_valid(item))
 	) {
 		return false;
 	}
@@ -2942,7 +3033,8 @@ static bool rck_enemy(
 #if (GAME == 5)
 	RCK_U8(enemy->subtype);
 #endif
-	if(!rck_bullet_template(stream, &enemy->bullet_template, active)) {
+	replay_ck_failure_field_value = (0x5000 | index);
+	if(!rck_bullet_template(stream, &enemy->bullet_template, running)) {
 		return false;
 	}
 	if(rck_applying(stream)) {
@@ -2964,10 +3056,12 @@ static bool rck_group_enemies(replay_ck_stream_t far *stream)
 	uint16_t enemy_cur_id = rck_enemy_cur_id();
 
 	for(i = 0; i < ENEMY_COUNT; i++) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(i);
 		if(!rck_enemy(stream, &enemies[i])) {
 			return false;
 		}
 	}
+	replay_ck_failure_field_value = 0x6000;
 	if(!rck_u16(stream, &enemy_cur_id)) {
 		return false;
 	}
@@ -5457,6 +5551,138 @@ bool replay_ck_container_measure(
 	return true;
 }
 
+bool replay_ck_container_plan(
+	const replay_ck_identity_t far *identity,
+	replay_ck_plan_t far *plan
+)
+{
+	uint32_t total;
+	uint8_t count = rck_group_count();
+	uint8_t group_id;
+
+	if(
+		(plan == 0) || !rck_identity_valid(identity) ||
+		(identity->stage != stage_id)
+	) {
+		return false;
+	}
+	for(group_id = 0; group_id < REPLAY_CKPT_GROUPS_MAX; group_id++) {
+		plan->group_sizes[group_id] = 0;
+		plan->group_checksums[group_id] = 0;
+	}
+	if(!rck_groups_measure(
+		plan->group_sizes, plan->group_checksums,
+		&plan->decoded_size, &plan->state_digest
+	)) {
+		return false;
+	}
+	plan->prefix_size = static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(count) * REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	total = static_cast<uint32_t>(plan->prefix_size) + plan->decoded_size;
+	if(total > RCK_CONTAINER_SIZE_MAX) {
+		return false;
+	}
+	plan->total_size = static_cast<uint16_t>(total);
+	plan->container_checksum = 0;
+	return true;
+}
+
+bool replay_ck_container_prefix_encode(
+	const replay_ck_identity_t far *identity,
+	const replay_ck_plan_t far *plan,
+	void far *data_in,
+	uint16_t capacity
+)
+{
+	uint8_t far *data = reinterpret_cast<uint8_t far *>(data_in);
+	uint16_t expected_prefix = static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(rck_group_count()) *
+		 REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	uint16_t offset;
+	uint16_t entry;
+	uint8_t group_id;
+
+	if(
+		(data == 0) || (plan == 0) || !rck_identity_valid(identity) ||
+		(identity->stage != stage_id) ||
+		(plan->prefix_size != expected_prefix) ||
+		(capacity < plan->prefix_size) ||
+		(static_cast<uint32_t>(plan->prefix_size) + plan->decoded_size !=
+		 plan->total_size)
+	) {
+		return false;
+	}
+	for(offset = 0; offset < plan->prefix_size; offset++) {
+		data[offset] = 0;
+	}
+	data[0] = 'T'; data[1] = ('0' + GAME); data[2] = 'C'; data[3] = 'K';
+	data[4] = 'P'; data[5] = '1'; data[6] = '\0'; data[7] = '\0';
+	rck_put_u16(data, 0x08, REPLAY_CHECKPOINT_SCHEMA);
+	rck_put_u16(data, 0x0A, REPLAY_CHECKPOINT_HEADER_SIZE);
+	rck_put_u8(data, 0x0C, GAME);
+	rck_put_u8(data, 0x0D, identity->start_kind);
+	rck_put_u8(data, 0x0E, identity->stage);
+	rck_put_u8(data, 0x0F, identity->section);
+	rck_put_u8(data, 0x10, identity->phase);
+	rck_put_u8(data, 0x11, rck_group_count());
+	rck_put_u32(data, 0x14, plan->total_size);
+	rck_put_u32(data, 0x18, identity->source_fingerprint);
+	rck_put_u32(data, 0x1C, plan->state_digest);
+	rck_put_u32(data, 0x20, plan->decoded_size);
+	rck_put_u32(data, RCK_HEADER_CHECKSUM_OFFSET, 0);
+
+	offset = plan->prefix_size;
+	for(group_id = 0; group_id < rck_group_count(); group_id++) {
+		entry = rck_directory_offset(group_id);
+		if(
+			(plan->group_sizes[group_id] == 0) ||
+			(static_cast<uint32_t>(offset) + plan->group_sizes[group_id] >
+			 plan->total_size)
+		) {
+			return false;
+		}
+		rck_put_u8(data, entry + RCK_GROUP_ID_OFFSET, group_id);
+		rck_put_u8(
+			data, entry + RCK_GROUP_SCHEMA_OFFSET,
+			REPLAY_CHECKPOINT_GROUP_SCHEMA
+		);
+		rck_put_u8(data, entry + RCK_GROUP_CODEC_OFFSET, RCC_RAW);
+		rck_put_u32(data, entry + RCK_GROUP_DATA_OFFSET, offset);
+		rck_put_u32(
+			data, entry + RCK_GROUP_STORED_SIZE_OFFSET,
+			plan->group_sizes[group_id]
+		);
+		rck_put_u32(
+			data, entry + RCK_GROUP_DECODED_SIZE_OFFSET,
+			plan->group_sizes[group_id]
+		);
+		rck_put_u32(
+			data, entry + RCK_GROUP_CHECKSUM_OFFSET,
+			plan->group_checksums[group_id]
+		);
+		offset = static_cast<uint16_t>(
+			offset + plan->group_sizes[group_id]
+		);
+	}
+	return (offset == plan->total_size);
+}
+
+void replay_ck_container_prefix_checksum_set(
+	void far *data, uint32_t checksum
+)
+{
+	if(data != 0) {
+		rck_put_u32(
+			reinterpret_cast<uint8_t far *>(data),
+			RCK_HEADER_CHECKSUM_OFFSET, checksum
+		);
+	}
+}
+
 bool replay_ck_container_encode(
 	const replay_ck_identity_t far *identity,
 	void far *data_in,
@@ -5572,6 +5798,263 @@ static bool rck_container_prefix_valid(
 		(rck_get_u16(data, 0x12) == 0) &&
 		(rck_get_u32(data, 0x14) == total_size) &&
 		(rck_get_u32(data, 0x18) == identity->source_fingerprint)
+	);
+}
+
+bool replay_ck_container_prefix_validate(
+	const replay_ck_identity_t far *identity,
+	const void far *data_in,
+	uint16_t prefix_size,
+	uint16_t total_size,
+	replay_ck_plan_t far *plan
+)
+{
+	const uint8_t far *data = reinterpret_cast<const uint8_t far *>(data_in);
+	uint16_t expected_prefix = static_cast<uint16_t>(
+		REPLAY_CHECKPOINT_HEADER_SIZE +
+		(static_cast<uint16_t>(rck_group_count()) *
+		 REPLAY_CHECKPOINT_GROUP_SIZE)
+	);
+	uint32_t decoded_size = 0;
+	uint32_t stored_size;
+	uint16_t next_offset;
+	uint16_t entry;
+	uint8_t group_id;
+
+	if(
+		(plan == 0) || (prefix_size != expected_prefix) ||
+		!rck_container_prefix_valid(identity, data, total_size)
+	) {
+		return false;
+	}
+	for(group_id = 0; group_id < REPLAY_CKPT_GROUPS_MAX; group_id++) {
+		plan->group_sizes[group_id] = 0;
+		plan->group_checksums[group_id] = 0;
+	}
+	plan->total_size = total_size;
+	plan->prefix_size = prefix_size;
+	plan->decoded_size = rck_get_u32(data, 0x20);
+	plan->state_digest = rck_get_u32(data, 0x1C);
+	plan->container_checksum = rck_get_u32(
+		data, RCK_HEADER_CHECKSUM_OFFSET
+	);
+	next_offset = prefix_size;
+	for(group_id = 0; group_id < rck_group_count(); group_id++) {
+		entry = rck_directory_offset(group_id);
+		stored_size = rck_get_u32(data, entry + RCK_GROUP_STORED_SIZE_OFFSET);
+		if(
+			(rck_get_u8(data, entry + RCK_GROUP_ID_OFFSET) != group_id) ||
+			(rck_get_u8(data, entry + RCK_GROUP_SCHEMA_OFFSET) !=
+			 REPLAY_CHECKPOINT_GROUP_SCHEMA) ||
+			(rck_get_u8(data, entry + RCK_GROUP_CODEC_OFFSET) != RCC_RAW) ||
+			(rck_get_u8(data, entry + RCK_GROUP_FLAGS_OFFSET) != 0) ||
+			(stored_size == 0) || (stored_size > RCK_CONTAINER_SIZE_MAX) ||
+			(rck_get_u32(data, entry + RCK_GROUP_DECODED_SIZE_OFFSET) !=
+			 stored_size) ||
+			(rck_get_u32(data, entry + RCK_GROUP_DATA_OFFSET) != next_offset) ||
+			((static_cast<uint32_t>(next_offset) + stored_size) > total_size)
+		) {
+			return false;
+		}
+		plan->group_sizes[group_id] = static_cast<uint16_t>(stored_size);
+		plan->group_checksums[group_id] = rck_get_u32(
+			data, entry + RCK_GROUP_CHECKSUM_OFFSET
+		);
+		decoded_size += stored_size;
+		next_offset = static_cast<uint16_t>(next_offset + stored_size);
+	}
+	return (
+		(next_offset == total_size) &&
+		(decoded_size == plan->decoded_size)
+	);
+}
+
+bool replay_ck_group_encode(
+	uint8_t group_id,
+	void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+)
+{
+	replay_ck_stream_t stream;
+
+	if((data == 0) || (size == 0) || (group_id >= rck_group_count())) {
+		return false;
+	}
+	replay_ck_failure_group_value = group_id;
+	replay_ck_failure_field_value = 0;
+	replay_ck_encode_init(&stream, data, size);
+	if(
+		!replay_ck_group_codec(group_id, &stream) ||
+		!replay_ck_finish(&stream) ||
+		(stream.checksum != expected_checksum)
+	) {
+		return false;
+	}
+	replay_ck_failure_group_value = 0xFF;
+	return true;
+}
+
+bool replay_ck_group_validate(
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+)
+{
+	replay_ck_stream_t stream;
+
+	if((data == 0) || (size == 0) || (group_id >= rck_group_count())) {
+		return false;
+	}
+	replay_ck_failure_group_value = group_id;
+	replay_ck_failure_field_value = 0;
+	replay_ck_validate_init(&stream, data, size);
+	if(
+		!replay_ck_group_codec(group_id, &stream) ||
+		!replay_ck_finish(&stream) ||
+		(stream.checksum != expected_checksum)
+	) {
+		return false;
+	}
+	replay_ck_failure_group_value = 0xFF;
+	return true;
+}
+
+bool replay_ck_group_apply(
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size,
+	uint32_t expected_checksum
+)
+{
+	replay_ck_stream_t stream;
+
+	if((data == 0) || (size == 0) || (group_id >= rck_group_count())) {
+		return false;
+	}
+	replay_ck_failure_group_value = group_id;
+	replay_ck_failure_field_value = 0;
+	replay_ck_apply_init(&stream, data, size);
+	if(
+		!replay_ck_group_codec(group_id, &stream) ||
+		!replay_ck_finish(&stream) ||
+		(stream.checksum != expected_checksum)
+	) {
+		return false;
+	}
+	replay_ck_failure_group_value = 0xFF;
+	return true;
+}
+
+static bool rck_group_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_mode_t mode,
+	replay_ck_io_func_t io_func,
+	uint16_t context
+)
+{
+	replay_ck_stream_t stream;
+
+	if(
+		(buffer == 0) || (buffer_size == 0) || (group_size == 0) ||
+		(group_id >= rck_group_count()) || (io_func == 0)
+	) {
+		return false;
+	}
+	replay_ck_failure_group_value = group_id;
+	replay_ck_failure_field_value = 0;
+	rck_stream_io_init(
+		&stream, buffer, buffer_size, group_size, mode, io_func, context
+	);
+	if(
+		!replay_ck_group_codec(group_id, &stream) ||
+		!replay_ck_finish(&stream) ||
+		(stream.checksum != expected_checksum)
+	) {
+		return false;
+	}
+	replay_ck_failure_group_value = 0xFF;
+	return true;
+}
+
+bool replay_ck_group_encode_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t write_func,
+	uint16_t context
+)
+{
+	return rck_group_stream(
+		group_id, buffer, buffer_size, group_size, expected_checksum,
+		RCK_ENCODE, write_func, context
+	);
+}
+
+bool replay_ck_group_validate_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t read_func,
+	uint16_t context
+)
+{
+	return rck_group_stream(
+		group_id, buffer, buffer_size, group_size, expected_checksum,
+		RCK_VALIDATE, read_func, context
+	);
+}
+
+bool replay_ck_group_apply_stream(
+	uint8_t group_id,
+	void far *buffer,
+	uint16_t buffer_size,
+	uint16_t group_size,
+	uint32_t expected_checksum,
+	replay_ck_io_func_t read_func,
+	uint16_t context
+)
+{
+	return rck_group_stream(
+		group_id, buffer, buffer_size, group_size, expected_checksum,
+		RCK_APPLY, read_func, context
+	);
+}
+
+uint32_t replay_ck_group_digest_begin(
+	uint32_t digest, uint8_t group_id, uint16_t size
+)
+{
+	if((size == 0) || (group_id >= rck_group_count())) {
+		return 0;
+	}
+	digest = rck_hash_u8(digest, group_id);
+	digest = rck_hash_u8(digest, REPLAY_CHECKPOINT_GROUP_SCHEMA);
+	return rck_hash_u32(digest, size);
+}
+
+uint32_t replay_ck_group_digest(
+	uint32_t digest,
+	uint8_t group_id,
+	const void far *data,
+	uint16_t size
+)
+{
+	if((data == 0) || (size == 0) || (group_id >= rck_group_count())) {
+		return 0;
+	}
+	digest = replay_ck_group_digest_begin(digest, group_id, size);
+	return rck_hash_buffer(
+		digest, reinterpret_cast<const uint8_t far *>(data), size
 	);
 }
 

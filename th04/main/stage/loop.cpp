@@ -198,6 +198,9 @@ void near stage_loop(void)
 		input_sense();
 		demo_update();
 		replay_gameplay_input();
+		if(quit != Q_KEEP_RUNNING) {
+			break;
+		}
 		if(key_det & INPUT_CANCEL) {
 			if(pause()) {
 				quit = Q_QUIT_TO_OP;
@@ -269,7 +272,10 @@ void near stage_loop(void)
 		total_frames++;
 
 		#if (GAME == 5)
-			if(replay_practice_preroll_active()) {
+			if(
+				replay_practice_preroll_active() ||
+				replay_private_test_active()
+			) {
 				player_is_hit = false;
 			} else if(debug_mode_active) {
 				if(key_det & INPUT_Q) {
@@ -296,7 +302,10 @@ void near stage_loop(void)
 				player_is_hit = false;
 			}
 		#else
-			if(replay_practice_preroll_active()) {
+			if(
+				replay_practice_preroll_active() ||
+				replay_private_test_active()
+			) {
 				player_is_hit = false;
 			} else {
 				slowdown_frame_delay();
