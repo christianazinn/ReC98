@@ -7,6 +7,7 @@
 #include <new.h>
 #include <process.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
@@ -444,6 +445,17 @@ void boss_free(void)
 	}
 }
 
+void far t1replay_abort_to_op(void)
+{
+	// Process replacement owns transient gameplay allocations. Calling either
+	// REIIDEN-specific free path here could double-free a terminal-path object.
+	game_switch_binary();
+	key_end();
+	arc_free();
+	execl(BINARY_OP, BINARY_OP, nullptr);
+	exit(1);
+}
+
 inline void debug_startup_delay(const char* str) {
 	puts(str);
 	debug_vars();
@@ -476,6 +488,10 @@ int main(void)
 	// Must run before resident_stuff_get(): first-process playback restores the
 	// exact resident start block before REIIDEN derives globals and RNG state.
 	t1replay_entry();
+	if(t1replay_abort_requested()) {
+		execl(BINARY_OP, BINARY_OP, nullptr);
+		return 1;
+	}
 	if(resident_stuff_get(
 		rank,
 		bgm_mode,

@@ -51,6 +51,8 @@ typedef char t1replay_res_id_size_check[
 static char t1replay_command_fn[10];
 static char t1replay_slot_fn[11];
 static bool t1replay_paths_ready;
+static bool t1replay_abort_pending;
+static bool t1replay_command_delete_failed;
 static t1replay_mode_t t1replay_mode;
 static t1replay_header_t t1replay_header;
 static t1replay_res_t far *t1replay_res;
@@ -774,18 +776,27 @@ static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 	t1replay_command_t command;
 	uint32_t size;
 	int fd;
+	bool valid;
 
 	fd = t1replay_dos_open(t1replay_command_fn, T1REPLAY_DOS_ACCESS_READ);
 	if(fd < 0) {
 		return T1RM_DISABLED;
 	}
-	if(!t1replay_dos_size(fd, &size) || !t1replay_dos_seek(fd, 0) ||
-		(size != sizeof(command)) ||
-		(t1replay_dos_read(fd, &command, sizeof(command)) != sizeof(command))) {
-		t1replay_dos_close(fd);
+	valid = (
+		t1replay_dos_size(fd, &size) && t1replay_dos_seek(fd, 0) &&
+		(size == sizeof(command)) &&
+		(t1replay_dos_read(fd, &command, sizeof(command)) == sizeof(command))
+	);
+	t1replay_dos_close(fd);
+	// A command is a one-shot request, not durable replay state. Consume every
+	// opened command, including malformed ones, before considering its fields.
+	if(!t1replay_dos_delete(t1replay_command_fn)) {
+		t1replay_command_delete_failed = true;
 		return T1RM_DISABLED;
 	}
-	t1replay_dos_close(fd);
+	if(!valid) {
+		return T1RM_DISABLED;
+	}
 	if(
 		!t1replay_magic_matches(command.magic, 'C') ||
 		((command.mode != T1REPLAY_COMMAND_RECORD) &&
@@ -793,9 +804,6 @@ static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 		(command.slot >= T1REPLAY_SLOT_COUNT) ||
 		!t1replay_bytes_zero(command.reserved, sizeof(command.reserved))
 	) {
-		return T1RM_DISABLED;
-	}
-	if(!t1replay_dos_delete(t1replay_command_fn)) {
 		return T1RM_DISABLED;
 	}
 	*slot = command.slot;
@@ -813,6 +821,7 @@ static void t1replay_state_reset(void)
 	t1replay_pending_run = 0;
 	t1replay_decode_run = 0;
 	t1replay_pending_valid = false;
+	t1replay_command_delete_failed = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 }
 
@@ -1009,12 +1018,33 @@ static bool t1replay_control_playback(uint8_t control, uint8_t end_reason)
 
 static void t1replay_fail(void)
 {
+	if(t1replay_mode == T1RM_PLAYBACK) {
+		t1replay_abort_pending = true;
+	}
 	if(t1replay_mode == T1RM_RECORD) {
 		t1replay_header.status = T1REPLAY_STATUS_ERROR;
 		t1replay_header_write(false);
 	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
+}
+
+static void t1replay_fail_and_abort_if_playback(void)
+{
+	t1replay_fail();
+	if(t1replay_abort_pending) {
+		t1replay_abort_to_op();
+	}
+}
+
+// A malformed carrier cannot establish whether its previous owner recorded or
+// played back. Its presence nevertheless proves that this REIIDEN launch is a
+// replay handoff, so it must fail closed rather than reach native input.
+static void t1replay_abort_before_start(void)
+{
+	t1replay_res_clear();
+	t1replay_mode = T1RM_DISABLED;
+	t1replay_abort_pending = true;
 }
 
 void far t1replay_entry(void)
@@ -1030,22 +1060,28 @@ void far t1replay_entry(void)
 	t1replay_res_id_init(res_id);
 	t1replay_resident_id_init(resident_id);
 	t1replay_state_reset();
+	t1replay_abort_pending = false;
 	t1replay_mode = T1RM_DISABLED;
 	t1replay_res = 0;
 
-	if(t1replay_res_open(res_id, false) && t1replay_res_valid()) {
-		resumed = true;
-		t1replay_mode = static_cast<t1replay_mode_t>(t1replay_res->mode);
-		t1replay_slot_set(t1replay_res->slot);
-		if(!t1replay_header_read(t1replay_mode == T1RM_PLAYBACK) ||
-			!t1replay_res_matches_header()) {
-			t1replay_fail();
+	if(t1replay_res_open(res_id, false)) {
+		if(t1replay_res_valid()) {
+			resumed = true;
+			t1replay_mode = static_cast<t1replay_mode_t>(t1replay_res->mode);
+			t1replay_slot_set(t1replay_res->slot);
+			if(!t1replay_header_read(t1replay_mode == T1RM_PLAYBACK) ||
+				!t1replay_res_matches_header()) {
+				t1replay_fail();
+				return;
+			}
+			t1replay_payload_written = t1replay_res->input_size;
+			t1replay_packet_cursor = t1replay_res->packet_count;
+			t1replay_sample_cursor = t1replay_res->sample_count;
+			t1replay_payload_checksum = t1replay_res->payload_checksum;
+		} else {
+			t1replay_abort_before_start();
 			return;
 		}
-		t1replay_payload_written = t1replay_res->input_size;
-		t1replay_packet_cursor = t1replay_res->packet_count;
-		t1replay_sample_cursor = t1replay_res->sample_count;
-		t1replay_payload_checksum = t1replay_res->payload_checksum;
 	}
 	if(!resumed) {
 		if(t1replay_res) {
@@ -1053,11 +1089,18 @@ void far t1replay_entry(void)
 		}
 		command_mode = t1replay_command_load(&slot);
 		if(command_mode == T1RM_DISABLED) {
+			if(t1replay_command_delete_failed) {
+				t1replay_abort_before_start();
+			}
 			return;
 		}
 		t1replay_slot_set(slot);
 		start_resident = ResData<resident_t>::exist(resident_id);
 		if(!start_resident) {
+			if(command_mode == T1RM_PLAYBACK) {
+				t1replay_mode = T1RM_PLAYBACK;
+				t1replay_fail();
+			}
 			return;
 		}
 		resident = start_resident;
@@ -1070,14 +1113,19 @@ void far t1replay_entry(void)
 				return;
 			}
 		} else {
+			t1replay_mode = T1RM_PLAYBACK;
 			if(!t1replay_header_read(true)) {
+				t1replay_fail();
 				return;
 			}
-			t1replay_mode = T1RM_PLAYBACK;
 			t1replay_start_apply();
 		}
 		if(!t1replay_res_open(res_id, true)) {
-			t1replay_mode = T1RM_DISABLED;
+			if(t1replay_mode == T1RM_PLAYBACK) {
+				t1replay_fail();
+			} else {
+				t1replay_mode = T1RM_DISABLED;
+			}
 			return;
 		}
 		t1replay_memclear(&t1replay_res->magic,
@@ -1110,12 +1158,15 @@ void far t1replay_frame_io(void)
 			return;
 		}
 	} else if(!t1replay_playback_sample()) {
-		t1replay_fail();
+		t1replay_fail_and_abort_if_playback();
 	}
 }
 
 int far t1replay_key_sense(int keygroup)
 {
+	if(t1replay_abort_pending) {
+		return 0;
+	}
 	if(t1replay_mode == T1RM_DISABLED) {
 		return key_sense(keygroup);
 	}
@@ -1148,7 +1199,7 @@ void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
 			return;
 		}
 	} else if(!t1replay_control_playback(control, end_reason)) {
-		t1replay_fail();
+		t1replay_fail_and_abort_if_playback();
 		return;
 	}
 	if(terminal) {
@@ -1165,7 +1216,7 @@ void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
 			(t1replay_payload_written != t1replay_header.input_size) ||
 			(t1replay_payload_checksum != t1replay_header.payload_checksum)
 		) {
-			t1replay_fail();
+			t1replay_fail_and_abort_if_playback();
 			return;
 		}
 		t1replay_res_clear();
@@ -1179,6 +1230,11 @@ void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
 bool16 far t1replay_active(void)
 {
 	return (t1replay_mode != T1RM_DISABLED);
+}
+
+bool16 far t1replay_abort_requested(void)
+{
+	return t1replay_abort_pending;
 }
 
 #pragma codeseg

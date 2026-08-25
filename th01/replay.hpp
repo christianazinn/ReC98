@@ -8,6 +8,12 @@
 // the first REIIDEN process; a valid resident carrier always takes precedence.
 void far t1replay_entry(void);
 
+// A playback validation failure is terminal for the current REIIDEN process.
+// main() checks this before resident initialization; runtime callers transfer
+// directly through the same safe OP cleanup path.
+bool16 far t1replay_abort_requested(void);
+void far t1replay_abort_to_op(void);
+
 // The frame-input seam. input_sense(true) returns before this call and
 // therefore consumes no replay sample.
 void far t1replay_frame_io(void);
