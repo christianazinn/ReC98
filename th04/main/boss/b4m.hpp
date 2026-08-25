@@ -83,6 +83,8 @@ enum marisa_charge_t {
 extern uint8_t bits_alive;
 
 extern void (near pascal *near bit_fire)(bit_t near& bit);
+void pascal near marisa_bit_fire_16F24(bit_t near& bit);
+void pascal near marisa_bit_fire_17061(bit_t near& bit);
 extern screen_x_t bit_center_x[BIT_COUNT];
 extern screen_x_t bit_center_y[BIT_COUNT];
 // -----

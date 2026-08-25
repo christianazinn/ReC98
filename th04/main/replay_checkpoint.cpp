@@ -37,6 +37,8 @@
 #else
 	#include "th04/main/boss/boss.hpp"
 	#include "th04/main/boss/backdrop.hpp"
+	#include "th04/main/boss/b4m.hpp"
+	#include "th04/main/boss/b4r.hpp"
 	#include "th04/main/boss/bosses.hpp"
 	#include "th04/main/bullet/laser_t.hpp"
 	#include "th04/main/enemy/enemy.hpp"
@@ -96,6 +98,9 @@ extern nearfunc_t_near playchar_shot_func;
 		extern uint8_t midboss3_pattern;
 		extern uint8_t midboss3_25599;
 		extern uint8_t midboss3_patterns_done;
+		extern uint8_t midboss4_pattern;
+		extern uint8_t midboss4_passes;
+		extern uint8_t midboss4_22B9E;
 		extern uint8_t kurumi_259F0;
 		extern uint8_t elly_pattern_set;
 		extern uint8_t elly_25A26;
@@ -106,6 +111,14 @@ extern nearfunc_t_near playchar_shot_func;
 		extern int elly_25A3A;
 		extern uint8_t elly_boomerang_flag;
 		extern PlayfieldMotion elly_boomerang_pos;
+		extern uint8_t reimu_afterimage;
+		extern uint8_t reimu_sweep_angle_delta;
+		extern uint8_t marisa_pattern_prev;
+		extern uint8_t marisa_bits_at_pattern_start;
+		extern bool marisa_pulse_dimming;
+		extern uint8_t marisa_25671;
+		extern uint8_t marisa_patterns_without_bits;
+		extern uint8_t marisa_explode_milestone;
 	}
 
 	struct replay_bomb_star_t {
@@ -2324,6 +2337,150 @@ static bool rck_th04_actor_stages_1_to_3(
 
 	default:
 		return false;
+	}
+	return true;
+}
+
+static uint8_t rck_th04_bit_fire_id(void)
+{
+	if(bit_fire == 0) {
+		return 0;
+	}
+	if(bit_fire == marisa_bit_fire_16F24) {
+		return 1;
+	}
+	if(bit_fire == marisa_bit_fire_17061) {
+		return 2;
+	}
+	return 0xFF;
+}
+
+static bool rck_th04_bit_fire_apply(uint8_t id)
+{
+	switch(id) {
+	case 0: bit_fire = 0; break;
+	case 1: bit_fire = marisa_bit_fire_16F24; break;
+	case 2: bit_fire = marisa_bit_fire_17061; break;
+	default: return false;
+	}
+	return true;
+}
+
+static bool rck_th04_orb_patnum(
+	replay_ck_stream_t far *stream, uint8_t *patnum
+)
+{
+	uint8_t value = *patnum;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	if(
+		(value != 0) &&
+		(value != PAT_REIMU_ORB_BLUE) &&
+		(value != PAT_REIMU_ORB_YELLOW)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*patnum = value;
+	}
+	return true;
+}
+
+static bool rck_th04_orb_template(
+	replay_ck_stream_t far *stream, reimu_orb_t far *orb
+)
+{
+	uint8_t flag = static_cast<uint8_t>(orb->flag);
+
+	if(!rck_u8(stream, &flag) || (flag > OF_MOVE)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		orb->flag = static_cast<reimu_orb_flag_t>(flag);
+	}
+	RCK_U8(orb->angle);
+	if(
+		!rck_pfpoint(stream, &orb->center) ||
+		!rck_pfpoint(stream, &orb->origin) ||
+		!rck_pfpoint(stream, &orb->velocity)
+	) {
+		return false;
+	}
+	RCK_U16(orb->spin_time);
+	RCK_S16(orb->distance.v);
+	RCK_S16(orb->unknown);
+	RCK_U8(orb->move_speed.v);
+	RCK_U8(orb->angle_speed);
+	return true;
+}
+
+static bool rck_th04_marisa_spin(
+	replay_ck_stream_t far *stream, uint8_t *spin
+)
+{
+	uint8_t value = *spin;
+
+	if(!rck_u8(stream, &value)) {
+		return false;
+	}
+	if((value != 0) && (value != 2) && (value != 0xFE)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*spin = value;
+	}
+	return true;
+}
+
+static bool rck_th04_actor_stage4(replay_ck_stream_t far *stream)
+{
+	uint8_t bit_fire_id;
+	int i;
+
+	if(stage_id != 3) {
+		return false;
+	}
+	if(!rck_th04_pattern4(stream, &midboss4_pattern)) {
+		return false;
+	}
+	RCK_U8_MAX(midboss4_passes, 8);
+	RCK_U8(midboss4_22B9E);
+
+	if(playchar == PLAYCHAR_REIMU) {
+		RCK_BOOL(reimu_afterimage);
+		RCK_U8(reimu_sweep_angle_delta);
+		if(!rck_th04_orb_patnum(stream, &orb_patnum_base)) {
+			return false;
+		}
+		RCK_U8(reimu_pattern8_angle);
+		RCK_BOOL(reimu_bg_pulse_direction);
+		return rck_th04_orb_template(stream, &orb_template);
+	}
+	if(playchar != PLAYCHAR_MARISA) {
+		return false;
+	}
+
+	RCK_U8_MAX(bits_alive, BIT_COUNT);
+	bit_fire_id = rck_th04_bit_fire_id();
+	if(!rck_u8(stream, &bit_fire_id) || (bit_fire_id > 2)) {
+		return false;
+	}
+	for(i = 0; i < BIT_COUNT; i++) {
+		RCK_S16(bit_center_x[i]);
+		RCK_S16(bit_center_y[i]);
+	}
+	RCK_U8(marisa_pattern_prev);
+	RCK_U8_MAX(marisa_bits_at_pattern_start, BIT_COUNT);
+	RCK_BOOL(marisa_pulse_dimming);
+	if(!rck_th04_marisa_spin(stream, &marisa_25671)) {
+		return false;
+	}
+	RCK_BOOL(marisa_patterns_without_bits);
+	RCK_U8_MAX(marisa_explode_milestone, 3);
+	if(rck_applying(stream)) {
+		return rck_th04_bit_fire_apply(bit_fire_id);
 	}
 	return true;
 }

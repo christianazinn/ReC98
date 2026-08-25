@@ -559,7 +559,7 @@ static void near marisa_16E9D(void)
 // test to `CMP BYTE PTR [SI+...], 0` with a signed branch.
 // [bit_t::angle_speed] is declared plain `char`, which compiles the same test
 // to `CBW` + `OR AX, AX` and costs 2 bytes.
-static void pascal near marisa_bit_fire_16F24(bit_t near& bit)
+void pascal near marisa_bit_fire_16F24(bit_t near& bit)
 {
 	unsigned char angle;
 
@@ -652,7 +652,7 @@ static const subpixel_t BIT_DISTANCE_SPEED = (TO_SP(3) / 2);
 // Pattern 2's per-bit fire callback: one bullet from the bit's own center,
 // with everything else left to the [bullet_template] the pattern staged on its
 // fire frame. The whole PlayfieldPoint is copied in one 32-bit move.
-static void pascal near marisa_bit_fire_17061(bit_t near& bit)
+void pascal near marisa_bit_fire_17061(bit_t near& bit)
 {
 	bullet_template.origin = bit.center;
 	bullets_add_regular();
