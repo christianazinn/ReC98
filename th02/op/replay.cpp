@@ -205,6 +205,12 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE1_BOSS_PHASE3:
 		practice_target_valid = (start->stage == 0);
 		break;
+	case T2RPT_STAGE2_MIDBOSS:
+	case T2RPT_STAGE2_BOSS_PHASE1:
+	case T2RPT_STAGE2_BOSS_PHASE2:
+	case T2RPT_STAGE2_BOSS_PHASE3:
+		practice_target_valid = (start->stage == 1);
+		break;
 	default:
 		break;
 	}
@@ -688,8 +694,24 @@ static uint8_t t2op_practice_target_step(
 		default: return T2RPT_STAGE_START;
 		}
 	case 1:
-		return ((target == T2RPT_STAGE_START)
-			? T2RPT_STAGE2_CHAPTER2 : T2RPT_STAGE_START);
+		if(direction < 0) {
+			switch(target) {
+			case T2RPT_STAGE_START: return T2RPT_STAGE2_BOSS_PHASE3;
+			case T2RPT_STAGE2_MIDBOSS: return T2RPT_STAGE_START;
+			case T2RPT_STAGE2_CHAPTER2: return T2RPT_STAGE2_MIDBOSS;
+			case T2RPT_STAGE2_BOSS_PHASE1: return T2RPT_STAGE2_CHAPTER2;
+			case T2RPT_STAGE2_BOSS_PHASE2: return T2RPT_STAGE2_BOSS_PHASE1;
+			default: return T2RPT_STAGE2_BOSS_PHASE2;
+			}
+		}
+		switch(target) {
+		case T2RPT_STAGE_START: return T2RPT_STAGE2_MIDBOSS;
+		case T2RPT_STAGE2_MIDBOSS: return T2RPT_STAGE2_CHAPTER2;
+		case T2RPT_STAGE2_CHAPTER2: return T2RPT_STAGE2_BOSS_PHASE1;
+		case T2RPT_STAGE2_BOSS_PHASE1: return T2RPT_STAGE2_BOSS_PHASE2;
+		case T2RPT_STAGE2_BOSS_PHASE2: return T2RPT_STAGE2_BOSS_PHASE3;
+		default: return T2RPT_STAGE_START;
+		}
 	case 2:
 		return ((target == T2RPT_STAGE_START)
 			? T2RPT_STAGE3_CHAPTER2 : T2RPT_STAGE_START);
@@ -889,15 +911,19 @@ static void t2op_practice_render(void)
 				p = t2op_word_append(p, T2OW_CHAPTER_3);
 				break;
 			case T2RPT_STAGE1_MIDBOSS:
+			case T2RPT_STAGE2_MIDBOSS:
 				p = t2op_word_append(p, T2OW_MIDBOSS);
 				break;
 			case T2RPT_STAGE1_BOSS_PHASE1:
+			case T2RPT_STAGE2_BOSS_PHASE1:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_1);
 				break;
 			case T2RPT_STAGE1_BOSS_PHASE2:
+			case T2RPT_STAGE2_BOSS_PHASE2:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_2);
 				break;
 			case T2RPT_STAGE1_BOSS_PHASE3:
+			case T2RPT_STAGE2_BOSS_PHASE3:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_3);
 				break;
 			default:
