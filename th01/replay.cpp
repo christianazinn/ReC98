@@ -12,6 +12,8 @@
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
 #include "th01/resident.hpp"
+#include "th01/main/stage/timer.hpp"
+#include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
 #define T1REPLAY_DOS_ACCESS_READ 0
@@ -26,6 +28,13 @@ enum t1replay_mode_t {
 	T1RM_RECORD = 1,
 	T1RM_PLAYBACK = 2,
 };
+
+extern bool timer_initialized;
+extern bool first_stage_in_scene;
+extern bool stage_wait_for_shot_to_begin;
+extern bool16 mode_test;
+extern uint32_t bomb_frame;
+extern uint32_t frame_since_start_of_binary;
 
 // A separate resident block is necessary: resident_t has no sufficiently large
 // unused region, and its canonical layout must remain untouched.
@@ -50,6 +59,9 @@ typedef char t1replay_res_id_size_check[
 
 static char t1replay_command_fn[10];
 static char t1replay_slot_fn[11];
+#if T1REPLAY_CHECKPOINT_EMIT
+static char t1replay_checkpoint_fn[12];
+#endif
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
 static bool t1replay_command_delete_failed;
@@ -68,6 +80,8 @@ static uint8_t t1replay_pending_run;
 static uint8_t t1replay_decode_run;
 static bool t1replay_pending_valid;
 static uint8_t t1replay_keys[T1REPLAY_INPUT_GROUP_COUNT];
+static bool t1replay_checkpoint_capture_attempted;
+static t1replay_checkpoint_t t1replay_checkpoint;
 
 static void t1replay_memclear(void far *buf, unsigned size)
 {
@@ -95,6 +109,14 @@ static void t1replay_paths_init(void)
 	t1replay_slot_fn[6] = '.'; t1replay_slot_fn[7] = 'R';
 	t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = 'Y';
 	t1replay_slot_fn[10] = '\0';
+#if T1REPLAY_CHECKPOINT_EMIT
+	t1replay_checkpoint_fn[0] = 'T'; t1replay_checkpoint_fn[1] = '1';
+	t1replay_checkpoint_fn[2] = 'C'; t1replay_checkpoint_fn[3] = '0';
+	t1replay_checkpoint_fn[4] = '0'; t1replay_checkpoint_fn[5] = '0';
+	t1replay_checkpoint_fn[6] = '0'; t1replay_checkpoint_fn[7] = '.';
+	t1replay_checkpoint_fn[8] = 'C'; t1replay_checkpoint_fn[9] = 'K';
+	t1replay_checkpoint_fn[10] = 'P'; t1replay_checkpoint_fn[11] = '\0';
+#endif
 	t1replay_paths_ready = true;
 }
 
@@ -125,6 +147,21 @@ static void t1replay_slot_set(uint8_t slot)
 	t1replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t1replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
 }
+
+#if T1REPLAY_CHECKPOINT_EMIT
+static bool t1replay_checkpoint_path_set(uint8_t slot, uint8_t process_seq)
+{
+	if((slot >= T1REPLAY_SLOT_COUNT) ||
+		(process_seq > T1REPLAY_CHECKPOINT_PROCESS_MAX)) {
+		return false;
+	}
+	t1replay_checkpoint_fn[3] = static_cast<char>('0' + (slot / 10));
+	t1replay_checkpoint_fn[4] = static_cast<char>('0' + (slot % 10));
+	t1replay_checkpoint_fn[5] = static_cast<char>('0' + (process_seq / 10));
+	t1replay_checkpoint_fn[6] = static_cast<char>('0' + (process_seq % 10));
+	return true;
+}
+#endif
 
 static int t1replay_dos_open(const char far *fn, unsigned char access)
 {
@@ -308,6 +345,227 @@ static bool t1replay_bytes_zero(const uint8_t far *p, unsigned size)
 		size--;
 	}
 	return true;
+}
+
+static uint32_t t1replay_checkpoint_group_digest(
+	uint32_t digest, uint8_t id, const void far *data, unsigned size
+)
+{
+	digest = t1replay_fnv1a(digest, &id, sizeof(id));
+	return t1replay_fnv1a(digest, data, size);
+}
+
+static void t1replay_checkpoint_group_set(
+	t1replay_checkpoint_group_t far *group, uint8_t id, uint32_t offset,
+	uint16_t size, const void far *data
+)
+{
+	group->id = id;
+	group->schema = T1REPLAY_CHECKPOINT_SCHEMA;
+	group->codec = T1REPLAY_CHECKPOINT_CODEC_RAW;
+	group->flags = 0;
+	group->offset = offset;
+	group->stored_size = size;
+	group->decoded_size = size;
+	group->checksum = t1replay_fnv1a(T1REPLAY_FNV1A_BASIS, data, size);
+}
+
+static bool t1replay_checkpoint_group_valid(
+	const t1replay_checkpoint_group_t far *group, uint8_t id, uint32_t offset,
+	uint16_t size, const void far *data
+)
+{
+	return (
+		(group->id == id) &&
+		(group->schema == T1REPLAY_CHECKPOINT_SCHEMA) &&
+		(group->codec == T1REPLAY_CHECKPOINT_CODEC_RAW) &&
+		(group->flags == 0) &&
+		(group->offset == offset) &&
+		(group->stored_size == size) &&
+		(group->decoded_size == size) &&
+		(group->checksum == t1replay_fnv1a(T1REPLAY_FNV1A_BASIS, data, size))
+	);
+}
+
+static uint32_t t1replay_checkpoint_checksum(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	uint32_t zero = 0;
+	uint32_t checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, checkpoint,
+		offsetof(t1replay_checkpoint_header_t, container_checksum)
+	);
+
+	checksum = t1replay_fnv1a(checksum, &zero, sizeof(zero));
+	return t1replay_fnv1a(
+		checksum, checkpoint->groups,
+		(sizeof(*checkpoint) - offsetof(t1replay_checkpoint_t, groups))
+	);
+}
+
+static bool t1replay_checkpoint_scenario_valid(
+	const t1replay_checkpoint_scenario_t far *scenario
+)
+{
+	return (
+		(scenario->resident_stage_id < STAGE_COUNT) &&
+		(scenario->resident_rank >= 0) && (scenario->resident_rank <= 3) &&
+		(scenario->resident_bgm_mode >= 0) &&
+			(scenario->resident_bgm_mode < BGM_MODE_COUNT) &&
+		(scenario->resident_route >= 0) &&
+			(scenario->resident_route < ROUTE_COUNT) &&
+		(scenario->resident_end_flag >= ES_NONE) &&
+			(scenario->resident_end_flag <= ES_JIGOKU) &&
+		(scenario->resident_debug_mode == DM_OFF) &&
+		((scenario->resident_snd_need_init == 0) ||
+			(scenario->resident_snd_need_init == 1)) &&
+		(scenario->game_rank >= 0) && (scenario->game_rank <= 3) &&
+		(scenario->game_bgm_mode >= 0) &&
+			(scenario->game_bgm_mode < BGM_MODE_COUNT) &&
+		(scenario->game_route >= 0) &&
+			(scenario->game_route < ROUTE_COUNT) &&
+		(scenario->mode_test == 0) &&
+		(scenario->reserved_0 == 0) &&
+		t1replay_bytes_zero(scenario->reserved, sizeof(scenario->reserved))
+	);
+}
+
+static bool t1replay_checkpoint_input_valid(
+	const t1replay_checkpoint_input_t far *input
+)
+{
+	uint8_t i;
+
+	for(i = 0; i < 12; i++) {
+		uint8_t pressed_mask;
+
+		switch(i) {
+		case 0:  pressed_mask = K7_ARROW_UP;    break;
+		case 1:  pressed_mask = K7_ARROW_DOWN;  break;
+		case 2:  pressed_mask = K7_ARROW_LEFT;  break;
+		case 3:  pressed_mask = K7_ARROW_RIGHT; break;
+		case 4:  pressed_mask = K5_Z;           break;
+		case 5:  pressed_mask = K5_X;           break;
+		case 6:  pressed_mask = K0_ESC;         break;
+		case 7:  pressed_mask = K3_RETURN;      break;
+		case 8:  pressed_mask = K8_NUM_8;       break;
+		case 9:  pressed_mask = K9_NUM_2;       break;
+		case 10: pressed_mask = K8_NUM_4;       break;
+		default: pressed_mask = K9_NUM_6;       break;
+		}
+		if((input->input_history[i] != 0) &&
+			(input->input_history[i] != pressed_mask)) {
+			return false;
+		}
+	}
+	// Slots 12 and 13 are counters. After the native signed frame counter
+	// wraps, its `< BOMB_DOUBLETAP_WINDOW` test permits the entire uint8 range.
+	// Slots 14 and 15 belong only to the unsupported test-mode debug input.
+	return (
+		(input->input_history[14] == 0) &&
+		(input->input_history[15] == 0) &&
+		(input->input_lr <= 3) &&
+		(input->input_shot <= 1) &&
+		(input->input_ok <= 1) &&
+		(input->input_strike <= 1) &&
+		(input->input_up <= 1) &&
+		(input->input_down <= 1) &&
+		(input->input_bomb <= 1) &&
+		(input->paused <= 1) &&
+		(input->player_is_hit <= 1) &&
+		(input->input_mem_enter <= 1) &&
+		(input->input_mem_leave <= 1) &&
+		(input->reserved_0 == 0)
+	);
+}
+
+static bool t1replay_checkpoint_pacing_valid(
+	const t1replay_checkpoint_pacing_t far *pacing
+)
+{
+	return (
+		(pacing->pellet_speed_raise_cycle > 0) &&
+		(pacing->process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX) &&
+		(pacing->timer_initialized <= 1) &&
+		(pacing->first_stage_in_scene <= 1) &&
+		(pacing->stage_wait_for_shot_to_begin <= 1) &&
+		(pacing->reserved == 0)
+	);
+}
+
+static bool t1replay_checkpoint_valid(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+
+	if(
+		(checkpoint->header.magic[0] != 'T') ||
+		(checkpoint->header.magic[1] != '1') ||
+		(checkpoint->header.magic[2] != 'C') ||
+		(checkpoint->header.magic[3] != 'K') ||
+		(checkpoint->header.magic[4] != 'P') ||
+		(checkpoint->header.magic[5] != '1') ||
+		(checkpoint->header.magic[6] != '\0') ||
+		(checkpoint->header.magic[7] != '\0') ||
+		(checkpoint->header.schema != T1REPLAY_CHECKPOINT_SCHEMA) ||
+		(checkpoint->header.header_size != T1REPLAY_CHECKPOINT_HEADER_SIZE) ||
+		(checkpoint->header.game_id != 1) ||
+		(checkpoint->header.group_count != T1REPLAY_CHECKPOINT_GROUP_COUNT) ||
+		(checkpoint->header.flags != T1REPLAY_CHECKPOINT_FLAGS_KNOWN) ||
+		(checkpoint->header.total_size != T1REPLAY_CHECKPOINT_SIZE) ||
+		(checkpoint->header.replay_start_checksum !=
+			t1replay_header.start_checksum) ||
+		!t1replay_checkpoint_scenario_valid(&checkpoint->scenario) ||
+		!t1replay_checkpoint_input_valid(&checkpoint->input) ||
+		!t1replay_checkpoint_pacing_valid(&checkpoint->pacing)
+	) {
+		return false;
+	}
+	if(
+		!t1replay_checkpoint_group_valid(
+			&checkpoint->groups[T1RCGI_SCENARIO], T1RCGI_SCENARIO,
+			offsetof(t1replay_checkpoint_t, scenario),
+			sizeof(checkpoint->scenario), &checkpoint->scenario
+		) ||
+		!t1replay_checkpoint_group_valid(
+			&checkpoint->groups[T1RCGI_RNG], T1RCGI_RNG,
+			offsetof(t1replay_checkpoint_t, rng), sizeof(checkpoint->rng),
+			&checkpoint->rng
+		) ||
+		!t1replay_checkpoint_group_valid(
+			&checkpoint->groups[T1RCGI_INPUT], T1RCGI_INPUT,
+			offsetof(t1replay_checkpoint_t, input), sizeof(checkpoint->input),
+			&checkpoint->input
+		) ||
+		!t1replay_checkpoint_group_valid(
+			&checkpoint->groups[T1RCGI_PACING], T1RCGI_PACING,
+			offsetof(t1replay_checkpoint_t, pacing), sizeof(checkpoint->pacing),
+			&checkpoint->pacing
+		)
+	) {
+		return false;
+	}
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_SCENARIO, &checkpoint->scenario,
+		sizeof(checkpoint->scenario)
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_RNG, &checkpoint->rng, sizeof(checkpoint->rng)
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_INPUT, &checkpoint->input, sizeof(checkpoint->input)
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_PACING, &checkpoint->pacing,
+		sizeof(checkpoint->pacing)
+	);
+	return (
+		(checkpoint->header.state_digest == digest) &&
+		(checkpoint->header.container_checksum ==
+			t1replay_checkpoint_checksum(checkpoint))
+	);
 }
 
 static bool t1replay_magic_matches(const char far *magic, char last)
@@ -668,6 +926,83 @@ static void t1replay_header_capture(void)
 	);
 }
 
+static void t1replay_checkpoint_scenario_capture(
+	t1replay_checkpoint_scenario_t far *scenario
+)
+{
+	int i;
+
+	scenario->resident_rand = resident->rand;
+	scenario->resident_score = resident->score;
+	scenario->resident_continues_total = resident->continues_total;
+	scenario->resident_hiscore = resident->hiscore;
+	scenario->resident_score_highest = resident->score_highest;
+	for(i = 0; i < (STAGES_PER_SCENE - 1); i++) {
+		scenario->resident_bonus_per_stage[i] = resident->bonus_per_stage[i];
+		scenario->resident_continues_per_scene[i] =
+			resident->continues_per_scene[i];
+	}
+	scenario->game_score = score;
+	scenario->game_continues_total = continues_total;
+	scenario->reserved_0 = 0;
+	scenario->resident_stage_id = resident->stage_id;
+	scenario->resident_point_value = resident->point_value;
+	scenario->resident_pellet_speed = resident->pellet_speed;
+	scenario->resident_rank = resident->rank;
+	scenario->resident_bgm_mode = static_cast<int8_t>(resident->bgm_mode);
+	scenario->resident_rem_bombs = resident->rem_bombs;
+	scenario->resident_credit_lives_extra = resident->credit_lives_extra;
+	scenario->resident_end_flag = static_cast<int8_t>(resident->end_flag);
+	scenario->resident_route = resident->route;
+	scenario->resident_rem_lives = resident->rem_lives;
+	scenario->resident_snd_need_init = resident->snd_need_init;
+	scenario->resident_debug_mode = resident->debug_mode;
+	scenario->game_rank = rank;
+	scenario->game_bgm_mode = static_cast<int8_t>(bgm_mode);
+	scenario->game_rem_bombs = rem_bombs;
+	scenario->game_credit_lives_extra = credit_lives_extra;
+	scenario->game_route = route;
+	scenario->game_rem_lives = static_cast<int8_t>(rem_lives);
+	scenario->mode_test = static_cast<int8_t>(mode_test);
+}
+
+#if T1REPLAY_CHECKPOINT_EMIT
+static bool t1replay_checkpoint_write(void)
+{
+	int fd = t1replay_dos_create(t1replay_checkpoint_fn);
+
+	if(fd < 0) {
+		return false;
+	}
+	if(t1replay_dos_write(fd, &t1replay_checkpoint,
+		sizeof(t1replay_checkpoint)) != sizeof(t1replay_checkpoint)) {
+		t1replay_dos_close(fd);
+		return false;
+	}
+	t1replay_dos_close(fd);
+	return true;
+}
+
+// This optional write is deliberately process-end-only. First-frame capture is
+// BSS-only so release recording has no sidecar I/O or startup disk stutter.
+static void t1replay_checkpoint_flush_if_enabled(void)
+{
+	if(
+		!t1replay_checkpoint_capture_attempted ||
+		!t1replay_res ||
+		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_path_set(
+			t1replay_res->slot, t1replay_checkpoint.pacing.process_seq
+		)
+	) {
+		return;
+	}
+	// The base replay has already committed and flushed. Sidecar failure must
+	// not change its carrier, status, crash prefix, or executable handoff.
+	t1replay_checkpoint_write();
+}
+#endif
+
 static uint32_t t1replay_res_checksum(void)
 {
 	uint32_t checksum;
@@ -822,6 +1157,7 @@ static void t1replay_state_reset(void)
 	t1replay_decode_run = 0;
 	t1replay_pending_valid = false;
 	t1replay_command_delete_failed = false;
+	t1replay_checkpoint_capture_attempted = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 }
 
@@ -1138,6 +1474,87 @@ void far t1replay_entry(void)
 	}
 }
 
+void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
+{
+	t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+
+	if(
+		(t1replay_mode != T1RM_RECORD) ||
+		t1replay_checkpoint_capture_attempted ||
+		!t1replay_res
+	) {
+		return;
+	}
+	// Capture exactly once. Release recording remains BSS-only; an explicitly
+	// private build may later flush this already-validated snapshot at handoff.
+	t1replay_checkpoint_capture_attempted = true;
+	t1replay_memclear(checkpoint, sizeof(*checkpoint));
+	checkpoint->header.magic[0] = 'T';
+	checkpoint->header.magic[1] = '1';
+	checkpoint->header.magic[2] = 'C';
+	checkpoint->header.magic[3] = 'K';
+	checkpoint->header.magic[4] = 'P';
+	checkpoint->header.magic[5] = '1';
+	checkpoint->header.schema = T1REPLAY_CHECKPOINT_SCHEMA;
+	checkpoint->header.header_size = T1REPLAY_CHECKPOINT_HEADER_SIZE;
+	checkpoint->header.game_id = 1;
+	checkpoint->header.group_count = T1REPLAY_CHECKPOINT_GROUP_COUNT;
+	checkpoint->header.flags = T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY;
+	checkpoint->header.total_size = T1REPLAY_CHECKPOINT_SIZE;
+	checkpoint->header.replay_start_checksum = t1replay_header.start_checksum;
+	t1replay_checkpoint_scenario_capture(&checkpoint->scenario);
+	checkpoint->rng.frame_rand = frame_rand;
+	checkpoint->rng.random_seed = static_cast<uint32_t>(random_seed);
+	t1replay_input_checkpoint_export(&checkpoint->input);
+	checkpoint->pacing.frame_since_start_of_binary = frame_since_start_of_binary;
+	checkpoint->pacing.bomb_frame = bomb_frame;
+	checkpoint->pacing.pellet_speed_raise_cycle = pellet_speed_raise_cycle;
+	checkpoint->pacing.process_seq = t1replay_res->process_seq;
+	checkpoint->pacing.timer_initialized = timer_initialized;
+	checkpoint->pacing.first_stage_in_scene = first_stage_in_scene;
+	checkpoint->pacing.stage_wait_for_shot_to_begin =
+		stage_wait_for_shot_to_begin;
+	t1replay_timer_checkpoint_export(&checkpoint->pacing);
+	t1replay_checkpoint_group_set(
+		&checkpoint->groups[T1RCGI_SCENARIO], T1RCGI_SCENARIO,
+		offsetof(t1replay_checkpoint_t, scenario), sizeof(checkpoint->scenario),
+		&checkpoint->scenario
+	);
+	t1replay_checkpoint_group_set(
+		&checkpoint->groups[T1RCGI_RNG], T1RCGI_RNG,
+		offsetof(t1replay_checkpoint_t, rng), sizeof(checkpoint->rng),
+		&checkpoint->rng
+	);
+	t1replay_checkpoint_group_set(
+		&checkpoint->groups[T1RCGI_INPUT], T1RCGI_INPUT,
+		offsetof(t1replay_checkpoint_t, input), sizeof(checkpoint->input),
+		&checkpoint->input
+	);
+	t1replay_checkpoint_group_set(
+		&checkpoint->groups[T1RCGI_PACING], T1RCGI_PACING,
+		offsetof(t1replay_checkpoint_t, pacing), sizeof(checkpoint->pacing),
+		&checkpoint->pacing
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_SCENARIO, &checkpoint->scenario,
+		sizeof(checkpoint->scenario)
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_RNG, &checkpoint->rng, sizeof(checkpoint->rng)
+	);
+	digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_INPUT, &checkpoint->input, sizeof(checkpoint->input)
+	);
+	checkpoint->header.state_digest = t1replay_checkpoint_group_digest(
+		digest, T1RCGI_PACING, &checkpoint->pacing,
+		sizeof(checkpoint->pacing)
+	);
+	checkpoint->header.container_checksum = t1replay_checkpoint_checksum(
+		checkpoint
+	);
+}
+
 void far t1replay_frame_io(void)
 {
 	uint8_t i;
@@ -1210,6 +1627,9 @@ void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
 				t1replay_fail();
 				return;
 			}
+#if T1REPLAY_CHECKPOINT_EMIT
+			t1replay_checkpoint_flush_if_enabled();
+#endif
 		} else if(
 			(t1replay_packet_cursor != t1replay_header.packet_count) ||
 			(t1replay_sample_cursor != t1replay_header.sample_count) ||
@@ -1225,6 +1645,9 @@ void far t1replay_process_end(bool16 terminal, uint8_t end_reason)
 	}
 	t1replay_res->process_seq++;
 	t1replay_res_store();
+#if T1REPLAY_CHECKPOINT_EMIT
+	t1replay_checkpoint_flush_if_enabled();
+#endif
 }
 
 bool16 far t1replay_active(void)

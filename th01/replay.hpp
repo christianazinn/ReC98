@@ -19,6 +19,15 @@ void far t1replay_abort_to_op(void);
 void far t1replay_frame_io(void);
 int far t1replay_key_sense(int keygroup);
 
+// Called at the first active-gameplay input boundary of each REIIDEN process.
+// The private sidecar is capture-only until all world codecs can restore it.
+void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
+
+// The two accessors keep hidden owner state semantic and pointer-free. Import
+// remains intentionally unused by the capture-only substrate.
+void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out);
+void t1replay_input_checkpoint_import(const t1replay_checkpoint_input_t *in);
+
 // Called immediately before REIIDEN hands control to another executable. A
 // nonterminal handoff is always REIIDEN-to-REIIDEN; terminal paths remain
 // native after their final replay control has been validated or written.

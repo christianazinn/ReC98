@@ -145,6 +145,10 @@ struct {
 } ptn_slot_stg = { false };
 // --------------------------------------------
 
+// Kept beside input_sense() so the checkpoint exporter can preserve the
+// original edge-detection state without serializing any keyboard hardware.
+static uint8_t input_prev[16];
+
 inline void bomb_doubletap_update(uint8_t& pressed, uint8_t& other) {
 	if(bomb_doubletap_frame < BOMB_DOUBLETAP_WINDOW) {
 		pressed++;
@@ -157,7 +161,6 @@ inline void bomb_doubletap_update(uint8_t& pressed, uint8_t& other) {
 
 void input_sense(bool16 reset_repeat)
 {
-	static uint8_t input_prev[16];
 	int group_1, group_2, group_3, group_4;
 
 	if(reset_repeat == true) {
@@ -258,6 +261,51 @@ void input_sense(bool16 reset_repeat)
 			input_mem_leave = false;
 		});
 	}
+}
+
+void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out)
+{
+	int i;
+
+	for(i = 0; i < 16; i++) {
+		out->input_history[i] = input_prev[i];
+	}
+	out->input_lr = input_lr;
+	out->input_shot = input_shot;
+	out->input_ok = input_ok;
+	out->input_strike = input_strike;
+	out->input_up = input_up;
+	out->input_down = input_down;
+	out->input_bomb = input_bomb;
+	out->paused = paused;
+	out->player_is_hit = player_is_hit;
+	out->input_mem_enter = input_mem_enter;
+	out->input_mem_leave = input_mem_leave;
+	out->reserved_0 = 0;
+	out->bomb_doubletap_frame = bomb_doubletap_frame;
+	out->bomb_doubletap_frame_unused = bomb_doubletap_frame_unused;
+}
+
+void t1replay_input_checkpoint_import(const t1replay_checkpoint_input_t *in)
+{
+	int i;
+
+	for(i = 0; i < 16; i++) {
+		input_prev[i] = in->input_history[i];
+	}
+	input_lr = in->input_lr;
+	input_shot = (in->input_shot != 0);
+	input_ok = (in->input_ok != 0);
+	input_strike = (in->input_strike != 0);
+	input_up = (in->input_up != 0);
+	input_down = (in->input_down != 0);
+	input_bomb = (in->input_bomb != 0);
+	paused = (in->paused != 0);
+	player_is_hit = (in->player_is_hit != 0);
+	input_mem_enter = (in->input_mem_enter != 0);
+	input_mem_leave = (in->input_mem_leave != 0);
+	bomb_doubletap_frame = in->bomb_doubletap_frame;
+	bomb_doubletap_frame_unused = in->bomb_doubletap_frame_unused;
 }
 
 #include "th01/hardware/input_rs.cpp"
@@ -830,6 +878,7 @@ int main(void)
 				if((frame_rand % pellet_speed_raise_cycle) == 0) {
 					pellet_speed_raise(0.025f);
 				}
+				t1replay_checkpoint_capture(pellet_speed_raise_cycle);
 				input_sense(false);
 
 				if(player_invincibility_time > 1) {

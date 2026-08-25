@@ -17,6 +17,27 @@
 #define T1REPLAY_SLOT_COUNT 100
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
+// Private TH01 semantic checkpoint sidecars are intentionally separate from
+// T1RPY1. The OP reader admits only the V1 header's all-zero reserved tail;
+// changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
+// is keyed by replay slot xx and REIIDEN process yy.
+#define T1REPLAY_CHECKPOINT_SCHEMA 1
+#define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
+#define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
+#define T1REPLAY_CHECKPOINT_GROUP_COUNT 4
+#define T1REPLAY_CHECKPOINT_SIZE 236
+#define T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY 0x0001
+#define T1REPLAY_CHECKPOINT_FLAGS_KNOWN T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY
+#define T1REPLAY_CHECKPOINT_PROCESS_MAX 99
+#define T1REPLAY_CHECKPOINT_CODEC_RAW 0
+
+// Release recording captures the first semantic boundary in BSS only. Private
+// capture builds may opt into a process-end sidecar flush; ordinary users must
+// never take a DOS create/write on that first gameplay frame.
+#ifndef T1REPLAY_CHECKPOINT_EMIT
+#define T1REPLAY_CHECKPOINT_EMIT 0
+#endif
+
 #define T1REPLAY_STATUS_RECORDING 1
 #define T1REPLAY_STATUS_FINALIZED 2
 #define T1REPLAY_STATUS_ERROR 3
@@ -53,6 +74,13 @@ enum t1replay_input_group_t {
 	T1RIG_8,
 	T1RIG_9,
 	T1REPLAY_INPUT_GROUP_COUNT,
+};
+
+enum t1replay_checkpoint_group_id_t {
+	T1RCGI_SCENARIO = 0,
+	T1RCGI_RNG = 1,
+	T1RCGI_INPUT = 2,
+	T1RCGI_PACING = 3,
 };
 
 // Only bits consumed by TH01's REIIDEN input path are replayed. Keeping the
@@ -128,6 +156,118 @@ struct t1replay_command_t {
 	uint8_t reserved[6];
 };
 
+// This envelope is a capture and validation substrate only. It never stores
+// resident pointers, heap addresses, VRAM, function pointers, or raw BSS.
+// Exact restore stays unavailable until the world-pool and boss codecs exist.
+struct t1replay_checkpoint_header_t {
+	char magic[8]; // "T1CKP1\\0\\0"
+	uint16_t schema;
+	uint16_t header_size;
+	uint8_t game_id;
+	uint8_t group_count;
+	uint16_t flags;
+	uint32_t total_size;
+	uint32_t replay_start_checksum;
+	uint32_t state_digest;
+	uint32_t container_checksum;
+};
+
+struct t1replay_checkpoint_group_t {
+	uint8_t id;
+	uint8_t schema;
+	uint8_t codec;
+	uint8_t flags;
+	uint32_t offset;
+	uint16_t stored_size;
+	uint16_t decoded_size;
+	uint32_t checksum;
+};
+
+// `resident_*` names are fields from resident_t; `game_*` names are the
+// separately-owned REIIDEN mirrors that affect later native game logic.
+struct t1replay_checkpoint_scenario_t {
+	uint32_t resident_rand;
+	int32_t resident_score;
+	int32_t resident_continues_total;
+	uint32_t resident_hiscore;
+	int32_t resident_score_highest;
+	int32_t resident_bonus_per_stage[4];
+	uint16_t resident_continues_per_scene[4];
+	int32_t game_score;
+	int32_t game_continues_total;
+	uint32_t reserved_0;
+	uint16_t resident_stage_id;
+	uint16_t resident_point_value;
+	int16_t resident_pellet_speed;
+	int8_t resident_rank;
+	int8_t resident_bgm_mode;
+	int8_t resident_rem_bombs;
+	int8_t resident_credit_lives_extra;
+	int8_t resident_end_flag;
+	int8_t resident_route;
+	int8_t resident_rem_lives;
+	int8_t resident_snd_need_init;
+	int8_t resident_debug_mode;
+	int8_t game_rank;
+	int8_t game_bgm_mode;
+	int8_t game_rem_bombs;
+	int8_t game_credit_lives_extra;
+	int8_t game_route;
+	int8_t game_rem_lives;
+	int8_t mode_test;
+	uint8_t reserved[2];
+};
+
+// random_seed is master.lib's current irand() state. frame_rand is the
+// independent REIIDEN gameplay clock from which native code also derives RNG.
+struct t1replay_checkpoint_rng_t {
+	uint32_t frame_rand;
+	uint32_t random_seed;
+};
+
+// input_history is the edge-detection state formerly hidden inside
+// input_sense(). It is semantic state, not a physical keyboard snapshot.
+struct t1replay_checkpoint_input_t {
+	uint8_t input_history[16];
+	uint8_t input_lr;
+	uint8_t input_shot;
+	uint8_t input_ok;
+	uint8_t input_strike;
+	uint8_t input_up;
+	uint8_t input_down;
+	uint8_t input_bomb;
+	uint8_t paused;
+	uint8_t player_is_hit;
+	uint8_t input_mem_enter;
+	uint8_t input_mem_leave;
+	uint8_t reserved_0;
+	int16_t bomb_doubletap_frame;
+	int16_t bomb_doubletap_frame_unused;
+};
+
+struct t1replay_checkpoint_pacing_t {
+	uint32_t frame_since_start_of_binary;
+	uint32_t bomb_frame;
+	uint16_t stage_timer;
+	uint16_t frame_since_harryup;
+	int16_t pellet_speed_raise_cycle;
+	uint8_t process_seq;
+	uint8_t harryup_cycle;
+	uint8_t timer_initialized;
+	uint8_t first_stage_in_scene;
+	uint8_t stage_wait_for_shot_to_begin;
+	uint8_t reserved;
+};
+
+struct t1replay_checkpoint_t {
+	t1replay_checkpoint_header_t header;
+	t1replay_checkpoint_group_t groups[T1REPLAY_CHECKPOINT_GROUP_COUNT];
+	t1replay_checkpoint_scenario_t scenario;
+	t1replay_checkpoint_rng_t rng;
+	t1replay_checkpoint_input_t input;
+	t1replay_checkpoint_pacing_t pacing;
+};
+
 typedef char t1replay_start_size_check[
 	(sizeof(t1replay_start_t) == T1REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -140,11 +280,35 @@ typedef char t1replay_packet_size_check[
 typedef char t1replay_command_size_check[
 	(sizeof(t1replay_command_t) == 16) ? 1 : -1
 ];
+typedef char t1replay_checkpoint_header_size_check[
+	(sizeof(t1replay_checkpoint_header_t) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
+];
+typedef char t1replay_checkpoint_group_size_check[
+	(sizeof(t1replay_checkpoint_group_t) == T1REPLAY_CHECKPOINT_GROUP_SIZE) ? 1 : -1
+];
+typedef char t1replay_checkpoint_scenario_size_check[
+	(sizeof(t1replay_checkpoint_scenario_t) == 80) ? 1 : -1
+];
+typedef char t1replay_checkpoint_rng_size_check[
+	(sizeof(t1replay_checkpoint_rng_t) == 8) ? 1 : -1
+];
+typedef char t1replay_checkpoint_input_size_check[
+	(sizeof(t1replay_checkpoint_input_t) == 32) ? 1 : -1
+];
+typedef char t1replay_checkpoint_pacing_size_check[
+	(sizeof(t1replay_checkpoint_pacing_t) == 20) ? 1 : -1
+];
+typedef char t1replay_checkpoint_size_check[
+	(sizeof(t1replay_checkpoint_t) == T1REPLAY_CHECKPOINT_SIZE) ? 1 : -1
+];
 typedef char t1replay_header_start_offset_check[
 	(offsetof(t1replay_header_t, start) == 50) ? 1 : -1
 ];
 typedef char t1replay_header_checksum_offset_check[
 	(offsetof(t1replay_header_t, header_checksum) == 46) ? 1 : -1
+];
+typedef char t1replay_checkpoint_groups_offset_check[
+	(offsetof(t1replay_checkpoint_t, groups) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
 ];
 
 #endif /* TH01_REPLAY_FORMAT_HPP */
