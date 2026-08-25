@@ -61,6 +61,7 @@
 
 #define T2REPLAY_COMMAND_RECORD 1
 #define T2REPLAY_COMMAND_PLAYBACK 2
+#define T2REPLAY_COMMAND_PRACTICE 3
 #define T2REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define T2REPLAY_COMMAND_KNOWN_FLAGS T2REPLAY_COMMAND_FLAG_PRACTICE
 
@@ -189,6 +190,19 @@ enum t2replay_exact_resource_id_t {
 	T2RERI_STAGE_5 = 4,
 	T2RERI_EXTRA = 5,
 };
+
+// Stable clean-Practice recipe IDs stored in t2replay_start_t::reserved[0].
+// Stage Start remains 0 so native Story recordings retain an all-zero tail.
+enum t2replay_practice_target_t {
+	T2RPT_STAGE_START = 0,
+	T2RPT_STAGE1_CHAPTER2 = 1,
+	T2RPT_STAGE2_CHAPTER2 = 2,
+	T2RPT_STAGE3_CHAPTER2 = 3,
+};
+
+#define T2REPLAY_PRACTICE_TARGET_OFFSET 0
+#define T2REPLAY_PRACTICE_RESERVED_OFFSET 1
+#define T2REPLAY_PRACTICE_RESERVED_SIZE 4
 
 struct t2replay_start_t {
 	uint32_t resident_frame;

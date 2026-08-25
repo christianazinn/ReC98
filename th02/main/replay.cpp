@@ -26,6 +26,7 @@
 #include "th02/main/main.hpp"
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/playperf.hpp"
+#include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -84,6 +85,7 @@ static bool t2replay_finished;
 static bool t2replay_playback_exit;
 static bool t2replay_stage_seen;
 static uint8_t t2replay_last_stage;
+static uint8_t t2replay_practice_target;
 
 union t2replay_scroll_pages_t {
 	uint32_t packed_initial_lines;
@@ -2210,6 +2212,25 @@ static bool t2replay_record_control(uint8_t opcode, uint16_t value, uint8_t arg)
 
 static bool t2replay_start_valid(const t2replay_start_t far *start)
 {
+	uint8_t practice_target = start->reserved[T2REPLAY_PRACTICE_TARGET_OFFSET];
+	bool practice_target_valid = false;
+
+	switch(practice_target) {
+	case T2RPT_STAGE_START:
+		practice_target_valid = true;
+		break;
+	case T2RPT_STAGE1_CHAPTER2:
+		practice_target_valid = (start->stage == 0);
+		break;
+	case T2RPT_STAGE2_CHAPTER2:
+		practice_target_valid = (start->stage == 1);
+		break;
+	case T2RPT_STAGE3_CHAPTER2:
+		practice_target_valid = (start->stage == 2);
+		break;
+	default:
+		break;
+	}
 	if(
 		(start->stage < 0) ||
 		(start->stage >= T2REPLAY_STAGE_COUNT) ||
@@ -2231,7 +2252,11 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(start->bgm_mode > SND_BGM_MIDI) ||
 		(start->reduce_effects > 1) ||
 		(start->debug != 0) ||
-		!t2replay_bytes_zero(start->reserved, sizeof(start->reserved))
+		!practice_target_valid ||
+		!t2replay_bytes_zero(
+			&start->reserved[T2REPLAY_PRACTICE_RESERVED_OFFSET],
+			T2REPLAY_PRACTICE_RESERVED_SIZE
+		)
 	) {
 		return false;
 	}
@@ -2644,7 +2669,8 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 
 	if(!t2replay_command_magic_matches(command->magic) ||
 		((command->mode != T2REPLAY_COMMAND_RECORD) &&
-		 (command->mode != T2REPLAY_COMMAND_PLAYBACK)) ||
+		 (command->mode != T2REPLAY_COMMAND_PLAYBACK) &&
+		 (command->mode != T2REPLAY_COMMAND_PRACTICE)) ||
 		(command->slot >= T2REPLAY_SLOT_COUNT) ||
 		((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) != 0) ||
 		(command->reserved_0 != 0)) {
@@ -2664,6 +2690,12 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 			)
 		);
 	}
+	if(command->mode == T2REPLAY_COMMAND_PRACTICE) {
+		return (
+			(command->flags == T2REPLAY_COMMAND_FLAG_PRACTICE) &&
+			t2replay_practice_start_valid(&command->start)
+		);
+	}
 	if(command->flags == 0) {
 		return t2replay_bytes_zero(
 			reinterpret_cast<const uint8_t far *>(&command->start),
@@ -2673,7 +2705,7 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 	return t2replay_practice_start_valid(&command->start);
 }
 
-static t2replay_mode_t t2replay_command_load(
+static uint8_t t2replay_command_load(
 	uint8_t far *slot, uint8_t far *flags, t2replay_start_t far *start
 )
 {
@@ -2699,7 +2731,7 @@ static t2replay_mode_t t2replay_command_load(
 	*slot = command.slot;
 	*flags = command.flags;
 	*start = command.start;
-	return static_cast<t2replay_mode_t>(command.mode);
+	return command.mode;
 }
 
 static void t2replay_final_score_capture(void)
@@ -2762,7 +2794,7 @@ void replay_entry(void)
 {
 	uint8_t slot;
 	uint8_t command_flags;
-	t2replay_mode_t command_mode;
+	uint8_t command_mode;
 	t2replay_start_t command_start;
 
 	if(t2replay_mode != T2RM_DISABLED) {
@@ -2787,12 +2819,23 @@ void replay_entry(void)
 	t2replay_finished = false;
 	t2replay_playback_exit = false;
 	t2replay_stage_seen = false;
+	t2replay_practice_target = T2RPT_STAGE_START;
+	if(command_mode == T2REPLAY_COMMAND_PRACTICE) {
+		t2replay_start_apply(&command_start);
+		t2replay_practice_target = command_start.reserved[
+			T2REPLAY_PRACTICE_TARGET_OFFSET
+		];
+		return;
+	}
 	if(command_mode == T2RM_RECORD) {
 		t2replay_mode = T2RM_RECORD;
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
 			t2replay_header.start = command_start;
 			t2replay_header_apply();
+			t2replay_practice_target = command_start.reserved[
+				T2REPLAY_PRACTICE_TARGET_OFFSET
+			];
 		}
 		if(!t2replay_start_valid(&t2replay_header.start) ||
 			!t2replay_header_write(true)) {
@@ -2802,7 +2845,47 @@ void replay_entry(void)
 		t2replay_mode = T2RM_PLAYBACK;
 		t2replay_payload_checksum = T2REPLAY_FNV1A_BASIS;
 		t2replay_header_apply();
+		t2replay_practice_target = t2replay_header.start.reserved[
+			T2REPLAY_PRACTICE_TARGET_OFFSET
+		];
 	}
+}
+
+bool16 replay_practice_target_apply(void)
+{
+	uint8_t target = t2replay_practice_target;
+	int target_scroll_step;
+
+	if(target == T2RPT_STAGE_START) {
+		return true;
+	}
+	switch(target) {
+	case T2RPT_STAGE1_CHAPTER2:
+		if(stage_id != 0) {
+			return false;
+		}
+		target_scroll_step = 186;
+		break;
+	case T2RPT_STAGE2_CHAPTER2:
+		if(stage_id != 1) {
+			return false;
+		}
+		target_scroll_step = 135;
+		break;
+	case T2RPT_STAGE3_CHAPTER2:
+		if(stage_id != 2) {
+			return false;
+		}
+		target_scroll_step = 151;
+		break;
+	default:
+		return false;
+	}
+	if(!practice_chapter_field_build(target_scroll_step)) {
+		return false;
+	}
+	t2replay_practice_target = T2RPT_STAGE_START;
+	return true;
 }
 
 void replay_stage_start(void)

@@ -78,6 +78,10 @@ bool16 stage_loop(void)
 	register vram_y_t scroll_line_saved;
 
 	replay_scroll_pages_reset(scroll_line_on_page_init);
+	if(!replay_practice_target_apply()) {
+		quit = true;
+		return false;
+	}
 	replay_checkpoint_capture_validate();
 
 	while(!quit) {

@@ -30,6 +30,9 @@ enum t2op_word_t {
 	T2OW_MARISA,
 	T2OW_MIMA,
 	T2OW_STAGE,
+	T2OW_SECTION,
+	T2OW_STAGE_START,
+	T2OW_CHAPTER_2,
 	T2OW_SCORE,
 	T2OW_HIGH_SCORE,
 	T2OW_POWER,
@@ -69,6 +72,7 @@ enum t2op_main_choice_t {
 
 enum t2op_practice_choice_t {
 	T2OPC_STAGE,
+	T2OPC_SECTION,
 	T2OPC_RANK,
 	T2OPC_CHARACTER,
 	T2OPC_SCORE,
@@ -167,6 +171,25 @@ static uint32_t t2op_fnv1a(uint32_t hash, const void far *buf, unsigned size)
 
 static bool t2op_start_valid(const t2replay_start_t far *start)
 {
+	uint8_t practice_target = start->reserved[T2REPLAY_PRACTICE_TARGET_OFFSET];
+	bool practice_target_valid = false;
+
+	switch(practice_target) {
+	case T2RPT_STAGE_START:
+		practice_target_valid = true;
+		break;
+	case T2RPT_STAGE1_CHAPTER2:
+		practice_target_valid = (start->stage == 0);
+		break;
+	case T2RPT_STAGE2_CHAPTER2:
+		practice_target_valid = (start->stage == 1);
+		break;
+	case T2RPT_STAGE3_CHAPTER2:
+		practice_target_valid = (start->stage == 2);
+		break;
+	default:
+		break;
+	}
 	return (
 		(start->stage >= 0) &&
 		(start->stage < T2REPLAY_STAGE_COUNT) &&
@@ -188,7 +211,11 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 		(start->bgm_mode <= SND_BGM_MIDI) &&
 		(start->reduce_effects <= 1) &&
 		(start->debug == 0) &&
-		t2op_bytes_zero(start->reserved, sizeof(start->reserved))
+		practice_target_valid &&
+		t2op_bytes_zero(
+			&start->reserved[T2REPLAY_PRACTICE_RESERVED_OFFSET],
+			T2REPLAY_PRACTICE_RESERVED_SIZE
+		)
 	);
 }
 
@@ -343,6 +370,9 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_MARISA: P('M'); P('a'); P('r'); P('i'); P('s'); P('a'); break;
 	case T2OW_MIMA: P('M'); P('i'); P('m'); P('a'); break;
 	case T2OW_STAGE: P('S'); P('t'); P('a'); P('g'); P('e'); break;
+	case T2OW_SECTION: P('S'); P('e'); P('c'); P('t'); P('i'); P('o'); P('n'); break;
+	case T2OW_STAGE_START: P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('S'); P('t'); P('a'); P('r'); P('t'); break;
+	case T2OW_CHAPTER_2: P('C'); P('h'); P('a'); P('p'); P('t'); P('e'); P('r'); P(' '); P('2'); break;
 	case T2OW_SCORE: P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_HIGH_SCORE: P('H'); P('i'); P('g'); P('h'); P(' '); P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_POWER: P('P'); P('o'); P('w'); P('e'); P('r'); break;
@@ -587,6 +617,8 @@ static void t2op_practice_defaults(void)
 static void t2op_practice_stage_set(int8_t stage)
 {
 	t2op_practice.stage = stage;
+	t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+		T2RPT_STAGE_START;
 	if(stage == (T2REPLAY_STAGE_COUNT - 1)) {
 		t2op_practice.rank = RANK_EXTRA;
 	} else if(t2op_practice.rank == RANK_EXTRA) {
@@ -599,8 +631,12 @@ static void t2op_practice_rank_set(uint8_t value)
 	t2op_practice.rank = value;
 	if(value == RANK_EXTRA) {
 		t2op_practice.stage = (T2REPLAY_STAGE_COUNT - 1);
+		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+			T2RPT_STAGE_START;
 	} else if(t2op_practice.stage == (T2REPLAY_STAGE_COUNT - 1)) {
 		t2op_practice.stage = 0;
+		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+			T2RPT_STAGE_START;
 	}
 }
 
@@ -620,6 +656,16 @@ static void t2op_practice_value_step(int8_t direction)
 				(t2op_practice.stage == (T2REPLAY_STAGE_COUNT - 1))
 					? 0 : (t2op_practice.stage + 1)
 			);
+		}
+		break;
+	case T2OPC_SECTION:
+		if(t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] !=
+			T2RPT_STAGE_START) {
+			t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+				T2RPT_STAGE_START;
+		} else if(t2op_practice.stage <= 2) {
+			t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
+				static_cast<uint8_t>(t2op_practice.stage + 1);
 		}
 		break;
 	case T2OPC_RANK:
@@ -741,6 +787,7 @@ static void t2op_practice_render(void)
 		p = t2op_line;
 		switch(row) {
 		case T2OPC_STAGE: label = T2OW_STAGE; break;
+		case T2OPC_SECTION: label = T2OW_SECTION; break;
 		case T2OPC_RANK: label = T2OW_RANK; break;
 		case T2OPC_CHARACTER: label = T2OW_CHARACTER; break;
 		case T2OPC_SCORE: label = T2OW_SCORE; break;
@@ -758,6 +805,12 @@ static void t2op_practice_render(void)
 		p = t2op_char(p, ' ');
 		switch(row) {
 		case T2OPC_STAGE: p = t2op_stage_append(p, t2op_practice.stage); break;
+		case T2OPC_SECTION:
+			p = t2op_word_append(p,
+				(t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] ==
+				 T2RPT_STAGE_START) ? T2OW_STAGE_START : T2OW_CHAPTER_2
+			);
+			break;
 		case T2OPC_RANK: p = t2op_rank_append(p, t2op_practice.rank); break;
 		case T2OPC_CHARACTER: p = t2op_character_append(p, t2op_practice.shottype); break;
 		case T2OPC_SCORE: p = t2op_i32_append(p, t2op_practice.score, 0); break;
@@ -854,8 +907,12 @@ static void t2op_practice_start(void)
 		);
 	} else {
 		// A full replay directory must not prevent a legitimate Practice run.
-		// MAIN discards this invalid command before using the resident start.
-		t2op_command_write(0, 0, 0, 0);
+		t2op_command_write(
+			T2REPLAY_COMMAND_PRACTICE,
+			0,
+			T2REPLAY_COMMAND_FLAG_PRACTICE,
+			&t2op_practice
+		);
 	}
 	t2op_main_exec();
 }

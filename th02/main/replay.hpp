@@ -12,6 +12,11 @@ void replay_entry(void);
 // consume input. Emits or verifies the stage boundary control packet.
 void replay_stage_start(void);
 
+// Applies the one-shot clean-Practice recipe after stage_init() and physical
+// scroll-page initialization. Returns false rather than approximating a
+// malformed or unavailable target.
+bool16 replay_practice_target_apply(void);
+
 // Owns TH02's two physical-page scroll-line values. The source loop starts
 // both from its original packed initializer and continues to address them by
 // the physical back-page index.
