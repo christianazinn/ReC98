@@ -654,7 +654,7 @@ static bool replay_header_read(void)
 		(replay_header.magic[2] != 'R') ||
 		(replay_header.magic[3] != 'P') ||
 		(replay_header.magic[4] != 'Y') ||
-		(replay_header.magic[5] != '2') ||
+		(replay_header.magic[5] != ('0' + REPLAY_USER_VERSION)) ||
 		(replay_header.magic[6] != '\0') ||
 		(replay_header.magic[7] != '\0')
 	) {
@@ -855,7 +855,7 @@ static void replay_header_capture(void)
 	replay_header.magic[2] = 'R';
 	replay_header.magic[3] = 'P';
 	replay_header.magic[4] = 'Y';
-	replay_header.magic[5] = '2';
+	replay_header.magic[5] = ('0' + REPLAY_USER_VERSION);
 	replay_header.version = REPLAY_USER_VERSION;
 	replay_header.header_size = REPLAY_USER_HEADER_SIZE;
 	replay_header.packet_size = REPLAY_USER_PACKET_SIZE;

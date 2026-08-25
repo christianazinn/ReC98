@@ -533,7 +533,7 @@ static bool replay_op_header_valid(uint32_t file_size)
 		(replay_op_header.magic[2] != 'R') ||
 		(replay_op_header.magic[3] != 'P') ||
 		(replay_op_header.magic[4] != 'Y') ||
-		(replay_op_header.magic[5] != '2') ||
+		(replay_op_header.magic[5] != ('0' + REPLAY_USER_VERSION)) ||
 		(replay_op_header.magic[6] != '\0') ||
 		(replay_op_header.magic[7] != '\0') ||
 		(replay_op_header.version != REPLAY_USER_VERSION) ||
