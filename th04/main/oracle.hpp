@@ -265,12 +265,14 @@ typedef char oracle_record_size_check[
 //              The final two reserved bytes of the v1 critical block become
 //              `bullets_alive`; the writer is already walking
 //              the bullet array for group 3's hash.
+//   version 3  adds groups 4 (enemies), 5 (actor core), and 6 (items,
+//              gather circles, and point numbers). row_size is 104.
 //
 // The prefix and the first 30 bytes of the critical block are unchanged, so a
 // v1 artifact stays readable forever. A reader keyed on the version REJECTS a
 // file whose `row_size` disagrees rather than reinterpreting fields under a
 // schema that does not describe them, as required by the harness contract.
-#define ORACLE_SPLIT_VERSION       2
+#define ORACLE_SPLIT_VERSION       3
 #define ORACLE_SPLIT_HEADER_SIZE   16
 #define ORACLE_SPLIT_PREFIX_SIZE   16
 #define ORACLE_SPLIT_CRITICAL_SIZE 32
@@ -281,13 +283,19 @@ typedef char oracle_record_size_check[
 // separate diagnostics later."
 //
 // Group 2 is the player (position, shots, bomb state); group 3 is the bullet
-// array plus the custom-entity block. Groups 4-11 remain to be added; each
-// bumps this version again.
-#define ORACLE_SPLIT_HASH_COUNT 4
+// array plus the custom-entity block; groups 4-6 are enemies, the shared actor
+// core, and item-related entities. Groups 7-11 remain to be added; each bumps
+// this version again. Group 5 deliberately says "core": stage-specific boss
+// state remains part of the next additive inventory rather than being hidden
+// behind native memory dumps here.
+#define ORACLE_SPLIT_HASH_COUNT 7
 #define ORACLE_HASH_GROUP_RNG     0
 #define ORACLE_HASH_GROUP_RUN     1
 #define ORACLE_HASH_GROUP_PLAYER  2
 #define ORACLE_HASH_GROUP_BULLETS 3
+#define ORACLE_HASH_GROUP_ENEMIES 4
+#define ORACLE_HASH_GROUP_ACTORS  5
+#define ORACLE_HASH_GROUP_ITEMS   6
 #define ORACLE_SPLIT_ROW_SIZE ( \
 	ORACLE_SPLIT_PREFIX_SIZE + \
 	ORACLE_SPLIT_CRITICAL_SIZE + \
