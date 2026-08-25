@@ -2878,4 +2878,14 @@ bool replay_playback_active(void)
 	return (t2replay_mode == T2RM_PLAYBACK);
 }
 
+#pragma codeseg T2RCKVAL_TEXT
+// Read-only bridge for the later common-apply parcel. Keeping it in its own
+// tail means the existing T2REPLAY_TEXT contribution remains size-stable.
+bool16 far replay_checkpoint_schema4_valid(
+	const uint8_t far *container, uint32_t container_size
+)
+{
+	return t2replay_checkpoint_valid(container, container_size);
+}
+
 #pragma codeseg

@@ -201,3 +201,10 @@ bool16 far th02_s1_rika_clean_init(th02_s1_rika_clean_target_t target)
 	lasers_callbacks_set();
 	return true;
 }
+
+// A separate additive tail in this already-linked patch object avoids the
+// active Stage 2 parcel's shared TH02 link-command claim. No declaration of a
+// T2CAPPLY_TEXT symbol may precede this switch, or Turbo C++ would retain the
+// first segment it observed for the function.
+#pragma codeseg T2CAPPLY_TEXT
+#include "th02/main/checkpoint_apply.cpp"
