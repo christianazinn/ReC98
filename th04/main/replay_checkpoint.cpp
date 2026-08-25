@@ -12,10 +12,12 @@
 #include "th04/formats/std.hpp"
 #include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
+#include "th04/main/boss/explode.hpp"
 #include "th04/main/custom.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
+#include "th04/main/midboss/midboss.hpp"
 #include "th04/main/player/move.hpp"
 #include "th04/main/player/shot.hpp"
 #include "th04/main/pointnum/pointnum.hpp"
@@ -24,6 +26,7 @@
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
 #if (GAME == 5)
+	#include "th05/main/boss/boss.hpp"
 	#include "th05/main/bullet/cheeto.hpp"
 	#include "th05/main/bullet/laser.hpp"
 	#include "th05/main/enemy/enemy.hpp"
@@ -32,6 +35,7 @@
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
+	#include "th04/main/boss/boss.hpp"
 	#include "th04/main/bullet/laser_t.hpp"
 	#include "th04/main/enemy/enemy.hpp"
 	#include "th04/main/player/bomb.hpp"
@@ -54,6 +58,7 @@ extern uint8_t continues_used;
 extern uint8_t power;
 extern unsigned int total_max_valued_point_items;
 extern unsigned char item_splash_last_id;
+extern uint8_t midboss_defeat_angle;
 
 extern bool player_is_hit;
 extern uint8_t player_invincibility_time;
@@ -1715,6 +1720,104 @@ static bool rck_group_items(replay_ck_stream_t far *stream)
 		pointnum_first_yellow_alive = 0;
 	}
 	return true;
+}
+
+static bool rck_midboss_record(
+	replay_ck_stream_t far *stream, midboss_stuff_t far *actor
+)
+{
+	if(!rck_motion(stream, &actor->pos)) {
+		return false;
+	}
+	RCK_U16(actor->frames_until);
+	RCK_S16(actor->hp);
+	RCK_U8(actor->sprite);
+	RCK_U8(actor->phase);
+	RCK_S16(actor->phase_frame);
+	RCK_U8(actor->damage_this_frame);
+	RCK_U8(actor->angle);
+	return true;
+}
+
+static bool rck_boss_record(
+	replay_ck_stream_t far *stream, boss_stuff_t far *actor
+)
+{
+	if(!rck_motion(stream, &actor->pos)) {
+		return false;
+	}
+	RCK_S16(actor->hp);
+	RCK_U8(actor->sprite);
+	RCK_U8(actor->phase);
+	RCK_S16(actor->phase_frame);
+	RCK_U8(actor->damage_this_frame);
+	RCK_U8(actor->mode);
+	RCK_U8(actor->angle);
+	RCK_U8(actor->phase_state.patterns_seen);
+	RCK_S16(actor->phase_end_hp);
+	return true;
+}
+
+static bool rck_explosion(
+	replay_ck_stream_t far *stream, Explosion far *explosion
+)
+{
+	RCK_BOOL(explosion->alive);
+	RCK_U8(explosion->age);
+	if(
+		!rck_sppoint(stream, &explosion->center) ||
+		!rck_sppoint(stream, &explosion->radius_cur) ||
+		!rck_sppoint(stream, &explosion->radius_delta)
+	) {
+		return false;
+	}
+	RCK_U8(explosion->angle_offset);
+	return true;
+}
+
+// Canonical actor storage only. This function deliberately remains outside
+// replay_ck_group_codec() until both games' stage-local programs and callback
+// registries are complete.
+static bool rck_group_actors_common(replay_ck_stream_t far *stream)
+{
+	int i;
+
+	if(!rck_midboss_record(stream, &midboss)) {
+		return false;
+	}
+	RCK_BOOL(midboss_active);
+	RCK_U8(midboss_defeat_angle);
+
+	if(!rck_boss_record(stream, &boss)) {
+		return false;
+	}
+	for(i = 0; i < 16; i++) {
+		RCK_U8(boss_statebyte[i]);
+	}
+	if(!rck_sppoint(stream, &boss_hitbox_radius)) {
+		return false;
+	}
+	RCK_BOOL(boss_phase_timed_out);
+
+#if (GAME == 5)
+	if(!rck_boss_record(stream, &boss2)) {
+		return false;
+	}
+	RCK_U16(boss_sprite_left);
+	RCK_U16(boss_sprite_right);
+	RCK_U16(boss_sprite_stay);
+	RCK_S16(boss_flystep_random_clamp.left.v);
+	RCK_S16(boss_flystep_random_clamp.right.v);
+	RCK_S16(boss_flystep_random_clamp.top.v);
+	RCK_S16(boss_flystep_random_clamp.bottom.v);
+#endif
+
+	for(i = 0; i < EXPLOSION_SMALL_COUNT; i++) {
+		if(!rck_explosion(stream, &explosions_small[i])) {
+			return false;
+		}
+	}
+	return rck_explosion(stream, &explosions_big);
 }
 
 bool replay_ck_group_codec(
