@@ -12,6 +12,8 @@
 
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
+#define T2OP_INPUT_KNOWN 0xF1FF
+#define T2OP_DOS_ACCESS_READ 0
 #define T2OP_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define T2OP_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
 
@@ -338,6 +340,236 @@ static bool t2op_header_valid(void)
 	return (stored == computed);
 }
 
+static int t2op_dos_open(const char far *fn, unsigned char access)
+{
+	unsigned fn_seg = T2OP_FP_SEG(fn);
+	unsigned fn_off = T2OP_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 3Dh
+		mov	al, access
+		int	21h
+		pop	ds
+		sbb	dx, dx
+		or	ax, dx
+		mov	result, ax
+	}
+	return result;
+}
+
+static void t2op_dos_close(int fh)
+{
+	_asm {
+		mov	bx, fh
+		mov	ah, 3Eh
+		int	21h
+	}
+}
+
+static bool t2op_dos_seek(int fh, uint32_t offset)
+{
+	unsigned offset_hi = static_cast<unsigned>(offset >> 16);
+	unsigned offset_lo = static_cast<unsigned>(offset & 0xFFFFUL);
+	unsigned failed;
+
+	_asm {
+		mov	bx, fh
+		mov	cx, offset_hi
+		mov	dx, offset_lo
+		mov	ax, 4200h
+		int	21h
+		sbb	ax, ax
+		neg	ax
+		mov	failed, ax
+	}
+	return (failed == 0);
+}
+
+static bool t2op_dos_size(int fh, uint32_t far *size)
+{
+	unsigned size_hi;
+	unsigned size_lo;
+	unsigned failed;
+
+	_asm {
+		mov	bx, fh
+		xor	cx, cx
+		xor	dx, dx
+		mov	ax, 4202h
+		int	21h
+		mov	size_lo, ax
+		mov	size_hi, dx
+		sbb	ax, ax
+		neg	ax
+		mov	failed, ax
+	}
+	*size = (
+		(static_cast<uint32_t>(size_hi) << 16) |
+		static_cast<uint32_t>(size_lo)
+	);
+	return (failed == 0);
+}
+
+static unsigned t2op_dos_read(int fh, void far *buf, unsigned size)
+{
+	unsigned buf_seg = T2OP_FP_SEG(buf);
+	unsigned buf_off = T2OP_FP_OFF(buf);
+	unsigned result;
+
+	_asm {
+		push	ds
+		mov	bx, fh
+		mov	cx, size
+		mov	dx, buf_off
+		mov	ds, buf_seg
+		mov	ah, 3Fh
+		int	21h
+		pop	ds
+		sbb	cx, cx
+		not	cx
+		and	ax, cx
+		mov	result, ax
+	}
+	return result;
+}
+
+static bool t2op_packet_valid(
+	const char far *packet, uint32_t *samples, bool *terminal_seen
+)
+{
+	uint8_t tag = static_cast<uint8_t>(packet[0]);
+	uint8_t phase = static_cast<uint8_t>(
+		tag >> T2REPLAY_PACKET_PHASE_SHIFT
+	);
+	uint8_t low = static_cast<uint8_t>(tag & T2REPLAY_PACKET_RUN_MASK);
+	uint8_t input_low = static_cast<uint8_t>(packet[1]);
+	uint8_t input_high = static_cast<uint8_t>(packet[2]);
+	uint8_t arg = static_cast<uint8_t>(packet[3]);
+	input_t input;
+
+	if(*terminal_seen) {
+		return false;
+	}
+	if(phase < T2REPLAY_PHASE_CONTROL) {
+		input = static_cast<input_t>(
+			input_low | (static_cast<uint16_t>(input_high) << 8)
+		);
+		if((arg != 0) || (input & ~T2OP_INPUT_KNOWN)) {
+			return false;
+		}
+		*samples += static_cast<uint32_t>(low + 1);
+		return (*samples >= static_cast<uint32_t>(low + 1));
+	}
+	if(phase != T2REPLAY_PHASE_CONTROL) {
+		return false;
+	}
+	if((low == T2REPLAY_CONTROL_STAGE_START) && (arg == 0)) {
+		return (
+			(input_high == 0) &&
+			(input_low < T2REPLAY_STAGE_COUNT) &&
+			!(*terminal_seen)
+		);
+	}
+	if(low == T2REPLAY_CONTROL_TERMINAL) {
+		if(
+			(input_high != 0) ||
+			((input_low != T2REPLAY_END_GAME_OVER) &&
+			 (input_low != T2REPLAY_END_CLEAR)) ||
+			(arg >= T2REPLAY_STAGE_COUNT) ||
+			*terminal_seen
+		) {
+			return false;
+		}
+		*terminal_seen = true;
+		return true;
+	}
+	return false;
+}
+
+static bool t2op_pending_payload_valid(int fd, uint32_t file_size)
+{
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	uint32_t samples = 0;
+	uint32_t packets_seen = 0;
+	bool terminal_seen = false;
+	bool stage_seen = false;
+	uint8_t expected_stage = static_cast<uint8_t>(t2op_header.start.stage);
+	uint8_t terminal_reason = 0;
+	uint8_t terminal_stage = 0;
+
+	if(file_size != (t2op_header.input_offset + t2op_header.input_size)) {
+		return false;
+	}
+	if(!t2op_dos_seek(fd, t2op_header.input_offset)) {
+		return false;
+	}
+	while(packets_seen < t2op_header.packet_count) {
+		if(t2op_dos_read(fd, t2op_line, T2REPLAY_PACKET_SIZE) !=
+			T2REPLAY_PACKET_SIZE) {
+			return false;
+		}
+		hash = t2op_fnv1a(hash, t2op_line, T2REPLAY_PACKET_SIZE);
+		if(!t2op_packet_valid(t2op_line, &samples, &terminal_seen)) {
+			return false;
+		}
+		if(static_cast<uint8_t>(t2op_line[0]) == static_cast<uint8_t>(
+			(T2REPLAY_PHASE_CONTROL << T2REPLAY_PACKET_PHASE_SHIFT) |
+			T2REPLAY_CONTROL_TERMINAL
+		)) {
+			if(!stage_seen || (static_cast<uint8_t>(t2op_line[3]) !=
+				(expected_stage - 1))) {
+				return false;
+			}
+			terminal_reason = static_cast<uint8_t>(t2op_line[1]);
+			terminal_stage = static_cast<uint8_t>(t2op_line[3]);
+		} else if(static_cast<uint8_t>(t2op_line[0]) == static_cast<uint8_t>(
+			(T2REPLAY_PHASE_CONTROL << T2REPLAY_PACKET_PHASE_SHIFT) |
+			T2REPLAY_CONTROL_STAGE_START
+		)) {
+			if(
+				(expected_stage >= T2REPLAY_STAGE_COUNT) ||
+				(static_cast<uint8_t>(t2op_line[1]) != expected_stage)
+			) {
+				return false;
+			}
+			stage_seen = true;
+			expected_stage++;
+		}
+		packets_seen++;
+	}
+	return (
+		(hash == t2op_header.payload_checksum) &&
+		(samples == t2op_header.sample_count) &&
+		terminal_seen &&
+		(t2op_header.stage_reached == (expected_stage - 1)) &&
+		(terminal_reason == t2op_header.end_reason) &&
+		(terminal_stage == t2op_header.terminal_stage)
+	);
+}
+
+static bool t2op_pending_replay_validate(const char far *fn)
+{
+	uint32_t file_size;
+	int fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
+
+	if(fd < 0) {
+		return false;
+	}
+	t2op_memclear(&t2op_header, sizeof(t2op_header));
+	if((t2op_dos_read(fd, &t2op_header, sizeof(t2op_header)) !=
+		 sizeof(t2op_header)) || !t2op_dos_size(fd, &file_size) ||
+		!t2op_header_valid() || !t2op_pending_payload_valid(fd, file_size)) {
+		t2op_dos_close(fd);
+		return false;
+	}
+	t2op_dos_close(fd);
+	return true;
+}
+
 static bool t2op_header_read_path(const char *fn)
 {
 	int read;
@@ -351,8 +583,8 @@ static bool t2op_header_read_path(const char *fn)
 	if(read != sizeof(t2op_header)) {
 		return false;
 	}
-	// MAIN owns full payload validation, including the exact file extent.  OP
-	// only needs a safe, checksum-valid summary for its browser.
+	// Numbered-slot browsing stays header-only; MAIN owns full payload validation.
+	// Pending T2RPY.TMP uses its dedicated check.
 	return t2op_header_valid();
 }
 
@@ -367,7 +599,7 @@ static bool t2op_pending_header_read(void)
 {
 	t2op_paths_init();
 	t2op_temp_set();
-	return t2op_header_read_path(t2op_slot_fn);
+	return t2op_pending_replay_validate(t2op_slot_fn);
 }
 
 static bool t2op_command_write(
@@ -1535,6 +1767,9 @@ static bool t2op_pending_commit(uint8_t slot)
 		destination[i] = t2op_slot_fn[i];
 	}
 	t2op_temp_set();
+	if(!t2op_pending_replay_validate(t2op_slot_fn)) {
+		return false;
+	}
 	return t2op_file_rename(t2op_slot_fn, destination);
 }
 
