@@ -224,6 +224,10 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE5_BOSS_START:
 		practice_target_valid = (start->stage == 4);
 		break;
+	case T2RPT_EXTRA_MIDBOSS:
+	case T2RPT_EXTRA_BOSS_START:
+		practice_target_valid = (start->stage == 5);
+		break;
 	default:
 		break;
 	}
@@ -764,8 +768,20 @@ static uint8_t t2op_practice_target_step(
 		return ((target == T2RPT_STAGE_START)
 			? T2RPT_STAGE5_BOSS_START : T2RPT_STAGE_START);
 	case 5:
-		return ((target == T2RPT_STAGE_START)
-			? T2RPT_EXTRA_CHAPTER2 : T2RPT_STAGE_START);
+		if(direction < 0) {
+			switch(target) {
+			case T2RPT_STAGE_START: return T2RPT_EXTRA_BOSS_START;
+			case T2RPT_EXTRA_MIDBOSS: return T2RPT_STAGE_START;
+			case T2RPT_EXTRA_CHAPTER2: return T2RPT_EXTRA_MIDBOSS;
+			default: return T2RPT_EXTRA_CHAPTER2;
+			}
+		}
+		switch(target) {
+		case T2RPT_STAGE_START: return T2RPT_EXTRA_MIDBOSS;
+		case T2RPT_EXTRA_MIDBOSS: return T2RPT_EXTRA_CHAPTER2;
+		case T2RPT_EXTRA_CHAPTER2: return T2RPT_EXTRA_BOSS_START;
+		default: return T2RPT_STAGE_START;
+		}
 	default:
 		return T2RPT_STAGE_START;
 	}
@@ -977,7 +993,11 @@ static void t2op_practice_render(void)
 			case T2RPT_STAGE3_BOSS_START:
 			case T2RPT_STAGE4_BOSS_START:
 			case T2RPT_STAGE5_BOSS_START:
+			case T2RPT_EXTRA_BOSS_START:
 				p = t2op_word_append(p, T2OW_BOSS_START);
+				break;
+			case T2RPT_EXTRA_MIDBOSS:
+				p = t2op_word_append(p, T2OW_MIDBOSS);
 				break;
 			default:
 				p = t2op_word_append(p, T2OW_CHAPTER_2);

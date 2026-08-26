@@ -31,6 +31,7 @@
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
+#include "th02/main/s6_actor.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -118,6 +119,10 @@ extern "C" const char aStage3_b_btt_0[];
 extern "C" char aMima_m[];
 extern "C" const char mima1_bft[];
 extern "C" const char aStage3_b_btt[];
+extern "C" const char stage5b1_bft[];
+extern "C" const char stage5b2_bft[];
+extern "C" char aBoss5_m[];
+extern screen_point_t sigma_topleft;
 extern Palette8 __cdecl Palettes;
 extern void far pascal palette_show(void);
 
@@ -2282,6 +2287,10 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE5_BOSS_START:
 		practice_target_valid = (start->stage == 4);
 		break;
+	case T2RPT_EXTRA_MIDBOSS:
+	case T2RPT_EXTRA_BOSS_START:
+		practice_target_valid = (start->stage == 5);
+		break;
 	default:
 		break;
 	}
@@ -3020,6 +3029,33 @@ static bool16 near t2replay_stage5_mima_activate_clean(void)
 	return true;
 }
 
+static bool16 near t2replay_extra_sigma_activate_clean(void)
+{
+	int page;
+
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(stage5b1_bft);
+	super_entry_bfnt(stage5b2_bft);
+	tile_mode = TM_NONE;
+	shots_free_all();
+	th02_s6_sigma_clean_init();
+	grc_setclip(PLAYFIELD_LEFT, 0, PLAYFIELD_RIGHT, (RES_Y - 1));
+	for(page = 0; page < PAGE_COUNT; page++) {
+		graph_accesspage(page);
+		super_put_rect(sigma_topleft.x, sigma_topleft.y, 128);
+		super_put_rect((sigma_topleft.x + 64), sigma_topleft.y, 129);
+	}
+	graph_accesspage(page_back);
+	palette_settone(100);
+	t2replay_boss_promote_clean(aBoss5_m);
+	return true;
+}
+
 bool16 replay_practice_target_apply(void)
 {
 	uint8_t target = t2replay_practice_target;
@@ -3167,6 +3203,18 @@ bool16 replay_practice_target_apply(void)
 		return true;
 	case T2RPT_STAGE5_BOSS_START:
 		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_EXTRA_MIDBOSS:
+		if(stage_id != 5) {
+			return false;
+		}
+		target_scroll_step = 200;
+		break;
+	case T2RPT_EXTRA_BOSS_START:
+		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
