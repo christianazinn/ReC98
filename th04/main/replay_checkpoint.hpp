@@ -89,6 +89,12 @@ uint16_t replay_ck_failure_field(void);
 // detection. An unknown callback tuple fails instead of guessing a section.
 bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe);
 
+// Constructs a clean chapter or midboss start from the freshly loaded stage
+// data without running gameplay. Boss phases continue to use native preroll.
+bool replay_ck_practice_direct_seek(
+	const replay_start_config_t far *start
+);
+
 // All sizes are below one real-mode segment.
 bool replay_ck_container_measure(
 	const replay_ck_identity_t far *identity,

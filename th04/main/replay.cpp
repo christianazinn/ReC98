@@ -18,6 +18,7 @@
 #include "th04/main/replay_checkpoint.hpp"
 #include "th04/main/slowdown.hpp"
 #include "th04/replay_format.hpp"
+#include "th04/replay_targets.hpp"
 #include "th04/score.h"
 #include "th03/core/initexit.h"
 #if (GAME == 5)
@@ -124,13 +125,11 @@ uint16_t replay_ck_failure_field_value;
 static uint8_t replay_last_stage;
 static bool replay_practice_start_pending;
 static replay_start_config_t replay_practice_start;
-static bool replay_preroll_midboss_active;
-static uint8_t replay_preroll_midboss_entries;
-static uint8_t replay_preroll_midboss_completions;
 static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
 static bool replay_practice_preroll_pending;
+static bool replay_practice_direct_redraw_pending;
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
 #if (GAME == 5)
@@ -833,45 +832,16 @@ bool replay_checkpoint_identity_valid(
 )
 {
 	if(start->kind == RSK_CHAPTER) {
-		if(start->phase != 0) {
-			return false;
-		}
-		#if (GAME == 5)
-			return (
-				(start->section == RCS_CHAPTER_2) &&
-				(start->stage != 5)
-			);
-		#else
-			if(start->stage == 3) {
-				return (
-					(start->section == RCS_CHAPTER_2) ||
-					(start->section == RCS_CHAPTER_3)
-				);
-			}
-			return (
-				(start->section == RCS_CHAPTER_2) &&
-				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
-			);
-		#endif
+		return (
+			(start->phase == 0) &&
+			replay_practice_chapter_valid(start->stage, start->section)
+		);
 	}
 	if(start->kind == RSK_MIDBOSS) {
-		if(start->phase != 0) {
-			return false;
-		}
-		#if (GAME == 5)
-			return (
-				(start->section == RCS_MIDBOSS_PRIMARY) &&
-				(start->stage != 5)
-			);
-		#else
-			if(start->stage == 3) {
-				return (start->section <= RCS_MIDBOSS_SECONDARY);
-			}
-			return (
-				(start->section == RCS_MIDBOSS_PRIMARY) &&
-				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
-			);
-		#endif
+		return (
+			(start->phase == 0) &&
+			replay_practice_midboss_valid(start->stage, start->section)
+		);
 	}
 	if(start->kind == RSK_BOSS_PHASE) {
 		#if (GAME == 5)
@@ -1735,6 +1705,14 @@ bool replay_practice_preroll_active(void)
 	return replay_practice_preroll_pending;
 }
 
+bool replay_practice_direct_redraw_take(void)
+{
+	bool pending = replay_practice_direct_redraw_pending;
+
+	replay_practice_direct_redraw_pending = false;
+	return pending;
+}
+
 bool replay_private_test_active(void)
 {
 	return replay_private_test;
@@ -1743,60 +1721,48 @@ bool replay_private_test_active(void)
 bool replay_practice_preroll_boundary(void)
 {
 	replay_ck_actor_probe_t probe;
-	uint8_t section;
 	bool reached = false;
 
 	if(!replay_practice_preroll_pending) {
 		return false;
 	}
-	if(!replay_ck_actor_probe(&probe)) {
-		replay_private_diagnostic = (0x01UL << 24) | replay_sample_cursor;
-		replay_fail();
-		quit = Q_QUIT_TO_OP;
-		return true;
-	}
-	if(probe.midboss_active && !replay_preroll_midboss_active) {
-		section = replay_preroll_midboss_entries;
-		replay_preroll_midboss_entries++;
-		if(
-			(replay_header.start.kind == RSK_MIDBOSS) &&
-			(replay_header.start.section == section)
-		) {
-			reached = true;
-		}
-	}
 	if(
-		!probe.midboss_active && probe.midboss_finished &&
-		(replay_preroll_midboss_completions <
-		 replay_preroll_midboss_entries)
+		(replay_header.start.kind == RSK_CHAPTER) ||
+		(replay_header.start.kind == RSK_MIDBOSS)
 	) {
-		replay_preroll_midboss_completions++;
-		section = static_cast<uint8_t>(
-			RCS_CHAPTER_2 + replay_preroll_midboss_completions - 1
-		);
-		if(
-			(replay_header.start.kind == RSK_CHAPTER) &&
-			(replay_header.start.section == section)
-		) {
-			reached = true;
+		if(!replay_ck_practice_direct_seek(&replay_header.start)) {
+			replay_private_diagnostic = (0x04UL << 24) | stage_frame;
+			replay_fail();
+			quit = Q_QUIT_TO_OP;
+			return true;
 		}
-	}
-	replay_preroll_midboss_active = probe.midboss_active;
-	if(
-		(probe.boss_section != REPLAY_CK_BOSS_SECTION_NONE) &&
-		((replay_preroll_boss_section != probe.boss_section) ||
-		 (replay_preroll_boss_phase != probe.boss_phase))
-	) {
-		if(
-			(replay_header.start.kind == RSK_BOSS_PHASE) &&
-			(replay_header.start.section == probe.boss_section) &&
-			(replay_header.start.phase == probe.boss_phase)
-		) {
-			reached = true;
+		replay_practice_direct_redraw_pending = true;
+		reached = true;
+	} else {
+		if(!replay_ck_actor_probe(&probe)) {
+			replay_private_diagnostic = (
+				(0x01UL << 24) | replay_sample_cursor
+			);
+			replay_fail();
+			quit = Q_QUIT_TO_OP;
+			return true;
 		}
+		if(
+			(probe.boss_section != REPLAY_CK_BOSS_SECTION_NONE) &&
+			((replay_preroll_boss_section != probe.boss_section) ||
+			 (replay_preroll_boss_phase != probe.boss_phase))
+		) {
+			if(
+				(replay_header.start.kind == RSK_BOSS_PHASE) &&
+				(replay_header.start.section == probe.boss_section) &&
+				(replay_header.start.phase == probe.boss_phase)
+			) {
+				reached = true;
+			}
+		}
+		replay_preroll_boss_section = probe.boss_section;
+		replay_preroll_boss_phase = probe.boss_phase;
 	}
-	replay_preroll_boss_section = probe.boss_section;
-	replay_preroll_boss_phase = probe.boss_phase;
 	if(!reached) {
 		return false;
 	}
@@ -2075,13 +2041,11 @@ void replay_entry(void)
 	);
 	replay_private_diagnostic = 0;
 	replay_practice_start_pending = false;
-	replay_preroll_midboss_active = false;
-	replay_preroll_midboss_entries = 0;
-	replay_preroll_midboss_completions = 0;
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
 	replay_preroll_boss_phase = 0xFF;
 	replay_preroll_interstitial_cycle = 0;
 	replay_practice_preroll_pending = false;
+	replay_practice_direct_redraw_pending = false;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
@@ -2492,5 +2456,13 @@ bool replay_playback_active(void)
 {
 	return (replay_mode == RRM_PLAYBACK);
 }
+
+// Preserve the paragraph phase of every following stock CODE segment.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90"
+#endif
 
 #pragma codeseg

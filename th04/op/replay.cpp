@@ -28,6 +28,7 @@
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/replay_format.hpp"
+#include "th04/replay_targets.hpp"
 #include "th04/snd/snd.h"
 #include "th04/sprites/op_cdg.hpp"
 #if (GAME == 5)
@@ -522,45 +523,16 @@ static bool replay_op_checkpoint_identity_valid(
 )
 {
 	if(start->kind == RSK_CHAPTER) {
-		if(start->phase != 0) {
-			return false;
-		}
-		#if (GAME == 5)
-			return (
-				(start->section == RCS_CHAPTER_2) &&
-				(start->stage != 5)
-			);
-		#else
-			if(start->stage == 3) {
-				return (
-					(start->section == RCS_CHAPTER_2) ||
-					(start->section == RCS_CHAPTER_3)
-				);
-			}
-			return (
-				(start->section == RCS_CHAPTER_2) &&
-				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
-			);
-		#endif
+		return (
+			(start->phase == 0) &&
+			replay_practice_chapter_valid(start->stage, start->section)
+		);
 	}
 	if(start->kind == RSK_MIDBOSS) {
-		if(start->phase != 0) {
-			return false;
-		}
-		#if (GAME == 5)
-			return (
-				(start->section == RCS_MIDBOSS_PRIMARY) &&
-				(start->stage != 5)
-			);
-		#else
-			if(start->stage == 3) {
-				return (start->section <= RCS_MIDBOSS_SECONDARY);
-			}
-			return (
-				(start->section == RCS_MIDBOSS_PRIMARY) &&
-				((start->stage <= 2) || (start->stage == STAGE_EXTRA))
-			);
-		#endif
+		return (
+			(start->phase == 0) &&
+			replay_practice_midboss_valid(start->stage, start->section)
+		);
 	}
 	if(start->kind == RSK_BOSS_PHASE) {
 		#if (GAME == 5)
@@ -1374,34 +1346,6 @@ static char *practice_field_append(char *p, practice_field_t field)
 	return p;
 }
 
-static uint8_t practice_chapter_count(
-	const replay_start_config_t far *start
-)
-{
-#if (GAME == 5)
-	return ((start->stage == 5) ? 0 : 1);
-#else
-	if(start->stage == 3) {
-		return 2;
-	}
-	return (((start->stage <= 2) || (start->stage == STAGE_EXTRA)) ? 1 : 0);
-#endif
-}
-
-static uint8_t practice_midboss_count(
-	const replay_start_config_t far *start
-)
-{
-#if (GAME == 5)
-	return ((start->stage == 5) ? 0 : 1);
-#else
-	if(start->stage == 3) {
-		return 2;
-	}
-	return (((start->stage <= 2) || (start->stage == STAGE_EXTRA)) ? 1 : 0);
-#endif
-}
-
 static uint8_t practice_boss_section_count(
 	const replay_start_config_t far *start
 )
@@ -1452,7 +1396,8 @@ static uint8_t practice_target_count(
 )
 {
 	uint8_t count = static_cast<uint8_t>(
-		1 + practice_chapter_count(start) + practice_midboss_count(start)
+		replay_practice_chapter_count(start->stage) +
+		replay_practice_midboss_count(start->stage)
 	);
 	uint8_t section;
 
@@ -1469,29 +1414,37 @@ static uint8_t practice_target_index(
 )
 {
 	uint8_t index;
+	uint8_t chapter;
+	uint8_t midboss;
 	uint8_t section;
-	uint8_t chapters = practice_chapter_count(start);
-	uint8_t midbosses = practice_midboss_count(start);
+	uint8_t chapters = replay_practice_chapter_count(start->stage);
+	uint8_t midbosses = replay_practice_midboss_count(start->stage);
 
-	if(start->kind == RSK_STAGE) {
-		return 0;
-	}
-	if(start->kind == RSK_CHAPTER) {
+	index = 0;
+	for(chapter = 1; chapter <= chapters; chapter++) {
 		if(
-			(start->section < RCS_CHAPTER_2) ||
-			((start->section - RCS_CHAPTER_2) >= chapters)
+			((chapter == 1) && (start->kind == RSK_STAGE)) ||
+			((chapter > 1) && (start->kind == RSK_CHAPTER) &&
+			 (start->section == chapter))
 		) {
-			return 0;
+			return index;
 		}
-		return static_cast<uint8_t>(
-			2 + ((start->section - RCS_CHAPTER_2) * 2)
-		);
-	}
-	if(start->kind == RSK_MIDBOSS) {
-		if(start->section >= midbosses) {
-			return 0;
+		index++;
+		for(midboss = 0; midboss < midbosses; midboss++) {
+			if(
+				(replay_practice_midboss_after_chapter(
+					start->stage, midboss
+				) == chapter)
+			) {
+				if(
+					(start->kind == RSK_MIDBOSS) &&
+					(start->section == midboss)
+				) {
+					return index;
+				}
+				index++;
+			}
 		}
-		return static_cast<uint8_t>(1 + (start->section * 2));
 	}
 	if(
 		(start->kind != RSK_BOSS_PHASE) ||
@@ -1500,7 +1453,6 @@ static uint8_t practice_target_index(
 	) {
 		return 0;
 	}
-	index = static_cast<uint8_t>(1 + chapters + midbosses);
 	for(section = 0; section < start->section; section++) {
 		index = static_cast<uint8_t>(
 			index + practice_boss_phase_max(start, section) + 1
@@ -1513,28 +1465,42 @@ static void practice_target_set(
 	replay_start_config_t far *start, uint8_t index
 )
 {
+	uint8_t chapter;
 	uint8_t count;
+	uint8_t midboss;
 	uint8_t section;
 
 	practice_target_reset(start);
-	if(index == 0) {
-		return;
-	}
-	index--;
-	count = practice_midboss_count(start);
-	if(index < (count * 2)) {
-		start->section = static_cast<uint8_t>(index / 2);
-		if((index & 1) == 0) {
-			start->kind = RSK_MIDBOSS;
-		} else {
-			start->kind = RSK_CHAPTER;
-			start->section = static_cast<uint8_t>(
-				RCS_CHAPTER_2 + start->section
-			);
+	count = replay_practice_chapter_count(start->stage);
+	for(chapter = 1; chapter <= count; chapter++) {
+		if(index == 0) {
+			if(chapter > 1) {
+				start->kind = RSK_CHAPTER;
+				start->section = chapter;
+			}
+			return;
 		}
-		return;
+		index--;
+		for(
+			midboss = 0;
+			midboss < replay_practice_midboss_count(start->stage);
+			midboss++
+		) {
+			if(
+				replay_practice_midboss_after_chapter(
+					start->stage, midboss
+				) != chapter
+			) {
+				continue;
+			}
+			if(index == 0) {
+				start->kind = RSK_MIDBOSS;
+				start->section = midboss;
+				return;
+			}
+			index--;
+		}
 	}
-	index = static_cast<uint8_t>(index - (count * 2));
 	for(section = 0; section < practice_boss_section_count(start); section++) {
 		count = static_cast<uint8_t>(
 			practice_boss_phase_max(start, section) + 1
@@ -1604,25 +1570,15 @@ static char *practice_target_value_append(
 )
 {
 	#define P(c) *p++ = c
-	if(start->kind == RSK_STAGE) {
-		P('S'); P('t'); P('a'); P('g'); P('e'); P(' ');
-		P('S'); P('t'); P('a'); P('r'); P('t');
-		return p;
-	}
-	if(start->kind == RSK_CHAPTER) {
-		P('A'); P('f'); P('t'); P('e'); P('r'); P(' ');
-		P('M'); P('i'); P('d'); P('b'); P('o'); P('s'); P('s');
-		if(practice_midboss_count(start) > 1) {
-			P(' ');
-			return replay_op_uint_append(
-				p, (start->section - RCS_CHAPTER_2 + 1), 1
-			);
-		}
-		return p;
+	if((start->kind == RSK_STAGE) || (start->kind == RSK_CHAPTER)) {
+		P('C'); P('h'); P('a'); P('p'); P('t'); P('e'); P('r'); P(' ');
+		return replay_op_uint_append(
+			p, ((start->kind == RSK_STAGE) ? 1 : start->section), 2
+		);
 	}
 	if(start->kind == RSK_MIDBOSS) {
 		P('M'); P('i'); P('d'); P('b'); P('o'); P('s'); P('s');
-		if(practice_midboss_count(start) > 1) {
+		if(replay_practice_midboss_count(start->stage) > 1) {
 			P(' ');
 			return replay_op_uint_append(p, (start->section + 1), 1);
 		}
@@ -2787,9 +2743,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

@@ -98,8 +98,14 @@
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/replay_format.hpp"
+#include "th04/replay_targets.hpp"
 #include "th04/score.h"
+
+struct map_section_tiles_t;
+extern map_section_tiles_t __seg* map_seg;
 #if (GAME == 5)
+	#include "libs/master.lib/pc98_gfx.hpp"
+	#include "th03/hardware/palette.hpp"
 	#include "th05/main/boss/bosses.hpp"
 	#include "th05/main/boss/b3puppet.hpp"
 	#include "th04/main/boss/backdrop.hpp"
@@ -325,6 +331,10 @@ extern SPPoint homing_target;
 	extern rck_checkerboard_t checkerboard;
 
 	extern uint8_t score_unused;
+	extern vram_offset_t CARPET_TILE_IMAGE_VOS[3][TILES_X];
+	extern uint8_t CARPET_LIGHTING_ANIM[8][TILES_X];
+	extern int carpet_lighting_cel;
+	extern uint8_t carpet_light_level;
 	extern unsigned char dream_items_collected;
 	extern "C" input_t word_2598C;
 	extern "C" uint8_t byte_25980;
@@ -344,6 +354,7 @@ extern SPPoint homing_target;
 		extern uint8_t midboss4_pattern;
 		extern uint8_t midboss4_passes;
 		extern uint8_t midboss4_22B9E;
+		extern uint8_t midboss4_255C8;
 		extern uint8_t kurumi_259F0;
 		extern uint8_t elly_pattern_set;
 		extern uint8_t elly_25A26;
@@ -1263,7 +1274,9 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 	uint8_t bg_not_bombing_id = rck_bg_render_id(bg_render_not_bombing);
 	uint8_t bg_bombing_id = rck_bg_render_id(bg_render_bombing);
 	uint8_t bg_bombing_func_id = rck_bg_render_id(bg_render_bombing_func);
+	uint8_t render_all_time = tile_render_all_time;
 
+	replay_ck_failure_field_value = 0x1000;
 	RCK_U8_MAX(scroll_subpixel_line.v, SUBPIXEL_FACTOR - 1);
 	RCK_U8(scroll_speed.v);
 	RCK_U16_MAX(scroll_line, RES_Y - 1);
@@ -1281,27 +1294,48 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 	}
 	RCK_S8(tile_row_in_section);
 	RCK_S16(tile_ring_row_filled);
-	RCK_U8_MAX(tile_render_all_time, PAGE_COUNT);
+	if(!rck_u8(stream, &render_all_time) || (render_all_time > PAGE_COUNT)) {
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2000;
 	if(
 		!rck_u8(stream, &stage_render_id) ||
 		!rck_u8(stream, &stage_invalidate_id) ||
 		!rck_u8(stream, &bg_not_bombing_id) ||
 		!rck_u8(stream, &bg_bombing_id) ||
-		!rck_u8(stream, &bg_bombing_func_id) ||
-		(rck_stage_render_func(stage_render_id) == 0) ||
-		!rck_stage_render_compatible(stage_render_id) ||
-		(rck_stage_invalidate_func(stage_invalidate_id) == 0) ||
-		!rck_stage_invalidate_compatible(stage_invalidate_id) ||
-		(rck_bg_render_func(bg_not_bombing_id) == 0) ||
-		(rck_bg_render_func(bg_bombing_id) == 0) ||
-		(rck_bg_render_func(bg_bombing_func_id) == 0) ||
+		!rck_u8(stream, &bg_bombing_func_id)
+	) {
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2100;
+	if(!rck_stage_render_compatible(stage_render_id)) {
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2200;
+	if(!rck_stage_invalidate_compatible(stage_invalidate_id)) {
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2300;
+	if(
 		!rck_bg_render_compatible(bg_not_bombing_id) ||
-		!rck_bg_render_compatible(bg_bombing_id) ||
-		!rck_bg_render_compatible(bg_bombing_func_id) ||
 		(
 			(bg_not_bombing_id == RCKBG_TILES_ALL_TIMED) &&
-			(tile_render_all_time == 0)
-		) ||
+			(render_all_time == 0)
+		)
+	) {
+		replay_ck_failure_field_value = static_cast<uint16_t>(
+			0xA000 | ((render_all_time & 0xF) << 8) |
+			((stage_id & 0xF) << 4) | (bg_not_bombing_id & 0xF)
+		);
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2400;
+	if(!rck_bg_render_compatible(bg_bombing_id)) {
+		return false;
+	}
+	replay_ck_failure_field_value = 0x2500;
+	if(
+		!rck_bg_render_compatible(bg_bombing_func_id) ||
 		(
 			(bg_bombing_id != RCKBG_NULL) &&
 			(bg_bombing_id != bg_bombing_func_id)
@@ -1310,6 +1344,7 @@ static bool rck_group_field(replay_ck_stream_t far *stream)
 		return false;
 	}
 	if(rck_applying(stream)) {
+		tile_render_all_time = render_all_time;
 		stage_render = rck_stage_render_func(stage_render_id);
 		stage_invalidate = rck_stage_invalidate_func(stage_invalidate_id);
 		bg_render_not_bombing = rck_bg_render_func(bg_not_bombing_id);
@@ -1750,6 +1785,351 @@ static func_t_near rck_stage_vm_func(uint8_t id)
 	case RCKSVM_RUN: return std_run;
 	}
 	return 0;
+}
+
+static bool rck_practice_map_row_fill(void)
+{
+	uint16_t map_list_offset;
+	uint8_t map_section;
+	uint16_t source_offset;
+	const uint8_t far *source;
+	int row = (scroll_line >> TILE_BITS_H);
+	int x;
+
+#if (GAME == 5)
+	map_list_offset = static_cast<uint16_t>(std_map_section_p);
+#else
+	map_list_offset = static_cast<uint16_t>(std_map_section_id);
+#endif
+	map_section = rck_std_source_u8(map_list_offset);
+#if (GAME == 5)
+	if(map_section & 1) {
+		return false;
+	}
+	map_section >>= 1;
+#endif
+	if((map_section >= 32) || (row >= TILES_Y)) {
+		return false;
+	}
+	source_offset = static_cast<uint16_t>(
+		TILE_SECTION_OFFSETS[map_section] +
+		(tile_row_in_section * TILES_MEMORY_X * 2)
+	);
+	source = reinterpret_cast<const uint8_t far *>(MK_FP(
+		reinterpret_cast<uint16_t>(map_seg), source_offset
+	));
+	for(x = 0; x < TILES_X; x++) {
+		tile_ring[row][x] = *reinterpret_cast<const vram_offset_t far *>(
+			source + (x * 2)
+		);
+	}
+	return true;
+}
+
+static bool rck_practice_scroll_step(
+	const rck_std_source_t *source
+)
+{
+	uint8_t subpixel_line = static_cast<uint8_t>(
+		scroll_subpixel_line.v + scroll_speed.v
+	);
+	uint8_t lines = 0;
+	uint8_t lines_last_frame;
+	int next_line;
+	uint16_t offset;
+
+	scroll_last_delta.v = 0;
+	if(subpixel_line >= SUBPIXEL_FACTOR) {
+		lines = static_cast<uint8_t>(subpixel_line >> SUBPIXEL_BITS);
+		next_line = (scroll_line - lines);
+		if(next_line < 0) {
+			next_line += RES_Y;
+		}
+		scroll_line = next_line;
+		scroll_lines_pending = lines;
+		subpixel_line &= (SUBPIXEL_FACTOR - 1);
+		scroll_last_delta.v = static_cast<subpixel_t>(
+			lines << SUBPIXEL_BITS
+		);
+	}
+	scroll_subpixel_line.v = subpixel_line;
+	if((scroll_lines_pending == 0) && (scroll_lines_prev_frame == 0)) {
+		return true;
+	}
+	if(scroll_speed.v == 0) {
+		return true;
+	}
+	if((scroll_line >> TILE_BITS_H) != tile_ring_row_filled) {
+		tile_ring_row_filled = (scroll_line >> TILE_BITS_H);
+		tile_row_in_section--;
+		if(tile_row_in_section < 0) {
+			tile_row_in_section = 4;
+#if (GAME == 5)
+			std_map_section_p++;
+			offset = static_cast<uint16_t>(std_map_section_p);
+#else
+			std_map_section_id++;
+			offset = static_cast<uint16_t>(std_map_section_id);
+#endif
+			std_scroll_speed++;
+			if(
+				(offset >= source->end) ||
+				(reinterpret_cast<uint16_t>(std_scroll_speed) >= source->end)
+			) {
+				return false;
+			}
+			scroll_speed.v = rck_std_source_u8(
+				reinterpret_cast<uint16_t>(std_scroll_speed)
+			);
+			if(scroll_speed.v == 0) {
+				scroll_line = 0;
+				scroll_lines_prev_frame = 0;
+				scroll_lines_pending = 0;
+				return true;
+			}
+		}
+		if(!rck_practice_map_row_fill()) {
+			return false;
+		}
+	}
+	lines_last_frame = scroll_lines_prev_frame;
+	scroll_lines_prev_frame = scroll_lines_pending;
+	scroll_lines_pending += lines_last_frame;
+	// The skipped scroll is treated as already rendered on both pages.
+	scroll_lines_pending = 0;
+	return true;
+}
+
+#if (GAME == 5)
+static void rck_practice_stage2_state(uint16_t target_frame)
+{
+	uint16_t frame;
+
+	if(stage_id != 1) {
+		return;
+	}
+	s2particles_spawned = 0;
+	stage2_flash_tone = 0;
+	stage2_bg_pulse = 0;
+	stage2_bg_pulse_direction = 0;
+	for(frame = 332; frame < target_frame; frame += 4) {
+		if(stage2_bg_pulse_direction == 0) {
+			stage2_bg_pulse++;
+			if(stage2_bg_pulse >= 0x3F) {
+				stage2_bg_pulse_direction = 1;
+			}
+		} else {
+			stage2_bg_pulse--;
+			if(stage2_bg_pulse <= 0x20) {
+				stage2_bg_pulse_direction = 0;
+			}
+		}
+	}
+	PaletteTone = 100;
+	Palettes[0].c.r = (stage2_bg_pulse * 2);
+	Palettes[0].c.g = (stage2_bg_pulse * 2);
+	Palettes[0].c.b = (stage2_bg_pulse * 4);
+	palette_changed = true;
+}
+#else
+static void rck_practice_stage4_state_step(uint16_t frame)
+{
+	int y;
+	int x;
+	uint8_t target_level;
+
+	if(stage_id != 3) {
+		return;
+	}
+	if(frame == 0) {
+		carpet_lighting_cel = 0;
+		carpet_light_level = 0;
+	}
+	y = (scroll_line >> TILE_BITS_H);
+	for(x = 0; x < TILES_X; x++) {
+		if(CARPET_LIGHTING_ANIM[carpet_lighting_cel][x] == 2) {
+			tile_ring[y][x] = CARPET_TILE_IMAGE_VOS[
+				carpet_light_level
+			][x];
+		}
+	}
+	if(frame <= 1) {
+		for(y = 0; y < TILES_Y; y++) {
+			for(x = 0; x < TILES_X; x++) {
+				tile_ring[y][x] = CARPET_TILE_IMAGE_VOS[0][x];
+			}
+		}
+		return;
+	}
+	if((carpet_light_level == 0) && (frame < 1664)) {
+		return;
+	}
+	if(carpet_light_level >= 2) {
+		stage_render = nullfunc_near;
+		return;
+	}
+	target_level = static_cast<uint8_t>(carpet_light_level + 1);
+	for(x = 0; x < TILES_X; x++) {
+		if(CARPET_LIGHTING_ANIM[carpet_lighting_cel][x] == 1) {
+			for(y = 0; y < TILES_Y; y++) {
+				tile_ring[y][x] = CARPET_TILE_IMAGE_VOS[target_level][x];
+			}
+		}
+	}
+	if((frame & 3) == 0) {
+		carpet_lighting_cel++;
+		if(carpet_lighting_cel >= 8) {
+			carpet_light_level++;
+			carpet_lighting_cel = 0;
+		}
+	}
+}
+
+static void rck_practice_stage5_stars(uint16_t target_frame)
+{
+	uint16_t initial_y;
+	int i;
+
+	if(stage_id != 4) {
+		return;
+	}
+	for(i = 0; i < STAGE5_STAR_COUNT; i++) {
+		switch(i) {
+		case 0: initial_y = 320; break;
+		case 1: initial_y = 40; break;
+		default: initial_y = 190; break;
+		}
+		stage5_star_center_y[i].v = static_cast<subpixel_t>(
+			((initial_y + ((target_frame % 100) * 4)) % RES_Y) <<
+			SUBPIXEL_BITS
+		);
+	}
+}
+
+static void rck_practice_stage4_midboss_rearm(uint16_t target_frame)
+{
+	if((stage_id != 3) || (target_frame < 3400)) {
+		return;
+	}
+	midboss.frames_until = 5600;
+	midboss.pos.cur.set(240, -32);
+	midboss.pos.prev.set(240, -32);
+	midboss.pos.velocity.set(-4, 2);
+	midboss.hp = 1200;
+	midboss.sprite = 0;
+	midboss.phase = 0;
+	midboss.phase_frame = 0;
+	midboss.damage_this_frame = 0;
+	midboss.angle = 0;
+	midboss_active = false;
+	midboss4_pattern = 0;
+	midboss4_passes = 0;
+	midboss4_22B9E = 1;
+	midboss4_255C8 = 0;
+}
+#endif
+
+bool replay_ck_practice_direct_seek(
+	const replay_start_config_t far *start
+)
+{
+	rck_std_source_t source;
+	uint32_t event_offset;
+	uint16_t target_frame;
+	uint16_t frame;
+
+	if((start == 0) || (start->stage != stage_id)) {
+		return false;
+	}
+	if(start->kind == RSK_CHAPTER) {
+		if(!replay_practice_chapter_valid(start->stage, start->section)) {
+			return false;
+		}
+		target_frame = replay_practice_chapter_frame(
+			start->stage, start->section
+		);
+	} else if(start->kind == RSK_MIDBOSS) {
+		if(!replay_practice_midboss_valid(start->stage, start->section)) {
+			return false;
+		}
+		target_frame = replay_practice_midboss_frame(
+			start->stage, start->section
+		);
+	} else {
+		return false;
+	}
+	if((target_frame == 0) || !rck_std_source_info(&source)) {
+		return false;
+	}
+	event_offset = source.ip_initial;
+	while(event_offset < source.ip_terminal) {
+		uint16_t event_frame = rck_std_source_u16(
+			static_cast<uint16_t>(event_offset)
+		);
+		uint8_t spawn_count;
+
+		if(event_frame >= target_frame) {
+			break;
+		}
+		spawn_count = rck_std_source_u8(
+			static_cast<uint16_t>(event_offset + 2)
+		);
+		event_offset += (
+			3 + (static_cast<uint32_t>(spawn_count) * STD_ENEMY_SPAWN_SIZE)
+		);
+	}
+	if(event_offset > source.ip_terminal) {
+		return false;
+	}
+	std_ip = MK_FP(
+		reinterpret_cast<uint16_t>(std_seg),
+		static_cast<uint16_t>(event_offset)
+	);
+	stage_vm = ((event_offset == source.ip_terminal) ? nullfunc_far : std_run);
+
+	for(frame = 0; frame < target_frame; frame++) {
+#if (GAME == 5)
+		if(stage_id == 5) {
+			scroll_active = false;
+		}
+		if((stage_id == 1) && (frame < 304)) {
+			scroll_active = false;
+		} else if((stage_id == 1) && (frame < 306)) {
+			int y;
+			int x;
+			for(y = 0; y < TILES_Y; y++) {
+				for(x = 0; x < TILES_X; x++) {
+					tile_ring[y][x] = TILE_AREA_VRAM_LEFT;
+				}
+			}
+			scroll_active = true;
+		}
+#endif
+	#if (GAME == 4)
+		rck_practice_stage4_state_step(frame);
+	#endif
+		if(!rck_practice_scroll_step(&source)) {
+			return false;
+		}
+	}
+	stage_frame = target_frame;
+	frames_unused = target_frame;
+	stage_frame_mod2 = static_cast<uint8_t>(target_frame & 1);
+	stage_frame_mod4 = static_cast<uint8_t>(target_frame & 3);
+	stage_frame_mod8 = static_cast<uint8_t>(target_frame & 7);
+	stage_frame_mod16 = static_cast<uint8_t>(target_frame & 15);
+	scroll_line_on_page[0] = scroll_line;
+	scroll_line_on_page[1] = scroll_line;
+	scroll_lines_pending = 0;
+	scroll_lines_prev_frame = 0;
+#if (GAME == 5)
+	rck_practice_stage2_state(target_frame);
+#else
+	rck_practice_stage5_stars(target_frame);
+	rck_practice_stage4_midboss_rearm(target_frame);
+#endif
+	tiles_activate_and_render_all_for_next_N_frames(PAGE_COUNT);
+	return true;
 }
 
 static bool rck_group_stage_vm(replay_ck_stream_t far *stream)
@@ -5846,11 +6226,15 @@ static bool rck_group_stream(
 	rck_stream_io_init(
 		&stream, buffer, buffer_size, group_size, mode, io_func, context
 	);
-	if(
-		!replay_ck_group_codec(group_id, &stream) ||
-		!replay_ck_finish(&stream) ||
-		(stream.checksum != expected_checksum)
-	) {
+	if(!replay_ck_group_codec(group_id, &stream)) {
+		return false;
+	}
+	if(!replay_ck_finish(&stream)) {
+		replay_ck_failure_field_value = 0xF001;
+		return false;
+	}
+	if(stream.checksum != expected_checksum) {
+		replay_ck_failure_field_value = 0xF002;
 		return false;
 	}
 	replay_ck_failure_group_value = 0xFF;
@@ -5953,4 +6337,5 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

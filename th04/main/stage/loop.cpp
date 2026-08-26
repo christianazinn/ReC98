@@ -108,6 +108,7 @@ void pascal near shots_render(void);
 // anyway (kb/codegen/0081, and the "one symbol, one declaration" note in
 // kb/conventions/agent-working-discipline.md).
 extern "C" void pascal near bullets_render(void);
+void pascal near tiles_render_all(void);
 // ---------------------------------------------------------------------
 
 #if (GAME == 5)
@@ -191,6 +192,11 @@ void near stage_loop(void)
 
 	do {
 		if(replay_practice_preroll_boundary()) {
+			if(replay_practice_direct_redraw_take()) {
+				graph_accesspage(page_front);
+				tiles_render_all();
+				graph_accesspage(page_back);
+			}
 			_asm { mov ah, 40h; int 18h; }
 			if(quit != Q_KEEP_RUNNING) {
 				break;
@@ -294,13 +300,10 @@ void near stage_loop(void)
 
 // Keep the following stock [main_01] code at its original raw offsets.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	// The direct-seek redraw consumes the previous 26-byte offset reserve.
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif

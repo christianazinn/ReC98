@@ -35,10 +35,13 @@ void replay_practice_items_ready(void);
 // recording begins only after this succeeds.
 bool replay_practice_checkpoint_capture(void);
 
-// Hidden native preroll state and its next-frame target detector. The stage
-// loop masks video, bypasses pacing, and suppresses hits only while active.
+// Arbitrary Practice target setup and its next-frame boundary detector.
+// Chapters and midbosses reconstruct field state directly; boss phases retain
+// hidden native preroll because their actor-private state has no generic
+// constructor. The stage loop masks video only while either path is pending.
 bool replay_practice_preroll_active(void);
 bool replay_practice_preroll_boundary(void);
+bool replay_practice_direct_redraw_take(void);
 
 // Private emulator-test runs use a fixed gameplay suffix. Suppressing player
 // hits keeps late-stage targets from entering post-game input polling before
