@@ -13,6 +13,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th02/core/initexit.h"
+#include "th03/core/initexit.h"
 #include "th01/rank.h"
 #include "th01/hardware/egc.h"
 #include "th03/formats/pi.hpp"
@@ -58,6 +59,7 @@
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
 #define REPLAY_OP_COL_LOCKED ((GAME == 5) ? 2 : 12)
 #define REPLAY_OP_TEXT_SPACING 16
+#define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
 #define PRACTICE_PAGE_COUNT 3
 #define PRACTICE_TARGET_ROWS 9
 #define PRACTICE_HISTORY_ROWS 13
@@ -686,7 +688,27 @@ static void replay_op_paths_init(void)
 	replay_op_paths_ready = true;
 }
 
-static void replay_op_exit_into_main(bool fade_out_bgm, bool allow_debug)
+void far replay_op_memory_prepare(void)
+{
+	uint16_t largest;
+
+	_asm {
+		mov bx, 0FFFFh
+		mov ah, 48h
+		int 21h
+		mov largest, bx
+	}
+	mem_assign_paras = largest;
+	if(largest > REPLAY_OP_DOS_RESERVE_PARAS) {
+		mem_assign_paras = static_cast<uint16_t>(
+			largest - REPLAY_OP_DOS_RESERVE_PARAS
+		);
+	}
+}
+
+static void replay_op_exit_into_main(
+	bool fade_out_bgm, bool allow_debug, bool black_out
+)
 {
 	replay_op_paths_init();
 	replay_op_font_free();
@@ -696,6 +718,9 @@ static void replay_op_exit_into_main(bool fade_out_bgm, bool allow_debug)
 	#endif
 	if(fade_out_bgm) {
 		snd_kaja_func(KAJA_SONG_FADE, 10);
+	}
+	if(black_out) {
+		palette_black_out(1);
 	}
 	game_exit();
 	if(!allow_debug || !resident->debug) {
@@ -708,6 +733,13 @@ static void replay_op_exit_into_main(bool fade_out_bgm, bool allow_debug)
 		);
 	}
 }
+
+#if (GAME == 5)
+void far replay_op_demo_exit_into_main(void)
+{
+	replay_op_exit_into_main(false, false, true);
+}
+#endif
 
 static void replay_op_slot_set(uint8_t slot)
 {
@@ -4164,7 +4196,7 @@ static void replay_main_start_game(void)
 	} else {
 		replay_command_clear();
 	}
-	replay_op_exit_into_main(true, true);
+	replay_op_exit_into_main(true, true, false);
 }
 
 static void replay_main_start_extra(void)
@@ -4197,7 +4229,7 @@ static void replay_main_start_extra(void)
 	} else {
 		replay_command_clear();
 	}
-	replay_op_exit_into_main(true, false);
+	replay_op_exit_into_main(true, false, false);
 }
 
 static void replay_main_start_practice_apply(
@@ -4224,7 +4256,7 @@ static void replay_main_start_practice_apply(
 	if(prepare_record && !replay_practice_record_prepare(start)) {
 		return;
 	}
-	replay_op_exit_into_main(true, false);
+	replay_op_exit_into_main(true, false, false);
 }
 
 static void replay_main_start_restart_apply(
@@ -4256,7 +4288,7 @@ static void replay_main_start_restart_apply(
 		resident->shottype = start->shottype;
 	#endif
 	replay_record_next_prepare();
-	replay_op_exit_into_main(true, false);
+	replay_op_exit_into_main(true, false, false);
 }
 
 static void replay_main_title_labels_load(void)
@@ -4428,7 +4460,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 		case RMC_REPLAY:
 			if(replay_browser()) {
 				resident->demo_num = 0;
-				replay_op_exit_into_main(true, false);
+				replay_op_exit_into_main(true, false, false);
 			}
 			replay_main_return(RMC_REPLAY);
 			return;
@@ -4475,11 +4507,13 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

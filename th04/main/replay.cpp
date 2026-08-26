@@ -159,13 +159,6 @@ extern nearfunc_t_near overlay2;
 void pascal near overlay_stage_enter_update_and_render(void);
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
-#if (GAME == 5)
-	#define REPLAY_MAIN_HEAP_TARGET_PARAS (291200 >> 4)
-#else
-	// Correct the original 320,000-byte no-EMS heap landmine.
-	#define REPLAY_MAIN_HEAP_TARGET_PARAS (324000 >> 4)
-#endif
-#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (245760 >> 4)
 
 static uint16_t replay_dos_largest_free_block(void)
 {
@@ -191,21 +184,12 @@ static void replay_dos_terminate_failure(void)
 void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 {
 	uint16_t largest = replay_dos_largest_free_block();
-	uint16_t minimum = (
-		(ems_exist() && (ems_space() >= EMSSIZE))
-		? REPLAY_MAIN_HEAP_EMS_MIN_PARAS
-		: REPLAY_MAIN_HEAP_TARGET_PARAS
-	);
-
-	if(largest < static_cast<uint16_t>(minimum + REPLAY_DOS_RESERVE_PARAS)) {
-		replay_dos_terminate_failure();
+	mem_assign_paras = largest;
+	if(largest > REPLAY_DOS_RESERVE_PARAS) {
+		mem_assign_paras = static_cast<uint16_t>(
+			largest - REPLAY_DOS_RESERVE_PARAS
+		);
 	}
-	largest = static_cast<uint16_t>(largest - REPLAY_DOS_RESERVE_PARAS);
-	mem_assign_paras = (
-		(largest < REPLAY_MAIN_HEAP_TARGET_PARAS)
-		? largest
-		: REPLAY_MAIN_HEAP_TARGET_PARAS
-	);
 	if(game_init_main(pf_fn)) {
 		replay_dos_terminate_failure();
 	}
@@ -3133,5 +3117,6 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

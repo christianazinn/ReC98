@@ -644,7 +644,7 @@ void main(void)
 
 	text_clear();
 	respal_create(); // ZUN bloat: These games don't use resident palettes.
-	mem_assign_paras = (336000 >> 4);
+	replay_op_memory_prepare();
 	if(game_init_op(OP_AND_END_PF_FN)) {
 		dos_puts2(MEMORY_INSUFFICIENT);
 		getch();
@@ -753,3 +753,6 @@ void main(void)
 	game_exit_to_dos();
 	respal_free(); // ZUN bloat: These games don't use resident palettes.
 }
+
+// Preserve OP_MAIN_TEXT's accepted length without moving main().
+#pragma codestring "\x90"

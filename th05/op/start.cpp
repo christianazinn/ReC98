@@ -5,6 +5,7 @@
 #include "th05/formats/pi.hpp"
 #include "th05/op/op.hpp"
 #include "th05/hardware/input.h"
+#include "th04/op/replay.hpp"
 #include "th04/op/start.hpp"
 
 #define resident_reset_last_highest_and_stage_scores() \
@@ -105,9 +106,10 @@ void near start_demo(void)
 		break;
 	}
 	resident_reset_last_and_highest_scores();
-	main_cdg_free();
-	cfg_save();
-	palette_black_out(1);
-	game_exit();
-	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+	replay_op_demo_exit_into_main();
 }
+
+// Keep the original OP_MAIN_TEXT contribution and every following stock
+// segment at its accepted offset after moving demo cleanup into the tail.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
