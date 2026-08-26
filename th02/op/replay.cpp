@@ -11,6 +11,8 @@
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
 
+extern char sel;
+
 enum t2op_word_t {
 	T2OW_START,
 	T2OW_EXTRA,
@@ -79,8 +81,6 @@ enum t2op_main_choice_t {
 enum t2op_practice_choice_t {
 	T2OPC_STAGE,
 	T2OPC_SECTION,
-	T2OPC_RANK,
-	T2OPC_CHARACTER,
 	T2OPC_SCORE,
 	T2OPC_HIGH_SCORE,
 	T2OPC_POWER,
@@ -669,21 +669,7 @@ static void t2op_practice_stage_set(int8_t stage)
 	if(stage == (T2REPLAY_STAGE_COUNT - 1)) {
 		t2op_practice.rank = RANK_EXTRA;
 	} else if(t2op_practice.rank == RANK_EXTRA) {
-		t2op_practice.rank = RANK_NORMAL;
-	}
-}
-
-static void t2op_practice_rank_set(uint8_t value)
-{
-	t2op_practice.rank = value;
-	if(value == RANK_EXTRA) {
-		t2op_practice.stage = (T2REPLAY_STAGE_COUNT - 1);
-		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
-			T2RPT_STAGE_START;
-	} else if(t2op_practice.stage == (T2REPLAY_STAGE_COUNT - 1)) {
-		t2op_practice.stage = 0;
-		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
-			T2RPT_STAGE_START;
+		t2op_practice.rank = rank;
 	}
 }
 
@@ -816,26 +802,6 @@ static void t2op_practice_value_step(int8_t direction)
 		t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] =
 			practice_target;
 		break;
-	case T2OPC_RANK:
-		if(direction < 0) {
-			t2op_practice_rank_set((t2op_practice.rank == RANK_EASY)
-				? RANK_EXTRA : (t2op_practice.rank - 1));
-		} else {
-			t2op_practice_rank_set((t2op_practice.rank == RANK_EXTRA)
-				? RANK_EASY : (t2op_practice.rank + 1));
-		}
-		break;
-	case T2OPC_CHARACTER:
-		if(direction < 0) {
-			t2op_practice.shottype = ((t2op_practice.shottype == 0)
-				? (SHOTTYPE_COUNT - 1) : (t2op_practice.shottype - 1));
-		} else {
-			t2op_practice.shottype = (
-				(t2op_practice.shottype == (SHOTTYPE_COUNT - 1))
-					? 0 : (t2op_practice.shottype + 1)
-			);
-		}
-		break;
 	case T2OPC_SCORE:
 		if(direction < 0) {
 			t2op_practice.score = ((t2op_practice.score < 1000) ? 0 :
@@ -936,8 +902,6 @@ static void t2op_practice_render(void)
 		switch(row) {
 		case T2OPC_STAGE: label = T2OW_STAGE; break;
 		case T2OPC_SECTION: label = T2OW_SECTION; break;
-		case T2OPC_RANK: label = T2OW_RANK; break;
-		case T2OPC_CHARACTER: label = T2OW_CHARACTER; break;
 		case T2OPC_SCORE: label = T2OW_SCORE; break;
 		case T2OPC_HIGH_SCORE: label = T2OW_HIGH_SCORE; break;
 		case T2OPC_POWER: label = T2OW_POWER; break;
@@ -1004,8 +968,6 @@ static void t2op_practice_render(void)
 				break;
 			}
 			break;
-		case T2OPC_RANK: p = t2op_rank_append(p, t2op_practice.rank); break;
-		case T2OPC_CHARACTER: p = t2op_character_append(p, t2op_practice.shottype); break;
 		case T2OPC_SCORE: p = t2op_i32_append(p, t2op_practice.score, 0); break;
 		case T2OPC_HIGH_SCORE: p = t2op_u32_append(p, t2op_practice.score_highest, 0); break;
 		case T2OPC_POWER: p = t2op_i32_append(p, t2op_practice.start_power, 0); break;
@@ -1244,9 +1206,16 @@ static void t2op_practice_menu(void)
 {
 	bool input_allowed = false;
 
+	// Reuse the native selector and keep its background in VRAM for Setup.
+	resident->stage = 0;
+	sel = 1;
+	pi_load(0, "ts1.pi");
+	text_clear();
+	shottype_menu();
 	t2op_practice_defaults();
 	t2op_practice_sel = T2OPC_STAGE;
 	t2op_practice_render();
+	palette_black_in(2);
 	while(1) {
 		input_reset_sense();
 		if(key_det == INPUT_NONE) {
@@ -1280,6 +1249,10 @@ static void t2op_practice_menu(void)
 		}
 		frame_delay(1);
 	}
+	// shottype_menu() frees every portrait slot. Vanilla never returns from it,
+	// but Practice can, so restore the two title-resident portraits.
+	pi_load(2, "ts3.pi");
+	pi_load(1, "ts2.pi");
 	t2op_title_restore_needed = true;
 	t2op_main_input_allowed = false;
 	key_det = INPUT_NONE;
