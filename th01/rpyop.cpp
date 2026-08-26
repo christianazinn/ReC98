@@ -14,6 +14,7 @@
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/common.h"
 #include "th01/hardware/egc.h"
+#include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/grppsafx.h"
 #include "th01/hardware/grp_text.hpp"
@@ -34,6 +35,22 @@ static const vc_t T1REPLAY_OP_COL_DISABLED = 3;
 static const int16_t T1REPLAY_OP_FX = FX_WEIGHT_BLACK;
 static const uint8_t T1REPLAY_OP_POINT_VALUE_COUNT = 17;
 static const uint16_t T1REPLAY_OP_POINT_CAP = 65530;
+static const uint8_t T1REPLAY_OP_PRACTICE_ROW_COUNT = 12;
+
+enum t1replay_op_practice_row_t {
+	T1OPR_SCENE,
+	T1OPR_ROUTE,
+	T1OPR_SECTION,
+	T1OPR_CHAPTER,
+	T1OPR_SCORE,
+	T1OPR_LIVES,
+	T1OPR_BOMBS,
+	T1OPR_POINT_VALUE,
+	T1OPR_PELLET_SPEED,
+	T1OPR_RNG_SEED,
+	T1OPR_START,
+	T1OPR_BACK,
+};
 
 struct t1replay_op_slot_t {
 	bool exists;
@@ -47,7 +64,10 @@ struct t1replay_op_input_t {
 	bool left;
 	bool right;
 	bool ok;
+	bool enter;
 	bool cancel;
+	bool left_held;
+	bool right_held;
 };
 
 static uint8_t t1replay_op_sel;
@@ -59,7 +79,9 @@ static bool t1replay_op_prev_down;
 static bool t1replay_op_prev_left;
 static bool t1replay_op_prev_right;
 static bool t1replay_op_prev_ok;
+static bool t1replay_op_prev_enter;
 static bool t1replay_op_prev_cancel;
+static uint8_t t1replay_op_horizontal_hold;
 
 static void t1replay_op_slot_fn(char *fn, uint8_t slot)
 {
@@ -325,7 +347,6 @@ enum t1replay_op_word_t {
 	T1ROW_CLEAR,
 	T1ROW_MENU,
 	T1ROW_PAGE,
-	T1ROW_ESC_RETURN,
 	T1ROW_PRACTICE,
 	T1ROW_REPLAY,
 	T1ROW_SCENE,
@@ -375,7 +396,6 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_CLEAR: T1ROW_WORD4('C', 'L', 'E', 'A'); T1ROW_WORD1('R'); break;
 	case T1ROW_MENU: T1ROW_WORD4('M', 'E', 'N', 'U'); break;
 	case T1ROW_PAGE: T1ROW_WORD4('P', 'A', 'G', 'E'); break;
-	case T1ROW_ESC_RETURN: T1ROW_WORD3('E', 'S', 'C'); T1ROW_PUTC(':'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'T', 'U'); T1ROW_WORD2('R', 'N'); break;
 	case T1ROW_PRACTICE: T1ROW_WORD4('P', 'R', 'A', 'C'); T1ROW_WORD4('T', 'I', 'C', 'E'); break;
 	case T1ROW_REPLAY: T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SCENE: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); break;
@@ -477,16 +497,15 @@ static uint16_t t1replay_op_point_value_from_index(uint8_t index)
 
 static uint16_t t1replay_op_point_value_change(uint16_t point_value, int delta)
 {
-	uint8_t index = t1replay_op_point_value_index(point_value);
+	int index = t1replay_op_point_value_index(point_value) + delta;
 
-	if(delta < 0) {
-		index = (index == 0) ? (T1REPLAY_OP_POINT_VALUE_COUNT - 1) :
-			static_cast<uint8_t>(index - 1);
-	} else {
-		index = (index == (T1REPLAY_OP_POINT_VALUE_COUNT - 1)) ? 0 :
-			static_cast<uint8_t>(index + 1);
+	while(index < 0) {
+		index += T1REPLAY_OP_POINT_VALUE_COUNT;
 	}
-	return t1replay_op_point_value_from_index(index);
+	while(index >= T1REPLAY_OP_POINT_VALUE_COUNT) {
+		index -= T1REPLAY_OP_POINT_VALUE_COUNT;
+	}
+	return t1replay_op_point_value_from_index(static_cast<uint8_t>(index));
 }
 
 static void t1replay_op_text_left(screen_y_t y, vc_t col, char *end)
@@ -585,6 +604,7 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 	bool down;
 	bool left;
 	bool right;
+	bool enter;
 	bool ok;
 	bool cancel;
 
@@ -599,10 +619,12 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 	down = ((out7.h.ah & K7_ARROW_DOWN) || (out9.h.ah & K9_NUM_2));
 	left = ((out7.h.ah & K7_ARROW_LEFT) || (out8.h.ah & K8_NUM_4));
 	right = ((out7.h.ah & K7_ARROW_RIGHT) || (out9.h.ah & K9_NUM_6));
-	ok = ((out3.h.ah & K3_RETURN) || (out5.h.ah & K5_Z));
+	enter = (out3.h.ah & K3_RETURN);
+	ok = (enter || (out5.h.ah & K5_Z));
 	cancel = (out0.h.ah & K0_ESC);
 	if(t1replay_op_wait_release) {
-		input.up = input.down = input.left = input.right = input.ok = input.cancel = false;
+		input.up = input.down = input.left = input.right = input.ok = input.enter = input.cancel = false;
+		input.left_held = input.right_held = false;
 		if(!up && !down && !left && !right && !ok && !cancel) {
 			t1replay_op_wait_release = false;
 		}
@@ -612,13 +634,17 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 		input.left = (left && !t1replay_op_prev_left);
 		input.right = (right && !t1replay_op_prev_right);
 		input.ok = (ok && !t1replay_op_prev_ok);
+		input.enter = (enter && !t1replay_op_prev_enter);
 		input.cancel = (cancel && !t1replay_op_prev_cancel);
+		input.left_held = left;
+		input.right_held = right;
 	}
 	t1replay_op_prev_up = up;
 	t1replay_op_prev_down = down;
 	t1replay_op_prev_left = left;
 	t1replay_op_prev_right = right;
 	t1replay_op_prev_ok = ok;
+	t1replay_op_prev_enter = enter;
 	t1replay_op_prev_cancel = cancel;
 }
 
@@ -629,7 +655,9 @@ static void t1replay_op_input_reset(void)
 	t1replay_op_prev_left = false;
 	t1replay_op_prev_right = false;
 	t1replay_op_prev_ok = false;
+	t1replay_op_prev_enter = false;
 	t1replay_op_prev_cancel = false;
+	t1replay_op_horizontal_hold = 0;
 	t1replay_op_wait_release = true;
 }
 
@@ -680,9 +708,6 @@ static void t1replay_op_replay_render(void)
 	p = t1replay_op_uint_append(p, t1replay_op_page + 1, 2);
 	*p++ = '/'; *p++ = '1'; *p++ = '0';
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_LABEL, p);
-	y += T1REPLAY_OP_LINE_H;
-	p = t1replay_op_word_append(t1replay_op_text, T1ROW_ESC_RETURN);
-	t1replay_op_text_left(y, T1REPLAY_OP_COL_LABEL, p);
 }
 
 static void t1replay_op_practice_render(void)
@@ -727,10 +752,6 @@ static void t1replay_op_practice_render(void)
 		(t1replay_practice_start.section == T1RPS_CHAPTER) ?
 			t1replay_op_uint_append(t1replay_op_text, t1replay_practice_start.chapter + 1, 1) :
 			(t1replay_op_text[0] = '-', t1replay_op_text + 1)
-	);
-	T1REPLAY_OP_PRACTICE_LINE(
-		T1ROW_RANK,
-		t1replay_op_rank_append(t1replay_op_text, t1replay_practice_start.rank)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
 		T1ROW_SCORE,
@@ -850,10 +871,20 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	return result;
 }
 
-static void t1replay_op_practice_change(int delta)
+static bool t1replay_op_shift_pressed(void)
+{
+	REGS in;
+	REGS out;
+
+	in.h.ah = 0x02;
+	int86(0x18, &in, &out);
+	return ((out.h.al & 1) != 0);
+}
+
+static void t1replay_op_practice_change(int delta, bool fast)
 {
 	switch(t1replay_op_sel) {
-	case 0:
+	case T1OPR_SCENE:
 		t1replay_practice_start.scene = static_cast<uint8_t>(
 			(t1replay_practice_start.scene + SCENE_COUNT + delta) % SCENE_COUNT
 		);
@@ -861,39 +892,34 @@ static void t1replay_op_practice_change(int delta)
 			t1replay_practice_start.route = ROUTE_MAKAI;
 		}
 		break;
-	case 1:
+	case T1OPR_ROUTE:
 		if(t1replay_practice_start.scene != 0) {
 			t1replay_practice_start.route = static_cast<uint8_t>(
 				(t1replay_practice_start.route + ROUTE_COUNT + delta) % ROUTE_COUNT
 			);
 		}
 		break;
-	case 2:
+	case T1OPR_SECTION:
 		t1replay_practice_start.section = static_cast<uint8_t>(
 			(t1replay_practice_start.section + 3 + delta) % 3
 		);
 		break;
-	case 3:
+	case T1OPR_CHAPTER:
 		if(t1replay_practice_start.section == T1RPS_CHAPTER) {
 			t1replay_practice_start.chapter = static_cast<uint8_t>(
 				(t1replay_practice_start.chapter + BOSS_STAGE + delta) % BOSS_STAGE
 			);
 		}
 		break;
-	case 4:
-		t1replay_practice_start.rank = static_cast<int8_t>(
-			(t1replay_practice_start.rank + RANK_COUNT + delta) % RANK_COUNT
-		);
-		break;
-	case 5:
-		t1replay_practice_start.score += (delta * 10000L);
+	case T1OPR_SCORE:
+		t1replay_practice_start.score += (delta * (fast ? 1000000L : 10000L));
 		if(t1replay_practice_start.score < 0) {
 			t1replay_practice_start.score = 99990000L;
 		} else if(t1replay_practice_start.score > 99990000L) {
 			t1replay_practice_start.score = 0;
 		}
 		break;
-	case 6:
+	case T1OPR_LIVES:
 		t1replay_practice_start.lives += delta;
 		if(t1replay_practice_start.lives < 1) {
 			t1replay_practice_start.lives = LIVES_MAX;
@@ -901,7 +927,7 @@ static void t1replay_op_practice_change(int delta)
 			t1replay_practice_start.lives = 1;
 		}
 		break;
-	case 7:
+	case T1OPR_BOMBS:
 		t1replay_practice_start.bombs += delta;
 		if(t1replay_practice_start.bombs < 0) {
 			t1replay_practice_start.bombs = BOMBS_MAX;
@@ -909,22 +935,177 @@ static void t1replay_op_practice_change(int delta)
 			t1replay_practice_start.bombs = 0;
 		}
 		break;
-	case 8:
+	case T1OPR_POINT_VALUE:
 		t1replay_practice_start.point_value = t1replay_op_point_value_change(
-			t1replay_practice_start.point_value, delta
+			t1replay_practice_start.point_value, (delta * (fast ? 4 : 1))
 		);
 		break;
-	case 9:
-		t1replay_practice_start.pellet_speed += delta;
+	case T1OPR_PELLET_SPEED:
+		t1replay_practice_start.pellet_speed += (delta * (fast ? 4 : 1));
 		if(t1replay_practice_start.pellet_speed < PELLET_SPEED_LOWER_MIN) {
 			t1replay_practice_start.pellet_speed = PELLET_SPEED_RAISE_MAX;
 		} else if(t1replay_practice_start.pellet_speed > PELLET_SPEED_RAISE_MAX) {
 			t1replay_practice_start.pellet_speed = PELLET_SPEED_LOWER_MIN;
 		}
 		break;
-	case 10:
-		t1replay_practice_start.rand += delta;
+	case T1OPR_RNG_SEED:
+		t1replay_practice_start.rand += (delta * (fast ? 256L : 1L));
 		break;
+	}
+}
+
+static bool t1replay_op_practice_field_is_numeric(uint8_t field)
+{
+	return (
+		(field == T1OPR_SCORE) || (field == T1OPR_LIVES) ||
+		(field == T1OPR_BOMBS) || (field == T1OPR_POINT_VALUE) ||
+		(field == T1OPR_RNG_SEED)
+	);
+}
+
+static uint32_t t1replay_op_practice_numeric_get(uint8_t field)
+{
+	switch(field) {
+	case T1OPR_SCORE: return static_cast<uint32_t>(t1replay_practice_start.score);
+	case T1OPR_LIVES: return t1replay_practice_start.lives;
+	case T1OPR_BOMBS: return t1replay_practice_start.bombs;
+	case T1OPR_POINT_VALUE: return t1replay_practice_start.point_value;
+	case T1OPR_RNG_SEED: return t1replay_practice_start.rand;
+	default: return 0;
+	}
+}
+
+static uint32_t t1replay_op_practice_numeric_min(uint8_t field)
+{
+	return ((field == T1OPR_LIVES) ? 1 : 0);
+}
+
+static uint32_t t1replay_op_practice_numeric_max(uint8_t field)
+{
+	switch(field) {
+	case T1OPR_SCORE: return 99990000UL;
+	case T1OPR_LIVES: return LIVES_MAX;
+	case T1OPR_BOMBS: return BOMBS_MAX;
+	case T1OPR_POINT_VALUE: return T1REPLAY_OP_POINT_CAP;
+	case T1OPR_RNG_SEED: return 0xFFFFFFFFUL;
+	default: return 0;
+	}
+}
+
+static void t1replay_op_practice_numeric_set(uint8_t field, uint32_t value)
+{
+	switch(field) {
+	case T1OPR_SCORE:
+		t1replay_practice_start.score = static_cast<int32_t>(value);
+		break;
+	case T1OPR_LIVES:
+		t1replay_practice_start.lives = static_cast<int8_t>(value);
+		break;
+	case T1OPR_BOMBS:
+		t1replay_practice_start.bombs = static_cast<int8_t>(value);
+		break;
+	case T1OPR_POINT_VALUE:
+		t1replay_practice_start.point_value = static_cast<uint16_t>(value);
+		break;
+	case T1OPR_RNG_SEED:
+		t1replay_practice_start.rand = value;
+		break;
+	}
+}
+
+static int t1replay_op_practice_digit_edge(
+	uint8_t now0, uint8_t prev0, uint8_t now1, uint8_t prev1
+)
+{
+	#define T1OPR_PRESSED(now, prev, bit) (((now) & (bit)) && !((prev) & (bit)))
+	if(T1OPR_PRESSED(now0, prev0, K0_1)) return 1;
+	if(T1OPR_PRESSED(now0, prev0, K0_2)) return 2;
+	if(T1OPR_PRESSED(now0, prev0, K0_3)) return 3;
+	if(T1OPR_PRESSED(now0, prev0, K0_4)) return 4;
+	if(T1OPR_PRESSED(now0, prev0, K0_5)) return 5;
+	if(T1OPR_PRESSED(now0, prev0, K0_6)) return 6;
+	if(T1OPR_PRESSED(now0, prev0, K0_7)) return 7;
+	if(T1OPR_PRESSED(now1, prev1, K1_8)) return 8;
+	if(T1OPR_PRESSED(now1, prev1, K1_9)) return 9;
+	if(T1OPR_PRESSED(now1, prev1, K1_0)) return 0;
+	#undef T1OPR_PRESSED
+	return -1;
+}
+
+static void t1replay_op_practice_numeric_entry(uint8_t field)
+{
+	uint32_t original = t1replay_op_practice_numeric_get(field);
+	uint32_t value = 0;
+	uint32_t min = t1replay_op_practice_numeric_min(field);
+	uint32_t max = t1replay_op_practice_numeric_max(field);
+	uint8_t now0;
+	uint8_t now1;
+	uint8_t now3;
+	uint8_t prev0;
+	uint8_t prev1;
+	uint8_t prev3;
+	int digit;
+	bool entered = false;
+
+	do {
+		prev3 = static_cast<uint8_t>(peekb(0, KEYGROUP_3));
+		frame_delay(1);
+	} while(prev3 & K3_RETURN);
+	prev0 = static_cast<uint8_t>(peekb(0, KEYGROUP_0));
+	prev1 = static_cast<uint8_t>(peekb(0, KEYGROUP_1));
+	while(1) {
+		now0 = static_cast<uint8_t>(peekb(0, KEYGROUP_0));
+		now1 = static_cast<uint8_t>(peekb(0, KEYGROUP_1));
+		now3 = static_cast<uint8_t>(peekb(0, KEYGROUP_3));
+		if((now0 & K0_ESC) && !(prev0 & K0_ESC)) {
+			t1replay_op_practice_numeric_set(field, original);
+			t1replay_op_practice_render();
+			t1replay_op_input_reset();
+			return;
+		}
+		if((now3 & K3_RETURN) && !(prev3 & K3_RETURN)) {
+			if(entered) {
+				if(value < min) {
+					value = min;
+				}
+				if(field == T1OPR_POINT_VALUE) {
+					value = t1replay_op_point_value_from_index(
+						t1replay_op_point_value_index(static_cast<uint16_t>(value))
+					);
+				}
+				t1replay_op_practice_numeric_set(field, value);
+			}
+			t1replay_op_practice_render();
+			t1replay_op_input_reset();
+			return;
+		}
+		if((now1 & K1_BACKSPACE) && !(prev1 & K1_BACKSPACE)) {
+			value /= 10UL;
+			t1replay_op_practice_numeric_set(field, ((value < min) ? min : value));
+			entered = true;
+			t1replay_op_practice_render();
+		} else {
+			digit = t1replay_op_practice_digit_edge(now0, prev0, now1, prev1);
+			if(digit >= 0) {
+				if(
+					(static_cast<uint32_t>(digit) > max) ||
+					(value > ((max - digit) / 10UL))
+				) {
+					value = max;
+				} else {
+					value = ((value * 10UL) + digit);
+				}
+				t1replay_op_practice_numeric_set(
+					field, ((value < min) ? min : value)
+				);
+				entered = true;
+				t1replay_op_practice_render();
+			}
+		}
+		prev0 = now0;
+		prev1 = now1;
+		prev3 = now3;
+		frame_delay(1);
 	}
 }
 
@@ -932,6 +1113,7 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 {
 	t1replay_op_input_t input;
 	t1replay_op_result_t result;
+	bool horizontal_trigger = false;
 	result.action = T1ROA_NONE;
 	result.slot = 0;
 
@@ -942,32 +1124,46 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 	}
 	if(input.up) {
 		if(t1replay_op_sel == 0) {
-			t1replay_op_sel = 12;
+			t1replay_op_sel = (T1REPLAY_OP_PRACTICE_ROW_COUNT - 1);
 		} else {
 			t1replay_op_sel--;
 		}
 		t1replay_op_practice_render();
 	}
 	if(input.down) {
-		t1replay_op_sel = static_cast<uint8_t>((t1replay_op_sel + 1) % 13);
+		t1replay_op_sel = static_cast<uint8_t>(
+			(t1replay_op_sel + 1) % T1REPLAY_OP_PRACTICE_ROW_COUNT
+		);
 		t1replay_op_practice_render();
 	}
-	if(input.left) {
-		t1replay_op_practice_change(-1);
+	if(!input.left_held && !input.right_held) {
+		t1replay_op_horizontal_hold = 0;
+	} else {
+		horizontal_trigger = (
+			input.left || input.right ||
+			((t1replay_op_horizontal_hold >= 12) &&
+			 ((t1replay_op_horizontal_hold & 1) == 0))
+		);
+		if(t1replay_op_horizontal_hold != 255) {
+			t1replay_op_horizontal_hold++;
+		}
+	}
+	if(horizontal_trigger) {
+		t1replay_op_practice_change(
+			(input.right_held ? 1 : -1), t1replay_op_shift_pressed()
+		);
 		t1replay_op_practice_render();
 	}
-	if(input.right) {
-		t1replay_op_practice_change(1);
-		t1replay_op_practice_render();
-	}
-	if(input.ok) {
-		if(t1replay_op_sel == 11) {
+	if(input.enter && t1replay_op_practice_field_is_numeric(t1replay_op_sel)) {
+		t1replay_op_practice_numeric_entry(t1replay_op_sel);
+	} else if(input.ok) {
+		if(t1replay_op_sel == T1OPR_START) {
 			if(t1replay_op_record_prepare()) {
 				result.action = T1ROA_PRACTICE_RECORD;
 			} else {
 				result.action = T1ROA_PRACTICE_UNRECORDED;
 			}
-		} else if(t1replay_op_sel == 12) {
+		} else if(t1replay_op_sel == T1OPR_BACK) {
 			result.action = T1ROA_RETURN;
 		}
 	}
