@@ -43,6 +43,15 @@
 #define T1REPLAY_CHECKPOINT_PROCESS_MAX 99
 #define T1REPLAY_CHECKPOINT_CODEC_RAW 0
 
+// Private FUUIN validation can bind the decoded score table seen before
+// registration and the in-memory result afterward to a finalized replay.
+// T1RPY2 stays unchanged; release builds neither read nor write this sidecar.
+#define T1REPLAY_SCORE_PROOF_SCHEMA 1
+#define T1REPLAY_SCORE_PROOF_SIZE 48
+#ifndef T1REPLAY_FUUIN_SCORE_PROOF
+#define T1REPLAY_FUUIN_SCORE_PROOF 0
+#endif
+
 // Release recording captures the first semantic boundary in BSS only. Private
 // capture builds may opt into a process-end sidecar flush; ordinary users must
 // never take a DOS create/write on that first gameplay frame.
@@ -242,6 +251,24 @@ struct t1replay_fuuin_handoff_t {
 	int8_t credit_lives_extra;
 	int8_t end_flag;
 	uint8_t reserved;
+};
+
+struct t1replay_score_proof_t {
+	char magic[8]; // "T1SDG1\0\0"
+	uint16_t schema;
+	uint16_t size;
+	uint8_t game_id;
+	uint8_t slot;
+	uint8_t rank;
+	uint8_t phase;
+	uint32_t replay_start_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t replay_sample_count;
+	uint32_t replay_packet_count;
+	uint32_t before_digest;
+	uint32_t after_digest;
+	uint32_t container_checksum;
+	uint8_t reserved[4];
 };
 
 // This envelope is a capture and validation substrate only. It never stores
@@ -607,6 +634,9 @@ typedef char t1replay_res_size_check[
 ];
 typedef char t1replay_fuuin_handoff_size_check[
 	(sizeof(t1replay_fuuin_handoff_t) == 28) ? 1 : -1
+];
+typedef char t1replay_score_proof_size_check[
+	(sizeof(t1replay_score_proof_t) == T1REPLAY_SCORE_PROOF_SIZE) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_header_size_check[
 	(sizeof(t1replay_checkpoint_header_t) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

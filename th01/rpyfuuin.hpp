@@ -18,4 +18,20 @@ void far t1replay_fuuin_terminal(void);
 bool16 far t1replay_fuuin_active(void);
 bool16 far t1replay_fuuin_playback(void);
 
+#if T1REPLAY_FUUIN_SCORE_PROOF
+void far t1replay_fuuin_score_table_unavailable(void);
+void far t1replay_fuuin_score_table_before(
+	const void far *names,
+	const void far *scores,
+	const void far *stages,
+	const void far *routes
+);
+void far t1replay_fuuin_score_table_after(
+	const void far *names,
+	const void far *scores,
+	const void far *stages,
+	const void far *routes
+);
+#endif
+
 #endif /* TH01_REPLAY_FUUIN_HPP */
