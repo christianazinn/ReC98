@@ -24,6 +24,7 @@
 #include "th04/end/end.h"
 #include "th04/formats/cdg.h"
 #include "th04/formats/cfg.hpp"
+#include "th04/gaiji/gaiji.h"
 #include "th04/hardware/grppsafx.h"
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
@@ -62,6 +63,7 @@
 
 enum replay_op_background_t {
 	ROB_REPLAY,
+	ROB_REPLAY_SAVE,
 	ROB_PRACTICE,
 };
 
@@ -184,6 +186,9 @@ static void replay_op_background_name_set(
 	fn[3] = '1';
 	if(background == ROB_PRACTICE) {
 		fn[4] = '.'; fn[5] = 'p'; fn[6] = 'i'; fn[7] = '\0';
+	} else if(background == ROB_REPLAY_SAVE) {
+		fn[4] = 'B'; fn[5] = '.'; fn[6] = 'P'; fn[7] = 'I';
+		fn[8] = '\0';
 	} else {
 		fn[4] = '.'; fn[5] = 'P'; fn[6] = 'I'; fn[7] = '\0';
 	}
@@ -3284,6 +3289,527 @@ bool replay_browser(void)
 	}
 }
 
+enum replay_save_modal_t {
+	RSM_SAVE,
+	RSM_DISCARD,
+	RSM_OVERWRITE,
+};
+
+#define REPLAY_SAVE_ALPHABET_ROWS 3
+#define REPLAY_SAVE_ALPHABET_COLS 17
+#define REPLAY_SAVE_ALPHABET_LEFT 23
+#define REPLAY_SAVE_ALPHABET_TOP ((GAME == 5) ? 21 : 18)
+#define REPLAY_SAVE_CELL_LEFT 47
+#define REPLAY_SAVE_CELL_RIGHT 48
+#define REPLAY_SAVE_CELL_SPACE 49
+#define REPLAY_SAVE_CELL_END 50
+
+static unsigned replay_save_keyboard_glyph(uint8_t cell)
+{
+	if(cell < 28) {
+		return (0xAA + cell);
+	}
+	if(cell < 34) {
+		switch(cell) {
+		case 28: return 0x03;
+		case 29: return 0x06;
+		case 30: return 0x07;
+		case 31: return 0x08;
+		case 32: return 0x0C;
+		default: return 0x0F;
+		}
+	}
+	if(cell < 44) {
+		return (0xA0 + (cell - 34));
+	}
+	if(cell < 47) {
+		return (gs_TEN + (cell - 44));
+	}
+	switch(cell) {
+	case REPLAY_SAVE_CELL_LEFT: return gs_ARROW_LEFT;
+	case REPLAY_SAVE_CELL_RIGHT: return gs_ARROW_RIGHT;
+	case REPLAY_SAVE_CELL_SPACE: return gs_SPACE;
+	default: return gs_END;
+	}
+}
+
+static char replay_save_keyboard_ascii(uint8_t cell)
+{
+	if(cell < 26) {
+		return ('A' + cell);
+	}
+	if((cell == 26) || (cell == 28) || (cell == 32)) {
+		return '.';
+	}
+	if(cell == 29) {
+		return '*';
+	}
+	if(cell == 30) {
+		return '!';
+	}
+	if(cell == 31) {
+		return '?';
+	}
+	if((cell == 33) || (cell == 45)) {
+		return '@';
+	}
+	if((cell >= 34) && (cell < 44)) {
+		return ('0' + (cell - 34));
+	}
+	return ' ';
+}
+
+static void replay_save_gaiji_putca(
+	unsigned x, unsigned y, unsigned glyph, unsigned attr
+)
+{
+	uint16_t far *tram = reinterpret_cast<uint16_t far *>(
+		MK_FP((0xA000 + (y * 10)), (x * 2))
+	);
+	uint16_t far *attributes = reinterpret_cast<uint16_t far *>(
+		MK_FP((0xA000 + (y * 10)), ((x * 2) + 0x2000))
+	);
+	uint16_t jis;
+	uint8_t glyph_low = static_cast<uint8_t>(glyph);
+
+	_asm {
+		mov al, glyph_low
+		mov ah, al
+		mov al, 0
+		rol ax, 1
+		shr ax, 1
+		adc ax, 56h
+		mov jis, ax
+	}
+	tram[0] = jis;
+	attributes[0] = static_cast<uint16_t>(attr);
+	tram[1] = static_cast<uint16_t>(jis | 0x8000);
+	attributes[1] = static_cast<uint16_t>(attr);
+}
+
+static void replay_save_keyboard_cell_put(
+	uint8_t col, uint8_t row, tram_atrb2 attr
+)
+{
+	uint8_t cell = static_cast<uint8_t>(
+		(row * REPLAY_SAVE_ALPHABET_COLS) + col
+	);
+	replay_save_gaiji_putca(
+		(REPLAY_SAVE_ALPHABET_LEFT + (col * GAIJI_TRAM_W)),
+		(REPLAY_SAVE_ALPHABET_TOP + row),
+		replay_save_keyboard_glyph(cell), attr
+	);
+}
+
+static void replay_save_keyboard_put(uint8_t selected_col, uint8_t selected_row)
+{
+	uint8_t row;
+	uint8_t col;
+
+	text_clear();
+	for(row = 0; row < REPLAY_SAVE_ALPHABET_ROWS; row++) {
+		for(col = 0; col < REPLAY_SAVE_ALPHABET_COLS; col++) {
+			replay_save_keyboard_cell_put(col, row, TX_WHITE);
+		}
+	}
+	replay_save_keyboard_cell_put(
+		selected_col, selected_row, (TX_GREEN | TX_REVERSE)
+	);
+}
+
+static char *replay_save_modal_question_append(
+	char *p, replay_save_modal_t modal
+)
+{
+	#define P(c) *p++ = static_cast<char>(c)
+	if(modal == RSM_SAVE) {
+		P(0x83); P(0x8A); P(0x83); P(0x76); P(0x83); P(0x8C); P(0x83); P(0x43);
+		P(0x82); P(0xF0); P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xB5);
+		P(0x82); P(0xDC); P(0x82); P(0xB7); P(0x82); P(0xA9); P(0x81); P(0x48);
+	} else if(modal == RSM_DISCARD) {
+		P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xF0); P(0x82); P(0xE2);
+		P(0x82); P(0xDF); P(0x82); P(0xDC); P(0x82); P(0xB7); P(0x82); P(0xA9);
+		P(0x81); P(0x48);
+	} else {
+		P(0x82); P(0xB1); P(0x82); P(0xCC); P(0x83); P(0x58); P(0x83); P(0x8D);
+		P(0x83); P(0x62); P(0x83); P(0x67); P(0x82); P(0xF0); P(0x8F); P(0xE3);
+		P(0x8F); P(0x91); P(0x82); P(0xAB); P(0x82); P(0xB5); P(0x82); P(0xDC);
+		P(0x82); P(0xB7); P(0x82); P(0xA9); P(0x81); P(0x48);
+	}
+	#undef P
+	return p;
+}
+
+static char *replay_save_modal_choice_append(char *p, bool yes)
+{
+	#define P(c) *p++ = static_cast<char>(c)
+	if(yes) {
+		P(0x82); P(0xCD); P(0x82); P(0xA2);
+	} else {
+		P(0x82); P(0xA2); P(0x82); P(0xA2); P(0x82); P(0xA6);
+	}
+	#undef P
+	return p;
+}
+
+static void replay_save_sjis_put_centered(vram_y_t top, vc2 color, char *p)
+{
+	*p = '\0';
+	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
+	graph_putsa_fx(
+		((RES_X - ((p - replay_op_line) * 8)) / 2), top, color,
+		reinterpret_cast<const shiftjis_t *>(replay_op_line)
+	);
+}
+
+static void replay_save_modal_render(
+	replay_save_modal_t modal, bool selected_yes
+)
+{
+	uint8_t page_drawn = (1 - replay_op_page_shown);
+	char *p;
+
+	graph_accesspage(page_drawn);
+	pi_put_8(0, 0, 0);
+	p = replay_op_line;
+	p = replay_save_modal_question_append(p, modal);
+	replay_save_sjis_put_centered(152, V_WHITE, p);
+	p = replay_op_line;
+	p = replay_save_modal_choice_append(p, true);
+	replay_save_sjis_put_centered(
+		200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+	);
+	p = replay_op_line;
+	p = replay_save_modal_choice_append(p, false);
+	replay_save_sjis_put_centered(
+		232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
+	);
+	graph_showpage(page_drawn);
+	replay_op_page_shown = page_drawn;
+}
+
+static bool replay_save_modal(
+	replay_save_modal_t modal, bool default_yes, bool fade_in
+)
+{
+	bool selected_yes = default_yes;
+	bool input_allowed = false;
+
+	replay_save_modal_render(modal, selected_yes);
+	if(fade_in) {
+		palette_black_in(1);
+	}
+	while(1) {
+		input_reset_sense_interface();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(key_det & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT)) {
+				selected_yes = !selected_yes;
+				replay_save_modal_render(modal, selected_yes);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_CANCEL) {
+				return false;
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				return selected_yes;
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+}
+
+static void replay_save_name_render(const char far *name)
+{
+	uint8_t page_drawn = (1 - replay_op_page_shown);
+	uint16_t date = replay_op_header.dos_date;
+	uint16_t year = static_cast<uint16_t>(1980 + (date >> 9));
+	uint8_t month = static_cast<uint8_t>((date >> 5) & 0x0F);
+	uint8_t day = static_cast<uint8_t>(date & 0x1F);
+	char *p;
+	unsigned i;
+
+	graph_accesspage(page_drawn);
+	pi_put_8(0, 0, 0);
+	p = replay_op_line;
+	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+		*p++ = name[i];
+	}
+	*p = '\0';
+	replay_op_font_put(220, 72, replay_op_line, V_WHITE);
+	p = replay_op_line;
+	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
+	*p = '\0';
+	replay_op_font_put_right(600, 72, replay_op_line, V_WHITE);
+	p = replay_op_line;
+	p = replay_op_uint_zero_append(p, month, 2);
+	*p++ = '-';
+	p = replay_op_uint_zero_append(p, day, 2);
+	*p++ = '-';
+	p = replay_op_uint_zero_append(p, year, 4);
+	*p = '\0';
+	replay_op_font_put(220, 136, replay_op_line, V_WHITE);
+	p = replay_op_line;
+	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
+	*p = '\0';
+	replay_op_font_put(376, 136, replay_op_line, V_WHITE);
+	p = replay_op_line;
+	p = replay_op_word_append(
+		p, replay_op_playchar_word(replay_op_header.start.playchar)
+	);
+	#if (GAME == 4)
+		*p++ = ' ';
+		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
+	#endif
+	*p = '\0';
+	replay_op_font_put(480, 136, replay_op_line, V_WHITE);
+	p = replay_op_line;
+	if(replay_op_header.start.stage == STAGE_EXTRA) {
+		p = replay_op_word_append(p, ROW_EXTRA);
+	} else {
+		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
+	}
+	*p = '\0';
+	replay_op_font_put_right(600, 136, replay_op_line, V_WHITE);
+	graph_showpage(page_drawn);
+	replay_op_page_shown = page_drawn;
+}
+
+static bool replay_save_name_menu(char far *name, bool fade_in)
+{
+	uint8_t col = 0;
+	uint8_t row = 0;
+	uint8_t cell;
+	uint8_t cursor = 0;
+	bool input_allowed = false;
+	unsigned i;
+
+	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+		name[i] = ' ';
+	}
+	replay_save_name_render(name);
+	replay_save_keyboard_put(col, row);
+	if(fade_in) {
+		palette_black_in(1);
+	}
+	while(1) {
+		input_reset_sense_interface();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(key_det & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT)) {
+				replay_save_keyboard_cell_put(col, row, TX_WHITE);
+				if(key_det & INPUT_UP) {
+					row = ((row == 0) ? (REPLAY_SAVE_ALPHABET_ROWS - 1) : (row - 1));
+				}
+				if(key_det & INPUT_DOWN) {
+					row = ((row == (REPLAY_SAVE_ALPHABET_ROWS - 1)) ? 0 : (row + 1));
+				}
+				if(key_det & INPUT_LEFT) {
+					col = ((col == 0) ? (REPLAY_SAVE_ALPHABET_COLS - 1) : (col - 1));
+				}
+				if(key_det & INPUT_RIGHT) {
+					col = ((col == (REPLAY_SAVE_ALPHABET_COLS - 1)) ? 0 : (col + 1));
+				}
+				replay_save_keyboard_cell_put(
+					col, row, (TX_GREEN | TX_REVERSE)
+				);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_CANCEL) {
+				text_clear();
+				if(replay_save_modal(RSM_DISCARD, false, false)) {
+					return false;
+				}
+				replay_save_name_render(name);
+				replay_save_keyboard_put(col, row);
+			} else if(key_det & INPUT_BOMB) {
+				if(cursor > 0) {
+					cursor--;
+				}
+				name[cursor] = ' ';
+				replay_save_name_render(name);
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				cell = static_cast<uint8_t>(
+					(row * REPLAY_SAVE_ALPHABET_COLS) + col
+				);
+				if(cell == REPLAY_SAVE_CELL_END) {
+					text_clear();
+					return true;
+				}
+				if(cell == REPLAY_SAVE_CELL_LEFT) {
+					if(cursor > 0) {
+						cursor--;
+					}
+					name[cursor] = ' ';
+				} else if(cell == REPLAY_SAVE_CELL_RIGHT) {
+					if(cursor < (REPLAY_USER_NAME_LEN - 1)) {
+						cursor++;
+					}
+				} else {
+					name[cursor] = ((cell == REPLAY_SAVE_CELL_SPACE)
+						? ' '
+						: replay_save_keyboard_ascii(cell)
+					);
+					if(cursor < (REPLAY_USER_NAME_LEN - 1)) {
+						cursor++;
+					} else {
+						replay_save_keyboard_cell_put(col, row, TX_WHITE);
+						col = (REPLAY_SAVE_ALPHABET_COLS - 1);
+						row = (REPLAY_SAVE_ALPHABET_ROWS - 1);
+						replay_save_keyboard_cell_put(
+							col, row, (TX_GREEN | TX_REVERSE)
+						);
+					}
+				}
+				replay_save_name_render(name);
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+}
+
+static void replay_save_pending_discard(void)
+{
+	replay_op_save_transaction_recover();
+	if(!replay_op_file_exists(replay_op_save_txn_fn)) {
+		replay_op_dos_delete(replay_op_save_request_fn);
+		replay_op_dos_delete(replay_op_temp_fn);
+		replay_op_dos_flush();
+	}
+}
+
+static void replay_save_wait_for_key(void)
+{
+	do {
+		input_reset_sense_interface();
+		frame_delay(1);
+	} while(key_det != INPUT_NONE);
+	do {
+		input_reset_sense_interface();
+		frame_delay(1);
+	} while(key_det == INPUT_NONE);
+}
+
+static void replay_save_complete_put(void)
+{
+	char *p = replay_op_line;
+	#define P(c) *p++ = static_cast<char>(c)
+	P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xB5);
+	P(0x82); P(0xDC); P(0x82); P(0xB5); P(0x82); P(0xBD);
+	#undef P
+	graph_accesspage(replay_op_page_shown);
+	replay_save_sjis_put_centered(332, REPLAY_OP_COL_ACTIVE, p);
+	graph_showpage(replay_op_page_shown);
+}
+
+static void replay_save_slot_menu(const char far *name)
+{
+	uint8_t sel = 0;
+	bool occupied;
+	bool input_allowed = false;
+	graph_putsa_fx_func_t previous_func;
+
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, false)) {
+		return;
+	}
+	replay_browser_render(sel);
+	while(1) {
+		input_reset_sense_interface();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(key_det & INPUT_UP) {
+				sel = ((sel == 0) ? 99 : (sel - 1));
+				replay_browser_render(sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_DOWN) {
+				sel = ((sel == 99) ? 0 : (sel + 1));
+				replay_browser_render(sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_LEFT) {
+				sel = ((sel < 10) ? (sel + 90) : (sel - 10));
+				replay_browser_render(sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_RIGHT) {
+				sel = ((sel >= 90) ? (sel - 90) : (sel + 10));
+				replay_browser_render(sel);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_CANCEL) {
+				if(replay_save_modal(RSM_DISCARD, false, false)) {
+					replay_save_pending_discard();
+					palette_black_out(1);
+					replay_op_screen_end(previous_func);
+					return;
+				}
+				replay_browser_render(sel);
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				occupied = replay_op_header_read(sel, true);
+				if(
+					(!occupied || replay_save_modal(RSM_OVERWRITE, false, false)) &&
+					replay_op_pending_commit(sel, name)
+				) {
+					replay_browser_render(sel);
+					replay_save_complete_put();
+					replay_save_wait_for_key();
+					palette_black_out(1);
+					replay_op_screen_end(previous_func);
+					return;
+				}
+				if(occupied) {
+					replay_browser_render(sel);
+				}
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+}
+
+static bool replay_save_pending(void)
+{
+	replay_save_request_t request;
+	char name[REPLAY_USER_NAME_LEN];
+	graph_putsa_fx_func_t previous_func;
+
+	if(!replay_op_pending_read(&request, true)) {
+		return false;
+	}
+	if(!replay_op_screen_begin(ROB_REPLAY_SAVE, previous_func, true)) {
+		return false;
+	}
+	text_clear();
+	if(
+		(request.source == RSRS_POSTGAME) &&
+		!replay_save_modal(RSM_SAVE, true, true)
+	) {
+		replay_save_pending_discard();
+		palette_black_out(1);
+		replay_op_screen_end(previous_func);
+		return true;
+	}
+	if(!replay_save_name_menu(
+		name, (request.source == RSRS_PAUSE_SAVE_EXIT)
+	)) {
+		replay_save_pending_discard();
+		palette_black_out(1);
+		replay_op_screen_end(previous_func);
+		return true;
+	}
+	replay_op_screen_end(previous_func);
+	replay_save_slot_menu(name);
+	return true;
+}
+
 void replay_record_next_prepare(void)
 {
 	replay_command_clear();
@@ -3660,6 +4186,10 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 		replay_main_private_checked = true;
 		replay_op_save_transaction_recover();
 		replay_op_pending_request_validate();
+		if(replay_save_pending()) {
+			replay_main_return(RMC_REPLAY);
+			return;
+		}
 		if(replay_restart_command_start(&private_start, &restart_flags)) {
 			replay_main_start_restart_apply(&private_start, restart_flags);
 			return;
@@ -3762,10 +4292,12 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
