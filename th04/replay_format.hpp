@@ -57,6 +57,8 @@
 
 #define REPLAY_SAVE_REQUEST_SCHEMA 1
 #define REPLAY_SAVE_REQUEST_SIZE 20
+#define REPLAY_SAVE_TXN_SCHEMA 1
+#define REPLAY_SAVE_TXN_SIZE 20
 
 #define REPLAY_USER_INPUT_SEMANTICS 1
 #define REPLAY_USER_RULESET_STOCK 0
@@ -87,6 +89,12 @@ enum replay_user_status_t {
 enum replay_save_request_source_t {
 	RSRS_POSTGAME = 0,
 	RSRS_PAUSE_SAVE_EXIT = 1,
+};
+
+enum replay_save_txn_state_t {
+	RSTS_PREPARED = 1,
+	RSTS_BACKUP_MOVED = 2,
+	RSTS_INSTALLED = 3,
 };
 
 enum replay_user_end_reason_t {
@@ -260,6 +268,16 @@ struct replay_save_request_t {
 	uint32_t checksum;
 };
 
+struct replay_save_txn_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t state;
+	uint8_t slot;
+	uint8_t destination_existed;
+	uint32_t temp_header_checksum;
+	uint32_t checksum;
+};
+
 struct replay_checkpoint_header_t {
 	char magic[8];
 	uint16_t schema;
@@ -306,6 +324,9 @@ typedef char replay_command_size_check[
 ];
 typedef char replay_save_request_size_check[
 	(sizeof(replay_save_request_t) == REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
+];
+typedef char replay_save_txn_size_check[
+	(sizeof(replay_save_txn_t) == REPLAY_SAVE_TXN_SIZE) ? 1 : -1
 ];
 typedef char replay_checkpoint_header_size_check[
 	(sizeof(replay_checkpoint_header_t) == REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
