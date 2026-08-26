@@ -69,5 +69,8 @@ bool16 t1boss_mima_checkpoint_capture(
 bool16 t1boss_mima_checkpoint_apply(
 	const t1boss_mima_checkpoint_t *checkpoint
 );
+bool16 t1boss_mima_ckpt_apply_loaded(
+	const t1boss_mima_checkpoint_t *checkpoint
+);
 
 #endif /* TH01_MAIN_BOSS_B10J_HPP */

@@ -50,6 +50,12 @@
 #define T1REPLAY_CHECKPOINT_EMIT 0
 #endif
 
+// Private validation builds can begin each REIIDEN process at its semantic
+// sidecar. Release builds keep this disabled and perform no checkpoint reads.
+#ifndef T1REPLAY_CHECKPOINT_RESTORE
+#define T1REPLAY_CHECKPOINT_RESTORE 0
+#endif
+
 #define T1REPLAY_STATUS_RECORDING 1
 #define T1REPLAY_STATUS_FINALIZED 2
 #define T1REPLAY_STATUS_ERROR 3

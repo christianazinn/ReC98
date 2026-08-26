@@ -194,4 +194,42 @@ bool16 t1replay_checkpoint_boss_capture(
 	return t1replay_checkpoint_boss_valid(boss);
 }
 
+bool16 t1replay_checkpoint_boss_apply(
+	const t1replay_checkpoint_boss_t far *boss
+)
+{
+	if(!t1replay_checkpoint_boss_valid(boss)) {
+		return false;
+	}
+	switch(boss->boss_id) {
+	case BID_NONE:
+		return true;
+	case BID_SINGYOKU:
+		return t1boss_singyoku_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_singyoku_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	case BID_YUUGENMAGAN:
+		return t1boss_yuugenmagan_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_yuugenmagan_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	case BID_MIMA:
+		return t1boss_mima_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_mima_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	case BID_KIKURI:
+		return t1boss_kikuri_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_kikuri_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	}
+	return false;
+}
+
 #pragma codeseg

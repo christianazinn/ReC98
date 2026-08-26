@@ -48,5 +48,8 @@ bool16 t1boss_singyoku_checkpoint_capture(
 bool16 t1boss_singyoku_checkpoint_apply(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 );
+bool16 t1boss_singyoku_ckpt_apply_loaded(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+);
 
 #endif /* TH01_MAIN_BOSS_B05_HPP */

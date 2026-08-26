@@ -13,5 +13,8 @@ bool16 t1replay_checkpoint_world_valid(
 bool16 t1replay_checkpoint_boss_capture(
 	t1replay_checkpoint_boss_t far *boss
 );
+bool16 t1replay_checkpoint_boss_apply(
+	const t1replay_checkpoint_boss_t far *boss
+);
 
 #endif /* TH01_RBOSS_HPP */

@@ -23,6 +23,11 @@ int far t1replay_key_sense(int keygroup);
 // The private sidecar is capture-only until all world codecs can restore it.
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
 
+// Private exact-restore seam. The pending flag is set only after the complete
+// sidecar and replay prefix validate before any gameplay mutation.
+bool16 far t1replay_checkpoint_restore_pending(void);
+bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle);
+
 // The two accessors keep hidden owner state semantic and pointer-free. Import
 // remains intentionally unused by the capture-only substrate.
 void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out);

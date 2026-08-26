@@ -877,7 +877,7 @@ bool16 t1boss_singyoku_checkpoint_capture(
 	return true;
 }
 
-bool16 t1boss_singyoku_checkpoint_apply(
+bool16 t1boss_singyoku_ckpt_apply_loaded(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 )
 {
@@ -885,9 +885,6 @@ bool16 t1boss_singyoku_checkpoint_apply(
 		return false;
 	}
 
-	// Rebuild pointer-backed .BOS slots from their native files. The snapshot
-	// contains only the semantic positions and image IDs applied below.
-	singyoku_ent_load();
 	ent.pos_set(checkpoint->sphere_left, checkpoint->sphere_top, 32);
 	ent.prev_left = checkpoint->sphere_left;
 	ent.prev_top = checkpoint->sphere_top;
@@ -918,6 +915,19 @@ bool16 t1boss_singyoku_checkpoint_apply(
 	halfcircle_angle = checkpoint->halfcircle_angle;
 	halfcircle_direction = checkpoint->halfcircle_direction;
 	return true;
+}
+
+bool16 t1boss_singyoku_checkpoint_apply(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_singyoku_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS slots from their native files. The snapshot
+	// contains only the semantic positions and image IDs applied below.
+	singyoku_ent_load();
+	return t1boss_singyoku_ckpt_apply_loaded(checkpoint);
 }
 
 #pragma codeseg

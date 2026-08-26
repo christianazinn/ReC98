@@ -1507,7 +1507,7 @@ static void t1boss_kikuri_ckpt_restore_tear(
 	tears[i].lock_frame = checkpoint->tear_lock_frame[i];
 }
 
-bool16 t1boss_kikuri_checkpoint_apply(
+bool16 t1boss_kikuri_ckpt_apply_loaded(
 	const t1boss_kikuri_checkpoint_t *checkpoint
 )
 {
@@ -1519,9 +1519,6 @@ bool16 t1boss_kikuri_checkpoint_apply(
 		return false;
 	}
 
-	// Rebuild pointer-backed .BOS/.PTN resources. The record carries only
-	// stable sprite, pattern, and palette semantics applied below.
-	kikuri_ent_load(i);
 	for(i = 0; i < SOUL_COUNT; i++) {
 		t1boss_kikuri_ckpt_restore_soul(checkpoint, i);
 	}
@@ -1552,6 +1549,21 @@ bool16 t1boss_kikuri_checkpoint_apply(
 	hud_hp_first_white = HP_PHASE_2_END;
 	hud_hp_first_redwhite = HP_PHASE_5_END;
 	return true;
+}
+
+bool16 t1boss_kikuri_checkpoint_apply(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(!t1boss_kikuri_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS/.PTN resources. The record carries only
+	// stable sprite, pattern, and palette semantics applied below.
+	kikuri_ent_load(i);
+	return t1boss_kikuri_ckpt_apply_loaded(checkpoint);
 }
 
 #pragma codeseg

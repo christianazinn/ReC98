@@ -14,6 +14,7 @@
 #include "th01/resident.hpp"
 #include "th01/math/dir.hpp"
 #include "th01/main/stage/timer.hpp"
+#include "th01/main/extend.hpp"
 #include "th01/main/player/player.hpp"
 #include "th01/main/player/orb.hpp"
 #include "th01/main/player/shot.hpp"
@@ -24,6 +25,7 @@
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/main/stage/item.hpp"
 #include "th01/main/particle.hpp"
+#include "th01/main/boss/boss.hpp"
 #include "th01/rboss.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 
@@ -38,6 +40,7 @@ extern bool stage_wait_for_shot_to_begin;
 extern bool16 mode_test;
 extern uint32_t bomb_frame;
 extern uint32_t frame_since_start_of_binary;
+extern int8_t boss_id;
 
 typedef char t1replay_res_id_size_check[
 	(sizeof(T1REPLAY_RES_ID) == sizeof(reinterpret_cast<t1replay_res_t *>(0)->id)) ? 1 : -1
@@ -45,9 +48,7 @@ typedef char t1replay_res_id_size_check[
 
 static char t1replay_command_fn[10];
 static char t1replay_slot_fn[11];
-#if T1REPLAY_CHECKPOINT_EMIT
 static char t1replay_checkpoint_fn[12];
-#endif
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
 static bool t1replay_command_delete_failed;
@@ -68,6 +69,7 @@ static bool t1replay_pending_valid;
 static uint8_t t1replay_keys[T1REPLAY_INPUT_GROUP_COUNT];
 static bool t1replay_checkpoint_capture_attempted;
 static t1replay_checkpoint_t t1replay_checkpoint;
+static bool t1replay_checkpoint_restore_is_pending;
 
 static void t1replay_memclear(void far *buf, unsigned size)
 {
@@ -95,14 +97,12 @@ static void t1replay_paths_init(void)
 	t1replay_slot_fn[6] = '.'; t1replay_slot_fn[7] = 'R';
 	t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = 'Y';
 	t1replay_slot_fn[10] = '\0';
-#if T1REPLAY_CHECKPOINT_EMIT
 	t1replay_checkpoint_fn[0] = 'T'; t1replay_checkpoint_fn[1] = '1';
 	t1replay_checkpoint_fn[2] = 'C'; t1replay_checkpoint_fn[3] = '0';
 	t1replay_checkpoint_fn[4] = '0'; t1replay_checkpoint_fn[5] = '0';
 	t1replay_checkpoint_fn[6] = '0'; t1replay_checkpoint_fn[7] = '.';
 	t1replay_checkpoint_fn[8] = 'C'; t1replay_checkpoint_fn[9] = 'K';
 	t1replay_checkpoint_fn[10] = 'P'; t1replay_checkpoint_fn[11] = '\0';
-#endif
 	t1replay_paths_ready = true;
 }
 
@@ -134,7 +134,6 @@ static void t1replay_slot_set(uint8_t slot)
 	t1replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
 }
 
-#if T1REPLAY_CHECKPOINT_EMIT
 static bool t1replay_checkpoint_path_set(uint8_t slot, uint8_t process_seq)
 {
 	if((slot >= T1REPLAY_SLOT_COUNT) ||
@@ -147,7 +146,6 @@ static bool t1replay_checkpoint_path_set(uint8_t slot, uint8_t process_seq)
 	t1replay_checkpoint_fn[6] = static_cast<char>('0' + (process_seq % 10));
 	return true;
 }
-#endif
 
 static int t1replay_dos_open(const char far *fn, unsigned char access)
 {
@@ -819,6 +817,46 @@ static bool t1replay_checkpoint_valid(
 	);
 }
 
+static bool t1replay_checkpoint_cross_groups_valid(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	const t1replay_checkpoint_scenario_t far *scenario = &checkpoint->scenario;
+	const t1replay_checkpoint_input_t far *input = &checkpoint->input;
+	const t1replay_checkpoint_pacing_t far *pacing = &checkpoint->pacing;
+
+	if(
+		(scenario->resident_rank != scenario->game_rank) ||
+		(scenario->resident_bgm_mode != scenario->game_bgm_mode) ||
+		(scenario->resident_rem_bombs != scenario->game_rem_bombs) ||
+		(scenario->resident_credit_lives_extra !=
+			scenario->game_credit_lives_extra) ||
+		(scenario->resident_route != scenario->game_route) ||
+		(scenario->resident_rem_lives != scenario->game_rem_lives) ||
+		(scenario->resident_continues_total !=
+			scenario->game_continues_total) ||
+		input->paused || input->player_is_hit ||
+		checkpoint->player.player_is_hit ||
+		!pacing->timer_initialized || pacing->first_stage_in_scene ||
+		pacing->stage_wait_for_shot_to_begin
+	) {
+		return false;
+	}
+	if(checkpoint->orb.in_portal) {
+		int slot = checkpoint->stage.entered_portal_slot;
+
+		if(
+			!checkpoint->stage.portals_blocked ||
+			(slot < 0) || (slot >= checkpoint->stage.obstacles_count) ||
+			(checkpoint->stage.obstacles[slot].type != OT_PORTAL) ||
+			(checkpoint->stage.obstacles[slot].frame == 0)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool t1replay_magic_matches(const char far *magic, char last)
 {
 	return (
@@ -1172,6 +1210,111 @@ static bool t1replay_payload_prefix_valid(
 	return (hash == expected);
 }
 
+static bool t1replay_checkpoint_read(uint8_t slot, uint8_t process_seq)
+{
+	uint32_t size;
+	int fd;
+	bool valid;
+
+	if(!t1replay_checkpoint_path_set(slot, process_seq)) {
+		return false;
+	}
+	fd = t1replay_dos_open(t1replay_checkpoint_fn, T1REPLAY_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	valid = (
+		t1replay_dos_size(fd, &size) && t1replay_dos_seek(fd, 0) &&
+		(size == sizeof(t1replay_checkpoint)) &&
+		(t1replay_dos_read(
+			fd, &t1replay_checkpoint, sizeof(t1replay_checkpoint)
+		) == sizeof(t1replay_checkpoint))
+	);
+	t1replay_dos_close(fd);
+	return valid;
+}
+
+static bool t1replay_checkpoint_restore_prepare(
+	resident_t far *start_resident, uint8_t slot, uint8_t process_seq,
+	uint8_t source_process
+)
+{
+	t1replay_stream_state_t state;
+	const t1replay_checkpoint_pacing_t far *pacing =
+		&t1replay_checkpoint.pacing;
+	const t1replay_checkpoint_scenario_t far *scenario =
+		&t1replay_checkpoint.scenario;
+
+	if(
+		!start_resident ||
+		!t1replay_checkpoint_read(slot, process_seq) ||
+		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_cross_groups_valid(&t1replay_checkpoint) ||
+		(pacing->process_seq != process_seq) ||
+		(pacing->replay_packet_anchor > t1replay_header.packet_count) ||
+		(pacing->replay_sample_anchor > t1replay_header.sample_count) ||
+		(pacing->replay_input_anchor > t1replay_header.input_size) ||
+		(start_resident->stage_id != scenario->resident_stage_id) ||
+		(start_resident->route != scenario->resident_route) ||
+		!t1replay_payload_prefix_valid(
+			pacing->replay_input_anchor, pacing->replay_prefix_checksum, &state
+		) ||
+		state.terminal_seen ||
+		(state.samples != pacing->replay_sample_anchor) ||
+		(state.process != T1REPLAY_PROCESS_REIIDEN) ||
+		(state.process_seq != process_seq) ||
+		(state.source_process != source_process)
+	) {
+		return false;
+	}
+
+	// Only the resident scenario is needed before native scene and owner
+	// loaders rebuild their allocations. All remaining mutation is deferred to
+	// the top-of-gameplay-loop restore seam.
+	start_resident->rand = scenario->resident_rand;
+	start_resident->score = scenario->resident_score;
+	start_resident->continues_total = scenario->resident_continues_total;
+	start_resident->hiscore = scenario->resident_hiscore;
+	start_resident->score_highest = scenario->resident_score_highest;
+	for(int i = 0; i < (STAGES_PER_SCENE - 1); i++) {
+		start_resident->bonus_per_stage[i] = scenario->resident_bonus_per_stage[i];
+		start_resident->continues_per_scene[i] =
+			scenario->resident_continues_per_scene[i];
+	}
+	start_resident->stage_id = scenario->resident_stage_id;
+	start_resident->point_value = scenario->resident_point_value;
+	start_resident->pellet_speed = scenario->resident_pellet_speed;
+	start_resident->rank = scenario->resident_rank;
+	start_resident->bgm_mode = static_cast<bgm_mode_t>(
+		scenario->resident_bgm_mode
+	);
+	start_resident->rem_bombs = scenario->resident_rem_bombs;
+	start_resident->credit_lives_extra =
+		scenario->resident_credit_lives_extra;
+	start_resident->end_flag = static_cast<end_sequence_t>(
+		scenario->resident_end_flag
+	);
+	start_resident->route = scenario->resident_route;
+	start_resident->rem_lives = scenario->resident_rem_lives;
+	start_resident->snd_need_init = scenario->resident_snd_need_init;
+	start_resident->debug_mode = DM_OFF;
+
+	// Prefix validation used the shared I/O buffer. Resume from an empty decode
+	// buffer at the exact packet boundary recorded by the sidecar.
+	t1replay_buffer_len = 0;
+	t1replay_buffer_pos = 0;
+	t1replay_payload_written = pacing->replay_input_anchor;
+	t1replay_packet_cursor = pacing->replay_packet_anchor;
+	t1replay_sample_cursor = pacing->replay_sample_anchor;
+	t1replay_payload_checksum = pacing->replay_prefix_checksum;
+	t1replay_pending_run = 0;
+	t1replay_decode_run = 0;
+	t1replay_pending_valid = false;
+	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
+	t1replay_checkpoint_restore_is_pending = true;
+	return true;
+}
+
 static void t1replay_start_capture(void)
 {
 	int i;
@@ -1501,6 +1644,7 @@ static void t1replay_state_reset(void)
 	t1replay_pending_valid = false;
 	t1replay_command_delete_failed = false;
 	t1replay_checkpoint_capture_attempted = false;
+	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 }
 
@@ -1751,6 +1895,20 @@ void far t1replay_entry(void)
 			t1replay_packet_cursor = t1replay_res->packet_count;
 			t1replay_sample_cursor = t1replay_res->sample_count;
 			t1replay_payload_checksum = t1replay_res->payload_checksum;
+#if T1REPLAY_CHECKPOINT_RESTORE
+			if(t1replay_mode == T1RM_PLAYBACK) {
+				start_resident = ResData<resident_t>::exist(resident_id);
+				resident = start_resident;
+				if(!t1replay_checkpoint_restore_prepare(
+					start_resident, t1replay_res->slot,
+					t1replay_res->process_seq, t1replay_res->source_process
+				)) {
+					t1replay_fail();
+					return;
+				}
+				t1replay_res_store();
+			}
+#endif
 		} else {
 			t1replay_abort_before_start();
 			return;
@@ -1791,7 +1949,16 @@ void far t1replay_entry(void)
 				t1replay_fail();
 				return;
 			}
+#if T1REPLAY_CHECKPOINT_RESTORE
+			if(!t1replay_checkpoint_restore_prepare(
+				start_resident, slot, 0, T1REPLAY_PROCESS_NONE
+			)) {
+				t1replay_fail();
+				return;
+			}
+#else
 			t1replay_start_apply();
+#endif
 		}
 		if(!t1replay_res_open(res_id, true)) {
 			if(t1replay_mode == T1RM_PLAYBACK) {
@@ -1811,6 +1978,106 @@ void far t1replay_entry(void)
 		t1replay_res->target_process = T1REPLAY_PROCESS_REIIDEN;
 		t1replay_res_store();
 	}
+}
+
+bool16 far t1replay_checkpoint_restore_pending(void)
+{
+	return t1replay_checkpoint_restore_is_pending;
+}
+
+static void t1replay_checkpoint_scenario_apply(
+	const t1replay_checkpoint_scenario_t far *scenario
+)
+{
+	int i;
+
+	resident->rand = scenario->resident_rand;
+	resident->score = scenario->resident_score;
+	resident->continues_total = scenario->resident_continues_total;
+	resident->hiscore = scenario->resident_hiscore;
+	resident->score_highest = scenario->resident_score_highest;
+	for(i = 0; i < (STAGES_PER_SCENE - 1); i++) {
+		resident->bonus_per_stage[i] = scenario->resident_bonus_per_stage[i];
+		resident->continues_per_scene[i] =
+			scenario->resident_continues_per_scene[i];
+	}
+	resident->stage_id = scenario->resident_stage_id;
+	resident->point_value = scenario->resident_point_value;
+	resident->pellet_speed = scenario->resident_pellet_speed;
+	resident->rank = scenario->resident_rank;
+	resident->bgm_mode = static_cast<bgm_mode_t>(scenario->resident_bgm_mode);
+	resident->rem_bombs = scenario->resident_rem_bombs;
+	resident->credit_lives_extra = scenario->resident_credit_lives_extra;
+	resident->end_flag = static_cast<end_sequence_t>(scenario->resident_end_flag);
+	resident->route = scenario->resident_route;
+	resident->rem_lives = scenario->resident_rem_lives;
+	resident->snd_need_init = scenario->resident_snd_need_init;
+	resident->debug_mode = DM_OFF;
+
+	score = scenario->game_score;
+	continues_total = scenario->game_continues_total;
+	rank = scenario->game_rank;
+	bgm_mode = static_cast<bgm_mode_t>(scenario->game_bgm_mode);
+	rem_bombs = scenario->game_rem_bombs;
+	credit_lives_extra = scenario->game_credit_lives_extra;
+	route = scenario->game_route;
+	rem_lives = scenario->game_rem_lives;
+	mode_test = false;
+	extend_next = ((score / SCORE_PER_EXTEND) + 1);
+}
+
+bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
+{
+	const t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		(t1replay_mode != T1RM_PLAYBACK) || !resident ||
+		!t1replay_checkpoint_valid(checkpoint) ||
+		!t1replay_checkpoint_cross_groups_valid(checkpoint) ||
+		(resident->stage_id != checkpoint->scenario.resident_stage_id) ||
+		(resident->route != checkpoint->scenario.resident_route) ||
+		(boss_id != checkpoint->boss.boss_id)
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+	if((boss_id == BID_NONE) &&
+		!t1replay_stage_checkpoint_import(&checkpoint->stage)) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	t1replay_checkpoint_scenario_apply(&checkpoint->scenario);
+	frame_rand = checkpoint->rng.frame_rand;
+	random_seed = static_cast<long>(checkpoint->rng.random_seed);
+	t1replay_player_checkpoint_import(&checkpoint->player);
+	t1replay_orb_checkpoint_import(&checkpoint->orb);
+	t1replay_items_checkpoint_import(&checkpoint->items);
+	t1replay_pellets_checkpoint_import(&checkpoint->pellets);
+	t1replay_shots_checkpoint_import(&checkpoint->shots);
+	t1replay_missiles_checkpoint_import(&checkpoint->missiles);
+	t1replay_lasers_checkpoint_import(&checkpoint->lasers);
+	t1replay_particles_checkpoint_import(&checkpoint->particles);
+	if(!t1replay_checkpoint_boss_apply(&checkpoint->boss)) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	frame_since_start_of_binary = checkpoint->pacing.frame_since_start_of_binary;
+	bomb_frame = checkpoint->pacing.bomb_frame;
+	timer_initialized = checkpoint->pacing.timer_initialized;
+	first_stage_in_scene = checkpoint->pacing.first_stage_in_scene;
+	stage_wait_for_shot_to_begin =
+		checkpoint->pacing.stage_wait_for_shot_to_begin;
+	t1replay_timer_checkpoint_import(&checkpoint->pacing);
+	*pellet_speed_raise_cycle = checkpoint->pacing.pellet_speed_raise_cycle;
+	t1replay_input_checkpoint_import(&checkpoint->input);
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
 }
 
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)

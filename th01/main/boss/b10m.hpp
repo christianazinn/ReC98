@@ -60,5 +60,8 @@ bool16 t1boss_yuugenmagan_checkpoint_capture(
 bool16 t1boss_yuugenmagan_checkpoint_apply(
 	const t1boss_yuugenmagan_checkpoint_t *checkpoint
 );
+bool16 t1boss_yuugenmagan_ckpt_apply_loaded(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+);
 
 #endif /* TH01_MAIN_BOSS_B10M_HPP */

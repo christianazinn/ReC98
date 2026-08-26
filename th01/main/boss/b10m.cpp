@@ -2370,7 +2370,7 @@ static void t1boss_yuugenmagan_checkpoint_restore_eye(
 	}
 }
 
-bool16 t1boss_yuugenmagan_checkpoint_apply(
+bool16 t1boss_yuugenmagan_ckpt_apply_loaded(
 	const t1boss_yuugenmagan_checkpoint_t *checkpoint
 )
 {
@@ -2380,10 +2380,6 @@ bool16 t1boss_yuugenmagan_checkpoint_apply(
 		return false;
 	}
 
-	// Rebuild pointer-backed .BOS/.PTN resources. The checkpoint contains only
-	// stable sprite IDs, eye flags, and line geometry applied below.
-	yuugenmagan_ent_load();
-	Missiles.load(PTN_SLOT_MISSILE);
 	for(i = 0; i < EYE_COUNT; i++) {
 		t1boss_yuugenmagan_checkpoint_restore_eye(
 			t1boss_yuugenmagan_checkpoint_eye(i), i, checkpoint
@@ -2419,6 +2415,20 @@ bool16 t1boss_yuugenmagan_checkpoint_apply(
 	pentagram.velocity_x = checkpoint->line_velocity_x;
 	pentagram.velocity_y = checkpoint->line_velocity_y;
 	return true;
+}
+
+bool16 t1boss_yuugenmagan_checkpoint_apply(
+	const t1boss_yuugenmagan_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_yuugenmagan_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS/.PTN resources. The checkpoint contains only
+	// stable sprite IDs, eye flags, and line geometry applied below.
+	yuugenmagan_ent_load();
+	Missiles.load(PTN_SLOT_MISSILE);
+	return t1boss_yuugenmagan_ckpt_apply_loaded(checkpoint);
 }
 
 #pragma codeseg
