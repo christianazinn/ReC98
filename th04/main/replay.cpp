@@ -10,6 +10,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th04/common.h"
 #include "th04/end/end.h"
+#include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/oracle.hpp"
 #include "th04/main/quit.hpp"
@@ -134,11 +135,11 @@ static bool replay_practice_preroll_pending;
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
 #if (GAME == 5)
 	#define REPLAY_MAIN_HEAP_TARGET_PARAS (291200 >> 4)
-	#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (264000 >> 4)
 #else
-	#define REPLAY_MAIN_HEAP_TARGET_PARAS (320000 >> 4)
-	#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (280000 >> 4)
+	// Correct the original 320,000-byte no-EMS heap landmine.
+	#define REPLAY_MAIN_HEAP_TARGET_PARAS (324000 >> 4)
 #endif
+#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (245760 >> 4)
 
 static uint16_t replay_dos_largest_free_block(void)
 {
@@ -165,7 +166,7 @@ void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 {
 	uint16_t largest = replay_dos_largest_free_block();
 	uint16_t minimum = (
-		ems_exist()
+		(ems_exist() && (ems_space() >= EMSSIZE))
 		? REPLAY_MAIN_HEAP_EMS_MIN_PARAS
 		: REPLAY_MAIN_HEAP_TARGET_PARAS
 	);

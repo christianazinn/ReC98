@@ -941,7 +941,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/m_char.cpp",
 	"th04/rpyop.cpp",
 })
-th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th04_main_inputs = {
 	{ "th04_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["sparks"],
@@ -1117,14 +1117,28 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/boss_4r.cpp",
 	"th04/boss_x2.cpp",
 
-	-- ORACLE MOD: validation-only code in an isolated ORACLE_TEXT segment.
-	"th04/oracle.cpp",
+	-- Production oracle facade. The full validation oracle is linked only into
+	-- bin/th04/oracle/main.exe below.
+	"th04/orl_rel.cpp",
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th04/replay.cpp",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th04/rp_ckpt.cpp",
-})
+}
+th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
+	"main", th04_main_inputs
+)
+
+local th04_oracle_inputs = {}
+for i, input in ipairs(th04_main_inputs) do
+	th04_oracle_inputs[i] = (
+		(input == "th04/orl_rel.cpp") and "th04/oracle.cpp" or input
+	)
+end
+th04:branch(MODEL_LARGE, Subdir("oracle/"), {
+	cflags = "-DBINARY='M'",
+}):link("main", th04_oracle_inputs)
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/maine_e.cpp",
 	{ "th04_maine_master.asm", o = "mainem.obj" },
@@ -1236,7 +1250,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th05/m_char.cpp",
 	"th05/rpyop.cpp",
 })
-th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th05_main_inputs = {
 	{ "th05_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["sparks"],
@@ -1386,14 +1400,28 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/boss.cpp",
 	"th05/main014.cpp",
 
-	-- ORACLE MOD: validation-only code in an isolated ORACLE_TEXT segment.
-	"th05/oracle.cpp",
+	-- Production oracle facade. The full validation oracle is linked only into
+	-- bin/th05/oracle/main.exe below.
+	"th05/orl_rel.cpp",
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th05/replay.cpp",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th05/rp_ckpt.cpp",
-})
+}
+th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
+	"main", th05_main_inputs
+)
+
+local th05_oracle_inputs = {}
+for i, input in ipairs(th05_main_inputs) do
+	th05_oracle_inputs[i] = (
+		(input == "th05/orl_rel.cpp") and "th05/oracle.cpp" or input
+	)
+end
+th05:branch(MODEL_LARGE, Subdir("oracle/"), {
+	cflags = "-DBINARY='M'",
+}):link("main", th05_oracle_inputs)
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/maine_e.cpp",
 	{ "th05_maine_master.asm", o = "mainem.obj" },

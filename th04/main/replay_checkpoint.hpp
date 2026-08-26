@@ -89,30 +89,11 @@ uint16_t replay_ck_failure_field(void);
 // detection. An unknown callback tuple fails instead of guessing a section.
 bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe);
 
-// All sizes are below one real-mode segment. [capacity] may exceed the
-// measured size; the encoded container itself remains tightly packed.
+// All sizes are below one real-mode segment.
 bool replay_ck_container_measure(
 	const replay_ck_identity_t far *identity,
 	uint16_t far *total_size,
 	uint32_t far *state_digest
-);
-bool replay_ck_container_encode(
-	const replay_ck_identity_t far *identity,
-	void far *data,
-	uint16_t capacity,
-	uint16_t far *total_size,
-	uint32_t far *state_digest
-);
-bool replay_ck_container_validate(
-	const replay_ck_identity_t far *identity,
-	const void far *data,
-	uint16_t total_size,
-	uint32_t far *state_digest
-);
-bool replay_ck_container_apply(
-	const replay_ck_identity_t far *identity,
-	const void far *data,
-	uint16_t total_size
 );
 
 // Streaming container interface. Capture writes the prefix followed by each
@@ -138,24 +119,6 @@ bool replay_ck_container_prefix_validate(
 );
 void replay_ck_container_prefix_checksum_set(
 	void far *data, uint32_t checksum
-);
-bool replay_ck_group_encode(
-	uint8_t group_id,
-	void far *data,
-	uint16_t size,
-	uint32_t expected_checksum
-);
-bool replay_ck_group_validate(
-	uint8_t group_id,
-	const void far *data,
-	uint16_t size,
-	uint32_t expected_checksum
-);
-bool replay_ck_group_apply(
-	uint8_t group_id,
-	const void far *data,
-	uint16_t size,
-	uint32_t expected_checksum
 );
 bool replay_ck_group_encode_stream(
 	uint8_t group_id,
@@ -186,12 +149,6 @@ bool replay_ck_group_apply_stream(
 );
 uint32_t replay_ck_group_digest_begin(
 	uint32_t digest, uint8_t group_id, uint16_t size
-);
-uint32_t replay_ck_group_digest(
-	uint32_t digest,
-	uint8_t group_id,
-	const void far *data,
-	uint16_t size
 );
 
 #endif /* TH04_MAIN_REPLAY_CHECKPOINT_HPP */
