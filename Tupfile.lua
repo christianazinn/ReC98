@@ -433,9 +433,11 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	} },
 	"th01/main_37.cpp",
 	{ "th01/main_38.cpp", extra_inputs = th01_sprites["pellet"] },
-	-- Must stay last: T1REPLAY_TEXT and its BSS are mod-only trailing
-	-- contributions, preserving every original REIIDEN data/BSS offset.
+	-- Must stay last: These mod-only replay/checkpoint segments preserve every
+	-- original REIIDEN data/BSS offset. Each new owner gets its own tail segment
+	-- rather than growing the original gameplay contribution it reconstructs.
 	"th01/replay.cpp",
+	"th01/rstage.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
