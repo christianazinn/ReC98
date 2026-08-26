@@ -166,8 +166,8 @@ void obstacles_update_and_render(bool16 reset);
 
 struct t1replay_checkpoint_stage_t;
 
-// The exported slots are pointer-free. Import intentionally fails until the
-// page-background allocation and reconstruction path has a round-trip proof.
+// The exported slots are pointer-free. Import reuses and validates the native
+// allocations and page-background snapshots created by stage initialization.
 bool16 t1replay_stage_checkpoint_export(
 	t1replay_checkpoint_stage_t *checkpoint
 );

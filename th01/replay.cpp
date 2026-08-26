@@ -20,6 +20,7 @@
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/bullet/missile.hpp"
 #include "th01/main/bullet/laser_s.hpp"
+#include "th01/main/stage/card.hpp"
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/main/stage/item.hpp"
 #include "th01/main/particle.hpp"
@@ -544,20 +545,42 @@ static bool t1replay_checkpoint_stage_valid(
 		(stage->obstacles_count > T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX) ||
 		(stage->vertical_bars_blocked > 1) ||
 		(stage->portals_blocked > 1) ||
-		!t1replay_bytes_zero(stage->reserved, sizeof(stage->reserved))
+		(stage->card_flip_cycle >= CARD_FLIP_CYCLE_MAX) ||
+		(stage->reserved != 0)
 	) {
 		return false;
 	}
 	for(i = 0; i < stage->cards_count; i++) {
-		if(stage->cards[i].flag > 2) {
+		if(
+			(stage->cards[i].hp < 0) || (stage->cards[i].hp > 3) ||
+			(stage->cards[i].flag > CARD_REMOVED) ||
+			(stage->cards[i].flip_frame < 0) ||
+			(stage->cards[i].flip_frame >= card_first_frame_of(CARD_CELS)) ||
+			((stage->cards[i].flag != CARD_FLIPPING) &&
+			 ((stage->cards[i].flip_frame != 0) ||
+			  (stage->cards[i].score != 0))) ||
+			((stage->cards[i].flag == CARD_FLIPPING) &&
+			 (stage->cards[i].score > CARD_SCORE_CAP))
+		) {
 			return false;
 		}
 	}
 	for(i = 0; i < stage->obstacles_count; i++) {
+		uint8_t type = stage->obstacles[i].type;
+		bool16 is_turret = (
+			(type >= OT_TURRET_SLOW_1_AIMED) &&
+			(type <= OT_TURRET_QUICK_5_SPREAD_WIDE_AIMED)
+		);
+
 		if(
-			(stage->obstacles[i].type < OT_BUMPER) ||
-			(stage->obstacles[i].type > OT_BAR_RIGHT) ||
-			(stage->obstacles[i].turret_flag > 9)
+			(type < OT_BUMPER) || (type > OT_BAR_RIGHT) ||
+			((type >= OT_ACTUALLY_A_CARD) && (type <= OT_ACTUALLY_A_4FLIP_CARD)) ||
+			(stage->obstacles[i].frame < 0) ||
+			(stage->obstacles[i].turret_flag > 9) ||
+			(!is_turret && (stage->obstacles[i].turret_flag != 0)) ||
+			(((type == OT_BUMPER) || (type >= OT_BAR_TOP)) &&
+			 (stage->obstacles[i].frame >= 8)) ||
+			((type == OT_PORTAL) && (stage->obstacles[i].frame >= 60))
 		) {
 			return false;
 		}

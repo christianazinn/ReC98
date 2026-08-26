@@ -20,7 +20,7 @@
 // T1RPY2. The OP reader admits only the V2 header's all-zero reserved tail;
 // changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
-#define T1REPLAY_CHECKPOINT_SCHEMA 2
+#define T1REPLAY_CHECKPOINT_SCHEMA 3
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
 #define T1REPLAY_CHECKPOINT_GROUP_COUNT 13
@@ -407,7 +407,8 @@ struct t1replay_checkpoint_stage_t {
 	int16_t portal_dst_top;
 	uint8_t vertical_bars_blocked;
 	uint8_t portals_blocked;
-	uint8_t reserved[2];
+	uint8_t card_flip_cycle;
+	uint8_t reserved;
 	t1replay_checkpoint_card_t cards[T1REPLAY_CHECKPOINT_CARD_COUNT_MAX];
 	t1replay_checkpoint_obstacle_t obstacles[
 		T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX
