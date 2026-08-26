@@ -128,6 +128,7 @@ enum replay_command_mode_t {
 	RCM_NONE = 0,
 	RCM_RECORD = 1,
 	RCM_PLAYBACK = 2,
+	RCM_RESTART = 3,
 };
 
 struct replay_start_config_t {

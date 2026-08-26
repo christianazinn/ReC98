@@ -988,6 +988,57 @@ bool replay_private_record_command_start(
 	return true;
 }
 
+static bool replay_restart_command_start(
+	replay_start_config_t far *start, uint8_t far *flags
+)
+{
+	replay_command_t command;
+	uint32_t file_size;
+	int fh;
+	unsigned size;
+	unsigned i;
+	bool practice;
+
+	replay_op_paths_init();
+	fh = replay_op_dos_open(replay_op_cfg_fn);
+	if(fh < 0) {
+		return false;
+	}
+	replay_op_memclear(&command, sizeof(command));
+	size = replay_op_dos_read(fh, &command, sizeof(command));
+	if(!replay_op_dos_size(fh, &file_size)) {
+		file_size = 0;
+	}
+	replay_op_dos_close(fh);
+	practice = ((command.flags & REPLAY_COMMAND_FLAG_PRACTICE) != 0);
+	if(
+		(size != sizeof(command)) || (file_size != sizeof(command)) ||
+		(command.magic[0] != 'T') ||
+		(command.magic[1] != ('0' + GAME)) ||
+		(command.magic[2] != 'R') || (command.magic[3] != 'C') ||
+		(command.magic[4] != 'F') || (command.magic[5] != 'G') ||
+		(command.magic[6] != '2') || (command.magic[7] != '\0') ||
+		(command.mode != RCM_RESTART) || (command.slot != 0) ||
+		(command.flags & ~REPLAY_COMMAND_FLAG_PRACTICE) ||
+		(command.reserved_0 != 0) ||
+		!replay_op_start_valid(
+			&command.start, practice,
+			(practice && (command.start.kind > RSK_STAGE))
+		)
+	) {
+		return false;
+	}
+	for(i = 0; i < sizeof(command.reserved); i++) {
+		if(command.reserved[i] != 0) {
+			return false;
+		}
+	}
+	replay_op_copy(start, &command.start, sizeof(command.start));
+	*flags = command.flags;
+	replay_command_clear();
+	return true;
+}
+
 static char *replay_op_word_append(char *p, replay_op_word_t word)
 {
 	#define P(c) *p++ = c
@@ -2660,6 +2711,38 @@ static void replay_main_start_practice_apply(
 	replay_op_exit_into_main(true, false);
 }
 
+static void replay_main_start_restart_apply(
+	const replay_start_config_t far *start, uint8_t flags
+)
+{
+	resident->rand = start->resident_rand;
+	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
+		replay_main_start_practice_apply(start, true);
+		return;
+	}
+	if(start->stage != STAGE_EXTRA) {
+		resident->rank = start->rank;
+	}
+	resident->stage = start->stage;
+	resident->credit_lives = start->credit_lives;
+	resident->credit_bombs = start->credit_bombs;
+	resident->cfg_lives = start->credit_lives;
+	resident->cfg_bombs = start->credit_bombs;
+	resident->turbo_mode = (start->turbo_mode != 0);
+	resident->demo_num = 0;
+	#if (GAME == 5)
+		resident->end_sequence = ES_SCORE;
+		resident->playchar = start->playchar;
+		replay_main_th05_scores_reset();
+	#else
+		resident->playchar_ascii = ('0' + start->playchar);
+		resident->stage_ascii = ('0' + start->stage);
+		resident->shottype = start->shottype;
+	#endif
+	replay_record_next_prepare();
+	replay_op_exit_into_main(true, false);
+}
+
 static void replay_main_start_practice(void)
 {
 	replay_start_config_t start;
@@ -2712,10 +2795,15 @@ static void replay_main_initialize(void)
 void far replay_main_update_and_render(const char *main_bg_fn)
 {
 	replay_start_config_t private_start;
+	uint8_t restart_flags;
 	replay_op_main_bg_fn = main_bg_fn;
 
 	if(!replay_main_private_checked) {
 		replay_main_private_checked = true;
+		if(replay_restart_command_start(&private_start, &restart_flags)) {
+			replay_main_start_restart_apply(&private_start, restart_flags);
+			return;
+		}
 		if(replay_private_record_command_start(&private_start)) {
 			replay_main_start_practice_apply(&private_start, false);
 			return;
@@ -2813,13 +2901,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 
 #pragma codeseg

@@ -5,8 +5,10 @@
 // narrow hooks declared in replay.hpp.
 
 #include "platform.h"
+#include "x86real.h"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "shiftjis.hpp"
 #include "th01/rank.h"
 #include "th02/hardware/frmdelay.h"
@@ -83,6 +85,7 @@ extern unsigned int enemies_killed;
 extern bool player_is_hit;
 extern char *eyename;
 extern bool scroll_active;
+extern "C" const char gsCHUUDAN[];
 extern bool (near* std_update)(void);
 bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 extern "C" void far player_shot_level_update(void);
@@ -135,6 +138,17 @@ static uint8_t replay_preroll_interstitial_cycle;
 static bool replay_practice_preroll_pending;
 static bool replay_practice_direct_redraw_pending;
 bool replay_stage_presentation_skip;
+
+enum replay_pause_action_t {
+	RPA_NONE = 0,
+	RPA_SAVE_EXIT,
+	RPA_DISCARD_EXIT,
+	RPA_RESTART,
+};
+
+static replay_pause_action_t replay_pause_action;
+static replay_start_config_t replay_restart_start;
+static bool replay_restart_practice;
 
 extern nearfunc_t_near overlay1;
 extern nearfunc_t_near overlay2;
@@ -417,6 +431,38 @@ static void replay_paths_init(void)
 	replay_slot_fn[8] = 'P'; replay_slot_fn[9] = 'Y';
 	replay_slot_fn[10] = '\0';
 	replay_paths_ready = true;
+}
+
+static bool replay_restart_command_write(void)
+{
+	replay_command_t command;
+	int fh;
+	bool ok;
+
+	replay_memclear(&command, sizeof(command));
+	command.magic[0] = 'T'; command.magic[1] = ('0' + GAME);
+	command.magic[2] = 'R'; command.magic[3] = 'C';
+	command.magic[4] = 'F'; command.magic[5] = 'G';
+	command.magic[6] = '2'; command.magic[7] = '\0';
+	command.mode = RCM_RESTART;
+	command.flags = (replay_restart_practice
+		? REPLAY_COMMAND_FLAG_PRACTICE
+		: 0
+	);
+	replay_copy(&command.start, &replay_restart_start, sizeof(command.start));
+	replay_dos_delete(replay_cfg_fn);
+	fh = replay_dos_create(replay_cfg_fn);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_dos_write(fh, &command, sizeof(command)) == sizeof(command)
+	);
+	replay_dos_close(fh);
+	if(!ok) {
+		replay_dos_delete(replay_cfg_fn);
+	}
+	return ok;
 }
 
 static void replay_slot_set(uint8_t slot)
@@ -2080,6 +2126,8 @@ void replay_entry(void)
 	replay_practice_preroll_pending = false;
 	replay_practice_direct_redraw_pending = false;
 	replay_stage_presentation_skip = false;
+	replay_pause_action = RPA_NONE;
+	replay_restart_practice = false;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
@@ -2278,6 +2326,182 @@ void replay_metrics_commit(void)
 	resident->frames = total_frames;
 }
 
+static void replay_restart_capture(void)
+{
+	replay_start_config_t far *start = &replay_restart_start;
+
+	replay_memclear(start, sizeof(*start));
+	replay_restart_practice = (
+		((replay_mode == RRM_RECORD) || (replay_mode == RRM_PRACTICE)) &&
+		(replay_header.mode == RUM_PRACTICE)
+	);
+	if(
+		(replay_mode == RRM_RECORD) || (replay_mode == RRM_PRACTICE) ||
+		(replay_mode == RRM_PLAYBACK)
+	) {
+		replay_copy(start, &replay_header.start, sizeof(*start));
+	} else {
+		start->schema = REPLAY_START_SCHEMA;
+		start->kind = RSK_NATIVE;
+		start->stage = (
+			(resident->stage == STAGE_EXTRA) ? STAGE_EXTRA : 0
+		);
+		start->rank = (
+			(start->stage == STAGE_EXTRA) ? RANK_EXTRA : resident->rank
+		);
+		#if (GAME == 5)
+			start->playchar = resident->playchar;
+		#else
+			start->playchar = (resident->playchar_ascii - '0');
+			start->shottype = resident->shottype;
+		#endif
+		start->lives = resident->credit_lives;
+		start->bombs = resident->credit_bombs;
+		start->power = 1;
+		start->dream = ((GAME == 5) ? 1 : 0);
+		start->playperf = replay_native_playperf(start->rank);
+		start->credit_lives = resident->credit_lives;
+		start->credit_bombs = resident->credit_bombs;
+		start->turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
+	}
+	start->resident_rand = random_seed;
+	start->random_seed = random_seed;
+}
+
+static bool replay_pause_save_available(void)
+{
+	return ((replay_mode == RRM_RECORD) && !replay_failed);
+}
+
+static void replay_pause_label_put(
+	uint8_t option, tram_y_t y, unsigned color
+)
+{
+	char label[15];
+	char *p = label;
+	#define P(c) *p++ = c
+	switch(option) {
+	case 0: // 再開
+		P(0x8D); P(0xC4); P(0x8A); P(0x4A);
+		break;
+	case 1: // 最初から
+		P(0x8D); P(0xC5); P(0x8F); P(0x89);
+		P(0x82); P(0xA9); P(0x82); P(0xE7);
+		break;
+	case 2: // 保存して終了
+		P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xB5);
+		P(0x82); P(0xC4); P(0x8F); P(0x49); P(0x97); P(0xB9);
+		break;
+	default: // 保存せず終了
+		P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xB9);
+		P(0x82); P(0xB8); P(0x8F); P(0x49); P(0x97); P(0xB9);
+		break;
+	}
+	#undef P
+	*p = '\0';
+	text_putsa(26, y, label, color);
+}
+
+static void replay_pause_render(uint8_t selected, bool save_available)
+{
+	uint8_t option;
+	unsigned color;
+
+	for(option = 0; option < 4; option++) {
+		if((option == 2) && !save_available) {
+			color = TX_BLUE;
+		} else if(option == selected) {
+			color = (TX_WHITE | TX_UNDERLINE);
+		} else {
+			color = TX_YELLOW;
+		}
+		replay_pause_label_put(option, (14 + option), color);
+	}
+}
+
+static void replay_pause_clear(void)
+{
+	tram_y_t y;
+	tram_x_t x;
+
+	for(y = 12; y <= 17; y++) {
+		for(x = 26; x < 42; x++) {
+			text_putca(x, y, ' ', TX_WHITE);
+		}
+	}
+}
+
+extern "C" int far replay_pause_menu(void)
+{
+	uint8_t selected = 0;
+	bool save_available = replay_pause_save_available();
+
+	while(
+		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
+	) {
+		input_reset_sense_interface();
+		frame_delay(1);
+	}
+	gaiji_putsa(26, 12, gsCHUUDAN, TX_YELLOW);
+	replay_pause_render(selected, save_available);
+	while(1) {
+		input_reset_sense_interface();
+		if(peekb(0, KEYGROUP_2) & K2_R) {
+			selected = 1;
+			break;
+		}
+		if((key_det & INPUT_UP) || (key_det & INPUT_DOWN)) {
+			do {
+				selected = static_cast<uint8_t>(
+					(key_det & INPUT_UP)
+					? ((selected == 0) ? 3 : (selected - 1))
+					: ((selected == 3) ? 0 : (selected + 1))
+				);
+			} while((selected == 2) && !save_available);
+			replay_pause_render(selected, save_available);
+		}
+		if(key_det & INPUT_Q) {
+			selected = 3;
+			break;
+		}
+		if(key_det & INPUT_CANCEL) {
+			selected = 0;
+			break;
+		}
+		if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+			if((selected != 2) || save_available) {
+				break;
+			}
+		}
+		if(key_det != INPUT_NONE) {
+			while(key_det != INPUT_NONE) {
+				input_reset_sense_interface();
+				frame_delay(1);
+			}
+		}
+		frame_delay(1);
+	}
+	while(
+		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
+	) {
+		input_reset_sense_interface();
+		frame_delay(1);
+	}
+	replay_pause_clear();
+	if(selected == 0) {
+		return 0;
+	}
+	if(selected == 1) {
+		replay_restart_capture();
+		replay_pause_action = RPA_RESTART;
+	} else if(selected == 2) {
+		replay_pause_action = RPA_SAVE_EXIT;
+	} else {
+		replay_pause_action = RPA_DISCARD_EXIT;
+	}
+	return 1;
+}
+
 void replay_gameplay_input(void)
 {
 	input_t host_input;
@@ -2428,9 +2652,15 @@ bool replay_process_end(void)
 	}
 	replay_finished = true;
 	if(replay_mode == RRM_DISABLED) {
+		if(replay_pause_action == RPA_RESTART) {
+			replay_restart_command_write();
+		}
 		return false;
 	}
 	if(replay_mode == RRM_PRACTICE) {
+		if(replay_pause_action == RPA_RESTART) {
+			replay_restart_command_write();
+		}
 		return false;
 	}
 	end_reason = replay_end_reason();
@@ -2468,6 +2698,15 @@ bool replay_process_end(void)
 		}
 		replay_checkpoint_temp_delete();
 		replay_private_result_write(end_reason);
+		if(
+			(replay_pause_action == RPA_DISCARD_EXIT) ||
+			(replay_pause_action == RPA_RESTART)
+		) {
+			replay_dos_delete(replay_slot_fn);
+		}
+		if(replay_pause_action == RPA_RESTART) {
+			replay_restart_command_write();
+		}
 		return false;
 	}
 	if(
@@ -2498,7 +2737,7 @@ bool replay_playback_active(void)
 
 // Preserve the paragraph phase of every following stock CODE segment.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"

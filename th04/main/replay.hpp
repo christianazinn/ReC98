@@ -93,4 +93,8 @@ bool replay_process_end(void);
 bool replay_active(void);
 bool replay_playback_active(void);
 
+// Fixed-span pause.cpp delegates its expanded native menu here. Return value
+// retains pause()'s stock ABI: zero resumes and nonzero returns to OP.
+extern "C" int far replay_pause_menu(void);
+
 #endif /* TH04_MAIN_REPLAY_HPP */
