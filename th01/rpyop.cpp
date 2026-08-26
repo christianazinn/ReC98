@@ -959,7 +959,7 @@ static bool t1replay_op_practice_field_is_numeric(uint8_t field)
 	return (
 		(field == T1OPR_SCORE) || (field == T1OPR_LIVES) ||
 		(field == T1OPR_BOMBS) || (field == T1OPR_POINT_VALUE) ||
-		(field == T1OPR_RNG_SEED)
+		(field == T1OPR_PELLET_SPEED) || (field == T1OPR_RNG_SEED)
 	);
 }
 
@@ -1109,6 +1109,99 @@ static void t1replay_op_practice_numeric_entry(uint8_t field)
 	}
 }
 
+static pellet_speed_t t1replay_op_pellet_speed_from_magnitude(
+	uint16_t magnitude, bool negative
+)
+{
+	return static_cast<pellet_speed_t>(
+		negative ? -static_cast<int>(magnitude) : magnitude
+	);
+}
+
+static uint16_t t1replay_op_pellet_speed_magnitude_max(bool negative)
+{
+	return static_cast<uint16_t>(
+		negative ? -PELLET_SPEED_LOWER_MIN : PELLET_SPEED_RAISE_MAX
+	);
+}
+
+static void t1replay_op_practice_pellet_speed_entry(void)
+{
+	pellet_speed_t original = t1replay_practice_start.pellet_speed;
+	uint16_t magnitude = 0;
+	uint16_t max;
+	uint8_t now0;
+	uint8_t now1;
+	uint8_t now3;
+	uint8_t prev0;
+	uint8_t prev1;
+	uint8_t prev3;
+	int digit;
+	bool negative = false;
+	bool entered = false;
+
+	do {
+		prev3 = static_cast<uint8_t>(peekb(0, KEYGROUP_3));
+		frame_delay(1);
+	} while(prev3 & K3_RETURN);
+	prev0 = static_cast<uint8_t>(peekb(0, KEYGROUP_0));
+	prev1 = static_cast<uint8_t>(peekb(0, KEYGROUP_1));
+	while(1) {
+		now0 = static_cast<uint8_t>(peekb(0, KEYGROUP_0));
+		now1 = static_cast<uint8_t>(peekb(0, KEYGROUP_1));
+		now3 = static_cast<uint8_t>(peekb(0, KEYGROUP_3));
+		if((now0 & K0_ESC) && !(prev0 & K0_ESC)) {
+			t1replay_practice_start.pellet_speed = original;
+			t1replay_op_practice_render();
+			t1replay_op_input_reset();
+			return;
+		}
+		if((now3 & K3_RETURN) && !(prev3 & K3_RETURN)) {
+			if(entered) {
+				t1replay_practice_start.pellet_speed =
+					t1replay_op_pellet_speed_from_magnitude(magnitude, negative);
+			}
+			t1replay_op_practice_render();
+			t1replay_op_input_reset();
+			return;
+		}
+		if((now1 & K1_MINUS) && !(prev1 & K1_MINUS)) {
+			negative = !negative;
+			t1replay_practice_start.pellet_speed =
+				t1replay_op_pellet_speed_from_magnitude(magnitude, negative);
+			entered = true;
+			t1replay_op_practice_render();
+		} else if((now1 & K1_BACKSPACE) && !(prev1 & K1_BACKSPACE)) {
+			magnitude /= 10;
+			t1replay_practice_start.pellet_speed =
+				t1replay_op_pellet_speed_from_magnitude(magnitude, negative);
+			entered = true;
+			t1replay_op_practice_render();
+		} else {
+			digit = t1replay_op_practice_digit_edge(now0, prev0, now1, prev1);
+			if(digit >= 0) {
+				max = t1replay_op_pellet_speed_magnitude_max(negative);
+				if(
+					(static_cast<uint16_t>(digit) > max) ||
+					(magnitude > ((max - digit) / 10))
+				) {
+					magnitude = max;
+				} else {
+					magnitude = static_cast<uint16_t>((magnitude * 10) + digit);
+				}
+				t1replay_practice_start.pellet_speed =
+					t1replay_op_pellet_speed_from_magnitude(magnitude, negative);
+				entered = true;
+				t1replay_op_practice_render();
+			}
+		}
+		prev0 = now0;
+		prev1 = now1;
+		prev3 = now3;
+		frame_delay(1);
+	}
+}
+
 t1replay_op_result_t t1replay_op_practice_update(void)
 {
 	t1replay_op_input_t input;
@@ -1155,7 +1248,11 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 		t1replay_op_practice_render();
 	}
 	if(input.enter && t1replay_op_practice_field_is_numeric(t1replay_op_sel)) {
-		t1replay_op_practice_numeric_entry(t1replay_op_sel);
+		if(t1replay_op_sel == T1OPR_PELLET_SPEED) {
+			t1replay_op_practice_pellet_speed_entry();
+		} else {
+			t1replay_op_practice_numeric_entry(t1replay_op_sel);
+		}
 	} else if(input.ok) {
 		if(t1replay_op_sel == T1OPR_START) {
 			if(t1replay_op_record_prepare()) {
