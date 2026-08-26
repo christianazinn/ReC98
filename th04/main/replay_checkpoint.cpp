@@ -100,6 +100,7 @@
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
 #include "th04/score.h"
+#include "th04/snd/snd.h"
 
 struct map_section_tiles_t;
 extern map_section_tiles_t __seg* map_seg;
@@ -158,6 +159,8 @@ extern uint8_t midboss_defeat_angle;
 extern bool (near* std_update)(void);
 bool near std_update_done(void);
 extern int8_t playfield_shake_redraw_time;
+
+extern nearfunc_t_near overlay1;
 
 extern bool player_is_hit;
 extern uint8_t player_invincibility_time;
@@ -2029,6 +2032,179 @@ static void rck_practice_stage4_midboss_rearm(uint16_t target_frame)
 }
 #endif
 
+#define RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX 60000UL
+
+static void rck_practice_stage_frame_advance(void)
+{
+	stage_frame++;
+	frames_unused = stage_frame;
+	stage_frame_mod2 = static_cast<uint8_t>(stage_frame & 1);
+	stage_frame_mod4 = static_cast<uint8_t>(stage_frame & 3);
+	stage_frame_mod8 = static_cast<uint8_t>(stage_frame & 7);
+	stage_frame_mod16 = static_cast<uint8_t>(stage_frame & 15);
+}
+
+static void rck_practice_bytes_clear(void near *dst, unsigned size)
+{
+	uint8_t near *p = static_cast<uint8_t near *>(dst);
+
+	while(size != 0) {
+		*p++ = 0;
+		size--;
+	}
+}
+
+static void rck_practice_randring_restore(
+	const replay_start_config_t far *start
+)
+{
+	int i = (RANDRING_SIZE - 1);
+
+	resident->rand = start->resident_rand;
+	random_seed = start->random_seed;
+	do {
+		randring[i] = irand();
+	} while(--i >= 0);
+	randring_p = 0;
+}
+
+static void rck_practice_boss_transients_clear(void)
+{
+	rck_practice_bytes_clear(shots, sizeof(shots));
+	rck_practice_bytes_clear(enemies, sizeof(enemies));
+	rck_practice_bytes_clear(sparks, sizeof(sparks));
+	rck_practice_bytes_clear(bullets, sizeof(bullets));
+	rck_practice_bytes_clear(circles, sizeof(circles));
+	rck_practice_bytes_clear(items, sizeof(items));
+	rck_practice_bytes_clear(pointnums, sizeof(pointnums));
+	rck_practice_bytes_clear(gather_circles, sizeof(gather_circles));
+#if (GAME == 5)
+	rck_practice_bytes_clear(hitshots, sizeof(hitshots));
+#endif
+	explosions_small_reset();
+	explosions_big.alive = false;
+	bullet_zap.active = false;
+	playfield_shake_x = 0;
+	playfield_shake_y = 0;
+	playfield_shake_redraw_time = 0;
+	boss.damage_this_frame = 0;
+	player_is_hit = false;
+	score_delta = 0;
+	score_delta_frame = 0;
+}
+
+#if (GAME == 5)
+static void rck_practice_th05_stage4_solo_prepare(uint8_t section)
+{
+	rck_practice_bytes_clear(custom_entities, sizeof(custom_entities));
+	rck_practice_bytes_clear(cheeto_trails, sizeof(cheeto_trails));
+	boss_custombullets_render = nullfunc_near;
+	if(section == RCS_TH05_YUKI) {
+		boss.pos.cur = boss2.pos.cur;
+		boss_update = yuki_update;
+	} else {
+		boss_update = mai_update;
+	}
+	boss.phase = PHASE_HP_FILL;
+	boss.phase_frame = 0;
+	boss_fg_render = b4_solo_fg_render;
+	boss.hp = 7900;
+}
+#endif
+
+static bool rck_practice_boss_target_reached(
+	const replay_start_config_t far *start
+)
+{
+	replay_ck_actor_probe_t probe;
+
+	return (
+		replay_ck_actor_probe(&probe) &&
+		(probe.boss_section == start->section) &&
+		(probe.boss_phase == start->phase)
+	);
+}
+
+static bool rck_practice_boss_construct(
+	const replay_start_config_t far *start
+)
+{
+	unsigned char se_mode = snd_se_mode;
+	uint32_t frames = 0;
+
+	stage_vm = nullfunc_far;
+	std_update = std_update_done;
+	midboss_active = false;
+	midboss_invalidate = nullfunc_near;
+	midboss_update = nullfunc_far;
+	midboss_render = nullfunc_near;
+	bg_render_not_bombing = boss_bg_render_func;
+	boss_update = boss_update_func;
+	boss_fg_render = boss_fg_render_func;
+	snd_se_mode = SND_SE_OFF;
+
+	while(!rck_practice_boss_target_reached(start)) {
+		if(frames++ >= RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX) {
+			snd_se_mode = se_mode;
+			return false;
+		}
+#if (GAME == 5)
+		if((stage_id == 3) && (start->section != RCS_TH05_PAIR)) {
+			if((boss_update == boss_update_func) &&
+			   (boss.phase == PHASE_NONE)) {
+				rck_practice_th05_stage4_solo_prepare(start->section);
+				continue;
+			}
+			if((boss_update == boss_update_func) && (boss.phase == 2)) {
+				if(start->section == RCS_TH05_MAI) {
+					boss.hp = static_cast<int>(boss.phase_end_hp + 1);
+					boss2.hp = boss2.phase_end_hp;
+				} else {
+					boss.hp = boss.phase_end_hp;
+					boss2.hp = static_cast<int>(boss2.phase_end_hp + 1);
+				}
+			} else if(boss_update != boss_update_func) {
+				boss.hp = boss.phase_end_hp;
+			}
+		} else {
+			boss.hp = boss.phase_end_hp;
+		}
+#else
+		boss.hp = boss.phase_end_hp;
+#endif
+		boss_update();
+		rck_practice_stage_frame_advance();
+		if(quit != Q_KEEP_RUNNING) {
+			snd_se_mode = se_mode;
+			return false;
+		}
+	}
+
+	rck_practice_boss_transients_clear();
+	rck_practice_randring_restore(start);
+	snd_se_mode = se_mode;
+	return true;
+}
+
+#undef RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX
+
+bool replay_ck_practice_boss_direct_supported(
+	const replay_start_config_t far *start
+)
+{
+	if((start == 0) || (start->kind != RSK_BOSS_PHASE)) {
+		return false;
+	}
+#if (GAME == 4)
+	return !(
+		(start->stage == STAGE_EXTRA) &&
+		(start->section == RCS_TH04_GENGETSU)
+	);
+#else
+	return true;
+#endif
+}
+
 bool replay_ck_practice_direct_seek(
 	const replay_start_config_t far *start
 )
@@ -2037,6 +2213,7 @@ bool replay_ck_practice_direct_seek(
 	uint32_t event_offset;
 	uint16_t target_frame;
 	uint16_t frame;
+	bool boss_target = false;
 
 	if((start == 0) || (start->stage != stage_id)) {
 		return false;
@@ -2055,6 +2232,12 @@ bool replay_ck_practice_direct_seek(
 		target_frame = replay_practice_midboss_frame(
 			start->stage, start->section
 		);
+	} else if(start->kind == RSK_BOSS_PHASE) {
+		if(!replay_checkpoint_identity_valid(start)) {
+			return false;
+		}
+		target_frame = 1;
+		boss_target = true;
 	} else {
 		return false;
 	}
@@ -2068,8 +2251,11 @@ bool replay_ck_practice_direct_seek(
 		);
 		uint8_t spawn_count;
 
-		if(event_frame >= target_frame) {
+		if(!boss_target && (event_frame >= target_frame)) {
 			break;
+		}
+		if(boss_target && (event_frame >= target_frame)) {
+			target_frame = static_cast<uint16_t>(event_frame + 1);
 		}
 		spawn_count = rck_std_source_u8(
 			static_cast<uint16_t>(event_offset + 2)
@@ -2081,13 +2267,20 @@ bool replay_ck_practice_direct_seek(
 	if(event_offset > source.ip_terminal) {
 		return false;
 	}
+	if(boss_target) {
+		event_offset = source.ip_terminal;
+	}
 	std_ip = MK_FP(
 		reinterpret_cast<uint16_t>(std_seg),
 		static_cast<uint16_t>(event_offset)
 	);
 	stage_vm = ((event_offset == source.ip_terminal) ? nullfunc_far : std_run);
 
-	for(frame = 0; frame < target_frame; frame++) {
+	frame = 0;
+	while((frame < target_frame) || (boss_target && (scroll_speed.v != 0))) {
+		if(frame == 0xFFFFu) {
+			return false;
+		}
 #if (GAME == 5)
 		if(stage_id == 5) {
 			scroll_active = false;
@@ -2111,7 +2304,9 @@ bool replay_ck_practice_direct_seek(
 		if(!rck_practice_scroll_step(&source)) {
 			return false;
 		}
+		frame++;
 	}
+	target_frame = frame;
 	stage_frame = target_frame;
 	frames_unused = target_frame;
 	stage_frame_mod2 = static_cast<uint8_t>(target_frame & 1);
@@ -2128,6 +2323,9 @@ bool replay_ck_practice_direct_seek(
 	rck_practice_stage5_stars(target_frame);
 	rck_practice_stage4_midboss_rearm(target_frame);
 #endif
+	if(boss_target && !rck_practice_boss_construct(start)) {
+		return false;
+	}
 	tiles_activate_and_render_all_for_next_N_frames(PAGE_COUNT);
 	return true;
 }
@@ -6333,9 +6531,11 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif

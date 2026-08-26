@@ -1753,13 +1753,21 @@ bool replay_practice_preroll_boundary(void)
 	}
 	if(
 		(replay_header.start.kind == RSK_CHAPTER) ||
-		(replay_header.start.kind == RSK_MIDBOSS)
+		(replay_header.start.kind == RSK_MIDBOSS) ||
+		(
+			(replay_header.start.kind == RSK_BOSS_PHASE) &&
+			replay_ck_practice_boss_direct_supported(&replay_header.start)
+		)
 	) {
 		if(!replay_ck_practice_direct_seek(&replay_header.start)) {
 			replay_private_diagnostic = (0x04UL << 24) | stage_frame;
 			replay_fail();
 			quit = Q_QUIT_TO_OP;
 			return true;
+		}
+		if(replay_header.start.kind == RSK_BOSS_PHASE) {
+			replay_practice_config_apply(&replay_header.start);
+			player_shot_level_update();
 		}
 		replay_practice_direct_redraw_pending = true;
 		reached = true;

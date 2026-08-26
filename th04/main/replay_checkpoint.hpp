@@ -89,8 +89,14 @@ uint16_t replay_ck_failure_field(void);
 // detection. An unknown callback tuple fails instead of guessing a section.
 bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe);
 
-// Constructs a clean chapter or midboss start from the freshly loaded stage
-// data without running gameplay. Boss phases continue to use native preroll.
+// Gengetsu still requires the native Extra-stage resource handoff. All other
+// currently exposed boss targets can use the direct transition constructor.
+bool replay_ck_practice_boss_direct_supported(
+	const replay_start_config_t far *start
+);
+
+// Constructs a clean chapter, midboss, or boss-phase start from the freshly
+// loaded stage data without running player-controlled gameplay.
 bool replay_ck_practice_direct_seek(
 	const replay_start_config_t far *start
 );
