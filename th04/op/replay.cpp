@@ -293,6 +293,7 @@ static void replay_op_screen_end(
 static void replay_op_layout_pad(void)
 {
 	_asm {
+	#if (GAME == 4)
 		nop
 		nop
 		nop
@@ -325,6 +326,7 @@ static void replay_op_layout_pad(void)
 		nop
 		nop
 		nop
+	#endif
 		nop
 		nop
 		nop

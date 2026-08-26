@@ -113,7 +113,7 @@ void near op_animate(void)
 	graph_copy_page(1);
 
 	if(resident->demo_num == 0) {
-		snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
+		language_asset_snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
 		snd_kaja_func(KAJA_SONG_PLAY, 0);
 	}
 

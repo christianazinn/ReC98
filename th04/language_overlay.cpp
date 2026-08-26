@@ -254,6 +254,16 @@ static void language_asset_stock_restore(void)
 	pfstart(fn);
 }
 
+#if ((GAME == 5) && (BINARY == 'O'))
+void pascal language_asset_snd_load(const char *fn, int func)
+{
+	// The title roll's preceding PI loads can leave the packfile hook unable to
+	// resolve OP.M/OP.M2. TH05's snd_load() retries OP.M forever in that state.
+	language_asset_stock_restore();
+	snd_load(fn, static_cast<snd_load_func_t>(func));
+}
+#endif
+
 static bool language_asset_overlay_switch(void)
 {
 	char fn[11];
@@ -349,6 +359,8 @@ void pascal language_asset_file_close(void)
 
 #if ((GAME == 4) && (BINARY == 'O'))
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#elif ((GAME == 5) && (BINARY == 'O'))
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #elif (GAME == 5)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

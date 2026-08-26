@@ -5,6 +5,9 @@
 #include "defconv.h"
 
 void language_asset_music_prepare(void);
+#if ((GAME == 5) && (BINARY == 'O'))
+void pascal language_asset_snd_load(const char *fn, int func);
+#endif
 
 int DEFCONV language_asset_pi_load(int slot, const char *fn);
 void pascal language_asset_cdg_load_all(int slot, const char *fn);
