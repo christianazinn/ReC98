@@ -11,6 +11,9 @@
 #define T2REPLAY_COMMAND_SIZE 52
 #define T2REPLAY_STAGE_COUNT 6
 #define T2REPLAY_SLOT_COUNT 100
+// A command-only capture target. MAIN writes this to T2RPY.TMP; OP chooses the
+// eventual numbered slot after a finalized terminal capture exists.
+#define T2REPLAY_TEMP_SLOT T2REPLAY_SLOT_COUNT
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private semantic-checkpoint vocabulary for later exact TH02 seeks. This

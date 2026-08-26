@@ -1615,6 +1615,20 @@ static void t2replay_slot_set(uint8_t slot)
 	t2replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
 }
 
+static void t2replay_temp_set(void)
+{
+	t2replay_slot_fn[0] = 'T';
+	t2replay_slot_fn[1] = '2';
+	t2replay_slot_fn[2] = 'R';
+	t2replay_slot_fn[3] = 'P';
+	t2replay_slot_fn[4] = 'Y';
+	t2replay_slot_fn[5] = '.';
+	t2replay_slot_fn[6] = 'T';
+	t2replay_slot_fn[7] = 'M';
+	t2replay_slot_fn[8] = 'P';
+	t2replay_slot_fn[9] = '\0';
+}
+
 static int t2replay_dos_open(const char far *fn, unsigned char access)
 {
 	unsigned fn_seg = T2REPLAY_FP_SEG(fn);
@@ -2734,7 +2748,11 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 		((command->mode != T2REPLAY_COMMAND_RECORD) &&
 		 (command->mode != T2REPLAY_COMMAND_PLAYBACK) &&
 		 (command->mode != T2REPLAY_COMMAND_PRACTICE)) ||
-		(command->slot >= T2REPLAY_SLOT_COUNT) ||
+		((command->mode != T2REPLAY_COMMAND_RECORD) &&
+		 (command->slot >= T2REPLAY_SLOT_COUNT)) ||
+		((command->mode == T2REPLAY_COMMAND_RECORD) &&
+		 (command->slot >= T2REPLAY_SLOT_COUNT) &&
+		 (command->slot != T2REPLAY_TEMP_SLOT)) ||
 		((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) != 0) ||
 		(command->reserved_0 != 0)) {
 		return false;
@@ -2868,7 +2886,11 @@ void replay_entry(void)
 	if(command_mode == T2RM_DISABLED) {
 		return;
 	}
-	t2replay_slot_set(slot);
+	if(command_mode == T2REPLAY_COMMAND_RECORD) {
+		t2replay_temp_set();
+	} else {
+		t2replay_slot_set(slot);
+	}
 	t2replay_payload_checksum = T2REPLAY_FNV1A_BASIS;
 	t2replay_buffer_len = 0;
 	t2replay_buffer_pos = 0;
