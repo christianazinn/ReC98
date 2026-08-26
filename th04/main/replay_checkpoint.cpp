@@ -122,6 +122,8 @@ extern map_section_tiles_t __seg* map_seg;
 	#include "th05/resident.hpp"
 	#include "th05/formats/dialog.hpp"
 #else
+	#include "th04/formats/bb.h"
+	#include "th04/formats/cdg.h"
 	#include "th04/main/boss/boss.hpp"
 	#include "th04/main/boss/backdrop.hpp"
 	#include "th04/main/boss/b4m.hpp"
@@ -133,6 +135,7 @@ extern map_section_tiles_t __seg* map_seg;
 	#include "th04/main/stage/stages.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
+	#include "th04/sprites/main_cdg.h"
 	#include "th04/sprites/main_pat.h"
 #endif
 
@@ -2110,6 +2113,55 @@ static void rck_practice_th05_stage4_solo_prepare(uint8_t section)
 	boss_fg_render = b4_solo_fg_render;
 	boss.hp = 7900;
 }
+#else
+static void rck_practice_th04_gengetsu_prepare(void)
+{
+	char bg_fn[12];
+	char bb_fn[9];
+
+	bg_fn[0] = 's'; bg_fn[1] = 't'; bg_fn[2] = '0'; bg_fn[3] = '6';
+	bg_fn[4] = 'b'; bg_fn[5] = 'k'; bg_fn[6] = '2'; bg_fn[7] = '.';
+	bg_fn[8] = 'c'; bg_fn[9] = 'd'; bg_fn[10] = 'g'; bg_fn[11] = '\0';
+
+	bb_fn[0] = 's'; bb_fn[1] = 't'; bb_fn[2] = '0'; bb_fn[3] = '6';
+	bb_fn[4] = 'b'; bb_fn[5] = '.'; bb_fn[6] = 'b'; bb_fn[7] = 'b';
+	bb_fn[8] = '\0';
+
+	boss_statebyte[0] = true;
+	boss_update = nullfunc_far;
+	boss_fg_render = nullfunc_near;
+	boss.phase = PHASE_HP_FILL;
+	boss.mode = 0;
+	boss.phase_state.patterns_seen = 0;
+	boss.phase_frame = 0;
+	boss.pos.velocity.set(0, 0);
+	boss.damage_this_frame = 0;
+	explosions_small_reset();
+	boss_phase_timed_out = true;
+	boss.pos.init((PLAYFIELD_W / 2), (playfield_fraction_y(6 / 23.0f)));
+	mugetsu_pose_func = mugetsu_1821E;
+	mugetsu_gather_frame_offset = -0x50;
+	mugetsu_gather_center = boss.pos.cur;
+	mugetsu_phase2_mode = 36;
+	mugetsu_damage_frames = 0;
+	gengetsu_damage_frames = 0;
+	extra_boss_bomb_immunity = 0;
+	gengetsu_wave_amp = 0;
+	gengetsu_wave_target_x.v = TO_SP(PLAYFIELD_W / 2);
+	bg_render_not_bombing = mugetsu_gengetsu_bg_render;
+	boss_update = gengetsu_update;
+	boss_fg_render = gengetsu_fg_render;
+	boss.sprite = PAT_GENGETSU_TIPPING;
+	boss_hitbox_radius.set((GENGETSU_W / 4), (GENGETSU_H / 2));
+	cdg_free(CDG_BG_BOSS);
+	bb_boss_free();
+	cdg_load_single_noalpha(CDG_BG_BOSS, bg_fn, 0);
+	file_ropen(bb_fn);
+	bb_boss_seg = HMem<bb_tiles8_t>::alloc(BB_SIZE);
+	file_read(bb_boss_seg, BB_SIZE);
+	file_close();
+	bombing_disabled = false;
+}
 #endif
 
 static bool rck_practice_boss_target_reached(
@@ -2142,6 +2194,15 @@ static bool rck_practice_boss_construct(
 	boss_update = boss_update_func;
 	boss_fg_render = boss_fg_render_func;
 	snd_se_mode = SND_SE_OFF;
+
+#if (GAME == 4)
+	if(
+		(start->stage == STAGE_EXTRA) &&
+		(start->section == RCS_TH04_GENGETSU)
+	) {
+		rck_practice_th04_gengetsu_prepare();
+	}
+#endif
 
 	while(!rck_practice_boss_target_reached(start)) {
 		if(frames++ >= RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX) {
@@ -2196,10 +2257,7 @@ bool replay_ck_practice_boss_direct_supported(
 		return false;
 	}
 #if (GAME == 4)
-	return !(
-		(start->stage == STAGE_EXTRA) &&
-		(start->section == RCS_TH04_GENGETSU)
-	);
+	return true;
 #else
 	return true;
 #endif
@@ -6532,6 +6590,7 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
