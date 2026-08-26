@@ -105,7 +105,8 @@ extern "C" void far player_shot_level_update(void);
 #endif
 
 static char replay_cfg_fn[11];
-static char replay_slot_fn[11];
+static char replay_slot_fn[12];
+static char replay_save_request_fn[12];
 static bool replay_paths_ready;
 static replay_runtime_mode_t replay_mode;
 static replay_user_header_t replay_header;
@@ -124,6 +125,7 @@ static bool replay_failed;
 static bool replay_finished;
 static bool replay_stage_seen;
 static bool replay_private_test;
+static bool replay_temp_capture;
 static uint32_t replay_private_diagnostic;
 static uint8_t replay_checkpoint_prefix[REPLAY_CHECKPOINT_PREFIX_SIZE];
 #define REPLAY_PRIVATE_SAMPLE_LIMIT 600UL
@@ -430,7 +432,66 @@ static void replay_paths_init(void)
 	replay_slot_fn[6] = '.'; replay_slot_fn[7] = 'R';
 	replay_slot_fn[8] = 'P'; replay_slot_fn[9] = 'Y';
 	replay_slot_fn[10] = '\0';
+
+	replay_save_request_fn[0] = 'T';
+	replay_save_request_fn[1] = ('0' + GAME);
+	replay_save_request_fn[2] = 'R'; replay_save_request_fn[3] = 'P';
+	replay_save_request_fn[4] = 'S'; replay_save_request_fn[5] = 'A';
+	replay_save_request_fn[6] = 'V'; replay_save_request_fn[7] = '.';
+	replay_save_request_fn[8] = 'C'; replay_save_request_fn[9] = 'F';
+	replay_save_request_fn[10] = 'G'; replay_save_request_fn[11] = '\0';
 	replay_paths_ready = true;
+}
+
+static void replay_temp_path_set(void)
+{
+	replay_slot_fn[0] = 'T'; replay_slot_fn[1] = ('0' + GAME);
+	replay_slot_fn[2] = 'R'; replay_slot_fn[3] = 'P';
+	replay_slot_fn[4] = 'T'; replay_slot_fn[5] = 'M';
+	replay_slot_fn[6] = 'P'; replay_slot_fn[7] = '.';
+	replay_slot_fn[8] = 'R'; replay_slot_fn[9] = 'P';
+	replay_slot_fn[10] = 'Y'; replay_slot_fn[11] = '\0';
+}
+
+static void replay_pending_files_delete(void)
+{
+	replay_dos_delete(replay_save_request_fn);
+	if(replay_temp_capture) {
+		replay_dos_delete(replay_slot_fn);
+	}
+}
+
+static bool replay_save_request_write(replay_save_request_source_t source)
+{
+	replay_save_request_t request;
+	int fh;
+	bool ok;
+
+	replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T'; request.magic[1] = ('0' + GAME);
+	request.magic[2] = 'R'; request.magic[3] = 'S';
+	request.magic[4] = 'A'; request.magic[5] = 'V';
+	request.magic[6] = '1'; request.magic[7] = '\0';
+	request.schema = REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = source;
+	request.replay_header_checksum = replay_header.header_checksum;
+	request.checksum = 0;
+	request.checksum = replay_fnv1a(
+		REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	replay_dos_delete(replay_save_request_fn);
+	fh = replay_dos_create(replay_save_request_fn);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_dos_write(fh, &request, sizeof(request)) == sizeof(request)
+	);
+	replay_dos_close(fh);
+	if(!ok) {
+		replay_dos_delete(replay_save_request_fn);
+	}
+	return ok;
 }
 
 static bool replay_restart_command_write(void)
@@ -2252,6 +2313,13 @@ static replay_command_mode_t replay_command_load(
 	} else if(command.flags & REPLAY_COMMAND_FLAG_PRACTICE) {
 		if(
 			((command.flags & REPLAY_COMMAND_FLAG_NO_RECORD) != 0) &&
+			((command.flags & (REPLAY_COMMAND_FLAG_PRIVATE_TEST |
+			 REPLAY_COMMAND_FLAG_TEMP_CAPTURE)) != 0)
+		) {
+			return RCM_NONE;
+		}
+		if(
+			((command.flags & REPLAY_COMMAND_FLAG_TEMP_CAPTURE) != 0) &&
 			((command.flags & REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0)
 		) {
 			return RCM_NONE;
@@ -2262,7 +2330,8 @@ static replay_command_mode_t replay_command_load(
 			return RCM_NONE;
 		}
 	} else if(
-		(command.flags != 0) ||
+		((command.flags != REPLAY_COMMAND_FLAG_TEMP_CAPTURE) &&
+		 (command.flags != REPLAY_COMMAND_FLAG_PRIVATE_TEST)) ||
 		!replay_bytes_zero(
 			reinterpret_cast<const uint8_t far *>(&command.start),
 			sizeof(command.start)
@@ -2351,6 +2420,12 @@ void replay_entry(void)
 	replay_private_test = (
 		(command_flags & REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0
 	);
+	replay_temp_capture = (
+		(command_flags & REPLAY_COMMAND_FLAG_TEMP_CAPTURE) != 0
+	);
+	if(replay_temp_capture) {
+		replay_temp_path_set();
+	}
 	replay_private_diagnostic = 0;
 	replay_practice_start_pending = false;
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
@@ -2364,6 +2439,9 @@ void replay_entry(void)
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
+		if(replay_temp_capture) {
+			replay_pending_files_delete();
+		}
 		replay_mode = ((command_flags & REPLAY_COMMAND_FLAG_NO_RECORD)
 			? RRM_PRACTICE
 			: RRM_RECORD
@@ -2944,7 +3022,11 @@ bool replay_process_end(void)
 				replay_fail();
 			}
 		}
-		replay_header.status = (replay_failed ? RUS_ERROR : RUS_FINALIZED);
+		replay_header.status = (
+			replay_failed
+			? RUS_ERROR
+			: (replay_temp_capture ? RUS_PENDING : RUS_FINALIZED)
+		);
 		if(!replay_header_write(false)) {
 			replay_failed = true;
 		}
@@ -2954,7 +3036,24 @@ bool replay_process_end(void)
 			(replay_pause_action == RPA_DISCARD_EXIT) ||
 			(replay_pause_action == RPA_RESTART)
 		) {
-			replay_dos_delete(replay_slot_fn);
+			if(replay_temp_capture) {
+				replay_pending_files_delete();
+			} else {
+				replay_dos_delete(replay_slot_fn);
+			}
+		} else if(
+			replay_temp_capture &&
+			(
+				replay_failed ||
+				!replay_save_request_write(
+					(replay_pause_action == RPA_SAVE_EXIT)
+					? RSRS_PAUSE_SAVE_EXIT
+					: RSRS_POSTGAME
+				)
+			)
+		) {
+			replay_failed = true;
+			replay_pending_files_delete();
 		}
 		if(replay_pause_action == RPA_RESTART) {
 			replay_restart_command_write();
@@ -2994,6 +3093,6 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
 #endif
-	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 
 #pragma codeseg

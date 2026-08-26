@@ -45,13 +45,18 @@
 #define REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define REPLAY_COMMAND_FLAG_PRIVATE_TEST 0x02
 #define REPLAY_COMMAND_FLAG_NO_RECORD 0x04
+#define REPLAY_COMMAND_FLAG_TEMP_CAPTURE 0x08
 #define REPLAY_COMMAND_STAGE_SHIFT 4
 #define REPLAY_COMMAND_STAGE_MASK 0x70
 #define REPLAY_COMMAND_STAGE_NONE 0
 #define REPLAY_COMMAND_KNOWN_FLAGS ( \
 	REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_PRIVATE_TEST | \
-	REPLAY_COMMAND_FLAG_NO_RECORD | REPLAY_COMMAND_STAGE_MASK \
+	REPLAY_COMMAND_FLAG_NO_RECORD | REPLAY_COMMAND_FLAG_TEMP_CAPTURE | \
+	REPLAY_COMMAND_STAGE_MASK \
 )
+
+#define REPLAY_SAVE_REQUEST_SCHEMA 1
+#define REPLAY_SAVE_REQUEST_SIZE 20
 
 #define REPLAY_USER_INPUT_SEMANTICS 1
 #define REPLAY_USER_RULESET_STOCK 0
@@ -76,6 +81,12 @@ enum replay_user_status_t {
 	RUS_RECORDING = 1,
 	RUS_FINALIZED = 2,
 	RUS_ERROR = 3,
+	RUS_PENDING = 4,
+};
+
+enum replay_save_request_source_t {
+	RSRS_POSTGAME = 0,
+	RSRS_PAUSE_SAVE_EXIT = 1,
 };
 
 enum replay_user_end_reason_t {
@@ -240,6 +251,15 @@ struct replay_command_t {
 	uint8_t reserved[4];
 };
 
+struct replay_save_request_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
 struct replay_checkpoint_header_t {
 	char magic[8];
 	uint16_t schema;
@@ -283,6 +303,9 @@ typedef char replay_stage_entry_size_check[
 ];
 typedef char replay_command_size_check[
 	(sizeof(replay_command_t) == REPLAY_COMMAND_SIZE) ? 1 : -1
+];
+typedef char replay_save_request_size_check[
+	(sizeof(replay_save_request_t) == REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char replay_checkpoint_header_size_check[
 	(sizeof(replay_checkpoint_header_t) == REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

@@ -128,6 +128,8 @@ enum practice_field_t {
 
 static char replay_op_cfg_fn[11];
 static char replay_op_slot_fn[11];
+static char replay_op_temp_fn[12];
+static char replay_op_save_request_fn[12];
 static char replay_op_main_binary[5];
 static char replay_op_debug_binary[4];
 static const char *replay_op_main_bg_fn;
@@ -495,6 +497,26 @@ static void replay_op_paths_init(void)
 	replay_op_slot_fn[6] = '.'; replay_op_slot_fn[7] = 'R';
 	replay_op_slot_fn[8] = 'P'; replay_op_slot_fn[9] = 'Y';
 	replay_op_slot_fn[10] = '\0';
+
+	replay_op_temp_fn[0] = 'T'; replay_op_temp_fn[1] = ('0' + GAME);
+	replay_op_temp_fn[2] = 'R'; replay_op_temp_fn[3] = 'P';
+	replay_op_temp_fn[4] = 'T'; replay_op_temp_fn[5] = 'M';
+	replay_op_temp_fn[6] = 'P'; replay_op_temp_fn[7] = '.';
+	replay_op_temp_fn[8] = 'R'; replay_op_temp_fn[9] = 'P';
+	replay_op_temp_fn[10] = 'Y'; replay_op_temp_fn[11] = '\0';
+
+	replay_op_save_request_fn[0] = 'T';
+	replay_op_save_request_fn[1] = ('0' + GAME);
+	replay_op_save_request_fn[2] = 'R';
+	replay_op_save_request_fn[3] = 'P';
+	replay_op_save_request_fn[4] = 'S';
+	replay_op_save_request_fn[5] = 'A';
+	replay_op_save_request_fn[6] = 'V';
+	replay_op_save_request_fn[7] = '.';
+	replay_op_save_request_fn[8] = 'C';
+	replay_op_save_request_fn[9] = 'F';
+	replay_op_save_request_fn[10] = 'G';
+	replay_op_save_request_fn[11] = '\0';
 
 	replay_op_main_binary[0] = 'm'; replay_op_main_binary[1] = 'a';
 	replay_op_main_binary[2] = 'i'; replay_op_main_binary[3] = 'n';
@@ -2718,25 +2740,20 @@ bool replay_practice_record_prepare(
 )
 {
 	replay_start_config_t start;
-	uint8_t slot;
-
 	replay_command_clear();
+	replay_op_paths_init();
+	replay_op_dos_delete(replay_op_temp_fn);
+	replay_op_dos_delete(replay_op_save_request_fn);
 	replay_op_copy(&start, start_in, sizeof(start));
 	start.resident_rand = resident->rand;
 	start.random_seed = resident->rand;
 	if(!practice_start_valid(&start)) {
 		return false;
 	}
-	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
-		if(!replay_op_header_read(slot, false)) {
-			return replay_op_command_write(
-				RCM_RECORD, slot, REPLAY_COMMAND_FLAG_PRACTICE, &start
-			);
-		}
-	}
 	return replay_op_command_write(
 		RCM_RECORD, 0,
-		(REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_NO_RECORD),
+		(REPLAY_COMMAND_FLAG_PRACTICE |
+		 REPLAY_COMMAND_FLAG_TEMP_CAPTURE),
 		&start
 	);
 }
@@ -2799,15 +2816,13 @@ bool replay_browser(void)
 
 void replay_record_next_prepare(void)
 {
-	uint8_t slot;
-
 	replay_command_clear();
-	for(slot = 0; slot < REPLAY_USER_SLOT_COUNT; slot++) {
-		if(!replay_op_header_read(slot, false)) {
-			replay_op_command_write(RCM_RECORD, slot, 0, NULL);
-			return;
-		}
-	}
+	replay_op_paths_init();
+	replay_op_dos_delete(replay_op_temp_fn);
+	replay_op_dos_delete(replay_op_save_request_fn);
+	replay_op_command_write(
+		RCM_RECORD, 0, REPLAY_COMMAND_FLAG_TEMP_CAPTURE, NULL
+	);
 }
 
 // Title integration
@@ -3280,7 +3295,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-	#pragma codestring "\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
