@@ -182,17 +182,21 @@ static bool replay_op_background_load(replay_op_background_t background)
 
 static bool replay_op_screen_begin(
 	replay_op_background_t background,
-	graph_putsa_fx_func_t& previous_func
+	graph_putsa_fx_func_t& previous_func,
+	bool fade_out
 )
 {
 	previous_func = graph_putsa_fx_func;
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
-	palette_black_out(1);
+	if(fade_out) {
+		palette_black_out(1);
+	}
 	if(!replay_op_background_load(background)) {
 		graph_putsa_fx_func = previous_func;
 		return false;
 	}
 	pi_palette_apply(0);
+	palette_settone(0);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
 	graph_accesspage(1);
@@ -2092,20 +2096,21 @@ static void practice_page_name_put(uint8_t page)
 	char *p = replay_op_line;
 	screen_x_t left;
 	#define P(c) *p++ = c
+	P('<'); P(' ');
 	if(page == 0) {
 		P('T'); P('a'); P('r'); P('g'); P('e'); P('t'); P(' ');
 		P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s');
-		left = 232;
 	} else if(page == 1) {
 		P('R'); P('u'); P('n'); P(' '); P('H'); P('i'); P('s'); P('t');
 		P('o'); P('r'); P('y');
-		left = 248;
 	} else {
 		P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('H'); P('i');
 		P('s'); P('t'); P('o'); P('r'); P('y');
-		left = 240;
 	}
-	P(' '); P('('); P('1' + page); P('/'); P('3'); P(')');
+	P(' '); P('('); P('1' + page); P('/'); P('3'); P(')'); P(' '); P('>');
+	left = static_cast<screen_x_t>(
+		(RES_X - ((p - replay_op_line) * 8)) / 2
+	);
 	#undef P
 	replay_op_line_put(left, 44, V_WHITE, p);
 }
@@ -2167,11 +2172,12 @@ bool replay_practice_setup(replay_start_config_t far *start)
 	graph_putsa_fx_func_t previous_func;
 
 	practice_defaults(start);
-	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func)) {
+	// The native character-selection screen already faded to black.
+	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func, false)) {
 		return false;
 	}
 	practice_render(start, page, sel);
-	palette_100();
+	palette_black_in(1);
 	while(1) {
 		input_reset_sense_interface();
 		if(key_det == INPUT_NONE) {
@@ -2192,8 +2198,18 @@ bool replay_practice_setup(replay_start_config_t far *start)
 		}
 		rows = practice_row_count(page);
 		field = practice_field(page, sel);
-		if(horizontal_trigger && (field != PF_START)) {
-			practice_field_change(start, field, right, shiftkey);
+		if(horizontal_trigger) {
+			if(field == PF_START) {
+				page = right
+					? ((page == (PRACTICE_PAGE_COUNT - 1)) ? 0 : (page + 1))
+					: ((page == 0) ? (PRACTICE_PAGE_COUNT - 1) : (page - 1));
+				rows = practice_row_count(page);
+				if(sel >= rows) {
+					sel = (rows - 1);
+				}
+			} else {
+				practice_field_change(start, field, right, shiftkey);
+			}
 			practice_render(start, page, sel);
 			if(input_allowed) {
 				snd_se_play_force(1);
@@ -2201,11 +2217,21 @@ bool replay_practice_setup(replay_start_config_t far *start)
 			input_allowed = false;
 		} else if(input_allowed) {
 			if(key_det & INPUT_UP) {
-				sel = ((sel == 0) ? (rows - 1) : (sel - 1));
+				if(sel == 0) {
+					page = ((page == 0) ? (PRACTICE_PAGE_COUNT - 1) : (page - 1));
+					sel = (practice_row_count(page) - 1);
+				} else {
+					sel--;
+				}
 				practice_render(start, page, sel);
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_DOWN) {
-				sel = ((sel == (rows - 1)) ? 0 : (sel + 1));
+				if(sel == (rows - 1)) {
+					page = ((page == (PRACTICE_PAGE_COUNT - 1)) ? 0 : (page + 1));
+					sel = 0;
+				} else {
+					sel++;
+				}
 				practice_render(start, page, sel);
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_BOMB) {
@@ -2272,11 +2298,11 @@ bool replay_browser(void)
 	bool input_allowed = false;
 	graph_putsa_fx_func_t previous_func;
 
-	if(!replay_op_screen_begin(ROB_REPLAY, previous_func)) {
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, true)) {
 		return false;
 	}
 	replay_browser_render(sel);
-	palette_100();
+	palette_black_in(1);
 
 	while(1) {
 		input_reset_sense_interface();
@@ -2496,6 +2522,10 @@ static void replay_main_return(int sel)
 	graph_accesspage(1);
 	pi_fullres_load_palette_apply_put_free(0, replay_op_main_bg_fn);
 	graph_copy_page(0);
+	graph_showpage(0);
+	graph_accesspage(0);
+	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
+	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
 	palette_100();
 	replay_main_initialized = false;
 	in_option = false;
@@ -2756,8 +2786,10 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 // Preserve the paragraph phase of the following stock runtime segment.
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

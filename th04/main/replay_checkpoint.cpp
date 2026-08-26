@@ -616,67 +616,139 @@ static bool rck_u32(replay_ck_stream_t far *stream, uint32_t *value)
 	return true;
 }
 
+static bool rck_u8_field(
+	replay_ck_stream_t far *stream, uint8_t far *field,
+	uint8_t minimum, uint8_t maximum
+)
+{
+	uint8_t value = *field;
+	if(
+		!rck_u8(stream, &value) ||
+		(value < minimum) || (value > maximum)
+	) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*field = value;
+	}
+	return true;
+}
+
+static bool rck_u16_field(
+	replay_ck_stream_t far *stream, uint16_t far *field, uint16_t maximum
+)
+{
+	uint16_t value = *field;
+	if(!rck_u16(stream, &value) || (value > maximum)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*field = value;
+	}
+	return true;
+}
+
+static bool rck_u32_field(
+	replay_ck_stream_t far *stream, uint32_t far *field
+)
+{
+	uint32_t value = *field;
+	if(!rck_u32(stream, &value)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*field = value;
+	}
+	return true;
+}
+
+static bool rck_bool16_field(
+	replay_ck_stream_t far *stream, bool16 far *field
+)
+{
+	uint8_t value = (*field ? 1 : 0);
+	if(!rck_u8(stream, &value) || (value > 1)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		*field = (value != 0);
+	}
+	return true;
+}
+
+#define RCK_FIELD_PTR(type, field) \
+	reinterpret_cast<type far *>(&(field))
+#define RCK_REQUIRE_FIELD_SIZE(field, size) \
+	(void)(1 / ((sizeof field == (size)) ? 1 : 0))
+
 #define RCK_U8(field) do { \
-	uint8_t rck_v = static_cast<uint8_t>(field); \
-	if(!rck_u8(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 1); \
+	if(!rck_u8_field(stream, RCK_FIELD_PTR(uint8_t, field), 0, 0xFF)) { \
+		return false; \
+	} \
 } while(0)
 
 #define RCK_U8_RANGE(field, minimum, maximum) do { \
-	uint8_t rck_v = static_cast<uint8_t>(field); \
-	if( \
-		!rck_u8(stream, &rck_v) || \
-		(rck_v < (minimum)) || (rck_v > (maximum)) \
-	) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 1); \
+	if(!rck_u8_field( \
+		stream, RCK_FIELD_PTR(uint8_t, field), (minimum), (maximum) \
+	)) { \
+		return false; \
+	} \
 } while(0)
 
 #define RCK_U8_MAX(field, maximum) do { \
-	uint8_t rck_v = static_cast<uint8_t>(field); \
-	if(!rck_u8(stream, &rck_v) || (rck_v > (maximum))) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 1); \
+	if(!rck_u8_field( \
+		stream, RCK_FIELD_PTR(uint8_t, field), 0, (maximum) \
+	)) { \
+		return false; \
+	} \
 } while(0)
 
-#define RCK_S8(field) do { \
-	uint8_t rck_v = static_cast<uint8_t>(field); \
-	if(!rck_u8(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = static_cast<int8_t>(rck_v); } \
-} while(0)
+#define RCK_S8(field) RCK_U8(field)
 
 #define RCK_U16(field) do { \
-	uint16_t rck_v = static_cast<uint16_t>(field); \
-	if(!rck_u16(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 2); \
+	if(!rck_u16_field( \
+		stream, RCK_FIELD_PTR(uint16_t, field), 0xFFFF \
+	)) { \
+		return false; \
+	} \
 } while(0)
 
 #define RCK_U16_MAX(field, maximum) do { \
-	uint16_t rck_v = static_cast<uint16_t>(field); \
-	if(!rck_u16(stream, &rck_v) || (rck_v > (maximum))) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 2); \
+	if(!rck_u16_field( \
+		stream, RCK_FIELD_PTR(uint16_t, field), (maximum) \
+	)) { \
+		return false; \
+	} \
 } while(0)
 
-#define RCK_S16(field) do { \
-	uint16_t rck_v = static_cast<uint16_t>(field); \
-	if(!rck_u16(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = static_cast<int16_t>(rck_v); } \
-} while(0)
+#define RCK_S16(field) RCK_U16(field)
 
 #define RCK_U32(field) do { \
-	uint32_t rck_v = static_cast<uint32_t>(field); \
-	if(!rck_u32(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = rck_v; } \
+	RCK_REQUIRE_FIELD_SIZE(field, 4); \
+	if(!rck_u32_field(stream, RCK_FIELD_PTR(uint32_t, field))) { \
+		return false; \
+	} \
 } while(0)
 
-#define RCK_S32(field) do { \
-	uint32_t rck_v = static_cast<uint32_t>(field); \
-	if(!rck_u32(stream, &rck_v)) { return false; } \
-	if(rck_applying(stream)) { field = static_cast<int32_t>(rck_v); } \
-} while(0)
+#define RCK_S32(field) RCK_U32(field)
 
 #define RCK_BOOL(field) do { \
-	uint8_t rck_v = ((field) ? 1 : 0); \
-	if(!rck_u8(stream, &rck_v) || (rck_v > 1)) { return false; } \
-	if(rck_applying(stream)) { field = (rck_v != 0); } \
+	RCK_REQUIRE_FIELD_SIZE(field, 1); \
+	if(!rck_u8_field(stream, RCK_FIELD_PTR(uint8_t, field), 0, 1)) { \
+		return false; \
+	} \
+} while(0)
+
+#define RCK_BOOL16(field) do { \
+	RCK_REQUIRE_FIELD_SIZE(field, 2); \
+	if(!rck_bool16_field(stream, RCK_FIELD_PTR(bool16, field))) { \
+		return false; \
+	} \
 } while(0)
 
 static bool rck_sppoint(
@@ -3097,7 +3169,7 @@ static bool rck_item(
 	}
 	RCK_S8(item->unknown);
 	RCK_S16(item->patnum);
-	RCK_BOOL(item->pulled_to_player);
+	RCK_BOOL16(item->pulled_to_player);
 	if(rck_applying(stream)) {
 		item->type = type;
 	}
@@ -6263,12 +6335,19 @@ bool replay_ck_container_apply(
 #undef RCK_U32
 #undef RCK_S32
 #undef RCK_BOOL
+#undef RCK_BOOL16
+#undef RCK_REQUIRE_FIELD_SIZE
+#undef RCK_FIELD_PTR
 
 // Keep the Borland runtime code that follows the replay segments on its stock
 // paragraph phase. This value is derived from the complete MAIN map, not from
 // the source length of this translation unit in isolation.
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

@@ -18,6 +18,7 @@
 #include "th04/main/slowdown.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/score.h"
+#include "th03/core/initexit.h"
 #if (GAME == 5)
 	#include "th05/hardware/input.h"
 	#include "th05/resident.hpp"
@@ -129,6 +130,59 @@ static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
 static bool replay_practice_preroll_pending;
+
+#define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
+#if (GAME == 5)
+	#define REPLAY_MAIN_HEAP_TARGET_PARAS (291200 >> 4)
+	#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (264000 >> 4)
+#else
+	#define REPLAY_MAIN_HEAP_TARGET_PARAS (320000 >> 4)
+	#define REPLAY_MAIN_HEAP_EMS_MIN_PARAS (280000 >> 4)
+#endif
+
+static uint16_t replay_dos_largest_free_block(void)
+{
+	uint16_t largest;
+
+	_asm {
+		mov bx, 0FFFFh
+		mov ah, 48h
+		int 21h
+		mov largest, bx
+	}
+	return largest;
+}
+
+static void replay_dos_terminate_failure(void)
+{
+	_asm {
+		mov ax, 4C01h
+		int 21h
+	}
+}
+
+void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
+{
+	uint16_t largest = replay_dos_largest_free_block();
+	uint16_t minimum = (
+		ems_exist()
+		? REPLAY_MAIN_HEAP_EMS_MIN_PARAS
+		: REPLAY_MAIN_HEAP_TARGET_PARAS
+	);
+
+	if(largest < static_cast<uint16_t>(minimum + REPLAY_DOS_RESERVE_PARAS)) {
+		replay_dos_terminate_failure();
+	}
+	largest = static_cast<uint16_t>(largest - REPLAY_DOS_RESERVE_PARAS);
+	mem_assign_paras = (
+		(largest < REPLAY_MAIN_HEAP_TARGET_PARAS)
+		? largest
+		: REPLAY_MAIN_HEAP_TARGET_PARAS
+	);
+	if(game_init_main(pf_fn)) {
+		replay_dos_terminate_failure();
+	}
+}
 
 static int replay_dos_open(const char far *fn, unsigned char access)
 {

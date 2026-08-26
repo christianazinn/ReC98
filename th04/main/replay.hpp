@@ -52,6 +52,7 @@ void replay_stage_start(void);
 // Tail helpers that make room for replay hooks without growing position-
 // critical stock MAIN segments.
 void replay_main_entry_setup(void);
+void replay_game_init_main_or_exit(const unsigned char far *pf_fn);
 bool replay_frame_pacing_should_delay(void);
 bool replay_stage_frame_advance_should_raise(void);
 void replay_metrics_commit(void);
