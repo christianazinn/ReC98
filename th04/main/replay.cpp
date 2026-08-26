@@ -2202,6 +2202,9 @@ void replay_practice_start_apply_after_reset(void)
 void replay_practice_start_apply_and_stage_activate(void)
 {
 	replay_practice_start_apply();
+	if(replay_stage_presentation_skip) {
+		vsync_Count2 = 0x80;
+	}
 	std_update = std_update_frames_then_animate_dialog_and_activate_boss_if_done;
 	scroll_active = true;
 }
@@ -2726,7 +2729,7 @@ static void replay_pause_label_put(
 	}
 	#undef P
 	*p = '\0';
-	text_putsa(26, y, label, color);
+	text_putsa(static_cast<tram_x_t>(34 - ((p - label) / 2)), y, label, color);
 }
 
 static void replay_pause_render(uint8_t selected, bool save_available)
@@ -2988,7 +2991,7 @@ bool replay_process_end(void)
 		if(replay_pause_action == RPA_RESTART) {
 			replay_restart_command_write();
 		}
-		return false;
+		return (replay_pause_action == RPA_RESTART);
 	}
 	end_reason = replay_end_reason();
 	if(replay_mode == RRM_RECORD) {
@@ -3058,7 +3061,11 @@ bool replay_process_end(void)
 		if(replay_pause_action == RPA_RESTART) {
 			replay_restart_command_write();
 		}
-		return false;
+		return (
+			(replay_header.mode == RUM_PRACTICE) ||
+			(replay_pause_action == RPA_SAVE_EXIT) ||
+			(replay_pause_action == RPA_RESTART)
+		);
 	}
 	if(
 		replay_failed ||
@@ -3088,9 +3095,9 @@ bool replay_playback_active(void)
 
 // Preserve the paragraph phase of every following stock CODE segment.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90"

@@ -306,7 +306,7 @@ void pascal replay_op_font_put_cells(
 		}
 		if(count) {
 			replay_op_font_put_n(
-				(cell_left + (cells * 8)), top, run, count, color
+				(cell_left + (cells * 10)), top, run, count, color
 			);
 			cells += count;
 		}

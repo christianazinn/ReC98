@@ -112,6 +112,7 @@ static void language_config_load(void)
 	uint8_t data[LANGUAGE_CONFIG_SIZE];
 	uint8_t extra;
 	uint8_t sum;
+	int fh;
 
 	if(language_loaded) {
 		return;
@@ -119,17 +120,18 @@ static void language_config_load(void)
 	language_loaded = true;
 	language_current = LANGUAGE_JAPANESE;
 	language_config_name_set();
-	if(!file_ropen(language_config_fn)) {
+	fh = replay_op_dos_open(language_config_fn);
+	if(fh < 0) {
 		return;
 	}
 	if(
-		(file_read(data, LANGUAGE_CONFIG_SIZE) != LANGUAGE_CONFIG_SIZE) ||
-		(file_read(&extra, 1) != 0)
+		(replay_op_dos_read(fh, data, LANGUAGE_CONFIG_SIZE) != LANGUAGE_CONFIG_SIZE) ||
+		(replay_op_dos_read(fh, &extra, 1) != 0)
 	) {
-		file_close();
+		replay_op_dos_close(fh);
 		return;
 	}
-	file_close();
+	replay_op_dos_close(fh);
 	sum = language_config_checksum(data);
 	if(
 		(data[0] != 'T') || (data[1] != ('0' + GAME)) ||
@@ -154,6 +156,7 @@ bool16 language_preference_set(language_preference_t preference)
 	uint8_t data[LANGUAGE_CONFIG_SIZE];
 	uint8_t sum;
 	language_preference_t previous;
+	int fh;
 
 	language_config_load();
 	if(preference > LANGUAGE_ENGLISH) {
@@ -174,16 +177,18 @@ bool16 language_preference_set(language_preference_t preference)
 	sum = language_config_checksum(data);
 	data[6] = sum;
 	data[7] = static_cast<uint8_t>(~sum);
-	if(!file_create(language_config_fn)) {
+	fh = replay_op_dos_create(language_config_fn);
+	if(fh < 0) {
 		language_current = previous;
 		return false;
 	}
-	if(file_write(data, LANGUAGE_CONFIG_SIZE) != LANGUAGE_CONFIG_SIZE) {
-		file_close();
+	if(replay_op_dos_write(fh, data, LANGUAGE_CONFIG_SIZE) != LANGUAGE_CONFIG_SIZE) {
+		replay_op_dos_close(fh);
 		language_current = previous;
 		return false;
 	}
-	file_close();
+	replay_op_dos_close(fh);
+	replay_op_dos_flush();
 	return true;
 }
 

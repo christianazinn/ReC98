@@ -32,6 +32,7 @@ enum replay_op_bridge_func_t {
 // REPLAY_OP_TEXT is deliberately outside the stock OP_01 code group. Route
 // calls to stock near functions through this far entry point in OP_MAIN_TEXT.
 bool16 far replay_op_bridge(replay_op_bridge_func_t func);
+void far replay_op_startup_dispatch(void);
 void far replay_main_update_and_render(const char *main_bg_fn);
 
 #endif /* TH04_OP_REPLAY_HPP */

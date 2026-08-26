@@ -353,6 +353,7 @@ static bool replay_stock_option_input_allowed;
 // The replaced stock updater contributed three initialized compiler bytes.
 // Keep their layout contribution in OP_MAIN_TEXT's original module.
 static volatile uint8_t replay_stock_option_data_pad[3] = { 0, 0, 0 };
+static char replay_stock_se_fn_pad[] = SE_FN;
 
 void near main_update_and_render(void)
 {
@@ -659,7 +660,14 @@ void main(void)
 		setup_menu();
 		resident->rank = RANK_NORMAL;
 	}
-	snd_redetermine_modes_and_reload_se();
+	// Keep the stock 35-byte sound initialization span while consuming
+	// patch-owned save and Restart handoffs before the title animation.
+	replay_op_startup_dispatch();
+	_asm {
+		nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;
+		nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;
+		nop; nop; nop; nop; nop; nop; nop; nop; nop; nop;
+	}
 
 	if(!resident->zunsoft_shown) {
 		zunsoft_animate();

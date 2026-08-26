@@ -66,6 +66,10 @@ typedef enum {
 	CDG_PIC_NOT_CLEARED,
 #endif
 
+	// PATCH04.DAT / PATCH05.DAT: RPYTTL.CD2
+	CDG_MAIN_PRACTICE = 48,
+	CDG_MAIN_REPLAY,
+
 	_op_cdg_slot_t_FORCE_INT16 = 0x7FFF
 } op_cdg_slot_t;
 
