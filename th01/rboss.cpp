@@ -8,6 +8,7 @@
 #include "th01/main/boss/b10j.hpp"
 #include "th01/main/boss/b15j.hpp"
 #include "th01/main/boss/b15m.hpp"
+#include "th01/main/boss/b20m.hpp"
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/resident.hpp"
@@ -101,6 +102,18 @@ bool16 t1replay_checkpoint_boss_valid(
 	) {
 		return t1boss_elis_checkpoint_validate(
 			reinterpret_cast<const t1boss_elis_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	}
+	if(
+		(boss->boss_id == BID_SARIEL) &&
+		(boss->owner == T1BOSS_SARIEL_CHECKPOINT_OWNER) &&
+		(boss->owner_schema == T1BOSS_SARIEL_CHECKPOINT_SCHEMA) &&
+		(boss->payload_size == T1BOSS_SARIEL_CHECKPOINT_SIZE)
+	) {
+		return t1boss_sariel_checkpoint_validate(
+			reinterpret_cast<const t1boss_sariel_checkpoint_t far *>(
 				boss->payload
 			)
 		);
@@ -224,6 +237,16 @@ bool16 t1replay_checkpoint_boss_capture(
 			return false;
 		}
 		break;
+	case BID_SARIEL:
+		boss->owner = T1BOSS_SARIEL_CHECKPOINT_OWNER;
+		boss->owner_schema = T1BOSS_SARIEL_CHECKPOINT_SCHEMA;
+		boss->payload_size = T1BOSS_SARIEL_CHECKPOINT_SIZE;
+		if(!t1boss_sariel_checkpoint_capture(
+			reinterpret_cast<t1boss_sariel_checkpoint_t far *>(boss->payload)
+		)) {
+			return false;
+		}
+		break;
 	case BID_KONNGARA:
 		boss->owner = T1BOSS_KONNGARA_CHECKPOINT_OWNER;
 		boss->owner_schema = T1BOSS_KONNGARA_CHECKPOINT_SCHEMA;
@@ -277,6 +300,12 @@ bool16 t1replay_checkpoint_boss_apply(
 	case BID_ELIS:
 		return t1boss_elis_ckpt_apply_loaded(
 			reinterpret_cast<const t1boss_elis_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	case BID_SARIEL:
+		return t1boss_sariel_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_sariel_checkpoint_t far *>(
 				boss->payload
 			)
 		);
