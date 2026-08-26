@@ -63,6 +63,9 @@ enum t2op_word_t {
 	T2OW_CLEAR,
 	T2OW_GAME_OVER,
 	T2OW_PAGE,
+	T2OW_FINAL_SCORE,
+	T2OW_START_POINT,
+	T2OW_STAGE_SPLITS,
 	T2OW_START_RUN,
 	T2OW_COUNT,
 };
@@ -441,6 +444,9 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_CLEAR: P('C'); P('l'); P('e'); P('a'); P('r'); break;
 	case T2OW_GAME_OVER: P('G'); P('a'); P('m'); P('e'); P(' '); P('O'); P('v'); P('e'); P('r'); break;
 	case T2OW_PAGE: P('P'); P('a'); P('g'); P('e'); break;
+	case T2OW_FINAL_SCORE: P('F'); P('i'); P('n'); P('a'); P('l'); P(' '); P('S'); P('c'); P('o'); P('r'); P('e'); break;
+	case T2OW_START_POINT: P('S'); P('t'); P('a'); P('r'); P('t'); P(' '); P('P'); P('o'); P('i'); P('n'); P('t'); break;
+	case T2OW_STAGE_SPLITS: P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('S'); P('p'); P('l'); P('i'); P('t'); P('s'); break;
 	case T2OW_START_RUN: P('S'); P('t'); P('a'); P('r'); P('t'); P(' '); P('R'); P('u'); P('n'); break;
 	default: break;
 	}
@@ -1376,6 +1382,94 @@ static void t2op_browser_render(void)
 	t2op_text_put(34, 18, TX_GREEN, p);
 }
 
+static void t2op_detail_render(uint8_t slot)
+{
+	char *p;
+	uint8_t stage;
+	tram_y_t y;
+
+	text_clear();
+	p = t2op_line;
+	p = t2op_word_append(p, T2OW_SLOT);
+	p = t2op_char(p, ' ');
+	p = t2op_u32_append(p, slot, 2);
+	t2op_text_put(5, 3, TX_GREEN, p);
+
+	p = t2op_line;
+	p = t2op_word_append(
+		p, (t2op_header.end_reason == T2REPLAY_END_CLEAR)
+			? T2OW_CLEAR : T2OW_GAME_OVER
+	);
+	t2op_text_put(5, 5, TX_WHITE, p);
+
+	#define T2OP_DETAIL_LABEL(y, word) \
+		p = t2op_word_append(t2op_line, word); \
+		t2op_text_put(5, y, TX_YELLOW, p)
+	T2OP_DETAIL_LABEL(6, T2OW_FINAL_SCORE);
+	p = t2op_i32_append(t2op_line, t2op_header.score_final, 10);
+	t2op_text_put(20, 6, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(7, T2OW_CHARACTER);
+	p = t2op_character_append(t2op_line, t2op_header.start.shottype);
+	t2op_text_put(20, 7, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(8, T2OW_RANK);
+	p = t2op_rank_append(t2op_line, t2op_header.start.rank);
+	t2op_text_put(20, 8, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(9, T2OW_START_POINT);
+	p = t2op_stage_append(t2op_line, t2op_header.start.stage);
+	t2op_text_put(20, 9, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(10, T2OW_LIVES);
+	p = t2op_i32_append(t2op_line, t2op_header.lives_final, 0);
+	t2op_text_put(20, 10, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(11, T2OW_BOMBS);
+	p = t2op_i32_append(t2op_line, t2op_header.bombs_final, 0);
+	t2op_text_put(20, 11, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(12, T2OW_POWER);
+	p = t2op_u32_append(t2op_line, t2op_header.power_final, 0);
+	t2op_text_put(20, 12, TX_WHITE, p);
+	#undef T2OP_DETAIL_LABEL
+
+	p = t2op_line;
+	p = t2op_word_append(p, T2OW_STAGE_SPLITS);
+	t2op_text_put(43, 3, TX_GREEN, p);
+	y = 5;
+	for(
+		stage = static_cast<uint8_t>(t2op_header.start.stage);
+		stage <= t2op_header.stage_reached;
+		stage++
+	) {
+		p = t2op_line;
+		p = t2op_stage_append(p, static_cast<int8_t>(stage));
+		p = t2op_spaces_append(p, 2);
+		p = t2op_u32_append(p, t2op_header.stage_scores[stage], 10);
+		t2op_text_put(41, y++, TX_WHITE, p);
+	}
+}
+
+static void t2op_detail(uint8_t slot)
+{
+	bool input_allowed = false;
+
+	t2op_detail_render(slot);
+	while(1) {
+		input_reset_sense();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(key_det & INPUT_CANCEL) {
+				break;
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				t2op_playback_start(slot);
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+	key_det = INPUT_NONE;
+}
+
 static void t2op_browser(void)
 {
 	bool input_allowed = false;
@@ -1410,7 +1504,8 @@ static void t2op_browser(void)
 				break;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				if(t2op_header_read(t2op_browser_sel)) {
-					t2op_playback_start(t2op_browser_sel);
+					t2op_detail(t2op_browser_sel);
+					t2op_browser_render();
 				}
 			}
 			if(key_det != INPUT_NONE) {
