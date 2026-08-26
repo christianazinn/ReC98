@@ -29,6 +29,7 @@
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/op/replay_font.hpp"
+#include "th04/op/language.hpp"
 #include "th04/language_overlay.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
@@ -52,7 +53,7 @@
 #define REPLAY_OP_SLOT_ROWS 10
 #define REPLAY_OP_LINE_CAPACITY 80
 #define REPLAY_OP_LINE_LEFT 96
-#define REPLAY_OP_LINE_TOP 88
+#define REPLAY_OP_LINE_TOP 112
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
 #define REPLAY_OP_COL_LOCKED ((GAME == 5) ? 2 : 12)
@@ -287,7 +288,8 @@ static void replay_op_screen_end(
 }
 
 // Keep the accepted replay OP data/BSS addresses stable after removing the
-// stale-spacing restore path above. This is deliberately never called.
+// stale-spacing restore path above and the RC12 presentation compaction. This
+// is deliberately never called.
 static void replay_op_layout_pad(void)
 {
 	_asm {
@@ -324,8 +326,46 @@ static void replay_op_layout_pad(void)
 		nop
 		nop
 		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
 	}
 }
+
+// LANGUAGE RC12 adds English-only OP presentation in the replay tail. Keep
+// the stock CRT paragraph phase unchanged; the exact bytes are measured by
+// verify_th0405_structural_layout.py against the frozen foundation maps.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
+#endif
 
 static int replay_op_dos_open(const char far *fn)
 {
@@ -1786,7 +1826,17 @@ static char *replay_op_word_padded_append(
 {
 	char *start = p;
 	p = replay_op_word_append(p, word);
-	return replay_op_spaces_append(p, width - (p - start));
+	if(!replay_op_font) {
+		return replay_op_spaces_append(p, width - (p - start));
+	}
+	// The replay browser still has fixed columns, but its words do not. Pad
+	// only the inter-column gap with the font's genuine proportional space.
+	*p = '\0';
+	while(replay_op_font_width(start) < (width * 10)) {
+		*p++ = ' ';
+		*p = '\0';
+	}
+	return p;
 }
 
 static char *replay_op_uint_append(char *p, uint32_t value, unsigned width)
@@ -1812,7 +1862,7 @@ static void replay_op_line_put(screen_x_t left, vram_y_t top, vc2 col, char *p)
 {
 	*p = '\0';
 	if(replay_op_font) {
-		replay_op_font_put_cells(left, top, replay_op_line, col);
+		replay_op_font_put(left, top, replay_op_line, col);
 	} else {
 		graph_putsa_fx(
 			left, top, col,
@@ -1856,6 +1906,13 @@ static replay_op_word_t replay_op_rank_word(uint8_t rank)
 
 void replay_title_desc_put(void)
 {
+	if(language_op_english_selected()) {
+		replay_op_font_put_right(
+			(RES_X - 16), (RES_Y - 16), language_op_custom_desc(false),
+			((GAME == 5) ? 9 : V_WHITE)
+		);
+		return;
+	}
 	char *p = replay_op_line;
 	#define P(c) *p++ = c
 	P(0x83); P(0x8A); P(0x83); P(0x76); P(0x83); P(0x8C); P(0x83); P(0x43);
@@ -1871,6 +1928,13 @@ void replay_title_desc_put(void)
 
 void replay_practice_title_desc_put(void)
 {
+	if(language_op_english_selected()) {
+		replay_op_font_put_right(
+			(RES_X - 16), (RES_Y - 16), language_op_custom_desc(true),
+			((GAME == 5) ? 9 : V_WHITE)
+		);
+		return;
+	}
 	char *p = replay_op_line;
 	#define P(c) *p++ = c
 	P(0x97); P(0xFB); P(0x8F); P(0x4B); P(0x82); P(0xCC);
@@ -1894,7 +1958,7 @@ static void replay_browser_header_put(void)
 	p = replay_op_word_padded_append(p, ROW_RANK, 10);
 	p = replay_op_word_padded_append(p, ROW_SCORE, 12);
 	p = replay_op_word_append(p, ROW_STAGE);
-	replay_op_line_put(REPLAY_OP_LINE_LEFT, 56, V_WHITE, p);
+	replay_op_line_put(REPLAY_OP_LINE_LEFT, 80, V_WHITE, p);
 }
 
 static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
@@ -1959,15 +2023,10 @@ static void replay_browser_render(uint8_t sel)
 		(sel / REPLAY_OP_SLOT_ROWS) * REPLAY_OP_SLOT_ROWS
 	);
 	uint8_t page_drawn = (1 - replay_op_page_shown);
-	char *p;
 	int i;
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
-	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	p = replay_op_line;
-	p = replay_op_word_append(p, ROW_REPLAY);
-	replay_op_line_put_centered(24, REPLAY_OP_COL_ACTIVE, p);
 	replay_browser_header_put();
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	for(i = 0; i < REPLAY_OP_SLOT_ROWS; i++) {
@@ -2044,16 +2103,16 @@ static void replay_detail_left_put(uint8_t slot)
 	p = replay_op_uint_zero_append(p, slot, 2);
 	p = replay_op_spaces_append(p, 4);
 	p = replay_op_name_append(p);
-	replay_op_line_put(64, 56, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put(64, 80, REPLAY_OP_COL_ACTIVE, p);
 
 	p = replay_op_line;
 	p = replay_op_end_reason_append(p);
-	replay_op_line_put(64, 88, V_WHITE, p);
+	replay_op_line_put(64, 112, V_WHITE, p);
 
 	p = replay_op_line;
 	p = replay_op_word_padded_append(p, ROW_FINAL_SCORE, 15);
 	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
-	replay_op_line_put(64, 112, V_WHITE, p);
+	replay_op_line_put(64, 136, V_WHITE, p);
 
 	p = replay_op_line;
 	p = replay_op_word_padded_append(p, ROW_DATE, 15);
@@ -2062,7 +2121,7 @@ static void replay_detail_left_put(uint8_t slot)
 	p = replay_op_uint_zero_append(p, day, 2);
 	*p++ = '-';
 	p = replay_op_uint_zero_append(p, year, 4);
-	replay_op_line_put(64, 136, V_WHITE, p);
+	replay_op_line_put(64, 160, V_WHITE, p);
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
@@ -2074,7 +2133,7 @@ static void replay_detail_left_put(uint8_t slot)
 		*p++ = ' ';
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
-	replay_op_line_put(64, 160, V_WHITE, p);
+	replay_op_line_put(64, 184, V_WHITE, p);
 
 	#if (GAME == 4)
 		p = replay_op_line;
@@ -2083,12 +2142,12 @@ static void replay_detail_left_put(uint8_t slot)
 		p = replay_op_word_append(
 			p, replay_op_header.start.turbo_mode ? ROW_ON : ROW_OFF
 		);
-		replay_op_line_put(64, 184, V_WHITE, p);
+		replay_op_line_put(64, 208, V_WHITE, p);
 	#endif
 	if(replay_op_header.mode == RUM_PRACTICE) {
 		p = replay_op_line;
 		p = replay_op_word_append(p, ROW_PRACTICE);
-		replay_op_line_put(64, 208, V_WHITE, p);
+		replay_op_line_put(64, 232, V_WHITE, p);
 	}
 }
 
@@ -2102,11 +2161,11 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 			: replay_op_header.stage_reached
 	);
 	uint8_t stage;
-	vram_y_t top = 88;
+	vram_y_t top = 112;
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_STAGE_SPLITS);
-	replay_op_line_put(368, 56, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put(368, 80, REPLAY_OP_COL_ACTIVE, p);
 	for(stage = first; stage <= last; stage++) {
 		p = replay_op_line;
 		*p++ = ((stage == selected_stage) ? '>' : ' ');
@@ -2134,14 +2193,9 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 static void replay_detail_render(uint8_t slot, uint8_t selected_stage)
 {
 	uint8_t page_drawn = (1 - replay_op_page_shown);
-	char *p;
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
-	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	p = replay_op_line;
-	p = replay_op_word_append(p, ROW_REPLAY_DETAILS);
-	replay_op_line_put_centered(24, REPLAY_OP_COL_ACTIVE, p);
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	replay_detail_left_put(slot);
 	replay_detail_splits_put(selected_stage);
@@ -3305,7 +3359,7 @@ enum replay_save_modal_t {
 #define REPLAY_SAVE_ALPHABET_ROWS 3
 #define REPLAY_SAVE_ALPHABET_COLS 17
 #define REPLAY_SAVE_ALPHABET_LEFT 23
-#define REPLAY_SAVE_ALPHABET_TOP ((GAME == 5) ? 21 : 18)
+#define REPLAY_SAVE_ALPHABET_TOP ((GAME == 5) ? 20 : 17)
 #define REPLAY_SAVE_CELL_LEFT 47
 #define REPLAY_SAVE_CELL_RIGHT 48
 #define REPLAY_SAVE_CELL_SPACE 49
@@ -3558,11 +3612,11 @@ static void replay_save_name_render(const char far *name)
 	*p++ = '-';
 	p = replay_op_uint_zero_append(p, year, 4);
 	*p = '\0';
-	replay_op_font_put(80, 144, replay_op_line, V_WHITE);
+	replay_op_font_put(80, 160, replay_op_line, V_WHITE);
 	p = replay_op_line;
 	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
 	*p = '\0';
-	replay_op_font_put(344, 144, replay_op_line, V_WHITE);
+	replay_op_font_put(344, 160, replay_op_line, V_WHITE);
 	p = replay_op_line;
 	p = replay_op_word_append(
 		p, replay_op_playchar_word(replay_op_header.start.playchar)
@@ -3572,7 +3626,7 @@ static void replay_save_name_render(const char far *name)
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
 	*p = '\0';
-	replay_op_font_put(408, 144, replay_op_line, V_WHITE);
+	replay_op_font_put(408, 160, replay_op_line, V_WHITE);
 	p = replay_op_line;
 	if(replay_op_header.start.stage == STAGE_EXTRA) {
 		p = replay_op_word_append(p, ROW_EXTRA);
@@ -3580,7 +3634,7 @@ static void replay_save_name_render(const char far *name)
 		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
 	}
 	*p = '\0';
-	replay_op_font_put_right(560, 144, replay_op_line, V_WHITE);
+	replay_op_font_put_right(560, 160, replay_op_line, V_WHITE);
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
 }
@@ -3716,13 +3770,19 @@ static void replay_save_complete_put(void)
 	graph_showpage(replay_op_page_shown);
 }
 
-static void replay_save_slot_menu(
-	const char far *name, graph_putsa_fx_func_t previous_func
-)
+static void replay_save_slot_menu(const char far *name)
 {
 	uint8_t sel = 0;
 	bool occupied;
 	bool input_allowed = false;
+	graph_putsa_fx_func_t previous_func;
+
+	// Give the slot browser a complete replay surface of its own. The name
+	// keyboard owns SLB1B.PI and TRAM; replacing that surface in-place left
+	// some machines with a black page until the next explicit browser redraw.
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, false)) {
+		return;
+	}
 
 	replay_browser_render(sel);
 	while(1) {
@@ -3822,12 +3882,8 @@ static bool replay_save_pending(void)
 		replay_op_screen_end(previous_func);
 		return true;
 	}
-	if(!replay_op_screen_background_replace(ROB_REPLAY)) {
-		replay_save_pending_discard();
-		replay_op_screen_end(previous_func);
-		return true;
-	}
-	replay_save_slot_menu(name, previous_func);
+	replay_op_screen_end(previous_func);
+	replay_save_slot_menu(name);
 	return true;
 }
 
@@ -3900,7 +3956,16 @@ static screen_y_t replay_main_choice_top(int sel)
 
 static void replay_main_desc_put(int desc_id)
 {
+	const char *desc = language_op_main_desc(desc_id);
+
 	egc_copy_rect_1_to_0_16(0, REPLAY_MAIN_DESC_TOP, RES_X, GLYPH_H);
+	if(language_op_english_selected() && desc) {
+		replay_op_font_put_right(
+			(RES_X - GLYPH_HALF_W), REPLAY_MAIN_DESC_TOP,
+			desc, ((GAME == 5) ? 9 : V_WHITE)
+		);
+		return;
+	}
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	graph_putsa_fx(
 		(RES_X - GLYPH_FULL_W - (strlen(MENU_DESC[desc_id]) * GLYPH_HALF_W)),
@@ -3919,6 +3984,9 @@ static void pascal near replay_main_unput_and_put(int sel, vc2 col)
 	screen_y_t top = replay_main_choice_top(sel);
 	int desc_id = sel;
 	int custom = 0;
+	const char *label = (
+		language_op_english_selected() ? language_op_main_label(sel) : 0
+	);
 
 	egc_copy_rect_1_to_0_16(
 		REPLAY_MAIN_MENU_LEFT, top, REPLAY_MAIN_MENU_W, REPLAY_MAIN_LABEL_H
@@ -3926,37 +3994,72 @@ static void pascal near replay_main_unput_and_put(int sel, vc2 col)
 	grcg_setcolor(GC_RMW, col);
 	switch(sel) {
 	case RMC_GAME:
-		replay_main_command_put(top, CDG_MAIN_GAME);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_GAME);
+		}
 		desc_id = (22 + resident->rank);
 		break;
 	case RMC_EXTRA:
 		if(!extra_unlocked) {
 			grcg_setcolor(GC_RMW, ((GAME == 5) ? 2 : 12));
 		}
-		replay_main_command_put(top, CDG_MAIN_EXTRA);
+		if(label) {
+			replay_op_font_put_centered(
+				RES_X / 2, top, label,
+				(!extra_unlocked ? ((GAME == 5) ? 2 : 12) : col)
+			);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_EXTRA);
+		}
 		break;
 	case RMC_PRACTICE:
 		custom = 1;
-		replay_main_command_put(top, CDG_MAIN_PRACTICE);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_PRACTICE);
+		}
 		break;
 	case RMC_REGIST_VIEW:
-		replay_main_command_put(top, CDG_MAIN_REGIST_VIEW);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_REGIST_VIEW);
+		}
 		desc_id = 2;
 		break;
 	case RMC_MUSICROOM:
-		replay_main_command_put(top, CDG_MAIN_MUSICROOM);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_MUSICROOM);
+		}
 		desc_id = 3;
 		break;
 	case RMC_REPLAY:
 		custom = 2;
-		replay_main_command_put(top, CDG_MAIN_REPLAY);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_REPLAY);
+		}
 		break;
 	case RMC_OPTION:
-		replay_main_command_put(top, CDG_MAIN_OPTION);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_MAIN_OPTION);
+		}
 		desc_id = 4;
 		break;
 	case RMC_QUIT:
-		replay_main_command_put(top, CDG_QUIT);
+		if(label) {
+			replay_op_font_put_centered(RES_X / 2, top, label, col);
+		} else {
+			replay_main_command_put(top, CDG_QUIT);
+		}
 		desc_id = 5;
 		break;
 	}
@@ -4030,6 +4133,9 @@ static void replay_main_th05_scores_reset(void)
 
 static void replay_main_start_game(void)
 {
+	#if (GAME == 4)
+		language_op_character_prepare();
+	#endif
 	#if (GAME == 5)
 		resident->end_sequence = ES_SCORE;
 		resident->demo_num = 0;
@@ -4061,6 +4167,9 @@ static void replay_main_start_game(void)
 
 static void replay_main_start_extra(void)
 {
+	#if (GAME == 4)
+		language_op_character_prepare();
+	#endif
 	#if (GAME == 5)
 		resident->demo_num = 0;
 		resident->stage = STAGE_EXTRA;
@@ -4192,6 +4301,9 @@ void far replay_op_startup_dispatch(void)
 static void replay_main_start_practice(void)
 {
 	replay_start_config_t start;
+	#if (GAME == 4)
+		language_op_character_prepare();
+	#endif
 
 	#if (GAME == 5)
 		resident->end_sequence = ES_SCORE;
@@ -4306,6 +4418,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 			replay_main_initialized = false;
 			break;
 		case RMC_MUSICROOM:
+			language_asset_music_prepare();
 			replay_op_bridge(ROBF_MUSICROOM_MENU);
 			replay_op_bridge(ROBF_MAIN_CDG_LOAD);
 			replay_main_return((GAME == 5) ? RMC_MUSICROOM : RMC_GAME);

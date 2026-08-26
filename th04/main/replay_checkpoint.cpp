@@ -64,6 +64,7 @@
 
 #include "x86real.h"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/main/scroll.hpp"
 #include "th04/common.h"
@@ -105,7 +106,6 @@
 struct map_section_tiles_t;
 extern map_section_tiles_t __seg* map_seg;
 #if (GAME == 5)
-	#include "libs/master.lib/pc98_gfx.hpp"
 	#include "th03/hardware/palette.hpp"
 	#include "th05/main/boss/bosses.hpp"
 	#include "th05/main/boss/b3puppet.hpp"
@@ -144,6 +144,14 @@ extern map_section_tiles_t __seg* map_seg;
 #define RCK_SHAKE_ANIM_TIME_MAX 16
 #define RCK_SPARK_SIZE 16
 #define RCK_STD_OFFSET_NONE 0xFFFFu
+
+// Far boss callbacks overwrite both long-lived automatic storage and the
+// replay module's diagnostic scratch. Keep the constructor's immutable target
+// contract in this separately linked, zero-initialized patch BSS.
+static uint32_t rck_practice_boss_resident_rand;
+static int32_t rck_practice_boss_random_seed;
+static uint8_t rck_practice_boss_target_section;
+static uint8_t rck_practice_boss_target_phase;
 
 extern uint16_t randring_p;
 extern uint8_t stage_id;
@@ -1882,6 +1890,8 @@ static bool rck_practice_scroll_step(
 				(offset >= source->end) ||
 				(reinterpret_cast<uint16_t>(std_scroll_speed) >= source->end)
 			) {
+				replay_ck_failure_group_value = 0xE1;
+				replay_ck_failure_field_value = offset;
 				return false;
 			}
 			scroll_speed.v = rck_std_source_u8(
@@ -1895,6 +1905,14 @@ static bool rck_practice_scroll_step(
 			}
 		}
 		if(!rck_practice_map_row_fill()) {
+			replay_ck_failure_group_value = 0xE2;
+			replay_ck_failure_field_value = static_cast<uint16_t>(
+				#if (GAME == 5)
+					static_cast<uint16_t>(std_map_section_p)
+				#else
+					std_map_section_id
+				#endif
+			);
 			return false;
 		}
 	}
@@ -2047,6 +2065,18 @@ static void rck_practice_stage_frame_advance(void)
 	stage_frame_mod16 = static_cast<uint8_t>(stage_frame & 15);
 }
 
+static void rck_practice_randring_restore(void)
+{
+	int i = (RANDRING_SIZE - 1);
+
+	resident->rand = rck_practice_boss_resident_rand;
+	random_seed = rck_practice_boss_random_seed;
+	do {
+		randring[i] = irand();
+	} while(--i >= 0);
+	randring_p = 0;
+}
+
 static void rck_practice_bytes_clear(void near *dst, unsigned size)
 {
 	uint8_t near *p = static_cast<uint8_t near *>(dst);
@@ -2055,20 +2085,6 @@ static void rck_practice_bytes_clear(void near *dst, unsigned size)
 		*p++ = 0;
 		size--;
 	}
-}
-
-static void rck_practice_randring_restore(
-	const replay_start_config_t far *start
-)
-{
-	int i = (RANDRING_SIZE - 1);
-
-	resident->rand = start->resident_rand;
-	random_seed = start->random_seed;
-	do {
-		randring[i] = irand();
-	} while(--i >= 0);
-	randring_p = 0;
 }
 
 static void rck_practice_boss_transients_clear(void)
@@ -2164,16 +2180,14 @@ static void rck_practice_th04_gengetsu_prepare(void)
 }
 #endif
 
-static bool rck_practice_boss_target_reached(
-	const replay_start_config_t far *start
-)
+static bool rck_practice_boss_target_reached(void)
 {
 	replay_ck_actor_probe_t probe;
 
 	return (
 		replay_ck_actor_probe(&probe) &&
-		(probe.boss_section == start->section) &&
-		(probe.boss_phase == start->phase)
+		(probe.boss_section == rck_practice_boss_target_section) &&
+		(probe.boss_phase == rck_practice_boss_target_phase)
 	);
 }
 
@@ -2183,6 +2197,11 @@ static bool rck_practice_boss_construct(
 {
 	unsigned char se_mode = snd_se_mode;
 	uint32_t frames = 0;
+
+	rck_practice_boss_resident_rand = start->resident_rand;
+	rck_practice_boss_random_seed = start->random_seed;
+	rck_practice_boss_target_section = start->section;
+	rck_practice_boss_target_phase = start->phase;
 
 	stage_vm = nullfunc_far;
 	std_update = std_update_done;
@@ -2204,20 +2223,29 @@ static bool rck_practice_boss_construct(
 	}
 #endif
 
-	while(!rck_practice_boss_target_reached(start)) {
+	while(!rck_practice_boss_target_reached()) {
 		if(frames++ >= RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX) {
+			replay_ck_failure_group_value = rck_practice_boss_target_section;
+			replay_ck_failure_field_value = static_cast<uint16_t>(
+				(static_cast<uint16_t>(boss.phase) << 8) | boss.mode
+			);
 			snd_se_mode = se_mode;
 			return false;
 		}
 #if (GAME == 5)
-		if((stage_id == 3) && (start->section != RCS_TH05_PAIR)) {
+		if(
+			(stage_id == 3) &&
+			(rck_practice_boss_target_section != RCS_TH05_PAIR)
+		) {
 			if((boss_update == boss_update_func) &&
 			   (boss.phase == PHASE_NONE)) {
-				rck_practice_th05_stage4_solo_prepare(start->section);
+				rck_practice_th05_stage4_solo_prepare(
+					rck_practice_boss_target_section
+				);
 				continue;
 			}
 			if((boss_update == boss_update_func) && (boss.phase == 2)) {
-				if(start->section == RCS_TH05_MAI) {
+				if(rck_practice_boss_target_section == RCS_TH05_MAI) {
 					boss.hp = static_cast<int>(boss.phase_end_hp + 1);
 					boss2.hp = boss2.phase_end_hp;
 				} else {
@@ -2241,8 +2269,25 @@ static bool rck_practice_boss_construct(
 		}
 	}
 
+	// Boss updates can temporarily replace live render callbacks while moving
+	// between entrance and attack phases. A direct start begins after that
+	// transition, so normalize the callbacks to the stage setup before the
+	// checkpoint codec validates them and before either VRAM page is primed.
+	bg_render_not_bombing = boss_bg_render_func;
+	#if (GAME == 5)
+		if(
+			(stage_id != 3) ||
+			(rck_practice_boss_target_section == RCS_TH05_PAIR)
+		) {
+			boss_update = boss_update_func;
+			boss_fg_render = boss_fg_render_func;
+		}
+	#else
+		boss_update = boss_update_func;
+		boss_fg_render = boss_fg_render_func;
+	#endif
 	rck_practice_boss_transients_clear();
-	rck_practice_randring_restore(start);
+	rck_practice_randring_restore();
 	snd_se_mode = se_mode;
 	return true;
 }
@@ -2384,7 +2429,20 @@ bool replay_ck_practice_direct_seek(
 	if(boss_target && !rck_practice_boss_construct(start)) {
 		return false;
 	}
-	tiles_activate_and_render_all_for_next_N_frames(PAGE_COUNT);
+	if(boss_target) {
+		#if (GAME == 5)
+		// Direct boss constructors install their own backdrop renderer. Prime
+		// both VRAM pages before the stage loop unmasks the target; otherwise
+		// one page still contains the pre-boss tile map and alternates into
+		// view as persistent trails.
+		graph_accesspage(page_front);
+		bg_render_not_bombing();
+		graph_accesspage(page_back);
+		bg_render_not_bombing();
+		#endif
+	} else {
+		tiles_activate_and_render_all_for_next_N_frames(PAGE_COUNT);
+	}
 	return true;
 }
 
@@ -6586,12 +6644,16 @@ uint32_t replay_ck_group_digest_begin(
 // paragraph phase. This value is derived from the complete MAIN map, not from
 // the source length of this translation unit in isolation.
 #if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

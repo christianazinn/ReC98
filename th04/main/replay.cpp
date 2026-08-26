@@ -6,6 +6,7 @@
 
 #include "platform.h"
 #include "x86real.h"
+#include <string.h>
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
@@ -17,6 +18,7 @@
 #include "th04/end/end.h"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
+#include "th04/main/language.hpp"
 #include "th04/main/null.hpp"
 #include "th04/main/oracle.hpp"
 #include "th04/main/quit.hpp"
@@ -2059,7 +2061,11 @@ bool replay_practice_preroll_boundary(void)
 		)
 	) {
 		if(!replay_ck_practice_direct_seek(&replay_header.start)) {
-			replay_private_diagnostic = (0x04UL << 24) | stage_frame;
+			replay_private_diagnostic = (
+				(0x04UL << 24) |
+				(static_cast<uint32_t>(replay_ck_failure_group()) << 16) |
+				replay_ck_failure_field()
+			);
 			replay_fail();
 			quit = Q_QUIT_TO_OP;
 			return true;
@@ -2068,7 +2074,12 @@ bool replay_practice_preroll_boundary(void)
 			replay_practice_config_apply(&replay_header.start);
 			player_shot_level_update();
 		}
-		replay_practice_direct_redraw_pending = true;
+		#if (GAME == 4)
+			replay_practice_direct_redraw_pending = true;
+		#else
+			replay_practice_direct_redraw_pending =
+				(replay_header.start.kind != RSK_BOSS_PHASE);
+		#endif
 		reached = true;
 	} else {
 		if(!replay_ck_actor_probe(&probe)) {
@@ -2497,6 +2508,7 @@ void replay_stage_start(void)
 	uint16_t arg;
 	uint8_t arg8;
 
+	language_main_titles_apply();
 	if(replay_mode == RRM_DISABLED) {
 		return;
 	}
@@ -2518,11 +2530,16 @@ void replay_stage_start(void)
 			replay_header.stage_scores[replay_last_stage] =
 				replay_score_points();
 		}
-		if(!replay_stage_seen && !replay_ck_capture_pending()) {
+		if(
+			!replay_practice_preroll_pending &&
+			!replay_stage_seen &&
+			!replay_ck_capture_pending()
+		) {
 			replay_start_capture_live();
 		}
 		replay_header.stage_reached = stage_id;
 		if(
+			!replay_practice_preroll_pending &&
 			!replay_ck_capture_pending() &&
 			!replay_failed &&
 			(
@@ -2534,6 +2551,7 @@ void replay_stage_start(void)
 			replay_fail();
 		}
 		if(
+			!replay_practice_preroll_pending &&
 			!replay_ck_capture_pending() &&
 			!replay_failed &&
 			!replay_record_control(REPLAY_CONTROL_STAGE_START, stage_id, 0)
@@ -2707,8 +2725,18 @@ static void replay_pause_label_put(
 	uint8_t option, tram_y_t y, unsigned color
 )
 {
+	const char *english_label = language_main_pause_label(option);
 	char label[15];
 	char *p = label;
+
+	if(english_label) {
+		text_putsa(
+			static_cast<tram_x_t>(31 - (strlen(english_label) / 2)),
+			y, english_label, color
+		);
+		return;
+	}
+
 	#define P(c) *p++ = c
 	switch(option) {
 	case 0: // 再開
@@ -2729,7 +2757,7 @@ static void replay_pause_label_put(
 	}
 	#undef P
 	*p = '\0';
-	text_putsa(static_cast<tram_x_t>(34 - ((p - label) / 2)), y, label, color);
+	text_putsa(static_cast<tram_x_t>(31 - ((p - label) / 2)), y, label, color);
 }
 
 static void replay_pause_render(uint8_t selected, bool save_available)
@@ -2755,7 +2783,7 @@ static void replay_pause_clear(void)
 	tram_x_t x;
 
 	for(y = 12; y <= 17; y++) {
-		for(x = 26; x < 42; x++) {
+		for(x = 23; x < 42; x++) {
 			text_putca(x, y, ' ', TX_WHITE);
 		}
 	}
@@ -2772,7 +2800,11 @@ extern "C" int far replay_pause_menu(void)
 		input_reset_sense_interface();
 		frame_delay(1);
 	}
-	gaiji_putsa(26, 12, gsCHUUDAN, TX_YELLOW);
+	if(language_main_english_selected()) {
+		text_putsa(28, 12, language_main_pause_title(), TX_YELLOW);
+	} else {
+		gaiji_putsa(26, 12, gsCHUUDAN, TX_YELLOW);
+	}
 	replay_pause_render(selected, save_available);
 	while(1) {
 		input_reset_sense_interface();

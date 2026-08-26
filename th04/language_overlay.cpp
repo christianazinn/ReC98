@@ -151,6 +151,65 @@ static bool language_asset_english(void)
 #endif
 }
 
+#if (BINARY == 'O')
+#if (GAME == 4)
+extern const shiftjis_t *MUSIC_CHOICES[];
+static const shiftjis_t *language_asset_music_stock[22];
+#else
+extern const shiftjis_t *MUSIC_CHOICES[5][30];
+static const shiftjis_t *language_asset_music_stock[45];
+#endif
+static bool language_asset_music_stock_captured;
+
+void language_asset_music_prepare(void)
+{
+	uint8_t track;
+	const char *choice;
+	if(!language_asset_music_stock_captured) {
+		for(track = 0; track < 22; track++) {
+			#if (GAME == 4)
+				language_asset_music_stock[track] = MUSIC_CHOICES[track];
+			#else
+				language_asset_music_stock[track] = MUSIC_CHOICES[3][track];
+			#endif
+		}
+		#if (GAME == 5)
+			for(track = 0; track < 23; track++) {
+				language_asset_music_stock[22 + track] = MUSIC_CHOICES[4][track];
+			}
+		#endif
+		language_asset_music_stock_captured = true;
+	}
+
+	for(track = 0; track < 22; track++) {
+		choice = language_op_music_choice(
+			3, track, reinterpret_cast<const char *>(
+				language_asset_music_stock[track]
+			)
+		);
+		#if (GAME == 4)
+			MUSIC_CHOICES[track] = reinterpret_cast<const shiftjis_t *>(choice);
+		#else
+			MUSIC_CHOICES[3][track] = reinterpret_cast<const shiftjis_t *>(choice);
+		#endif
+	}
+	#if (GAME == 5)
+		for(track = 0; track < 23; track++) {
+			choice = language_op_music_choice(
+				4, track, reinterpret_cast<const char *>(
+					language_asset_music_stock[22 + track]
+				)
+			);
+			MUSIC_CHOICES[4][track] = reinterpret_cast<const shiftjis_t *>(choice);
+		}
+	#endif
+}
+#else
+void language_asset_music_prepare(void)
+{
+}
+#endif
+
 static void language_asset_overlay_name_set(char *fn)
 {
 	fn[0] = 'T'; fn[1] = ('0' + GAME); fn[2] = 'E'; fn[3] = 'N';

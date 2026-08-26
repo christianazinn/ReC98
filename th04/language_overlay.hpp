@@ -1,7 +1,10 @@
 #ifndef TH04_LANGUAGE_OVERLAY_HPP
 #define TH04_LANGUAGE_OVERLAY_HPP
 
+#include "platform.h"
 #include "defconv.h"
+
+void language_asset_music_prepare(void);
 
 int DEFCONV language_asset_pi_load(int slot, const char *fn);
 void pascal language_asset_cdg_load_all(int slot, const char *fn);
