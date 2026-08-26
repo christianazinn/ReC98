@@ -84,7 +84,7 @@ void near verdict_animate(void)
 {
 	palette_settone(0);
 	graph_accesspage(1);
-	pi_load(0, ude_pi);
+	language_asset_pi_load(0, ude_pi);
 	pi_palette_apply(0);
 	pi_put_8(0, 0, 0);
 	pi_free(0);

@@ -29,6 +29,7 @@
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/op/replay_font.hpp"
+#include "th04/language_overlay.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
 #include "th04/snd/snd.h"
@@ -3980,7 +3981,10 @@ static void replay_main_return(int sel)
 {
 	replay_op_paths_init();
 	graph_accesspage(1);
-	pi_fullres_load_palette_apply_put_free(0, replay_op_main_bg_fn);
+	language_asset_pi_load(0, replay_op_main_bg_fn);
+	pi_palette_apply(0);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	graph_copy_page(0);
 	graph_showpage(0);
 	graph_accesspage(0);

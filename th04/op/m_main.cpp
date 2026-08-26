@@ -19,6 +19,7 @@
 #include "th04/hardware/grppsafx.h"
 #include "th04/formats/cdg.h"
 #include "th04/op/language.hpp"
+#include "th04/language_overlay.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/shiftjis/m_main.hpp"
 #include "th04/sprites/op_cdg.hpp"
@@ -327,7 +328,10 @@ void pascal near menu_sel_update_and_render(int8_t max, int8_t direction)
 
 inline void return_from_other_screen_to_main(bool& main_initialized, int sel) {
 	graph_accesspage(1);
-	pi_fullres_load_palette_apply_put_free(0, MENU_MAIN_BG_FN);
+	language_asset_pi_load(0, MENU_MAIN_BG_FN);
+	pi_palette_apply(0);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	graph_copy_page(0); // switches the accessed page back to 0
 
 	// ZUN landmine: After loading and blitting, we're certainly in the middle

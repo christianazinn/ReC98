@@ -18,6 +18,7 @@
 ///   `group_01 group CUTSCENE_TEXT, maine_01_TEXT, SCORE_TEXT, maine_01__TEXT`.
 #pragma option -zCSCORE_TEXT -zPgroup_01
 
+#include "th04/language_overlay.hpp"
 #include "th01/math/subpixel.hpp"
 #include "th04/math/motion.hpp"
 #include "th04/gaiji/gaiji.h"

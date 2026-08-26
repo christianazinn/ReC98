@@ -4,6 +4,7 @@
 // parcel neither reads translated game data nor affects replay determinism.
 
 #include "th04/op/language.hpp"
+#include "th04/language_overlay.hpp"
 
 // This file is included by rpyop.cpp after the established replay-tail
 // umbrella. Several of the PC-98 headers have no include guards, so it must
@@ -39,6 +40,7 @@ static char language_se_fn[5];
 static bool language_option_initialized;
 static bool language_option_input_allowed;
 static int8_t language_option_sel;
+static language_preference_t language_option_entry_preference;
 
 enum language_option_choice_t {
 	LOC_LANGUAGE,
@@ -457,6 +459,15 @@ static void language_option_selection_move(int8_t direction)
 
 static void language_option_return_to_main(void)
 {
+	if(language_preference_get() != language_option_entry_preference) {
+		graph_accesspage(1);
+		language_asset_pi_load(0, replay_op_main_bg_fn);
+		pi_palette_apply(0);
+		pi_put_8(0, 0, 0);
+		pi_free(0);
+		graph_copy_page(0);
+		palette_100();
+	}
 	language_option_initialized = false;
 	menu_sel = 6; // RMC_OPTION in replay.cpp
 	in_option = false;
@@ -468,6 +479,7 @@ void far language_option_update_and_render(void)
 
 	if(!language_option_initialized) {
 		language_option_sel = LOC_LANGUAGE;
+		language_option_entry_preference = language_preference_get();
 		language_option_input_allowed = false;
 		egc_copy_rect_1_to_0_16(
 			LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP,

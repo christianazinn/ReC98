@@ -1174,6 +1174,8 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/cutscene.cpp",
 	"th04/staffrol.cpp",
 	"th04/staff.cpp",
+	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
+	"th04/rpyend.cpp",
 })
 -- ----
 
@@ -1470,6 +1472,8 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/verd_bmp.cpp",
 	"th05/staffrol.cpp",
 	"th05/staff.cpp",
+	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
+	"th05/rpyend.cpp",
 })
 -- ----
 

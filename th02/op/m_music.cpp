@@ -34,6 +34,9 @@
 #include "th01/math/polar.hpp"
 #endif
 #include "th02/op/m_music.hpp"
+#if (GAME >= 4)
+	#include "th04/language_overlay.hpp"
+#endif
 #if (GAME == 5)
 #include "th01/math/clamp.hpp"
 #include "th05/formats/pi.hpp"
@@ -509,15 +512,19 @@ void pascal near cmt_load(int track)
 	char* FN = "_MUSIC0.TXT";
 
 	FN[6] = ('0' + game_sel);
-	file_ropen(FN);
+	language_asset_file_ropen(FN);
 #elif (GAME == 4)
-	file_ropen("_MUSIC.TXT");
+	language_asset_file_ropen("_MUSIC.TXT");
 #else
 	file_ropen("MUSIC.TXT");
 #endif
 	file_seek((track * int(sizeof(cmt))), SEEK_SET);
 	file_read(cmt, sizeof(cmt));
+#if (GAME >= 4)
+	language_asset_file_close();
+#else
 	file_close();
+#endif
 	for(int i = 0; i < CMT_LINES; i++) {
 		cmt[i].c[CMT_LINE_LENGTH] = '\0';
 	}

@@ -338,7 +338,7 @@ extern "C" void near verdict_stats_put_and_wait(void)
 		graph_fraction_of_million_put(VERDICT_VALUE_LEFT, 336, skill);
 		graph_putsa_fx(288, 336, VERDICT_COL, POINT_MSG_0);
 
-		file_ropen(ude_txt);
+		language_asset_file_ropen(ude_txt);
 
 		// Line 0 is the best one, and the file is left at it if [skill] hit
 		// the cap.
@@ -358,7 +358,7 @@ extern "C" void near verdict_stats_put_and_wait(void)
 		}
 		file_read(verdict_line, 30);
 		verdict_line[28] = '\0';
-		file_close();
+		language_asset_file_close();
 
 		frame_delay(64);
 		graph_putsa_fx(64, 360, V_WHITE, verdict_line);

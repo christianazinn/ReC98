@@ -5,16 +5,27 @@
 #include "th05/formats/pi.hpp"
 #include "th05/resident.hpp"
 #include "th04/sprites/op_cdg.hpp"
+#include "th04/language_overlay.hpp"
 
 void near main_cdg_load(void)
 {
 	op_cdg_load_shared();
-	cdg_load_single_noalpha((CDG_PIC + PLAYCHAR_REIMU), "sl00.cdg", 0);
-	cdg_load_single_noalpha((CDG_PIC + PLAYCHAR_MARISA), "sl01.cdg", 0);
-	cdg_load_single_noalpha((CDG_PIC + PLAYCHAR_MIMA), "sl02.cdg", 0);
-	cdg_load_single_noalpha((CDG_PIC + PLAYCHAR_YUUKA), "sl03.cdg", 0);
-	cdg_load_single(CDG_CLEARED, "slcl.cdg", 0);
-	cdg_load_single_noalpha(CDG_PIC_NOT_CLEARED, "sl04.cdg", 0);
+	language_asset_cdg_load_single_noalpha(
+		(CDG_PIC + PLAYCHAR_REIMU), "sl00.cdg", 0
+	);
+	language_asset_cdg_load_single_noalpha(
+		(CDG_PIC + PLAYCHAR_MARISA), "sl01.cdg", 0
+	);
+	language_asset_cdg_load_single_noalpha(
+		(CDG_PIC + PLAYCHAR_MIMA), "sl02.cdg", 0
+	);
+	language_asset_cdg_load_single_noalpha(
+		(CDG_PIC + PLAYCHAR_YUUKA), "sl03.cdg", 0
+	);
+	language_asset_cdg_load_single(CDG_CLEARED, "slcl.cdg", 0);
+	language_asset_cdg_load_single_noalpha(
+		CDG_PIC_NOT_CLEARED, "sl04.cdg", 0
+	);
 }
 
 void near main_cdg_free(void)
@@ -49,14 +60,14 @@ void near op_animate(void)
 	} page;
 
 	palette_settone(0);
-	pi_load(0, "op2a.pi");
-	pi_load(1, "op2b.pi");
-	pi_load(2, "op2c.pi");
-	pi_load(3, "op2d.pi");
-	pi_load(4, "op2e.pi");
-	pi_load(5, "op2f.pi");
-	pi_load(6, "op2g.pi");
-	pi_load(7, "op2h.pi");
+	language_asset_pi_load(0, "op2a.pi");
+	language_asset_pi_load(1, "op2b.pi");
+	language_asset_pi_load(2, "op2c.pi");
+	language_asset_pi_load(3, "op2d.pi");
+	language_asset_pi_load(4, "op2e.pi");
+	language_asset_pi_load(5, "op2f.pi");
+	language_asset_pi_load(6, "op2g.pi");
+	language_asset_pi_load(7, "op2h.pi");
 
 	// ZUN bloat: Changed again below, and the palette is black anyway.
 	graph_accesspage(0);
@@ -106,7 +117,7 @@ void near op_animate(void)
 		snd_kaja_func(KAJA_SONG_PLAY, 0);
 	}
 
-	pi_load(0, MENU_MAIN_BG_FN);
+	language_asset_pi_load(0, MENU_MAIN_BG_FN);
 
 	// ZUN bug: This one starts with a screen tearing landmine caused by slow
 	// .PI blitting onto the shown page. However, it then turns out that shown

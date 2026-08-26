@@ -372,7 +372,7 @@ void near verdict_stats_put(void)
 			(verdict_left + 272), VERDICT_ROW(272), verdict_col, POINT_MSG_0
 		);
 
-		file_ropen(ude_txt);
+		language_asset_file_ropen(ude_txt);
 
 		// Record 0 is the best one, and the file is left at it if [skill] hit
 		// the cap.
@@ -396,7 +396,7 @@ void near verdict_stats_put(void)
 		line_id = verdict_comment_2_num();
 		file_seek(((line_id * 30) + 780), 0);
 		file_read(verdict_comment_2, 30);
-		file_close();
+		language_asset_file_close();
 		verdict_comment_1[28] = '\0';
 		verdict_comment_2[28] = '\0';
 	} else {
