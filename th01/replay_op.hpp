@@ -44,6 +44,9 @@ void t1replay_op_practice_enter(
 void t1replay_op_restore(void);
 void t1replay_op_command_clear(void);
 bool t1replay_op_record_prepare(void);
+#if T1REPLAY_EXACT_TRACE
+bool t1replay_op_exact_bootstrap(void);
+#endif
 void t1replay_op_main_choice_put(
 	int choice, int center_x, int top, int col, int fx
 );

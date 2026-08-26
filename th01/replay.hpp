@@ -39,6 +39,10 @@ bool16 far t1replay_process_handoff(uint8_t target_process);
 
 // REIIDEN owns only the menu-return terminal. Clear finalization belongs to
 // FUUIN after its deterministic input phases have completed.
+#if T1REPLAY_EXACT_TRACE
+// Preserve live world state before teardown; terminal acceptance writes it.
+void far t1replay_exact_terminal_capture(uint8_t end_reason);
+#endif
 void far t1replay_terminal(uint8_t end_reason);
 
 bool16 far t1replay_active(void);

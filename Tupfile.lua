@@ -32,6 +32,7 @@ on this branch.
 ---@alias ReC98Input string | { [1]: string, extra_inputs: string | string[], o?: string}
 
 tup.include("Pipeline/rules.lua")
+tup.import("T1REPLAY_PROFILE=")
 
 ---@class (exact) ConfigShape
 ---@field obj_root? string Root directory for all intermediate files
@@ -320,7 +321,35 @@ function GameShape(game)
 	return ret
 end
 
-local th01 = Config:branch(GameShape(1))
+local T1REPLAY_PROFILES = {
+	["t1exact-capture"] = {
+		obj_root = "x/c/",
+		bin_root = "x/c/",
+		cflags = "-DT1RP=1",
+	},
+	["t1exact-sequential"] = {
+		obj_root = "x/s/",
+		bin_root = "x/s/",
+		cflags = "-DT1RP=2",
+	},
+	["t1exact-direct"] = {
+		obj_root = "x/d/",
+		bin_root = "x/d/",
+		cflags = "-DT1RP=3",
+	},
+}
+local t1replay_profile_name = tostring(T1REPLAY_PROFILE or "")
+local t1replay_profile = {}
+if t1replay_profile_name ~= "" then
+	t1replay_profile = T1REPLAY_PROFILES[t1replay_profile_name]
+end
+if (t1replay_profile_name ~= "") and (t1replay_profile == nil) then
+	error(string.format(
+		"Unsupported T1REPLAY_PROFILE: `%s`", t1replay_profile_name
+	))
+end
+
+local th01 = Config:branch(GameShape(1), t1replay_profile)
 local th02 = Config:branch(GameShape(2))
 local th03 = Config:branch(GameShape(3))
 local th04 = Config:branch(GameShape(4))

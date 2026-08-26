@@ -226,6 +226,52 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 	return ok;
 }
 
+#if T1REPLAY_EXACT_TRACE
+bool t1replay_op_exact_bootstrap(void)
+{
+	uint8_t config[8];
+	uint8_t checksum = 0;
+	uint8_t extra;
+	char fn[12];
+	char mode[3];
+	FILE *fp;
+	bool valid;
+	int i;
+
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'E'; fn[3] = 'X';
+	fn[4] = 'A'; fn[5] = 'C'; fn[6] = 'T'; fn[7] = '.';
+	fn[8] = 'C'; fn[9] = 'F'; fn[10] = 'G'; fn[11] = '\0';
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	valid = (
+		(fread(config, 1, sizeof(config), fp) == sizeof(config)) &&
+		(fread(&extra, 1, 1, fp) == 0)
+	);
+	fclose(fp);
+	remove(fn);
+	if(!valid) {
+		return false;
+	}
+	for(i = 0; i < 7; i++) {
+		checksum ^= config[i];
+	}
+	if(
+		(config[0] != 'T') || (config[1] != '1') ||
+		(config[2] != 'E') || (config[3] != 'X') ||
+		(config[4] != 1) ||
+		(config[5] != T1REPLAY_COMMAND_PLAYBACK) ||
+		(config[6] >= T1REPLAY_SLOT_COUNT) ||
+		(config[7] != checksum)
+	) {
+		return false;
+	}
+	return t1replay_op_command_write(config[5], config[6]);
+}
+#endif
+
 static int t1replay_op_first_empty_slot(void)
 {
 	t1replay_op_slot_t slot;

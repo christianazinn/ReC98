@@ -1093,6 +1093,9 @@ int main(void)
 	continue_menu();
 
 op:
+#if T1REPLAY_EXACT_TRACE
+	t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+#endif
 	graphics_free_redundant_and_incomplete();
 	boss_free();
 	t1replay_terminal(T1REPLAY_END_MENU);

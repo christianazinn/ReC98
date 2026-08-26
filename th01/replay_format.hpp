@@ -65,6 +65,26 @@
 #define T1REPLAY_CHECKPOINT_RESTORE 0
 #endif
 
+// Kept deliberately short because the 16-bit compiler receives this switch
+// through DOS's command tail. Values 1 through 3 select the private capture,
+// sequential, and direct exact-restore profiles, respectively.
+#ifndef T1RP
+#define T1RP 0
+#endif
+
+#if T1RP
+	#undef T1REPLAY_CHECKPOINT_EMIT
+	#undef T1REPLAY_CHECKPOINT_RESTORE
+	#define T1REPLAY_CHECKPOINT_EMIT (T1RP == 1)
+	#define T1REPLAY_CHECKPOINT_RESTORE (T1RP == 3)
+#endif
+
+// Private semantic tracing for direct-versus-sequential checkpoint evidence.
+// This is not part of T1RPY2 or T1CKP1 and stays absent from release builds.
+#ifndef T1REPLAY_EXACT_TRACE
+	#define T1REPLAY_EXACT_TRACE (T1RP != 0)
+#endif
+
 #define T1REPLAY_STATUS_RECORDING 1
 #define T1REPLAY_STATUS_FINALIZED 2
 #define T1REPLAY_STATUS_ERROR 3
