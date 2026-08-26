@@ -5,6 +5,7 @@
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
 #include "th01/main/boss/b10m.hpp"
+#include "th01/main/boss/b10j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/resident.hpp"
 
@@ -61,6 +62,18 @@ bool16 t1replay_checkpoint_boss_valid(
 	) {
 		return t1boss_yuugenmagan_checkpoint_validate(
 			reinterpret_cast<const t1boss_yuugenmagan_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	}
+	if(
+		(boss->boss_id == BID_MIMA) &&
+		(boss->owner == T1BOSS_MIMA_CHECKPOINT_OWNER) &&
+		(boss->owner_schema == T1BOSS_MIMA_CHECKPOINT_SCHEMA) &&
+		(boss->payload_size == T1BOSS_MIMA_CHECKPOINT_SIZE)
+	) {
+		return t1boss_mima_checkpoint_validate(
+			reinterpret_cast<const t1boss_mima_checkpoint_t far *>(
 				boss->payload
 			)
 		);
@@ -138,6 +151,16 @@ bool16 t1replay_checkpoint_boss_capture(
 			reinterpret_cast<t1boss_yuugenmagan_checkpoint_t far *>(
 				boss->payload
 			)
+		)) {
+			return false;
+		}
+		break;
+	case BID_MIMA:
+		boss->owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+		boss->owner_schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+		boss->payload_size = T1BOSS_MIMA_CHECKPOINT_SIZE;
+		if(!t1boss_mima_checkpoint_capture(
+			reinterpret_cast<t1boss_mima_checkpoint_t far *>(boss->payload)
 		)) {
 			return false;
 		}
