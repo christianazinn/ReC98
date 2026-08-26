@@ -4,11 +4,16 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 3
+#define REPLAY_USER_VERSION 4
 #define REPLAY_USER_HEADER_SIZE 192
 #define REPLAY_USER_PACKET_SIZE 4
 #define REPLAY_USER_INPUT_SIZE_MAX 0x00400000UL
 #define REPLAY_USER_STAGE_COUNT 7
+#define REPLAY_STAGE_ENTRY_SIZE 76
+#define REPLAY_STAGE_DIRECTORY_SIZE \
+	(REPLAY_USER_STAGE_COUNT * REPLAY_STAGE_ENTRY_SIZE)
+#define REPLAY_USER_INPUT_OFFSET \
+	(REPLAY_USER_HEADER_SIZE + REPLAY_STAGE_DIRECTORY_SIZE)
 #define REPLAY_USER_NAME_LEN 8
 #define REPLAY_USER_SLOT_COUNT 100
 #define REPLAY_START_CONFIG_SIZE 64
@@ -40,9 +45,12 @@
 #define REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define REPLAY_COMMAND_FLAG_PRIVATE_TEST 0x02
 #define REPLAY_COMMAND_FLAG_NO_RECORD 0x04
+#define REPLAY_COMMAND_STAGE_SHIFT 4
+#define REPLAY_COMMAND_STAGE_MASK 0x70
+#define REPLAY_COMMAND_STAGE_NONE 0
 #define REPLAY_COMMAND_KNOWN_FLAGS ( \
 	REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_PRIVATE_TEST | \
-	REPLAY_COMMAND_FLAG_NO_RECORD \
+	REPLAY_COMMAND_FLAG_NO_RECORD | REPLAY_COMMAND_STAGE_MASK \
 )
 
 #define REPLAY_USER_INPUT_SEMANTICS 1
@@ -204,7 +212,15 @@ struct replay_user_header_t {
 	uint8_t bombs_final;
 	uint8_t power_final;
 	uint8_t dream_final;
-	uint8_t reserved[12];
+	uint32_t stage_directory_checksum;
+	uint8_t reserved[8];
+};
+
+struct replay_stage_entry_t {
+	replay_start_config_t start;
+	uint32_t sample_index;
+	uint32_t packet_index;
+	uint32_t payload_checksum;
 };
 
 struct replay_user_packet_t {
@@ -261,6 +277,9 @@ typedef char replay_user_header_size_check[
 ];
 typedef char replay_user_packet_size_check[
 	(sizeof(replay_user_packet_t) == REPLAY_USER_PACKET_SIZE) ? 1 : -1
+];
+typedef char replay_stage_entry_size_check[
+	(sizeof(replay_stage_entry_t) == REPLAY_STAGE_ENTRY_SIZE) ? 1 : -1
 ];
 typedef char replay_command_size_check[
 	(sizeof(replay_command_t) == REPLAY_COMMAND_SIZE) ? 1 : -1

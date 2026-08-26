@@ -87,6 +87,16 @@ enum replay_op_word_t {
 	ROW_LUNATIC,
 	ROW_EXTRA,
 	ROW_PAGE,
+	ROW_REPLAY_DETAILS,
+	ROW_FINAL_SCORE,
+	ROW_DATE,
+	ROW_STAGE_SPLITS,
+	ROW_COMPLETE,
+	ROW_MENU_RETURN,
+	ROW_GAME_OVER,
+	ROW_TURBO,
+	ROW_ON,
+	ROW_OFF,
 };
 
 enum practice_field_t {
@@ -800,7 +810,7 @@ static bool replay_op_header_valid(uint32_t file_size)
 		((replay_op_header.mode == RUM_PRACTICE) !=
 		 ((replay_op_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_op_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
-		(replay_op_header.input_offset != REPLAY_USER_HEADER_SIZE) ||
+		(replay_op_header.input_offset != REPLAY_USER_INPUT_OFFSET) ||
 		(replay_op_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
 		(replay_op_header.packet_count >
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
@@ -808,6 +818,7 @@ static bool replay_op_header_valid(uint32_t file_size)
 		 (replay_op_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
 		(file_size != expected_file_size) ||
 		(replay_op_header.stage_reached > STAGE_EXTRA) ||
+		(replay_op_header.stage_directory_checksum == 0) ||
 		!replay_op_start_valid(
 			&replay_op_header.start,
 			(replay_op_header.mode == RUM_PRACTICE), checkpoint
@@ -863,6 +874,111 @@ static bool replay_op_extent_checksum(
 	return ok;
 }
 
+static bool replay_op_stage_entry_read(
+	uint8_t stage, replay_stage_entry_t far *entry
+)
+{
+	uint32_t offset;
+	int fh;
+	bool ok;
+
+	if(stage >= REPLAY_USER_STAGE_COUNT) {
+		return false;
+	}
+	offset = (
+		REPLAY_USER_HEADER_SIZE +
+		static_cast<uint16_t>(stage * REPLAY_STAGE_ENTRY_SIZE)
+	);
+	fh = replay_op_dos_open(replay_op_slot_fn);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_op_dos_seek(fh, offset) &&
+		(replay_op_dos_read(fh, entry, sizeof(*entry)) == sizeof(*entry))
+	);
+	replay_op_dos_close(fh);
+	return ok;
+}
+
+static bool replay_op_stage_directory_valid(int fh)
+{
+	replay_stage_entry_t far *entries;
+	replay_stage_entry_t far *entry;
+	uint8_t far *buffer;
+	uint32_t hash;
+	uint32_t previous_sample = 0;
+	uint32_t previous_packet = 0;
+	uint8_t stage;
+	bool expected;
+	bool ok = false;
+
+	buffer = reinterpret_cast<uint8_t far *>(
+		hmem_allocbyte(REPLAY_STAGE_DIRECTORY_SIZE)
+	);
+	if(buffer == 0) {
+		return false;
+	}
+	if(
+		!replay_op_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		(replay_op_dos_read(
+			fh, buffer, REPLAY_STAGE_DIRECTORY_SIZE
+		) != REPLAY_STAGE_DIRECTORY_SIZE)
+	) {
+		hmem_free(reinterpret_cast<void __seg *>(buffer));
+		return false;
+	}
+	hash = replay_op_fnv1a(
+		REPLAY_FNV1A_BASIS, buffer, REPLAY_STAGE_DIRECTORY_SIZE
+	);
+	if(hash != replay_op_header.stage_directory_checksum) {
+		hmem_free(reinterpret_cast<void __seg *>(buffer));
+		return false;
+	}
+	entries = reinterpret_cast<replay_stage_entry_t far *>(buffer);
+	for(stage = 0; stage < REPLAY_USER_STAGE_COUNT; stage++) {
+		entry = &entries[stage];
+		expected = (
+			(replay_op_header.mode == RUM_STORY)
+				? (
+					(stage >= replay_op_header.start.stage) &&
+					(stage <= replay_op_header.stage_reached)
+				)
+				: (
+					(replay_op_header.start.kind == RSK_STAGE) &&
+					(stage == replay_op_header.start.stage)
+				)
+		);
+		if(!expected) {
+			if(!replay_op_bytes_zero(
+				reinterpret_cast<const uint8_t far *>(entry), sizeof(*entry)
+			)) {
+				break;
+			}
+			continue;
+		}
+		if(
+			(entry->start.stage != stage) ||
+			!replay_op_start_valid(&entry->start, true, false) ||
+			(entry->sample_index > replay_op_header.sample_count) ||
+			(entry->packet_index >= replay_op_header.packet_count) ||
+			(entry->payload_checksum == 0) ||
+			((stage != replay_op_header.start.stage) &&
+			 ((entry->sample_index < previous_sample) ||
+			  (entry->packet_index <= previous_packet)))
+		) {
+			break;
+		}
+		previous_sample = entry->sample_index;
+		previous_packet = entry->packet_index;
+	}
+	if(stage == REPLAY_USER_STAGE_COUNT) {
+		ok = true;
+	}
+	hmem_free(reinterpret_cast<void __seg *>(buffer));
+	return ok;
+}
+
 static bool replay_op_header_read(uint8_t slot, bool deep)
 {
 	uint32_t file_size;
@@ -885,6 +1001,9 @@ static bool replay_op_header_read(uint8_t slot, bool deep)
 		return false;
 	}
 	valid = replay_op_header_valid(file_size);
+	if(valid && deep) {
+		valid = replay_op_stage_directory_valid(fh);
+	}
 	if(
 		valid && deep &&
 		((replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0)
@@ -1094,6 +1213,31 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 		P('E'); P('x'); P('t'); P('r'); P('a'); break;
 	case ROW_PAGE:
 		P('P'); P('a'); P('g'); P('e'); break;
+	case ROW_REPLAY_DETAILS:
+		P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P(' ');
+		P('D'); P('e'); P('t'); P('a'); P('i'); P('l'); P('s'); break;
+	case ROW_FINAL_SCORE:
+		P('F'); P('i'); P('n'); P('a'); P('l'); P(' ');
+		P('S'); P('c'); P('o'); P('r'); P('e'); break;
+	case ROW_DATE:
+		P('D'); P('a'); P('t'); P('e'); break;
+	case ROW_STAGE_SPLITS:
+		P('S'); P('t'); P('a'); P('g'); P('e'); P(' ');
+		P('S'); P('p'); P('l'); P('i'); P('t'); P('s'); break;
+	case ROW_COMPLETE:
+		P('C'); P('o'); P('m'); P('p'); P('l'); P('e'); P('t'); P('e'); break;
+	case ROW_MENU_RETURN:
+		P('M'); P('e'); P('n'); P('u'); P(' ');
+		P('R'); P('e'); P('t'); P('u'); P('r'); P('n'); break;
+	case ROW_GAME_OVER:
+		P('G'); P('a'); P('m'); P('e'); P(' ');
+		P('O'); P('v'); P('e'); P('r'); break;
+	case ROW_TURBO:
+		P('T'); P('u'); P('r'); P('b'); P('o'); break;
+	case ROW_ON:
+		P('O'); P('n'); break;
+	case ROW_OFF:
+		P('O'); P('f'); P('f'); break;
 	}
 	#undef P
 	return p;
@@ -1332,6 +1476,235 @@ static void replay_browser_render(uint8_t sel)
 	replay_browser_footer_put(sel);
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
+}
+
+static char *replay_op_uint_zero_append(
+	char *p, uint32_t value, unsigned width
+)
+{
+	char digits[10];
+	unsigned i;
+
+	for(i = 0; i < width; i++) {
+		digits[width - i - 1] = static_cast<char>('0' + (value % 10UL));
+		value /= 10UL;
+	}
+	for(i = 0; i < width; i++) {
+		*p++ = digits[i];
+	}
+	return p;
+}
+
+static char *replay_op_name_append(char *p)
+{
+	unsigned i;
+	bool any = false;
+
+	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+		if(replay_op_header.name[i] != ' ') {
+			any = true;
+		}
+	}
+	if(!any) {
+		return replay_op_word_append(p, ROW_NONE);
+	}
+	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+		*p++ = replay_op_header.name[i];
+	}
+	return p;
+}
+
+static char *replay_op_end_reason_append(char *p)
+{
+	switch(replay_op_header.end_reason) {
+	case RUER_COMPLETE:
+		return replay_op_word_append(p, ROW_COMPLETE);
+	case RUER_GAME_OVER:
+		return replay_op_word_append(p, ROW_GAME_OVER);
+	default:
+		return replay_op_word_append(p, ROW_MENU_RETURN);
+	}
+}
+
+static void replay_detail_left_put(uint8_t slot)
+{
+	char *p;
+	uint16_t date = replay_op_header.dos_date;
+	uint16_t year = static_cast<uint16_t>(1980 + (date >> 9));
+	uint8_t month = static_cast<uint8_t>((date >> 5) & 0x0F);
+	uint8_t day = static_cast<uint8_t>(date & 0x1F);
+
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_SLOT);
+	*p++ = ' ';
+	p = replay_op_uint_zero_append(p, slot, 2);
+	p = replay_op_spaces_append(p, 4);
+	p = replay_op_name_append(p);
+	replay_op_line_put(64, 56, REPLAY_OP_COL_ACTIVE, p);
+
+	p = replay_op_line;
+	p = replay_op_end_reason_append(p);
+	replay_op_line_put(64, 88, V_WHITE, p);
+
+	p = replay_op_line;
+	p = replay_op_word_padded_append(p, ROW_FINAL_SCORE, 15);
+	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
+	replay_op_line_put(64, 112, V_WHITE, p);
+
+	p = replay_op_line;
+	p = replay_op_word_padded_append(p, ROW_DATE, 15);
+	p = replay_op_uint_zero_append(p, month, 2);
+	*p++ = '-';
+	p = replay_op_uint_zero_append(p, day, 2);
+	*p++ = '-';
+	p = replay_op_uint_zero_append(p, year, 4);
+	replay_op_line_put(64, 136, V_WHITE, p);
+
+	p = replay_op_line;
+	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
+	*p++ = ' ';
+	p = replay_op_word_append(
+		p, replay_op_playchar_word(replay_op_header.start.playchar)
+	);
+	#if (GAME == 4)
+		*p++ = ' ';
+		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
+	#endif
+	replay_op_line_put(64, 160, V_WHITE, p);
+
+	#if (GAME == 4)
+		p = replay_op_line;
+		p = replay_op_word_append(p, ROW_TURBO);
+		*p++ = ' ';
+		p = replay_op_word_append(
+			p, replay_op_header.start.turbo_mode ? ROW_ON : ROW_OFF
+		);
+		replay_op_line_put(64, 184, V_WHITE, p);
+	#endif
+	if(replay_op_header.mode == RUM_PRACTICE) {
+		p = replay_op_line;
+		p = replay_op_word_append(p, ROW_PRACTICE);
+		replay_op_line_put(64, 208, V_WHITE, p);
+	}
+}
+
+static void replay_detail_splits_put(uint8_t selected_stage)
+{
+	char *p;
+	uint8_t first = replay_op_header.start.stage;
+	uint8_t last = (
+		(replay_op_header.mode == RUM_PRACTICE)
+			? first
+			: replay_op_header.stage_reached
+	);
+	uint8_t stage;
+	vram_y_t top = 88;
+
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_STAGE_SPLITS);
+	replay_op_line_put(368, 56, REPLAY_OP_COL_ACTIVE, p);
+	for(stage = first; stage <= last; stage++) {
+		p = replay_op_line;
+		*p++ = ((stage == selected_stage) ? '>' : ' ');
+		*p++ = ' ';
+		p = replay_op_word_append(p, ROW_STAGE);
+		*p++ = ' ';
+		*p++ = static_cast<char>('1' + stage);
+		p = replay_op_spaces_append(p, 4);
+		p = replay_op_uint_append(
+			p,
+			((stage == last)
+				? replay_op_header.score_final
+				: replay_op_header.stage_scores[stage]
+			),
+			10
+		);
+		replay_op_line_put(
+			368, top,
+			((stage == selected_stage) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+		);
+		top += 28;
+	}
+}
+
+static void replay_detail_render(uint8_t slot, uint8_t selected_stage)
+{
+	uint8_t page_drawn = (1 - replay_op_page_shown);
+	char *p;
+
+	graph_accesspage(page_drawn);
+	pi_put_8(0, 0, 0);
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_REPLAY_DETAILS);
+	replay_op_line_put_centered(24, REPLAY_OP_COL_ACTIVE, p);
+	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
+	replay_detail_left_put(slot);
+	replay_detail_splits_put(selected_stage);
+	graph_showpage(page_drawn);
+	replay_op_page_shown = page_drawn;
+}
+
+static bool replay_detail(uint8_t slot)
+{
+	uint8_t selected_stage = replay_op_header.start.stage;
+	uint8_t last_stage = (
+		(replay_op_header.mode == RUM_PRACTICE)
+			? selected_stage
+			: replay_op_header.stage_reached
+	);
+	uint8_t command_flags;
+	bool input_allowed = false;
+
+	replay_detail_render(slot, selected_stage);
+	while(1) {
+		input_reset_sense_interface();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(key_det & INPUT_UP) {
+				selected_stage = ((selected_stage == replay_op_header.start.stage)
+					? last_stage
+					: static_cast<uint8_t>(selected_stage - 1)
+				);
+				replay_detail_render(slot, selected_stage);
+				snd_se_play_force(1);
+			} else if(key_det & INPUT_DOWN) {
+				selected_stage = ((selected_stage == last_stage)
+					? replay_op_header.start.stage
+					: static_cast<uint8_t>(selected_stage + 1)
+				);
+				replay_detail_render(slot, selected_stage);
+				snd_se_play_force(1);
+				} else if(key_det & INPUT_CANCEL) {
+					while(key_det != INPUT_NONE) {
+						input_reset_sense_interface();
+						frame_delay(1);
+					}
+					return false;
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				command_flags = 0;
+				if(
+					(replay_op_header.mode == RUM_STORY) &&
+					(selected_stage != replay_op_header.start.stage)
+				) {
+					command_flags = static_cast<uint8_t>(
+						(selected_stage + 1) << REPLAY_COMMAND_STAGE_SHIFT
+					);
+				}
+				if(replay_op_command_write(
+					RCM_PLAYBACK, slot, command_flags, NULL
+				)) {
+					return true;
+				}
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
 }
 
 static uint8_t practice_row_count(uint8_t page)
@@ -2407,13 +2780,13 @@ bool replay_browser(void)
 				replay_op_screen_end(previous_func);
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
-				if(
-					replay_op_header_read(sel, true) &&
-					replay_op_command_write(RCM_PLAYBACK, sel, 0, NULL)
-				) {
-					palette_black_out(1);
-					replay_op_screen_end(previous_func);
-					return true;
+				if(replay_op_header_read(sel, true)) {
+					if(replay_detail(sel)) {
+						palette_black_out(1);
+						replay_op_screen_end(previous_func);
+						return true;
+					}
+					replay_browser_render(sel);
 				}
 			}
 			if(key_det != INPUT_NONE) {
@@ -2901,9 +3274,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"

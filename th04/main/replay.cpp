@@ -660,6 +660,96 @@ static void replay_header_checksum_set(void)
 	);
 }
 
+static uint32_t replay_stage_entry_offset(uint8_t stage)
+{
+	return (
+		REPLAY_USER_HEADER_SIZE +
+		static_cast<uint16_t>(stage * REPLAY_STAGE_ENTRY_SIZE)
+	);
+}
+
+static bool replay_stage_directory_create(int fh)
+{
+	replay_stage_entry_t entry;
+	uint8_t stage;
+
+	replay_memclear(&entry, sizeof(entry));
+	for(stage = 0; stage < REPLAY_USER_STAGE_COUNT; stage++) {
+		if(replay_dos_write(fh, &entry, sizeof(entry)) != sizeof(entry)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool replay_stage_entry_write(
+	uint8_t stage, const replay_stage_entry_t far *entry
+)
+{
+	int fh;
+	bool ok;
+
+	if(stage >= REPLAY_USER_STAGE_COUNT) {
+		return false;
+	}
+	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_RW);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_dos_seek(fh, replay_stage_entry_offset(stage)) &&
+		(replay_dos_write(fh, entry, sizeof(*entry)) == sizeof(*entry))
+	);
+	replay_dos_close(fh);
+	return ok;
+}
+
+static bool replay_stage_entry_read(
+	uint8_t stage, replay_stage_entry_t far *entry
+)
+{
+	int fh;
+	bool ok;
+
+	if(stage >= REPLAY_USER_STAGE_COUNT) {
+		return false;
+	}
+	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_dos_seek(fh, replay_stage_entry_offset(stage)) &&
+		(replay_dos_read(fh, entry, sizeof(*entry)) == sizeof(*entry))
+	);
+	replay_dos_close(fh);
+	return ok;
+}
+
+static bool replay_stage_directory_hash(uint32_t far *hash)
+{
+	int fh;
+
+	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
+	if(fh < 0) {
+		return false;
+	}
+	if(
+		!replay_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		(replay_dos_read(
+			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
+		) != REPLAY_STAGE_DIRECTORY_SIZE)
+	) {
+		replay_dos_close(fh);
+		return false;
+	}
+	replay_dos_close(fh);
+	*hash = replay_fnv1a(
+		REPLAY_FNV1A_BASIS, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
+	);
+	return true;
+}
+
 static bool replay_header_write(bool create)
 {
 	int fh;
@@ -676,7 +766,8 @@ static bool replay_header_write(bool create)
 	if(
 		!replay_dos_seek(fh, 0) ||
 		(replay_dos_write(fh, &replay_header, sizeof(replay_header)) !=
-		 sizeof(replay_header))
+		 sizeof(replay_header)) ||
+		(create && !replay_stage_directory_create(fh))
 	) {
 		replay_dos_close(fh);
 		return false;
@@ -1081,6 +1172,77 @@ static bool replay_start_config_valid(
 	return true;
 }
 
+static bool replay_stage_directory_valid(void)
+{
+	replay_stage_entry_t far *entries;
+	replay_stage_entry_t far *entry;
+	uint32_t hash;
+	uint32_t previous_sample = 0;
+	uint32_t previous_packet = 0;
+	uint8_t stage;
+	bool expected;
+	int fh;
+
+	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
+	if(fh < 0) {
+		return false;
+	}
+	if(
+		!replay_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		(replay_dos_read(
+			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
+		) != REPLAY_STAGE_DIRECTORY_SIZE)
+	) {
+		replay_dos_close(fh);
+		return false;
+	}
+	replay_dos_close(fh);
+	hash = replay_fnv1a(
+		REPLAY_FNV1A_BASIS, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
+	);
+	if(hash != replay_header.stage_directory_checksum) {
+		return false;
+	}
+	entries = reinterpret_cast<replay_stage_entry_t far *>(replay_buffer);
+	for(stage = 0; stage < REPLAY_USER_STAGE_COUNT; stage++) {
+		entry = &entries[stage];
+		expected = (
+			(replay_header.mode == RUM_STORY)
+				? (
+					(stage >= replay_header.start.stage) &&
+					(stage <= replay_header.stage_reached)
+				)
+				: (
+					(replay_header.start.kind == RSK_STAGE) &&
+					(stage == replay_header.start.stage)
+				)
+		);
+		if(!expected) {
+			if(!replay_bytes_zero(
+				reinterpret_cast<const uint8_t far *>(entry), sizeof(*entry)
+			)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			(entry->start.stage != stage) ||
+			!replay_start_config_valid(&entry->start, true, false) ||
+			(entry->sample_index > replay_header.sample_count) ||
+			(entry->packet_index >= replay_header.packet_count) ||
+			(entry->payload_checksum == 0) ||
+			((stage != replay_header.start.stage) &&
+			 ((entry->sample_index < previous_sample) ||
+			  (entry->packet_index <= previous_packet)))
+		) {
+			return false;
+		}
+		previous_sample = entry->sample_index;
+		previous_packet = entry->packet_index;
+	}
+	return true;
+}
+
 static bool replay_header_read(void)
 {
 	uint32_t stored;
@@ -1161,7 +1323,7 @@ static bool replay_header_read(void)
 		((replay_header.mode == RUM_PRACTICE) !=
 		 ((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
-		(replay_header.input_offset != REPLAY_USER_HEADER_SIZE) ||
+		(replay_header.input_offset != REPLAY_USER_INPUT_OFFSET) ||
 		(replay_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
 		(replay_header.packet_count >
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
@@ -1169,6 +1331,7 @@ static bool replay_header_read(void)
 			(replay_header.packet_count * REPLAY_USER_PACKET_SIZE)) ||
 		(file_size != expected_file_size) ||
 		(replay_header.stage_reached > STAGE_EXTRA) ||
+		(replay_header.stage_directory_checksum == 0) ||
 		!replay_start_config_valid(
 			&replay_header.start, (replay_header.mode == RUM_PRACTICE),
 			((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0)
@@ -1185,7 +1348,7 @@ static bool replay_header_read(void)
 	replay_header_checksum_set();
 	computed = replay_header.header_checksum;
 	replay_header.header_checksum = stored;
-	return (stored == computed);
+	return ((stored == computed) && replay_stage_directory_valid());
 }
 
 static void replay_checkpoint_identity_fill(
@@ -1534,7 +1697,7 @@ static void replay_header_capture(void)
 	replay_header.ruleset = REPLAY_USER_RULESET_STOCK;
 	replay_header.mode = RUM_STORY;
 	replay_header.input_semantics = REPLAY_USER_INPUT_SEMANTICS;
-	replay_header.input_offset = REPLAY_USER_HEADER_SIZE;
+	replay_header.input_offset = REPLAY_USER_INPUT_OFFSET;
 	replay_header.start.schema = REPLAY_START_SCHEMA;
 	replay_header.start.kind = RSK_NATIVE;
 	replay_header.start.stage = resident->stage;
@@ -1586,10 +1749,8 @@ static void replay_header_capture(void)
 	);
 }
 
-static void replay_start_capture_live(void)
+static void replay_start_capture_state(replay_start_config_t far *start)
 {
-	replay_start_config_t far *start = &replay_header.start;
-
 	start->stage = stage_id;
 	start->rank = rank;
 	start->lives = replay_lives();
@@ -1615,6 +1776,37 @@ static void replay_start_capture_live(void)
 	start->stage_point_items_collected = stage_point_items_collected;
 	start->stage_graze = stage_graze;
 	start->power_overflow = static_cast<uint16_t>(power_overflow);
+}
+
+static void replay_start_capture_live(void)
+{
+	replay_start_capture_state(&replay_header.start);
+}
+
+static bool replay_stage_entry_capture(void)
+{
+	replay_stage_entry_t entry;
+	replay_start_config_t far *start = &entry.start;
+
+	if(stage_id >= REPLAY_USER_STAGE_COUNT) {
+		return false;
+	}
+	replay_memclear(&entry, sizeof(entry));
+	replay_copy(start, &replay_header.start, sizeof(*start));
+	start->schema = REPLAY_START_SCHEMA;
+	start->kind = RSK_STAGE;
+	start->stage = stage_id;
+	start->section = 0;
+	start->phase = 0;
+	start->resident_rand = resident->rand;
+	start->random_seed = random_seed;
+	start->credit_lives = resident->credit_lives;
+	start->credit_bombs = resident->credit_bombs;
+	replay_start_capture_state(start);
+	entry.sample_index = replay_header.sample_count;
+	entry.packet_index = replay_header.packet_count;
+	entry.payload_checksum = replay_payload_checksum;
+	return replay_stage_entry_write(stage_id, &entry);
 }
 
 static void replay_practice_config_apply(
@@ -2046,7 +2238,10 @@ static replay_command_mode_t replay_command_load(
 	}
 	if(command.mode == RCM_PLAYBACK) {
 		if(
-			((command.flags & ~REPLAY_COMMAND_FLAG_PRIVATE_TEST) != 0) ||
+			((command.flags & ~(REPLAY_COMMAND_FLAG_PRIVATE_TEST |
+			 REPLAY_COMMAND_STAGE_MASK)) != 0) ||
+			((command.flags & REPLAY_COMMAND_STAGE_MASK) >
+			 (REPLAY_USER_STAGE_COUNT << REPLAY_COMMAND_STAGE_SHIFT)) ||
 			!replay_bytes_zero(
 				reinterpret_cast<const uint8_t far *>(&command.start),
 				sizeof(command.start)
@@ -2079,6 +2274,44 @@ static replay_command_mode_t replay_command_load(
 	*flags = command.flags;
 	replay_copy(start, &command.start, sizeof(command.start));
 	return static_cast<replay_command_mode_t>(command.mode);
+}
+
+static bool replay_stage_resume_prepare(uint8_t command_flags)
+{
+	replay_stage_entry_t entry;
+	uint8_t encoded = static_cast<uint8_t>(
+		(command_flags & REPLAY_COMMAND_STAGE_MASK) >>
+		REPLAY_COMMAND_STAGE_SHIFT
+	);
+	uint8_t stage;
+
+	if(encoded == REPLAY_COMMAND_STAGE_NONE) {
+		return true;
+	}
+	stage = static_cast<uint8_t>(encoded - 1);
+	if(
+		(replay_header.mode != RUM_STORY) ||
+		(stage < replay_header.start.stage) ||
+		(stage > replay_header.stage_reached) ||
+		!replay_stage_entry_read(stage, &entry) ||
+		(entry.start.stage != stage) ||
+		!replay_start_config_valid(&entry.start, true, false) ||
+		(entry.sample_index > replay_header.sample_count) ||
+		(entry.packet_index >= replay_header.packet_count) ||
+		(entry.payload_checksum == 0)
+	) {
+		return false;
+	}
+	replay_copy(&replay_header.start, &entry.start, sizeof(entry.start));
+	replay_copy(&replay_practice_start, &entry.start, sizeof(entry.start));
+	replay_practice_start_pending = true;
+	replay_sample_cursor = entry.sample_index;
+	replay_packet_cursor = entry.packet_index;
+	replay_payload_checksum = entry.payload_checksum;
+	replay_buffer_len = 0;
+	replay_buffer_pos = 0;
+	replay_decode_run = 0;
+	return true;
 }
 
 void replay_entry(void)
@@ -2165,6 +2398,11 @@ void replay_entry(void)
 		replay_fail();
 		return;
 	}
+	if(!replay_stage_resume_prepare(command_flags)) {
+		replay_mode = RRM_PLAYBACK;
+		replay_fail();
+		return;
+	}
 	replay_mode = RRM_PLAYBACK;
 	replay_stage_presentation_skip = (
 		((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0) &&
@@ -2203,6 +2441,17 @@ void replay_stage_start(void)
 			replay_start_capture_live();
 		}
 		replay_header.stage_reached = stage_id;
+		if(
+			!replay_ck_capture_pending() &&
+			!replay_failed &&
+			(
+				!replay_pending_commit() ||
+				!replay_stage_entry_capture()
+			)
+		) {
+			replay_private_diagnostic = (0x03UL << 24) | replay_sample_cursor;
+			replay_fail();
+		}
 		if(
 			!replay_ck_capture_pending() &&
 			!replay_failed &&
@@ -2687,7 +2936,10 @@ bool replay_process_end(void)
 					resident->end_sequence
 				) ||
 				!replay_buffer_flush() ||
-				!replay_checkpoint_append()
+				!replay_checkpoint_append() ||
+				!replay_stage_directory_hash(
+					&replay_header.stage_directory_checksum
+				)
 			) {
 				replay_fail();
 			}
@@ -2742,6 +2994,6 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
 #endif
-	#pragma codestring "\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 
 #pragma codeseg
