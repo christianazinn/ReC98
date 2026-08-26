@@ -20,11 +20,11 @@
 // T1RPY2. The OP reader admits only the V2 header's all-zero reserved tail;
 // changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
-#define T1REPLAY_CHECKPOINT_SCHEMA 3
+#define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
-#define T1REPLAY_CHECKPOINT_GROUP_COUNT 13
-#define T1REPLAY_CHECKPOINT_SIZE 10932
+#define T1REPLAY_CHECKPOINT_GROUP_COUNT 14
+#define T1REPLAY_CHECKPOINT_SIZE 11236
 // Measured from every shipped STAGE?.DAT by th01_stageobj_capacity.py:
 // STAGE7 has 76 cards, STAGE4 has 25 obstacles. Capture rejects larger
 // modded/live owners rather than silently truncating them.
@@ -37,6 +37,7 @@
 #define T1REPLAY_CHECKPOINT_PARTICLE_COUNT 40
 #define T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT 4
 #define T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT 10
+#define T1REPLAY_CHECKPOINT_BOSS_PAYLOAD_SIZE 264
 #define T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY 0x0001
 #define T1REPLAY_CHECKPOINT_FLAGS_KNOWN T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY
 #define T1REPLAY_CHECKPOINT_PROCESS_MAX 99
@@ -126,6 +127,7 @@ enum t1replay_checkpoint_group_id_t {
 	T1RCGI_MISSILES = 10,
 	T1RCGI_LASERS = 11,
 	T1RCGI_PARTICLES = 12,
+	T1RCGI_BOSS = 13,
 };
 
 // Only bits consumed by TH01's REIIDEN input path are replayed. Keeping the
@@ -328,6 +330,10 @@ struct t1replay_checkpoint_input_t {
 struct t1replay_checkpoint_pacing_t {
 	uint32_t frame_since_start_of_binary;
 	uint32_t bomb_frame;
+	uint32_t replay_sample_anchor;
+	uint32_t replay_packet_anchor;
+	uint32_t replay_input_anchor;
+	uint32_t replay_prefix_checksum;
 	uint16_t stage_timer;
 	uint16_t frame_since_harryup;
 	int16_t pellet_speed_raise_cycle;
@@ -546,6 +552,19 @@ struct t1replay_checkpoint_particles_t {
 	];
 };
 
+// The tagged payload is sized for the largest owner record already derived
+// from the current boss corpus (Kikuri). Unsupported owners fail capture
+// closed; the public replay stream does not depend on this private envelope.
+struct t1replay_checkpoint_boss_t {
+	int8_t boss_id;
+	uint8_t owner;
+	uint8_t owner_schema;
+	uint8_t flags;
+	uint16_t payload_size;
+	uint16_t reserved_0;
+	uint8_t payload[T1REPLAY_CHECKPOINT_BOSS_PAYLOAD_SIZE];
+};
+
 struct t1replay_checkpoint_t {
 	t1replay_checkpoint_header_t header;
 	t1replay_checkpoint_group_t groups[T1REPLAY_CHECKPOINT_GROUP_COUNT];
@@ -562,6 +581,7 @@ struct t1replay_checkpoint_t {
 	t1replay_checkpoint_missiles_t missiles;
 	t1replay_checkpoint_lasers_t lasers;
 	t1replay_checkpoint_particles_t particles;
+	t1replay_checkpoint_boss_t boss;
 };
 
 typedef char t1replay_start_size_check[
@@ -598,7 +618,7 @@ typedef char t1replay_checkpoint_input_size_check[
 	(sizeof(t1replay_checkpoint_input_t) == 32) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_pacing_size_check[
-	(sizeof(t1replay_checkpoint_pacing_t) == 20) ? 1 : -1
+	(sizeof(t1replay_checkpoint_pacing_t) == 36) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_player_size_check[
 	(sizeof(t1replay_checkpoint_player_t) == 26) ? 1 : -1
@@ -650,6 +670,9 @@ typedef char t1replay_checkpoint_particle_size_check[
 ];
 typedef char t1replay_checkpoint_particles_size_check[
 	(sizeof(t1replay_checkpoint_particles_t) == 808) ? 1 : -1
+];
+typedef char t1replay_checkpoint_boss_size_check[
+	(sizeof(t1replay_checkpoint_boss_t) == 272) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_size_check[
 	(sizeof(t1replay_checkpoint_t) == T1REPLAY_CHECKPOINT_SIZE) ? 1 : -1

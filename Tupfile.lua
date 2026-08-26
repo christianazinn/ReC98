@@ -438,6 +438,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	-- rather than growing the original gameplay contribution it reconstructs.
 	"th01/replay.cpp",
 	"th01/rstage.cpp",
+	"th01/rboss.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

@@ -24,6 +24,7 @@
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/main/stage/item.hpp"
 #include "th01/main/particle.hpp"
+#include "th01/rboss.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
@@ -491,6 +492,10 @@ static bool t1replay_checkpoint_pacing_valid(
 )
 {
 	return (
+		(pacing->replay_packet_anchor <=
+			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) &&
+		(pacing->replay_input_anchor ==
+			(pacing->replay_packet_anchor * T1REPLAY_PACKET_SIZE)) &&
 		(pacing->pellet_speed_raise_cycle > 0) &&
 		(pacing->process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX) &&
 		(pacing->timer_initialized <= 1) &&
@@ -758,7 +763,9 @@ static bool t1replay_checkpoint_valid(
 		!t1replay_checkpoint_shots_valid(&checkpoint->shots) ||
 		!t1replay_checkpoint_missiles_valid(&checkpoint->missiles) ||
 		!t1replay_checkpoint_lasers_valid(&checkpoint->lasers) ||
-		!t1replay_checkpoint_particles_valid(&checkpoint->particles)
+		!t1replay_checkpoint_particles_valid(&checkpoint->particles) ||
+		!t1replay_checkpoint_boss_valid(&checkpoint->boss) ||
+		!t1replay_checkpoint_world_valid(checkpoint)
 	) {
 		return false;
 	}
@@ -780,7 +787,8 @@ static bool t1replay_checkpoint_valid(
 		checkpoint_group_valid(T1RCGI_SHOTS, shots) ||
 		checkpoint_group_valid(T1RCGI_MISSILES, missiles) ||
 		checkpoint_group_valid(T1RCGI_LASERS, lasers) ||
-		checkpoint_group_valid(T1RCGI_PARTICLES, particles)
+		checkpoint_group_valid(T1RCGI_PARTICLES, particles) ||
+		checkpoint_group_valid(T1RCGI_BOSS, boss)
 	) {
 		return false;
 	}
@@ -802,6 +810,7 @@ static bool t1replay_checkpoint_valid(
 	checkpoint_digest(T1RCGI_MISSILES, missiles);
 	checkpoint_digest(T1RCGI_LASERS, lasers);
 	checkpoint_digest(T1RCGI_PARTICLES, particles);
+	checkpoint_digest(T1RCGI_BOSS, boss);
 	#undef checkpoint_digest
 	return (
 		(checkpoint->header.state_digest == digest) &&
@@ -1819,6 +1828,17 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	// Capture exactly once. Release recording remains BSS-only; an explicitly
 	// private build may later flush this already-validated snapshot at handoff.
 	t1replay_checkpoint_capture_attempted = true;
+#if T1REPLAY_CHECKPOINT_EMIT
+	// Exact restore starts at a packet boundary. Splitting an RLE run is a
+	// private-capture format cost and never affects release packetization.
+	if(!t1replay_pending_commit()) {
+		return;
+	}
+#else
+	if(t1replay_pending_valid) {
+		return;
+	}
+#endif
 	t1replay_memclear(checkpoint, sizeof(*checkpoint));
 	checkpoint->header.magic[0] = 'T';
 	checkpoint->header.magic[1] = '1';
@@ -1839,6 +1859,10 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_input_checkpoint_export(&checkpoint->input);
 	checkpoint->pacing.frame_since_start_of_binary = frame_since_start_of_binary;
 	checkpoint->pacing.bomb_frame = bomb_frame;
+	checkpoint->pacing.replay_sample_anchor = t1replay_header.sample_count;
+	checkpoint->pacing.replay_packet_anchor = t1replay_header.packet_count;
+	checkpoint->pacing.replay_input_anchor = t1replay_header.input_size;
+	checkpoint->pacing.replay_prefix_checksum = t1replay_payload_checksum;
 	checkpoint->pacing.pellet_speed_raise_cycle = pellet_speed_raise_cycle;
 	checkpoint->pacing.process_seq = t1replay_res->process_seq;
 	checkpoint->pacing.timer_initialized = timer_initialized;
@@ -1857,6 +1881,9 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_missiles_checkpoint_export(&checkpoint->missiles);
 	t1replay_lasers_checkpoint_export(&checkpoint->lasers);
 	t1replay_particles_checkpoint_export(&checkpoint->particles);
+	if(!t1replay_checkpoint_boss_capture(&checkpoint->boss)) {
+		return;
+	}
 
 	#define checkpoint_group_set_and_digest(id, field) { \
 		t1replay_checkpoint_group_set( \
@@ -1880,6 +1907,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	checkpoint_group_set_and_digest(T1RCGI_MISSILES, missiles);
 	checkpoint_group_set_and_digest(T1RCGI_LASERS, lasers);
 	checkpoint_group_set_and_digest(T1RCGI_PARTICLES, particles);
+	checkpoint_group_set_and_digest(T1RCGI_BOSS, boss);
 	#undef checkpoint_group_set_and_digest
 	checkpoint->header.state_digest = digest;
 	checkpoint->header.container_checksum = t1replay_checkpoint_checksum(
