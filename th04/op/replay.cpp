@@ -2075,6 +2075,7 @@ static void practice_render(
 	const replay_start_config_t far *start, uint8_t page, uint8_t sel
 )
 {
+	#define PRACTICE_VALUE_RIGHT 512
 	uint8_t rows = practice_row_count(page);
 	uint8_t page_drawn = (1 - replay_op_page_shown);
 	practice_field_t field;
@@ -2107,12 +2108,16 @@ static void practice_render(
 				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
 			p = replay_op_line;
 			p = practice_value_append(p, field, start);
-			replay_op_line_put(384, (68 + (i * 20)),
+			replay_op_line_put(
+				static_cast<screen_x_t>(
+					PRACTICE_VALUE_RIGHT - ((p - replay_op_line) * 8)
+				), (68 + (i * 20)),
 				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
 		}
 	}
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
+	#undef PRACTICE_VALUE_RIGHT
 }
 
 bool replay_practice_setup(replay_start_config_t far *start)
@@ -2749,5 +2754,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90"
 #endif
+	#pragma codestring "\x90\x90\x90\x90"
 
 #pragma codeseg

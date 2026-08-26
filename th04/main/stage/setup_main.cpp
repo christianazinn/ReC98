@@ -193,7 +193,9 @@ void near stage_setup(void)
 	overlay_wipe();
 	stage_init();
 	nopcall_same_group(hud_put);
-	eyecatch_animate();
+	if(!replay_stage_presentation_skip) {
+		eyecatch_animate();
+	}
 	midboss_reset();
 
 	if(stage_is_first) {
@@ -412,8 +414,7 @@ void near stage_setup(void)
 	nopcall_same_group(tiles_activate);
 #endif
 
-	overlay1 = overlay_stage_enter_update_and_render;
-	overlay2 = nullfunc_near;
+	replay_stage_overlays_setup();
 }
 
 #pragma option -a1

@@ -6,12 +6,16 @@
 
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "shiftjis.hpp"
 #include "th01/rank.h"
 #include "th02/hardware/frmdelay.h"
+#include "th02/main/hud/overlay.hpp"
 #include "th04/common.h"
 #include "th04/end/end.h"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
+#include "th04/main/null.hpp"
 #include "th04/main/oracle.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
@@ -130,6 +134,11 @@ static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
 static bool replay_practice_preroll_pending;
 static bool replay_practice_direct_redraw_pending;
+bool replay_stage_presentation_skip;
+
+extern nearfunc_t_near overlay1;
+extern nearfunc_t_near overlay2;
+void pascal near overlay_stage_enter_update_and_render(void);
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
 #if (GAME == 5)
@@ -1713,6 +1722,22 @@ bool replay_practice_direct_redraw_take(void)
 	return pending;
 }
 
+void replay_stage_overlays_setup(void)
+{
+	tram_y_t y;
+
+	overlay2 = nullfunc_near;
+	if(!replay_stage_presentation_skip) {
+		overlay1 = overlay_stage_enter_update_and_render;
+		return;
+	}
+	overlay1 = nullfunc_near;
+	for(y = PLAYFIELD_TRAM_TOP; y < PLAYFIELD_TRAM_BOTTOM; y++) {
+		overlay_line_fill(y, TX_WHITE);
+	}
+	replay_stage_presentation_skip = false;
+}
+
 bool replay_private_test_active(void)
 {
 	return replay_private_test;
@@ -2046,6 +2071,7 @@ void replay_entry(void)
 	replay_preroll_interstitial_cycle = 0;
 	replay_practice_preroll_pending = false;
 	replay_practice_direct_redraw_pending = false;
+	replay_stage_presentation_skip = false;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
@@ -2066,6 +2092,7 @@ void replay_entry(void)
 			);
 			replay_practice_start_pending = true;
 			replay_practice_preroll_pending = (command_start.kind > RSK_STAGE);
+			replay_stage_presentation_skip = (command_start.kind > RSK_STAGE);
 			replay_header_apply();
 		}
 		if(replay_mode == RRM_PRACTICE) {
@@ -2083,6 +2110,10 @@ void replay_entry(void)
 		return;
 	}
 	replay_mode = RRM_PLAYBACK;
+	replay_stage_presentation_skip = (
+		((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0) &&
+		(replay_header.start.kind > RSK_STAGE)
+	);
 	replay_header_apply();
 }
 
@@ -2464,5 +2495,6 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
 #endif
+	#pragma codestring "\x90"
 
 #pragma codeseg

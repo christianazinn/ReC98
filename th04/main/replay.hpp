@@ -30,6 +30,12 @@ void replay_practice_start_apply_and_stage_activate(void);
 // startup request.
 void replay_practice_items_ready(void);
 
+// One-shot presentation gate for arbitrary Practice starts. stage_setup()
+// reads the flag around the native eyecatch, then this helper installs either
+// the native stage overlays or a transparent, callback-free playfield.
+extern bool replay_stage_presentation_skip;
+void replay_stage_overlays_setup(void);
+
 // Captures the current arbitrary Practice boundary into the normalized
 // checkpoint sidecar. The caller must still be in hidden native preroll; input
 // recording begins only after this succeeds.
