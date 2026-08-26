@@ -2,10 +2,10 @@
 
 #include <stddef.h>
 #include "libs/master.lib/master.hpp"
+#include "th04/main/language.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th05/resident.hpp"
 #include "th05/formats/dialog.hpp"
-
 void pascal dialog_load(const char *fn)
 {
 	size_t size;
@@ -16,7 +16,7 @@ void pascal dialog_load(const char *fn)
 		// function instead, then.
 		hmem_free(reinterpret_cast<void __seg *>(dialog_p));
 	}
-	file_ropen(fn);
+	language_main_dialog_ropen(fn);
 	file_read(&header, sizeof(header));
 
 	// A sanity check here would have been particularly helpful for
@@ -26,7 +26,7 @@ void pascal dialog_load(const char *fn)
 	dialog_p = reinterpret_cast<unsigned char far *>(hmem_allocbyte(size));
 	file_seek(header.offset_for[playchar], SEEK_SET);
 	file_read(dialog_p, size);
-	file_close();
+	language_main_dialog_close();
 }
 
 void near dialog_load(void)

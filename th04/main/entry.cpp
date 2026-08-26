@@ -19,6 +19,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/main/execl.hpp"
 #include "th03/core/initexit.h"
+#include "th04/main/language.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
 #include "th04/snd/snd.h"
@@ -85,7 +86,7 @@ extern "C" void far main_entry(void)
 	text_clear();
 	#if (GAME != 5)
 		gaiji_backup();
-		gaiji_entry_bfnt(GAIJI_FN);
+		language_main_gaiji_entry_bfnt(GAIJI_FN);
 	#endif
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 	snd_load(aMiko, SND_LOAD_SE);
