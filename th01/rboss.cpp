@@ -7,6 +7,7 @@
 #include "th01/main/boss/b10m.hpp"
 #include "th01/main/boss/b10j.hpp"
 #include "th01/main/boss/b15j.hpp"
+#include "th01/main/boss/b15m.hpp"
 #include "th01/rboss.hpp"
 #include "th01/resident.hpp"
 
@@ -87,6 +88,18 @@ bool16 t1replay_checkpoint_boss_valid(
 	) {
 		return t1boss_kikuri_checkpoint_validate(
 			reinterpret_cast<const t1boss_kikuri_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	}
+	if(
+		(boss->boss_id == BID_ELIS) &&
+		(boss->owner == T1BOSS_ELIS_CHECKPOINT_OWNER) &&
+		(boss->owner_schema == T1BOSS_ELIS_CHECKPOINT_SCHEMA) &&
+		(boss->payload_size == T1BOSS_ELIS_CHECKPOINT_SIZE)
+	) {
+		return t1boss_elis_checkpoint_validate(
+			reinterpret_cast<const t1boss_elis_checkpoint_t far *>(
 				boss->payload
 			)
 		);
@@ -188,6 +201,16 @@ bool16 t1replay_checkpoint_boss_capture(
 			return false;
 		}
 		break;
+	case BID_ELIS:
+		boss->owner = T1BOSS_ELIS_CHECKPOINT_OWNER;
+		boss->owner_schema = T1BOSS_ELIS_CHECKPOINT_SCHEMA;
+		boss->payload_size = T1BOSS_ELIS_CHECKPOINT_SIZE;
+		if(!t1boss_elis_checkpoint_capture(
+			reinterpret_cast<t1boss_elis_checkpoint_t far *>(boss->payload)
+		)) {
+			return false;
+		}
+		break;
 	default:
 		return false;
 	}
@@ -225,6 +248,12 @@ bool16 t1replay_checkpoint_boss_apply(
 	case BID_KIKURI:
 		return t1boss_kikuri_ckpt_apply_loaded(
 			reinterpret_cast<const t1boss_kikuri_checkpoint_t far *>(
+				boss->payload
+			)
+		);
+	case BID_ELIS:
+		return t1boss_elis_ckpt_apply_loaded(
+			reinterpret_cast<const t1boss_elis_checkpoint_t far *>(
 				boss->payload
 			)
 		);

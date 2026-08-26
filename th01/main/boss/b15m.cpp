@@ -1,6 +1,7 @@
 /// Makai Stage 15 Boss - Elis
 /// --------------------------
 
+#include "th01/main/boss/b15m.hpp"
 #include <dos.h>
 #include <stdlib.h>
 #include "th01/rank.h"
@@ -2147,3 +2148,159 @@ void elis_main(void)
 	#undef phase_frame_common
 	#undef hit_update_and_render
 }
+
+#pragma codeseg T1B15MOWN_TEXT
+
+static bool16 t1boss_elis_entity_checkpoint_validate(
+	const t1boss_elis_entity_checkpoint_t *entity
+)
+{
+	return (
+		(entity->left == BASE_LEFT) && (entity->top == BASE_TOP) &&
+		(entity->prev_left == 0) && (entity->prev_top == 0) &&
+		(entity->prev_delta_x == 0) && (entity->prev_delta_y == 0) &&
+		(entity->image == 0) && (entity->hitbox_inactive == 0) &&
+		(entity->lock_frame == 0)
+	);
+}
+
+static bool16 t1boss_elis_entities_loaded(void)
+{
+	return (
+		(ent_still_or_wave.bos_slot == 0) &&
+		(ent_still_or_wave.bos_image_count > C_WAVE_3) &&
+		(ent_still_or_wave.w_aligned() == GIRL_W) &&
+		(ent_still_or_wave.h == GIRL_H) &&
+		(ent_attack.bos_slot == 1) &&
+		(ent_attack.bos_image_count > C_ATTACK_2) &&
+		(ent_attack.w_aligned() == GIRL_W) && (ent_attack.h == GIRL_H) &&
+		(ent_bat.bos_slot == 2) &&
+		(ent_bat.bos_image_count > C_BAT_last) &&
+		(ent_bat.w_aligned() == BAT_W) && (ent_bat.h == BAT_H) &&
+		!ent_still_or_wave.loading && !ent_attack.loading && !ent_bat.loading
+	);
+}
+
+bool16 t1boss_elis_checkpoint_validate(
+	const t1boss_elis_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_ELIS_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_ELIS_CHECKPOINT_SCHEMA) ||
+		(checkpoint->phase != 0) || (checkpoint->reserved_0 != 0) ||
+		(checkpoint->phase_frame != 0) || (checkpoint->hp != HP_TOTAL) ||
+		(checkpoint->pattern_state != 0) ||
+		(checkpoint->reserved[0] != 0) ||
+		(checkpoint->reserved[1] != 0)
+	) {
+		return false;
+	}
+	for(i = 0; i < T1BOSS_ELIS_CHECKPOINT_ENTITY_COUNT; i++) {
+		if(!t1boss_elis_entity_checkpoint_validate(&checkpoint->entity[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static void t1boss_elis_entity_checkpoint_capture(
+	t1boss_elis_entity_checkpoint_t *checkpoint,
+	const CBossEntity& entity
+)
+{
+	checkpoint->left = entity.cur_left;
+	checkpoint->top = entity.cur_top;
+	checkpoint->prev_left = entity.prev_left;
+	checkpoint->prev_top = entity.prev_top;
+	checkpoint->prev_delta_x = entity.prev_delta_x;
+	checkpoint->prev_delta_y = entity.prev_delta_y;
+	checkpoint->image = entity.image();
+	checkpoint->hitbox_inactive = entity.hitbox_orb_inactive;
+	checkpoint->lock_frame = entity.lock_frame;
+}
+
+bool16 t1boss_elis_checkpoint_capture(
+	t1boss_elis_checkpoint_t *checkpoint
+)
+{
+	t1boss_elis_checkpoint_t live;
+
+	if(!checkpoint) {
+		return false;
+	}
+	live.owner = T1BOSS_ELIS_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_ELIS_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.reserved_0 = 0;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.pattern_state = pattern_state.angle_range;
+	t1boss_elis_entity_checkpoint_capture(&live.entity[0], ent_still_or_wave);
+	t1boss_elis_entity_checkpoint_capture(&live.entity[1], ent_attack);
+	t1boss_elis_entity_checkpoint_capture(&live.entity[2], ent_bat);
+	live.reserved[0] = 0;
+	live.reserved[1] = 0;
+	if(!t1boss_elis_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+static void t1boss_elis_entity_ckpt_apply_loaded(
+	CBossEntity& entity,
+	const t1boss_elis_entity_checkpoint_t *checkpoint
+)
+{
+	entity.pos_cur_set(checkpoint->left, checkpoint->top);
+	entity.prev_left = checkpoint->prev_left;
+	entity.prev_top = checkpoint->prev_top;
+	entity.prev_delta_x = checkpoint->prev_delta_x;
+	entity.prev_delta_y = checkpoint->prev_delta_y;
+	entity.set_image(checkpoint->image);
+	entity.hitbox_orb_inactive = checkpoint->hitbox_inactive;
+	entity.lock_frame = checkpoint->lock_frame;
+}
+
+bool16 t1boss_elis_ckpt_apply_loaded(
+	const t1boss_elis_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_elis_checkpoint_validate(checkpoint) ||
+		!t1boss_elis_entities_loaded()
+	) {
+		return false;
+	}
+
+	t1boss_elis_entity_ckpt_apply_loaded(
+		ent_still_or_wave, &checkpoint->entity[0]
+	);
+	t1boss_elis_entity_ckpt_apply_loaded(ent_attack, &checkpoint->entity[1]);
+	t1boss_elis_entity_ckpt_apply_loaded(ent_bat, &checkpoint->entity[2]);
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	pattern_state.angle_range = checkpoint->pattern_state;
+	hud_hp_first_white = HP_PHASE_1_END;
+	hud_hp_first_redwhite = HP_PHASE_3_END;
+	return true;
+}
+
+bool16 t1boss_elis_checkpoint_apply(
+	const t1boss_elis_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_elis_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild .BOS, .GRC, and .PTN resources through the native owner.
+	elis_load();
+	return t1boss_elis_ckpt_apply_loaded(checkpoint);
+}
+
+#pragma codeseg
