@@ -27,6 +27,7 @@
 #include "th04/hardware/grppsafx.h"
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
+#include "th04/op/replay_font.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
 #include "th04/snd/snd.h"
@@ -145,6 +146,19 @@ static void replay_op_stock_archive_name_set(char *fn)
 	#endif
 }
 
+static void replay_op_font_ensure(void)
+{
+	char stock_archive_fn[13];
+
+	if(replay_op_font) {
+		return;
+	}
+	replay_op_stock_archive_name_set(stock_archive_fn);
+	replay_op_font_load(
+		reinterpret_cast<const unsigned char *>(stock_archive_fn)
+	);
+}
+
 static void replay_op_background_name_set(
 	char *fn, replay_op_background_t background
 )
@@ -189,6 +203,7 @@ static bool replay_op_screen_begin(
 {
 	previous_func = graph_putsa_fx_func;
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+	replay_op_font_ensure();
 	if(fade_out) {
 		palette_black_out(1);
 	}
@@ -482,6 +497,7 @@ static void replay_op_paths_init(void)
 static void replay_op_exit_into_main(bool fade_out_bgm, bool allow_debug)
 {
 	replay_op_paths_init();
+	replay_op_font_free();
 	replay_op_bridge(ROBF_EXIT_PREPARE);
 	#if (GAME == 4)
 		gaiji_restore();
@@ -1072,10 +1088,26 @@ static char *replay_op_uint_append(char *p, uint32_t value, unsigned width)
 static void replay_op_line_put(screen_x_t left, vram_y_t top, vc2 col, char *p)
 {
 	*p = '\0';
-	graph_putsa_fx(
-		left, top, col,
-		reinterpret_cast<const shiftjis_t *>(replay_op_line)
-	);
+	if(replay_op_font) {
+		replay_op_font_put_cells(left, top, replay_op_line, col);
+	} else {
+		graph_putsa_fx(
+			left, top, col,
+			reinterpret_cast<const shiftjis_t *>(replay_op_line)
+		);
+	}
+}
+
+static void replay_op_line_put_centered(vram_y_t top, vc2 col, char *p)
+{
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_centered((RES_X / 2), top, replay_op_line, col);
+	} else {
+		replay_op_line_put(
+			((RES_X - ((p - replay_op_line) * 8)) / 2), top, col, p
+		);
+	}
 }
 
 static replay_op_word_t replay_op_playchar_word(uint8_t playchar)
@@ -1103,28 +1135,55 @@ void replay_title_label_put(screen_y_t top, vc2 col)
 {
 	char *p = replay_op_line;
 	p = replay_op_word_append(p, ROW_REPLAY);
-	replay_op_line_put(((RES_X - (6 * 8)) / 2), top, col, p);
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_centered((RES_X / 2), top, replay_op_line, col);
+	} else {
+		replay_op_line_put(((RES_X - (6 * 8)) / 2), top, col, p);
+	}
 }
 
 void replay_title_desc_put(void)
 {
 	char *p = replay_op_line;
-	p = replay_op_word_append(p, ROW_VIEW_RECORDED_RUNS);
-	replay_op_line_put((RES_X - 16 - (18 * 8)), (RES_Y - 16), V_WHITE, p);
+	#define P(c) *p++ = c
+	P(0x83); P(0x8A); P(0x83); P(0x76); P(0x83); P(0x8C); P(0x83); P(0x43);
+	P(0x82); P(0xF0); P(0x8C); P(0xA9); P(0x82); P(0xDC); P(0x82); P(0xB7);
+	#undef P
+	*p = '\0';
+	graph_putsa_fx(
+		(RES_X - 16 - (16 * 8)), (RES_Y - 16),
+		((GAME == 5) ? 9 : V_WHITE),
+		reinterpret_cast<const shiftjis_t *>(replay_op_line)
+	);
 }
 
 void replay_practice_title_label_put(screen_y_t top, vc2 col)
 {
 	char *p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PRACTICE);
-	replay_op_line_put(((RES_X - (8 * 8)) / 2), top, col, p);
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_centered((RES_X / 2), top, replay_op_line, col);
+	} else {
+		replay_op_line_put(((RES_X - (8 * 8)) / 2), top, col, p);
+	}
 }
 
 void replay_practice_title_desc_put(void)
 {
 	char *p = replay_op_line;
-	p = replay_op_word_append(p, ROW_CONFIGURE_PRACTICE);
-	replay_op_line_put((RES_X - 16 - (24 * 8)), (RES_Y - 16), V_WHITE, p);
+	#define P(c) *p++ = c
+	P(0x97); P(0xFB); P(0x8F); P(0x4B); P(0x82); P(0xCC);
+	P(0x90); P(0xDD); P(0x92); P(0xE8); P(0x82); P(0xF0);
+	P(0x82); P(0xB5); P(0x82); P(0xDC); P(0x82); P(0xB7);
+	#undef P
+	*p = '\0';
+	graph_putsa_fx(
+		(RES_X - 16 - (18 * 8)), (RES_Y - 16),
+		((GAME == 5) ? 9 : V_WHITE),
+		reinterpret_cast<const shiftjis_t *>(replay_op_line)
+	);
 }
 
 static void replay_browser_header_put(void)
@@ -1209,7 +1268,7 @@ static void replay_browser_render(uint8_t sel)
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_REPLAY);
-	replay_op_line_put(((RES_X - (6 * 8)) / 2), 24, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put_centered(24, REPLAY_OP_COL_ACTIVE, p);
 	replay_browser_header_put();
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	for(i = 0; i < REPLAY_OP_SLOT_ROWS; i++) {
@@ -2050,7 +2109,6 @@ static void practice_numeric_entry(
 static void practice_page_name_put(uint8_t page)
 {
 	char *p = replay_op_line;
-	screen_x_t left;
 	#define P(c) *p++ = c
 	P('<'); P(' ');
 	if(page == 0) {
@@ -2064,11 +2122,8 @@ static void practice_page_name_put(uint8_t page)
 		P('s'); P('t'); P('o'); P('r'); P('y');
 	}
 	P(' '); P('('); P('1' + page); P('/'); P('3'); P(')'); P(' '); P('>');
-	left = static_cast<screen_x_t>(
-		(RES_X - ((p - replay_op_line) * 8)) / 2
-	);
 	#undef P
-	replay_op_line_put(left, 44, V_WHITE, p);
+	replay_op_line_put_centered(44, V_WHITE, p);
 }
 
 static void practice_render(
@@ -2087,7 +2142,7 @@ static void practice_render(
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PRACTICE_SETUP);
-	replay_op_line_put(((RES_X - (14 * 8)) / 2), 16, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put_centered(16, REPLAY_OP_COL_ACTIVE, p);
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	practice_page_name_put(page);
 	for(i = 0; i < rows; i++) {
@@ -2099,8 +2154,8 @@ static void practice_render(
 		p = replay_op_line;
 		p = practice_field_append(p, field);
 		if(field == PF_START) {
-			replay_op_line_put(
-				((RES_X - (14 * 8)) / 2), (68 + (i * 20)),
+			replay_op_line_put_centered(
+				(68 + (i * 20)),
 				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
 			);
 		} else {
@@ -2108,11 +2163,20 @@ static void practice_render(
 				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
 			p = replay_op_line;
 			p = practice_value_append(p, field, start);
-			replay_op_line_put(
-				static_cast<screen_x_t>(
-					PRACTICE_VALUE_RIGHT - ((p - replay_op_line) * 8)
-				), (68 + (i * 20)),
-				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+			if(replay_op_font) {
+				*p = '\0';
+				replay_op_font_put_right(
+					PRACTICE_VALUE_RIGHT, (68 + (i * 20)), replay_op_line,
+					((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE)
+				);
+			} else {
+				replay_op_line_put(
+					static_cast<screen_x_t>(
+						PRACTICE_VALUE_RIGHT - ((p - replay_op_line) * 8)
+					), (68 + (i * 20)),
+					((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+				);
+			}
 		}
 	}
 	graph_showpage(page_drawn);
@@ -2626,6 +2690,7 @@ static void replay_main_initialize(void)
 {
 	int i;
 
+	replay_op_font_ensure();
 	main_menu_unused_1 = 0;
 	egc_copy_rect_1_to_0_16(
 		(REPLAY_MAIN_MENU_LEFT - 128), REPLAY_MAIN_TOP,
@@ -2755,5 +2820,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
