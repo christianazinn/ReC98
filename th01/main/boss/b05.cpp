@@ -14,6 +14,7 @@
 #include "th01/sprites/pellet.h"
 #include "th01/main/particle.hpp"
 #include "th01/main/hud/hp.hpp"
+#include "th01/main/stage/timer.hpp"
 #include "th01/main/player/player.hpp"
 #include "th01/main/player/shot.hpp"
 #include "th01/main/boss/defeat.hpp"
@@ -22,6 +23,10 @@
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/palette.hpp"
+
+#if defined(T1RP) && (T1RP == 3)
+#include "th01/hardware/graph.h"
+#endif
 
 // Coordinates
 // -----------
@@ -929,5 +934,122 @@ bool16 t1boss_singyoku_checkpoint_apply(
 	singyoku_ent_load();
 	return t1boss_singyoku_ckpt_apply_loaded(checkpoint);
 }
+
+#if defined(T1RP) && (T1RP == 3)
+static int t1boss_singyoku_presentation_person_cel(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	int form = ((checkpoint->pattern_cur & 1) ? F_MAN : F_WOMAN);
+
+	if(checkpoint->phase_frame < TKF_PERSON_ATTACK_1) {
+		return (C_STILL + (C_PERSON_FORM * form));
+	}
+	if(checkpoint->phase_frame < TKF_PERSON_ATTACK_2) {
+		return (C_ATTACK_1 + (C_PERSON_FORM * form));
+	}
+	if(checkpoint->phase_frame < TKF_PERSON_STILL) {
+		return ((form == F_WOMAN) ? C_WOMAN_ATTACK_2 : C_MAN_ATTACK);
+	}
+	return (C_STILL + (C_PERSON_FORM * form));
+}
+
+bool16 t1boss_singyoku_presentation_validate(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_singyoku_checkpoint_validate(checkpoint) ||
+		checkpoint->hit_invincible ||
+		(!checkpoint->initial_hp_rendered &&
+		 (checkpoint->invincibility_frame >= checkpoint->hp)) ||
+		((checkpoint->phase == 2) && !checkpoint->initial_hp_rendered)
+	) {
+		return false;
+	}
+	if(checkpoint->phase == 1) {
+		return !(
+			(checkpoint->pattern_cur == 1) &&
+			(checkpoint->phase_frame >= 100) &&
+			(checkpoint->phase_frame & 1)
+		);
+	}
+	if(checkpoint->pattern_cur == 4) {
+		return !(
+			(checkpoint->phase_frame >= 100) &&
+			(checkpoint->phase_frame & 1)
+		);
+	}
+	return (
+		(checkpoint->phase_frame < TKF_START) ||
+		((checkpoint->phase_frame >= TKF_TO_PERSON_DONE) &&
+		 (checkpoint->phase_frame < TKF_TO_SPHERE))
+	);
+}
+
+static bool t1boss_singyoku_presentation_live_matches(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	return (
+		(boss_phase == checkpoint->phase) &&
+		(boss_phase_frame == checkpoint->phase_frame) &&
+		(boss_hp == checkpoint->hp) &&
+		(invincibility_frame == checkpoint->invincibility_frame) &&
+		(phase.pattern_cur == checkpoint->pattern_cur) &&
+		(pattern_state.unknown == checkpoint->pattern_value) &&
+		(hit.invincible == checkpoint->hit_invincible) &&
+		(ent.cur_left == checkpoint->sphere_left) &&
+		(ent.cur_top == checkpoint->sphere_top) &&
+		(ent_sphere.image() == checkpoint->sphere_image) &&
+		(ent_person.image() == checkpoint->person_image)
+	);
+}
+
+bool16 t1boss_singyoku_presentation_reconstruct(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_singyoku_presentation_validate(checkpoint) ||
+		!t1boss_singyoku_presentation_live_matches(checkpoint)
+	) {
+		return false;
+	}
+
+	// Native startup has rebuilt page 1 as the static unput backing. Select it
+	// first and rebuild page 0 from it, but never paint SinGyoku on page 1.
+	graph_accesspage_func(1);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+	// The pre-applied scenario already rebuilt the remaining HUD fields. The
+	// timer is imported later, and the boss entrance that normally builds the
+	// HP backing is skipped, so reconstruct those two presentation resources.
+	timer_put();
+	hud_hp_rerender(
+		checkpoint->initial_hp_rendered
+			? checkpoint->hp
+			: checkpoint->invincibility_frame
+	);
+	if(
+		(checkpoint->phase == 2) && (checkpoint->pattern_cur != 4) &&
+		(checkpoint->phase_frame >= TKF_TO_PERSON_DONE)
+	) {
+		ent_person.put_8(
+			checkpoint->sphere_left,
+			checkpoint->sphere_top,
+			t1boss_singyoku_presentation_person_cel(checkpoint)
+		);
+	} else {
+		ent_sphere.put_8(
+			checkpoint->sphere_left,
+			checkpoint->sphere_top,
+			checkpoint->sphere_image
+		);
+	}
+	graph_accesspage_func(0);
+	return true;
+}
+#endif
 
 #pragma codeseg
