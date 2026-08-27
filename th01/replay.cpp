@@ -1469,7 +1469,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '2') ||
+		!t1replay_magic_matches(t1replay_header.magic, '3') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -1490,7 +1490,7 @@ static bool t1replay_header_read(bool finalized)
 			T1REPLAY_FNV1A_BASIS, &t1replay_header.start, sizeof(t1replay_header.start)
 		)) ||
 		!t1replay_start_valid(&t1replay_header.start) ||
-		!t1replay_bytes_zero(t1replay_header.reserved, sizeof(t1replay_header.reserved)) ||
+		!t1replay_name_valid(t1replay_header.name) ||
 		(t1replay_header.reserved_0 != 0) ||
 		((t1replay_header.status == T1REPLAY_STATUS_FINALIZED) ?
 			((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
@@ -1715,10 +1715,12 @@ static void t1replay_start_apply(void)
 
 static void t1replay_header_capture(void)
 {
+	int i;
+
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '2';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '3';
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
@@ -1727,6 +1729,9 @@ static void t1replay_header_capture(void)
 	t1replay_header.game_id = 1;
 	t1replay_header.input_semantics = T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS;
 	t1replay_header.input_offset = T1REPLAY_HEADER_SIZE;
+	for(i = 0; i < T1REPLAY_NAME_BYTES; i++) {
+		t1replay_header.name[i] = ' ';
+	}
 	t1replay_start_capture();
 	t1replay_header.start_checksum = t1replay_fnv1a(
 		T1REPLAY_FNV1A_BASIS, &t1replay_header.start,

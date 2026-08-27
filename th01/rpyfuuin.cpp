@@ -752,7 +752,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '2') ||
+		!t1replay_magic_matches(t1replay_header.magic, '3') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -776,9 +776,7 @@ static bool t1replay_header_read(bool finalized)
 			sizeof(t1replay_header.start)
 		)) ||
 		!t1replay_start_valid(&t1replay_header.start) ||
-		!t1replay_bytes_zero(
-			t1replay_header.reserved, sizeof(t1replay_header.reserved)
-		) ||
+		!t1replay_name_valid(t1replay_header.name) ||
 		(t1replay_header.reserved_0 != 0) ||
 		(finalized ?
 			(t1replay_header.end_reason != T1REPLAY_END_CLEAR) :

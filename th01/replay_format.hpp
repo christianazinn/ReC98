@@ -2,24 +2,25 @@
 #define TH01_REPLAY_FORMAT_HPP
 
 /*
- * TH01's user replay format. V2 carries a run from REIIDEN into FUUIN while
- * retaining the original compact header and packet geometry.
+ * TH01's user replay format. V3 carries a run from REIIDEN into FUUIN while
+ * retaining the compact packet geometry and adding the native replay name.
  */
 
 #include "platform.h"
 #include <stddef.h>
 
-#define T1REPLAY_VERSION 2
-#define T1REPLAY_HEADER_SIZE 128
+#define T1REPLAY_VERSION 3
+#define T1REPLAY_HEADER_SIZE 130
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_PACKET_SIZE 8
+#define T1REPLAY_NAME_KANJI 8
+#define T1REPLAY_NAME_BYTES (T1REPLAY_NAME_KANJI * 2)
 #define T1REPLAY_SLOT_COUNT 100
 #define T1REPLAY_SLOT_PENDING T1REPLAY_SLOT_COUNT
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY2. The OP reader admits only the V2 header's all-zero reserved tail;
-// changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
+// T1RPY3. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
 #define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
@@ -46,7 +47,7 @@
 
 // Private FUUIN validation can bind the decoded score table seen before
 // registration and the in-memory result afterward to a finalized replay.
-// T1RPY2 stays unchanged; release builds neither read nor write this sidecar.
+// T1RPY3 stays unchanged; release builds neither read nor write this sidecar.
 #define T1REPLAY_SCORE_PROOF_SCHEMA 1
 #define T1REPLAY_SCORE_PROOF_SIZE 48
 #ifndef T1REPLAY_FUUIN_SCORE_PROOF
@@ -81,7 +82,7 @@
 #endif
 
 // Private semantic tracing for direct-versus-sequential checkpoint evidence.
-// This is not part of T1RPY2 or T1CKP1 and stays absent from release builds.
+// This is not part of T1RPY3 or T1CKP1 and stays absent from release builds.
 #ifndef T1REPLAY_EXACT_TRACE
 	#define T1REPLAY_EXACT_TRACE (T1RP != 0)
 #endif
@@ -137,7 +138,7 @@ inline bool t1replay_slot_is_pending(uint8_t slot)
 }
 
 // The pending sentinel is a process-local record target, never a playable
-// numbered slot. It keeps the T1RPY2 header and resident carrier ABI stable
+// numbered slot. It keeps the T1RPY3 header and resident carrier ABI stable
 // while OP decides whether a finalized capture should become permanent.
 inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 {
@@ -266,7 +267,7 @@ struct t1replay_start_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY2\\0\\0"
+	char magic[8]; // "T1RPY3\\0\\0"
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -285,8 +286,53 @@ struct t1replay_header_t {
 	uint32_t start_checksum;
 	uint32_t header_checksum;
 	t1replay_start_t start;
-	uint8_t reserved[14];
+	uint8_t name[T1REPLAY_NAME_BYTES];
 };
+
+// The native score-registration keyboard accepts full-width ASCII letters and
+// numerals plus exactly these eighteen symbols. T1RPY3 uses the same cells;
+// unentered trailing cells are pairs of ordinary ASCII spaces.
+inline bool t1replay_name_cell_valid(uint8_t lead, uint8_t trail)
+{
+	if(lead == 0x82) {
+		return (
+			((trail >= 0x4F) && (trail <= 0x58)) ||
+			((trail >= 0x60) && (trail <= 0x79)) ||
+			((trail >= 0x81) && (trail <= 0x9A))
+		);
+	}
+	if(lead != 0x81) {
+		return false;
+	}
+	switch(trail) {
+	case 0x40: // Full-width space, distinct from trailing padding.
+	case 0x44: case 0x45: case 0x48: case 0x49:
+	case 0x5E: case 0x63: case 0x67: case 0x68:
+	case 0x87: case 0x88: case 0x89: case 0x8A:
+	case 0x94: case 0x95: case 0x96: case 0x98:
+	case 0x99: case 0x9F:
+		return true;
+	}
+	return false;
+}
+
+inline bool t1replay_name_valid(const uint8_t far *name)
+{
+	bool padding_seen = false;
+	uint8_t cell;
+
+	for(cell = 0; cell < T1REPLAY_NAME_KANJI; cell++) {
+		uint8_t lead = name[(cell * 2) + 0];
+		uint8_t trail = name[(cell * 2) + 1];
+
+		if((lead == ' ') && (trail == ' ')) {
+			padding_seen = true;
+		} else if(padding_seen || !t1replay_name_cell_valid(lead, trail)) {
+			return false;
+		}
+	}
+	return true;
+}
 
 struct t1replay_packet_t {
 	uint8_t tag;
