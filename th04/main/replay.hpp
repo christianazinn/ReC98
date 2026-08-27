@@ -19,24 +19,35 @@ void replay_entry(void);
 // True only while a direct Practice start still needs the first-run native
 // initialization path. Ordinary stage progression never takes this branch.
 bool replay_practice_run_start_requested(void);
+bool replay_stage_is_first(uint8_t stage);
 
 // Applies the portable Practice resources after stage_init() has reset
 // per-stage state and before shot-level and HUD derivation consume them.
 void replay_practice_start_apply_after_reset(void);
+void replay_practice_start_apply_and_stage_activate(void);
 
 // Finishes fields reset by items_init() and consumes the one-shot Practice
 // startup request.
 void replay_practice_items_ready(void);
+
+// One-shot presentation gate for arbitrary Practice starts. stage_setup()
+// reads the flag around the native eyecatch, then this helper installs either
+// the native stage overlays or a transparent, callback-free playfield.
+extern bool replay_stage_presentation_skip;
+void replay_stage_overlays_setup(void);
 
 // Captures the current arbitrary Practice boundary into the normalized
 // checkpoint sidecar. The caller must still be in hidden native preroll; input
 // recording begins only after this succeeds.
 bool replay_practice_checkpoint_capture(void);
 
-// Hidden native preroll state and its next-frame target detector. The stage
-// loop masks video, bypasses pacing, and suppresses hits only while active.
+// Arbitrary Practice target setup and its next-frame boundary detector.
+// Chapters and midbosses reconstruct field state directly; boss phases retain
+// hidden native preroll because their actor-private state has no generic
+// constructor. The stage loop masks video only while either path is pending.
 bool replay_practice_preroll_active(void);
 bool replay_practice_preroll_boundary(void);
+bool replay_practice_direct_redraw_take(void);
 
 // Private emulator-test runs use a fixed gameplay suffix. Suppressing player
 // hits keeps late-stage targets from entering post-game input polling before
@@ -47,14 +58,23 @@ bool replay_private_test_active(void);
 // the stage-start control packet at a boundary where stage_id is final.
 void replay_stage_start(void);
 
+// Tail helpers that make room for replay hooks without growing position-
+// critical stock MAIN segments.
+void replay_main_entry_setup(void);
+void replay_game_init_main_or_exit(const unsigned char far *pf_fn);
+bool replay_frame_pacing_should_delay(void);
+bool replay_stage_frame_advance_should_raise(void);
+void replay_metrics_commit(void);
+
 // Called after input_sense() and demo_update() at the canonical gameplay
-// input seam. Record mode stores the resulting full input_t plus Shift;
-// playback mode replaces them from the stream.
+// input seam. Playback replaces the resulting full input_t plus Shift before
+// Pause or gameplay can consume them. Recording is deferred to the frame-tail
+// hook below so it captures the post-Pause input that gameplay actually used.
 void replay_gameplay_input(void);
 
-// The frame-loop tail samples the keyboard a second time for TH05's debug
-// fast-forward toggle. It is not a logical replay sample, but playback must
-// prevent host input from leaking through it.
+// Records the gameplay input after Pause has drained its own controls, then
+// performs the native frame-tail keyboard sample. The latter is not a logical
+// replay sample, and playback must prevent host input from leaking through it.
 void replay_input_reset_sense_tail(void);
 
 // Replay-aware forms for MAIN's blocking dialog and continue input. They
@@ -66,11 +86,17 @@ int16_t replay_input_reset_sense_held_interstitial(void);
 void pascal replay_input_wait_for_change(int frames);
 
 // Called as the first operation of GameExecl(). Finalizes a recording or
-// verifies playback's terminal control. Returns true when playback must go
-// directly to OP instead of entering MAINE.
+// verifies playback's terminal control. Returns true when playback or a
+// successfully durable Restart must go directly to OP instead of MAINE.
+// A false Restart result leaves GameExecl()'s caller-provided stock target
+// unchanged; it does not keep MAIN resident after GameExecl().
 bool replay_process_end(void);
 
 bool replay_active(void);
 bool replay_playback_active(void);
+
+// Fixed-span pause.cpp delegates its expanded native menu here. Return value
+// retains pause()'s stock ABI: zero resumes and nonzero returns to OP.
+extern "C" int far replay_pause_menu(void);
 
 #endif /* TH04_MAIN_REPLAY_HPP */

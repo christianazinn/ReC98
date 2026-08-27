@@ -6,6 +6,7 @@
 #pragma option -zCMAINE_01_TEXT
 #pragma option -zPgroup_01
 
+#include "th04/language_overlay.hpp"
 #include "th04/end/staff.cpp"
 
 // This object is the LAST one in TH04's MAINE.EXE link list, and until now it

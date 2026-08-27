@@ -5,6 +5,7 @@
 
 #pragma option -zCSCORE_TEXT
 
+#include "th04/language_overlay.hpp"
 #include <stddef.h>
 #include "planar.h"
 #include "libs/master.lib/pc98_gfx.hpp"

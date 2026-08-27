@@ -19,6 +19,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/main/execl.hpp"
 #include "th03/core/initexit.h"
+#include "th04/main/language.hpp"
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
 #include "th04/snd/snd.h"
@@ -76,31 +77,22 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
-	#if (GAME == 5)
-		mem_assign_paras = (291200 >> 4);
-	#else
-		// ZUN landmine: This is roughly 3.8 KB below what this game would need
-		// when running without an EMS driver, and thus causes the infamous
-		// crash after Reimu's Stage 5 pre-battle dialog.
-		// https://rec98.nmlgc.net/blog/2021-11-29 documents this issue in full
-		// detail.
-		mem_assign_paras = (320000 >> 4);
-	#endif
-
-	game_init_main(MAIN_PF_FN);
+	replay_game_init_main_or_exit(MAIN_PF_FN);
+	// Preserve the original entry contribution span after moving the checked
+	// allocation policy into REPLAY_TEXT.
+	_asm { nop; nop; nop; }
 	random_seed = resident->rand;
 	ems_allocate_and_preload_eyecatch();
 	text_clear();
 	#if (GAME != 5)
 		gaiji_backup();
-		gaiji_entry_bfnt(GAIJI_FN);
+		language_main_gaiji_entry_bfnt(GAIJI_FN);
 	#endif
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 	snd_load(aMiko, SND_LOAD_SE);
 
 	while(1) {
 		stage_setup();
-		replay_stage_start();
 		stage_loop();
 		if(quit != Q_NEXT_STAGE) {
 			break;

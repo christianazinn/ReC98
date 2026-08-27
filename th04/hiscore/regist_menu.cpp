@@ -37,6 +37,7 @@
 #endif
 #include "th04/common.h"
 #include "th04/hardware/grppsafx.h"
+#include "th04/language_overlay.hpp"
 #if (GAME == 5)
 extern "C" void pascal snd_load(const char *fn, snd_load_func_t func);
 #else
@@ -153,7 +154,7 @@ void near regist_menu(void)
 #endif
 	palette_settone(0);
 	graph_accesspage(1);
-	pi_load(0, hi01_pi);
+	language_asset_pi_load(0, hi01_pi);
 	pi_palette_apply(0);
 	pi_put_8(0, 0, 0);
 

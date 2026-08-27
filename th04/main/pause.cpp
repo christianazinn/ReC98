@@ -56,86 +56,24 @@ extern "C" const char aGAME_PAUSE_SPACES_3[];
 
 extern "C" int near pause(void)
 {
-	int quit = 0;
-
-	// Wait for the key that opened the menu to be released, so that it does
-	// not immediately register as a menu input below.
-	while(key_det != INPUT_NONE) {
-		input_reset_sense_interface();
-	}
-
-	gaiji_putsa(PAUSE_LEFT, PAUSE_CAPTION_Y, gsCHUUDAN, TX_YELLOW);
-	gaiji_putsa(
-		PAUSE_LEFT, PAUSE_RESUME_Y, gsSAIKAI, (TX_WHITE | TX_UNDERLINE)
-	);
-	gaiji_putsa(PAUSE_LEFT, PAUSE_QUIT_Y, gsSHUURYOU, TX_YELLOW);
-
-	while(1) {
-		input_wait_for_change(0);
-
-		// Either direction toggles between the two choices; there are only
-		// two, so the original spells that as `1 - quit` rather than as a
-		// separate up and down case.
-		if((key_det & INPUT_UP) || (key_det & INPUT_DOWN)) {
-			quit = (1 - quit);
-
-			// Both arms end in the same call with the same first three
-			// arguments and differ only in the attribute, so `-O` cross-jumps
-			// them into one shared `call` (kb/codegen/0097). Write both out.
-			if(quit == 0) {
-				gaiji_putsa(
-					PAUSE_LEFT, PAUSE_RESUME_Y, gsSAIKAI,
-					(TX_WHITE | TX_UNDERLINE)
-				);
-				gaiji_putsa(
-					PAUSE_LEFT, PAUSE_QUIT_Y, gsSHUURYOU, TX_YELLOW
-				);
-			} else {
-				gaiji_putsa(
-					PAUSE_LEFT, PAUSE_RESUME_Y, gsSAIKAI, TX_YELLOW
-				);
-				gaiji_putsa(
-					PAUSE_LEFT, PAUSE_QUIT_Y, gsSHUURYOU,
-					(TX_WHITE | TX_UNDERLINE)
-				);
-			}
-		}
-
-		// [verified by the oracle] from the shape of the original: this is the
-		// one exit that returns immediately, so it skips both the release wait
-		// and the three blanking writes below. Whether that is observable is
-		// [not measured] — it depends on what the caller draws next, and
-		// nothing here establishes it.
-		if(key_det & INPUT_Q) {
-			return 1;
-		}
-		if(key_det & INPUT_CANCEL) {
-			quit = 0;
-			break;
-		}
-		if(key_det & INPUT_SHOT) {
-			break;
-		}
-		if(key_det & INPUT_OK) {
-			break;
-		}
-	}
-
-	// And wait for the confirming key to be released as well, so that it does
-	// not carry into the game. TH05 only cares about the cancel key here,
-	// which is the games' single difference in this function.
-	#if (GAME == 5)
-		while(key_det & INPUT_CANCEL) {
-			input_reset_sense_interface();
-		}
-	#else
-		while(key_det != INPUT_NONE) {
-			input_reset_sense_interface();
-		}
-	#endif
-
-	text_putsa(PAUSE_LEFT, PAUSE_CAPTION_Y, aGAME_PAUSE_SPACES_1, TX_WHITE);
-	text_putsa(PAUSE_LEFT, PAUSE_RESUME_Y, aGAME_PAUSE_SPACES_2, TX_WHITE);
-	text_putsa(PAUSE_LEFT, PAUSE_QUIT_Y, aGAME_PAUSE_SPACES_3, TX_WHITE);
-	return quit;
+	return replay_pause_menu();
 }
+
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"

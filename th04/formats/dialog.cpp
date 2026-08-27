@@ -2,9 +2,9 @@
 
 #include <stddef.h>
 #include "libs/master.lib/master.hpp"
+#include "th04/main/language.hpp"
 #include "th04/resident.hpp"
 #include "th04/formats/dialog.hpp"
-
 void pascal near dialog_load(const char *fn)
 {
 	size_t size;
@@ -16,11 +16,11 @@ void pascal near dialog_load(const char *fn)
 	// function instead, then.
 	hmem_free(reinterpret_cast<void __seg *>(dialog_p));
 
-	file_ropen(fn);
+	language_main_dialog_ropen(fn);
 	size = file_size();
 	dialog_p = reinterpret_cast<unsigned char far *>(hmem_allocbyte(size));
 	file_read(dialog_p, size);
-	file_close();
+	language_main_dialog_close();
 }
 
 void near dialog_load(void)

@@ -17,7 +17,6 @@
 #include "th04/shiftjis/fns.hpp"
 #endif
 #include "th04/main/ems.hpp"
-#include "th04/main/oracle.hpp" // ORACLE MOD
 #include "th04/main/replay.hpp"
 
 extern char *eyename;	/* ZUN symbol [MAGNet2010] */
@@ -61,25 +60,7 @@ void near ems_allocate_and_preload_eyecatch(void)
 	#undef EMS_NAME
 	extern const char EMS_NAME[];
 
-	// ORACLE MOD: the earliest hook in MAIN at which the packfile is open, the
-	// resident structure exists, and nothing has been derived from it yet --
-	// the very next lines below are the first such derivation. Pins or applies
-	// the case's scenario; a no-op unless T?CASE.CFG exists.
-	oracle_entry();
-	replay_entry();
-
-	// Luckily, these assignments are also done later, and the game doesn't
-	// rely on them inbetween.
-	stage_id = resident->stage;
-	if(stage_id == STAGE_EXTRA) {
-		rank = RANK_EXTRA;
-	} else {
-		rank = resident->rank;
-	}
-
-#if (GAME == 4)
-	eyename[3] = ('0' + rank);
-#endif
+	replay_main_entry_setup();
 
 	Ems = nullptr;
 	if(!ems_exist() || (ems_space() < EMSSIZE)) {
@@ -93,6 +74,15 @@ void near ems_allocate_and_preload_eyecatch(void)
 		cdg_free(CDG_EYECATCH);
 	}
 }
+
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 void near bomb_bg_load__ems_preload_playchar_cdgs(void)
 {

@@ -3448,4 +3448,25 @@ bool oracle_frame(uint16_t shift_offset)
 	}
 	return true;
 }
+
+bool oracle_or_demo_frame(uint16_t shift_offset)
+{
+	if(oracle_active()) {
+		return oracle_frame(shift_offset);
+	}
+	if(
+		((GAME == 5) && ((key_det & ~INPUT_MOVEMENT) == 0)) ||
+		((GAME == 4) && (key_det == INPUT_NONE))
+	) {
+		key_det = DemoBuf[stage_frame];
+		shiftkey = DemoBuf[stage_frame + shift_offset];
+		if(
+			((GAME == 5) && (resident->demo_num > 4)) ||
+			(stage_frame < (DEMO_N - 4))
+		) {
+			return true;
+		}
+	}
+	return false;
+}
 /// -----

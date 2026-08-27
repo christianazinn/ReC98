@@ -38,11 +38,6 @@ void near start_game(void)
 		return;
 	}
 	resident_reset_last_highest_and_stage_scores();
-	if(!resident->debug) {
-		replay_record_next_prepare();
-	} else {
-		replay_command_clear();
-	}
 	op_exit_into_main(true, true);
 }
 
@@ -57,52 +52,11 @@ void near start_extra(void)
 		return;
 	}
 	resident_reset_last_highest_and_stage_scores();
-	if(!resident->debug) {
-		replay_record_next_prepare();
-	} else {
-		replay_command_clear();
-	}
-	op_exit_into_main(true, false);
-}
-
-void near start_practice(void)
-{
-	replay_start_config_t start;
-
-	if(!replay_practice_setup(&start)) {
-		return;
-	}
-	resident->end_sequence = ES_SCORE;
-	resident->demo_num = 0;
-	resident->stage = start.stage;
-	resident->credit_lives = start.credit_lives;
-	resident->credit_bombs = start.credit_bombs;
-	resident->playchar = start.playchar;
-	resident_reset_last_highest_and_stage_scores();
-	if(!replay_practice_record_prepare(&start)) {
-		return;
-	}
-	op_exit_into_main(true, false);
-}
-
-void near start_practice_private_command(
-	const replay_start_config_t far *start
-)
-{
-	resident->end_sequence = ES_SCORE;
-	resident->demo_num = 0;
-	resident->stage = start->stage;
-	resident->credit_lives = start->credit_lives;
-	resident->credit_bombs = start->credit_bombs;
-	resident->playchar = start->playchar;
-	resident_reset_last_highest_and_stage_scores();
 	op_exit_into_main(true, false);
 }
 
 void near start_demo(void)
 {
-	replay_command_clear();
-
 	resident->end_sequence = ES_SCORE;
 	resident->stage = 0;
 	resident->credit_lives = 3;
@@ -152,9 +106,10 @@ void near start_demo(void)
 		break;
 	}
 	resident_reset_last_and_highest_scores();
-	main_cdg_free();
-	cfg_save();
-	palette_black_out(1);
-	game_exit();
-	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+	replay_op_demo_exit_into_main();
 }
+
+// Keep the original OP_MAIN_TEXT contribution and every following stock
+// segment at its accepted offset after moving demo cleanup into the tail.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

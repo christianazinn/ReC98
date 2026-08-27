@@ -20,6 +20,7 @@
 #include "th03/formats/pi.hpp"
 #include "th04/op/op.hpp"
 #endif
+#include "th04/language_overlay.hpp"
 
 enum hiscore_patnum_t {
 	// scnum.bft
@@ -376,7 +377,7 @@ void near regist_view_menu(void)
 #if (GAME == 4)
 	hiscore_scoredat_load_both();
 #endif
-	pi_load(0, HISCORE_BG_FN);
+	language_asset_pi_load(0, HISCORE_BG_FN);
 	rank_render();
 	palette_black_in(1);
 
@@ -420,7 +421,10 @@ void near regist_view_menu(void)
 	palette_black_out(1);
 	pi_free(0);
 	graph_accesspage(1);
-	pi_fullres_load_palette_apply_put_free(0, MENU_MAIN_BG_FN);
+	language_asset_pi_load(0, MENU_MAIN_BG_FN);
+	pi_palette_apply(0);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	graph_copy_page(0);
 	palette_black_in(1);
 

@@ -209,9 +209,7 @@ void near stage_init(void)
 #else
 	shot_time = 0;
 #endif
-	replay_practice_start_apply_after_reset();
-	std_update = std_update_frames_then_animate_dialog_and_activate_boss_if_done;
-	scroll_active = true;
+	replay_practice_start_apply_and_stage_activate();
 #if (GAME == 4)
 	shot_reset();
 	nopcall_same_group(player_shot_level_update);
@@ -235,6 +233,10 @@ void near stage_init(void)
 	bg_render_bombing_func = tiles_render_all;
 	tiles_invalidate_reset();
 }
+
+// replay_practice_start_apply_and_stage_activate() is one byte shorter than
+// the native assignments it replaces. Preserve stage_transition()'s offset.
+#pragma codestring "\x90"
 
 // Undefined again because this file is textually first in its translation
 // unit, and the three files behind it are not this function's business.

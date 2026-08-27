@@ -4,11 +4,16 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 3
+#define REPLAY_USER_VERSION 4
 #define REPLAY_USER_HEADER_SIZE 192
 #define REPLAY_USER_PACKET_SIZE 4
 #define REPLAY_USER_INPUT_SIZE_MAX 0x00400000UL
 #define REPLAY_USER_STAGE_COUNT 7
+#define REPLAY_STAGE_ENTRY_SIZE 76
+#define REPLAY_STAGE_DIRECTORY_SIZE \
+	(REPLAY_USER_STAGE_COUNT * REPLAY_STAGE_ENTRY_SIZE)
+#define REPLAY_USER_INPUT_OFFSET \
+	(REPLAY_USER_HEADER_SIZE + REPLAY_STAGE_DIRECTORY_SIZE)
 #define REPLAY_USER_NAME_LEN 8
 #define REPLAY_USER_SLOT_COUNT 100
 #define REPLAY_START_CONFIG_SIZE 64
@@ -22,9 +27,9 @@
 #define REPLAY_CKPT_GROUPS_MAX 13
 #define REPLAY_CHECKPOINT_SIZE_MAX 0xFFF0u
 
-// ASCII `f7d5`, the source foundation shared by the normalized TH04/TH05
-// checkpoint schemas. Change this only when checkpoint interpretation changes.
-#define REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0x35643766UL
+// Source fingerprint shared by the normalized TH04/TH05 checkpoint schemas.
+// Change this only when checkpoint interpretation changes.
+#define REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0x9533C814UL
 
 #define REPLAY_USER_FLAG_RLE_INPUT 0x0001
 #define REPLAY_USER_FLAG_SHIFT_INPUT 0x0002
@@ -39,9 +44,22 @@
 
 #define REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define REPLAY_COMMAND_FLAG_PRIVATE_TEST 0x02
+#define REPLAY_COMMAND_FLAG_NO_RECORD 0x04
+#define REPLAY_COMMAND_FLAG_TEMP_CAPTURE 0x08
+#define REPLAY_COMMAND_FLAG_DIAGNOSTIC 0x80
+#define REPLAY_COMMAND_STAGE_SHIFT 4
+#define REPLAY_COMMAND_STAGE_MASK 0x70
+#define REPLAY_COMMAND_STAGE_NONE 0
 #define REPLAY_COMMAND_KNOWN_FLAGS ( \
-	REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_PRIVATE_TEST \
+	REPLAY_COMMAND_FLAG_PRACTICE | REPLAY_COMMAND_FLAG_PRIVATE_TEST | \
+	REPLAY_COMMAND_FLAG_NO_RECORD | REPLAY_COMMAND_FLAG_TEMP_CAPTURE | \
+	REPLAY_COMMAND_STAGE_MASK | REPLAY_COMMAND_FLAG_DIAGNOSTIC \
 )
+
+#define REPLAY_SAVE_REQUEST_SCHEMA 1
+#define REPLAY_SAVE_REQUEST_SIZE 20
+#define REPLAY_SAVE_TXN_SCHEMA 1
+#define REPLAY_SAVE_TXN_SIZE 20
 
 #define REPLAY_USER_INPUT_SEMANTICS 1
 #define REPLAY_USER_RULESET_STOCK 0
@@ -66,6 +84,18 @@ enum replay_user_status_t {
 	RUS_RECORDING = 1,
 	RUS_FINALIZED = 2,
 	RUS_ERROR = 3,
+	RUS_PENDING = 4,
+};
+
+enum replay_save_request_source_t {
+	RSRS_POSTGAME = 0,
+	RSRS_PAUSE_SAVE_EXIT = 1,
+};
+
+enum replay_save_txn_state_t {
+	RSTS_PREPARED = 1,
+	RSTS_BACKUP_MOVED = 2,
+	RSTS_INSTALLED = 3,
 };
 
 enum replay_user_end_reason_t {
@@ -126,6 +156,7 @@ enum replay_command_mode_t {
 	RCM_NONE = 0,
 	RCM_RECORD = 1,
 	RCM_PLAYBACK = 2,
+	RCM_RESTART = 3,
 };
 
 struct replay_start_config_t {
@@ -201,7 +232,15 @@ struct replay_user_header_t {
 	uint8_t bombs_final;
 	uint8_t power_final;
 	uint8_t dream_final;
-	uint8_t reserved[12];
+	uint32_t stage_directory_checksum;
+	uint8_t reserved[8];
+};
+
+struct replay_stage_entry_t {
+	replay_start_config_t start;
+	uint32_t sample_index;
+	uint32_t packet_index;
+	uint32_t payload_checksum;
 };
 
 struct replay_user_packet_t {
@@ -219,6 +258,25 @@ struct replay_command_t {
 	uint8_t reserved_0;
 	replay_start_config_t start;
 	uint8_t reserved[4];
+};
+
+struct replay_save_request_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
+struct replay_save_txn_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t state;
+	uint8_t slot;
+	uint8_t destination_existed;
+	uint32_t temp_header_checksum;
+	uint32_t checksum;
 };
 
 struct replay_checkpoint_header_t {
@@ -259,8 +317,17 @@ typedef char replay_user_header_size_check[
 typedef char replay_user_packet_size_check[
 	(sizeof(replay_user_packet_t) == REPLAY_USER_PACKET_SIZE) ? 1 : -1
 ];
+typedef char replay_stage_entry_size_check[
+	(sizeof(replay_stage_entry_t) == REPLAY_STAGE_ENTRY_SIZE) ? 1 : -1
+];
 typedef char replay_command_size_check[
 	(sizeof(replay_command_t) == REPLAY_COMMAND_SIZE) ? 1 : -1
+];
+typedef char replay_save_request_size_check[
+	(sizeof(replay_save_request_t) == REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
+];
+typedef char replay_save_txn_size_check[
+	(sizeof(replay_save_txn_t) == REPLAY_SAVE_TXN_SIZE) ? 1 : -1
 ];
 typedef char replay_checkpoint_header_size_check[
 	(sizeof(replay_checkpoint_header_t) == REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

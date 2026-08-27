@@ -44,34 +44,8 @@ void near DemoPlay(void)
 	#define shift_offset DEMO_N
 #endif
 
-	// ORACLE MOD: the injection seam. The per-frame demo callback already
-	// points here on the demo path, so no ASM edit is needed anywhere.
-	//
-	// The oracle deliberately does NOT reproduce the abort-on-keypress guard
-	// below: it would make playback depend on the host keyboard, which is the
-	// opposite of an oracle. Recorded as a deviation in the delta index.
-	if(oracle_active()) {
-		if(oracle_frame(shift_offset)) {
-			return;
-		}
-		demo_end();
+	if(oracle_or_demo_frame(shift_offset)) {
 		return;
-	}
-
-	// In TH04, replay playback ends by pressing anything. In TH05, only the
-	// non-movement inputs (shot, bomb, cancel, OK, and Q) work.
-	if(
-		((GAME == 5) && ((key_det & ~INPUT_MOVEMENT) == 0)) ||
-		((GAME == 4) && (key_det == INPUT_NONE))
-	) {
-		key_det = DemoBuf[stage_frame];
-		shiftkey = DemoBuf[stage_frame + shift_offset];
-		if(
-			((GAME == 5) && (resident->demo_num > 4)) ||
-			(stage_frame < (DEMO_N - 4))
-		) {
-			return;
-		}
 	}
 	demo_end();
 }
