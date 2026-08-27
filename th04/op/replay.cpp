@@ -1601,6 +1601,9 @@ static bool replay_op_command_write(
 		replay_command_clear();
 		return false;
 	}
+	// MAIN consumes this one-shot file immediately after execl(). Ensure that
+	// the handoff does not depend on a later diagnostic write flushing DOS.
+	replay_op_dos_flush();
 	if(command.flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) {
 		replay_op_practice_diagnostic_fn_set(diagnostic_fn, true);
 		fh = replay_op_dos_create(diagnostic_fn);
@@ -4480,13 +4483,13 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 
 // Preserve the paragraph phase of the following stock runtime segment.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
