@@ -12,6 +12,7 @@
 #include "th02/main/frames.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/practice.hpp"
+#include "th02/practice_diag.hpp"
 #include "th02/main/replay.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/enemy/enemy.hpp"
@@ -36,11 +37,13 @@ static bool16 near practice_map_target_validate(
 	int row;
 	int section;
 
+	t2practice_diag_target_scroll(target_scroll_step);
 	if(
 		(top_map_row == NULL) ||
 		(map_length <= 0) ||
 		(map_length > MAP_LENGTH_MAX)
 	) {
+		t2practice_diag_failure(T2PDR_MAP_LENGTH);
 		return false;
 	}
 
@@ -49,14 +52,17 @@ static bool16 near practice_map_target_validate(
 		(map_rows - ((PLAYFIELD_H / TILE_H) + 1)) * 2
 	);
 	if((target_scroll_step <= 0) || (target_scroll_step > max_scroll_step)) {
+		t2practice_diag_failure(T2PDR_TARGET_SCROLL);
 		return false;
 	}
 
 	*top_map_row = (
 		(PLAYFIELD_H / TILE_H) + ((target_scroll_step + 1) / 2)
 	);
+	t2practice_diag_top_map_row(*top_map_row);
 	first_map_row = (*top_map_row - (TILES_Y - 1));
 	if((first_map_row < 0) || (*top_map_row >= map_rows)) {
+		t2practice_diag_failure(T2PDR_MAP_ROW);
 		return false;
 	}
 
@@ -67,6 +73,7 @@ static bool16 near practice_map_target_validate(
 			(section >= map_length) ||
 			(map[section] >= MAP_SECTION_COUNT)
 		) {
+			t2practice_diag_failure(T2PDR_MAP_SECTION);
 			return false;
 		}
 	}
@@ -95,39 +102,54 @@ bool16 far practice_spawn_row_upper_bound(
 		(target_scroll_step < 0) ||
 		(spawn_rows < 0)
 	) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+		if(spawn_rows < 0) {
+			t2practice_diag_failure(T2PDR_SPAWN_ROWS);
+		} else {
+			t2practice_diag_failure(T2PDR_SPAWN_ARGUMENT);
+		}
+#endif
 		return false;
 	}
 	if(spawn_rows == 0) {
 		*spawn_row = 0;
+		t2practice_diag_spawn_upper_bound(*spawn_row);
 		return true;
 	}
 	if(spawn_grid[0] == NULL) {
+		t2practice_diag_failure(T2PDR_SPAWN_GRID);
 		return false;
 	}
 
 	previous_trigger = spawn_grid[0][0];
+	t2practice_diag_spawn_first_trigger(previous_trigger);
 	if(previous_trigger < 0) {
+		t2practice_diag_failure(T2PDR_SPAWN_TRIGGER);
 		return false;
 	}
 	first_after_target = 0;
 	if(previous_trigger > target_scroll_step) {
 		*spawn_row = first_after_target;
+		t2practice_diag_spawn_upper_bound(*spawn_row);
 		return true;
 	}
 	for(i = 1; i < spawn_rows; i++) {
 		trigger = spawn_grid[0][i];
 		if((trigger < 0) || (trigger < previous_trigger)) {
+			t2practice_diag_failure(T2PDR_SPAWN_TRIGGER);
 			return false;
 		}
 		if(trigger > target_scroll_step) {
 			first_after_target = i;
 			*spawn_row = first_after_target;
+			t2practice_diag_spawn_upper_bound(*spawn_row);
 			return true;
 		}
 		previous_trigger = trigger;
 	}
 
 	*spawn_row = spawn_rows;
+	t2practice_diag_spawn_upper_bound(*spawn_row);
 	return true;
 }
 
@@ -144,12 +166,14 @@ bool16 far practice_chapter_field_build(int target_scroll_step)
 	int scrolled_lines;
 	vram_y_t target_scroll_line;
 
+	t2practice_diag_target_scroll(target_scroll_step);
 	if(
 		!practice_map_target_validate(target_scroll_step, &top_map_row) ||
 		!practice_spawn_row_upper_bound(
 			target_scroll_step, &derived_spawn_row
 		)
 	) {
+		t2practice_diag_failure(T2PDR_CHAPTER_FIELD);
 		return false;
 	}
 
@@ -218,13 +242,16 @@ bool16 far practice_terminal_field_build(void)
 	int target_scroll_step;
 
 	if((map_length <= 0) || (map_length > MAP_LENGTH_MAX)) {
+		t2practice_diag_failure(T2PDR_MAP_LENGTH);
 		return false;
 	}
 	map_rows = (map_length * MAP_ROWS_PER_SECTION);
 	target_scroll_step = (
 		(map_rows - ((PLAYFIELD_H / TILE_H) + 1)) * 2
 	);
+	t2practice_diag_target_scroll(target_scroll_step);
 	if(!practice_chapter_field_build(target_scroll_step)) {
+		t2practice_diag_failure(T2PDR_TERMINAL_FIELD);
 		return false;
 	}
 	scroll_done = true;

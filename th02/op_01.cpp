@@ -862,3 +862,6 @@ int main(void)
 // is included here rather than listed in Tupfile.lua because that file is
 // currently reserved by an unrelated parcel; no original OP link order moves.
 #include "th02/op/replay.cpp"
+#define T2PRACT_DIAG_OP 1
+#include "th02/t2pdiag.cpp"
+#undef T2PRACT_DIAG_OP

@@ -9,6 +9,7 @@
 #include "x86real.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th02/replay_format.hpp"
+#include "th02/practice_diag.hpp"
 
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
@@ -884,6 +885,84 @@ static bool t2op_command_write(
 	uint8_t mode, uint8_t slot, uint8_t flags, const t2replay_start_t far *start
 )
 {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	t2replay_command_t command;
+	char handoff_fn[12];
+	int wrote;
+	bool practice = ((flags & T2REPLAY_COMMAND_FLAG_PRACTICE) != 0);
+
+	t2op_paths_init();
+	if(practice) {
+		t2practice_diag_reset(mode, flags, start);
+	} else {
+		t2practice_diag_clear();
+	}
+	t2op_memclear(&command, sizeof(command));
+	command.magic[0] = 'T';
+	command.magic[1] = '2';
+	command.magic[2] = 'R';
+	command.magic[3] = 'C';
+	command.magic[4] = 'F';
+	command.magic[5] = 'G';
+	command.magic[6] = '2';
+	command.magic[7] = '\0';
+	command.mode = mode;
+	command.slot = slot;
+	command.flags = flags;
+	if(start != 0) {
+		command.start = *start;
+	}
+	if(!file_create(t2op_command_fn)) {
+		if(practice) {
+			t2practice_diag_op_command(
+				T2PDR_OP_COMMAND_CREATE, mode, flags, start
+			);
+		}
+		return false;
+	}
+	wrote = file_write(&command, sizeof(command));
+	file_close();
+	if(wrote != sizeof(command)) {
+		t2op_file_delete(t2op_command_fn);
+		if(practice) {
+			t2practice_diag_op_command(
+				T2PDR_OP_COMMAND_WRITE, mode, flags, start
+			);
+		}
+		return false;
+	}
+	// MAIN consumes this file immediately after execl(). AH=0Dh alone did not
+	// make the preceding directory update visible reliably on the target DOS,
+	// so every command receives an unconditional second create/write/close.
+	t2op_dos_flush();
+	t2op_handoff_fn_set(handoff_fn);
+	if(!file_create(handoff_fn)) {
+		t2op_file_delete(t2op_command_fn);
+		if(practice) {
+			t2practice_diag_op_command(
+				T2PDR_OP_WITNESS_CREATE, mode, flags, start
+			);
+		}
+		return false;
+	}
+	wrote = file_write(&command, sizeof(command));
+	file_close();
+	if(wrote != sizeof(command)) {
+		t2op_file_delete(handoff_fn);
+		t2op_file_delete(t2op_command_fn);
+		if(practice) {
+			t2practice_diag_op_command(
+				T2PDR_OP_WITNESS_WRITE, mode, flags, start
+			);
+		}
+		return false;
+	}
+	if(practice) {
+		t2practice_diag_op_command(T2PDR_NONE, mode, flags, start);
+		t2practice_diag_op_handoff(mode, flags, start);
+	}
+	return true;
+#else
 	t2replay_command_t command;
 	char handoff_fn[12];
 	int wrote;
@@ -930,6 +1009,7 @@ static bool t2op_command_write(
 		return false;
 	}
 	return true;
+#endif
 }
 
 static bool t2op_restart_command_read(

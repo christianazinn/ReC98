@@ -372,6 +372,13 @@ end
 
 local th01 = Config:branch(GameShape(1), t1replay_profile)
 local T2REPLAY_PROFILES = {
+	["t2practice-diagnostics-rc25"] = {
+		obj_root = "x/p/",
+		bin_root = "x/p/",
+		-- Keep the DOS compiler command tail under 127 bytes. The public names
+		-- are expanded by practice_diag.hpp.
+		cflags = "-DT2PD=1 -DT2PID=25",
+	},
 	["t2exact-direct"] = {
 		obj_root = "x/d/",
 		bin_root = "x/d/",
@@ -390,7 +397,8 @@ if (t2replay_profile_name ~= "") and (t2replay_profile == nil) then
 end
 
 local th02 = Config:branch(GameShape(2))
-local th02_main = th02:branch(t2replay_profile)
+local th02_replay = th02:branch(t2replay_profile)
+local th02_main = th02_replay
 local th03 = Config:branch(GameShape(3))
 local th04 = Config:branch(GameShape(4))
 local th05 = Config:branch(GameShape(5))
@@ -565,7 +573,7 @@ th02:zungen("bin/th02/zun.com", {
 	}) },
 	{ "ZUNSOFT", th01_zunsoft },
 })
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
+th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_01.cpp",
 	"th02/exit_dos.cpp",
 	"th02/zunerror.cpp",
@@ -599,7 +607,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- ungrouped CODE segment last so no stock initialized-data address moves.
 	"th02/op/langstr.asm",
 })
-th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th02_main_sources = {
 	{ "th02_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["bombpart"],
@@ -704,7 +712,9 @@ th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/s5_cbred.cpp",
 	-- The language substrate is process-local and must not move prior state.
 	"th02/langm.cpp",
-})
+
+}
+th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
 	"th02_maine.asm",
