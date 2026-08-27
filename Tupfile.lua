@@ -647,6 +647,10 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- This private Stage 5 exact-codec tail follows every previous patch tail
 	-- so it cannot move retained replay or Practice offsets.
 	"th02/main/s5_fx.cpp",
+	-- The semantic palette codec remains a separate ungrouped tail so it does
+	-- not move any preceding patch code or original data/BSS offset.
+	-- TCC shortens s5_palette.cpp to s5_pal~1.obj under the DOS output root.
+	{ "th02/main/s5_palette.cpp", o = "s5_pal~1.obj" },
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
