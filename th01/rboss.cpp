@@ -11,6 +11,7 @@
 #include "th01/main/boss/b20m.hpp"
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
+#include "th01/rpresent.hpp"
 #include "th01/resident.hpp"
 
 extern int8_t boss_id;
@@ -390,6 +391,8 @@ bool16 t1replay_ckpt_present_valid(
 		player->player_deflecting || player->player_sliding ||
 		player->player_invincible || player->player_invincible_against_orb ||
 		player->bomb_damaging ||
+		!t1replay_ckpt_player_paint_valid(player) ||
+		!t1replay_ckpt_orb_paint_valid(&checkpoint->orb) ||
 		!t1replay_ckpt_present_pools_inactive(checkpoint)
 	) {
 		return false;
@@ -408,10 +411,16 @@ bool16 t1replay_ckpt_present_apply(
 	if(!t1replay_ckpt_present_valid(checkpoint)) {
 		return false;
 	}
-	return t1boss_singyoku_presentation_reconstruct(
+	if(!t1boss_singyoku_presentation_reconstruct(
 		reinterpret_cast<const t1boss_singyoku_checkpoint_t far *>(
 			checkpoint->boss.payload
 		)
+	)) {
+		return false;
+	}
+	return (
+		t1replay_player_checkpoint_paint(&checkpoint->player) &&
+		t1replay_orb_checkpoint_paint(&checkpoint->orb)
 	);
 }
 #endif

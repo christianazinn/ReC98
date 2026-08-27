@@ -521,6 +521,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/rpypixel.cpp",
 	"th01/language.cpp",
 	"th01/rroute.cpp",
+	"th01/rpresent.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
