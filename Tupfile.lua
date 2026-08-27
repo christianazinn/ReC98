@@ -606,6 +606,9 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- existing patch contributor so it cannot move a retained offset.
 	-- TCC shortens pause_replay.cpp to pause_~1.obj under the DOS output root.
 	{ "th02/main/pause_replay.cpp", o = "pause_~1.obj" },
+	-- This private Stage 5 exact-codec tail follows every previous patch tail
+	-- so it cannot move retained replay or Practice offsets.
+	"th02/main/s5_fx.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },

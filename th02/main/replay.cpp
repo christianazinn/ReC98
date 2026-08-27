@@ -31,6 +31,7 @@
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
+#include "th02/main/s5_fx.hpp"
 #include "th02/main/s5_tile.hpp"
 #include "th02/main/s6_actor.hpp"
 #include "th02/main/actor_core.hpp"
@@ -2183,6 +2184,10 @@ typedef char t2rec_s5_tile_wire_size_check[
 	(TH02_S5_TILE_LOGIC_WIRE_SIZE ==
 	 T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE) ? 1 : -1
 ];
+typedef char t2rec_s5_stage_fx_wire_size_check[
+	(TH02_S5_MIMA_STAGE_FX_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5MFX_SIZE) ? 1 : -1
+];
 
 static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
 {
@@ -2191,6 +2196,9 @@ static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
 	}
 	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
 		return T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE;
+	}
+	if(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) {
+		return T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE;
 	}
 	return 0;
 }
@@ -2203,12 +2211,23 @@ static uint32_t t2replay_exact_s5_mima_source_fingerprint(uint16_t schema)
 	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
 		return T2REPLAY_EXACT_S5_MIMA_TILE_SOURCE_FINGERPRINT;
 	}
+	if(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) {
+		return T2REPLAY_EXACT_S5MFX_SOURCE_FINGERPRINT;
+	}
 	return 0;
 }
 
 static bool t2replay_exact_s5_mima_tile_present(uint16_t schema)
 {
-	return (schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA);
+	return (
+		(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) ||
+		(schema == T2REPLAY_EXACT_S5MFX_SCHEMA)
+	);
+}
+
+static bool t2replay_exact_s5_mima_stage_fx_present(uint16_t schema)
+{
+	return (schema == T2REPLAY_EXACT_S5MFX_SCHEMA);
 }
 
 static void t2replay_exact_group_set(
@@ -2251,6 +2270,11 @@ static bool t2replay_exact_s5_mima_group_valid(
 		payload_size = T2REPLAY_EXACT_ACTOR_CORE_SIZE;
 	} else if(id == T2RXGI_ACTOR_STAGE) {
 		payload_size = T2REPLAY_EXACT_S5_MIMA_SIZE;
+	} else if(
+		(id == T2RXGI_STAGE_FX) &&
+		t2replay_exact_s5_mima_stage_fx_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5MFX_SIZE;
 	} else if(
 		(id == T2RXGI_TILE_LOGIC) &&
 		t2replay_exact_s5_mima_tile_present(schema)
@@ -2297,7 +2321,19 @@ static bool t2replay_exact_s5_mima_group_valid(
 		)) {
 			return false;
 		}
-	} else if(id == T2RXGI_TILE_LOGIC) {
+	} else if(
+		(id == T2RXGI_STAGE_FX) &&
+		t2replay_exact_s5_mima_stage_fx_present(schema)
+	) {
+		if(!th02_s5_mima_stage_fx_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(
+		(id == T2RXGI_TILE_LOGIC) &&
+		t2replay_exact_s5_mima_tile_present(schema)
+	) {
 		if(!th02_s5_tile_logic_wire_valid(
 			envelope + payload_offset, static_cast<uint16_t>(payload_size)
 		)) {
@@ -2346,7 +2382,11 @@ static bool t2replay_exact_s5_mima_tile_field_agree(
 	for(group_id = 0; group_id < T2RCGI_FIELD; group_id++) {
 		field += t2replay_checkpoint_group_size(group_id);
 	}
-	tile = envelope + T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE;
+	tile = envelope + t2replay_checkpoint_get_u32(
+		envelope + T2REPLAY_EXACT_HEADER_SIZE +
+			(T2RXGI_TILE_LOGIC * T2REPLAY_EXACT_GROUP_SIZE),
+		T2RCK_GROUP_OFFSET
+	);
 	// FIELD owns these two generic renderer switches. TILE_LOGIC repeats them
 	// for a self-describing restore payload, so accept only one coherent value.
 	return (
@@ -2480,7 +2520,9 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 		((t2replay_checkpoint_get_u16(envelope, 8) ==
 		  T2REPLAY_EXACT_S5_MIMA_SCHEMA) ||
 		 (t2replay_checkpoint_get_u16(envelope, 8) ==
-		  T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA))
+		  T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) ||
+		 (t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5MFX_SCHEMA))
 	) {
 		return t2replay_exact_s5_mima_validate(
 			envelope, envelope_size, t2replay_checkpoint_get_u16(envelope, 8)
@@ -2654,6 +2696,19 @@ static bool16 t2replay_exact_stage5_mima_capture_schema(
 		T2REPLAY_EXACT_S5_MIMA_SIZE
 	);
 	payload_offset += T2REPLAY_EXACT_S5_MIMA_SIZE;
+	if(t2replay_exact_s5_mima_stage_fx_present(schema)) {
+		if(!th02_s5_mima_stage_fx_wire_capture(
+			envelope + payload_offset,
+			T2REPLAY_EXACT_S5MFX_SIZE
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_STAGE_FX, 0, payload_offset,
+			T2REPLAY_EXACT_S5MFX_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5MFX_SIZE;
+	}
 	if(t2replay_exact_s5_mima_tile_present(schema)) {
 		if(!th02_s5_tile_logic_wire_capture(
 			envelope + payload_offset, T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE
@@ -2668,6 +2723,12 @@ static bool16 t2replay_exact_stage5_mima_capture_schema(
 	}
 	for(group_id = T2RXGI_STAGE_FX;
 		group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
+		if(
+			(group_id == T2RXGI_STAGE_FX) &&
+			t2replay_exact_s5_mima_stage_fx_present(schema)
+		) {
+			continue;
+		}
 		if(
 			(group_id == T2RXGI_TILE_LOGIC) &&
 			t2replay_exact_s5_mima_tile_present(schema)
@@ -2710,6 +2771,17 @@ bool16 replay_exact_stage5_mima_tile_capture(
 	return t2replay_exact_stage5_mima_capture_schema(
 		envelope, envelope_size, boundary,
 		T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA
+	);
+}
+
+bool16 replay_exact_stage5_mima_stage_fx_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary,
+		T2REPLAY_EXACT_S5MFX_SCHEMA
 	);
 }
 

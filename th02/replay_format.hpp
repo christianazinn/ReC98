@@ -89,6 +89,18 @@
 	T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE \
 )
 
+// Schema 4 closes only Stage 5 Mima's STAGE_FX group. It records the native
+// quiescent generic background-particle contract; Mima's visible background
+// state remains owned by ACTOR_STAGE. Palette, callback, and redraw groups
+// remain deferred, so this is still a private capture-only form.
+#define T2REPLAY_EXACT_S5MFX_SCHEMA 4
+#define T2REPLAY_EXACT_S5MFX_SOURCE_FINGERPRINT 0xC0589116UL
+#define T2REPLAY_EXACT_S5MFX_SIZE 11
+#define T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5MFX_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
@@ -389,6 +401,9 @@ typedef char t2rec_envelope_size_check[
 ];
 typedef char t2rec_s5_mima_capture_size_check[
 	(T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE == 7565) ? 1 : -1
+];
+typedef char t2rec_s5_mima_stage_fx_capture_size_check[
+	(T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE == 8261) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
