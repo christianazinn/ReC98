@@ -2,16 +2,20 @@
 #define TH01_REPLAY_FORMAT_HPP
 
 /*
- * TH01's user replay format. V3 carries a run from REIIDEN into FUUIN while
- * retaining the compact packet geometry and adding the native replay name.
+ * TH01's user replay format. V4 carries a run from REIIDEN into FUUIN while
+ * retaining the compact packet geometry, native replay name, and fieldwise
+ * terminal/stage summary.
  */
 
 #include "platform.h"
 #include <stddef.h>
+#include "th01/common.h"
 
-#define T1REPLAY_VERSION 3
-#define T1REPLAY_HEADER_SIZE 130
+#define T1REPLAY_VERSION 4
+#define T1REPLAY_HEADER_SIZE 258
 #define T1REPLAY_START_SIZE 64
+#define T1REPLAY_SUMMARY_SIZE 128
+#define T1REPLAY_STAGE_SUMMARY_SIZE 6
 #define T1REPLAY_PACKET_SIZE 8
 #define T1REPLAY_NAME_KANJI 8
 #define T1REPLAY_NAME_BYTES (T1REPLAY_NAME_KANJI * 2)
@@ -20,7 +24,7 @@
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY3. Each T1CxxYY.CKP
+// T1RPY4. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
 #define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
@@ -47,7 +51,7 @@
 
 // Private FUUIN validation can bind the decoded score table seen before
 // registration and the in-memory result afterward to a finalized replay.
-// T1RPY3 stays unchanged; release builds neither read nor write this sidecar.
+// T1RPY4 stays unchanged; release builds neither read nor write this sidecar.
 #define T1REPLAY_SCORE_PROOF_SCHEMA 1
 #define T1REPLAY_SCORE_PROOF_SIZE 48
 #ifndef T1REPLAY_FUUIN_SCORE_PROOF
@@ -82,7 +86,7 @@
 #endif
 
 // Private semantic tracing for direct-versus-sequential checkpoint evidence.
-// This is not part of T1RPY3 or T1CKP1 and stays absent from release builds.
+// This is not part of T1RPY4 or T1CKP1 and stays absent from release builds.
 #ifndef T1REPLAY_EXACT_TRACE
 	#define T1REPLAY_EXACT_TRACE (T1RP != 0)
 #endif
@@ -138,7 +142,7 @@ inline bool t1replay_slot_is_pending(uint8_t slot)
 }
 
 // The pending sentinel is a process-local record target, never a playable
-// numbered slot. It keeps the T1RPY3 header and resident carrier ABI stable
+// numbered slot. It keeps the T1RPY4 header and resident carrier ABI stable
 // while OP decides whether a finalized capture should become permanent.
 inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 {
@@ -266,8 +270,30 @@ struct t1replay_start_t {
 	uint8_t reserved[3];
 };
 
+#define T1REPLAY_STAGE_FLAG_REACHED 0x01
+#define T1REPLAY_STAGE_FLAG_COMPLETE 0x02
+#define T1REPLAY_STAGE_FLAGS_KNOWN (T1REPLAY_STAGE_FLAG_REACHED | T1REPLAY_STAGE_FLAG_COMPLETE)
+#define T1REPLAY_FINAL_STAGE_NONE 0xFF
+
+// Records are stored in route order, not indexed by stage ID. Keeping the ID
+// explicit lets every reader reject duplicates and ordering corruption.
+struct t1replay_stage_summary_t {
+	int32_t score;
+	uint8_t stage_id;
+	uint8_t flags;
+};
+
+struct t1replay_summary_t {
+	int32_t final_score;
+	uint8_t final_stage_id;
+	uint8_t terminal_reason;
+	uint8_t split_count;
+	uint8_t reserved;
+	t1replay_stage_summary_t splits[STAGE_COUNT];
+};
+
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY3\\0\\0"
+	char magic[8]; // "T1RPY4\\0\\0"
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -287,10 +313,11 @@ struct t1replay_header_t {
 	uint32_t header_checksum;
 	t1replay_start_t start;
 	uint8_t name[T1REPLAY_NAME_BYTES];
+	t1replay_summary_t summary;
 };
 
 // The native score-registration keyboard accepts full-width ASCII letters and
-// numerals plus exactly these eighteen symbols. T1RPY3 uses the same cells;
+// numerals plus exactly these eighteen symbols. T1RPY4 uses the same cells;
 // unentered trailing cells are pairs of ordinary ASCII spaces.
 inline bool t1replay_name_cell_valid(uint8_t lead, uint8_t trail)
 {
@@ -332,6 +359,79 @@ inline bool t1replay_name_valid(const uint8_t far *name)
 		}
 	}
 	return true;
+}
+
+inline bool t1replay_summary_valid(
+	const t1replay_summary_t far *summary,
+	const t1replay_start_t far *start,
+	bool finalized,
+	uint8_t header_terminal_reason
+)
+{
+	uint8_t i;
+	const t1replay_stage_summary_t far *split;
+
+	if(
+		(start->stage_id >= STAGE_COUNT) ||
+		(summary->reserved != 0) ||
+		(summary->split_count > STAGE_COUNT) ||
+		(summary->split_count > (STAGE_COUNT - start->stage_id))
+	) {
+		return false;
+	}
+	for(i = 0; i < summary->split_count; i++) {
+		split = &summary->splits[i];
+		if(
+			(split->stage_id != (start->stage_id + i)) ||
+			(split->flags & ~T1REPLAY_STAGE_FLAGS_KNOWN) ||
+			!(split->flags & T1REPLAY_STAGE_FLAG_REACHED) ||
+			((i < (summary->split_count - 1)) &&
+			 !(split->flags & T1REPLAY_STAGE_FLAG_COMPLETE))
+		) {
+			return false;
+		}
+	}
+	for(; i < STAGE_COUNT; i++) {
+		split = &summary->splits[i];
+		if((split->score != 0) || (split->stage_id != 0) || (split->flags != 0)) {
+			return false;
+		}
+	}
+	if(!finalized) {
+		if(
+			(summary->final_score != 0) ||
+			(summary->final_stage_id != T1REPLAY_FINAL_STAGE_NONE) ||
+			(summary->terminal_reason != 0) ||
+			((summary->split_count != 0) &&
+			 !(summary->splits[summary->split_count - 1].flags &
+			   T1REPLAY_STAGE_FLAG_COMPLETE))
+		) {
+			return false;
+		}
+		return true;
+	}
+	if(
+		(summary->split_count == 0) ||
+		(summary->terminal_reason != header_terminal_reason) ||
+		((header_terminal_reason != T1REPLAY_END_MENU) &&
+		 (header_terminal_reason != T1REPLAY_END_CLEAR))
+	) {
+		return false;
+	}
+	split = &summary->splits[summary->split_count - 1];
+	if(
+		(summary->final_stage_id != split->stage_id) ||
+		(summary->final_score != split->score)
+	) {
+		return false;
+	}
+	if(header_terminal_reason == T1REPLAY_END_CLEAR) {
+		return (
+			(split->stage_id == (STAGE_COUNT - 1)) &&
+			(split->flags == T1REPLAY_STAGE_FLAGS_KNOWN)
+		);
+	}
+	return (split->flags == T1REPLAY_STAGE_FLAG_REACHED);
 }
 
 struct t1replay_packet_t {
@@ -782,6 +882,12 @@ typedef char t1replay_start_size_check[
 typedef char t1replay_header_size_check[
 	(sizeof(t1replay_header_t) == T1REPLAY_HEADER_SIZE) ? 1 : -1
 ];
+typedef char t1replay_stage_summary_size_check[
+	(sizeof(t1replay_stage_summary_t) == T1REPLAY_STAGE_SUMMARY_SIZE) ? 1 : -1
+];
+typedef char t1replay_summary_size_check[
+	(sizeof(t1replay_summary_t) == T1REPLAY_SUMMARY_SIZE) ? 1 : -1
+];
 typedef char t1replay_packet_size_check[
 	(sizeof(t1replay_packet_t) == T1REPLAY_PACKET_SIZE) ? 1 : -1
 ];
@@ -883,6 +989,12 @@ typedef char t1replay_header_start_offset_check[
 ];
 typedef char t1replay_header_checksum_offset_check[
 	(offsetof(t1replay_header_t, header_checksum) == 46) ? 1 : -1
+];
+typedef char t1replay_header_name_offset_check[
+	(offsetof(t1replay_header_t, name) == 114) ? 1 : -1
+];
+typedef char t1replay_header_summary_offset_check[
+	(offsetof(t1replay_header_t, summary) == 130) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_groups_offset_check[
 	(offsetof(t1replay_checkpoint_t, groups) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

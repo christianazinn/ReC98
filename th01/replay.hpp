@@ -36,6 +36,11 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle);
 void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out);
 void t1replay_input_checkpoint_import(const t1replay_checkpoint_input_t *in);
 
+// Called only after the native clear bonus has committed, or immediately
+// before the final-clear handoff that intentionally skips the last-frame
+// pellet-destroy score. This updates no file by itself.
+void far t1replay_stage_complete(uint8_t stage_id, score_t score);
+
 // Called immediately before REIIDEN hands control to another executable.
 // Source and target are encoded explicitly in both stream and carrier.
 bool16 far t1replay_process_handoff(uint8_t target_process);

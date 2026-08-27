@@ -1469,7 +1469,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '3') ||
+		!t1replay_magic_matches(t1replay_header.magic, '4') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -1491,6 +1491,10 @@ static bool t1replay_header_read(bool finalized)
 		)) ||
 		!t1replay_start_valid(&t1replay_header.start) ||
 		!t1replay_name_valid(t1replay_header.name) ||
+		!t1replay_summary_valid(
+			&t1replay_header.summary, &t1replay_header.start,
+			finalized, t1replay_header.end_reason
+		) ||
 		(t1replay_header.reserved_0 != 0) ||
 		((t1replay_header.status == T1REPLAY_STATUS_FINALIZED) ?
 			((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
@@ -1723,7 +1727,7 @@ static void t1replay_header_capture(void)
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '3';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '4';
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
@@ -1735,6 +1739,7 @@ static void t1replay_header_capture(void)
 	for(i = 0; i < T1REPLAY_NAME_BYTES; i++) {
 		t1replay_header.name[i] = ' ';
 	}
+	t1replay_header.summary.final_stage_id = T1REPLAY_FINAL_STAGE_NONE;
 	t1replay_start_capture();
 	t1replay_header.start_checksum = t1replay_fnv1a(
 		T1REPLAY_FNV1A_BASIS, &t1replay_header.start,
@@ -2999,6 +3004,93 @@ static bool t1replay_process_control(uint8_t control, uint8_t value)
 	return true;
 }
 
+static bool t1replay_stage_complete_apply(uint8_t stage_id, score_t stage_score)
+{
+	t1replay_summary_t far *summary = &t1replay_header.summary;
+	t1replay_stage_summary_t far *split;
+	uint8_t index;
+
+	if(t1replay_mode == T1RM_RECORD) {
+		index = summary->split_count;
+		if(
+			(index >= STAGE_COUNT) ||
+			(stage_id != (t1replay_header.start.stage_id + index))
+		) {
+			return false;
+		}
+		split = &summary->splits[index];
+		split->score = stage_score;
+		split->stage_id = stage_id;
+		split->flags = T1REPLAY_STAGE_FLAGS_KNOWN;
+		summary->split_count++;
+		return t1replay_summary_valid(
+			summary, &t1replay_header.start, false, 0
+		);
+	}
+	if(
+		(stage_id < t1replay_header.start.stage_id) ||
+		((index = static_cast<uint8_t>(
+			stage_id - t1replay_header.start.stage_id
+		)) >= summary->split_count)
+	) {
+		return false;
+	}
+	split = &summary->splits[index];
+	return (
+		(split->stage_id == stage_id) &&
+		(split->flags == T1REPLAY_STAGE_FLAGS_KNOWN) &&
+		(split->score == stage_score)
+	);
+}
+
+void far t1replay_stage_complete(uint8_t stage_id, score_t stage_score)
+{
+	if(t1replay_mode == T1RM_DISABLED) {
+		return;
+	}
+	if(!t1replay_stage_complete_apply(stage_id, stage_score)) {
+		t1replay_fail_and_abort_if_playback();
+	}
+}
+
+static bool t1replay_menu_summary_finalize(void)
+{
+	t1replay_summary_t far *summary = &t1replay_header.summary;
+	t1replay_stage_summary_t far *split;
+	uint8_t stage_id = static_cast<uint8_t>(resident->stage_id);
+
+	if(t1replay_mode == T1RM_RECORD) {
+		if(
+			(summary->split_count >= STAGE_COUNT) ||
+			(stage_id !=
+			 (t1replay_header.start.stage_id + summary->split_count))
+		) {
+			return false;
+		}
+		split = &summary->splits[summary->split_count];
+		split->score = score;
+		split->stage_id = stage_id;
+		split->flags = T1REPLAY_STAGE_FLAG_REACHED;
+		summary->split_count++;
+		summary->final_score = score;
+		summary->final_stage_id = stage_id;
+		summary->terminal_reason = T1REPLAY_END_MENU;
+		return t1replay_summary_valid(
+			summary, &t1replay_header.start, true, T1REPLAY_END_MENU
+		);
+	}
+	if(
+		(summary->split_count == 0) ||
+		(summary->final_stage_id != stage_id) ||
+		(summary->final_score != score)
+	) {
+		return false;
+	}
+	return t1replay_summary_valid(
+		summary, &t1replay_header.start, true, T1REPLAY_END_MENU
+	);
+}
+
 bool16 far t1replay_process_handoff(uint8_t target_process)
 {
 	if(
@@ -3088,6 +3180,10 @@ void far t1replay_terminal(uint8_t end_reason)
 		// Esc leaves Continue through a separate stock branch that has no BGM
 		// stop call to wrap. Its existing late terminal call reaches this path.
 		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
+		return;
+	}
+	if((end_reason != T1REPLAY_END_MENU) || !t1replay_menu_summary_finalize()) {
+		t1replay_fail_and_abort_if_playback();
 		return;
 	}
 	if(!t1replay_process_control(T1REPLAY_CONTROL_TERMINAL, end_reason)) {
