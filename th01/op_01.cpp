@@ -425,7 +425,7 @@ static void replay_playback_start(void)
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
 
-static bool practice_start(void)
+bool practice_start(void)
 {
 	t1replay_practice_start_t start;
 	int i;

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "libs/master.lib/master.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/common.h"
 #include "th01/hardware/egc.h"
@@ -84,6 +85,7 @@ static bool t1replay_op_prev_cancel;
 static uint8_t t1replay_op_horizontal_hold;
 static bool t1replay_op_save_pending;
 static bool t1replay_op_save_decision;
+static bool t1replay_op_restart_practice_armed;
 
 static uint32_t t1replay_op_fnv1a(
 	uint32_t hash, const void *buf, unsigned size
@@ -115,6 +117,35 @@ static void t1replay_op_save_request_fn(char *fn)
 	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'S';
 	fn[4] = 'A'; fn[5] = 'V'; fn[6] = '.'; fn[7] = 'C';
 	fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
+}
+
+static void t1replay_op_save_request_commit_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'S';
+	fn[4] = 'A'; fn[5] = 'V'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'M'; fn[9] = 'T'; fn[10] = '\0';
+}
+
+static void t1replay_op_restart_request_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'R';
+	fn[4] = 'S'; fn[5] = 'T'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
+}
+
+static void t1replay_op_restart_request_commit_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'R';
+	fn[4] = 'S'; fn[5] = 'T'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'M'; fn[9] = 'T'; fn[10] = '\0';
+}
+
+static void t1replay_op_restart_res_id_init(char *id)
+{
+	id[0] = 'T'; id[1] = '1'; id[2] = 'R'; id[3] = 'e';
+	id[4] = 'p'; id[5] = 'l'; id[6] = 'a'; id[7] = 'y';
+	id[8] = 'R'; id[9] = 'e'; id[10] = 's'; id[11] = 't';
+	id[12] = 'a'; id[13] = 'r'; id[14] = 't'; id[15] = '\0';
 }
 
 static bool t1replay_op_file_exists(const char *fn)
@@ -381,6 +412,121 @@ static bool t1replay_op_bytes_zero(const uint8_t *p, unsigned size)
 		size--;
 	}
 	return true;
+}
+
+static uint32_t t1replay_op_restart_state_checksum(
+	t1replay_restart_state_t far *state
+)
+{
+	uint32_t checksum;
+
+	state->checksum = 0;
+	checksum = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS,
+		&state->magic,
+		(sizeof(*state) - offsetof(t1replay_restart_state_t, magic))
+	);
+	state->checksum = checksum;
+	return checksum;
+}
+
+static bool t1replay_op_practice_start_valid(
+	const t1replay_practice_start_t *start
+)
+{
+	return (
+		(start->scene < SCENE_COUNT) &&
+		(start->route < ROUTE_COUNT) &&
+		(start->section <= T1RPS_BOSS_START) &&
+		(start->chapter <= BOSS_STAGE) &&
+		(start->rank >= 0) && (start->rank <= RANK_LUNATIC) &&
+		(start->score >= 0) && (start->score <= 99990000L) &&
+		(start->lives >= 1) && (start->lives <= LIVES_MAX) &&
+		(start->bombs >= 0) && (start->bombs <= BOMBS_MAX) &&
+		(start->point_value <= T1REPLAY_OP_POINT_CAP) &&
+		(start->pellet_speed >= PELLET_SPEED_LOWER_MIN) &&
+		(start->pellet_speed <= PELLET_SPEED_RAISE_MAX)
+	);
+}
+
+static bool t1replay_op_restart_state_valid(
+	t1replay_restart_state_t far *state
+)
+{
+	uint32_t stored;
+	uint32_t computed;
+
+	if(!state ||
+		(state->magic[0] != 'T') || (state->magic[1] != '1') ||
+		(state->magic[2] != 'R') || (state->magic[3] != 'R') ||
+		(state->version != T1REPLAY_RESTART_RES_VERSION) ||
+		((state->kind != T1RRK_NORMAL) &&
+		 (state->kind != T1RRK_PRACTICE)) ||
+		!t1replay_op_bytes_zero(state->reserved, sizeof(state->reserved)) ||
+		((state->kind == T1RRK_PRACTICE) &&
+		 !t1replay_op_practice_start_valid(&state->practice))) {
+		return false;
+	}
+	stored = state->checksum;
+	computed = t1replay_op_restart_state_checksum(state);
+	state->checksum = stored;
+	return (stored == computed);
+}
+
+static t1replay_restart_state_t far *t1replay_op_restart_state_open(
+	bool create
+)
+{
+	t1replay_restart_state_t far *state;
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+
+	t1replay_op_restart_res_id_init(id);
+	state = ResData<t1replay_restart_state_t>::exist(id);
+	if(!state && create) {
+		state = ResData<t1replay_restart_state_t>::create(id);
+	}
+	return state;
+}
+
+static bool t1replay_op_restart_state_store(
+	t1replay_restart_kind_t kind,
+	const t1replay_practice_start_t *practice
+)
+{
+	t1replay_restart_state_t far *state =
+		t1replay_op_restart_state_open(true);
+
+	if(!state ||
+		((kind != T1RRK_NORMAL) && (kind != T1RRK_PRACTICE)) ||
+		((kind == T1RRK_PRACTICE) &&
+		 !t1replay_op_practice_start_valid(practice))) {
+		return false;
+	}
+	memset(state, 0, sizeof(*state));
+	t1replay_op_restart_res_id_init(state->id);
+	state->magic[0] = 'T'; state->magic[1] = '1';
+	state->magic[2] = 'R'; state->magic[3] = 'R';
+	state->version = T1REPLAY_RESTART_RES_VERSION;
+	state->kind = kind;
+	if(kind == T1RRK_PRACTICE) {
+		state->practice = *practice;
+	}
+	t1replay_op_restart_state_checksum(state);
+	return true;
+}
+
+static void t1replay_op_restart_state_normal_arm(void)
+{
+	t1replay_op_restart_state_store(T1RRK_NORMAL, 0);
+}
+
+static void t1replay_op_restart_state_practice_arm(
+	const t1replay_practice_start_t *start
+)
+{
+	if(t1replay_op_restart_state_store(T1RRK_PRACTICE, start)) {
+		t1replay_op_restart_practice_armed = true;
+	}
 }
 
 static bool t1replay_op_magic_matches(const char *magic, char last)
@@ -670,9 +816,46 @@ static void t1replay_op_pending_read(t1replay_op_slot_t& result)
 static void t1replay_op_save_request_discard(void)
 {
 	char fn[11];
+	char commit_fn[11];
 
 	t1replay_op_save_request_fn(fn);
+	t1replay_op_save_request_commit_fn(commit_fn);
 	remove(fn);
+	remove(commit_fn);
+}
+
+static void t1replay_op_save_request_witness_discard(void)
+{
+	char commit_fn[11];
+
+	t1replay_op_save_request_commit_fn(commit_fn);
+	remove(commit_fn);
+}
+
+static bool t1replay_op_request_raw_read(
+	const char *fn, void *request, unsigned request_size
+)
+{
+	char mode[3];
+	FILE *fp;
+	long size;
+	bool valid;
+
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	memset(request, 0, request_size);
+	valid = (fseek(fp, 0, SEEK_END) == 0);
+	size = valid ? ftell(fp) : -1;
+	valid = (
+		valid && (size == request_size) &&
+		(fseek(fp, 0, SEEK_SET) == 0) &&
+		(fread(request, 1, request_size, fp) == request_size)
+	);
+	fclose(fp);
+	return valid;
 }
 
 static bool t1replay_op_save_request_read(
@@ -680,29 +863,11 @@ static bool t1replay_op_save_request_read(
 )
 {
 	char fn[11];
-	char mode[3];
-	FILE *fp;
-	long size;
 	uint32_t stored;
 	uint32_t computed;
-	bool valid;
 
 	t1replay_op_save_request_fn(fn);
-	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
-	fp = fopen(fn, mode);
-	if(!fp) {
-		return false;
-	}
-	memset(&request, 0, sizeof(request));
-	valid = (fseek(fp, 0, SEEK_END) == 0);
-	size = valid ? ftell(fp) : -1;
-	valid = (
-		valid && (size == sizeof(request)) &&
-		(fseek(fp, 0, SEEK_SET) == 0) &&
-		(fread(&request, 1, sizeof(request), fp) == sizeof(request))
-	);
-	fclose(fp);
-	if(!valid) {
+	if(!t1replay_op_request_raw_read(fn, &request, sizeof(request))) {
 		return false;
 	}
 	stored = request.checksum;
@@ -717,7 +882,8 @@ static bool t1replay_op_save_request_read(
 		(request.magic[4] == 'A') && (request.magic[5] == 'V') &&
 		(request.magic[6] == '1') && (request.magic[7] == '\0') &&
 		(request.schema == T1REPLAY_SAVE_REQUEST_SCHEMA) &&
-		(request.source == T1RSRS_POSTGAME) &&
+		((request.source == T1RSRS_POSTGAME) ||
+		 (request.source == T1RSRS_PAUSE)) &&
 		(request.reserved == 0) &&
 		(request.replay_header_checksum != 0) &&
 		(stored == computed)
@@ -841,6 +1007,10 @@ bool t1replay_op_record_prepare(void)
 	// The command is one-shot process control, never durable replay state. A
 	// new capture always supersedes an abandoned temporary, while the full
 	// numbered slot set remains available to the post-run picker.
+	if(!t1replay_op_restart_practice_armed) {
+		t1replay_op_restart_state_normal_arm();
+	}
+	t1replay_op_restart_practice_armed = false;
 	t1replay_op_command_clear();
 	t1replay_op_pending_discard();
 	if(!t1replay_op_command_write(
@@ -850,6 +1020,93 @@ bool t1replay_op_record_prepare(void)
 		return false;
 	}
 	return true;
+}
+
+static void t1replay_op_restart_request_discard(void)
+{
+	char fn[11];
+	char commit_fn[11];
+
+	t1replay_op_restart_request_fn(fn);
+	t1replay_op_restart_request_commit_fn(commit_fn);
+	remove(fn);
+	remove(commit_fn);
+}
+
+static void t1replay_op_restart_request_witness_discard(void)
+{
+	char commit_fn[11];
+
+	t1replay_op_restart_request_commit_fn(commit_fn);
+	remove(commit_fn);
+}
+
+static bool t1replay_op_restart_request_read(
+	t1replay_restart_request_t& request
+)
+{
+	char fn[11];
+	uint32_t stored;
+	uint32_t computed;
+
+	t1replay_op_restart_request_fn(fn);
+	if(!t1replay_op_request_raw_read(fn, &request, sizeof(request))) {
+		return false;
+	}
+	stored = request.checksum;
+	request.checksum = 0;
+	computed = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	request.checksum = stored;
+	return (
+		(request.magic[0] == 'T') && (request.magic[1] == '1') &&
+		(request.magic[2] == 'R') && (request.magic[3] == 'R') &&
+		(request.magic[4] == 'S') && (request.magic[5] == 'T') &&
+		(request.magic[6] == '1') && (request.magic[7] == '\0') &&
+		(request.schema == T1REPLAY_RESTART_REQUEST_SCHEMA) &&
+		(request.reserved_0 == 0) && (request.reserved_1 == 0) &&
+		(request.restart_state_checksum != 0) &&
+		(stored == computed)
+	);
+}
+
+// These are the existing OP launch routines. The restart request deliberately
+// reaches them instead of duplicating their resident and replay setup.
+extern void start_game(void);
+extern bool practice_start(void);
+
+static void t1replay_op_restart_enter(void)
+{
+	t1replay_restart_request_t request;
+	t1replay_restart_state_t far *state;
+	char fn[11];
+
+	t1replay_op_restart_request_witness_discard();
+	if(!t1replay_op_restart_request_read(request)) {
+		t1replay_op_restart_request_fn(fn);
+		if(t1replay_op_file_exists(fn)) {
+			t1replay_op_restart_request_discard();
+		}
+		return;
+	}
+	// The request is one-shot regardless of whether its matching resident
+	// descriptor still exists. This prevents an old file from auto-launching
+	// later after an unrelated title session recreates a descriptor.
+	t1replay_op_restart_request_discard();
+	state = t1replay_op_restart_state_open(false);
+	if(!t1replay_op_restart_state_valid(state) ||
+		(state->checksum != request.restart_state_checksum)) {
+		return;
+	}
+	if(state->kind == T1RRK_NORMAL) {
+		start_game();
+		return;
+	}
+	t1replay_practice_start = state->practice;
+	t1replay_op_restart_practice_armed = true;
+	t1replay_op_record_prepare();
+	practice_start();
 }
 
 static bool t1replay_op_pending_commit(uint8_t slot)
@@ -1616,10 +1873,13 @@ bool t1replay_op_pending_enter(void)
 	t1replay_save_request_t request;
 	char request_fn[11];
 
+	t1replay_op_restart_enter();
 	t1replay_op_save_request_fn(request_fn);
 	if(!t1replay_op_file_exists(request_fn)) {
+		t1replay_op_save_request_witness_discard();
 		return false;
 	}
+	t1replay_op_save_request_witness_discard();
 	if(
 		!t1replay_op_pending_action_read(pending, request) ||
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -2176,6 +2436,10 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 		}
 	} else if(input.ok) {
 		if(t1replay_op_sel == T1OPR_START) {
+			t1replay_practice_start_t restart_start;
+
+			t1replay_op_practice_start_get(restart_start);
+			t1replay_op_restart_state_practice_arm(&restart_start);
 			if(t1replay_op_record_prepare()) {
 				result.action = T1ROA_PRACTICE_RECORD;
 			} else {

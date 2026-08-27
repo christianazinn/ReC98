@@ -57,4 +57,18 @@ void far t1replay_terminal_save_request(void);
 
 bool16 far t1replay_active(void);
 
+enum t1replay_pause_action_t {
+	T1RPA_RESUME = 0,
+	T1RPA_RESTART = 1,
+	T1RPA_SAVE_EXIT = 2,
+	T1RPA_DISCARD_EXIT = 3,
+};
+
+// Patch-owned four-choice Pause surface. It records through the existing
+// input_sense(false) seam and returns true only for a terminal action.
+bool16 far t1replay_pause_menu(void);
+bool16 far t1replay_pause_save_available(void);
+bool16 far t1replay_pause_restart_available(void);
+void far t1replay_pause_action_set(t1replay_pause_action_t action);
+
 #endif /* TH01_REPLAY_HPP */

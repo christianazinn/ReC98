@@ -99,11 +99,15 @@ typedef char t1replay_res_id_size_check[
 static char t1replay_command_fn[10];
 static char t1replay_slot_fn[11];
 static char t1replay_save_request_fn[11];
+static char t1replay_save_request_commit_fn[11];
+static char t1replay_restart_request_fn[11];
+static char t1replay_restart_request_commit_fn[11];
 static char t1replay_checkpoint_fn[12];
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
 static bool t1replay_command_delete_failed;
 static bool t1replay_terminal_pending;
+static t1replay_pause_action_t t1replay_pause_action;
 static t1replay_mode_t t1replay_mode;
 static t1replay_header_t t1replay_header;
 static t1replay_res_t far *t1replay_res;
@@ -184,6 +188,39 @@ static void t1replay_paths_init(void)
 	t1replay_save_request_fn[8] = 'F';
 	t1replay_save_request_fn[9] = 'G';
 	t1replay_save_request_fn[10] = '\0';
+	t1replay_save_request_commit_fn[0] = 'T';
+	t1replay_save_request_commit_fn[1] = '1';
+	t1replay_save_request_commit_fn[2] = 'R';
+	t1replay_save_request_commit_fn[3] = 'S';
+	t1replay_save_request_commit_fn[4] = 'A';
+	t1replay_save_request_commit_fn[5] = 'V';
+	t1replay_save_request_commit_fn[6] = '.';
+	t1replay_save_request_commit_fn[7] = 'C';
+	t1replay_save_request_commit_fn[8] = 'M';
+	t1replay_save_request_commit_fn[9] = 'T';
+	t1replay_save_request_commit_fn[10] = '\0';
+	t1replay_restart_request_fn[0] = 'T';
+	t1replay_restart_request_fn[1] = '1';
+	t1replay_restart_request_fn[2] = 'R';
+	t1replay_restart_request_fn[3] = 'R';
+	t1replay_restart_request_fn[4] = 'S';
+	t1replay_restart_request_fn[5] = 'T';
+	t1replay_restart_request_fn[6] = '.';
+	t1replay_restart_request_fn[7] = 'C';
+	t1replay_restart_request_fn[8] = 'F';
+	t1replay_restart_request_fn[9] = 'G';
+	t1replay_restart_request_fn[10] = '\0';
+	t1replay_restart_request_commit_fn[0] = 'T';
+	t1replay_restart_request_commit_fn[1] = '1';
+	t1replay_restart_request_commit_fn[2] = 'R';
+	t1replay_restart_request_commit_fn[3] = 'R';
+	t1replay_restart_request_commit_fn[4] = 'S';
+	t1replay_restart_request_commit_fn[5] = 'T';
+	t1replay_restart_request_commit_fn[6] = '.';
+	t1replay_restart_request_commit_fn[7] = 'C';
+	t1replay_restart_request_commit_fn[8] = 'M';
+	t1replay_restart_request_commit_fn[9] = 'T';
+	t1replay_restart_request_commit_fn[10] = '\0';
 	t1replay_checkpoint_fn[0] = 'T'; t1replay_checkpoint_fn[1] = '1';
 	t1replay_checkpoint_fn[2] = 'C'; t1replay_checkpoint_fn[3] = '0';
 	t1replay_checkpoint_fn[4] = '0'; t1replay_checkpoint_fn[5] = '0';
@@ -202,6 +239,14 @@ static void t1replay_res_id_init(char *id)
 	id[4] = 'p'; id[5] = 'l'; id[6] = 'a'; id[7] = 'y';
 	id[8] = 'S'; id[9] = 't'; id[10] = 'a'; id[11] = 't';
 	id[12] = 'e'; id[13] = '\0';
+}
+
+static void t1replay_restart_res_id_init(char *id)
+{
+	id[0] = 'T'; id[1] = '1'; id[2] = 'R'; id[3] = 'e';
+	id[4] = 'p'; id[5] = 'l'; id[6] = 'a'; id[7] = 'y';
+	id[8] = 'R'; id[9] = 'e'; id[10] = 's'; id[11] = 't';
+	id[12] = 'a'; id[13] = 'r'; id[14] = 't'; id[15] = '\0';
 }
 
 // RES_ID would otherwise materialize its string literal in this TU's _DATA
@@ -302,6 +347,14 @@ static void t1replay_dos_close(int fh)
 	_asm {
 		mov bx, fh
 		mov ah, 3Eh
+		int 21h
+	}
+}
+
+static void t1replay_dos_flush(void)
+{
+	_asm {
+		mov ah, 0Dh
 		int 21h
 	}
 }
@@ -416,6 +469,56 @@ static bool t1replay_dos_delete(const char far *fn)
 	return (result != 0);
 }
 
+static void t1replay_request_pair_discard(
+	const char far *request_fn, const char far *commit_fn
+)
+{
+	t1replay_dos_delete(request_fn);
+	t1replay_dos_delete(commit_fn);
+}
+
+// A freshly created request is consumed immediately after an executable
+// handoff. Some target DOS implementations do not make its directory entry
+// visible across execl() after close plus AH=0Dh alone. The mandatory second
+// identical witness is the following durable directory operation. OP accepts
+// the deeply validated primary alone and merely cleans up the witness, because
+// the witness itself may still be the entry hidden by the same cache. This
+// never depends on a diagnostic build or a diagnostic write.
+static bool t1replay_request_pair_write(
+	const char far *request_fn,
+	const char far *commit_fn,
+	const void far *request,
+	unsigned request_size
+)
+{
+	int fd;
+	bool ok;
+
+	t1replay_request_pair_discard(request_fn, commit_fn);
+	fd = t1replay_dos_create(request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (t1replay_dos_write(fd, request, request_size) == request_size);
+	t1replay_dos_close(fd);
+	if(!ok) {
+		t1replay_request_pair_discard(request_fn, commit_fn);
+		return false;
+	}
+	t1replay_dos_flush();
+	fd = t1replay_dos_create(commit_fn);
+	if(fd < 0) {
+		t1replay_request_pair_discard(request_fn, commit_fn);
+		return false;
+	}
+	ok = (t1replay_dos_write(fd, request, request_size) == request_size);
+	t1replay_dos_close(fd);
+	if(!ok) {
+		t1replay_request_pair_discard(request_fn, commit_fn);
+	}
+	return ok;
+}
+
 static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size)
 {
 	const uint8_t far *p = reinterpret_cast<const uint8_t far *>(buf);
@@ -428,13 +531,91 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 	return hash;
 }
 
+static uint32_t t1replay_restart_state_checksum(
+	t1replay_restart_state_t far *state
+)
+{
+	uint32_t checksum;
+
+	state->checksum = 0;
+	checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS,
+		&state->magic,
+		(sizeof(*state) - offsetof(t1replay_restart_state_t, magic))
+	);
+	state->checksum = checksum;
+	return checksum;
+}
+
+static bool t1replay_restart_bytes_zero(const uint8_t far *p, unsigned size)
+{
+	while(size != 0) {
+		if(*p++ != 0) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static bool t1replay_restart_state_valid(
+	t1replay_restart_state_t far *state
+)
+{
+	uint32_t stored;
+	uint32_t computed;
+
+	if(!state ||
+		(state->magic[0] != 'T') || (state->magic[1] != '1') ||
+		(state->magic[2] != 'R') || (state->magic[3] != 'R') ||
+		(state->version != T1REPLAY_RESTART_RES_VERSION) ||
+		((state->kind != T1RRK_NORMAL) &&
+		 (state->kind != T1RRK_PRACTICE)) ||
+		!t1replay_restart_bytes_zero(
+			state->reserved, sizeof(state->reserved)
+		)) {
+		return false;
+	}
+	stored = state->checksum;
+	computed = t1replay_restart_state_checksum(state);
+	state->checksum = stored;
+	return (stored == computed);
+}
+
+static bool t1replay_restart_request_write(void)
+{
+	t1replay_restart_state_t far *state;
+	t1replay_restart_request_t request;
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+
+	t1replay_restart_res_id_init(id);
+	state = ResData<t1replay_restart_state_t>::exist(id);
+	if(!t1replay_restart_state_valid(state)) {
+		return false;
+	}
+	t1replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T'; request.magic[1] = '1';
+	request.magic[2] = 'R'; request.magic[3] = 'R';
+	request.magic[4] = 'S'; request.magic[5] = 'T';
+	request.magic[6] = '1'; request.magic[7] = '\0';
+	request.schema = T1REPLAY_RESTART_REQUEST_SCHEMA;
+	request.restart_state_checksum = state->checksum;
+	request.checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	return t1replay_request_pair_write(
+		t1replay_restart_request_fn,
+		t1replay_restart_request_commit_fn,
+		&request,
+		sizeof(request)
+	);
+}
+
 static bool t1replay_save_request_write(
 	t1replay_save_request_source_t source
 )
 {
 	t1replay_save_request_t request;
-	int fd;
-	bool ok;
 
 	t1replay_memclear(&request, sizeof(request));
 	request.magic[0] = 'T'; request.magic[1] = '1';
@@ -447,26 +628,21 @@ static bool t1replay_save_request_write(
 	request.checksum = t1replay_fnv1a(
 		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
 	);
-	t1replay_dos_delete(t1replay_save_request_fn);
-	fd = t1replay_dos_create(t1replay_save_request_fn);
-	if(fd < 0) {
-		return false;
-	}
-	ok = (
-		t1replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	return t1replay_request_pair_write(
+		t1replay_save_request_fn,
+		t1replay_save_request_commit_fn,
+		&request,
+		sizeof(request)
 	);
-	t1replay_dos_close(fd);
-	if(!ok) {
-		t1replay_dos_delete(t1replay_save_request_fn);
-	}
-	return ok;
 }
 
 static void t1replay_pending_files_discard(void)
 {
 	uint8_t process_seq;
 
-	t1replay_dos_delete(t1replay_save_request_fn);
+	t1replay_request_pair_discard(
+		t1replay_save_request_fn, t1replay_save_request_commit_fn
+	);
 	if(t1replay_slot_set(T1REPLAY_SLOT_PENDING)) {
 		t1replay_dos_delete(t1replay_slot_fn);
 	}
@@ -1810,6 +1986,7 @@ static void t1replay_state_reset(void)
 	t1replay_pending_valid = false;
 	t1replay_command_delete_failed = false;
 	t1replay_terminal_pending = false;
+	t1replay_pause_action = T1RPA_RESUME;
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
@@ -2852,7 +3029,9 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	return true;
 }
 
-static void t1replay_terminal_request_pending(void)
+static void t1replay_terminal_request_pending(
+	t1replay_save_request_source_t source
+)
 {
 	if(!t1replay_terminal_pending) {
 		return;
@@ -2862,9 +3041,27 @@ static void t1replay_terminal_request_pending(void)
 		(t1replay_header.status != T1REPLAY_STATUS_FINALIZED) ||
 		(t1replay_header.end_reason != T1REPLAY_END_MENU) ||
 		(t1replay_header.header_checksum == 0) ||
-		!t1replay_save_request_write(T1RSRS_POSTGAME)
+		!t1replay_save_request_write(source)
 	) {
 		t1replay_pending_files_discard();
+	}
+}
+
+static void t1replay_pause_terminal_apply(bool playback)
+{
+	t1replay_pause_action_t action = t1replay_pause_action;
+
+	t1replay_pause_action = T1RPA_RESUME;
+	if(playback || (action == T1RPA_RESUME)) {
+		return;
+	}
+	if(action == T1RPA_SAVE_EXIT) {
+		t1replay_terminal_request_pending(T1RSRS_PAUSE);
+		return;
+	}
+	t1replay_pending_files_discard();
+	if(action == T1RPA_RESTART) {
+		t1replay_restart_request_write();
 	}
 }
 
@@ -2875,7 +3072,7 @@ void far t1replay_terminal(uint8_t end_reason)
 	if(t1replay_mode == T1RM_DISABLED) {
 		// Esc leaves Continue through a separate stock branch that has no BGM
 		// stop call to wrap. Its existing late terminal call reaches this path.
-		t1replay_terminal_request_pending();
+		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
 		return;
 	}
 	if(!t1replay_process_control(T1REPLAY_CONTROL_TERMINAL, end_reason)) {
@@ -2923,6 +3120,7 @@ void far t1replay_terminal(uint8_t end_reason)
 #endif
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
+	t1replay_pause_terminal_apply(playback);
 	if(playback) {
 		t1replay_abort_to_op();
 	}
@@ -2942,13 +3140,48 @@ void far t1replay_gameover_regist_menu(
 
 void far t1replay_terminal_save_request(void)
 {
-	t1replay_terminal_request_pending();
+	t1replay_terminal_request_pending(T1RSRS_POSTGAME);
 	mdrv2_bgm_stop();
 }
 
 bool16 far t1replay_active(void)
 {
 	return (t1replay_mode != T1RM_DISABLED);
+}
+
+bool16 far t1replay_pause_save_available(void)
+{
+	// Playback is a read-only transaction. Leaving it still reaches OP through
+	// the ordinary terminal path, but it must not advertise a save action that
+	// cannot create a numbered replay.
+	return (t1replay_mode == T1RM_RECORD);
+}
+
+bool16 far t1replay_pause_restart_available(void)
+{
+	t1replay_restart_state_t far *state;
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+
+	if(t1replay_mode == T1RM_PLAYBACK) {
+		return false;
+	}
+	t1replay_restart_res_id_init(id);
+	state = ResData<t1replay_restart_state_t>::exist(id);
+	return t1replay_restart_state_valid(state);
+}
+
+void far t1replay_pause_action_set(t1replay_pause_action_t action)
+{
+	if((action < T1RPA_RESUME) || (action > T1RPA_DISCARD_EXIT)) {
+		return;
+	}
+	if((action == T1RPA_SAVE_EXIT) && !t1replay_pause_save_available()) {
+		return;
+	}
+	if((action == T1RPA_RESTART) && !t1replay_pause_restart_available()) {
+		return;
+	}
+	t1replay_pause_action = action;
 }
 
 bool16 far t1replay_abort_requested(void)

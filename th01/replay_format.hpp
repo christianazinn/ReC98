@@ -95,9 +95,35 @@
 
 #define T1REPLAY_SAVE_REQUEST_SCHEMA 1
 #define T1REPLAY_SAVE_REQUEST_SIZE 20
+#define T1REPLAY_RESTART_REQUEST_SCHEMA 1
+#define T1REPLAY_RESTART_REQUEST_SIZE 20
 
 enum t1replay_save_request_source_t {
 	T1RSRS_POSTGAME = 0,
+	T1RSRS_PAUSE = 1,
+};
+
+enum t1replay_practice_section_t {
+	T1RPS_STAGE_START,
+	T1RPS_CHAPTER,
+	T1RPS_BOSS_START,
+};
+
+// OP's transient Practice choice is also the semantic restart configuration.
+// It contains no pointers or live-world state and is deliberately separate
+// from the user replay ABI.
+struct t1replay_practice_start_t {
+	uint8_t scene;
+	uint8_t route;
+	uint8_t section;
+	uint8_t chapter;
+	int8_t rank;
+	int32_t score;
+	int8_t lives;
+	int8_t bombs;
+	uint16_t point_value;
+	int16_t pellet_speed;
+	uint32_t rand;
 };
 
 inline bool t1replay_slot_is_numbered(uint8_t slot)
@@ -148,6 +174,8 @@ inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 
 #define T1REPLAY_RES_ID "T1ReplayState"
 #define T1REPLAY_RES_VERSION 2
+#define T1REPLAY_RESTART_RES_ID "T1ReplayRestart"
+#define T1REPLAY_RESTART_RES_VERSION 1
 
 #define T1REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T1REPLAY_FNV1A_PRIME 0x01000193UL
@@ -175,6 +203,11 @@ enum t1replay_mode_t {
 	T1RM_DISABLED = 0,
 	T1RM_RECORD = 1,
 	T1RM_PLAYBACK = 2,
+};
+
+enum t1replay_restart_kind_t {
+	T1RRK_NORMAL = 1,
+	T1RRK_PRACTICE = 2,
 };
 
 enum t1replay_checkpoint_group_id_t {
@@ -273,6 +306,28 @@ struct t1replay_save_request_t {
 	uint8_t source;
 	uint16_t reserved;
 	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
+// A restart request is deliberately tiny. The complete launch description
+// remains in a checksummed ResData block, so a stale on-disk request cannot
+// recreate a run after its matching resident state has gone away.
+struct t1replay_restart_request_t {
+	char magic[8]; // "T1RRST1\0"
+	uint8_t schema;
+	uint8_t reserved_0;
+	uint16_t reserved_1;
+	uint32_t restart_state_checksum;
+	uint32_t checksum;
+};
+
+struct t1replay_restart_state_t {
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+	char magic[4];
+	uint8_t version;
+	uint8_t kind;
+	uint8_t reserved[2];
+	t1replay_practice_start_t practice;
 	uint32_t checksum;
 };
 
@@ -689,6 +744,9 @@ typedef char t1replay_command_size_check[
 ];
 typedef char t1replay_save_request_size_check[
 	(sizeof(t1replay_save_request_t) == T1REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
+];
+typedef char t1replay_restart_request_size_check[
+	(sizeof(t1replay_restart_request_t) == T1REPLAY_RESTART_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t1replay_res_size_check[
 	(sizeof(t1replay_res_t) == 54) ? 1 : -1

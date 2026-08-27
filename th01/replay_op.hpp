@@ -12,26 +12,6 @@ enum t1replay_op_action_t {
 	T1ROA_PRACTICE_UNRECORDED,
 };
 
-enum t1replay_practice_section_t {
-	T1RPS_STAGE_START,
-	T1RPS_CHAPTER,
-	T1RPS_BOSS_START,
-};
-
-struct t1replay_practice_start_t {
-	uint8_t scene;
-	uint8_t route;
-	uint8_t section;
-	uint8_t chapter;
-	int8_t rank;
-	int32_t score;
-	int8_t lives;
-	int8_t bombs;
-	uint16_t point_value;
-	int16_t pellet_speed;
-	uint32_t rand;
-};
-
 struct t1replay_op_result_t {
 	t1replay_op_action_t action;
 	uint8_t slot;
