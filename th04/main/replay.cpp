@@ -220,6 +220,9 @@ void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 	if(game_init_main(pf_fn)) {
 		replay_dos_terminate_failure();
 	}
+#if (GAME == 5)
+	language_main_hud_gaiji_apply();
+#endif
 }
 
 static int replay_dos_open(const char far *fn, unsigned char access)
