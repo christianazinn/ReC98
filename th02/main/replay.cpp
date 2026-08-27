@@ -32,6 +32,7 @@
 #include "th02/main/s3_pract.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
+#include "th02/main/s5_cbred.hpp"
 #include "th02/main/s5_fx.hpp"
 #include "th02/main/s5_palette.hpp"
 #include "th02/main/s5_tile.hpp"
@@ -2194,6 +2195,14 @@ typedef char t2rec_s5_palette_wire_size_check[
 	(TH02_S5_MIMA_PALETTE_WIRE_SIZE ==
 	 T2REPLAY_EXACT_S5_PALETTE_SIZE) ? 1 : -1
 ];
+typedef char t2rec_s5_callback_wire_size_check[
+	(TH02_S5_MIMA_CALLBACK_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5_CALLBACK_SIZE) ? 1 : -1
+];
+typedef char t2rec_s5_redraw_wire_size_check[
+	(TH02_S5_MIMA_REDRAW_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5_REDRAW_SIZE) ? 1 : -1
+];
 
 static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
 {
@@ -2208,6 +2217,9 @@ static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
 	}
 	if(schema == T2REPLAY_EXACT_S5PAL_SCHEMA) {
 		return T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE;
+	}
+	if(schema == T2REPLAY_EXACT_S5CBRD_SCHEMA) {
+		return T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE;
 	}
 	return 0;
 }
@@ -2226,6 +2238,9 @@ static uint32_t t2replay_exact_s5_mima_source_fingerprint(uint16_t schema)
 	if(schema == T2REPLAY_EXACT_S5PAL_SCHEMA) {
 		return T2REPLAY_EXACT_S5PAL_SOURCE_FINGERPRINT;
 	}
+	if(schema == T2REPLAY_EXACT_S5CBRD_SCHEMA) {
+		return T2REPLAY_EXACT_S5CBRD_SOURCE_FINGERPRINT;
+	}
 	return 0;
 }
 
@@ -2234,7 +2249,8 @@ static bool t2replay_exact_s5_mima_tile_present(uint16_t schema)
 	return (
 		(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) ||
 		(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) ||
-		(schema == T2REPLAY_EXACT_S5PAL_SCHEMA)
+		(schema == T2REPLAY_EXACT_S5PAL_SCHEMA) ||
+		(schema == T2REPLAY_EXACT_S5CBRD_SCHEMA)
 	);
 }
 
@@ -2242,13 +2258,22 @@ static bool t2replay_exact_s5_mima_stage_fx_present(uint16_t schema)
 {
 	return (
 		(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) ||
-		(schema == T2REPLAY_EXACT_S5PAL_SCHEMA)
+		(schema == T2REPLAY_EXACT_S5PAL_SCHEMA) ||
+		(schema == T2REPLAY_EXACT_S5CBRD_SCHEMA)
 	);
 }
 
 static bool t2replay_exact_s5_mima_palette_present(uint16_t schema)
 {
-	return (schema == T2REPLAY_EXACT_S5PAL_SCHEMA);
+	return (
+		(schema == T2REPLAY_EXACT_S5PAL_SCHEMA) ||
+		(schema == T2REPLAY_EXACT_S5CBRD_SCHEMA)
+	);
+}
+
+static bool t2replay_exact_s5_mima_callback_redraw_present(uint16_t schema)
+{
+	return (schema == T2REPLAY_EXACT_S5CBRD_SCHEMA);
 }
 
 static void t2replay_exact_group_set(
@@ -2306,6 +2331,16 @@ static bool t2replay_exact_s5_mima_group_valid(
 		t2replay_exact_s5_mima_palette_present(schema)
 	) {
 		payload_size = T2REPLAY_EXACT_S5_PALETTE_SIZE;
+	} else if(
+		(id == T2RXGI_CALLBACKS) &&
+		t2replay_exact_s5_mima_callback_redraw_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5_CALLBACK_SIZE;
+	} else if(
+		(id == T2RXGI_REDRAW) &&
+		t2replay_exact_s5_mima_callback_redraw_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5_REDRAW_SIZE;
 	} else {
 		payload_size = 0;
 		flags = T2REPLAY_EXACT_GROUP_FLAG_DEFERRED;
@@ -2370,6 +2405,24 @@ static bool t2replay_exact_s5_mima_group_valid(
 		t2replay_exact_s5_mima_palette_present(schema)
 	) {
 		if(!th02_s5_mima_palette_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(
+		(id == T2RXGI_CALLBACKS) &&
+		t2replay_exact_s5_mima_callback_redraw_present(schema)
+	) {
+		if(!th02_s5_mima_callback_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(
+		(id == T2RXGI_REDRAW) &&
+		t2replay_exact_s5_mima_callback_redraw_present(schema)
+	) {
+		if(!th02_s5_mima_redraw_wire_valid(
 			envelope + payload_offset, static_cast<uint16_t>(payload_size)
 		)) {
 			return false;
@@ -2456,6 +2509,21 @@ static bool t2replay_exact_s5_mima_palette_actor_agree(
 	);
 }
 
+static bool t2replay_exact_s5_mima_callback_groups_agree(
+	const uint8_t far *envelope, uint16_t schema
+)
+{
+	if(!t2replay_exact_s5_mima_callback_redraw_present(schema)) {
+		return true;
+	}
+	return th02_s5_mima_callback_wire_agree(
+		envelope[T2REC_HEADER_CALLBACK_PROFILE],
+		t2replay_exact_s5_mima_group_payload(envelope, T2RXGI_CALLBACKS),
+		t2replay_exact_s5_mima_group_payload(envelope, T2RXGI_LASER),
+		t2replay_exact_s5_mima_group_payload(envelope, T2RXGI_ENEMY)
+	);
+}
+
 static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
 	const uint8_t far *envelope, uint32_t envelope_size, uint16_t schema
 )
@@ -2516,6 +2584,9 @@ static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
 		return T2REC_DIRECTORY;
 	}
 	if(!t2replay_exact_s5_mima_palette_actor_agree(envelope, schema)) {
+		return T2REC_DIRECTORY;
+	}
+	if(!t2replay_exact_s5_mima_callback_groups_agree(envelope, schema)) {
 		return T2REC_DIRECTORY;
 	}
 	if(
@@ -2588,7 +2659,9 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 		 (t2replay_checkpoint_get_u16(envelope, 8) ==
 		  T2REPLAY_EXACT_S5MFX_SCHEMA) ||
 		 (t2replay_checkpoint_get_u16(envelope, 8) ==
-		  T2REPLAY_EXACT_S5PAL_SCHEMA))
+		  T2REPLAY_EXACT_S5PAL_SCHEMA) ||
+		 (t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5CBRD_SCHEMA))
 	) {
 		return t2replay_exact_s5_mima_validate(
 			envelope, envelope_size, t2replay_checkpoint_get_u16(envelope, 8)
@@ -2799,6 +2872,32 @@ static bool16 t2replay_exact_stage5_mima_capture_schema(
 		);
 		payload_offset += T2REPLAY_EXACT_S5_PALETTE_SIZE;
 	}
+	if(t2replay_exact_s5_mima_callback_redraw_present(schema)) {
+		if(!th02_s5_mima_callback_wire_capture(
+			envelope + payload_offset, T2REPLAY_EXACT_S5_CALLBACK_SIZE,
+			envelope[T2REC_HEADER_CALLBACK_PROFILE],
+			envelope[T2REC_HEADER_SHOTTYPE],
+			t2replay_exact_s5_mima_group_payload(envelope, T2RXGI_LASER),
+			t2replay_exact_s5_mima_group_payload(envelope, T2RXGI_ENEMY)
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_CALLBACKS, 0, payload_offset,
+			T2REPLAY_EXACT_S5_CALLBACK_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5_CALLBACK_SIZE;
+		if(!th02_s5_mima_redraw_wire_capture(
+			envelope + payload_offset, T2REPLAY_EXACT_S5_REDRAW_SIZE
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_REDRAW, 0, payload_offset,
+			T2REPLAY_EXACT_S5_REDRAW_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5_REDRAW_SIZE;
+	}
 	for(group_id = T2RXGI_STAGE_FX;
 		group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
 		if(
@@ -2816,6 +2915,13 @@ static bool16 t2replay_exact_stage5_mima_capture_schema(
 		if(
 			(group_id == T2RXGI_PALETTE) &&
 			t2replay_exact_s5_mima_palette_present(schema)
+		) {
+			continue;
+		}
+		if(
+			((group_id == T2RXGI_CALLBACKS) ||
+			 (group_id == T2RXGI_REDRAW)) &&
+			t2replay_exact_s5_mima_callback_redraw_present(schema)
 		) {
 			continue;
 		}
@@ -2876,6 +2982,16 @@ bool16 replay_exact_stage5_mima_palette_capture(
 {
 	return t2replay_exact_stage5_mima_capture_schema(
 		envelope, envelope_size, boundary, T2REPLAY_EXACT_S5PAL_SCHEMA
+	);
+}
+
+bool16 replay_exact_stage5_mima_callback_redraw_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary, T2REPLAY_EXACT_S5CBRD_SCHEMA
 	);
 }
 

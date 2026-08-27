@@ -112,6 +112,20 @@
 	T2REPLAY_EXACT_S5_PALETTE_SIZE \
 )
 
+// Schema 6 closes the final two capture groups with semantic recipe IDs.
+// CALLBACKS names the complete Stage 5 Mima callback table; REDRAW names the
+// native one-frame reveal transaction. Neither group stores code pointers,
+// VRAM, hardware registers, or compiler-layout state. Apply remains deferred.
+#define T2REPLAY_EXACT_S5CBRD_SCHEMA 6
+#define T2REPLAY_EXACT_S5CBRD_SOURCE_FINGERPRINT 0x4EBF53CEUL
+#define T2REPLAY_EXACT_S5_CALLBACK_SIZE 1
+#define T2REPLAY_EXACT_S5_REDRAW_SIZE 1
+#define T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5_CALLBACK_SIZE + \
+	T2REPLAY_EXACT_S5_REDRAW_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
@@ -252,6 +266,10 @@ enum t2replay_exact_callback_profile_t {
 	T2RECP_EX_SCROLL = 14,
 	T2RECP_EX_MIDBOSS = 15,
 	T2RECP_EX_SIGMA = 16,
+};
+
+enum t2replay_exact_redraw_recipe_t {
+	T2RERR_NATIVE_ONE_FRAME_REVEAL = 1,
 };
 
 enum t2replay_exact_resource_id_t {
@@ -420,6 +438,9 @@ typedef char t2rec_s5_mima_stage_fx_capture_size_check[
 ];
 typedef char t2rec_s5_mima_palette_capture_size_check[
 	(T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE == 8265) ? 1 : -1
+];
+typedef char t2rec_s5_mima_callback_redraw_capture_size_check[
+	(T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE == 8267) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
