@@ -241,3 +241,33 @@ bool16 far th02_s5_mima_palette_wire_agree(
 		(palette_wire[T2S5PAL_TONE_OFFSET] == expected_tone)
 	);
 }
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_s5_mima_palette_wire_prepare(
+	th02_s5_palette_apply_plan_t *plan,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	if((plan == 0) || !th02_s5_mima_palette_wire_valid(wire, wire_size)) {
+		return false;
+	}
+	plan->wire = wire;
+	return true;
+}
+
+void far th02_s5_mima_palette_commit_prepared(
+	const th02_s5_palette_apply_plan_t *plan
+)
+{
+	const uint8_t far *wire = plan->wire;
+	int color;
+
+	Palettes[0].c.r = wire[T2S5PAL_COLOR0_R_OFFSET];
+	Palettes[0].c.g = wire[T2S5PAL_COLOR0_G_OFFSET];
+	Palettes[0].c.b = wire[T2S5PAL_COLOR0_B_OFFSET];
+	for(color = 1; color < COLOR_COUNT; color++) {
+		Palettes[color] = stage_palette[color];
+	}
+	PaletteTone = wire[T2S5PAL_TONE_OFFSET];
+}
+#endif

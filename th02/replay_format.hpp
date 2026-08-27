@@ -4,6 +4,13 @@
 #include <stddef.h>
 #include "platform.h"
 
+#ifndef T2REPLAY_EXACT_APPLY
+#define T2REPLAY_EXACT_APPLY 0
+#endif
+#ifndef T2REPLAY_EXACT_TRACE
+#define T2REPLAY_EXACT_TRACE 0
+#endif
+
 #define T2REPLAY_VERSION 1
 #define T2REPLAY_HEADER_SIZE 128
 #define T2REPLAY_PACKET_SIZE 4
@@ -124,6 +131,15 @@
 	T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE + \
 	T2REPLAY_EXACT_S5_CALLBACK_SIZE + \
 	T2REPLAY_EXACT_S5_REDRAW_SIZE \
+)
+
+// Private direct-apply request. This binds a schema-6 envelope to one
+// finalized T2RPY1 stream position without changing either public format.
+#define T2REPLAY_EXACT_APPLY_REQUEST_VERSION 1
+#define T2REPLAY_EXACT_APPLY_REQUEST_SIZE 48
+#define T2REPLAY_EXACT_APPLY_FILE_SIZE ( \
+	T2REPLAY_EXACT_APPLY_REQUEST_SIZE + \
+	T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE \
 )
 
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
@@ -394,6 +410,24 @@ struct t2replay_save_request_t {
 	uint32_t checksum;
 };
 
+struct t2replay_exact_apply_request_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint32_t total_size;
+	uint32_t envelope_size;
+	uint32_t replay_header_checksum;
+	uint32_t packet_anchor;
+	uint32_t sample_anchor;
+	uint8_t slot;
+	uint8_t stage_id;
+	uint8_t phase;
+	uint8_t run_offset;
+	uint32_t prefix_checksum;
+	uint32_t request_checksum;
+	uint32_t reserved;
+};
+
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -408,6 +442,10 @@ typedef char t2replay_command_size_check[
 ];
 typedef char t2replay_save_request_size_check[
 	(sizeof(t2replay_save_request_t) == T2REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
+];
+typedef char t2replay_exact_apply_request_size_check[
+	(sizeof(t2replay_exact_apply_request_t) ==
+	 T2REPLAY_EXACT_APPLY_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t2rck_capture_size_check[
 	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (

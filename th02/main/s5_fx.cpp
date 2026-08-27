@@ -184,3 +184,27 @@ bool16 far th02_s5_mima_stage_fx_wire_valid(
 
 	return t2s5fx_state_wire_decode(&decoded, wire, wire_size);
 }
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_s5_mima_stage_fx_wire_prepare(
+	th02_s5_fx_apply_plan_t *plan,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	if((plan == 0) || !th02_s5_mima_stage_fx_wire_valid(wire, wire_size)) {
+		return false;
+	}
+	plan->wire = wire;
+	return true;
+}
+
+void far th02_s5_mima_stage_fx_commit_prepared(
+	const th02_s5_fx_apply_plan_t *plan
+)
+{
+	// The validated Stage 5 recipe is exactly the native reset state. This
+	// call performs no allocation, I/O, resource load, or rejection.
+	(void)plan;
+	bg_particles_reset();
+}
+#endif

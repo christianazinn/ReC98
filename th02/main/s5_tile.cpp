@@ -187,3 +187,71 @@ bool16 far th02_s5_tile_logic_wire_capture(
 		th02_s5_tile_logic_wire_valid(wire, wire_size)
 	);
 }
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_s5_tile_logic_wire_prepare(
+	th02_s5_tile_apply_plan_t *plan,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	if((plan == 0) || !th02_s5_tile_logic_wire_valid(wire, wire_size)) {
+		return false;
+	}
+	plan->wire = wire;
+	return true;
+}
+
+void far th02_s5_tile_logic_commit_prepared(
+	const th02_s5_tile_apply_plan_t *plan
+)
+{
+	const uint8_t far *wire = plan->wire;
+	unsigned offset;
+	uint8_t bits;
+	uint8_t bit;
+	int tile_x;
+	int tile_y;
+
+	tile_mode = static_cast<tile_mode_t>(wire[T2S5TL_MODE_OFFSET]);
+	tiles_egc_render_all = (wire[T2S5TL_RENDER_ALL_OFFSET] != 0);
+	tile_line_at_top = static_cast<int8_t>(wire[T2S5TL_LINE_AT_TOP_OFFSET]);
+	map_full_row_at_top_of_screen = t2s5tile_wire_get_u16(
+		wire, T2S5TL_MAP_ROW_OFFSET
+	);
+	stage4_tile_top = t2s5tile_wire_get_u16(
+		wire, T2S5TL_STAGE4_TILE_TOP_OFFSET
+	);
+	offset = T2S5TL_RING_OFFSET;
+	for(tile_y = 0; tile_y < TILES_Y; tile_y++) {
+		for(tile_x = 0; tile_x < TILES_X; tile_x++) {
+			tile_ring[tile_y][tile_x] = wire[offset++];
+		}
+	}
+	offset = T2S5TL_DIRTY_OFFSET;
+	bits = wire[offset++];
+	bit = 0;
+	for(tile_x = 0; tile_x < TILES_X; tile_x++) {
+		for(tile_y = 0; tile_y < TILES_Y; tile_y++) {
+			tile_dirty[tile_x][tile_y] = ((bits & (1 << bit)) != 0);
+			bit++;
+			if(bit == 8) {
+				bit = 0;
+				if((tile_x != (TILES_X - 1)) || (tile_y != (TILES_Y - 1))) {
+					bits = wire[offset++];
+				}
+			}
+		}
+	}
+	offset = T2S5TL_COLUMN_DIRTY_OFFSET;
+	bits = wire[offset++];
+	bit = 0;
+	for(tile_x = 0; tile_x < TILES_X; tile_x++) {
+		tile_column_dirty[tile_x] = ((bits & (1 << bit)) != 0);
+		bit++;
+		if((bit == 8) && (tile_x != (TILES_X - 1))) {
+			bit = 0;
+			bits = wire[offset++];
+		}
+	}
+}
+#endif

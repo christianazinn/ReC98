@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th02/replay_format.hpp"
 
 #define TH02_ACTOR_CORE_WIRE_SIZE 23
 
@@ -34,5 +35,15 @@ bool16 far th02_actor_core_state_wire_capture(
 bool16 far th02_actor_core_state_wire_valid(
 	const uint8_t far *wire, uint16_t wire_size
 );
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_actor_core_state_wire_prepare(
+	th02_actor_core_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+);
+void far th02_actor_core_state_commit_prepared(
+	const th02_actor_core_state_t *state
+);
+#endif
 
 #endif /* TH02_MAIN_ACTOR_CORE_HPP */

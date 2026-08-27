@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "th02/replay_format.hpp"
 
 static const int TH02_S5_MIMA_ORB_SLOTS = 8;
 #define TH02_S5_MIMA_WIRE_SIZE 164
@@ -93,6 +94,21 @@ bool16 far th02_s5_mima_state_wire_capture(
 bool16 far th02_s5_mima_state_wire_valid(
 	const uint8_t far *wire, uint16_t wire_size
 );
+bool16 far th02_s5_mima_actor_wire_agree(
+	const uint8_t far *actor_core_wire,
+	const uint8_t far *actor_stage_wire,
+	uint8_t front_page
+);
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_s5_mima_state_wire_prepare(
+	th02_s5_mima_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+);
+void far th02_s5_mima_state_commit_prepared(
+	const th02_s5_mima_state_t *state
+);
+#endif
 
 // This owns only the post-presentation Mima actor state. A later dispatcher
 // must provide the common terminal field, stage assets, callback promotion,

@@ -75,4 +75,25 @@ bool16 far t2checkpoint_common_apply(
 	enum t2checkpoint_common_reject_t *reason
 );
 
+#if T2REPLAY_EXACT_APPLY
+// Coordinator-only plan over the ordered common payloads embedded in a
+// schema-6 exact envelope. Preparation validates; commit cannot reject.
+struct t2checkpoint_common_exact_plan_t {
+	const uint8_t far *group[T2REPLAY_CHECKPOINT_GROUP_COUNT];
+	struct t2checkpoint_common_boundary_t boundary;
+	uint8_t page_front;
+	uint8_t page_back;
+	uint8_t resource_id;
+};
+bool16 far t2checkpoint_common_exact_plan_prepare(
+	struct t2checkpoint_common_exact_plan_t *plan,
+	const uint8_t far *group[],
+	const struct t2checkpoint_common_boundary_t *boundary,
+	enum t2checkpoint_common_reject_t *reason
+);
+void far t2checkpoint_common_exact_commit_prepared(
+	const struct t2checkpoint_common_exact_plan_t *plan
+);
+#endif
+
 #endif /* TH02_MAIN_CHECKPOINT_APPLY_HPP */

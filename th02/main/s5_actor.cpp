@@ -301,14 +301,13 @@ bool16 far th02_s5_mima_state_capture(th02_s5_mima_state_t *state)
 	return true;
 }
 
-bool16 far th02_s5_mima_state_apply(const th02_s5_mima_state_t *state)
+static void near th02_s5_mima_state_commit(
+	const th02_s5_mima_state_t *state
+)
 {
 	int i;
 	int page;
 
-	if(!th02_s5_mima_state_validate(state)) {
-		return false;
-	}
 	left_26C56 = state->left_26C56;
 	mima_muzzle_left = state->muzzle_left;
 	left_26C5A = state->left_26C5A;
@@ -374,6 +373,14 @@ bool16 far th02_s5_mima_state_apply(const th02_s5_mima_state_t *state)
 	point_26CDE = state->point_26CDE;
 	boss_left_on_back_page = &boss_left_on_page[page_back];
 	boss_top_on_back_page = &boss_top_on_page[page_back];
+}
+
+bool16 far th02_s5_mima_state_apply(const th02_s5_mima_state_t *state)
+{
+	if(!th02_s5_mima_state_validate(state)) {
+		return false;
+	}
+	th02_s5_mima_state_commit(state);
 	return true;
 }
 
@@ -815,3 +822,66 @@ bool16 far th02_s5_mima_state_wire_valid(
 
 	return th02_s5_mima_state_wire_decode(&decoded, wire, wire_size);
 }
+
+static int16_t near th02_s5_mima_wire_i16(
+	const uint8_t far *wire, uint16_t offset
+)
+{
+	return static_cast<int16_t>(
+		static_cast<uint16_t>(wire[offset]) |
+		(static_cast<uint16_t>(wire[offset + 1]) << 8)
+	);
+}
+
+bool16 far th02_s5_mima_actor_wire_agree(
+	const uint8_t far *actor_core_wire,
+	const uint8_t far *actor_stage_wire,
+	uint8_t front_page
+)
+{
+	int16_t left;
+	int16_t top;
+
+	if(
+		(actor_core_wire == 0) || (actor_stage_wire == 0) ||
+		(front_page >= PAGE_COUNT)
+	) {
+		return false;
+	}
+	// At an ordinary loop top, Mima's derived points describe the page that
+	// was just rendered and flipped to the front. The next update overwrites
+	// them from the new back page.
+	left = th02_s5_mima_wire_i16(
+		actor_core_wire, static_cast<uint16_t>(4 + (front_page * 2))
+	);
+	top = th02_s5_mima_wire_i16(
+		actor_core_wire, static_cast<uint16_t>(8 + (front_page * 2))
+	);
+	return (
+		(th02_s5_mima_wire_i16(actor_stage_wire, 0) == (left + 32)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 2) == (left + 40)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 4) == (left + 64)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 6) == (left + 64)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 8) == (top + 96)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 10) == (top + 16)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 12) == (top + 114)) &&
+		(th02_s5_mima_wire_i16(actor_stage_wire, 14) == (top + 44))
+	);
+}
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_s5_mima_state_wire_prepare(
+	th02_s5_mima_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	return th02_s5_mima_state_wire_decode(state, wire, wire_size);
+}
+
+void far th02_s5_mima_state_commit_prepared(
+	const th02_s5_mima_state_t *state
+)
+{
+	th02_s5_mima_state_commit(state);
+}
+#endif
