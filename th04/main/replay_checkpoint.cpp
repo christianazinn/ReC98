@@ -1065,12 +1065,16 @@ static bool rck_group_scoring(replay_ck_stream_t far *stream)
 {
 	int i;
 
-	for(i = 0; i < SCORE_DIGITS; i++) {
+	// The highest byte is a multi-decimal accumulator. Native score files and
+	// live scores above 99,999,990 therefore legitimately store values >= 10.
+	for(i = 0; i < (SCORE_DIGITS - 1); i++) {
 		RCK_U8_MAX(score.digits[i], 9);
 	}
-	for(i = 0; i < SCORE_DIGITS; i++) {
+	RCK_U8(score.digits[SCORE_DIGITS - 1]);
+	for(i = 0; i < (SCORE_DIGITS - 1); i++) {
 		RCK_U8_MAX(hiscore.digits[i], 9);
 	}
+	RCK_U8(hiscore.digits[SCORE_DIGITS - 1]);
 #if (GAME == 4)
 	RCK_U8(score_unused);
 #endif
@@ -6639,7 +6643,7 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -6647,5 +6651,5 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
