@@ -4,6 +4,8 @@
 #include "platform.h"
 #include "pc98.h"
 
+#define TH02_ACTOR_CORE_WIRE_SIZE 23
+
 // Pointer-free generic boss and midboss state. Actor-private progression,
 // stage effects, callbacks, and replay tags belong to separate owners.
 struct th02_actor_core_state_t {
@@ -22,6 +24,15 @@ struct th02_actor_core_state_t {
 bool16 far th02_actor_core_state_capture(th02_actor_core_state_t *state);
 bool16 far th02_actor_core_state_apply(
 	const th02_actor_core_state_t *state
+);
+
+// Fieldwise private exact-checkpoint codec. It deliberately has no apply
+// entry point; the later coordinator owns the all-group transaction.
+bool16 far th02_actor_core_state_wire_capture(
+	uint8_t far *wire, uint16_t wire_size
+);
+bool16 far th02_actor_core_state_wire_valid(
+	const uint8_t far *wire, uint16_t wire_size
 );
 
 #endif /* TH02_MAIN_ACTOR_CORE_HPP */

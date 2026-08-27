@@ -32,6 +32,7 @@
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
 #include "th02/main/s6_actor.hpp"
+#include "th02/main/actor_core.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -2083,6 +2084,187 @@ static bool t2replay_exact_checkpoint_tags_valid(const uint8_t far *data)
 	);
 }
 
+typedef char t2rec_actor_core_wire_size_check[
+	(TH02_ACTOR_CORE_WIRE_SIZE == T2REPLAY_EXACT_ACTOR_CORE_SIZE) ? 1 : -1
+];
+typedef char t2rec_s5_mima_wire_size_check[
+	(TH02_S5_MIMA_WIRE_SIZE == T2REPLAY_EXACT_S5_MIMA_SIZE) ? 1 : -1
+];
+
+static void t2replay_exact_group_set(
+	uint8_t far *envelope, uint8_t id, uint8_t flags,
+	uint32_t payload_offset, uint32_t payload_size
+)
+{
+	uint8_t far *group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
+		(static_cast<uint32_t>(id) * T2REPLAY_EXACT_GROUP_SIZE);
+
+	group[T2RCK_GROUP_ID] = id;
+	group[T2RCK_GROUP_SCHEMA] = T2REPLAY_EXACT_GROUP_SCHEMA;
+	group[T2RCK_GROUP_CODEC] = T2RCC_RAW;
+	group[T2RCK_GROUP_FLAGS] = flags;
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_OFFSET, payload_offset);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_STORED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_DECODED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(
+		group, T2RCK_GROUP_CHECKSUM,
+		t2replay_fnv1a(
+			T2REPLAY_FNV1A_BASIS, envelope + payload_offset,
+			static_cast<unsigned>(payload_size)
+		)
+	);
+}
+
+static bool t2replay_exact_s5_mima_group_valid(
+	const uint8_t far *envelope, uint8_t id, uint32_t& payload_offset
+)
+{
+	const uint8_t far *group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
+		(static_cast<uint32_t>(id) * T2REPLAY_EXACT_GROUP_SIZE);
+	uint32_t payload_size;
+	uint8_t flags = 0;
+
+	if(id < T2REPLAY_CHECKPOINT_GROUP_COUNT) {
+		payload_size = t2replay_checkpoint_group_size(id);
+	} else if(id == T2RXGI_ACTOR_CORE) {
+		payload_size = T2REPLAY_EXACT_ACTOR_CORE_SIZE;
+	} else if(id == T2RXGI_ACTOR_STAGE) {
+		payload_size = T2REPLAY_EXACT_S5_MIMA_SIZE;
+	} else {
+		payload_size = 0;
+		flags = T2REPLAY_EXACT_GROUP_FLAG_DEFERRED;
+	}
+	if(
+		(group[T2RCK_GROUP_ID] != id) ||
+		(group[T2RCK_GROUP_SCHEMA] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
+		(group[T2RCK_GROUP_CODEC] != T2RCC_RAW) ||
+		(group[T2RCK_GROUP_FLAGS] != flags) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_OFFSET) !=
+		 payload_offset) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_STORED_SIZE) !=
+		 payload_size) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_DECODED_SIZE) !=
+		 payload_size) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_CHECKSUM) !=
+		 t2replay_fnv1a(
+			T2REPLAY_FNV1A_BASIS, envelope + payload_offset,
+			static_cast<unsigned>(payload_size)
+		))
+	) {
+		return false;
+	}
+	if(id < T2REPLAY_CHECKPOINT_GROUP_COUNT) {
+		if(!t2replay_checkpoint_group_payload_valid(
+			id, envelope + payload_offset
+		)) {
+			return false;
+		}
+	} else if(id == T2RXGI_ACTOR_CORE) {
+		if(!th02_actor_core_state_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(id == T2RXGI_ACTOR_STAGE) {
+		if(!th02_s5_mima_state_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	}
+	payload_offset += payload_size;
+	return true;
+}
+
+static bool t2replay_exact_s5_mima_common_tags_valid(
+	const uint8_t far *envelope
+)
+{
+	const uint8_t far *identity = envelope + T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	const uint8_t far *stage_vm = identity;
+	uint8_t group_id;
+
+	for(group_id = 0; group_id < T2RCGI_STAGE_VM; group_id++) {
+		stage_vm += t2replay_checkpoint_group_size(group_id);
+	}
+	// These common-world bytes are independently range-checked above. Bind the
+	// fields that select a live Stage 5 Mima boundary to the outer declaration
+	// so a valid foreign common snapshot cannot be relabeled as this actor.
+	return (
+		(identity[0] == envelope[T2REC_HEADER_STAGE_ID]) &&
+		(identity[1] == envelope[T2REC_HEADER_SHOTTYPE]) &&
+		(identity[2] == envelope[T2REC_HEADER_RANK]) &&
+		(identity[3] == envelope[T2REC_HEADER_REDUCE_EFFECTS]) &&
+		(stage_vm[0] == identity[0]) &&
+		(stage_vm[1] == SP_BOSS)
+	);
+}
+
+static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
+	const uint8_t far *envelope, uint32_t envelope_size
+)
+{
+	uint32_t payload_offset;
+	uint8_t group_id;
+
+	if(
+		(envelope_size != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		!t2replay_exact_checkpoint_magic_matches(envelope) ||
+		(t2replay_checkpoint_get_u16(envelope, 8) !=
+		 T2REPLAY_EXACT_S5_MIMA_SCHEMA) ||
+		(t2replay_checkpoint_get_u16(envelope, 10) !=
+		 T2REPLAY_EXACT_HEADER_SIZE) ||
+		(envelope[12] != 2) ||
+		(envelope[13] != T2REPLAY_EXACT_GROUP_COUNT) ||
+		(envelope[14] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
+		(envelope[15] != 0) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_TOTAL_SIZE) !=
+		 T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		(t2replay_checkpoint_get_u32(
+			envelope, T2REC_HEADER_SOURCE_FINGERPRINT
+		) != T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_GROUP_MASK) !=
+		 T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK) ||
+		(envelope[T2REC_HEADER_BOUNDARY_GENERATION] !=
+		 T2REPLAY_EXACT_BOUNDARY_GENERATION) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_DECODED_SIZE) !=
+		 (T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE -
+		  T2REPLAY_EXACT_CHECKPOINT_SIZE))
+	) {
+		return T2REC_HEADER;
+	}
+	if(
+		!t2replay_exact_checkpoint_tags_valid(envelope) ||
+		(envelope[T2REC_HEADER_STAGE_ID] != 4) ||
+		(envelope[T2REC_HEADER_ACTOR_TAG] != T2REAT_S5_MIMA) ||
+		(envelope[T2REC_HEADER_ACTOR_MODE] != T2REAM_ACTIVE) ||
+		(envelope[T2REC_HEADER_STAGE_FX_TAG] != T2RESFT_S5_MIMA_FIELD) ||
+		(envelope[T2REC_HEADER_CALLBACK_PROFILE] != T2RECP_S5_MIMA) ||
+		(envelope[T2REC_HEADER_RESOURCE_ID] != T2RERI_STAGE_5) ||
+		!t2replay_exact_s5_mima_common_tags_valid(envelope)
+	) {
+		return T2REC_TAG;
+	}
+	payload_offset = T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	for(group_id = 0; group_id < T2REPLAY_EXACT_GROUP_COUNT;
+		group_id++) {
+		if(!t2replay_exact_s5_mima_group_valid(
+			envelope, group_id, payload_offset
+		)) {
+			return T2REC_DIRECTORY;
+		}
+	}
+	if(
+		(payload_offset != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		(t2replay_checkpoint_get_u32(
+			envelope, T2REC_HEADER_CONTAINER_CHECKSUM
+		) != t2replay_exact_checkpoint_checksum(envelope, envelope_size))
+	) {
+		return T2REC_CHECKSUM;
+	}
+	return T2REC_DEFERRED_CODECS;
+}
+
 bool replay_exact_checkpoint_boundary_available(
 	const struct t2rec_boundary_t *boundary,
 	enum t2rec_reject_t *reason
@@ -2117,7 +2299,7 @@ bool replay_exact_checkpoint_boundary_available(
 }
 
 enum t2rec_reject_t replay_exact_checkpoint_validate(
-	const uint8_t *envelope, uint32_t envelope_size,
+	const uint8_t far *envelope, uint32_t envelope_size,
 	const struct t2rec_boundary_t *boundary
 )
 {
@@ -2132,6 +2314,13 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	}
 	if(!replay_exact_checkpoint_boundary_available(boundary, &result)) {
 		return result;
+	}
+	if(
+		(envelope_size >= T2REPLAY_EXACT_HEADER_SIZE) &&
+		(t2replay_checkpoint_get_u16(envelope, 8) ==
+		 T2REPLAY_EXACT_S5_MIMA_SCHEMA)
+	) {
+		return t2replay_exact_s5_mima_validate(envelope, envelope_size);
 	}
 	if(
 		(envelope_size != T2REPLAY_EXACT_CHECKPOINT_SIZE) ||
@@ -2197,6 +2386,124 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	// No state has been written. A typed-codec/apply parcel may replace only
 	// this final rejection after it has validated every payload and dependency.
 	return T2REC_DEFERRED_CODECS;
+}
+
+bool16 replay_exact_stage5_mima_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	uint32_t payload_offset;
+	uint32_t payload_size;
+	uint8_t group_id;
+	enum t2rec_reject_t reason;
+
+	if(
+		(envelope == 0) ||
+		(envelope_size != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		!replay_exact_checkpoint_boundary_available(boundary, &reason) ||
+		(stage_id != 4) || (stage_progression != SP_BOSS)
+	) {
+		return false;
+	}
+	t2replay_memclear(envelope, static_cast<unsigned>(envelope_size));
+	envelope[0] = 'T'; envelope[1] = '2'; envelope[2] = 'X';
+	envelope[3] = 'C'; envelope[4] = 'K'; envelope[5] = '1';
+	t2replay_checkpoint_put_u16(
+		envelope, 8, T2REPLAY_EXACT_S5_MIMA_SCHEMA
+	);
+	t2replay_checkpoint_put_u16(
+		envelope, 10, T2REPLAY_EXACT_HEADER_SIZE
+	);
+	envelope[12] = 2;
+	envelope[13] = T2REPLAY_EXACT_GROUP_COUNT;
+	envelope[14] = T2REPLAY_EXACT_GROUP_SCHEMA;
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_TOTAL_SIZE,
+		T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE
+	);
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_SOURCE_FINGERPRINT,
+		T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT
+	);
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_GROUP_MASK,
+		T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK
+	);
+	envelope[T2REC_HEADER_BOUNDARY_GENERATION] =
+		T2REPLAY_EXACT_BOUNDARY_GENERATION;
+	envelope[T2REC_HEADER_RULESET] = T2REPLAY_RULESET_STOCK;
+	envelope[T2REC_HEADER_STAGE_ID] = 4;
+	envelope[T2REC_HEADER_SHOTTYPE] = resident->shottype;
+	envelope[T2REC_HEADER_RANK] = static_cast<uint8_t>(rank);
+	envelope[T2REC_HEADER_REDUCE_EFFECTS] = (reduce_effects ? 1 : 0);
+	envelope[T2REC_HEADER_ACTOR_TAG] = T2REAT_S5_MIMA;
+	envelope[T2REC_HEADER_ACTOR_MODE] = T2REAM_ACTIVE;
+	envelope[T2REC_HEADER_STAGE_FX_TAG] = T2RESFT_S5_MIMA_FIELD;
+	envelope[T2REC_HEADER_CALLBACK_PROFILE] = T2RECP_S5_MIMA;
+	envelope[T2REC_HEADER_RESOURCE_ID] = T2RERI_STAGE_5;
+	envelope[T2REC_HEADER_INPUT_SEMANTICS] =
+		T2REPLAY_INPUT_SEMANTICS_KEY_DET;
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_DECODED_SIZE,
+		(T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE -
+		 T2REPLAY_EXACT_CHECKPOINT_SIZE)
+	);
+	payload_offset = T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	for(group_id = 0; group_id < T2REPLAY_CHECKPOINT_GROUP_COUNT;
+		group_id++) {
+		payload_size = t2replay_checkpoint_group_size(group_id);
+		if(
+			(payload_size == 0) ||
+			!t2replay_checkpoint_group_capture(
+				group_id, envelope + payload_offset
+			)
+		) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, group_id, 0, payload_offset, payload_size
+		);
+		payload_offset += payload_size;
+	}
+	if(!th02_actor_core_state_wire_capture(
+		envelope + payload_offset, T2REPLAY_EXACT_ACTOR_CORE_SIZE
+	)) {
+		return false;
+	}
+	t2replay_exact_group_set(
+		envelope, T2RXGI_ACTOR_CORE, 0, payload_offset,
+		T2REPLAY_EXACT_ACTOR_CORE_SIZE
+	);
+	payload_offset += T2REPLAY_EXACT_ACTOR_CORE_SIZE;
+	if(!th02_s5_mima_state_wire_capture(
+		envelope + payload_offset, T2REPLAY_EXACT_S5_MIMA_SIZE
+	)) {
+		return false;
+	}
+	t2replay_exact_group_set(
+		envelope, T2RXGI_ACTOR_STAGE, 0, payload_offset,
+		T2REPLAY_EXACT_S5_MIMA_SIZE
+	);
+	payload_offset += T2REPLAY_EXACT_S5_MIMA_SIZE;
+	for(group_id = T2RXGI_STAGE_FX;
+		group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
+		t2replay_exact_group_set(
+			envelope, group_id, T2REPLAY_EXACT_GROUP_FLAG_DEFERRED,
+			payload_offset, 0
+		);
+	}
+	if(payload_offset != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) {
+		return false;
+	}
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_CONTAINER_CHECKSUM,
+		t2replay_exact_checkpoint_checksum(envelope, envelope_size)
+	);
+	return (
+		replay_exact_checkpoint_validate(envelope, envelope_size, boundary) ==
+		T2REC_DEFERRED_CODECS
+	);
 }
 
 static bool t2replay_magic_matches(const char far *magic, char last)

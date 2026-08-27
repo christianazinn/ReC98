@@ -103,3 +103,140 @@ bool16 far th02_actor_core_state_apply(
 	bomb_damage_frame_mask = state->bomb_damage_frame_mask;
 	return true;
 }
+
+// Keep the existing state owner exact and append the private byte codec in its
+// own tail. The replay envelope consumes bytes, never compiler struct layout.
+#pragma codeseg T2ACTCORECKPT_TEXT
+
+static void near th02_actor_core_wire_put_u16(
+	uint8_t far *wire, uint16_t& offset, uint16_t value
+)
+{
+	wire[offset++] = static_cast<uint8_t>(value);
+	wire[offset++] = static_cast<uint8_t>(value >> 8);
+}
+
+static uint16_t near th02_actor_core_wire_take_u16(
+	const uint8_t far *wire, uint16_t& offset
+)
+{
+	uint16_t value = static_cast<uint16_t>(
+		static_cast<uint16_t>(wire[offset]) |
+		(static_cast<uint16_t>(wire[offset + 1]) << 8)
+	);
+
+	offset += 2;
+	return value;
+}
+
+static bool16 near th02_actor_core_state_wire_encode(
+	uint8_t far *wire, uint16_t wire_size,
+	const th02_actor_core_state_t *state
+)
+{
+	uint16_t offset = 0;
+	int page;
+
+	if(
+		(wire == 0) ||
+		(wire_size != TH02_ACTOR_CORE_WIRE_SIZE) ||
+		!th02_actor_core_state_validate(state)
+	) {
+		return false;
+	}
+	th02_actor_core_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->patnum)
+	);
+	th02_actor_core_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->phase_frame)
+	);
+	for(page = 0; page < PAGE_COUNT; page++) {
+		th02_actor_core_wire_put_u16(
+			wire, offset, static_cast<uint16_t>(state->left_on_page[page])
+		);
+	}
+	for(page = 0; page < PAGE_COUNT; page++) {
+		th02_actor_core_wire_put_u16(
+			wire, offset, static_cast<uint16_t>(state->top_on_page[page])
+		);
+	}
+	th02_actor_core_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->damage)
+	);
+	wire[offset++] = state->phase;
+	wire[offset++] = static_cast<uint8_t>(state->hit_flash);
+	for(page = 0; page < 5; page++) {
+		wire[offset++] = state->rank_param[page];
+	}
+	wire[offset++] = state->explode_angle_offset;
+	wire[offset++] = state->bomb_damage_frame_mask;
+	return (offset == TH02_ACTOR_CORE_WIRE_SIZE);
+}
+
+static bool16 near th02_actor_core_state_wire_decode(
+	th02_actor_core_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_actor_core_state_t decoded;
+	uint16_t offset = 0;
+	int page;
+
+	if((state == 0) || (wire == 0) ||
+		(wire_size != TH02_ACTOR_CORE_WIRE_SIZE)) {
+		return false;
+	}
+	decoded.patnum = static_cast<int16_t>(
+		th02_actor_core_wire_take_u16(wire, offset)
+	);
+	decoded.phase_frame = static_cast<int16_t>(
+		th02_actor_core_wire_take_u16(wire, offset)
+	);
+	for(page = 0; page < PAGE_COUNT; page++) {
+		decoded.left_on_page[page] = static_cast<screen_x_t>(
+			th02_actor_core_wire_take_u16(wire, offset)
+		);
+	}
+	for(page = 0; page < PAGE_COUNT; page++) {
+		decoded.top_on_page[page] = static_cast<screen_y_t>(
+			th02_actor_core_wire_take_u16(wire, offset)
+		);
+	}
+	decoded.damage = static_cast<int16_t>(
+		th02_actor_core_wire_take_u16(wire, offset)
+	);
+	decoded.phase = wire[offset++];
+	decoded.hit_flash = static_cast<bool16>(wire[offset++]);
+	for(page = 0; page < 5; page++) {
+		decoded.rank_param[page] = wire[offset++];
+	}
+	decoded.explode_angle_offset = wire[offset++];
+	decoded.bomb_damage_frame_mask = wire[offset++];
+	if((offset != TH02_ACTOR_CORE_WIRE_SIZE) ||
+		!th02_actor_core_state_validate(&decoded)) {
+		return false;
+	}
+	*state = decoded;
+	return true;
+}
+
+bool16 far th02_actor_core_state_wire_capture(
+	uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_actor_core_state_t captured;
+
+	return (
+		th02_actor_core_state_capture(&captured) &&
+		th02_actor_core_state_wire_encode(wire, wire_size, &captured)
+	);
+}
+
+bool16 far th02_actor_core_state_wire_valid(
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_actor_core_state_t decoded;
+
+	return th02_actor_core_state_wire_decode(&decoded, wire, wire_size);
+}

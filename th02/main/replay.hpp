@@ -67,7 +67,15 @@ bool replay_exact_checkpoint_boundary_available(
 // Validation is transactional: it reads only [envelope] and [boundary], never
 // changes gameplay state, and always rejects schema 1 as codec work is absent.
 enum t2rec_reject_t replay_exact_checkpoint_validate(
-	const uint8_t *envelope, uint32_t envelope_size,
+	const uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
+// Builds only the registered schema-2 Stage 5 Mima capture. Its stage-FX,
+// tile-logic, palette, callback, and redraw groups remain explicitly deferred,
+// so this is not a live seek hook or an apply entry point.
+bool16 replay_exact_stage5_mima_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
 	const struct t2rec_boundary_t *boundary
 );
 

@@ -55,6 +55,24 @@
 #define T2REPLAY_EXACT_CHECKPOINT_SOURCE_FINGERPRINT 0xE2C5A401UL
 #define T2REPLAY_EXACT_BOUNDARY_GENERATION 1
 
+// Schema 2 remains a private, capture-only T2XCK1 form. It registers the
+// canonical schema-4 common payloads together with the pointer-free Stage 5
+// Mima and generic actor owners. The remaining exact groups are explicitly
+// deferred, so no reader can mistake this partial record for a seekable save.
+#define T2REPLAY_EXACT_S5_MIMA_SCHEMA 2
+#define T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT 0x50F9D052UL
+#define T2REPLAY_EXACT_GROUP_FLAG_DEFERRED 0x01
+#define T2REPLAY_EXACT_ACTOR_CORE_SIZE 23
+#define T2REPLAY_EXACT_S5_MIMA_SIZE 164
+#define T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_CHECKPOINT_SIZE + \
+	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE - \
+	 T2REPLAY_CHECKPOINT_HEADER_SIZE - \
+	 (T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE)) + \
+	T2REPLAY_EXACT_ACTOR_CORE_SIZE + \
+	T2REPLAY_EXACT_S5_MIMA_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_KNOWN_FLAGS (T2REPLAY_FLAG_RLE_INPUT | T2REPLAY_FLAG_FULL_INPUT)
@@ -344,6 +362,9 @@ typedef char t2rck_capture_size_check[
 ];
 typedef char t2rec_envelope_size_check[
 	(T2REPLAY_EXACT_CHECKPOINT_SIZE == 428) ? 1 : -1
+];
+typedef char t2rec_s5_mima_capture_size_check[
+	(T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE == 7565) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
