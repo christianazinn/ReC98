@@ -90,6 +90,7 @@ static bool t2replay_pending_valid;
 static bool t2replay_failed;
 static bool t2replay_finished;
 static bool t2replay_playback_exit;
+static bool t2replay_save_prompted;
 static bool t2replay_stage_seen;
 static uint8_t t2replay_last_stage;
 static uint8_t t2replay_practice_target;
@@ -1609,6 +1610,21 @@ static void t2replay_paths_init(void)
 	t2replay_paths_ready = true;
 }
 
+static void t2replay_save_request_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'S';
+	fn[4] = 'A';
+	fn[5] = 'V';
+	fn[6] = '.';
+	fn[7] = 'C';
+	fn[8] = 'F';
+	fn[9] = 'G';
+	fn[10] = '\0';
+}
+
 static void t2replay_slot_set(uint8_t slot)
 {
 	t2replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
@@ -1785,6 +1801,15 @@ static void t2replay_dos_delete(const char far *fn)
 	}
 }
 
+static void t2replay_pending_files_delete(void)
+{
+	char request_fn[11];
+
+	t2replay_save_request_fn_set(request_fn);
+	t2replay_dos_delete(request_fn);
+	t2replay_dos_delete(t2replay_slot_fn);
+}
+
 static uint32_t t2replay_fnv1a(
 	uint32_t hash, const void far *buf, unsigned size
 )
@@ -1797,6 +1822,87 @@ static uint32_t t2replay_fnv1a(
 		size--;
 	}
 	return hash;
+}
+
+static bool t2replay_save_request_read(t2replay_save_request_t far *request)
+{
+	char request_fn[11];
+	uint32_t file_size;
+	uint32_t stored;
+	uint32_t computed;
+	int fd;
+	unsigned read;
+
+	t2replay_save_request_fn_set(request_fn);
+	fd = t2replay_dos_open(request_fn, T2REPLAY_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	t2replay_memclear(request, sizeof(*request));
+	read = t2replay_dos_read(fd, request, sizeof(*request));
+	if(!t2replay_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2replay_dos_close(fd);
+	stored = request->checksum;
+	request->checksum = 0;
+	computed = t2replay_fnv1a(T2REPLAY_FNV1A_BASIS, request, sizeof(*request));
+	request->checksum = stored;
+	return (
+		(read == sizeof(*request)) &&
+		(file_size == sizeof(*request)) &&
+		(request->magic[0] == 'T') &&
+		(request->magic[1] == '2') &&
+		(request->magic[2] == 'R') &&
+		(request->magic[3] == 'S') &&
+		(request->magic[4] == 'A') &&
+		(request->magic[5] == 'V') &&
+		(request->magic[6] == '1') &&
+		(request->magic[7] == '\0') &&
+		(request->schema == T2REPLAY_SAVE_REQUEST_SCHEMA) &&
+		(request->source == T2REPLAY_SAVE_REQUEST_POSTGAME) &&
+		(request->reserved == 0) &&
+		(request->replay_header_checksum != 0) &&
+		(stored == computed)
+	);
+}
+
+static bool t2replay_save_request_write(void)
+{
+	char request_fn[11];
+	t2replay_save_request_t request;
+	int fd;
+	bool ok;
+
+	t2replay_save_request_fn_set(request_fn);
+	t2replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T';
+	request.magic[1] = '2';
+	request.magic[2] = 'R';
+	request.magic[3] = 'S';
+	request.magic[4] = 'A';
+	request.magic[5] = 'V';
+	request.magic[6] = '1';
+	request.magic[7] = '\0';
+	request.schema = T2REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = T2REPLAY_SAVE_REQUEST_POSTGAME;
+	request.replay_header_checksum = t2replay_header.header_checksum;
+	request.checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	t2replay_dos_delete(request_fn);
+	fd = t2replay_dos_create(request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t2replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	);
+	t2replay_dos_close(fd);
+	if(!ok) {
+		t2replay_dos_delete(request_fn);
+	}
+	return ok;
 }
 
 static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
@@ -2848,8 +2954,14 @@ static void t2replay_finalize(uint8_t end_reason)
 		t2replay_header.status = (
 			t2replay_failed ? T2REPLAY_STATUS_ERROR : T2REPLAY_STATUS_FINALIZED
 		);
-		if(!t2replay_header_write(false)) {
+		if(!t2replay_failed && !t2replay_header_write(false)) {
 			t2replay_failed = true;
+		}
+		if(!t2replay_failed && !t2replay_save_request_write()) {
+			t2replay_failed = true;
+		}
+		if(t2replay_failed) {
+			t2replay_pending_files_delete();
 		}
 		t2replay_mode = T2RM_DISABLED;
 	} else {
@@ -2903,9 +3015,12 @@ void replay_entry(void)
 	t2replay_failed = false;
 	t2replay_finished = false;
 	t2replay_playback_exit = false;
+	t2replay_save_prompted = false;
 	t2replay_stage_seen = false;
 	t2replay_practice_target = T2RPT_STAGE_START;
 	if(command_mode == T2REPLAY_COMMAND_PRACTICE) {
+		t2replay_temp_set();
+		t2replay_pending_files_delete();
 		t2replay_start_apply(&command_start);
 		t2replay_practice_target = command_start.reserved[
 			T2REPLAY_PRACTICE_TARGET_OFFSET
@@ -2914,6 +3029,7 @@ void replay_entry(void)
 	}
 	if(command_mode == T2RM_RECORD) {
 		t2replay_mode = T2RM_RECORD;
+		t2replay_pending_files_delete();
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
 			t2replay_header.start = command_start;
@@ -2924,6 +3040,7 @@ void replay_entry(void)
 		}
 		if(!t2replay_start_valid(&t2replay_header.start) ||
 			!t2replay_header_write(true)) {
+			t2replay_pending_files_delete();
 			t2replay_mode = T2RM_DISABLED;
 		}
 	} else if(t2replay_header_read()) {
@@ -3322,6 +3439,43 @@ bool replay_process_end(const char *binary_fn)
 		);
 	}
 	return t2replay_playback_exit;
+}
+
+bool replay_save_request_prompt_needed(void)
+{
+	t2replay_save_request_t request;
+	char request_fn[11];
+
+	if(t2replay_save_prompted) {
+		return false;
+	}
+	t2replay_save_prompted = true;
+	if(
+		(t2replay_header.status != T2REPLAY_STATUS_FINALIZED) ||
+		(t2replay_header.end_reason != T2REPLAY_END_GAME_OVER)
+	) {
+		t2replay_save_request_fn_set(request_fn);
+		t2replay_dos_delete(request_fn);
+		return false;
+	}
+	if(
+		!t2replay_save_request_read(&request) ||
+		(request.replay_header_checksum != t2replay_header.header_checksum)
+	) {
+		// Preserve a malformed T2RPY.TMP for diagnostics, but never its stale
+		// handoff request.
+		t2replay_save_request_fn_set(request_fn);
+		t2replay_dos_delete(request_fn);
+		return false;
+	}
+	return true;
+}
+
+void replay_save_request_discard(void)
+{
+	t2replay_paths_init();
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
 }
 
 bool replay_playback_active(void)

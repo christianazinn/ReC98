@@ -126,6 +126,8 @@ static void t2op_memclear(void far *buf, unsigned size)
 	}
 }
 
+static void t2op_file_delete(const char far *fn);
+
 static void t2op_paths_init(void)
 {
 	if(t2op_paths_ready) {
@@ -173,6 +175,21 @@ static void t2op_temp_set(void)
 	t2op_slot_fn[7] = 'M';
 	t2op_slot_fn[8] = 'P';
 	t2op_slot_fn[9] = '\0';
+}
+
+static void t2op_save_request_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'S';
+	fn[4] = 'A';
+	fn[5] = 'V';
+	fn[6] = '.';
+	fn[7] = 'C';
+	fn[8] = 'F';
+	fn[9] = 'G';
+	fn[10] = '\0';
 }
 
 static bool t2op_bytes_zero(const uint8_t far *p, unsigned size)
@@ -437,6 +454,49 @@ static unsigned t2op_dos_read(int fh, void far *buf, unsigned size)
 	return result;
 }
 
+static bool t2op_save_request_read(
+	const char far *fn, t2replay_save_request_t far *request
+)
+{
+	uint32_t file_size;
+	uint32_t stored;
+	uint32_t computed;
+	int fd;
+	unsigned read;
+
+	fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	t2op_memclear(request, sizeof(*request));
+	read = t2op_dos_read(fd, request, sizeof(*request));
+	if(!t2op_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2op_dos_close(fd);
+	stored = request->checksum;
+	request->checksum = 0;
+	computed = t2op_fnv1a(T2REPLAY_FNV1A_BASIS, request, sizeof(*request));
+	request->checksum = stored;
+	return (
+		(read == sizeof(*request)) &&
+		(file_size == sizeof(*request)) &&
+		(request->magic[0] == 'T') &&
+		(request->magic[1] == '2') &&
+		(request->magic[2] == 'R') &&
+		(request->magic[3] == 'S') &&
+		(request->magic[4] == 'A') &&
+		(request->magic[5] == 'V') &&
+		(request->magic[6] == '1') &&
+		(request->magic[7] == '\0') &&
+		(request->schema == T2REPLAY_SAVE_REQUEST_SCHEMA) &&
+		(request->source == T2REPLAY_SAVE_REQUEST_POSTGAME) &&
+		(request->reserved == 0) &&
+		(request->replay_header_checksum != 0) &&
+		(stored == computed)
+	);
+}
+
 static bool t2op_packet_valid(
 	const char far *packet, uint32_t *samples, bool *terminal_seen
 )
@@ -570,6 +630,26 @@ static bool t2op_pending_replay_validate(const char far *fn)
 	return true;
 }
 
+static bool t2op_pending_request_valid(void)
+{
+	char request_fn[11];
+	t2replay_save_request_t request;
+
+	t2op_paths_init();
+	t2op_save_request_fn_set(request_fn);
+	t2op_temp_set();
+	if(
+		!t2op_save_request_read(request_fn, &request) ||
+		!t2op_pending_replay_validate(t2op_slot_fn) ||
+		(request.replay_header_checksum != t2op_header.header_checksum)
+	) {
+		// Keep an invalid temp for diagnostics, but remove its stale handoff.
+		t2op_file_delete(request_fn);
+		return false;
+	}
+	return true;
+}
+
 static bool t2op_header_read_path(const char *fn)
 {
 	int read;
@@ -597,9 +677,7 @@ static bool t2op_header_read(uint8_t slot)
 
 static bool t2op_pending_header_read(void)
 {
-	t2op_paths_init();
-	t2op_temp_set();
-	return t2op_pending_replay_validate(t2op_slot_fn);
+	return t2op_pending_request_valid();
 }
 
 static bool t2op_command_write(
@@ -1568,11 +1646,15 @@ static void t2op_playback_start(uint8_t slot)
 
 static void t2op_practice_start(void)
 {
+	char request_fn[11];
+
 	// Keep the selected title options persistent. The Practice payload is a
 	// one-run resident override consumed by MAIN, never a new configuration.
 	cfg_save();
 	start_init();
 	t2op_resident_apply(&t2op_practice);
+	t2op_save_request_fn_set(request_fn);
+	t2op_file_delete(request_fn);
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
 	t2op_command_write(
@@ -1586,6 +1668,11 @@ static void t2op_practice_start(void)
 
 static void t2op_record_then_start(bool extra)
 {
+	char request_fn[11];
+
+	t2op_paths_init();
+	t2op_save_request_fn_set(request_fn);
+	t2op_file_delete(request_fn);
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
 	t2op_command_write(T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, 0, 0);
@@ -1751,15 +1838,21 @@ static void t2op_detail(uint8_t slot)
 
 static void t2op_pending_discard(void)
 {
+	char request_fn[11];
+
 	t2op_paths_init();
+	t2op_save_request_fn_set(request_fn);
+	t2op_file_delete(request_fn);
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
 }
 
 static bool t2op_pending_commit(uint8_t slot)
 {
+	char request_fn[11];
 	char destination[11];
 	uint8_t i;
+	bool renamed;
 
 	t2op_paths_init();
 	t2op_slot_set(slot);
@@ -1767,10 +1860,15 @@ static bool t2op_pending_commit(uint8_t slot)
 		destination[i] = t2op_slot_fn[i];
 	}
 	t2op_temp_set();
-	if(!t2op_pending_replay_validate(t2op_slot_fn)) {
+	if(!t2op_pending_request_valid()) {
 		return false;
 	}
-	return t2op_file_rename(t2op_slot_fn, destination);
+	renamed = t2op_file_rename(t2op_slot_fn, destination);
+	if(renamed) {
+		t2op_save_request_fn_set(request_fn);
+		t2op_file_delete(request_fn);
+	}
+	return renamed;
 }
 
 static void t2op_browser(bool save_pending)

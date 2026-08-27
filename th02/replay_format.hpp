@@ -9,6 +9,7 @@
 #define T2REPLAY_PACKET_SIZE 4
 #define T2REPLAY_START_SIZE 36
 #define T2REPLAY_COMMAND_SIZE 52
+#define T2REPLAY_SAVE_REQUEST_SIZE 20
 #define T2REPLAY_STAGE_COUNT 6
 #define T2REPLAY_SLOT_COUNT 100
 // A command-only capture target. MAIN writes this to T2RPY.TMP; OP chooses the
@@ -84,6 +85,9 @@
 
 #define T2REPLAY_END_GAME_OVER 1
 #define T2REPLAY_END_CLEAR 2
+
+#define T2REPLAY_SAVE_REQUEST_SCHEMA 1
+#define T2REPLAY_SAVE_REQUEST_POSTGAME 0
 
 #define T2REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T2REPLAY_FNV1A_PRIME 0x01000193UL
@@ -294,6 +298,17 @@ struct t2replay_command_t {
 	uint8_t reserved[4];
 };
 
+// The pending-save handoff is deliberately separate from T2RPY.TMP: this
+// compact checksummed request binds OP admission to one finalized header.
+struct t2replay_save_request_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -305,6 +320,9 @@ typedef char t2replay_packet_size_check[
 ];
 typedef char t2replay_command_size_check[
 	(sizeof(t2replay_command_t) == T2REPLAY_COMMAND_SIZE) ? 1 : -1
+];
+typedef char t2replay_save_request_size_check[
+	(sizeof(t2replay_save_request_t) == T2REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t2rck_capture_size_check[
 	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (

@@ -14,8 +14,13 @@
 // name still comes from this wrapper's own basename (kb/codegen/0105).
 #pragma option -zPmain_01 -G
 
+#pragma codeseg T2GOSAVE_TEXT
+void far t2gosave_post_regist(void);
+#pragma codeseg POINTNUM_TEXT main_01
+
 #include "th02/main/continue.cpp"
 #include "th02/main/gameexecl.cpp"
 #include "th02/main/player/reset.cpp"
 #include "th02/main/player/invalidate.cpp"
 #include "th02/main/pointnum/pointnum.cpp"
+#include "th02/main/gameover_save.cpp"

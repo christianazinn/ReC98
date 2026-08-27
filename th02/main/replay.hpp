@@ -83,6 +83,11 @@ bool replay_gameover(void);
 // GameExecl() tears the current process down. Returns true to launch OP.
 bool replay_process_end(const char *binary_fn);
 
+// The post-registration wrapper asks at most once per MAIN process. A malformed
+// sidecar is discarded without making its capture actionable.
+bool replay_save_request_prompt_needed(void);
+void replay_save_request_discard(void);
+
 bool replay_playback_active(void);
 
 #endif /* TH02_MAIN_REPLAY_HPP */
