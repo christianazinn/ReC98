@@ -4,6 +4,8 @@
 // Owns the patch title surface while the original Option menu remains active
 // behind [in_option].
 void replay_title_update_and_render(void);
+void replay_title_background_restore(void);
+extern bool replay_title_restore_needed;
 
 // Replaces op_animate()'s existing far snd_load() call without changing that
 // original contribution's size. A Restart command is consumed before the

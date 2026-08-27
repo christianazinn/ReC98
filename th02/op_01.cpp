@@ -27,6 +27,7 @@
 #include "th02/op/menu.hpp"
 #include "th02/op/m_music.hpp"
 #include "th02/op/replay.hpp"
+#include "th02/language.hpp"
 
 #pragma option -2 -a2
 
@@ -116,7 +117,7 @@ void text_wipe(void)
 
 void pascal near pi_load_put_8_free_to(const char near *fn, char page)
 {
-	pi_load(0, fn);
+	t2_language_pi_load(0, fn);
 	graph_accesspage(page);
 	pi_palette_apply(0);
 	pi_put_8(0, 0, 0);
@@ -720,83 +721,66 @@ inline char option_bgm_max()   { return SND_BGM_MIDI; }
 inline char option_lives_max() { return CFG_LIVES_MAX; }
 inline char option_bombs_max() { return CFG_BOMBS_MAX; }
 
+// Keep the stock updater's two initialized static bytes in OP_01's original
+// DATA contribution after moving its state machine into the patch tail.
+static volatile uint8_t t2_language_stock_option_data_pad[2] = { 0, 0 };
+
 void option_update_and_render(void)
 {
-	static bool input_allowed = false;
-	static bool initialized = false;
+	t2_language_option_update_and_render();
+}
 
-	#define option_change(ring_direction) \
-		option_put(menu_sel, TX_YELLOW); \
-		switch(menu_sel) { \
-		case 0: \
-			ring_direction(rank, option_rank_max()); \
-			break; \
-		case 1: \
-			ring_direction((char)snd_bgm_mode, option_bgm_max()); \
-			snd_bgm_restart(); \
-			break; \
-		case 2: \
-			ring_direction(lives, option_lives_max()); \
-			break; \
-		case 3: \
-			ring_direction(bombs, option_bombs_max()); \
-			break; \
-		case 4: \
-			resident->reduce_effects = (true - resident->reduce_effects); \
-			break; \
-		} \
-		option_put(menu_sel, TX_WHITE);
-
-	if(!initialized) {
-		menu_init(initialized, input_allowed, option_put_shadow);
-		for(int i = 0; i < 7; i++) {
-			option_put(i, menu_sel == i ? TX_WHITE : TX_YELLOW);
+void far pascal t2_language_op_bridge(
+	t2_language_op_bridge_func_t func, int sel, int value
+)
+{
+	if(func == T2LOB_OPTION_SHADOW) {
+		option_label_put_shadow(0, gbRANK);
+		option_label_put_shadow(1, gbMUSIC);
+		option_label_put_shadow(2, gbPLAYER);
+		option_label_put_shadow(3, gbBOMB);
+		graph_putsa_fx(
+			shadow(OPTION_LABEL_LEFT), shadow(choice_top(4)), 0, REDUCE_LABEL
+		);
+		command_put_shadow(6, gbRESET, 5);
+		command_put_shadow(7, gbQUIT, 4);
+	} else if(func == T2LOB_OPTION_PUT) {
+		if(sel < 5) {
+			option_put(sel, static_cast<tram_atrb2>(value));
+		} else if(sel == 6) {
+			command_put(6, gbRESET, 5, static_cast<tram_atrb2>(value));
+		} else if(sel == 7) {
+			command_put(7, gbQUIT, 4, static_cast<tram_atrb2>(value));
 		}
-		menu_put = option_put;
-	}
-	if(!key_det) {
-		input_allowed = 1;
-	}
-	if(input_allowed) {
-		menu_update_vertical(key_det, 7);
-		if(key_det & INPUT_RIGHT) {
-			option_change(ring_inc);
-		}
-		if(key_det & INPUT_LEFT) {
-			option_change(ring_dec);
-		}
-		if(key_det & INPUT_SHOT || key_det & INPUT_OK) {
-			switch(menu_sel) {
-			case 5:
-				rank = RANK_NORMAL;
-				snd_bgm_mode = SND_BGM_FM;
-				snd_kaja_func(KAJA_SONG_STOP, 0);
-				snd_midi_active = false;
-				snd_determine_mode();
-				snd_kaja_func(KAJA_SONG_PLAY ,0);
-				lives = CFG_LIVES_DEFAULT;
-				bombs = CFG_BOMBS_DEFAULT;
-				resident->unused_2 = 1;
-				resident->reduce_effects = false;
-				option_put(0, TX_YELLOW);
-				option_put(1, TX_YELLOW);
-				option_put(2, TX_YELLOW);
-				option_put(3, TX_YELLOW);
-				option_put(4, TX_YELLOW);
-				break;
-			case 6:
-				option_quit(initialized);
-				break;
-			}
-		}
-		if(key_det & INPUT_CANCEL) {
-			option_quit(initialized);
-		}
-		if(key_det) {
-			input_allowed = false;
-		}
+	} else if(func == T2LOB_BGM_RESTART) {
+		snd_bgm_restart();
+	} else if(func == T2LOB_OPTION_RESET) {
+		rank = RANK_NORMAL;
+		snd_bgm_mode = SND_BGM_FM;
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		snd_midi_active = false;
+		snd_determine_mode();
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+		lives = CFG_LIVES_DEFAULT;
+		bombs = CFG_BOMBS_DEFAULT;
+		resident->unused_2 = 1;
+		resident->reduce_effects = false;
 	}
 }
+
+// Keep _main and every following OP_01_TEXT symbol at their stock offsets.
+// The trampoline and bridge above occupy 310 of the original updater's 623
+// bytes; these 313 bytes preserve the remainder of that span.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 int main(void)
 {
@@ -815,7 +799,7 @@ int main(void)
 		return 1;
 	}
 	gaiji_backup();
-	gaiji_entry_bfnt("MIKOFT.bft");
+	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
 	if(resident->demo_num == 0) {
 		demo_num = 1;
 		snd_kaja_func(KAJA_SONG_STOP, 0);

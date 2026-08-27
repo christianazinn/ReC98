@@ -24,4 +24,26 @@ bool far t2_language_set(t2_language_preference_t preference);
 bool far t2_language_overlay_valid(void);
 bool far t2_language_english_ready(void);
 
+// OP-only presentation wrappers. Each English resource load is a complete
+// overlay transaction and restores the stock archive before returning.
+int far pascal t2_language_pi_load(int slot, const char *fn);
+int far pascal t2_language_gaiji_entry_bfnt(const char *fn);
+int far pascal t2_language_file_ropen(const char *fn);
+void far pascal t2_language_file_close(void);
+void far pascal t2_language_option_text(char *label, char *value);
+
+enum t2_language_op_bridge_func_t {
+	T2LOB_OPTION_SHADOW,
+	T2LOB_OPTION_PUT,
+	T2LOB_BGM_RESTART,
+	T2LOB_OPTION_RESET,
+};
+
+// T2LANGOP_TEXT is outside OP_01_TEXT. Route calls to OP's stock near
+// functions through this far entry point in the original code segment.
+void far pascal t2_language_op_bridge(
+	t2_language_op_bridge_func_t func, int sel, int value
+);
+void far pascal t2_language_option_update_and_render(void);
+
 #endif /* TH02_LANGUAGE_HPP */

@@ -117,7 +117,7 @@ static char t2op_slot_fn[11];
 static bool t2op_paths_ready;
 static bool t2op_main_initialized;
 static bool t2op_main_input_allowed;
-static bool t2op_title_restore_needed;
+bool replay_title_restore_needed;
 static uint8_t t2op_main_sel;
 static uint8_t t2op_browser_sel;
 static uint8_t t2op_practice_sel;
@@ -1443,7 +1443,7 @@ static char *t2op_bgm_append(char *p, uint8_t value)
 	return t2op_word_append(p, T2OW_MIDI);
 }
 
-static void t2op_title_background_restore(void)
+void replay_title_background_restore(void)
 {
 	// OP's page 1 is the native title-background source.  Reblit it before
 	// rebuilding patch text so leaving a browser never exposes stale graphics.
@@ -1484,9 +1484,9 @@ static void t2op_main_render(void)
 	char *p;
 	uint8_t row;
 
-	if(t2op_title_restore_needed) {
-		t2op_title_background_restore();
-		t2op_title_restore_needed = false;
+	if(replay_title_restore_needed) {
+		replay_title_background_restore();
+		replay_title_restore_needed = false;
 	} else {
 		text_clear();
 	}
@@ -2661,7 +2661,7 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 		}
 		frame_delay(1);
 	}
-	t2op_title_restore_needed = true;
+	replay_title_restore_needed = true;
 	t2op_main_input_allowed = false;
 	key_det = INPUT_NONE;
 }
@@ -2754,7 +2754,7 @@ static void t2op_practice_menu(void)
 	// but Practice can, so restore the two title-resident portraits.
 	pi_load(2, "ts3.pi");
 	pi_load(1, "ts2.pi");
-	t2op_title_restore_needed = true;
+	replay_title_restore_needed = true;
 	t2op_main_input_allowed = false;
 	key_det = INPUT_NONE;
 }
@@ -2768,7 +2768,7 @@ void replay_title_update_and_render(void)
 		if(t2op_pending_save()) {
 			t2op_main_render();
 		}
-	} else if(t2op_title_restore_needed) {
+	} else if(replay_title_restore_needed) {
 		t2op_main_render();
 	}
 	if(key_det == INPUT_NONE) {
@@ -2805,18 +2805,18 @@ void replay_title_update_and_render(void)
 			score_frames = 2000;
 			text_clear();
 			score_menu();
-			t2op_title_restore_needed = true;
+			replay_title_restore_needed = true;
 			t2op_main_render();
 			break;
 		case T2OMC_OPTIONS:
 			menu_sel = 0;
 			in_option = true;
-			t2op_title_restore_needed = true;
+			replay_title_restore_needed = true;
 			break;
 		case T2OMC_MUSIC:
 			text_clear();
 			musicroom_menu();
-			t2op_title_restore_needed = true;
+			replay_title_restore_needed = true;
 			t2op_main_render();
 			break;
 		default:

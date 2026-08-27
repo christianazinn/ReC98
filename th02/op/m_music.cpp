@@ -36,6 +36,8 @@
 #include "th02/op/m_music.hpp"
 #if (GAME >= 4)
 	#include "th04/language_overlay.hpp"
+#elif (GAME == 2)
+	#include "th02/language.hpp"
 #endif
 #if (GAME == 5)
 #include "th01/math/clamp.hpp"
@@ -515,6 +517,8 @@ void pascal near cmt_load(int track)
 	language_asset_music_file_ropen(FN);
 #elif (GAME == 4)
 	language_asset_file_ropen("_MUSIC.TXT");
+#elif (GAME == 2)
+	t2_language_file_ropen("MUSIC.TXT");
 #else
 	file_ropen("MUSIC.TXT");
 #endif
@@ -524,6 +528,8 @@ void pascal near cmt_load(int track)
 	language_asset_music_file_close();
 #elif (GAME == 4)
 	language_asset_file_close();
+#elif (GAME == 2)
+	t2_language_file_close();
 #else
 	file_close();
 #endif
@@ -1078,7 +1084,10 @@ controls:
 	// ZUN bloat: The call site would have been a better place for this,
 	// especially since it has another copy of the same code with the same
 	// landmine.
-	pi_fullres_load_palette_apply_put_free(0, MENU_MAIN_BG_FN);
+	t2_language_pi_load(0, MENU_MAIN_BG_FN);
+	pi_palette_apply(0);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
 	graph_copy_page(0);
 #endif

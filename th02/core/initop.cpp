@@ -6,7 +6,7 @@
 #include "th02/core/initexit.h"
 #include "th02/formats/pf.hpp"
 
-const char pf_fn[] = PF_FN;
+extern const char pf_fn[] = PF_FN;
 
 int game_init_op(void)
 {
