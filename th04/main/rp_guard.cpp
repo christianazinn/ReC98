@@ -5,13 +5,16 @@
 
 #include "platform.h"
 #include "x86real.h"
-#include <alloc.h>
 #include "th04/main/rp_guard.hpp"
 
 #define RPG_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define RPG_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
 
-#define RPG_SECTOR_BUFFER_SIZE_MAX 4096
+// Both canonical TH04/TH05 HDIs use 1024-byte FAT sectors. A 4096-byte
+// catch-all buffer fails to allocate in TH05's tightest gameplay paths, which
+// would disable every legitimate replay. Refuse non-native larger-sector
+// media explicitly instead of spending 3 KiB of conventional memory forever.
+#define RPG_SECTOR_BUFFER_SIZE_MAX 1024
 #define RPG_ABS_READ_PACKET_SIZE 10
 #define RPG_SECTOR_ALLOCATION_SIZE \
 	(RPG_SECTOR_BUFFER_SIZE_MAX + \
@@ -391,27 +394,14 @@ static void rpg_committed_set(uint32_t size)
 /// The packet shares this allocation at a fixed offset so both far pointers
 /// have one segment and the packet cannot straddle a 64 KB boundary.
 
-static uint8_t far *rpg_buffer;
+static uint8_t rpg_buffer[RPG_SECTOR_ALLOCATION_SIZE];
 
 static void rpg_local_free(void)
 {
-	if(rpg_buffer) {
-		farfree(rpg_buffer);
-		rpg_buffer = 0;
-	}
 }
 
 static bool rpg_ctx_alloc(rpg_ctx_t far *ctx)
 {
-	if(!rpg_buffer) {
-		rpg_buffer = reinterpret_cast<uint8_t far *>(
-			farmalloc(RPG_SECTOR_ALLOCATION_SIZE)
-		);
-		if(!rpg_buffer) {
-			rpg_diag_code_set_if_none(RPG_CTX_ALLOC);
-			return false;
-		}
-	}
 	ctx->sector = rpg_buffer;
 	ctx->packet = (rpg_buffer + RPG_SECTOR_BUFFER_SIZE_MAX);
 	return true;
@@ -617,8 +607,7 @@ static uint32_t rpg_u32_at(const uint8_t far *p, unsigned offset)
 static bool rpg_sector_size_ok(uint16_t bytes_per_sector)
 {
 	return (
-		(bytes_per_sector == 512) || (bytes_per_sector == 1024) ||
-		(bytes_per_sector == 2048) || (bytes_per_sector == 4096)
+		(bytes_per_sector == 512) || (bytes_per_sector == 1024)
 	);
 }
 
@@ -638,8 +627,6 @@ static uint8_t rpg_power_of_two_shift(uint16_t value)
 	case 256:  return 8;
 	case 512:  return 9;
 	case 1024: return 10;
-	case 2048: return 11;
-	case 4096: return 12;
 	}
 	return 0xFF;
 }
@@ -1626,4 +1613,4 @@ void replay_protect_end(void)
 }
 
 // Keep the following CRT segment at its accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
