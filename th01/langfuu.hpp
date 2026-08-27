@@ -24,6 +24,23 @@ enum t1lang_fuuin_regist_text_t {
 	T1LFRT_STAGE_JIGOKU,
 };
 
+enum t1lang_fuuin_verdict_text_t {
+	T1LFVT_RANK = 0,
+	T1LFVT_SCORE_HIGHEST,
+	T1LFVT_SCORE,
+	T1LFVT_CONTINUES,
+	T1LFVT_SHRINE,
+	T1LFVT_MAKAI_1,
+	T1LFVT_MAKAI_2,
+	T1LFVT_MAKAI_3,
+	T1LFVT_JIGOKU_1,
+	T1LFVT_JIGOKU_2,
+	T1LFVT_JIGOKU_3,
+	T1LFVT_MAKAI_TOTAL,
+	T1LFVT_JIGOKU_TOTAL,
+	T1LFVT_HEADING,
+};
+
 // Renders one registration label, falling back to [japanese] unless the
 // process-entry preference selected the validated English donor text.
 void far t1lang_fuuin_regist_put(
@@ -36,6 +53,20 @@ void far t1lang_fuuin_regist_put(
 bool far t1lang_fuuin_regist_title_put(
 	screen_x_t left, screen_y_t top, int col_and_fx,
 	const shiftjis_t *japanese_format, int rank
+);
+
+// Materializes the validated English v1.00 verdict donor strings without
+// adding translated initialized data to FUUIN's DGROUP.
+bool far t1lang_fuuin_verdict_english_build(
+	shiftjis_t *out, t1lang_fuuin_verdict_text_t text
+);
+bool far t1lang_fuuin_verdict_title_english_build(
+	shiftjis_t *out, int group, int level
+);
+pixel_t far t1lang_fuuin_verdict_max_w(
+	const shiftjis_t *rank, unsigned long score_highest, unsigned long score,
+	const int32_t *continues_per_scene, unsigned long continues_total,
+	bool16 makai_route
 );
 
 #endif /* TH01_LANGUAGE_FUUIN_HPP */
