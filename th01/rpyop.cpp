@@ -957,10 +957,22 @@ static void t1replay_op_backing_restore(void)
  * module's private code path. */
 enum t1replay_op_word_t {
 	T1ROW_REPLAY_BROWSER,
+	T1ROW_REPLAY_DETAIL,
 	T1ROW_SAVE_REPLAY,
 	T1ROW_SAVE,
 	T1ROW_DISCARD,
 	T1ROW_SLOT_STATUS_START_STAGE_RANK,
+	T1ROW_SLOT,
+	T1ROW_TERMINAL,
+	T1ROW_HANDOFFS,
+	T1ROW_START_STAGE,
+	T1ROW_START_ROUTE,
+	T1ROW_START_RANK,
+	T1ROW_START_SCORE,
+	T1ROW_START_LIVES,
+	T1ROW_START_BOMBS,
+	T1ROW_START_POINT_VALUE,
+	T1ROW_START_PELLET_SPEED,
 	T1ROW_EMPTY,
 	T1ROW_INVALID,
 	T1ROW_CLEAR,
@@ -1008,12 +1020,35 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
+	case T1ROW_REPLAY_DETAIL:
+		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD4('D', 'E', 'T', 'A'); T1ROW_WORD2('I', 'L'); break;
 	case T1ROW_SAVE_REPLAY:
 		T1ROW_WORD4('S', 'A', 'V', 'E'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SAVE: T1ROW_WORD4('S', 'A', 'V', 'E'); break;
 	case T1ROW_DISCARD: T1ROW_WORD4('D', 'I', 'S', 'C'); T1ROW_WORD3('A', 'R', 'D'); break;
 	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
 		T1ROW_WORD4('S', 'L', 'O', 'T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'T'); T1ROW_WORD2('U', 'S'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
+	case T1ROW_SLOT: T1ROW_WORD4('S', 'L', 'O', 'T'); break;
+	case T1ROW_TERMINAL:
+		T1ROW_WORD4('T', 'E', 'R', 'M'); T1ROW_WORD3('I', 'N', 'A'); T1ROW_WORD1('L'); break;
+	case T1ROW_HANDOFFS:
+		T1ROW_WORD4('H', 'A', 'N', 'D'); T1ROW_WORD3('O', 'F', 'F'); T1ROW_WORD1('S'); break;
+	case T1ROW_START_STAGE:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); break;
+	case T1ROW_START_ROUTE:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('R', 'O', 'U', 'T'); T1ROW_WORD1('E'); break;
+	case T1ROW_START_RANK:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
+	case T1ROW_START_SCORE:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('S', 'C', 'O', 'R'); T1ROW_WORD1('E'); break;
+	case T1ROW_START_LIVES:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('L', 'I', 'V', 'E'); T1ROW_WORD1('S'); break;
+	case T1ROW_START_BOMBS:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('B', 'O', 'M', 'B'); T1ROW_WORD1('S'); break;
+	case T1ROW_START_POINT_VALUE:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('P', 'O', 'I', 'N'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('V', 'A', 'L', 'U'); T1ROW_WORD1('E'); break;
+	case T1ROW_START_PELLET_SPEED:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('P', 'E', 'L', 'L'); T1ROW_WORD2('E', 'T'); T1ROW_SPACE(); T1ROW_WORD4('S', 'P', 'E', 'E'); T1ROW_WORD1('D'); break;
 	case T1ROW_EMPTY: T1ROW_WORD4('E', 'M', 'P', 'T'); T1ROW_WORD1('Y'); break;
 	case T1ROW_INVALID: T1ROW_WORD4('I', 'N', 'V', 'A'); T1ROW_WORD3('L', 'I', 'D'); break;
 	case T1ROW_CLEAR: T1ROW_WORD4('C', 'L', 'E', 'A'); T1ROW_WORD1('R'); break;
@@ -1305,6 +1340,92 @@ static void t1replay_op_save_decision_render(void)
 	t1replay_op_text_value(y, col, p);
 }
 
+// Browser navigation never uses horizontal hold. Its nonzero value therefore
+// preserves the modal detail state without growing the patch-owned BSS tail.
+static bool t1replay_op_detail_active(void)
+{
+	return (t1replay_op_horizontal_hold != 0);
+}
+
+static void t1replay_op_detail_render(void)
+{
+	t1replay_op_slot_t slot;
+	char *p;
+	screen_y_t y = T1REPLAY_OP_TOP;
+	uint8_t slot_id = static_cast<uint8_t>(
+		(t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) + t1replay_op_sel
+	);
+
+	t1replay_op_slot_read(slot_id, slot);
+	if(!slot.valid) {
+		t1replay_op_horizontal_hold = 0;
+		return;
+	}
+	t1replay_op_backing_restore();
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_DETAIL);
+	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	y += (T1REPLAY_OP_LINE_H * 2);
+	#define T1REPLAY_OP_DETAIL_LINE(label_word, value_append) \
+		p = t1replay_op_word_append(t1replay_op_text, label_word); \
+		t1replay_op_text_left(y, T1REPLAY_OP_COL_LABEL, p); \
+		p = (value_append); \
+		t1replay_op_text_value(y, T1REPLAY_OP_COL_VALUE, p); \
+		y += T1REPLAY_OP_LINE_H
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_SLOT,
+		t1replay_op_uint_append(t1replay_op_text, slot_id, 2)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_TERMINAL,
+		t1replay_op_word_append(
+			t1replay_op_text,
+			(slot.header.end_reason == T1REPLAY_END_CLEAR) ?
+				T1ROW_CLEAR : T1ROW_MENU
+		)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_HANDOFFS,
+		t1replay_op_uint_append(
+			t1replay_op_text, slot.header.process_count - 1, 1
+		)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_STAGE,
+		t1replay_op_uint_append(t1replay_op_text, slot.header.start.stage_id + 1, 1)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_ROUTE,
+		t1replay_op_route_append(t1replay_op_text, slot.header.start.route)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_RANK,
+		t1replay_op_rank_append(t1replay_op_text, slot.header.start.rank)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_SCORE,
+		t1replay_op_uint_append(t1replay_op_text, slot.header.start.score, 1)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_LIVES,
+		t1replay_op_uint_append(t1replay_op_text, slot.header.start.rem_lives, 1)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_BOMBS,
+		t1replay_op_uint_append(t1replay_op_text, slot.header.start.rem_bombs, 1)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_POINT_VALUE,
+		t1replay_op_uint_append(t1replay_op_text, slot.header.start.point_value, 1)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_START_PELLET_SPEED,
+		t1replay_op_pellet_speed_append(
+			t1replay_op_text, slot.header.start.pellet_speed
+		)
+	);
+	#undef T1REPLAY_OP_DETAIL_LINE
+}
+
 static void t1replay_op_replay_render(void)
 {
 	t1replay_op_slot_t slot;
@@ -1537,6 +1658,28 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 		}
 		return result;
 	}
+	if(t1replay_op_detail_active()) {
+		if(input.cancel) {
+			t1replay_op_horizontal_hold = 0;
+			t1replay_op_input_reset();
+			t1replay_op_replay_render();
+			return result;
+		}
+		if(input.ok) {
+			result.slot = static_cast<uint8_t>(
+				(t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) +
+				t1replay_op_sel
+			);
+			t1replay_op_slot_read(result.slot, slot);
+			if(
+				slot.valid &&
+				t1replay_op_command_write(T1REPLAY_COMMAND_PLAYBACK, result.slot)
+			) {
+				result.action = T1ROA_PLAYBACK;
+			}
+		}
+		return result;
+	}
 	if(input.cancel) {
 		if(t1replay_op_save_pending) {
 			t1replay_op_pending_discard();
@@ -1589,11 +1732,10 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 			}
 		} else {
 			t1replay_op_slot_read(result.slot, slot);
-			if(
-				slot.valid &&
-				t1replay_op_command_write(T1REPLAY_COMMAND_PLAYBACK, result.slot)
-			) {
-				result.action = T1ROA_PLAYBACK;
+			if(slot.valid) {
+				t1replay_op_input_reset();
+				t1replay_op_horizontal_hold = 1;
+				t1replay_op_detail_render();
 			}
 		}
 	}
