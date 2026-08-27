@@ -2,6 +2,10 @@
 /// -------------------------------
 
 #include "th01/main/boss/b20j.hpp"
+#include "th01/replay_format.hpp"
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+	#include "th01/rpypixel.hpp"
+#endif
 #include <stdio.h>
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
@@ -1596,6 +1600,28 @@ void konngara_main(void)
 		initial_hp_rendered = false;
 		boss_palette_snap();
 		random_seed = frame_rand;
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+		t1replay_pixel_probe_konngara_phase1_arm(
+			boss_phase,
+			boss_phase_frame,
+			boss_hp,
+			hud_hp_first_white,
+			hud_hp_first_redwhite,
+			pattern_state.group,
+			face_direction,
+			face_expression,
+			face_direction_can_change,
+			hit.invincible,
+			hit.invincibility_frame,
+			pattern_prev,
+			phase.pattern_cur,
+			phase.patterns_done,
+			initial_hp_rendered,
+			ent_head,
+			ent_face_closed_or_glare,
+			ent_face_aim
+		);
+#endif
 	} else if(boss_phase == 1) {
 		// ZUN bug: Since the fight only ends in Phase 7 at the earliest, HP
 		// subtraction in debug mode can lead to this function being called

@@ -75,6 +75,7 @@
 // through DOS's command tail. Values 1 through 3 select the private capture,
 // sequential, and direct exact-restore profiles. Values 4 and 5 add the
 // measurement-only SinGyoku pixel probe to sequential and direct playback.
+// Value 6 captures the natural Konngara phase-1-frame-0 witness only.
 #ifndef T1RP
 #define T1RP 0
 #endif
@@ -87,12 +88,20 @@
 #endif
 
 #define T1REPLAY_PIXEL_TRACE ((T1RP == 4) || (T1RP == 5))
+#define T1REPLAY_KONNGARA_PHASE1_TRACE (T1RP == 6)
+#define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
+	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE \
+)
 
 // Private semantic tracing for direct-versus-sequential checkpoint evidence.
 // This is not part of T1RPY4 or T1CKP1 and stays absent from release builds.
+// T1RP6 is a bounded pixel witness, not an exact-trace producer.
 #ifndef T1REPLAY_EXACT_TRACE
-	#define T1REPLAY_EXACT_TRACE (T1RP != 0)
+	#define T1REPLAY_EXACT_TRACE ((T1RP >= 1) && (T1RP <= 5))
 #endif
+#define T1REPLAY_WORLD_CAPTURE ( \
+	T1REPLAY_EXACT_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE \
+)
 
 #define T1REPLAY_STATUS_RECORDING 1
 #define T1REPLAY_STATUS_FINALIZED 2

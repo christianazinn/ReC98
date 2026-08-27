@@ -127,8 +127,10 @@ static uint8_t t1replay_keys[T1REPLAY_INPUT_GROUP_COUNT];
 static bool t1replay_checkpoint_capture_attempted;
 static t1replay_checkpoint_t t1replay_checkpoint;
 static bool t1replay_checkpoint_restore_is_pending;
-#if T1REPLAY_EXACT_TRACE
+#if T1REPLAY_WORLD_CAPTURE
 	static t1replay_checkpoint_t t1replay_exact_snapshot;
+#endif
+#if T1REPLAY_EXACT_TRACE
 	static t1replay_exact_trace_row_t
 		t1replay_exact_trace_buffer[T1REPLAY_EXACT_TRACE_BUFFER_ROWS];
 	static t1replay_exact_trace_row_t t1replay_exact_terminal_row;
@@ -2048,7 +2050,7 @@ static void t1replay_state_reset(void)
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
-#if T1REPLAY_PIXEL_TRACE
+#if T1REPLAY_PRIVATE_PIXEL_TRACE
 	t1replay_pixel_probe_reset();
 #endif
 #if T1REPLAY_EXACT_TRACE
@@ -2538,15 +2540,13 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	return true;
 }
 
-#if T1REPLAY_EXACT_TRACE
-static bool t1replay_checkpoint_snapshot_capture(
+#if T1REPLAY_WORLD_CAPTURE
+static bool t1replay_checkpoint_world_snapshot_capture(
 	t1replay_checkpoint_t far *checkpoint, int pellet_speed_raise_cycle,
 	uint32_t sample_anchor, uint32_t packet_anchor, uint32_t input_anchor,
 	uint32_t prefix_checksum, uint8_t process_seq
 )
 {
-	uint32_t digest = T1REPLAY_FNV1A_BASIS;
-
 	t1replay_memclear(checkpoint, sizeof(*checkpoint));
 	checkpoint->header.magic[0] = 'T';
 	checkpoint->header.magic[1] = '1';
@@ -2589,6 +2589,53 @@ static bool t1replay_checkpoint_snapshot_capture(
 	t1replay_missiles_checkpoint_export(&checkpoint->missiles);
 	t1replay_lasers_checkpoint_export(&checkpoint->lasers);
 	t1replay_particles_checkpoint_export(&checkpoint->particles);
+	return true;
+}
+
+static uint32_t t1replay_checkpoint_world_digest(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+
+	#define checkpoint_world_digest(id, field) \
+		digest = t1replay_checkpoint_group_digest( \
+			digest, id, &checkpoint->field, sizeof(checkpoint->field) \
+		)
+	checkpoint_world_digest(T1RCGI_SCENARIO, scenario);
+	checkpoint_world_digest(T1RCGI_RNG, rng);
+	checkpoint_world_digest(T1RCGI_INPUT, input);
+	checkpoint_world_digest(T1RCGI_PACING, pacing);
+	checkpoint_world_digest(T1RCGI_PLAYER, player);
+	checkpoint_world_digest(T1RCGI_ORB, orb);
+	checkpoint_world_digest(T1RCGI_STAGE, stage);
+	checkpoint_world_digest(T1RCGI_ITEMS, items);
+	checkpoint_world_digest(T1RCGI_PELLETS, pellets);
+	checkpoint_world_digest(T1RCGI_SHOTS, shots);
+	checkpoint_world_digest(T1RCGI_MISSILES, missiles);
+	checkpoint_world_digest(T1RCGI_LASERS, lasers);
+	checkpoint_world_digest(T1RCGI_PARTICLES, particles);
+	#undef checkpoint_world_digest
+	return digest;
+}
+
+#endif
+
+#if T1REPLAY_EXACT_TRACE
+static bool t1replay_checkpoint_snapshot_capture(
+	t1replay_checkpoint_t far *checkpoint, int pellet_speed_raise_cycle,
+	uint32_t sample_anchor, uint32_t packet_anchor, uint32_t input_anchor,
+	uint32_t prefix_checksum, uint8_t process_seq
+)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+
+	if(!t1replay_checkpoint_world_snapshot_capture(
+		checkpoint, pellet_speed_raise_cycle, sample_anchor, packet_anchor,
+		input_anchor, prefix_checksum, process_seq
+	)) {
+		return false;
+	}
 	if(!t1replay_checkpoint_boss_capture(&checkpoint->boss)) {
 		return false;
 	}
@@ -2648,6 +2695,17 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 		}
 	}
 #endif
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1replay_pixel_probe_konngara_phase1_pre_input(
+			t1replay_res ? t1replay_res->process_seq : 0,
+			t1replay_header.sample_count, t1replay_header.packet_count,
+			t1replay_header.input_size, pellet_speed_raise_cycle
+		);
+	}
+#endif
+
+#if T1REPLAY_EXACT_TRACE
 	if(
 		(t1replay_mode != T1RM_RECORD) ||
 		t1replay_checkpoint_capture_attempted ||
@@ -2682,6 +2740,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 		T1REPLAY_EXACT_ROW_PRE_INPUT, T1REPLAY_PROCESS_REIIDEN, 0,
 		pellet_speed_raise_cycle
 	);
+#endif
 #endif
 }
 
@@ -2931,6 +2990,15 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
 	uint32_t digest = T1REPLAY_FNV1A_BASIS;
 
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1replay_pixel_probe_konngara_phase1_pre_input(
+			t1replay_res ? t1replay_res->process_seq : 0,
+			t1replay_header.sample_count, t1replay_header.packet_count,
+			t1replay_header.input_size, pellet_speed_raise_cycle
+		);
+	}
+#endif
 	if(
 		(t1replay_mode != T1RM_RECORD) ||
 		t1replay_checkpoint_capture_attempted ||
@@ -3026,6 +3094,73 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	checkpoint->header.container_checksum = t1replay_checkpoint_checksum(
 		checkpoint
 	);
+}
+#endif
+
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+bool16 far t1replay_pixel_probe_world_capture(
+	t1replay_pixel_world_t far *world, int pellet_speed_raise_cycle
+)
+{
+	t1replay_checkpoint_t far *snapshot = &t1replay_exact_snapshot;
+	uint16_t i;
+
+	if(
+		!world || !t1replay_res ||
+		!t1replay_checkpoint_world_snapshot_capture(
+			snapshot, pellet_speed_raise_cycle,
+			t1replay_header.sample_count, t1replay_header.packet_count,
+			t1replay_header.input_size, t1replay_payload_checksum,
+			t1replay_res->process_seq
+		)
+	) {
+		return false;
+	}
+	t1replay_memclear(world, sizeof(*world));
+	world->semantic_digest = t1replay_checkpoint_world_digest(snapshot);
+	world->cards = snapshot->stage.cards_count;
+	world->obstacles = snapshot->stage.obstacles_count;
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT; i++) {
+		if(snapshot->items.bombs[i].flag != 0) {
+			world->bomb_items++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT; i++) {
+		if(snapshot->items.points[i].flag != 0) {
+			world->point_items++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PELLET_COUNT; i++) {
+		const t1replay_checkpoint_pellet_t far *pellet =
+			&snapshot->pellets.pellets[i];
+		if(pellet->moving || pellet->cloud_frame || pellet->decay_frame) {
+			world->pellets++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_SHOT_COUNT; i++) {
+		const t1replay_checkpoint_shot_t far *shot = &snapshot->shots.shots[i];
+		if(shot->moving || shot->decay_frame) {
+			world->shots++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_MISSILE_COUNT; i++) {
+		if(snapshot->missiles.missiles[i].flag != 0) {
+			world->missiles++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_LASER_COUNT; i++) {
+		const t1replay_checkpoint_laser_t far *laser =
+			&snapshot->lasers.lasers[i];
+		if(laser->alive || laser->damaging || laser->put_flag) {
+			world->lasers++;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PARTICLE_COUNT; i++) {
+		if(snapshot->particles.particles[i].alive) {
+			world->particles++;
+		}
+	}
+	return true;
 }
 #endif
 

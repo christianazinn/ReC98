@@ -348,6 +348,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/r/",
 		cflags = "-DT1RP=5",
 	},
+	["t1konngara-phase1"] = {
+		obj_root = "x/k/",
+		bin_root = "x/k/",
+		cflags = "-DT1RP=6",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",
