@@ -2,7 +2,6 @@
 #define TH02_LANGUAGE_HPP
 
 #include "platform.h"
-
 // Patch-owned presentation preference. It deliberately stays outside replay,
 // resident, score-file, configuration, Practice, and simulation state.
 enum t2_language_preference_t {
@@ -31,6 +30,10 @@ int far pascal t2_language_gaiji_entry_bfnt(const char *fn);
 int far pascal t2_language_file_ropen(const char *fn);
 void far pascal t2_language_file_close(void);
 void far pascal t2_language_option_text(char *label, char *value);
+
+// OP's executable-resident presentation tables are selected independently
+// from packfile routing. The Japanese pointers remain the stock defaults.
+void far t2_language_op_tables_apply(void);
 
 enum t2_language_op_bridge_func_t {
 	T2LOB_OPTION_SHADOW,

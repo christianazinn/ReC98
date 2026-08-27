@@ -131,6 +131,7 @@ static void t2_language_option_change(int direction)
 			((target == T2LANG_JAPANESE) || t2_language_english_ready()) &&
 			t2_language_set(target)
 		) {
+			t2_language_op_tables_apply();
 			t2_language_option_gaiji_reload();
 			replay_title_background_restore();
 			// Options still owns the foreground. Force the normal title rebuild

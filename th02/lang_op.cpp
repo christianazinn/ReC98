@@ -3,12 +3,145 @@
 
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "shiftjis.hpp"
+#include "th02/common.h"
 #include "th02/formats/pf.hpp"
 #include "th02/formats/pi.h"
+#include "th02/shiftjis/hiscore.hpp"
+
+extern const shiftjis_t far t2op_en_reduce[];
+extern const shiftjis_t far t2op_en_hiscore[];
+extern const shiftjis_t far t2op_en_character[];
+extern const shiftjis_t far t2op_en_music[];
+
+extern const shiftjis_t *REDUCE_LABEL;
+extern const shiftjis_t *REDUCE_VALUES[2];
+extern const shiftjis_t *SHOTTYPES[SHOTTYPE_COUNT];
+extern const shiftjis_t *DESC[SHOTTYPE_COUNT][3];
+extern const shiftjis_t *CHOOSE;
+extern const shiftjis_t *EXTRA_NOTE[2];
+extern const shiftjis_t *CLEARED;
+extern const shiftjis_t *MUSIC_CHOICES[17];
+extern char need_op_h_bft;
 
 #pragma codeseg T2LANGOP_TEXT
 
 static bool t2_language_op_file_switched;
+
+static bool t2_op_tables_ready;
+static const shiftjis_t *t2_language_jp_reduce_label;
+static const shiftjis_t *t2_language_jp_reduce_values[2];
+static const shiftjis_t *t2_language_jp_shottypes[SHOTTYPE_COUNT];
+static const shiftjis_t *t2_language_jp_desc[SHOTTYPE_COUNT][3];
+static const shiftjis_t *t2_language_jp_choose;
+static const shiftjis_t *t2_language_jp_extra_note[2];
+static const shiftjis_t *t2_language_jp_cleared;
+static const shiftjis_t *t2_language_jp_music_choices[17];
+
+#define T2_OP_HISCORE_HEADER_SIZE 54
+static shiftjis_t t2_language_jp_hiscore_header[T2_OP_HISCORE_HEADER_SIZE];
+static shiftjis_t far *t2_language_hiscore_header_target;
+
+static void t2_op_hiscore_header_copy(
+	shiftjis_t far *destination, const shiftjis_t far *source
+)
+{
+	int i;
+
+	for(i = 0; i < T2_OP_HISCORE_HEADER_SIZE; i++) {
+		destination[i] = source[i];
+	}
+}
+
+static void t2_op_tables_init(void)
+{
+	int i;
+
+	if(t2_op_tables_ready) {
+		return;
+	}
+	t2_language_jp_reduce_label = REDUCE_LABEL;
+	for(i = 0; i < 2; i++) {
+		t2_language_jp_reduce_values[i] = REDUCE_VALUES[i];
+		t2_language_jp_extra_note[i] = EXTRA_NOTE[i];
+	}
+	for(i = 0; i < SHOTTYPE_COUNT; i++) {
+		int line;
+
+		t2_language_jp_shottypes[i] = SHOTTYPES[i];
+		for(line = 0; line < 3; line++) {
+			t2_language_jp_desc[i][line] = DESC[i][line];
+		}
+	}
+	t2_language_jp_choose = CHOOSE;
+	t2_language_jp_cleared = CLEARED;
+	for(i = 0; i < 17; i++) {
+		t2_language_jp_music_choices[i] = MUSIC_CHOICES[i];
+	}
+	// The stock header is an anonymous OP_04 literal. RC24 pins it 0x24 bytes
+	// after need_op_h_bft; the P5 layout gate rejects any future movement.
+	t2_language_hiscore_header_target = (
+		reinterpret_cast<shiftjis_t far *>(&need_op_h_bft) + 0x24
+	);
+	t2_op_hiscore_header_copy(
+		t2_language_jp_hiscore_header,
+		t2_language_hiscore_header_target
+	);
+	t2_op_tables_ready = true;
+}
+
+void far t2_language_op_tables_apply(void)
+{
+	int i;
+
+	t2_op_tables_init();
+	if(t2_language_english_ready()) {
+		REDUCE_LABEL = &t2op_en_reduce[0];
+		REDUCE_VALUES[0] = &t2op_en_reduce[5];
+		REDUCE_VALUES[1] = &t2op_en_reduce[14];
+		for(i = 0; i < SHOTTYPE_COUNT; i++) {
+			int line;
+
+			SHOTTYPES[i] = &t2op_en_hiscore[(i == 0) ? 0 : ((i == 1) ? 7 : 12)];
+			for(line = 0; line < 3; line++) {
+				DESC[i][line] = &t2op_en_character[((i * 69) + (line * 23))];
+			}
+		}
+		t2_op_hiscore_header_copy(
+			t2_language_hiscore_header_target, &t2op_en_hiscore[17]
+		);
+		CHOOSE = &t2op_en_character[207];
+		EXTRA_NOTE[0] = &t2op_en_character[252];
+		EXTRA_NOTE[1] = &t2op_en_character[325];
+		CLEARED = &t2op_en_character[398];
+		for(i = 0; i < 17; i++) {
+			MUSIC_CHOICES[i] = &t2op_en_music[(i * 33)];
+		}
+		return;
+	}
+	REDUCE_LABEL = t2_language_jp_reduce_label;
+	for(i = 0; i < 2; i++) {
+		REDUCE_VALUES[i] = t2_language_jp_reduce_values[i];
+		EXTRA_NOTE[i] = t2_language_jp_extra_note[i];
+	}
+	for(i = 0; i < SHOTTYPE_COUNT; i++) {
+		int line;
+
+		SHOTTYPES[i] = t2_language_jp_shottypes[i];
+		for(line = 0; line < 3; line++) {
+			DESC[i][line] = t2_language_jp_desc[i][line];
+		}
+	}
+	t2_op_hiscore_header_copy(
+		t2_language_hiscore_header_target,
+		t2_language_jp_hiscore_header
+	);
+	CHOOSE = t2_language_jp_choose;
+	CLEARED = t2_language_jp_cleared;
+	for(i = 0; i < 17; i++) {
+		MUSIC_CHOICES[i] = t2_language_jp_music_choices[i];
+	}
+}
 
 static uint8_t t2_language_ascii_upper(uint8_t c)
 {
@@ -87,6 +220,7 @@ int far pascal t2_language_gaiji_entry_bfnt(const char *fn)
 	// OP's first language-sensitive operation is its startup gaiji load. Loading
 	// the preference here keeps the original main() contribution byte-stable.
 	t2_language_load();
+	t2_language_op_tables_apply();
 	bool switched = t2_language_op_begin(fn);
 	int ret = gaiji_entry_bfnt(fn);
 

@@ -595,6 +595,9 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_music.cpp",
 	-- Keep process-local language state after every OP owner and replay tail.
 	"th02/lang_op.cpp",
+	-- English v1.00's remaining OP-resident presentation strings. Keep this
+	-- ungrouped CODE segment last so no stock initialized-data address moves.
+	"th02/op/langstr.asm",
 })
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	{ "th02_main.asm", extra_inputs = {
