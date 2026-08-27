@@ -21,6 +21,7 @@
 #include "th01/hardware/palette.h"
 #include "th01/formats/cfg.hpp"
 #include "th01/formats/grp.h"
+#include "th01/language.hpp"
 #include "th01/replay_op.hpp"
 #include "th01/snd/mdrv2.h"
 #include "th01/shiftjis/debug.hpp"
@@ -891,6 +892,7 @@ void main(int argc, const char *argv[])
 	mdrv2_enable_if_board_installed();
 	game_init();
 	cfg_load();
+	t1_language_load();
 
 	bgm_mode_cur = opts.bgm_mode;
 

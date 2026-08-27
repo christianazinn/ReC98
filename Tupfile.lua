@@ -446,6 +446,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- Keep patch-owned title state after every original OP object so new BSS
 	-- cannot move original resident variables.
 	"th01/rpyop.cpp",
+	"th01/language.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	piloadc,
@@ -510,6 +511,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/rboss.cpp",
 	"th01/rpypause.cpp",
 	"th01/rpypixel.cpp",
+	"th01/language.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
@@ -533,6 +535,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	-- Must stay last: FUUIN's replay code and BSS are additive trailing
 	-- contributions and must not move any original owner.
 	"th01/rpyfuuin.cpp",
+	"th01/language.cpp",
 })
 -- ----
 

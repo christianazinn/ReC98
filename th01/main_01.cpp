@@ -13,6 +13,7 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/core/resstuff.hpp"
+#include "th01/language.hpp"
 #include "th01/replay.hpp"
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
@@ -536,6 +537,7 @@ int main(void)
 		error_resident_invalid();
 		return 1;
 	}
+	t1_language_load();
 	// Must run before resident_stuff_get(): first-process playback restores the
 	// exact resident start block before REIIDEN derives globals and RNG state.
 	t1replay_entry();

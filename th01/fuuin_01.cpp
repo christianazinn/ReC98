@@ -10,6 +10,7 @@
 #include "libs/master.lib/master.hpp"
 #include "th01/resident.hpp"
 #include "th01/rpyfuuin.hpp"
+#include "th01/language.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/end/end.hpp"
 #include "th01/snd/mdrv2.h"
@@ -101,6 +102,7 @@ void main(int argc, const char *argv[])
 	if(!mdrv2_resident()) {
 		return;
 	}
+	t1_language_load();
 	if(!t1replay_fuuin_entry(replay_continuation)) {
 		t1replay_fuuin_abort_to_op();
 		return;
