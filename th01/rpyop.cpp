@@ -983,6 +983,7 @@ enum t1replay_op_word_t {
 	T1ROW_SCENE,
 	T1ROW_ROUTE,
 	T1ROW_SECTION,
+	T1ROW_TARGET,
 	T1ROW_CHAPTER,
 	T1ROW_RANK,
 	T1ROW_SCORE,
@@ -1001,6 +1002,13 @@ enum t1replay_op_word_t {
 	T1ROW_JIGOKU,
 	T1ROW_STAGE_START,
 	T1ROW_BOSS_START,
+	T1ROW_SINGYOKU,
+	T1ROW_YUUGENMAGAN,
+	T1ROW_MIMA,
+	T1ROW_KIKURI,
+	T1ROW_ELIS,
+	T1ROW_SARIEL,
+	T1ROW_KONNGARA,
 	T1ROW_EASY,
 	T1ROW_NORMAL,
 	T1ROW_HARD,
@@ -1059,6 +1067,7 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_SCENE: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); break;
 	case T1ROW_ROUTE: T1ROW_WORD4('R', 'O', 'U', 'T'); T1ROW_WORD1('E'); break;
 	case T1ROW_SECTION: T1ROW_WORD4('S', 'E', 'C', 'T'); T1ROW_WORD3('I', 'O', 'N'); break;
+	case T1ROW_TARGET: T1ROW_WORD4('T', 'A', 'R', 'G'); T1ROW_WORD2('E', 'T'); break;
 	case T1ROW_CHAPTER: T1ROW_WORD4('C', 'H', 'A', 'P'); T1ROW_WORD3('T', 'E', 'R'); break;
 	case T1ROW_RANK: T1ROW_WORD4('R', 'A', 'N', 'K'); break;
 	case T1ROW_SCORE: T1ROW_WORD4('S', 'C', 'O', 'R'); T1ROW_WORD1('E'); break;
@@ -1077,6 +1086,13 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_JIGOKU: T1ROW_WORD4('J', 'I', 'G', 'O'); T1ROW_WORD2('K', 'U'); break;
 	case T1ROW_STAGE_START: T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
 	case T1ROW_BOSS_START: T1ROW_WORD4('B', 'O', 'S', 'S'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
+	case T1ROW_SINGYOKU: T1ROW_WORD4('S', 'I', 'N', 'G'); T1ROW_WORD4('Y', 'O', 'K', 'U'); break;
+	case T1ROW_YUUGENMAGAN: T1ROW_WORD4('Y', 'U', 'U', 'G'); T1ROW_WORD4('E', 'N', 'M', 'A'); T1ROW_WORD2('G', 'A'); T1ROW_WORD1('N'); break;
+	case T1ROW_MIMA: T1ROW_WORD4('M', 'I', 'M', 'A'); break;
+	case T1ROW_KIKURI: T1ROW_WORD4('K', 'I', 'K', 'U'); T1ROW_WORD2('R', 'I'); break;
+	case T1ROW_ELIS: T1ROW_WORD4('E', 'L', 'I', 'S'); break;
+	case T1ROW_SARIEL: T1ROW_WORD4('S', 'A', 'R', 'I'); T1ROW_WORD2('E', 'L'); break;
+	case T1ROW_KONNGARA: T1ROW_WORD4('K', 'O', 'N', 'N'); T1ROW_WORD3('G', 'A', 'R'); T1ROW_WORD1('A'); break;
 	case T1ROW_EASY: T1ROW_WORD4('E', 'A', 'S', 'Y'); break;
 	case T1ROW_NORMAL: T1ROW_WORD4('N', 'O', 'R', 'M'); T1ROW_WORD2('A', 'L'); break;
 	case T1ROW_HARD: T1ROW_WORD4('H', 'A', 'R', 'D'); break;
@@ -1247,6 +1263,42 @@ static char *t1replay_op_section_append(char *p, uint8_t section)
 		word = T1ROW_BOSS_START;
 	}
 	return t1replay_op_word_append(p, word);
+}
+
+static t1replay_op_word_t t1replay_op_practice_boss_word(
+	uint8_t scene, uint8_t route
+)
+{
+	switch(scene) {
+	case 1: return (route == ROUTE_JIGOKU) ? T1ROW_MIMA : T1ROW_YUUGENMAGAN;
+	case 2: return (route == ROUTE_JIGOKU) ? T1ROW_KIKURI : T1ROW_ELIS;
+	case 3: return (route == ROUTE_JIGOKU) ? T1ROW_KONNGARA : T1ROW_SARIEL;
+	default: return T1ROW_SINGYOKU;
+	}
+}
+
+// This previews the target that the existing normal resident carrier derives.
+// It deliberately has no checkpoint or replay state because Boss Start still
+// runs REIIDEN's native scene and boss initialization.
+static char *t1replay_op_practice_direct_target_append(char *p)
+{
+	if(t1replay_practice_start.section == T1RPS_CHAPTER) {
+		p = t1replay_op_word_append(p, T1ROW_CHAPTER);
+		*p++ = ' ';
+		return t1replay_op_uint_append(
+			p, t1replay_practice_start.chapter + 1, 1
+		);
+	}
+	if(t1replay_practice_start.section == T1RPS_BOSS_START) {
+		p = t1replay_op_word_append(p, T1ROW_BOSS_START);
+		*p++ = ' ';
+		return t1replay_op_word_append(
+			p, t1replay_op_practice_boss_word(
+				t1replay_practice_start.scene, t1replay_practice_start.route
+			)
+		);
+	}
+	return t1replay_op_word_append(p, T1ROW_STAGE_START);
 }
 
 static void t1replay_op_input_read(t1replay_op_input_t& input)
@@ -1516,10 +1568,8 @@ static void t1replay_op_practice_render(void)
 		t1replay_op_section_append(t1replay_op_text, t1replay_practice_start.section)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
-		T1ROW_CHAPTER,
-		(t1replay_practice_start.section == T1RPS_CHAPTER) ?
-			t1replay_op_uint_append(t1replay_op_text, t1replay_practice_start.chapter + 1, 1) :
-			(t1replay_op_text[0] = '-', t1replay_op_text + 1)
+		T1ROW_TARGET,
+		t1replay_op_practice_direct_target_append(t1replay_op_text)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
 		T1ROW_SCORE,
