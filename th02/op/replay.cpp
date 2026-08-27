@@ -62,6 +62,9 @@ enum t2op_word_t {
 	T2OW_MIDI,
 	T2OW_BROWSER,
 	T2OW_SAVE_REPLAY,
+	T2OW_OVERWRITE_REPLAY,
+	T2OW_YES,
+	T2OW_NO,
 	T2OW_SLOT,
 	T2OW_NONE,
 	T2OW_INVALID,
@@ -127,6 +130,9 @@ static void t2op_memclear(void far *buf, unsigned size)
 }
 
 static void t2op_file_delete(const char far *fn);
+static bool t2op_file_rename(
+	const char far *source, const char far *destination
+);
 
 static void t2op_paths_init(void)
 {
@@ -668,9 +674,38 @@ static bool t2op_header_read_path(const char *fn)
 	return t2op_header_valid();
 }
 
+static void t2op_slot_backup_set(char *backup, uint8_t slot)
+{
+	uint8_t i;
+
+	t2op_slot_set(slot);
+	for(i = 0; i < sizeof(t2op_slot_fn); i++) {
+		backup[i] = t2op_slot_fn[i];
+	}
+	backup[7] = 'B';
+	backup[8] = 'A';
+	backup[9] = 'K';
+}
+
+static void t2op_slot_recover(uint8_t slot)
+{
+	char backup[11];
+
+	t2op_slot_backup_set(backup, slot);
+	if(!file_exist(backup)) {
+		return;
+	}
+	if(file_exist(t2op_slot_fn)) {
+		t2op_file_delete(backup);
+	} else {
+		t2op_file_rename(backup, t2op_slot_fn);
+	}
+}
+
 static bool t2op_header_read(uint8_t slot)
 {
 	t2op_paths_init();
+	t2op_slot_recover(slot);
 	t2op_slot_set(slot);
 	return t2op_header_read_path(t2op_slot_fn);
 }
@@ -807,6 +842,9 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_MIDI: P('M'); P('I'); P('D'); P('I'); break;
 	case T2OW_BROWSER: P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P(' '); P('B'); P('r'); P('o'); P('w'); P('s'); P('e'); P('r'); break;
 	case T2OW_SAVE_REPLAY: P('S'); P('a'); P('v'); P('e'); P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); break;
+	case T2OW_OVERWRITE_REPLAY: P('O'); P('v'); P('e'); P('r'); P('w'); P('r'); P('i'); P('t'); P('e'); P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P('?'); break;
+	case T2OW_YES: P('Y'); P('e'); P('s'); break;
+	case T2OW_NO: P('N'); P('o'); break;
 	case T2OW_SLOT: P('S'); P('l'); P('o'); P('t'); break;
 	case T2OW_NONE: P('N'); P('o'); P('n'); P('e'); break;
 	case T2OW_INVALID: P('I'); P('n'); P('v'); P('a'); P('l'); P('i'); P('d'); break;
@@ -1847,15 +1885,73 @@ static void t2op_pending_discard(void)
 	t2op_file_delete(t2op_slot_fn);
 }
 
-static bool t2op_pending_commit(uint8_t slot)
+static void t2op_overwrite_render(uint8_t slot, bool overwrite)
+{
+	char *p;
+
+	if(t2op_header_read(slot)) {
+		t2op_detail_render(slot);
+	} else {
+		t2op_browser_render(true);
+	}
+	p = t2op_word_append(t2op_line, T2OW_OVERWRITE_REPLAY);
+	t2op_text_put(29, 19, TX_GREEN, p);
+	p = t2op_line;
+	p = t2op_char(p, overwrite ? '>' : ' ');
+	p = t2op_char(p, ' ');
+	p = t2op_word_append(p, T2OW_YES);
+	t2op_text_put(31, 20, overwrite ? TX_WHITE : TX_YELLOW, p);
+	p = t2op_line;
+	p = t2op_char(p, overwrite ? ' ' : '>');
+	p = t2op_char(p, ' ');
+	p = t2op_word_append(p, T2OW_NO);
+	t2op_text_put(31, 21, overwrite ? TX_YELLOW : TX_WHITE, p);
+}
+
+static bool t2op_overwrite_confirm(uint8_t slot)
+{
+	bool input_allowed = false;
+	bool overwrite = false;
+
+	t2op_overwrite_render(slot, overwrite);
+	while(1) {
+		input_reset_sense();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(
+				(key_det & INPUT_UP) || (key_det & INPUT_DOWN) ||
+				(key_det & INPUT_LEFT) || (key_det & INPUT_RIGHT)
+			) {
+				overwrite = !overwrite;
+				t2op_overwrite_render(slot, overwrite);
+			} else if(key_det & INPUT_CANCEL) {
+				key_det = INPUT_NONE;
+				return false;
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				key_det = INPUT_NONE;
+				return overwrite;
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+}
+
+static bool t2op_pending_commit(uint8_t slot, bool overwrite)
 {
 	char request_fn[11];
 	char destination[11];
+	char backup[11];
 	uint8_t i;
+	bool backed_up = false;
 	bool renamed;
 
 	t2op_paths_init();
-	t2op_slot_set(slot);
+	t2op_slot_backup_set(backup, slot);
 	for(i = 0; i < sizeof(destination); i++) {
 		destination[i] = t2op_slot_fn[i];
 	}
@@ -1863,12 +1959,26 @@ static bool t2op_pending_commit(uint8_t slot)
 	if(!t2op_pending_request_valid()) {
 		return false;
 	}
-	renamed = t2op_file_rename(t2op_slot_fn, destination);
-	if(renamed) {
-		t2op_save_request_fn_set(request_fn);
-		t2op_file_delete(request_fn);
+	if(file_exist(destination)) {
+		if(!overwrite || file_exist(backup) ||
+			!t2op_file_rename(destination, backup)) {
+			return false;
+		}
+		backed_up = true;
 	}
-	return renamed;
+	renamed = t2op_file_rename(t2op_slot_fn, destination);
+	if(!renamed) {
+		if(backed_up) {
+			t2op_file_rename(backup, destination);
+		}
+		return false;
+	}
+	if(backed_up) {
+		t2op_file_delete(backup);
+	}
+	t2op_save_request_fn_set(request_fn);
+	t2op_file_delete(request_fn);
+	return true;
 }
 
 static void t2op_browser(bool save_pending)
@@ -1907,11 +2017,19 @@ static void t2op_browser(bool save_pending)
 				}
 				break;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
-				if(save_pending && !t2op_header_read(t2op_browser_sel) &&
-					!file_exist(t2op_slot_fn) &&
-					t2op_pending_commit(t2op_browser_sel)) {
-					break;
-				} else if(!save_pending && t2op_header_read(t2op_browser_sel)) {
+				if(save_pending) {
+					bool occupied;
+
+					t2op_header_read(t2op_browser_sel);
+					occupied = file_exist(t2op_slot_fn);
+					if(
+						(!occupied || t2op_overwrite_confirm(t2op_browser_sel)) &&
+						t2op_pending_commit(t2op_browser_sel, occupied)
+					) {
+						break;
+					}
+					t2op_browser_render(true);
+				} else if(t2op_header_read(t2op_browser_sel)) {
 					t2op_detail(t2op_browser_sel);
 					t2op_browser_render(false);
 				}
