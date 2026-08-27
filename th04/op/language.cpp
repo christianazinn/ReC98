@@ -555,14 +555,15 @@ static void language_option_desc_put(int desc_id)
 	const char *desc = language_op_main_desc(desc_id);
 
 	egc_copy_rect_1_to_0_16(0, LANGUAGE_OPTION_DESC_TOP, RES_X, GLYPH_H);
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	if(language_op_english_selected() && desc) {
-		replay_op_font_put_right(
-			(RES_X - GLYPH_HALF_W), LANGUAGE_OPTION_DESC_TOP,
-			desc, ((GAME == 5) ? 9 : V_WHITE)
+		graph_putsa_fx(
+			(RES_X - GLYPH_FULL_W - (strlen(desc) * GLYPH_HALF_W)),
+			LANGUAGE_OPTION_DESC_TOP, ((GAME == 5) ? 9 : V_WHITE),
+			reinterpret_cast<const shiftjis_t *>(desc)
 		);
 		return;
 	}
-	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	graph_putsa_fx(
 		(RES_X - GLYPH_FULL_W - (strlen(MENU_DESC[desc_id]) * GLYPH_HALF_W)),
 		LANGUAGE_OPTION_DESC_TOP, ((GAME == 5) ? 9 : V_WHITE),
@@ -938,7 +939,7 @@ void far language_option_update_and_render(void)
 // Keep each game's following CRT segment on its stock paragraph phase.
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

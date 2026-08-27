@@ -1960,9 +1960,12 @@ static replay_op_word_t replay_op_rank_word(uint8_t rank)
 void replay_title_desc_put(void)
 {
 	if(language_op_english_selected()) {
-		replay_op_font_put_right(
-			(RES_X - 16), (RES_Y - 16), language_op_custom_desc(false),
-			((GAME == 5) ? 9 : V_WHITE)
+		graph_putsa_fx_func = FX_WEIGHT_BOLD;
+		graph_putsa_fx(
+			(RES_X - GLYPH_FULL_W -
+				(strlen(language_op_custom_desc(false)) * GLYPH_HALF_W)),
+			(RES_Y - 16), ((GAME == 5) ? 9 : V_WHITE),
+			reinterpret_cast<const shiftjis_t *>(language_op_custom_desc(false))
 		);
 		return;
 	}
@@ -1982,9 +1985,12 @@ void replay_title_desc_put(void)
 void replay_practice_title_desc_put(void)
 {
 	if(language_op_english_selected()) {
-		replay_op_font_put_right(
-			(RES_X - 16), (RES_Y - 16), language_op_custom_desc(true),
-			((GAME == 5) ? 9 : V_WHITE)
+		graph_putsa_fx_func = FX_WEIGHT_BOLD;
+		graph_putsa_fx(
+			(RES_X - GLYPH_FULL_W -
+				(strlen(language_op_custom_desc(true)) * GLYPH_HALF_W)),
+			(RES_Y - 16), ((GAME == 5) ? 9 : V_WHITE),
+			reinterpret_cast<const shiftjis_t *>(language_op_custom_desc(true))
 		);
 		return;
 	}
@@ -4066,9 +4072,11 @@ static void replay_main_desc_put(int desc_id)
 
 	egc_copy_rect_1_to_0_16(0, REPLAY_MAIN_DESC_TOP, RES_X, GLYPH_H);
 	if(language_op_english_selected() && desc) {
-		replay_op_font_put_right(
-			(RES_X - GLYPH_HALF_W), REPLAY_MAIN_DESC_TOP,
-			desc, ((GAME == 5) ? 9 : V_WHITE)
+		graph_putsa_fx_func = FX_WEIGHT_BOLD;
+		graph_putsa_fx(
+			(RES_X - GLYPH_FULL_W - (strlen(desc) * GLYPH_HALF_W)),
+			REPLAY_MAIN_DESC_TOP, ((GAME == 5) ? 9 : V_WHITE),
+			reinterpret_cast<const shiftjis_t *>(desc)
 		);
 		return;
 	}
