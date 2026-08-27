@@ -96,6 +96,14 @@ bool16 replay_exact_stage5_mima_stage_fx_capture(
 	const struct t2rec_boundary_t *boundary
 );
 
+// Builds only the registered schema-5 Stage 5 Mima capture. It adds the
+// bounded semantic PALETTE payload but still defers callbacks and redraw; it
+// is not a live seek hook or an apply entry point.
+bool16 replay_exact_stage5_mima_palette_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);

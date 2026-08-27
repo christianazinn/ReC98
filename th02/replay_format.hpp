@@ -101,6 +101,17 @@
 	T2REPLAY_EXACT_S5MFX_SIZE \
 )
 
+// Schema 5 closes Stage 5 Mima's PALETTE group with only her mutable color-0
+// value and semantic tone. Immutable stage colors and hardware registers are
+// deliberately omitted. Callbacks and redraw remain deferred.
+#define T2REPLAY_EXACT_S5PAL_SCHEMA 5
+#define T2REPLAY_EXACT_S5PAL_SOURCE_FINGERPRINT 0x1190BDC0UL
+#define T2REPLAY_EXACT_S5_PALETTE_SIZE 4
+#define T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5_PALETTE_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
@@ -404,6 +415,9 @@ typedef char t2rec_s5_mima_capture_size_check[
 ];
 typedef char t2rec_s5_mima_stage_fx_capture_size_check[
 	(T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE == 8261) ? 1 : -1
+];
+typedef char t2rec_s5_mima_palette_capture_size_check[
+	(T2REPLAY_EXACT_S5PAL_CAPTURE_SIZE == 8265) ? 1 : -1
 ];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
