@@ -28,6 +28,24 @@ enum t2practice_diag_event_t {
 	T2PDE_MAIN_COMMAND_ADMISSION = 4,
 	T2PDE_TARGET_APPLY_BEGIN = 5,
 	T2PDE_TARGET_APPLY_RESULT = 6,
+	T2PDE_MAIN_PROGRESS = 7,
+};
+
+enum t2practice_diag_main_progress_t {
+	T2PDMP_REPLAY_ENTRY = 1,
+	T2PDMP_SOUND_READY,
+	T2PDMP_GAMEPLAY_INIT,
+	T2PDMP_STAGE_INIT,
+	T2PDMP_REPLAY_STAGE_START,
+	T2PDMP_STAGE_OVERLAY,
+	T2PDMP_STAGE_LOOP_CALL,
+	T2PDMP_GAMEPLAY_SOUND,
+	T2PDMP_GAMEPLAY_HISCORE,
+	T2PDMP_GAMEPLAY_EYE,
+	T2PDMP_GAMEPLAY_BFT,
+	T2PDMP_GAMEPLAY_CONVERT,
+	T2PDMP_GAMEPLAY_GAIJI,
+	T2PDMP_GAMEPLAY_BOMB,
 };
 
 enum t2practice_diag_reason_t {
@@ -103,6 +121,9 @@ void t2practice_diag_op_handoff(
 void t2practice_diag_main_command(
 	enum t2practice_diag_reason_t reason, const t2replay_command_t far *command
 );
+void t2practice_diag_main_progress(
+	enum t2practice_diag_main_progress_t progress, int8_t stage
+);
 void t2practice_diag_apply_begin(
 	int8_t stage, uint8_t target, int map_length, int spawn_rows
 );
@@ -121,6 +142,7 @@ void t2practice_diag_apply_end(bool16 result);
 #define t2practice_diag_op_command(reason, mode, flags, start) ((void)0)
 #define t2practice_diag_op_handoff(mode, flags, start) ((void)0)
 #define t2practice_diag_main_command(reason, command) ((void)0)
+#define t2practice_diag_main_progress(progress, stage) ((void)0)
 #define t2practice_diag_apply_begin(stage, target, map_length, spawn_rows) ((void)0)
 #define t2practice_diag_target_scroll(target_scroll_step) ((void)0)
 #define t2practice_diag_top_map_row(top_map_row) ((void)0)

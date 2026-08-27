@@ -128,6 +128,18 @@ static t2replay_header_t t2op_header_saved;
 static t2replay_start_t t2op_practice;
 static uint8_t t2op_pending_name[T2REPLAY_NAME_LEN];
 
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+void replay_practice_diag_boot(unsigned char milestone)
+{
+	static const char fn[] = "T2BOOT.BIN";
+
+	if(file_create(fn)) {
+		file_write(&milestone, sizeof(milestone));
+		file_close();
+	}
+}
+#endif
+
 static void t2op_memclear(void far *buf, unsigned size)
 {
 	uint8_t far *p = reinterpret_cast<uint8_t far *>(buf);
@@ -444,6 +456,27 @@ static int t2op_dos_open(const char far *fn, unsigned char access)
 		mov	ds, fn_seg
 		mov	ah, 3Dh
 		mov	al, access
+		int	21h
+		pop	ds
+		sbb	dx, dx
+		or	ax, dx
+		mov	result, ax
+	}
+	return result;
+}
+
+static int t2op_dos_create(const char far *fn)
+{
+	unsigned fn_seg = T2OP_FP_SEG(fn);
+	unsigned fn_off = T2OP_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 3Ch
+		xor	cx, cx
 		int	21h
 		pop	ds
 		sbb	dx, dx
@@ -888,7 +921,8 @@ static bool t2op_command_write(
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	t2replay_command_t command;
 	char handoff_fn[12];
-	int wrote;
+	int fh;
+	bool wrote;
 	bool practice = ((flags & T2REPLAY_COMMAND_FLAG_PRACTICE) != 0);
 
 	t2op_paths_init();
@@ -912,7 +946,8 @@ static bool t2op_command_write(
 	if(start != 0) {
 		command.start = *start;
 	}
-	if(!file_create(t2op_command_fn)) {
+	fh = t2op_dos_create(t2op_command_fn);
+	if(fh < 0) {
 		if(practice) {
 			t2practice_diag_op_command(
 				T2PDR_OP_COMMAND_CREATE, mode, flags, start
@@ -920,9 +955,9 @@ static bool t2op_command_write(
 		}
 		return false;
 	}
-	wrote = file_write(&command, sizeof(command));
-	file_close();
-	if(wrote != sizeof(command)) {
+	wrote = (t2op_dos_write(fh, &command, sizeof(command)) == sizeof(command));
+	t2op_dos_close(fh);
+	if(!wrote) {
 		t2op_file_delete(t2op_command_fn);
 		if(practice) {
 			t2practice_diag_op_command(
@@ -936,7 +971,8 @@ static bool t2op_command_write(
 	// so every command receives an unconditional second create/write/close.
 	t2op_dos_flush();
 	t2op_handoff_fn_set(handoff_fn);
-	if(!file_create(handoff_fn)) {
+	fh = t2op_dos_create(handoff_fn);
+	if(fh < 0) {
 		t2op_file_delete(t2op_command_fn);
 		if(practice) {
 			t2practice_diag_op_command(
@@ -945,9 +981,9 @@ static bool t2op_command_write(
 		}
 		return false;
 	}
-	wrote = file_write(&command, sizeof(command));
-	file_close();
-	if(wrote != sizeof(command)) {
+	wrote = (t2op_dos_write(fh, &command, sizeof(command)) == sizeof(command));
+	t2op_dos_close(fh);
+	if(!wrote) {
 		t2op_file_delete(handoff_fn);
 		t2op_file_delete(t2op_command_fn);
 		if(practice) {
@@ -965,7 +1001,8 @@ static bool t2op_command_write(
 #else
 	t2replay_command_t command;
 	char handoff_fn[12];
-	int wrote;
+	int fh;
+	bool wrote;
 
 	t2op_paths_init();
 	t2op_memclear(&command, sizeof(command));
@@ -983,12 +1020,13 @@ static bool t2op_command_write(
 	if(start != 0) {
 		command.start = *start;
 	}
-	if(!file_create(t2op_command_fn)) {
+	fh = t2op_dos_create(t2op_command_fn);
+	if(fh < 0) {
 		return false;
 	}
-	wrote = file_write(&command, sizeof(command));
-	file_close();
-	if(wrote != sizeof(command)) {
+	wrote = (t2op_dos_write(fh, &command, sizeof(command)) == sizeof(command));
+	t2op_dos_close(fh);
+	if(!wrote) {
 		t2op_file_delete(t2op_command_fn);
 		return false;
 	}
@@ -997,13 +1035,14 @@ static bool t2op_command_write(
 	// so every command receives an unconditional second create/write/close.
 	t2op_dos_flush();
 	t2op_handoff_fn_set(handoff_fn);
-	if(!file_create(handoff_fn)) {
+	fh = t2op_dos_create(handoff_fn);
+	if(fh < 0) {
 		t2op_file_delete(t2op_command_fn);
 		return false;
 	}
-	wrote = file_write(&command, sizeof(command));
-	file_close();
-	if(wrote != sizeof(command)) {
+	wrote = (t2op_dos_write(fh, &command, sizeof(command)) == sizeof(command));
+	t2op_dos_close(fh);
+	if(!wrote) {
 		t2op_file_delete(handoff_fn);
 		t2op_file_delete(t2op_command_fn);
 		return false;
@@ -2243,16 +2282,28 @@ static void t2op_main_exec(void)
 	char pi_fn[7];
 	char main_fn[5];
 
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(10);
+#endif
 	pi_fn[0] = 't'; pi_fn[1] = 's'; pi_fn[2] = '1';
 	pi_fn[3] = '.'; pi_fn[4] = 'p'; pi_fn[5] = 'i'; pi_fn[6] = '\0';
 	main_fn[0] = 'm'; main_fn[1] = 'a'; main_fn[2] = 'i'; main_fn[3] = 'n';
 	main_fn[4] = '\0';
 	pi_load(0, pi_fn);
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(11);
+#endif
 	text_clear();
 	snd_kaja_func(KAJA_SONG_FADE, 15);
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(12);
+#endif
 	gaiji_restore();
 	super_free();
 	game_exit();
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(13);
+#endif
 	execl(main_fn, main_fn, nullptr);
 }
 
@@ -2312,10 +2363,71 @@ static void t2op_practice_start(void)
 	)) {
 		return;
 	}
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(6);
+#endif
 	start_init();
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(7);
+#endif
 	t2op_resident_apply(&t2op_practice);
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(8);
+#endif
 	t2op_main_exec();
 }
+
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+void replay_practice_diag_autostart(void)
+{
+	static const char fn[] = "T2PAUTO.CFG";
+	char request_fn[11];
+	uint8_t config[3];
+	int fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
+
+	if(fd < 0) {
+		return;
+	}
+	if(t2op_dos_read(fd, config, sizeof(config)) != sizeof(config)) {
+		t2op_dos_close(fd);
+		t2op_file_delete(fn);
+		return;
+	}
+	t2op_dos_close(fd);
+	t2op_file_delete(fn);
+	if((config[0] >= T2REPLAY_STAGE_COUNT) ||
+	   (config[2] >= SHOTTYPE_COUNT)) {
+		return;
+	}
+	t2op_practice_defaults();
+	t2op_practice_stage_set(static_cast<int8_t>(config[0]));
+	t2op_practice.shottype = config[2];
+	t2op_practice.bgm_mode = SND_BGM_OFF;
+	t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] = config[1];
+	if(t2op_start_valid(&t2op_practice)) {
+		cfg_save();
+		t2op_save_request_fn_set(request_fn);
+		t2op_file_delete(request_fn);
+		t2op_temp_set();
+		t2op_file_delete(t2op_slot_fn);
+		if(!t2op_command_write(
+			T2REPLAY_COMMAND_RECORD,
+			T2REPLAY_TEMP_SLOT,
+			T2REPLAY_COMMAND_FLAG_PRACTICE,
+			&t2op_practice
+		)) {
+			return;
+		}
+		// start_init() only adds a title SFX/delay before initializing fields
+		// that the complete Practice payload replaces. Keep this private launch
+		// independent of title timing while preserving its remaining zeros.
+		resident->unused_3 = 0;
+		resident->unused_1 = 0;
+		t2op_resident_apply(&t2op_practice);
+		t2op_main_exec();
+	}
+}
+#endif
 
 static void t2op_record_then_start(bool extra)
 {

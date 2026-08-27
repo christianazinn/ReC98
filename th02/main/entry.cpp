@@ -26,6 +26,9 @@
 #include "th02/main/demo.h"
 #include "th02/main/hud/overlay.hpp"
 #include "th02/main/replay.hpp"
+#ifdef T2PD
+#include "th02/practice_diag.hpp"
+#endif
 #include "th02/main/stage/stage.hpp"
 #include "th02/resident.hpp"
 #include "th02/snd/snd.h"
@@ -99,6 +102,9 @@ extern "C" int far main_entry(void)
 		return 1;
 	}
 #endif
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_REPLAY_ENTRY, resident->stage);
+#endif
 
 	if(resident->bgm_mode == SND_BGM_FM) {
 		snd_pmd_resident();
@@ -110,17 +116,32 @@ extern "C" int far main_entry(void)
 		snd_midi_active = snd_midi_possible;
 		snd_determine_mode();
 	}
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_SOUND_READY, resident->stage);
+#endif
 
 	if(resident->demo_num) {
 		nopcall_same_group(demo_load);
 	}
 	gameplay_init();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_INIT, resident->stage);
+#endif
 
 stage:
 	random_seed = resident->frame;
 	stage_init();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_INIT, stage_id);
+#endif
 	replay_stage_start();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_REPLAY_STAGE_START, stage_id);
+#endif
 	nopcall_same_group(overlay_stage_enter_animate);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_OVERLAY, stage_id);
+#endif
 
 	if(!resident->demo_num) {
 		if(stage_id == 5) {
@@ -139,6 +160,9 @@ stage:
 	key_det = 0;
 
 frame:
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_LOOP_CALL, stage_id);
+#endif
 	if(stage_loop_func()) {
 		// `snd_kaja_func(KAJA_SONG_FADE, 40);` is the expression, but Turbo
 		// C++ cleans this __cdecl call's single stack word with `add sp, 2`

@@ -48,6 +48,9 @@
 #include "th02/main/player/player.hpp"
 #include "th02/language.hpp"
 #include "th02/main/stage/stage.hpp"
+#ifdef T2PD
+#include "th02/practice_diag.hpp"
+#endif
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/bg_particle.hpp"
@@ -173,16 +176,37 @@ bool16 stage_loop(void);
 void near gameplay_init(void)
 {
 	snd_load(huuma_efc_fn, SND_LOAD_SE);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_SOUND, resident->stage);
+#endif
 	hiscore_get();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_HISCORE, resident->stage);
+#endif
 	t2_language_main_pi_load(0, eye_pi_fn);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_EYE, resident->stage);
+#endif
 	super_entry_bfnt(miko_bft_fn);
 	super_entry_bfnt(miko32_bft_fn);
 	super_entry_bfnt(miko16_bft_fn);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_BFT, resident->stage);
+#endif
 	for(int i = 48; i < 128; i++) {
 		super_convert_tiny(i);
 	}
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_CONVERT, resident->stage);
+#endif
 	gaiji_load();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_GAIJI, resident->stage);
+#endif
 	bomb_load();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_BOMB, resident->stage);
+#endif
 	reduce_effects = resident->reduce_effects;
 	stage_loop_func = stage_loop;
 	if(resident->continues_used) {

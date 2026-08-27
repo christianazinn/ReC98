@@ -785,21 +785,30 @@ void far pascal t2_language_op_bridge(
 int main(void)
 {
 	unsigned char ret;
+#ifdef T2PD
+	replay_practice_diag_boot(1);
+#endif
 	if(snd_pmd_resident()) {
 		snd_mmd_resident();
 		if(game_init_op()) {
 			zun_error(ERROR_OUT_OF_MEMORY);
 			return 1;
 		}
-		extra_unlocked = cleardata_load();
+			extra_unlocked = cleardata_load();
 		if(cfg_load() == 1) {
 			return 1;
 		}
+#ifdef T2PD
+		replay_practice_diag_boot(2);
+#endif
 	} else {
 		return 1;
 	}
 	gaiji_backup();
 	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
+#ifdef T2PD
+	replay_practice_diag_boot(3);
+#endif
 	if(resident->demo_num == 0) {
 		demo_num = 1;
 		snd_kaja_func(KAJA_SONG_STOP, 0);
@@ -816,6 +825,9 @@ int main(void)
 	key_det = 0;
 
 	snd_active = snd_bgm_mode;
+#ifdef T2PD
+	replay_practice_diag_autostart();
+#endif
 	if(!resident->demo_num && snd_midi_possible) {
 		char midi_active = snd_midi_active;
 
@@ -826,6 +838,9 @@ int main(void)
 	}
 
 	op_animate();
+#ifdef T2PD
+	replay_practice_diag_boot(4);
+#endif
 
 	// ZUN landmine: Screen tearing. Decoding two 192×144 .PI images takes a
 	// while and certainly returns with the CRT beam somewhere in the middle of
@@ -833,6 +848,9 @@ int main(void)
 	// Main menu labels to both TRAM and VRAM on the same frame.
 	pi_load(2, "ts3.pi");
 	pi_load(1, "ts2.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(5);
+#endif
 	key_det = 0;
 	idle_frame = 0;
 

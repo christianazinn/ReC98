@@ -235,6 +235,21 @@ void t2practice_diag_main_command(
 	t2practice_diag_emit_current(T2PDE_MAIN_COMMAND_ADMISSION, false);
 }
 
+void t2practice_diag_main_progress(
+	enum t2practice_diag_main_progress_t progress, int8_t stage
+)
+{
+	if(!t2practice_diag_exists()) {
+		return;
+	}
+	t2practice_diag_record_init(
+		&t2practice_diag_current, T2PDE_MAIN_PROGRESS, 0, 0, 0
+	);
+	t2practice_diag_current.stage = stage;
+	t2practice_diag_current.target = static_cast<uint8_t>(progress);
+	t2practice_diag_emit_current(T2PDE_MAIN_PROGRESS, false);
+}
+
 void t2practice_diag_apply_begin(
 	int8_t stage, uint8_t target, int map_length, int spawn_rows
 )
