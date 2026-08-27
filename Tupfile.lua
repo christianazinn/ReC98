@@ -601,6 +601,10 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/s6_actor.cpp",
 	-- TCC shortens actor_core.cpp to actor_~1.obj under the DOS output root.
 	{ "th02/main/actor_core.cpp", o = "actor_~1.obj" },
+	-- Patch-owned Pause terminal-action tail. It must remain after every
+	-- existing patch contributor so it cannot move a retained offset.
+	-- TCC shortens pause_replay.cpp to pause_~1.obj under the DOS output root.
+	{ "th02/main/pause_replay.cpp", o = "pause_~1.obj" },
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },

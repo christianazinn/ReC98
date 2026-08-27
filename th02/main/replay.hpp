@@ -75,6 +75,12 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
 
+// Pause terminal actions deliberately reuse T2RPY1's existing GAME_OVER
+// terminal record. The pending-save sidecar is therefore unchanged.
+bool replay_pause_save_available(void);
+bool replay_pause_save_and_exit(void);
+void replay_pause_exit_without_saving(void);
+
 // Terminalizes a non-clear attempt before the native GAME OVER / Continue
 // screen. Returns true when replay playback must bypass that live UI.
 bool replay_gameover(void);

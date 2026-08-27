@@ -19,6 +19,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/main/hud/menu.hpp"
+#include "th02/main/pause_replay.hpp"
 #include "th02/main/replay.hpp"
 
 // Menu data
@@ -109,112 +110,53 @@ inline void pause_sel_toggle(void)
 
 bool16 near pause_menu(void)
 {
-	register unsigned frame = 0;
-	uint8_t state = STATE_PAUSE_RELEASE;
-
-	text_putsa(PAUSE_CHOICE_LEFT, PAUSE_CHOICE_0_Y, PAUSE_CHOICE_RESUME, ATRB_SELECTED);
-	text_putsa(PAUSE_CHOICE_LEFT, (PAUSE_CHOICE_0_Y + 1), PAUSE_CHOICE_QUIT, ATRB_UNSELECTED);
-	palette_settone(70);
-
-	while(1) {
-		if((frame % TITLE_BLINK_CYCLE) < TITLE_BLINK_SHOWN) {
-			gaiji_putsa(PAUSE_TITLE_LEFT, PAUSE_TITLE_Y, gPAUSE_MENU, TX_WHITE);
-		} else {
-			gaiji_putsa(PAUSE_TITLE_LEFT, PAUSE_TITLE_Y, g11SPACES, TX_WHITE);
-		}
-		input_reset_sense();
-		replay_input_sample(T2REPLAY_PHASE_PAUSE);
-		frame++;
-
-		if((state == STATE_PAUSE_RELEASE) && (key_det == INPUT_NONE)) {
-			state = STATE_PAUSE_INPUT;
-		}
-
-		if(state == STATE_PAUSE_INPUT) {
-			if((key_det & INPUT_UP) || (key_det & INPUT_DOWN)) {
-				pause_sel_toggle();
-				text_putsa(
-					PAUSE_CHOICE_LEFT, PAUSE_CHOICE_0_Y,
-					PAUSE_CHOICE_RESUME, pause_atrb_0
-				);
-				text_putsa(
-					PAUSE_CHOICE_LEFT, (PAUSE_CHOICE_0_Y + 1),
-					PAUSE_CHOICE_QUIT, pause_atrb_1
-				);
-				state = STATE_PAUSE_RELEASE;
-			}
-			if((key_det & INPUT_OK) || (key_det & INPUT_SHOT)) {
-				if(pause_sel == 0) {
-					state = STATE_RESUME;
-				} else {
-					text_putsa(
-						QUIT_LEFT, QUIT_TITLE_Y, QUIT_TITLE,
-						(TX_WHITE | TX_BLINK)
-					);
-					text_putsa(
-						QUIT_LEFT, QUIT_CHOICE_0_Y, QUIT_CHOICE_NO, TX_WHITE
-					);
-					text_putsa(
-						QUIT_LEFT, (QUIT_CHOICE_0_Y + 1), QUIT_CHOICE_YES,
-						TX_MAGENTA
-					);
-					state = STATE_QUIT_RELEASE;
-					pause_sel = 0;
-				}
-			}
-			if(key_det & INPUT_CANCEL) {
-				state = STATE_RESUME;
-			}
-		} else if(state == STATE_RESUME) {
-			if(key_det == INPUT_NONE) {
-				palette_settone(100);
-				key_det = INPUT_NONE;
-				gaiji_putsa(PAUSE_TITLE_LEFT, PAUSE_TITLE_Y, g11SPACES, TX_WHITE);
-				gaiji_putsa(QUIT_LEFT, QUIT_TITLE_Y, g11SPACES, TX_WHITE);
-				gaiji_putsa(QUIT_LEFT, QUIT_CHOICE_0_Y, g11SPACES, TX_WHITE);
-				gaiji_putsa(QUIT_LEFT, (QUIT_CHOICE_0_Y + 1), g11SPACES, TX_WHITE);
-				return false;
-			}
-		} else if(state == STATE_QUIT_RELEASE) {
-			if(key_det == INPUT_NONE) {
-				state++; // -> STATE_QUIT_INPUT
-			}
-		} else if(state == STATE_QUIT_INPUT) {
-			if((key_det & INPUT_UP) || (key_det & INPUT_DOWN)) {
-				pause_sel_toggle();
-				text_putsa(
-					QUIT_LEFT, QUIT_CHOICE_0_Y, QUIT_CHOICE_NO, pause_atrb_0
-				);
-				text_putsa(
-					QUIT_LEFT, (QUIT_CHOICE_0_Y + 1), QUIT_CHOICE_YES,
-					pause_atrb_1
-				);
-				state = STATE_QUIT_RELEASE;
-			}
-			if((key_det & INPUT_OK) || (key_det & INPUT_SHOT)) {
-				if(pause_sel == 0) {
-					gaiji_putsa(QUIT_LEFT, QUIT_TITLE_Y, g11SPACES, TX_WHITE);
-					gaiji_putsa(QUIT_LEFT, QUIT_CHOICE_0_Y, g11SPACES, TX_WHITE);
-					gaiji_putsa(
-						QUIT_LEFT, (QUIT_CHOICE_0_Y + 1), g11SPACES, TX_WHITE
-					);
-					text_putsa(
-						PAUSE_CHOICE_LEFT, PAUSE_CHOICE_0_Y,
-						PAUSE_CHOICE_RESUME, ATRB_SELECTED
-					);
-					text_putsa(
-						PAUSE_CHOICE_LEFT, (PAUSE_CHOICE_0_Y + 1),
-						PAUSE_CHOICE_QUIT, ATRB_UNSELECTED
-					);
-					state = STATE_PAUSE_RELEASE;
-				} else {
-					return true;
-				}
-			}
-			if(key_det & INPUT_CANCEL) {
-				state = STATE_RESUME;
-			}
-		}
-		frame_delay(1);
-	}
+	return t2pause_menu();
 }
+
+// The unpadded near wrapper is 0x00A bytes. Keep MENU_TEXT at the native
+// 0x2D7 bytes, so every following MAIN_01 contribution retains its RC8 offset.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

@@ -3431,6 +3431,42 @@ bool replay_gameover(void)
 	return t2replay_playback_exit;
 }
 
+bool replay_pause_save_available(void)
+{
+	return (
+		(t2replay_mode == T2RM_RECORD) &&
+		!t2replay_failed &&
+		!t2replay_finished
+	);
+}
+
+bool replay_pause_save_and_exit(void)
+{
+	bool saved = replay_pause_save_available();
+
+	if(saved) {
+		t2replay_finalize(T2REPLAY_END_GAME_OVER);
+		saved = !t2replay_failed;
+	}
+	if(!saved) {
+		t2replay_paths_init();
+		t2replay_temp_set();
+		t2replay_pending_files_delete();
+		t2replay_mode = T2RM_DISABLED;
+		t2replay_finished = true;
+	}
+	return saved;
+}
+
+void replay_pause_exit_without_saving(void)
+{
+	t2replay_paths_init();
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
+	t2replay_mode = T2RM_DISABLED;
+	t2replay_finished = true;
+}
+
 bool replay_process_end(const char *binary_fn)
 {
 	if(!t2replay_finished && (t2replay_mode != T2RM_DISABLED)) {
