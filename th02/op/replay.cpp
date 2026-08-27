@@ -121,6 +121,7 @@ static bool t2op_title_restore_needed;
 static uint8_t t2op_main_sel;
 static uint8_t t2op_browser_sel;
 static uint8_t t2op_practice_sel;
+static uint8_t t2op_pending_source;
 static t2replay_header_t t2op_header;
 static t2replay_header_t t2op_header_saved;
 static t2replay_start_t t2op_practice;
@@ -624,7 +625,8 @@ static bool t2op_save_request_read(
 		(request->magic[6] == '1') &&
 		(request->magic[7] == '\0') &&
 		(request->schema == T2REPLAY_SAVE_REQUEST_SCHEMA) &&
-		(request->source == T2REPLAY_SAVE_REQUEST_POSTGAME) &&
+		(request->source >= T2REPLAY_SAVE_REQUEST_GAME_OVER) &&
+		(request->source <= T2REPLAY_SAVE_REQUEST_MENU_RETURN) &&
 		(request->reserved == 0) &&
 		(request->replay_header_checksum != 0) &&
 		(stored == computed)
@@ -808,12 +810,14 @@ static bool t2op_pending_request_valid(void)
 	if(
 		!t2op_save_request_read(request_fn, &request) ||
 		!t2op_pending_replay_validate(t2op_slot_fn) ||
+		(request.source != t2op_header.end_reason) ||
 		(request.replay_header_checksum != t2op_header.header_checksum)
 	) {
 		// Keep an invalid temp for diagnostics, but remove its stale handoff.
 		t2op_file_delete(request_fn);
 		return false;
 	}
+	t2op_pending_source = request.source;
 	return true;
 }
 
@@ -2430,6 +2434,59 @@ static void t2op_pending_discard(void)
 	t2op_file_delete(t2op_slot_fn);
 }
 
+static void t2op_save_confirm_render(bool save)
+{
+	char *p;
+
+	text_clear();
+	p = t2op_word_append(t2op_line, T2OW_SAVE_REPLAY);
+	p = t2op_char(p, '?');
+	t2op_text_put(31, 9, TX_GREEN, p);
+	p = t2op_line;
+	p = t2op_char(p, save ? '>' : ' ');
+	p = t2op_char(p, ' ');
+	p = t2op_word_append(p, T2OW_YES);
+	t2op_text_put(34, 11, save ? TX_WHITE : TX_YELLOW, p);
+	p = t2op_line;
+	p = t2op_char(p, save ? ' ' : '>');
+	p = t2op_char(p, ' ');
+	p = t2op_word_append(p, T2OW_NO);
+	t2op_text_put(34, 12, save ? TX_YELLOW : TX_WHITE, p);
+}
+
+static bool t2op_save_confirm(void)
+{
+	bool input_allowed = false;
+	bool save = true;
+
+	t2op_save_confirm_render(save);
+	while(1) {
+		input_reset_sense();
+		if(key_det == INPUT_NONE) {
+			input_allowed = true;
+		}
+		if(input_allowed) {
+			if(
+				(key_det & INPUT_UP) || (key_det & INPUT_DOWN) ||
+				(key_det & INPUT_LEFT) || (key_det & INPUT_RIGHT)
+			) {
+				save = !save;
+				t2op_save_confirm_render(save);
+			} else if(key_det & INPUT_CANCEL) {
+				key_det = INPUT_NONE;
+				return false;
+			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				key_det = INPUT_NONE;
+				return save;
+			}
+			if(key_det != INPUT_NONE) {
+				input_allowed = false;
+			}
+		}
+		frame_delay(1);
+	}
+}
+
 static void t2op_overwrite_render(uint8_t slot, bool overwrite)
 {
 	char *p;
@@ -2613,6 +2670,13 @@ static bool t2op_pending_save(void)
 {
 	if(!t2op_pending_header_read()) {
 		return false;
+	}
+	if(
+		(t2op_pending_source == T2REPLAY_SAVE_REQUEST_CLEAR) &&
+		!t2op_save_confirm()
+	) {
+		t2op_pending_discard();
+		return true;
 	}
 	if(!t2op_name_menu(t2op_pending_name)) {
 		t2op_pending_discard();

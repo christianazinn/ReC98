@@ -1998,14 +1998,15 @@ static bool t2replay_save_request_read(t2replay_save_request_t far *request)
 		(request->magic[6] == '1') &&
 		(request->magic[7] == '\0') &&
 		(request->schema == T2REPLAY_SAVE_REQUEST_SCHEMA) &&
-		(request->source == T2REPLAY_SAVE_REQUEST_POSTGAME) &&
+		(request->source >= T2REPLAY_SAVE_REQUEST_GAME_OVER) &&
+		(request->source <= T2REPLAY_SAVE_REQUEST_MENU_RETURN) &&
 		(request->reserved == 0) &&
 		(request->replay_header_checksum != 0) &&
 		(stored == computed)
 	);
 }
 
-static bool t2replay_save_request_write(void)
+static bool t2replay_save_request_write(uint8_t source)
 {
 	char request_fn[11];
 	t2replay_save_request_t request;
@@ -2023,7 +2024,7 @@ static bool t2replay_save_request_write(void)
 	request.magic[6] = '1';
 	request.magic[7] = '\0';
 	request.schema = T2REPLAY_SAVE_REQUEST_SCHEMA;
-	request.source = T2REPLAY_SAVE_REQUEST_POSTGAME;
+	request.source = source;
 	request.replay_header_checksum = t2replay_header.header_checksum;
 	request.checksum = t2replay_fnv1a(
 		T2REPLAY_FNV1A_BASIS, &request, sizeof(request)
@@ -4404,7 +4405,7 @@ static void t2replay_finalize(uint8_t end_reason)
 		if(!t2replay_failed && !t2replay_header_write(false)) {
 			t2replay_failed = true;
 		}
-		if(!t2replay_failed && !t2replay_save_request_write()) {
+		if(!t2replay_failed && !t2replay_save_request_write(end_reason)) {
 			t2replay_failed = true;
 		}
 		if(t2replay_failed) {
@@ -5121,6 +5122,8 @@ bool replay_save_request_prompt_needed(void)
 	}
 	if(
 		!t2replay_save_request_read(&request) ||
+		(request.source != T2REPLAY_SAVE_REQUEST_GAME_OVER) ||
+		(request.source != t2replay_header.end_reason) ||
 		(request.replay_header_checksum != t2replay_header.header_checksum)
 	) {
 		// Preserve a malformed T2RPY.TMP for diagnostics, but never its stale
