@@ -72,6 +72,8 @@ bool16 far th02_s3_stones_state_apply(const th02_s3_stones_state_t *state);
 // or the first redraw.
 void far th02_s3_field_clean_init(void);
 void far th02_s3_midboss_clean_init(void);
-void far th02_s3_stones_clean_init(void);
+// Common source-derived Stage 3 boss state. The validated target constructor
+// in s3_pract.cpp is the only Practice-facing caller.
+void far th02_s3_stones_clean_base_init(void);
 
 #endif /* TH02_MAIN_S3_ACTOR_HPP */
