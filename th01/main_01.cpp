@@ -969,6 +969,9 @@ int main(void)
 				}
 
 				if(game_cleared == true) {
+					t1replay_stage_complete(
+						static_cast<uint8_t>(stage_id), score
+					);
 					graphics_free_redundant_and_incomplete();
 					resident->end_flag = static_cast<end_sequence_t>(
 						ES_MAKAI + route
@@ -1038,6 +1041,9 @@ int main(void)
 			} else {
 				stagebonus_animate(stage_id);
 			}
+			t1replay_stage_complete(
+				static_cast<uint8_t>(stage_id - 1), score
+			);
 			if(resident->pellet_speed < 0) {
 				resident->pellet_speed = 0;
 			}

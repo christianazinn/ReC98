@@ -752,7 +752,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '3') ||
+		!t1replay_magic_matches(t1replay_header.magic, '4') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -777,6 +777,10 @@ static bool t1replay_header_read(bool finalized)
 		)) ||
 		!t1replay_start_valid(&t1replay_header.start) ||
 		!t1replay_name_valid(t1replay_header.name) ||
+		!t1replay_summary_valid(
+			&t1replay_header.summary, &t1replay_header.start,
+			finalized, t1replay_header.end_reason
+		) ||
 		(t1replay_header.reserved_0 != 0) ||
 		(finalized ?
 			(t1replay_header.end_reason != T1REPLAY_END_CLEAR) :
@@ -1433,6 +1437,33 @@ int far t1replay_fuuin_key_sense(int keygroup)
 	return (t1replay_mode == T1RM_PLAYBACK) ? 0 : key_sense(keygroup);
 }
 
+static bool t1replay_clear_summary_finalize(void)
+{
+	t1replay_summary_t far *summary = &t1replay_header.summary;
+
+	if(t1replay_mode == T1RM_RECORD) {
+		if(
+			(summary->split_count == 0) ||
+			(summary->splits[summary->split_count - 1].stage_id !=
+			 (STAGE_COUNT - 1)) ||
+			(summary->splits[summary->split_count - 1].score != score) ||
+			(summary->splits[summary->split_count - 1].flags !=
+			 T1REPLAY_STAGE_FLAGS_KNOWN)
+		) {
+			return false;
+		}
+		summary->final_score = score;
+		summary->final_stage_id = (STAGE_COUNT - 1);
+		summary->terminal_reason = T1REPLAY_END_CLEAR;
+	}
+	return (
+		(summary->final_score == score) &&
+		t1replay_summary_valid(
+			summary, &t1replay_header.start, true, T1REPLAY_END_CLEAR
+		)
+	);
+}
+
 void far t1replay_fuuin_terminal(void)
 {
 	if(t1replay_mode == T1RM_DISABLED) {
@@ -1444,6 +1475,10 @@ void far t1replay_fuuin_terminal(void)
 		return;
 	}
 #endif
+	if(!t1replay_clear_summary_finalize()) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
 	if(t1replay_mode == T1RM_RECORD) {
 		if(!t1replay_pending_commit() ||
 			!t1replay_control_commit(
