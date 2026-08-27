@@ -137,7 +137,8 @@ enum menu_id_t {
 };
 
 static const int MAIN_CHOICE_COUNT = 6;
-static const int OPTION_CHOICE_COUNT = 5;
+static const int OPTION_STOCK_CHOICE_COUNT = 5;
+static const int OPTION_CHOICE_COUNT = 6;
 static const int MUSIC_CHOICE_COUNT = 2;
 
 // ZUN bloat: Worse versions of the same macros in `clamp.hpp`, replacing `++`
@@ -599,7 +600,7 @@ void main_choice_unput_and_put(int choice, vc2 col)
 
 void option_choice_unput_and_put(int choice, vc2 col)
 {
-	const shiftjis_t* CHOICES[OPTION_CHOICE_COUNT] = OPTION_CHOICES;
+	const shiftjis_t* CHOICES[OPTION_STOCK_CHOICE_COUNT] = OPTION_CHOICES;
 	const shiftjis_t* RANKS[RANK_COUNT] = RANKS_CAPS_CENTERED;
 	const shiftjis_t* MUSIC_MODES[BGM_MODE_COUNT] = BGM_MODES_CENTERED;
 	const shiftjis_t* START_LIVES[CFG_CREDIT_LIVES_EXTRA_MAX] = {
@@ -632,7 +633,9 @@ void option_choice_unput_and_put(int choice, vc2 col)
 	} else if(choice == 3) {
 		choice_put(left, top, col, CHOICES[choice]);
 	} else if(choice == 4) {
-		choice_put(left, top, col, CHOICES[choice]);
+		t1replay_op_language_choice_put(left, top, col, FX);
+	} else if(choice == 5) {
+		choice_put(left, top, col, CHOICES[4]);
 	}
 }
 
@@ -656,7 +659,9 @@ void music_choice_unput_and_put(int choice, vc2 col)
 		graph_printf_fx(
 			left, top, (col | FX), "%s%.2d", CHOICES[choice], music_sel
 		);
-		choice_put(left, (top + CHOICE_PADDED_H), col, TITLES[music_sel]);
+		t1replay_op_music_title_put(
+			left, (top + CHOICE_PADDED_H), col, FX, music_sel, TITLES[music_sel]
+		);
 	} else if(choice == 1) {
 		choice_put(left, top, col, CHOICES[choice]);
 	}
@@ -739,6 +744,7 @@ void option_update_and_render(void)
 		option_choice_unput_and_put(2, COL_INACTIVE);
 		option_choice_unput_and_put(3, COL_INACTIVE);
 		option_choice_unput_and_put(4, COL_INACTIVE);
+		option_choice_unput_and_put(5, COL_INACTIVE);
 	}
 	choice_render_if_changed(sel_prev, menu_sel, option_choice_unput_and_put);
 
@@ -757,6 +763,9 @@ void option_update_and_render(void)
 				opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1)
 			);
 			break;
+		case 4:
+			t1replay_op_language_toggle();
+			break;
 		}
 		option_choice_unput_and_put(menu_sel, COL_ACTIVE);
 	});
@@ -772,11 +781,14 @@ void option_update_and_render(void)
 		case 2:
 			ring_inc(opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1));
 			break;
+		case 4:
+			t1replay_op_language_toggle();
+			break;
 		}
 		option_choice_unput_and_put(menu_sel, COL_ACTIVE);
 	});
 
-	if(((input_ok || input_shot) && (menu_sel == 4)) || input_cancel) {
+	if(((input_ok || input_shot) && (menu_sel == 5)) || input_cancel) {
 		menu_id = MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN;
 		in_this_menu = false;
 		menu_sel = 2; // Option in the main menu

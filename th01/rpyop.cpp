@@ -20,6 +20,7 @@
 #include "th01/hardware/grppsafx.h"
 #include "th01/hardware/grp_text.hpp"
 #include "th01/hiscore/regist.hpp"
+#include "th01/language.hpp"
 #include "th01/replay_op.hpp"
 #include "th01/resident.hpp"
 #include "th01/rank.h"
@@ -154,6 +155,24 @@ static void t1replay_op_dos_flush(void)
 {
 	_AH = 0x0D;
 	geninterrupt(0x21);
+}
+
+static void t1replay_op_language_config_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'L'; fn[3] = 'A'; fn[4] = 'N';
+	fn[5] = 'G'; fn[6] = '.'; fn[7] = 'C'; fn[8] = 'F'; fn[9] = 'G';
+	fn[10] = '\0';
+}
+
+static uint8_t t1replay_op_language_checksum(const uint8_t *data)
+{
+	uint8_t sum = 0;
+	uint8_t i;
+
+	for(i = 0; i < 6; i++) {
+		sum += data[i];
+	}
+	return sum;
 }
 
 static void t1replay_op_pending_fn(char *fn)
@@ -1435,6 +1454,24 @@ enum t1replay_op_word_t {
 	T1ROW_NORMAL,
 	T1ROW_HARD,
 	T1ROW_LUNATIC,
+	T1ROW_LANGUAGE,
+	T1ROW_JAPANESE,
+	T1ROW_ENGLISH,
+	T1ROW_MUSIC_00,
+	T1ROW_MUSIC_01,
+	T1ROW_MUSIC_02,
+	T1ROW_MUSIC_03,
+	T1ROW_MUSIC_04,
+	T1ROW_MUSIC_05,
+	T1ROW_MUSIC_06,
+	T1ROW_MUSIC_07,
+	T1ROW_MUSIC_08,
+	T1ROW_MUSIC_09,
+	T1ROW_MUSIC_10,
+	T1ROW_MUSIC_11,
+	T1ROW_MUSIC_12,
+	T1ROW_MUSIC_13,
+	T1ROW_MUSIC_14,
 };
 
 static char t1replay_op_text[64];
@@ -1444,9 +1481,14 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	#define T1ROW_PUTC(c) *p++ = (c)
 	#define T1ROW_SPACE() T1ROW_PUTC(' ')
 	#define T1ROW_WORD1(a) T1ROW_PUTC(a)
-	#define T1ROW_WORD2(a, b) T1ROW_WORD1(a); T1ROW_WORD1(b)
+	#define T1ROW_WORD2(a, b) \
+		*reinterpret_cast<uint16_t *>(p) = static_cast<uint16_t>( \
+			static_cast<uint8_t>(a) | \
+			(static_cast<uint16_t>(static_cast<uint8_t>(b)) << 8) \
+		); \
+		p += 2
 	#define T1ROW_WORD3(a, b, c) T1ROW_WORD2(a, b); T1ROW_WORD1(c)
-	#define T1ROW_WORD4(a, b, c, d) T1ROW_WORD3(a, b, c); T1ROW_WORD1(d)
+	#define T1ROW_WORD4(a, b, c, d) T1ROW_WORD2(a, b); T1ROW_WORD2(c, d)
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
@@ -1528,6 +1570,24 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_NORMAL: T1ROW_WORD4('N', 'O', 'R', 'M'); T1ROW_WORD2('A', 'L'); break;
 	case T1ROW_HARD: T1ROW_WORD4('H', 'A', 'R', 'D'); break;
 	case T1ROW_LUNATIC: T1ROW_WORD4('L', 'U', 'N', 'A'); T1ROW_WORD3('T', 'I', 'C'); break;
+	case T1ROW_LANGUAGE: T1ROW_WORD4('L', 'A', 'N', 'G'); T1ROW_WORD4('U', 'A', 'G', 'E'); break;
+	case T1ROW_JAPANESE: T1ROW_WORD4(0x93, 0xFA, 0x96, 0x7B); T1ROW_WORD2(0x8C, 0xEA); break;
+	case T1ROW_ENGLISH: T1ROW_WORD4('E', 'N', 'G', 'L'); T1ROW_WORD3('I', 'S', 'H'); break;
+	case T1ROW_MUSIC_00: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD1('A'); T1ROW_SPACE(); T1ROW_WORD4('S', 'a', 'c', 'r'); T1ROW_WORD2('e', 'd'); T1ROW_SPACE(); T1ROW_WORD3('L', 'o', 't'); break;
+	case T1ROW_MUSIC_01: T1ROW_WORD4('S', 'h', 'r', 'i'); T1ROW_WORD2('n', 'e'); T1ROW_SPACE(); T1ROW_WORD2('o', 'f'); T1ROW_SPACE(); T1ROW_WORD3('t', 'h', 'e'); T1ROW_SPACE(); T1ROW_WORD4('W', 'i', 'n', 'd'); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_02: T1ROW_WORD4('E', 't', 'e', 'r'); T1ROW_WORD1('.'); T1ROW_SPACE(); T1ROW_WORD4('S', 'h', 'r', 'i'); T1ROW_WORD2('n', 'e'); T1ROW_SPACE(); T1ROW_WORD4('M', 'a', 'i', 'd'); T1ROW_WORD2('e', 'n'); break;
+	case T1ROW_MUSIC_03: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('H', 'i', 'g', 'h'); T1ROW_WORD2('l', 'y'); T1ROW_SPACE(); T1ROW_WORD4('R', 'e', 's', 'p'); T1ROW_WORD4('o', 'n', 's', 'i'); T1ROW_WORD2('v', 'e'); break;
+	case T1ROW_MUSIC_04: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('O', 'r', 'i', 'e'); T1ROW_WORD4('n', 't', 'a', 'l'); T1ROW_SPACE(); T1ROW_WORD4('L', 'e', 's', 's'); T1ROW_WORD2('o', 'n'); T1ROW_SPACE(); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_05: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('O', 'r', 'i', 'e'); T1ROW_WORD4('n', 't', 'a', 'l'); T1ROW_SPACE(); T1ROW_WORD4('M', 'a', 'g', 'i'); T1ROW_WORD4('c', 'i', 'a', 'n'); break;
+	case T1ROW_MUSIC_06: T1ROW_WORD4('B', 'l', 'a', 'd'); T1ROW_WORD1('e'); T1ROW_SPACE(); T1ROW_WORD2('o', 'f'); T1ROW_SPACE(); T1ROW_WORD4('B', 'a', 'n', 'i'); T1ROW_WORD4('s', 'h', 'm', 'e'); T1ROW_WORD2('n', 't'); break;
+	case T1ROW_MUSIC_07: T1ROW_SPACE(); T1ROW_WORD3('T', 'h', 'e'); T1ROW_SPACE(); T1ROW_WORD4('L', 'e', 'g', 'e'); T1ROW_WORD2('n', 'd'); T1ROW_SPACE(); T1ROW_WORD2('o', 'f'); T1ROW_SPACE(); T1ROW_WORD4('K', 'A', 'G', 'E'); break;
+	case T1ROW_MUSIC_08: T1ROW_WORD4('P', 'o', 's', 'i'); T1ROW_WORD4('t', 'i', 'v', 'e'); T1ROW_SPACE(); T1ROW_WORD3('a', 'n', 'd'); T1ROW_SPACE(); T1ROW_WORD4('N', 'e', 'g', 'a'); T1ROW_WORD4('t', 'i', 'v', 'e'); break;
+	case T1ROW_MUSIC_09: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('A', 'n', 'g', 'e'); T1ROW_WORD2('l', 0x27); T1ROW_WORD1('s'); T1ROW_SPACE(); T1ROW_WORD4('L', 'e', 'g', 'e'); T1ROW_WORD2('n', 'd'); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_10: T1ROW_WORD4(0x81, 0x40, 0x81, 0x40); T1ROW_WORD4('M', 'a', 'g', 'i'); T1ROW_WORD1('c'); T1ROW_SPACE(); T1ROW_WORD4('M', 'i', 'r', 'r'); T1ROW_WORD2('o', 'r'); T1ROW_WORD2(0x81, 0x40); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_11: T1ROW_SPACE(); T1ROW_WORD3('D', 'i', 'e'); T1ROW_SPACE(); T1ROW_WORD2('t', 'o'); T1ROW_SPACE(); T1ROW_WORD3('P', 'a', 'y'); T1ROW_SPACE(); T1ROW_WORD4('Y', 'o', 'u', 'r'); T1ROW_SPACE(); T1ROW_WORD4('D', 'e', 'b', 't'); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_12: T1ROW_WORD4('C', 'i', 'v', 'i'); T1ROW_WORD4('l', 'i', 'z', 'a'); T1ROW_WORD4('t', 'i', 'o', 'n'); T1ROW_SPACE(); T1ROW_WORD2('o', 'f'); T1ROW_SPACE(); T1ROW_WORD4('M', 'a', 'g', 'i'); T1ROW_WORD1('c'); T1ROW_SPACE(); break;
+	case T1ROW_MUSIC_13: T1ROW_SPACE(); T1ROW_WORD4('D', 'i', 's', 't'); T1ROW_WORD3('a', 'n', 't'); T1ROW_SPACE(); T1ROW_WORD4('A', 'n', 'g', 'e'); T1ROW_WORD1('l'); break;
+	case T1ROW_MUSIC_14: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('I', 'r', 'i', 's'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); break;
 	}
 	#undef T1ROW_WORD4
 	#undef T1ROW_WORD3
@@ -1667,6 +1727,79 @@ void t1replay_op_main_choice_put(
 	graph_putsa_fx(
 		static_cast<screen_x_t>(center_x - (shiftjis_w(t1replay_op_text) / 2)),
 		static_cast<screen_y_t>(top), (col | fx), t1replay_op_text
+	);
+}
+
+void t1replay_op_language_choice_put(int left, int top, int col, int fx)
+{
+	char *p = t1replay_op_text;
+
+	p = t1replay_op_word_append(p, T1ROW_LANGUAGE);
+	*p++ = ' ';
+	p = t1replay_op_word_append(
+		p, ((t1_language_get() == T1LANG_ENGLISH)
+			? T1ROW_ENGLISH : T1ROW_JAPANESE)
+	);
+	*p = '\0';
+	graph_putsa_fx(
+		static_cast<screen_x_t>(left), static_cast<screen_y_t>(top),
+		(col | fx), t1replay_op_text
+	);
+}
+
+bool t1replay_op_language_toggle(void)
+{
+	uint8_t data[8];
+	t1_language_preference_t preference = (
+		(t1_language_get() == T1LANG_JAPANESE)
+			? T1LANG_ENGLISH : T1LANG_JAPANESE
+	);
+	char fn[11];
+	char mode[3];
+	FILE *fp;
+	bool ok;
+
+	data[0] = 'T'; data[1] = '1'; data[2] = 'L'; data[3] = 'G';
+	data[4] = 1;
+	data[5] = static_cast<uint8_t>(preference);
+	data[6] = t1replay_op_language_checksum(data);
+	data[7] = static_cast<uint8_t>(~data[6]);
+	t1replay_op_language_config_fn(fn);
+	mode[0] = 'w'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	ok = (fwrite(data, 1, sizeof(data), fp) == sizeof(data));
+	if(fclose(fp) != 0) {
+		ok = false;
+	}
+	if(!ok) {
+		return false;
+	}
+	t1replay_op_dos_flush();
+	t1_language_load();
+	return (t1_language_get() == preference);
+}
+
+void t1replay_op_music_title_put(
+	int left, int top, int col, int fx, int track, const shiftjis_t *japanese
+)
+{
+	char *p;
+	const shiftjis_t *title = japanese;
+
+	if(t1_language_get() == T1LANG_ENGLISH) {
+		p = t1replay_op_word_append(
+			t1replay_op_text,
+			static_cast<t1replay_op_word_t>(T1ROW_MUSIC_00 + track)
+		);
+		*p = '\0';
+		title = t1replay_op_text;
+	}
+	graph_putsa_fx(
+		static_cast<screen_x_t>(left), static_cast<screen_y_t>(top),
+		(col | fx), title
 	);
 }
 

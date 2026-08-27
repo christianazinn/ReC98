@@ -30,6 +30,13 @@ bool t1replay_op_exact_bootstrap(void);
 void t1replay_op_main_choice_put(
 	int choice, int center_x, int top, int col, int fx
 );
+void t1replay_op_language_choice_put(
+	int left, int top, int col, int fx
+);
+bool t1replay_op_language_toggle(void);
+void t1replay_op_music_title_put(
+	int left, int top, int col, int fx, int track, const shiftjis_t *japanese
+);
 t1replay_op_result_t t1replay_op_replay_update(void);
 t1replay_op_result_t t1replay_op_practice_update(void);
 void t1replay_op_practice_start_get(t1replay_practice_start_t& start);
