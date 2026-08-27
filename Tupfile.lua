@@ -593,6 +593,8 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_04.cpp",
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
+	-- Keep process-local language state after every OP owner and replay tail.
+	"th02/lang_op.cpp",
 })
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	{ "th02_main.asm", extra_inputs = {
@@ -697,6 +699,8 @@ th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- Final Stage 5 callback/redraw capture recipes remain pointer-free and
 	-- live in a new ungrouped tail after every retained patch contribution.
 	"th02/main/s5_cbred.cpp",
+	-- The language substrate is process-local and must not move prior state.
+	"th02/langm.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
@@ -721,6 +725,8 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th02/maine_03.cpp",
 	"th02/maine_04.cpp",
 	"th02/staff.cpp",
+	-- Link the MAINE preference/overlay reader after every end-game owner.
+	"th02/lange.cpp",
 })
 -- ----
 
