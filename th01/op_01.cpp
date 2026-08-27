@@ -344,6 +344,9 @@ static const pellet_speed_t PELLET_SPEED_DEFAULT = to_pellet_speed(-0.1);
 void start_game(void)
 {
 	cfg_save();
+	if(!t1replay_op_record_prepare()) {
+		return;
+	}
 	resident_create_and_stuff_set(
 		opts.rank,
 		opts.bgm_mode,
@@ -395,8 +398,6 @@ void start_game(void)
 	resident->unused_1 = 0;
 	resident->snd_need_init = true;
 	resident->pellet_speed = PELLET_SPEED_DEFAULT;
-	t1replay_op_record_prepare();
-
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
 
@@ -952,10 +953,7 @@ void main(int argc, const char *argv[])
 				t1replay_op_restore();
 				menu_sel = 3;
 				menu_id = MID_DELAY__SWITCH_TO_MAIN;
-			} else if(
-				(result.action == T1ROA_PRACTICE_RECORD) ||
-				(result.action == T1ROA_PRACTICE_UNRECORDED)
-			) {
+			} else if(result.action == T1ROA_PRACTICE_RECORD) {
 				practice_start();
 			}
 		} else if(menu_id == MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN) {

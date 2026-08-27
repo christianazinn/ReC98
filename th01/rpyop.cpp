@@ -144,6 +144,18 @@ static void t1replay_op_command_fn(char *fn)
 	fn[5] = '.'; fn[6] = 'C'; fn[7] = 'F'; fn[8] = 'G'; fn[9] = '\0';
 }
 
+static void t1replay_op_command_witness_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
+	fn[5] = '.'; fn[6] = 'C'; fn[7] = 'M'; fn[8] = 'T'; fn[9] = '\0';
+}
+
+static void t1replay_op_dos_flush(void)
+{
+	_AH = 0x0D;
+	geninterrupt(0x21);
+}
+
 static void t1replay_op_pending_fn(char *fn)
 {
 	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
@@ -1050,6 +1062,7 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 {
 	t1replay_command_t command;
 	char fn[10];
+	char witness_fn[10];
 	char fopen_mode[3];
 	FILE *fp;
 	bool ok;
@@ -1068,6 +1081,8 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 	command.mode = mode;
 	command.slot = slot;
 	t1replay_op_command_fn(fn);
+	t1replay_op_command_witness_fn(witness_fn);
+	t1replay_op_command_clear();
 	fopen_mode[0] = 'w'; fopen_mode[1] = 'b'; fopen_mode[2] = '\0';
 	fp = fopen(fn, fopen_mode);
 	if(!fp) {
@@ -1078,7 +1093,24 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 		ok = false;
 	}
 	if(!ok) {
-		remove(fn);
+		t1replay_op_command_clear();
+		return false;
+	}
+	// The primary remains authoritative. This second directory mutation makes
+	// the closed primary visible across execl() on target DOS implementations
+	// where AH=0Dh alone is insufficient.
+	t1replay_op_dos_flush();
+	fp = fopen(witness_fn, fopen_mode);
+	if(!fp) {
+		t1replay_op_command_clear();
+		return false;
+	}
+	ok = (fwrite(&command, 1, sizeof(command), fp) == sizeof(command));
+	if(fclose(fp) != 0) {
+		ok = false;
+	}
+	if(!ok) {
+		t1replay_op_command_clear();
 	}
 	return ok;
 }
@@ -1232,8 +1264,9 @@ static void t1replay_op_restart_enter(void)
 	}
 	t1replay_practice_start = state->practice;
 	t1replay_op_restart_practice_armed = true;
-	t1replay_op_record_prepare();
-	practice_start();
+	if(t1replay_op_record_prepare()) {
+		practice_start();
+	}
 }
 
 static bool t1replay_op_pending_commit(uint8_t slot)
@@ -2586,9 +2619,12 @@ void t1replay_op_restore(void)
 void t1replay_op_command_clear(void)
 {
 	char fn[10];
+	char witness_fn[10];
 
 	t1replay_op_command_fn(fn);
+	t1replay_op_command_witness_fn(witness_fn);
 	remove(fn);
+	remove(witness_fn);
 }
 
 t1replay_op_result_t t1replay_op_replay_update(void)
@@ -3160,8 +3196,6 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 			t1replay_op_restart_state_practice_arm(&restart_start);
 			if(t1replay_op_record_prepare()) {
 				result.action = T1ROA_PRACTICE_RECORD;
-			} else {
-				result.action = T1ROA_PRACTICE_UNRECORDED;
 			}
 		} else if(t1replay_op_sel == T1OPR_BACK) {
 			result.action = T1ROA_RETURN;

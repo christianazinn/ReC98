@@ -9,7 +9,6 @@ enum t1replay_op_action_t {
 	T1ROA_RETURN,
 	T1ROA_PLAYBACK,
 	T1ROA_PRACTICE_RECORD,
-	T1ROA_PRACTICE_UNRECORDED,
 };
 
 struct t1replay_op_result_t {

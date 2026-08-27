@@ -230,6 +230,12 @@ static void t1replay_paths_init(void)
 	t1replay_paths_ready = true;
 }
 
+static void t1replay_command_witness_fn_init(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
+	fn[5] = '.'; fn[6] = 'C'; fn[7] = 'M'; fn[8] = 'T'; fn[9] = '\0';
+}
+
 // Keep this automatic rather than static. Turbo C++ otherwise emits this
 // resident ID as initialized _DATA, which would shift every original BSS
 // location in REIIDEN.EXE.
@@ -1950,10 +1956,16 @@ static bool t1replay_res_matches_header(void)
 static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 {
 	t1replay_command_t command;
+	char witness_fn[10];
 	uint32_t size;
 	int fd;
 	bool valid;
 
+	// T1RPY.CFG is authoritative. The second copy only forced another DOS
+	// directory mutation before execl(), so its absence never rejects a valid
+	// primary and its contents are never parsed.
+	t1replay_command_witness_fn_init(witness_fn);
+	t1replay_dos_delete(witness_fn);
 	fd = t1replay_dos_open(t1replay_command_fn, T1REPLAY_DOS_ACCESS_READ);
 	if(fd < 0) {
 		return T1RM_DISABLED;
