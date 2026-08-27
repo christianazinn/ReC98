@@ -860,6 +860,7 @@ static void language_option_return_to_main(void)
 		#else
 			language_op_character_prepare();
 		#endif
+		replay_main_language_assets_reload();
 	}
 	language_option_initialized = false;
 	menu_sel = 6; // RMC_OPTION in replay.cpp

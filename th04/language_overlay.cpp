@@ -56,6 +56,7 @@ static bool language_asset_member_translated(const char *fn)
 {
 	switch(language_asset_name_hash(fn)) {
 #if (GAME == 4)
+	case 0xC5E9E39CUL: // OP1.PI
 	case 0x745B4F73UL: // CONG00.PI
 	case 0x745BDBD4UL: // CONG01.PI
 	case 0x745C6835UL: // CONG02.PI
@@ -83,6 +84,7 @@ static bool language_asset_member_translated(const char *fn)
 	case 0xD524C333UL: // _MUSIC.TXT
 	case 0x5AD18590UL: // _UDE.TXT
 #else
+	case 0xC5E9E39CUL: // OP1.PI
 	case 0xCD399A24UL: // CONG1.PI
 	case 0x65519997UL: // ED02.PI
 	case 0x655225F8UL: // ED03.PI

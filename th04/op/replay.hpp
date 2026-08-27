@@ -34,6 +34,7 @@ enum replay_op_bridge_func_t {
 bool16 far replay_op_bridge(replay_op_bridge_func_t func);
 void far replay_op_startup_dispatch(void);
 void far replay_main_update_and_render(const char *main_bg_fn);
+void far replay_main_language_assets_reload(void);
 void far replay_op_memory_prepare(void);
 #if (GAME == 5)
 void far replay_op_demo_exit_into_main(void);

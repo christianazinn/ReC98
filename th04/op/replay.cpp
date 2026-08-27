@@ -360,15 +360,13 @@ static void replay_op_layout_pad(void)
 	}
 }
 
-// LANGUAGE RC12 adds English-only OP presentation in the replay tail. Keep
+// LANGUAGE RC16 adds English-only OP presentation in the replay tail. Keep
 // the stock CRT paragraph phase unchanged; the exact bytes are measured by
 // verify_th0405_structural_layout.py against the frozen foundation maps.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90"
 #endif
 
 static int replay_op_dos_open(const char far *fn)
@@ -4140,7 +4138,7 @@ static void replay_main_selection_move(int8_t direction)
 	snd_se_play_force(1);
 }
 
-static void replay_main_return(int sel)
+void far replay_main_language_assets_reload(void)
 {
 	replay_op_paths_init();
 	graph_accesspage(1);
@@ -4155,6 +4153,11 @@ static void replay_main_return(int sel)
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
 	palette_100();
 	replay_main_initialized = false;
+}
+
+static void replay_main_return(int sel)
+{
+	replay_main_language_assets_reload();
 	in_option = false;
 	menu_sel = sel;
 }
