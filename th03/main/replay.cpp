@@ -61,6 +61,7 @@
 
 extern "C" const unsigned char aCOul[];
 extern "C" int file_Handle;
+extern "C" unsigned char byte_20E3D;
 #if defined(TH03_PIXEL_CAPTURE)
 extern "C" Palette8 palette_1F2F4;
 #endif
@@ -5943,7 +5944,7 @@ void far replay_finish(uint8_t route)
 	}
 
 	scorestat_exit_checkpoint();
-	if(route != 0) {
+	if((route != 0) && (byte_20E3D == 1)) {
 		replay_clear_bonus_capture();
 	}
 	replay_split_row(RSE_FINISH, route);
@@ -6163,7 +6164,7 @@ static void replay_debug_transition_write(
 #endif
 #pragma codestring "\x90\x90\x90\x90"
 #if defined(TH03_REPLAY_DEV_OVERLAY)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #else
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 #endif
