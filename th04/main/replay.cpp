@@ -128,6 +128,7 @@ static bool replay_finished;
 static bool replay_stage_seen;
 static bool replay_private_test;
 static bool replay_temp_capture;
+static bool replay_practice_diagnostic;
 static uint32_t replay_private_diagnostic;
 static uint8_t replay_checkpoint_prefix[REPLAY_CHECKPOINT_PREFIX_SIZE];
 #define REPLAY_PRIVATE_SAMPLE_LIMIT 600UL
@@ -626,7 +627,7 @@ static void replay_private_result_write(uint8_t end_reason)
 	char fn[11];
 	int fh;
 
-	if(!replay_private_test) {
+	if(!replay_private_test && !replay_practice_diagnostic) {
 		return;
 	}
 	replay_memclear(&result, sizeof(result));
@@ -2397,6 +2398,9 @@ void replay_entry(void)
 	if(command_mode == RCM_NONE) {
 		return;
 	}
+	replay_practice_diagnostic = (
+		(command_flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) != 0
+	);
 	replay_slot_set(slot);
 	replay_payload_checksum = REPLAY_FNV1A_BASIS;
 	replay_buffer_len = 0;
@@ -3113,5 +3117,8 @@ bool replay_playback_active(void)
 #endif
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+	// Marker-gated Practice handoff diagnostics alter the replay segment's byte
+	// phase. Keep all following stock segment offsets fixed for both games.
+	#pragma codestring "\x90\x90\x90\x90\x90"
 
 #pragma codeseg

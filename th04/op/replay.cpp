@@ -289,74 +289,15 @@ static void replay_op_screen_end(
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
 }
 
-// Keep the accepted replay OP data/BSS addresses stable after removing the
-// stale-spacing restore path above and the RC12 presentation compaction. This
-// is deliberately never called.
-static void replay_op_layout_pad(void)
+static void replay_op_practice_diagnostic_fn_set(char far *fn, bool start)
 {
-	_asm {
-	#if (GAME == 4)
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-	#endif
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
-		nop
+	fn[0] = 'T'; fn[1] = ('0' + GAME); fn[2] = 'P';
+	if(start) {
+		fn[3] = 'S'; fn[4] = 'T'; fn[5] = 'A'; fn[6] = 'R'; fn[7] = 'T';
+		fn[8] = '.'; fn[9] = 'B'; fn[10] = 'I'; fn[11] = 'N'; fn[12] = '\0';
+	} else {
+		fn[3] = 'D'; fn[4] = 'I'; fn[5] = 'A'; fn[6] = 'G'; fn[7] = '.';
+		fn[8] = 'C'; fn[9] = 'F'; fn[10] = 'G'; fn[11] = '\0';
 	}
 }
 
@@ -1625,6 +1566,7 @@ static bool replay_op_command_write(
 )
 {
 	replay_command_t command;
+	char diagnostic_fn[13];
 	int fh;
 	bool ok;
 
@@ -1640,6 +1582,12 @@ static bool replay_op_command_write(
 	if(start != NULL) {
 		replay_op_copy(&command.start, start, sizeof(command.start));
 	}
+	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
+		replay_op_practice_diagnostic_fn_set(diagnostic_fn, false);
+		if(replay_op_file_exists(diagnostic_fn)) {
+			command.flags |= REPLAY_COMMAND_FLAG_DIAGNOSTIC;
+		}
+	}
 	fh = replay_op_dos_create(replay_op_cfg_fn);
 	if(fh < 0) {
 		return false;
@@ -1650,8 +1598,17 @@ static bool replay_op_command_write(
 	replay_op_dos_close(fh);
 	if(!ok) {
 		replay_command_clear();
+		return false;
 	}
-	return ok;
+	if(command.flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) {
+		replay_op_practice_diagnostic_fn_set(diagnostic_fn, true);
+		fh = replay_op_dos_create(diagnostic_fn);
+		if(fh >= 0) {
+			replay_op_dos_write(fh, &command, sizeof(command));
+			replay_op_dos_close(fh);
+		}
+	}
+	return true;
 }
 
 void replay_command_clear(void)
