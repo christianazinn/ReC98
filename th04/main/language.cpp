@@ -648,6 +648,169 @@ static void language_main_stock_archive_restore(void)
 #endif
 }
 
+#if (GAME == 5)
+#define LANGUAGE_MAIN_HUD_GAIJI_COUNT 26
+#define LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE 32
+#define LANGUAGE_MAIN_HUD_GAIJI_HEADER_SIZE 8
+
+static uint8_t language_main_hud_gaiji_id(unsigned index)
+{
+	if(index < 9) {
+		return (0x5C + index);
+	}
+	if(index < 15) {
+		return (0xDA + (index - 9));
+	}
+	switch(index) {
+	case 15: return 0xE6;
+	case 16: return 0xE8;
+	case 17: return 0xEA;
+	case 18: return 0xED;
+	case 19: return 0xEE;
+	default: return (0xF0 + (index - 20));
+	}
+}
+
+static bool language_main_hud_gaiji_header_valid(const uint8_t *header)
+{
+	return (
+		(header[0] == 'T') && (header[1] == '5') &&
+		(header[2] == 'H') && (header[3] == 'G') &&
+		(header[4] == 1) &&
+		(header[5] == LANGUAGE_MAIN_HUD_GAIJI_COUNT) &&
+		(header[6] == LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE) &&
+		(header[7] == 0)
+	);
+}
+
+static const char far *language_main_hud_gaiji_fn(void)
+{
+	unsigned blob_offset;
+	_asm {
+		db 0xE8, 0x0A, 0x00
+		db 'T', '5', 'H', 'U', 'D', '.', 'G', 'F', 'T', 0
+		pop ax
+		mov blob_offset, ax
+	}
+	return reinterpret_cast<const char far *>(MK_FP(_CS, blob_offset));
+}
+
+static bool language_main_hud_gaiji_validate(void)
+{
+	uint8_t header[LANGUAGE_MAIN_HUD_GAIJI_HEADER_SIZE];
+	uint8_t pattern[LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE];
+	uint8_t id;
+	uint8_t extra;
+	unsigned i;
+	const char far *fn;
+
+	fn = language_main_hud_gaiji_fn();
+	if(!file_ropen(fn)) {
+		return false;
+	}
+	if(
+		(file_read(header, sizeof(header)) != sizeof(header)) ||
+		!language_main_hud_gaiji_header_valid(header)
+	) {
+		file_close();
+		return false;
+	}
+	for(i = 0; i < LANGUAGE_MAIN_HUD_GAIJI_COUNT; i++) {
+		if(
+			(file_read(&id, sizeof(id)) != sizeof(id)) ||
+			(id != language_main_hud_gaiji_id(i)) ||
+			(file_read(pattern, sizeof(pattern)) != sizeof(pattern)) ||
+			(file_read(pattern, sizeof(pattern)) != sizeof(pattern))
+		) {
+			file_close();
+			return false;
+		}
+	}
+	if(file_read(&extra, sizeof(extra)) != 0) {
+		file_close();
+		return false;
+	}
+	file_close();
+	return true;
+}
+
+static void language_main_hud_gaiji_write_cell(
+	uint8_t id, const uint8_t *pattern
+)
+{
+	uint16_t jis = (0x5680 + id);
+	uint8_t row;
+
+	jis &= 0xFF7F;
+	outportb(0x68, 0x0B);
+	outportb(0xA1, static_cast<uint8_t>(jis));
+	outportb(0xA3, static_cast<uint8_t>(jis >> 8));
+	for(row = 0; row < 16; row++) {
+		outportb(0xA5, (row | 0x20));
+		outportb(0xA9, *pattern++);
+		outportb(0xA5, row);
+		outportb(0xA9, *pattern++);
+	}
+	outportb(0x68, 0x0A);
+}
+
+static bool language_main_hud_gaiji_write(bool english)
+{
+	uint8_t header[LANGUAGE_MAIN_HUD_GAIJI_HEADER_SIZE];
+	uint8_t pattern[LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE];
+	uint8_t id;
+	unsigned i;
+	const char far *fn;
+
+	fn = language_main_hud_gaiji_fn();
+	if(!file_ropen(fn)) {
+		return false;
+	}
+	if(file_read(header, sizeof(header)) != sizeof(header)) {
+		file_close();
+		return false;
+	}
+	for(i = 0; i < LANGUAGE_MAIN_HUD_GAIJI_COUNT; i++) {
+		if(file_read(&id, sizeof(id)) != sizeof(id)) {
+			file_close();
+			return false;
+		}
+		if(english) {
+			file_seek(LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE, SEEK_CUR);
+		}
+		if(
+			file_read(pattern, sizeof(pattern)) != sizeof(pattern)
+		) {
+			file_close();
+			return false;
+		}
+		if(!english) {
+			file_seek(LANGUAGE_MAIN_HUD_GAIJI_CELL_SIZE, SEEK_CUR);
+		}
+		language_main_hud_gaiji_write_cell(id, pattern);
+	}
+	file_close();
+	return true;
+}
+
+void language_main_hud_gaiji_apply(void)
+{
+	char overlay_fn[13];
+
+	language_main_overlay_fn_set(overlay_fn);
+	if(!language_main_overlay_available(overlay_fn)) {
+		return;
+	}
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(overlay_fn));
+	if(language_main_hud_gaiji_validate()) {
+		language_main_hud_gaiji_write(language_main_preference_is_english());
+	}
+	pfend();
+	language_main_stock_archive_restore();
+}
+#endif
+
 int far pascal language_main_dialog_ropen(const char *fn)
 {
 	char overlay_fn[13];
@@ -746,4 +909,7 @@ void far pascal language_main_layout_pad(void)
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
+	// Keep the stock TH05 `_TEXTC` segment on paragraph phase 0xD after the
+	// dual-language HUD gaiji loader above.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

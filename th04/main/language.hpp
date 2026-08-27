@@ -5,6 +5,9 @@
 
 bool16 language_main_english_selected(void);
 void language_main_titles_apply(void);
+#if (GAME == 5)
+	void language_main_hud_gaiji_apply(void);
+#endif
 const char *language_main_pause_label(uint8_t option);
 const char *language_main_pause_title(void);
 
