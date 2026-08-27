@@ -1231,6 +1231,8 @@ local th04_main_inputs = {
 	"th04/replay.cpp",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th04/rp_ckpt.cpp",
+	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
+	"th04/main/rp_guard.cpp",
 }
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
 	"main", th04_main_inputs
@@ -1516,6 +1518,8 @@ local th05_main_inputs = {
 	"th05/replay.cpp",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th05/rp_ckpt.cpp",
+	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
+	"th05/main/rp_guard.cpp",
 }
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
 	"main", th05_main_inputs

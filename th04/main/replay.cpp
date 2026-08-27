@@ -24,6 +24,7 @@
 #include "th04/main/quit.hpp"
 #include "th04/main/replay.hpp"
 #include "th04/main/replay_checkpoint.hpp"
+#include "th04/main/rp_guard.hpp"
 #include "th04/main/slowdown.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
@@ -120,6 +121,7 @@ static uint16_t replay_buffer_pos;
 static uint32_t replay_payload_written;
 static uint32_t replay_packet_cursor;
 static uint32_t replay_sample_cursor;
+static uint32_t replay_protect_sample_count;
 static uint32_t replay_payload_checksum;
 static replay_user_packet_t replay_pending;
 static uint8_t replay_pending_run;
@@ -1055,19 +1057,27 @@ static bool replay_record_sample(uint8_t phase, input_t input, bool shift)
 		(replay_pending_run < REPLAY_PACKET_RUN_MAX)
 	) {
 		replay_pending_run++;
-		return true;
+	} else {
+		if(!replay_pending_commit()) {
+			return false;
+		}
+		replay_pending.tag = static_cast<uint8_t>(
+			phase << REPLAY_PACKET_PHASE_SHIFT
+		);
+		replay_pending.input_low = low;
+		replay_pending.input_high = high;
+		replay_pending.shift = static_cast<uint8_t>(shift != false);
+		replay_pending_run = 1;
+		replay_pending_valid = true;
 	}
-	if(!replay_pending_commit()) {
-		return false;
+	replay_protect_sample_count++;
+	if(
+		((replay_protect_sample_count &
+		  (REPLAY_PROTECT_INTERVAL_SAMPLES - 1)) == 0) &&
+		!replay_protect_blocked()
+	) {
+		(void)replay_protect_checkpoint();
 	}
-	replay_pending.tag = static_cast<uint8_t>(
-		phase << REPLAY_PACKET_PHASE_SHIFT
-	);
-	replay_pending.input_low = low;
-	replay_pending.input_high = high;
-	replay_pending.shift = static_cast<uint8_t>(shift != false);
-	replay_pending_run = 1;
-	replay_pending_valid = true;
 	return true;
 }
 
@@ -2489,6 +2499,7 @@ void replay_entry(void)
 	replay_payload_written = 0;
 	replay_packet_cursor = 0;
 	replay_sample_cursor = 0;
+	replay_protect_sample_count = 0;
 	replay_pending_run = 0;
 	replay_decode_run = 0;
 	replay_pending_valid = false;
@@ -2543,8 +2554,10 @@ void replay_entry(void)
 		if(replay_mode == RRM_PRACTICE) {
 			return;
 		}
+		(void)replay_protect_begin();
 		if(!replay_header_write(true)) {
 			replay_fail();
+			replay_protect_end();
 			replay_mode = RRM_DISABLED;
 		}
 		return;
@@ -2782,7 +2795,20 @@ static void replay_restart_capture(void)
 
 static bool replay_pause_save_available(void)
 {
-	return ((replay_mode == RRM_RECORD) && !replay_failed);
+	return (
+		(replay_mode == RRM_RECORD) && !replay_failed &&
+		!replay_protect_blocked()
+	);
+}
+
+static bool replay_pause_save_refresh(void)
+{
+	bool was_available = replay_pause_save_available();
+
+	if(was_available) {
+		(void)replay_protect_checkpoint();
+	}
+	return (was_available && !replay_pause_save_available());
 }
 
 static void replay_pause_label_put(
@@ -2856,7 +2882,8 @@ static void replay_pause_clear(void)
 extern "C" int far replay_pause_menu(void)
 {
 	uint8_t selected = 0;
-	bool save_available = replay_pause_save_available();
+	bool save_available;
+	bool save_became_unavailable;
 
 	while(
 		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
@@ -2864,6 +2891,8 @@ extern "C" int far replay_pause_menu(void)
 		input_reset_sense_interface();
 		frame_delay(1);
 	}
+	(void)replay_pause_save_refresh();
+	save_available = replay_pause_save_available();
 	if(language_main_english_selected()) {
 		text_putsa(25, 10, language_main_pause_title(), TX_YELLOW);
 	} else {
@@ -2872,6 +2901,26 @@ extern "C" int far replay_pause_menu(void)
 	replay_pause_render(selected, save_available);
 	while(1) {
 		input_reset_sense_interface();
+		save_became_unavailable = false;
+		if(
+			(key_det != INPUT_NONE) ||
+			(peekb(0, KEYGROUP_2) & K2_R)
+		) {
+			save_became_unavailable = replay_pause_save_refresh();
+			save_available = replay_pause_save_available();
+			if(save_became_unavailable) {
+				selected = 3;
+				replay_pause_render(selected, save_available);
+				while(
+					(key_det != INPUT_NONE) ||
+					(peekb(0, KEYGROUP_2) & K2_R)
+				) {
+					input_reset_sense_interface();
+					frame_delay(1);
+				}
+				continue;
+			}
+		}
 		if(peekb(0, KEYGROUP_2) & K2_R) {
 			selected = 1;
 			break;
@@ -3072,6 +3121,7 @@ bool replay_process_end(void)
 	uint16_t arg;
 	uint8_t arg8;
 	uint8_t end_reason;
+	bool protect_blocked = false;
 
 	if(replay_finished) {
 		return (replay_mode == RRM_PLAYBACK);
@@ -3091,6 +3141,10 @@ bool replay_process_end(void)
 	}
 	end_reason = replay_end_reason();
 	if(replay_mode == RRM_RECORD) {
+		if(!replay_protect_blocked()) {
+			(void)replay_protect_checkpoint();
+		}
+		protect_blocked = replay_protect_blocked();
 		if(replay_stage_seen && (replay_last_stage < REPLAY_USER_STAGE_COUNT)) {
 			replay_header.stage_scores[replay_last_stage] =
 				replay_score_points();
@@ -3133,7 +3187,8 @@ bool replay_process_end(void)
 		replay_private_result_write(end_reason);
 		if(
 			(replay_pause_action == RPA_DISCARD_EXIT) ||
-			(replay_pause_action == RPA_RESTART)
+			(replay_pause_action == RPA_RESTART) ||
+			protect_blocked
 		) {
 			if(replay_temp_capture) {
 				replay_pending_files_delete();
@@ -3154,6 +3209,7 @@ bool replay_process_end(void)
 			replay_failed = true;
 			replay_pending_files_delete();
 		}
+		replay_protect_end();
 		if(replay_pause_action == RPA_RESTART) {
 			return replay_restart_command_write();
 		}
