@@ -77,7 +77,8 @@ void far t1_language_load(void)
 	}
 	exact_size = (
 		(fread(&config, 1, sizeof(config), file) == sizeof(config)) &&
-		(fread(&extra, 1, 1, file) == 0)
+		(fread(&extra, 1, 1, file) == 0) &&
+		(feof(file) != 0)
 	);
 	if(fclose(file) != 0) {
 		exact_size = false;
