@@ -64,9 +64,9 @@
 #define PRACTICE_HISTORY_ROWS 13
 #define PRACTICE_STAGE_ROWS 4
 
-// `SLB1.PI` has an unused palette entry at index 7. Reserve it for the one
-// browser selection color instead of relying on either background's active
-// color, which has insufficient contrast for an empty row.
+// The replay-list background has an unused palette entry at index 7. Reserve
+// it for the one browser selection color instead of relying on either
+// background's active color, which has insufficient contrast for an empty row.
 #define REPLAY_OP_SELECTED_RED 0xFF
 #define REPLAY_OP_SELECTED_GREEN 0xFF
 #define REPLAY_OP_SELECTED_BLUE 0x00
