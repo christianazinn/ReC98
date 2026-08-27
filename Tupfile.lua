@@ -337,6 +337,16 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/d/",
 		cflags = "-DT1RP=3",
 	},
+	["t1pixel-sequential"] = {
+		obj_root = "x/q/",
+		bin_root = "x/q/",
+		cflags = "-DT1RP=4",
+	},
+	["t1pixel-direct"] = {
+		obj_root = "x/r/",
+		bin_root = "x/r/",
+		cflags = "-DT1RP=5",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",
@@ -474,6 +484,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/rstage.cpp",
 	"th01/rboss.cpp",
 	"th01/rpypause.cpp",
+	"th01/rpypixel.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

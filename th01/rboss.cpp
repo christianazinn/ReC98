@@ -319,7 +319,7 @@ bool16 t1replay_checkpoint_boss_apply(
 	return false;
 }
 
-#if T1REPLAY_CHECKPOINT_RESTORE
+#if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE
 static bool t1replay_ckpt_present_pools_inactive(
 	const t1replay_checkpoint_t far *checkpoint
 )
