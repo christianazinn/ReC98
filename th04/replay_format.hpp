@@ -4,7 +4,8 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 4
+#define REPLAY_USER_VERSION 5
+#define REPLAY_USER_VERSION_LEGACY 4
 #define REPLAY_USER_HEADER_SIZE 192
 #define REPLAY_USER_PACKET_SIZE 4
 #define REPLAY_USER_INPUT_SIZE_MAX 0x00400000UL
@@ -233,7 +234,11 @@ struct replay_user_header_t {
 	uint8_t power_final;
 	uint8_t dream_final;
 	uint32_t stage_directory_checksum;
-	uint8_t reserved[8];
+	// V5 reclaims V4's all-zero tail for run-wide host-performance telemetry.
+	// These counters are presentation metadata: replay playback never consumes
+	// them as gameplay state.
+	uint32_t timed_frames;
+	uint32_t slow_frames;
 };
 
 struct replay_stage_entry_t {
@@ -343,6 +348,12 @@ typedef char replay_user_header_stage_scores_offset_check[
 ];
 typedef char replay_user_header_start_offset_check[
 	(offsetof(replay_user_header_t, start) == 0x68) ? 1 : -1
+];
+typedef char replay_user_header_timed_frames_offset_check[
+	(offsetof(replay_user_header_t, timed_frames) == 0xB8) ? 1 : -1
+];
+typedef char replay_user_header_slow_frames_offset_check[
+	(offsetof(replay_user_header_t, slow_frames) == 0xBC) ? 1 : -1
 ];
 typedef char replay_start_score_offset_check[
 	(offsetof(replay_start_config_t, score) == 0x10) ? 1 : -1

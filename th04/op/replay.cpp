@@ -125,6 +125,7 @@ enum replay_op_word_t {
 	ROW_REPLAY_DETAILS,
 	ROW_FINAL_SCORE,
 	ROW_DATE,
+	ROW_SLOWDOWN,
 	ROW_STAGE_SPLITS,
 	ROW_COMPLETE,
 	ROW_MENU_RETURN,
@@ -979,7 +980,6 @@ static bool replay_op_header_valid(
 	uint32_t input_end;
 	uint32_t expected_file_size;
 	bool checkpoint;
-	unsigned i;
 
 	checkpoint = (
 		(replay_op_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0
@@ -1019,10 +1019,13 @@ static bool replay_op_header_valid(
 		(replay_op_header.magic[2] != 'R') ||
 		(replay_op_header.magic[3] != 'P') ||
 		(replay_op_header.magic[4] != 'Y') ||
-		(replay_op_header.magic[5] != ('0' + REPLAY_USER_VERSION)) ||
 		(replay_op_header.magic[6] != '\0') ||
 		(replay_op_header.magic[7] != '\0') ||
-		(replay_op_header.version != REPLAY_USER_VERSION) ||
+		(replay_op_header.magic[5] != ('0' + replay_op_header.version)) ||
+		(
+			(replay_op_header.version != REPLAY_USER_VERSION) &&
+			(replay_op_header.version != REPLAY_USER_VERSION_LEGACY)
+		) ||
 		(replay_op_header.header_size != REPLAY_USER_HEADER_SIZE) ||
 		(replay_op_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
 		((replay_op_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
@@ -1052,10 +1055,17 @@ static bool replay_op_header_valid(
 	) {
 		return false;
 	}
-	for(i = 0; i < sizeof(replay_op_header.reserved); i++) {
-		if(replay_op_header.reserved[i] != 0) {
-			return false;
-		}
+	if(
+		(replay_op_header.version == REPLAY_USER_VERSION_LEGACY) &&
+		(replay_op_header.timed_frames || replay_op_header.slow_frames)
+	) {
+		return false;
+	}
+	if(
+		(replay_op_header.version == REPLAY_USER_VERSION) &&
+		(replay_op_header.slow_frames > replay_op_header.timed_frames)
+	) {
+		return false;
 	}
 	replay_op_header.header_checksum = 0;
 	computed = replay_op_fnv1a(
@@ -1885,6 +1895,8 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 		P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case ROW_DATE:
 		P('D'); P('a'); P('t'); P('e'); break;
+	case ROW_SLOWDOWN:
+		P('S'); P('l'); P('o'); P('w'); P('d'); P('o'); P('w'); P('n'); break;
 	case ROW_STAGE_SPLITS:
 		P('S'); P('t'); P('a'); P('g'); P('e'); P(' ');
 		P('S'); P('p'); P('l'); P('i'); P('t'); P('s'); break;
@@ -2301,10 +2313,50 @@ static void replay_detail_left_put(uint8_t slot)
 		);
 		replay_op_line_put(REPLAY_DETAIL_LEFT, 208, V_WHITE, p);
 	#endif
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_SLOWDOWN);
+	replay_op_line_put(
+		REPLAY_DETAIL_LEFT, ((GAME == 4) ? 232 : 208), V_WHITE, p
+	);
+	p = replay_op_line;
+	if(
+		(replay_op_header.version == REPLAY_USER_VERSION_LEGACY) ||
+		(replay_op_header.timed_frames == 0)
+	) {
+		*p++ = '-';
+	} else {
+		uint32_t fraction = (
+			replay_op_header.slow_frames % replay_op_header.timed_frames
+		);
+		uint32_t accumulator = 0;
+		uint16_t percent = (
+			(replay_op_header.slow_frames / replay_op_header.timed_frames) *
+			100
+		);
+		uint8_t i;
+
+		// Accumulate the fractional hundredths without overflowing a 32-bit
+		// numerator on a long recording.
+		for(i = 0; i < 100; i++) {
+			if(accumulator >= (replay_op_header.timed_frames - fraction)) {
+				accumulator -= (replay_op_header.timed_frames - fraction);
+				percent++;
+			} else {
+				accumulator += fraction;
+			}
+		}
+		p = replay_op_uint_append(p, percent, 3);
+		*p++ = '%';
+	}
+	replay_op_line_put_right(
+		REPLAY_DETAIL_VALUE_RIGHT, ((GAME == 4) ? 232 : 208), V_WHITE, p
+	);
 	if(replay_op_header.mode == RUM_PRACTICE) {
 		p = replay_op_line;
 		p = replay_op_word_append(p, ROW_PRACTICE);
-		replay_op_line_put(REPLAY_DETAIL_LEFT, 232, V_WHITE, p);
+		replay_op_line_put(
+			REPLAY_DETAIL_LEFT, ((GAME == 4) ? 256 : 232), V_WHITE, p
+		);
 	}
 }
 
@@ -4732,8 +4784,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 // runtime segment on its original paragraph phase; raw near offsets rely on
 // it, and a shifted phase produces title-demo and game-start black screens.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90"
-#else
 	#pragma codestring "\x90\x90\x90"
 #endif
 

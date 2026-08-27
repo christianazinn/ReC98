@@ -1407,7 +1407,6 @@ static bool replay_header_read(void)
 	uint32_t input_end;
 	uint32_t expected_file_size;
 	bool checkpoint;
-	unsigned i;
 	int fh;
 
 	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
@@ -1429,9 +1428,13 @@ static bool replay_header_read(void)
 		(replay_header.magic[2] != 'R') ||
 		(replay_header.magic[3] != 'P') ||
 		(replay_header.magic[4] != 'Y') ||
-		(replay_header.magic[5] != ('0' + REPLAY_USER_VERSION)) ||
 		(replay_header.magic[6] != '\0') ||
-		(replay_header.magic[7] != '\0')
+		(replay_header.magic[7] != '\0') ||
+		(replay_header.magic[5] != ('0' + replay_header.version)) ||
+		(
+			(replay_header.version != REPLAY_USER_VERSION) &&
+			(replay_header.version != REPLAY_USER_VERSION_LEGACY)
+		)
 	) {
 		return false;
 	}
@@ -1465,7 +1468,6 @@ static bool replay_header_read(void)
 		return false;
 	}
 	if(
-		(replay_header.version != REPLAY_USER_VERSION) ||
 		(replay_header.header_size != REPLAY_USER_HEADER_SIZE) ||
 		(replay_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
 		((replay_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
@@ -1495,10 +1497,17 @@ static bool replay_header_read(void)
 	) {
 		return false;
 	}
-	for(i = 0; i < sizeof(replay_header.reserved); i++) {
-		if(replay_header.reserved[i] != 0) {
-			return false;
-		}
+	if(
+		(replay_header.version == REPLAY_USER_VERSION_LEGACY) &&
+		(replay_header.timed_frames || replay_header.slow_frames)
+	) {
+		return false;
+	}
+	if(
+		(replay_header.version == REPLAY_USER_VERSION) &&
+		(replay_header.slow_frames > replay_header.timed_frames)
+	) {
+		return false;
 	}
 	stored = replay_header.header_checksum;
 	replay_header_checksum_set();
@@ -3279,6 +3288,8 @@ bool replay_process_end(void)
 		replay_header.bombs_final = replay_bombs();
 		replay_header.power_final = power;
 		replay_header.dream_final = replay_dream();
+		replay_header.timed_frames = total_frames;
+		replay_header.slow_frames = total_slow_frames;
 		if(!replay_failed && replay_ck_capture_pending()) {
 			replay_private_diagnostic = (0x04UL << 24) | replay_sample_cursor;
 			replay_fail();
@@ -3379,7 +3390,7 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 	// RC19 adds MAIN-to-OP handoff witnesses. Keep the patch tail's end phase
 	// fixed so the following stock CRT segment retains its original layout.
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90"
 	// RC21 redraws an interrupted stage-title overlay. This additive tail is
 	// padded to the next 0x100-byte boundary so _TEXTC retains its audited
 	// paragraph phase.
