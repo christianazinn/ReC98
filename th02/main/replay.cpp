@@ -3638,7 +3638,8 @@ static bool t2replay_packet_is_valid(
 		if(
 			(packet->input_high != 0) ||
 			((packet->input_low != T2REPLAY_END_GAME_OVER) &&
-			 (packet->input_low != T2REPLAY_END_CLEAR)) ||
+			 (packet->input_low != T2REPLAY_END_CLEAR) &&
+			 (packet->input_low != T2REPLAY_END_MENU_RETURN)) ||
 			(packet->arg >= T2REPLAY_STAGE_COUNT) ||
 			*terminal_seen
 		) {
@@ -3764,7 +3765,7 @@ static bool t2replay_header_read(void)
 		(t2replay_header.stage_reached >= T2REPLAY_STAGE_COUNT) ||
 		(t2replay_header.terminal_stage >= T2REPLAY_STAGE_COUNT) ||
 		(t2replay_header.end_reason < T2REPLAY_END_GAME_OVER) ||
-		(t2replay_header.end_reason > T2REPLAY_END_CLEAR) ||
+		(t2replay_header.end_reason > T2REPLAY_END_MENU_RETURN) ||
 		(t2replay_header.input_offset != T2REPLAY_HEADER_SIZE) ||
 		(t2replay_header.input_size > T2REPLAY_INPUT_SIZE_MAX) ||
 		(t2replay_header.packet_count >
@@ -5061,7 +5062,7 @@ bool replay_pause_save_and_exit(void)
 	bool saved = replay_pause_save_available();
 
 	if(saved) {
-		t2replay_finalize(T2REPLAY_END_GAME_OVER);
+		t2replay_finalize(T2REPLAY_END_MENU_RETURN);
 		saved = !t2replay_failed;
 	}
 	if(!saved) {

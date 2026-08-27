@@ -74,6 +74,7 @@ enum t2op_word_t {
 	T2OW_INVALID,
 	T2OW_CLEAR,
 	T2OW_GAME_OVER,
+	T2OW_MENU_RETURN,
 	T2OW_PAGE,
 	T2OW_FINAL_SCORE,
 	T2OW_START_POINT,
@@ -394,7 +395,7 @@ static bool t2op_header_valid(void)
 		(t2op_header.stage_reached >= T2REPLAY_STAGE_COUNT) ||
 		(t2op_header.terminal_stage >= T2REPLAY_STAGE_COUNT) ||
 		(t2op_header.end_reason < T2REPLAY_END_GAME_OVER) ||
-		(t2op_header.end_reason > T2REPLAY_END_CLEAR) ||
+		(t2op_header.end_reason > T2REPLAY_END_MENU_RETURN) ||
 		(t2op_header.input_offset != T2REPLAY_HEADER_SIZE) ||
 		(t2op_header.input_size > T2REPLAY_INPUT_SIZE_MAX) ||
 		(t2op_header.packet_count >
@@ -703,7 +704,8 @@ static bool t2op_packet_valid(
 		if(
 			(input_high != 0) ||
 			((input_low != T2REPLAY_END_GAME_OVER) &&
-			 (input_low != T2REPLAY_END_CLEAR)) ||
+			 (input_low != T2REPLAY_END_CLEAR) &&
+			 (input_low != T2REPLAY_END_MENU_RETURN)) ||
 			(arg >= T2REPLAY_STAGE_COUNT) ||
 			*terminal_seen
 		) {
@@ -1098,6 +1100,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_INVALID: P('I'); P('n'); P('v'); P('a'); P('l'); P('i'); P('d'); break;
 	case T2OW_CLEAR: P('C'); P('l'); P('e'); P('a'); P('r'); break;
 	case T2OW_GAME_OVER: P('G'); P('a'); P('m'); P('e'); P(' '); P('O'); P('v'); P('e'); P('r'); break;
+	case T2OW_MENU_RETURN: P('M'); P('e'); P('n'); P('u'); P(' '); P('R'); P('e'); P('t'); P('u'); P('r'); P('n'); break;
 	case T2OW_PAGE: P('P'); P('a'); P('g'); P('e'); break;
 	case T2OW_FINAL_SCORE: P('F'); P('i'); P('n'); P('a'); P('l'); P(' '); P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_START_POINT: P('S'); P('t'); P('a'); P('r'); P('t'); P(' '); P('P'); P('o'); P('i'); P('n'); P('t'); break;
@@ -1404,6 +1407,16 @@ static char *t2op_character_append(char *p, uint8_t value)
 	case 1: return t2op_word_append(p, T2OW_MARISA);
 	default: return t2op_word_append(p, T2OW_MIMA);
 	}
+}
+
+static char *t2op_end_reason_append(char *p, uint8_t value)
+{
+	if(value == T2REPLAY_END_CLEAR) {
+		return t2op_word_append(p, T2OW_CLEAR);
+	} else if(value == T2REPLAY_END_MENU_RETURN) {
+		return t2op_word_append(p, T2OW_MENU_RETURN);
+	}
+	return t2op_word_append(p, T2OW_GAME_OVER);
 }
 
 static char *t2op_stage_append(char *p, int8_t stage)
@@ -2264,10 +2277,7 @@ static void t2op_browser_slot_render(uint8_t slot, tram_y_t y)
 	p = t2op_spaces_append(p, 2);
 	p = t2op_stage_append(p, static_cast<int8_t>(t2op_header.stage_reached));
 	p = t2op_spaces_append(p, 1);
-	p = t2op_word_append(
-		p, (t2op_header.end_reason == T2REPLAY_END_CLEAR)
-			? T2OW_CLEAR : T2OW_GAME_OVER
-	);
+	p = t2op_end_reason_append(p, t2op_header.end_reason);
 	t2op_text_put(5, y, (slot == t2op_browser_sel) ? TX_WHITE : TX_YELLOW, p);
 	t2op_name_put(
 		15, y, t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET,
@@ -2338,10 +2348,7 @@ static void t2op_detail_render(uint8_t slot)
 	}
 
 	p = t2op_line;
-	p = t2op_word_append(
-		p, (t2op_header.end_reason == T2REPLAY_END_CLEAR)
-			? T2OW_CLEAR : T2OW_GAME_OVER
-	);
+	p = t2op_end_reason_append(p, t2op_header.end_reason);
 	t2op_text_put(5, 5, TX_WHITE, p);
 
 	#define T2OP_DETAIL_LABEL(y, word) \
