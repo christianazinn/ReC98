@@ -31,6 +31,7 @@
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
+#include "th02/main/s5_tile.hpp"
 #include "th02/main/s6_actor.hpp"
 #include "th02/main/actor_core.hpp"
 #include "th02/main/playperf.hpp"
@@ -2178,6 +2179,37 @@ typedef char t2rec_actor_core_wire_size_check[
 typedef char t2rec_s5_mima_wire_size_check[
 	(TH02_S5_MIMA_WIRE_SIZE == T2REPLAY_EXACT_S5_MIMA_SIZE) ? 1 : -1
 ];
+typedef char t2rec_s5_tile_wire_size_check[
+	(TH02_S5_TILE_LOGIC_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE) ? 1 : -1
+];
+
+static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
+{
+	if(schema == T2REPLAY_EXACT_S5_MIMA_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE;
+	}
+	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE;
+	}
+	return 0;
+}
+
+static uint32_t t2replay_exact_s5_mima_source_fingerprint(uint16_t schema)
+{
+	if(schema == T2REPLAY_EXACT_S5_MIMA_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT;
+	}
+	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_TILE_SOURCE_FINGERPRINT;
+	}
+	return 0;
+}
+
+static bool t2replay_exact_s5_mima_tile_present(uint16_t schema)
+{
+	return (schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA);
+}
 
 static void t2replay_exact_group_set(
 	uint8_t far *envelope, uint8_t id, uint8_t flags,
@@ -2204,7 +2236,8 @@ static void t2replay_exact_group_set(
 }
 
 static bool t2replay_exact_s5_mima_group_valid(
-	const uint8_t far *envelope, uint8_t id, uint32_t& payload_offset
+	const uint8_t far *envelope, uint16_t schema, uint8_t id,
+	uint32_t& payload_offset
 )
 {
 	const uint8_t far *group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
@@ -2218,6 +2251,11 @@ static bool t2replay_exact_s5_mima_group_valid(
 		payload_size = T2REPLAY_EXACT_ACTOR_CORE_SIZE;
 	} else if(id == T2RXGI_ACTOR_STAGE) {
 		payload_size = T2REPLAY_EXACT_S5_MIMA_SIZE;
+	} else if(
+		(id == T2RXGI_TILE_LOGIC) &&
+		t2replay_exact_s5_mima_tile_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE;
 	} else {
 		payload_size = 0;
 		flags = T2REPLAY_EXACT_GROUP_FLAG_DEFERRED;
@@ -2259,6 +2297,12 @@ static bool t2replay_exact_s5_mima_group_valid(
 		)) {
 			return false;
 		}
+	} else if(id == T2RXGI_TILE_LOGIC) {
+		if(!th02_s5_tile_logic_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
 	}
 	payload_offset += payload_size;
 	return true;
@@ -2288,18 +2332,44 @@ static bool t2replay_exact_s5_mima_common_tags_valid(
 	);
 }
 
-static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
-	const uint8_t far *envelope, uint32_t envelope_size
+static bool t2replay_exact_s5_mima_tile_field_agree(
+	const uint8_t far *envelope, uint16_t schema
 )
 {
+	const uint8_t far *field = envelope + T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	const uint8_t far *tile;
+	uint8_t group_id;
+
+	if(!t2replay_exact_s5_mima_tile_present(schema)) {
+		return true;
+	}
+	for(group_id = 0; group_id < T2RCGI_FIELD; group_id++) {
+		field += t2replay_checkpoint_group_size(group_id);
+	}
+	tile = envelope + T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE;
+	// FIELD owns these two generic renderer switches. TILE_LOGIC repeats them
+	// for a self-describing restore payload, so accept only one coherent value.
+	return (
+		(field[3] == tile[0]) &&
+		(field[18] == tile[1])
+	);
+}
+
+static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
+	const uint8_t far *envelope, uint32_t envelope_size, uint16_t schema
+)
+{
+	uint32_t capture_size = t2replay_exact_s5_mima_capture_size(schema);
+	uint32_t source_fingerprint =
+		t2replay_exact_s5_mima_source_fingerprint(schema);
 	uint32_t payload_offset;
 	uint8_t group_id;
 
 	if(
-		(envelope_size != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		(capture_size == 0) ||
+		(envelope_size != capture_size) ||
 		!t2replay_exact_checkpoint_magic_matches(envelope) ||
-		(t2replay_checkpoint_get_u16(envelope, 8) !=
-		 T2REPLAY_EXACT_S5_MIMA_SCHEMA) ||
+		(t2replay_checkpoint_get_u16(envelope, 8) != schema) ||
 		(t2replay_checkpoint_get_u16(envelope, 10) !=
 		 T2REPLAY_EXACT_HEADER_SIZE) ||
 		(envelope[12] != 2) ||
@@ -2307,17 +2377,16 @@ static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
 		(envelope[14] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
 		(envelope[15] != 0) ||
 		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_TOTAL_SIZE) !=
-		 T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		 capture_size) ||
 		(t2replay_checkpoint_get_u32(
 			envelope, T2REC_HEADER_SOURCE_FINGERPRINT
-		) != T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT) ||
+		) != source_fingerprint) ||
 		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_GROUP_MASK) !=
 		 T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK) ||
 		(envelope[T2REC_HEADER_BOUNDARY_GENERATION] !=
 		 T2REPLAY_EXACT_BOUNDARY_GENERATION) ||
 		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_DECODED_SIZE) !=
-		 (T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE -
-		  T2REPLAY_EXACT_CHECKPOINT_SIZE))
+		 (capture_size - T2REPLAY_EXACT_CHECKPOINT_SIZE))
 	) {
 		return T2REC_HEADER;
 	}
@@ -2337,13 +2406,16 @@ static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
 	for(group_id = 0; group_id < T2REPLAY_EXACT_GROUP_COUNT;
 		group_id++) {
 		if(!t2replay_exact_s5_mima_group_valid(
-			envelope, group_id, payload_offset
+			envelope, schema, group_id, payload_offset
 		)) {
 			return T2REC_DIRECTORY;
 		}
 	}
+	if(!t2replay_exact_s5_mima_tile_field_agree(envelope, schema)) {
+		return T2REC_DIRECTORY;
+	}
 	if(
-		(payload_offset != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		(payload_offset != capture_size) ||
 		(t2replay_checkpoint_get_u32(
 			envelope, T2REC_HEADER_CONTAINER_CHECKSUM
 		) != t2replay_exact_checkpoint_checksum(envelope, envelope_size))
@@ -2405,10 +2477,14 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	}
 	if(
 		(envelope_size >= T2REPLAY_EXACT_HEADER_SIZE) &&
-		(t2replay_checkpoint_get_u16(envelope, 8) ==
-		 T2REPLAY_EXACT_S5_MIMA_SCHEMA)
+		((t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5_MIMA_SCHEMA) ||
+		 (t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA))
 	) {
-		return t2replay_exact_s5_mima_validate(envelope, envelope_size);
+		return t2replay_exact_s5_mima_validate(
+			envelope, envelope_size, t2replay_checkpoint_get_u16(envelope, 8)
+		);
 	}
 	if(
 		(envelope_size != T2REPLAY_EXACT_CHECKPOINT_SIZE) ||
@@ -2476,11 +2552,14 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	return T2REC_DEFERRED_CODECS;
 }
 
-bool16 replay_exact_stage5_mima_capture(
+static bool16 t2replay_exact_stage5_mima_capture_schema(
 	uint8_t far *envelope, uint32_t envelope_size,
-	const struct t2rec_boundary_t *boundary
+	const struct t2rec_boundary_t *boundary, uint16_t schema
 )
 {
+	uint32_t capture_size = t2replay_exact_s5_mima_capture_size(schema);
+	uint32_t source_fingerprint =
+		t2replay_exact_s5_mima_source_fingerprint(schema);
 	uint32_t payload_offset;
 	uint32_t payload_size;
 	uint8_t group_id;
@@ -2488,7 +2567,8 @@ bool16 replay_exact_stage5_mima_capture(
 
 	if(
 		(envelope == 0) ||
-		(envelope_size != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) ||
+		(capture_size == 0) ||
+		(envelope_size != capture_size) ||
 		!replay_exact_checkpoint_boundary_available(boundary, &reason) ||
 		(stage_id != 4) || (stage_progression != SP_BOSS)
 	) {
@@ -2498,7 +2578,7 @@ bool16 replay_exact_stage5_mima_capture(
 	envelope[0] = 'T'; envelope[1] = '2'; envelope[2] = 'X';
 	envelope[3] = 'C'; envelope[4] = 'K'; envelope[5] = '1';
 	t2replay_checkpoint_put_u16(
-		envelope, 8, T2REPLAY_EXACT_S5_MIMA_SCHEMA
+		envelope, 8, schema
 	);
 	t2replay_checkpoint_put_u16(
 		envelope, 10, T2REPLAY_EXACT_HEADER_SIZE
@@ -2508,11 +2588,11 @@ bool16 replay_exact_stage5_mima_capture(
 	envelope[14] = T2REPLAY_EXACT_GROUP_SCHEMA;
 	t2replay_checkpoint_put_u32(
 		envelope, T2REC_HEADER_TOTAL_SIZE,
-		T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE
+		capture_size
 	);
 	t2replay_checkpoint_put_u32(
 		envelope, T2REC_HEADER_SOURCE_FINGERPRINT,
-		T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT
+		source_fingerprint
 	);
 	t2replay_checkpoint_put_u32(
 		envelope, T2REC_HEADER_GROUP_MASK,
@@ -2534,7 +2614,7 @@ bool16 replay_exact_stage5_mima_capture(
 		T2REPLAY_INPUT_SEMANTICS_KEY_DET;
 	t2replay_checkpoint_put_u32(
 		envelope, T2REC_HEADER_DECODED_SIZE,
-		(T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE -
+		(capture_size -
 		 T2REPLAY_EXACT_CHECKPOINT_SIZE)
 	);
 	payload_offset = T2REPLAY_EXACT_CHECKPOINT_SIZE;
@@ -2574,14 +2654,32 @@ bool16 replay_exact_stage5_mima_capture(
 		T2REPLAY_EXACT_S5_MIMA_SIZE
 	);
 	payload_offset += T2REPLAY_EXACT_S5_MIMA_SIZE;
+	if(t2replay_exact_s5_mima_tile_present(schema)) {
+		if(!th02_s5_tile_logic_wire_capture(
+			envelope + payload_offset, T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_TILE_LOGIC, 0, payload_offset,
+			T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE;
+	}
 	for(group_id = T2RXGI_STAGE_FX;
 		group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
+		if(
+			(group_id == T2RXGI_TILE_LOGIC) &&
+			t2replay_exact_s5_mima_tile_present(schema)
+		) {
+			continue;
+		}
 		t2replay_exact_group_set(
 			envelope, group_id, T2REPLAY_EXACT_GROUP_FLAG_DEFERRED,
 			payload_offset, 0
 		);
 	}
-	if(payload_offset != T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE) {
+	if(payload_offset != capture_size) {
 		return false;
 	}
 	t2replay_checkpoint_put_u32(
@@ -2591,6 +2689,27 @@ bool16 replay_exact_stage5_mima_capture(
 	return (
 		replay_exact_checkpoint_validate(envelope, envelope_size, boundary) ==
 		T2REC_DEFERRED_CODECS
+	);
+}
+
+bool16 replay_exact_stage5_mima_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary, T2REPLAY_EXACT_S5_MIMA_SCHEMA
+	);
+}
+
+bool16 replay_exact_stage5_mima_tile_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary,
+		T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA
 	);
 }
 

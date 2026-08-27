@@ -78,6 +78,17 @@
 	T2REPLAY_EXACT_S5_MIMA_SIZE \
 )
 
+// Schema 3 closes only Stage 5 Mima's logical TILE_LOGIC capture group. Its
+// Stage FX, palette, callback, and redraw groups remain deferred, so it is
+// still a private capture-only form rather than a seekable exact restore.
+#define T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA 3
+#define T2REPLAY_EXACT_S5_MIMA_TILE_SOURCE_FINGERPRINT 0xA11357C4UL
+#define T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE 685
+#define T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004

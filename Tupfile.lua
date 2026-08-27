@@ -598,6 +598,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/main/s3_actor.cpp",
 	"th02/main/s4_actor.cpp",
 	"th02/main/s5_actor.cpp",
+	"th02/main/s5_tile.cpp",
 	"th02/main/s6_actor.cpp",
 	-- TCC shortens actor_core.cpp to actor_~1.obj under the DOS output root.
 	{ "th02/main/actor_core.cpp", o = "actor_~1.obj" },
