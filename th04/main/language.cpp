@@ -912,4 +912,7 @@ void far pascal language_main_layout_pad(void)
 	// Keep the stock TH05 `_TEXTC` segment on paragraph phase 0xD after the
 	// dual-language HUD gaiji loader above.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	// The replay-owned activation call contributes five bytes in this segment;
+	// retain the following stock segment's frozen paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
