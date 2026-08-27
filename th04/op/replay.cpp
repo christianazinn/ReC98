@@ -309,6 +309,7 @@ static void replay_op_practice_diagnostic_fn_set(char far *fn, bool start)
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+	#pragma codestring "\x90\x90\x90"
 
 static int replay_op_dos_open(const char far *fn)
 {
@@ -3808,9 +3809,12 @@ static void replay_save_slot_menu(
 	bool input_allowed = false;
 
 	text_clear();
-	if(!replay_op_screen_background_replace(ROB_REPLAY)) {
+	// Name entry and the browser own different PI surfaces. Tear the first one
+	// down before loading the second; loading over it or replacing it in place
+	// both left some machines displaying a black page until the next redraw.
+	replay_op_screen_end(previous_func);
+	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, false)) {
 		replay_save_pending_discard();
-		replay_op_screen_end(previous_func);
 		return;
 	}
 
