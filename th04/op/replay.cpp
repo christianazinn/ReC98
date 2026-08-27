@@ -53,17 +53,43 @@
 #define REPLAY_OP_ACCESS_RW 2
 #define REPLAY_OP_SLOT_ROWS 10
 #define REPLAY_OP_LINE_CAPACITY 80
-#define REPLAY_OP_LINE_LEFT 96
 #define REPLAY_OP_LINE_TOP 112
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
-#define REPLAY_OP_COL_LOCKED ((GAME == 5) ? 2 : 12)
+#define REPLAY_OP_COL_SELECTED 7
 #define REPLAY_OP_TEXT_SPACING 16
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
 #define PRACTICE_PAGE_COUNT 3
 #define PRACTICE_TARGET_ROWS 9
 #define PRACTICE_HISTORY_ROWS 13
 #define PRACTICE_STAGE_ROWS 4
+
+// `SLB1.PI` has an unused palette entry at index 7. Reserve it for the one
+// browser selection color instead of relying on either background's active
+// color, which has insufficient contrast for an empty row.
+#define REPLAY_OP_SELECTED_RED 0xFF
+#define REPLAY_OP_SELECTED_GREEN 0xFF
+#define REPLAY_OP_SELECTED_BLUE 0x00
+
+#define REPLAY_BROWSER_MARKER_LEFT 48
+#define REPLAY_BROWSER_SLOT_LEFT 64
+#define REPLAY_BROWSER_NAME_LEFT 120
+#define REPLAY_BROWSER_SHOT_LEFT 240
+#define REPLAY_BROWSER_RANK_LEFT 328
+#define REPLAY_BROWSER_SCORE_LEFT 416
+#define REPLAY_BROWSER_STAGE_LEFT 540
+
+#define REPLAY_DETAIL_LEFT 64
+#define REPLAY_DETAIL_VALUE_RIGHT 336
+
+#define REPLAY_SAVE_NAME_LEFT 114
+#define REPLAY_SAVE_POINT_LEFT 372
+#define REPLAY_SAVE_DATE_LEFT 96
+#define REPLAY_SAVE_DIFFICULTY_LEFT 356
+#define REPLAY_SAVE_CHARACTER_CENTER 462
+#define REPLAY_SAVE_STAGE_LEFT 538
+#define REPLAY_SAVE_VALUE_TOP 104
+#define REPLAY_SAVE_METADATA_TOP 168
 
 enum replay_op_background_t {
 	ROB_REPLAY,
@@ -78,7 +104,7 @@ enum replay_op_word_t {
 	ROW_CONFIGURE_PRACTICE,
 	ROW_VIEW_RECORDED_RUNS,
 	ROW_SLOT,
-	ROW_CHARACTER,
+	ROW_NAME,
 	ROW_SHOT,
 	ROW_RANK,
 	ROW_SCORE,
@@ -93,6 +119,8 @@ enum replay_op_word_t {
 	ROW_HARD,
 	ROW_LUNATIC,
 	ROW_EXTRA,
+	ROW_ALL,
+	ROW_EX,
 	ROW_PAGE,
 	ROW_REPLAY_DETAILS,
 	ROW_FINAL_SCORE,
@@ -231,6 +259,16 @@ static bool replay_op_background_load(replay_op_background_t background)
 	return loaded;
 }
 
+static void replay_op_selected_palette_apply(void)
+{
+	palette_set(
+		REPLAY_OP_COL_SELECTED,
+		REPLAY_OP_SELECTED_RED,
+		REPLAY_OP_SELECTED_GREEN,
+		REPLAY_OP_SELECTED_BLUE
+	);
+}
+
 static bool replay_op_screen_begin(
 	replay_op_background_t background,
 	graph_putsa_fx_func_t& previous_func,
@@ -248,6 +286,7 @@ static bool replay_op_screen_begin(
 		return false;
 	}
 	pi_palette_apply(0);
+	replay_op_selected_palette_apply();
 	palette_settone(0);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
@@ -268,6 +307,7 @@ static bool replay_op_screen_background_replace(
 		return false;
 	}
 	pi_palette_apply(0);
+	replay_op_selected_palette_apply();
 	palette_settone(0);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
@@ -1801,9 +1841,8 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 		P('n'); P('s'); break;
 	case ROW_SLOT:
 		P('S'); P('l'); P('o'); P('t'); break;
-	case ROW_CHARACTER:
-		P('C'); P('h'); P('a'); P('r'); P('a'); P('c'); P('t'); P('e');
-		P('r'); break;
+	case ROW_NAME:
+		P('N'); P('a'); P('m'); P('e'); break;
 	case ROW_SHOT:
 		P('S'); P('h'); P('o'); P('t'); break;
 	case ROW_RANK:
@@ -1832,6 +1871,10 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 		P('L'); P('u'); P('n'); P('a'); P('t'); P('i'); P('c'); break;
 	case ROW_EXTRA:
 		P('E'); P('x'); P('t'); P('r'); P('a'); break;
+	case ROW_ALL:
+		P('A'); P('L'); P('L'); break;
+	case ROW_EX:
+		P('E'); P('X'); break;
 	case ROW_PAGE:
 		P('P'); P('a'); P('g'); P('e'); break;
 	case ROW_REPLAY_DETAILS:
@@ -1936,6 +1979,32 @@ static void replay_op_line_put_centered(vram_y_t top, vc2 col, char *p)
 	}
 }
 
+static void replay_op_line_put_right(
+	screen_x_t right, vram_y_t top, vc2 col, char *p
+)
+{
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_right(right, top, replay_op_line, col);
+	} else {
+		replay_op_line_put(
+			(right - ((p - replay_op_line) * 8)), top, col, p
+		);
+	}
+}
+
+static void replay_op_line_put_cells(
+	screen_x_t left, vram_y_t top, vc2 col, char *p
+)
+{
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_cells(left, top, replay_op_line, col);
+	} else {
+		replay_op_line_put(left, top, col, p);
+	}
+}
+
 static replay_op_word_t replay_op_playchar_word(uint8_t playchar)
 {
 	switch(playchar) {
@@ -1956,6 +2025,30 @@ static replay_op_word_t replay_op_rank_word(uint8_t rank)
 	default: return ROW_EXTRA;
 	}
 }
+
+static char *replay_op_shot_append(char *p)
+{
+	p = replay_op_word_append(
+		p, replay_op_playchar_word(replay_op_header.start.playchar)
+	);
+	#if (GAME == 4)
+		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
+	#endif
+	return p;
+}
+
+static char *replay_op_browser_stage_append(char *p)
+{
+	if(replay_op_header.start.stage == STAGE_EXTRA) {
+		return replay_op_word_append(p, ROW_EX);
+	}
+	if(replay_op_header.end_reason == RUER_COMPLETE) {
+		return replay_op_word_append(p, ROW_ALL);
+	}
+	return replay_op_uint_append(p, (replay_op_header.stage_reached + 1), 1);
+}
+
+static char *replay_op_name_append(char *p);
 
 void replay_title_desc_put(void)
 {
@@ -2011,57 +2104,58 @@ void replay_practice_title_desc_put(void)
 static void replay_browser_header_put(void)
 {
 	char *p = replay_op_line;
-	p = replay_op_word_padded_append(p, ROW_SLOT, 6);
-	p = replay_op_word_padded_append(p, ROW_CHARACTER, 11);
-	p = replay_op_word_padded_append(p, ROW_SHOT, 6);
-	p = replay_op_word_padded_append(p, ROW_RANK, 10);
-	p = replay_op_word_padded_append(p, ROW_SCORE, 12);
+	p = replay_op_word_append(p, ROW_SLOT);
+	replay_op_line_put(REPLAY_BROWSER_SLOT_LEFT, 80, V_WHITE, p);
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_NAME);
+	replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, 80, V_WHITE, p);
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_SHOT);
+	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, 80, V_WHITE, p);
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_RANK);
+	replay_op_line_put(REPLAY_BROWSER_RANK_LEFT, 80, V_WHITE, p);
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_SCORE);
+	replay_op_line_put(REPLAY_BROWSER_SCORE_LEFT, 80, V_WHITE, p);
+	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_STAGE);
-	replay_op_line_put(REPLAY_OP_LINE_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, 80, V_WHITE, p);
 }
 
 static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 {
 	char *p = replay_op_line;
 	bool valid = replay_op_header_read(slot, false);
+	vc2 col = (selected ? REPLAY_OP_COL_SELECTED : V_WHITE);
 
-	*p++ = (selected ? '>' : ' ');
-	*p++ = ' ';
+	if(selected) {
+		*p++ = '>';
+		replay_op_line_put(REPLAY_BROWSER_MARKER_LEFT, top, col, p);
+	}
+	p = replay_op_line;
 	p = replay_op_uint_append(p, slot, 2);
-	p = replay_op_spaces_append(p, 2);
+	replay_op_line_put_cells(REPLAY_BROWSER_SLOT_LEFT, top, col, p);
+	p = replay_op_line;
 	if(!valid) {
 		p = replay_op_word_append(p, ROW_NONE);
-		replay_op_line_put(
-			REPLAY_OP_LINE_LEFT, top,
-			(selected ? REPLAY_OP_COL_LOCKED : V_WHITE), p
-		);
+		replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, top, col, p);
 		return;
 	}
-	p = replay_op_word_padded_append(
-		p, replay_op_playchar_word(replay_op_header.start.playchar), 11
-	);
-	#if (GAME == 4)
-		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
-	#else
-		*p++ = '-';
-	#endif
-	p = replay_op_spaces_append(p, 5);
-	p = replay_op_word_padded_append(
-		p, replay_op_rank_word(replay_op_header.start.rank), 10
-	);
-	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
-	p = replay_op_spaces_append(p, 2);
-	if(replay_op_header.start.stage == STAGE_EXTRA) {
-		p = replay_op_word_append(p, ROW_EXTRA);
-	} else {
-		p = replay_op_word_append(p, ROW_STAGE);
-		*p++ = ' ';
-		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
-	}
-	replay_op_line_put(
-		REPLAY_OP_LINE_LEFT, top,
-		(selected ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
-	);
+	p = replay_op_name_append(p);
+	replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, top, col, p);
+	p = replay_op_line;
+	p = replay_op_shot_append(p);
+	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, top, col, p);
+	p = replay_op_line;
+	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
+	replay_op_line_put(REPLAY_BROWSER_RANK_LEFT, top, col, p);
+	p = replay_op_line;
+	p = replay_op_uint_append(p, replay_op_header.score_final, 1);
+	replay_op_line_put(REPLAY_BROWSER_SCORE_LEFT, top, col, p);
+	p = replay_op_line;
+	p = replay_op_browser_stage_append(p);
+	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, top, col, p);
 }
 
 static void replay_browser_footer_put(uint8_t sel)
@@ -2162,25 +2256,29 @@ static void replay_detail_left_put(uint8_t slot)
 	p = replay_op_uint_zero_append(p, slot, 2);
 	p = replay_op_spaces_append(p, 4);
 	p = replay_op_name_append(p);
-	replay_op_line_put(64, 80, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 
 	p = replay_op_line;
 	p = replay_op_end_reason_append(p);
-	replay_op_line_put(64, 112, V_WHITE, p);
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 112, V_WHITE, p);
 
 	p = replay_op_line;
-	p = replay_op_word_padded_append(p, ROW_FINAL_SCORE, 15);
+	p = replay_op_word_append(p, ROW_FINAL_SCORE);
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 136, V_WHITE, p);
+	p = replay_op_line;
 	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
-	replay_op_line_put(64, 136, V_WHITE, p);
+	replay_op_line_put_right(REPLAY_DETAIL_VALUE_RIGHT, 136, V_WHITE, p);
 
 	p = replay_op_line;
-	p = replay_op_word_padded_append(p, ROW_DATE, 15);
+	p = replay_op_word_append(p, ROW_DATE);
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 160, V_WHITE, p);
+	p = replay_op_line;
 	p = replay_op_uint_zero_append(p, month, 2);
 	*p++ = '-';
 	p = replay_op_uint_zero_append(p, day, 2);
 	*p++ = '-';
 	p = replay_op_uint_zero_append(p, year, 4);
-	replay_op_line_put(64, 160, V_WHITE, p);
+	replay_op_line_put_right(REPLAY_DETAIL_VALUE_RIGHT, 160, V_WHITE, p);
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
@@ -2192,7 +2290,7 @@ static void replay_detail_left_put(uint8_t slot)
 		*p++ = ' ';
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
-	replay_op_line_put(64, 184, V_WHITE, p);
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 184, V_WHITE, p);
 
 	#if (GAME == 4)
 		p = replay_op_line;
@@ -2201,12 +2299,12 @@ static void replay_detail_left_put(uint8_t slot)
 		p = replay_op_word_append(
 			p, replay_op_header.start.turbo_mode ? ROW_ON : ROW_OFF
 		);
-		replay_op_line_put(64, 208, V_WHITE, p);
+		replay_op_line_put(REPLAY_DETAIL_LEFT, 208, V_WHITE, p);
 	#endif
 	if(replay_op_header.mode == RUM_PRACTICE) {
 		p = replay_op_line;
 		p = replay_op_word_append(p, ROW_PRACTICE);
-		replay_op_line_put(64, 232, V_WHITE, p);
+		replay_op_line_put(REPLAY_DETAIL_LEFT, 232, V_WHITE, p);
 	}
 }
 
@@ -3689,8 +3787,8 @@ static void replay_save_date_gaiji_put(
 	hyphen[0] = '-';
 	hyphen[1] = '\0';
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	graph_putsa_fx((left + 32), top, V_WHITE, hyphen);
-	graph_putsa_fx((left + 80), top, V_WHITE, hyphen);
+	graph_putsa_fx((left + 36), top, V_WHITE, hyphen);
+	graph_putsa_fx((left + 84), top, V_WHITE, hyphen);
 }
 
 static void replay_save_name_render(const char far *name)
@@ -3701,15 +3799,21 @@ static void replay_save_name_render(const char far *name)
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
+	// Redrawing the PI before the eight cells is the explicit clear for an
+	// erased final glyph. Blank gaiji cells deliberately do not erase VRAM.
 	replay_save_gaiji_puts(
-		80, 96, name, REPLAY_USER_NAME_LEN, GAIJI_W
+		REPLAY_SAVE_NAME_LEFT, REPLAY_SAVE_VALUE_TOP,
+		name, REPLAY_USER_NAME_LEN, GAIJI_W
 	);
 	p = replay_op_line;
 	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
 	replay_save_gaiji_puts(
-		(560 - (10 * GAIJI_W)), 96, replay_op_line, 10, GAIJI_W
+		REPLAY_SAVE_POINT_LEFT, REPLAY_SAVE_VALUE_TOP,
+		replay_op_line, 10, GAIJI_W
 	);
-	replay_save_date_gaiji_put(80, 160, date);
+	replay_save_date_gaiji_put(
+		REPLAY_SAVE_DATE_LEFT, REPLAY_SAVE_METADATA_TOP, date
+	);
 	switch(replay_op_header.start.rank) {
 	case RANK_EASY: replay_op_line[0] = 'E'; break;
 	case RANK_NORMAL: replay_op_line[0] = 'N'; break;
@@ -3717,7 +3821,10 @@ static void replay_save_name_render(const char far *name)
 	case RANK_LUNATIC: replay_op_line[0] = 'L'; break;
 	default: replay_op_line[0] = 'X'; break;
 	}
-	replay_save_gaiji_puts(344, 160, replay_op_line, 1, GAIJI_W);
+	replay_save_gaiji_puts(
+		REPLAY_SAVE_DIFFICULTY_LEFT, REPLAY_SAVE_METADATA_TOP,
+		replay_op_line, 1, GAIJI_W
+	);
 	p = replay_op_line;
 	p = replay_op_word_append(
 		p, replay_op_playchar_word(replay_op_header.start.playchar)
@@ -3727,16 +3834,30 @@ static void replay_save_name_render(const char far *name)
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
 	*p = '\0';
-	replay_op_font_put(408, 160, replay_op_line, V_WHITE);
+	replay_op_font_put_centered(
+		REPLAY_SAVE_CHARACTER_CENTER, REPLAY_SAVE_METADATA_TOP,
+		replay_op_line, V_WHITE
+	);
 	p = replay_op_line;
 	if(replay_op_header.start.stage == STAGE_EXTRA) {
 		*p++ = 'X';
 	} else {
 		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
 	}
-	replay_save_gaiji_puts((560 - GAIJI_W), 160, replay_op_line, 1, GAIJI_W);
+	replay_save_gaiji_puts(
+		REPLAY_SAVE_STAGE_LEFT, REPLAY_SAVE_METADATA_TOP,
+		replay_op_line, 1, GAIJI_W
+	);
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
+}
+
+static void replay_save_name_menu_render(
+	const char far *name, uint8_t col, uint8_t row
+)
+{
+	replay_save_name_render(name);
+	replay_save_keyboard_put(col, row);
 }
 
 static bool replay_save_name_menu(char far *name, bool fade_in)
@@ -3751,8 +3872,7 @@ static bool replay_save_name_menu(char far *name, bool fade_in)
 	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
 		name[i] = ' ';
 	}
-	replay_save_name_render(name);
-	replay_save_keyboard_put(col, row);
+	replay_save_name_menu_render(name, col, row);
 	if(fade_in) {
 		palette_black_in(1);
 	}
@@ -3785,14 +3905,13 @@ static bool replay_save_name_menu(char far *name, bool fade_in)
 				if(replay_save_modal(RSM_DISCARD, false, false)) {
 					return false;
 				}
-				replay_save_name_render(name);
-				replay_save_keyboard_put(col, row);
+				replay_save_name_menu_render(name, col, row);
 			} else if(key_det & INPUT_BOMB) {
 				if(cursor > 0) {
 					cursor--;
 				}
 				name[cursor] = ' ';
-				replay_save_name_render(name);
+				replay_save_name_menu_render(name, col, row);
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				cell = static_cast<uint8_t>(
 					(row * REPLAY_SAVE_ALPHABET_COLS) + col
@@ -3826,7 +3945,7 @@ static bool replay_save_name_menu(char far *name, bool fade_in)
 						);
 					}
 				}
-				replay_save_name_render(name);
+				replay_save_name_menu_render(name, col, row);
 			}
 			if(key_det != INPUT_NONE) {
 				input_allowed = false;
@@ -3862,12 +3981,22 @@ static void replay_save_wait_for_key(void)
 static void replay_save_complete_put(void)
 {
 	char *p = replay_op_line;
+
+	graph_accesspage(replay_op_page_shown);
+	if(language_op_english_selected()) {
+		#define P(c) *p++ = static_cast<char>(c)
+		P('S'); P('a'); P('v'); P('e'); P('d'); P('.'); P(' ');
+		P('P'); P('r'); P('e'); P('s'); P('s'); P(' ');
+		P('a'); P('n'); P('y'); P(' '); P('k'); P('e'); P('y'); P('.');
+		#undef P
+		replay_op_line_put_centered(332, REPLAY_OP_COL_ACTIVE, p);
+	} else {
 	#define P(c) *p++ = static_cast<char>(c)
 	P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xB5);
 	P(0x82); P(0xDC); P(0x82); P(0xB5); P(0x82); P(0xBD);
 	#undef P
-	graph_accesspage(replay_op_page_shown);
-	replay_save_sjis_put_centered(332, REPLAY_OP_COL_ACTIVE, p);
+		replay_save_sjis_put_centered(332, REPLAY_OP_COL_ACTIVE, p);
+	}
 	graph_showpage(replay_op_page_shown);
 }
 
@@ -4597,6 +4726,15 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#endif
+
+// RC21's presentation helpers remain in the OP tail. Keep the next stock
+// runtime segment on its original paragraph phase; raw near offsets rely on
+// it, and a shifted phase produces title-demo and game-start black screens.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90"
 #endif
 
 #pragma codeseg
