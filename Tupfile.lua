@@ -537,6 +537,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	-- original object so neither can move an original owner.
 	"th01/rpyfuuin.cpp",
 	"th01/language.cpp",
+	"th01/langfuu.cpp",
 })
 -- ----
 

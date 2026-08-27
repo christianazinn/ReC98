@@ -3,6 +3,9 @@
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/grp2xscs.hpp"
 #include "th01/hiscore/regist.hpp"
+#if (BINARY == 'E')
+	#include "th01/langfuu.hpp"
+#endif
 
 // Null-terminated version of scoredat_name_t, used internally.
 typedef ShiftJISKanjiBuffer<SCOREDAT_NAME_KANJI + 1> scoredat_name_z_t;
@@ -173,17 +176,31 @@ void alphabet_put_initial()
 	alphabet_putsa_fx(NUM_TOP, i, col_and_fx, ALPHABET_SPACE);	i = LEFT_COLUMN;
 	alphabet_putsa_fx(NUM_TOP, i, col_and_fx, ALPHABET_LEFT); 	i++;
 	alphabet_putsa_fx(NUM_TOP, i, col_and_fx, ALPHABET_RIGHT);	i++;
+#if (BINARY == 'E')
+	regist_language_put(
+		left_for(i), NUM_TOP, col_and_fx, ALPHABET_ENTER,
+		T1LFRT_ALPHABET_END
+	);	i++;
+#else
 	alphabet_putsa_fx(NUM_TOP, i, col_and_fx, ALPHABET_ENTER);	i++;
+#endif
 }
 
+#if (BINARY == 'E')
+inline void header_cell_language_put(
+	screen_x_t left, const char str[], int text
+) {
+	regist_language_put(
+		left, TABLE_TOP, (COL_REGIST_SELECTED | FX_WEIGHT_BLACK), str, text
+	);
+}
+#else
 inline void header_cell_put(screen_x_t left, const char str[]) {
 	graph_putsa_fx(
 		left, TABLE_TOP, (COL_REGIST_SELECTED | FX_WEIGHT_BLACK), str
 	);
 }
-
-#define place_cell_put(top, col_and_fx, str) \
-	graph_putsa_fx(table_place_left(0), top, col_and_fx, str)
+#endif
 
 void regist_put_initial(
 	int entered_place,
@@ -197,10 +214,26 @@ void regist_put_initial(
 
 	graph_accesspage_func(0);
 
+#if (BINARY == 'E')
+	header_cell_language_put(
+		table_place_left(0), REGIST_HEADER_PLACE, T1LFRT_HEADER_PLACE
+	);
+	header_cell_language_put(
+		table_name_left(0), REGIST_HEADER_NAME, T1LFRT_HEADER_NAME
+	);
+	header_cell_language_put(
+		table_score_left(0), REGIST_HEADER_SCORE, T1LFRT_HEADER_SCORE
+	);
+	header_cell_language_put(
+		table_stage_route_left(0), REGIST_HEADER_STAGE_ROUTE,
+		T1LFRT_HEADER_STAGE_ROUTE
+	);
+#else
 	header_cell_put(table_place_left(0), REGIST_HEADER_PLACE);
 	header_cell_put(table_name_left(0), REGIST_HEADER_NAME);
 	header_cell_put(table_score_left(0), REGIST_HEADER_SCORE);
 	header_cell_put(table_stage_route_left(0), REGIST_HEADER_STAGE_ROUTE);
+#endif
 
 	for(int i = 0; i < SCOREDAT_PLACES; i++) {
 		#define stage_expr(i, entered_place, expr) \
@@ -223,16 +256,29 @@ void regist_put_initial(
 #endif
 
 		switch(i) {
-		case 0:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_0);	break;
-		case 1:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_1);	break;
-		case 2:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_2);	break;
-		case 3:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_3);	break;
-		case 4:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_4);	break;
-		case 5:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_5);	break;
-		case 6:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_6);	break;
-		case 7:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_7);	break;
-		case 8:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_8);	break;
-		case 9:	place_cell_put(top, col_and_fx_text, REGIST_PLACE_9);	break;
+#if (BINARY == 'E')
+		case 0: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_0, T1LFRT_PLACE_0); break;
+		case 1: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_1, T1LFRT_PLACE_1); break;
+		case 2: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_2, T1LFRT_PLACE_2); break;
+		case 3: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_3, T1LFRT_PLACE_3); break;
+		case 4: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_4, T1LFRT_PLACE_4); break;
+		case 5: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_5, T1LFRT_PLACE_5); break;
+		case 6: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_6, T1LFRT_PLACE_6); break;
+		case 7: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_7, T1LFRT_PLACE_7); break;
+		case 8: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_8, T1LFRT_PLACE_8); break;
+		case 9: regist_language_put(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_9, T1LFRT_PLACE_9); break;
+#else
+		case 0:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_0);	break;
+		case 1:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_1);	break;
+		case 2:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_2);	break;
+		case 3:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_3);	break;
+		case 4:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_4);	break;
+		case 5:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_5);	break;
+		case 6:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_6);	break;
+		case 7:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_7);	break;
+		case 8:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_8);	break;
+		case 9:	graph_putsa_fx(table_place_left(0), top, col_and_fx_text, REGIST_PLACE_9);	break;
+#endif
 		}
 		graph_putsa_fx(
 			table_name_left(0),
@@ -260,13 +306,27 @@ void regist_put_initial(
 				false
 			);
 		} else if(stage_expr(i, entered_place, == SCOREDAT_CLEARED_MAKAI)) {
+#if (BINARY == 'E')
+			regist_language_put(
+				table_stage_left(0), top, col_and_fx_text,
+				REGIST_STAGE_MAKAI, T1LFRT_STAGE_MAKAI
+			);
+#else
 			graph_putsa_fx(
 				table_stage_left(0), top, col_and_fx_text, REGIST_STAGE_MAKAI
 			);
+#endif
 		} else if(stage_expr(i, entered_place, == SCOREDAT_CLEARED_JIGOKU)) {
+#if (BINARY == 'E')
+			regist_language_put(
+				table_stage_left(0), top, col_and_fx_text,
+				REGIST_STAGE_JIGOKU, T1LFRT_STAGE_JIGOKU
+			);
+#else
 			graph_putsa_fx(
 				table_stage_left(0), top, col_and_fx_text, REGIST_STAGE_JIGOKU
 			);
+#endif
 		}
 		graph_putsa_fx(
 			table_stage_left(2), top, col_and_fx_text, REGIST_STAGE_ROUTE_DASH
@@ -325,12 +385,23 @@ void alphabet_put_at(screen_x_t left, screen_y_t top, bool16 is_selected)
 		!is_selected ? COL_REGIST_REGULAR : (FX_REVERSE | COL_REGIST_SELECTED)
 	));
 
+#if (BINARY == 'E')
+	alphabet_if(kanji, left, top,
+		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_SPACE); },
+		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_LEFT); },
+		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_RIGHT); },
+		{ regist_language_put(
+			left, top, col_and_fx, ALPHABET_ENTER, T1LFRT_ALPHABET_END
+		); }
+	);
+#else
 	alphabet_if(kanji, left, top,
 		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_SPACE); },
 		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_LEFT); },
 		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_RIGHT); },
 		{ graph_printf_fx(left, top, col_and_fx, ALPHABET_ENTER); }
 	);
+#endif
 	if(kanji != '\0') {
 		graph_putkanji_fx_declare();
 		graph_putkanji_fx(left, top, col_and_fx, kanji);

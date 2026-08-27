@@ -15,6 +15,7 @@ static long unused_long = { 0 }; // ZUN bloat
 #include "th01/resident.hpp"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/input.hpp"
+#include "th01/langfuu.hpp"
 #include "th01/shiftjis/fns.hpp"
 #include "th01/shiftjis/regist.hpp"
 #include "th01/formats/scoredat.hpp"
@@ -99,10 +100,21 @@ inline void regist_bg_put(int16_t stage_num_or_scoredat_constant) {
 #define regist_title_put( \
 	left, stage_num_or_scoredat_constant, ranks, col_and_fx \
 ) { \
-	graph_printf_fx( \
-		left, TITLE_TOP, col_and_fx, REGIST_TITLE_WITH_SPACE "%s", ranks[rank] \
-	); \
+	const shiftjis_t *title_format = REGIST_TITLE_WITH_SPACE "%s"; \
+	if(!t1lang_fuuin_regist_title_put( \
+		left, TITLE_TOP, col_and_fx, title_format, rank \
+	)) { \
+		graph_printf_fx( \
+			left, TITLE_TOP, col_and_fx, title_format, ranks[rank] \
+		); \
+	} \
 }
+
+#define regist_language_put(left, top, col_and_fx, japanese, text) \
+	t1lang_fuuin_regist_put( \
+		left, top, col_and_fx, japanese, \
+		static_cast<t1lang_fuuin_regist_text_t>(text) \
+	)
 
 #include "th01/hiscore/regist.cpp"
 
