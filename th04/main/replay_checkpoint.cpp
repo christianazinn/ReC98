@@ -2429,18 +2429,7 @@ bool replay_ck_practice_direct_seek(
 	if(boss_target && !rck_practice_boss_construct(start)) {
 		return false;
 	}
-	if(boss_target) {
-		#if (GAME == 5)
-		// Direct boss constructors install their own backdrop renderer. Prime
-		// both VRAM pages before the stage loop unmasks the target; otherwise
-		// one page still contains the pre-boss tile map and alternates into
-		// view as persistent trails.
-		graph_accesspage(page_front);
-		bg_render_not_bombing();
-		graph_accesspage(page_back);
-		bg_render_not_bombing();
-		#endif
-	} else {
+	if(!boss_target) {
 		tiles_activate_and_render_all_for_next_N_frames(PAGE_COUNT);
 	}
 	return true;
@@ -6658,5 +6647,5 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

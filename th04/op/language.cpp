@@ -13,7 +13,7 @@
 #define LANGUAGE_CONFIG_SIZE 8
 #define LANGUAGE_CONFIG_VERSION 1
 #define LANGUAGE_OPTION_STOCK_TOP ((GAME == 5) ? 250 : 224)
-#define LANGUAGE_OPTION_TOP ((GAME == 5) ? 230 : 204)
+#define LANGUAGE_OPTION_TOP (LANGUAGE_OPTION_STOCK_TOP - LANGUAGE_OPTION_LABEL_H)
 #define LANGUAGE_OPTION_LEFT 224
 #define LANGUAGE_OPTION_W 192
 #define LANGUAGE_OPTION_VALUE_LEFT 320
@@ -32,9 +32,6 @@
 static bool language_loaded;
 static language_preference_t language_current;
 static char language_config_fn[11];
-static char language_label[9];
-static char language_japanese[9];
-static char language_english[8];
 static char language_menu_bgm_fn[3];
 static char language_se_fn[5];
 static bool language_option_initialized;
@@ -434,20 +431,6 @@ static void language_config_name_set(void)
 
 static void language_text_set(void)
 {
-	language_label[0] = 'L'; language_label[1] = 'a';
-	language_label[2] = 'n'; language_label[3] = 'g';
-	language_label[4] = 'u'; language_label[5] = 'a';
-	language_label[6] = 'g'; language_label[7] = 'e';
-	language_label[8] = '\0';
-	language_japanese[0] = 'J'; language_japanese[1] = 'a';
-	language_japanese[2] = 'p'; language_japanese[3] = 'a';
-	language_japanese[4] = 'n'; language_japanese[5] = 'e';
-	language_japanese[6] = 's'; language_japanese[7] = 'e';
-	language_japanese[8] = '\0';
-	language_english[0] = 'E'; language_english[1] = 'n';
-	language_english[2] = 'g'; language_english[3] = 'l';
-	language_english[4] = 'i'; language_english[5] = 's';
-	language_english[6] = 'h'; language_english[7] = '\0';
 	language_menu_bgm_fn[0] = 'o';
 	language_menu_bgm_fn[1] = 'p';
 	language_menu_bgm_fn[2] = '\0';
@@ -587,23 +570,48 @@ static void language_option_desc_put(int desc_id)
 	);
 }
 
+static void language_option_language_desc_put(void)
+{
+	char desc[24];
+	char *p = desc;
+
+	#define P(c) *p++ = c
+	if(language_preference_get() == LANGUAGE_ENGLISH) {
+		P('C'); P('h'); P('a'); P('n'); P('g'); P('e'); P(' ');
+		P('d'); P('i'); P('s'); P('p'); P('l'); P('a'); P('y'); P(' ');
+		P('l'); P('a'); P('n'); P('g'); P('u'); P('a'); P('g'); P('e');
+	} else {
+		// 表示言語を変更します
+		P(0x95); P(0x5C); P(0x8E); P(0xA6); P(0x8C); P(0xBE);
+		P(0x8C); P(0xEA); P(0x82); P(0xF0); P(0x95); P(0xCF);
+		P(0x8D); P(0x58); P(0x82); P(0xB5); P(0x82); P(0xDC);
+		P(0x82); P(0xB7);
+	}
+	#undef P
+	*p = '\0';
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	graph_putsa_fx(
+		(RES_X - GLYPH_FULL_W - (strlen(desc) * GLYPH_HALF_W)),
+		LANGUAGE_OPTION_DESC_TOP, ((GAME == 5) ? 9 : V_WHITE), desc
+	);
+}
+
 static void language_option_language_put(vc2 color)
 {
-	const char *value;
+	op_cdg_slot_t value;
 
-	language_text_set();
 	value = ((language_preference_get() == LANGUAGE_ENGLISH)
-		? language_english : language_japanese
+		? CDG_OPTION_VALUE_ENGLISH : CDG_OPTION_VALUE_JAPANESE
 	);
 	egc_copy_rect_1_to_0_16(
 		LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP, LANGUAGE_OPTION_W, 16
 	);
-	replay_op_font_put(
-		LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP, language_label, color
+	grcg_setcolor(GC_RMW, color);
+	cdg_put_nocolors_8(
+		LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP, CDG_OPTION_LABEL_LANGUAGE
 	);
-	replay_op_font_put(
-		LANGUAGE_OPTION_VALUE_LEFT, LANGUAGE_OPTION_TOP, value, color
-	);
+	cdg_put_nocolors_8(LANGUAGE_OPTION_VALUE_LEFT, LANGUAGE_OPTION_TOP, value);
+	grcg_off();
 	if(color == LANGUAGE_OPTION_COL_ACTIVE) {
 		cdg_put_8(LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP, CDG_CURSOR_LEFT);
 		cdg_put_8(
@@ -612,6 +620,7 @@ static void language_option_language_put(vc2 color)
 		egc_copy_rect_1_to_0_16(
 			0, LANGUAGE_OPTION_DESC_TOP, RES_X, GLYPH_H
 		);
+		language_option_language_desc_put();
 	}
 }
 
@@ -625,64 +634,6 @@ static void language_option_stock_put(language_option_choice_t sel, vc2 color)
 	egc_copy_rect_1_to_0_16(
 		LANGUAGE_OPTION_LEFT, top, LANGUAGE_OPTION_W, LANGUAGE_OPTION_LABEL_H
 	);
-	if(language_op_english_selected()) {
-		const char *value = 0;
-
-		switch(sel) {
-		case LOC_RANK:
-			value = language_op_option_value(sel, resident->rank);
-			desc_id = (6 + resident->rank);
-			break;
-		case LOC_LIVES:
-			value = language_op_option_value(sel, resident->cfg_lives);
-			desc_id = 10;
-			break;
-		case LOC_BOMBS:
-			value = language_op_option_value(sel, resident->cfg_bombs);
-			desc_id = 11;
-			break;
-		case LOC_BGM:
-			value = language_op_option_value(sel, resident->bgm_mode);
-			desc_id = (12 + resident->bgm_mode);
-			break;
-		case LOC_SE:
-			value = language_op_option_value(sel, resident->se_mode);
-			desc_id = (15 + resident->se_mode);
-			break;
-		case LOC_TURBO_OR_SLOW:
-			cursor_left = LANGUAGE_OPTION_COMMAND_CURSOR_LEFT;
-			desc_id = (18 + resident->turbo_mode);
-			break;
-		case LOC_RESET:
-			cursor_left = LANGUAGE_OPTION_COMMAND_CURSOR_LEFT;
-			desc_id = 20;
-			break;
-		default:
-			cursor_left = LANGUAGE_OPTION_COMMAND_CURSOR_LEFT;
-			desc_id = 21;
-			break;
-		}
-		replay_op_font_put(
-			((sel >= LOC_TURBO_OR_SLOW)
-				? LANGUAGE_OPTION_COMMAND_LEFT
-				: LANGUAGE_OPTION_LEFT),
-			top, language_op_option_label(sel), color
-		);
-		if(value) {
-			replay_op_font_put(LANGUAGE_OPTION_VALUE_LEFT, top, value, color);
-		}
-		if(color == LANGUAGE_OPTION_COL_ACTIVE) {
-			cdg_put_8(cursor_left, top, CDG_CURSOR_LEFT);
-			cdg_put_8(
-				((cursor_left == LANGUAGE_OPTION_COMMAND_CURSOR_LEFT)
-					? LANGUAGE_OPTION_COMMAND_CURSOR_RIGHT
-					: LANGUAGE_OPTION_CURSOR_RIGHT),
-				top, CDG_CURSOR_RIGHT
-			);
-			language_option_desc_put(desc_id);
-		}
-		return;
-	}
 	grcg_setcolor(GC_RMW, color);
 	switch(sel) {
 	case LOC_RANK:
@@ -893,37 +844,22 @@ static void language_option_selection_move(int8_t direction)
 
 static void language_option_changed_put(void)
 {
-	int i;
-
-	if(language_option_sel != LOC_LANGUAGE) {
-		language_option_put(
-			static_cast<language_option_choice_t>(language_option_sel),
-			LANGUAGE_OPTION_COL_ACTIVE
-		);
-		return;
-	}
-	// A language toggle updates every visible row in the current frame. The
-	// title background is rebuilt when the user leaves Options.
-	for(i = 0; i < LOC_COUNT; i++) {
-		language_option_put(
-			static_cast<language_option_choice_t>(i),
-			((i == language_option_sel)
-				? LANGUAGE_OPTION_COL_ACTIVE : LANGUAGE_OPTION_COL_INACTIVE)
-		);
-	}
+	language_option_put(
+		static_cast<language_option_choice_t>(language_option_sel),
+		LANGUAGE_OPTION_COL_ACTIVE
+	);
 }
 
 static void language_option_return_to_main(void)
 {
 	if(language_preference_get() != language_option_entry_preference) {
 		language_asset_music_prepare();
-		graph_accesspage(1);
-		language_asset_pi_load(0, replay_op_main_bg_fn);
-		pi_palette_apply(0);
-		pi_put_8(0, 0, 0);
-		pi_free(0);
-		graph_copy_page(0);
-		palette_100();
+		#if (GAME == 5)
+			replay_op_bridge(ROBF_MAIN_CDG_LOAD);
+			replay_main_title_labels_load();
+		#else
+			language_op_character_prepare();
+		#endif
 	}
 	language_option_initialized = false;
 	menu_sel = 6; // RMC_OPTION in replay.cpp
@@ -1000,7 +936,8 @@ void far language_option_update_and_render(void)
 
 // Keep each game's following CRT segment on its stock paragraph phase.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif

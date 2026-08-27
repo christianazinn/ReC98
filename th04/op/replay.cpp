@@ -3617,40 +3617,81 @@ static bool replay_save_modal(
 	}
 }
 
+static int replay_save_gaiji_for(char c)
+{
+	if((c >= '0') && (c <= '9')) {
+		return (gb_0 + (c - '0'));
+	}
+	if((c >= 'A') && (c <= 'Z')) {
+		return (gb_A + (c - 'A'));
+	}
+	return g_EMPTY;
+}
+
+static void replay_save_gaiji_puts(
+	screen_x_t left, vram_y_t top, const char far *text,
+	unsigned len, pixel_t step
+)
+{
+	unsigned i;
+	int glyph;
+
+	for(i = 0; i < len; i++, left += step) {
+		glyph = replay_save_gaiji_for(text[i]);
+		if(glyph != g_EMPTY) {
+			graph_gaiji_putc(left, top, glyph, V_WHITE);
+		}
+	}
+}
+
+static void replay_save_date_gaiji_put(
+	screen_x_t left, vram_y_t top, uint16_t dos_date
+)
+{
+	uint16_t year = static_cast<uint16_t>(1980 + (dos_date >> 9));
+	uint8_t month = static_cast<uint8_t>((dos_date >> 5) & 0x0F);
+	uint8_t day = static_cast<uint8_t>(dos_date & 0x1F);
+	char *p = replay_op_line;
+	char hyphen[2];
+
+	p = replay_op_uint_zero_append(p, month, 2);
+	p = replay_op_uint_zero_append(p, day, 2);
+	p = replay_op_uint_zero_append(p, year, 4);
+	replay_save_gaiji_puts(left, top, replay_op_line, 2, GAIJI_W);
+	replay_save_gaiji_puts((left + 48), top, (replay_op_line + 2), 2, GAIJI_W);
+	replay_save_gaiji_puts((left + 96), top, (replay_op_line + 4), 4, GAIJI_W);
+	hyphen[0] = '-';
+	hyphen[1] = '\0';
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	graph_putsa_fx((left + 32), top, V_WHITE, hyphen);
+	graph_putsa_fx((left + 80), top, V_WHITE, hyphen);
+}
+
 static void replay_save_name_render(const char far *name)
 {
 	uint8_t page_drawn = (1 - replay_op_page_shown);
 	uint16_t date = replay_op_header.dos_date;
-	uint16_t year = static_cast<uint16_t>(1980 + (date >> 9));
-	uint8_t month = static_cast<uint8_t>((date >> 5) & 0x0F);
-	uint8_t day = static_cast<uint8_t>(date & 0x1F);
 	char *p;
-	unsigned i;
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
-	p = replay_op_line;
-	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
-		*p++ = name[i];
-	}
-	*p = '\0';
-	replay_op_font_put(80, 96, replay_op_line, V_WHITE);
+	replay_save_gaiji_puts(
+		80, 96, name, REPLAY_USER_NAME_LEN, GAIJI_W
+	);
 	p = replay_op_line;
 	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
-	*p = '\0';
-	replay_op_font_put_right(560, 96, replay_op_line, V_WHITE);
-	p = replay_op_line;
-	p = replay_op_uint_zero_append(p, month, 2);
-	*p++ = '-';
-	p = replay_op_uint_zero_append(p, day, 2);
-	*p++ = '-';
-	p = replay_op_uint_zero_append(p, year, 4);
-	*p = '\0';
-	replay_op_font_put(80, 160, replay_op_line, V_WHITE);
-	p = replay_op_line;
-	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
-	*p = '\0';
-	replay_op_font_put(344, 160, replay_op_line, V_WHITE);
+	replay_save_gaiji_puts(
+		(560 - (10 * GAIJI_W)), 96, replay_op_line, 10, GAIJI_W
+	);
+	replay_save_date_gaiji_put(80, 160, date);
+	switch(replay_op_header.start.rank) {
+	case RANK_EASY: replay_op_line[0] = 'E'; break;
+	case RANK_NORMAL: replay_op_line[0] = 'N'; break;
+	case RANK_HARD: replay_op_line[0] = 'H'; break;
+	case RANK_LUNATIC: replay_op_line[0] = 'L'; break;
+	default: replay_op_line[0] = 'X'; break;
+	}
+	replay_save_gaiji_puts(344, 160, replay_op_line, 1, GAIJI_W);
 	p = replay_op_line;
 	p = replay_op_word_append(
 		p, replay_op_playchar_word(replay_op_header.start.playchar)
@@ -3663,12 +3704,11 @@ static void replay_save_name_render(const char far *name)
 	replay_op_font_put(408, 160, replay_op_line, V_WHITE);
 	p = replay_op_line;
 	if(replay_op_header.start.stage == STAGE_EXTRA) {
-		p = replay_op_word_append(p, ROW_EXTRA);
+		*p++ = 'X';
 	} else {
 		*p++ = static_cast<char>('1' + replay_op_header.start.stage);
 	}
-	*p = '\0';
-	replay_op_font_put_right(560, 160, replay_op_line, V_WHITE);
+	replay_save_gaiji_puts((560 - GAIJI_W), 160, replay_op_line, 1, GAIJI_W);
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
 }
@@ -3804,21 +3844,23 @@ static void replay_save_complete_put(void)
 	graph_showpage(replay_op_page_shown);
 }
 
-static void replay_save_slot_menu(const char far *name)
+static void replay_save_slot_menu(
+	const char far *name, graph_putsa_fx_func_t previous_func
+)
 {
 	uint8_t sel = 0;
 	bool occupied;
 	bool input_allowed = false;
-	graph_putsa_fx_func_t previous_func;
 
-	// Give the slot browser a complete replay surface of its own. The name
-	// keyboard owns SLB1B.PI and TRAM; replacing that surface in-place left
-	// some machines with a black page until the next explicit browser redraw.
-	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, false)) {
+	text_clear();
+	if(!replay_op_screen_background_replace(ROB_REPLAY)) {
+		replay_save_pending_discard();
+		replay_op_screen_end(previous_func);
 		return;
 	}
 
 	replay_browser_render(sel);
+	palette_settone(100);
 	while(1) {
 		input_reset_sense_interface();
 		if(key_det == INPUT_NONE) {
@@ -3908,6 +3950,11 @@ static bool replay_save_pending(void)
 		replay_op_screen_end(previous_func);
 		return true;
 	}
+	if(request.source == RSRS_POSTGAME) {
+		// The modal is already visible. Reveal its in-place replacement without
+		// adding a second fade before name entry.
+		palette_settone(100);
+	}
 	if(!replay_save_name_menu(
 		name, (request.source == RSRS_PAUSE_SAVE_EXIT)
 	)) {
@@ -3916,8 +3963,7 @@ static bool replay_save_pending(void)
 		replay_op_screen_end(previous_func);
 		return true;
 	}
-	replay_op_screen_end(previous_func);
-	replay_save_slot_menu(name);
+	replay_save_slot_menu(name, previous_func);
 	return true;
 }
 
@@ -3954,6 +4000,7 @@ enum replay_main_choice_t {
 #define REPLAY_MAIN_LABEL_H 16
 #define REPLAY_MAIN_CURSOR_W 32
 #define REPLAY_MAIN_TOP ((GAME == 5) ? 210 : 214)
+#define REPLAY_MAIN_RESTORE_TOP ((GAME == 4) ? 208 : REPLAY_MAIN_TOP)
 #define REPLAY_MAIN_COMMAND_LEFT ((RES_X / 2) - (REPLAY_MAIN_LABEL_W / 2))
 #define REPLAY_MAIN_COMMAND_H (REPLAY_MAIN_LABEL_H + 4)
 #define REPLAY_MAIN_CURSOR_LEFT ( \
@@ -4018,9 +4065,6 @@ static void pascal near replay_main_unput_and_put(int sel, vc2 col)
 	screen_y_t top = replay_main_choice_top(sel);
 	int desc_id = sel;
 	int custom = 0;
-	const char *label = (
-		language_op_english_selected() ? language_op_main_label(sel) : 0
-	);
 
 	egc_copy_rect_1_to_0_16(
 		REPLAY_MAIN_MENU_LEFT, top, REPLAY_MAIN_MENU_W, REPLAY_MAIN_LABEL_H
@@ -4028,72 +4072,37 @@ static void pascal near replay_main_unput_and_put(int sel, vc2 col)
 	grcg_setcolor(GC_RMW, col);
 	switch(sel) {
 	case RMC_GAME:
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_GAME);
-		}
+		replay_main_command_put(top, CDG_MAIN_GAME);
 		desc_id = (22 + resident->rank);
 		break;
 	case RMC_EXTRA:
 		if(!extra_unlocked) {
 			grcg_setcolor(GC_RMW, ((GAME == 5) ? 2 : 12));
 		}
-		if(label) {
-			replay_op_font_put_centered(
-				RES_X / 2, top, label,
-				(!extra_unlocked ? ((GAME == 5) ? 2 : 12) : col)
-			);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_EXTRA);
-		}
+		replay_main_command_put(top, CDG_MAIN_EXTRA);
 		break;
 	case RMC_PRACTICE:
 		custom = 1;
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_PRACTICE);
-		}
+		replay_main_command_put(top, CDG_MAIN_PRACTICE);
 		break;
 	case RMC_REGIST_VIEW:
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_REGIST_VIEW);
-		}
+		replay_main_command_put(top, CDG_MAIN_REGIST_VIEW);
 		desc_id = 2;
 		break;
 	case RMC_MUSICROOM:
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_MUSICROOM);
-		}
+		replay_main_command_put(top, CDG_MAIN_MUSICROOM);
 		desc_id = 3;
 		break;
 	case RMC_REPLAY:
 		custom = 2;
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_REPLAY);
-		}
+		replay_main_command_put(top, CDG_MAIN_REPLAY);
 		break;
 	case RMC_OPTION:
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_MAIN_OPTION);
-		}
+		replay_main_command_put(top, CDG_MAIN_OPTION);
 		desc_id = 4;
 		break;
 	case RMC_QUIT:
-		if(label) {
-			replay_op_font_put_centered(RES_X / 2, top, label, col);
-		} else {
-			replay_main_command_put(top, CDG_QUIT);
-		}
+		replay_main_command_put(top, CDG_QUIT);
 		desc_id = 5;
 		break;
 	}
@@ -4368,8 +4377,8 @@ static void replay_main_initialize(void)
 	replay_op_font_ensure();
 	main_menu_unused_1 = 0;
 	egc_copy_rect_1_to_0_16(
-		(REPLAY_MAIN_MENU_LEFT - 128), REPLAY_MAIN_TOP,
-		(REPLAY_MAIN_MENU_W + 256), (RES_Y - REPLAY_MAIN_TOP)
+		(REPLAY_MAIN_MENU_LEFT - 128), REPLAY_MAIN_RESTORE_TOP,
+		(REPLAY_MAIN_MENU_W + 256), (RES_Y - REPLAY_MAIN_RESTORE_TOP)
 	);
 	for(i = 0; i < RMC_COUNT; i++) {
 		replay_main_unput_and_put(
@@ -4453,8 +4462,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 			break;
 		case RMC_MUSICROOM:
 			language_asset_music_prepare();
+			graph_putsa_fx_func = FX_WEIGHT_BOLD;
+			graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
 			replay_op_bridge(ROBF_MUSICROOM_MENU);
 			replay_op_bridge(ROBF_MAIN_CDG_LOAD);
+			replay_main_title_labels_load();
 			replay_main_return((GAME == 5) ? RMC_MUSICROOM : RMC_GAME);
 			return;
 		case RMC_REPLAY:
@@ -4497,6 +4509,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #undef REPLAY_MAIN_COMMAND_H
 #undef REPLAY_MAIN_COMMAND_LEFT
 #undef REPLAY_MAIN_TOP
+#undef REPLAY_MAIN_RESTORE_TOP
 #undef REPLAY_MAIN_CURSOR_W
 #undef REPLAY_MAIN_LABEL_H
 #undef REPLAY_MAIN_LABEL_W

@@ -2058,12 +2058,7 @@ bool replay_practice_preroll_boundary(void)
 			replay_practice_config_apply(&replay_header.start);
 			player_shot_level_update();
 		}
-		#if (GAME == 4)
-			replay_practice_direct_redraw_pending = true;
-		#else
-			replay_practice_direct_redraw_pending =
-				(replay_header.start.kind != RSK_BOSS_PHASE);
-		#endif
+		replay_practice_direct_redraw_pending = true;
 		reached = true;
 	} else {
 		if(!replay_ck_actor_probe(&probe)) {
@@ -2741,7 +2736,7 @@ static void replay_pause_label_put(
 	}
 	#undef P
 	*p = '\0';
-	text_putsa(static_cast<tram_x_t>(31 - ((p - label) / 2)), y, label, color);
+	text_putsa(static_cast<tram_x_t>(28 - ((p - label) / 2)), y, label, color);
 }
 
 static void replay_pause_render(uint8_t selected, bool save_available)

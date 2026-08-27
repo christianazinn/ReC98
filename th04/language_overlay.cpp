@@ -22,6 +22,11 @@
 static bool language_asset_overlay_checked;
 static bool language_asset_overlay_available;
 static bool language_asset_file_switched;
+#if ((GAME == 5) && (BINARY == 'O'))
+static bool language_asset_music_overlay_checked;
+static bool language_asset_music_overlay_available;
+static bool language_asset_music_file_switched;
+#endif
 #if (BINARY != 'O')
 static bool language_asset_preference_checked;
 static bool language_asset_preference_english;
@@ -67,7 +72,6 @@ static bool language_asset_member_translated(const char *fn)
 	case 0x6563B218UL: // ED12.PI
 	case 0x6564CADAUL: // ED14.PI
 	case 0x6565573BUL: // ED15.PI
-	case 0xC5E9E39CUL: // OP1.PI
 	case 0xBF03008BUL: // _ED000.TXT
 	case 0xBF15190CUL: // _ED001.TXT
 	case 0xC158292CUL: // _ED010.TXT
@@ -84,7 +88,6 @@ static bool language_asset_member_translated(const char *fn)
 	case 0x655225F8UL: // ED03.PI
 	case 0x6552B259UL: // ED04.PI
 	case 0x57E98E9EUL: // HI01.PI
-	case 0xC5E9E39CUL: // OP1.PI
 	case 0x62CBEE20UL: // SL00.CDG
 	case 0x62DE06A1UL: // SL01.CDG
 	case 0x62F01F22UL: // SL02.CDG
@@ -261,6 +264,65 @@ void pascal language_asset_snd_load(const char *fn, int func)
 	// resolve OP.M/OP.M2. TH05's snd_load() retries OP.M forever in that state.
 	language_asset_stock_restore();
 	snd_load(fn, static_cast<snd_load_func_t>(func));
+}
+
+static void language_asset_music_overlay_name_set(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '5'; fn[2] = 'E'; fn[3] = 'N';
+	fn[4] = 'M'; fn[5] = 'U'; fn[6] = 'S'; fn[7] = '.';
+	fn[8] = 'D'; fn[9] = 'A'; fn[10] = 'T'; fn[11] = '\0';
+}
+
+static void language_asset_music_stock_restore(void)
+{
+	char fn[10];
+	fn[0] = 'm'; fn[1] = 'u'; fn[2] = 's'; fn[3] = 'i'; fn[4] = 'c';
+	fn[5] = '.'; fn[6] = 'd'; fn[7] = 'a'; fn[8] = 't'; fn[9] = '\0';
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(fn));
+}
+
+static bool language_asset_music_overlay_exists(void)
+{
+	char fn[12];
+	if(language_asset_music_overlay_checked) {
+		return language_asset_music_overlay_available;
+	}
+	language_asset_music_overlay_checked = true;
+	language_asset_music_overlay_name_set(fn);
+	if(file_ropen(fn)) {
+		file_close();
+		language_asset_music_overlay_available = true;
+	}
+	return language_asset_music_overlay_available;
+}
+
+int pascal language_asset_music_file_ropen(const char *fn)
+{
+	char overlay_fn[12];
+	if(language_asset_music_file_switched) {
+		return 0;
+	}
+	if(language_asset_english() && language_asset_music_overlay_exists()) {
+		language_asset_music_overlay_name_set(overlay_fn);
+		pfend();
+		pfstart(reinterpret_cast<const unsigned char *>(overlay_fn));
+		if(file_ropen(fn)) {
+			language_asset_music_file_switched = true;
+			return 1;
+		}
+		language_asset_music_stock_restore();
+	}
+	return file_ropen(fn);
+}
+
+void pascal language_asset_music_file_close(void)
+{
+	file_close();
+	if(language_asset_music_file_switched) {
+		language_asset_music_file_switched = false;
+		language_asset_music_stock_restore();
+	}
 }
 #endif
 

@@ -512,7 +512,7 @@ void pascal near cmt_load(int track)
 	char* FN = "_MUSIC0.TXT";
 
 	FN[6] = ('0' + game_sel);
-	language_asset_file_ropen(FN);
+	language_asset_music_file_ropen(FN);
 #elif (GAME == 4)
 	language_asset_file_ropen("_MUSIC.TXT");
 #else
@@ -520,7 +520,9 @@ void pascal near cmt_load(int track)
 #endif
 	file_seek((track * int(sizeof(cmt))), SEEK_SET);
 	file_read(cmt, sizeof(cmt));
-#if (GAME >= 4)
+#if (GAME == 5)
+	language_asset_music_file_close();
+#elif (GAME == 4)
 	language_asset_file_close();
 #else
 	file_close();
