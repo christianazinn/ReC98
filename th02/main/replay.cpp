@@ -31,6 +31,10 @@
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
+#include "th02/main/s5_fx.hpp"
+#include "th02/main/s5_tile.hpp"
+#include "th02/main/s6_actor.hpp"
+#include "th02/main/actor_core.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/main/score.hpp"
@@ -89,6 +93,7 @@ static bool t2replay_pending_valid;
 static bool t2replay_failed;
 static bool t2replay_finished;
 static bool t2replay_playback_exit;
+static bool t2replay_save_prompted;
 static bool t2replay_stage_seen;
 static uint8_t t2replay_last_stage;
 static uint8_t t2replay_practice_target;
@@ -118,6 +123,10 @@ extern "C" const char aStage3_b_btt_0[];
 extern "C" char aMima_m[];
 extern "C" const char mima1_bft[];
 extern "C" const char aStage3_b_btt[];
+extern "C" const char stage5b1_bft[];
+extern "C" const char stage5b2_bft[];
+extern "C" char aBoss5_m[];
+extern screen_point_t sigma_topleft;
 extern Palette8 __cdecl Palettes;
 extern void far pascal palette_show(void);
 
@@ -1604,10 +1613,55 @@ static void t2replay_paths_init(void)
 	t2replay_paths_ready = true;
 }
 
+static void t2replay_save_request_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'S';
+	fn[4] = 'A';
+	fn[5] = 'V';
+	fn[6] = '.';
+	fn[7] = 'C';
+	fn[8] = 'F';
+	fn[9] = 'G';
+	fn[10] = '\0';
+}
+
+static void t2replay_handoff_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'H';
+	fn[4] = 'A';
+	fn[5] = 'N';
+	fn[6] = 'D';
+	fn[7] = '.';
+	fn[8] = 'B';
+	fn[9] = 'I';
+	fn[10] = 'N';
+	fn[11] = '\0';
+}
+
 static void t2replay_slot_set(uint8_t slot)
 {
 	t2replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t2replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
+}
+
+static void t2replay_temp_set(void)
+{
+	t2replay_slot_fn[0] = 'T';
+	t2replay_slot_fn[1] = '2';
+	t2replay_slot_fn[2] = 'R';
+	t2replay_slot_fn[3] = 'P';
+	t2replay_slot_fn[4] = 'Y';
+	t2replay_slot_fn[5] = '.';
+	t2replay_slot_fn[6] = 'T';
+	t2replay_slot_fn[7] = 'M';
+	t2replay_slot_fn[8] = 'P';
+	t2replay_slot_fn[9] = '\0';
 }
 
 static int t2replay_dos_open(const char far *fn, unsigned char access)
@@ -1657,6 +1711,14 @@ static void t2replay_dos_close(int fh)
 	_asm {
 		mov	bx, fh
 		mov	ah, 3Eh
+		int	21h
+	}
+}
+
+static void t2replay_dos_flush(void)
+{
+	_asm {
+		mov	ah, 0Dh
 		int	21h
 	}
 }
@@ -1766,6 +1828,40 @@ static void t2replay_dos_delete(const char far *fn)
 	}
 }
 
+static bool t2replay_handoff_witness_write(
+	const void far *payload, unsigned size
+)
+{
+	char fn[12];
+	int fd;
+	bool ok;
+
+	// The target DOS does not reliably expose a newly closed directory entry
+	// across execl() after AH=0Dh alone. This second create is therefore part of
+	// the handoff itself, independent of optional diagnostics.
+	t2replay_dos_flush();
+	t2replay_handoff_fn_set(fn);
+	fd = t2replay_dos_create(fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (t2replay_dos_write(fd, payload, size) == size);
+	t2replay_dos_close(fd);
+	if(!ok) {
+		t2replay_dos_delete(fn);
+	}
+	return ok;
+}
+
+static void t2replay_pending_files_delete(void)
+{
+	char request_fn[11];
+
+	t2replay_save_request_fn_set(request_fn);
+	t2replay_dos_delete(request_fn);
+	t2replay_dos_delete(t2replay_slot_fn);
+}
+
 static uint32_t t2replay_fnv1a(
 	uint32_t hash, const void far *buf, unsigned size
 )
@@ -1780,6 +1876,90 @@ static uint32_t t2replay_fnv1a(
 	return hash;
 }
 
+static bool t2replay_save_request_read(t2replay_save_request_t far *request)
+{
+	char request_fn[11];
+	uint32_t file_size;
+	uint32_t stored;
+	uint32_t computed;
+	int fd;
+	unsigned read;
+
+	t2replay_save_request_fn_set(request_fn);
+	fd = t2replay_dos_open(request_fn, T2REPLAY_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	t2replay_memclear(request, sizeof(*request));
+	read = t2replay_dos_read(fd, request, sizeof(*request));
+	if(!t2replay_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2replay_dos_close(fd);
+	stored = request->checksum;
+	request->checksum = 0;
+	computed = t2replay_fnv1a(T2REPLAY_FNV1A_BASIS, request, sizeof(*request));
+	request->checksum = stored;
+	return (
+		(read == sizeof(*request)) &&
+		(file_size == sizeof(*request)) &&
+		(request->magic[0] == 'T') &&
+		(request->magic[1] == '2') &&
+		(request->magic[2] == 'R') &&
+		(request->magic[3] == 'S') &&
+		(request->magic[4] == 'A') &&
+		(request->magic[5] == 'V') &&
+		(request->magic[6] == '1') &&
+		(request->magic[7] == '\0') &&
+		(request->schema == T2REPLAY_SAVE_REQUEST_SCHEMA) &&
+		(request->source == T2REPLAY_SAVE_REQUEST_POSTGAME) &&
+		(request->reserved == 0) &&
+		(request->replay_header_checksum != 0) &&
+		(stored == computed)
+	);
+}
+
+static bool t2replay_save_request_write(void)
+{
+	char request_fn[11];
+	t2replay_save_request_t request;
+	int fd;
+	bool ok;
+
+	t2replay_save_request_fn_set(request_fn);
+	t2replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T';
+	request.magic[1] = '2';
+	request.magic[2] = 'R';
+	request.magic[3] = 'S';
+	request.magic[4] = 'A';
+	request.magic[5] = 'V';
+	request.magic[6] = '1';
+	request.magic[7] = '\0';
+	request.schema = T2REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = T2REPLAY_SAVE_REQUEST_POSTGAME;
+	request.replay_header_checksum = t2replay_header.header_checksum;
+	request.checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	t2replay_dos_delete(request_fn);
+	fd = t2replay_dos_create(request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t2replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	);
+	t2replay_dos_close(fd);
+	if(ok) {
+		ok = t2replay_handoff_witness_write(&request, sizeof(request));
+	}
+	if(!ok) {
+		t2replay_dos_delete(request_fn);
+	}
+	return ok;
+}
+
 static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
 {
 	while(size != 0) {
@@ -1787,6 +1967,42 @@ static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
 			return false;
 		}
 		size--;
+	}
+	return true;
+}
+
+// The name is written only by OP after terminal capture. An all-zero field is
+// the pre-name pending state and also keeps earlier T2RPY1 files playable.
+// Stored glyphs mirror the native TH02 high-score alphabet, excluding its
+// navigation-only left/right/end cells.
+static bool t2replay_name_glyph_valid(uint8_t glyph)
+{
+	return (
+		((glyph >= 0xA0) && (glyph <= 0xC3)) ||
+		(glyph == 0x02) ||
+		(glyph == 0x03) ||
+		((glyph >= 0xDA) && (glyph <= 0xDE)) ||
+		((glyph >= 0xE0) && (glyph <= 0xE4))
+	);
+}
+
+static bool t2replay_name_valid(const uint8_t far *name)
+{
+	unsigned i;
+	bool all_zero = true;
+
+	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
+		if(name[i] != 0) {
+			all_zero = false;
+		}
+	}
+	if(all_zero) {
+		return true;
+	}
+	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
+		if(!t2replay_name_glyph_valid(name[i])) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -1958,6 +2174,297 @@ static bool t2replay_exact_checkpoint_tags_valid(const uint8_t far *data)
 	);
 }
 
+typedef char t2rec_actor_core_wire_size_check[
+	(TH02_ACTOR_CORE_WIRE_SIZE == T2REPLAY_EXACT_ACTOR_CORE_SIZE) ? 1 : -1
+];
+typedef char t2rec_s5_mima_wire_size_check[
+	(TH02_S5_MIMA_WIRE_SIZE == T2REPLAY_EXACT_S5_MIMA_SIZE) ? 1 : -1
+];
+typedef char t2rec_s5_tile_wire_size_check[
+	(TH02_S5_TILE_LOGIC_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE) ? 1 : -1
+];
+typedef char t2rec_s5_stage_fx_wire_size_check[
+	(TH02_S5_MIMA_STAGE_FX_WIRE_SIZE ==
+	 T2REPLAY_EXACT_S5MFX_SIZE) ? 1 : -1
+];
+
+static uint32_t t2replay_exact_s5_mima_capture_size(uint16_t schema)
+{
+	if(schema == T2REPLAY_EXACT_S5_MIMA_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE;
+	}
+	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE;
+	}
+	if(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) {
+		return T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE;
+	}
+	return 0;
+}
+
+static uint32_t t2replay_exact_s5_mima_source_fingerprint(uint16_t schema)
+{
+	if(schema == T2REPLAY_EXACT_S5_MIMA_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT;
+	}
+	if(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) {
+		return T2REPLAY_EXACT_S5_MIMA_TILE_SOURCE_FINGERPRINT;
+	}
+	if(schema == T2REPLAY_EXACT_S5MFX_SCHEMA) {
+		return T2REPLAY_EXACT_S5MFX_SOURCE_FINGERPRINT;
+	}
+	return 0;
+}
+
+static bool t2replay_exact_s5_mima_tile_present(uint16_t schema)
+{
+	return (
+		(schema == T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) ||
+		(schema == T2REPLAY_EXACT_S5MFX_SCHEMA)
+	);
+}
+
+static bool t2replay_exact_s5_mima_stage_fx_present(uint16_t schema)
+{
+	return (schema == T2REPLAY_EXACT_S5MFX_SCHEMA);
+}
+
+static void t2replay_exact_group_set(
+	uint8_t far *envelope, uint8_t id, uint8_t flags,
+	uint32_t payload_offset, uint32_t payload_size
+)
+{
+	uint8_t far *group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
+		(static_cast<uint32_t>(id) * T2REPLAY_EXACT_GROUP_SIZE);
+
+	group[T2RCK_GROUP_ID] = id;
+	group[T2RCK_GROUP_SCHEMA] = T2REPLAY_EXACT_GROUP_SCHEMA;
+	group[T2RCK_GROUP_CODEC] = T2RCC_RAW;
+	group[T2RCK_GROUP_FLAGS] = flags;
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_OFFSET, payload_offset);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_STORED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(group, T2RCK_GROUP_DECODED_SIZE, payload_size);
+	t2replay_checkpoint_put_u32(
+		group, T2RCK_GROUP_CHECKSUM,
+		t2replay_fnv1a(
+			T2REPLAY_FNV1A_BASIS, envelope + payload_offset,
+			static_cast<unsigned>(payload_size)
+		)
+	);
+}
+
+static bool t2replay_exact_s5_mima_group_valid(
+	const uint8_t far *envelope, uint16_t schema, uint8_t id,
+	uint32_t& payload_offset
+)
+{
+	const uint8_t far *group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
+		(static_cast<uint32_t>(id) * T2REPLAY_EXACT_GROUP_SIZE);
+	uint32_t payload_size;
+	uint8_t flags = 0;
+
+	if(id < T2REPLAY_CHECKPOINT_GROUP_COUNT) {
+		payload_size = t2replay_checkpoint_group_size(id);
+	} else if(id == T2RXGI_ACTOR_CORE) {
+		payload_size = T2REPLAY_EXACT_ACTOR_CORE_SIZE;
+	} else if(id == T2RXGI_ACTOR_STAGE) {
+		payload_size = T2REPLAY_EXACT_S5_MIMA_SIZE;
+	} else if(
+		(id == T2RXGI_STAGE_FX) &&
+		t2replay_exact_s5_mima_stage_fx_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5MFX_SIZE;
+	} else if(
+		(id == T2RXGI_TILE_LOGIC) &&
+		t2replay_exact_s5_mima_tile_present(schema)
+	) {
+		payload_size = T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE;
+	} else {
+		payload_size = 0;
+		flags = T2REPLAY_EXACT_GROUP_FLAG_DEFERRED;
+	}
+	if(
+		(group[T2RCK_GROUP_ID] != id) ||
+		(group[T2RCK_GROUP_SCHEMA] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
+		(group[T2RCK_GROUP_CODEC] != T2RCC_RAW) ||
+		(group[T2RCK_GROUP_FLAGS] != flags) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_OFFSET) !=
+		 payload_offset) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_STORED_SIZE) !=
+		 payload_size) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_DECODED_SIZE) !=
+		 payload_size) ||
+		(t2replay_checkpoint_get_u32(group, T2RCK_GROUP_CHECKSUM) !=
+		 t2replay_fnv1a(
+			T2REPLAY_FNV1A_BASIS, envelope + payload_offset,
+			static_cast<unsigned>(payload_size)
+		))
+	) {
+		return false;
+	}
+	if(id < T2REPLAY_CHECKPOINT_GROUP_COUNT) {
+		if(!t2replay_checkpoint_group_payload_valid(
+			id, envelope + payload_offset
+		)) {
+			return false;
+		}
+	} else if(id == T2RXGI_ACTOR_CORE) {
+		if(!th02_actor_core_state_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(id == T2RXGI_ACTOR_STAGE) {
+		if(!th02_s5_mima_state_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(
+		(id == T2RXGI_STAGE_FX) &&
+		t2replay_exact_s5_mima_stage_fx_present(schema)
+	) {
+		if(!th02_s5_mima_stage_fx_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	} else if(
+		(id == T2RXGI_TILE_LOGIC) &&
+		t2replay_exact_s5_mima_tile_present(schema)
+	) {
+		if(!th02_s5_tile_logic_wire_valid(
+			envelope + payload_offset, static_cast<uint16_t>(payload_size)
+		)) {
+			return false;
+		}
+	}
+	payload_offset += payload_size;
+	return true;
+}
+
+static bool t2replay_exact_s5_mima_common_tags_valid(
+	const uint8_t far *envelope
+)
+{
+	const uint8_t far *identity = envelope + T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	const uint8_t far *stage_vm = identity;
+	uint8_t group_id;
+
+	for(group_id = 0; group_id < T2RCGI_STAGE_VM; group_id++) {
+		stage_vm += t2replay_checkpoint_group_size(group_id);
+	}
+	// These common-world bytes are independently range-checked above. Bind the
+	// fields that select a live Stage 5 Mima boundary to the outer declaration
+	// so a valid foreign common snapshot cannot be relabeled as this actor.
+	return (
+		(identity[0] == envelope[T2REC_HEADER_STAGE_ID]) &&
+		(identity[1] == envelope[T2REC_HEADER_SHOTTYPE]) &&
+		(identity[2] == envelope[T2REC_HEADER_RANK]) &&
+		(identity[3] == envelope[T2REC_HEADER_REDUCE_EFFECTS]) &&
+		(stage_vm[0] == identity[0]) &&
+		(stage_vm[1] == SP_BOSS)
+	);
+}
+
+static bool t2replay_exact_s5_mima_tile_field_agree(
+	const uint8_t far *envelope, uint16_t schema
+)
+{
+	const uint8_t far *field = envelope + T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	const uint8_t far *tile;
+	uint8_t group_id;
+
+	if(!t2replay_exact_s5_mima_tile_present(schema)) {
+		return true;
+	}
+	for(group_id = 0; group_id < T2RCGI_FIELD; group_id++) {
+		field += t2replay_checkpoint_group_size(group_id);
+	}
+	tile = envelope + t2replay_checkpoint_get_u32(
+		envelope + T2REPLAY_EXACT_HEADER_SIZE +
+			(T2RXGI_TILE_LOGIC * T2REPLAY_EXACT_GROUP_SIZE),
+		T2RCK_GROUP_OFFSET
+	);
+	// FIELD owns these two generic renderer switches. TILE_LOGIC repeats them
+	// for a self-describing restore payload, so accept only one coherent value.
+	return (
+		(field[3] == tile[0]) &&
+		(field[18] == tile[1])
+	);
+}
+
+static enum t2rec_reject_t t2replay_exact_s5_mima_validate(
+	const uint8_t far *envelope, uint32_t envelope_size, uint16_t schema
+)
+{
+	uint32_t capture_size = t2replay_exact_s5_mima_capture_size(schema);
+	uint32_t source_fingerprint =
+		t2replay_exact_s5_mima_source_fingerprint(schema);
+	uint32_t payload_offset;
+	uint8_t group_id;
+
+	if(
+		(capture_size == 0) ||
+		(envelope_size != capture_size) ||
+		!t2replay_exact_checkpoint_magic_matches(envelope) ||
+		(t2replay_checkpoint_get_u16(envelope, 8) != schema) ||
+		(t2replay_checkpoint_get_u16(envelope, 10) !=
+		 T2REPLAY_EXACT_HEADER_SIZE) ||
+		(envelope[12] != 2) ||
+		(envelope[13] != T2REPLAY_EXACT_GROUP_COUNT) ||
+		(envelope[14] != T2REPLAY_EXACT_GROUP_SCHEMA) ||
+		(envelope[15] != 0) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_TOTAL_SIZE) !=
+		 capture_size) ||
+		(t2replay_checkpoint_get_u32(
+			envelope, T2REC_HEADER_SOURCE_FINGERPRINT
+		) != source_fingerprint) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_GROUP_MASK) !=
+		 T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK) ||
+		(envelope[T2REC_HEADER_BOUNDARY_GENERATION] !=
+		 T2REPLAY_EXACT_BOUNDARY_GENERATION) ||
+		(t2replay_checkpoint_get_u32(envelope, T2REC_HEADER_DECODED_SIZE) !=
+		 (capture_size - T2REPLAY_EXACT_CHECKPOINT_SIZE))
+	) {
+		return T2REC_HEADER;
+	}
+	if(
+		!t2replay_exact_checkpoint_tags_valid(envelope) ||
+		(envelope[T2REC_HEADER_STAGE_ID] != 4) ||
+		(envelope[T2REC_HEADER_ACTOR_TAG] != T2REAT_S5_MIMA) ||
+		(envelope[T2REC_HEADER_ACTOR_MODE] != T2REAM_ACTIVE) ||
+		(envelope[T2REC_HEADER_STAGE_FX_TAG] != T2RESFT_S5_MIMA_FIELD) ||
+		(envelope[T2REC_HEADER_CALLBACK_PROFILE] != T2RECP_S5_MIMA) ||
+		(envelope[T2REC_HEADER_RESOURCE_ID] != T2RERI_STAGE_5) ||
+		!t2replay_exact_s5_mima_common_tags_valid(envelope)
+	) {
+		return T2REC_TAG;
+	}
+	payload_offset = T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	for(group_id = 0; group_id < T2REPLAY_EXACT_GROUP_COUNT;
+		group_id++) {
+		if(!t2replay_exact_s5_mima_group_valid(
+			envelope, schema, group_id, payload_offset
+		)) {
+			return T2REC_DIRECTORY;
+		}
+	}
+	if(!t2replay_exact_s5_mima_tile_field_agree(envelope, schema)) {
+		return T2REC_DIRECTORY;
+	}
+	if(
+		(payload_offset != capture_size) ||
+		(t2replay_checkpoint_get_u32(
+			envelope, T2REC_HEADER_CONTAINER_CHECKSUM
+		) != t2replay_exact_checkpoint_checksum(envelope, envelope_size))
+	) {
+		return T2REC_CHECKSUM;
+	}
+	return T2REC_DEFERRED_CODECS;
+}
+
 bool replay_exact_checkpoint_boundary_available(
 	const struct t2rec_boundary_t *boundary,
 	enum t2rec_reject_t *reason
@@ -1992,7 +2499,7 @@ bool replay_exact_checkpoint_boundary_available(
 }
 
 enum t2rec_reject_t replay_exact_checkpoint_validate(
-	const uint8_t *envelope, uint32_t envelope_size,
+	const uint8_t far *envelope, uint32_t envelope_size,
 	const struct t2rec_boundary_t *boundary
 )
 {
@@ -2007,6 +2514,19 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	}
 	if(!replay_exact_checkpoint_boundary_available(boundary, &result)) {
 		return result;
+	}
+	if(
+		(envelope_size >= T2REPLAY_EXACT_HEADER_SIZE) &&
+		((t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5_MIMA_SCHEMA) ||
+		 (t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA) ||
+		 (t2replay_checkpoint_get_u16(envelope, 8) ==
+		  T2REPLAY_EXACT_S5MFX_SCHEMA))
+	) {
+		return t2replay_exact_s5_mima_validate(
+			envelope, envelope_size, t2replay_checkpoint_get_u16(envelope, 8)
+		);
 	}
 	if(
 		(envelope_size != T2REPLAY_EXACT_CHECKPOINT_SIZE) ||
@@ -2072,6 +2592,197 @@ enum t2rec_reject_t replay_exact_checkpoint_validate(
 	// No state has been written. A typed-codec/apply parcel may replace only
 	// this final rejection after it has validated every payload and dependency.
 	return T2REC_DEFERRED_CODECS;
+}
+
+static bool16 t2replay_exact_stage5_mima_capture_schema(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary, uint16_t schema
+)
+{
+	uint32_t capture_size = t2replay_exact_s5_mima_capture_size(schema);
+	uint32_t source_fingerprint =
+		t2replay_exact_s5_mima_source_fingerprint(schema);
+	uint32_t payload_offset;
+	uint32_t payload_size;
+	uint8_t group_id;
+	enum t2rec_reject_t reason;
+
+	if(
+		(envelope == 0) ||
+		(capture_size == 0) ||
+		(envelope_size != capture_size) ||
+		!replay_exact_checkpoint_boundary_available(boundary, &reason) ||
+		(stage_id != 4) || (stage_progression != SP_BOSS)
+	) {
+		return false;
+	}
+	t2replay_memclear(envelope, static_cast<unsigned>(envelope_size));
+	envelope[0] = 'T'; envelope[1] = '2'; envelope[2] = 'X';
+	envelope[3] = 'C'; envelope[4] = 'K'; envelope[5] = '1';
+	t2replay_checkpoint_put_u16(
+		envelope, 8, schema
+	);
+	t2replay_checkpoint_put_u16(
+		envelope, 10, T2REPLAY_EXACT_HEADER_SIZE
+	);
+	envelope[12] = 2;
+	envelope[13] = T2REPLAY_EXACT_GROUP_COUNT;
+	envelope[14] = T2REPLAY_EXACT_GROUP_SCHEMA;
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_TOTAL_SIZE,
+		capture_size
+	);
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_SOURCE_FINGERPRINT,
+		source_fingerprint
+	);
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_GROUP_MASK,
+		T2REPLAY_EXACT_CHECKPOINT_GROUP_MASK
+	);
+	envelope[T2REC_HEADER_BOUNDARY_GENERATION] =
+		T2REPLAY_EXACT_BOUNDARY_GENERATION;
+	envelope[T2REC_HEADER_RULESET] = T2REPLAY_RULESET_STOCK;
+	envelope[T2REC_HEADER_STAGE_ID] = 4;
+	envelope[T2REC_HEADER_SHOTTYPE] = resident->shottype;
+	envelope[T2REC_HEADER_RANK] = static_cast<uint8_t>(rank);
+	envelope[T2REC_HEADER_REDUCE_EFFECTS] = (reduce_effects ? 1 : 0);
+	envelope[T2REC_HEADER_ACTOR_TAG] = T2REAT_S5_MIMA;
+	envelope[T2REC_HEADER_ACTOR_MODE] = T2REAM_ACTIVE;
+	envelope[T2REC_HEADER_STAGE_FX_TAG] = T2RESFT_S5_MIMA_FIELD;
+	envelope[T2REC_HEADER_CALLBACK_PROFILE] = T2RECP_S5_MIMA;
+	envelope[T2REC_HEADER_RESOURCE_ID] = T2RERI_STAGE_5;
+	envelope[T2REC_HEADER_INPUT_SEMANTICS] =
+		T2REPLAY_INPUT_SEMANTICS_KEY_DET;
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_DECODED_SIZE,
+		(capture_size -
+		 T2REPLAY_EXACT_CHECKPOINT_SIZE)
+	);
+	payload_offset = T2REPLAY_EXACT_CHECKPOINT_SIZE;
+	for(group_id = 0; group_id < T2REPLAY_CHECKPOINT_GROUP_COUNT;
+		group_id++) {
+		payload_size = t2replay_checkpoint_group_size(group_id);
+		if(
+			(payload_size == 0) ||
+			!t2replay_checkpoint_group_capture(
+				group_id, envelope + payload_offset
+			)
+		) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, group_id, 0, payload_offset, payload_size
+		);
+		payload_offset += payload_size;
+	}
+	if(!th02_actor_core_state_wire_capture(
+		envelope + payload_offset, T2REPLAY_EXACT_ACTOR_CORE_SIZE
+	)) {
+		return false;
+	}
+	t2replay_exact_group_set(
+		envelope, T2RXGI_ACTOR_CORE, 0, payload_offset,
+		T2REPLAY_EXACT_ACTOR_CORE_SIZE
+	);
+	payload_offset += T2REPLAY_EXACT_ACTOR_CORE_SIZE;
+	if(!th02_s5_mima_state_wire_capture(
+		envelope + payload_offset, T2REPLAY_EXACT_S5_MIMA_SIZE
+	)) {
+		return false;
+	}
+	t2replay_exact_group_set(
+		envelope, T2RXGI_ACTOR_STAGE, 0, payload_offset,
+		T2REPLAY_EXACT_S5_MIMA_SIZE
+	);
+	payload_offset += T2REPLAY_EXACT_S5_MIMA_SIZE;
+	if(t2replay_exact_s5_mima_stage_fx_present(schema)) {
+		if(!th02_s5_mima_stage_fx_wire_capture(
+			envelope + payload_offset,
+			T2REPLAY_EXACT_S5MFX_SIZE
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_STAGE_FX, 0, payload_offset,
+			T2REPLAY_EXACT_S5MFX_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5MFX_SIZE;
+	}
+	if(t2replay_exact_s5_mima_tile_present(schema)) {
+		if(!th02_s5_tile_logic_wire_capture(
+			envelope + payload_offset, T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE
+		)) {
+			return false;
+		}
+		t2replay_exact_group_set(
+			envelope, T2RXGI_TILE_LOGIC, 0, payload_offset,
+			T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE
+		);
+		payload_offset += T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE;
+	}
+	for(group_id = T2RXGI_STAGE_FX;
+		group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
+		if(
+			(group_id == T2RXGI_STAGE_FX) &&
+			t2replay_exact_s5_mima_stage_fx_present(schema)
+		) {
+			continue;
+		}
+		if(
+			(group_id == T2RXGI_TILE_LOGIC) &&
+			t2replay_exact_s5_mima_tile_present(schema)
+		) {
+			continue;
+		}
+		t2replay_exact_group_set(
+			envelope, group_id, T2REPLAY_EXACT_GROUP_FLAG_DEFERRED,
+			payload_offset, 0
+		);
+	}
+	if(payload_offset != capture_size) {
+		return false;
+	}
+	t2replay_checkpoint_put_u32(
+		envelope, T2REC_HEADER_CONTAINER_CHECKSUM,
+		t2replay_exact_checkpoint_checksum(envelope, envelope_size)
+	);
+	return (
+		replay_exact_checkpoint_validate(envelope, envelope_size, boundary) ==
+		T2REC_DEFERRED_CODECS
+	);
+}
+
+bool16 replay_exact_stage5_mima_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary, T2REPLAY_EXACT_S5_MIMA_SCHEMA
+	);
+}
+
+bool16 replay_exact_stage5_mima_tile_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary,
+		T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA
+	);
+}
+
+bool16 replay_exact_stage5_mima_stage_fx_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+)
+{
+	return t2replay_exact_stage5_mima_capture_schema(
+		envelope, envelope_size, boundary,
+		T2REPLAY_EXACT_S5MFX_SCHEMA
+	);
 }
 
 static bool t2replay_magic_matches(const char far *magic, char last)
@@ -2281,6 +2992,10 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		break;
 	case T2RPT_STAGE5_BOSS_START:
 		practice_target_valid = (start->stage == 4);
+		break;
+	case T2RPT_EXTRA_MIDBOSS:
+	case T2RPT_EXTRA_BOSS_START:
+		practice_target_valid = (start->stage == 5);
 		break;
 	default:
 		break;
@@ -2499,7 +3214,9 @@ static bool t2replay_header_read(void)
 		(t2replay_header.version != T2REPLAY_VERSION) ||
 		(t2replay_header.header_size != T2REPLAY_HEADER_SIZE) ||
 		(t2replay_header.packet_size != T2REPLAY_PACKET_SIZE) ||
-		(t2replay_header.flags != T2REPLAY_KNOWN_FLAGS) ||
+		((t2replay_header.flags & T2REPLAY_REQUIRED_FLAGS) !=
+		 T2REPLAY_REQUIRED_FLAGS) ||
+		((t2replay_header.flags & ~T2REPLAY_KNOWN_FLAGS) != 0) ||
 		(t2replay_header.status != T2REPLAY_STATUS_FINALIZED) ||
 		(t2replay_header.game_id != 2) ||
 		(t2replay_header.ruleset != T2REPLAY_RULESET_STOCK) ||
@@ -2518,7 +3235,17 @@ static bool t2replay_header_read(void)
 		(stored_checksum != computed_checksum) ||
 		!t2replay_start_valid(&t2replay_header.start) ||
 		!t2replay_stage_scores_valid() ||
-		!t2replay_bytes_zero(t2replay_header.reserved, sizeof(t2replay_header.reserved))
+		!t2replay_name_valid(
+			reinterpret_cast<const uint8_t far *>(
+				t2replay_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
+			)
+		) ||
+		!t2replay_bytes_zero(
+			reinterpret_cast<const uint8_t far *>(
+				t2replay_header.reserved + T2REPLAY_RESERVED_TAIL_OFFSET
+			),
+			T2REPLAY_RESERVED_TAIL_SIZE
+		)
 	) {
 		t2replay_dos_close(fd);
 		return false;
@@ -2652,7 +3379,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.version = T2REPLAY_VERSION;
 	t2replay_header.header_size = T2REPLAY_HEADER_SIZE;
 	t2replay_header.packet_size = T2REPLAY_PACKET_SIZE;
-	t2replay_header.flags = T2REPLAY_KNOWN_FLAGS;
+	t2replay_header.flags = T2REPLAY_DEFAULT_FLAGS;
 	t2replay_header.status = T2REPLAY_STATUS_RECORDING;
 	t2replay_header.game_id = 2;
 	t2replay_header.ruleset = T2REPLAY_RULESET_STOCK;
@@ -2725,7 +3452,11 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 		((command->mode != T2REPLAY_COMMAND_RECORD) &&
 		 (command->mode != T2REPLAY_COMMAND_PLAYBACK) &&
 		 (command->mode != T2REPLAY_COMMAND_PRACTICE)) ||
-		(command->slot >= T2REPLAY_SLOT_COUNT) ||
+		((command->mode != T2REPLAY_COMMAND_RECORD) &&
+		 (command->slot >= T2REPLAY_SLOT_COUNT)) ||
+		((command->mode == T2REPLAY_COMMAND_RECORD) &&
+		 (command->slot >= T2REPLAY_SLOT_COUNT) &&
+		 (command->slot != T2REPLAY_TEMP_SLOT)) ||
 		((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) != 0) ||
 		(command->reserved_0 != 0)) {
 		return false;
@@ -2764,9 +3495,14 @@ static uint8_t t2replay_command_load(
 )
 {
 	t2replay_command_t command;
+	char handoff_fn[12];
 	uint32_t size;
 	int fd;
 
+	// The primary command is authoritative. The second file exists only to
+	// force the preceding directory update across the process boundary.
+	t2replay_handoff_fn_set(handoff_fn);
+	t2replay_dos_delete(handoff_fn);
 	fd = t2replay_dos_open(t2replay_command_fn, T2REPLAY_DOS_ACCESS_READ);
 	if(fd < 0) {
 		return T2RM_DISABLED;
@@ -2821,8 +3557,14 @@ static void t2replay_finalize(uint8_t end_reason)
 		t2replay_header.status = (
 			t2replay_failed ? T2REPLAY_STATUS_ERROR : T2REPLAY_STATUS_FINALIZED
 		);
-		if(!t2replay_header_write(false)) {
+		if(!t2replay_failed && !t2replay_header_write(false)) {
 			t2replay_failed = true;
+		}
+		if(!t2replay_failed && !t2replay_save_request_write()) {
+			t2replay_failed = true;
+		}
+		if(t2replay_failed) {
+			t2replay_pending_files_delete();
 		}
 		t2replay_mode = T2RM_DISABLED;
 	} else {
@@ -2859,7 +3601,11 @@ void replay_entry(void)
 	if(command_mode == T2RM_DISABLED) {
 		return;
 	}
-	t2replay_slot_set(slot);
+	if(command_mode == T2REPLAY_COMMAND_RECORD) {
+		t2replay_temp_set();
+	} else {
+		t2replay_slot_set(slot);
+	}
 	t2replay_payload_checksum = T2REPLAY_FNV1A_BASIS;
 	t2replay_buffer_len = 0;
 	t2replay_buffer_pos = 0;
@@ -2872,9 +3618,12 @@ void replay_entry(void)
 	t2replay_failed = false;
 	t2replay_finished = false;
 	t2replay_playback_exit = false;
+	t2replay_save_prompted = false;
 	t2replay_stage_seen = false;
 	t2replay_practice_target = T2RPT_STAGE_START;
 	if(command_mode == T2REPLAY_COMMAND_PRACTICE) {
+		t2replay_temp_set();
+		t2replay_pending_files_delete();
 		t2replay_start_apply(&command_start);
 		t2replay_practice_target = command_start.reserved[
 			T2REPLAY_PRACTICE_TARGET_OFFSET
@@ -2883,8 +3632,10 @@ void replay_entry(void)
 	}
 	if(command_mode == T2RM_RECORD) {
 		t2replay_mode = T2RM_RECORD;
+		t2replay_pending_files_delete();
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
+			t2replay_header.flags |= T2REPLAY_FLAG_PRACTICE;
 			t2replay_header.start = command_start;
 			t2replay_header_apply();
 			t2replay_practice_target = command_start.reserved[
@@ -2893,6 +3644,7 @@ void replay_entry(void)
 		}
 		if(!t2replay_start_valid(&t2replay_header.start) ||
 			!t2replay_header_write(true)) {
+			t2replay_pending_files_delete();
 			t2replay_mode = T2RM_DISABLED;
 		}
 	} else if(t2replay_header_read()) {
@@ -3017,6 +3769,33 @@ static bool16 near t2replay_stage5_mima_activate_clean(void)
 	grc_setclip(PLAYFIELD_LEFT, 0, PLAYFIELD_RIGHT, (RES_Y - 1));
 	palette_settone(100);
 	t2replay_boss_promote_clean(aMima_m);
+	return true;
+}
+
+static bool16 near t2replay_extra_sigma_activate_clean(void)
+{
+	int page;
+
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(stage5b1_bft);
+	super_entry_bfnt(stage5b2_bft);
+	tile_mode = TM_NONE;
+	shots_free_all();
+	th02_s6_sigma_clean_init();
+	grc_setclip(PLAYFIELD_LEFT, 0, PLAYFIELD_RIGHT, (RES_Y - 1));
+	for(page = 0; page < PAGE_COUNT; page++) {
+		graph_accesspage(page);
+		super_put_rect(sigma_topleft.x, sigma_topleft.y, 128);
+		super_put_rect((sigma_topleft.x + 64), sigma_topleft.y, 129);
+	}
+	graph_accesspage(page_back);
+	palette_settone(100);
+	t2replay_boss_promote_clean(aBoss5_m);
 	return true;
 }
 
@@ -3171,6 +3950,18 @@ bool16 replay_practice_target_apply(void)
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
+	case T2RPT_EXTRA_MIDBOSS:
+		if(stage_id != 5) {
+			return false;
+		}
+		target_scroll_step = 200;
+		break;
+	case T2RPT_EXTRA_BOSS_START:
+		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
 	default:
 		return false;
 	}
@@ -3244,6 +4035,107 @@ bool replay_gameover(void)
 	return t2replay_playback_exit;
 }
 
+bool replay_pause_save_available(void)
+{
+	return (
+		(t2replay_mode == T2RM_RECORD) &&
+		!t2replay_failed &&
+		!t2replay_finished
+	);
+}
+
+bool replay_pause_restart_semantics(void)
+{
+	return (
+		(t2replay_mode != T2RM_PLAYBACK) ||
+		((t2replay_header.flags & T2REPLAY_FLAG_PAUSE_RESTART) != 0)
+	);
+}
+
+bool replay_pause_restart_available(void)
+{
+	return (
+		(t2replay_mode == T2RM_RECORD) &&
+		!t2replay_finished
+	);
+}
+
+bool replay_pause_restart(void)
+{
+	t2replay_command_t command;
+	uint32_t seed;
+	int fd;
+	bool ok;
+
+	if(!replay_pause_restart_available()) {
+		return false;
+	}
+	t2replay_memclear(&command, sizeof(command));
+	command.magic[0] = 'T'; command.magic[1] = '2';
+	command.magic[2] = 'R'; command.magic[3] = 'C';
+	command.magic[4] = 'F'; command.magic[5] = 'G';
+	command.magic[6] = '2'; command.magic[7] = '\0';
+	command.mode = T2REPLAY_COMMAND_RESTART;
+	command.flags = (
+		(t2replay_header.flags & T2REPLAY_FLAG_PRACTICE)
+		? T2REPLAY_COMMAND_FLAG_PRACTICE : 0
+	);
+	command.start = t2replay_header.start;
+	seed = static_cast<uint32_t>(resident->frame);
+	command.start.resident_frame = seed;
+	command.start.random_seed = seed;
+
+	t2replay_paths_init();
+	t2replay_dos_delete(t2replay_command_fn);
+	fd = t2replay_dos_create(t2replay_command_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t2replay_dos_write(fd, &command, sizeof(command)) == sizeof(command)
+	);
+	t2replay_dos_close(fd);
+	if(ok) {
+		ok = t2replay_handoff_witness_write(&command, sizeof(command));
+	}
+	if(!ok) {
+		t2replay_dos_delete(t2replay_command_fn);
+		return false;
+	}
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
+	t2replay_mode = T2RM_DISABLED;
+	t2replay_finished = true;
+	return true;
+}
+
+bool replay_pause_save_and_exit(void)
+{
+	bool saved = replay_pause_save_available();
+
+	if(saved) {
+		t2replay_finalize(T2REPLAY_END_GAME_OVER);
+		saved = !t2replay_failed;
+	}
+	if(!saved) {
+		t2replay_paths_init();
+		t2replay_temp_set();
+		t2replay_pending_files_delete();
+		t2replay_mode = T2RM_DISABLED;
+		t2replay_finished = true;
+	}
+	return saved;
+}
+
+void replay_pause_exit_without_saving(void)
+{
+	t2replay_paths_init();
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
+	t2replay_mode = T2RM_DISABLED;
+	t2replay_finished = true;
+}
+
 bool replay_process_end(const char *binary_fn)
 {
 	if(!t2replay_finished && (t2replay_mode != T2RM_DISABLED)) {
@@ -3252,6 +4144,43 @@ bool replay_process_end(const char *binary_fn)
 		);
 	}
 	return t2replay_playback_exit;
+}
+
+bool replay_save_request_prompt_needed(void)
+{
+	t2replay_save_request_t request;
+	char request_fn[11];
+
+	if(t2replay_save_prompted) {
+		return false;
+	}
+	t2replay_save_prompted = true;
+	if(
+		(t2replay_header.status != T2REPLAY_STATUS_FINALIZED) ||
+		(t2replay_header.end_reason != T2REPLAY_END_GAME_OVER)
+	) {
+		t2replay_save_request_fn_set(request_fn);
+		t2replay_dos_delete(request_fn);
+		return false;
+	}
+	if(
+		!t2replay_save_request_read(&request) ||
+		(request.replay_header_checksum != t2replay_header.header_checksum)
+	) {
+		// Preserve a malformed T2RPY.TMP for diagnostics, but never its stale
+		// handoff request.
+		t2replay_save_request_fn_set(request_fn);
+		t2replay_dos_delete(request_fn);
+		return false;
+	}
+	return true;
+}
+
+void replay_save_request_discard(void)
+{
+	t2replay_paths_init();
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
 }
 
 bool replay_playback_active(void)

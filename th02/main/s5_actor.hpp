@@ -5,6 +5,7 @@
 #include "pc98.h"
 
 static const int TH02_S5_MIMA_ORB_SLOTS = 8;
+#define TH02_S5_MIMA_WIRE_SIZE 164
 
 // Pointer-free Stage 5 Mima state. Generic boss fields, the shared background
 // particle pool, palette state, and stage callbacks belong to their own exact
@@ -83,6 +84,15 @@ bool16 far th02_s5_mima_state_capture(th02_s5_mima_state_t *state);
 bool16 far th02_s5_mima_state_apply(const th02_s5_mima_state_t *state);
 bool16 far th02_s5_field_state_capture(th02_s5_field_state_t *state);
 bool16 far th02_s5_field_state_apply(const th02_s5_field_state_t *state);
+
+// Fieldwise private exact-checkpoint codec for the Mima-private owner. Stage
+// FX, tile logic, palette, callbacks, and redraw remain separate groups.
+bool16 far th02_s5_mima_state_wire_capture(
+	uint8_t far *wire, uint16_t wire_size
+);
+bool16 far th02_s5_mima_state_wire_valid(
+	const uint8_t far *wire, uint16_t wire_size
+);
 
 // This owns only the post-presentation Mima actor state. A later dispatcher
 // must provide the common terminal field, stage assets, callback promotion,

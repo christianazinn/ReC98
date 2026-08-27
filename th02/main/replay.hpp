@@ -67,13 +67,47 @@ bool replay_exact_checkpoint_boundary_available(
 // Validation is transactional: it reads only [envelope] and [boundary], never
 // changes gameplay state, and always rejects schema 1 as codec work is absent.
 enum t2rec_reject_t replay_exact_checkpoint_validate(
-	const uint8_t *envelope, uint32_t envelope_size,
+	const uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
+// Builds only the registered schema-2 Stage 5 Mima capture. Its stage-FX,
+// tile-logic, palette, callback, and redraw groups remain explicitly deferred,
+// so this is not a live seek hook or an apply entry point.
+bool16 replay_exact_stage5_mima_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
+// Builds only the registered schema-3 Stage 5 Mima capture. It adds the
+// typed logical TILE_LOGIC payload but still defers Stage FX, palette,
+// callbacks, and redraw; it is not a live seek hook or an apply entry point.
+bool16 replay_exact_stage5_mima_tile_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
+// Builds only the registered schema-4 Stage 5 Mima capture. It additionally
+// proves the generic background-particle owner is quiescent, but palette,
+// callbacks, and redraw remain deferred; it is not a live seek hook or an
+// apply entry point.
+bool16 replay_exact_stage5_mima_stage_fx_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
 	const struct t2rec_boundary_t *boundary
 );
 
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
+
+// Pause terminal actions deliberately reuse T2RPY1's existing GAME_OVER
+// terminal record. The pending-save sidecar is therefore unchanged.
+bool replay_pause_save_available(void);
+bool replay_pause_restart_semantics(void);
+bool replay_pause_restart_available(void);
+bool replay_pause_restart(void);
+bool replay_pause_save_and_exit(void);
+void replay_pause_exit_without_saving(void);
 
 // Terminalizes a non-clear attempt before the native GAME OVER / Continue
 // screen. Returns true when replay playback must bypass that live UI.
@@ -82,6 +116,11 @@ bool replay_gameover(void);
 // Terminalizes a clear or validates a playback terminal immediately before
 // GameExecl() tears the current process down. Returns true to launch OP.
 bool replay_process_end(const char *binary_fn);
+
+// The post-registration wrapper asks at most once per MAIN process. A malformed
+// sidecar is discarded without making its capture actionable.
+bool replay_save_request_prompt_needed(void);
+void replay_save_request_discard(void);
 
 bool replay_playback_active(void);
 

@@ -9,8 +9,17 @@
 #define T2REPLAY_PACKET_SIZE 4
 #define T2REPLAY_START_SIZE 36
 #define T2REPLAY_COMMAND_SIZE 52
+#define T2REPLAY_SAVE_REQUEST_SIZE 20
+#define T2REPLAY_NAME_LEN 8
+#define T2REPLAY_RESERVED_NAME_OFFSET 0
+#define T2REPLAY_RESERVED_TAIL_OFFSET \
+	(T2REPLAY_RESERVED_NAME_OFFSET + T2REPLAY_NAME_LEN)
+#define T2REPLAY_RESERVED_TAIL_SIZE 4
 #define T2REPLAY_STAGE_COUNT 6
 #define T2REPLAY_SLOT_COUNT 100
+// A command-only capture target. MAIN writes this to T2RPY.TMP; OP chooses the
+// eventual numbered slot after a finalized terminal capture exists.
+#define T2REPLAY_TEMP_SLOT T2REPLAY_SLOT_COUNT
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private semantic-checkpoint vocabulary for later exact TH02 seeks. This
@@ -51,9 +60,57 @@
 #define T2REPLAY_EXACT_CHECKPOINT_SOURCE_FINGERPRINT 0xE2C5A401UL
 #define T2REPLAY_EXACT_BOUNDARY_GENERATION 1
 
+// Schema 2 remains a private, capture-only T2XCK1 form. It registers the
+// canonical schema-4 common payloads together with the pointer-free Stage 5
+// Mima and generic actor owners. The remaining exact groups are explicitly
+// deferred, so no reader can mistake this partial record for a seekable save.
+#define T2REPLAY_EXACT_S5_MIMA_SCHEMA 2
+#define T2REPLAY_EXACT_S5_MIMA_SOURCE_FINGERPRINT 0x50F9D052UL
+#define T2REPLAY_EXACT_GROUP_FLAG_DEFERRED 0x01
+#define T2REPLAY_EXACT_ACTOR_CORE_SIZE 23
+#define T2REPLAY_EXACT_S5_MIMA_SIZE 164
+#define T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_CHECKPOINT_SIZE + \
+	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE - \
+	 T2REPLAY_CHECKPOINT_HEADER_SIZE - \
+	 (T2REPLAY_CHECKPOINT_GROUP_COUNT * T2REPLAY_CHECKPOINT_GROUP_SIZE)) + \
+	T2REPLAY_EXACT_ACTOR_CORE_SIZE + \
+	T2REPLAY_EXACT_S5_MIMA_SIZE \
+)
+
+// Schema 3 closes only Stage 5 Mima's logical TILE_LOGIC capture group. Its
+// Stage FX, palette, callback, and redraw groups remain deferred, so it is
+// still a private capture-only form rather than a seekable exact restore.
+#define T2REPLAY_EXACT_S5_MIMA_TILE_SCHEMA 3
+#define T2REPLAY_EXACT_S5_MIMA_TILE_SOURCE_FINGERPRINT 0xA11357C4UL
+#define T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE 685
+#define T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5_TILE_LOGIC_SIZE \
+)
+
+// Schema 4 closes only Stage 5 Mima's STAGE_FX group. It records the native
+// quiescent generic background-particle contract; Mima's visible background
+// state remains owned by ACTOR_STAGE. Palette, callback, and redraw groups
+// remain deferred, so this is still a private capture-only form.
+#define T2REPLAY_EXACT_S5MFX_SCHEMA 4
+#define T2REPLAY_EXACT_S5MFX_SOURCE_FINGERPRINT 0xC0589116UL
+#define T2REPLAY_EXACT_S5MFX_SIZE 11
+#define T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE ( \
+	T2REPLAY_EXACT_S5_MIMA_TILE_CAPTURE_SIZE + \
+	T2REPLAY_EXACT_S5MFX_SIZE \
+)
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
-#define T2REPLAY_KNOWN_FLAGS (T2REPLAY_FLAG_RLE_INPUT | T2REPLAY_FLAG_FULL_INPUT)
+#define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
+#define T2REPLAY_FLAG_PRACTICE 0x0008
+#define T2REPLAY_REQUIRED_FLAGS \
+	(T2REPLAY_FLAG_RLE_INPUT | T2REPLAY_FLAG_FULL_INPUT)
+#define T2REPLAY_DEFAULT_FLAGS \
+	(T2REPLAY_REQUIRED_FLAGS | T2REPLAY_FLAG_PAUSE_RESTART)
+#define T2REPLAY_KNOWN_FLAGS \
+	(T2REPLAY_DEFAULT_FLAGS | T2REPLAY_FLAG_PRACTICE)
 
 #define T2REPLAY_STATUS_RECORDING 1
 #define T2REPLAY_STATUS_FINALIZED 2
@@ -62,6 +119,7 @@
 #define T2REPLAY_COMMAND_RECORD 1
 #define T2REPLAY_COMMAND_PLAYBACK 2
 #define T2REPLAY_COMMAND_PRACTICE 3
+#define T2REPLAY_COMMAND_RESTART 4
 #define T2REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define T2REPLAY_COMMAND_KNOWN_FLAGS T2REPLAY_COMMAND_FLAG_PRACTICE
 
@@ -81,6 +139,9 @@
 
 #define T2REPLAY_END_GAME_OVER 1
 #define T2REPLAY_END_CLEAR 2
+
+#define T2REPLAY_SAVE_REQUEST_SCHEMA 1
+#define T2REPLAY_SAVE_REQUEST_POSTGAME 0
 
 #define T2REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T2REPLAY_FNV1A_PRIME 0x01000193UL
@@ -215,6 +276,8 @@ enum t2replay_practice_target_t {
 	T2RPT_STAGE4_MIDBOSS_SECOND = 18,
 	T2RPT_STAGE4_BOSS_START = 19,
 	T2RPT_STAGE5_BOSS_START = 20,
+	T2RPT_EXTRA_MIDBOSS = 21,
+	T2RPT_EXTRA_BOSS_START = 22,
 };
 
 #define T2REPLAY_PRACTICE_TARGET_OFFSET 0
@@ -289,6 +352,17 @@ struct t2replay_command_t {
 	uint8_t reserved[4];
 };
 
+// The pending-save handoff is deliberately separate from T2RPY.TMP: this
+// compact checksummed request binds OP admission to one finalized header.
+struct t2replay_save_request_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -300,6 +374,9 @@ typedef char t2replay_packet_size_check[
 ];
 typedef char t2replay_command_size_check[
 	(sizeof(t2replay_command_t) == T2REPLAY_COMMAND_SIZE) ? 1 : -1
+];
+typedef char t2replay_save_request_size_check[
+	(sizeof(t2replay_save_request_t) == T2REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t2rck_capture_size_check[
 	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (
@@ -322,10 +399,24 @@ typedef char t2rck_capture_size_check[
 typedef char t2rec_envelope_size_check[
 	(T2REPLAY_EXACT_CHECKPOINT_SIZE == 428) ? 1 : -1
 ];
+typedef char t2rec_s5_mima_capture_size_check[
+	(T2REPLAY_EXACT_S5_MIMA_CAPTURE_SIZE == 7565) ? 1 : -1
+];
+typedef char t2rec_s5_mima_stage_fx_capture_size_check[
+	(T2REPLAY_EXACT_S5MFX_CAPTURE_SIZE == 8261) ? 1 : -1
+];
 typedef char t2replay_header_checksum_offset_check[
 	(offsetof(t2replay_header_t, header_checksum) == 0x2C) ? 1 : -1
 ];
 typedef char t2replay_header_start_offset_check[
 	(offsetof(t2replay_header_t, start) == 0x30) ? 1 : -1
+];
+typedef char t2replay_header_name_size_check[
+	(sizeof(((t2replay_header_t *)0)->reserved) ==
+	 (T2REPLAY_NAME_LEN + T2REPLAY_RESERVED_TAIL_SIZE)) ? 1 : -1
+];
+typedef char t2replay_header_name_offset_check[
+	((offsetof(t2replay_header_t, reserved) +
+	  T2REPLAY_RESERVED_NAME_OFFSET) == 0x74) ? 1 : -1
 ];
 #endif /* TH02_REPLAY_FORMAT_HPP */

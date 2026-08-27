@@ -114,7 +114,7 @@ bool16 near continue_prompt(void)
 	}
 	overlay_wipe();
 	regist_menu();
-	overlay_wipe();
+	t2gosave_post_regist();
 
 	// No prompt on the last credit, and none in Extra Stage.
 	if((resident->continues_used < CONTINUES_MAX) && (rank < RANK_EXTRA)) {

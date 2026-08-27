@@ -248,7 +248,7 @@ void op_animate(void)
 	const char gbZUN[] = { g_chr_3(gb, Z,U,N), '\0' };
 
 	text_wipe();
-	snd_load("huuma.efc", SND_LOAD_SE);
+	replay_op_restart_or_snd_load("huuma.efc", SND_LOAD_SE);
 	pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
 	pi_load_put_8_free_to("op.pi", 0);
 	pi_load(0, "opa.pi");

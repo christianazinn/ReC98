@@ -482,3 +482,336 @@ bool16 far th02_s5_mima_clean_init(th02_s5_mima_clean_target_t target)
 	th02_s5_mima_clean_rank_parameters_set();
 	return true;
 }
+
+// Keep the pointer-free state owner intact and append its fieldwise replay
+// codec separately. The emitted bytes are a private exact-envelope payload,
+// not a compiler-layout carrier.
+#pragma codeseg T2S5CKPT_TEXT
+
+static void near th02_s5_mima_wire_put_u16(
+	uint8_t far *wire, uint16_t& offset, uint16_t value
+)
+{
+	wire[offset++] = static_cast<uint8_t>(value);
+	wire[offset++] = static_cast<uint8_t>(value >> 8);
+}
+
+static uint16_t near th02_s5_mima_wire_take_u16(
+	const uint8_t far *wire, uint16_t& offset
+)
+{
+	uint16_t value = static_cast<uint16_t>(
+		static_cast<uint16_t>(wire[offset]) |
+		(static_cast<uint16_t>(wire[offset + 1]) << 8)
+	);
+
+	offset += 2;
+	return value;
+}
+
+static void near th02_s5_mima_wire_put_point(
+	uint8_t far *wire, uint16_t& offset, const screen_point_t& point
+)
+{
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(point.x)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(point.y)
+	);
+}
+
+static void near th02_s5_mima_wire_take_point(
+	screen_point_t& point, const uint8_t far *wire, uint16_t& offset
+)
+{
+	point.x = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	point.y = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+}
+
+static bool16 near th02_s5_mima_state_wire_encode(
+	uint8_t far *wire, uint16_t wire_size,
+	const th02_s5_mima_state_t *state
+)
+{
+	uint16_t offset = 0;
+	int i;
+	int page;
+
+	if((wire == 0) || (wire_size != TH02_S5_MIMA_WIRE_SIZE) ||
+		!th02_s5_mima_state_validate(state)) {
+		return false;
+	}
+	th02_s5_mima_wire_put_u16(wire, offset, state->left_26C56);
+	th02_s5_mima_wire_put_u16(wire, offset, state->muzzle_left);
+	th02_s5_mima_wire_put_u16(wire, offset, state->left_26C5A);
+	th02_s5_mima_wire_put_u16(wire, offset, state->x_26C5C);
+	th02_s5_mima_wire_put_u16(wire, offset, state->top_26C5E);
+	th02_s5_mima_wire_put_u16(wire, offset, state->muzzle_top);
+	th02_s5_mima_wire_put_u16(wire, offset, state->top_26C62);
+	th02_s5_mima_wire_put_u16(wire, offset, state->y_26C64);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->velocity_y)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->damage_multiplier)
+	);
+	th02_s5_mima_wire_put_u16(wire, offset, static_cast<uint16_t>(state->phase));
+	th02_s5_mima_wire_put_u16(wire, offset, static_cast<uint16_t>(state->pattern));
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->patterns_this_phase)
+	);
+	wire[offset++] = state->all_patterns;
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->phase_damage_max)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->patterns_max)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->pattern_count)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->patterns_until_vulnerable)
+	);
+	for(page = 0; page < PAGE_COUNT; page++) {
+		for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+			th02_s5_mima_wire_put_u16(
+				wire, offset,
+				static_cast<uint16_t>(state->orb_left_on_page[page][i])
+			);
+		}
+	}
+	for(page = 0; page < PAGE_COUNT; page++) {
+		for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+			th02_s5_mima_wire_put_u16(
+				wire, offset,
+				static_cast<uint16_t>(state->orb_top_on_page[page][i])
+			);
+		}
+	}
+	for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+		th02_s5_mima_wire_put_u16(
+			wire, offset, static_cast<uint16_t>(state->orb_flag[i])
+		);
+	}
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orbs_gone_unused)
+	);
+	wire[offset++] = state->orb_variant;
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_flight_center_x)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_flight_center_y)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_flight_radius)
+	);
+	wire[offset++] = static_cast<uint8_t>(state->orb_flight_radius_step);
+	wire[offset++] = state->orb_flight_angle;
+	wire[offset++] = state->orb_flight_detonated;
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_center_x)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_center_y)
+	);
+	th02_s5_mima_wire_put_u16(
+		wire, offset, static_cast<uint16_t>(state->orb_radius)
+	);
+	wire[offset++] = state->orb_angle;
+	wire[offset++] = state->bg_ring_radius;
+	wire[offset++] = state->bg_circle_radius;
+	wire[offset++] = state->bg_ring_col_head;
+	wire[offset++] = state->bg_ring_col_tail;
+	wire[offset++] = state->bg_circle_col;
+	wire[offset++] = state->bg_ring_phase;
+	wire[offset++] = state->ring_radius;
+	wire[offset++] = state->bg_circle_radius_base;
+	wire[offset++] = state->bg_circle_pulse_frame;
+	wire[offset++] = state->flash_frame;
+	wire[offset++] = state->ray_unused;
+	wire[offset++] = state->ray_angle;
+	wire[offset++] = state->ray_tone;
+	wire[offset++] = state->spiral_angle;
+	wire[offset++] = state->aim_angle_unused;
+	wire[offset++] = state->charge_ring_radius;
+	wire[offset++] = state->stream_angle;
+	wire[offset++] = state->stream_speed;
+	wire[offset++] = state->pair_angle;
+	wire[offset++] = state->star_angle;
+	wire[offset++] = static_cast<uint8_t>(state->star_direction);
+	wire[offset++] = state->fan_angle;
+	th02_s5_mima_wire_put_point(wire, offset, state->point_26CD6);
+	th02_s5_mima_wire_put_point(wire, offset, state->point_26CDE);
+	return (offset == TH02_S5_MIMA_WIRE_SIZE);
+}
+
+static bool16 near th02_s5_mima_state_wire_decode(
+	th02_s5_mima_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_s5_mima_state_t decoded;
+	uint16_t offset = 0;
+	int i;
+	int page;
+
+	if((state == 0) || (wire == 0) ||
+		(wire_size != TH02_S5_MIMA_WIRE_SIZE)) {
+		return false;
+	}
+	decoded.left_26C56 = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.muzzle_left = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.left_26C5A = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.x_26C5C = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.top_26C5E = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.muzzle_top = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.top_26C62 = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.y_26C64 = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.velocity_y = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.damage_multiplier = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.phase = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.pattern = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.patterns_this_phase = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.all_patterns = wire[offset++];
+	decoded.phase_damage_max = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.patterns_max = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.pattern_count = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.patterns_until_vulnerable = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	for(page = 0; page < PAGE_COUNT; page++) {
+		for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+			decoded.orb_left_on_page[page][i] = static_cast<screen_x_t>(
+				th02_s5_mima_wire_take_u16(wire, offset)
+			);
+		}
+	}
+	for(page = 0; page < PAGE_COUNT; page++) {
+		for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+			decoded.orb_top_on_page[page][i] = static_cast<screen_y_t>(
+				th02_s5_mima_wire_take_u16(wire, offset)
+			);
+		}
+	}
+	for(i = 0; i < TH02_S5_MIMA_ORB_SLOTS; i++) {
+		decoded.orb_flag[i] = static_cast<int16_t>(
+			th02_s5_mima_wire_take_u16(wire, offset)
+		);
+	}
+	decoded.orbs_gone_unused = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_variant = wire[offset++];
+	decoded.orb_flight_center_x = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_flight_center_y = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_flight_radius = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_flight_radius_step = static_cast<int8_t>(wire[offset++]);
+	decoded.orb_flight_angle = wire[offset++];
+	decoded.orb_flight_detonated = wire[offset++];
+	decoded.orb_center_x = static_cast<screen_x_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_center_y = static_cast<screen_y_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_radius = static_cast<int16_t>(
+		th02_s5_mima_wire_take_u16(wire, offset)
+	);
+	decoded.orb_angle = wire[offset++];
+	decoded.bg_ring_radius = wire[offset++];
+	decoded.bg_circle_radius = wire[offset++];
+	decoded.bg_ring_col_head = wire[offset++];
+	decoded.bg_ring_col_tail = wire[offset++];
+	decoded.bg_circle_col = wire[offset++];
+	decoded.bg_ring_phase = wire[offset++];
+	decoded.ring_radius = wire[offset++];
+	decoded.bg_circle_radius_base = wire[offset++];
+	decoded.bg_circle_pulse_frame = wire[offset++];
+	decoded.flash_frame = wire[offset++];
+	decoded.ray_unused = wire[offset++];
+	decoded.ray_angle = wire[offset++];
+	decoded.ray_tone = wire[offset++];
+	decoded.spiral_angle = wire[offset++];
+	decoded.aim_angle_unused = wire[offset++];
+	decoded.charge_ring_radius = wire[offset++];
+	decoded.stream_angle = wire[offset++];
+	decoded.stream_speed = wire[offset++];
+	decoded.pair_angle = wire[offset++];
+	decoded.star_angle = wire[offset++];
+	decoded.star_direction = static_cast<int8_t>(wire[offset++]);
+	decoded.fan_angle = wire[offset++];
+	th02_s5_mima_wire_take_point(decoded.point_26CD6, wire, offset);
+	th02_s5_mima_wire_take_point(decoded.point_26CDE, wire, offset);
+	if((offset != TH02_S5_MIMA_WIRE_SIZE) ||
+		!th02_s5_mima_state_validate(&decoded)) {
+		return false;
+	}
+	*state = decoded;
+	return true;
+}
+
+bool16 far th02_s5_mima_state_wire_capture(
+	uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_s5_mima_state_t captured;
+
+	return (
+		th02_s5_mima_state_capture(&captured) &&
+		th02_s5_mima_state_wire_encode(wire, wire_size, &captured)
+	);
+}
+
+bool16 far th02_s5_mima_state_wire_valid(
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	th02_s5_mima_state_t decoded;
+
+	return th02_s5_mima_state_wire_decode(&decoded, wire, wire_size);
+}
