@@ -26,6 +26,8 @@
 #include "th04/main/replay_checkpoint.hpp"
 #include "th04/main/rp_guard.hpp"
 #include "th04/main/slowdown.hpp"
+#include "th04/main/playfld.hpp"
+#include "th04/gaiji/gaiji.h"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
 #include "th04/score.h"
@@ -162,6 +164,22 @@ static bool replay_restart_practice;
 extern nearfunc_t_near overlay1;
 extern nearfunc_t_near overlay2;
 void pascal near overlay_stage_enter_update_and_render(void);
+void pascal near overlay_titles_update_and_render(void);
+extern unsigned char titles_frame;
+extern unsigned char bgm_title_id;
+extern int stage_title_len;
+extern int stage_bgm_title_len;
+extern gaiji_th04_t gStage_1[8];
+extern const gaiji_th04_t gFINAL_STAGE[12];
+extern const gaiji_th04_t gEXTRA_STAGE[12];
+#if (GAME == 5)
+	extern shiftjis_t far *stage_title;
+	extern shiftjis_t far *stage_bgm_title;
+#else
+	extern unsigned char stage_title_id;
+	extern const shiftjis_t far *BGM_TITLES[];
+	extern const shiftjis_t far *STAGE_TITLES[];
+#endif
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
 
@@ -2793,6 +2811,105 @@ static void replay_restart_capture(void)
 	start->random_seed = random_seed;
 }
 
+// The stage-title overlay writes its strings only once during its dissolve-in.
+// Pause's text rows cover those strings, so it must restore the live rows
+// without stepping the overlay's timer on Resume.
+#define REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME 25
+#define REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME 192
+
+static bool replay_pause_stage_titles_hide(void)
+{
+	if(
+		(overlay1 != overlay_titles_update_and_render) ||
+		(titles_frame < REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME) ||
+		(titles_frame >= REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME)
+	) {
+		return false;
+	}
+	overlay_line_fill(
+		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H / 2) - GLYPH_H) / GLYPH_H),
+		TX_WHITE
+	);
+	overlay_line_fill(
+		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H / 2) + GLYPH_H) / GLYPH_H),
+		TX_WHITE
+	);
+	overlay_line_fill(
+		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H - (GLYPH_H / 2)) / GLYPH_H)),
+		TX_WHITE
+	);
+	return true;
+}
+
+static void replay_pause_stage_titles_restore(void)
+{
+	const shiftjis_t far *title;
+	const shiftjis_t far *bgm_title;
+	tram_y_t stage_num_y;
+	tram_y_t stage_title_y;
+	tram_y_t bgm_y;
+	tram_x_t stage_num_left;
+	tram_x_t stage_num_fe_left;
+	tram_x_t bgm_right;
+
+	if(overlay1 != overlay_titles_update_and_render) {
+		return;
+	}
+#if (GAME == 5)
+	title = stage_title;
+	bgm_title = stage_bgm_title;
+#else
+	title = STAGE_TITLES[stage_title_id];
+	bgm_title = BGM_TITLES[bgm_title_id];
+#endif
+	stage_num_y = (
+		PLAYFIELD_TRAM_TOP + (((PLAYFIELD_H / 2) - GLYPH_H) / GLYPH_H)
+	);
+	stage_title_y = (
+		PLAYFIELD_TRAM_TOP + (((PLAYFIELD_H / 2) + GLYPH_H) / GLYPH_H)
+	);
+	bgm_y = (
+		PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H - (GLYPH_H / 2)) / GLYPH_H)
+	);
+	stage_num_left = (
+		PLAYFIELD_TRAM_CENTER_X - (((sizeof(gStage_1) - 1) * GAIJI_TRAM_W) / 2)
+	);
+	stage_num_fe_left = (
+		PLAYFIELD_TRAM_CENTER_X - (((sizeof(gFINAL_STAGE) - 1) * GAIJI_TRAM_W) / 2)
+	);
+	bgm_right = (PLAYFIELD_TRAM_RIGHT - 1);
+
+	gStage_1[6] = static_cast<gaiji_th04_t>(gb_1 + stage_id);
+	if(stage_id == 5) {
+		gaiji_putsa(
+			stage_num_fe_left, stage_num_y,
+			reinterpret_cast<const char *>(gFINAL_STAGE), TX_YELLOW
+		);
+	} else if(stage_id == STAGE_EXTRA) {
+		gaiji_putsa(
+			stage_num_fe_left, stage_num_y,
+			reinterpret_cast<const char *>(gEXTRA_STAGE), TX_YELLOW
+		);
+	} else {
+		gaiji_putsa(
+			stage_num_left, stage_num_y,
+			reinterpret_cast<const char *>(gStage_1), TX_YELLOW
+		);
+	}
+	text_putsa(
+		(PLAYFIELD_TRAM_CENTER_X - (stage_title_len / 2)),
+		stage_title_y, title, TX_WHITE
+	);
+	gaiji_putca(
+		((bgm_right - (GAIJI_TRAM_W + 1)) - stage_bgm_title_len), bgm_y,
+		3, TX_YELLOW
+	);
+	text_putsa((bgm_right - stage_bgm_title_len), bgm_y, bgm_title, TX_WHITE);
+}
+
+#undef REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME
+#undef REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME
+
 static bool replay_pause_save_available(void)
 {
 	return (
@@ -2884,6 +3001,7 @@ extern "C" int far replay_pause_menu(void)
 	uint8_t selected = 0;
 	bool save_available;
 	bool save_became_unavailable;
+	bool stage_titles_hidden = replay_pause_stage_titles_hide();
 
 	while(
 		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
@@ -2964,6 +3082,9 @@ extern "C" int far replay_pause_menu(void)
 	}
 	replay_pause_clear();
 	if(selected == 0) {
+		if(stage_titles_hidden) {
+			replay_pause_stage_titles_restore();
+		}
 		return 0;
 	}
 	if(selected == 1) {
@@ -3256,5 +3377,17 @@ bool replay_playback_active(void)
 	// RC19 adds MAIN-to-OP handoff witnesses. Keep the patch tail's end phase
 	// fixed so the following stock CRT segment retains its original layout.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	// RC21 redraws an interrupted stage-title overlay. This additive tail is
+	// padded to the next 0x100-byte boundary so _TEXTC retains its audited
+	// paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 
 #pragma codeseg
