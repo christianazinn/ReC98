@@ -2203,18 +2203,20 @@ static void t2op_practice_start(void)
 	// Keep the selected title options persistent. The Practice payload is a
 	// one-run resident override consumed by MAIN, never a new configuration.
 	cfg_save();
-	start_init();
-	t2op_resident_apply(&t2op_practice);
 	t2op_save_request_fn_set(request_fn);
 	t2op_file_delete(request_fn);
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
-	t2op_command_write(
+	if(!t2op_command_write(
 		T2REPLAY_COMMAND_RECORD,
 		T2REPLAY_TEMP_SLOT,
 		T2REPLAY_COMMAND_FLAG_PRACTICE,
 		&t2op_practice
-	);
+	)) {
+		return;
+	}
+	start_init();
+	t2op_resident_apply(&t2op_practice);
 	t2op_main_exec();
 }
 
@@ -2227,7 +2229,11 @@ static void t2op_record_then_start(bool extra)
 	t2op_file_delete(request_fn);
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
-	t2op_command_write(T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, 0, 0);
+	if(!t2op_command_write(
+		T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, 0, 0
+	)) {
+		return;
+	}
 	if(extra) {
 		start_extra();
 	} else {
