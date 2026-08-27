@@ -919,6 +919,9 @@ void main(int argc, const char *argv[])
 	}
 
 	title_window_put();
+	if(t1replay_op_pending_enter()) {
+		menu_id = MID_REPLAY;
+	}
 
 	// Since [frame_rand] is always 0 here, the white line animation always
 	// looks identical.

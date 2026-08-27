@@ -14,6 +14,7 @@
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_PACKET_SIZE 8
 #define T1REPLAY_SLOT_COUNT 100
+#define T1REPLAY_SLOT_PENDING T1REPLAY_SLOT_COUNT
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
@@ -91,6 +92,27 @@
 
 #define T1REPLAY_COMMAND_RECORD 1
 #define T1REPLAY_COMMAND_PLAYBACK 2
+
+inline bool t1replay_slot_is_numbered(uint8_t slot)
+{
+	return (slot < T1REPLAY_SLOT_COUNT);
+}
+
+inline bool t1replay_slot_is_pending(uint8_t slot)
+{
+	return (slot == T1REPLAY_SLOT_PENDING);
+}
+
+// The pending sentinel is a process-local record target, never a playable
+// numbered slot. It keeps the T1RPY2 header and resident carrier ABI stable
+// while OP decides whether a finalized capture should become permanent.
+inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
+{
+	return (
+		t1replay_slot_is_numbered(slot) ||
+		((mode == T1REPLAY_COMMAND_RECORD) && t1replay_slot_is_pending(slot))
+	);
+}
 
 #define T1REPLAY_FLAG_RLE 0x0001
 #define T1REPLAY_FLAG_KEY_LATCH 0x0002

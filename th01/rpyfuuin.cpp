@@ -118,14 +118,35 @@ static void t1replay_resident_id_init(char *id)
 	id[12] = 'g'; id[13] = '\0';
 }
 
-static void t1replay_slot_set(uint8_t slot)
+static bool t1replay_slot_set(uint8_t slot)
 {
+	if(t1replay_slot_is_pending(slot)) {
+		t1replay_slot_fn[0] = 'T'; t1replay_slot_fn[1] = '1';
+		t1replay_slot_fn[2] = 'R'; t1replay_slot_fn[3] = 'P';
+		t1replay_slot_fn[4] = 'Y'; t1replay_slot_fn[5] = '.';
+		t1replay_slot_fn[6] = 'T'; t1replay_slot_fn[7] = 'M';
+		t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = '\0';
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		// Pending clear evidence must not masquerade as slot 00 while OP
+		// decides whether this capture becomes a numbered replay.
+		t1replay_score_proof_fn[0] = 'T'; t1replay_score_proof_fn[1] = '1';
+		t1replay_score_proof_fn[2] = 'S'; t1replay_score_proof_fn[3] = 'P';
+		t1replay_score_proof_fn[4] = '.';
+		t1replay_score_proof_fn[5] = 'D'; t1replay_score_proof_fn[6] = 'I';
+		t1replay_score_proof_fn[7] = 'G'; t1replay_score_proof_fn[8] = '\0';
+#endif
+		return true;
+	}
+	if(!t1replay_slot_is_numbered(slot)) {
+		return false;
+	}
 	t1replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t1replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	t1replay_score_proof_fn[3] = static_cast<char>('0' + (slot / 10));
 	t1replay_score_proof_fn[4] = static_cast<char>('0' + (slot % 10));
 #endif
+	return true;
 }
 
 static int t1replay_dos_open(const char far *fn, unsigned char access)
@@ -780,7 +801,9 @@ static bool t1replay_res_valid(void)
 		(t1replay_res->version != T1REPLAY_RES_VERSION) ||
 		((t1replay_res->mode != T1RM_RECORD) &&
 		 (t1replay_res->mode != T1RM_PLAYBACK)) ||
-		(t1replay_res->slot >= T1REPLAY_SLOT_COUNT) ||
+		!t1replay_slot_valid_for_mode(
+			t1replay_res->mode, t1replay_res->slot
+		) ||
 		(t1replay_res->source_process != T1REPLAY_PROCESS_REIIDEN) ||
 		(t1replay_res->target_process != T1REPLAY_PROCESS_FUUIN) ||
 		(t1replay_res->process_seq == 0) ||

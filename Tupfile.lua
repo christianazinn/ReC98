@@ -337,6 +337,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/d/",
 		cflags = "-DT1RP=3",
 	},
+	["t1score-proof"] = {
+		obj_root = "x/p/",
+		bin_root = "x/p/",
+		cflags = "-DT1REPLAY_FUUIN_SCORE_PROOF=1",
+	},
 }
 local t1replay_profile_name = tostring(T1REPLAY_PROFILE or "")
 local t1replay_profile = {}

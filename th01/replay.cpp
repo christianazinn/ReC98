@@ -200,20 +200,41 @@ static void t1replay_resident_id_init(char *id)
 	id[12] = 'g'; id[13] = '\0';
 }
 
-static void t1replay_slot_set(uint8_t slot)
+static bool t1replay_slot_set(uint8_t slot)
 {
+	if(t1replay_slot_is_pending(slot)) {
+		t1replay_slot_fn[0] = 'T'; t1replay_slot_fn[1] = '1';
+		t1replay_slot_fn[2] = 'R'; t1replay_slot_fn[3] = 'P';
+		t1replay_slot_fn[4] = 'Y'; t1replay_slot_fn[5] = '.';
+		t1replay_slot_fn[6] = 'T'; t1replay_slot_fn[7] = 'M';
+		t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = '\0';
+		return true;
+	}
+	if(!t1replay_slot_is_numbered(slot)) {
+		return false;
+	}
 	t1replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t1replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
+	return true;
 }
 
 static bool t1replay_checkpoint_path_set(uint8_t slot, uint8_t process_seq)
 {
-	if((slot >= T1REPLAY_SLOT_COUNT) ||
-		(process_seq > T1REPLAY_CHECKPOINT_PROCESS_MAX)) {
+	if(process_seq > T1REPLAY_CHECKPOINT_PROCESS_MAX) {
 		return false;
 	}
-	t1replay_checkpoint_fn[3] = static_cast<char>('0' + (slot / 10));
-	t1replay_checkpoint_fn[4] = static_cast<char>('0' + (slot % 10));
+	if(t1replay_slot_is_pending(slot)) {
+		// A private exact-capture run still has to survive REIIDEN's process
+		// boundary before OP has chosen a numbered destination. Keep that
+		// sidecar process-local and distinct from every T1CxxYY.CKP slot.
+		t1replay_checkpoint_fn[3] = 'P';
+		t1replay_checkpoint_fn[4] = 'T';
+	} else if(t1replay_slot_is_numbered(slot)) {
+		t1replay_checkpoint_fn[3] = static_cast<char>('0' + (slot / 10));
+		t1replay_checkpoint_fn[4] = static_cast<char>('0' + (slot % 10));
+	} else {
+		return false;
+	}
 	t1replay_checkpoint_fn[5] = static_cast<char>('0' + (process_seq / 10));
 	t1replay_checkpoint_fn[6] = static_cast<char>('0' + (process_seq % 10));
 	return true;
@@ -1570,7 +1591,9 @@ static bool t1replay_res_valid(void)
 		(t1replay_res->version != T1REPLAY_RES_VERSION) ||
 		((t1replay_res->mode != T1RM_RECORD) &&
 		 (t1replay_res->mode != T1RM_PLAYBACK)) ||
-		(t1replay_res->slot >= T1REPLAY_SLOT_COUNT) ||
+		!t1replay_slot_valid_for_mode(
+			t1replay_res->mode, t1replay_res->slot
+		) ||
 		!t1replay_bytes_zero(
 			t1replay_res->reserved, sizeof(t1replay_res->reserved)
 		) ||
@@ -1694,7 +1717,7 @@ static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 		!t1replay_magic_matches(command.magic, 'C') ||
 		((command.mode != T1REPLAY_COMMAND_RECORD) &&
 		 (command.mode != T1REPLAY_COMMAND_PLAYBACK)) ||
-		(command.slot >= T1REPLAY_SLOT_COUNT) ||
+		!t1replay_slot_valid_for_mode(command.mode, command.slot) ||
 		!t1replay_bytes_zero(command.reserved, sizeof(command.reserved))
 	) {
 		return T1RM_DISABLED;

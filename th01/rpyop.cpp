@@ -82,6 +82,12 @@ static bool t1replay_op_prev_ok;
 static bool t1replay_op_prev_enter;
 static bool t1replay_op_prev_cancel;
 static uint8_t t1replay_op_horizontal_hold;
+static bool t1replay_op_save_pending;
+
+static uint32_t t1replay_op_fnv1a(
+	uint32_t hash, const void *buf, unsigned size
+);
+static bool t1replay_op_bytes_zero(const uint8_t *p, unsigned size);
 
 static void t1replay_op_slot_fn(char *fn, uint8_t slot)
 {
@@ -96,6 +102,255 @@ static void t1replay_op_command_fn(char *fn)
 	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
 	fn[5] = '.'; fn[6] = 'C'; fn[7] = 'F'; fn[8] = 'G'; fn[9] = '\0';
 }
+
+static void t1replay_op_pending_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
+	fn[5] = '.'; fn[6] = 'T'; fn[7] = 'M'; fn[8] = 'P'; fn[9] = '\0';
+}
+
+static bool t1replay_op_file_exists(const char *fn)
+{
+	char mode[3];
+	FILE *fp;
+
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	fclose(fp);
+	return true;
+}
+
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+static bool t1replay_op_checkpoint_fn(
+	char *fn, uint8_t slot, uint8_t process_seq
+)
+{
+	if(process_seq > T1REPLAY_CHECKPOINT_PROCESS_MAX) {
+		return false;
+	}
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'C';
+	if(t1replay_slot_is_pending(slot)) {
+		fn[3] = 'P'; fn[4] = 'T';
+	} else if(t1replay_slot_is_numbered(slot)) {
+		fn[3] = static_cast<char>('0' + (slot / 10));
+		fn[4] = static_cast<char>('0' + (slot % 10));
+	} else {
+		return false;
+	}
+	fn[5] = static_cast<char>('0' + (process_seq / 10));
+	fn[6] = static_cast<char>('0' + (process_seq % 10));
+	fn[7] = '.'; fn[8] = 'C'; fn[9] = 'K'; fn[10] = 'P'; fn[11] = '\0';
+	return true;
+}
+
+static void t1op_ckpt_pending_discard(void)
+{
+	char fn[12];
+	uint8_t process_seq;
+
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		t1replay_op_checkpoint_fn(fn, T1REPLAY_SLOT_PENDING, process_seq);
+		remove(fn);
+	}
+}
+
+static bool t1op_ckpt_destinations_empty(uint8_t slot)
+{
+	char fn[12];
+	uint8_t process_seq;
+
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		t1replay_op_checkpoint_fn(fn, slot, process_seq);
+		if(t1replay_op_file_exists(fn)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static void t1op_ckpt_pending_rollback(uint8_t slot)
+{
+	char pending_fn[12];
+	char destination_fn[12];
+	uint8_t process_seq;
+
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		t1replay_op_checkpoint_fn(
+			pending_fn, T1REPLAY_SLOT_PENDING, process_seq
+		);
+		t1replay_op_checkpoint_fn(destination_fn, slot, process_seq);
+		if(!t1replay_op_file_exists(pending_fn) &&
+			t1replay_op_file_exists(destination_fn)) {
+			rename(destination_fn, pending_fn);
+		}
+	}
+}
+
+static bool t1op_ckpt_pending_stage(uint8_t slot)
+{
+	char pending_fn[12];
+	char destination_fn[12];
+	uint8_t process_seq;
+
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		t1replay_op_checkpoint_fn(
+			pending_fn, T1REPLAY_SLOT_PENDING, process_seq
+		);
+		t1replay_op_checkpoint_fn(destination_fn, slot, process_seq);
+		if(t1replay_op_file_exists(pending_fn) &&
+			(rename(pending_fn, destination_fn) != 0)) {
+			t1op_ckpt_pending_rollback(slot);
+			return false;
+		}
+	}
+	return true;
+}
+#endif
+
+#if T1REPLAY_FUUIN_SCORE_PROOF
+static void t1replay_op_score_proof_fn(char *fn, uint8_t slot)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'S';
+	if(t1replay_slot_is_pending(slot)) {
+		fn[3] = 'P'; fn[4] = '.';
+		fn[5] = 'D'; fn[6] = 'I'; fn[7] = 'G'; fn[8] = '\0';
+		return;
+	}
+	fn[3] = static_cast<char>('0' + (slot / 10));
+	fn[4] = static_cast<char>('0' + (slot % 10));
+	fn[5] = '.'; fn[6] = 'D'; fn[7] = 'I'; fn[8] = 'G'; fn[9] = '\0';
+}
+
+static uint32_t t1replay_op_score_proof_checksum(t1replay_score_proof_t *proof)
+{
+	uint32_t checksum;
+
+	proof->container_checksum = 0;
+	checksum = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS, proof, sizeof(*proof)
+	);
+	proof->container_checksum = checksum;
+	return checksum;
+}
+
+static bool t1replay_op_score_proof_valid(
+	t1replay_score_proof_t *proof, const t1replay_header_t *header
+)
+{
+	uint32_t stored_checksum = proof->container_checksum;
+
+	if(stored_checksum != t1replay_op_score_proof_checksum(proof)) {
+		return false;
+	}
+	return (
+		(proof->magic[0] == 'T') && (proof->magic[1] == '1') &&
+		(proof->magic[2] == 'S') && (proof->magic[3] == 'D') &&
+		(proof->magic[4] == 'G') && (proof->magic[5] == '1') &&
+		(proof->magic[6] == '\0') && (proof->magic[7] == '\0') &&
+		(proof->schema == T1REPLAY_SCORE_PROOF_SCHEMA) &&
+		(proof->size == T1REPLAY_SCORE_PROOF_SIZE) &&
+		(proof->game_id == 1) &&
+		(proof->slot == T1REPLAY_SLOT_PENDING) &&
+		(proof->rank == header->start.rank) &&
+		((proof->phase == T1REPLAY_FUUIN_PHASE_VERDICT) ||
+		 (proof->phase == T1REPLAY_FUUIN_PHASE_SCORE_NAME) ||
+		 (proof->phase == T1REPLAY_FUUIN_PHASE_SCORE_RELEASE)) &&
+		(proof->replay_start_checksum == header->start_checksum) &&
+		(proof->replay_payload_checksum == header->payload_checksum) &&
+		(proof->replay_sample_count == header->sample_count) &&
+		(proof->replay_packet_count == header->packet_count) &&
+		(((proof->phase == T1REPLAY_FUUIN_PHASE_VERDICT) &&
+		  (proof->before_digest == 0) && (proof->after_digest == 0)) ||
+		 ((proof->phase != T1REPLAY_FUUIN_PHASE_VERDICT))) &&
+		t1replay_op_bytes_zero(proof->reserved, sizeof(proof->reserved))
+	);
+}
+
+static bool t1replay_op_score_proof_read(
+	t1replay_score_proof_t *proof, const t1replay_header_t *header
+)
+{
+	char fn[10];
+	char mode[3];
+	FILE *fp;
+	long size;
+
+	t1replay_op_score_proof_fn(fn, T1REPLAY_SLOT_PENDING);
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp || (fseek(fp, 0L, SEEK_END) != 0) ||
+		((size = ftell(fp)) != sizeof(*proof)) ||
+		(fseek(fp, 0L, SEEK_SET) != 0) ||
+		(fread(proof, 1, sizeof(*proof), fp) != sizeof(*proof))) {
+		if(fp) {
+			fclose(fp);
+		}
+		return false;
+	}
+	fclose(fp);
+	return t1replay_op_score_proof_valid(proof, header);
+}
+
+static bool t1replay_op_score_proof_write(
+	const t1replay_score_proof_t *proof, uint8_t slot
+)
+{
+	char fn[10];
+	char mode[3];
+	FILE *fp;
+	bool ok;
+
+	t1replay_op_score_proof_fn(fn, slot);
+	mode[0] = 'w'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	ok = (fwrite(proof, 1, sizeof(*proof), fp) == sizeof(*proof));
+	if(fclose(fp) != 0) {
+		ok = false;
+	}
+	if(!ok) {
+		remove(fn);
+	}
+	return ok;
+}
+
+static void t1replay_op_pending_score_proof_discard(void)
+{
+	char fn[10];
+
+	t1replay_op_score_proof_fn(fn, T1REPLAY_SLOT_PENDING);
+	remove(fn);
+}
+
+static bool t1replay_op_score_proof_destination_empty(uint8_t slot)
+{
+	char fn[10];
+
+	t1replay_op_score_proof_fn(fn, slot);
+	return !t1replay_op_file_exists(fn);
+}
+
+static bool t1replay_op_pending_score_proof_valid(
+	const t1replay_op_slot_t& pending
+)
+{
+	t1replay_score_proof_t proof;
+
+	if(pending.header.end_reason != T1REPLAY_END_CLEAR) {
+		return true;
+	}
+	return t1replay_op_score_proof_read(&proof, &pending.header);
+}
+#endif
 
 static uint32_t t1replay_op_fnv1a(uint32_t hash, const void *buf, unsigned size)
 {
@@ -188,17 +443,187 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 	return (header_checksum == stored_header_checksum);
 }
 
-static void t1replay_op_slot_read(uint8_t slot, t1replay_op_slot_t& result)
+static uint8_t t1replay_op_group_mask(uint8_t group)
 {
-	char fn[11];
+	switch(group) {
+	case T1RIG_0: return T1REPLAY_INPUT_MASK_0;
+	case T1RIG_3: return T1REPLAY_INPUT_MASK_3;
+	case T1RIG_5: return T1REPLAY_INPUT_MASK_5;
+	case T1RIG_6: return T1REPLAY_INPUT_MASK_6;
+	case T1RIG_7: return T1REPLAY_INPUT_MASK_7;
+	case T1RIG_8: return T1REPLAY_INPUT_MASK_8;
+	case T1RIG_9: return T1REPLAY_INPUT_MASK_9;
+	}
+	return 0;
+}
+
+static bool t1replay_op_fuuin_keys_valid(const uint8_t *keys)
+{
+	return (
+		!(keys[T1RFIG_0] & ~T1REPLAY_INPUT_MASK_0) &&
+		!(keys[T1RFIG_3] & ~T1REPLAY_INPUT_MASK_3) &&
+		!(keys[T1RFIG_5] & ~T1REPLAY_INPUT_MASK_5) &&
+		!(keys[T1RFIG_7] & ~T1REPLAY_INPUT_MASK_7) &&
+		(keys[4] == 0) && (keys[5] == 0) && (keys[6] == 0)
+	);
+}
+
+struct t1replay_op_stream_state_t {
+	uint32_t samples;
+	uint32_t processes;
+	uint8_t process;
+	uint8_t process_seq;
+	uint8_t source_process;
+	uint8_t fuuin_phase;
+	uint8_t terminal_reason;
+	bool terminal_seen;
+};
+
+static void t1replay_op_stream_state_reset(t1replay_op_stream_state_t *state)
+{
+	memset(state, 0, sizeof(*state));
+	state->process = T1REPLAY_PROCESS_REIIDEN;
+}
+
+static bool t1replay_op_packet_valid(
+	const t1replay_packet_t *packet, t1replay_op_stream_state_t *state
+)
+{
+	uint8_t i;
+	uint8_t control;
+	uint8_t value;
+
+	if(state->terminal_seen) {
+		return false;
+	}
+	if(!(packet->tag & T1REPLAY_PACKET_CONTROL)) {
+		if(state->process == T1REPLAY_PROCESS_REIIDEN) {
+			for(i = 0; i < T1REPLAY_INPUT_GROUP_COUNT; i++) {
+				if(packet->keys[i] & ~t1replay_op_group_mask(i)) {
+					return false;
+				}
+			}
+		} else if(
+			(state->process != T1REPLAY_PROCESS_FUUIN) ||
+			(state->fuuin_phase == T1REPLAY_FUUIN_PHASE_NONE) ||
+			!t1replay_op_fuuin_keys_valid(packet->keys)
+		) {
+			return false;
+		}
+		value = static_cast<uint8_t>(
+			(packet->tag & T1REPLAY_PACKET_RUN_MASK) + 1
+		);
+		if(state->samples > (0xFFFFFFFFUL - static_cast<uint32_t>(value))) {
+			return false;
+		}
+		state->samples += value;
+		return true;
+	}
+	control = static_cast<uint8_t>(packet->tag & T1REPLAY_PACKET_RUN_MASK);
+	if(
+		(packet->keys[0] != state->process) ||
+		(packet->keys[1] != state->process_seq) ||
+		(packet->keys[3] != 0) || (packet->keys[4] != 0) ||
+		(packet->keys[5] != 0) || (packet->keys[6] != 0)
+	) {
+		return false;
+	}
+	if(control == T1REPLAY_CONTROL_PROCESS_END) {
+		if(
+			(state->process != T1REPLAY_PROCESS_REIIDEN) ||
+			((packet->keys[2] != T1REPLAY_PROCESS_REIIDEN) &&
+			 (packet->keys[2] != T1REPLAY_PROCESS_FUUIN)) ||
+			(state->process_seq == 0xFF)
+		) {
+			return false;
+		}
+		state->source_process = state->process;
+		state->process = packet->keys[2];
+		state->process_seq++;
+		state->fuuin_phase = T1REPLAY_FUUIN_PHASE_NONE;
+	} else if(control == T1REPLAY_CONTROL_PHASE) {
+		value = packet->keys[2];
+		if(
+			(state->process != T1REPLAY_PROCESS_FUUIN) ||
+			!(((state->fuuin_phase == T1REPLAY_FUUIN_PHASE_NONE) &&
+			   (value == T1REPLAY_FUUIN_PHASE_VERDICT)) ||
+			  ((state->fuuin_phase == T1REPLAY_FUUIN_PHASE_VERDICT) &&
+			   ((value == T1REPLAY_FUUIN_PHASE_SCORE_NAME) ||
+				(value == T1REPLAY_FUUIN_PHASE_SCORE_RELEASE))))
+		) {
+			return false;
+		}
+		state->fuuin_phase = value;
+	} else if(control == T1REPLAY_CONTROL_TERMINAL) {
+		value = packet->keys[2];
+		if(
+			!(((state->process == T1REPLAY_PROCESS_REIIDEN) &&
+			   (value == T1REPLAY_END_MENU)) ||
+			  ((state->process == T1REPLAY_PROCESS_FUUIN) &&
+			   (state->fuuin_phase != T1REPLAY_FUUIN_PHASE_NONE) &&
+			   (value == T1REPLAY_END_CLEAR)))
+		) {
+			return false;
+		}
+		state->terminal_seen = true;
+		state->terminal_reason = value;
+	} else {
+		return false;
+	}
+	if(control != T1REPLAY_CONTROL_PHASE) {
+		if(state->processes == 0xFFFFFFFFUL) {
+			return false;
+		}
+		state->processes++;
+	}
+	return true;
+}
+
+static bool t1replay_op_stream_valid(FILE *fp, const t1replay_header_t *header)
+{
+	uint32_t packets_seen = 0;
+	uint32_t hash = T1REPLAY_FNV1A_BASIS;
+	t1replay_op_stream_state_t state;
+	t1replay_packet_t packet;
+	long file_size;
+
+	if(
+		(fseek(fp, 0L, SEEK_END) != 0) ||
+		((file_size = ftell(fp)) < 0) ||
+		(static_cast<uint32_t>(file_size) !=
+			(header->input_offset + header->input_size)) ||
+		(fseek(fp, static_cast<long>(header->input_offset), SEEK_SET) != 0)
+	) {
+		return false;
+	}
+	t1replay_op_stream_state_reset(&state);
+	while(packets_seen < header->packet_count) {
+		if(fread(&packet, 1, sizeof(packet), fp) != sizeof(packet)) {
+			return false;
+		}
+		hash = t1replay_op_fnv1a(hash, &packet, sizeof(packet));
+		if(!t1replay_op_packet_valid(&packet, &state)) {
+			return false;
+		}
+		packets_seen++;
+	}
+	return (
+		(hash == header->payload_checksum) &&
+		(state.samples == header->sample_count) &&
+		(state.processes == header->process_count) &&
+		state.terminal_seen &&
+		(state.terminal_reason == header->end_reason)
+	);
+}
+
+static void t1replay_op_file_read(
+	const char *fn, t1replay_op_slot_t& result, bool deep
+)
+{
 	char mode[3];
 	FILE *fp;
 
 	memset(&result, 0, sizeof(result));
-	if(slot >= T1REPLAY_SLOT_COUNT) {
-		return;
-	}
-	t1replay_op_slot_fn(fn, slot);
 	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
 	fp = fopen(fn, mode);
 	if(!fp) {
@@ -207,8 +632,45 @@ static void t1replay_op_slot_read(uint8_t slot, t1replay_op_slot_t& result)
 	result.exists = true;
 	if(fread(&result.header, 1, sizeof(result.header), fp) == sizeof(result.header)) {
 		result.valid = t1replay_op_header_valid(&result.header);
+		if(result.valid && deep) {
+			result.valid = t1replay_op_stream_valid(fp, &result.header);
+		}
 	}
 	fclose(fp);
+}
+
+static void t1replay_op_slot_read(uint8_t slot, t1replay_op_slot_t& result)
+{
+	char fn[11];
+
+	memset(&result, 0, sizeof(result));
+	if(!t1replay_slot_is_numbered(slot)) {
+		return;
+	}
+	t1replay_op_slot_fn(fn, slot);
+	t1replay_op_file_read(fn, result, false);
+}
+
+static void t1replay_op_pending_read(t1replay_op_slot_t& result)
+{
+	char fn[10];
+
+	t1replay_op_pending_fn(fn);
+	t1replay_op_file_read(fn, result, true);
+}
+
+static void t1replay_op_pending_discard(void)
+{
+	char fn[10];
+
+	t1replay_op_pending_fn(fn);
+	remove(fn);
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+	t1op_ckpt_pending_discard();
+#endif
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_op_pending_score_proof_discard();
+#endif
 }
 
 static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
@@ -222,7 +684,7 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 	if(
 		((mode != T1REPLAY_COMMAND_RECORD) &&
 		 (mode != T1REPLAY_COMMAND_PLAYBACK)) ||
-		(slot >= T1REPLAY_SLOT_COUNT)
+		!t1replay_slot_valid_for_mode(mode, slot)
 	) {
 		return false;
 	}
@@ -294,38 +756,111 @@ bool t1replay_op_exact_bootstrap(void)
 }
 #endif
 
-static int t1replay_op_first_empty_slot(void)
-{
-	t1replay_op_slot_t slot;
-	int i;
-
-	for(i = 0; i < T1REPLAY_SLOT_COUNT; i++) {
-		t1replay_op_slot_read(static_cast<uint8_t>(i), slot);
-		if(!slot.exists) {
-			return i;
-		}
-	}
-	return -1;
-}
-
 bool t1replay_op_record_prepare(void)
 {
-	int slot;
-
-	// The command is one-shot process control, never durable replay state.
-	// Remove a stale request before selecting a slot or reporting unrecorded
-	// fallback, so a normal Start can never consume an earlier command.
+	// The command is one-shot process control, never durable replay state. A
+	// new capture always supersedes an abandoned temporary, while the full
+	// numbered slot set remains available to the post-run picker.
 	t1replay_op_command_clear();
-	slot = t1replay_op_first_empty_slot();
-	if(slot < 0) {
-		return false;
-	}
+	t1replay_op_pending_discard();
 	if(!t1replay_op_command_write(
-		T1REPLAY_COMMAND_RECORD, static_cast<uint8_t>(slot)
+		T1REPLAY_COMMAND_RECORD, T1REPLAY_SLOT_PENDING
 	)) {
 		t1replay_op_command_clear();
 		return false;
 	}
+	return true;
+}
+
+static bool t1replay_op_pending_commit(uint8_t slot)
+{
+	t1replay_op_slot_t pending;
+	t1replay_op_slot_t destination;
+	char pending_fn[10];
+	char destination_fn[11];
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_score_proof_t proof;
+	bool proof_staged = false;
+#endif
+
+	if(!t1replay_slot_is_numbered(slot)) {
+		return false;
+	}
+	// The same complete validation gate applies at picker entry and commit.
+	// This prevents a corrupt or externally replaced temporary from becoming
+	// a numbered replay between those two title frames.
+	t1replay_op_pending_read(pending);
+	if(!pending.exists || !pending.valid) {
+		return false;
+	}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	if(!t1replay_op_pending_score_proof_valid(pending)) {
+		return false;
+	}
+#endif
+	t1replay_op_slot_read(slot, destination);
+	if(
+		destination.exists ||
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+		!t1op_ckpt_destinations_empty(slot) ||
+#endif
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		!t1replay_op_score_proof_destination_empty(slot) ||
+#endif
+		false
+	) {
+		return false;
+	}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	if(pending.header.end_reason == T1REPLAY_END_CLEAR) {
+		// A private score-proof build accepts a clear only if the temporary
+		// sidecar binds to this exact finalized pending stream. Rewrite its
+		// slot field before committing the replay so later playback cannot
+		// consume evidence for the pending sentinel.
+		if(!t1replay_op_score_proof_read(&proof, &pending.header)) {
+			return false;
+		}
+		proof.slot = slot;
+		t1replay_op_score_proof_checksum(&proof);
+		if(!t1replay_op_score_proof_write(&proof, slot)) {
+			return false;
+		}
+		proof_staged = true;
+	} else {
+		// A non-clear run cannot legitimately own a score-table proof.
+		t1replay_op_pending_score_proof_discard();
+	}
+#endif
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+	if(!t1op_ckpt_pending_stage(slot)) {
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		if(proof_staged) {
+			t1replay_op_score_proof_fn(destination_fn, slot);
+			remove(destination_fn);
+		}
+#endif
+		return false;
+	}
+#endif
+	t1replay_op_pending_fn(pending_fn);
+	t1replay_op_slot_fn(destination_fn, slot);
+	if(rename(pending_fn, destination_fn) != 0) {
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+		t1op_ckpt_pending_rollback(slot);
+#endif
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		if(proof_staged) {
+			t1replay_op_score_proof_fn(destination_fn, slot);
+			remove(destination_fn);
+		}
+#endif
+		return false;
+	}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	if(proof_staged) {
+		t1replay_op_pending_score_proof_discard();
+	}
+#endif
 	return true;
 }
 
@@ -341,6 +876,7 @@ static void t1replay_op_backing_restore(void)
  * module's private code path. */
 enum t1replay_op_word_t {
 	T1ROW_REPLAY_BROWSER,
+	T1ROW_SAVE_REPLAY,
 	T1ROW_SLOT_STATUS_START_STAGE_RANK,
 	T1ROW_EMPTY,
 	T1ROW_INVALID,
@@ -389,6 +925,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
+	case T1ROW_SAVE_REPLAY:
+		T1ROW_WORD4('S', 'A', 'V', 'E'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
 		T1ROW_WORD4('S', 'L', 'O', 'T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'T'); T1ROW_WORD2('U', 'S'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
 	case T1ROW_EMPTY: T1ROW_WORD4('E', 'M', 'P', 'T'); T1ROW_WORD1('Y'); break;
@@ -671,7 +1209,10 @@ static void t1replay_op_replay_render(void)
 	vc_t col;
 
 	t1replay_op_backing_restore();
-	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_BROWSER);
+	p = t1replay_op_word_append(
+		t1replay_op_text,
+		t1replay_op_save_pending ? T1ROW_SAVE_REPLAY : T1ROW_REPLAY_BROWSER
+	);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SLOT_STATUS_START_STAGE_RANK);
@@ -784,10 +1325,40 @@ static void t1replay_op_practice_render(void)
 
 void t1replay_op_replay_enter(void)
 {
+	t1replay_op_save_pending = false;
 	t1replay_op_sel = 0;
 	t1replay_op_page = 0;
 	t1replay_op_input_reset();
 	t1replay_op_replay_render();
+}
+
+bool t1replay_op_pending_enter(void)
+{
+	t1replay_op_slot_t pending;
+
+	// A stale temporary may be left behind by a reset or power loss. It is
+	// never user-visible unless its finalized stream passes the complete OP
+	// grammar check, including physical file extent and terminal control.
+	t1replay_op_pending_read(pending);
+	if(!pending.exists) {
+		return false;
+	}
+	if(
+		!pending.valid ||
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		!t1replay_op_pending_score_proof_valid(pending) ||
+#endif
+		false
+	) {
+		t1replay_op_pending_discard();
+		return false;
+	}
+	t1replay_op_save_pending = true;
+	t1replay_op_sel = 0;
+	t1replay_op_page = 0;
+	t1replay_op_input_reset();
+	t1replay_op_replay_render();
+	return true;
 }
 
 void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_t rand)
@@ -830,6 +1401,10 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 
 	t1replay_op_input_read(input);
 	if(input.cancel) {
+		if(t1replay_op_save_pending) {
+			t1replay_op_pending_discard();
+			t1replay_op_save_pending = false;
+		}
 		result.action = T1ROA_RETURN;
 		return result;
 	}
@@ -863,9 +1438,26 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 		result.slot = static_cast<uint8_t>(
 			(t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) + t1replay_op_sel
 		);
-		t1replay_op_slot_read(result.slot, slot);
-		if(slot.valid && t1replay_op_command_write(T1REPLAY_COMMAND_PLAYBACK, result.slot)) {
-			result.action = T1ROA_PLAYBACK;
+		if(t1replay_op_save_pending) {
+			if(t1replay_op_pending_commit(result.slot)) {
+				t1replay_op_save_pending = false;
+				result.action = T1ROA_RETURN;
+			} else {
+				t1replay_op_pending_read(slot);
+				if(!slot.exists || !slot.valid) {
+					t1replay_op_pending_discard();
+					t1replay_op_save_pending = false;
+					result.action = T1ROA_RETURN;
+				}
+			}
+		} else {
+			t1replay_op_slot_read(result.slot, slot);
+			if(
+				slot.valid &&
+				t1replay_op_command_write(T1REPLAY_COMMAND_PLAYBACK, result.slot)
+			) {
+				result.action = T1ROA_PLAYBACK;
+			}
 		}
 	}
 	return result;

@@ -38,6 +38,7 @@ struct t1replay_op_result_t {
 };
 
 void t1replay_op_replay_enter(void);
+bool t1replay_op_pending_enter(void);
 void t1replay_op_practice_enter(
 	int8_t rank, int8_t lives, int8_t bombs, uint32_t rand
 );
