@@ -189,9 +189,33 @@ static void language_main_ascii_copy(
 }
 #endif
 
+#if (GAME == 4)
+#define LANGUAGE_MAIN_TH04_STAGE_TITLE_COUNT 8
+#define LANGUAGE_MAIN_TH04_BGM_TITLE_COUNT 17
+
+extern const shiftjis_t* BGM_TITLES[];
+extern const shiftjis_t* STAGE_TITLES[];
+
+static const shiftjis_t far *language_main_th04_title(unsigned index);
+#endif
+
 void language_main_titles_apply(void)
 {
-#if (GAME == 5)
+#if (GAME == 4)
+	int i;
+
+	if(!language_main_english_selected()) {
+		return;
+	}
+	for(i = 0; i < LANGUAGE_MAIN_TH04_STAGE_TITLE_COUNT; i++) {
+		STAGE_TITLES[i] = language_main_th04_title(i);
+	}
+	for(i = 0; i < LANGUAGE_MAIN_TH04_BGM_TITLE_COUNT; i++) {
+		BGM_TITLES[i] = language_main_th04_title(
+			LANGUAGE_MAIN_TH04_STAGE_TITLE_COUNT + i
+		);
+	}
+#elif (GAME == 5)
 	if(!language_main_english_selected() ||
 		(stage_id >= 7)) {
 		return;
@@ -213,6 +237,78 @@ void language_main_titles_apply(void)
 	}
 #endif
 }
+
+#if (GAME == 4)
+// The English patch keeps these HUD titles in MAIN.EXE rather than a data
+// archive. Rebind the existing overlay pointer tables only for English;
+// Japanese continues to use the stock tables unchanged.
+
+static const shiftjis_t far *language_main_th04_title(unsigned index)
+{
+	unsigned blob_offset;
+	const char far *p;
+	_asm {
+		db 0xE8, 0x21, 0x02
+		db 'P', 'h', 'a', 'n', 't', 'o', 'm', ' ', 'L', 'a', 'n', 'd', 0
+		db 'P', 'h', 'a', 'n', 't', 'o', 'm', ' ', 'N', 'i', 'g', 'h', 't', 0
+		db 'F', 'a', 'm', 'i', 'n', 'e', ' ', 0x81, 0x60, ' ', 'L', 'a', 'k'
+		db 'e', ' ', 'o', 'f', ' ', 'B', 'l', 'o', 'o', 'd', 0
+		db 'D', 'a', 'r', 'k', 'n', 'e', 's', 's', 0
+		db 'D', 'r', 'e', 'a', 'm', ' ', 'o', 'f', ' ', 'F', 'r', 'a', 'i'
+		db 'l', ' ', 'G', 'i', 'r', 'l', 0
+		db 'P', 'h', 'a', 'n', 't', 'a', 's', 'm', 'a', 'g', 'o', 'r', 'i'
+		db 'a', 0
+		db 'P', 'u', 'r', 's', 'u', 'i', 't', ' ', 0x81, 0x60, ' ', 'R', 'a'
+		db 's', 'p', 'b', 'e', 'r', 'r', 'y', ' ', 'T', 'r', 'a', 'p', 0
+		db 'Q', 'u', 'i', 'e', 't', ' ', 'C', 'l', 'o', 's', 'i', 'n', 'g'
+		db ' ', 'f', 'o', 'r', ' ', 'W', 'o', 'n', 'd', 'e', 'r', 'f', 'u'
+		db 'l', ' ', 'Y', 'o', 'u', ' ', 0x81, 0x60, ' ', 'P', 'u', 'c', 'k'
+		db 'i', 's', 'h', ' ', 'A', 'n', 'g', 'e', 'l', 0
+		db 'W', 'i', 't', 'c', 'h', 'i', 'n', 'g', ' ', 'D', 'r', 'e', 'a'
+		db 'm', 0, 'S', 'e', 'l', 'e', 'n', 'e', 0x27, 's', ' ', 'L', 'i'
+		db 'g', 'h', 't', 0, 'D', 'e', 'c', 'o', 'r', 'a', 't', 'i', 'o'
+		db 'n', ' ', 'B', 'a', 't', 't', 'l', 'e', 0
+		db 'B', 'r', 'e', 'a', 'k', ' ', 't', 'h', 'e', ' ', 'S', 'a', 'b'
+		db 'b', 'a', 't', 'h', 0
+		db 'S', 'c', 'a', 'r', 'l', 'e', 't', ' ', 'S', 'y', 'm', 'p', 'h'
+		db 'o', 'n', 'y', ' ', 0x81, 0x60, ' ', 'S', 'c', 'a', 'r', 'l', 'e'
+		db 't', ' ', 'P', 'h', 'o', 'n', 'e', 'm', 'e', 0
+		db 'B', 'a', 'd', ' ', 'A', 'p', 'p', 'l', 'e', '!', '!', 0
+		db 'S', 'p', 'i', 'r', 'i', 't', ' ', 'B', 'a', 't', 't', 'l', 'e'
+		db ' ', 0x81, 0x60, ' ', 'P', 'e', 'r', 'd', 'i', 't', 'i', 'o', 'n'
+		db ' ', 'C', 'r', 'i', 's', 'i', 's', 0
+		db 'A', 'l', 'i', 'c', 'e', ' ', 'M', 'a', 'e', 's', 't', 'r', 'a', 0
+		db 'V', 'e', 's', 's', 'e', 'l', ' ', 'o', 'f', ' ', 'S', 't', 'a'
+		db 'r', 's', ' ', 0x81, 0x60, ' ', 'C', 'a', 's', 'k', 'e', 't', ' '
+		db 'o', 'f', ' ', 'S', 't', 'a', 'r', 0
+		db 'L', 'o', 't', 'u', 's', ' ', 'L', 'o', 'v', 'e', 0
+		db 'S', 'l', 'e', 'e', 'p', 'i', 'n', 'g', ' ', 'T', 'e', 'r', 'r'
+		db 'o', 'r', 0, 'D', 'r', 'e', 'a', 'm', ' ', 'L', 'a', 'n', 'd', 0
+		db 'F', 'a', 'i', 'n', 't', ' ', 'D', 'r', 'e', 'a', 'm', ' ', 0x81
+		db 0x60, ' ', 'I', 'n', 'a', 'n', 'i', 'm', 'a', 't', 'e', ' ', 'D'
+		db 'r', 'e', 'a', 'm', 0
+		db 'T', 'h', 'e', ' ', 'I', 'n', 'e', 'v', 'i', 't', 'a', 'b', 'l'
+		db 'y', ' ', 'F', 'o', 'r', 'b', 'i', 'd', 'd', 'e', 'n', ' ', 'G'
+		db 'a', 'm', 'e', 0
+		db 'I', 'l', 'l', 'u', 's', 'i', 'o', 'n', ' ', 'o', 'f', ' ', 'a'
+		db ' ', 'M', 'a', 'i', 'd', ' ', 0x81, 0x60, ' ', 'I', 'c', 'e', 'm'
+		db 'i', 'l', 'k', ' ', 'M', 'a', 'g', 'i', 'c', ' ', 0
+		db 'C', 'u', 't', 'e', ' ', 'D', 'e', 'v', 'i', 'l', ' ', 0x81, 0x60
+		db ' ', 'I', 'n', 'n', 'o', 'c', 'e', 'n', 'c', 'e', 0
+		db 'M', 'a', 'i', 'd', 'e', 'n', 0x27, 's', ' ', 'C', 'a', 'p', 'r'
+		db 'i', 'c', 'c', 'i', 'o', 0
+		pop ax
+		mov blob_offset, ax
+	}
+	p = reinterpret_cast<const char far *>(MK_FP(_CS, blob_offset));
+	while(index--) {
+		while(*p++) {
+		}
+	}
+	return reinterpret_cast<const shiftjis_t far *>(p);
+}
+
+#endif
 
 const char *language_main_pause_label(uint8_t option)
 {
@@ -395,7 +491,7 @@ void far pascal language_main_layout_pad(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	// Keep the frozen TH04 CRT paragraph phase after the English title tables.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
