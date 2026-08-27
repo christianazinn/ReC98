@@ -12,6 +12,7 @@
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
 #include "th01/resident.hpp"
+#include "th01/hiscore/regist.hpp"
 #include "th01/math/dir.hpp"
 #include "th01/main/stage/timer.hpp"
 #include "th01/main/extend.hpp"
@@ -27,6 +28,7 @@
 #include "th01/main/particle.hpp"
 #include "th01/main/boss/boss.hpp"
 #include "th01/rboss.hpp"
+#include "th01/snd/mdrv2.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
@@ -96,10 +98,12 @@ typedef char t1replay_res_id_size_check[
 
 static char t1replay_command_fn[10];
 static char t1replay_slot_fn[11];
+static char t1replay_save_request_fn[11];
 static char t1replay_checkpoint_fn[12];
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
 static bool t1replay_command_delete_failed;
+static bool t1replay_terminal_pending;
 static t1replay_mode_t t1replay_mode;
 static t1replay_header_t t1replay_header;
 static t1replay_res_t far *t1replay_res;
@@ -169,6 +173,17 @@ static void t1replay_paths_init(void)
 	t1replay_slot_fn[6] = '.'; t1replay_slot_fn[7] = 'R';
 	t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = 'Y';
 	t1replay_slot_fn[10] = '\0';
+	t1replay_save_request_fn[0] = 'T';
+	t1replay_save_request_fn[1] = '1';
+	t1replay_save_request_fn[2] = 'R';
+	t1replay_save_request_fn[3] = 'S';
+	t1replay_save_request_fn[4] = 'A';
+	t1replay_save_request_fn[5] = 'V';
+	t1replay_save_request_fn[6] = '.';
+	t1replay_save_request_fn[7] = 'C';
+	t1replay_save_request_fn[8] = 'F';
+	t1replay_save_request_fn[9] = 'G';
+	t1replay_save_request_fn[10] = '\0';
 	t1replay_checkpoint_fn[0] = 'T'; t1replay_checkpoint_fn[1] = '1';
 	t1replay_checkpoint_fn[2] = 'C'; t1replay_checkpoint_fn[3] = '0';
 	t1replay_checkpoint_fn[4] = '0'; t1replay_checkpoint_fn[5] = '0';
@@ -411,6 +426,62 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 		size--;
 	}
 	return hash;
+}
+
+static bool t1replay_save_request_write(
+	t1replay_save_request_source_t source
+)
+{
+	t1replay_save_request_t request;
+	int fd;
+	bool ok;
+
+	t1replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T'; request.magic[1] = '1';
+	request.magic[2] = 'R'; request.magic[3] = 'S';
+	request.magic[4] = 'A'; request.magic[5] = 'V';
+	request.magic[6] = '1'; request.magic[7] = '\0';
+	request.schema = T1REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = source;
+	request.replay_header_checksum = t1replay_header.header_checksum;
+	request.checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	t1replay_dos_delete(t1replay_save_request_fn);
+	fd = t1replay_dos_create(t1replay_save_request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t1replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	);
+	t1replay_dos_close(fd);
+	if(!ok) {
+		t1replay_dos_delete(t1replay_save_request_fn);
+	}
+	return ok;
+}
+
+static void t1replay_pending_files_discard(void)
+{
+	uint8_t process_seq;
+
+	t1replay_dos_delete(t1replay_save_request_fn);
+	if(t1replay_slot_set(T1REPLAY_SLOT_PENDING)) {
+		t1replay_dos_delete(t1replay_slot_fn);
+	}
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		if(t1replay_checkpoint_path_set(
+			T1REPLAY_SLOT_PENDING, process_seq
+		)) {
+			t1replay_dos_delete(t1replay_checkpoint_fn);
+		}
+	}
+#else
+	(process_seq);
+#endif
 }
 
 static uint32_t t1replay_fuuin_handoff_checksum(void)
@@ -1738,6 +1809,7 @@ static void t1replay_state_reset(void)
 	t1replay_decode_run = 0;
 	t1replay_pending_valid = false;
 	t1replay_command_delete_failed = false;
+	t1replay_terminal_pending = false;
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
@@ -2559,6 +2631,9 @@ static bool t1replay_exact_trace_row_capture(
 
 void far t1replay_exact_terminal_capture(uint8_t end_reason)
 {
+	if(t1replay_mode == T1RM_DISABLED) {
+		return;
+	}
 	t1replay_exact_terminal_pending = t1replay_exact_trace_row_capture(
 		&t1replay_exact_terminal_row, T1REPLAY_EXACT_ROW_TERMINAL,
 		T1REPLAY_PROCESS_NONE, end_reason,
@@ -2735,8 +2810,25 @@ static bool t1replay_process_control(uint8_t control, uint8_t value)
 bool16 far t1replay_process_handoff(uint8_t target_process)
 {
 	if(
-		((target_process != T1REPLAY_PROCESS_REIIDEN) &&
-		 (target_process != T1REPLAY_PROCESS_FUUIN)) ||
+		(target_process != T1REPLAY_PROCESS_REIIDEN) &&
+		(target_process != T1REPLAY_PROCESS_FUUIN)
+	) {
+		return false;
+	}
+	if(t1replay_mode == T1RM_DISABLED) {
+		// continue_menu() reaches this path only for Yes. The first credit has
+		// already terminated, so remove its pending transaction before native
+		// unrecorded execution replaces this process.
+		if(
+			t1replay_terminal_pending &&
+			(target_process == T1REPLAY_PROCESS_REIIDEN)
+		) {
+			t1replay_pending_files_discard();
+			t1replay_terminal_pending = false;
+		}
+		return false;
+	}
+	if(
 		!t1replay_process_control(T1REPLAY_CONTROL_PROCESS_END, target_process)
 	) {
 		return false;
@@ -2760,8 +2852,32 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	return true;
 }
 
+static void t1replay_terminal_request_pending(void)
+{
+	if(!t1replay_terminal_pending) {
+		return;
+	}
+	t1replay_terminal_pending = false;
+	if(
+		(t1replay_header.status != T1REPLAY_STATUS_FINALIZED) ||
+		(t1replay_header.end_reason != T1REPLAY_END_MENU) ||
+		(t1replay_header.header_checksum == 0) ||
+		!t1replay_save_request_write(T1RSRS_POSTGAME)
+	) {
+		t1replay_pending_files_discard();
+	}
+}
+
 void far t1replay_terminal(uint8_t end_reason)
 {
+	bool playback = (t1replay_mode == T1RM_PLAYBACK);
+
+	if(t1replay_mode == T1RM_DISABLED) {
+		// Esc leaves Continue through a separate stock branch that has no BGM
+		// stop call to wrap. Its existing late terminal call reaches this path.
+		t1replay_terminal_request_pending();
+		return;
+	}
 	if(!t1replay_process_control(T1REPLAY_CONTROL_TERMINAL, end_reason)) {
 		return;
 	}
@@ -2772,6 +2888,9 @@ void far t1replay_terminal(uint8_t end_reason)
 			t1replay_fail();
 			return;
 		}
+		t1replay_terminal_pending = t1replay_slot_is_pending(
+			t1replay_res->slot
+		);
 #if T1REPLAY_CHECKPOINT_EMIT
 	t1replay_checkpoint_flush_if_enabled();
 #endif
@@ -2804,6 +2923,27 @@ void far t1replay_terminal(uint8_t end_reason)
 #endif
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
+	if(playback) {
+		t1replay_abort_to_op();
+	}
+}
+
+void far t1replay_gameover_regist_menu(
+	score_t score, int16_t stage_num,
+	sshiftjis_t route[SCOREDAT_ROUTE_LEN + 1]
+)
+{
+#if T1REPLAY_EXACT_TRACE
+	t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+#endif
+	t1replay_terminal(T1REPLAY_END_MENU);
+	regist_menu(score, stage_num, route);
+}
+
+void far t1replay_terminal_save_request(void)
+{
+	t1replay_terminal_request_pending();
+	mdrv2_bgm_stop();
 }
 
 bool16 far t1replay_active(void)

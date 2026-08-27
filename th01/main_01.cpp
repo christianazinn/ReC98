@@ -1084,7 +1084,7 @@ int main(void)
 	}
 	resident->score = score;
 
-	regist_menu(score, (stage_id + 1), (
+	t1replay_gameover_regist_menu(score, (stage_id + 1), (
 		!stage_on_route(stage_id) ? SCOREDAT_ROUTE_SHRINE :
 		(route == ROUTE_MAKAI) ? SCOREDAT_ROUTE_MAKAI : SCOREDAT_ROUTE_JIGOKU
 	));

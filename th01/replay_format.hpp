@@ -93,6 +93,13 @@
 #define T1REPLAY_COMMAND_RECORD 1
 #define T1REPLAY_COMMAND_PLAYBACK 2
 
+#define T1REPLAY_SAVE_REQUEST_SCHEMA 1
+#define T1REPLAY_SAVE_REQUEST_SIZE 20
+
+enum t1replay_save_request_source_t {
+	T1RSRS_POSTGAME = 0,
+};
+
 inline bool t1replay_slot_is_numbered(uint8_t slot)
 {
 	return (slot < T1REPLAY_SLOT_COUNT);
@@ -258,6 +265,15 @@ struct t1replay_command_t {
 	uint8_t mode;
 	uint8_t slot;
 	uint8_t reserved[6];
+};
+
+struct t1replay_save_request_t {
+	char magic[8]; // "T1RSAV1\\0"
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
 };
 
 // Cross-process replay state. [source_process] owns the committed handoff at
@@ -670,6 +686,9 @@ typedef char t1replay_packet_size_check[
 ];
 typedef char t1replay_command_size_check[
 	(sizeof(t1replay_command_t) == 16) ? 1 : -1
+];
+typedef char t1replay_save_request_size_check[
+	(sizeof(t1replay_save_request_t) == T1REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t1replay_res_size_check[
 	(sizeof(t1replay_res_t) == 54) ? 1 : -1

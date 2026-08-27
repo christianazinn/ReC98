@@ -37,6 +37,7 @@ struct t1replay_fuuin_stream_state_t {
 };
 
 static char t1replay_slot_fn[11];
+static char t1replay_save_request_fn[11];
 #if T1REPLAY_FUUIN_SCORE_PROOF
 static char t1replay_score_proof_fn[10];
 #endif
@@ -92,6 +93,17 @@ static void t1replay_paths_init(void)
 	t1replay_slot_fn[6] = '.'; t1replay_slot_fn[7] = 'R';
 	t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = 'Y';
 	t1replay_slot_fn[10] = '\0';
+	t1replay_save_request_fn[0] = 'T';
+	t1replay_save_request_fn[1] = '1';
+	t1replay_save_request_fn[2] = 'R';
+	t1replay_save_request_fn[3] = 'S';
+	t1replay_save_request_fn[4] = 'A';
+	t1replay_save_request_fn[5] = 'V';
+	t1replay_save_request_fn[6] = '.';
+	t1replay_save_request_fn[7] = 'C';
+	t1replay_save_request_fn[8] = 'F';
+	t1replay_save_request_fn[9] = 'G';
+	t1replay_save_request_fn[10] = '\0';
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	t1replay_score_proof_fn[0] = 'T'; t1replay_score_proof_fn[1] = '1';
 	t1replay_score_proof_fn[2] = 'S'; t1replay_score_proof_fn[3] = '0';
@@ -170,7 +182,6 @@ static int t1replay_dos_open(const char far *fn, unsigned char access)
 	return result;
 }
 
-#if T1REPLAY_FUUIN_SCORE_PROOF
 static int t1replay_dos_create(const char far *fn)
 {
 	unsigned fn_seg = T1REPLAY_FP_SEG(fn);
@@ -191,7 +202,6 @@ static int t1replay_dos_create(const char far *fn)
 	}
 	return result;
 }
-#endif
 
 static void t1replay_dos_close(int fh)
 {
@@ -200,6 +210,26 @@ static void t1replay_dos_close(int fh)
 		mov ah, 3Eh
 		int 21h
 	}
+}
+
+static bool t1replay_dos_delete(const char far *fn)
+{
+	unsigned fn_seg = T1REPLAY_FP_SEG(fn);
+	unsigned fn_off = T1REPLAY_FP_OFF(fn);
+	unsigned result;
+
+	_asm {
+		push ds
+		mov dx, fn_off
+		mov ds, fn_seg
+		mov ah, 41h
+		int 21h
+		pop ds
+		sbb ax, ax
+		not ax
+		mov result, ax
+	}
+	return (result != 0);
 }
 
 static bool t1replay_dos_seek(int fh, uint32_t offset)
@@ -302,6 +332,40 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 		size--;
 	}
 	return hash;
+}
+
+static bool t1replay_save_request_write(
+	t1replay_save_request_source_t source
+)
+{
+	t1replay_save_request_t request;
+	int fd;
+	bool ok;
+
+	t1replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T'; request.magic[1] = '1';
+	request.magic[2] = 'R'; request.magic[3] = 'S';
+	request.magic[4] = 'A'; request.magic[5] = 'V';
+	request.magic[6] = '1'; request.magic[7] = '\0';
+	request.schema = T1REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = source;
+	request.replay_header_checksum = t1replay_header.header_checksum;
+	request.checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	t1replay_dos_delete(t1replay_save_request_fn);
+	fd = t1replay_dos_create(t1replay_save_request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t1replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	);
+	t1replay_dos_close(fd);
+	if(!ok) {
+		t1replay_dos_delete(t1replay_save_request_fn);
+	}
+	return ok;
 }
 
 static bool t1replay_bytes_zero(const uint8_t far *p, unsigned size)
@@ -1403,6 +1467,13 @@ void far t1replay_fuuin_terminal(void)
 			return;
 		}
 #endif
+		if(
+			t1replay_slot_is_pending(t1replay_res->slot) &&
+			!t1replay_save_request_write(T1RSRS_POSTGAME)
+		) {
+			t1replay_fail();
+			return;
+		}
 	} else if(
 		!t1replay_control_playback(
 			T1REPLAY_CONTROL_TERMINAL, T1REPLAY_END_CLEAR

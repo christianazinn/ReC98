@@ -3,6 +3,9 @@
 
 #include "platform.h"
 #include "th01/replay_format.hpp"
+#include "th01/formats/scoredat.hpp"
+#include "th01/score.h"
+#include "shiftjis.hpp"
 
 // Called before resident_stuff_get(). The one-shot command is consumed only in
 // the first REIIDEN process; a valid resident carrier always takes precedence.
@@ -44,6 +47,13 @@ bool16 far t1replay_process_handoff(uint8_t target_process);
 void far t1replay_exact_terminal_capture(uint8_t end_reason);
 #endif
 void far t1replay_terminal(uint8_t end_reason);
+// Exact-width wrappers for two existing stock far-call sites. The first
+// terminalizes before the native score menu; the second writes a postgame
+// request only after Continue has returned, then performs the native BGM stop.
+void far t1replay_gameover_regist_menu(
+	score_t score, int16_t stage_num, sshiftjis_t route[SCOREDAT_ROUTE_LEN + 1]
+);
+void far t1replay_terminal_save_request(void);
 
 bool16 far t1replay_active(void);
 

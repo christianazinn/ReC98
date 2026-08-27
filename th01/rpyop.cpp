@@ -83,6 +83,7 @@ static bool t1replay_op_prev_enter;
 static bool t1replay_op_prev_cancel;
 static uint8_t t1replay_op_horizontal_hold;
 static bool t1replay_op_save_pending;
+static bool t1replay_op_save_decision;
 
 static uint32_t t1replay_op_fnv1a(
 	uint32_t hash, const void *buf, unsigned size
@@ -107,6 +108,13 @@ static void t1replay_op_pending_fn(char *fn)
 {
 	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
 	fn[5] = '.'; fn[6] = 'T'; fn[7] = 'M'; fn[8] = 'P'; fn[9] = '\0';
+}
+
+static void t1replay_op_save_request_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'S';
+	fn[4] = 'A'; fn[5] = 'V'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
 }
 
 static bool t1replay_op_file_exists(const char *fn)
@@ -659,12 +667,84 @@ static void t1replay_op_pending_read(t1replay_op_slot_t& result)
 	t1replay_op_file_read(fn, result, true);
 }
 
+static void t1replay_op_save_request_discard(void)
+{
+	char fn[11];
+
+	t1replay_op_save_request_fn(fn);
+	remove(fn);
+}
+
+static bool t1replay_op_save_request_read(
+	t1replay_save_request_t& request
+)
+{
+	char fn[11];
+	char mode[3];
+	FILE *fp;
+	long size;
+	uint32_t stored;
+	uint32_t computed;
+	bool valid;
+
+	t1replay_op_save_request_fn(fn);
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	memset(&request, 0, sizeof(request));
+	valid = (fseek(fp, 0, SEEK_END) == 0);
+	size = valid ? ftell(fp) : -1;
+	valid = (
+		valid && (size == sizeof(request)) &&
+		(fseek(fp, 0, SEEK_SET) == 0) &&
+		(fread(&request, 1, sizeof(request), fp) == sizeof(request))
+	);
+	fclose(fp);
+	if(!valid) {
+		return false;
+	}
+	stored = request.checksum;
+	request.checksum = 0;
+	computed = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	request.checksum = stored;
+	return (
+		(request.magic[0] == 'T') && (request.magic[1] == '1') &&
+		(request.magic[2] == 'R') && (request.magic[3] == 'S') &&
+		(request.magic[4] == 'A') && (request.magic[5] == 'V') &&
+		(request.magic[6] == '1') && (request.magic[7] == '\0') &&
+		(request.schema == T1REPLAY_SAVE_REQUEST_SCHEMA) &&
+		(request.source == T1RSRS_POSTGAME) &&
+		(request.reserved == 0) &&
+		(request.replay_header_checksum != 0) &&
+		(stored == computed)
+	);
+}
+
+static bool t1replay_op_pending_action_read(
+	t1replay_op_slot_t& pending, t1replay_save_request_t& request
+)
+{
+	if(!t1replay_op_save_request_read(request)) {
+		return false;
+	}
+	t1replay_op_pending_read(pending);
+	return (
+		pending.exists && pending.valid &&
+		(request.replay_header_checksum == pending.header.header_checksum)
+	);
+}
+
 static void t1replay_op_pending_discard(void)
 {
 	char fn[10];
 
 	t1replay_op_pending_fn(fn);
 	remove(fn);
+	t1replay_op_save_request_discard();
 #if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
 	t1op_ckpt_pending_discard();
 #endif
@@ -776,6 +856,7 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 {
 	t1replay_op_slot_t pending;
 	t1replay_op_slot_t destination;
+	t1replay_save_request_t request;
 	char pending_fn[10];
 	char destination_fn[11];
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -789,8 +870,7 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 	// The same complete validation gate applies at picker entry and commit.
 	// This prevents a corrupt or externally replaced temporary from becoming
 	// a numbered replay between those two title frames.
-	t1replay_op_pending_read(pending);
-	if(!pending.exists || !pending.valid) {
+	if(!t1replay_op_pending_action_read(pending, request)) {
 		return false;
 	}
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -861,6 +941,7 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 		t1replay_op_pending_score_proof_discard();
 	}
 #endif
+	t1replay_op_save_request_discard();
 	return true;
 }
 
@@ -877,6 +958,8 @@ static void t1replay_op_backing_restore(void)
 enum t1replay_op_word_t {
 	T1ROW_REPLAY_BROWSER,
 	T1ROW_SAVE_REPLAY,
+	T1ROW_SAVE,
+	T1ROW_DISCARD,
 	T1ROW_SLOT_STATUS_START_STAGE_RANK,
 	T1ROW_EMPTY,
 	T1ROW_INVALID,
@@ -927,6 +1010,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
 	case T1ROW_SAVE_REPLAY:
 		T1ROW_WORD4('S', 'A', 'V', 'E'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
+	case T1ROW_SAVE: T1ROW_WORD4('S', 'A', 'V', 'E'); break;
+	case T1ROW_DISCARD: T1ROW_WORD4('D', 'I', 'S', 'C'); T1ROW_WORD3('A', 'R', 'D'); break;
 	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
 		T1ROW_WORD4('S', 'L', 'O', 'T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'T'); T1ROW_WORD2('U', 'S'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('R', 'A', 'N', 'K'); break;
 	case T1ROW_EMPTY: T1ROW_WORD4('E', 'M', 'P', 'T'); T1ROW_WORD1('Y'); break;
@@ -1199,6 +1284,27 @@ static void t1replay_op_input_reset(void)
 	t1replay_op_wait_release = true;
 }
 
+static void t1replay_op_save_decision_render(void)
+{
+	char *p;
+	screen_y_t y = T1REPLAY_OP_TOP;
+	vc_t col;
+
+	t1replay_op_backing_restore();
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
+	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	y += (T1REPLAY_OP_LINE_H * 3);
+	col = ((t1replay_op_sel == 0) ?
+		T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL);
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE);
+	t1replay_op_text_value(y, col, p);
+	y += T1REPLAY_OP_LINE_H;
+	col = ((t1replay_op_sel == 1) ?
+		T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL);
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_DISCARD);
+	t1replay_op_text_value(y, col, p);
+}
+
 static void t1replay_op_replay_render(void)
 {
 	t1replay_op_slot_t slot;
@@ -1326,6 +1432,7 @@ static void t1replay_op_practice_render(void)
 void t1replay_op_replay_enter(void)
 {
 	t1replay_op_save_pending = false;
+	t1replay_op_save_decision = false;
 	t1replay_op_sel = 0;
 	t1replay_op_page = 0;
 	t1replay_op_input_reset();
@@ -1335,29 +1442,32 @@ void t1replay_op_replay_enter(void)
 bool t1replay_op_pending_enter(void)
 {
 	t1replay_op_slot_t pending;
+	t1replay_save_request_t request;
+	char request_fn[11];
 
-	// A stale temporary may be left behind by a reset or power loss. It is
-	// never user-visible unless its finalized stream passes the complete OP
-	// grammar check, including physical file extent and terminal control.
-	t1replay_op_pending_read(pending);
-	if(!pending.exists) {
+	t1replay_op_save_request_fn(request_fn);
+	if(!t1replay_op_file_exists(request_fn)) {
 		return false;
 	}
 	if(
-		!pending.valid ||
+		!t1replay_op_pending_action_read(pending, request) ||
 #if T1REPLAY_FUUIN_SCORE_PROOF
 		!t1replay_op_pending_score_proof_valid(pending) ||
 #endif
 		false
 	) {
-		t1replay_op_pending_discard();
+		// A stale or mismatched request is never actionable. Keep the temporary
+		// unavailable for diagnostic recovery instead of promoting or deleting
+		// evidence that did not bind to this request.
+		t1replay_op_save_request_discard();
 		return false;
 	}
-	t1replay_op_save_pending = true;
+	t1replay_op_save_pending = false;
+	t1replay_op_save_decision = true;
 	t1replay_op_sel = 0;
 	t1replay_op_page = 0;
 	t1replay_op_input_reset();
-	t1replay_op_replay_render();
+	t1replay_op_save_decision_render();
 	return true;
 }
 
@@ -1400,6 +1510,33 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	result.slot = 0;
 
 	t1replay_op_input_read(input);
+	if(t1replay_op_save_decision) {
+		if(input.cancel) {
+			t1replay_op_pending_discard();
+			t1replay_op_save_decision = false;
+			result.action = T1ROA_RETURN;
+			return result;
+		}
+		if(input.up || input.down) {
+			t1replay_op_sel ^= 1;
+			t1replay_op_save_decision_render();
+		}
+		if(input.ok) {
+			if(t1replay_op_sel == 0) {
+				t1replay_op_save_decision = false;
+				t1replay_op_save_pending = true;
+				t1replay_op_sel = 0;
+				t1replay_op_page = 0;
+				t1replay_op_input_reset();
+				t1replay_op_replay_render();
+			} else {
+				t1replay_op_pending_discard();
+				t1replay_op_save_decision = false;
+				result.action = T1ROA_RETURN;
+			}
+		}
+		return result;
+	}
 	if(input.cancel) {
 		if(t1replay_op_save_pending) {
 			t1replay_op_pending_discard();
