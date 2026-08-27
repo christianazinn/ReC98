@@ -5,4 +5,9 @@
 // behind [in_option].
 void replay_title_update_and_render(void);
 
+// Replaces op_animate()'s existing far snd_load() call without changing that
+// original contribution's size. A Restart command is consumed before the
+// title animation; every other launch performs the native load.
+void replay_op_restart_or_snd_load(const char *fn, int func);
+
 #endif /* TH02_OP_REPLAY_HPP */

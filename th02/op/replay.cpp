@@ -202,6 +202,22 @@ static void t2op_save_request_fn_set(char *fn)
 	fn[10] = '\0';
 }
 
+static void t2op_handoff_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'H';
+	fn[4] = 'A';
+	fn[5] = 'N';
+	fn[6] = 'D';
+	fn[7] = '.';
+	fn[8] = 'B';
+	fn[9] = 'I';
+	fn[10] = 'N';
+	fn[11] = '\0';
+}
+
 static bool t2op_bytes_zero(const uint8_t far *p, unsigned size)
 {
 	while(size != 0) {
@@ -363,7 +379,9 @@ static bool t2op_header_valid(void)
 		(t2op_header.version != T2REPLAY_VERSION) ||
 		(t2op_header.header_size != T2REPLAY_HEADER_SIZE) ||
 		(t2op_header.packet_size != T2REPLAY_PACKET_SIZE) ||
-		(t2op_header.flags != T2REPLAY_KNOWN_FLAGS) ||
+		((t2op_header.flags & T2REPLAY_REQUIRED_FLAGS) !=
+		 T2REPLAY_REQUIRED_FLAGS) ||
+		((t2op_header.flags & ~T2REPLAY_KNOWN_FLAGS) != 0) ||
 		(t2op_header.status != T2REPLAY_STATUS_FINALIZED) ||
 		(t2op_header.game_id != 2) ||
 		(t2op_header.ruleset != T2REPLAY_RULESET_STOCK) ||
@@ -857,6 +875,7 @@ static bool t2op_command_write(
 )
 {
 	t2replay_command_t command;
+	char handoff_fn[12];
 	int wrote;
 
 	t2op_paths_init();
@@ -880,7 +899,92 @@ static bool t2op_command_write(
 	}
 	wrote = file_write(&command, sizeof(command));
 	file_close();
-	return (wrote == sizeof(command));
+	if(wrote != sizeof(command)) {
+		t2op_file_delete(t2op_command_fn);
+		return false;
+	}
+	// MAIN consumes this file immediately after execl(). AH=0Dh alone did not
+	// make the preceding directory update visible reliably on the target DOS,
+	// so every command receives an unconditional second create/write/close.
+	t2op_dos_flush();
+	t2op_handoff_fn_set(handoff_fn);
+	if(!file_create(handoff_fn)) {
+		t2op_file_delete(t2op_command_fn);
+		return false;
+	}
+	wrote = file_write(&command, sizeof(command));
+	file_close();
+	if(wrote != sizeof(command)) {
+		t2op_file_delete(handoff_fn);
+		t2op_file_delete(t2op_command_fn);
+		return false;
+	}
+	return true;
+}
+
+static bool t2op_restart_command_read(
+	t2replay_start_t far *start, uint8_t far *flags
+)
+{
+	t2replay_command_t command;
+	char handoff_fn[12];
+	uint32_t file_size;
+	unsigned size;
+	unsigned i;
+	int fd;
+	bool valid;
+
+	t2op_paths_init();
+	// The primary command is authoritative. The second file exists only to
+	// force the preceding directory update across the process boundary.
+	t2op_handoff_fn_set(handoff_fn);
+	t2op_file_delete(handoff_fn);
+	fd = t2op_dos_open(t2op_command_fn, T2OP_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	t2op_memclear(&command, sizeof(command));
+	size = t2op_dos_read(fd, &command, sizeof(command));
+	if(!t2op_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2op_dos_close(fd);
+	// T2RPY.CFG is one-shot state. Rejecting malformed or stale content must not
+	// leave OP retrying the same command on every title entry.
+	t2op_file_delete(t2op_command_fn);
+	if(
+		(command.magic[0] != 'T') || (command.magic[1] != '2') ||
+		(command.magic[2] != 'R') || (command.magic[3] != 'C') ||
+		(command.magic[4] != 'F') || (command.magic[5] != 'G') ||
+		(command.magic[6] != '2') || (command.magic[7] != '\0') ||
+		(command.mode != T2REPLAY_COMMAND_RESTART)
+	) {
+		return false;
+	}
+	valid = (
+		(size == sizeof(command)) && (file_size == sizeof(command)) &&
+		(command.slot == 0) &&
+		((command.flags & ~T2REPLAY_COMMAND_FLAG_PRACTICE) == 0) &&
+		(command.reserved_0 == 0) && t2op_start_valid(&command.start)
+	);
+	for(i = 0; i < sizeof(command.reserved); i++) {
+		if(command.reserved[i] != 0) {
+			valid = false;
+		}
+	}
+	if(
+		(command.flags == 0) &&
+		(command.start.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] !=
+		 T2RPT_STAGE_START)
+	) {
+		valid = false;
+	}
+	if(!valid) {
+		return false;
+	}
+	*start = command.start;
+	*flags = command.flags;
+	return true;
 }
 
 static bool t2op_file_rename(const char far *source, const char far *destination)
@@ -2037,6 +2141,32 @@ static void t2op_main_exec(void)
 	super_free();
 	game_exit();
 	execl(main_fn, main_fn, nullptr);
+}
+
+void replay_op_restart_or_snd_load(const char *fn, int func)
+{
+	t2replay_start_t start;
+	uint8_t flags;
+	char request_fn[11];
+
+	if(!t2op_restart_command_read(&start, &flags)) {
+		snd_load(fn, static_cast<snd_load_func_t>(func));
+		return;
+	}
+	t2op_save_request_fn_set(request_fn);
+	t2op_file_delete(request_fn);
+	t2op_temp_set();
+	t2op_file_delete(t2op_slot_fn);
+	if(!t2op_command_write(
+		T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, flags,
+		(flags & T2REPLAY_COMMAND_FLAG_PRACTICE) ? &start : 0
+	)) {
+		snd_load(fn, static_cast<snd_load_func_t>(func));
+		return;
+	}
+	start_init();
+	t2op_resident_apply(&start);
+	t2op_main_exec();
 }
 
 static void t2op_playback_start(uint8_t slot)

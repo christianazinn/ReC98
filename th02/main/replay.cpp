@@ -1626,6 +1626,22 @@ static void t2replay_save_request_fn_set(char *fn)
 	fn[10] = '\0';
 }
 
+static void t2replay_handoff_fn_set(char *fn)
+{
+	fn[0] = 'T';
+	fn[1] = '2';
+	fn[2] = 'R';
+	fn[3] = 'H';
+	fn[4] = 'A';
+	fn[5] = 'N';
+	fn[6] = 'D';
+	fn[7] = '.';
+	fn[8] = 'B';
+	fn[9] = 'I';
+	fn[10] = 'N';
+	fn[11] = '\0';
+}
+
 static void t2replay_slot_set(uint8_t slot)
 {
 	t2replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
@@ -1693,6 +1709,14 @@ static void t2replay_dos_close(int fh)
 	_asm {
 		mov	bx, fh
 		mov	ah, 3Eh
+		int	21h
+	}
+}
+
+static void t2replay_dos_flush(void)
+{
+	_asm {
+		mov	ah, 0Dh
 		int	21h
 	}
 }
@@ -1802,6 +1826,31 @@ static void t2replay_dos_delete(const char far *fn)
 	}
 }
 
+static bool t2replay_handoff_witness_write(
+	const void far *payload, unsigned size
+)
+{
+	char fn[12];
+	int fd;
+	bool ok;
+
+	// The target DOS does not reliably expose a newly closed directory entry
+	// across execl() after AH=0Dh alone. This second create is therefore part of
+	// the handoff itself, independent of optional diagnostics.
+	t2replay_dos_flush();
+	t2replay_handoff_fn_set(fn);
+	fd = t2replay_dos_create(fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (t2replay_dos_write(fd, payload, size) == size);
+	t2replay_dos_close(fd);
+	if(!ok) {
+		t2replay_dos_delete(fn);
+	}
+	return ok;
+}
+
 static void t2replay_pending_files_delete(void)
 {
 	char request_fn[11];
@@ -1900,6 +1949,9 @@ static bool t2replay_save_request_write(void)
 		t2replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
 	);
 	t2replay_dos_close(fd);
+	if(ok) {
+		ok = t2replay_handoff_witness_write(&request, sizeof(request));
+	}
 	if(!ok) {
 		t2replay_dos_delete(request_fn);
 	}
@@ -2971,7 +3023,9 @@ static bool t2replay_header_read(void)
 		(t2replay_header.version != T2REPLAY_VERSION) ||
 		(t2replay_header.header_size != T2REPLAY_HEADER_SIZE) ||
 		(t2replay_header.packet_size != T2REPLAY_PACKET_SIZE) ||
-		(t2replay_header.flags != T2REPLAY_KNOWN_FLAGS) ||
+		((t2replay_header.flags & T2REPLAY_REQUIRED_FLAGS) !=
+		 T2REPLAY_REQUIRED_FLAGS) ||
+		((t2replay_header.flags & ~T2REPLAY_KNOWN_FLAGS) != 0) ||
 		(t2replay_header.status != T2REPLAY_STATUS_FINALIZED) ||
 		(t2replay_header.game_id != 2) ||
 		(t2replay_header.ruleset != T2REPLAY_RULESET_STOCK) ||
@@ -3134,7 +3188,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.version = T2REPLAY_VERSION;
 	t2replay_header.header_size = T2REPLAY_HEADER_SIZE;
 	t2replay_header.packet_size = T2REPLAY_PACKET_SIZE;
-	t2replay_header.flags = T2REPLAY_KNOWN_FLAGS;
+	t2replay_header.flags = T2REPLAY_DEFAULT_FLAGS;
 	t2replay_header.status = T2REPLAY_STATUS_RECORDING;
 	t2replay_header.game_id = 2;
 	t2replay_header.ruleset = T2REPLAY_RULESET_STOCK;
@@ -3250,9 +3304,14 @@ static uint8_t t2replay_command_load(
 )
 {
 	t2replay_command_t command;
+	char handoff_fn[12];
 	uint32_t size;
 	int fd;
 
+	// The primary command is authoritative. The second file exists only to
+	// force the preceding directory update across the process boundary.
+	t2replay_handoff_fn_set(handoff_fn);
+	t2replay_dos_delete(handoff_fn);
 	fd = t2replay_dos_open(t2replay_command_fn, T2REPLAY_DOS_ACCESS_READ);
 	if(fd < 0) {
 		return T2RM_DISABLED;
@@ -3385,6 +3444,7 @@ void replay_entry(void)
 		t2replay_pending_files_delete();
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
+			t2replay_header.flags |= T2REPLAY_FLAG_PRACTICE;
 			t2replay_header.start = command_start;
 			t2replay_header_apply();
 			t2replay_practice_target = command_start.reserved[
@@ -3791,6 +3851,71 @@ bool replay_pause_save_available(void)
 		!t2replay_failed &&
 		!t2replay_finished
 	);
+}
+
+bool replay_pause_restart_semantics(void)
+{
+	return (
+		(t2replay_mode != T2RM_PLAYBACK) ||
+		((t2replay_header.flags & T2REPLAY_FLAG_PAUSE_RESTART) != 0)
+	);
+}
+
+bool replay_pause_restart_available(void)
+{
+	return (
+		(t2replay_mode == T2RM_RECORD) &&
+		!t2replay_finished
+	);
+}
+
+bool replay_pause_restart(void)
+{
+	t2replay_command_t command;
+	uint32_t seed;
+	int fd;
+	bool ok;
+
+	if(!replay_pause_restart_available()) {
+		return false;
+	}
+	t2replay_memclear(&command, sizeof(command));
+	command.magic[0] = 'T'; command.magic[1] = '2';
+	command.magic[2] = 'R'; command.magic[3] = 'C';
+	command.magic[4] = 'F'; command.magic[5] = 'G';
+	command.magic[6] = '2'; command.magic[7] = '\0';
+	command.mode = T2REPLAY_COMMAND_RESTART;
+	command.flags = (
+		(t2replay_header.flags & T2REPLAY_FLAG_PRACTICE)
+		? T2REPLAY_COMMAND_FLAG_PRACTICE : 0
+	);
+	command.start = t2replay_header.start;
+	seed = static_cast<uint32_t>(resident->frame);
+	command.start.resident_frame = seed;
+	command.start.random_seed = seed;
+
+	t2replay_paths_init();
+	t2replay_dos_delete(t2replay_command_fn);
+	fd = t2replay_dos_create(t2replay_command_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t2replay_dos_write(fd, &command, sizeof(command)) == sizeof(command)
+	);
+	t2replay_dos_close(fd);
+	if(ok) {
+		ok = t2replay_handoff_witness_write(&command, sizeof(command));
+	}
+	if(!ok) {
+		t2replay_dos_delete(t2replay_command_fn);
+		return false;
+	}
+	t2replay_temp_set();
+	t2replay_pending_files_delete();
+	t2replay_mode = T2RM_DISABLED;
+	t2replay_finished = true;
+	return true;
 }
 
 bool replay_pause_save_and_exit(void)
