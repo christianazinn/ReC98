@@ -113,6 +113,7 @@ enum t2op_practice_choice_t {
 };
 
 static char t2op_line[T2OP_LINE_CAPACITY + 1];
+static uint8_t t2op_gaiji_line[T2OP_LINE_CAPACITY + 1];
 static char t2op_command_fn[10];
 static char t2op_slot_fn[11];
 static bool t2op_paths_ready;
@@ -1282,6 +1283,71 @@ static void t2op_text_put(tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end)
 	text_putsa(x, y, reinterpret_cast<const shiftjis_t *>(t2op_line), attr);
 }
 
+static uint8_t t2op_menu_gaiji(char c)
+{
+	if((c >= 'a') && (c <= 'z')) {
+		c = static_cast<char>(c - ('a' - 'A'));
+	}
+	if((c >= '0') && (c <= '9')) {
+		return static_cast<uint8_t>(gb_0 + (c - '0'));
+	}
+	if((c >= 'A') && (c <= 'Z')) {
+		if(c == 'M') {
+			return gb_M;
+		}
+		if(c == 'N') {
+			return gb_N;
+		}
+		return static_cast<uint8_t>(gb_A + (c - 'A'));
+	}
+	if(c == '.') {
+		return gs_PERIOD;
+	}
+	if(c == '!') {
+		return gs_EXCLAMATION;
+	}
+	if(c == '?') {
+		return gs_QUESTION;
+	}
+	return gs_SPACE;
+}
+
+static unsigned t2op_gaiji_encode(char *end)
+{
+	unsigned length = static_cast<unsigned>(end - t2op_line);
+	unsigned i;
+
+	for(i = 0; i < length; i++) {
+		t2op_gaiji_line[i] = t2op_menu_gaiji(t2op_line[i]);
+	}
+	t2op_gaiji_line[length] = gs_NULL;
+	return length;
+}
+
+static void t2op_gaiji_put(
+	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
+)
+{
+	t2op_gaiji_encode(end);
+	gaiji_putsa(
+		x, y, reinterpret_cast<const char *>(t2op_gaiji_line), attr
+	);
+}
+
+static void t2op_gaiji_center_put(
+	tram_y_t y, tram_atrb2 attr, char *end
+)
+{
+	unsigned length = t2op_gaiji_encode(end);
+	tram_x_t x = static_cast<tram_x_t>(
+		((RES_X / GLYPH_HALF_W) - (length * GAIJI_TRAM_W)) / 2
+	);
+
+	gaiji_putsa(
+		x, y, reinterpret_cast<const char *>(t2op_gaiji_line), attr
+	);
+}
+
 #define T2OP_NAME_ALPHABET_ROWS 3
 #define T2OP_NAME_ALPHABET_COLS 17
 #define T2OP_NAME_ALPHABET_LEFT 10
@@ -1587,15 +1653,8 @@ static void t2op_main_line_put(
 	if(locked) {
 		attr = TX_BLUE;
 	}
-	if(selected) {
-		p = t2op_char(p, '>');
-		p = t2op_char(p, ' ');
-	} else {
-		p = t2op_char(p, ' ');
-		p = t2op_char(p, ' ');
-	}
 	p = t2op_word_append(p, label);
-	t2op_text_put(29, y, attr, p);
+	t2op_gaiji_center_put(y, attr, p);
 }
 
 static void t2op_main_render(void)
@@ -1609,12 +1668,6 @@ static void t2op_main_render(void)
 	} else {
 		text_clear();
 	}
-	p = t2op_line;
-	p = t2op_word_append(p, T2OW_REPLAY);
-	p = t2op_char(p, ' ');
-	p = t2op_word_append(p, T2OW_PRACTICE);
-	t2op_text_put(31, 8, TX_GREEN, p);
-
 	for(row = 0; row < T2OMC_COUNT; row++) {
 		t2op_word_t label;
 		bool locked = false;
@@ -1630,7 +1683,7 @@ static void t2op_main_render(void)
 		default: label = T2OW_QUIT; break;
 		}
 		t2op_main_line_put(
-			static_cast<tram_y_t>(10 + row),
+			static_cast<tram_y_t>(9 + row),
 			(t2op_main_sel == row), label, locked
 		);
 	}
@@ -1639,7 +1692,7 @@ static void t2op_main_render(void)
 	p = t2op_char(p, ':');
 	p = t2op_char(p, ' ');
 	p = t2op_rank_append(p, static_cast<uint8_t>(rank));
-	t2op_text_put(29, 20, TX_GREEN, p);
+	t2op_gaiji_center_put(19, TX_GREEN, p);
 }
 
 static void t2op_main_selection_step(int8_t direction)
@@ -2153,7 +2206,7 @@ static void t2op_practice_render(void)
 	text_clear();
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_PRACTICE);
-	t2op_text_put(33, 2, TX_GREEN, p);
+	t2op_gaiji_center_put(2, TX_GREEN, p);
 
 	for(row = 0; row < T2OPC_START; row++) {
 		t2op_word_t label;
@@ -2243,12 +2296,12 @@ static void t2op_practice_render(void)
 		case T2OPC_BGM: p = t2op_bgm_append(p, t2op_practice.bgm_mode); break;
 		default: p = t2op_word_append(p, t2op_practice.reduce_effects ? T2OW_ON : T2OW_OFF); break;
 		}
-		t2op_text_put(16, static_cast<tram_y_t>(4 + row),
+		t2op_gaiji_put(16, static_cast<tram_y_t>(4 + row),
 			(t2op_practice_sel == row) ? TX_WHITE : TX_YELLOW, p);
 	}
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_START_RUN);
-	t2op_text_put(32, static_cast<tram_y_t>(4 + T2OPC_START),
+	t2op_gaiji_center_put(static_cast<tram_y_t>(4 + T2OPC_START),
 		(t2op_practice_sel == T2OPC_START) ? TX_WHITE : TX_GREEN, p);
 }
 

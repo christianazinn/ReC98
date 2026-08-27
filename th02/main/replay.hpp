@@ -126,6 +126,7 @@ void replay_input_sample(uint8_t phase);
 // Pause terminal actions deliberately reuse T2RPY1's existing GAME_OVER
 // terminal record. The pending-save sidecar is therefore unchanged.
 bool replay_pause_save_available(void);
+bool replay_pause_save_refresh(void);
 bool replay_pause_restart_semantics(void);
 bool replay_pause_restart_available(void);
 bool replay_pause_restart(void);

@@ -712,6 +712,9 @@ local th02_main_sources = {
 	"th02/main/s5_cbred.cpp",
 	-- The language substrate is process-local and must not move prior state.
 	"th02/langm.cpp",
+	-- SAVESTATE GUARD MOD: The TH04/TH05 source is game-generic and derives
+	-- TH02's 8.3 filenames from GAME. Keep it at the final patch-owned tail.
+	"th02/main/rp_guard.cpp",
 
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)

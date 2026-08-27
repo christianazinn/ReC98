@@ -140,6 +140,36 @@ static bool t2pause_restart_pressed(void)
 	);
 }
 
+static bool t2pause_save_refresh(
+	uint8_t far &selected, uint8_t choice_count,
+	bool restart_semantics, bool restart_available, bool far &save_available
+)
+{
+	uint8_t action;
+
+	if(!save_available || replay_pause_save_refresh()) {
+		return false;
+	}
+	save_available = false;
+	action = t2pause_action(selected, restart_semantics);
+	if(action == T2PAUSE_SAVE_EXIT) {
+		do {
+			selected = static_cast<uint8_t>(
+				(selected == (choice_count - 1))
+				? T2PAUSE_RESUME : (selected + 1)
+			);
+			action = t2pause_action(selected, restart_semantics);
+		} while(!t2pause_action_enabled(
+			action, restart_available, save_available
+		));
+	}
+	t2pause_render(
+		selected, choice_count, restart_semantics,
+		restart_available, save_available
+	);
+	return true;
+}
+
 bool16 far t2pause_menu(void)
 {
 	uint8_t selected = T2PAUSE_RESUME;
@@ -155,6 +185,7 @@ bool16 far t2pause_menu(void)
 		t2pause_input_sample();
 		frame_delay(1);
 	}
+	save_available = replay_pause_save_refresh();
 	palette_settone(70);
 	gaiji_putsa(T2PAUSE_TITLE_LEFT, T2PAUSE_TITLE_Y, gPAUSE_MENU, TX_WHITE);
 	t2pause_render(
@@ -163,6 +194,19 @@ bool16 far t2pause_menu(void)
 	);
 	while(1) {
 		t2pause_input_sample();
+		if(
+			(key_det != INPUT_NONE) &&
+			t2pause_save_refresh(
+				selected, choice_count, restart_semantics,
+				restart_available, save_available
+			)
+		) {
+			while(key_det != INPUT_NONE) {
+				t2pause_input_sample();
+				frame_delay(1);
+			}
+			continue;
+		}
 		if(restart_semantics && t2pause_restart_pressed()) {
 			selected = T2PAUSE_RESTART;
 			break;
