@@ -8,6 +8,7 @@
 #include "th01/hardware/scrollup.hpp"
 #include "th01/snd/mdrv2.h"
 #include "th01/main/player/player.hpp"
+#include "th01/rroute.hpp"
 #include "th01/shiftjis/routesel.hpp"
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/boss/entity_a.hpp"
@@ -121,22 +122,28 @@ void singyoku_defeat_animate_and_select_route(void)
 			z_palette_set_show(col_other, 0x9, 0x9, 0x9);
 		}
 	} route_sel;
+	pixel_t makai_label_w;
+	pixel_t jigoku_label_w;
 
 	graph_accesspage_func(1);
 	z_graph_clear(); // ZUN bloat: graph_glyphrow_put() passes FX_CLEAR_BG
 	graph_glyphrow_put(0, V_WHITE, ROUTE_SEL_1);
 	graph_glyphrow_put(2, V_WHITE, ROUTE_SEL_2);
 	graph_glyphrow_put(4, V_WHITE, ROUTE_SEL_3);
-	graph_glyphrow_put(6, COL_MAKAI, ROUTE_SEL_4);
-	graph_glyphrow_put(8, COL_JIGOKU, ROUTE_SEL_5);
+	makai_label_w = t1route_label_glyphrow_put(
+		6, COL_MAKAI, ROUTE_SEL_4, ROUTE_MAKAI
+	);
+	jigoku_label_w = t1route_label_glyphrow_put(
+		8, COL_JIGOKU, ROUTE_SEL_5, ROUTE_JIGOKU
+	);
 	graph_accesspage_func(0);
 	route_sel.render(COL_MAKAI, COL_JIGOKU);
 
 	graph_glyphrow_2xscale_1_to_0(64, 64, 0, shiftjis_w(ROUTE_SEL_1));
 	graph_glyphrow_2xscale_1_to_0(32, 96, 2, shiftjis_w(ROUTE_SEL_2));
 	graph_glyphrow_2xscale_1_to_0(32, 180, 4, shiftjis_w(ROUTE_SEL_3));
-	graph_glyphrow_2xscale_1_to_0(256, MAKAI_TOP, 6, shiftjis_w(ROUTE_SEL_4));
-	graph_glyphrow_2xscale_1_to_0(256, JIGOKU_TOP, 8, shiftjis_w(ROUTE_SEL_5));
+	graph_glyphrow_2xscale_1_to_0(256, MAKAI_TOP, 6, makai_label_w);
+	graph_glyphrow_2xscale_1_to_0(256, JIGOKU_TOP, 8, jigoku_label_w);
 	graph_copy_accessed_page_to_other();
 	ptn_put_8(CURSOR_LEFT, MAKAI_TOP, PTN_ORB);
 
