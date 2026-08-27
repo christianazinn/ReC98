@@ -134,9 +134,11 @@ enum practice_field_t {
 };
 
 static char replay_op_cfg_fn[11];
+static char replay_op_command_witness_fn[11];
 static char replay_op_slot_fn[11];
 static char replay_op_temp_fn[12];
 static char replay_op_save_request_fn[12];
+static char replay_op_save_request_witness_fn[12];
 static char replay_op_save_txn_fn[12];
 static char replay_op_save_backup_fn[12];
 static char replay_op_main_binary[5];
@@ -306,10 +308,15 @@ static void replay_op_practice_diagnostic_fn_set(char far *fn, bool start)
 // verify_th0405_structural_layout.py against the frozen foundation maps.
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
-	#pragma codestring "\x90\x90\x90"
+	// RC19 adds OP-to-MAIN durability witnesses. Preserve the tail phase of the
+	// stock CRT segment that follows REPLAY_OP_TEXT in both game builds.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 
 static int replay_op_dos_open(const char far *fn)
 {
@@ -572,6 +579,17 @@ static void replay_op_paths_init(void)
 	replay_op_cfg_fn[6] = 'C'; replay_op_cfg_fn[7] = 'F';
 	replay_op_cfg_fn[8] = 'G'; replay_op_cfg_fn[9] = '\0';
 
+	replay_op_command_witness_fn[0] = 'T';
+	replay_op_command_witness_fn[1] = ('0' + GAME);
+	replay_op_command_witness_fn[2] = 'R';
+	replay_op_command_witness_fn[3] = 'H';
+	replay_op_command_witness_fn[4] = 'D';
+	replay_op_command_witness_fn[5] = '.';
+	replay_op_command_witness_fn[6] = 'C';
+	replay_op_command_witness_fn[7] = 'F';
+	replay_op_command_witness_fn[8] = 'G';
+	replay_op_command_witness_fn[9] = '\0';
+
 	replay_op_slot_fn[0] = 'T'; replay_op_slot_fn[1] = 'H';
 	replay_op_slot_fn[2] = ('0' + GAME); replay_op_slot_fn[3] = 'R';
 	replay_op_slot_fn[4] = '0'; replay_op_slot_fn[5] = '0';
@@ -598,6 +616,18 @@ static void replay_op_paths_init(void)
 	replay_op_save_request_fn[9] = 'F';
 	replay_op_save_request_fn[10] = 'G';
 	replay_op_save_request_fn[11] = '\0';
+
+	replay_op_save_request_witness_fn[0] = 'T';
+	replay_op_save_request_witness_fn[1] = ('0' + GAME);
+	replay_op_save_request_witness_fn[2] = 'R';
+	replay_op_save_request_witness_fn[3] = 'S';
+	replay_op_save_request_witness_fn[4] = 'H';
+	replay_op_save_request_witness_fn[5] = 'D';
+	replay_op_save_request_witness_fn[6] = '.';
+	replay_op_save_request_witness_fn[7] = 'C';
+	replay_op_save_request_witness_fn[8] = 'F';
+	replay_op_save_request_witness_fn[9] = 'G';
+	replay_op_save_request_witness_fn[10] = '\0';
 
 	replay_op_save_txn_fn[0] = 'T';
 	replay_op_save_txn_fn[1] = ('0' + GAME);
@@ -1250,6 +1280,9 @@ static void replay_op_pending_request_validate(void)
 {
 	replay_save_request_t request;
 
+	// The request primary is authoritative. Its unparsed witness only forces a
+	// directory update before OP starts, so consume it even without a primary.
+	replay_op_dos_delete(replay_op_save_request_witness_fn);
 	if(
 		replay_op_file_exists(replay_op_save_request_fn) &&
 		!replay_op_pending_read(&request, true)
@@ -1387,6 +1420,7 @@ static void replay_op_save_transaction_cleanup(void)
 	replay_op_dos_delete(replay_op_save_backup_fn);
 	replay_op_dos_delete(replay_op_save_txn_fn);
 	replay_op_dos_delete(replay_op_save_request_fn);
+	replay_op_dos_delete(replay_op_save_request_witness_fn);
 	replay_op_dos_delete(replay_op_temp_fn);
 	replay_op_dos_flush();
 }
@@ -1604,10 +1638,24 @@ static bool replay_op_command_write(
 	// MAIN consumes this one-shot file immediately after execl(). Ensure that
 	// the handoff does not depend on a later diagnostic write flushing DOS.
 	replay_op_dos_flush();
-	// This second command copy is part of the OP-to-MAIN handoff. On some
+	// This unparsed second copy is part of every OP-to-MAIN handoff. On some
 	// DOS implementations, AH=0Dh alone does not make the preceding directory
-	// update visible reliably across execl(). The diagnostic marker only
-	// decides whether MAIN emits a result; it must not decide handoff timing.
+	// update visible reliably across execl(). The diagnostic marker never
+	// decides whether this durability witness is written.
+	fh = replay_op_dos_create(replay_op_command_witness_fn);
+	ok = (
+		(fh >= 0) &&
+		(replay_op_dos_write(fh, &command, sizeof(command)) == sizeof(command))
+	);
+	if(fh >= 0) {
+		replay_op_dos_close(fh);
+	}
+	if(!ok) {
+		// A later missing witness is cleanup-only at MAIN, but the producer
+		// must not cross execl() after failing to issue this durability write.
+		replay_command_clear();
+		return false;
+	}
 	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
 		replay_op_practice_diagnostic_fn_set(diagnostic_fn, true);
 		fh = replay_op_dos_create(diagnostic_fn);
@@ -1623,6 +1671,7 @@ void replay_command_clear(void)
 {
 	replay_op_paths_init();
 	replay_op_dos_delete(replay_op_cfg_fn);
+	replay_op_dos_delete(replay_op_command_witness_fn);
 }
 
 bool replay_private_record_command_start(
@@ -1638,6 +1687,7 @@ bool replay_private_record_command_start(
 	replay_op_paths_init();
 	fh = replay_op_dos_open(replay_op_cfg_fn);
 	if(fh < 0) {
+		replay_command_clear();
 		return false;
 	}
 	replay_op_memclear(&command, sizeof(command));
@@ -1655,16 +1705,19 @@ bool replay_private_record_command_start(
 		(command.magic[6] != '2') || (command.magic[7] != '\0') ||
 		(command.mode != RCM_RECORD) ||
 		(command.slot >= REPLAY_USER_SLOT_COUNT) ||
-		(command.flags != (REPLAY_COMMAND_FLAG_PRACTICE |
+		((command.flags & ~REPLAY_COMMAND_FLAG_DIAGNOSTIC) !=
+		 (REPLAY_COMMAND_FLAG_PRACTICE |
 		 REPLAY_COMMAND_FLAG_PRIVATE_TEST)) ||
 		(command.reserved_0 != 0) ||
 		(command.start.kind <= RSK_STAGE) ||
 		!replay_op_start_valid(&command.start, true, true)
 	) {
+		replay_command_clear();
 		return false;
 	}
 	for(i = 0; i < sizeof(command.reserved); i++) {
 		if(command.reserved[i] != 0) {
+			replay_command_clear();
 			return false;
 		}
 	}
@@ -1686,6 +1739,7 @@ static bool replay_restart_command_start(
 	replay_op_paths_init();
 	fh = replay_op_dos_open(replay_op_cfg_fn);
 	if(fh < 0) {
+		replay_command_clear();
 		return false;
 	}
 	replay_op_memclear(&command, sizeof(command));
@@ -1710,10 +1764,12 @@ static bool replay_restart_command_start(
 			(practice && (command.start.kind > RSK_STAGE))
 		)
 	) {
+		replay_command_clear();
 		return false;
 	}
 	for(i = 0; i < sizeof(command.reserved); i++) {
 		if(command.reserved[i] != 0) {
+			replay_command_clear();
 			return false;
 		}
 	}
@@ -3277,6 +3333,7 @@ bool replay_practice_record_prepare(
 	replay_op_paths_init();
 	replay_op_dos_delete(replay_op_temp_fn);
 	replay_op_dos_delete(replay_op_save_request_fn);
+	replay_op_dos_delete(replay_op_save_request_witness_fn);
 	replay_op_copy(&start, start_in, sizeof(start));
 	start.resident_rand = resident->rand;
 	start.random_seed = resident->rand;
@@ -3778,6 +3835,7 @@ static void replay_save_pending_discard(void)
 	replay_op_save_transaction_recover();
 	if(!replay_op_file_exists(replay_op_save_txn_fn)) {
 		replay_op_dos_delete(replay_op_save_request_fn);
+		replay_op_dos_delete(replay_op_save_request_witness_fn);
 		replay_op_dos_delete(replay_op_temp_fn);
 		replay_op_dos_flush();
 	}
@@ -3933,13 +3991,14 @@ static bool replay_save_pending(void)
 	return true;
 }
 
-void replay_record_next_prepare(void)
+bool replay_record_next_prepare(void)
 {
 	replay_command_clear();
 	replay_op_paths_init();
 	replay_op_dos_delete(replay_op_temp_fn);
 	replay_op_dos_delete(replay_op_save_request_fn);
-	replay_op_command_write(
+	replay_op_dos_delete(replay_op_save_request_witness_fn);
+	return replay_op_command_write(
 		RCM_RECORD, 0, REPLAY_COMMAND_FLAG_TEMP_CAPTURE, NULL
 	);
 }
@@ -4145,7 +4204,10 @@ static void replay_main_th05_scores_reset(void)
 }
 #endif
 
-static void replay_main_start_game(void)
+// Returns true only after committing to the OP -> MAIN handoff. A rejected
+// command-pair write leaves the caller responsible for reconstructing OP's
+// title surface after the native character-select menu has faded it away.
+static bool replay_main_start_game(void)
 {
 	#if (GAME == 4)
 		language_op_character_prepare();
@@ -4164,7 +4226,7 @@ static void replay_main_start_game(void)
 		resident->stage_ascii = ('0' + 0);
 	#endif
 	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
-		return;
+		return false;
 	}
 	#if (GAME == 5)
 		replay_main_th05_scores_reset();
@@ -4172,14 +4234,17 @@ static void replay_main_start_game(void)
 		resident->demo_num = 0;
 	#endif
 	if(!resident->debug) {
-		replay_record_next_prepare();
+		if(!replay_record_next_prepare()) {
+			return false;
+		}
 	} else {
 		replay_command_clear();
 	}
 	replay_op_exit_into_main(true, true, false);
+	return true;
 }
 
-static void replay_main_start_extra(void)
+static bool replay_main_start_extra(void)
 {
 	#if (GAME == 4)
 		language_op_character_prepare();
@@ -4197,7 +4262,7 @@ static void replay_main_start_extra(void)
 		resident->stage_ascii = ('0' + STAGE_EXTRA);
 	#endif
 	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
-		return;
+		return false;
 	}
 	#if (GAME == 5)
 		replay_main_th05_scores_reset();
@@ -4205,14 +4270,17 @@ static void replay_main_start_extra(void)
 		resident->demo_num = 0;
 	#endif
 	if(!resident->debug) {
-		replay_record_next_prepare();
+		if(!replay_record_next_prepare()) {
+			return false;
+		}
 	} else {
 		replay_command_clear();
 	}
 	replay_op_exit_into_main(true, false, false);
+	return true;
 }
 
-static void replay_main_start_practice_apply(
+static bool replay_main_start_practice_apply(
 	const replay_start_config_t far *start, bool prepare_record
 )
 {
@@ -4234,20 +4302,35 @@ static void replay_main_start_practice_apply(
 		resident->demo_num = 0;
 	#endif
 	if(prepare_record && !replay_practice_record_prepare(start)) {
-		return;
+		return false;
 	}
 	replay_op_exit_into_main(true, false, false);
+	return true;
 }
 
-static void replay_main_start_restart_apply(
+static bool replay_main_start_restart_apply(
 	const replay_start_config_t far *start, uint8_t flags
 )
 {
-	resident->rand = start->resident_rand;
 	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
-		replay_main_start_practice_apply(start, true);
-		return;
+		uint16_t previous_rand = resident->rand;
+
+		// Practice serializes resident->rand into its new record. Only this
+		// temporary assignment precedes the durability write, and it is undone
+		// if the pair cannot be made durable.
+		resident->rand = start->resident_rand;
+		if(!replay_practice_record_prepare(start)) {
+			resident->rand = previous_rand;
+			return false;
+		}
+		return replay_main_start_practice_apply(start, false);
 	}
+	// A normal RECORD command has no launch-state payload. Make its primary
+	// and witness durable before changing any resident value used by OP's title.
+	if(!replay_record_next_prepare()) {
+		return false;
+	}
+	resident->rand = start->resident_rand;
 	if(start->stage != STAGE_EXTRA) {
 		resident->rank = start->rank;
 	}
@@ -4267,8 +4350,8 @@ static void replay_main_start_restart_apply(
 		resident->stage_ascii = ('0' + start->stage);
 		resident->shottype = start->shottype;
 	#endif
-	replay_record_next_prepare();
 	replay_op_exit_into_main(true, false, false);
+	return true;
 }
 
 static void replay_main_title_labels_load(void)
@@ -4308,11 +4391,14 @@ void far replay_op_startup_dispatch(void)
 		return;
 	}
 	if(replay_restart_command_start(&start, &flags)) {
+		// Invoke the accepted request exactly once. On the normal success path
+		// this execl()s into MAIN; false only means no replay-directed redirect,
+		// so startup deliberately falls through into OP's stock title loop.
 		replay_main_start_restart_apply(&start, flags);
 	}
 }
 
-static void replay_main_start_practice(void)
+static bool replay_main_start_practice(void)
 {
 	replay_start_config_t start;
 	#if (GAME == 4)
@@ -4333,12 +4419,12 @@ static void replay_main_start_practice(void)
 		resident->stage_ascii = ('0' + 0);
 	#endif
 	if(replay_op_bridge(ROBF_PLAYCHAR_MENU)) {
-		return;
+		return false;
 	}
 	if(!replay_practice_setup(&start)) {
-		return;
+		return false;
 	}
-	replay_main_start_practice_apply(&start, true);
+	return replay_main_start_practice_apply(&start, true);
 }
 
 static void replay_main_initialize(void)
@@ -4379,12 +4465,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 			return;
 		}
 		if(replay_restart_command_start(&private_start, &restart_flags)) {
-			replay_main_start_restart_apply(&private_start, restart_flags);
-			return;
+			if(replay_main_start_restart_apply(&private_start, restart_flags)) {
+				return;
+			}
 		}
 		if(replay_private_record_command_start(&private_start)) {
-			replay_main_start_practice_apply(&private_start, false);
-			return;
+			if(replay_main_start_practice_apply(&private_start, false)) {
+				return;
+			}
 		}
 		// MAIN consumes valid commands before returning to OP. Anything left
 		// here is stale or malformed and must not turn an attract demo into a
@@ -4416,16 +4504,19 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 		snd_se_play_force(11);
 		switch(menu_sel) {
 		case RMC_GAME:
-			replay_main_start_game();
-			replay_main_return(RMC_GAME);
+			if(!replay_main_start_game()) {
+				replay_main_return(RMC_GAME);
+			}
 			return;
 		case RMC_EXTRA:
-			replay_main_start_extra();
-			replay_main_return(RMC_EXTRA);
+			if(!replay_main_start_extra()) {
+				replay_main_return(RMC_EXTRA);
+			}
 			return;
 		case RMC_PRACTICE:
-			replay_main_start_practice();
-			replay_main_return(RMC_PRACTICE);
+			if(!replay_main_start_practice()) {
+				replay_main_return(RMC_PRACTICE);
+			}
 			return;
 		case RMC_REGIST_VIEW:
 			replay_op_bridge(ROBF_REGIST_VIEW_MENU);

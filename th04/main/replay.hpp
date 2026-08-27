@@ -86,8 +86,10 @@ int16_t replay_input_reset_sense_held_interstitial(void);
 void pascal replay_input_wait_for_change(int frames);
 
 // Called as the first operation of GameExecl(). Finalizes a recording or
-// verifies playback's terminal control. Returns true when playback must go
-// directly to OP instead of entering MAINE.
+// verifies playback's terminal control. Returns true when playback or a
+// successfully durable Restart must go directly to OP instead of MAINE.
+// A false Restart result leaves GameExecl()'s caller-provided stock target
+// unchanged; it does not keep MAIN resident after GameExecl().
 bool replay_process_end(void);
 
 bool replay_active(void);

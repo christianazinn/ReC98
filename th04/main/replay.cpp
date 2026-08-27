@@ -107,8 +107,10 @@ extern "C" void far player_shot_level_update(void);
 #endif
 
 static char replay_cfg_fn[11];
+static char replay_command_witness_fn[11];
 static char replay_slot_fn[12];
 static char replay_save_request_fn[12];
+static char replay_save_request_witness_fn[12];
 static bool replay_paths_ready;
 static replay_runtime_mode_t replay_mode;
 static replay_user_header_t replay_header;
@@ -160,6 +162,10 @@ extern nearfunc_t_near overlay2;
 void pascal near overlay_stage_enter_update_and_render(void);
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
+
+// The RC19 sender-result paths add eight bytes in this tail contribution.
+// Keep the following stock CRT segment at its foundation paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static uint16_t replay_dos_largest_free_block(void)
 {
@@ -243,6 +249,14 @@ static void replay_dos_close(int fh)
 	_asm {
 		mov	bx, fh
 		mov	ah, 3Eh
+		int	21h
+	}
+}
+
+static void replay_dos_flush(void)
+{
+	_asm {
+		mov	ah, 0Dh
 		int	21h
 	}
 }
@@ -413,6 +427,17 @@ static void replay_paths_init(void)
 	replay_cfg_fn[5] = '.'; replay_cfg_fn[6] = 'C'; replay_cfg_fn[7] = 'F';
 	replay_cfg_fn[8] = 'G'; replay_cfg_fn[9] = '\0';
 
+	replay_command_witness_fn[0] = 'T';
+	replay_command_witness_fn[1] = ('0' + GAME);
+	replay_command_witness_fn[2] = 'R';
+	replay_command_witness_fn[3] = 'H';
+	replay_command_witness_fn[4] = 'D';
+	replay_command_witness_fn[5] = '.';
+	replay_command_witness_fn[6] = 'C';
+	replay_command_witness_fn[7] = 'F';
+	replay_command_witness_fn[8] = 'G';
+	replay_command_witness_fn[9] = '\0';
+
 	replay_slot_fn[0] = 'T'; replay_slot_fn[1] = 'H';
 	replay_slot_fn[2] = ('0' + GAME); replay_slot_fn[3] = 'R';
 	replay_slot_fn[4] = '0'; replay_slot_fn[5] = '0';
@@ -427,6 +452,18 @@ static void replay_paths_init(void)
 	replay_save_request_fn[6] = 'V'; replay_save_request_fn[7] = '.';
 	replay_save_request_fn[8] = 'C'; replay_save_request_fn[9] = 'F';
 	replay_save_request_fn[10] = 'G'; replay_save_request_fn[11] = '\0';
+
+	replay_save_request_witness_fn[0] = 'T';
+	replay_save_request_witness_fn[1] = ('0' + GAME);
+	replay_save_request_witness_fn[2] = 'R';
+	replay_save_request_witness_fn[3] = 'S';
+	replay_save_request_witness_fn[4] = 'H';
+	replay_save_request_witness_fn[5] = 'D';
+	replay_save_request_witness_fn[6] = '.';
+	replay_save_request_witness_fn[7] = 'C';
+	replay_save_request_witness_fn[8] = 'F';
+	replay_save_request_witness_fn[9] = 'G';
+	replay_save_request_witness_fn[10] = '\0';
 	replay_paths_ready = true;
 }
 
@@ -443,6 +480,7 @@ static void replay_temp_path_set(void)
 static void replay_pending_files_delete(void)
 {
 	replay_dos_delete(replay_save_request_fn);
+	replay_dos_delete(replay_save_request_witness_fn);
 	if(replay_temp_capture) {
 		replay_dos_delete(replay_slot_fn);
 	}
@@ -467,6 +505,7 @@ static bool replay_save_request_write(replay_save_request_source_t source)
 		REPLAY_FNV1A_BASIS, &request, sizeof(request)
 	);
 	replay_dos_delete(replay_save_request_fn);
+	replay_dos_delete(replay_save_request_witness_fn);
 	fh = replay_dos_create(replay_save_request_fn);
 	if(fh < 0) {
 		return false;
@@ -477,6 +516,25 @@ static bool replay_save_request_write(replay_save_request_source_t source)
 	replay_dos_close(fh);
 	if(!ok) {
 		replay_dos_delete(replay_save_request_fn);
+		replay_dos_delete(replay_save_request_witness_fn);
+		return false;
+	}
+	// T?RPSAV.CFG remains the only authorization input. The witness forces a
+	// second directory update before the immediate MAIN-to-OP execl() handoff.
+	replay_dos_flush();
+	fh = replay_dos_create(replay_save_request_witness_fn);
+	ok = (
+		(fh >= 0) &&
+		(replay_dos_write(fh, &request, sizeof(request)) == sizeof(request))
+	);
+	if(fh >= 0) {
+		replay_dos_close(fh);
+	}
+	if(!ok) {
+		// The receiver tolerates a witness later missing from a valid primary,
+		// but a producer that cannot emit it must not cross this EXE boundary.
+		replay_dos_delete(replay_save_request_fn);
+		replay_dos_delete(replay_save_request_witness_fn);
 	}
 	return ok;
 }
@@ -499,6 +557,7 @@ static bool replay_restart_command_write(void)
 	);
 	replay_copy(&command.start, &replay_restart_start, sizeof(command.start));
 	replay_dos_delete(replay_cfg_fn);
+	replay_dos_delete(replay_command_witness_fn);
 	fh = replay_dos_create(replay_cfg_fn);
 	if(fh < 0) {
 		return false;
@@ -509,6 +568,24 @@ static bool replay_restart_command_write(void)
 	replay_dos_close(fh);
 	if(!ok) {
 		replay_dos_delete(replay_cfg_fn);
+		replay_dos_delete(replay_command_witness_fn);
+		return false;
+	}
+	// OP validates T?RPY.CFG, never this unparsed durability witness.
+	replay_dos_flush();
+	fh = replay_dos_create(replay_command_witness_fn);
+	ok = (
+		(fh >= 0) &&
+		(replay_dos_write(fh, &command, sizeof(command)) == sizeof(command))
+	);
+	if(fh >= 0) {
+		replay_dos_close(fh);
+	}
+	if(!ok) {
+		// This is fail-closed at the producer, not a validation requirement at
+		// the OP consumer.
+		replay_dos_delete(replay_cfg_fn);
+		replay_dos_delete(replay_command_witness_fn);
 	}
 	return ok;
 }
@@ -2256,6 +2333,7 @@ static replay_command_mode_t replay_command_load(
 
 	fh = replay_dos_open(replay_cfg_fn, REPLAY_ACCESS_READ);
 	if(fh < 0) {
+		replay_dos_delete(replay_command_witness_fn);
 		return RCM_NONE;
 	}
 	replay_memclear(&command, sizeof(command));
@@ -2265,6 +2343,7 @@ static replay_command_mode_t replay_command_load(
 	}
 	replay_dos_close(fh);
 	replay_dos_delete(replay_cfg_fn);
+	replay_dos_delete(replay_command_witness_fn);
 	if((i != sizeof(command)) || (file_size != sizeof(command))) {
 		return RCM_NONE;
 	}
@@ -2325,7 +2404,8 @@ static replay_command_mode_t replay_command_load(
 		}
 	} else if(
 		((command.flags != REPLAY_COMMAND_FLAG_TEMP_CAPTURE) &&
-		 (command.flags != REPLAY_COMMAND_FLAG_PRIVATE_TEST)) ||
+		 ((command.flags & ~REPLAY_COMMAND_FLAG_DIAGNOSTIC) !=
+		  REPLAY_COMMAND_FLAG_PRIVATE_TEST)) ||
 		!replay_bytes_zero(
 			reinterpret_cast<const uint8_t far *>(&command.start),
 			sizeof(command.start)
@@ -2392,6 +2472,7 @@ void replay_entry(void)
 		// Both command files are one-shot. The validation oracle takes
 		// precedence without leaving a user replay command for the next run.
 		replay_dos_delete(replay_cfg_fn);
+		replay_dos_delete(replay_command_witness_fn);
 		return;
 	}
 	command_mode = replay_command_load(&slot, &command_flags, &command_start);
@@ -2998,15 +3079,15 @@ bool replay_process_end(void)
 	replay_finished = true;
 	if(replay_mode == RRM_DISABLED) {
 		if(replay_pause_action == RPA_RESTART) {
-			replay_restart_command_write();
+			return replay_restart_command_write();
 		}
 		return false;
 	}
 	if(replay_mode == RRM_PRACTICE) {
 		if(replay_pause_action == RPA_RESTART) {
-			replay_restart_command_write();
+			return replay_restart_command_write();
 		}
-		return (replay_pause_action == RPA_RESTART);
+		return false;
 	}
 	end_reason = replay_end_reason();
 	if(replay_mode == RRM_RECORD) {
@@ -3074,12 +3155,11 @@ bool replay_process_end(void)
 			replay_pending_files_delete();
 		}
 		if(replay_pause_action == RPA_RESTART) {
-			replay_restart_command_write();
+			return replay_restart_command_write();
 		}
 		return (
 			(replay_header.mode == RUM_PRACTICE) ||
-			(replay_pause_action == RPA_SAVE_EXIT) ||
-			(replay_pause_action == RPA_RESTART)
+			(replay_pause_action == RPA_SAVE_EXIT)
 		);
 	}
 	if(
@@ -3117,8 +3197,8 @@ bool replay_playback_active(void)
 #endif
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
-	// Marker-gated Practice handoff diagnostics alter the replay segment's byte
-	// phase. Keep all following stock segment offsets fixed for both games.
-	#pragma codestring "\x90\x90\x90\x90\x90"
+	// RC19 adds MAIN-to-OP handoff witnesses. Keep the patch tail's end phase
+	// fixed so the following stock CRT segment retains its original layout.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

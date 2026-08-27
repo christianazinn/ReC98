@@ -19,7 +19,9 @@ bool replay_private_record_command_start(
 	replay_start_config_t far *start
 );
 void replay_command_clear(void);
-void replay_record_next_prepare(void);
+// Returns false when the primary+witness command pair cannot be made durable.
+// Callers must then remain in OP and not cross into MAIN.
+bool replay_record_next_prepare(void);
 
 enum replay_op_bridge_func_t {
 	ROBF_PLAYCHAR_MENU,
