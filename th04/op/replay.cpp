@@ -1604,7 +1604,11 @@ static bool replay_op_command_write(
 	// MAIN consumes this one-shot file immediately after execl(). Ensure that
 	// the handoff does not depend on a later diagnostic write flushing DOS.
 	replay_op_dos_flush();
-	if(command.flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) {
+	// This second command copy is part of the OP-to-MAIN handoff. On some
+	// DOS implementations, AH=0Dh alone does not make the preceding directory
+	// update visible reliably across execl(). The diagnostic marker only
+	// decides whether MAIN emits a result; it must not decide handoff timing.
+	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
 		replay_op_practice_diagnostic_fn_set(diagnostic_fn, true);
 		fh = replay_op_dos_create(diagnostic_fn);
 		if(fh >= 0) {
