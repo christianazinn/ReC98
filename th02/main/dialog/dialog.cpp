@@ -20,6 +20,7 @@
 #include "th02/main/player/player.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/sprites/face.hpp"
+#include "th02/language.hpp"
 
 // Coordinates
 // -----------
@@ -65,14 +66,14 @@ void dialog_load_and_init(void)
 	char* fn = dialog_fn;
 	fn[5] = ('0' + stage_id);
 
-	file_ropen(fn);
+	t2_language_main_file_ropen(fn);
 
 	// ZUN landmine: No check to ensure that the size is ≤ sizeof(dialog_text).
 	// Dynamic allocation would have made more sense...
 	size_t size = file_size();
 	file_read(dialog_text, size);
 
-	file_close();
+	t2_language_main_file_close();
 	dialog_box_cur = 0;
 }
 

@@ -46,6 +46,7 @@
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/language.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
@@ -173,7 +174,7 @@ void near gameplay_init(void)
 {
 	snd_load(huuma_efc_fn, SND_LOAD_SE);
 	hiscore_get();
-	pi_load(0, eye_pi_fn);
+	t2_language_main_pi_load(0, eye_pi_fn);
 	super_entry_bfnt(miko_bft_fn);
 	super_entry_bfnt(miko32_bft_fn);
 	super_entry_bfnt(miko16_bft_fn);

@@ -31,6 +31,12 @@ int far pascal t2_language_file_ropen(const char *fn);
 void far pascal t2_language_file_close(void);
 void far pascal t2_language_option_text(char *label, char *value);
 
+// MAIN-only presentation wrappers. EYE.PI is one complete transaction;
+// dialogue text keeps the selected archive active until the matching close.
+int far pascal t2_language_main_pi_load(int slot, const char *fn);
+int far pascal t2_language_main_file_ropen(const char *fn);
+void far pascal t2_language_main_file_close(void);
+
 // OP's executable-resident presentation tables are selected independently
 // from packfile routing. The Japanese pointers remain the stock defaults.
 void far t2_language_op_tables_apply(void);
