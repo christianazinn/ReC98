@@ -29,6 +29,7 @@
 #include "th02/main/s1_actor.hpp"
 #include "th02/main/s2_actor.hpp"
 #include "th02/main/s3_actor.hpp"
+#include "th02/main/s3_pract.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
 #include "th02/main/s5_fx.hpp"
@@ -3076,6 +3077,8 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		break;
 	case T2RPT_STAGE3_MIDBOSS:
 	case T2RPT_STAGE3_BOSS_START:
+	case T2RPT_STAGE3_INNER_PAIR:
+	case T2RPT_STAGE3_OUTER_PAIR:
 		practice_target_valid = (start->stage == 2);
 		break;
 	case T2RPT_STAGE4_MIDBOSS_FIRST:
@@ -3793,6 +3796,36 @@ static bool16 near t2replay_stage2_meira_activate_clean(
 	return true;
 }
 
+static bool16 near t2replay_stage3_stones_activate_clean(
+	th02_s3_stones_clean_target_t target
+)
+{
+	if(stage_id != 2) {
+		return false;
+	}
+	switch(target) {
+	case T2S3_STONES_BOSS_START:
+	case T2S3_STONES_INNER_PAIR:
+	case T2S3_STONES_OUTER_PAIR:
+		break;
+	default:
+		return false;
+	}
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	th02_s3_field_clean_init();
+	Palettes[0].v[0] = 0;
+	Palettes[0].v[1] = 0;
+	Palettes[0].v[2] = 0;
+	palette_show();
+	if(!th02_s3_stones_clean_init(target)) {
+		return false;
+	}
+	t2replay_boss_promote_clean(aBoss2_m);
+	return true;
+}
+
 static bool16 near t2replay_stage4_midboss_activate_clean(
 	th02_s4_midboss_clean_target_t target, int target_scroll_step
 )
@@ -3898,6 +3931,7 @@ bool16 replay_practice_target_apply(void)
 	int target_scroll_step;
 	th02_s1_rika_clean_target_t rika_target;
 	th02_s2_meira_clean_target_t meira_target;
+	th02_s3_stones_clean_target_t stones_target;
 
 	if(target == T2RPT_STAGE_START) {
 		return true;
@@ -3994,19 +4028,21 @@ bool16 replay_practice_target_apply(void)
 		target_scroll_step = 103;
 		break;
 	case T2RPT_STAGE3_BOSS_START:
+	case T2RPT_STAGE3_INNER_PAIR:
+	case T2RPT_STAGE3_OUTER_PAIR:
 		if(stage_id != 2) {
 			return false;
 		}
-		if(!practice_terminal_field_build()) {
+		stones_target = static_cast<th02_s3_stones_clean_target_t>(
+			(target == T2RPT_STAGE3_BOSS_START)
+				? T2S3_STONES_BOSS_START
+				: ((target == T2RPT_STAGE3_INNER_PAIR)
+					? T2S3_STONES_INNER_PAIR
+					: T2S3_STONES_OUTER_PAIR)
+		);
+		if(!t2replay_stage3_stones_activate_clean(stones_target)) {
 			return false;
 		}
-		th02_s3_field_clean_init();
-		Palettes[0].v[0] = 0;
-		Palettes[0].v[1] = 0;
-		Palettes[0].v[2] = 0;
-		palette_show();
-		th02_s3_stones_clean_init();
-		t2replay_boss_promote_clean(aBoss2_m);
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
 	case T2RPT_STAGE4_MIDBOSS_FIRST:

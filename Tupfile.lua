@@ -651,6 +651,8 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	-- not move any preceding patch code or original data/BSS offset.
 	-- TCC shortens s5_palette.cpp to s5_pal~1.obj under the DOS output root.
 	{ "th02/main/s5_palette.cpp", o = "s5_pal~1.obj" },
+	-- Stable Stage 3 direct-Practice constructors live in their own final tail.
+	"th02/main/s3_pract.cpp",
 })
 th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },

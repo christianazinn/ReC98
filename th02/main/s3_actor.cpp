@@ -650,7 +650,7 @@ void far th02_s3_midboss_clean_init(void)
 	boss_pos_y = 0;
 }
 
-void far th02_s3_stones_clean_init(void)
+void far th02_s3_stones_clean_base_init(void)
 {
 	int i;
 
