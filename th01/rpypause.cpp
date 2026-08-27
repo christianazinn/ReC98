@@ -14,6 +14,7 @@
 #include "th01/hardware/grp_text.hpp"
 #include "th01/hardware/input.hpp"
 #include "th01/hardware/palette.h"
+#include "th01/language.hpp"
 #include "th01/main/playfld.hpp"
 #include "th01/main/stage/palette.hpp"
 #include "th01/replay.hpp"
@@ -33,6 +34,33 @@ static int t1replay_pause_text(
 	shiftjis_t *out, t1replay_pause_action_t action
 )
 {
+	if(t1_language_get() == T1LANG_ENGLISH) {
+		switch(action) {
+		case T1RPA_RESUME:
+			out[0] = 'R'; out[1] = 'e'; out[2] = 's'; out[3] = 'u';
+			out[4] = 'm'; out[5] = 'e'; out[6] = '\0';
+			return 6;
+		case T1RPA_RESTART:
+			out[0] = 'R'; out[1] = 'e'; out[2] = 's'; out[3] = 't';
+			out[4] = 'a'; out[5] = 'r'; out[6] = 't'; out[7] = '\0';
+			return 7;
+		case T1RPA_SAVE_EXIT:
+			out[0] = 'S'; out[1] = 'a'; out[2] = 'v'; out[3] = 'e';
+			out[4] = ' '; out[5] = 'R'; out[6] = 'e'; out[7] = 'p';
+			out[8] = 'l'; out[9] = 'a'; out[10] = 'y'; out[11] = ' ';
+			out[12] = 'a'; out[13] = 'n'; out[14] = 'd'; out[15] = ' ';
+			out[16] = 'E'; out[17] = 'x'; out[18] = 'i'; out[19] = 't';
+			out[20] = '\0';
+			return 20;
+		case T1RPA_DISCARD_EXIT:
+			out[0] = 'E'; out[1] = 'x'; out[2] = 'i'; out[3] = 't';
+			out[4] = ' '; out[5] = 'W'; out[6] = 'i'; out[7] = 't';
+			out[8] = 'h'; out[9] = 'o'; out[10] = 'u'; out[11] = 't';
+			out[12] = ' '; out[13] = 'S'; out[14] = 'a'; out[15] = 'v';
+			out[16] = 'i'; out[17] = 'n'; out[18] = 'g'; out[19] = '\0';
+			return 19;
+		}
+	}
 	switch(action) {
 	case T1RPA_RESUME:
 		out[0] = 0x8D; out[1] = 0xC4; out[2] = 0x8A; out[3] = 0x4A;
@@ -62,6 +90,11 @@ static int t1replay_pause_text(
 
 static void t1replay_pause_title_text(shiftjis_t *out)
 {
+	if(t1_language_get() == T1LANG_ENGLISH) {
+		out[0] = 'P'; out[1] = 'A'; out[2] = 'U'; out[3] = 'S';
+		out[4] = 'E'; out[5] = 'D'; out[6] = '\0';
+		return;
+	}
 	out[0] = 0x82; out[1] = 0x6F; out[2] = 0x82; out[3] = 0x60;
 	out[4] = 0x82; out[5] = 0x74; out[6] = 0x82; out[7] = 0x72;
 	out[8] = 0x82; out[9] = 0x64; out[10] = '\0';
@@ -105,7 +138,7 @@ static void t1replay_pause_row_put(
 	t1replay_pause_action_t action, bool selected
 )
 {
-	shiftjis_t text[13];
+	shiftjis_t text[21];
 	shiftjis_t cursor[3];
 	t1replay_pause_text(text, action);
 	screen_x_t left = static_cast<screen_x_t>(
