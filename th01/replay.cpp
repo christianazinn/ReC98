@@ -1590,6 +1590,9 @@ static bool t1replay_checkpoint_restore_prepare(
 		!t1replay_checkpoint_read(slot, process_seq) ||
 		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
 		!t1replay_checkpoint_cross_groups_valid(&t1replay_checkpoint) ||
+#if T1REPLAY_CHECKPOINT_RESTORE
+		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+#endif
 		(pacing->process_seq != process_seq) ||
 		(pacing->replay_packet_anchor > t1replay_header.packet_count) ||
 		(pacing->replay_sample_anchor > t1replay_header.sample_count) ||
@@ -2433,6 +2436,13 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 		checkpoint->pacing.stage_wait_for_shot_to_begin;
 	t1replay_timer_checkpoint_import(&checkpoint->pacing);
 	*pellet_speed_raise_cycle = checkpoint->pacing.pellet_speed_raise_cycle;
+#if T1REPLAY_CHECKPOINT_RESTORE
+	if(!t1replay_ckpt_present_apply(checkpoint)) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+#endif
 	t1replay_input_checkpoint_import(&checkpoint->input);
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_pellet_speed_raise_cycle = *pellet_speed_raise_cycle;

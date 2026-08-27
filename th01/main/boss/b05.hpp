@@ -52,4 +52,15 @@ bool16 t1boss_singyoku_ckpt_apply_loaded(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 );
 
+#if defined(T1RP) && (T1RP == 3)
+// Private exact-restore presentation. These functions consume only the
+// already-loaded owner and paint no dynamic object onto page 1.
+bool16 t1boss_singyoku_presentation_validate(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+);
+bool16 t1boss_singyoku_presentation_reconstruct(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+);
+#endif
+
 #endif /* TH01_MAIN_BOSS_B05_HPP */

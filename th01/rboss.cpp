@@ -319,4 +319,101 @@ bool16 t1replay_checkpoint_boss_apply(
 	return false;
 }
 
+#if T1REPLAY_CHECKPOINT_RESTORE
+static bool t1replay_ckpt_present_pools_inactive(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	uint16_t i;
+
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT; i++) {
+		if(checkpoint->items.bombs[i].flag != 0) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT; i++) {
+		if(checkpoint->items.points[i].flag != 0) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PELLET_COUNT; i++) {
+		if(
+			checkpoint->pellets.pellets[i].moving ||
+			(checkpoint->pellets.pellets[i].cloud_frame != 0) ||
+			(checkpoint->pellets.pellets[i].decay_frame != 0)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_SHOT_COUNT; i++) {
+		if(
+			checkpoint->shots.shots[i].moving ||
+			(checkpoint->shots.shots[i].decay_frame != 0)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_MISSILE_COUNT; i++) {
+		if(checkpoint->missiles.missiles[i].flag != 0) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_LASER_COUNT; i++) {
+		if(
+			checkpoint->lasers.lasers[i].alive ||
+			checkpoint->lasers.lasers[i].damaging ||
+			checkpoint->lasers.lasers[i].put_flag
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < T1REPLAY_CHECKPOINT_PARTICLE_COUNT; i++) {
+		if(checkpoint->particles.particles[i].alive) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool16 t1replay_ckpt_present_valid(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	const t1replay_checkpoint_player_t far *player = &checkpoint->player;
+
+	if(
+		(checkpoint->boss.boss_id != BID_SINGYOKU) ||
+		(checkpoint->orb.in_portal != 0) ||
+		(player->cardcombo_cur != 0) || (player->cardcombo_max != 0) ||
+		(player->mode != 0) || (player->bomb_flag != 0) || player->bombing ||
+		player->player_is_hit || player->player_invincibility_time ||
+		player->player_deflecting || player->player_sliding ||
+		player->player_invincible || player->player_invincible_against_orb ||
+		player->bomb_damaging ||
+		!t1replay_ckpt_present_pools_inactive(checkpoint)
+	) {
+		return false;
+	}
+	return t1boss_singyoku_presentation_validate(
+		reinterpret_cast<const t1boss_singyoku_checkpoint_t far *>(
+			checkpoint->boss.payload
+		)
+	);
+}
+
+bool16 t1replay_ckpt_present_apply(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	if(!t1replay_ckpt_present_valid(checkpoint)) {
+		return false;
+	}
+	return t1boss_singyoku_presentation_reconstruct(
+		reinterpret_cast<const t1boss_singyoku_checkpoint_t far *>(
+			checkpoint->boss.payload
+		)
+	);
+}
+#endif
+
 #pragma codeseg
