@@ -164,7 +164,7 @@ frame:
 	t2practice_diag_main_progress(T2PDMP_STAGE_LOOP_CALL, stage_id);
 #endif
 	if(stage_loop_func()) {
-		// `snd_kaja_func(KAJA_SONG_FADE, 40);` is the expression, but Turbo
+		// The KAJA_SONG_FADE call is the expression, but Turbo
 		// C++ cleans this __cdecl call's single stack word with `add sp, 2`
 		// *here*, while the original uses `pop cx` — as does every other
 		// snd_kaja_*() site in this binary, including the byte-identical one
