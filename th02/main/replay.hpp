@@ -104,6 +104,13 @@ bool16 replay_exact_stage5_mima_palette_capture(
 	const struct t2rec_boundary_t *boundary
 );
 
+// Builds only the registered schema-6 Stage 5 Mima capture. CALLBACKS and
+// REDRAW are semantic recipe bytes, but apply and public seek remain deferred.
+bool16 replay_exact_stage5_mima_callback_redraw_capture(
+	uint8_t far *envelope, uint32_t envelope_size,
+	const struct t2rec_boundary_t *boundary
+);
+
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
