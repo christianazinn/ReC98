@@ -18,6 +18,7 @@
 #include "th01/main/stage/palette.hpp"
 #include "th01/replay.hpp"
 #include "th01/v_colors.hpp"
+#include "platform/x86real/pc98/keyboard.hpp"
 
 extern void z_palette_settone_but_keep_white(int tone);
 
@@ -75,6 +76,29 @@ static bool t1replay_pause_action_enabled(t1replay_pause_action_t action)
 		return (t1replay_pause_save_available() != false);
 	}
 	return true;
+}
+
+// Group 2 is not part of REIIDEN's canonical replay input contract.
+// Sampling it only inside Pause gives live runs an Esc+R shortcut without
+// making R a replay input. Playback cannot restart because its transaction is
+// unavailable.
+static bool t1replay_pause_restart_pressed(void)
+{
+	return (
+		(t1replay_pause_restart_available() != false) &&
+		((peekb(0, KEYGROUP_2) & K2_R) != 0)
+	);
+}
+
+// Keep the physical shortcut from surviving the EXE handoff. Any
+// canonical held state is sampled through the existing Pause seam, while R
+// remains outside the replay format and this recording is discarded on restart.
+static void t1replay_pause_restart_release(void)
+{
+	while(peekb(0, KEYGROUP_2) & K2_R) {
+		input_sense(false);
+		frame_delay(1);
+	}
 }
 
 static void t1replay_pause_row_put(
@@ -171,6 +195,11 @@ bool16 far t1replay_pause_menu(void)
 		input_sense(false);
 		if(player_is_hit == true) {
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
+			return true;
+		}
+		if(t1replay_pause_restart_pressed()) {
+			t1replay_pause_action_set(T1RPA_RESTART);
+			t1replay_pause_restart_release();
 			return true;
 		}
 		previous = selected;
