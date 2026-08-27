@@ -2710,7 +2710,7 @@ static void replay_pause_label_put(
 
 	if(english_label) {
 		text_putsa(
-			static_cast<tram_x_t>(31 - (strlen(english_label) / 2)),
+			static_cast<tram_x_t>(28 - (strlen(english_label) / 2)),
 			y, english_label, color
 		);
 		return;
@@ -2752,7 +2752,7 @@ static void replay_pause_render(uint8_t selected, bool save_available)
 		} else {
 			color = TX_YELLOW;
 		}
-		replay_pause_label_put(option, (14 + option), color);
+		replay_pause_label_put(option, (12 + option), color);
 	}
 }
 
@@ -2761,8 +2761,8 @@ static void replay_pause_clear(void)
 	tram_y_t y;
 	tram_x_t x;
 
-	for(y = 12; y <= 17; y++) {
-		for(x = 23; x < 42; x++) {
+	for(y = 10; y <= 15; y++) {
+		for(x = 20; x < 42; x++) {
 			text_putca(x, y, ' ', TX_WHITE);
 		}
 	}
@@ -2780,9 +2780,9 @@ extern "C" int far replay_pause_menu(void)
 		frame_delay(1);
 	}
 	if(language_main_english_selected()) {
-		text_putsa(28, 12, language_main_pause_title(), TX_YELLOW);
+		text_putsa(25, 10, language_main_pause_title(), TX_YELLOW);
 	} else {
-		gaiji_putsa(26, 12, gsCHUUDAN, TX_YELLOW);
+		gaiji_putsa(26, 10, gsCHUUDAN, TX_YELLOW);
 	}
 	replay_pause_render(selected, save_available);
 	while(1) {
