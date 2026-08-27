@@ -6,11 +6,12 @@
 
 #pragma option -zCT1LANG_TEXT -G-
 
-#include <stdio.h>
 #include "th01/language.hpp"
 
 #define T1LANG_CONFIG_SIZE 8
 #define T1LANG_CONFIG_VERSION 1
+#define T1LANG_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
+#define T1LANG_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
 
 struct t1_language_config_t {
 	char magic[4];
@@ -22,6 +23,15 @@ struct t1_language_config_t {
 
 typedef char t1_language_config_size_check[
 	(sizeof(t1_language_config_t) == T1LANG_CONFIG_SIZE) ? 1 : -1
+];
+
+struct t1_language_config_extent_t {
+	t1_language_config_t config;
+	uint8_t extra;
+};
+
+typedef char t1_language_config_extent_size_check[
+	(sizeof(t1_language_config_extent_t) == (T1LANG_CONFIG_SIZE + 1)) ? 1 : -1
 ];
 
 // Zero-initialization intentionally means Japanese before the first load.
@@ -54,53 +64,106 @@ static uint8_t t1_language_config_checksum(const t1_language_config_t *config)
 	return sum;
 }
 
+static int t1_language_dos_open(const char far *fn)
+{
+	unsigned fn_seg = T1LANG_FP_SEG(fn);
+	unsigned fn_off = T1LANG_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push ds
+		mov dx, fn_off
+		mov ds, fn_seg
+		mov ax, 3D00h
+		int 21h
+		pop ds
+		sbb dx, dx
+		or ax, dx
+		mov result, ax
+	}
+	return result;
+}
+
+static unsigned t1_language_dos_read(
+	int fh, void far *buffer, unsigned size
+)
+{
+	unsigned buffer_seg = T1LANG_FP_SEG(buffer);
+	unsigned buffer_off = T1LANG_FP_OFF(buffer);
+	unsigned result;
+
+	_asm {
+		push ds
+		mov bx, fh
+		mov cx, size
+		mov dx, buffer_off
+		mov ds, buffer_seg
+		mov ah, 3Fh
+		int 21h
+		pop ds
+		sbb cx, cx
+		not cx
+		and ax, cx
+		mov result, ax
+	}
+	return result;
+}
+
+static bool t1_language_dos_close(int fh)
+{
+	unsigned result;
+
+	_asm {
+		mov bx, fh
+		mov ah, 3Eh
+		int 21h
+		sbb ax, ax
+		not ax
+		mov result, ax
+	}
+	return (result != 0);
+}
+
 void far t1_language_load(void)
 {
-	t1_language_config_t config;
-	uint8_t extra;
+	t1_language_config_extent_t extent;
+	t1_language_config_t *config = &extent.config;
 	uint8_t checksum;
 	char fn[11];
-	char mode[3];
-	FILE *file;
-	bool exact_size;
+	int fh;
+	unsigned read;
+	bool closed;
 
 	// A receiver must never retain a stale selection after a missing or invalid
 	// file. The all-zero BSS state also deliberately means Japanese.
 	t1_language_runtime = T1LANG_JAPANESE;
 	t1_language_config_fn_set(fn);
-	mode[0] = 'r';
-	mode[1] = 'b';
-	mode[2] = '\0';
-	file = fopen(fn, mode);
-	if(!file) {
+	fh = t1_language_dos_open(fn);
+	if(fh < 0) {
 		return;
 	}
-	exact_size = (
-		(fread(&config, 1, sizeof(config), file) == sizeof(config)) &&
-		(fread(&extra, 1, 1, file) == 0) &&
-		(feof(file) != 0)
-	);
-	if(fclose(file) != 0) {
-		exact_size = false;
-	}
-	if(!exact_size) {
+	// Reading one byte past the format rejects an overlong file without a seek.
+	// DOS read errors return zero from the wrapper and fail the same extent test.
+	read = t1_language_dos_read(fh, &extent, sizeof(extent));
+	closed = t1_language_dos_close(fh);
+	if((read != sizeof(extent.config)) || !closed) {
 		return;
 	}
-	checksum = t1_language_config_checksum(&config);
+	checksum = t1_language_config_checksum(config);
 	if(
-		(config.magic[0] != 'T') ||
-		(config.magic[1] != '1') ||
-		(config.magic[2] != 'L') ||
-		(config.magic[3] != 'G') ||
-		(config.version != T1LANG_CONFIG_VERSION) ||
-		(config.preference > T1LANG_ENGLISH) ||
-		(config.checksum != checksum) ||
-		(config.checksum_inverse != static_cast<uint8_t>(~checksum))
+		(config->magic[0] != 'T') ||
+		(config->magic[1] != '1') ||
+		(config->magic[2] != 'L') ||
+		(config->magic[3] != 'G') ||
+		(config->version != T1LANG_CONFIG_VERSION) ||
+		(config->preference > T1LANG_ENGLISH) ||
+		(config->checksum != checksum) ||
+		(config->checksum_inverse != static_cast<uint8_t>(~checksum))
 	) {
 		return;
 	}
 	t1_language_runtime = static_cast<t1_language_preference_t>(
-		config.preference
+		config->preference
 	);
 }
 
