@@ -1917,6 +1917,42 @@ static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
 	return true;
 }
 
+// The name is written only by OP after terminal capture. An all-zero field is
+// the pre-name pending state and also keeps earlier T2RPY1 files playable.
+// Stored glyphs mirror the native TH02 high-score alphabet, excluding its
+// navigation-only left/right/end cells.
+static bool t2replay_name_glyph_valid(uint8_t glyph)
+{
+	return (
+		((glyph >= 0xA0) && (glyph <= 0xC3)) ||
+		(glyph == 0x02) ||
+		(glyph == 0x03) ||
+		((glyph >= 0xDA) && (glyph <= 0xDE)) ||
+		((glyph >= 0xE0) && (glyph <= 0xE4))
+	);
+}
+
+static bool t2replay_name_valid(const uint8_t far *name)
+{
+	unsigned i;
+	bool all_zero = true;
+
+	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
+		if(name[i] != 0) {
+			all_zero = false;
+		}
+	}
+	if(all_zero) {
+		return true;
+	}
+	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
+		if(!t2replay_name_glyph_valid(name[i])) {
+			return false;
+		}
+	}
+	return true;
+}
+
 // Exact-restore schema 1 is a deliberately non-applying admission gate. Its
 // directory contains every future group, but no actor payload is emitted or
 // consumed before the owning codecs and redraw hooks exist.
@@ -2954,7 +2990,17 @@ static bool t2replay_header_read(void)
 		(stored_checksum != computed_checksum) ||
 		!t2replay_start_valid(&t2replay_header.start) ||
 		!t2replay_stage_scores_valid() ||
-		!t2replay_bytes_zero(t2replay_header.reserved, sizeof(t2replay_header.reserved))
+		!t2replay_name_valid(
+			reinterpret_cast<const uint8_t far *>(
+				t2replay_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
+			)
+		) ||
+		!t2replay_bytes_zero(
+			reinterpret_cast<const uint8_t far *>(
+				t2replay_header.reserved + T2REPLAY_RESERVED_TAIL_OFFSET
+			),
+			T2REPLAY_RESERVED_TAIL_SIZE
+		)
 	) {
 		t2replay_dos_close(fd);
 		return false;

@@ -10,6 +10,11 @@
 #define T2REPLAY_START_SIZE 36
 #define T2REPLAY_COMMAND_SIZE 52
 #define T2REPLAY_SAVE_REQUEST_SIZE 20
+#define T2REPLAY_NAME_LEN 8
+#define T2REPLAY_RESERVED_NAME_OFFSET 0
+#define T2REPLAY_RESERVED_TAIL_OFFSET \
+	(T2REPLAY_RESERVED_NAME_OFFSET + T2REPLAY_NAME_LEN)
+#define T2REPLAY_RESERVED_TAIL_SIZE 4
 #define T2REPLAY_STAGE_COUNT 6
 #define T2REPLAY_SLOT_COUNT 100
 // A command-only capture target. MAIN writes this to T2RPY.TMP; OP chooses the
@@ -371,5 +376,13 @@ typedef char t2replay_header_checksum_offset_check[
 ];
 typedef char t2replay_header_start_offset_check[
 	(offsetof(t2replay_header_t, start) == 0x30) ? 1 : -1
+];
+typedef char t2replay_header_name_size_check[
+	(sizeof(((t2replay_header_t *)0)->reserved) ==
+	 (T2REPLAY_NAME_LEN + T2REPLAY_RESERVED_TAIL_SIZE)) ? 1 : -1
+];
+typedef char t2replay_header_name_offset_check[
+	((offsetof(t2replay_header_t, reserved) +
+	  T2REPLAY_RESERVED_NAME_OFFSET) == 0x74) ? 1 : -1
 ];
 #endif /* TH02_REPLAY_FORMAT_HPP */
