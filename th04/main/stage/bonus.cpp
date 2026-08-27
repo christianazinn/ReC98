@@ -29,6 +29,7 @@
 #include "th04/gaiji/gaiji.h"
 #include "th04/main/hud/hud.hpp"
 #include "th04/main/item/item.hpp"
+#include "th04/main/language.hpp"
 #include "th04/main/player/player.hpp"
 #include "th04/main/playperf.hpp"
 #include "th04/main/rank.hpp"
@@ -143,12 +144,12 @@ void near stage_clear_bonus(void)
 	gaiji_putsa(
 		20, 4, reinterpret_cast<const char near *>(gpCLEAR_BONUS), TX_WHITE
 	);
-	text_putsa( 6,  7, BONUS_STAGE, TX_WHITE);
-	text_putsa( 6,  9, POWERX50,    TX_WHITE);
-	text_putsa( 6, 11, BONUS_DREAM, TX_WHITE);
-	text_putsa( 6, 13, GRAZEX50,    TX_WHITE);
-	text_putsa( 6, 16, BONUS_POINT, TX_WHITE);
-	text_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  7, BONUS_STAGE, TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  9, POWERX50,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 11, BONUS_DREAM, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 13, GRAZEX50,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 16, BONUS_POINT, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
 
 	// Unconditional, and printed before the bomb is actually awarded at the
 	// bottom of this function. Every stage clear grants one.
@@ -222,20 +223,20 @@ void near stage_allclear_bonus(void)
 	gaiji_putsa(
 		19, 4, reinterpret_cast<const char near *>(gpCONGRATULATION), TX_WHITE
 	);
-	text_putsa( 6,  6, ALL_CLEAR,     TX_WHITE);
-	text_putsa( 6,  8, POWERX50_2,    TX_WHITE);
-	text_putsa( 6, 10, BONUS_DREAM_2, TX_WHITE);
-	text_putsa( 6, 12, GRAZEX50_2,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  6, ALL_CLEAR,     TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  8, POWERX50_2,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 10, BONUS_DREAM_2, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 12, GRAZEX50_2,    TX_WHITE);
 
 	// Extra's lives are worth three times as much, and the label has to say so.
 	if(rank != RANK_EXTRA) {
-		text_putsa(6, 14, PLAYER_REM_10000, TX_WHITE);
+		language_main_clear_bonus_putsa(6, 14, PLAYER_REM_10000, TX_WHITE);
 	} else {
-		text_putsa(6, 14, PLAYER_REM_30000, TX_WHITE);
+		language_main_clear_bonus_putsa(6, 14, PLAYER_REM_30000, TX_WHITE);
 	}
 
-	text_putsa( 6, 17, BONUS_POINT_2, TX_WHITE);
-	text_putsa( 6, 21, BONUS_TOTAL_2, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 17, BONUS_POINT_2, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 21, BONUS_TOTAL_2, TX_WHITE);
 
 	bonus = 1000;
 	points = bonus;

@@ -52,7 +52,7 @@ void pascal near stage_clear_bonus_multiplier_apply_and_put(
 	*points /= 10;
 
 	col = ((multiplier_tenths < 10) ? TX_RED : TX_GREEN);
-	text_putsa(6, y, STAGE_CLEAR_BONUS_DESC[desc], col);
+	language_main_clear_bonus_putsa(6, y, STAGE_CLEAR_BONUS_DESC[desc], col);
 }
 
 /// Applies every setting-dependent multiplier to a finished stage tally, in

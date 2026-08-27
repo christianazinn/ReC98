@@ -30,6 +30,7 @@
 #include "th04/main/stage/bonus.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/item/item.hpp"
+#include "th04/main/language.hpp"
 #include "th05/main/boss/boss.hpp"
 #include "th05/resident.hpp"
 
@@ -100,7 +101,7 @@ void pascal near stage_clear_bonus_multiplier_apply_and_put(
 	*points /= 10;
 
 	col = ((multiplier_tenths < 10) ? TX_RED : TX_GREEN);
-	text_putsa(6, y, STAGE_CLEAR_BONUS_DESC[desc], col);
+	language_main_clear_bonus_putsa(6, y, STAGE_CLEAR_BONUS_DESC[desc], col);
 }
 
 /// Applies every setting-dependent multiplier to a finished stage tally, in
@@ -214,17 +215,17 @@ void near stage_clear_bonus(void)
 	gaiji_putsa(
 		20, 4, reinterpret_cast<const char near *>(gpCLEAR_BONUS), TX_WHITE
 	);
-	text_putsa( 6,  8, BONUS_STAGE, TX_WHITE);
-	text_putsa( 6, 10, BONUS_DREAM, TX_WHITE);
-	text_putsa( 6, 12, GRAZEX50,    TX_WHITE);
-	text_putsa( 6, 14, POINT_ITEMS, TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  8, BONUS_STAGE, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 10, BONUS_DREAM, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 12, GRAZEX50,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 14, POINT_ITEMS, TX_WHITE);
 	if(no_miss) {
-		text_putsa(6, 16, BONUS_NOMISS, TX_CYAN);
+		language_main_clear_bonus_putsa(6, 16, BONUS_NOMISS, TX_CYAN);
 	}
 	if(no_bomb) {
-		text_putsa(6, 17, BONUS_NOBOMB, TX_CYAN);
+		language_main_clear_bonus_putsa(6, 17, BONUS_NOBOMB, TX_CYAN);
 	}
-	text_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
 
 	bonus = ((stage_id * 100) + 100);
 	points = bonus;
@@ -291,19 +292,19 @@ void near stage_allclear_bonus(void)
 	gaiji_putsa(
 		19, 4, reinterpret_cast<const char near *>(gpCONGRATULATION), TX_WHITE
 	);
-	text_putsa( 6,  6, ALL_CLEAR,   TX_WHITE);
-	text_putsa( 6,  8, BONUS_DREAM, TX_WHITE);
-	text_putsa( 6, 10, GRAZEX50,    TX_WHITE);
-	text_putsa( 6, 12, PLAYER_REM,  TX_WHITE);
-	text_putsa( 6, 14, POINT_ITEMS, TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  6, ALL_CLEAR,   TX_WHITE);
+	language_main_clear_bonus_putsa( 6,  8, BONUS_DREAM, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 10, GRAZEX50,    TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 12, PLAYER_REM,  TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 14, POINT_ITEMS, TX_WHITE);
 	if(no_miss) {
-		text_putsa(6, 16, BONUS_NOMISS, TX_CYAN);
+		language_main_clear_bonus_putsa(6, 16, BONUS_NOMISS, TX_CYAN);
 	}
 	if(no_bomb) {
-		text_putsa(6, 17, BONUS_NOBOMB, TX_CYAN);
+		language_main_clear_bonus_putsa(6, 17, BONUS_NOBOMB, TX_CYAN);
 	}
-	text_putsa( 6, 18, POINT_TOTAL, TX_CYAN);
-	text_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
+	language_main_clear_bonus_putsa( 6, 18, POINT_TOTAL, TX_CYAN);
+	language_main_clear_bonus_putsa( 6, 21, BONUS_TOTAL, TX_WHITE);
 
 	bonus = 1000;
 	points = bonus;

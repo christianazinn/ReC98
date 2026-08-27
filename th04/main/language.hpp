@@ -8,6 +8,12 @@ void language_main_titles_apply(void);
 const char *language_main_pause_label(uint8_t option);
 const char *language_main_pause_title(void);
 
+// Same signature and ABI as text_putsa(). Redirecting the original calls to
+// this seam therefore preserves their instruction widths and segment layout.
+void far pascal language_main_clear_bonus_putsa(
+	unsigned x, unsigned y, const char far *stock, unsigned atrb
+);
+
 // These have the same far-pascal ABI as master.lib's file_ropen() and
 // file_close().  The fixed-span dialog loaders can therefore redirect their
 // two existing calls without changing their stock instruction widths.

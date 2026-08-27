@@ -42,6 +42,8 @@
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th04/main/boss/boss.hpp"
 #include "th04/main/hud/hud.hpp"
+
+#include "th04/main/language.hpp"
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/stage/bonus.hpp"
