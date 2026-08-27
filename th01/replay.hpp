@@ -31,6 +31,13 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
 bool16 far t1replay_checkpoint_restore_pending(void);
 bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle);
 
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+struct t1replay_pixel_world_t;
+bool16 far t1replay_pixel_probe_world_capture(
+	t1replay_pixel_world_t far *world, int pellet_speed_raise_cycle
+);
+#endif
+
 // The two accessors keep hidden owner state semantic and pointer-free. Import
 // remains intentionally unused by the capture-only substrate.
 void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out);
