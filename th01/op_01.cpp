@@ -425,7 +425,7 @@ static void replay_playback_start(void)
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
 
-static bool practice_start(void)
+bool practice_start(void)
 {
 	t1replay_practice_start_t start;
 	int i;
@@ -901,6 +901,13 @@ void main(int argc, const char *argv[])
 
 	title_init();
 
+#if T1REPLAY_EXACT_TRACE
+	if(t1replay_op_exact_bootstrap()) {
+		replay_playback_start();
+		return;
+	}
+#endif
+
 	// Set the BIOS_FLAG to not beep when the keyboard buffer overflows, as
 	// we're clearing and setting its length to 0 below… I guess?
 	pokeb(0, 0x0500 /* BIOS_FLAG */, (peekb(0, 0x0500 /* BIOS_FLAG */) | 0x20));
@@ -912,6 +919,9 @@ void main(int argc, const char *argv[])
 	}
 
 	title_window_put();
+	if(t1replay_op_pending_enter()) {
+		menu_id = MID_REPLAY;
+	}
 
 	// Since [frame_rand] is always 0 here, the white line animation always
 	// looks identical.

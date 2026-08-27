@@ -530,6 +530,7 @@ int main(void)
 	char bgm_fn[16];
 	char replay_fuuin_arg[2];
 	bool16 replay_fuuin;
+	bool16 replay_checkpoint_restored;
 
 	if(!mdrv2_resident()) {
 		error_resident_invalid();
@@ -799,6 +800,7 @@ int main(void)
 
 		// Life loop
 		while(1) {
+			replay_checkpoint_restored = false;
 			player_reset();
 			player_put_default();
 			orb_put_default();
@@ -826,61 +828,74 @@ int main(void)
 
 			input_reset_sense();
 
-			if(player_invincibility_time > 1) {
-				player_invincible = true;
-			}
-			if(boss_id != BID_NONE) {
+			if(t1replay_checkpoint_restore_pending()) {
+				if(!t1replay_checkpoint_restore_apply(
+					&pellet_speed_raise_cycle
+				)) {
+					t1replay_abort_to_op();
+				}
+				replay_checkpoint_restored = true;
+			} else {
+				if(player_invincibility_time > 1) {
+					player_invincible = true;
+				}
+				if(boss_id != BID_NONE) {
 				// ZUN bloat: Moving these select entrance animations outside
 				// the main gameplay loop has no discernible effect.
-				switch(boss_id) {
-				case BID_SINGYOKU:
-					singyoku_main();
-					break;
+					switch(boss_id) {
+					case BID_SINGYOKU:
+						singyoku_main();
+						break;
 
-				case BID_MIMA:
-					mima_main();
-					break;
+					case BID_MIMA:
+						mima_main();
+						break;
 
-				case BID_KIKURI:
+					case BID_KIKURI:
 					// ZUN bloat: Kikuri has a blocking entrance animation as
 					// well, during which Reimu isn't even visible? And once
 					// it's done, this value is immediately re-sensed with the
 					// actual key state before Kikuri's code gets to execute,
 					// as this assignment completely bypasses the [input_prev]
 					// mechanism.
-					input_strike = false;
-					break;
-				}
-			} else if(stage_wait_for_shot_to_begin == true) {
-				while(!input_shot) {
-					input_sense(false);
+						input_strike = false;
+						break;
+					}
+				} else if(stage_wait_for_shot_to_begin == true) {
+					while(!input_shot) {
+						input_sense(false);
 
-					// Allow the player to move before starting the stage
-					player_unput_update_render();
+						// Allow the player to move before starting the stage
+						player_unput_update_render();
 
-					frame_delay(1);
-					bomb_frame++;
+						frame_delay(1);
+						bomb_frame++;
+					}
 				}
+
+				stage_wait_for_shot_to_begin = false;
+				input_shot = false;
+				timer_initialized = true;
+				irand_init(frame_rand);
+				bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+				first_stage_in_scene = false;
+				pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
 			}
-
-			stage_wait_for_shot_to_begin = false;
-			input_shot = false;
-			timer_initialized = true;
-			irand_init(frame_rand);
-			bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
-			first_stage_in_scene = false;
-			pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
 
 			// Main gameplay loop
 			while(!player_is_hit) {
-				frame_rand++;
-				pellet_speed_raise_cycle = (
-					1800 - (rem_lives * 200) - (rem_bombs * 50)
-				);
-				if((frame_rand % pellet_speed_raise_cycle) == 0) {
-					pellet_speed_raise(0.025f);
+				if(replay_checkpoint_restored) {
+					replay_checkpoint_restored = false;
+				} else {
+					frame_rand++;
+					pellet_speed_raise_cycle = (
+						1800 - (rem_lives * 200) - (rem_bombs * 50)
+					);
+					if((frame_rand % pellet_speed_raise_cycle) == 0) {
+						pellet_speed_raise(0.025f);
+					}
+					t1replay_checkpoint_capture(pellet_speed_raise_cycle);
 				}
-				t1replay_checkpoint_capture(pellet_speed_raise_cycle);
 				input_sense(false);
 
 				if(player_invincibility_time > 1) {
@@ -1069,7 +1084,7 @@ int main(void)
 	}
 	resident->score = score;
 
-	regist_menu(score, (stage_id + 1), (
+	t1replay_gameover_regist_menu(score, (stage_id + 1), (
 		!stage_on_route(stage_id) ? SCOREDAT_ROUTE_SHRINE :
 		(route == ROUTE_MAKAI) ? SCOREDAT_ROUTE_MAKAI : SCOREDAT_ROUTE_JIGOKU
 	));
@@ -1078,6 +1093,9 @@ int main(void)
 	continue_menu();
 
 op:
+#if T1REPLAY_EXACT_TRACE
+	t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+#endif
 	graphics_free_redundant_and_incomplete();
 	boss_free();
 	t1replay_terminal(T1REPLAY_END_MENU);

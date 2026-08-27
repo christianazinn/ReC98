@@ -2,29 +2,31 @@
 #define TH01_REPLAY_FORMAT_HPP
 
 /*
- * TH01's user replay format. V2 carries a run from REIIDEN into FUUIN while
- * retaining the original compact header and packet geometry.
+ * TH01's user replay format. V3 carries a run from REIIDEN into FUUIN while
+ * retaining the compact packet geometry and adding the native replay name.
  */
 
 #include "platform.h"
 #include <stddef.h>
 
-#define T1REPLAY_VERSION 2
-#define T1REPLAY_HEADER_SIZE 128
+#define T1REPLAY_VERSION 3
+#define T1REPLAY_HEADER_SIZE 130
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_PACKET_SIZE 8
+#define T1REPLAY_NAME_KANJI 8
+#define T1REPLAY_NAME_BYTES (T1REPLAY_NAME_KANJI * 2)
 #define T1REPLAY_SLOT_COUNT 100
+#define T1REPLAY_SLOT_PENDING T1REPLAY_SLOT_COUNT
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY2. The OP reader admits only the V2 header's all-zero reserved tail;
-// changing it belongs to a later replay-metadata/UI parcel. Each T1CxxYY.CKP
+// T1RPY3. Each T1CxxYY.CKP
 // is keyed by replay slot xx and REIIDEN process yy.
-#define T1REPLAY_CHECKPOINT_SCHEMA 2
+#define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
-#define T1REPLAY_CHECKPOINT_GROUP_COUNT 13
-#define T1REPLAY_CHECKPOINT_SIZE 10932
+#define T1REPLAY_CHECKPOINT_GROUP_COUNT 14
+#define T1REPLAY_CHECKPOINT_SIZE 11236
 // Measured from every shipped STAGE?.DAT by th01_stageobj_capacity.py:
 // STAGE7 has 76 cards, STAGE4 has 25 obstacles. Capture rejects larger
 // modded/live owners rather than silently truncating them.
@@ -37,10 +39,20 @@
 #define T1REPLAY_CHECKPOINT_PARTICLE_COUNT 40
 #define T1REPLAY_CHECKPOINT_ITEM_BOMB_COUNT 4
 #define T1REPLAY_CHECKPOINT_ITEM_POINT_COUNT 10
+#define T1REPLAY_CHECKPOINT_BOSS_PAYLOAD_SIZE 264
 #define T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY 0x0001
 #define T1REPLAY_CHECKPOINT_FLAGS_KNOWN T1REPLAY_CHECKPOINT_FLAG_CAPTURE_ONLY
 #define T1REPLAY_CHECKPOINT_PROCESS_MAX 99
 #define T1REPLAY_CHECKPOINT_CODEC_RAW 0
+
+// Private FUUIN validation can bind the decoded score table seen before
+// registration and the in-memory result afterward to a finalized replay.
+// T1RPY3 stays unchanged; release builds neither read nor write this sidecar.
+#define T1REPLAY_SCORE_PROOF_SCHEMA 1
+#define T1REPLAY_SCORE_PROOF_SIZE 48
+#ifndef T1REPLAY_FUUIN_SCORE_PROOF
+#define T1REPLAY_FUUIN_SCORE_PROOF 0
+#endif
 
 // Release recording captures the first semantic boundary in BSS only. Private
 // capture builds may opt into a process-end sidecar flush; ordinary users must
@@ -49,12 +61,92 @@
 #define T1REPLAY_CHECKPOINT_EMIT 0
 #endif
 
+// Private validation builds can begin each REIIDEN process at its semantic
+// sidecar. Release builds keep this disabled and perform no checkpoint reads.
+#ifndef T1REPLAY_CHECKPOINT_RESTORE
+#define T1REPLAY_CHECKPOINT_RESTORE 0
+#endif
+
+// Kept deliberately short because the 16-bit compiler receives this switch
+// through DOS's command tail. Values 1 through 3 select the private capture,
+// sequential, and direct exact-restore profiles, respectively.
+#ifndef T1RP
+#define T1RP 0
+#endif
+
+#if T1RP
+	#undef T1REPLAY_CHECKPOINT_EMIT
+	#undef T1REPLAY_CHECKPOINT_RESTORE
+	#define T1REPLAY_CHECKPOINT_EMIT (T1RP == 1)
+	#define T1REPLAY_CHECKPOINT_RESTORE (T1RP == 3)
+#endif
+
+// Private semantic tracing for direct-versus-sequential checkpoint evidence.
+// This is not part of T1RPY3 or T1CKP1 and stays absent from release builds.
+#ifndef T1REPLAY_EXACT_TRACE
+	#define T1REPLAY_EXACT_TRACE (T1RP != 0)
+#endif
+
 #define T1REPLAY_STATUS_RECORDING 1
 #define T1REPLAY_STATUS_FINALIZED 2
 #define T1REPLAY_STATUS_ERROR 3
 
 #define T1REPLAY_COMMAND_RECORD 1
 #define T1REPLAY_COMMAND_PLAYBACK 2
+
+#define T1REPLAY_SAVE_REQUEST_SCHEMA 1
+#define T1REPLAY_SAVE_REQUEST_SIZE 20
+#define T1REPLAY_RESTART_REQUEST_SCHEMA 1
+#define T1REPLAY_RESTART_REQUEST_SIZE 20
+
+enum t1replay_save_request_source_t {
+	T1RSRS_POSTGAME = 0,
+	T1RSRS_PAUSE = 1,
+};
+
+enum t1replay_practice_section_t {
+	T1RPS_STAGE_START,
+	T1RPS_CHAPTER,
+	T1RPS_BOSS_START,
+};
+
+// OP's transient Practice choice is also the semantic restart configuration.
+// It contains no pointers or live-world state and is deliberately separate
+// from the user replay ABI.
+struct t1replay_practice_start_t {
+	uint8_t scene;
+	uint8_t route;
+	uint8_t section;
+	uint8_t chapter;
+	int8_t rank;
+	int32_t score;
+	int8_t lives;
+	int8_t bombs;
+	uint16_t point_value;
+	int16_t pellet_speed;
+	uint32_t rand;
+};
+
+inline bool t1replay_slot_is_numbered(uint8_t slot)
+{
+	return (slot < T1REPLAY_SLOT_COUNT);
+}
+
+inline bool t1replay_slot_is_pending(uint8_t slot)
+{
+	return (slot == T1REPLAY_SLOT_PENDING);
+}
+
+// The pending sentinel is a process-local record target, never a playable
+// numbered slot. It keeps the T1RPY3 header and resident carrier ABI stable
+// while OP decides whether a finalized capture should become permanent.
+inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
+{
+	return (
+		t1replay_slot_is_numbered(slot) ||
+		((mode == T1REPLAY_COMMAND_RECORD) && t1replay_slot_is_pending(slot))
+	);
+}
 
 #define T1REPLAY_FLAG_RLE 0x0001
 #define T1REPLAY_FLAG_KEY_LATCH 0x0002
@@ -83,6 +175,8 @@
 
 #define T1REPLAY_RES_ID "T1ReplayState"
 #define T1REPLAY_RES_VERSION 2
+#define T1REPLAY_RESTART_RES_ID "T1ReplayRestart"
+#define T1REPLAY_RESTART_RES_VERSION 1
 
 #define T1REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T1REPLAY_FNV1A_PRIME 0x01000193UL
@@ -112,6 +206,11 @@ enum t1replay_mode_t {
 	T1RM_PLAYBACK = 2,
 };
 
+enum t1replay_restart_kind_t {
+	T1RRK_NORMAL = 1,
+	T1RRK_PRACTICE = 2,
+};
+
 enum t1replay_checkpoint_group_id_t {
 	T1RCGI_SCENARIO = 0,
 	T1RCGI_RNG = 1,
@@ -126,6 +225,7 @@ enum t1replay_checkpoint_group_id_t {
 	T1RCGI_MISSILES = 10,
 	T1RCGI_LASERS = 11,
 	T1RCGI_PARTICLES = 12,
+	T1RCGI_BOSS = 13,
 };
 
 // Only bits consumed by TH01's REIIDEN input path are replayed. Keeping the
@@ -167,7 +267,7 @@ struct t1replay_start_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY2\\0\\0"
+	char magic[8]; // "T1RPY3\\0\\0"
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -186,8 +286,53 @@ struct t1replay_header_t {
 	uint32_t start_checksum;
 	uint32_t header_checksum;
 	t1replay_start_t start;
-	uint8_t reserved[14];
+	uint8_t name[T1REPLAY_NAME_BYTES];
 };
+
+// The native score-registration keyboard accepts full-width ASCII letters and
+// numerals plus exactly these eighteen symbols. T1RPY3 uses the same cells;
+// unentered trailing cells are pairs of ordinary ASCII spaces.
+inline bool t1replay_name_cell_valid(uint8_t lead, uint8_t trail)
+{
+	if(lead == 0x82) {
+		return (
+			((trail >= 0x4F) && (trail <= 0x58)) ||
+			((trail >= 0x60) && (trail <= 0x79)) ||
+			((trail >= 0x81) && (trail <= 0x9A))
+		);
+	}
+	if(lead != 0x81) {
+		return false;
+	}
+	switch(trail) {
+	case 0x40: // Full-width space, distinct from trailing padding.
+	case 0x44: case 0x45: case 0x48: case 0x49:
+	case 0x5E: case 0x63: case 0x67: case 0x68:
+	case 0x87: case 0x88: case 0x89: case 0x8A:
+	case 0x94: case 0x95: case 0x96: case 0x98:
+	case 0x99: case 0x9F:
+		return true;
+	}
+	return false;
+}
+
+inline bool t1replay_name_valid(const uint8_t far *name)
+{
+	bool padding_seen = false;
+	uint8_t cell;
+
+	for(cell = 0; cell < T1REPLAY_NAME_KANJI; cell++) {
+		uint8_t lead = name[(cell * 2) + 0];
+		uint8_t trail = name[(cell * 2) + 1];
+
+		if((lead == ' ') && (trail == ' ')) {
+			padding_seen = true;
+		} else if(padding_seen || !t1replay_name_cell_valid(lead, trail)) {
+			return false;
+		}
+	}
+	return true;
+}
 
 struct t1replay_packet_t {
 	uint8_t tag;
@@ -199,6 +344,37 @@ struct t1replay_command_t {
 	uint8_t mode;
 	uint8_t slot;
 	uint8_t reserved[6];
+};
+
+struct t1replay_save_request_t {
+	char magic[8]; // "T1RSAV1\\0"
+	uint8_t schema;
+	uint8_t source;
+	uint16_t reserved;
+	uint32_t replay_header_checksum;
+	uint32_t checksum;
+};
+
+// A restart request is deliberately tiny. The complete launch description
+// remains in a checksummed ResData block, so a stale on-disk request cannot
+// recreate a run after its matching resident state has gone away.
+struct t1replay_restart_request_t {
+	char magic[8]; // "T1RRST1\0"
+	uint8_t schema;
+	uint8_t reserved_0;
+	uint16_t reserved_1;
+	uint32_t restart_state_checksum;
+	uint32_t checksum;
+};
+
+struct t1replay_restart_state_t {
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+	char magic[4];
+	uint8_t version;
+	uint8_t kind;
+	uint8_t reserved[2];
+	t1replay_practice_start_t practice;
+	uint32_t checksum;
 };
 
 // Cross-process replay state. [source_process] owns the committed handoff at
@@ -234,6 +410,24 @@ struct t1replay_fuuin_handoff_t {
 	int8_t credit_lives_extra;
 	int8_t end_flag;
 	uint8_t reserved;
+};
+
+struct t1replay_score_proof_t {
+	char magic[8]; // "T1SDG1\0\0"
+	uint16_t schema;
+	uint16_t size;
+	uint8_t game_id;
+	uint8_t slot;
+	uint8_t rank;
+	uint8_t phase;
+	uint32_t replay_start_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t replay_sample_count;
+	uint32_t replay_packet_count;
+	uint32_t before_digest;
+	uint32_t after_digest;
+	uint32_t container_checksum;
+	uint8_t reserved[4];
 };
 
 // This envelope is a capture and validation substrate only. It never stores
@@ -328,6 +522,10 @@ struct t1replay_checkpoint_input_t {
 struct t1replay_checkpoint_pacing_t {
 	uint32_t frame_since_start_of_binary;
 	uint32_t bomb_frame;
+	uint32_t replay_sample_anchor;
+	uint32_t replay_packet_anchor;
+	uint32_t replay_input_anchor;
+	uint32_t replay_prefix_checksum;
 	uint16_t stage_timer;
 	uint16_t frame_since_harryup;
 	int16_t pellet_speed_raise_cycle;
@@ -407,7 +605,8 @@ struct t1replay_checkpoint_stage_t {
 	int16_t portal_dst_top;
 	uint8_t vertical_bars_blocked;
 	uint8_t portals_blocked;
-	uint8_t reserved[2];
+	uint8_t card_flip_cycle;
+	uint8_t reserved;
 	t1replay_checkpoint_card_t cards[T1REPLAY_CHECKPOINT_CARD_COUNT_MAX];
 	t1replay_checkpoint_obstacle_t obstacles[
 		T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX
@@ -545,6 +744,19 @@ struct t1replay_checkpoint_particles_t {
 	];
 };
 
+// The tagged payload is sized for the largest owner record already derived
+// from the current boss corpus (Kikuri). Unsupported owners fail capture
+// closed; the public replay stream does not depend on this private envelope.
+struct t1replay_checkpoint_boss_t {
+	int8_t boss_id;
+	uint8_t owner;
+	uint8_t owner_schema;
+	uint8_t flags;
+	uint16_t payload_size;
+	uint16_t reserved_0;
+	uint8_t payload[T1REPLAY_CHECKPOINT_BOSS_PAYLOAD_SIZE];
+};
+
 struct t1replay_checkpoint_t {
 	t1replay_checkpoint_header_t header;
 	t1replay_checkpoint_group_t groups[T1REPLAY_CHECKPOINT_GROUP_COUNT];
@@ -561,6 +773,7 @@ struct t1replay_checkpoint_t {
 	t1replay_checkpoint_missiles_t missiles;
 	t1replay_checkpoint_lasers_t lasers;
 	t1replay_checkpoint_particles_t particles;
+	t1replay_checkpoint_boss_t boss;
 };
 
 typedef char t1replay_start_size_check[
@@ -575,11 +788,20 @@ typedef char t1replay_packet_size_check[
 typedef char t1replay_command_size_check[
 	(sizeof(t1replay_command_t) == 16) ? 1 : -1
 ];
+typedef char t1replay_save_request_size_check[
+	(sizeof(t1replay_save_request_t) == T1REPLAY_SAVE_REQUEST_SIZE) ? 1 : -1
+];
+typedef char t1replay_restart_request_size_check[
+	(sizeof(t1replay_restart_request_t) == T1REPLAY_RESTART_REQUEST_SIZE) ? 1 : -1
+];
 typedef char t1replay_res_size_check[
 	(sizeof(t1replay_res_t) == 54) ? 1 : -1
 ];
 typedef char t1replay_fuuin_handoff_size_check[
 	(sizeof(t1replay_fuuin_handoff_t) == 28) ? 1 : -1
+];
+typedef char t1replay_score_proof_size_check[
+	(sizeof(t1replay_score_proof_t) == T1REPLAY_SCORE_PROOF_SIZE) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_header_size_check[
 	(sizeof(t1replay_checkpoint_header_t) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
@@ -597,7 +819,7 @@ typedef char t1replay_checkpoint_input_size_check[
 	(sizeof(t1replay_checkpoint_input_t) == 32) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_pacing_size_check[
-	(sizeof(t1replay_checkpoint_pacing_t) == 20) ? 1 : -1
+	(sizeof(t1replay_checkpoint_pacing_t) == 36) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_player_size_check[
 	(sizeof(t1replay_checkpoint_player_t) == 26) ? 1 : -1
@@ -649,6 +871,9 @@ typedef char t1replay_checkpoint_particle_size_check[
 ];
 typedef char t1replay_checkpoint_particles_size_check[
 	(sizeof(t1replay_checkpoint_particles_t) == 808) ? 1 : -1
+];
+typedef char t1replay_checkpoint_boss_size_check[
+	(sizeof(t1replay_checkpoint_boss_t) == 272) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_size_check[
 	(sizeof(t1replay_checkpoint_t) == T1REPLAY_CHECKPOINT_SIZE) ? 1 : -1

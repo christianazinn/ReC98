@@ -15,6 +15,9 @@
 #include "th01/rpyfuuin.hpp"
 #include "th01/resident.hpp"
 #include "th01/shiftjis/fns.hpp"
+#if T1REPLAY_FUUIN_SCORE_PROOF
+#include "th01/formats/scoredat.hpp"
+#endif
 
 #define T1REPLAY_FUUIN_BUFFER_PACKET_COUNT 128
 #define T1REPLAY_DOS_ACCESS_READ 0
@@ -34,6 +37,10 @@ struct t1replay_fuuin_stream_state_t {
 };
 
 static char t1replay_slot_fn[11];
+static char t1replay_save_request_fn[11];
+#if T1REPLAY_FUUIN_SCORE_PROOF
+static char t1replay_score_proof_fn[10];
+#endif
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
 static t1replay_mode_t t1replay_mode;
@@ -52,6 +59,18 @@ static uint8_t t1replay_pending_run;
 static uint8_t t1replay_decode_run;
 static bool t1replay_pending_valid;
 static uint8_t t1replay_keys[T1REPLAY_INPUT_GROUP_COUNT];
+#if T1REPLAY_FUUIN_SCORE_PROOF
+enum t1replay_score_observation_t {
+	T1RSO_NONE = 0,
+	T1RSO_UNAVAILABLE,
+	T1RSO_BEFORE,
+	T1RSO_AFTER,
+};
+static t1replay_score_proof_t t1replay_score_proof;
+static uint8_t t1replay_score_observation;
+static uint32_t t1replay_score_before_digest;
+static uint32_t t1replay_score_after_digest;
+#endif
 
 static void t1replay_memclear(void far *buf, unsigned size)
 {
@@ -74,6 +93,24 @@ static void t1replay_paths_init(void)
 	t1replay_slot_fn[6] = '.'; t1replay_slot_fn[7] = 'R';
 	t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = 'Y';
 	t1replay_slot_fn[10] = '\0';
+	t1replay_save_request_fn[0] = 'T';
+	t1replay_save_request_fn[1] = '1';
+	t1replay_save_request_fn[2] = 'R';
+	t1replay_save_request_fn[3] = 'S';
+	t1replay_save_request_fn[4] = 'A';
+	t1replay_save_request_fn[5] = 'V';
+	t1replay_save_request_fn[6] = '.';
+	t1replay_save_request_fn[7] = 'C';
+	t1replay_save_request_fn[8] = 'F';
+	t1replay_save_request_fn[9] = 'G';
+	t1replay_save_request_fn[10] = '\0';
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_score_proof_fn[0] = 'T'; t1replay_score_proof_fn[1] = '1';
+	t1replay_score_proof_fn[2] = 'S'; t1replay_score_proof_fn[3] = '0';
+	t1replay_score_proof_fn[4] = '0'; t1replay_score_proof_fn[5] = '.';
+	t1replay_score_proof_fn[6] = 'D'; t1replay_score_proof_fn[7] = 'I';
+	t1replay_score_proof_fn[8] = 'G'; t1replay_score_proof_fn[9] = '\0';
+#endif
 	t1replay_paths_ready = true;
 }
 
@@ -93,10 +130,35 @@ static void t1replay_resident_id_init(char *id)
 	id[12] = 'g'; id[13] = '\0';
 }
 
-static void t1replay_slot_set(uint8_t slot)
+static bool t1replay_slot_set(uint8_t slot)
 {
+	if(t1replay_slot_is_pending(slot)) {
+		t1replay_slot_fn[0] = 'T'; t1replay_slot_fn[1] = '1';
+		t1replay_slot_fn[2] = 'R'; t1replay_slot_fn[3] = 'P';
+		t1replay_slot_fn[4] = 'Y'; t1replay_slot_fn[5] = '.';
+		t1replay_slot_fn[6] = 'T'; t1replay_slot_fn[7] = 'M';
+		t1replay_slot_fn[8] = 'P'; t1replay_slot_fn[9] = '\0';
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		// Pending clear evidence must not masquerade as slot 00 while OP
+		// decides whether this capture becomes a numbered replay.
+		t1replay_score_proof_fn[0] = 'T'; t1replay_score_proof_fn[1] = '1';
+		t1replay_score_proof_fn[2] = 'S'; t1replay_score_proof_fn[3] = 'P';
+		t1replay_score_proof_fn[4] = '.';
+		t1replay_score_proof_fn[5] = 'D'; t1replay_score_proof_fn[6] = 'I';
+		t1replay_score_proof_fn[7] = 'G'; t1replay_score_proof_fn[8] = '\0';
+#endif
+		return true;
+	}
+	if(!t1replay_slot_is_numbered(slot)) {
+		return false;
+	}
 	t1replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t1replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_score_proof_fn[3] = static_cast<char>('0' + (slot / 10));
+	t1replay_score_proof_fn[4] = static_cast<char>('0' + (slot % 10));
+#endif
+	return true;
 }
 
 static int t1replay_dos_open(const char far *fn, unsigned char access)
@@ -120,6 +182,27 @@ static int t1replay_dos_open(const char far *fn, unsigned char access)
 	return result;
 }
 
+static int t1replay_dos_create(const char far *fn)
+{
+	unsigned fn_seg = T1REPLAY_FP_SEG(fn);
+	unsigned fn_off = T1REPLAY_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push ds
+		mov dx, fn_off
+		mov ds, fn_seg
+		xor cx, cx
+		mov ah, 3Ch
+		int 21h
+		pop ds
+		sbb dx, dx
+		or ax, dx
+		mov result, ax
+	}
+	return result;
+}
+
 static void t1replay_dos_close(int fh)
 {
 	_asm {
@@ -127,6 +210,26 @@ static void t1replay_dos_close(int fh)
 		mov ah, 3Eh
 		int 21h
 	}
+}
+
+static bool t1replay_dos_delete(const char far *fn)
+{
+	unsigned fn_seg = T1REPLAY_FP_SEG(fn);
+	unsigned fn_off = T1REPLAY_FP_OFF(fn);
+	unsigned result;
+
+	_asm {
+		push ds
+		mov dx, fn_off
+		mov ds, fn_seg
+		mov ah, 41h
+		int 21h
+		pop ds
+		sbb ax, ax
+		not ax
+		mov result, ax
+	}
+	return (result != 0);
 }
 
 static bool t1replay_dos_seek(int fh, uint32_t offset)
@@ -231,6 +334,40 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 	return hash;
 }
 
+static bool t1replay_save_request_write(
+	t1replay_save_request_source_t source
+)
+{
+	t1replay_save_request_t request;
+	int fd;
+	bool ok;
+
+	t1replay_memclear(&request, sizeof(request));
+	request.magic[0] = 'T'; request.magic[1] = '1';
+	request.magic[2] = 'R'; request.magic[3] = 'S';
+	request.magic[4] = 'A'; request.magic[5] = 'V';
+	request.magic[6] = '1'; request.magic[7] = '\0';
+	request.schema = T1REPLAY_SAVE_REQUEST_SCHEMA;
+	request.source = source;
+	request.replay_header_checksum = t1replay_header.header_checksum;
+	request.checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	t1replay_dos_delete(t1replay_save_request_fn);
+	fd = t1replay_dos_create(t1replay_save_request_fn);
+	if(fd < 0) {
+		return false;
+	}
+	ok = (
+		t1replay_dos_write(fd, &request, sizeof(request)) == sizeof(request)
+	);
+	t1replay_dos_close(fd);
+	if(!ok) {
+		t1replay_dos_delete(t1replay_save_request_fn);
+	}
+	return ok;
+}
+
 static bool t1replay_bytes_zero(const uint8_t far *p, unsigned size)
 {
 	while(size != 0) {
@@ -241,6 +378,160 @@ static bool t1replay_bytes_zero(const uint8_t far *p, unsigned size)
 	}
 	return true;
 }
+
+#if T1REPLAY_FUUIN_SCORE_PROOF
+static uint32_t t1replay_score_table_digest(
+	const void far *names,
+	const void far *scores,
+	const void far *stages,
+	const void far *routes
+)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+
+	digest = t1replay_fnv1a(digest, names, SCOREDAT_NAMES_SIZE);
+	digest = t1replay_fnv1a(
+		digest, scores, (sizeof(score_t) * SCOREDAT_PLACES)
+	);
+	digest = t1replay_fnv1a(
+		digest, stages, (sizeof(int16_t) * SCOREDAT_PLACES)
+	);
+	return t1replay_fnv1a(
+		digest, routes, (SCOREDAT_ROUTE_LEN * SCOREDAT_PLACES)
+	);
+}
+
+static uint32_t t1replay_score_proof_checksum(
+	t1replay_score_proof_t far *proof
+)
+{
+	uint32_t checksum;
+
+	proof->container_checksum = 0;
+	checksum = t1replay_fnv1a(
+		T1REPLAY_FNV1A_BASIS, proof, sizeof(*proof)
+	);
+	proof->container_checksum = checksum;
+	return checksum;
+}
+
+static bool t1replay_score_proof_read(void)
+{
+	uint32_t file_size;
+	uint32_t stored_checksum;
+	uint32_t computed_checksum;
+	int fd = t1replay_dos_open(
+		t1replay_score_proof_fn, T1REPLAY_DOS_ACCESS_READ
+	);
+
+	if(fd < 0 || !t1replay_dos_size(fd, &file_size) ||
+		!t1replay_dos_seek(fd, 0) ||
+		(file_size != sizeof(t1replay_score_proof)) ||
+		(t1replay_dos_read(
+			fd, &t1replay_score_proof, sizeof(t1replay_score_proof)
+		) != sizeof(t1replay_score_proof))) {
+		if(fd >= 0) {
+			t1replay_dos_close(fd);
+		}
+		return false;
+	}
+	t1replay_dos_close(fd);
+	stored_checksum = t1replay_score_proof.container_checksum;
+	computed_checksum = t1replay_score_proof_checksum(&t1replay_score_proof);
+	if(stored_checksum != computed_checksum) {
+		return false;
+	}
+	return (
+		(t1replay_score_proof.magic[0] == 'T') &&
+		(t1replay_score_proof.magic[1] == '1') &&
+		(t1replay_score_proof.magic[2] == 'S') &&
+		(t1replay_score_proof.magic[3] == 'D') &&
+		(t1replay_score_proof.magic[4] == 'G') &&
+		(t1replay_score_proof.magic[5] == '1') &&
+		(t1replay_score_proof.magic[6] == '\0') &&
+		(t1replay_score_proof.magic[7] == '\0') &&
+		(t1replay_score_proof.schema == T1REPLAY_SCORE_PROOF_SCHEMA) &&
+		(t1replay_score_proof.size == T1REPLAY_SCORE_PROOF_SIZE) &&
+		(t1replay_score_proof.game_id == 1) &&
+		(t1replay_score_proof.slot == t1replay_res->slot) &&
+		(t1replay_score_proof.rank == t1replay_header.start.rank) &&
+		((t1replay_score_proof.phase == T1REPLAY_FUUIN_PHASE_VERDICT) ||
+		 (t1replay_score_proof.phase == T1REPLAY_FUUIN_PHASE_SCORE_NAME) ||
+		 (t1replay_score_proof.phase == T1REPLAY_FUUIN_PHASE_SCORE_RELEASE)) &&
+		(t1replay_score_proof.replay_start_checksum ==
+			t1replay_header.start_checksum) &&
+		(t1replay_score_proof.replay_payload_checksum ==
+			t1replay_header.payload_checksum) &&
+		(t1replay_score_proof.replay_sample_count ==
+			t1replay_header.sample_count) &&
+		(t1replay_score_proof.replay_packet_count ==
+			t1replay_header.packet_count) &&
+		(((t1replay_score_proof.phase == T1REPLAY_FUUIN_PHASE_VERDICT) &&
+		  (t1replay_score_proof.before_digest == 0) &&
+		  (t1replay_score_proof.after_digest == 0)) ||
+		 ((t1replay_score_proof.phase != T1REPLAY_FUUIN_PHASE_VERDICT))) &&
+		t1replay_bytes_zero(
+			t1replay_score_proof.reserved,
+			sizeof(t1replay_score_proof.reserved)
+		)
+	);
+}
+
+static bool t1replay_score_proof_write(void)
+{
+	int fd;
+
+	t1replay_memclear(&t1replay_score_proof, sizeof(t1replay_score_proof));
+	t1replay_score_proof.magic[0] = 'T';
+	t1replay_score_proof.magic[1] = '1';
+	t1replay_score_proof.magic[2] = 'S';
+	t1replay_score_proof.magic[3] = 'D';
+	t1replay_score_proof.magic[4] = 'G';
+	t1replay_score_proof.magic[5] = '1';
+	t1replay_score_proof.schema = T1REPLAY_SCORE_PROOF_SCHEMA;
+	t1replay_score_proof.size = T1REPLAY_SCORE_PROOF_SIZE;
+	t1replay_score_proof.game_id = 1;
+	t1replay_score_proof.slot = t1replay_res->slot;
+	t1replay_score_proof.rank = t1replay_header.start.rank;
+	t1replay_score_proof.phase = t1replay_phase;
+	t1replay_score_proof.replay_start_checksum =
+		t1replay_header.start_checksum;
+	t1replay_score_proof.replay_payload_checksum =
+		t1replay_header.payload_checksum;
+	t1replay_score_proof.replay_sample_count = t1replay_header.sample_count;
+	t1replay_score_proof.replay_packet_count = t1replay_header.packet_count;
+	if(t1replay_score_observation == T1RSO_AFTER) {
+		t1replay_score_proof.before_digest =
+			t1replay_score_before_digest;
+		t1replay_score_proof.after_digest = t1replay_score_after_digest;
+	}
+	t1replay_score_proof_checksum(&t1replay_score_proof);
+	fd = t1replay_dos_create(t1replay_score_proof_fn);
+	if(fd < 0) {
+		return false;
+	}
+	if(t1replay_dos_write(
+		fd, &t1replay_score_proof, sizeof(t1replay_score_proof)
+	) != sizeof(t1replay_score_proof)) {
+		t1replay_dos_close(fd);
+		return false;
+	}
+	t1replay_dos_close(fd);
+	return true;
+}
+
+static bool t1replay_score_observation_complete(void)
+{
+	if(t1replay_score_observation == T1RSO_UNAVAILABLE) {
+		return (t1replay_phase == T1REPLAY_FUUIN_PHASE_VERDICT);
+	}
+	return (
+		(t1replay_score_observation == T1RSO_AFTER) &&
+		((t1replay_phase == T1REPLAY_FUUIN_PHASE_SCORE_NAME) ||
+		 (t1replay_phase == T1REPLAY_FUUIN_PHASE_SCORE_RELEASE))
+	);
+}
+#endif
 
 static bool t1replay_magic_matches(const char far *magic, char last)
 {
@@ -461,7 +752,7 @@ static bool t1replay_header_read(bool finalized)
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '2') ||
+		!t1replay_magic_matches(t1replay_header.magic, '3') ||
 		(t1replay_header.version != T1REPLAY_VERSION) ||
 		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
@@ -485,9 +776,7 @@ static bool t1replay_header_read(bool finalized)
 			sizeof(t1replay_header.start)
 		)) ||
 		!t1replay_start_valid(&t1replay_header.start) ||
-		!t1replay_bytes_zero(
-			t1replay_header.reserved, sizeof(t1replay_header.reserved)
-		) ||
+		!t1replay_name_valid(t1replay_header.name) ||
 		(t1replay_header.reserved_0 != 0) ||
 		(finalized ?
 			(t1replay_header.end_reason != T1REPLAY_END_CLEAR) :
@@ -574,7 +863,9 @@ static bool t1replay_res_valid(void)
 		(t1replay_res->version != T1REPLAY_RES_VERSION) ||
 		((t1replay_res->mode != T1RM_RECORD) &&
 		 (t1replay_res->mode != T1RM_PLAYBACK)) ||
-		(t1replay_res->slot >= T1REPLAY_SLOT_COUNT) ||
+		!t1replay_slot_valid_for_mode(
+			t1replay_res->mode, t1replay_res->slot
+		) ||
 		(t1replay_res->source_process != T1REPLAY_PROCESS_REIIDEN) ||
 		(t1replay_res->target_process != T1REPLAY_PROCESS_FUUIN) ||
 		(t1replay_res->process_seq == 0) ||
@@ -683,6 +974,12 @@ static void t1replay_state_reset(void)
 	t1replay_pending_valid = false;
 	t1replay_phase = T1REPLAY_FUUIN_PHASE_NONE;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_memclear(&t1replay_score_proof, sizeof(t1replay_score_proof));
+	t1replay_score_observation = T1RSO_NONE;
+	t1replay_score_before_digest = 0;
+	t1replay_score_after_digest = 0;
+#endif
 }
 
 static void t1replay_header_checksum_set(void)
@@ -926,6 +1223,80 @@ static void t1replay_fail_and_abort_if_playback(void)
 	}
 }
 
+#if T1REPLAY_FUUIN_SCORE_PROOF
+void far t1replay_fuuin_score_table_unavailable(void)
+{
+	if(t1replay_mode == T1RM_DISABLED) {
+		return;
+	}
+	if(
+		(t1replay_phase != T1REPLAY_FUUIN_PHASE_VERDICT) ||
+		(t1replay_score_observation != T1RSO_NONE) ||
+		((t1replay_mode == T1RM_PLAYBACK) &&
+		 (t1replay_score_proof.phase != T1REPLAY_FUUIN_PHASE_VERDICT))
+	) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
+	t1replay_score_observation = T1RSO_UNAVAILABLE;
+}
+
+void far t1replay_fuuin_score_table_before(
+	const void far *names,
+	const void far *scores,
+	const void far *stages,
+	const void far *routes
+)
+{
+	uint32_t digest;
+
+	if(t1replay_mode == T1RM_DISABLED) {
+		return;
+	}
+	digest = t1replay_score_table_digest(names, scores, stages, routes);
+	if(
+		(t1replay_phase != T1REPLAY_FUUIN_PHASE_VERDICT) ||
+		(t1replay_score_observation != T1RSO_NONE) ||
+		((t1replay_mode == T1RM_PLAYBACK) &&
+		 ((t1replay_score_proof.phase == T1REPLAY_FUUIN_PHASE_VERDICT) ||
+		  (t1replay_score_proof.before_digest != digest)))
+	) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
+	t1replay_score_before_digest = digest;
+	t1replay_score_observation = T1RSO_BEFORE;
+}
+
+void far t1replay_fuuin_score_table_after(
+	const void far *names,
+	const void far *scores,
+	const void far *stages,
+	const void far *routes
+)
+{
+	uint32_t digest;
+
+	if(t1replay_mode == T1RM_DISABLED) {
+		return;
+	}
+	digest = t1replay_score_table_digest(names, scores, stages, routes);
+	if(
+		(t1replay_score_observation != T1RSO_BEFORE) ||
+		((t1replay_phase != T1REPLAY_FUUIN_PHASE_SCORE_NAME) &&
+		 (t1replay_phase != T1REPLAY_FUUIN_PHASE_SCORE_RELEASE)) ||
+		((t1replay_mode == T1RM_PLAYBACK) &&
+		 ((t1replay_score_proof.phase != t1replay_phase) ||
+		  (t1replay_score_proof.after_digest != digest)))
+	) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
+	t1replay_score_after_digest = digest;
+	t1replay_score_observation = T1RSO_AFTER;
+}
+#endif
+
 bool16 far t1replay_fuuin_entry(bool16 continuation_expected)
 {
 	char res_id[sizeof(T1REPLAY_RES_ID)];
@@ -964,6 +1335,12 @@ bool16 far t1replay_fuuin_entry(bool16 continuation_expected)
 		t1replay_fail();
 		return false;
 	}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	if((t1replay_mode == T1RM_PLAYBACK) && !t1replay_score_proof_read()) {
+		t1replay_fail();
+		return false;
+	}
+#endif
 	t1replay_payload_written = t1replay_res->input_size;
 	t1replay_packet_cursor = t1replay_res->packet_count;
 	t1replay_sample_cursor = t1replay_res->sample_count;
@@ -1061,6 +1438,12 @@ void far t1replay_fuuin_terminal(void)
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	if(!t1replay_score_observation_complete()) {
+		t1replay_fail_and_abort_if_playback();
+		return;
+	}
+#endif
 	if(t1replay_mode == T1RM_RECORD) {
 		if(!t1replay_pending_commit() ||
 			!t1replay_control_commit(
@@ -1073,6 +1456,19 @@ void far t1replay_fuuin_terminal(void)
 		t1replay_header.status = T1REPLAY_STATUS_FINALIZED;
 		t1replay_header.end_reason = T1REPLAY_END_CLEAR;
 		if(!t1replay_header_write()) {
+			t1replay_fail();
+			return;
+		}
+#if T1REPLAY_FUUIN_SCORE_PROOF
+		if(!t1replay_score_proof_write()) {
+			t1replay_fail();
+			return;
+		}
+#endif
+		if(
+			t1replay_slot_is_pending(t1replay_res->slot) &&
+			!t1replay_save_request_write(T1RSRS_POSTGAME)
+		) {
 			t1replay_fail();
 			return;
 		}

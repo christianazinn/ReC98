@@ -595,6 +595,11 @@ void regist_name_enter(int entered_place)
 			(entered_place * SCOREDAT_NAME_BYTES) + i
 		] = entered_name.ubyte[i];
 	}
+#if (BINARY == 'E') && T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_fuuin_score_table_after(
+		scoredat_names, scoredat_score, scoredat_stages, scoredat_routes
+	);
+#endif
 #if (BINARY == 'E')
 	if(!t1replay_fuuin_playback()) {
 		scoredat_save();
@@ -650,8 +655,16 @@ void regist_menu(
 	}
 
 	if(scoredat_load()) {
+#if (BINARY == 'E') && T1REPLAY_FUUIN_SCORE_PROOF
+		t1replay_fuuin_score_table_unavailable();
+#endif
 		return;
 	}
+#if (BINARY == 'E') && T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_fuuin_score_table_before(
+		scoredat_names, scoredat_score, scoredat_stages, scoredat_routes
+	);
+#endif
 	for(place = 0; place < SCOREDAT_PLACES; place++) {
 		scoredat_name_get(place, names[place].ubyte);
 	}
@@ -707,6 +720,11 @@ void regist_menu(
 			break;
 		}
 	}
+#if (BINARY == 'E') && T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_fuuin_score_table_after(
+		scoredat_names, scoredat_score, scoredat_stages, scoredat_routes
+	);
+#endif
 	_ES = FP_SEG(graph_accesspage_func); // Yes, no point to this at all.
 	scoredat_free();
 }

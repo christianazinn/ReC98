@@ -2,6 +2,7 @@
 /// -----------------------------
 
 #include "th01/main/boss/palette.cpp"
+#include "th01/main/boss/b15j.hpp"
 
 #include "x86real.h"
 #include "th01/rank.h"
@@ -167,6 +168,52 @@ union {
 	int interval;
 	int speed_multiplied_by_8;
 } pattern_state;
+
+bool16 near kikuri_hittest_orb(void);
+
+// Originally function-local persistent state. Keep it explicit in this
+// translation unit so the checkpoint owner captures semantics, not BSS.
+static struct {
+	unsigned char angle;
+	unsigned char drift;
+	pixel_t distance;
+} kikuri_phase_2;
+
+static unsigned char kikuri_phase_6_spiral_angle;
+static pixel_t kikuri_phase_6_random_range_x_half;
+
+static struct {
+	bool16 invincible;
+	int invincibility_frame;
+
+	void update_and_render(const vc_t (&flash_colors)[4]) {
+		boss_hit_update_and_render(
+			invincibility_frame,
+			invincible,
+			boss_hp,
+			flash_colors,
+			(sizeof(flash_colors) / sizeof(flash_colors[0])),
+			7000,
+			boss_nop,
+			kikuri_hittest_orb()
+		);
+	}
+} kikuri_hit;
+
+static pixel_t kikuri_entrance_ring_radius_base;
+static bool kikuri_initial_hp_rendered;
+static struct {
+	union {
+		kikuri_phase_4_subphase_t subphase_4;
+		int phase_6_pattern;
+	} u1;
+	int patterns_done;
+
+	void frame_common(void) const {
+		boss_phase_frame++;
+		kikuri_hit.invincibility_frame++;
+	}
+} kikuri_phase_state = { P4_SOUL_ACTIVATION, 0 };
 // --------
 
 #include "th01/main/select_r.cpp"
@@ -505,9 +552,6 @@ inline void entrance_symmetric_line_1_to_0(
 
 void near pattern_symmetric_spiral_from_disc(void)
 {
-	static unsigned char angle;
-	static unsigned char drift;
-	static pixel_t distance;
 	screen_x_t left;
 	screen_y_t top;
 
@@ -515,27 +559,33 @@ void near pattern_symmetric_spiral_from_disc(void)
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		angle = 0x00;
-		drift = 0x00;
+		kikuri_phase_2.angle = 0x00;
+		kikuri_phase_2.drift = 0x00;
 		select_for_rank(pattern_state.interval, 4, 3, 2, 1);
-		select_for_rank(distance,
+		select_for_rank(kikuri_phase_2.distance,
 			DISC_RADIUS, DISC_RADIUS, DISC_RADIUS, ((DISC_RADIUS / 2) + 5)
 		);
 	}
 	if((boss_phase_frame % pattern_state.interval) == 0) {
-		left = polar_x(DISC_CENTER_X, distance, (angle + 0x00));
-		top = polar_y(DISC_CENTER_Y, distance, (angle + 0x00));
-		Pellets.add_single(left, top, (angle + 0x00 + drift), to_sp(3.125f));
+		left = polar_x(DISC_CENTER_X, kikuri_phase_2.distance,
+			(kikuri_phase_2.angle + 0x00));
+		top = polar_y(DISC_CENTER_Y, kikuri_phase_2.distance,
+			(kikuri_phase_2.angle + 0x00));
+		Pellets.add_single(left, top,
+			(kikuri_phase_2.angle + 0x00 + kikuri_phase_2.drift), to_sp(3.125f));
 
-		left = polar_x(DISC_CENTER_X, distance, (angle + 0x80));
-		top = polar_y(DISC_CENTER_Y, distance, (angle + 0x80));
-		Pellets.add_single(left, top, (angle + 0x80 + drift), to_sp(3.125f));
+		left = polar_x(DISC_CENTER_X, kikuri_phase_2.distance,
+			(kikuri_phase_2.angle + 0x80));
+		top = polar_y(DISC_CENTER_Y, kikuri_phase_2.distance,
+			(kikuri_phase_2.angle + 0x80));
+		Pellets.add_single(left, top,
+			(kikuri_phase_2.angle + 0x80 + kikuri_phase_2.drift), to_sp(3.125f));
 
 		if(boss_phase_frame >= 900) {
 			boss_phase_frame = 0;
 		}
-		angle -= 0x08;
-		drift++;
+		kikuri_phase_2.angle -= 0x08;
+		kikuri_phase_2.drift++;
 	}
 }
 
@@ -724,13 +774,11 @@ void near pattern_souls_single_aimed_pellet_and_move_diagonally(void)
 
 int near pattern_4_spiral_along_disc(void)
 {
-	static unsigned char angle;
-
 	if(boss_phase_frame < 100) {
 		return 0;
 	}
 	if(boss_phase_frame == 100) {
-		angle = 0x20;
+		kikuri_phase_6_spiral_angle = 0x20;
 		select_for_rank(pattern_state.interval, 14, 8, 6, 4);
 	}
 	if((boss_phase_frame % pattern_state.interval) == 0) {
@@ -749,13 +797,17 @@ int near pattern_4_spiral_along_disc(void)
 				DISC_RADIUS,
 				((boss_phase_frame * 4) + ((0x100 / RING) * i))
 			);
-			Pellets.add_single(left, top, (angle + 0x00), to_sp(2.25f));
-			Pellets.add_single(left, top, (angle + 0x40), to_sp(2.25f));
-			Pellets.add_single(left, top, (angle + 0x80), to_sp(2.25f));
-			Pellets.add_single(left, top, (angle + 0xC0), to_sp(2.25f));
+			Pellets.add_single(left, top,
+				(kikuri_phase_6_spiral_angle + 0x00), to_sp(2.25f));
+			Pellets.add_single(left, top,
+				(kikuri_phase_6_spiral_angle + 0x40), to_sp(2.25f));
+			Pellets.add_single(left, top,
+				(kikuri_phase_6_spiral_angle + 0x80), to_sp(2.25f));
+			Pellets.add_single(left, top,
+				(kikuri_phase_6_spiral_angle + 0xC0), to_sp(2.25f));
 		}
 		if(boss_phase_frame <= 600) {
-			angle -= 0x05;
+			kikuri_phase_6_spiral_angle -= 0x05;
 		} else {
 			boss_phase_frame = 0;
 			return 1;
@@ -872,8 +924,6 @@ int near pattern_vertical_lasers_from_top(void)
 	// [shootout_lasers] would be indexed out of bounds otherwise.
 	static_assert(LASER_COUNT <= SHOOTOUT_LASER_COUNT);
 
-	static pixel_t random_range_x_half;
-
 	if(boss_phase_frame < KEYFRAME_START) {
 		return 3;
 	}
@@ -881,14 +931,15 @@ int near pattern_vertical_lasers_from_top(void)
 		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
 			7.5f, 8.0f, 8.5f, 9.0f
 		);
-		select_for_rank(random_range_x_half,
+		select_for_rank(kikuri_phase_6_random_range_x_half,
 			0, (PLAYFIELD_W / 64), (PLAYFIELD_W / 40), (PLAYFIELD_W / 32)
 		);
 	}
 	if((boss_phase_frame % INTERVAL) == 0) {
 		int i = ((boss_phase_frame - KEYFRAME_START) / INTERVAL);
 		pixel_t random_offset_x = (
-			(irand() % ((random_range_x_half * 2) + 1)) - random_range_x_half
+			(irand() % ((kikuri_phase_6_random_range_x_half * 2) + 1)) -
+			kikuri_phase_6_random_range_x_half
 		);
 		shootout_lasers[i].spawn(
 			(PLAYFIELD_LEFT + (i * DISTANCE_X + random_offset_x)),
@@ -911,38 +962,6 @@ int near pattern_vertical_lasers_from_top(void)
 
 void kikuri_main(void)
 {
-	static struct {
-		bool16 invincible;
-		int invincibility_frame;
-
-		void update_and_render(const vc_t (&flash_colors)[4]) {
-			boss_hit_update_and_render(
-				invincibility_frame,
-				invincible,
-				boss_hp,
-				flash_colors,
-				(sizeof(flash_colors) / sizeof(flash_colors[0])),
-				7000,
-				boss_nop,
-				kikuri_hittest_orb()
-			);
-		}
-	} hit;
-	static pixel_t entrance_ring_radius_base;
-	static bool initial_hp_rendered;
-	static struct {
-		union {
-			kikuri_phase_4_subphase_t subphase_4;
-			int phase_6_pattern;
-		} u1;
-		int patterns_done;
-
-		void frame_common(void) const {
-			boss_phase_frame++;
-			hit.invincibility_frame++;
-		}
-	} phase = { P4_SOUL_ACTIVATION, 0 };
-
 	int i;
 	const vc_t flash_colors[] = { 6, 11, 8, 2 };
 
@@ -954,11 +973,11 @@ void kikuri_main(void)
 		enum {
 			Y_END = (RES_Y / 2),
 		};
-		#define y hit.invincibility_frame
+		#define y kikuri_hit.invincibility_frame
 
 		boss_phase_frame = 0;
 		y = 0;
-		hit.invincible = false;
+		kikuri_hit.invincible = false;
 
 		boss_palette_snap();
 
@@ -985,7 +1004,7 @@ void kikuri_main(void)
 				}
 				y++;
 				if(y > (Y_END + 24)) {
-					hit.invincibility_frame = 0;
+					kikuri_hit.invincibility_frame = 0;
 					boss_phase_frame = 0;
 					break;
 				}
@@ -1013,13 +1032,13 @@ void kikuri_main(void)
 
 			frame_half++;
 			if(entrance_rings_update_and_render(
-				entrance_ring_radius_base, i, tmp, frame_half, 0, 70
+				kikuri_entrance_ring_radius_base, i, tmp, frame_half, 0, 70
 			)) {
 				boss_phase = 2;
-				phase.patterns_done = 0;
+				kikuri_phase_state.patterns_done = 0;
 				boss_phase_frame = 0;
 				boss_palette_show();
-				initial_hp_rendered = false;
+				kikuri_initial_hp_rendered = false;
 				stage_palette_set(z_Palettes);
 				break;
 			}
@@ -1052,20 +1071,23 @@ entrance_rings_still_active:
 		}
 		// --------------
 	} else if(boss_phase == 2) {
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
-		phase.frame_common();
+		hud_hp_increment_render(
+			kikuri_initial_hp_rendered, boss_hp, boss_phase_frame
+		);
+		kikuri_phase_state.frame_common();
 		pattern_symmetric_spiral_from_disc();
-		hit.update_and_render(flash_colors);
+		kikuri_hit.update_and_render(flash_colors);
 		if(boss_phase_frame == 0) {
-			phase.patterns_done++;
+			kikuri_phase_state.patterns_done++;
 		}
-		if(!hit.invincible && (
-			(boss_hp <= HP_PHASE_2_END) || (phase.patterns_done >= 6)
+		if(!kikuri_hit.invincible && (
+			(boss_hp <= HP_PHASE_2_END) ||
+			(kikuri_phase_state.patterns_done >= 6)
 		)) {
 			boss_phase = 3;
 			boss_phase_frame = 0;
-			hit.invincibility_frame = 0;
-			phase.patterns_done = 0;
+			kikuri_hit.invincibility_frame = 0;
+			kikuri_phase_state.patterns_done = 0;
 		}
 	} else if(boss_phase == 3) {
 		boss_phase_frame++;
@@ -1087,66 +1109,69 @@ entrance_rings_still_active:
 		if(boss_phase_frame >= (FADE_INTERVAL * FADE_STEPS)) {
 			boss_phase = 4;
 			boss_phase_frame = 0;
-			phase.u1.subphase_4 = P4_SOUL_ACTIVATION;
+			kikuri_phase_state.u1.subphase_4 = P4_SOUL_ACTIVATION;
 			z_palette_set_all_show(stage_palette);
 			boss_palette_snap();
 		}
 	} else if(boss_phase == 4) {
-		phase.frame_common();
+		kikuri_phase_state.frame_common();
 		pattern_spinning_aimed_rings();
 
-		if(phase.u1.subphase_4 == P4_SOUL_ACTIVATION) {
-			phase.u1.subphase_4 = phase_4_souls_activate();
+		if(kikuri_phase_state.u1.subphase_4 == P4_SOUL_ACTIVATION) {
+			kikuri_phase_state.u1.subphase_4 = phase_4_souls_activate();
 		} else {
-			phase.u1.subphase_4 = pattern_souls_spreads();
+			kikuri_phase_state.u1.subphase_4 = pattern_souls_spreads();
 		}
 
-		hit.update_and_render(flash_colors);
-		if(!hit.invincible && (phase.u1.subphase_4 == P4_DONE)) {
+		kikuri_hit.update_and_render(flash_colors);
+		if(!kikuri_hit.invincible &&
+			(kikuri_phase_state.u1.subphase_4 == P4_DONE)) {
 			boss_phase = 5;
 
 			// Should be done during phase 6 initialization for clarity.
-			phase.u1.phase_6_pattern = 0;
+			kikuri_phase_state.u1.phase_6_pattern = 0;
 
 			boss_phase_frame = 0;
 		}
 	} else if(boss_phase == 5) {
-		phase.frame_common();
+		kikuri_phase_state.frame_common();
 		pattern_souls_drop_tears_and_move_diagonally();
 		pattern_two_crossed_eye_lasers();
-		hit.update_and_render(flash_colors);
-		if(!hit.invincible && (
+		kikuri_hit.update_and_render(flash_colors);
+		if(!kikuri_hit.invincible && (
 			(boss_hp <= HP_PHASE_5_END) || (boss_phase_frame > 1600)
 		)) {
 			boss_phase = 6;
 			boss_phase_frame = 0;
-			hit.invincibility_frame = 0;
-			phase.patterns_done = 0;
+			kikuri_hit.invincibility_frame = 0;
+			kikuri_phase_state.patterns_done = 0;
 		}
 	} else if(boss_phase == 6) {
-		phase.frame_common();
+		kikuri_phase_state.frame_common();
 		pattern_souls_single_aimed_pellet_and_move_diagonally();
 
-		if(phase.u1.phase_6_pattern == 0) {
-			phase.u1.phase_6_pattern = pattern_4_spiral_along_disc();
-		} else if(phase.u1.phase_6_pattern == 1) {
-			phase.u1.phase_6_pattern = pattern_single_lasers_from_left_eye();
-		} else if(phase.u1.phase_6_pattern == 2) {
-			phase.u1.phase_6_pattern = pattern_souls_symmetric_rain_lines();
-		} else if(phase.u1.phase_6_pattern == 3) {
-			phase.u1.phase_6_pattern = pattern_vertical_lasers_from_top();
+		if(kikuri_phase_state.u1.phase_6_pattern == 0) {
+			kikuri_phase_state.u1.phase_6_pattern = pattern_4_spiral_along_disc();
+		} else if(kikuri_phase_state.u1.phase_6_pattern == 1) {
+			kikuri_phase_state.u1.phase_6_pattern =
+				pattern_single_lasers_from_left_eye();
+		} else if(kikuri_phase_state.u1.phase_6_pattern == 2) {
+			kikuri_phase_state.u1.phase_6_pattern =
+				pattern_souls_symmetric_rain_lines();
+		} else if(kikuri_phase_state.u1.phase_6_pattern == 3) {
+			kikuri_phase_state.u1.phase_6_pattern = pattern_vertical_lasers_from_top();
 		}
 		if(boss_phase_frame == 0) {
-			phase.patterns_done++;
+			kikuri_phase_state.patterns_done++;
 		}
 
 		// That's a well-hidden timeout condition! Especially since there is no
 		// corresponding HP rendering call to reflect this change in the HUD.
-		if(phase.patterns_done > 29) {
+		if(kikuri_phase_state.patterns_done > 29) {
 			boss_hp = 1;
 		}
 
-		hit.update_and_render(flash_colors);
+		kikuri_hit.update_and_render(flash_colors);
 		if(boss_hp <= 0) {
 			mdrv2_bgm_fade_out_nonblock();
 			Pellets.unput_and_reset_nonclouds();
@@ -1160,3 +1185,385 @@ entrance_rings_still_active:
 		}
 	}
 }
+
+#pragma codeseg T1B15JOWN_TEXT
+
+static bool16 t1boss_kikuri_checkpoint_x_is_valid(int16_t coordinate)
+{
+	return ((coordinate >= -RES_X) && (coordinate <= (RES_X * 2)));
+}
+
+static bool16 t1boss_kikuri_checkpoint_y_is_valid(int16_t coordinate)
+{
+	return ((coordinate >= -RES_Y) && (coordinate <= (RES_Y * 2)));
+}
+
+static bool16 t1boss_kikuri_checkpoint_pattern_state_is_valid(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	if((checkpoint->phase == 2) || (checkpoint->phase == 4)) {
+		return (
+			(checkpoint->pattern_state == 1) ||
+			(checkpoint->pattern_state == 2) ||
+			(checkpoint->pattern_state == 3) ||
+			(checkpoint->pattern_state == 4)
+		);
+	}
+	if(checkpoint->phase == 5) {
+		return (
+			(checkpoint->pattern_state == 120) ||
+			(checkpoint->pattern_state == 140) ||
+			(checkpoint->pattern_state == 160) ||
+			(checkpoint->pattern_state == 200)
+		);
+	}
+	return (
+		(checkpoint->pattern_state == 1) ||
+		(checkpoint->pattern_state == 2) ||
+		(checkpoint->pattern_state == 3) ||
+		(checkpoint->pattern_state == 4) ||
+		(checkpoint->pattern_state == 6) ||
+		(checkpoint->pattern_state == 8) ||
+		(checkpoint->pattern_state == 14) ||
+		(checkpoint->pattern_state == 52) ||
+		(checkpoint->pattern_state == 56) ||
+		(checkpoint->pattern_state == 60) ||
+		(checkpoint->pattern_state == 64) ||
+		(checkpoint->pattern_state == 68) ||
+		(checkpoint->pattern_state == 72) ||
+		(checkpoint->pattern_state == 120) ||
+		(checkpoint->pattern_state == 140) ||
+		(checkpoint->pattern_state == 160) ||
+		(checkpoint->pattern_state == 200)
+	);
+}
+
+static bool16 t1boss_kikuri_checkpoint_phase_is_safe(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	if(checkpoint->phase == 2) {
+		return (
+			(checkpoint->hp > HP_PHASE_2_END) &&
+			(checkpoint->hp <= HP_TOTAL) &&
+			(checkpoint->phase_u1 == P4_SOUL_ACTIVATION) &&
+			(checkpoint->patterns_done >= 0) &&
+			(checkpoint->patterns_done < 6) &&
+			((checkpoint->phase_frame >= 100) ||
+			 ((checkpoint->phase_frame == 0) &&
+			  (checkpoint->patterns_done != 0)))
+		);
+	}
+	if(checkpoint->phase == 4) {
+		return (
+			(checkpoint->hp > HP_PHASE_6_END) &&
+			(checkpoint->hp <= HP_PHASE_2_END) &&
+			((checkpoint->phase_u1 == P4_SOUL_ACTIVATION) ||
+			 (checkpoint->phase_u1 == P4_PATTERN)) &&
+			(checkpoint->patterns_done == 0) &&
+			(checkpoint->phase_frame > 0)
+		);
+	}
+	if(checkpoint->phase == 5) {
+		return (
+			(checkpoint->hp > HP_PHASE_5_END) &&
+			(checkpoint->hp <= HP_PHASE_2_END) &&
+			(checkpoint->phase_u1 == 0) &&
+			(checkpoint->patterns_done == 0) &&
+			(checkpoint->phase_frame > 0)
+		);
+	}
+	if(checkpoint->phase == 6) {
+		return (
+			(checkpoint->hp > HP_PHASE_6_END) &&
+			(checkpoint->hp <= HP_PHASE_5_END) &&
+			(checkpoint->phase_u1 >= 0) &&
+			(checkpoint->phase_u1 <= 3) &&
+			(checkpoint->patterns_done >= 0) &&
+			(checkpoint->patterns_done <= 30) &&
+			((checkpoint->patterns_done <= 29) || (checkpoint->hp == 1)) &&
+			((checkpoint->phase_frame != 0) ||
+			 (checkpoint->patterns_done != 0))
+		);
+	}
+	return false;
+}
+
+static bool16 t1boss_kikuri_checkpoint_entity_is_valid(
+	int16_t left,
+	int16_t top,
+	int16_t prev_left,
+	int16_t prev_top,
+	int16_t prev_delta_x,
+	int16_t prev_delta_y,
+	int16_t lock_frame
+)
+{
+	return (
+		t1boss_kikuri_checkpoint_x_is_valid(left) &&
+		t1boss_kikuri_checkpoint_y_is_valid(top) &&
+		t1boss_kikuri_checkpoint_x_is_valid(prev_left) &&
+		t1boss_kikuri_checkpoint_y_is_valid(prev_top) &&
+		(prev_delta_x >= -8) && (prev_delta_x <= 8) &&
+		(prev_delta_y >= -8) && (prev_delta_y <= 8) &&
+		(lock_frame >= 0) && (lock_frame <= 1)
+	);
+}
+
+bool16 t1boss_kikuri_checkpoint_validate(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+	int col;
+	int comp;
+
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_KIKURI_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_KIKURI_CHECKPOINT_SCHEMA) ||
+		(checkpoint->reserved_0 != 0) ||
+		(checkpoint->reserved[0] != 0) ||
+		(checkpoint->phase_frame < 0) ||
+		(checkpoint->invincibility_frame < 0) ||
+		(checkpoint->invincibility_frame > BOSS_HIT_INVINCIBILITY_FRAMES) ||
+		(checkpoint->hit_invincible > 1) ||
+		(checkpoint->initial_hp_rendered > 1) ||
+		((checkpoint->phase_2_distance != DISC_RADIUS) &&
+		 (checkpoint->phase_2_distance != ((DISC_RADIUS / 2) + 5))) ||
+		((checkpoint->phase_6_random_range_x_half != 0) &&
+		 (checkpoint->phase_6_random_range_x_half != (PLAYFIELD_W / 64)) &&
+		 (checkpoint->phase_6_random_range_x_half != (PLAYFIELD_W / 40)) &&
+		 (checkpoint->phase_6_random_range_x_half != (PLAYFIELD_W / 32))) ||
+		!t1boss_kikuri_checkpoint_phase_is_safe(checkpoint) ||
+		!t1boss_kikuri_checkpoint_pattern_state_is_valid(checkpoint)
+	) {
+		return false;
+	}
+	for(i = 0; i < SOUL_COUNT; i++) {
+		if(
+			(checkpoint->soul_image[i] >= SOUL_CELS) ||
+			!t1boss_kikuri_checkpoint_entity_is_valid(
+				checkpoint->soul_left[i],
+				checkpoint->soul_top[i],
+				checkpoint->soul_prev_left[i],
+				checkpoint->soul_prev_top[i],
+				checkpoint->soul_prev_delta_x[i],
+				checkpoint->soul_prev_delta_y[i],
+				checkpoint->soul_lock_frame[i]
+			)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		if(
+			(checkpoint->tear_anim_frame[i] < 0) ||
+			(checkpoint->tear_anim_frame[i] > 75) ||
+			(checkpoint->tear_image[i] != 0)
+		) {
+			return false;
+		}
+		if(checkpoint->tear_anim_frame[i] == 0) {
+			if(
+				(checkpoint->tear_left[i] != 0) ||
+				(checkpoint->tear_top[i] != 0) ||
+				(checkpoint->tear_prev_left[i] != 0) ||
+				(checkpoint->tear_prev_top[i] != 0) ||
+				(checkpoint->tear_prev_delta_x[i] != 0) ||
+				(checkpoint->tear_prev_delta_y[i] != 0) ||
+				(checkpoint->tear_lock_frame[i] != 0)
+			) {
+				return false;
+			}
+		} else if(!t1boss_kikuri_checkpoint_entity_is_valid(
+			checkpoint->tear_left[i],
+			checkpoint->tear_top[i],
+			checkpoint->tear_prev_left[i],
+			checkpoint->tear_prev_top[i],
+			checkpoint->tear_prev_delta_x[i],
+			checkpoint->tear_prev_delta_y[i],
+			checkpoint->tear_lock_frame[i]
+		)) {
+			return false;
+		}
+	}
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			if(checkpoint->boss_palette[col][comp] > RGB4::max()) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool16 t1boss_kikuri_checkpoint_capture(
+	t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	t1boss_kikuri_checkpoint_t live;
+	int i;
+	int col;
+	int comp;
+
+	if(!checkpoint) {
+		return false;
+	}
+	live.owner = T1BOSS_KIKURI_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_KIKURI_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.reserved_0 = 0;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.invincibility_frame = kikuri_hit.invincibility_frame;
+	live.pattern_state = pattern_state.interval;
+	live.phase_u1 = kikuri_phase_state.u1.phase_6_pattern;
+	live.patterns_done = kikuri_phase_state.patterns_done;
+	live.phase_2_distance = kikuri_phase_2.distance;
+	live.phase_6_random_range_x_half = kikuri_phase_6_random_range_x_half;
+	for(i = 0; i < SOUL_COUNT; i++) {
+		live.soul_left[i] = souls[i].cur_left;
+		live.soul_top[i] = souls[i].cur_top;
+		live.soul_prev_left[i] = souls[i].prev_left;
+		live.soul_prev_top[i] = souls[i].prev_top;
+		live.soul_prev_delta_x[i] = souls[i].prev_delta_x;
+		live.soul_prev_delta_y[i] = souls[i].prev_delta_y;
+		live.soul_image[i] = souls[i].image();
+		live.soul_lock_frame[i] = souls[i].lock_frame;
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		live.tear_anim_frame[i] = tear_anim_frame[i];
+		if(live.tear_anim_frame[i] == 0) {
+			live.tear_left[i] = 0;
+			live.tear_top[i] = 0;
+			live.tear_prev_left[i] = 0;
+			live.tear_prev_top[i] = 0;
+			live.tear_prev_delta_x[i] = 0;
+			live.tear_prev_delta_y[i] = 0;
+			live.tear_image[i] = 0;
+			live.tear_lock_frame[i] = 0;
+		} else {
+			live.tear_left[i] = tears[i].cur_left;
+			live.tear_top[i] = tears[i].cur_top;
+			live.tear_prev_left[i] = tears[i].prev_left;
+			live.tear_prev_top[i] = tears[i].prev_top;
+			live.tear_prev_delta_x[i] = tears[i].prev_delta_x;
+			live.tear_prev_delta_y[i] = tears[i].prev_delta_y;
+			live.tear_image[i] = tears[i].image();
+			live.tear_lock_frame[i] = tears[i].lock_frame;
+		}
+	}
+	live.hit_invincible = kikuri_hit.invincible;
+	live.initial_hp_rendered = kikuri_initial_hp_rendered;
+	live.phase_2_angle = kikuri_phase_2.angle;
+	live.phase_2_drift = kikuri_phase_2.drift;
+	live.phase_6_spiral_angle = kikuri_phase_6_spiral_angle;
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			live.boss_palette[col][comp] = boss_palette[col].v[comp];
+		}
+	}
+	live.reserved[0] = 0;
+	if(!t1boss_kikuri_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+static void t1boss_kikuri_ckpt_restore_soul(
+	const t1boss_kikuri_checkpoint_t *checkpoint,
+	int i
+)
+{
+	souls[i].pos_set(
+		checkpoint->soul_left[i], checkpoint->soul_top[i], 50,
+		SOUL_AREA_LEFT, SOUL_AREA_RIGHT, SOUL_AREA_TOP, SOUL_AREA_BOTTOM
+	);
+	souls[i].prev_left = checkpoint->soul_prev_left[i];
+	souls[i].prev_top = checkpoint->soul_prev_top[i];
+	souls[i].prev_delta_x = checkpoint->soul_prev_delta_x[i];
+	souls[i].prev_delta_y = checkpoint->soul_prev_delta_y[i];
+	souls[i].set_image(checkpoint->soul_image[i]);
+	souls[i].lock_frame = checkpoint->soul_lock_frame[i];
+}
+
+static void t1boss_kikuri_ckpt_restore_tear(
+	const t1boss_kikuri_checkpoint_t *checkpoint,
+	int i
+)
+{
+	tears[i].pos_set(
+		checkpoint->tear_left[i], checkpoint->tear_top[i], 50,
+		SOUL_AREA_LEFT, SOUL_AREA_RIGHT, SOUL_AREA_TOP, SOUL_AREA_BOTTOM
+	);
+	tears[i].prev_left = checkpoint->tear_prev_left[i];
+	tears[i].prev_top = checkpoint->tear_prev_top[i];
+	tears[i].prev_delta_x = checkpoint->tear_prev_delta_x[i];
+	tears[i].prev_delta_y = checkpoint->tear_prev_delta_y[i];
+	tears[i].set_image(checkpoint->tear_image[i]);
+	tears[i].lock_frame = checkpoint->tear_lock_frame[i];
+}
+
+bool16 t1boss_kikuri_ckpt_apply_loaded(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+	int col;
+	int comp;
+
+	if(!t1boss_kikuri_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+
+	for(i = 0; i < SOUL_COUNT; i++) {
+		t1boss_kikuri_ckpt_restore_soul(checkpoint, i);
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		t1boss_kikuri_ckpt_restore_tear(checkpoint, i);
+		tear_anim_frame[i] = checkpoint->tear_anim_frame[i];
+	}
+
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	kikuri_hit.invincibility_frame = checkpoint->invincibility_frame;
+	kikuri_hit.invincible = checkpoint->hit_invincible;
+	pattern_state.interval = checkpoint->pattern_state;
+	kikuri_phase_state.u1.phase_6_pattern = checkpoint->phase_u1;
+	kikuri_phase_state.patterns_done = checkpoint->patterns_done;
+	kikuri_phase_2.distance = checkpoint->phase_2_distance;
+	kikuri_phase_2.angle = checkpoint->phase_2_angle;
+	kikuri_phase_2.drift = checkpoint->phase_2_drift;
+	kikuri_phase_6_spiral_angle = checkpoint->phase_6_spiral_angle;
+	kikuri_phase_6_random_range_x_half = checkpoint->phase_6_random_range_x_half;
+	kikuri_initial_hp_rendered = checkpoint->initial_hp_rendered;
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			boss_palette[col].v[comp] = checkpoint->boss_palette[col][comp];
+		}
+	}
+	hud_hp_first_white = HP_PHASE_2_END;
+	hud_hp_first_redwhite = HP_PHASE_5_END;
+	return true;
+}
+
+bool16 t1boss_kikuri_checkpoint_apply(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(!t1boss_kikuri_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS/.PTN resources. The record carries only
+	// stable sprite, pattern, and palette semantics applied below.
+	kikuri_ent_load(i);
+	return t1boss_kikuri_ckpt_apply_loaded(checkpoint);
+}
+
+#pragma codeseg

@@ -8,6 +8,7 @@
 #include "th01/formats/pf.hpp"
 #include "th01/sprites/pellet.h"
 #include "th01/main/bullet/pellet.hpp"
+#include "th01/main/stage/card.hpp"
 #include "th01/main/stage/stages.hpp"
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/replay_format.hpp"
@@ -61,11 +62,11 @@ unsigned long stageobj_bgs_size;
 CCards cards;
 CObstacles obstacles;
 uscore_t *cards_score;
-static bool t1replay_stage_vertical_bars_blocked;
-static int t1replay_stage_entered_portal_slot;
-static screen_x_t t1replay_stage_portal_dst_left;
-static screen_y_t t1replay_stage_portal_dst_top;
-static bool16 t1replay_stage_portals_blocked;
+bool t1replay_stage_vertical_bars_blocked;
+int t1replay_stage_entered_portal_slot;
+screen_x_t t1replay_stage_portal_dst_left;
+screen_y_t t1replay_stage_portal_dst_top;
+bool16 t1replay_stage_portals_blocked;
 // -------
 
 // Byte-wise iterators for STAGE?.DAT arrays
@@ -807,19 +808,7 @@ void obstacles_update_and_render(bool16 reset)
 	}
 }
 
-static const int TURRET_COOLDOWN_FRAMES = 7;
-
-enum turret_flag_t {
-	TF_READY = 0,
-	TF_WARMUP = 1,
-	TF_FIRE = 2,
-	TF_COOLDOWN = 3,
-	TF_DONE = (TF_COOLDOWN + TURRET_COOLDOWN_FRAMES),
-
-	_turret_flag_t_FORCE_INT16 = 0x7FFF
-};
-
-static turret_flag_t *t1replay_stage_turret_flag;
+turret_flag_t *t1replay_stage_turret_flag;
 
 void turret_fire_update_and_render_or_reset(int obstacle_slot, bool16 reset)
 {
@@ -1052,12 +1041,16 @@ bool16 t1replay_stage_checkpoint_export(t1replay_checkpoint_stage_t *checkpoint)
 	checkpoint->portal_dst_top = t1replay_stage_portal_dst_top;
 	checkpoint->vertical_bars_blocked = t1replay_stage_vertical_bars_blocked;
 	checkpoint->portals_blocked = t1replay_stage_portals_blocked;
+	checkpoint->card_flip_cycle = card_flip_cycle;
+	checkpoint->reserved = 0;
 
 	for(i = 0; i < cards.count; i++) {
 		checkpoint->cards[i].left = cards.left[i];
 		checkpoint->cards[i].top = cards.top[i];
 		checkpoint->cards[i].flip_frame = cards.flip_frame[i];
-		checkpoint->cards[i].score = cards_score[i];
+		checkpoint->cards[i].score = (
+			(cards.flag[i] == CARD_FLIPPING) ? cards_score[i] : 0
+		);
 		checkpoint->cards[i].hp = cards.hp[i];
 		checkpoint->cards[i].flag = cards.flag[i];
 	}
@@ -1071,16 +1064,4 @@ bool16 t1replay_stage_checkpoint_export(t1replay_checkpoint_stage_t *checkpoint)
 		);
 	}
 	return true;
-}
-
-bool16 t1replay_stage_checkpoint_import(
-	const t1replay_checkpoint_stage_t *checkpoint
-)
-{
-	// No restore may mutate heap-backed cards/obstacles until it can recreate
-	// their page-1 backgrounds from native scene data. A stable slot record is
-	// useful to capture and validate now, but applying it without those images
-	// would leave stale VRAM and invalid far allocations.
-	checkpoint;
-	return false;
 }

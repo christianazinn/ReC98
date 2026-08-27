@@ -1,6 +1,7 @@
 /// Jigoku Stage 20 Boss - Konngara
 /// -------------------------------
 
+#include "th01/main/boss/b20j.hpp"
 #include <stdio.h>
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
@@ -1842,3 +1843,95 @@ void konngara_main(void)
 	#undef phase_frame_siddham_flash
 	#undef pattern_choose
 }
+
+#pragma codeseg T1B20JOWN_TEXT
+
+extern uint8_t* rle_streams[GRX_COUNT];
+extern dots8_t* planar_streams[GRX_COUNT][PLANAR_STREAM_PER_GRX_COUNT];
+extern uint8_t planar_stream_count[GRX_COUNT];
+
+static bool16 t1boss_konngara_resources_loaded(void)
+{
+	int i;
+
+	if(
+		(ent_head.bos_slot != 0) || (ent_head.bos_image_count <= FD_CENTER) ||
+		ent_head.loading ||
+		(ent_face_closed_or_glare.bos_slot != 1) ||
+		(ent_face_closed_or_glare.bos_image_count < (FD_COUNT * 2)) ||
+		ent_face_closed_or_glare.loading ||
+		(ent_face_aim.bos_slot != 2) ||
+		(ent_face_aim.bos_image_count < FD_COUNT) || ent_face_aim.loading
+	) {
+		return false;
+	}
+	for(i = 0; i < 7; i++) {
+		if(
+			!rle_streams[i] || !planar_streams[i][0] ||
+			(planar_stream_count[i] == 0)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool16 t1boss_konngara_checkpoint_validate(
+	const t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	return (
+		checkpoint &&
+		(checkpoint->owner == T1BOSS_KONNGARA_CHECKPOINT_OWNER) &&
+		(checkpoint->schema == T1BOSS_KONNGARA_CHECKPOINT_SCHEMA) &&
+		(checkpoint->phase == 0) && (checkpoint->reserved == 0)
+	);
+}
+
+static bool16 t1boss_konngara_state_is_canonical(void)
+{
+	return (
+		(boss_phase == 0) && (boss_phase_frame == 0) && (boss_hp == 18) &&
+		(hud_hp_first_white == 16) && (hud_hp_first_redwhite == 10) &&
+		(pattern_state.group == 0) &&
+		(face_direction == FD_CENTER) && (face_expression == FE_NEUTRAL) &&
+		face_direction_can_change && !game_cleared
+	);
+}
+
+bool16 t1boss_konngara_checkpoint_capture(
+	t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	t1boss_konngara_checkpoint_t live;
+
+	if(!checkpoint || !t1boss_konngara_state_is_canonical()) {
+		return false;
+	}
+	live.owner = T1BOSS_KONNGARA_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_KONNGARA_CHECKPOINT_SCHEMA;
+	live.phase = 0;
+	live.reserved = 0;
+	*checkpoint = live;
+	return true;
+}
+
+bool16 t1boss_konngara_ckpt_apply_loaded(
+	const t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_konngara_checkpoint_validate(checkpoint) ||
+		!t1boss_konngara_resources_loaded()
+	) {
+		return false;
+	}
+
+	// Native startup already owns the entrance, palette, and allocations.
+	konngara_setup();
+	pattern_state.group = 0;
+	game_cleared = false;
+	return true;
+}
+
+#pragma codeseg

@@ -111,6 +111,13 @@ bool16 pause_menu(void)
 
 	int8_t sel = 0;
 
+	// main_01.cpp calls this only after input_sense() set [paused]. Keeping the
+	// stock near call preserves that original code span; the replay-aware
+	// implementation itself remains in the additive tail segment.
+	if(paused) {
+		return t1replay_pause_menu();
+	}
+
 	pause_str_put(PAUSE_TITLE_LEFT, 0, PAUSE_TITLE);
 	pause_str_put(PAUSE_CHOICES_LEFT, 1, PAUSE_CHOICES);
 	pause_cursor_put(PAUSE_CHOICE_0_LEFT, PAUSE_CURSOR_INITIAL);
@@ -128,8 +135,12 @@ bool16 pause_menu(void)
 		PAUSE_CHOICES_LEFT, pause_top(1), shiftjis_w(PAUSE_CHOICES), GLYPH_H
 	);
 
+	// The replay-aware path above is the only REIIDEN caller. Retaining the
+	// stock delay while omitting this unreachable fallback's reset preserves the
+	// original near-call span. The one-byte reserve pins Turbo's otherwise
+	// unrepresentable odd-size delta.
 	frame_delay(20);
-	input_reset_menu_related();
+	_asm nop;
 	if((sel != 0) && paused) {
 		pause_str_put(QUIT_TITLE_LEFT, 0, QUIT_TITLE);
 		pause_str_put(QUIT_CHOICES_LEFT, 1, QUIT_CHOICES);
@@ -248,7 +259,7 @@ bool16 continue_menu(void)
 				player_is_hit = false;
 				paused = false;
 				continues_total = 0;
-				mdrv2_bgm_stop();
+				t1replay_terminal_save_request();
 				return false;
 			}
 		}
