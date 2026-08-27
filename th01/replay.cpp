@@ -28,6 +28,7 @@
 #include "th01/main/particle.hpp"
 #include "th01/main/boss/boss.hpp"
 #include "th01/rboss.hpp"
+#include "th01/rpypixel.hpp"
 #include "th01/snd/mdrv2.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 
@@ -1578,6 +1579,45 @@ static bool t1replay_checkpoint_read(uint8_t slot, uint8_t process_seq)
 	return valid;
 }
 
+#if T1REPLAY_PIXEL_TRACE && !T1REPLAY_CHECKPOINT_RESTORE
+static bool t1replay_checkpoint_probe_prepare(
+	resident_t far *start_resident, uint8_t slot, uint8_t process_seq,
+	uint8_t source_process
+)
+{
+	t1replay_stream_state_t state;
+	const t1replay_checkpoint_pacing_t far *pacing =
+		&t1replay_checkpoint.pacing;
+	const t1replay_checkpoint_scenario_t far *scenario =
+		&t1replay_checkpoint.scenario;
+
+	if(
+		!start_resident ||
+		!t1replay_checkpoint_read(slot, process_seq) ||
+		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_cross_groups_valid(&t1replay_checkpoint) ||
+		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+		(pacing->process_seq != process_seq) ||
+		(pacing->replay_packet_anchor > t1replay_header.packet_count) ||
+		(pacing->replay_sample_anchor > t1replay_header.sample_count) ||
+		(pacing->replay_input_anchor > t1replay_header.input_size) ||
+		(start_resident->stage_id != scenario->resident_stage_id) ||
+		(start_resident->route != scenario->resident_route) ||
+		!t1replay_payload_prefix_valid(
+			pacing->replay_input_anchor, pacing->replay_prefix_checksum, &state
+		) ||
+		state.terminal_seen ||
+		(state.samples != pacing->replay_sample_anchor) ||
+		(state.process != T1REPLAY_PROCESS_REIIDEN) ||
+		(state.process_seq != process_seq) ||
+		(state.source_process != source_process)
+	) {
+		return false;
+	}
+	return t1replay_pixel_probe_arm(&t1replay_checkpoint);
+}
+#endif
+
 static bool t1replay_checkpoint_restore_prepare(
 	resident_t far *start_resident, uint8_t slot, uint8_t process_seq,
 	uint8_t source_process
@@ -1658,6 +1698,11 @@ static bool t1replay_checkpoint_restore_prepare(
 	t1replay_decode_run = 0;
 	t1replay_pending_valid = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
+#if T1REPLAY_PIXEL_TRACE
+	if(!t1replay_pixel_probe_arm(&t1replay_checkpoint)) {
+		return false;
+	}
+#endif
 	t1replay_checkpoint_restore_is_pending = true;
 	return true;
 }
@@ -2003,6 +2048,9 @@ static void t1replay_state_reset(void)
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
+#if T1REPLAY_PIXEL_TRACE
+	t1replay_pixel_probe_reset();
+#endif
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_trace_ready = false;
 	t1replay_exact_trace_failed = false;
@@ -2274,6 +2322,18 @@ void far t1replay_entry(void)
 				}
 				t1replay_res_store();
 			}
+#elif T1REPLAY_PIXEL_TRACE
+			if(t1replay_mode == T1RM_PLAYBACK) {
+				start_resident = ResData<resident_t>::exist(resident_id);
+				resident = start_resident;
+				if(!t1replay_checkpoint_probe_prepare(
+					start_resident, t1replay_res->slot,
+					t1replay_res->process_seq, t1replay_res->source_process
+				)) {
+					t1replay_fail();
+					return;
+				}
+			}
 #endif
 		} else {
 			t1replay_abort_before_start();
@@ -2324,6 +2384,14 @@ void far t1replay_entry(void)
 			}
 #else
 			t1replay_start_apply();
+#if T1REPLAY_PIXEL_TRACE
+			if(!t1replay_checkpoint_probe_prepare(
+				start_resident, slot, 0, T1REPLAY_PROCESS_NONE
+			)) {
+				t1replay_fail();
+				return;
+			}
+#endif
 #endif
 		}
 		if(!t1replay_res_open(res_id, true)) {
@@ -2451,10 +2519,20 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	t1replay_input_checkpoint_import(&checkpoint->input);
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_pellet_speed_raise_cycle = *pellet_speed_raise_cycle;
-	t1replay_exact_trace_emit(
+	if(t1replay_exact_trace_emit(
 		T1REPLAY_EXACT_ROW_RESTORE_APPLIED, T1REPLAY_PROCESS_REIIDEN, 0,
 		*pellet_speed_raise_cycle
-	);
+	)) {
+#if T1REPLAY_PIXEL_TRACE
+		t1replay_pixel_probe_restored(
+			t1replay_exact_snapshot.pacing.process_seq,
+			t1replay_exact_snapshot.pacing.replay_sample_anchor,
+			t1replay_exact_snapshot.pacing.replay_packet_anchor,
+			t1replay_exact_snapshot.pacing.replay_input_anchor,
+			t1replay_exact_snapshot.header.state_digest
+		);
+#endif
+	}
 #endif
 	t1replay_checkpoint_restore_is_pending = false;
 	return true;
@@ -2554,10 +2632,20 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_pellet_speed_raise_cycle = pellet_speed_raise_cycle;
 	if(t1replay_mode == T1RM_PLAYBACK) {
-		t1replay_exact_trace_emit(
+		if(t1replay_exact_trace_emit(
 			T1REPLAY_EXACT_ROW_PRE_INPUT, T1REPLAY_PROCESS_REIIDEN, 0,
 			pellet_speed_raise_cycle
-		);
+		)) {
+#if T1REPLAY_PIXEL_TRACE
+			t1replay_pixel_probe_pre_input(
+				t1replay_exact_snapshot.pacing.process_seq,
+				t1replay_exact_snapshot.pacing.replay_sample_anchor,
+				t1replay_exact_snapshot.pacing.replay_packet_anchor,
+				t1replay_exact_snapshot.pacing.replay_input_anchor,
+				t1replay_exact_snapshot.header.state_digest
+			);
+#endif
+		}
 	}
 #endif
 	if(

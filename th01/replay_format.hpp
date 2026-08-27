@@ -73,7 +73,8 @@
 
 // Kept deliberately short because the 16-bit compiler receives this switch
 // through DOS's command tail. Values 1 through 3 select the private capture,
-// sequential, and direct exact-restore profiles, respectively.
+// sequential, and direct exact-restore profiles. Values 4 and 5 add the
+// measurement-only SinGyoku pixel probe to sequential and direct playback.
 #ifndef T1RP
 #define T1RP 0
 #endif
@@ -82,8 +83,10 @@
 	#undef T1REPLAY_CHECKPOINT_EMIT
 	#undef T1REPLAY_CHECKPOINT_RESTORE
 	#define T1REPLAY_CHECKPOINT_EMIT (T1RP == 1)
-	#define T1REPLAY_CHECKPOINT_RESTORE (T1RP == 3)
+	#define T1REPLAY_CHECKPOINT_RESTORE ((T1RP == 3) || (T1RP == 5))
 #endif
+
+#define T1REPLAY_PIXEL_TRACE ((T1RP == 4) || (T1RP == 5))
 
 // Private semantic tracing for direct-versus-sequential checkpoint evidence.
 // This is not part of T1RPY4 or T1CKP1 and stays absent from release builds.

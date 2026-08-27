@@ -24,7 +24,7 @@
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/palette.hpp"
 
-#if defined(T1RP) && (T1RP == 3)
+#if defined(T1RP) && ((T1RP == 3) || (T1RP == 4) || (T1RP == 5))
 #include "th01/hardware/graph.h"
 #endif
 
@@ -935,7 +935,7 @@ bool16 t1boss_singyoku_checkpoint_apply(
 	return t1boss_singyoku_ckpt_apply_loaded(checkpoint);
 }
 
-#if defined(T1RP) && (T1RP == 3)
+#if defined(T1RP) && ((T1RP == 3) || (T1RP == 4) || (T1RP == 5))
 static int t1boss_singyoku_presentation_person_cel(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 )

@@ -16,7 +16,12 @@
 static screen_point_t graph_r_last_line_end;
 
 static int8_t unused; // ZUN bloat
+#if defined(T1RP) && ((T1RP == 4) || (T1RP == 5))
+page_t page_accessed;
+page_t page_shown;
+#else
 static page_t page_accessed;
+#endif
 
 /// VRAM plane "structures"
 /// -----------------------
@@ -164,6 +169,9 @@ void z_graph_hide()
 
 void graph_showpage_func(page_t page)
 {
+#if defined(T1RP) && ((T1RP == 4) || (T1RP == 5))
+	page_shown = page;
+#endif
 	outportb(0xA4, page);
 }
 
