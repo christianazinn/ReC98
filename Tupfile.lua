@@ -532,8 +532,8 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	"th01/2x_fuuin.cpp",
 	"th01/mdrv2.cpp",
 	"th01_fuuin.asm",
-	-- Must stay last: FUUIN's replay code and BSS are additive trailing
-	-- contributions and must not move any original owner.
+	-- Keep FUUIN's patch-owned replay and presentation state after every
+	-- original object so neither can move an original owner.
 	"th01/rpyfuuin.cpp",
 	"th01/language.cpp",
 })
