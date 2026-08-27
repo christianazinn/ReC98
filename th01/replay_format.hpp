@@ -190,7 +190,7 @@ inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 #define T1REPLAY_FUUIN_PHASE_SCORE_RELEASE 3
 
 #define T1REPLAY_RES_ID "T1ReplayState"
-#define T1REPLAY_RES_VERSION 2
+#define T1REPLAY_RES_VERSION 3
 #define T1REPLAY_RESTART_RES_ID "T1ReplayRestart"
 #define T1REPLAY_RESTART_RES_VERSION 1
 
@@ -489,6 +489,18 @@ struct t1replay_restart_state_t {
 	uint32_t checksum;
 };
 
+// This private, pointer-free guard carrier stays outside T1RPY4. It lets the
+// REIIDEN and FUUIN processes verify the same physical-disk witness without
+// changing the user replay format.
+struct t1replay_guard_t {
+	uint32_t committed_size;
+	uint32_t sample_count;
+	uint16_t root_sector;
+	uint16_t root_offset;
+	uint8_t flags;
+	uint8_t reserved[3];
+};
+
 // Cross-process replay state. [source_process] owns the committed handoff at
 // the replay prefix, while [target_process] is the only executable permitted
 // to resume it. No process pointers or interrupt-visible state cross this ABI.
@@ -508,6 +520,7 @@ struct t1replay_res_t {
 	uint32_t payload_checksum;
 	uint32_t start_checksum;
 	uint32_t handoff_checksum;
+	t1replay_guard_t guard;
 	uint32_t checksum;
 };
 
@@ -913,7 +926,7 @@ typedef char t1replay_restart_request_size_check[
 	(sizeof(t1replay_restart_request_t) == T1REPLAY_RESTART_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t1replay_res_size_check[
-	(sizeof(t1replay_res_t) == 54) ? 1 : -1
+	(sizeof(t1replay_res_t) == 70) ? 1 : -1
 ];
 typedef char t1replay_fuuin_handoff_size_check[
 	(sizeof(t1replay_fuuin_handoff_t) == 28) ? 1 : -1

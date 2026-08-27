@@ -11,6 +11,7 @@
 #include "libs/master.lib/master.hpp"
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
+#include "th01/rp_guard.hpp"
 #include "th01/resident.hpp"
 #include "th01/hiscore/regist.hpp"
 #include "th01/math/dir.hpp"
@@ -1913,7 +1914,13 @@ static bool t1replay_res_valid(void)
 		((t1replay_res->source_process != T1REPLAY_PROCESS_NONE) &&
 		 (t1replay_res->source_process != T1REPLAY_PROCESS_REIIDEN)) ||
 		((t1replay_res->target_process != T1REPLAY_PROCESS_REIIDEN) &&
-		 (t1replay_res->target_process != T1REPLAY_PROCESS_FUUIN))) {
+		 (t1replay_res->target_process != T1REPLAY_PROCESS_FUUIN)) ||
+		((t1replay_res->mode == T1RM_RECORD) &&
+		 !t1rpg_state_valid(&t1replay_res->guard)) ||
+		((t1replay_res->mode == T1RM_RECORD) &&
+		 (t1replay_res->guard.sample_count != t1replay_res->sample_count)) ||
+		((t1replay_res->mode == T1RM_PLAYBACK) &&
+		 !t1rpg_state_empty(&t1replay_res->guard))) {
 		return false;
 	}
 	stored = t1replay_res->checksum;
@@ -2319,6 +2326,14 @@ void far t1replay_entry(void)
 				t1replay_fail();
 				return;
 			}
+			if((t1replay_mode == T1RM_RECORD) &&
+				!t1rpg_verify(&t1replay_res->guard)) {
+				if(t1replay_res->guard.flags & T1REPLAY_GUARD_FLAG_INVALID) {
+					t1rpg_poison(&t1replay_res->guard);
+				}
+				t1replay_fail();
+				return;
+			}
 			t1replay_payload_written = t1replay_res->input_size;
 			t1replay_packet_cursor = t1replay_res->packet_count;
 			t1replay_sample_cursor = t1replay_res->sample_count;
@@ -2424,6 +2439,11 @@ void far t1replay_entry(void)
 		t1replay_res->slot = slot;
 		t1replay_res->source_process = T1REPLAY_PROCESS_NONE;
 		t1replay_res->target_process = T1REPLAY_PROCESS_REIIDEN;
+		if((t1replay_mode == T1RM_RECORD) &&
+			!t1rpg_begin(&t1replay_res->guard)) {
+			t1replay_fail();
+			return;
+		}
 		t1replay_res_store();
 	}
 }
@@ -3191,7 +3211,8 @@ void far t1replay_frame_io(void)
 				(key_sense(group) | key_sense(group)) & t1replay_group_mask(i)
 			);
 		}
-		if(!t1replay_record_sample()) {
+		if(!t1replay_record_sample() ||
+			!t1rpg_sample(&t1replay_res->guard)) {
 			t1replay_fail();
 			return;
 		}
@@ -3347,6 +3368,11 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 		}
 		return false;
 	}
+	if((t1replay_mode == T1RM_RECORD) &&
+		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		t1replay_fail();
+		return false;
+	}
 	if(
 		!t1replay_process_control(T1REPLAY_CONTROL_PROCESS_END, target_process)
 	) {
@@ -3421,6 +3447,11 @@ void far t1replay_terminal(uint8_t end_reason)
 		t1replay_fail_and_abort_if_playback();
 		return;
 	}
+	if((t1replay_mode == T1RM_RECORD) &&
+		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		t1replay_fail();
+		return;
+	}
 	if(!t1replay_process_control(T1REPLAY_CONTROL_TERMINAL, end_reason)) {
 		return;
 	}
@@ -3464,6 +3495,9 @@ void far t1replay_terminal(uint8_t end_reason)
 	}
 	t1replay_exact_terminal_pending = false;
 #endif
+	if(!playback) {
+		t1rpg_end(&t1replay_res->guard);
+	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
 	t1replay_pause_terminal_apply(playback);
@@ -3500,7 +3534,18 @@ bool16 far t1replay_pause_save_available(void)
 	// Playback is a read-only transaction. Leaving it still reaches OP through
 	// the ordinary terminal path, but it must not advertise a save action that
 	// cannot create a numbered replay.
-	return (t1replay_mode == T1RM_RECORD);
+	return (
+		(t1replay_mode == T1RM_RECORD) && t1replay_res &&
+		!t1rpg_blocked(&t1replay_res->guard)
+	);
+}
+
+void far t1replay_guard_pause_check(void)
+{
+	if((t1replay_mode == T1RM_RECORD) && t1replay_res &&
+		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		t1replay_fail();
+	}
 }
 
 bool16 far t1replay_pause_restart_available(void)

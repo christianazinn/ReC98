@@ -221,6 +221,7 @@ bool16 far t1replay_pause_menu(void)
 	t1replay_pause_action_t selected = T1RPA_RESUME;
 	t1replay_pause_action_t previous;
 
+	t1replay_guard_pause_check();
 	t1replay_pause_render(selected);
 	z_palette_settone_but_keep_white(40);
 	input_reset_menu_related();

@@ -13,6 +13,7 @@
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/rpyfuuin.hpp"
+#include "th01/rp_guard.hpp"
 #include "th01/resident.hpp"
 #include "th01/shiftjis/fns.hpp"
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -875,7 +876,13 @@ static bool t1replay_res_valid(void)
 		(t1replay_res->process_seq == 0) ||
 		!t1replay_bytes_zero(
 			t1replay_res->reserved, sizeof(t1replay_res->reserved)
-		)
+		) ||
+		((t1replay_res->mode == T1RM_RECORD) &&
+		 !t1rpg_state_valid(&t1replay_res->guard)) ||
+		((t1replay_res->mode == T1RM_RECORD) &&
+		 (t1replay_res->guard.sample_count != t1replay_res->sample_count)) ||
+		((t1replay_res->mode == T1RM_PLAYBACK) &&
+		 !t1rpg_state_empty(&t1replay_res->guard))
 	) {
 		return false;
 	}
@@ -1339,6 +1346,14 @@ bool16 far t1replay_fuuin_entry(bool16 continuation_expected)
 		t1replay_fail();
 		return false;
 	}
+	if((t1replay_mode == T1RM_RECORD) &&
+		!t1rpg_verify(&t1replay_res->guard)) {
+		if(t1replay_res->guard.flags & T1REPLAY_GUARD_FLAG_INVALID) {
+			t1rpg_poison(&t1replay_res->guard);
+		}
+		t1replay_fail();
+		return false;
+	}
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	if((t1replay_mode == T1RM_PLAYBACK) && !t1replay_score_proof_read()) {
 		t1replay_fail();
@@ -1411,7 +1426,8 @@ void far t1replay_fuuin_frame_io(void)
 		t1replay_keys[T1RFIG_7] = static_cast<uint8_t>(
 			(key_sense(7) | key_sense(7)) & T1REPLAY_INPUT_MASK_7
 		);
-		if(!t1replay_record_sample()) {
+		if(!t1replay_record_sample() ||
+			!t1rpg_sample(&t1replay_res->guard)) {
 			t1replay_fail();
 		}
 	} else if(!t1replay_playback_sample()) {
@@ -1479,6 +1495,11 @@ void far t1replay_fuuin_terminal(void)
 		t1replay_fail_and_abort_if_playback();
 		return;
 	}
+	if((t1replay_mode == T1RM_RECORD) &&
+		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		t1replay_fail();
+		return;
+	}
 	if(t1replay_mode == T1RM_RECORD) {
 		if(!t1replay_pending_commit() ||
 			!t1replay_control_commit(
@@ -1518,6 +1539,9 @@ void far t1replay_fuuin_terminal(void)
 	) {
 		t1replay_fail_and_abort_if_playback();
 		return;
+	}
+	if(t1replay_mode == T1RM_RECORD) {
+		t1rpg_end(&t1replay_res->guard);
 	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
