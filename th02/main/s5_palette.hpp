@@ -22,4 +22,17 @@ bool16 far th02_s5_mima_palette_wire_agree(
 	const uint8_t far *palette_wire
 );
 
+#if T2REPLAY_EXACT_APPLY
+struct th02_s5_palette_apply_plan_t {
+	const uint8_t far *wire;
+};
+bool16 far th02_s5_mima_palette_wire_prepare(
+	th02_s5_palette_apply_plan_t *plan,
+	const uint8_t far *wire, uint16_t wire_size
+);
+void far th02_s5_mima_palette_commit_prepared(
+	const th02_s5_palette_apply_plan_t *plan
+);
+#endif
+
 #endif /* TH02_MAIN_S5_PALETTE_HPP */

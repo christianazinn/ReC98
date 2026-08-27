@@ -799,6 +799,21 @@ bool16 far t2checkpoint_common_plan_prepare(
 	return true;
 }
 
+static void near t2cap_commit_groups(const uint8_t far * const group[])
+{
+	t2cap_apply_rng(group[T2RCGI_RNG]);
+	t2cap_apply_run(group[T2RCGI_RUN]);
+	t2cap_apply_field(group[T2RCGI_FIELD]);
+	t2cap_apply_stage_vm(group[T2RCGI_STAGE_VM]);
+	t2cap_apply_pacing(group[T2RCGI_PACING]);
+	t2cap_apply_player(group[T2RCGI_PLAYER]);
+	t2cap_apply_bomb(group[T2RCGI_BOMB]);
+	t2cap_apply_bullet(group[T2RCGI_BULLET]);
+	t2cap_apply_laser(group[T2RCGI_LASER]);
+	t2cap_apply_enemy(group[T2RCGI_ENEMY]);
+	t2cap_apply_effect(group[T2RCGI_EFFECT]);
+}
+
 bool16 far t2checkpoint_common_apply_prepared(
 	const struct t2checkpoint_common_plan_t *plan
 )
@@ -815,17 +830,7 @@ bool16 far t2checkpoint_common_apply_prepared(
 	// The caller has already checked every actor/palette/tile/callback/redraw
 	// group needed to make this visible. This common-only commit never calls
 	// graphics, allocators, DOS, or stage-specific code.
-	t2cap_apply_rng(plan->group[T2RCGI_RNG]);
-	t2cap_apply_run(plan->group[T2RCGI_RUN]);
-	t2cap_apply_field(plan->group[T2RCGI_FIELD]);
-	t2cap_apply_stage_vm(plan->group[T2RCGI_STAGE_VM]);
-	t2cap_apply_pacing(plan->group[T2RCGI_PACING]);
-	t2cap_apply_player(plan->group[T2RCGI_PLAYER]);
-	t2cap_apply_bomb(plan->group[T2RCGI_BOMB]);
-	t2cap_apply_bullet(plan->group[T2RCGI_BULLET]);
-	t2cap_apply_laser(plan->group[T2RCGI_LASER]);
-	t2cap_apply_enemy(plan->group[T2RCGI_ENEMY]);
-	t2cap_apply_effect(plan->group[T2RCGI_EFFECT]);
+	t2cap_commit_groups(plan->group);
 	return true;
 }
 
@@ -852,3 +857,58 @@ bool16 far t2checkpoint_common_apply(
 	t2cap_reject_set(reason, T2CCAR_OK);
 	return true;
 }
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far t2checkpoint_common_exact_plan_prepare(
+	struct t2checkpoint_common_exact_plan_t *plan,
+	const uint8_t far *group[],
+	const struct t2checkpoint_common_boundary_t *boundary,
+	enum t2checkpoint_common_reject_t *reason
+)
+{
+	struct t2checkpoint_common_exact_plan_t staged;
+	uint8_t id;
+
+	t2cap_reject_set(reason, T2CCAR_OK);
+	if((plan == 0) || (group == 0)) {
+		t2cap_reject_set(reason, T2CCAR_NULL);
+		return false;
+	}
+	for(id = 0; id < T2REPLAY_CHECKPOINT_GROUP_COUNT; id++) {
+		if(group[id] == 0) {
+			t2cap_reject_set(reason, T2CCAR_NULL);
+			return false;
+		}
+	}
+	if(!replay_checkpoint_common_groups_valid(group)) {
+		t2cap_reject_set(reason, T2CCAR_PAYLOAD);
+		return false;
+	}
+	if(!t2cap_boundary_valid(boundary)) {
+		t2cap_reject_set(reason, T2CCAR_BOUNDARY);
+		return false;
+	}
+	if(!t2cap_environment_valid(
+		group[T2RCGI_IDENTITY], group[T2RCGI_STAGE_VM]
+	)) {
+		t2cap_reject_set(reason, T2CCAR_ENVIRONMENT);
+		return false;
+	}
+	for(id = 0; id < T2REPLAY_CHECKPOINT_GROUP_COUNT; id++) {
+		staged.group[id] = group[id];
+	}
+	staged.boundary = *boundary;
+	staged.page_front = group[T2RCGI_FIELD][0];
+	staged.page_back = group[T2RCGI_FIELD][1];
+	staged.resource_id = group[T2RCGI_IDENTITY][0];
+	*plan = staged;
+	return true;
+}
+
+void far t2checkpoint_common_exact_commit_prepared(
+	const struct t2checkpoint_common_exact_plan_t *plan
+)
+{
+	t2cap_commit_groups(plan->group);
+}
+#endif

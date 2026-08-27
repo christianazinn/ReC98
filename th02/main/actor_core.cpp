@@ -76,15 +76,12 @@ bool16 far th02_actor_core_state_capture(th02_actor_core_state_t *state)
 	return true;
 }
 
-bool16 far th02_actor_core_state_apply(
+static void near th02_actor_core_state_commit(
 	const th02_actor_core_state_t *state
 )
 {
 	int i;
 
-	if(!th02_actor_core_state_validate(state)) {
-		return false;
-	}
 	patnum_2064E = state->patnum;
 	boss_phase_frame = state->phase_frame;
 	for(i = 0; i < PAGE_COUNT; i++) {
@@ -101,6 +98,17 @@ bool16 far th02_actor_core_state_apply(
 	}
 	boss_explode_angle_offset = state->explode_angle_offset;
 	bomb_damage_frame_mask = state->bomb_damage_frame_mask;
+
+}
+
+bool16 far th02_actor_core_state_apply(
+	const th02_actor_core_state_t *state
+)
+{
+	if(!th02_actor_core_state_validate(state)) {
+		return false;
+	}
+	th02_actor_core_state_commit(state);
 	return true;
 }
 
@@ -240,3 +248,20 @@ bool16 far th02_actor_core_state_wire_valid(
 
 	return th02_actor_core_state_wire_decode(&decoded, wire, wire_size);
 }
+
+#if T2REPLAY_EXACT_APPLY
+bool16 far th02_actor_core_state_wire_prepare(
+	th02_actor_core_state_t *state,
+	const uint8_t far *wire, uint16_t wire_size
+)
+{
+	return th02_actor_core_state_wire_decode(state, wire, wire_size);
+}
+
+void far th02_actor_core_state_commit_prepared(
+	const th02_actor_core_state_t *state
+)
+{
+	th02_actor_core_state_commit(state);
+}
+#endif

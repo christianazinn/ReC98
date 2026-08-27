@@ -33,6 +33,7 @@ on this branch.
 
 tup.include("Pipeline/rules.lua")
 tup.import("T1REPLAY_PROFILE=")
+tup.import("T2REPLAY_PROFILE=")
 
 ---@class (exact) ConfigShape
 ---@field obj_root? string Root directory for all intermediate files
@@ -365,7 +366,26 @@ if (t1replay_profile_name ~= "") and (t1replay_profile == nil) then
 end
 
 local th01 = Config:branch(GameShape(1), t1replay_profile)
+local T2REPLAY_PROFILES = {
+	["t2exact-direct"] = {
+		obj_root = "x/d/",
+		bin_root = "x/d/",
+		cflags = "-DT2REPLAY_EXACT_APPLY=1 -DT2REPLAY_EXACT_TRACE=1",
+	},
+}
+local t2replay_profile_name = tostring(T2REPLAY_PROFILE or "")
+local t2replay_profile = {}
+if t2replay_profile_name ~= "" then
+	t2replay_profile = T2REPLAY_PROFILES[t2replay_profile_name]
+end
+if (t2replay_profile_name ~= "") and (t2replay_profile == nil) then
+	error(string.format(
+		"Unsupported T2REPLAY_PROFILE: `%s`", t2replay_profile_name
+	))
+end
+
 local th02 = Config:branch(GameShape(2))
+local th02_main = th02:branch(t2replay_profile)
 local th03 = Config:branch(GameShape(3))
 local th04 = Config:branch(GameShape(4))
 local th05 = Config:branch(GameShape(5))
@@ -564,7 +584,7 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
 })
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	{ "th02_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["bombpart"],

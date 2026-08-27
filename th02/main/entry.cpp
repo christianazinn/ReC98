@@ -84,11 +84,21 @@ extern "C" int far main_entry(void)
 	if(!cfg_load()) {
 		return 1;
 	}
+#if T2REPLAY_EXACT_APPLY
+	// The private direct-start request owns one temporary far block. Assign
+	// master.lib's heap before replay_entry() tries to allocate it.
+	if(game_init_main()) {
+		zun_error(ERROR_OUT_OF_MEMORY);
+		return 1;
+	}
+	replay_entry();
+#else
 	replay_entry();
 	if(game_init_main()) {
 		zun_error(ERROR_OUT_OF_MEMORY);
 		return 1;
 	}
+#endif
 
 	if(resident->bgm_mode == SND_BGM_FM) {
 		snd_pmd_resident();

@@ -111,6 +111,14 @@ bool16 replay_exact_stage5_mima_callback_redraw_capture(
 	const struct t2rec_boundary_t *boundary
 );
 
+#if T2REPLAY_EXACT_APPLY
+// Read-only bridge used while preparing the common owner from the ordered
+// payload pointers in a schema-6 envelope.
+bool16 far replay_checkpoint_common_groups_valid(
+	const uint8_t far *group[]
+);
+#endif
+
 // Called immediately after one of MAIN's native input_reset_sense() calls.
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);

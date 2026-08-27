@@ -17,4 +17,17 @@ bool16 far th02_s5_mima_stage_fx_wire_valid(
 	const uint8_t far *wire, uint16_t wire_size
 );
 
+#if T2REPLAY_EXACT_APPLY
+struct th02_s5_fx_apply_plan_t {
+	const uint8_t far *wire;
+};
+bool16 far th02_s5_mima_stage_fx_wire_prepare(
+	th02_s5_fx_apply_plan_t *plan,
+	const uint8_t far *wire, uint16_t wire_size
+);
+void far th02_s5_mima_stage_fx_commit_prepared(
+	const th02_s5_fx_apply_plan_t *plan
+);
+#endif
+
 #endif /* TH02_MAIN_S5_FX_HPP */
