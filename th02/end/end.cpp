@@ -38,6 +38,14 @@
 // allowlist keeps unchanged ending art in the stock Japanese archive.
 #define pi_load t2_language_maine_pi_load
 
+// This stays ABI-identical to graph_putsa_fx(). The language tail selects only
+// MAINE's executable-resident English donor copy; every other string remains
+// on the stock renderer path.
+extern "C" void DEFCONV t2_language_maine_graph_putsa_fx(
+	screen_x_t left, vram_y_t top, int16_t col_and_fx, shiftjis_t *str
+);
+#define graph_putsa_fx t2_language_maine_graph_putsa_fx
+
 // Constants
 // ---------
 

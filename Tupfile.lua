@@ -744,6 +744,9 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th02/staff.cpp",
 	-- Link the MAINE preference/overlay reader after every end-game owner.
 	"th02/lange.cpp",
+	-- MAINE-only English v1.00 resident copy. Keep it after the C++ tail so
+	-- every stock segment and DGROUP contribution remains pinned.
+	"th02/end/maine_langstr.asm",
 })
 -- ----
 

@@ -2,6 +2,7 @@
 #include "th02/formats/pf.hpp"
 #include "th02/formats/pi.h"
 #include "th02/gaiji/gaiji.h"
+#include "th01/hardware/grppsafx.h"
 #include "th02/language.hpp"
 
 // This file is textually included after th02/language.cpp by lange.cpp, so it
@@ -137,5 +138,97 @@ void far pascal t2_language_maine_file_close(void)
 		t2_language_maine_stock_restore();
 	}
 }
+
+// These are the immutable DS offsets of MAINE.EXE's retained Japanese
+// literals. END_TEXT and MAINE_01_TEXT are pinned by the companion layout
+// gate, so this dispatch adds no mutable presentation state or source-owner
+// data table to DGROUP.
+enum t2_language_maine_text_off_t {
+	T2LMT_STAFF_PROGRAM = 0x1DB,
+	T2LMT_STAFF_GRAPHIC_1 = 0x20E,
+	T2LMT_STAFF_GRAPHIC_2 = 0x223,
+	T2LMT_STAFF_GRAPHIC_3 = 0x23A,
+	T2LMT_STAFF_TESTER_5 = 0x2D7,
+	T2LMT_VERDICT_SCORE = 0x334,
+	T2LMT_VERDICT_CONTINUES = 0x33F,
+	T2LMT_VERDICT_RANK = 0x34E,
+	T2LMT_VERDICT_START_LIVES = 0x358,
+	T2LMT_VERDICT_START_BOMBS = 0x367,
+	T2LMT_VERDICT_SKILL = 0x373,
+};
+
+extern const shiftjis_t far t2maine_en_staff_program[];
+extern const shiftjis_t far t2maine_en_staff_graphic_1[];
+extern const shiftjis_t far t2maine_en_staff_graphic_2[];
+extern const shiftjis_t far t2maine_en_staff_graphic_3[];
+extern const shiftjis_t far t2maine_en_staff_tester_5[];
+extern const shiftjis_t far t2maine_en_verdict_score[];
+extern const shiftjis_t far t2maine_en_verdict_continues[];
+extern const shiftjis_t far t2maine_en_verdict_rank[];
+extern const shiftjis_t far t2maine_en_verdict_start_lives[];
+extern const shiftjis_t far t2maine_en_verdict_start_bombs[];
+extern const shiftjis_t far t2maine_en_verdict_skill[];
+
+static const shiftjis_t far *t2_language_maine_english_source(
+	const shiftjis_t *str
+)
+{
+	if(T2LANG_FP_SEG(str) != T2LANG_FP_SEG(&t2_language_runtime)) {
+		return 0;
+	}
+
+	switch(T2LANG_FP_OFF(str)) {
+		case T2LMT_STAFF_PROGRAM:
+			return t2maine_en_staff_program;
+		case T2LMT_STAFF_GRAPHIC_1:
+			return t2maine_en_staff_graphic_1;
+		case T2LMT_STAFF_GRAPHIC_2:
+			return t2maine_en_staff_graphic_2;
+		case T2LMT_STAFF_GRAPHIC_3:
+			return t2maine_en_staff_graphic_3;
+		case T2LMT_STAFF_TESTER_5:
+			return t2maine_en_staff_tester_5;
+		case T2LMT_VERDICT_SCORE:
+			return t2maine_en_verdict_score;
+		case T2LMT_VERDICT_CONTINUES:
+			return t2maine_en_verdict_continues;
+		case T2LMT_VERDICT_RANK:
+			return t2maine_en_verdict_rank;
+		case T2LMT_VERDICT_START_LIVES:
+			return t2maine_en_verdict_start_lives;
+		case T2LMT_VERDICT_START_BOMBS:
+			return t2maine_en_verdict_start_bombs;
+		case T2LMT_VERDICT_SKILL:
+			return t2maine_en_verdict_skill;
+	}
+	return 0;
+}
+
+#define T2LMT_ENGLISH_TEXT_CAPACITY 25
+
+extern "C" void DEFCONV t2_language_maine_graph_putsa_fx(
+	screen_x_t left, vram_y_t top, int16_t col_and_fx, shiftjis_t *str
+)
+{
+	shiftjis_t english[T2LMT_ENGLISH_TEXT_CAPACITY];
+	const shiftjis_t *output = str;
+	const shiftjis_t far *english_source;
+	int i;
+
+	t2_language_maine_load();
+	if(t2_language_english_ready()) {
+		english_source = t2_language_maine_english_source(str);
+		if(english_source) {
+			i = 0;
+			do {
+				english[i] = english_source[i];
+			} while(english[i++]);
+			output = english;
+		}
+	}
+	graph_putsa_fx(left, top, col_and_fx, output);
+}
+
+#undef T2LMT_ENGLISH_TEXT_CAPACITY
 
 #pragma codeseg

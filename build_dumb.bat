@@ -116,7 +116,8 @@ tlink @obj\th02\main.@l
 echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=2  -ml  -DBINARY='E'  -nobj/th02/  th02/end.cpp  th02/maine022.cpp  th02/maine_03.cpp  th02/maine_04.cpp  th02/staff.cpp  th02/lange.cpp>obj\batch008.@c
 tcc @obj/batch008.@c
 tasm32 /m /mx /kh32768 /t /dGAME=2 th02_maine.asm obj\th02\maine.obj
-echo -c -s -E c0l.obj obj\th02\end.obj obj\th02\maine.obj obj\th02\grppsafx.obj obj\th02\keydelay.obj obj\th01\vplanset.obj obj\th02\pi_load.obj obj\th02\frmdely1.obj obj\th02\maine022.obj obj\th02\input_rs.obj obj\th02\exit.obj obj\th02\snd_mmdr.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th02\snd_load.obj obj\th02\initmain.obj obj\th02\pi_put.obj obj\th02\snd_kaja.obj obj\th02\snd_dlym.obj obj\th02\globals.obj obj\th02\maine_03.obj obj\th02\maine_04.obj obj\th02\staff.obj obj\th02\lange.obj, bin\th02\maine.exe, obj\th02\maine.map, emu.lib mathl.lib cl.lib>obj\th02\maine.@l
+tasm32 /m /mx /kh32768 /t /dGAME=2 th02\end\maine_langstr.asm obj\th02\maine_langstr.obj
+echo -c -s -E c0l.obj obj\th02\end.obj obj\th02\maine.obj obj\th02\grppsafx.obj obj\th02\keydelay.obj obj\th01\vplanset.obj obj\th02\pi_load.obj obj\th02\frmdely1.obj obj\th02\maine022.obj obj\th02\input_rs.obj obj\th02\exit.obj obj\th02\snd_mmdr.obj obj\th02\snd_mode.obj obj\th02\snd_pmdr.obj obj\th02\snd_load.obj obj\th02\initmain.obj obj\th02\pi_put.obj obj\th02\snd_kaja.obj obj\th02\snd_dlym.obj obj\th02\globals.obj obj\th02\maine_03.obj obj\th02\maine_04.obj obj\th02\staff.obj obj\th02\lange.obj obj\th02\maine_langstr.obj, bin\th02\maine.exe, obj\th02\maine.map, emu.lib mathl.lib cl.lib>obj\th02\maine.@l
 tlink @obj\th02\maine.@l
 bin\Pipeline\bmp2arr.com -q -i th03/sprites/score.bmp -o th03/sprites/score.asp -sym _sSCORE_FONT -of asm -sw 8 -sh 8 -u
 bin\Pipeline\bmp2arr.com -q -i th03/sprites/flake.bmp -o th03/sprites/flake.asp -sym _sFLAKE -of asm -sw 16 -sh 8
