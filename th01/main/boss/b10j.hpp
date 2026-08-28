@@ -73,4 +73,8 @@ bool16 t1boss_mima_ckpt_apply_loaded(
 	const t1boss_mima_checkpoint_t *checkpoint
 );
 
+// Builds the one canonical post-entrance Mima combat boundary after the native
+// loader has constructed its resources. It accepts no serialized state.
+bool16 t1boss_mima_practice_first_combat_construct(void);
+
 #endif /* TH01_MAIN_BOSS_B10J_HPP */

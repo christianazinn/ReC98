@@ -1417,6 +1417,8 @@ void mima_main(void)
 
 #pragma codeseg T1B10JOWN_TEXT
 
+extern int8_t boss_id;
+
 static bool16 t1boss_mima_checkpoint_coordinate_is_valid(int16_t coordinate)
 {
 	return ((coordinate >= -RES_X) && (coordinate <= (RES_X * 2)));
@@ -1711,6 +1713,97 @@ bool16 t1boss_mima_checkpoint_apply(
 	);
 	Missiles.load(PTN_SLOT_MISSILE);
 	return t1boss_mima_ckpt_apply_loaded(checkpoint);
+}
+
+bool16 t1boss_mima_practice_first_combat_construct(void)
+{
+	t1boss_mima_checkpoint_t start;
+	int i;
+
+	// The normal stage loader must have allocated Mima's entities, backing PTN,
+	// and missile resource, but no entrance frame may have run yet. The
+	// resident/boss identity is intentionally repeated here: no caller may
+	// construct this boundary for a different route or stage.
+	if(
+		!resident ||
+		(resident->stage_id != ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_MIMA) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent_still.cur_left != BASE_LEFT) ||
+		(ent_still.cur_top != PLAYFIELD_TOP) ||
+		(ent_still.image() != 0) ||
+		(ent_anim.image() != C_METEOR) ||
+		(ent_still.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+	// Preserve mima_main()'s pre-entrance pool update. With Mima's loader
+	// reset this leaves the missile pool empty and advances the initialized
+	// particle pool exactly once before the boundary's sole pattern RNG draw.
+	Missiles.unput_update_render();
+	particles_unput_update_render(PO_TOP_RIGHT, V_WHITE);
+
+	start.owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+	start.phase = 1;
+	start.pattern = 0;
+	start.phase_frame = 0;
+	start.hp = HP_TOTAL;
+	start.invincibility_frame = 0;
+	start.pattern_state = 0;
+	start.entity_left = BASE_LEFT;
+	start.entity_top = BASE_TOP;
+	start.target_left = 0;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		start.pillar_time[i] = 0;
+		start.pillar_center_x[i] = 0;
+		start.pillar_bottom[i] = 0;
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		start.laser_corner_x[i] = 0;
+		start.laser_corner_y[i] = 0;
+	}
+	start.meteor_active = true;
+	start.spreadin_interval = 4;
+	start.spreadin_speed = 16;
+	start.initial_hp_rendered = false;
+	start.hit_invincible = false;
+	start.hop = static_cast<uint8_t>(-1);
+	start.hop_direction = X_RIGHT;
+	start.entity_image = 0;
+	start.animation_image = C_METEOR;
+	start.entity_hitbox_inactive = false;
+	start.square_aimed_pellets_angle = 0;
+	start.square_aimed_pellets_radius = 0;
+	start.square_aimed_missiles_angle = 0;
+	start.square_aimed_missiles_radius = 0;
+	start.square_two_pellets_angle = 0;
+	start.square_two_pellets_radius = 0;
+	start.square_halfcircle_missiles_angle = 0;
+	start.square_halfcircle_missiles_radius = 0;
+	start.square_slow_spray_angle = 0;
+	start.square_slow_spray_radius = 0;
+	start.square_lasers_angle = 0;
+	start.square_lasers_radius = 0;
+	start.missile_angle = 0;
+	start.pellet_angle = 0;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_mima_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// This is the native post-entrance order. [start] is a local pointer-free
+	// owner carrier only, not serialized input; the loaded helper captures the
+	// page-1 backing before both-page repainting.
+	mima_put_still_both();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	pattern_hop_and_fire_chase_pellets(false);
+	return true;
 }
 
 #pragma codeseg
