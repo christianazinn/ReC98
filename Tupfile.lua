@@ -461,7 +461,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/rpyop.cpp",
 	"th01/language.cpp",
 })
-th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
+th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1" }):link("reiiden", {
 	piloadc,
 	"th01/main_01.cpp",
 	"th01/frmdelay.cpp",

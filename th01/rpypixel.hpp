@@ -81,6 +81,13 @@ void t1replay_pixel_probe_konngara_phase1_pre_input(
 // no public replay path can invoke this private witness.
 void t1ymx_pre_input(void);
 
+// Records the page-select ports through the graph wrappers. The latches are
+// probe-owned far data so the stock graph module's BSS remains unchanged.
+void t1ymx_visible_page_set(page_t page);
+uint8_t t1ymx_visible_page_get(void);
+void t1ymx_accessed_page_set(page_t page);
+uint8_t t1ymx_accessed_page_get(void);
+
 #endif
 
 #endif /* TH01_RPYPIXEL_HPP */

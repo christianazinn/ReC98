@@ -67,17 +67,17 @@ static void t1pixel_surface_capture(
 	uint32_t tram_attr_digest[T1PIXEL_TRAM_ROWS]
 )
 {
-	page_t accessed_before = page_accessed;
+	page_t accessed_before;
 	uint8_t page;
 	uint8_t plane;
 	uint8_t tram_row;
 
-	// T1RP7 preserves the native access page, but its source has no stable
-	// visible-page register to observe without injecting graph state.
 #if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
-	visible_page = 0xFF;
+	visible_page = t1ymx_visible_page_get();
+	accessed_before = t1ymx_accessed_page_get();
 #else
 	visible_page = page_shown;
+	accessed_before = page_accessed;
 #endif
 	accessed_page = accessed_before;
 	palette_digest = t1pixel_hash(
@@ -171,6 +171,8 @@ typedef char t1ymx_row_size_check[
 // every stock near-BSS offset, including the C runtime tail.
 static t1ymx_state_t far t1ymx_state;
 static uint32_t far t1ymx_expected_owner_digest;
+static uint8_t far t1ymx_visible_page = 0xFF;
+static uint8_t far t1ymx_accessed_page = 0xFF;
 
 extern int8_t boss_id;
 
@@ -236,7 +238,9 @@ static bool t1ymx_header_write(void)
 	header.magic[0] = 'T'; header.magic[1] = '1';
 	header.magic[2] = 'Y'; header.magic[3] = 'M';
 	header.magic[4] = 'X'; header.magic[5] = '1';
-	header.version = 1;
+	// Version 2 adds the observed page-show register to the private witness.
+	// The public replay format is unaffected.
+	header.version = 2;
 	header.header_size = T1YMX_HEADER_SIZE;
 	header.row_size = T1YMX_ROW_SIZE;
 	header.expected_rows = T1YMX_ROW_COUNT;
@@ -244,7 +248,7 @@ static bool t1ymx_header_write(void)
 	header.pages = PAGE_COUNT;
 	header.planes = PLANE_COUNT;
 	header.tram_rows = T1PIXEL_TRAM_ROWS;
-	header.visible_page = 0xFF;
+	header.visible_page = t1ymx_visible_page_get();
 	header.owner_size = T1BOSS_YUUGENMAGAN_CHECKPOINT_SIZE;
 	filename[0] = 'T'; filename[1] = '1'; filename[2] = 'Y';
 	filename[3] = 'M'; filename[4] = 'X'; filename[5] = '.';
@@ -323,7 +327,12 @@ static bool t1ymx_arm_if_first_combat(void)
 		return false;
 	}
 	t1ymx_state = T1YMXS_FAILED;
-	if(!t1ymx_records_equal(expected, actual) || !t1ymx_header_write()) {
+	if(
+		(t1ymx_visible_page_get() >= PAGE_COUNT) ||
+		(t1ymx_accessed_page_get() >= PAGE_COUNT) ||
+		!t1ymx_records_equal(expected, actual) ||
+		!t1ymx_header_write()
+	) {
 		return false;
 	}
 	t1ymx_expected_owner_digest = t1pixel_hash(
@@ -354,6 +363,34 @@ void t1ymx_pre_input(void)
 	if(!t1ymx_row_write(point)) {
 		t1ymx_state = T1YMXS_FAILED;
 	}
+}
+
+void t1ymx_visible_page_set(page_t page)
+{
+	if(page < PAGE_COUNT) {
+		t1ymx_visible_page = page;
+	} else {
+		t1ymx_visible_page = 0xFF;
+	}
+}
+
+uint8_t t1ymx_visible_page_get(void)
+{
+	return t1ymx_visible_page;
+}
+
+void t1ymx_accessed_page_set(page_t page)
+{
+	if(page < PAGE_COUNT) {
+		t1ymx_accessed_page = page;
+	} else {
+		t1ymx_accessed_page = 0xFF;
+	}
+}
+
+uint8_t t1ymx_accessed_page_get(void)
+{
+	return t1ymx_accessed_page;
 }
 
 #endif
@@ -864,6 +901,8 @@ void t1replay_pixel_probe_reset(void)
 #if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
 	t1ymx_state = T1YMXS_OFF;
 	t1ymx_expected_owner_digest = 0;
+	t1ymx_visible_page = 0xFF;
+	t1ymx_accessed_page = 0xFF;
 #endif
 }
 #endif
