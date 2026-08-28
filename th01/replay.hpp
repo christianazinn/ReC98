@@ -80,6 +80,7 @@ enum t1replay_pause_action_t {
 // input_sense(false) seam and returns true only for a terminal action.
 bool16 far t1replay_pause_menu(void);
 bool16 far t1replay_pause_save_available(void);
+bool16 far t1replay_pause_save_refresh(void);
 // Pause is an immediate physical-disk validation point. Failure leaves native
 // gameplay running but turns the current recording into a non-saveable run.
 void far t1replay_guard_pause_check(void);

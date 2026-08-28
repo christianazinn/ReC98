@@ -3565,6 +3565,16 @@ bool16 far t1replay_pause_save_available(void)
 	);
 }
 
+bool16 far t1replay_pause_save_refresh(void)
+{
+	bool16 was_available = t1replay_pause_save_available();
+
+	if(was_available) {
+		t1replay_guard_pause_check();
+	}
+	return (was_available && !t1replay_pause_save_available());
+}
+
 void far t1replay_guard_pause_check(void)
 {
 	if((t1replay_mode == T1RM_RECORD) && t1replay_res &&

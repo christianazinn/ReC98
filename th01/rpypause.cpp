@@ -111,6 +111,22 @@ static bool t1replay_pause_action_enabled(t1replay_pause_action_t action)
 	return true;
 }
 
+static bool t1replay_pause_input_seen(void)
+{
+	return (
+		input_up || input_down || input_shot || input_ok ||
+		((peekb(0, KEYGROUP_2) & K2_R) != 0)
+	);
+}
+
+static void t1replay_pause_input_release(void)
+{
+	do {
+		input_sense(false);
+		frame_delay(1);
+	} while(t1replay_pause_input_seen());
+}
+
 // Group 2 is not part of REIIDEN's canonical replay input contract.
 // Sampling it only inside Pause gives live runs an Esc+R shortcut without
 // making R a replay input. Playback cannot restart because its transaction is
@@ -221,12 +237,24 @@ bool16 far t1replay_pause_menu(void)
 	t1replay_pause_action_t selected = T1RPA_RESUME;
 	t1replay_pause_action_t previous;
 
-	t1replay_guard_pause_check();
+	(void)t1replay_pause_save_refresh();
 	t1replay_pause_render(selected);
 	z_palette_settone_but_keep_white(40);
 	input_reset_menu_related();
 	while(paused) {
 		input_sense(false);
+		if(
+			t1replay_pause_input_seen() &&
+			t1replay_pause_save_refresh()
+		) {
+			if(selected == T1RPA_SAVE_EXIT) {
+				selected = T1RPA_DISCARD_EXIT;
+			}
+			t1replay_pause_render(selected);
+			t1replay_pause_input_release();
+			input_reset_menu_related();
+			continue;
+		}
 		if(player_is_hit == true) {
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
 			return true;
