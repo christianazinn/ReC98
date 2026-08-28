@@ -57,6 +57,12 @@ bool16 t1boss_singyoku_ckpt_apply_loaded(
 // constants. It never accepts a serialized checkpoint payload.
 bool16 t1boss_singyoku_practice_boss_phase_apply(uint8_t target);
 
+#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+// Private source-owned phase-2 constructor. It deliberately has no public
+// Practice or replay target and accepts no serialized state.
+bool16 t1boss_singyoku_phase2_owner_construct(void);
+#endif
+
 #if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE || T1REPLAY_PRACTICE_BOSS_PHASE
 // Exact-restore presentation. These functions consume only the already-loaded
 // owner and paint no dynamic object onto page 1.

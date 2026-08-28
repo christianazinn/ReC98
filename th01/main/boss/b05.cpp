@@ -982,6 +982,74 @@ bool16 t1boss_singyoku_practice_boss_phase_apply(uint8_t target)
 	return t1boss_singyoku_presentation_reconstruct(&start);
 }
 
+#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+extern int8_t boss_id;
+
+bool16 t1boss_singyoku_phase2_owner_construct(void)
+{
+	t1boss_singyoku_checkpoint_t start;
+
+	// A direct phase-2 boundary starts from the native Stage 5 SinGyoku loader
+	// state. No checkpoint payload, entrance simulation, or resource reload is
+	// admitted here.
+	if(
+		!resident ||
+		(resident->stage_id != BOSS_STAGE) ||
+		(boss_id != BID_SINGYOKU) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent.cur_left != PLAYFIELD_RIGHT) ||
+		(ent.cur_top != PLAYFIELD_TOP) ||
+		(ent_sphere.image() != 0) ||
+		(ent_sphere.lock_frame != 0) ||
+		(ent.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+
+	start.owner = T1BOSS_SINGYOKU_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_SINGYOKU_CHECKPOINT_SCHEMA;
+	start.phase = 2;
+	start.reserved_0 = 0;
+	start.phase_frame = 0;
+	start.hp = HP_PHASE_1_END;
+	start.invincibility_frame = 0;
+	// At the first post-slam phase-2 boundary, the union still contains the
+	// native slam speed. Phase 2 overwrites it before reading it again.
+	start.pattern_value = (
+		(rank == RANK_EASY) ? 4 :
+		(rank == RANK_NORMAL) ? 4 :
+		(rank == RANK_HARD) ? 5 :
+		(rank == RANK_LUNATIC) ? 6 :
+		4
+	);
+	start.pattern_cur = 0;
+	start.hit_invincible = false;
+	start.initial_hp_rendered = true;
+	start.slam_velocity_x = 0;
+	start.slam_velocity_y = 0;
+	start.sphere_left = BASE_LEFT;
+	start.sphere_top = BASE_TOP;
+	start.halfcircle_angle = 0;
+	start.halfcircle_direction = 0;
+	start.sphere_image = 0;
+	start.person_image = C_WOMAN_STILL;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_singyoku_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// The skipped phase owns both the restored palette and the page-1 backing
+	// used by all later unputs. Rebuild those before drawing only page 0.
+	boss_palette_show();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	return t1boss_singyoku_presentation_reconstruct(&start);
+}
+#endif
+
 #if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE || T1REPLAY_PRACTICE_BOSS_PHASE
 static int t1boss_singyoku_presentation_person_cel(
 	const t1boss_singyoku_checkpoint_t *checkpoint
