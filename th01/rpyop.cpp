@@ -25,17 +25,19 @@
 #include "th01/resident.hpp"
 #include "th01/rank.h"
 
-static const screen_x_t T1REPLAY_OP_LEFT = 152;
-static const pixel_t T1REPLAY_OP_W = 336;
-static const screen_y_t T1REPLAY_OP_TOP = 96;
-static const pixel_t T1REPLAY_OP_H = 240;
-static const screen_x_t T1REPLAY_OP_VALUE_LEFT = 344;
-static const screen_x_t T1REPLAY_OP_BROWSER_SLOT_LEFT = 168;
-static const screen_x_t T1REPLAY_OP_BROWSER_NAME_LEFT = 200;
-static const screen_x_t T1REPLAY_OP_BROWSER_SCORE_LEFT = 344;
-static const screen_x_t T1REPLAY_OP_BROWSER_STAGE_LEFT = 432;
-static const screen_x_t T1REPLAY_OP_DETAIL_SPLIT_STAGE_LEFT = 344;
-static const screen_x_t T1REPLAY_OP_DETAIL_SPLIT_SCORE_LEFT = 408;
+// Keep the complete title backing on page 1.  The replay and Practice
+// surfaces use the same black-page presentation as TH01's score table on
+// page 0, rather than trying to fit a full screen of patch-owned text into
+// the small title window.
+static const screen_x_t T1REPLAY_OP_LEFT = 32;
+static const screen_y_t T1REPLAY_OP_TOP = 32;
+static const screen_x_t T1REPLAY_OP_VALUE_LEFT = 304;
+static const screen_x_t T1REPLAY_OP_BROWSER_SLOT_LEFT = 32;
+static const screen_x_t T1REPLAY_OP_BROWSER_NAME_LEFT = 80;
+static const screen_x_t T1REPLAY_OP_BROWSER_SCORE_LEFT = 304;
+static const screen_x_t T1REPLAY_OP_BROWSER_STAGE_LEFT = 480;
+static const screen_x_t T1REPLAY_OP_DETAIL_SPLIT_STAGE_LEFT = 352;
+static const screen_x_t T1REPLAY_OP_DETAIL_SPLIT_SCORE_LEFT = 480;
 static const uint8_t T1REPLAY_OP_SAVED_WAIT = 0xFF;
 static const screen_y_t T1REPLAY_OP_LINE_H = GLYPH_H;
 static const uint8_t T1REPLAY_OP_ROWS_PER_PAGE = 10;
@@ -1404,13 +1406,24 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 	return true;
 }
 
-// Page 1 remains title-owned throughout this additive surface.  Individual
-// renders only need their modal rectangle, while a title return must restore
-// every pixel that a name-entry keyboard or future surface may have covered.
+// Page 1 remains title-owned throughout this additive surface.  Every added
+// screen starts from the native score-table black backing on page 0, while a
+// title return restores page 1 in full.
 static void t1replay_op_panel_restore(void)
 {
-	egc_copy_rect_1_to_0_16(
-		T1REPLAY_OP_LEFT, T1REPLAY_OP_TOP, T1REPLAY_OP_W, T1REPLAY_OP_H
+	graph_accesspage_func(0);
+	z_graph_clear();
+}
+
+static void t1replay_op_black_rect(
+	screen_x_t left, screen_y_t top, pixel_t width, pixel_t height
+)
+{
+	z_grcg_boxfill(
+		left, top,
+		static_cast<screen_x_t>(left + width - 1),
+		static_cast<screen_y_t>(top + height - 1),
+		V_BLACK
 	);
 }
 
@@ -1862,6 +1875,17 @@ static void t1replay_op_text_put(
 static void t1replay_op_text_left(screen_y_t y, vc_t col, char *end)
 {
 	t1replay_op_text_put(T1REPLAY_OP_LEFT, y, col, end);
+}
+
+static void t1replay_op_text_center(screen_y_t y, vc_t col, char *end)
+{
+	*end = '\0';
+	graph_putsa_fx(
+		static_cast<screen_x_t>(
+			(RES_X - text_extent_fx((col | T1REPLAY_OP_FX), t1replay_op_text)) / 2
+		),
+		y, (col | T1REPLAY_OP_FX), t1replay_op_text
+	);
 }
 
 static void t1replay_op_text_value(screen_y_t y, vc_t col, char *end)
@@ -2326,7 +2350,7 @@ static void t1replay_op_name_key_put(
 	}
 	left = t1replay_op_name_key_left(column);
 	top = t1replay_op_name_key_top(row);
-	egc_copy_rect_1_to_0_16(left, top, T1REPLAY_OP_NAME_KEY_W, GLYPH_H);
+	t1replay_op_black_rect(left, top, T1REPLAY_OP_NAME_KEY_W, GLYPH_H);
 	if(t1replay_op_name_key_kanji(row, column, kanji)) {
 		t1replay_op_name_kanji_put(left, top, col_and_fx, kanji);
 	} else if(column == T1REPLAY_OP_NAME_SPACE_COLUMN) {
@@ -2373,7 +2397,7 @@ static void t1replay_op_name_line_render(void)
 		T1REPLAY_OP_TOP + (T1REPLAY_OP_LINE_H * 2)
 	);
 
-	egc_copy_rect_1_to_0_16(
+	t1replay_op_black_rect(
 		T1REPLAY_OP_VALUE_LEFT, top,
 		(T1REPLAY_NAME_KANJI * GLYPH_FULL_W), GLYPH_H
 	);
@@ -2394,7 +2418,7 @@ static void t1replay_op_name_line_render(void)
 
 static void t1replay_op_name_keyboard_restore(void)
 {
-	egc_copy_rect_1_to_0_16(
+	t1replay_op_black_rect(
 		T1REPLAY_OP_NAME_LEFT, T1REPLAY_OP_NAME_KEYBOARD_TOP,
 		(RES_X - (T1REPLAY_OP_NAME_LEFT * 2)),
 		(T1REPLAY_OP_NAME_KEY_H * 6)
@@ -2412,7 +2436,7 @@ static void t1replay_op_name_render(void)
 
 	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
-	t1replay_op_text_left(T1REPLAY_OP_TOP, T1REPLAY_OP_COL_VALUE, p);
+	t1replay_op_text_center(T1REPLAY_OP_TOP, T1REPLAY_OP_COL_VALUE, p);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_NAME);
 	t1replay_op_text_left(name_top, T1REPLAY_OP_COL_LABEL, p);
 	t1replay_op_name_line_render();
@@ -2634,7 +2658,7 @@ static void t1replay_op_save_decision_render(void)
 
 	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
-	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 3);
 	col = ((t1replay_op_sel == 0) ?
 		T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL);
@@ -2691,7 +2715,7 @@ static void t1replay_op_detail_render(void)
 	t1replay_op_panel_restore();
 	y = T1REPLAY_OP_TOP;
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_DETAIL);
-	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
 	#define T1REPLAY_OP_DETAIL_LINE(label_word, value_append) \
 		p = t1replay_op_word_append(t1replay_op_text, label_word); \
@@ -2808,7 +2832,7 @@ static void t1replay_op_replay_render(void)
 		t1replay_op_text,
 		t1replay_op_save_pending ? T1ROW_SAVE_REPLAY : T1ROW_REPLAY_BROWSER
 	);
-	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SLOT);
 	t1replay_op_text_put(T1REPLAY_OP_BROWSER_SLOT_LEFT, y, T1REPLAY_OP_COL_LABEL, p);
@@ -2864,7 +2888,7 @@ static void t1replay_op_practice_render(void)
 
 	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
-	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
+	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
 	#define T1REPLAY_OP_PRACTICE_LINE(label_word, value_append) \
 		label_col = ((t1replay_op_sel == row) ? T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL); \
@@ -2983,10 +3007,7 @@ void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 
 void t1replay_op_restore(void)
 {
-	if(t1replay_op_name_active) {
-		t1replay_op_name_keyboard_restore();
-		t1replay_op_name_active = false;
-	}
+	t1replay_op_name_active = false;
 	t1replay_op_title_backing_restore();
 	t1replay_op_return_wait_release();
 	t1replay_op_input_reset();
