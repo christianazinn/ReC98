@@ -16,6 +16,7 @@
 #include "th02/main/hud/overlay.hpp"
 #include "th04/common.h"
 #include "th04/end/end.h"
+#include "th04/formats/std.hpp"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/language.hpp"
@@ -3145,6 +3146,51 @@ void replay_gameplay_input(void)
 	}
 }
 
+static void replay_debug_u16_put(
+	tram_x_t left, unsigned int value, unsigned int divisor
+)
+{
+	char digits[6];
+	int i = 0;
+
+	while(divisor != 0) {
+		digits[i++] = static_cast<char>('0' + (value / divisor));
+		value %= divisor;
+		divisor /= 10;
+	}
+	digits[i] = '\0';
+	text_putsa(left, 0, digits, TX_WHITE);
+}
+
+static void replay_debug_stage_coordinates_put(void)
+{
+	uint16_t next_std_frame;
+	uint16_t map_list_offset;
+	uint8_t map_section;
+
+	if(!replay_practice_diagnostic) {
+		return;
+	}
+	next_std_frame = *reinterpret_cast<const uint16_t far *>(std_ip);
+#if (GAME == 5)
+	map_list_offset = static_cast<uint16_t>(std_map_section_p);
+#else
+	map_list_offset = static_cast<uint16_t>(std_map_section_id);
+#endif
+	map_section = *reinterpret_cast<const uint8_t far *>(MK_FP(
+		reinterpret_cast<uint16_t>(std_seg), map_list_offset
+	));
+#if (GAME == 5)
+	map_section >>= 1;
+#endif
+	text_putsa(4, 0, "F", TX_WHITE);
+	replay_debug_u16_put(5, stage_frame, 10000);
+	text_putsa(10, 0, " N", TX_WHITE);
+	replay_debug_u16_put(12, next_std_frame, 10000);
+	text_putsa(17, 0, " M", TX_WHITE);
+	replay_debug_u16_put(19, map_section, 10);
+}
+
 void replay_input_reset_sense_tail(void)
 {
 	if(replay_mode == RRM_RECORD) {
@@ -3161,6 +3207,7 @@ void replay_input_reset_sense_tail(void)
 		key_det = INPUT_NONE;
 		shiftkey = false;
 	}
+	replay_debug_stage_coordinates_put();
 }
 
 void replay_input_reset_sense_interstitial(void)
