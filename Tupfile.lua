@@ -738,6 +738,9 @@ local th02_main_sources = {
 	{ "th02/main/s5_palette.cpp", o = "s5_pal~1.obj" },
 	-- Stable Stage 3 direct-Practice constructors live in their own final tail.
 	"th02/main/s3_pract.cpp",
+	-- The North Stone phase-4 direct target is separately appended so none of
+	-- the native or earlier Stage 3 Practice contributions can move.
+	"th02/main/s3_north.cpp",
 	-- Final Stage 5 callback/redraw capture recipes remain pointer-free and
 	-- live in a new ungrouped tail after every retained patch contribution.
 	"th02/main/s5_cbred.cpp",

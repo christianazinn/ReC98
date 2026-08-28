@@ -33,6 +33,7 @@
 #include "th02/main/s1_actor.hpp"
 #include "th02/main/s2_actor.hpp"
 #include "th02/main/s3_actor.hpp"
+#include "th02/main/s3_north.hpp"
 #include "th02/main/s3_pract.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
@@ -3839,6 +3840,7 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE3_BOSS_START:
 	case T2RPT_STAGE3_INNER_PAIR:
 	case T2RPT_STAGE3_OUTER_PAIR:
+	case T2RPT_STAGE3_NORTH_PHASE4:
 		practice_target_valid = (start->stage == 2);
 		break;
 	case T2RPT_STAGE4_MIDBOSS_FIRST:
@@ -5830,6 +5832,37 @@ static bool16 near t2replay_stage3_stones_activate_clean(
 	return true;
 }
 
+static void near t2replay_stage3_stones_pools_clean(void)
+{
+	bullets_clear();
+	lasers_reset();
+	bg_particles_reset();
+	shots_free_all();
+}
+
+static bool16 near t2replay_stage3_north_phase4_activate_clean(void)
+{
+	if(stage_id != 2) {
+		return false;
+	}
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	th02_s3_field_clean_init();
+	Palettes[0].v[0] = 0;
+	Palettes[0].v[1] = 0;
+	Palettes[0].v[2] = 0;
+	palette_show();
+	t2replay_stage3_stones_pools_clean();
+	if(!th02_s3_stones_north_phase4_clean_init()) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
+	t2practice_diag_constructor_result(true);
+	t2replay_boss_promote_clean(aBoss2_m);
+	return true;
+}
+
 static bool16 near t2replay_stage4_midboss_activate_clean(
 	th02_s4_midboss_clean_target_t target, int target_scroll_step
 )
@@ -6313,6 +6346,18 @@ bool16 replay_practice_target_apply(void)
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		t2practice_target_return(true);
+	case T2RPT_STAGE3_NORTH_PHASE4:
+		if(
+			(stage_id != 2) ||
+			!t2replay_stage3_north_phase4_activate_clean()
+		) {
+			if(stage_id != 2) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
 	case T2RPT_STAGE4_MIDBOSS_FIRST:
 		if(
 			(stage_id != 3) ||
@@ -6629,6 +6674,15 @@ bool16 replay_practice_target_apply(void)
 					: T2S3_STONES_OUTER_PAIR)
 		);
 		if(!t2replay_stage3_stones_activate_clean(stones_target)) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE3_NORTH_PHASE4:
+		if(
+			(stage_id != 2) ||
+			!t2replay_stage3_north_phase4_activate_clean()
+		) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;

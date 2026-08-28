@@ -381,6 +381,8 @@ enum t2replay_practice_target_t {
 	T2RPT_STAGE5_BOSS_PHASE5 = 32,
 	T2RPT_EXTRA_BOSS_PHASE5 = 33,
 	T2RPT_STAGE5_BOSS_PHASE7 = 34,
+	// IDs 35--38 remain reserved by the independent Stage 4 Marisa audit.
+	T2RPT_STAGE3_NORTH_PHASE4 = 39,
 };
 
 #define T2REPLAY_PRACTICE_TARGET_OFFSET 0
