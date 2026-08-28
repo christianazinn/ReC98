@@ -32,10 +32,10 @@
 #define T2OP_DETAIL_SPLIT_SCORE_X 54
 #define T2OP_PRACTICE_LABEL_X 7
 #define T2OP_PRACTICE_VALUE_RIGHT 75
-// Stock OP leaves row 23 for Rank, so Music and Quit must straddle that gap.
-#define T2OP_TITLE_COMMAND_FIRST_ROW 16
+// Preserve row 22 as the native visual gap before the stock Rank row.
+#define T2OP_TITLE_COMMAND_FIRST_ROW 14
 #define T2OP_TITLE_RANK_ROW 23
-#define T2OP_TITLE_QUIT_ROW 24
+#define T2OP_TITLE_QUIT_ROW 21
 
 extern char sel;
 
@@ -1664,11 +1664,7 @@ static void t2op_menu_word_put(
 	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
 )
 {
-	if(t2_language_english_ready()) {
-		t2op_gaiji_put(x, y, attr, end);
-	} else {
-		t2op_text_put(x, y, attr, end);
-	}
+	t2op_text_put(x, y, attr, end);
 }
 
 static void t2op_title_word_center_put(
@@ -1677,10 +1673,6 @@ static void t2op_title_word_center_put(
 {
 	tram_x_t x;
 
-	if(t2_language_english_ready()) {
-		t2op_title_gaiji_center_put(y, attr, end);
-		return;
-	}
 	x = static_cast<tram_x_t>(
 		((RES_X / GLYPH_HALF_W) - t2op_line_tram_width(end)) / 2
 	);
@@ -1693,13 +1685,6 @@ static void t2op_menu_word_right_put(
 {
 	tram_x_t x;
 
-	if(t2_language_english_ready()) {
-		x = static_cast<tram_x_t>(
-			right - (t2op_gaiji_encode(end) * GAIJI_TRAM_W)
-		);
-		t2op_gaiji_put(x, y, attr, end);
-		return;
-	}
 	x = static_cast<tram_x_t>(right - t2op_line_tram_width(end));
 	t2op_text_put(x, y, attr, end);
 }
