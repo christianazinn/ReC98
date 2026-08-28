@@ -3352,7 +3352,7 @@ bool replay_process_end(void)
 		if(replay_pause_action == RPA_RESTART) {
 			return replay_restart_command_write();
 		}
-		return false;
+		return true;
 	}
 	end_reason = replay_end_reason();
 	if(replay_mode == RRM_RECORD) {
@@ -3485,9 +3485,9 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	// RC22 replay playback pacing preserves the next stock segment phase.
 	#if (GAME == 4)
-		#pragma codestring "\x90\x90\x90\x90"
+		#pragma codestring "\x90\x90"
 	#else
-		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+		#pragma codestring "\x90\x90\x90\x90\x90"
 	#endif
 
 #pragma codeseg

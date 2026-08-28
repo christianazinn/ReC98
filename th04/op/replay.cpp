@@ -63,8 +63,9 @@
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
 #define PRACTICE_PAGE_COUNT 3
 #define PRACTICE_TARGET_ROWS 9
-#define PRACTICE_HISTORY_ROWS 13
+#define PRACTICE_HISTORY_ROWS 12
 #define PRACTICE_STAGE_ROWS 4
+#define PRACTICE_STOCK_MAX 15
 
 // The replay-list background has an unused palette entry at index 7. Reserve
 // it for the one browser selection color instead of relying on either
@@ -2519,15 +2520,14 @@ static practice_field_t practice_field(uint8_t page, uint8_t sel)
 		case 0: return PF_CONTINUES;
 		case 1: return PF_EXTENDS;
 		case 2: return PF_GRAZE;
-		case 3: return PF_STD_FRAMES;
-		case 4: return PF_ITEMS_SPAWNED;
-		case 5: return PF_ITEMS_COLLECTED;
-		case 6: return PF_POINT_ITEMS;
-		case 7: return PF_MAX_POINT_ITEMS;
-		case 8: return PF_ENEMIES_GONE;
-		case 9: return PF_ENEMIES_KILLED;
-		case 10: return PF_MISSES;
-		case 11: return PF_BOMBS_USED;
+		case 3: return PF_ITEMS_SPAWNED;
+		case 4: return PF_ITEMS_COLLECTED;
+		case 5: return PF_POINT_ITEMS;
+		case 6: return PF_MAX_POINT_ITEMS;
+		case 7: return PF_ENEMIES_GONE;
+		case 8: return PF_ENEMIES_KILLED;
+		case 9: return PF_MISSES;
+		case 10: return PF_BOMBS_USED;
 		default: return PF_START;
 		}
 	}
@@ -2586,11 +2586,11 @@ static char *practice_field_append(char *p, practice_field_t field)
 		P('P'); P('o'); P('i'); P('n'); P('t'); P(' '); P('I'); P('t'); P('e'); P('m'); P('s');
 		break;
 	case PF_MAX_POINT_ITEMS:
-		P('M'); P('a'); P('x'); P(' '); P('P'); P('o'); P('i'); P('n'); P('t');
-		P(' '); P('I'); P('t'); P('e'); P('m'); P('s'); break;
+		P('P'); P('o'); P('i'); P('n'); P('t'); P(' '); P('I'); P('t'); P('e');
+		P('m'); P('s'); P(' '); P('a'); P('t'); P(' '); P('M'); P('a'); P('x'); break;
 	case PF_ENEMIES_GONE:
-		P('E'); P('n'); P('e'); P('m'); P('i'); P('e'); P('s'); P(' '); P('G'); P('o'); P('n'); P('e');
-		break;
+		P('E'); P('n'); P('e'); P('m'); P('i'); P('e'); P('s'); P(' '); P('E'); P('s');
+		P('c'); P('a'); P('p'); P('e'); P('d'); break;
 	case PF_ENEMIES_KILLED:
 		P('E'); P('n'); P('e'); P('m'); P('i'); P('e'); P('s'); P(' '); P('K');
 		P('i'); P('l'); P('l'); P('e'); P('d'); break;
@@ -2881,8 +2881,8 @@ static char *practice_value_append(
 		return replay_op_uint_append(p, (start->stage + 1), 1);
 	case PF_SECTION:
 		return practice_target_value_append(p, start);
-	case PF_LIVES: return replay_op_uint_append(p, start->lives, 1);
-	case PF_BOMBS: return replay_op_uint_append(p, start->bombs, 1);
+	case PF_LIVES: return replay_op_uint_append(p, start->lives, 2);
+	case PF_BOMBS: return replay_op_uint_append(p, start->bombs, 2);
 	case PF_POWER: return replay_op_uint_append(p, start->power, 3);
 	case PF_DREAM: return replay_op_uint_append(p, start->dream, 3);
 	case PF_PLAYPERF: return replay_op_uint_append(p, start->playperf, 2);
@@ -3020,11 +3020,11 @@ static void practice_field_change(
 		practice_target_change(start, right, fast);
 		break;
 	case PF_LIVES:
-		practice_u8_change(&start->lives, 1, CFG_LIVES_MAX, 1, right);
+		practice_u8_change(&start->lives, 1, PRACTICE_STOCK_MAX, 1, right);
 		start->credit_lives = start->lives;
 		break;
 	case PF_BOMBS:
-		practice_u8_change(&start->bombs, 0, CFG_BOMBS_MAX, 1, right);
+		practice_u8_change(&start->bombs, 0, PRACTICE_STOCK_MAX, 1, right);
 		start->credit_bombs = start->bombs;
 		break;
 	case PF_POWER:
@@ -3145,8 +3145,8 @@ static uint32_t practice_field_numeric_max(
 )
 {
 	switch(field) {
-	case PF_LIVES: return CFG_LIVES_MAX;
-	case PF_BOMBS: return CFG_BOMBS_MAX;
+	case PF_LIVES:
+	case PF_BOMBS: return PRACTICE_STOCK_MAX;
 	case PF_CONTINUES: return 9;
 	case PF_POWER: return 128;
 	case PF_DREAM: return ((GAME == 5) ? 128 : 7);
@@ -4805,6 +4805,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #endif
 
 // RC22's fixed-cell replay fields preserve the following stock segment phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
