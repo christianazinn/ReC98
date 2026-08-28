@@ -150,6 +150,29 @@ static void t1replay_op_slot_fn(char *fn, uint8_t slot)
 	fn[6] = '.'; fn[7] = 'R'; fn[8] = 'P'; fn[9] = 'Y'; fn[10] = '\0';
 }
 
+// A save picker replacement first moves the complete prior slot aside. The
+// private name keeps the pending replay's established T1RPY.TMP transaction
+// intact and never exposes an incomplete destination to the browser.
+static void t1replay_op_slot_backup_fn(char *fn, uint8_t slot)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'B';
+	fn[3] = static_cast<char>('0' + (slot / 10));
+	fn[4] = static_cast<char>('0' + (slot % 10));
+	fn[5] = '.'; fn[6] = 'R'; fn[7] = 'P'; fn[8] = 'Y'; fn[9] = '\0';
+}
+
+static void t1replay_op_slot_recovery_fn(char *fn, uint8_t slot)
+{
+	t1replay_op_slot_backup_fn(fn, slot);
+	fn[6] = 'R'; fn[7] = 'C'; fn[8] = 'V';
+}
+
+static void t1replay_op_slot_transaction_fn(char *fn, uint8_t slot)
+{
+	t1replay_op_slot_backup_fn(fn, slot);
+	fn[6] = 'T'; fn[7] = 'X'; fn[8] = 'N';
+}
+
 static void t1replay_op_command_fn(char *fn)
 {
 	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'P'; fn[4] = 'Y';
@@ -265,6 +288,22 @@ static bool t1replay_op_checkpoint_fn(
 	return true;
 }
 
+static bool t1replay_op_checkpoint_backup_fn(
+	char *fn, uint8_t slot, uint8_t process_seq
+)
+{
+	if(process_seq > T1REPLAY_CHECKPOINT_PROCESS_MAX) {
+		return false;
+	}
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'B';
+	fn[3] = static_cast<char>('0' + (slot / 10));
+	fn[4] = static_cast<char>('0' + (slot % 10));
+	fn[5] = static_cast<char>('0' + (process_seq / 10));
+	fn[6] = static_cast<char>('0' + (process_seq % 10));
+	fn[7] = '.'; fn[8] = 'C'; fn[9] = 'K'; fn[10] = 'P'; fn[11] = '\0';
+	return true;
+}
+
 static void t1op_ckpt_pending_discard(void)
 {
 	char fn[12];
@@ -306,7 +345,9 @@ static void t1op_ckpt_pending_rollback(uint8_t slot)
 		t1replay_op_checkpoint_fn(destination_fn, slot, process_seq);
 		if(!t1replay_op_file_exists(pending_fn) &&
 			t1replay_op_file_exists(destination_fn)) {
-			rename(destination_fn, pending_fn);
+			if(rename(destination_fn, pending_fn) == 0) {
+				t1replay_op_dos_flush();
+			}
 		}
 	}
 }
@@ -328,6 +369,9 @@ static bool t1op_ckpt_pending_stage(uint8_t slot)
 			t1op_ckpt_pending_rollback(slot);
 			return false;
 		}
+		if(t1replay_op_file_exists(destination_fn)) {
+			t1replay_op_dos_flush();
+		}
 	}
 	return true;
 }
@@ -342,6 +386,14 @@ static void t1replay_op_score_proof_fn(char *fn, uint8_t slot)
 		fn[5] = 'D'; fn[6] = 'I'; fn[7] = 'G'; fn[8] = '\0';
 		return;
 	}
+	fn[3] = static_cast<char>('0' + (slot / 10));
+	fn[4] = static_cast<char>('0' + (slot % 10));
+	fn[5] = '.'; fn[6] = 'D'; fn[7] = 'I'; fn[8] = 'G'; fn[9] = '\0';
+}
+
+static void t1replay_op_score_proof_backup_fn(char *fn, uint8_t slot)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'B';
 	fn[3] = static_cast<char>('0' + (slot / 10));
 	fn[4] = static_cast<char>('0' + (slot % 10));
 	fn[5] = '.'; fn[6] = 'D'; fn[7] = 'I'; fn[8] = 'G'; fn[9] = '\0';
@@ -1346,6 +1398,245 @@ static void t1replay_op_restart_enter(void)
 	}
 }
 
+// The transaction marker is durable before any old artifact moves. It lets
+// browser entry inspect only active slots instead of probing 10,000 possible
+// checkpoint backup names on a physical PC-98 disk.
+static bool t1op_backup_transaction_begin(uint8_t slot)
+{
+	char fn[10];
+	char mode[3];
+	FILE *fp;
+
+	t1replay_op_slot_transaction_fn(fn, slot);
+	mode[0] = 'w'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	if(fclose(fp) != 0) {
+		remove(fn);
+		return false;
+	}
+	t1replay_op_dos_flush();
+	return true;
+}
+
+static void t1op_backup_transaction_end(uint8_t slot)
+{
+	char fn[10];
+
+	// Flush every preceding rename or deletion before allowing the marker to
+	// disappear. A reset before this removal simply retries reconciliation.
+	t1replay_op_dos_flush();
+	t1replay_op_slot_transaction_fn(fn, slot);
+	remove(fn);
+}
+
+enum t1op_backup_action_t {
+	T1OBA_EMPTY,
+	T1OBA_STAGE,
+	T1OBA_RESTORE,
+	T1OBA_DISCARD,
+	T1OBA_DESTINATION_DISCARD,
+};
+
+static bool t1op_backup_file_apply(
+	char *destination_fn, char *backup_fn, t1op_backup_action_t action
+)
+{
+	bool changed;
+
+	if(action == T1OBA_EMPTY) {
+		return !t1replay_op_file_exists(backup_fn);
+	}
+	if(action == T1OBA_STAGE) {
+		changed = (
+			t1replay_op_file_exists(destination_fn) &&
+			(rename(destination_fn, backup_fn) == 0)
+		);
+	} else if(action == T1OBA_RESTORE) {
+		if(!t1replay_op_file_exists(backup_fn)) {
+			return true;
+		}
+		changed = (
+			!t1replay_op_file_exists(destination_fn) &&
+			(rename(backup_fn, destination_fn) == 0)
+		);
+	} else if(action == T1OBA_DISCARD) {
+		if(!t1replay_op_file_exists(backup_fn)) {
+			return true;
+		}
+		changed = (remove(backup_fn) == 0);
+	} else if(action == T1OBA_DESTINATION_DISCARD) {
+		if(!t1replay_op_file_exists(destination_fn)) {
+			return true;
+		}
+		changed = (remove(destination_fn) == 0);
+	} else {
+		return false;
+	}
+	if(changed) {
+		// Every rename/delete is independently durable. A reset may therefore
+		// observe any transition, never an unflushed directory-cache fiction.
+		t1replay_op_dos_flush();
+	}
+	return changed;
+}
+
+static bool t1op_backup_sidecars_apply(
+	uint8_t slot, t1op_backup_action_t action
+)
+{
+	char destination_fn[12];
+	char backup_fn[12];
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+	uint8_t process_seq;
+
+	for(process_seq = 0; process_seq <= T1REPLAY_CHECKPOINT_PROCESS_MAX;
+		process_seq++) {
+		t1replay_op_checkpoint_fn(destination_fn, slot, process_seq);
+		if((action == T1OBA_STAGE) &&
+			!t1replay_op_file_exists(destination_fn)) {
+			continue;
+		}
+		t1replay_op_checkpoint_backup_fn(backup_fn, slot, process_seq);
+		if(!t1op_backup_file_apply(destination_fn, backup_fn, action)) {
+			return false;
+		}
+	}
+#endif
+#if T1REPLAY_FUUIN_SCORE_PROOF
+	t1replay_op_score_proof_fn(destination_fn, slot);
+	if((action != T1OBA_STAGE) || t1replay_op_file_exists(destination_fn)) {
+		t1replay_op_score_proof_backup_fn(backup_fn, slot);
+		if(!t1op_backup_file_apply(destination_fn, backup_fn, action)) {
+			return false;
+		}
+	}
+#endif
+	return true;
+}
+
+static bool t1op_backup_recover_slot(uint8_t slot)
+{
+	char destination_fn[12];
+	char backup_fn[12];
+	char recovery_fn[12];
+	bool backup_exists;
+	bool destination_exists;
+
+	t1replay_op_slot_fn(destination_fn, slot);
+	t1replay_op_slot_backup_fn(backup_fn, slot);
+	t1replay_op_slot_recovery_fn(recovery_fn, slot);
+	backup_exists = t1replay_op_file_exists(backup_fn);
+	destination_exists = t1replay_op_file_exists(destination_fn);
+	if(t1replay_op_file_exists(recovery_fn)) {
+		// RCV is written only after every new sidecar was discarded. Keep it
+		// until all old sidecars and the old replay have returned.
+		if(destination_exists ||
+			!t1op_backup_sidecars_apply(slot, T1OBA_RESTORE) ||
+			(rename(recovery_fn, destination_fn) != 0)) {
+			return false;
+		}
+		t1op_backup_transaction_end(slot);
+		return true;
+	}
+	if(backup_exists) {
+		if(destination_exists) {
+			// The new replay is visible, so its sidecars were already staged.
+			if(
+				!t1op_backup_sidecars_apply(slot, T1OBA_DISCARD) ||
+				!t1op_backup_file_apply(destination_fn, backup_fn, T1OBA_DISCARD)
+			) {
+				return false;
+			}
+			t1op_backup_transaction_end(slot);
+			return true;
+		}
+		// A replay backup with no destination is an interrupted promotion.
+		// Clear every new sidecar before consuming the replay backup. The RCV
+		// name makes a reset during restoration unambiguous and retry-safe.
+		if(!t1op_backup_sidecars_apply(slot, T1OBA_DESTINATION_DISCARD)) {
+			return false;
+		}
+		if(!t1op_backup_file_apply(backup_fn, recovery_fn, T1OBA_STAGE)) {
+			return false;
+		}
+		if(!t1op_backup_sidecars_apply(slot, T1OBA_RESTORE) ||
+			!t1op_backup_file_apply(destination_fn, recovery_fn, T1OBA_RESTORE)) {
+			return false;
+		}
+		t1op_backup_transaction_end(slot);
+		return true;
+	}
+	// No replay backup means only backup staging could have started. Restore
+	// any old sidecars, then clear the marker for the next browser scan.
+	if(!t1op_backup_sidecars_apply(slot, T1OBA_RESTORE)) {
+		return false;
+	}
+	t1op_backup_transaction_end(slot);
+	return true;
+}
+
+static bool t1op_backup_recover_all(void)
+{
+	char fn[10];
+	uint8_t slot;
+
+	for(slot = 0; slot < T1REPLAY_SLOT_COUNT; slot++) {
+		t1replay_op_slot_transaction_fn(fn, slot);
+		if(
+			t1replay_op_file_exists(fn) &&
+			!t1op_backup_recover_slot(slot)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool t1op_backup_empty(uint8_t slot)
+{
+	char destination_fn[12];
+	char backup_fn[12];
+	char recovery_fn[12];
+	char transaction_fn[10];
+
+	t1replay_op_slot_fn(destination_fn, slot);
+	t1replay_op_slot_backup_fn(backup_fn, slot);
+	t1replay_op_slot_recovery_fn(recovery_fn, slot);
+	t1replay_op_slot_transaction_fn(transaction_fn, slot);
+	return (
+		t1op_backup_file_apply(destination_fn, backup_fn, T1OBA_EMPTY) &&
+		t1op_backup_file_apply(destination_fn, recovery_fn, T1OBA_EMPTY) &&
+		t1op_backup_file_apply(destination_fn, transaction_fn, T1OBA_EMPTY) &&
+		t1op_backup_sidecars_apply(slot, T1OBA_EMPTY)
+	);
+}
+
+static bool t1op_backup_stage(uint8_t slot)
+{
+	char destination_fn[12];
+	char backup_fn[12];
+
+	if(!t1op_backup_transaction_begin(slot)) {
+		return false;
+	}
+	// Sidecars move first. The replay backup is the last transition into a
+	// replaceable state and therefore the durable promotion boundary.
+	if(!t1op_backup_sidecars_apply(slot, T1OBA_STAGE)) {
+		t1op_backup_recover_slot(slot);
+		return false;
+	}
+	t1replay_op_slot_fn(destination_fn, slot);
+	t1replay_op_slot_backup_fn(backup_fn, slot);
+	if(!t1op_backup_file_apply(destination_fn, backup_fn, T1OBA_STAGE)) {
+		t1op_backup_recover_slot(slot);
+		return false;
+	}
+	return true;
+}
+
 static bool t1replay_op_pending_commit(uint8_t slot)
 {
 	t1replay_op_slot_t pending;
@@ -1430,12 +1721,37 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 #endif
 		return false;
 	}
+	t1replay_op_dos_flush();
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	if(proof_staged) {
 		t1replay_op_pending_score_proof_discard();
 	}
 #endif
 	t1replay_op_save_request_discard();
+	return true;
+}
+
+static bool t1replay_op_pending_commit_replace(uint8_t slot)
+{
+	t1replay_op_slot_t destination;
+
+	if(!t1replay_slot_is_numbered(slot)) {
+		return false;
+	}
+	t1replay_op_slot_read(slot, destination);
+	if(!destination.exists || !t1op_backup_empty(slot)) {
+		return false;
+	}
+	if(!t1op_backup_stage(slot)) {
+		return false;
+	}
+	if(!t1replay_op_pending_commit(slot)) {
+		t1op_backup_recover_slot(slot);
+		return false;
+	}
+	// The replay is complete. Reconciliation drops the old sidecars and keeps
+	// the browser's existing refresh/acknowledgement path unchanged.
+	t1op_backup_recover_slot(slot);
 	return true;
 }
 
@@ -1472,6 +1788,7 @@ enum t1replay_op_word_t {
 	T1ROW_REPLAY_BROWSER,
 	T1ROW_REPLAY_DETAIL,
 	T1ROW_SAVE_REPLAY,
+	T1ROW_OVERWRITE,
 	T1ROW_SAVE,
 	T1ROW_DISCARD,
 	T1ROW_SLOT_STATUS_START_STAGE_RANK,
@@ -1583,6 +1900,7 @@ static bool t1replay_op_word_japanese_append(
 		T1ROW_JP8(0x8D, 0xC4, 0x90, 0xB6, 0x8F, 0xDA, 0x8D, 0xD7); break;
 	case T1ROW_SAVE_REPLAY:
 		T1ROW_JP8(0x8D, 0xC4, 0x90, 0xB6, 0x95, 0xDB, 0x91, 0xB6); break;
+	case T1ROW_OVERWRITE: T1ROW_JP6(0x8F, 0xE3, 0x8F, 0x91, 0x82, 0xAB); break;
 	case T1ROW_SAVE: T1ROW_JP4(0x95, 0xDB, 0x91, 0xB6); break;
 	case T1ROW_DISCARD: T1ROW_JP4(0x94, 0x6A, 0x8A, 0xFC); break;
 	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
@@ -1700,6 +2018,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD4('D', 'E', 'T', 'A'); T1ROW_WORD2('I', 'L'); break;
 	case T1ROW_SAVE_REPLAY:
 		T1ROW_WORD4('S', 'A', 'V', 'E'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
+	case T1ROW_OVERWRITE:
+		T1ROW_WORD4('O', 'V', 'E', 'R'); T1ROW_WORD4('W', 'R', 'I', 'T'); T1ROW_WORD1('E'); break;
 	case T1ROW_SAVE: T1ROW_WORD4('S', 'A', 'V', 'E'); break;
 	case T1ROW_DISCARD: T1ROW_WORD4('D', 'I', 'S', 'C'); T1ROW_WORD3('A', 'R', 'D'); break;
 	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
@@ -2730,7 +3050,10 @@ static void t1replay_op_save_decision_render(void)
 	vc_t col;
 
 	t1replay_op_panel_restore();
-	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
+	p = t1replay_op_word_append(
+		t1replay_op_text,
+		t1replay_op_save_pending ? T1ROW_OVERWRITE : T1ROW_SAVE_REPLAY
+	);
 	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 3);
 	col = ((t1replay_op_sel == 0) ?
@@ -3025,9 +3348,30 @@ static void t1replay_op_practice_render(void)
 	#undef T1REPLAY_OP_PRACTICE_LINE
 }
 
+// The ordinary browser selection becomes the modal choice. Keep its numbered
+// destination in the idle horizontal byte, which is otherwise zero while a
+// save picker is active; this avoids growing the patch-owned BSS tail.
+static uint8_t t1replay_op_overwrite_slot(void)
+{
+	return static_cast<uint8_t>(t1replay_op_horizontal_hold - 1);
+}
+
+static void t1replay_op_overwrite_cancel(void)
+{
+	uint8_t slot = t1replay_op_overwrite_slot();
+
+	t1replay_op_page = static_cast<uint8_t>(slot / T1REPLAY_OP_ROWS_PER_PAGE);
+	t1replay_op_sel = static_cast<uint8_t>(slot % T1REPLAY_OP_ROWS_PER_PAGE);
+	t1replay_op_input_reset();
+	t1replay_op_replay_render();
+}
+
 void t1replay_op_replay_enter(void)
 {
 	t1replay_op_surface_state_reset();
+	if(!t1op_backup_recover_all()) {
+		return;
+	}
 	t1replay_op_replay_render();
 }
 
@@ -3058,6 +3402,9 @@ bool t1replay_op_pending_enter(void)
 		return false;
 	}
 	t1replay_op_surface_state_reset();
+	if(!t1op_backup_recover_all()) {
+		return false;
+	}
 	t1replay_op_save_decision = (request.source == T1RSRS_POSTGAME);
 	if(t1replay_op_save_decision) {
 		t1replay_op_save_decision_render();
@@ -3154,9 +3501,13 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	}
 	if(t1replay_op_save_decision) {
 		if(input.cancel) {
-			t1replay_op_pending_discard();
 			t1replay_op_save_decision = false;
-			result.action = T1ROA_RETURN;
+			if(t1replay_op_save_pending) {
+				t1replay_op_overwrite_cancel();
+			} else {
+				t1replay_op_pending_discard();
+				result.action = T1ROA_RETURN;
+			}
 			return result;
 		}
 		if(input.up || input.down) {
@@ -3166,11 +3517,27 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 		if(input.ok) {
 			if(t1replay_op_sel == 0) {
 				t1replay_op_save_decision = false;
-				t1replay_op_name_begin();
+				if(t1replay_op_save_pending) {
+					result.slot = t1replay_op_overwrite_slot();
+					if(t1replay_op_pending_commit_replace(result.slot)) {
+						t1replay_op_save_pending = false;
+						t1replay_op_input_reset();
+						t1replay_op_horizontal_hold = T1REPLAY_OP_SAVED_WAIT;
+						t1replay_op_replay_render();
+					} else {
+						t1replay_op_overwrite_cancel();
+					}
+				} else {
+					t1replay_op_name_begin();
+				}
 			} else {
-				t1replay_op_pending_discard();
 				t1replay_op_save_decision = false;
-				result.action = T1ROA_RETURN;
+				if(t1replay_op_save_pending) {
+					t1replay_op_overwrite_cancel();
+				} else {
+					t1replay_op_pending_discard();
+					result.action = T1ROA_RETURN;
+				}
 			}
 		}
 		return result;
@@ -3278,7 +3645,14 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 			(t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) + t1replay_op_sel
 		);
 		if(t1replay_op_save_pending) {
-			if(t1replay_op_pending_commit(result.slot)) {
+			t1replay_op_slot_read(result.slot, slot);
+			if(slot.exists && t1op_backup_empty(result.slot)) {
+				t1replay_op_save_decision = true;
+				t1replay_op_input_reset();
+				t1replay_op_horizontal_hold = static_cast<uint8_t>(result.slot + 1);
+				t1replay_op_sel = 0;
+				t1replay_op_save_decision_render();
+			} else if(t1replay_op_pending_commit(result.slot)) {
 				t1replay_op_save_pending = false;
 				t1replay_op_input_reset();
 				t1replay_op_horizontal_hold = T1REPLAY_OP_SAVED_WAIT;
