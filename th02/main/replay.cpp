@@ -170,6 +170,10 @@ static void t2replay_fast_forward_restore(void)
 		}
 		t2replay_fast_forward_slowdown_active = false;
 	}
+	// A stage/process terminal can occur after the last replay sample of a
+	// playback frame. Do not let that frame's private wait bypass escape into
+	// the native transition before another input seam can clear it.
+	t2replay_fast_forward_phase = 0;
 }
 
 static bool t2replay_fast_forward_key_held(void)
@@ -4502,6 +4506,7 @@ static void t2replay_finalize(uint8_t end_reason)
 {
 	bool protect_blocked = false;
 
+	t2replay_fast_forward_restore();
 	if(t2replay_finished || (t2replay_mode == T2RM_DISABLED)) {
 		return;
 	}
@@ -5296,6 +5301,7 @@ bool16 replay_practice_target_apply(void)
 
 void replay_stage_start(void)
 {
+	t2replay_fast_forward_restore();
 	if(t2replay_mode == T2RM_DISABLED) {
 		return;
 	}
