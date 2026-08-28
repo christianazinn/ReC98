@@ -31,9 +31,10 @@ int far pascal t2_language_file_ropen(const char *fn);
 void far pascal t2_language_file_close(void);
 void far pascal t2_language_option_text(char *label, char *value);
 
-// MAIN-only presentation wrappers. EYE.PI is one complete transaction;
-// dialogue text keeps the selected archive active until the matching close.
+// MAIN-only presentation wrappers. EYE.PI and MIKOFT.BFT each use complete
+// transactions; dialogue text keeps the selected archive active until close.
 int far pascal t2_language_main_pi_load(int slot, const char *fn);
+int far pascal t2_language_main_gaiji_entry_bfnt(const char *fn);
 int far pascal t2_language_main_file_ropen(const char *fn);
 void far pascal t2_language_main_file_close(void);
 

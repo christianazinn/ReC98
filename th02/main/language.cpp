@@ -1,6 +1,9 @@
 #include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/formats/pf.hpp"
 #include "th02/formats/pi.h"
+#include "th02/language.hpp"
+#include "th02/main/language_presentation.hpp"
 
 #pragma codeseg T2LANGMAIN_TEXT
 
@@ -34,6 +37,13 @@ static bool t2_language_main_member(const char *fn)
 		C(3, 'G') && C(4, 'E') && (fn[5] >= '0') && (fn[5] <= '5') &&
 		C(6, '.') && C(7, 'T') && C(8, 'X') && C(9, 'T') &&
 		(fn[10] == '\0')
+	) {
+		return true;
+	}
+	if(
+		(length == 10) && C(0, 'M') && C(1, 'I') && C(2, 'K') &&
+		C(3, 'O') && C(4, 'F') && C(5, 'T') && C(6, '.') &&
+		C(7, 'B') && C(8, 'F') && C(9, 'T') && (fn[10] == '\0')
 	) {
 		return true;
 	}
@@ -85,6 +95,22 @@ int far pascal t2_language_main_pi_load(int slot, const char *fn)
 			ret = pi_load(slot, fn);
 		}
 	}
+	return ret;
+}
+
+int far pascal t2_language_main_gaiji_entry_bfnt(const char *fn)
+{
+	bool switched = t2_language_main_begin(fn);
+	int ret = gaiji_entry_bfnt(fn);
+	bool overlay_loaded = (switched && (ret != 0));
+
+	if(switched) {
+		t2_language_main_stock_restore();
+		if(ret == 0) {
+			ret = gaiji_entry_bfnt(fn);
+		}
+	}
+	t2_language_main_presentation_apply(overlay_loaded);
 	return ret;
 }
 
