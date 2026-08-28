@@ -2300,7 +2300,29 @@ void t1replay_op_main_choice_put(
 {
 	char *p = t1replay_op_text;
 
-	if(choice == 3) {
+	// Stock title commands use fullwidth ANK glyphs. Keep the English patch
+	// commands in that same title-only style; the modal UI retains its compact
+	// English materializer and Japanese keeps its localized title words.
+	#define T1ROW_TITLE_PAIR(a, b) \
+		*reinterpret_cast<uint16_t *>(p) = static_cast<uint16_t>( \
+			static_cast<uint8_t>(a) | \
+			(static_cast<uint16_t>(static_cast<uint8_t>(b)) << 8) \
+		); \
+		p += 2
+
+	if(t1_language_get() == T1LANG_ENGLISH) {
+		if(choice == 3) {
+			T1ROW_TITLE_PAIR(0x82, 0x6F); T1ROW_TITLE_PAIR(0x82, 0x71);
+			T1ROW_TITLE_PAIR(0x82, 0x60); T1ROW_TITLE_PAIR(0x82, 0x62);
+			T1ROW_TITLE_PAIR(0x82, 0x73); T1ROW_TITLE_PAIR(0x82, 0x68);
+			T1ROW_TITLE_PAIR(0x82, 0x62); T1ROW_TITLE_PAIR(0x82, 0x64);
+		} else {
+			T1ROW_TITLE_PAIR(0x81, 0x40); T1ROW_TITLE_PAIR(0x82, 0x71);
+			T1ROW_TITLE_PAIR(0x82, 0x64); T1ROW_TITLE_PAIR(0x82, 0x6F);
+			T1ROW_TITLE_PAIR(0x82, 0x6B); T1ROW_TITLE_PAIR(0x82, 0x60);
+			T1ROW_TITLE_PAIR(0x82, 0x78); T1ROW_TITLE_PAIR(0x81, 0x40);
+		}
+	} else if(choice == 3) {
 		*p++ = ' ';
 		p = t1replay_op_word_append(p, T1ROW_PRACTICE);
 		*p++ = ' ';
@@ -2309,6 +2331,7 @@ void t1replay_op_main_choice_put(
 		p = t1replay_op_word_append(p, T1ROW_REPLAY);
 		*p++ = ' '; *p++ = ' ';
 	}
+	#undef T1ROW_TITLE_PAIR
 	*p = '\0';
 	graph_putsa_fx(
 		static_cast<screen_x_t>(center_x - (shiftjis_w(t1replay_op_text) / 2)),
