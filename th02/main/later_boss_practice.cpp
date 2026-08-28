@@ -65,6 +65,9 @@ extern "C" void near sigma_1619C(void);
 extern "C" void near sigma_162D3(void);
 extern "C" void near sigma_16421(void);
 extern "C" void near sigma_16555(void);
+extern "C" void near sigma_16606(void);
+extern "C" void near sigma_16650(void);
+extern "C" void near sigma_1668E(void);
 
 typedef void (near *near t2lbp_sigma_pattern_func_t)(void);
 extern "C" t2lbp_sigma_pattern_func_t sigma_pattern_func[3];
@@ -493,6 +496,30 @@ static void near t2lbp_sigma_phase7_construct(void)
 	lasers_callbacks_set();
 }
 
+// Native Phase 8 only installs this row before incrementing into the final
+// ordinary-combat phase. Phase 7 pattern 0 necessarily executes before that
+// handoff and leaves the blast hitbox margin at -4; spell it out rather than
+// inheriting the predecessor's mutable RAM. The Phase 9 callbacks initialize
+// their own sweep and ring state behind the native 50-frame entrance hold.
+static void near t2lbp_sigma_phase9_construct(void)
+{
+	th02_s6_sigma_clean_init();
+	sigma_phase = 9;
+	sigma_pattern = 0;
+	sigma_pattern_looped_unused = 0;
+	boss_phase_frame = 0;
+	sigma_pattern_func[0] = sigma_16606;
+	sigma_pattern_func[1] = sigma_16650;
+	sigma_pattern_func[2] = sigma_1668E;
+	sigma_phase_damage_max = 5000;
+	sigma_cel_interval_mask = 7;
+	sigma_blast_hitbox_margin = -4;
+	sigma_ring_radius = 0;
+	sigma_frame = 0;
+	t2lbp_sigma_blasts_reset();
+	lasers_callbacks_set();
+}
+
 bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 {
 	switch(target) {
@@ -550,6 +577,10 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		return true;
 	case T2LBPT_SIGMA_PHASE7:
 		t2lbp_sigma_phase7_construct();
+		t2lbp_sigma_redraw_both();
+		return true;
+	case T2LBPT_SIGMA_PHASE9:
+		t2lbp_sigma_phase9_construct();
 		t2lbp_sigma_redraw_both();
 		return true;
 	case T2LBPT_MIMA_PHASE7:

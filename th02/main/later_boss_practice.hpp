@@ -24,6 +24,7 @@ enum th02_later_boss_target_t {
 	T2LBPT_MARISA_ROUND6 = 13,
 	T2LBPT_MARISA_ROUND7 = 14,
 	T2LBPT_SIGMA_PHASE7 = 15,
+	T2LBPT_SIGMA_PHASE9 = 16,
 };
 
 bool16 far th02_later_boss_clean_init(
