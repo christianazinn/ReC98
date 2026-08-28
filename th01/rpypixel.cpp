@@ -398,7 +398,7 @@ uint8_t t1ymx_accessed_page_get(void)
 #if T1REPLAY_KONNGARA_PHASE1_TRACE
 
 #define T1KPX_HEADER_SIZE 24
-#define T1KPX_ROW_SIZE 444
+#define T1KPX_ROW_SIZE 448
 #define T1KPX_ROW_COUNT 3
 #define T1KPX_OWNER_VALUE_COUNT 81
 #define T1KPX_WORLD_COUNT 9
@@ -425,6 +425,11 @@ enum t1kpx_state_t {
 	T1KXS_FAILED,
 };
 
+enum t1kpx_run_kind_t {
+	T1KPX_RUN_NATURAL = 1,
+	T1KPX_RUN_DIRECT = 2,
+};
+
 struct t1kpx_header_t {
 	char magic[8];
 	uint16_t version;
@@ -438,7 +443,7 @@ struct t1kpx_header_t {
 	uint8_t visible_page;
 	uint8_t owner_value_count;
 	uint8_t world_count;
-	uint16_t reserved;
+	uint16_t run_kind;
 };
 
 struct t1kpx_row_t {
@@ -453,6 +458,7 @@ struct t1kpx_row_t {
 	uint32_t owner_digest;
 	uint16_t owner_values[T1KPX_OWNER_VALUE_COUNT];
 	uint16_t world_counts[T1KPX_WORLD_COUNT];
+	uint32_t resource_digest;
 	uint32_t palette_digest;
 	uint32_t vram_digest[PAGE_COUNT][PLANE_COUNT];
 	uint32_t tram_jis_digest[T1PIXEL_TRAM_ROWS];
@@ -468,6 +474,7 @@ typedef char t1kpx_row_size_check[
 ];
 
 static t1kpx_state_t t1kpx_state;
+static uint16_t t1kpx_run_kind;
 static uint16_t t1kpx_owner_values[T1KPX_OWNER_VALUE_COUNT];
 static uint32_t t1kpx_owner_digest;
 
@@ -516,8 +523,8 @@ static bool t1kpx_header_write(void)
 	t1pixel_memclear(&header, sizeof(header));
 	header.magic[0] = 'T'; header.magic[1] = '1';
 	header.magic[2] = 'K'; header.magic[3] = 'P';
-	header.magic[4] = 'X'; header.magic[5] = '1';
-	header.version = 1;
+	header.magic[4] = 'X'; header.magic[5] = '2';
+	header.version = 2;
 	header.header_size = T1KPX_HEADER_SIZE;
 	header.row_size = T1KPX_ROW_SIZE;
 	header.expected_rows = T1KPX_ROW_COUNT;
@@ -528,6 +535,13 @@ static bool t1kpx_header_write(void)
 	header.visible_page = page_shown;
 	header.owner_value_count = T1KPX_OWNER_VALUE_COUNT;
 	header.world_count = T1KPX_WORLD_COUNT;
+	header.run_kind = t1kpx_run_kind;
+	if(
+		(header.run_kind != T1KPX_RUN_NATURAL) &&
+		(header.run_kind != T1KPX_RUN_DIRECT)
+	) {
+		return false;
+	}
 	file = fopen("T1KPX.BIN", "wb");
 	if(!file) {
 		return false;
@@ -542,7 +556,7 @@ static bool t1kpx_header_write(void)
 static bool t1kpx_row_write(
 	uint8_t point, uint8_t process_seq, uint32_t sample_cursor,
 	uint32_t packet_cursor, uint32_t input_cursor,
-	const t1replay_pixel_world_t& world
+	const t1replay_pixel_world_t& world, uint32_t resource_digest
 )
 {
 	t1kpx_row_t row;
@@ -570,6 +584,7 @@ static bool t1kpx_row_write(
 	row.world_counts[6] = world.missiles;
 	row.world_counts[7] = world.lasers;
 	row.world_counts[8] = world.particles;
+	row.resource_digest = resource_digest;
 	t1pixel_surface_capture(
 		row.visible_page, row.accessed_page, row.palette_digest,
 		row.vram_digest, row.tram_jis_digest, row.tram_attr_digest
@@ -587,6 +602,23 @@ static bool t1kpx_row_write(
 		ok = false;
 	}
 	return ok;
+}
+
+bool16 t1kpx_direct_prepare(void)
+{
+	if(t1kpx_state != T1KXS_OFF) {
+		return false;
+	}
+	t1kpx_run_kind = T1KPX_RUN_DIRECT;
+	return true;
+}
+
+bool16 t1kpx_direct_ready(void)
+{
+	return (
+		(t1kpx_run_kind == T1KPX_RUN_DIRECT) &&
+		(t1kpx_state == T1KXS_WAIT_NATURAL_SEAM)
+	);
 }
 
 void t1replay_pixel_probe_konngara_phase1_arm(
@@ -646,7 +678,8 @@ void t1replay_pixel_probe_konngara_phase1_arm(
 
 void t1replay_pixel_probe_konngara_phase1_pre_input(
 	uint8_t process_seq, uint32_t sample_cursor, uint32_t packet_cursor,
-	uint32_t input_cursor, int pellet_speed_raise_cycle
+	uint32_t input_cursor, int pellet_speed_raise_cycle,
+	uint32_t resource_digest
 )
 {
 	t1replay_pixel_world_t world;
@@ -669,9 +702,11 @@ void t1replay_pixel_probe_konngara_phase1_pre_input(
 		return;
 	}
 	if(
+		(resource_digest == 0) ||
 		!t1replay_pixel_probe_world_capture(&world, pellet_speed_raise_cycle) ||
 		!t1kpx_row_write(
-			point, process_seq, sample_cursor, packet_cursor, input_cursor, world
+			point, process_seq, sample_cursor, packet_cursor, input_cursor,
+			world, resource_digest
 		)
 	) {
 		t1kpx_state = T1KXS_FAILED;
@@ -895,6 +930,7 @@ void t1replay_pixel_probe_reset(void)
 #endif
 #if T1REPLAY_KONNGARA_PHASE1_TRACE
 	t1kpx_state = T1KXS_OFF;
+	t1kpx_run_kind = T1KPX_RUN_NATURAL;
 	t1pixel_memclear(t1kpx_owner_values, sizeof(t1kpx_owner_values));
 	t1kpx_owner_digest = 0;
 #endif

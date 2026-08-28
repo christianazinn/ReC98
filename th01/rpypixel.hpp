@@ -65,12 +65,15 @@ void t1replay_pixel_probe_konngara_phase1_arm(
 	const CBossEntity& face_closed_or_glare,
 	const CBossEntity& face_aim
 );
+bool16 t1kpx_direct_prepare(void);
+bool16 t1kpx_direct_ready(void);
 void t1replay_pixel_probe_konngara_phase1_pre_input(
 	uint8_t process_seq,
 	uint32_t sample_cursor,
 	uint32_t packet_cursor,
 	uint32_t input_cursor,
-	int pellet_speed_raise_cycle
+	int pellet_speed_raise_cycle,
+	uint32_t resource_digest
 );
 
 #endif

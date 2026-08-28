@@ -353,6 +353,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/k/",
 		cflags = "-DT1RP=6",
 	},
+	["t1konngara-phase1-direct"] = {
+		obj_root = "x/kd/",
+		bin_root = "x/kd/",
+		cflags = "-DT1RP=8",
+	},
 	["t1yuugenmagan-first-combat"] = {
 		obj_root = "x/y/",
 		bin_root = "x/y/",

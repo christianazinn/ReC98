@@ -1902,6 +1902,55 @@ static bool16 t1boss_konngara_resources_loaded(void)
 	return true;
 }
 
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+static uint32_t t1boss_konngara_phase1_resource_digest_add(
+	uint32_t hash, uint16_t value
+)
+{
+	hash ^= static_cast<uint8_t>(value);
+	hash *= 0x01000193UL;
+	hash ^= static_cast<uint8_t>(value >> 8);
+	hash *= 0x01000193UL;
+	return hash;
+}
+
+uint32_t t1boss_konngara_phase1_resource_digest(void)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+	int i;
+
+	if(!t1boss_konngara_resources_loaded()) {
+		return 0;
+	}
+	const CBossEntity *entities[3] = {
+		&ent_head, &ent_face_closed_or_glare, &ent_face_aim,
+	};
+	for(i = 0; i < 3; i++) {
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->bos_slot
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->bos_image_count
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->loading
+		);
+	}
+	for(i = 0; i < 7; i++) {
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, (rle_streams[i] != nullptr)
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, (planar_streams[i][0] != nullptr)
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, planar_stream_count[i]
+		);
+	}
+	return digest;
+}
+#endif
+
 bool16 t1boss_konngara_checkpoint_validate(
 	const t1boss_konngara_checkpoint_t *checkpoint
 )
@@ -1959,5 +2008,22 @@ bool16 t1boss_konngara_ckpt_apply_loaded(
 	game_cleared = false;
 	return true;
 }
+
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+bool16 t1boss_konngara_phase1_direct_construct(void)
+{
+	if(
+		!t1boss_konngara_state_is_canonical() ||
+		!t1boss_konngara_resources_loaded() ||
+		!t1kpx_direct_prepare()
+	) {
+		return false;
+	}
+
+	// This is the native phase-0 branch, once, after its native entrance.
+	konngara_main();
+	return t1kpx_direct_ready();
+}
+#endif
 
 #pragma codeseg

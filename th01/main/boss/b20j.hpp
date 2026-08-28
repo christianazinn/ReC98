@@ -2,6 +2,7 @@
 #define TH01_MAIN_BOSS_B20J_HPP
 
 #include "platform.h"
+#include "th01/replay_format.hpp"
 
 enum {
 	T1BOSS_KONNGARA_CHECKPOINT_OWNER = 7,
@@ -32,5 +33,17 @@ bool16 t1boss_konngara_checkpoint_capture(
 bool16 t1boss_konngara_ckpt_apply_loaded(
 	const t1boss_konngara_checkpoint_t *checkpoint
 );
+
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+// The private witness hashes loaded-resource topology without serializing a
+// pointer or raw resource address.
+uint32_t t1boss_konngara_phase1_resource_digest(void);
+#endif
+
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+// Private evidence only. Release Practice must not invoke this before the
+// paired native/direct witness proves the fully reconstructed first input seam.
+bool16 t1boss_konngara_phase1_direct_construct(void);
+#endif
 
 #endif /* TH01_MAIN_BOSS_B20J_HPP */

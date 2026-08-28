@@ -32,6 +32,7 @@
 #include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
+#include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
 #include "th01/snd/mdrv2.h"
@@ -1304,11 +1305,15 @@ static uint8_t t1replay_group_number(uint8_t group)
 	return 0;
 }
 
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+#define T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET 2
+#endif
+
 static bool t1replay_practice_boss_phase_start_valid(
 	const t1replay_start_t far *start
 )
 {
-	return (
+	if(
 		(start->practice_boss_phase == T1RPBPT_NONE) ||
 		(
 			(start->practice_boss_phase ==
@@ -1316,7 +1321,18 @@ static bool t1replay_practice_boss_phase_start_valid(
 			(start->stage_id == BOSS_STAGE) &&
 			(start->route == ROUTE_MAKAI)
 		)
+	) {
+		return true;
+	}
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+	return (
+		(start->practice_boss_phase == T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 3) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU)
 	);
+#else
+	return false;
+#endif
 }
 
 static bool t1replay_start_valid(const t1replay_start_t far *start)
@@ -1837,12 +1853,6 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 	if(
 		!t1replay_restart_state_valid(state) ||
 		(state->kind != T1RRK_PRACTICE) ||
-		(state->practice.section != T1RPS_BOSS_PHASE) ||
-		(state->practice.scene != 0) ||
-		(state->practice.route != ROUTE_MAKAI) ||
-		(state->practice.chapter != BOSS_STAGE) ||
-		(start->stage_id != BOSS_STAGE) ||
-		(start->route != ROUTE_MAKAI) ||
 		(start->rank != state->practice.rank) ||
 		(start->score != state->practice.score) ||
 		(start->rem_lives != state->practice.lives) ||
@@ -1850,6 +1860,30 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 		(start->point_value != state->practice.point_value) ||
 		(start->pellet_speed != state->practice.pellet_speed) ||
 		(start->resident_rand != state->practice.rand)
+	) {
+		return T1RPBPT_NONE;
+	}
+
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+	if(
+		(state->practice.section == T1RPS_BOSS_START) &&
+		(state->practice.scene == 3) &&
+		(state->practice.route == ROUTE_JIGOKU) &&
+		(state->practice.chapter == BOSS_STAGE) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 3) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU)
+	) {
+		return T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET;
+	}
+#endif
+
+	if(
+		(state->practice.section != T1RPS_BOSS_PHASE) ||
+		(state->practice.scene != 0) ||
+		(state->practice.route != ROUTE_MAKAI) ||
+		(state->practice.chapter != BOSS_STAGE) ||
+		(start->stage_id != BOSS_STAGE) ||
+		(start->route != ROUTE_MAKAI)
 	) {
 		return T1RPBPT_NONE;
 	}
@@ -2675,6 +2709,49 @@ static void t1replay_checkpoint_scenario_apply(
 	extend_next = ((score / SCORE_PER_EXTEND) + 1);
 }
 
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+static bool t1replay_practice_konngara_phase1_restore_apply(
+	int *pellet_speed_raise_cycle
+)
+{
+	const t1replay_start_t far *start = &t1replay_header.start;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		((t1replay_mode != T1RM_RECORD) &&
+		 (t1replay_mode != T1RM_PLAYBACK)) ||
+		!resident || !t1replay_res ||
+		(t1replay_res->process_seq != 0) ||
+		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_boss_phase_start_valid(start) ||
+		(start->practice_boss_phase != T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET) ||
+		(resident->stage_id != ((STAGES_PER_SCENE * 3) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_KONNGARA) ||
+		!t1boss_konngara_phase1_direct_construct()
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	// This is the native post-phase-0 first-input seam, with no checkpoint.
+	timer_initialized = true;
+	irand_init(frame_rand);
+	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+	first_stage_in_scene = false;
+	frame_rand++;
+	*pellet_speed_raise_cycle = (
+		1800 - (rem_lives * 200) - (rem_bombs * 50)
+	);
+	if((frame_rand % *pellet_speed_raise_cycle) == 0) {
+		pellet_speed_raise(0.025f);
+	}
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
+}
+#endif
+
 static bool t1replay_practice_boss_phase_restore_apply(
 	int *pellet_speed_raise_cycle
 )
@@ -2723,6 +2800,16 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	const t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
 
 	if(t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) {
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+		if(
+			t1replay_header.start.practice_boss_phase ==
+			T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET
+		) {
+			return t1replay_practice_konngara_phase1_restore_apply(
+				pellet_speed_raise_cycle
+			);
+		}
+#endif
 		return t1replay_practice_boss_phase_restore_apply(
 			pellet_speed_raise_cycle
 		);
@@ -2962,7 +3049,8 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 		t1replay_pixel_probe_konngara_phase1_pre_input(
 			t1replay_res ? t1replay_res->process_seq : 0,
 			t1replay_header.sample_count, t1replay_header.packet_count,
-			t1replay_header.input_size, pellet_speed_raise_cycle
+			t1replay_header.input_size, pellet_speed_raise_cycle,
+			t1boss_konngara_phase1_resource_digest()
 		);
 	}
 #endif
@@ -3262,7 +3350,8 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 		t1replay_pixel_probe_konngara_phase1_pre_input(
 			t1replay_res ? t1replay_res->process_seq : 0,
 			t1replay_header.sample_count, t1replay_header.packet_count,
-			t1replay_header.input_size, pellet_speed_raise_cycle
+			t1replay_header.input_size, pellet_speed_raise_cycle,
+			t1boss_konngara_phase1_resource_digest()
 		);
 	}
 #endif
