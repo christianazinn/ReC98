@@ -1633,14 +1633,14 @@ static void t2op_title_text_put(
 	text_putsa(x, y, reinterpret_cast<const shiftjis_t *>(t2op_line), attr);
 }
 
-static void t2op_title_word_put(
+static void t2op_menu_word_put(
 	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
 )
 {
 	if(t2_language_english_ready()) {
-		t2op_title_gaiji_put(x, y, attr, end);
+		t2op_gaiji_put(x, y, attr, end);
 	} else {
-		t2op_title_text_put(x, y, attr, end);
+		t2op_text_put(x, y, attr, end);
 	}
 }
 
@@ -1660,7 +1660,7 @@ static void t2op_title_word_center_put(
 	t2op_title_text_put(x, y, attr, end);
 }
 
-static void t2op_title_word_right_put(
+static void t2op_menu_word_right_put(
 	tram_x_t right, tram_y_t y, tram_atrb2 attr, char *end
 )
 {
@@ -1670,11 +1670,11 @@ static void t2op_title_word_right_put(
 		x = static_cast<tram_x_t>(
 			right - (t2op_gaiji_encode(end) * GAIJI_TRAM_W)
 		);
-		t2op_title_gaiji_put(x, y, attr, end);
+		t2op_gaiji_put(x, y, attr, end);
 		return;
 	}
 	x = static_cast<tram_x_t>(right - t2op_line_tram_width(end));
-	t2op_title_text_put(x, y, attr, end);
+	t2op_text_put(x, y, attr, end);
 }
 
 static unsigned t2op_gaiji_length(const char *text)
@@ -2712,7 +2712,7 @@ static void t2op_practice_render(void)
 		default: label = T2OW_REDUCED_EFFECTS; break;
 		}
 		p = t2op_word_append(p, label);
-		t2op_title_word_put(T2OP_PRACTICE_LABEL_X, y, attr, p);
+		t2op_menu_word_put(T2OP_PRACTICE_LABEL_X, y, attr, p);
 
 		p = t2op_line;
 		switch(row) {
@@ -2802,7 +2802,7 @@ static void t2op_practice_render(void)
 		case T2OPC_BGM: p = t2op_bgm_append(p, t2op_practice.bgm_mode); break;
 		default: p = t2op_word_append(p, t2op_practice.reduce_effects ? T2OW_ON : T2OW_OFF); break;
 		}
-		t2op_title_word_right_put(T2OP_PRACTICE_VALUE_RIGHT, y, attr, p);
+		t2op_menu_word_right_put(T2OP_PRACTICE_VALUE_RIGHT, y, attr, p);
 	}
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_START_RUN);
