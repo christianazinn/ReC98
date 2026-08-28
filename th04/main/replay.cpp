@@ -3183,11 +3183,11 @@ static void replay_debug_stage_coordinates_put(void)
 #if (GAME == 5)
 	map_section >>= 1;
 #endif
-	text_putsa(4, 0, "F", TX_WHITE);
+	text_putca(4, 0, 'F', TX_WHITE);
 	replay_debug_u16_put(5, stage_frame, 10000);
-	text_putsa(10, 0, " N", TX_WHITE);
+	text_putca(11, 0, 'N', TX_WHITE);
 	replay_debug_u16_put(12, next_std_frame, 10000);
-	text_putsa(17, 0, " M", TX_WHITE);
+	text_putca(18, 0, 'M', TX_WHITE);
 	replay_debug_u16_put(19, map_section, 10);
 }
 
@@ -3430,8 +3430,7 @@ bool replay_playback_active(void)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
@@ -3448,7 +3447,6 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
