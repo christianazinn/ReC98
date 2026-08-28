@@ -134,10 +134,12 @@ static void t2_language_option_change(int direction)
 			t2_language_op_tables_apply();
 			t2_language_option_gaiji_reload();
 			replay_title_background_restore();
-			// Options still owns the foreground. Force the normal title rebuild
-			// after it returns rather than exposing stale Option text.
+			// Options still owns the foreground. Rebuild it immediately after
+			// restoring the selected-language title assets; the flag serves the
+			// later Options-to-title return.
 			replay_title_restore_needed = true;
 			t2_language_option_initialized = false;
+			t2_language_option_update_and_render();
 			return;
 		}
 		break;
