@@ -13,6 +13,7 @@
 #include "th01/replay_format.hpp"
 #include "th01/hardware/vsync.hpp"
 #include "th01/rp_guard.hpp"
+#include "th01/savestate_acceptance.hpp"
 #include "th01/resident.hpp"
 #include "th01/hiscore/regist.hpp"
 #include "th01/math/dir.hpp"
@@ -488,6 +489,100 @@ static unsigned t1replay_dos_write(int fh, const void far *buf, unsigned size)
 	}
 	return result;
 }
+
+#if T1REPLAY_SAVESTATE_ACCEPTANCE
+static const char T1SAVESTATE_ACCEPTANCE_FN[] = "T1SGA.BIN";
+
+static void t1savestate_acceptance_clear(
+	t1savestate_acceptance_record_t *record
+)
+{
+	uint8_t *p = reinterpret_cast<uint8_t *>(record);
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		p[i] = 0;
+	}
+}
+
+static uint16_t t1savestate_acceptance_checksum(
+	const t1savestate_acceptance_record_t *record
+)
+{
+	const uint8_t *p = reinterpret_cast<const uint8_t *>(record);
+	uint16_t sum = 0;
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		sum = static_cast<uint16_t>(sum + p[i]);
+	}
+	return sum;
+}
+
+static void t1savestate_acceptance_emit(
+	uint8_t event, uint8_t checkpoint_result, t1replay_guard_t far *guard
+)
+{
+	t1savestate_acceptance_record_t record;
+	uint8_t marker = 0;
+	uint32_t disk_size = 0;
+	int fd;
+
+	t1savestate_acceptance_clear(&record);
+	record.magic[0] = 'T'; record.magic[1] = '1';
+	record.magic[2] = 'S'; record.magic[3] = 'G';
+	record.magic[4] = 'A'; record.magic[5] = '0';
+	record.magic[6] = '0'; record.magic[7] = '1';
+	record.schema = T1SAVESTATE_ACCEPTANCE_SCHEMA;
+	record.event = event;
+	record.checkpoint_result = checkpoint_result;
+	record.guard_flags = guard->flags;
+	record.committed_size = guard->committed_size;
+	if(t1rpg_marker_read(guard, &marker, &disk_size)) {
+		record.raw_ok = 1;
+		record.marker = marker;
+		record.expected_size = guard->committed_size;
+		record.actual_size = disk_size;
+	}
+	record.checksum = 0;
+	record.checksum = t1savestate_acceptance_checksum(&record);
+	fd = t1replay_dos_create(T1SAVESTATE_ACCEPTANCE_FN);
+	if(fd < 0) {
+		return;
+	}
+	if(t1replay_dos_write(fd, &record, sizeof(record)) != sizeof(record)) {
+		t1replay_dos_close(fd);
+		return;
+	}
+	t1replay_dos_close(fd);
+	t1replay_dos_flush();
+	(void)t1rpg_commit_process();
+}
+
+static bool t1savestate_acceptance_begin(t1replay_guard_t far *guard)
+{
+	bool ok = t1rpg_begin(guard);
+
+	t1savestate_acceptance_emit(T1SAE_BEGIN, ok, guard);
+	return ok;
+}
+
+static bool t1savestate_acceptance_checkpoint(
+	t1replay_guard_t far *guard, uint8_t event
+)
+{
+	bool ok = t1rpg_checkpoint(guard);
+
+	t1savestate_acceptance_emit(event, ok, guard);
+	return ok;
+}
+
+static void t1savestate_acceptance_end(t1replay_guard_t far *guard)
+{
+	t1savestate_acceptance_emit(T1SAE_END, 0xFF, guard);
+	t1rpg_end(guard);
+}
+#endif
 
 static bool t1replay_dos_delete(const char far *fn)
 {
@@ -2657,7 +2752,7 @@ void far t1replay_entry(void)
 		t1replay_res->source_process = T1REPLAY_PROCESS_NONE;
 		t1replay_res->target_process = T1REPLAY_PROCESS_REIIDEN;
 		if((t1replay_mode == T1RM_RECORD) &&
-			!t1rpg_begin(&t1replay_res->guard)) {
+			!t1replay_guard_begin(&t1replay_res->guard)) {
 			t1replay_fail();
 			return;
 		}
@@ -3778,7 +3873,9 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 		return false;
 	}
 	if((t1replay_mode == T1RM_RECORD) &&
-		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		!t1replay_guard_checkpoint(
+			&t1replay_res->guard, T1SAE_HANDOFF
+		)) {
 		t1replay_fail();
 		return false;
 	}
@@ -3864,7 +3961,9 @@ void far t1replay_terminal(uint8_t end_reason)
 		return;
 	}
 	if((t1replay_mode == T1RM_RECORD) &&
-		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		!t1replay_guard_checkpoint(
+			&t1replay_res->guard, T1SAE_FINALIZE
+		)) {
 		t1replay_fail();
 		return;
 	}
@@ -3912,7 +4011,7 @@ void far t1replay_terminal(uint8_t end_reason)
 	t1replay_exact_terminal_pending = false;
 #endif
 	if(!playback) {
-		t1rpg_end(&t1replay_res->guard);
+		t1replay_guard_end(&t1replay_res->guard);
 	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
@@ -3969,7 +4068,7 @@ bool16 far t1replay_pause_save_refresh(void)
 void far t1replay_guard_pause_check(void)
 {
 	if((t1replay_mode == T1RM_RECORD) && t1replay_res &&
-		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		!t1replay_guard_checkpoint(&t1replay_res->guard, T1SAE_PAUSE)) {
 		t1replay_fail();
 	}
 }

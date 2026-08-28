@@ -368,6 +368,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/p/",
 		cflags = "-DT1REPLAY_FUUIN_SCORE_PROOF=1",
 	},
+	["t1savestate-acceptance-20260828"] = {
+		obj_root = "x/g/",
+		bin_root = "x/g/",
+		cflags = "-DT1SGA=1",
+	},
 }
 local t1replay_profile_name = tostring(T1REPLAY_PROFILE or "")
 local t1replay_profile = {}
@@ -402,6 +407,11 @@ local T2REPLAY_PROFILES = {
 		obj_root = "x/d/",
 		bin_root = "x/d/",
 		cflags = "-DT2REPLAY_EXACT_APPLY=1 -DT2REPLAY_EXACT_TRACE=1",
+	},
+	["t2savestate-acceptance-20260828"] = {
+		obj_root = "x/g/",
+		bin_root = "x/g/",
+		cflags = "-DT2SGA=1",
 	},
 }
 local t2replay_profile_name = tostring(T2REPLAY_PROFILE or "")

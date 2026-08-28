@@ -48,6 +48,7 @@
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/practice_diag.hpp"
+#include "th02/savestate_acceptance.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -2071,6 +2072,132 @@ static void t2replay_dos_delete(const char far *fn)
 		pop	ds
 	}
 }
+
+#if T2REPLAY_SAVESTATE_ACCEPTANCE
+static const char T2SAVESTATE_ACCEPTANCE_FN[] = "T2SGA.BIN";
+
+static void t2savestate_acceptance_clear(
+	t2savestate_acceptance_record_t *record
+)
+{
+	uint8_t *p = reinterpret_cast<uint8_t *>(record);
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		p[i] = 0;
+	}
+}
+
+static uint16_t t2savestate_acceptance_checksum(
+	const t2savestate_acceptance_record_t *record
+)
+{
+	const uint8_t *p = reinterpret_cast<const uint8_t *>(record);
+	uint16_t sum = 0;
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		sum = static_cast<uint16_t>(sum + p[i]);
+	}
+	return sum;
+}
+
+// The trace is evidence for a cache-rollback detector, so AH=0Dh alone is not
+// strong enough. Match the guard's PSP-wide commit without making the trace a
+// production dependency.
+static void t2savestate_acceptance_commit(void)
+{
+	uint16_t dpl[11];
+	uint16_t psp;
+	unsigned i;
+
+	for(i = 0; i < 11; i++) {
+		dpl[i] = 0;
+	}
+	_asm {
+		mov ah, 51h
+		int 21h
+		mov psp, bx
+	}
+	dpl[10] = psp;
+	_asm {
+		push bp
+		push si
+		push di
+		push es
+		push ds
+		push ss
+		pop  ds
+		lea  dx, dpl
+		mov  ax, 5D01h
+		int  21h
+		pop  ds
+		pop  es
+		pop  di
+		pop  si
+		pop  bp
+	}
+}
+
+static void t2savestate_acceptance_emit(
+	uint8_t event, uint8_t checkpoint_result
+)
+{
+	t2savestate_acceptance_record_t record;
+	int fd;
+
+	t2savestate_acceptance_clear(&record);
+	record.magic[0] = 'T'; record.magic[1] = '2';
+	record.magic[2] = 'S'; record.magic[3] = 'G';
+	record.magic[4] = 'A'; record.magic[5] = '0';
+	record.magic[6] = '0'; record.magic[7] = '1';
+	record.schema = T2SAVESTATE_ACCEPTANCE_SCHEMA;
+	record.event = event;
+	record.checkpoint_result = checkpoint_result;
+	record.guard_flags = replay_protect_blocked() ?
+		REPLAY_PROTECT_FLAG_INVALID : 0;
+	record.checksum = 0;
+	record.checksum = t2savestate_acceptance_checksum(&record);
+	fd = t2replay_dos_create(T2SAVESTATE_ACCEPTANCE_FN);
+	if(fd < 0) {
+		return;
+	}
+	if(t2replay_dos_write(fd, &record, sizeof(record)) != sizeof(record)) {
+		t2replay_dos_close(fd);
+		return;
+	}
+	t2replay_dos_close(fd);
+	t2replay_dos_flush();
+	t2savestate_acceptance_commit();
+}
+
+static bool t2savestate_acceptance_begin(void)
+{
+	bool ok = replay_protect_begin();
+
+	t2savestate_acceptance_emit(T2SAE_BEGIN, ok);
+	return ok;
+}
+
+static bool t2savestate_acceptance_checkpoint(uint8_t event)
+{
+	bool ok = replay_protect_checkpoint();
+
+	t2savestate_acceptance_emit(event, ok);
+	return ok;
+}
+
+static void t2savestate_acceptance_observe(uint8_t event)
+{
+	t2savestate_acceptance_emit(event, 0xFF);
+}
+
+static void t2savestate_acceptance_end(void)
+{
+	t2savestate_acceptance_emit(T2SAE_END, 0xFF);
+	replay_protect_end();
+}
+#endif
 
 static bool t2replay_handoff_witness_write(
 	const void far *payload, unsigned size
@@ -5420,7 +5547,9 @@ static void t2replay_finalize(uint8_t end_reason)
 	t2replay_finished = true;
 	if(t2replay_mode == T2RM_RECORD) {
 		if(!replay_protect_blocked()) {
-			(void)replay_protect_checkpoint();
+			(void)t2replay_guard_checkpoint(T2SAE_FINALIZE);
+		} else {
+			t2replay_guard_observe(T2SAE_FINALIZE);
 		}
 		protect_blocked = replay_protect_blocked();
 		t2replay_final_score_capture();
@@ -5448,7 +5577,7 @@ static void t2replay_finalize(uint8_t end_reason)
 		if(t2replay_failed || protect_blocked) {
 			t2replay_pending_files_delete();
 		}
-		replay_protect_end();
+		t2replay_guard_end();
 		t2replay_mode = T2RM_DISABLED;
 	} else {
 		if(
@@ -5545,7 +5674,7 @@ void replay_entry(void)
 	if(command_mode == T2RM_RECORD) {
 		t2replay_mode = T2RM_RECORD;
 		t2replay_pending_files_delete();
-		(void)replay_protect_begin();
+		(void)t2replay_guard_begin();
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
 			t2replay_header.flags |= T2REPLAY_FLAG_PRACTICE;
@@ -5558,7 +5687,7 @@ void replay_entry(void)
 		if(!t2replay_start_valid(&t2replay_header.start) ||
 			!t2replay_header_write(true)) {
 			t2replay_pending_files_delete();
-			replay_protect_end();
+			t2replay_guard_end();
 			t2replay_mode = T2RM_DISABLED;
 		}
 	}
@@ -6764,7 +6893,7 @@ bool replay_pause_save_available(void)
 bool replay_pause_save_refresh(void)
 {
 	if(replay_pause_save_available()) {
-		(void)replay_protect_checkpoint();
+		(void)t2replay_guard_checkpoint(T2SAE_PAUSE);
 	}
 	return replay_pause_save_available();
 }
@@ -6828,7 +6957,7 @@ bool replay_pause_restart(void)
 		t2replay_dos_delete(t2replay_command_fn);
 		return false;
 	}
-	replay_protect_end();
+	t2replay_guard_end();
 	t2replay_temp_set();
 	t2replay_pending_files_delete();
 	t2replay_mode = T2RM_DISABLED;
@@ -6858,7 +6987,7 @@ void replay_pause_exit_without_saving(void)
 {
 	t2replay_fast_forward_boundary_reset();
 	if(t2replay_mode == T2RM_RECORD) {
-		replay_protect_end();
+		t2replay_guard_end();
 	}
 	t2replay_paths_init();
 	t2replay_temp_set();
