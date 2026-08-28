@@ -1,8 +1,9 @@
 .386
 
-; English v1.00's MAINE-resident presentation copy. This segment is linked
-; after the C++ language tail, keeps the bytes out of DGROUP, and is copied to
-; a stack buffer before the stock near-pointer renderer consumes it.
+; English v1.00's MAINE-resident presentation copy. The bytes are extracted
+; from that donor, not independently translated. This segment is linked after
+; the C++ language tail, keeps the bytes out of DGROUP, and is copied to a
+; stack buffer before the stock near-pointer renderer consumes it.
 T2LANGMAINESTR_TEXT segment byte public 'CODE' use16
 assume cs:T2LANGMAINESTR_TEXT
 
