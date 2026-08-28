@@ -54,6 +54,8 @@ extern "C" void near sigma_15E84(void);
 extern "C" void near sigma_15F6F(void);
 extern "C" void near sigma_15F95(void);
 extern "C" void near sigma_16176(void);
+extern "C" void near sigma_1619C(void);
+extern "C" void near sigma_162D3(void);
 
 typedef void (near *near t2lbp_sigma_pattern_func_t)(void);
 extern "C" t2lbp_sigma_pattern_func_t sigma_pattern_func[3];
@@ -138,6 +140,40 @@ static void near t2lbp_marisa_round2_construct(void)
 	marisa_intro_step = 2;
 	marisa_rounds_done = 1;
 	marisa_damage_multiplier = 0;
+	marisa_orbless_patterns_seen = 0;
+	marisa_pattern = ((t2lbp_randring2_next8() % 5) + 1);
+	marisa_patterns_seen = 1;
+	boss_phase_frame = 1;
+	marisa_orb_flag_sum = 0;
+	boss_pos_x = -1;
+	boss_pos_y = -1;
+	for(i = 0; i < MARISA_ORB_COUNT; i++) {
+		marisa_orb_flag[i] = MOF_ALIVE;
+		marisa_orb_damage[i] = 0;
+		marisa_orb_hit_flash[i] = false;
+		marisa_orb_kill_frame[i] = 0;
+		marisa_orb_radius[i] = 54;
+		marisa_orb_angle[i] = (i << 6);
+		marisa_orb_angle_delta[i] = 2;
+		marisa_orb_left_on_page[0][i] = polar_x_fast(
+			(marisa_topleft.x + 32), marisa_orb_radius[i], marisa_orb_angle[i]
+		);
+		marisa_orb_left_on_page[1][i] = marisa_orb_left_on_page[0][i];
+		marisa_orb_top_on_page[0][i] = polar_y_fast(
+			(marisa_topleft.y + 32), marisa_orb_radius[i], marisa_orb_angle[i]
+		);
+		marisa_orb_top_on_page[1][i] = marisa_orb_top_on_page[0][i];
+	}
+}
+
+static void near t2lbp_marisa_round3_construct(void)
+{
+	int i;
+
+	th02_s4_marisa_clean_init();
+	marisa_intro_step = 2;
+	marisa_rounds_done = 2;
+	marisa_damage_multiplier = 1;
 	marisa_orbless_patterns_seen = 0;
 	marisa_pattern = ((t2lbp_randring2_next8() % 5) + 1);
 	marisa_patterns_seen = 1;
@@ -301,6 +337,29 @@ static void near t2lbp_mima_phase3_construct(void)
 	palette_show();
 }
 
+static void near t2lbp_mima_phase5_construct(void)
+{
+	(void)th02_s5_mima_clean_init(T2S5_MIMA_BOSS_START);
+	mima_phase = 5;
+	mima_pattern = (t2lbp_randring2_next8() % 3);
+	boss_phase_frame = 0;
+	mima_patterns_this_phase = 0;
+	mima_phase_damage_max = 800;
+	mima_patterns_until_vulnerable = 2;
+	mima_patterns_max = 12;
+	mima_pattern_count = 3;
+	mima_bg_ring_radius = 100;
+	mima_bg_circle_radius = 70;
+	mima_bg_ring_phase = 0;
+	mima_ring_radius = 0;
+	mima_bg_circle_radius_base = 70;
+	mima_bg_circle_pulse_frame = 0;
+	Palettes[0].c.r = 50;
+	Palettes[0].c.g = 1;
+	Palettes[0].c.b = 1;
+	palette_show();
+}
+
 static void near t2lbp_sigma_blasts_reset(void)
 {
 	int i;
@@ -372,6 +431,25 @@ static void near t2lbp_sigma_phase3_construct(void)
 	lasers_callbacks_set();
 }
 
+static void near t2lbp_sigma_phase5_construct(void)
+{
+	th02_s6_sigma_clean_init();
+	sigma_phase = 5;
+	sigma_pattern = 0;
+	sigma_pattern_looped_unused = 0;
+	boss_phase_frame = 0;
+	sigma_pattern_func[0] = sigma_1619C;
+	sigma_pattern_func[1] = sigma_162D3;
+	sigma_pattern_func[2] = sigma_15F6F;
+	sigma_phase_damage_max = 1800;
+	sigma_cel_interval_mask = 7;
+	sigma_blast_hitbox_margin = 0;
+	sigma_ring_radius = 0;
+	sigma_frame = 0;
+	t2lbp_sigma_blasts_reset();
+	lasers_callbacks_set();
+}
+
 bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 {
 	switch(target) {
@@ -397,6 +475,18 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		return true;
 	case T2LBPT_SIGMA_PHASE3:
 		t2lbp_sigma_phase3_construct();
+		t2lbp_sigma_redraw_both();
+		return true;
+	case T2LBPT_MARISA_ROUND3:
+		t2lbp_marisa_round3_construct();
+		t2lbp_marisa_redraw_both();
+		return true;
+	case T2LBPT_MIMA_PHASE5:
+		t2lbp_mima_phase5_construct();
+		t2lbp_mima_redraw_both();
+		return true;
+	case T2LBPT_SIGMA_PHASE5:
+		t2lbp_sigma_phase5_construct();
 		t2lbp_sigma_redraw_both();
 		return true;
 	default:
