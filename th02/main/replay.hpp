@@ -147,5 +147,6 @@ bool replay_save_request_prompt_needed(void);
 void replay_save_request_discard(void);
 
 bool replay_playback_active(void);
+bool replay_playback_exit_requested(void);
 
 #endif /* TH02_MAIN_REPLAY_HPP */

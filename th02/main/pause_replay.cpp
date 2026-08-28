@@ -132,10 +132,17 @@ static void t2pause_clear(void)
 	}
 }
 
-static void t2pause_input_sample(void)
+static bool t2pause_input_sample(void)
 {
 	input_reset_sense();
 	replay_input_sample(T2REPLAY_PHASE_PAUSE);
+	return replay_playback_exit_requested();
+}
+
+static bool16 t2pause_playback_exit(void)
+{
+	t2pause_clear();
+	return true;
 }
 
 static bool t2pause_restart_pressed(void)
@@ -189,7 +196,9 @@ bool16 far t2pause_menu(void)
 	bool save_available = replay_pause_save_available();
 
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
-		t2pause_input_sample();
+		if(t2pause_input_sample()) {
+			return t2pause_playback_exit();
+		}
 		frame_delay(1);
 	}
 	save_available = replay_pause_save_refresh();
@@ -200,7 +209,9 @@ bool16 far t2pause_menu(void)
 		restart_available, save_available
 	);
 	while(1) {
-		t2pause_input_sample();
+		if(t2pause_input_sample()) {
+			return t2pause_playback_exit();
+		}
 		if(
 			(key_det != INPUT_NONE) &&
 			t2pause_save_refresh(
@@ -209,7 +220,9 @@ bool16 far t2pause_menu(void)
 			)
 		) {
 			while(key_det != INPUT_NONE) {
-				t2pause_input_sample();
+				if(t2pause_input_sample()) {
+					return t2pause_playback_exit();
+				}
 				frame_delay(1);
 			}
 			continue;
@@ -245,14 +258,18 @@ bool16 far t2pause_menu(void)
 		}
 		if(key_det != INPUT_NONE) {
 			while(key_det != INPUT_NONE) {
-				t2pause_input_sample();
+				if(t2pause_input_sample()) {
+					return t2pause_playback_exit();
+				}
 				frame_delay(1);
 			}
 		}
 		frame_delay(1);
 	}
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
-		t2pause_input_sample();
+		if(t2pause_input_sample()) {
+			return t2pause_playback_exit();
+		}
 		frame_delay(1);
 	}
 	t2pause_clear();
