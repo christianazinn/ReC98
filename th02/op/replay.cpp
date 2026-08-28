@@ -99,6 +99,7 @@ enum t2op_word_t {
 	T2OW_START_POINT,
 	T2OW_STAGE_SPLITS,
 	T2OW_START_RUN,
+	T2OW_BOSS_ROUND_2,
 	T2OW_COUNT,
 };
 
@@ -363,15 +364,18 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE4_MIDBOSS_SECOND:
 	case T2RPT_STAGE4_BOSS_START:
 	case T2RPT_STAGE4_BOSS_PHASE1:
+	case T2RPT_STAGE4_BOSS_ROUND2:
 		practice_target_valid = (start->stage == 3);
 		break;
 	case T2RPT_STAGE5_BOSS_START:
 	case T2RPT_STAGE5_BOSS_PHASE1:
+	case T2RPT_STAGE5_BOSS_PHASE3:
 		practice_target_valid = (start->stage == 4);
 		break;
 	case T2RPT_EXTRA_MIDBOSS:
 	case T2RPT_EXTRA_BOSS_START:
 	case T2RPT_EXTRA_BOSS_PHASE1:
+	case T2RPT_EXTRA_BOSS_PHASE3:
 		practice_target_valid = (start->stage == 5);
 		break;
 	default:
@@ -1226,6 +1230,7 @@ static char *t2op_word_append_japanese(char *p, t2op_word_t word)
 	case T2OW_BOSS_PHASE_1: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('1'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
 	case T2OW_BOSS_PHASE_2: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('2'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
 	case T2OW_BOSS_PHASE_3: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('3'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
+	case T2OW_BOSS_ROUND_2: P('B'); P('o'); P('s'); P('s'); P(' '); P('R'); P('o'); P('u'); P('n'); P('d'); P(' '); P('2'); break;
 	case T2OW_BOSS_START: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x8A); P(0x4A); P(0x8E); P(0x6E); break;
 	case T2OW_INNER_PAIR: P(0x93); P(0xE0); P(0x91); P(0xA4); P(0x83); P(0x79); P(0x83); P(0x41); break;
 	case T2OW_OUTER_PAIR: P(0x8A); P(0x4F); P(0x91); P(0xA4); P(0x83); P(0x79); P(0x83); P(0x41); break;
@@ -1299,6 +1304,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_BOSS_PHASE_1: P('B'); P('o'); P('s'); P('s'); P(' '); P('P'); P('h'); P('a'); P('s'); P('e'); P(' '); P('1'); break;
 	case T2OW_BOSS_PHASE_2: P('B'); P('o'); P('s'); P('s'); P(' '); P('P'); P('h'); P('a'); P('s'); P('e'); P(' '); P('2'); break;
 	case T2OW_BOSS_PHASE_3: P('B'); P('o'); P('s'); P('s'); P(' '); P('P'); P('h'); P('a'); P('s'); P('e'); P(' '); P('3'); break;
+	case T2OW_BOSS_ROUND_2: P('B'); P('o'); P('s'); P('s'); P(' '); P('R'); P('o'); P('u'); P('n'); P('d'); P(' '); P('2'); break;
 	case T2OW_BOSS_START: P('B'); P('o'); P('s'); P('s'); P(' '); P('S'); P('t'); P('a'); P('r'); P('t'); break;
 	case T2OW_INNER_PAIR: P('I'); P('n'); P('n'); P('e'); P('r'); P(' '); P('P'); P('a'); P('i'); P('r'); break;
 	case T2OW_OUTER_PAIR: P('O'); P('u'); P('t'); P('e'); P('r'); P(' '); P('P'); P('a'); P('i'); P('r'); break;
@@ -2110,6 +2116,12 @@ static uint8_t t2op_practice_target_step(
 		}
 	case 3:
 		if(direction < 0) {
+			if(target == T2RPT_STAGE_START) {
+				return T2RPT_STAGE4_BOSS_ROUND2;
+			}
+			if(target == T2RPT_STAGE4_BOSS_ROUND2) {
+				return T2RPT_STAGE4_BOSS_PHASE1;
+			}
 			switch(target) {
 			case T2RPT_STAGE_START: return T2RPT_STAGE4_BOSS_PHASE1;
 			case T2RPT_STAGE4_MIDBOSS_FIRST: return T2RPT_STAGE_START;
@@ -2119,6 +2131,9 @@ static uint8_t t2op_practice_target_step(
 			case T2RPT_STAGE4_BOSS_START: return T2RPT_STAGE4_CHAPTER3;
 			default: return T2RPT_STAGE4_BOSS_START;
 			}
+		}
+		if(target == T2RPT_STAGE4_BOSS_PHASE1) {
+			return T2RPT_STAGE4_BOSS_ROUND2;
 		}
 		switch(target) {
 		case T2RPT_STAGE_START: return T2RPT_STAGE4_MIDBOSS_FIRST;
@@ -2131,11 +2146,20 @@ static uint8_t t2op_practice_target_step(
 		}
 	case 4:
 		if(direction < 0) {
+			if(target == T2RPT_STAGE_START) {
+				return T2RPT_STAGE5_BOSS_PHASE3;
+			}
+			if(target == T2RPT_STAGE5_BOSS_PHASE3) {
+				return T2RPT_STAGE5_BOSS_PHASE1;
+			}
 			switch(target) {
 			case T2RPT_STAGE_START: return T2RPT_STAGE5_BOSS_PHASE1;
 			case T2RPT_STAGE5_BOSS_START: return T2RPT_STAGE_START;
 			default: return T2RPT_STAGE5_BOSS_START;
 			}
+		}
+		if(target == T2RPT_STAGE5_BOSS_PHASE1) {
+			return T2RPT_STAGE5_BOSS_PHASE3;
 		}
 		if(target == T2RPT_STAGE_START) {
 			return T2RPT_STAGE5_BOSS_START;
@@ -2144,6 +2168,12 @@ static uint8_t t2op_practice_target_step(
 			? T2RPT_STAGE5_BOSS_PHASE1 : T2RPT_STAGE_START);
 	case 5:
 		if(direction < 0) {
+			if(target == T2RPT_STAGE_START) {
+				return T2RPT_EXTRA_BOSS_PHASE3;
+			}
+			if(target == T2RPT_EXTRA_BOSS_PHASE3) {
+				return T2RPT_EXTRA_BOSS_PHASE1;
+			}
 			switch(target) {
 			case T2RPT_STAGE_START: return T2RPT_EXTRA_BOSS_PHASE1;
 			case T2RPT_EXTRA_MIDBOSS: return T2RPT_STAGE_START;
@@ -2151,6 +2181,9 @@ static uint8_t t2op_practice_target_step(
 			case T2RPT_EXTRA_BOSS_START: return T2RPT_EXTRA_CHAPTER2;
 			default: return T2RPT_EXTRA_BOSS_START;
 			}
+		}
+		if(target == T2RPT_EXTRA_BOSS_PHASE1) {
+			return T2RPT_EXTRA_BOSS_PHASE3;
 		}
 		switch(target) {
 		case T2RPT_STAGE_START: return T2RPT_EXTRA_MIDBOSS;
@@ -2582,12 +2615,17 @@ static void t2op_practice_render(void)
 			case T2RPT_EXTRA_BOSS_PHASE1:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_1);
 				break;
+			case T2RPT_STAGE4_BOSS_ROUND2:
+				p = t2op_word_append(p, T2OW_BOSS_ROUND_2);
+				break;
 			case T2RPT_STAGE1_BOSS_PHASE2:
 			case T2RPT_STAGE2_BOSS_PHASE2:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_2);
 				break;
 			case T2RPT_STAGE1_BOSS_PHASE3:
 			case T2RPT_STAGE2_BOSS_PHASE3:
+			case T2RPT_STAGE5_BOSS_PHASE3:
+			case T2RPT_EXTRA_BOSS_PHASE3:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_3);
 				break;
 			case T2RPT_STAGE3_BOSS_START:
