@@ -14,8 +14,8 @@ enum t2_language_preference_t {
 void far t2_language_load(void);
 t2_language_preference_t far t2_language_get(void);
 
-// Future OP presentation selection uses this transactional writer. No current
-// surface invokes it, keeping this runtime parcel separate from UI routing.
+// OP's Language option uses this transactional writer. It stays separate from
+// replay, resident, score-file, and gameplay state.
 bool far t2_language_set(t2_language_preference_t preference);
 
 // T2EN.DAT is presentation-only. Its directory must have the exact audited

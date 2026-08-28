@@ -220,9 +220,9 @@ int far pascal t2_language_gaiji_entry_bfnt(const char *fn)
 	// OP's first language-sensitive operation is its startup gaiji load. Loading
 	// the preference here keeps the original main() contribution byte-stable.
 	t2_language_load();
-	t2_language_op_tables_apply();
 	bool switched = t2_language_op_begin(fn);
 	int ret = gaiji_entry_bfnt(fn);
+	bool overlay_loaded = (switched && (ret != 0));
 
 	if(switched) {
 		t2_language_stock_restore();
@@ -230,6 +230,13 @@ int far pascal t2_language_gaiji_entry_bfnt(const char *fn)
 			ret = gaiji_entry_bfnt(fn);
 		}
 	}
+	// A valid directory alone does not prove that the active MIKOFT payload was
+	// readable. Keep the persisted preference for the next launch, but make this
+	// OP process consistently Japanese when the donor font transaction fails.
+	if(!overlay_loaded) {
+		t2_language_runtime = T2LANG_JAPANESE;
+	}
+	t2_language_op_tables_apply();
 	return ret;
 }
 
