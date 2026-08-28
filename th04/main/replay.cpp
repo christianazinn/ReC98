@@ -635,6 +635,22 @@ static void replay_checkpoint_fn_set(char far *fn)
 	fn[9] = '\0';
 }
 
+static bool replay_diagnostic_file_exists(void)
+{
+	char fn[12];
+	int fh;
+
+	fn[0] = 'T'; fn[1] = ('0' + GAME); fn[2] = 'P';
+	fn[3] = 'D'; fn[4] = 'I'; fn[5] = 'A'; fn[6] = 'G'; fn[7] = '.';
+	fn[8] = 'C'; fn[9] = 'F'; fn[10] = 'G'; fn[11] = '\0';
+	fh = replay_dos_open(fn, REPLAY_ACCESS_READ);
+	if(fh < 0) {
+		return false;
+	}
+	replay_dos_close(fh);
+	return true;
+}
+
 static void replay_checkpoint_temp_delete(void)
 {
 	char fn[10];
@@ -2524,11 +2540,12 @@ void replay_entry(void)
 		replay_dos_delete(replay_command_witness_fn);
 		return;
 	}
+	replay_practice_diagnostic = replay_diagnostic_file_exists();
 	command_mode = replay_command_load(&slot, &command_flags, &command_start);
 	if(command_mode == RCM_NONE) {
 		return;
 	}
-	replay_practice_diagnostic = (
+	replay_practice_diagnostic |= (
 		(command_flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) != 0
 	);
 	replay_slot_set(slot);
