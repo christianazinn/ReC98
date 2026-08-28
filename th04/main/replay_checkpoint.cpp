@@ -122,6 +122,9 @@ extern map_section_tiles_t __seg* map_seg;
 	#include "th05/resident.hpp"
 	#include "th05/formats/dialog.hpp"
 	#include "th05/sprites/main_pat.h"
+	extern const char BOMB_SHAPE_FN_2[];
+	extern const char BOMB_SHAPE_YUUKA_FN_2[];
+	extern const char MIKO16_EXALICE_FN[];
 #else
 	#include "th04/formats/dialog.hpp"
 	#include "th04/formats/bb.h"
@@ -2231,6 +2234,23 @@ static bool rck_practice_dialog_filename_read(char *filename)
 }
 
 #if (GAME == 5)
+static void rck_practice_th05_exalice_pat_prepare(void)
+{
+	int i;
+
+	// Mirror the resource side effects of Extra's native dialog op 0x04.
+	super_clean(TINY_MIKO16_START, PAT_MAX);
+	super_entry_bfnt(MIKO16_EXALICE_FN);
+	for(i = TINY_MIKO16_START; i < TINY_MIKO16_END; i++) {
+		super_convert_tiny(i);
+	}
+	if(playchar == PLAYCHAR_YUUKA) {
+		super_entry_bfnt(BOMB_SHAPE_YUUKA_FN_2);
+	} else {
+		super_entry_bfnt(BOMB_SHAPE_FN_2);
+	}
+}
+
 static bool rck_practice_th05_dialog_textbox_skip(void)
 {
 	uint8_t c;
@@ -2276,7 +2296,11 @@ static bool rck_practice_th05_dialog_prepare(void)
 			break;
 
 		case 0x04:
-			super_clean(PAT_STAGE, (PAT_STAGE_last + 1));
+			if(stage_id == STAGE_EXTRA) {
+				rck_practice_th05_exalice_pat_prepare();
+			} else {
+				super_clean(PAT_STAGE, (PAT_STAGE_last + 1));
+			}
 			break;
 
 		case 0x05:
@@ -2438,12 +2462,15 @@ static bool rck_practice_th04_dialog_prepare(void)
 
 static bool rck_practice_dialog_prepare(void)
 {
-	if((dialog_p == 0) || (stage_id == STAGE_EXTRA)) {
-		return (dialog_p != 0);
+	if(dialog_p == 0) {
+		return false;
 	}
 #if (GAME == 5)
 	return rck_practice_th05_dialog_prepare();
 #else
+	if(stage_id == STAGE_EXTRA) {
+		return true;
+	}
 	return rck_practice_th04_dialog_prepare();
 #endif
 }
@@ -6925,6 +6952,7 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90"
 	#pragma codestring "\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -6932,4 +6960,5 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 #endif
