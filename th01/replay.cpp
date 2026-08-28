@@ -33,6 +33,7 @@
 #include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
+#include "th01/main/boss/b10j.hpp"
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
@@ -1419,6 +1420,12 @@ static bool t1replay_practice_boss_phase_start_valid(
 				T1RPBPT_SINGYOKU_FIRST_COMBAT) &&
 			(start->stage_id == BOSS_STAGE) &&
 			(start->route == ROUTE_MAKAI)
+		) ||
+		(
+			(start->practice_boss_phase ==
+				T1RPBPT_MIMA_FIRST_COMBAT) &&
+			(start->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
+			(start->route == ROUTE_JIGOKU)
 		)
 	) {
 		return true;
@@ -2000,15 +2007,27 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 
 	if(
 		(state->practice.section != T1RPS_BOSS_PHASE) ||
-		(state->practice.scene != 0) ||
-		(state->practice.route != ROUTE_MAKAI) ||
-		(state->practice.chapter != BOSS_STAGE) ||
-		(start->stage_id != BOSS_STAGE) ||
-		(start->route != ROUTE_MAKAI)
+		(state->practice.chapter != BOSS_STAGE)
 	) {
 		return T1RPBPT_NONE;
 	}
-	return T1RPBPT_SINGYOKU_FIRST_COMBAT;
+	if(
+		(state->practice.scene == 0) &&
+		(state->practice.route == ROUTE_MAKAI) &&
+		(start->stage_id == BOSS_STAGE) &&
+		(start->route == ROUTE_MAKAI)
+	) {
+		return T1RPBPT_SINGYOKU_FIRST_COMBAT;
+	}
+	if(
+		(state->practice.scene == 1) &&
+		(state->practice.route == ROUTE_JIGOKU) &&
+		(start->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU)
+	) {
+		return T1RPBPT_MIMA_FIRST_COMBAT;
+	}
+	return T1RPBPT_NONE;
 }
 
 static void t1replay_start_capture(void)
@@ -2923,6 +2942,7 @@ static bool t1replay_practice_boss_phase_restore_apply(
 )
 {
 	const t1replay_start_t far *start = &t1replay_header.start;
+	bool constructed = false;
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
@@ -2932,20 +2952,36 @@ static bool t1replay_practice_boss_phase_restore_apply(
 		(t1replay_res->process_seq != 0) ||
 		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
-		(start->practice_boss_phase == T1RPBPT_NONE) ||
-		(resident->stage_id != BOSS_STAGE) ||
-		(resident->route != ROUTE_MAKAI) ||
-		(boss_id != BID_SINGYOKU) ||
-		!t1boss_singyoku_practice_boss_phase_apply(
-			start->practice_boss_phase
-		)
+		(start->practice_boss_phase == T1RPBPT_NONE)
 	) {
 		t1replay_checkpoint_restore_is_pending = false;
 		t1replay_fail();
 		return false;
 	}
+	if(start->practice_boss_phase == T1RPBPT_SINGYOKU_FIRST_COMBAT) {
+		constructed = (
+			(resident->stage_id == BOSS_STAGE) &&
+			(resident->route == ROUTE_MAKAI) &&
+			(boss_id == BID_SINGYOKU) &&
+			t1boss_singyoku_practice_boss_phase_apply(
+				start->practice_boss_phase
+			)
+		);
+	} else if(start->practice_boss_phase == T1RPBPT_MIMA_FIRST_COMBAT) {
+		constructed = (
+			(resident->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
+			(resident->route == ROUTE_JIGOKU) &&
+			(boss_id == BID_MIMA) &&
+			t1boss_mima_practice_first_combat_construct()
+		);
+	}
+	if(!constructed) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
 	// Match the native post-entrance branch and advance to its first input
-	// seam. This target owns no captured player, bullet, or VRAM state.
+	// boundary. This target owns no captured player, bullet, or VRAM state.
 	timer_initialized = true;
 	irand_init(frame_rand);
 	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;

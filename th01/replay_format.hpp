@@ -65,7 +65,7 @@
 // sequential, and direct exact-restore profiles. Values 4 and 5 add the
 // measurement-only SinGyoku pixel probe to sequential and direct playback.
 // Value 6 captures the natural Konngara phase-1-frame-0 witness only. Value
-// 7 captures YuugenMagan's natural, source-checked first-combat seam on
+// 7 captures YuugenMagan's natural, source-checked first-combat boundary on
 // Easy/Normal. 9 is the matching private fresh-process constructor profile;
 // neither value changes the public Practice target set.
 #ifndef T1RP
@@ -149,11 +149,12 @@ enum t1replay_practice_section_t {
 	T1RPS_BOSS_PHASE,
 };
 
-// A public Boss Phase target is a named, source-constructed first input seam,
+// A public Boss Phase target is a named, source-constructed first input boundary,
 // never a raw owner phase value or a checkpoint selection.
 enum t1replay_practice_boss_phase_target_t {
 	T1RPBPT_NONE = 0,
 	T1RPBPT_SINGYOKU_FIRST_COMBAT = 1,
+	T1RPBPT_MIMA_FIRST_COMBAT = 2,
 };
 
 // OP's transient Practice choice is also the semantic restart configuration.

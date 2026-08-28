@@ -562,6 +562,16 @@ static uint32_t t1replay_op_restart_state_checksum(
 	return checksum;
 }
 
+static bool t1replay_op_practice_boss_phase_available(
+	uint8_t scene, uint8_t route
+)
+{
+	return (
+		((scene == 0) && (route == ROUTE_MAKAI)) ||
+		((scene == 1) && (route == ROUTE_JIGOKU))
+	);
+}
+
 static bool t1replay_op_practice_start_valid(
 	const t1replay_practice_start_t *start
 )
@@ -581,10 +591,9 @@ static bool t1replay_op_practice_start_valid(
 		(
 			(start->section != T1RPS_BOSS_PHASE) ?
 			true :
-			(
-				(start->scene == 0) && (start->route == ROUTE_MAKAI) &&
-				(start->chapter == BOSS_STAGE)
-			)
+			t1replay_op_practice_boss_phase_available(
+				start->scene, start->route
+			) && (start->chapter == BOSS_STAGE)
 		)
 	);
 }
@@ -2474,7 +2483,7 @@ static t1replay_op_word_t t1replay_op_practice_boss_word(
 }
 
 // This previews the target that the existing normal resident carrier derives.
-// Boss Phase names a source-constructed seam and never a checkpoint payload.
+// Boss Phase names a source-constructed boundary and never a checkpoint payload.
 static char *t1replay_op_practice_direct_target_append(char *p)
 {
 	if(t1replay_practice_start.section == T1RPS_CHAPTER) {
@@ -2494,7 +2503,11 @@ static char *t1replay_op_practice_direct_target_append(char *p)
 		);
 	}
 	if(t1replay_practice_start.section == T1RPS_BOSS_PHASE) {
-		p = t1replay_op_word_append(p, T1ROW_SINGYOKU);
+		p = t1replay_op_word_append(
+			p, t1replay_op_practice_boss_word(
+				t1replay_practice_start.scene, t1replay_practice_start.route
+			)
+		);
 		*p++ = ' ';
 		return t1replay_op_word_append(p, T1ROW_FIRST_COMBAT);
 	}
@@ -3729,7 +3742,13 @@ static void t1replay_op_practice_change(int delta, bool fast)
 		);
 		if(t1replay_practice_start.scene == 0) {
 			t1replay_practice_start.route = ROUTE_MAKAI;
-		} else if(t1replay_practice_start.section == T1RPS_BOSS_PHASE) {
+		}
+		if(
+			(t1replay_practice_start.section == T1RPS_BOSS_PHASE) &&
+			!t1replay_op_practice_boss_phase_available(
+				t1replay_practice_start.scene, t1replay_practice_start.route
+			)
+		) {
 			t1replay_practice_start.section = T1RPS_BOSS_START;
 		}
 		break;
@@ -3738,13 +3757,22 @@ static void t1replay_op_practice_change(int delta, bool fast)
 			t1replay_practice_start.route = static_cast<uint8_t>(
 				(t1replay_practice_start.route + ROUTE_COUNT + delta) % ROUTE_COUNT
 			);
+			if(
+				(t1replay_practice_start.section == T1RPS_BOSS_PHASE) &&
+				!t1replay_op_practice_boss_phase_available(
+					t1replay_practice_start.scene, t1replay_practice_start.route
+				)
+			) {
+				t1replay_practice_start.section = T1RPS_BOSS_START;
+			}
 		}
 		break;
 	case T1OPR_SECTION:
 		{
 			uint8_t section_count = (
-				(t1replay_practice_start.scene == 0) ?
-				(T1RPS_BOSS_PHASE + 1) : (T1RPS_BOSS_START + 1)
+				t1replay_op_practice_boss_phase_available(
+					t1replay_practice_start.scene, t1replay_practice_start.route
+				) ? (T1RPS_BOSS_PHASE + 1) : (T1RPS_BOSS_START + 1)
 			);
 
 			t1replay_practice_start.section = static_cast<uint8_t>(
