@@ -3,6 +3,12 @@
 
 #include "platform.h"
 
+// This is deliberately a private source-profile gate. No release or public
+// Practice target enables it; a natural/direct witness is still required.
+#ifndef T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
+#define T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE 0
+#endif
+
 enum {
 	T1BOSS_KIKURI_CHECKPOINT_OWNER = 4,
 	T1BOSS_KIKURI_CHECKPOINT_SCHEMA = 1,
@@ -73,5 +79,12 @@ bool16 t1boss_kikuri_checkpoint_apply(
 bool16 t1boss_kikuri_ckpt_apply_loaded(
 	const t1boss_kikuri_checkpoint_t *checkpoint
 );
+
+#if T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
+bool16 t1boss_kikuri_first_combat_construct(
+	t1boss_kikuri_checkpoint_t *checkpoint
+);
+bool16 t1boss_kikuri_first_combat_profile_apply_loaded(void);
+#endif
 
 #endif /* TH01_MAIN_BOSS_B15J_HPP */

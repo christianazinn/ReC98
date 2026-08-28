@@ -24,6 +24,10 @@
 #include "th01/main/stage/palette.hpp"
 #include "th01/main/stage/stages.hpp"
 
+#if T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
+#include "th01/formats/ptn_data.hpp"
+#endif
+
 // Coordinates
 // -----------
 
@@ -1565,5 +1569,279 @@ bool16 t1boss_kikuri_checkpoint_apply(
 	kikuri_ent_load(i);
 	return t1boss_kikuri_ckpt_apply_loaded(checkpoint);
 }
+
+#if T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
+
+#pragma codeseg T1B15JKFC_TEXT
+
+extern int8_t boss_id;
+
+static bool16 t1boss_kikuri_first_combat_entity_is_zero(
+	const CBossEntity& entity
+)
+{
+	return (
+		(entity.cur_left == 0) && (entity.cur_top == 0) &&
+		(entity.prev_left == 0) && (entity.prev_top == 0) &&
+		(entity.prev_delta_x == 0) && (entity.prev_delta_y == 0) &&
+		(entity.image() == 0) && (entity.lock_frame == 0)
+	);
+}
+
+static bool16 t1boss_kikuri_first_combat_resources_loaded(void)
+{
+	int i;
+
+	if(
+		(souls[0].bos_slot != 0) ||
+		(souls[0].bos_image_count != SOUL_CELS) || souls[0].loading ||
+		(souls[1].bos_slot != 0) ||
+		(souls[1].bos_image_count != SOUL_CELS) || souls[1].loading ||
+		!ptn_images[PTN_SLOT_RIPPLE] ||
+		(ptn_image_count[PTN_SLOT_RIPPLE] != 4)
+	) {
+		return false;
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		if(
+			(tears[i].bos_slot != 1) || (tears[i].bos_image_count < 1) ||
+			tears[i].loading
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool16 t1boss_kikuri_first_combat_pre_entrance_is_canonical(void)
+{
+	int i;
+
+	if(
+		!resident ||
+		(resident->stage_id != ((2 * STAGES_PER_SCENE) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_KIKURI) ||
+		(boss_phase != 0) || (boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(kikuri_hit.invincibility_frame != 0) || kikuri_hit.invincible ||
+		(pattern_state.interval != 0) ||
+		(kikuri_phase_state.u1.subphase_4 != P4_SOUL_ACTIVATION) ||
+		(kikuri_phase_state.patterns_done != 0) ||
+		(kikuri_phase_2.distance != 0) || (kikuri_phase_2.angle != 0) ||
+		(kikuri_phase_2.drift != 0) ||
+		(kikuri_phase_6_spiral_angle != 0) ||
+		(kikuri_phase_6_random_range_x_half != 0) ||
+		kikuri_initial_hp_rendered ||
+		(hud_hp_first_white != HP_PHASE_2_END) ||
+		(hud_hp_first_redwhite != HP_PHASE_5_END) ||
+		!t1boss_kikuri_first_combat_resources_loaded()
+	) {
+		return false;
+	}
+	for(i = 0; i < SOUL_COUNT; i++) {
+		if(!t1boss_kikuri_first_combat_entity_is_zero(souls[i])) {
+			return false;
+		}
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		if(
+			(tear_anim_frame[i] != 0) ||
+			!t1boss_kikuri_first_combat_entity_is_zero(tears[i])
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool16 t1boss_kikuri_first_combat_validate(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+	int col;
+	int comp;
+
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_KIKURI_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_KIKURI_CHECKPOINT_SCHEMA) ||
+		(checkpoint->phase != 2) || (checkpoint->reserved_0 != 0) ||
+		(checkpoint->phase_frame != 0) || (checkpoint->hp != HP_TOTAL) ||
+		(checkpoint->invincibility_frame != 0) ||
+		(checkpoint->pattern_state != 0) ||
+		(checkpoint->phase_u1 != P4_SOUL_ACTIVATION) ||
+		(checkpoint->patterns_done != 0) ||
+		(checkpoint->phase_2_distance != 0) ||
+		(checkpoint->phase_6_random_range_x_half != 0) ||
+		(checkpoint->hit_invincible != false) ||
+		(checkpoint->initial_hp_rendered != false) ||
+		(checkpoint->phase_2_angle != 0) ||
+		(checkpoint->phase_2_drift != 0) ||
+		(checkpoint->phase_6_spiral_angle != 0) ||
+		(checkpoint->reserved[0] != 0)
+	) {
+		return false;
+	}
+	for(i = 0; i < SOUL_COUNT; i++) {
+		if(
+			(checkpoint->soul_left[i] != 0) ||
+			(checkpoint->soul_top[i] != 0) ||
+			(checkpoint->soul_prev_left[i] != 0) ||
+			(checkpoint->soul_prev_top[i] != 0) ||
+			(checkpoint->soul_prev_delta_x[i] != 0) ||
+			(checkpoint->soul_prev_delta_y[i] != 0) ||
+			(checkpoint->soul_image[i] != 0) ||
+			(checkpoint->soul_lock_frame[i] != 0)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		if(
+			(checkpoint->tear_anim_frame[i] != 0) ||
+			(checkpoint->tear_left[i] != 0) ||
+			(checkpoint->tear_top[i] != 0) ||
+			(checkpoint->tear_prev_left[i] != 0) ||
+			(checkpoint->tear_prev_top[i] != 0) ||
+			(checkpoint->tear_prev_delta_x[i] != 0) ||
+			(checkpoint->tear_prev_delta_y[i] != 0) ||
+			(checkpoint->tear_image[i] != 0) ||
+			(checkpoint->tear_lock_frame[i] != 0)
+		) {
+			return false;
+		}
+	}
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			if(checkpoint->boss_palette[col][comp] > RGB4::max()) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool16 t1boss_kikuri_first_combat_construct(
+	t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	t1boss_kikuri_checkpoint_t start;
+	int i;
+	int col;
+	int comp;
+
+	if(!checkpoint) {
+		return false;
+	}
+	start.owner = T1BOSS_KIKURI_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_KIKURI_CHECKPOINT_SCHEMA;
+	start.phase = 2;
+	start.reserved_0 = 0;
+	start.phase_frame = 0;
+	start.hp = HP_TOTAL;
+	start.invincibility_frame = 0;
+	start.pattern_state = 0;
+	start.phase_u1 = P4_SOUL_ACTIVATION;
+	start.patterns_done = 0;
+	start.phase_2_distance = 0;
+	start.phase_6_random_range_x_half = 0;
+	for(i = 0; i < SOUL_COUNT; i++) {
+		start.soul_left[i] = 0;
+		start.soul_top[i] = 0;
+		start.soul_prev_left[i] = 0;
+		start.soul_prev_top[i] = 0;
+		start.soul_prev_delta_x[i] = 0;
+		start.soul_prev_delta_y[i] = 0;
+		start.soul_image[i] = 0;
+		start.soul_lock_frame[i] = 0;
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		start.tear_anim_frame[i] = 0;
+		start.tear_left[i] = 0;
+		start.tear_top[i] = 0;
+		start.tear_prev_left[i] = 0;
+		start.tear_prev_top[i] = 0;
+		start.tear_prev_delta_x[i] = 0;
+		start.tear_prev_delta_y[i] = 0;
+		start.tear_image[i] = 0;
+		start.tear_lock_frame[i] = 0;
+	}
+	start.hit_invincible = false;
+	start.initial_hp_rendered = false;
+	start.phase_2_angle = 0;
+	start.phase_2_drift = 0;
+	start.phase_6_spiral_angle = 0;
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			start.boss_palette[col][comp] = z_Palettes[col].v[comp];
+		}
+	}
+	start.reserved[0] = 0;
+	if(!t1boss_kikuri_first_combat_validate(&start)) {
+		return false;
+	}
+	*checkpoint = start;
+	return true;
+}
+
+bool16 t1boss_kikuri_first_combat_profile_apply_loaded(void)
+{
+	t1boss_kikuri_checkpoint_t start;
+	int i;
+	int col;
+	int comp;
+
+	if(
+		!t1boss_kikuri_first_combat_pre_entrance_is_canonical() ||
+		!t1boss_kikuri_first_combat_construct(&start)
+	) {
+		return false;
+	}
+	for(i = 0; i < SOUL_COUNT; i++) {
+		t1boss_kikuri_ckpt_restore_soul(&start, i);
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		t1boss_kikuri_ckpt_restore_tear(&start, i);
+		tear_anim_frame[i] = start.tear_anim_frame[i];
+	}
+	boss_phase = start.phase;
+	boss_phase_frame = start.phase_frame;
+	boss_hp = start.hp;
+	kikuri_hit.invincibility_frame = start.invincibility_frame;
+	kikuri_hit.invincible = start.hit_invincible;
+	pattern_state.interval = start.pattern_state;
+	kikuri_phase_state.u1.subphase_4 = P4_SOUL_ACTIVATION;
+	kikuri_phase_state.patterns_done = start.patterns_done;
+	kikuri_phase_2.distance = start.phase_2_distance;
+	kikuri_phase_2.angle = start.phase_2_angle;
+	kikuri_phase_2.drift = start.phase_2_drift;
+	kikuri_phase_6_spiral_angle = start.phase_6_spiral_angle;
+	kikuri_phase_6_random_range_x_half = start.phase_6_random_range_x_half;
+	kikuri_initial_hp_rendered = start.initial_hp_rendered;
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			boss_palette[col].v[comp] = start.boss_palette[col][comp];
+		}
+	}
+	hud_hp_first_white = HP_PHASE_2_END;
+	hud_hp_first_redwhite = HP_PHASE_5_END;
+
+	// Phase 0 restores this snapshot, then makes it the stage palette.
+	boss_palette_show();
+	stage_palette_set(z_Palettes);
+
+	// The native stage entry owns the static backing. Kikuri does not have a
+	// phase-2 cel to paint before the first ordinary gameplay frame.
+	graph_accesspage_func(1);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+	return true;
+}
+
+#pragma codeseg
+
+#endif
 
 #pragma codeseg
