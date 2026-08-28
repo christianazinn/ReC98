@@ -19,6 +19,18 @@
 #define T2OP_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define T2OP_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
 
+// Browser fields are deliberately independent. The original single padded
+// Shift-JIS line made a character or rank width change move later columns.
+#define T2OP_BROWSER_MARKER_X 5
+#define T2OP_BROWSER_SLOT_X 7
+#define T2OP_BROWSER_NAME_X 15
+#define T2OP_BROWSER_SHOT_X 33
+#define T2OP_BROWSER_RANK_X 41
+#define T2OP_BROWSER_SCORE_X 50
+#define T2OP_BROWSER_STAGE_X 63
+#define T2OP_DETAIL_SPLIT_STAGE_X 41
+#define T2OP_DETAIL_SPLIT_SCORE_X 54
+
 extern char sel;
 
 enum t2op_word_t {
@@ -35,6 +47,7 @@ enum t2op_word_t {
 	T2OW_NORMAL,
 	T2OW_HARD,
 	T2OW_LUNATIC,
+	T2OW_SHOT,
 	T2OW_CHARACTER,
 	T2OW_REIMU,
 	T2OW_MARISA,
@@ -1188,6 +1201,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_NORMAL: P('N'); P('o'); P('r'); P('m'); P('a'); P('l'); break;
 	case T2OW_HARD: P('H'); P('a'); P('r'); P('d'); break;
 	case T2OW_LUNATIC: P('L'); P('u'); P('n'); P('a'); P('t'); P('i'); P('c'); break;
+	case T2OW_SHOT: P('S'); P('h'); P('o'); P('t'); break;
 	case T2OW_CHARACTER: P('C'); P('h'); P('a'); P('r'); P('a'); P('c'); P('t'); P('e'); P('r'); break;
 	case T2OW_REIMU: P('R'); P('e'); P('i'); P('m'); P('u'); break;
 	case T2OW_MARISA: P('M'); P('a'); P('r'); P('i'); P('s'); P('a'); break;
@@ -2547,33 +2561,40 @@ static void t2op_record_then_start(bool extra)
 
 static void t2op_browser_slot_render(uint8_t slot, tram_y_t y)
 {
-	char *p = t2op_line;
+	char *p;
 	bool valid = t2op_header_read(slot);
+	tram_atrb2 attr = (slot == t2op_browser_sel) ? TX_WHITE : TX_YELLOW;
 
-	p = t2op_char(p, (slot == t2op_browser_sel) ? '>' : ' ');
-	p = t2op_word_append(p, T2OW_SLOT);
-	p = t2op_char(p, ' ');
+	if(slot == t2op_browser_sel) {
+		p = t2op_char(t2op_line, '>');
+		t2op_text_put(T2OP_BROWSER_MARKER_X, y, attr, p);
+	}
+	p = t2op_line;
 	p = t2op_u32_append(p, slot, 2);
-	p = t2op_spaces_append(p, (T2REPLAY_NAME_LEN * GAIJI_TRAM_W) + 4);
+	t2op_text_put(T2OP_BROWSER_SLOT_X, y, attr, p);
 	if(!valid) {
-		p = t2op_word_append(p, file_exist(t2op_slot_fn) ? T2OW_INVALID : T2OW_NONE);
-		t2op_text_put(5, y, (slot == t2op_browser_sel) ? TX_WHITE : TX_YELLOW, p);
+		p = t2op_word_append(
+			t2op_line, file_exist(t2op_slot_fn) ? T2OW_INVALID : T2OW_NONE
+		);
+		t2op_text_put(T2OP_BROWSER_NAME_X, y, attr, p);
 		return;
 	}
-	p = t2op_character_append(p, t2op_header.start.shottype);
-	p = t2op_spaces_append(p, 2);
-	p = t2op_rank_append(p, t2op_header.start.rank);
-	p = t2op_spaces_append(p, 2);
-	p = t2op_i32_append(p, t2op_header.score_final, 10);
-	p = t2op_spaces_append(p, 2);
-	p = t2op_stage_append(p, static_cast<int8_t>(t2op_header.stage_reached));
-	p = t2op_spaces_append(p, 1);
-	p = t2op_end_reason_append(p, t2op_header.end_reason);
-	t2op_text_put(5, y, (slot == t2op_browser_sel) ? TX_WHITE : TX_YELLOW, p);
 	t2op_name_put(
-		15, y, t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET,
-		(slot == t2op_browser_sel) ? TX_WHITE : TX_YELLOW
+		T2OP_BROWSER_NAME_X, y,
+		t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET, attr
 	);
+	p = t2op_line;
+	p = t2op_character_append(p, t2op_header.start.shottype);
+	t2op_text_put(T2OP_BROWSER_SHOT_X, y, attr, p);
+	p = t2op_line;
+	p = t2op_rank_append(p, t2op_header.start.rank);
+	t2op_text_put(T2OP_BROWSER_RANK_X, y, attr, p);
+	p = t2op_line;
+	p = t2op_i32_append(p, t2op_header.score_final, 10);
+	t2op_text_put(T2OP_BROWSER_SCORE_X, y, attr, p);
+	p = t2op_line;
+	p = t2op_stage_append(p, static_cast<int8_t>(t2op_header.stage_reached));
+	t2op_text_put(T2OP_BROWSER_STAGE_X, y, attr, p);
 }
 
 static void t2op_browser_render(bool save_pending)
@@ -2588,20 +2609,18 @@ static void t2op_browser_render(bool save_pending)
 	p = t2op_line;
 	p = t2op_word_append(p, save_pending ? T2OW_SAVE_REPLAY : T2OW_BROWSER);
 	t2op_text_put(31, 2, TX_GREEN, p);
-	p = t2op_line;
-	p = t2op_word_append(p, T2OW_SLOT);
-	p = t2op_spaces_append(p, 6);
-	p = t2op_word_append(p, T2OW_NAME);
-	p = t2op_spaces_append(p, 14);
-	p = t2op_char(p, 'C');
-	p = t2op_char(p, 'h');
-	p = t2op_spaces_append(p, 6);
-	p = t2op_char(p, 'R');
-	p = t2op_spaces_append(p, 8);
-	p = t2op_word_append(p, T2OW_SCORE);
-	p = t2op_spaces_append(p, 7);
-	p = t2op_word_append(p, T2OW_STAGE);
-	t2op_text_put(5, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_SLOT);
+	t2op_text_put(T2OP_BROWSER_SLOT_X, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_NAME);
+	t2op_text_put(T2OP_BROWSER_NAME_X, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_SHOT);
+	t2op_text_put(T2OP_BROWSER_SHOT_X, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_RANK);
+	t2op_text_put(T2OP_BROWSER_RANK_X, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_SCORE);
+	t2op_text_put(T2OP_BROWSER_SCORE_X, 4, TX_GREEN, p);
+	p = t2op_word_append(t2op_line, T2OW_STAGE);
+	t2op_text_put(T2OP_BROWSER_STAGE_X, 4, TX_GREEN, p);
 	for(i = 0; i < T2OP_SLOT_ROWS; i++) {
 		t2op_browser_slot_render(static_cast<uint8_t>(first + i), 6 + i);
 	}
@@ -2679,9 +2698,10 @@ static void t2op_detail_render(uint8_t slot)
 	) {
 		p = t2op_line;
 		p = t2op_stage_append(p, static_cast<int8_t>(stage));
-		p = t2op_spaces_append(p, 2);
-		p = t2op_u32_append(p, t2op_header.stage_scores[stage], 10);
-		t2op_text_put(41, y++, TX_WHITE, p);
+		t2op_text_put(T2OP_DETAIL_SPLIT_STAGE_X, y, TX_WHITE, p);
+		p = t2op_u32_append(t2op_line, t2op_header.stage_scores[stage], 10);
+		t2op_text_put(T2OP_DETAIL_SPLIT_SCORE_X, y, TX_WHITE, p);
+		y++;
 	}
 }
 
@@ -2887,6 +2907,22 @@ static bool t2op_pending_commit(
 	return true;
 }
 
+static void t2op_browser_saved_wait(void)
+{
+	bool released = false;
+
+	while(1) {
+		input_reset_sense();
+		if(key_det == INPUT_NONE) {
+			released = true;
+		} else if(released) {
+			break;
+		}
+		frame_delay(1);
+	}
+	key_det = INPUT_NONE;
+}
+
 static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 {
 	bool input_allowed = false;
@@ -2934,6 +2970,8 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 							t2op_browser_sel, occupied, pending_name
 						)
 					) {
+						t2op_browser_render(false);
+						t2op_browser_saved_wait();
 						break;
 					}
 					t2op_browser_render(true);
