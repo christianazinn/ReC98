@@ -1396,11 +1396,19 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 	return true;
 }
 
-static void t1replay_op_backing_restore(void)
+// Page 1 remains title-owned throughout this additive surface.  Individual
+// renders only need their modal rectangle, while a title return must restore
+// every pixel that a name-entry keyboard or future surface may have covered.
+static void t1replay_op_panel_restore(void)
 {
 	egc_copy_rect_1_to_0_16(
 		T1REPLAY_OP_LEFT, T1REPLAY_OP_TOP, T1REPLAY_OP_W, T1REPLAY_OP_H
 	);
+}
+
+static void t1replay_op_title_backing_restore(void)
+{
+	egc_copy_rect_1_to_0_16(0, 0, RES_X, RES_Y);
 }
 
 /* Keep renderer strings out of initialized DGROUP.  Aside from preserving the
@@ -1491,6 +1499,121 @@ enum t1replay_op_word_t {
 
 static char t1replay_op_text[64];
 
+// The stock Japanese OP data is read-only and must remain byte-identical.
+// Keep localized labels in the additive code tail, encoded as Shift-JIS bytes
+// like the native score-registration surface, rather than adding DGROUP data.
+static bool t1replay_op_word_japanese_append(
+	char *&p, t1replay_op_word_t word
+)
+{
+	bool localized = true;
+
+	#define T1ROW_JP2(a, b) \
+		*reinterpret_cast<uint16_t *>(p) = static_cast<uint16_t>( \
+			static_cast<uint8_t>(a) | \
+			(static_cast<uint16_t>(static_cast<uint8_t>(b)) << 8) \
+		); \
+		p += 2
+	#define T1ROW_JP4(a, b, c, d) T1ROW_JP2(a, b); T1ROW_JP2(c, d)
+	#define T1ROW_JP6(a, b, c, d, e, f) T1ROW_JP4(a, b, c, d); T1ROW_JP2(e, f)
+	#define T1ROW_JP8(a, b, c, d, e, f, g, h) T1ROW_JP4(a, b, c, d); T1ROW_JP4(e, f, g, h)
+	#define T1ROW_JP_SPACE() *p++ = ' '
+
+	switch(word) {
+	case T1ROW_REPLAY_BROWSER:
+		T1ROW_JP8(0x8D, 0xC4, 0x90, 0xB6, 0x88, 0xEA, 0x97, 0x97); break;
+	case T1ROW_REPLAY_DETAIL:
+		T1ROW_JP8(0x8D, 0xC4, 0x90, 0xB6, 0x8F, 0xDA, 0x8D, 0xD7); break;
+	case T1ROW_SAVE_REPLAY:
+		T1ROW_JP8(0x8D, 0xC4, 0x90, 0xB6, 0x95, 0xDB, 0x91, 0xB6); break;
+	case T1ROW_SAVE: T1ROW_JP4(0x95, 0xDB, 0x91, 0xB6); break;
+	case T1ROW_DISCARD: T1ROW_JP4(0x94, 0x6A, 0x8A, 0xFC); break;
+	case T1ROW_SLOT_STATUS_START_STAGE_RANK:
+		T1ROW_JP4(0x94, 0xD4, 0x8D, 0x86); T1ROW_JP_SPACE();
+		T1ROW_JP4(0x8F, 0xF3, 0x91, 0xD4); T1ROW_JP_SPACE();
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP_SPACE();
+		T1ROW_JP2(0x96, 0xCA); T1ROW_JP_SPACE();
+		T1ROW_JP6(0x93, 0xEF, 0x88, 0xD5, 0x93, 0x78); break;
+	case T1ROW_SLOT: T1ROW_JP4(0x94, 0xD4, 0x8D, 0x86); break;
+	case T1ROW_NAME: T1ROW_JP4(0x96, 0xBC, 0x91, 0x4F); break;
+	case T1ROW_STAGE: T1ROW_JP2(0x96, 0xCA); break;
+	case T1ROW_TERMINAL: T1ROW_JP4(0x8F, 0x49, 0x92, 0x5B); break;
+	case T1ROW_FINAL_SCORE: T1ROW_JP8(0x8D, 0xC5, 0x8F, 0x49, 0x93, 0xBE, 0x93, 0x5F); break;
+	case T1ROW_SPLITS: T1ROW_JP4(0x8B, 0xE6, 0x8A, 0xD4); break;
+	case T1ROW_HANDOFFS: T1ROW_JP4(0x8C, 0xF0, 0x91, 0xD6); break;
+	case T1ROW_START_STAGE: T1ROW_JP6(0x8A, 0x4A, 0x8E, 0x6E, 0x96, 0xCA); break;
+	case T1ROW_START_ROUTE:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP6(0x83, 0x8B, 0x81, 0x5B, 0x83, 0x67); break;
+	case T1ROW_START_RANK:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP6(0x93, 0xEF, 0x88, 0xD5, 0x93, 0x78); break;
+	case T1ROW_START_SCORE:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x93, 0xBE, 0x93, 0x5F); break;
+	case T1ROW_START_LIVES:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x8E, 0x63, 0x8B, 0x40); break;
+	case T1ROW_START_BOMBS:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x83, 0x7B, 0x83, 0x80); break;
+	case T1ROW_START_POINT_VALUE:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x93, 0x5F, 0x90, 0x94); break;
+	case T1ROW_START_PELLET_SPEED:
+		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x92, 0x65, 0x91, 0xAC); break;
+	case T1ROW_EMPTY: T1ROW_JP2(0x8B, 0xF3); break;
+	case T1ROW_INVALID: T1ROW_JP4(0x96, 0xB3, 0x8C, 0xF8); break;
+	case T1ROW_CLEAR: T1ROW_JP2(0x8A, 0xAE); break;
+	case T1ROW_MENU: T1ROW_JP8(0x83, 0x81, 0x83, 0x6A, 0x83, 0x85, 0x81, 0x5B); break;
+	case T1ROW_MENU_RETURN:
+		T1ROW_JP8(0x83, 0x81, 0x83, 0x6A, 0x83, 0x85, 0x81, 0x5B);
+		T1ROW_JP4(0x82, 0xD6, 0x96, 0xDF); T1ROW_JP2(0x82, 0xE9); break;
+	case T1ROW_PAGE: T1ROW_JP2(0x95, 0xC5); break;
+	case T1ROW_PRACTICE: T1ROW_JP4(0x97, 0xFB, 0x8F, 0x4B); break;
+	case T1ROW_REPLAY: T1ROW_JP4(0x8D, 0xC4, 0x90, 0xB6); break;
+	case T1ROW_SCENE: T1ROW_JP4(0x8F, 0xEA, 0x96, 0xCA); break;
+	case T1ROW_ROUTE: T1ROW_JP6(0x83, 0x8B, 0x81, 0x5B, 0x83, 0x67); break;
+	case T1ROW_SECTION: T1ROW_JP4(0x8B, 0xE6, 0x8A, 0xD4); break;
+	case T1ROW_TARGET: T1ROW_JP6(0x8A, 0x4A, 0x8E, 0x6E, 0x88, 0xCA); T1ROW_JP2(0x92, 0x75); break;
+	case T1ROW_CHAPTER: T1ROW_JP2(0x8F, 0xCD); break;
+	case T1ROW_RANK: T1ROW_JP6(0x93, 0xEF, 0x88, 0xD5, 0x93, 0x78); break;
+	case T1ROW_SCORE: T1ROW_JP4(0x93, 0xBE, 0x93, 0x5F); break;
+	case T1ROW_LIVES: T1ROW_JP4(0x8E, 0x63, 0x8B, 0x40); break;
+	case T1ROW_BOMBS: T1ROW_JP4(0x83, 0x7B, 0x83, 0x80); break;
+	case T1ROW_POINT_VALUE: T1ROW_JP4(0x93, 0x5F, 0x90, 0x94); break;
+	case T1ROW_PELLET_SPEED: T1ROW_JP4(0x92, 0x65, 0x91, 0xAC); break;
+	case T1ROW_RNG_SEED: T1ROW_JP4(0x97, 0x90, 0x90, 0x94); break;
+	case T1ROW_START: T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); break;
+	case T1ROW_BACK: T1ROW_JP4(0x96, 0xDF, 0x82, 0xE9); break;
+	case T1ROW_SHRINE: T1ROW_JP4(0x90, 0x5F, 0x8E, 0xD0); break;
+	case T1ROW_SCENE_II: T1ROW_JP4(0x8F, 0xEA, 0x96, 0xCA); T1ROW_JP2(0x93, 0xF1); break;
+	case T1ROW_SCENE_III: T1ROW_JP4(0x8F, 0xEA, 0x96, 0xCA); T1ROW_JP2(0x8E, 0x4F); break;
+	case T1ROW_SCENE_IV: T1ROW_JP4(0x8F, 0xEA, 0x96, 0xCA); T1ROW_JP2(0x8E, 0x6C); break;
+	case T1ROW_MAKAI: T1ROW_JP4(0x96, 0x82, 0x8A, 0x45); break;
+	case T1ROW_JIGOKU: T1ROW_JP4(0x92, 0x6E, 0x8D, 0x96); break;
+	case T1ROW_STAGE_START: T1ROW_JP6(0x96, 0xCA, 0x8A, 0x4A, 0x8E, 0x6E); break;
+	case T1ROW_BOSS_START: T1ROW_JP4(0x83, 0x7B, 0x83, 0x58); T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); break;
+	case T1ROW_SINGYOKU: T1ROW_JP4(0x90, 0x5F, 0x8B, 0xCA); break;
+	case T1ROW_YUUGENMAGAN: T1ROW_JP8(0x97, 0x48, 0x8C, 0xBA, 0x96, 0x82, 0x8A, 0xE1); break;
+	case T1ROW_MIMA: T1ROW_JP4(0x96, 0xA3, 0x96, 0x82); break;
+	case T1ROW_KIKURI: T1ROW_JP6(0x83, 0x4C, 0x83, 0x4E, 0x83, 0x8A); break;
+	case T1ROW_ELIS: T1ROW_JP6(0x83, 0x47, 0x83, 0x8A, 0x83, 0x58); break;
+	case T1ROW_SARIEL: T1ROW_JP6(0x83, 0x54, 0x83, 0x8A, 0x83, 0x47); T1ROW_JP2(0x83, 0x8B); break;
+	case T1ROW_KONNGARA: T1ROW_JP6(0x83, 0x52, 0x83, 0x93, 0x83, 0x4B); T1ROW_JP2(0x83, 0x89); break;
+	case T1ROW_EASY: T1ROW_JP2(0x88, 0xD5); break;
+	case T1ROW_NORMAL: T1ROW_JP2(0x95, 0x81); break;
+	case T1ROW_HARD: T1ROW_JP2(0x93, 0xEF); break;
+	case T1ROW_LUNATIC: T1ROW_JP2(0x8B, 0xB6); break;
+	case T1ROW_LANGUAGE: T1ROW_JP4(0x8C, 0xBE, 0x8C, 0xEA); break;
+	case T1ROW_JAPANESE: T1ROW_JP6(0x93, 0xFA, 0x96, 0x7B, 0x8C, 0xEA); break;
+	case T1ROW_ENGLISH: T1ROW_JP4(0x89, 0x70, 0x8C, 0xEA); break;
+	default:
+		localized = false;
+		break;
+	}
+	#undef T1ROW_JP_SPACE
+	#undef T1ROW_JP8
+	#undef T1ROW_JP6
+	#undef T1ROW_JP4
+	#undef T1ROW_JP2
+	return localized;
+}
+
 static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 {
 	#define T1ROW_PUTC(c) *p++ = (c)
@@ -1504,6 +1627,10 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		p += 2
 	#define T1ROW_WORD3(a, b, c) T1ROW_WORD2(a, b); T1ROW_WORD1(c)
 	#define T1ROW_WORD4(a, b, c, d) T1ROW_WORD2(a, b); T1ROW_WORD2(c, d)
+	if((t1_language_get() == T1LANG_JAPANESE) &&
+		t1replay_op_word_japanese_append(p, word)) {
+		return p;
+	}
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
@@ -1979,6 +2106,53 @@ static void t1replay_op_input_reset(void)
 	t1replay_op_wait_release = true;
 }
 
+static void t1replay_op_surface_state_reset(void)
+{
+	t1replay_op_sel = 0;
+	t1replay_op_page = 0;
+	t1replay_op_save_pending = false;
+	t1replay_op_save_decision = false;
+	t1replay_op_name_active = false;
+	t1replay_op_name_cursor = 0;
+	t1replay_op_name_key_row = 0;
+	t1replay_op_name_key_column = 0;
+	t1replay_op_input_reset();
+}
+
+static bool t1replay_op_input_any_pressed(void)
+{
+	REGS in;
+	REGS out7;
+	REGS out8;
+	REGS out9;
+	REGS out0;
+	REGS out3;
+	REGS out5;
+
+	in.h.ah = 0x04;
+	in.h.al = 7; int86(0x18, &in, &out7);
+	in.h.al = 8; int86(0x18, &in, &out8);
+	in.h.al = 9; int86(0x18, &in, &out9);
+	in.h.al = 0; int86(0x18, &in, &out0);
+	in.h.al = 3; int86(0x18, &in, &out3);
+	in.h.al = 5; int86(0x18, &in, &out5);
+	return (
+		(out7.h.ah & (K7_ARROW_UP | K7_ARROW_DOWN | K7_ARROW_LEFT | K7_ARROW_RIGHT)) ||
+		(out8.h.ah & (K8_NUM_8 | K8_NUM_4)) ||
+		(out9.h.ah & (K9_NUM_2 | K9_NUM_6)) ||
+		(out0.h.ah & K0_ESC) ||
+		(out3.h.ah & K3_RETURN) ||
+		(out5.h.ah & (K5_Z | K5_X))
+	);
+}
+
+static void t1replay_op_return_wait_release(void)
+{
+	while(t1replay_op_input_any_pressed()) {
+		frame_delay(1);
+	}
+}
+
 static shiftjis_kanji_swapped_t t1replay_op_name_sjis(
 	uint8_t lead, uint8_t trail
 )
@@ -2214,7 +2388,7 @@ static void t1replay_op_name_render(void)
 		T1REPLAY_OP_TOP + (T1REPLAY_OP_LINE_H * 2)
 	);
 
-	t1replay_op_backing_restore();
+	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
 	t1replay_op_text_left(T1REPLAY_OP_TOP, T1REPLAY_OP_COL_VALUE, p);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_NAME);
@@ -2436,7 +2610,7 @@ static void t1replay_op_save_decision_render(void)
 	screen_y_t y = T1REPLAY_OP_TOP;
 	vc_t col;
 
-	t1replay_op_backing_restore();
+	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 3);
@@ -2492,7 +2666,7 @@ static void t1replay_op_detail_render(void)
 		t1replay_op_horizontal_hold = 0;
 		return;
 	}
-	t1replay_op_backing_restore();
+	t1replay_op_panel_restore();
 	y = T1REPLAY_OP_TOP;
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_DETAIL);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
@@ -2607,7 +2781,7 @@ static void t1replay_op_replay_render(void)
 	uint8_t slot_id;
 	vc_t col;
 
-	t1replay_op_backing_restore();
+	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(
 		t1replay_op_text,
 		t1replay_op_save_pending ? T1ROW_SAVE_REPLAY : T1ROW_REPLAY_BROWSER
@@ -2666,7 +2840,7 @@ static void t1replay_op_practice_render(void)
 	vc_t label_col;
 	vc_t value_col;
 
-	t1replay_op_backing_restore();
+	t1replay_op_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
@@ -2730,12 +2904,7 @@ static void t1replay_op_practice_render(void)
 
 void t1replay_op_replay_enter(void)
 {
-	t1replay_op_save_pending = false;
-	t1replay_op_save_decision = false;
-	t1replay_op_name_active = false;
-	t1replay_op_sel = 0;
-	t1replay_op_page = 0;
-	t1replay_op_input_reset();
+	t1replay_op_surface_state_reset();
 	t1replay_op_replay_render();
 }
 
@@ -2765,13 +2934,9 @@ bool t1replay_op_pending_enter(void)
 		t1replay_op_save_request_discard();
 		return false;
 	}
-	t1replay_op_save_pending = false;
+	t1replay_op_surface_state_reset();
 	t1replay_op_save_decision = (request.source == T1RSRS_POSTGAME);
-	t1replay_op_name_active = false;
-	t1replay_op_sel = 0;
-	t1replay_op_page = 0;
 	if(t1replay_op_save_decision) {
-		t1replay_op_input_reset();
 		t1replay_op_save_decision_render();
 	} else {
 		t1replay_op_name_begin();
@@ -2781,6 +2946,7 @@ bool t1replay_op_pending_enter(void)
 
 void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_t rand)
 {
+	t1replay_op_surface_state_reset();
 	memset(&t1replay_practice_start, 0, sizeof(t1replay_practice_start));
 	t1replay_practice_start.scene = 0;
 	t1replay_practice_start.route = ROUTE_MAKAI;
@@ -2790,8 +2956,6 @@ void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 	t1replay_practice_start.bombs = bombs;
 	t1replay_practice_start.pellet_speed = to_pellet_speed(-0.1f);
 	t1replay_practice_start.rand = rand;
-	t1replay_op_sel = 0;
-	t1replay_op_input_reset();
 	t1replay_op_practice_render();
 }
 
@@ -2801,7 +2965,9 @@ void t1replay_op_restore(void)
 		t1replay_op_name_keyboard_restore();
 		t1replay_op_name_active = false;
 	}
-	t1replay_op_backing_restore();
+	t1replay_op_title_backing_restore();
+	t1replay_op_return_wait_release();
+	t1replay_op_input_reset();
 }
 
 void t1replay_op_command_clear(void)
