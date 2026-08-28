@@ -1615,6 +1615,26 @@ static void t2op_title_font_restore(void)
 	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
 }
 
+// Replay browser, detail, and save/name surfaces have no stock title-menu
+// counterpart. Use TH02's native High Score backdrop instead of leaving their
+// TRAM rows over the title logo and character art. The title rebuild below
+// restores both its own palette/background and MIKOFT before accepting input.
+static void t2op_replay_surface_prepare(void)
+{
+	graph_accesspage(1);
+	graph_clear();
+	grcg_setcolor(GC_RMW, 10);
+	grcg_fill();
+	grcg_off();
+	graph_copy_page(0);
+	graph_showpage(0);
+	graph_accesspage(0);
+	palette_entry_rgb_show("op_h.rgb");
+	gaiji_restore();
+	t2_language_gaiji_entry_bfnt("op_h.bft");
+	text_clear();
+}
+
 // The title-surface handoffs owned here return through OP's normal title
 // rebuild rather than relying on whichever graphics page or gaiji table the
 // preceding native menu happened to leave behind.
@@ -1646,60 +1666,36 @@ static void t2op_input_wait_release(void)
 #define T2OP_NAME_CELL_RIGHT 49
 #define T2OP_NAME_CELL_END 50
 
+// Byte-for-byte vocabulary of TH02's native High Score gALPHABET. Its
+// defining object is linked only by score registration, so OP carries this
+// compact source-backed copy rather than adding a cross-executable link edge.
+static const uint8_t t2op_name_keyboard[T2OP_NAME_ALPHABET_ROWS][
+	T2OP_NAME_ALPHABET_COLS
+] = {
+	{
+		0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2,
+		0xB3, 0xB4, 0xB5, 0xB7, 0xB6, 0xB8, 0xB9, 0xBA,
+	},
+	{
+		0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0xC0, 0xC1, 0xC2, 0xC3,
+		0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xE0, 0x02, 0x03,
+	},
+	{
+		0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8,
+		0xA9, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7,
+	},
+};
+
+static const uint8_t t2op_name_header[] = { 0xB6, 0xAA, 0xB7, 0xAE, 0 };
+
 // This is the native high-score alphabet's exact row-major cell vocabulary.
 // TH02's MIKOFT.BFT swaps the physical M/N cels, so the two letters must use
 // their named gaiji constants rather than an unqualified alphabetic offset.
 static uint8_t t2op_name_keyboard_glyph(uint8_t cell)
 {
-	if(cell < 12) {
-		return static_cast<uint8_t>(gb_A + cell);
-	}
-	if(cell == 12) {
-		return gb_M;
-	}
-	if(cell == 13) {
-		return gb_N;
-	}
-	if(cell < 17) {
-		return static_cast<uint8_t>(gb_O + (cell - 14));
-	}
-	if(cell < 26) {
-		return static_cast<uint8_t>(gb_R + (cell - 17));
-	}
-	if(cell < 31) {
-		return static_cast<uint8_t>(gs_BULLET + (cell - 26));
-	}
-	if(cell == 31) {
-		return gs_HEART;
-	}
-	if(cell == 32) {
-		return gs_YINYANG;
-	}
-	if(cell == 33) {
-		return gs_BOMB;
-	}
-	if(cell < 44) {
-		return static_cast<uint8_t>(gb_0 + (cell - 34));
-	}
-	if(cell == 44) {
-		return gs_SKULL;
-	}
-	if(cell == 45) {
-		return gs_GHOST;
-	}
-	if(cell == 46) {
-		return gs_SIDDHAM_HAM;
-	}
-	if(cell == 47) {
-		return gs_SPACE;
-	}
-	if(cell == T2OP_NAME_CELL_LEFT) {
-		return gs_ARROW_LEFT;
-	}
-	if(cell == T2OP_NAME_CELL_RIGHT) {
-		return gs_ARROW_RIGHT;
-	}
-	return gs_END;
+	return t2op_name_keyboard[cell / T2OP_NAME_ALPHABET_COLS][
+		cell % T2OP_NAME_ALPHABET_COLS
+	];
 }
 
 static bool t2op_name_empty(const uint8_t far *name)
@@ -1761,18 +1757,8 @@ static void t2op_name_keyboard_put(uint8_t selected_col, uint8_t selected_row)
 
 static void t2op_name_menu_render(const uint8_t far *name)
 {
-	char *p;
-
 	text_clear();
-	if(t2_language_english_ready()) {
-		gaiji_putca(36, 4, gb_N, TX_GREEN);
-		gaiji_putca(38, 4, gb_A, TX_GREEN);
-		gaiji_putca(40, 4, gb_M, TX_GREEN);
-		gaiji_putca(42, 4, gb_E, TX_GREEN);
-	} else {
-		p = t2op_word_append(t2op_line, T2OW_NAME);
-		t2op_text_put(38, 4, TX_GREEN, p);
-	}
+	gaiji_putsa(36, 4, reinterpret_cast<const char *>(t2op_name_header), TX_GREEN);
 	t2op_name_put(T2OP_NAME_FIELD_LEFT, T2OP_NAME_FIELD_Y, name, TX_WHITE);
 }
 
@@ -3266,6 +3252,7 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 {
 	bool input_allowed = false;
 
+	t2op_replay_surface_prepare();
 	t2op_browser_render(save_pending);
 	while(1) {
 		input_reset_sense();
@@ -3334,15 +3321,18 @@ static bool t2op_pending_save(void)
 	if(!t2op_pending_header_read()) {
 		return false;
 	}
+	t2op_replay_surface_prepare();
 	if(
 		(t2op_pending_source == T2REPLAY_SAVE_REQUEST_CLEAR) &&
 		!t2op_save_confirm()
 	) {
 		t2op_pending_discard();
+		t2op_title_return_request();
 		return true;
 	}
 	if(!t2op_name_menu(t2op_pending_name)) {
 		t2op_pending_discard();
+		t2op_title_return_request();
 		return true;
 	}
 	t2op_browser(true, t2op_pending_name);
