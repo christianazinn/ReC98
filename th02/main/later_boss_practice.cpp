@@ -31,8 +31,12 @@ extern "C" int mima_phase_damage_max;
 extern "C" int mima_patterns_max;
 extern "C" int mima_pattern_count;
 extern "C" int mima_patterns_until_vulnerable;
+extern "C" bool mima_all_patterns;
 extern "C" uint8_t mima_bg_ring_radius;
 extern "C" uint8_t mima_bg_circle_radius;
+extern "C" uint8_t mima_bg_ring_col_head;
+extern "C" uint8_t mima_bg_ring_col_tail;
+extern "C" uint8_t mima_bg_circle_col;
 extern "C" uint8_t mima_bg_ring_phase;
 extern "C" uint8_t mima_ring_radius;
 extern "C" uint8_t mima_bg_circle_radius_base;
@@ -360,6 +364,35 @@ static void near t2lbp_mima_phase5_construct(void)
 	palette_show();
 }
 
+// The first regular state after Phase 6's completed charge. Keep the charge
+// itself out of direct Practice, but retain each source-owned handoff field.
+static void near t2lbp_mima_phase7_construct(void)
+{
+	(void)th02_s5_mima_clean_init(T2S5_MIMA_BOSS_START);
+	mima_phase = 7;
+	mima_pattern = (t2lbp_randring2_next8() & 7);
+	boss_phase_frame = 0;
+	mima_patterns_this_phase = 0;
+	mima_phase_damage_max = 1500;
+	mima_patterns_until_vulnerable = 3;
+	mima_patterns_max = 200;
+	mima_pattern_count = 9;
+	mima_all_patterns = true;
+	mima_bg_ring_radius = 125;
+	mima_bg_circle_radius = 90;
+	mima_bg_ring_col_head = 13;
+	mima_bg_ring_col_tail = 2;
+	mima_bg_circle_col = 3;
+	mima_bg_ring_phase = 0;
+	mima_ring_radius = 0;
+	mima_bg_circle_radius_base = 90;
+	mima_bg_circle_pulse_frame = 0;
+	Palettes[0].c.r = 1;
+	Palettes[0].c.g = 0;
+	Palettes[0].c.b = 0;
+	palette_show();
+}
+
 static void near t2lbp_sigma_blasts_reset(void)
 {
 	int i;
@@ -488,6 +521,10 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 	case T2LBPT_SIGMA_PHASE5:
 		t2lbp_sigma_phase5_construct();
 		t2lbp_sigma_redraw_both();
+		return true;
+	case T2LBPT_MIMA_PHASE7:
+		t2lbp_mima_phase7_construct();
+		t2lbp_mima_redraw_both();
 		return true;
 	default:
 		return false;
