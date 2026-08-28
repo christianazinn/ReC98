@@ -16,6 +16,9 @@ enum th02_later_boss_target_t {
 	T2LBPT_MIMA_PHASE5 = 7,
 	T2LBPT_SIGMA_PHASE5 = 8,
 	T2LBPT_MIMA_PHASE7 = 9,
+	// Internal only. Phase 9's public admission needs its own source and
+	// emulator acceptance parcel because it starts after Mima's form change.
+	T2LBPT_MIMA_PHASE9 = 10,
 };
 
 bool16 far th02_later_boss_clean_init(

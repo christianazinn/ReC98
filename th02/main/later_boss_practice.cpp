@@ -27,6 +27,7 @@ extern "C" void far marisa_bg_render(void);
 extern "C" int mima_phase;
 extern "C" int mima_pattern;
 extern "C" int mima_patterns_this_phase;
+extern "C" int mima_velocity_y;
 extern "C" int mima_phase_damage_max;
 extern "C" int mima_patterns_max;
 extern "C" int mima_pattern_count;
@@ -42,6 +43,7 @@ extern "C" uint8_t mima_ring_radius;
 extern "C" uint8_t mima_bg_circle_radius_base;
 extern "C" uint8_t mima_bg_circle_pulse_frame;
 extern "C" void far mima_bg_render(void);
+extern "C" const char mima2_bft[];
 
 extern screen_point_t sigma_topleft;
 extern "C" uint8_t sigma_phase;
@@ -393,6 +395,44 @@ static void near t2lbp_mima_phase7_construct(void)
 	palette_show();
 }
 
+// The first ordinary state of Mima's winged form. mima_19C8D() reloads the
+// second form immediately before mima_update() publishes this handoff. A
+// direct Practice target has no preceding first-form position to inherit, so
+// it starts at the source's first visible top row with the clean owner's
+// canonical horizontal position and zero drift.
+static void near t2lbp_mima_phase9_construct(void)
+{
+	(void)th02_s5_mima_clean_init(T2S5_MIMA_BOSS_START);
+	super_clean(128, 192);
+	super_patnum = 128;
+	(void)super_entry_bfnt(mima2_bft);
+	boss_top_on_page[0] = 64;
+	boss_top_on_page[1] = 64;
+	mima_velocity_y = 0;
+	mima_phase = 9;
+	mima_pattern = (t2lbp_randring2_next8() % 3);
+	boss_phase_frame = 0;
+	mima_patterns_this_phase = 0;
+	mima_phase_damage_max = 1100;
+	mima_patterns_until_vulnerable = 2;
+	mima_patterns_max = 200;
+	mima_pattern_count = 3;
+	mima_all_patterns = false;
+	mima_bg_ring_radius = 200;
+	mima_bg_circle_radius = 150;
+	mima_bg_ring_col_head = 13;
+	mima_bg_ring_col_tail = 2;
+	mima_bg_circle_col = 1;
+	mima_bg_ring_phase = 0;
+	mima_ring_radius = 0;
+	mima_bg_circle_radius_base = 150;
+	mima_bg_circle_pulse_frame = 0;
+	Palettes[0].c.r = 1;
+	Palettes[0].c.g = 0;
+	Palettes[0].c.b = 0;
+	palette_show();
+}
+
 static void near t2lbp_sigma_blasts_reset(void)
 {
 	int i;
@@ -524,6 +564,10 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		return true;
 	case T2LBPT_MIMA_PHASE7:
 		t2lbp_mima_phase7_construct();
+		t2lbp_mima_redraw_both();
+		return true;
+	case T2LBPT_MIMA_PHASE9:
+		t2lbp_mima_phase9_construct();
 		t2lbp_mima_redraw_both();
 		return true;
 	default:
