@@ -353,6 +353,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/k/",
 		cflags = "-DT1RP=6",
 	},
+	["t1yuugenmagan-first-combat"] = {
+		obj_root = "x/y/",
+		bin_root = "x/y/",
+		cflags = "-DT1RP=7",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",
@@ -518,10 +523,11 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/rstage.cpp",
 	"th01/rboss.cpp",
 	"th01/rpypause.cpp",
-	"th01/rpypixel.cpp",
 	"th01/language.cpp",
 	"th01/rroute.cpp",
 	"th01/rpresent.cpp",
+	"th01/rpypixel.cpp",
+	"th01/t1ymx.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

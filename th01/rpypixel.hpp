@@ -75,4 +75,12 @@ void t1replay_pixel_probe_konngara_phase1_pre_input(
 
 #endif
 
+#if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
+
+// Captures the natural source-proven seam only. No direct state is applied and
+// no public replay path can invoke this private witness.
+void t1ymx_pre_input(void);
+
+#endif
+
 #endif /* TH01_RPYPIXEL_HPP */

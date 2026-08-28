@@ -19,6 +19,8 @@ static int8_t unused; // ZUN bloat
 #if defined(T1RP) && ((T1RP == 4) || (T1RP == 5) || (T1RP == 6))
 page_t page_accessed;
 page_t page_shown;
+#elif defined(T1RP) && (T1RP == 7)
+page_t page_accessed;
 #else
 static page_t page_accessed;
 #endif

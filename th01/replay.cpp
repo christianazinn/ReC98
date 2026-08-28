@@ -2902,6 +2902,11 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 		);
 	}
 #endif
+#if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1ymx_pre_input();
+	}
+#endif
 
 #if T1REPLAY_EXACT_TRACE
 	if(
@@ -3195,6 +3200,11 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 			t1replay_header.sample_count, t1replay_header.packet_count,
 			t1replay_header.input_size, pellet_speed_raise_cycle
 		);
+	}
+#endif
+#if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1ymx_pre_input();
 	}
 #endif
 	if(

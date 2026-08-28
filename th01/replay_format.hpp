@@ -62,7 +62,8 @@
 // through DOS's command tail. Values 1 through 3 select the private capture,
 // sequential, and direct exact-restore profiles. Values 4 and 5 add the
 // measurement-only SinGyoku pixel probe to sequential and direct playback.
-// Value 6 captures the natural Konngara phase-1-frame-0 witness only.
+// Value 6 captures the natural Konngara phase-1-frame-0 witness only. Value
+// 7 captures YuugenMagan's source-checked first-combat seam on Easy/Normal.
 #ifndef T1RP
 #define T1RP 0
 #endif
@@ -92,9 +93,11 @@
 
 #define T1REPLAY_PIXEL_TRACE ((T1RP == 4) || (T1RP == 5))
 #define T1REPLAY_KONNGARA_PHASE1_TRACE (T1RP == 6)
+#define T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE (T1RP == 7)
 #define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
-	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE \
+	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE || \
+	T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE \
 )
 
 // Private semantic tracing for direct-versus-sequential checkpoint evidence.
