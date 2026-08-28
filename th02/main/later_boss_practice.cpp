@@ -107,79 +107,20 @@ static uint8_t near t2lbp_randring2_next8(void)
 	return randring[randring_p++];
 }
 
-static void near t2lbp_marisa_phase1_construct(void)
+// Every admitted Marisa round begins with the same first regular-pattern
+// state. The only round-owned fields are the completed-round count and the
+// damage multiplier; th02_s4_marisa_clean_init() owns every persistent actor,
+// callback, palette, and page-backed field before this adds the live orbs.
+static void near t2lbp_marisa_regular_construct(
+	uint8_t rounds_done, uint8_t damage_multiplier
+)
 {
 	int i;
 
 	th02_s4_marisa_clean_init();
 	marisa_intro_step = 2;
-	marisa_pattern = ((t2lbp_randring2_next8() % 5) + 1);
-	marisa_patterns_seen = 1;
-	boss_phase_frame = 1;
-	marisa_orb_flag_sum = 0;
-	boss_pos_x = -1;
-	boss_pos_y = -1;
-	for(i = 0; i < MARISA_ORB_COUNT; i++) {
-		marisa_orb_flag[i] = MOF_ALIVE;
-		marisa_orb_damage[i] = 0;
-		marisa_orb_hit_flash[i] = false;
-		marisa_orb_kill_frame[i] = 0;
-		marisa_orb_radius[i] = 54;
-		marisa_orb_angle[i] = (i << 6);
-		marisa_orb_angle_delta[i] = 2;
-		marisa_orb_left_on_page[0][i] = polar_x_fast(
-			(marisa_topleft.x + 32), marisa_orb_radius[i], marisa_orb_angle[i]
-		);
-		marisa_orb_left_on_page[1][i] = marisa_orb_left_on_page[0][i];
-		marisa_orb_top_on_page[0][i] = polar_y_fast(
-			(marisa_topleft.y + 32), marisa_orb_radius[i], marisa_orb_angle[i]
-		);
-		marisa_orb_top_on_page[1][i] = marisa_orb_top_on_page[0][i];
-	}
-}
-
-static void near t2lbp_marisa_round2_construct(void)
-{
-	int i;
-
-	th02_s4_marisa_clean_init();
-	marisa_intro_step = 2;
-	marisa_rounds_done = 1;
-	marisa_damage_multiplier = 0;
-	marisa_orbless_patterns_seen = 0;
-	marisa_pattern = ((t2lbp_randring2_next8() % 5) + 1);
-	marisa_patterns_seen = 1;
-	boss_phase_frame = 1;
-	marisa_orb_flag_sum = 0;
-	boss_pos_x = -1;
-	boss_pos_y = -1;
-	for(i = 0; i < MARISA_ORB_COUNT; i++) {
-		marisa_orb_flag[i] = MOF_ALIVE;
-		marisa_orb_damage[i] = 0;
-		marisa_orb_hit_flash[i] = false;
-		marisa_orb_kill_frame[i] = 0;
-		marisa_orb_radius[i] = 54;
-		marisa_orb_angle[i] = (i << 6);
-		marisa_orb_angle_delta[i] = 2;
-		marisa_orb_left_on_page[0][i] = polar_x_fast(
-			(marisa_topleft.x + 32), marisa_orb_radius[i], marisa_orb_angle[i]
-		);
-		marisa_orb_left_on_page[1][i] = marisa_orb_left_on_page[0][i];
-		marisa_orb_top_on_page[0][i] = polar_y_fast(
-			(marisa_topleft.y + 32), marisa_orb_radius[i], marisa_orb_angle[i]
-		);
-		marisa_orb_top_on_page[1][i] = marisa_orb_top_on_page[0][i];
-	}
-}
-
-static void near t2lbp_marisa_round3_construct(void)
-{
-	int i;
-
-	th02_s4_marisa_clean_init();
-	marisa_intro_step = 2;
-	marisa_rounds_done = 2;
-	marisa_damage_multiplier = 1;
+	marisa_rounds_done = rounds_done;
+	marisa_damage_multiplier = damage_multiplier;
 	marisa_orbless_patterns_seen = 0;
 	marisa_pattern = ((t2lbp_randring2_next8() % 5) + 1);
 	marisa_patterns_seen = 1;
@@ -527,7 +468,7 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 {
 	switch(target) {
 	case T2LBPT_MARISA_PHASE1:
-		t2lbp_marisa_phase1_construct();
+		t2lbp_marisa_regular_construct(0, 0);
 		t2lbp_marisa_redraw_both();
 		return true;
 	case T2LBPT_MIMA_PHASE1:
@@ -539,7 +480,7 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		t2lbp_sigma_redraw_both();
 		return true;
 	case T2LBPT_MARISA_ROUND2:
-		t2lbp_marisa_round2_construct();
+		t2lbp_marisa_regular_construct(1, 0);
 		t2lbp_marisa_redraw_both();
 		return true;
 	case T2LBPT_MIMA_PHASE3:
@@ -551,7 +492,23 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		t2lbp_sigma_redraw_both();
 		return true;
 	case T2LBPT_MARISA_ROUND3:
-		t2lbp_marisa_round3_construct();
+		t2lbp_marisa_regular_construct(2, 1);
+		t2lbp_marisa_redraw_both();
+		return true;
+	case T2LBPT_MARISA_ROUND4:
+		t2lbp_marisa_regular_construct(3, 1);
+		t2lbp_marisa_redraw_both();
+		return true;
+	case T2LBPT_MARISA_ROUND5:
+		t2lbp_marisa_regular_construct(4, 1);
+		t2lbp_marisa_redraw_both();
+		return true;
+	case T2LBPT_MARISA_ROUND6:
+		t2lbp_marisa_regular_construct(5, 1);
+		t2lbp_marisa_redraw_both();
+		return true;
+	case T2LBPT_MARISA_ROUND7:
+		t2lbp_marisa_regular_construct(6, 1);
 		t2lbp_marisa_redraw_both();
 		return true;
 	case T2LBPT_MIMA_PHASE5:

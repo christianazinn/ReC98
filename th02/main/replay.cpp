@@ -5947,8 +5947,21 @@ static bool16 near t2replay_stage4_marisa_phase1_activate_clean(void)
 	return true;
 }
 
-static bool16 near t2replay_stage4_marisa_round2_activate_clean(void)
+static bool16 near t2replay_stage4_marisa_round_activate_clean(
+	th02_later_boss_target_t target
+)
 {
+	switch(target) {
+	case T2LBPT_MARISA_ROUND2:
+	case T2LBPT_MARISA_ROUND3:
+	case T2LBPT_MARISA_ROUND4:
+	case T2LBPT_MARISA_ROUND5:
+	case T2LBPT_MARISA_ROUND6:
+	case T2LBPT_MARISA_ROUND7:
+		break;
+	default:
+		return false;
+	}
 	if(!practice_terminal_field_build()) {
 		return false;
 	}
@@ -5960,29 +5973,7 @@ static bool16 near t2replay_stage4_marisa_round2_activate_clean(void)
 	tile_mode = TM_NONE;
 	t2replay_later_boss_phase_pools_clean();
 	palette_settone(100);
-	if(!th02_later_boss_clean_init(T2LBPT_MARISA_ROUND2)) {
-		t2practice_diag_constructor_result(false);
-		return false;
-	}
-	t2practice_diag_constructor_result(true);
-	t2replay_boss_promote_clean(aBoss3_m);
-	return true;
-}
-
-static bool16 near t2replay_stage4_marisa_round3_activate_clean(void)
-{
-	if(!practice_terminal_field_build()) {
-		return false;
-	}
-	t2replay_boss_scroll_reset_clean();
-	super_clean(128, 511);
-	super_patnum = 128;
-	super_entry_bfnt(aStage3_b_bft);
-	super_entry_bfnt(aStage3_b_btt_0);
-	tile_mode = TM_NONE;
-	t2replay_later_boss_phase_pools_clean();
-	palette_settone(100);
-	if(!th02_later_boss_clean_init(T2LBPT_MARISA_ROUND3)) {
+	if(!th02_later_boss_clean_init(target)) {
 		t2practice_diag_constructor_result(false);
 		return false;
 	}
@@ -6413,7 +6404,12 @@ bool16 replay_practice_target_apply(void)
 		t2replay_practice_target = T2RPT_STAGE_START;
 		t2practice_target_return(true);
 	case T2RPT_STAGE4_BOSS_ROUND2:
-		if((stage_id != 3) || !t2replay_stage4_marisa_round2_activate_clean()) {
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				T2LBPT_MARISA_ROUND2
+			)
+		) {
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 			if(stage_id != 3) {
 				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
@@ -6424,7 +6420,36 @@ bool16 replay_practice_target_apply(void)
 		t2replay_practice_target = T2RPT_STAGE_START;
 		t2practice_target_return(true);
 	case T2RPT_STAGE4_BOSS_ROUND3:
-		if((stage_id != 3) || !t2replay_stage4_marisa_round3_activate_clean()) {
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				T2LBPT_MARISA_ROUND3
+			)
+		) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+			if(stage_id != 3) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+#endif
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
+	case T2RPT_STAGE4_BOSS_ROUND4:
+	case T2RPT_STAGE4_BOSS_ROUND5:
+	case T2RPT_STAGE4_BOSS_ROUND6:
+	case T2RPT_STAGE4_BOSS_ROUND7:
+		// The public IDs and constructor IDs are dense over the later four
+		// regular Marisa rounds, unlike the historical interleaved IDs above.
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				static_cast<th02_later_boss_target_t>(
+					T2LBPT_MARISA_ROUND4 +
+					(target - T2RPT_STAGE4_BOSS_ROUND4)
+				)
+			)
+		) {
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 			if(stage_id != 3) {
 				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
@@ -6722,13 +6747,40 @@ bool16 replay_practice_target_apply(void)
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
 	case T2RPT_STAGE4_BOSS_ROUND2:
-		if((stage_id != 3) || !t2replay_stage4_marisa_round2_activate_clean()) {
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				T2LBPT_MARISA_ROUND2
+			)
+		) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
 	case T2RPT_STAGE4_BOSS_ROUND3:
-		if((stage_id != 3) || !t2replay_stage4_marisa_round3_activate_clean()) {
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				T2LBPT_MARISA_ROUND3
+			)
+		) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE4_BOSS_ROUND4:
+	case T2RPT_STAGE4_BOSS_ROUND5:
+	case T2RPT_STAGE4_BOSS_ROUND6:
+	case T2RPT_STAGE4_BOSS_ROUND7:
+		if(
+			(stage_id != 3) ||
+			!t2replay_stage4_marisa_round_activate_clean(
+				static_cast<th02_later_boss_target_t>(
+					T2LBPT_MARISA_ROUND4 +
+					(target - T2RPT_STAGE4_BOSS_ROUND4)
+				)
+			)
+		) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
