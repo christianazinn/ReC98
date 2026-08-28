@@ -643,16 +643,34 @@ static bool t1replay_op_start_valid(const t1replay_start_t *start)
 	);
 }
 
+static unsigned t1replay_op_header_wire_size(const t1replay_header_t *header)
+{
+	if(
+		t1replay_op_magic_matches(header->magic, '4') &&
+		(header->version == T1REPLAY_VERSION_LEGACY) &&
+		(header->header_size == T1REPLAY_HEADER_SIZE_LEGACY)
+	) {
+		return T1REPLAY_HEADER_SIZE_LEGACY;
+	}
+	if(
+		t1replay_op_magic_matches(header->magic, '5') &&
+		(header->version == T1REPLAY_VERSION) &&
+		(header->header_size == T1REPLAY_HEADER_SIZE)
+	) {
+		return T1REPLAY_HEADER_SIZE;
+	}
+	return 0;
+}
+
 static bool t1replay_op_header_valid(t1replay_header_t *header)
 {
 	uint32_t stored_header_checksum = header->header_checksum;
 	uint32_t header_checksum;
 	uint32_t start_checksum;
+	unsigned header_size = t1replay_op_header_wire_size(header);
 
 	if(
-		!t1replay_op_magic_matches(header->magic, '4') ||
-		(header->version != T1REPLAY_VERSION) ||
-		(header->header_size != T1REPLAY_HEADER_SIZE) ||
+		(header_size == 0) ||
 		(header->packet_size != T1REPLAY_PACKET_SIZE) ||
 		(header->flags != T1REPLAY_FLAGS_KNOWN) ||
 		(header->status != T1REPLAY_STATUS_FINALIZED) ||
@@ -662,7 +680,7 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 		(header->input_semantics != T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS) ||
 		(header->process_count == 0) ||
 		(header->reserved_0 != 0) ||
-		(header->input_offset != T1REPLAY_HEADER_SIZE) ||
+		(header->input_offset != header_size) ||
 		(header->packet_count > (T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(header->input_size != (header->packet_count * T1REPLAY_PACKET_SIZE)) ||
 		(header->input_size > T1REPLAY_INPUT_SIZE_MAX) ||
@@ -670,7 +688,8 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 		!t1replay_op_start_valid(&header->start) ||
 		!t1replay_summary_valid(
 			&header->summary, &header->start, true, header->end_reason
-		)
+		) ||
+		(header->slow_frames > header->timed_frames)
 	) {
 		return false;
 	}
@@ -682,7 +701,7 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 	}
 	header->header_checksum = 0;
 	header_checksum = t1replay_op_fnv1a(
-		T1REPLAY_FNV1A_BASIS, header, sizeof(*header)
+		T1REPLAY_FNV1A_BASIS, header, header_size
 	);
 	header->header_checksum = stored_header_checksum;
 	return (header_checksum == stored_header_checksum);
@@ -690,9 +709,11 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 
 static void t1replay_op_header_checksum_set(t1replay_header_t *header)
 {
+	unsigned header_size = t1replay_op_header_wire_size(header);
+
 	header->header_checksum = 0;
 	header->header_checksum = t1replay_op_fnv1a(
-		T1REPLAY_FNV1A_BASIS, header, sizeof(*header)
+		T1REPLAY_FNV1A_BASIS, header, header_size
 	);
 }
 
@@ -883,7 +904,18 @@ static void t1replay_op_file_read(
 		return;
 	}
 	result.exists = true;
-	if(fread(&result.header, 1, sizeof(result.header), fp) == sizeof(result.header)) {
+	if(
+		(fread(
+			&result.header, 1, T1REPLAY_HEADER_SIZE_LEGACY, fp
+		) == T1REPLAY_HEADER_SIZE_LEGACY) &&
+		((result.header.header_size == T1REPLAY_HEADER_SIZE_LEGACY) ||
+		 ((result.header.header_size == T1REPLAY_HEADER_SIZE) &&
+		  (fread(
+			(reinterpret_cast<uint8_t *>(&result.header) +
+			 T1REPLAY_HEADER_SIZE_LEGACY),
+			1, (T1REPLAY_HEADER_SIZE - T1REPLAY_HEADER_SIZE_LEGACY), fp
+		  ) == (T1REPLAY_HEADER_SIZE - T1REPLAY_HEADER_SIZE_LEGACY))))
+	) {
 		result.valid = t1replay_op_header_valid(&result.header);
 		if(result.valid && deep) {
 			result.valid = t1replay_op_stream_valid(fp, &result.header);
@@ -1080,8 +1112,9 @@ static bool t1replay_op_pending_name_commit(const uint8_t *name)
 	}
 	valid = (
 		(fseek(fp, 0L, SEEK_SET) == 0) &&
-		(fwrite(&pending.header, 1, sizeof(pending.header), fp) ==
-			sizeof(pending.header)) &&
+		(fwrite(
+			&pending.header, 1, pending.header.header_size, fp
+		) == pending.header.header_size) &&
 		(fflush(fp) == 0)
 	);
 	if(fclose(fp) != 0) {
@@ -1457,6 +1490,7 @@ enum t1replay_op_word_t {
 	T1ROW_START_BOMBS,
 	T1ROW_START_POINT_VALUE,
 	T1ROW_START_PELLET_SPEED,
+	T1ROW_SLOWDOWN,
 	T1ROW_EMPTY,
 	T1ROW_INVALID,
 	T1ROW_CLEAR,
@@ -1579,6 +1613,7 @@ static bool t1replay_op_word_japanese_append(
 		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x93, 0x5F, 0x90, 0x94); break;
 	case T1ROW_START_PELLET_SPEED:
 		T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); T1ROW_JP4(0x92, 0x65, 0x91, 0xAC); break;
+	case T1ROW_SLOWDOWN: T1ROW_JP8(0x8F, 0x88, 0x97, 0x9D, 0x97, 0x8E, 0x82, 0xBF); break;
 	case T1ROW_EMPTY: T1ROW_JP2(0x8B, 0xF3); break;
 	case T1ROW_INVALID: T1ROW_JP4(0x96, 0xB3, 0x8C, 0xF8); break;
 	case T1ROW_CLEAR: T1ROW_JP2(0x8A, 0xAE); break;
@@ -1696,6 +1731,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('P', 'O', 'I', 'N'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('V', 'A', 'L', 'U'); T1ROW_WORD1('E'); break;
 	case T1ROW_START_PELLET_SPEED:
 		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('P', 'E', 'L', 'L'); T1ROW_WORD2('E', 'T'); T1ROW_SPACE(); T1ROW_WORD4('S', 'P', 'E', 'E'); T1ROW_WORD1('D'); break;
+	case T1ROW_SLOWDOWN:
+		T1ROW_WORD4('S', 'L', 'O', 'W'); T1ROW_WORD4('D', 'O', 'W', 'N'); break;
 	case T1ROW_EMPTY: T1ROW_WORD4('E', 'M', 'P', 'T'); T1ROW_WORD1('Y'); break;
 	case T1ROW_INVALID: T1ROW_WORD4('I', 'N', 'V', 'A'); T1ROW_WORD3('L', 'I', 'D'); break;
 	case T1ROW_CLEAR: T1ROW_WORD4('C', 'L', 'E', 'A'); T1ROW_WORD1('R'); break;
@@ -1804,6 +1841,42 @@ static char *t1replay_op_uint_space_append(
 	while(count != 0) {
 		*p++ = digits[--count];
 	}
+	return p;
+}
+
+static char *t1replay_op_slowdown_append(
+	char *p, const t1replay_header_t *header
+)
+{
+	uint32_t accumulator;
+	uint32_t remainder;
+	uint32_t threshold;
+	uint16_t percent;
+	uint8_t i;
+
+	if(
+		(t1replay_op_header_wire_size(header) == T1REPLAY_HEADER_SIZE_LEGACY) ||
+		(header->timed_frames == 0)
+	) {
+		*p++ = '-';
+		return p;
+	}
+	percent = static_cast<uint16_t>(
+		(header->slow_frames / header->timed_frames) * 100UL
+	);
+	remainder = (header->slow_frames % header->timed_frames);
+	accumulator = 0;
+	threshold = (header->timed_frames - remainder);
+	for(i = 0; i < 100; i++) {
+		if(accumulator >= threshold) {
+			accumulator -= threshold;
+			percent++;
+		} else {
+			accumulator += remainder;
+		}
+	}
+	p = t1replay_op_uint_append(p, percent, 1);
+	*p++ = '%';
 	return p;
 }
 
@@ -2771,6 +2844,10 @@ static void t1replay_op_detail_render(void)
 		t1replay_op_pellet_speed_append(
 			p, slot.header.start.pellet_speed
 		)
+	);
+	T1REPLAY_OP_DETAIL_LINE(
+		T1ROW_SLOWDOWN,
+		t1replay_op_slowdown_append(p, &slot.header)
 	);
 	#undef T1REPLAY_OP_DETAIL_LINE
 

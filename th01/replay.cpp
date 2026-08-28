@@ -29,6 +29,7 @@
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/main/stage/item.hpp"
 #include "th01/main/particle.hpp"
+#include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
 #include "th01/rboss.hpp"
@@ -114,6 +115,8 @@ static bool t1replay_abort_pending;
 static uint8_t t1replay_fast_forward_phase;
 static bool t1replay_gameplay_input_armed;
 static bool t1replay_gameplay_wait_skip_pending;
+static bool t1replay_timing_frame_armed;
+static bool t1replay_timing_first_frame;
 static bool t1replay_command_delete_failed;
 static bool t1replay_terminal_pending;
 static t1replay_pause_action_t t1replay_pause_action;
@@ -177,6 +180,8 @@ static void t1replay_fast_forward_boundary_reset(void)
 	t1replay_fast_forward_phase = 0;
 	t1replay_gameplay_input_armed = false;
 	t1replay_gameplay_wait_skip_pending = false;
+	t1replay_timing_frame_armed = false;
+	t1replay_timing_first_frame = true;
 }
 
 static void t1replay_memclear(void far *buf, unsigned size)
@@ -1339,6 +1344,25 @@ static void t1replay_header_checksum_set(void)
 	);
 }
 
+static unsigned t1replay_header_wire_size(void)
+{
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '4') &&
+		(t1replay_header.version == T1REPLAY_VERSION_LEGACY) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE_LEGACY)
+	) {
+		return T1REPLAY_HEADER_SIZE_LEGACY;
+	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '5') &&
+		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
+	) {
+		return T1REPLAY_HEADER_SIZE;
+	}
+	return 0;
+}
+
 static bool t1replay_header_write(bool create)
 {
 	int fd = (create ?
@@ -1532,33 +1556,44 @@ static bool t1replay_header_read(bool finalized)
 	uint32_t file_size;
 	uint32_t stored_checksum;
 	uint32_t computed_checksum;
+	unsigned header_size;
 	int fd = t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_READ);
 
 	if(fd < 0) {
 		return false;
 	}
-	if((t1replay_dos_read(fd, &t1replay_header, sizeof(t1replay_header)) !=
-		 sizeof(t1replay_header)) || !t1replay_dos_size(fd, &file_size)) {
+	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
+	if(
+		(t1replay_dos_read(
+			fd, &t1replay_header, T1REPLAY_HEADER_SIZE_LEGACY
+		) != T1REPLAY_HEADER_SIZE_LEGACY) ||
+		((header_size = t1replay_header_wire_size()) == 0) ||
+		((header_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
+		 (t1replay_dos_read(
+			fd,
+			(reinterpret_cast<uint8_t far *>(&t1replay_header) +
+			 T1REPLAY_HEADER_SIZE_LEGACY),
+			(header_size - T1REPLAY_HEADER_SIZE_LEGACY)
+		 ) != (header_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
+		!t1replay_dos_size(fd, &file_size)
+	) {
 		t1replay_dos_close(fd);
 		return false;
 	}
 	stored_checksum = t1replay_header.header_checksum;
 	t1replay_header.header_checksum = 0;
 	computed_checksum = t1replay_fnv1a(
-		T1REPLAY_FNV1A_BASIS, &t1replay_header, sizeof(t1replay_header)
+		T1REPLAY_FNV1A_BASIS, &t1replay_header, header_size
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '4') ||
-		(t1replay_header.version != T1REPLAY_VERSION) ||
-		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
 		(t1replay_header.flags != T1REPLAY_FLAGS_KNOWN) ||
 		(t1replay_header.status !=
 			(finalized ? T1REPLAY_STATUS_FINALIZED : T1REPLAY_STATUS_RECORDING)) ||
 		(t1replay_header.game_id != 1) ||
 		(t1replay_header.input_semantics != T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS) ||
-		(t1replay_header.input_offset != T1REPLAY_HEADER_SIZE) ||
+		(t1replay_header.input_offset != header_size) ||
 		(t1replay_header.input_size > T1REPLAY_INPUT_SIZE_MAX) ||
 		(t1replay_header.packet_count >
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
@@ -1576,6 +1611,7 @@ static bool t1replay_header_read(bool finalized)
 			finalized, t1replay_header.end_reason
 		) ||
 		(t1replay_header.reserved_0 != 0) ||
+		(t1replay_header.slow_frames > t1replay_header.timed_frames) ||
 		((t1replay_header.status == T1REPLAY_STATUS_FINALIZED) ?
 			((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
 			 (t1replay_header.end_reason != T1REPLAY_END_CLEAR)) :
@@ -1886,7 +1922,7 @@ static void t1replay_header_capture(void)
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '4';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '5';
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
@@ -2031,7 +2067,8 @@ static bool t1replay_res_valid(void)
 		((t1replay_res->mode == T1RM_RECORD) &&
 		 (t1replay_res->guard.sample_count != t1replay_res->sample_count)) ||
 		((t1replay_res->mode == T1RM_PLAYBACK) &&
-		 !t1rpg_state_empty(&t1replay_res->guard))) {
+		 !t1rpg_state_empty(&t1replay_res->guard)) ||
+		(t1replay_res->slow_frames > t1replay_res->timed_frames)) {
 		return false;
 	}
 	stored = t1replay_res->checksum;
@@ -2073,6 +2110,8 @@ static void t1replay_res_store(void)
 	}
 	t1replay_res->payload_checksum = t1replay_payload_checksum;
 	t1replay_res->start_checksum = t1replay_header.start_checksum;
+	t1replay_res->timed_frames = t1replay_header.timed_frames;
+	t1replay_res->slow_frames = t1replay_header.slow_frames;
 	t1replay_res_checksum();
 }
 
@@ -2086,6 +2125,8 @@ static bool t1replay_res_matches_header(void)
 		(t1replay_res->input_size !=
 			(t1replay_res->packet_count * T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_res->start_checksum != t1replay_header.start_checksum) ||
+		(t1replay_res->timed_frames != t1replay_header.timed_frames) ||
+		(t1replay_res->slow_frames != t1replay_header.slow_frames) ||
 		(t1replay_res->target_process != T1REPLAY_PROCESS_REIIDEN) ||
 		(t1replay_res->handoff_checksum != 0)
 	) {
@@ -3452,11 +3493,45 @@ void far t1replay_gameplay_input_begin(void)
 void far t1replay_gameplay_input_end(void)
 {
 	t1replay_gameplay_input_armed = false;
+	if(t1replay_mode == T1RM_RECORD) {
+		// The stock life-loss path exposes no replay hook. Its first gameplay
+		// input seam is nevertheless source-identifiable by the native miss
+		// invincibility value, so loading/animation time is never telemetry.
+		if(player_invincibility_time == PLAYER_MISS_INVINCIBILITY_FRAMES) {
+			t1replay_timing_first_frame = true;
+		}
+		t1replay_timing_frame_armed = true;
+	}
 }
 
 bool16 far t1replay_gameplay_wait_skip(void)
 {
 	bool16 skip = t1replay_gameplay_wait_skip_pending;
+
+	// This wrapper already sits directly before the native frame_delay(1).
+	// Observe its counter without resetting, waiting, or changing the stock
+	// pacing path. Exactly one elapsed VSync is on time; only larger values are
+	// classified as slow. Pause-opening frames are excluded entirely.
+	if((t1replay_mode == T1RM_RECORD) && t1replay_timing_frame_armed) {
+		t1replay_timing_frame_armed = false;
+		if(paused) {
+			// Pause polling and playfield restoration are outside gameplay
+			// telemetry. Keep this marker for the first resumed frame so none
+			// of that deferred work is classified there either.
+			t1replay_timing_first_frame = true;
+		} else if(t1replay_timing_first_frame) {
+			t1replay_timing_first_frame = false;
+		} else {
+			if(t1replay_header.timed_frames == 0xFFFFFFFFUL) {
+				t1replay_fail();
+			} else {
+				t1replay_header.timed_frames++;
+				if(z_vsync_Count1 > 1) {
+					t1replay_header.slow_frames++;
+				}
+			}
+		}
+	}
 
 	t1replay_gameplay_wait_skip_pending = false;
 	return skip;

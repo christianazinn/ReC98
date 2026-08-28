@@ -731,31 +731,61 @@ static bool t1replay_stream_validate(int fd, bool finalized)
 	);
 }
 
+static unsigned t1replay_header_wire_size(void)
+{
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '4') &&
+		(t1replay_header.version == T1REPLAY_VERSION_LEGACY) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE_LEGACY)
+	) {
+		return T1REPLAY_HEADER_SIZE_LEGACY;
+	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '5') &&
+		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
+	) {
+		return T1REPLAY_HEADER_SIZE;
+	}
+	return 0;
+}
+
 static bool t1replay_header_read(bool finalized)
 {
 	uint32_t file_size;
 	uint32_t stored_checksum;
 	uint32_t computed_checksum;
+	unsigned header_size;
 	int fd = t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_READ);
 
 	if(fd < 0) {
 		return false;
 	}
-	if((t1replay_dos_read(fd, &t1replay_header, sizeof(t1replay_header)) !=
-		 sizeof(t1replay_header)) || !t1replay_dos_size(fd, &file_size)) {
+	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
+	if(
+		(t1replay_dos_read(
+			fd, &t1replay_header, T1REPLAY_HEADER_SIZE_LEGACY
+		) != T1REPLAY_HEADER_SIZE_LEGACY) ||
+		((header_size = t1replay_header_wire_size()) == 0) ||
+		((header_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
+		 (t1replay_dos_read(
+			fd,
+			(reinterpret_cast<uint8_t far *>(&t1replay_header) +
+			 T1REPLAY_HEADER_SIZE_LEGACY),
+			(header_size - T1REPLAY_HEADER_SIZE_LEGACY)
+		 ) != (header_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
+		!t1replay_dos_size(fd, &file_size)
+	) {
 		t1replay_dos_close(fd);
 		return false;
 	}
 	stored_checksum = t1replay_header.header_checksum;
 	t1replay_header.header_checksum = 0;
 	computed_checksum = t1replay_fnv1a(
-		T1REPLAY_FNV1A_BASIS, &t1replay_header, sizeof(t1replay_header)
+		T1REPLAY_FNV1A_BASIS, &t1replay_header, header_size
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
-		!t1replay_magic_matches(t1replay_header.magic, '4') ||
-		(t1replay_header.version != T1REPLAY_VERSION) ||
-		(t1replay_header.header_size != T1REPLAY_HEADER_SIZE) ||
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
 		(t1replay_header.flags != T1REPLAY_FLAGS_KNOWN) ||
 		(t1replay_header.status !=
@@ -763,7 +793,7 @@ static bool t1replay_header_read(bool finalized)
 		(t1replay_header.game_id != 1) ||
 		(t1replay_header.input_semantics !=
 			T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS) ||
-		(t1replay_header.input_offset != T1REPLAY_HEADER_SIZE) ||
+		(t1replay_header.input_offset != header_size) ||
 		(t1replay_header.input_size > T1REPLAY_INPUT_SIZE_MAX) ||
 		(t1replay_header.packet_count >
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
@@ -783,6 +813,7 @@ static bool t1replay_header_read(bool finalized)
 			finalized, t1replay_header.end_reason
 		) ||
 		(t1replay_header.reserved_0 != 0) ||
+		(t1replay_header.slow_frames > t1replay_header.timed_frames) ||
 		(finalized ?
 			(t1replay_header.end_reason != T1REPLAY_END_CLEAR) :
 			(t1replay_header.end_reason != 0)) ||
@@ -882,7 +913,8 @@ static bool t1replay_res_valid(void)
 		((t1replay_res->mode == T1RM_RECORD) &&
 		 (t1replay_res->guard.sample_count != t1replay_res->sample_count)) ||
 		((t1replay_res->mode == T1RM_PLAYBACK) &&
-		 !t1rpg_state_empty(&t1replay_res->guard))
+		 !t1rpg_state_empty(&t1replay_res->guard)) ||
+		(t1replay_res->slow_frames > t1replay_res->timed_frames)
 	) {
 		return false;
 	}
@@ -924,7 +956,9 @@ static bool t1replay_res_matches_header(void)
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_res->input_size !=
 			(t1replay_res->packet_count * T1REPLAY_PACKET_SIZE)) ||
-		(t1replay_res->start_checksum != t1replay_header.start_checksum)
+		(t1replay_res->start_checksum != t1replay_header.start_checksum) ||
+		(t1replay_res->timed_frames != t1replay_header.timed_frames) ||
+		(t1replay_res->slow_frames != t1replay_header.slow_frames)
 	) {
 		return false;
 	}

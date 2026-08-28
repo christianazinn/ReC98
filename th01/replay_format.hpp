@@ -2,17 +2,19 @@
 #define TH01_REPLAY_FORMAT_HPP
 
 /*
- * TH01's user replay format. V4 carries a run from REIIDEN into FUUIN while
- * retaining the compact packet geometry, native replay name, and fieldwise
- * terminal/stage summary.
+ * TH01's user replay format. V5 appends run-wide slowdown telemetry to the
+ * complete V4 header while retaining the compact packet geometry, native
+ * replay name, and fieldwise terminal/stage summary.
  */
 
 #include "platform.h"
 #include <stddef.h>
 #include "th01/common.h"
 
-#define T1REPLAY_VERSION 4
-#define T1REPLAY_HEADER_SIZE 258
+#define T1REPLAY_VERSION_LEGACY 4
+#define T1REPLAY_VERSION 5
+#define T1REPLAY_HEADER_SIZE_LEGACY 258
+#define T1REPLAY_HEADER_SIZE 266
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_SUMMARY_SIZE 128
 #define T1REPLAY_STAGE_SUMMARY_SIZE 6
@@ -205,7 +207,7 @@ inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 #define T1REPLAY_FUUIN_PHASE_SCORE_RELEASE 3
 
 #define T1REPLAY_RES_ID "T1ReplayState"
-#define T1REPLAY_RES_VERSION 3
+#define T1REPLAY_RES_VERSION 4
 #define T1REPLAY_RESTART_RES_ID "T1ReplayRestart"
 #define T1REPLAY_RESTART_RES_VERSION 1
 
@@ -321,7 +323,7 @@ struct t1replay_summary_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY4\\0\\0"
+	char magic[8]; // "T1RPY5\\0\\0"; V4 remains readable.
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -342,6 +344,8 @@ struct t1replay_header_t {
 	t1replay_start_t start;
 	uint8_t name[T1REPLAY_NAME_BYTES];
 	t1replay_summary_t summary;
+	uint32_t timed_frames;
+	uint32_t slow_frames;
 };
 
 // The native score-registration keyboard accepts full-width ASCII letters and
@@ -507,9 +511,9 @@ struct t1replay_restart_state_t {
 	uint32_t checksum;
 };
 
-// This private, pointer-free guard carrier stays outside T1RPY4. It lets the
-// REIIDEN and FUUIN processes verify the same physical-disk witness without
-// changing the user replay format.
+// This private, pointer-free guard carrier stays outside T1RPY4/T1RPY5. It
+// lets the REIIDEN and FUUIN processes verify the same physical-disk witness
+// without changing the user replay format.
 struct t1replay_guard_t {
 	uint32_t committed_size;
 	uint32_t sample_count;
@@ -539,6 +543,8 @@ struct t1replay_res_t {
 	uint32_t start_checksum;
 	uint32_t handoff_checksum;
 	t1replay_guard_t guard;
+	uint32_t timed_frames;
+	uint32_t slow_frames;
 	uint32_t checksum;
 };
 
@@ -944,7 +950,7 @@ typedef char t1replay_restart_request_size_check[
 	(sizeof(t1replay_restart_request_t) == T1REPLAY_RESTART_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t1replay_res_size_check[
-	(sizeof(t1replay_res_t) == 70) ? 1 : -1
+	(sizeof(t1replay_res_t) == 78) ? 1 : -1
 ];
 typedef char t1replay_fuuin_handoff_size_check[
 	(sizeof(t1replay_fuuin_handoff_t) == 28) ? 1 : -1
@@ -1038,6 +1044,14 @@ typedef char t1replay_header_name_offset_check[
 ];
 typedef char t1replay_header_summary_offset_check[
 	(offsetof(t1replay_header_t, summary) == 130) ? 1 : -1
+];
+typedef char t1replay_header_timed_frames_offset_check[
+	(offsetof(t1replay_header_t, timed_frames) ==
+	 T1REPLAY_HEADER_SIZE_LEGACY) ? 1 : -1
+];
+typedef char t1replay_header_slow_frames_offset_check[
+	(offsetof(t1replay_header_t, slow_frames) ==
+	 (T1REPLAY_HEADER_SIZE_LEGACY + 4)) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_groups_offset_check[
 	(offsetof(t1replay_checkpoint_t, groups) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1
