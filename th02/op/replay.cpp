@@ -1630,8 +1630,7 @@ static void t2op_replay_surface_prepare(void)
 	graph_showpage(0);
 	graph_accesspage(0);
 	palette_entry_rgb_show("op_h.rgb");
-	gaiji_restore();
-	t2_language_gaiji_entry_bfnt("op_h.bft");
+	t2op_title_font_restore();
 	text_clear();
 }
 
