@@ -144,6 +144,8 @@ static bool replay_stage_seen;
 static bool replay_private_test;
 static bool replay_temp_capture;
 static bool replay_practice_diagnostic;
+static uint16_t replay_debug_last_std_frame;
+static uint16_t replay_debug_next_std_frame;
 static uint32_t replay_private_diagnostic;
 static uint8_t replay_checkpoint_prefix[REPLAY_CHECKPOINT_PREFIX_SIZE];
 #define REPLAY_PRIVATE_SAMPLE_LIMIT 600UL
@@ -2637,6 +2639,17 @@ void replay_entry(void)
 	replay_header_apply();
 }
 
+static void replay_debug_stage_coordinates_reset(void)
+{
+	if(!replay_practice_diagnostic) {
+		return;
+	}
+	replay_debug_last_std_frame = 0;
+	replay_debug_next_std_frame = (
+		*reinterpret_cast<const uint16_t far *>(std_ip)
+	);
+}
+
 void replay_stage_start(void)
 {
 	uint16_t arg;
@@ -2644,6 +2657,7 @@ void replay_stage_start(void)
 
 	language_main_titles_apply();
 	if(replay_mode == RRM_DISABLED) {
+		replay_debug_stage_coordinates_reset();
 		return;
 	}
 	if(replay_failed) {
@@ -2700,6 +2714,7 @@ void replay_stage_start(void)
 		replay_fail();
 		quit = Q_QUIT_TO_OP;
 	}
+	replay_debug_stage_coordinates_reset();
 	replay_last_stage = stage_id;
 	replay_stage_seen = true;
 }
@@ -3222,6 +3237,10 @@ static void replay_debug_stage_coordinates_put(void)
 	uint8_t map_section;
 
 	next_std_frame = *reinterpret_cast<const uint16_t far *>(std_ip);
+	if(next_std_frame != replay_debug_next_std_frame) {
+		replay_debug_last_std_frame = replay_debug_next_std_frame;
+		replay_debug_next_std_frame = next_std_frame;
+	}
 #if (GAME == 5)
 	map_list_offset = static_cast<uint16_t>(std_map_section_p);
 #else
@@ -3235,10 +3254,12 @@ static void replay_debug_stage_coordinates_put(void)
 #endif
 	text_putca(4, 0, 'F', TX_WHITE);
 	replay_debug_u16_put(5, stage_frame, 10000);
-	text_putca(11, 0, 'N', TX_WHITE);
-	replay_debug_u16_put(12, next_std_frame, 10000);
-	text_putca(18, 0, 'M', TX_WHITE);
-	replay_debug_u16_put(19, map_section, 10);
+	text_putca(11, 0, 'L', TX_WHITE);
+	replay_debug_u16_put(12, replay_debug_last_std_frame, 10000);
+	text_putca(18, 0, 'N', TX_WHITE);
+	replay_debug_u16_put(19, next_std_frame, 10000);
+	text_putca(25, 0, 'M', TX_WHITE);
+	replay_debug_u16_put(26, map_section, 10);
 }
 
 void replay_input_reset_sense_tail(void)
@@ -3506,5 +3527,7 @@ bool replay_playback_active(void)
 	#else
 		#pragma codestring "\x90\x90\x90\x90\x90"
 	#endif
+	// RC24 adds the previous .STD event frame to the debug coordinate row.
+	#pragma codestring "\x90"
 
 #pragma codeseg
