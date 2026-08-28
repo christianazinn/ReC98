@@ -20,6 +20,9 @@
 #include "th02/main/main.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/replay.hpp"
+#ifdef T2PD
+#include "th02/t2m9diag.hpp"
+#endif
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -82,6 +85,12 @@ bool16 stage_loop(void)
 		quit = true;
 		return false;
 	}
+#ifdef T2PD
+	if(!t2m9diag_practice_target_apply()) {
+		quit = true;
+		return false;
+	}
+#endif
 	replay_checkpoint_capture_validate();
 
 	while(!quit) {

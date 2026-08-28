@@ -28,6 +28,7 @@
 #include "th02/main/replay.hpp"
 #ifdef T2PD
 #include "th02/practice_diag.hpp"
+#include "th02/t2m9diag.hpp"
 #endif
 #include "th02/main/stage/stage.hpp"
 #include "th02/resident.hpp"
@@ -97,6 +98,9 @@ extern "C" int far main_entry(void)
 	replay_entry();
 #else
 	replay_entry();
+#ifdef T2PD
+	t2m9diag_main_entry_arm();
+#endif
 	if(game_init_main()) {
 		zun_error(ERROR_OUT_OF_MEMORY);
 		return 1;
@@ -201,3 +205,7 @@ frame:
 	}
 	return 0;
 }
+
+#define T2M9DIAG_MAIN 1
+#include "th02/t2m9diag.cpp"
+#undef T2M9DIAG_MAIN

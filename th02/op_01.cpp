@@ -826,6 +826,7 @@ int main(void)
 
 	snd_active = snd_bgm_mode;
 #ifdef T2PD
+	t2m9diag_op_autostart();
 	replay_practice_diag_autostart();
 #endif
 	if(!resident->demo_num && snd_midi_possible) {
@@ -883,3 +884,6 @@ int main(void)
 #define T2PRACT_DIAG_OP 1
 #include "th02/t2pdiag.cpp"
 #undef T2PRACT_DIAG_OP
+#define T2M9DIAG_OP 1
+#include "th02/t2m9diag.cpp"
+#undef T2M9DIAG_OP

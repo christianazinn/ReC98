@@ -15,6 +15,7 @@ void replay_op_restart_or_snd_load(const char *fn, int func);
 #ifdef T2PD
 void replay_practice_diag_boot(unsigned char milestone);
 void replay_practice_diag_autostart(void);
+void t2m9diag_op_autostart(void);
 #endif
 
 #endif /* TH02_OP_REPLAY_HPP */
