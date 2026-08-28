@@ -376,6 +376,15 @@ if (t1replay_profile_name ~= "") and (t1replay_profile == nil) then
 end
 
 local th01 = Config:branch(GameShape(1), t1replay_profile)
+-- FUUIN score proof has no REIIDEN component. Keep its private output root,
+-- but do not let the FUUIN-only define select a score-proof main source there.
+local th01_reiiden = th01
+if t1replay_profile_name == "t1score-proof" then
+	th01_reiiden = Config:branch(GameShape(1), {
+		obj_root = t1replay_profile.obj_root,
+		bin_root = t1replay_profile.bin_root,
+	})
+end
 local T2REPLAY_PROFILES = {
 	["t2practice-diagnostics-rc25"] = {
 		obj_root = "x/p/",
@@ -461,7 +470,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/rpyop.cpp",
 	"th01/language.cpp",
 })
-th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1" }):link("reiiden", {
+th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1" }):link("reiiden", {
 	piloadc,
 	"th01/main_01.cpp",
 	"th01/frmdelay.cpp",
