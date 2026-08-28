@@ -44,6 +44,7 @@ extern "C" uint8_t mima_bg_circle_radius_base;
 extern "C" uint8_t mima_bg_circle_pulse_frame;
 extern "C" void far mima_bg_render(void);
 extern "C" const char mima2_bft[];
+extern "C" const char aStage3_b_btt[];
 
 extern screen_point_t sigma_topleft;
 extern "C" uint8_t sigma_phase;
@@ -347,6 +348,10 @@ static void near t2lbp_mima_phase9_construct(void)
 	super_clean(128, 192);
 	super_patnum = 128;
 	(void)super_entry_bfnt(mima2_bft);
+	// mima_19C8D() keeps this stage resource resident across its clean. A
+	// direct entry has no preceding first form, so reload it after the sole
+	// clean rather than letting an outer wrapper load it before this clean.
+	(void)super_entry_bfnt(aStage3_b_btt);
 	boss_top_on_page[0] = 64;
 	boss_top_on_page[1] = 64;
 	mima_velocity_y = 0;

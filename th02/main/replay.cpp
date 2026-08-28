@@ -3858,6 +3858,12 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE5_BOSS_PHASE7:
 		practice_target_valid = (start->stage == 4);
 		break;
+	case T2RPT_STAGE5_BOSS_PHASE9:
+		// This form exists only after mima_19C8D() rejects continued runs.
+		practice_target_valid = (
+			(start->stage == 4) && (start->continues_used == 0)
+		);
+		break;
 	case T2RPT_EXTRA_MIDBOSS:
 	case T2RPT_EXTRA_BOSS_START:
 	case T2RPT_EXTRA_BOSS_PHASE1:
@@ -6104,6 +6110,31 @@ static bool16 near t2replay_stage5_mima_phase7_activate_clean(void)
 	return true;
 }
 
+static bool16 near t2replay_stage5_mima_phase9_activate_clean(void)
+{
+	// Mima's native form handoff skips Phase 9 after a continue. A direct
+	// Practice entry must preserve that rule rather than manufacture the
+	// winged form from an impossible continued-run state.
+	if(resident->continues_used != 0) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	tile_mode = TM_NONE;
+	t2replay_later_boss_phase_pools_clean();
+	palette_settone(100);
+	if(!th02_later_boss_clean_init(T2LBPT_MIMA_PHASE9)) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
+	t2practice_diag_constructor_result(true);
+	t2replay_boss_promote_clean(aMima_m);
+	return true;
+}
+
 static bool16 near t2replay_extra_sigma_activate_clean(void)
 {
 	int page;
@@ -6514,6 +6545,17 @@ bool16 replay_practice_target_apply(void)
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		t2practice_target_return(true);
+	case T2RPT_STAGE5_BOSS_PHASE9:
+		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+			if(stage_id != 4) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+#endif
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
 	case T2RPT_EXTRA_MIDBOSS:
 		if(stage_id != 5) {
 			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
@@ -6811,6 +6853,12 @@ bool16 replay_practice_target_apply(void)
 		return true;
 	case T2RPT_STAGE5_BOSS_PHASE7:
 		if((stage_id != 4) || !t2replay_stage5_mima_phase7_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE5_BOSS_PHASE9:
+		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
