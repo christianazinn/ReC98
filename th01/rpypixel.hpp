@@ -2,6 +2,7 @@
 #define TH01_RPYPIXEL_HPP
 
 #include "platform.h"
+#include "th01/hardware/graph.h"
 #include "th01/replay_format.hpp"
 
 #if T1REPLAY_PRIVATE_PIXEL_TRACE
@@ -80,9 +81,16 @@ void t1replay_pixel_probe_konngara_phase1_pre_input(
 
 #if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
 
-// Captures the natural source-proven seam only. No direct state is applied and
-// no public replay path can invoke this private witness.
+// Captures the natural or private direct source-proven seam. No public replay
+// path can invoke this witness.
 void t1ymx_pre_input(void);
+
+#if T1YMX_DIRECT_TRACE
+// One-shot arm for the private fresh-process constructor. The constructor
+// applies no presentation state; the two-row witness decides whether the
+// native and direct surfaces are actually equivalent.
+bool16 t1ymx_direct_prepare(void);
+#endif
 
 // Records the page-select ports through the graph wrappers. The latches are
 // probe-owned far data so the stock graph module's BSS remains unchanged.

@@ -363,6 +363,11 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/y/",
 		cflags = "-DT1RP=7",
 	},
+	["t1yuugenmagan-first-combat-direct"] = {
+		obj_root = "x/yd/",
+		bin_root = "x/yd/",
+		cflags = "-DT1RP=9",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",

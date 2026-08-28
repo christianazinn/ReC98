@@ -5,6 +5,7 @@
 
 #include "th01/t1ymx.hpp"
 #include "th01/rank.h"
+#include "th01/rpypixel.hpp"
 
 #if T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE
 
@@ -84,5 +85,21 @@ bool16 t1boss_yuugenmagan_first_combat_construct(
 	checkpoint->reserved[0] = 0;
 	return t1boss_yuugenmagan_checkpoint_validate(checkpoint);
 }
+
+#if T1YMX_DIRECT_TRACE
+bool16 t1boss_yuugenmagan_first_combat_direct_construct(void)
+{
+	t1boss_yuugenmagan_checkpoint_t checkpoint;
+
+	if(
+		!t1boss_yuugenmagan_first_combat_construct(&checkpoint) ||
+		!t1boss_yuugenmagan_ckpt_apply_loaded(&checkpoint) ||
+		!t1ymx_direct_prepare()
+	) {
+		return false;
+	}
+	return true;
+}
+#endif
 
 #endif

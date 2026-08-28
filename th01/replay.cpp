@@ -36,6 +36,7 @@
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
+#include "th01/t1ymx.hpp"
 #include "th01/snd/mdrv2.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 
@@ -1403,6 +1404,9 @@ static uint8_t t1replay_group_number(uint8_t group)
 #if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
 #define T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET 2
 #endif
+#if T1YMX_DIRECT_TRACE
+#define T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET 3
+#endif
 
 static bool t1replay_practice_boss_phase_start_valid(
 	const t1replay_start_t far *start
@@ -1424,6 +1428,13 @@ static bool t1replay_practice_boss_phase_start_valid(
 		(start->practice_boss_phase == T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET) &&
 		(start->stage_id == ((STAGES_PER_SCENE * 3) + BOSS_STAGE)) &&
 		(start->route == ROUTE_JIGOKU)
+	);
+#elif T1YMX_DIRECT_TRACE
+	return (
+		(start->practice_boss_phase ==
+			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 1) + BOSS_STAGE)) &&
+		(start->route == ROUTE_MAKAI)
 	);
 #else
 	return false;
@@ -1971,6 +1982,19 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 		(start->route == ROUTE_JIGOKU)
 	) {
 		return T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET;
+}
+#endif
+
+#if T1YMX_DIRECT_TRACE
+	if(
+		(state->practice.section == T1RPS_BOSS_START) &&
+		(state->practice.scene == 1) &&
+		(state->practice.route == ROUTE_MAKAI) &&
+		(state->practice.chapter == BOSS_STAGE) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 1) + BOSS_STAGE)) &&
+		(start->route == ROUTE_MAKAI)
+	) {
+		return T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET;
 	}
 #endif
 
@@ -2849,6 +2873,51 @@ static bool t1replay_practice_konngara_phase1_restore_apply(
 }
 #endif
 
+#if T1YMX_DIRECT_TRACE
+static bool t1replay_practice_yuugenmagan_first_combat_restore_apply(
+	int *pellet_speed_raise_cycle
+)
+{
+	const t1replay_start_t far *start = &t1replay_header.start;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		((t1replay_mode != T1RM_RECORD) &&
+		 (t1replay_mode != T1RM_PLAYBACK)) ||
+		!resident || !t1replay_res ||
+		(t1replay_res->process_seq != 0) ||
+		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_boss_phase_start_valid(start) ||
+		(start->practice_boss_phase !=
+			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET) ||
+		(resident->stage_id != ((STAGES_PER_SCENE * 1) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_MAKAI) ||
+		(boss_id != BID_YUUGENMAGAN) ||
+		!t1boss_yuugenmagan_first_combat_direct_construct()
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	// This is the native post-entrance first-input branch. It does not replay
+	// phase 0 or fabricate its paint, palette, input, or random activity.
+	timer_initialized = true;
+	irand_init(frame_rand);
+	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+	first_stage_in_scene = false;
+	frame_rand++;
+	*pellet_speed_raise_cycle = (
+		1800 - (rem_lives * 200) - (rem_bombs * 50)
+	);
+	if((frame_rand % *pellet_speed_raise_cycle) == 0) {
+		pellet_speed_raise(0.025f);
+	}
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
+}
+#endif
+
 static bool t1replay_practice_boss_phase_restore_apply(
 	int *pellet_speed_raise_cycle
 )
@@ -2907,6 +2976,16 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 			);
 		}
 #endif
+		#if T1YMX_DIRECT_TRACE
+		if(
+			t1replay_header.start.practice_boss_phase ==
+			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET
+		) {
+			return t1replay_practice_yuugenmagan_first_combat_restore_apply(
+				pellet_speed_raise_cycle
+			);
+		}
+		#endif
 		return t1replay_practice_boss_phase_restore_apply(
 			pellet_speed_raise_cycle
 		);

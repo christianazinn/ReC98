@@ -65,7 +65,9 @@
 // sequential, and direct exact-restore profiles. Values 4 and 5 add the
 // measurement-only SinGyoku pixel probe to sequential and direct playback.
 // Value 6 captures the natural Konngara phase-1-frame-0 witness only. Value
-// 7 captures YuugenMagan's source-checked first-combat seam on Easy/Normal.
+// 7 captures YuugenMagan's natural, source-checked first-combat seam on
+// Easy/Normal. 9 is the matching private fresh-process constructor profile;
+// neither value changes the public Practice target set.
 #ifndef T1RP
 #define T1RP 0
 #endif
@@ -100,7 +102,13 @@
 	T1REPLAY_KONNGARA_PHASE1_NATURAL_TRACE || \
 	T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE \
 )
-#define T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE (T1RP == 7)
+// Turbo C++ only distinguishes the first 32 macro-name characters. Keep the
+// two mutually exclusive profile selectors short; the long combined alias is
+// retained for the pre-existing natural witness source and controls.
+#define T1YMX_NATURAL_TRACE (T1RP == 7)
+#define T1YMX_DIRECT_TRACE (T1RP == 9)
+#define T1YMX_TRACE (T1YMX_NATURAL_TRACE || T1YMX_DIRECT_TRACE)
+#define T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE T1YMX_TRACE
 #define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
 	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE || \

@@ -173,6 +173,9 @@ static t1ymx_state_t far t1ymx_state;
 static uint32_t far t1ymx_expected_owner_digest;
 static uint8_t far t1ymx_visible_page = 0xFF;
 static uint8_t far t1ymx_accessed_page = 0xFF;
+#if T1YMX_DIRECT_TRACE
+static bool16 far t1ymx_direct_armed;
+#endif
 
 extern int8_t boss_id;
 
@@ -326,6 +329,11 @@ static bool t1ymx_arm_if_first_combat(void)
 	) {
 		return false;
 	}
+#if T1YMX_DIRECT_TRACE
+	if(!t1ymx_direct_armed) {
+		return false;
+	}
+#endif
 	t1ymx_state = T1YMXS_FAILED;
 	if(
 		(t1ymx_visible_page_get() >= PAGE_COUNT) ||
@@ -364,6 +372,17 @@ void t1ymx_pre_input(void)
 		t1ymx_state = T1YMXS_FAILED;
 	}
 }
+
+#if T1YMX_DIRECT_TRACE
+bool16 t1ymx_direct_prepare(void)
+{
+	if((t1ymx_state != T1YMXS_OFF) || t1ymx_direct_armed) {
+		return false;
+	}
+	t1ymx_direct_armed = true;
+	return true;
+}
+#endif
 
 void t1ymx_visible_page_set(page_t page)
 {
@@ -939,6 +958,9 @@ void t1replay_pixel_probe_reset(void)
 	t1ymx_expected_owner_digest = 0;
 	t1ymx_visible_page = 0xFF;
 	t1ymx_accessed_page = 0xFF;
+	#if T1YMX_DIRECT_TRACE
+		t1ymx_direct_armed = false;
+	#endif
 #endif
 }
 #endif
