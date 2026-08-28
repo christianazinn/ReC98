@@ -32,6 +32,7 @@
 #define T2OP_DETAIL_SPLIT_SCORE_X 54
 #define T2OP_PRACTICE_LABEL_X 7
 #define T2OP_PRACTICE_VALUE_RIGHT 75
+// Stock OP leaves row 23 for Rank, so Music and Quit must straddle that gap.
 #define T2OP_TITLE_COMMAND_FIRST_ROW 16
 #define T2OP_TITLE_RANK_ROW 23
 #define T2OP_TITLE_QUIT_ROW 24
