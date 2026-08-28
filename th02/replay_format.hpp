@@ -142,6 +142,19 @@
 	T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE \
 )
 
+// The public seek wire remains separate from T2RPY1 and T2RCFG2. The native
+// reader is compiled only into the private exact-apply profile until its
+// fresh-process equivalence matrix is complete.
+#define T2REPLAY_PUBLIC_SEEK_VERSION 1
+#define T2REPLAY_PUBLIC_SEEK_HEADER_SIZE 64
+#define T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE 48
+#define T2REPLAY_PUBLIC_SEEK_REQUEST_SIZE 48
+#define T2REPLAY_PUBLIC_SEEK_FORMAT_FINGERPRINT 0x3A7D2C61UL
+#define T2REPLAY_PUBLIC_SEEK_TARGET_STAGE 1
+#define T2REPLAY_PUBLIC_SEEK_TARGET_CHAPTER 2
+#define T2REPLAY_PUBLIC_SEEK_TARGET_MIDBOSS 3
+#define T2REPLAY_PUBLIC_SEEK_TARGET_BOSS 4
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
@@ -434,6 +447,60 @@ struct t2replay_exact_apply_request_t {
 	uint32_t reserved;
 };
 
+struct t2replay_public_seek_header_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t entry_size;
+	uint16_t entry_count;
+	uint32_t total_size;
+	uint32_t replay_header_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t format_fingerprint;
+	uint32_t replay_sample_count;
+	uint32_t replay_packet_count;
+	uint32_t directory_checksum;
+	uint32_t sidecar_checksum;
+	uint8_t reserved[16];
+};
+
+struct t2replay_public_seek_entry_t {
+	uint8_t stage_id;
+	uint8_t target_kind;
+	uint8_t actor_tag;
+	uint8_t actor_mode;
+	uint8_t stage_fx_tag;
+	uint8_t callback_profile;
+	uint8_t redraw_recipe;
+	uint8_t capture_generation;
+	uint16_t checkpoint_schema;
+	uint8_t group_count;
+	uint8_t reserved_0;
+	uint32_t sample_anchor;
+	uint32_t packet_anchor;
+	uint32_t prefix_checksum;
+	uint32_t checkpoint_offset;
+	uint32_t checkpoint_size;
+	uint32_t checkpoint_checksum;
+	uint32_t semantic_digest;
+	uint32_t source_fingerprint;
+	uint32_t reserved_1;
+};
+
+struct t2replay_public_seek_request_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint8_t slot;
+	uint8_t reserved_0;
+	uint16_t entry_index;
+	uint32_t replay_header_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t sidecar_checksum;
+	uint32_t request_checksum;
+	uint8_t reserved[16];
+};
+
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -452,6 +519,18 @@ typedef char t2replay_save_request_size_check[
 typedef char t2replay_exact_apply_request_size_check[
 	(sizeof(t2replay_exact_apply_request_t) ==
 	 T2REPLAY_EXACT_APPLY_REQUEST_SIZE) ? 1 : -1
+];
+typedef char t2replay_public_seek_header_size_check[
+	(sizeof(t2replay_public_seek_header_t) ==
+	 T2REPLAY_PUBLIC_SEEK_HEADER_SIZE) ? 1 : -1
+];
+typedef char t2replay_public_seek_entry_size_check[
+	(sizeof(t2replay_public_seek_entry_t) ==
+	 T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE) ? 1 : -1
+];
+typedef char t2replay_public_seek_request_size_check[
+	(sizeof(t2replay_public_seek_request_t) ==
+	 T2REPLAY_PUBLIC_SEEK_REQUEST_SIZE) ? 1 : -1
 ];
 typedef char t2rck_capture_size_check[
 	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (

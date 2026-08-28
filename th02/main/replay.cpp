@@ -132,6 +132,8 @@ enum t2replay_exact_diag_state_t {
 
 static char t2replay_exact_request_fn[11];
 static char t2replay_exact_diag_fn[12];
+static char t2replay_public_seek_request_fn[11];
+static char t2replay_public_seek_sidecar_fn[11];
 static uint8_t far *t2replay_exact_envelope;
 static t2replay_exact_apply_request_t t2replay_exact_request;
 static bool t2replay_exact_pending;
@@ -159,6 +161,9 @@ static t2replay_exact_diag_t t2replay_exact_diag;
 static bool16 near t2replay_exact_apply_at_loop_top(void);
 static void near t2replay_exact_envelope_free(void);
 static void near t2replay_exact_diag_flush(void);
+static t2replay_exact_load_result_t near t2replay_public_seek_request_load(
+	uint8_t slot, bool replay_header_valid
+);
 #endif
 static void t2replay_fail(void);
 
@@ -1751,6 +1756,28 @@ static void t2replay_paths_init(void)
 	t2replay_exact_diag_fn[9] = 'I';
 	t2replay_exact_diag_fn[10] = 'N';
 	t2replay_exact_diag_fn[11] = '\0';
+	t2replay_public_seek_request_fn[0] = 'T';
+	t2replay_public_seek_request_fn[1] = '2';
+	t2replay_public_seek_request_fn[2] = 'R';
+	t2replay_public_seek_request_fn[3] = 'S';
+	t2replay_public_seek_request_fn[4] = 'Q';
+	t2replay_public_seek_request_fn[5] = '1';
+	t2replay_public_seek_request_fn[6] = '.';
+	t2replay_public_seek_request_fn[7] = 'B';
+	t2replay_public_seek_request_fn[8] = 'I';
+	t2replay_public_seek_request_fn[9] = 'N';
+	t2replay_public_seek_request_fn[10] = '\0';
+	t2replay_public_seek_sidecar_fn[0] = 'T';
+	t2replay_public_seek_sidecar_fn[1] = 'H';
+	t2replay_public_seek_sidecar_fn[2] = '2';
+	t2replay_public_seek_sidecar_fn[3] = 'R';
+	t2replay_public_seek_sidecar_fn[4] = '0';
+	t2replay_public_seek_sidecar_fn[5] = '0';
+	t2replay_public_seek_sidecar_fn[6] = '.';
+	t2replay_public_seek_sidecar_fn[7] = 'R';
+	t2replay_public_seek_sidecar_fn[8] = 'S';
+	t2replay_public_seek_sidecar_fn[9] = 'K';
+	t2replay_public_seek_sidecar_fn[10] = '\0';
 #endif
 	t2replay_paths_ready = true;
 }
@@ -1790,6 +1817,10 @@ static void t2replay_slot_set(uint8_t slot)
 {
 	t2replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t2replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
+#if T2REPLAY_EXACT_APPLY
+	t2replay_public_seek_sidecar_fn[4] = t2replay_slot_fn[4];
+	t2replay_public_seek_sidecar_fn[5] = t2replay_slot_fn[5];
+#endif
 }
 
 static void t2replay_temp_set(void)
@@ -3940,11 +3971,12 @@ static bool near t2replay_exact_request_delete(void)
 	return false;
 }
 
-static bool near t2replay_exact_anchor_prepare(void)
+static bool near t2replay_exact_anchor_prepare(bool derive_run_offset)
 {
 	t2replay_packet_t far *packet;
 	uint32_t packet_index = 0;
 	uint32_t samples = 0;
+	uint32_t anchor_offset;
 	uint32_t prefix_checksum = T2REPLAY_FNV1A_BASIS;
 	uint32_t remaining;
 	unsigned want;
@@ -3956,6 +3988,7 @@ static bool near t2replay_exact_anchor_prepare(void)
 	uint8_t expected_stage = static_cast<uint8_t>(
 		t2replay_header.start.stage
 	);
+	uint8_t run_offset = t2replay_exact_request.run_offset;
 	bool stage_seen = false;
 
 	if(t2replay_exact_request.packet_anchor >= t2replay_header.packet_count) {
@@ -4023,13 +4056,24 @@ static bool near t2replay_exact_anchor_prepare(void)
 	phase = static_cast<uint8_t>(
 		t2replay_pending.tag >> T2REPLAY_PACKET_PHASE_SHIFT
 	);
+	if(derive_run_offset) {
+		if(t2replay_exact_request.sample_anchor < samples) {
+			return false;
+		}
+		anchor_offset = t2replay_exact_request.sample_anchor - samples;
+		if(anchor_offset > T2REPLAY_PACKET_RUN_MASK) {
+			return false;
+		}
+		run_offset = static_cast<uint8_t>(anchor_offset);
+		t2replay_exact_request.run_offset = run_offset;
+	}
 	if(
 		!stage_seen || (last_stage != t2replay_exact_request.stage_id) ||
 		(phase != T2REPLAY_PHASE_GAMEPLAY) ||
 		(t2replay_pending.arg != 0) ||
-		(t2replay_exact_request.run_offset >
+		(run_offset >
 		 (t2replay_pending.tag & T2REPLAY_PACKET_RUN_MASK)) ||
-		((samples + t2replay_exact_request.run_offset) !=
+		((samples + run_offset) !=
 		 t2replay_exact_request.sample_anchor) ||
 		(t2replay_exact_request.sample_anchor >=
 		 t2replay_header.sample_count) ||
@@ -4043,7 +4087,7 @@ static bool near t2replay_exact_anchor_prepare(void)
 	t2replay_sample_cursor = t2replay_exact_request.sample_anchor;
 	t2replay_decode_run = static_cast<uint8_t>(
 		(t2replay_pending.tag & T2REPLAY_PACKET_RUN_MASK) + 1 -
-		t2replay_exact_request.run_offset
+		run_offset
 	);
 	t2replay_stage_seen = true;
 	t2replay_last_stage = last_stage;
@@ -4157,7 +4201,7 @@ static t2replay_exact_load_result_t near t2replay_exact_request_load(
 			t2replay_exact_envelope,
 			T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE, &boundary
 		) != T2REC_DEFERRED_CODECS) ||
-		!t2replay_exact_anchor_prepare()
+		!t2replay_exact_anchor_prepare(false)
 	) {
 		t2replay_exact_envelope_free();
 		return T2XLR_REJECTED;
@@ -4168,6 +4212,307 @@ static t2replay_exact_load_result_t near t2replay_exact_request_load(
 	t2replay_exact_diag.phase = t2replay_exact_request.phase;
 	t2replay_exact_diag.sample_anchor = t2replay_exact_request.sample_anchor;
 	t2replay_exact_diag.packet_anchor = t2replay_exact_request.packet_anchor;
+	return T2XLR_READY;
+}
+
+static bool near t2replay_public_seek_request_magic_matches(
+	const char far *magic
+)
+{
+	return (
+		(magic[0] == 'T') && (magic[1] == '2') && (magic[2] == 'R') &&
+		(magic[3] == 'S') && (magic[4] == 'Q') && (magic[5] == '1') &&
+		(magic[6] == '\0') && (magic[7] == '\0')
+	);
+}
+
+static bool near t2replay_public_seek_sidecar_magic_matches(
+	const char far *magic
+)
+{
+	return (
+		(magic[0] == 'T') && (magic[1] == '2') && (magic[2] == 'R') &&
+		(magic[3] == 'S') && (magic[4] == 'K') && (magic[5] == '1') &&
+		(magic[6] == '\0') && (magic[7] == '\0')
+	);
+}
+
+static bool near t2replay_public_seek_request_delete(void)
+{
+	unsigned fn_seg = T2REPLAY_FP_SEG(t2replay_public_seek_request_fn);
+	unsigned fn_off = T2REPLAY_FP_OFF(t2replay_public_seek_request_fn);
+	unsigned deleted;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 41h
+		int	21h
+		pop	ds
+		sbb	ax, ax
+		not	ax
+		mov	deleted, ax
+	}
+	if(deleted != 0) {
+		t2replay_dos_flush();
+		return true;
+	}
+	return false;
+}
+
+static bool near t2replay_public_seek_sidecar_checksum(
+	int fd, uint32_t size, uint32_t far *checksum
+)
+{
+	uint8_t bytes[64];
+	uint32_t offset = 0;
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	unsigned want;
+	unsigned i;
+
+	if(!t2replay_dos_seek(fd, 0)) {
+		return false;
+	}
+	while(offset < size) {
+		want = static_cast<unsigned>(
+			((size - offset) > sizeof(bytes)) ? sizeof(bytes) : (size - offset)
+		);
+		if(t2replay_dos_read(fd, bytes, want) != want) {
+			return false;
+		}
+		for(i = 0; i < want; i++) {
+			if(
+				((offset + i) >= 0x2C) &&
+				((offset + i) < (0x2C + sizeof(uint32_t)))
+			) {
+				bytes[i] = 0;
+			}
+		}
+		hash = t2replay_fnv1a(hash, bytes, want);
+		offset += want;
+	}
+	*checksum = hash;
+	return true;
+}
+
+static uint32_t t2replay_exact_s5_mima_semantic_digest(
+	const uint8_t far *envelope
+)
+{
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	const uint8_t far *group;
+	uint8_t group_id;
+	uint32_t size;
+
+	for(group_id = 0; group_id < T2REPLAY_EXACT_GROUP_COUNT; group_id++) {
+		group = envelope + T2REPLAY_EXACT_HEADER_SIZE +
+			(static_cast<uint32_t>(group_id) * T2REPLAY_EXACT_GROUP_SIZE);
+		size = t2replay_checkpoint_get_u32(group, T2RCK_GROUP_STORED_SIZE);
+		hash = t2replay_fnv1a(hash, &group_id, sizeof(group_id));
+		hash = t2replay_fnv1a(hash, &size, sizeof(size));
+		hash = t2replay_fnv1a(
+			hash,
+			envelope + t2replay_checkpoint_get_u32(
+				group, T2RCK_GROUP_OFFSET
+			),
+			static_cast<unsigned>(size)
+		);
+	}
+	return hash;
+}
+
+static bool near t2replay_public_seek_sidecar_load(
+	uint8_t slot, const t2replay_public_seek_request_t far *request
+)
+{
+	t2replay_public_seek_header_t header;
+	t2replay_public_seek_entry_t entry;
+	struct t2rec_boundary_t boundary;
+	uint32_t file_size;
+	uint32_t checksum;
+	uint32_t expected_offset;
+	int fd;
+	unsigned read;
+
+	fd = t2replay_dos_open(
+		t2replay_public_seek_sidecar_fn, T2REPLAY_DOS_ACCESS_READ
+	);
+	if(fd < 0) {
+		return false;
+	}
+	t2replay_memclear(&header, sizeof(header));
+	t2replay_memclear(&entry, sizeof(entry));
+	read = t2replay_dos_read(fd, &header, sizeof(header));
+	if(
+		(read != sizeof(header)) || !t2replay_dos_size(fd, &file_size) ||
+		!t2replay_public_seek_sidecar_checksum(fd, file_size, &checksum) ||
+		!t2replay_public_seek_sidecar_magic_matches(header.magic) ||
+		(header.version != T2REPLAY_PUBLIC_SEEK_VERSION) ||
+		(header.header_size != T2REPLAY_PUBLIC_SEEK_HEADER_SIZE) ||
+		(header.entry_size != T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE) ||
+		(header.entry_count != 1) ||
+		(header.total_size != file_size) ||
+		(header.replay_header_checksum != t2replay_header.header_checksum) ||
+		(header.replay_payload_checksum != t2replay_header.payload_checksum) ||
+		(header.format_fingerprint != T2REPLAY_PUBLIC_SEEK_FORMAT_FINGERPRINT) ||
+		(header.replay_sample_count != t2replay_header.sample_count) ||
+		(header.replay_packet_count != t2replay_header.packet_count) ||
+		(header.sidecar_checksum != checksum) ||
+		!t2replay_bytes_zero(header.reserved, sizeof(header.reserved)) ||
+		(request->slot != slot) ||
+		(request->entry_index != 0) ||
+		(request->replay_header_checksum != header.replay_header_checksum) ||
+		(request->replay_payload_checksum != header.replay_payload_checksum) ||
+		(request->sidecar_checksum != header.sidecar_checksum) ||
+		!t2replay_dos_seek(fd, header.header_size) ||
+		(t2replay_dos_read(fd, &entry, sizeof(entry)) != sizeof(entry))
+	) {
+		t2replay_dos_close(fd);
+		return false;
+	}
+	checksum = t2replay_fnv1a(T2REPLAY_FNV1A_BASIS, &entry, sizeof(entry));
+	expected_offset = (
+		T2REPLAY_PUBLIC_SEEK_HEADER_SIZE + T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE
+	);
+	if(
+		(header.directory_checksum != checksum) ||
+		(entry.stage_id != 4) ||
+		(entry.target_kind != T2REPLAY_PUBLIC_SEEK_TARGET_BOSS) ||
+		(entry.actor_tag != T2REAT_S5_MIMA) ||
+		(entry.actor_mode != T2REAM_ACTIVE) ||
+		(entry.stage_fx_tag != T2RESFT_S5_MIMA_FIELD) ||
+		(entry.callback_profile != T2RECP_S5_MIMA) ||
+		(entry.redraw_recipe != T2RERR_NATIVE_ONE_FRAME_REVEAL) ||
+		(entry.capture_generation != T2REPLAY_EXACT_BOUNDARY_GENERATION) ||
+		(entry.checkpoint_schema != T2REPLAY_EXACT_S5CBRD_SCHEMA) ||
+		(entry.group_count != T2REPLAY_EXACT_GROUP_COUNT) ||
+		(entry.reserved_0 != 0) || (entry.reserved_1 != 0) ||
+		(entry.checkpoint_offset != expected_offset) ||
+		(entry.checkpoint_size != T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE) ||
+		(entry.source_fingerprint != T2REPLAY_EXACT_S5CBRD_SOURCE_FINGERPRINT) ||
+		(entry.checkpoint_offset > header.total_size) ||
+		(entry.checkpoint_size > (header.total_size - entry.checkpoint_offset)) ||
+		((entry.checkpoint_offset + entry.checkpoint_size) != header.total_size)
+	) {
+		t2replay_dos_close(fd);
+		return false;
+	}
+	t2replay_exact_envelope = reinterpret_cast<uint8_t far *>(
+		hmem_allocbyte(T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE)
+	);
+	if(
+		(t2replay_exact_envelope == 0) ||
+		!t2replay_dos_seek(fd, entry.checkpoint_offset) ||
+		(t2replay_dos_read(
+			fd, t2replay_exact_envelope, T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE
+		) != T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE)
+	) {
+		t2replay_dos_close(fd);
+		t2replay_exact_envelope_free();
+		return false;
+	}
+	t2replay_dos_close(fd);
+	t2replay_memclear(&boundary, sizeof(boundary));
+	boundary.at_ordinary_stage_loop_top = 1;
+	boundary.stage_init_complete = 1;
+	boundary.stage_progression = SP_BOSS;
+	if(
+		(t2replay_exact_envelope[T2REC_HEADER_SHOTTYPE] !=
+		 t2replay_header.start.shottype) ||
+		(t2replay_exact_envelope[T2REC_HEADER_RANK] !=
+		 t2replay_header.start.rank) ||
+		(t2replay_exact_envelope[T2REC_HEADER_REDUCE_EFFECTS] !=
+		 t2replay_header.start.reduce_effects) ||
+		(replay_exact_checkpoint_validate(
+			t2replay_exact_envelope,
+			T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE, &boundary
+		) != T2REC_DEFERRED_CODECS) ||
+		(entry.checkpoint_checksum != t2replay_exact_checkpoint_checksum(
+			t2replay_exact_envelope, T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE
+		)) ||
+		(entry.semantic_digest != t2replay_exact_s5_mima_semantic_digest(
+			t2replay_exact_envelope
+		))
+	) {
+		t2replay_exact_envelope_free();
+		return false;
+	}
+	t2replay_memclear(&t2replay_exact_request, sizeof(t2replay_exact_request));
+	t2replay_exact_request.slot = slot;
+	t2replay_exact_request.stage_id = entry.stage_id;
+	t2replay_exact_request.phase = T2REPLAY_PHASE_GAMEPLAY;
+	t2replay_exact_request.packet_anchor = entry.packet_anchor;
+	t2replay_exact_request.sample_anchor = entry.sample_anchor;
+	t2replay_exact_request.prefix_checksum = entry.prefix_checksum;
+	t2replay_exact_request.replay_header_checksum = header.replay_header_checksum;
+	if(
+		!t2replay_exact_anchor_prepare(true)
+	) {
+		t2replay_exact_envelope_free();
+		return false;
+	}
+	t2replay_exact_pending = true;
+	t2replay_exact_anchor_sample_pending = true;
+	t2replay_exact_diag.state = T2XDS_PREPARED;
+	t2replay_exact_diag.phase = t2replay_exact_request.phase;
+	t2replay_exact_diag.sample_anchor = t2replay_exact_request.sample_anchor;
+	t2replay_exact_diag.packet_anchor = t2replay_exact_request.packet_anchor;
+	return true;
+}
+
+static t2replay_exact_load_result_t near t2replay_public_seek_request_load(
+	uint8_t slot, bool replay_header_valid
+)
+{
+	t2replay_public_seek_request_t request;
+	uint32_t file_size;
+	uint32_t stored_checksum;
+	uint32_t computed_checksum;
+	int fd;
+	unsigned read;
+
+	fd = t2replay_dos_open(
+		t2replay_public_seek_request_fn, T2REPLAY_DOS_ACCESS_READ
+	);
+	if(fd < 0) {
+		return T2XLR_ABSENT;
+	}
+	t2replay_exact_graph_hide();
+	t2replay_exact_diag_init();
+	t2replay_memclear(&request, sizeof(request));
+	read = t2replay_dos_read(fd, &request, sizeof(request));
+	if(!t2replay_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2replay_dos_close(fd);
+	// T2RSQ1.BIN is one-shot even while this non-public gate is compiled.
+	// A failed delete keeps MAIN hidden and refuses the launch.
+	if(!t2replay_public_seek_request_delete()) {
+		return T2XLR_REJECTED;
+	}
+	stored_checksum = request.request_checksum;
+	request.request_checksum = 0;
+	computed_checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	request.request_checksum = stored_checksum;
+	if(
+		(read != sizeof(request)) ||
+		(file_size != sizeof(request)) ||
+		!replay_header_valid ||
+		!t2replay_public_seek_request_magic_matches(request.magic) ||
+		(request.version != T2REPLAY_PUBLIC_SEEK_VERSION) ||
+		(request.header_size != T2REPLAY_PUBLIC_SEEK_REQUEST_SIZE) ||
+		(request.slot != slot) ||
+		(request.reserved_0 != 0) ||
+		!t2replay_bytes_zero(request.reserved, sizeof(request.reserved)) ||
+		(stored_checksum != computed_checksum) ||
+		!t2replay_public_seek_sidecar_load(slot, &request)
+	) {
+		t2replay_exact_envelope_free();
+		return T2XLR_REJECTED;
+	}
 	return T2XLR_READY;
 }
 #endif
@@ -4667,7 +5012,12 @@ void replay_entry(void)
 		];
 #if T2REPLAY_EXACT_APPLY
 		}
-		exact_load = t2replay_exact_request_load(slot, replay_header_valid);
+		exact_load = t2replay_public_seek_request_load(
+			slot, replay_header_valid
+		);
+		if(exact_load == T2XLR_ABSENT) {
+			exact_load = t2replay_exact_request_load(slot, replay_header_valid);
+		}
 		if(exact_load == T2XLR_READY) {
 			resident->stage = 4;
 			resident->rank = t2replay_exact_envelope[T2REC_HEADER_RANK];
