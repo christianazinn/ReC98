@@ -3596,6 +3596,16 @@ bool16 far t1replay_pause_restart_available(void)
 	return t1replay_restart_state_valid(state);
 }
 
+bool16 far t1replay_pause_playback_abort_requested(void)
+{
+	// This is intentionally outside the canonical input stream. A physical
+	// cancellation must not decode one more recorded Pause-navigation sample.
+	return (
+		(t1replay_mode == T1RM_PLAYBACK) &&
+		((peekb(0, KEYGROUP_0) & K0_ESC) != 0)
+	);
+}
+
 void far t1replay_pause_action_set(t1replay_pause_action_t action)
 {
 	if((action < T1RPA_RESUME) || (action > T1RPA_DISCARD_EXIT)) {

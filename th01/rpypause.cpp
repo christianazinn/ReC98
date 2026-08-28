@@ -242,6 +242,13 @@ bool16 far t1replay_pause_menu(void)
 	z_palette_settone_but_keep_white(40);
 	input_reset_menu_related();
 	while(paused) {
+		// Replay Pause is normally driven only by recorded samples. Physical
+		// Escape is the sole out-of-stream control and aborts before the seam
+		// can consume a sample that belongs to the recorded run.
+		if(t1replay_pause_playback_abort_requested()) {
+			t1replay_abort_to_op();
+			return true;
+		}
 		input_sense(false);
 		if(
 			t1replay_pause_input_seen() &&
