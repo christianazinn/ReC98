@@ -2405,6 +2405,7 @@ void far t1replay_entry(void)
 				return;
 			}
 #if T1REPLAY_CHECKPOINT_RESTORE
+			t1replay_start_apply();
 			if(!t1replay_checkpoint_restore_prepare(
 				start_resident, slot, 0, T1REPLAY_PROCESS_NONE
 			)) {
