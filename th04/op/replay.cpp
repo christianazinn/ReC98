@@ -793,7 +793,7 @@ static bool replay_op_checkpoint_identity_valid(
 			switch(start->stage) {
 			case 0: return ((start->section == 0) && (start->phase <= 4));
 			case 1: return ((start->section == 0) && (start->phase <= 7));
-			case 2: return ((start->section == 0) && (start->phase <= 14));
+			case 2: return ((start->section == 0) && (start->phase <= 13));
 			case 3:
 				if(start->section == RCS_TH05_PAIR) {
 					return (start->phase <= 2);
@@ -809,23 +809,23 @@ static bool replay_op_checkpoint_identity_valid(
 			}
 		#else
 			switch(start->stage) {
-			case 0: return ((start->section == 0) && (start->phase <= 5));
-			case 1: return ((start->section == 0) && (start->phase <= 6));
-			case 2: return ((start->section == 0) && (start->phase <= 4));
+			case 0: return ((start->section == 0) && (start->phase <= 4));
+			case 1: return ((start->section == 0) && (start->phase <= 5));
+			case 2: return ((start->section == 0) && (start->phase <= 3));
 			case 3:
 				return (
 					(start->section == 0) &&
-					(start->phase <= ((start->playchar == 0) ? 3 : 12))
+					(start->phase <= ((start->playchar == 0) ? 2 : 11))
 				);
-			case 4: return ((start->section == 0) && (start->phase <= 18));
-			case 5: return ((start->section == 0) && (start->phase <= 17));
+			case 4: return ((start->section == 0) && (start->phase <= 17));
+			case 5: return ((start->section == 0) && (start->phase <= 16));
 			case STAGE_EXTRA:
 				if(start->section == RCS_TH04_MUGETSU) {
-					return (start->phase <= 7);
+					return (start->phase <= 6);
 				}
 				return (
 					(start->section == RCS_TH04_GENGETSU) &&
-					(start->phase <= 9)
+					(start->phase <= 8)
 				);
 			}
 		#endif
@@ -2632,7 +2632,7 @@ static uint8_t practice_boss_phase_max(
 	switch(start->stage) {
 	case 0: return 4;
 	case 1: return 7;
-	case 2: return 14;
+	case 2: return 13;
 	case 3: return ((section == RCS_TH05_PAIR) ? 2 : 9);
 	case 4: return 10;
 	case 5: return 12;
@@ -2640,13 +2640,13 @@ static uint8_t practice_boss_phase_max(
 	}
 #else
 	switch(start->stage) {
-	case 0: return 5;
-	case 1: return 6;
-	case 2: return 4;
-	case 3: return ((start->playchar == 0) ? 3 : 12);
-	case 4: return 18;
-	case 5: return 17;
-	default: return ((section == RCS_TH04_MUGETSU) ? 7 : 9);
+	case 0: return 4;
+	case 1: return 5;
+	case 2: return 3;
+	case 3: return ((start->playchar == 0) ? 2 : 11);
+	case 4: return 17;
+	case 5: return 16;
+	default: return ((section == RCS_TH04_MUGETSU) ? 6 : 8);
 	}
 #endif
 }

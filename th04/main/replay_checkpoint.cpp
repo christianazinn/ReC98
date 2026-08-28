@@ -121,7 +121,9 @@ extern map_section_tiles_t __seg* map_seg;
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 	#include "th05/formats/dialog.hpp"
+	#include "th05/sprites/main_pat.h"
 #else
+	#include "th04/formats/dialog.hpp"
 	#include "th04/formats/bb.h"
 	#include "th04/formats/cdg.h"
 	#include "th04/main/boss/boss.hpp"
@@ -2184,6 +2186,268 @@ static void rck_practice_th04_gengetsu_prepare(void)
 }
 #endif
 
+static bool rck_practice_dialog_separator(uint8_t c)
+{
+	return ((c < 0x20) || (c == ' '));
+}
+
+static void rck_practice_dialog_skip_number(void)
+{
+	uint8_t c0 = *(dialog_p++);
+	uint8_t c1 = *(dialog_p++);
+	uint8_t c2 = *(dialog_p++);
+
+	if((c0 < '0') || (c0 > '9')) {
+		dialog_p -= 3;
+	} else if((c1 < '0') || (c1 > '9')) {
+		dialog_p -= 2;
+	} else if((c2 < '0') || (c2 > '9')) {
+		dialog_p--;
+	}
+}
+
+static void rck_practice_dialog_skip_second_number(void)
+{
+	if(*dialog_p == ',') {
+		dialog_p++;
+		rck_practice_dialog_skip_number();
+	}
+}
+
+static bool rck_practice_dialog_filename_read(char *filename)
+{
+	unsigned length = 0;
+	uint8_t c;
+
+	while(length < 15) {
+		c = *(dialog_p++);
+		if(rck_practice_dialog_separator(c)) {
+			filename[length] = '\0';
+			return true;
+		}
+		filename[length++] = c;
+	}
+	return false;
+}
+
+#if (GAME == 5)
+static bool rck_practice_th05_dialog_textbox_skip(void)
+{
+	uint8_t c;
+
+	while(1) {
+		c = *(dialog_p++);
+		if(c == 0xFF) {
+			return true;
+		}
+		if(c == 0x0B) {
+			continue;
+		}
+		if(c == 0x0C) {
+			dialog_p++;
+			continue;
+		}
+		if(c != 0x0D) {
+			dialog_p++;
+		}
+	}
+}
+
+static bool rck_practice_th05_dialog_prepare(void)
+{
+	uint8_t c;
+	char filename[16];
+
+	while(1) {
+		c = *(dialog_p++);
+		if(c == 0xFF) {
+			return true;
+		}
+		switch(c) {
+		case 0x02:
+			dialog_p++;
+			break;
+
+		case 0x03:
+			if(!rck_practice_dialog_filename_read(filename)) {
+				return false;
+			}
+			super_entry_bfnt(filename);
+			break;
+
+		case 0x04:
+			super_clean(PAT_STAGE, (PAT_STAGE_last + 1));
+			break;
+
+		case 0x05:
+			if(!rck_practice_dialog_filename_read(filename)) {
+				return false;
+			}
+			if(filename[0] == '$') {
+				snd_kaja_func(KAJA_SONG_STOP, 0);
+			} else {
+				snd_load(filename, SND_LOAD_SONG);
+				snd_kaja_func(KAJA_SONG_PLAY, 0);
+			}
+			break;
+
+		case 0x06:
+			dialog_p += sizeof(tx2_op_06_params);
+			break;
+
+		case 0x09:
+		case 0x0A:
+		case 0x0C:
+			dialog_p++;
+			break;
+
+		case 0x0D:
+			if(!rck_practice_th05_dialog_textbox_skip()) {
+				return false;
+			}
+			break;
+
+		case 0x00:
+		case 0x01:
+		case 0x0B:
+		case 0x0E:
+			break;
+
+		default:
+			return false;
+		}
+	}
+}
+#else
+static void rck_practice_th04_dialog_op(uint8_t c)
+{
+	int i;
+	char filename[16];
+
+	if((c >= 'A') && (c <= 'Z')) {
+		c += ('a' - 'A');
+	}
+	switch(c) {
+	case 't':
+		rck_practice_dialog_skip_number();
+		break;
+
+	case 'f':
+	case 'w':
+		c = *dialog_p;
+		if((c == 'i') || (c == 'o')) {
+			dialog_p++;
+			rck_practice_dialog_skip_number();
+		}
+		break;
+
+	case 'g':
+		if(*dialog_p == 'a') {
+			dialog_p++;
+		}
+		rck_practice_dialog_skip_number();
+		break;
+
+	case 'k':
+	case '=':
+	case 'e':
+		rck_practice_dialog_skip_number();
+		break;
+
+	case 'b':
+		rck_practice_dialog_skip_number();
+		rck_practice_dialog_skip_second_number();
+		rck_practice_dialog_skip_second_number();
+		break;
+
+	case 'm':
+		c = *dialog_p;
+		if(c == '$') {
+			dialog_p++;
+			snd_kaja_func(KAJA_SONG_STOP, 0);
+		} else if(c == '*') {
+			dialog_p++;
+			snd_kaja_func(KAJA_SONG_PLAY, 0);
+		} else if(c == ',') {
+			dialog_p++;
+			if(rck_practice_dialog_filename_read(filename)) {
+				snd_load(filename, SND_LOAD_SONG);
+				snd_kaja_func(KAJA_SONG_PLAY, 0);
+			}
+		}
+		break;
+
+	case 'c':
+		super_clean(PAT_STAGE, (PAT_STAGE_last + 1));
+		break;
+
+	case 'l':
+		if(*dialog_p == ',') {
+			dialog_p++;
+			if(rck_practice_dialog_filename_read(filename)) {
+				super_entry_bfnt(filename);
+			}
+		}
+		break;
+
+	case 'd':
+		for(i = CDG_PER_STAGE; i < CDG_COUNT; i++) {
+			cdg_free(i);
+		}
+		break;
+	}
+}
+
+static bool rck_practice_th04_dialog_prepare(void)
+{
+	uint8_t c;
+
+	while(1) {
+		c = *(dialog_p++);
+		if(rck_practice_dialog_separator(c)) {
+			continue;
+		}
+		if(c == '\\') {
+			c = *(dialog_p++);
+			if((c == '$') || (c == '#')) {
+				return true;
+			}
+			rck_practice_th04_dialog_op(c);
+			continue;
+		}
+		if((c == '0') || (c == '1')) {
+			while(1) {
+				c = *(dialog_p++);
+				if(rck_practice_dialog_separator(c)) {
+					continue;
+				}
+				if(c == '\\') {
+					c = *(dialog_p++);
+					if((c == '$') || (c == '#')) {
+						break;
+					}
+					rck_practice_th04_dialog_op(c);
+					continue;
+				}
+				dialog_p++;
+			}
+		}
+	}
+}
+#endif
+
+static bool rck_practice_dialog_prepare(void)
+{
+	if((dialog_p == 0) || (stage_id == STAGE_EXTRA)) {
+		return (dialog_p != 0);
+	}
+#if (GAME == 5)
+	return rck_practice_th05_dialog_prepare();
+#else
+	return rck_practice_th04_dialog_prepare();
+#endif
+}
+
 static bool rck_practice_boss_target_reached(void)
 {
 	replay_ck_actor_probe_t probe;
@@ -2193,6 +2457,26 @@ static bool rck_practice_boss_target_reached(void)
 		(probe.boss_section == rck_practice_boss_target_section) &&
 		(probe.boss_phase == rck_practice_boss_target_phase)
 	);
+}
+
+static bool rck_practice_boss_auxiliary_valid(void)
+{
+#if (GAME == 5)
+	if(
+		(stage_id == 2) &&
+		(rck_practice_boss_target_phase >= 3) &&
+		((puppets[0].flag != F_ALIVE) || (puppets[1].flag != F_ALIVE))
+	) {
+		replay_ck_failure_group_value = RCGI_ACTORS;
+		replay_ck_failure_field_value = static_cast<uint16_t>(
+			0xA100u |
+			((puppets[0].flag != F_ALIVE) ? 1u : 0u) |
+			((puppets[1].flag != F_ALIVE) ? 2u : 0u)
+		);
+		return false;
+	}
+#endif
+	return true;
 }
 
 static bool rck_practice_boss_construct(
@@ -2225,7 +2509,17 @@ static bool rck_practice_boss_construct(
 	) {
 		rck_practice_th04_gengetsu_prepare();
 	}
-#endif
+	#endif
+	if(!rck_practice_dialog_prepare()) {
+	#if (GAME == 5)
+		replay_ck_failure_group_value = RCGI_DIALOG;
+	#else
+		replay_ck_failure_group_value = RCGI_ACTORS;
+	#endif
+		replay_ck_failure_field_value = 0xD001u;
+		snd_se_mode = se_mode;
+		return false;
+	}
 
 	while(!rck_practice_boss_target_reached()) {
 		if(frames++ >= RCK_PRACTICE_BOSS_CONSTRUCT_FRAME_MAX) {
@@ -2273,23 +2567,10 @@ static bool rck_practice_boss_construct(
 		}
 	}
 
-	// Boss updates can temporarily replace live render callbacks while moving
-	// between entrance and attack phases. A direct start begins after that
-	// transition, so normalize the callbacks to the stage setup before the
-	// checkpoint codec validates them and before either VRAM page is primed.
-	bg_render_not_bombing = boss_bg_render_func;
-	#if (GAME == 5)
-		if(
-			(stage_id != 3) ||
-			(rck_practice_boss_target_section == RCS_TH05_PAIR)
-		) {
-			boss_update = boss_update_func;
-			boss_fg_render = boss_fg_render_func;
-		}
-	#else
-		boss_update = boss_update_func;
-		boss_fg_render = boss_fg_render_func;
-	#endif
+	if(!rck_practice_boss_auxiliary_valid()) {
+		snd_se_mode = se_mode;
+		return false;
+	}
 	rck_practice_boss_transients_clear();
 	rck_practice_randring_restore();
 	snd_se_mode = se_mode;
@@ -6643,7 +6924,7 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90"
-	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -6651,5 +6932,4 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif

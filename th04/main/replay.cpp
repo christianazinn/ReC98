@@ -1159,7 +1159,7 @@ bool replay_checkpoint_identity_valid(
 			switch(start->stage) {
 			case 0: return ((start->section == 0) && (start->phase <= 4));
 			case 1: return ((start->section == 0) && (start->phase <= 7));
-			case 2: return ((start->section == 0) && (start->phase <= 14));
+			case 2: return ((start->section == 0) && (start->phase <= 13));
 			case 3:
 				if(start->section == RCS_TH05_PAIR) {
 					return (start->phase <= 2);
@@ -1175,23 +1175,23 @@ bool replay_checkpoint_identity_valid(
 			}
 		#else
 			switch(start->stage) {
-			case 0: return ((start->section == 0) && (start->phase <= 5));
-			case 1: return ((start->section == 0) && (start->phase <= 6));
-			case 2: return ((start->section == 0) && (start->phase <= 4));
+			case 0: return ((start->section == 0) && (start->phase <= 4));
+			case 1: return ((start->section == 0) && (start->phase <= 5));
+			case 2: return ((start->section == 0) && (start->phase <= 3));
 			case 3:
 				return (
 					(start->section == 0) &&
-					(start->phase <= ((start->playchar == 0) ? 3 : 12))
+					(start->phase <= ((start->playchar == 0) ? 2 : 11))
 				);
-			case 4: return ((start->section == 0) && (start->phase <= 18));
-			case 5: return ((start->section == 0) && (start->phase <= 17));
+			case 4: return ((start->section == 0) && (start->phase <= 17));
+			case 5: return ((start->section == 0) && (start->phase <= 16));
 			case STAGE_EXTRA:
 				if(start->section == RCS_TH04_MUGETSU) {
-					return (start->phase <= 7);
+					return (start->phase <= 6);
 				}
 				return (
 					(start->section == RCS_TH04_GENGETSU) &&
-					(start->phase <= 9)
+					(start->phase <= 8)
 				);
 			}
 		#endif
