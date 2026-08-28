@@ -727,7 +727,8 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 		(header->flags != T1REPLAY_FLAGS_KNOWN) ||
 		(header->status != T1REPLAY_STATUS_FINALIZED) ||
 		((header->end_reason != T1REPLAY_END_MENU) &&
-		 (header->end_reason != T1REPLAY_END_CLEAR)) ||
+		 (header->end_reason != T1REPLAY_END_CLEAR) &&
+		 (header->end_reason != T1REPLAY_END_GAME_OVER)) ||
 		(header->game_id != 1) ||
 		(header->input_semantics != T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS) ||
 		(header->process_count == 0) ||
@@ -884,7 +885,8 @@ static bool t1replay_op_packet_valid(
 		value = packet->keys[2];
 		if(
 			!(((state->process == T1REPLAY_PROCESS_REIIDEN) &&
-			   (value == T1REPLAY_END_MENU)) ||
+			   ((value == T1REPLAY_END_MENU) ||
+				(value == T1REPLAY_END_GAME_OVER))) ||
 			  ((state->process == T1REPLAY_PROCESS_FUUIN) &&
 			   (state->fuuin_phase != T1REPLAY_FUUIN_PHASE_NONE) &&
 			   (value == T1REPLAY_END_CLEAR)))
@@ -1813,6 +1815,7 @@ enum t1replay_op_word_t {
 	T1ROW_CLEAR,
 	T1ROW_MENU,
 	T1ROW_MENU_RETURN,
+	T1ROW_GAME_OVER,
 	T1ROW_PAGE,
 	T1ROW_PRACTICE,
 	T1ROW_REPLAY,
@@ -1939,6 +1942,9 @@ static bool t1replay_op_word_japanese_append(
 	case T1ROW_MENU_RETURN:
 		T1ROW_JP8(0x83, 0x81, 0x83, 0x6A, 0x83, 0x85, 0x81, 0x5B);
 		T1ROW_JP4(0x82, 0xD6, 0x96, 0xDF); T1ROW_JP2(0x82, 0xE9); break;
+	case T1ROW_GAME_OVER:
+		T1ROW_JP8(0x83, 0x51, 0x81, 0x5B, 0x83, 0x80, 0x83, 0x49);
+		T1ROW_JP6(0x81, 0x5B, 0x83, 0x6F, 0x81, 0x5B); break;
 	case T1ROW_PAGE: T1ROW_JP2(0x95, 0xC5); break;
 	case T1ROW_PRACTICE: T1ROW_JP4(0x97, 0xFB, 0x8F, 0x4B); break;
 	case T1ROW_REPLAY: T1ROW_JP4(0x8D, 0xC4, 0x90, 0xB6); break;
@@ -2059,6 +2065,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_MENU: T1ROW_WORD4('M', 'E', 'N', 'U'); break;
 	case T1ROW_MENU_RETURN:
 		T1ROW_WORD4('M', 'E', 'N', 'U'); T1ROW_SPACE(); T1ROW_WORD4('R', 'E', 'T', 'U'); T1ROW_WORD2('R', 'N'); break;
+	case T1ROW_GAME_OVER:
+		T1ROW_WORD4('G', 'A', 'M', 'E'); T1ROW_SPACE(); T1ROW_WORD4('O', 'V', 'E', 'R'); break;
 	case T1ROW_PAGE: T1ROW_WORD4('P', 'A', 'G', 'E'); break;
 	case T1ROW_PRACTICE: T1ROW_WORD4('P', 'R', 'A', 'C'); T1ROW_WORD4('T', 'I', 'C', 'E'); break;
 	case T1ROW_REPLAY: T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
@@ -3131,6 +3139,8 @@ static void t1replay_op_detail_render(void)
 		T1ROW_TERMINAL,
 		(slot.header.end_reason == T1REPLAY_END_CLEAR) ?
 			t1replay_op_word_append(p, T1ROW_CLEAR) :
+		(slot.header.end_reason == T1REPLAY_END_GAME_OVER) ?
+			t1replay_op_word_append(p, T1ROW_GAME_OVER) :
 			t1replay_op_word_append(p, T1ROW_MENU_RETURN)
 	);
 	T1REPLAY_OP_DETAIL_LINE(

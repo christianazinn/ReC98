@@ -201,6 +201,7 @@ inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 
 #define T1REPLAY_END_MENU 1
 #define T1REPLAY_END_CLEAR 2
+#define T1REPLAY_END_GAME_OVER 3
 
 #define T1REPLAY_PROCESS_NONE 0
 #define T1REPLAY_PROCESS_REIIDEN 1
@@ -451,7 +452,11 @@ inline bool t1replay_summary_valid(
 		(summary->split_count == 0) ||
 		(summary->terminal_reason != header_terminal_reason) ||
 		((header_terminal_reason != T1REPLAY_END_MENU) &&
-		 (header_terminal_reason != T1REPLAY_END_CLEAR))
+		 (header_terminal_reason != T1REPLAY_END_CLEAR)
+#if (BINARY != 'E')
+		 && (header_terminal_reason != T1REPLAY_END_GAME_OVER)
+#endif
+		)
 	) {
 		return false;
 	}

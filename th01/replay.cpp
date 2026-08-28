@@ -1502,7 +1502,8 @@ static bool t1replay_packet_is_valid(
 		value = packet->keys[2];
 		if(
 			!(((state->process == T1REPLAY_PROCESS_REIIDEN) &&
-			   (value == T1REPLAY_END_MENU)) ||
+			   ((value == T1REPLAY_END_MENU) ||
+				(value == T1REPLAY_END_GAME_OVER))) ||
 			  ((state->process == T1REPLAY_PROCESS_FUUIN) &&
 			   (state->fuuin_phase != T1REPLAY_FUUIN_PHASE_NONE) &&
 			   (value == T1REPLAY_END_CLEAR)))
@@ -1630,7 +1631,8 @@ static bool t1replay_header_read(bool finalized)
 		(t1replay_header.slow_frames > t1replay_header.timed_frames) ||
 		((t1replay_header.status == T1REPLAY_STATUS_FINALIZED) ?
 			((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
-			 (t1replay_header.end_reason != T1REPLAY_END_CLEAR)) :
+			 (t1replay_header.end_reason != T1REPLAY_END_CLEAR) &&
+			 (t1replay_header.end_reason != T1REPLAY_END_GAME_OVER)) :
 			(t1replay_header.end_reason != 0)) ||
 		!t1replay_stream_validate(fd, finalized)
 	) {
@@ -3715,7 +3717,7 @@ void far t1replay_stage_complete(uint8_t stage_id, score_t stage_score)
 	}
 }
 
-static bool t1replay_menu_summary_finalize(void)
+static bool t1replay_nonclear_summary_finalize(uint8_t end_reason)
 {
 	t1replay_summary_t far *summary = &t1replay_header.summary;
 	t1replay_stage_summary_t far *split;
@@ -3736,9 +3738,9 @@ static bool t1replay_menu_summary_finalize(void)
 		summary->split_count++;
 		summary->final_score = score;
 		summary->final_stage_id = stage_id;
-		summary->terminal_reason = T1REPLAY_END_MENU;
+		summary->terminal_reason = end_reason;
 		return t1replay_summary_valid(
-			summary, &t1replay_header.start, true, T1REPLAY_END_MENU
+			summary, &t1replay_header.start, true, end_reason
 		);
 	}
 	if(
@@ -3749,7 +3751,7 @@ static bool t1replay_menu_summary_finalize(void)
 		return false;
 	}
 	return t1replay_summary_valid(
-		summary, &t1replay_header.start, true, T1REPLAY_END_MENU
+		summary, &t1replay_header.start, true, end_reason
 	);
 }
 
@@ -3814,7 +3816,8 @@ static void t1replay_terminal_request_pending(
 	t1replay_terminal_pending = false;
 	if(
 		(t1replay_header.status != T1REPLAY_STATUS_FINALIZED) ||
-		(t1replay_header.end_reason != T1REPLAY_END_MENU) ||
+		((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
+		 (t1replay_header.end_reason != T1REPLAY_END_GAME_OVER)) ||
 		(t1replay_header.header_checksum == 0) ||
 		!t1replay_save_request_write(source)
 	) {
@@ -3852,7 +3855,11 @@ void far t1replay_terminal(uint8_t end_reason)
 		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
 		return;
 	}
-	if((end_reason != T1REPLAY_END_MENU) || !t1replay_menu_summary_finalize()) {
+	if(
+		((end_reason != T1REPLAY_END_MENU) &&
+		 (end_reason != T1REPLAY_END_GAME_OVER)) ||
+		!t1replay_nonclear_summary_finalize(end_reason)
+	) {
 		t1replay_fail_and_abort_if_playback();
 		return;
 	}
@@ -3921,9 +3928,9 @@ void far t1replay_gameover_regist_menu(
 )
 {
 #if T1REPLAY_EXACT_TRACE
-	t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+	t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
 #endif
-	t1replay_terminal(T1REPLAY_END_MENU);
+	t1replay_terminal(T1REPLAY_END_GAME_OVER);
 	regist_menu(score, stage_num, route);
 }
 
