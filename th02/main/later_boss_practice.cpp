@@ -63,6 +63,8 @@ extern "C" void near sigma_15F95(void);
 extern "C" void near sigma_16176(void);
 extern "C" void near sigma_1619C(void);
 extern "C" void near sigma_162D3(void);
+extern "C" void near sigma_16421(void);
+extern "C" void near sigma_16555(void);
 
 typedef void (near *near t2lbp_sigma_pattern_func_t)(void);
 extern "C" t2lbp_sigma_pattern_func_t sigma_pattern_func[3];
@@ -469,6 +471,28 @@ static void near t2lbp_sigma_phase5_construct(void)
 	lasers_callbacks_set();
 }
 
+// Native Phase 6 enters Phase 7 with this callback row. The Phase 7 update
+// initially calls sigma_16421(), whose 50-frame guard initializes the stream
+// state before it can be read; sigma_16555() has the same ownership boundary.
+static void near t2lbp_sigma_phase7_construct(void)
+{
+	th02_s6_sigma_clean_init();
+	sigma_phase = 7;
+	sigma_pattern = 0;
+	sigma_pattern_looped_unused = 0;
+	boss_phase_frame = 0;
+	sigma_pattern_func[0] = sigma_16421;
+	sigma_pattern_func[1] = sigma_16555;
+	sigma_pattern_func[2] = sigma_15F6F;
+	sigma_phase_damage_max = 1800;
+	sigma_cel_interval_mask = 7;
+	sigma_blast_hitbox_margin = 0;
+	sigma_ring_radius = 0;
+	sigma_frame = 0;
+	t2lbp_sigma_blasts_reset();
+	lasers_callbacks_set();
+}
+
 bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 {
 	switch(target) {
@@ -522,6 +546,10 @@ bool16 far th02_later_boss_clean_init(th02_later_boss_target_t target)
 		return true;
 	case T2LBPT_SIGMA_PHASE5:
 		t2lbp_sigma_phase5_construct();
+		t2lbp_sigma_redraw_both();
+		return true;
+	case T2LBPT_SIGMA_PHASE7:
+		t2lbp_sigma_phase7_construct();
 		t2lbp_sigma_redraw_both();
 		return true;
 	case T2LBPT_MIMA_PHASE7:
