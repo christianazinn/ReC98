@@ -129,6 +129,10 @@ static t2replay_header_t t2op_header_saved;
 static t2replay_start_t t2op_practice;
 static uint8_t t2op_pending_name[T2REPLAY_NAME_LEN];
 
+// shottype_menu() and score_menu() borrow their own gaiji state.  Patch-owned
+// title surfaces must put OP's selected MIKOFT table back before writing TRAM.
+static void t2op_title_font_restore(void);
+
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 void replay_practice_diag_boot(unsigned char milestone)
 {
@@ -1348,6 +1352,38 @@ static void t2op_gaiji_center_put(
 	);
 }
 
+static void t2op_title_gaiji_put(
+	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
+)
+{
+	t2op_gaiji_encode(end);
+	graph_gaiji_puts(
+		static_cast<screen_x_t>((x * GLYPH_HALF_W) + 4),
+		static_cast<screen_y_t>((y * GLYPH_H) + 4),
+		GAIJI_W,
+		reinterpret_cast<const char *>(t2op_gaiji_line), 0
+	);
+	gaiji_putsa(x, y, reinterpret_cast<const char *>(t2op_gaiji_line), attr);
+}
+
+static void t2op_title_gaiji_center_put(
+	tram_y_t y, tram_atrb2 attr, char *end
+)
+{
+	unsigned length = t2op_gaiji_encode(end);
+	tram_x_t x = static_cast<tram_x_t>(
+		((RES_X / GLYPH_HALF_W) - (length * GAIJI_TRAM_W)) / 2
+	);
+
+	t2op_title_gaiji_put(x, y, attr, end);
+}
+
+static void t2op_title_font_restore(void)
+{
+	gaiji_restore();
+	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
+}
+
 #define T2OP_NAME_ALPHABET_ROWS 3
 #define T2OP_NAME_ALPHABET_COLS 17
 #define T2OP_NAME_ALPHABET_LEFT 10
@@ -1640,6 +1676,7 @@ void replay_title_background_restore(void)
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
 	graph_copy_page(0);
 	graph_accesspage(0);
+	t2op_title_font_restore();
 	palette_100();
 }
 
@@ -1654,7 +1691,7 @@ static void t2op_main_line_put(
 		attr = TX_BLUE;
 	}
 	p = t2op_word_append(p, label);
-	t2op_gaiji_center_put(y, attr, p);
+	t2op_title_gaiji_center_put(y, attr, p);
 }
 
 static void t2op_main_render(void)
@@ -2203,10 +2240,15 @@ static void t2op_practice_render(void)
 	char *p;
 	uint8_t row;
 
+	// shottype_menu() preserves this page as its unadorned character-select
+	// background.  Restoring it first also clears every previous text shadow.
 	text_clear();
+	graph_showpage(1);
+	graph_copy_page(0);
+	graph_showpage(0);
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_PRACTICE);
-	t2op_gaiji_center_put(2, TX_GREEN, p);
+	t2op_title_gaiji_center_put(2, TX_GREEN, p);
 
 	for(row = 0; row < T2OPC_START; row++) {
 		t2op_word_t label;
@@ -2296,12 +2338,12 @@ static void t2op_practice_render(void)
 		case T2OPC_BGM: p = t2op_bgm_append(p, t2op_practice.bgm_mode); break;
 		default: p = t2op_word_append(p, t2op_practice.reduce_effects ? T2OW_ON : T2OW_OFF); break;
 		}
-		t2op_gaiji_put(16, static_cast<tram_y_t>(4 + row),
+		t2op_title_gaiji_put(16, static_cast<tram_y_t>(4 + row),
 			(t2op_practice_sel == row) ? TX_WHITE : TX_YELLOW, p);
 	}
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_START_RUN);
-	t2op_gaiji_center_put(static_cast<tram_y_t>(4 + T2OPC_START),
+	t2op_title_gaiji_center_put(static_cast<tram_y_t>(4 + T2OPC_START),
 		(t2op_practice_sel == T2OPC_START) ? TX_WHITE : TX_GREEN, p);
 }
 
@@ -2944,6 +2986,7 @@ static void t2op_practice_menu(void)
 	pi_load(0, "ts1.pi");
 	text_clear();
 	shottype_menu();
+	t2op_title_font_restore();
 	t2op_practice_defaults();
 	t2op_practice_sel = T2OPC_STAGE;
 	t2op_practice_render();
