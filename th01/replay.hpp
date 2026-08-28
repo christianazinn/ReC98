@@ -22,6 +22,13 @@ void far t1replay_abort_to_op(void);
 void far t1replay_frame_io(void);
 int far t1replay_key_sense(int keygroup);
 
+// The normal gameplay loop brackets only the input pass paired with the
+// orbital per-frame wait. Playback may bypass three of four of those waits
+// while a physical Z is held, without sampling or changing replay input.
+void far t1replay_gameplay_input_begin(void);
+void far t1replay_gameplay_input_end(void);
+bool16 far t1replay_gameplay_wait_skip(void);
+
 // Called at the first active-gameplay input boundary of each REIIDEN process.
 // The private sidecar is capture-only until all world codecs can restore it.
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
@@ -86,8 +93,8 @@ bool16 far t1replay_pause_save_refresh(void);
 void far t1replay_guard_pause_check(void);
 bool16 far t1replay_pause_restart_available(void);
 // Escape is a physical, playback-only cancellation path. It must be queried
-// before Pause consumes its next canonical input sample.
-bool16 far t1replay_pause_playback_abort_requested(void);
+// before either active playback or Pause consumes the next canonical sample.
+bool16 far t1replay_playback_abort_requested(void);
 void far t1replay_pause_action_set(t1replay_pause_action_t action);
 
 #endif /* TH01_REPLAY_HPP */

@@ -245,7 +245,7 @@ bool16 far t1replay_pause_menu(void)
 		// Replay Pause is normally driven only by recorded samples. Physical
 		// Escape is the sole out-of-stream control and aborts before the seam
 		// can consume a sample that belongs to the recorded run.
-		if(t1replay_pause_playback_abort_requested()) {
+		if(t1replay_playback_abort_requested()) {
 			t1replay_abort_to_op();
 			return true;
 		}

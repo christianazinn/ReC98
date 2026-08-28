@@ -1,4 +1,5 @@
 #include "th01/main/player/orb.hpp"
+#include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
 
 extern int orb_frames_outside_portal; // unused
@@ -146,7 +147,9 @@ void pascal orb_and_pellets_and_stage_unput_update_render__vsync_wait(
 		}
 	}
 
-	frame_delay(1);
+	if(!t1replay_gameplay_wait_skip()) {
+		frame_delay(1);
+	}
 	Pellets.unput_update_render();
 
 	// Stage object collision is explicitly deactivated on boss stages? Since

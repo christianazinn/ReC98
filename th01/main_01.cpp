@@ -898,7 +898,9 @@ int main(void)
 					}
 					t1replay_checkpoint_capture(pellet_speed_raise_cycle);
 				}
+				t1replay_gameplay_input_begin();
 				input_sense(false);
+				t1replay_gameplay_input_end();
 
 				if(player_invincibility_time > 1) {
 					player_invincibility_time--;

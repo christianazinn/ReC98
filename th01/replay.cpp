@@ -11,6 +11,7 @@
 #include "libs/master.lib/master.hpp"
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
+#include "th01/hardware/vsync.hpp"
 #include "th01/rp_guard.hpp"
 #include "th01/resident.hpp"
 #include "th01/hiscore/regist.hpp"
@@ -36,6 +37,7 @@
 #include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
+#define T1REPLAY_FAST_FORWARD_RATE 4
 #define T1REPLAY_DOS_ACCESS_READ 0
 #define T1REPLAY_DOS_ACCESS_RW 2
 #define T1REPLAY_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
@@ -109,6 +111,9 @@ static char t1replay_restart_request_commit_fn[11];
 static char t1replay_checkpoint_fn[12];
 static bool t1replay_paths_ready;
 static bool t1replay_abort_pending;
+static uint8_t t1replay_fast_forward_phase;
+static bool t1replay_gameplay_input_armed;
+static bool t1replay_gameplay_wait_skip_pending;
 static bool t1replay_command_delete_failed;
 static bool t1replay_terminal_pending;
 static t1replay_pause_action_t t1replay_pause_action;
@@ -156,6 +161,23 @@ static bool t1replay_checkpoint_restore_is_pending;
 	);
 	static bool t1replay_exact_trace_flush(void);
 #endif
+
+static void t1replay_fast_forward_boundary_reset(void)
+{
+	// The fourth held-Z frame normally reaches frame_delay(1), which clears the
+	// VSync counter. If a stage/process boundary preempts one of the preceding
+	// skipped waits, normalize that pacing-only counter before stock transition
+	// code observes it.
+	if(
+		(t1replay_fast_forward_phase != 0) ||
+		t1replay_gameplay_wait_skip_pending
+	) {
+		z_vsync_Count1 = 0;
+	}
+	t1replay_fast_forward_phase = 0;
+	t1replay_gameplay_input_armed = false;
+	t1replay_gameplay_wait_skip_pending = false;
+}
 
 static void t1replay_memclear(void far *buf, unsigned size)
 {
@@ -2166,6 +2188,7 @@ static void t1replay_state_reset(void)
 	t1replay_pending_valid = false;
 	t1replay_command_delete_failed = false;
 	t1replay_terminal_pending = false;
+	t1replay_fast_forward_boundary_reset();
 	t1replay_pause_action = T1RPA_RESUME;
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
@@ -3380,6 +3403,13 @@ void far t1replay_frame_io(void)
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
+	// Escape is deliberately physical and checked before packet decoding. It
+	// cancels the current playback transaction without consuming, recording, or
+	// synthesizing an input sample.
+	if(t1replay_playback_abort_requested()) {
+		t1replay_abort_to_op();
+		return;
+	}
 	if(t1replay_mode == T1RM_RECORD) {
 		for(i = 0; i < T1REPLAY_INPUT_GROUP_COUNT; i++) {
 			group = t1replay_group_number(i);
@@ -3394,7 +3424,42 @@ void far t1replay_frame_io(void)
 		}
 	} else if(!t1replay_playback_sample()) {
 		t1replay_fail_and_abort_if_playback();
+	} else if(t1replay_gameplay_input_armed) {
+		// input_sense(false) can recurse through the stock debug surface. Only
+		// its first pass is paired with the normal orbital gameplay wait.
+		t1replay_gameplay_input_armed = false;
+		if(peekb(0, KEYGROUP_5) & K5_Z) {
+			t1replay_fast_forward_phase++;
+			if(t1replay_fast_forward_phase >= T1REPLAY_FAST_FORWARD_RATE) {
+				t1replay_fast_forward_phase = 0;
+			} else {
+				t1replay_gameplay_wait_skip_pending = true;
+			}
+		} else {
+			t1replay_fast_forward_phase = 0;
+		}
 	}
+}
+
+void far t1replay_gameplay_input_begin(void)
+{
+	// A previous frame can terminate before it reaches the orbital wait. Do not
+	// allow that private pacing state to cross into this frame or a transition.
+	t1replay_gameplay_input_armed = true;
+	t1replay_gameplay_wait_skip_pending = false;
+}
+
+void far t1replay_gameplay_input_end(void)
+{
+	t1replay_gameplay_input_armed = false;
+}
+
+bool16 far t1replay_gameplay_wait_skip(void)
+{
+	bool16 skip = t1replay_gameplay_wait_skip_pending;
+
+	t1replay_gameplay_wait_skip_pending = false;
+	return skip;
 }
 
 int far t1replay_key_sense(int keygroup)
@@ -3477,6 +3542,7 @@ static bool t1replay_stage_complete_apply(uint8_t stage_id, score_t stage_score)
 
 void far t1replay_stage_complete(uint8_t stage_id, score_t stage_score)
 {
+	t1replay_fast_forward_boundary_reset();
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
@@ -3525,6 +3591,7 @@ static bool t1replay_menu_summary_finalize(void)
 
 bool16 far t1replay_process_handoff(uint8_t target_process)
 {
+	t1replay_fast_forward_boundary_reset();
 	if(
 		(target_process != T1REPLAY_PROCESS_REIIDEN) &&
 		(target_process != T1REPLAY_PROCESS_FUUIN)
@@ -3612,6 +3679,8 @@ static void t1replay_pause_terminal_apply(bool playback)
 void far t1replay_terminal(uint8_t end_reason)
 {
 	bool playback = (t1replay_mode == T1RM_PLAYBACK);
+
+	t1replay_fast_forward_boundary_reset();
 
 	if(t1replay_mode == T1RM_DISABLED) {
 		// Esc leaves Continue through a separate stock branch that has no BGM
@@ -3747,10 +3816,10 @@ bool16 far t1replay_pause_restart_available(void)
 	return t1replay_restart_state_valid(state);
 }
 
-bool16 far t1replay_pause_playback_abort_requested(void)
+bool16 far t1replay_playback_abort_requested(void)
 {
 	// This is intentionally outside the canonical input stream. A physical
-	// cancellation must not decode one more recorded Pause-navigation sample.
+	// cancellation must not decode one more recorded input sample.
 	return (
 		(t1replay_mode == T1RM_PLAYBACK) &&
 		((peekb(0, KEYGROUP_0) & K0_ESC) != 0)
