@@ -145,6 +145,7 @@ static uint8_t t2op_pending_name[T2REPLAY_NAME_LEN];
 // shottype_menu() and score_menu() borrow their own gaiji state.  Patch-owned
 // title surfaces must put OP's selected MIKOFT table back before writing TRAM.
 static void t2op_title_font_restore(void);
+static void t2op_title_return_request(void);
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 void replay_practice_diag_boot(unsigned char milestone)
@@ -1398,6 +1399,17 @@ static void t2op_title_font_restore(void)
 	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
 }
 
+// The title-surface handoffs owned here return through OP's normal title
+// rebuild rather than relying on whichever graphics page or gaiji table the
+// preceding native menu happened to leave behind.
+static void t2op_title_return_request(void)
+{
+	// Replay and Practice leave OP through the same normal title rebuild as
+	// stock menus. Keep title input locked until that rebuild has completed.
+	replay_title_restore_needed = true;
+	t2op_main_input_allowed = false;
+}
+
 #define T2OP_NAME_ALPHABET_ROWS 3
 #define T2OP_NAME_ALPHABET_COLS 17
 #define T2OP_NAME_ALPHABET_LEFT 10
@@ -2254,12 +2266,15 @@ static void t2op_practice_render(void)
 	char *p;
 	uint8_t row;
 
-	// shottype_menu() preserves this page as its unadorned character-select
-	// background.  Restoring it first also clears every previous text shadow.
+	// shottype_menu() leaves page 1 as the unadorned character-select
+	// background and page 0 as its selected foreground. Explicitly select the
+	// former before copying it so that each Setup redraw removes every prior
+	// patch shadow instead of self-copying page 0.
 	text_clear();
-	graph_showpage(1);
+	graph_accesspage(1);
 	graph_copy_page(0);
 	graph_showpage(0);
+	graph_accesspage(0);
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_PRACTICE);
 	t2op_title_gaiji_center_put(2, TX_GREEN, p);
@@ -2986,8 +3001,7 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 		}
 		frame_delay(1);
 	}
-	replay_title_restore_needed = true;
-	t2op_main_input_allowed = false;
+	t2op_title_return_request();
 	key_det = INPUT_NONE;
 }
 
@@ -3080,8 +3094,7 @@ static void t2op_practice_menu(void)
 	// but Practice can, so restore the two title-resident portraits.
 	pi_load(2, "ts3.pi");
 	pi_load(1, "ts2.pi");
-	replay_title_restore_needed = true;
-	t2op_main_input_allowed = false;
+	t2op_title_return_request();
 	key_det = INPUT_NONE;
 }
 
@@ -3131,18 +3144,18 @@ void replay_title_update_and_render(void)
 			score_frames = 2000;
 			text_clear();
 			score_menu();
-			replay_title_restore_needed = true;
+			t2op_title_return_request();
 			t2op_main_render();
 			break;
 		case T2OMC_OPTIONS:
 			menu_sel = 0;
 			in_option = true;
-			replay_title_restore_needed = true;
+			t2op_title_return_request();
 			break;
 		case T2OMC_MUSIC:
 			text_clear();
 			musicroom_menu();
-			replay_title_restore_needed = true;
+			t2op_title_return_request();
 			t2op_main_render();
 			break;
 		default:
