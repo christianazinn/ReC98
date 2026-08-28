@@ -44,6 +44,14 @@
 #define REPLAY_BUFFER_PACKET_COUNT 256
 #define REPLAY_BUFFER_SIZE \
 	(REPLAY_BUFFER_PACKET_COUNT * REPLAY_USER_PACKET_SIZE)
+#define REPLAY_FAST_FORWARD_RATE 4
+#if (GAME == 5)
+	// This resident tail word is ZUN bloat, reserved for replay pacing only.
+	#define REPLAY_FAST_FORWARD_PHASE resident->unused_3
+#else
+	// This resident tail byte is ZUN bloat, reserved for replay pacing only.
+	#define REPLAY_FAST_FORWARD_PHASE resident->unused_5[0]
+#endif
 #if (GAME == 5)
 	#define REPLAY_CHECKPOINT_GROUP_COUNT REPLAY_CKPT_GROUPS_TH05
 #else
@@ -2556,6 +2564,7 @@ void replay_entry(void)
 	replay_stage_presentation_skip = false;
 	replay_pause_action = RPA_NONE;
 	replay_restart_practice = false;
+	REPLAY_FAST_FORWARD_PHASE = 0;
 
 	if(command_mode == RCM_RECORD) {
 		replay_checkpoint_temp_delete();
@@ -2694,6 +2703,29 @@ void replay_main_entry_setup(void)
 	#endif
 }
 
+static bool replay_fast_forward_key_held(void)
+{
+	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
+}
+
+static void replay_fast_forward_wait_skip(bool held)
+{
+	uint8_t phase;
+
+	if(!held || (replay_mode != RRM_PLAYBACK)) {
+		REPLAY_FAST_FORWARD_PHASE = 0;
+		return;
+	}
+	phase = static_cast<uint8_t>(REPLAY_FAST_FORWARD_PHASE);
+	phase++;
+	if(phase >= REPLAY_FAST_FORWARD_RATE) {
+		REPLAY_FAST_FORWARD_PHASE = 0;
+		return;
+	}
+	REPLAY_FAST_FORWARD_PHASE = phase;
+	vsync_Count1 = slowdown_factor;
+}
+
 bool replay_frame_pacing_should_delay(void)
 {
 	total_slow_frames += (
@@ -2731,17 +2763,21 @@ bool replay_frame_pacing_should_delay(void)
 			!replay_practice_preroll_active() &&
 			(debug_fast_forward == DEBUG_FF_OFF)
 		) {
+			replay_fast_forward_wait_skip(replay_fast_forward_key_held());
 			return true;
 		}
 		if(debug_fast_forward != DEBUG_FF_OFF) {
 			player_is_hit = false;
 		}
+		replay_fast_forward_wait_skip(false);
 		return false;
 	#else
 		if(replay_practice_preroll_active() || replay_private_test_active()) {
 			player_is_hit = false;
+			replay_fast_forward_wait_skip(false);
 			return false;
 		}
+		replay_fast_forward_wait_skip(replay_fast_forward_key_held());
 		return true;
 	#endif
 }
@@ -3447,5 +3483,11 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	// RC22 replay playback pacing preserves the next stock segment phase.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90"
+	#else
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#endif
 
 #pragma codeseg

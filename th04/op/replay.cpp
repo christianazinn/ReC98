@@ -55,6 +55,8 @@
 #define REPLAY_OP_LINE_CAPACITY 80
 #define REPLAY_OP_LINE_TOP 112
 #define REPLAY_OP_LINE_H 24
+#define REPLAY_OP_CELL_W 10
+#define REPLAY_SCORE_DISPLAY_DIGITS 9
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
 #define REPLAY_OP_COL_SELECTED 7
 #define REPLAY_OP_TEXT_SPACING 16
@@ -1940,7 +1942,7 @@ static char *replay_op_word_padded_append(
 	// The replay browser still has fixed columns, but its words do not. Pad
 	// only the inter-column gap with the font's genuine proportional space.
 	*p = '\0';
-	while(replay_op_font_width(start) < (width * 10)) {
+	while(replay_op_font_width(start) < (width * REPLAY_OP_CELL_W)) {
 		*p++ = ' ';
 		*p = '\0';
 	}
@@ -2015,6 +2017,15 @@ static void replay_op_line_put_cells(
 	} else {
 		replay_op_line_put(left, top, col, p);
 	}
+}
+
+static void replay_op_line_put_cells_right(
+	screen_x_t right, vram_y_t top, vc2 col, char *p
+)
+{
+	replay_op_line_put_cells(
+		(right - ((p - replay_op_line) * REPLAY_OP_CELL_W)), top, col, p
+	);
 }
 
 static replay_op_word_t replay_op_playchar_word(uint8_t playchar)
@@ -2155,7 +2166,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 		return;
 	}
 	p = replay_op_name_append(p);
-	replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, top, col, p);
+	replay_op_line_put_cells(REPLAY_BROWSER_NAME_LEFT, top, col, p);
 	p = replay_op_line;
 	p = replay_op_shot_append(p);
 	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, top, col, p);
@@ -2163,8 +2174,10 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 	p = replay_op_word_append(p, replay_op_rank_word(replay_op_header.start.rank));
 	replay_op_line_put(REPLAY_BROWSER_RANK_LEFT, top, col, p);
 	p = replay_op_line;
-	p = replay_op_uint_append(p, replay_op_header.score_final, 1);
-	replay_op_line_put(REPLAY_BROWSER_SCORE_LEFT, top, col, p);
+	p = replay_op_uint_append(
+		p, replay_op_header.score_final, REPLAY_SCORE_DISPLAY_DIGITS
+	);
+	replay_op_line_put_cells(REPLAY_BROWSER_SCORE_LEFT, top, col, p);
 	p = replay_op_line;
 	p = replay_op_browser_stage_append(p);
 	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, top, col, p);
@@ -2268,7 +2281,7 @@ static void replay_detail_left_put(uint8_t slot)
 	p = replay_op_uint_zero_append(p, slot, 2);
 	p = replay_op_spaces_append(p, 4);
 	p = replay_op_name_append(p);
-	replay_op_line_put(REPLAY_DETAIL_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put_cells(REPLAY_DETAIL_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 
 	p = replay_op_line;
 	p = replay_op_end_reason_append(p);
@@ -2278,8 +2291,12 @@ static void replay_detail_left_put(uint8_t slot)
 	p = replay_op_word_append(p, ROW_FINAL_SCORE);
 	replay_op_line_put(REPLAY_DETAIL_LEFT, 136, V_WHITE, p);
 	p = replay_op_line;
-	p = replay_op_uint_append(p, replay_op_header.score_final, 10);
-	replay_op_line_put_right(REPLAY_DETAIL_VALUE_RIGHT, 136, V_WHITE, p);
+	p = replay_op_uint_append(
+		p, replay_op_header.score_final, REPLAY_SCORE_DISPLAY_DIGITS
+	);
+	replay_op_line_put_cells_right(
+		REPLAY_DETAIL_VALUE_RIGHT, 136, V_WHITE, p
+	);
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_DATE);
@@ -2389,9 +2406,9 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 				? replay_op_header.score_final
 				: replay_op_header.stage_scores[stage]
 			),
-			10
+			REPLAY_SCORE_DISPLAY_DIGITS
 		);
-		replay_op_line_put(
+		replay_op_line_put_cells(
 			368, top,
 			((stage == selected_stage) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
 		);
@@ -4786,5 +4803,8 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90"
 #endif
+
+// RC22's fixed-cell replay fields preserve the following stock segment phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
