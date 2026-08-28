@@ -11,8 +11,10 @@
 #define T2REPLAY_EXACT_TRACE 0
 #endif
 
-#define T2REPLAY_VERSION 1
-#define T2REPLAY_HEADER_SIZE 128
+#define T2REPLAY_VERSION_LEGACY 1
+#define T2REPLAY_VERSION 2
+#define T2REPLAY_HEADER_SIZE_LEGACY 128
+#define T2REPLAY_HEADER_SIZE 136
 #define T2REPLAY_PACKET_SIZE 4
 #define T2REPLAY_START_SIZE 36
 #define T2REPLAY_COMMAND_SIZE 52
@@ -30,8 +32,8 @@
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private semantic-checkpoint vocabulary for later exact TH02 seeks. This
-// does not change the T2RPY1 user replay payload yet. Groups append by ID;
-// a reader only accepts the complete vocabulary it implements.
+// remains separate from both public T2RPY1 and T2RPY2 payloads. Groups append
+// by ID; a reader only accepts the complete vocabulary it implements.
 #define T2REPLAY_CHECKPOINT_SCHEMA 4
 #define T2REPLAY_CHECKPOINT_GROUP_SCHEMA 2
 #define T2REPLAY_CHECKPOINT_HEADER_SIZE 40
@@ -134,7 +136,7 @@
 )
 
 // Private direct-apply request. This binds a schema-6 envelope to one
-// finalized T2RPY1 stream position without changing either public format.
+// finalized public replay stream position without changing its format.
 #define T2REPLAY_EXACT_APPLY_REQUEST_VERSION 1
 #define T2REPLAY_EXACT_APPLY_REQUEST_SIZE 48
 #define T2REPLAY_EXACT_APPLY_FILE_SIZE ( \
@@ -142,8 +144,8 @@
 	T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE \
 )
 
-// The public seek wire remains separate from T2RPY1 and T2RCFG2. The native
-// reader is compiled only into the private exact-apply profile until its
+// The public seek wire remains separate from T2RPY1/T2RPY2 and T2RCFG2. The
+// native reader is compiled only into the private exact-apply profile until its
 // fresh-process equivalence matrix is complete.
 #define T2REPLAY_PUBLIC_SEEK_VERSION 1
 #define T2REPLAY_PUBLIC_SEEK_HEADER_SIZE 64
@@ -405,6 +407,8 @@ struct t2replay_header_t {
 	uint8_t power_final;
 	uint8_t reserved_0;
 	uint8_t reserved[12];
+	uint32_t timed_frames;
+	uint32_t slow_frames;
 };
 
 struct t2replay_packet_t {
@@ -584,5 +588,12 @@ typedef char t2replay_header_name_size_check[
 typedef char t2replay_header_name_offset_check[
 	((offsetof(t2replay_header_t, reserved) +
 	  T2REPLAY_RESERVED_NAME_OFFSET) == 0x74) ? 1 : -1
+];
+typedef char t2replay_header_legacy_size_check[
+	(offsetof(t2replay_header_t, timed_frames) ==
+	 T2REPLAY_HEADER_SIZE_LEGACY) ? 1 : -1
+];
+typedef char t2replay_header_slow_frames_offset_check[
+	(offsetof(t2replay_header_t, slow_frames) == 0x84) ? 1 : -1
 ];
 #endif /* TH02_REPLAY_FORMAT_HPP */

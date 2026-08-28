@@ -72,6 +72,7 @@ enum t2op_word_t {
 	T2OW_SCORE,
 	T2OW_HIGH_SCORE,
 	T2OW_POWER,
+	T2OW_SLOWDOWN,
 	T2OW_LIVES,
 	T2OW_BOMBS,
 	T2OW_SEED,
@@ -415,24 +416,46 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	);
 }
 
-static bool t2op_header_valid(void)
+static uint16_t t2op_header_wire_size(void)
 {
-	uint32_t stored = t2op_header.header_checksum;
-	uint32_t computed;
-	uint8_t first_stage;
-	uint8_t stage;
-
 	if(
 		(t2op_header.magic[0] != 'T') ||
 		(t2op_header.magic[1] != '2') ||
 		(t2op_header.magic[2] != 'R') ||
 		(t2op_header.magic[3] != 'P') ||
 		(t2op_header.magic[4] != 'Y') ||
-		(t2op_header.magic[5] != '1') ||
 		(t2op_header.magic[6] != '\0') ||
-		(t2op_header.magic[7] != '\0') ||
-		(t2op_header.version != T2REPLAY_VERSION) ||
-		(t2op_header.header_size != T2REPLAY_HEADER_SIZE) ||
+		(t2op_header.magic[7] != '\0')
+	) {
+		return 0;
+	}
+	if(
+		(t2op_header.magic[5] == '1') &&
+		(t2op_header.version == T2REPLAY_VERSION_LEGACY) &&
+		(t2op_header.header_size == T2REPLAY_HEADER_SIZE_LEGACY)
+	) {
+		return T2REPLAY_HEADER_SIZE_LEGACY;
+	}
+	if(
+		(t2op_header.magic[5] == '2') &&
+		(t2op_header.version == T2REPLAY_VERSION) &&
+		(t2op_header.header_size == T2REPLAY_HEADER_SIZE)
+	) {
+		return T2REPLAY_HEADER_SIZE;
+	}
+	return 0;
+}
+
+static bool t2op_header_valid(void)
+{
+	uint32_t stored = t2op_header.header_checksum;
+	uint32_t computed;
+	uint16_t wire_size = t2op_header_wire_size();
+	uint8_t first_stage;
+	uint8_t stage;
+
+	if(
+		(wire_size == 0) ||
 		(t2op_header.packet_size != T2REPLAY_PACKET_SIZE) ||
 		((t2op_header.flags & T2REPLAY_REQUIRED_FLAGS) !=
 		 T2REPLAY_REQUIRED_FLAGS) ||
@@ -446,7 +469,7 @@ static bool t2op_header_valid(void)
 		(t2op_header.terminal_stage >= T2REPLAY_STAGE_COUNT) ||
 		(t2op_header.end_reason < T2REPLAY_END_GAME_OVER) ||
 		(t2op_header.end_reason > T2REPLAY_END_MENU_RETURN) ||
-		(t2op_header.input_offset != T2REPLAY_HEADER_SIZE) ||
+		(t2op_header.input_offset != wire_size) ||
 		(t2op_header.input_size > T2REPLAY_INPUT_SIZE_MAX) ||
 		(t2op_header.packet_count >
 		 (T2REPLAY_INPUT_SIZE_MAX / T2REPLAY_PACKET_SIZE)) ||
@@ -459,7 +482,9 @@ static bool t2op_header_valid(void)
 		!t2op_bytes_zero(
 			t2op_header.reserved + T2REPLAY_RESERVED_TAIL_OFFSET,
 			T2REPLAY_RESERVED_TAIL_SIZE
-		)
+		) ||
+		((wire_size == T2REPLAY_HEADER_SIZE) &&
+		 (t2op_header.slow_frames > t2op_header.timed_frames))
 	) {
 		return false;
 	}
@@ -474,7 +499,7 @@ static bool t2op_header_valid(void)
 	}
 	t2op_header.header_checksum = 0;
 	computed = t2op_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2op_header, sizeof(t2op_header)
+		T2REPLAY_FNV1A_BASIS, &t2op_header, wire_size
 	);
 	t2op_header.header_checksum = stored;
 	return (stored == computed);
@@ -631,9 +656,11 @@ static void t2op_dos_flush(void)
 
 static void t2op_header_checksum_set(void)
 {
+	uint16_t wire_size = t2op_header_wire_size();
+
 	t2op_header.header_checksum = 0;
 	t2op_header.header_checksum = t2op_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2op_header, sizeof(t2op_header)
+		T2REPLAY_FNV1A_BASIS, &t2op_header, wire_size
 	);
 }
 
@@ -641,7 +668,11 @@ static bool t2op_pending_header_write(void)
 {
 	int fd;
 	bool written;
+	uint16_t wire_size = t2op_header_wire_size();
 
+	if(wire_size == 0) {
+		return false;
+	}
 	fd = t2op_dos_open(t2op_slot_fn, T2OP_DOS_ACCESS_RW);
 	if(fd < 0) {
 		return false;
@@ -649,8 +680,7 @@ static bool t2op_pending_header_write(void)
 	t2op_header_checksum_set();
 	written = (
 		t2op_dos_seek(fd, 0) &&
-		(t2op_dos_write(fd, &t2op_header, sizeof(t2op_header)) ==
-		 sizeof(t2op_header))
+		(t2op_dos_write(fd, &t2op_header, wire_size) == wire_size)
 	);
 	t2op_dos_close(fd);
 	if(written) {
@@ -853,14 +883,31 @@ static bool t2op_pending_payload_valid(int fd, uint32_t file_size)
 static bool t2op_pending_replay_validate(const char far *fn)
 {
 	uint32_t file_size;
+	uint16_t wire_size;
 	int fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
 
 	if(fd < 0) {
 		return false;
 	}
 	t2op_memclear(&t2op_header, sizeof(t2op_header));
-	if((t2op_dos_read(fd, &t2op_header, sizeof(t2op_header)) !=
-		 sizeof(t2op_header)) || !t2op_dos_size(fd, &file_size) ||
+	if(t2op_dos_read(fd, &t2op_header, T2REPLAY_HEADER_SIZE_LEGACY) !=
+		T2REPLAY_HEADER_SIZE_LEGACY) {
+		t2op_dos_close(fd);
+		return false;
+	}
+	wire_size = t2op_header_wire_size();
+	if(
+		(wire_size == T2REPLAY_HEADER_SIZE) &&
+		(t2op_dos_read(
+			fd, reinterpret_cast<uint8_t far *>(&t2op_header) +
+			T2REPLAY_HEADER_SIZE_LEGACY,
+			(T2REPLAY_HEADER_SIZE - T2REPLAY_HEADER_SIZE_LEGACY)
+		) != (T2REPLAY_HEADER_SIZE - T2REPLAY_HEADER_SIZE_LEGACY))
+	) {
+		t2op_dos_close(fd);
+		return false;
+	}
+	if((wire_size == 0) || !t2op_dos_size(fd, &file_size) ||
 		!t2op_header_valid() || !t2op_pending_payload_valid(fd, file_size)) {
 		t2op_dos_close(fd);
 		return false;
@@ -894,14 +941,27 @@ static bool t2op_pending_request_valid(void)
 static bool t2op_header_read_path(const char *fn)
 {
 	int read;
+	uint16_t wire_size;
 
 	if(!file_exist(fn) || !file_ropen(fn)) {
 		return false;
 	}
 	t2op_memclear(&t2op_header, sizeof(t2op_header));
-	read = file_read(&t2op_header, sizeof(t2op_header));
+	read = file_read(&t2op_header, T2REPLAY_HEADER_SIZE_LEGACY);
+	if(read == T2REPLAY_HEADER_SIZE_LEGACY) {
+		wire_size = t2op_header_wire_size();
+		if(wire_size == T2REPLAY_HEADER_SIZE) {
+			read += file_read(
+				reinterpret_cast<uint8_t *>(&t2op_header) +
+				T2REPLAY_HEADER_SIZE_LEGACY,
+				(T2REPLAY_HEADER_SIZE - T2REPLAY_HEADER_SIZE_LEGACY)
+			);
+		}
+	} else {
+		wire_size = 0;
+	}
 	file_close();
-	if(read != sizeof(t2op_header)) {
+	if((wire_size == 0) || (read != wire_size)) {
 		return false;
 	}
 	// Numbered-slot browsing stays header-only; MAIN owns full payload validation.
@@ -1244,6 +1304,7 @@ static char *t2op_word_append_japanese(char *p, t2op_word_t word)
 	case T2OW_SCORE: P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
 	case T2OW_HIGH_SCORE: P(0x83); P(0x6E); P(0x83); P(0x43); P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
 	case T2OW_POWER: P(0x97); P(0xEC); P(0x97); P(0xCD); break;
+	case T2OW_SLOWDOWN: P(0x8F); P(0x88); P(0x97); P(0x9D); P(0x97); P(0x8E); P(0x82); P(0xBF); break;
 	case T2OW_LIVES: P(0x8E); P(0x63); P(0x8B); P(0x40); break;
 	case T2OW_BOMBS: P(0x83); P(0x7B); P(0x83); P(0x80); break;
 	case T2OW_SEED: P(0x97); P(0x90); P(0x90); P(0x94); break;
@@ -1320,6 +1381,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_SCORE: P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_HIGH_SCORE: P('H'); P('i'); P('g'); P('h'); P(' '); P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_POWER: P('P'); P('o'); P('w'); P('e'); P('r'); break;
+	case T2OW_SLOWDOWN: P('S'); P('l'); P('o'); P('w'); P('d'); P('o'); P('w'); P('n'); break;
 	case T2OW_LIVES: P('L'); P('i'); P('v'); P('e'); P('s'); break;
 	case T2OW_BOMBS: P('B'); P('o'); P('m'); P('b'); P('s'); break;
 	case T2OW_SEED: P('S'); P('e'); P('e'); P('d'); break;
@@ -1392,6 +1454,40 @@ static char *t2op_i32_append(char *p, int32_t value, unsigned width)
 		}
 	}
 	return t2op_u32_append(p, magnitude, width);
+}
+
+static char *t2op_slowdown_append(char *p)
+{
+	uint32_t accumulator;
+	uint32_t remainder;
+	uint32_t threshold;
+	uint16_t percent;
+	uint8_t i;
+
+	if(
+		(t2op_header_wire_size() == T2REPLAY_HEADER_SIZE_LEGACY) ||
+		(t2op_header.timed_frames == 0)
+	) {
+		return t2op_char(p, '-');
+	}
+	percent = static_cast<uint16_t>(
+		(t2op_header.slow_frames / t2op_header.timed_frames) * 100UL
+	);
+	remainder = (
+		t2op_header.slow_frames % t2op_header.timed_frames
+	);
+	accumulator = 0;
+	threshold = (t2op_header.timed_frames - remainder);
+	for(i = 0; i < 100; i++) {
+		if(accumulator >= threshold) {
+			accumulator -= threshold;
+			percent++;
+		} else {
+			accumulator += remainder;
+		}
+	}
+	p = t2op_u32_append(p, percent, 0);
+	return t2op_char(p, '%');
 }
 
 static void t2op_text_put(tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end)
@@ -3009,6 +3105,9 @@ static void t2op_detail_render(uint8_t slot)
 	T2OP_DETAIL_LABEL(12, T2OW_POWER);
 	p = t2op_u32_append(t2op_line, t2op_header.power_final, 0);
 	t2op_text_put(20, 12, TX_WHITE, p);
+	T2OP_DETAIL_LABEL(13, T2OW_SLOWDOWN);
+	p = t2op_slowdown_append(t2op_line);
+	t2op_text_put(20, 13, TX_WHITE, p);
 	#undef T2OP_DETAIL_LABEL
 
 	p = t2op_line;
