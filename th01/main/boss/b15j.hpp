@@ -5,8 +5,10 @@
 
 // This is deliberately a private source-profile gate. No release or public
 // Practice target enables it; a natural/direct witness is still required.
-#ifndef T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
-#define T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE 0
+#if defined(T1KIKN) || defined(T1KIKD)
+	#define T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE 1
+#else
+	#define T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE 0
 #endif
 
 enum {

@@ -66,8 +66,9 @@
 // measurement-only SinGyoku pixel probe to sequential and direct playback.
 // Value 6 captures the natural Konngara phase-1-frame-0 witness only. Value
 // 7 captures YuugenMagan's natural, source-checked first-combat boundary on
-// Easy/Normal. 9 is the matching private fresh-process constructor profile;
-// neither value changes the public Practice target set.
+// Easy/Normal. 9 is the matching private fresh-process constructor profile.
+// Later paired witnesses use separate short defines and do not consume this
+// numeric selector ABI; none changes the public Practice target set.
 #ifndef T1RP
 #define T1RP 0
 #endif
@@ -124,6 +125,20 @@
 #endif
 #define T1ELX_TRACE (T1ELX_NATURAL_TRACE || T1ELX_DIRECT_TRACE)
 #define T1REPLAY_ELIS_FIRST_COMBAT_TRACE T1ELX_TRACE
+// Keep these selectors short for Turbo C++'s 32-character macro-name limit.
+// Like Elis, Kikuri remains outside the numeric T1RP selector ABI.
+#if defined(T1KIKN)
+	#define T1KIK_NATURAL_TRACE 1
+#else
+	#define T1KIK_NATURAL_TRACE 0
+#endif
+#if defined(T1KIKD)
+	#define T1KIK_DIRECT_TRACE 1
+#else
+	#define T1KIK_DIRECT_TRACE 0
+#endif
+#define T1KIK_TRACE (T1KIK_NATURAL_TRACE || T1KIK_DIRECT_TRACE)
+#define T1REPLAY_KIKURI_FIRST_COMBAT_TRACE T1KIK_TRACE
 #define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
 	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE || \

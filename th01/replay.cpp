@@ -34,12 +34,14 @@
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
 #include "th01/main/boss/b10j.hpp"
+#include "th01/main/boss/b15j.hpp"
 #include "th01/main/boss/b15m.hpp"
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
 #include "th01/t1ymx.hpp"
 #include "th01/t1elx.hpp"
+#include "th01/t1kik.hpp"
 #include "th01/snd/mdrv2.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 
@@ -1413,6 +1415,9 @@ static uint8_t t1replay_group_number(uint8_t group)
 #if T1ELX_DIRECT_TRACE
 #define T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET 4
 #endif
+#if T1KIK_DIRECT_TRACE
+#define T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET 5
+#endif
 
 static bool t1replay_practice_boss_phase_start_valid(
 	const t1replay_start_t far *start
@@ -1454,6 +1459,13 @@ static bool t1replay_practice_boss_phase_start_valid(
 			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET) &&
 		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
 		(start->route == ROUTE_MAKAI)
+	);
+#elif T1KIK_DIRECT_TRACE
+	return (
+		(start->practice_boss_phase ==
+			T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU)
 	);
 #else
 	return false;
@@ -2030,6 +2042,19 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 	}
 #endif
 
+#if T1KIK_DIRECT_TRACE
+	if(
+		(state->practice.section == T1RPS_BOSS_START) &&
+		(state->practice.scene == 2) &&
+		(state->practice.route == ROUTE_JIGOKU) &&
+		(state->practice.chapter == BOSS_STAGE) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU)
+	) {
+		return T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET;
+	}
+#endif
+
 	if(
 		(state->practice.section != T1RPS_BOSS_PHASE) ||
 		(state->practice.chapter != BOSS_STAGE)
@@ -2092,6 +2117,16 @@ static void t1replay_start_capture(void)
 		(start->practice_boss_phase == T1RPBPT_NONE)
 	) {
 		t1elx_natural_prepare();
+	}
+#endif
+#if T1KIK_NATURAL_TRACE
+	if(
+		(t1replay_mode == T1RM_RECORD) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
+		(start->route == ROUTE_JIGOKU) &&
+		(start->practice_boss_phase == T1RPBPT_NONE)
+	) {
+		t1kik_natural_prepare();
 	}
 #endif
 }
@@ -2448,6 +2483,9 @@ static void t1replay_state_reset(void)
 #endif
 #if T1ELX_TRACE
 	t1elx_trace_reset();
+#endif
+#if T1KIK_TRACE
+	t1kik_trace_reset();
 #endif
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_trace_ready = false;
@@ -3021,6 +3059,52 @@ static bool t1replay_practice_elis_first_combat_restore_apply(
 }
 #endif
 
+#if T1KIK_DIRECT_TRACE
+static bool t1replay_practice_kikuri_first_combat_restore_apply(
+	int *pellet_speed_raise_cycle
+)
+{
+	const t1replay_start_t far *start = &t1replay_header.start;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		((t1replay_mode != T1RM_RECORD) &&
+		 (t1replay_mode != T1RM_PLAYBACK)) ||
+		!resident || !t1replay_res ||
+		(t1replay_res->process_seq != 0) ||
+		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_boss_phase_start_valid(start) ||
+		(start->practice_boss_phase !=
+			T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET) ||
+		(resident->stage_id != ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_KIKURI) ||
+		!t1boss_kikuri_first_combat_profile_apply_loaded() ||
+		!t1kik_direct_prepare()
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	// Resume through the same native post-entrance branch as sequential
+	// Phase 2. The owner already restored the source-owned page and palette.
+	timer_initialized = true;
+	irand_init(frame_rand);
+	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+	first_stage_in_scene = false;
+	frame_rand++;
+	*pellet_speed_raise_cycle = (
+		1800 - (rem_lives * 200) - (rem_bombs * 50)
+	);
+	if((frame_rand % *pellet_speed_raise_cycle) == 0) {
+		pellet_speed_raise(0.025f);
+	}
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
+}
+#endif
+
 static bool t1replay_practice_boss_phase_restore_apply(
 	int *pellet_speed_raise_cycle
 )
@@ -3112,6 +3196,16 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET
 		) {
 			return t1replay_practice_elis_first_combat_restore_apply(
+				pellet_speed_raise_cycle
+			);
+		}
+		#endif
+		#if T1KIK_DIRECT_TRACE
+		if(
+			t1replay_header.start.practice_boss_phase ==
+			T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET
+		) {
+			return t1replay_practice_kikuri_first_combat_restore_apply(
 				pellet_speed_raise_cycle
 			);
 		}
@@ -3331,6 +3425,11 @@ static bool t1replay_checkpoint_snapshot_capture(
 
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 {
+#if T1KIK_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1kik_pre_input(t1replay_res ? t1replay_res->process_seq : 0);
+	}
+#endif
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_pellet_speed_raise_cycle = pellet_speed_raise_cycle;
 	if(t1replay_mode == T1RM_PLAYBACK) {
@@ -3651,6 +3750,12 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
 	uint32_t digest = T1REPLAY_FNV1A_BASIS;
 
+#if T1KIK_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1kik_pre_input(t1replay_res ? t1replay_res->process_seq : 0);
+	}
+#endif
+
 #if T1REPLAY_KONNGARA_PHASE1_TRACE
 	if(t1replay_mode == T1RM_RECORD) {
 		t1replay_pixel_probe_konngara_phase1_pre_input(
@@ -3888,6 +3993,11 @@ void far t1replay_gameplay_input_begin(void)
 void far t1replay_gameplay_input_end(void)
 {
 	t1replay_gameplay_input_armed = false;
+#if T1KIK_TRACE
+	if(t1replay_mode == T1RM_RECORD) {
+		t1kik_post_input(t1replay_res ? t1replay_res->process_seq : 0);
+	}
+#endif
 	if(t1replay_mode == T1RM_RECORD) {
 		// The stock life-loss path exposes no replay hook. Its first gameplay
 		// input seam is nevertheless source-identifiable by the native miss
