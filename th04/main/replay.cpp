@@ -3168,9 +3168,6 @@ static void replay_debug_stage_coordinates_put(void)
 	uint16_t map_list_offset;
 	uint8_t map_section;
 
-	if(!replay_practice_diagnostic) {
-		return;
-	}
 	next_std_frame = *reinterpret_cast<const uint16_t far *>(std_ip);
 #if (GAME == 5)
 	map_list_offset = static_cast<uint16_t>(std_map_section_p);
@@ -3207,7 +3204,9 @@ void replay_input_reset_sense_tail(void)
 		key_det = INPUT_NONE;
 		shiftkey = false;
 	}
-	replay_debug_stage_coordinates_put();
+	if(replay_practice_diagnostic) {
+		replay_debug_stage_coordinates_put();
+	}
 }
 
 void replay_input_reset_sense_interstitial(void)
