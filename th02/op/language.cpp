@@ -128,7 +128,7 @@ static void t2_language_option_change(int direction)
 		);
 
 		if(
-			((target == T2LANG_JAPANESE) || t2_language_english_ready()) &&
+			((target == T2LANG_JAPANESE) || t2_language_overlay_valid()) &&
 			t2_language_set(target)
 		) {
 			t2_language_op_tables_apply();
