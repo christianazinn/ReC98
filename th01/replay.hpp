@@ -85,6 +85,9 @@ bool16 far t1replay_pause_save_refresh(void);
 // gameplay running but turns the current recording into a non-saveable run.
 void far t1replay_guard_pause_check(void);
 bool16 far t1replay_pause_restart_available(void);
+// Escape is a physical, playback-only cancellation path. It must be queried
+// before Pause consumes its next canonical input sample.
+bool16 far t1replay_pause_playback_abort_requested(void);
 void far t1replay_pause_action_set(t1replay_pause_action_t action);
 
 #endif /* TH01_REPLAY_HPP */
