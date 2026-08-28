@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <dos.h>
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th01/replay_format.hpp"
 #include "th01/rank.h"
 #include "th01/resident.hpp"
 #include "th01/v_colors.hpp"
@@ -38,6 +39,9 @@
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/hud/hp.hpp"
 #include "th01/main/hud/hud.hpp"
+#if T1SAR_TRACE
+	#include "th01/t1sar.hpp"
+#endif
 
 static const char* unused_entrance_letters_maybe[] = { "ANGEL", "OF", "DEATH" };
 int8_t game_cleared = false; // ACTUAL TYPE: bool
@@ -2615,6 +2619,16 @@ void sariel_main(void)
 				wand_lowered_snap();
 				wand_render_raise_both(true);
 				birds_reset();
+#if T1SAR_TRACE
+				t1sar_owner_set(
+					boss_phase, boss_phase_frame, boss_hp,
+					hud_hp_first_white, hud_hp_first_redwhite,
+					pattern_state.frame, invincibility_frame, invincible,
+					phase.pattern_cur, phase.u1.patterns_done,
+					phase.patterns_until_next, initial_hp_rendered,
+					ent_shield, anm_dress, anm_wand
+				);
+#endif
 				break;
 			}
 entrance_rings_still_active:
@@ -2641,6 +2655,16 @@ entrance_rings_still_active:
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(2);
+#if T1SAR_TRACE
+		t1sar_owner_set(
+			boss_phase, boss_phase_frame, boss_hp,
+			hud_hp_first_white, hud_hp_first_redwhite,
+			pattern_state.frame, invincibility_frame, invincible,
+			phase.pattern_cur, phase.u1.patterns_done,
+			phase.patterns_until_next, initial_hp_rendered,
+			ent_shield, anm_dress, anm_wand
+		);
+#endif
 	} else if(boss_phase == 2) {
 		phase.frame_bg_transition(1);
 		if(boss_phase_frame == 0) {
@@ -3171,5 +3195,25 @@ bool16 t1boss_sariel_ckpt_apply_loaded(
 	game_cleared = false;
 	return true;
 }
+
+#if T1SAR_DIRECT_TRACE
+bool16 t1boss_sariel_first_combat_direct_construct(void)
+{
+	// The ordinary stage loader has already installed the resources, palette,
+	// and phase-0 source state. Do not substitute a
+	// checkpoint or replay the entrance here: phase 0 itself owns the remaining
+	// native entrance and emits the first combat seam.
+	if(
+		!t1boss_sariel_resources_loaded() || game_cleared ||
+		(boss_phase != 0) || (boss_phase_frame != 0) || (boss_hp != 18) ||
+		(hud_hp_first_white != 8) || (hud_hp_first_redwhite != 2) ||
+		(pattern_state.frame != 0) || !t1sar_direct_prepare()
+	) {
+		return false;
+	}
+	sariel_main();
+	return t1sar_direct_ready();
+}
+#endif
 
 #pragma codeseg

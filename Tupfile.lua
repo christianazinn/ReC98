@@ -388,6 +388,16 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/kid/",
 		cflags = "-DT1KIKD=1",
 	},
+	["t1sariel-first-combat"] = {
+		obj_root = "x/sn/",
+		bin_root = "x/sn/",
+		cflags = "-DT1SARN=1",
+	},
+	["t1sariel-first-combat-direct"] = {
+		obj_root = "x/sd/",
+		bin_root = "x/sd/",
+		cflags = "-DT1SARD=1",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",
@@ -579,6 +589,7 @@ th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/t1ymx.cpp",
 	"th01/t1elx.cpp",
 	"th01/t1kik.cpp",
+	"th01/t1sar.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

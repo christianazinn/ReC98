@@ -12,11 +12,13 @@
 #if ((BINARY == 'M') && ( \
 	(defined(T1RP) && ((T1RP == 7) || (T1RP == 9))) || \
 	defined(T1ELXN) || defined(T1ELXD) || \
-	defined(T1KIKN) || defined(T1KIKD) \
+	defined(T1KIKN) || defined(T1KIKD) || \
+	defined(T1SARN) || defined(T1SARD) \
 ))
 #include "th01/rpypixel.hpp"
 #include "th01/t1elx.hpp"
 #include "th01/t1kik.hpp"
+#include "th01/t1sar.hpp"
 #endif
 #include "th01/hardware/vsync.hpp"
 #include "th01/hardware/palette.h"
@@ -189,6 +191,8 @@ void graph_showpage_func(page_t page)
 	t1elx_visible_page_set(page);
 #elif (BINARY == 'M') && (defined(T1KIKN) || defined(T1KIKD))
 	t1kik_visible_page_set(page);
+#elif (BINARY == 'M') && (defined(T1SARN) || defined(T1SARD))
+	t1sar_visible_page_set(page);
 #endif
 	outportb(0xA4, page);
 }
@@ -202,6 +206,8 @@ void graph_accesspage_func(int page)
 	t1elx_accessed_page_set(page);
 #elif (BINARY == 'M') && (defined(T1KIKN) || defined(T1KIKD))
 	t1kik_accessed_page_set(page);
+#elif (BINARY == 'M') && (defined(T1SARN) || defined(T1SARD))
+	t1sar_accessed_page_set(page);
 #endif
 	outportb(0xA6, page);
 }

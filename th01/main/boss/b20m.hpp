@@ -2,6 +2,7 @@
 #define TH01_MAIN_BOSS_B20M_HPP
 
 #include "platform.h"
+#include "th01/replay_format.hpp"
 
 enum {
 	T1BOSS_SARIEL_CHECKPOINT_OWNER = 6,
@@ -66,5 +67,11 @@ bool16 t1boss_sariel_checkpoint_capture(
 bool16 t1boss_sariel_ckpt_apply_loaded(
 	const t1boss_sariel_checkpoint_t *checkpoint
 );
+
+#if T1SAR_DIRECT_TRACE
+// Private profile only. The constructor follows the native phase-0 entrance
+// after resources are loaded; it never imports a checkpoint or exposes a UI.
+bool16 t1boss_sariel_first_combat_direct_construct(void);
+#endif
 
 #endif /* TH01_MAIN_BOSS_B20M_HPP */

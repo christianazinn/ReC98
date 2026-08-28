@@ -139,6 +139,20 @@
 #endif
 #define T1KIK_TRACE (T1KIK_NATURAL_TRACE || T1KIK_DIRECT_TRACE)
 #define T1REPLAY_KIKURI_FIRST_COMBAT_TRACE T1KIK_TRACE
+// Sariel's natural/direct witness also uses separate short selectors. It is a
+// private source-ownership probe and never changes T1RPY5 or public Practice.
+#if defined(T1SARN)
+	#define T1SAR_NATURAL_TRACE 1
+#else
+	#define T1SAR_NATURAL_TRACE 0
+#endif
+#if defined(T1SARD)
+	#define T1SAR_DIRECT_TRACE 1
+#else
+	#define T1SAR_DIRECT_TRACE 0
+#endif
+#define T1SAR_TRACE (T1SAR_NATURAL_TRACE || T1SAR_DIRECT_TRACE)
+#define T1REPLAY_SARIEL_FIRST_COMBAT_TRACE T1SAR_TRACE
 #define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
 	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE || \
