@@ -2,6 +2,7 @@
 #define TH01_MAIN_BOSS_B10J_HPP
 
 #include "platform.h"
+#include "th01/replay_format.hpp"
 
 enum {
 	T1BOSS_MIMA_CHECKPOINT_OWNER = 3,

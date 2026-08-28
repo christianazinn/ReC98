@@ -1806,4 +1806,93 @@ bool16 t1boss_mima_practice_first_combat_construct(void)
 	return true;
 }
 
+#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+// Private source-owned Phase 3 boundary. This is deliberately not reachable
+// from the Practice selector or replay bridge until a natural/direct visual
+// witness proves the fresh presentation.
+static bool16 t1boss_mima_phase3_owner_construct(void)
+{
+	t1boss_mima_checkpoint_t start;
+	int i;
+
+	// Phase 3 is entered only after Phase 2 finished Mima's spread-in. Start
+	// from the untouched native Mima loader instead and materialize that
+	// canonical post-transition owner state without simulating either phase.
+	if(
+		!resident ||
+		(resident->stage_id != ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_MIMA) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent_still.cur_left != BASE_LEFT) ||
+		(ent_still.cur_top != PLAYFIELD_TOP) ||
+		(ent_still.image() != 0) ||
+		(ent_anim.image() != C_METEOR) ||
+		(ent_still.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+
+	start.owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+	start.phase = 3;
+	start.pattern = 0;
+	start.phase_frame = 0;
+	start.hp = HP_PHASE_1_END;
+	start.invincibility_frame = 0;
+	start.pattern_state = 0;
+	start.entity_left = BASE_LEFT;
+	start.entity_top = BASE_TOP;
+	start.target_left = 0;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		start.pillar_time[i] = 0;
+		start.pillar_center_x[i] = 0;
+		start.pillar_bottom[i] = 0;
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		start.laser_corner_x[i] = 0;
+		start.laser_corner_y[i] = 0;
+	}
+	start.meteor_active = true;
+	start.spreadin_interval = 4;
+	start.spreadin_speed = 8;
+	start.initial_hp_rendered = true;
+	start.hit_invincible = false;
+	start.hop = static_cast<uint8_t>(-1);
+	start.hop_direction = X_RIGHT;
+	start.entity_image = 0;
+	start.animation_image = C_METEOR;
+	start.entity_hitbox_inactive = false;
+	start.square_aimed_pellets_angle = 0;
+	start.square_aimed_pellets_radius = 0;
+	start.square_aimed_missiles_angle = 0;
+	start.square_aimed_missiles_radius = 0;
+	start.square_two_pellets_angle = 0;
+	start.square_two_pellets_radius = 0;
+	start.square_halfcircle_missiles_angle = 0;
+	start.square_halfcircle_missiles_radius = 0;
+	start.square_slow_spray_angle = 0;
+	start.square_slow_spray_radius = 0;
+	start.square_lasers_angle = 0;
+	start.square_lasers_radius = 0;
+	start.missile_angle = 0;
+	start.pellet_angle = 0;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_mima_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// Phase 2 has already produced the static both-page Mima image and the
+	// completed HP bar. Recreate its backing and presentation in that order.
+	mima_put_still_both();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	hud_hp_rerender(HP_PHASE_1_END);
+	return true;
+}
+#endif
+
 #pragma codeseg
