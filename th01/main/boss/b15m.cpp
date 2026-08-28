@@ -20,6 +20,7 @@
 #include "th01/main/shape.hpp"
 #include "th01/main/particle.hpp"
 #include "th01/main/hud/hp.hpp"
+#include "th01/main/debug.hpp"
 #include "th01/main/player/player.hpp"
 #include "th01/main/boss/entity_a.hpp"
 #include "th01/main/boss/defeat.hpp"
@@ -556,6 +557,13 @@ static union {
 	int speed_multiplied_by_8;
 	pixel_t speed;
 } pattern_state;
+
+// The direct first-combat constructor is consumed on the next elis_main()
+// call. This is outside every native pattern-state domain and is cleared
+// before phase 1 runs, so it adds neither a pointer nor BSS state.
+enum {
+	ELIS_FIRST_COMBAT_CARRIER = -32768,
+};
 // --------
 
 // Global boss state that is defined here for some reason, part 2
@@ -1304,9 +1312,9 @@ elis_form_t transform_bat_to_girl(void)
 			ent_bat.cur_left, ent_bat.cur_top, BAT_W, BAT_H
 		);
 
-		// Should ideally be a branch in ent_sync(), but that would make the
-		// function too complex to perfectly inline. It's only used here,
-		// anyway.
+		// Should ideally be a branch in the shared entity-sync path, but that
+		// would make the helper too complex to perfectly inline. It's only used
+		// here, anyway.
 		left = (ent_bat.cur_center_x() - (GIRL_W / 2));
 		top  = (ent_bat.cur_center_y() - (GIRL_H / 2));
 		if(left < PLAYFIELD_LEFT) {
@@ -1853,6 +1861,21 @@ void elis_main(void)
 	const vc_t flash_colors[] = { 3, 6, 8, 2 };
 	unsigned char angle;
 
+	if(
+		(boss_phase == 1) &&
+		(pattern_state.angle_range == ELIS_FIRST_COMBAT_CARRIER)
+	) {
+		form = F_GIRL;
+		hit.invincibility_frame = 0;
+		hit.invincible = false;
+		phase.cur.pattern = 1;
+		phase.teleport_done = false;
+		bat_velocity_y = 0;
+		bat_velocity_x = 0;
+		initial_hp_rendered = false;
+		pattern_state.angle_range = 0;
+	}
+
 	Missiles.unput_update_render();
 
 	// Entrance animation
@@ -2181,6 +2204,40 @@ static bool16 t1boss_elis_entities_loaded(void)
 	);
 }
 
+static bool16 t1boss_elis_live_entity_is_canonical(
+	const CBossEntity& entity
+)
+{
+	return (
+		(entity.cur_left == BASE_LEFT) && (entity.cur_top == BASE_TOP) &&
+		(entity.prev_left == 0) && (entity.prev_top == 0) &&
+		(entity.prev_delta_x == 0) && (entity.prev_delta_y == 0) &&
+		(entity.image() == C_STILL) && !entity.hitbox_orb_inactive &&
+		(entity.lock_frame == 0)
+	);
+}
+
+extern int8_t boss_id;
+
+static bool16 t1boss_elis_first_combat_preconditions_valid(void)
+{
+	return (
+		resident &&
+		(boss_id == BID_ELIS) &&
+		(route == ROUTE_MAKAI) && (resident->route == ROUTE_MAKAI) &&
+		(resident->stage_id == ((2 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
+		(frame_since_start_of_binary == 0) &&
+		t1boss_elis_entities_loaded() &&
+		(boss_phase == 0) && (boss_phase_frame == 0) &&
+		(boss_hp == HP_TOTAL) && (pattern_state.angle_range == 0) &&
+		(hud_hp_first_white == HP_PHASE_1_END) &&
+		(hud_hp_first_redwhite == HP_PHASE_3_END) &&
+		t1boss_elis_live_entity_is_canonical(ent_still_or_wave) &&
+		t1boss_elis_live_entity_is_canonical(ent_attack) &&
+		t1boss_elis_live_entity_is_canonical(ent_bat)
+	);
+}
+
 bool16 t1boss_elis_checkpoint_validate(
 	const t1boss_elis_checkpoint_t *checkpoint
 )
@@ -2301,6 +2358,29 @@ bool16 t1boss_elis_checkpoint_apply(
 	// Rebuild .BOS, .GRC, and .PTN resources through the native owner.
 	elis_load();
 	return t1boss_elis_ckpt_apply_loaded(checkpoint);
+}
+
+bool16 t1boss_elis_practice_first_combat_apply(void)
+{
+	if(!t1boss_elis_first_combat_preconditions_valid()) {
+		return false;
+	}
+
+	// This is the backing and two-page final paint left by the native entrance,
+	// without running its stack-history-dependent trail animation.
+	boss_palette_snap();
+	girl_bg_snap(1);
+	graph_accesspage_func(1);
+	ent_still_or_wave.unlock_put_lock_8();
+	graph_accesspage_func(0);
+	ent_still_or_wave.unlock_put_lock_8();
+
+	boss_phase = 1;
+	boss_phase_frame = 0;
+	boss_hp = HP_TOTAL;
+	ent_still_or_wave.hitbox_orb_inactive = false;
+	pattern_state.angle_range = ELIS_FIRST_COMBAT_CARRIER;
+	return true;
 }
 
 #pragma codeseg
