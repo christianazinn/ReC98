@@ -32,6 +32,9 @@
 #define T2OP_DETAIL_SPLIT_SCORE_X 54
 #define T2OP_PRACTICE_LABEL_X 7
 #define T2OP_PRACTICE_VALUE_RIGHT 75
+#define T2OP_TITLE_COMMAND_FIRST_ROW 16
+#define T2OP_TITLE_RANK_ROW 23
+#define T2OP_TITLE_QUIT_ROW 24
 
 extern char sel;
 
@@ -1974,12 +1977,15 @@ static void t2op_main_render(void)
 		default: label = T2OW_QUIT; break;
 		}
 		t2op_main_line_put(
-			static_cast<tram_y_t>(9 + row),
+			static_cast<tram_y_t>(
+				(row == T2OMC_QUIT) ? T2OP_TITLE_QUIT_ROW :
+				(T2OP_TITLE_COMMAND_FIRST_ROW + row)
+			),
 			(t2op_main_sel == row), label, locked
 		);
 	}
-	t2op_title_gaiji_raw_put(26, 19, TX_GREEN, gbRANK);
-	t2op_title_gaiji_raw_put(38, 19, TX_GREEN, gbcRANKS[rank]);
+	t2op_title_gaiji_raw_put(26, T2OP_TITLE_RANK_ROW, TX_GREEN, gbRANK);
+	t2op_title_gaiji_raw_put(38, T2OP_TITLE_RANK_ROW, TX_GREEN, gbcRANKS[rank]);
 }
 
 static void t2op_main_selection_step(int8_t direction)
