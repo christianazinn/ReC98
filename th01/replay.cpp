@@ -34,10 +34,12 @@
 #include "th01/main/boss/boss.hpp"
 #include "th01/main/boss/b05.hpp"
 #include "th01/main/boss/b10j.hpp"
+#include "th01/main/boss/b15m.hpp"
 #include "th01/main/boss/b20j.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
 #include "th01/t1ymx.hpp"
+#include "th01/t1elx.hpp"
 #include "th01/snd/mdrv2.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 
@@ -1408,6 +1410,9 @@ static uint8_t t1replay_group_number(uint8_t group)
 #if T1YMX_DIRECT_TRACE
 #define T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET 3
 #endif
+#if T1ELX_DIRECT_TRACE
+#define T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET 4
+#endif
 
 static bool t1replay_practice_boss_phase_start_valid(
 	const t1replay_start_t far *start
@@ -1441,6 +1446,13 @@ static bool t1replay_practice_boss_phase_start_valid(
 		(start->practice_boss_phase ==
 			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET) &&
 		(start->stage_id == ((STAGES_PER_SCENE * 1) + BOSS_STAGE)) &&
+		(start->route == ROUTE_MAKAI)
+	);
+#elif T1ELX_DIRECT_TRACE
+	return (
+		(start->practice_boss_phase ==
+			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
 		(start->route == ROUTE_MAKAI)
 	);
 #else
@@ -2005,6 +2017,19 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 	}
 #endif
 
+#if T1ELX_DIRECT_TRACE
+	if(
+		(state->practice.section == T1RPS_BOSS_START) &&
+		(state->practice.scene == 2) &&
+		(state->practice.route == ROUTE_MAKAI) &&
+		(state->practice.chapter == BOSS_STAGE) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
+		(start->route == ROUTE_MAKAI)
+	) {
+		return T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET;
+	}
+#endif
+
 	if(
 		(state->practice.section != T1RPS_BOSS_PHASE) ||
 		(state->practice.chapter != BOSS_STAGE)
@@ -2059,6 +2084,16 @@ static void t1replay_start_capture(void)
 	start->snd_need_init = resident->snd_need_init;
 	start->start_binary = T1REPLAY_PROCESS_REIIDEN;
 	start->practice_boss_phase = t1replay_practice_boss_phase_from_restart(start);
+#if T1ELX_NATURAL_TRACE
+	if(
+		(t1replay_mode == T1RM_RECORD) &&
+		(start->stage_id == ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) &&
+		(start->route == ROUTE_MAKAI) &&
+		(start->practice_boss_phase == T1RPBPT_NONE)
+	) {
+		t1elx_natural_prepare();
+	}
+#endif
 }
 
 static void t1replay_start_apply(void)
@@ -2410,6 +2445,9 @@ static void t1replay_state_reset(void)
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 #if T1REPLAY_PRIVATE_PIXEL_TRACE
 	t1replay_pixel_probe_reset();
+#endif
+#if T1ELX_TRACE
+	t1elx_trace_reset();
 #endif
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_trace_ready = false;
@@ -2937,6 +2975,52 @@ static bool t1replay_practice_yuugenmagan_first_combat_restore_apply(
 }
 #endif
 
+#if T1ELX_DIRECT_TRACE
+static bool t1replay_practice_elis_first_combat_restore_apply(
+	int *pellet_speed_raise_cycle
+)
+{
+	const t1replay_start_t far *start = &t1replay_header.start;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		((t1replay_mode != T1RM_RECORD) &&
+		 (t1replay_mode != T1RM_PLAYBACK)) ||
+		!resident || !t1replay_res ||
+		(t1replay_res->process_seq != 0) ||
+		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_boss_phase_start_valid(start) ||
+		(start->practice_boss_phase !=
+			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET) ||
+		(resident->stage_id != ((STAGES_PER_SCENE * 2) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_MAKAI) ||
+		(boss_id != BID_ELIS) ||
+		!t1boss_elis_practice_first_combat_apply() ||
+		!t1elx_direct_prepare()
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+
+	// The owner leaves a carrier for elis_main() to consume. This follows the
+	// same native post-entrance input branch as a sequential run.
+	timer_initialized = true;
+	irand_init(frame_rand);
+	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+	first_stage_in_scene = false;
+	frame_rand++;
+	*pellet_speed_raise_cycle = (
+		1800 - (rem_lives * 200) - (rem_bombs * 50)
+	);
+	if((frame_rand % *pellet_speed_raise_cycle) == 0) {
+		pellet_speed_raise(0.025f);
+	}
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
+}
+#endif
+
 static bool t1replay_practice_boss_phase_restore_apply(
 	int *pellet_speed_raise_cycle
 )
@@ -3018,6 +3102,16 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET
 		) {
 			return t1replay_practice_yuugenmagan_first_combat_restore_apply(
+				pellet_speed_raise_cycle
+			);
+		}
+		#endif
+		#if T1ELX_DIRECT_TRACE
+		if(
+			t1replay_header.start.practice_boss_phase ==
+			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET
+		) {
+			return t1replay_practice_elis_first_combat_restore_apply(
 				pellet_speed_raise_cycle
 			);
 		}

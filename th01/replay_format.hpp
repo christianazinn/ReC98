@@ -109,6 +109,21 @@
 #define T1YMX_DIRECT_TRACE (T1RP == 9)
 #define T1YMX_TRACE (T1YMX_NATURAL_TRACE || T1YMX_DIRECT_TRACE)
 #define T1REPLAY_YUUGENMAGAN_FIRST_COMBAT_TRACE T1YMX_TRACE
+// The Elis witness uses distinct short profile defines and leaves T1RP at its
+// normal release value. This keeps its private profile separate from the
+// established numeric T1RP selector ABI.
+#if defined(T1ELXN)
+	#define T1ELX_NATURAL_TRACE 1
+#else
+	#define T1ELX_NATURAL_TRACE 0
+#endif
+#if defined(T1ELXD)
+	#define T1ELX_DIRECT_TRACE 1
+#else
+	#define T1ELX_DIRECT_TRACE 0
+#endif
+#define T1ELX_TRACE (T1ELX_NATURAL_TRACE || T1ELX_DIRECT_TRACE)
+#define T1REPLAY_ELIS_FIRST_COMBAT_TRACE T1ELX_TRACE
 #define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
 	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE || \

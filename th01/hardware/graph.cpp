@@ -9,8 +9,9 @@
 #include "th01/hardware/grcg.hpp"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/grppsafx.h"
-#if defined(T1RP) && ((T1RP == 7) || (T1RP == 9)) && defined(T1YMX_REIIDEN)
+#if (defined(T1RP) && ((T1RP == 7) || (T1RP == 9)) && defined(T1YMX_REIIDEN)) || (defined(T1ELX_REIIDEN) && (defined(T1ELXN) || defined(T1ELXD)))
 #include "th01/rpypixel.hpp"
+#include "th01/t1elx.hpp"
 #endif
 #include "th01/hardware/vsync.hpp"
 #include "th01/hardware/palette.h"
@@ -179,6 +180,8 @@ void graph_showpage_func(page_t page)
 	// its latch stays in the additive far-data probe rather than this stock
 	// module.
 	t1ymx_visible_page_set(page);
+#elif defined(T1ELX_REIIDEN) && (defined(T1ELXN) || defined(T1ELXD))
+	t1elx_visible_page_set(page);
 #endif
 	outportb(0xA4, page);
 }
@@ -188,6 +191,8 @@ void graph_accesspage_func(int page)
 	page_accessed = page;
 #if defined(T1RP) && ((T1RP == 7) || (T1RP == 9)) && defined(T1YMX_REIIDEN)
 	t1ymx_accessed_page_set(page);
+#elif defined(T1ELX_REIIDEN) && (defined(T1ELXN) || defined(T1ELXD))
+	t1elx_accessed_page_set(page);
 #endif
 	outportb(0xA6, page);
 }
@@ -966,7 +971,7 @@ struct respal_t {
 // ----------------
 
 // Memory Control Block
-// Adapted from FreeDOS' kernel/hdr/mcb.h
+// Adapted from the FreeDOS kernel's MCB header.
 // --------------------
 
 #define MCB_NORMAL 0x4d

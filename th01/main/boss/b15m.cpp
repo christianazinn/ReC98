@@ -29,6 +29,7 @@
 #include "th01/main/bullet/missile.hpp"
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/stages.hpp"
+#include "th01/t1elx.hpp"
 
 // Coordinates
 // -----------
@@ -428,7 +429,7 @@ static const pixel_t BIGCIRCLE_RADIUS = ((GIRL_W * 2) / 2);
 }
 
 // All of the summon animation macros below are forced to be used inside an
-// `if` statement, returning a non-zero value when the flash animation is done.
+// if statement, returning a non-zero value when the flash animation is done.
 // MODDERS: Just turn them into regular functions.
 
 // Renders a frame of the summon animation.
@@ -1875,6 +1876,18 @@ void elis_main(void)
 		initial_hp_rendered = false;
 		pattern_state.angle_range = 0;
 	}
+
+#if T1ELX_TRACE
+	// This is the first source-owned hook after both the native entrance and
+	// the direct carrier have initialized the same Elis-local static state.
+	t1elx_pre_input(
+		BID_ELIS, boss_phase, boss_phase_frame, boss_hp,
+		pattern_state.angle_range, form, hit.invincibility_frame,
+		hit.invincible, phase.cur.pattern, phase.teleport_done,
+		bat_velocity_x, bat_velocity_y, initial_hp_rendered,
+		ent_still_or_wave, ent_attack, ent_bat
+	);
+#endif
 
 	Missiles.unput_update_render();
 

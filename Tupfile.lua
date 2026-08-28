@@ -368,6 +368,16 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/yd/",
 		cflags = "-DT1RP=9",
 	},
+	["t1elis-first-combat"] = {
+		obj_root = "x/e/",
+		bin_root = "x/e/",
+		cflags = "-DT1ELXN=1",
+	},
+	["t1elis-first-combat-direct"] = {
+		obj_root = "x/ed/",
+		bin_root = "x/ed/",
+		cflags = "-DT1ELXD=1",
+	},
 	["t1score-proof"] = {
 		obj_root = "x/p/",
 		bin_root = "x/p/",
@@ -490,7 +500,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/rpyop.cpp",
 	"th01/language.cpp",
 })
-th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1" }):link("reiiden", {
+th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1 -DT1ELX_REIIDEN=1" }):link("reiiden", {
 	piloadc,
 	"th01/main_01.cpp",
 	"th01/frmdelay.cpp",
@@ -557,6 +567,7 @@ th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M' -DT1YMX_REIIDEN=1" }):
 	"th01/rpresent.cpp",
 	"th01/rpypixel.cpp",
 	"th01/t1ymx.cpp",
+	"th01/t1elx.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
