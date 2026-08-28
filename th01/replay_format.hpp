@@ -92,6 +92,7 @@
 
 #define T1REPLAY_PIXEL_TRACE ((T1RP == 4) || (T1RP == 5))
 #define T1REPLAY_KONNGARA_PHASE1_TRACE (T1RP == 6)
+#define T1REPLAY_PRACTICE_BOSS_PHASE 1
 #define T1REPLAY_PRIVATE_PIXEL_TRACE ( \
 	T1REPLAY_PIXEL_TRACE || T1REPLAY_KONNGARA_PHASE1_TRACE \
 )
@@ -127,6 +128,14 @@ enum t1replay_practice_section_t {
 	T1RPS_STAGE_START,
 	T1RPS_CHAPTER,
 	T1RPS_BOSS_START,
+	T1RPS_BOSS_PHASE,
+};
+
+// A public Boss Phase target is a named, source-constructed first input seam,
+// never a raw owner phase value or a checkpoint selection.
+enum t1replay_practice_boss_phase_target_t {
+	T1RPBPT_NONE = 0,
+	T1RPBPT_SINGYOKU_FIRST_COMBAT = 1,
 };
 
 // OP's transient Practice choice is also the semantic restart configuration.
@@ -282,7 +291,8 @@ struct t1replay_start_t {
 	int8_t snd_need_init;
 	int8_t mode_test;
 	int8_t start_binary;
-	uint8_t reserved[3];
+	uint8_t practice_boss_phase;
+	uint8_t reserved[2];
 };
 
 #define T1REPLAY_STAGE_FLAG_REACHED 0x01

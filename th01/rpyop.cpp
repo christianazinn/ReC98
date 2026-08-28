@@ -515,7 +515,7 @@ static bool t1replay_op_practice_start_valid(
 	return (
 		(start->scene < SCENE_COUNT) &&
 		(start->route < ROUTE_COUNT) &&
-		(start->section <= T1RPS_BOSS_START) &&
+		(start->section <= T1RPS_BOSS_PHASE) &&
 		(start->chapter <= BOSS_STAGE) &&
 		(start->rank >= 0) && (start->rank <= RANK_LUNATIC) &&
 		(start->score >= 0) && (start->score <= 99990000L) &&
@@ -523,7 +523,15 @@ static bool t1replay_op_practice_start_valid(
 		(start->bombs >= 0) && (start->bombs <= BOMBS_MAX) &&
 		(start->point_value <= T1REPLAY_OP_POINT_CAP) &&
 		(start->pellet_speed >= PELLET_SPEED_LOWER_MIN) &&
-		(start->pellet_speed <= PELLET_SPEED_RAISE_MAX)
+		(start->pellet_speed <= PELLET_SPEED_RAISE_MAX) &&
+		(
+			(start->section != T1RPS_BOSS_PHASE) ?
+			true :
+			(
+				(start->scene == 0) && (start->route == ROUTE_MAKAI) &&
+				(start->chapter == BOSS_STAGE)
+			)
+		)
 	);
 }
 
@@ -1466,6 +1474,8 @@ enum t1replay_op_word_t {
 	T1ROW_JIGOKU,
 	T1ROW_STAGE_START,
 	T1ROW_BOSS_START,
+	T1ROW_BOSS_PHASE,
+	T1ROW_FIRST_COMBAT,
 	T1ROW_SINGYOKU,
 	T1ROW_YUUGENMAGAN,
 	T1ROW_MIMA,
@@ -1588,6 +1598,10 @@ static bool t1replay_op_word_japanese_append(
 	case T1ROW_JIGOKU: T1ROW_JP4(0x92, 0x6E, 0x8D, 0x96); break;
 	case T1ROW_STAGE_START: T1ROW_JP6(0x96, 0xCA, 0x8A, 0x4A, 0x8E, 0x6E); break;
 	case T1ROW_BOSS_START: T1ROW_JP4(0x83, 0x7B, 0x83, 0x58); T1ROW_JP4(0x8A, 0x4A, 0x8E, 0x6E); break;
+	case T1ROW_BOSS_PHASE:
+		T1ROW_JP4(0x83, 0x7B, 0x83, 0x58);
+		T1ROW_JP8(0x83, 0x74, 0x83, 0x46, 0x81, 0x5B, 0x83, 0x58); break;
+	case T1ROW_FIRST_COMBAT: T1ROW_JP6(0x91, 0xE6, 0x88, 0xEA, 0x90, 0xED); break;
 	case T1ROW_SINGYOKU: T1ROW_JP4(0x90, 0x5F, 0x8B, 0xCA); break;
 	case T1ROW_YUUGENMAGAN: T1ROW_JP8(0x97, 0x48, 0x8C, 0xBA, 0x96, 0x82, 0x8A, 0xE1); break;
 	case T1ROW_MIMA: T1ROW_JP4(0x96, 0xA3, 0x96, 0x82); break;
@@ -1700,6 +1714,8 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_JIGOKU: T1ROW_WORD4('J', 'I', 'G', 'O'); T1ROW_WORD2('K', 'U'); break;
 	case T1ROW_STAGE_START: T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
 	case T1ROW_BOSS_START: T1ROW_WORD4('B', 'O', 'S', 'S'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
+	case T1ROW_BOSS_PHASE: T1ROW_WORD4('B', 'O', 'S', 'S'); T1ROW_SPACE(); T1ROW_WORD4('P', 'H', 'A', 'S'); T1ROW_WORD1('E'); break;
+	case T1ROW_FIRST_COMBAT: T1ROW_WORD4('F', 'I', 'R', 'S'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('C', 'O', 'M', 'B'); T1ROW_WORD2('A', 'T'); break;
 	case T1ROW_SINGYOKU: T1ROW_WORD4('S', 'I', 'N', 'G'); T1ROW_WORD4('Y', 'O', 'K', 'U'); break;
 	case T1ROW_YUUGENMAGAN: T1ROW_WORD4('Y', 'U', 'U', 'G'); T1ROW_WORD4('E', 'N', 'M', 'A'); T1ROW_WORD2('G', 'A'); T1ROW_WORD1('N'); break;
 	case T1ROW_MIMA: T1ROW_WORD4('M', 'I', 'M', 'A'); break;
@@ -1991,6 +2007,8 @@ static char *t1replay_op_section_append(char *p, uint8_t section)
 		word = T1ROW_CHAPTER;
 	} else if(section == T1RPS_BOSS_START) {
 		word = T1ROW_BOSS_START;
+	} else if(section == T1RPS_BOSS_PHASE) {
+		word = T1ROW_BOSS_PHASE;
 	}
 	return t1replay_op_word_append(p, word);
 }
@@ -2008,8 +2026,7 @@ static t1replay_op_word_t t1replay_op_practice_boss_word(
 }
 
 // This previews the target that the existing normal resident carrier derives.
-// It deliberately has no checkpoint or replay state because Boss Start still
-// runs REIIDEN's native scene and boss initialization.
+// Boss Phase names a source-constructed seam and never a checkpoint payload.
 static char *t1replay_op_practice_direct_target_append(char *p)
 {
 	if(t1replay_practice_start.section == T1RPS_CHAPTER) {
@@ -2027,6 +2044,11 @@ static char *t1replay_op_practice_direct_target_append(char *p)
 				t1replay_practice_start.scene, t1replay_practice_start.route
 			)
 		);
+	}
+	if(t1replay_practice_start.section == T1RPS_BOSS_PHASE) {
+		p = t1replay_op_word_append(p, T1ROW_SINGYOKU);
+		*p++ = ' ';
+		return t1replay_op_word_append(p, T1ROW_FIRST_COMBAT);
 	}
 	return t1replay_op_word_append(p, T1ROW_STAGE_START);
 }
@@ -3202,6 +3224,8 @@ static void t1replay_op_practice_change(int delta, bool fast)
 		);
 		if(t1replay_practice_start.scene == 0) {
 			t1replay_practice_start.route = ROUTE_MAKAI;
+		} else if(t1replay_practice_start.section == T1RPS_BOSS_PHASE) {
+			t1replay_practice_start.section = T1RPS_BOSS_START;
 		}
 		break;
 	case T1OPR_ROUTE:
@@ -3212,9 +3236,17 @@ static void t1replay_op_practice_change(int delta, bool fast)
 		}
 		break;
 	case T1OPR_SECTION:
-		t1replay_practice_start.section = static_cast<uint8_t>(
-			(t1replay_practice_start.section + 3 + delta) % 3
-		);
+		{
+			uint8_t section_count = (
+				(t1replay_practice_start.scene == 0) ?
+				(T1RPS_BOSS_PHASE + 1) : (T1RPS_BOSS_START + 1)
+			);
+
+			t1replay_practice_start.section = static_cast<uint8_t>(
+				(t1replay_practice_start.section + section_count + delta) %
+				section_count
+			);
+		}
 		break;
 	case T1OPR_CHAPTER:
 		if(t1replay_practice_start.section == T1RPS_CHAPTER) {
@@ -3585,7 +3617,9 @@ void t1replay_op_practice_start_get(t1replay_practice_start_t& start)
 {
 	start = t1replay_practice_start;
 	start.route = (start.scene == 0) ? ROUTE_MAKAI : start.route;
-	if(start.section == T1RPS_BOSS_START) {
+	if(start.section == T1RPS_BOSS_PHASE) {
+		start.chapter = BOSS_STAGE;
+	} else if(start.section == T1RPS_BOSS_START) {
 		start.chapter = BOSS_STAGE;
 	} else if(start.section == T1RPS_STAGE_START) {
 		start.chapter = 0;

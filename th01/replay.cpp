@@ -18,6 +18,7 @@
 #include "th01/main/stage/timer.hpp"
 #include "th01/main/extend.hpp"
 #include "th01/main/player/player.hpp"
+#include "th01/main/player/bomb.hpp"
 #include "th01/main/player/orb.hpp"
 #include "th01/main/player/shot.hpp"
 #include "th01/main/bullet/pellet.hpp"
@@ -28,6 +29,7 @@
 #include "th01/main/stage/item.hpp"
 #include "th01/main/particle.hpp"
 #include "th01/main/boss/boss.hpp"
+#include "th01/main/boss/b05.hpp"
 #include "th01/rboss.hpp"
 #include "th01/rpypixel.hpp"
 #include "th01/snd/mdrv2.h"
@@ -568,6 +570,34 @@ static bool t1replay_restart_bytes_zero(const uint8_t far *p, unsigned size)
 	return true;
 }
 
+static bool t1replay_restart_practice_start_valid(
+	const t1replay_practice_start_t far *start
+)
+{
+	return (
+		start &&
+		(start->scene < SCENE_COUNT) &&
+		(start->route < ROUTE_COUNT) &&
+		(start->section <= T1RPS_BOSS_PHASE) &&
+		(start->chapter <= BOSS_STAGE) &&
+		(start->rank >= 0) && (start->rank <= 3) &&
+		(start->score >= 0) && (start->score <= 99990000L) &&
+		(start->lives >= 1) && (start->lives <= LIVES_MAX) &&
+		(start->bombs >= 0) && (start->bombs <= BOMBS_MAX) &&
+		(start->point_value <= 65530) &&
+		(start->pellet_speed >= PELLET_SPEED_LOWER_MIN) &&
+		(start->pellet_speed <= PELLET_SPEED_RAISE_MAX) &&
+		(
+			(start->section != T1RPS_BOSS_PHASE) ?
+			true :
+			(
+				(start->scene == 0) && (start->route == ROUTE_MAKAI) &&
+				(start->chapter == BOSS_STAGE)
+			)
+		)
+	);
+}
+
 static bool t1replay_restart_state_valid(
 	t1replay_restart_state_t far *state
 )
@@ -583,7 +613,9 @@ static bool t1replay_restart_state_valid(
 		 (state->kind != T1RRK_PRACTICE)) ||
 		!t1replay_restart_bytes_zero(
 			state->reserved, sizeof(state->reserved)
-		)) {
+		) ||
+		((state->kind == T1RRK_PRACTICE) &&
+		 !t1replay_restart_practice_start_valid(&state->practice))) {
 		return false;
 	}
 	stored = state->checksum;
@@ -1245,6 +1277,21 @@ static uint8_t t1replay_group_number(uint8_t group)
 	return 0;
 }
 
+static bool t1replay_practice_boss_phase_start_valid(
+	const t1replay_start_t far *start
+)
+{
+	return (
+		(start->practice_boss_phase == T1RPBPT_NONE) ||
+		(
+			(start->practice_boss_phase ==
+				T1RPBPT_SINGYOKU_FIRST_COMBAT) &&
+			(start->stage_id == BOSS_STAGE) &&
+			(start->route == ROUTE_MAKAI)
+		)
+	);
+}
+
 static bool t1replay_start_valid(const t1replay_start_t far *start)
 {
 	return (
@@ -1257,6 +1304,7 @@ static bool t1replay_start_valid(const t1replay_start_t far *start)
 		(start->snd_need_init >= 0) && (start->snd_need_init <= 1) &&
 		(start->mode_test == 0) &&
 		(start->start_binary == T1REPLAY_PROCESS_REIIDEN) &&
+		t1replay_practice_boss_phase_start_valid(start) &&
 		t1replay_bytes_zero(start->reserved, sizeof(start->reserved))
 	);
 }
@@ -1716,6 +1764,40 @@ static bool t1replay_checkpoint_restore_prepare(
 	return true;
 }
 
+static uint8_t t1replay_practice_boss_phase_from_restart(
+	const t1replay_start_t far *start
+)
+{
+	t1replay_restart_state_t far *state;
+	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
+
+	if(!start) {
+		return T1RPBPT_NONE;
+	}
+	t1replay_restart_res_id_init(id);
+	state = ResData<t1replay_restart_state_t>::exist(id);
+	if(
+		!t1replay_restart_state_valid(state) ||
+		(state->kind != T1RRK_PRACTICE) ||
+		(state->practice.section != T1RPS_BOSS_PHASE) ||
+		(state->practice.scene != 0) ||
+		(state->practice.route != ROUTE_MAKAI) ||
+		(state->practice.chapter != BOSS_STAGE) ||
+		(start->stage_id != BOSS_STAGE) ||
+		(start->route != ROUTE_MAKAI) ||
+		(start->rank != state->practice.rank) ||
+		(start->score != state->practice.score) ||
+		(start->rem_lives != state->practice.lives) ||
+		(start->rem_bombs != state->practice.bombs) ||
+		(start->point_value != state->practice.point_value) ||
+		(start->pellet_speed != state->practice.pellet_speed) ||
+		(start->resident_rand != state->practice.rand)
+	) {
+		return T1RPBPT_NONE;
+	}
+	return T1RPBPT_SINGYOKU_FIRST_COMBAT;
+}
+
 static void t1replay_start_capture(void)
 {
 	int i;
@@ -1744,6 +1826,7 @@ static void t1replay_start_capture(void)
 	start->debug_mode = static_cast<int8_t>(resident->debug_mode);
 	start->snd_need_init = resident->snd_need_init;
 	start->start_binary = T1REPLAY_PROCESS_REIIDEN;
+	start->practice_boss_phase = t1replay_practice_boss_phase_from_restart(start);
 }
 
 static void t1replay_start_apply(void)
@@ -2427,8 +2510,10 @@ void far t1replay_entry(void)
 			}
 		#if T1REPLAY_CHECKPOINT_RESTORE
 			t1replay_start_apply();
-			if(T1REPLAY_CHECKPOINT_PRIVATE_RESTORE ||
-				checkpoint_direct) {
+			if(
+				(t1replay_header.start.practice_boss_phase == T1RPBPT_NONE) &&
+				(T1REPLAY_CHECKPOINT_PRIVATE_RESTORE || checkpoint_direct)
+			) {
 				if(!t1replay_checkpoint_restore_prepare(
 					start_resident, slot, 0, T1REPLAY_PROCESS_NONE
 				)) {
@@ -2447,6 +2532,13 @@ void far t1replay_entry(void)
 			}
 #endif
 #endif
+		}
+		if(t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) {
+			if(checkpoint_direct) {
+				t1replay_fail();
+				return;
+			}
+			t1replay_checkpoint_restore_is_pending = true;
 		}
 		if(!t1replay_res_open(res_id, true)) {
 			if(t1replay_mode == T1RM_PLAYBACK) {
@@ -2519,9 +2611,58 @@ static void t1replay_checkpoint_scenario_apply(
 	extend_next = ((score / SCORE_PER_EXTEND) + 1);
 }
 
+static bool t1replay_practice_boss_phase_restore_apply(
+	int *pellet_speed_raise_cycle
+)
+{
+	const t1replay_start_t far *start = &t1replay_header.start;
+
+	if(
+		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
+		((t1replay_mode != T1RM_RECORD) &&
+		 (t1replay_mode != T1RM_PLAYBACK)) ||
+		!resident || !t1replay_res ||
+		(t1replay_res->process_seq != 0) ||
+		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_boss_phase_start_valid(start) ||
+		(start->practice_boss_phase == T1RPBPT_NONE) ||
+		(resident->stage_id != BOSS_STAGE) ||
+		(resident->route != ROUTE_MAKAI) ||
+		(boss_id != BID_SINGYOKU) ||
+		!t1boss_singyoku_practice_boss_phase_apply(
+			start->practice_boss_phase
+		)
+	) {
+		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_fail();
+		return false;
+	}
+	// Match the native post-entrance branch and advance to its first input
+	// seam. This target owns no captured player, bullet, or VRAM state.
+	timer_initialized = true;
+	irand_init(frame_rand);
+	bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+	first_stage_in_scene = false;
+	frame_rand++;
+	*pellet_speed_raise_cycle = (
+		1800 - (rem_lives * 200) - (rem_bombs * 50)
+	);
+	if((frame_rand % *pellet_speed_raise_cycle) == 0) {
+		pellet_speed_raise(0.025f);
+	}
+	t1replay_checkpoint_restore_is_pending = false;
+	return true;
+}
+
 bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 {
 	const t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
+
+	if(t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) {
+		return t1replay_practice_boss_phase_restore_apply(
+			pellet_speed_raise_cycle
+		);
+	}
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
