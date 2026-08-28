@@ -121,6 +121,8 @@ static bool t1replay_op_save_pending;
 static bool t1replay_op_save_decision;
 static bool t1replay_op_name_active;
 static uint8_t t1replay_op_name[T1REPLAY_NAME_BYTES];
+
+static bool t1replay_op_shift_pressed(void);
 static uint8_t t1replay_op_name_cursor;
 static uint8_t t1replay_op_name_key_row;
 static uint8_t t1replay_op_name_key_column;
@@ -1077,7 +1079,9 @@ static bool t1replay_op_pending_name_commit(const uint8_t *name)
 	return true;
 }
 
-static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
+static bool t1replay_op_command_write(
+	uint8_t mode, uint8_t slot, bool checkpoint_direct
+)
 {
 	t1replay_command_t command;
 	char fn[10];
@@ -1089,6 +1093,7 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 	if(
 		((mode != T1REPLAY_COMMAND_RECORD) &&
 		 (mode != T1REPLAY_COMMAND_PLAYBACK)) ||
+		(checkpoint_direct && (mode != T1REPLAY_COMMAND_PLAYBACK)) ||
 		!t1replay_slot_valid_for_mode(mode, slot)
 	) {
 		return false;
@@ -1099,6 +1104,9 @@ static bool t1replay_op_command_write(uint8_t mode, uint8_t slot)
 	command.magic[4] = 'Y'; command.magic[5] = 'C';
 	command.mode = mode;
 	command.slot = slot;
+	if(checkpoint_direct) {
+		command.reserved[0] = T1REPLAY_COMMAND_DIRECT_CHECKPOINT;
+	}
 	t1replay_op_command_fn(fn);
 	t1replay_op_command_witness_fn(witness_fn);
 	t1replay_op_command_clear();
@@ -1176,7 +1184,7 @@ bool t1replay_op_exact_bootstrap(void)
 	) {
 		return false;
 	}
-	return t1replay_op_command_write(config[5], config[6]);
+	return t1replay_op_command_write(config[5], config[6], false);
 }
 #endif
 
@@ -1192,7 +1200,7 @@ bool t1replay_op_record_prepare(void)
 	t1replay_op_command_clear();
 	t1replay_op_pending_discard();
 	if(!t1replay_op_command_write(
-		T1REPLAY_COMMAND_RECORD, T1REPLAY_SLOT_PENDING
+		T1REPLAY_COMMAND_RECORD, T1REPLAY_SLOT_PENDING, false
 	)) {
 		t1replay_op_command_clear();
 		return false;
@@ -2440,6 +2448,18 @@ static bool t1replay_op_detail_active(void)
 	return (t1replay_op_horizontal_hold != 0);
 }
 
+static bool t1replay_op_checkpoint_first_exists(uint8_t slot)
+{
+#if T1REPLAY_CHECKPOINT_RESTORE
+	char fn[12];
+
+	t1replay_op_checkpoint_fn(fn, slot, 0);
+	return t1replay_op_file_exists(fn);
+#else
+	return false;
+#endif
+}
+
 static void t1replay_op_detail_render(void)
 {
 	t1replay_op_slot_t slot;
@@ -2863,14 +2883,24 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 			return result;
 		}
 		if(input.ok) {
+			bool checkpoint_direct = false;
+
 			result.slot = static_cast<uint8_t>(
 				(t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) +
 				t1replay_op_sel
 			);
 			t1replay_op_slot_read(result.slot, slot);
+#if T1REPLAY_CHECKPOINT_RESTORE
+			checkpoint_direct = t1replay_op_shift_pressed();
+#endif
 			if(
 				slot.valid &&
-				t1replay_op_command_write(T1REPLAY_COMMAND_PLAYBACK, result.slot)
+				(!checkpoint_direct ||
+					t1replay_op_checkpoint_first_exists(result.slot)) &&
+				t1replay_op_command_write(
+					T1REPLAY_COMMAND_PLAYBACK, result.slot,
+					checkpoint_direct
+				)
 			) {
 				result.action = T1ROA_PLAYBACK;
 			}

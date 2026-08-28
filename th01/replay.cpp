@@ -1866,6 +1866,12 @@ static void t1replay_checkpoint_flush_if_enabled(void)
 		!t1replay_checkpoint_capture_attempted ||
 		!t1replay_res ||
 		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
+	#if T1REPLAY_CHECKPOINT_RELEASE
+		// Public direct starts are available only for the presentation state
+		// covered by the fresh-process two-page oracle. All other captures stay
+		// BSS-only and therefore cannot advertise a sidecar to OP.
+		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+	#endif
 		!t1replay_checkpoint_path_set(
 			t1replay_res->slot, t1replay_checkpoint.pacing.process_seq
 		)
@@ -2007,13 +2013,18 @@ static bool t1replay_res_matches_header(void)
 	);
 }
 
-static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
+static t1replay_mode_t t1replay_command_load(
+	uint8_t far *slot, bool *checkpoint_direct
+)
 {
 	t1replay_command_t command;
 	char witness_fn[10];
 	uint32_t size;
 	int fd;
 	bool valid;
+	bool direct;
+
+	*checkpoint_direct = false;
 
 	// T1RPY.CFG is authoritative. The second copy only forced another DOS
 	// directory mutation before execl(), so its absence never rejects a valid
@@ -2039,16 +2050,23 @@ static t1replay_mode_t t1replay_command_load(uint8_t far *slot)
 	if(!valid) {
 		return T1RM_DISABLED;
 	}
+	direct = (
+		(command.reserved[0] == T1REPLAY_COMMAND_DIRECT_CHECKPOINT) &&
+		t1replay_bytes_zero(&command.reserved[1],
+			(sizeof(command.reserved) - 1))
+	);
 	if(
 		!t1replay_magic_matches(command.magic, 'C') ||
 		((command.mode != T1REPLAY_COMMAND_RECORD) &&
 		 (command.mode != T1REPLAY_COMMAND_PLAYBACK)) ||
 		!t1replay_slot_valid_for_mode(command.mode, command.slot) ||
-		!t1replay_bytes_zero(command.reserved, sizeof(command.reserved))
+		(!t1replay_bytes_zero(command.reserved, sizeof(command.reserved)) &&
+			(!direct || (command.mode != T1REPLAY_COMMAND_PLAYBACK)))
 	) {
 		return T1RM_DISABLED;
 	}
 	*slot = command.slot;
+	*checkpoint_direct = direct;
 	return static_cast<t1replay_mode_t>(command.mode);
 }
 
@@ -2307,6 +2325,7 @@ void far t1replay_entry(void)
 	char res_id[sizeof(T1REPLAY_RES_ID)];
 	char resident_id[sizeof(RES_ID)];
 	bool resumed = false;
+	bool checkpoint_direct = false;
 
 	t1replay_paths_init();
 	t1replay_res_id_init(res_id);
@@ -2338,7 +2357,7 @@ void far t1replay_entry(void)
 			t1replay_packet_cursor = t1replay_res->packet_count;
 			t1replay_sample_cursor = t1replay_res->sample_count;
 			t1replay_payload_checksum = t1replay_res->payload_checksum;
-#if T1REPLAY_CHECKPOINT_RESTORE
+			#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
 			if(t1replay_mode == T1RM_PLAYBACK) {
 				start_resident = ResData<resident_t>::exist(resident_id);
 				resident = start_resident;
@@ -2373,7 +2392,9 @@ void far t1replay_entry(void)
 		if(t1replay_res) {
 			t1replay_res_clear();
 		}
-		command_mode = t1replay_command_load(&slot);
+		command_mode = t1replay_command_load(
+			&slot, &checkpoint_direct
+		);
 		if(command_mode == T1RM_DISABLED) {
 			if(t1replay_command_delete_failed) {
 				t1replay_abort_before_start();
@@ -2404,15 +2425,18 @@ void far t1replay_entry(void)
 				t1replay_fail();
 				return;
 			}
-#if T1REPLAY_CHECKPOINT_RESTORE
+		#if T1REPLAY_CHECKPOINT_RESTORE
 			t1replay_start_apply();
-			if(!t1replay_checkpoint_restore_prepare(
-				start_resident, slot, 0, T1REPLAY_PROCESS_NONE
-			)) {
-				t1replay_fail();
-				return;
+			if(T1REPLAY_CHECKPOINT_PRIVATE_RESTORE ||
+				checkpoint_direct) {
+				if(!t1replay_checkpoint_restore_prepare(
+					start_resident, slot, 0, T1REPLAY_PROCESS_NONE
+				)) {
+					t1replay_fail();
+					return;
+				}
 			}
-#else
+		#else
 			t1replay_start_apply();
 #if T1REPLAY_PIXEL_TRACE
 			if(!t1replay_checkpoint_probe_prepare(
@@ -2746,8 +2770,8 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	) {
 		return;
 	}
-	// Capture exactly once. Release recording remains BSS-only; an explicitly
-	// private build may later flush this already-validated snapshot at handoff.
+	// Capture exactly once. Release only flushes a presentation-eligible
+	// snapshot at process end; this input seam remains BSS-only.
 	t1replay_checkpoint_capture_attempted = true;
 #if T1REPLAY_CHECKPOINT_EMIT
 	// Exact restore starts at a packet boundary. Splitting an RLE run is a
@@ -3039,8 +3063,8 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	) {
 		return;
 	}
-	// Capture exactly once. Release recording remains BSS-only; an explicitly
-	// private build may later flush this already-validated snapshot at handoff.
+	// Capture exactly once. Release only flushes a presentation-eligible
+	// snapshot at process end; this input seam remains BSS-only.
 	t1replay_checkpoint_capture_attempted = true;
 #if T1REPLAY_CHECKPOINT_EMIT
 	// Exact restore starts at a packet boundary. Splitting an RLE run is a

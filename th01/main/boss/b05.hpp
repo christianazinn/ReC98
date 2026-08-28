@@ -2,6 +2,7 @@
 #define TH01_MAIN_BOSS_B05_HPP
 
 #include "platform.h"
+#include "th01/replay_format.hpp"
 
 enum {
 	T1BOSS_SINGYOKU_CHECKPOINT_OWNER = 1,
@@ -52,9 +53,9 @@ bool16 t1boss_singyoku_ckpt_apply_loaded(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 );
 
-#if defined(T1RP) && ((T1RP == 3) || (T1RP == 4) || (T1RP == 5))
-// Private exact-restore presentation. These functions consume only the
-// already-loaded owner and paint no dynamic object onto page 1.
+#if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE
+// Exact-restore presentation. These functions consume only the already-loaded
+// owner and paint no dynamic object onto page 1.
 bool16 t1boss_singyoku_presentation_validate(
 	const t1boss_singyoku_checkpoint_t *checkpoint
 );

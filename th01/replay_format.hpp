@@ -58,19 +58,6 @@
 #define T1REPLAY_FUUIN_SCORE_PROOF 0
 #endif
 
-// Release recording captures the first semantic boundary in BSS only. Private
-// capture builds may opt into a process-end sidecar flush; ordinary users must
-// never take a DOS create/write on that first gameplay frame.
-#ifndef T1REPLAY_CHECKPOINT_EMIT
-#define T1REPLAY_CHECKPOINT_EMIT 0
-#endif
-
-// Private validation builds can begin each REIIDEN process at its semantic
-// sidecar. Release builds keep this disabled and perform no checkpoint reads.
-#ifndef T1REPLAY_CHECKPOINT_RESTORE
-#define T1REPLAY_CHECKPOINT_RESTORE 0
-#endif
-
 // Kept deliberately short because the 16-bit compiler receives this switch
 // through DOS's command tail. Values 1 through 3 select the private capture,
 // sequential, and direct exact-restore profiles. Values 4 and 5 add the
@@ -80,11 +67,27 @@
 #define T1RP 0
 #endif
 
-#if T1RP
-	#undef T1REPLAY_CHECKPOINT_EMIT
-	#undef T1REPLAY_CHECKPOINT_RESTORE
-	#define T1REPLAY_CHECKPOINT_EMIT (T1RP == 1)
-	#define T1REPLAY_CHECKPOINT_RESTORE ((T1RP == 3) || (T1RP == 5))
+#ifndef T1REPLAY_CHECKPOINT_PUBLIC
+#define T1REPLAY_CHECKPOINT_PUBLIC 1
+#endif
+
+// A release build only makes a sidecar durable after the existing exact
+// presentation gate accepted it. T1RP profiles stay private and retain their
+// original capture/restore roles for emulator evidence.
+#define T1REPLAY_CHECKPOINT_PRIVATE_EMIT (T1RP == 1)
+#define T1REPLAY_CHECKPOINT_PRIVATE_RESTORE ((T1RP == 3) || (T1RP == 5))
+#define T1REPLAY_CHECKPOINT_RELEASE (T1REPLAY_CHECKPOINT_PUBLIC && (T1RP == 0))
+
+// Recording still captures at the native input seam. Any DOS sidecar write is
+// deferred to process end, never performed on the first gameplay frame.
+#ifndef T1REPLAY_CHECKPOINT_EMIT
+#define T1REPLAY_CHECKPOINT_EMIT (T1REPLAY_CHECKPOINT_PRIVATE_EMIT || T1REPLAY_CHECKPOINT_RELEASE)
+#endif
+
+// Release reads a sidecar only for an explicit process-0 direct command.
+// Ordinary replay playback remains sequential.
+#ifndef T1REPLAY_CHECKPOINT_RESTORE
+#define T1REPLAY_CHECKPOINT_RESTORE (T1REPLAY_CHECKPOINT_PRIVATE_RESTORE || T1REPLAY_CHECKPOINT_RELEASE)
 #endif
 
 #define T1REPLAY_PIXEL_TRACE ((T1RP == 4) || (T1RP == 5))
@@ -457,6 +460,8 @@ struct t1replay_command_t {
 	uint8_t slot;
 	uint8_t reserved[6];
 };
+
+#define T1REPLAY_COMMAND_DIRECT_CHECKPOINT 0xA5
 
 struct t1replay_save_request_t {
 	char magic[8]; // "T1RSAV1\\0"
