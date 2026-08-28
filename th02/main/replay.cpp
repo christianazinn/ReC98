@@ -40,6 +40,7 @@
 #include "th02/main/s5_palette.hpp"
 #include "th02/main/s5_tile.hpp"
 #include "th02/main/s6_actor.hpp"
+#include "th02/main/later_boss_practice.hpp"
 #include "th02/main/actor_core.hpp"
 #include "th02/main/checkpoint_apply.hpp"
 #include "th02/main/hud/hud.hpp"
@@ -53,6 +54,7 @@
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/shot.hpp"
+#include "th02/main/bg_particle.hpp"
 #include "th02/main/bullet/bullet.hpp"
 #include "th02/main/bullet/state.hpp"
 #include "th02/main/replay.hpp"
@@ -3590,13 +3592,16 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	case T2RPT_STAGE4_MIDBOSS_FIRST:
 	case T2RPT_STAGE4_MIDBOSS_SECOND:
 	case T2RPT_STAGE4_BOSS_START:
+	case T2RPT_STAGE4_BOSS_PHASE1:
 		practice_target_valid = (start->stage == 3);
 		break;
 	case T2RPT_STAGE5_BOSS_START:
+	case T2RPT_STAGE5_BOSS_PHASE1:
 		practice_target_valid = (start->stage == 4);
 		break;
 	case T2RPT_EXTRA_MIDBOSS:
 	case T2RPT_EXTRA_BOSS_START:
+	case T2RPT_EXTRA_BOSS_PHASE1:
 		practice_target_valid = (start->stage == 5);
 		break;
 	default:
@@ -4813,6 +4818,14 @@ static void near t2replay_boss_scroll_reset_clean(void)
 	graph_scrollup(0);
 }
 
+static void near t2replay_later_boss_phase_pools_clean(void)
+{
+	bullets_clear();
+	lasers_reset();
+	bg_particles_reset();
+	shots_free_all();
+}
+
 static bool16 near t2replay_stage4_marisa_activate_clean(void)
 {
 	if(!practice_terminal_field_build()) {
@@ -4826,6 +4839,28 @@ static bool16 near t2replay_stage4_marisa_activate_clean(void)
 	tile_mode = TM_NONE;
 	shots_free_all();
 	th02_s4_marisa_clean_init();
+	t2practice_diag_constructor_result(true);
+	t2replay_boss_promote_clean(aBoss3_m);
+	return true;
+}
+
+static bool16 near t2replay_stage4_marisa_phase1_activate_clean(void)
+{
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 511);
+	super_patnum = 128;
+	super_entry_bfnt(aStage3_b_bft);
+	super_entry_bfnt(aStage3_b_btt_0);
+	tile_mode = TM_NONE;
+	t2replay_later_boss_phase_pools_clean();
+	palette_settone(100);
+	if(!th02_later_boss_phase1_clean_init(T2LBPT_MARISA_PHASE1)) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
 	t2practice_diag_constructor_result(true);
 	t2replay_boss_promote_clean(aBoss3_m);
 	return true;
@@ -4865,6 +4900,28 @@ static bool16 near t2replay_stage5_mima_activate_clean(void)
 	return true;
 }
 
+static bool16 near t2replay_stage5_mima_phase1_activate_clean(void)
+{
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(mima1_bft);
+	super_entry_bfnt(aStage3_b_btt);
+	tile_mode = TM_NONE;
+	t2replay_later_boss_phase_pools_clean();
+	palette_settone(100);
+	if(!th02_later_boss_phase1_clean_init(T2LBPT_MIMA_PHASE1)) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
+	t2practice_diag_constructor_result(true);
+	t2replay_boss_promote_clean(aMima_m);
+	return true;
+}
+
 static bool16 near t2replay_extra_sigma_activate_clean(void)
 {
 	int page;
@@ -4889,6 +4946,28 @@ static bool16 near t2replay_extra_sigma_activate_clean(void)
 	}
 	graph_accesspage(page_back);
 	palette_settone(100);
+	t2replay_boss_promote_clean(aBoss5_m);
+	return true;
+}
+
+static bool16 near t2replay_extra_sigma_phase1_activate_clean(void)
+{
+	if(!practice_terminal_field_build()) {
+		return false;
+	}
+	t2replay_boss_scroll_reset_clean();
+	super_clean(128, 192);
+	super_patnum = 128;
+	super_entry_bfnt(stage5b1_bft);
+	super_entry_bfnt(stage5b2_bft);
+	tile_mode = TM_NONE;
+	t2replay_later_boss_phase_pools_clean();
+	palette_settone(100);
+	if(!th02_later_boss_phase1_clean_init(T2LBPT_SIGMA_PHASE1)) {
+		t2practice_diag_constructor_result(false);
+		return false;
+	}
+	t2practice_diag_constructor_result(true);
 	t2replay_boss_promote_clean(aBoss5_m);
 	return true;
 }
@@ -5075,8 +5154,30 @@ bool16 replay_practice_target_apply(void)
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		t2practice_target_return(true);
+	case T2RPT_STAGE4_BOSS_PHASE1:
+		if((stage_id != 3) || !t2replay_stage4_marisa_phase1_activate_clean()) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+			if(stage_id != 3) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+#endif
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
 	case T2RPT_STAGE5_BOSS_START:
 		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+			if(stage_id != 4) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+#endif
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
+	case T2RPT_STAGE5_BOSS_PHASE1:
+		if((stage_id != 4) || !t2replay_stage5_mima_phase1_activate_clean()) {
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 			if(stage_id != 4) {
 				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
@@ -5095,6 +5196,17 @@ bool16 replay_practice_target_apply(void)
 		break;
 	case T2RPT_EXTRA_BOSS_START:
 		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+			if(stage_id != 5) {
+				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
+			}
+#endif
+			t2practice_target_return(false);
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		t2practice_target_return(true);
+	case T2RPT_EXTRA_BOSS_PHASE1:
+		if((stage_id != 5) || !t2replay_extra_sigma_phase1_activate_clean()) {
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 			if(stage_id != 5) {
 				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
@@ -5270,8 +5382,20 @@ bool16 replay_practice_target_apply(void)
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
 		return true;
+	case T2RPT_STAGE4_BOSS_PHASE1:
+		if((stage_id != 3) || !t2replay_stage4_marisa_phase1_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
 	case T2RPT_STAGE5_BOSS_START:
 		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_STAGE5_BOSS_PHASE1:
+		if((stage_id != 4) || !t2replay_stage5_mima_phase1_activate_clean()) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;
@@ -5284,6 +5408,12 @@ bool16 replay_practice_target_apply(void)
 		break;
 	case T2RPT_EXTRA_BOSS_START:
 		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
+			return false;
+		}
+		t2replay_practice_target = T2RPT_STAGE_START;
+		return true;
+	case T2RPT_EXTRA_BOSS_PHASE1:
+		if((stage_id != 5) || !t2replay_extra_sigma_phase1_activate_clean()) {
 			return false;
 		}
 		t2replay_practice_target = T2RPT_STAGE_START;

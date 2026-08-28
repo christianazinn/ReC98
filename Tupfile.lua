@@ -716,6 +716,9 @@ local th02_main_sources = {
 	-- SAVESTATE GUARD MOD: The TH04/TH05 source is game-generic and derives
 	-- TH02's 8.3 filenames from GAME. Keep it at the final patch-owned tail.
 	"th02/main/rp_guard.cpp",
+	-- Public later-boss Phase 1 constructors remain in their own final tail.
+	-- TCC shortens later_boss_practice.cpp to later_~1.obj under DOS.
+	{ "th02/main/later_boss_practice.cpp", o = "later_~1.obj" },
 
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
