@@ -12,6 +12,7 @@
 #pragma option -zCT2REPLAY_TEXT -G-
 
 #include "platform.h"
+#include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
@@ -71,6 +72,7 @@
 
 #define T2REPLAY_BUFFER_PACKET_COUNT 256
 #define T2REPLAY_BUFFER_SIZE (T2REPLAY_BUFFER_PACKET_COUNT * T2REPLAY_PACKET_SIZE)
+#define T2REPLAY_FAST_FORWARD_RATE 4
 #define T2REPLAY_INPUT_KNOWN 0xF1FF
 #define T2REPLAY_DOS_ACCESS_READ 0
 #define T2REPLAY_DOS_ACCESS_RW 2
@@ -107,6 +109,9 @@ static bool t2replay_save_prompted;
 static bool t2replay_stage_seen;
 static uint8_t t2replay_last_stage;
 static uint8_t t2replay_practice_target;
+static uint8_t t2replay_fast_forward_phase;
+static uint8_t t2replay_fast_forward_slowdown;
+static bool t2replay_fast_forward_slowdown_active;
 
 #if T2REPLAY_EXACT_APPLY
 enum t2replay_exact_load_result_t {
@@ -154,6 +159,42 @@ static void near t2replay_exact_envelope_free(void);
 static void near t2replay_exact_diag_flush(void);
 #endif
 static void t2replay_fail(void);
+
+static void t2replay_fast_forward_restore(void)
+{
+	if(t2replay_fast_forward_slowdown_active) {
+		// zero is private to the preceding replay pacing override. Native
+		// gameplay never uses it as a valid delay factor.
+		if(slowdown_factor == 0) {
+			slowdown_factor = t2replay_fast_forward_slowdown;
+		}
+		t2replay_fast_forward_slowdown_active = false;
+	}
+}
+
+static bool t2replay_fast_forward_key_held(void)
+{
+	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
+}
+
+static void t2replay_fast_forward_wait_skip(bool held)
+{
+	uint8_t phase;
+
+	if(!held || (t2replay_mode != T2RM_PLAYBACK)) {
+		t2replay_fast_forward_phase = 0;
+		return;
+	}
+	phase = static_cast<uint8_t>(t2replay_fast_forward_phase + 1);
+	if(phase >= T2REPLAY_FAST_FORWARD_RATE) {
+		t2replay_fast_forward_phase = 0;
+		return;
+	}
+	t2replay_fast_forward_phase = phase;
+	t2replay_fast_forward_slowdown = slowdown_factor;
+	slowdown_factor = 0;
+	t2replay_fast_forward_slowdown_active = true;
+}
 
 union t2replay_scroll_pages_t {
 	uint32_t packed_initial_lines;
@@ -4556,6 +4597,8 @@ void replay_entry(void)
 	t2replay_save_prompted = false;
 	t2replay_stage_seen = false;
 	t2replay_practice_target = T2RPT_STAGE_START;
+	t2replay_fast_forward_phase = 0;
+	t2replay_fast_forward_slowdown_active = false;
 #if T2REPLAY_EXACT_APPLY
 	t2replay_exact_pending = false;
 	t2replay_exact_active = false;
@@ -5291,6 +5334,7 @@ void replay_input_sample(uint8_t phase)
 	uint32_t sample_before;
 #endif
 
+	t2replay_fast_forward_restore();
 	if(t2replay_mode == T2RM_DISABLED) {
 		return;
 	}
@@ -5326,6 +5370,14 @@ void replay_input_sample(uint8_t phase)
 #endif
 		if(host_input & INPUT_CANCEL) {
 			t2replay_fail();
+			return;
+		}
+		if(phase == T2REPLAY_PHASE_GAMEPLAY) {
+			t2replay_fast_forward_wait_skip(
+				t2replay_fast_forward_key_held()
+			);
+		} else {
+			t2replay_fast_forward_wait_skip(false);
 		}
 	}
 }
@@ -5513,6 +5565,11 @@ void replay_save_request_discard(void)
 bool replay_playback_active(void)
 {
 	return (t2replay_mode == T2RM_PLAYBACK);
+}
+
+bool replay_playback_exit_requested(void)
+{
+	return (t2replay_mode == T2RM_PLAYBACK) && (t2replay_failed || quit);
 }
 
 #pragma codeseg T2RCKVAL_TEXT
