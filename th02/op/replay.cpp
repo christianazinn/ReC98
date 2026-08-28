@@ -1755,7 +1755,8 @@ static void t2op_input_wait_release(void)
 #define T2OP_NAME_ALPHABET_COLS 17
 #define T2OP_NAME_ALPHABET_LEFT 10
 #define T2OP_NAME_ALPHABET_TOP 18
-#define T2OP_NAME_FIELD_LEFT 32
+#define T2OP_NAME_FIELD_LEFT T2OP_NAME_ALPHABET_LEFT
+#define T2OP_NAME_HEADER_LEFT (T2OP_NAME_FIELD_LEFT + (2 * GAIJI_TRAM_W))
 #define T2OP_NAME_FIELD_Y 6
 #define T2OP_NAME_CELL_LEFT 48
 #define T2OP_NAME_CELL_RIGHT 49
@@ -1820,6 +1821,21 @@ static void t2op_name_put(
 	}
 }
 
+// Mirrors scoredat_name_puts(): the entry row is green and its active
+// character remains visible through TH02's native reverse attribute.
+static void t2op_name_entry_put(const uint8_t far *name, uint8_t cursor)
+{
+	uint8_t glyph = (name[cursor] == 0) ? gs_SPACE : name[cursor];
+
+	t2op_name_put(
+		T2OP_NAME_FIELD_LEFT, T2OP_NAME_FIELD_Y, name, TX_GREEN
+	);
+	gaiji_putca(
+		(T2OP_NAME_FIELD_LEFT + (cursor * GAIJI_TRAM_W)),
+		T2OP_NAME_FIELD_Y, glyph, (TX_GREEN | TX_REVERSE)
+	);
+}
+
 static void t2op_name_keyboard_cell_put(
 	uint8_t col, uint8_t row, tram_atrb2 attr
 )
@@ -1850,11 +1866,14 @@ static void t2op_name_keyboard_put(uint8_t selected_col, uint8_t selected_row)
 	);
 }
 
-static void t2op_name_menu_render(const uint8_t far *name)
+static void t2op_name_menu_render(const uint8_t far *name, uint8_t cursor)
 {
 	text_clear();
-	gaiji_putsa(36, 4, reinterpret_cast<const char *>(t2op_name_header), TX_GREEN);
-	t2op_name_put(T2OP_NAME_FIELD_LEFT, T2OP_NAME_FIELD_Y, name, TX_WHITE);
+	gaiji_putsa(
+		T2OP_NAME_HEADER_LEFT, 4,
+		reinterpret_cast<const char *>(t2op_name_header), TX_GREEN
+	);
+	t2op_name_entry_put(name, cursor);
 }
 
 static bool t2op_name_menu(uint8_t far *name)
@@ -1870,7 +1889,7 @@ static bool t2op_name_menu(uint8_t far *name)
 	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
 		name[i] = gs_SPACE;
 	}
-	t2op_name_menu_render(name);
+	t2op_name_menu_render(name, cursor);
 	t2op_name_keyboard_put(col, row);
 	while(1) {
 		input_reset_sense();
@@ -1900,9 +1919,7 @@ static bool t2op_name_menu(uint8_t far *name)
 				if(cursor != 0) {
 					cursor--;
 				}
-				t2op_name_put(
-					T2OP_NAME_FIELD_LEFT, T2OP_NAME_FIELD_Y, name, TX_WHITE
-				);
+				t2op_name_entry_put(name, cursor);
 			}
 			if(key_det & INPUT_CANCEL) {
 				return false;
@@ -1936,9 +1953,7 @@ static bool t2op_name_menu(uint8_t far *name)
 						);
 					}
 				}
-				t2op_name_put(
-					T2OP_NAME_FIELD_LEFT, T2OP_NAME_FIELD_Y, name, TX_WHITE
-				);
+				t2op_name_entry_put(name, cursor);
 			}
 		}
 		frame_delay(1);
