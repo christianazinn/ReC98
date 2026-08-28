@@ -157,6 +157,34 @@
 #define T2REPLAY_PUBLIC_SEEK_TARGET_MIDBOSS 3
 #define T2REPLAY_PUBLIC_SEEK_TARGET_BOSS 4
 
+#if T2REPLAY_EXACT_APPLY
+// Private fresh-process observer wire. It is intentionally unavailable to the
+// release profile and records only fixed-size digests, never a checkpoint.
+#define T2XOBS_VERSION 1
+#define T2XOBS_REQ_SIZE 40
+#define T2XOBS_HDR_SIZE 32
+#define T2XOBS_REC_SIZE 72
+#define T2XOBS_REC_MAX 4
+#define T2XOBS_OUT_SIZE ( \
+	T2XOBS_HDR_SIZE + \
+	(T2XOBS_REC_MAX * \
+	 T2XOBS_REC_SIZE) \
+)
+#define T2XOBS_HDR_SUM_OFS 28
+#define T2XOBS_REC_SUM_OFS 68
+
+#define T2XOBS_REF_PRE 1
+#define T2XOBS_REF_NEXT 2
+#define T2XOBS_DIR_PRE 3
+#define T2XOBS_DIR_REVEAL 4
+#define T2XOBS_DIR_NEXT 5
+#define T2XOBS_TERMINAL 6
+
+#define T2XOBS_F_SEM 0x01
+#define T2XOBS_F_PRES 0x02
+#define T2XOBS_F_DIR 0x04
+#endif
+
 #define T2REPLAY_FLAG_RLE_INPUT 0x0001
 #define T2REPLAY_FLAG_FULL_INPUT 0x0002
 #define T2REPLAY_FLAG_PAUSE_RESTART 0x0004
@@ -512,6 +540,69 @@ struct t2replay_public_seek_request_t {
 	uint8_t reserved[16];
 };
 
+#if T2REPLAY_EXACT_APPLY
+struct t2xobs_req_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint8_t slot;
+	uint8_t stage_id;
+	uint16_t reserved_0;
+	uint32_t sample_anchor;
+	uint32_t replay_header_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t request_checksum;
+	uint8_t reserved[8];
+};
+
+struct t2xobs_hdr_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t record_size;
+	uint16_t record_count;
+	uint32_t replay_header_checksum;
+	uint32_t replay_payload_checksum;
+	uint32_t request_checksum;
+	uint32_t output_checksum;
+};
+
+struct t2xobs_rec_t {
+	uint8_t kind;
+	uint8_t phase;
+	uint8_t stage_id;
+	uint8_t flags;
+	uint8_t page_front;
+	uint8_t page_back;
+	uint8_t stage_progression;
+	uint8_t callback_profile;
+	uint32_t sample_cursor;
+	uint32_t packet_cursor;
+	uint32_t resident_frame;
+	uint32_t stage_frame;
+	uint32_t semantic_digest;
+	uint32_t container_checksum;
+	uint32_t vram_front_digest;
+	uint32_t vram_back_digest;
+	uint32_t tram_digest;
+	uint16_t scroll_line;
+	uint16_t scroll_line_page_0;
+	uint16_t scroll_line_page_1;
+	uint16_t palette_tone;
+	uint8_t redraw_recipe;
+	uint8_t reserved_0;
+	uint8_t reserved[14];
+	uint32_t record_checksum;
+};
+
+struct t2xobs_out_t {
+	t2xobs_hdr_t header;
+	t2xobs_rec_t record[
+		T2XOBS_REC_MAX
+	];
+};
+#endif
+
 typedef char t2replay_start_size_check[
 	(sizeof(t2replay_start_t) == T2REPLAY_START_SIZE) ? 1 : -1
 ];
@@ -543,6 +634,24 @@ typedef char t2replay_public_seek_request_size_check[
 	(sizeof(t2replay_public_seek_request_t) ==
 	 T2REPLAY_PUBLIC_SEEK_REQUEST_SIZE) ? 1 : -1
 ];
+#if T2REPLAY_EXACT_APPLY
+typedef char t2xobs_req_size_check[
+	(sizeof(t2xobs_req_t) ==
+	 T2XOBS_REQ_SIZE) ? 1 : -1
+];
+typedef char t2replay_exact_observer_header_size_check[
+	(sizeof(t2xobs_hdr_t) ==
+	 T2XOBS_HDR_SIZE) ? 1 : -1
+];
+typedef char t2replay_exact_observer_record_size_check[
+	(sizeof(t2xobs_rec_t) ==
+	 T2XOBS_REC_SIZE) ? 1 : -1
+];
+typedef char t2xobs_out_size_check[
+	(sizeof(t2xobs_out_t) ==
+	 T2XOBS_OUT_SIZE) ? 1 : -1
+];
+#endif
 typedef char t2rck_capture_size_check[
 	(T2REPLAY_CHECKPOINT_CAPTURE_SIZE == (
 		T2REPLAY_CHECKPOINT_HEADER_SIZE +

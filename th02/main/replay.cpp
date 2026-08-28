@@ -15,6 +15,7 @@
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "planar.h"
 #include "th01/rank.h"
 #include "th02/common.h"
 #include "th02/formats/map.hpp"
@@ -138,12 +139,18 @@ static char t2replay_exact_request_fn[11];
 static char t2replay_exact_diag_fn[12];
 static char t2replay_public_seek_request_fn[11];
 static char t2replay_public_seek_sidecar_fn[11];
+static char t2xobs_req_fn[11];
+static char t2xobs_out_fn[11];
 static uint8_t far *t2replay_exact_envelope;
 static t2replay_exact_apply_request_t t2replay_exact_request;
+static t2xobs_req_t t2xobs_req;
+static t2xobs_out_t t2xobs_out;
 static bool t2replay_exact_pending;
 static bool t2replay_exact_active;
 static bool t2replay_exact_anchor_sample_pending;
 static bool t2replay_exact_first_sample_pending;
+static bool t2xobs_active;
+static bool t2xobs_direct;
 
 struct t2replay_exact_diag_t {
 	char magic[8];
@@ -165,6 +172,11 @@ static t2replay_exact_diag_t t2replay_exact_diag;
 static bool16 near t2replay_exact_apply_at_loop_top(void);
 static void near t2replay_exact_envelope_free(void);
 static void near t2replay_exact_diag_flush(void);
+static void near t2xobs_reveal(void);
+static void near t2xobs_terminal(void);
+static bool near t2xobs_req_load(
+	uint8_t slot, bool replay_header_valid
+);
 static t2replay_exact_load_result_t near t2replay_public_seek_request_load(
 	uint8_t slot, bool replay_header_valid
 );
@@ -1815,6 +1827,28 @@ static void t2replay_paths_init(void)
 	t2replay_public_seek_sidecar_fn[8] = 'S';
 	t2replay_public_seek_sidecar_fn[9] = 'K';
 	t2replay_public_seek_sidecar_fn[10] = '\0';
+	t2xobs_req_fn[0] = 'T';
+	t2xobs_req_fn[1] = '2';
+	t2xobs_req_fn[2] = 'X';
+	t2xobs_req_fn[3] = 'O';
+	t2xobs_req_fn[4] = 'B';
+	t2xobs_req_fn[5] = 'Q';
+	t2xobs_req_fn[6] = '.';
+	t2xobs_req_fn[7] = 'B';
+	t2xobs_req_fn[8] = 'I';
+	t2xobs_req_fn[9] = 'N';
+	t2xobs_req_fn[10] = '\0';
+	t2xobs_out_fn[0] = 'T';
+	t2xobs_out_fn[1] = '2';
+	t2xobs_out_fn[2] = 'X';
+	t2xobs_out_fn[3] = 'O';
+	t2xobs_out_fn[4] = 'B';
+	t2xobs_out_fn[5] = 'S';
+	t2xobs_out_fn[6] = '.';
+	t2xobs_out_fn[7] = 'B';
+	t2xobs_out_fn[8] = 'I';
+	t2xobs_out_fn[9] = 'N';
+	t2xobs_out_fn[10] = '\0';
 #endif
 	t2replay_paths_ready = true;
 }
@@ -3326,6 +3360,7 @@ static void far t2replay_exact_reveal(void)
 	t2replay_exact_diag.page_back = page_back;
 	t2replay_exact_diag.sample_cursor = t2replay_sample_cursor;
 	t2replay_exact_diag.packet_cursor = t2replay_packet_cursor;
+	t2xobs_reveal();
 }
 
 static bool16 near t2replay_exact_apply_at_loop_top(void)
@@ -4594,6 +4629,444 @@ static t2replay_exact_load_result_t near t2replay_public_seek_request_load(
 	}
 	return T2XLR_READY;
 }
+
+static bool near t2xobs_req_magic_matches(
+	const char far *magic
+)
+{
+	return (
+		(magic[0] == 'T') && (magic[1] == '2') && (magic[2] == 'X') &&
+		(magic[3] == 'O') && (magic[4] == 'B') && (magic[5] == 'Q') &&
+		(magic[6] == '\0') && (magic[7] == '\0')
+	);
+}
+
+static bool near t2xobs_req_delete(void)
+{
+	unsigned fn_seg = T2REPLAY_FP_SEG(t2xobs_req_fn);
+	unsigned fn_off = T2REPLAY_FP_OFF(t2xobs_req_fn);
+	unsigned deleted;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 41h
+		int	21h
+		pop	ds
+		sbb	ax, ax
+		not	ax
+		mov	deleted, ax
+	}
+	if(deleted != 0) {
+		t2replay_dos_flush();
+		return true;
+	}
+	return false;
+}
+
+static bool near t2xobs_anchor_valid(
+	uint32_t sample_anchor, uint32_t far *packet_anchor
+)
+{
+	t2replay_packet_t far *packet;
+	uint32_t packet_index = 0;
+	uint32_t samples = 0;
+	uint32_t remaining;
+	unsigned want;
+	unsigned len;
+	unsigned i;
+	int fd;
+	uint8_t expected_stage = static_cast<uint8_t>(t2replay_header.start.stage);
+	uint8_t last_stage = 0xFF;
+	uint8_t phase;
+	bool stage_seen = false;
+
+	// This private scanner borrows the ordinary packet buffer. It never alters
+	// the decoder cursors, and always leaves the next playback read cold.
+	t2replay_buffer_len = 0;
+	t2replay_buffer_pos = 0;
+	if(sample_anchor >= t2replay_header.sample_count) {
+		return false;
+	}
+	fd = t2replay_dos_open(t2replay_slot_fn, T2REPLAY_DOS_ACCESS_READ);
+	if(fd < 0) {
+		return false;
+	}
+	if(!t2replay_dos_seek(fd, t2replay_header.input_offset)) {
+		t2replay_dos_close(fd);
+		return false;
+	}
+	while(packet_index < t2replay_header.packet_count) {
+		remaining = (t2replay_header.packet_count - packet_index);
+		want = static_cast<unsigned>(
+			(remaining > T2REPLAY_BUFFER_PACKET_COUNT)
+				? T2REPLAY_BUFFER_PACKET_COUNT : remaining
+		);
+		len = (want * T2REPLAY_PACKET_SIZE);
+		if(t2replay_dos_read(fd, t2replay_buffer, len) != len) {
+			t2replay_dos_close(fd);
+			return false;
+		}
+		for(i = 0; i < want; i++, packet_index++) {
+			packet = &t2replay_buffer[i];
+			phase = static_cast<uint8_t>(
+				packet->tag >> T2REPLAY_PACKET_PHASE_SHIFT
+			);
+			if(phase < T2REPLAY_PHASE_CONTROL) {
+				uint32_t run = static_cast<uint32_t>(
+					(packet->tag & T2REPLAY_PACKET_RUN_MASK) + 1
+				);
+
+				if((samples <= sample_anchor) &&
+					(sample_anchor < (samples + run))) {
+					t2replay_dos_close(fd);
+					if(
+						(phase != T2REPLAY_PHASE_GAMEPLAY) ||
+						(packet->arg != 0) || !stage_seen ||
+						(last_stage != 4)
+					) {
+						return false;
+					}
+					*packet_anchor = packet_index;
+					t2replay_buffer_len = 0;
+					t2replay_buffer_pos = 0;
+					return true;
+				}
+				samples += run;
+			} else if(
+				(packet->tag & T2REPLAY_PACKET_RUN_MASK) ==
+				T2REPLAY_CONTROL_STAGE_START
+			) {
+				if(
+					(packet->input_low != expected_stage) ||
+					(packet->input_high != 0) || (packet->arg != 0)
+				) {
+					t2replay_dos_close(fd);
+					return false;
+				}
+				last_stage = packet->input_low;
+				expected_stage++;
+				stage_seen = true;
+			} else if(
+				(packet->tag & T2REPLAY_PACKET_RUN_MASK) ==
+				T2REPLAY_CONTROL_TERMINAL
+			) {
+				t2replay_dos_close(fd);
+				return false;
+			} else {
+				t2replay_dos_close(fd);
+				return false;
+			}
+		}
+	}
+	t2replay_dos_close(fd);
+	return false;
+}
+
+static uint32_t near t2xobs_vram_digest(uint8_t page)
+{
+	uint32_t digest = T2REPLAY_FNV1A_BASIS;
+	uint8_t plane;
+
+	graph_accesspage(page);
+	for(plane = 0; plane < PLANE_COUNT; plane++) {
+		digest = t2replay_fnv1a(digest, VRAM_PLANE[plane], PLANE_SIZE);
+	}
+	return digest;
+}
+
+static uint32_t near t2xobs_tram_digest(void)
+{
+	const uint8_t far *jis = reinterpret_cast<const uint8_t far *>(
+		MK_FP(SEG_TRAM_JIS, 0)
+	);
+	const uint8_t far *atrb = reinterpret_cast<const uint8_t far *>(
+		MK_FP(SEG_TRAM_ATRB, 0)
+	);
+	uint32_t digest = T2REPLAY_FNV1A_BASIS;
+
+	// 80 columns x 25 rows x one 16-bit value in each visible TRAM plane.
+	digest = t2replay_fnv1a(digest, jis, (80 * 25 * sizeof(uint16_t)));
+	return t2replay_fnv1a(digest, atrb, (80 * 25 * sizeof(uint16_t)));
+}
+
+static uint32_t near t2xobs_out_checksum(void)
+{
+	uint32_t stored = t2xobs_out.header.output_checksum;
+	uint32_t checksum;
+
+	t2xobs_out.header.output_checksum = 0;
+	checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &t2xobs_out,
+		sizeof(t2xobs_out)
+	);
+	t2xobs_out.header.output_checksum = stored;
+	return checksum;
+}
+
+static void near t2xobs_flush(void)
+{
+	int fd;
+
+	if(!t2xobs_active) {
+		return;
+	}
+	t2xobs_out.header.output_checksum =
+		t2xobs_out_checksum();
+	t2replay_dos_delete(t2xobs_out_fn);
+	fd = t2replay_dos_create(t2xobs_out_fn);
+	if(fd >= 0) {
+		if(t2replay_dos_write(
+			fd, &t2xobs_out,
+			sizeof(t2xobs_out)
+		) == sizeof(t2xobs_out)) {
+			t2replay_dos_flush();
+		}
+		t2replay_dos_close(fd);
+	}
+}
+
+static t2xobs_rec_t near *
+t2xobs_rec_begin(uint8_t kind, uint8_t phase)
+{
+	t2xobs_rec_t near *record;
+	uint16_t index = t2xobs_out.header.record_count;
+
+	if(index >= T2XOBS_REC_MAX) {
+		return 0;
+	}
+	record = &t2xobs_out.record[index];
+	t2replay_memclear(record, sizeof(*record));
+	record->kind = kind;
+	record->phase = phase;
+	record->stage_id = static_cast<uint8_t>(stage_id);
+	record->flags = (
+		t2xobs_direct
+			? T2XOBS_F_DIR : 0
+	);
+	record->page_front = page_front;
+	record->page_back = page_back;
+	record->stage_progression = stage_progression;
+	record->callback_profile = T2RECP_S5_MIMA;
+	record->sample_cursor = t2replay_sample_cursor;
+	record->packet_cursor = t2replay_packet_cursor;
+	record->resident_frame = resident->frame;
+	record->stage_frame = stage_frame;
+	record->scroll_line = static_cast<uint16_t>(scroll_line);
+	record->scroll_line_page_0 = static_cast<uint16_t>(
+		t2replay_scroll_pages.line[0]
+	);
+	record->scroll_line_page_1 = static_cast<uint16_t>(
+		t2replay_scroll_pages.line[1]
+	);
+	record->palette_tone = static_cast<uint16_t>(PaletteTone);
+	record->redraw_recipe = T2RERR_NATIVE_ONE_FRAME_REVEAL;
+	return record;
+}
+
+static void near t2xobs_rec_finish(
+	t2xobs_rec_t near *record
+)
+{
+	if(record == 0) {
+		return;
+	}
+	record->record_checksum = 0;
+	record->record_checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, record, sizeof(*record)
+	);
+	t2xobs_out.header.record_count++;
+	t2xobs_flush();
+}
+
+static void near t2xobs_semantic_record(
+	uint8_t kind, uint8_t phase
+)
+{
+	struct t2rec_boundary_t boundary;
+	t2xobs_rec_t near *record;
+	uint8_t far *capture;
+
+	if(!t2xobs_active) {
+		return;
+	}
+	record = t2xobs_rec_begin(kind, phase);
+	if(record == 0) {
+		return;
+	}
+	if((stage_id == 4) && (stage_progression == SP_BOSS)) {
+		t2replay_memclear(&boundary, sizeof(boundary));
+		boundary.at_ordinary_stage_loop_top = 1;
+		boundary.stage_init_complete = 1;
+		boundary.stage_progression = stage_progression;
+		capture = reinterpret_cast<uint8_t far *>(
+			hmem_allocbyte(T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE)
+		);
+		if(
+			(capture != 0) && replay_exact_stage5_mima_callback_redraw_capture(
+				capture, T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE, &boundary
+			)
+		) {
+			record->flags |= T2XOBS_F_SEM;
+			record->semantic_digest =
+				t2replay_exact_s5_mima_semantic_digest(capture);
+			record->container_checksum = t2replay_exact_checkpoint_checksum(
+				capture, T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE
+			);
+		}
+		if(capture != 0) {
+			hmem_free(reinterpret_cast<void __seg *>(capture));
+		}
+	}
+	if(
+		(kind == T2XOBS_REF_NEXT) ||
+		(kind == T2XOBS_DIR_NEXT)
+	) {
+		record->flags |= T2XOBS_F_PRES;
+		record->vram_front_digest =
+			t2xobs_vram_digest(page_front);
+		record->vram_back_digest =
+			t2xobs_vram_digest(page_back);
+		graph_accesspage(page_back);
+		record->tram_digest = t2xobs_tram_digest();
+	}
+	t2xobs_rec_finish(record);
+}
+
+static void near t2xobs_reveal(void)
+{
+	t2xobs_rec_t near *record;
+
+	if(!t2xobs_active || !t2xobs_direct) {
+		return;
+	}
+	record = t2xobs_rec_begin(
+		T2XOBS_DIR_REVEAL, T2REPLAY_PHASE_GAMEPLAY
+	);
+	if(record == 0) {
+		return;
+	}
+	record->flags |= T2XOBS_F_PRES;
+	record->vram_front_digest = t2xobs_vram_digest(page_front);
+	record->vram_back_digest = t2xobs_vram_digest(page_back);
+	graph_accesspage(page_back);
+	record->tram_digest = t2xobs_tram_digest();
+	t2xobs_rec_finish(record);
+}
+
+static void near t2xobs_terminal(void)
+{
+	t2xobs_rec_t near *record;
+
+	if(!t2xobs_active) {
+		return;
+	}
+	record = t2xobs_rec_begin(
+		T2XOBS_TERMINAL, T2REPLAY_PHASE_CONTROL
+	);
+	t2xobs_rec_finish(record);
+}
+
+static bool near t2xobs_req_load(
+	uint8_t slot, bool replay_header_valid
+)
+{
+	uint32_t file_size;
+	uint32_t stored_checksum;
+	uint32_t packet_anchor;
+	uint32_t computed_checksum;
+	unsigned read;
+	int fd;
+
+	fd = t2replay_dos_open(
+		t2xobs_req_fn, T2REPLAY_DOS_ACCESS_READ
+	);
+	if(fd < 0) {
+		return false;
+	}
+	t2replay_memclear(
+		&t2xobs_req,
+		sizeof(t2xobs_req)
+	);
+	read = t2replay_dos_read(
+		fd, &t2xobs_req,
+		sizeof(t2xobs_req)
+	);
+	if(!t2replay_dos_size(fd, &file_size)) {
+		file_size = 0;
+	}
+	t2replay_dos_close(fd);
+	// The observer request is private and one-shot even when malformed.
+	if(!t2xobs_req_delete()) {
+		return false;
+	}
+	stored_checksum = t2xobs_req.request_checksum;
+	t2xobs_req.request_checksum = 0;
+	computed_checksum = t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &t2xobs_req,
+		sizeof(t2xobs_req)
+	);
+	t2xobs_req.request_checksum = stored_checksum;
+	if(
+		(read != sizeof(t2xobs_req)) ||
+		(file_size != sizeof(t2xobs_req)) ||
+		!replay_header_valid ||
+		!t2xobs_req_magic_matches(
+			t2xobs_req.magic
+		) ||
+		(t2xobs_req.version !=
+		 T2XOBS_VERSION) ||
+		(t2xobs_req.header_size !=
+		 T2XOBS_REQ_SIZE) ||
+		(t2xobs_req.slot != slot) ||
+		(t2xobs_req.stage_id != 4) ||
+		(t2xobs_req.reserved_0 != 0) ||
+		!t2replay_bytes_zero(
+			t2xobs_req.reserved,
+			sizeof(t2xobs_req.reserved)
+		) ||
+		(t2xobs_req.replay_header_checksum !=
+		 t2replay_header.header_checksum) ||
+		(t2xobs_req.replay_payload_checksum !=
+		 t2replay_header.payload_checksum) ||
+		(stored_checksum != computed_checksum) ||
+		!t2xobs_anchor_valid(
+			t2xobs_req.sample_anchor, &packet_anchor
+		) ||
+		(t2replay_exact_pending &&
+		 ((t2xobs_req.sample_anchor !=
+		   t2replay_exact_request.sample_anchor) ||
+		  (packet_anchor != t2replay_exact_request.packet_anchor)))
+	) {
+		return false;
+	}
+	t2replay_memclear(
+		&t2xobs_out,
+		sizeof(t2xobs_out)
+	);
+	t2xobs_out.header.magic[0] = 'T';
+	t2xobs_out.header.magic[1] = '2';
+	t2xobs_out.header.magic[2] = 'X';
+	t2xobs_out.header.magic[3] = 'O';
+	t2xobs_out.header.magic[4] = 'B';
+	t2xobs_out.header.magic[5] = 'S';
+	t2xobs_out.header.magic[6] = '1';
+	t2xobs_out.header.version =
+		T2XOBS_VERSION;
+	t2xobs_out.header.header_size =
+		T2XOBS_HDR_SIZE;
+	t2xobs_out.header.record_size =
+		T2XOBS_REC_SIZE;
+	t2xobs_out.header.replay_header_checksum =
+		t2replay_header.header_checksum;
+	t2xobs_out.header.replay_payload_checksum =
+		t2replay_header.payload_checksum;
+	t2xobs_out.header.request_checksum = stored_checksum;
+	t2xobs_active = true;
+	t2xobs_direct = t2replay_exact_pending;
+	return true;
+}
 #endif
 
 static bool t2replay_packet_read(t2replay_packet_t far *packet)
@@ -5049,6 +5522,16 @@ void replay_entry(void)
 	t2replay_exact_envelope_free();
 	t2replay_memclear(&t2replay_exact_request, sizeof(t2replay_exact_request));
 	t2replay_memclear(&t2replay_exact_diag, sizeof(t2replay_exact_diag));
+	t2replay_memclear(
+		&t2xobs_req,
+		sizeof(t2xobs_req)
+	);
+	t2replay_memclear(
+		&t2xobs_out,
+		sizeof(t2xobs_out)
+	);
+	t2xobs_active = false;
+	t2xobs_direct = false;
 #endif
 	if(command_mode == T2REPLAY_COMMAND_PRACTICE) {
 		t2replay_temp_set();
@@ -5116,6 +5599,10 @@ void replay_entry(void)
 			t2replay_exact_diag.reject = 0xFF;
 			t2replay_exact_diag_flush();
 			t2replay_fail();
+		} else {
+			(void)t2xobs_req_load(
+				slot, replay_header_valid
+			);
 		}
 #endif
 	}
@@ -6187,6 +6674,30 @@ void replay_input_sample(uint8_t phase)
 	host_input = key_det;
 #if T2REPLAY_EXACT_APPLY
 	sample_before = t2replay_sample_cursor;
+	if(
+		t2xobs_active &&
+		(phase == T2REPLAY_PHASE_GAMEPLAY) &&
+		(sample_before == t2xobs_req.sample_anchor)
+	) {
+		t2xobs_semantic_record(
+			t2xobs_direct
+				? T2XOBS_DIR_PRE
+				: T2XOBS_REF_PRE,
+			phase
+		);
+	} else if(
+		t2xobs_active &&
+		(phase == T2REPLAY_PHASE_GAMEPLAY) &&
+		(sample_before ==
+		 (t2xobs_req.sample_anchor + 1))
+	) {
+		t2xobs_semantic_record(
+			t2xobs_direct
+				? T2XOBS_DIR_NEXT
+				: T2XOBS_REF_NEXT,
+			phase
+		);
+	}
 #endif
 	if(t2replay_mode == T2RM_RECORD) {
 		if(!t2replay_failed && !t2replay_record_sample(phase)) {
@@ -6364,6 +6875,7 @@ bool replay_process_end(const char *binary_fn)
 		);
 	}
 #if T2REPLAY_EXACT_APPLY
+	t2xobs_terminal();
 	t2replay_exact_diag.sample_cursor = t2replay_sample_cursor;
 	t2replay_exact_diag.packet_cursor = t2replay_packet_cursor;
 	t2replay_exact_diag.page_front = page_front;
