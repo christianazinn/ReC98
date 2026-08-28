@@ -14,6 +14,7 @@
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/main/execl.hpp"
+#include "th02/main/language_presentation.hpp"
 #include "th02/main/pause_replay.hpp"
 #include "th02/main/replay.hpp"
 
@@ -23,7 +24,7 @@
 #define T2PAUSE_CHOICE_Y 14
 #define T2PAUSE_CHOICE_COUNT 4
 #define T2PAUSE_LEGACY_CHOICE_COUNT 3
-#define T2PAUSE_CLEAR_RIGHT 40
+#define T2PAUSE_CLEAR_RIGHT 44
 
 #define T2PAUSE_RESUME 0
 #define T2PAUSE_RESTART 1
@@ -41,8 +42,14 @@ extern const char arg0[];
 
 static void t2pause_label_put(uint8_t option, tram_y_t y, unsigned atrb)
 {
+	const char far *english_label = t2_language_main_pause_label(option);
 	char label[13];
 	char *p = label;
+
+	if(english_label) {
+		text_putsa(T2PAUSE_CHOICE_LEFT, y, english_label, atrb);
+		return;
+	}
 
 	#define P(c) *p++ = c
 	switch(option) {

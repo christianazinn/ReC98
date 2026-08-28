@@ -6,6 +6,7 @@
 #include "th02/main/score.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/boss/bosses.hpp"
+#include "th02/main/language_presentation.hpp"
 #include "th02/shiftjis/bonus.hpp"
 
 static const int VALUE_DIGITS = 5;
@@ -49,15 +50,13 @@ void pascal near bonus_row_put_and_add(
 	tram_y_t y, const shiftjis_t *label, int& sum, int val_x10
 )
 {
-	text_putsa(LABEL_LEFT, y, label, TX_WHITE);
+	t2_language_main_bonus_row_put_and_add(y, label, sum, val_x10);
 	overlay_uint_put(VALUE_LEFT, y, VALUE_DIGITS, val_x10);
-
-	#define val val_x10 // ZUN bloat
-	val = val_x10;
-	val /= 10;
-	sum += val;
-	#undef val
 }
+
+// The forwarding bridge is 0x2E bytes. Keep BONUS_TEXT's native 0x3E-byte
+// row-renderer slot intact so the following stage-clear functions stay put.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 inline void bonus_multiply_add_put_and_delay(
 	score_t& bonus_total, int bonus_total_digits, const int& sum

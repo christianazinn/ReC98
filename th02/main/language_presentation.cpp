@@ -1,4 +1,8 @@
 #include "shiftjis.hpp"
+#include "pc98.h"
+#include "libs/master.lib/pc98_gfx.hpp"
+#include "th02/main/playfld.hpp"
+#include "th02/shiftjis/bonus.hpp"
 #include "th02/main/language_presentation.hpp"
 
 // This file is textually included by langm.cpp and therefore lives in MAIN's
@@ -10,12 +14,17 @@
 #define T2_LANGUAGE_MAIN_BGM_TITLE_CAPACITY 32
 #define T2_LANGUAGE_MAIN_STAGE_COUNT 6
 #define T2_LANGUAGE_MAIN_STAGE_TITLE_CAPACITY 40
+#define T2_LANGUAGE_MAIN_PAUSE_LABEL_COUNT 4
+#define T2_LANGUAGE_MAIN_PAUSE_LABEL_CAPACITY 24
+#define T2_LANGUAGE_MAIN_BONUS_LABEL_COUNT 10
+#define T2_LANGUAGE_MAIN_BONUS_LABEL_CAPACITY 12
 
 extern "C" shiftjis_t near *BGM_TITLES[];
 extern "C" shiftjis_t near *STAGE_TITLES[];
 extern "C" uint8_t STAGE_TITLE_HALFLENGTHS[];
 
 static bool t2_lmp_ready;
+static bool t2_lmp_english_active;
 static shiftjis_t near *t2_language_main_jp_bgm_titles[T2_LANGUAGE_MAIN_BGM_COUNT];
 static shiftjis_t near *t2_language_main_jp_stage_titles[T2_LANGUAGE_MAIN_STAGE_COUNT];
 static uint8_t t2_language_main_jp_stage_title_halflengths[
@@ -30,6 +39,12 @@ static shiftjis_t t2_language_main_en_stage_titles[
 static uint8_t t2_language_main_en_stage_title_halflengths[
 	T2_LANGUAGE_MAIN_STAGE_COUNT
 ];
+static char t2_language_main_en_pause_labels[
+	T2_LANGUAGE_MAIN_PAUSE_LABEL_COUNT
+][T2_LANGUAGE_MAIN_PAUSE_LABEL_CAPACITY];
+static shiftjis_t t2_language_main_en_bonus_labels[
+	T2_LANGUAGE_MAIN_BONUS_LABEL_COUNT
+][T2_LANGUAGE_MAIN_BONUS_LABEL_CAPACITY];
 
 static void t2_language_main_bgm_title_build(int id, shiftjis_t near *p)
 {
@@ -161,6 +176,75 @@ static uint8_t t2_language_main_title_halflen(const shiftjis_t near *text)
 	return ((width + 1) / 2);
 }
 
+static void t2_language_main_pause_label_build(int id, char near *p)
+{
+	#define P(c) (*p++ = static_cast<char>(c))
+	switch(id) {
+	case 0:
+		P('R'); P('e'); P('s'); P('u'); P('m'); P('e');
+		break;
+	case 1:
+		P('R'); P('e'); P('s'); P('t'); P('a'); P('r'); P('t');
+		break;
+	case 2:
+		P('S'); P('a'); P('v'); P('e'); P(' '); P('R'); P('e');
+		P('p'); P('l'); P('a'); P('y'); P(' '); P('a'); P('n');
+		P('d'); P(' '); P('E'); P('x'); P('i'); P('t');
+		break;
+	default:
+		P('E'); P('x'); P('i'); P('t'); P(' '); P('W'); P('i');
+		P('t'); P('h'); P('o'); P('u'); P('t'); P(' '); P('S');
+		P('a'); P('v'); P('i'); P('n'); P('g');
+		break;
+	}
+	P('\0');
+	#undef P
+}
+
+static void t2_language_main_bonus_label_build(
+	int id, shiftjis_t near *p
+)
+{
+	#define P(c) (*p++ = static_cast<shiftjis_t>(c))
+	switch(id) {
+	case 0:
+		P('R'); P('a'); P('n'); P('k');
+		break;
+	case 1:
+		P('S'); P('t'); P('a'); P('g'); P('e');
+		break;
+	case 2:
+		P('B'); P('o'); P('m'); P('b'); P('s');
+		break;
+	case 3:
+		P('L'); P('i'); P('v'); P('e'); P('s');
+		break;
+	case 4:
+		P('I'); P('n'); P('i'); P('t'); P('.'); P(' '); P('B');
+		P('o'); P('m'); P('b'); P('s');
+		break;
+	case 5:
+		P('I'); P('n'); P('i'); P('t'); P('.'); P(' '); P('L');
+		P('i'); P('v'); P('e'); P('s');
+		break;
+	case 6:
+		P('C'); P('l'); P('e'); P('a'); P('r'); P(' ');
+		break;
+	case 7:
+		P('L'); P('i'); P('v'); P('e'); P('s'); P(' ');
+		break;
+	case 8:
+		P('B'); P('o'); P('m'); P('b'); P('s'); P(' ');
+		break;
+	default:
+		P('T'); P('i'); P('m'); P('e'); P(' '); P('B'); P('o');
+		P('n'); P('u'); P('s');
+		break;
+	}
+	P('\0');
+	#undef P
+}
+
 static void t2_lmp_init(void)
 {
 	int i;
@@ -180,6 +264,12 @@ static void t2_lmp_init(void)
 			t2_language_main_title_halflen(t2_language_main_en_stage_titles[i])
 		);
 	}
+	for(i = 0; i < T2_LANGUAGE_MAIN_PAUSE_LABEL_COUNT; i++) {
+		t2_language_main_pause_label_build(i, t2_language_main_en_pause_labels[i]);
+	}
+	for(i = 0; i < T2_LANGUAGE_MAIN_BONUS_LABEL_COUNT; i++) {
+		t2_language_main_bonus_label_build(i, t2_language_main_en_bonus_labels[i]);
+	}
 	t2_lmp_ready = true;
 }
 
@@ -188,6 +278,7 @@ void far t2_language_main_presentation_apply(bool english_bft_loaded)
 	int i;
 
 	t2_lmp_init();
+	t2_lmp_english_active = english_bft_loaded;
 	for(i = 0; i < T2_LANGUAGE_MAIN_BGM_COUNT; i++) {
 		BGM_TITLES[i] = (
 			english_bft_loaded ?
@@ -207,6 +298,84 @@ void far t2_language_main_presentation_apply(bool english_bft_loaded)
 			t2_language_main_jp_stage_title_halflengths[i]
 		);
 	}
+}
+
+const char far *t2_language_main_pause_label(uint8_t option)
+{
+	if(
+		!t2_lmp_ready || !t2_lmp_english_active ||
+		(option >= T2_LANGUAGE_MAIN_PAUSE_LABEL_COUNT)
+	) {
+		return 0;
+	}
+	return t2_language_main_en_pause_labels[option];
+}
+
+static int t2_language_main_bonus_label_index(
+	const shiftjis_t far *stock_label
+)
+{
+	if(stock_label == BONUS_RANK) {
+		return 0;
+	}
+	if(stock_label == BONUS_PLAYPERF) {
+		return 1;
+	}
+	if(stock_label == BONUS_BOMBS) {
+		return 2;
+	}
+	if(stock_label == BONUS_LIVES) {
+		return 3;
+	}
+	if(stock_label == BONUS_START_BOMBS) {
+		return 4;
+	}
+	if(stock_label == BONUS_START_LIVES) {
+		return 5;
+	}
+	if(stock_label == BONUS_EXTRA_CLEAR) {
+		return 6;
+	}
+	if(stock_label == BONUS_EXTRA_LIVES) {
+		return 7;
+	}
+	if(stock_label == BONUS_EXTRA_BOMBS) {
+		return 8;
+	}
+	if(stock_label == BONUS_EXTRA_SIGMA_FRAMES) {
+		return 9;
+	}
+	return -1;
+}
+
+const shiftjis_t far *t2_language_main_bonus_label(
+	const shiftjis_t far *stock_label
+)
+{
+	int index;
+
+	if(!t2_lmp_ready || !t2_lmp_english_active) {
+		return stock_label;
+	}
+	index = t2_language_main_bonus_label_index(stock_label);
+	return (
+		(index < 0) ? stock_label : t2_language_main_en_bonus_labels[index]
+	);
+}
+
+void far pascal t2_language_main_bonus_row_put_and_add(
+	tram_y_t y, const shiftjis_t far *stock_label, int far &sum, int val_x10
+)
+{
+	enum {
+		LABEL_LEFT = (PLAYFIELD_TRAM_LEFT + 4),
+	};
+	const shiftjis_t far *label = t2_language_main_bonus_label(stock_label);
+
+	text_putsa(LABEL_LEFT, y, label, TX_WHITE);
+
+	val_x10 /= 10;
+	sum += val_x10;
 }
 
 #pragma codeseg
