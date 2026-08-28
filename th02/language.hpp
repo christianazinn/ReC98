@@ -37,6 +37,14 @@ int far pascal t2_language_main_pi_load(int slot, const char *fn);
 int far pascal t2_language_main_file_ropen(const char *fn);
 void far pascal t2_language_main_file_close(void);
 
+// MAINE-only presentation wrappers. The eligible ending assets are loaded
+// through T2EN.DAT as one balanced transaction; every other file stays in the
+// Japanese stock archive.
+int far __cdecl t2_language_maine_pi_load(int slot, const char *fn);
+int far pascal t2_language_maine_gaiji_entry_bfnt(const char *fn);
+int far pascal t2_language_maine_file_ropen(const char *fn);
+void far pascal t2_language_maine_file_close(void);
+
 // OP's executable-resident presentation tables are selected independently
 // from packfile routing. The Japanese pointers remain the stock defaults.
 void far t2_language_op_tables_apply(void);

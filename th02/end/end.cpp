@@ -30,8 +30,13 @@
 #include "th02/shiftjis/end.hpp"
 #include "th02/shiftjis/title.hpp"
 #include "th02/sprites/verdict.hpp"
+#include "th02/language.hpp"
 
 #include "th02/gaiji/ranks_c.c"
+
+// The wrapper has the same call shape as pi_load(), while its strict
+// allowlist keeps unchanged ending art in the stock Japanese archive.
+#define pi_load t2_language_maine_pi_load
 
 // Constants
 // ---------
@@ -119,14 +124,14 @@ void extra_unlock_animate(void);
 
 void pascal near end_load(const char *fn)
 {
-	file_ropen(fn);
+	t2_language_maine_file_ropen(fn);
 
 	// ZUN landmine: No check to ensure that the size is ≤ sizeof(end_text).
 	// Dynamic allocation would have made more sense...
 	size_t size = file_size();
 	file_read(end_text, size);
 
-	file_close();
+	t2_language_maine_file_close();
 }
 
 inline void verdict_label_put(int row, screen_x_t left, shiftjis_t* str) {
@@ -1203,7 +1208,7 @@ extern "C" void far main_entry(void)
 	if(cfg_load() && (resident->stage == 127)) {
 		game_init_main();
 		gaiji_backup();
-		gaiji_entry_bfnt("MIKOFT.bft");
+		t2_language_maine_gaiji_entry_bfnt("MIKOFT.bft");
 		snd_pmd_resident();
 		snd_mmd_resident();
 
