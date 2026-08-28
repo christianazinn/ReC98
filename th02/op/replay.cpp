@@ -1410,6 +1410,16 @@ static void t2op_title_return_request(void)
 	t2op_main_input_allowed = false;
 }
 
+static void t2op_input_wait_release(void)
+{
+	do {
+		input_reset_sense();
+		if(key_det != INPUT_NONE) {
+			frame_delay(1);
+		}
+	} while(key_det != INPUT_NONE);
+}
+
 #define T2OP_NAME_ALPHABET_ROWS 3
 #define T2OP_NAME_ALPHABET_COLS 17
 #define T2OP_NAME_ALPHABET_LEFT 10
@@ -3031,6 +3041,9 @@ static void t2op_practice_menu(void)
 	uint8_t horizontal_hold = 0;
 	bool horizontal_trigger;
 	bool right;
+
+	// The title confirmation must not become the character-select confirmation.
+	t2op_input_wait_release();
 
 	// Reuse the native selector and keep its background in VRAM for Setup.
 	resident->stage = 0;
