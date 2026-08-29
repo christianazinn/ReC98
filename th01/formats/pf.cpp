@@ -109,7 +109,9 @@ inline void near cache_next(uint8_t& ret, long& bytes_read) {
 	bytes_read++;
 }
 
-void pascal near unrle(size_t input_size)
+static void near t1pf_unrle_padding(void);
+
+void pascal near unrle(size_t output_size)
 {
 	// Simple run-length encoding scheme, compressing runs of three or more
 	// identical bytes by replacing arbitrarily many bytes after the third one
@@ -117,7 +119,7 @@ void pascal near unrle(size_t input_size)
 	// identical characters; to just output two, run mode must be immediately
 	// left by specifying a run length of 0.
 	//
-	//   Compressed: "zz\x02z\x01yy\x00x"
+	//   Compressed: "zz\x02z\x01yy\x00"
 	// Decompressed: "zzzzzzyy"
 	//  Explanation: • "zz" (new run)
 	//               • 2 more
@@ -126,69 +128,123 @@ void pascal near unrle(size_t input_size)
 	//               • "y" (stop run)
 	//               • "y" (new run)
 	//               • 0 more
-	//               • (stop run; does *not* output "x" because we've read the
-	//                 last input byte to determine that the run should stop?!)
 
-	uint8_t literal_1;
-	uint8_t runs;
-	uint8_t literal_2;
-	long bytes_read = 0;
-	long bytes_written = 0;
-	cache_next(literal_2, bytes_read);
+	// ZUN landmine: The original decoder terminates on packed input, not the
+	// declared unpacked size. BOSS1_3.BOS and BOSS8_1.BOS consequently consume
+	// their following archive member and write four bytes beyond file_data.
+	// The bound below preserves every declared output byte while keeping this
+	// malformed packed tail out of the C++ heap.
+	size_t bytes_written = 0;
+	uint8_t run_byte;
+	uint8_t next_byte = cache_next_raw();
+	uint8_t runs = 0;
 
-	while(input_size > bytes_read) {
-		// ZUN landmine: This inner loop ignores [input_size]. This causes
-		// issues even with the compressed byte streams in the original
-		// 東方靈異.伝 archive: BOSS1_3.BOS, for example, ends with the byte
-		// sequence 3F FF F0 00, causing this inner loop, and decompression as
-		// a whole, to continue into the adjacent BOSS2.BOS. At that point, the
-		// outer loop only terminates after the first 0-byte run started by the
-		// BOSS format signature (42 4F 53 53), overflowing the output buffer
-		// by 4 bytes. The same happens with BOSS8_1.BOS, which ends in
-		// 7F FF E0 00, and is followed by BOSS8_E1.BOS.
-		//
-		// This only does not immediately crash the game when loading SinGyoku
-		// or Konngara thanks to two properties of Turbo C++'s 4.0J's C heap
-		// implementation:
-		//
-		// • All allocated blocks are prefixed with a 4-byte linked list header
-		//   in the same segment. Since the allocator wants to maintain a
-		//   16-byte alignment for every block, the end of a block will be
-		//   padded with (15 - (((4 + size + 15) / 16) * 16) % 16) bytes.
-		// • That specific file is 28,864 bytes large. This is large enough for
-		//   malloc() to place the buffer for the decompressed file at the end
-		//   of the heap, with no buffer to overflow into. The 256-byte buffer
-		//   for encoded file data is allocated afterwards, but it's small
-		//   enough to be placed into an existing hole earlier on the heap.
-		do {
-			literal_1 = file_data[bytes_written++] = literal_2;
-			cache_next(literal_2, bytes_read);
-		} while(literal_1 != literal_2);
-		file_data[bytes_written++] = literal_2; // Second byte of same-byte run
-
-		// Run mode. [literal_1] == [literal_2] during the whole loop.
-		// ZUN landmine: Still no check whether we've reached the end of the
-		// input. Thankfully causes no further issues with the original data
-		// beyond the previous ZUN bug: The two affected files are followed by
-		// .BOS files, whose last two signature bytes (0x53, 0x53) are highly
-		// unlikely to be followed by more 0x53 bytes.
-		while(1) {
-			cache_next(runs, bytes_read);
-			while(runs > 0) {
-				file_data[bytes_written++] = literal_1;
-				runs--;
+	while(bytes_written < output_size) {
+		file_data[bytes_written++] = next_byte;
+		if(runs == 0) {
+			run_byte = next_byte;
+			next_byte = cache_next_raw();
+			if(run_byte == next_byte) {
+				runs = cache_next_raw();
 			}
-
-			// Stay in run mode if the compressed stream continues with the
-			// same byte. If it doesn't and we're about to read the last byte
-			// from the stream, the new [literal_2] is never written to the
-			// decompressed buffer.
-			cache_next(literal_2, bytes_read);
-			if(literal_2 != literal_1) {
-				break;
-			}
-			file_data[bytes_written++] = literal_1;
+		} else {
+			runs--;
 		}
+	}
+	t1pf_unrle_padding();
+}
+
+// Keep every later stock PF contribution at its frozen address. The bounded
+// decoder above is 93 bytes shorter than the original malformed loop; the
+// call and these 85 local NOPs occupy only the replaced decoder's old extent.
+static void near t1pf_unrle_padding(void)
+{
+	asm {
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
 	}
 }
 
@@ -220,7 +276,7 @@ void pascal arc_file_load(const char fn[PF_FN_LEN])
 	if(file_compressed) {
 		cache = new uint8_t[CACHE_SIZE];
 		cache_bytes_read = 0;
-		unrle(file_pf->packsize);
+		unrle(file_pf->orgsize);
 		delete[] cache;
 	} else {
 		file_read(file_data, file_pf->packsize);

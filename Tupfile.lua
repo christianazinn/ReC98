@@ -408,6 +408,14 @@ local T1REPLAY_PROFILES = {
 		bin_root = "x/g/",
 		cflags = "-DT1SGA=1",
 	},
+	["t1release-blockers"] = {
+		obj_root = "x/b/",
+		bin_root = "x/b/",
+		-- Couple the process milestones to the existing private guard witness:
+		-- Practice admission must distinguish a carrier failure from a failed
+		-- on-disk guard initialization.
+		cflags = "-DT1RB=1 -DT1SGA=1",
+	},
 }
 local t1replay_profile_name = tostring(T1REPLAY_PROFILE or "")
 local t1replay_profile = {}
@@ -527,6 +535,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- cannot move original resident variables.
 	"th01/rpyop.cpp",
 	"th01/language.cpp",
+	"th01/rpymile.cpp",
 })
 th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	piloadc,
@@ -598,6 +607,7 @@ th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/t1elx.cpp",
 	"th01/t1kik.cpp",
 	"th01/t1sar.cpp",
+	"th01/rpymile.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,

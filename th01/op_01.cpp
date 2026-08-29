@@ -23,6 +23,9 @@
 #include "th01/formats/grp.h"
 #include "th01/language.hpp"
 #include "th01/replay_op.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/snd/mdrv2.h"
 #include "th01/shiftjis/debug.hpp"
 #include "th01/shiftjis/fns.hpp"
@@ -435,6 +438,9 @@ bool practice_start(void)
 
 	t1replay_op_practice_start_get(start);
 	if(!replay_carrier_create()) {
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_CREATE_FAILED);
+		#endif
 		t1replay_op_command_clear();
 		return false;
 	}
@@ -466,6 +472,9 @@ bool practice_start(void)
 	resident->hiscore = 0;
 	resident->score_highest = 0;
 	resident->point_value = start.point_value;
+	#if defined(T1RB)
+	t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_COMMITTED);
+	#endif
 	title_exit();
 	mdrv2_bgm_fade_out_nonblock();
 	game_switch_binary();
@@ -631,9 +640,9 @@ void option_choice_unput_and_put(int choice, vc2 col)
 			START_LIVES[opts.credit_lives_extra]
 		);
 	} else if(choice == 3) {
-		choice_put(left, top, col, CHOICES[choice]);
-	} else if(choice == 4) {
 		t1replay_op_language_choice_put(left, top, col, FX);
+	} else if(choice == 4) {
+		choice_put(left, top, col, CHOICES[3]);
 	} else if(choice == 5) {
 		choice_put(left, top, col, CHOICES[4]);
 	}
@@ -763,7 +772,7 @@ void option_update_and_render(void)
 				opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1)
 			);
 			break;
-		case 4:
+		case 3:
 			t1replay_op_language_toggle();
 			break;
 		}
@@ -781,7 +790,7 @@ void option_update_and_render(void)
 		case 2:
 			ring_inc(opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1));
 			break;
-		case 4:
+		case 3:
 			t1replay_op_language_toggle();
 			break;
 		}
@@ -793,7 +802,7 @@ void option_update_and_render(void)
 		in_this_menu = false;
 		menu_sel = 2; // Option in the main menu
 	}
-	if((input_ok || input_shot) && (menu_sel == 3)) {
+	if((input_ok || input_shot) && (menu_sel == 4)) {
 		menu_id = MID_MUSIC;
 		in_this_menu = false;
 		menu_sel = 0; // Track selection in the Music Test
@@ -916,6 +925,18 @@ void main(int argc, const char *argv[])
 
 	title_init();
 
+	#if defined(T1RB)
+	if(t1replay_op_milestone_practice_bootstrap(
+		opts.rank,
+		static_cast<int8_t>(opts.credit_lives_extra + 2),
+		opts.credit_bombs,
+		frame_rand
+	)) {
+		practice_start();
+		return;
+	}
+	#endif
+
 #if T1REPLAY_EXACT_TRACE
 	if(t1replay_op_exact_bootstrap()) {
 		replay_playback_start();
@@ -1015,6 +1036,27 @@ void main(int argc, const char *argv[])
 
 	game_exit();
 	mdrv2_bgm_stop();
+	#if !defined(T1RB)
+	// Keep the release OP owner at its frozen pre-tail extent. The
+	// Replay/Practice hooks above replace 14 bytes of title-owner code; these
+	// local NOPs occupy that extent without moving PF_TEXT or any later owner.
+	asm {
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+	}
+	#endif
 	printf(GOODBYE);
 }
 /// ---------

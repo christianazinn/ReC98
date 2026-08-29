@@ -15,6 +15,9 @@
 #include "th01/core/resstuff.hpp"
 #include "th01/language.hpp"
 #include "th01/replay.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/palette.h"
@@ -537,6 +540,9 @@ int main(void)
 		error_resident_invalid();
 		return 1;
 	}
+	#if defined(T1RB)
+	t1replay_process_milestone(T1RPM_REIIDEN_ENTRY);
+	#endif
 	t1_language_load();
 	// Must run before resident_stuff_get(): first-process playback restores the
 	// exact resident start block before REIIDEN derives globals and RNG state.
@@ -769,10 +775,15 @@ int main(void)
 			);
 		} else if(boss_id == BID_KONNGARA) {
 			konngara_load_and_entrance(0);
-		} else if(boss_id == BID_SARIEL) {
-			sariel_entrance(0);
-		}
-		unnecessary_copy_of_the_initial_value_of_extend_next = extend_next;
+	} else if(boss_id == BID_SARIEL) {
+		sariel_entrance(0);
+	}
+	#if defined(T1RB)
+	if(stage_id == ((3 * STAGES_PER_SCENE) + BOSS_STAGE)) {
+		t1replay_process_milestone(T1RPM_STAGE5_BOSS_INIT);
+	}
+	#endif
+	unnecessary_copy_of_the_initial_value_of_extend_next = extend_next;
 		hud_bg_snap_and_put();
 
 		cardcombo_max = 0;
@@ -815,7 +826,6 @@ int main(void)
 			bomb_doubletap_frame = (BOMB_DOUBLETAP_WINDOW * 3);
 			bomb_doubletap_frame_unused = (BOMB_DOUBLETAP_WINDOW * 3);
 			obstacles_update_and_render(true);
-
 			// Play stage BGM. Why inside this loop though? The code would be
 			// much simpler if that was part of the stage loop...
 			if(
@@ -883,6 +893,33 @@ int main(void)
 				first_stage_in_scene = false;
 				pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
 			}
+			#if defined(T1RB)
+			// Private H reaches the native post-boss process boundary after the
+			// first boss resources and entrance have completed. It validates the
+			// REIIDEN-to-REIIDEN route without substituting a saved world state.
+			if((stage_id == BOSS_STAGE) &&
+				t1replay_process_milestone_handoff_probe()) {
+				t1replay_process_milestone(T1RPM_HANDOFF_PROBE_REACHED);
+				// This is the native boss-successor process sequence below,
+				// reached only after the first boss has initialized normally.
+				// The private route intentionally skips combat, not the resource
+				// decode, resident handoff, or self-exec ownership under test.
+				boss_free();
+				stage_id++;
+				resident->stage_id = stage_id;
+				resident->score = score;
+				resident->rem_lives = rem_lives;
+				resident->snd_need_init = true;
+				resident->route = route;
+				mdrv2_bgm_fade_out_nonblock();
+				resident->rem_bombs = rem_bombs;
+				if(t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN)) {
+					t1replay_process_milestone(T1RPM_REIIDEN_TEARDOWN);
+				}
+				game_switch_binary();
+				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+			}
+			#endif
 
 			// Main gameplay loop
 			while(!player_is_hit) {
@@ -1061,7 +1098,13 @@ int main(void)
 				resident->route = route;
 				mdrv2_bgm_fade_out_nonblock();
 				resident->rem_bombs = rem_bombs;
+				#if defined(T1RB)
+				if(t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN)) {
+					t1replay_process_milestone(T1RPM_REIIDEN_TEARDOWN);
+				}
+				#else
 				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
+				#endif
 				game_switch_binary();
 				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 			}

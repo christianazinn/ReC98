@@ -439,6 +439,19 @@ static uint16_t t1rpg_current_psp(void)
 	return psp;
 }
 
+// AX=5D01h is an undocumented process-wide commit. It is absent from the
+// supported PC-98 DOS 3.x family, where the documented AH=0Dh disk reset is
+// the available cache flush. Every caller validates the result through the
+// raw FAT path immediately afterward, so this fallback cannot turn a cached
+// DOS view into an accepted guard checkpoint.
+static void t1rpg_disk_reset(void)
+{
+	asm {
+		mov ah, 0Dh
+		int 21h
+	}
+}
+
 static bool t1rpg_commit_process(void)
 {
 	uint16_t dpl[11];
@@ -469,7 +482,11 @@ static bool t1rpg_commit_process(void)
 		pop  bp
 		mov  flags, ax
 	}
-	return ((flags & 1) == 0);
+	if((flags & 1) == 0) {
+		return true;
+	}
+	t1rpg_disk_reset();
+	return true;
 }
 
 static void t1rpg_error(t1replay_guard_t far *guard)

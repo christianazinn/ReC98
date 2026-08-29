@@ -11,6 +11,9 @@
 #include "libs/master.lib/master.hpp"
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/hardware/vsync.hpp"
 #include "th01/rp_guard.hpp"
 #include "th01/savestate_acceptance.hpp"
@@ -2823,6 +2826,11 @@ void far t1replay_entry(void)
 			return;
 		}
 	}
+	#if defined(T1RB)
+	if(resumed) {
+		t1replay_process_milestone(T1RPM_CARRIER_ACCEPTED);
+	}
+	#endif
 	if(!resumed) {
 		if(t1replay_res) {
 			t1replay_res_clear();
@@ -2831,29 +2839,50 @@ void far t1replay_entry(void)
 			&slot, &checkpoint_direct
 		);
 		if(command_mode == T1RM_DISABLED) {
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_COMMAND_REJECTED);
+			#endif
 			if(t1replay_command_delete_failed) {
 				t1replay_abort_before_start();
 			}
 			return;
 		}
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_COMMAND_ACCEPTED);
+		#endif
 		t1replay_slot_set(slot);
 		start_resident = ResData<resident_t>::exist(resident_id);
 		if(!start_resident) {
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_RESIDENT_MISSING);
+			#endif
 			if(command_mode == T1RM_PLAYBACK) {
 				t1replay_mode = T1RM_PLAYBACK;
 				t1replay_fail();
 			}
 			return;
 		}
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_RESIDENT_FOUND);
+		#endif
 		resident = start_resident;
 		if(command_mode == T1RM_RECORD) {
 			t1replay_mode = T1RM_RECORD;
 			t1replay_header_capture();
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_HEADER_CAPTURED);
+			#endif
 			if(!t1replay_start_valid(&t1replay_header.start) ||
 				!t1replay_header_write(true)) {
+				#if T1REPLAY_PROCESS_MILESTONES
+				t1replay_process_milestone(T1RPM_HEADER_WRITE_FAILED);
+				#endif
 				t1replay_mode = T1RM_DISABLED;
 				return;
 			}
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_HEADER_WRITTEN);
+			#endif
 		} else {
 			t1replay_mode = T1RM_PLAYBACK;
 			if(!t1replay_header_read(true)) {
@@ -2893,6 +2922,9 @@ void far t1replay_entry(void)
 			t1replay_checkpoint_restore_is_pending = true;
 		}
 		if(!t1replay_res_open(res_id, true)) {
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_REPLAY_RES_CREATE_FAILED);
+			#endif
 			if(t1replay_mode == T1RM_PLAYBACK) {
 				t1replay_fail();
 			} else {
@@ -2900,6 +2932,9 @@ void far t1replay_entry(void)
 			}
 			return;
 		}
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_REPLAY_RES_CREATED);
+		#endif
 		t1replay_memclear(&t1replay_res->magic,
 			(sizeof(*t1replay_res) - offsetof(t1replay_res_t, magic)));
 		t1replay_res->magic[0] = 'T'; t1replay_res->magic[1] = '1';
@@ -2910,10 +2945,21 @@ void far t1replay_entry(void)
 		t1replay_res->target_process = T1REPLAY_PROCESS_REIIDEN;
 		if((t1replay_mode == T1RM_RECORD) &&
 			!t1replay_guard_begin(&t1replay_res->guard)) {
+			#if T1REPLAY_PROCESS_MILESTONES
+			t1replay_process_milestone(T1RPM_GUARD_BEGIN_FAILED);
+			#endif
 			t1replay_fail();
 			return;
 		}
+		#if T1REPLAY_PROCESS_MILESTONES
+		if(t1replay_mode == T1RM_RECORD) {
+			t1replay_process_milestone(T1RPM_GUARD_READY);
+		}
+		#endif
 		t1replay_res_store();
+		#if defined(T1RB)
+		t1replay_process_milestone(T1RPM_CARRIER_ACCEPTED);
+		#endif
 	}
 }
 

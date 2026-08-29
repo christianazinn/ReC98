@@ -20,15 +20,18 @@
 #include "th01/hardware/grppsafx.h"
 #include "th01/hardware/grp_text.hpp"
 #include "th01/hiscore/regist.hpp"
+#include "th01/formats/grp.h"
 #include "th01/language.hpp"
 #include "th01/replay_op.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/resident.hpp"
 #include "th01/rank.h"
 
-// Keep the complete title backing on page 1.  The replay and Practice
-// surfaces use the same black-page presentation as TH01's score table on
-// page 0, rather than trying to fit a full screen of patch-owned text into
-// the small title window.
+// Keep the complete title backing on page 1.  Replay and Practice own their
+// full-screen PI backgrounds on both pages and restore the stock title only
+// when returning to OP's native menu loop.
 static const screen_x_t T1REPLAY_OP_LEFT = 32;
 static const screen_y_t T1REPLAY_OP_TOP = 32;
 static const screen_x_t T1REPLAY_OP_VALUE_LEFT = 304;
@@ -1321,6 +1324,66 @@ bool t1replay_op_record_prepare(void)
 	return true;
 }
 
+#if T1REPLAY_PROCESS_MILESTONES
+bool t1replay_op_milestone_practice_bootstrap(
+	int8_t rank, int8_t lives, int8_t bombs, uint32_t rand
+)
+{
+	char fn[10];
+	char mode[3];
+	uint8_t marker;
+	uint8_t extra;
+	FILE *fp;
+	bool valid;
+
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'M'; fn[3] = 'I';
+	fn[4] = 'L'; fn[5] = '.'; fn[6] = 'C'; fn[7] = 'F';
+	fn[8] = 'G'; fn[9] = '\0';
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	valid = (
+		(fread(&marker, 1, 1, fp) == 1) &&
+		(fread(&extra, 1, 1, fp) == 0) &&
+		((marker == 'P') || (marker == 'S') || (marker == 'H'))
+	);
+	fclose(fp);
+	// H remains for REIIDEN's private one-shot route. P and S are fully
+	// consumed here so an ordinary Practice handoff cannot be retriggered.
+	if(marker != 'H') {
+		remove(fn);
+	}
+	if(!valid) {
+		return false;
+	}
+	t1replay_process_milestone_reset();
+	t1replay_process_milestone(T1RPM_BOOTSTRAP_CONFIG_ACCEPTED);
+	t1replay_op_practice_enter(rank, lives, bombs, rand);
+	// The private S route exercises the ordinary OP-to-REIIDEN carrier for
+	// the final boss start. It is unavailable to normal builds and uses the
+	// same validated Practice state as the public start command.
+	if(marker == 'S') {
+		t1replay_practice_start.scene = 3;
+		t1replay_practice_start.route = ROUTE_MAKAI;
+		t1replay_practice_start.section = T1RPS_BOSS_START;
+		t1replay_practice_start.chapter = BOSS_STAGE;
+	} else if(marker == 'H') {
+		t1replay_practice_start.scene = 0;
+		t1replay_practice_start.route = ROUTE_MAKAI;
+		t1replay_practice_start.section = T1RPS_BOSS_START;
+		t1replay_practice_start.chapter = BOSS_STAGE;
+	}
+	if(!t1replay_op_record_prepare()) {
+		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITE_FAILED);
+		return false;
+	}
+	t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITTEN);
+	return true;
+}
+#endif
+
 static void t1replay_op_restart_request_discard(void)
 {
 	char fn[11];
@@ -1766,13 +1829,28 @@ static bool t1replay_op_pending_commit_replace(uint8_t slot)
 	return true;
 }
 
-// Page 1 remains title-owned throughout this additive surface.  Every added
-// screen starts from the native score-table black backing on page 0, while a
-// title return restores page 1 in full.
-static void t1replay_op_panel_restore(void)
+static void t1replay_op_background_fn(char *fn, bool name_entry)
 {
+	fn[0] = 'S'; fn[1] = 'L'; fn[2] = 'B'; fn[3] = '1';
+	if(name_entry) {
+		fn[4] = 'B'; fn[5] = '.'; fn[6] = 'P'; fn[7] = 'I'; fn[8] = '\0';
+	} else {
+		fn[4] = '.'; fn[5] = 'P'; fn[6] = 'I'; fn[7] = '\0';
+	}
+}
+
+// PiLoadL, reached by grp_put_palette_show(), is the native PI path already
+// linked by OP.  It therefore preserves title-segment placement while loading
+// patch-owned loose assets without adding a second decoder.
+static void t1replay_op_panel_restore(bool name_entry)
+{
+	char fn[9];
+
+	t1replay_op_background_fn(fn, name_entry);
+	graph_accesspage_func(1);
+	grp_put_palette_show(fn);
+	graph_copy_accessed_page_to_other();
 	graph_accesspage_func(0);
-	z_graph_clear();
 }
 
 static void t1replay_op_black_rect(
@@ -1789,6 +1867,16 @@ static void t1replay_op_black_rect(
 
 static void t1replay_op_title_backing_restore(void)
 {
+	// Keep the patch UI tail free of initialized DGROUP data. The native title
+	// asset name is materialized on the stack for the same reason as the two
+	// Replay panel names above.
+	char fn[13];
+
+	fn[0] = 'R'; fn[1] = 'E'; fn[2] = 'I'; fn[3] = 'I';
+	fn[4] = 'D'; fn[5] = 'E'; fn[6] = 'N'; fn[7] = '2';
+	fn[8] = '.'; fn[9] = 'g'; fn[10] = 'r'; fn[11] = 'p'; fn[12] = '\0';
+	grp_palette_load_show(fn);
+	graph_accesspage_func(0);
 	egc_copy_rect_1_to_0_16(0, 0, RES_X, RES_Y);
 }
 
@@ -2022,10 +2110,6 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		p += 2
 	#define T1ROW_WORD3(a, b, c) T1ROW_WORD2(a, b); T1ROW_WORD1(c)
 	#define T1ROW_WORD4(a, b, c, d) T1ROW_WORD2(a, b); T1ROW_WORD2(c, d)
-	if((t1_language_get() == T1LANG_JAPANESE) &&
-		t1replay_op_word_japanese_append(p, word)) {
-		return p;
-	}
 	switch(word) {
 	case T1ROW_REPLAY_BROWSER:
 		T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); T1ROW_SPACE(); T1ROW_WORD3('B', 'R', 'O'); T1ROW_WORD3('W', 'S', 'E'); T1ROW_WORD1('R'); break;
@@ -2309,9 +2393,8 @@ void t1replay_op_main_choice_put(
 {
 	char *p = t1replay_op_text;
 
-	// Stock title commands use fullwidth ANK glyphs. Keep the English patch
-	// commands in that same title-only style; the modal UI retains its compact
-	// English materializer and Japanese keeps its localized title words.
+	// Stock title commands use fullwidth ANK glyphs. Patch-owned commands remain
+	// English in either locale and use this same title-only style.
 	#define T1ROW_TITLE_PAIR(a, b) \
 		*reinterpret_cast<uint16_t *>(p) = static_cast<uint16_t>( \
 			static_cast<uint8_t>(a) | \
@@ -2319,31 +2402,22 @@ void t1replay_op_main_choice_put(
 		); \
 		p += 2
 
-	if(t1_language_get() == T1LANG_ENGLISH) {
-		if(choice == 3) {
-			T1ROW_TITLE_PAIR(0x82, 0x6F); T1ROW_TITLE_PAIR(0x82, 0x71);
-			T1ROW_TITLE_PAIR(0x82, 0x60); T1ROW_TITLE_PAIR(0x82, 0x62);
-			T1ROW_TITLE_PAIR(0x82, 0x73); T1ROW_TITLE_PAIR(0x82, 0x68);
-			T1ROW_TITLE_PAIR(0x82, 0x62); T1ROW_TITLE_PAIR(0x82, 0x64);
-		} else {
-			T1ROW_TITLE_PAIR(0x81, 0x40); T1ROW_TITLE_PAIR(0x82, 0x71);
-			T1ROW_TITLE_PAIR(0x82, 0x64); T1ROW_TITLE_PAIR(0x82, 0x6F);
-			T1ROW_TITLE_PAIR(0x82, 0x6B); T1ROW_TITLE_PAIR(0x82, 0x60);
-			T1ROW_TITLE_PAIR(0x82, 0x78); T1ROW_TITLE_PAIR(0x81, 0x40);
-		}
-	} else if(choice == 3) {
-		*p++ = ' ';
-		p = t1replay_op_word_append(p, T1ROW_PRACTICE);
-		*p++ = ' ';
+	if(choice == 3) {
+		T1ROW_TITLE_PAIR(0x82, 0x6F); T1ROW_TITLE_PAIR(0x82, 0x71);
+		T1ROW_TITLE_PAIR(0x82, 0x60); T1ROW_TITLE_PAIR(0x82, 0x62);
+		T1ROW_TITLE_PAIR(0x82, 0x73); T1ROW_TITLE_PAIR(0x82, 0x68);
+		T1ROW_TITLE_PAIR(0x82, 0x62); T1ROW_TITLE_PAIR(0x82, 0x64);
 	} else {
-		*p++ = ' '; *p++ = ' ';
-		p = t1replay_op_word_append(p, T1ROW_REPLAY);
-		*p++ = ' '; *p++ = ' ';
+		T1ROW_TITLE_PAIR(0x82, 0x71); T1ROW_TITLE_PAIR(0x82, 0x64);
+		T1ROW_TITLE_PAIR(0x82, 0x6F); T1ROW_TITLE_PAIR(0x82, 0x6B);
+		T1ROW_TITLE_PAIR(0x82, 0x60); T1ROW_TITLE_PAIR(0x82, 0x78);
 	}
 	#undef T1ROW_TITLE_PAIR
 	*p = '\0';
 	graph_putsa_fx(
-		static_cast<screen_x_t>(center_x - (shiftjis_w(t1replay_op_text) / 2)),
+		static_cast<screen_x_t>(
+			center_x - (text_extent_fx((col | fx), t1replay_op_text) / 2)
+		),
 		static_cast<screen_y_t>(top), (col | fx), t1replay_op_text
 	);
 }
@@ -2351,16 +2425,35 @@ void t1replay_op_main_choice_put(
 void t1replay_op_language_choice_put(int left, int top, int col, int fx)
 {
 	char *p = t1replay_op_text;
+	screen_x_t label_center = static_cast<screen_x_t>(left + 44);
+	screen_x_t value_center = static_cast<screen_x_t>(left + 132);
 
-	p = t1replay_op_word_append(p, T1ROW_LANGUAGE);
-	*p++ = ' ';
+	#define T1ROW_LANG_PAIR(a, b) \
+		*reinterpret_cast<uint16_t *>(p) = static_cast<uint16_t>( \
+			static_cast<uint8_t>(a) | \
+			(static_cast<uint16_t>(static_cast<uint8_t>(b)) << 8) \
+		); \
+		p += 2
+	T1ROW_LANG_PAIR(0x82, 0x6B); T1ROW_LANG_PAIR(0x82, 0x60);
+	T1ROW_LANG_PAIR(0x82, 0x6D); T1ROW_LANG_PAIR(0x82, 0x66);
+	#undef T1ROW_LANG_PAIR
+	*p = '\0';
+	graph_putsa_fx(
+		static_cast<screen_x_t>(
+			label_center - (text_extent_fx((col | fx), t1replay_op_text) / 2)
+		),
+		static_cast<screen_y_t>(top), (col | fx), t1replay_op_text
+	);
+	p = t1replay_op_text;
 	p = t1replay_op_word_append(
 		p, ((t1_language_get() == T1LANG_ENGLISH)
 			? T1ROW_ENGLISH : T1ROW_JAPANESE)
 	);
 	*p = '\0';
 	graph_putsa_fx(
-		static_cast<screen_x_t>(left), static_cast<screen_y_t>(top),
+		static_cast<screen_x_t>(
+			value_center - (text_extent_fx((col | fx), t1replay_op_text) / 2)
+		), static_cast<screen_y_t>(top),
 		(col | fx), t1replay_op_text
 	);
 }
@@ -2871,7 +2964,7 @@ static void t1replay_op_name_render(void)
 		T1REPLAY_OP_TOP + (T1REPLAY_OP_LINE_H * 2)
 	);
 
-	t1replay_op_panel_restore();
+	t1replay_op_panel_restore(true);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SAVE_REPLAY);
 	t1replay_op_text_center(T1REPLAY_OP_TOP, T1REPLAY_OP_COL_VALUE, p);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_NAME);
@@ -3093,7 +3186,7 @@ static void t1replay_op_save_decision_render(void)
 	screen_y_t y = T1REPLAY_OP_TOP;
 	vc_t col;
 
-	t1replay_op_panel_restore();
+	t1replay_op_panel_restore(false);
 	p = t1replay_op_word_append(
 		t1replay_op_text,
 		t1replay_op_save_pending ? T1ROW_OVERWRITE : T1ROW_SAVE_REPLAY
@@ -3152,7 +3245,7 @@ static void t1replay_op_detail_render(void)
 		t1replay_op_horizontal_hold = 0;
 		return;
 	}
-	t1replay_op_panel_restore();
+	t1replay_op_panel_restore(false);
 	y = T1REPLAY_OP_TOP;
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_REPLAY_DETAIL);
 	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
@@ -3273,7 +3366,7 @@ static void t1replay_op_replay_render(void)
 	uint8_t slot_id;
 	vc_t col;
 
-	t1replay_op_panel_restore();
+	t1replay_op_panel_restore(false);
 	p = t1replay_op_word_append(
 		t1replay_op_text,
 		t1replay_op_save_pending ? T1ROW_SAVE_REPLAY : T1ROW_REPLAY_BROWSER
@@ -3332,7 +3425,7 @@ static void t1replay_op_practice_render(void)
 	vc_t label_col;
 	vc_t value_col;
 
-	t1replay_op_panel_restore();
+	t1replay_op_panel_restore(false);
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
 	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
