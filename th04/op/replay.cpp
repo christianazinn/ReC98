@@ -59,13 +59,14 @@
 #define REPLAY_SCORE_DISPLAY_DIGITS 9
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
 #define REPLAY_OP_COL_SELECTED 7
+#define REPLAY_OP_COL_PRACTICE_SELECTED REPLAY_OP_COL_SELECTED
 #define REPLAY_OP_TEXT_SPACING 16
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
 #define PRACTICE_PAGE_COUNT 3
 #define PRACTICE_TARGET_ROWS 9
 #define PRACTICE_HISTORY_ROWS 12
 #define PRACTICE_STAGE_ROWS 4
-#define PRACTICE_STOCK_MAX 15
+#define PRACTICE_STOCK_MAX REPLAY_PRACTICE_STOCK_MAX
 
 // The replay-list background has an unused palette entry at index 7. Reserve
 // it for the one browser selection color instead of relying on either
@@ -908,6 +909,11 @@ static bool replay_op_start_valid(
 	const replay_start_config_t far *start, bool practice, bool checkpoint
 )
 {
+	uint8_t lives_max = (practice ? REPLAY_PRACTICE_STOCK_MAX : 9);
+	uint8_t credit_lives_max = (practice ? REPLAY_PRACTICE_STOCK_MAX : 6);
+	uint8_t credit_bombs_max = (
+		practice ? REPLAY_PRACTICE_STOCK_MAX : ((GAME == 5) ? 3 : 2)
+	);
 	bool kind_valid = (
 		practice
 			? (checkpoint
@@ -922,14 +928,15 @@ static bool replay_op_start_valid(
 		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
 		(start->rank > RANK_EXTRA) ||
 		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
-		(start->lives > 9) || (start->bombs > 9) ||
+		(start->lives > lives_max) || (start->bombs > lives_max) ||
 		(start->power < 1) || (start->power > 128) ||
 		(start->continues_used > 9) || (start->extends_gained > 10) ||
 		(start->turbo_mode > 1) ||
 		((start->stage == STAGE_EXTRA) && !start->turbo_mode) ||
 		(start->score > 99999990UL) || ((start->score % 10UL) != 0) ||
-		(start->credit_lives < 1) || (start->credit_lives > 6) ||
-		(start->credit_bombs > ((GAME == 5) ? 3 : 2)) ||
+		(start->credit_lives < 1) ||
+		(start->credit_lives > credit_lives_max) ||
+		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) || (start->power_overflow > 42) ||
 		!replay_op_playperf_valid(start->rank, start->playperf) ||
 		!replay_op_bytes_zero(start->reserved, sizeof(start->reserved))
@@ -3372,31 +3379,31 @@ static void practice_render(
 		p = replay_op_line;
 		*p++ = ((i == sel) ? '>' : ' ');
 		replay_op_line_put(80, (68 + (i * 20)),
-			((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+			((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p);
 		p = replay_op_line;
 		p = practice_field_append(p, field);
 		if(field == PF_START) {
 			replay_op_line_put_centered(
 				(68 + (i * 20)),
-				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+				((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p
 			);
 		} else {
 			replay_op_line_put(104, (68 + (i * 20)),
-				((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p);
+				((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p);
 			p = replay_op_line;
 			p = practice_value_append(p, field, start);
 			if(replay_op_font) {
 				*p = '\0';
 				replay_op_font_put_right(
 					PRACTICE_VALUE_RIGHT, (68 + (i * 20)), replay_op_line,
-					((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE)
+					((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE)
 				);
 			} else {
 				replay_op_line_put(
 					static_cast<screen_x_t>(
 						PRACTICE_VALUE_RIGHT - ((p - replay_op_line) * 8)
 					), (68 + (i * 20)),
-					((i == sel) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+					((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p
 				);
 			}
 		}
@@ -4819,6 +4826,10 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #endif
 
 // Fixed-cell replay fields preserve the following stock segment phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 #pragma codeseg

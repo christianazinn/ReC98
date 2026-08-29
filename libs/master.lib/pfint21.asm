@@ -215,12 +215,18 @@ endif
 
 	; オープン中のハンドルがあればクローズ
 	cmp	pfint21_pf,AX
+	if (GAME eq 3) or (GAME eq 4)
+		; The preloaded directory exists independently of an open member.
+		je	short PFEND_free_entries
+	else
 	je	short PFEND_return
+	endif
 
 	push	pfint21_pf
 	_call	PFCLOSE
 
 if (GAME eq 3) or (GAME eq 4)
+PFEND_free_entries:
 	push	pfint21_entries
 	call	hmem_free
 endif

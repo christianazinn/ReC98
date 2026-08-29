@@ -1275,6 +1275,11 @@ static bool replay_start_config_valid(
 	const replay_start_config_t far *start, bool practice, bool checkpoint
 )
 {
+	uint8_t lives_max = (practice ? REPLAY_PRACTICE_STOCK_MAX : 9);
+	uint8_t credit_lives_max = (practice ? REPLAY_PRACTICE_STOCK_MAX : 6);
+	uint8_t credit_bombs_max = (
+		practice ? REPLAY_PRACTICE_STOCK_MAX : ((GAME == 5) ? 3 : 2)
+	);
 	bool kind_valid = (
 		practice
 			? (checkpoint
@@ -1289,8 +1294,8 @@ static bool replay_start_config_valid(
 		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
 		(start->rank > RANK_EXTRA) ||
 		((start->stage == STAGE_EXTRA) != (start->rank == RANK_EXTRA)) ||
-		(start->lives > 9) ||
-		(start->bombs > 9) ||
+		(start->lives > lives_max) ||
+		(start->bombs > lives_max) ||
 		(start->power < 1) ||
 		(start->power > 128) ||
 		(start->continues_used > 9) ||
@@ -1300,8 +1305,8 @@ static bool replay_start_config_valid(
 		(start->score > 99999990UL) ||
 		((start->score % 10UL) != 0) ||
 		(start->credit_lives < 1) ||
-		(start->credit_lives > 6) ||
-		(start->credit_bombs > ((GAME == 5) ? 3 : 2)) ||
+		(start->credit_lives > credit_lives_max) ||
+		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) ||
 		(start->power_overflow > 42) ||
 		!replay_playperf_valid(start->rank, start->playperf) ||
@@ -3520,7 +3525,7 @@ bool replay_playback_active(void)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	// RC22 replay playback pacing preserves the next stock segment phase.
 	#if (GAME == 4)
 		#pragma codestring "\x90\x90"

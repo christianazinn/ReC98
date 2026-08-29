@@ -20,6 +20,10 @@
 #include "th04/op/impl.hpp"
 #include "th04/sprites/op_cdg.hpp"
 
+extern "C" void pascal language_op_shottype_choose_put(
+	screen_x_t left, vram_y_t top, vc2 col, const shiftjis_t *stock
+);
+
 #include "th04/shiftjis/m_char.cpp"
 
 static const pixel_t PIC_W = 256;
@@ -397,7 +401,7 @@ void near shottype_title_box_put(void)
 
 	grcg_off();
 
-	graph_putsa_fx(
+	language_op_shottype_choose_put(
 		(SHOTTYPE_CHOOSE_LEFT + SHOTTYPE_CHOOSE_PADDING_LEFT),
 		(top + SHOTTYPE_BOX_PADDING_Y),
 		COL_NOT_SELECTED,

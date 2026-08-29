@@ -286,6 +286,22 @@ static const char far *language_op_text(unsigned index)
 	return p;
 }
 
+#if (GAME == 4)
+extern "C" void pascal language_op_shottype_choose_put(
+	screen_x_t left, vram_y_t top, vc2 col, const shiftjis_t *stock
+)
+{
+	const shiftjis_t *text = stock;
+
+	if(language_op_english_selected()) {
+		text = reinterpret_cast<const shiftjis_t *>(
+			language_op_text(LOT_CHOOSE_SHOT)
+		);
+	}
+	graph_putsa_fx(left, top, col, text);
+}
+#endif
+
 bool16 language_op_english_selected(void)
 {
 	return (language_preference_get() == LANGUAGE_ENGLISH);

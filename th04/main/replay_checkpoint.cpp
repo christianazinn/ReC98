@@ -1001,10 +1001,10 @@ static bool rck_group_run(replay_ck_stream_t far *stream)
 	RCK_U8(resident->bombs_used);
 	RCK_U8(resident->end_sequence);
 	RCK_U32(resident->frames);
-	RCK_U8_RANGE(resident->credit_lives, 1, 6);
-	RCK_U8_MAX(resident->credit_bombs, ((GAME == 5) ? 3 : 2));
-	RCK_U8_RANGE(resident->cfg_lives, 1, 6);
-	RCK_U8_MAX(resident->cfg_bombs, ((GAME == 5) ? 3 : 2));
+	RCK_U8_RANGE(resident->credit_lives, 1, REPLAY_PRACTICE_STOCK_MAX);
+	RCK_U8_MAX(resident->credit_bombs, REPLAY_PRACTICE_STOCK_MAX);
+	RCK_U8_RANGE(resident->cfg_lives, 1, REPLAY_PRACTICE_STOCK_MAX);
+	RCK_U8_MAX(resident->cfg_bombs, REPLAY_PRACTICE_STOCK_MAX);
 	RCK_U8_MAX(resident->stage, STAGE_EXTRA);
 	for(i = 0; i < SCORE_DIGITS; i++) {
 		RCK_U8_MAX(resident->score_last.digits[i], 9);
@@ -1060,7 +1060,10 @@ static bool rck_group_run(replay_ck_stream_t far *stream)
 		quit = Q_KEEP_RUNNING;
 	}
 
-	if((current_lives > 9) || (current_bombs > 9)) {
+	if(
+		(current_lives > REPLAY_PRACTICE_STOCK_MAX) ||
+		(current_bombs > REPLAY_PRACTICE_STOCK_MAX)
+	) {
 		return false;
 	}
 	return true;
