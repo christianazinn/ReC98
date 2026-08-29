@@ -8,6 +8,11 @@ typedef uint8_t __seg *replay_op_font_t;
 
 extern replay_op_font_t replay_op_font;
 
+enum replay_op_font_fixed_t {
+	REPLAY_OP_FONT_NUMERIC_CELL_W = 10,
+	REPLAY_OP_FONT_ONE_INSET = 2,
+};
+
 bool16 pascal replay_op_font_load(const unsigned char far *restore_pf_fn);
 void pascal replay_op_font_free(void);
 
@@ -30,6 +35,13 @@ void pascal replay_op_font_put_right(
 );
 void pascal replay_op_font_put_cells(
 	screen_x_t cell_left, vram_y_t top, const char far *str, int color
+);
+void pascal replay_op_font_put_numeric_cells(
+	screen_x_t cell_left,
+	vram_y_t top,
+	const char far *str,
+	unsigned count,
+	int color
 );
 
 #endif

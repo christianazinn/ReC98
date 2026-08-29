@@ -306,10 +306,35 @@ void pascal replay_op_font_put_cells(
 		}
 		if(count) {
 			replay_op_font_put_n(
-				(cell_left + (cells * 10)), top, run, count, color
+				(cell_left + (cells * REPLAY_OP_FONT_NUMERIC_CELL_W)),
+				top, run, count, color
 			);
 			cells += count;
 		}
+	}
+}
+
+void pascal replay_op_font_put_numeric_cells(
+	screen_x_t cell_left,
+	vram_y_t top,
+	const char far *str,
+	unsigned count,
+	int color
+)
+{
+	screen_x_t glyph_left;
+
+	while(count && *str) {
+		glyph_left = cell_left;
+		if(*str == '1') {
+			glyph_left += REPLAY_OP_FONT_ONE_INSET;
+		}
+		if(*str != ' ') {
+			replay_op_font_put_n(glyph_left, top, str, 1, color);
+		}
+		cell_left += REPLAY_OP_FONT_NUMERIC_CELL_W;
+		str++;
+		count--;
 	}
 }
 

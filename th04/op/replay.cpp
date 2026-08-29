@@ -55,7 +55,7 @@
 #define REPLAY_OP_LINE_CAPACITY 80
 #define REPLAY_OP_LINE_TOP 112
 #define REPLAY_OP_LINE_H 24
-#define REPLAY_OP_CELL_W 10
+#define REPLAY_OP_CELL_W REPLAY_OP_FONT_NUMERIC_CELL_W
 #define REPLAY_SCORE_DISPLAY_DIGITS 9
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
 #define REPLAY_OP_COL_SELECTED 7
@@ -2020,6 +2020,20 @@ static void replay_op_line_put_cells(
 	}
 }
 
+static void replay_op_line_put_numeric_cells(
+	screen_x_t left, vram_y_t top, vc2 col, char *p
+)
+{
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_numeric_cells(
+			left, top, replay_op_line, (p - replay_op_line), col
+		);
+	} else {
+		replay_op_line_put(left, top, col, p);
+	}
+}
+
 static void replay_op_line_put_cells_right(
 	screen_x_t right, vram_y_t top, vc2 col, char *p
 )
@@ -2159,7 +2173,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 	}
 	p = replay_op_line;
 	p = replay_op_uint_append(p, slot, 2);
-	replay_op_line_put_cells(REPLAY_BROWSER_SLOT_LEFT, top, col, p);
+	replay_op_line_put_numeric_cells(REPLAY_BROWSER_SLOT_LEFT, top, col, p);
 	p = replay_op_line;
 	if(!valid) {
 		p = replay_op_word_append(p, ROW_NONE);
@@ -4804,7 +4818,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90"
 #endif
 
-// RC22's fixed-cell replay fields preserve the following stock segment phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// Fixed-cell replay fields preserve the following stock segment phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
