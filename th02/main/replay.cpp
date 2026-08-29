@@ -122,6 +122,11 @@ static bool t2replay_timing_armed;
 static bool t2replay_timing_pause_opened;
 static uint8_t t2replay_timing_target;
 
+#ifdef T2SGA
+static int t2replay_debug_midboss_step;
+static int t2replay_debug_previous_midboss_step;
+#endif
+
 #if T2REPLAY_EXACT_APPLY
 enum t2replay_exact_load_result_t {
 	T2XLR_ABSENT = 0,
@@ -294,6 +299,96 @@ extern "C" char aBoss5_m[];
 extern screen_point_t sigma_topleft;
 extern Palette8 __cdecl Palettes;
 extern void far pascal palette_show(void);
+
+#ifdef T2SGA
+static void t2replay_debug_uint_put(
+	tram_x_t left, uint32_t value, uint32_t divisor
+)
+{
+	char digits[6];
+	int i = 0;
+
+	while(divisor != 0) {
+		digits[i++] = static_cast<char>('0' + (value / divisor));
+		value %= divisor;
+		divisor /= 10;
+	}
+	digits[i] = '\0';
+	text_putsa(left, 0, digits, TX_WHITE);
+}
+
+static void t2replay_debug_step_put(tram_x_t left, int value)
+{
+	if(value < 0) {
+		text_putsa(left, 0, "----", TX_WHITE);
+		return;
+	}
+	t2replay_debug_uint_put(left, static_cast<uint16_t>(value), 1000UL);
+}
+
+static void t2debug_coords_reset(void)
+{
+	t2replay_debug_midboss_step = midboss_scroll_step;
+	t2replay_debug_previous_midboss_step = -1;
+}
+
+static void t2debug_coords_put(void)
+{
+	int previous_step = -1;
+	int next_step = -1;
+	int event_step;
+	int i;
+
+	if(t2replay_debug_midboss_step != midboss_scroll_step) {
+		if(
+			(t2replay_debug_midboss_step >= 0) &&
+			(t2replay_debug_midboss_step <= scroll_step)
+		) {
+			t2replay_debug_previous_midboss_step =
+				t2replay_debug_midboss_step;
+		}
+		t2replay_debug_midboss_step = midboss_scroll_step;
+	}
+	if((spawn_rows > 0) && (spawn_grid[0] != NULL)) {
+		for(i = 0; i < spawn_rows; i++) {
+			event_step = spawn_grid[0][i];
+			if((event_step <= scroll_step) && (event_step > previous_step)) {
+				previous_step = event_step;
+			} else if(
+				(event_step > scroll_step) &&
+				((next_step < 0) || (event_step < next_step))
+			) {
+				next_step = event_step;
+			}
+		}
+	}
+	if(t2replay_debug_previous_midboss_step > previous_step) {
+		previous_step = t2replay_debug_previous_midboss_step;
+	}
+	if(midboss_scroll_step >= 0) {
+		if(
+			(midboss_scroll_step <= scroll_step) &&
+			(midboss_scroll_step > previous_step)
+		) {
+			previous_step = midboss_scroll_step;
+		} else if(
+			(midboss_scroll_step > scroll_step) &&
+			((next_step < 0) || (midboss_scroll_step < next_step))
+		) {
+			next_step = midboss_scroll_step;
+		}
+	}
+
+	text_putca(2, 0, 'F', TX_WHITE);
+	t2replay_debug_uint_put(3, stage_frame, 10000UL);
+	text_putca(9, 0, 'L', TX_WHITE);
+	t2replay_debug_step_put(10, previous_step);
+	text_putca(15, 0, 'N', TX_WHITE);
+	t2replay_debug_step_put(16, next_step);
+	text_putca(21, 0, 'M', TX_WHITE);
+	t2replay_debug_step_put(22, scroll_step);
+}
+#endif
 
 extern "C" void far boss_bgm_load(char *fn);
 extern "C" void far enemies_remove_all(void);
@@ -6992,6 +7087,9 @@ bool16 replay_practice_target_apply(void)
 void replay_stage_start(void)
 {
 	t2replay_fast_forward_boundary_reset();
+#ifdef T2SGA
+	t2debug_coords_reset();
+#endif
 	if(t2replay_mode == T2RM_DISABLED) {
 		return;
 	}
@@ -7031,6 +7129,11 @@ void replay_input_sample(uint8_t phase)
 #endif
 
 	t2replay_fast_forward_restore();
+#ifdef T2SGA
+	if(phase == T2REPLAY_PHASE_GAMEPLAY) {
+		t2debug_coords_put();
+	}
+#endif
 	if(t2replay_mode == T2RM_DISABLED) {
 		return;
 	}
