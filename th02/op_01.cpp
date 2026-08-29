@@ -27,7 +27,9 @@
 #include "th02/op/menu.hpp"
 #include "th02/op/m_music.hpp"
 #include "th02/op/replay.hpp"
+#include "th02/practice_diag.hpp"
 #include "th02/language.hpp"
+#include "th02/main/memory_budget.hpp"
 
 #pragma option -2 -a2
 
@@ -790,7 +792,7 @@ int main(void)
 #endif
 	if(snd_pmd_resident()) {
 		snd_mmd_resident();
-		if(game_init_op()) {
+		if(t2replay_game_init_op()) {
 			zun_error(ERROR_OUT_OF_MEMORY);
 			return 1;
 		}
@@ -850,6 +852,9 @@ int main(void)
 	pi_load(2, "ts3.pi");
 	pi_load(1, "ts2.pi");
 #ifdef T2PD
+	// The fully populated title menu is the first cross-process acceptance
+	// boundary. All later private milestones append to this fresh trace.
+	t2practice_diag_lifecycle_op_menu_enter();
 	replay_practice_diag_boot(5);
 #endif
 	key_det = 0;

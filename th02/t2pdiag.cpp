@@ -63,14 +63,19 @@ static int near t2practice_diag_dos_create(const char far *fn)
 
 static bool near t2practice_diag_exists(void)
 {
-	int fd = t2practice_diag_dos_open(
+	int fd;
+
+	t2practice_diag_io_bypass_begin();
+	fd = t2practice_diag_dos_open(
 		T2PRACT_DIAG_FN, T2PRACT_DIAG_ACCESS_READ
 	);
 
 	if(fd < 0) {
+		t2practice_diag_io_bypass_end();
 		return false;
 	}
 	t2practice_diag_dos_close(fd);
+	t2practice_diag_io_bypass_end();
 	return true;
 }
 
@@ -140,9 +145,11 @@ static void near t2practice_diag_write(
 
 	writable.checksum = 0;
 	writable.checksum = t2practice_diag_checksum(&writable);
+	t2practice_diag_io_bypass_begin();
 	if(reset) {
 		fd = t2practice_diag_dos_create(T2PRACT_DIAG_FN);
 		if(fd < 0) {
+			t2practice_diag_io_bypass_end();
 			return;
 		}
 		wrote = (
@@ -155,6 +162,7 @@ static void near t2practice_diag_write(
 			T2PRACT_DIAG_FN, T2PRACT_DIAG_ACCESS_RW
 		);
 		if(fd < 0) {
+			t2practice_diag_io_bypass_end();
 			return;
 		}
 		wrote = (
@@ -168,6 +176,7 @@ static void near t2practice_diag_write(
 	if(wrote) {
 		t2practice_diag_dos_flush();
 	}
+	t2practice_diag_io_bypass_end();
 }
 
 static void near t2practice_diag_emit_current(uint8_t event, bool reset)
@@ -178,9 +187,11 @@ static void near t2practice_diag_emit_current(uint8_t event, bool reset)
 
 void t2practice_diag_clear(void)
 {
+	t2practice_diag_io_bypass_begin();
 	if(t2practice_diag_exists()) {
 		t2practice_diag_dos_delete(T2PRACT_DIAG_FN);
 	}
+	t2practice_diag_io_bypass_end();
 	t2practice_diag_apply_active = false;
 }
 

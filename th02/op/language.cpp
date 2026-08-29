@@ -13,6 +13,7 @@
 #include "th02/snd/snd.h"
 #include "th02/gaiji/gaiji.h"
 #include "th02/op/replay.hpp"
+#include "th02/practice_diag.hpp"
 
 extern char menu_sel;
 extern bool in_option;
@@ -20,13 +21,13 @@ extern unsigned char snd_bgm_mode;
 extern resident_t __seg *resident_seg;
 
 #define T2_LANGUAGE_OPTION_COUNT 8
-#define T2_LANGUAGE_OPTION_LABEL_LEFT 192
-#define T2_LANGUAGE_OPTION_VALUE_LEFT 368
+#define T2_LANGUAGE_OPTION_LABEL_CENTER 256
+#define T2_LANGUAGE_OPTION_VALUE_CENTER 400
 #define T2_LANGUAGE_OPTION_TOP 336
-#define T2_LANGUAGE_OPTION_COLUMN_W 128
 
 static bool t2_language_option_initialized;
 static bool t2_language_option_input_allowed;
+static bool t2_language_option_change_returned;
 static int8_t t2_language_option_sel;
 
 static void t2_language_option_gaiji_reload(void)
@@ -40,40 +41,77 @@ static void t2_language_option_gaiji_reload(void)
 	t2_language_gaiji_entry_bfnt(fn);
 }
 
+static uint8_t t2_language_option_gaiji(char c)
+{
+	if((c >= 'a') && (c <= 'z')) {
+		c = static_cast<char>(c - ('a' - 'A'));
+	}
+	if((c >= 'A') && (c <= 'Z')) {
+		if(c == 'M') {
+			return gb_M;
+		}
+		if(c == 'N') {
+			return gb_N;
+		}
+		return static_cast<uint8_t>(gb_A + (c - 'A'));
+	}
+	return gs_SPACE;
+}
+
+static void t2_language_option_native_center_put(
+	screen_x_t center, tram_atrb2 atrb, const char *text
+)
+{
+	uint8_t gaiji[9];
+	unsigned length = 0;
+	screen_x_t left;
+
+	while((text[length] != '\0') && (length < (sizeof(gaiji) - 1))) {
+		gaiji[length] = t2_language_option_gaiji(text[length]);
+		length++;
+	}
+	gaiji[length] = gs_NULL;
+	left = static_cast<screen_x_t>(center - ((length * GAIJI_W) / 2));
+	graph_gaiji_puts(
+		(left + 4), (T2_LANGUAGE_OPTION_TOP + 4), GAIJI_W,
+		reinterpret_cast<const char *>(gaiji), 0
+	);
+	gaiji_putsa(
+		(left / GLYPH_HALF_W), (T2_LANGUAGE_OPTION_TOP / GLYPH_H),
+		reinterpret_cast<const char *>(gaiji), atrb
+	);
+}
+
+static void t2_language_option_japanese_center_put(tram_atrb2 atrb)
+{
+	// MIKOFT has no Japanese glyph cells. Keep this one native Japanese value
+	// in TH02's Shift-JIS font rather than introducing a patch font table.
+	static const shiftjis_t japanese[] = "\x93\xFA\x96\x7B\x8C\xEA";
+	screen_x_t left = static_cast<screen_x_t>(
+		T2_LANGUAGE_OPTION_VALUE_CENTER - ((3 * GAIJI_W) / 2)
+	);
+
+	graph_putsa_fx(left + 4, T2_LANGUAGE_OPTION_TOP + 4, 0, japanese);
+	text_putsa(
+		(left / GLYPH_HALF_W), (T2_LANGUAGE_OPTION_TOP / GLYPH_H), japanese,
+		atrb
+	);
+}
+
 static void t2_language_option_language_put(tram_atrb2 atrb)
 {
-	char label[9];
-	char value[8];
-
-	t2_language_option_text(label, value);
-	text_putsa(
-		(T2_LANGUAGE_OPTION_LABEL_LEFT / GLYPH_HALF_W),
-		(T2_LANGUAGE_OPTION_TOP / GLYPH_H), label, atrb
+	// Patch-owned labels are intentionally English in both locales. The native
+	// MIKOFT gaiji route owns their geometry on both VRAM and TRAM.
+	t2_language_option_native_center_put(
+		T2_LANGUAGE_OPTION_LABEL_CENTER, atrb, "Language"
 	);
-	text_putsa(
-		(T2_LANGUAGE_OPTION_VALUE_LEFT / GLYPH_HALF_W),
-		(T2_LANGUAGE_OPTION_TOP / GLYPH_H), value, atrb
-	);
-	graph_copy_rect_1_to_0_16(
-		T2_LANGUAGE_OPTION_LABEL_LEFT,
-		(T2_LANGUAGE_OPTION_TOP + 4),
-		T2_LANGUAGE_OPTION_COLUMN_W,
-		GLYPH_H
-	);
-	graph_copy_rect_1_to_0_16(
-		T2_LANGUAGE_OPTION_VALUE_LEFT,
-		(T2_LANGUAGE_OPTION_TOP + 4),
-		80,
-		GLYPH_H
-	);
-	graph_putsa_fx(
-		(T2_LANGUAGE_OPTION_LABEL_LEFT + 4),
-		(T2_LANGUAGE_OPTION_TOP + 4), 0, label
-	);
-	graph_putsa_fx(
-		(T2_LANGUAGE_OPTION_VALUE_LEFT + 4),
-		(T2_LANGUAGE_OPTION_TOP + 4), 0, value
-	);
+	if(t2_language_get() == T2LANG_ENGLISH) {
+		t2_language_option_native_center_put(
+			T2_LANGUAGE_OPTION_VALUE_CENTER, atrb, "English"
+		);
+	} else {
+		t2_language_option_japanese_center_put(atrb);
+	}
 }
 
 static void t2_language_option_put(int sel, tram_atrb2 atrb)
@@ -85,7 +123,7 @@ static void t2_language_option_put(int sel, tram_atrb2 atrb)
 	}
 }
 
-static void t2_language_option_change(int direction)
+static bool t2_language_option_change(int direction)
 {
 	t2_language_option_put(t2_language_option_sel, TX_YELLOW);
 	switch(t2_language_option_sel) {
@@ -133,18 +171,20 @@ static void t2_language_option_change(int direction)
 		) {
 			t2_language_option_gaiji_reload();
 			replay_title_background_restore();
-			// Options still owns the foreground. Rebuild it immediately after
-			// restoring the selected-language title assets; the flag serves the
-			// later Options-to-title return.
+			// Options still owns the foreground. The outer OP loop rebuilds it on
+			// its next update; recursing into the renderer here left resource/page
+			// restoration on two live stack frames and could STOP on return.
 			replay_title_restore_needed = true;
 			t2_language_option_initialized = false;
-			t2_language_option_update_and_render();
-			return;
+			t2_language_option_input_allowed = false;
+			t2_language_option_change_returned = true;
+			return true;
 		}
 		break;
 	}
 	}
 	t2_language_option_put(t2_language_option_sel, TX_WHITE);
+	return false;
 }
 
 static void t2_language_option_selection_move(int direction)
@@ -185,6 +225,12 @@ void far pascal t2_language_option_update_and_render(void)
 			);
 		}
 		t2_language_option_initialized = true;
+		if(t2_language_option_change_returned) {
+			t2practice_diag_lifecycle(
+				T2PDLM_LANGUAGE_RETURN, 0, 0, 0
+			);
+			t2_language_option_change_returned = false;
+		}
 		return;
 	}
 	if(!key_det) {
@@ -200,10 +246,14 @@ void far pascal t2_language_option_update_and_render(void)
 		t2_language_option_selection_move(+1);
 	}
 	if((key_det & INPUT_RIGHT) && (t2_language_option_sel <= 5)) {
-		t2_language_option_change(+1);
+		if(t2_language_option_change(+1)) {
+			return;
+		}
 	}
 	if((key_det & INPUT_LEFT) && (t2_language_option_sel <= 5)) {
-		t2_language_option_change(-1);
+		if(t2_language_option_change(-1)) {
+			return;
+		}
 	}
 	if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 		if(t2_language_option_sel == 6) {
@@ -214,7 +264,9 @@ void far pascal t2_language_option_update_and_render(void)
 		} else if(t2_language_option_sel == 7) {
 			t2_language_option_return_to_main();
 		} else {
-			t2_language_option_change(+1);
+			if(t2_language_option_change(+1)) {
+				return;
+			}
 		}
 	}
 	if(key_det & INPUT_CANCEL) {

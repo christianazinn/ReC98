@@ -29,6 +29,7 @@
 #include "th02/snd/snd.h"
 #include "th02/main/frames.hpp"
 #include "th02/main/main.hpp"
+#include "th02/main/memory_budget.hpp"
 #include "th02/main/midboss/midboss.hpp"
 #include "th02/main/s1_actor.hpp"
 #include "th02/main/s2_actor.hpp"
@@ -5777,9 +5778,16 @@ void replay_entry(void)
 		return;
 	}
 	if(command_mode == T2RM_RECORD) {
+		bool guard_admitted;
+
 		t2replay_mode = T2RM_RECORD;
 		t2replay_pending_files_delete();
-		(void)t2replay_guard_begin();
+		guard_admitted = t2replay_guard_begin();
+		t2practice_diag_lifecycle(
+			T2PDLM_REPLAY_GUARD_ADMITTED,
+			(guard_admitted ? 1 : 0), 0,
+			t2replay_game_heap_available_paras()
+		);
 		t2replay_header_capture();
 		if(command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
 			t2replay_header.flags |= T2REPLAY_FLAG_PRACTICE;
@@ -6371,10 +6379,19 @@ static bool16 near t2replay_extra_sigma_phase9_activate_clean(void)
 }
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
-#define t2practice_target_return(result) { \
-	t2practice_diag_apply_end(result); \
-	return result; \
+static bool16 near t2practice_target_finish(bool16 result)
+{
+	if(result) {
+		t2practice_diag_lifecycle(
+			T2PDLM_PRACTICE_TARGET_APPLIED, 0, 0,
+			t2replay_game_heap_available_paras()
+		);
+	}
+	t2practice_diag_apply_end(result);
+	return result;
 }
+
+#define t2practice_target_return(result) return t2practice_target_finish(result)
 
 bool16 replay_practice_target_apply(void)
 {

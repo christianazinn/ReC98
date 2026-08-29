@@ -31,6 +31,8 @@
 #include "th02/shiftjis/title.hpp"
 #include "th02/sprites/verdict.hpp"
 #include "th02/language.hpp"
+#include "th02/main/memory_budget.hpp"
+#include "th02/practice_diag.hpp"
 
 #include "th02/gaiji/ranks_c.c"
 
@@ -1214,7 +1216,15 @@ extern "C" void far main_entry(void)
 	// 127 is STAGE_ALL, from th02/formats/scoredat/scoredat.hpp. That header
 	// cannot be included here: it re-includes the unguarded th02/score.h.
 	if(cfg_load() && (resident->stage == 127)) {
-		game_init_main();
+		if(t2replay_game_init_main()) {
+			// This process has no linked ZUNINIT error thunk. Returning is the
+			// checked failure path; never continue with master.lib unassigned.
+			return;
+		}
+		t2practice_diag_lifecycle(
+			T2PDLM_MAINE_HEAP_ADMITTED, 0, 0,
+			t2replay_game_heap_available_paras()
+		);
 		gaiji_backup();
 		t2_language_maine_gaiji_entry_bfnt("MIKOFT.bft");
 		snd_pmd_resident();

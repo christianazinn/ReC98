@@ -1282,93 +1282,11 @@ static char *t2op_char(char *p, char c)
 	return p;
 }
 
-// The OP language tables own stock text.  This table is limited to the
-// Replay and Practice surfaces added in this trailing patch segment.
-static char *t2op_word_append_japanese(char *p, t2op_word_t word)
-{
-	#define P(c) p = t2op_char(p, static_cast<char>(c))
-	switch(word) {
-	case T2OW_START: P(0x8A); P(0x4A); P(0x8E); P(0x6E); break;
-	case T2OW_EXTRA: P('E'); P('X'); P('T'); P('R'); P('A'); break;
-	case T2OW_PRACTICE: P(0x97); P(0xFB); P(0x8F); P(0x4B); break;
-	case T2OW_REPLAY: P(0x8D); P(0xC4); P(0x90); P(0xB6); break;
-	case T2OW_HISCORE: P(0x83); P(0x6E); P(0x83); P(0x43); P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
-	case T2OW_OPTIONS: P(0x83); P(0x49); P(0x83); P(0x76); P(0x83); P(0x56); P(0x83); P(0x87); P(0x83); P(0x93); break;
-	case T2OW_MUSIC_ROOM: P(0x83); P(0x7E); P(0x83); P(0x85); P(0x81); P(0x5B); P(0x83); P(0x57); P(0x83); P(0x62); P(0x83); P(0x4E); break;
-	case T2OW_QUIT: P(0x8F); P(0x49); P(0x97); P(0xB9); break;
-	case T2OW_RANK: P(0x83); P(0x89); P(0x83); P(0x93); P(0x83); P(0x4E); break;
-	case T2OW_EASY: P(0x83); P(0x43); P(0x81); P(0x5B); P(0x83); P(0x57); P(0x81); P(0x5B); break;
-	case T2OW_NORMAL: P(0x83); P(0x6D); P(0x81); P(0x5B); P(0x83); P(0x7D); P(0x83); P(0x8B); break;
-	case T2OW_HARD: P(0x83); P(0x6E); P(0x81); P(0x5B); P(0x83); P(0x68); break;
-	case T2OW_LUNATIC: P(0x83); P(0x8B); P(0x83); P(0x69); P(0x83); P(0x65); P(0x83); P(0x42); P(0x83); P(0x62); P(0x83); P(0x4E); break;
-	case T2OW_SHOT: P(0x83); P(0x56); P(0x83); P(0x87); P(0x83); P(0x62); P(0x83); P(0x67); break;
-	case T2OW_CHARACTER: P(0x83); P(0x4C); P(0x83); P(0x83); P(0x83); P(0x89); P(0x83); P(0x4E); P(0x83); P(0x5E); P(0x81); P(0x5B); break;
-	case T2OW_REIMU: P(0x97); P(0xEC); P(0x96); P(0xB2); break;
-	case T2OW_MARISA: P(0x96); P(0x82); P(0x97); P(0x9D); P(0x8D); P(0xB9); break;
-	case T2OW_MIMA: P(0x96); P(0xA3); P(0x96); P(0x82); break;
-	case T2OW_STAGE: P(0x83); P(0x58); P(0x83); P(0x65); P(0x81); P(0x5B); P(0x83); P(0x57); break;
-	case T2OW_SECTION: P(0x8A); P(0x4A); P(0x8E); P(0x6E); P(0x88); P(0xCA); P(0x92); P(0x75); break;
-	case T2OW_STAGE_START: P(0x83); P(0x58); P(0x83); P(0x65); P(0x81); P(0x5B); P(0x83); P(0x57); P(0x8A); P(0x4A); P(0x8E); P(0x6E); break;
-	case T2OW_CHAPTER_2: P(0x92); P(0x86); P(0x94); P(0xD5); break;
-	case T2OW_CHAPTER_3: P(0x8C); P(0xE3); P(0x94); P(0xBC); break;
-	case T2OW_MIDBOSS: P(0x92); P(0x86); P(0x83); P(0x7B); P(0x83); P(0x58); break;
-	case T2OW_BOSS_PHASE_1: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('1'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_2:
-	case T2OW_BOSS_PHASE_2: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('2'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_3:
-	case T2OW_BOSS_PHASE_3: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('3'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_4: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('4'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_5: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('5'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_6: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('6'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_ROUND_7: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('7'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_PHASE_5: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('5'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_PHASE_7: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('7'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_PHASE_9: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x91); P(0xE6); P('9'); P(0x8C); P(0x60); P(0x91); P(0xD4); break;
-	case T2OW_BOSS_START: P(0x83); P(0x7B); P(0x83); P(0x58); P(0x8A); P(0x4A); P(0x8E); P(0x6E); break;
-	case T2OW_INNER_PAIR: P(0x93); P(0xE0); P(0x91); P(0xA4); P(0x83); P(0x79); P(0x83); P(0x41); break;
-	case T2OW_OUTER_PAIR: P(0x8A); P(0x4F); P(0x91); P(0xA4); P(0x83); P(0x79); P(0x83); P(0x41); break;
-	case T2OW_SCORE: P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
-	case T2OW_HIGH_SCORE: P(0x83); P(0x6E); P(0x83); P(0x43); P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
-	case T2OW_POWER: P(0x97); P(0xEC); P(0x97); P(0xCD); break;
-	case T2OW_SLOWDOWN: P(0x8F); P(0x88); P(0x97); P(0x9D); P(0x97); P(0x8E); P(0x82); P(0xBF); break;
-	case T2OW_LIVES: P(0x8E); P(0x63); P(0x8B); P(0x40); break;
-	case T2OW_BOMBS: P(0x83); P(0x7B); P(0x83); P(0x80); break;
-	case T2OW_SEED: P(0x97); P(0x90); P(0x90); P(0x94); break;
-	case T2OW_SKILL: P(0x8B); P(0x5A); P(0x97); P(0xCA); break;
-	case T2OW_BGM: P('B'); P('G'); P('M'); break;
-	case T2OW_REDUCED_EFFECTS: P(0x89); P(0x89); P(0x8F); P(0x6F); P(0x8C); P(0x79); P(0x8C); P(0xB8); break;
-	case T2OW_OFF: P(0x83); P(0x49); P(0x83); P(0x74); break;
-	case T2OW_ON: P(0x83); P(0x49); P(0x83); P(0x93); break;
-	case T2OW_FM: P('F'); P('M'); break;
-	case T2OW_MIDI: P('M'); P('I'); P('D'); P('I'); break;
-	case T2OW_BROWSER: P(0x83); P(0x8A); P(0x83); P(0x76); P(0x83); P(0x8C); P(0x83); P(0x43); P(0x88); P(0xEA); P(0x97); P(0x97); break;
-	case T2OW_SAVE_REPLAY: P(0x83); P(0x8A); P(0x83); P(0x76); P(0x83); P(0x8C); P(0x83); P(0x43); P(0x95); P(0xDB); P(0x91); P(0xB6); break;
-	case T2OW_OVERWRITE_REPLAY: P(0x8F); P(0xE3); P(0x8F); P(0x91); P(0x82); P(0xAB); P(0x82); P(0xB5); P(0x82); P(0xDC); P(0x82); P(0xB7); P(0x82); P(0xA9); break;
-	case T2OW_YES: P(0x82); P(0xCD); P(0x82); P(0xA2); break;
-	case T2OW_NO: P(0x82); P(0xA2); P(0x82); P(0xA2); P(0x82); P(0xA6); break;
-	case T2OW_SLOT: P(0x94); P(0xD4); P(0x8D); P(0x86); break;
-	case T2OW_NAME: P(0x96); P(0xBC); P(0x91); P(0x4F); break;
-	case T2OW_NONE: P(0x82); P(0xC8); P(0x82); P(0xB5); break;
-	case T2OW_INVALID: P(0x96); P(0xB3); P(0x8C); P(0xF8); break;
-	case T2OW_CLEAR: P(0x83); P(0x4E); P(0x83); P(0x8A); P(0x83); P(0x41); break;
-	case T2OW_GAME_OVER: P(0x83); P(0x51); P(0x81); P(0x5B); P(0x83); P(0x80); P(0x83); P(0x49); P(0x81); P(0x5B); P(0x83); P(0x6F); P(0x81); P(0x5B); break;
-	case T2OW_MENU_RETURN: P(0x83); P(0x81); P(0x83); P(0x6A); P(0x83); P(0x85); P(0x81); P(0x5B); P(0x96); P(0xDF); P(0x82); P(0xE8); break;
-	case T2OW_PAGE: P(0x83); P(0x79); P(0x81); P(0x5B); P(0x83); P(0x57); break;
-	case T2OW_FINAL_SCORE: P(0x8D); P(0xC5); P(0x8F); P(0x49); P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
-	case T2OW_START_POINT: P(0x8A); P(0x4A); P(0x8E); P(0x6E); P(0x92); P(0x6E); P(0x93); P(0x5F); break;
-	case T2OW_STAGE_SPLITS: P(0x83); P(0x58); P(0x83); P(0x65); P(0x81); P(0x5B); P(0x83); P(0x57); P(0x95); P(0xCA); P(0x83); P(0x58); P(0x83); P(0x52); P(0x83); P(0x41); break;
-	case T2OW_START_RUN: P(0x8A); P(0x4A); P(0x8E); P(0x6E); break;
-	default: break;
-	}
-	#undef P
-	return p;
-}
-
 static char *t2op_word_append(char *p, t2op_word_t word)
 {
-	if(!t2_language_english_ready()) {
-		return t2op_word_append_japanese(p, word);
-	}
+	// Patch-owned labels deliberately remain English under both locale choices.
+	// They are encoded into TH02's menu gaiji below, never into the standard
+	// Shift-JIS renderer used by stock text.
 	#define P(c) p = t2op_char(p, c)
 	switch(word) {
 	case T2OW_START: P('S'); P('t'); P('a'); P('r'); P('t'); break;
@@ -1522,10 +1440,16 @@ static char *t2op_slowdown_append(char *p)
 	return t2op_char(p, '%');
 }
 
+static void t2op_gaiji_put(
+	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
+);
+static void t2op_title_gaiji_put(
+	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
+);
+
 static void t2op_text_put(tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end)
 {
-	*end = '\0';
-	text_putsa(x, y, reinterpret_cast<const shiftjis_t *>(t2op_line), attr);
+	t2op_gaiji_put(x, y, attr, end);
 }
 
 static uint8_t t2op_menu_gaiji(char c)
@@ -1619,45 +1543,16 @@ static void t2op_title_gaiji_center_put(
 	t2op_title_gaiji_put(x, y, attr, end);
 }
 
-static bool t2op_shiftjis_lead(char c)
-{
-	uint8_t byte = static_cast<uint8_t>(c);
-
-	return (
-		((byte >= 0x81) && (byte <= 0x9F)) ||
-		((byte >= 0xE0) && (byte <= 0xFC))
-	);
-}
-
 static unsigned t2op_line_tram_width(char *end)
 {
-	char *p = t2op_line;
-	unsigned width = 0;
-
-	while(p < end) {
-		if(t2op_shiftjis_lead(*p) && ((p + 1) < end)) {
-			p += 2;
-			width += 2;
-		} else {
-			p++;
-			width++;
-		}
-	}
-	return width;
+	return static_cast<unsigned>((end - t2op_line) * GAIJI_TRAM_W);
 }
 
 static void t2op_title_text_put(
 	tram_x_t x, tram_y_t y, tram_atrb2 attr, char *end
 )
 {
-	*end = '\0';
-	graph_putsa_fx(
-		static_cast<screen_x_t>((x * GLYPH_HALF_W) + 4),
-		static_cast<screen_y_t>((y * GLYPH_H) + 4),
-		FX_WEIGHT_BOLD,
-		reinterpret_cast<const shiftjis_t *>(t2op_line)
-	);
-	text_putsa(x, y, reinterpret_cast<const shiftjis_t *>(t2op_line), attr);
+	t2op_title_gaiji_put(x, y, attr, end);
 }
 
 static void t2op_menu_word_put(
@@ -1728,23 +1623,33 @@ static void t2op_title_font_restore(void)
 	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
 }
 
-// Replay browser, detail, and save/name surfaces have no stock title-menu
-// counterpart. Use TH02's native High Score backdrop instead of leaving their
-// TRAM rows over the title logo and character art. The title rebuild below
-// restores both its own palette/background and MIKOFT before accepting input.
-static void t2op_replay_surface_prepare(void)
+enum t2op_replay_surface_t {
+	T2ORS_BROWSER,
+	T2ORS_NAME,
+};
+
+// Replay browser/detail/confirmation and name entry deliberately use distinct
+// patch-owned PI files. Keeping the loaded PI only long enough to copy both
+// pages avoids turning OP's menu lifetime into a conventional-memory leak.
+static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 {
+	const char *fn = ((surface == T2ORS_NAME) ? "SLB1B.PI" : "SLB1.PI");
+
+	if(pi_load(0, fn) != 0) {
+		return false;
+	}
+	palette_settone(0);
+	pi_palette_apply(0);
+	graph_accesspage(0);
+	pi_put_8(0, 0, 0);
 	graph_accesspage(1);
-	graph_clear();
-	grcg_setcolor(GC_RMW, 10);
-	grcg_fill();
-	grcg_off();
-	graph_copy_page(0);
+	pi_put_8(0, 0, 0);
 	graph_showpage(0);
 	graph_accesspage(0);
-	palette_entry_rgb_show("op_h.rgb");
+	pi_free(0);
 	t2op_title_font_restore();
 	text_clear();
+	return true;
 }
 
 // The title-surface handoffs owned here return through OP's normal title
@@ -1903,6 +1808,9 @@ static bool t2op_name_menu(uint8_t far *name)
 	uint8_t input_delay = 0;
 	unsigned i;
 
+	if(!t2op_replay_surface_prepare(T2ORS_NAME)) {
+		return false;
+	}
 	for(i = 0; i < T2REPLAY_NAME_LEN; i++) {
 		name[i] = gs_SPACE;
 	}
@@ -3039,7 +2947,10 @@ void replay_practice_diag_autostart(void)
 	t2op_practice_defaults();
 	t2op_practice_stage_set(static_cast<int8_t>(config[0]));
 	t2op_practice.shottype = config[2];
-	t2op_practice.bgm_mode = SND_BGM_OFF;
+	// start_init() performs the native title-song fade before MAIN executes.
+	// Keep the configured BGM route for this no-input launch; forcing Off here
+	// makes the diagnostic exercise a driver state no interactive Practice uses.
+	t2op_practice.bgm_mode = snd_bgm_mode;
 	t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] = config[1];
 	if(t2op_start_valid(&t2op_practice)) {
 		cfg_save();
@@ -3055,12 +2966,12 @@ void replay_practice_diag_autostart(void)
 		)) {
 			return;
 		}
-		// start_init() only adds a title SFX/delay before initializing fields
-		// that the complete Practice payload replaces. Keep this private launch
-		// independent of title timing while preserving its remaining zeros.
-		resident->unused_3 = 0;
-		resident->unused_1 = 0;
+		// This diagnostic must take the exact live handoff. In particular,
+		// start_init() establishes resident sound state that MAIN's snd_load()
+		// depends on; bypassing it turned the heap probe into a false hang.
+		start_init();
 		t2op_resident_apply(&t2op_practice);
+		t2practice_diag_lifecycle(T2PDLM_OP_DIRECT_LAUNCH, 0, 0, 0);
 		t2op_main_exec();
 	}
 }
@@ -3458,7 +3369,10 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 {
 	bool input_allowed = false;
 
-	t2op_replay_surface_prepare();
+	if(!t2op_replay_surface_prepare(T2ORS_BROWSER)) {
+		t2op_title_return_request();
+		return;
+	}
 	t2op_browser_render(save_pending);
 	while(1) {
 		input_reset_sense();
@@ -3527,7 +3441,9 @@ static bool t2op_pending_save(void)
 	if(!t2op_pending_header_read()) {
 		return false;
 	}
-	t2op_replay_surface_prepare();
+	if(!t2op_replay_surface_prepare(T2ORS_BROWSER)) {
+		return false;
+	}
 	if(
 		(t2op_pending_source == T2REPLAY_SAVE_REQUEST_CLEAR) &&
 		!t2op_save_confirm()

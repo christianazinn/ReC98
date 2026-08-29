@@ -45,6 +45,12 @@ include th02/th02.inc
 	extrn pferrno:word
 	extrn pfkey:byte
 
+	; Keep the archive hook's existing reentrancy byte private in release code,
+	; but give the private TH02 lifecycle trace a typed far alias. Its own loose
+	; diagnostic files must never be interpreted as archive members after
+	; PFSTART installs the INT 21h hook.
+	alias <_t2practice_diag_pf_hook> = <on_hook>
+
 _TEXT		segment	word public 'CODE' use16
 		assume cs:_TEXT
 		assume es:nothing, ds:_DATA, fs:nothing, gs:nothing

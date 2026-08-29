@@ -438,6 +438,14 @@ local T2REPLAY_PROFILES = {
 		-- are expanded by practice_diag.hpp.
 		cflags = "-DT2PD=1 -DT2PID=25",
 	},
+	["t2practice-diagnostics-rc25-minheap"] = {
+		obj_root = "x/h/",
+		bin_root = "x/h/",
+		-- Private measured lower-bound admission route. Keep the common TCC
+		-- response-file prefix short; memory_budget.cpp maps build ID 26 to its
+		-- 16,000-paragraph cap locally.
+		cflags = "-DT2PD=1 -DT2PID=26",
+	},
 	["t2exact-direct"] = {
 		obj_root = "x/d/",
 		bin_root = "x/d/",
@@ -675,6 +683,10 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- English v1.00's remaining OP-resident presentation strings. Keep this
 	-- ungrouped CODE segment last so no stock initialized-data address moves.
 	"th02/op/langstr.asm",
+	-- Private cross-process lifecycle writer. Empty in release profiles.
+	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
+	-- Shared adaptive conventional-memory admission for patch-enlarged OP.
+	{ "th02/op/op_memory_budget.cpp", o = "op_mem~1.obj" },
 })
 local th02_main_sources = {
 	{ "th02_main.asm", extra_inputs = {
@@ -790,10 +802,18 @@ local th02_main_sources = {
 	-- Public later-boss Phase 1 constructors remain in their own final tail.
 	-- TCC shortens later_boss_practice.cpp to later_~1.obj under DOS.
 	{ "th02/main/later_boss_practice.cpp", o = "later_~1.obj" },
+	-- MAIN admission is patch-owned so the stock fixed-size initializer remains
+	-- linked and every preceding contribution stays at its pinned location.
+	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
+	-- Private lifecycle evidence is a separate shared tail. It is empty in
+	-- release profiles and lets MAIN/MAINE report the same admission contract.
+	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
 
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
+-- Use the replay profile here too. Debug lifecycle evidence must cover the
+-- actual MAINE process, not a release-only approximation of its admission.
+th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
 	"th02_maine.asm",
 	"th02/grppsafx.cpp",
@@ -821,6 +841,9 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	-- MAINE-only English v1.00 resident copy. Keep it after the C++ tail so
 	-- every stock segment and DGROUP contribution remains pinned.
 	"th02/end/maine_langstr.asm",
+	-- Share the checked MAIN/MAINE conventional-memory admission policy.
+	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
+	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
 })
 -- ----
 

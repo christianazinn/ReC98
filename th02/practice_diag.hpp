@@ -20,6 +20,8 @@
 
 #define T2PRACT_DIAG_SCHEMA 1
 #define T2PRACT_DIAG_RECORD_SIZE 32
+#define T2LIFE_DIAG_SCHEMA 1
+#define T2LIFE_DIAG_RECORD_SIZE 18
 
 enum t2practice_diag_event_t {
 	T2PDE_OP_BEGIN = 1,
@@ -80,6 +82,37 @@ enum t2practice_diag_constructor_result_t {
 	T2PDCR_FAILURE = -1,
 };
 
+// Private cross-process acceptance milestones. These intentionally describe
+// the patch lifecycle rather than any ZUN state, and compile only into T2PD
+// diagnostic binaries.
+enum t2practice_lifecycle_milestone_t {
+	T2PDLM_OP_MENU = 1,
+	T2PDLM_LANGUAGE_RETURN,
+	T2PDLM_MAIN_HEAP_ADMITTED,
+	T2PDLM_GAMEPLAY_INITIALIZED,
+	T2PDLM_PRACTICE_TARGET_APPLIED,
+	T2PDLM_TITLE_DEMO_MAIN,
+	// `largest_paras` carries the initialized stage ID for this event.
+	T2PDLM_STAGE_INITIALIZED,
+	T2PDLM_MAINE_HEAP_ADMITTED,
+	// `largest_paras` is nonzero only when the post-close raw guard witness
+	// admitted recording. It keeps 5D01h capability separate from the verdict.
+	T2PDLM_REPLAY_GUARD_ADMITTED,
+	// Private no-input route: OP initialized resident state and is about to
+	// execute the same command-bearing handoff as interactive Practice.
+	T2PDLM_OP_DIRECT_LAUNCH,
+	// Fine-grained MAIN admission probes. These are private-only evidence for
+	// the adaptive DOS heap floor; they never affect release pacing or state.
+	T2PDLM_MAIN_PLANES_READY,
+	T2PDLM_MAIN_VSYNC_READY,
+	T2PDLM_MAIN_EGC_READY,
+	T2PDLM_MAIN_400LINE_READY,
+	T2PDLM_MAIN_PACKFILE_READY,
+	// Kept separate from MAIN so a title-side allocation cannot be misread as
+	// proof that the following executable reached its own admission boundary.
+	T2PDLM_OP_HEAP_ADMITTED,
+};
+
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 
 struct t2practice_diag_record_t {
@@ -105,6 +138,20 @@ struct t2practice_diag_record_t {
 
 typedef char t2practice_diag_record_size_check[
 	(sizeof(t2practice_diag_record_t) == T2PRACT_DIAG_RECORD_SIZE) ? 1 : -1
+];
+
+struct t2practice_lifecycle_record_t {
+	char magic[8];
+	uint8_t schema;
+	uint8_t milestone;
+	uint16_t largest_paras;
+	uint16_t chosen_paras;
+	uint16_t available_paras;
+	uint16_t high_water_paras;
+};
+
+typedef char t2practice_lifecycle_record_size_check[
+	(sizeof(t2practice_lifecycle_record_t) == T2LIFE_DIAG_RECORD_SIZE) ? 1 : -1
 ];
 
 void t2practice_diag_clear(void);
@@ -134,6 +181,19 @@ void t2practice_diag_spawn_upper_bound(int spawn_upper_bound);
 void t2practice_diag_failure(enum t2practice_diag_reason_t reason);
 void t2practice_diag_constructor_result(bool16 result);
 void t2practice_diag_apply_end(bool16 result);
+// The launcher removes T2LIFE.BIN before a diagnostic run. OP entries append
+// their own milestone so natural MAIN/MAINE -> OP returns remain observable.
+void t2practice_diag_lifecycle_op_menu_enter(void);
+void t2practice_diag_lifecycle(
+	enum t2practice_lifecycle_milestone_t milestone,
+	uint16_t largest_paras, uint16_t chosen_paras, uint16_t available_paras
+);
+// PFSTART installs an INT 21h archive hook. Private diagnostics must bypass
+// that hook while touching their own loose files, exactly as the hook does
+// for an internal recursive DOS call. These are diagnostic-only and nesting
+// safe so the public game paths remain untouched.
+void t2practice_diag_io_bypass_begin(void);
+void t2practice_diag_io_bypass_end(void);
 
 #else
 
@@ -151,6 +211,10 @@ void t2practice_diag_apply_end(bool16 result);
 #define t2practice_diag_failure(reason) ((void)0)
 #define t2practice_diag_constructor_result(result) ((void)0)
 #define t2practice_diag_apply_end(result) ((void)0)
+#define t2practice_diag_lifecycle_op_menu_enter() ((void)0)
+#define t2practice_diag_lifecycle(milestone, largest, chosen, available) ((void)0)
+#define t2practice_diag_io_bypass_begin() ((void)0)
+#define t2practice_diag_io_bypass_end() ((void)0)
 
 #endif
 

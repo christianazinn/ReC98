@@ -25,9 +25,10 @@
 // therefore not be included directly alongside this one.
 #include "th02/main/demo.h"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/main/memory_budget.hpp"
 #include "th02/main/replay.hpp"
-#ifdef T2PD
 #include "th02/practice_diag.hpp"
+#ifdef T2PD
 #include "th02/t2m9diag.hpp"
 #endif
 #include "th02/main/stage/stage.hpp"
@@ -91,7 +92,7 @@ extern "C" int far main_entry(void)
 #if T2REPLAY_EXACT_APPLY
 	// The private direct-start request owns one temporary far block. Assign
 	// master.lib's heap before replay_entry() tries to allocate it.
-	if(game_init_main()) {
+	if(t2replay_game_init_main()) {
 		zun_error(ERROR_OUT_OF_MEMORY);
 		return 1;
 	}
@@ -101,7 +102,7 @@ extern "C" int far main_entry(void)
 #ifdef T2PD
 	t2m9diag_main_entry_arm();
 #endif
-	if(game_init_main()) {
+	if(t2replay_game_init_main()) {
 		zun_error(ERROR_OUT_OF_MEMORY);
 		return 1;
 	}
@@ -128,6 +129,16 @@ extern "C" int far main_entry(void)
 		nopcall_same_group(demo_load);
 	}
 	gameplay_init();
+	t2practice_diag_lifecycle(
+		T2PDLM_GAMEPLAY_INITIALIZED, 0, 0,
+		t2replay_game_heap_available_paras()
+	);
+	if(resident->demo_num) {
+		t2practice_diag_lifecycle(
+			T2PDLM_TITLE_DEMO_MAIN, 0, 0,
+			t2replay_game_heap_available_paras()
+		);
+	}
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_INIT, resident->stage);
 #endif
@@ -135,6 +146,10 @@ extern "C" int far main_entry(void)
 stage:
 	random_seed = resident->frame;
 	stage_init();
+	t2practice_diag_lifecycle(
+		T2PDLM_STAGE_INITIALIZED, static_cast<uint16_t>(stage_id), 0,
+		t2replay_game_heap_available_paras()
+	);
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_INIT, stage_id);
 #endif

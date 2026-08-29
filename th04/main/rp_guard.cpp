@@ -1245,16 +1245,26 @@ static bool rpg_commit_process(void)
 }
 
 // close() + a second commit, so directory-entry updates made by the close are
-// not left only in DOS's buffers.
+// not left only in DOS's buffers. TH02's binding can tolerate an unavailable
+// AX=5D01h here because every caller verifies the closed file via raw FAT I/O.
+#ifndef RPG_CLOSE_COMMIT_FALLBACK
+#define RPG_CLOSE_COMMIT_FALLBACK 0
+#endif
 static bool rpg_close_and_commit(int fd, uint8_t code)
 {
 	replay_protect_file_close(fd);
+	(void)code;
 	if(!rpg_commit_process()) {
+#if RPG_CLOSE_COMMIT_FALLBACK
+		// A closed handle has made DOS publish its directory entry. The caller's
+		// raw marker/size read remains the admission decision.
+		return true;
+#else
 		rpg_diag_code_set_if_none(RPG_CLOSE_COMMIT);
 		rpg_detector_error();
 		return false;
+#endif
 	}
-	(void)code;
 	return true;
 }
 
