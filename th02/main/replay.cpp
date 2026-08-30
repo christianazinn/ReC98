@@ -306,7 +306,7 @@ static void t2replay_debug_uint_put(
 	tram_x_t left, uint32_t value, uint32_t divisor
 )
 {
-	char digits[6];
+	char digits[11];
 	int i = 0;
 
 	while(divisor != 0) {
@@ -388,6 +388,14 @@ static void t2debug_coords_put(void)
 	t2replay_debug_step_put(16, next_step);
 	text_putca(21, 0, 'M', TX_WHITE);
 	t2replay_debug_step_put(22, scroll_step);
+	text_putca(27, 0, 'R', TX_WHITE);
+	t2replay_debug_uint_put(
+		28, static_cast<uint16_t>(resident->skill), 100UL
+	);
+	text_putca(32, 0, 'G', TX_WHITE);
+	t2replay_debug_uint_put(
+		33, static_cast<uint32_t>(random_seed), 1000000000UL
+	);
 }
 #endif
 

@@ -741,13 +741,10 @@ void far pascal t2_language_op_bridge(
 		option_label_put_shadow(1, gbMUSIC);
 		option_label_put_shadow(2, gbPLAYER);
 		option_label_put_shadow(3, gbBOMB);
-		graph_putsa_fx(
-			shadow(OPTION_LABEL_LEFT), shadow(choice_top(4)), 0, REDUCE_LABEL
-		);
 		command_put_shadow(6, gbRESET, 5);
 		command_put_shadow(7, gbQUIT, 4);
 	} else if(func == T2LOB_OPTION_PUT) {
-		if(sel < 5) {
+		if(sel < 4) {
 			option_put(sel, static_cast<tram_atrb2>(value));
 		} else if(sel == 6) {
 			command_put(6, gbRESET, 5, static_cast<tram_atrb2>(value));

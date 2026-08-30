@@ -20,7 +20,8 @@
 
 #define T2PAUSE_TITLE_LEFT 18
 #define T2PAUSE_TITLE_Y 12
-#define T2PAUSE_CHOICE_LEFT 23
+#define T2PAUSE_CHOICE_CENTER 29
+#define T2PAUSE_CHOICE_LEFT 16
 #define T2PAUSE_CHOICE_Y 14
 #define T2PAUSE_CHOICE_COUNT 4
 #define T2PAUSE_LEGACY_CHOICE_COUNT 3
@@ -45,9 +46,15 @@ static void t2pause_label_put(uint8_t option, tram_y_t y, unsigned atrb)
 	const char far *english_label = t2_language_main_pause_label(option);
 	char label[13];
 	char *p = label;
+	unsigned length = 0;
+	tram_x_t left;
 
 	if(english_label) {
-		text_putsa(T2PAUSE_CHOICE_LEFT, y, english_label, atrb);
+		while(english_label[length] != '\0') {
+			length++;
+		}
+		left = static_cast<tram_x_t>(T2PAUSE_CHOICE_CENTER - (length / 2));
+		text_putsa(left, y, english_label, atrb);
 		return;
 	}
 
@@ -71,7 +78,9 @@ static void t2pause_label_put(uint8_t option, tram_y_t y, unsigned atrb)
 	}
 	#undef P
 	*p = '\0';
-	text_putsa(T2PAUSE_CHOICE_LEFT, y, label, atrb);
+	length = static_cast<unsigned>(p - label);
+	left = static_cast<tram_x_t>(T2PAUSE_CHOICE_CENTER - (length / 2));
+	text_putsa(left, y, label, atrb);
 }
 
 static uint8_t t2pause_action(uint8_t selected, bool restart_semantics)
@@ -229,6 +238,9 @@ bool16 far t2pause_menu(void)
 		}
 		if(restart_semantics && t2pause_restart_pressed()) {
 			selected = T2PAUSE_RESTART;
+			break;
+		} else if(key_det & INPUT_Q) {
+			selected = (choice_count - 1);
 			break;
 		} else if((key_det & INPUT_UP) || (key_det & INPUT_DOWN)) {
 			do {

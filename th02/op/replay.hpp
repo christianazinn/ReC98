@@ -4,6 +4,7 @@
 // Owns the patch title surface while the original Option menu remains active
 // behind [in_option].
 void replay_title_update_and_render(void);
+void replay_title_background_prepare_hidden(void);
 void replay_title_background_restore(void);
 extern bool replay_title_restore_needed;
 

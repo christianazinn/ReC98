@@ -23,23 +23,13 @@ extern resident_t __seg *resident_seg;
 #define T2_LANGUAGE_OPTION_COUNT 8
 #define T2_LANGUAGE_OPTION_LABEL_CENTER 256
 #define T2_LANGUAGE_OPTION_VALUE_CENTER 400
+#define T2_PERF_OPTION_TOP 320
 #define T2_LANGUAGE_OPTION_TOP 336
 
 static bool t2_language_option_initialized;
 static bool t2_language_option_input_allowed;
 static bool t2_language_option_change_returned;
 static int8_t t2_language_option_sel;
-
-static void t2_language_option_gaiji_reload(void)
-{
-	char fn[11];
-
-	fn[0] = 'M'; fn[1] = 'I'; fn[2] = 'K'; fn[3] = 'O'; fn[4] = 'F';
-	fn[5] = 'T'; fn[6] = '.'; fn[7] = 'B'; fn[8] = 'F'; fn[9] = 'T';
-	fn[10] = '\0';
-	gaiji_restore();
-	t2_language_gaiji_entry_bfnt(fn);
-}
 
 static uint8_t t2_language_option_gaiji(char c)
 {
@@ -58,8 +48,8 @@ static uint8_t t2_language_option_gaiji(char c)
 	return gs_SPACE;
 }
 
-static void t2_language_option_native_center_put(
-	screen_x_t center, tram_atrb2 atrb, const char *text
+static void t2_language_option_native_center_put_at(
+	screen_x_t center, screen_y_t top, tram_atrb2 atrb, const char *text
 )
 {
 	uint8_t gaiji[9];
@@ -73,12 +63,21 @@ static void t2_language_option_native_center_put(
 	gaiji[length] = gs_NULL;
 	left = static_cast<screen_x_t>(center - ((length * GAIJI_W) / 2));
 	graph_gaiji_puts(
-		(left + 4), (T2_LANGUAGE_OPTION_TOP + 4), GAIJI_W,
+		(left + 4), (top + 4), GAIJI_W,
 		reinterpret_cast<const char *>(gaiji), 0
 	);
 	gaiji_putsa(
-		(left / GLYPH_HALF_W), (T2_LANGUAGE_OPTION_TOP / GLYPH_H),
+		(left / GLYPH_HALF_W), (top / GLYPH_H),
 		reinterpret_cast<const char *>(gaiji), atrb
+	);
+}
+
+static void t2_language_option_native_center_put(
+	screen_x_t center, tram_atrb2 atrb, const char *text
+)
+{
+	t2_language_option_native_center_put_at(
+		center, T2_LANGUAGE_OPTION_TOP, atrb, text
 	);
 }
 
@@ -114,9 +113,24 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 	}
 }
 
+static void t2_language_option_perf_put(tram_atrb2 atrb)
+{
+	// Patch-owned labels remain English in both locales and use the same native
+	// menu gaiji as every other Option row.
+	t2_language_option_native_center_put_at(
+		T2_LANGUAGE_OPTION_LABEL_CENTER, T2_PERF_OPTION_TOP, atrb, "Perf"
+	);
+	t2_language_option_native_center_put_at(
+		T2_LANGUAGE_OPTION_VALUE_CENTER, T2_PERF_OPTION_TOP, atrb,
+		resident->reduce_effects ? "Truncate" : "Normal"
+	);
+}
+
 static void t2_language_option_put(int sel, tram_atrb2 atrb)
 {
-	if(sel == 5) {
+	if(sel == 4) {
+		t2_language_option_perf_put(atrb);
+	} else if(sel == 5) {
 		t2_language_option_language_put(atrb);
 	} else {
 		t2_language_op_bridge(T2LOB_OPTION_PUT, sel, atrb);
@@ -169,8 +183,7 @@ static bool t2_language_option_change(int direction)
 			((target == T2LANG_JAPANESE) || t2_language_overlay_valid()) &&
 			t2_language_set(target)
 		) {
-			t2_language_option_gaiji_reload();
-			replay_title_background_restore();
+			replay_title_background_prepare_hidden();
 			// Options still owns the foreground. The outer OP loop rebuilds it on
 			// its next update; recursing into the renderer here left resource/page
 			// restoration on two live stack frames and could STOP on return.
@@ -214,11 +227,13 @@ void far pascal t2_language_option_update_and_render(void)
 		t2_language_option_sel = 5;
 		t2_language_option_input_allowed = false;
 		text_clear();
-		graph_showpage(1);
+		graph_accesspage(1);
 		graph_copy_page(0);
-		t2_language_op_bridge(T2LOB_OPTION_SHADOW, 0, 0);
-		t2_language_option_language_put(TX_BLACK);
 		graph_showpage(0);
+		graph_accesspage(0);
+		t2_language_op_bridge(T2LOB_OPTION_SHADOW, 0, 0);
+		t2_language_option_perf_put(TX_BLACK);
+		t2_language_option_language_put(TX_BLACK);
 		for(i = 0; i < T2_LANGUAGE_OPTION_COUNT; i++) {
 			t2_language_option_put(
 				i, ((i == t2_language_option_sel) ? TX_WHITE : TX_YELLOW)

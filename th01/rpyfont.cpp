@@ -1,4 +1,8 @@
-#pragma option -zCT1RPYFONT_TEXT -G-
+#if (GAME == 2)
+	#pragma option -zCT2RPYFONT_TEXT -G-
+#else
+	#pragma option -zCT1RPYFONT_TEXT -G-
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -239,7 +243,11 @@ void pascal replay_op_font_put_n(
 	if(!data || (top < 0) || (top > (graph_VramLines - 16))) {
 		return;
 	}
-	grcg_setcolor_rmw(color);
+	#if (GAME == 2)
+		grcg_setcolor(GC_RMW, color);
+	#else
+		grcg_setcolor_rmw(color);
+	#endif
 	while(count && *str) {
 		glyph_index = replay_op_font_index(*str);
 		if((*str != ' ') && (left >= 0) && (left < RES_X)) {
@@ -257,7 +265,11 @@ void pascal replay_op_font_put_n(
 		str++;
 		count--;
 	}
-	grcg_off_func();
+	#if (GAME == 2)
+		grcg_off();
+	#else
+		grcg_off_func();
+	#endif
 }
 
 void pascal replay_op_font_put(

@@ -689,6 +689,9 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_04.cpp",
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
+	-- TH01 and TH02 share the patch-owned proportional menu font and loose
+	-- MNUFONT.PF payload. Keep it after every stock OP object.
+	"th02/op/rpyfont2.cpp",
 	-- Keep process-local language state after every OP owner and replay tail.
 	"th02/lang_op.cpp",
 	-- English v1.00's remaining OP-resident presentation strings. Keep this
