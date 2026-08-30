@@ -2899,10 +2899,15 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 			(REPLAY_MENU_LIST_Y + line), true, clear
 		);
 	}
-	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 	replay_font_page_put(sel, REPLAY_MENU_FOOT_Y);
 	replay_menu_render_end(page_drawn);
 }
+
+// The proportional-font compositor redraws each hidden page from the PI and
+// must not call the legacy page-1-to-page-0 row restorer for this footer.
+// Preserve the protected OP contribution after removing those two calls.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 static void replay_menu_detail_render(
 	uint8_t slot, uint8_t checkpoint_sel, bool checkpoint_focus,
@@ -3696,7 +3701,6 @@ static void replay_save_slot_render(
 			(REPLAY_MENU_LIST_Y + line), true, clear
 		);
 	}
-	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
 	replay_font_page_put(sel, REPLAY_MENU_FOOT_Y);
 	if(complete) {
 		replay_save_complete_put();

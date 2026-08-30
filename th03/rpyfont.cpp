@@ -446,19 +446,30 @@ static int fixed_cell_width(unsigned atrb)
 	return REPLAY_FONT_NUMERIC_CELL_W;
 }
 
+enum {
+	SLOT_LIST_Y = 6,
+	SLOT_PIXEL_TOP = 112,
+	SLOT_PIXEL_H = 24,
+	PIXEL_TOP_FLAG = 0x8000,
+};
+
+static unsigned font_top(unsigned y);
+static unsigned slot_y(unsigned y);
+
 static void field_put(screen_x_t left, unsigned y, char *p, unsigned atrb)
 {
 	unsigned count = (p - replay_menu_line);
+	unsigned top = font_top(y);
 
 	*p = '\0';
 	if(atrb & REPLAY_FONT_FIXED_MASK) {
 		replay_font_put_fixed_n(
-			left, (y * GLYPH_H), replay_menu_line, count,
+			left, top, replay_menu_line, count,
 			fixed_cell_width(atrb),
 			font_color(atrb & 0xFF)
 		);
 	} else {
-		menu_font_put(left, (y * GLYPH_H), replay_menu_line, font_color(atrb));
+		menu_font_put(left, top, replay_menu_line, font_color(atrb));
 	}
 }
 
@@ -467,13 +478,14 @@ static void field_put_right(
 )
 {
 	char *first = replay_menu_line;
+	unsigned top = font_top(y);
 
 	*p = '\0';
 	if(atrb & REPLAY_FONT_FIXED_MASK) {
 		unsigned count = (p - replay_menu_line);
 		int cell_w = fixed_cell_width(atrb);
 		replay_font_put_fixed_n(
-			(right - (count * cell_w)), (y * GLYPH_H),
+			(right - (count * cell_w)), top,
 			replay_menu_line, count, cell_w, font_color(atrb & 0xFF)
 		);
 		return;
@@ -481,14 +493,14 @@ static void field_put_right(
 	while((*first == ' ') && (first[1] != '\0')) {
 		first++;
 	}
-	menu_font_put_right(right, (y * GLYPH_H), first, font_color(atrb));
+	menu_font_put_right(right, top, first, font_color(atrb));
 }
 
 static void text_put(
 	screen_x_t left, unsigned y, const char far *str, unsigned atrb
 )
 {
-	menu_font_put(left, (y * GLYPH_H), str, font_color(atrb));
+	menu_font_put(left, font_top(y), str, font_color(atrb));
 }
 
 static void stage_field_put(unsigned y, unsigned atrb)
@@ -515,7 +527,7 @@ static void score_put(
 }
 
 // Keep enough padding to absorb additions to the fixed-width compositor.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 void far replay_font_slot_line_put(
 	uint8_t slot, uint8_t sel, unsigned y, bool active, bool has_replay
@@ -525,9 +537,11 @@ void far replay_font_slot_line_put(
 	bool selected = ((slot == sel) && active);
 	unsigned atrb = (selected ? TX_YELLOW : TX_WHITE);
 
+	y = slot_y(y);
+
 	if(selected) {
 		menu_font_put(
-			CURSOR_PIXEL_LEFT, (y * GLYPH_H),
+			CURSOR_PIXEL_LEFT, font_top(y),
 			">", REPLAY_FONT_SELECTED_COLOR
 		);
 	}
@@ -555,8 +569,7 @@ void far replay_font_slot_line_put(
 }
 
 // Preserve the following public column renderer across slot-layout revisions.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 void far replay_font_columns_put(bool clear)
 {
@@ -1481,6 +1494,21 @@ void far replay_font_diagnostic_line_put(
 	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
 }
 
+static unsigned font_top(unsigned y)
+{
+	return (
+		(y & PIXEL_TOP_FLAG) ? (y & ~PIXEL_TOP_FLAG) : (y * GLYPH_H)
+	);
+}
+
+static unsigned slot_y(unsigned y)
+{
+	return static_cast<unsigned>(
+		PIXEL_TOP_FLAG |
+		(SLOT_PIXEL_TOP + ((y - SLOT_LIST_Y) * SLOT_PIXEL_H))
+	);
+}
+
 static void round_splits_put(uint8_t selected, bool focus)
 {
 	uint8_t checkpoint;
@@ -1606,14 +1634,16 @@ void far replay_font_page_put(uint8_t selected, unsigned y)
 {
 	char *p = append_cstr(replay_menu_line, "Page ");
 	unsigned len;
+	uint8_t page = ((selected / REPLAY_FONT_PAGE_ROWS) + 1);
 
-	p = append_u32(p, ((selected / REPLAY_FONT_PAGE_ROWS) + 1));
+	*p++ = static_cast<char>('0' + (page / 10));
+	*p++ = static_cast<char>('0' + (page % 10));
 	*p++ = '/';
 	p = append_u32(p, REPLAY_FONT_PAGE_COUNT);
 	*p = '\0';
 	if(menu_font) {
 		menu_font_put_centered(
-			(RES_X / 2), (y * GLYPH_H), replay_menu_line, V_WHITE
+			(RES_X / 2), 356, replay_menu_line, V_WHITE
 		);
 		return;
 	}
@@ -1764,6 +1794,3 @@ void far replay_font_save_complete_put(void)
 		(22 * GLYPH_H), 9, SAVE_JP_COMPLETE
 	);
 }
-
-// Keep all following OP segments at their established within-paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
