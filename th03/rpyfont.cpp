@@ -3,13 +3,16 @@
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
+#include "th01/hardware/grppsafx.h"
 #include "th02/v_colors.hpp"
 #include "th03/common.h"
+#include "th03/language.hpp"
 #include "th03/menu_font.hpp"
 #include "th03/opfont.hpp"
 #include "th03/practice.hpp"
 #include "th03/replay_format.hpp"
 #include "th03/rpyfont.hpp"
+#include "th03/shiftjis/main.hpp"
 #include <stddef.h>
 
 enum {
@@ -1566,5 +1569,201 @@ static void round_splits_legacy_put(bool focus)
 	}
 }
 
+enum {
+	REPLAY_FONT_PAGE_ROWS = 10,
+	REPLAY_FONT_PAGE_COUNT = 10,
+	REPLAY_FONT_SLOT_COUNT = (
+		REPLAY_FONT_PAGE_ROWS * REPLAY_FONT_PAGE_COUNT
+	),
+};
+
+uint8_t far replay_font_page_top(uint8_t selected)
+{
+	return static_cast<uint8_t>(
+		(selected / REPLAY_FONT_PAGE_ROWS) * REPLAY_FONT_PAGE_ROWS
+	);
+}
+
+uint8_t far replay_font_page_left(uint8_t selected)
+{
+	return static_cast<uint8_t>(
+		(selected < REPLAY_FONT_PAGE_ROWS) ?
+			(selected + REPLAY_FONT_SLOT_COUNT - REPLAY_FONT_PAGE_ROWS) :
+			(selected - REPLAY_FONT_PAGE_ROWS)
+	);
+}
+
+uint8_t far replay_font_page_right(uint8_t selected)
+{
+	return static_cast<uint8_t>(
+		(selected >= (REPLAY_FONT_SLOT_COUNT - REPLAY_FONT_PAGE_ROWS)) ?
+			(selected - REPLAY_FONT_SLOT_COUNT + REPLAY_FONT_PAGE_ROWS) :
+			(selected + REPLAY_FONT_PAGE_ROWS)
+	);
+}
+
+void far replay_font_page_put(uint8_t selected, unsigned y)
+{
+	char *p = append_cstr(replay_menu_line, "Page ");
+	unsigned len;
+
+	p = append_u32(p, ((selected / REPLAY_FONT_PAGE_ROWS) + 1));
+	*p++ = '/';
+	p = append_u32(p, REPLAY_FONT_PAGE_COUNT);
+	*p = '\0';
+	if(menu_font) {
+		menu_font_put_centered(
+			(RES_X / 2), (y * GLYPH_H), replay_menu_line, V_WHITE
+		);
+		return;
+	}
+	len = static_cast<unsigned int>(p - replay_menu_line);
+	text_putsa(((text_width() - len) / 2), y, replay_menu_line, TX_WHITE);
+}
+
+static void save_japanese_put(
+	int left, int top, int color, const shiftjis_t far *text
+)
+{
+	graph_putsa_fx(
+		left, top, (color | FX_WEIGHT_NORMAL), text
+	);
+}
+
+static const shiftjis_t far SAVE_JP_TEXT[] =
+	"\x82\xB1\x82\xCC\x83\x58\x83\x8D\x83\x62\x83\x67\x82\xF0"
+	"\x8F\xE3\x8F\x91\x82\xAB\x82\xB5\x82\xDC\x82\xB7\x82\xA9"
+	"\x81\x48\0"
+	"\x83\x8A\x83\x76\x83\x8C\x83\x43\x82\xF0\x95\xDB\x91\xB6"
+	"\x82\xB5\x82\xDC\x82\xB7\x82\xA9\x81\x48\0"
+	"\x95\xDB\x91\xB6\x82\xF0\x82\xE2\x82\xDF\x82\xDC\x82\xB7"
+	"\x82\xA9\x81\x48\0"
+	"\x82\xCD\x82\xA2\0"
+	"\x82\xA2\x82\xA2\x82\xA6\0"
+	"\x95\xDB\x91\xB6\x82\xB5\x82\xDC\x82\xB5\x82\xBD";
+
+#define SAVE_JP_OVERWRITE (&SAVE_JP_TEXT[0])
+#define SAVE_JP_SAVE      (&SAVE_JP_TEXT[31])
+#define SAVE_JP_QUIT      (&SAVE_JP_TEXT[56])
+#define SAVE_JP_YES       (&SAVE_JP_TEXT[75])
+#define SAVE_JP_NO        (&SAVE_JP_TEXT[80])
+#define SAVE_JP_COMPLETE  (&SAVE_JP_TEXT[87])
+
+static void save_japanese_question_put(uint8_t question)
+{
+	const shiftjis_t far *text;
+	unsigned len;
+
+	if(question == RFSQ_SAVE) {
+		text = SAVE_JP_SAVE;
+		len = 24;
+	} else if(question == RFSQ_OVERWRITE) {
+		text = SAVE_JP_OVERWRITE;
+		len = 30;
+	} else {
+		text = SAVE_JP_QUIT;
+		len = 18;
+	}
+	save_japanese_put(
+		((RES_X - (len * GLYPH_HALF_W)) / 2),
+		(11 * GLYPH_H), 9, text
+	);
+}
+
+static void save_japanese_choices_put(bool selected_yes)
+{
+	save_japanese_put(
+		(33 * GLYPH_HALF_W), (13 * GLYPH_H),
+		(selected_yes ? REPLAY_FONT_SELECTED_COLOR : V_WHITE), SAVE_JP_YES
+	);
+	save_japanese_put(
+		(45 * GLYPH_HALF_W), (13 * GLYPH_H),
+		(selected_yes ? V_WHITE : REPLAY_FONT_SELECTED_COLOR), SAVE_JP_NO
+	);
+}
+
+static void save_english_put(int left, unsigned y, int color, unsigned atrb)
+{
+	if(menu_font) {
+		menu_font_put(
+			left, (y * GLYPH_H), replay_menu_line, color
+		);
+	} else {
+		text_putsa(
+			(left / GLYPH_HALF_W), y, replay_menu_line, atrb
+		);
+	}
+}
+
+static void save_english_put_centered(
+	unsigned y, int color, unsigned atrb, char *p
+)
+{
+	unsigned len = static_cast<unsigned>(p - replay_menu_line);
+
+	*p = '\0';
+	if(menu_font) {
+		menu_font_put_centered(
+			(RES_X / 2), (y * GLYPH_H), replay_menu_line, color
+		);
+	} else {
+		text_putsa(
+			((text_width() - len) / 2), y, replay_menu_line, atrb
+		);
+	}
+}
+
+void far replay_font_save_dialog_put(
+	uint8_t question, uint8_t slot, bool selected_yes
+)
+{
+	char *p = replay_menu_line;
+
+	if(!language_is_english()) {
+		save_japanese_question_put(question);
+		save_japanese_choices_put(selected_yes);
+		return;
+	}
+	if(question == RFSQ_OVERWRITE) {
+		p = append_cstr(p, "Overwrite Slot ");
+		p = append_u8_2(p, slot);
+	} else if(question == RFSQ_SAVE) {
+		p = append_cstr(p, "Save Replay");
+	} else {
+		p = append_cstr(p, "Quit saving replay");
+	}
+	*p++ = '?';
+	save_english_put_centered(11, 9, TX_CYAN, p);
+	p = append_cstr(replay_menu_line, "Yes");
+	*p = '\0';
+	save_english_put(
+		(33 * GLYPH_HALF_W), 13,
+		(selected_yes ? REPLAY_FONT_SELECTED_COLOR : V_WHITE),
+		(selected_yes ? TX_YELLOW : TX_WHITE)
+	);
+	p = append_cstr(replay_menu_line, "No");
+	*p = '\0';
+	save_english_put(
+		(45 * GLYPH_HALF_W), 13,
+		(selected_yes ? V_WHITE : REPLAY_FONT_SELECTED_COLOR),
+		(selected_yes ? TX_WHITE : TX_YELLOW)
+	);
+}
+
+void far replay_font_save_complete_put(void)
+{
+	char *p = replay_menu_line;
+
+	if(language_is_english()) {
+		p = append_cstr(p, "Saved. Press any key.");
+		save_english_put_centered(22, 13, TX_CYAN, p);
+		return;
+	}
+	save_japanese_put(
+		((RES_X - (12 * GLYPH_HALF_W)) / 2),
+		(22 * GLYPH_H), 9, SAVE_JP_COMPLETE
+	);
+}
+
 // Keep all following OP segments at their established within-paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

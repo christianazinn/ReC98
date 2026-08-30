@@ -8,24 +8,24 @@ extern const shiftjis_t* CHAR_TITLE[];
 extern const shiftjis_t* CHAR_NAME[];
 extern const shiftjis_t* REGIST_PLAYCHARS[];
 
-static const shiftjis_t far TITLE1_REIMU[] = "   Miko Who Protects Dream  ";
-static const shiftjis_t far TITLE2_REIMU[] = "        and Tradition       ";
-static const shiftjis_t far TITLE1_MIMA[] = "  Spirit Who Leaves Fate to ";
-static const shiftjis_t far TITLE2_MIMA[] = "    the Dream of Eternity   ";
+static const shiftjis_t far TITLE1_REIMU[] = "Miko Who Protects Dream    ";
+static const shiftjis_t far TITLE2_REIMU[] = "and Tradition";
+static const shiftjis_t far TITLE1_MIMA[] = "Spirit Who Left Fate to Eter";
+static const shiftjis_t far TITLE2_MIMA[] = " nal Dream";
 static const shiftjis_t far TITLE1_MARISA[] = "   A Being Made of Magic    ";
-static const shiftjis_t far TITLE2_MARISA[] = "       and Red Dreams       ";
-static const shiftjis_t far TITLE1_ELLEN[] = "   Hardworking Witch Who    ";
-static const shiftjis_t far TITLE2_ELLEN[] = "       Dreams of Love       ";
-static const shiftjis_t far TITLE1_KOTOHIME[] = "    Princess Dreaming of    ";
-static const shiftjis_t far TITLE2_KOTOHIME[] = "      Beauty in Danmaku     ";
+static const shiftjis_t far TITLE2_MARISA[] = " and Red Dreams";
+static const shiftjis_t far TITLE1_ELLEN[] = "Hardworking Witch Who Dreams";
+static const shiftjis_t far TITLE2_ELLEN[] = "   of Love";
+static const shiftjis_t far TITLE1_KOTOHIME[] = "Princess Dreaming of Beauty ";
+static const shiftjis_t far TITLE2_KOTOHIME[] = "in Danmaku";
 static const shiftjis_t far TITLE1_KANA[] = " Poltergeist Maiden Who Has ";
-static const shiftjis_t far TITLE2_KANA[] = "       Lost Her Dreams      ";
+static const shiftjis_t far TITLE2_KANA[] = "Lost Her Dreams  ";
 static const shiftjis_t far TITLE1_RIKAKO[] = "     Scientist Searching    ";
-static const shiftjis_t far TITLE2_RIKAKO[] = "         For Dreams         ";
-static const shiftjis_t far TITLE1_CHIYURI[] = "  Resident of Fantasy Who   ";
-static const shiftjis_t far TITLE2_CHIYURI[] = "     Runs Through Time      ";
+static const shiftjis_t far TITLE2_RIKAKO[] = "    For Dreams";
+static const shiftjis_t far TITLE1_CHIYURI[] = "Resident of Fantasy Who Runs";
+static const shiftjis_t far TITLE2_CHIYURI[] = "  Through Time ";
 static const shiftjis_t far TITLE1_YUMEMI[] = "       Fantasy Legend       ";
-static const shiftjis_t far TITLE2_YUMEMI[] = "                            ";
+static const shiftjis_t far TITLE2_YUMEMI[] = "            ";
 
 #define NAME_BAR "\x81\x5C"
 static const shiftjis_t far NAME_REIMU[] =

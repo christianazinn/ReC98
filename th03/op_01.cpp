@@ -1583,7 +1583,7 @@ enum {
 	REPLAY_MENU_DETAIL_Y = 4,
 	REPLAY_MENU_FOOT_Y = 24,
 	REPLAY_SAVE_COMPLETE_Y = 22,
-	REPLAY_MENU_VISIBLE = 15,
+	REPLAY_MENU_VISIBLE = 10,
 
 	REPLAY_REGI_GLYPH_W = 32,
 	REPLAY_REGI_GLYPH_H = 32,
@@ -1640,9 +1640,9 @@ enum {
 	),
 	REPLAY_NAME_RANK_LEFT = 344,
 
-	REPLAY_SAVE_DIALOG_LEFT = 26,
+	REPLAY_SAVE_DIALOG_LEFT = 23,
 	REPLAY_SAVE_DIALOG_TOP = 10,
-	REPLAY_SAVE_DIALOG_W = 28,
+	REPLAY_SAVE_DIALOG_W = 34,
 	REPLAY_SAVE_DIALOG_H = 5,
 	REPLAY_SAVE_DIALOG_QUESTION_Y = (REPLAY_SAVE_DIALOG_TOP + 1),
 	REPLAY_SAVE_DIALOG_CHOICE_Y = (REPLAY_SAVE_DIALOG_TOP + 3),
@@ -2899,9 +2899,8 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 			(REPLAY_MENU_LIST_Y + line), true, clear
 		);
 	}
-	if(clear) {
-		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
-	}
+	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	replay_font_page_put(sel, REPLAY_MENU_FOOT_Y);
 	replay_menu_render_end(page_drawn);
 }
 
@@ -2945,15 +2944,6 @@ static void replay_menu_practice_settings_show(
 		frame_delay(1);
 	} while(input_sp == INPUT_NONE);
 	replay_menu_detail_render(slot, checkpoint_sel, false, detail_page);
-}
-
-static void replay_menu_top_clamp(uint8_t sel, uint8_t& top)
-{
-	if(sel < top) {
-		top = sel;
-	} else if(sel >= (top + REPLAY_MENU_VISIBLE)) {
-		top = (sel - (REPLAY_MENU_VISIBLE - 1));
-	}
 }
 
 static void fullscreen_menu_resources_clear(void)
@@ -3019,16 +3009,6 @@ static void replay_menu_background_put(
 	graph_showpage(0);
 	graph_accesspage(0);
 	replay_menu_state.page_shown = 0;
-}
-
-static void replay_name_background_init(bool fade_in)
-{
-	fullscreen_menu_resources_clear();
-	replay_menu_state.list_active = false;
-	replay_menu_background_put(REPLAY_BG_NAME, fade_in, false);
-	if(fade_in) {
-		palette_black_in(1);
-	}
 }
 
 static void replay_menu_browser_init(bool start_black)
@@ -3168,39 +3148,6 @@ static void replay_save_dialog_frame_put(void)
 	text_clear();
 }
 
-static void replay_save_yes_no_put(bool yes)
-{
-	char *p = replay_menu_line;
-
-	*p++ = 'Y'; *p++ = 'e'; *p++ = 's'; *p = '\0';
-	if(menu_font) {
-		menu_font_put(
-			(REPLAY_SAVE_DIALOG_YES_LEFT * GLYPH_HALF_W),
-			(REPLAY_SAVE_DIALOG_CHOICE_Y * GLYPH_H), replay_menu_line,
-			(yes ? REPLAY_MENU_SELECTED_PALETTE : V_WHITE)
-		);
-	} else {
-		text_putsa(
-			REPLAY_SAVE_DIALOG_YES_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-			replay_menu_line, (yes ? TX_YELLOW : TX_WHITE)
-		);
-	}
-	p = replay_menu_line;
-	*p++ = 'N'; *p++ = 'o'; *p = '\0';
-	if(menu_font) {
-		menu_font_put(
-			(REPLAY_SAVE_DIALOG_NO_LEFT * GLYPH_HALF_W),
-			(REPLAY_SAVE_DIALOG_CHOICE_Y * GLYPH_H), replay_menu_line,
-			(yes ? V_WHITE : REPLAY_MENU_SELECTED_PALETTE)
-		);
-	} else {
-		text_putsa(
-			REPLAY_SAVE_DIALOG_NO_LEFT, REPLAY_SAVE_DIALOG_CHOICE_Y,
-			replay_menu_line, (yes ? TX_WHITE : TX_YELLOW)
-		);
-	}
-}
-
 enum replay_save_question_t {
 	RSQ_SAVE,
 	RSQ_OVERWRITE,
@@ -3219,46 +3166,10 @@ static replay_save_answer_t replay_save_yes_no(
 {
 	bool yes = default_yes;
 	input_t input_prev;
-	unsigned int question_w;
-	char *p;
 	replay_save_answer_t answer;
 
 	replay_save_dialog_frame_put();
-	p = replay_menu_line;
-	if(question == RSQ_OVERWRITE) {
-		*p++ = 'O'; *p++ = 'v'; *p++ = 'e'; *p++ = 'r'; *p++ = 'w';
-		*p++ = 'r'; *p++ = 'i'; *p++ = 't'; *p++ = 'e'; *p++ = ' ';
-		*p++ = 'S'; *p++ = 'l'; *p++ = 'o'; *p++ = 't'; *p++ = ' ';
-		p = replay_line_append_u8_2(p, slot);
-	} else if(question == RSQ_SAVE) {
-		*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = ' ';
-		*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
-		*p++ = 'y';
-	} else {
-		*p++ = 'Q'; *p++ = 'u'; *p++ = 'i'; *p++ = 't'; *p++ = ' ';
-		*p++ = 's'; *p++ = 'a'; *p++ = 'v'; *p++ = 'i'; *p++ = 'n';
-		*p++ = 'g'; *p++ = ' '; *p++ = 'r'; *p++ = 'e'; *p++ = 'p';
-		*p++ = 'l'; *p++ = 'a'; *p++ = 'y';
-	}
-	*p++ = '?';
-	question_w = static_cast<unsigned int>(p - replay_menu_line);
-	*p = '\0';
-	if(menu_font) {
-		menu_font_put_centered(
-			REPLAY_SAVE_DIALOG_PIXEL_CENTER,
-			(REPLAY_SAVE_DIALOG_QUESTION_Y * GLYPH_H),
-			replay_menu_line, 9
-		);
-	} else {
-		text_putsa(
-			(
-				REPLAY_SAVE_DIALOG_LEFT +
-				((REPLAY_SAVE_DIALOG_W - question_w) / 2)
-			),
-			REPLAY_SAVE_DIALOG_QUESTION_Y, replay_menu_line, TX_CYAN
-		);
-	}
-	replay_save_yes_no_put(yes);
+	replay_font_save_dialog_put(question, slot, yes);
 	replay_save_input_release();
 	input_prev = INPUT_NONE;
 	while(1) {
@@ -3266,7 +3177,7 @@ static replay_save_answer_t replay_save_yes_no(
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & (INPUT_UP | INPUT_DOWN | INPUT_LEFT | INPUT_RIGHT)) {
 				yes = !yes;
-				replay_save_yes_no_put(yes);
+				replay_font_save_dialog_put(question, slot, yes);
 			}
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 				answer = (yes ? RSA_YES : RSA_NO);
@@ -3764,24 +3675,7 @@ static bool replay_name_menu(uint8_t& name_len, bool fade_in)
 
 static void replay_save_complete_put(void)
 {
-	char *p = replay_menu_line;
-
-	*p++ = 'S'; *p++ = 'a'; *p++ = 'v'; *p++ = 'e'; *p++ = 'd';
-	*p++ = '.'; *p++ = ' '; *p++ = 'P'; *p++ = 'r'; *p++ = 'e';
-	*p++ = 's'; *p++ = 's'; *p++ = ' '; *p++ = 'a'; *p++ = 'n';
-	*p++ = 'y'; *p++ = ' '; *p++ = 'k'; *p++ = 'e'; *p++ = 'y';
-	*p++ = '.'; *p = '\0';
-	if(menu_font) {
-		menu_font_put_centered(
-			(RES_X / 2), (REPLAY_SAVE_COMPLETE_Y * GLYPH_H),
-			replay_menu_line, 13
-		);
-	} else {
-		replay_menu_line_put(
-			((text_width() - 21) / 2),
-			REPLAY_SAVE_COMPLETE_Y, TX_CYAN
-		);
-	}
+	replay_font_save_complete_put();
 }
 
 static void replay_save_slot_render(
@@ -3802,9 +3696,8 @@ static void replay_save_slot_render(
 			(REPLAY_MENU_LIST_Y + line), true, clear
 		);
 	}
-	if(clear) {
-		replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
-	}
+	replay_menu_span_clear(0, REPLAY_MENU_FOOT_Y, text_width());
+	replay_font_page_put(sel, REPLAY_MENU_FOOT_Y);
 	if(complete) {
 		replay_save_complete_put();
 	}
@@ -3850,25 +3743,22 @@ static bool replay_save_slot_menu(void)
 		if(input_prev == INPUT_NONE) {
 			if(input_sp & INPUT_UP) {
 				ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-				replay_menu_top_clamp(sel, top);
+				top = replay_font_page_top(sel);
 				replay_save_slot_render(sel, top, false);
 			}
 			if(input_sp & INPUT_DOWN) {
 				ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-				replay_menu_top_clamp(sel, top);
+				top = replay_font_page_top(sel);
 				replay_save_slot_render(sel, top, false);
 			}
 			if(input_sp & INPUT_LEFT) {
-				sel = ((sel < REPLAY_MENU_VISIBLE) ? 0 : (sel - REPLAY_MENU_VISIBLE));
-				replay_menu_top_clamp(sel, top);
+				sel = replay_font_page_left(sel);
+				top = replay_font_page_top(sel);
 				replay_save_slot_render(sel, top, false);
 			}
 			if(input_sp & INPUT_RIGHT) {
-				sel = (
-					(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) ?
-					(T3_REPLAY_USER_SLOT_COUNT - 1) : (sel + REPLAY_MENU_VISIBLE)
-				);
-				replay_menu_top_clamp(sel, top);
+				sel = replay_font_page_right(sel);
+				top = replay_font_page_top(sel);
 				replay_save_slot_render(sel, top, false);
 			}
 			if(input_sp & (INPUT_OK | INPUT_SHOT)) {
@@ -3926,7 +3816,10 @@ static void replay_save_pending(bool prompt)
 		return;
 	}
 	if(prompt) {
-		replay_name_background_init(true);
+		fullscreen_menu_resources_clear();
+		replay_menu_state.list_active = false;
+		replay_menu_background_put(REPLAY_BG_LIST, true, true);
+		palette_black_in(1);
 		while(1) {
 			answer = replay_save_yes_no(RSQ_SAVE, 0, true);
 			if(answer == RSA_YES) {
@@ -3938,10 +3831,11 @@ static void replay_save_pending(bool prompt)
 			) {
 				replay_file_delete_commit(REPLAY_FALLBACK_FN);
 				replay_accel_temps_delete();
-				replay_save_screen_exit(false);
+				replay_save_screen_exit(true);
 				return;
 			}
 		}
+		pi_free(0);
 	}
 	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
 		replay_user_menu_header.name[i] = ' ';
@@ -3968,7 +3862,7 @@ bool near replay_menu(void)
 {
 	t3pix_scene_set(T3PIX_SCENE_REPLAY_BROWSER);
 	uint8_t sel = replay_user_first_used_slot();
-	uint8_t top = sel;
+	uint8_t top = replay_font_page_top(sel);
 	uint8_t checkpoint_sel = 0;
 	uint8_t checkpoint_count;
 	uint8_t detail_page = RDP_SPLITS;
@@ -3978,10 +3872,6 @@ bool near replay_menu(void)
 	uint32_t global_frame;
 	uint32_t input_size;
 	input_t input_prev = input_sp;
-
-	if(top > (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) {
-		top = (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE);
-	}
 
 	replay_menu_browser_init(true);
 	replay_menu_render(sel, top);
@@ -4114,26 +4004,19 @@ bool near replay_menu(void)
 			} else {
 				if(input_sp & INPUT_UP) {
 					ring_dec_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-					replay_menu_top_clamp(sel, top);
+					top = replay_font_page_top(sel);
 					replay_menu_render(sel, top);
 				} else if(input_sp & INPUT_DOWN) {
 					ring_inc_range(sel, 0, (T3_REPLAY_USER_SLOT_COUNT - 1));
-					replay_menu_top_clamp(sel, top);
+					top = replay_font_page_top(sel);
 					replay_menu_render(sel, top);
 				} else if(input_sp & INPUT_LEFT) {
-					sel = (
-						(sel < REPLAY_MENU_VISIBLE) ?
-						0 : (sel - REPLAY_MENU_VISIBLE)
-					);
-					replay_menu_top_clamp(sel, top);
+					sel = replay_font_page_left(sel);
+					top = replay_font_page_top(sel);
 					replay_menu_render(sel, top);
 				} else if(input_sp & INPUT_RIGHT) {
-					sel = (
-						(sel >= (T3_REPLAY_USER_SLOT_COUNT - REPLAY_MENU_VISIBLE)) ?
-						(T3_REPLAY_USER_SLOT_COUNT - 1) :
-						(sel + REPLAY_MENU_VISIBLE)
-					);
-					replay_menu_top_clamp(sel, top);
+					sel = replay_font_page_right(sel);
+					top = replay_font_page_top(sel);
 					replay_menu_render(sel, top);
 				} else if(input_sp & (INPUT_OK | INPUT_SHOT)) {
 					if(replay_user_read_slot_for_menu(sel)) {
@@ -4268,7 +4151,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x36312E34UL); // "4.16"
+	TITLE_CREDIT_QUAD(4, 0x37312E34UL); // "4.17"
 	TITLE_CREDIT_QUAD(5, 0x20796220UL); // " by "
 	TITLE_CREDIT_QUAD(6, 0x69726843UL); // "Chri"
 	TITLE_CREDIT_QUAD(7, 0x61697473UL); // "stia"
@@ -5035,5 +4918,25 @@ static int near replay_dev_story_stage_menu(void)
 // The debug-only Shift override is larger than the release handoff.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+// Keep every following original/shared OP contribution at its accepted offset
+// after moving the localized Replay UI into the patch-owned RPYFONT segment.
+// after moving the localized Replay UI into the patch-owned RPYFONT segment.
 #pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

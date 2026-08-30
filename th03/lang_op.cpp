@@ -7,16 +7,16 @@
 extern const shiftjis_t* MUSIC_CHOICES[];
 
 static const shiftjis_t far MUSIC_EN_01[] = "NO.1 Dream Transcending Space...";
-static const shiftjis_t far MUSIC_EN_02[] = "NO.2       Selection            ";
-static const shiftjis_t far MUSIC_EN_03[] = "NO.3 Eastern Mystical Love C... ";
+static const shiftjis_t far MUSIC_EN_02[] = "NO.2    \x81\x40 \x81\x40Selection          ";
+static const shiftjis_t far MUSIC_EN_03[] = "NO.3  Mystic Oriental Love C... ";
 static const shiftjis_t far MUSIC_EN_04[] = "NO.4       Reincarnation        ";
 static const shiftjis_t far MUSIC_EN_05[] = "NO.5         Dim. Dream         ";
-static const shiftjis_t far MUSIC_EN_06[] = "NO.6 Tabula Rasa ~ The Empty G. ";
-static const shiftjis_t far MUSIC_EN_07[] = "NO.7      Maniacal Princess     ";
-static const shiftjis_t far MUSIC_EN_08[] = "NO.8 Vanishing Dream ~ Lost...  ";
-static const shiftjis_t far MUSIC_EN_09[] = "NO.9 Visionary Game ~ Dream War ";
+static const shiftjis_t far MUSIC_EN_06[] = "NO.6 Tabula Rasa \x81\x60 The Empty...";
+static const shiftjis_t far MUSIC_EN_07[] = "NO.7   \x81\x40 Maniacal Princess     ";
+static const shiftjis_t far MUSIC_EN_08[] = "NO.8 Vanishing Dream \x81\x60 Lost... ";
+static const shiftjis_t far MUSIC_EN_09[] = "NO.9 Visionary Game \x81\x60 Dream War";
 static const shiftjis_t far MUSIC_EN_10[] = "NO.10   Decisive Magic Battle!  ";
-static const shiftjis_t far MUSIC_EN_11[] = "NO.11      Sailor of Time       ";
+static const shiftjis_t far MUSIC_EN_11[] = "NO.11    \x81\x40Sailor of Time       ";
 static const shiftjis_t far MUSIC_EN_12[] = "NO.12    Strawberry Crisis!!    ";
 static const shiftjis_t far MUSIC_EN_13[] = "NO.13 Non-Unified Magic World...";
 static const shiftjis_t far MUSIC_EN_14[] = "NO.14   Love of Magical Chimes  ";

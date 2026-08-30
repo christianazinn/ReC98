@@ -25,6 +25,12 @@ enum replay_detail_page_t {
 	RDP_COUNT,
 };
 
+enum replay_font_save_question_t {
+	RFSQ_SAVE,
+	RFSQ_OVERWRITE,
+	RFSQ_QUIT,
+};
+
 void pascal far replay_font_put_fixed_n(
 	int left,
 	int top,
@@ -49,5 +55,13 @@ void far replay_font_detail_empty_put(uint8_t slot);
 void far replay_font_diagnostic_line_put(
 	unsigned y, uint8_t label, uint32_t value
 );
+uint8_t far replay_font_page_top(uint8_t selected);
+uint8_t far replay_font_page_left(uint8_t selected);
+uint8_t far replay_font_page_right(uint8_t selected);
+void far replay_font_page_put(uint8_t selected, unsigned y);
+void far replay_font_save_dialog_put(
+	uint8_t question, uint8_t slot, bool selected_yes
+);
+void far replay_font_save_complete_put(void);
 
 #endif
