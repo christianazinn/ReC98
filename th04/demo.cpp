@@ -16,7 +16,16 @@
 #include "th04/main/pause.cpp"
 #include "th04/main/demo.cpp"
 
+// Direct Stage 6 Practice is constructed from REPLAY_CK_TEXT, outside the
+// main_01 code group that owns Yuuka's NEAR background renderer. This FAR
+// bridge lives in DEMO_TEXT's existing patch reserve, where the callback is a
+// valid same-group NEAR call and no stock segment has to grow.
+void pascal near yuuka6_bg_render(void);
+void pascal far replay_practice_yuuka6_bg_render(void)
+{
+	yuuka6_bg_render();
+}
+
 // Fill the exact stock DEMO_TEXT extent after moving demo policy to the tail.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

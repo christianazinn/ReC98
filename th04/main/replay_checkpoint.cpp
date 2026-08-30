@@ -142,6 +142,7 @@ extern map_section_tiles_t __seg* map_seg;
 	#include "th04/resident.hpp"
 	#include "th04/sprites/main_cdg.h"
 	#include "th04/sprites/main_pat.h"
+	void pascal far replay_practice_yuuka6_bg_render(void);
 #endif
 
 #define RCK_SHOT_LEVEL_COUNT 10
@@ -2600,6 +2601,13 @@ static bool rck_practice_boss_construct(
 		boss.hp = boss.phase_end_hp;
 #endif
 		boss_update();
+#if (GAME == 4)
+		if(stage_id == 5) {
+			// Yuuka's Stage 6 background owns gameplay state in its renderer.
+			// Advance that native state while constructing the requested phase.
+			replay_practice_yuuka6_bg_render();
+		}
+#endif
 		rck_practice_stage_frame_advance();
 		if(quit != Q_KEEP_RUNNING) {
 			snd_se_mode = se_mode;
@@ -2750,6 +2758,12 @@ bool replay_ck_practice_direct_seek(
 #else
 	rck_practice_stage5_stars(target_frame);
 	rck_practice_stage4_midboss_rearm(target_frame);
+	if(boss_target && (stage_id == 5)) {
+		// Natural Stage 6 progression inherits Yuuka's Stage 5 backdrop.
+		// Direct Practice enters a fresh MAIN process and has to establish
+		// this one cross-stage callback before sealing the checkpoint.
+		boss_backdrop_colorfill = yuuka5_backdrop_colorfill;
+	}
 #endif
 	if(boss_target && !rck_practice_boss_construct(start)) {
 		return false;

@@ -28,6 +28,8 @@
 #include "th04/main/rp_guard.hpp"
 #include "th04/main/slowdown.hpp"
 #include "th04/main/playfld.hpp"
+#include "th04/main/player/bomb.hpp"
+#include "th04/main/player/player.hpp"
 #include "th04/gaiji/gaiji.h"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
@@ -98,6 +100,7 @@ extern unsigned int total_max_valued_point_items;
 extern unsigned int enemies_gone;
 extern unsigned int enemies_killed;
 extern bool player_is_hit;
+extern unsigned char player_invincibility_time;
 extern char *eyename;
 extern bool scroll_active;
 extern "C" const char gsCHUUDAN[];
@@ -154,6 +157,7 @@ uint8_t replay_ck_failure_group_value;
 uint16_t replay_ck_failure_field_value;
 static uint8_t replay_last_stage;
 static bool replay_practice_start_pending;
+static bool replay_stage_resume_rng_pending;
 static replay_start_config_t replay_practice_start;
 static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
@@ -1778,9 +1782,23 @@ static bool replay_playback_sample(
 {
 	if(replay_decode_run == 0) {
 		if(!replay_packet_read(&replay_pending)) {
+			if(replay_private_test) {
+				replay_private_diagnostic = (
+					0xD0000000UL | (static_cast<uint32_t>(phase) << 20) |
+					(replay_sample_cursor & 0xFFFFFUL)
+				);
+			}
 			return false;
 		}
 		if((replay_pending.tag >> REPLAY_PACKET_PHASE_SHIFT) != phase) {
+			if(replay_private_test) {
+				replay_private_diagnostic = (
+					0xD1000000UL | (static_cast<uint32_t>(phase) << 20) |
+					(static_cast<uint32_t>(
+						replay_pending.tag >> REPLAY_PACKET_PHASE_SHIFT
+					) << 16) | (replay_sample_cursor & 0xFFFFUL)
+				);
+			}
 			return false;
 		}
 		replay_decode_run = static_cast<uint8_t>(
@@ -2500,6 +2518,17 @@ void replay_practice_start_apply_after_reset(void)
 void replay_practice_start_apply_and_stage_activate(void)
 {
 	replay_practice_start_apply();
+	if(replay_stage_resume_rng_pending) {
+		// Stage-directory snapshots are captured after randring_fill() advances
+		// master.lib's LCG 256 times and items_init() advances it once more for
+		// the item-drop ring. Rewind all 257 calls before native stage_init()
+		// regenerates both rings present in the recording.
+		random_seed = static_cast<int32_t>(
+			(static_cast<uint32_t>(random_seed) * 0x6CBED81DUL) +
+			0xD2EE60E3UL
+		);
+		replay_stage_resume_rng_pending = false;
+	}
 	if(replay_stage_presentation_skip) {
 		vsync_Count2 = 0x80;
 	}
@@ -2678,6 +2707,7 @@ static bool replay_stage_resume_prepare(uint8_t command_flags)
 	replay_copy(&replay_header.start, &entry.start, sizeof(entry.start));
 	replay_copy(&replay_practice_start, &entry.start, sizeof(entry.start));
 	replay_practice_start_pending = true;
+	replay_stage_resume_rng_pending = true;
 	replay_sample_cursor = entry.sample_index;
 	replay_packet_cursor = entry.packet_index;
 	replay_payload_checksum = entry.payload_checksum;
@@ -2738,6 +2768,7 @@ void replay_entry(void)
 	}
 	replay_private_diagnostic = 0;
 	replay_practice_start_pending = false;
+	replay_stage_resume_rng_pending = false;
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
 	replay_preroll_boss_phase = 0xFF;
 	replay_preroll_interstitial_cycle = 0;
@@ -3500,6 +3531,22 @@ int16_t replay_input_reset_sense_held_interstitial(void)
 
 void pascal replay_input_wait_for_change(int frames)
 {
+	if(
+		(replay_mode == RRM_PLAYBACK) &&
+		(replay_lives() == 1) &&
+		(miss_time == 0) &&
+		(player_invincibility_time == (
+			MISS_INVINCIBILITY_FRAMES - MISS_ANIM_FRAMES - DEATHBOMB_WINDOW
+		))
+	) {
+		// No gameplay follows the terminal GAME OVER acknowledgement. Consume
+		// its recorded release and press without replaying the human delay.
+		while(replay_input_reset_sense_held_interstitial() && !replay_failed) {
+		}
+		while(!replay_input_reset_sense_held_interstitial() && !replay_failed) {
+		}
+		return;
+	}
 	#if (GAME == 5)
 		int time;
 
@@ -3545,7 +3592,6 @@ void pascal replay_input_wait_for_change(int frames)
 		}
 	#endif
 }
-
 static uint8_t replay_end_reason(void)
 {
 	if(resident->end_sequence == ES_SCORE) {
@@ -3732,6 +3778,13 @@ bool replay_playback_active(void)
 		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#else
 		#pragma codestring "\x90\x90"
+	#endif
+	// v0.1.1-rc2 repairs stage-resume RNG and terminal Game Over playback.
+	// Keep the audited stock CRT paragraph phase after these patch-only edits.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90"
+	#else
+		#pragma codestring "\x90\x90\x90\x90\x90"
 	#endif
 
 #pragma codeseg
