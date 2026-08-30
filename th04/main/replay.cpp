@@ -1313,6 +1313,7 @@ static bool replay_start_config_valid(
 		(start->stage_graze > 999) ||
 		(start->power_overflow > 42) ||
 		!replay_playperf_valid(start->rank, start->playperf) ||
+		(start->seed_mode > RSM_FIXED) ||
 		!replay_bytes_zero(start->reserved, sizeof(start->reserved))
 	) {
 		return false;
@@ -3577,11 +3578,9 @@ bool replay_playback_active(void)
 	// RC24 adds the previous .STD event frame to the debug coordinate row.
 	#pragma codestring "\x90"
 	// RC32 expands the reviewed chapter catalog and debug telemetry. Preserve
-	// the stock CRT paragraph phase after the resulting compiler-size change.
-	#if (GAME == 4)
-		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-	#else
-		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	// the stock CRT paragraph phase after the current compiler-size changes.
+	#if (GAME == 5)
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#endif
 
 #pragma codeseg

@@ -62,10 +62,8 @@
 #define REPLAY_OP_COL_PRACTICE_SELECTED REPLAY_OP_COL_SELECTED
 #define REPLAY_OP_TEXT_SPACING 16
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
-#define PRACTICE_PAGE_COUNT 3
-#define PRACTICE_TARGET_ROWS 9
-#define PRACTICE_HISTORY_ROWS 12
-#define PRACTICE_STAGE_ROWS 4
+#define PRACTICE_MAIN_ROWS 11
+#define PRACTICE_ADVANCED_ROWS 16
 #define PRACTICE_STOCK_MAX REPLAY_PRACTICE_STOCK_MAX
 
 // The replay-list background has an unused palette entry at index 7. Reserve
@@ -164,6 +162,10 @@ enum practice_field_t {
 	PF_STAGE_ITEMS,
 	PF_STAGE_GRAZE,
 	PF_POWER_OVERFLOW,
+	PF_SEED,
+	PF_ADVANCED,
+	PF_RESET_DEFAULTS,
+	PF_BACK,
 };
 
 static char replay_op_cfg_fn[11];
@@ -941,6 +943,7 @@ static bool replay_op_start_valid(
 		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) || (start->power_overflow > 42) ||
 		!replay_op_playperf_valid(start->rank, start->playperf) ||
+		(start->seed_mode > RSM_FIXED) ||
 		!replay_op_bytes_zero(start->reserved, sizeof(start->reserved))
 	) {
 		return false;
@@ -2518,10 +2521,7 @@ static bool replay_detail(uint8_t slot)
 
 static uint8_t practice_row_count(uint8_t page)
 {
-	if(page == 0) {
-		return PRACTICE_TARGET_ROWS;
-	}
-	return ((page == 1) ? PRACTICE_HISTORY_ROWS : PRACTICE_STAGE_ROWS);
+	return ((page == 0) ? PRACTICE_MAIN_ROWS : PRACTICE_ADVANCED_ROWS);
 }
 
 static practice_field_t practice_field(uint8_t page, uint8_t sel)
@@ -2536,30 +2536,28 @@ static practice_field_t practice_field(uint8_t page, uint8_t sel)
 		case 5: return PF_DREAM;
 		case 6: return PF_PLAYPERF;
 		case 7: return PF_SCORE;
-		default: return PF_START;
-		}
-	}
-	if(page == 1) {
-		switch(sel) {
-		case 0: return PF_CONTINUES;
-		case 1: return PF_EXTENDS;
-		case 2: return PF_GRAZE;
-		case 3: return PF_ITEMS_SPAWNED;
-		case 4: return PF_ITEMS_COLLECTED;
-		case 5: return PF_POINT_ITEMS;
-		case 6: return PF_MAX_POINT_ITEMS;
-		case 7: return PF_ENEMIES_GONE;
-		case 8: return PF_ENEMIES_KILLED;
-		case 9: return PF_MISSES;
-		case 10: return PF_BOMBS_USED;
+		case 8: return PF_SEED;
+		case 9: return PF_ADVANCED;
 		default: return PF_START;
 		}
 	}
 	switch(sel) {
-	case 0: return PF_STAGE_ITEMS;
-	case 1: return PF_STAGE_GRAZE;
-	case 2: return PF_POWER_OVERFLOW;
-	default: return PF_START;
+	case 0: return PF_CONTINUES;
+	case 1: return PF_EXTENDS;
+	case 2: return PF_GRAZE;
+	case 3: return PF_ITEMS_SPAWNED;
+	case 4: return PF_ITEMS_COLLECTED;
+	case 5: return PF_POINT_ITEMS;
+	case 6: return PF_MAX_POINT_ITEMS;
+	case 7: return PF_ENEMIES_GONE;
+	case 8: return PF_ENEMIES_KILLED;
+	case 9: return PF_MISSES;
+	case 10: return PF_BOMBS_USED;
+	case 11: return PF_STAGE_ITEMS;
+	case 12: return PF_STAGE_GRAZE;
+	case 13: return PF_POWER_OVERFLOW;
+	case 14: return PF_RESET_DEFAULTS;
+	default: return PF_BACK;
 	}
 }
 
@@ -2632,6 +2630,16 @@ static char *practice_field_append(char *p, practice_field_t field)
 	case PF_POWER_OVERFLOW:
 		P('P'); P('o'); P('w'); P('e'); P('r'); P(' '); P('O'); P('v'); P('e');
 		P('r'); P('f'); P('l'); P('o'); P('w'); break;
+	case PF_SEED:
+		P('S'); P('e'); P('e'); P('d'); break;
+	case PF_ADVANCED:
+		P('A'); P('d'); P('v'); P('a'); P('n'); P('c'); P('e'); P('d'); P(' ');
+		P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s'); break;
+	case PF_RESET_DEFAULTS:
+		P('R'); P('e'); P('s'); P('e'); P('t'); P(' '); P('D'); P('e'); P('f');
+		P('a'); P('u'); P('l'); P('t'); P('s'); break;
+	case PF_BACK:
+		P('B'); P('a'); P('c'); P('k'); break;
 	}
 	#undef P
 	return p;
@@ -2978,8 +2986,35 @@ static char *practice_value_append(
 	case PF_STAGE_GRAZE: return replay_op_uint_append(p, start->stage_graze, 3);
 	case PF_POWER_OVERFLOW:
 		return replay_op_uint_append(p, start->power_overflow, 2);
+	case PF_SEED:
+		if(start->seed_mode == RSM_RANDOM) {
+			*p++ = 'R'; *p++ = 'a'; *p++ = 'n'; *p++ = 'd'; *p++ = 'o'; *p++ = 'm';
+			return p;
+		}
+		return replay_op_uint_append(
+			p, static_cast<uint32_t>(start->random_seed), 10
+		);
 	default: return p;
 	}
+}
+
+static void practice_advanced_defaults(replay_start_config_t far *start)
+{
+	start->continues_used = 0;
+	start->extends_gained = 0;
+	start->graze = 0;
+	start->std_frames = 0;
+	start->items_spawned = 0;
+	start->items_collected = 0;
+	start->point_items_collected = 0;
+	start->max_valued_point_items_collected = 0;
+	start->enemies_gone = 0;
+	start->enemies_killed = 0;
+	start->miss_count = 0;
+	start->bombs_used = 0;
+	start->stage_point_items_collected = 0;
+	start->stage_graze = 0;
+	start->power_overflow = 0;
 }
 
 static void practice_defaults(replay_start_config_t far *start)
@@ -3006,6 +3041,38 @@ static void practice_defaults(replay_start_config_t far *start)
 	start->turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
 	start->credit_lives = resident->cfg_lives;
 	start->credit_bombs = resident->cfg_bombs;
+	start->seed_mode = RSM_RANDOM;
+	start->random_seed = resident->rand;
+}
+
+static void practice_seed_change(
+	replay_start_config_t far *start, bool right, bool fast
+)
+{
+	uint32_t value;
+	uint32_t delta = (fast ? 256UL : 1UL);
+
+	if(start->seed_mode == RSM_RANDOM) {
+		start->seed_mode = RSM_FIXED;
+		start->random_seed = static_cast<int32_t>(right ? 0 : 0xFFFFFFFFUL);
+		return;
+	}
+	value = static_cast<uint32_t>(start->random_seed);
+	if(right) {
+		if(value == 0xFFFFFFFFUL) {
+			start->seed_mode = RSM_RANDOM;
+		} else {
+			value = ((value > (0xFFFFFFFFUL - delta))
+				? 0xFFFFFFFFUL : (value + delta)
+			);
+			start->random_seed = static_cast<int32_t>(value);
+		}
+	} else if(value == 0) {
+		start->seed_mode = RSM_RANDOM;
+	} else {
+		value = ((value < delta) ? 0 : (value - delta));
+		start->random_seed = static_cast<int32_t>(value);
+	}
 }
 
 static void practice_u8_change(
@@ -3156,6 +3223,8 @@ static void practice_field_change(
 		practice_u16_change(&start->stage_graze, 0, 999, (fast ? 10 : 1), right); break;
 	case PF_POWER_OVERFLOW:
 		practice_u16_change(&start->power_overflow, 0, 42, (fast ? 5 : 1), right); break;
+	case PF_SEED:
+		practice_seed_change(start, right, fast); break;
 	default: break;
 	}
 }
@@ -3163,7 +3232,9 @@ static void practice_field_change(
 static bool practice_field_is_numeric(practice_field_t field)
 {
 	return (
-		(field != PF_STAGE) && (field != PF_SECTION) && (field != PF_START)
+		(field != PF_STAGE) && (field != PF_SECTION) &&
+		(field != PF_ADVANCED) && (field != PF_RESET_DEFAULTS) &&
+		(field != PF_BACK) && (field != PF_START)
 	);
 }
 
@@ -3193,6 +3264,7 @@ static uint32_t practice_field_numeric_get(
 	case PF_STAGE_ITEMS: return start->stage_point_items_collected;
 	case PF_STAGE_GRAZE: return start->stage_graze;
 	case PF_POWER_OVERFLOW: return start->power_overflow;
+	case PF_SEED: return static_cast<uint32_t>(start->random_seed);
 	default: return 0;
 	}
 }
@@ -3242,6 +3314,7 @@ static uint32_t practice_field_numeric_max(
 	case PF_STAGE_ITEMS: return ((GAME == 5) ? 999 : 255);
 	case PF_STAGE_GRAZE: return 999;
 	case PF_POWER_OVERFLOW: return 42;
+	case PF_SEED: return 0xFFFFFFFFUL;
 	default: return 0;
 	}
 }
@@ -3290,6 +3363,10 @@ static void practice_field_numeric_set(
 		start->stage_graze = static_cast<uint16_t>(value); break;
 	case PF_POWER_OVERFLOW:
 		start->power_overflow = static_cast<uint16_t>(value); break;
+	case PF_SEED:
+		start->random_seed = static_cast<int32_t>(value);
+		start->seed_mode = RSM_FIXED;
+		break;
 	default: break;
 	}
 }
@@ -3323,6 +3400,7 @@ static void practice_numeric_entry(
 )
 {
 	uint32_t original = practice_field_numeric_get(start, field);
+	uint8_t original_seed_mode = start->seed_mode;
 	uint32_t value = 0;
 	uint32_t min = practice_field_numeric_min(start, field);
 	uint32_t max = practice_field_numeric_max(start, field);
@@ -3349,6 +3427,7 @@ static void practice_numeric_entry(
 		now3 = peekb(0, KEYGROUP_3);
 		if((now0 & K0_ESC) && !(prev0 & K0_ESC)) {
 			practice_field_numeric_set(start, field, original);
+			start->seed_mode = original_seed_mode;
 			practice_render(start, page, sel);
 			return;
 		}
@@ -3394,20 +3473,21 @@ static void practice_page_name_put(uint8_t page)
 {
 	char *p = replay_op_line;
 	#define P(c) *p++ = c
-	P('<'); P(' ');
 	if(page == 0) {
-		P('T'); P('a'); P('r'); P('g'); P('e'); P('t'); P(' ');
-		P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s');
-	} else if(page == 1) {
-		P('R'); P('u'); P('n'); P(' '); P('H'); P('i'); P('s'); P('t');
-		P('o'); P('r'); P('y');
-	} else {
-		P('S'); P('t'); P('a'); P('g'); P('e'); P(' '); P('H'); P('i');
-		P('s'); P('t'); P('o'); P('r'); P('y');
+		return;
 	}
-	P(' '); P('('); P('1' + page); P('/'); P('3'); P(')'); P(' '); P('>');
+	P('A'); P('D'); P('V'); P('A'); P('N'); P('C'); P('E'); P('D'); P(' ');
+	P('S'); P('E'); P('T'); P('T'); P('I'); P('N'); P('G'); P('S');
 	#undef P
-	replay_op_line_put_centered(44, V_WHITE, p);
+	replay_op_line_put_centered(40, V_WHITE, p);
+}
+
+static bool practice_field_is_action(practice_field_t field)
+{
+	return (
+		(field == PF_ADVANCED) || (field == PF_RESET_DEFAULTS) ||
+		(field == PF_BACK) || (field == PF_START)
+	);
 }
 
 static void practice_render(
@@ -3417,6 +3497,8 @@ static void practice_render(
 	#define PRACTICE_VALUE_RIGHT 512
 	uint8_t rows = practice_row_count(page);
 	uint8_t page_drawn = (1 - replay_op_page_shown);
+	vram_y_t row_top = ((page == 0) ? 60 : 64);
+	pixel_t row_step = ((page == 0) ? 22 : 19);
 	practice_field_t field;
 	char *p;
 	int i;
@@ -3426,38 +3508,38 @@ static void practice_render(
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PRACTICE_SETUP);
-	replay_op_line_put_centered(16, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put_centered(16, V_WHITE, p);
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	practice_page_name_put(page);
 	for(i = 0; i < rows; i++) {
 		field = practice_field(page, i);
 		p = replay_op_line;
 		*p++ = ((i == sel) ? '>' : ' ');
-		replay_op_line_put(80, (68 + (i * 20)),
+		replay_op_line_put(80, (row_top + (i * row_step)),
 			((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p);
 		p = replay_op_line;
 		p = practice_field_append(p, field);
-		if(field == PF_START) {
+		if(practice_field_is_action(field)) {
 			replay_op_line_put_centered(
-				(68 + (i * 20)),
+				(row_top + (i * row_step)),
 				((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p
 			);
 		} else {
-			replay_op_line_put(104, (68 + (i * 20)),
+			replay_op_line_put(104, (row_top + (i * row_step)),
 				((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p);
 			p = replay_op_line;
 			p = practice_value_append(p, field, start);
 			if(replay_op_font) {
 				*p = '\0';
 				replay_op_font_put_right(
-					PRACTICE_VALUE_RIGHT, (68 + (i * 20)), replay_op_line,
+					PRACTICE_VALUE_RIGHT, (row_top + (i * row_step)), replay_op_line,
 					((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE)
 				);
 			} else {
 				replay_op_line_put(
 					static_cast<screen_x_t>(
 						PRACTICE_VALUE_RIGHT - ((p - replay_op_line) * 8)
-					), (68 + (i * 20)),
+					), (row_top + (i * row_step)),
 					((i == sel) ? REPLAY_OP_COL_PRACTICE_SELECTED : V_WHITE), p
 				);
 			}
@@ -3508,55 +3590,48 @@ bool replay_practice_setup(replay_start_config_t far *start)
 		rows = practice_row_count(page);
 		field = practice_field(page, sel);
 		if(horizontal_trigger) {
-			if(field == PF_START) {
-				page = right
-					? ((page == (PRACTICE_PAGE_COUNT - 1)) ? 0 : (page + 1))
-					: ((page == 0) ? (PRACTICE_PAGE_COUNT - 1) : (page - 1));
-				rows = practice_row_count(page);
-				if(sel >= rows) {
-					sel = (rows - 1);
-				}
-			} else {
+			if(!practice_field_is_action(field)) {
 				practice_field_change(start, field, right, shiftkey);
-			}
-			practice_render(start, page, sel);
-			if(input_allowed) {
-				snd_se_play_force(1);
+				practice_render(start, page, sel);
+				if(input_allowed) {
+					snd_se_play_force(1);
+				}
 			}
 			input_allowed = false;
 		} else if(input_allowed) {
 			if(key_det & INPUT_UP) {
-				if(sel == 0) {
-					page = ((page == 0) ? (PRACTICE_PAGE_COUNT - 1) : (page - 1));
-					sel = (practice_row_count(page) - 1);
-				} else {
-					sel--;
-				}
+				sel = ((sel == 0) ? (rows - 1) : (sel - 1));
 				practice_render(start, page, sel);
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_DOWN) {
-				if(sel == (rows - 1)) {
-					page = ((page == (PRACTICE_PAGE_COUNT - 1)) ? 0 : (page + 1));
-					sel = 0;
-				} else {
-					sel++;
-				}
+				sel = ((sel == (rows - 1)) ? 0 : (sel + 1));
 				practice_render(start, page, sel);
 				snd_se_play_force(1);
-			} else if(key_det & INPUT_BOMB) {
-				page = ((page == (PRACTICE_PAGE_COUNT - 1)) ? 0 : (page + 1));
-				rows = practice_row_count(page);
-				if(sel >= rows) {
-					sel = (rows - 1);
+			} else if((key_det & INPUT_BOMB) || (key_det & INPUT_CANCEL)) {
+				if(page != 0) {
+					page = 0;
+					sel = 9;
+					practice_render(start, page, sel);
+					snd_se_play_force(1);
+					input_allowed = false;
+					continue;
 				}
-				practice_render(start, page, sel);
-				snd_se_play_force(1);
-			} else if(key_det & INPUT_CANCEL) {
 				palette_black_out(1);
 				replay_op_screen_end(previous_func);
 				return false;
 			} else if((key_det & INPUT_OK) && practice_field_is_numeric(field)) {
 				practice_numeric_entry(start, field, page, sel);
+			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_ADVANCED)) {
+				page = 1;
+				sel = 0;
+				practice_render(start, page, sel);
+			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_BACK)) {
+				page = 0;
+				sel = 9;
+				practice_render(start, page, sel);
+			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_RESET_DEFAULTS)) {
+				practice_advanced_defaults(start);
+				practice_render(start, page, sel);
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
 				if(practice_start_valid(start)) {
 					palette_black_out(1);
@@ -3584,8 +3659,12 @@ bool replay_practice_record_prepare(
 	replay_op_dos_delete(replay_op_save_request_fn);
 	replay_op_dos_delete(replay_op_save_request_witness_fn);
 	replay_op_copy(&start, start_in, sizeof(start));
-	start.resident_rand = resident->rand;
-	start.random_seed = resident->rand;
+	if(start.seed_mode == RSM_RANDOM) {
+		start.resident_rand = resident->rand;
+		start.random_seed = resident->rand;
+	} else {
+		start.resident_rand = start.random_seed;
+	}
 	if(!practice_start_valid(&start)) {
 		return false;
 	}
@@ -4340,6 +4419,30 @@ static screen_y_t replay_main_choice_top(int sel)
 	);
 }
 
+static void replay_main_credit_put(void)
+{
+	#define TITLE_CREDIT_QUAD(i, value) \
+		reinterpret_cast<uint32_t *>(replay_op_line)[i] = value
+	TITLE_CREDIT_QUAD(0, 0x6C706552UL); // "Repl"
+	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
+	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
+	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
+	TITLE_CREDIT_QUAD(4, 0x20302E31UL); // "1.0 "
+	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
+	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
+	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
+	TITLE_CREDIT_QUAD(8, 0x697A4120UL); // " Azi"
+	TITLE_CREDIT_QUAD(9, 0x00006E6EUL); // "nn"
+	#undef TITLE_CREDIT_QUAD
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+	graph_putsa_fx(
+		(RES_X - (38 * GLYPH_HALF_W)), 0,
+		((GAME == 4) ? 0 : V_WHITE),
+		reinterpret_cast<const shiftjis_t *>(replay_op_line)
+	);
+}
+
 static void replay_main_desc_put(int desc_id)
 {
 	const char *desc = language_op_main_desc(desc_id);
@@ -4727,6 +4830,7 @@ static void replay_main_initialize(void)
 			)
 		);
 	}
+	replay_main_credit_put();
 	menu_unput_and_put = replay_main_unput_and_put;
 	replay_main_initialized = true;
 	replay_main_input_allowed = false;
@@ -4894,5 +4998,6 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

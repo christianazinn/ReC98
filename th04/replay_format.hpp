@@ -122,6 +122,11 @@ enum replay_start_kind_t {
 	RSK_BOSS_PHASE = 4,
 };
 
+enum replay_seed_mode_t {
+	RSM_RANDOM = 0,
+	RSM_FIXED = 1,
+};
+
 enum replay_checkpoint_group_id_t {
 	RCGI_RNG = 0,
 	RCGI_RUN = 1,
@@ -196,7 +201,8 @@ struct replay_start_config_t {
 	uint16_t stage_point_items_collected;
 	uint16_t stage_graze;
 	uint16_t power_overflow;
-	uint8_t reserved[10];
+	uint8_t seed_mode;
+	uint8_t reserved[9];
 };
 
 struct replay_user_header_t {
