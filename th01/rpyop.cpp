@@ -22,6 +22,7 @@
 #include "th01/hiscore/regist.hpp"
 #include "th01/formats/grp.h"
 #include "th01/language.hpp"
+#include "th01/rpyfont.hpp"
 #include "th01/replay_op.hpp"
 #if defined(T1RB)
 #include "th01/replay_milestone.hpp"
@@ -1347,12 +1348,13 @@ bool t1replay_op_milestone_practice_bootstrap(
 	valid = (
 		(fread(&marker, 1, 1, fp) == 1) &&
 		(fread(&extra, 1, 1, fp) == 0) &&
-		((marker == 'P') || (marker == 'S') || (marker == 'H'))
+		((marker == 'P') || (marker == 'S') ||
+		 (marker == 'H') || (marker == '4'))
 	);
 	fclose(fp);
 	// H remains for REIIDEN's private one-shot route. P and S are fully
 	// consumed here so an ordinary Practice handoff cannot be retriggered.
-	if(marker != 'H') {
+	if((marker != 'H') && (marker != '4')) {
 		remove(fn);
 	}
 	if(!valid) {
@@ -1374,6 +1376,11 @@ bool t1replay_op_milestone_practice_bootstrap(
 		t1replay_practice_start.route = ROUTE_MAKAI;
 		t1replay_practice_start.section = T1RPS_BOSS_START;
 		t1replay_practice_start.chapter = BOSS_STAGE;
+	} else if(marker == '4') {
+		t1replay_practice_start.scene = 0;
+		t1replay_practice_start.route = ROUTE_MAKAI;
+		t1replay_practice_start.section = T1RPS_CHAPTER;
+		t1replay_practice_start.chapter = (BOSS_STAGE - 1);
 	}
 	if(!t1replay_op_record_prepare()) {
 		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITE_FAILED);
@@ -1847,6 +1854,19 @@ static void t1replay_op_panel_restore(bool name_entry)
 	char fn[9];
 
 	t1replay_op_background_fn(fn, name_entry);
+	graph_accesspage_func(1);
+	grp_put_palette_show(fn);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+}
+
+static void t1replay_op_practice_panel_restore(void)
+{
+	char fn[11];
+
+	fn[0] = 'P'; fn[1] = 'R'; fn[2] = 'A'; fn[3] = 'C'; fn[4] = 'T';
+	fn[5] = 'I'; fn[6] = 'C'; fn[7] = '.'; fn[8] = 'P'; fn[9] = 'I';
+	fn[10] = '\0';
 	graph_accesspage_func(1);
 	grp_put_palette_show(fn);
 	graph_copy_accessed_page_to_other();
@@ -2363,7 +2383,11 @@ static void t1replay_op_text_put(
 )
 {
 	*end = '\0';
-	graph_putsa_fx(left, y, (col | T1REPLAY_OP_FX), t1replay_op_text);
+	if(replay_op_font) {
+		replay_op_font_put(left, y, t1replay_op_text, col);
+	} else {
+		graph_putsa_fx(left, y, (col | T1REPLAY_OP_FX), t1replay_op_text);
+	}
 }
 
 static void t1replay_op_text_left(screen_y_t y, vc_t col, char *end)
@@ -2374,12 +2398,18 @@ static void t1replay_op_text_left(screen_y_t y, vc_t col, char *end)
 static void t1replay_op_text_center(screen_y_t y, vc_t col, char *end)
 {
 	*end = '\0';
-	graph_putsa_fx(
-		static_cast<screen_x_t>(
-			(RES_X - text_extent_fx((col | T1REPLAY_OP_FX), t1replay_op_text)) / 2
-		),
-		y, (col | T1REPLAY_OP_FX), t1replay_op_text
-	);
+	if(replay_op_font) {
+		replay_op_font_put_centered(
+			(RES_X / 2), y, t1replay_op_text, col
+		);
+	} else {
+		graph_putsa_fx(
+			static_cast<screen_x_t>(
+				(RES_X - text_extent_fx((col | T1REPLAY_OP_FX), t1replay_op_text)) / 2
+			),
+			y, (col | T1REPLAY_OP_FX), t1replay_op_text
+		);
+	}
 }
 
 static void t1replay_op_text_value(screen_y_t y, vc_t col, char *end)
@@ -3425,7 +3455,7 @@ static void t1replay_op_practice_render(void)
 	vc_t label_col;
 	vc_t value_col;
 
-	t1replay_op_panel_restore(false);
+	t1replay_op_practice_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
 	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
@@ -3508,6 +3538,7 @@ static void t1replay_op_overwrite_cancel(void)
 void t1replay_op_replay_enter(void)
 {
 	t1replay_op_surface_state_reset();
+	replay_op_font_load();
 	if(!t1op_backup_recover_all()) {
 		return;
 	}
@@ -3521,6 +3552,7 @@ bool t1replay_op_pending_enter(void)
 	char request_fn[11];
 
 	t1replay_op_restart_enter();
+	replay_op_font_load();
 	t1replay_op_save_request_fn(request_fn);
 	if(!t1replay_op_file_exists(request_fn)) {
 		t1replay_op_save_request_witness_discard();
@@ -3556,6 +3588,7 @@ bool t1replay_op_pending_enter(void)
 void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_t rand)
 {
 	t1replay_op_surface_state_reset();
+	replay_op_font_load();
 	memset(&t1replay_practice_start, 0, sizeof(t1replay_practice_start));
 	t1replay_practice_start.scene = 0;
 	t1replay_practice_start.route = ROUTE_MAKAI;
@@ -3571,6 +3604,7 @@ void t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 void t1replay_op_restore(void)
 {
 	t1replay_op_name_active = false;
+	replay_op_font_free();
 	t1replay_op_title_backing_restore();
 	t1replay_op_return_wait_release();
 	t1replay_op_input_reset();
@@ -4192,12 +4226,14 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 			t1replay_op_sel--;
 		}
 		t1replay_op_practice_render();
+		t1replay_op_input_reset();
 	}
 	if(input.down) {
 		t1replay_op_sel = static_cast<uint8_t>(
 			(t1replay_op_sel + 1) % T1REPLAY_OP_PRACTICE_ROW_COUNT
 		);
 		t1replay_op_practice_render();
+		t1replay_op_input_reset();
 	}
 	if(!input.left_held && !input.right_held) {
 		t1replay_op_horizontal_hold = 0;

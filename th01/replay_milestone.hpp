@@ -36,6 +36,22 @@ enum t1replay_process_milestone_t {
 	T1RPM_RECORD_COMMAND_WRITTEN = 19,
 	T1RPM_PRACTICE_CARRIER_CREATE_FAILED = 20,
 	T1RPM_HANDOFF_PROBE_REACHED = 21,
+	T1RPM_STAGE4_CLEAR_BEGIN = 22,
+	T1RPM_STAGE4_BONUS_COMPLETE = 23,
+	T1RPM_STAGE4_SPLIT_COMPLETE = 24,
+	T1RPM_STAGE4_HANDOFF_COMMITTED = 25,
+	T1RPM_STAGE4_EXECL_RETURNED = 26,
+	T1RPM_STAGE4_BONUS_ENTERED = 27,
+	T1RPM_STAGE4_BONUS_BOX_OPENED = 28,
+	T1RPM_STAGE4_BONUS_RENDERED = 29,
+	T1RPM_STAGE4_BONUS_INPUT_RELEASED = 30,
+	T1RPM_STAGE4_GAMEPLAY_LOOP_LEFT = 31,
+	T1RPM_STAGE4_SCROLLUP_COMPLETE = 32,
+	T1RPM_STAGE4_LIFE_LOOP_LEFT = 33,
+	T1RPM_STAGE5_ARCHIVE_LOADED = 34,
+	T1RPM_STAGE5_SCENE_LOADED = 35,
+	T1RPM_STAGE5_BOSS_LOADED = 36,
+	T1RPM_STAGE5_ENTRANCE_COMPLETE = 37,
 };
 
 #if T1REPLAY_PROCESS_MILESTONES
@@ -45,6 +61,7 @@ void far t1replay_process_milestone(t1replay_process_milestone_t milestone);
 // teardown/handoff path after the first boss has loaded. It is not gameplay
 // state and does not exist outside the T1RB diagnostic profile.
 bool far t1replay_process_milestone_handoff_probe(void);
+bool far t1replay_process_milestone_stage4_clear_probe(void);
 #endif
 
 #endif

@@ -534,6 +534,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- Keep patch-owned title state after every original OP object so new BSS
 	-- cannot move original resident variables.
 	"th01/rpyop.cpp",
+	"th01/rpyfont.cpp",
 	"th01/language.cpp",
 	"th01/rpymile.cpp",
 })

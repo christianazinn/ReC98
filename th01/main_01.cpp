@@ -535,6 +535,9 @@ int main(void)
 	char replay_fuuin_arg[2];
 	bool16 replay_fuuin;
 	bool16 replay_checkpoint_restored;
+	#if defined(T1RB)
+	bool16 replay_stage4_clear_probe = false;
+	#endif
 
 	if(!mdrv2_resident()) {
 		error_resident_invalid();
@@ -633,8 +636,18 @@ int main(void)
 	set_new_handler(out_of_memory_exit);
 	arc_key = ARC_KEY;
 	arc_load(ARC_FN);
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_ARCHIVE_LOADED);
+	}
+	#endif
 	vram_planes_set();
 	scene_init_and_load(scene_id);
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_SCENE_LOADED);
+	}
+	#endif
 
 	if(mode_debug == true) {
 		debug_startup_delay();
@@ -753,6 +766,11 @@ int main(void)
 			clear_vram_page_0 = false;
 			break;
 		}
+		#if defined(T1RB)
+		if(stage_id == BOSS_STAGE) {
+			t1replay_process_milestone(T1RPM_STAGE5_BOSS_LOADED);
+		}
+		#endif
 
 		if(boss_id != BID_NONE) {
 			bgm_reload_and_play_if_0 = 0;
@@ -778,6 +796,11 @@ int main(void)
 	} else if(boss_id == BID_SARIEL) {
 		sariel_entrance(0);
 	}
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_ENTRANCE_COMPLETE);
+	}
+	#endif
 	#if defined(T1RB)
 	if(stage_id == ((3 * STAGES_PER_SCENE) + BOSS_STAGE)) {
 		t1replay_process_milestone(T1RPM_STAGE5_BOSS_INIT);
@@ -839,6 +862,17 @@ int main(void)
 			}
 
 			input_reset_sense();
+			#if defined(T1RB)
+			if((stage_id == (BOSS_STAGE - 1)) &&
+				t1replay_process_milestone_stage4_clear_probe()) {
+				replay_stage4_clear_probe = true;
+				t1replay_process_milestone(T1RPM_STAGE4_CLEAR_BEGIN);
+				// The no-input witness has reached the same fully loaded boundary
+				// as an ordinary Stage 4 run. Let it pass the initial Shot gate so
+				// it can exercise the actual clear, bonus, and process handoff path.
+				input_shot = true;
+			}
+			#endif
 
 			if(t1replay_checkpoint_restore_pending()) {
 				if(!t1replay_checkpoint_restore_apply(
@@ -894,6 +928,10 @@ int main(void)
 				pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
 			}
 			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				stage_cleared = true;
+				player_is_hit = true;
+			}
 			// Private H reaches the native post-boss process boundary after the
 			// first boss resources and entrance have completed. It validates the
 			// REIIDEN-to-REIIDEN route without substituting a saved world state.
@@ -1043,8 +1081,18 @@ int main(void)
 			}
 			// At this point, the player either lost a life or cleared a
 			// non-final stage.
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_GAMEPLAY_LOOP_LEFT);
+			}
+			#endif
 			timer_initialized = false;
 			z_vsync_wait_and_scrollup(0);
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_SCROLLUP_COMPLETE);
+			}
+			#endif
 			resident->rand = frame_rand;
 			test_damage = false;
 			bomb_frame = 200;
@@ -1065,6 +1113,11 @@ int main(void)
 		}
 		// At this point, the player either cleared a non-final stage or
 		// game-overed.
+		#if defined(T1RB)
+		if(replay_stage4_clear_probe) {
+			t1replay_process_milestone(T1RPM_STAGE4_LIFE_LOOP_LEFT);
+		}
+		#endif
 		if(stage_cleared == true) {
 			stage_cleared = false;
 			player_is_hit = false;
@@ -1082,9 +1135,19 @@ int main(void)
 			} else {
 				stagebonus_animate(stage_id);
 			}
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_BONUS_COMPLETE);
+			}
+			#endif
 			t1replay_stage_complete(
 				static_cast<uint8_t>(stage_id - 1), score
 			);
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_SPLIT_COMPLETE);
+			}
+			#endif
 			if(resident->pellet_speed < 0) {
 				resident->pellet_speed = 0;
 			}
@@ -1105,8 +1168,18 @@ int main(void)
 				#else
 				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
 				#endif
+				#if defined(T1RB)
+				if(replay_stage4_clear_probe) {
+					t1replay_process_milestone(T1RPM_STAGE4_HANDOFF_COMMITTED);
+				}
+				#endif
 				game_switch_binary();
 				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+				#if defined(T1RB)
+				if(replay_stage4_clear_probe) {
+					t1replay_process_milestone(T1RPM_STAGE4_EXECL_RETURNED);
+				}
+				#endif
 			}
 			orb_in_portal = false;
 			if(boss_id == BID_NONE) {

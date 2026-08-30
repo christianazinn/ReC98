@@ -89,4 +89,32 @@ bool far t1replay_process_milestone_handoff_probe(void)
 	return ret;
 }
 
+bool far t1replay_process_milestone_stage4_clear_probe(void)
+{
+	char fn[10];
+	char mode[3];
+	uint8_t marker;
+	uint8_t extra;
+	FILE *fp;
+	bool ret;
+
+	t1replay_process_milestone_config_fn(fn);
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return false;
+	}
+	ret = (
+		(fread(&marker, 1, 1, fp) == 1) &&
+		(fread(&extra, 1, 1, fp) == 0) &&
+		(marker == '4')
+	);
+	fclose(fp);
+	if(ret) {
+		remove(fn);
+		t1replay_process_milestone_flush();
+	}
+	return ret;
+}
+
 #endif

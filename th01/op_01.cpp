@@ -601,7 +601,9 @@ void main_choice_unput_and_put(int choice, vc2 col)
 		return;
 	}
 	choice_str = CHOICES[(choice < 3) ? choice : 3];
-	left = (MENU_CENTER_X - (shiftjis_w(choice_str) / 2));
+	left = (
+		MENU_CENTER_X - (GLYPH_FULL_W * 3) - (shiftjis_w(choice_str) / 2)
+	);
 
 	// No unblitting necessary here, as only the colors change.
 	graph_putsa_fx(left, top, (col | FX), choice_str);
