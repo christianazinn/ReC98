@@ -597,7 +597,9 @@ void main_choice_unput_and_put(int choice, vc2 col)
 	screen_y_t top = choice_top(choice, MAIN_CHOICE_COUNT);
 
 	if((choice == 3) || (choice == 4)) {
-		t1replay_op_main_choice_put(choice, MENU_CENTER_X, top, col, FX);
+		t1replay_op_main_choice_put(
+			choice, (MENU_CENTER_X - (GLYPH_FULL_W * 3)), top, col, FX
+		);
 		return;
 	}
 	choice_str = CHOICES[(choice < 3) ? choice : 3];

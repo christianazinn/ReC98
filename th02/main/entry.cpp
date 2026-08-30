@@ -86,9 +86,15 @@ static const int TITLE_RIGHT = 0x1C;
 
 extern "C" int far main_entry(void)
 {
+#ifdef T2PD
+	t2practice_diag_lifecycle(T2PDLM_MAIN_ENTRY, 0, 0, 0);
+#endif
 	if(!cfg_load()) {
 		return 1;
 	}
+#ifdef T2PD
+	t2practice_diag_lifecycle(T2PDLM_MAIN_CFG_LOADED, 0, 0, 0);
+#endif
 #if T2REPLAY_EXACT_APPLY
 	// The private direct-start request owns one temporary far block. Assign
 	// master.lib's heap before replay_entry() tries to allocate it.

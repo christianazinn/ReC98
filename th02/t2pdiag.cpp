@@ -9,6 +9,7 @@
 #include "libs/master.lib/master.hpp"
 
 static const char T2PRACT_DIAG_FN[] = "T2PRACT.BIN";
+static const char T2PRACT_DIAG_NO_SOUND_FN[] = "T2NSND.CFG";
 static t2practice_diag_record_t t2practice_diag_current;
 static bool t2practice_diag_apply_active;
 
@@ -77,6 +78,21 @@ static bool near t2practice_diag_exists(void)
 	t2practice_diag_dos_close(fd);
 	t2practice_diag_io_bypass_end();
 	return true;
+}
+
+bool16 far t2practice_diag_no_sound(void)
+{
+	int fd;
+
+	t2practice_diag_io_bypass_begin();
+	fd = t2practice_diag_dos_open(
+		T2PRACT_DIAG_NO_SOUND_FN, T2PRACT_DIAG_ACCESS_READ
+	);
+	if(fd >= 0) {
+		t2practice_diag_dos_close(fd);
+	}
+	t2practice_diag_io_bypass_end();
+	return (fd >= 0);
 }
 
 static void near t2practice_diag_clear_record(

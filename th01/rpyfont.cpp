@@ -4,8 +4,7 @@
 	#pragma option -zCT1RPYFONT_TEXT -G-
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <alloc.h>
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "planar.h"
@@ -22,6 +21,11 @@
 #define REPLAY_OP_FONT_FIRST 0x20
 #define REPLAY_OP_FONT_LAST 0x7E
 #define REPLAY_OP_FONT_FALLBACK 0x3F
+#define REPLAY_OP_FONT_DOS_ACCESS_READ 0
+#define REPLAY_OP_FONT_FP_SEG(p) \
+	((unsigned)(((unsigned long)(void far *)(p)) >> 16))
+#define REPLAY_OP_FONT_FP_OFF(p) \
+	((unsigned)((unsigned long)(void far *)(p)))
 
 replay_op_font_t replay_op_font;
 
@@ -78,42 +82,97 @@ static bool16 replay_op_font_validate(const uint8_t far *data)
 	return (checksum == replay_op_font_u16(&data[24]));
 }
 
+static int replay_op_font_dos_open(const char far *fn)
+{
+	unsigned fn_seg = REPLAY_OP_FONT_FP_SEG(fn);
+	unsigned fn_off = REPLAY_OP_FONT_FP_OFF(fn);
+	int result;
+
+	_asm {
+		push ds
+		mov dx, fn_off
+		mov ds, fn_seg
+		mov ah, 3Dh
+		mov al, REPLAY_OP_FONT_DOS_ACCESS_READ
+		int 21h
+		pop ds
+		sbb dx, dx
+		or ax, dx
+		mov result, ax
+	}
+	return result;
+}
+
+static unsigned replay_op_font_dos_read(
+	int fh, void far *buffer, unsigned size
+)
+{
+	unsigned buffer_seg = REPLAY_OP_FONT_FP_SEG(buffer);
+	unsigned buffer_off = REPLAY_OP_FONT_FP_OFF(buffer);
+	unsigned result;
+
+	_asm {
+		push ds
+		mov bx, fh
+		mov cx, size
+		mov dx, buffer_off
+		mov ds, buffer_seg
+		mov ah, 3Fh
+		int 21h
+		pop ds
+		sbb cx, cx
+		not cx
+		and ax, cx
+		mov result, ax
+	}
+	return result;
+}
+
+static void replay_op_font_dos_close(int fh)
+{
+	_asm {
+		mov bx, fh
+		mov ah, 3Eh
+		int 21h
+	}
+}
+
 bool16 pascal replay_op_font_load(void)
 {
 	replay_op_font_t loaded = 0;
 	bool16 valid = false;
 	uint8_t extra;
 	char font_fn[11];
-	char mode[3];
-	FILE *fp;
+	int fh;
 
 	font_fn[0] = 'M'; font_fn[1] = 'N'; font_fn[2] = 'U';
 	font_fn[3] = 'F'; font_fn[4] = 'O'; font_fn[5] = 'N';
 	font_fn[6] = 'T'; font_fn[7] = '.'; font_fn[8] = 'P';
 	font_fn[9] = 'F'; font_fn[10] = '\0';
-	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
 
 	replay_op_font_free();
-	fp = fopen(font_fn, mode);
-	if(fp) {
+	fh = replay_op_font_dos_open(font_fn);
+	if(fh >= 0) {
 		loaded = reinterpret_cast<replay_op_font_t>(
-			malloc(REPLAY_OP_FONT_FILE_SIZE)
+			farmalloc(REPLAY_OP_FONT_FILE_SIZE)
 		);
 		if(
 			loaded &&
-			(fread(loaded, 1, REPLAY_OP_FONT_FILE_SIZE, fp) ==
+			(replay_op_font_dos_read(
+				fh, loaded, REPLAY_OP_FONT_FILE_SIZE
+			) ==
 			 REPLAY_OP_FONT_FILE_SIZE) &&
-			(fread(&extra, 1, 1, fp) == 0)
+			(replay_op_font_dos_read(fh, &extra, 1) == 0)
 		) {
 			valid = replay_op_font_validate(
 				reinterpret_cast<const uint8_t far *>(loaded)
 			);
 		}
-		fclose(fp);
+		replay_op_font_dos_close(fh);
 	}
 	if(!valid) {
 		if(loaded) {
-			free(loaded);
+			farfree(loaded);
 		}
 		return false;
 	}
@@ -124,7 +183,7 @@ bool16 pascal replay_op_font_load(void)
 void pascal replay_op_font_free(void)
 {
 	if(replay_op_font) {
-		free(replay_op_font);
+		farfree(replay_op_font);
 		replay_op_font = 0;
 	}
 }
@@ -349,6 +408,9 @@ void pascal replay_op_font_put_numeric_cells(
 }
 
 #undef REPLAY_OP_FONT_FALLBACK
+#undef REPLAY_OP_FONT_FP_OFF
+#undef REPLAY_OP_FONT_FP_SEG
+#undef REPLAY_OP_FONT_DOS_ACCESS_READ
 #undef REPLAY_OP_FONT_LAST
 #undef REPLAY_OP_FONT_FIRST
 #undef REPLAY_OP_FONT_GLYPH_SIZE

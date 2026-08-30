@@ -48,6 +48,16 @@ enum t2practice_diag_main_progress_t {
 	T2PDMP_GAMEPLAY_CONVERT,
 	T2PDMP_GAMEPLAY_GAIJI,
 	T2PDMP_GAMEPLAY_BOMB,
+	T2PDMP_STAGE_BEGIN,
+	T2PDMP_STAGE_RESOURCES,
+	T2PDMP_STAGE_CALLBACKS,
+	T2PDMP_STAGE_TILES_READY,
+	T2PDMP_STAGE_VSYNC_READY,
+	T2PDMP_STAGE_COMPLETE,
+	T2PDMP_STAGE_SCREEN_READY,
+	T2PDMP_STAGE_BFT_READY,
+	T2PDMP_STAGE_MAP_READY,
+	T2PDMP_STAGE_MPN_READY,
 };
 
 enum t2practice_diag_reason_t {
@@ -111,6 +121,28 @@ enum t2practice_lifecycle_milestone_t {
 	// Kept separate from MAIN so a title-side allocation cannot be misread as
 	// proof that the following executable reached its own admission boundary.
 	T2PDLM_OP_HEAP_ADMITTED,
+	// Earliest MAIN process boundaries, before any allocator or packfile use.
+	T2PDLM_MAIN_ENTRY,
+	T2PDLM_MAIN_CFG_LOADED,
+	T2PDLM_MAIN_REPLAY_ENTRY_BEGIN,
+	T2PDLM_MAIN_REPLAY_PATHS_READY,
+	T2PDLM_MAIN_COMMAND_OPENED,
+	T2PDLM_MAIN_COMMAND_READ,
+	T2PDLM_MAIN_COMMAND_CLOSED,
+	T2PDLM_MAIN_COMMAND_SIZE_VALID,
+	T2PDLM_MAIN_COMMAND_STRUCT_VALID,
+	T2PDLM_MAIN_COMMAND_VALIDATION_MASK,
+	T2PDLM_MAIN_START_VALID_BEGIN,
+	T2PDLM_MAIN_START_VALID_END,
+	T2PDLM_MAIN_START_CORE_BEGIN,
+	T2PDLM_MAIN_START_TARGET_RESOLVED,
+	T2PDLM_MAIN_START_SCALARS_VALID,
+	T2PDLM_MAIN_START_RESERVED_VALID,
+	T2PDLM_MAIN_PRACTICE_CORE_VALID,
+	T2PDLM_MAIN_COMMAND_DIAG_BEGIN,
+	T2PDLM_MAIN_COMMAND_DIAG_END,
+	T2PDLM_MAIN_REPLAY_COMMAND_READY,
+	T2PDLM_MAIN_PRACTICE_START_APPLIED,
 };
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
@@ -171,6 +203,7 @@ void t2practice_diag_main_command(
 void t2practice_diag_main_progress(
 	enum t2practice_diag_main_progress_t progress, int8_t stage
 );
+bool16 far t2practice_diag_no_sound(void);
 void t2practice_diag_apply_begin(
 	int8_t stage, uint8_t target, int map_length, int spawn_rows
 );
@@ -203,6 +236,7 @@ void t2practice_diag_io_bypass_end(void);
 #define t2practice_diag_op_handoff(mode, flags, start) ((void)0)
 #define t2practice_diag_main_command(reason, command) ((void)0)
 #define t2practice_diag_main_progress(progress, stage) ((void)0)
+#define t2practice_diag_no_sound() 0
 #define t2practice_diag_apply_begin(stage, target, map_length, spawn_rows) ((void)0)
 #define t2practice_diag_target_scroll(target_scroll_step) ((void)0)
 #define t2practice_diag_top_map_row(top_map_row) ((void)0)

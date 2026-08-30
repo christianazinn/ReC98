@@ -251,12 +251,33 @@ void op_animate(void)
 	const char gbZUN[] = { g_chr_3(gb, Z,U,N), '\0' };
 
 	text_wipe();
+#ifdef T2PD
+	replay_practice_diag_boot(40);
+#endif
 	replay_op_restart_or_snd_load("huuma.efc", SND_LOAD_SE);
+#ifdef T2PD
+	replay_practice_diag_boot(41);
+#endif
 	pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
+#ifdef T2PD
+	replay_practice_diag_boot(42);
+#endif
 	pi_load_put_8_free_to("op.pi", 0);
+#ifdef T2PD
+	replay_practice_diag_boot(43);
+#endif
 	pi_load(0, "opa.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(44);
+#endif
 	pi_load(1, "opb.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(45);
+#endif
 	pi_load(2, "opc.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(46);
+#endif
 
 	// ZUN landmine: The black text layer would cover the fact that this will
 	// most certainly happen somewhere within a frame, but not if we
@@ -279,14 +300,16 @@ void op_animate(void)
 
 	if(resident->demo_num == 0) {
 		door_x = 0;
-		if(snd_midi_possible) {
-			door_x = snd_midi_active;
-			snd_midi_active = true;
+		if(!t2practice_diag_no_sound()) {
+			if(snd_midi_possible) {
+				door_x = snd_midi_active;
+				snd_midi_active = true;
+				snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
+			}
+			snd_midi_active = false;
 			snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
+			snd_midi_active = door_x;
 		}
-		snd_midi_active = false;
-		snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
-		snd_midi_active = door_x;
 	}
 
 	frame_delay(18);
@@ -764,22 +787,43 @@ void far pascal t2_language_op_bridge(
 		bombs = CFG_BOMBS_DEFAULT;
 		resident->unused_2 = 1;
 		resident->reduce_effects = false;
+	} else if(func == T2LOB_CFG_SAVE) {
+		cfg_save();
+	} else if(func == T2LOB_START_INIT) {
+		start_init();
+	} else if(func == T2LOB_START_GAME) {
+		start_game();
+	} else if(func == T2LOB_START_EXTRA) {
+		start_extra();
+	} else if(func == T2LOB_START_DEMO) {
+		start_demo();
+	} else if(func == T2LOB_SHOTTYPE_MENU) {
+		shottype_menu();
+	} else if(func == T2LOB_SCORE_MENU) {
+		score_frames = value;
+		score_menu();
+	} else if(func == T2LOB_MUSICROOM_MENU) {
+		musicroom_menu();
+	} else if(func == T2LOB_TITLE_BG_LOAD) {
+		pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
 	}
 }
 
 // Keep _main and every following OP_01_TEXT symbol at their stock offsets.
-// The trampoline and bridge above occupy 310 of the original updater's 623
-// bytes; these 313 bytes preserve the remainder of that span.
+// The trampoline and expanded native bridge occupy 461 of the original
+// updater's 623 bytes; these 162 bytes preserve the remainder of that span.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
+#ifndef T2PD
+// The diagnostic profile's five far calls occupy another 53 bytes. Preserve
+// the same native segment boundary when those calls are absent in release.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 int main(void)
 {
@@ -804,7 +848,11 @@ int main(void)
 		return 1;
 	}
 	gaiji_backup();
+#ifdef T2PD
+	gaiji_entry_bfnt("MIKOFT.bft");
+#else
 	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
+#endif
 #ifdef T2PD
 	replay_practice_diag_boot(3);
 #endif
@@ -823,20 +871,44 @@ int main(void)
 	}
 	key_det = 0;
 
-	snd_active = snd_bgm_mode;
 #ifdef T2PD
-	t2m9diag_op_autostart();
-	replay_practice_diag_autostart();
+	replay_practice_diag_boot(38);
 #endif
-	if(!resident->demo_num && snd_midi_possible) {
+	snd_active = snd_bgm_mode;
+	if(
+		!resident->demo_num && snd_midi_possible &&
+		!t2practice_diag_no_sound()
+	) {
 		char midi_active = snd_midi_active;
 
 		snd_midi_active = 1;
+#ifdef T2PD
+		replay_practice_diag_boot(37);
+#endif
 		snd_load("gminit.m", SND_LOAD_SONG);
+#ifdef T2PD
+		replay_practice_diag_boot(36);
+#endif
 		snd_kaja_func(KAJA_SONG_PLAY, 0);
+#ifdef T2PD
+		replay_practice_diag_boot(35);
+#endif
 		snd_midi_active = midi_active;
 	}
 
+#ifdef T2PD
+	// Private no-input acceptance runs without an emulated sound driver clock.
+	// T2NSND.CFG scopes this bypass to that disposable harness run; ordinary
+	// debug HDIs retain the same sound path as release builds.
+	if(t2practice_diag_no_sound()) {
+		snd_active = false;
+		snd_fm_possible = false;
+		snd_midi_active = false;
+	}
+#endif
+#ifdef T2PD
+	replay_practice_diag_boot(39);
+#endif
 	op_animate();
 #ifdef T2PD
 	replay_practice_diag_boot(4);
@@ -853,6 +925,11 @@ int main(void)
 	// boundary. All later private milestones append to this fresh trace.
 	t2practice_diag_lifecycle_op_menu_enter();
 	replay_practice_diag_boot(5);
+	// A Practice launch owns the fully initialized title PI and SUPER state.
+	// Running this probe any earlier tests a teardown state that no interactive
+	// title selection can reach.
+	replay_practice_diag_autostart();
+	t2m9diag_op_autostart();
 #endif
 	key_det = 0;
 	idle_frame = 0;
@@ -878,14 +955,3 @@ int main(void)
 	gaiji_restore();
 	return ret;
 }
-
-// The replay title surface is emitted into its own trailing code segment.  It
-// is included here rather than listed in Tupfile.lua because that file is
-// currently reserved by an unrelated parcel; no original OP link order moves.
-#include "th02/op/replay.cpp"
-#define T2PRACT_DIAG_OP 1
-#include "th02/t2pdiag.cpp"
-#undef T2PRACT_DIAG_OP
-#define T2M9DIAG_OP 1
-#include "th02/t2m9diag.cpp"
-#undef T2M9DIAG_OP

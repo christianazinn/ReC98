@@ -7,17 +7,20 @@
 
 #pragma option -zCT1REPLAY_OP_TEXT -G-
 
+#include <alloc.h>
 #include <dos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "libs/master.lib/master.hpp"
+#include "libs/piloadc/piloadc.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/common.h"
 #include "th01/hardware/egc.h"
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/grppsafx.h"
+#include "th01/hardware/palette.h"
 #include "th01/hardware/grp_text.hpp"
 #include "th01/hiscore/regist.hpp"
 #include "th01/formats/grp.h"
@@ -45,13 +48,14 @@ static const screen_x_t T1REPLAY_OP_DETAIL_SPLIT_SCORE_LEFT = 480;
 static const uint8_t T1REPLAY_OP_SAVED_WAIT = 0xFF;
 static const screen_y_t T1REPLAY_OP_LINE_H = GLYPH_H;
 static const uint8_t T1REPLAY_OP_ROWS_PER_PAGE = 10;
-static const vc_t T1REPLAY_OP_COL_LABEL = 5;
+static const vc_t T1REPLAY_OP_COL_LABEL = 15;
 static const vc_t T1REPLAY_OP_COL_VALUE = 15;
+static const vc_t T1REPLAY_OP_COL_SELECTED = 7;
 static const vc_t T1REPLAY_OP_COL_DISABLED = 3;
 static const int16_t T1REPLAY_OP_FX = FX_WEIGHT_BLACK;
 static const uint8_t T1REPLAY_OP_POINT_VALUE_COUNT = 17;
 static const uint16_t T1REPLAY_OP_POINT_CAP = 65530;
-static const uint8_t T1REPLAY_OP_PRACTICE_ROW_COUNT = 12;
+static const uint8_t T1REPLAY_OP_PRACTICE_ROW_COUNT = 11;
 static const screen_x_t T1REPLAY_OP_NAME_LEFT = 32;
 static const screen_y_t T1REPLAY_OP_NAME_KEYBOARD_TOP = 240;
 static const pixel_t T1REPLAY_OP_NAME_PADDING_X = 16;
@@ -84,10 +88,9 @@ static const uint8_t T1REPLAY_OP_NAME_END_COLUMN = (
 static const uint8_t T1REPLAY_OP_NAME_NUMBER_ROW = 5;
 
 enum t1replay_op_practice_row_t {
-	T1OPR_SCENE,
+	T1OPR_STAGE,
 	T1OPR_ROUTE,
-	T1OPR_SECTION,
-	T1OPR_CHAPTER,
+	T1OPR_START_POINT,
 	T1OPR_SCORE,
 	T1OPR_LIVES,
 	T1OPR_BOMBS,
@@ -140,6 +143,14 @@ static uint8_t t1replay_op_name_cursor;
 static uint8_t t1replay_op_name_key_row;
 static uint8_t t1replay_op_name_key_column;
 static bool t1replay_op_restart_practice_armed;
+static uint8_t t1replay_op_panel_kind;
+
+enum t1replay_op_panel_kind_t {
+	T1OPK_NONE,
+	T1OPK_REPLAY,
+	T1OPK_NAME_ENTRY,
+	T1OPK_PRACTICE,
+};
 
 static uint32_t t1replay_op_fnv1a(
 	uint32_t hash, const void *buf, unsigned size
@@ -1846,18 +1857,48 @@ static void t1replay_op_background_fn(char *fn, bool name_entry)
 	}
 }
 
-// PiLoadL, reached by grp_put_palette_show(), is the native PI path already
-// linked by OP.  It therefore preserves title-segment placement while loading
-// patch-owned loose assets without adding a second decoder.
+static bool t1replay_op_panel_load(const char *fn, uint8_t panel_kind)
+{
+	void far *buffer = farmalloc(0x4000UL);
+	int ret;
+
+	if(!buffer) {
+		return false;
+	}
+	graph_accesspage_func(1);
+	ret = PiLoadL(fn, buffer, 0x4000, 0, 0, 100, 1);
+	farfree(buffer);
+	if(ret != PILOAD_ERR_OK) {
+		graph_accesspage_func(0);
+		return false;
+	}
+	t1replay_op_panel_kind = panel_kind;
+	return true;
+}
+
+static void t1replay_op_panel_show(const char *fn, uint8_t panel_kind)
+{
+	if(
+		(t1replay_op_panel_kind != panel_kind) &&
+		!t1replay_op_panel_load(fn, panel_kind)
+	) {
+		return;
+	}
+	graph_accesspage_func(1);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+	// All patch surfaces reserve color 7 for the active row.
+	z_palette_set_show(T1REPLAY_OP_COL_SELECTED, 0xF, 0xF, 0x0);
+}
+
 static void t1replay_op_panel_restore(bool name_entry)
 {
 	char fn[9];
 
 	t1replay_op_background_fn(fn, name_entry);
-	graph_accesspage_func(1);
-	grp_put_palette_show(fn);
-	graph_copy_accessed_page_to_other();
-	graph_accesspage_func(0);
+	t1replay_op_panel_show(
+		fn, (name_entry ? T1OPK_NAME_ENTRY : T1OPK_REPLAY)
+	);
 }
 
 static void t1replay_op_practice_panel_restore(void)
@@ -1867,10 +1908,7 @@ static void t1replay_op_practice_panel_restore(void)
 	fn[0] = 'P'; fn[1] = 'R'; fn[2] = 'A'; fn[3] = 'C'; fn[4] = 'T';
 	fn[5] = 'I'; fn[6] = 'C'; fn[7] = '.'; fn[8] = 'P'; fn[9] = 'I';
 	fn[10] = '\0';
-	graph_accesspage_func(1);
-	grp_put_palette_show(fn);
-	graph_copy_accessed_page_to_other();
-	graph_accesspage_func(0);
+	t1replay_op_panel_show(fn, T1OPK_PRACTICE);
 }
 
 static void t1replay_op_black_rect(
@@ -1891,13 +1929,29 @@ static void t1replay_op_title_backing_restore(void)
 	// asset name is materialized on the stack for the same reason as the two
 	// Replay panel names above.
 	char fn[13];
+	char overlay_fn[13];
+	char win_fn[11];
 
 	fn[0] = 'R'; fn[1] = 'E'; fn[2] = 'I'; fn[3] = 'I';
 	fn[4] = 'D'; fn[5] = 'E'; fn[6] = 'N'; fn[7] = '2';
 	fn[8] = '.'; fn[9] = 'g'; fn[10] = 'r'; fn[11] = 'p'; fn[12] = '\0';
-	grp_palette_load_show(fn);
+	overlay_fn[0] = 'R'; overlay_fn[1] = 'E'; overlay_fn[2] = 'I';
+	overlay_fn[3] = 'I'; overlay_fn[4] = 'D'; overlay_fn[5] = 'E';
+	overlay_fn[6] = 'N'; overlay_fn[7] = '3'; overlay_fn[8] = '.';
+	overlay_fn[9] = 'g'; overlay_fn[10] = 'r'; overlay_fn[11] = 'p';
+	overlay_fn[12] = '\0';
+	win_fn[0] = 'o'; win_fn[1] = 'p'; win_fn[2] = '_'; win_fn[3] = 'w';
+	win_fn[4] = 'i'; win_fn[5] = 'n'; win_fn[6] = '.'; win_fn[7] = 'g';
+	win_fn[8] = 'r'; win_fn[9] = 'p'; win_fn[10] = '\0';
+	graph_accesspage_func(1);
+	grp_put_palette_show(fn);
+	graph_copy_accessed_page_to_other();
+	grp_put(overlay_fn);
+	graph_copy_accessed_page_to_other();
 	graph_accesspage_func(0);
-	egc_copy_rect_1_to_0_16(0, 0, RES_X, RES_Y);
+	grp_put_colorkey(win_fn);
+	graph_copy_accessed_page_to_other();
+	t1replay_op_panel_kind = T1OPK_NONE;
 }
 
 /* Keep renderer strings out of initialized DGROUP.  Aside from preserving the
@@ -1935,10 +1989,13 @@ enum t1replay_op_word_t {
 	T1ROW_GAME_OVER,
 	T1ROW_PAGE,
 	T1ROW_PRACTICE,
+	T1ROW_SETUP,
 	T1ROW_REPLAY,
 	T1ROW_SCENE,
 	T1ROW_ROUTE,
+	T1ROW_COMMON,
 	T1ROW_SECTION,
+	T1ROW_START_POINT,
 	T1ROW_TARGET,
 	T1ROW_CHAPTER,
 	T1ROW_RANK,
@@ -2119,6 +2176,10 @@ static bool t1replay_op_word_japanese_append(
 
 static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 {
+	char *begin = p;
+	char *q;
+	bool word_start;
+
 	#define T1ROW_PUTC(c) *p++ = (c)
 	#define T1ROW_SPACE() T1ROW_PUTC(' ')
 	#define T1ROW_WORD1(a) T1ROW_PUTC(a)
@@ -2182,10 +2243,15 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		T1ROW_WORD4('G', 'A', 'M', 'E'); T1ROW_SPACE(); T1ROW_WORD4('O', 'V', 'E', 'R'); break;
 	case T1ROW_PAGE: T1ROW_WORD4('P', 'A', 'G', 'E'); break;
 	case T1ROW_PRACTICE: T1ROW_WORD4('P', 'R', 'A', 'C'); T1ROW_WORD4('T', 'I', 'C', 'E'); break;
+	case T1ROW_SETUP: T1ROW_WORD4('S', 'E', 'T', 'U'); T1ROW_WORD1('P'); break;
 	case T1ROW_REPLAY: T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SCENE: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); break;
 	case T1ROW_ROUTE: T1ROW_WORD4('R', 'O', 'U', 'T'); T1ROW_WORD1('E'); break;
+	case T1ROW_COMMON: T1ROW_WORD4('C', 'O', 'M', 'M'); T1ROW_WORD2('O', 'N'); break;
 	case T1ROW_SECTION: T1ROW_WORD4('S', 'E', 'C', 'T'); T1ROW_WORD3('I', 'O', 'N'); break;
+	case T1ROW_START_POINT:
+		T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); T1ROW_SPACE();
+		T1ROW_WORD4('P', 'O', 'I', 'N'); T1ROW_WORD1('T'); break;
 	case T1ROW_TARGET: T1ROW_WORD4('T', 'A', 'R', 'G'); T1ROW_WORD2('E', 'T'); break;
 	case T1ROW_CHAPTER: T1ROW_WORD4('C', 'H', 'A', 'P'); T1ROW_WORD3('T', 'E', 'R'); break;
 	case T1ROW_RANK: T1ROW_WORD4('R', 'A', 'N', 'K'); break;
@@ -2194,13 +2260,13 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_BOMBS: T1ROW_WORD4('B', 'O', 'M', 'B'); T1ROW_WORD1('S'); break;
 	case T1ROW_POINT_VALUE: T1ROW_WORD4('P', 'O', 'I', 'N'); T1ROW_WORD1('T'); T1ROW_SPACE(); T1ROW_WORD4('V', 'A', 'L', 'U'); T1ROW_WORD1('E'); break;
 	case T1ROW_PELLET_SPEED: T1ROW_WORD4('P', 'E', 'L', 'L'); T1ROW_WORD2('E', 'T'); T1ROW_SPACE(); T1ROW_WORD4('S', 'P', 'E', 'E'); T1ROW_WORD1('D'); break;
-	case T1ROW_RNG_SEED: T1ROW_WORD3('R', 'N', 'G'); T1ROW_SPACE(); T1ROW_WORD4('S', 'E', 'E', 'D'); break;
+	case T1ROW_RNG_SEED: T1ROW_WORD3('R', 'N', 'G'); T1ROW_SPACE(); T1ROW_WORD4('S', 'e', 'e', 'd'); break;
 	case T1ROW_START: T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
 	case T1ROW_BACK: T1ROW_WORD4('B', 'A', 'C', 'K'); break;
 	case T1ROW_SHRINE: T1ROW_WORD4('S', 'H', 'R', 'I'); T1ROW_WORD2('N', 'E'); break;
-	case T1ROW_SCENE_II: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD2('I', 'I'); break;
-	case T1ROW_SCENE_III: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD3('I', 'I', 'I'); break;
-	case T1ROW_SCENE_IV: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD2('I', 'V'); break;
+	case T1ROW_SCENE_II: T1ROW_WORD4('S', 'c', 'e', 'n'); T1ROW_WORD1('e'); T1ROW_SPACE(); T1ROW_WORD2('I', 'I'); break;
+	case T1ROW_SCENE_III: T1ROW_WORD4('S', 'c', 'e', 'n'); T1ROW_WORD1('e'); T1ROW_SPACE(); T1ROW_WORD3('I', 'I', 'I'); break;
+	case T1ROW_SCENE_IV: T1ROW_WORD4('S', 'c', 'e', 'n'); T1ROW_WORD1('e'); T1ROW_SPACE(); T1ROW_WORD2('I', 'V'); break;
 	case T1ROW_MAKAI: T1ROW_WORD4('M', 'A', 'K', 'A'); T1ROW_WORD1('I'); break;
 	case T1ROW_JIGOKU: T1ROW_WORD4('J', 'I', 'G', 'O'); T1ROW_WORD2('K', 'U'); break;
 	case T1ROW_STAGE_START: T1ROW_WORD4('S', 'T', 'A', 'G'); T1ROW_WORD1('E'); T1ROW_SPACE(); T1ROW_WORD4('S', 'T', 'A', 'R'); T1ROW_WORD1('T'); break;
@@ -2236,6 +2302,30 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 	case T1ROW_MUSIC_12: T1ROW_WORD4('C', 'i', 'v', 'i'); T1ROW_WORD4('l', 'i', 'z', 'a'); T1ROW_WORD4('t', 'i', 'o', 'n'); T1ROW_SPACE(); T1ROW_WORD2('o', 'f'); T1ROW_SPACE(); T1ROW_WORD4('M', 'a', 'g', 'i'); T1ROW_WORD1('c'); T1ROW_SPACE(); break;
 	case T1ROW_MUSIC_13: T1ROW_SPACE(); T1ROW_WORD4('D', 'i', 's', 't'); T1ROW_WORD3('a', 'n', 't'); T1ROW_SPACE(); T1ROW_WORD4('A', 'n', 'g', 'e'); T1ROW_WORD1('l'); break;
 	case T1ROW_MUSIC_14: T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_WORD4('I', 'r', 'i', 's'); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); T1ROW_SPACE(); break;
+	}
+	// Match the later replay patches: patch-owned menu copy is English in both
+	// locales and uses ordinary title case. Keep acronyms and Roman numerals in
+	// the handful of rows that were emitted in their final form above.
+	if(
+		(word <= T1ROW_LUNATIC) &&
+		(word != T1ROW_RNG_SEED) &&
+		(word != T1ROW_SCENE_II) &&
+		(word != T1ROW_SCENE_III) &&
+		(word != T1ROW_SCENE_IV)
+	) {
+		word_start = true;
+		for(q = begin; q < p; q++) {
+			if(*q == ' ') {
+				word_start = true;
+			} else {
+				if(
+					!word_start && (*q >= 'A') && (*q <= 'Z')
+				) {
+					*q = static_cast<char>(*q + ('a' - 'A'));
+				}
+				word_start = false;
+			}
+		}
 	}
 	#undef T1ROW_WORD4
 	#undef T1ROW_WORD3
@@ -2572,6 +2662,43 @@ static char *t1replay_op_scene_append(char *p, uint8_t scene)
 	return t1replay_op_word_append(p, word);
 }
 
+static uint8_t t1replay_op_practice_stage(void)
+{
+	return static_cast<uint8_t>(
+		(t1replay_practice_start.scene * STAGES_PER_SCENE) +
+		t1replay_practice_start.chapter
+	);
+}
+
+static void t1replay_op_practice_start_point_normalize(void)
+{
+	if(t1replay_practice_start.scene == 0) {
+		t1replay_practice_start.route = ROUTE_MAKAI;
+	}
+	if(
+		(t1replay_practice_start.chapter != BOSS_STAGE) &&
+		((t1replay_practice_start.section == T1RPS_BOSS_START) ||
+		 (t1replay_practice_start.section == T1RPS_BOSS_PHASE))
+	) {
+		t1replay_practice_start.section = T1RPS_STAGE_START;
+	} else if(
+		(t1replay_practice_start.section == T1RPS_BOSS_PHASE) &&
+		!t1replay_op_practice_boss_phase_available(
+			t1replay_practice_start.scene,
+			t1replay_practice_start.route
+		)
+	) {
+		t1replay_practice_start.section = T1RPS_BOSS_START;
+	}
+}
+
+static void t1replay_op_practice_stage_set(uint8_t stage)
+{
+	t1replay_practice_start.scene = static_cast<uint8_t>(stage / STAGES_PER_SCENE);
+	t1replay_practice_start.chapter = static_cast<uint8_t>(stage % STAGES_PER_SCENE);
+	t1replay_op_practice_start_point_normalize();
+}
+
 static char *t1replay_op_route_append(char *p, uint8_t route)
 {
 	return t1replay_op_word_append(
@@ -2609,22 +2736,6 @@ static t1replay_op_word_t t1replay_op_practice_boss_word(
 // Boss Phase names a source-constructed boundary and never a checkpoint payload.
 static char *t1replay_op_practice_direct_target_append(char *p)
 {
-	if(t1replay_practice_start.section == T1RPS_CHAPTER) {
-		p = t1replay_op_word_append(p, T1ROW_CHAPTER);
-		*p++ = ' ';
-		return t1replay_op_uint_append(
-			p, t1replay_practice_start.chapter + 1, 1
-		);
-	}
-	if(t1replay_practice_start.section == T1RPS_BOSS_START) {
-		p = t1replay_op_word_append(p, T1ROW_BOSS_START);
-		*p++ = ' ';
-		return t1replay_op_word_append(
-			p, t1replay_op_practice_boss_word(
-				t1replay_practice_start.scene, t1replay_practice_start.route
-			)
-		);
-	}
 	if(t1replay_practice_start.section == T1RPS_BOSS_PHASE) {
 		p = t1replay_op_word_append(
 			p, t1replay_op_practice_boss_word(
@@ -2633,6 +2744,9 @@ static char *t1replay_op_practice_direct_target_append(char *p)
 		);
 		*p++ = ' ';
 		return t1replay_op_word_append(p, T1ROW_FIRST_COMBAT);
+	}
+	if(t1replay_practice_start.section == T1RPS_BOSS_START) {
+		return t1replay_op_word_append(p, T1ROW_BOSS_START);
 	}
 	return t1replay_op_word_append(p, T1ROW_STAGE_START);
 }
@@ -2714,6 +2828,7 @@ static void t1replay_op_input_reset(void)
 
 static void t1replay_op_surface_state_reset(void)
 {
+	t1replay_op_panel_kind = T1OPK_NONE;
 	t1replay_op_sel = 0;
 	t1replay_op_page = 0;
 	t1replay_op_save_pending = false;
@@ -3415,7 +3530,7 @@ static void t1replay_op_replay_render(void)
 	for(row = 0; row < T1REPLAY_OP_ROWS_PER_PAGE; row++) {
 		slot_id = static_cast<uint8_t>((t1replay_op_page * T1REPLAY_OP_ROWS_PER_PAGE) + row);
 		t1replay_op_slot_read(slot_id, slot);
-		col = ((t1replay_op_sel == row) ? T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL);
+		col = ((t1replay_op_sel == row) ? T1REPLAY_OP_COL_SELECTED : T1REPLAY_OP_COL_LABEL);
 		p = t1replay_op_uint_append(t1replay_op_text, slot_id, 2);
 		t1replay_op_text_put(T1REPLAY_OP_BROWSER_SLOT_LEFT, y, col, p);
 		if(!slot.exists) {
@@ -3457,10 +3572,12 @@ static void t1replay_op_practice_render(void)
 
 	t1replay_op_practice_panel_restore();
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
+	*p++ = ' ';
+	p = t1replay_op_word_append(p, T1ROW_SETUP);
 	t1replay_op_text_center(y, T1REPLAY_OP_COL_VALUE, p);
 	y += (T1REPLAY_OP_LINE_H * 2);
 	#define T1REPLAY_OP_PRACTICE_LINE(label_word, value_append) \
-		label_col = ((t1replay_op_sel == row) ? T1REPLAY_OP_COL_VALUE : T1REPLAY_OP_COL_LABEL); \
+		label_col = ((t1replay_op_sel == row) ? T1REPLAY_OP_COL_SELECTED : T1REPLAY_OP_COL_LABEL); \
 		value_col = label_col; \
 		p = t1replay_op_word_append(t1replay_op_text, label_word); \
 		t1replay_op_text_left(y, label_col, p); \
@@ -3468,24 +3585,22 @@ static void t1replay_op_practice_render(void)
 		t1replay_op_text_value(y, value_col, p); \
 		y += T1REPLAY_OP_LINE_H; row++
 	T1REPLAY_OP_PRACTICE_LINE(
-		T1ROW_SCENE,
-		t1replay_op_scene_append(t1replay_op_text, t1replay_practice_start.scene)
+		T1ROW_STAGE,
+		t1replay_op_uint_append(
+			t1replay_op_text, t1replay_op_practice_stage() + 1, 1
+		)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
 		T1ROW_ROUTE,
 		t1replay_op_word_append(
 			t1replay_op_text,
-			(t1replay_practice_start.scene == 0) ? T1ROW_SHRINE :
+			(t1replay_practice_start.scene == 0) ? T1ROW_COMMON :
 				((t1replay_practice_start.route == ROUTE_JIGOKU) ?
 					T1ROW_JIGOKU : T1ROW_MAKAI)
 		)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
-		T1ROW_SECTION,
-		t1replay_op_section_append(t1replay_op_text, t1replay_practice_start.section)
-	);
-	T1REPLAY_OP_PRACTICE_LINE(
-		T1ROW_TARGET,
+		T1ROW_START_POINT,
 		t1replay_op_practice_direct_target_append(t1replay_op_text)
 	);
 	T1REPLAY_OP_PRACTICE_LINE(
@@ -3512,9 +3627,24 @@ static void t1replay_op_practice_render(void)
 		T1ROW_RNG_SEED,
 		t1replay_op_uint_append(t1replay_op_text, t1replay_practice_start.rand, 1)
 	);
-	T1REPLAY_OP_PRACTICE_LINE(T1ROW_START, t1replay_op_text);
-	T1REPLAY_OP_PRACTICE_LINE(T1ROW_BACK, t1replay_op_text);
 	#undef T1REPLAY_OP_PRACTICE_LINE
+	y += T1REPLAY_OP_LINE_H;
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_START);
+	*p++ = ' ';
+	p = t1replay_op_word_append(p, T1ROW_PRACTICE);
+	t1replay_op_text_center(
+		y,
+		((t1replay_op_sel == row) ? T1REPLAY_OP_COL_SELECTED : T1REPLAY_OP_COL_LABEL),
+		p
+	);
+	y += T1REPLAY_OP_LINE_H;
+	row++;
+	p = t1replay_op_word_append(t1replay_op_text, T1ROW_BACK);
+	t1replay_op_text_center(
+		y,
+		((t1replay_op_sel == row) ? T1REPLAY_OP_COL_SELECTED : T1REPLAY_OP_COL_LABEL),
+		p
+	);
 }
 
 // The ordinary browser selection becomes the modal choice. Keep its numbered
@@ -3863,55 +3993,46 @@ static bool t1replay_op_shift_pressed(void)
 static void t1replay_op_practice_change(int delta, bool fast)
 {
 	switch(t1replay_op_sel) {
-	case T1OPR_SCENE:
-		t1replay_practice_start.scene = static_cast<uint8_t>(
-			(t1replay_practice_start.scene + SCENE_COUNT + delta) % SCENE_COUNT
-		);
-		if(t1replay_practice_start.scene == 0) {
-			t1replay_practice_start.route = ROUTE_MAKAI;
-		}
-		if(
-			(t1replay_practice_start.section == T1RPS_BOSS_PHASE) &&
-			!t1replay_op_practice_boss_phase_available(
-				t1replay_practice_start.scene, t1replay_practice_start.route
-			)
-		) {
-			t1replay_practice_start.section = T1RPS_BOSS_START;
-		}
+	case T1OPR_STAGE:
+		t1replay_op_practice_stage_set(static_cast<uint8_t>(
+			(t1replay_op_practice_stage() +
+			 (SCENE_COUNT * STAGES_PER_SCENE) + delta) %
+			(SCENE_COUNT * STAGES_PER_SCENE)
+		));
 		break;
 	case T1OPR_ROUTE:
 		if(t1replay_practice_start.scene != 0) {
 			t1replay_practice_start.route = static_cast<uint8_t>(
 				(t1replay_practice_start.route + ROUTE_COUNT + delta) % ROUTE_COUNT
 			);
-			if(
-				(t1replay_practice_start.section == T1RPS_BOSS_PHASE) &&
-				!t1replay_op_practice_boss_phase_available(
-					t1replay_practice_start.scene, t1replay_practice_start.route
-				)
-			) {
-				t1replay_practice_start.section = T1RPS_BOSS_START;
+			t1replay_op_practice_start_point_normalize();
+		}
+		break;
+	case T1OPR_START_POINT:
+		if(t1replay_practice_start.chapter != BOSS_STAGE) {
+			t1replay_practice_start.section = T1RPS_STAGE_START;
+		} else if(t1replay_op_practice_boss_phase_available(
+			t1replay_practice_start.scene, t1replay_practice_start.route
+		)) {
+			if(delta > 0) {
+				t1replay_practice_start.section = (
+					(t1replay_practice_start.section == T1RPS_STAGE_START) ?
+					T1RPS_BOSS_START :
+					((t1replay_practice_start.section == T1RPS_BOSS_START) ?
+					 T1RPS_BOSS_PHASE : T1RPS_STAGE_START)
+				);
+			} else {
+				t1replay_practice_start.section = (
+					(t1replay_practice_start.section == T1RPS_STAGE_START) ?
+					T1RPS_BOSS_PHASE :
+					((t1replay_practice_start.section == T1RPS_BOSS_PHASE) ?
+					 T1RPS_BOSS_START : T1RPS_STAGE_START)
+				);
 			}
-		}
-		break;
-	case T1OPR_SECTION:
-		{
-			uint8_t section_count = (
-				t1replay_op_practice_boss_phase_available(
-					t1replay_practice_start.scene, t1replay_practice_start.route
-				) ? (T1RPS_BOSS_PHASE + 1) : (T1RPS_BOSS_START + 1)
-			);
-
-			t1replay_practice_start.section = static_cast<uint8_t>(
-				(t1replay_practice_start.section + section_count + delta) %
-				section_count
-			);
-		}
-		break;
-	case T1OPR_CHAPTER:
-		if(t1replay_practice_start.section == T1RPS_CHAPTER) {
-			t1replay_practice_start.chapter = static_cast<uint8_t>(
-				(t1replay_practice_start.chapter + BOSS_STAGE + delta) % BOSS_STAGE
+		} else {
+			t1replay_practice_start.section = (
+				(t1replay_practice_start.section == T1RPS_STAGE_START) ?
+				T1RPS_BOSS_START : T1RPS_STAGE_START
 			);
 		}
 		break;
@@ -4283,7 +4404,5 @@ void t1replay_op_practice_start_get(t1replay_practice_start_t& start)
 		start.chapter = BOSS_STAGE;
 	} else if(start.section == T1RPS_BOSS_START) {
 		start.chapter = BOSS_STAGE;
-	} else if(start.section == T1RPS_STAGE_START) {
-		start.chapter = 0;
 	}
 }

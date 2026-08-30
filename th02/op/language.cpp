@@ -23,6 +23,9 @@ extern resident_t __seg *resident_seg;
 #define T2_LANGUAGE_OPTION_COUNT 8
 #define T2_LANGUAGE_OPTION_LABEL_CENTER 256
 #define T2_LANGUAGE_OPTION_VALUE_CENTER 400
+#define T2_PERF_OPTION_LABEL_CENTER 224
+#define T2_PERF_OPTION_VALUE_LEFT 336
+#define T2_PERF_OPTION_VALUE_CELLS 8
 #define T2_PERF_OPTION_TOP 320
 #define T2_LANGUAGE_OPTION_TOP 336
 
@@ -115,10 +118,28 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 
 static void t2_language_option_perf_put(tram_atrb2 atrb)
 {
+	uint8_t clear[T2_PERF_OPTION_VALUE_CELLS + 1];
+	int i;
+
 	// Patch-owned labels remain English in both locales and use the same native
 	// menu gaiji as every other Option row.
 	t2_language_option_native_center_put_at(
-		T2_LANGUAGE_OPTION_LABEL_CENTER, T2_PERF_OPTION_TOP, atrb, "Perf"
+		T2_PERF_OPTION_LABEL_CENTER, T2_PERF_OPTION_TOP, atrb, "Perf"
+	);
+	// Truncate is wider than Normal. Clear the entire value field in both VRAM
+	// and TRAM before redrawing so its edge cells cannot survive as TNORMALE.
+	graph_copy_rect_1_to_0_16(
+		T2_PERF_OPTION_VALUE_LEFT, T2_PERF_OPTION_TOP,
+		(T2_PERF_OPTION_VALUE_CELLS * GAIJI_W), GLYPH_H
+	);
+	for(i = 0; i < T2_PERF_OPTION_VALUE_CELLS; i++) {
+		clear[i] = gs_SPACE;
+	}
+	clear[T2_PERF_OPTION_VALUE_CELLS] = gs_NULL;
+	gaiji_putsa(
+		(T2_PERF_OPTION_VALUE_LEFT / GLYPH_HALF_W),
+		(T2_PERF_OPTION_TOP / GLYPH_H),
+		reinterpret_cast<const char *>(clear), TX_BLACK
 	);
 	t2_language_option_native_center_put_at(
 		T2_LANGUAGE_OPTION_VALUE_CENTER, T2_PERF_OPTION_TOP, atrb,
@@ -183,11 +204,9 @@ static bool t2_language_option_change(int direction)
 			((target == T2LANG_JAPANESE) || t2_language_overlay_valid()) &&
 			t2_language_set(target)
 		) {
-			replay_title_background_prepare_hidden();
-			// Options still owns the foreground. The outer OP loop rebuilds it on
-			// its next update; recursing into the renderer here left resource/page
-			// restoration on two live stack frames and could STOP on return.
-			replay_title_restore_needed = true;
+			// Options still owns the foreground and none of its stock labels are
+			// localized. Keep the title PI heap untouched; only the Option text
+			// layer needs to be redrawn with the new preference.
 			t2_language_option_initialized = false;
 			t2_language_option_input_allowed = false;
 			t2_language_option_change_returned = true;
@@ -217,6 +236,7 @@ static void t2_language_option_return_to_main(void)
 	menu_sel = 3;
 	in_option = false;
 	t2_language_option_initialized = false;
+	replay_title_redraw_request();
 }
 
 void far pascal t2_language_option_update_and_render(void)

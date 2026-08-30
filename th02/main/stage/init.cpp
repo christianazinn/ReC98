@@ -48,9 +48,7 @@
 #include "th02/main/player/player.hpp"
 #include "th02/language.hpp"
 #include "th02/main/stage/stage.hpp"
-#ifdef T2PD
 #include "th02/practice_diag.hpp"
-#endif
 #include "th02/main/stage/callback.hpp" // needs stage_progression_t, above
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/bg_particle.hpp"
@@ -175,8 +173,13 @@ bool16 stage_loop(void);
 // outlives a stage transition.
 void near gameplay_init(void)
 {
-	snd_load(huuma_efc_fn, SND_LOAD_SE);
+	if(!t2practice_diag_no_sound()) {
+		snd_load(huuma_efc_fn, SND_LOAD_SE);
+	}
 #ifdef T2PD
+	// The private no-input acceptance harness has no emulated sound-driver
+	// clock. Skip only this stock blocking load so the test can reach and
+	// witness Practice target application; release builds keep the native path.
 	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_SOUND, resident->stage);
 #endif
 	hiscore_get();
@@ -203,7 +206,9 @@ void near gameplay_init(void)
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_GAIJI, resident->stage);
 #endif
-	bomb_load();
+	if(!t2practice_diag_no_sound()) {
+		bomb_load();
+	}
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_GAMEPLAY_BOMB, resident->stage);
 #endif
@@ -259,6 +264,9 @@ void near stage_init(void)
 	char fn[12];
 	register int i;
 
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_BEGIN, resident->stage);
+#endif
 	stage_fn(fn);
 	vsync_Count1 = 0;
 	text_wipe();
@@ -274,6 +282,9 @@ void near stage_init(void)
 	pi_palette_apply(0);
 	pi_palette_apply(0);
 	pi_put_8(96, 144, 0);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_SCREEN_READY, resident->stage);
+#endif
 	bullets_and_sparks_init();
 	enemies_reset();
 	bg_particles_reset();
@@ -315,9 +326,15 @@ void near stage_init(void)
 	super_entry_bfnt(fn);
 	stage_fn_ext_set(fn, aBbt);
 	super_entry_bfnt(fn);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_BFT_READY, resident->stage);
+#endif
 	stage_fn_ext_set(fn, aMap);
 	map_load(fn);
 	tiles_stuff_reset();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_MAP_READY, resident->stage);
+#endif
 	stage_fn_ext_set(fn, aMpn);
 	mpn_load(fn);
 	memcpy(
@@ -325,9 +342,15 @@ void near stage_init(void)
 		reinterpret_cast<void *>(&mpn_palette),
 		sizeof(Palette8)
 	);
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_MPN_READY, resident->stage);
+#endif
 	enemy_stagedata_free();
 	enemy_stagedata_load();
 	dialog_load_and_init();
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_RESOURCES, resident->stage);
+#endif
 
 	boss_bg_render = nullfunc_void;
 	boss_update = reinterpret_cast<stage_progression_t (far *)(void)>(
@@ -424,16 +447,29 @@ void near stage_init(void)
 		scroll_interval = 2;
 		break;
 	}
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_CALLBACKS, resident->stage);
+#endif
 
 	tile_area_init_and_put_both();
 	if(!resident->demo_num) {
-		snd_delay_until_volume(255);
+		if(!t2practice_diag_no_sound()) {
+			snd_delay_until_volume(255);
+		}
 		stage_fn_ext_set(fn, aM);
 	}
 	items_init_and_reset();
 	score_extend_init();
-	while(vsync_Count1 < 100) {
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_TILES_READY, resident->stage);
+#endif
+	if(!t2practice_diag_no_sound()) {
+		while(vsync_Count1 < 100) {
+		}
 	}
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_VSYNC_READY, resident->stage);
+#endif
 	text_boxfilla(4, 1, 51, 23, (TX_BLACK | TX_REVERSE));
 	palette_set_all(stage_palette);
 	palette_show();
@@ -444,7 +480,9 @@ void near stage_init(void)
 	mpn_free();
 	mpn_load(aMiko_k_mpn);
 	if(!resident->demo_num) {
-		boss_bgm_load(fn);
+		if(!t2practice_diag_no_sound()) {
+			boss_bgm_load(fn);
+		}
 	}
 	grc_setclip(0, 0, (RES_X - 1), (RES_Y - 1));
 	grcg_setcolor(GC_RMW, 11);
@@ -466,6 +504,9 @@ void near stage_init(void)
 		out 	0A6h, al;
 	}
 	page_back = _AL;
+#ifdef T2PD
+	t2practice_diag_main_progress(T2PDMP_STAGE_COMPLETE, resident->stage);
+#endif
 }
 
 #pragma option -G

@@ -86,7 +86,7 @@ static bool near t2m9diag_op_record_write(
 	return true;
 }
 
-void t2m9diag_op_autostart(void)
+void far t2m9diag_op_autostart(void)
 {
 	uint8_t trigger[9];
 	char handoff_fn[12];

@@ -6,7 +6,7 @@
 // must never grow a public Practice target or replay wire state.
 
 #ifdef T2PD
-void t2m9diag_op_autostart(void);
+void far t2m9diag_op_autostart(void);
 void far t2m9diag_main_entry_arm(void);
 bool16 far t2m9diag_practice_target_apply(void);
 #endif

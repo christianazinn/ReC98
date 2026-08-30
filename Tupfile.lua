@@ -689,6 +689,10 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_04.cpp",
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
+	-- Keep the entire Replay/Practice implementation after every stock OP
+	-- object. Textually including this file from op_01.cpp placed its custom
+	-- segment before SHARED and moved all native shared routines.
+	"th02/op/op_rplay.cpp",
 	-- TH01 and TH02 share the patch-owned proportional menu font and loose
 	-- MNUFONT.PF payload. Keep it after every stock OP object.
 	"th02/op/rpyfont2.cpp",

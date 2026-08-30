@@ -1,16 +1,36 @@
 // TH02 replay and Practice title surface.
 //
-// This file is included by op_01.cpp so that the existing OP link list stays
-// untouched.  The pragma keeps all implementation in a trailing patch-owned
-// code segment; all persistent state below is uninitialized BSS.
+// This translation unit is linked after every stock OP object. The pragma
+// keeps all implementation in a trailing patch-owned code segment; all
+// persistent state below is uninitialized BSS.
 
 #pragma codeseg T2OPRPLY_TEXT PATCH
 
+#include <process.h>
+#include "libs/master.lib/master.hpp"
+#include "libs/master.lib/pc98_gfx.hpp"
 #include "x86real.h"
 #include "platform/x86real/pc98/keyboard.hpp"
+#include "th01/rank.h"
+#include "th01/hardware/grppsafx.h"
 #include "th01/rpyfont.hpp"
+#include "th02/common.h"
+#include "th02/resident.hpp"
+#include "th02/hardware/frmdelay.h"
+#include "th02/hardware/input.hpp"
+#include "th02/core/globals.hpp"
+#include "th02/core/initexit.h"
+#include "th02/formats/cfg.hpp"
+#include "th02/formats/pi.h"
+#include "th02/snd/snd.h"
+#include "th02/gaiji/gaiji.h"
+#include "th02/gaiji/str.hpp"
+#include "th02/shiftjis/fns.hpp"
+#include "th02/op/op.h"
+#include "th02/op/m_music.hpp"
 #include "th02/replay_format.hpp"
 #include "th02/practice_diag.hpp"
+#include "th02/language.hpp"
 #include "th02/v_colors.hpp"
 
 #define T2OP_LINE_CAPACITY 79
@@ -40,7 +60,43 @@
 #define T2OP_TITLE_RANK_ROW 23
 #define T2OP_TITLE_QUIT_ROW 21
 
+// Match the TH04/TH05 patch surfaces: PI palette entry 7 is reserved for the
+// active row and is made independent of the background image's own palette.
+#define T2OP_SELECTED_COLOR 7
+#define T2OP_SELECTED_RED 0xFF
+#define T2OP_SELECTED_GREEN 0xFF
+#define T2OP_SELECTED_BLUE 0x00
+
 extern char sel;
+extern char menu_sel;
+extern bool in_option;
+extern bool quit;
+extern unsigned char snd_bgm_mode;
+extern unsigned int idle_frame;
+extern char extra_unlocked;
+extern resident_t __seg *resident_seg;
+
+void text_wipe(void);
+
+// Patch-local copies keep the tail independent from OP_01_TEXT's private data.
+// The byte values are the stock gaiji IDs and therefore render identically.
+#include "th02/gaiji/ranks_c.c"
+static const char gbSTART[10] = { g_chr_5(gb, S,T,A,R,T), '\0' };
+static const char gbEXTRA_START[] = {
+	g_chr_11(gb, E,X,T,R,A,_,S,T,A,R,T), '\0'
+};
+static const char gbHISCORE[10] = { g_chr_7(gb, H,I,S,C,O,R,E), '\0' };
+static const char gbOPTION[10] = { g_chr_6(gb, O,P,T,I,O,N), '\0' };
+static const char gbQUIT[10] = { g_chr_4(gb, Q,U,I,T), '\0' };
+static const char gbRANK[10] = { g_chr_4(gb, R,A,N,K), '\0' };
+static const char gbMUSIC_MODE[] = {
+	g_chr_10(gb, M,U,S,I,C,_,M,O,D,E), '\0'
+};
+
+static void cfg_save(void)
+{
+	t2_language_op_bridge(T2LOB_CFG_SAVE, 0, 0);
+}
 
 enum t2op_word_t {
 	T2OW_START,
@@ -150,7 +206,9 @@ static char t2op_slot_fn[11];
 static bool t2op_paths_ready;
 static bool t2op_main_initialized;
 static bool t2op_main_input_allowed;
+static bool t2op_title_pictures_loaded;
 bool replay_title_restore_needed;
+static bool t2op_title_redraw_needed;
 static uint8_t t2op_main_sel;
 static uint8_t t2op_browser_sel;
 static uint8_t t2op_practice_sel;
@@ -167,7 +225,7 @@ static void t2op_title_font_restore(void);
 static void t2op_title_return_request(void);
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
-void replay_practice_diag_boot(unsigned char milestone)
+void far replay_practice_diag_boot(unsigned char milestone)
 {
 	static const char fn[] = "T2BOOT.BIN";
 
@@ -335,80 +393,65 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 	uint8_t practice_target = start->reserved[T2REPLAY_PRACTICE_TARGET_OFFSET];
 	bool practice_target_valid = false;
 
-	switch(practice_target) {
-	case T2RPT_STAGE_START:
+	if(practice_target == T2RPT_STAGE_START) {
 		practice_target_valid = true;
-		break;
-	case T2RPT_STAGE1_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE1_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE1_MIDBOSS) &&
+		 (practice_target <= T2RPT_STAGE1_BOSS_PHASE3))
+	) {
 		practice_target_valid = (start->stage == 0);
-		break;
-	case T2RPT_STAGE2_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE2_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE2_MIDBOSS) &&
+		 (practice_target <= T2RPT_STAGE2_BOSS_PHASE3))
+	) {
 		practice_target_valid = (start->stage == 1);
-		break;
-	case T2RPT_STAGE3_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE3_CHAPTER2) ||
+		(practice_target == T2RPT_STAGE3_MIDBOSS) ||
+		(practice_target == T2RPT_STAGE3_BOSS_START) ||
+		(practice_target == T2RPT_STAGE3_INNER_PAIR) ||
+		(practice_target == T2RPT_STAGE3_OUTER_PAIR) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE4)
+	) {
 		practice_target_valid = (start->stage == 2);
-		break;
-	case T2RPT_STAGE4_CHAPTER2:
-	case T2RPT_STAGE4_CHAPTER3:
+	} else if(
+		(practice_target == T2RPT_STAGE4_CHAPTER2) ||
+		(practice_target == T2RPT_STAGE4_CHAPTER3) ||
+		((practice_target >= T2RPT_STAGE4_MIDBOSS_FIRST) &&
+		 (practice_target <= T2RPT_STAGE4_BOSS_START)) ||
+		(practice_target == T2RPT_STAGE4_BOSS_PHASE1) ||
+		(practice_target == T2RPT_STAGE4_BOSS_ROUND2) ||
+		(practice_target == T2RPT_STAGE4_BOSS_ROUND3) ||
+		((practice_target >= T2RPT_STAGE4_BOSS_ROUND4) &&
+		 (practice_target <= T2RPT_STAGE4_BOSS_ROUND7))
+	) {
 		practice_target_valid = (start->stage == 3);
-		break;
-	case T2RPT_EXTRA_CHAPTER2:
-		practice_target_valid = (start->stage == 5);
-		break;
-	case T2RPT_STAGE1_MIDBOSS:
-	case T2RPT_STAGE1_BOSS_PHASE1:
-	case T2RPT_STAGE1_BOSS_PHASE2:
-	case T2RPT_STAGE1_BOSS_PHASE3:
-		practice_target_valid = (start->stage == 0);
-		break;
-	case T2RPT_STAGE2_MIDBOSS:
-	case T2RPT_STAGE2_BOSS_PHASE1:
-	case T2RPT_STAGE2_BOSS_PHASE2:
-	case T2RPT_STAGE2_BOSS_PHASE3:
-		practice_target_valid = (start->stage == 1);
-		break;
-	case T2RPT_STAGE3_MIDBOSS:
-	case T2RPT_STAGE3_BOSS_START:
-	case T2RPT_STAGE3_INNER_PAIR:
-	case T2RPT_STAGE3_OUTER_PAIR:
-	case T2RPT_STAGE3_NORTH_PHASE4:
-		practice_target_valid = (start->stage == 2);
-		break;
-	case T2RPT_STAGE4_MIDBOSS_FIRST:
-	case T2RPT_STAGE4_MIDBOSS_SECOND:
-	case T2RPT_STAGE4_BOSS_START:
-	case T2RPT_STAGE4_BOSS_PHASE1:
-	case T2RPT_STAGE4_BOSS_ROUND2:
-	case T2RPT_STAGE4_BOSS_ROUND3:
-	case T2RPT_STAGE4_BOSS_ROUND4:
-	case T2RPT_STAGE4_BOSS_ROUND5:
-	case T2RPT_STAGE4_BOSS_ROUND6:
-	case T2RPT_STAGE4_BOSS_ROUND7:
-		practice_target_valid = (start->stage == 3);
-		break;
-	case T2RPT_STAGE5_BOSS_START:
-	case T2RPT_STAGE5_BOSS_PHASE1:
-	case T2RPT_STAGE5_BOSS_PHASE3:
-	case T2RPT_STAGE5_BOSS_PHASE5:
-	case T2RPT_STAGE5_BOSS_PHASE7:
-		practice_target_valid = (start->stage == 4);
-		break;
-	case T2RPT_STAGE5_BOSS_PHASE9:
+	} else if(
+		(practice_target == T2RPT_STAGE5_BOSS_START) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE1) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE3) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE5) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE7) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE9)
+	) {
 		practice_target_valid = (
-			(start->stage == 4) && (start->continues_used == 0)
+			(start->stage == 4) &&
+			((practice_target != T2RPT_STAGE5_BOSS_PHASE9) ||
+			 (start->continues_used == 0))
 		);
-		break;
-	case T2RPT_EXTRA_MIDBOSS:
-	case T2RPT_EXTRA_BOSS_START:
-	case T2RPT_EXTRA_BOSS_PHASE1:
-	case T2RPT_EXTRA_BOSS_PHASE3:
-	case T2RPT_EXTRA_BOSS_PHASE5:
-	case T2RPT_EXTRA_BOSS_PHASE7:
-	case T2RPT_EXTRA_BOSS_PHASE9:
+	} else if(
+		(practice_target == T2RPT_EXTRA_CHAPTER2) ||
+		(practice_target == T2RPT_EXTRA_MIDBOSS) ||
+		(practice_target == T2RPT_EXTRA_BOSS_START) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE1) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE3) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE5) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE7) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE9)
+	) {
 		practice_target_valid = (start->stage == 5);
-		break;
-	default:
-		break;
 	}
 	return (
 		(start->stage >= 0) &&
@@ -1707,14 +1750,32 @@ enum t2op_replay_surface_t {
 
 static void t2op_title_pictures_free(void)
 {
+	if(!t2op_title_pictures_loaded) {
+		return;
+	}
 	pi_free(1);
+	pi_buffers[1] = 0;
 	pi_free(2);
+	pi_buffers[2] = 0;
+	t2op_title_pictures_loaded = false;
 }
 
 static void t2op_title_pictures_load(void)
 {
-	pi_load(2, "ts3.pi");
-	pi_load(1, "ts2.pi");
+	if(t2op_title_pictures_loaded) {
+		return;
+	}
+	if(pi_load(2, "ts3.pi") != 0) {
+		pi_buffers[2] = 0;
+		return;
+	}
+	if(pi_load(1, "ts2.pi") != 0) {
+		pi_free(2);
+		pi_buffers[2] = 0;
+		pi_buffers[1] = 0;
+		return;
+	}
+	t2op_title_pictures_loaded = true;
 }
 
 static void t2op_surface_background_restore(void)
@@ -1743,6 +1804,12 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 	}
 	palette_settone(0);
 	pi_palette_apply(0);
+	palette_set(
+		T2OP_SELECTED_COLOR,
+		T2OP_SELECTED_RED,
+		T2OP_SELECTED_GREEN,
+		T2OP_SELECTED_BLUE
+	);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
 	graph_accesspage(1);
@@ -1750,6 +1817,7 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 	graph_showpage(0);
 	graph_accesspage(0);
 	pi_free(0);
+	pi_buffers[0] = 0;
 	if(surface == T2ORS_NAME) {
 		t2op_title_font_restore();
 	} else {
@@ -1769,6 +1837,15 @@ static void t2op_title_return_request(void)
 	replay_title_restore_needed = true;
 	t2op_main_input_allowed = false;
 	replay_op_font_free();
+}
+
+void far replay_title_redraw_request(void)
+{
+	// Stock Option and Music Room return with the title backing still valid.
+	// Rebuild only the text layer; a full PI teardown here used to corrupt the
+	// title heap and could STOP on the following menu transition.
+	t2op_title_redraw_needed = true;
+	t2op_main_input_allowed = false;
 }
 
 static void t2op_input_wait_release(void)
@@ -2090,7 +2167,10 @@ void replay_title_background_prepare_hidden(void)
 	replay_op_font_free();
 	palette_settone(0);
 	graph_accesspage(1);
-	pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
+	t2_language_op_bridge(T2LOB_TITLE_BG_LOAD, 0, 0);
+	// pi_load_put_8_free_to() releases slot 0 but master.lib leaves its pointer
+	// nonzero. The next PI load would otherwise free the same block again.
+	pi_buffers[0] = 0;
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
 	graph_accesspage(0);
 	t2op_title_font_restore();
@@ -2146,6 +2226,7 @@ static void t2op_main_render(void)
 	} else {
 		text_clear();
 	}
+	t2op_title_redraw_needed = false;
 	for(row = 0; row < T2OMC_COUNT; row++) {
 		t2op_word_t label;
 		bool locked = false;
@@ -2784,7 +2865,7 @@ static void t2op_practice_render(void)
 	t2op_surface_background_restore();
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_PRACTICE);
-	t2op_menu_word_center_put(1, TX_GREEN, p);
+	t2op_menu_word_center_put(1, TX_YELLOW, p);
 
 	for(row = 0; row < T2OPC_START; row++) {
 		t2op_word_t label;
@@ -2927,7 +3008,7 @@ static void t2op_practice_render(void)
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_START_RUN);
 	t2op_menu_word_center_put(static_cast<tram_y_t>(4 + T2OPC_START),
-		(t2op_practice_sel == T2OPC_START) ? TX_WHITE : TX_GREEN, p);
+		(t2op_practice_sel == T2OPC_START) ? TX_WHITE : TX_YELLOW, p);
 }
 
 static void t2op_resident_apply(const t2replay_start_t far *start)
@@ -2976,23 +3057,51 @@ static void t2op_main_exec(void)
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(12);
 #endif
-	gaiji_restore();
-	super_free();
-	game_exit();
+	// The proportional font is a patch-owned far allocation. Native OP never
+	// knows about it, so release it before the stock gaiji/SUPER/DOS teardown.
+	replay_op_font_free();
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(13);
 #endif
+	gaiji_restore();
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(14);
+#endif
+	super_free();
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(15);
+#endif
+	game_exit();
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(16);
+#endif
 	execl(main_fn, main_fn, nullptr);
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	// execl() does not return on success. Reaching this marker proves a DOS
+	// child-load failure rather than a crash inside MAIN.
+	replay_practice_diag_boot(17);
+#endif
 }
 
-void replay_op_restart_or_snd_load(const char *fn, int func)
+void far replay_op_restart_or_snd_load(const char *fn, int func)
 {
 	t2replay_start_t start;
 	uint8_t flags;
 	char request_fn[11];
 
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(31);
+#endif
 	if(!t2op_restart_command_read(&start, &flags)) {
-		snd_load(fn, static_cast<snd_load_func_t>(func));
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+		replay_practice_diag_boot(32);
+#endif
+		if(!t2practice_diag_no_sound()) {
+			snd_load(fn, static_cast<snd_load_func_t>(func));
+		}
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+		replay_practice_diag_boot(33);
+#endif
 		return;
 	}
 	t2op_save_request_fn_set(request_fn);
@@ -3006,7 +3115,7 @@ void replay_op_restart_or_snd_load(const char *fn, int func)
 		snd_load(fn, static_cast<snd_load_func_t>(func));
 		return;
 	}
-	start_init();
+	t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 	t2op_resident_apply(&start);
 	t2op_main_exec();
 }
@@ -3015,9 +3124,9 @@ static void t2op_playback_start(uint8_t slot)
 {
 	// Playback owns its launch state in the replay header. Preserve the user's
 	// title options before start_init() writes the transient resident fields.
-	cfg_save();
+	t2_language_op_bridge(T2LOB_CFG_SAVE, 0, 0);
 	if(t2op_command_write(T2REPLAY_COMMAND_PLAYBACK, slot, 0, 0)) {
-		start_init();
+		t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 		t2op_main_exec();
 	}
 }
@@ -3035,7 +3144,7 @@ static void t2op_practice_start(void)
 
 	// Keep the selected title options persistent. The Practice payload is a
 	// one-run resident override consumed by MAIN, never a new configuration.
-	cfg_save();
+	t2_language_op_bridge(T2LOB_CFG_SAVE, 0, 0);
 	t2op_save_request_fn_set(request_fn);
 	t2op_file_delete(request_fn);
 	t2op_temp_set();
@@ -3051,22 +3160,22 @@ static void t2op_practice_start(void)
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(6);
 #endif
-	start_init();
+	t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(7);
 #endif
 	t2op_resident_apply(&t2op_practice);
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(8);
+	t2practice_diag_lifecycle(T2PDLM_OP_DIRECT_LAUNCH, 0, 0, 0);
 #endif
 	t2op_main_exec();
 }
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
-void replay_practice_diag_autostart(void)
+void far replay_practice_diag_autostart(void)
 {
 	static const char fn[] = "T2PAUTO.CFG";
-	char request_fn[11];
 	uint8_t config[3];
 	int fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
 
@@ -3093,26 +3202,10 @@ void replay_practice_diag_autostart(void)
 	t2op_practice.bgm_mode = snd_bgm_mode;
 	t2op_practice.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] = config[1];
 	if(t2op_start_valid(&t2op_practice)) {
-		cfg_save();
-		t2op_save_request_fn_set(request_fn);
-		t2op_file_delete(request_fn);
-		t2op_temp_set();
-		t2op_file_delete(t2op_slot_fn);
-		if(!t2op_command_write(
-			T2REPLAY_COMMAND_RECORD,
-			T2REPLAY_TEMP_SLOT,
-			T2REPLAY_COMMAND_FLAG_PRACTICE,
-			&t2op_practice
-		)) {
-			return;
-		}
-		// This diagnostic must take the exact live handoff. In particular,
-		// start_init() establishes resident sound state that MAIN's snd_load()
-		// depends on; bypassing it turned the heap probe into a false hang.
-		start_init();
-		t2op_resident_apply(&t2op_practice);
-		t2practice_diag_lifecycle(T2PDLM_OP_DIRECT_LAUNCH, 0, 0, 0);
-		t2op_main_exec();
+		// Exercise the production launch routine itself. A parallel diagnostic
+		// copy previously drifted from the interactive handoff and could stall
+		// without proving anything about the public Practice path.
+		t2op_practice_start();
 	}
 }
 #endif
@@ -3132,9 +3225,9 @@ static void t2op_record_then_start(bool extra)
 		return;
 	}
 	if(extra) {
-		start_extra();
+		t2_language_op_bridge(T2LOB_START_EXTRA, 0, 0);
 	} else {
-		start_game();
+		t2_language_op_bridge(T2LOB_START_GAME, 0, 0);
 	}
 }
 
@@ -3186,17 +3279,17 @@ static void t2op_browser_render(void)
 
 	t2op_surface_background_restore();
 	p = t2op_word_append(t2op_line, T2OW_SLOT);
-	t2op_text_put(T2OP_BROWSER_SLOT_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_SLOT_X, 4, TX_YELLOW, p);
 	p = t2op_word_append(t2op_line, T2OW_NAME);
-	t2op_text_put(T2OP_BROWSER_NAME_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_NAME_X, 4, TX_YELLOW, p);
 	p = t2op_word_append(t2op_line, T2OW_SHOT);
-	t2op_text_put(T2OP_BROWSER_SHOT_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_SHOT_X, 4, TX_YELLOW, p);
 	p = t2op_word_append(t2op_line, T2OW_RANK);
-	t2op_text_put(T2OP_BROWSER_RANK_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_RANK_X, 4, TX_YELLOW, p);
 	p = t2op_word_append(t2op_line, T2OW_SCORE);
-	t2op_text_put(T2OP_BROWSER_SCORE_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_SCORE_X, 4, TX_YELLOW, p);
 	p = t2op_word_append(t2op_line, T2OW_STAGE);
-	t2op_text_put(T2OP_BROWSER_STAGE_X, 4, TX_GREEN, p);
+	t2op_text_put(T2OP_BROWSER_STAGE_X, 4, TX_YELLOW, p);
 	for(i = 0; i < T2OP_SLOT_ROWS; i++) {
 		t2op_browser_slot_render(static_cast<uint8_t>(first + i), 6 + i);
 	}
@@ -3206,7 +3299,7 @@ static void t2op_browser_render(void)
 	p = t2op_u32_append(p, ((t2op_browser_sel / T2OP_SLOT_ROWS) + 1), 2);
 	p = t2op_char(p, '/');
 	p = t2op_u32_append(p, (T2REPLAY_SLOT_COUNT / T2OP_SLOT_ROWS), 2);
-	t2op_text_put(34, 18, TX_GREEN, p);
+	t2op_text_put(34, 18, TX_YELLOW, p);
 }
 
 static void t2op_detail_render(uint8_t slot)
@@ -3220,7 +3313,7 @@ static void t2op_detail_render(uint8_t slot)
 	p = t2op_word_append(p, T2OW_SLOT);
 	p = t2op_char(p, ' ');
 	p = t2op_u32_append(p, slot, 2);
-	t2op_text_put(5, 3, TX_GREEN, p);
+	t2op_text_put(5, 3, TX_YELLOW, p);
 	if(t2op_name_empty(
 		t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
 	)) {
@@ -3268,7 +3361,7 @@ static void t2op_detail_render(uint8_t slot)
 
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_STAGE_SPLITS);
-	t2op_text_put(43, 3, TX_GREEN, p);
+	t2op_text_put(43, 3, TX_YELLOW, p);
 	y = 5;
 	for(
 		stage = static_cast<uint8_t>(t2op_header.start.stage);
@@ -3329,7 +3422,7 @@ static void t2op_save_confirm_render(bool save)
 	t2op_surface_background_restore();
 	p = t2op_word_append(t2op_line, T2OW_SAVE_REPLAY);
 	p = t2op_char(p, '?');
-	t2op_text_put(31, 9, TX_GREEN, p);
+	t2op_text_put(31, 9, TX_YELLOW, p);
 	p = t2op_line;
 	p = t2op_char(p, save ? '>' : ' ');
 	p = t2op_char(p, ' ');
@@ -3385,7 +3478,7 @@ static void t2op_overwrite_render(uint8_t slot, bool overwrite)
 		t2op_browser_render();
 	}
 	p = t2op_word_append(t2op_line, T2OW_OVERWRITE_REPLAY);
-	t2op_text_put(29, 19, TX_GREEN, p);
+	t2op_text_put(29, 19, TX_YELLOW, p);
 	p = t2op_line;
 	p = t2op_char(p, overwrite ? '>' : ' ');
 	p = t2op_char(p, ' ');
@@ -3616,7 +3709,14 @@ static void t2op_practice_menu(void)
 	sel = 1;
 	pi_load(0, "ts1.pi");
 	text_clear();
-	shottype_menu();
+	t2_language_op_bridge(T2LOB_SHOTTYPE_MENU, 0, 0);
+	// shottype_menu() owns and frees all three selector PI slots. master.lib
+	// leaves the freed pointers intact, so invalidate them before any title or
+	// patch surface can consider those slots live again.
+	pi_buffers[0] = 0;
+	pi_buffers[1] = 0;
+	pi_buffers[2] = 0;
+	t2op_title_pictures_loaded = false;
 	if(!t2op_replay_surface_prepare(T2ORS_PRACTICE)) {
 		t2op_title_return_request();
 		return;
@@ -3677,16 +3777,17 @@ static void t2op_practice_menu(void)
 	key_det = INPUT_NONE;
 }
 
-void replay_title_update_and_render(void)
+void far replay_title_update_and_render(void)
 {
 	if(!t2op_main_initialized) {
 		t2op_main_initialized = true;
+		// Stock OP loaded ts2.pi and ts3.pi immediately before entering the
+		// title loop. Adopt that ownership exactly once.
+		t2op_title_pictures_loaded = true;
 		t2op_main_input_allowed = false;
 		t2op_main_render();
-		if(t2op_pending_save()) {
-			t2op_main_render();
-		}
-	} else if(replay_title_restore_needed) {
+		t2op_pending_save();
+	} else if(replay_title_restore_needed || t2op_title_redraw_needed) {
 		t2op_main_render();
 	}
 	if(key_det == INPUT_NONE) {
@@ -3713,29 +3814,26 @@ void replay_title_update_and_render(void)
 			break;
 		case T2OMC_PRACTICE:
 			t2op_practice_menu();
-			t2op_main_render();
 			break;
 		case T2OMC_REPLAY:
 			t2op_browser(false, 0);
-			t2op_main_render();
 			break;
 		case T2OMC_HISCORE:
-			score_frames = 2000;
 			text_clear();
-			score_menu();
+			t2_language_op_bridge(T2LOB_SCORE_MENU, 0, 2000);
 			t2op_title_return_request();
-			t2op_main_render();
 			break;
 		case T2OMC_OPTIONS:
 			menu_sel = 0;
 			in_option = true;
-			t2op_title_return_request();
+			t2op_title_redraw_needed = true;
 			break;
 		case T2OMC_MUSIC:
 			text_clear();
-			musicroom_menu();
-			t2op_title_return_request();
-			t2op_main_render();
+			t2_language_op_bridge(T2LOB_MUSICROOM_MENU, 0, 0);
+			// musicroom_menu() also leaves its released slot-0 pointer stale.
+			pi_buffers[0] = 0;
+			replay_title_redraw_request();
 			break;
 		default:
 			quit = true;
@@ -3750,8 +3848,15 @@ void replay_title_update_and_render(void)
 		idle_frame = 0;
 	}
 	if(idle_frame > 640) {
-		start_demo();
+		t2_language_op_bridge(T2LOB_START_DEMO, 0, 0);
 	}
 }
 
 #pragma codeseg
+
+#define T2PRACT_DIAG_OP 1
+#include "th02/t2pdiag.cpp"
+#undef T2PRACT_DIAG_OP
+#define T2M9DIAG_OP 1
+#include "th02/t2m9diag.cpp"
+#undef T2M9DIAG_OP

@@ -55,10 +55,19 @@ enum t2_language_op_bridge_func_t {
 	T2LOB_OPTION_PUT,
 	T2LOB_BGM_RESTART,
 	T2LOB_OPTION_RESET,
+	T2LOB_CFG_SAVE,
+	T2LOB_START_INIT,
+	T2LOB_START_GAME,
+	T2LOB_START_EXTRA,
+	T2LOB_START_DEMO,
+	T2LOB_SHOTTYPE_MENU,
+	T2LOB_SCORE_MENU,
+	T2LOB_MUSICROOM_MENU,
+	T2LOB_TITLE_BG_LOAD,
 };
 
-// T2LANGOP_TEXT is outside OP_01_TEXT. Route calls to OP's stock near
-// functions through this far entry point in the original code segment.
+// Patch-owned OP segments are outside OP_01_TEXT. Route calls to OP's stock
+// near functions through this far entry point in the original code segment.
 void far pascal t2_language_op_bridge(
 	t2_language_op_bridge_func_t func, int sel, int value
 );

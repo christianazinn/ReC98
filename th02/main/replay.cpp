@@ -3907,79 +3907,72 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 {
 	uint8_t practice_target = start->reserved[T2REPLAY_PRACTICE_TARGET_OFFSET];
 	bool practice_target_valid = false;
+	t2practice_diag_lifecycle(T2PDLM_MAIN_START_CORE_BEGIN, 0, 0, 0);
 
-	switch(practice_target) {
-	case T2RPT_STAGE_START:
+	if(practice_target == T2RPT_STAGE_START) {
 		practice_target_valid = true;
-		break;
-	case T2RPT_STAGE1_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE1_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE1_MIDBOSS) &&
+		 (practice_target <= T2RPT_STAGE1_BOSS_PHASE3))
+	) {
 		practice_target_valid = (start->stage == 0);
-		break;
-	case T2RPT_STAGE2_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE2_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE2_MIDBOSS) &&
+		 (practice_target <= T2RPT_STAGE2_BOSS_PHASE3))
+	) {
 		practice_target_valid = (start->stage == 1);
-		break;
-	case T2RPT_STAGE3_CHAPTER2:
+	} else if(
+		(practice_target == T2RPT_STAGE3_CHAPTER2) ||
+		(practice_target == T2RPT_STAGE3_MIDBOSS) ||
+		(practice_target == T2RPT_STAGE3_BOSS_START) ||
+		(practice_target == T2RPT_STAGE3_INNER_PAIR) ||
+		(practice_target == T2RPT_STAGE3_OUTER_PAIR) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE4)
+	) {
 		practice_target_valid = (start->stage == 2);
-		break;
-	case T2RPT_STAGE4_CHAPTER2:
-	case T2RPT_STAGE4_CHAPTER3:
+	} else if(
+		(practice_target == T2RPT_STAGE4_CHAPTER2) ||
+		(practice_target == T2RPT_STAGE4_CHAPTER3) ||
+		((practice_target >= T2RPT_STAGE4_MIDBOSS_FIRST) &&
+		 (practice_target <= T2RPT_STAGE4_BOSS_START)) ||
+		(practice_target == T2RPT_STAGE4_BOSS_PHASE1) ||
+		(practice_target == T2RPT_STAGE4_BOSS_ROUND2) ||
+		(practice_target == T2RPT_STAGE4_BOSS_ROUND3) ||
+		((practice_target >= T2RPT_STAGE4_BOSS_ROUND4) &&
+		 (practice_target <= T2RPT_STAGE4_BOSS_ROUND7))
+	) {
 		practice_target_valid = (start->stage == 3);
-		break;
-	case T2RPT_EXTRA_CHAPTER2:
-		practice_target_valid = (start->stage == 5);
-		break;
-	case T2RPT_STAGE1_MIDBOSS:
-	case T2RPT_STAGE1_BOSS_PHASE1:
-	case T2RPT_STAGE1_BOSS_PHASE2:
-	case T2RPT_STAGE1_BOSS_PHASE3:
-		practice_target_valid = (start->stage == 0);
-		break;
-	case T2RPT_STAGE2_MIDBOSS:
-	case T2RPT_STAGE2_BOSS_PHASE1:
-	case T2RPT_STAGE2_BOSS_PHASE2:
-	case T2RPT_STAGE2_BOSS_PHASE3:
-		practice_target_valid = (start->stage == 1);
-		break;
-	case T2RPT_STAGE3_MIDBOSS:
-	case T2RPT_STAGE3_BOSS_START:
-	case T2RPT_STAGE3_INNER_PAIR:
-	case T2RPT_STAGE3_OUTER_PAIR:
-	case T2RPT_STAGE3_NORTH_PHASE4:
-		practice_target_valid = (start->stage == 2);
-		break;
-	case T2RPT_STAGE4_MIDBOSS_FIRST:
-	case T2RPT_STAGE4_MIDBOSS_SECOND:
-	case T2RPT_STAGE4_BOSS_START:
-	case T2RPT_STAGE4_BOSS_PHASE1:
-	case T2RPT_STAGE4_BOSS_ROUND2:
-	case T2RPT_STAGE4_BOSS_ROUND3:
-		practice_target_valid = (start->stage == 3);
-		break;
-	case T2RPT_STAGE5_BOSS_START:
-	case T2RPT_STAGE5_BOSS_PHASE1:
-	case T2RPT_STAGE5_BOSS_PHASE3:
-	case T2RPT_STAGE5_BOSS_PHASE5:
-	case T2RPT_STAGE5_BOSS_PHASE7:
-		practice_target_valid = (start->stage == 4);
-		break;
-	case T2RPT_STAGE5_BOSS_PHASE9:
-		// This form exists only after mima_19C8D() rejects continued runs.
+	} else if(
+		(practice_target == T2RPT_STAGE5_BOSS_START) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE1) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE3) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE5) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE7) ||
+		(practice_target == T2RPT_STAGE5_BOSS_PHASE9)
+	) {
 		practice_target_valid = (
-			(start->stage == 4) && (start->continues_used == 0)
+			(start->stage == 4) &&
+			((practice_target != T2RPT_STAGE5_BOSS_PHASE9) ||
+			 (start->continues_used == 0))
 		);
-		break;
-	case T2RPT_EXTRA_MIDBOSS:
-	case T2RPT_EXTRA_BOSS_START:
-	case T2RPT_EXTRA_BOSS_PHASE1:
-	case T2RPT_EXTRA_BOSS_PHASE3:
-	case T2RPT_EXTRA_BOSS_PHASE5:
-	case T2RPT_EXTRA_BOSS_PHASE7:
-	case T2RPT_EXTRA_BOSS_PHASE9:
+	} else if(
+		(practice_target == T2RPT_EXTRA_CHAPTER2) ||
+		(practice_target == T2RPT_EXTRA_MIDBOSS) ||
+		(practice_target == T2RPT_EXTRA_BOSS_START) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE1) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE3) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE5) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE7) ||
+		(practice_target == T2RPT_EXTRA_BOSS_PHASE9)
+	) {
 		practice_target_valid = (start->stage == 5);
-		break;
-	default:
-		break;
 	}
+	t2practice_diag_lifecycle(
+		T2PDLM_MAIN_START_TARGET_RESOLVED,
+		(practice_target_valid ? 1 : 0), 0, 0
+	);
 	if(
 		(start->stage < 0) ||
 		(start->stage >= T2REPLAY_STAGE_COUNT) ||
@@ -4001,22 +3994,29 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(start->bgm_mode > SND_BGM_MIDI) ||
 		(start->reduce_effects > 1) ||
 		(start->debug != 0) ||
-		!practice_target_valid ||
-		!t2replay_bytes_zero(
-			&start->reserved[T2REPLAY_PRACTICE_RESERVED_OFFSET],
-			T2REPLAY_PRACTICE_RESERVED_SIZE
-		)
+		!practice_target_valid
 	) {
 		return false;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_START_SCALARS_VALID, 0, 0, 0);
+	if(!t2replay_bytes_zero(
+		&start->reserved[T2REPLAY_PRACTICE_RESERVED_OFFSET],
+		T2REPLAY_PRACTICE_RESERVED_SIZE
+	)) {
+		return false;
+	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_START_RESERVED_VALID, 0, 0, 0);
 	return true;
 }
 
 static bool t2replay_practice_start_valid(const t2replay_start_t far *start)
 {
 	// A stored zero is native: cfg_load() maps it to the first live power unit.
+	if(!t2replay_start_valid(start)) {
+		return false;
+	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_PRACTICE_CORE_VALID, 0, 0, 0);
 	return (
-		t2replay_start_valid(start) &&
 		(start->score >= 0) &&
 		(start->score_highest >= static_cast<uint32_t>(start->score)) &&
 		(start->continues_used == 0) &&
@@ -5541,6 +5541,33 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 }
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
+static uint16_t t2replay_command_validation_mask(
+	const t2replay_command_t far *command
+)
+{
+	uint16_t mask = 0;
+	unsigned i;
+	bool reserved_zero = true;
+
+	if(t2replay_command_magic_matches(command->magic)) { mask |= 0x0001; }
+	if((command->mode == T2REPLAY_COMMAND_RECORD) ||
+	   (command->mode == T2REPLAY_COMMAND_PLAYBACK) ||
+	   (command->mode == T2REPLAY_COMMAND_PRACTICE)) { mask |= 0x0002; }
+	if((command->mode == T2REPLAY_COMMAND_RECORD)
+		? ((command->slot < T2REPLAY_SLOT_COUNT) ||
+		   (command->slot == T2REPLAY_TEMP_SLOT))
+		: (command->slot < T2REPLAY_SLOT_COUNT)) { mask |= 0x0004; }
+	if((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) == 0) { mask |= 0x0008; }
+	if(command->reserved_0 == 0) { mask |= 0x0010; }
+	for(i = 0; i < sizeof(command->reserved); i++) {
+		if(command->reserved[i] != 0) { reserved_zero = false; }
+	}
+	if(reserved_zero) { mask |= 0x0020; }
+	return mask;
+}
+#endif
+
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
 static uint8_t t2replay_command_load(
 	uint8_t far *slot, uint8_t far *flags, t2replay_start_t far *start
 )
@@ -5559,6 +5586,7 @@ static uint8_t t2replay_command_load(
 		t2practice_diag_main_command(T2PDR_MAIN_COMMAND_MISSING, 0);
 		return T2RM_DISABLED;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_OPENED, 0, 0, 0);
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	{
 		int read = t2replay_dos_read(fd, &command, sizeof(command));
@@ -5571,6 +5599,7 @@ static uint8_t t2replay_command_load(
 			return T2RM_DISABLED;
 		}
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_READ, 0, 0, 0);
 #else
 	if((t2replay_dos_read(fd, &command, sizeof(command)) != sizeof(command)) ||
 		!t2replay_dos_size(fd, &size)) {
@@ -5580,17 +5609,36 @@ static uint8_t t2replay_command_load(
 	}
 #endif
 	t2replay_dos_close(fd);
+#if !T2REPLAY_PRACTICE_DIAGNOSTICS
 	t2replay_dos_delete(t2replay_command_fn);
+#endif
+	t2practice_diag_lifecycle(
+		T2PDLM_MAIN_COMMAND_CLOSED, static_cast<uint16_t>(size), 0, 0
+	);
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	if(size != sizeof(command)) {
 		t2practice_diag_main_command(T2PDR_MAIN_COMMAND_SIZE, &command);
 		return T2RM_DISABLED;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_SIZE_VALID, 0, 0, 0);
+	t2practice_diag_lifecycle(
+		T2PDLM_MAIN_COMMAND_VALIDATION_MASK,
+		t2replay_command_validation_mask(&command), 0, 0
+	);
+	t2practice_diag_lifecycle(T2PDLM_MAIN_START_VALID_BEGIN, 0, 0, 0);
+	t2practice_diag_lifecycle(
+		T2PDLM_MAIN_START_VALID_END,
+		(t2replay_practice_start_valid(&command.start) ? 1 : 0), 0, 0
+	);
 	if(!t2replay_command_valid(&command)) {
 		t2practice_diag_main_command(T2PDR_MAIN_COMMAND_INVALID, &command);
 		return T2RM_DISABLED;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_STRUCT_VALID, 0, 0, 0);
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_DIAG_BEGIN, 0, 0, 0);
 	t2practice_diag_main_command(T2PDR_NONE, &command);
+	t2practice_diag_lifecycle(T2PDLM_MAIN_COMMAND_DIAG_END, 0, 0, 0);
+	t2replay_dos_delete(t2replay_command_fn);
 #else
 	if((size != sizeof(command)) || !t2replay_command_valid(&command)) {
 		return T2RM_DISABLED;
@@ -5726,11 +5774,14 @@ void replay_entry(void)
 	if(t2replay_mode != T2RM_DISABLED) {
 		return;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_ENTRY_BEGIN, 0, 0, 0);
 	t2replay_paths_init();
+	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_PATHS_READY, 0, 0, 0);
 	command_mode = t2replay_command_load(&slot, &command_flags, &command_start);
 	if(command_mode == T2RM_DISABLED) {
 		return;
 	}
+	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_COMMAND_READY, 0, 0, 0);
 	if(command_mode == T2REPLAY_COMMAND_RECORD) {
 		t2replay_temp_set();
 	} else {
@@ -5783,6 +5834,9 @@ void replay_entry(void)
 		t2replay_practice_target = command_start.reserved[
 			T2REPLAY_PRACTICE_TARGET_OFFSET
 		];
+		t2practice_diag_lifecycle(
+			T2PDLM_MAIN_PRACTICE_START_APPLIED, 0, 0, 0
+		);
 		return;
 	}
 	if(command_mode == T2RM_RECORD) {
@@ -6386,6 +6440,175 @@ static bool16 near t2replay_extra_sigma_phase9_activate_clean(void)
 	return true;
 }
 
+// Turbo C++'s dense switch table for these patch-tail IDs is not stable after
+// this executable's native segments. Keep the public IDs explicit so every
+// Practice target follows ordinary comparisons and a directly visible owner.
+static bool16 near t2practice_target_apply_explicit(uint8_t target)
+{
+	int target_scroll_step = -1;
+	th02_s1_rika_clean_target_t rika_target;
+	th02_s2_meira_clean_target_t meira_target;
+	th02_s3_stones_clean_target_t stones_target;
+
+	if(target == T2RPT_STAGE_START) {
+		return true;
+	}
+	if(target == T2RPT_STAGE1_CHAPTER2) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 186;
+	} else if(target == T2RPT_STAGE1_MIDBOSS) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 116;
+	} else if(
+		(target >= T2RPT_STAGE1_BOSS_PHASE1) &&
+		(target <= T2RPT_STAGE1_BOSS_PHASE3)
+	) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		rika_target = static_cast<th02_s1_rika_clean_target_t>(
+			target - T2RPT_STAGE1_BOSS_PHASE1
+		);
+		if(!practice_terminal_field_build() ||
+		   !t2replay_stage1_rika_activate_clean(rika_target)) { return false; }
+	} else if(target == T2RPT_STAGE2_CHAPTER2) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 135;
+	} else if(target == T2RPT_STAGE2_MIDBOSS) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 80;
+	} else if(
+		(target >= T2RPT_STAGE2_BOSS_PHASE1) &&
+		(target <= T2RPT_STAGE2_BOSS_PHASE3)
+	) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		meira_target = static_cast<th02_s2_meira_clean_target_t>(
+			target - T2RPT_STAGE2_BOSS_PHASE1
+		);
+		if(!practice_terminal_field_build() ||
+		   !t2replay_stage2_meira_activate_clean(meira_target)) { return false; }
+	} else if(target == T2RPT_STAGE3_CHAPTER2) {
+		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		th02_s3_field_clean_init();
+		target_scroll_step = 151;
+	} else if(target == T2RPT_STAGE3_MIDBOSS) {
+		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		th02_s3_field_clean_init();
+		target_scroll_step = 103;
+	} else if(
+		(target == T2RPT_STAGE3_BOSS_START) ||
+		(target == T2RPT_STAGE3_INNER_PAIR) ||
+		(target == T2RPT_STAGE3_OUTER_PAIR)
+	) {
+		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		stones_target = static_cast<th02_s3_stones_clean_target_t>(
+			(target == T2RPT_STAGE3_BOSS_START)
+				? T2S3_STONES_BOSS_START
+				: ((target == T2RPT_STAGE3_INNER_PAIR)
+					? T2S3_STONES_INNER_PAIR : T2S3_STONES_OUTER_PAIR)
+		);
+		if(!t2replay_stage3_stones_activate_clean(stones_target)) { return false; }
+	} else if(target == T2RPT_STAGE3_NORTH_PHASE4) {
+		if((stage_id != 2) || !t2replay_stage3_north_phase4_activate_clean()) {
+			if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_CHAPTER2) {
+		if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 1327;
+	} else if(target == T2RPT_STAGE4_CHAPTER3) {
+		if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 2008;
+	} else if(target == T2RPT_STAGE4_MIDBOSS_FIRST) {
+		if((stage_id != 3) ||
+		   !t2replay_stage4_midboss_activate_clean(T2S4_MIDBOSS_FIRST, 944)) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_MIDBOSS_SECOND) {
+		if((stage_id != 3) ||
+		   !t2replay_stage4_midboss_activate_clean(T2S4_MIDBOSS_SECOND, 1632)) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_BOSS_START) {
+		if((stage_id != 3) || !t2replay_stage4_marisa_activate_clean()) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_BOSS_PHASE1) {
+		if((stage_id != 3) || !t2replay_stage4_marisa_phase1_activate_clean()) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_BOSS_ROUND2) {
+		if((stage_id != 3) ||
+		   !t2replay_stage4_marisa_round_activate_clean(T2LBPT_MARISA_ROUND2)) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE4_BOSS_ROUND3) {
+		if((stage_id != 3) ||
+		   !t2replay_stage4_marisa_round_activate_clean(T2LBPT_MARISA_ROUND3)) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(
+		(target >= T2RPT_STAGE4_BOSS_ROUND4) &&
+		(target <= T2RPT_STAGE4_BOSS_ROUND7)
+	) {
+		if((stage_id != 3) || !t2replay_stage4_marisa_round_activate_clean(
+			static_cast<th02_later_boss_target_t>(
+				T2LBPT_MARISA_ROUND4 + (target - T2RPT_STAGE4_BOSS_ROUND4)
+			)
+		)) {
+			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
+			return false;
+		}
+	} else if(target == T2RPT_STAGE5_BOSS_START) {
+		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) { return false; }
+	} else if(target == T2RPT_STAGE5_BOSS_PHASE1) {
+		if((stage_id != 4) || !t2replay_stage5_mima_phase1_activate_clean()) { return false; }
+	} else if(target == T2RPT_STAGE5_BOSS_PHASE3) {
+		if((stage_id != 4) || !t2replay_stage5_mima_phase3_activate_clean()) { return false; }
+	} else if(target == T2RPT_STAGE5_BOSS_PHASE5) {
+		if((stage_id != 4) || !t2replay_stage5_mima_phase5_activate_clean()) { return false; }
+	} else if(target == T2RPT_STAGE5_BOSS_PHASE7) {
+		if((stage_id != 4) || !t2replay_stage5_mima_phase7_activate_clean()) { return false; }
+	} else if(target == T2RPT_STAGE5_BOSS_PHASE9) {
+		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_CHAPTER2) {
+		if(stage_id != 5) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 239;
+	} else if(target == T2RPT_EXTRA_MIDBOSS) {
+		if(stage_id != 5) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 200;
+	} else if(target == T2RPT_EXTRA_BOSS_START) {
+		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_BOSS_PHASE1) {
+		if((stage_id != 5) || !t2replay_extra_sigma_phase1_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_BOSS_PHASE3) {
+		if((stage_id != 5) || !t2replay_extra_sigma_phase3_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_BOSS_PHASE5) {
+		if((stage_id != 5) || !t2replay_extra_sigma_phase5_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_BOSS_PHASE7) {
+		if((stage_id != 5) || !t2replay_extra_sigma_phase7_activate_clean()) { return false; }
+	} else if(target == T2RPT_EXTRA_BOSS_PHASE9) {
+		if((stage_id != 5) || !t2replay_extra_sigma_phase9_activate_clean()) { return false; }
+	} else {
+		t2practice_diag_failure(T2PDR_TARGET_UNKNOWN);
+		return false;
+	}
+
+	if(target_scroll_step >= 0) {
+		if(!practice_chapter_field_build(target_scroll_step)) { return false; }
+		if((target == T2RPT_STAGE4_CHAPTER2) ||
+		   (target == T2RPT_STAGE4_CHAPTER3)) {
+			midboss_scroll_step = 1632;
+		}
+	}
+	t2replay_practice_target = T2RPT_STAGE_START;
+	return true;
+}
+
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 static bool16 near t2practice_target_finish(bool16 result)
 {
@@ -6399,713 +6622,19 @@ static bool16 near t2practice_target_finish(bool16 result)
 	return result;
 }
 
-#define t2practice_target_return(result) return t2practice_target_finish(result)
-
 bool16 replay_practice_target_apply(void)
 {
 	uint8_t target = t2replay_practice_target;
-	int target_scroll_step;
-	th02_s1_rika_clean_target_t rika_target;
-	th02_s2_meira_clean_target_t meira_target;
-	th02_s3_stones_clean_target_t stones_target;
 
 	t2practice_diag_apply_begin(stage_id, target, map_length, spawn_rows);
-	if(target == T2RPT_STAGE_START) {
-		t2practice_target_return(true);
-	}
-	switch(target) {
-	case T2RPT_STAGE1_CHAPTER2:
-		if(stage_id != 0) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 186;
-		break;
-	case T2RPT_STAGE2_CHAPTER2:
-		if(stage_id != 1) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 135;
-		break;
-	case T2RPT_STAGE3_CHAPTER2:
-		if(stage_id != 2) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		th02_s3_field_clean_init();
-		target_scroll_step = 151;
-		break;
-	case T2RPT_STAGE4_CHAPTER2:
-		if(stage_id != 3) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 1327;
-		break;
-	case T2RPT_STAGE4_CHAPTER3:
-		if(stage_id != 3) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 2008;
-		break;
-	case T2RPT_EXTRA_CHAPTER2:
-		if(stage_id != 5) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 239;
-		break;
-	case T2RPT_STAGE1_MIDBOSS:
-		if(stage_id != 0) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 116;
-		break;
-	case T2RPT_STAGE1_BOSS_PHASE1:
-	case T2RPT_STAGE1_BOSS_PHASE2:
-	case T2RPT_STAGE1_BOSS_PHASE3:
-		if(stage_id != 0) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		rika_target = static_cast<th02_s1_rika_clean_target_t>(
-			target - T2RPT_STAGE1_BOSS_PHASE1
-		);
-		if(
-			!practice_terminal_field_build() ||
-			!t2replay_stage1_rika_activate_clean(rika_target)
-		) {
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE2_MIDBOSS:
-		if(stage_id != 1) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 80;
-		break;
-	case T2RPT_STAGE2_BOSS_PHASE1:
-	case T2RPT_STAGE2_BOSS_PHASE2:
-	case T2RPT_STAGE2_BOSS_PHASE3:
-		if(stage_id != 1) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		meira_target = static_cast<th02_s2_meira_clean_target_t>(
-			target - T2RPT_STAGE2_BOSS_PHASE1
-		);
-		if(
-			!practice_terminal_field_build() ||
-			!t2replay_stage2_meira_activate_clean(meira_target)
-		) {
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE3_MIDBOSS:
-		if(stage_id != 2) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		th02_s3_field_clean_init();
-		target_scroll_step = 103;
-		break;
-	case T2RPT_STAGE3_BOSS_START:
-	case T2RPT_STAGE3_INNER_PAIR:
-	case T2RPT_STAGE3_OUTER_PAIR:
-		if(stage_id != 2) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		stones_target = static_cast<th02_s3_stones_clean_target_t>(
-			(target == T2RPT_STAGE3_BOSS_START)
-				? T2S3_STONES_BOSS_START
-				: ((target == T2RPT_STAGE3_INNER_PAIR)
-					? T2S3_STONES_INNER_PAIR
-					: T2S3_STONES_OUTER_PAIR)
-		);
-		if(!t2replay_stage3_stones_activate_clean(stones_target)) {
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE3_NORTH_PHASE4:
-		if(
-			(stage_id != 2) ||
-			!t2replay_stage3_north_phase4_activate_clean()
-		) {
-			if(stage_id != 2) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_MIDBOSS_FIRST:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_midboss_activate_clean(
-				T2S4_MIDBOSS_FIRST, 944
-			)
-		) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_MIDBOSS_SECOND:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_midboss_activate_clean(
-				T2S4_MIDBOSS_SECOND, 1632
-			)
-		) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_BOSS_START:
-		if((stage_id != 3) || !t2replay_stage4_marisa_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_BOSS_PHASE1:
-		if((stage_id != 3) || !t2replay_stage4_marisa_phase1_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_BOSS_ROUND2:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				T2LBPT_MARISA_ROUND2
-			)
-		) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_BOSS_ROUND3:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				T2LBPT_MARISA_ROUND3
-			)
-		) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE4_BOSS_ROUND4:
-	case T2RPT_STAGE4_BOSS_ROUND5:
-	case T2RPT_STAGE4_BOSS_ROUND6:
-	case T2RPT_STAGE4_BOSS_ROUND7:
-		// The public IDs and constructor IDs are dense over the later four
-		// regular Marisa rounds, unlike the historical interleaved IDs above.
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				static_cast<th02_later_boss_target_t>(
-					T2LBPT_MARISA_ROUND4 +
-					(target - T2RPT_STAGE4_BOSS_ROUND4)
-				)
-			)
-		) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 3) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_START:
-		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_PHASE1:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase1_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_PHASE3:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase3_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_PHASE5:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase5_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_PHASE7:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase7_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_STAGE5_BOSS_PHASE9:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 4) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_MIDBOSS:
-		if(stage_id != 5) {
-			t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			t2practice_target_return(false);
-		}
-		target_scroll_step = 200;
-		break;
-	case T2RPT_EXTRA_BOSS_START:
-		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_BOSS_PHASE1:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase1_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_BOSS_PHASE3:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase3_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_BOSS_PHASE5:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase5_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_BOSS_PHASE7:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase7_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	case T2RPT_EXTRA_BOSS_PHASE9:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase9_activate_clean()) {
-#if T2REPLAY_PRACTICE_DIAGNOSTICS
-			if(stage_id != 5) {
-				t2practice_diag_failure(T2PDR_STAGE_MISMATCH);
-			}
-#endif
-			t2practice_target_return(false);
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		t2practice_target_return(true);
-	default:
-		t2practice_diag_failure(T2PDR_TARGET_UNKNOWN);
-		t2practice_target_return(false);
-	}
-	if(!practice_chapter_field_build(target_scroll_step)) {
-		t2practice_target_return(false);
-	}
-	if((target == T2RPT_STAGE4_CHAPTER2) ||
-	   (target == T2RPT_STAGE4_CHAPTER3)) {
-		// The first Stage 4 midboss appearance owns this re-arm in native play.
-		midboss_scroll_step = 1632;
-	}
-	t2replay_practice_target = T2RPT_STAGE_START;
-	t2practice_target_return(true);
+	return t2practice_target_finish(
+		t2practice_target_apply_explicit(target)
+	);
 }
-
-#undef t2practice_target_return
 #else
 bool16 replay_practice_target_apply(void)
 {
-	uint8_t target = t2replay_practice_target;
-	int target_scroll_step;
-	th02_s1_rika_clean_target_t rika_target;
-	th02_s2_meira_clean_target_t meira_target;
-	th02_s3_stones_clean_target_t stones_target;
-
-	if(target == T2RPT_STAGE_START) {
-		return true;
-	}
-	switch(target) {
-	case T2RPT_STAGE1_CHAPTER2:
-		if(stage_id != 0) {
-			return false;
-		}
-		target_scroll_step = 186;
-		break;
-	case T2RPT_STAGE2_CHAPTER2:
-		if(stage_id != 1) {
-			return false;
-		}
-		target_scroll_step = 135;
-		break;
-	case T2RPT_STAGE3_CHAPTER2:
-		if(stage_id != 2) {
-			return false;
-		}
-		th02_s3_field_clean_init();
-		target_scroll_step = 151;
-		break;
-	case T2RPT_STAGE4_CHAPTER2:
-		if(stage_id != 3) {
-			return false;
-		}
-		target_scroll_step = 1327;
-		break;
-	case T2RPT_STAGE4_CHAPTER3:
-		if(stage_id != 3) {
-			return false;
-		}
-		target_scroll_step = 2008;
-		break;
-	case T2RPT_EXTRA_CHAPTER2:
-		if(stage_id != 5) {
-			return false;
-		}
-		target_scroll_step = 239;
-		break;
-	case T2RPT_STAGE1_MIDBOSS:
-		if(stage_id != 0) {
-			return false;
-		}
-		target_scroll_step = 116;
-		break;
-	case T2RPT_STAGE1_BOSS_PHASE1:
-	case T2RPT_STAGE1_BOSS_PHASE2:
-	case T2RPT_STAGE1_BOSS_PHASE3:
-		if(stage_id != 0) {
-			return false;
-		}
-		rika_target = static_cast<th02_s1_rika_clean_target_t>(
-			target - T2RPT_STAGE1_BOSS_PHASE1
-		);
-		if(
-			!practice_terminal_field_build() ||
-			!t2replay_stage1_rika_activate_clean(rika_target)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE2_MIDBOSS:
-		if(stage_id != 1) {
-			return false;
-		}
-		target_scroll_step = 80;
-		break;
-	case T2RPT_STAGE2_BOSS_PHASE1:
-	case T2RPT_STAGE2_BOSS_PHASE2:
-	case T2RPT_STAGE2_BOSS_PHASE3:
-		if(stage_id != 1) {
-			return false;
-		}
-		meira_target = static_cast<th02_s2_meira_clean_target_t>(
-			target - T2RPT_STAGE2_BOSS_PHASE1
-		);
-		if(
-			!practice_terminal_field_build() ||
-			!t2replay_stage2_meira_activate_clean(meira_target)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE3_MIDBOSS:
-		if(stage_id != 2) {
-			return false;
-		}
-		th02_s3_field_clean_init();
-		target_scroll_step = 103;
-		break;
-	case T2RPT_STAGE3_BOSS_START:
-	case T2RPT_STAGE3_INNER_PAIR:
-	case T2RPT_STAGE3_OUTER_PAIR:
-		if(stage_id != 2) {
-			return false;
-		}
-		stones_target = static_cast<th02_s3_stones_clean_target_t>(
-			(target == T2RPT_STAGE3_BOSS_START)
-				? T2S3_STONES_BOSS_START
-				: ((target == T2RPT_STAGE3_INNER_PAIR)
-					? T2S3_STONES_INNER_PAIR
-					: T2S3_STONES_OUTER_PAIR)
-		);
-		if(!t2replay_stage3_stones_activate_clean(stones_target)) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE3_NORTH_PHASE4:
-		if(
-			(stage_id != 2) ||
-			!t2replay_stage3_north_phase4_activate_clean()
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_MIDBOSS_FIRST:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_midboss_activate_clean(
-				T2S4_MIDBOSS_FIRST, 944
-			)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_MIDBOSS_SECOND:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_midboss_activate_clean(
-				T2S4_MIDBOSS_SECOND, 1632
-			)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_BOSS_START:
-		if((stage_id != 3) || !t2replay_stage4_marisa_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_BOSS_PHASE1:
-		if((stage_id != 3) || !t2replay_stage4_marisa_phase1_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_BOSS_ROUND2:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				T2LBPT_MARISA_ROUND2
-			)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_BOSS_ROUND3:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				T2LBPT_MARISA_ROUND3
-			)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE4_BOSS_ROUND4:
-	case T2RPT_STAGE4_BOSS_ROUND5:
-	case T2RPT_STAGE4_BOSS_ROUND6:
-	case T2RPT_STAGE4_BOSS_ROUND7:
-		if(
-			(stage_id != 3) ||
-			!t2replay_stage4_marisa_round_activate_clean(
-				static_cast<th02_later_boss_target_t>(
-					T2LBPT_MARISA_ROUND4 +
-					(target - T2RPT_STAGE4_BOSS_ROUND4)
-				)
-			)
-		) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_START:
-		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_PHASE1:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase1_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_PHASE3:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase3_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_PHASE5:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase5_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_PHASE7:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase7_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_STAGE5_BOSS_PHASE9:
-		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_MIDBOSS:
-		if(stage_id != 5) {
-			return false;
-		}
-		target_scroll_step = 200;
-		break;
-	case T2RPT_EXTRA_BOSS_START:
-		if((stage_id != 5) || !t2replay_extra_sigma_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_BOSS_PHASE1:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase1_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_BOSS_PHASE3:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase3_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_BOSS_PHASE5:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase5_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_BOSS_PHASE7:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase7_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	case T2RPT_EXTRA_BOSS_PHASE9:
-		if((stage_id != 5) || !t2replay_extra_sigma_phase9_activate_clean()) {
-			return false;
-		}
-		t2replay_practice_target = T2RPT_STAGE_START;
-		return true;
-	default:
-		return false;
-	}
-	if(!practice_chapter_field_build(target_scroll_step)) {
-		return false;
-	}
-	if((target == T2RPT_STAGE4_CHAPTER2) ||
-	   (target == T2RPT_STAGE4_CHAPTER3)) {
-		// The first Stage 4 midboss appearance owns this re-arm in native play.
-		midboss_scroll_step = 1632;
-	}
-	t2replay_practice_target = T2RPT_STAGE_START;
-	return true;
+	return t2practice_target_apply_explicit(t2replay_practice_target);
 }
 #endif
 
