@@ -785,8 +785,10 @@ static bool replay_op_checkpoint_identity_valid(
 	}
 	if(start->kind == RSK_MIDBOSS) {
 		return (
-			(start->phase == 0) &&
-			replay_practice_midboss_valid(start->stage, start->section)
+			replay_practice_midboss_valid(start->stage, start->section) &&
+			(start->phase <= replay_practice_midboss_phase_max(
+				start->stage, start->section
+			))
 		);
 	}
 	if(start->kind == RSK_BOSS_PHASE) {
@@ -945,7 +947,8 @@ static bool replay_op_start_valid(
 	}
 	#if (GAME == 5)
 		if(
-			(start->playchar > 3) || start->shottype || (start->dream > 128) ||
+			(start->playchar > 3) || start->shottype ||
+			(start->dream < 1) || (start->dream > 128) ||
 			(start->stage_point_items_collected > 999)
 		) {
 			return false;
@@ -2687,8 +2690,18 @@ static uint8_t practice_target_count(
 		replay_practice_chapter_count(start->stage) +
 		replay_practice_midboss_count(start->stage)
 	);
+	uint8_t midboss;
 	uint8_t section;
 
+	for(
+		midboss = 0;
+		midboss < replay_practice_midboss_count(start->stage);
+		midboss++
+	) {
+		count = static_cast<uint8_t>(
+			count + replay_practice_midboss_phase_max(start->stage, midboss)
+		);
+	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
 		count = static_cast<uint8_t>(
 			count + practice_boss_phase_max(start, section) + 1
@@ -2726,11 +2739,18 @@ static uint8_t practice_target_index(
 			) {
 				if(
 					(start->kind == RSK_MIDBOSS) &&
-					(start->section == midboss)
+					(start->section == midboss) &&
+					(start->phase <= replay_practice_midboss_phase_max(
+						start->stage, midboss
+					))
 				) {
-					return index;
+					return static_cast<uint8_t>(index + start->phase);
 				}
-				index++;
+				index = static_cast<uint8_t>(
+					index + replay_practice_midboss_phase_max(
+						start->stage, midboss
+					) + 1
+				);
 			}
 		}
 	}
@@ -2781,12 +2801,16 @@ static void practice_target_set(
 			) {
 				continue;
 			}
-			if(index == 0) {
+			count = static_cast<uint8_t>(
+				replay_practice_midboss_phase_max(start->stage, midboss) + 1
+			);
+			if(index < count) {
 				start->kind = RSK_MIDBOSS;
 				start->section = midboss;
+				start->phase = index;
 				return;
 			}
-			index--;
+			index = static_cast<uint8_t>(index - count);
 		}
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
@@ -2859,6 +2883,18 @@ static char *practice_target_value_append(
 {
 	#define P(c) *p++ = c
 	if((start->kind == RSK_STAGE) || (start->kind == RSK_CHAPTER)) {
+		replay_practice_target_label_t label = replay_practice_chapter_label(
+			start->stage,
+			((start->kind == RSK_STAGE) ? 1 : start->section)
+		);
+		if(label == RPTL_PRE_BOSS) {
+			P('P'); P('r'); P('e'); P('-'); P('B'); P('o'); P('s'); P('s');
+			return p;
+		}
+		if(label == RPTL_RINGS) {
+			P('R'); P('i'); P('n'); P('g'); P('s');
+			return p;
+		}
 		P('C'); P('h'); P('a'); P('p'); P('t'); P('e'); P('r'); P(' ');
 		return replay_op_uint_append(
 			p, ((start->kind == RSK_STAGE) ? 1 : start->section), 2
@@ -2868,10 +2904,26 @@ static char *practice_target_value_append(
 		P('M'); P('i'); P('d'); P('b'); P('o'); P('s'); P('s');
 		if(replay_practice_midboss_count(start->stage) > 1) {
 			P(' ');
-			return replay_op_uint_append(p, (start->section + 1), 1);
+			p = replay_op_uint_append(p, (start->section + 1), 1);
 		}
-		return p;
+		if(replay_practice_midboss_phase_max(
+			start->stage, start->section
+		) == 0) {
+			return p;
+		}
+		P(' ');
+		if(start->phase == 0) {
+			P('S'); P('t'); P('a'); P('r'); P('t');
+			return p;
+		}
+		P('P'); P('h'); P('a'); P('s'); P('e'); P(' ');
+		return replay_op_uint_append(p, start->phase, 1);
 	}
+	// Stable extension point for reviewed community phase names. Numeric names
+	// remain the fallback until a label is assigned.
+	(void)replay_practice_boss_phase_label(
+		start->stage, start->section, start->phase
+	);
 	p = practice_boss_name_append(p, start);
 	P(' ');
 	if(start->phase == 0) {
@@ -3053,7 +3105,7 @@ static void practice_field_change(
 		break;
 	case PF_DREAM:
 		practice_u8_change(
-			&start->dream, 0, ((GAME == 5) ? 128 : 7),
+			&start->dream, ((GAME == 5) ? 1 : 0), ((GAME == 5) ? 128 : 7),
 			(fast ? ((GAME == 5) ? 16 : 2) : 1), right
 		);
 		break;
@@ -3153,6 +3205,9 @@ static uint32_t practice_field_numeric_min(
 		return 1;
 	}
 	if(field == PF_LIVES) {
+		return 1;
+	}
+	if((field == PF_DREAM) && (GAME == 5)) {
 		return 1;
 	}
 	if(field == PF_PLAYPERF) {
@@ -4830,6 +4885,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
+
+// RC32's reviewed chapter rows and labels change generated code size. Keep
+// the following stock runtime segment on its pinned paragraph phase.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

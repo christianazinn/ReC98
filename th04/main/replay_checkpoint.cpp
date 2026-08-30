@@ -6311,6 +6311,7 @@ bool replay_ck_actor_probe(replay_ck_actor_probe_t far *probe)
 	}
 	probe->midboss_active = midboss_active;
 	probe->midboss_finished = (midboss.phase == PHASE_NONE);
+	probe->midboss_phase = midboss.phase;
 	probe->boss_phase = boss.phase;
 	if(boss.phase == PHASE_NONE) {
 		probe->boss_section = REPLAY_CK_BOSS_SECTION_NONE;

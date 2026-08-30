@@ -158,6 +158,7 @@ static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
 static bool replay_practice_preroll_pending;
+static bool replay_practice_midboss_seek_done;
 static bool replay_practice_direct_redraw_pending;
 bool replay_stage_presentation_skip;
 
@@ -1168,8 +1169,10 @@ bool replay_checkpoint_identity_valid(
 	}
 	if(start->kind == RSK_MIDBOSS) {
 		return (
-			(start->phase == 0) &&
-			replay_practice_midboss_valid(start->stage, start->section)
+			replay_practice_midboss_valid(start->stage, start->section) &&
+			(start->phase <= replay_practice_midboss_phase_max(
+				start->stage, start->section
+			))
 		);
 	}
 	if(start->kind == RSK_BOSS_PHASE) {
@@ -1317,7 +1320,7 @@ static bool replay_start_config_valid(
 	#if (GAME == 5)
 		if(
 			(start->playchar > 3) || (start->shottype != 0) ||
-			(start->dream > 128) ||
+			(start->dream < 1) || (start->dream > 128) ||
 			(start->stage_point_items_collected > 999)
 		) {
 			return false;
@@ -2188,7 +2191,10 @@ bool replay_practice_preroll_boundary(void)
 	}
 	if(
 		(replay_header.start.kind == RSK_CHAPTER) ||
-		(replay_header.start.kind == RSK_MIDBOSS) ||
+		(
+			(replay_header.start.kind == RSK_MIDBOSS) &&
+			!replay_practice_midboss_seek_done
+		) ||
 		(
 			(replay_header.start.kind == RSK_BOSS_PHASE) &&
 			replay_ck_practice_boss_direct_supported(&replay_header.start)
@@ -2208,8 +2214,15 @@ bool replay_practice_preroll_boundary(void)
 			replay_practice_config_apply(&replay_header.start);
 			player_shot_level_update();
 		}
-		replay_practice_direct_redraw_pending = true;
-		reached = true;
+		if(replay_header.start.kind == RSK_MIDBOSS) {
+			replay_practice_midboss_seek_done = true;
+			reached = (replay_header.start.phase == 0);
+		} else {
+			reached = true;
+		}
+		if(reached) {
+			replay_practice_direct_redraw_pending = true;
+		}
 	} else {
 		if(!replay_ck_actor_probe(&probe)) {
 			replay_private_diagnostic = (
@@ -2234,6 +2247,14 @@ bool replay_practice_preroll_boundary(void)
 		}
 		replay_preroll_boss_section = probe.boss_section;
 		replay_preroll_boss_phase = probe.boss_phase;
+		if(
+			(replay_header.start.kind == RSK_MIDBOSS) &&
+			probe.midboss_active &&
+			(probe.midboss_phase == replay_header.start.phase)
+		) {
+			reached = true;
+			replay_practice_direct_redraw_pending = true;
+		}
 	}
 	if(!reached) {
 		return false;
@@ -2584,6 +2605,7 @@ void replay_entry(void)
 	replay_preroll_boss_phase = 0xFF;
 	replay_preroll_interstitial_cycle = 0;
 	replay_practice_preroll_pending = false;
+	replay_practice_midboss_seek_done = false;
 	replay_practice_direct_redraw_pending = false;
 	replay_stage_presentation_skip = false;
 	replay_pause_action = RPA_NONE;
@@ -3235,6 +3257,22 @@ static void replay_debug_u16_put(
 	text_putsa(left, 0, digits, TX_WHITE);
 }
 
+static void replay_debug_u32_put(
+	tram_x_t left, uint32_t value, uint32_t divisor
+)
+{
+	char digits[11];
+	int i = 0;
+
+	while(divisor != 0) {
+		digits[i++] = static_cast<char>('0' + (value / divisor));
+		value %= divisor;
+		divisor /= 10;
+	}
+	digits[i] = '\0';
+	text_putsa(left, 0, digits, TX_WHITE);
+}
+
 static void replay_debug_stage_coordinates_put(void)
 {
 	uint16_t next_std_frame;
@@ -3265,6 +3303,10 @@ static void replay_debug_stage_coordinates_put(void)
 	replay_debug_u16_put(19, next_std_frame, 10000);
 	text_putca(25, 0, 'M', TX_WHITE);
 	replay_debug_u16_put(26, map_section, 10);
+	text_putca(29, 0, 'R', TX_WHITE);
+	replay_debug_u16_put(30, playperf, 100);
+	text_putca(34, 0, 'G', TX_WHITE);
+	replay_debug_u32_put(35, static_cast<uint32_t>(random_seed), 1000000000UL);
 }
 
 void replay_input_reset_sense_tail(void)
@@ -3534,5 +3576,12 @@ bool replay_playback_active(void)
 	#endif
 	// RC24 adds the previous .STD event frame to the debug coordinate row.
 	#pragma codestring "\x90"
+	// RC32 expands the reviewed chapter catalog and debug telemetry. Preserve
+	// the stock CRT paragraph phase after the resulting compiler-size change.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#else
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#endif
 
 #pragma codeseg

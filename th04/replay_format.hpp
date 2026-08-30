@@ -31,7 +31,7 @@
 
 // Source fingerprint shared by the normalized TH04/TH05 checkpoint schemas.
 // Change this only when checkpoint interpretation changes.
-#define REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0x9533C814UL
+#define REPLAY_CHECKPOINT_SOURCE_FINGERPRINT 0xDD19B1F3UL
 
 #define REPLAY_USER_FLAG_RLE_INPUT 0x0001
 #define REPLAY_USER_FLAG_SHIFT_INPUT 0x0002

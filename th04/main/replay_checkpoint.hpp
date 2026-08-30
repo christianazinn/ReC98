@@ -59,6 +59,7 @@ struct replay_ck_plan_t {
 struct replay_ck_actor_probe_t {
 	bool midboss_active;
 	bool midboss_finished;
+	uint8_t midboss_phase;
 	uint8_t boss_section;
 	uint8_t boss_phase;
 };
