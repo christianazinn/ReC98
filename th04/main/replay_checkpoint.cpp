@@ -2101,9 +2101,17 @@ static void rck_practice_bytes_clear(void near *dst, unsigned size)
 
 static void rck_practice_boss_transients_clear(void)
 {
+	int i;
+	uint16_t angle;
+
 	rck_practice_bytes_clear(shots, sizeof(shots));
 	rck_practice_bytes_clear(enemies, sizeof(enemies));
-	rck_practice_bytes_clear(sparks, sizeof(sparks));
+	for(i = 0; i < SPARK_COUNT; i++) {
+		angle = sparks[i].angle;
+		rck_practice_bytes_clear(&sparks[i], sizeof(sparks[i]));
+		sparks[i].angle = angle;
+	}
+	spark_ring_offset = 0;
 	rck_practice_bytes_clear(bullets, sizeof(bullets));
 	rck_practice_bytes_clear(circles, sizeof(circles));
 	rck_practice_bytes_clear(items, sizeof(items));
@@ -2471,9 +2479,6 @@ static bool rck_practice_dialog_prepare(void)
 #if (GAME == 5)
 	return rck_practice_th05_dialog_prepare();
 #else
-	if(stage_id == STAGE_EXTRA) {
-		return true;
-	}
 	return rck_practice_th04_dialog_prepare();
 #endif
 }
@@ -2515,6 +2520,7 @@ static bool rck_practice_boss_construct(
 {
 	unsigned char se_mode = snd_se_mode;
 	uint32_t frames = 0;
+	bool dialog_prepared;
 
 	rck_practice_boss_resident_rand = start->resident_rand;
 	rck_practice_boss_random_seed = start->random_seed;
@@ -2531,16 +2537,20 @@ static bool rck_practice_boss_construct(
 	boss_update = boss_update_func;
 	boss_fg_render = boss_fg_render_func;
 	snd_se_mode = SND_SE_OFF;
-
+	dialog_prepared = rck_practice_dialog_prepare();
 #if (GAME == 4)
 	if(
+		dialog_prepared &&
 		(start->stage == STAGE_EXTRA) &&
 		(start->section == RCS_TH04_GENGETSU)
 	) {
-		rck_practice_th04_gengetsu_prepare();
+		dialog_prepared = rck_practice_dialog_prepare();
+		if(dialog_prepared) {
+			rck_practice_th04_gengetsu_prepare();
+		}
 	}
-	#endif
-	if(!rck_practice_dialog_prepare()) {
+#endif
+	if(!dialog_prepared) {
 	#if (GAME == 5)
 		replay_ck_failure_group_value = RCGI_DIALOG;
 	#else

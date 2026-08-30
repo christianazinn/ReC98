@@ -259,15 +259,17 @@ static void language_asset_stock_restore(void)
 	pfstart(fn);
 }
 
-#if ((GAME == 5) && (BINARY == 'O'))
+#if (BINARY == 'O')
 void pascal language_asset_snd_load(const char *fn, int func)
 {
-	// The title roll's preceding PI loads can leave the packfile hook unable to
-	// resolve OP.M/OP.M2. TH05's snd_load() retries OP.M forever in that state.
+	// Overlay loads can leave the packfile hook unable to resolve the stock
+	// title song. TH04 then reads an invalid handle; TH05 retries forever.
 	language_asset_stock_restore();
 	snd_load(fn, static_cast<snd_load_func_t>(func));
 }
+#endif
 
+#if ((GAME == 5) && (BINARY == 'O'))
 static void language_asset_music_overlay_name_set(char *fn)
 {
 	fn[0] = 'T'; fn[1] = '5'; fn[2] = 'E'; fn[3] = 'N';

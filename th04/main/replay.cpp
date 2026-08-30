@@ -32,6 +32,7 @@
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
 #include "th04/score.h"
+#include "th04/snd/snd.h"
 #include "th03/core/initexit.h"
 #if (GAME == 5)
 	#include "th05/hardware/input.h"
@@ -2182,6 +2183,140 @@ bool replay_private_test_active(void)
 	return replay_private_test;
 }
 
+static uint16_t replay_practice_music_measure_for_frame(
+	uint8_t stage, uint16_t frame
+)
+{
+#if (GAME == 5)
+	switch(stage) {
+	case 0:
+		switch(frame) {
+		case 1200: return 14; case 1900: return 22; case 2500: return 29;
+		case 2800: return 33; case 4200: return 49; case 5400: return 64;
+		case 6600: return 78; case 7800: return 92;
+		}
+		break;
+	case 1:
+		switch(frame) {
+		case 700: return 8; case 1400: return 16; case 2200: return 26;
+		case 2750: return 32; case 3400: return 40; case 5100: return 59;
+		case 5500: return 64; case 6200: return 72;
+		}
+		break;
+	case 2:
+		switch(frame) {
+		case 1600: return 19;
+		case 2200: return ((snd_bgm_mode == SND_BGM_FM26) ? 27 : 26);
+		case 4000: return 49; case 5200: return 63; case 5750: return 70;
+		case 6200: return 76;
+		case 8050: return ((snd_bgm_mode == SND_BGM_FM26) ? 99 : 98);
+		case 9000: return 110;
+		}
+		break;
+	case 3:
+		switch(frame) {
+		case 1700: return 19; case 2400: return 27; case 3100: return 35;
+		case 3900: return 44; case 5000: return 57; case 6800: return 77;
+		case 7800: return 89; case 8900: return 101; case 9550: return 109;
+		case 11000: return 125;
+		}
+		break;
+	case 4:
+		switch(frame) {
+		case 1300: return 15; case 2500: return 29; case 3700: return 43;
+		case 4800: return 55; case 5400: return 62; case 7800: return 90;
+		}
+		break;
+	case 5:
+		if(frame == 1700) return 22;
+		break;
+	case STAGE_EXTRA:
+		switch(frame) {
+		case 1000: return 10; case 1800: return 18; case 5600: return 59;
+		case 5800: return 61; case 7000: return 73; case 10500: return 110;
+		}
+		break;
+	}
+#else
+	switch(stage) {
+	case 0:
+		switch(frame) {
+		case 600: return 6; case 1320: return 14; case 2000: return 21;
+		case 3100: return 32; case 3400: return 36; case 4600: return 48;
+		case 5800: return 61;
+		}
+		break;
+	case 1:
+		switch(frame) {
+		case 1080: return 11; case 1600: return 17; case 2600: return 27;
+		case 2800: return 29; case 5000: return 53; case 6500: return 69;
+		}
+		break;
+	case 2:
+		switch(frame) {
+		case 724: return 8; case 1600: return 18; case 2100: return 24;
+		case 3220: return 38; case 4200: return 49; case 4700: return 55;
+		case 5188: return 61; case 5920: return 70; case 6300: return 74;
+		case 6608: return 78; case 7200: return 85;
+		}
+		break;
+	case 3:
+		switch(frame) {
+		case 1400: return 16; case 2100: return 24; case 2800: return 32;
+		case 3400: return 39; case 4200: return 48; case 5200: return 60;
+		case 5600: return 64; case 6500: return 75; case 8200: return 95;
+		case 9700: return 112; case 10600: return 122; case 12200: return 141;
+		}
+		break;
+	case 4:
+		switch(frame) {
+		case 700: return 5; case 3800: return 40; case 4500: return 48;
+		}
+		break;
+	case 5:
+		switch(frame) {
+		case 1400: return 15; case 3100: return 33; case 3700: return 40;
+		}
+		break;
+	case STAGE_EXTRA:
+		switch(frame) {
+		case 1100: return 11; case 2000: return 21; case 2700: return 28;
+		case 3550: return 37; case 4200: return 44; case 4600: return 48;
+		case 5400: return 56; case 8000: return 84; case 9000: return 94;
+		case 9900: return 104;
+		}
+		break;
+	}
+#endif
+	return 0;
+}
+
+static void replay_practice_music_seek(
+	const replay_start_config_t far *start
+)
+{
+	uint16_t frame;
+	uint16_t measure;
+
+	if(!snd_bgm_active() || !snd_bgm_is_fm()) {
+		return;
+	}
+	if(start->kind == RSK_CHAPTER) {
+		frame = replay_practice_chapter_frame(start->stage, start->section);
+	} else if(start->kind == RSK_MIDBOSS) {
+		frame = replay_practice_midboss_frame(start->stage, start->section);
+	} else {
+		return;
+	}
+	measure = replay_practice_music_measure_for_frame(start->stage, frame);
+	if(measure == 0) {
+		return;
+	}
+	_DX = measure;
+	_AH = PMD_SEEK_MEASURE;
+	geninterrupt(PMD);
+}
+
 bool replay_practice_preroll_boundary(void)
 {
 	replay_ck_actor_probe_t probe;
@@ -2215,6 +2350,7 @@ bool replay_practice_preroll_boundary(void)
 			replay_practice_config_apply(&replay_header.start);
 			player_shot_level_update();
 		}
+		replay_practice_music_seek(&replay_header.start);
 		if(replay_header.start.kind == RSK_MIDBOSS) {
 			replay_practice_midboss_seek_done = true;
 			reached = (replay_header.start.phase == 0);
@@ -3111,6 +3247,11 @@ extern "C" int far replay_pause_menu(void)
 	bool save_available;
 	bool save_became_unavailable;
 	bool stage_titles_hidden = replay_pause_stage_titles_hide();
+	bool bgm_paused = (snd_bgm_active() && snd_bgm_is_fm());
+
+	if(bgm_paused) {
+		snd_kaja_func(PMD_PAUSE, 0);
+	}
 
 	while(
 		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
@@ -3190,6 +3331,9 @@ extern "C" int far replay_pause_menu(void)
 		frame_delay(1);
 	}
 	replay_pause_clear();
+	if(bgm_paused) {
+		snd_kaja_func(PMD_UNPAUSE, 0);
+	}
 	if(selected == 0) {
 		if(stage_titles_hidden) {
 			replay_pause_stage_titles_restore();
@@ -3581,6 +3725,13 @@ bool replay_playback_active(void)
 	// the stock CRT paragraph phase after the current compiler-size changes.
 	#if (GAME == 5)
 		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#endif
+	// v0.1.1 adds Practice music seeking and BGM pause control. Keep the stock
+	// CRT tail at its verified paragraph phase.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#else
+		#pragma codestring "\x90\x90"
 	#endif
 
 #pragma codeseg

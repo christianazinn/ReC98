@@ -5,8 +5,10 @@
 #include "defconv.h"
 
 void language_asset_music_prepare(void);
-#if ((GAME == 5) && (BINARY == 'O'))
+#if (BINARY == 'O')
 void pascal language_asset_snd_load(const char *fn, int func);
+#endif
+#if ((GAME == 5) && (BINARY == 'O'))
 int pascal language_asset_music_file_ropen(const char *fn);
 void pascal language_asset_music_file_close(void);
 #endif

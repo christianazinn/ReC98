@@ -904,14 +904,14 @@ static void language_option_audio_restart(bool also_reload_se)
 #if (GAME == 5)
 	if(also_reload_se) {
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
-		snd_load(language_se_fn, SND_LOAD_SE);
+		language_asset_snd_load(language_se_fn, SND_LOAD_SE);
 	} else {
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
 	}
 #else
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 #endif
-	snd_load(language_menu_bgm_fn, SND_LOAD_SONG);
+	language_asset_snd_load(language_menu_bgm_fn, SND_LOAD_SONG);
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
 }
 
@@ -992,7 +992,7 @@ static void language_option_change(bool increment)
 		}
 #if (GAME == 5)
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
-		snd_load(language_se_fn, SND_LOAD_SE);
+		language_asset_snd_load(language_se_fn, SND_LOAD_SE);
 #endif
 		break;
 	case LOC_TURBO_OR_SLOW:

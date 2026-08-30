@@ -25,6 +25,9 @@ typedef enum {
 	PMD_GET_SE_ADDRESS = 0x0B,
 	PMD_SE_PLAY = 0x0C,
 	PMD_GET_WORKAREA_ADDRESS = 0x10,
+	PMD_PAUSE = 0x1A,
+	PMD_UNPAUSE = 0x1B,
+	PMD_SEEK_MEASURE = 0x1C,
 
 	// Returns the sizes of the song (AL), instrument (AH), and sound effect
 	// (DL) buffers, in KiB. These can be customized on the PMD command line

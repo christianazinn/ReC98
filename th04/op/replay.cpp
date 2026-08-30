@@ -2690,6 +2690,18 @@ static void practice_target_reset(replay_start_config_t far *start)
 	start->phase = 0;
 }
 
+static uint8_t practice_midboss_phase_menu_max(
+	uint8_t stage, uint8_t section
+)
+{
+	(void)stage;
+	(void)section;
+	// Later midboss phases still require hidden native actor stepping. Keep the
+	// serialized domain readable for existing beta replays, but expose only the
+	// directly seekable Midboss Start target in the Practice menu.
+	return 0;
+}
+
 static uint8_t practice_target_count(
 	const replay_start_config_t far *start
 )
@@ -2707,7 +2719,7 @@ static uint8_t practice_target_count(
 		midboss++
 	) {
 		count = static_cast<uint8_t>(
-			count + replay_practice_midboss_phase_max(start->stage, midboss)
+			count + practice_midboss_phase_menu_max(start->stage, midboss)
 		);
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
@@ -2748,14 +2760,14 @@ static uint8_t practice_target_index(
 				if(
 					(start->kind == RSK_MIDBOSS) &&
 					(start->section == midboss) &&
-					(start->phase <= replay_practice_midboss_phase_max(
+					(start->phase <= practice_midboss_phase_menu_max(
 						start->stage, midboss
 					))
 				) {
 					return static_cast<uint8_t>(index + start->phase);
 				}
 				index = static_cast<uint8_t>(
-					index + replay_practice_midboss_phase_max(
+					index + practice_midboss_phase_menu_max(
 						start->stage, midboss
 					) + 1
 				);
@@ -2782,13 +2794,14 @@ static void practice_target_set(
 )
 {
 	uint8_t chapter;
-	uint8_t count;
+	uint8_t chapters;
 	uint8_t midboss;
 	uint8_t section;
+	uint8_t span;
 
 	practice_target_reset(start);
-	count = replay_practice_chapter_count(start->stage);
-	for(chapter = 1; chapter <= count; chapter++) {
+	chapters = replay_practice_chapter_count(start->stage);
+	for(chapter = 1; chapter <= chapters; chapter++) {
 		if(index == 0) {
 			if(chapter > 1) {
 				start->kind = RSK_CHAPTER;
@@ -2809,29 +2822,29 @@ static void practice_target_set(
 			) {
 				continue;
 			}
-			count = static_cast<uint8_t>(
-				replay_practice_midboss_phase_max(start->stage, midboss) + 1
+			span = static_cast<uint8_t>(
+				practice_midboss_phase_menu_max(start->stage, midboss) + 1
 			);
-			if(index < count) {
+			if(index < span) {
 				start->kind = RSK_MIDBOSS;
 				start->section = midboss;
 				start->phase = index;
 				return;
 			}
-			index = static_cast<uint8_t>(index - count);
+			index = static_cast<uint8_t>(index - span);
 		}
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
-		count = static_cast<uint8_t>(
+		span = static_cast<uint8_t>(
 			practice_boss_phase_max(start, section) + 1
 		);
-		if(index < count) {
+		if(index < span) {
 			start->kind = RSK_BOSS_PHASE;
 			start->section = section;
 			start->phase = index;
 			return;
 		}
-		index = static_cast<uint8_t>(index - count);
+		index = static_cast<uint8_t>(index - span);
 	}
 }
 
@@ -2914,7 +2927,7 @@ static char *practice_target_value_append(
 			P(' ');
 			p = replay_op_uint_append(p, (start->section + 1), 1);
 		}
-		if(replay_practice_midboss_phase_max(
+		if(practice_midboss_phase_menu_max(
 			start->stage, start->section
 		) == 0) {
 			return p;
@@ -4427,7 +4440,7 @@ static void replay_main_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20302E31UL); // "1.0 "
+	TITLE_CREDIT_QUAD(4, 0x20312E31UL); // "1.1 "
 	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
@@ -4999,5 +5012,13 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #endif
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+
+// v0.1.1 repairs Practice target enumeration and Option audio reloads. Keep
+// the following stock runtime segment at its verified paragraph phase.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 #pragma codeseg

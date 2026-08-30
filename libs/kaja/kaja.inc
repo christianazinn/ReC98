@@ -12,6 +12,9 @@ PMD_GET_DRIVER_VERSION equ 09h
 PMD_GET_SE_ADDRESS equ 0Bh
 PMD_SE_PLAY equ 0Ch
 PMD_GET_WORKAREA_ADDRESS equ 10h
+PMD_PAUSE equ 1Ah
+PMD_UNPAUSE equ 1Bh
+PMD_SEEK_MEASURE equ 1Ch
 
 kajacall	macro func, param := <0>
 	call	snd_kaja_interrupt pascal, (func shl 8) or (param and 0ffh)
