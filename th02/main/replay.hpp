@@ -123,6 +123,10 @@ bool16 far replay_checkpoint_common_groups_valid(
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
 
+// Restores Practice's fixed dynamic rank after native paths that assign or
+// increment [playperf]. No-op outside Rank Lock sessions.
+void replay_rank_lock_apply(void);
+
 // Replay-aware equivalent of key_delay() for blocking gameplay presentation.
 // Returns false when playback has failed or the host requested cancellation.
 bool replay_input_wait_for_change(void);

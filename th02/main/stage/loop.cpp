@@ -156,6 +156,7 @@ bool16 stage_loop(void)
 			midboss_update_and_render();
 		}
 		player_update_and_render();
+		replay_rank_lock_apply();
 		items_update_and_render();
 		lasers_update_and_render_func();
 		bullets_update_and_render();
@@ -272,6 +273,7 @@ flip:
 				__emit__(0xEB, 0x00); // JMP SHORT $+2
 			}
 		}
+		replay_rank_lock_apply();
 		score_update_and_render();
 	}
 	nopcall_same_group(score_delta_commit);

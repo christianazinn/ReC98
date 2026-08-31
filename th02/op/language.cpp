@@ -31,7 +31,7 @@ extern resident_t __seg *resident_seg;
 
 static bool t2_language_option_initialized;
 static bool t2_language_option_input_allowed;
-static bool t2_language_option_change_returned;
+static bool t2_language_option_reload_pending;
 static int8_t t2_language_option_sel;
 
 static uint8_t t2_language_option_gaiji(char c)
@@ -118,7 +118,7 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 
 static void t2_language_option_perf_put(tram_atrb2 atrb)
 {
-	uint8_t clear[T2_PERF_OPTION_VALUE_CELLS + 1];
+	char clear[(T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W) + 1];
 	int i;
 
 	// Patch-owned labels remain English in both locales and use the same native
@@ -130,16 +130,16 @@ static void t2_language_option_perf_put(tram_atrb2 atrb)
 	// and TRAM before redrawing so its edge cells cannot survive as TNORMALE.
 	graph_copy_rect_1_to_0_16(
 		T2_PERF_OPTION_VALUE_LEFT, T2_PERF_OPTION_TOP,
-		(T2_PERF_OPTION_VALUE_CELLS * GAIJI_W), GLYPH_H
+		(T2_PERF_OPTION_VALUE_CELLS * GAIJI_W), (GLYPH_H + 4)
 	);
-	for(i = 0; i < T2_PERF_OPTION_VALUE_CELLS; i++) {
-		clear[i] = gs_SPACE;
+	for(i = 0; i < (T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
+		clear[i] = ' ';
 	}
-	clear[T2_PERF_OPTION_VALUE_CELLS] = gs_NULL;
-	gaiji_putsa(
+	clear[(T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W)] = '\0';
+	text_putsa(
 		(T2_PERF_OPTION_VALUE_LEFT / GLYPH_HALF_W),
 		(T2_PERF_OPTION_TOP / GLYPH_H),
-		reinterpret_cast<const char *>(clear), TX_BLACK
+		clear, TX_BLACK
 	);
 	t2_language_option_native_center_put_at(
 		T2_LANGUAGE_OPTION_VALUE_CENTER, T2_PERF_OPTION_TOP, atrb,
@@ -204,13 +204,10 @@ static bool t2_language_option_change(int direction)
 			((target == T2LANG_JAPANESE) || t2_language_overlay_valid()) &&
 			t2_language_set(target)
 		) {
-			// Options still owns the foreground and none of its stock labels are
-			// localized. Keep the title PI heap untouched; only the Option text
-			// layer needs to be redrawn with the new preference.
-			t2_language_option_initialized = false;
-			t2_language_option_input_allowed = false;
-			t2_language_option_change_returned = true;
-			return true;
+			// Keep the active Option surface on its current gaiji table. The
+			// complete localized font/background transaction runs only after
+			// this menu returns to the title and releases its drawing state.
+			t2_language_option_reload_pending = true;
 		}
 		break;
 	}
@@ -236,7 +233,15 @@ static void t2_language_option_return_to_main(void)
 	menu_sel = 3;
 	in_option = false;
 	t2_language_option_initialized = false;
-	replay_title_redraw_request();
+	if(t2_language_option_reload_pending) {
+		t2_language_option_reload_pending = false;
+		t2practice_diag_lifecycle(T2PDLM_LANGUAGE_RETURN, 0, 0, 0);
+	}
+	// option_put_shadow() draws into the hidden page that stock OP uses as its
+	// menu backing. Copying that page back here preserves the Option shadows as
+	// black text over the title. Rebuild the clean localized title backing for
+	// both language-changing and ordinary returns.
+	replay_title_restore_request();
 }
 
 void far pascal t2_language_option_update_and_render(void)
@@ -260,12 +265,6 @@ void far pascal t2_language_option_update_and_render(void)
 			);
 		}
 		t2_language_option_initialized = true;
-		if(t2_language_option_change_returned) {
-			t2practice_diag_lifecycle(
-				T2PDLM_LANGUAGE_RETURN, 0, 0, 0
-			);
-			t2_language_option_change_returned = false;
-		}
 		return;
 	}
 	if(!key_det) {

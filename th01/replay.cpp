@@ -725,7 +725,10 @@ static bool t1replay_restart_practice_start_valid(
 			(start->section != T1RPS_BOSS_PHASE) ?
 			true :
 			(
-				(start->scene == 0) && (start->route == ROUTE_MAKAI) &&
+				(
+					((start->scene == 0) && (start->route == ROUTE_MAKAI)) ||
+					((start->scene == 1) && (start->route == ROUTE_JIGOKU))
+				) &&
 				(start->chapter == BOSS_STAGE)
 			)
 		)

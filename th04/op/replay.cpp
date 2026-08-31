@@ -62,8 +62,12 @@
 #define REPLAY_OP_COL_PRACTICE_SELECTED REPLAY_OP_COL_SELECTED
 #define REPLAY_OP_TEXT_SPACING 16
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
-#define PRACTICE_MAIN_ROWS 11
-#define PRACTICE_ADVANCED_ROWS 16
+#define PRACTICE_MAIN_ROWS 12
+#if (GAME == 5)
+	#define PRACTICE_ADVANCED_ROWS 10
+#else
+	#define PRACTICE_ADVANCED_ROWS 9
+#endif
 #define PRACTICE_STOCK_MAX REPLAY_PRACTICE_STOCK_MAX
 
 // The replay-list background has an unused palette entry at index 7. Reserve
@@ -145,6 +149,7 @@ enum practice_field_t {
 	PF_POWER,
 	PF_DREAM,
 	PF_PLAYPERF,
+	PF_RANK_LOCK,
 	PF_SCORE,
 	PF_CONTINUES,
 	PF_EXTENDS,
@@ -954,7 +959,11 @@ static bool replay_op_start_valid(
 		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) || (start->power_overflow > 42) ||
 		!replay_op_playperf_valid(start->rank, start->playperf) ||
-		(start->seed_mode > RSM_FIXED)
+		((start->seed_mode & ~(RSM_VALUE_MASK | RSM_RANK_LOCK)) != 0) ||
+		(
+			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
+			((start->seed_mode & RSM_RANK_LOCK) != 0)
+		)
 	) {
 		return false;
 	}
@@ -992,7 +1001,8 @@ static bool replay_op_start_valid(
 		(start->stage_graze != 0) || (start->power_overflow != 0) ||
 		(start->score_delta != 0) || (start->score_delta_frame != 0) ||
 		(start->hiscore_popup_shown != 0) ||
-		(start->playperf != replay_op_native_playperf(start->rank))
+		(start->playperf != replay_op_native_playperf(start->rank)) ||
+		((start->seed_mode & RSM_RANK_LOCK) != 0)
 	)) {
 		return false;
 	}
@@ -2065,6 +2075,26 @@ static void replay_op_line_put_numeric_cells(
 	}
 }
 
+static void replay_op_line_put_slot_cells(
+	screen_x_t left, vram_y_t top, vc2 col, char *p
+)
+{
+	*p = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_numeric_cells(
+			left, top, replay_op_line, 1, col
+		);
+		replay_op_font_put_numeric_cells(
+			static_cast<screen_x_t>(
+				left + REPLAY_OP_FONT_NUMERIC_CELL_W + 1
+			),
+			top, &replay_op_line[1], 1, col
+		);
+	} else {
+		replay_op_line_put(left, top, col, p);
+	}
+}
+
 static void replay_op_line_put_cells_right(
 	screen_x_t right, vram_y_t top, vc2 col, char *p
 )
@@ -2204,7 +2234,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 	}
 	p = replay_op_line;
 	p = replay_op_uint_append(p, slot, 2);
-	replay_op_line_put_numeric_cells(REPLAY_BROWSER_SLOT_LEFT, top, col, p);
+	replay_op_line_put_slot_cells(REPLAY_BROWSER_SLOT_LEFT, top, col, p);
 	p = replay_op_line;
 	if(!valid) {
 		p = replay_op_word_append(p, ROW_NONE);
@@ -2566,28 +2596,32 @@ static practice_field_t practice_field(uint8_t page, uint8_t sel)
 		case 4: return PF_POWER;
 		case 5: return PF_DREAM;
 		case 6: return PF_PLAYPERF;
-		case 7: return PF_SCORE;
-		case 8: return PF_SEED;
-		case 9: return PF_ADVANCED;
+		case 7: return PF_RANK_LOCK;
+		case 8: return PF_SCORE;
+		case 9: return PF_SEED;
+		case 10: return PF_ADVANCED;
 		default: return PF_START;
 		}
 	}
 	switch(sel) {
 	case 0: return PF_CONTINUES;
 	case 1: return PF_EXTENDS;
-	case 2: return PF_GRAZE;
-	case 3: return PF_ITEMS_SPAWNED;
-	case 4: return PF_ITEMS_COLLECTED;
-	case 5: return PF_POINT_ITEMS;
-	case 6: return PF_MAX_POINT_ITEMS;
-	case 7: return PF_ENEMIES_GONE;
-	case 8: return PF_ENEMIES_KILLED;
-	case 9: return PF_MISSES;
-	case 10: return PF_BOMBS_USED;
-	case 11: return PF_STAGE_ITEMS;
-	case 12: return PF_STAGE_GRAZE;
-	case 13: return PF_POWER_OVERFLOW;
-	case 14: return PF_RESET_DEFAULTS;
+#if (GAME == 5)
+	case 2: return PF_POINT_ITEMS;
+	case 3: return PF_MISSES;
+	case 4: return PF_BOMBS_USED;
+	case 5: return PF_STAGE_ITEMS;
+	case 6: return PF_STAGE_GRAZE;
+	case 7: return PF_POWER_OVERFLOW;
+	case 8: return PF_RESET_DEFAULTS;
+#else
+	case 2: return PF_MISSES;
+	case 3: return PF_BOMBS_USED;
+	case 4: return PF_STAGE_ITEMS;
+	case 5: return PF_STAGE_GRAZE;
+	case 6: return PF_POWER_OVERFLOW;
+	case 7: return PF_RESET_DEFAULTS;
+#endif
 	default: return PF_BACK;
 	}
 }
@@ -2613,6 +2647,9 @@ static char *practice_field_append(char *p, practice_field_t field)
 		P('D'); P('r'); P('e'); P('a'); P('m'); break;
 	case PF_PLAYPERF:
 		P('R'); P('a'); P('n'); P('k'); break;
+	case PF_RANK_LOCK:
+		P('R'); P('a'); P('n'); P('k'); P(' '); P('L'); P('o'); P('c'); P('k');
+		break;
 	case PF_SCORE:
 		P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case PF_CONTINUES:
@@ -3011,6 +3048,10 @@ static char *practice_value_append(
 	case PF_POWER: return replay_op_uint_append(p, start->power, 3);
 	case PF_DREAM: return replay_op_uint_append(p, start->dream, 3);
 	case PF_PLAYPERF: return replay_op_uint_append(p, start->playperf, 2);
+	case PF_RANK_LOCK:
+		return replay_op_word_append(
+			p, ((start->seed_mode & RSM_RANK_LOCK) ? ROW_ON : ROW_OFF)
+		);
 	case PF_SCORE: return replay_op_uint_append(p, start->score, 8);
 	case PF_CONTINUES: return replay_op_uint_append(p, start->continues_used, 1);
 	case PF_EXTENDS: return replay_op_uint_append(p, start->extends_gained, 2);
@@ -3031,7 +3072,7 @@ static char *practice_value_append(
 	case PF_POWER_OVERFLOW:
 		return replay_op_uint_append(p, start->power_overflow, 2);
 	case PF_SEED:
-		if(start->seed_mode == RSM_RANDOM) {
+		if((start->seed_mode & RSM_VALUE_MASK) == RSM_RANDOM) {
 			*p++ = 'R'; *p++ = 'a'; *p++ = 'n'; *p++ = 'd'; *p++ = 'o'; *p++ = 'm';
 			return p;
 		}
@@ -3095,16 +3136,17 @@ static void practice_seed_change(
 {
 	uint32_t value;
 	uint32_t delta = (fast ? 256UL : 1UL);
+	uint8_t flags = static_cast<uint8_t>(start->seed_mode & ~RSM_VALUE_MASK);
 
-	if(start->seed_mode == RSM_RANDOM) {
-		start->seed_mode = RSM_FIXED;
+	if((start->seed_mode & RSM_VALUE_MASK) == RSM_RANDOM) {
+		start->seed_mode = static_cast<uint8_t>(flags | RSM_FIXED);
 		start->random_seed = static_cast<int32_t>(right ? 0 : 0xFFFFFFFFUL);
 		return;
 	}
 	value = static_cast<uint32_t>(start->random_seed);
 	if(right) {
 		if(value == 0xFFFFFFFFUL) {
-			start->seed_mode = RSM_RANDOM;
+			start->seed_mode = static_cast<uint8_t>(flags | RSM_RANDOM);
 		} else {
 			value = ((value > (0xFFFFFFFFUL - delta))
 				? 0xFFFFFFFFUL : (value + delta)
@@ -3112,7 +3154,7 @@ static void practice_seed_change(
 			start->random_seed = static_cast<int32_t>(value);
 		}
 	} else if(value == 0) {
-		start->seed_mode = RSM_RANDOM;
+		start->seed_mode = static_cast<uint8_t>(flags | RSM_RANDOM);
 	} else {
 		value = ((value < delta) ? 0 : (value - delta));
 		start->random_seed = static_cast<int32_t>(value);
@@ -3226,6 +3268,9 @@ static void practice_field_change(
 			replay_op_playperf_max(start->rank), (fast ? 4 : 1), right
 		);
 		break;
+	case PF_RANK_LOCK:
+		start->seed_mode ^= RSM_RANK_LOCK;
+		break;
 	case PF_SCORE:
 		practice_score_change(&start->score, (fast ? 1000000UL : 10UL), right);
 		break;
@@ -3277,6 +3322,7 @@ static bool practice_field_is_numeric(practice_field_t field)
 {
 	return (
 		(field != PF_STAGE) && (field != PF_SECTION) &&
+		(field != PF_RANK_LOCK) &&
 		(field != PF_ADVANCED) && (field != PF_RESET_DEFAULTS) &&
 		(field != PF_BACK) && (field != PF_START)
 	);
@@ -3409,7 +3455,9 @@ static void practice_field_numeric_set(
 		start->power_overflow = static_cast<uint16_t>(value); break;
 	case PF_SEED:
 		start->random_seed = static_cast<int32_t>(value);
-		start->seed_mode = RSM_FIXED;
+		start->seed_mode = static_cast<uint8_t>(
+			(start->seed_mode & ~RSM_VALUE_MASK) | RSM_FIXED
+		);
 		break;
 	default: break;
 	}
@@ -3654,7 +3702,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 			} else if((key_det & INPUT_BOMB) || (key_det & INPUT_CANCEL)) {
 				if(page != 0) {
 					page = 0;
-					sel = 9;
+					sel = 10;
 					practice_render(start, page, sel);
 					snd_se_play_force(1);
 					input_allowed = false;
@@ -3671,7 +3719,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 				practice_render(start, page, sel);
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_BACK)) {
 				page = 0;
-				sel = 9;
+				sel = 10;
 				practice_render(start, page, sel);
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_RESET_DEFAULTS)) {
 				practice_advanced_defaults(start);
@@ -3703,7 +3751,7 @@ bool replay_practice_record_prepare(
 	replay_op_dos_delete(replay_op_save_request_fn);
 	replay_op_dos_delete(replay_op_save_request_witness_fn);
 	replay_op_copy(&start, start_in, sizeof(start));
-	if(start.seed_mode == RSM_RANDOM) {
+	if((start.seed_mode & RSM_VALUE_MASK) == RSM_RANDOM) {
 		start.resident_rand = resident->rand;
 		start.random_seed = resident->rand;
 	} else {
@@ -5058,6 +5106,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#endif
+
+// v0.1.1-rc4 adds fixed-cell slot rendering and Rank Lock controls in this
+// patch-owned tail. Retain the following stock CRT segment's paragraph phase.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

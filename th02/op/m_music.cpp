@@ -1084,10 +1084,12 @@ controls:
 	// ZUN bloat: The call site would have been a better place for this,
 	// especially since it has another copy of the same code with the same
 	// landmine.
-	t2_language_pi_load(0, MENU_MAIN_BG_FN);
-	pi_palette_apply(0);
-	pi_put_8(0, 0, 0);
-	pi_free(0);
+	if(t2_language_pi_load(0, MENU_MAIN_BG_FN) != 0) {
+		pi_palette_apply(0);
+		pi_put_8(0, 0, 0);
+		pi_free(0);
+	}
+	pi_buffers[0] = 0;
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
 	graph_copy_page(0);
 #endif

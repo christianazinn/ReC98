@@ -702,7 +702,7 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	-- ungrouped CODE segment last so no stock initialized-data address moves.
 	"th02/op/langstr.asm",
 	-- Private cross-process lifecycle writer. Empty in release profiles.
-	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
+	"th02/oplife.cpp",
 	-- Shared adaptive conventional-memory admission for patch-enlarged OP.
 	{ "th02/op/op_memory_budget.cpp", o = "op_mem~1.obj" },
 })
@@ -825,7 +825,7 @@ local th02_main_sources = {
 	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
 	-- Private lifecycle evidence is a separate shared tail. It is empty in
 	-- release profiles and lets MAIN/MAINE report the same admission contract.
-	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
+	"th02/mainlife.cpp",
 
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
@@ -861,7 +861,7 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th02/end/maine_langstr.asm",
 	-- Share the checked MAIN/MAINE conventional-memory admission policy.
 	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
-	{ "th02/lifecycle_diag.cpp", o = "lifecy~1.obj" },
+	"th02/endlife.cpp",
 })
 -- ----
 

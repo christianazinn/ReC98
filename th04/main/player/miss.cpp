@@ -167,7 +167,6 @@ extern "C" void near sub_10988(void)
 		// `push` it assembles itself (kb/codegen 0083 + 0089).
 		__emit__(0x6A, 4);
 		nopcall_same_group(playperf_lower);
-
 		resident->miss_count++;
 	}
 

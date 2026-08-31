@@ -49,6 +49,7 @@ include th02/th02.inc
 	; but give the private TH02 lifecycle trace a typed far alias. Its own loose
 	; diagnostic files must never be interpreted as archive members after
 	; PFSTART installs the INT 21h hook.
+	public on_hook
 	alias <_t2practice_diag_pf_hook> = <on_hook>
 
 _TEXT		segment	word public 'CODE' use16

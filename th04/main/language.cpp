@@ -916,3 +916,11 @@ void far pascal language_main_layout_pad(void)
 	// retain the following stock segment's frozen paragraph phase.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
+
+// v0.1.1-rc4 grows only patch-owned replay tails. Preserve the frozen CRT
+// paragraph phase without moving any native code inside its own segment.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif

@@ -28,6 +28,7 @@
 #include "th04/main/rp_guard.hpp"
 #include "th04/main/slowdown.hpp"
 #include "th04/main/playfld.hpp"
+#include "th04/main/playperf.hpp"
 #include "th04/main/player/bomb.hpp"
 #include "th04/main/player/player.hpp"
 #include "th04/gaiji/gaiji.h"
@@ -162,6 +163,8 @@ static uint8_t replay_last_stage;
 static bool replay_practice_start_pending;
 static bool replay_stage_resume_rng_pending;
 static replay_start_config_t replay_practice_start;
+static bool replay_rank_lock_active;
+static uint8_t replay_rank_lock_value;
 static uint8_t replay_preroll_boss_section;
 static uint8_t replay_preroll_boss_phase;
 static uint8_t replay_preroll_interstitial_cycle;
@@ -1332,7 +1335,11 @@ static bool replay_start_config_valid(
 		(start->stage_graze > 999) ||
 		(start->power_overflow > 42) ||
 		!replay_playperf_valid(start->rank, start->playperf) ||
-		(start->seed_mode > RSM_FIXED)
+		((start->seed_mode & ~(RSM_VALUE_MASK | RSM_RANK_LOCK)) != 0) ||
+		(
+			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
+			((start->seed_mode & RSM_RANK_LOCK) != 0)
+		)
 	) {
 		return false;
 	}
@@ -1378,7 +1385,8 @@ static bool replay_start_config_valid(
 		(start->score_delta != 0) ||
 		(start->score_delta_frame != 0) ||
 		(start->hiscore_popup_shown != 0) ||
-		(start->playperf != replay_native_playperf(start->rank))
+		(start->playperf != replay_native_playperf(start->rank)) ||
+		((start->seed_mode & RSM_RANK_LOCK) != 0)
 	)) {
 		return false;
 	}
@@ -1804,7 +1812,10 @@ static bool replay_playback_sample(
 {
 	if(replay_decode_run == 0) {
 		if(!replay_packet_read(&replay_pending)) {
-			if(replay_private_test) {
+			if(
+				(replay_private_test || replay_practice_diagnostic) &&
+				(replay_private_diagnostic == 0)
+			) {
 				replay_private_diagnostic = (
 					0xD0000000UL | (static_cast<uint32_t>(phase) << 20) |
 					(replay_sample_cursor & 0xFFFFFUL)
@@ -1813,7 +1824,10 @@ static bool replay_playback_sample(
 			return false;
 		}
 		if((replay_pending.tag >> REPLAY_PACKET_PHASE_SHIFT) != phase) {
-			if(replay_private_test) {
+			if(
+				(replay_private_test || replay_practice_diagnostic) &&
+				(replay_private_diagnostic == 0)
+			) {
 				replay_private_diagnostic = (
 					0xD1000000UL | (static_cast<uint32_t>(phase) << 20) |
 					(static_cast<uint32_t>(
@@ -2026,6 +2040,48 @@ static void replay_start_capture_state(replay_start_config_t far *start)
 static void replay_start_capture_live(void)
 {
 	replay_start_capture_state(&replay_header.start);
+}
+
+static void replay_diagnostic_stage_start_compare(void)
+{
+	replay_stage_entry_t entry;
+	replay_start_config_t live;
+	const uint8_t far *actual;
+	const uint8_t far *expected;
+	unsigned i;
+
+	if(
+		!replay_practice_diagnostic || (replay_mode != RRM_PLAYBACK) ||
+		replay_stage_seen || (stage_id >= REPLAY_USER_STAGE_COUNT)
+	) {
+		return;
+	}
+	if(!replay_stage_entry_read(stage_id, &entry)) {
+		replay_private_diagnostic = 0xE1000000UL | stage_id;
+		return;
+	}
+	replay_copy(&live, &replay_header.start, sizeof(live));
+	live.schema = entry.start.schema;
+	live.kind = RSK_STAGE;
+	live.stage = stage_id;
+	live.section = 0;
+	live.phase = 0;
+	live.resident_rand = resident->rand;
+	live.random_seed = random_seed;
+	live.credit_lives = resident->credit_lives;
+	live.credit_bombs = resident->credit_bombs;
+	replay_start_capture_state(&live);
+	actual = reinterpret_cast<const uint8_t far *>(&live);
+	expected = reinterpret_cast<const uint8_t far *>(&entry.start);
+	for(i = 0; i < sizeof(live); i++) {
+		if(actual[i] != expected[i]) {
+			replay_private_diagnostic = (
+				0xE0000000UL | (static_cast<uint32_t>(i) << 16) |
+				(static_cast<uint16_t>(actual[i]) << 8) | expected[i]
+			);
+			return;
+		}
+	}
 }
 
 static bool replay_stage_entry_capture(void)
@@ -2551,14 +2607,20 @@ void replay_practice_start_apply_after_reset(void)
 void replay_practice_start_apply_and_stage_activate(void)
 {
 	replay_practice_start_apply();
+	if(replay_rank_lock_active) {
+		playperf = replay_rank_lock_value;
+		playperf_min = static_cast<char>(replay_rank_lock_value);
+		playperf_max = replay_rank_lock_value;
+	}
 	if(replay_stage_resume_rng_pending) {
 		// Stage-directory snapshots are captured after randring_fill() advances
-		// master.lib's LCG 256 times and items_init() advances it once more for
-		// the item-drop ring. Rewind all 257 calls before native stage_init()
-		// regenerates both rings present in the recording.
+		// master.lib's LCG 256 times, items_init() advances it once for the
+		// item-drop ring, and sparks_init() advances it another 96 times for
+		// TH04's spark slots. TH05 intentionally retains that 96-iteration loop.
+		// Rewind all 353 calls before native stage_init() regenerates that state.
 		random_seed = static_cast<int32_t>(
-			(static_cast<uint32_t>(random_seed) * 0x6CBED81DUL) +
-			0xD2EE60E3UL
+			(static_cast<uint32_t>(random_seed) * 0xF32F219DUL) +
+			0x3DD3F4C3UL
 		);
 		replay_stage_resume_rng_pending = false;
 	}
@@ -2583,6 +2645,10 @@ void replay_practice_items_ready(void)
 static void replay_header_apply(void)
 {
 	const replay_start_config_t far *start = &replay_header.start;
+	replay_rank_lock_active = (
+		(start->seed_mode & RSM_RANK_LOCK) != 0
+	);
+	replay_rank_lock_value = start->playperf;
 
 	resident->rand = start->resident_rand;
 	random_seed = start->random_seed;
@@ -2665,7 +2731,8 @@ static replay_command_mode_t replay_command_load(
 	if(command.mode == RCM_PLAYBACK) {
 		if(
 			((command.flags & ~(REPLAY_COMMAND_FLAG_PRIVATE_TEST |
-			 REPLAY_COMMAND_STAGE_MASK)) != 0) ||
+			 REPLAY_COMMAND_STAGE_MASK |
+			 REPLAY_COMMAND_FLAG_DIAGNOSTIC)) != 0) ||
 			((command.flags & REPLAY_COMMAND_STAGE_MASK) >
 			 (REPLAY_USER_STAGE_COUNT << REPLAY_COMMAND_STAGE_SHIFT)) ||
 			!replay_bytes_zero(
@@ -2729,7 +2796,8 @@ static bool replay_stage_resume_prepare(uint8_t command_flags)
 		#if (GAME == 4)
 			(
 				(replay_header.version != REPLAY_USER_VERSION) &&
-				(stage != replay_header.start.stage)
+				(stage != replay_header.start.stage) &&
+				((command_flags & REPLAY_COMMAND_FLAG_DIAGNOSTIC) == 0)
 			) ||
 		#endif
 		(stage < replay_header.start.stage) ||
@@ -2890,6 +2958,7 @@ void replay_stage_start(void)
 	uint8_t arg8;
 
 	language_main_titles_apply();
+	replay_diagnostic_stage_start_compare();
 	if(replay_mode == RRM_DISABLED) {
 		replay_debug_stage_coordinates_reset();
 		return;

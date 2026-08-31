@@ -16,11 +16,12 @@ struct t1replay_op_result_t {
 	uint8_t slot;
 };
 
-void t1replay_op_replay_enter(void);
+bool t1replay_op_replay_enter(void);
 bool t1replay_op_pending_enter(void);
-void t1replay_op_practice_enter(
+bool t1replay_op_practice_enter(
 	int8_t rank, int8_t lives, int8_t bombs, uint32_t rand
 );
+bool t1replay_op_practice_redraw(void);
 void t1replay_op_restore(void);
 void t1replay_op_command_clear(void);
 bool t1replay_op_record_prepare(void);

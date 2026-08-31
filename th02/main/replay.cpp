@@ -123,6 +123,8 @@ static uint16_t t2replay_timing_baseline;
 static bool t2replay_timing_armed;
 static bool t2replay_timing_pause_opened;
 static uint8_t t2replay_timing_target;
+static bool t2replay_rank_lock_active;
+static int16_t t2replay_rank_lock_value;
 
 #ifdef T2SGA
 static int t2replay_debug_midboss_step;
@@ -4002,6 +4004,13 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(start->bgm_mode > SND_BGM_MIDI) ||
 		(start->reduce_effects > 1) ||
 		(start->debug != 0) ||
+		(t2replay_practice_playperf_decode(
+			start->reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET]
+		) < playperf_min) ||
+		(t2replay_practice_playperf_decode(
+			start->reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET]
+		) > ((start->rank == RANK_EASY) ? 4 : 16)) ||
+		(start->reserved[T2REPLAY_PRACTICE_RANK_LOCK_OFFSET] > 1) ||
 		!practice_target_valid
 	) {
 		return false;
@@ -5463,6 +5472,8 @@ static void t2replay_header_capture(void)
 	t2replay_header.start.shottype = resident->shottype;
 	t2replay_header.start.bgm_mode = resident->bgm_mode;
 	t2replay_header.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
+	t2replay_header.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
+		t2replay_practice_playperf_encode(playperf);
 }
 
 // cfg_load() has already copied these fields into MAIN globals when replay_entry()
@@ -5496,6 +5507,13 @@ static void t2replay_start_apply(const t2replay_start_t far *start)
 		power++;
 	}
 	score = start->score;
+	playperf = t2replay_practice_playperf_decode(
+		start->reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET]
+	);
+	t2replay_rank_lock_active = (
+		start->reserved[T2REPLAY_PRACTICE_RANK_LOCK_OFFSET] != 0
+	);
+	t2replay_rank_lock_value = playperf;
 }
 
 static void t2replay_header_apply(void)
@@ -6650,6 +6668,7 @@ bool16 replay_practice_target_apply(void)
 void replay_stage_start(void)
 {
 	t2replay_fast_forward_boundary_reset();
+	replay_rank_lock_apply();
 #ifdef T2SGA
 	t2debug_coords_reset();
 #endif
@@ -6684,12 +6703,20 @@ void replay_stage_start(void)
 	t2replay_stage_seen = true;
 }
 
+void replay_rank_lock_apply(void)
+{
+	if(t2replay_rank_lock_active) {
+		playperf = t2replay_rank_lock_value;
+	}
+}
+
 void replay_input_sample(uint8_t phase)
 {
 	input_t host_input;
 #if T2REPLAY_EXACT_APPLY
 	uint32_t sample_before;
 #endif
+	replay_rank_lock_apply();
 
 	t2replay_fast_forward_restore();
 #ifdef T2SGA

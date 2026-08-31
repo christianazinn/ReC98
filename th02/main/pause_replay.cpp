@@ -15,8 +15,12 @@
 #include "th02/hardware/input.hpp"
 #include "th02/main/execl.hpp"
 #include "th02/main/language_presentation.hpp"
+#include "th02/main/frames.hpp"
 #include "th02/main/pause_replay.hpp"
 #include "th02/main/replay.hpp"
+#include "th02/main/stage/stage.hpp"
+#include "th02/main/stage/callback.hpp"
+#include "th02/resident.hpp"
 
 #define T2PAUSE_TITLE_LEFT 18
 #define T2PAUSE_TITLE_Y 12
@@ -40,6 +44,46 @@
 extern char gPAUSE_MENU[];
 extern char g11SPACES[];
 extern const char arg0[];
+extern "C" void far stage_title_unput(void);
+extern "C" const shiftjis_t aEMPTY[];
+extern "C" uint8_t stage1_gaiji_halflen;
+extern "C" const char gStage1[];
+extern "C" const char gEXTRA_STAGE[];
+extern "C" shiftjis_t near *stage_title;
+extern "C" uint8_t stage_title_halflen;
+
+static bool t2pause_stage_title_hide(void)
+{
+	if(
+		resident->demo_num ||
+		(stage_title_unput_func != stage_title_unput) ||
+		(stage_frame >= 160)
+	) {
+		return false;
+	}
+	text_putsa(16, 12, aEMPTY, TX_WHITE);
+	text_putsa(16, 13, aEMPTY, TX_WHITE);
+	return true;
+}
+
+static void t2pause_stage_title_restore(void)
+{
+	if(stage_title_unput_func != stage_title_unput) {
+		return;
+	}
+	if(stage_id == 5) {
+		gaiji_putsa(16, 12, gEXTRA_STAGE, TX_YELLOW);
+	} else {
+		gaiji_putsa(
+			static_cast<tram_x_t>(28 - stage1_gaiji_halflen),
+			12, gStage1, TX_YELLOW
+		);
+	}
+	text_putsa(
+		static_cast<tram_x_t>(28 - stage_title_halflen),
+		13, stage_title, TX_WHITE
+	);
+}
 
 static void t2pause_label_put(uint8_t option, tram_y_t y, unsigned atrb)
 {
@@ -216,6 +260,7 @@ bool16 far t2pause_menu(void)
 	);
 	bool restart_available = replay_pause_restart_available();
 	bool save_available = replay_pause_save_available();
+	bool stage_title_hidden = t2pause_stage_title_hide();
 
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
 		if(t2pause_input_sample()) {
@@ -300,6 +345,9 @@ bool16 far t2pause_menu(void)
 	t2pause_clear();
 	action = t2pause_action(selected, restart_semantics);
 	if(action == T2PAUSE_RESUME) {
+		if(stage_title_hidden) {
+			t2pause_stage_title_restore();
+		}
 		palette_settone(100);
 		key_det = INPUT_NONE;
 		return false;

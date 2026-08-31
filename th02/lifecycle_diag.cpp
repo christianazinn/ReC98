@@ -37,6 +37,7 @@ void t2practice_diag_io_bypass_end(void)
 		t2practice_diag_pf_hook = t2life_pf_hook_saved;
 	}
 }
+
 #else
 void t2practice_diag_io_bypass_begin(void)
 {
@@ -45,6 +46,7 @@ void t2practice_diag_io_bypass_begin(void)
 void t2practice_diag_io_bypass_end(void)
 {
 }
+
 #endif
 
 static int near t2life_dos_open(const char far *fn)

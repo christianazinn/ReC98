@@ -23,6 +23,7 @@
 #include "th01/formats/grp.h"
 #include "th01/language.hpp"
 #include "th01/replay_op.hpp"
+#include "th01/rpyfont.hpp"
 #if defined(T1RB)
 #include "th01/replay_milestone.hpp"
 #endif
@@ -349,9 +350,6 @@ static const pellet_speed_t PELLET_SPEED_DEFAULT = to_pellet_speed(-0.1);
 void start_game(void)
 {
 	cfg_save();
-	if(!t1replay_op_record_prepare()) {
-		return;
-	}
 	resident_create_and_stuff_set(
 		opts.rank,
 		opts.bgm_mode,
@@ -359,6 +357,16 @@ void start_game(void)
 		opts.credit_lives_extra,
 		frame_rand
 	);
+	if(!resident) {
+		t1replay_op_command_clear();
+		return;
+	}
+	if(!t1replay_op_record_prepare()) {
+		t1replay_op_command_clear();
+		resident_free();
+		resident = 0;
+		return;
+	}
 	title_exit();
 	mdrv2_bgm_fade_out_nonblock();
 	game_switch_binary();
@@ -420,8 +428,10 @@ static bool replay_carrier_create(void)
 
 static void replay_playback_start(void)
 {
+	replay_op_font_free();
 	if(!replay_carrier_create()) {
 		t1replay_op_command_clear();
+		t1replay_op_replay_enter();
 		return;
 	}
 	cfg_save();
@@ -437,13 +447,28 @@ bool practice_start(void)
 	int i;
 
 	t1replay_op_practice_start_get(start);
+	replay_op_font_free();
 	if(!replay_carrier_create()) {
 		#if T1REPLAY_PROCESS_MILESTONES
 		t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_CREATE_FAILED);
 		#endif
 		t1replay_op_command_clear();
+		t1replay_op_practice_redraw();
 		return false;
 	}
+	if(!t1replay_op_record_prepare()) {
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITE_FAILED);
+		#endif
+		t1replay_op_command_clear();
+		resident_free();
+		resident = 0;
+		t1replay_op_practice_redraw();
+		return false;
+	}
+	#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITTEN);
+	#endif
 	cfg_save();
 	resident->rank = start.rank;
 	resident->bgm_mode = opts.bgm_mode;
@@ -485,6 +510,8 @@ bool practice_start(void)
 void start_continue(void)
 {
 	cfg_save();
+	// Continue is a native launch, never a replay command continuation.
+	t1replay_op_command_clear();
 	resident_create_and_stuff_set(
 		opts.rank,
 		opts.bgm_mode,
@@ -492,6 +519,9 @@ void start_continue(void)
 		opts.credit_lives_extra,
 		frame_rand
 	);
+	if(!resident) {
+		return;
+	}
 
 	if(resident->stage_id == 0) {
 		_ES = FP_SEG(cfg_load); // ZUN bloat: Yes, no point to this at all
@@ -598,14 +628,12 @@ void main_choice_unput_and_put(int choice, vc2 col)
 
 	if((choice == 3) || (choice == 4)) {
 		t1replay_op_main_choice_put(
-			choice, (MENU_CENTER_X - (GLYPH_FULL_W * 3)), top, col, FX
+			choice, MENU_CENTER_X, top, col, FX
 		);
 		return;
 	}
 	choice_str = CHOICES[(choice < 3) ? choice : 3];
-	left = (
-		MENU_CENTER_X - (GLYPH_FULL_W * 3) - (shiftjis_w(choice_str) / 2)
-	);
+	left = (MENU_CENTER_X - (shiftjis_w(choice_str) / 2));
 
 	// No unblitting necessary here, as only the colors change.
 	graph_putsa_fx(left, top, (col | FX), choice_str);
@@ -713,19 +741,21 @@ void main_update_and_render(void)
 			in_this_menu = false;
 			break;
 		case 3:
-			menu_id = MID_PRACTICE;
-			t1replay_op_practice_enter(
+			if(t1replay_op_practice_enter(
 				opts.rank,
 				static_cast<int8_t>(opts.credit_lives_extra + 2),
 				opts.credit_bombs,
 				frame_rand
-			);
-			in_this_menu = false;
+			)) {
+				menu_id = MID_PRACTICE;
+				in_this_menu = false;
+			}
 			break;
 		case 4:
-			menu_id = MID_REPLAY;
-			t1replay_op_replay_enter();
-			in_this_menu = false;
+			if(t1replay_op_replay_enter()) {
+				menu_id = MID_REPLAY;
+				in_this_menu = false;
+			}
 			break;
 		case 5:
 			quit = true;

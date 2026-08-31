@@ -119,11 +119,18 @@ void text_wipe(void)
 
 void pascal near pi_load_put_8_free_to(const char near *fn, char page)
 {
-	t2_language_pi_load(0, fn);
+	if(t2_language_pi_load(0, fn) == 0) {
+		pi_buffers[0] = 0;
+		return;
+	}
 	graph_accesspage(page);
 	pi_palette_apply(0);
 	pi_put_8(0, 0, 0);
 	pi_free(0);
+	// TH02's pi_free() does not invalidate the released pointer. Every later
+	// patch-owned slot-0 load must see unowned storage rather than free or reuse
+	// this stale block.
+	pi_buffers[0] = 0;
 }
 
 /// Coordinates
@@ -837,7 +844,7 @@ int main(void)
 			zun_error(ERROR_OUT_OF_MEMORY);
 			return 1;
 		}
-			extra_unlocked = cleardata_load();
+		extra_unlocked = cleardata_load();
 		if(cfg_load() == 1) {
 			return 1;
 		}

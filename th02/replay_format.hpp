@@ -393,8 +393,22 @@ enum t2replay_practice_target_t {
 };
 
 #define T2REPLAY_PRACTICE_TARGET_OFFSET 0
-#define T2REPLAY_PRACTICE_RESERVED_OFFSET 1
-#define T2REPLAY_PRACTICE_RESERVED_SIZE 4
+#define T2REPLAY_PRACTICE_PLAYPERF_OFFSET 1
+#define T2REPLAY_PRACTICE_RANK_LOCK_OFFSET 2
+#define T2REPLAY_PRACTICE_RESERVED_OFFSET 3
+#define T2REPLAY_PRACTICE_RESERVED_SIZE 2
+
+// Zero keeps older V3 starts readable and means the native default of 0.
+// New starts encode the complete [-6, 16] domain as [1, 23].
+inline int8_t t2replay_practice_playperf_decode(uint8_t encoded)
+{
+	return static_cast<int8_t>(encoded ? (encoded - 7) : 0);
+}
+
+inline uint8_t t2replay_practice_playperf_encode(int value)
+{
+	return static_cast<uint8_t>(value + 7);
+}
 
 struct t2replay_start_t {
 	uint32_t resident_frame;
