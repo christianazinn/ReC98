@@ -926,7 +926,18 @@ static bool replay_op_start_valid(
 			: (start->kind == RSK_NATIVE)
 	);
 	if(
-		(start->schema != REPLAY_START_SCHEMA) ||
+		(
+			(start->schema != REPLAY_START_SCHEMA) &&
+			(start->schema != REPLAY_START_SCHEMA_LEGACY)
+		) ||
+		(
+			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
+			(
+				start->score_delta || start->score_delta_frame ||
+				start->hiscore_popup_shown
+			)
+		) ||
+		(start->hiscore_popup_shown > 1) ||
 		!kind_valid ||
 		(start->stage > STAGE_EXTRA) ||
 		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
@@ -937,14 +948,13 @@ static bool replay_op_start_valid(
 		(start->continues_used > 9) || (start->extends_gained > 10) ||
 		(start->turbo_mode > 1) ||
 		((start->stage == STAGE_EXTRA) && !start->turbo_mode) ||
-		(start->score > 99999990UL) || ((start->score % 10UL) != 0) ||
+		(start->score > REPLAY_SCORE_MAX) || ((start->score % 10UL) != 0) ||
 		(start->credit_lives < 1) ||
 		(start->credit_lives > credit_lives_max) ||
 		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) || (start->power_overflow > 42) ||
 		!replay_op_playperf_valid(start->rank, start->playperf) ||
-		(start->seed_mode > RSM_FIXED) ||
-		!replay_op_bytes_zero(start->reserved, sizeof(start->reserved))
+		(start->seed_mode > RSM_FIXED)
 	) {
 		return false;
 	}
@@ -980,6 +990,8 @@ static bool replay_op_start_valid(
 		(start->miss_count != 0) || (start->bombs_used != 0) ||
 		(start->stage_point_items_collected != 0) ||
 		(start->stage_graze != 0) || (start->power_overflow != 0) ||
+		(start->score_delta != 0) || (start->score_delta_frame != 0) ||
+		(start->hiscore_popup_shown != 0) ||
 		(start->playperf != replay_op_native_playperf(start->rank))
 	)) {
 		return false;
@@ -1040,6 +1052,7 @@ static bool replay_op_header_valid(
 		(replay_op_header.magic[5] != ('0' + replay_op_header.version)) ||
 		(
 			(replay_op_header.version != REPLAY_USER_VERSION) &&
+			(replay_op_header.version != REPLAY_USER_VERSION_V5) &&
 			(replay_op_header.version != REPLAY_USER_VERSION_LEGACY)
 		) ||
 		(replay_op_header.header_size != REPLAY_USER_HEADER_SIZE) ||
@@ -1064,6 +1077,10 @@ static bool replay_op_header_valid(
 		(file_size != expected_file_size) ||
 		(replay_op_header.stage_reached > STAGE_EXTRA) ||
 		(replay_op_header.stage_directory_checksum == 0) ||
+		(
+			(replay_op_header.version == REPLAY_USER_VERSION) !=
+			(replay_op_header.start.schema == REPLAY_START_SCHEMA)
+		) ||
 		!replay_op_start_valid(
 			&replay_op_header.start,
 			(replay_op_header.mode == RUM_PRACTICE), checkpoint
@@ -1078,7 +1095,7 @@ static bool replay_op_header_valid(
 		return false;
 	}
 	if(
-		(replay_op_header.version == REPLAY_USER_VERSION) &&
+		(replay_op_header.version != REPLAY_USER_VERSION_LEGACY) &&
 		(replay_op_header.slow_frames > replay_op_header.timed_frames)
 	) {
 		return false;
@@ -1211,6 +1228,7 @@ static bool replay_op_stage_directory_valid(int fh)
 		}
 		if(
 			(entry->start.stage != stage) ||
+			(entry->start.schema != replay_op_header.start.schema) ||
 			!replay_op_start_valid(&entry->start, true, false) ||
 			(entry->sample_index > replay_op_header.sample_count) ||
 			(entry->packet_index >= replay_op_header.packet_count) ||
@@ -2465,6 +2483,19 @@ static bool replay_detail(uint8_t slot)
 			? selected_stage
 			: replay_op_header.stage_reached
 	);
+	#if (GAME == 4)
+		// V4/V5 never serialized TH04's carried score delta. Keep their
+		// complete split history visible, but don't offer a later-stage command
+		// that MAIN must reject because deterministic reconstruction is
+		// impossible.
+		uint8_t last_selectable_stage = (
+			(replay_op_header.version == REPLAY_USER_VERSION)
+				? last_stage
+				: selected_stage
+		);
+	#else
+		uint8_t last_selectable_stage = last_stage;
+	#endif
 	uint8_t command_flags;
 	bool input_allowed = false;
 
@@ -2477,13 +2508,13 @@ static bool replay_detail(uint8_t slot)
 		if(input_allowed) {
 			if(key_det & INPUT_UP) {
 				selected_stage = ((selected_stage == replay_op_header.start.stage)
-					? last_stage
+					? last_selectable_stage
 					: static_cast<uint8_t>(selected_stage - 1)
 				);
 				replay_detail_render(slot, selected_stage);
 				snd_se_play_force(1);
 			} else if(key_det & INPUT_DOWN) {
-				selected_stage = ((selected_stage == last_stage)
+				selected_stage = ((selected_stage == last_selectable_stage)
 					? replay_op_header.start.stage
 					: static_cast<uint8_t>(selected_stage + 1)
 				);
@@ -3127,7 +3158,7 @@ static void practice_score_change(
 	uint32_t far *value, uint32_t delta, bool right
 )
 {
-	const uint32_t max = 99999990UL;
+	const uint32_t max = REPLAY_SCORE_MAX;
 	if(right) {
 		if(*value == max) {
 			*value = 0;
@@ -3312,7 +3343,7 @@ static uint32_t practice_field_numeric_max(
 	case PF_POWER: return 128;
 	case PF_DREAM: return ((GAME == 5) ? 128 : 7);
 	case PF_PLAYPERF: return replay_op_playperf_max(start->rank);
-	case PF_SCORE: return 99999990UL;
+	case PF_SCORE: return REPLAY_SCORE_MAX;
 	case PF_EXTENDS: return 10;
 	case PF_GRAZE:
 	case PF_STD_FRAMES:
@@ -5019,6 +5050,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
+
+// v0.1.1-rc3 validates and presents replay V6. Keep the following stock CRT
+// segment on its foundation paragraph phase in both game builds.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

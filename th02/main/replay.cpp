@@ -23,6 +23,7 @@
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
 #include "th02/gaiji/gaiji.h"
+#include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
@@ -3753,6 +3754,13 @@ static uint16_t t2replay_header_wire_size(void)
 	}
 	if(
 		t2replay_magic_matches(t2replay_header.magic, '2') &&
+		(t2replay_header.version == T2REPLAY_VERSION_PREVIOUS) &&
+		(t2replay_header.header_size == T2REPLAY_HEADER_SIZE)
+	) {
+		return T2REPLAY_HEADER_SIZE;
+	}
+	if(
+		t2replay_magic_matches(t2replay_header.magic, '3') &&
 		(t2replay_header.version == T2REPLAY_VERSION) &&
 		(t2replay_header.header_size == T2REPLAY_HEADER_SIZE)
 	) {
@@ -4185,7 +4193,8 @@ static bool t2replay_header_read(void)
 		(t2replay_dos_read(
 			fd, &t2replay_header, T2REPLAY_HEADER_SIZE_LEGACY
 		) != T2REPLAY_HEADER_SIZE_LEGACY) ||
-		((t2replay_header.magic[5] == '2') &&
+		(((t2replay_header.magic[5] == '2') ||
+		  (t2replay_header.magic[5] == '3')) &&
 		 (t2replay_dos_read(
 			fd,
 			reinterpret_cast<uint8_t far *>(&t2replay_header) +
@@ -5425,7 +5434,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.magic[2] = 'R';
 	t2replay_header.magic[3] = 'P';
 	t2replay_header.magic[4] = 'Y';
-	t2replay_header.magic[5] = '2';
+	t2replay_header.magic[5] = '3';
 	t2replay_header.version = T2REPLAY_VERSION;
 	t2replay_header.header_size = T2REPLAY_HEADER_SIZE;
 	t2replay_header.packet_size = T2REPLAY_PACKET_SIZE;
@@ -6762,6 +6771,61 @@ void replay_input_sample(uint8_t phase)
 	}
 }
 
+static bool t2replay_input_wait_pair(bool far &seen)
+{
+	if(t2replay_mode == T2RM_PLAYBACK) {
+		input_reset_sense();
+		replay_input_sample(T2REPLAY_PHASE_DIALOG);
+		if(replay_playback_exit_requested()) {
+			return false;
+		}
+		seen = (key_det != INPUT_NONE);
+		frame_delay(2);
+	} else {
+		seen = (key_delay_sense() != 0);
+		key_det = seen ? INPUT_OK : INPUT_NONE;
+		replay_input_sample(T2REPLAY_PHASE_DIALOG);
+	}
+	return true;
+}
+
+bool replay_input_wait_for_change(void)
+{
+	input_t key_before = key_det;
+	bool seen;
+
+	if(t2replay_mode == T2RM_DISABLED) {
+		key_delay();
+		return true;
+	}
+	// V1/V2 did not serialize these acknowledgement polls. Preserve their
+	// historical live-input behavior; V3 is the first self-contained format.
+	if(
+		(t2replay_mode == T2RM_PLAYBACK) &&
+		(t2replay_header.version < T2REPLAY_VERSION)
+	) {
+		key_delay();
+		return true;
+	}
+	do {
+		if(!t2replay_input_wait_pair(seen)) {
+			key_det = key_before;
+			return false;
+		}
+	} while(seen);
+	do {
+		if(!t2replay_input_wait_pair(seen)) {
+			key_det = key_before;
+			return false;
+		}
+	} while(!seen);
+	// key_delay() senses its three groups directly and never updates key_det.
+	// Keep that caller-visible contract even though the replay wire uses
+	// temporary INPUT_NONE / INPUT_OK values for the logical acknowledgement.
+	key_det = key_before;
+	return true;
+}
+
 bool replay_gameover(void)
 {
 	if(t2replay_mode == T2RM_DISABLED) {
@@ -6858,6 +6922,14 @@ bool replay_pause_restart(void)
 
 bool replay_pause_save_and_exit(void)
 {
+	if(t2replay_mode == T2RM_PLAYBACK) {
+		// A finalized replay can only contain this Pause terminal action if the
+		// recording saved on it. Consume and validate the terminal control before
+		// GameExecl() returns to OP; disabling playback here would silently leave
+		// that final packet unread.
+		t2replay_finalize(T2REPLAY_END_MENU_RETURN);
+		return (t2replay_playback_exit && !t2replay_failed);
+	}
 	bool saved = replay_pause_save_available();
 
 	if(saved) {

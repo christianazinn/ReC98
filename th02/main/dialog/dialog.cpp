@@ -390,7 +390,9 @@ void pascal near dialog_box_animate_and_advance(
 			box_cursor += static_cast<int>(sizeof(shiftjis_kanji_t));
 		}
 	}
-	key_delay();
+	if(!replay_input_wait_for_change()) {
+		return;
+	}
 	dialog_box_cur++;
 }
 // -----------

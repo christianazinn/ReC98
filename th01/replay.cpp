@@ -4512,6 +4512,11 @@ bool16 far t1replay_active(void)
 	return (t1replay_mode != T1RM_DISABLED);
 }
 
+bool16 far t1replay_playback_active(void)
+{
+	return (t1replay_mode == T1RM_PLAYBACK);
+}
+
 bool16 far t1replay_pause_save_available(void)
 {
 	// Playback is a read-only transaction. Leaving it still reaches OP through

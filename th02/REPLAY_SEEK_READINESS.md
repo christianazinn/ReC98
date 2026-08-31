@@ -1,7 +1,8 @@
 # TH02 replay seek readiness
 
-The public `T2RPY1` and `T2RPY2` replay paths start from the recorded
-beginning only. `T2RPY2` adds run-wide slowdown telemetry; neither public
+The public `T2RPY1`, `T2RPY2`, and `T2RPY3` replay paths start from the recorded
+beginning only. `T2RPY2` adds run-wide slowdown telemetry and `T2RPY3` adds
+replay-owned blocking acknowledgements; none of the public
 carrier adds a checkpoint directory, authenticated restore payload, or a
 later-start command. Stage-score rows and sequential stage-start control
 packets are metadata; they do not carry a semantic restore state.

@@ -123,6 +123,10 @@ bool16 far replay_checkpoint_common_groups_valid(
 // The phase identifies the existing consumer; it is not a synthetic frame.
 void replay_input_sample(uint8_t phase);
 
+// Replay-aware equivalent of key_delay() for blocking gameplay presentation.
+// Returns false when playback has failed or the host requested cancellation.
+bool replay_input_wait_for_change(void);
+
 // Pause terminal actions deliberately reuse T2RPY1's existing GAME_OVER
 // terminal record. The pending-save sidecar is therefore unchanged.
 bool replay_pause_save_available(void);

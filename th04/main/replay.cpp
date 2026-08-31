@@ -88,6 +88,7 @@ extern unsigned char extends_gained;
 extern unsigned int stage_frame;
 extern unsigned long score_delta;
 extern unsigned long score_delta_frame;
+extern unsigned char hiscore_popup_shown;
 extern unsigned int stage_graze;
 extern int power_overflow;
 extern unsigned int total_std_frames;
@@ -108,6 +109,8 @@ extern bool (near* std_update)(void);
 bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 extern "C" void far player_shot_level_update(void);
 #if (GAME == 5)
+	extern unsigned char byte_22274;
+	extern unsigned char byte_22275;
 	extern unsigned char lives;
 	extern unsigned char bombs;
 	extern unsigned char dream;
@@ -1296,7 +1299,18 @@ static bool replay_start_config_valid(
 			: (start->kind == RSK_NATIVE)
 	);
 	if(
-		(start->schema != REPLAY_START_SCHEMA) ||
+		(
+			(start->schema != REPLAY_START_SCHEMA) &&
+			(start->schema != REPLAY_START_SCHEMA_LEGACY)
+		) ||
+		(
+			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
+			(
+				start->score_delta || start->score_delta_frame ||
+				start->hiscore_popup_shown
+			)
+		) ||
+		(start->hiscore_popup_shown > 1) ||
 		!kind_valid ||
 		(start->stage > STAGE_EXTRA) ||
 		((!checkpoint) && ((start->section != 0) || (start->phase != 0))) ||
@@ -1310,7 +1324,7 @@ static bool replay_start_config_valid(
 		(start->extends_gained > 10) ||
 		(start->turbo_mode > 1) ||
 		((start->stage == STAGE_EXTRA) && !start->turbo_mode) ||
-		(start->score > 99999990UL) ||
+		(start->score > REPLAY_SCORE_MAX) ||
 		((start->score % 10UL) != 0) ||
 		(start->credit_lives < 1) ||
 		(start->credit_lives > credit_lives_max) ||
@@ -1318,8 +1332,7 @@ static bool replay_start_config_valid(
 		(start->stage_graze > 999) ||
 		(start->power_overflow > 42) ||
 		!replay_playperf_valid(start->rank, start->playperf) ||
-		(start->seed_mode > RSM_FIXED) ||
-		!replay_bytes_zero(start->reserved, sizeof(start->reserved))
+		(start->seed_mode > RSM_FIXED)
 	) {
 		return false;
 	}
@@ -1362,6 +1375,9 @@ static bool replay_start_config_valid(
 		(start->stage_point_items_collected != 0) ||
 		(start->stage_graze != 0) ||
 		(start->power_overflow != 0) ||
+		(start->score_delta != 0) ||
+		(start->score_delta_frame != 0) ||
+		(start->hiscore_popup_shown != 0) ||
 		(start->playperf != replay_native_playperf(start->rank))
 	)) {
 		return false;
@@ -1424,6 +1440,7 @@ static bool replay_stage_directory_valid(void)
 		}
 		if(
 			(entry->start.stage != stage) ||
+			(entry->start.schema != replay_header.start.schema) ||
 			!replay_start_config_valid(&entry->start, true, false) ||
 			(entry->sample_index > replay_header.sample_count) ||
 			(entry->packet_index >= replay_header.packet_count) ||
@@ -1474,6 +1491,7 @@ static bool replay_header_read(void)
 		(replay_header.magic[5] != ('0' + replay_header.version)) ||
 		(
 			(replay_header.version != REPLAY_USER_VERSION) &&
+			(replay_header.version != REPLAY_USER_VERSION_V5) &&
 			(replay_header.version != REPLAY_USER_VERSION_LEGACY)
 		)
 	) {
@@ -1531,6 +1549,10 @@ static bool replay_header_read(void)
 		(file_size != expected_file_size) ||
 		(replay_header.stage_reached > STAGE_EXTRA) ||
 		(replay_header.stage_directory_checksum == 0) ||
+		(
+			(replay_header.version == REPLAY_USER_VERSION) !=
+			(replay_header.start.schema == REPLAY_START_SCHEMA)
+		) ||
 		!replay_start_config_valid(
 			&replay_header.start, (replay_header.mode == RUM_PRACTICE),
 			((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0)
@@ -1545,7 +1567,7 @@ static bool replay_header_read(void)
 		return false;
 	}
 	if(
-		(replay_header.version == REPLAY_USER_VERSION) &&
+		(replay_header.version != REPLAY_USER_VERSION_LEGACY) &&
 		(replay_header.slow_frames > replay_header.timed_frames)
 	) {
 		return false;
@@ -1996,6 +2018,9 @@ static void replay_start_capture_state(replay_start_config_t far *start)
 	start->stage_point_items_collected = stage_point_items_collected;
 	start->stage_graze = stage_graze;
 	start->power_overflow = static_cast<uint16_t>(power_overflow);
+	start->score_delta = score_delta;
+	start->score_delta_frame = score_delta_frame;
+	start->hiscore_popup_shown = hiscore_popup_shown;
 }
 
 static void replay_start_capture_live(void)
@@ -2449,6 +2474,9 @@ static void replay_practice_config_apply(
 )
 {
 	replay_score_apply(start->score, start->continues_used);
+	score_delta = start->score_delta;
+	score_delta_frame = start->score_delta_frame;
+	hiscore_popup_shown = start->hiscore_popup_shown;
 	playperf = start->playperf;
 	continues_used = start->continues_used;
 	extends_gained = start->extends_gained;
@@ -2476,6 +2504,11 @@ static void replay_practice_config_apply(
 	resident->miss_count = start->miss_count;
 	resident->bombs_used = start->bombs_used;
 	#if (GAME == 5)
+		// At a stage boundary, both clear-bonus latches equal the cumulative
+		// counters recorded in the start block. A fresh MAIN process otherwise
+		// leaves them at zero and can award the wrong no-miss/no-bomb bonus.
+		byte_22274 = start->miss_count;
+		byte_22275 = start->bombs_used;
 		lives = start->lives;
 		bombs = start->bombs;
 		dream = start->dream;
@@ -2693,6 +2726,12 @@ static bool replay_stage_resume_prepare(uint8_t command_flags)
 	stage = static_cast<uint8_t>(encoded - 1);
 	if(
 		(replay_header.mode != RUM_STORY) ||
+		#if (GAME == 4)
+			(
+				(replay_header.version != REPLAY_USER_VERSION) &&
+				(stage != replay_header.start.stage)
+			) ||
+		#endif
 		(stage < replay_header.start.stage) ||
 		(stage > replay_header.stage_reached) ||
 		!replay_stage_entry_read(stage, &entry) ||
@@ -3785,6 +3824,13 @@ bool replay_playback_active(void)
 		#pragma codestring "\x90\x90\x90\x90"
 	#else
 		#pragma codestring "\x90\x90\x90\x90\x90"
+	#endif
+	// v0.1.1-rc3 adds V6 stage-boundary state. Keep the following stock CRT
+	// segment on its foundation paragraph phase in both game builds.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90\x90\x90"
+	#else
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 	#endif
 
 #pragma codeseg

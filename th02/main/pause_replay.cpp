@@ -104,6 +104,19 @@ static bool t2pause_action_enabled(
 	return true;
 }
 
+static bool t2pause_action_selectable(
+	uint8_t action, bool restart_available, bool save_available
+)
+{
+	// Playback remains read-only, but recorded cursor movement traversed all
+	// four rows. Preserve that topology so a later confirmation reaches the
+	// same action that was selected while recording.
+	return (
+		replay_playback_active() ||
+		t2pause_action_enabled(action, restart_available, save_available)
+	);
+}
+
 static void t2pause_render(
 	uint8_t selected, uint8_t choice_count,
 	bool restart_semantics, bool restart_available, bool save_available
@@ -250,7 +263,7 @@ bool16 far t2pause_menu(void)
 					: ((selected == (choice_count - 1)) ? T2PAUSE_RESUME : (selected + 1))
 				);
 				action = t2pause_action(selected, restart_semantics);
-			} while(!t2pause_action_enabled(
+			} while(!t2pause_action_selectable(
 				action, restart_available, save_available
 			));
 			t2pause_render(
@@ -262,7 +275,7 @@ bool16 far t2pause_menu(void)
 			break;
 		} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 			action = t2pause_action(selected, restart_semantics);
-			if(t2pause_action_enabled(
+			if(t2pause_action_selectable(
 				action, restart_available, save_available
 			)) {
 				break;

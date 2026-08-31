@@ -504,6 +504,13 @@ static uint16_t t2op_header_wire_size(void)
 	}
 	if(
 		(t2op_header.magic[5] == '2') &&
+		(t2op_header.version == T2REPLAY_VERSION_PREVIOUS) &&
+		(t2op_header.header_size == T2REPLAY_HEADER_SIZE)
+	) {
+		return T2REPLAY_HEADER_SIZE;
+	}
+	if(
+		(t2op_header.magic[5] == '3') &&
 		(t2op_header.version == T2REPLAY_VERSION) &&
 		(t2op_header.header_size == T2REPLAY_HEADER_SIZE)
 	) {

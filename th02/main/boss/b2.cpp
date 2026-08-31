@@ -50,6 +50,7 @@
 #include "th02/main/spark.hpp"
 #include "th02/main/stage/stage.hpp"
 #include "th02/main/stage/bonus.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/hud/overlay.hpp"
 #include "th02/main/tile/tile.hpp"
@@ -560,7 +561,9 @@ extern "C" void far meira_end(void)
 	dialog_pre();
 	dialog_script_generic_part_animate(DS_POSTBOSS);
 	stage_clear_bonus_animate();
-	key_delay();
+	if(!replay_input_wait_for_change()) {
+		return;
+	}
 	overlay_stage_leave_animate();
 	stage_id++;
 

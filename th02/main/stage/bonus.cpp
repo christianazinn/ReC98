@@ -3,6 +3,7 @@
 #include "th02/snd/snd.h"
 #include "th02/core/globals.hpp"
 #include "th02/main/playperf.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/stage/bonus.hpp"
 #include "th02/main/boss/bosses.hpp"
@@ -115,7 +116,9 @@ inline void bonus_multiply_add_put_and_delay(
 	// input_reset_sense().
 	key_det = INPUT_UP;
 
-	key_delay();
+	if(!replay_input_wait_for_change()) {
+		return;
+	}
 }
 
 void near stage_clear_bonus_animate(void)

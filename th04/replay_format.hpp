@@ -4,7 +4,8 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 5
+#define REPLAY_USER_VERSION 6
+#define REPLAY_USER_VERSION_V5 5
 #define REPLAY_USER_VERSION_LEGACY 4
 #define REPLAY_USER_HEADER_SIZE 192
 #define REPLAY_USER_PACKET_SIZE 4
@@ -18,6 +19,7 @@
 #define REPLAY_USER_NAME_LEN 8
 #define REPLAY_USER_SLOT_COUNT 100
 #define REPLAY_PRACTICE_STOCK_MAX 15
+#define REPLAY_SCORE_MAX 2559999990UL
 #define REPLAY_START_CONFIG_SIZE 64
 #define REPLAY_COMMAND_SIZE 80
 #define REPLAY_CHECKPOINT_SCHEMA 1
@@ -65,7 +67,8 @@
 
 #define REPLAY_USER_INPUT_SEMANTICS 1
 #define REPLAY_USER_RULESET_STOCK 0
-#define REPLAY_START_SCHEMA 1
+#define REPLAY_START_SCHEMA 2
+#define REPLAY_START_SCHEMA_LEGACY 1
 
 #define REPLAY_PACKET_PHASE_GAMEPLAY 0
 #define REPLAY_PACKET_PHASE_INTERSTITIAL 1
@@ -202,7 +205,12 @@ struct replay_start_config_t {
 	uint16_t stage_graze;
 	uint16_t power_overflow;
 	uint8_t seed_mode;
-	uint8_t reserved[9];
+	// Schema 2 reclaims schema 1's nine-byte reserved tail. TH04 carries both
+	// score accumulators across native stage boundaries; the popup latch is
+	// shared presentation state in both games.
+	uint32_t score_delta;
+	uint32_t score_delta_frame;
+	uint8_t hiscore_popup_shown;
 };
 
 struct replay_user_header_t {

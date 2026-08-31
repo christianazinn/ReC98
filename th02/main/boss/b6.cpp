@@ -90,6 +90,7 @@
 #include "th02/main/execl.hpp"
 #include "th02/main/hiscore.hpp"
 #include "th02/main/stage/bonus.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/dialog/dialog.hpp"
 // APPENDED, not merged into the run above, and deliberately so: reordering an
 // include is not a free edit in this codebase (kb/codegen/0011's neighbour
@@ -158,12 +159,6 @@
 // this one, which is how th02/main/boss/b3.cpp, th02/main/boss/b4.cpp and
 // th02/main/boss/b5.cpp all already declare it.
 void near dialog_pre(void);
-
-// th02/hardware/input.hpp, spelled out here rather than included for the same
-// reason th02/main/boss/b5.cpp spells out snd_kaja_interrupt(): that header
-// has no include guard and defines fourteen unused `input_t` constants for the
-// sake of one call.
-void key_delay(void);
 
 // th02/snd/snd.h, spelled out for the same reason and in exactly the form
 // th02/main/boss/b5m.cpp already uses: that header has no include guard and
@@ -2758,7 +2753,9 @@ extern "C" void far sigma_end(void)
 	dialog_pre();
 	dialog_script_generic_part_animate(DS_POSTBOSS);
 	stage_extra_clear_bonus_animate();
-	key_delay();
+	if(!replay_input_wait_for_change()) {
+		return;
+	}
 
 	// 127 is STAGE_ALL, from th02/formats/scoredat/scoredat.hpp. That header
 	// cannot be included here: it re-includes the unguarded th02/score.h.

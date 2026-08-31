@@ -111,6 +111,17 @@ static bool t1replay_pause_action_enabled(t1replay_pause_action_t action)
 	return true;
 }
 
+static bool t1replay_pause_action_selectable(t1replay_pause_action_t action)
+{
+	// Playback cannot perform Restart or save another replay, but recorded
+	// cursor movement still crossed those rows. Keep that logical topology so
+	// the following recorded confirmation lands on the same action.
+	return (
+		(t1replay_playback_active() != false) ||
+		t1replay_pause_action_enabled(action)
+	);
+}
+
 static bool t1replay_pause_input_seen(void)
 {
 	return (
@@ -226,7 +237,7 @@ static t1replay_pause_action_t t1replay_pause_next(
 		} else if(candidate > T1RPA_DISCARD_EXIT) {
 			candidate = T1RPA_RESUME;
 		}
-	} while(!t1replay_pause_action_enabled(
+	} while(!t1replay_pause_action_selectable(
 		static_cast<t1replay_pause_action_t>(candidate)
 	));
 	return static_cast<t1replay_pause_action_t>(candidate);

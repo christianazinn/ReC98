@@ -30,4 +30,5 @@ extern input_t key_det; /* ZUN symbol [MAGNet2010] */
 // Resets and updates [key_det].
 void input_reset_sense(void);
 
+int key_delay_sense(void);
 void key_delay(void);

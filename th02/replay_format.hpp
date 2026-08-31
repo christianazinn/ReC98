@@ -12,7 +12,8 @@
 #endif
 
 #define T2REPLAY_VERSION_LEGACY 1
-#define T2REPLAY_VERSION 2
+#define T2REPLAY_VERSION_PREVIOUS 2
+#define T2REPLAY_VERSION 3
 #define T2REPLAY_HEADER_SIZE_LEGACY 128
 #define T2REPLAY_HEADER_SIZE 136
 #define T2REPLAY_PACKET_SIZE 4
@@ -32,7 +33,7 @@
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private semantic-checkpoint vocabulary for later exact TH02 seeks. This
-// remains separate from both public T2RPY1 and T2RPY2 payloads. Groups append
+// remains separate from public T2RPY1, T2RPY2, and T2RPY3 payloads. Groups append
 // by ID; a reader only accepts the complete vocabulary it implements.
 #define T2REPLAY_CHECKPOINT_SCHEMA 4
 #define T2REPLAY_CHECKPOINT_GROUP_SCHEMA 2
@@ -144,7 +145,7 @@
 	T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE \
 )
 
-// The public seek wire remains separate from T2RPY1/T2RPY2 and T2RCFG2. The
+// The public seek wire remains separate from T2RPY1/T2RPY2/T2RPY3 and T2RCFG2. The
 // native reader is compiled only into the private exact-apply profile until its
 // fresh-process equivalence matrix is complete.
 #define T2REPLAY_PUBLIC_SEEK_VERSION 1

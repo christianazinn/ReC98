@@ -75,6 +75,7 @@ void far t1replay_gameover_regist_menu(
 void far t1replay_terminal_save_request(void);
 
 bool16 far t1replay_active(void);
+bool16 far t1replay_playback_active(void);
 
 enum t1replay_pause_action_t {
 	T1RPA_RESUME = 0,
