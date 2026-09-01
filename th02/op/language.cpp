@@ -28,6 +28,8 @@ extern resident_t __seg *resident_seg;
 #define T2_PERF_OPTION_VALUE_CELLS 8
 #define T2_PERF_OPTION_TOP 320
 #define T2_LANGUAGE_OPTION_TOP 336
+#define T2_LANGUAGE_OPTION_VALUE_LEFT 344
+#define T2_LANGUAGE_OPTION_VALUE_CELLS 7
 
 static bool t2_language_option_initialized;
 static bool t2_language_option_input_allowed;
@@ -102,10 +104,28 @@ static void t2_language_option_japanese_center_put(tram_atrb2 atrb)
 
 static void t2_language_option_language_put(tram_atrb2 atrb)
 {
+	char clear[(T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W) + 1];
+	int i;
+
 	// Patch-owned labels are intentionally English in both locales. The native
 	// MIKOFT gaiji route owns their geometry on both VRAM and TRAM.
 	t2_language_option_native_center_put(
 		T2_LANGUAGE_OPTION_LABEL_CENTER, atrb, "Language"
+	);
+	// English is wider than the three full-width Japanese glyphs. Restore the
+	// complete value field on both layers before drawing either form so the
+	// outer EN...SH cells cannot survive a switch back to Japanese.
+	graph_copy_rect_1_to_0_16(
+		T2_LANGUAGE_OPTION_VALUE_LEFT, T2_LANGUAGE_OPTION_TOP,
+		(T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_W), (GLYPH_H + 4)
+	);
+	for(i = 0; i < (T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
+		clear[i] = ' ';
+	}
+	clear[T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W] = '\0';
+	text_putsa(
+		(T2_LANGUAGE_OPTION_VALUE_LEFT / GLYPH_HALF_W),
+		(T2_LANGUAGE_OPTION_TOP / GLYPH_H), clear, TX_BLACK
 	);
 	if(t2_language_get() == T2LANG_ENGLISH) {
 		t2_language_option_native_center_put(

@@ -36,7 +36,7 @@
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
 #define T2OP_SLOT_CELL_W 13
-#define T2OP_SLOT_CELL_STEP (T2OP_SLOT_CELL_W + 1)
+#define T2OP_SLOT_CELL_STEP T2OP_SLOT_CELL_W
 #define T2OP_SLOT_ONE_INSET 3
 #define T2OP_INPUT_KNOWN 0xF1FF
 #define T2OP_DOS_ACCESS_READ 0
@@ -1916,6 +1916,13 @@ static void t2op_title_pictures_free(void)
 	if(!t2op_title_pictures_loaded) {
 		return;
 	}
+	// TH02's pi_load() does not release the previous contents of a slot.
+	// Slot 0 still owns opa.pi after the title animation; leaving it alive here
+	// can make the larger Replay and Practice PI loads fail and bounce back to
+	// the title. A restored title has a null slot 0, which graph_pi_free()
+	// explicitly accepts.
+	pi_free(0);
+	pi_buffers[0] = 0;
 	pi_free(1);
 	pi_buffers[1] = 0;
 	pi_free(2);
@@ -3941,6 +3948,7 @@ static void t2op_practice_menu(void)
 	// patch-owned Practice surface used by the later games.
 	resident->stage = 0;
 	sel = 1;
+	t2op_title_pictures_free();
 	pi_load(0, "ts1.pi");
 	text_clear();
 	t2_language_op_bridge(T2LOB_SHOTTYPE_MENU, 0, 0);

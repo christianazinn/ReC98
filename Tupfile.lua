@@ -511,6 +511,9 @@ local th01_zunsoft = th01:branch(MODEL_TINY):link("zunsoft", {
 	"th01/zunsoft.cpp",
 	"bin/masters.lib",
 })
+local th01_chain = th01:branch(MODEL_TINY):link("t1chain", {
+	"th01/chain.cpp",
+})
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	piloadc,
 	"th01/op_01.cpp",

@@ -93,6 +93,10 @@ bool16 far t1replay_pause_save_refresh(void);
 // gameplay running but turns the current recording into a non-saveable run.
 void far t1replay_guard_pause_check(void);
 bool16 far t1replay_pause_restart_available(void);
+// Loads [fn] through the tiny TH01 chain helper. Use this for REIIDEN ->
+// REIIDEN transitions whose two patched images do not fit in conventional
+// memory at the same time. Does not return on success.
+void far t1replay_chain_exec(const char *fn);
 // Escape is a physical, playback-only cancellation path. It must be queried
 // before either active playback or Pause consumes the next canonical sample.
 bool16 far t1replay_playback_abort_requested(void);

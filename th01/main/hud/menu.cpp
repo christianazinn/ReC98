@@ -253,7 +253,7 @@ bool16 continue_menu(void)
 				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
 				game_switch_binary();
 				resident->point_value = 0;
-				execl(BINARY_MAIN_CAPS, BINARY_MAIN_CAPS, nullptr);
+				t1replay_chain_exec(BINARY_MAIN_CAPS);
 			} else {
 				no_continue:
 				player_is_hit = false;

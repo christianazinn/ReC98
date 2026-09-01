@@ -955,7 +955,24 @@ int main(void)
 					t1replay_process_milestone(T1RPM_REIIDEN_TEARDOWN);
 				}
 				game_switch_binary();
-				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+				t1replay_chain_exec(BINARY_MAIN);
+				// Preserve the former variadic execl() call footprint.
+				asm {
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+				}
 			}
 			#endif
 
@@ -1174,7 +1191,24 @@ int main(void)
 				}
 				#endif
 				game_switch_binary();
-				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+				t1replay_chain_exec(BINARY_MAIN);
+				// Preserve the former variadic execl() call footprint.
+				asm {
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+				}
 				#if defined(T1RB)
 				if(replay_stage4_clear_probe) {
 					t1replay_process_milestone(T1RPM_STAGE4_EXECL_RETURNED);

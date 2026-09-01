@@ -1,9 +1,18 @@
-/* Private TH01 replay process-handoff witness. */
+/* Private TH01 replay process-handoff witness and release chain launcher. */
 
 #pragma option -zCT1REPLAY_PROCESS_MILESTONE -G-
 
+#include <process.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include "th01/replay.hpp"
 #include "th01/replay_milestone.hpp"
+
+void far t1replay_chain_exec(const char *fn)
+{
+	execl("t1chain", "t1chain", fn, NULL);
+	exit(1);
+}
 
 #if T1REPLAY_PROCESS_MILESTONES
 

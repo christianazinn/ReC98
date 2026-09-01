@@ -60,10 +60,12 @@ bin\Pipeline\bmp2arr.com -q -i th01/sprites/pellet_c.bmp -o th01/sprites/pellet_
 bin\Pipeline\bmp2arr.com -q -i th01/sprites/pillar.bmp -o th01/sprites/pillar.csp -sym sPILLAR -of cpp -sw 32 -sh 8
 bin\Pipeline\bmp2arr.com -q -i th01/sprites/shape8x8.bmp -o th01/sprites/shape8x8.csp -sym sSHAPE8X8 -of cpp -sw 8 -sh 8
 bin\Pipeline\bmp2arr.com -q -i th01/sprites/bonusbox.bmp -o th01/sprites/bonusbox.csp -sym sSTAGEBONUS_BOX -of cpp -sw 8 -sh 4
-echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=1  -mt  -nobj/th01/  th01/zunsoft.cpp>obj\batch001.@c
+echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=1  -mt  -nobj/th01/  th01/zunsoft.cpp  th01/chain.cpp>obj\batch001.@c
 tcc @obj/batch001.@c
 echo -c -s -t c0t.obj obj\th01\zunsoft.obj, bin\th01\zunsoft.com, obj\th01\zunsoft.map, bin\masters.lib emu.lib maths.lib ct.lib>obj\th01\zunsoft.@l
 tlink @obj\th01\zunsoft.@l
+echo -c -s -t c0t.obj obj\th01\chain.obj, bin\th01\t1chain.com, obj\th01\t1chain.map, emu.lib maths.lib ct.lib>obj\th01\t1chain.@l
+tlink @obj\th01\t1chain.@l
 echo -c  -I.  -O  -b-  -3  -Z  -d  -DGAME=1  -ml  -DBINARY='O'  -nobj/th01/  th01/op_01.cpp  th01/frmdelay.cpp  th01/vsync.cpp  th01/ztext.cpp  th01/initexit.cpp  th01/graph.cpp  th01/ptn_0to1.cpp  th01/vplanset.cpp  th01/op_07.cpp  th01/grp_text.cpp  th01/ptn.cpp  th01/op_09.cpp  th01/f_imgd.cpp  th01/grz.cpp  th01/resstuff.cpp  th01/mdrv2.cpp  th01/pf.cpp  th01/rpyop.cpp  th01/rpyfont.cpp  th01/language.cpp  th01/rpymile.cpp>obj\batch002.@c
 tcc @obj/batch002.@c
 tasm32 /m /mx /kh32768 /t /dGAME=1 th01_op.asm obj\th01\op.obj
