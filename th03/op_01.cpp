@@ -179,8 +179,7 @@ void near cfg_load(void)
 	cfg_load_and_set_resident(cfg, CFG_FN_CAPS);
 
 	th03_snd_cfg_unpack(cfg.opts.bgm_mode);
-	snd_determine_mode();
-	th03_snd_process_apply();
+	th03_snd_process_init();
 	snd_sel_disabled = false;
 	if(!snd_active) {
 		resident->bgm_mode = SND_BGM_OFF;
@@ -4084,6 +4083,7 @@ char VALUE_LUNATIC[] = "Lunatic";
 
 char VALUE_OFF[8] = "Off";
 char VALUE_FM[8] = "FM (86)";
+char VALUE_MIDI[13] = "MIDI (SC-88)";
 
 // The initial names for the three input modes? Unused in the final game.
 // Replay mod: Reuses the five-byte VALUE_TYPE_1 slot to keep the original
@@ -4155,7 +4155,7 @@ static void near title_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x37312E34UL); // "4.17"
+	TITLE_CREDIT_QUAD(4, 0x38312E34UL); // "4.18"
 	TITLE_CREDIT_QUAD(5, 0x20796220UL); // " by "
 	TITLE_CREDIT_QUAD(6, 0x69726843UL); // "Chri"
 	TITLE_CREDIT_QUAD(7, 0x61697473UL); // "stia"
@@ -4227,8 +4227,10 @@ static void near option_choice_draw(int sel, tram_atrb2 atrb)
 			choice_put_centered(VALUE_CENTER_X, 1, 0, VALUE_OFF, atrb);
 			break;
 		case SND_BGM_FM:
-		case SND_BGM_MIDI:
 			choice_put_centered(VALUE_CENTER_X, 1, 0, VALUE_FM, atrb);
+			break;
+		case SND_BGM_MIDI:
+			choice_put_centered(VALUE_CENTER_X, 1, 0, VALUE_MIDI, atrb);
 			break;
 		}
 	} else if(sel == OC_SFX) {
@@ -4498,18 +4500,19 @@ void near main_update_and_render(void)
 	#undef input_allowed
 }
 
-#define bgm_flip() { \
+#define bgm_cycle(ring_direction) { \
 	if(!snd_sel_disabled) { \
-		if(resident->bgm_mode == SND_BGM_OFF) { \
-			resident->bgm_mode = SND_BGM_FM; \
-			snd_kaja_func(KAJA_SONG_STOP, 0); \
-			snd_determine_mode(); \
-			th03_snd_process_apply(); \
+		snd_kaja_func(KAJA_SONG_STOP, 0); \
+		ring_direction(resident->bgm_mode, SND_BGM_MIDI); \
+		th03_snd_process_init(); \
+		if(resident->bgm_mode != SND_BGM_OFF) { \
+			if(snd_midi_active) { \
+				snd_load("gminit.m", SND_LOAD_SONG); \
+				snd_kaja_func(KAJA_SONG_PLAY, 0); \
+				frame_delay(4); \
+			} \
+			snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG); \
 			snd_kaja_func(KAJA_SONG_PLAY, 0); \
-		} else { \
-			resident->bgm_mode = SND_BGM_OFF; \
-			snd_kaja_func(KAJA_SONG_STOP, 0); \
-			snd_active = false; \
 		} \
 		/* ZUN bloat: Already done at the call site. */ \
 		option_choice_put(menu_sel, TX_WHITE); \
@@ -4567,7 +4570,7 @@ void near option_update_and_render(void)
 			ring_inc_range(resident->rank, RANK_EASY, RANK_LUNATIC);
 			break;
 		case OC_BGM:
-			bgm_flip();
+			bgm_cycle(ring_inc);
 			break;
 		case OC_SFX:
 			sfx_flip();
@@ -4590,7 +4593,7 @@ void near option_update_and_render(void)
 			ring_dec_range(resident->rank, RANK_EASY, RANK_LUNATIC);
 			break;
 		case OC_BGM:
-			bgm_flip();
+			bgm_cycle(ring_dec);
 			break;
 		case OC_SFX:
 			sfx_flip();
@@ -4682,6 +4685,11 @@ void main(void)
 		reinterpret_cast<const unsigned char far *>(OP_AND_END_PF_FN)
 	);
 	cfg_load();
+	if(snd_midi_active) {
+		snd_load("gminit.m", SND_LOAD_SONG);
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+		frame_delay(4);
+	}
 	replay_restart_requested = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_RESTART
 	);

@@ -7,6 +7,7 @@
 #include "th03/formats/mrs.hpp"
 #include "th03/hardware/palette.hpp"
 #include "th03/main/player/bomb.hpp"
+#include "th03/photosensitivity.hpp"
 #include "th03/main/player/cur.hpp"
 #include "th03/main/playfld.hpp"
 #include "th03/math/polar.hpp"
@@ -531,7 +532,10 @@ extern "C" void pascal far kotohime_bomb(void)
 		palette_changed = true;
 		if((frame & 3) < 2) {
 			snd_se_play(10);
-			PaletteTone = 170;
+			// Replay Patch: Keep Kotohime's side-field bomb animation and
+			// shake, but suppress its 35 Hz full-screen brightness pulse when
+			// the reduced-flash option is enabled.
+			PaletteTone = (photosensitivity_enabled() ? 100 : 170);
 			palette_changed = true;
 			playfield_fg_shift_x[pid_current] = 4;
 		} else {

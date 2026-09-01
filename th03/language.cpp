@@ -148,7 +148,14 @@ int far language_pi_load(int slot, const char far *fn)
 
 void far th03_snd_process_init(void)
 {
-	snd_midi_active = false;
+	// GAME.BAT keeps both drivers resident: PMD owns sound effects and FM BGM,
+	// while MMD owns MIDI BGM. Re-probe both after every executable transition
+	// because each process starts with a fresh copy of these globals.
+	snd_pmd_resident();
+	snd_mmd_resident();
+	snd_midi_active = (
+		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
+	);
 	if(
 		(resident->bgm_mode != SND_BGM_OFF) ||
 		th03_snd_se_enabled()

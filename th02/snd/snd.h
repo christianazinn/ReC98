@@ -37,11 +37,9 @@ static inline bool snd_se_active() {
 // check for an actual installed FM sound source is done by
 // snd_determine_mode().
 bool16 snd_pmd_resident(void);
-#if (GAME != 3)
 // Returns whether the MMD driver is resident at its interrupt. If it is, ≤TH03
 // sets [snd_midi_active] to true.
 bool16 snd_mmd_resident(void);
-#endif
 
 // Checks whether an FM sound source is active, and sets [snd_fm_possible]
 // and [snd_active]. In the absence of an FM source, [snd_active] is set to
