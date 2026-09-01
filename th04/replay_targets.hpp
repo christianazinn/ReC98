@@ -288,4 +288,27 @@ static replay_practice_target_label_t replay_practice_boss_phase_label(
 	return RPTL_DEFAULT;
 }
 
+// Distinct within-phase patterns reached only after surviving long enough.
+// Zero means that the phase has no separately selectable timedown pattern.
+static uint16_t replay_practice_boss_timedown_frame(
+	uint8_t stage, uint8_t section, uint8_t phase
+)
+{
+#if (GAME == 4)
+	if(stage == STAGE_EXTRA) {
+		if((section == RCS_TH04_MUGETSU) && (phase == 6)) {
+			return 3000;
+		}
+		if((section == RCS_TH04_GENGETSU) && (phase == 8)) {
+			return 3001;
+		}
+	}
+#else
+	(void)stage;
+	(void)section;
+	(void)phase;
+#endif
+	return 0;
+}
+
 #endif /* TH04_REPLAY_TARGETS_HPP */

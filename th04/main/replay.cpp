@@ -1335,10 +1335,21 @@ static bool replay_start_config_valid(
 		(start->stage_graze > 999) ||
 		(start->power_overflow > 42) ||
 		!replay_playperf_valid(start->rank, start->playperf) ||
-		((start->seed_mode & ~(RSM_VALUE_MASK | RSM_RANK_LOCK)) != 0) ||
+		((start->seed_mode & ~(
+			RSM_VALUE_MASK | RSM_TIMEDOWN | RSM_RANK_LOCK
+		)) != 0) ||
 		(
 			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
-			((start->seed_mode & RSM_RANK_LOCK) != 0)
+			((start->seed_mode & (RSM_TIMEDOWN | RSM_RANK_LOCK)) != 0)
+		) ||
+		(
+			((start->seed_mode & RSM_TIMEDOWN) != 0) &&
+			(
+				(start->kind != RSK_BOSS_PHASE) ||
+				(replay_practice_boss_timedown_frame(
+					start->stage, start->section, start->phase
+				) == 0)
+			)
 		)
 	) {
 		return false;
@@ -1386,7 +1397,7 @@ static bool replay_start_config_valid(
 		(start->score_delta_frame != 0) ||
 		(start->hiscore_popup_shown != 0) ||
 		(start->playperf != replay_native_playperf(start->rank)) ||
-		((start->seed_mode & RSM_RANK_LOCK) != 0)
+		((start->seed_mode & (RSM_TIMEDOWN | RSM_RANK_LOCK)) != 0)
 	)) {
 		return false;
 	}
@@ -3195,104 +3206,60 @@ static void replay_restart_capture(void)
 	start->random_seed = random_seed;
 }
 
-// The stage-title overlay writes its strings only once during its dissolve-in.
-// Pause's text rows cover those strings, so it must restore the live rows
-// without stepping the overlay's timer on Resume.
-#define REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME 25
-#define REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME 192
+// Pause can cover stage titles, clear-bonus rows, and other one-shot TRAM
+// presentation. Preserve the exact cells underneath it instead of trying to
+// reconstruct each owner from its current state-machine frame.
+#define REPLAY_PAUSE_BACKING_LEFT 19
+#define REPLAY_PAUSE_BACKING_TOP 10
+#define REPLAY_PAUSE_BACKING_W 23
+#define REPLAY_PAUSE_BACKING_H 6
+#define REPLAY_PAUSE_BACKING_CELLS \
+	(REPLAY_PAUSE_BACKING_W * REPLAY_PAUSE_BACKING_H)
 
-static bool replay_pause_stage_titles_hide(void)
+static uint16_t replay_pause_backing_jis[REPLAY_PAUSE_BACKING_CELLS];
+static uint16_t replay_pause_backing_attr[REPLAY_PAUSE_BACKING_CELLS];
+
+static void replay_pause_backing_capture(void)
 {
-	if(
-		(overlay1 != overlay_titles_update_and_render) ||
-		(titles_frame < REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME) ||
-		(titles_frame >= REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME)
-	) {
-		return false;
+	unsigned index = 0;
+	tram_y_t y;
+	tram_x_t x;
+
+	for(y = REPLAY_PAUSE_BACKING_TOP;
+		y < (REPLAY_PAUSE_BACKING_TOP + REPLAY_PAUSE_BACKING_H); y++) {
+		for(x = REPLAY_PAUSE_BACKING_LEFT;
+			x < (REPLAY_PAUSE_BACKING_LEFT + REPLAY_PAUSE_BACKING_W); x++) {
+			replay_pause_backing_jis[index] = *reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), (x * 2))
+			);
+			replay_pause_backing_attr[index] = *reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), ((x * 2) + 0x2000))
+			);
+			index++;
+		}
 	}
-	overlay_line_fill(
-		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H / 2) - GLYPH_H) / GLYPH_H),
-		TX_WHITE
-	);
-	overlay_line_fill(
-		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H / 2) + GLYPH_H) / GLYPH_H),
-		TX_WHITE
-	);
-	overlay_line_fill(
-		(PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H - (GLYPH_H / 2)) / GLYPH_H)),
-		TX_WHITE
-	);
-	return true;
 }
 
-static void replay_pause_stage_titles_restore(void)
+static void replay_pause_backing_restore(void)
 {
-	const shiftjis_t far *title;
-	const shiftjis_t far *bgm_title;
-	tram_y_t stage_num_y;
-	tram_y_t stage_title_y;
-	tram_y_t bgm_y;
-	tram_x_t stage_num_left;
-	tram_x_t stage_num_fe_left;
-	tram_x_t bgm_right;
+	unsigned index = 0;
+	tram_y_t y;
+	tram_x_t x;
 
-	if(overlay1 != overlay_titles_update_and_render) {
-		return;
+	for(y = REPLAY_PAUSE_BACKING_TOP;
+		y < (REPLAY_PAUSE_BACKING_TOP + REPLAY_PAUSE_BACKING_H); y++) {
+		for(x = REPLAY_PAUSE_BACKING_LEFT;
+			x < (REPLAY_PAUSE_BACKING_LEFT + REPLAY_PAUSE_BACKING_W); x++) {
+			*reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), (x * 2))
+			) = replay_pause_backing_jis[index];
+			*reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), ((x * 2) + 0x2000))
+			) = replay_pause_backing_attr[index];
+			index++;
+		}
 	}
-#if (GAME == 5)
-	title = stage_title;
-	bgm_title = stage_bgm_title;
-#else
-	title = STAGE_TITLES[stage_title_id];
-	bgm_title = BGM_TITLES[bgm_title_id];
-#endif
-	stage_num_y = (
-		PLAYFIELD_TRAM_TOP + (((PLAYFIELD_H / 2) - GLYPH_H) / GLYPH_H)
-	);
-	stage_title_y = (
-		PLAYFIELD_TRAM_TOP + (((PLAYFIELD_H / 2) + GLYPH_H) / GLYPH_H)
-	);
-	bgm_y = (
-		PLAYFIELD_TRAM_TOP + ((PLAYFIELD_H - (GLYPH_H / 2)) / GLYPH_H)
-	);
-	stage_num_left = (
-		PLAYFIELD_TRAM_CENTER_X - (((sizeof(gStage_1) - 1) * GAIJI_TRAM_W) / 2)
-	);
-	stage_num_fe_left = (
-		PLAYFIELD_TRAM_CENTER_X - (((sizeof(gFINAL_STAGE) - 1) * GAIJI_TRAM_W) / 2)
-	);
-	bgm_right = (PLAYFIELD_TRAM_RIGHT - 1);
-
-	gStage_1[6] = static_cast<gaiji_th04_t>(gb_1 + stage_id);
-	if(stage_id == 5) {
-		gaiji_putsa(
-			stage_num_fe_left, stage_num_y,
-			reinterpret_cast<const char *>(gFINAL_STAGE), TX_YELLOW
-		);
-	} else if(stage_id == STAGE_EXTRA) {
-		gaiji_putsa(
-			stage_num_fe_left, stage_num_y,
-			reinterpret_cast<const char *>(gEXTRA_STAGE), TX_YELLOW
-		);
-	} else {
-		gaiji_putsa(
-			stage_num_left, stage_num_y,
-			reinterpret_cast<const char *>(gStage_1), TX_YELLOW
-		);
-	}
-	text_putsa(
-		(PLAYFIELD_TRAM_CENTER_X - (stage_title_len / 2)),
-		stage_title_y, title, TX_WHITE
-	);
-	gaiji_putca(
-		((bgm_right - (GAIJI_TRAM_W + 1)) - stage_bgm_title_len), bgm_y,
-		3, TX_YELLOW
-	);
-	text_putsa((bgm_right - stage_bgm_title_len), bgm_y, bgm_title, TX_WHITE);
 }
-
-#undef REPLAY_STAGE_TITLE_STRINGS_LAST_FRAME
-#undef REPLAY_STAGE_TITLE_STRINGS_FIRST_FRAME
 
 static bool replay_pause_save_available(void)
 {
@@ -3373,8 +3340,10 @@ static void replay_pause_clear(void)
 	tram_y_t y;
 	tram_x_t x;
 
-	for(y = 10; y <= 15; y++) {
-		for(x = 20; x < 42; x++) {
+	for(y = REPLAY_PAUSE_BACKING_TOP;
+		y < (REPLAY_PAUSE_BACKING_TOP + REPLAY_PAUSE_BACKING_H); y++) {
+		for(x = REPLAY_PAUSE_BACKING_LEFT;
+			x < (REPLAY_PAUSE_BACKING_LEFT + REPLAY_PAUSE_BACKING_W); x++) {
 			text_putca(x, y, ' ', TX_WHITE);
 		}
 	}
@@ -3385,8 +3354,9 @@ extern "C" int far replay_pause_menu(void)
 	uint8_t selected = 0;
 	bool save_available;
 	bool save_became_unavailable;
-	bool stage_titles_hidden = replay_pause_stage_titles_hide();
 	bool bgm_paused = (snd_bgm_active() && snd_bgm_is_fm());
+
+	replay_pause_backing_capture();
 
 	if(bgm_paused) {
 		snd_kaja_func(PMD_PAUSE, 0);
@@ -3474,9 +3444,7 @@ extern "C" int far replay_pause_menu(void)
 		snd_kaja_func(PMD_UNPAUSE, 0);
 	}
 	if(selected == 0) {
-		if(stage_titles_hidden) {
-			replay_pause_stage_titles_restore();
-		}
+		replay_pause_backing_restore();
 		return 0;
 	}
 	if(selected == 1) {
@@ -3900,6 +3868,11 @@ bool replay_playback_active(void)
 		#pragma codestring "\x90\x90\x90\x90\x90\x90"
 	#else
 		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+	#endif
+	// v0.1.1-rc7 expands the exact Pause backing and timedown catalog. Restore
+	// TH04's following stock CRT segment to its foundation paragraph phase.
+	#if (GAME == 4)
+		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#endif
 
 #pragma codeseg

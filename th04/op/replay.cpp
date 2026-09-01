@@ -965,10 +965,21 @@ static bool replay_op_start_valid(
 		(start->credit_bombs > credit_bombs_max) ||
 		(start->stage_graze > 999) || (start->power_overflow > 42) ||
 		!replay_op_playperf_valid(start->rank, start->playperf) ||
-		((start->seed_mode & ~(RSM_VALUE_MASK | RSM_RANK_LOCK)) != 0) ||
+		((start->seed_mode & ~(
+			RSM_VALUE_MASK | RSM_TIMEDOWN | RSM_RANK_LOCK
+		)) != 0) ||
 		(
 			(start->schema == REPLAY_START_SCHEMA_LEGACY) &&
-			((start->seed_mode & RSM_RANK_LOCK) != 0)
+			((start->seed_mode & (RSM_TIMEDOWN | RSM_RANK_LOCK)) != 0)
+		) ||
+		(
+			((start->seed_mode & RSM_TIMEDOWN) != 0) &&
+			(
+				(start->kind != RSK_BOSS_PHASE) ||
+				(replay_practice_boss_timedown_frame(
+					start->stage, start->section, start->phase
+				) == 0)
+			)
 		)
 	) {
 		return false;
@@ -1008,7 +1019,7 @@ static bool replay_op_start_valid(
 		(start->score_delta != 0) || (start->score_delta_frame != 0) ||
 		(start->hiscore_popup_shown != 0) ||
 		(start->playperf != replay_op_native_playperf(start->rank)) ||
-		((start->seed_mode & RSM_RANK_LOCK) != 0)
+		((start->seed_mode & (RSM_TIMEDOWN | RSM_RANK_LOCK)) != 0)
 	)) {
 		return false;
 	}
@@ -2780,6 +2791,7 @@ static void practice_target_reset(replay_start_config_t far *start)
 	start->kind = RSK_STAGE;
 	start->section = 0;
 	start->phase = 0;
+	start->seed_mode &= ~RSM_TIMEDOWN;
 }
 
 static uint8_t practice_midboss_phase_menu_max(
@@ -2803,6 +2815,7 @@ static uint8_t practice_target_count(
 		replay_practice_midboss_count(start->stage)
 	);
 	uint8_t midboss;
+	uint8_t phase;
 	uint8_t section;
 
 	for(
@@ -2815,9 +2828,14 @@ static uint8_t practice_target_count(
 		);
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
-		count = static_cast<uint8_t>(
-			count + practice_boss_phase_max(start, section) + 1
-		);
+		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
+			count++;
+			if(replay_practice_boss_timedown_frame(
+				start->stage, section, phase
+			) != 0) {
+				count++;
+			}
+		}
 	}
 	return count;
 }
@@ -2829,6 +2847,7 @@ static uint8_t practice_target_index(
 	uint8_t index;
 	uint8_t chapter;
 	uint8_t midboss;
+	uint8_t phase;
 	uint8_t section;
 	uint8_t chapters = replay_practice_chapter_count(start->stage);
 	uint8_t midbosses = replay_practice_midboss_count(start->stage);
@@ -2866,19 +2885,27 @@ static uint8_t practice_target_index(
 			}
 		}
 	}
-	if(
-		(start->kind != RSK_BOSS_PHASE) ||
-		(start->section >= practice_boss_section_count(start)) ||
-		(start->phase > practice_boss_phase_max(start, start->section))
-	) {
+	if((start->kind != RSK_BOSS_PHASE) ||
+	   (start->section >= practice_boss_section_count(start))) {
 		return 0;
 	}
-	for(section = 0; section < start->section; section++) {
-		index = static_cast<uint8_t>(
-			index + practice_boss_phase_max(start, section) + 1
-		);
+	for(section = 0; section < practice_boss_section_count(start); section++) {
+		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
+			if((start->section == section) && (start->phase == phase)) {
+				if((start->seed_mode & RSM_TIMEDOWN) != 0) {
+					return static_cast<uint8_t>(index + 1);
+				}
+				return index;
+			}
+			index++;
+			if(replay_practice_boss_timedown_frame(
+				start->stage, section, phase
+			) != 0) {
+				index++;
+			}
+		}
 	}
-	return static_cast<uint8_t>(index + start->phase);
+	return 0;
 }
 
 static void practice_target_set(
@@ -2888,6 +2915,7 @@ static void practice_target_set(
 	uint8_t chapter;
 	uint8_t chapters;
 	uint8_t midboss;
+	uint8_t phase;
 	uint8_t section;
 	uint8_t span;
 
@@ -2927,16 +2955,27 @@ static void practice_target_set(
 		}
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
-		span = static_cast<uint8_t>(
-			practice_boss_phase_max(start, section) + 1
-		);
-		if(index < span) {
-			start->kind = RSK_BOSS_PHASE;
-			start->section = section;
-			start->phase = index;
-			return;
+		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
+			if(index == 0) {
+				start->kind = RSK_BOSS_PHASE;
+				start->section = section;
+				start->phase = phase;
+				return;
+			}
+			index--;
+			if(replay_practice_boss_timedown_frame(
+				start->stage, section, phase
+			) != 0) {
+				if(index == 0) {
+					start->kind = RSK_BOSS_PHASE;
+					start->section = section;
+					start->phase = phase;
+					start->seed_mode |= RSM_TIMEDOWN;
+					return;
+				}
+				index--;
+			}
 		}
-		index = static_cast<uint8_t>(index - span);
 	}
 }
 
@@ -3044,8 +3083,12 @@ static char *practice_target_value_append(
 		return p;
 	}
 	P('P'); P('h'); P('a'); P('s'); P('e'); P(' ');
+	p = replay_op_uint_append(p, start->phase, 1);
+	if((start->seed_mode & RSM_TIMEDOWN) != 0) {
+		P(' '); P('T'); P('i'); P('m'); P('e'); P('d'); P('o'); P('w'); P('n');
+	}
 	#undef P
-	return replay_op_uint_append(p, start->phase, 1);
+	return p;
 }
 
 static bool practice_start_valid(const replay_start_config_t far *start)
@@ -5136,5 +5179,13 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 // slot cells and explicit Story/Practice detail status. The structural gate
 // below proves that the following stock CRT segment retains its paragraph
 // phase in both builds.
+
+// v0.1.1-rc7 adds timedown targets and the full English Pause label. Restore
+// the following stock CRT segment to its foundation paragraph phase.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90\x90\x90"
+#endif
 
 #pragma codeseg

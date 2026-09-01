@@ -129,6 +129,7 @@ enum replay_seed_mode_t {
 	RSM_RANDOM = 0,
 	RSM_FIXED = 1,
 	RSM_VALUE_MASK = 1,
+	RSM_TIMEDOWN = 0x40,
 	RSM_RANK_LOCK = 0x80,
 };
 

@@ -149,9 +149,9 @@ static const char far *language_main_text(unsigned index)
 	const char far *p;
 	_asm {
 #if (GAME == 4)
-		db 0xE8, 0x5E, 0x04
+		db 0xE8, 0x61, 0x04
 #else
-		db 0xE8, 0x5B, 0x04
+		db 0xE8, 0x5E, 0x04
 #endif
 		db 'E', 'l', 'e', 'm', 'e', 'n', 't', 's', ' ', 'o', 'f', ' ', 'C', 'r', 'e', 'a'
 		db 't', 'i', 'o', 'n', 0, 'M', 'a', 'g', 'i', 'c', 'a', 'l', ' ', 'S', 'p', 'a'
@@ -177,7 +177,7 @@ static const char far *language_main_text(unsigned index)
 		db 'r', 'e', 'a', 'c', 'h', 'e', 'r', 'o', 'u', 's', ' ', 'M', 'a', 'i', 'd', 'e'
 		db 'n', 0, 'R', 'e', 's', 'u', 'm', 'e', 0, 'R', 'e', 's', 't', 'a', 'r', 't'
 		db 0, 'S', 'a', 'v', 'e', ' ', 'a', 'n', 'd', ' ', 'E', 'x', 'i', 't', 0, 'E'
-		db 'x', 'i', 't', ' ', 'W', 'i', 't', 'h', 'o', 'u', 't', ' ', 'S', 'a', 'v', 'e'
+		db 'x', 'i', 't', ' ', 'W', 'i', 't', 'h', 'o', 'u', 't', ' ', 'S', 'a', 'v', 'i', 'n', 'g'
 		db 0, 'P', 'A', 'U', 'S', 'E', 'D', 0
 
 		// These strings are copied byte-for-byte from the executable-resident
@@ -909,7 +909,7 @@ void far pascal language_main_layout_pad(void)
 	#pragma codestring "\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90"
-	// Keep the stock TH05 `_TEXTC` segment on paragraph phase 0xD after the
+// Keep the stock TH05 runtime tail on paragraph phase 0xD after the
 	// dual-language HUD gaiji loader above.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	// The replay-owned activation call contributes five bytes in this segment;

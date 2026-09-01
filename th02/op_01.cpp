@@ -338,7 +338,9 @@ void op_animate(void)
 	}
 	resident->demo_num = 0;
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
-	palette_white_in(6);
+	replay_op_animate_finish();
+	// Keep the following patch-owned code segment at its accepted address.
+	asm { nop; nop; }
 }
 
 void pascal near start_init(void)

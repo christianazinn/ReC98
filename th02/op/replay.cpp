@@ -78,6 +78,17 @@
 #define T2OP_TITLE_RANK_ROW 23
 #define T2OP_TITLE_QUIT_ROW 21
 
+void far replay_op_animate_finish(void)
+{
+	int slot;
+
+	palette_white_in(6);
+	for(slot = 0; slot < 3; slot++) {
+		pi_free(slot);
+		pi_buffers[slot] = 0;
+	}
+}
+
 // Match the TH04/TH05 patch surfaces: PI palette entry 7 is reserved for the
 // active row and is made independent of the background image's own palette.
 #define T2OP_SELECTED_COLOR 7
@@ -1972,7 +1983,9 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 	if(pi_load(0, fn) != 0) {
 		return false;
 	}
-	palette_settone(0);
+	if(t2op_title_return_fade) {
+		palette_settone(0);
+	}
 	pi_palette_apply(0);
 	palette_set(
 		T2OP_SELECTED_COLOR,

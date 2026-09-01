@@ -2155,6 +2155,7 @@ static void rck_practice_th04_gengetsu_prepare(void)
 {
 	char bg_fn[12];
 	char bb_fn[9];
+	extern uint8_t number_of_calls_to_this_function_during_extra;
 
 	bg_fn[0] = 's'; bg_fn[1] = 't'; bg_fn[2] = '0'; bg_fn[3] = '6';
 	bg_fn[4] = 'b'; bg_fn[5] = 'k'; bg_fn[6] = '2'; bg_fn[7] = '.';
@@ -2165,6 +2166,9 @@ static void rck_practice_th04_gengetsu_prepare(void)
 	bb_fn[8] = '\0';
 
 	boss_statebyte[0] = true;
+	// Direct construction skips Mugetsu's real dialog_exit(). The next exit is
+	// therefore Gengetsu's and must select her defeat faceset.
+	number_of_calls_to_this_function_during_extra = 1;
 	boss_update = nullfunc_far;
 	boss_fg_render = nullfunc_near;
 	boss.phase = PHASE_HP_FILL;
@@ -2445,10 +2449,12 @@ static bool rck_practice_th04_dialog_prepare(void)
 		}
 		if(c == '\\') {
 			c = *(dialog_p++);
-			if((c == '$') || (c == '#')) {
+			if(c == '#') {
 				return true;
 			}
-			rck_practice_th04_dialog_op(c);
+			if(c != '$') {
+				rck_practice_th04_dialog_op(c);
+			}
 			continue;
 		}
 		if((c == '0') || (c == '1')) {
@@ -2618,6 +2624,11 @@ static bool rck_practice_boss_construct(
 	if(!rck_practice_boss_auxiliary_valid()) {
 		snd_se_mode = se_mode;
 		return false;
+	}
+	if((start->seed_mode & RSM_TIMEDOWN) != 0) {
+		boss.phase_frame = replay_practice_boss_timedown_frame(
+			start->stage, start->section, start->phase
+		);
 	}
 	rck_practice_boss_transients_clear();
 	rck_practice_randring_restore();

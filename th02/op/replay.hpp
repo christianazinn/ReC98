@@ -15,6 +15,10 @@ void far replay_title_restore_request(void);
 // title animation; every other launch performs the native load.
 void far replay_op_restart_or_snd_load(const char *fn, int func);
 
+// Completes the native title animation and retires its three temporary PI
+// allocations before OP overwrites those slot pointers with selector assets.
+void far replay_op_animate_finish(void);
+
 #ifdef T2PD
 void far replay_practice_diag_boot(unsigned char milestone);
 void far replay_practice_diag_autostart(void);

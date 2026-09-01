@@ -3848,15 +3848,22 @@ static void t1replay_op_overwrite_cancel(void)
 
 bool t1replay_op_replay_enter(void)
 {
+	bool shown;
+
+	z_palette_black_out();
 	t1replay_op_surface_state_reset();
 	if(!replay_op_font_load()) {
+		z_palette_black_in();
 		return false;
 	}
 	if(!t1op_backup_recover_all()) {
 		replay_op_font_free();
+		z_palette_black_in();
 		return false;
 	}
-	return t1replay_op_replay_render();
+	shown = t1replay_op_replay_render();
+	z_palette_black_in();
+	return shown;
 }
 
 bool t1replay_op_pending_enter(void)
@@ -3904,8 +3911,12 @@ bool t1replay_op_pending_enter(void)
 
 bool t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_t rand)
 {
+	bool shown;
+
+	z_palette_black_out();
 	t1replay_op_surface_state_reset();
 	if(!replay_op_font_load()) {
+		z_palette_black_in();
 		return false;
 	}
 	#if T1REPLAY_PROCESS_MILESTONES
@@ -3924,7 +3935,9 @@ bool t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 	#if T1REPLAY_PROCESS_MILESTONES
 		t1replay_process_milestone(T1RPM_PRACTICE_STATE_READY);
 	#endif
-	return t1replay_op_practice_render();
+	shown = t1replay_op_practice_render();
+	z_palette_black_in();
+	return shown;
 }
 
 bool t1replay_op_practice_redraw(void)
@@ -3937,9 +3950,11 @@ bool t1replay_op_practice_redraw(void)
 
 void t1replay_op_restore(void)
 {
+	z_palette_black_out();
 	t1replay_op_name_active = false;
 	replay_op_font_free();
 	t1replay_op_title_backing_restore();
+	z_palette_black_in();
 	t1replay_op_return_wait_release();
 	t1replay_op_input_reset();
 }

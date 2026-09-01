@@ -183,6 +183,13 @@ static void t1replay_pause_discard_exit_release(void)
 	}
 }
 
+static void t1replay_pause_escape_release(void)
+{
+	while(peekb(0, KEYGROUP_0) & K0_ESC) {
+		frame_delay(1);
+	}
+}
+
 static void t1replay_pause_row_put(
 	t1replay_pause_action_t action, bool selected
 )
@@ -282,6 +289,18 @@ bool16 far t1replay_pause_menu(void)
 			t1replay_abort_to_op();
 			return true;
 		}
+		// Sample physical Pause shortcuts before input_sense() consumes Escape
+		// as the ordinary Resume toggle.
+		if(t1replay_pause_discard_exit_pressed()) {
+			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
+			t1replay_pause_discard_exit_release();
+			return true;
+		}
+		if(t1replay_pause_restart_pressed()) {
+			t1replay_pause_action_set(T1RPA_RESTART);
+			t1replay_pause_restart_release();
+			return true;
+		}
 		input_sense(false);
 		if(
 			t1replay_pause_input_seen() &&
@@ -297,16 +316,6 @@ bool16 far t1replay_pause_menu(void)
 		}
 		if(player_is_hit == true) {
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
-			return true;
-		}
-		if(t1replay_pause_discard_exit_pressed()) {
-			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
-			t1replay_pause_discard_exit_release();
-			return true;
-		}
-		if(t1replay_pause_restart_pressed()) {
-			t1replay_pause_action_set(T1RPA_RESTART);
-			t1replay_pause_restart_release();
 			return true;
 		}
 		previous = selected;
@@ -327,11 +336,17 @@ bool16 far t1replay_pause_menu(void)
 		}
 		if(input_shot || input_ok) {
 			t1replay_pause_action_set(selected);
-			return (selected != T1RPA_RESUME);
+			if(selected != T1RPA_RESUME) {
+				return true;
+			}
+			t1replay_pause_input_release();
+			paused = false;
+			break;
 		}
 		frame_delay(1);
 	}
 
+	t1replay_pause_escape_release();
 	z_palette_set_all_show(stage_palette);
 	input_reset_sense();
 	egc_copy_rect_1_to_0_16(
