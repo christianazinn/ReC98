@@ -35,6 +35,9 @@
 
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
+#define T2OP_SLOT_CELL_W 13
+#define T2OP_SLOT_CELL_STEP (T2OP_SLOT_CELL_W + 1)
+#define T2OP_SLOT_ONE_INSET 3
 #define T2OP_INPUT_KNOWN 0xF1FF
 #define T2OP_DOS_ACCESS_READ 0
 #define T2OP_DOS_ACCESS_RW 2
@@ -117,6 +120,7 @@ enum t2op_word_t {
 	T2OW_START,
 	T2OW_EXTRA,
 	T2OW_PRACTICE,
+	T2OW_STORY,
 	T2OW_REPLAY,
 	T2OW_HISCORE,
 	T2OW_OPTIONS,
@@ -1369,6 +1373,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_START: P('S'); P('t'); P('a'); P('r'); P('t'); break;
 	case T2OW_EXTRA: P('E'); P('x'); P('t'); P('r'); P('a'); break;
 	case T2OW_PRACTICE: P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e'); break;
+	case T2OW_STORY: P('S'); P('t'); P('o'); P('r'); P('y'); break;
 	case T2OW_REPLAY: P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); break;
 	case T2OW_HISCORE: P('H'); P('i'); P('S'); P('c'); P('o'); P('r'); P('e'); break;
 	case T2OW_OPTIONS: P('O'); P('p'); P('t'); P('i'); P('o'); P('n'); P('s'); break;
@@ -1831,17 +1836,28 @@ static void t2op_slot_cells_at(
 	screen_x_t left, vram_y_t top, tram_atrb2 attr, char *end
 )
 {
+	unsigned count = static_cast<unsigned>(end - t2op_line);
+	const char *digit = t2op_line;
+	screen_x_t cell_left = left;
+	screen_x_t glyph_left;
+
 	*end = '\0';
 	if(replay_op_font) {
-		replay_op_font_put_numeric_cells(
-			left, top, t2op_line, 1, t2op_text_color(attr)
-		);
-		replay_op_font_put_numeric_cells(
-			static_cast<screen_x_t>(
-				left + REPLAY_OP_FONT_NUMERIC_CELL_W + 1
-			),
-			top, &t2op_line[1], 1, t2op_text_color(attr)
-		);
+		if(count == 1) {
+			cell_left += T2OP_SLOT_CELL_STEP;
+		}
+		while(count != 0) {
+			glyph_left = cell_left;
+			if(*digit == '1') {
+				glyph_left += T2OP_SLOT_ONE_INSET;
+			}
+			replay_op_font_put_n(
+				glyph_left, top, digit, 1, t2op_text_color(attr)
+			);
+			cell_left += T2OP_SLOT_CELL_STEP;
+			digit++;
+			count--;
+		}
 	} else {
 		t2op_gaiji_put(
 			static_cast<tram_x_t>(left / GLYPH_HALF_W),
@@ -3441,7 +3457,7 @@ static void t2op_browser_slot_render(uint8_t slot, vram_y_t y)
 		t2op_word_put_at(T2OP_BROWSER_MARKER_LEFT, y, attr, p);
 	}
 	p = t2op_line;
-	p = t2op_u32_append(p, slot, 2);
+	p = t2op_u32_append(p, slot, 1);
 	t2op_slot_cells_at(T2OP_BROWSER_SLOT_LEFT, y, attr, p);
 	if(!valid) {
 		p = t2op_word_append(
@@ -3513,9 +3529,9 @@ static void t2op_detail_render(uint8_t slot)
 	t2op_surface_background_restore();
 	p = t2op_line;
 	p = t2op_word_append(p, T2OW_SLOT);
-	p = t2op_char(p, ' ');
-	p = t2op_u32_append(p, slot, 2);
 	t2op_word_put_at(T2OP_DETAIL_LEFT, T2OP_DETAIL_TOP, TX_YELLOW, p);
+	p = t2op_u32_append(t2op_line, slot, 1);
+	t2op_slot_cells_at(96, T2OP_DETAIL_TOP, TX_YELLOW, p);
 	if(t2op_name_empty(
 		t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
 	)) {
@@ -3533,14 +3549,22 @@ static void t2op_detail_render(uint8_t slot)
 	}
 
 	p = t2op_line;
-	p = t2op_end_reason_append(p, t2op_header.end_reason);
+	if(t2op_header.flags & T2REPLAY_FLAG_PRACTICE) {
+		p = t2op_word_append(p, T2OW_PRACTICE);
+	} else {
+		p = t2op_word_append(p, T2OW_STORY);
+		p = t2op_char(p, ' ');
+		p = t2op_char(p, '-');
+		p = t2op_char(p, ' ');
+		p = t2op_end_reason_append(p, t2op_header.end_reason);
+	}
 	t2op_word_put_at(T2OP_DETAIL_LEFT, 112, TX_WHITE, p);
 
 	#define T2OP_DETAIL_LABEL(top, word) \
 		p = t2op_word_append(t2op_line, word); \
 		t2op_word_put_at(T2OP_DETAIL_LEFT, top, TX_WHITE, p)
 	T2OP_DETAIL_LABEL(136, T2OW_FINAL_SCORE);
-	p = t2op_i32_append(t2op_line, t2op_header.score_final, 10);
+	p = t2op_i32_append(t2op_line, t2op_header.score_final, 1);
 	t2op_word_numeric_cells_right_at(
 		T2OP_DETAIL_VALUE_RIGHT, 136, TX_WHITE, p
 	);

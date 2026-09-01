@@ -67,6 +67,9 @@ static const screen_x_t T1REPLAY_OP_NAME_LEFT = 32;
 static const screen_y_t T1REPLAY_OP_NAME_KEYBOARD_TOP = 240;
 static const screen_x_t T1REPLAY_OP_SAVE_NAME_LEFT = 146;
 static const screen_y_t T1REPLAY_OP_SAVE_NAME_TOP = 104;
+static const pixel_t T1REPLAY_OP_SLOT_CELL_W = 13;
+static const pixel_t T1REPLAY_OP_SLOT_CELL_STEP = (T1REPLAY_OP_SLOT_CELL_W + 1);
+static const pixel_t T1REPLAY_OP_SLOT_ONE_INSET = 3;
 static const pixel_t T1REPLAY_OP_NAME_PADDING_X = 16;
 static const pixel_t T1REPLAY_OP_NAME_PADDING_Y = 8;
 static const pixel_t T1REPLAY_OP_NAME_KEY_W = (
@@ -761,7 +764,9 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 	if(
 		(header_size == 0) ||
 		(header->packet_size != T1REPLAY_PACKET_SIZE) ||
-		(header->flags != T1REPLAY_FLAGS_KNOWN) ||
+		((header->flags & T1REPLAY_FLAGS_REQUIRED) !=
+		 T1REPLAY_FLAGS_REQUIRED) ||
+		((header->flags & ~T1REPLAY_FLAGS_KNOWN) != 0) ||
 		(header->status != T1REPLAY_STATUS_FINALIZED) ||
 		((header->end_reason != T1REPLAY_END_MENU) &&
 		 (header->end_reason != T1REPLAY_END_CLEAR) &&
@@ -1941,18 +1946,6 @@ static bool t1replay_op_practice_panel_restore(void)
 	return t1replay_op_panel_show(fn, T1OPK_PRACTICE);
 }
 
-static void t1replay_op_black_rect(
-	screen_x_t left, screen_y_t top, pixel_t width, pixel_t height
-)
-{
-	z_grcg_boxfill(
-		left, top,
-		static_cast<screen_x_t>(left + width - 1),
-		static_cast<screen_y_t>(top + height - 1),
-		V_BLACK
-	);
-}
-
 static void t1replay_op_title_backing_restore(void)
 {
 	// Keep the patch UI tail free of initialized DGROUP data. The native title
@@ -2019,6 +2012,7 @@ enum t1replay_op_word_t {
 	T1ROW_GAME_OVER,
 	T1ROW_PAGE,
 	T1ROW_PRACTICE,
+	T1ROW_STORY,
 	T1ROW_SETUP,
 	T1ROW_REPLAY,
 	T1ROW_SCENE,
@@ -2274,6 +2268,7 @@ static char *t1replay_op_word_append(char *p, t1replay_op_word_t word)
 		T1ROW_WORD4('G', 'A', 'M', 'E'); T1ROW_SPACE(); T1ROW_WORD4('O', 'V', 'E', 'R'); break;
 	case T1ROW_PAGE: T1ROW_WORD4('P', 'A', 'G', 'E'); break;
 	case T1ROW_PRACTICE: T1ROW_WORD4('P', 'R', 'A', 'C'); T1ROW_WORD4('T', 'I', 'C', 'E'); break;
+	case T1ROW_STORY: T1ROW_WORD4('S', 'T', 'O', 'R'); T1ROW_WORD1('Y'); break;
 	case T1ROW_SETUP: T1ROW_WORD4('S', 'E', 'T', 'U'); T1ROW_WORD1('P'); break;
 	case T1ROW_REPLAY: T1ROW_WORD4('R', 'E', 'P', 'L'); T1ROW_WORD2('A', 'Y'); break;
 	case T1ROW_SCENE: T1ROW_WORD4('S', 'C', 'E', 'N'); T1ROW_WORD1('E'); break;
@@ -2594,17 +2589,26 @@ static void t1replay_op_text_slot_cells(
 	screen_x_t left, screen_y_t y, vc_t col, char *end
 )
 {
+	unsigned count = static_cast<unsigned>(end - t1replay_op_text);
+	const char *digit = t1replay_op_text;
+	screen_x_t cell_left = left;
+	screen_x_t glyph_left;
+
 	*end = '\0';
 	if(replay_op_font) {
-		replay_op_font_put_numeric_cells(
-			left, y, t1replay_op_text, 1, col
-		);
-		replay_op_font_put_numeric_cells(
-			static_cast<screen_x_t>(
-				left + REPLAY_OP_FONT_NUMERIC_CELL_W + 1
-			),
-			y, &t1replay_op_text[1], 1, col
-		);
+		if(count == 1) {
+			cell_left += T1REPLAY_OP_SLOT_CELL_STEP;
+		}
+		while(count) {
+			glyph_left = cell_left;
+			if(*digit == '1') {
+				glyph_left += T1REPLAY_OP_SLOT_ONE_INSET;
+			}
+			replay_op_font_put_n(glyph_left, y, digit, 1, col);
+			cell_left += T1REPLAY_OP_SLOT_CELL_STEP;
+			digit++;
+			count--;
+		}
 	} else {
 		graph_putsa_fx(left, y, (col | T1REPLAY_OP_FX), t1replay_op_text);
 	}
@@ -2779,6 +2783,11 @@ static void t1replay_op_practice_start_point_normalize(void)
 		t1replay_practice_start.route = ROUTE_MAKAI;
 	}
 	if(
+		(t1replay_practice_start.chapter == BOSS_STAGE) &&
+		(t1replay_practice_start.section == T1RPS_STAGE_START)
+	) {
+		t1replay_practice_start.section = T1RPS_BOSS_START;
+	} else if(
 		(t1replay_practice_start.chapter != BOSS_STAGE) &&
 		((t1replay_practice_start.section == T1RPS_BOSS_START) ||
 		 (t1replay_practice_start.section == T1RPS_BOSS_PHASE))
@@ -3128,7 +3137,9 @@ static void t1replay_op_name_key_put(
 	}
 	left = t1replay_op_name_key_left(column);
 	top = t1replay_op_name_key_top(row);
-	t1replay_op_black_rect(left, top, T1REPLAY_OP_NAME_KEY_W, GLYPH_H);
+	egc_copy_rect_1_to_0_16(
+		left, top, T1REPLAY_OP_NAME_KEY_W, GLYPH_H
+	);
 	if(t1replay_op_name_key_kanji(row, column, kanji)) {
 		t1replay_op_name_kanji_put(left, top, col_and_fx, kanji);
 	} else if(column == T1REPLAY_OP_NAME_SPACE_COLUMN) {
@@ -3167,12 +3178,50 @@ static char *t1replay_op_name_append(char *p, const uint8_t *name)
 	return p;
 }
 
+static char *t1replay_op_name_ascii_append(char *p, const uint8_t *name)
+{
+	char *first = p;
+	uint8_t cell;
+
+	for(cell = 0; cell < T1REPLAY_NAME_KANJI; cell++) {
+		uint8_t lead = name[(cell * 2) + 0];
+		uint8_t trail = name[(cell * 2) + 1];
+
+		if(((lead == ' ') && (trail == ' ')) ||
+		   ((lead == 0x81) && (trail == 0x40))) {
+			*p++ = ' ';
+		} else if((lead == 0x82) && (trail >= 0x4F) && (trail <= 0x58)) {
+			*p++ = static_cast<char>('0' + (trail - 0x4F));
+		} else if((lead == 0x82) && (trail >= 0x60) && (trail <= 0x79)) {
+			*p++ = static_cast<char>('A' + (trail - 0x60));
+		} else if((lead == 0x82) && (trail >= 0x81) && (trail <= 0x9A)) {
+			*p++ = static_cast<char>('a' + (trail - 0x81));
+		} else if((lead == 0x81) && (trail == 0x49)) {
+			*p++ = '!';
+		} else if((lead == 0x81) && (trail == 0x48)) {
+			*p++ = '?';
+		} else if((lead == 0x81) && (trail == 0x5E)) {
+			*p++ = '/';
+		} else if((lead == 0x81) && (trail == 0x67)) {
+			*p++ = ':';
+		} else if((lead == 0x81) && (trail == 0x68)) {
+			*p++ = ';';
+		} else {
+			*p++ = '?';
+		}
+	}
+	while((p > first) && (p[-1] == ' ')) {
+		p--;
+	}
+	return p;
+}
+
 static void t1replay_op_name_line_render(void)
 {
 	char *p;
 	shiftjis_kanji_swapped_t cursor = t1replay_op_name_sjis(0x81, 0x51);
 
-	t1replay_op_black_rect(
+	egc_copy_rect_1_to_0_16(
 		T1REPLAY_OP_SAVE_NAME_LEFT, T1REPLAY_OP_SAVE_NAME_TOP,
 		(T1REPLAY_NAME_KANJI * GLYPH_FULL_W), GLYPH_H
 	);
@@ -3193,7 +3242,7 @@ static void t1replay_op_name_line_render(void)
 
 static void t1replay_op_name_keyboard_restore(void)
 {
-	t1replay_op_black_rect(
+	egc_copy_rect_1_to_0_16(
 		T1REPLAY_OP_NAME_LEFT, T1REPLAY_OP_NAME_KEYBOARD_TOP,
 		(RES_X - (T1REPLAY_OP_NAME_LEFT * 2)),
 		(T1REPLAY_OP_NAME_KEY_H * 6)
@@ -3492,19 +3541,27 @@ static void t1replay_op_detail_render(void)
 	y = T1REPLAY_OP_DETAIL_TOP;
 	p = t1replay_op_word_append(t1replay_op_text, T1ROW_SLOT);
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_LABEL, p);
-	p = t1replay_op_uint_append(t1replay_op_text, slot_id, 2);
+	p = t1replay_op_uint_append(t1replay_op_text, slot_id, 1);
 	t1replay_op_text_slot_cells(104, y, T1REPLAY_OP_COL_LABEL, p);
-	p = t1replay_op_name_append(t1replay_op_text, slot.header.name);
+	p = t1replay_op_name_ascii_append(t1replay_op_text, slot.header.name);
 	t1replay_op_text_put(
 		T1REPLAY_OP_DETAIL_NAME_LEFT, y, T1REPLAY_OP_COL_VALUE, p
 	);
-	p = (
-		(slot.header.end_reason == T1REPLAY_END_CLEAR) ?
-			t1replay_op_word_append(t1replay_op_text, T1ROW_CLEAR) :
-		(slot.header.end_reason == T1REPLAY_END_GAME_OVER) ?
-			t1replay_op_word_append(t1replay_op_text, T1ROW_GAME_OVER) :
-			t1replay_op_word_append(t1replay_op_text, T1ROW_MENU_RETURN)
-	);
+	if(slot.header.flags & T1REPLAY_FLAG_PRACTICE) {
+		p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
+	} else {
+		p = t1replay_op_word_append(t1replay_op_text, T1ROW_STORY);
+		*p++ = ' ';
+		*p++ = '-';
+		*p++ = ' ';
+		p = (
+			(slot.header.end_reason == T1REPLAY_END_CLEAR) ?
+				t1replay_op_word_append(p, T1ROW_CLEAR) :
+			(slot.header.end_reason == T1REPLAY_END_GAME_OVER) ?
+				t1replay_op_word_append(p, T1ROW_GAME_OVER) :
+				t1replay_op_word_append(p, T1ROW_MENU_RETURN)
+		);
+	}
 	t1replay_op_text_left(112, T1REPLAY_OP_COL_VALUE, p);
 
 	#define T1REPLAY_OP_DETAIL_LINE(top, label_word, value_append) \
@@ -3517,7 +3574,7 @@ static void t1replay_op_detail_render(void)
 		)
 	T1REPLAY_OP_DETAIL_LINE(
 		136, T1ROW_FINAL_SCORE,
-		t1replay_op_uint_append(p, slot.header.summary.final_score, 10)
+		t1replay_op_uint_append(p, slot.header.summary.final_score, 1)
 	);
 	p = t1replay_op_route_append(t1replay_op_text, slot.header.start.route);
 	*p++ = ' ';
@@ -3630,7 +3687,7 @@ static bool t1replay_op_replay_render(void)
 			*p++ = '>';
 			t1replay_op_text_put(T1REPLAY_OP_BROWSER_MARKER_LEFT, y, col, p);
 		}
-		p = t1replay_op_uint_append(t1replay_op_text, slot_id, 2);
+		p = t1replay_op_uint_append(t1replay_op_text, slot_id, 1);
 		t1replay_op_text_slot_cells(
 			T1REPLAY_OP_BROWSER_SLOT_LEFT, y, col, p
 		);
@@ -3640,7 +3697,9 @@ static bool t1replay_op_replay_render(void)
 			p = t1replay_op_word_append(t1replay_op_text, T1ROW_INVALID);
 			col = T1REPLAY_OP_COL_DISABLED;
 		} else {
-			p = t1replay_op_name_append(t1replay_op_text, slot.header.name);
+			p = t1replay_op_name_ascii_append(
+				t1replay_op_text, slot.header.name
+			);
 			t1replay_op_text_put(T1REPLAY_OP_BROWSER_NAME_LEFT, y, col, p);
 			p = t1replay_op_uint_space_append(
 				t1replay_op_text, slot.header.summary.final_score, 10
@@ -3807,12 +3866,12 @@ bool t1replay_op_pending_enter(void)
 	char request_fn[11];
 
 	t1replay_op_restart_enter();
-	if(!replay_op_font_load()) {
-		return false;
-	}
 	t1replay_op_save_request_fn(request_fn);
 	if(!t1replay_op_file_exists(request_fn)) {
 		t1replay_op_save_request_witness_discard();
+		return false;
+	}
+	if(!replay_op_font_load()) {
 		return false;
 	}
 	t1replay_op_save_request_witness_discard();
@@ -3827,6 +3886,7 @@ bool t1replay_op_pending_enter(void)
 		// unavailable for diagnostic recovery instead of promoting or deleting
 		// evidence that did not bind to this request.
 		t1replay_op_save_request_discard();
+		replay_op_font_free();
 		return false;
 	}
 	t1replay_op_surface_state_reset();
@@ -4158,26 +4218,12 @@ static void t1replay_op_practice_change(int delta, bool fast)
 		} else if(t1replay_op_practice_boss_phase_available(
 			t1replay_practice_start.scene, t1replay_practice_start.route
 		)) {
-			if(delta > 0) {
-				t1replay_practice_start.section = (
-					(t1replay_practice_start.section == T1RPS_STAGE_START) ?
-					T1RPS_BOSS_START :
-					((t1replay_practice_start.section == T1RPS_BOSS_START) ?
-					 T1RPS_BOSS_PHASE : T1RPS_STAGE_START)
-				);
-			} else {
-				t1replay_practice_start.section = (
-					(t1replay_practice_start.section == T1RPS_STAGE_START) ?
-					T1RPS_BOSS_PHASE :
-					((t1replay_practice_start.section == T1RPS_BOSS_PHASE) ?
-					 T1RPS_BOSS_START : T1RPS_STAGE_START)
-				);
-			}
-		} else {
 			t1replay_practice_start.section = (
-				(t1replay_practice_start.section == T1RPS_STAGE_START) ?
-				T1RPS_BOSS_START : T1RPS_STAGE_START
+				(t1replay_practice_start.section == T1RPS_BOSS_START) ?
+				T1RPS_BOSS_PHASE : T1RPS_BOSS_START
 			);
+		} else {
+			t1replay_practice_start.section = T1RPS_BOSS_START;
 		}
 		break;
 	case T1OPR_SCORE:

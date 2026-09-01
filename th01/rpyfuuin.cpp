@@ -787,7 +787,9 @@ static bool t1replay_header_read(bool finalized)
 	t1replay_header.header_checksum = stored_checksum;
 	if(
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
-		(t1replay_header.flags != T1REPLAY_FLAGS_KNOWN) ||
+		((t1replay_header.flags & T1REPLAY_FLAGS_REQUIRED) !=
+		 T1REPLAY_FLAGS_REQUIRED) ||
+		((t1replay_header.flags & ~T1REPLAY_FLAGS_KNOWN) != 0) ||
 		(t1replay_header.status !=
 			(finalized ? T1REPLAY_STATUS_FINALIZED : T1REPLAY_STATUS_RECORDING)) ||
 		(t1replay_header.game_id != 1) ||

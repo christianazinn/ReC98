@@ -52,6 +52,9 @@
 #define REPLAY_OP_ACCESS_READ 0
 #define REPLAY_OP_ACCESS_RW 2
 #define REPLAY_OP_SLOT_ROWS 10
+#define REPLAY_OP_SLOT_CELL_W 13
+#define REPLAY_OP_SLOT_CELL_STEP (REPLAY_OP_SLOT_CELL_W + 1)
+#define REPLAY_OP_SLOT_ONE_INSET 3
 #define REPLAY_OP_LINE_CAPACITY 80
 #define REPLAY_OP_LINE_TOP 112
 #define REPLAY_OP_LINE_H 24
@@ -86,6 +89,8 @@
 #define REPLAY_BROWSER_STAGE_LEFT 540
 
 #define REPLAY_DETAIL_LEFT 64
+#define REPLAY_DETAIL_SLOT_LEFT 112
+#define REPLAY_DETAIL_NAME_LEFT 168
 #define REPLAY_DETAIL_VALUE_RIGHT 336
 
 #define REPLAY_SAVE_NAME_LEFT 114
@@ -106,6 +111,7 @@ enum replay_op_background_t {
 enum replay_op_word_t {
 	ROW_REPLAY,
 	ROW_PRACTICE,
+	ROW_STORY,
 	ROW_PRACTICE_SETUP,
 	ROW_CONFIGURE_PRACTICE,
 	ROW_VIEW_RECORDED_RUNS,
@@ -1882,6 +1888,8 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 	case ROW_PRACTICE:
 		P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e');
 		break;
+	case ROW_STORY:
+		P('S'); P('t'); P('o'); P('r'); P('y'); break;
 	case ROW_PRACTICE_SETUP:
 		P('P'); P('r'); P('a'); P('c'); P('t'); P('i'); P('c'); P('e'); P(' ');
 		P('S'); P('e'); P('t'); P('u'); P('p'); break;
@@ -2079,17 +2087,26 @@ static void replay_op_line_put_slot_cells(
 	screen_x_t left, vram_y_t top, vc2 col, char *p
 )
 {
+	unsigned count = static_cast<unsigned>(p - replay_op_line);
+	const char *digit = replay_op_line;
+	screen_x_t cell_left = left;
+	screen_x_t glyph_left;
+
 	*p = '\0';
 	if(replay_op_font) {
-		replay_op_font_put_numeric_cells(
-			left, top, replay_op_line, 1, col
-		);
-		replay_op_font_put_numeric_cells(
-			static_cast<screen_x_t>(
-				left + REPLAY_OP_FONT_NUMERIC_CELL_W + 1
-			),
-			top, &replay_op_line[1], 1, col
-		);
+		if(count == 1) {
+			cell_left += REPLAY_OP_SLOT_CELL_STEP;
+		}
+		while(count != 0) {
+			glyph_left = cell_left;
+			if(*digit == '1') {
+				glyph_left += REPLAY_OP_SLOT_ONE_INSET;
+			}
+			replay_op_font_put_n(glyph_left, top, digit, 1, col);
+			cell_left += REPLAY_OP_SLOT_CELL_STEP;
+			digit++;
+			count--;
+		}
 	} else {
 		replay_op_line_put(left, top, col, p);
 	}
@@ -2353,14 +2370,28 @@ static void replay_detail_left_put(uint8_t slot)
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_SLOT);
-	*p++ = ' ';
+	replay_op_line_put(REPLAY_DETAIL_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
+	p = replay_op_line;
 	p = replay_op_uint_zero_append(p, slot, 2);
-	p = replay_op_spaces_append(p, 4);
+	replay_op_line_put_slot_cells(
+		REPLAY_DETAIL_SLOT_LEFT, 80, REPLAY_OP_COL_ACTIVE, p
+	);
+	p = replay_op_line;
 	p = replay_op_name_append(p);
-	replay_op_line_put_cells(REPLAY_DETAIL_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
+	replay_op_line_put_cells(
+		REPLAY_DETAIL_NAME_LEFT, 80, REPLAY_OP_COL_ACTIVE, p
+	);
 
 	p = replay_op_line;
-	p = replay_op_end_reason_append(p);
+	if(replay_op_header.mode == RUM_PRACTICE) {
+		p = replay_op_word_append(p, ROW_PRACTICE);
+	} else {
+		p = replay_op_word_append(p, ROW_STORY);
+		*p++ = ' ';
+		*p++ = '-';
+		*p++ = ' ';
+		p = replay_op_end_reason_append(p);
+	}
 	replay_op_line_put(REPLAY_DETAIL_LEFT, 112, V_WHITE, p);
 
 	p = replay_op_line;
@@ -2368,7 +2399,7 @@ static void replay_detail_left_put(uint8_t slot)
 	replay_op_line_put(REPLAY_DETAIL_LEFT, 136, V_WHITE, p);
 	p = replay_op_line;
 	p = replay_op_uint_append(
-		p, replay_op_header.score_final, REPLAY_SCORE_DISPLAY_DIGITS
+		p, replay_op_header.score_final, 1
 	);
 	replay_op_line_put_cells_right(
 		REPLAY_DETAIL_VALUE_RIGHT, 136, V_WHITE, p
@@ -2444,13 +2475,6 @@ static void replay_detail_left_put(uint8_t slot)
 	replay_op_line_put_right(
 		REPLAY_DETAIL_VALUE_RIGHT, ((GAME == 4) ? 232 : 208), V_WHITE, p
 	);
-	if(replay_op_header.mode == RUM_PRACTICE) {
-		p = replay_op_line;
-		p = replay_op_word_append(p, ROW_PRACTICE);
-		replay_op_line_put(
-			REPLAY_DETAIL_LEFT, ((GAME == 4) ? 256 : 232), V_WHITE, p
-		);
-	}
 }
 
 static void replay_detail_splits_put(uint8_t selected_stage)
@@ -5105,15 +5129,12 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90"
 #endif
 
-// v0.1.1-rc4 adds fixed-cell slot rendering and Rank Lock controls in this
-// patch-owned tail. Retain the following stock CRT segment's paragraph phase.
-#if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#else
-	#pragma codestring "\x90\x90\x90\x90\x90"
-#endif
+// v0.1.1-rc5 consumes the remaining RC4 phase padding with fixed 13-pixel
+// slot cells and explicit Story/Practice detail status. The structural gate
+// below proves that the following stock CRT segment retains its paragraph
+// phase in both builds.
 
 #pragma codeseg

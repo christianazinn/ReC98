@@ -126,7 +126,7 @@ static bool t1replay_pause_input_seen(void)
 {
 	return (
 		input_up || input_down || input_shot || input_ok ||
-		((peekb(0, KEYGROUP_2) & K2_R) != 0)
+		((peekb(0, KEYGROUP_2) & (K2_Q | K2_R)) != 0)
 	);
 }
 
@@ -150,12 +150,34 @@ static bool t1replay_pause_restart_pressed(void)
 	);
 }
 
+// Like Esc+R, Esc+Q is deliberately physical Pause control rather than part
+// of REIIDEN's canonical replay input groups. It discards the current capture
+// before returning to OP.
+static bool t1replay_pause_discard_exit_pressed(void)
+{
+	return (
+		((peekb(0, KEYGROUP_0) & K0_ESC) != 0) &&
+		((peekb(0, KEYGROUP_2) & K2_Q) != 0)
+	);
+}
+
 // Keep the physical shortcut from surviving the EXE handoff. Any
 // canonical held state is sampled through the existing Pause seam, while R
 // remains outside the replay format and this recording is discarded on restart.
 static void t1replay_pause_restart_release(void)
 {
 	while(peekb(0, KEYGROUP_2) & K2_R) {
+		input_sense(false);
+		frame_delay(1);
+	}
+}
+
+static void t1replay_pause_discard_exit_release(void)
+{
+	while(
+		(peekb(0, KEYGROUP_0) & K0_ESC) ||
+		(peekb(0, KEYGROUP_2) & K2_Q)
+	) {
 		input_sense(false);
 		frame_delay(1);
 	}
@@ -277,6 +299,11 @@ bool16 far t1replay_pause_menu(void)
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
 			return true;
 		}
+		if(t1replay_pause_discard_exit_pressed()) {
+			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
+			t1replay_pause_discard_exit_release();
+			return true;
+		}
 		if(t1replay_pause_restart_pressed()) {
 			t1replay_pause_action_set(T1RPA_RESTART);
 			t1replay_pause_restart_release();
@@ -292,6 +319,11 @@ bool16 far t1replay_pause_menu(void)
 		if(previous != selected) {
 			t1replay_pause_row_put(previous, false);
 			t1replay_pause_row_put(selected, true);
+			// TH01's sampled menu directions repeat every VSync. Consume the
+			// physical release so one press advances exactly one row.
+			t1replay_pause_input_release();
+			input_reset_menu_related();
+			continue;
 		}
 		if(input_shot || input_ok) {
 			t1replay_pause_action_set(selected);

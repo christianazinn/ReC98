@@ -1084,7 +1084,7 @@ controls:
 	// ZUN bloat: The call site would have been a better place for this,
 	// especially since it has another copy of the same code with the same
 	// landmine.
-	if(t2_language_pi_load(0, MENU_MAIN_BG_FN) != 0) {
+	if(t2_language_pi_load(0, MENU_MAIN_BG_FN) == 0) {
 		pi_palette_apply(0);
 		pi_put_8(0, 0, 0);
 		pi_free(0);

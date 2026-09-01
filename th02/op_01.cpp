@@ -119,7 +119,7 @@ void text_wipe(void)
 
 void pascal near pi_load_put_8_free_to(const char near *fn, char page)
 {
-	if(t2_language_pi_load(0, fn) == 0) {
+	if(t2_language_pi_load(0, fn) != 0) {
 		pi_buffers[0] = 0;
 		return;
 	}

@@ -555,6 +555,9 @@ static const int16_t FX = FX_WEIGHT_BLACK;
 
 static const screen_x_t MENU_LEFT = 220;
 static const screen_x_t MENU_CENTER_X = 316;
+static const screen_x_t MENU_NATIVE_CENTER_X = (
+	MENU_CENTER_X - (GLYPH_FULL_W * 3)
+);
 static const screen_y_t MENU_CENTER_Y = 316;
 static const pixel_t MENU_W = 176;
 
@@ -633,7 +636,9 @@ void main_choice_unput_and_put(int choice, vc2 col)
 		return;
 	}
 	choice_str = CHOICES[(choice < 3) ? choice : 3];
-	left = (MENU_CENTER_X - (shiftjis_w(choice_str) / 2));
+	// The native strings include their original left-padding cells. Preserve
+	// their stock visual center independently of the two unpadded patch rows.
+	left = (MENU_NATIVE_CENTER_X - (shiftjis_w(choice_str) / 2));
 
 	// No unblitting necessary here, as only the colors change.
 	graph_putsa_fx(left, top, (col | FX), choice_str);
@@ -956,41 +961,41 @@ void main(int argc, const char *argv[])
 	int86(0x18, &in, &out);
 
 	key_start();
-
-	title_init();
-
-	#if defined(T1RB)
-	if(t1replay_op_milestone_practice_bootstrap(
-		opts.rank,
-		static_cast<int8_t>(opts.credit_lives_extra + 2),
-		opts.credit_bombs,
-		frame_rand
-	)) {
-		practice_start();
-		return;
-	}
-	#endif
-
-#if T1REPLAY_EXACT_TRACE
-	if(t1replay_op_exact_bootstrap()) {
-		replay_playback_start();
-		return;
-	}
-#endif
-
-	// Set the BIOS_FLAG to not beep when the keyboard buffer overflows, as
-	// we're clearing and setting its length to 0 below… I guess?
-	pokeb(0, 0x0500 /* BIOS_FLAG */, (peekb(0, 0x0500 /* BIOS_FLAG */) | 0x20));
-
-	while(!key_sense_bios()) {
-		frame_delay(1);
-		title_hit_key_put(hit_key_frame);
-		hit_key_frame++;
-	}
-
-	title_window_put();
 	if(t1replay_op_pending_enter()) {
 		menu_id = MID_REPLAY;
+	} else {
+		title_init();
+
+		#if defined(T1RB)
+		if(t1replay_op_milestone_practice_bootstrap(
+			opts.rank,
+			static_cast<int8_t>(opts.credit_lives_extra + 2),
+			opts.credit_bombs,
+			frame_rand
+		)) {
+			practice_start();
+			return;
+		}
+		#endif
+
+#if T1REPLAY_EXACT_TRACE
+		if(t1replay_op_exact_bootstrap()) {
+			replay_playback_start();
+			return;
+		}
+#endif
+
+		// Set the BIOS_FLAG to not beep when the keyboard buffer overflows, as
+		// we're clearing and setting its length to 0 below… I guess?
+		pokeb(0, 0x0500 /* BIOS_FLAG */, (peekb(0, 0x0500 /* BIOS_FLAG */) | 0x20));
+
+		while(!key_sense_bios()) {
+			frame_delay(1);
+			title_hit_key_put(hit_key_frame);
+			hit_key_frame++;
+		}
+
+		title_window_put();
 	}
 
 	// Since [frame_rand] is always 0 here, the white line animation always

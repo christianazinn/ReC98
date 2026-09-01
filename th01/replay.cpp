@@ -15,6 +15,9 @@
 #include "th01/replay_milestone.hpp"
 #endif
 #include "th01/hardware/vsync.hpp"
+#include "th01/formats/pf.hpp"
+#include "th01/formats/ptn.hpp"
+#include "th01/formats/ptn_data.hpp"
 #include "th01/rp_guard.hpp"
 #include "th01/savestate_acceptance.hpp"
 #include "th01/resident.hpp"
@@ -23,6 +26,7 @@
 #include "th01/main/stage/timer.hpp"
 #include "th01/main/extend.hpp"
 #include "th01/main/player/player.hpp"
+#include "th01/main/player/anim.hpp"
 #include "th01/main/player/bomb.hpp"
 #include "th01/main/player/orb.hpp"
 #include "th01/main/player/shot.hpp"
@@ -32,6 +36,7 @@
 #include "th01/main/stage/card.hpp"
 #include "th01/main/stage/stageobj.hpp"
 #include "th01/main/stage/item.hpp"
+#include "th01/main/hud/hud.hpp"
 #include "th01/main/particle.hpp"
 #include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
@@ -56,6 +61,7 @@
 #define T1REPLAY_DOS_ACCESS_RW 2
 #define T1REPLAY_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define T1REPLAY_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
+
 #if T1REPLAY_EXACT_TRACE
 	#define T1REPLAY_EXACT_TRACE_HEADER_SIZE 16
 	#define T1REPLAY_EXACT_TRACE_ROW_SIZE 92
@@ -1760,7 +1766,9 @@ static bool t1replay_header_read(bool finalized)
 	t1replay_header.header_checksum = stored_checksum;
 	if(
 		(t1replay_header.packet_size != T1REPLAY_PACKET_SIZE) ||
-		(t1replay_header.flags != T1REPLAY_FLAGS_KNOWN) ||
+		((t1replay_header.flags & T1REPLAY_FLAGS_REQUIRED) !=
+		 T1REPLAY_FLAGS_REQUIRED) ||
+		((t1replay_header.flags & ~T1REPLAY_FLAGS_KNOWN) != 0) ||
 		(t1replay_header.status !=
 			(finalized ? T1REPLAY_STATUS_FINALIZED : T1REPLAY_STATUS_RECORDING)) ||
 		(t1replay_header.game_id != 1) ||
@@ -1995,7 +2003,7 @@ static bool t1replay_checkpoint_restore_prepare(
 	return true;
 }
 
-static uint8_t t1replay_practice_boss_phase_from_restart(
+static t1replay_restart_state_t far *t1replay_practice_from_restart(
 	const t1replay_start_t far *start
 )
 {
@@ -2003,7 +2011,7 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 	char id[sizeof(T1REPLAY_RESTART_RES_ID)];
 
 	if(!start) {
-		return T1RPBPT_NONE;
+		return 0;
 	}
 	t1replay_restart_res_id_init(id);
 	state = ResData<t1replay_restart_state_t>::exist(id);
@@ -2018,6 +2026,19 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 		(start->pellet_speed != state->practice.pellet_speed) ||
 		(start->resident_rand != state->practice.rand)
 	) {
+		return 0;
+	}
+	return state;
+}
+
+static uint8_t t1replay_practice_boss_phase_from_restart(
+	const t1replay_start_t far *start
+)
+{
+	t1replay_restart_state_t far *state =
+		t1replay_practice_from_restart(start);
+
+	if(!state) {
 		return T1RPBPT_NONE;
 	}
 
@@ -2211,7 +2232,7 @@ static void t1replay_header_capture(void)
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
-	t1replay_header.flags = T1REPLAY_FLAGS_KNOWN;
+	t1replay_header.flags = T1REPLAY_FLAGS_REQUIRED;
 	t1replay_header.status = T1REPLAY_STATUS_RECORDING;
 	t1replay_header.game_id = 1;
 	t1replay_header.input_semantics = T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS;
@@ -2221,6 +2242,9 @@ static void t1replay_header_capture(void)
 	}
 	t1replay_header.summary.final_stage_id = T1REPLAY_FINAL_STAGE_NONE;
 	t1replay_start_capture();
+	if(t1replay_practice_from_restart(&t1replay_header.start)) {
+		t1replay_header.flags |= T1REPLAY_FLAG_PRACTICE;
+	}
 	t1replay_header.start_checksum = t1replay_fnv1a(
 		T1REPLAY_FNV1A_BASIS, &t1replay_header.start,
 		sizeof(t1replay_header.start)
@@ -4321,6 +4345,8 @@ static bool t1replay_nonclear_summary_finalize(uint8_t end_reason)
 	);
 }
 
+static void t1replay_self_exec_prepare(void);
+
 bool16 far t1replay_process_handoff(uint8_t target_process)
 {
 	t1replay_fast_forward_boundary_reset();
@@ -4330,6 +4356,7 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	) {
 		return false;
 	}
+	t1replay_self_exec_prepare();
 	if(t1replay_mode == T1RM_DISABLED) {
 		// continue_menu() reaches this path only for Yes. The first credit has
 		// already terminated, so remove its pending transaction before native
@@ -4372,6 +4399,30 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	}
 #endif
 	return true;
+}
+
+static void t1replay_self_exec_prepare(void)
+{
+	int slot;
+
+	// A full stage leaves enough live far-heap owners to prevent DOS EXEC from
+	// finding room for the larger patched REIIDEN image. The former private
+	// Stage 4 witness cleared before these owners accumulated and therefore did
+	// not exercise this release failure.
+	stageobj_bgs_free_wrap();
+	cards.free();
+	obstacles.free();
+	player_48x48.free();
+	player_48x32.free();
+	if(hud_bg) {
+		delete[] hud_bg;
+		hud_bg = 0;
+	}
+	for(slot = 0; slot < PTN_SLOT_COUNT; slot++) {
+		ptn_free(static_cast<main_ptn_slot_t>(slot));
+	}
+	key_end();
+	arc_free();
 }
 
 static void t1replay_terminal_request_pending(
