@@ -54,7 +54,16 @@ void snd_load(const char fn[PF_FN_LEN], snd_load_func_t func)
 
 	// DOS file read; song data address is in DS:DX
 	_AX = 0x3F00;
+	#if (GAME == 3)
+	// Replay Patch: MMD has no buffer-size query. GAME.BAT reserves 40 KiB,
+	// and the largest TH03 MIDI song exceeds the original 20 KiB PMD read.
+	// Keep the original bound for FM songs and sound effects.
+	_CX = (
+		((func == SND_LOAD_SONG) && snd_midi_active) ? 0xA000 : snd_load_size()
+	);
+	#else
 	_CX = snd_load_size();
+	#endif
 	geninterrupt(0x21);
 
 	_asm { pop ds; }
