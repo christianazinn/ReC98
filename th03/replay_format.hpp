@@ -426,11 +426,6 @@ inline bool replay_user_identity_valid(
 			return false;
 		}
 	}
-	for(i = 0; i < T3R_IDENTITY_RESERVED_SIZE; i++) {
-		if(identity.reserved[i] != 0) {
-			return false;
-		}
-	}
 	return true;
 }
 
