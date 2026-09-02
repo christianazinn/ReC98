@@ -1346,9 +1346,9 @@ static bool replay_start_config_valid(
 			((start->seed_mode & RSM_TIMEDOWN) != 0) &&
 			(
 				(start->kind != RSK_BOSS_PHASE) ||
-				(replay_practice_boss_timedown_frame(
+				!replay_practice_boss_timedown_supported(
 					start->stage, start->section, start->phase
-				) == 0)
+				)
 			)
 		)
 	) {

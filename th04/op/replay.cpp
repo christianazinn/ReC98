@@ -67,9 +67,9 @@
 #define REPLAY_OP_DOS_RESERVE_PARAS (4096 >> 4)
 #define PRACTICE_MAIN_ROWS 12
 #if (GAME == 5)
-	#define PRACTICE_ADVANCED_ROWS 10
+	#define PRACTICE_ADVANCED_ROWS 11
 #else
-	#define PRACTICE_ADVANCED_ROWS 9
+	#define PRACTICE_ADVANCED_ROWS 10
 #endif
 #define PRACTICE_STOCK_MAX REPLAY_PRACTICE_STOCK_MAX
 
@@ -174,6 +174,7 @@ enum practice_field_t {
 	PF_STAGE_GRAZE,
 	PF_POWER_OVERFLOW,
 	PF_SEED,
+	PF_TIMEDOWN,
 	PF_ADVANCED,
 	PF_RESET_DEFAULTS,
 	PF_BACK,
@@ -976,9 +977,9 @@ static bool replay_op_start_valid(
 			((start->seed_mode & RSM_TIMEDOWN) != 0) &&
 			(
 				(start->kind != RSK_BOSS_PHASE) ||
-				(replay_practice_boss_timedown_frame(
+				!replay_practice_boss_timedown_supported(
 					start->stage, start->section, start->phase
-				) == 0)
+				)
 			)
 		)
 	) {
@@ -2639,23 +2640,24 @@ static practice_field_t practice_field(uint8_t page, uint8_t sel)
 		}
 	}
 	switch(sel) {
-	case 0: return PF_CONTINUES;
-	case 1: return PF_EXTENDS;
+	case 0: return PF_TIMEDOWN;
+	case 1: return PF_CONTINUES;
+	case 2: return PF_EXTENDS;
 #if (GAME == 5)
-	case 2: return PF_POINT_ITEMS;
+	case 3: return PF_POINT_ITEMS;
+	case 4: return PF_MISSES;
+	case 5: return PF_BOMBS_USED;
+	case 6: return PF_STAGE_ITEMS;
+	case 7: return PF_STAGE_GRAZE;
+	case 8: return PF_POWER_OVERFLOW;
+	case 9: return PF_RESET_DEFAULTS;
+#else
 	case 3: return PF_MISSES;
 	case 4: return PF_BOMBS_USED;
 	case 5: return PF_STAGE_ITEMS;
 	case 6: return PF_STAGE_GRAZE;
 	case 7: return PF_POWER_OVERFLOW;
 	case 8: return PF_RESET_DEFAULTS;
-#else
-	case 2: return PF_MISSES;
-	case 3: return PF_BOMBS_USED;
-	case 4: return PF_STAGE_ITEMS;
-	case 5: return PF_STAGE_GRAZE;
-	case 6: return PF_POWER_OVERFLOW;
-	case 7: return PF_RESET_DEFAULTS;
 #endif
 	default: return PF_BACK;
 	}
@@ -2735,6 +2737,8 @@ static char *practice_field_append(char *p, practice_field_t field)
 		P('r'); P('f'); P('l'); P('o'); P('w'); break;
 	case PF_SEED:
 		P('S'); P('e'); P('e'); P('d'); break;
+	case PF_TIMEDOWN:
+		P('T'); P('i'); P('m'); P('e'); P('d'); P('o'); P('w'); P('n'); break;
 	case PF_ADVANCED:
 		P('A'); P('d'); P('v'); P('a'); P('n'); P('c'); P('e'); P('d'); P(' ');
 		P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s'); break;
@@ -2815,7 +2819,6 @@ static uint8_t practice_target_count(
 		replay_practice_midboss_count(start->stage)
 	);
 	uint8_t midboss;
-	uint8_t phase;
 	uint8_t section;
 
 	for(
@@ -2828,14 +2831,9 @@ static uint8_t practice_target_count(
 		);
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
-		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
-			count++;
-			if(replay_practice_boss_timedown_frame(
-				start->stage, section, phase
-			) != 0) {
-				count++;
-			}
-		}
+		count = static_cast<uint8_t>(
+			count + practice_boss_phase_max(start, section) + 1
+		);
 	}
 	return count;
 }
@@ -2847,7 +2845,6 @@ static uint8_t practice_target_index(
 	uint8_t index;
 	uint8_t chapter;
 	uint8_t midboss;
-	uint8_t phase;
 	uint8_t section;
 	uint8_t chapters = replay_practice_chapter_count(start->stage);
 	uint8_t midbosses = replay_practice_midboss_count(start->stage);
@@ -2889,23 +2886,15 @@ static uint8_t practice_target_index(
 	   (start->section >= practice_boss_section_count(start))) {
 		return 0;
 	}
-	for(section = 0; section < practice_boss_section_count(start); section++) {
-		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
-			if((start->section == section) && (start->phase == phase)) {
-				if((start->seed_mode & RSM_TIMEDOWN) != 0) {
-					return static_cast<uint8_t>(index + 1);
-				}
-				return index;
-			}
-			index++;
-			if(replay_practice_boss_timedown_frame(
-				start->stage, section, phase
-			) != 0) {
-				index++;
-			}
-		}
+	if(start->phase > practice_boss_phase_max(start, start->section)) {
+		return 0;
 	}
-	return 0;
+	for(section = 0; section < start->section; section++) {
+		index = static_cast<uint8_t>(
+			index + practice_boss_phase_max(start, section) + 1
+		);
+	}
+	return static_cast<uint8_t>(index + start->phase);
 }
 
 static void practice_target_set(
@@ -2915,7 +2904,6 @@ static void practice_target_set(
 	uint8_t chapter;
 	uint8_t chapters;
 	uint8_t midboss;
-	uint8_t phase;
 	uint8_t section;
 	uint8_t span;
 
@@ -2955,27 +2943,16 @@ static void practice_target_set(
 		}
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
-		for(phase = 0; phase <= practice_boss_phase_max(start, section); phase++) {
-			if(index == 0) {
-				start->kind = RSK_BOSS_PHASE;
-				start->section = section;
-				start->phase = phase;
-				return;
-			}
-			index--;
-			if(replay_practice_boss_timedown_frame(
-				start->stage, section, phase
-			) != 0) {
-				if(index == 0) {
-					start->kind = RSK_BOSS_PHASE;
-					start->section = section;
-					start->phase = phase;
-					start->seed_mode |= RSM_TIMEDOWN;
-					return;
-				}
-				index--;
-			}
+		span = static_cast<uint8_t>(
+			practice_boss_phase_max(start, section) + 1
+		);
+		if(index < span) {
+			start->kind = RSK_BOSS_PHASE;
+			start->section = section;
+			start->phase = index;
+			return;
 		}
+		index = static_cast<uint8_t>(index - span);
 	}
 }
 
@@ -3083,12 +3060,8 @@ static char *practice_target_value_append(
 		return p;
 	}
 	P('P'); P('h'); P('a'); P('s'); P('e'); P(' ');
-	p = replay_op_uint_append(p, start->phase, 1);
-	if((start->seed_mode & RSM_TIMEDOWN) != 0) {
-		P(' '); P('T'); P('i'); P('m'); P('e'); P('d'); P('o'); P('w'); P('n');
-	}
 	#undef P
-	return p;
+	return replay_op_uint_append(p, start->phase, 1);
 }
 
 static bool practice_start_valid(const replay_start_config_t far *start)
@@ -3146,12 +3119,17 @@ static char *practice_value_append(
 		return replay_op_uint_append(
 			p, static_cast<uint32_t>(start->random_seed), 10
 		);
+	case PF_TIMEDOWN:
+		return replay_op_word_append(
+			p, ((start->seed_mode & RSM_TIMEDOWN) ? ROW_ON : ROW_OFF)
+		);
 	default: return p;
 	}
 }
 
 static void practice_advanced_defaults(replay_start_config_t far *start)
 {
+	start->seed_mode &= ~RSM_TIMEDOWN;
 	start->continues_used = 0;
 	start->extends_gained = 0;
 	start->graze = 0;
@@ -3381,6 +3359,15 @@ static void practice_field_change(
 		practice_u16_change(&start->power_overflow, 0, 42, (fast ? 5 : 1), right); break;
 	case PF_SEED:
 		practice_seed_change(start, right, fast); break;
+	case PF_TIMEDOWN:
+		if(replay_practice_boss_timedown_supported(
+			start->stage, start->section, start->phase
+		)) {
+			start->seed_mode ^= RSM_TIMEDOWN;
+		} else {
+			start->seed_mode &= ~RSM_TIMEDOWN;
+		}
+		break;
 	default: break;
 	}
 }
@@ -3389,7 +3376,7 @@ static bool practice_field_is_numeric(practice_field_t field)
 {
 	return (
 		(field != PF_STAGE) && (field != PF_SECTION) &&
-		(field != PF_RANK_LOCK) &&
+		(field != PF_RANK_LOCK) && (field != PF_TIMEDOWN) &&
 		(field != PF_ADVANCED) && (field != PF_RESET_DEFAULTS) &&
 		(field != PF_BACK) && (field != PF_START)
 	);
@@ -5186,6 +5173,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90\x90"
+#endif
+
+// The final Advanced-setting consolidation changes the generated target-menu
+// code size. Preserve the stock CRT paragraph phase in each game build.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90"
 #endif
 
 #pragma codeseg

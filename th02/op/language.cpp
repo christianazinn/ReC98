@@ -117,7 +117,8 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 	// outer EN...SH cells cannot survive a switch back to Japanese.
 	graph_copy_rect_1_to_0_16(
 		T2_LANGUAGE_OPTION_VALUE_LEFT, T2_LANGUAGE_OPTION_TOP,
-		((T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_W) + 4), (GLYPH_H + 4)
+		((T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
+		(GLYPH_H + 4)
 	);
 	for(i = 0; i < (T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';
@@ -150,7 +151,8 @@ static void t2_language_option_perf_put(tram_atrb2 atrb)
 	// and TRAM before redrawing so its edge cells cannot survive as TNORMALE.
 	graph_copy_rect_1_to_0_16(
 		T2_PERF_OPTION_VALUE_LEFT, T2_PERF_OPTION_TOP,
-		((T2_PERF_OPTION_VALUE_CELLS * GAIJI_W) + 4), (GLYPH_H + 4)
+		((T2_PERF_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
+		(GLYPH_H + 4)
 	);
 	for(i = 0; i < (T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';

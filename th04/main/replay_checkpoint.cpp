@@ -2521,6 +2521,81 @@ static bool rck_practice_boss_auxiliary_valid(void)
 	return true;
 }
 
+static void rck_practice_boss_timedown_apply(
+	const replay_start_config_t far *start
+)
+{
+	uint16_t frame;
+
+	if((start->seed_mode & RSM_TIMEDOWN) == 0) {
+		return;
+	}
+#if (GAME == 4)
+	if(start->stage == STAGE_EXTRA) {
+		if((start->section == RCS_TH04_MUGETSU) && (start->phase == 2)) {
+			extern unsigned char mugetsu_phase2_mode;
+			mugetsu_phase2_mode = 32;
+		} else if(
+			(start->section == RCS_TH04_GENGETSU) &&
+			(start->phase >= 2) && (start->phase <= 5)
+		) {
+			boss.phase_state.patterns_seen = 18;
+		}
+	}
+#else
+	if((start->stage == 5) && (start->section == 0) && (start->phase == 10)) {
+		const pixel_t column_w = (SHINKI_WING_W / 4);
+		const pixel_t last_column_distance = (
+			(SHINKI_WING_W / 2) - (SHINKI_WING_W / 8)
+		);
+		PlayfieldPoint origin = boss.pos.cur;
+		int i;
+
+		// Construct pattern_devil()'s fully grown late-state lasers directly.
+		// Calling the stock near routine from REPLAY_CK_TEXT would cross code
+		// segments, and replay construction must not emit its bullets or SFX.
+		laser_template.coords.origin = boss.pos.cur;
+		laser_template.coords.width.nonshrink = 6;
+		laser_template.coords.angle = 0x40;
+		laser_template.col = 0xE;
+		origin.x += last_column_distance;
+		for(i = 0; i < 4; i++) {
+			Laser near &laser = lasers[i];
+
+			laser.flag = LF_FIXED_GROW;
+			laser.col = laser_template.col;
+			laser.coords.origin = origin;
+			laser.coords.starts_at_distance.v = LASER_DISTANCE_MIN;
+			laser.coords.ends_at_distance.v = LASER_DISTANCE_MAX;
+			laser.coords.angle = laser_template.coords.angle;
+			laser.coords.width.nonshrink = 1;
+			laser.shootout_speed.v = 0;
+			laser.age = 0;
+			laser.active_at_age.grow = -1;
+			laser.shrink_at_age = -1;
+			laser.grow_to_width = laser_template.coords.width.nonshrink;
+			origin.x -= column_w;
+		}
+		shinki_devil_laser_grow_delay = 65;
+		boss_statebyte[7] = 0;
+		boss_statebyte[8] = 0x40;
+		boss_statebyte[9] = 0x40;
+		boss_statebyte[10] = true;
+		boss_statebyte[11] = 0;
+		boss_statebyte[12] = true;
+		boss_statebyte[13] = select_for_rank(64, 40, 32, 28);
+		boss_statebyte[14] = 0x39;
+		boss_statebyte[15] = 0x32;
+	}
+#endif
+	frame = replay_practice_boss_timedown_frame(
+		start->stage, start->section, start->phase
+	);
+	if(frame != 0) {
+		boss.phase_frame = frame;
+	}
+}
+
 static bool rck_practice_boss_construct(
 	const replay_start_config_t far *start
 )
@@ -2625,11 +2700,7 @@ static bool rck_practice_boss_construct(
 		snd_se_mode = se_mode;
 		return false;
 	}
-	if((start->seed_mode & RSM_TIMEDOWN) != 0) {
-		boss.phase_frame = replay_practice_boss_timedown_frame(
-			start->stage, start->section, start->phase
-		);
-	}
+	rck_practice_boss_timedown_apply(start);
 	rck_practice_boss_transients_clear();
 	rck_practice_randring_restore();
 	snd_se_mode = se_mode;
@@ -7000,4 +7071,12 @@ uint32_t replay_ck_group_digest_begin(
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#pragma codestring "\x90\x90\x90\x90"
+#endif
+
+// Timedown state construction remains in this patch-owned tail. Keep the
+// following stock CRT segment on its foundation paragraph phase.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90"
 #endif

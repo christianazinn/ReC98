@@ -153,9 +153,18 @@ bool16 pascal replay_op_font_load(void)
 	replay_op_font_free();
 	fh = replay_op_font_dos_open(font_fn);
 	if(fh >= 0) {
+	#if (GAME == 2)
+		// TH02 assigns nearly all remaining conventional memory to master.lib's
+		// heap during OP startup. Borland's separate far heap is therefore left
+		// with only the DOS reserve and cannot reliably hold this font.
+		loaded = reinterpret_cast<replay_op_font_t>(
+			hmem_allocbyte(REPLAY_OP_FONT_FILE_SIZE)
+		);
+	#else
 		loaded = reinterpret_cast<replay_op_font_t>(
 			farmalloc(REPLAY_OP_FONT_FILE_SIZE)
 		);
+	#endif
 		if(
 			loaded &&
 			(replay_op_font_dos_read(
@@ -172,7 +181,11 @@ bool16 pascal replay_op_font_load(void)
 	}
 	if(!valid) {
 		if(loaded) {
+		#if (GAME == 2)
+			hmem_free(reinterpret_cast<void __seg *>(loaded));
+		#else
 			farfree(loaded);
+		#endif
 		}
 		return false;
 	}
@@ -183,7 +196,11 @@ bool16 pascal replay_op_font_load(void)
 void pascal replay_op_font_free(void)
 {
 	if(replay_op_font) {
+	#if (GAME == 2)
+		hmem_free(reinterpret_cast<void __seg *>(replay_op_font));
+	#else
 		farfree(replay_op_font);
+	#endif
 		replay_op_font = 0;
 	}
 }

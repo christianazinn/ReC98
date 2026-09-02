@@ -289,7 +289,35 @@ static replay_practice_target_label_t replay_practice_boss_phase_label(
 }
 
 // Distinct within-phase patterns reached only after surviving long enough.
-// Zero means that the phase has no separately selectable timedown pattern.
+// The Practice menu exposes these through one Advanced setting rather than
+// duplicating every affected boss target.
+static bool replay_practice_boss_timedown_supported(
+	uint8_t stage, uint8_t section, uint8_t phase
+)
+{
+#if (GAME == 4)
+	if(stage == STAGE_EXTRA) {
+		if((section == RCS_TH04_MUGETSU) && (
+			(phase == 2) || (phase == 6)
+		)) {
+			return true;
+		}
+		if((section == RCS_TH04_GENGETSU) && (
+			((phase >= 2) && (phase <= 5)) || (phase == 8)
+		)) {
+			return true;
+		}
+	}
+#else
+	if((stage == 5) && (section == 0) && (phase == 10)) {
+		return true;
+	}
+#endif
+	return false;
+}
+
+// A nonzero value selects a late state owned by the phase clock. Other
+// supported targets use their native pattern counter instead.
 static uint16_t replay_practice_boss_timedown_frame(
 	uint8_t stage, uint8_t section, uint8_t phase
 )
@@ -304,9 +332,9 @@ static uint16_t replay_practice_boss_timedown_frame(
 		}
 	}
 #else
-	(void)stage;
-	(void)section;
-	(void)phase;
+	if((stage == 5) && (section == 0) && (phase == 10)) {
+		return 2500;
+	}
 #endif
 	return 0;
 }

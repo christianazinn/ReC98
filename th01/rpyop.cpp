@@ -3733,7 +3733,7 @@ static void t1replay_op_detail_render(void)
 	t1replay_op_text_left(y, T1REPLAY_OP_COL_HEADER, p);
 	p = t1replay_op_name_ascii_append(t1replay_op_text, slot.header.name);
 	t1replay_op_text_put(
-		T1REPLAY_OP_DETAIL_NAME_LEFT, y, T1REPLAY_OP_COL_VALUE, p
+		T1REPLAY_OP_DETAIL_NAME_LEFT, y, T1REPLAY_OP_COL_SELECTED, p
 	);
 	if(slot.header.flags & T1REPLAY_FLAG_PRACTICE) {
 		p = t1replay_op_word_append(t1replay_op_text, T1ROW_PRACTICE);
