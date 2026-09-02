@@ -8,6 +8,15 @@ extern char snd_load_fn[PF_FN_LEN];
 void snd_load(const char fn[PF_FN_LEN], snd_load_func_t func)
 {
 	int i;
+
+#if (GAME == 3)
+	// Replay Patch: MIDI is an explicit user selection. If its driver is not
+	// active, reject BGM loads instead of sending the original FM data to PMD.
+	if((func == SND_LOAD_SONG) && !snd_active) {
+		return;
+	}
+#endif
+
 	_asm { push ds; }
 
 	_CX = sizeof(snd_load_fn);

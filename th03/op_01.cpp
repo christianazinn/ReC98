@@ -181,7 +181,10 @@ void near cfg_load(void)
 	th03_snd_cfg_unpack(cfg.opts.bgm_mode);
 	th03_snd_process_init();
 	snd_sel_disabled = false;
-	if(!snd_active) {
+	if(
+		!snd_active &&
+		(resident->bgm_mode != SND_BGM_MIDI)
+	) {
 		resident->bgm_mode = SND_BGM_OFF;
 		snd_sel_disabled = true;
 	} else if(resident->bgm_mode == SND_BGM_OFF) {
@@ -4904,6 +4907,7 @@ static int near replay_dev_story_stage_menu(void)
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90"
 #else
+#pragma codestring "\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
@@ -4937,8 +4941,9 @@ static int near replay_dev_story_stage_menu(void)
 #endif
 // Keep every following original/shared OP contribution at its accepted offset
 // after moving the localized Replay UI into the patch-owned RPYFONT segment.
-// The range-safe BGM decrement reclaims three bytes from this inert pad.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// The range-safe BGM decrement and unavailable-MIDI preservation reclaim
+// eleven bytes from this inert pad.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

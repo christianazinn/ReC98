@@ -163,7 +163,16 @@ void far th03_snd_process_init(void)
 		snd_determine_mode();
 	}
 	th03_snd_process_apply();
-	if(resident->bgm_mode == SND_BGM_OFF) {
+	// MIDI selection must fail closed. PMD can remain available for sound
+	// effects, but must not silently substitute its FM song data if MMD is
+	// absent or could not attach to an MPU-401 interface.
+	if(
+		(resident->bgm_mode == SND_BGM_OFF) ||
+		(
+			(resident->bgm_mode == SND_BGM_MIDI) &&
+			!snd_midi_possible
+		)
+	) {
 		snd_active = false;
 	}
 }
@@ -180,6 +189,3 @@ void far th03_snd_se_toggle(void)
 		}
 	}
 }
-
-// Keep all following OP groups at their accepted paragraph phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
